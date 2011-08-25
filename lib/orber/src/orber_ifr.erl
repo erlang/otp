@@ -500,7 +500,7 @@ get_tc(Id, Type) ->
 	    case catch Module:tc() of
 		{'EXIT', Reason} ->
 		    case Reason of
-			{undef,[{Module, tc,[]}|_]} ->
+			{undef,[{Module, tc,[],_}|_]} ->
 			    orber:dbg("[~p] ~p:get_tc(~p);~nMissing ~p:tc()~n",
 				      [?LINE, ?MODULE, Id, Module], ?DEBUG_LEVEL),
 			    corba:raise(#'UNKNOWN'{minor=(?ORBER_VMCID bor 1),

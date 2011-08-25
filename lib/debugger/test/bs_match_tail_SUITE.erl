@@ -64,7 +64,7 @@ end_per_suite(Config) when is_list(Config) ->
     ok.
 
 aligned(doc) -> "Test aligned tails.";
-aligned(Config) when list(Config) ->
+aligned(Config) when is_list(Config) ->
     ?line Tail1 = mkbin([]),
     ?line {258,Tail1} = al_get_tail_used(mkbin([1,2])),
     ?line Tail2 = mkbin(lists:seq(1, 127)),
@@ -84,10 +84,10 @@ aligned(Config) when list(Config) ->
     ok.
 
 al_get_tail_used(<<A:16,T/binary>>) -> {A,T}.
-al_get_tail_unused(<<A:16,_T/binary>>) -> A.
+al_get_tail_unused(<<A:16,_/binary>>) -> A.
 
 unaligned(doc) -> "Test that an non-aligned tail cannot be matched out.";
-unaligned(Config) when list(Config) ->
+unaligned(Config) when is_list(Config) ->
     ?line {'EXIT',{function_clause,_}} = (catch get_tail_used(mkbin([42]))),
     ?line {'EXIT',{{badmatch,_},_}} = (catch get_dyn_tail_used(mkbin([137]), 3)),
     ?line {'EXIT',{function_clause,_}} = (catch get_tail_unused(mkbin([42,33]))),
@@ -103,11 +103,11 @@ get_dyn_tail_used(Bin, Sz) ->
     {A,T}.
 
 get_dyn_tail_unused(Bin, Sz) ->
-    <<A:Sz,_T/binary>> = Bin,
+    <<A:Sz,_/binary>> = Bin,
     A.
 
 zero_tail(doc) -> "Test that zero tails are tested correctly.";
-zero_tail(Config) when list(Config) ->
+zero_tail(Config) when is_list(Config) ->
     ?line 7 = (catch test_zero_tail(mkbin([7]))),
     ?line {'EXIT',{function_clause,_}} = (catch test_zero_tail(mkbin([1,2]))),
     ?line {'EXIT',{function_clause,_}} = (catch test_zero_tail2(mkbin([1,2,3]))),
@@ -117,4 +117,4 @@ test_zero_tail(<<A:8>>) -> A.
 
 test_zero_tail2(<<_A:4,_B:4>>) -> ok.
 
-mkbin(L) when list(L) -> list_to_binary(L).
+mkbin(L) when is_list(L) -> list_to_binary(L).

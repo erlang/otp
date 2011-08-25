@@ -984,9 +984,9 @@ purge_stacktrace(Config) when is_list(Config) ->
 	error:function_clause ->
 	    ?line code:load_file(code_b_test),
 	    ?line case erlang:get_stacktrace() of
-		      [{?MODULE,_,[a]},
-		       {code_b_test,call,2},
-		       {?MODULE,purge_stacktrace,1}|_] ->
+		      [{?MODULE,_,[a],_},
+		       {code_b_test,call,2,_},
+		       {?MODULE,purge_stacktrace,1,_}|_] ->
 			  ?line false = code:purge(code_b_test),
 			  ?line [] = erlang:get_stacktrace()
 		  end
@@ -996,8 +996,8 @@ purge_stacktrace(Config) when is_list(Config) ->
 	error:function_clause ->
 	    ?line code:load_file(code_b_test),
 	    ?line case erlang:get_stacktrace() of
-		      [{code_b_test,call,[nofun,2]},
-		       {?MODULE,purge_stacktrace,1}|_] ->
+		      [{code_b_test,call,[nofun,2],_},
+		       {?MODULE,purge_stacktrace,1,_}|_] ->
 			  ?line false = code:purge(code_b_test),
 			  ?line [] = erlang:get_stacktrace()
 		  end
@@ -1008,8 +1008,8 @@ purge_stacktrace(Config) when is_list(Config) ->
 	error:badarg ->
 	    ?line code:load_file(code_b_test),
 	    ?line case erlang:get_stacktrace() of
-		      [{code_b_test,call,Args},
-		       {?MODULE,purge_stacktrace,1}|_] ->
+		      [{code_b_test,call,Args,_},
+		       {?MODULE,purge_stacktrace,1,_}|_] ->
 			  ?line false = code:purge(code_b_test),
 			  ?line [] = erlang:get_stacktrace()
 		  end
@@ -1470,7 +1470,7 @@ do_on_load_error(ReturnValue) ->
     ?line ErrorPid ! ReturnValue,
     receive
 	{'DOWN',Ref,process,_,Exit} ->
-	    ?line {undef,[{on_load_error,main,[]}|_]} = Exit
+	    ?line {undef,[{on_load_error,main,[],_}|_]} = Exit
     end.
 
 native_early_modules(suite) -> [];

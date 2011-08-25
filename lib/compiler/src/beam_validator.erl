@@ -166,12 +166,17 @@ validate(Module, Fs) ->
     Ft = index_bs_start_match(Fs, []),
     validate_0(Module, Fs, Ft).
 
-index_bs_start_match([{function,_,_,Entry,Code}|Fs], Acc0) ->
+index_bs_start_match([{function,_,_,Entry,Code0}|Fs], Acc0) ->
+    Code = dropwhile(fun({label,L}) when L =:= Entry -> false;
+			(_) -> true
+		     end, Code0),
     case Code of
-	[_,_,{label,Entry}|Is] ->
+	[{label,Entry}|Is] ->
 	    Acc = index_bs_start_match_1(Is, Entry, Acc0),
 	    index_bs_start_match(Fs, Acc);
 	_ ->
+	    %% Something serious is wrong. Ignore it for now.
+	    %% It will be detected and diagnosed later.
 	    index_bs_start_match(Fs, Acc0)
     end;
 index_bs_start_match([], Acc) ->
@@ -292,6 +297,8 @@ labels(Is) ->
 
 labels_1([{label,L}|Is], R) ->
     labels_1(Is, [L|R]);
+labels_1([{line,_}|Is], R) ->
+    labels_1(Is, R);
 labels_1(Is, R) ->
     {lists:reverse(R),Is}.
 
@@ -432,6 +439,8 @@ valfun_1({'%live',Live}, Vst) ->
 valfun_1(remove_message, Vst) ->
     Vst;
 valfun_1({'%',_}, Vst) ->
+    Vst;
+valfun_1({line,_}, Vst) ->
     Vst;
 %% Exception generating calls
 valfun_1({call_ext,Live,Func}=I, Vst) ->
@@ -869,6 +878,8 @@ val_dsetel({call_ext,3,{extfunc,erlang,setelement,3}}, #vst{current=St}=Vst) ->
 val_dsetel({set_tuple_element,_,_,_}, #vst{current=#st{setelem=false}}) ->
     error(illegal_context_for_set_tuple_element);
 val_dsetel({set_tuple_element,_,_,_}, #vst{current=#st{setelem=true}}=Vst) ->
+    Vst;
+val_dsetel({line,_}, Vst) ->
     Vst;
 val_dsetel(_, #vst{current=#st{setelem=true}=St}=Vst) ->
     Vst#vst{current=St#st{setelem=false}};

@@ -169,7 +169,7 @@ share_1([{label,L}=Lbl|Is], Dict0, Seq, Acc) ->
 	    share_1(Is, Dict0, [], [Lbl,{jump,{f,Label}}|Acc])
     end;
 share_1([{func_info,_,_,_}=I|Is], _, [], Acc) ->
-    Is++[I|Acc];
+    reverse(Is, [I|Acc]);
 share_1([I|Is], Dict, Seq, Acc) ->
     case is_unreachable_after(I) of
 	false ->
@@ -206,25 +206,35 @@ is_label(_) -> false.
 move(Is) ->
     move_1(Is, [], []).
 
-move_1([I|Is], End, Acc) ->
+move_1([I|Is], End0, Acc0) ->
     case is_exit_instruction(I) of
-	false -> move_1(Is, End, [I|Acc]);
-	true -> move_2(I, Is, End, Acc)
+	false ->
+	    move_1(Is, End0, [I|Acc0]);
+	true ->
+	    case extract_seq(Acc0, [I|End0]) of
+		no ->
+		    move_1(Is, End0, [I|Acc0]);
+		{yes,End,Acc} ->
+		    move_1(Is, End, Acc)
+	    end
     end;
-move_1([], End, Acc) ->
-    reverse(Acc, reverse(End)).
+move_1([], End, Acc) -> reverse(Acc, End).
 
-move_2(Exit, Is, End, [{block,_},{label,_},{func_info,_,_,_}|_]=Acc) ->
-    move_1(Is, End, [Exit|Acc]);
-move_2(Exit, Is, End, [{block,_}=Blk,{label,_}=Lbl,Unreachable|More]) ->
-    move_1([Unreachable|Is], [Exit,Blk,Lbl|End], More);
-move_2(Exit, Is, End, [{bs_context_to_binary,_}=Bs,{label,_}=Lbl,
-		       Unreachable|More]) ->
-    move_1([Unreachable|Is], [Exit,Bs,Lbl|End], More);
-move_2(Exit, Is, End, [{label,_}=Lbl,Unreachable|More]) ->
-    move_1([Unreachable|Is], [Exit,Lbl|End], More);
-move_2(Exit, Is, End, Acc) ->
-    move_1(Is, End, [Exit|Acc]).
+extract_seq([{line,_}=Line|Is], Acc) ->
+    extract_seq(Is, [Line|Acc]);
+extract_seq([{block,_}=Bl|Is], Acc) ->
+    extract_seq_1(Is, [Bl|Acc]);
+extract_seq([{label,_}|_]=Is, Acc) ->
+    extract_seq_1(Is, Acc);
+extract_seq(_, _) -> no.
+
+extract_seq_1([{line,_}=Line|Is], Acc) ->
+    extract_seq_1(Is, [Line|Acc]);
+extract_seq_1([{label,_},{func_info,_,_,_}|_], _) ->
+    no;
+extract_seq_1([{label,_}=Lbl|Is], Acc) ->
+    {yes,[Lbl|Acc],Is};
+extract_seq_1(_, _) -> no.
 
 %%%
 %%% (3) (4) (5) (6) Jump and unreachable code optimizations.
@@ -454,6 +464,7 @@ is_label_used_in_2({set,_,_,Info}, Lbl) ->
 	{put_tuple,_} -> false;
 	{get_tuple_element,_} -> false;
 	{set_tuple_element,_} -> false;
+	{line,_} -> false;
 	_ when is_atom(Info) -> false
     end.
 
@@ -487,6 +498,8 @@ rem_unused([], _, Acc) -> reverse(Acc).
 initial_labels(Is) ->
     initial_labels(Is, []).
 
+initial_labels([{line,_}|Is], Acc) ->
+    initial_labels(Is, Acc);
 initial_labels([{label,Lbl}|Is], Acc) ->
     initial_labels(Is, [Lbl|Acc]);
 initial_labels([{func_info,_,_,_},{label,Lbl}|_], Acc) ->

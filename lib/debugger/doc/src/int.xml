@@ -284,12 +284,12 @@ spawn(Module, Name, [Pid | Args])
 	<list>
 	  <item><c>all</c> - save information about all current calls,
 	    that is, function calls that have not yet returned a value.
-	    This is the default.</item>
+	    </item>
 	  <item><c>no_tail</c> - save information about current calls,
 	    but discard previous information when a tail recursive call
 	    is made. This option consumes less memory and may be
 	    necessary to use for processes with long lifetimes and many
-	    tail recursive calls.</item>
+	    tail recursive calls. This is the default.</item>
 	  <item><c>false</c> - do not save any information about current
 	    calls.</item>
 	</list>

@@ -272,7 +272,7 @@ catch_apply(M,F,A, Default) ->
     catch error:Reason ->
 	    case erlang:get_stacktrace() of
             %% Return the default if it was the CTH module which did not have the function.
-		[{M,F,A}|_] when Reason == undef ->
+		[{M,F,A,_}|_] when Reason == undef ->
 		    Default;
 		Trace ->
 		    ct_logs:log("Suite Hook","Call to CTH failed: ~p:~p",

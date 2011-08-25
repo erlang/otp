@@ -573,10 +573,10 @@ ucompile(RE,Options) ->
 	re:compile(unicode:characters_to_binary(RE,unicode),Options)
     catch
 	error:AnyError ->
-	    {'EXIT',{new_stacktrace,[{Mod,_,L}|Rest]}} = 
+	    {'EXIT',{new_stacktrace,[{Mod,_,L,Loc}|Rest]}} =
 		(catch erlang:error(new_stacktrace,
 				    [RE,Options])),
-	    erlang:raise(error,AnyError,[{Mod,compile,L}|Rest])
+	    erlang:raise(error,AnyError,[{Mod,compile,L,Loc}|Rest])
     end.
 	
 
@@ -585,10 +585,10 @@ urun(Subject,RE,Options) ->
 	urun2(Subject,RE,Options)
     catch
 	error:AnyError ->
-	    {'EXIT',{new_stacktrace,[{Mod,_,L}|Rest]}} = 
+	    {'EXIT',{new_stacktrace,[{Mod,_,L,Loc}|Rest]}} =
 		(catch erlang:error(new_stacktrace,
 				    [Subject,RE,Options])),
-	    erlang:raise(error,AnyError,[{Mod,run,L}|Rest])
+	    erlang:raise(error,AnyError,[{Mod,run,L,Loc}|Rest])
     end.
 
 urun2(Subject0,RE0,Options0) ->
@@ -625,20 +625,20 @@ grun(Subject,RE,{Options,NeedClean}) ->
 	grun2(Subject,RE,{Options,NeedClean})
     catch
 	error:AnyError ->
-	    {'EXIT',{new_stacktrace,[{Mod,_,L}|Rest]}} = 
+	    {'EXIT',{new_stacktrace,[{Mod,_,L,Loc}|Rest]}} =
 		(catch erlang:error(new_stacktrace,
 				    [Subject,RE,Options])),
-	    erlang:raise(error,AnyError,[{Mod,run,L}|Rest])
+	    erlang:raise(error,AnyError,[{Mod,run,L,Loc}|Rest])
     end;
 grun(Subject,RE,{Options,NeedClean,OrigRE}) ->
     try
 	grun2(Subject,RE,{Options,NeedClean})
     catch
 	error:AnyError ->
-	    {'EXIT',{new_stacktrace,[{Mod,_,L}|Rest]}} = 
+	    {'EXIT',{new_stacktrace,[{Mod,_,L,Loc}|Rest]}} =
 		(catch erlang:error(new_stacktrace,
 				    [Subject,OrigRE,Options])),
-	    erlang:raise(error,AnyError,[{Mod,run,L}|Rest])
+	    erlang:raise(error,AnyError,[{Mod,run,L,Loc}|Rest])
     end.
 
 grun2(Subject,RE,{Options,NeedClean}) ->

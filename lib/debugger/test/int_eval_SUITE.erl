@@ -28,7 +28,7 @@
 	 bifs_outside_erlang/1, spawning/1, applying/1,
 	 catch_and_throw/1, external_call/1, test_module_info/1,
 	 apply_interpreted_fun/1, apply_uninterpreted_fun/1,
-	 interpreted_exit/1, otp_8310/1]).
+	 interpreted_exit/1, otp_8310/1, stacktrace/1]).
 
 %% Helpers.
 -export([applier/3]).
@@ -44,7 +44,7 @@ all() ->
     [bifs_outside_erlang, spawning, applying,
      catch_and_throw, external_call, test_module_info,
      apply_interpreted_fun, apply_uninterpreted_fun,
-     interpreted_exit, otp_8310].
+     interpreted_exit, otp_8310, stacktrace].
 
 groups() -> 
     [].
@@ -191,23 +191,23 @@ apply_interpreted_fun(Config) when is_list(Config) ->
     ?line {ok,ATerm} = spawn_eval(fun() -> F2() end),
 
     %% Called from uninterpreted code, badarity
-    ?line {'EXIT',{{badarity,{F1,[snape]}},[{?MODULE,_,_}|_]}} =
+    ?line {'EXIT',{{badarity,{F1,[snape]}},[{?MODULE,_,_,_}|_]}} =
 	spawn_eval(fun() -> F1(snape) end),
 
     %% Called from uninterpreted code, error in fun
     ?line F3 = spawn_eval(fun() -> ?IM:give_me_a_bad_fun() end),
-    ?line {'EXIT',{snape,[{?IM,_FunName,_}|_]}} =
+    ?line {'EXIT',{snape,[{?IM,_FunName,_,_}|_]}} =
 	spawn_eval(fun() -> F3(snape) end),
 
     %% Called from within interpreted code
     ?line perfectly_alright = spawn_eval(fun() -> ?IM:do_apply(F1) end),
 
     %% Called from within interpreted code, badarity
-    ?line {'EXIT',{{badarity,{F1,[snape]}},[{?IM,do_apply,_}|_]}} =
+    ?line {'EXIT',{{badarity,{F1,[snape]}},[{?IM,do_apply,_,_}|_]}} =
 	spawn_eval(fun() -> ?IM:do_apply(F1, snape) end),
 
     %% Called from within interpreted code, error in fun
-    ?line {'EXIT',{snape,[{?IM,_FunName,_}|_]}} =
+    ?line {'EXIT',{snape,[{?IM,_FunName,_,_}|_]}} =
 	spawn_eval(fun() -> ?IM:do_apply(F3, snape) end),
 
     %% Try some more complex funs.
@@ -239,11 +239,11 @@ apply_uninterpreted_fun(Config) when is_list(Config) ->
 	spawn_eval(fun() -> ?IM:do_apply(F1, any_arg) end),
 
     %% Badarity (evaluated in dbg_debugged, which calls erlang:apply/2)
-    ?line {'EXIT',{{badarity,{F1,[]}},[{erlang,apply,_}|_]}} =
+    ?line {'EXIT',{{badarity,{F1,[]}},[{erlang,apply,_,_}|_]}} =
 	spawn_eval(fun() -> ?IM:do_apply(F1) end),
 
     %% Error in fun
-    ?line {'EXIT',{snape,[{?MODULE,_FunName,_}|_]}} =
+    ?line {'EXIT',{snape,[{?MODULE,_FunName,_,_}|_]}} =
 	spawn_eval(fun() -> ?IM:do_apply(F1, snape) end),
 
     ok.
@@ -276,6 +276,37 @@ applier(M, F, A) ->
     Res = apply(M, F, A),
     io:format("~p:~p(~p) => ~p\n", [M,F,A,Res]),
     Res.
+
+stacktrace(Config) when is_list(Config) ->
+    ?line {done,Stk} = do_eval(Config, stacktrace),
+    ?line 13 = length(Stk),
+    ?line OldStackTraceFlag = int:stack_trace(),
+    ?line int:stack_trace(no_tail),
+    try
+	?line Res = spawn_eval(fun() -> stacktrace:stacktrace() end),
+	?line io:format("\nInterpreted (no_tail):\n~p", [Res]),
+	?line {done,Stk} = Res
+	after
+	    ?line int:stack_trace(OldStackTraceFlag)
+	end,
+    ok.
+
+
+do_eval(Config, Mod) ->
+    ?line DataDir = ?config(data_dir, Config),
+    ?line ok = file:set_cwd(DataDir),
+
+    ?line {ok,Mod} = compile:file(Mod, [report,debug_info]),
+    ?line {module,Mod} = code:load_file(Mod),
+    ?line CompiledRes = Mod:Mod(),
+    ?line ok = io:format("Compiled:\n~p", [CompiledRes]),
+    io:nl(),
+
+    ?line {module,Mod} = int:i(Mod),
+    ?line IntRes = Mod:Mod(),
+    ?line ok = io:format("Interpreted:\n~p", [IntRes]),
+
+    ?line CompiledRes = IntRes.
 
 %%
 %% Evaluate in another process, to prevent the test_case process to become

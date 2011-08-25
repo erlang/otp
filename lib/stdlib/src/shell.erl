@@ -1088,7 +1088,7 @@ shell_default(F,As,Bs) ->
     end.
 
 shell_undef(F,A) ->
-    erlang:error({shell_undef,F,A}).
+    erlang:error({shell_undef,F,A,[]}).
 
 local_func_handler(Shell, RT, Ef) ->
     H = fun(Lf) -> 

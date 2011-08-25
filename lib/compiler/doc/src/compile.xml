@@ -395,6 +395,14 @@ module.beam: module.erl \
 	  <code>-compile({no_auto_import,[error/1]}).</code>
 	  </item>
 
+          <tag><c>no_line_info</c></tag>
+
+          <item>
+            <p>Omit line number information in order to produce a slightly
+	      smaller output file.
+	    </p>
+          </item>
+
         </taglist>
 
         <p>If warnings are turned on (the <c>report_warnings</c> option

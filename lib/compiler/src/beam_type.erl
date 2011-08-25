@@ -400,6 +400,7 @@ update({call_ext,3,{extfunc,erlang,setelement,3}}, Ts0) ->
 update({call,_Arity,_Func}, Ts) -> tdb_kill_xregs(Ts);
 update({call_ext,_Arity,_Func}, Ts) -> tdb_kill_xregs(Ts);
 update({make_fun2,_,_,_,_}, Ts) -> tdb_kill_xregs(Ts);
+update({line,_}, Ts) -> Ts;
 
 %% The instruction is unknown.  Kill all information.
 update(_I, _Ts) -> tdb_new().

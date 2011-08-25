@@ -222,7 +222,9 @@ remap([{call_last,Ar,Name,N}|Is], Map, Acc) ->
     reverse(Acc, [I|Is]);
 remap([{call_ext_last,Ar,Name,N}|Is], Map, Acc) ->
     I = {call_ext_last,Ar,Name,Map({frame_size,N})},
-    reverse(Acc, [I|Is]).
+    reverse(Acc, [I|Is]);
+remap([{line,_}=I|Is], Map, Acc) ->
+    remap(Is, Map, [I|Acc]).
     
 remap_block([{set,Ds0,Ss0,Info}|Is], Map, Acc) ->
     Ds = [Map(D) || D <- Ds0],
@@ -230,14 +232,15 @@ remap_block([{set,Ds0,Ss0,Info}|Is], Map, Acc) ->
     remap_block(Is, Map, [{set,Ds,Ss,Info}|Acc]);
 remap_block([], _, Acc) -> reverse(Acc).
     
-safe_labels([{label,L},{badmatch,{Tag,_}}|Is], Acc) when Tag =/= y ->
+safe_labels([{label,L},{line,_},{badmatch,{Tag,_}}|Is], Acc) when Tag =/= y ->
     safe_labels(Is, [L|Acc]);
-safe_labels([{label,L},{case_end,{Tag,_}}|Is], Acc) when Tag =/= y ->
+safe_labels([{label,L},{line,_},{case_end,{Tag,_}}|Is], Acc) when Tag =/= y ->
     safe_labels(Is, [L|Acc]);
-safe_labels([{label,L},if_end|Is], Acc) ->
+safe_labels([{label,L},{line,_},if_end|Is], Acc) ->
     safe_labels(Is, [L|Acc]);
 safe_labels([{label,L},
 	     {block,[{set,[{x,0}],[{Tag,_}],move}]},
+	     {line,_},
 	     {call_ext,1,{extfunc,erlang,error,1}}|Is], Acc) when Tag =/= y ->
     safe_labels(Is, [L|Acc]);
 safe_labels([_|Is], Acc) ->
@@ -321,6 +324,8 @@ frame_size([{make_fun2,_,_,_,_}|Is], Safe) ->
 frame_size([{deallocate,N}|_], _) -> N;
 frame_size([{call_last,_,_,N}|_], _) -> N;
 frame_size([{call_ext_last,_,_,N}|_], _) -> N;
+frame_size([{line,_}|Is], Safe) ->
+    frame_size(Is, Safe);
 frame_size([_|_], _) -> throw(not_possible).
 
 frame_size_branch(0, Is, Safe) ->

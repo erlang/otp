@@ -22,7 +22,7 @@
 
 -export([interpret/1]).
 
-interpret(Mod) when atom(Mod) ->
+interpret(Mod) when is_atom(Mod) ->
     case lists:member(Mod, int:interpreted()) of
 	true -> ok;
 	false -> {module,Mod} = i:ii(Mod)

@@ -247,7 +247,7 @@ expr(#c_var{anno=A,name={_Name,Arity}}=Fname, Sub, St) ->
     %% instead of one for each occurrence as done now.
     Vs = [#c_var{name=list_to_atom("V" ++ integer_to_list(V))} ||
 	     V <- integers(1, Arity)],
-    Fun = #c_fun{anno=A,vars=Vs,body=#c_apply{op=Fname,args=Vs}},
+    Fun = #c_fun{anno=A,vars=Vs,body=#c_apply{anno=A,op=Fname,args=Vs}},
     expr(Fun, Sub, St);
 expr(#c_var{anno=A,name=V}, Sub, St) ->
     {#k_var{anno=A,name=get_vsub(V, Sub)},[],St};
@@ -291,7 +291,7 @@ expr(#c_binary{anno=A,segments=Cv}, Sub, St0) ->
 	    Erl = #c_literal{val=erlang},
 	    Name = #c_literal{val=error},
 	    Args = [#c_literal{val=badarg}],
-	    Error = #c_call{module=Erl,name=Name,args=Args},
+	    Error = #c_call{anno=A,module=Erl,name=Name,args=Args},
 	    expr(Error, Sub, St0)
     end;
 expr(#c_fun{anno=A,vars=Cvs,body=Cb}, Sub0, #kern{ff=OldFF,func=Func}=St0) ->
@@ -1167,9 +1167,7 @@ select_bin_int_1(_, _, _, _) -> throw(not_possible).
 
 select_assert_match_possible(Sz, Val, Fs) ->
     EmptyBindings = erl_eval:new_bindings(),
-    MatchFun = fun({integer,_,_}, NewV, Bs) when NewV =:= Val ->
-		       {match,Bs}
-	       end,
+    MatchFun = match_fun(Val),
     EvalFun = fun({integer,_,S}, B) -> {value,S,B} end,
     Expr = [{bin_element,0,{integer,0,Val},{integer,0,Sz},[{unit,1}|Fs]}],
     {value,Bin,EmptyBindings} = eval_bits:expr_grp(Expr, EmptyBindings, EvalFun),
@@ -1182,6 +1180,11 @@ select_assert_match_possible(Sz, Val, Fs) ->
     catch
 	throw:nomatch ->
 	    throw(not_possible)
+    end.
+
+match_fun(Val) ->
+    fun(match, {{integer,_,_},NewV,Bs}) when NewV =:= Val ->
+	    {match,Bs}
     end.
 
 select_utf8(Val0) ->

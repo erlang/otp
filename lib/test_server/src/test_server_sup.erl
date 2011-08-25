@@ -51,18 +51,19 @@ timetrap(Timeout0, Scale, Pid) ->
     Timeout = if not Scale -> Timeout0;
 		 true -> test_server:timetrap_scale_factor() * Timeout0
 	      end,
+    TruncTO = trunc(Timeout),
     receive
-    after trunc(Timeout) ->
-	    Line = test_server:get_loc(Pid),
+    after TruncTO ->
+	    MFLs = test_server:get_loc(Pid),
 	    Mon = erlang:monitor(process, Pid),
 	    Trap = 
 		case get(test_server_init_or_end_conf) of
 		    undefined ->
-			{timetrap_timeout,trunc(Timeout),Line};
+			{timetrap_timeout,TruncTO,MFLs};
 		    InitOrEnd ->
-			{timetrap_timeout,trunc(Timeout),Line,InitOrEnd}
+			{timetrap_timeout,TruncTO,MFLs,InitOrEnd}
 		end,
-	    exit(Pid,Trap),
+	    exit(Pid, Trap),
 	    receive
 		{'DOWN', Mon, process, Pid, _} ->
 		    ok

@@ -37,6 +37,7 @@
 #include "erl_process.h"
 #include "erl_sys_driver.h"
 #include "erl_debug.h"
+#include "error.h"
 
 typedef struct port Port;
 #include "erl_port_task.h"
@@ -859,10 +860,21 @@ void erts_system_monitor_clear(Process *c_p);
 void erts_system_profile_clear(Process *c_p);
 
 /* beam_load.c */
+typedef struct {
+    BeamInstr* current;		/* Pointer to: Mod, Name, Arity */
+    Uint needed;		/* Heap space needed for entire tuple */
+    Uint32 loc;			/* Location in source code */
+    Eterm* fname_ptr;		/* Pointer to fname table */
+} FunctionInfo;
+
 int erts_load_module(Process *c_p, ErtsProcLocks c_p_locks,
 		     Eterm group_leader, Eterm* mod, byte* code, int size);
 void init_load(void);
 BeamInstr* find_function_from_pc(BeamInstr* pc);
+Eterm* erts_build_mfa_item(FunctionInfo* fi, Eterm* hp,
+			   Eterm args, Eterm* mfa_p);
+void erts_lookup_function_info(FunctionInfo* fi, BeamInstr* pc, int full_info);
+void erts_set_current_function(FunctionInfo* fi, BeamInstr* current);
 Eterm erts_module_info_0(Process* p, Eterm module);
 Eterm erts_module_info_1(Process* p, Eterm module, Eterm what);
 Eterm erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info);
@@ -1053,6 +1065,7 @@ void init_emulator(void);
 void process_main(void);
 Eterm build_stacktrace(Process* c_p, Eterm exc);
 Eterm expand_error_value(Process* c_p, Uint freason, Eterm Value);
+void erts_save_stacktrace(Process* p, struct StackTrace* s, int depth);
 
 /* erl_init.c */
 
@@ -1074,6 +1087,7 @@ extern ErtsModifiedTimings erts_modified_timings[];
 #define ERTS_MODIFIED_TIMING_INPUT_REDS \
   (erts_modified_timings[erts_modified_timing_level].input_reds)
 
+extern int erts_no_line_info;
 extern Eterm erts_error_logger_warnings;
 extern int erts_initialized;
 extern int erts_compat_rel;

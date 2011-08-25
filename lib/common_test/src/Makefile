@@ -39,8 +39,6 @@ RELSYSDIR = $(RELEASE_PATH)/lib/common_test-$(VSN)
 # Target Specs
 # ----------------------------------------------------
 
-PARSE_TRANSFORMS= $(EBIN)/ct_line.$(EMULATOR)
-
 MODULES= \
 	ct \
 	ct_logs \
@@ -98,7 +96,6 @@ ERL_COMPILE_FLAGS += -pa ../ebin -I../include -I $(ERL_TOP)/lib/snmp/include/ \
 # Targets
 # ----------------------------------------------------
 TARGET_FILES = \
-	$(PARSE_TRANSFORMS) \
 	$(GEN_ERL_FILES:%.erl=$(EBIN)/%.$(EMULATOR)) \
 	$(BEAM_FILES) \
 	$(APP_TARGET) $(APPUP_TARGET)
@@ -127,8 +124,6 @@ $(APP_TARGET): $(APP_SRC) ../vsn.mk
 
 $(APPUP_TARGET): $(APPUP_SRC) ../vsn.mk
 	sed -e 's;%VSN%;$(VSN);' $< > $@
-
-$(BEAM_FILES): $(PARSE_TRANSFORMS)
 
 # ----------------------------------------------------
 # Release Target

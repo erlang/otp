@@ -537,16 +537,16 @@ error_info(_Reason, application_controller, _Msg, _State, _Debug) ->
 error_info(Reason, Name, Msg, State, Debug) ->
     Reason1 = 
 	case Reason of
-	    {undef,[{M,F,A}|MFAs]} ->
+	    {undef,[{M,F,A,L}|MFAs]} ->
 		case code:is_loaded(M) of
 		    false ->
-			{'module could not be loaded',[{M,F,A}|MFAs]};
+			{'module could not be loaded',[{M,F,A,L}|MFAs]};
 		    _ ->
 			case erlang:function_exported(M, F, length(A)) of
 			    true ->
 				Reason;
 			    false ->
-				{'function not exported',[{M,F,A}|MFAs]}
+				{'function not exported',[{M,F,A,L}|MFAs]}
 			end
 		end;
 	    _ ->

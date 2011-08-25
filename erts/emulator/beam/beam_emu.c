@@ -5270,6 +5270,7 @@ void process_main(void)
  OpCase(label_L):
  OpCase(too_old_compiler):
  OpCase(on_load):
+ OpCase(line_I):
     erl_exit(1, "meta op\n");
 
     /*
@@ -5686,6 +5687,25 @@ expand_error_value(Process* c_p, Uint freason, Eterm Value) {
  * that c_p->ftrace will point to a cons cell which holds the given args
  * and the saved data (encoded as a bignum).
  *
+ * There is an issue with line number information. Line number
+ * information is associated with the address *before* an operation
+ * that may fail or be stored stored on the stack. But continuation
+ * pointers point after its call instruction, not before. To avoid
+ * finding the wrong line number, we'll need to adjust them so that
+ * they point at the beginning of the call instruction or inside the
+ * call instruction. Since its impractical to point at the beginning,
+ * we'll do the simplest thing and decrement the continuation pointers
+ * by one.
+ *
+ * Here is an example of what can go wrong. Without the adjustment
+ * of continuation pointers, the call at line 42 below would seem to
+ * be at line 43:
+ *
+ * line 42
+ * call ...
+ * line 43
+ * gc_bif ...
+ *
  * (It would be much better to put the arglist - when it exists - in the
  * error value instead of in the actual trace; e.g. '{badarg, Args}'
  * instead of using 'badarg' with Args in the trace. The arglist may
@@ -5752,7 +5772,7 @@ save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg, BifFunction bf,
 	}
 	/* Save second stack entry if CP is valid and different from pc */
 	if (depth > 0 && c_p->cp != 0 && c_p->cp != pc) {
-	    s->trace[s->depth++] = c_p->cp;
+	    s->trace[s->depth++] = c_p->cp - 1;
 	    depth--;
 	}
 	s->pc = NULL;
@@ -5772,13 +5792,13 @@ save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg, BifFunction bf,
 	    /* Save first stack entry */
 	    ASSERT(c_p->cp);
 	    if (depth > 0) {
-		s->trace[s->depth++] = c_p->cp;
+		s->trace[s->depth++] = c_p->cp - 1;
 		depth--;
 	    }
 	    s->pc = NULL; /* Ignore pc */
 	} else {
 	    if (depth > 0 && c_p->cp != 0 && c_p->cp != pc) {
-		s->trace[s->depth++] = c_p->cp;
+		s->trace[s->depth++] = c_p->cp - 1;
 		depth--;
 	    }
 	    s->pc = pc;
@@ -5793,24 +5813,31 @@ save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg, BifFunction bf,
     }
 
     /* Save the actual stack trace */
+    erts_save_stacktrace(c_p, s, depth);
+}
+
+void
+erts_save_stacktrace(Process* p, struct StackTrace* s, int depth)
+{
     if (depth > 0) {
 	Eterm *ptr;
 	BeamInstr *prev = s->depth ? s->trace[s->depth-1] : NULL;
 	BeamInstr i_return_trace = beam_return_trace[0];
 	BeamInstr i_return_to_trace = beam_return_to_trace[0];
+
 	/*
 	 * Traverse the stack backwards and add all unique continuation
 	 * pointers to the buffer, up to the maximum stack trace size.
 	 * 
 	 * Skip trace stack frames.
 	 */
-	ptr = c_p->stop;
-	if (ptr < STACK_START(c_p) 
-	    && (is_not_CP(*ptr)|| (*cp_val(*ptr) != i_return_trace &&
-				   *cp_val(*ptr) != i_return_to_trace))
-	    && c_p->cp) {
-	    /* Can not follow cp here - code may be unloaded */
-	    BeamInstr *cpp = c_p->cp;
+	ptr = p->stop;
+	if (ptr < STACK_START(p) &&
+	    (is_not_CP(*ptr)|| (*cp_val(*ptr) != i_return_trace &&
+				*cp_val(*ptr) != i_return_to_trace)) &&
+	    p->cp) {
+	    /* Cannot follow cp here - code may be unloaded */
+	    BeamInstr *cpp = p->cp;
 	    if (cpp == beam_exception_trace || cpp == beam_return_trace) {
 		/* Skip return_trace parameters */
 		ptr += 2;
@@ -5819,7 +5846,7 @@ save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg, BifFunction bf,
 		ptr += 1;
 	    }
 	}
-	while (ptr < STACK_START(c_p) && depth > 0) {
+	while (ptr < STACK_START(p) && depth > 0) {
 	    if (is_CP(*ptr)) {
 		if (*cp_val(*ptr) == i_return_trace) {
 		    /* Skip stack frame variables */
@@ -5834,7 +5861,7 @@ save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg, BifFunction bf,
 		    if (cp != prev) {
 			/* Record non-duplicates only */
 			prev = cp;
-			s->trace[s->depth++] = cp;
+			s->trace[s->depth++] = cp - 1;
 			depth--;
 		    }
 		    ptr++;
@@ -5902,9 +5929,14 @@ build_stacktrace(Process* c_p, Eterm exc) {
     struct StackTrace* s;
     Eterm  args;
     int    depth;
-    BeamInstr* current;
-    Eterm  Where = NIL;
-    Eterm *next_p = &Where;
+    FunctionInfo fi;
+    FunctionInfo* stk;
+    FunctionInfo* stkp;
+    Eterm res = NIL;
+    Uint heap_size;
+    Eterm* hp;
+    Eterm mfa;
+    int i;
 
     if (! (s = get_trace_from_exc(exc))) {
         return NIL;
@@ -5923,64 +5955,56 @@ build_stacktrace(Process* c_p, Eterm exc) {
      * saved s->current should already contain the proper value.
      */
     if (s->pc != NULL) {
-	current = find_function_from_pc(s->pc);
+	erts_lookup_function_info(&fi, s->pc, 1);
+    } else if (GET_EXC_INDEX(s->freason) ==
+	       GET_EXC_INDEX(EXC_FUNCTION_CLAUSE)) {
+	erts_lookup_function_info(&fi, s->current, 1);
     } else {
-	current = s->current;
+	erts_set_current_function(&fi, s->current);
     }
+
     /*
-     * If current is still NULL, default to the initial function
+     * If fi.current is still NULL, default to the initial function
      * (e.g. spawn_link(erlang, abs, [1])).
      */
-    if (current == NULL) {
-	current = c_p->initial;
+    if (fi.current == NULL) {
+	erts_set_current_function(&fi, c_p->initial);
 	args = am_true; /* Just in case */
     } else {
 	args = get_args_from_exc(exc);
     }
 
-    depth = s->depth;
-    
     /*
-     * Add the {M,F,A} for the current function 
-     * (where A is arity or [Argument]).
+     * Look up all saved continuation pointers and calculate
+     * needed heap space.
      */
-    {
-	int i;
-	Eterm mfa;
-	Uint heap_size = 6*(depth+1);
-	Eterm* hp = HAlloc(c_p, heap_size);
-	Eterm* hp_end = hp + heap_size;
-
-	if (args != am_true) {
-	    /* We have an arglist - use it */
-	    mfa = TUPLE3(hp, current[0], current[1], args);
-	} else {
-	    Eterm arity = make_small(current[2]);
-	    mfa = TUPLE3(hp, current[0], current[1], arity);
+    depth = s->depth;
+    stk = stkp = (FunctionInfo *) erts_alloc(ERTS_ALC_T_TMP,
+				      depth*sizeof(FunctionInfo));
+    heap_size = fi.needed + 2;
+    for (i = 0; i < depth; i++) {
+	erts_lookup_function_info(stkp, s->trace[i], 1);
+	if (stkp->current) {
+	    heap_size += stkp->needed + 2;
+	    stkp++;
 	}
-	hp += 4;
-	ASSERT(*next_p == NIL);
-	*next_p = CONS(hp, mfa, NIL);
-	next_p = &CDR(list_val(*next_p));
-	hp += 2;
-
-	/* 
-	 * Finally, we go through the saved continuation pointers.
-	 */
-	for (i = 0; i < depth; i++) {
-	    BeamInstr *fi = find_function_from_pc((BeamInstr *) s->trace[i]);
-	    if (fi == NULL) continue;
-	    mfa = TUPLE3(hp, fi[0], fi[1], make_small(fi[2]));
-	    hp += 4;
-	    ASSERT(*next_p == NIL);
-	    *next_p = CONS(hp, mfa, NIL);
-	    next_p = &CDR(list_val(*next_p));
-	    hp += 2;
-	}
-	ASSERT(hp <= hp_end);
-	HRelease(c_p, hp_end, hp);
     }
-    return Where;
+
+    /*
+     * Allocate heap space and build the stacktrace.
+     */
+    hp = HAlloc(c_p, heap_size);
+    while (stkp > stk) {
+	stkp--;
+	hp = erts_build_mfa_item(stkp, hp, am_true, &mfa);
+	res = CONS(hp, mfa, res);
+	hp += 2;
+    }
+    hp = erts_build_mfa_item(&fi, hp, args, &mfa);
+    res = CONS(hp, mfa, res);
+
+    erts_free(ERTS_ALC_T_TMP, (void *) stk);
+    return res;
 }
 
 

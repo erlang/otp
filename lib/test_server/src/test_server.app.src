@@ -24,7 +24,6 @@
 	     test_server_ctrl,
 	     test_server,
 	     test_server_h,
-	     test_server_line,
 	     test_server_node,
 	     test_server_sup
 	    ]},

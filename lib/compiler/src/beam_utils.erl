@@ -26,7 +26,7 @@
 	 code_at/2,bif_to_test/3,is_pure_test/1,
 	 live_opt/1,delete_live_annos/1,combine_heap_needs/2]).
 
--import(lists, [member/2,sort/1,reverse/1]).
+-import(lists, [member/2,sort/1,reverse/1,splitwith/2]).
 
 -record(live,
 	{bl,					%Block check fun.
@@ -195,10 +195,14 @@ is_pure_test({test,Op,_,Ops}) ->
 %%  Also insert {'%live',Live} annotations at the beginning
 %%  and end of each block.
 %%
-live_opt([{label,Fail}=I1,
-	  {func_info,_,_,Live}=I2|Is]) ->
+live_opt(Is0) ->
+    {[{label,Fail}|_]=Bef,[Fi|Is]} =
+	splitwith(fun({func_info,_,_,_}) -> false;
+		     (_) -> true
+		  end, Is0),
+    {func_info,_,_,Live} = Fi,
     D = gb_trees:insert(Fail, live_call(Live), gb_trees:empty()),
-    [I1,I2|live_opt(reverse(Is), 0, D, [])].
+    Bef ++ [Fi|live_opt(reverse(Is), 0, D, [])].
 
 
 %% delete_live_annos([Instruction]) -> [Instruction].
@@ -499,6 +503,8 @@ check_liveness(R, [{loop_rec,{f,_},{x,0}}|_], St) ->
     end;
 check_liveness(R, [{loop_rec_end,{f,Fail}}|_], St) ->
     check_liveness_at(R, Fail, St);
+check_liveness(R, [{line,_}|Is], St) ->
+    check_liveness(R, Is, St);
 check_liveness(_R, Is, St) when is_list(Is) ->
 %%     case Is of
 %% 	[I|_] ->
@@ -798,6 +804,8 @@ live_opt([{loop_rec_end,_}=I|Is], Regs, D, Acc) ->
 live_opt([{wait,_}=I|Is], Regs, D, Acc) ->
     live_opt(Is, Regs, D, [I|Acc]);
 live_opt([{wait_timeout,_,{Tag,_}}=I|Is], Regs, D, Acc) when Tag =/= x ->
+    live_opt(Is, Regs, D, [I|Acc]);
+live_opt([{line,_}=I|Is], Regs, D, Acc) ->
     live_opt(Is, Regs, D, [I|Acc]);
 
 %% The following instructions can occur if the "compilation" has been

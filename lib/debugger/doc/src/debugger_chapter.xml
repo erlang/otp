@@ -254,19 +254,17 @@ c_break(Bindings) ->
       used, for example, if an error occurs:</p>
     <pre>
 1> <input>catch a+1.</input>
-{'EXIT',{badarith,[{erlang,'+',[a,1]},
-                   {erl_eval,do_apply,5},
-                   {erl_eval,expr,5},
-                   {shell,exprs,6},
-                   {shell,eval_exprs,6},
-                   {shell,eval_loop,3}]}}</pre>
+{'EXIT',{badarith,[{erlang,'+',[a,1],[]},
+                   {erl_eval,do_apply,5,[{file,"erl_eval.erl"},{line,562}]},
+                   {erl_eval,expr,5,[{file,"erl_eval.erl"},{line,359}]},
+                   {shell,exprs,7,[{file,"shell.erl"},{line,668}]},
+                   {shell,eval_exprs,7,[{file,"shell.erl"},{line,623}]},
+                   {shell,eval_loop,3,[{file,"shell.erl"},{line,608}]}]}}</pre>
 
-    <p>In the case above, the stack trace shows that the function called
-      last was <c>erl_eval:eval_op/3</c>. See <em>Erlang Reference
-	Manual, Errors and Error handling</em>, for more information
-      about stack trace.</p>
+    <p>See the <em>Erlang Reference Manual, Errors and Error handling</em>,
+      for more information about the stack trace.</p>
 
-    <p>Debugger emulates the stack trace by keeping track of recently
+    <p>The Debugger emulates the stack trace by keeping track of recently
       called interpreted functions. (The real stack trace cannot be
       used, as it shows which functions of the Debugger have been
       called, rather than which interpreted functions).</p>
@@ -276,17 +274,15 @@ c_break(Bindings) ->
       <seealso marker="#attach">the Attach Process window</seealso>.
     </p>
 
-    <p>By default, the Debugger saves information about all current
+    <p>By default, the Debugger only saves information about recursive
       function calls, that is, function calls that have not yet returned
-      a value (option 'Stack On, Tail').</p>
+      a value (option 'Stack On, No Tail').</p>
 
-    <p>This means, however, that information is saved also for tail
-      recursive calls. For example, repeated calls to the <c>loop</c>
-      function of an Erlang process. This may consume unnecessary
-      amounts of memory for debugged processes with long lifetimes and
-      many tail recursive calls. It is therefore possible to set
-      the option 'Stack On, no tail', in which case information about
-      previous calls are discarded when a tail recursive call is made.
+    <p>Sometimes, however, it can be useful to save all calls, even
+      tail-recursive calls. That can be done with the 'Stack On, Tail'
+      option. Note that this option will consume more memory and slow
+      down execution of interpreted functions when there are many
+      tail-recursive calls.
     </p>
 
     <p>It is also possible to turn off the Debugger stack trace

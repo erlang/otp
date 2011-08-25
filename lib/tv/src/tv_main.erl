@@ -312,7 +312,7 @@ analyze_error(Cause, Node, Table) ->
             handle_error(mnesia_not_started, Node, Table);
         {badrpc, {'EXIT', {aborted, {node_not_running,_ErrNode}}}} ->
             handle_error(mnesia_not_started, Node, Table);
-	{'EXIT', {undef, {mnesia,_Fcn,_Args}}} ->
+	{'EXIT', {undef, {mnesia,_Fcn,_Args,_}}} ->
 	    handle_error(mnesia_not_started, Node, Table);
 
         {'EXIT', Reason} ->

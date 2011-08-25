@@ -144,9 +144,9 @@ function({function,Name,Arity,CLabel,Is0}, Lc0) ->
 	%% Initialize label information with the code
 	%% for the func_info label. Without it, a register
 	%% may seem to be live when it is not.
-	[{label,L},{func_info,_,_,_}=FI|_] = Is1,
+	[{label,L}|FiIs] = Is1,
 	D0 = beam_utils:empty_label_index(),
-	D = beam_utils:index_label(L, [FI], D0),
+	D = beam_utils:index_label(L, FiIs, D0),
 
 	%% Optimize away dead code.
 	{Is2,Lc} = forward(Is1, Lc0),
@@ -185,6 +185,8 @@ split_block([{set,[R],As,{alloc,Live,{gc_bif,N,{f,Lbl}=Fail}}}|Is], Bl, Acc)
     split_block(Is, [], [{gc_bif,N,Fail,Live,As,R}|make_block(Bl, Acc)]);
 split_block([{set,[R],[],{'catch',L}}|Is], Bl, Acc) ->
     split_block(Is, [], [{'catch',R,L}|make_block(Bl, Acc)]);
+split_block([{set,[],[],{line,_}=Line}|Is], Bl, Acc) ->
+    split_block(Is, [], [Line|make_block(Bl, Acc)]);
 split_block([I|Is], Bl, Acc) ->
     split_block(Is, [I|Bl], Acc);
 split_block([], Bl, Acc) -> make_block(Bl, Acc).
@@ -406,7 +408,7 @@ backward([{test,Op,{f,To0},Live,Ops0,Dst}|Is], D, Acc) ->
 	 end,
     I = {test,Op,{f,To},Live,Ops0,Dst},
     backward(Is, D, [I|Acc]);
-backward([{kill,_}=I|Is], D, [Exit|_]=Acc) ->
+backward([{kill,_}=I|Is], D, [{line,_},Exit|_]=Acc) ->
     case beam_jump:is_exit_instruction(Exit) of
 	false -> backward(Is, D, [I|Acc]);
 	true -> backward(Is, D, Acc)
@@ -471,7 +473,7 @@ shortcut_fail_label(To0, Reg, Val, D) ->
 
 shortcut_boolean_label(To0, Reg, Bool0, D) when is_boolean(Bool0) ->
     case beam_utils:code_at(To0, D) of
-	[{bif,'not',_,[Reg],Reg},{jump,{f,To}}|_] ->
+	[{line,_},{bif,'not',_,[Reg],Reg},{jump,{f,To}}|_] ->
 	    Bool = not Bool0,
 	    {shortcut_select_label(To, Reg, Bool, D),Bool};
 	_ ->

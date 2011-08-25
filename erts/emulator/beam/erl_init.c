@@ -127,6 +127,8 @@ int erts_modified_timing_level;
 
 int erts_no_crash_dump = 0;	/* Use -d to suppress crash dump. */
 
+int erts_no_line_info = 0;	/* -L: Don't load line information */
+
 /*
  * Other global variables.
  */
@@ -936,7 +938,9 @@ erl_start(int argc, char **argv)
 	case 'l':
 	    display_loads++;
 	    break;
-
+	case 'L':
+	    erts_no_line_info = 1;
+	    break;
 	case 'v':
 #ifdef DEBUG
 	    if (argv[i][2] == '\0') {

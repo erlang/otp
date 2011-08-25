@@ -73,7 +73,7 @@ characters_to_list_int(ML, Encoding) ->
 			   _ ->
 			       badarg
 		       end,
-	    {'EXIT',{new_stacktrace,[{Mod,_,L}|Rest]}} = 
+	    {'EXIT',{new_stacktrace,[{Mod,_,L,_}|Rest]}} =
 		(catch erlang:error(new_stacktrace,
 				    [ML,Encoding])),
 	    erlang:raise(error,TheError,[{Mod,characters_to_list,L}|Rest])
@@ -109,7 +109,7 @@ characters_to_binary(ML) ->
 			   _ ->
 			       badarg
 		       end,
-	    {'EXIT',{new_stacktrace,[{Mod,_,L}|Rest]}} = 
+	    {'EXIT',{new_stacktrace,[{Mod,_,L,_}|Rest]}} =
 		(catch erlang:error(new_stacktrace,
 				    [ML])),
 	    erlang:raise(error,TheError,[{Mod,characters_to_binary,L}|Rest])
@@ -127,7 +127,7 @@ characters_to_binary_int(ML,InEncoding) ->
 			   _ ->
 			       badarg
 		       end,
-	    {'EXIT',{new_stacktrace,[{Mod,_,L}|Rest]}} = 
+	    {'EXIT',{new_stacktrace,[{Mod,_,L,_}|Rest]}} =
 		(catch erlang:error(new_stacktrace,
 				    [ML,InEncoding])),
 	    erlang:raise(error,TheError,[{Mod,characters_to_binary,L}|Rest])
@@ -159,7 +159,7 @@ characters_to_binary(ML, latin1, Uni) when is_binary(ML) and ((Uni =:= utf8) or 
 				       _ ->
 					   badarg
 				   end,
-			{'EXIT',{new_stacktrace,[{Mod,_,L}|Rest]}} = 
+			{'EXIT',{new_stacktrace,[{Mod,_,L,_}|Rest]}} =
 			    (catch erlang:error(new_stacktrace,
 						[ML,latin1,Uni])),
 			erlang:raise(error,TheError,
@@ -181,7 +181,7 @@ characters_to_binary(ML,Uni,latin1) when is_binary(ML) and ((Uni =:= utf8) or   
 				       _ ->
 					   badarg
 				   end,
-			{'EXIT',{new_stacktrace,[{Mod,_,L}|Rest]}} = 
+			{'EXIT',{new_stacktrace,[{Mod,_,L,_}|Rest]}} =
 			    (catch erlang:error(new_stacktrace,
 						[ML,Uni,latin1])),
 			erlang:raise(error,TheError,
@@ -200,7 +200,7 @@ characters_to_binary(ML, InEncoding, OutEncoding) ->
 			   _ ->
 			       badarg
 		       end,
-	    {'EXIT',{new_stacktrace,[{Mod,_,L}|Rest]}} = 
+	    {'EXIT',{new_stacktrace,[{Mod,_,L,_}|Rest]}} =
 		(catch erlang:error(new_stacktrace,
 				    [ML,InEncoding,OutEncoding])),
 	    erlang:raise(error,TheError,[{Mod,characters_to_binary,L}|Rest])

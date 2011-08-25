@@ -25,7 +25,6 @@
 	     ct_framework,
 	     ct_ftp,
 	     ct_gen_conn,
-	     ct_line,
 	     ct_logs,
 	     ct_make,
 	     ct_master,

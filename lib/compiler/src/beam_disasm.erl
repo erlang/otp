@@ -296,6 +296,8 @@ get_function_chunks(Code) ->
 labels_r([], R) -> {R, []};
 labels_r([{label,_}=I|Is], R) ->
     labels_r(Is, [I|R]);
+labels_r([{line,_}=I|Is], R) ->
+    labels_r(Is, [I|R]);
 labels_r(Is, R) -> {R, Is}.
 
 get_funs({[],[]}) -> [];
@@ -335,20 +337,17 @@ local_labels(Funs) ->
 				   local_labels_1(function__code(F), R)
 			   end, [], Funs)).
 
-%% The first clause below attempts to provide some (limited form of)
-%% backwards compatibility; it is not needed for .beam files generated
-%% by the R8 compiler.  The clause should one fine day be taken out.
-local_labels_1([{label,_}|[{label,_}|_]=Code], R) ->
-    local_labels_1(Code, R);
-local_labels_1([{label,_},{func_info,{atom,M},{atom,F},A}|Code], R)
-  when is_atom(M), is_atom(F) ->
-    local_labels_2(Code, R, M, F, A);
-local_labels_1(Code, _) ->
-    ?exit({'local_labels: no label in code',Code}).
+local_labels_1(Code0, R) ->
+    Code1 = lists:dropwhile(fun({label,_}) -> true;
+			       ({line,_}) -> true;
+			       ({func_info,_,_,_}) -> false
+			    end, Code0),
+    [{func_info,{atom,M},{atom,F},A}|Code] = Code1,
+    local_labels_2(Code, R, {M,F,A}).
 
-local_labels_2([{label,[{u,L}]}|Code], R, M, F, A) ->
-    local_labels_2(Code, [{L,{M,F,A}}|R], M, F, A);
-local_labels_2(_, R, _, _, _) -> R.
+local_labels_2([{label,[{u,L}]}|Code], R, MFA) ->
+    local_labels_2(Code, [{L,MFA}|R], MFA);
+local_labels_2(_, R, _) -> R.
 
 %%-----------------------------------------------------------------------
 %% Disassembles a single BEAM instruction; most instructions are handled
@@ -1103,6 +1102,12 @@ resolve_inst({recv_mark,[Lbl]},_,_,_) ->
     {recv_mark,Lbl};
 resolve_inst({recv_set,[Lbl]},_,_,_) ->
     {recv_set,Lbl};
+
+%%
+%% R15A.
+%%
+resolve_inst({line,[Index]},_,_,_) ->
+    {line,resolve_arg(Index)};
 
 %%
 %% Catches instructions that are not yet handled.

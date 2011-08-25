@@ -436,11 +436,11 @@ transform(From, To, Opts, File, Tree) ->
     case catch Filter:transform(File, Tree, Opts) of
 
 	%% R5C
-	{'EXIT', {undef, [{Filter, transform, [File, Tree, Opts]}|_]}}->
+	{'EXIT', {undef, [{Filter, transform, [File, Tree, Opts],_}|_]}}->
 	    %% No transformation defined
 	    finish_transform(Tree, File, Opts, Filter);
 	
-	{'EXIT', {undef, {Filter, transform, [File, Tree, Opts]}}} ->
+	{'EXIT', {undef, {Filter, transform, [File, Tree, Opts],_}}} ->
 	    %% No transformation defined
 	    finish_transform(Tree, File, Opts, Filter);
 
@@ -507,16 +507,16 @@ pp({Tag, Optional, Args}, TagPath, Level, Filter, Opts) ->
     Rule_3_result =
 	case catch Filter:rule(TagPath1, {Level,Optional1,Args},Opts) of
 	    %% R5C
-	    {'EXIT', {undef, [{_, rule, _}|_]}} -> % No rule/3 defined
+	    {'EXIT', {undef, [{_, rule, _, _}|_]}} -> % No rule/3 defined
 		failed;
 
-	    {'EXIT', {undef, {_, rule, _}}} -> % No rule/3 defined
+	    {'EXIT', {undef, {_, rule, _, _}}} -> % No rule/3 defined
 		failed;
 	    %% R5C
-	    {'EXIT', {function_clause, [{_, rule, _}|_]}} -> % No MATCHING rule/3
+	    {'EXIT', {function_clause, [{_, rule, _, _}|_]}} -> % No MATCHING rule/3
 		failed;
 
-	    {'EXIT', {function_clause, {_, rule, _}}} -> % No MATCHING rule/3
+	    {'EXIT', {function_clause, {_, rule, _, _}}} -> % No MATCHING rule/3
 		failed;
 
 	    {'EXIT', What} ->

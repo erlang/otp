@@ -36,13 +36,14 @@ function({function,Name,Arity,CLabel,Is0}, Lc0) ->
 
 	%% Collect basic blocks and optimize them.
 	Is2 = blockify(Is1),
-	Is3 = move_allocates(Is2),
-	Is4 = beam_utils:live_opt(Is3),
-	Is5 = opt_blocks(Is4),
-	Is6 = beam_utils:delete_live_annos(Is5),
+	Is3 = embed_lines(Is2),
+	Is4 = move_allocates(Is3),
+	Is5 = beam_utils:live_opt(Is4),
+	Is6 = opt_blocks(Is5),
+	Is7 = beam_utils:delete_live_annos(Is6),
 
 	%% Optimize bit syntax.
-	{Is,Lc} = bsm_opt(Is6, Lc0),
+	{Is,Lc} = bsm_opt(Is7, Lc0),
 
 	%% Done.
 	{{function,Name,Arity,CLabel,Is},Lc}
@@ -148,6 +149,24 @@ collect(remove_message)      -> {set,[],[],remove_message};
 collect({'catch',R,L})       -> {set,[R],[],{'catch',L}};
 collect(_)                   -> error.
 
+%% embed_lines([Instruction]) -> [Instruction]
+%%  Combine blocks that would be split by line/1 instructions.
+%%  Also move a line instruction before a block into the block,
+%%  but leave the line/1 instruction after a block outside.
+
+embed_lines(Is) ->
+    embed_lines(reverse(Is), []).
+
+embed_lines([{block,B2},{line,_}=Line,{block,B1}|T], Acc) ->
+    B = {block,B1++[{set,[],[],Line}]++B2},
+    embed_lines([B|T], Acc);
+embed_lines([{block,B1},{line,_}=Line|T], Acc) ->
+    B = {block,[{set,[],[],Line}|B1]},
+    embed_lines([B|T], Acc);
+embed_lines([I|Is], Acc) ->
+    embed_lines(Is, [I|Acc]);
+embed_lines([], Acc) -> Acc.
+
 opt_blocks([{block,Bl0}|Is]) ->
     %% The live annotation at the beginning is not useful.
     [{'%live',_}|Bl] = Bl0,
@@ -225,10 +244,12 @@ opt([{set,[Dst],As,{bif,Bif,Fail}}=I1,
  	RevBif -> [{set,[Dst],As,{bif,RevBif,Fail}}|opt(Is)]
     end;
 opt([{set,[X],[X],move}|Is]) -> opt(Is);
-opt([{set,[D1],[{integer,Idx1},Reg],{bif,element,{f,0}}}=I1,
+opt([{set,_,_,{line,_}}=Line1,
+     {set,[D1],[{integer,Idx1},Reg],{bif,element,{f,0}}}=I1,
+     {set,_,_,{line,_}}=Line2,
      {set,[D2],[{integer,Idx2},Reg],{bif,element,{f,0}}}=I2|Is])
   when Idx1 < Idx2, D1 =/= D2, D1 =/= Reg, D2 =/= Reg ->
-    opt([I2,I1|Is]);
+    opt([Line2,I2,Line1,I1|Is]);
 opt([{set,Ds0,Ss,Op}|Is0]) ->	
     {Ds,Is} = opt_moves(Ds0, Is0),
     [{set,Ds,Ss,Op}|opt(Is)];

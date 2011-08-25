@@ -328,7 +328,7 @@ otp_6345(doc) ->
     ["'monitor' spawn_opt option"];
 otp_6345(Config) when is_list(Config) ->
     Opts = [link,monitor],
-    {'EXIT', {badarg,[{proc_lib,check_for_monitor,_}|_Stack]}} =
+    {'EXIT', {badarg,[{proc_lib,check_for_monitor,_,_}|_Stack]}} =
 	(catch proc_lib:start(?MODULE, otp_6345_init, [self()],
 			      1000, Opts)),
     ok.

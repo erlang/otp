@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -23,9 +23,9 @@
 -export([module/2]).
 -export([bs_clean_saves/1]).
 -export([clean_labels/1]).
--import(lists, [map/2,foldl/3,reverse/1]).
+-import(lists, [map/2,foldl/3,reverse/1,filter/2]).
 
-module({Mod,Exp,Attr,Fs0,_}, _Opt) ->
+module({Mod,Exp,Attr,Fs0,_}, Opts) ->
     Order = [Lbl || {function,_,_,Lbl,_} <- Fs0],
     All = foldl(fun({function,_,_,Lbl,_}=Func,D) -> dict:store(Lbl, Func, D) end,
 		dict:new(), Fs0),
@@ -33,7 +33,8 @@ module({Mod,Exp,Attr,Fs0,_}, _Opt) ->
     Used = find_all_used(WorkList, All, sets:from_list(WorkList)),
     Fs1 = remove_unused(Order, Used, All),
     {Fs2,Lc} = clean_labels(Fs1),
-    Fs = bs_fix(Fs2),
+    Fs3 = bs_fix(Fs2),
+    Fs = maybe_remove_lines(Fs3, Opts),
     {ok,{Mod,Exp,Attr,Fs,Lc}}.
 
 %% Remove all bs_save2/2 instructions not referenced by a bs_restore2/2.
@@ -375,3 +376,20 @@ bs_clean_saves_1([{bs_save2,_,{_,_}=SavePoint}=I|Is], Needed, Acc) ->
 bs_clean_saves_1([I|Is], Needed, Acc) ->
     bs_clean_saves_1(Is, Needed, [I|Acc]);
 bs_clean_saves_1([], _, Acc) -> reverse(Acc).
+
+%%%
+%%% Remove line instructions if requested.
+%%%
+
+maybe_remove_lines(Fs, Opts) ->
+    case proplists:get_bool(no_line_info, Opts) of
+	false -> Fs;
+	true -> remove_lines(Fs)
+    end.
+
+remove_lines([{function,N,A,Lbl,Is0}|T]) ->
+    Is = filter(fun({line,_}) -> false;
+		   (_)  -> true
+		end, Is0),
+    [{function,N,A,Lbl,Is}|remove_lines(T)];
+remove_lines([]) -> [].

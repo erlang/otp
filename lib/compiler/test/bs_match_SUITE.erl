@@ -1028,8 +1028,8 @@ haystack_2(Haystack) ->
 fc({'EXIT',{function_clause,_}}) -> ok;
 fc({'EXIT',{{case_clause,_},_}}) when ?MODULE =:= bs_match_inline_SUITE -> ok.
 
-fc(Name, Args, {'EXIT',{function_clause,[{?MODULE,Name,Args}|_]}}) -> ok;
-fc(Name, Args, {'EXIT',{function_clause,[{?MODULE,Name,Arity}|_]}})
+fc(Name, Args, {'EXIT',{function_clause,[{?MODULE,Name,Args,_}|_]}}) -> ok;
+fc(Name, Args, {'EXIT',{function_clause,[{?MODULE,Name,Arity,_}|_]}})
   when length(Args) =:= Arity ->
     true = test_server:is_native(?MODULE);
 fc(_, Args, {'EXIT',{{case_clause,ActualArgs},_}})

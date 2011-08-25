@@ -32,7 +32,8 @@
 	 t_is_boolean/1,is_function_2/1,
 	 tricky/1,rel_ops/1,literal_type_tests/1,
 	 basic_andalso_orelse/1,traverse_dcd/1,
-	 check_qlc_hrl/1,andalso_semi/1,t_tuple_size/1,binary_part/1]).
+	 check_qlc_hrl/1,andalso_semi/1,t_tuple_size/1,binary_part/1,
+	 bad_constants/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -44,7 +45,8 @@ all() ->
      more_xor_guards, build_in_guard, old_guard_tests, gbif,
      t_is_boolean, is_function_2, tricky, rel_ops,
      literal_type_tests, basic_andalso_orelse, traverse_dcd,
-     check_qlc_hrl, andalso_semi, t_tuple_size, binary_part].
+     check_qlc_hrl, andalso_semi, t_tuple_size, binary_part,
+     bad_constants].
 
 groups() -> 
     [].
@@ -1517,8 +1519,27 @@ bptest(B,A,C)  when erlang:binary_part(B,{A,C}) =:= <<3,3>> ->
 bptest(_,_,_) ->
     error.
 
+-define(FAILING(C),
+	if
+	    C -> ?t:fail(should_fail);
+	    true -> ok
+	end,
+	if
+	    true, C -> ?t:fail(should_fail);
+	    true -> ok
+	end).
 
-
+bad_constants(Config) when is_list(Config) ->
+    ?line ?FAILING(false),
+    ?line ?FAILING([]),
+    ?line ?FAILING([a]),
+    ?line ?FAILING([Config]),
+    ?line ?FAILING({a,b}),
+    ?line ?FAILING({a,Config}),
+    ?line ?FAILING(<<1>>),
+    ?line ?FAILING(42),
+    ?line ?FAILING(3.14),
+    ok.
 
 %% Call this function to turn off constant propagation.
 id(I) -> I.

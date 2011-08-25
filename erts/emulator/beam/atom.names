@@ -156,6 +156,8 @@ atom cr
 atom crlf
 atom creation
 atom current_function
+atom current_location
+atom current_stacktrace
 atom data
 atom debug_flags
 atom delay_trap

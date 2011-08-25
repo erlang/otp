@@ -795,16 +795,16 @@ t_ets_dets(Config, Opts) ->
     ?line true = ets:from_dets(ETab,DTab),
     ?line 3000 = ets:info(ETab,size),
     ?line ets:delete(ETab),
-    ?line {'EXIT',{badarg,[{ets,to_dets,[ETab,DTab]}|_]}} =
+    ?line {'EXIT',{badarg,[{ets,to_dets,[ETab,DTab],_}|_]}} =
 	(catch ets:to_dets(ETab,DTab)),
-    ?line {'EXIT',{badarg,[{ets,from_dets,[ETab,DTab]}|_]}} =
+    ?line {'EXIT',{badarg,[{ets,from_dets,[ETab,DTab],_}|_]}} =
 	(catch ets:from_dets(ETab,DTab)),
     ?line ETab2 = ets_new(x,Opts),
     ?line filltabint(ETab2,3000),
     ?line dets:close(DTab),
-    ?line {'EXIT',{badarg,[{ets,to_dets,[ETab2,DTab]}|_]}} =
+    ?line {'EXIT',{badarg,[{ets,to_dets,[ETab2,DTab],_}|_]}} =
 	(catch ets:to_dets(ETab2,DTab)),
-    ?line {'EXIT',{badarg,[{ets,from_dets,[ETab2,DTab]}|_]}} =
+    ?line {'EXIT',{badarg,[{ets,from_dets,[ETab2,DTab],_}|_]}} =
 	(catch ets:from_dets(ETab2,DTab)),
     ?line ets:delete(ETab2),
     ?line (catch file:delete(Fname)),
@@ -2644,7 +2644,7 @@ maybe_sort(L) when is_list(L) ->
 %maybe_sort({'EXIT',{Reason, [{Module, Function, _}|_]}}) ->
 %    {'EXIT',{Reason, [{Module, Function, '_'}]}};
 maybe_sort({'EXIT',{Reason, List}}) when is_list(List) ->
-    {'EXIT',{Reason, lists:map(fun({Module, Function, _}) ->
+    {'EXIT',{Reason, lists:map(fun({Module, Function, _, _}) ->
 				       {Module, Function, '_'}
 			       end,
 			       List)}};
