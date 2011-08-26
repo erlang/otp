@@ -672,6 +672,9 @@ type(erlang, call_on_load_function, 1, Xs) ->
 type(erlang, cancel_timer, 1, Xs) ->
   strict(arg_types(erlang, cancel_timer, 1), Xs,
 	 fun (_) -> t_sup(t_integer(), t_atom('false')) end);
+type(erlang, check_old_code, 1, Xs) ->
+  strict(arg_types(erlang, check_old_code, 1), Xs,
+	 fun (_) -> t_boolean() end);
 type(erlang, check_process_code, 2, Xs) ->
   strict(arg_types(erlang, check_process_code, 2), Xs,
 	 fun (_) -> t_boolean() end);
@@ -3394,6 +3397,8 @@ arg_types(erlang, call_on_load_function, 1) ->
   [t_atom()];
 arg_types(erlang, cancel_timer, 1) ->
   [t_reference()];
+arg_types(erlang, check_old_code, 1) ->
+  [t_atom()];
 arg_types(erlang, check_process_code, 2) ->
   [t_pid(), t_atom()];
 arg_types(erlang, crc32, 1) ->

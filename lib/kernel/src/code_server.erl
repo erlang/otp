@@ -1379,8 +1379,12 @@ absname_vr([[X, $:]|Name], _, _AbsBase) ->
 %%  Kill all processes running code from *old* Module, and then purge the
 %%  module. Return true if any processes killed, else false.
 
-do_purge(Mod) ->
-    do_purge(processes(), to_atom(Mod), false).
+do_purge(Mod0) ->
+    Mod = to_atom(Mod0),
+    case erlang:check_old_code(Mod) of
+	false -> false;
+	true -> do_purge(processes(), Mod, false)
+    end.
 
 do_purge([P|Ps], Mod, Purged) ->
     case erlang:check_process_code(P, Mod) of
@@ -1399,16 +1403,19 @@ do_purge([], Mod, Purged) ->
     Purged.
 
 %% do_soft_purge(Module)
-%% Purge old code only if no procs remain that run old code
+%% Purge old code only if no procs remain that run old code.
 %% Return true in that case, false if procs remain (in this
 %% case old code is not purged)
 
 do_soft_purge(Mod) ->
-    catch do_soft_purge(processes(), Mod).
+    case erlang:check_old_code(Mod) of
+	false -> true;
+	true -> do_soft_purge(processes(), Mod)
+    end.
 
 do_soft_purge([P|Ps], Mod) ->
     case erlang:check_process_code(P, Mod) of
-	true -> throw(false);
+	true -> false;
 	false -> do_soft_purge(Ps, Mod)
     end;
 do_soft_purge([], Mod) ->

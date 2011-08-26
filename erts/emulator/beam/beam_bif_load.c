@@ -162,6 +162,23 @@ BIF_RETTYPE code_make_stub_module_3(BIF_ALIST_3)
     return res;
 }
 
+BIF_RETTYPE
+check_old_code_1(BIF_ALIST_1)
+{
+    Module* modp;
+
+    if (is_not_atom(BIF_ARG_1)) {
+	BIF_ERROR(BIF_P, BADARG);
+    }
+    modp = erts_get_module(BIF_ARG_1);
+    if (modp == NULL) {		/* Doesn't exist. */
+	BIF_RET(am_false);
+    } else if (modp->old_code == NULL) { /* No old code. */
+	BIF_RET(am_false);
+    }
+    BIF_RET(am_true);
+}
+
 Eterm
 check_process_code_2(BIF_ALIST_2)
 {
@@ -175,6 +192,13 @@ check_process_code_2(BIF_ALIST_2)
 	Eterm res;
 	if (internal_pid_index(BIF_ARG_1) >= erts_max_processes)
 	    goto error;
+	modp = erts_get_module(BIF_ARG_2);
+	if (modp == NULL) {		/* Doesn't exist. */
+	    return am_false;
+	} else if (modp->old_code == NULL) { /* No old code. */
+	    return am_false;
+	}
+	
 #ifdef ERTS_SMP
 	rp = erts_pid2proc_suspend(BIF_P, ERTS_PROC_LOCK_MAIN,
 				   BIF_ARG_1, ERTS_PROC_LOCK_MAIN);
@@ -188,7 +212,6 @@ check_process_code_2(BIF_ALIST_2)
 	    ERTS_BIF_YIELD2(bif_export[BIF_check_process_code_2], BIF_P,
 			    BIF_ARG_1, BIF_ARG_2);
 	}
-	modp = erts_get_module(BIF_ARG_2);
 	res = check_process_code(rp, modp);
 #ifdef ERTS_SMP
 	if (BIF_P != rp) {
@@ -412,11 +435,6 @@ check_process_code(Process* rp, Module* modp)
 #endif
 
 #define INSIDE(a) (start <= (a) && (a) < end)
-    if (modp == NULL) {		/* Doesn't exist. */
-	return am_false;
-    } else if (modp->old_code == NULL) { /* No old code. */
-	return am_false;
-    }
 
     /*
      * Pick up limits for the module.
