@@ -333,17 +333,18 @@ form({function,Line,Name0,Arity0,Clauses0}) ->
 form(AnyOther) ->
     AnyOther.
 function(Name, Arity, Clauses0) ->
-    {Clauses1,_} = clauses(Clauses0,gb_sets:new()),
+    Clauses1 = clauses(Clauses0),
     {Name,Arity,Clauses1}.
-clauses([C0|Cs],Bound) ->
-    {C1,Bound1} = clause(C0,Bound),
-    {C2,Bound2} = clauses(Cs,Bound1),
-    {[C1|C2],Bound2};
-clauses([],Bound) -> {[],Bound}.
+clauses([C0|Cs]) ->
+    C1 = clause(C0,gb_sets:new()),
+    C2 = clauses(Cs),
+    [C1|C2];
+clauses([]) -> [].
+
 clause({clause,Line,H0,G0,B0},Bound) ->
     {H1,Bound1} = copy(H0,Bound),
-    {B1,Bound2} = copy(B0,Bound1),
-    {{clause,Line,H1,G0,B1},Bound2}.
+    {B1,_Bound2} = copy(B0,Bound1),
+    {clause,Line,H1,G0,B1}.
 
 copy({call,Line,{remote,_Line2,{atom,_Line3,ets},{atom,_Line4,fun2ms}},
       As0},Bound) ->
