@@ -578,9 +578,9 @@ htmlify_pid([],New)->
 %% the HTTP protocol                                                  %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 urlify_pid(Pid) ->
-    case regexp:first_match(Pid,"[<].*[>]") of
-	{match,Start,Len}->
-	    "%3C"++string:substr(Pid,Start+1,Len-2)++"%3E";
+    case re:run(Pid,"[<](.*)[>]",[{capture,all_but_first,list}]) of
+	{match,[PidStr]}->
+	    "%3C"++PidStr++"%3E";
 	_->
 	    Pid
     end.
