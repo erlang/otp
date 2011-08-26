@@ -166,9 +166,12 @@ core_search_conf(RunByTS, DBTop, XDir) ->
 
 file_inspect(#core_search_conf{file = File}, Core) ->
     FRes0 = os:cmd(File ++ " " ++ Core),
-    FRes = case regexp:match(FRes0, Core) of
-	       {match, S, E} ->
+    FRes = case string:str(FRes0, Core) of
+	       0 ->
+		   FRes0;
+	       S ->
 		   L = length(FRes0),
+		   E = length(Core),
 		   case S of
 		       1 ->
 			   lists:sublist(FRes0, E+1, L+1);
@@ -178,19 +181,13 @@ file_inspect(#core_search_conf{file = File}, Core) ->
 			       " "
 			       ++
 			       lists:sublist(FRes0, E+1, L+1)
-		   end;
-	       _ -> FRes0
+		   end
 	   end,
-    case regexp:match(FRes, "[Tt][Ee][Xx][Tt]") of
+    case re:run(FRes, "text|ascii", [caseless,{capture,none}]) of
+	match ->
+	    not_a_core;
 	nomatch ->
-	    case regexp:match(FRes, "[Aa][Ss][Cc][Ii][Ii]") of
-		nomatch ->
-		    probably_a_core;
-		_ ->
-		    not_a_core
-	    end;
-	_ ->
-	    not_a_core
+	    probably_a_core
     end.
 
 mk_readable(F) ->
