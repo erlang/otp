@@ -628,15 +628,56 @@ do_insert_schema_ops(_Store, []) ->
 
 cs2list(Cs) when is_record(Cs, cstruct) ->
     Tags = record_info(fields, cstruct),
-    rec2list(Tags, 2, Cs);
+    rec2list(Tags, Tags, 2, Cs);
 cs2list(CreateList) when is_list(CreateList) ->
-    CreateList.
+    CreateList;
+%% 4.4.19
+cs2list(Cs) when element(1, Cs) == cstruct, tuple_size(Cs) == 18 ->
+    Tags = [name,type,ram_copies,disc_copies,disc_only_copies,
+	    load_order,access_mode,majority,index,snmp,local_content,
+	    record_name,attributes,user_properties,frag_properties,
+	    cookie,version],
+    rec2list(Tags, Tags, 2, Cs);
+%% 4.4.18 and earlier
+cs2list(Cs) when element(1, Cs) == cstruct, tuple_size(Cs) == 17 ->
+    Tags = [name,type,ram_copies,disc_copies,disc_only_copies,
+	    load_order,access_mode,index,snmp,local_content,
+	    record_name,attributes,user_properties,frag_properties,
+	    cookie,version],
+    rec2list(Tags, Tags, 2, Cs).
 
-rec2list([Tag | Tags], Pos, Rec) ->
+cs2list(false, Cs) ->
+    cs2list(Cs);
+cs2list(ver4_4_18, Cs) ->
+    Orig = record_info(fields, cstruct),
+    Tags = [name,type,ram_copies,disc_copies,disc_only_copies,
+	    load_order,access_mode,index,snmp,local_content,
+	    record_name,attributes,user_properties,frag_properties,
+	    cookie,version],
+    rec2list(Tags, Orig, 2, Cs);
+cs2list(ver4_4_19, Cs) ->
+    Orig = record_info(fields, cstruct),
+    Tags = [name,type,ram_copies,disc_copies,disc_only_copies,
+	    load_order,access_mode,majority,index,snmp,local_content,
+	    record_name,attributes,user_properties,frag_properties,
+	    cookie,version],
+    rec2list(Tags, Orig, 2, Cs).
+
+rec2list([Tag | Tags], [Tag | Orig], Pos, Rec) ->
     Val = element(Pos, Rec),
-    [{Tag, Val} | rec2list(Tags, Pos + 1, Rec)];
-rec2list([], _Pos, _Rec) ->
-    [].
+    [{Tag, Val} | rec2list(Tags, Orig, Pos + 1, Rec)];
+rec2list([], _, _Pos, _Rec) ->
+    [];
+rec2list(Tags, [_|Orig], Pos, Rec) ->
+    rec2list(Tags, Orig, Pos+1, Rec).
+
+api_list2cs(List) when is_list(List) ->
+    Name = pick(unknown, name, List, must),
+    Keys = check_keys(Name, List, record_info(fields, cstruct)),
+    check_duplicates(Name, Keys),
+    list2cs(List);
+api_list2cs(Other) ->
+    mnesia:abort({badarg, Other}).
 
 list2cs(List) when is_list(List) ->
     Name = pick(unknown, name, List, must),
@@ -668,9 +709,6 @@ list2cs(List) when is_list(List) ->
     Frag = pick(Name, frag_properties, List, []),
     verify({alt, [nil, list]}, mnesia_lib:etype(Frag),
 	   {badarg, Name, {frag_properties, Frag}}),
-
-    %% Keys = check_keys(Name, List, record_info(fields, cstruct)),
-    %% check_duplicates(Name, Keys),
     #cstruct{name = Name,
              ram_copies = Rc,
              disc_copies = Dc,
@@ -687,9 +725,7 @@ list2cs(List) when is_list(List) ->
              user_properties = lists:sort(UserProps),
 	     frag_properties = lists:sort(Frag),
              cookie = Cookie,
-             version = Version};
-list2cs(Other) ->
-    mnesia:abort({badarg, Other}).
+             version = Version}.
 
 pick(Tab, Key, List, Default) ->
     case lists:keysearch(Key, 1, List) of
@@ -970,7 +1006,7 @@ create_table(TabDef) ->
 do_multi_create_table(TabDef) ->
     get_tid_ts_and_lock(schema, write),
     ensure_writable(schema),
-    Cs = list2cs(TabDef),
+    Cs = api_list2cs(TabDef),
     case Cs#cstruct.frag_properties of
 	[] ->
 	    do_create_table(Cs);
@@ -2710,7 +2746,6 @@ merge_schema() ->
 merge_schema(UserFun) ->
     schema_transaction(fun() -> UserFun(fun(Arg) -> do_merge_schema(Arg) end) end).
 
-
 do_merge_schema(LockTabs0) ->
     {_Mod, Tid, Ts} = get_tid_ts_and_lock(schema, write),
     LockTabs = [{T, tab_to_nodes(T)} || T <- LockTabs0],
@@ -2732,15 +2767,14 @@ do_merge_schema(LockTabs0) ->
             [mnesia_locker:wlock_no_exist(
                Tid, Store, T, mnesia_lib:intersect(Ns, OtherNodes))
              || {T,Ns} <- LockTabs],
-	    case rpc:call(Node, mnesia_controller, get_cstructs, []) of
-		{cstructs, Cstructs0, RemoteRunning1} ->
-		    {Cstructs, DeleteFields} = normalize_remote_cstructs(Cstructs0, Node),
+	    case fetch_cstructs(Node) of
+		{cstructs, Cstructs, RemoteRunning1} ->
 		    LockedAlready = Running ++ [Node],
 		    {New, Old} = mnesia_recover:connect_nodes(RemoteRunning1),
 		    RemoteRunning = mnesia_lib:intersect(New ++ Old, RemoteRunning1),
-		    if 
+		    if
 			RemoteRunning /= RemoteRunning1 ->
-			    mnesia_lib:error("Mnesia on ~p could not connect to node(s) ~p~n", 
+			    mnesia_lib:error("Mnesia on ~p could not connect to node(s) ~p~n",
 					     [node(), RemoteRunning1 -- RemoteRunning]),
 			    mnesia:abort({node_not_running, RemoteRunning1 -- RemoteRunning});
 			true -> ok
@@ -2750,17 +2784,16 @@ do_merge_schema(LockTabs0) ->
                     [mnesia_locker:wlock_no_exist(Tid, Store, T,
                                                   mnesia_lib:intersect(Ns,NeedsLock))
                      || {T,Ns} <- LockTabs],
-		    {value, SchemaCs} =
-			lists:keysearch(schema, #cstruct.name, Cstructs),
 
+		    NeedsConversion = need_old_cstructs(NeedsLock ++ LockedAlready),
+		    {value, SchemaCs} = lists:keysearch(schema, #cstruct.name, Cstructs),
+		    SchemaDef = cs2list(NeedsConversion, SchemaCs),
 		    %% Announce that Node is running
-		    A = [{op, announce_im_running, node(),
-			  [{K,V} || {K,V} <- cs2list(SchemaCs),
-				    not lists:member(K, DeleteFields)], Running, RemoteRunning}],
+		    A = [{op, announce_im_running, node(), SchemaDef, Running, RemoteRunning}],
 		    do_insert_schema_ops(Store, A),
 
 		    %% Introduce remote tables to local node
-		    do_insert_schema_ops(Store, make_merge_schema(Node, Cstructs)),
+		    do_insert_schema_ops(Store, make_merge_schema(Node, NeedsConversion, Cstructs)),
 
 		    %% Introduce local tables to remote nodes
 		    Tabs = val({schema, tables}),
@@ -2784,31 +2817,49 @@ do_merge_schema(LockTabs0) ->
 	    not_merged
     end.
 
-normalize_remote_cstructs([#cstruct{}|_] = Cstructs, _) ->
-    {Cstructs, []};
-normalize_remote_cstructs([T|_] = Cstructs, Node) when element(1,T) == cstruct ->
-    Flds = [F || {F, _} <- rpc:call(Node, ?MODULE, cs2list, [T])],
-    DeleteFields = record_info(fields, cstruct) -- Flds,
-    NewCstructs = lists:map(
-		    fun(Cs) ->
-			    CsL = lists:zip(Flds, tl(tuple_to_list(Cs))),
-			    #cstruct{} = list2cs(CsL)
-		    end, Cstructs),
-    {NewCstructs, DeleteFields}.
+fetch_cstructs(Node) ->
+    case mnesia_monitor:needs_protocol_conversion(Node) of
+	true ->
+	    case rpc:call(Node, mnesia_controller, get_cstructs, []) of
+		{cstructs, Cs0, RR} ->
+		    {cstructs, [list2cs(cs2list(Cs)) || Cs <- Cs0], RR};
+		Err -> Err
+	    end;
+	false ->
+	    rpc:call(Node, mnesia_controller, get_remote_cstructs, [])
+    end.
+
+need_old_cstructs(Nodes) ->
+    Filter = fun(Node) -> not mnesia_monitor:needs_protocol_conversion(Node) end,
+    case lists:dropwhile(Filter, Nodes) of
+	[] -> false;
+	[Node|_] ->
+	    case rpc:call(Node, mnesia_lib, val, [{schema,cstruct}]) of
+		#cstruct{} ->
+		    %% mnesia_lib:warning("Mnesia on ~p do not need to convert cstruct (~p)~n",
+		    %% 		       [node(), Node]),
+		    false;
+		{badrpc, _} ->
+		    need_old_cstructs(lists:delete(Node,Nodes));
+		Cs when element(1, Cs) == cstruct, tuple_size(Cs) == 17 ->
+		    ver4_4_18;			% Without majority
+		Cs when element(1, Cs) == cstruct, tuple_size(Cs) == 18 ->
+		    ver4_4_19			% With majority
+	    end
+    end.
 
 tab_to_nodes(Tab) when is_atom(Tab) ->
     Cs = val({Tab, cstruct}),
     mnesia_lib:cs_to_nodes(Cs).
 
-make_merge_schema(Node, [Cs | Cstructs]) ->
-    Ops = do_make_merge_schema(Node, Cs),
-    Ops ++ make_merge_schema(Node, Cstructs);
-make_merge_schema(_Node, []) ->
+make_merge_schema(Node, NeedsConv, [Cs | Cstructs]) ->
+    Ops = do_make_merge_schema(Node, NeedsConv, Cs),
+    Ops ++ make_merge_schema(Node, NeedsConv, Cstructs);
+make_merge_schema(_Node, _, []) ->
     [].
 
 %% Merge definitions of schema table
-do_make_merge_schema(Node, RemoteCs)
-  when RemoteCs#cstruct.name == schema ->
+do_make_merge_schema(Node, NeedsConv, RemoteCs = #cstruct{name = schema}) ->
     Cs = val({schema, cstruct}),
     Masters = mnesia_recover:get_master_nodes(schema),
     HasRemoteMaster = lists:member(Node, Masters),
@@ -2818,15 +2869,15 @@ do_make_merge_schema(Node, RemoteCs)
     StCsLocal   = mnesia_lib:cs_to_storage_type(node(), Cs),
     StRcsLocal  = mnesia_lib:cs_to_storage_type(node(), RemoteCs),
     StCsRemote  = mnesia_lib:cs_to_storage_type(Node, Cs),
-    StRcsRemote = mnesia_lib:cs_to_storage_type(Node, RemoteCs),        
-    
+    StRcsRemote = mnesia_lib:cs_to_storage_type(Node, RemoteCs),
+
     if
 	Cs#cstruct.cookie == RemoteCs#cstruct.cookie,
 	Cs#cstruct.version == RemoteCs#cstruct.version ->
 	    %% Great, we have the same cookie and version
 	    %% and do not need to merge cstructs
 	    [];
-	
+
 	Cs#cstruct.cookie /= RemoteCs#cstruct.cookie,
 	Cs#cstruct.disc_copies /= [],
 	RemoteCs#cstruct.disc_copies /= [] ->
@@ -2837,14 +2888,14 @@ do_make_merge_schema(Node, RemoteCs)
 		HasRemoteMaster == false ->
 		    %% Choose local cstruct,
 		    %% since it's the master
-		    [{op, merge_schema, cs2list(Cs)}];
+		    [{op, merge_schema, cs2list(NeedsConv, Cs)}];
 
 		HasRemoteMaster == true,
 		HasLocalMaster == false ->
 		    %% Choose remote cstruct,
 		    %% since it's the master
-		    [{op, merge_schema, cs2list(RemoteCs)}];
-		
+		    [{op, merge_schema, cs2list(NeedsConv, RemoteCs)}];
+
 		true ->
 		    Str = io_lib:format("Incompatible schema cookies. "
 					"Please, restart from old backup."
@@ -2852,12 +2903,12 @@ do_make_merge_schema(Node, RemoteCs)
 					[Node, cs2list(RemoteCs), node(), cs2list(Cs)]),
 		    throw(Str)
 	    end;
-	
+
 	StCsLocal /= StRcsLocal, StRcsLocal /= unknown, StCsLocal /= ram_copies ->
 	    Str = io_lib:format("Incompatible schema storage types (local). "
 				"on ~w storage ~w, on ~w storage ~w~n",
 				[node(), StCsLocal, Node, StRcsLocal]),
-	    throw(Str);    
+	    throw(Str);
 	StCsRemote /= StRcsRemote, StCsRemote /= unknown, StRcsRemote /= ram_copies ->
 	    Str = io_lib:format("Incompatible schema storage types (remote). "
 				"on ~w cs ~w, on ~w rcs ~w~n",
@@ -2868,27 +2919,27 @@ do_make_merge_schema(Node, RemoteCs)
 	    %% Choose local cstruct,
 	    %% since it involves disc nodes
 	    MergedCs = merge_cstructs(Cs, RemoteCs, Force),
-	    [{op, merge_schema, cs2list(MergedCs)}];
-	
+	    [{op, merge_schema, cs2list(NeedsConv, MergedCs)}];
+
 	RemoteCs#cstruct.disc_copies /= [] ->
 	    %% Choose remote cstruct,
 	    %% since it involves disc nodes
 	    MergedCs = merge_cstructs(RemoteCs, Cs, Force),
-	    [{op, merge_schema, cs2list(MergedCs)}];
+	    [{op, merge_schema, cs2list(NeedsConv, MergedCs)}];
 
 	Cs > RemoteCs ->
 	    %% Choose remote cstruct
 	    MergedCs = merge_cstructs(RemoteCs, Cs, Force),
-	    [{op, merge_schema, cs2list(MergedCs)}];
-	
+	    [{op, merge_schema, cs2list(NeedsConv, MergedCs)}];
+
 	true ->
 	    %% Choose local cstruct
 	    MergedCs = merge_cstructs(Cs, RemoteCs, Force),
-	    [{op, merge_schema, cs2list(MergedCs)}]
+	    [{op, merge_schema, cs2list(NeedsConv, MergedCs)}]
     end;
 
 %% Merge definitions of normal table
-do_make_merge_schema(Node, RemoteCs) ->
+do_make_merge_schema(Node, NeedsConv, RemoteCs = #cstruct{}) ->
     Tab = RemoteCs#cstruct.name,
     Masters = mnesia_recover:get_master_nodes(schema),
     HasRemoteMaster = lists:member(Node, Masters),
@@ -2897,27 +2948,27 @@ do_make_merge_schema(Node, RemoteCs) ->
     case ?catch_val({Tab, cstruct}) of
 	{'EXIT', _} ->
 	    %% A completely new table, created while Node was down
-	    [{op, merge_schema, cs2list(RemoteCs)}];
+	    [{op, merge_schema, cs2list(NeedsConv, RemoteCs)}];
 	Cs when Cs#cstruct.cookie == RemoteCs#cstruct.cookie ->
 	    if
 		Cs#cstruct.version == RemoteCs#cstruct.version ->
 		    %% We have exactly the same version of the
 		    %% table def
 		    [];
-		
+
 		Cs#cstruct.version > RemoteCs#cstruct.version ->
 		    %% Oops, we have different versions
 		    %% of the table def, lets merge them.
 		    %% The only changes that may have occurred
 		    %% is that new replicas may have been added.
 		    MergedCs = merge_cstructs(Cs, RemoteCs, Force),
-		    [{op, merge_schema, cs2list(MergedCs)}];
-		
+		    [{op, merge_schema, cs2list(NeedsConv, MergedCs)}];
+
 		Cs#cstruct.version < RemoteCs#cstruct.version ->
 		    %% Oops, we have different versions
 		    %% of the table def, lets merge them
 		    MergedCs = merge_cstructs(RemoteCs, Cs, Force),
-		    [{op, merge_schema, cs2list(MergedCs)}]
+		    [{op, merge_schema, cs2list(NeedsConv, MergedCs)}]
 	    end;
 	Cs ->
 	    %% Different cookies, not possible to merge
@@ -2926,13 +2977,13 @@ do_make_merge_schema(Node, RemoteCs) ->
 		HasRemoteMaster == false ->
 		    %% Choose local cstruct,
 		    %% since it's the master
-		    [{op, merge_schema, cs2list(Cs)}];
+		    [{op, merge_schema, cs2list(NeedsConv, Cs)}];
 
 		HasRemoteMaster == true,
 		HasLocalMaster == false ->
 		    %% Choose remote cstruct,
 		    %% since it's the master
-		    [{op, merge_schema, cs2list(RemoteCs)}];
+		    [{op, merge_schema, cs2list(NeedsConv, RemoteCs)}];
 
 		true ->
 		    Str = io_lib:format("Bad cookie in table definition"

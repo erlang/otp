@@ -287,21 +287,9 @@ get_remote_cstructs() ->
 
 %% Old function kept for backwards compatibility; converts cstructs before sending.
 get_cstructs() ->
-    {cstructs, Cstructs, Running} = Reply = call(get_cstructs),
-    case is_remote_call() of
-	{true, Node} ->
-	    {cstructs, normalize_cstructs(Cstructs, Node), Running};
-	false ->
-	    Reply
-    end.
-
-is_remote_call() ->
-    case node(group_leader()) of
-	N when N =/= node() ->
-	    {true, N};
-	_ ->
-	    false
-    end.
+    {cstructs, Cstructs, Running} = call(get_cstructs),
+    Node = node(group_leader()),
+    {cstructs, normalize_cstructs(Cstructs, Node), Running}.
 
 normalize_cstructs(Cstructs, Node) ->
     %% backward-compatibility hack; normalize before returning
