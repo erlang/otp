@@ -28,34 +28,108 @@
 
 -include("inet_int.hrl").
 
--type hostname() :: inet:hostname().
--type ip_address() :: inet:ip_address().
--type port_number() :: 0..65535.
--type posix() :: inet:posix().
+-type option() ::
+        {active,          true | false | once} |
+        {bit8,            clear | set | on | off} |
+        {buffer,          non_neg_integer()} |
+        {delay_send,      boolean()} |
+        {deliver,         port | term} |
+        {dontroute,       boolean()} |
+        {exit_on_close,   boolean()} |
+        {header,          non_neg_integer()} |
+        {high_watermark,  non_neg_integer()} |
+        {keepalive,       boolean()} |
+        {linger,          {boolean(), non_neg_integer()}} |
+        {low_watermark,   non_neg_integer()} |
+        {mode,            list | binary} | list | binary |
+        {nodelay,         boolean()} |
+        {packet,
+         0 | 1 | 2 | 4 | raw | sunrm |  asn1 |
+         cdr | fcgi | line | tpkt | http | httph | http_bin | httph_bin } |
+        {packet_size,     non_neg_integer()} |
+        {priority,        non_neg_integer()} |
+        {raw,
+         Protocol :: non_neg_integer(),
+         OptionNum :: non_neg_integer(),
+         ValueBin :: binary()} |
+        {recbuf,          non_neg_integer()} |
+        {reuseaddr,       boolean()} |
+        {send_timeout,    non_neg_integer() | infinity} |
+        {send_timeout_close, boolean()} |
+        {sndbuf,          non_neg_integer()} |
+        {tos,             non_neg_integer()}.
+-type option_name() ::
+        active |
+        bit8 |
+        buffer |
+        delay_send |
+        deliver |
+        dontroute |
+        exit_on_close |
+        header |
+        high_watermark |
+        keepalive |
+        linger |
+        low_watermark |
+        mode |
+        nodelay |
+        packet |
+        packet_size |
+        priority |
+        {raw,
+         Protocol :: non_neg_integer(),
+         OptionNum :: non_neg_integer(),
+         ValueSpec :: (ValueSize :: non_neg_integer()) |
+                      (ValueBin :: binary())} |
+        recbuf |
+        reuseaddr |
+        send_timeout |
+        send_timeout_close |
+        sndbuf |
+        tos.
+-type connect_option() ::
+        {ip, inet:ip_address()} |
+        {fd, Fd :: non_neg_integer()} |
+        {ifaddr, inet:ip_address()} |
+        inet:address_family() |
+        {port, inet:port_number()} |
+        {tcp_module, module()} |
+        option().
+-type listen_option() ::
+        {ip, inet:ip_address()} |
+        {fd, Fd :: non_neg_integer()} |
+        {ifaddr, inet:ip_address()} |
+        inet:address_family() |
+        {port, inet:port_number()} |
+        {backlog, B :: non_neg_integer()} |
+        {tcp_module, module()} |
+        option().
 -type socket() :: port().
+
+-export_type([option/0, option_name/0, connect_option/0, listen_option/0]).
 
 %%
 %% Connect a socket
 %%
 
 -spec connect(Address, Port, Options) -> {ok, Socket} | {error, Reason} when
-      Address :: ip_address() | hostname(),
-      Port :: port_number(),
-      Options :: [Opt :: term()],
+      Address :: inet:ip_address() | inet:hostname(),
+      Port :: inet:port_number(),
+      Options :: [connect_option()],
       Socket :: socket(),
-      Reason :: posix().
+      Reason :: inet:posix().
 
 connect(Address, Port, Opts) -> 
     connect(Address,Port,Opts,infinity).
 
 -spec connect(Address, Port, Options, Timeout) ->
                      {ok, Socket} | {error, Reason} when
-      Address :: ip_address() | hostname(),
-      Port :: port_number(),
-      Options :: [Opt :: term()],
+      Address :: inet:ip_address() | inet:hostname(),
+      Port :: inet:port_number(),
+      Options :: [connect_option()],
       Timeout :: timeout(),
       Socket :: socket(),
-      Reason :: posix().
+      Reason :: inet:posix().
 
 connect(Address, Port, Opts, Time) ->
     Timer = inet:start_timer(Time),
@@ -97,10 +171,10 @@ try_connect([], _Port, _Opts, _Timer, _Mod, Err) ->
 %%
 
 -spec listen(Port, Options) -> {ok, ListenSocket} | {error, Reason} when
-      Port :: port_number(),
-      Options :: [Opt :: term()],
+      Port :: inet:port_number(),
+      Options :: [listen_option()],
       ListenSocket :: socket(),
-      Reason :: posix().
+      Reason :: inet:posix().
 
 listen(Port, Opts) ->
     Mod = mod(Opts, undefined),
@@ -119,7 +193,7 @@ listen(Port, Opts) ->
 -spec accept(ListenSocket) -> {ok, Socket} | {error, Reason} when
       ListenSocket :: socket(),
       Socket :: socket(),
-      Reason :: closed | timeout | posix().
+      Reason :: closed | timeout | inet:posix().
 
 accept(S) ->
     case inet_db:lookup_socket(S) of
@@ -133,7 +207,7 @@ accept(S) ->
       ListenSocket :: socket(),
       Timeout :: timeout(),
       Socket :: socket(),
-      Reason :: closed | timeout | posix().
+      Reason :: closed | timeout | inet:posix().
 
 accept(S, Time) when is_port(S) ->
     case inet_db:lookup_socket(S) of
@@ -150,7 +224,7 @@ accept(S, Time) when is_port(S) ->
 -spec shutdown(Socket, How) -> ok | {error, Reason} when
       Socket :: socket(),
       How :: read | write | read_write,
-      Reason :: posix().
+      Reason :: inet:posix().
 
 shutdown(S, How) when is_port(S) ->
     case inet_db:lookup_socket(S) of
@@ -177,7 +251,7 @@ close(S) ->
 -spec send(Socket, Packet) -> ok | {error, Reason} when
       Socket :: socket(),
       Packet :: string() | binary(),
-      Reason :: posix().
+      Reason :: inet:posix().
 
 send(S, Packet) when is_port(S) ->
     case inet_db:lookup_socket(S) of
@@ -195,7 +269,7 @@ send(S, Packet) when is_port(S) ->
       Socket :: socket(),
       Length :: non_neg_integer(),
       Packet :: string() | binary() | HttpPacket,
-      Reason :: closed | posix(),
+      Reason :: closed | inet:posix(),
       HttpPacket :: term().
 
 recv(S, Length) when is_port(S) ->
@@ -211,7 +285,7 @@ recv(S, Length) when is_port(S) ->
       Length :: non_neg_integer(),
       Timeout :: timeout(),
       Packet :: string() | binary() | HttpPacket,
-      Reason :: closed | posix(),
+      Reason :: closed | inet:posix(),
       HttpPacket :: term().
 
 recv(S, Length, Time) when is_port(S) ->
@@ -237,7 +311,7 @@ unrecv(S, Data) when is_port(S) ->
 -spec controlling_process(Socket, Pid) -> ok | {error, Reason} when
       Socket :: socket(),
       Pid :: pid(),
-      Reason :: closed | not_owner | posix().
+      Reason :: closed | not_owner | inet:posix().
 
 controlling_process(S, NewOwner) ->
     case inet_db:lookup_socket(S) of
