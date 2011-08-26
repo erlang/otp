@@ -313,7 +313,7 @@ validate_uri(RequestURI) ->
 	    {error, {bad_request, {malformed_syntax, RequestURI}}};
 	_ ->
 	    Path = format_request_uri(UriNoQueryNoHex),
-	    Path2=[X||X<-string:tokens(Path, "/"),X=/="."], %% OTP-5938
+	    Path2=[X||X<-string:tokens(Path, "/\\"),X=/="."], %% OTP-5938
 	    validate_path( Path2,0, RequestURI)
     end.
 
