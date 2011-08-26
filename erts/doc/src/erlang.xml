@@ -518,6 +518,18 @@
     </func>
 
     <func>
+      <name>check_old_code(Module) -> boolean()</name>
+      <fsummary>Check if a module has old code</fsummary>
+      <type>
+        <v>Module = atom()</v>
+      </type>
+      <desc>
+        <p>Returns <c>true</c> if the <c>Module</c> has old code,
+	and <c>false</c> otherwise.</p>
+        <p>See also <seealso marker="kernel:code">code(3)</seealso>.</p>
+      </desc>
+    </func>
+    <func>
       <name>check_process_code(Pid, Module) -> boolean()</name>
       <fsummary>Check if a process is executing old code for a module</fsummary>
       <type>
