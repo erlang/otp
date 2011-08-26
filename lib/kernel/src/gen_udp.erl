@@ -25,25 +25,74 @@
 
 -include("inet_int.hrl").
 
--type hostname() :: inet:hostname().
--type ip_address() :: inet:ip_address().
--type port_number() :: 0..65535.
--type posix() :: inet:posix().
+-type option() ::
+        {active,          true | false | once} |
+        {add_membership,  {inet:ip_address(), inet:ip_address()}} |
+        {broadcast,       boolean()} |
+        {buffer,          non_neg_integer()} |
+        {deliver,         port | term} |
+        {dontroute,       boolean()} |
+        {drop_membership, {inet:ip_address(), inet:ip_address()}} |
+        {header,          non_neg_integer()} |
+        {mode,            list | binary} | list | binary |
+        {multicast_if,    inet:ip_address()} |
+        {multicast_loop,  boolean()} |
+        {multicast_ttl,   non_neg_integer()} |
+        {priority,        non_neg_integer()} |
+        {raw,
+         Protocol :: non_neg_integer(),
+         OptionNum :: non_neg_integer(),
+         ValueBin :: binary()} |
+        {read_packets,    non_neg_integer()} |
+        {recbuf,          non_neg_integer()} |
+        {reuseaddr,       boolean()} |
+        {sndbuf,          non_neg_integer()} |
+        {tos,             non_neg_integer()}.
+-type option_name() ::
+        active |
+        broadcast |
+        buffer |
+        deliver |
+        dontroute |
+        header |
+        mode |
+        multicast_if |
+        multicast_loop |
+        multicast_ttl |
+        priority |
+        {raw,
+         Protocol :: non_neg_integer(),
+         OptionNum :: non_neg_integer(),
+         ValueSpec :: (ValueSize :: non_neg_integer()) |
+                      (ValueBin :: binary())} |
+        read_packets |
+        recbuf |
+        reuseaddr |
+        sndbuf |
+        tos.
 -type socket() :: port().
 
+-export_type([option/0, option_name/0]).
+
 -spec open(Port) -> {ok, Socket} | {error, Reason} when
-      Port :: port_number(),
+      Port :: inet:port_number(),
       Socket :: socket(),
-      Reason :: posix().
+      Reason :: inet:posix().
 
 open(Port) -> 
     open(Port, []).
 
 -spec open(Port, Opts) -> {ok, Socket} | {error, Reason} when
-      Port :: port_number(),
-      Opts :: [Opt :: term()],
+      Port :: inet:port_number(),
+      Opts :: [Option],
+      Option :: {ip, inet:ip_address()}
+              | {fd, non_neg_integer()}
+              | {ifaddr, inet:ip_address()}
+              | inet:address_family()
+              | {port, inet:port_number()}
+              | option(),
       Socket :: socket(),
-      Reason :: posix().
+      Reason :: inet:posix().
 
 open(Port, Opts) ->
     Mod = mod(Opts, undefined),
@@ -58,10 +107,10 @@ close(S) ->
 
 -spec send(Socket, Address, Port, Packet) -> ok | {error, Reason} when
       Socket :: socket(),
-      Address :: ip_address() | hostname(),
-      Port :: port_number(),
+      Address :: inet:ip_address() | inet:hostname(),
+      Port :: inet:port_number(),
       Packet :: string() | binary(),
-      Reason :: not_owner | posix().
+      Reason :: not_owner | inet:posix().
 
 send(S, Address, Port, Packet) when is_port(S) ->
     case inet_db:lookup_socket(S) of
@@ -92,10 +141,10 @@ send(S, Packet) when is_port(S) ->
                   {ok, {Address, Port, Packet}} | {error, Reason} when
       Socket :: socket(),
       Length :: non_neg_integer(),
-      Address :: ip_address(),
-      Port :: port_number(),
+      Address :: inet:ip_address(),
+      Port :: inet:port_number(),
       Packet :: string() | binary(),
-      Reason :: not_owner | posix().
+      Reason :: not_owner | inet:posix().
 
 recv(S,Len) when is_port(S), is_integer(Len) ->
     case inet_db:lookup_socket(S) of
@@ -110,10 +159,10 @@ recv(S,Len) when is_port(S), is_integer(Len) ->
       Socket :: socket(),
       Length :: non_neg_integer(),
       Timeout :: timeout(),
-      Address :: ip_address(),
-      Port :: port_number(),
+      Address :: inet:ip_address(),
+      Port :: inet:port_number(),
       Packet :: string() | binary(),
-      Reason :: not_owner | posix().
+      Reason :: not_owner | inet:posix().
 
 recv(S,Len,Time) when is_port(S) ->
     case inet_db:lookup_socket(S) of
