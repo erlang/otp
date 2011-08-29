@@ -27,7 +27,6 @@
 -include("edoc.hrl").
 -include("edoc_types.hrl").
 
--type proplist() :: [proplists:property()].
 -type syntaxTree() :: erl_syntax:syntaxTree().
 
 -define(TOP_TYPE, term).
@@ -99,7 +98,7 @@ docs(Forms, CommentFun) ->
 -type entry() :: #entry{}.
 -type module_info() :: #module{}.
 -type entries() :: [entry()].
--spec add_data(Entries::entries(), Options::proplist(),
+-spec add_data(Entries::entries(), Options::proplists:proplist(),
                File::file:filename(), Module::module_info()) -> entries().
 
 %% @doc Create tags a la EDoc for Erlang specifications and types.
