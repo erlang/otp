@@ -31,8 +31,6 @@
 -export([on_tc_skip/2]).
 -export([on_tc_fail/2]).
 
--type proplist() :: [{atom(),term()}].
-
 %% If you change this, remember to update ct_util:look -> stop clause as well.
 -define(config_name, ct_hooks).
 
@@ -59,7 +57,7 @@ terminate(Hooks) ->
 %% @doc Called as each test case is started. This includes all configuration
 %% tests.
 -spec init_tc(Mod :: atom(), Func :: atom(), Args :: list()) ->
-    NewConfig :: proplist() |
+    NewConfig :: proplists:proplist() |
     {skip, Reason :: term()} |
     {auto_skip, Reason :: term()} |
     {fail, Reason :: term()}.
@@ -92,7 +90,7 @@ init_tc(_Mod, TC, Config) ->
 	     Args :: list(),
 	     Result :: term(),
 	     Resturn :: term()) ->
-    NewConfig :: proplist() |
+    NewConfig :: proplists:proplist() |
     {skip, Reason :: term()} |
     {auto_skip, Reason :: term()} |
     {fail, Reason :: term()} |
