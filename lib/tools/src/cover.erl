@@ -522,7 +522,7 @@ call(Request) ->
 		    {?SERVER,Reply} -> 
 			Reply
 		end,
-	    erlang:demonitor(Ref),
+	    erlang:demonitor(Ref, [flush]),
 	    Return
     end.
 
@@ -545,7 +545,7 @@ remote_call(Node,Request) ->
 		    {?SERVER,Reply} -> 
 			Reply
 		end,
-	    erlang:demonitor(Ref),
+	    erlang:demonitor(Ref, [flush]),
 	    Return
     end.
     
