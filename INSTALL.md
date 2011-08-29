@@ -27,7 +27,7 @@ on Unix. For detailed instructions on how to
     Binary releases for Windows can be found at
     <http://www.erlang.org/download.html>.
 
-Before reading the above mensioned documents you are in any case advised to
+Before reading the above mentioned documents you are in any case advised to
 read this document first, since it covers building Erlang/OTP in general as
 well as other important information.
 
