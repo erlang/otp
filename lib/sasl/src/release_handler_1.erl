@@ -122,22 +122,29 @@ split_instructions([], Before) ->
 %%          Mod = atom()  
 %%-----------------------------------------------------------------
 check_old_processes(Script) ->
+    Procs = erlang:processes(),
     lists:foreach(fun({load, {Mod, soft_purge, _PostPurgeMethod}}) ->
-			  check_old_code(Mod);
+			  check_old_code(Mod,Procs);
 		     ({remove, {Mod, soft_purge, _PostPurgeMethod}}) ->
-			  check_old_code(Mod);
+			  check_old_code(Mod,Procs);
 		     (_) -> ok
 		  end,
 		  Script).
 
-check_old_code(Mod) ->
-    lists:foreach(fun(Pid) ->
-			  case erlang:check_process_code(Pid, Mod) of
-			      false -> ok;
-			      true -> throw({error, Mod})
-			  end
-		  end,
-		  erlang:processes()).
+check_old_code(Mod,Procs) ->
+    case erlang:check_old_code(Mod) of
+	true ->
+	    lists:foreach(fun(Pid) ->
+				  case erlang:check_process_code(Pid, Mod) of
+				      false -> ok;
+				      true -> throw({error, Mod})
+				  end
+			  end,
+			  Procs);
+	false ->
+	    ok
+    end.
+
 
 %%-----------------------------------------------------------------
 %% An unpurged module is a module for which there exist an old

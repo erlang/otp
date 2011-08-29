@@ -55,7 +55,8 @@ win32_cases() ->
 
 %% Cases that can be run on all platforms
 cases() ->
-    [otp_2740, otp_2760, otp_5761, otp_9402, otp_9417, instructions, eval_appup].
+    [otp_2740, otp_2760, otp_5761, otp_9402, otp_9417,
+     many_procs, instructions, eval_appup].
 
 groups() ->
     [{release,[],
@@ -556,7 +557,7 @@ otp_2760(Conf) ->
     LibDir = filename:join([DataDir,app1_app2,lib1]),
 
     Rel1 = create_and_install_fake_first_release(Dir,[{app1,"1.0",LibDir}]),
-    Rel2 = create_fake_upgrade_release(Dir,"after",[],{Rel1,Rel1,[LibDir]}),
+    Rel2 = create_fake_upgrade_release(Dir,"after",[],{[Rel1],[Rel1],[LibDir]}),
     Rel2Dir = filename:dirname(Rel2),
 
     %% Start a node with Rel1.boot and check that the app1 module is loaded
@@ -597,7 +598,7 @@ otp_5761(Conf) when is_list(Conf) ->
 				       "2",
 				       [{app1,"2.0",LibDir2},
 					{app2,"1.0",LibDir2}],
-				       {Rel1,Rel1,[LibDir1]}),
+				       {[Rel1],[Rel1],[LibDir1]}),
     Rel1Dir = filename:dirname(Rel1),
     Rel2Dir = filename:dirname(Rel2),
     
@@ -673,7 +674,7 @@ otp_9402(Conf) when is_list(Conf) ->
     Rel2 = create_fake_upgrade_release(Dir,
 				       "2",
 				       [{a,"1.2",LibDir}],
-				       {Rel1,Rel1,[LibDir]}),
+				       {[Rel1],[Rel1],[LibDir]}),
     Rel1Dir = filename:dirname(Rel1),
     Rel2Dir = filename:dirname(Rel2),
 
@@ -737,7 +738,7 @@ otp_9417(Conf) when is_list(Conf) ->
     Rel2 = create_fake_upgrade_release(Dir,
 				       "2",
 				       [{b,"2.0",LibDir}],
-				       {Rel1,Rel1,[LibDir]}),
+				       {[Rel1],[Rel1],[LibDir]}),
     Rel1Dir = filename:dirname(Rel1),
     Rel2Dir = filename:dirname(Rel2),
 
@@ -776,6 +777,79 @@ otp_9417(Conf) when is_list(Conf) ->
     BServerBeam = filename:join([Dir2,"ebin","b_server.beam"]),
     {file,BServerBeam} = rpc:call(Node,code,is_loaded,[b_server]),
     ok.
+
+%% OTP-9395 - performance problems when there are MANY processes
+%% Test that the procedure of checking for old code before an upgrade
+%% can be started is "very much faster" when there is no old code in
+%% the system.
+many_procs(Conf) when is_list(Conf) ->
+
+    NProcs = 1000,
+    NMods = 10,
+    Modules = [list_to_atom("m"++integer_to_list(N)) || N <- lists:seq(1,NMods)],
+    Mbins = [generate_module(M) || M <- Modules],
+
+    Pids = [spawn_link(fun() ->
+			       Cs = [M:bar() || M <- Modules],
+			       receive stop -> Cs end
+		       end) ||
+	       _ <- lists:seq(1,NProcs)],
+
+    [code:load_binary(Mod,generated_by_release_handler_SUITE,Bin) ||
+	{Mod,Bin} <- Mbins],
+
+    S = [point_of_no_return |
+	 [{remove,{M,soft_purge,soft_purge}} || M <- Modules]],
+
+    {T1,ok} = timer:tc(release_handler_1,check_script,[S,[]]),
+    [code:purge(M) || M <- Modules],
+    {T2,ok} = timer:tc(release_handler_1,check_script,[S,[]]),
+
+    lists:foreach(fun(Pid) -> Pid ! stop end, Pids),
+    lists:foreach(fun(Mod) -> code:purge(Mod),
+			      code:delete(Mod),
+			      code:purge(Mod)
+		  end, Modules),
+
+    if T2 > 0 ->
+	    X = T1/T2,
+	    ct:log("~p procs, ~p mods -> ~n"
+		   "\tWith old code: ~.2f sec~n"
+		   "\tAfter purge: ~.2f sec~n"
+		   "\tT1/T2: ~.2f",
+		   [NProcs,NMods,T1/1000000,T2/1000000,X]),
+	    if X < 1000 ->
+		    ct:fail({not_enough_improvement_after_purge,round(X)});
+	       true ->
+		    ok
+	    end;
+       T1 > 0 -> %% Means T1/T2 = infinite
+	    ok;
+       true ->
+	    ct:fail({unexpected_values,T1,T2})
+    end,
+    ok.
+
+%% Generate a module with a constant. This constant will be referenced
+%% from many processes in order to force a garbage collection from
+%% erlang:check_process_code.
+generate_module(Mod) ->
+    Str = lists:concat(
+	    ["-module(",Mod,").\n"
+	     "-compile(export_all).\n"
+	     "bar() -> {now(),[{1,'1',\"1\"},{2,'2',\"2\"},{3,'3',\"3\"},{4,'4',\"4\"},{5,'5',\"5\"},{6,'6',\"6\"},{7,'7',\"7\"},{8,'8',\"8\"},{9,'9',\"9\"},{10,'10',\"10\"},{11,'11',\"11\"},{12,'12',\"12\"},{13,'13',\"13\"},{14,'14',\"14\"},{15,'15',\"15\"},{16,'16',\"16\"},{17,'17',\"17\"},{18,'18',\"18\"},{19,'19',\"19\"},{20,'20',\"20\"},{21,'21',\"21\"},{22,'22',\"22\"},{23,'23',\"23\"},{24,'24',\"24\"},{25,'25',\"25\"},{26,'26',\"26\"},{27,'27',\"27\"},{28,'28',\"28\"},{29,'29',\"29\"},{30,'30',\"30\"},{31,'31',\"31\"},{32,'32',\"32\"},{33,'33',\"33\"},{34,'34',\"34\"},{35,'35',\"35\"},{36,'36',\"36\"},{37,'37',\"37\"},{38,'38',\"38\"},{39,'39',\"39\"},{40,'40',\"40\"},{41,'41',\"41\"},{42,'42',\"42\"},{43,'43',\"43\"},{44,'44',\"44\"},{45,'45',\"45\"},{46,'46',\"46\"},{47,'47',\"47\"},{48,'48',\"48\"},{49,'49',\"49\"},{50,'50',\"50\"},{51,'51',\"51\"},{52,'52',\"52\"},{53,'53',\"53\"},{54,'54',\"54\"},{55,'55',\"55\"},{56,'56',\"56\"},{57,'57',\"57\"},{58,'58',\"58\"},{59,'59',\"59\"},{60,'60',\"60\"},{61,'61',\"61\"},{62,'62',\"62\"},{63,'63',\"63\"},{64,'64',\"64\"},{65,'65',\"65\"},{66,'66',\"66\"},{67,'67',\"67\"},{68,'68',\"68\"},{69,'69',\"69\"},{70,'70',\"70\"},{71,'71',\"71\"},{72,'72',\"72\"},{73,'73',\"73\"},{74,'74',\"74\"},{75,'75',\"75\"},{76,'76',\"76\"},{77,'77',\"77\"},{78,'78',\"78\"},{79,'79',\"79\"},{80,'80',\"80\"},{81,'81',\"81\"},{82,'82',\"82\"},{83,'83',\"83\"},{84,'84',\"84\"},{85,'85',\"85\"},{86,'86',\"86\"},{87,'87',\"87\"},{88,'88',\"88\"},{89,'89',\"89\"},{90,'90',\"90\"},{91,'91',\"91\"},{92,'92',\"92\"},{93,'93',\"93\"},{94,'94',\"94\"},{95,'95',\"95\"},{96,'96',\"96\"},{97,'97',\"97\"},{98,'98',\"98\"},{99,'99',\"99\"},{100,'100',\"100\"}]}.\n"]),
+    TT = doscan(Str),
+    Forms = [ begin {ok,Y} = erl_parse:parse_form(X),Y end || X <- TT ],
+    {ok,Mod,Bin} = compile:forms(Forms),
+    code:load_binary(Mod,generated_by_release_handler_SUITE,Bin),
+    {Mod,Bin}.
+
+doscan([]) ->
+    [];
+doscan(Str) ->
+    {done,{ok,T,_},C} = erl_scan:tokens([],Str,0),
+    [ T | doscan(C) ].
+
 
 %% Test upgrade and downgrade of applications
 eval_appup(Conf) when is_list(Conf) ->
@@ -1838,9 +1912,8 @@ create_fake_upgrade_release(Dir,RelVsn,AppDirs,{UpFrom,DownTo,ExtraLibs}) ->
 
     %% And a relup file so it can be upgraded to
     RelupPath = Paths ++ [filename:join([Lib,"*","ebin"]) || Lib <- ExtraLibs],
-    ok = systools:make_relup(Rel,[UpFrom],[DownTo],
-				   [{path,RelupPath},
-				    {outdir,RelDir}]),
+    ok = systools:make_relup(Rel,UpFrom,DownTo,[{path,RelupPath},
+						{outdir,RelDir}]),
     
     Rel.
 

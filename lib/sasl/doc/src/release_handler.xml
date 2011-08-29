@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2009</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -299,6 +299,26 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
           <c>{update_paths,true}</c>, afterwards
           <c>code:lib_dir(myapp)</c> will return
           <c>/home/user/myapp-1.0</c>.</p>
+	<note>
+	  <p>Before a new release is installed, the
+	  <c>release_handler</c> checks that no processes have
+	  references to old code of any of the modules that are to be
+	  loaded. This operation can be very time consuming,
+	  especially if there are many processes in the system, since
+	  it might cause garbage collections and copying of data.</p>
+	  <p>If it is desirable to reduce the time spent in this
+	  function, then <seealso
+	  marker="#check_install_release/1">check_install_release/1</seealso>
+	  might be called first. This function does the same check for
+	  old code, including garbage collection, and can be done in
+	  the background before actually starting the upgrade by
+	  calling <c>install_release</c>.</p>
+	  <p>Code might even be purged (using
+	  <c>code:purge/1</c>) after
+	  <c>check_install_release</c> in order to completely
+	  avoid the check for old code during
+	  <c>install_release</c>.</p>
+	</note>
       </desc>
     </func>
     <func>
