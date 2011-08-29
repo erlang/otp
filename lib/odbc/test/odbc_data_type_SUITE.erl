@@ -89,16 +89,14 @@ init_per_group(GroupName, Config) when GroupName == fixed_char;
     end;
 
 init_per_group(unicode, Config) ->
-    %% Uses parameterized queries
-    case {os:type(), erlang:system_info(wordsize)} of
+    case {os:type(), erlang:system_info({wordsize, external})} of
 	{{unix, _}, 4} ->
 	    Config;
 	{{unix, _}, _} ->
-	    {skip, "Not supported by driver"};
+	    {skip, "Postgres drivers pre version psqlODBC 08.04.0200 have utf8-problems"};
 	_ ->
 	    Config
     end;
-
 
 init_per_group(_GroupName, Config) ->
     Config.
