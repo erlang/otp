@@ -44,7 +44,7 @@
 	  permanent_shutdown/1, transient_shutdown/1,
 	  temporary_shutdown/1,
 	  permanent_abnormal/1, transient_abnormal/1,
-	  temporary_abnormal/1]).
+	  temporary_abnormal/1, temporary_bystander/1]).
 
 %% Restart strategy tests 
 -export([ one_for_one/1,
@@ -77,7 +77,7 @@ all() ->
      {group, abnormal_termination}, child_unlink, tree,
      count_children_memory, do_not_save_start_parameters_for_temporary_children,
      do_not_save_child_specs_for_temporary_children,
-     simple_one_for_one_scale_many_temporary_children].
+     simple_one_for_one_scale_many_temporary_children, temporary_bystander].
 
 groups() -> 
     [{sup_start, [],
@@ -691,6 +691,37 @@ temporary_abnormal(Config) when is_list(Config) ->
 
     [] = supervisor:which_children(sup_test),
     [0,0,0,0] = get_child_counts(sup_test).
+
+%%-------------------------------------------------------------------------
+temporary_bystander(doc) ->
+    ["A temporary process killed as part of a rest_for_one or one_for_all "
+     "restart strategy should not be restarted given its args are not "
+     " saved. Otherwise the supervisor hits its limit and crashes."];
+temporary_bystander(suite) -> [];
+temporary_bystander(_Config) ->
+    Child1 = {child1, {supervisor_1, start_child, []}, permanent, 100,
+	      worker, []},
+    Child2 = {child2, {supervisor_1, start_child, []}, temporary, 100,
+	      worker, []},
+    {ok, SupPid1} = supervisor:start_link(?MODULE, {ok, {{one_for_all, 2, 300}, []}}),
+    {ok, SupPid2} = supervisor:start_link(?MODULE, {ok, {{rest_for_one, 2, 300}, []}}),
+    unlink(SupPid1), % otherwise we crash with it
+    unlink(SupPid2), % otherwise we crash with it
+    {ok, CPid1} = supervisor:start_child(SupPid1, Child1),
+    {ok, _CPid2} = supervisor:start_child(SupPid1, Child2),
+    {ok, CPid3} = supervisor:start_child(SupPid2, Child1),
+    {ok, _CPid4} = supervisor:start_child(SupPid2, Child2),
+    terminate(SupPid1, CPid1, child1, normal),
+    terminate(SupPid2, CPid3, child1, normal),
+    timer:sleep(350),
+    catch link(SupPid1),
+    catch link(SupPid2),
+    %% The supervisor would die attempting to restart child2
+    true = erlang:is_process_alive(SupPid1),
+    true = erlang:is_process_alive(SupPid2),
+    %% Child2 has not been restarted
+    [{child1, _, _, _}] = supervisor:which_children(SupPid1),
+    [{child1, _, _, _}] = supervisor:which_children(SupPid2).
 
 %%-------------------------------------------------------------------------
 one_for_one(doc) ->

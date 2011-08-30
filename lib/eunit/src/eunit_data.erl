@@ -146,8 +146,10 @@ iter_next(I = #iter{next = [T | Ts]}) ->
 
 iter_prev(#iter{prev = []}) ->
     none;
-iter_prev(#iter{prev = [T | Ts], next = Next, pos = Pos} = I) ->
-    {T, I#iter{prev = Ts, next = [T | Next], pos = Pos - 1}}.
+iter_prev(#iter{prev = [T | Ts]} = I) ->
+    {T, I#iter{prev = Ts,
+	       next = [T | I#iter.next],
+		       pos = I#iter.pos - 1}}.
 
 
 %% ---------------------------------------------------------------------
@@ -363,7 +365,8 @@ parse({file, F} = T) when is_list(F) ->
 parse({dir, D}=T) when is_list(D) ->
     case eunit_lib:is_string(D) of
 	true ->
-	    {data, {"directory \"" ++ D ++ "\"", get_directory_modules(D)}};
+	    {data, {"directory \"" ++ D ++ "\"",
+		    get_directory_module_tests(D)}};
 	false ->
 	    bad_test(T)
     end;
@@ -385,10 +388,10 @@ parse({S, T1} = T) when is_list(S) ->
     end;
 parse({S, T1}) when is_binary(S) ->
     group(#group{tests = T1, desc = S});
-parse(T) when tuple_size(T) > 2, is_list(element(1, T)) ->
+parse(T) when is_tuple(T), size(T) > 2, is_list(element(1, T)) ->
     [S | Es] = tuple_to_list(T),
     parse({S, list_to_tuple(Es)});
-parse(T) when tuple_size(T) > 2, is_binary(element(1, T)) ->
+parse(T) when is_tuple(T), size(T) > 2, is_binary(element(1, T)) ->
     [S | Es] = tuple_to_list(T),
     parse({S, list_to_tuple(Es)});
 parse(M) when is_atom(M) ->
@@ -596,7 +599,7 @@ testfuns(Es, M, TestSuffix, GeneratorSuffix) ->
 
 
 %% ---------------------------------------------------------------------
-%% Getting a test set from a file
+%% Getting a test set from a file (text file or object file)
 
 %% @throws {file_read_error, {Reason::atom(), Message::string(),
 %%                            fileName()}}
@@ -625,17 +628,23 @@ get_file_tests(F) ->
 is_module_filename(F) ->
     filename:extension(F) =:= code:objfile_extension().
 
+objfile_test({M, File}) ->
+    {setup,
+     fun () ->
+	     %% TODO: better error/stacktrace for this internal fun
+	     code:purge(M),
+	     {module,M} = code:load_abs(filename:rootname(File)),
+	     ok
+     end,
+     {module, M}};
 objfile_test(File) ->
+    objfile_test({objfile_module(File), File}).
+
+objfile_module(File) ->
     try
-	{module, M} = lists:keyfind(module, 1, beam_lib:info(File)),
-	{setup,
-	 fun () ->
-		 %% TODO: better error/stacktrace for this internal fun
-		 code:purge(M),
-		 {module,M} = code:load_abs(filename:rootname(File)),
-		 ok
-	 end,
-	 {module, M}}
+	{value, {module, M}} = lists:keysearch(module, 1,
+					       beam_lib:info(File)),
+	M
     catch
 	_:_ ->
 	    throw({file_read_error,
@@ -644,15 +653,34 @@ objfile_test(File) ->
 
 
 %% ---------------------------------------------------------------------
-%% Getting a list of module names from object files in a directory
+%% Getting a set of module tests from the object files in a directory
 
-%% @throws {file_read_error, {Reason::atom(), Message::string(),
-%%                            fileName()}}
+%% @throws {file_read_error,
+%%          {Reason::atom(), Message::string(), fileName()}}
+
+get_directory_module_tests(D) ->
+    Ms = get_directory_modules(D),
+    %% for all 'm' in the set, remove 'm_tests' if present
+    F = fun ({M,_}, S) ->
+		Name = atom_to_list(M),
+		case lists:suffix(?DEFAULT_TESTMODULE_SUFFIX, Name) of
+		    false ->
+			Name1 = Name ++ ?DEFAULT_TESTMODULE_SUFFIX,
+			M1 = list_to_atom(Name1),
+			dict:erase(M1, S);
+		    true ->
+			S
+		end
+	end,
+    [objfile_test(Obj)
+     || Obj <- dict:to_list(lists:foldl(F, dict:from_list(Ms), Ms))].
 
 %% TODO: handle packages (recursive search for files)
-
 get_directory_modules(D) ->
-    [objfile_test(filename:join(D, F))
+    [begin
+	 F1 = filename:join(D, F),
+	 {objfile_module(F1), F1}
+     end
      || F <- eunit_lib:list_dir(D), is_module_filename(F)].
 
 
