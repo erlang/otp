@@ -598,11 +598,6 @@ INCLUDES += -I$(ERL_TOP)/erts/etc/vxworks
 endif
 
 ifeq ($(TARGET),win32)
-# Usually the same as the default rule, but certain platforms (i.e. win32) mix
-# different compilers
-$(OBJDIR)/beam_emu.o: beam/beam_emu.c
-	$(EMU_CC) $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
-
 $(OBJDIR)/dll_sys.o: sys/$(ERLANG_OSTYPE)/sys.c
 	$(CC) $(CFLAGS) -DERL_RUN_SHARED_LIB=1 $(INCLUDES) -c $< -o $@
 
@@ -616,6 +611,11 @@ $(OBJDIR)/beam_emu.o: beam/beam_emu.c
 	$(CC) $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) \
          -OPT:Olimit=0 -WOPT:lpre=off:spre=off:epre=off \
          $(INCLUDES) -c $< -o $@
+else
+# Usually the same as the default rule, but certain platforms (e.g. win32) mix
+# different compilers
+$(OBJDIR)/beam_emu.o: beam/beam_emu.c
+	$(EMU_CC) $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
 endif
 
 
