@@ -78,7 +78,7 @@ dilbert@uab</pre>
       using the command line flag <c>-connect_all false</c>, see
       <c>erl(1)</c>.</p>
     <p>If a node goes down, all connections to that node are removed.
-      Calling <c>erlang:disconnect(Node)</c> will force disconnection
+      Calling <c>erlang:disconnect_node(Node)</c> will force disconnection
       of a node.</p>
     <p>The list of (visible) nodes currently connected to is returned by
       <c>nodes()</c>.</p>
