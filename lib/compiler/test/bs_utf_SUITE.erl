@@ -264,18 +264,10 @@ literals(Config) when is_list(Config) ->
     ?line {'EXIT',{badarg,_}} = (catch <<(-1)/utf32,I/utf8>>),
     ?line {'EXIT',{badarg,_}} = (catch <<(-1)/little-utf32,I/utf8>>),
     ?line {'EXIT',{badarg,_}} = (catch <<16#D800/utf8,I/utf8>>),
-    ?line {'EXIT',{badarg,_}} = (catch <<16#FFFE/utf8,I/utf8>>),
-    ?line {'EXIT',{badarg,_}} = (catch <<16#FFFF/utf8,I/utf8>>),
     ?line {'EXIT',{badarg,_}} = (catch <<16#D800/utf16,I/utf8>>),
     ?line {'EXIT',{badarg,_}} = (catch <<16#D800/little-utf16,I/utf8>>),
-    ?line {'EXIT',{badarg,_}} = (catch <<16#FFFE/utf16,I/utf8>>),
-    ?line {'EXIT',{badarg,_}} = (catch <<16#FFFE/little-utf16,I/utf8>>),
-    ?line {'EXIT',{badarg,_}} = (catch <<16#FFFF/utf16,I/utf8>>),
-    ?line {'EXIT',{badarg,_}} = (catch <<16#FFFF/little-utf16,I/utf8>>),
     ?line {'EXIT',{badarg,_}} = (catch <<16#D800/utf32,I/utf8>>),
     ?line {'EXIT',{badarg,_}} = (catch <<16#D800/little-utf32,I/utf8>>),
-    ?line {'EXIT',{badarg,_}} = (catch <<16#FFFE/utf32,I/utf8>>),
-    ?line {'EXIT',{badarg,_}} = (catch <<16#FFFF/little-utf32,I/utf8>>),
 
     B = 16#10FFFF+1,
     ?line {'EXIT',{badarg,_}} = (catch <<B/utf8>>),
@@ -286,20 +278,11 @@ literals(Config) when is_list(Config) ->
 
     %% Matching of bad literals.
     ?line error = bad_literal_match(<<237,160,128>>), %16#D800 in UTF-8
-    ?line error = bad_literal_match(<<239,191,190>>), %16#FFFE in UTF-8
-    ?line error = bad_literal_match(<<239,191,191>>), %16#FFFF in UTF-8
     ?line error = bad_literal_match(<<244,144,128,128>>), %16#110000 in UTF-8
 
-    ?line error = bad_literal_match(<<255,254>>), %16#FFFE in UTF-16
-    ?line error = bad_literal_match(<<255,255>>), %16#FFFF in UTF-16
-
     ?line error = bad_literal_match(<<16#D800:32>>),
-    ?line error = bad_literal_match(<<16#FFFE:32>>),
-    ?line error = bad_literal_match(<<16#FFFF:32>>),
     ?line error = bad_literal_match(<<16#110000:32>>),
     ?line error = bad_literal_match(<<16#D800:32/little>>),
-    ?line error = bad_literal_match(<<16#FFFE:32/little>>),
-    ?line error = bad_literal_match(<<16#FFFF:32/little>>),
     ?line error = bad_literal_match(<<16#110000:32/little>>),
 
     ok.
@@ -314,11 +297,7 @@ match_literal(<<"bj\366rn"/big-utf16>>) -> bjorn_utf16be;
 match_literal(<<"bj\366rn"/little-utf16>>) -> bjorn_utf16le.
 
 bad_literal_match(<<16#D800/utf8>>) -> ok;
-bad_literal_match(<<16#FFFE/utf8>>) -> ok;
-bad_literal_match(<<16#FFFF/utf8>>) -> ok;
 bad_literal_match(<<16#110000/utf8>>) -> ok;
-bad_literal_match(<<16#FFFE/utf16>>) -> ok;
-bad_literal_match(<<16#FFFF/utf16>>) -> ok;
 bad_literal_match(<<16#D800/utf32>>) -> ok;
 bad_literal_match(<<16#110000/utf32>>) -> ok;
 bad_literal_match(<<16#D800/little-utf32>>) -> ok;

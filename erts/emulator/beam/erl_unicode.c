@@ -348,12 +348,6 @@ static int copy_utf8_bin(byte *target, byte *source, Uint size,
 		return copied;
 	    }
 
-	    if (((*source) == 0xEF) && (source[1] == 0xBF) &&
-		((source[2] == 0xBE) || (source[2] == 0xBF))) {
-		*err_pos = source;
-		return copied;
-	    }
-		
 	    *(target++) = *(source++);
 	    *(target++) = *(source++);
 	    *(target++) = *(source++);
@@ -714,9 +708,8 @@ L_Again:   /* Restart with sublist, old listend was pushed on stack */
 			    target[(*pos)++] = (((byte) (x & 0x3F)) | 
 						((byte) 0x80));
 			} else if (x < 0x10000) {
-			    if ((x >= 0xD800 && x <= 0xDFFF) ||
-				(x == 0xFFFE) ||
-				(x == 0xFFFF)) { /* Invalid unicode range */
+			    if (x >= 0xD800 && x <= 0xDFFF) {
+				/* Invalid unicode range */
 				*err = 1;
 				goto done;
 			    }
@@ -1228,10 +1221,6 @@ int erts_analyze_utf8(byte *source, Uint size,
 	    }
 	    if ((((*source) & ((byte) 0xF)) == 0xD) && 
 		((source[1] & 0x20) != 0)) {
-		return ERTS_UTF8_ERROR;
-	    }
-	    if (((*source) == 0xEF) && (source[1] == 0xBF) &&
-		((source[2] == 0xBE) || (source[2] == 0xBF))) {
 		return ERTS_UTF8_ERROR;
 	    }
 	    source += 3;
@@ -2166,9 +2155,8 @@ L_Again:   /* Restart with sublist, old listend was pushed on stack */
 			    } else if (x < 0x800) {
 				need += 2;
 			    } else if (x < 0x10000) {
-				if ((x >= 0xD800 && x <= 0xDFFF) ||
-				    (x == 0xFFFE) ||
-				    (x == 0xFFFF)) { /* Invalid unicode range */
+				if (x >= 0xD800 && x <= 0xDFFF) {
+				    /* Invalid unicode range */
 				    DESTROY_ESTACK(stack);
 				    return ((Sint) -1);
 				}
@@ -2314,9 +2302,7 @@ L_Again:   /* Restart with sublist, old listend was pushed on stack */
 				*p++ = (((byte) (x & 0x3F)) | 
 					((byte) 0x80));
 			    } else if (x < 0x10000) {
-				ASSERT(!((x >= 0xD800 && x <= 0xDFFF) ||
-					 (x == 0xFFFE) ||
-					 (x == 0xFFFF)));
+				ASSERT(!(x >= 0xD800 && x <= 0xDFFF));
 				*p++ = (((byte) (x >> 12)) | 
 					((byte) 0xE0));
 				*p++ = ((((byte) (x >> 6)) & 0x3F)  | 
