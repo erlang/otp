@@ -16,7 +16,7 @@
 %% $Id: eunit.erl 339 2009-04-05 14:10:47Z rcarlsson $
 %%
 %% @copyright 2004-2009 Mickaël Rémond, Richard Carlsson
-%% @author Micka&euml;l R&eacute;mond <mickael.remond@process-one.net>
+%% @author Mickaël Rémond <mickael.remond@process-one.net>
 %%   [http://www.process-one.net/]
 %% @author Richard Carlsson <richardc@it.uu.se>
 %%   [http://user.it.uu.se/~richardc/]

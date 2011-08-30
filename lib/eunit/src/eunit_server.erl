@@ -59,8 +59,9 @@ watch(Server, Module, Opts) when is_atom(Module) ->
 watch_path(Server, Path, Opts) ->
     command(Server, {watch, {path, filename:flatten(Path)}, Opts}).
 
+%% note that the user must use $ at the end to match whole paths only
 watch_regexp(Server, Regex, Opts) ->
-    case regexp:parse(Regex) of
+    case re:compile(Regex,[anchored]) of
 	{ok, R} ->
 	    command(Server, {watch, {regexp, R}, Opts});
 	{error, _}=Error ->
@@ -278,8 +279,8 @@ is_watched(Path, St) ->
 	match_any(sets:to_list(St#state.regexps), Path).
 
 match_any([R | Rs], Str) ->
-    case regexp:first_match(Str, R) of
-	{match, _, _} -> true;
+    case re:run(Str, R, [{capture,none}]) of
+	match -> true;
 	_ -> match_any(Rs, Str)
     end;
 match_any([], _Str) -> false.

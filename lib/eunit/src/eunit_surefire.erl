@@ -15,7 +15,7 @@
 %%
 %% $Id: $
 %%
-%% @author Micka&euml;l R&eacute;mond <mremond@process-one.net>
+%% @author Mickaël Rémond <mremond@process-one.net>
 %% @copyright 2009 Mickaël Rémond, Paul Guyot
 %% @see eunit
 %% @doc Surefire reports for EUnit (Format used by Maven and Atlassian
