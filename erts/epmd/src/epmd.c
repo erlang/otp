@@ -324,7 +324,11 @@ static void run_daemon(EpmdVars *g)
       }
 
     /* move cwd to root to make sure we are not on a mounted filesystem  */
-    chdir("/");
+    if (chdir("/") < 0)
+      {
+	dbg_perror(g,"epmd: chdir() failed");
+	epmd_cleanup_exit(g,1);
+      }
     
     umask(0);
 
