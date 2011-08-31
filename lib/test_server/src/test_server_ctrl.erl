@@ -4674,13 +4674,13 @@ collect_subcases(Mod, Case, MFA, St, Suite) ->
 	[] when Case == all -> {ok,[],St};
 	[] when element(1, Case) == conf -> {ok,[],St};
 	[] -> {ok,[MFA],St};
-%%%! --- START Kept for backwards compatibilty ---
+%%%! --- START Kept for backwards compatibility ---
 %%%! Requirements are not used
 	{req,ReqList} ->
 	    collect_case_deny(Mod, Case, MFA, ReqList, [], St);
 	{req,ReqList,SubCases} ->
 	    collect_case_deny(Mod, Case, MFA, ReqList, SubCases, St);
-%%%! --- END Kept for backwards compatibilty ---
+%%%! --- END Kept for backwards compatibility ---
 	{Skip,Reason} when Skip==skip; Skip==skipped ->
 	    {ok,[{skip_case,{MFA,Reason}}],St};
 	{error,Reason} ->

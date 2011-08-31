@@ -1298,7 +1298,7 @@ int main(void)
 esac
 
 test $enable_ethread_pre_pentium4_compatibility = yes &&
-  AC_DEFINE(ETHR_PRE_PENTIUM4_COMPAT, 1, [Define if you want compatibilty with x86 processors before pentium4.])
+  AC_DEFINE(ETHR_PRE_PENTIUM4_COMPAT, 1, [Define if you want compatibility with x86 processors before pentium4.])
 
 AC_DEFINE(ETHR_HAVE_ETHREAD_DEFINES, 1, \
 [Define if you have all ethread defines])

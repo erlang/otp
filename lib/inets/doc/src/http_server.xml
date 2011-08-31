@@ -406,7 +406,7 @@ http://your.server.org/***/Module[:/]Function(?QueryString|/PathInfo)
             phase instead of first generating the whole web page and
             then sending it to the client. The option to implement a
             function with arity two is only kept for
-            backwardcompatibilty reasons. 
+            backwards compatibility reasons.
             See <seealso marker="mod_esi">mod_esi(3)</seealso> for 
             implementation details of the esi callback function.</p>
         </section>

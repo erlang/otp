@@ -302,7 +302,7 @@
 
 	<p>Note that it is not possible to add CTH's here right now, 
 	that feature might be added later, 
-	but it would right now break backwards compatability.</p>
+	but it would right now break backwards compatibility.</p>
       </desc>
     </func>
 
