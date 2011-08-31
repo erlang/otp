@@ -4534,7 +4534,7 @@
 	    The race occurred when a process removed a table during
 	    termination simultaneously as another process removed the
 	    same table via <c>ets:delete/1</c> and a third process
-	    created a table that accidentaly got the same internal
+	    created a table that accidentally got the same internal
 	    table index as the table being removed.</p>
           <p>
 	    Own Id: OTP-7349</p>
