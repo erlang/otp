@@ -305,7 +305,7 @@ load("MaxKeepAliveRequests " ++  MaxRequests, []) ->
 			  " is an invalid MaxKeepAliveRequests")}
     end;
 
-%% This clause is keept for backwards compability 
+%% This clause is kept for backwards compability
 load("MaxKeepAliveRequest " ++  MaxRequests, []) ->
     case make_integer(MaxRequests) of
 	{ok, Integer} ->

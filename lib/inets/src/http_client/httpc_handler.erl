@@ -1157,7 +1157,7 @@ handle_cookies(Headers, Request, #options{cookies = enabled}, ProfileName) ->
     httpc_manager:store_cookies(Cookies, Request#request.address,
 				ProfileName).
 
-%% This request could not be pipelined or used as sequential keept alive
+%% This request could not be pipelined or used as sequential keep alive
 %% queue
 handle_queue(#state{status = close} = State, _) ->
     {stop, normal, State};
