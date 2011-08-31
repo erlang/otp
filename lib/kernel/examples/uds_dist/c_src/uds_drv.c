@@ -1000,7 +1000,7 @@ static int ensure_dir(char *path)
 
 /*
 ** Try to open a lock file and lock the first byte write-only (advisory)
-** return the file descriptor if succesful, otherwise -1 (<0).
+** return the file descriptor if successful, otherwise -1 (<0).
 */ 
 static int try_lock(char *sockname, Byte *p_creation)
 {

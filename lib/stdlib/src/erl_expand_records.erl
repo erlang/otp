@@ -35,7 +35,7 @@
 		 trecords=sets:new(), % Typed records
 		 uses_types=false,    % Are there -spec or -type in the module
                  strict_ra=[],        % strict record accesses
-                 checked_ra=[]        % succesfully accessed records
+                 checked_ra=[]        % successfully accessed records
                 }).
 
 -spec(module(AbsForms, CompileOptions) -> AbsForms when

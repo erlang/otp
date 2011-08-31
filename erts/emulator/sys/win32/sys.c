@@ -2771,7 +2771,7 @@ ready_output(ErlDrvData drv_data, ErlDrvEvent ready_event)
     DEBUGF(("ready_output(%d, 0x%x)\n", drv_data, ready_event));
     set_busy_port(dp->port_num, 0);
     if (!(dp->outbuf)) {
-	/* Happens because event sometimes get signalled during a succesful
+	/* Happens because event sometimes get signalled during a successful
 	   write... */
 	return;
     }
