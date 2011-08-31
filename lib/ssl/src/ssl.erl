@@ -49,9 +49,12 @@
 		 inet_ssl,          %% inet options for internal ssl socket 
 		 cb                 %% Callback info
 		}).
--type option()       :: socketoption() | ssloption() | transportoption().
--type socketoption() :: term(). %% See gen_tcp and inet, import spec later when there is one to import
--type ssloption()    :: {verify, verify_type()} |
+-type connect_option()           :: socket_connect_option() | ssl_option() | transport_option().
+-type socket_connect_option()    :: gen_tcp:connect_option().
+-type listen_option()            :: socket_listen_option() | ssl_option() | transport_option().
+-type socket_listen_option()     :: gen_tcp:listen_option().
+
+-type ssl_option()    :: {verify, verify_type()} |
 			{verify_fun, {fun(), InitialUserState::term()}} |
                         {fail_if_no_peer_cert, boolean()} | {depth, integer()} |
                         {cert, Der::binary()} | {certfile, path()} | {key, Der::binary()} |
@@ -66,7 +69,7 @@
 			string(). % (according to old API)
 -type ssl_imp()      :: new | old.
 
--type transportoption() :: {CallbackModule::atom(), DataTag::atom(), ClosedTag::atom()}.
+-type transport_option() :: {cb_info, {CallbackModule::atom(), DataTag::atom(), ClosedTag::atom()}}.
 
 
 %%--------------------------------------------------------------------
@@ -96,11 +99,11 @@ stop() ->
     application:stop(ssl).
 
 %%--------------------------------------------------------------------
--spec connect(host() | port(), [option()]) -> {ok, #sslsocket{}} |
+-spec connect(host() | inet:port_num(), [connect_option()]) -> {ok, #sslsocket{}} |
 					      {error, reason()}.
--spec connect(host() | port(), [option()] | port_num(), timeout() | list()) ->
+-spec connect(host() | inet:port_num(), [connect_option()] | inet:port_num(), timeout() | list()) ->
 		     {ok, #sslsocket{}} | {error, reason()}.
--spec connect(host() | port(), port_num(), list(), timeout()) ->
+-spec connect(host() | inet:port_num(), inet:port_num(), list(), timeout()) ->
 		     {ok, #sslsocket{}} | {error, reason()}.
 
 %%
@@ -148,7 +151,7 @@ connect(Host, Port, Options0, Timeout) ->
     end.
 
 %%--------------------------------------------------------------------
--spec listen(port_num(), [option()]) ->{ok, #sslsocket{}} | {error, reason()}.
+-spec listen(inet:port_num(), [listen_option()]) ->{ok, #sslsocket{}} | {error, reason()}.
 		    
 %%
 %% Description: Creates an ssl listen socket.
@@ -214,9 +217,9 @@ transport_accept(#sslsocket{} = ListenSocket, Timeout) ->
 
 %%--------------------------------------------------------------------
 -spec ssl_accept(#sslsocket{}) -> ok | {error, reason()}.
--spec ssl_accept(#sslsocket{} | port(), timeout()| [option()]) ->
+-spec ssl_accept(#sslsocket{} | port(), timeout()| [ssl_option() | transport_option()]) ->
 			ok | {ok, #sslsocket{}} | {error, reason()}.
--spec ssl_accept(port(), [option()], timeout()) -> {ok, #sslsocket{}} | {error, reason()}.
+-spec ssl_accept(port(), [ssl_option()| transport_option()], timeout()) -> {ok, #sslsocket{}} | {error, reason()}.
 %%
 %% Description: Performs accept on an ssl listen socket. e.i. performs
 %%              ssl handshake. 
@@ -373,7 +376,7 @@ select_part(plain, Cert, Opts) ->
     end.
 
 %%--------------------------------------------------------------------
--spec peername(#sslsocket{}) -> {ok, {tuple(), port_num()}} | {error, reason()}.
+-spec peername(#sslsocket{}) -> {ok, {inet:ip_address(), inet:port_num()}} | {error, reason()}.
 %%
 %% Description: same as inet:peername/1.
 %%--------------------------------------------------------------------
@@ -402,7 +405,8 @@ cipher_suites(openssl) ->
     [ssl_cipher:openssl_suite_name(S) || S <- ssl_cipher:suites(Version)].
 
 %%--------------------------------------------------------------------
--spec getopts(#sslsocket{}, [atom()]) -> {ok, [{atom(), term()}]} | {error, reason()}.
+-spec getopts(#sslsocket{}, [gen_tcp:option_name()]) ->
+		     {ok, [gen_tcp:option()]} | {error, reason()}.
 %% 
 %% Description: Gets options
 %%--------------------------------------------------------------------
@@ -425,7 +429,7 @@ getopts(#sslsocket{} = Socket, OptionTags) ->
     ssl_broker:getopts(Socket, OptionTags).
 
 %%--------------------------------------------------------------------
--spec setopts(#sslsocket{},  [proplists:property()]) -> ok | {error, reason()}.
+-spec setopts(#sslsocket{},  [gen_tcp:option()]) -> ok | {error, reason()}.
 %% 
 %% Description: Sets options
 %%--------------------------------------------------------------------
@@ -466,7 +470,7 @@ shutdown(#sslsocket{pid = Pid, fd = new_ssl}, How) ->
     ssl_connection:shutdown(Pid, How).
 
 %%--------------------------------------------------------------------
--spec sockname(#sslsocket{}) -> {ok, {tuple(), port_num()}} | {error, reason()}.
+-spec sockname(#sslsocket{}) -> {ok, {inet:ip_address(), inet:port_num()}} | {error, reason()}.
 %%		     
 %% Description: Same as inet:sockname/1
 %%--------------------------------------------------------------------
