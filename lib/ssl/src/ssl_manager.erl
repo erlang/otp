@@ -113,7 +113,7 @@ lookup_trusted_cert(DbHandle, Ref, SerialNumber, Issuer) ->
 issuer_candidate(PrevCandidateKey, DbHandle) ->
     ssl_certificate_db:issuer_candidate(PrevCandidateKey, DbHandle).
 %%--------------------------------------------------------------------
--spec client_session_id(host(), port_num(), #ssl_options{},
+-spec client_session_id(host(), inet:port_num(), #ssl_options{},
 			der_cert() | undefined) -> session_id().
 %%
 %% Description: Select a session id for the client.
@@ -122,7 +122,7 @@ client_session_id(Host, Port, SslOpts, OwnCert) ->
     call({client_session_id, Host, Port, SslOpts, OwnCert}).
 
 %%--------------------------------------------------------------------
--spec server_session_id(host(), port_num(), #ssl_options{},
+-spec server_session_id(host(), inet:port_num(), #ssl_options{},
 			der_cert()) -> session_id().
 %%
 %% Description: Select a session id for the server.
@@ -131,8 +131,8 @@ server_session_id(Port, SuggestedSessionId, SslOpts, OwnCert) ->
     call({server_session_id, Port, SuggestedSessionId, SslOpts, OwnCert}).
 
 %%--------------------------------------------------------------------
--spec register_session(port_num(), #session{}) -> ok.
--spec register_session(host(), port_num(), #session{}) -> ok.
+-spec register_session(inet:port_num(), #session{}) -> ok.
+-spec register_session(host(), inet:port_num(), #session{}) -> ok.
 %%
 %% Description: Make the session available for reuse.
 %%--------------------------------------------------------------------
@@ -142,8 +142,8 @@ register_session(Host, Port, Session) ->
 register_session(Port, Session) ->
     cast({register_session, Port, Session}).
 %%--------------------------------------------------------------------
--spec invalidate_session(port_num(), #session{}) -> ok.
--spec invalidate_session(host(), port_num(), #session{}) -> ok.
+-spec invalidate_session(inet:port_num(), #session{}) -> ok.
+-spec invalidate_session(host(), inet:port_num(), #session{}) -> ok.
 %%
 %% Description: Make the session unavailable for reuse. After
 %% a the session has been marked "is_resumable = false" for some while
