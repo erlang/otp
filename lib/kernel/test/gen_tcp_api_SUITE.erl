@@ -158,6 +158,10 @@ t_shutdown_error(Config) when is_list(Config) ->
 
 t_fdopen(Config) when is_list(Config) ->
     ?line Question = "Aaaa... Long time ago in a small town in Germany,",
+    ?line Question1 = list_to_binary(Question),
+    ?line Question2 = [<<"Aaaa">>, "... ", $L, <<>>, $o, "ng time ago ",
+                       ["in ", [], <<"a small town">>, [" in Germany,", <<>>]]],
+    ?line Question1 = iolist_to_binary(Question2),
     ?line Answer = "there was a shoemaker, Schumacher was his name.",
     ?line {ok, L} = gen_tcp:listen(0, [{active, false}]),
     ?line {ok, Port} = inet:port(L),
@@ -166,6 +170,10 @@ t_fdopen(Config) when is_list(Config) ->
     ?line {ok, FD} = prim_inet:getfd(A),
     ?line {ok, Server} = gen_tcp:fdopen(FD, []),
     ?line ok = gen_tcp:send(Client, Question),
+    ?line {ok, Question} = gen_tcp:recv(Server, length(Question), 2000),
+    ?line ok = gen_tcp:send(Client, Question1),
+    ?line {ok, Question} = gen_tcp:recv(Server, length(Question), 2000),
+    ?line ok = gen_tcp:send(Client, Question2),
     ?line {ok, Question} = gen_tcp:recv(Server, length(Question), 2000),
     ?line ok = gen_tcp:send(Server, Answer),
     ?line {ok, Answer} = gen_tcp:recv(Client, length(Answer), 2000),

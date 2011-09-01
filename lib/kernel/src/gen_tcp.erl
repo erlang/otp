@@ -250,7 +250,7 @@ close(S) ->
 
 -spec send(Socket, Packet) -> ok | {error, Reason} when
       Socket :: socket(),
-      Packet :: string() | binary(),
+      Packet :: iodata(),
       Reason :: inet:posix().
 
 send(S, Packet) when is_port(S) ->

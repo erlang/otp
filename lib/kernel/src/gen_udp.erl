@@ -109,7 +109,7 @@ close(S) ->
       Socket :: socket(),
       Address :: inet:ip_address() | inet:hostname(),
       Port :: inet:port_number(),
-      Packet :: string() | binary(),
+      Packet :: iodata(),
       Reason :: not_owner | inet:posix().
 
 send(S, Address, Port, Packet) when is_port(S) ->
