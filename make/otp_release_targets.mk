@@ -74,10 +74,10 @@ ifneq ($(XML_FILES),)
 # ----------------------------------------------------
 # Generation of application index data
 # ----------------------------------------------------
-$(HTMLDIR)/$(APPLICATION).eix: $(XML_FILES)
+$(HTMLDIR)/$(APPLICATION).eix: $(XML_FILES) $(SPECS_FILES)
 	date=`date +"%B %e %Y"`; \
 	$(XSLTPROC) --stringparam docgen "$(DOCGEN)" \
-		--stringparam gendate "$$date" --stringparam appname "$(APPLICATION)" --stringparam appver "$(VSN)" --xinclude  \
+		--stringparam gendate "$$date" --stringparam appname "$(APPLICATION)" --stringparam appver "$(VSN)" --xinclude $(TOP_SPECS_PARAM)  \
 		-path $(DOCGEN)/priv/docbuilder_dtd -path $(DOCGEN)/priv/dtd_html_entities $(DOCGEN)/priv/xsl/db_eix.xsl book.xml >  $@ 
 
 docs: $(HTMLDIR)/$(APPLICATION).eix
