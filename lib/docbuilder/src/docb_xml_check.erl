@@ -18,6 +18,7 @@
 -module(docb_xml_check).
 
 -export([validate/1]).
+-deprecated([{validate,1,next_major_release}]).
 
 %% validate(File) -> ok | error | {error, badfile}
 %%   File = string(), file name with or without ".xml" extension
