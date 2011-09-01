@@ -144,7 +144,7 @@
 	<v> UserData = term()</v>
 	<v> Conns = [atom()]</v>
 	<v> CSSFile = string()</v>
-	<v> CTHs = [CTHModule | {CTHModule, CTHInitArgs}]</v>
+	<v> CTHs = [CTHModule | {CTHModule, CTHInitArgs} | {CTHModule, CTHInitArgs, CTHPriority}]</v>
 	<v> CTHModule = atom()</v>
 	<v> CTHInitArgs = term()</v>
 	</type>

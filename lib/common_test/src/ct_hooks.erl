@@ -34,6 +34,8 @@
 %% If you change this, remember to update ct_util:look -> stop clause as well.
 -define(config_name, ct_hooks).
 
+-record(ct_hook_config, {id, module, prio, scope, opts = [], state = []}).
+
 %% -------------------------------------------------------------------------
 %% API Functions
 %% -------------------------------------------------------------------------
@@ -42,15 +44,15 @@
 -spec init(State :: term()) -> ok |
 			       {error, Reason :: term()}.
 init(Opts) ->
-    call([{Hook, call_id, undefined} || Hook <- get_new_hooks(Opts)],
-	 ok, init, []).
+    call(get_new_hooks(Opts, undefined), ok, init, []).
 		      
 
 %% @doc Called after all suites are done.
 -spec terminate(Hooks :: term()) ->
     ok.
 terminate(Hooks) ->
-    call([{HookId, fun call_terminate/3} || {HookId,_,_} <- Hooks],
+    call([{HookId, fun call_terminate/3}
+	  || #ct_hook_config{id = HookId} <- Hooks],
 	 ct_hooks_terminate_dummy, terminate, Hooks),
     ok.
 
@@ -66,11 +68,11 @@ init_tc(ct_framework, _Func, Args) ->
 init_tc(Mod, init_per_suite, Config) ->
     Info = try proplists:get_value(ct_hooks, Mod:suite(),[]) of
 	       List when is_list(List) -> 
-		   [{ct_hooks,List}];
+		   [{?config_name,List}];
 	       CTHook when is_atom(CTHook) ->
-		   [{ct_hooks,[CTHook]}]
+		   [{?config_name,[CTHook]}]
 	   catch error:undef ->
-		   [{ct_hooks,[]}]
+		   [{?config_name,[]}]
 	   end,
     call(fun call_generic/3, Config ++ Info, [pre_init_per_suite, Mod]);
 init_tc(Mod, end_per_suite, Config) ->
@@ -129,36 +131,48 @@ on_tc_fail(_How, {Suite, Case, Reason}) ->
 %% -------------------------------------------------------------------------
 %% Internal Functions
 %% -------------------------------------------------------------------------
-call_id(Mod, Config, Meta) when is_atom(Mod) ->
-    call_id({Mod, []}, Config, Meta);
-call_id({Mod, Opts}, Config, Scope) ->
+call_id(#ct_hook_config{ module = Mod, opts = Opts} = Hook, Config, Scope) ->
     Id = catch_apply(Mod,id,[Opts], make_ref()),
-    {Config, {Id, scope(Scope), {Mod, {Id,Opts}}}}.
+    {Config, Hook#ct_hook_config{ id = Id, scope = scope(Scope)}}.
 	
-call_init({Mod,{Id,Opts}},Config,_Meta) ->
-    NewState = Mod:init(Id, Opts),
-    {Config, {Mod, NewState}}.
+call_init(#ct_hook_config{ module = Mod, opts = Opts, id = Id, prio = P} = Hook,
+	  Config,_Meta) ->
+    case Mod:init(Id, Opts) of
+	{ok, NewState} when P =:= undefined ->
+	    {Config, Hook#ct_hook_config{ state = NewState, prio = 0 } };
+	{ok, NewState} ->
+	    {Config, Hook#ct_hook_config{ state = NewState } };
+	{ok, NewState, Prio} when P =:= undefined ->
+	    %% Only set prio if not already set when installing hook
+	    {Config, Hook#ct_hook_config{ state = NewState, prio = Prio } };
+	{ok, NewState, _} ->
+	    {Config, Hook#ct_hook_config{ state = NewState } };
+	NewState -> %% Keep for backward compatability reasons
+	    {Config, Hook#ct_hook_config{ state = NewState } }
+    end.    
 
-call_terminate({Mod, State}, _, _) ->
+call_terminate(#ct_hook_config{ module = Mod, state = State} = Hook, _, _) ->
     catch_apply(Mod,terminate,[State], ok),
-    {[],{Mod,State}}.
+    {[],Hook}.
 
-call_cleanup({Mod, State}, Reason, [Function, _Suite | Args]) ->
+call_cleanup(#ct_hook_config{ module = Mod, state = State} = Hook,
+	     Reason, [Function, _Suite | Args]) ->
     NewState = catch_apply(Mod,Function, Args ++ [Reason, State],
 			   State),
-    {Reason, {Mod, NewState}}.
+    {Reason, Hook#ct_hook_config{ state = NewState } }.
 
-call_generic({Mod, State}, Value, [Function | Args]) ->
+call_generic(#ct_hook_config{ module = Mod, state = State} = Hook,
+	     Value, [Function | Args]) ->
     {NewValue, NewState} = catch_apply(Mod, Function, Args ++ [Value, State],
 				       {Value,State}),
-    {NewValue, {Mod, NewState}}.
+    {NewValue, Hook#ct_hook_config{ state = NewState } }.
 
 %% Generic call function
 call(Fun, Config, Meta) ->
     maybe_lock(),
     Hooks = get_hooks(),
-    Res = call([{HookId,Fun} || {HookId,_, _} <- Hooks] ++
-		   get_new_hooks(Config, Fun),
+    Res = call(get_new_hooks(Config, Fun) ++
+		   [{HookId,Fun} || #ct_hook_config{id = HookId} <- Hooks],
 	       remove(?config_name,Config), Meta, Hooks),
     maybe_unlock(),
     Res.
@@ -171,19 +185,20 @@ call(Fun, Config, Meta, NoChangeRet) when is_function(Fun) ->
 
 call([{Hook, call_id, NextFun} | Rest], Config, Meta, Hooks) ->
     try
-	{Config, {NewId, _, _} = NewHook} = call_id(Hook, Config, Meta),
+	{Config, #ct_hook_config{ id = NewId } = NewHook} =
+	    call_id(Hook, Config, Meta),
 	{NewHooks, NewRest} = 
-	    case lists:keyfind(NewId, 1, Hooks) of
+	    case lists:keyfind(NewId, #ct_hook_config.id, Hooks) of
 		false when NextFun =:= undefined ->
 		    {Hooks ++ [NewHook],
-		     [{NewId, fun call_init/3} | Rest]};
+		     [{NewId, call_init} | Rest]};
 		ExistingHook when is_tuple(ExistingHook) ->
 		    {Hooks, Rest};
 		_ ->
 		    {Hooks ++ [NewHook],
-		     [{NewId, fun call_init/3},{NewId,NextFun} | Rest]}
+		     [{NewId, call_init}, {NewId,NextFun} | Rest]}
 	    end,
-	call(NewRest, Config, Meta, NewHooks)
+	call(resort(NewRest,NewHooks), Config, Meta, NewHooks)
     catch Error:Reason ->
 	    Trace = erlang:get_stacktrace(),
 	    ct_logs:log("Suite Hook","Failed to start a CTH: ~p:~p",
@@ -191,13 +206,16 @@ call([{Hook, call_id, NextFun} | Rest], Config, Meta, Hooks) ->
 	    call([], {fail,"Failed to start CTH"
 		      ", see the CT Log for details"}, Meta, Hooks)
     end;
+call([{HookId, call_init} | Rest], Config, Meta, Hooks) ->
+    call([{HookId, fun call_init/3} | Rest], Config, Meta, Hooks);
 call([{HookId, Fun} | Rest], Config, Meta, Hooks) ->
     try
-        {_,Scope,ModState} = lists:keyfind(HookId, 1, Hooks),
-        {NewConf, NewHookInfo} =  Fun(ModState, Config, Meta),
+        Hook = lists:keyfind(HookId, #ct_hook_config.id, Hooks),
+        {NewConf, NewHook} =  Fun(Hook, Config, Meta),
         NewCalls = get_new_hooks(NewConf, Fun),
-        NewHooks = lists:keyreplace(HookId, 1, Hooks, {HookId, Scope, NewHookInfo}),
-        call(NewCalls  ++ Rest, remove(?config_name, NewConf), Meta,
+        NewHooks = lists:keyreplace(HookId, #ct_hook_config.id, Hooks, NewHook),
+        call(resort(NewCalls ++ Rest,NewHooks), %% Resort if call_init changed prio
+	     remove(?config_name, NewConf), Meta,
              terminate_if_scope_ends(HookId, Meta, NewHooks))
     catch throw:{error_in_cth_call,Reason} ->
             call(Rest, {fail, Reason}, Meta,
@@ -235,19 +253,26 @@ terminate_if_scope_ends(HookId, [on_tc_skip,Suite,end_per_suite], Hooks) ->
 terminate_if_scope_ends(HookId, [Function,Tag|T], Hooks) when T =/= [] ->
     terminate_if_scope_ends(HookId,[Function,Tag],Hooks);
 terminate_if_scope_ends(HookId, Function, Hooks) ->
-    case lists:keyfind(HookId, 1, Hooks) of
-        {HookId, Function, _ModState} = Hook ->
+    case lists:keyfind(HookId, #ct_hook_config.id, Hooks) of
+        #ct_hook_config{ id = HookId, scope = Function} = Hook ->
             terminate([Hook]),
-            lists:keydelete(HookId, 1, Hooks);
+            lists:keydelete(HookId, #ct_hook_config.id, Hooks);
         _ ->
             Hooks
     end.
 
 %% Fetch hook functions
 get_new_hooks(Config, Fun) ->
-    lists:foldl(fun(NewHook, Acc) ->
-			[{NewHook, call_id, Fun} | Acc]
-		end, [], get_new_hooks(Config)).
+    lists:map(fun(NewHook) when is_atom(NewHook) ->
+		      {#ct_hook_config{ module = NewHook }, call_id, Fun};
+		 ({NewHook,Opts}) ->
+		      {#ct_hook_config{ module = NewHook,
+					opts = Opts}, call_id, Fun};
+		 ({NewHook,Opts,Prio}) ->
+		      {#ct_hook_config{ module = NewHook,
+					opts = Opts,
+					prio = Prio }, call_id, Fun}
+		end, get_new_hooks(Config)).
 
 get_new_hooks(Config) when is_list(Config) ->
     lists:flatmap(fun({?config_name, HookConfigs}) ->
@@ -262,7 +287,43 @@ save_suite_data_async(Hooks) ->
     ct_util:save_suite_data_async(?config_name, Hooks).
 
 get_hooks() ->
-    ct_util:read_suite_data(?config_name).
+    lists:keysort(#ct_hook_config.prio,ct_util:read_suite_data(?config_name)).
+
+%% Sort all calls in this order:
+%% call_id < call_init < Hook Priority 1 < .. < Hook Priority N
+%% If Hook Priority is equal, check when it has been installed and
+%% sort on that instead.
+resort(Calls, Hooks) ->
+    lists:sort(
+      fun({_,_,_},_) ->
+	      true;
+	 (_,{_,_,_}) ->
+	      false;
+	 ({_,call_init},_) ->
+	      true;
+	 (_,{_,call_init}) ->
+	      false;
+	 ({Id1,_},{Id2,_}) ->
+	      P1 = (lists:keyfind(Id1, #ct_hook_config.id, Hooks))#ct_hook_config.prio,
+	      P2 = (lists:keyfind(Id2, #ct_hook_config.id, Hooks))#ct_hook_config.prio,
+	      if
+		  P1 == P2 ->
+		      %% If priorities are equal, we check the position in the
+		      %% hooks list
+		      pos(Id1,Hooks) < pos(Id2,Hooks);
+		  true ->
+		      P1 < P2
+	      end
+      end,Calls).
+
+pos(Id,Hooks) ->
+    pos(Id,Hooks,0).
+pos(Id,[#ct_hook_config{ id = Id}|_],Num) ->
+    Num;
+pos(Id,[_|Rest],Num) ->
+    pos(Id,Rest,Num+1).
+
+
 
 catch_apply(M,F,A, Default) ->
     try
