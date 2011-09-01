@@ -1673,6 +1673,15 @@ esac
 
 AC_C_BIGENDIAN
 
+dnl fdatasync syscall (Unix only)
+AC_CHECK_FUNCS([fdatasync])
+
+dnl Find which C libraries are required to use fdatasync
+dnl TODO: Remove check once SunOS >= 5.11 is required by erts.
+dnl       fdatasync requires linking against -lrt on SunOS <= 5.10.
+dnl       OpenSolaris 2009.06 is SunOS 5.11 and does not require -lrt.
+AC_SEARCH_LIBS(fdatasync, [rt])
+
 dnl ----------------------------------------------------------------------
 dnl Checks for library functions.
 dnl ----------------------------------------------------------------------
@@ -1859,12 +1868,6 @@ fi
 
 dnl Need by run_erl.
 AC_CHECK_FUNCS([openpty])
-
-dnl fdatasync syscall (Unix only)
-AC_CHECK_FUNCS([fdatasync])
-
-dnl Find which C libraries are required to use fdatasync
-AC_SEARCH_LIBS(fdatasync, [rt])
 
 AC_CHECK_HEADERS(net/if_dl.h ifaddrs.h netpacket/packet.h)
 AC_CHECK_FUNCS([getifaddrs])

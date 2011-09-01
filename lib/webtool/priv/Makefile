@@ -39,8 +39,12 @@ HTDOCS_FILES =  root/doc/index.html \
 	        root/doc/tool_management.html \
 	        root/doc/start_info.html 
 
-SCRIPTS = bin/start_webtool \
-	  bin/start_webtool.bat
+ifeq ($(findstring win32,$(TARGET)),win32)
+WIN32_SCRIPTS= bin/start_webtool.bat
+else
+WIN32_SCRIPTS=
+endif
+SCRIPTS = bin/start_webtool $(WIN32_SCRIPTS)
 
 # ----------------------------------------------------
 # FLAGS
