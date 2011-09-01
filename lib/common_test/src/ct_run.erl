@@ -667,6 +667,16 @@ run_test(StartOpt) when is_tuple(StartOpt) ->
     run_test([StartOpt]);
 
 run_test(StartOpts) when is_list(StartOpts) ->
+    CTPid = spawn(fun() -> run_test1(StartOpts) end),
+    Ref = monitor(process, CTPid),
+    receive
+	{'DOWN',Ref,process,CTPid,{user_error,Error}} ->
+		    Error;
+	{'DOWN',Ref,process,CTPid,Other} ->
+		    Other
+    end.
+
+run_test1(StartOpts) when is_list(StartOpts) ->
     case proplists:get_value(refresh_logs, StartOpts) of
 	undefined ->
 	    Tracing = start_trace(StartOpts),
@@ -675,7 +685,7 @@ run_test(StartOpts) when is_list(StartOpts) ->
 	    Res =
 		case ct_repeat:loop_test(func, StartOpts) of
 		    false ->
-			case catch run_test1(StartOpts) of
+			case catch run_test2(StartOpts) of
 			    {'EXIT',Reason} ->
 				file:set_cwd(Cwd),
 				{error,Reason};
@@ -686,13 +696,13 @@ run_test(StartOpts) when is_list(StartOpts) ->
 			Result
 		end,
 	    stop_trace(Tracing),
-	    Res;
+	    exit(Res);
 	RefreshDir ->
 	    refresh_logs(?abs(RefreshDir)),
-	    ok
+	    exit(done)
     end.
 
-run_test1(StartOpts) ->
+run_test2(StartOpts) ->
     %% label
     Label = get_start_opt(label, fun(Lbl) when is_list(Lbl) -> Lbl;
 				    (Lbl) when is_atom(Lbl) -> atom_to_list(Lbl)
@@ -981,7 +991,7 @@ run_dir(Opts = #opts{logdir = LogDir,
 	{Dir=[Hd|_],undefined,[]} when is_list(Dir) and is_integer(Hd) ->
 	    reformat_result(catch do_run(tests(Dir), [], Opts1, StartOpts));
 
-	{Dir,undefined,[]} when is_atom(Dir) ->
+	{Dir,undefined,[]} when is_atom(Dir) and (Dir /= undefined) ->
 	    reformat_result(catch do_run(tests(atom_to_list(Dir)),
 					 [], Opts1, StartOpts));
 
@@ -1052,6 +1062,9 @@ run_dir(Opts = #opts{logdir = LogDir,
 		    end
 	    end;
 
+	{undefined,undefined,[]} ->
+	    exit(no_test_specified);
+
 	{Dir,Suite,GsAndCs} ->
 	    exit({incorrect_start_options,{Dir,Suite,GsAndCs}})
     end.
@@ -1064,19 +1077,38 @@ run_dir(Opts = #opts{logdir = LogDir,
 %%% the same as those used in test specification files.
 %%% @equiv ct:run_testspec/1
 %%%-----------------------------------------------------------------
-
 run_testspec(TestSpec) ->
-    {ok,Cwd} = file:get_cwd(),
-    io:format("~nCommon Test starting (cwd is ~s)~n~n", [Cwd]),
-    case catch run_testspec1(TestSpec) of
-	{'EXIT',Reason} ->
-	    file:set_cwd(Cwd),
-	    {error,Reason};
-	Result ->
-	    Result
+    CTPid = spawn(fun() -> run_testspec1(TestSpec) end),
+    Ref = monitor(process, CTPid),
+    receive
+	{'DOWN',Ref,process,CTPid,{user_error,Error}} ->
+		    Error;
+	{'DOWN',Ref,process,CTPid,Other} ->
+		    Other
     end.
 
 run_testspec1(TestSpec) ->
+    {ok,Cwd} = file:get_cwd(),
+    io:format("~nCommon Test starting (cwd is ~s)~n~n", [Cwd]),
+    case catch run_testspec2(TestSpec) of
+	{'EXIT',Reason} ->
+	    file:set_cwd(Cwd),
+	    exit({error,Reason});
+	Result ->
+	    exit(Result)
+    end.
+
+run_testspec2(File) when is_list(File), is_integer(hd(File)) ->
+    case file:read_file_info(File) of
+	{ok,_} ->
+	    exit("Bad argument, "
+		 "use ct:run_test([{spec," ++ File ++ "}])");
+	_ ->
+	    exit("Bad argument, list of tuples expected, "
+		 "use ct:run_test/1 for test specification files")
+    end;
+
+run_testspec2(TestSpec) ->
     case catch ct_testspec:collect_tests_from_list(TestSpec, false) of
 	{E,CTReason}  when E == error ; E == 'EXIT' ->
 	    exit(CTReason);
@@ -1295,7 +1327,6 @@ do_run(Tests, Misc, LogDir, LogOpts) when is_list(Misc),
 
 do_run(Tests, Skip, Opts, Args) when is_record(Opts, opts) ->
     #opts{label = Label, profile = Profile, cover = Cover} = Opts,
-
     %% label - used by ct_logs
     TestLabel =
 	if Label == undefined -> undefined;
@@ -2478,8 +2509,8 @@ start_trace(Args) ->
 			    false
 		    end;
 		{_,Error} ->
-		    io:format("Warning! Tracing not started. Reason: ~p~n~n",
-			      [Error]),
+		    io:format("Warning! Tracing not started. Reason: ~s~n~n",
+			      [file:format_error(Error)]),
 		    false
 	    end;
 	false ->

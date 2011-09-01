@@ -484,8 +484,8 @@ logger_loop(State) ->
 							  [Str,Args]),
 						%% stop the testcase, we need
 						%% to see the fault
-						exit(Pid,logging_failed),
-						ok;
+						exit(Pid,{log_printout_error,Str,Args}),
+						[];
 					    IoStr when IoList == [] ->
 						[IoStr];
 					    IoStr ->

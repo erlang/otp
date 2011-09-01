@@ -124,13 +124,15 @@ do_start(Parent,Mode,LogDir) ->
 	ok -> ok;
 	E -> exit(E)
     end,
+    DoExit = fun(Reason) -> file:set_cwd(StartDir), exit(Reason) end,
     Opts = case read_opts() of
 	       {ok,Opts1} ->
 		   Opts1;
 	       Error ->
 		   Parent ! {self(),Error},
-		   exit(Error)
+		   DoExit(Error)
 	   end,
+
     %% start an event manager (if not already started by master)
     case ct_event:start_link() of
 	{error,{already_started,_}} ->
@@ -143,16 +145,23 @@ do_start(Parent,Mode,LogDir) ->
 		    ct_event:add_handler([{vts,VtsPid}])
 	    end
     end,
+
     %% start ct_config server
-    ct_config:start(Mode),
+    try ct_config:start(Mode) of
+	_ -> ok
+    catch
+	_Class:CfgError ->
+	    DoExit(CfgError)
+    end,
+
     %% add user event handlers
     case lists:keysearch(event_handler,1,Opts) of
 	{value,{_,Handlers}} ->
 	    Add = fun({H,Args}) ->
 			  case catch gen_event:add_handler(?CT_EVMGR_REF,H,Args) of
 			      ok -> ok;
-			      {'EXIT',Why} -> exit(Why);
-			      Other -> exit({event_handler,Other})
+			      {'EXIT',Why} -> DoExit(Why);
+			      Other -> DoExit({event_handler,Other})
 			  end
 		  end,
 	    case catch lists:foreach(Add,Handlers) of
@@ -171,10 +180,11 @@ do_start(Parent,Mode,LogDir) ->
 			   data={StartTime,
 				 lists:flatten(TestLogDir)}}),
     %% Initialize ct_hooks
-    case catch ct_hooks:init(Opts) of
+    try ct_hooks:init(Opts) of
 	ok ->
-	    Parent ! {self(),started};
-	{_,CTHReason} ->
+	    Parent ! {self(),started}
+    catch
+	_:CTHReason ->
 	    ct_logs:tc_print('Suite Callback',CTHReason,[]),
 	    self() ! {{stop,{self(),{user_error,CTHReason}}},
 		      {Parent,make_ref()}}

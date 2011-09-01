@@ -245,7 +245,12 @@ add_defaults(Mod,Func,FuncInfo,DoInit) ->
 		Error = {error,_} -> {SuiteInfo,Error};
 		MergedInfo -> {SuiteInfo,MergedInfo}
 	    end;
-	{'EXIT',Reason} -> 
+	{'EXIT',Reason} ->
+	    ErrStr = io_lib:format("~n*** ERROR *** "
+				   "~w:suite/0 failed: ~p~n",
+				   [Mod,Reason]),
+	    io:format(ErrStr, []),
+	    io:format(user, ErrStr, []),
 	    {suite0_failed,{exited,Reason}};
 	SuiteInfo when is_list(SuiteInfo) ->
 	    case lists:all(fun(E) when is_tuple(E) -> true;
@@ -261,9 +266,19 @@ add_defaults(Mod,Func,FuncInfo,DoInit) ->
 			MergedInfo -> {SuiteInfo1,MergedInfo}
 		    end;
 		false ->
+		    ErrStr = io_lib:format("~n*** ERROR *** "
+					   "Invalid return value from "
+					   "~w:suite/0: ~p~n", [Mod,SuiteInfo]),
+		    io:format(ErrStr, []),
+		    io:format(user, ErrStr, []),
 		    {suite0_failed,bad_return_value}
 	    end;
-	_ ->
+	SuiteInfo ->
+	    ErrStr = io_lib:format("~n*** ERROR *** "
+				   "Invalid return value from "
+				   "~w:suite/0: ~p~n", [Mod,SuiteInfo]),
+	    io:format(ErrStr, []),
+	    io:format(user, ErrStr, []),
 	    {suite0_failed,bad_return_value}
     end.
 

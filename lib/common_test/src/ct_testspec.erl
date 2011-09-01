@@ -249,11 +249,15 @@ collect_tests_from_file1([Spec|Specs],TestSpec,Relaxed) ->
     SpecDir = filename:dirname(filename:absname(Spec)),
     case file:consult(Spec) of
 	{ok,Terms} ->	    
-	    TestSpec1 = collect_tests(Terms,TestSpec#testspec{spec_dir=SpecDir},
+	    TestSpec1 = collect_tests(Terms,
+				      TestSpec#testspec{spec_dir=SpecDir},
 				      Relaxed),
 	    collect_tests_from_file1(Specs,TestSpec1,Relaxed);
 	{error,Reason} ->
-	    throw({error,{Spec,Reason}})
+	    ReasonStr =
+		lists:flatten(io_lib:format("~s",
+					    [file:format_error(Reason)])),
+	    throw({error,{Spec,ReasonStr}})
     end;
 collect_tests_from_file1([],TS=#testspec{config=Cfgs,event_handler=EvHs,
 					 include=Incl,tests=Tests},_) ->
