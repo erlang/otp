@@ -262,6 +262,7 @@ bif(bitsize, 1) -> true;
 bif(bit_size, 1) -> true;
 bif(bitstring_to_list, 1) -> true;
 bif(byte_size, 1) -> true;
+bif(check_old_code, 1) -> true;
 bif(check_process_code, 2) -> true;
 bif(concat_binary, 1) -> true;
 bif(date, 0) -> true;
