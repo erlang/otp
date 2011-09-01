@@ -22,7 +22,7 @@
 -export([script_name/0, create/2, extract/2]).
 
 %% Internal API.
--export([start/0, start/1]).
+-export([start/0, start/1, parse_file/1]).
 
 %%-----------------------------------------------------------------------
 
@@ -346,7 +346,8 @@ parse_and_run(File, Args, Options) ->
             case Source of
                 archive ->
 		    {ok, FileInfo} = file:read_file_info(File),
-                    case code:set_primary_archive(File, FormsOrBin, FileInfo) of
+                    case code:set_primary_archive(File, FormsOrBin, FileInfo,
+						  fun escript:parse_file/1) of
                         ok when CheckOnly ->
 			    case code:load_file(Module) of
 				{module, _} ->
@@ -395,6 +396,19 @@ parse_and_run(File, Args, Options) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Parse script
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Only used as callback by erl_prim_loader
+parse_file(File) ->
+    try parse_file(File, false) of
+	{_Source, _Module, FormsOrBin, _HasRecs, _Mode}
+	  when is_binary(FormsOrBin) ->
+	    {ok, FormsOrBin};
+	_ ->
+	    {error, no_archive_bin}
+    catch
+	throw:Reason ->
+	    {error, Reason}
+    end.
 
 parse_file(File, CheckOnly) ->
     {HeaderSz, NextLineNo, Fd, Sections} =
