@@ -41,36 +41,11 @@ obsolete(Module, Name, Arity) ->
 	    no
     end.
 
-obsolete_1(init, get_flag, 1) ->
-    {removed, {init, get_argument, 1}, "R12B"};
-obsolete_1(init, get_flags, 0) ->
-    {removed, {init, get_arguments, 0}, "R12B"};
-obsolete_1(init, get_args, 0) ->
-    {removed, {init, get_plain_arguments, 0}, "R12B"};
-obsolete_1(unix, cmd, 1) ->
-    {removed, {os,cmd,1}, "R9B"};
-
 obsolete_1(net, _, _) ->
     {deprecated, "module 'net' obsolete; use 'net_adm'"};
 
 obsolete_1(erl_internal, builtins, 0) ->
     {deprecated, {erl_internal, bif, 2}};
-
-obsolete_1(string, re_sh_to_awk, 1) ->
-    {removed, {regexp, sh_to_awk, 1}, "R12B"};
-obsolete_1(string, re_parse, 1) ->
-    {removed, {regexp, parse, 1}, "R12B"};
-obsolete_1(string, re_match, 2) ->
-    {removed, {regexp, match, 2}, "R12B"};
-obsolete_1(string, re_sub, 3) ->
-    {removed, {regexp, sub, 3}, "R12B"};
-obsolete_1(string, re_gsub, 3) ->
-    {removed, {regexp, gsub, 3}, "R12B"};
-obsolete_1(string, re_split, 2) ->
-    {removed, {regexp, split, 2}, "R12B"};
-
-obsolete_1(string, index, 2) ->
-    {removed, {string, str, 2}, "R12B"};
 
 obsolete_1(erl_eval, seq, 2) ->
     {deprecated, {erl_eval, exprs, 2}};
@@ -81,98 +56,8 @@ obsolete_1(erl_eval, arg_list, 2) ->
 obsolete_1(erl_eval, arg_list, 3) ->
     {deprecated, {erl_eval, expr_list, 3}};
 
-obsolete_1(erl_pp, seq, 1) ->
-    {removed, {erl_pp, exprs, 1}, "R12B"};
-obsolete_1(erl_pp, seq, 2) ->
-    {removed, {erl_pp, exprs, 2}, "R12B"};
-
-obsolete_1(io, scan_erl_seq, 1) ->
-    {removed, {io, scan_erl_exprs, 1}, "R12B"};
-obsolete_1(io, scan_erl_seq, 2) ->
-    {removed, {io, scan_erl_exprs, 2}, "R12B"};
-obsolete_1(io, scan_erl_seq, 3) ->
-    {removed, {io, scan_erl_exprs, 3}, "R12B"};
-obsolete_1(io, parse_erl_seq, 1) ->
-    {removed, {io, parse_erl_exprs, 1}, "R12B"};
-obsolete_1(io, parse_erl_seq, 2) ->
-    {removed, {io, parse_erl_exprs, 2}, "R12B"};
-obsolete_1(io, parse_erl_seq, 3) ->
-    {removed, {io, parse_erl_exprs, 3}, "R12B"};
-obsolete_1(io, parse_exprs, 2) ->
-    {removed, {io, parse_erl_exprs, 2}, "R12B"};
-
-obsolete_1(io_lib, scan, 1) ->
-    {removed, {erl_scan, string, 1}, "R12B"};
-obsolete_1(io_lib, scan, 2) ->
-    {removed, {erl_scan, string, 2}, "R12B"};
-obsolete_1(io_lib, scan, 3) ->
-    {removed, {erl_scan, tokens, 3}, "R12B"};
-obsolete_1(io_lib, reserved_word, 1) ->
-    {removed, {erl_scan, reserved_word, 1}, "R12B"};
-
-obsolete_1(lists, keymap, 4) ->
-    {removed, {lists, keymap, 3}, "R12B"};
-obsolete_1(lists, all, 3) ->
-    {removed, {lists, all, 2}, "R12B"};
-obsolete_1(lists, any, 3) ->
-    {removed, {lists, any, 2}, "R12B"};
-obsolete_1(lists, map, 3) ->
-    {removed, {lists, map, 2}, "R12B"};
-obsolete_1(lists, flatmap, 3) ->
-    {removed, {lists, flatmap, 2}, "R12B"};
-obsolete_1(lists, foldl, 4) ->
-    {removed, {lists, foldl, 3}, "R12B"};
-obsolete_1(lists, foldr, 4) ->
-    {removed, {lists, foldr, 3}, "R12B"};
-obsolete_1(lists, mapfoldl, 4) ->
-    {removed, {lists, mapfoldl, 3}, "R12B"};
-obsolete_1(lists, mapfoldr, 4) ->
-    {removed, {lists, mapfoldr, 3}, "R12B"};
-obsolete_1(lists, filter, 3) ->
-    {removed, {lists, filter, 2}, "R12B"};
-obsolete_1(lists, foreach, 3) ->
-    {removed, {lists, foreach, 2}, "R12B"};
-obsolete_1(lists, zf, 3) ->
-    {removed, {lists, zf, 2}, "R12B"};
-
-obsolete_1(ets, fixtable, 2) ->
-    {removed, {ets, safe_fixtable, 2}, "R12B"};
-
-obsolete_1(erlang, old_binary_to_term, 1) ->
-    {removed, {erlang, binary_to_term, 1}, "R12B"};
-obsolete_1(erlang, info, 1) ->
-    {removed, {erlang, system_info, 1}, "R12B"};
 obsolete_1(erlang, hash, 2) ->
     {deprecated, {erlang, phash2, 2}};
-
-obsolete_1(file, file_info, 1) ->
-    {removed, {file, read_file_info, 1}, "R12B"};
-
-obsolete_1(dict, dict_to_list, 1) ->
-    {removed, {dict,to_list,1}, "R12B"};
-obsolete_1(dict, list_to_dict, 1) ->
-    {removed, {dict,from_list,1}, "R12B"};
-obsolete_1(orddict, dict_to_list, 1) ->
-    {removed, {orddict,to_list,1}, "R12B"};
-obsolete_1(orddict, list_to_dict, 1) ->
-    {removed, {orddict,from_list,1}, "R12B"};
-
-obsolete_1(sets, new_set, 0) ->
-    {removed, {sets, new, 0}, "R12B"};
-obsolete_1(sets, set_to_list, 1) ->
-    {removed, {sets, to_list, 1}, "R12B"};
-obsolete_1(sets, list_to_set, 1) ->
-    {removed, {sets, from_list, 1}, "R12B"};
-obsolete_1(sets, subset, 2) ->
-    {removed, {sets, is_subset, 2}, "R12B"};
-obsolete_1(ordsets, new_set, 0) ->
-    {removed, {ordsets, new, 0}, "R12B"};
-obsolete_1(ordsets, set_to_list, 1) ->
-    {removed, {ordsets, to_list, 1}, "R12B"};
-obsolete_1(ordsets, list_to_set, 1) ->
-    {removed, {ordsets, from_list, 1}, "R12B"};
-obsolete_1(ordsets, subset, 2) ->
-    {removed, {ordsets, is_subset, 2}, "R12B"};
 
 obsolete_1(calendar, local_time_to_universal_time, 1) ->
     {deprecated, {calendar, local_time_to_universal_time_dst, 1}};
@@ -302,17 +187,6 @@ obsolete_1(auth, node_cookie, 1) ->
 obsolete_1(auth, node_cookie, 2) ->
     {deprecated, "Deprecated; use erlang:set_cookie/2 and net_adm:ping/1 instead"};
 
-%% Added in R11B-5.
-obsolete_1(http_base_64, _, _) ->
-    {removed, "The http_base_64 module was removed in R12B; use the base64 module instead"};
-obsolete_1(httpd_util, encode_base64, 1) ->
-    {removed, "Removed in R12B; use one of the encode functions in the base64 module instead"};
-obsolete_1(httpd_util, decode_base64, 1) ->
-    {removed, "Removed in R12B; use one of the decode functions in the base64 module instead"};
-obsolete_1(httpd_util, to_upper, 1) ->
-    {removed, {string, to_upper, 1}, "R12B"};
-obsolete_1(httpd_util, to_lower, 1) ->
-    {removed, {string, to_lower, 1}, "R12B"};
 obsolete_1(erlang, is_constant, 1) ->
     {removed, "Removed in R13B"};
 
