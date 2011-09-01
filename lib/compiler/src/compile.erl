@@ -343,7 +343,7 @@ comp_ret_err(#compile{warnings=Warn0,errors=Err0,options=Opts}=St) ->
 not_werror(St) -> not werror(St).
 
 werror(#compile{options=Opts,warnings=Ws}) ->
-    member(warnings_as_errors, Opts) andalso Ws =/= [].
+    Ws =/= [] andalso member(warnings_as_errors, Opts).
 
 %% messages_per_file([{File,[Message]}]) -> [{File,[Message]}]
 messages_per_file(Ms) ->
