@@ -772,6 +772,7 @@ static db_result_msg db_param_query(byte *buffer, db_state *state)
     }
     associated_result_set(state) = FALSE;
     param_query(state) = TRUE;
+    out_params(state) = FALSE;
 
     msg = encode_empty_message();
 
