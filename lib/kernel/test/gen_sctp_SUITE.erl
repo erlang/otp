@@ -31,14 +31,14 @@
    [basic/1,
     api_open_close/1,api_listen/1,api_connect_init/1,api_opts/1,
     xfer_min/1,xfer_active/1,def_sndrcvinfo/1,implicit_inet6/1,
-    basic_stream/1, xfer_stream_min/1]).
+    basic_stream/1, xfer_stream_min/1, peeloff/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [basic, api_open_close, api_listen, api_connect_init,
      api_opts, xfer_min, xfer_active, def_sndrcvinfo, implicit_inet6,
-     basic_stream, xfer_stream_min].
+     basic_stream, xfer_stream_min, peeloff].
 
 groups() -> 
     [].
@@ -418,7 +418,11 @@ setopt(S, Opt, Val) ->
     inet:setopts(S, [{Opt,Val}]).
 
 ok({ok,X}) ->
-    io:format("OK: ~p~n", [X]),
+    io:format("OK[~w]: ~p~n", [self(),X]),
+    X.
+
+log(X) ->
+    io:format("LOG[~w]: ~p~n", [self(),X]),
     X.
 
 flush() ->
@@ -772,4 +776,194 @@ do_from_other_process(Fun) ->
 	    end;
 	{'DOWN',Mref,_,_,Reason} ->
 	    erlang:exit(Reason)
+    end.
+
+
+
+peeloff(doc) ->
+    "Peel off an SCTP stream socket";
+peeloff(suite) ->
+    [];
+peeloff(Config) when is_list(Config) ->
+    ?line Addr = {127,0,0,1},
+    ?line Stream = 0,
+    ?line Timeout = 333,
+    ?line S1 = socket_start(Addr, Timeout),
+    ?line P1 = socket_call(S1, port),
+    ?line Socket1 = socket_call(S1, socket),
+    ?line ok = socket_call(S1, {listen,true}),
+    ?line S2 = socket_start(Addr, Timeout),
+    ?line P2 = socket_call(S2, port),
+    ?line Socket2 = socket_call(S2, socket),
+    %%
+    ?line H_a = socket_req(S1, recv_assoc),
+    ?line {S2Ai,Sa,Sb} = socket_call(S2, {connect,Addr,P1,[]}),
+    ?line {S1Ai,Sb,Sa,Addr,P2} = socket_resp(H_a),
+    %%
+    ?line H_b = socket_req(S1, recv),
+    ?line ok = socket_call(S2, {send,S2Ai,Stream,<<"Data H_b">>}),
+    ?line {Addr,P2,S1Ai,Stream,<<"Data H_b">>} = socket_resp(H_b),
+    ?line H_c = socket_req(S1, {recv,Socket2}),
+    ?line ok =
+	socket_call(S2, {send,Socket1,S1Ai,Stream,<<"Data H_c">>}),
+    ?line {Addr,P1,S2Ai,Stream,<<"Data H_c">>} = socket_resp(H_c),
+    %%
+    ?line S3 = socket_peeloff(Socket1, S1Ai, Timeout),
+    ?line P3 = socket_call(S3, port),
+    ?line Socket3 = socket_call(S3, socket),
+    ?line S3Ai = S1Ai,
+    %%
+    ?line H_d = socket_req(S2, recv),
+    ?line ok = socket_call(S3, {send,S3Ai,Stream,<<"Data H_d">>}),
+    ?line {Addr,P3,S2Ai,Stream,<<"Data H_d">>} = socket_resp(H_d),
+    ?line ok = socket_call(S3, {send,Socket2,S2Ai,Stream,<<"Data S2">>}),
+    ?line {Addr,P2,S3Ai,Stream,<<"Data S2">>} = socket_call(S2, {recv,Socket3}),
+    %%
+    ?line inet:i(sctp),
+    ?line ok = socket_stop(S1),
+    ?line ok = socket_stop(S2),
+    ?line {Addr,P2,[],#sctp_shutdown_event{assoc_id=S1Ai}} =
+	ok(socket_stop(S3)),
+    ok.
+
+%%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% socket gen_server ultra light
+
+socket_peeloff(Socket, AssocId, Timeout) ->
+    Starter =
+	fun () ->
+		{ok,NewSocket} =
+		    gen_sctp:peeloff(Socket, AssocId),
+		NewSocket
+	end,
+    socket_starter(Starter, Timeout).
+
+socket_start(Addr, Timeout) ->
+    Starter =
+	fun () ->
+		{ok,Socket} =
+		    gen_sctp:open([{type,seqpacket},{ifaddr,Addr}]),
+		Socket
+	end,
+    socket_starter(Starter, Timeout).
+
+socket_starter(Starter, Timeout) ->
+    Parent = self(),
+    Owner =
+	spawn_link(
+	  fun () ->
+		  socket_starter(Starter(), Timeout, Parent)
+	  end),
+    io:format("Started socket ~w.~n", [Owner]),
+    Owner.
+
+socket_starter(Socket, Timeout, Parent) ->
+    try
+	Handler = socket_handler(Socket, Timeout),
+	socket_loop(Socket, Timeout, Parent, Handler)
+    catch
+	Class:Reason ->
+	    Stacktrace = erlang:get_stacktrace(),
+	    io:format(?MODULE_STRING":socket exception ~w:~w at~n"
+		      "~p.~n", [Class,Reason,Stacktrace]),
+	    erlang:raise(Class, Reason, Stacktrace)
+    end.
+
+socket_loop(Socket, Timeout, Parent, Handler) ->
+    receive
+	{Parent,Ref} -> % socket_stop()
+	    Result =
+		case log(gen_sctp:recv(Socket, Timeout)) of
+		    {error,timeout} -> ok;
+		    R -> R
+		end,
+	    ok = gen_sctp:close(Socket),
+	    Parent ! {self(),Ref, Result};
+	{Parent,Ref,Msg} ->
+	    Parent ! {self(),Ref,Handler(Msg)},
+	    socket_loop(Socket, Timeout, Parent, Handler)
+    end.
+
+socket_handler(Socket, Timeout) ->
+    fun ({listen,Listen}) ->
+	    gen_sctp:listen(Socket, Listen);
+	(port) ->
+	    ok(inet:port(Socket));
+	(socket) ->
+	    Socket;
+	(recv_assoc) ->
+	    {AssocAddr,AssocPort,[],
+	     #sctp_assoc_change{state=comm_up,
+				error=0,
+				outbound_streams=Os,
+				inbound_streams=Is,
+				assoc_id=AssocId}} =
+		ok(gen_sctp:recv(Socket, infinity)),
+	    case log(gen_sctp:recv(Socket, Timeout)) of
+		{ok,AssocAddr,AssocPort,[],
+		 #sctp_paddr_change{addr = {AssocAddr,AssocPort},
+				    state = addr_available,
+				    error = 0,
+				    assoc_id = AssocId}} -> ok;
+		{error,timeout} -> ok
+	    end,
+	    {AssocId,Os,Is,AssocAddr,AssocPort};
+	({connect,ConAddr,ConPort,ConOpts}) ->
+	    #sctp_assoc_change{state=comm_up,
+			       error=0,
+			       outbound_streams=Os,
+			       inbound_streams=Is,
+			       assoc_id=AssocId} =
+		ok(gen_sctp:connect(Socket, ConAddr, ConPort, ConOpts)),
+	    case log(gen_sctp:recv(Socket, Timeout)) of
+		{ok,ConAddr,ConPort,[],
+		 #sctp_paddr_change{addr = {ConAddr,ConPort},
+				    state = addr_available,
+				    error = 0,
+				    assoc_id = AssocId}} -> ok;
+		{error,timeout} -> ok
+	    end,
+	    {AssocId,Os,Is};
+	({send,AssocId,Stream,Data}) ->
+	    gen_sctp:send(Socket, AssocId, Stream, Data);
+	({send,S,AssocId,Stream,Data}) ->
+	    gen_sctp:send(S, AssocId, Stream, Data);
+	(recv) ->
+	    {Addr,Port,
+	     [#sctp_sndrcvinfo{stream=Stream,assoc_id=AssocId}],Data} =
+		ok(gen_sctp:recv(Socket, infinity)),
+	    {Addr,Port,AssocId,Stream,Data};
+	({recv,S}) ->
+	    {Addr,Port,
+	     [#sctp_sndrcvinfo{stream=Stream,assoc_id=AssocId}],Data} =
+		ok(gen_sctp:recv(S, infinity)),
+	    {Addr,Port,AssocId,Stream,Data}
+    end.
+
+socket_stop(Handler) ->
+    Mref = erlang:monitor(process, Handler),
+    Handler ! {self(),Mref},
+    receive
+	{Handler,Mref,Result} ->
+	    receive {'DOWN',Mref,_,_,_} -> Result end;
+	{'DOWN',Mref,_,_,Error} ->
+	    exit(Error)
+    end.
+
+socket_call(Handler, Request) ->
+    socket_resp(socket_req(Handler, Request)).
+
+socket_req(Handler, Request) ->
+    Mref = erlang:monitor(process, Handler),
+    Handler ! {self(),Mref,Request},
+    {Handler,Mref}.
+
+socket_resp({Handler,Mref}) ->
+    receive
+	{'DOWN',Mref,_,_,Error} ->
+	    exit(Error);
+	{Handler,Mref,Reply} ->
+	    erlang:demonitor(Mref),
+	    receive {'DOWN',Mref,_,_,_} -> ok after 0 -> ok end,
+	    Reply
     end.
