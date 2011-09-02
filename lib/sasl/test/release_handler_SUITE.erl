@@ -56,7 +56,9 @@ win32_cases() ->
 %% Cases that can be run on all platforms
 cases() ->
     [otp_2740, otp_2760, otp_5761, otp_9402, otp_9417,
-     many_procs, instructions, eval_appup].
+     otp_9395_check_old_code, otp_9395_check_and_purge,
+     otp_9395_update_many_mods, otp_9395_rm_many_mods,
+     instructions, eval_appup].
 
 groups() ->
     [{release,[],
@@ -570,8 +572,11 @@ otp_2760(Conf) ->
     {ok, []} = rpc:call(Node, release_handler_1, eval_script, [Script]),
     false = rpc:call(Node, code, is_loaded, [app1]),
 
-    true = stop_node(Node),
     ok.
+
+otp_2760(cleanup,_Conf) ->
+    stop_node(node_name(otp_2760)).
+
 
 %% Test upgrade using other filesystem than the defined in OTP and
 %% option {update_paths, true}
@@ -654,9 +659,10 @@ otp_5761(Conf) when is_list(Conf) ->
     App11Dir = rpc:call(Node, code, lib_dir, [app1]),
     App2aDir = rpc:call(Node, code, lib_dir, [app2]),
 
-    %% Stop the slave node
-    true = stop_node(Node),
     ok.
+
+otp_5761(cleanup,_Conf) ->
+    stop_node(node_name(otp_5761)).
 
 
 %% When a new version of an application is added, but no module is
@@ -723,6 +729,9 @@ otp_9402(Conf) when is_list(Conf) ->
 
     ok.
 
+otp_9402(cleanup,_Conf) ->
+    stop_node(node_name(otp_9402)).
+
 
 %% When a module is deleted in an appup instruction, the upgrade
 %% failed if the module was not loaded.
@@ -778,46 +787,52 @@ otp_9417(Conf) when is_list(Conf) ->
     {file,BServerBeam} = rpc:call(Node,code,is_loaded,[b_server]),
     ok.
 
+otp_9417(cleanup,_Conf) ->
+    stop_node(node_name(otp_9417)).
+
+
 %% OTP-9395 - performance problems when there are MANY processes
 %% Test that the procedure of checking for old code before an upgrade
 %% can be started is "very much faster" when there is no old code in
 %% the system.
-many_procs(Conf) when is_list(Conf) ->
+otp_9395_check_old_code(Conf) when is_list(Conf) ->
 
     NProcs = 1000,
-    NMods = 10,
-    Modules = [list_to_atom("m"++integer_to_list(N)) || N <- lists:seq(1,NMods)],
-    Mbins = [generate_module(M) || M <- Modules],
+    MPath = filename:join([?config(data_dir,Conf),"lib","many_mods-1.0","ebin"]),
+    code:add_path(MPath),
 
-    Pids = [spawn_link(fun() ->
-			       Cs = [M:bar() || M <- Modules],
-			       receive stop -> Cs end
-		       end) ||
-	       _ <- lists:seq(1,NProcs)],
+    %% Start NProc processes, each referencing each module
+    {Modules,Pids} = m:start(NProcs),
 
-    [code:load_binary(Mod,generated_by_release_handler_SUITE,Bin) ||
-	{Mod,Bin} <- Mbins],
+    %% Load each module again in order to get old code
+    [code:load_file(Mod) || Mod <- Modules],
+    true = erlang:check_old_code(m10),
 
     S = [point_of_no_return |
 	 [{remove,{M,soft_purge,soft_purge}} || M <- Modules]],
 
-    {T1,ok} = timer:tc(release_handler_1,check_script,[S,[]]),
-    [code:purge(M) || M <- Modules],
-    {T2,ok} = timer:tc(release_handler_1,check_script,[S,[]]),
+    %% Do the old code check, then purge, and redo
+    {T1,{ok,PurgeMods}} = timer:tc(release_handler_1,check_script,[S,[]]),
+    true = (lists:sort(PurgeMods) == lists:sort(Modules)),
+    [code:purge(M) || M <- PurgeMods],
+    {T2,{ok,[]}} = timer:tc(release_handler_1,check_script,[S,[]]),
 
+    %% Cleanup
     lists:foreach(fun(Pid) -> Pid ! stop end, Pids),
     lists:foreach(fun(Mod) -> code:purge(Mod),
 			      code:delete(Mod),
 			      code:purge(Mod)
 		  end, Modules),
+    code:del_path(MPath),
 
+    %% Test that second run was much faster than the first
     if T2 > 0 ->
 	    X = T1/T2,
 	    ct:log("~p procs, ~p mods -> ~n"
 		   "\tWith old code: ~.2f sec~n"
 		   "\tAfter purge: ~.2f sec~n"
 		   "\tT1/T2: ~.2f",
-		   [NProcs,NMods,T1/1000000,T2/1000000,X]),
+		   [NProcs,length(Modules),T1/1000000,T2/1000000,X]),
 	    if X < 1000 ->
 		    ct:fail({not_enough_improvement_after_purge,round(X)});
 	       true ->
@@ -830,25 +845,222 @@ many_procs(Conf) when is_list(Conf) ->
     end,
     ok.
 
-%% Generate a module with a constant. This constant will be referenced
-%% from many processes in order to force a garbage collection from
-%% erlang:check_process_code.
-generate_module(Mod) ->
-    Str = lists:concat(
-	    ["-module(",Mod,").\n"
-	     "-compile(export_all).\n"
-	     "bar() -> {now(),[{1,'1',\"1\"},{2,'2',\"2\"},{3,'3',\"3\"},{4,'4',\"4\"},{5,'5',\"5\"},{6,'6',\"6\"},{7,'7',\"7\"},{8,'8',\"8\"},{9,'9',\"9\"},{10,'10',\"10\"},{11,'11',\"11\"},{12,'12',\"12\"},{13,'13',\"13\"},{14,'14',\"14\"},{15,'15',\"15\"},{16,'16',\"16\"},{17,'17',\"17\"},{18,'18',\"18\"},{19,'19',\"19\"},{20,'20',\"20\"},{21,'21',\"21\"},{22,'22',\"22\"},{23,'23',\"23\"},{24,'24',\"24\"},{25,'25',\"25\"},{26,'26',\"26\"},{27,'27',\"27\"},{28,'28',\"28\"},{29,'29',\"29\"},{30,'30',\"30\"},{31,'31',\"31\"},{32,'32',\"32\"},{33,'33',\"33\"},{34,'34',\"34\"},{35,'35',\"35\"},{36,'36',\"36\"},{37,'37',\"37\"},{38,'38',\"38\"},{39,'39',\"39\"},{40,'40',\"40\"},{41,'41',\"41\"},{42,'42',\"42\"},{43,'43',\"43\"},{44,'44',\"44\"},{45,'45',\"45\"},{46,'46',\"46\"},{47,'47',\"47\"},{48,'48',\"48\"},{49,'49',\"49\"},{50,'50',\"50\"},{51,'51',\"51\"},{52,'52',\"52\"},{53,'53',\"53\"},{54,'54',\"54\"},{55,'55',\"55\"},{56,'56',\"56\"},{57,'57',\"57\"},{58,'58',\"58\"},{59,'59',\"59\"},{60,'60',\"60\"},{61,'61',\"61\"},{62,'62',\"62\"},{63,'63',\"63\"},{64,'64',\"64\"},{65,'65',\"65\"},{66,'66',\"66\"},{67,'67',\"67\"},{68,'68',\"68\"},{69,'69',\"69\"},{70,'70',\"70\"},{71,'71',\"71\"},{72,'72',\"72\"},{73,'73',\"73\"},{74,'74',\"74\"},{75,'75',\"75\"},{76,'76',\"76\"},{77,'77',\"77\"},{78,'78',\"78\"},{79,'79',\"79\"},{80,'80',\"80\"},{81,'81',\"81\"},{82,'82',\"82\"},{83,'83',\"83\"},{84,'84',\"84\"},{85,'85',\"85\"},{86,'86',\"86\"},{87,'87',\"87\"},{88,'88',\"88\"},{89,'89',\"89\"},{90,'90',\"90\"},{91,'91',\"91\"},{92,'92',\"92\"},{93,'93',\"93\"},{94,'94',\"94\"},{95,'95',\"95\"},{96,'96',\"96\"},{97,'97',\"97\"},{98,'98',\"98\"},{99,'99',\"99\"},{100,'100',\"100\"}]}.\n"]),
-    TT = doscan(Str),
-    Forms = [ begin {ok,Y} = erl_parse:parse_form(X),Y end || X <- TT ],
-    {ok,Mod,Bin} = compile:forms(Forms),
-    code:load_binary(Mod,generated_by_release_handler_SUITE,Bin),
-    {Mod,Bin}.
 
-doscan([]) ->
-    [];
-doscan(Str) ->
-    {done,{ok,T,_},C} = erl_scan:tokens([],Str,0),
-    [ T | doscan(C) ].
+%% OTP-9395 - performance problems when there are MANY processes
+%% Added option 'purge' to check_install_release
+otp_9395_check_and_purge(Conf) when is_list(Conf) ->
+    %% Set some paths
+    PrivDir = priv_dir(Conf),
+    Dir = filename:join(PrivDir,"otp_9395_check_and_purge"),
+    LibDir = filename:join(?config(data_dir, Conf), "lib"),
+
+    %% Create the releases
+    Rel1 = create_and_install_fake_first_release(Dir,
+						 [{b,"1.0",LibDir}]),
+    Rel2 = create_fake_upgrade_release(Dir,
+				       "2",
+				       [{b,"2.0",LibDir}],
+				       {[Rel1],[Rel1],[LibDir]}),
+    Rel1Dir = filename:dirname(Rel1),
+    Rel2Dir = filename:dirname(Rel2),
+
+    %% Start a slave node
+    {ok, Node} = t_start_node(otp_9395_check_and_purge, Rel1,
+			      filename:join(Rel1Dir,"sys.config")),
+
+    %% Make sure there is old code for b_lib and b_server
+    rpc:call(Node,code,load_file,[b_lib]),
+    rpc:call(Node,code,load_file,[b_lib]),
+    rpc:call(Node,code,load_file,[b_server]),
+    rpc:call(Node,code,load_file,[b_server]),
+    true = rpc:call(Node,erlang,check_old_code,[b_lib]),
+    true = rpc:call(Node,erlang,check_old_code,[b_server]),
+
+    %% Unpack second release, which removes b_lib module and loads b_server
+    {ok, RelVsn2} =
+	rpc:call(Node, release_handler, set_unpacked,
+		 [Rel2++".rel", [{b,"2.0",LibDir}]]),
+    ok = rpc:call(Node, release_handler, install_file,
+		  [RelVsn2, filename:join(Rel2Dir, "relup")]),
+    ok = rpc:call(Node, release_handler, install_file,
+		  [RelVsn2, filename:join(Rel2Dir, "start.boot")]),
+    ok = rpc:call(Node, release_handler, install_file,
+		  [RelVsn2, filename:join(Rel2Dir, "sys.config")]),
+
+    %% Do check_install_release, and check that old code still exists
+    {ok, _RelVsn1, []} =
+	rpc:call(Node, release_handler, check_install_release, [RelVsn2]),
+    true = rpc:call(Node,erlang,check_old_code,[b_lib]),
+    true = rpc:call(Node,erlang,check_old_code,[b_server]),
+
+    %% Do check_install_release with option 'purge' and check that old
+    %% code is gone
+    {ok, _RelVsn1, []} =
+	rpc:call(Node, release_handler, check_install_release, [RelVsn2,[purge]]),
+    false = rpc:call(Node,erlang,check_old_code,[b_lib]),
+    false = rpc:call(Node,erlang,check_old_code,[b_server]),
+
+    ok.
+
+otp_9395_check_and_purge(cleanup,_Conf) ->
+    stop_node(node_name(otp_9395_check_and_purge)).
+
+
+%% OTP-9395 - performance problems when there are MANY processes
+%% Upgrade which updates many modules (brutal_purge)
+otp_9395_update_many_mods(Conf) when is_list(Conf) ->
+    %% Set some paths
+    PrivDir = priv_dir(Conf),
+    Dir = filename:join(PrivDir,"otp_9395_update_many_mods"),
+    LibDir = filename:join(?config(data_dir, Conf), "lib"),
+
+    %% Create the releases
+    Rel1 = create_and_install_fake_first_release(Dir,
+						 [{many_mods,"1.0",LibDir}]),
+    Rel2 = create_fake_upgrade_release(Dir,
+				       "2",
+				       [{many_mods,"1.1",LibDir}],
+				       {[Rel1],[Rel1],[LibDir]}),
+    Rel1Dir = filename:dirname(Rel1),
+    Rel2Dir = filename:dirname(Rel2),
+
+    %% Start a slave node
+    {ok, Node} = t_start_node(otp_9395_update_many_mods, Rel1,
+			      filename:join(Rel1Dir,"sys.config")),
+
+    %% Start a lot of processes on the new node, all with refs to each
+    %% module that will be updated
+    NProcs = 1000,
+    {Modules,Pids1} = rpc:call(Node,m,start,[NProcs]),
+
+    %% Then load modules in order to get old code
+    [rpc:call(Node,code,load_file,[Mod]) || Mod <- Modules],
+    true = rpc:call(Node,erlang,check_old_code,[m10]),
+
+    %% Unpack second release, which updates all mX modules
+    {ok, RelVsn2} =
+	rpc:call(Node, release_handler, set_unpacked,
+		 [Rel2++".rel", [{many_mods,"1.1",LibDir}]]),
+    ok = rpc:call(Node, release_handler, install_file,
+		  [RelVsn2, filename:join(Rel2Dir, "relup")]),
+    ok = rpc:call(Node, release_handler, install_file,
+		  [RelVsn2, filename:join(Rel2Dir, "start.boot")]),
+    ok = rpc:call(Node, release_handler, install_file,
+		  [RelVsn2, filename:join(Rel2Dir, "sys.config")]),
+
+    %% First, install release directly and check how much time it takes
+    {TInst0,{ok, _, []}} =
+	timer:tc(rpc,call,[Node, release_handler, install_release, [RelVsn2]]),
+    ct:log("install_release: ~.2f",[TInst0/1000000]),
+
+    %% Restore to old release, spawn processes again and load to get old code
+    {_,RelVsn1} = init:script_id(),
+    {_TInst1,{ok, _, []}} =
+	timer:tc(rpc,call,[Node, release_handler, install_release, [RelVsn1]]),
+%    ct:log("install_release: ~.2f",[_TInst1/1000000]),
+
+    [exit(Pid,kill) || Pid <- Pids1],
+    {Modules,_Pids2} = rpc:call(Node,m,start,[NProcs]),
+    [rpc:call(Node,code,load_file,[Mod]) || Mod <- Modules],
+    true = rpc:call(Node,erlang,check_old_code,[m10]),
+
+    %% Run check_install_release with purge before install this time
+    {TCheck,{ok, _RelVsn1, []}} =
+	timer:tc(rpc,call,[Node, release_handler, check_install_release,
+			   [RelVsn2,[purge]]]),
+    ct:log("check_install_release with purge: ~.2f",[TCheck/1000000]),
+
+    %% Finally install release after check and purge, and check that
+    %% this install was faster than the first.
+    {TInst2,{ok, _RelVsn1, []}} =
+	timer:tc(rpc,call,[Node, release_handler, install_release, [RelVsn2]]),
+    ct:log("install_release: ~.2f",[TInst2/1000000]),
+
+    true = (TInst2 < TInst0),
+
+    ok.
+
+otp_9395_update_many_mods(cleanup,_Conf) ->
+    stop_node(node_name(otp_9395_update_many_mods)).
+
+
+%% OTP-9395 - performance problems when there are MANY processes
+%% Upgrade which removes many modules (brutal_purge)
+otp_9395_rm_many_mods(Conf) when is_list(Conf) ->
+    %% Set some paths
+    PrivDir = priv_dir(Conf),
+    Dir = filename:join(PrivDir,"otp_9395_rm_many_mods"),
+    LibDir = filename:join(?config(data_dir, Conf), "lib"),
+
+    %% Create the releases
+    Rel1 = create_and_install_fake_first_release(Dir,
+						 [{many_mods,"1.0",LibDir}]),
+    Rel2 = create_fake_upgrade_release(Dir,
+				       "2",
+				       [{many_mods,"2.0",LibDir}],
+				       {[Rel1],[Rel1],[LibDir]}),
+    Rel1Dir = filename:dirname(Rel1),
+    Rel2Dir = filename:dirname(Rel2),
+
+    %% Start a slave node
+    {ok, Node} = t_start_node(otp_9395_rm_many_mods, Rel1,
+			      filename:join(Rel1Dir,"sys.config")),
+
+    %% Start a lot of processes on the new node, all with refs to each
+    %% module that will be updated
+    NProcs = 1000,
+    {Modules,Pids1} = rpc:call(Node,m,start,[NProcs]),
+
+    %% Then load modules in order to get old code
+    [rpc:call(Node,code,load_file,[Mod]) || Mod <- Modules],
+    true = rpc:call(Node,erlang,check_old_code,[m10]),
+
+    %% Unpack second release, which removes all mX modules
+    {ok, RelVsn2} =
+	rpc:call(Node, release_handler, set_unpacked,
+		 [Rel2++".rel", [{many_mods,"2.0",LibDir}]]),
+    ok = rpc:call(Node, release_handler, install_file,
+		  [RelVsn2, filename:join(Rel2Dir, "relup")]),
+    ok = rpc:call(Node, release_handler, install_file,
+		  [RelVsn2, filename:join(Rel2Dir, "start.boot")]),
+    ok = rpc:call(Node, release_handler, install_file,
+		  [RelVsn2, filename:join(Rel2Dir, "sys.config")]),
+
+    %% First, install release directly and check how much time it takes
+    {TInst0,{ok, _, []}} =
+	timer:tc(rpc,call,[Node, release_handler, install_release, [RelVsn2]]),
+    ct:log("install_release: ~.2f",[TInst0/1000000]),
+
+    %% Restore to old release, spawn processes again and load to get old code
+    {_,RelVsn1} = init:script_id(),
+    {_TInst1,{ok, _, []}} =
+	timer:tc(rpc,call,[Node, release_handler, install_release, [RelVsn1]]),
+%    ct:log("install_release: ~.2f",[_TInst1/1000000]),
+
+    [exit(Pid,kill) || Pid <- Pids1],
+    {Modules,_Pids2} = rpc:call(Node,m,start,[NProcs]),
+    [rpc:call(Node,code,load_file,[Mod]) || Mod <- Modules],
+    true = rpc:call(Node,erlang,check_old_code,[m10]),
+
+    %% Run check_install_release with purge before install this time
+    {TCheck,{ok, _RelVsn1, []}} =
+	timer:tc(rpc,call,[Node, release_handler, check_install_release,
+			   [RelVsn2,[purge]]]),
+    ct:log("check_install_release with purge: ~.2f",[TCheck/1000000]),
+
+    %% Finally install release after check and purge, and check that
+    %% this install was faster than the first.
+    {TInst2,{ok, _RelVsn1, []}} =
+	timer:tc(rpc,call,[Node, release_handler, install_release, [RelVsn2]]),
+    ct:log("install_release: ~.2f",[TInst2/1000000]),
+
+    true = (TInst2 =< TInst0),
+
+    ok.
+
+otp_9395_rm_many_mods(cleanup,_Conf) ->
+    stop_node(node_name(otp_9395_rm_many_mods)).
+
 
 
 %% Test upgrade and downgrade of applications

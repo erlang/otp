@@ -19,7 +19,8 @@
 -module(release_handler_1).
 
 %% External exports
--export([eval_script/1, eval_script/5, check_script/2]).
+-export([eval_script/1, eval_script/5,
+	 check_script/2, check_old_processes/2]).
 -export([get_current_vsn/1]). %% exported because used in a test case
 
 -record(eval_state, {bins = [], stopped = [], suspended = [], apps = [],
@@ -47,17 +48,20 @@
 %%% This is a low-level release handler.
 %%%-----------------------------------------------------------------
 check_script(Script, LibDirs) ->
-    case catch check_old_processes(Script) of
-	ok ->
+    case catch check_old_processes(Script,soft_purge) of
+	{ok, PurgeMods} ->
 	    {Before, _After} = split_instructions(Script),
 	    case catch lists:foldl(fun(Instruction, EvalState1) ->
 					   eval(Instruction, EvalState1)
 				   end,
 				   #eval_state{libdirs = LibDirs},
 				   Before) of
-		EvalState2 when is_record(EvalState2, eval_state) -> ok;
-		{error, Error} -> {error, Error};
-		Other -> {error, Other}
+		EvalState2 when is_record(EvalState2, eval_state) ->
+		    {ok,PurgeMods};
+		{error, Error} ->
+		    {error, Error};
+		Other ->
+		    {error, Other}
 	    end;
 	{error, Mod} ->
 	    {error, {old_processes, Mod}}
@@ -68,8 +72,8 @@ eval_script(Script) ->
     eval_script(Script, [], [], [], []).
 
 eval_script(Script, Apps, LibDirs, NewLibs, Opts) ->
-    case catch check_old_processes(Script) of
-	ok ->
+    case catch check_old_processes(Script,soft_purge) of
+	{ok,_} ->
 	    {Before, After} = split_instructions(Script),
 	    case catch lists:foldl(fun(Instruction, EvalState1) ->
 					   eval(Instruction, EvalState1)
@@ -112,38 +116,62 @@ split_instructions([], Before) ->
     {[], lists:reverse(Before)}.
 
 %%-----------------------------------------------------------------
-%% Func: check_old_processes/1
+%% Func: check_old_processes/2
 %% Args: Script = [instruction()]
+%%       PrePurgeMethod = soft_purge | brutal_purge
 %% Purpose: Check if there is any process that runs an old version
-%%          of a module that should be soft_purged, (i.e. not purged
-%%          at all if there is any such process).  Returns {error, Mod}
-%%          if so, ok otherwise.
-%% Returns: ok | {error, Mod}
+%%          of a module that should be purged according to PrePurgeMethod.
+%%          Returns a list of modules that can be soft_purged.
+%%
+%%          If PrePurgeMethod == soft_purge, the function will succeed
+%%          only if there is no process running old code of any of the
+%%          modules. Else it will throw {error,Mod}, where Mod is the
+%%          first module found that can not be soft_purged.
+%%
+%%          If PrePurgeMethod == brutal_purge, the function will
+%%          always succeed and return a list of all modules that are
+%%          specified in the script with PrePurgeMethod brutal_purge,
+%%          but that can be soft_purged.
+%%
+%% Returns: {ok,PurgeMods} | {error, Mod}
+%%          PurgeMods = [Mod]
 %%          Mod = atom()  
 %%-----------------------------------------------------------------
-check_old_processes(Script) ->
+check_old_processes(Script,PrePurgeMethod) ->
     Procs = erlang:processes(),
-    lists:foreach(fun({load, {Mod, soft_purge, _PostPurgeMethod}}) ->
-			  check_old_code(Mod,Procs);
-		     ({remove, {Mod, soft_purge, _PostPurgeMethod}}) ->
-			  check_old_code(Mod,Procs);
-		     (_) -> ok
-		  end,
-		  Script).
+    {ok,lists:flatmap(
+	  fun({load, {Mod, PPM, _PostPurgeMethod}}) when PPM==PrePurgeMethod ->
+		  check_old_code(Mod,Procs,PrePurgeMethod);
+	     ({remove, {Mod, PPM, _PostPurgeMethod}}) when PPM==PrePurgeMethod ->
+		  check_old_code(Mod,Procs,PrePurgeMethod);
+	     (_) -> []
+	  end,
+	  Script)}.
 
-check_old_code(Mod,Procs) ->
+check_old_code(Mod,Procs,PrePurgeMethod) ->
     case erlang:check_old_code(Mod) of
-	true ->
-	    lists:foreach(fun(Pid) ->
-				  case erlang:check_process_code(Pid, Mod) of
-				      false -> ok;
-				      true -> throw({error, Mod})
-				  end
-			  end,
-			  Procs);
+	true when PrePurgeMethod==soft_purge ->
+	    do_check_old_code(Mod,Procs);
+	true when PrePurgeMethod==brutal_purge ->
+	    case catch do_check_old_code(Mod,Procs) of
+		{error,Mod} -> [];
+		R -> R
+	    end;
 	false ->
-	    ok
+	    []
     end.
+
+
+do_check_old_code(Mod,Procs) ->
+    lists:foreach(
+      fun(Pid) ->
+	      case erlang:check_process_code(Pid, Mod) of
+		  false -> ok;
+		  true -> throw({error, Mod})
+	      end
+      end,
+      Procs),
+    [Mod].
 
 
 %%-----------------------------------------------------------------
