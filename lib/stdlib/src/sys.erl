@@ -154,7 +154,7 @@ log_to_file(Name, FileName, Timeout) ->
 -spec statistics(Name, Flag) -> 'ok' | {'ok', Statistics} when
       Name :: name(),
       Flag :: 'true' | 'false' | 'get',
-      Statistics :: [StatisticsTuple],
+      Statistics :: [StatisticsTuple] | no_statistics,
       StatisticsTuple :: {'start_time', DateTime1}
                        | {'current_time', DateTime2}
                        | {'reductions', non_neg_integer()}
@@ -168,7 +168,7 @@ statistics(Name, Flag) ->
 -spec statistics(Name, Flag, Timeout) -> 'ok' | {'ok', Statistics} when
       Name :: name(),
       Flag :: 'true' | 'false' | 'get',
-      Statistics :: [StatisticsTuple],
+      Statistics :: [StatisticsTuple] | no_statistics,
       StatisticsTuple :: {'start_time', DateTime1}
                        | {'current_time', DateTime2}
                        | {'reductions', non_neg_integer()}

@@ -158,7 +158,7 @@ internal_loop(State) ->
 terminate(Reason,{Parent,Worker}) ->
     %% This func knows about supervisor_bridge
     io:format("Terminating bridge...\n"),
-    exit(kill,Worker),
+    exit(Worker,kill),
     Parent ! {dying,Reason},
     anything.
 

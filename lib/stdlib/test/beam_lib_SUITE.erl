@@ -242,8 +242,8 @@ cmp(doc) -> ["Compare contents of BEAM files and directories"];
 cmp(Conf) when is_list(Conf) ->
     ?line PrivDir = ?privdir,
 
-    ?line Dir1 = filename:join(PrivDir, dir1),
-    ?line Dir2 = filename:join(PrivDir, dir2),
+    ?line Dir1 = filename:join(PrivDir, "dir1"),
+    ?line Dir2 = filename:join(PrivDir, "dir2"),
 
     ok = file:make_dir(Dir1),
     ok = file:make_dir(Dir2),
@@ -292,8 +292,8 @@ cmp_literals(doc) -> ["Compare contents of BEAM files having literals"];
 cmp_literals(Conf) when is_list(Conf) ->
     ?line PrivDir = ?privdir,
 
-    ?line Dir1 = filename:join(PrivDir, dir1),
-    ?line Dir2 = filename:join(PrivDir, dir2),
+    ?line Dir1 = filename:join(PrivDir, "dir1"),
+    ?line Dir2 = filename:join(PrivDir, "dir2"),
 
     ok = file:make_dir(Dir1),
     ok = file:make_dir(Dir2),
@@ -381,7 +381,7 @@ otp_6711(Conf) when is_list(Conf) ->
         (catch {a, beam_lib:strip_files([3])}),
 
     ?line PrivDir = ?privdir,
-    ?line Dir = filename:join(PrivDir, dir),
+    ?line Dir = filename:join(PrivDir, "dir"),
     ?line Lib = filename:join(Dir, "lib"),
     ?line App = filename:join(Lib, "app"),
     ?line EBin = filename:join(App, "ebin"),
@@ -417,8 +417,8 @@ building(doc) -> "Testing building of BEAM files.";
 building(Conf) when is_list(Conf) ->
     ?line PrivDir = ?privdir,
 
-    ?line Dir1 = filename:join(PrivDir, b_dir1),
-    ?line Dir2 = filename:join(PrivDir, b_dir2),
+    ?line Dir1 = filename:join(PrivDir, "b_dir1"),
+    ?line Dir2 = filename:join(PrivDir, "b_dir2"),
 
     ok = file:make_dir(Dir1),
     ok = file:make_dir(Dir2),
@@ -688,7 +688,7 @@ chunk_info(File) ->
     Chunks.
     
 make_beam(Dir, Module, F) ->
-    ?line FileBase = filename:join(Dir, Module),
+    ?line FileBase = filename:join(Dir, atom_to_list(Module)),
     ?line Source = FileBase ++ ".erl",
     ?line BeamFile = FileBase ++ ".beam",
     ?line simple_file(Source, Module, F),

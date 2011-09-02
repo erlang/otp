@@ -109,9 +109,9 @@ fwrite(Format, Args) ->
 fread(Chars, Format) ->
     io_lib_fread:fread(Chars, Format).
 
--spec fread(Continuation, String, Format) -> Return when
+-spec fread(Continuation, CharSpec, Format) -> Return when
       Continuation :: continuation() | [],
-      String :: string(),
+      CharSpec :: string() | eof,
       Format :: string(),
       Return :: {'more', Continuation1 :: continuation()}
               | {'done', Result, LeftOverChars :: string()},

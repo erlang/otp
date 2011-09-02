@@ -81,7 +81,8 @@
 -define(ORDTAG, 'OrdSet').
 
 -record(?TAG, {data = [] :: list(), type = type :: term()}).
--record(?ORDTAG, {orddata = {} :: tuple(), ordtype = type :: term()}).
+-record(?ORDTAG, {orddata = {} :: tuple() | atom(),
+                  ordtype = type :: term()}).
 
 -define(LIST(S), (S)#?TAG.data).
 -define(TYPE(S), (S)#?TAG.type).
@@ -375,7 +376,7 @@ to_sets(S) when ?IS_ORDSET(S) ->
 
 -spec(no_elements(ASet) -> NoElements when
       ASet :: a_set() | ordset(),
-      NoElements :: pos_integer()).
+      NoElements :: non_neg_integer()).
 no_elements(S) when ?IS_SET(S) ->
     length(?LIST(S));
 no_elements(S) when ?IS_ORDSET(S), is_tuple(?ORDTYPE(S)) ->
