@@ -656,7 +656,7 @@ create_script(Config) ->
     ?line Apps = application_controller:which_applications(),
     ?line {value,{_,_,KernelVer}} = lists:keysearch(kernel,1,Apps),
     ?line {value,{_,_,StdlibVer}} = lists:keysearch(stdlib,1,Apps),
-    ?line {ok,Fd} = file:open(Name ++ ".rel", write),
+    ?line {ok,Fd} = file:open(Name ++ ".rel", [write]),
     ?line io:format(Fd,
 		    "{release, {\"Test release 3\", \"P2A\"}, \n"
 		    " {erts, \"4.4\"}, \n"

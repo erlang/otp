@@ -65,7 +65,7 @@ borderline(Config) when is_list(Config) ->
 
     ?line {ok, Cwd} = file:get_cwd(),
     ?line RootDir = ?config(priv_dir, Config),
-    ?line TempDir = remove_prefix(Cwd++"/", filename:join(RootDir, borderline)),
+    ?line TempDir = remove_prefix(Cwd++"/", filename:join(RootDir, "borderline")),
     ?line ok = file:make_dir(TempDir),
 
     ?line Record = 512,
@@ -323,12 +323,12 @@ create_long_names(doc) ->
 create_long_names(Config) when is_list(Config) ->
     ?line PrivDir = ?config(priv_dir, Config),
     ?line ok = file:set_cwd(PrivDir),
-    Dirs = [aslfjkshjkhliuf,
-	    asdhjfehnbfsky,
-	    sahajfskdfhsz,
-	    asldfkdlfy4y8rchg,
-	    f7nafhjgffagkhsfkhsjk,
-	    dfjasldkfjsdkfjashbv],
+    Dirs = ["aslfjkshjkhliuf",
+	    "asdhjfehnbfsky",
+	    "sahajfskdfhsz",
+	    "asldfkdlfy4y8rchg",
+	    "f7nafhjgffagkhsfkhsjk",
+	    "dfjasldkfjsdkfjashbv"],
 
     ?line DeepDir = make_dirs(Dirs, []),
     ?line AFile = filename:join(DeepDir, "a_file"),
@@ -487,7 +487,7 @@ extract_from_binary_compressed(Config) when is_list(Config) ->
     
     %% Trying extracting from a binary.
     ?line ok = erl_tar:extract({binary,Bin}, [compressed,{cwd,ExtractDir}]),
-    ?line {ok,List} = file:list_dir(filename:join(ExtractDir, ddll_SUITE_data)),
+    ?line {ok,List} = file:list_dir(filename:join(ExtractDir, "ddll_SUITE_data")),
     ?line io:format("~p\n", [List]),
     ?line 19 = length(List),
 
@@ -676,7 +676,7 @@ cooked_compressed(Config) when is_list(Config) ->
 		  end, List),
 
     %% Clean up.
-    ?line delete_files([filename:join(PrivDir, ddll_SUITE_data)]),
+    ?line delete_files([filename:join(PrivDir, "ddll_SUITE_data")]),
     ok.
 
 memory(doc) ->

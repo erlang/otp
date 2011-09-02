@@ -258,8 +258,8 @@ replace_path(Config) when is_list(Config) ->
 
     %% Add a completly new application.
 
-    NewAppName = "blurf_blarfer",
-    ?line NewAppDir = filename:join(Cwd, NewAppName ++ "-6.33.1"),
+    NewAppName = 'blurf_blarfer',
+    ?line NewAppDir = filename:join(Cwd, atom_to_list(NewAppName) ++ "-6.33.1"),
     ?line ok = file:make_dir(NewAppDir),
     ?line true = code:replace_path(NewAppName, NewAppDir),
     ?line NewAppDir = code:lib_dir(NewAppName),
@@ -410,8 +410,10 @@ all_loaded_1() ->
     ?line Loaded2 = match_and_remove(Preloaded, Loaded1),
 
     ObjExt = code:objfile_extension(),
-    ?line [] = lists:filter(fun({Mod,AbsName}) when is_atom(Mod), is_list(AbsName) ->
-				    Mod =:= filename:basename(AbsName, ObjExt);
+    ?line [] = lists:filter(fun({Mod,AbsName}) when is_atom(Mod),
+                                                    is_list(AbsName) ->
+                                    Mod =/= list_to_atom(filename:basename(AbsName,
+                                                                           ObjExt));
 			       (_) -> true
 			    end,
 			    Loaded2),
@@ -1023,8 +1025,8 @@ mult_lib_roots(Config) when is_list(Config) ->
 			   "my_dummy_app-c/ebin/code_SUITE_mult_root_module"),
 
     %% Set up ERL_LIBS and start a slave node.
-    ErlLibs = filename:join(DataDir, first_root) ++ mult_lib_sep() ++
-	filename:join(DataDir, second_root),
+    ErlLibs = filename:join(DataDir, "first_root") ++ mult_lib_sep() ++
+	filename:join(DataDir, "second_root"),
 
     ?line {ok,Node} = 
 	?t:start_node(mult_lib_roots, slave,
@@ -1344,7 +1346,7 @@ create_script(Config) ->
     ?line Apps = application_controller:which_applications(),
     ?line {value,{_,_,KernelVer}} = lists:keysearch(kernel, 1, Apps),
     ?line {value,{_,_,StdlibVer}} = lists:keysearch(stdlib, 1, Apps),
-    ?line {ok,Fd} = file:open(Name ++ ".rel", write),
+    ?line {ok,Fd} = file:open(Name ++ ".rel", [write]),
     ?line io:format(Fd,
 		    "{release, {\"Test release 3\", \"P2A\"}, \n"
 		    " {erts, \"9.42\"}, \n"
@@ -1409,7 +1411,7 @@ create_big_script(Config,Local) ->
     %% Now we should have only "real" applications...
     ?line [application:load(list_to_atom(Y)) || {match,[Y]} <- [ re:run(X,code:lib_dir()++"/"++"([^/-]*).*/ebin",[{capture,[1],list}]) || X <- code:get_path()],filter_app(Y,Local)],
     ?line Apps = [ {N,V} || {N,_,V} <- application:loaded_applications()],
-    ?line {ok,Fd} = file:open(Name ++ ".rel", write),
+    ?line {ok,Fd} = file:open(Name ++ ".rel", [write]),
     ?line io:format(Fd,
 		    "{release, {\"Test release 3\", \"P2A\"}, \n"
 		    " {erts, \"9.42\"}, \n"

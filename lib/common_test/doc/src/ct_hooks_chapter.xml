@@ -94,9 +94,11 @@
       <seealso marker="common_test#Module:init_per_group-2">
     init_per_group/2</seealso>. <c>CTH</c> in this case can be either
     only the module name of the CTH or a tuple with the module name and the
-    initial arguments to the CTH. Eg:
+    initial arguments and optionally the hook priority of the CTH. Eg:
     <c>{ct_hooks,[my_cth_module]}</c> or 
-    <c>{ct_hooks,[{my_cth_module,[{debug,true}]}]}</c></p>
+    <c>{ct_hooks,[{my_cth_module,[{debug,true}]}]}</c> or 
+    <c>{ct_hooks,[{my_cth_module,[{debug,true}],500}]}</c>
+    </p>
 
     <section>
       <title>Overriding CTHs</title>
@@ -109,7 +111,16 @@
 	<c>id</c> in both places, Common Test knows that this CTH
 	has already been installed and will not try to install it again.</p>
     </section>
-
+   
+    <section>
+      <title>CTH Priority</title>
+      <p>By default each CTH installed will be executed in the order which
+      they are installed. This is not always wanted so common_test allows 
+      the user to specify a priority for each hook. The priority can either
+      be specified in the CTH <seealso marker="ct_hooks#Module:init-2">init/2
+      </seealso> function or when installing the hook. The priority given at
+      installation will override the priority returned by the CTH. </p>
+    </section>
   </section>
 
   <marker id="scope"/>
@@ -331,7 +342,7 @@ id(Opts) ->
 %% any common state. 
 init(Id, Opts) ->
     {ok,D} = file:open(Id,[write]),
-    #state{ file_handle = D, total = 0, data = [] }.
+    {ok, #state{ file_handle = D, total = 0, data = [] }}.
 
 %% @doc Called before init_per_suite is called. 
 pre_init_per_suite(Suite,Config,State) ->

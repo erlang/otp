@@ -62,10 +62,10 @@
 -type zip_create_option() :: term().
 -type section() ::
 	  shebang
-	| {shebang, shebang()}
+	| {shebang, shebang() | default | undefined}
 	| comment
-	| {comment, comment()}
-	| {emu_args, emu_args()}
+	| {comment, comment() | default | undefined}
+	| {emu_args, emu_args() | undefined}
 	| {source, file:filename() | binary()}
 	| {beam, file:filename() | binary()}
 	| {archive, file:filename() | binary()}

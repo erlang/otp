@@ -240,7 +240,8 @@ add_defaults(Mod,Func,FuncInfo,DoInit) ->
     case (catch Mod:suite()) of
 	{'EXIT',{undef,_}} ->
 	    SuiteInfo = merge_with_suite_defaults(Mod,[]),
-	    case add_defaults1(Mod,Func,FuncInfo,SuiteInfo,DoInit) of
+	    SuiteInfoNoCTH = [I || I <- SuiteInfo, element(1,I) =/= ct_hooks],
+	    case add_defaults1(Mod,Func,FuncInfo,SuiteInfoNoCTH,DoInit) of
 		Error = {error,_} -> {SuiteInfo,Error};
 		MergedInfo -> {SuiteInfo,MergedInfo}
 	    end;
@@ -251,10 +252,11 @@ add_defaults(Mod,Func,FuncInfo,DoInit) ->
 			      (_) -> false
 			   end, SuiteInfo) of
 		true ->
-		    SuiteInfoNoCTH = 
-			lists:keydelete(ct_hooks,1,SuiteInfo),
-		    SuiteInfo1 = merge_with_suite_defaults(Mod,SuiteInfoNoCTH),
-		    case add_defaults1(Mod,Func,FuncInfo,SuiteInfo1,DoInit) of
+		    SuiteInfo1 = merge_with_suite_defaults(Mod,SuiteInfo),
+		    SuiteInfoNoCTH = [I || I <- SuiteInfo1,
+					   element(1,I) =/= ct_hooks],
+		    case add_defaults1(Mod,Func,FuncInfo,
+				       SuiteInfoNoCTH,DoInit) of
 			Error = {error,_} -> {SuiteInfo1,Error};
 			MergedInfo -> {SuiteInfo1,MergedInfo}
 		    end;

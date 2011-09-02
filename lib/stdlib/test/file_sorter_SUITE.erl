@@ -89,7 +89,7 @@ basic(suite) ->
 basic(Config) when is_list(Config) ->
     Fmt = binary,
     Arg = {format,Fmt},
-    Foo = outfile(foo, Config),
+    Foo = outfile("foo", Config),
     P0 = pps(),
 
     ?line F1s = [F1] = to_files([[]], Fmt, Config),
@@ -455,7 +455,7 @@ inout(suite) ->
     [];
 inout(Config) when is_list(Config) ->
     BTF = {format, binary_term},
-    Foo = outfile(foo, Config),
+    Foo = outfile("foo", Config),
 
     %% Input is fun.
     End = fun(read) -> end_of_input end,
@@ -522,7 +522,7 @@ many(doc) ->
 many(suite) ->
     [];
 many(Config) when is_list(Config) ->
-    Foo = outfile(foo, Config),
+    Foo = outfile("foo", Config),
     PrivDir = ?privdir(Config),
     P0 = pps(),
 
@@ -587,7 +587,7 @@ misc(suite) ->
     [];
 misc(Config) when is_list(Config) ->
     BTF = {format, binary_term},
-    Foo = outfile(foo, Config),
+    Foo = outfile("foo", Config),
     FFoo = filename:absname(Foo),
     P0 = pps(),
 
@@ -704,7 +704,7 @@ misc(Config) when is_list(Config) ->
 sort(Fmt, XArgs, Config) ->
     Args = make_args(Fmt, [{size,5} | XArgs]),
     TmpArgs = [{tmpdir,?privdir(Config)} | Args],
-    Foo = outfile(foo, Config),
+    Foo = outfile("foo", Config),
 
     %% Input is a fun. Output is a fun.
     ?line [] = file_sorter:sort(input([], 2, Fmt), output([], Fmt), Args),
@@ -777,7 +777,7 @@ sort(Fmt, XArgs, Config) ->
 keysort(Fmt, XArgs, Config) ->
     Args = make_args(Fmt, [{size,50}, {no_files, 2} | XArgs]),
     TmpArgs = Args ++ [{tmpdir,?privdir(Config)}],
-    Foo = outfile(foo, Config),
+    Foo = outfile("foo", Config),
 
     %% Input is files. Output is a file.
     ?line ok = file_sorter:keysort(2, [], Foo, Args),
@@ -836,7 +836,7 @@ keysort(Fmt, XArgs, Config) ->
 
 merge(Fmt, XArgs, Config) ->
     Args = make_args(Fmt, [{size,5} | XArgs]),
-    Foo = outfile(foo, Config),
+    Foo = outfile("foo", Config),
 
     %% Input is a file. Output is a fun.
     ?line [] = file_sorter:merge([], output([], Fmt), Args),
@@ -873,7 +873,7 @@ merge(Fmt, XArgs, Config) ->
 
 keymerge(Fmt, XArgs, Config) ->
     Args = make_args(Fmt, [{size,50}, {no_files, 2} | XArgs]),
-    Foo = outfile(foo, Config),
+    Foo = outfile("foo", Config),
 
     %% Input is files. Output is a file.
     ?line ok = file_sorter:keymerge(2, [], Foo, Args),

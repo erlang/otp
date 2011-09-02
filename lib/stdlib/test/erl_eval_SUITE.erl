@@ -1189,7 +1189,7 @@ lfh() ->
     {eval, fun(F, As, Bs) -> local_func(F, As, Bs) end}.
 
 local_func(F, As0, Bs0) when is_atom(F) ->
-    {As,Bs} = erl_eval:expr_list(As0, Bs0, {eval,lfh()}),
+    {As,Bs} = erl_eval:expr_list(As0, Bs0, lfh()),
     case erlang:function_exported(?MODULE, F, length(As)) of
 	true ->
 	    {value,apply(?MODULE, F, As),Bs};

@@ -273,9 +273,9 @@ words(Config) when is_list(Config) ->
     ?line 2 = string:words("2.35", $.),
     ?line 100 = string:words(string:copies(". ", 100)),
     %% invalid arg type
-    ?line {'EXIT',_} = (catch string:chars(hej)),
+    ?line {'EXIT',_} = (catch string:chars(hej, 1)),
     %% invalid arg type
-    ?line {'EXIT',_} = (catch string:chars("hej", " ")),
+    ?line {'EXIT',_} = (catch string:chars("hej", 1, " ")),
     ok.
 
 

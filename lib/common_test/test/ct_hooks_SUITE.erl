@@ -83,7 +83,7 @@ all(suite) ->
        fail_post_suite_cth, skip_pre_suite_cth,
        skip_post_suite_cth, recover_post_suite_cth, update_config_cth,
        state_update_cth, options_cth, same_id_cth, 
-       fail_n_skip_with_minimal_cth
+       fail_n_skip_with_minimal_cth, prio_cth
       ]
     )
 	.
@@ -209,6 +209,11 @@ fail_n_skip_with_minimal_cth(Config) when is_list(Config) ->
     do_test(fail_n_skip_with_minimal_cth, "ct_cth_fail_one_skip_one_SUITE.erl",
 	    [minimal_terminate_cth],Config).
 
+prio_cth(Config) when is_list(Config) ->
+    do_test(prio_cth, "ct_cth_prio_SUITE.erl",
+	    [{empty_cth,[1000],1000},{empty_cth,[900],900},
+	     {prio_cth,[1100,100],100},{prio_cth,[1100]}],Config).
+
 %%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
 %%%-----------------------------------------------------------------
@@ -296,8 +301,8 @@ test_events(two_empty_cth) ->
      {?eh,start_logging,{'DEF','RUNDIR'}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
      {?eh,cth,{'_',id,[[]]}},
-     {?eh,cth,{'_',init,['_',[]]}},
      {?eh,cth,{'_',id,[[]]}},
+     {?eh,cth,{'_',init,['_',[]]}},
      {?eh,cth,{'_',init,['_',[]]}},
      {?eh,tc_start,{ct_cth_empty_SUITE,init_per_suite}},
      {?eh,cth,{'_',pre_init_per_suite,[ct_cth_empty_SUITE,'$proplist',[]]}},
@@ -365,9 +370,9 @@ test_events(minimal_and_maximal_cth) ->
     [
      {?eh,start_logging,{'DEF','RUNDIR'}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,cth,{'_',id,[[]]}},
      {negative,{?eh,cth,{'_',id,['_',[]]}},
       {?eh,cth,{'_',init,['_',[]]}}},
-     {?eh,cth,{'_',id,[[]]}},
      {?eh,cth,{'_',init,['_',[]]}},
      {?eh,tc_start,{ct_cth_empty_SUITE,init_per_suite}},
      {?eh,cth,{'_',pre_init_per_suite,[ct_cth_empty_SUITE,'$proplist',[]]}},
@@ -954,8 +959,8 @@ test_events(same_id_cth) ->
      {?eh,start_logging,{'DEF','RUNDIR'}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
      {?eh,cth,{'_',id,[[]]}},
-     {?eh,cth,{'_',init,[same_id_cth,[]]}},
      {?eh,cth,{'_',id,[[]]}},
+     {?eh,cth,{'_',init,[same_id_cth,[]]}},
      {?eh,tc_start,{ct_cth_empty_SUITE,init_per_suite}},
      {?eh,cth,{'_',pre_init_per_suite,[ct_cth_empty_SUITE,'$proplist',[]]}},
      {negative,
@@ -1000,6 +1005,73 @@ test_events(fail_n_skip_with_minimal_cth) ->
      {?eh,cth,{'_',terminate,[[]]}},
      {?eh,stop_logging,[]}
     ];
+
+test_events(prio_cth) ->
+    
+    GenPre = fun(Func,States) ->
+		     [{?eh,cth,{'_',Func,['_','_',State]}} || 
+			 State <- States]
+	     end,
+
+    GenPost = fun(Func,States) ->
+		      [{?eh,cth,{'_',Func,['_','_','_',State]}} || 
+			  State <- States]
+	     end,
+    
+    [{?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}}] ++
+
+	[{?eh,tc_start,{ct_cth_prio_SUITE,init_per_suite}}] ++
+	GenPre(pre_init_per_suite,
+	       [[1100,100],[800],[900],[1000],[1200,1050],[1100],[1200]]) ++
+	GenPost(post_init_per_suite,
+		[[1100,100],[600,200],[600,600],[700],[800],[900],[1000],
+		 [1200,1050],[1100],[1200]]) ++
+	[{?eh,tc_done,{ct_cth_prio_SUITE,init_per_suite,ok}},
+	 
+
+	 [{?eh,tc_start,{ct_cth_prio_SUITE,{init_per_group,'_',[]}}}] ++
+	     GenPre(pre_init_per_group,
+		    [[1100,100],[600,200],[600,600],[700],[800],
+		     [900],[1000],[1200,1050],[1100],[1200]]) ++
+	     GenPost(post_init_per_group,
+		     [[1100,100],[600,200],[600,600],[600],[700],[800],
+		      [900],[900,900],[500,900],[1000],[1200,1050],
+		      [1100],[1200]]) ++
+	     [{?eh,tc_done,{ct_cth_prio_SUITE,{init_per_group,'_',[]},ok}}] ++
+	 
+	     [{?eh,tc_start,{ct_cth_prio_SUITE,test_case}}] ++
+	     GenPre(pre_init_per_testcase,
+		    [[1100,100],[600,200],[600,600],[600],[700],[800],
+		     [900],[900,900],[500,900],[1000],[1200,1050],
+		     [1100],[1200]]) ++
+	     GenPost(post_end_per_testcase,
+		     [[1100,100],[600,200],[600,600],[600],[700],[800],
+		      [900],[900,900],[500,900],[1000],[1200,1050],
+		      [1100],[1200]]) ++
+	     [{?eh,tc_done,{ct_cth_prio_SUITE,test_case,ok}},
+
+	      {?eh,tc_start,{ct_cth_prio_SUITE,{end_per_group,'_',[]}}}] ++
+	     GenPre(pre_end_per_group, 
+		    [[1100,100],[600,200],[600,600],[600],[700],[800],
+		     [900],[900,900],[500,900],[1000],[1200,1050],
+		     [1100],[1200]]) ++
+	     GenPost(post_end_per_group,
+		     [[1100,100],[600,200],[600,600],[600],[700],[800],
+		      [900],[900,900],[500,900],[1000],[1200,1050],
+		      [1100],[1200]]) ++
+	     [{?eh,tc_done,{ct_cth_prio_SUITE,{end_per_group,'_',[]},ok}}],
+
+	 {?eh,tc_start,{ct_cth_prio_SUITE,end_per_suite}}] ++
+	GenPre(pre_end_per_suite,
+	       [[1100,100],[600,200],[600,600],[700],[800],[900],[1000],
+		[1200,1050],[1100],[1200]]) ++
+	GenPost(post_end_per_suite,
+		[[1100,100],[600,200],[600,600],[700],[800],[900],[1000],
+		[1200,1050],[1100],[1200]]) ++
+	[{?eh,tc_done,{ct_cth_prio_SUITE,end_per_suite,ok}},
+	 {?eh,test_done,{'DEF','STOP_TIME'}},
+	 {?eh,stop_logging,[]}];
 
 test_events(ok) ->
     ok.

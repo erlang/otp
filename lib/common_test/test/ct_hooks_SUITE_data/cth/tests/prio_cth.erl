@@ -18,66 +18,57 @@
 %%
 
 
--module(state_update_cth).
+-module(prio_cth).
 
 
 -include_lib("common_test/src/ct_util.hrl").
--include_lib("common_test/include/ct_event.hrl").
+
 
 %% CT Hooks
 -compile(export_all).
 
+id(Opts) ->
+    empty_cth:id(Opts).
+
 init(Id, Opts) ->
-    State = empty_cth:init(Id, Opts),
-    {ok, [init|State]}.
+    {ok, [Prio|_] = State} = empty_cth:init(Id, Opts),
+    {ok, State, Prio}.
 
 pre_init_per_suite(Suite, Config, State) ->
-    empty_cth:pre_init_per_suite(Suite,Config,State),
-    {Config, [pre_init_per_suite|State]}.
+    empty_cth:pre_init_per_suite(Suite,Config,State).
 
 post_init_per_suite(Suite,Config,Return,State) ->
-    empty_cth:post_init_per_suite(Suite,Config,Return,State),
-    {Config, [post_init_per_suite|State]}.
+    empty_cth:post_init_per_suite(Suite,Config,Return,State).
 
 pre_end_per_suite(Suite,Config,State) ->
-    empty_cth:pre_end_per_suite(Suite,Config,State),
-    {Config, [pre_end_per_suite|State]}.
+    empty_cth:pre_end_per_suite(Suite,Config,State).
 
 post_end_per_suite(Suite,Config,Return,State) ->
-    empty_cth:post_end_per_suite(Suite,Config,Return,State),
-    {Return, [post_end_per_suite|State]}.
+    empty_cth:post_end_per_suite(Suite,Config,Return,State).
 
 pre_init_per_group(Group,Config,State) ->
-    empty_cth:pre_init_per_group(Group,Config,State),
-    {Config, [pre_init_per_group|State]}.
+    empty_cth:pre_init_per_group(Group,Config,State).
 
 post_init_per_group(Group,Config,Return,State) ->
-    empty_cth:post_init_per_group(Group,Config,Return,State),
-    {Return, [post_init_per_group|State]}.
+    empty_cth:post_init_per_group(Group,Config,Return,State).
 
 pre_end_per_group(Group,Config,State) ->
-    empty_cth:pre_end_per_group(Group,Config,State),
-    {Config, [pre_end_per_group|State]}.
+    empty_cth:pre_end_per_group(Group,Config,State).
 
 post_end_per_group(Group,Config,Return,State) ->
-    empty_cth:post_end_per_group(Group,Config,Return,State),
-    {Return, [post_end_per_group|State]}.
+    empty_cth:post_end_per_group(Group,Config,Return,State).
 
 pre_init_per_testcase(TC,Config,State) ->
-    empty_cth:pre_init_per_testcase(TC,Config,State),
-    {Config, [pre_init_per_testcase|State]}.
+    empty_cth:pre_init_per_testcase(TC,Config,State).
 
 post_end_per_testcase(TC,Config,Return,State) ->
-    empty_cth:post_end_per_testcase(TC,Config,Return,State),
-    {Return, [post_end_per_testcase|State]}.
+    empty_cth:post_end_per_testcase(TC,Config,Return,State).
 
 on_tc_fail(TC, Reason, State) ->
-    empty_cth:on_tc_fail(TC,Reason,State),
-    [on_tc_fail|State].
+    empty_cth:on_tc_fail(TC,Reason,State).
 
 on_tc_skip(TC, Reason, State) ->
-    empty_cth:on_tc_skip(TC,Reason,State),
-    [on_tc_skip|State].
+    empty_cth:on_tc_skip(TC,Reason,State).
 
 terminate(State) ->
     empty_cth:terminate(State).

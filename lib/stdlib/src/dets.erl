@@ -411,7 +411,8 @@ init_table(Tab, InitFun) ->
       InitFun :: fun((Arg) -> Res),
       Arg :: read | close,
       Res :: end_of_input | {[object()], InitFun} | {Data, InitFun} | term(),
-      Options :: [{min_no_slots,no_slots()} | {format,term | bchunk}],
+      Options :: Option | [Option],
+      Option :: {min_no_slots,no_slots()} | {format,term | bchunk},
       Reason :: term(),
       Data :: binary() | tuple().
 
@@ -871,11 +872,15 @@ to_ets(DTab, ETab) ->
 -spec traverse(Name, Fun) -> Return | {'error', Reason} when
       Name :: tab_name(),
       Fun :: fun((Object) -> FunReturn),
-      FunReturn :: 'continue' | {'continue', Val} | {'done', Value},
+      Object :: object(),
+      FunReturn :: 'continue'
+                 | {'continue', Val}
+                 | {'done', Value}
+                 | OtherValue,
+      Return :: [term()] | OtherValue,
       Val :: term(),
       Value :: term(),
-      Object :: object(),
-      Return :: [term()],
+      OtherValue :: term(),
       Reason :: term().
 
 traverse(Tab, Fun) ->

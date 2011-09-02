@@ -100,7 +100,7 @@ start_gg_proc(Config) when is_list(Config) ->
 
     ?line Dir = ?config(priv_dir, Config),
     ?line File = filename:join(Dir, "global_group.config"),
-    ?line {ok, Fd}=file:open(File, write),
+    ?line {ok, Fd}=file:open(File, [write]),
     [Ncp1,Ncp2,Ncp3] = node_names([cp1, cp2, cp3], Config),
     ?line config(Fd, Ncp1, Ncp2, Ncp3, "cpx", "cpy", "cpz", "cpq"),
 
@@ -135,7 +135,7 @@ no_gg_proc(Config) when is_list(Config) ->
 
     ?line Dir = ?config(priv_dir, Config),
     ?line File = filename:join(Dir, "no_global_group.config"),
-    ?line {ok, Fd} = file:open(File, write),
+    ?line {ok, Fd} = file:open(File, [write]),
     ?line config_no(Fd),
 
     ?line NN = node_name(atom_to_list(node())),
@@ -308,7 +308,7 @@ no_gg_proc_sync(Config) when is_list(Config) ->
 
     ?line Dir = ?config(priv_dir, Config),
     ?line File = filename:join(Dir, "no_global_group_sync.config"),
-    ?line {ok, Fd} = file:open(File, write),
+    ?line {ok, Fd} = file:open(File, [write]),
 
     [Ncp1,Ncp2,Ncp3,Ncpx,Ncpy,Ncpz] = 
         node_names([cp1,cp2,cp3,cpx,cpy,cpz], Config),
@@ -482,7 +482,7 @@ compatible(Config) when is_list(Config) ->
 
     ?line Dir = ?config(priv_dir, Config),
     ?line File = filename:join(Dir, "global_group_comp.config"),
-    ?line {ok, Fd} = file:open(File, write),
+    ?line {ok, Fd} = file:open(File, [write]),
 
     [Ncp1,Ncp2,Ncp3,Ncpx,Ncpy,Ncpz] = 
         node_names([cp1,cp2,cp3,cpx,cpy,cpz], Config),
@@ -655,7 +655,7 @@ one_grp(Config) when is_list(Config) ->
 
     ?line Dir = ?config(priv_dir, Config),
     ?line File = filename:join(Dir, "global_group.config"),
-    ?line {ok, Fd} = file:open(File, write),
+    ?line {ok, Fd} = file:open(File, [write]),
     [Ncp1,Ncp2,Ncp3] = node_names([cp1, cp2, cp3], Config),
     ?line config(Fd, Ncp1, Ncp2, Ncp3, "cpx", "cpy", "cpz", "cpq"),
 
@@ -742,7 +742,7 @@ one_grp_x(Config) when is_list(Config) ->
 
     ?line Dir = ?config(priv_dir, Config),
     ?line File = filename:join(Dir, "global_group.config"),
-    ?line {ok, Fd} = file:open(File, write),
+    ?line {ok, Fd} = file:open(File, [write]),
     [Ncp1,Ncp2,Ncp3] = node_names([cp1, cp2, cp3], Config),
     ?line config(Fd, Ncp1, Ncp2, Ncp3, "cpx", "cpy", "cpz", "cpq"),
 
@@ -804,7 +804,7 @@ two_grp(Config) when is_list(Config) ->
 
     ?line Dir = ?config(priv_dir, Config),
     ?line File = filename:join(Dir, "global_group.config"),
-    ?line {ok, Fd} = file:open(File, write),
+    ?line {ok, Fd} = file:open(File, [write]),
 
     [Ncp1,Ncp2,Ncp3,Ncpx,Ncpy,Ncpz,Ncpq] = 
         node_names([cp1,cp2,cp3,cpx,cpy,cpz,cpq], Config),
@@ -1104,7 +1104,7 @@ hidden_groups(Config) when is_list(Config) ->
 
     ?line Dir = ?config(priv_dir, Config),
     ?line File = filename:join(Dir, "global_group.config"),
-    ?line {ok, Fd} = file:open(File, write),
+    ?line {ok, Fd} = file:open(File, [write]),
 
     [Ncp1,Ncp2,Ncp3,Ncpx,Ncpy,Ncpz,Ncpq] = 
         node_names([cp1,cp2,cp3,cpx,cpy,cpz,cpq], Config),

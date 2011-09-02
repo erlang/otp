@@ -71,11 +71,11 @@
 %% @doc Always called before any other callback function. Use this to initiate
 %% any common state. It should return an state for this CTH.
 -spec init(Id :: term(), Opts :: proplists:proplist()) ->
-    State :: #state{}.
+    {ok, State :: #state{}}.
 init(Id, Opts) ->
     gen_event:notify(?CT_EVMGR_REF, #event{ name = cth, node = node(),
 					    data = {?MODULE, init, [Id, Opts]}}),
-    Opts.
+    {ok,Opts}.
 
 %% @doc The ID is used to uniquly identify an CTH instance, if two CTH's 
 %% return the same ID the seconds CTH is ignored. This function should NOT 

@@ -71,7 +71,7 @@ log_to_file(Config) when is_list(Config) ->
     ?line ok = sys:log_to_file(?server,TempName),
     ?line {ok,-44} = public_call(44),
     ?line ok = sys:log_to_file(?server,false),
-    ?line {ok,Fd} = file:open(TempName,read),
+    ?line {ok,Fd} = file:open(TempName,[read]),
     ?line Msg1 = io:get_line(Fd,''),
     ?line Msg2 = io:get_line(Fd,''),
     ?line file:close(Fd),

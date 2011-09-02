@@ -547,8 +547,6 @@ host() ->
 stop_node(Node) ->
     test_server:stop_node(Node).
 
-get_loader_flag({ose,_}) ->
-    " -loader ose_inet ";
 get_loader_flag(_) ->
     " -loader inet ".
 

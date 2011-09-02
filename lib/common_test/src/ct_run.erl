@@ -521,8 +521,8 @@ script_usage() ->
 	      "\n\t[-silent_connections [ConnType1 ConnType2 .. ConnTypeN]]"
 	      "\n\t[-stylesheet CSSFile]"
 	      "\n\t[-cover CoverCfgFile]"
-	      "\n\t[-event_handler EvHandler1 EvHandler2 .. EvHandlerN]"
-	      "\n\t[-ct_hooks CTHook1 CTHook2 .. CTHookN]"
+	      "\n\t[-event_handler EvHandler1 and EvHandler2 .. EvHandlerN]"
+	      "\n\t[-ct_hooks CTHook1 and CTHook2 .. CTHookN]"
 	      "\n\t[-include InclDir1 InclDir2 .. InclDirN]"
 	      "\n\t[-no_auto_compile]"
 	      "\n\t[-multiply_timetraps N]"
@@ -540,8 +540,8 @@ script_usage() ->
 	      "\n\t[-silent_connections [ConnType1 ConnType2 .. ConnTypeN]]"
 	      "\n\t[-stylesheet CSSFile]"
 	      "\n\t[-cover CoverCfgFile]"
-	      "\n\t[-event_handler EvHandler1 EvHandler2 .. EvHandlerN]"
-	      "\n\t[-ct_hooks CTHook1 CTHook2 .. CTHookN]"
+	      "\n\t[-event_handler EvHandler1 and EvHandler2 .. EvHandlerN]"
+	      "\n\t[-ct_hooks CTHook1 and CTHook2 .. CTHookN]"
 	      "\n\t[-include InclDir1 InclDir2 .. InclDirN]"
 	      "\n\t[-no_auto_compile]"
 	      "\n\t[-multiply_timetraps N]"
@@ -2070,15 +2070,21 @@ ct_hooks_args2opts(Args) ->
     ct_hooks_args2opts(
       proplists:get_value(ct_hooks, Args, []),[]).
 
+ct_hooks_args2opts([CTH,Arg,Prio,"and"| Rest],Acc) ->
+    ct_hooks_args2opts(Rest,[{list_to_atom(CTH),
+			      parse_cth_args(Arg),
+			      parse_cth_args(Prio)}|Acc]);
 ct_hooks_args2opts([CTH,Arg,"and"| Rest],Acc) ->
     ct_hooks_args2opts(Rest,[{list_to_atom(CTH),
-				     parse_cth_args(Arg)}|Acc]);
+			      parse_cth_args(Arg)}|Acc]);
 ct_hooks_args2opts([CTH], Acc) ->
     ct_hooks_args2opts([CTH,"and"],Acc);
 ct_hooks_args2opts([CTH, "and" | Rest], Acc) ->
     ct_hooks_args2opts(Rest,[list_to_atom(CTH)|Acc]);
 ct_hooks_args2opts([CTH, Args], Acc) ->
     ct_hooks_args2opts([CTH, Args, "and"],Acc);
+ct_hooks_args2opts([CTH, Args, Prio], Acc) ->
+    ct_hooks_args2opts([CTH, Args, Prio, "and"],Acc);
 ct_hooks_args2opts([],Acc) ->
     lists:reverse(Acc).
 
@@ -2225,7 +2231,14 @@ opts2args(EnvStartOpts) ->
 		     ({ct_hooks,CTHs}) when is_list(CTHs) ->
 			  io:format(user,"ct_hooks: ~p",[CTHs]),
 			  Strs = lists:flatmap(
-				   fun({CTH,Arg}) ->
+				   fun({CTH,Arg,Prio}) ->
+					   [atom_to_list(CTH),
+					    lists:flatten(
+					      io_lib:format("~p",[Arg])),
+					    lists:flatten(
+					      io_lib:format("~p",[Prio])),
+					    "and"];
+				       ({CTH,Arg}) ->
 					   [atom_to_list(CTH),
 					    lists:flatten(
 					      io_lib:format("~p",[Arg])),

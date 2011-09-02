@@ -552,7 +552,7 @@ large_file_light(Config) when is_list(Config) ->
     ?line PrivDir = ?config(priv_dir, Config),
     %% Marker for next test case that is to heavy to run in a suite.
     ?line ok = ?FILE_MODULE:write_file(
-		  filename:join(PrivDir, large_file_light), 
+		  filename:join(PrivDir, "large_file_light"),
 		  <<"TAG">>),
     %%
     ?line Data = "abcdefghijklmnopqrstuvwzyz",
@@ -582,7 +582,7 @@ large_file_heavy(Config) when is_list(Config) ->
     ?line PrivDir = ?config(priv_dir, Config),
     %% Check previous test case marker.
     case ?FILE_MODULE:read_file_info(
-	    filename:join(PrivDir, large_file_light)) of
+	    filename:join(PrivDir, "large_file_light")) of
 	{ok,_} ->
 	    {skipped,"Too heavy for casual testing!"};
 	_ ->

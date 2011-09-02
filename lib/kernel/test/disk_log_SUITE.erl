@@ -4917,7 +4917,7 @@ mark(FileName, What) ->
     ok = file:close(Fd).
 
 crash(File, Where) ->
-    {ok, Fd} = file:open(File, read_write),
+    {ok, Fd} = file:open(File, [read,write]),
     file:position(Fd, Where),
     ok = file:write(Fd, [10]),
     ok = file:close(Fd).
@@ -4933,7 +4933,7 @@ writable(Fname) ->
     file:write_file_info(Fname, Info#file_info{mode = Mode}).
 
 truncate(File, Where) ->
-    {ok, Fd} = file:open(File, read_write),
+    {ok, Fd} = file:open(File, [read,write]),
     file:position(Fd, Where),
     ok = file:truncate(Fd),
     ok = file:close(Fd).
