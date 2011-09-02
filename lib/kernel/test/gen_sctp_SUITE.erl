@@ -30,14 +30,15 @@
 -export(
    [basic/1,
     api_open_close/1,api_listen/1,api_connect_init/1,api_opts/1,
-    xfer_min/1,xfer_active/1,def_sndrcvinfo/1,implicit_inet6/1]).
+    xfer_min/1,xfer_active/1,def_sndrcvinfo/1,implicit_inet6/1,
+    basic_stream/1, xfer_stream_min/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [basic, api_open_close, api_listen, api_connect_init,
-     api_opts, xfer_min, xfer_active, def_sndrcvinfo,
-     implicit_inet6].
+     api_opts, xfer_min, xfer_active, def_sndrcvinfo, implicit_inet6,
+     basic_stream, xfer_stream_min].
 
 groups() -> 
     [].
@@ -96,7 +97,7 @@ xfer_min(Config) when is_list(Config) ->
     ?line Stream = 0,
     ?line Data = <<"The quick brown fox jumps over a lazy dog 0123456789">>,
     ?line Loopback = {127,0,0,1},
-    ?line {ok,Sb} = gen_sctp:open(),
+    ?line {ok,Sb} = gen_sctp:open([{type,seqpacket}]),
     ?line {ok,Pb} = inet:port(Sb),
     ?line ok = gen_sctp:listen(Sb, true),
     
@@ -653,6 +654,97 @@ implicit_inet6(S1, Addr) ->
 	      {{0,0,0,0,0,0,0,0},P2} -> ok
 	  end,
     ?line ok = gen_sctp:close(S2).
+
+basic_stream(doc) ->
+    "Hello world stream socket";
+basic_stream(suite) ->
+    [];
+basic_stream(Config) when is_list(Config) ->
+    ?line {ok,S} = gen_sctp:open([{type,stream}]),
+    ?line ok = gen_sctp:listen(S, true),
+    ?line ok =
+	do_from_other_process(
+	  fun () -> gen_sctp:listen(S, 10) end),
+    ?line ok = gen_sctp:close(S),
+    ok.
+
+xfer_stream_min(doc) ->
+    "Minimal data transfer";
+xfer_stream_min(suite) ->
+    [];
+xfer_stream_min(Config) when is_list(Config) ->
+    ?line Stream = 0,
+    ?line Data = <<"The quick brown fox jumps over a lazy dog 0123456789">>,
+    ?line Loopback = {127,0,0,1},
+    ?line {ok,Sb} = gen_sctp:open([{type,seqpacket}]),
+    ?line {ok,Pb} = inet:port(Sb),
+    ?line ok = gen_sctp:listen(Sb, true),
+
+    ?line {ok,Sa} = gen_sctp:open([{type,stream}]),
+    ?line {ok,Pa} = inet:port(Sa),
+    ?line {ok,#sctp_assoc_change{state=comm_up,
+				 error=0,
+				 outbound_streams=SaOutboundStreams,
+				 inbound_streams=SaInboundStreams,
+				 assoc_id=SaAssocId}} =
+	gen_sctp:connect(Sa, Loopback, Pb, []),
+    ?line {ok,{Loopback,
+	       Pa,[],
+	       #sctp_assoc_change{state=comm_up,
+				  error=0,
+				  outbound_streams=SbOutboundStreams,
+				  inbound_streams=SbInboundStreams,
+				  assoc_id=SbAssocId}}} =
+	gen_sctp:recv(Sb, infinity),
+    ?line SaOutboundStreams = SbInboundStreams,
+    ?line SbOutboundStreams = SaInboundStreams,
+    ?line ok = gen_sctp:send(Sa, SaAssocId, 0, Data),
+    ?line case gen_sctp:recv(Sb, infinity) of
+	      {ok,{Loopback,
+		   Pa,
+		   [#sctp_sndrcvinfo{stream=Stream,
+				     assoc_id=SbAssocId}],
+		   Data}} -> ok;
+	      {ok,{Loopback,
+		   Pa,[],
+		   #sctp_paddr_change{addr = {Loopback,_},
+				      state = addr_available,
+				      error = 0,
+				      assoc_id = SbAssocId}}} ->
+		  {ok,{Loopback,
+		       Pa,
+		       [#sctp_sndrcvinfo{stream=Stream,
+					 assoc_id=SbAssocId}],
+		       Data}} =	gen_sctp:recv(Sb, infinity)
+	  end,
+    ?line ok =
+	do_from_other_process(
+	  fun () -> gen_sctp:send(Sb, SbAssocId, 0, Data) end),
+    ?line {ok,{Loopback,
+	       Pb,
+	       [#sctp_sndrcvinfo{stream=Stream,
+				 assoc_id=SaAssocId}],
+	       Data}} =
+	gen_sctp:recv(Sa, infinity),
+    %%
+    ?line ok = gen_sctp:close(Sa),
+    ?line {ok,{Loopback,
+	       Pa,[],
+	       #sctp_shutdown_event{assoc_id=SbAssocId}}} =
+	gen_sctp:recv(Sb, infinity),
+    ?line {ok,{Loopback,
+	       Pa,[],
+	       #sctp_assoc_change{state=shutdown_comp,
+				  error=0,
+				  assoc_id=SbAssocId}}} =
+	gen_sctp:recv(Sb, infinity),
+    ?line ok = gen_sctp:close(Sb),
+
+    ?line receive
+	      Msg -> test_server:fail({received,Msg})
+	  after 17 -> ok
+	  end,
+    ok.
 
 
 

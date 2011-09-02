@@ -346,7 +346,7 @@ good_hosts(_Config) ->
     [GoodHost1, GoodHost2, GoodHost3].
 
 open_udp() ->
-    ?line {ok, S} = prim_inet:open(udp, inet),
+    ?line {ok, S} = prim_inet:open(udp, inet, dgram),
     ?line ok = prim_inet:setopts(S, [{mode,list},{active,true}, 
 				     {deliver,term},{broadcast,true}]),
     ?line {ok,_} = prim_inet:bind(S, {0,0,0,0}, 0),
