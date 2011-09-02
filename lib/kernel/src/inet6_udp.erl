@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -45,7 +45,7 @@ open(Port, Opts) ->
 		       port=BPort,
 		       opts=SockOpts}}
 	when ?ip6(A,B,C,D,E,F,G,H), ?port(BPort) ->
-	    inet:open(Fd,BAddr,BPort,SockOpts,udp,inet6,?MODULE);
+	    inet:open(Fd,BAddr,BPort,SockOpts,udp,inet6,dgram,?MODULE);
 	{ok, _} -> exit(badarg)
     end.
 
@@ -84,4 +84,4 @@ controlling_process(Socket, NewOwner) ->
 %% Create a port/socket from a file descriptor 
 %%
 fdopen(Fd, Opts) ->
-    inet:fdopen(Fd, Opts, udp, inet6, ?MODULE).
+    inet:fdopen(Fd, Opts, udp, inet6, dgram, ?MODULE).

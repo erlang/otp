@@ -25,7 +25,7 @@
 
 %% Primitive inet_drv interface
 
--export([open/1, open/2, fdopen/2, fdopen/3, close/1]).
+-export([open/3, fdopen/4, close/1]).
 -export([bind/3, listen/1, listen/2]). 
 -export([connect/3, connect/4, async_connect/4]).
 -export([accept/1, accept/2, async_accept/2]).
@@ -56,58 +56,44 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
-%% OPEN(tcp | udp | sctp, inet | inet6)  ->
+%% OPEN(tcp | udp | sctp, inet | inet6, stream | dgram | seqpacket)  ->
 %%       {ok, insock()} |
 %%       {error, Reason}
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-open(Protocol)          -> open1(Protocol, ?INET_AF_INET).
+open(Protocol, Family, Type) ->
+    open(Protocol, Family, Type, ?INET_REQ_OPEN, []).
 
-open(Protocol,   inet)  -> open1(Protocol, ?INET_AF_INET);
-open(Protocol,  inet6)  -> open1(Protocol, ?INET_AF_INET6);
-open(_, _)              -> {error, einval}.
+fdopen(Protocol, Family, Type, Fd) when is_integer(Fd) ->
+    open(Protocol, Family, Type, ?INET_REQ_FDOPEN, ?int32(Fd)).
 
-fdopen(Protocol, Fd)        -> fdopen1(Protocol, ?INET_AF_INET, Fd).
-
-fdopen(Protocol, Fd, inet)  -> fdopen1(Protocol, ?INET_AF_INET, Fd);
-fdopen(Protocol, Fd, inet6) -> fdopen1(Protocol, ?INET_AF_INET6, Fd);
-fdopen(_, _, _)             -> {error, einval}.
-
-open1(Protocol, Family) ->
-    case open0(Protocol) of
-	{ok, S} ->
-	    case ctl_cmd(S, ?INET_REQ_OPEN, [Family]) of
-		{ok, _} ->
-		    {ok,S};
+open(Protocol, Family, Type, Req, Data) ->
+    Drv = protocol2drv(Protocol),
+    AF = enc_family(Family),
+    T = enc_type(Type),
+    try erlang:open_port({spawn_driver,Drv}, [binary]) of
+	S ->
+	    case ctl_cmd(S, Req, [AF,T,Data]) of
+		{ok,_} -> {ok,S};
 		Error ->
-		    close(S), Error
-	    end;
-	Error -> Error
-    end.
-
-fdopen1(Protocol, Family, Fd) when is_integer(Fd) ->
-    case open0(Protocol) of
-	{ok, S} ->
-	    case ctl_cmd(S,?INET_REQ_FDOPEN,[Family,?int32(Fd)]) of
-		{ok, _} -> {ok,S};
-		Error -> close(S), Error
-	    end;
-	Error -> Error
-    end.
-
-open0(Protocol) ->
-    try	erlang:open_port({spawn_driver,protocol2drv(Protocol)}, [binary]) of
-	Port -> {ok,Port}
+		    close(S),
+		    Error
+	    end
     catch
 	error:Reason -> {error,Reason}
     end.
 
+enc_family(inet) -> ?INET_AF_INET;
+enc_family(inet6) -> ?INET_AF_INET6.
+
+enc_type(stream) -> ?INET_TYPE_STREAM;
+enc_type(dgram) -> ?INET_TYPE_DGRAM;
+enc_type(seqpacket) -> ?INET_TYPE_SEQPACKET.
+
 protocol2drv(tcp)  -> "tcp_inet";
 protocol2drv(udp)  -> "udp_inet";
-protocol2drv(sctp) -> "sctp_inet";
-protocol2drv(_) ->
-    erlang:error(eprotonosupport).
+protocol2drv(sctp) -> "sctp_inet".
 
 drv2protocol("tcp_inet")  -> tcp;
 drv2protocol("udp_inet")  -> udp;

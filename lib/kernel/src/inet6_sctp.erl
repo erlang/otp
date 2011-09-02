@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -54,8 +54,8 @@ translate_ip(IP) ->
     
 open(Opts) ->
     case inet:sctp_options(Opts, ?MODULE) of
-	{ok,#sctp_opts{fd=Fd,ifaddr=Addr,port=Port,opts=SOs}} ->
-	    inet:open(Fd, Addr, Port, SOs, sctp, ?FAMILY, ?MODULE);
+	{ok,#sctp_opts{fd=Fd,ifaddr=Addr,port=Port,type=Type,opts=SOs}} ->
+	    inet:open(Fd, Addr, Port, SOs, sctp, ?FAMILY, Type, ?MODULE);
 	Error -> Error
     end.
 

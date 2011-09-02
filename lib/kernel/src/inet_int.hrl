@@ -29,7 +29,7 @@
 -define(INET_AF_ANY,          3). % Fake for ANY in any address family
 -define(INET_AF_LOOPBACK,     4). % Fake for LOOPBACK in any address family
 
-%% type codes (gettype, INET_REQ_GETTYPE)
+%% type codes to open and gettype - INET_REQ_GETTYPE
 -define(INET_TYPE_STREAM,     1).
 -define(INET_TYPE_DGRAM,      2).
 -define(INET_TYPE_SEQPACKET,  3).
@@ -401,6 +401,7 @@
 	  ifaddr,
 	  port   = 0,
 	  fd	 = -1,
+	  type   = seqpacket,
 	  opts   = [{mode,	  binary},
 		    {buffer,	  ?SCTP_DEF_BUFSZ},
 		    {sndbuf,	  ?SCTP_DEF_BUFSZ},

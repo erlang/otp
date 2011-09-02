@@ -52,7 +52,7 @@ open(Port, Opts) ->
 		       ifaddr=BAddr={A,B,C,D},
 		       port=BPort,
 		       opts=SockOpts}} when ?ip(A,B,C,D), ?port(BPort) ->
-	    inet:open(Fd,BAddr,BPort,SockOpts,udp,inet,?MODULE);
+	    inet:open(Fd,BAddr,BPort,SockOpts,udp,inet,dgram,?MODULE);
 	{ok, _} -> exit(badarg)
     end.
 
@@ -93,7 +93,7 @@ controlling_process(Socket, NewOwner) ->
 fdopen(Fd, Opts) ->
     inet:fdopen(Fd, 
 		optuniquify([{recbuf, ?RECBUF} | Opts]), 
-		udp, inet, ?MODULE).
+		udp, inet, dgram, ?MODULE).
 
 
 %% Remove all duplicate options from an option list.

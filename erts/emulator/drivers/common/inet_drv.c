@@ -427,7 +427,7 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 #define INET_AF_ANY         3 /* INADDR_ANY or IN6ADDR_ANY_INIT */
 #define INET_AF_LOOPBACK    4 /* INADDR_LOOPBACK or IN6ADDR_LOOPBACK_INIT */
 
-/* INET_REQ_GETTYPE enumeration */
+/* open and INET_REQ_GETTYPE enumeration */
 #define INET_TYPE_STREAM    1
 #define INET_TYPE_DGRAM     2
 #define INET_TYPE_SEQPACKET 3
@@ -7855,34 +7855,56 @@ static int tcp_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 {
     tcp_descriptor* desc = (tcp_descriptor*)e;
     switch(cmd) {
-    case INET_REQ_OPEN:   /* open socket and return internal index */
+    case INET_REQ_OPEN: { /* open socket and return internal index */
+	int domain;
 	DEBUGF(("tcp_inet_ctl(%ld): OPEN\r\n", (long)desc->inet.port));
-	if ((len == 1) && (buf[0] == INET_AF_INET))
-	    return
-		inet_ctl_open(INETP(desc), AF_INET, SOCK_STREAM, rbuf, rsize);
+	if (len != 2) return ctl_error(EINVAL, rbuf, rsize);
+	switch(buf[0]) {
+	case INET_AF_INET:
+	    domain = AF_INET;
+	    break;
 #if defined(HAVE_IN6) && defined(AF_INET6)
-        else if ((len == 1) && (buf[0] == INET_AF_INET6))
-	    return
-		inet_ctl_open(INETP(desc), AF_INET6, SOCK_STREAM, rbuf, rsize);
+	case INET_AF_INET6:
+	    domain = AF_INET6;
+	    break;
 #else
-	else if ((len == 1) && (buf[0] == INET_AF_INET6))
-	    return ctl_xerror("eafnosupport",rbuf,rsize);
+	case INET_AF_INET6:
+	    return ctl_xerror("eafnosupport", rbuf, rsize);
+	    break;
 #endif
-	else
+	default:
 	    return ctl_error(EINVAL, rbuf, rsize);
+	}
+	if (buf[1] != INET_TYPE_STREAM) return ctl_error(EINVAL, rbuf, rsize);
+	return inet_ctl_open(INETP(desc), domain, SOCK_STREAM, rbuf, rsize);
+	break;
+    }
 
-    case INET_REQ_FDOPEN:   /* pass in an open socket */
-	DEBUGF(("tcp_inet_ctl(%ld): FDOPEN\r\n", (long)desc->inet.port)); 
-	if ((len == 5) && (buf[0] == INET_AF_INET))
-	    return inet_ctl_fdopen(INETP(desc), AF_INET, SOCK_STREAM,
-				   (SOCKET) get_int32(buf+1), rbuf, rsize);
+    case INET_REQ_FDOPEN: {  /* pass in an open socket */
+	int domain;
+	DEBUGF(("tcp_inet_ctl(%ld): FDOPEN\r\n", (long)desc->inet.port));
+	if (len != 6) return ctl_error(EINVAL, rbuf, rsize);
+	switch(buf[0]) {
+	case INET_AF_INET:
+	    domain = AF_INET;
+	    break;
 #if defined(HAVE_IN6) && defined(AF_INET6)
-        else if ((len == 5) && (buf[0] == INET_AF_INET6))
-	    return inet_ctl_fdopen(INETP(desc), AF_INET6, SOCK_STREAM,
-				   (SOCKET) get_int32(buf+1), rbuf, rsize);
+	case INET_AF_INET6:
+	    domain = AF_INET6;
+	    break;
+#else
+	case INET_AF_INET6:
+	    return ctl_xerror("eafnosupport", rbuf, rsize);
+	    break;
 #endif
-	else
+	default:
 	    return ctl_error(EINVAL, rbuf, rsize);
+	}
+	if (buf[1] != INET_TYPE_STREAM) return ctl_error(EINVAL, rbuf, rsize);
+	return inet_ctl_fdopen(INETP(desc), domain, SOCK_STREAM,
+			       (SOCKET) get_int32(buf+2), rbuf, rsize);
+	break;
+    }
 
     case INET_REQ_LISTEN: { /* argument backlog */
 
@@ -9466,21 +9488,31 @@ static int packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
     udp_descriptor * udesc = (udp_descriptor *) e;
     inet_descriptor* desc  = INETP(udesc);
     int type = SOCK_DGRAM;
-    int af;
-#ifdef HAVE_SCTP
-    if (IS_SCTP(desc)) type = SOCK_SEQPACKET;
-#endif
+    int af = AF_INET;
 
     switch(cmd) {
     case INET_REQ_OPEN:   /* open socket and return internal index */
 	DEBUGF(("packet_inet_ctl(%ld): OPEN\r\n", (long)desc->port)); 
-	if (len != 1) {
+	if (len != 2) {
 	    return ctl_error(EINVAL, rbuf, rsize);
 	}
 	switch (buf[0]) {
 	case INET_AF_INET:  af = AF_INET; break;
 #if defined(HAVE_IN6) && defined(AF_INET6)
-	case INET_AF_INET6: af = AF_INET6; break; 
+	case INET_AF_INET6: af = AF_INET6; break;
+#else
+	case INET_AF_INET6:
+	    return ctl_xerror("eafnosupport", rbuf, rsize);
+	    break;
+#endif
+	default:
+	    return ctl_error(EINVAL, rbuf, rsize);
+	}
+	switch (buf[1]) {
+	case INET_TYPE_STREAM: type = SOCK_STREAM; break;
+	case INET_TYPE_DGRAM: type = SOCK_DGRAM; break;
+#ifdef HAVE_SCTP
+	case INET_TYPE_SEQPACKET: type = SOCK_SEQPACKET; break;
 #endif
 	default:
 	    return ctl_error(EINVAL, rbuf, rsize);
@@ -9507,18 +9539,35 @@ static int packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 	return replen;
 
 
-    case INET_REQ_FDOPEN:   /* pass in an open (and bound) socket */
+    case INET_REQ_FDOPEN: {  /* pass in an open (and bound) socket */
+	SOCKET s;
 	DEBUGF(("packet inet_ctl(%ld): FDOPEN\r\n", (long)desc->port));
-	if ((len == 5) && (buf[0] == INET_AF_INET))
-	    replen = inet_ctl_fdopen(desc, AF_INET, SOCK_DGRAM,
-				     (SOCKET)get_int32(buf+1),rbuf,rsize);
-#if defined(HAVE_IN6) && defined(AF_INET6)
-	else if ((len == 5) && (buf[0] == INET_AF_INET6))
-	    replen = inet_ctl_fdopen(desc, AF_INET6, SOCK_DGRAM,
-				     (SOCKET)get_int32(buf+1),rbuf,rsize);
-#endif
-	else
+	if (len != 6) {
 	    return ctl_error(EINVAL, rbuf, rsize);
+	}
+	switch (buf[0]) {
+	case INET_AF_INET:  af = AF_INET; break;
+#if defined(HAVE_IN6) && defined(AF_INET6)
+	case INET_AF_INET6: af = AF_INET6; break;
+#else
+	case INET_AF_INET6:
+	    return ctl_xerror("eafnosupport", rbuf, rsize);
+	    break;
+#endif
+	default:
+	    return ctl_error(EINVAL, rbuf, rsize);
+	}
+	switch (buf[1]) {
+	case INET_TYPE_STREAM: type = SOCK_STREAM; break;
+	case INET_TYPE_DGRAM: type = SOCK_DGRAM; break;
+#ifdef HAVE_SCTP
+	case INET_TYPE_SEQPACKET: type = SOCK_SEQPACKET; break;
+#endif
+	default:
+	    return ctl_error(EINVAL, rbuf, rsize);
+	}
+	s = (SOCKET)get_int32(buf+2);
+	replen = inet_ctl_fdopen(desc, af, type, s, rbuf, rsize);
 
 	if ((*rbuf)[0] != INET_REP_ERROR) {
 	    if (desc->active)
@@ -9538,6 +9587,7 @@ static int packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 #endif
 	}
 	return replen;
+    }
 
 
     case INET_REQ_CLOSE:

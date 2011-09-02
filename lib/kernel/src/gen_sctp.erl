@@ -109,9 +109,11 @@ open() ->
                    | {ifaddr,IP}
                    | inet:address_family()
                    | {port,Port}
+		   | {type,SockType}
                    | option(),
               IP :: inet:ip_address() | any | loopback,
               Port :: inet:port_number(),
+	      SockType :: seqpacket | stream,
               Socket :: sctp_socket().
 
 open(Opts) when is_list(Opts) ->
@@ -134,9 +136,11 @@ open(X) ->
                    | {ifaddr,IP}
                    | inet:address_family()
                    | {port,Port}
+		   | {type,SockType}
                    | option(),
       IP :: inet:ip_address() | any | loopback,
       Port :: inet:port_number(),
+      SockType :: seqpacket | stream,
       Socket :: sctp_socket().
 
 open(Port, Opts) when is_integer(Port), is_list(Opts) ->
@@ -161,12 +165,18 @@ close(S) ->
 -spec listen(Socket, IsServer) -> ok | {error, Reason} when
       Socket :: sctp_socket(),
       IsServer :: boolean(),
+      Reason :: term();
+	    (Socket, Backlog) -> ok | {error, Reason} when
+      Socket :: sctp_socket(),
+      Backlog :: integer(),
       Reason :: term().
 
-listen(S, Flag) when is_port(S), is_boolean(Flag) ->
+listen(S, Backlog)
+  when is_port(S), is_boolean(Backlog);
+       is_port(S), is_integer(Backlog) ->
     case inet_db:lookup_socket(S) of
 	{ok,Mod} ->
-	    Mod:listen(S, Flag);
+	    Mod:listen(S, Backlog);
 	Error -> Error
     end;
 listen(S, Flag) ->
