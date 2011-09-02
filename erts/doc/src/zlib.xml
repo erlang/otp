@@ -378,31 +378,31 @@ unpack(Z, Compressed, Dict) ->
       <name name="crc32" arity="2"/>
       <fsummary>Calculate CRC</fsummary>
       <desc>
-        <p>Calculate the CRC checksum for <c><anno>Binary</anno></c>.</p>
+        <p>Calculate the CRC checksum for <c><anno>Data</anno></c>.</p>
       </desc>
     </func>
     <func>
       <name name="crc32" arity="3"/>
       <fsummary>Calculate CRC</fsummary>
       <desc>
-        <p>Update a running CRC checksum for <c><anno>Binary</anno></c>.
-          If <c><anno>Binary</anno></c> is the empty binary, this function returns
+        <p>Update a running CRC checksum for <c><anno>Data</anno></c>.
+          If <c><anno>Data</anno></c> is the empty binary or the empty iolist, this function returns
           the required initial value for the crc.</p>
         <pre>
-Crc = lists:foldl(fun(Bin,Crc0) ->  
-                      zlib:crc32(Z, Crc0, Bin),
-                  end, zlib:crc32(Z,&lt;&lt; &gt;&gt;), Bins)</pre>
+Crc = lists:foldl(fun(Data,Crc0) ->
+                      zlib:crc32(Z, Crc0, Data),
+                  end, zlib:crc32(Z,&lt;&lt; &gt;&gt;), Datas)</pre>
       </desc>
     </func>
     <func>
       <name name="crc32_combine" arity="4"/>
       <fsummary>Combine two CRC's</fsummary>
       <desc>
-	<p>Combine two CRC checksums into one.  For two binaries,
-	  <c>Bin1</c> and <c>Bin2</c> with sizes of <c>Size1</c> and
+	<p>Combine two CRC checksums into one.  For two binaries or iolists,
+	  <c>Data1</c> and <c>Data2</c> with sizes of <c>Size1</c> and
 	  <c><anno>Size2</anno></c>, with CRC checksums <c><anno>CRC1</anno></c> and
 	  <c><anno>CRC2</anno></c>.  <c>crc32_combine/4</c> returns the <c><anno>CRC</anno></c>
-	  checksum of <c>&lt;&lt;Bin1/binary,Bin2/binary&gt;&gt;</c>, requiring
+	  checksum of <c>[Data1,Data2]</c>, requiring
 	  only <c><anno>CRC1</anno></c>, <c><anno>CRC2</anno></c>, and <c><anno>Size2</anno></c>.
 	</p>
       </desc>
@@ -411,75 +411,75 @@ Crc = lists:foldl(fun(Bin,Crc0) ->
       <name name="adler32" arity="2"/>
       <fsummary>Calculate the adler checksum</fsummary>
       <desc>
-        <p>Calculate the Adler-32 checksum for <c><anno>Binary</anno></c>.</p>
+        <p>Calculate the Adler-32 checksum for <c><anno>Data</anno></c>.</p>
       </desc>
     </func>
     <func>
       <name name="adler32" arity="3"/>
       <fsummary>Calculate the adler checksum</fsummary>
       <desc>
-        <p>Update a running Adler-32 checksum for <c><anno>Binary</anno></c>.
-          If <c><anno>Binary</anno></c> is the empty binary, this function returns
+        <p>Update a running Adler-32 checksum for <c><anno>Data</anno></c>.
+          If <c><anno>Data</anno></c> is the empty binary or the empty iolist, this function returns
           the required initial value for the checksum.</p>
         <pre>
-Crc = lists:foldl(fun(Bin,Crc0) ->  
-                      zlib:adler32(Z, Crc0, Bin),
-                  end, zlib:adler32(Z,&lt;&lt; &gt;&gt;), Bins)</pre>
+Crc = lists:foldl(fun(Data,Crc0) ->
+                      zlib:adler32(Z, Crc0, Data),
+                  end, zlib:adler32(Z,&lt;&lt; &gt;&gt;), Datas)</pre>
       </desc>
     </func>
     <func>
       <name name="adler32_combine" arity="4"/>
       <fsummary>Combine two Adler-32 checksums</fsummary>
       <desc>
-	<p>Combine two Adler-32 checksums into one.  For two binaries,
-	  <c>Bin1</c> and <c>Bin2</c> with sizes of <c>Size1</c> and
+	<p>Combine two Adler-32 checksums into one.  For two binaries or iolists,
+	  <c>Data1</c> and <c>Data2</c> with sizes of <c>Size1</c> and
 	  <c><anno>Size2</anno></c>, with Adler-32 checksums <c><anno>Adler1</anno></c> and
 	  <c><anno>Adler2</anno></c>.  <c>adler32_combine/4</c> returns the <c><anno>Adler</anno></c>
-	  checksum of <c>&lt;&lt;Bin1/binary,Bin2/binary&gt;&gt;</c>, requiring
+	  checksum of <c>[Data1,Data2]</c>, requiring
 	  only <c><anno>Adler1</anno></c>, <c><anno>Adler2</anno></c>, and <c><anno>Size2</anno></c>.
 	</p>
       </desc>
     </func>
     <func>
       <name name="compress" arity="1"/>
-      <fsummary>Compress a binary with standard zlib functionality</fsummary>
+      <fsummary>Compress data with standard zlib functionality</fsummary>
       <desc>
-        <p>Compress a binary (with zlib headers and checksum).</p>
+        <p>Compress data (with zlib headers and checksum).</p>
       </desc>
     </func>
     <func>
       <name name="uncompress" arity="1"/>
-      <fsummary>Uncompress a binary with standard zlib functionality</fsummary>
+      <fsummary>Uncompress data with standard zlib functionality</fsummary>
       <desc>
-        <p>Uncompress a binary (with zlib headers and checksum).</p>
+        <p>Uncompress data (with zlib headers and checksum).</p>
       </desc>
     </func>
     <func>
       <name name="zip" arity="1"/>
-      <fsummary>Compress a binary without the zlib headers</fsummary>
+      <fsummary>Compress data without the zlib headers</fsummary>
       <desc>
-        <p>Compress a binary (without zlib headers and checksum).</p>
+        <p>Compress data (without zlib headers and checksum).</p>
       </desc>
     </func>
     <func>
       <name name="unzip" arity="1"/>
-      <fsummary>Uncompress a binary without the zlib headers</fsummary>
+      <fsummary>Uncompress data without the zlib headers</fsummary>
       <desc>
-        <p>Uncompress a binary (without zlib headers and checksum).</p>
+        <p>Uncompress data (without zlib headers and checksum).</p>
       </desc>
     </func>
     <func>
       <name name="gzip" arity="1"/>
-      <fsummary>Compress a binary with gz header</fsummary>
+      <fsummary>Compress data with gz header</fsummary>
       <desc>
-        <p>Compress a binary (with gz headers and checksum).</p>
+        <p>Compress data (with gz headers and checksum).</p>
       </desc>
     </func>
     <func>
       <name name="gunzip" arity="1"/>
-      <fsummary>Uncompress a binary with gz header</fsummary>
+      <fsummary>Uncompress data with gz header</fsummary>
       <desc>
-        <p>Uncompress a binary (with gz headers and checksum).</p>
+        <p>Uncompress data (with gz headers and checksum).</p>
       </desc>
     </func>
   </funcs>

@@ -173,7 +173,7 @@ deflateInit(Z, Level, Method, WindowBits, MemLevel, Strategy) ->
 
 -spec deflateSetDictionary(Z, Dictionary) -> Adler32 when
       Z :: zstream(),
-      Dictionary :: binary(),
+      Dictionary :: iodata(),
       Adler32 :: integer().
 deflateSetDictionary(Z, Dictionary) ->
     call(Z, ?DEFLATE_SETDICT, Dictionary).
@@ -232,7 +232,7 @@ inflateInit(Z, WindowBits) ->
 
 -spec inflateSetDictionary(Z, Dictionary) -> 'ok' when
       Z :: zstream(),
-      Dictionary :: binary().
+      Dictionary :: iodata().
 inflateSetDictionary(Z, Dictionary) -> 
     call(Z, ?INFLATE_SETDICT, Dictionary).
 
@@ -283,38 +283,36 @@ getBufSize(Z) ->
 crc32(Z) ->
     call(Z, ?CRC32_0, []).
 
--spec crc32(Z, Binary) -> CRC when
+-spec crc32(Z, Data) -> CRC when
       Z :: zstream(),
-      Binary :: binary(),
+      Data :: iodata(),
       CRC :: integer().
-crc32(Z, Binary) ->
-    call(Z, ?CRC32_1, Binary).
+crc32(Z, Data) ->
+    call(Z, ?CRC32_1, Data).
 
--spec crc32(Z, PrevCRC, Binary) -> CRC when
+-spec crc32(Z, PrevCRC, Data) -> CRC when
       Z :: zstream(),
       PrevCRC :: integer(),
-      Binary :: binary(),
+      Data :: iodata(),
       CRC :: integer().
-crc32(Z, CRC, Binary) when is_binary(Binary), is_integer(CRC) ->
-    call(Z, ?CRC32_2, <<CRC:32, Binary/binary>>);
-crc32(_Z, _CRC, _Binary)  ->
-    erlang:error(badarg).
+crc32(Z, CRC, Data) ->
+    call(Z, ?CRC32_2, [<<CRC:32>>, Data]).
 
--spec adler32(Z, Binary) -> CheckSum when
+-spec adler32(Z, Data) -> CheckSum when
       Z :: zstream(),
-      Binary :: binary(),
+      Data :: iodata(),
       CheckSum :: integer().
-adler32(Z, Binary) ->
-    call(Z, ?ADLER32_1, Binary).
+adler32(Z, Data) ->
+    call(Z, ?ADLER32_1, Data).
 
--spec adler32(Z, PrevAdler, Binary) -> CheckSum when
+-spec adler32(Z, PrevAdler, Data) -> CheckSum when
       Z :: zstream(),
       PrevAdler :: integer(),
-      Binary :: binary(),
+      Data :: iodata(),
       CheckSum :: integer().
-adler32(Z, Adler, Binary) when is_binary(Binary), is_integer(Adler) ->
-    call(Z, ?ADLER32_2, <<Adler:32, Binary/binary>>);
-adler32(_Z, _Adler, _Binary)  ->
+adler32(Z, Adler, Data) when is_integer(Adler) ->
+    call(Z, ?ADLER32_2, [<<Adler:32>>, Data]);
+adler32(_Z, _Adler, _Data)  ->
     erlang:error(badarg).
 
 -spec crc32_combine(Z, CRC1, CRC2, Size2) -> CRC when
@@ -346,76 +344,83 @@ getQSize(Z) ->
     call(Z, ?GET_QSIZE, []).
 
 %% compress/uncompress zlib with header
--spec compress(Binary) -> Compressed when
-      Binary :: binary(),
+-spec compress(Data) -> Compressed when
+      Data :: iodata(),
       Compressed :: binary().
-compress(Binary) ->
+compress(Data) ->
     Z = open(),
     deflateInit(Z, default),
-    Bs = deflate(Z, Binary,finish),
+    Bs = deflate(Z, Data, finish),
     deflateEnd(Z),
     close(Z),
-    list_to_binary(Bs).
+    iolist_to_binary(Bs).
 
--spec uncompress(Binary) -> Decompressed when
-      Binary  :: binary(),
+-spec uncompress(Data) -> Decompressed when
+      Data  :: iodata(),
       Decompressed :: binary().
-uncompress(Binary) when byte_size(Binary) >= 8 ->
-    Z = open(),
-    inflateInit(Z),
-    Bs = inflate(Z, Binary),
-    inflateEnd(Z),
-    close(Z),
-    list_to_binary(Bs);
-uncompress(Binary) when is_binary(Binary) -> erlang:error(data_error);
-uncompress(_) -> erlang:error(badarg).
+uncompress(Data) ->
+    try iolist_size(Data) of
+        Size ->
+            if
+                Size >= 8 ->
+                    Z = open(),
+                    inflateInit(Z),
+                    Bs = inflate(Z, Data),
+                    inflateEnd(Z),
+                    close(Z),
+                    iolist_to_binary(Bs);
+                true ->
+                    erlang:error(data_error)
+            end
+    catch
+        _:_ ->
+            erlang:error(badarg)
+    end.
 
 %% unzip/zip zlib without header (zip members)
--spec zip(Binary) -> Compressed when
-      Binary :: binary(),
+-spec zip(Data) -> Compressed when
+      Data :: iodata(),
       Compressed :: binary().
-zip(Binary) ->
+zip(Data) ->
     Z = open(),
     deflateInit(Z, default, deflated, -?MAX_WBITS, 8, default),
-    Bs = deflate(Z, Binary, finish),
+    Bs = deflate(Z, Data, finish),
     deflateEnd(Z),
     close(Z),
-    list_to_binary(Bs).
+    iolist_to_binary(Bs).
 
--spec unzip(Binary) -> Decompressed when
-      Binary :: binary(),
+-spec unzip(Data) -> Decompressed when
+      Data :: iodata(),
       Decompressed :: binary().
-unzip(Binary) ->
+unzip(Data) ->
     Z = open(),
     inflateInit(Z, -?MAX_WBITS),
-    Bs = inflate(Z, Binary),
+    Bs = inflate(Z, Data),
     inflateEnd(Z),
     close(Z),
-    list_to_binary(Bs).
+    iolist_to_binary(Bs).
     
 -spec gzip(Data) -> Compressed when
       Data :: iodata(),
       Compressed :: binary().
-gzip(Data) when is_binary(Data); is_list(Data) ->
+gzip(Data) ->
     Z = open(),
     deflateInit(Z, default, deflated, 16+?MAX_WBITS, 8, default),
     Bs = deflate(Z, Data, finish),
     deflateEnd(Z),
     close(Z),
-    iolist_to_binary(Bs);
-gzip(_) -> erlang:error(badarg).
+    iolist_to_binary(Bs).
 
--spec gunzip(Binary) -> Decompressed when
-      Binary :: binary(),
+-spec gunzip(Data) -> Decompressed when
+      Data :: iodata(),
       Decompressed :: binary().
-gunzip(Data) when is_binary(Data); is_list(Data) ->
+gunzip(Data) ->
     Z = open(),
     inflateInit(Z, 16+?MAX_WBITS),
     Bs = inflate(Z, Data),
     inflateEnd(Z),
     close(Z),
-    iolist_to_binary(Bs);
-gunzip(_) -> erlang:error(badarg).
+    iolist_to_binary(Bs).
 
 -spec collect(zstream()) -> iolist().
 collect(Z) -> 
