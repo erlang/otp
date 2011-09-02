@@ -18,6 +18,10 @@
 -module(docb_gen).
 
 -export([module/1, module/2, users_guide/1, users_guide/2]).
+-deprecated([{module,1,next_major_release},
+	     {module,2,next_major_release},
+	     {users_guide,1,next_major_release},
+	     {users_guide,2,next_major_release}]).
 
 -record(args, {suffix=".xml",
 	       layout=docb_edoc_xml_cb,

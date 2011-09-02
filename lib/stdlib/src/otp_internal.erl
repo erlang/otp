@@ -461,6 +461,14 @@ obsolete_1(public_key, pem_to_der, 1) ->
 obsolete_1(public_key, decode_private_key, A) when A =:= 1; A =:= 2 ->
     {deprecated,{public_key,pem_entry_decode,1},"R15A"};
 
+%% Added in R14B03.
+obsolete_1(docb_gen, _, _) ->
+    {deprecated,"the DocBuilder application is deprecated (will be removed in R15B)"};
+obsolete_1(docb_transform, _, _) ->
+    {deprecated,"the DocBuilder application is deprecated (will be removed in R15B)"};
+obsolete_1(docb_xml_check, _, _) ->
+    {deprecated,"the DocBuilder application is deprecated (will be removed in R15B)"};
+
 obsolete_1(_, _, _) ->
     no.
 

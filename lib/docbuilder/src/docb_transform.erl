@@ -18,6 +18,8 @@
 -module(docb_transform).
 
 -export([file/1, file/2]).
+-deprecated([{file,1,next_major_release},
+	     {file,2,next_major_release}]).
 
 %% file(File) -> ok | {error, Reason}
 %% file(File, Opts) -> ok | {error, Reason}
