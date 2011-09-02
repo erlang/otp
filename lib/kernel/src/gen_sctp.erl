@@ -27,7 +27,8 @@
 -include("inet_sctp.hrl").
 
 -export([open/0,open/1,open/2,close/1]).
--export([listen/2,connect/4,connect/5,connect_init/4,connect_init/5]).
+-export([listen/2,peeloff/2]).
+-export([connect/4,connect/5,connect_init/4,connect_init/5]).
 -export([eof/2,abort/2]).
 -export([send/3,send/4,recv/1,recv/2]).
 -export([error_string/1]).
@@ -181,6 +182,21 @@ listen(S, Backlog)
     end;
 listen(S, Flag) ->
     erlang:error(badarg, [S,Flag]).
+
+-spec peeloff(Socket, Assoc) -> {ok, NewSocket} | {error, Reason} when
+      Socket :: sctp_socket(),
+      Assoc :: #sctp_assoc_change{} | assoc_id(),
+      NewSocket :: sctp_socket(),
+      Reason :: term().
+
+peeloff(S, #sctp_assoc_change{assoc_id=AssocId}) when is_port(S) ->
+    peeloff(S, AssocId);
+peeloff(S, AssocId) when is_port(S), is_integer(AssocId) ->
+    case inet_db:lookup_socket(S) of
+	{ok,Mod} ->
+	    Mod:peeloff(S, AssocId);
+	Error -> Error
+    end.
 
 -spec connect(Socket, Addr, Port, Opts) -> {ok, Assoc} | {error, inet:posix()} when
       Socket :: sctp_socket(),

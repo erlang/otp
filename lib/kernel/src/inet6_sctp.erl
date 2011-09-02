@@ -32,7 +32,8 @@
 
 -define(FAMILY, inet6).
 -export([getserv/1,getaddr/1,getaddr/2,translate_ip/1]).
--export([open/1,close/1,listen/2,connect/5,sendmsg/3,send/4,recv/2]).
+-export([open/1,close/1,listen/2,peeloff/2,connect/5]).
+-export([sendmsg/3,send/4,recv/2]).
 
 
 
@@ -64,6 +65,14 @@ close(S) ->
 
 listen(S, Flag) ->
     prim_inet:listen(S, Flag).
+
+peeloff(S, AssocId) ->
+    case prim_inet:peeloff(S, AssocId) of
+	{ok, NewS}=Result ->
+	    inet_db:register_socket(NewS, ?MODULE),
+	    Result;
+	Error -> Error
+    end.
 
 connect(S, Addr, Port, Opts, Timer) ->
     inet_sctp:connect(S, Addr, Port, Opts, Timer).

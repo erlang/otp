@@ -95,6 +95,7 @@
 -define(PACKET_REQ_RECV,        60).
 %%-define(SCTP_REQ_LISTEN,        61). MERGED
 -define(SCTP_REQ_BINDX,	        62). %% Multi-home SCTP bind
+-define(SCTP_REQ_PEELOFF,       63).
 
 %% subscribe codes, INET_REQ_SUBSCRIBE
 -define(INET_SUBS_EMPTY_OUT_Q,  1).
@@ -102,7 +103,7 @@
 %% reply codes for *_REQ_*
 -define(INET_REP_ERROR,    0).
 -define(INET_REP_OK,       1).
--define(INET_REP_SCTP,     2).
+-define(INET_REP,          2).
 
 %% INET, TCP and UDP options:
 -define(INET_OPT_REUSEADDR,      0).

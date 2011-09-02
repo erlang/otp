@@ -1061,18 +1061,24 @@ fdopen(Fd, Opts, Protocol, Family, Type, Module) ->
 %%  socket stat
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-i() -> i(tcp), i(udp).
+i() -> i(tcp), i(udp), i(sctp).
 
 i(Proto) -> i(Proto, [port, module, recv, sent, owner,
-		      local_address, foreign_address, state]).
+		      local_address, foreign_address, state, type]).
 
 i(tcp, Fs) ->
     ii(tcp_sockets(), Fs, tcp);
 i(udp, Fs) ->
-    ii(udp_sockets(), Fs, udp).
+    ii(udp_sockets(), Fs, udp);
+i(sctp, Fs) ->
+    ii(sctp_sockets(), Fs, sctp).
 
 ii(Ss, Fs, Proto) ->
-    LLs = [h_line(Fs) | info_lines(Ss, Fs, Proto)],
+    LLs =
+	case info_lines(Ss, Fs, Proto) of
+	    [] -> [];
+	    InfoLines -> [h_line(Fs) | InfoLines]
+	end,
     Maxs = foldl(
 	     fun(Line,Max0) -> smax(Max0,Line) end, 
 	     duplicate(length(Fs),0),LLs),
@@ -1140,6 +1146,7 @@ info(S, F, Proto) ->
 	    case prim_inet:gettype(S) of
 		{ok,{_,stream}} -> "STREAM";
 		{ok,{_,dgram}}  -> "DGRAM";
+		{ok,{_,seqpacket}} -> "SEQPACKET";
 		_ -> " "
 	    end;
 	fd ->
@@ -1191,6 +1198,7 @@ fmt_port(N, Proto) ->
 %% Return a list of all tcp sockets
 tcp_sockets() -> port_list("tcp_inet").
 udp_sockets() -> port_list("udp_inet").
+sctp_sockets() -> port_list("sctp_inet").
 
 %% Return all ports having the name 'Name'
 port_list(Name) ->

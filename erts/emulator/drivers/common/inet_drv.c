@@ -297,9 +297,11 @@ static unsigned long one_value = 1;
 static void *h_libsctp = NULL;
 #ifdef __GNUC__
 static typeof(sctp_bindx) *p_sctp_bindx = NULL;
+static typeof(sctp_peeloff) *p_sctp_peeloff = NULL;
 #else
 static int (*p_sctp_bindx)(int sd, struct sockaddr *addrs,
 			   int addrcnt, int flags) = NULL;
+static int (*p_sctp_peeloff)(int sd, sctp_assoc_t assoc_id) = NULL;
 #endif
 
 #endif /* SCTP supported */
@@ -496,6 +498,7 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 #define PACKET_REQ_RECV        60 /* Common for UDP and SCTP         */
 /* #define SCTP_REQ_LISTEN       61 MERGED Different from TCP; not for UDP */
 #define SCTP_REQ_BINDX	       62 /* Multi-home SCTP bind            */
+#define SCTP_REQ_PEELOFF       63
 
 /* INET_REQ_SUBSCRIBE sub-requests */
 #define INET_SUBS_EMPTY_OUT_Q  1
@@ -509,7 +512,7 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 /* *_REQ_* replies */
 #define INET_REP_ERROR       0
 #define INET_REP_OK          1
-#define INET_REP_SCTP        2
+#define INET_REP             2
 
 /* INET_REQ_SETOPTS and INET_REQ_GETOPTS options */
 #define INET_OPT_REUSEADDR  0   /* enable/disable local address reuse */
@@ -1839,6 +1842,24 @@ static int inet_reply_ok(inet_descriptor* desc)
     
     desc->caller = 0;
     return driver_send_term(desc->port, caller, spec, i);    
+}
+
+static int inet_reply_ok_port(inet_descriptor* desc, ErlDrvTermData dport)
+{
+    ErlDrvTermData spec[2*LOAD_ATOM_CNT + 2*LOAD_PORT_CNT + 2*LOAD_TUPLE_CNT];
+    ErlDrvTermData caller = desc->caller;
+    int i = 0;
+
+    i = LOAD_ATOM(spec, i, am_inet_reply);
+    i = LOAD_PORT(spec, i, desc->dport);
+    i = LOAD_ATOM(spec, i, am_ok);
+    i = LOAD_PORT(spec, i, dport);
+    i = LOAD_TUPLE(spec, i, 2);
+    i = LOAD_TUPLE(spec, i, 3);
+    ASSERT(i == sizeof(spec)/sizeof(*spec));
+
+    desc->caller = 0;
+    return driver_send_term(desc->port, caller, spec, i);
 }
 
 /* send:
@@ -3452,6 +3473,9 @@ static int inet_init()
 	    p_sctp_bindx = ptr;
 	    inet_init_sctp();
 	    add_driver_entry(&sctp_inet_driver_entry);
+	    if (erts_sys_ddll_sym(h_libsctp, "sctp_peeloff", &ptr) == 0) {
+		p_sctp_peeloff = ptr;
+	    }
 	}
     }
 #endif
@@ -7022,7 +7046,7 @@ static int sctp_fill_opts(inet_descriptor* desc, char* buf, int buflen,
     driver_send_term(desc->port, driver_caller(desc->port), spec, i);
     FREE(spec);
 
-    (*dest)[0] = INET_REP_SCTP;
+    (*dest)[0] = INET_REP;
     return 1;   /* Response length */
 #   undef PLACE_FOR
 #   undef RETURN_ERROR
@@ -9422,6 +9446,59 @@ static int should_use_so_bsdcompat(void)
 #endif	/* __linux__ */
 #endif	/* HAVE_SO_BSDCOMPAT */
 
+
+
+#ifdef HAVE_SCTP
+/* Copy a descriptor, by creating a new port with same settings
+ * as the descriptor desc.
+ * return NULL on error (ENFILE no ports avail)
+ */
+static udp_descriptor* sctp_inet_copy(udp_descriptor* desc, SOCKET s, int* err)
+{
+    ErlDrvPort port = desc->inet.port;
+    udp_descriptor* copy_desc;
+
+    copy_desc = (udp_descriptor*) sctp_inet_start(port, NULL);
+
+    /* Setup event if needed */
+    if ((copy_desc->inet.s = s) != INVALID_SOCKET) {
+	if ((copy_desc->inet.event = sock_create_event(INETP(copy_desc))) ==
+	    INVALID_EVENT) {
+	    *err = sock_errno();
+	    FREE(copy_desc);
+	    return NULL;
+	}
+    }
+
+    /* Some flags must be inherited at this point */
+    copy_desc->inet.mode     = desc->inet.mode;
+    copy_desc->inet.exitf    = desc->inet.exitf;
+    copy_desc->inet.bit8f    = desc->inet.bit8f;
+    copy_desc->inet.deliver  = desc->inet.deliver;
+    copy_desc->inet.htype    = desc->inet.htype;
+    copy_desc->inet.psize    = desc->inet.psize;
+    copy_desc->inet.stype    = desc->inet.stype;
+    copy_desc->inet.sfamily  = desc->inet.sfamily;
+    copy_desc->inet.hsz      = desc->inet.hsz;
+    copy_desc->inet.bufsz    = desc->inet.bufsz;
+
+    /* The new port will be linked and connected to the caller */
+    port = driver_create_port(port, desc->inet.caller, "sctp_inet",
+			      (ErlDrvData) copy_desc);
+    if ((long)port == -1) {
+	*err = ENFILE;
+	FREE(copy_desc);
+	return NULL;
+    }
+    copy_desc->inet.port = port;
+    copy_desc->inet.dport = driver_mk_port(port);
+    *err = 0;
+    return copy_desc;
+}
+#endif
+
+
+
 static int packet_inet_init()
 {
     return 0;
@@ -9759,6 +9836,46 @@ static int packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 	    desc->state = INET_STATE_BOUND;
 
 	    return ctl_reply(INET_REP_OK, NULL, 0, rbuf, rsize);
+	}
+
+    case SCTP_REQ_PEELOFF:
+	{
+	    Uint32 assoc_id;
+	    udp_descriptor* new_udesc;
+	    int err;
+	    SOCKET new_socket;
+
+	    DEBUGF(("packet_inet_ctl(%ld): PEELOFF\r\n", (long)desc->port));
+	    if (!IS_SCTP(desc))
+		return ctl_xerror(EXBADPORT, rbuf, rsize);
+	    if (!IS_OPEN(desc))
+		return ctl_xerror(EXBADPORT, rbuf, rsize);
+	    if (!IS_BOUND(desc))
+		return ctl_xerror(EXBADSEQ, rbuf, rsize);
+	    if (! p_sctp_peeloff)
+		return ctl_error(ENOTSUP, rbuf, rsize);
+
+	    if (len != 4)
+		return ctl_error(EINVAL, rbuf, rsize);
+	    assoc_id = get_int32(buf);
+
+	    new_socket = p_sctp_peeloff(desc->s, assoc_id);
+	    if (IS_SOCKET_ERROR(new_socket)) {
+		return ctl_error(sock_errno(), rbuf, rsize);
+	    }
+
+	    desc->caller = driver_caller(desc->port);
+	    if ((new_udesc = sctp_inet_copy(udesc, new_socket, &err)) == NULL) {
+		sock_close(new_socket);
+		desc->caller = 0;
+		return ctl_error(err, rbuf, rsize);
+	    }
+	    new_udesc->inet.state = INET_STATE_CONNECTED;
+	    new_udesc->inet.stype = SOCK_STREAM;
+
+	    inet_reply_ok_port(desc, new_udesc->inet.dport);
+	    (*rbuf)[0] = INET_REP;
+	    return 1;
 	}
 #endif  /* HAVE_SCTP */
 
