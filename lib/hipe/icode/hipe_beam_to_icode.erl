@@ -720,7 +720,7 @@ trans_fun([{test,bs_get_float2,{f,Lbl},[Ms,_Live,Size,Unit,{field_flags,Flags0},
 	?EXIT({bad_bs_size_constant,Size});
       BitReg ->
 	Bits = mk_var(BitReg),
-	{{bs_get_float,Unit,Flags}, [Bits,MsVar]}
+	{{bs_get_float,Unit,Flags}, [MsVar,Bits]}
     end,
   trans_op_call({hipe_bs_primop,Name}, Lbl, Args, [Dst,MsVar], Env, Instructions);
 trans_fun([{test,bs_get_integer2,{f,Lbl},[Ms,_Live,Size,Unit,{field_flags,Flags0},X]}|
