@@ -369,8 +369,8 @@ extension(Name0) ->
     Name = flatten(Name0),
     extension(Name, [], major_os_type()).
 
-extension([$.|Rest], _Result, OsType) ->
-    extension(Rest, [$.], OsType);
+extension([$.|Rest]=Result, _Result, OsType) ->
+    extension(Rest, Result, OsType);
 extension([Char|Rest], [], OsType) when is_integer(Char) ->
     extension(Rest, [], OsType);
 extension([$/|Rest], _Result, OsType) ->
@@ -378,9 +378,9 @@ extension([$/|Rest], _Result, OsType) ->
 extension([$\\|Rest], _Result, win32) ->
     extension(Rest, [], win32);
 extension([Char|Rest], Result, OsType) when is_integer(Char) ->
-    extension(Rest, [Char|Result], OsType);
+    extension(Rest, Result, OsType);
 extension([], Result, _OsType) ->
-    lists:reverse(Result).
+    Result.
 
 %% Joins a list of filenames with directory separators.
 
