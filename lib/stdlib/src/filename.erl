@@ -147,9 +147,10 @@ basename(Name) when is_binary(Name) ->
     end;
     
 basename(Name0) ->
-    Name = flatten(Name0),
+    Name1 = flatten(Name0),
     {DirSep2, DrvSep} = separators(),
-    basename1(skip_prefix(Name, DrvSep), [], DirSep2).
+    Name = skip_prefix(Name1, DrvSep),
+    basename1(Name, Name, DirSep2).
 
 win_basenameb(<<Letter,$:,Rest/binary>>) when ?IS_DRIVELETTER(Letter) ->
     basenameb(Rest,[<<"/">>,<<"\\">>]);
@@ -167,16 +168,18 @@ basenameb(Bin,Sep) ->
     
 
 
-basename1([$/|[]], Tail, DirSep2) ->
-    basename1([], Tail, DirSep2);
+basename1([$/], Tail0, _DirSep2) ->
+    %% End of filename -- must get rid of trailing directory separator.
+    [_|Tail] = lists:reverse(Tail0),
+    lists:reverse(Tail);
 basename1([$/|Rest], _Tail, DirSep2) ->
-    basename1(Rest, [], DirSep2);
+    basename1(Rest, Rest, DirSep2);
 basename1([DirSep2|Rest], Tail, DirSep2) when is_integer(DirSep2) ->
     basename1([$/|Rest], Tail, DirSep2);
 basename1([Char|Rest], Tail, DirSep2) when is_integer(Char) ->
-    basename1(Rest, [Char|Tail], DirSep2);
+    basename1(Rest, Tail, DirSep2);
 basename1([], Tail, _DirSep2) ->
-    lists:reverse(Tail).
+    Tail.
 
 skip_prefix(Name, false) ->
     Name;
