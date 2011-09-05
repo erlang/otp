@@ -873,12 +873,7 @@ filter_options(_Base, [], Result) ->
 %% Gets the source file given path of object code and module name.
 
 get_source_file(Obj, Mod, Rules) ->
-    case catch Mod:module_info(source_file) of
-	{'EXIT', _Reason} ->
-	    source_by_rules(dirname(Obj), packages:last(Mod), Rules);
-	File ->
-	    {ok, File}
-    end.
+    source_by_rules(dirname(Obj), packages:last(Mod), Rules).
 
 source_by_rules(Dir, Base, [{From, To}|Rest]) ->
     case try_rule(Dir, Base, From, To) of
