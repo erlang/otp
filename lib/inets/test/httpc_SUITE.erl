@@ -113,13 +113,10 @@ groups() ->
 		    proxy_page_does_not_exist,
 		    proxy_https_not_supported]}, 
      {ssl,     [], [ssl_head, 
-		    ossl_head, 
 		    essl_head, 
 		    ssl_get, 
-		    ossl_get,
 		    essl_get, 
 		    ssl_trace, 
-		    ossl_trace, 
 		    essl_trace]}, 
      {stream,  [], [http_stream,
 		    http_stream_once, 
@@ -271,10 +268,6 @@ init_per_testcase(Case, Timeout, Config) ->
 	case atom_to_list(Case) of
 	    [$s, $s, $l | _] ->
 		init_per_testcase_ssl(ssl, PrivDir, SslConfFile, 
-				      [{watchdog, Dog} | TmpConfig]);
-
-	    [$o, $s, $s, $l | _] ->
-		init_per_testcase_ssl(ossl, PrivDir, SslConfFile, 
 				      [{watchdog, Dog} | TmpConfig]);
 
 	    [$e, $s, $s, $l | _] ->
@@ -1076,13 +1069,6 @@ ssl_head(suite) ->
 ssl_head(Config) when is_list(Config) ->   
     ssl_head(ssl, Config).
 
-ossl_head(doc) ->
-    ["Same as http_head/1 but over ssl sockets."];
-ossl_head(suite) ->
-    [];
-ossl_head(Config) when is_list(Config) ->   
-    ssl_head(ossl, Config).
-
 essl_head(doc) ->
     ["Same as http_head/1 but over ssl sockets."];
 essl_head(suite) ->
@@ -1105,8 +1091,6 @@ ssl_head(SslTag, Config) ->
 		case SslTag of
 		    ssl ->
 			SSLOptions;
-		    ossl ->
-			{ossl, SSLOptions};
 		    essl ->
 			{essl, SSLOptions}
 		end,
@@ -1131,13 +1115,6 @@ ssl_get(suite) ->
 ssl_get(Config) when is_list(Config) ->
     ssl_get(ssl, Config).
 
-ossl_get(doc) ->
-    ["Same as http_get/1 but over ssl sockets."];
-ossl_get(suite) ->
-    [];
-ossl_get(Config) when is_list(Config) ->
-    ssl_get(ossl, Config).
-
 essl_get(doc) ->
     ["Same as http_get/1 but over ssl sockets."];
 essl_get(suite) ->
@@ -1157,8 +1134,6 @@ ssl_get(SslTag, Config) when is_list(Config) ->
 		case SslTag of
 		    ssl ->
 			SSLOptions;
-		    ossl ->
-			{ossl, SSLOptions};
 		    essl ->
 			{essl, SSLOptions}
 		end,
@@ -1184,13 +1159,6 @@ ssl_trace(suite) ->
 ssl_trace(Config) when is_list(Config) ->
     ssl_trace(ssl, Config).
 
-ossl_trace(doc) ->
-    ["Same as http_trace/1 but over ssl sockets."];
-ossl_trace(suite) ->
-    [];
-ossl_trace(Config) when is_list(Config) ->
-    ssl_trace(ossl, Config).
-
 essl_trace(doc) ->
     ["Same as http_trace/1 but over ssl sockets."];
 essl_trace(suite) ->
@@ -1210,8 +1178,6 @@ ssl_trace(SslTag, Config) when is_list(Config) ->
 		case SslTag of
 		    ssl ->
 			SSLOptions;
-		    ossl ->
-			{ossl, SSLOptions};
 		    essl ->
 			{essl, SSLOptions}
 		end,
@@ -3038,10 +3004,6 @@ dummy_server_init(Caller, essl, IpV, SSLOptions) ->
     BaseOpts = [{ssl_imp, new}, 
 		{backlog, 128}, binary, {reuseaddr,true}, {active, false} |
 	        SSLOptions], 
-    dummy_ssl_server_init(Caller, BaseOpts, IpV);
-dummy_server_init(Caller, ossl, IpV, SSLOptions) ->
-    BaseOpts = [{ssl_imp, old}, 
-		{backlog, 128}, binary, {active, false} | SSLOptions], 
     dummy_ssl_server_init(Caller, BaseOpts, IpV).
 
 dummy_ssl_server_init(Caller, BaseOpts, IpV) ->
