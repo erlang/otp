@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2009</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -159,9 +159,12 @@ old        reboot_old            permanent
   <funcs>
     <func>
       <name>check_install_release(Vsn) -> {ok, OtherVsn, Descr} | {error, Reason}</name>
+      <name>check_install_release(Vsn,Opts) -> {ok, OtherVsn, Descr} | {error, Reason}</name>
       <fsummary>Check installation of a release in the system.</fsummary>
       <type>
         <v>Vsn = OtherVsn = string()</v>
+	<v>Opts = [Opt]</v>
+	<v>Opt = purge</v>
         <v>Descr = term()</v>
         <v>Reason = term()</v>
       </type>
@@ -179,6 +182,11 @@ old        reboot_old            permanent
           upgrade script.</p>
         <p>Returns the same as <c>install_release/1</c>. <c>Descr</c>
           defaults to "" if no <c>relup</c> file is found.</p>
+	<p>If the option <c>purge</c> is given, all old code that can
+          be soft purged will be purged after all other checks are
+          successfully completed. This can be useful in order to
+          reduce the time needed by <seealso
+          marker="#install_release/1">install_release</seealso>.</p>
       </desc>
     </func>
     <func>
@@ -299,6 +307,24 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
           <c>{update_paths,true}</c>, afterwards
           <c>code:lib_dir(myapp)</c> will return
           <c>/home/user/myapp-1.0</c>.</p>
+	<note>
+	  <p>Installing a new release might be quite time consuming if
+	  there are many processes in the system. The reason is that
+	  each process must be checked for references to old code
+	  before a module can be purged. This check might lead to
+	  garbage collections and copying of data.</p>
+	  <p>If you wish to speed up the execution of
+	  <c>install_release</c>, then you may call <seealso
+	  marker="#check_install_release/1">check_install_release</seealso>
+	  first, using the option <c>purge</c>. This will do the same
+	  check for old code, and then purge all modules that can be
+	  soft purged. The purged modules will then no longer have any
+	  old code, and <c>install_release</c> will not need to do the
+	  checks.</p>
+	  <p>Obviously, this will not reduce the overall time for the
+	  upgrade, but it will allow checks and purge to be executed
+	  in the background before the real upgrade is started.</p>
+	</note>
       </desc>
     </func>
     <func>
