@@ -322,8 +322,9 @@
        are to be executed by Common Test, and those functions only. If
        the step option <c>config</c> is specified, breakpoints will 
        also be initially set on the configuration functions in the suite, i.e.
-       <c>init_per_suite/1</c>, <c>end_per_suite/1</c>, <c>init_per_testcase/2</c> 
-       and <c>end_per_testcase/2</c>.</p>
+       <c>init_per_suite/1</c>, <c>end_per_suite/1</c>,
+       <c>init_per_group/2</c>, <c>end_per_group/2</c>,
+       <c>init_per_testcase/2</c> and <c>end_per_testcase/2</c>.</p>
     <p>Common Test enables the Debugger auto attach feature, which means
        that for every new interpreted test case function that starts to execute, 
        a new trace window will automatically pop up. (This is because each test 

@@ -24,8 +24,8 @@
 
 -module(ct_framework).
 
--export([init_tc/3, end_tc/3, end_tc/4, get_suite/2, report/2, warn/1]).
--export([error_notification/4]).
+-export([init_tc/3, end_tc/3, end_tc/4, get_suite/2, get_all_cases/1]).
+-export([report/2, warn/1, error_notification/4]).
 
 -export([get_logopts/0, format_comment/1, overview_html_header/1]).
 
@@ -778,6 +778,37 @@ get_suite(Mod, Group={conf,Props,_Init,TCs,_End}) ->
 %% testcase
 get_suite(Mod, Name) ->
      get_seq(Mod, Name).
+
+%%%-----------------------------------------------------------------
+
+get_all_cases(Suite) ->
+    case get_suite(Suite, all) of
+	[{?MODULE,error_in_suite,[[{error,_}=Error]]}] ->
+		Error;
+	[{?MODULE,error_in_suite,[[Error]]}] ->
+	    {error,Error};
+	Tests ->
+	    Cases = get_all_cases1(Suite, Tests),
+	    lists:reverse(
+	      lists:foldl(fun(TC, TCs) ->
+				  case lists:member(TC, TCs) of
+				      true  -> TCs;
+				      false -> [TC | TCs]
+				  end
+			  end, [], Cases))
+    end.
+
+get_all_cases1(Suite, [{conf,_Props,_Init,GrTests,_End} | Tests]) ->
+    get_all_cases1(Suite, GrTests) ++ get_all_cases1(Suite, Tests);
+
+get_all_cases1(Suite, [Test | Tests]) when is_atom(Test) ->
+    [{Suite,Test} | get_all_cases1(Suite, Tests)];
+
+get_all_cases1(Suite, [Test | Tests]) ->
+    [Test | get_all_cases1(Suite, Tests)];
+
+get_all_cases1(_, []) ->
+    [].
 
 %%%-----------------------------------------------------------------
 

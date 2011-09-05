@@ -2148,7 +2148,14 @@ maybe_interpret1(Suite, Cases, StepOpts) when is_list(Cases) ->
 
 maybe_interpret2(Suite, Cases, StepOpts) ->
     set_break_on_config(Suite, StepOpts),
-    [i:ib(Suite, Case, 1) || Case <- Cases],
+    [begin try i:ib(Suite, Case, 1) of
+	       _ -> ok
+	   catch
+	       _:_Error ->
+		   io:format(user, "Invalid breakpoint: ~w:~w/1~n",
+			     [Suite,Case])
+	   end
+     end || Case <- Cases, is_atom(Case)],
     test_server_ctrl:multiply_timetraps(infinity),
     WinOp = case lists:member(keep_inactive, ensure_atom(StepOpts)) of
 		true -> no_kill;
@@ -2161,10 +2168,18 @@ maybe_interpret2(Suite, Cases, StepOpts) ->
 set_break_on_config(Suite, StepOpts) ->
     case lists:member(config, ensure_atom(StepOpts)) of
 	true ->
-	    i:ib(Suite, init_per_suite, 1),
-	    i:ib(Suite, init_per_testcase, 2),
-	    i:ib(Suite, end_per_testcase, 2),
-	    i:ib(Suite, end_per_suite, 1);
+	    SetBPIfExists = fun(F,A) ->
+				    case erlang:function_exported(Suite, F, A) of
+					true -> i:ib(Suite, F, A);
+					false -> ok
+				    end
+			    end,
+	    SetBPIfExists(init_per_suite, 1),
+	    SetBPIfExists(init_per_group, 2),
+	    SetBPIfExists(init_per_testcase, 2),
+	    SetBPIfExists(end_per_testcase, 2),
+	    SetBPIfExists(end_per_group, 2),
+	    SetBPIfExists(end_per_suite, 1);
 	false ->
 	    ok
     end.
@@ -2463,32 +2478,32 @@ is_suite(ModOrFile) when is_list(ModOrFile) ->
     end.
 
 get_all_testcases(Suite) ->
-    %%! this needs to be updated to handle testcase groups later!!
-    case catch Suite:all() of
-	{'EXIT',Why} ->
-	    {error,Why};
-	{skip,_} ->
-	    [];
-	Cases ->
-	    AllCases =
-		lists:foldl(fun({sequence,SeqName}, All) ->
-				    case catch Suite:sequences() of
-					{'EXIT',_} ->
-					    All;
-					Seqs ->
-					    case proplists:get_value(SeqName, Seqs) of
-						undefined ->
-						    All;
-						SeqCases ->
-						    lists:reverse(SeqCases) ++ All
-					    end
-				    end;
-			       (Case,All) ->
-				    [Case|All]
-			    end, [], Cases),
-	    lists:reverse(AllCases)
+    try ct_framework:get_all_cases(Suite) of
+	{error,_Reason} = Error ->
+	    Error;
+	SuiteCases ->
+	    Cases = [C || {_S,C} <- SuiteCases],
+	    Cases1 =
+		try Suite:sequences() of
+		    [] ->
+			Cases;
+		    Seqs ->
+			TCs1 = lists:flatten([TCs || {_,TCs} <- Seqs]),
+			lists:reverse(
+			  lists:foldl(fun(TC, Acc) ->
+					      case lists:member(TC, Acc) of
+						  true  -> Acc;
+						  false -> [TC | Acc]
+					      end
+				      end, [], Cases ++ TCs1))
+		catch
+		    _:_ ->
+			Cases
+		end
+    catch
+	_:Error ->
+	    {error,Error}
     end.
-					
 
 %% Internal tracing support. If {ct_trace,TraceSpec} is present, the
 %% TraceSpec file will be consulted and dbg used to trace function
