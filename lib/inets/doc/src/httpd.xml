@@ -148,13 +148,11 @@
 	in the apache like configuration file.
       </item>
 
-      <tag>{socket_type, ip_comm | ssl | ossl | essl}</tag>
+      <tag>{socket_type, ip_comm | ssl | essl}</tag>
       <item>
-	<p>When using ssl, there are several alternatives. 
-          <c>ossl</c> specifically uses the OpenSSL based (old) SSL. 
-          <c>essl</c> specifically uses the Erlang based (new) SSL. 
-          When using <c>ssl</c> it <em>currently</em> defaults to 
-          <c>essl</c>. </p>
+	<p>When using ssl, there are currently only one alternative. 
+	<c>essl</c> specifically uses the Erlang based SSL. 
+	<c>ssl</c> defaults to <c>essl</c>. </p>
 	<p>Defaults to <c>ip_comm</c>. </p> 
       </item>
 
@@ -162,7 +160,7 @@
       <item>
 	<p>Defaults to <c>inet6fb4. </c> </p>
         <p>Note that this option is only used when the option 
-          <c>socket_type</c> has the value <c>ip_comm</c>. </p>
+	<c>socket_type</c> has the value <c>ip_comm</c>. </p>
       </item>
 
     </taglist>
