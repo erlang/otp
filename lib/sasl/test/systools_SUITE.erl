@@ -48,7 +48,7 @@
 	  included_fail_script/1, included_bug_script/1, exref_script/1]).
 -export([ tar_options/1, normal_tar/1, no_mod_vsn_tar/1, variable_tar/1,
 	  src_tests_tar/1, shadow_tar/1, var_tar/1,
-	  exref_tar/1, link_tar/1]).
+	  exref_tar/1, link_tar/1, otp_9507/1]).
 -export([ normal_relup/1, abnormal_relup/1, no_appup_relup/1,
 	  bad_appup_relup/1, app_start_type_relup/1, otp_3065/1]).
 -export([
@@ -81,7 +81,7 @@ groups() ->
      {tar, [],
       [tar_options, normal_tar, no_mod_vsn_tar, variable_tar,
        src_tests_tar, shadow_tar, var_tar,
-       exref_tar, link_tar]},
+       exref_tar, link_tar, otp_9507]},
      {relup, [],
       [normal_relup, abnormal_relup, no_appup_relup,
        bad_appup_relup, app_start_type_relup]},
@@ -1065,6 +1065,48 @@ exref_tar(Config) when is_list(Config) ->
 
     ?line ok = file:set_cwd(OldDir),
     ok.
+
+
+
+%% otp_9507
+%%
+otp_9507(suite) -> [];
+otp_9507(doc) ->
+    ["make_tar failed when path given as just 'ebin'."];
+otp_9507(Config) when is_list(Config) ->
+    ?line {ok, OldDir} = file:get_cwd(),
+
+    ?line {LatestDir, LatestName} = create_script(latest_small,Config),
+
+    ?line DataDir = filename:absname(?copydir),
+    ?line LibDir = fname([DataDir, d_normal, lib]),
+    ?line FeDir = fname([LibDir, 'fe-3.1']),
+
+    ?line ok = file:set_cwd(FeDir),
+
+    RelName = fname([LatestDir,LatestName]),
+
+    ?line P1 = ["./ebin",
+	       fname([DataDir, lib, kernel, ebin]),
+	       fname([DataDir, lib, stdlib, ebin])],
+    ?line {ok, _, _} = systools:make_script(RelName, [silent, {path, P1}]),
+    ?line ok = systools:make_tar(RelName, [{path, P1}]),
+    ?line Content1 = tar_contents(RelName),
+
+    ?line P2 = ["ebin",
+	       fname([DataDir, lib, kernel, ebin]),
+	       fname([DataDir, lib, stdlib, ebin])],
+
+    %% Tickets solves the following line - it used to fail with
+    %% {function_clause,[{filename,join,[[]]},...}
+    ?line ok = systools:make_tar(RelName, [{path, P2}]),
+    ?line Content2 = tar_contents(RelName),
+    true = (Content1 == Content2),
+
+    ?line ok = file:set_cwd(OldDir),
+
+    ok.
+
 
 %% The relup stuff.
 %%
