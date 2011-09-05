@@ -46,7 +46,7 @@
         <item>
           <p>[compiler] Used wrong variable name (for 
 	  warnings-as-errors variable), which caused the 
-	  compiler to crash when using the snmpc script. </p>
+	  compiler to crash when using the snmpc (e)script. </p>
 	  <p>Also added the option 
 	  <seealso marker="snmpc(command)#option_werror">--Werror</seealso>
 	  for the SNMP MIB compiler (escript) frontend (to mimic 
