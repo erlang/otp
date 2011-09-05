@@ -25,8 +25,8 @@
 -export([start_link/0,
 	 create_RELEASES/1, create_RELEASES/2, create_RELEASES/4,
 	 unpack_release/1,
-	 check_install_release/1, install_release/1, install_release/2,
-	 remove_release/1, 
+	 check_install_release/1, check_install_release/2,
+	 install_release/1, install_release/2, remove_release/1,
 	 which_releases/0, make_permanent/1, reboot_old_release/1,
 	 set_unpacked/2, set_removed/1, install_file/2]).
 -export([upgrade_app/2, downgrade_app/2, downgrade_app/3,
@@ -149,15 +149,35 @@ unpack_release(ReleaseName) ->
 %%-----------------------------------------------------------------
 %% Purpose: Checks the relup script for the specified version.
 %%          The release must be unpacked.
+%%          Options = [purge] - all old code that can be soft purged
+%%          will be purged if all checks succeeds. This can be usefull
+%%          in order to reduce time needed in the following call to
+%%          install_release.
 %% Returns: {ok, FromVsn, Descr} | {error, Reason}
-%%          Reason = {already_installed, Vsn} |
+%%          Reason = {illegal_option, IllegalOpt} |
+%%                   {already_installed, Vsn} |
 %%                   {bad_relup_file, RelFile} |
 %%                   {no_such_release, Vsn} |
 %%                   {no_such_from_vsn, Vsn} |
 %%                   exit_reason()
 %%-----------------------------------------------------------------
 check_install_release(Vsn) ->
-    call({check_install_release, Vsn}).
+    check_install_release(Vsn, []).
+
+check_install_release(Vsn, Opts) ->
+    case check_check_install_options(Opts, false) of
+	{ok,Purge} ->
+	    call({check_install_release, Vsn, Purge});
+	Error ->
+	    Error
+    end.
+
+check_check_install_options([purge|Opts], _) ->
+    check_check_install_options(Opts, true);
+check_check_install_options([Illegal|_],Purge) ->
+    {error,{illegal_option,Illegal}};
+check_check_install_options([],Purge) ->
+    {ok,Purge}.
 
 
 %%-----------------------------------------------------------------
@@ -541,11 +561,12 @@ handle_call({unpack_release, ReleaseName}, _From, S)
 handle_call({unpack_release, _ReleaseName}, _From, S) ->
     {reply, {error, client_node}, S};
 
-handle_call({check_install_release, Vsn}, _From, S) ->
+handle_call({check_install_release, Vsn, Purge}, _From, S) ->
     case catch do_check_install_release(S#state.rel_dir,
 					Vsn,
 					S#state.releases,
-					S#state.masters) of
+					S#state.masters,
+					Purge) of
 	{ok, CurrentVsn, Descr} -> 
 	    {reply, {ok, CurrentVsn, Descr}, S};
 	{error, Reason}   ->
@@ -855,7 +876,7 @@ check_path_response(Path, {ok, _Info}) ->
 check_path_response(Path, {error, _Reason}) ->
 	throw({error, {no_such_directory, Path}}).
 
-do_check_install_release(RelDir, Vsn, Releases, Masters) ->
+do_check_install_release(RelDir, Vsn, Releases, Masters, Purge) ->
     case lists:keysearch(Vsn, #release.vsn, Releases) of
 	{value, #release{status = current}} ->
 	    {error, {already_installed, Vsn}};
@@ -880,7 +901,20 @@ do_check_install_release(RelDir, Vsn, Releases, Masters) ->
 		    case get_rh_script(LatestRelease, Release, RelDir, Masters) of
 			{ok, {CurrentVsn, Descr, Script}} ->
 			    case catch check_script(Script, Libs) of
-				ok ->
+				{ok,SoftPurgeMods} when Purge=:=true ->
+				    %% Get modules with brutal_purge
+				    %% instructions, but that can be
+				    %% soft purged
+				    {ok,BrutalPurgeMods} =
+					release_handler_1:check_old_processes(
+					  Script,brutal_purge),
+				    lists:foreach(
+				      fun(Mod) ->
+					      catch erlang:purge_module(Mod)
+				      end,
+				      SoftPurgeMods ++ BrutalPurgeMods),
+				    {ok, CurrentVsn, Descr};
+				{ok,_} ->
 				    {ok, CurrentVsn, Descr};
 				Else ->
 				    Else
