@@ -19,7 +19,7 @@
 %%
 -module(httpd_time_test).
 
--export([t/3, t1/2, t2/2, t3/2, t4/2]).
+-export([t/3, t1/2, t2/2, t4/2]).
 
 -export([do/1, do/2, do/3, do/4, do/5]).
 
@@ -43,10 +43,6 @@ t1(Host, Port) ->
 
 t2(Host, Port) ->
     t(ssl, Host, Port).
-
-
-t3(Host, Port) ->
-    t(ossl, Host, Port).
 
 
 t4(Host, Port) ->

@@ -80,6 +80,13 @@
 	  <p>Own Id: OTP-9359</p>
         </item>
 
+        <item>
+          <p>[httpc|httpd] The old ssl implementation (based on OpenSSL), 
+	  has been deprecated. The config option that specified usage of 
+	  this version of the ssl app, <c>ossl</c>, has been removed. </p>
+	  <p>Own Id: OTP-9522</p>
+        </item>
+
       </list>
 
     </section>
