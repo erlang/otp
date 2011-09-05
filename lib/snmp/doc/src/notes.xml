@@ -33,8 +33,8 @@
   </header>
 
   <section>
-    <title>SNMP Development Toolkit 4.21</title>
-    <p>Version 4.21 supports code replacement in runtime from/to
+    <title>SNMP Development Toolkit 4.21.1</title>
+    <p>Version 4.21.1 supports code replacement in runtime from/to
       version 4.20.1, 4.20 and 4.19. </p>
 
     <section>
@@ -53,6 +53,11 @@
 	  <seealso marker="erts:erlc">erlc</seealso>), 
 	  which specifies whether warnings should be treated as errors. </p>
           <p>Own Id: OTP-9447</p>
+        </item>
+
+        <item>
+          <p>[agent] Some very minor debugging improvements. </p>
+          <p>Own Id: OTP-9446</p>
         </item>
       </list>
 
