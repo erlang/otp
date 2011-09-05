@@ -48,7 +48,7 @@
 %% Internal application API
 %%====================================================================
 %%--------------------------------------------------------------------
--spec client_hello(host(), inet:port_num(), #connection_states{},
+-spec client_hello(host(), inet:port_number(), #connection_states{},
 		   #ssl_options{}, boolean(), der_cert()) -> #client_hello{}.
 %%
 %% Description: Creates a client hello message.
@@ -106,7 +106,7 @@ hello_request() ->
 
 %%--------------------------------------------------------------------
 -spec hello(#server_hello{} | #client_hello{}, #ssl_options{},
-	    #connection_states{} | {inet:port_num(), #session{}, db_handle(),
+	    #connection_states{} | {inet:port_number(), #session{}, db_handle(),
  				    atom(), #connection_states{}, binary()},
  	    boolean()) -> {tls_version(), session_id(), #connection_states{}}| 
  			  {tls_version(), {resumed | new, #session{}}, 

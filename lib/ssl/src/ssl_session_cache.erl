@@ -28,7 +28,7 @@
 -export([init/1, terminate/1, lookup/2, update/3, delete/2, foldl/3, 
 	 select_session/2]). 
 
--type key() :: {{host(), inet:port_num()}, session_id()} |  {inet:port_num(), session_id()}.
+-type key() :: {{host(), inet:port_number()}, session_id()} |  {inet:port_number(), session_id()}.
 
 %%--------------------------------------------------------------------
 -spec init(list()) -> db_handle(). %% Returns reference to the cache (opaque)
@@ -91,7 +91,7 @@ foldl(Fun, Acc0, Cache) ->
     ets:foldl(Fun, Acc0, Cache).
   
 %%--------------------------------------------------------------------
--spec select_session(db_handle(), {host(), inet:port_num()} | inet:port_num()) -> [#session{}].
+-spec select_session(db_handle(), {host(), inet:port_number()} | inet:port_number()) -> [#session{}].
 %%
 %% Description: Selects a session that could be reused. Should be callable
 %% from any process.
