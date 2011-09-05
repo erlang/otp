@@ -44,6 +44,57 @@
 -->
       <list type="bulleted">
         <item>
+          <p>[compiler] Used wrong variable name (for 
+	  warnings-as-errors variable), which caused the 
+	  compiler to crash when using the snmpc (e)script. </p>
+	  <p>Also added the option 
+	  <seealso marker="snmpc(command)#option_werror">--Werror</seealso>
+	  for the SNMP MIB compiler (escript) frontend (to mimic 
+	  <seealso marker="erts:erlc">erlc</seealso>), 
+	  which specifies whether warnings should be treated as errors. </p>
+          <p>Own Id: OTP-9447</p>
+        </item>
+      </list>
+
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <p>-</p> 
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>The snmp config tool could not handle (manager) audit trail config 
+	  because the option seqno was not handled. </p>
+	  <p>Own Id: OTP-9354</p>
+	</item>
+
+      </list>
+-->
+    </section>
+
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+    </section>
+
+  </section> <!-- 4.21.1 -->
+
+
+  <section>
+    <title>SNMP Development Toolkit 4.21</title>
+    <p>Version 4.21 supports code replacement in runtime from/to
+      version 4.20.1, 4.20 and 4.19. </p>
+
+    <section>
+      <title>Improvements and new features</title>
+<!--
+      <p>-</p>
+-->
+      <list type="bulleted">
+        <item>
           <p>[manager] There was no way to specify transport domain. 
 	  The transport domains was assumed to be IPv4 (transportDomainUdpIpv4).
 	  This has now been changed so that it can also be IPv6 
