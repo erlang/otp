@@ -844,8 +844,7 @@ try_file(Src, _ObjFilename, Mod, _Rules) ->
 
 %% Filters the options.
 %%
-%% 1) Remove options that have no effect on the generated code,
-%%    such as report and verbose.
+%% 1) Only keep options that have any effect on code generation.
 %%
 %% 2) The paths found in {i, Path} and {outdir, Path} are converted
 %%    to absolute paths.  When doing this, it is assumed that relatives
@@ -857,13 +856,9 @@ filter_options(Base, [{outdir, Path}|Rest], Result) ->
     filter_options(Base, Rest, [{outdir, make_abs_path(Base, Path)}|Result]);
 filter_options(Base, [{i, Path}|Rest], Result) ->
     filter_options(Base, Rest, [{i, make_abs_path(Base, Path)}|Result]);
-filter_options(Base, [Option|Rest], Result) when Option =:= trace ->
-    filter_options(Base, Rest, [Option|Result]);
 filter_options(Base, [Option|Rest], Result) when Option =:= export_all ->
     filter_options(Base, Rest, [Option|Result]);
 filter_options(Base, [Option|Rest], Result) when Option =:= binary ->
-    filter_options(Base, Rest, [Option|Result]);
-filter_options(Base, [Option|Rest], Result) when Option =:= fast ->
     filter_options(Base, Rest, [Option|Result]);
 filter_options(Base, [Tuple|Rest], Result) when element(1, Tuple) =:= d ->
     filter_options(Base, Rest, [Tuple|Result]);
