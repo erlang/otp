@@ -330,22 +330,22 @@ obsolete_1(erlang, fault, 2) ->
 obsolete_1(file, rawopen, 2) ->
     {removed, "deprecated (will be removed in R13B); use file:open/2 with the raw option"};
 
-obsolete_1(http, request, 1) 	      -> {deprecated,{httpc,request,1},"R15B"};
-obsolete_1(http, request, 2) 	      -> {deprecated,{httpc,request,2},"R15B"};
-obsolete_1(http, request, 4) 	      -> {deprecated,{httpc,request,4},"R15B"};
-obsolete_1(http, request, 5) 	      -> {deprecated,{httpc,request,5},"R15B"};
-obsolete_1(http, cancel_request, 1)   -> {deprecated,{httpc,cancel_request,1},"R15B"};
-obsolete_1(http, cancel_request, 2)   -> {deprecated,{httpc,cancel_request,2},"R15B"};
-obsolete_1(http, set_option, 2)       -> {deprecated,{httpc,set_option,2},"R15B"};
-obsolete_1(http, set_option, 3)       -> {deprecated,{httpc,set_option,3},"R15B"};
-obsolete_1(http, set_options, 1)      -> {deprecated,{httpc,set_options,1},"R15B"};
-obsolete_1(http, set_options, 2)      -> {deprecated,{httpc,set_options,2},"R15B"};
-obsolete_1(http, verify_cookies, 2)   -> {deprecated,{httpc,verify_cookies,2},"R15B"};
-obsolete_1(http, verify_cookies, 3)   -> {deprecated,{httpc,verify_cookies,3},"R15B"};
-obsolete_1(http, cookie_header, 1)    -> {deprecated,{httpc,cookie_header,1},"R15B"};
-obsolete_1(http, cookie_header, 2)    -> {deprecated,{httpc,cookie_header,2},"R15B"};
-obsolete_1(http, stream_next, 1)      -> {deprecated,{httpc,stream_next,1},"R15B"};
-obsolete_1(http, default_profile, 0)  -> {deprecated,{httpc,default_profile,0},"R15B"};
+obsolete_1(http, request, 1) 	      -> {removed,{httpc,request,1},"R15B"};
+obsolete_1(http, request, 2) 	      -> {removed,{httpc,request,2},"R15B"};
+obsolete_1(http, request, 4) 	      -> {removed,{httpc,request,4},"R15B"};
+obsolete_1(http, request, 5) 	      -> {removed,{httpc,request,5},"R15B"};
+obsolete_1(http, cancel_request, 1)   -> {removed,{httpc,cancel_request,1},"R15B"};
+obsolete_1(http, cancel_request, 2)   -> {removed,{httpc,cancel_request,2},"R15B"};
+obsolete_1(http, set_option, 2)       -> {removed,{httpc,set_option,2},"R15B"};
+obsolete_1(http, set_option, 3)       -> {removed,{httpc,set_option,3},"R15B"};
+obsolete_1(http, set_options, 1)      -> {removed,{httpc,set_options,1},"R15B"};
+obsolete_1(http, set_options, 2)      -> {removed,{httpc,set_options,2},"R15B"};
+obsolete_1(http, verify_cookies, 2)   -> {removed,{httpc,store_cookies,2},"R15B"};
+obsolete_1(http, verify_cookies, 3)   -> {removed,{httpc,store_cookies,3},"R15B"};
+obsolete_1(http, cookie_header, 1)    -> {removed,{httpc,cookie_header,1},"R15B"};
+obsolete_1(http, cookie_header, 2)    -> {removed,{httpc,cookie_header,2},"R15B"};
+obsolete_1(http, stream_next, 1)      -> {removed,{httpc,stream_next,1},"R15B"};
+obsolete_1(http, default_profile, 0)  -> {removed,{httpc,default_profile,0},"R15B"};
 
 obsolete_1(httpd, start, 0) 	      -> {removed,{inets,start,[2,3]},"R14B"};
 obsolete_1(httpd, start, 1) 	      -> {removed,{inets,start,[2,3]},"R14B"};

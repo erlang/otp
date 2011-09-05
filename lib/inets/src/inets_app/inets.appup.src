@@ -18,65 +18,27 @@
 
 {"%VSN%",
  [
+  {"5.7", 
+   [
+    {restart_application, inets}
+   ]
+  }, 
   {"5.6", 
-   [
-    {load_module, httpc, soft_purge, soft_purge, [httpc_manager]}, 
-    {load_module, http_transport, soft_purge, soft_purge, [http_transport]},
-    {update, httpc_handler, soft, soft_purge, soft_purge, []}, 
-    {update, httpc_manager, soft, soft_purge, soft_purge, [httpc_handler]}, 
-    {update, ftp, soft, soft_purge, soft_purge, []}
-   ]
-  }, 
-  {"5.5.2", 
-   [
-    {restart_application, inets}
-   ]
-  }, 
-  {"5.5.1", 
-   [
-    {restart_application, inets}
-   ]
-  }, 
-  {"5.5",
-   [
-    {restart_application, inets}
-   ]
-  }, 
-  {"5.4",
    [
     {restart_application, inets}
    ]
   } 
  ],
  [
+  {"5.7", 
+   [
+    {restart_application, inets}
+   ]
+  }, 
   {"5.6", 
    [
-    {load_module, httpc, soft_purge, soft_purge, [httpc_manager]}, 
-    {load_module, http_transport, soft_purge, soft_purge, [http_transport]},
-    {update, httpc_handler, soft, soft_purge, soft_purge, []}, 
-    {update, httpc_manager, soft, soft_purge, soft_purge, [httpc_handler]}, 
-    {update, ftp, soft, soft_purge, soft_purge, []}
-   ]
-  }, 
-  {"5.5.2",
-   [
     {restart_application, inets}
    ]
-  },
-  {"5.5.1", 
-   [
-    {restart_application, inets}
-   ]
-  }, 
-  {"5.5",
-   [
-    {restart_application, inets}
-   ]
-  },     
-  {"5.4",
-   [
-    {restart_application, inets}
-   ]
-  }     
+  } 
  ]
 }.
