@@ -171,12 +171,6 @@ child_spec() = {Id,StartFunc,Restart,Shutdown,Type,Modules}
         <p>If the child process is another supervisor, <c>Shutdown</c>
           should be set to <c>infinity</c> to give the subtree ample
           time to shutdown.</p>
-        <p><em>Important note on simple-one-for-one supervisors:</em>
-          The dynamically created child processes of a
-          simple-one-for-one supervisor are not explicitly killed,
-          regardless of shutdown strategy, but are expected to terminate
-          when the supervisor does (that is, when an exit signal from
-          the parent process is received).</p>
         <p>Note that all child processes implemented using the standard
           OTP behavior modules automatically adhere to the shutdown
           protocol.</p>

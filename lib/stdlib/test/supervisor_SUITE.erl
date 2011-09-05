@@ -50,7 +50,7 @@
 	  one_for_all_escalation/1,
 	  simple_one_for_one/1, simple_one_for_one_escalation/1,
 	  rest_for_one/1, rest_for_one_escalation/1,
-	  simple_one_for_one_extra/1]).
+	  simple_one_for_one_extra/1, simple_one_for_one_shutdown/1]).
 
 %% Misc tests
 -export([child_unlink/1, tree/1, count_children_memory/1,
@@ -94,8 +94,8 @@ groups() ->
      {restart_one_for_all, [],
       [one_for_all, one_for_all_escalation]},
      {restart_simple_one_for_one, [],
-      [simple_one_for_one, simple_one_for_one_extra,
-       simple_one_for_one_escalation]},
+      [simple_one_for_one, simple_one_for_one_shutdown,
+       simple_one_for_one_extra, simple_one_for_one_escalation]},
      {restart_rest_for_one, [],
       [rest_for_one, rest_for_one_escalation]}].
 
@@ -781,6 +781,38 @@ simple_one_for_one(Config) when is_list(Config) ->
 
     terminate(SupPid, Pid4, Id4, abnormal),
     check_exit([SupPid]).
+
+
+%%-------------------------------------------------------------------------
+simple_one_for_one_shutdown(doc) ->
+    ["Test simple_one_for_one children shutdown accordingly to the "
+     "supervisor's shutdown strategy."];
+simple_one_for_one_shutdown(suite) -> [];
+simple_one_for_one_shutdown(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    ShutdownTime = 1000,
+    Child = {child, {supervisor_2, start_child, []},
+             permanent, 2*ShutdownTime, worker, []},
+    {ok, SupPid} = start_link({ok, {{simple_one_for_one, 2, 3600}, [Child]}}),
+
+    %% Will be gracefully shutdown
+    {ok, _CPid1} = supervisor:start_child(sup_test, [ShutdownTime]),
+    {ok, _CPid2} = supervisor:start_child(sup_test, [ShutdownTime]),
+
+    %% Will be killed after 2*ShutdownTime milliseconds
+    {ok, _CPid3} = supervisor:start_child(sup_test, [5*ShutdownTime]),
+
+    {T, ok} = timer:tc(fun terminate/2, [SupPid, shutdown]),
+    if T < 1000*ShutdownTime ->
+            %% Because supervisor's children wait before exiting, it can't
+            %% terminate quickly
+            test_server:fail({shutdown_too_short, T});
+       T >= 1000*5*ShutdownTime ->
+            test_server:fail({shutdown_too_long, T});
+       true ->
+            check_exit([SupPid])
+    end.
+
 
 %%-------------------------------------------------------------------------
 simple_one_for_one_extra(doc) -> 

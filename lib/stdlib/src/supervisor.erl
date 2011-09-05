@@ -519,9 +519,12 @@ handle_info(Msg, State) ->
 %%
 -spec terminate(term(), state()) -> 'ok'.
 
+terminate(_Reason, #state{children=[Child]} = State) when ?is_simple(State) ->
+    terminate_dynamic_children(Child, dynamics_db(Child#child.restart_type,
+                                                  State#state.dynamics),
+                               State#state.name);
 terminate(_Reason, State) ->
-    terminate_children(State#state.children, State#state.name),
-    ok.
+    terminate_children(State#state.children, State#state.name).
 
 %%
 %% Change code for the supervisor.
@@ -831,8 +834,113 @@ monitor_child(Pid) ->
 	    %% that will be handled in shutdown/2. 
 	    ok   
     end.
-    
-   
+
+
+%%-----------------------------------------------------------------
+%% Func: terminate_dynamic_children/3
+%% Args: Child    = child_rec()
+%%       Dynamics = ?DICT() | ?SET()
+%%       SupName  = {local, atom()} | {global, atom()} | {pid(),Mod}
+%% Returns: ok
+%%
+%%
+%% Shutdown all dynamic children. This happens when the supervisor is
+%% stopped. Because the supervisor can have millions of dynamic children, we
+%% can have an significative overhead here.
+%%-----------------------------------------------------------------
+terminate_dynamic_children(Child, Dynamics, SupName) ->
+    Pids = monitor_dynamic_children(Child, Dynamics, SupName),
+    Sz   = ?SETS:size(Pids),
+    case Child#child.shutdown of
+        brutal_kill ->
+            ?SETS:fold(fun(P, _) -> exit(P, kill) end, ok, Pids),
+            wait_dynamic_children(Child, Pids, SupName, Sz, undefined);
+        infinity ->
+            ?SETS:fold(fun(P, _) -> exit(P, shutdown) end, ok, Pids),
+            wait_dynamic_children(Child, Pids, SupName, Sz, undefined);
+        Time ->
+            ?SETS:fold(fun(P, _) -> exit(P, shutdown) end, ok, Pids),
+            TRef = erlang:start_timer(Time, self(), kill),
+            wait_dynamic_children(Child, Pids, SupName, Sz, TRef)
+    end.
+
+
+monitor_dynamic_children(#child{restart_type=temporary} = Child,
+                         Dynamics, SupName) ->
+    ?SETS:fold(fun(P, Acc) ->
+                       case monitor_child(P) of
+                           ok ->
+                               ?SETS:add_element(P, Acc);
+                           {error, normal} ->
+                               Acc;
+                           {error, OtherReason} ->
+                               report_error(shutdown_error, OtherReason,
+                                            Child#child{pid=P}, SupName),
+                               Acc
+                       end
+               end, ?SETS:new(), Dynamics);
+monitor_dynamic_children(#child{restart_type=RType} = Child,
+                         Dynamics, SupName) ->
+    ?DICT:fold(fun(P, _, Acc) ->
+                       case monitor_child(P) of
+                           ok ->
+                               ?SETS:add_element(P, Acc);
+                           {error, normal} when RType =/= permanent ->
+                               Acc;
+                           {error, OtherReason} ->
+                               report_error(shutdown_error, OtherReason,
+                                            Child#child{pid=P}, SupName),
+                               Acc
+                       end
+               end, ?SETS:new(), Dynamics).
+
+
+
+wait_dynamic_children(_Child, _Pids, _SupName, 0, undefined) ->
+    ok;
+wait_dynamic_children(_Child, _Pids, _SupName, 0, TRef) ->
+	%% If the timer has expired before its cancellation, we must empty the
+	%% mail-box of the 'timeout'-message.
+    erlang:cancel_timer(TRef),
+    receive
+        {timeout, TRef, kill} ->
+            ok
+    after 0 ->
+            ok
+    end;
+wait_dynamic_children(#child{shutdown=brutal_kill} = Child,
+                      Pids, SupName, Sz, TRef) ->
+    receive
+        {'DOWN', _MRef, process, Pid, killed} ->
+            wait_dynamic_children(Child, ?SETS:del_element(Pid, Pids), SupName,
+                                  Sz-1, TRef);
+
+        {'DOWN', _MRef, process, Pid, Reason} ->
+            report_error(shutdown_error, Reason, Child#child{pid=Pid}, SupName),
+            wait_dynamic_children(Child, ?SETS:del_element(Pid, Pids), SupName,
+                                  Sz-1, TRef)
+    end;
+wait_dynamic_children(#child{restart_type=RType} = Child, Pids,
+                      SupName, Sz, TRef) ->
+    receive
+        {'DOWN', _MRef, process, Pid, shutdown} ->
+            wait_dynamic_children(Child, ?SETS:del_element(Pid, Pids), SupName,
+                                  Sz-1, TRef);
+
+        {'DOWN', _MRef, process, Pid, normal} when RType =/= permanent ->
+            wait_dynamic_children(Child, ?SETS:del_element(Pid, Pids), SupName,
+                                  Sz-1, TRef);
+
+        {'DOWN', _MRef, process, Pid, Reason} ->
+            report_error(shutdown_error, Reason, Child#child{pid=Pid}, SupName),
+            wait_dynamic_children(Child, ?SETS:del_element(Pid, Pids), SupName,
+                                  Sz-1, TRef);
+
+        {timeout, TRef, kill} ->
+            ?SETS:fold(fun(P, _) -> exit(P, kill) end, ok, Pids),
+            wait_dynamic_children(Child, Pids, SupName, Sz, undefined)
+    end.
+
 %%-----------------------------------------------------------------
 %% Child/State manipulating functions.
 %%-----------------------------------------------------------------
