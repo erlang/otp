@@ -75,7 +75,7 @@
 %% --version
 %% --verbosity V
 %% --warnings
-%% --wae | --warnings_as_errors
+%% --Werror | --wae | --warnings_as_errors
 main(Args) when is_list(Args) ->
     case (catch process_args(Args)) of
 	ok ->
@@ -298,6 +298,8 @@ process_args(["--nd"|Args], State) ->
     process_args(Args, State#state{no_defaults = true});
 process_args(["--rrnac"|Args], State) ->
     process_args(Args, State#state{relaxed_row_name_assign_check = true});
+process_args(["--Werror"|Args], State) ->
+    process_args(Args, State#state{warnings_as_errors = true});
 process_args(["--wae"|Args], State) ->
     process_args(Args, State#state{warnings_as_errors = true});
 process_args(["--warnings_as_errors"|Args], State) ->
