@@ -99,11 +99,11 @@ stop() ->
     application:stop(ssl).
 
 %%--------------------------------------------------------------------
--spec connect(host() | inet:port_num(), [connect_option()]) -> {ok, #sslsocket{}} |
+-spec connect(host() | inet:port_number(), [connect_option()]) -> {ok, #sslsocket{}} |
 					      {error, reason()}.
--spec connect(host() | inet:port_num(), [connect_option()] | inet:port_num(), timeout() | list()) ->
+-spec connect(host() | inet:port_number(), [connect_option()] | inet:port_number(), timeout() | list()) ->
 		     {ok, #sslsocket{}} | {error, reason()}.
--spec connect(host() | inet:port_num(), inet:port_num(), list(), timeout()) ->
+-spec connect(host() | inet:port_number(), inet:port_number(), list(), timeout()) ->
 		     {ok, #sslsocket{}} | {error, reason()}.
 
 %%
@@ -151,7 +151,7 @@ connect(Host, Port, Options0, Timeout) ->
     end.
 
 %%--------------------------------------------------------------------
--spec listen(inet:port_num(), [listen_option()]) ->{ok, #sslsocket{}} | {error, reason()}.
+-spec listen(inet:port_number(), [listen_option()]) ->{ok, #sslsocket{}} | {error, reason()}.
 		    
 %%
 %% Description: Creates an ssl listen socket.
@@ -376,7 +376,7 @@ select_part(plain, Cert, Opts) ->
     end.
 
 %%--------------------------------------------------------------------
--spec peername(#sslsocket{}) -> {ok, {inet:ip_address(), inet:port_num()}} | {error, reason()}.
+-spec peername(#sslsocket{}) -> {ok, {inet:ip_address(), inet:port_number()}} | {error, reason()}.
 %%
 %% Description: same as inet:peername/1.
 %%--------------------------------------------------------------------
@@ -470,7 +470,7 @@ shutdown(#sslsocket{pid = Pid, fd = new_ssl}, How) ->
     ssl_connection:shutdown(Pid, How).
 
 %%--------------------------------------------------------------------
--spec sockname(#sslsocket{}) -> {ok, {inet:ip_address(), inet:port_num()}} | {error, reason()}.
+-spec sockname(#sslsocket{}) -> {ok, {inet:ip_address(), inet:port_number()}} | {error, reason()}.
 %%		     
 %% Description: Same as inet:sockname/1
 %%--------------------------------------------------------------------

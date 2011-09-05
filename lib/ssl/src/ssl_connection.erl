@@ -127,7 +127,7 @@ send(Pid, Data) ->
 recv(Pid, Length, Timeout) -> 
     sync_send_all_state_event(Pid, {recv, Length}, Timeout).
 %%--------------------------------------------------------------------
--spec connect(host(), inet:port_num(), port(), {#ssl_options{}, #socket_options{}},
+-spec connect(host(), inet:port_number(), port(), {#ssl_options{}, #socket_options{}},
 	      pid(), tuple(), timeout()) ->
 		     {ok, #sslsocket{}} | {error, reason()}.
 %%
@@ -141,7 +141,7 @@ connect(Host, Port, Socket, Options, User, CbInfo, Timeout) ->
 	    {error, ssl_not_started}
     end.
 %%--------------------------------------------------------------------
--spec ssl_accept(inet:port_num(), port(), {#ssl_options{}, #socket_options{}},
+-spec ssl_accept(inet:port_number(), port(), {#ssl_options{}, #socket_options{}},
 				      pid(), tuple(), timeout()) ->
     {ok, #sslsocket{}} | {error, reason()}.
 %%
@@ -212,14 +212,14 @@ shutdown(ConnectionPid, How) ->
 new_user(ConnectionPid, User) ->
     sync_send_all_state_event(ConnectionPid, {new_user, User}).
 %%--------------------------------------------------------------------
--spec sockname(pid()) -> {ok, {inet:ip_adress(), inet:port_num()}} | {error, reason()}.
+-spec sockname(pid()) -> {ok, {inet:ip_address(), inet:port_number()}} | {error, reason()}.
 %%
 %% Description:  Same as inet:sockname/1
 %%--------------------------------------------------------------------
 sockname(ConnectionPid) ->
     sync_send_all_state_event(ConnectionPid, sockname).
 %%--------------------------------------------------------------------
--spec peername(pid()) -> {ok, {inet:ip_adress(), inet:port_num()}} | {error, reason()}.
+-spec peername(pid()) -> {ok, {inet:ip_address(), inet:port_number()}} | {error, reason()}.
 %%
 %% Description:  Same as inet:peername/1
 %%--------------------------------------------------------------------
@@ -277,7 +277,7 @@ renegotiation(ConnectionPid) ->
 %%====================================================================
 
 %%--------------------------------------------------------------------
--spec start_link(atom(), host(), inet:port_num(), port(), list(), pid(), tuple()) ->
+-spec start_link(atom(), host(), inet:port_number(), port(), list(), pid(), tuple()) ->
     {ok, pid()} | ignore |  {error, reason()}.
 %%
 %% Description: Creates a gen_fsm process which calls Module:init/1 to
