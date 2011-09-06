@@ -2483,23 +2483,22 @@ get_all_testcases(Suite) ->
 	    Error;
 	SuiteCases ->
 	    Cases = [C || {_S,C} <- SuiteCases],
-	    Cases1 =
-		try Suite:sequences() of
-		    [] ->
-			Cases;
-		    Seqs ->
-			TCs1 = lists:flatten([TCs || {_,TCs} <- Seqs]),
-			lists:reverse(
-			  lists:foldl(fun(TC, Acc) ->
-					      case lists:member(TC, Acc) of
-						  true  -> Acc;
-						  false -> [TC | Acc]
-					      end
-				      end, [], Cases ++ TCs1))
-		catch
-		    _:_ ->
-			Cases
-		end
+	    try Suite:sequences() of
+		[] ->
+		    Cases;
+		Seqs ->
+		    TCs1 = lists:flatten([TCs || {_,TCs} <- Seqs]),
+		    lists:reverse(
+		      lists:foldl(fun(TC, Acc) ->
+					  case lists:member(TC, Acc) of
+					      true  -> Acc;
+					      false -> [TC | Acc]
+					  end
+				  end, [], Cases ++ TCs1))
+	    catch
+		_:_ ->
+		    Cases
+	    end
     catch
 	_:Error ->
 	    {error,Error}
