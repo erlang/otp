@@ -1323,8 +1323,8 @@ rc4_test(doc) ->
 rc4_test(suite) ->
     [];
 rc4_test(Config) when is_list(Config) ->
-    CT1 = <<"hej på dig">>,
-    R1 = <<71,112,14,44,140,33,212,144,155,47>>,
+    CT1 = <<"Yo baby yo">>,
+    R1 = <<118,122,68,110,157,166,141,212,139,39>>,
     K = "apaapa",
     R1 = crypto:rc4_encrypt(K, CT1),
     CT1 = crypto:rc4_encrypt(K, R1),
@@ -1338,14 +1338,14 @@ rc4_stream_test(doc) ->
 rc4_stream_test(suite) ->
     [];
 rc4_stream_test(Config) when is_list(Config) ->
-    CT1 = <<"hej">>,
-    CT2 = <<" på dig">>,
+    CT1 = <<"Yo ">>,
+    CT2 = <<"baby yo">>,
     K = "apaapa",
     State0 = crypto:rc4_set_key(K),
     {State1, R1} = crypto:rc4_encrypt_with_state(State0, CT1),
     {_State2, R2} = crypto:rc4_encrypt_with_state(State1, CT2),
     R = list_to_binary([R1, R2]),
-    <<71,112,14,44,140,33,212,144,155,47>> = R,
+    <<118,122,68,110,157,166,141,212,139,39>> = R,
     ok.
 
 blowfish_cfb64(doc) -> ["Test Blowfish encrypt/decrypt."];
