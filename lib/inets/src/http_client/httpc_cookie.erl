@@ -375,10 +375,15 @@ cookie_attributes([{"max-age", Value}| Attributes], Cookie) ->
 				Cookie#http_cookie{max_age = ExpireTime});
 %% Backwards compatibility with netscape cookies
 cookie_attributes([{"expires", Value}| Attributes], Cookie) ->
-    Time = http_util:convert_netscapecookie_date(Value),
-    ExpireTime = calendar:datetime_to_gregorian_seconds(Time),
-    cookie_attributes(Attributes, 
-		      Cookie#http_cookie{max_age = ExpireTime});
+    try http_util:convert_netscapecookie_date(Value) of
+	Time ->
+	    ExpireTime = calendar:datetime_to_gregorian_seconds(Time),
+	    cookie_attributes(Attributes, 
+			      Cookie#http_cookie{max_age = ExpireTime})
+    catch 
+	_:_ ->
+	    cookie_attributes(Attributes, Cookie)
+    end;
 cookie_attributes([{"path", Value}| Attributes], Cookie) ->
     cookie_attributes(Attributes, 
 		      Cookie#http_cookie{path = Value});
