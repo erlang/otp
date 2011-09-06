@@ -1075,16 +1075,30 @@ rsa_sign_test(Config) when is_list(Config) ->
     
     PrivKey = [crypto:mpint(PubEx), crypto:mpint(Mod), crypto:mpint(PrivEx)],
     PubKey  = [crypto:mpint(PubEx), crypto:mpint(Mod)],
-    ?line Sig1 = crypto:rsa_sign(sized_binary(Msg), PrivKey),
-    ?line m(crypto:rsa_verify(sized_binary(Msg), sized_binary(Sig1),PubKey), true),
+    ?line Sig = crypto:rsa_sign(sized_binary(Msg), PrivKey),
+    ?line m(crypto:rsa_verify(sized_binary(Msg), sized_binary(Sig),PubKey), true),
     
-    ?line Sig2 = crypto:rsa_sign(md5, sized_binary(Msg), PrivKey),
-    ?line m(crypto:rsa_verify(md5, sized_binary(Msg), sized_binary(Sig2),PubKey), true),
-    
-    ?line m(Sig1 =:= Sig2, false),
-    ?line m(crypto:rsa_verify(md5, sized_binary(Msg), sized_binary(Sig1),PubKey), false),
-    ?line m(crypto:rsa_verify(sha, sized_binary(Msg), sized_binary(Sig1),PubKey), true),
+    ?line Sig_md2 = crypto:rsa_sign(md2, sized_binary(Msg), PrivKey),
+    ?line Sig_md5 = crypto:rsa_sign(md5, sized_binary(Msg), PrivKey),
+    ?line Sig_sha = crypto:rsa_sign(sha, sized_binary(Msg), PrivKey),
+
+    ?line m(Sig =:= Sig_sha, true),
+    ?line m(Sig_md2 =:= Sig_md5, false),
+    ?line m(Sig_md2 =:= Sig_sha, false),
+    ?line m(Sig_md5 =:= Sig_sha, false),
   
+    ?line m(crypto:rsa_verify(md2, sized_binary(Msg), sized_binary(Sig_md2),PubKey), true),
+    ?line m(crypto:rsa_verify(md2, sized_binary(Msg), sized_binary(Sig_md5),PubKey), false),
+    ?line m(crypto:rsa_verify(md2, sized_binary(Msg), sized_binary(Sig_sha),PubKey), false),
+
+    ?line m(crypto:rsa_verify(md5, sized_binary(Msg), sized_binary(Sig_md2),PubKey), false),
+    ?line m(crypto:rsa_verify(md5, sized_binary(Msg), sized_binary(Sig_md5),PubKey), true),
+    ?line m(crypto:rsa_verify(md5, sized_binary(Msg), sized_binary(Sig_sha),PubKey), false),
+
+    ?line m(crypto:rsa_verify(sha, sized_binary(Msg), sized_binary(Sig_md2),PubKey), false),
+    ?line m(crypto:rsa_verify(sha, sized_binary(Msg), sized_binary(Sig_md5),PubKey), false),
+    ?line m(crypto:rsa_verify(sha, sized_binary(Msg), sized_binary(Sig_sha),PubKey), true),
+
     ok.
     
 dsa_sign_test(doc) ->

@@ -795,7 +795,7 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
         <v>E, N, D = Mpint</v>
         <d>Where <c>E</c> is the public exponent, <c>N</c> is public modulus and 
 	  <c>D</c> is the private exponent.</d>
-	<v>DigestType = md5 | sha</v>
+	<v>DigestType = md2 | md5 | sha</v>
 	<d>The default <c>DigestType</c> is sha.</d>
         <v>Mpint = binary()</v>
         <v>Signature = binary()</v>
@@ -817,7 +817,7 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
         <v>Key = [E, N]</v>
         <v>E, N = Mpint</v>
         <d>Where <c>E</c> is the public exponent and <c>N</c> is public modulus.</d>
-	<v>DigestType = md5 | sha</v>
+	<v>DigestType = md2 | md5 | sha</v>
 	<d> The default <c>DigestType</c> is sha.</d>
         <v>Mpint = binary()</v>
       </type>
