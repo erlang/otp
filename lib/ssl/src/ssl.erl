@@ -99,11 +99,11 @@ stop() ->
     application:stop(ssl).
 
 %%--------------------------------------------------------------------
--spec connect(host() | inet:port_number(), [connect_option()]) -> {ok, #sslsocket{}} |
+-spec connect(host() | port(), [connect_option()]) -> {ok, #sslsocket{}} |
 					      {error, reason()}.
--spec connect(host() | inet:port_number(), [connect_option()] | inet:port_number(), timeout() | list()) ->
+-spec connect(host() | port(), [connect_option()] | inet:port_number(), timeout() | list()) ->
 		     {ok, #sslsocket{}} | {error, reason()}.
--spec connect(host() | inet:port_number(), inet:port_number(), list(), timeout()) ->
+-spec connect(host() | port(), inet:port_number(), list(), timeout()) ->
 		     {ok, #sslsocket{}} | {error, reason()}.
 
 %%
