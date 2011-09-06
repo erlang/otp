@@ -347,7 +347,7 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
     </func>
     <func>
       <name>sha_mac_96(Key, Data) -> Mac</name>
-      <fsummary>Compute an <c>MD5 MAC</c>message authentification code</fsummary>
+      <fsummary>Compute an <c>SHA MAC</c>message authentification code</fsummary>
       <type>
         <v>Key = Data = iolist() | binary()</v>
         <v>Mac = binary()</v>
