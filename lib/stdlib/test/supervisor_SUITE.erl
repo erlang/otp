@@ -209,8 +209,8 @@ sup_start_fail(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 
 sup_stop_infinity(doc) ->
-    ["See sup_stop/1 when Shutdown = infinity, this walue is only allowed "
-     "for children of type supervisor"];
+    ["See sup_stop/1 when Shutdown = infinity, this walue is allowed "
+     "for children of type supervisor _AND_ worker"];
 sup_stop_infinity(suite) -> [];
 
 sup_stop_infinity(Config) when is_list(Config) ->
@@ -221,12 +221,13 @@ sup_stop_infinity(Config) when is_list(Config) ->
     Child2 = {child2, {supervisor_1, start_child, []}, permanent,
 	      infinity, worker, []},
     {ok, CPid1} = supervisor:start_child(sup_test, Child1),
+    {ok, CPid2} = supervisor:start_child(sup_test, Child2),
     link(CPid1),
-    {error, {invalid_shutdown,infinity}} =
-	supervisor:start_child(sup_test, Child2),
+    link(CPid2),
 
     terminate(Pid, shutdown),
-    check_exit_reason(CPid1, shutdown).
+    check_exit_reason(CPid1, shutdown),
+    check_exit_reason(CPid2, shutdown).
 
 %%-------------------------------------------------------------------------
 
@@ -458,9 +459,8 @@ child_specs(Config) when is_list(Config) ->
     B2 = {child, {m,f,[a]}, prmanent, 1000, worker, []}, 
     B3 = {child, {m,f,[a]}, permanent, -10, worker, []},
     B4 = {child, {m,f,[a]}, permanent, 10, wrker, []},
-    B5 = {child, {m,f,[a]}, permanent, infinity, worker, []},
-    B6 = {child, {m,f,[a]}, permanent, 1000, worker, dy},
-    B7 = {child, {m,f,[a]}, permanent, 1000, worker, [1,2,3]},
+    B5 = {child, {m,f,[a]}, permanent, 1000, worker, dy},
+    B6 = {child, {m,f,[a]}, permanent, 1000, worker, [1,2,3]},
 
     %% Correct child specs!
     %% <Modules> (last parameter in a child spec) can be [] as we do 
@@ -469,6 +469,7 @@ child_specs(Config) when is_list(Config) ->
     C2 = {child, {m,f,[a]}, permanent, 1000, supervisor, []},
     C3 = {child, {m,f,[a]}, temporary, 1000, worker, dynamic},
     C4 = {child, {m,f,[a]}, transient, 1000, worker, [m]},
+    C5 = {child, {m,f,[a]}, permanent, infinity, worker, [m]},
 
     {error, {invalid_mfa,mfa}} = supervisor:start_child(sup_test, B1),
     {error, {invalid_restart_type, prmanent}} =
@@ -477,9 +478,8 @@ child_specs(Config) when is_list(Config) ->
 	= supervisor:start_child(sup_test, B3),
     {error, {invalid_child_type,wrker}}
 	= supervisor:start_child(sup_test, B4),
-    {error, _} = supervisor:start_child(sup_test, B5),
     {error, {invalid_modules,dy}}
-	= supervisor:start_child(sup_test, B6),
+	= supervisor:start_child(sup_test, B5),
 
     {error, {invalid_mfa,mfa}} = supervisor:check_childspecs([B1]),
     {error, {invalid_restart_type,prmanent}} =
@@ -487,15 +487,15 @@ child_specs(Config) when is_list(Config) ->
     {error, {invalid_shutdown,-10}} = supervisor:check_childspecs([B3]),
     {error, {invalid_child_type,wrker}}
 	= supervisor:check_childspecs([B4]),
-    {error, _} = supervisor:check_childspecs([B5]),
-    {error, {invalid_modules,dy}} = supervisor:check_childspecs([B6]),
+    {error, {invalid_modules,dy}} = supervisor:check_childspecs([B5]),
     {error, {invalid_module, 1}} =
-	supervisor:check_childspecs([B7]),
+	supervisor:check_childspecs([B6]),
 
     ok = supervisor:check_childspecs([C1]),
     ok = supervisor:check_childspecs([C2]),
     ok = supervisor:check_childspecs([C3]),
     ok = supervisor:check_childspecs([C4]),
+    ok = supervisor:check_childspecs([C5]),
     ok.
 
 %%-------------------------------------------------------------------------
