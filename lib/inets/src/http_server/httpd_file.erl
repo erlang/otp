@@ -33,7 +33,7 @@ handle_error(enotdir, Op, ModData, Path) ->
     handle_error(404, Op, ModData, Path,
 	         ": A component of the file name is not a directory");
 handle_error(emfile, Op, _ModData, Path) ->
-    handle_error(500, Op, none, Path, ": To many open files");
+    handle_error(500, Op, none, Path, ": Too many open files");
 handle_error({enfile,_}, Op, _ModData, Path) ->
     handle_error(500, Op, none, Path, ": File table overflow");
 handle_error(_Reason, Op, ModData, Path) ->
