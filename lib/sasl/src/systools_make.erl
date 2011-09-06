@@ -1612,9 +1612,9 @@ var_dir(_Dir, _, _, []) ->
     false.
 
 appDir(AppDir) ->
-    case reverse(filename:split(AppDir)) of
-	["ebin"|Dir] -> filename:join(reverse(Dir));
-	_            -> AppDir
+    case filename:basename(AppDir) of
+	"ebin" -> filename:dirname(AppDir);
+	_ -> AppDir
     end.
 
 add_modules(Modules, Tar, AppDir, ToDir, Ext) ->
