@@ -174,7 +174,7 @@ check_install_release(Vsn, Opts) ->
 
 check_check_install_options([purge|Opts], _) ->
     check_check_install_options(Opts, true);
-check_check_install_options([Illegal|_],Purge) ->
+check_check_install_options([Illegal|_],_Purge) ->
     {error,{illegal_option,Illegal}};
 check_check_install_options([],Purge) ->
     {ok,Purge}.
@@ -2001,7 +2001,7 @@ safe_write_file_m(File, Data, Masters) ->
 %% 'update_paths' option to release_handler:install_release/2 if the
 %% code path shall be updated then.
 %% -----------------------------------------------------------------
-get_new_libs([{App,Vsn,LibDir}|CurrentLibs], NewLibs) ->
+get_new_libs([{App,Vsn,_LibDir}|CurrentLibs], NewLibs) ->
     case lists:keyfind(App,1,NewLibs) of
 	{App,NewVsn,_} = LibInfo when NewVsn =/= Vsn ->
 	    [LibInfo | get_new_libs(CurrentLibs,NewLibs)];
