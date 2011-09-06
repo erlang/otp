@@ -134,8 +134,10 @@ static ERL_NIF_TERM hmac_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
 static ERL_NIF_TERM hmac_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM hmac_final(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM des_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM des_cfb_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM des_ecb_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM des_ede3_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM des_ede3_cfb_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM aes_cfb_128_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM aes_ctr_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM aes_ctr_stream_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -210,8 +212,10 @@ static ErlNifFunc nif_funcs[] = {
     {"hmac_final", 1, hmac_final},
     {"hmac_final_n", 2, hmac_final},
     {"des_cbc_crypt", 4, des_cbc_crypt},
+    {"des_cfb_crypt", 4, des_cfb_crypt},
     {"des_ecb_crypt", 3, des_ecb_crypt},
     {"des_ede3_cbc_crypt", 6, des_ede3_cbc_crypt},
+    {"des_ede3_cfb_crypt", 6, des_ede3_cfb_crypt},
     {"aes_cfb_128_crypt", 4, aes_cfb_128_crypt},
     {"aes_ctr_encrypt", 3, aes_ctr_encrypt},
     {"aes_ctr_decrypt", 3, aes_ctr_encrypt},
@@ -693,6 +697,25 @@ static ERL_NIF_TERM des_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     return ret;
 }
 
+static ERL_NIF_TERM des_cfb_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Key, Ivec, Text, IsEncrypt) */
+    ErlNifBinary key, ivec, text;
+    DES_key_schedule schedule;
+    DES_cblock ivec_clone; /* writable copy */
+    ERL_NIF_TERM ret;
+
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &key) || key.size != 8
+	|| !enif_inspect_binary(env, argv[1], &ivec) || ivec.size != 8
+	|| !enif_inspect_iolist_as_binary(env, argv[2], &text)) {
+	return enif_make_badarg(env);
+    }
+    memcpy(&ivec_clone, ivec.data, 8);
+    DES_set_key((const_DES_cblock*)key.data, &schedule);
+    DES_cfb_encrypt(text.data, enif_make_new_binary(env, text.size, &ret),
+		     8, text.size, &schedule, &ivec_clone, (argv[3] == atom_true));
+    return ret;
+}
+
 static ERL_NIF_TERM des_ecb_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Key, Text/Cipher, IsEncrypt) */
     ErlNifBinary key, text;
@@ -731,6 +754,31 @@ static ERL_NIF_TERM des_ede3_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_T
     DES_set_key((const_DES_cblock*)key3.data, &schedule3);
     DES_ede3_cbc_encrypt(text.data, enif_make_new_binary(env,text.size,&ret), 
 			 text.size, &schedule1, &schedule2, &schedule3,
+			 &ivec_clone, (argv[5] == atom_true));
+    return ret;
+}
+
+static ERL_NIF_TERM des_ede3_cfb_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Key1, Key2, Key3, IVec, Text/Cipher, IsEncrypt) */
+    ErlNifBinary key1, key2, key3, ivec, text;
+    DES_key_schedule schedule1, schedule2, schedule3;
+    DES_cblock ivec_clone; /* writable copy */
+    ERL_NIF_TERM ret;
+
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &key1) || key1.size != 8
+	|| !enif_inspect_iolist_as_binary(env, argv[1], &key2) || key2.size != 8
+	|| !enif_inspect_iolist_as_binary(env, argv[2], &key3) || key3.size != 8
+	|| !enif_inspect_binary(env, argv[3], &ivec) || ivec.size != 8
+	|| !enif_inspect_iolist_as_binary(env, argv[4], &text)) {
+	return enif_make_badarg(env);
+    }
+
+    memcpy(&ivec_clone, ivec.data, 8);
+    DES_set_key((const_DES_cblock*)key1.data, &schedule1);
+    DES_set_key((const_DES_cblock*)key2.data, &schedule2);
+    DES_set_key((const_DES_cblock*)key3.data, &schedule3);
+    DES_ede3_cfb_encrypt(text.data, enif_make_new_binary(env,text.size,&ret),
+			 8, text.size, &schedule1, &schedule2, &schedule3,
 			 &ivec_clone, (argv[5] == atom_true));
     return ret;
 }

@@ -404,6 +404,51 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
       </desc>
     </func>
     <func>
+      <name>des_cfb_encrypt(Key, IVec, Text) -> Cipher</name>
+      <fsummary>Encrypt <c>Text</c>according to DES in CFB mode</fsummary>
+      <type>
+        <v>Key = Text = iolist() | binary()</v>
+        <v>IVec = Cipher = binary()</v>
+      </type>
+      <desc>
+        <p>Encrypts <c>Text</c> according to DES in 8-bit CFB
+          mode. <c>Key</c> is the DES key, and <c>IVec</c> is an
+          arbitrary initializing vector. The lengths of <c>Key</c> and
+          <c>IVec</c> must be 64 bits (8 bytes).</p>
+      </desc>
+    </func>
+    <func>
+      <name>des_cfb_decrypt(Key, IVec, Cipher) -> Text</name>
+      <fsummary>Decrypt <c>Cipher</c>according to DES in CFB mode</fsummary>
+      <type>
+        <v>Key = Cipher = iolist() | binary()</v>
+        <v>IVec = Text = binary()</v>
+      </type>
+      <desc>
+        <p>Decrypts <c>Cipher</c> according to DES in 8-bit CFB mode.
+          <c>Key</c> is the DES key, and <c>IVec</c> is an arbitrary
+          initializing vector.  <c>Key</c> and <c>IVec</c> must have
+          the same values as those used when encrypting.  The lengths of
+          <c>Key</c> and <c>IVec</c> must be 64 bits (8 bytes).</p>
+      </desc>
+    </func>
+    <func>
+      <name>des_cfb_ivec(IVec, Data) -> NextIVec</name>
+      <fsummary>Get <c>IVec</c> to be used in next iteration of
+                <c>des_cfb_[ecrypt|decrypt]</c></fsummary>
+      <type>
+        <v>IVec = iolist() | binary()</v>
+        <v>Data = iolist() | binary()</v>
+        <v>NextIVec = binary()</v>
+      </type>
+      <desc>
+        <p>Returns the <c>IVec</c> to be used in a next iteration of
+          <c>des_cfb_[encrypt|decrypt]</c>. <c>IVec</c> is the vector
+          used in the previous iteration step. <c>Data</c> is the encrypted
+          data from the previous iteration step.</p>
+      </desc>
+    </func>
+    <func>
       <name>des3_cbc_encrypt(Key1, Key2, Key3, IVec, Text) -> Cipher</name>
       <fsummary>Encrypt <c>Text</c>according to DES3 in CBC mode</fsummary>
       <type>
@@ -421,7 +466,7 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
     </func>
     <func>
       <name>des3_cbc_decrypt(Key1, Key2, Key3, IVec, Cipher) -> Text</name>
-      <fsummary>Decrypt <c>Cipher</c>according to DES in CBC mode</fsummary>
+      <fsummary>Decrypt <c>Cipher</c>according to DES3 in CBC mode</fsummary>
       <type>
         <v>Key1 = Key2 = Key3 = Cipher = iolist() | binary()</v>
         <v>IVec = Text = binary()</v>
@@ -434,6 +479,38 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
           and <c>IVec</c> must have the same values as those used when
           encrypting. <c>Cipher</c> must be a multiple of 64 bits (8
           bytes).  The lengths of <c>Key1</c>, <c>Key2</c>,
+          <c>Key3</c>, and <c>IVec</c> must be 64 bits (8 bytes).</p>
+      </desc>
+    </func>
+    <func>
+      <name>des3_cfb_encrypt(Key1, Key2, Key3, IVec, Text) -> Cipher</name>
+      <fsummary>Encrypt <c>Text</c>according to DES3 in CFB mode</fsummary>
+      <type>
+        <v>Key1 =Key2 = Key3 Text = iolist() | binary()</v>
+        <v>IVec = Cipher = binary()</v>
+      </type>
+      <desc>
+        <p>Encrypts <c>Text</c> according to DES3 in 8-bit CFB
+          mode. <c>Key1</c>, <c>Key2</c>, <c>Key3</c>, are the DES
+          keys, and <c>IVec</c> is an arbitrary initializing
+          vector. The lengths of each of <c>Key1</c>, <c>Key2</c>,
+          <c>Key3</c> and <c>IVec</c> must be 64 bits (8 bytes).</p>
+      </desc>
+    </func>
+    <func>
+      <name>des3_cfb_decrypt(Key1, Key2, Key3, IVec, Cipher) -> Text</name>
+      <fsummary>Decrypt <c>Cipher</c>according to DES3 in CFB mode</fsummary>
+      <type>
+        <v>Key1 = Key2 = Key3 = Cipher = iolist() | binary()</v>
+        <v>IVec = Text = binary()</v>
+      </type>
+      <desc>
+        <p>Decrypts <c>Cipher</c> according to DES3 in 8-bit CFB mode.
+          <c>Key1</c>, <c>Key2</c>, <c>Key3</c> are the DES key, and
+          <c>IVec</c> is an arbitrary initializing vector.
+          <c>Key1</c>, <c>Key2</c>, <c>Key3</c> and <c>IVec</c> must
+          and <c>IVec</c> must have the same values as those used when
+          encrypting.  The lengths of <c>Key1</c>, <c>Key2</c>,
           <c>Key3</c>, and <c>IVec</c> must be 64 bits (8 bytes).</p>
       </desc>
     </func>

@@ -31,7 +31,9 @@
 -export([hmac_init/2, hmac_update/2, hmac_final/1, hmac_final_n/2]).
 -export([des_cbc_encrypt/3, des_cbc_decrypt/3, des_cbc_ivec/1]).
 -export([des_ecb_encrypt/2, des_ecb_decrypt/2]).
+-export([des_cfb_encrypt/3, des_cfb_decrypt/3, des_cfb_ivec/2]).
 -export([des3_cbc_encrypt/5, des3_cbc_decrypt/5]).
+-export([des3_cfb_encrypt/5, des3_cfb_decrypt/5]).
 -export([blowfish_ecb_encrypt/2, blowfish_ecb_decrypt/2]).
 -export([blowfish_cbc_encrypt/3, blowfish_cbc_decrypt/3]).
 -export([blowfish_cfb64_encrypt/3, blowfish_cfb64_decrypt/3]).
@@ -68,8 +70,10 @@
 		    sha_mac,  sha_mac_96,
                     sha_mac_init, sha_mac_update, sha_mac_final,
 		    des_cbc_encrypt, des_cbc_decrypt,
+		    des_cfb_encrypt, des_cfb_decrypt,
 		    des_ecb_encrypt, des_ecb_decrypt,
 		    des_ede3_cbc_encrypt, des_ede3_cbc_decrypt,
+		    des_ede3_cfb_encrypt, des_ede3_cfb_decrypt,
 		    aes_cfb_128_encrypt, aes_cfb_128_decrypt,
 		    rand_bytes,
 		    strong_rand_bytes,
@@ -294,6 +298,33 @@ des_cbc_ivec(Data) when is_list(Data) ->
     des_cbc_ivec(list_to_binary(Data)).
 
 %%
+%% DES - in 8-bits cipher feedback mode (CFB)
+%%
+-spec des_cfb_encrypt(iodata(), binary(), iodata()) -> binary().
+-spec des_cfb_decrypt(iodata(), binary(), iodata()) -> binary().
+
+des_cfb_encrypt(Key, IVec, Data) ->
+    des_cfb_crypt(Key, IVec, Data, true).
+
+des_cfb_decrypt(Key, IVec, Data) ->
+    des_cfb_crypt(Key, IVec, Data, false).
+
+des_cfb_crypt(_Key, _IVec, _Data, _IsEncrypt) -> ?nif_stub.
+
+%%
+%% dec_cfb_ivec(IVec, Data) -> binary()
+%%
+%% Returns the IVec to be used in the next iteration of
+%% des_cfb_[encrypt|decrypt].
+%%
+-spec des_cfb_ivec(iodata(), iodata()) -> binary().
+
+des_cfb_ivec(IVec, Data) ->
+    IVecAndData = list_to_binary([IVec, Data]),
+    {_, NewIVec} = split_binary(IVecAndData, byte_size(IVecAndData) - 8),
+    NewIVec.
+
+%%
 %% DES - in electronic codebook mode (ECB)
 %%
 -spec des_ecb_encrypt(iodata(), iodata()) -> binary().
@@ -324,6 +355,26 @@ des_ede3_cbc_decrypt(Key1, Key2, Key3, IVec, Data) ->
     des_ede3_cbc_crypt(Key1, Key2, Key3, IVec, Data, false).
 
 des_ede3_cbc_crypt(_Key1, _Key2, _Key3, _IVec, _Data, _IsEncrypt) -> ?nif_stub.    
+
+%%
+%% DES3 - in 8-bits cipher feedback mode (CFB)
+%%
+-spec des3_cfb_encrypt(iodata(), iodata(), iodata(), binary(), iodata()) ->
+			     binary().
+-spec des3_cfb_decrypt(iodata(), iodata(), iodata(), binary(), iodata()) ->
+			     binary().
+
+des3_cfb_encrypt(Key1, Key2, Key3, IVec, Data) ->
+    des_ede3_cfb_encrypt(Key1, Key2, Key3, IVec, Data).
+des_ede3_cfb_encrypt(Key1, Key2, Key3, IVec, Data) ->
+    des_ede3_cfb_crypt(Key1, Key2, Key3, IVec, Data, true).
+
+des3_cfb_decrypt(Key1, Key2, Key3, IVec, Data) ->
+    des_ede3_cfb_decrypt(Key1, Key2, Key3, IVec, Data).
+des_ede3_cfb_decrypt(Key1, Key2, Key3, IVec, Data) ->
+    des_ede3_cfb_crypt(Key1, Key2, Key3, IVec, Data, false).
+
+des_ede3_cfb_crypt(_Key1, _Key2, _Key3, _IVec, _Data, _IsEncrypt) -> ?nif_stub.
 
 %%
 %% Blowfish
