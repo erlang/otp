@@ -96,7 +96,6 @@ ac_cv_func_sbrk=${ac_cv_func_sbrk=no}
 ac_cv_func_select=${ac_cv_func_select=no}
 ac_cv_func_setlocale=${ac_cv_func_setlocale=yes}
 ac_cv_func_setsid=${ac_cv_func_setsid=no}
-ac_cv_func_setvbuf_reversed=${ac_cv_func_setvbuf_reversed=yes}
 ac_cv_func_socket=${ac_cv_func_socket=no}
 ac_cv_func_strchr=${ac_cv_func_strchr=yes}
 ac_cv_func_strerror=${ac_cv_func_strerror=yes}
