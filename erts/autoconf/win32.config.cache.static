@@ -124,7 +124,6 @@ ac_cv_header_ieeefp_h=${ac_cv_header_ieeefp_h=no}
 ac_cv_header_inttypes_h=${ac_cv_header_inttypes_h=no}
 ac_cv_header_langinfo_h=${ac_cv_header_langinfo_h=no}
 ac_cv_header_limits_h=${ac_cv_header_limits_h=yes}
-ac_cv_header_mach_o_dyld_h=${ac_cv_header_mach_o_dyld_h=no}
 ac_cv_header_malloc_h=${ac_cv_header_malloc_h=yes}
 ac_cv_header_memory_h=${ac_cv_header_memory_h=yes}
 ac_cv_header_net_errno_h=${ac_cv_header_net_errno_h=no}
