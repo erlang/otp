@@ -907,16 +907,6 @@ fi
 
 AC_SUBST(ERLANG_OSTYPE)
 
-dnl Which sysv4 would this be, and what is it for???
-dnl XXX: replace with feature tests.
-case $host_os in
-  sysv4*)
-    AC_DEFINE(SOCKOPT_CONNECT_STAT,[],[Obscure SYSV feature])
-    AC_DEFINE(NO_PRAGMA_WEAK,[],[Obscure SYSV feature])
-    LIBS="$LIBS -lgen -lc -L /usr/ucblib -lucb"
-    ;;
-esac
-
 # Check how to export functions from the emulator executable, needed
 # when dynamically loaded drivers are loaded (so that they can find
 # emulator functions).
