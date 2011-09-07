@@ -223,10 +223,8 @@ attribute(export, Es, _L, St) ->
     St#expand{exports=union(from_list(Es), St#expand.exports)};
 attribute(import, Is, _L, St) ->
     import(Is, St);
-attribute(compile, C, _L, St) when is_list(C) ->
-    St#expand{compile=St#expand.compile ++ C};
-attribute(compile, C, _L, St) ->
-    St#expand{compile=St#expand.compile ++ [C]};
+attribute(compile, _C, _L, St) ->
+    St;
 attribute(Name, Val, Line, St) when is_list(Val) ->
     St#expand{attributes=St#expand.attributes ++ [{Name,Line,Val}]};
 attribute(Name, Val, Line, St) ->
