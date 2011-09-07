@@ -878,10 +878,17 @@ rand_uniform_aux_test(0) ->
 rand_uniform_aux_test(N) ->
     ?line L = N*1000,
     ?line H = N*100000+1,
+    ?line crypto_rand_uniform(L, H),
+    ?line crypto_rand_uniform(-L, L),
+    ?line crypto_rand_uniform(-H, -L),
+    ?line crypto_rand_uniform(-H, L),
+    ?line rand_uniform_aux_test(N-1).
+
+crypto_rand_uniform(L,H) ->
     ?line R1 = crypto:rand_uniform(L, H),
     ?line t(R1 >= L),
-    ?line t(R1 < H),
-    ?line rand_uniform_aux_test(N-1).
+    ?line t(R1 < H).
+
 
 %%
 %%
