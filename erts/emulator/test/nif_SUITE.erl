@@ -281,6 +281,12 @@ types(Config) when is_list(Config) ->
 		  end, int_list()),
 
     ?line verify_tmpmem(TmpMem),
+    ?line true = (compare(-1294536544000, -1178704800000) < 0),
+    ?line true = (compare(-1178704800000, -1294536544000) > 0),
+    ?line true = (compare(-295147905179352825856, -36893488147419103232) < 0),
+    ?line true = (compare(-36893488147419103232, -295147905179352825856) > 0),
+    ?line true = (compare(-29514790517935282585612345678, -36893488147419103232) < 0),
+    ?line true = (compare(-36893488147419103232, -29514790517935282585612345678) > 0),
     ok.
 
 int_list() ->

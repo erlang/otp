@@ -578,7 +578,15 @@ int enif_is_identical(Eterm lhs, Eterm rhs)
 
 int enif_compare(Eterm lhs, Eterm rhs)
 {
-    return CMP(lhs,rhs);
+    Sint result = CMP(lhs,rhs);
+
+    if (result < 0) {
+        return -1;
+    } else if (result > 0) {
+        return 1;
+    }
+
+    return result;
 }
 
 int enif_get_tuple(ErlNifEnv* env, Eterm tpl, int* arity, const Eterm** array)
