@@ -528,7 +528,7 @@ handle_apply(Tree, Map, State) ->
       {CallSitesKnown, FunList} =
 	case state__lookup_call_site(Tree, State2) of
 	  error -> {false, []};
-	  {ok, [external]} -> {false, {}};
+	  {ok, [external]} -> {false, []};
 	  {ok, List} -> {true, List}
 	end,
       case CallSitesKnown of
@@ -554,7 +554,13 @@ handle_apply(Tree, Map, State) ->
 		  {State3, enter_type(Op, OpType1, Map2), t_none()};
 		false ->
 		  Map3 = enter_type_lists(Args, NewArgs, Map2),
-		  {State2, enter_type(Op, OpType1, Map3), t_fun_range(OpType1)}
+		  Range0 = t_fun_range(OpType1),
+		  Range =
+		    case t_is_unit(Range0) of
+		      true  -> t_none();
+		      false -> Range0
+		    end,
+		  {State2, enter_type(Op, OpType1, Map3), Range}
 	      end
 	  end;
 	true ->
@@ -2946,7 +2952,7 @@ state__get_warnings(#state{tree_map = TreeMap, fun_tab = FunTab,
 		%% Check if the function has a contract that allows this.
 		Warn =
 		  case Contract of
-		    none -> true;
+		    none -> not parent_allows_this(FunLbl, State);
 		    {value, C} ->
 		      GenRet = dialyzer_contracts:get_contract_return(C),
 		      not t_is_unit(GenRet)
@@ -3433,6 +3439,33 @@ map_pats(Pats) ->
 	    end
 	end,
   cerl_trees:map(Fun, Pats).
+
+parent_allows_this(FunLbl, #state{callgraph = Callgraph, plt = Plt} =State) ->
+  case state__is_escaping(FunLbl, State) of
+    false -> false; % if it isn't escaping it can't be a return value
+    true ->
+      case state__lookup_name(FunLbl, State) of
+	{_M, _F, _A} -> false; % if it has a name it is not a fun
+	_ ->
+	  case dialyzer_callgraph:in_neighbours(FunLbl, Callgraph) of
+	    [Parent] ->
+	      case state__lookup_name(Parent, State) of
+		{_M, _F, _A} = PMFA ->
+		  case dialyzer_plt:lookup_contract(Plt, PMFA) of
+		    none -> false;
+		    {value, C} ->
+		      GenRet = dialyzer_contracts:get_contract_return(C),
+		      case erl_types:t_is_fun(GenRet) of
+			false -> false; % element of structure? far-fetched...
+			true -> t_is_unit(t_fun_range(GenRet))
+		      end
+		  end;
+		_ -> false % parent should have a name to have a contract
+	      end;
+	    _ -> false % called in other funs? far-fetched...
+	  end
+      end
+  end.
 
 classify_returns(Tree) ->
   case find_terminals(cerl:fun_body(Tree)) of
