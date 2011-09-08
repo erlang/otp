@@ -102,7 +102,8 @@ void run(EpmdVars *g)
 
   dbg_printf(g,2,"try to initiate listening port %d", g->port);
 
-  if (g->addresses != NULL)
+  if (g->addresses != NULL && /* String contains non-separator characters if: */
+      g->addresses[strspn(g->addresses," ,")] != '\000')
     {
       char *tmp;
       char *token;
