@@ -1035,6 +1035,56 @@ b</pre>
       </desc>
     </func>
     <func>
+      <name>erlang:external_size(Term) -> integer() >= 0</name>
+      <fsummary>Calculate the maximum size for a term encoded in the Erlang
+        external term format</fsummary>
+      <type>
+        <v>Term = term()</v>
+      </type>
+      <desc>
+        <p>Calculates, without doing the encoding, the maximum byte size for
+          a term encoded in the Erlang external term format. The following
+          condition applies always:</p>
+        <p>
+          <pre>
+> <input>Size1 = byte_size(term_to_binary(Term)),</input>
+> <input>Size2 = erlang:external_size(Term),</input>
+> <input>true = Size1 =&lt; Size2.</input>
+true
+          </pre>
+        </p>
+        <p>This is equivalent to a call to: <code>erlang:external_size(Term, [])
+          </code></p>
+      </desc>
+    </func>
+    <func>
+      <name>erlang:external_size(Term, [Option]) -> integer() >= 0</name>
+      <fsummary>Calculate the maximum size for a term encoded in the Erlang
+        external term format</fsummary>
+      <type>
+        <v>Term = term()</v>
+        <v>Option = {minor_version, Version}</v>
+      </type>
+      <desc>
+        <p>Calculates, without doing the encoding, the maximum byte size for
+          a term encoded in the Erlang external term format. The following
+          condition applies always:</p>
+        <p>
+          <pre>
+> <input>Size1 = byte_size(term_to_binary(Term, Options)),</input>
+> <input>Size2 = erlang:external_size(Term, Options),</input>
+> <input>true = Size1 =&lt; Size2.</input>
+true
+          </pre>
+        </p>
+        <p>The option <c>{minor_version, Version}</c> specifies how floats
+          are encoded. See
+          <seealso marker="#term_to_binary/2">term_to_binary/2</seealso> for
+          a more detailed description.
+        </p>
+      </desc>
+    </func>
+    <func>
       <name>float(Number) -> float()</name>
       <fsummary>Convert a number to a float</fsummary>
       <type>

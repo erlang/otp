@@ -459,6 +459,12 @@ Uint erts_encode_ext_size(Eterm term)
 	+ 1 /* VERSION_MAGIC */;
 }
 
+Uint erts_encode_ext_size_2(Eterm term, unsigned dflags)
+{
+    return encode_size_struct2(NULL, term, TERM_TO_BINARY_DFLAGS|dflags)
+        + 1 /* VERSION_MAGIC */;
+}
+
 Uint erts_encode_ext_size_ets(Eterm term)
 {
     return encode_size_struct2(NULL, term, TERM_TO_BINARY_DFLAGS|DFLAGS_INTERNAL_TAGS);
@@ -1258,6 +1264,49 @@ external_size_1(Process* p, Eterm Term)
     } else {
 	Eterm* hp = HAlloc(p, BIG_UINT_HEAP_SIZE);
 	BIF_RET(uint_to_big(size, hp));
+    }
+}
+
+Eterm
+external_size_2(Process* p, Eterm Term, Eterm Flags)
+{
+    Uint size;
+    Uint flags = TERM_TO_BINARY_DFLAGS;
+
+    while (is_list(Flags)) {
+        Eterm arg = CAR(list_val(Flags));
+        Eterm* tp;
+
+        if (is_tuple(arg) && *(tp = tuple_val(arg)) == make_arityval(2)) {
+            if (tp[1] == am_minor_version && is_small(tp[2])) {
+                switch (signed_val(tp[2])) {
+                case 0:
+                    break;
+                case 1:
+                    flags |= DFLAG_NEW_FLOATS;
+                    break;
+                default:
+                    goto error;
+                }
+            } else {
+                goto error;
+            }
+        } else {
+        error:
+            BIF_ERROR(p, BADARG);
+        }
+        Flags = CDR(list_val(Flags));
+    }
+    if (is_not_nil(Flags)) {
+        goto error;
+    }
+
+    size = erts_encode_ext_size_2(Term, flags);
+    if (IS_USMALL(0, size)) {
+        BIF_RET(make_small(size));
+    } else {
+        Eterm* hp = HAlloc(p, BIG_UINT_HEAP_SIZE);
+        BIF_RET(uint_to_big(size, hp));
     }
 }
 
