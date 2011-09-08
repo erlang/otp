@@ -56,10 +56,17 @@
 
       <list>
         <item>
-          <p>[httpc] Parsing of expire date cookie should be more forgiving. 
+          <p>[httpc] Parsing of a cookie expire date should be more forgiving. 
 	  That is, if the parsing fails, the date should be ignored.
-	  Also added support for (yet another) date format: "Tue Jan 01 08:00:01 2036 GMT". </p>
+	  Also added support for (yet another) date format: 
+	  "Tue Jan 01 08:00:01 2036 GMT". </p>
 	  <p>Own Id: OTP-9433</p>
+        </item>
+
+        <item>
+          <p>[httpc] Rewrote cookie parsing. Among other things solving 
+	  cookie processing from www.expedia.com. </p>
+	  <p>Own Id: OTP-9434</p>
         </item>
 
       </list>
