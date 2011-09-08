@@ -366,7 +366,7 @@ type(erlang, '>', 2, Xs = [Lhs, Rhs]) ->
 	  is_integer(LhsMax), is_integer(RhsMin), RhsMin >= LhsMax -> F;
 	  true -> t_boolean()
 	end;
-      false -> t_boolean()
+      false -> compare('>', Lhs, Rhs)
     end,
   strict(Xs, Ans);
 type(erlang, '>=', 2, Xs = [Lhs, Rhs]) ->
@@ -384,7 +384,7 @@ type(erlang, '>=', 2, Xs = [Lhs, Rhs]) ->
 	  is_integer(LhsMax), is_integer(RhsMin), RhsMin > LhsMax -> F;
 	  true -> t_boolean()
 	end;
-      false -> t_boolean()
+      false -> compare('>=', Lhs, Rhs)
     end,
   strict(Xs, Ans);
 type(erlang, '<', 2, Xs = [Lhs, Rhs]) ->
@@ -402,7 +402,7 @@ type(erlang, '<', 2, Xs = [Lhs, Rhs]) ->
 	  is_integer(LhsMin), is_integer(RhsMax), RhsMax =< LhsMin -> F;
 	  true -> t_boolean()
 	end;
-      false -> t_boolean()
+      false -> compare('<', Lhs, Rhs)
     end,
   strict(Xs, Ans);
 type(erlang, '=<', 2, Xs = [Lhs, Rhs]) ->
@@ -420,7 +420,7 @@ type(erlang, '=<', 2, Xs = [Lhs, Rhs]) ->
 	  is_integer(LhsMin), is_integer(RhsMax), RhsMax < LhsMin -> F;
 	  true -> t_boolean()
 	end;
-      false -> t_boolean()
+      false -> compare('=<', Lhs, Rhs)
     end,
   strict(Xs, Ans);
 type(erlang, '+', 1, Xs) ->
@@ -737,6 +737,7 @@ type(erlang, element, 2, Xs) ->
 type(erlang, erase, 0, _) -> t_any();
 type(erlang, erase, 1, _) -> t_any();
 type(erlang, external_size, 1, _) -> t_integer();
+type(erlang, external_size, 2, _) -> t_integer();
 type(erlang, finish_after_on_load, 2, Xs) ->
   %% Internal BIF used by on_load.
   strict(arg_types(erlang, finish_after_on_load, 2), Xs,
@@ -3177,6 +3178,50 @@ arith(Op, X1, X2) ->
   end.
 
 %%=============================================================================
+%% Comparison of terms
+%%=============================================================================
+
+compare(Op, Lhs, Rhs) ->
+  case t_is_none(t_inf(Lhs, Rhs)) of
+    false -> t_boolean();
+    true ->
+      case Op of
+	'<' -> always_smaller(Lhs, Rhs);
+	'>' -> always_smaller(Rhs, Lhs);
+	'=<' -> always_smaller(Lhs, Rhs);
+	'>=' -> always_smaller(Rhs, Lhs)
+      end
+  end.
+
+always_smaller(Type1, Type2) ->
+  {Min1, Max1} = type_ranks(Type1),
+  {Min2, Max2} = type_ranks(Type2),
+  if Max1 < Min2 -> t_atom('true');
+     Min1 > Max2 -> t_atom('false');
+     true        -> t_boolean()
+  end.
+
+type_ranks(Type) ->
+  type_ranks(Type, 1, 0, 0, type_order()).
+
+type_ranks(_Type, _I, Min, Max, []) -> {Min, Max};
+type_ranks(Type, I, Min, Max, [TypeClass|Rest]) ->
+  {NewMin, NewMax} =
+    case t_is_none(t_inf(Type, TypeClass)) of
+      true  -> {Min, Max};
+      false -> case Min of
+		 0 -> {I, I};
+		 _ -> {Min, I}
+	       end
+    end,
+  type_ranks(Type, I+1, NewMin, NewMax, Rest).
+
+type_order() ->
+  [t_number(), t_atom(), t_reference(), t_fun(), t_port(), t_pid(), t_tuple(),
+   t_list(), t_binary()].
+
+
+%%=============================================================================
 
 -spec arg_types(atom(), atom(), arity()) -> [erl_types:erl_type()] | 'unknown'.
 
@@ -3443,6 +3488,8 @@ arg_types(erlang, exit, 2) ->
   [t_sup(t_pid(), t_port()), t_any()];
 arg_types(erlang, external_size, 1) ->
   [t_any()]; % takes any term as input
+arg_types(erlang, external_size, 2) ->
+  [t_any(), t_list()]; % takes any term as input and a list of options
 arg_types(erlang, finish_after_on_load, 2) ->
   [t_atom(), t_boolean()];
 arg_types(erlang, float, 1) ->

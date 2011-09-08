@@ -87,6 +87,8 @@ bif erlang:exit/2
 bif 'erl.lang.proc':signal/2		ebif_signal_2 exit_2
 bif erlang:external_size/1
 bif 'erl.lang.term':external_size/1	ebif_external_size_1
+bif erlang:external_size/2
+bif 'erl.lang.term':external_size/2	ebif_external_size_2
 ubif erlang:float/1
 ubif 'erl.lang.number':to_float/1	ebif_to_float_1 float_1
 bif erlang:float_to_list/1

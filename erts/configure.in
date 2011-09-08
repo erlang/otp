@@ -3725,7 +3725,7 @@ case "$erl_xcomp_without_sysroot-$with_ssl" in
 				SSL_RUNTIME_LIBDIR="$rdir/lib"
 				SSL_LIBDIR="$dir/lib"
 				SSL_CRYPTO_LIBNAME=libeay32
-				SSL_CRYPTO_LIBNAME=ssleay32
+				SSL_SSL_LIBNAME=ssleay32
 			elif test -f "$dir/lib/openssl.lib"; then
 				SSL_RUNTIME_LIBDIR="$rdir/lib"
 				SSL_LIBDIR="$dir/lib"
@@ -3907,7 +3907,7 @@ dnl		so it is - be adoptable
 	elif test -f "$with_ssl/lib/libeay32.lib"; then
 	    SSL_LIBDIR="$with_ssl/lib"
 	    SSL_CRYPTO_LIBNAME=libeay32
-	    SSL_CRYPTO_LIBNAME=ssleay32
+	    SSL_SSL_LIBNAME=ssleay32
 	else
 	    # This probably wont work, but that's what the user said, so...
 	    SSL_LIBDIR="$with_ssl/lib"
