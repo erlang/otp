@@ -89,6 +89,7 @@ xml(XMLFile) ->
     {ok,File} = file:open(XMLFile,[read]),
     xskip_to_funcs(file:read_line(File),File),
     DocData = xloop(file:read_line(File),File),
+    true = DocData =/= [],
     file:close(File),
     analyze(DocData).
 
