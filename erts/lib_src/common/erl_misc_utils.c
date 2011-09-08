@@ -55,6 +55,12 @@
 #  ifdef HAVE_UNISTD_H
 #    include <unistd.h>
 #  endif
+#  if defined(_SC_NPROC_CONF) && !defined(_SC_NPROCESSORS_CONF)
+#    define _SC_NPROCESSORS_CONF _SC_NPROC_CONF
+#  endif
+#  if defined(_SC_NPROC_ONLN) && !defined(_SC_NPROCESSORS_ONLN)
+#    define _SC_NPROCESSORS_ONLN _SC_NPROC_ONLN
+#  endif
 #  if (defined(NO_SYSCONF) || !defined(_SC_NPROCESSORS_CONF))
 #    ifdef HAVE_SYS_SYSCTL_H
 #      include <sys/sysctl.h>
