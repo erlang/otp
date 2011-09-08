@@ -263,7 +263,7 @@ foreach_baserel_up(TopRel, TopApps, [BaseRelDc|BaseRelDcs], Path, Opts,
 
     {RUs3, Ws3} = create_remove_app_scripts(BaseRel, TopRel, RUs2, Ws2),
 
-    {RUs4, Ws4} = 
+    {RUs4, Ws4} =
 	check_for_emulator_restart(TopRel, BaseRel, RUs3, Ws3, Opts),
 
     BaseApps =
@@ -343,9 +343,20 @@ foreach_baserel_dn( _, _, [], _, _, Ws, Acc) ->
 %%
 check_for_emulator_restart(#release{erts_vsn = Vsn1, name = N1}, 
                            #release{erts_vsn = Vsn2, name = N2}, RUs, Ws, 
-                           _Opts) when Vsn1 /= Vsn2 ->
-    {RUs++[[restart_new_emulator]], [{erts_vsn_changed, {N1, N2}} | Ws]};
+                           Opts) when Vsn1 /= Vsn2 ->
+    %% The diff_vsn_restart_new_emulator instruction will be replaced
+    %% by a restart_new_emulator instruction in systools_rc, and
+    %% placed in the proper order according to mode (up or dn).
+    %% We will also allow an extra restart of emulator (specified by
+    %% the restart_emulator option) at the end of the upgrade, for
+    %% application specific purposes.
+    NewRUs = [[diff_vsn_restart_new_emulator]|RUs],
+    NewWs = [{erts_vsn_changed, {N1, N2}} | Ws],
+    check_for_restart_emulator_opt(NewRUs, NewWs, Opts);
 check_for_emulator_restart(_, _, RUs, Ws, Opts) ->
+    check_for_restart_emulator_opt(RUs, Ws, Opts).
+
+check_for_restart_emulator_opt(RUs, Ws, Opts) ->
     case get_opt(restart_emulator, Opts) of
 	true -> {RUs++[[restart_new_emulator]], Ws};
 	_ -> {RUs, Ws}

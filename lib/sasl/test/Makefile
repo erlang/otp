@@ -36,6 +36,8 @@ MODULES= \
 
 ERL_FILES= $(MODULES:%=%.erl)
 
+HRL_FILES= test_lib.hrl
+
 TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 INSTALL_PROGS= $(TARGET_FILES)
 
@@ -84,7 +86,7 @@ release_spec: opt
 
 release_tests_spec: make_emakefile
 	$(INSTALL_DIR) $(RELSYSDIR)
-	$(INSTALL_DATA) $(ERL_FILES) $(RELSYSDIR)
+	$(INSTALL_DATA) $(ERL_FILES) $(HRL_FILES) $(RELSYSDIR)
 	$(INSTALL_DATA) sasl.spec sasl.cover $(EMAKEFILE) $(RELSYSDIR)
 	chmod -R u+w $(RELSYSDIR)
 	@tar cfh - *_SUITE_data | (cd $(RELSYSDIR); tar xf -)

@@ -144,7 +144,10 @@ translate_merged_script(Mode, Script, Appls, PreAppls) ->
     {Before2, After2} = translate_dependent_instrs(Mode, Before1, After1, 
 						  Appls),
     Before3 = merge_load_object_code(Before2),
-    NewScript = Before3 ++ [point_of_no_return | After2],
+
+    {Before4,After4} = sort_restart_new_emulator(Mode,Before3,After2),
+    NewScript = Before4 ++ [point_of_no_return | After4],
+
     check_syntax(NewScript),
     {ok, NewScript}.
 
@@ -699,6 +702,25 @@ mlo([{load_object_code, {Lib, LibVsn, Mods}} | T]) ->
 mlo([]) -> [].
 
 %%-----------------------------------------------------------------
+%% RESTART DIFF EMULATOR
+%% -----------------------------------------------------------------
+%% -----------------------------------------------------------------
+%% Check if a diff_vsn_restart_new_emulator instruction exists (i.e. if the
+%% emulator version is changed). If so, this must be done first for
+%% upgrade and last for downgrade.
+%% -----------------------------------------------------------------
+sort_restart_new_emulator(Mode,Before,After) ->
+    case lists:delete(diff_vsn_restart_new_emulator,After) of
+	After ->
+	    {Before,After};
+	NewAfter when Mode==up ->
+	    {[restart_new_emulator|Before],NewAfter};
+	NewAfter when Mode==dn ->
+	    {Before,NewAfter++[restart_new_emulator]}
+    end.
+
+
+%%-----------------------------------------------------------------
 %% SYNTAX CHECK
 %%-----------------------------------------------------------------
 %%-----------------------------------------------------------------
@@ -817,6 +839,7 @@ check_op({apply, {M, F, A}}) ->
     check_func(F),
     check_args(A);
 check_op(restart_new_emulator) -> ok;
+check_op(diff_vsn_restart_new_emulator) -> ok;
 check_op(X) -> throw({error, {bad_instruction, X}}).
 
 check_mod(Mod) when is_atom(Mod) -> ok;

@@ -31,6 +31,8 @@
 
 -export([read_application/4]).
 
+-export([make_boot_hybrid/5]).
+
 -import(lists, [filter/2, keysort/2, keysearch/3, map/2, reverse/1,
 		append/1, foldl/3,  member/2, foreach/2]).
 
@@ -161,6 +163,118 @@ return({error,Mod,Error},_,Flags) ->
 	    io:format("~s",[Mod:format_error(Error)]),
 	    error
     end.
+
+
+%%-----------------------------------------------------------------
+%% Make hybrid boot file for upgrading emulator. The resulting boot
+%% file is a combination of the two input files, where kernel, stdlib
+%% and sasl versions are taken from the second file (the boot file of
+%% the new release), and all other application versions from the first
+%% file (the boot file of the old release).
+%%
+%% The most important thing that can fail here is that the input boot
+%% files do not contain all three base applications - kernel, stdlib
+%% and sasl.
+%%
+%% TmpVsn = string(),
+%% Paths = {KernelPath,StdlibPath,SaslPath}
+%% Returns {ok,Boot} | {error,Reason}
+%% Boot1 = Boot2 = Boot = binary()
+%% Reason = {app_not_found,App} | {app_not_replaced,App}
+%% App = kernel | stdlib | sasl
+make_boot_hybrid(TmpVsn, Boot1, Boot2, Paths, Args) ->
+    catch do_make_boot_hybrid(TmpVsn, Boot1, Boot2, Paths, Args).
+do_make_boot_hybrid(TmpVsn, Boot1, Boot2, Paths, Args) ->
+    {script,{_RelName1,_RelVsn1},Script1} = binary_to_term(Boot1),
+    {script,{RelName2,_RelVsn2},Script2} = binary_to_term(Boot2),
+    MatchPaths = get_regexp_path(Paths),
+    NewScript1 = replace_paths(Script1,MatchPaths),
+    {Kernel,Stdlib,Sasl} = get_apps(Script2,undefined,undefined,undefined),
+    NewScript2 = replace_apps(NewScript1,Kernel,Stdlib,Sasl),
+    NewScript3 = add_apply_upgrade(NewScript2,Args),
+    Boot = term_to_binary({script,{RelName2,TmpVsn},NewScript3}),
+    {ok,Boot}.
+
+%% For each app, compile a regexp that can be used for finding its path
+get_regexp_path({KernelPath,StdlibPath,SaslPath}) ->
+    {ok,KernelMP} = re:compile("kernel-[0-9\.]+",[unicode]),
+    {ok,StdlibMP} = re:compile("stdlib-[0-9\.]+",[unicode]),
+    {ok,SaslMP} = re:compile("sasl-[0-9\.]+",[unicode]),
+    [{KernelMP,KernelPath},{StdlibMP,StdlibPath},{SaslMP,SaslPath}].
+
+%% For each path in the script, check if it matches any of the MPs
+%% found above, and if so replace it with the correct new path.
+replace_paths([{path,Path}|Script],MatchPaths) ->
+    [{path,replace_path(Path,MatchPaths)}|replace_paths(Script,MatchPaths)];
+replace_paths([Stuff|Script],MatchPaths) ->
+    [Stuff|replace_paths(Script,MatchPaths)];
+replace_paths([],_) ->
+    [].
+
+replace_path([Path|Paths],MatchPaths) ->
+    [do_replace_path(Path,MatchPaths)|replace_path(Paths,MatchPaths)];
+replace_path([],_) ->
+    [].
+
+do_replace_path(Path,[{MP,ReplacePath}|MatchPaths]) ->
+    case re:run(Path,MP,[{capture,none}]) of
+	nomatch -> do_replace_path(Path,MatchPaths);
+	match -> ReplacePath
+    end;
+do_replace_path(Path,[]) ->
+    Path.
+
+%% Return the entries for loading the three base applications
+get_apps([{kernelProcess,application_controller,
+	   {application_controller,start,[{application,kernel,_}]}}=Kernel|
+	  Script],_,Stdlib,Sasl) ->
+    get_apps(Script,Kernel,Stdlib,Sasl);
+get_apps([{apply,{application,load,[{application,stdlib,_}]}}=Stdlib|Script],
+	 Kernel,_,Sasl) ->
+    get_apps(Script,Kernel,Stdlib,Sasl);
+get_apps([{apply,{application,load,[{application,sasl,_}]}}=Sasl|_Script],
+	 Kernel,Stdlib,_) ->
+    {Kernel,Stdlib,Sasl};
+get_apps([_|Script],Kernel,Stdlib,Sasl) ->
+    get_apps(Script,Kernel,Stdlib,Sasl);
+get_apps([],undefined,_,_) ->
+    throw({error,{app_not_found,kernel}});
+get_apps([],_,undefined,_) ->
+    throw({error,{app_not_found,stdlib}});
+get_apps([],_,_,undefined) ->
+    throw({error,{app_not_found,sasl}}).
+
+
+%% Replace the entries for loading the base applications
+replace_apps([{kernelProcess,application_controller,
+	       {application_controller,start,[{application,kernel,_}]}}|
+	      Script],Kernel,Stdlib,Sasl) ->
+    [Kernel|replace_apps(Script,undefined,Stdlib,Sasl)];
+replace_apps([{apply,{application,load,[{application,stdlib,_}]}}|Script],
+	     Kernel,Stdlib,Sasl) ->
+    [Stdlib|replace_apps(Script,Kernel,undefined,Sasl)];
+replace_apps([{apply,{application,load,[{application,sasl,_}]}}|Script],
+	     _Kernel,_Stdlib,Sasl) ->
+    [Sasl|Script];
+replace_apps([Stuff|Script],Kernel,Stdlib,Sasl) ->
+    [Stuff|replace_apps(Script,Kernel,Stdlib,Sasl)];
+replace_apps([],undefined,undefined,_) ->
+    throw({error,{app_not_replaced,sasl}});
+replace_apps([],undefined,_,_) ->
+    throw({error,{app_not_replaced,stdlib}});
+replace_apps([],_,_,_) ->
+    throw({error,{app_not_replaced,kernel}}).
+
+
+%% Finally add an apply of release_handler:new_emulator_upgrade - which will
+%% complete the execution of the upgrade script (relup).
+add_apply_upgrade(Script,Args) ->
+    [{progress, started} | RevScript] = lists:reverse(Script),
+    lists:reverse([{progress,started},
+		   {apply,{release_handler,new_emulator_upgrade,Args}} |
+		   RevScript]).
+
+
 
 %%-----------------------------------------------------------------
 %% Create a release package from a release file.

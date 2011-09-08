@@ -47,25 +47,33 @@
 %%%-----------------------------------------------------------------
 %%% This is a low-level release handler.
 %%%-----------------------------------------------------------------
+check_script([restart_new_emulator|Script], LibDirs) ->
+    %% There is no need to check for old processes, since the node
+    %% will be restarted before anything else happens.
+    do_check_script(Script, LibDirs, []);
 check_script(Script, LibDirs) ->
     case catch check_old_processes(Script,soft_purge) of
 	{ok, PurgeMods} ->
-	    {Before, _After} = split_instructions(Script),
-	    case catch lists:foldl(fun(Instruction, EvalState1) ->
-					   eval(Instruction, EvalState1)
-				   end,
-				   #eval_state{libdirs = LibDirs},
-				   Before) of
-		EvalState2 when is_record(EvalState2, eval_state) ->
-		    {ok,PurgeMods};
-		{error, Error} ->
-		    {error, Error};
-		Other ->
-		    {error, Other}
-	    end;
+	    do_check_script(Script, LibDirs, PurgeMods);
 	{error, Mod} ->
 	    {error, {old_processes, Mod}}
     end.
+
+do_check_script(Script, LibDirs, PurgeMods) ->
+    {Before, _After} = split_instructions(Script),
+    case catch lists:foldl(fun(Instruction, EvalState1) ->
+				   eval(Instruction, EvalState1)
+			   end,
+			   #eval_state{libdirs = LibDirs},
+			   Before) of
+	       EvalState2 when is_record(EvalState2, eval_state) ->
+		 {ok,PurgeMods};
+	       {error, Error} ->
+		 {error, Error};
+	       Other ->
+		 {error, Other}
+	 end.
+
 
 %% eval_script/1 - For testing only - no apps added, just testing instructions
 eval_script(Script) ->
