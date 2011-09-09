@@ -1236,7 +1236,7 @@ beam_asm(#compile{ifile=File,code=Code0,
     Opts1 = lists:map(fun({debug_info_key,_}) -> {debug_info_key,'********'};
 			 (Other) -> Other
 		      end, Opts0),
-    Opts2 = [O || O <- Opts1, is_informative_option(O)],
+    Opts2 = [O || O <- Opts1, effects_code_generation(O)],
     case beam_asm:module(Code0, Abst, Source, Opts2) of
 	{ok,Code} -> {ok,St#compile{code=Code,abstract_code=[]}}
     end.
@@ -1306,15 +1306,23 @@ embed_native_code(St, {Architecture,NativeCode}) ->
     {ok, BeamPlusNative} = beam_lib:build_module(Chunks),
     St#compile{code=BeamPlusNative}.
 
-%% Returns true if the option is informative and therefore should be included
-%% in the option list of the compiled module.
+%% effects_code_generation(Option) -> true|false.
+%%  Determine whether the option could have any effect on the
+%%  generated code in the BEAM file (as opposed to how
+%%  errors will be reported).
 
-is_informative_option(beam) -> false;
-is_informative_option(report_warnings) -> false;
-is_informative_option(report_errors) -> false;
-is_informative_option(binary) -> false;
-is_informative_option(verbose) -> false;
-is_informative_option(_) -> true.
+effects_code_generation(Option) ->
+    case Option of 
+	beam -> false;
+	report_warnings -> false;
+	report_errors -> false;
+	return_errors-> false;
+	return_warnings-> false;
+	binary -> false;
+	verbose -> false;
+	{cwd,_} -> false;
+	_ -> true
+    end.
 
 save_binary(#compile{code=none}=St) -> {ok,St};
 save_binary(#compile{module=Mod,ofile=Outfile,
