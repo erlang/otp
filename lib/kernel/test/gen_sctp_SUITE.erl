@@ -31,14 +31,14 @@
    [basic/1,
     api_open_close/1,api_listen/1,api_connect_init/1,api_opts/1,
     xfer_min/1,xfer_active/1,def_sndrcvinfo/1,implicit_inet6/1,
-    basic_stream/1, xfer_stream_min/1, peeloff/1]).
+    basic_stream/1, xfer_stream_min/1, peeloff/1, buffers/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [basic, api_open_close, api_listen, api_connect_init,
      api_opts, xfer_min, xfer_active, def_sndrcvinfo, implicit_inet6,
-     basic_stream, xfer_stream_min, peeloff].
+     basic_stream, xfer_stream_min, peeloff, buffers].
 
 groups() -> 
     [].
@@ -826,6 +826,49 @@ peeloff(Config) when is_list(Config) ->
 	ok(socket_stop(S3)),
     ok.
 
+
+
+buffers(doc) ->
+    ["Check sndbuf and recbuf behaviour"];
+buffers(suite) ->
+    [];
+buffers(Config) when is_list(Config) ->
+    ?line Limit = 8192,
+    ?line Data = mk_data(Limit),
+    ?line Addr = {127,0,0,1},
+    ?line Stream = 1,
+    ?line Timeout = 333,
+    ?line S1 = socket_start(Addr, Timeout),
+    ?line P1 = socket_call(S1, port),
+    ?line ok = socket_call(S1, {listen,true}),
+    ?line S2 = socket_start(Addr, Timeout),
+    ?line P2 = socket_call(S2, port),
+    %%
+    ?line H_a = socket_req(S1, recv_assoc),
+    ?line {S2Ai,Sa,Sb} = socket_call(S2, {connect,Addr,P1,[]}),
+    ?line {S1Ai,Sb,Sa,Addr,P2} = socket_resp(H_a),
+    %%
+    ?line ok = socket_call(S1, {setopts,[{recbuf,Limit}]}),
+    ?line case socket_call(S1, {getopts,[recbuf]}) of
+	      {ok,[{recbuf,RB1}]} when RB1 >= Limit -> ok
+	  end,
+    ?line H_b = socket_req(S1, recv),
+    ?line ok = socket_call(S2, {send,S2Ai,Stream,Data}),
+    ?line {Addr,P2,S1Ai,Stream,Data} = socket_resp(H_b),
+    %%
+    ?line ok = socket_stop(S1),
+    ?line {Addr,P1,[],#sctp_shutdown_event{assoc_id=S2Ai}} =
+	ok(socket_stop(S2)),
+    ok.
+
+mk_data(Words) ->
+    mk_data(0, Words, <<>>).
+%%
+mk_data(Words, Words, Bin) ->
+    Bin;
+mk_data(N, Words, Bin) ->
+    mk_data(N+1, Words, <<Bin/binary,N:32>>).
+
 %%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% socket gen_server ultra light
 
@@ -937,7 +980,11 @@ socket_handler(Socket, Timeout) ->
 	    {Addr,Port,
 	     [#sctp_sndrcvinfo{stream=Stream,assoc_id=AssocId}],Data} =
 		ok(gen_sctp:recv(S, infinity)),
-	    {Addr,Port,AssocId,Stream,Data}
+	    {Addr,Port,AssocId,Stream,Data};
+	({setopts,Opts}) ->
+	    inet:setopts(Socket, Opts);
+	({getopts,Optnames}) ->
+	    inet:getopts(Socket, Optnames)
     end.
 
 socket_stop(Handler) ->

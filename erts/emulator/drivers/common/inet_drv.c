@@ -683,7 +683,7 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 #endif
 
 
-#define BIN_REALLOC_LIMIT(x)  (((x)*3)/4)  /* 75% */
+#define BIN_REALLOC_MARGIN(x)  ((x)/4)  /* 25% */
 
 /* The general purpose sockaddr */
 typedef union {
@@ -990,6 +990,9 @@ static int tcp_inet_input(tcp_descriptor* desc, HANDLE event);
 typedef struct {
     inet_descriptor inet;   /* common data structure (DON'T MOVE) */
     int read_packets;       /* Number of packets to read per invocation */
+    int i_bufsz;            /* current input buffer size */
+    ErlDrvBinary* i_buf;    /* current binary buffer */
+    char* i_ptr;            /* current pos in buf */
 } udp_descriptor;
 
 
@@ -9517,6 +9520,9 @@ static ErlDrvData packet_inet_start(ErlDrvPort port, char* args, int protocol)
 	return ERL_DRV_ERROR_ERRNO;
 
     desc->read_packets = INET_PACKET_POLL;
+    desc->i_bufsz = 0;
+    desc->i_buf = NULL;
+    desc->i_ptr = NULL;
     return drvd;
 }
 
@@ -9541,6 +9547,10 @@ static void packet_inet_stop(ErlDrvData e)
     */
     udp_descriptor * udesc = (udp_descriptor*) e;
     inet_descriptor* descr = INETP(udesc);
+    if (udesc->i_buf != NULL) {
+	release_buffer(udesc->i_buf);
+	udesc->i_buf = NULL;
+    }
 
     ASSERT(NO_SUBSCRIBERS(&(descr->empty_out_q_subs)));
     inet_stop(descr);
@@ -10075,39 +10085,50 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 {
     inet_descriptor* desc = INETP(udesc);
     int n;
-    unsigned int len;
     inet_address other;
     char abuf[sizeof(inet_address)];  /* buffer address; enough??? */
-    int  sz;
-    char* ptr;
-    ErlDrvBinary* buf; /* binary */
     int packet_count = udesc->read_packets;
     int count = 0;     /* number of packets delivered to owner */
 #ifdef HAVE_SCTP
     struct msghdr mhdr;	  	     /* Top-level msg structure    */
     struct iovec  iov[1]; 	     /* Data or Notification Event */
     char   ancd[SCTP_ANC_BUFF_SIZE]; /* Ancillary Data		   */
-    int short_recv = 0;
 #endif
 
     while(packet_count--) {
-	len = sizeof(other);
-	sz = desc->bufsz;
-	/* Allocate space for message and address. NB: "bufsz" is in "desc",
-	   but the "buf" itself is allocated separately:
-	*/
-	if ((buf = alloc_buffer(sz+len)) == NULL)
-	    return packet_error(udesc, ENOMEM);
-	ptr = buf->orig_bytes + len;  /* pointer to message part */
+	unsigned int len = sizeof(other);
+
+	/* udesc->i_buf is only kept between SCTP fragments */
+	if (udesc->i_buf == NULL) {
+	    udesc->i_bufsz = desc->bufsz + len;
+	    if ((udesc->i_buf = alloc_buffer(udesc->i_bufsz)) == NULL)
+		return packet_error(udesc, ENOMEM);
+	    /* pointer to message start */
+	    udesc->i_ptr = udesc->i_buf->orig_bytes + len;
+	} else {
+	    ErlDrvBinary* tmp;
+	    int bufsz;
+	    bufsz = desc->bufsz + (udesc->i_ptr - udesc->i_buf->orig_bytes);
+	    if ((tmp = realloc_buffer(udesc->i_buf, bufsz)) == NULL) {
+		release_buffer(udesc->i_buf);
+		udesc->i_buf = NULL;
+		return packet_error(udesc, ENOMEM);
+	    } else {
+		udesc->i_ptr =
+		    tmp->orig_bytes + (udesc->i_ptr - udesc->i_buf->orig_bytes);
+		udesc->i_buf = tmp;
+		udesc->i_bufsz = bufsz;
+	    }
+	}
 
 	/* Note: On Windows NT, recvfrom() fails if the socket is connected. */
 #ifdef HAVE_SCTP
 	/* For SCTP we must use recvmsg() */
 	if (IS_SCTP(desc)) {
-	    iov->iov_base = ptr; /* Data will come here    */
-	    iov->iov_len  = sz;	 /* Remaining buffer space */
+	    iov->iov_base = udesc->i_ptr; /* Data will come here    */
+	    iov->iov_len = desc->bufsz; /* Remaining buffer space */
 	    
-	    mhdr.msg_name	= &other;  /* Peer addr comes into "other" */
+	    mhdr.msg_name	= &other; /* Peer addr comes into "other" */
 	    mhdr.msg_namelen	= len;
 	    mhdr.msg_iov	= iov;
 	    mhdr.msg_iovlen	= 1;
@@ -10117,42 +10138,31 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 	    
 	    /* Do the actual SCTP receive: */
 	    n = sock_recvmsg(desc->s, &mhdr, 0);
+	    len = mhdr.msg_namelen;
 	    goto check_result;
 	}
 #endif
 	/* Use recv() instead on connected sockets. */
 	if ((desc->state & INET_F_ACTIVE)) {
-	    n = sock_recv(desc->s, ptr, sz, 0);
+	    n = sock_recv(desc->s, udesc->i_ptr, desc->bufsz, 0);
 	    other = desc->remote;
 	}
-	else
-	    n = sock_recvfrom(desc->s, ptr, sz, 0, &other.sa, &len);
+	else {
+	    n = sock_recvfrom(desc->s, udesc->i_ptr, desc->bufsz,
+			      0, &other.sa, &len);
+	}
 
 #ifdef HAVE_SCTP
     check_result:
 #endif
 	/* Analyse the result: */
-	if (IS_SOCKET_ERROR(n)
-#ifdef HAVE_SCTP
-	    || (short_recv = (IS_SCTP(desc) && !(mhdr.msg_flags & MSG_EOR)))
-	    /* NB: here we check for EOR not being set -- this is an error as
-	       well, we don't support partial msgs:
-	    */
-#endif
-	    ) {
+	if (IS_SOCKET_ERROR(n)) {
 	    int err = sock_errno();
-	    release_buffer(buf);
+	    release_buffer(udesc->i_buf);
+	    udesc->i_buf = NULL;
 	    if (err != ERRNO_BLOCK) {
 		if (!desc->active) {
-#ifdef HAVE_SCTP
-		    if (short_recv) {
-			async_error_am(desc, am_short_recv);
-		    } else {
-			async_error(desc, err);
-		    }
-#else
 		    async_error(desc, err);
-#endif
 		    driver_cancel_timer(desc->port);
 		    sock_select(desc,FD_READ,0);
 		}
@@ -10165,41 +10175,55 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 		sock_select(desc,FD_READ,1);
 	    return count;		/* strange, not ready */
 	}
+#ifdef HAVE_SCTP
+	else if (IS_SCTP(desc) && !(mhdr.msg_flags & MSG_EOR)) {
+	    /* short recv */
+	    inet_input_count(desc, n);
+	    udesc->i_ptr += n;
+	    sock_select(desc, FD_READ, 1);
+	    return count; /* more fragments will come later */
+	}
+#endif
 	else {
-	    int offs;
-	    int nsz;
 	    int code;
-	    unsigned int alen = len;
 	    void * extra = NULL;
+	    char * ptr;
 
 	    inet_input_count(desc, n);
-	    inet_get_address(desc->sfamily, abuf, &other, &alen);
-	    /* Copy formatted address to the buffer allocated; "alen" is the
-	       actual length which must be <= than the original reserved "len".
+	    udesc->i_ptr += n;
+	    inet_get_address(desc->sfamily, abuf, &other, &len);
+	    /* Copy formatted address to the buffer allocated; "len" is the
+	       actual length which must be <= than the original reserved.
 	       This means that the addr + data in the buffer are contiguous,
-	       but they may start not at the "orig_bytes", but with some "offs"
-	       from them:
+	       but they may start not at the "orig_bytes", instead at "ptr":
 	    */
-	    ASSERT (alen <= len);
-	    sys_memcpy(ptr - alen, abuf, alen); 
-	    ptr -= alen;
-	    nsz  = n + alen;              /* nsz = data + address */
-	    offs = ptr - buf->orig_bytes; /* initial pointer offset */
+	    ASSERT (len <= sizeof(other));
+	    ptr = udesc->i_buf->orig_bytes + sizeof(other) - len;
+	    sys_memcpy(ptr, abuf, len);
 
 	    /* Check if we need to reallocate binary */
 	    if ((desc->mode == INET_MODE_BINARY) &&
-		(desc->hsz < n) && (nsz < BIN_REALLOC_LIMIT(sz))) {
+		(desc->hsz < (udesc->i_ptr - ptr)) &&
+		((udesc->i_ptr - ptr) + BIN_REALLOC_MARGIN(desc->bufsz) >=
+		 udesc->i_bufsz)) {
 		ErlDrvBinary* tmp;
-		if ((tmp = realloc_buffer(buf,nsz+offs)) != NULL)
-		    buf = tmp;
+		int bufsz;
+		bufsz = udesc->i_ptr - udesc->i_buf->orig_bytes;
+		if ((tmp = realloc_buffer(udesc->i_buf, bufsz)) != NULL) {
+		    udesc->i_buf = tmp;
+		    udesc->i_bufsz = bufsz;
+		}
 	    }
 #ifdef HAVE_SCTP
 	    if (IS_SCTP(desc)) extra = &mhdr;
 #endif
 	    /* Actual parsing and return of the data received, occur here: */
-	    code = packet_reply_binary_data(desc, (unsigned int)alen,
-					    buf, offs, nsz, extra);
-	    free_buffer(buf);
+	    code = packet_reply_binary_data(desc, len, udesc->i_buf,
+					    ptr - udesc->i_buf->orig_bytes,
+					    udesc->i_ptr - ptr,
+					    extra);
+	    free_buffer(udesc->i_buf);
+	    udesc->i_buf = NULL;
 	    if (code < 0)
 		return count;
 	    count++;
