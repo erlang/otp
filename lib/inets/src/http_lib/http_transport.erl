@@ -62,8 +62,6 @@ start(ip_comm) ->
 %% This is just for backward compatibillity
 start({ssl, _}) ->
     do_start_ssl();
-start({ossl, _}) ->
-    do_start_ssl();
 start({essl, _}) ->
     do_start_ssl().
 
@@ -126,22 +124,6 @@ connect(ip_comm = _SocketType, {Host, Port}, Opts0, Timeout)
 connect({ssl, SslConfig}, Address, Opts, Timeout) ->
     connect({?HTTP_DEFAULT_SSL_KIND, SslConfig}, Address, Opts, Timeout);
 
-connect({ossl, SslConfig}, {Host, Port}, _, Timeout) ->
-    Opts = [binary, {active, false}, {ssl_imp, old}] ++ SslConfig,
-    ?hlrt("connect using ossl", 
-	  [{host,       Host}, 
-	   {port,       Port}, 
-	   {ssl_config, SslConfig}, 
-	   {timeout,    Timeout}]),
-    case (catch ssl:connect(Host, Port, Opts, Timeout)) of
-	{'EXIT', Reason} ->
-	    {error, {eoptions, Reason}};
-	{ok, _} = OK ->
-	    OK;
-	{error, _} = ERROR ->
-	    ERROR
-    end;
-
 connect({essl, SslConfig}, {Host, Port}, Opts0, Timeout) -> 
     Opts = [binary, {active, false}, {ssl_imp, new} | Opts0] ++ SslConfig,
     ?hlrt("connect using essl", 
@@ -186,13 +168,6 @@ listen({ssl, SSLConfig}, Addr, Port) ->
 	   {port,       Port}, 
 	   {ssl_config, SSLConfig}]),
     listen({?HTTP_DEFAULT_SSL_KIND, SSLConfig}, Addr, Port);
-
-listen({ossl, SSLConfig}, Addr, Port) ->
-    ?hlrt("listen (ossl)", 
-	  [{addr,       Addr}, 
-	   {port,       Port}, 
-	   {ssl_config, SSLConfig}]),
-    listen_ssl(Addr, Port, [{ssl_imp, old} | SSLConfig]);
 
 listen({essl, SSLConfig}, Addr, Port) ->
     ?hlrt("listen (essl)", 
@@ -353,8 +328,6 @@ accept(ip_comm, ListenSocket, Timeout) ->
 accept({ssl, SSLConfig}, ListenSocket, Timeout) ->
     accept({?HTTP_DEFAULT_SSL_KIND, SSLConfig}, ListenSocket, Timeout);
 
-accept({ossl, _SSLConfig}, ListenSocket, Timeout) ->
-    ssl:transport_accept(ListenSocket, Timeout);
 accept({essl, _SSLConfig}, ListenSocket, Timeout) ->
     ssl:transport_accept(ListenSocket, Timeout).
 
@@ -373,9 +346,6 @@ controlling_process(ip_comm, Socket, NewOwner) ->
 %% Wrapper for backaward compatibillity
 controlling_process({ssl, SSLConfig}, Socket, NewOwner) ->
     controlling_process({?HTTP_DEFAULT_SSL_KIND, SSLConfig}, Socket, NewOwner);
-
-controlling_process({ossl, _}, Socket, NewOwner) ->
-    ssl:controlling_process(Socket, NewOwner);
 
 controlling_process({essl, _}, Socket, NewOwner) ->
     ssl:controlling_process(Socket, NewOwner).
@@ -396,13 +366,6 @@ setopts(ip_comm, Socket, Options) ->
 %% Wrapper for backaward compatibillity
 setopts({ssl, SSLConfig}, Socket, Options) ->
     setopts({?HTTP_DEFAULT_SSL_KIND, SSLConfig}, Socket, Options);
-
-setopts({ossl, _}, Socket, Options) ->
-    ?hlrt("[o]ssl setopts", [{socket, Socket}, {options, Options}]),
-    Reason = (catch ssl:setopts(Socket, Options)),
-    ?hlrt("[o]ssl setopts result", [{reason, Reason}]),
-    Reason;
-	
 
 setopts({essl, _}, Socket, Options) ->
     ?hlrt("[e]ssl setopts", [{socket, Socket}, {options, Options}]),
@@ -434,10 +397,6 @@ getopts(ip_comm, Socket, Options) ->
 %% Wrapper for backaward compatibillity
 getopts({ssl, SSLConfig}, Socket, Options) ->
     getopts({?HTTP_DEFAULT_SSL_KIND, SSLConfig}, Socket, Options);
-
-getopts({ossl, _}, Socket, Options) ->
-    ?hlrt("ssl getopts", [{socket, Socket}, {options, Options}]),
-    getopts_ssl(Socket, Options);
 
 getopts({essl, _}, Socket, Options) ->
     ?hlrt("essl getopts", [{socket, Socket}, {options, Options}]),
@@ -472,9 +431,6 @@ getstat(ip_comm = _SocketType, Socket) ->
 getstat({ssl, SSLConfig}, Socket) ->
     getstat({?HTTP_DEFAULT_SSL_KIND, SSLConfig}, Socket);
 
-getstat({ossl, _} = _SocketType, _Socket) ->
-    [];
-
 getstat({essl, _} = _SocketType, _Socket) ->
     [].
 
@@ -493,9 +449,6 @@ send(ip_comm, Socket, Message) ->
 send({ssl, SSLConfig}, Socket, Message) ->
     send({?HTTP_DEFAULT_SSL_KIND, SSLConfig}, Socket, Message);
 
-send({ossl, _}, Socket, Message) ->
-    ssl:send(Socket, Message);
-
 send({essl, _}, Socket, Message) ->
     ssl:send(Socket, Message).
 
@@ -513,9 +466,6 @@ close(ip_comm, Socket) ->
 %% Wrapper for backaward compatibillity
 close({ssl, SSLConfig}, Socket) ->
     close({?HTTP_DEFAULT_SSL_KIND, SSLConfig}, Socket);
-
-close({ossl, _}, Socket) ->
-    ssl:close(Socket);
 
 close({essl, _}, Socket) ->
     ssl:close(Socket).
@@ -537,9 +487,6 @@ peername(ip_comm, Socket) ->
 %% Wrapper for backaward compatibillity
 peername({ssl, SSLConfig}, Socket) ->
     peername({?HTTP_DEFAULT_SSL_KIND, SSLConfig}, Socket);
-
-peername({ossl, _}, Socket) ->
-    do_peername(ssl:peername(Socket));
 
 peername({essl, _}, Socket) ->
     do_peername(ssl:peername(Socket)).
@@ -572,9 +519,6 @@ sockname(ip_comm, Socket) ->
 %% Wrapper for backaward compatibillity
 sockname({ssl, SSLConfig}, Socket) ->
     sockname({?HTTP_DEFAULT_SSL_KIND, SSLConfig}, Socket);
-
-sockname({ossl, _}, Socket) ->
-    do_sockname(ssl:sockname(Socket));
 
 sockname({essl, _}, Socket) ->
     do_sockname(ssl:sockname(Socket)).
@@ -651,9 +595,6 @@ negotiate(ip_comm,_,_) ->
 negotiate({ssl, SSLConfig}, Socket, Timeout) ->
     ?hlrt("negotiate(ssl)", []),
     negotiate({?HTTP_DEFAULT_SSL_KIND, SSLConfig}, Socket, Timeout);
-negotiate({ossl, _}, Socket, Timeout) ->
-    ?hlrt("negotiate(ossl)", []),
-    negotiate_ssl(Socket, Timeout);
 negotiate({essl, _}, Socket, Timeout) ->
     ?hlrt("negotiate(essl)", []),
     negotiate_ssl(Socket, Timeout).

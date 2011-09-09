@@ -340,9 +340,6 @@ connect_bin(SockType, Host, Port) ->
 connect_bin(ssl, Host, Port, Opts0) ->
     Opts = [binary, {packet,0} | Opts0], 
     connect(ssl, Host, Port, Opts);
-connect_bin(ossl, Host, Port, Opts0) ->
-    Opts = [{ssl_imp, old}, binary, {packet,0} | Opts0], 
-    connect(ssl, Host, Port, Opts);
 connect_bin(essl, Host, Port, Opts0) ->
     Opts = [{ssl_imp, new}, binary, {packet,0}, {reuseaddr, true} | Opts0], 
     connect(ssl, Host, Port, Opts);
@@ -356,9 +353,6 @@ connect_byte(SockType, Host, Port) ->
     
 connect_byte(ssl, Host, Port, Opts0) ->
     Opts = [{packet,0} | Opts0], 
-    connect(ssl, Host, Port, Opts);
-connect_byte(ossl, Host, Port, Opts0) ->
-    Opts = [{ssl_imp, old}, {packet,0} | Opts0], 
     connect(ssl, Host, Port, Opts);
 connect_byte(essl, Host, Port, Opts0) ->
     Opts = [{ssl_imp, new}, {packet,0} | Opts0], 
@@ -421,8 +415,6 @@ connect(ip_comm, Host, Port, Opts) ->
 
 send(ssl, Socket, Data) ->
     ssl:send(Socket, Data);
-send(ossl, Socket, Data) ->
-    ssl:send(Socket, Data);
 send(essl, Socket, Data) ->
     ssl:send(Socket, Data);
 send(ip_comm,Socket,Data) ->
@@ -430,8 +422,6 @@ send(ip_comm,Socket,Data) ->
 
 
 close(ssl,Socket) ->
-    catch ssl:close(Socket);
-close(ossl,Socket) ->
     catch ssl:close(Socket);
 close(essl,Socket) ->
     catch ssl:close(Socket);

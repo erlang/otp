@@ -105,7 +105,6 @@ request(Url, Profile) ->
 %%                   {ssl, SSLOptions} | {proxy_auth, {User, Password}}
 %%	Ssloptions = ssl_options() | 
 %%                   {ssl,  ssl_options()} | 
-%%                   {ossl, ssl_options()} | 
 %%                   {essl, ssl_options()}
 %%      ssl_options() = [ssl_option()]
 %%	ssl_option() =  {verify, code()} | 
@@ -644,8 +643,6 @@ http_options_default() ->
 		      {ok, {?HTTP_DEFAULT_SSL_KIND, Value}};
 		 ({ssl, SslOptions}) when is_list(SslOptions) ->
 		      {ok, {?HTTP_DEFAULT_SSL_KIND, SslOptions}};
-		 ({ossl, SslOptions}) when is_list(SslOptions) ->
-		      {ok, {ossl, SslOptions}};
 		 ({essl, SslOptions}) when is_list(SslOptions) ->
 		      {ok, {essl, SslOptions}};
 		 (_) ->

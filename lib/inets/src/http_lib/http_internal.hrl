@@ -28,7 +28,6 @@
 -define(HTTP_MAX_URI_SIZE,    nolimit).
 
 -ifndef(HTTP_DEFAULT_SSL_KIND).
-%% -define(HTTP_DEFAULT_SSL_KIND, ossl).
 -define(HTTP_DEFAULT_SSL_KIND, essl).
 -endif. % -ifdef(HTTP_DEFAULT_SSL_KIND).
 

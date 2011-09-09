@@ -68,127 +68,96 @@
 
 -export([
 	 pssl_mod_alias/1, 
-	 ossl_mod_alias/1, 
 	 essl_mod_alias/1, 
 	 
 	 pssl_mod_actions/1, 
-	 ossl_mod_actions/1, 
 	 essl_mod_actions/1, 
 	 
 	 pssl_mod_security/1, 
-	 ossl_mod_security/1, 
 	 essl_mod_security/1, 
 	 
 	 pssl_mod_auth/1, 
-	 ossl_mod_auth/1, 
 	 essl_mod_auth/1, 
 
 	 pssl_mod_auth_api/1,  
-	 ossl_mod_auth_api/1,  
 	 essl_mod_auth_api/1,  
 	 
 	 pssl_mod_auth_mnesia_api/1, 
-	 ossl_mod_auth_mnesia_api/1, 
 	 essl_mod_auth_mnesia_api/1, 
 	 
 	 pssl_mod_htaccess/1, 
-	 ossl_mod_htaccess/1, 
 	 essl_mod_htaccess/1, 
 	 
 	 pssl_mod_cgi/1, 
-	 ossl_mod_cgi/1, 
 	 essl_mod_cgi/1,
  
 	 pssl_mod_esi/1, 
-	 ossl_mod_esi/1, 
 	 essl_mod_esi/1, 
 
 	 pssl_mod_get/1, 
-	 ossl_mod_get/1, 
 	 essl_mod_get/1, 
 
 	 pssl_mod_head/1, 
-	 ossl_mod_head/1, 
 	 essl_mod_head/1, 
 	 
 	 pssl_mod_all/1, 
-	 ossl_mod_all/1, 
 	 essl_mod_all/1, 
 	 
 	 pssl_load_light/1, 
-	 ossl_load_light/1, 
 	 essl_load_light/1, 
 	 
 	 pssl_load_medium/1, 
-	 ossl_load_medium/1, 
 	 essl_load_medium/1, 
 
 	 pssl_load_heavy/1, 
-	 ossl_load_heavy/1, 
 	 essl_load_heavy/1, 
 
 	 pssl_dos_hostname/1, 
-	 ossl_dos_hostname/1, 
 	 essl_dos_hostname/1, 
 
 	 pssl_time_test/1, 
-	 ossl_time_test/1, 
 	 essl_time_test/1,
 	 
 	 pssl_restart_no_block/1, 
-	 ossl_restart_no_block/1, 
 	 essl_restart_no_block/1, 
 	 
 	 pssl_restart_disturbing_block/1, 
-	 ossl_restart_disturbing_block/1, 
 	 essl_restart_disturbing_block/1,
 	 
 	 pssl_restart_non_disturbing_block/1, 
-	 ossl_restart_non_disturbing_block/1, 
 	 essl_restart_non_disturbing_block/1, 
 	 
 	 pssl_block_disturbing_idle/1, 
-	 ossl_block_disturbing_idle/1, 
 	 essl_block_disturbing_idle/1, 
 
 	 pssl_block_non_disturbing_idle/1, 
-	 ossl_block_non_disturbing_idle/1, 
 	 essl_block_non_disturbing_idle/1, 
 	 
 	 pssl_block_503/1, 
-	 ossl_block_503/1, 
 	 essl_block_503/1, 
 
 	 pssl_block_disturbing_active/1, 
-	 ossl_block_disturbing_active/1, 
 	 essl_block_disturbing_active/1, 
 
 	 pssl_block_non_disturbing_active/1, 
-	 ossl_block_non_disturbing_active/1, 
 	 essl_block_non_disturbing_active/1, 
 
 	 pssl_block_disturbing_active_timeout_not_released/1, 
-	 ossl_block_disturbing_active_timeout_not_released/1, 
 	 essl_block_disturbing_active_timeout_not_released/1, 
 
 	 pssl_block_disturbing_active_timeout_released/1, 
-	 ossl_block_disturbing_active_timeout_released/1, 
 	 essl_block_disturbing_active_timeout_released/1, 
 
 	 pssl_block_non_disturbing_active_timeout_not_released/1, 
-	 ossl_block_non_disturbing_active_timeout_not_released/1, 
 	 essl_block_non_disturbing_active_timeout_not_released/1, 
 	 
 	 pssl_block_non_disturbing_active_timeout_released/1, 
-	 ossl_block_non_disturbing_active_timeout_released/1, 
 	 essl_block_non_disturbing_active_timeout_released/1, 
 
 	 pssl_block_disturbing_blocker_dies/1, 
-	 ossl_block_disturbing_blocker_dies/1, 
 	 essl_block_disturbing_blocker_dies/1, 
 
 	 pssl_block_non_disturbing_blocker_dies/1, 
-	 ossl_block_non_disturbing_blocker_dies/1, 
 	 essl_block_non_disturbing_blocker_dies/1
 	]).
 
@@ -272,8 +241,7 @@ groups() ->
        ip_block_non_disturbing_active_timeout_released,
        ip_block_disturbing_blocker_dies,
        ip_block_non_disturbing_blocker_dies]},
-     {ssl, [],
-      [{group, pssl}, {group, ossl}, {group, essl}]},
+     {ssl, [], [{group, pssl}, {group, essl}]},
      {pssl, [],
       [pssl_mod_alias, pssl_mod_actions, pssl_mod_security,
        pssl_mod_auth, pssl_mod_auth_api,
@@ -293,25 +261,6 @@ groups() ->
        pssl_block_non_disturbing_active_timeout_released,
        pssl_block_disturbing_blocker_dies,
        pssl_block_non_disturbing_blocker_dies]},
-     {ossl, [],
-      [ossl_mod_alias, ossl_mod_actions, ossl_mod_security,
-       ossl_mod_auth, ossl_mod_auth_api,
-       ossl_mod_auth_mnesia_api, ossl_mod_htaccess,
-       ossl_mod_cgi, ossl_mod_esi, ossl_mod_get, ossl_mod_head,
-       ossl_mod_all, ossl_load_light, ossl_load_medium,
-       ossl_load_heavy, ossl_dos_hostname, ossl_time_test,
-       ossl_restart_no_block, ossl_restart_disturbing_block,
-       ossl_restart_non_disturbing_block,
-       ossl_block_disturbing_idle,
-       ossl_block_non_disturbing_idle, ossl_block_503,
-       ossl_block_disturbing_active,
-       ossl_block_non_disturbing_active,
-       ossl_block_disturbing_active_timeout_not_released,
-       ossl_block_disturbing_active_timeout_released,
-       ossl_block_non_disturbing_active_timeout_not_released,
-       ossl_block_non_disturbing_active_timeout_released,
-       ossl_block_disturbing_blocker_dies,
-       ossl_block_non_disturbing_blocker_dies]},
      {essl, [],
       [essl_mod_alias, essl_mod_actions, essl_mod_security,
        essl_mod_auth, essl_mod_auth_api,
@@ -493,7 +442,6 @@ init_per_testcase2(Case, Config) ->
 	    [X, $s, $s, $l | _] ->
 		case X of
 		    $p -> ssl;
-		    $o -> ossl;
 		    $e -> essl
 		end;
 	    _ ->
@@ -636,7 +584,6 @@ init_per_testcase3(Case, Config) ->
 		SslTag = 
 		    case X of
 			$p -> ssl;  % plain
-			$o -> ossl; % OpenSSL based ssl
 			$e -> essl  % Erlang based ssl
 		    end,
 		case inets_test_lib:start_http_server_ssl(
@@ -653,7 +600,6 @@ init_per_testcase3(Case, Config) ->
 		SslTag = 
 		    case X of
 			$p -> ssl;
-			$o -> ossl;
 			$e -> essl
 		    end,
 		case inets_test_lib:start_http_server_ssl(
@@ -1158,13 +1104,6 @@ pssl_mod_alias(suite) ->
 pssl_mod_alias(Config) when is_list(Config) ->
     ssl_mod_alias(ssl, Config).
 
-ossl_mod_alias(doc) -> 
-    ["Module test: mod_alias - using new of configure old SSL"];
-ossl_mod_alias(suite) -> 
-    [];
-ossl_mod_alias(Config) when is_list(Config) ->
-    ssl_mod_alias(ossl, Config).
-
 essl_mod_alias(doc) -> 
     ["Module test: mod_alias - using new of configure new SSL"];
 essl_mod_alias(suite) -> 
@@ -1187,13 +1126,6 @@ pssl_mod_actions(suite) ->
     [];
 pssl_mod_actions(Config) when is_list(Config) ->
     ssl_mod_actions(ssl, Config).
-
-ossl_mod_actions(doc) -> 
-    ["Module test: mod_actions - using new of configure old SSL"];
-ossl_mod_actions(suite) -> 
-    [];
-ossl_mod_actions(Config) when is_list(Config) ->
-    ssl_mod_actions(ossl, Config).
 
 essl_mod_actions(doc) -> 
     ["Module test: mod_actions - using new of configure new SSL"];
@@ -1219,13 +1151,6 @@ pssl_mod_security(suite) ->
     [];
 pssl_mod_security(Config) when is_list(Config) ->
     ssl_mod_security(ssl, Config).
-
-ossl_mod_security(doc) -> 
-    ["Module test: mod_security - using new of configure old SSL"];
-ossl_mod_security(suite) -> 
-    [];
-ossl_mod_security(Config) when is_list(Config) ->
-    ssl_mod_security(ossl, Config).
 
 essl_mod_security(doc) -> 
     ["Module test: mod_security - using new of configure new SSL"];
@@ -1253,13 +1178,6 @@ pssl_mod_auth(suite) ->
 pssl_mod_auth(Config) when is_list(Config) ->
     ssl_mod_auth(ssl, Config).
 
-ossl_mod_auth(doc) -> 
-    ["Module test: mod_auth - using new of configure old SSL"];
-ossl_mod_auth(suite) -> 
-    [];
-ossl_mod_auth(Config) when is_list(Config) ->
-    ssl_mod_auth(ossl, Config).
-
 essl_mod_auth(doc) -> 
     ["Module test: mod_auth - using new of configure new SSL"];
 essl_mod_auth(suite) -> 
@@ -1283,13 +1201,6 @@ pssl_mod_auth_api(suite) ->
     [];
 pssl_mod_auth_api(Config) when is_list(Config) ->
     ssl_mod_auth_api(ssl, Config).
-
-ossl_mod_auth_api(doc) -> 
-    ["Module test: mod_auth - using new of configure old SSL"];
-ossl_mod_auth_api(suite) -> 
-    [];
-ossl_mod_auth_api(Config) when is_list(Config) ->
-    ssl_mod_auth_api(ossl, Config).
 
 essl_mod_auth_api(doc) -> 
     ["Module test: mod_auth - using new of configure new SSL"];
@@ -1317,13 +1228,6 @@ pssl_mod_auth_mnesia_api(suite) ->
 pssl_mod_auth_mnesia_api(Config) when is_list(Config) ->
     ssl_mod_auth_mnesia_api(ssl, Config).
 
-ossl_mod_auth_mnesia_api(doc) -> 
-    ["Module test: mod_auth_mnesia_api - using new of configure old SSL"];
-ossl_mod_auth_mnesia_api(suite) -> 
-    [];
-ossl_mod_auth_mnesia_api(Config) when is_list(Config) ->
-    ssl_mod_auth_mnesia_api(ossl, Config).
-
 essl_mod_auth_mnesia_api(doc) -> 
     ["Module test: mod_auth_mnesia_api - using new of configure new SSL"];
 essl_mod_auth_mnesia_api(suite) -> 
@@ -1348,13 +1252,6 @@ pssl_mod_htaccess(suite) ->
 pssl_mod_htaccess(Config) when is_list(Config) ->
     ssl_mod_htaccess(ssl, Config).
 
-ossl_mod_htaccess(doc) -> 
-    ["Module test: mod_htaccess - using new of configure old SSL"];
-ossl_mod_htaccess(suite) -> 
-    [];
-ossl_mod_htaccess(Config) when is_list(Config) ->
-    ssl_mod_htaccess(ossl, Config).
-
 essl_mod_htaccess(doc) -> 
     ["Module test: mod_htaccess - using new of configure new SSL"];
 essl_mod_htaccess(suite) -> 
@@ -1378,13 +1275,6 @@ pssl_mod_cgi(suite) ->
     [];
 pssl_mod_cgi(Config) when is_list(Config) ->
     ssl_mod_cgi(ssl, Config).
-
-ossl_mod_cgi(doc) ->
-    ["Module test: mod_cgi - using new of configure old SSL"];
-ossl_mod_cgi(suite) ->
-    [];
-ossl_mod_cgi(Config) when is_list(Config) ->
-    ssl_mod_cgi(ossl, Config).
 
 essl_mod_cgi(doc) ->
     ["Module test: mod_cgi - using new of configure new SSL"];
@@ -1415,13 +1305,6 @@ pssl_mod_esi(suite) ->
 pssl_mod_esi(Config) when is_list(Config) ->
     ssl_mod_esi(ssl, Config).
 
-ossl_mod_esi(doc) ->
-    ["Module test: mod_esi - using new of configure old SSL"];
-ossl_mod_esi(suite) ->
-    [];
-ossl_mod_esi(Config) when is_list(Config) ->
-    ssl_mod_esi(ossl, Config).
-
 essl_mod_esi(doc) ->
     ["Module test: mod_esi - using new of configure new SSL"];
 essl_mod_esi(suite) ->
@@ -1445,13 +1328,6 @@ pssl_mod_get(suite) ->
     [];
 pssl_mod_get(Config) when is_list(Config) ->
     ssl_mod_get(ssl, Config).
-
-ossl_mod_get(doc) ->
-    ["Module test: mod_get - using new of configure old SSL"];
-ossl_mod_get(suite) ->
-    [];
-ossl_mod_get(Config) when is_list(Config) ->
-    ssl_mod_get(ossl, Config).
 
 essl_mod_get(doc) ->
     ["Module test: mod_get - using new of configure new SSL"];
@@ -1477,13 +1353,6 @@ pssl_mod_head(suite) ->
 pssl_mod_head(Config) when is_list(Config) ->
     ssl_mod_head(ssl, Config).
 
-ossl_mod_head(doc) ->
-    ["Module test: mod_head - using new of configure old SSL"];
-ossl_mod_head(suite) ->
-    [];
-ossl_mod_head(Config) when is_list(Config) ->
-    ssl_mod_head(ossl, Config).
-
 essl_mod_head(doc) ->
     ["Module test: mod_head - using new of configure new SSL"];
 essl_mod_head(suite) ->
@@ -1507,13 +1376,6 @@ pssl_mod_all(suite) ->
     [];
 pssl_mod_all(Config) when is_list(Config) ->
     ssl_mod_all(ssl, Config).
-
-ossl_mod_all(doc) ->
-    ["All modules test - using new of configure old SSL"];
-ossl_mod_all(suite) ->
-    [];
-ossl_mod_all(Config) when is_list(Config) ->
-    ssl_mod_all(ossl, Config).
 
 essl_mod_all(doc) ->
     ["All modules test - using new of configure new SSL"];
@@ -1539,13 +1401,6 @@ pssl_load_light(suite) ->
 pssl_load_light(Config) when is_list(Config) ->
     ssl_load_light(ssl, Config).
 
-ossl_load_light(doc) ->
-    ["Test light load - using new of configure old SSL"];
-ossl_load_light(suite) ->
-    [];
-ossl_load_light(Config) when is_list(Config) ->
-    ssl_load_light(ossl, Config).
-
 essl_load_light(doc) ->
     ["Test light load - using new of configure new SSL"];
 essl_load_light(suite) ->
@@ -1570,13 +1425,6 @@ pssl_load_medium(suite) ->
     [];
 pssl_load_medium(Config) when is_list(Config) ->
     ssl_load_medium(ssl, Config).
-
-ossl_load_medium(doc) ->
-    ["Test medium load - using new of configure old SSL"];
-ossl_load_medium(suite) ->
-    [];
-ossl_load_medium(Config) when is_list(Config) ->
-    ssl_load_medium(ossl, Config).
 
 essl_load_medium(doc) ->
     ["Test medium load - using new of configure new SSL"];
@@ -1609,13 +1457,6 @@ pssl_load_heavy(suite) ->
 pssl_load_heavy(Config) when is_list(Config) ->
     ssl_load_heavy(ssl, Config).
 
-ossl_load_heavy(doc) ->
-    ["Test heavy load - using new of configure old SSL"];
-ossl_load_heavy(suite) ->
-    [];
-ossl_load_heavy(Config) when is_list(Config) ->
-    ssl_load_heavy(ossl, Config).
-
 essl_load_heavy(doc) ->
     ["Test heavy load - using new of configure new SSL"];
 essl_load_heavy(suite) ->
@@ -1647,13 +1488,6 @@ pssl_dos_hostname(suite) ->
 pssl_dos_hostname(Config) when is_list(Config) ->
     ssl_dos_hostname(ssl, Config).
 
-ossl_dos_hostname(doc) ->
-    ["Denial Of Service (DOS) attack test case - using new of configure old SSL"];
-ossl_dos_hostname(suite) ->
-    [];
-ossl_dos_hostname(Config) when is_list(Config) ->
-    ssl_dos_hostname(ossl, Config).
-
 essl_dos_hostname(doc) ->
     ["Denial Of Service (DOS) attack test case - using new of configure new SSL"];
 essl_dos_hostname(suite) ->
@@ -1678,13 +1512,6 @@ pssl_time_test(suite) ->
     [];
 pssl_time_test(Config) when is_list(Config) ->
     ssl_time_test(ssl, Config).
-
-ossl_time_test(doc) ->
-    ["using new of configure old SSL"];
-ossl_time_test(suite) ->
-    [];
-ossl_time_test(Config) when is_list(Config) ->
-    ssl_time_test(ossl, Config).
 
 essl_time_test(doc) ->
     ["using new of configure new SSL"];
@@ -1725,14 +1552,6 @@ pssl_block_503(suite) ->
 pssl_block_503(Config) when is_list(Config) ->
     ssl_block_503(ssl, Config).
 
-ossl_block_503(doc) ->
-    ["Check that you will receive status code 503 when the server"
-     " is blocked and 200 when its not blocked - using new of configure old SSL."];
-ossl_block_503(suite) ->
-    [];
-ossl_block_503(Config) when is_list(Config) ->
-    ssl_block_503(ossl, Config).
-
 essl_block_503(doc) ->
     ["Check that you will receive status code 503 when the server"
      " is blocked and 200 when its not blocked - using new of configure new SSL."];
@@ -1759,15 +1578,6 @@ pssl_block_disturbing_idle(suite) ->
     [];
 pssl_block_disturbing_idle(Config) when is_list(Config) ->
     ssl_block_disturbing_idle(ssl, Config).
-
-ossl_block_disturbing_idle(doc) ->
-    ["Check that you can block/unblock an idle server. The strategy " 
-     "distribing does not really make a difference in this case." 
-     "Using new of configure old SSL"];
-ossl_block_disturbing_idle(suite) ->
-    [];
-ossl_block_disturbing_idle(Config) when is_list(Config) ->
-    ssl_block_disturbing_idle(ossl, Config).
 
 essl_block_disturbing_idle(doc) ->
     ["Check that you can block/unblock an idle server. The strategy " 
@@ -1797,15 +1607,6 @@ pssl_block_non_disturbing_idle(suite) ->
 pssl_block_non_disturbing_idle(Config) when is_list(Config) ->
     ssl_block_non_disturbing_idle(ssl, Config).
 
-ossl_block_non_disturbing_idle(doc) ->
-    ["Check that you can block/unblock an idle server. The strategy " 
-     "non distribing does not really make a difference in this case." 
-     "Using new of configure old SSL"];
-ossl_block_non_disturbing_idle(suite) ->
-    [];
-ossl_block_non_disturbing_idle(Config) when is_list(Config) ->
-    ssl_block_non_disturbing_idle(ossl, Config).
-
 essl_block_non_disturbing_idle(doc) ->
     ["Check that you can block/unblock an idle server. The strategy " 
      "non distribing does not really make a difference in this case." 
@@ -1834,15 +1635,6 @@ pssl_block_disturbing_active(suite) ->
 pssl_block_disturbing_active(Config) when is_list(Config) ->
     ssl_block_disturbing_active(ssl, Config).
 
-ossl_block_disturbing_active(doc) ->
-    ["Check that you can block/unblock an active server. The strategy " 
-     "distribing means ongoing requests should be terminated." 
-     "Using new of configure old SSL"];
-ossl_block_disturbing_active(suite) ->
-    [];
-ossl_block_disturbing_active(Config) when is_list(Config) ->
-    ssl_block_disturbing_active(ossl, Config).
-
 essl_block_disturbing_active(doc) ->
     ["Check that you can block/unblock an active server. The strategy " 
      "distribing means ongoing requests should be terminated." 
@@ -1870,15 +1662,6 @@ pssl_block_non_disturbing_active(suite) ->
     [];
 pssl_block_non_disturbing_active(Config) when is_list(Config) ->
     ssl_block_non_disturbing_active(ssl, Config).
-
-ossl_block_non_disturbing_active(doc) ->
-    ["Check that you can block/unblock an idle server. The strategy " 
-     "non distribing means the ongoing requests should be compleated." 
-     "Using new of configure old SSL"];
-ossl_block_non_disturbing_active(suite) ->
-    [];
-ossl_block_non_disturbing_active(Config) when is_list(Config) ->
-    ssl_block_non_disturbing_active(ossl, Config).
 
 essl_block_non_disturbing_active(doc) ->
     ["Check that you can block/unblock an idle server. The strategy " 
@@ -1909,17 +1692,6 @@ pssl_block_disturbing_active_timeout_not_released(suite) ->
 pssl_block_disturbing_active_timeout_not_released(Config) 
   when is_list(Config) ->
     ssl_block_disturbing_active_timeout_not_released(ssl, Config).
-
-ossl_block_disturbing_active_timeout_not_released(doc) ->
-    ["Check that you can block an active server. The strategy " 
-     "distribing means ongoing requests should be compleated"
-     "if the timeout does not occur." 
-    "Using new of configure old SSL"];
-ossl_block_disturbing_active_timeout_not_released(suite) ->
-    [];
-ossl_block_disturbing_active_timeout_not_released(Config) 
-  when is_list(Config) ->
-    ssl_block_disturbing_active_timeout_not_released(ossl, Config).
 
 essl_block_disturbing_active_timeout_not_released(doc) ->
     ["Check that you can block an active server. The strategy " 
@@ -1953,17 +1725,6 @@ pssl_block_disturbing_active_timeout_released(suite) ->
 pssl_block_disturbing_active_timeout_released(Config) 
   when is_list(Config) ->
     ssl_block_disturbing_active_timeout_released(ssl, Config).
-
-ossl_block_disturbing_active_timeout_released(doc) ->
-    ["Check that you can block an active server. The strategy " 
-     "distribing means ongoing requests should be terminated when"
-     "the timeout occurs." 
-    "Using new of configure old SSL"];
-ossl_block_disturbing_active_timeout_released(suite) ->
-    [];
-ossl_block_disturbing_active_timeout_released(Config) 
-  when is_list(Config) ->
-    ssl_block_disturbing_active_timeout_released(ossl, Config).
 
 essl_block_disturbing_active_timeout_released(doc) ->
     ["Check that you can block an active server. The strategy " 
@@ -1999,16 +1760,6 @@ pssl_block_non_disturbing_active_timeout_not_released(Config)
   when is_list(Config) ->
     ssl_block_non_disturbing_active_timeout_not_released(ssl, Config).
 
-ossl_block_non_disturbing_active_timeout_not_released(doc) ->
-    ["Check that you can block an active server. The strategy " 
-     "non non distribing means ongoing requests should be completed." 
-    "Using new of configure old SSL"];
-ossl_block_non_disturbing_active_timeout_not_released(suite) ->
-    [];
-ossl_block_non_disturbing_active_timeout_not_released(Config)
-  when is_list(Config) ->
-    ssl_block_non_disturbing_active_timeout_not_released(ossl, Config).
-
 essl_block_non_disturbing_active_timeout_not_released(doc) ->
     ["Check that you can block an active server. The strategy " 
      "non non distribing means ongoing requests should be completed." 
@@ -2043,17 +1794,6 @@ pssl_block_non_disturbing_active_timeout_released(Config)
   when is_list(Config) ->
     ssl_block_non_disturbing_active_timeout_released(ssl, Config).
 
-ossl_block_non_disturbing_active_timeout_released(doc) ->
-    ["Check that you can block an active server. The strategy " 
-     "non distribing means ongoing requests should be completed. "
-     "When the timeout occurs the block operation sohould be canceled." 
-     "Using new of configure old SSL"];
-ossl_block_non_disturbing_active_timeout_released(suite) ->
-    [];
-ossl_block_non_disturbing_active_timeout_released(Config)
-  when is_list(Config) ->
-    ssl_block_non_disturbing_active_timeout_released(ossl, Config).
-
 essl_block_non_disturbing_active_timeout_released(doc) ->
     ["Check that you can block an active server. The strategy " 
      "non distribing means ongoing requests should be completed. "
@@ -2087,13 +1827,6 @@ pssl_block_disturbing_blocker_dies(suite) ->
 pssl_block_disturbing_blocker_dies(Config) when is_list(Config) ->
     ssl_block_disturbing_blocker_dies(ssl, Config).
 
-ossl_block_disturbing_blocker_dies(doc) ->
-    ["using new of configure old SSL"];
-ossl_block_disturbing_blocker_dies(suite) ->
-    [];
-ossl_block_disturbing_blocker_dies(Config) when is_list(Config) ->
-    ssl_block_disturbing_blocker_dies(ossl, Config).
-
 essl_block_disturbing_blocker_dies(doc) ->
     ["using new of configure new SSL"];
 essl_block_disturbing_blocker_dies(suite) ->
@@ -2117,13 +1850,6 @@ pssl_block_non_disturbing_blocker_dies(suite) ->
     [];
 pssl_block_non_disturbing_blocker_dies(Config) when is_list(Config) ->
     ssl_block_non_disturbing_blocker_dies(ssl, Config).
-
-ossl_block_non_disturbing_blocker_dies(doc) ->
-    ["using new of configure old SSL"];
-ossl_block_non_disturbing_blocker_dies(suite) ->
-    [];
-ossl_block_non_disturbing_blocker_dies(Config) when is_list(Config) ->
-    ssl_block_non_disturbing_blocker_dies(ossl, Config).
 
 essl_block_non_disturbing_blocker_dies(doc) ->
     ["using new of configure new SSL"];
@@ -2149,13 +1875,6 @@ pssl_restart_no_block(suite) ->
 pssl_restart_no_block(Config) when is_list(Config) ->
     ssl_restart_no_block(ssl, Config).
 
-ossl_restart_no_block(doc) ->
-    ["using new of configure old SSL"];
-ossl_restart_no_block(suite) ->
-    [];
-ossl_restart_no_block(Config) when is_list(Config) ->
-    ssl_restart_no_block(ossl, Config).
-
 essl_restart_no_block(doc) ->
     ["using new of configure new SSL"];
 essl_restart_no_block(suite) ->
@@ -2179,13 +1898,6 @@ pssl_restart_disturbing_block(suite) ->
     [];
 pssl_restart_disturbing_block(Config) when is_list(Config) ->
     ssl_restart_disturbing_block(ssl, Config).
-
-ossl_restart_disturbing_block(doc) ->
-    ["using new of configure old SSL"];
-ossl_restart_disturbing_block(suite) ->
-    [];
-ossl_restart_disturbing_block(Config) when is_list(Config) ->
-    ssl_restart_disturbing_block(ossl, Config).
 
 essl_restart_disturbing_block(doc) ->
     ["using new of configure new SSL"];
@@ -2243,13 +1955,6 @@ pssl_restart_non_disturbing_block(suite) ->
     [];
 pssl_restart_non_disturbing_block(Config) when is_list(Config) ->
     ssl_restart_non_disturbing_block(ssl, Config).
-
-ossl_restart_non_disturbing_block(doc) ->
-    ["using new of configure old SSL"];
-ossl_restart_non_disturbing_block(suite) ->
-    [];
-ossl_restart_non_disturbing_block(Config) when is_list(Config) ->
-    ssl_restart_non_disturbing_block(ossl, Config).
 
 essl_restart_non_disturbing_block(doc) ->
     ["using new of configure new SSL"];
@@ -2646,7 +2351,6 @@ create_config(Config, Access, FileName) ->
     SSL =
 	if
 	    (Type =:= ssl)  orelse 
-	    (Type =:= ossl) orelse 
 	    (Type =:= essl) ->
 		[cline(["SSLCertificateFile ", 
 			filename:join(ServerRoot, "ssl/ssl_server.pem")]),
@@ -3041,7 +2745,6 @@ create_ipv6_config(Config, FileName, Ipv6Address) ->
     SSL =
 	if
 	    (SockType =:= ssl)  orelse 
-	    (SockType =:= ossl) orelse 
 	    (SockType =:= essl) ->
 		[cline(["SSLCertificateFile ", 
 			filename:join(ServerRoot, "ssl/ssl_server.pem")]),
