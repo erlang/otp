@@ -87,8 +87,12 @@ file_1(Config) when is_list(Config) ->
     ?line {ok,simple} = compile:file(Target, [native,from_beam]), %Smoke test.
 
     ?line {ok,simple} = compile:file(Simple, [native,report]), %Smoke test.
-    ?line {ok,simple} = compile:file(Simple, [debug_info]),
+
+    ?line compile_and_verify(Simple, Target, []),
+    ?line compile_and_verify(Simple, Target, [native]),
+    ?line compile_and_verify(Simple, Target, [debug_info]),
     ?line {ok,simple} = compile:file(Simple, [no_line_info]), %Coverage
+
     ?line ok = file:set_cwd(Cwd),
     ?line true = exists(Target),
     ?line passed = run(Target, test, []),
@@ -119,10 +123,9 @@ big_file(Config) when is_list(Config) ->
     ?line Big = filename:join(DataDir, "big.erl"),
     ?line Target = filename:join(PrivDir, "big.beam"),
     ?line ok = file:set_cwd(PrivDir),
-    ?line {ok,big} = compile:file(Big, []),
-    ?line {ok,big} = compile:file(Big, [r9,debug_info]),
-    ?line {ok,big} = compile:file(Big, [no_postopt]),
-    ?line true = exists(Target),
+    ?line compile_and_verify(Big, Target, []),
+    ?line compile_and_verify(Big, Target, [debug_info]),
+    ?line compile_and_verify(Big, Target, [no_postopt]),
 
     %% Cleanup.
     ?line ok = file:delete(Target),
@@ -781,3 +784,15 @@ do_asm(Beam, Outdir) ->
 		      [M,Class,Error,erlang:get_stacktrace()]),
 	    error
     end.
+
+%%%
+%%% Utilities.
+%%%
+
+compile_and_verify(Name, Target, Opts) ->
+    Mod = list_to_atom(filename:basename(Name, ".erl")),
+    {ok,Mod} = compile:file(Name, Opts),
+    {ok,{Mod,[{compile_info,CInfo}]}} = 
+	beam_lib:chunks(Target, [compile_info]),
+    {options,BeamOpts} = lists:keyfind(options, 1, CInfo),
+    Opts = BeamOpts.

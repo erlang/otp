@@ -235,7 +235,8 @@ format_error({module_name,Mod,Filename}) ->
 		  code=[],
 		  core_code=[],
 		  abstract_code=[],		%Abstract code for debugger.
-		  options=[]  :: [option()],
+		  options=[]  :: [option()],	%Options for compilation
+		  mod_options=[]  :: [option()], %Options for module_info
 		  errors=[],
 		  warnings=[]}).
 
@@ -246,10 +247,11 @@ internal(Master, Input, Opts) ->
 
 internal({forms,Forms}, Opts) ->
     {_,Ps} = passes(forms, Opts),
-    internal_comp(Ps, "", "", #compile{code=Forms,options=Opts});
+    internal_comp(Ps, "", "", #compile{code=Forms,options=Opts,
+				       mod_options=Opts});
 internal({file,File}, Opts) ->
     {Ext,Ps} = passes(file, Opts),
-    Compile = #compile{options=Opts},
+    Compile = #compile{options=Opts,mod_options=Opts},
     internal_comp(Ps, File, Ext, Compile).
 
 internal_comp(Passes, File, Suffix, St0) ->
@@ -1228,7 +1230,8 @@ beam_unused_labels(#compile{code=Code0}=St) ->
     Code = beam_jump:module_labels(Code0),
     {ok,St#compile{code=Code}}.
 
-beam_asm(#compile{ifile=File,code=Code0,abstract_code=Abst,options=Opts0}=St) ->
+beam_asm(#compile{ifile=File,code=Code0,
+		  abstract_code=Abst,mod_options=Opts0}=St) ->
     Source = filename:absname(File),
     Opts1 = lists:map(fun({debug_info_key,_}) -> {debug_info_key,'********'};
 			 (Other) -> Other
