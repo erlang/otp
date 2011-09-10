@@ -87,9 +87,20 @@ autoimports(Config) when is_list(Config) ->
 
 xml(XMLFile) ->
     {ok,File} = file:open(XMLFile,[read]),
+    xskip_to_funcs(file:read_line(File),File),
     DocData = xloop(file:read_line(File),File),
+    true = DocData =/= [],
     file:close(File),
     analyze(DocData).
+
+%% Skip lines up to and including the <funcs> tag.
+xskip_to_funcs({ok,Line},File) ->
+    case re:run(Line,"\\<funcs\\>",[{capture,none}]) of
+	nomatch ->
+	    xskip_to_funcs(file:read_line(File),File);
+	match ->
+	    ok
+    end.
 
 xloop({ok,Line},File) ->
     case re:run(Line,"\\<name\\>",[{capture,none}]) of
