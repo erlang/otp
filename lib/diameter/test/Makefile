@@ -185,7 +185,7 @@ $(SUITES): log targets
 	$(ERL) -noshell \
 	        -pa ../ebin \
 	        -sname diameter_test_$@ \
-	        -s diameter_ct run $@ \
+	        -s diameter_ct run diameter_$@_SUITE \
 	        -s init stop \
 	| awk '1{rc=0} {print} / FAILED /{rc=1} END{exit rc}'
 # Shorter in sed but requires a GNU extension (ie. Q).

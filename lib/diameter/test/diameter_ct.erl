@@ -26,19 +26,15 @@
 -export([run/1]).
 
 %% ct:run_test/1 is currently documented as returning a list of test
-%% results ... but no. Instead it returns the phenomenally useful
-%% value 'ok' regardless of whether or not the suite in question has
-%% failed testcases.
+%% results ... but no. Instead it returns 'ok' regardless of whether
+%% or not the suite in question has failed testcases.
 
-run([Name]) ->
+run([Suite]) ->
     Start = info(),
-    ok = ct:run_test([{suite, suite(Name)},
+    ok = ct:run_test([{suite, Suite},
                       {logdir, "./log"},
                       {auto_compile, false}]),
     info(Start , info()).
-
-suite(Name) ->
-    list_to_atom("diameter_" ++ atom_to_list(Name) ++ "_SUITE").
 
 info() ->
     [{time, now()},
