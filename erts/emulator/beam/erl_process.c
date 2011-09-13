@@ -5788,10 +5788,13 @@ erts_sched_stat_term(Process *p, int total)
 void
 erts_schedule_misc_op(void (*func)(void *), void *arg)
 {
-    ErtsRunQueue *rq = erts_get_runq_current(NULL);
+    ErtsRunQueue *rq;
     ErtsMiscOpList *molp = misc_op_list_alloc();
+    ErtsSchedulerData *esdp = erts_get_scheduler_data();
 
-    if (!rq) {
+    if (esdp) {
+	rq = esdp->run_queue;
+    } else {
 	/*
 	 * This can only happen when the sys msg dispatcher
 	 * thread schedules misc ops (this happens *very*
