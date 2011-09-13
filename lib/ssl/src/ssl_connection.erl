@@ -1033,7 +1033,8 @@ code_change(_OldVsn, StateName, State, _Extra) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-start_fsm(Role, Host, Port, Socket, Opts,  User, {CbModule, _,_, _} = CbInfo, 
+start_fsm(Role, Host, Port, Socket, {#ssl_options{erl_dist = false},_} = Opts,
+	  User, {CbModule, _,_, _} = CbInfo, 
 	  Timeout) -> 
     try 
 	{ok, Pid} = ssl_connection_sup:start_child([Role, Host, Port, Socket, 
@@ -1044,9 +1045,26 @@ start_fsm(Role, Host, Port, Socket, Opts,  User, {CbModule, _,_, _} = CbInfo,
     catch
 	error:{badmatch, {error, _} = Error} ->
 	    Error
+    end;
+
+start_fsm(Role, Host, Port, Socket, {#ssl_options{erl_dist = true},_} = Opts,
+	  User, {CbModule, _,_, _} = CbInfo, 
+	  Timeout) -> 
+    try 
+	{ok, Pid} = ssl_connection_sup:start_child_dist([Role, Host, Port, Socket, 
+							 Opts, User, CbInfo]), 
+	{ok, SslSocket} = socket_control(Socket, Pid, CbModule),
+	ok = handshake(SslSocket, Timeout),
+	{ok, SslSocket} 
+    catch
+	error:{badmatch, {error, _} = Error} ->
+	    Error
     end.
 
 ssl_init(SslOpts, Role) ->
+    
+    init_manager_name(SslOpts#ssl_options.erl_dist),
+
     {ok, CertDbRef, CertDbHandle, CacheHandle, OwnCert} = init_certificates(SslOpts, Role),
     PrivateKey =
 	init_private_key(CertDbHandle, SslOpts#ssl_options.key, SslOpts#ssl_options.keyfile,
@@ -1054,6 +1072,10 @@ ssl_init(SslOpts, Role) ->
     DHParams = init_diffie_hellman(CertDbHandle, SslOpts#ssl_options.dh, SslOpts#ssl_options.dhfile, Role),
     {ok, CertDbRef, CertDbHandle, CacheHandle, OwnCert, PrivateKey, DHParams}.
 
+init_manager_name(false) ->
+    put(ssl_manager, ssl_manager);
+init_manager_name(true) ->
+    put(ssl_manager, ssl_manager_dist).
 
 init_certificates(#ssl_options{cacerts = CaCerts,
 			       cacertfile = CACertFile,
