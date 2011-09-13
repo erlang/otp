@@ -2031,7 +2031,7 @@ get_objectset_def2(_S,T = #typedef{typespec=#'ObjectSet'{}},_CField) ->
     T;
 get_objectset_def2(S,T,_CField) ->
     asn1ct:warning("get_objectset_def2: uncontrolled object set structure:~n~p~n",
-		   [T],S).
+		   [T],S,"get_objectset_def2: uncontrolled object set structure").
     
 type_name(S,#type{def=Def}) ->
     CurrMod = S#state.mname,
@@ -2705,7 +2705,7 @@ normalize_value(S,Type,{'DEFAULT',Value},NameList) ->
 	    normalize_objectclassfieldvalue(S,Value,NL);
 	Err ->
 	    asn1ct:warning("could not check default value ~p~nType:~n~p~nNameList:~n~p~n",
-			   [Value,Type,Err],S),
+			   [Value,Type,Err],S,"could not check default value"),
 	    Value
     end;
 normalize_value(S,Type,Val,NameList) ->
@@ -2791,22 +2791,27 @@ normalize_bitstring(S,Value,Type)->
 		    case catch lists:map(F,RecList) of
 			{error,Reason} ->
 			    asn1ct:warning("default value not "
-				      "compatible with type definition ~p~n",
-				      [Reason],S),
+					   "compatible with type definition ~p~n",
+					   [Reason],S,
+					   "default value not "
+					   "compatible with type definition"),
 			    Value;
 			NewList ->
 			    NewList
 		    end;
 		_ ->
 		    asn1ct:warning("default value not "
-			      "compatible with type definition ~p~n",
-			      [RecList],S),
+				   "compatible with type definition ~p~n",
+				   [RecList],S,
+				   "default value not "
+				   "compatible with type definition"),
 		    Value
 	    end;
 	{Name,String} when is_atom(Name) ->
 	    normalize_bitstring(S,String,Type);
 	Other ->
-	    asn1ct:warning("illegal default value ~p~n",[Other],S),
+	    asn1ct:warning("illegal default value ~p~n",[Other],S,
+			   "illegal default value"),
 	    Value
     end.
 
@@ -2846,12 +2851,14 @@ normalize_octetstring(S,Value,CType) ->
 	    lists:map(fun([])-> ok;
 			 (H)when H > 255->
 			      asn1ct:warning("not legal octet value ~p in OCTET STRING, ~p~n",
-					     [H,List],S);
+					     [H,List],S,
+					     "not legal octet value ~p in OCTET STRING");
 			 (_)-> ok
 		      end, List),
 	    List;
 	Other ->
-	    asn1ct:warning("unknown default value ~p~n",[Other],S),
+	    asn1ct:warning("unknown default value ~p~n",[Other],S,
+			   "unknown default value"),
 	    Value
     end.
 
@@ -2908,13 +2915,15 @@ normalize_enumerated(S,{Name,EnumV},CType) when is_atom(Name) ->
 normalize_enumerated(S,Value,{CType1,CType2}) when is_list(CType1), is_list(CType2)->
     normalize_enumerated(S,Value,CType1++CType2);
 normalize_enumerated(S,V,CType) ->
-    asn1ct:warning("Enumerated unknown type ~p~n",[CType],S),
+    asn1ct:warning("Enumerated unknown type ~p~n",[CType],S,
+		   "Enumerated unknown type"),
     V.
 normalize_enumerated2(S,V,Enum) ->
     case lists:keysearch(V,1,Enum) of
 	{value,{Val,_}} -> Val;
 	_ -> 
-	    asn1ct:warning("Enumerated value is not correct ~p~n",[V],S),
+	    asn1ct:warning("enumerated value is not correct ~p~n",[V],S,
+			   "enumerated value is not correct"),
 	    V
     end.
 
@@ -2925,7 +2934,8 @@ normalize_choice(S,{'CHOICE',{C,V}},CType,NameList) when is_atom(C) ->
 	    {C,normalize_value(S,CT,{'DEFAULT',V},
 			       [Name|NameList])};
 	Other ->
-	    asn1ct:warning("Wrong format of type/value ~p/~p~n",[Other,V],S),
+	    asn1ct:warning("Wrong format of type/value ~p/~p~n",[Other,V],S,
+			   "Wrong format of type/value"),
 	    {C,V}
     end;
 normalize_choice(S,{'DEFAULT',ValueList},CType,NameList) when is_list(ValueList) ->
@@ -3101,7 +3111,8 @@ normalize_s_of(SorS,S,Value,Type,NameList) when is_list(Value) ->
 	List when is_list(List) ->
 	    List;
 	_ ->
-	    asn1ct:warning("~p could not handle value ~p~n",[SorS,Value],S),
+	    asn1ct:warning("~p could not handle value ~p~n",[SorS,Value],S,
+			   "could not handle value"),
 	    Value
     end;
 normalize_s_of(SorS,S,Value,Type,NameList) 
@@ -3159,7 +3170,8 @@ get_normalized_value(S,Val,Type,Func,AddArg) ->
 	    V2 = sort_val_if_set(AddArg,NewVal,Type),
 	    call_Func(update_state(S,ExtM),V2,Type,Func,AddArg);
 	_ ->
-	    asn1ct:warning("default value not comparable ~p~n",[Val],S),
+	    asn1ct:warning("default value not comparable ~p~n",[Val],S,
+			   "default value not comparable"),
 	    Val
     end.
 
@@ -5756,7 +5768,8 @@ ascending_order_check1(S,TypeName,
 		       [C1 = #'ComponentType'{tags=[{_,T}|_]},
 			C2 = #'ComponentType'{tags=[{_,T}|_]}|Rest]) ->
     asn1ct:warning("Indistinct tag ~p in SET ~p, components ~p and ~p~n",
-	      [T,TypeName,C1#'ComponentType'.name,C2#'ComponentType'.name],S),
+		   [T,TypeName,C1#'ComponentType'.name,C2#'ComponentType'.name],S,
+		   "Indistinct tag in SET"),
     ascending_order_check1(S,TypeName,[C2|Rest]);
 ascending_order_check1(S,TypeName,
 		       [C1 = #'ComponentType'{tags=[{'UNIVERSAL',T1}|_]},
@@ -5764,9 +5777,10 @@ ascending_order_check1(S,TypeName,
     case (decode_type(T1) == decode_type(T2)) of
 	true ->
 	    asn1ct:warning("Indistinct tags ~p and ~p in"
-		      " SET ~p, components ~p and ~p~n",
-		      [T1,T2,TypeName,C1#'ComponentType'.name,
-		       C2#'ComponentType'.name],S),
+			   " SET ~p, components ~p and ~p~n",
+			   [T1,T2,TypeName,C1#'ComponentType'.name,
+			    C2#'ComponentType'.name],S,
+			   "Indistinct tags and in SET"),
 	    ascending_order_check1(S,TypeName,[C2|Rest]);
 	_ ->
 	    ascending_order_check1(S,TypeName,[C2|Rest])

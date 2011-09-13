@@ -122,7 +122,7 @@
 %% rel_filename() = description() = string()
 %% Opts = [opt()]
 %% opt() = {path, [path()]} | silent | noexec | restart_emulator
-%%       | {outdir, string()}
+%%       | {outdir, string()} | warnings_as_errors
 %% path() = [string()]
 %% Ret = ok | error | {ok, Relup, Module, Warnings} | {error, Module, Error}
 %%
@@ -139,8 +139,9 @@
 %% 
 %% The option `path' sets search path, `silent' suppresses printing of
 %% error messages to the console, `noexec' inhibits the creation of
-%% the output "relup" file, and restart_emulator ensures that the new
-%% emulator is restarted (as the final step).
+%% the output "relup" file, restart_emulator ensures that the new
+%% emulator is restarted (as the final step), and `warnings_as_errors'
+%% treats warnings as errors.
 %% ----------------------------------------------------------------
 mk_relup(TopRelFile, BaseUpRelDcs, BaseDnRelDcs) ->
     mk_relup(TopRelFile, BaseUpRelDcs, BaseDnRelDcs, []).
@@ -153,14 +154,29 @@ mk_relup(TopRelFile, BaseUpRelDcs, BaseDnRelDcs, Opts) ->
 		{false, false} ->
 		    case R of
 			{ok, _Res, _Mod, Ws} -> 
-			    print_warnings(Ws),
-			    ok;
+			    print_warnings(Ws, Opts),
+			    case systools_lib:werror(Opts, Ws) of
+				true ->
+				    error;
+				false ->
+				    ok
+			    end;
 			Other -> 
 			    print_error(Other),
 			    error
 		    end;
-		_ -> 
-		    R
+		_ ->
+		    case R of
+			{ok, _Res, _Mod, Ws} ->
+			    case systools_lib:werror(Opts, Ws) of
+				true ->
+				    error;
+				false ->
+				    R
+			    end;
+			R ->
+			    R
+		    end
 	    end;
 	BadArg ->
 	    erlang:error({badarg, BadArg})
@@ -195,7 +211,12 @@ do_mk_relup(TopRelFile, BaseUpRelDcs, BaseDnRelDcs, Path, Opts) ->
 	    {Dn, Ws2} = foreach_baserel_dn(TopRel, TopApps, BaseDnRelDcs, 
 					  Path, Opts, Ws1),
 	    Relup = {TopRel#release.vsn, Up, Dn},
-	    write_relup_file(Relup, Opts),
+	    case systools_lib:werror(Opts, Ws2) of
+		true ->
+		    ok;
+		false ->
+		    write_relup_file(Relup, Opts)
+	    end,
 	    {ok, Relup, ?MODULE, Ws2};
 	Other -> 
 	    throw(Other)
@@ -527,20 +548,29 @@ format_error(Error) ->
     io:format("~p~n", [Error]).
 
 
-print_warnings(Ws) when is_list(Ws) ->
-    lists:foreach(fun(W) -> print_warning(W) end, Ws);
-print_warnings(W) ->
-    print_warning(W).
+print_warnings(Ws, Opts) when is_list(Ws) ->
+    lists:foreach(fun(W) -> print_warning(W, Opts) end, Ws);
+print_warnings(W, Opts) ->
+    print_warning(W, Opts).
 
-print_warning(W) ->
-    S = format_warning(W),
+print_warning(W, Opts) ->
+    Prefix = case lists:member(warnings_as_errors, Opts) of
+		 true ->
+		     "";
+		 false ->
+		     "*WARNING* "
+	     end,
+    S = format_warning(Prefix, W),
     io:format("~s", [S]).
 
-format_warning({erts_vsn_changed, {Rel1, Rel2}}) ->
-    io_lib:format("*WARNING* The ERTS version changed between ~p and ~p~n",
-		  [Rel1, Rel2]);
-format_warning(What) ->
-    io_lib:format("*WARNING* ~p~n",[What]).
+format_warning(W) ->
+    format_warning("*WARNING* ", W).
+
+format_warning(Prefix, {erts_vsn_changed, {Rel1, Rel2}}) ->
+    io_lib:format("~sThe ERTS version changed between ~p and ~p~n",
+		  [Prefix, Rel1, Rel2]);
+format_warning(Prefix, What) ->
+    io_lib:format("~s~p~n",[Prefix, What]).
 
 
 get_reason({error, {open, _, _}}) -> open;
