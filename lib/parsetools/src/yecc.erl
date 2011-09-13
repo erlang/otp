@@ -133,12 +133,15 @@
 %%% Interface to erl_compile.
 
 compile(Input0, Output0, 
-        #options{warning = WarnLevel, verbose=Verbose, includes=Includes}) ->
+        #options{warning = WarnLevel, verbose=Verbose, includes=Includes,
+		 specific=Specific}) ->
     Input = shorten_filename(Input0),
     Output = shorten_filename(Output0),
     Includefile = lists:sublist(Includes, 1),
+    Werror = proplists:get_bool(warnings_as_errors, Specific),
     Opts = [{parserfile,Output}, {includefile,Includefile}, {verbose,Verbose},
-            {report_errors, true}, {report_warnings, WarnLevel > 0}],
+            {report_errors, true}, {report_warnings, WarnLevel > 0},
+	    {warnings_as_errors, Werror}],
     case file(Input, Opts) of
         {ok, _OutFile} ->
             ok;
@@ -411,15 +414,15 @@ infile(Parent, Infilex, Options) ->
              {error, Reason} ->
                  add_error(St0#yecc.infile, none, {file_error, Reason}, St0)
          end,
-    case {St#yecc.errors, werr(St)} of
+    case {St#yecc.errors, werror(St)} of
         {[], false} -> ok;
         _ -> _ = file:delete(St#yecc.outfile)
     end,
     Parent ! {self(), yecc_ret(St)}.
 
-werr(St) ->
-    member(warnings_as_errors, St#yecc.options)
-        andalso length(St#yecc.warnings) > 0.
+werror(St) ->
+    St#yecc.warnings =/= []
+	andalso member(warnings_as_errors, St#yecc.options).
 
 outfile(St0) ->
     case file:open(St0#yecc.outfile, [write, delayed_write]) of
@@ -783,9 +786,9 @@ yecc_ret(St0) ->
     report_warnings(St),
     Es = pack_errors(St#yecc.errors),
     Ws = pack_warnings(St#yecc.warnings),
-    Werr = werr(St),
+    Werror = werror(St),
     if 
-        Werr ->
+        Werror ->
             do_error_return(St, Es, Ws);
         Es =:= [] -> 
             case member(return_warnings, St#yecc.options) of
@@ -849,14 +852,22 @@ report_errors(St) ->
     end.
 
 report_warnings(St) ->
-    case member(report_warnings, St#yecc.options) of
+    Werror = member(warnings_as_errors, St#yecc.options),
+    Prefix = case Werror of
+		 true -> "";
+		 false -> "Warning: "
+	     end,
+    ReportWerror = Werror andalso member(report_errors, St#yecc.options),
+    case member(report_warnings, St#yecc.options) orelse ReportWerror of
         true ->
             foreach(fun({File,{none,Mod,W}}) -> 
-                            io:fwrite(<<"~s: Warning: ~s\n">>, 
-                                      [File,Mod:format_error(W)]);
+                            io:fwrite(<<"~s: ~s~s\n">>,
+                                      [File,Prefix,
+				       Mod:format_error(W)]);
                        ({File,{Line,Mod,W}}) -> 
-                            io:fwrite(<<"~s:~w: Warning: ~s\n">>, 
-                                      [File,Line,Mod:format_error(W)])
+                            io:fwrite(<<"~s:~w: ~s~s\n">>,
+                                      [File,Line,Prefix,
+				       Mod:format_error(W)])
                     end, sort(St#yecc.warnings));
         false -> 
             ok

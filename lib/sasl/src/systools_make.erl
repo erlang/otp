@@ -44,10 +44,12 @@
 
 %%-----------------------------------------------------------------
 %% Create a boot script from a release file.
-%% Options is a list of {path, Path} | silent | local where path sets
-%% the search path, silent supresses error message printing on console,
-%% local generates a script with references to the directories there
-%% the applications are found.
+%% Options is a list of {path, Path} | silent | local
+%%         | warnings_as_errors
+%% where path sets the search path, silent supresses error message
+%% printing on console, local generates a script with references
+%% to the directories there the applications are found,
+%% and warnings_as_errors treats warnings as errors.
 %%
 %% New options: {path,Path} can contain wildcards
 %%              src_tests
@@ -85,11 +87,16 @@ make_script(RelName, Output, Flags) when is_list(RelName),
 	    ModTestP = {member(src_tests, Flags),xref_p(Flags)},
 	    case get_release(RelName, Path, ModTestP, machine(Flags)) of
 		{ok, Release, Appls, Warnings} ->
-		    case generate_script(Output,Release,Appls,Flags) of
-			ok ->
+		    case systools_lib:werror(Flags, Warnings) of
+			true ->
 			    return(ok,Warnings,Flags);
-			Error ->
-			    return(Error,Warnings,Flags)
+			false ->
+			    case generate_script(Output,Release,Appls,Flags) of
+				ok ->
+				    return(ok,Warnings,Flags);
+				Error ->
+				    return(Error,Warnings,Flags)
+			    end
 		    end;
 		Error ->
 		    return(Error,[],Flags)
@@ -130,10 +137,21 @@ get_outdir(Flags) ->
 return(ok,Warnings,Flags) ->
     case member(silent,Flags) of
 	true ->
-	    {ok,?MODULE,Warnings};
+	    case systools_lib:werror(Flags, Warnings) of
+		true ->
+		    error;
+		false ->
+		    {ok,?MODULE,Warnings}
+	    end;
 	_ ->
-	    io:format("~s",[format_warning(Warnings)]),
-	    ok
+	    case member(warnings_as_errors,Flags) of
+		true ->
+		    io:format("~s",[format_warning(Warnings, true)]),
+		    error;
+		false ->
+		    io:format("~s",[format_warning(Warnings)]),
+		    ok
+	    end
     end;
 return({error,Mod,Error},_,Flags) ->
     case member(silent,Flags) of
@@ -1833,78 +1851,89 @@ get_flag(_,_)         -> false.
 %% Check Options for make_script
 check_args_script(Args) ->
     cas(Args,
-	{undef, undef, undef, undef, undef, undef, undef, undef, []}). 
+	{undef, undef, undef, undef, undef, undef, undef, undef,
+	 undef, []}).
 
-cas([], {_Path,_Sil,_Loc,_Test,_Var,_Mach,_Xref,_XrefApps, X}) ->
+cas([], {_Path,_Sil,_Loc,_Test,_Var,_Mach,_Xref,_XrefApps,_Werror, X}) ->
     X;
 %%% path ---------------------------------------------------------------
-cas([{path, P} | Args], {Path, Sil, Loc, Test, Var, Mach, 
-			 Xref, XrefApps, X}) when is_list(P) -> 
+cas([{path, P} | Args], {Path, Sil, Loc, Test, Var, Mach, Xref,
+			 XrefApps, Werror, X}) when is_list(P) ->
     case check_path(P) of
 	ok ->
-	    cas(Args, {P, Sil, Loc, Test, Var, Mach, Xref, XrefApps,X});
+	    cas(Args, {P, Sil, Loc, Test, Var, Mach, Xref, XrefApps,
+		       Werror, X});
 	error ->
 	    cas(Args, {Path, Sil, Loc, Test, Var, Mach, Xref, XrefApps,
-		       X++[{path,P}]})
+		       Werror, X++[{path,P}]})
     end;
 %%% silent -------------------------------------------------------------
-cas([silent | Args], {Path, _Sil, Loc, Test, Var, Mach,
-		      Xref, XrefApps, X}) ->
-    cas(Args, {Path, silent, Loc, Test, Var, Mach, Xref, XrefApps, X});
+cas([silent | Args], {Path, _Sil, Loc, Test, Var, Mach, Xref,
+		      XrefApps, Werror, X}) ->
+    cas(Args, {Path, silent, Loc, Test, Var, Mach, Xref, XrefApps,
+	       Werror, X});
 %%% local --------------------------------------------------------------
-cas([local | Args], {Path, Sil, _Loc, Test, Var, Mach,
-		     Xref, XrefApps, X}) ->
-    cas(Args, {Path, Sil, local, Test, Var, Mach, Xref, XrefApps, X});
+cas([local | Args], {Path, Sil, _Loc, Test, Var, Mach, Xref,
+		     XrefApps, Werror, X}) ->
+    cas(Args, {Path, Sil, local, Test, Var, Mach, Xref, XrefApps,
+	       Werror, X});
 %%% src_tests -------------------------------------------------------
-cas([src_tests | Args], {Path, Sil, Loc, _Test, Var, Mach,
-			    Xref, XrefApps, X}) ->
+cas([src_tests | Args], {Path, Sil, Loc, _Test, Var, Mach, Xref,
+			 XrefApps, Werror, X}) ->
     cas(Args,
-	{Path, Sil, Loc, src_tests, Var, Mach, Xref, XrefApps,X});
+	{Path, Sil, Loc, src_tests, Var, Mach, Xref, Werror, XrefApps,X});
 %%% variables ----------------------------------------------------------
-cas([{variables, V} | Args], {Path, Sil, Loc, Test, Var, Mach, 
-				 Xref, XrefApps, X}) when is_list(V) ->
+cas([{variables, V} | Args], {Path, Sil, Loc, Test, Var, Mach, Xref,
+			      XrefApps, Werror, X}) when is_list(V) ->
     case check_vars(V) of
 	ok ->
 	    cas(Args,
-		{Path, Sil, Loc, Test, V, Mach, Xref, XrefApps, X});
+		{Path, Sil, Loc, Test, V, Mach, Xref, XrefApps, Werror, X});
 	error ->
 	    cas(Args, {Path, Sil, Loc, Test, Var, Mach, Xref, XrefApps,
-		       X++[{variables, V}]})
+		       Werror, X++[{variables, V}]})
     end;
 %%% machine ------------------------------------------------------------
-cas([{machine, M} | Args], {Path, Sil, Loc, Test, Var, Mach, 
-			    Xref, XrefApps, X}) when is_atom(M) ->
-    cas(Args, {Path, Sil, Loc, Test, Var, Mach, Xref, XrefApps, X});
+cas([{machine, M} | Args], {Path, Sil, Loc, Test, Var, Mach, Xref,
+			    XrefApps, Werror, X}) when is_atom(M) ->
+    cas(Args, {Path, Sil, Loc, Test, Var, Mach, Xref, XrefApps, Werror, X});
 %%% exref --------------------------------------------------------------
-cas([exref | Args], {Path, Sil, Loc, Test, Var, Mach,
-		     _Xref, XrefApps, X})  ->
-    cas(Args, {Path, Sil, Loc, Test, Var, Mach, exref, XrefApps, X});
+cas([exref | Args], {Path, Sil, Loc, Test, Var, Mach, _Xref,
+		     XrefApps, Werror, X})  ->
+    cas(Args, {Path, Sil, Loc, Test, Var, Mach, exref, XrefApps, Werror, X});
 %%% exref Apps ---------------------------------------------------------
-cas([{exref, Apps} | Args], {Path, Sil, Loc, Test, Var, Mach, 
-			     Xref, XrefApps, X}) when is_list(Apps) ->
+cas([{exref, Apps} | Args], {Path, Sil, Loc, Test, Var, Mach, Xref,
+			     XrefApps, Werror, X}) when is_list(Apps) ->
     case check_apps(Apps) of 
 	ok ->
 	    cas(Args, {Path, Sil, Loc, Test, Var, Mach, 
-			     Xref, Apps, X});
+		       Xref, Apps, Werror, X});
 	error ->
 	    cas(Args, {Path, Sil, Loc, Test, Var, Mach, 
-			     Xref, XrefApps, X++[{exref, Apps}]})
+		       Xref, XrefApps, Werror, X++[{exref, Apps}]})
     end;
 %%% outdir Dir ---------------------------------------------------------
-cas([{outdir, Dir} | Args], {Path, Sil, Loc, Test, Var, Mach,
-			     Xref, XrefApps, X}) when is_list(Dir) ->
-    cas(Args, {Path, Sil, Loc, Test, Var, Mach, Xref, XrefApps, X});
+cas([{outdir, Dir} | Args], {Path, Sil, Loc, Test, Var, Mach, Xref,
+			     XrefApps, Werror, X}) when is_list(Dir) ->
+    cas(Args, {Path, Sil, Loc, Test, Var, Mach, Xref, XrefApps, Werror, X});
 %%% otp_build (secret, not documented) ---------------------------------
-cas([otp_build | Args], {Path, Sil, Loc, Test, Var, Mach,
-			 Xref, XrefApps, X}) ->
-    cas(Args, {Path, Sil, Loc, Test, Var, Mach, Xref, XrefApps, X});
+cas([otp_build | Args], {Path, Sil, Loc, Test, Var, Mach, Xref,
+			 XrefApps, Werror, X}) ->
+    cas(Args, {Path, Sil, Loc, Test, Var, Mach, Xref, XrefApps, Werror, X});
 %%% no_module_tests (kept for backwards compatibility, but ignored) ----
-cas([no_module_tests | Args], {Path, Sil, Loc, Test, Var, Mach,
-			       Xref, XrefApps, X}) ->
-    cas(Args, {Path, Sil, Loc, Test, Var, Mach, Xref, XrefApps,X});
+cas([no_module_tests | Args], {Path, Sil, Loc, Test, Var, Mach, Xref,
+			       XrefApps, Werror, X}) ->
+    cas(Args, {Path, Sil, Loc, Test, Var, Mach, Xref, XrefApps, Werror, X});
+%%% warnings_as_errors (kept for backwards compatibility, but ignored) ----
+cas([warnings_as_errors | Args], {Path, Sil, Loc, Test, Var, Mach, Xref,
+				  XrefApps, _Werror, X}) ->
+    cas(Args, {Path, Sil, Loc, Test, Var, Mach, Xref, XrefApps,
+	       warnings_as_errors, X});
 %%% ERROR --------------------------------------------------------------
-cas([Y | Args], {Path, Sil, Loc, Test, Var, Mach, Xref, XrefApps, X}) ->
-    cas(Args, {Path, Sil, Loc, Test, Var, Mach, Xref, XrefApps,X++[Y]}).
+cas([Y | Args], {Path, Sil, Loc, Test, Var, Mach, Xref, XrefApps,
+		 Werror, X}) ->
+    cas(Args, {Path, Sil, Loc, Test, Var, Mach, Xref, XrefApps, Werror,
+	       X++[Y]}).
 
 
 
@@ -2030,7 +2059,6 @@ check_apps([H|T]) when is_atom(H) ->
 check_apps(_) ->
     error.
 
-
 %% Format error
 
 format_error(badly_formatted_release) ->
@@ -2144,21 +2172,31 @@ form_tar_err({add, File, Error}) ->
 %% Format warning
 
 format_warning(Warnings) ->
-    map(fun({warning,W}) -> form_warn(W) end, Warnings).
+    format_warning(Warnings, false).
 
-form_warn({source_not_found,{Mod,_,App,_,_}}) ->
-    io_lib:format("*WARNING* ~p: Source code not found: ~p.erl~n",
-		  [App,Mod]);
-form_warn({{parse_error, File},{_,_,App,_,_}}) ->
-    io_lib:format("*WARNING* ~p: Parse error: ~p~n",
-		  [App,File]);
-form_warn({obj_out_of_date,{Mod,_,App,_,_}}) ->
-    io_lib:format("*WARNING* ~p: Object code (~p) out of date~n",[App,Mod]);
-form_warn({exref_undef, Undef}) ->
-    F = fun({M,F,A}) -> 
-		io_lib:format("*WARNING* Undefined function ~p:~p/~p~n", 
-			      [M,F,A])
+format_warning(Warnings, Werror) ->
+    Prefix = case Werror of
+		 true ->
+		     "";
+		 false ->
+		     "*WARNING* "
+	     end,
+    map(fun({warning,W}) -> form_warn(Prefix, W) end, Warnings).
+
+form_warn(Prefix, {source_not_found,{Mod,_,App,_,_}}) ->
+    io_lib:format("~s~p: Source code not found: ~p.erl~n",
+		  [Prefix,App,Mod]);
+form_warn(Prefix, {{parse_error, File},{_,_,App,_,_}}) ->
+    io_lib:format("~s~p: Parse error: ~p~n",
+		  [Prefix,App,File]);
+form_warn(Prefix, {obj_out_of_date,{Mod,_,App,_,_}}) ->
+    io_lib:format("~s~p: Object code (~p) out of date~n",
+		  [Prefix,App,Mod]);
+form_warn(Prefix, {exref_undef, Undef}) ->
+    F = fun({M,F,A}) ->
+		io_lib:format("~sUndefined function ~p:~p/~p~n",
+			      [Prefix,M,F,A])
 	end,
     map(F, Undef);
-form_warn(What) ->
-    io_lib:format("*WARNING* ~p~n", [What]).
+form_warn(Prefix, What) ->
+    io_lib:format("~s ~p~n", [Prefix,What]).
