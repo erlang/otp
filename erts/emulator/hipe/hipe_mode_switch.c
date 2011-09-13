@@ -473,7 +473,7 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	      p = schedule(p, reds_in - p->fcalls);
 #ifdef ERTS_SMP
 	      p->hipe_smp.have_receive_locks = 0;
-	      reg = p->scheduler_data->save_reg;
+	      reg = p->scheduler_data->x_reg_array;
 #endif
 	  }
 	  {
