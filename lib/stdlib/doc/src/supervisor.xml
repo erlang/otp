@@ -94,6 +94,10 @@
           instead the child specification identifier is used,
           <c>terminate_child/2</c> will return
           <c>{error,simple_one_for_one}</c>.</p>
+        <p>Because a <c>simple_one_for_one</c> supervisor could have many
+        children, it shuts them all down at same time. So, order in which they
+        are stopped is not defined. For the same reason, it could have an
+        overhead with regards to the <c>Shutdown</c> strategy.</p>
       </item>
     </list>
     <p>To prevent a supervisor from getting into an infinite loop of
