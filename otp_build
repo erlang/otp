@@ -880,6 +880,9 @@ do_primary_git ()
 	bootstrap/lib/compiler \
 	bootstrap/lib/orber/include \
 	bootstrap/bin
+    find bootstrap -name egen -o -name '*.script' -o \
+	-name '*.app' -o -name '*.appup' |
+        xargs git reset HEAD
     git commit --no-verify -m 'Update primary bootstrap'
 }
 
@@ -1001,20 +1004,17 @@ do_copy_primary_bootstrap ()
     test -d $bootstrap/lib/kernel/ebin || mkdir -p  $bootstrap/lib/kernel/ebin
     test -d $bootstrap/lib/kernel/include || mkdir -p  $bootstrap/lib/kernel/include
     cp -f $lib_src/kernel/ebin/*.beam $bootstrap/lib/kernel/ebin
-    cp -f $lib_src/kernel/ebin/*.app* $bootstrap/lib/kernel/ebin
     cp -f $lib_src/kernel/include/*.hrl $bootstrap/lib/kernel/include
 
     # stdlib
     test -d $bootstrap/lib/stdlib/ebin || mkdir -p  $bootstrap/lib/stdlib/ebin
     test -d $bootstrap/lib/stdlib/include || mkdir -p  $bootstrap/lib/stdlib/include
     cp -f $lib_src/stdlib/ebin/*.beam $bootstrap/lib/stdlib/ebin
-    cp -f $lib_src/stdlib/ebin/*.app* $bootstrap/lib/stdlib/ebin
     cp -f $lib_src/stdlib/include/*.hrl $bootstrap/lib/stdlib/include
 
     # compiler
     test -d $bootstrap/lib/compiler/ebin || mkdir -p  $bootstrap/lib/compiler/ebin
     cp -f $lib_src/compiler/ebin/*.beam $bootstrap/lib/compiler/ebin
-    cp -f $lib_src/compiler/ebin/*.app* $bootstrap/lib/compiler/ebin
 
     # orber include
     test -d $bootstrap/lib/orber/include || mkdir -p  $bootstrap/lib/orber/include
