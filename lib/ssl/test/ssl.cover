@@ -1,21 +1,4 @@
 {incl_app,ssl,details}.
 
-{excl_mods, ssl, [ssl_pkix_oid,
-		  'PKIX1Algorithms88', 
-		  'PKIX1Explicit88',
-		  'PKIX1Implicit88',
-		  'PKIXAttributeCertificate',
-		  'SSL-PKIX',
-		  ssl_pem,
-		  ssl_pkix,
-		  ssl_base64,
-		  ssl_broker,
-		  ssl_broker_int,
-		  ssl_broker_sup,
-		  ssl_debug,
-		  ssl_server,		
-		  ssl_prim,
-		  inet_ssl_dist,
-		  'OTP-PKIX'	
-		]}.
+{excl_mods, ssl, [ssl_debug]}.
 

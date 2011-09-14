@@ -28,7 +28,6 @@
 -include_lib("public_key/include/public_key.hrl").
 
 -include("ssl_alert.hrl").
--include("ssl_int.hrl").
 -include("ssl_internal.hrl").
 -include("ssl_record.hrl").
 
@@ -207,7 +206,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     [app, alerts, connection_info, protocol_versions,
      empty_protocol_versions, controlling_process,
-     controller_dies, client_closes_socket, peercert,
+     controller_dies, client_closes_socket,
      connect_dist, peername, sockname, socket_options,
      invalid_inet_get_option, invalid_inet_get_option_not_list,
      invalid_inet_get_option_improper_list,
@@ -582,50 +581,6 @@ client_closes_socket(Config) when is_list(Config) ->
     _Client = spawn_link(Connect),
 
     ssl_test_lib:check_result(Server, {error,closed}).
-
-%%--------------------------------------------------------------------
-
-peercert(doc) -> 
-    [""];
-
-peercert(suite) -> 
-    [];
-
-peercert(Config) when is_list(Config) -> 
-    ClientOpts = ?config(client_opts, Config),
-    ServerOpts = ?config(server_opts, Config),
-    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    
-    Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0}, 
-					{from, self()}, 
-			   {mfa, {?MODULE, peercert_result, []}},
-			   {options, ServerOpts}]),
-    Port = ssl_test_lib:inet_port(Server),
-    Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port}, 
-					{host, Hostname},
-			   {from, self()}, 
-			   {mfa, {?MODULE, peercert_result, []}},
-			   {options, ClientOpts}]),
-    
-    CertFile = proplists:get_value(certfile, ServerOpts),
-    [{'Certificate', BinCert, _}]= ssl_test_lib:pem_to_der(CertFile),
-    ErlCert = public_key:pkix_decode_cert(BinCert, otp),
-       
-    ServerMsg = {{error, no_peercert}, {error, no_peercert}},
-    ClientMsg = {{ok, BinCert}, {ok, ErlCert}},
-    
-    test_server:format("Testcase ~p, Client ~p  Server ~p ~n", 
-		       [self(), Client, Server]),
-    
-    ssl_test_lib:check_result(Server, ServerMsg, Client, ClientMsg),
-    
-    ssl_test_lib:close(Server),
-    ssl_test_lib:close(Client).
-
-peercert_result(Socket) ->
-    Result1 = ssl:peercert(Socket),
-    Result2 = ssl:peercert(Socket, [ssl]), 
-    {Result1, Result2}.
 
 %%--------------------------------------------------------------------
 connect_dist(doc) -> 
@@ -1528,7 +1483,6 @@ eoptions(Config) when is_list(Config) ->
 	    end,
 
     TestOpts = [{versions, [sslv2, sslv3]}, 
-		{ssl_imp, cool},
 		{verify, 4}, 
 		{verify_fun, function},
 		{fail_if_no_peer_cert, 0}, 
