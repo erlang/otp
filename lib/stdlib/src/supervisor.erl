@@ -849,96 +849,92 @@ monitor_child(Pid) ->
 %% can have an significative overhead here.
 %%-----------------------------------------------------------------
 terminate_dynamic_children(Child, Dynamics, SupName) ->
-    Pids = monitor_dynamic_children(Child, Dynamics, SupName),
-    Sz   = ?SETS:size(Pids),
-    case Child#child.shutdown of
-        brutal_kill ->
-            ?SETS:fold(fun(P, _) -> exit(P, kill) end, ok, Pids),
-            wait_dynamic_children(Child, Pids, SupName, Sz, undefined);
-        infinity ->
-            ?SETS:fold(fun(P, _) -> exit(P, shutdown) end, ok, Pids),
-            wait_dynamic_children(Child, Pids, SupName, Sz, undefined);
-        Time ->
-            ?SETS:fold(fun(P, _) -> exit(P, shutdown) end, ok, Pids),
-            TRef = erlang:start_timer(Time, self(), kill),
-            wait_dynamic_children(Child, Pids, SupName, Sz, TRef)
-    end.
+    {Pids, EStack0} = monitor_dynamic_children(Child, Dynamics),
+    Sz = ?SETS:size(Pids),
+    EStack = case Child#child.shutdown of
+                 brutal_kill ->
+                     ?SETS:fold(fun(P, _) -> exit(P, kill) end, ok, Pids),
+                     wait_dynamic_children(Child, Pids, Sz, undefined, EStack0);
+                 infinity ->
+                     ?SETS:fold(fun(P, _) -> exit(P, shutdown) end, ok, Pids),
+                     wait_dynamic_children(Child, Pids, Sz, undefined, EStack0);
+                 Time ->
+                     ?SETS:fold(fun(P, _) -> exit(P, shutdown) end, ok, Pids),
+                     TRef = erlang:start_timer(Time, self(), kill),
+                     wait_dynamic_children(Child, Pids, Sz, TRef, EStack0)
+             end,
+    %% Unrool stacked errors and report them
+    ?DICT:fold(fun(Reason, Ls, _) ->
+                       report_error(shutdown_error, Reason,
+                                    Child#child{pid=Ls}, SupName)
+               end, ok, EStack).
 
 
-monitor_dynamic_children(#child{restart_type=temporary} = Child,
-                         Dynamics, SupName) ->
-    ?SETS:fold(fun(P, Acc) ->
+monitor_dynamic_children(#child{restart_type=temporary}, Dynamics) ->
+    ?SETS:fold(fun(P, {Pids, EStack}) ->
                        case monitor_child(P) of
                            ok ->
-                               ?SETS:add_element(P, Acc);
+                               {?SETS:add_element(P, Pids), EStack};
                            {error, normal} ->
-                               Acc;
-                           {error, OtherReason} ->
-                               report_error(shutdown_error, OtherReason,
-                                            Child#child{pid=P}, SupName),
-                               Acc
+                               {Pids, EStack};
+                           {error, Reason} ->
+                               {Pids, ?DICT:append(Reason, P, EStack)}
                        end
-               end, ?SETS:new(), Dynamics);
-monitor_dynamic_children(#child{restart_type=RType} = Child,
-                         Dynamics, SupName) ->
-    ?DICT:fold(fun(P, _, Acc) ->
+               end, {?SETS:new(), ?DICT:new()}, Dynamics);
+monitor_dynamic_children(#child{restart_type=RType}, Dynamics) ->
+    ?DICT:fold(fun(P, _, {Pids, EStack}) ->
                        case monitor_child(P) of
                            ok ->
-                               ?SETS:add_element(P, Acc);
+                               {?SETS:add_element(P, Pids), EStack};
                            {error, normal} when RType =/= permanent ->
-                               Acc;
-                           {error, OtherReason} ->
-                               report_error(shutdown_error, OtherReason,
-                                            Child#child{pid=P}, SupName),
-                               Acc
+                               {Pids, EStack};
+                           {error, Reason} ->
+                               {Pids, ?DICT:append(Reason, P, EStack)}
                        end
-               end, ?SETS:new(), Dynamics).
+               end, {?SETS:new(), ?DICT:new()}, Dynamics).
 
 
-
-wait_dynamic_children(_Child, _Pids, _SupName, 0, undefined) ->
-    ok;
-wait_dynamic_children(_Child, _Pids, _SupName, 0, TRef) ->
+wait_dynamic_children(_Child, _Pids, 0, undefined, EStack) ->
+    EStack;
+wait_dynamic_children(_Child, _Pids, 0, TRef, EStack) ->
 	%% If the timer has expired before its cancellation, we must empty the
 	%% mail-box of the 'timeout'-message.
     erlang:cancel_timer(TRef),
     receive
         {timeout, TRef, kill} ->
-            ok
+            EStack
     after 0 ->
-            ok
+            EStack
     end;
-wait_dynamic_children(#child{shutdown=brutal_kill} = Child,
-                      Pids, SupName, Sz, TRef) ->
+wait_dynamic_children(#child{shutdown=brutal_kill} = Child, Pids, Sz,
+                      TRef, EStack) ->
     receive
         {'DOWN', _MRef, process, Pid, killed} ->
-            wait_dynamic_children(Child, ?SETS:del_element(Pid, Pids), SupName,
-                                  Sz-1, TRef);
+            wait_dynamic_children(Child, ?SETS:del_element(Pid, Pids), Sz-1,
+                                  TRef, EStack);
 
         {'DOWN', _MRef, process, Pid, Reason} ->
-            report_error(shutdown_error, Reason, Child#child{pid=Pid}, SupName),
-            wait_dynamic_children(Child, ?SETS:del_element(Pid, Pids), SupName,
-                                  Sz-1, TRef)
+            wait_dynamic_children(Child, ?SETS:del_element(Pid, Pids), Sz-1,
+                                  TRef, ?DICT:append(Reason, Pid, EStack))
     end;
-wait_dynamic_children(#child{restart_type=RType} = Child, Pids,
-                      SupName, Sz, TRef) ->
+wait_dynamic_children(#child{restart_type=RType} = Child, Pids, Sz,
+                      TRef, EStack) ->
     receive
         {'DOWN', _MRef, process, Pid, shutdown} ->
-            wait_dynamic_children(Child, ?SETS:del_element(Pid, Pids), SupName,
-                                  Sz-1, TRef);
+            wait_dynamic_children(Child, ?SETS:del_element(Pid, Pids), Sz-1,
+                                  TRef, EStack);
 
         {'DOWN', _MRef, process, Pid, normal} when RType =/= permanent ->
-            wait_dynamic_children(Child, ?SETS:del_element(Pid, Pids), SupName,
-                                  Sz-1, TRef);
+            wait_dynamic_children(Child, ?SETS:del_element(Pid, Pids), Sz-1,
+                                  TRef, EStack);
 
         {'DOWN', _MRef, process, Pid, Reason} ->
-            report_error(shutdown_error, Reason, Child#child{pid=Pid}, SupName),
-            wait_dynamic_children(Child, ?SETS:del_element(Pid, Pids), SupName,
-                                  Sz-1, TRef);
+            wait_dynamic_children(Child, ?SETS:del_element(Pid, Pids), Sz-1,
+                                  TRef, ?DICT:append(Reason, Pid, EStack));
 
         {timeout, TRef, kill} ->
             ?SETS:fold(fun(P, _) -> exit(P, kill) end, ok, Pids),
-            wait_dynamic_children(Child, Pids, SupName, Sz, undefined)
+            wait_dynamic_children(Child, Pids, Sz-1, undefined, EStack)
     end.
 
 %%-----------------------------------------------------------------
@@ -1243,8 +1239,15 @@ report_error(Error, Reason, Child, SupName) ->
     error_logger:error_report(supervisor_report, ErrorMsg).
 
 
-extract_child(Child) ->
+extract_child(Child) when is_pid(Child#child.pid) ->
     [{pid, Child#child.pid},
+     {name, Child#child.name},
+     {mfargs, Child#child.mfargs},
+     {restart_type, Child#child.restart_type},
+     {shutdown, Child#child.shutdown},
+     {child_type, Child#child.child_type}];
+extract_child(Child) ->
+    [{nb_children, length(Child#child.pid)},
      {name, Child#child.name},
      {mfargs, Child#child.mfargs},
      {restart_type, Child#child.restart_type},
