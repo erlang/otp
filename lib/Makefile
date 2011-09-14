@@ -83,7 +83,7 @@ endif
 
 ifdef BOOTSTRAP
   SUB_DIRECTORIES = \
-    kernel stdlib compiler orber/include
+    kernel stdlib compiler
 else
   ifdef SECONDARY_BOOTSTRAP
     SUB_DIRECTORIES = hipe parsetools asn1/src

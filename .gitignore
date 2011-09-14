@@ -109,6 +109,7 @@ make/win32/
 /bootstrap/lib/asn1
 /bootstrap/lib/hipe
 /bootstrap/lib/ic
+/bootstrap/lib/orber
 /bootstrap/lib/parsetools
 /bootstrap/lib/sasl
 /bootstrap/lib/snmp
