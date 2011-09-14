@@ -2717,7 +2717,8 @@ ordered_do(Opts) ->
 		      9,10,11,12,
 		      1,2,3,4,
 		      17,18,19,20,
-		      13,14,15,16
+		      13,14,15,16,
+		      1 bsl 33
 		     ],
     ?line lists:foreach(fun(X) ->
 			  ets:insert(T,{X,integer_to_list(X)})
@@ -2732,13 +2733,14 @@ ordered_do(Opts) ->
     ?line S2 = L2,
     ?line [{1,"1"}] = ets:slot(T,0),
     ?line [{28,"28"}] = ets:slot(T,27),
+    ?line [{1 bsl 33,_}] = ets:slot(T,28),
     ?line 27 = ets:prev(T,28),
     ?line [{7,"7"}] = ets:slot(T,6),
-    ?line '$end_of_table' = ets:next(T,28),
+    ?line '$end_of_table' = ets:next(T,1 bsl 33),
     ?line [{12,"12"}] = ets:slot(T,11),
-    ?line '$end_of_table' = ets:slot(T,28),
+    ?line '$end_of_table' = ets:slot(T,29),
     ?line [{1,"1"}] = ets:slot(T,0),
-    ?line 28 = ets:prev(T,29),
+    ?line 28 = ets:prev(T,1 bsl 33),
     ?line 1 = ets:next(T,0),
     ?line pick_all_forward(T),
     ?line [{7,"7"}] = ets:slot(T,6),
