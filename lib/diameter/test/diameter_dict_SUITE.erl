@@ -40,7 +40,7 @@
          update/1,
          update_counter/1]).
 
--define(ERROR(T), erlang:error({T, ?MODULE, ?LINE})).
+-include("diameter_ct.hrl").
 
 -define(dict, diameter_dict).
 -define(util, diameter_util).

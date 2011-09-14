@@ -37,7 +37,8 @@
 	 xref/1,
          relup/1]).
 
--define(APP, diameter).
+-include("diameter_ct.hrl").
+
 -define(A, list_to_atom).
 
 %% ===========================================================================

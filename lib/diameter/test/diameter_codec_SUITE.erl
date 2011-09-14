@@ -38,7 +38,8 @@
          gen/1,
          lib/1]).
 
--define(APP, diameter).
+-include("diameter_ct.hrl").
+
 -define(L, atom_to_list).
 
 %% ===========================================================================
