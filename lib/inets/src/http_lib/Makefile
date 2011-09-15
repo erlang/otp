@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2005-2010. All Rights Reserved.
+# Copyright Ericsson AB 2005-2011. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -45,7 +45,8 @@ MODULES = \
 	http_transport\
 	http_util \
 	http_request \
-	http_response
+	http_response \
+	http_uri
 
 HRL_FILES = http_internal.hrl
 

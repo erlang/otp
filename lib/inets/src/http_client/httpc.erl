@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -434,18 +434,21 @@ handle_request(Method, Url,
 	    Stream        = proplists:get_value(stream, Options),
 	    Host2         = header_host(Scheme, Host, Port), 
 	    HeadersRecord = header_record(NewHeaders, Host2, HTTPOptions),
-	    Receiver   = proplists:get_value(receiver, Options),
-	    SocketOpts = proplists:get_value(socket_opts, Options),
+	    Receiver      = proplists:get_value(receiver, Options),
+	    SocketOpts    = proplists:get_value(socket_opts, Options),
+	    MaybeEscPath  = maybe_url_encode(HTTPOptions, Path), 
+	    MaybeEscQuery = maybe_url_encode(HTTPOptions, Query), 
+	    AbsUri        = maybe_url_encode(HTTPOptions, Url), 
 	    Request = #request{from          = Receiver,
 			       scheme        = Scheme, 
 			       address       = {Host, Port},
-			       path          = Path, 
-			       pquery        = Query, 
+			       path          = MaybeEscPath, 
+			       pquery        = MaybeEscQuery, 
 			       method        = Method,
 			       headers       = HeadersRecord, 
 			       content       = {ContentType, Body},
 			       settings      = HTTPOptions, 
-			       abs_uri       = Url, 
+			       abs_uri       = AbsUri, 
 			       userinfo      = UserInfo, 
 			       stream        = Stream, 
 			       headers_as_is = headers_as_is(Headers, Options),
@@ -465,6 +468,10 @@ handle_request(Method, Url,
 	    Error
     end.
 
+maybe_url_encode(#http_options{url_encode = true}, URI) ->
+    http_uri:encode(URI);
+maybe_url_encode(_, URI) ->
+    URI.
 
 handle_answer(RequestId, false, _) ->
     {ok, RequestId};
@@ -603,6 +610,13 @@ http_options_default() ->
 	   (_) ->
 		error
 	end,
+    
+    UrlDecodePost = fun(Value) when (Value =:= true) orelse 
+				    (Value =:= false) ->
+			    {ok, Value};
+		       (_) ->
+			    error
+		    end,
     [
      {version,         {value, "HTTP/1.1"},              #http_options.version,         VersionPost}, 
      {timeout,         {value, ?HTTP_REQUEST_TIMEOUT},   #http_options.timeout,         TimeoutPost},
@@ -611,7 +625,8 @@ http_options_default() ->
      {proxy_auth,      {value, undefined},               #http_options.proxy_auth,      ProxyAuthPost},
      {relaxed,         {value, false},                   #http_options.relaxed,         RelaxedPost},
      %% this field has to be *after* the timeout field (as that field is used for the default value)
-     {connect_timeout, {field,   #http_options.timeout}, #http_options.connect_timeout, ConnTimeoutPost}
+     {connect_timeout, {field,   #http_options.timeout}, #http_options.connect_timeout, ConnTimeoutPost}, 
+     {url_encode,      {value, false},                   #http_options.url_encode, UrlDecodePost}
     ].
 
 

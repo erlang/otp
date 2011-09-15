@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -25,13 +25,16 @@
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 
+-define(URL_START, "http://localhost:").
+
 all(doc) ->
     ["Basic test of httpd."];
 
 all(suite) ->
     [
      uri_too_long_414,
-     header_too_long_413
+     header_too_long_413,
+     escaped_url_in_error_body
     ].
 
 %%--------------------------------------------------------------------
@@ -132,5 +135,57 @@ header_too_long_413(Config) when is_list(Config) ->
     inets:stop(httpd, Pid).
    
 
+escaped_url_in_error_body(doc) ->
+    ["Test Url-encoding see OTP-8940"];
+escaped_url_in_error_body(suite) ->
+    [];
+escaped_url_in_error_body(Config) when is_list(Config) ->
+    HttpdConf   = ?config(httpd_conf, Config),
+    {ok, Pid}   = inets:start(httpd, [{port, 0} | HttpdConf]),
+    Info        = httpd:info(Pid),
+    Port        = proplists:get_value(port, Info),
+    _Address    = proplists:get_value(bind_address, Info),
+    Path        = "/<b>this_is_bold<b>",
+    URL         = ?URL_START ++ integer_to_list(Port) ++ Path,
+    EscapedPath = http_uri:encode(Path),
+    case httpc:request(get, {URL, []},
+		       [{url_encode, true}, 
+			{version, "HTTP/1.0"}],
+		       [{full_result, false}]) of
+	{ok, {404, Body1}} ->
+	    case find_URL_path(string:tokens(Body1, " ")) of
+		EscapedPath ->
+		    ok;
+		BadPath1 ->
+		    tsf({unexpected_path_1, EscapedPath, BadPath1})
+	    end;
+	{ok, UnexpectedOK1} ->
+	    tsf({unexpected_ok_1, UnexpectedOK1})
+    end,
 
+    case httpc:request(get, {URL, []}, 
+		       [{version, "HTTP/1.0"}],
+		       [{full_result, false}]) of
+	{ok, {404, Body2}} ->
+	    HTMLEncodedPath = http_util:html_encode(Path),
+	    case find_URL_path(string:tokens(Body2, " ")) of
+		HTMLEncodedPath ->
+		    ok;
+		BadPath2 ->
+		    tsf({unexpected_path_2, EscapedPath, BadPath2})
+	    end;
+	{ok, UnexpectedOK2} ->
+	    tsf({unexpected_ok_2, UnexpectedOK2})
+    end, 
+    inets:stop(httpd, Pid).
+
+find_URL_path([]) ->
+    "";
+find_URL_path(["URL", URL | _]) ->
+    URL;
+find_URL_path([_ | Rest]) ->
+    find_URL_path(Rest).
+
+tsf(Reason) ->
+    test_server:fail(Reason).
 

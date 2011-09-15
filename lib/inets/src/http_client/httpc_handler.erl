@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -794,37 +794,43 @@ deliver_answers([Request|Requests]) ->
 %% Purpose: Convert process state when code is changed
 %%--------------------------------------------------------------------
 code_change(_, #state{request = Request, pipeline = Queue} = State, 
-	    [{from, '5.0.1'}, {to, '5.0.2'}]) ->
-    Settings = new_http_options(Request#request.settings),
+	    from_pre_5_3_5) ->
+    Settings   = new_http_options(Request#request.settings),
     NewRequest = Request#request{settings = Settings},
-    NewQueue = new_queue(Queue, fun new_http_options/1),
+    NewQueue   = new_queue(Queue, fun new_http_options/1),
     {ok, State#state{request = NewRequest, pipeline = NewQueue}};
 
 code_change(_, #state{request = Request, pipeline = Queue} = State, 
-	    [{from, '5.0.2'}, {to, '5.0.1'}]) ->
-    Settings = old_http_options(Request#request.settings),
+	    to_pre_5_3_5) ->
+    Settings   = old_http_options(Request#request.settings),
     NewRequest = Request#request{settings = Settings},
-    NewQueue = new_queue(Queue, fun old_http_options/1),
+    NewQueue   = new_queue(Queue, fun old_http_options/1),
     {ok, State#state{request = NewRequest, pipeline = NewQueue}};
 
 code_change(_, State, _) ->
     {ok, State}.
 
-new_http_options({http_options, TimeOut, AutoRedirect, SslOpts,
-		  Auth, Relaxed}) ->
-    {http_options, "HTTP/1.1", TimeOut, AutoRedirect, SslOpts,
-     Auth, Relaxed}.
+new_http_options({http_options, 
+		  Version, Timeout, AutoRedirect, SslOpts, 
+		  ProxyAuth, Relaxed, ConnTimeout}) ->
+    UrlEncoding = false, 
+    {http_options, 
+     Version, Timeout, AutoRedirect, SslOpts, 
+     ProxyAuth, Relaxed, ConnTimeout, UrlEncoding}.
 
-old_http_options({http_options, _, TimeOut, AutoRedirect,
-		  SslOpts, Auth, Relaxed}) ->
-    {http_options, TimeOut, AutoRedirect, SslOpts, Auth, Relaxed}.
+old_http_options({http_options, 
+		  Version, TimeOut, AutoRedirect, SslOpts, 
+		  ProxyAuth, Relaxed, ConnTimeout, _UrlEncode}) ->
+    {http_options, 
+     Version, TimeOut, AutoRedirect, SslOpts, 
+     ProxyAuth, Relaxed, ConnTimeout}.
 
-new_queue(Queue, Fun) ->
+new_queue(Queue, TransformSettings) ->
     List = queue:to_list(Queue),
     NewList = 
 	lists:map(fun(Request) ->
 			  Settings = 
-			      Fun(Request#request.settings),
+			      TransformSettings(Request#request.settings),
 			  Request#request{settings = Settings}
 		  end, List),
     queue:from_list(NewList).

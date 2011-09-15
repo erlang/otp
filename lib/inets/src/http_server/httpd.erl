@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -349,8 +349,8 @@ foreach([KeyValue|Rest]) ->
   {ok, Plus2Space, _} = inets_regexp:gsub(KeyValue,"[\+]"," "),
   case inets_regexp:split(Plus2Space,"=") of
     {ok,[Key|Value]} ->
-      [{httpd_util:decode_hex(Key),
-	httpd_util:decode_hex(lists:flatten(Value))}|foreach(Rest)];
+	  [{http_uri:decode(Key), http_uri:decode(lists:flatten(Value))}|
+	   foreach(Rest)];
     {ok,_} ->
       foreach(Rest)
   end.

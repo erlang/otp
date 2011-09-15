@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -22,6 +22,7 @@
 -export([handle_error/4]).
 
 -include("httpd.hrl").
+-include("httpd_internal.hrl").
 
 handle_error(eacces, Op, ModData, Path) ->
     handle_error(403, Op, ModData, Path,"");

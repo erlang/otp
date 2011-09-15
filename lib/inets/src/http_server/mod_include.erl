@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -186,9 +186,9 @@ document_uri(ConfigDB, RequestURI) ->
     FileName = string:substr(Path,Start,Length),
     case inets_regexp:match(VirtualPath, FileName++"\$") of
 	{match, _, _} ->
-	    httpd_util:decode_hex(VirtualPath)++AfterPath;
+	    http_uri:decode(VirtualPath)++AfterPath;
 	nomatch ->
-	    string:strip(httpd_util:decode_hex(VirtualPath),right,$/)++
+	    string:strip(http_uri:decode(VirtualPath),right,$/)++
 		"/"++FileName++AfterPath
     end.
 

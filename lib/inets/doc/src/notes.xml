@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
   <header>
     <copyright>
-      <year>2002</year><year>2010</year>
+      <year>2002</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,6 +32,33 @@
     <file>notes.xml</file>
   </header>
   
+  <section><title>Inets 5.3.5</title>
+  
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>Updated http-server to make sure URLs in error-messages
+          are URL-encoded. Added support in http-client to use
+          URL-encoding. Also added the missing include directory
+          for the inets application.</p>
+          <p>Own Id: OTP-8940</p>
+          <p>Aux Id: seq11735</p>
+        </item>
+
+        <item>
+          <p>[httpd] Prevent XSS in error pages.
+          Prevent user controlled input from being interpreted 
+          as HTML in error pages by encoding the reserved HTML 
+          characters. </p>
+          <p>Michael Santos</p>
+          <p>Own Id: OTP-9124</p>
+        </item>
+      </list>
+    </section>
+  
+  </section> <!-- 5.3.5 -->
+
+
   <section><title>Inets 5.3.4</title>
 
     <section><title>Improvements and New Features</title>
