@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2005-2010. All Rights Reserved.
+# Copyright Ericsson AB 2005-2011. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -98,12 +98,16 @@ INETS_FLAGS = -D'SERVER_SOFTWARE="$(APPLICATION)/$(VSN)"'
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-INETS_ERL_FLAGS += -I ../http_lib -I ../inets_app -pa ../../ebin
+INETS_ERL_FLAGS += \
+	-I ../http_lib \
+	-I ../inets_app \
+	-pa $(ERL_TOP)/lib/inets/ebin
 
-ERL_COMPILE_FLAGS += $(INETS_ERL_FLAGS) \
-		     $(INETS_FLAGS) \
-                     +'{parse_transform,sys_pre_attributes}' \
-                     +'{attribute,insert,app_vsn,$(APP_VSN)}'
+ERL_COMPILE_FLAGS += \
+	$(INETS_ERL_FLAGS) \
+	$(INETS_FLAGS) \
+	+'{parse_transform,sys_pre_attributes}' \
+	+'{attribute,insert,app_vsn,$(APP_VSN)}'
 
 
 # ----------------------------------------------------

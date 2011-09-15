@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -32,13 +32,63 @@
 -export([non_pc_tc_maybe_skip/4, os_based_skip/1]).
 
 start_http_server(Conf) ->
-    application:load(inets), 
-    ok = application:set_env(inets, services, [{httpd, Conf}]),
-    ok = application:start(inets).
+    ?DEBUG("start_http_server -> entry with"
+	   "~n   Conf: ~p", [Conf]),
+    inets_ensure_loaded(), 
+    inets_set_env(services, [{httpd, Conf}]),
+    inets_ensure_started(),
+    ok.
+
 
 start_http_server_ssl(FileName) ->
     application:start(ssl),	       
     catch start_http_server(FileName).
+
+inets_ensure_loaded() ->
+    ensure_loaded(inets).
+
+ensure_loaded(App) ->
+    case application:load(App) of
+	ok ->
+	    ok;
+	{error, {already_loaded, _}} ->
+	    ok;
+	LoadRes ->
+	    ?LOG("start_http_server -> failed loading ~p: ~p", [App, LoadRes]),
+	    tsf({failed_loading, LoadRes})
+    end.
+
+
+inets_set_env(Service, Config) ->
+    app_set_env(inets, Service, Config).
+
+app_set_env(App, Param, Value) ->
+    case application:set_env(App, Param, Value) of
+	ok ->
+	    ?DEBUG("start_http_server -> env set", []),
+	    ok;
+	SetEnvRes ->
+	    ?LOG("start_http_server -> failed set env for ~p: ~p", 
+		 [App, SetEnvRes]),
+	    exit({failed_set_env, App, SetEnvRes})
+    end.
+
+inets_ensure_started() ->
+    ensure_app_started(inets).
+
+ensure_app_started(App) ->
+    case application:start(App) of
+	ok ->
+	    ?DEBUG("start_http_server -> ~p started", [App]),
+	    ok;
+	{error, {already_started, _}} ->
+	    ok;
+	StartRes ->
+	    ?LOG("start_http_server -> failed starting ~p: ~p", 
+		 [App, StartRes]),
+	    exit({failed_starting, App, StartRes})
+    end.
+
 
 %% ----------------------------------------------------------------------
 %% print functions
@@ -300,3 +350,6 @@ sleep(MSecs) ->
 
 skip(Reason, File, Line) ->
     exit({skipped, {Reason, File, Line}}).
+
+tsf(Reason) ->
+    test_server:fail(Reason).

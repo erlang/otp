@@ -1,2 +1,2 @@
 {topcase, {dir, "../inets_test"}}.
-{hosts, ["tuor"]}.
+{hosts, ["fobi"]}.

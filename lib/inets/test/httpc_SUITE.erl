@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -262,7 +262,9 @@ finish(Config) ->
 	    ok;
 	_ ->
 	    test_server:timetrap_cancel(Dog)
-    end.
+    end,
+    (catch application:stop(inets)).
+
 
 %%-------------------------------------------------------------------------
 %% Test cases starts here.
@@ -1163,19 +1165,26 @@ proxy_options(suite) ->
 proxy_options(Config) when is_list(Config) ->
     case ?config(skip, Config) of 
         undefined ->
-	    case http:request(options, {?PROXY_URL, []}, [], []) of
-		{ok, {{_,200,_}, Headers, _}} ->
-		    case lists:keysearch("allow", 1, Headers) of
-			{value, {"allow", _}} ->
-			    ok;
-			_ ->
-			    test_server:fail(http_options_request_failed)
-		    end;
-		Unexpected ->
-		    test_server:fail({unexpected_result, Unexpected})
-	    end;
+	    Command = 
+		fun() -> http:request(options, {?PROXY_URL, []}, [], []) end,
+	    Verify = 
+		fun({ok, {{_,200,_}, Headers, _}}) ->
+			case lists:keysearch("allow", 1, Headers) of
+			    {value, {"allow", _}} ->
+				ok;
+			    _ ->
+				tsf(http_options_request_failed)
+			end;
+		   ({ok, {{_, 501, "Not Implemented"}, _Hdrs, _}}) ->
+			skip(options_not_implemented_in_server_501_ni);
+		   ({ok, Unexpected}) ->
+			tsf({unexpected_success, Unexpected});
+		   (Unexpected) ->
+			tsf({unexpected_result, Unexpected})
+		end,
+	    expect(Command, Verify);
 	Reason ->
-	    {skip, Reason}
+	    skip(Reason)
     end.
 
 
@@ -1187,18 +1196,26 @@ proxy_head(suite) ->
 proxy_head(Config) when is_list(Config) ->
     case ?config(skip, Config) of 
 	undefined ->
-	    case http:request(head, {?PROXY_URL, []}, [], []) of
-		{ok, {{_,200, _}, [_ | _], []}} ->
-		    ok;
-		Unexpected ->
-		    test_server:fail({unexpected_result, Unexpected})
-	    end;
+	    Command = 
+		fun() -> http:request(head, {?PROXY_URL, []}, [], []) end,
+	    Verify = 
+		fun({ok, {{_,200, _}, [_ | _], []}}) ->
+			ok;
+		   ({ok, {{_,503,"Service Unavailable"}, [_ | _], []}}) ->
+			skip(head_not_implemented_in_server_503_su);
+		   ({ok, Result}) ->
+			tsf({unexpected_success, Result});
+		   (Unexpected) ->
+			tsf({unexpected_result, Unexpected})
+		end,
+	    expect(Command, Verify);
 	Reason ->
-	    {skip, Reason}
+	    skip(Reason)
     end.
 
 
 %%-------------------------------------------------------------------------
+
 proxy_get(doc) ->
     ["Perform a GET request that goes through a proxy."];
 proxy_get(suite) ->
@@ -1216,7 +1233,9 @@ proxy_get(Config) when is_list(Config) ->
 	    {skip, Reason}
     end.
 
+
 %%-------------------------------------------------------------------------
+
 proxy_emulate_lower_versions(doc) ->
     ["Perform requests as 0.9 and 1.0 clients."];
 proxy_emulate_lower_versions(suite) ->
@@ -1260,7 +1279,9 @@ proxy_emulate_lower_versions(Config) when is_list(Config) ->
 pelv_get(Version) ->
     http:request(get, {?PROXY_URL, []}, [{version, Version}], []).
 
+
 %%-------------------------------------------------------------------------
+
 proxy_trace(doc) ->
     ["Perform a TRACE request that goes through a proxy."];
 proxy_trace(suite) ->
@@ -1268,11 +1289,12 @@ proxy_trace(suite) ->
 proxy_trace(Config) when is_list(Config) ->
     %%{ok, {{_,200,_}, [_ | _], "TRACE " ++ _}} =
     %%	http:request(trace, {?PROXY_URL, []}, [], []),
-    {skip, "HTTP TRACE is no longer allowed on the ?PROXY_URL server due "
-     "to security reasons"}.
+    skip("HTTP TRACE is no longer allowed on the ?PROXY_URL server due "
+	 "to security reasons").
 
 
 %%-------------------------------------------------------------------------
+
 proxy_post(doc) ->
     ["Perform a POST request that goes through a proxy. Note the server"
      " will reject the request this is a test of the sending of the"
@@ -1280,21 +1302,34 @@ proxy_post(doc) ->
 proxy_post(suite) ->
     [];
 proxy_post(Config) when is_list(Config) ->
-    case ?config(skip, Config) of 
-	undefined ->
-	    case http:request(post, {?PROXY_URL, [], 
-				     "text/plain", "foobar"}, [],[]) of
-		{ok, {{_,405,_}, [_ | _], [_ | _]}} ->
-		    ok;
-		Unexpected ->
-		    test_server:fail({unexpected_result, Unexpected})
-	    end;
-	Reason ->
-	    {skip, Reason}
-    end.
+    %% After the switch to the erlang.org app, 
+    %% the post will succeed, so we skip this
+    %% until we can find a new way of testing 
+    %% this.
+    %% case ?config(skip, Config) of 
+    %% 	undefined ->
+    %% 	    Command = 
+    %% 		fun() ->
+    %% 			http:request(post, {?PROXY_URL, [], 
+    %% 					    "text/plain", "foobar"}, [],[])
+    %% 		end,
+    %% 	    Verify = 
+    %% 		fun({ok, {{_,405,_}, [_ | _], [_ | _]}}) ->
+    %% 			ok;
+    %% 		   ({ok, Result}) ->
+    %% 			tsf({unexpected_success, Result});
+    %% 		   (Unexpected) ->
+    %% 			tsf({unexpected_result, Unexpected})
+    %% 		end,
+    %% 	    expect(Command, Verify);
+    %% 	Reason ->
+    %% 	    skip(Reason)
+    %% end.
+    skip("temporary skip").
 
 
 %%-------------------------------------------------------------------------
+
 proxy_put(doc) ->
     ["Perform a PUT request that goes through a proxy. Note the server"
      " will reject the request this is a test of the sending of the"
@@ -1302,22 +1337,28 @@ proxy_put(doc) ->
 proxy_put(suite) ->
     [];
 proxy_put(Config) when is_list(Config) ->
-    case ?config(skip, Config) of 
-	undefined -> 
-	    case http:request(put, {"http://www.erlang.org/foobar.html", [], 
-				    "html", "<html> <body><h1> foo </h1>" 
-				    "<p>bar</p> </body></html>"}, [], []) of
-		{ok, {{_,405,_}, [_ | _], [_ | _]}} ->
-		    ok;
-		Unexpected ->
-		    test_server:fail({unexpected_result, Unexpected})
-	    end;
-	Reason ->
-	    {skip, Reason}
-    end.
+    %% After the switch to the erlang.org app, 
+    %% the post will succeed, so we skip this
+    %% until we can find a new way of testing 
+    %% this.    
+    %% case ?config(skip, Config) of 
+    %% 	undefined -> 
+    %% 	    case http:request(put, {"http://www.erlang.org/foobar.html", [], 
+    %% 				    "html", "<html> <body><h1> foo </h1>" 
+    %% 				    "<p>bar</p> </body></html>"}, [], []) of
+    %% 		{ok, {{_,405,_}, [_ | _], [_ | _]}} ->
+    %% 		    ok;
+    %% 		Unexpected ->
+    %% 		    test_server:fail({unexpected_result, Unexpected})
+    %% 	    end;
+    %% 	Reason ->
+    %% 	    {skip, Reason}
+    %% end.
+    skip("temporary skip").
 
 
 %%-------------------------------------------------------------------------
+
 proxy_delete(doc) ->
     ["Perform a DELETE request that goes through a proxy. Note the server"
      " will reject the request this is a test of the sending of the"
@@ -1326,21 +1367,32 @@ proxy_delete(doc) ->
 proxy_delete(suite) ->
     [];
 proxy_delete(Config) when is_list(Config) ->
-    case ?config(skip, Config) of 
-	undefined -> 
-	    URL = ?PROXY_URL ++ "/foobar.html",
-	    case http:request(delete, {URL, []}, [], []) of
-		{ok, {{_,404,_}, [_ | _], [_ | _]}} ->
-		    ok;
-		Unexpected ->
-		    test_server:fail({unexpected_result, Unexpected})
-	    end;
-	Reason ->
-	    {skip, Reason}
-    end.
+    %% After the switch to the erlang.org app, 
+    %% the post will succeed, so we skip this
+    %% until we can find a new way of testing 
+    %% this.
+    %% case ?config(skip, Config) of 
+    %% 	undefined -> 
+    %% 	    URL     = ?PROXY_URL ++ "/foobar.html",
+    %% 	    Command = fun() -> http:request(delete, {URL, []}, [], []) end,
+    %% 	    Verify  = 
+    %% 		fun({ok, {{_,404,_}, [_ | _], [_ | _]}}) ->
+    %% 			ok;
+    %% 		   ({ok, Result}) ->
+    %% 			tsf({unexpected_success, Result});
+    %% 		   (Unexpected) ->
+    %% 			tsf({unexpected_result, Unexpected})
+    %% 		end,
+    %% 	    expect(Command, Verify);
+	
+    %% 	Reason ->
+    %% 	    skip(Reason)
+    %% end.
+    skip("temporary skip").
 
 
 %%-------------------------------------------------------------------------
+
 proxy_headers(doc) ->
     ["Use as many request headers as possible"];
 proxy_headers(suite) ->
@@ -2489,7 +2541,7 @@ otp_8739_dummy_server_init(Parent) ->
     Parent ! {port, Port},
     otp_8739_dummy_server_main(Parent, ListenSocket).
 
-otp_8739_dummy_server_main(Parent, ListenSocket) ->
+otp_8739_dummy_server_main(_Parent, ListenSocket) ->
     case gen_tcp:accept(ListenSocket) of
 	{ok, Sock} ->
 	    %% Ignore the request, and simply wait for the socket to close
@@ -2990,29 +3042,46 @@ content_length([_Head | Tail]) ->
    content_length(Tail).
 
 provocate_not_modified_bug(Url) ->
+    tsp("provocate_not_modified_bug -> entry with"
+	"~n   Url: ~p", [Url]),
+
     Timeout = 15000, %% 15s should be plenty
 
-    {ok, {{_, 200, _}, ReplyHeaders, _Body}} =
-	http:request(get, {Url, []}, [{timeout, Timeout}], []),
-    Etag = pick_header(ReplyHeaders, "ETag"),
-    Last = pick_header(ReplyHeaders, "last-modified"),
-    
-    case http:request(get, {Url, [{"If-None-Match", Etag},
-				  {"If-Modified-Since", Last}]},
-		      [{timeout, 15000}],
-		      []) of
-	{ok, {{_, 304, _}, _, _}} -> %% The expected reply
-	    page_unchanged;
-	{ok, {{_, 200, _}, _, _}} -> 
-	    %% If the page has changed since the	
-	    %% last request we retry to
-	    %% trigger the bug
-	    provocate_not_modified_bug(Url);
-	{error, timeout} ->
-	    %% Not what we expected. Tcpdump can be used to
-	    %% verify that we receive the complete http-reply
-	    %% but still time out.
-	    incorrect_result
+    case http:request(get, {Url, []}, [{timeout, Timeout}], []) of
+	{ok, {{_, 200, _}, ReplyHeaders, _Body}} ->
+	    tsp("provocate_not_modified_bug -> received 200 reply"
+		"~n   ReplyHeaders: ~p", [ReplyHeaders]),
+	    Etag = pick_header(ReplyHeaders, "ETag"),
+	    Last = pick_header(ReplyHeaders, "last-modified"),
+	    case http:request(get, {Url, [{"If-None-Match", Etag},
+					  {"If-Modified-Since", Last}]},
+			      [{timeout, 15000}],
+			      []) of
+		{ok, {{_, 304, _}, _, _}} -> %% The expected reply
+		    tsp("provocate_not_modified_bug -> unchanged", []),
+		    page_unchanged;
+		{ok, {{_, 200, _}, _, _}} -> 
+		    %% If the page has changed since the	
+		    %% last request we retry to
+		    %% trigger the bug
+		    tsp("provocate_not_modified_bug -> changed", []),
+		    provocate_not_modified_bug(Url);
+		{error, timeout} ->
+		    %% Not what we expected. Tcpdump can be used to
+		    %% verify that we receive the complete http-reply
+		    %% but still time out.
+		    tsp("provocate_not_modified_bug -> timeout", []),
+		    incorrect_result
+	    end;
+	{ok, UnexpectedReply, ReplyHeaders, _} ->
+	    tsp("provocate_not_modified_bug -> received unexpected reply"
+		"~n   UnexpectedReply: ~p"
+		"~n   ReplyHeaders:    ~p", [UnexpectedReply, ReplyHeaders]),
+	    unexpected_reply;
+	{error, Reason} ->
+	    tsp("provocate_not_modified_bug -> unexpected failure"
+		"~n   Reason: ~p", [Reason]),
+	    unexpected_error
     end.
 
 pick_header(Headers, Name) ->
@@ -3029,6 +3098,10 @@ not_implemented_yet() ->
     exit(not_implemented_yet).
 
 
+expect(Command, Verify) ->
+    Result = (catch Command()),
+    Verify(Result).
+
 p(F) ->
     p(F, []).
 
@@ -3038,7 +3111,24 @@ p(F, A) ->
 tsp(F) ->
     tsp(F, []).
 tsp(F, A) ->
-    test_server:format("~p ~p:" ++ F ++ "~n", [self(), ?MODULE | A]).
+    Timestamp = formated_timestamp(), 
+    test_server:format("** ~s ** ~p ~p:" ++ F ++ "~n", [Timestamp, self(), ?MODULE | A]).
+
+formated_timestamp() ->
+    format_timestamp( os:timestamp() ).
+
+format_timestamp({_N1, _N2, N3} = Now) ->
+    {Date, Time}   = calendar:now_to_datetime(Now),
+    {YYYY,MM,DD}   = Date,
+    {Hour,Min,Sec} = Time,
+    FormatDate =
+        io_lib:format("~.4w:~.2.0w:~.2.0w ~.2.0w:~.2.0w:~.2.0w 4~w",
+                      [YYYY,MM,DD,Hour,Min,Sec,round(N3/1000)]),
+    lists:flatten(FormatDate).
 
 tsf(Reason) ->
     test_server:fail(Reason).
+
+skip(Reason) ->
+    {skip, Reason}.
+

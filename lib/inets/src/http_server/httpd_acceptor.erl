@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -21,6 +21,7 @@
 
 -include("httpd.hrl").
 -include("httpd_internal.hrl").
+-include("inets_internal.hrl").
 
 %% Internal application API
 -export([start_link/5, start_link/6]).

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -256,9 +256,9 @@ validate_uri(RequestURI) ->
     UriNoQueryNoHex = 
 	case string:str(RequestURI, "?") of
 	    0 ->
-		(catch httpd_util:decode_hex(RequestURI));
+		(catch http_uri:decode(RequestURI));
 	    Ndx ->
-		(catch httpd_util:decode_hex(string:left(RequestURI, Ndx)))	
+		(catch http_uri:decode(string:left(RequestURI, Ndx)))
 	end,
     case UriNoQueryNoHex of
 	{'EXIT',_Reason} ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -150,17 +150,22 @@ listen_ip_comm(Addr, Port) ->
     case IpFamily of
 	inet6fb4 -> 
 	    Opts2 = [inet6 | Opts], 
+	    ?hlrt("try ipv6 listen", [{port, NewPort}, {opts, Opts2}]),
 	    case (catch gen_tcp:listen(NewPort, Opts2)) of
 		{error, Reason} when ((Reason =:= nxdomain) orelse 
 				      (Reason =:= eafnosupport)) ->
 		    Opts3 = [inet | Opts], 
+		    ?hlrt("ipv6 listen failed - try ipv4 instead", 
+                          [{reason, Reason}, {port, NewPort}, {opts, Opts3}]),
 		    gen_tcp:listen(NewPort, Opts3);
 
 		%% This is when a given hostname has resolved to a 
 		%% IPv4-address. The inet6-option together with a 
 		%% {ip, IPv4} option results in badarg
-		{'EXIT', _} -> 
+		{'EXIT', Reason} -> 
 		    Opts3 = [inet | Opts], 
+		    ?hlrt("ipv6 listen exit - try ipv4 instead", 
+                          [{reason, Reason}, {port, NewPort}, {opts, Opts3}]),
 		    gen_tcp:listen(NewPort, Opts3); 
 
 		Other ->
@@ -168,6 +173,7 @@ listen_ip_comm(Addr, Port) ->
 	    end;
 	_ ->
 	    Opts2 = [IpFamily | Opts],
+	    ?hlrt("listen", [{port, NewPort}, {opts, Opts2}]),
 	    gen_tcp:listen(NewPort, Opts2)
     end.
 
@@ -364,7 +370,21 @@ peername(ip_comm, Socket) ->
 		http_util:integer_to_hexlist(G) ++":"++  
 		http_util:integer_to_hexlist(H),
 	    {Port, PeerName};
-	{error, _} ->
+	{error, Reason} ->
+	    Report = io_lib:format("~p Failed getting PeerName for socket ~p: "
+				   "~n   Reason:      ~p"
+				   "~n   Socket stat: ~p"
+				   "~n   IfList:      ~p"
+				   "~n   Fd:          ~p"
+				   "~n", 
+                                   [self(), 
+				    Socket, 
+				    Reason,
+				    (catch inet:getstat(Socket)),
+				    (catch inet:getiflist(Socket)),
+				    (catch inet:getfd(Socket))
+				   ]),
+	    (catch error_logger:error_report(Report)), 
 	    {-1, "unknown"}
     end;
 
