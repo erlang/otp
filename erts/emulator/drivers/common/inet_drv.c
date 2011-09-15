@@ -10093,6 +10093,7 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
     struct msghdr mhdr;	  	     /* Top-level msg structure    */
     struct iovec  iov[1]; 	     /* Data or Notification Event */
     char   ancd[SCTP_ANC_BUFF_SIZE]; /* Ancillary Data		   */
+    int short_recv = 0;
 #endif
 
     while(packet_count--) {
@@ -10146,21 +10147,18 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 	if ((desc->state & INET_F_ACTIVE)) {
 	    n = sock_recv(desc->s, udesc->i_ptr, desc->bufsz, 0);
 	    other = desc->remote;
+	    goto check_result;
 	}
-	else {
-	    n = sock_recvfrom(desc->s, udesc->i_ptr, desc->bufsz,
-			      0, &other.sa, &len);
-	}
-
-#ifdef HAVE_SCTP
+	n = sock_recvfrom(desc->s, udesc->i_ptr, desc->bufsz,
+			  0, &other.sa, &len);
     check_result:
-#endif
 	/* Analyse the result: */
 	if (IS_SOCKET_ERROR(n)) {
 	    int err = sock_errno();
-	    release_buffer(udesc->i_buf);
-	    udesc->i_buf = NULL;
 	    if (err != ERRNO_BLOCK) {
+		/* real error */
+		release_buffer(udesc->i_buf);
+		udesc->i_buf = NULL;
 		if (!desc->active) {
 		    async_error(desc, err);
 		    driver_cancel_timer(desc->port);
@@ -10170,21 +10168,30 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 		    /* This is for an active desc only: */
 		    packet_error_message(udesc, err);
 		}
+		return count;
 	    }
-	    else if (!desc->active)
+	    /* would block error - try again */
+	    if (!desc->active
+#ifdef HAVE_SCTP
+		|| short_recv
+#endif
+		) {
 		sock_select(desc,FD_READ,1);
+	    }
 	    return count;		/* strange, not ready */
 	}
+
 #ifdef HAVE_SCTP
-	else if (IS_SCTP(desc) && !(mhdr.msg_flags & MSG_EOR)) {
-	    /* short recv */
+	if (IS_SCTP(desc) && (short_recv = !(mhdr.msg_flags & MSG_EOR))) {
+	    /* SCTP non-final message fragment */
 	    inet_input_count(desc, n);
 	    udesc->i_ptr += n;
-	    sock_select(desc, FD_READ, 1);
-	    return count; /* more fragments will come later */
+	    continue; /* wait for more fragments */
 	}
 #endif
-	else {
+
+	{
+	    /* message received */
 	    int code;
 	    void * extra = NULL;
 	    char * ptr;
@@ -10233,7 +10240,17 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 		return count;  /* passive mode (read one packet only) */
 	    }
 	}
+    } /*  while(packet_count--) { */
+
+    /* we ran out of tries (packet_count) either on an active socket
+     * that got that many messages or an SCTP socket that got that
+     * many message fragments but still not the final
+     */
+#ifdef HAVE_SCTP
+    if (short_recv) {
+	sock_select(desc, FD_READ, 1);
     }
+#endif
     return count;
 }
 
