@@ -19,8 +19,7 @@
 
 %%
 %% Tests of diameter_tcp/sctp as implementations of the diameter
-%% transport interface. See also the sctp suite for some gen_sctp
-%% related issues.
+%% transport interface.
 %%
 
 -module(diameter_transport_SUITE).

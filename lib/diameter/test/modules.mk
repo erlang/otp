@@ -32,8 +32,7 @@ MODULES = \
 	diameter_sync_SUITE \
 	diameter_stats_SUITE \
 	diameter_watchdog_SUITE \
-	diameter_transport_SUITE \
-	diameter_gen_sctp_SUITE
+	diameter_transport_SUITE
 
 INTERNAL_HRL_FILES = \
 	diameter_ct.hrl
