@@ -25,36 +25,46 @@
 
 
 %% CTH Callbacks
--export([id/1, init/2, pre_init_per_testcase/3, post_end_per_testcase/4]).
+-export([id/1, init/2, post_init_per_group/4, pre_end_per_group/3]).
 
 %% Event handler Callbacks
 -export([init/1,
 	 handle_event/2, handle_call/2, handle_info/2,
 	 terminate/2]).
 
--record(state, { }).
-
 id(_Opts) ->
     ?MODULE.
 
 init(?MODULE, _Opts) ->
     error_logger:add_report_handler(?MODULE),
-    #state{  }.
+    tc_log.
 
-pre_init_per_testcase(_Testcase, Config, State) ->
-    {Config, State}.
-
-post_end_per_testcase(_TestCase, _Config, Result, State) ->
+post_init_per_group(Group, Config, Result, tc_log) ->
+    case lists:member(parallel,proplists:get_value(
+				 tc_group_properties,Config,[])) of
+	true ->
+	    {Result, {set_log_func(ct_log),Group}};
+	false ->
+	    {Result, tc_log}
+    end;
+post_init_per_group(_Group, _Config, Result, State) ->
     {Result, State}.
 
+
+pre_end_per_group(Group, Config, {ct_log, Group}) ->
+    {Config, set_log_func(tc_log)};
+pre_end_per_group(_Group, Config, State) ->
+    {Config, State}.
+
+
 %% Copied and modified from sasl_report_tty_h.erl
-init(Type) ->
-    {ok, Type}.
+init(_Type) ->
+    {ok, tc_log}.
 
 handle_event({_Type, GL, _Msg}, State) when node(GL) /= node() ->
     {ok, State};
-handle_event(Event, Type) ->
-    case proplists:get_value(sasl, application:which_applications()) of
+handle_event(Event, LogFunc) ->
+    case lists:keyfind(sasl, 1, application:which_applications()) of
 	undefined ->
 	    sasl_not_started;
 	_Else ->
@@ -62,7 +72,7 @@ handle_event(Event, Type) ->
 	    SReport = sasl_report:format_report(group_leader(), ErrLogType,
 						tag_event(Event)),
 	    if is_list(SReport) ->
-		    ct:log(sasl, SReport, []);
+		    ct_logs:LogFunc(sasl, SReport, []);
 	       true -> %% Report is an atom if no logging is to be done
 		    ignore
 	    end
@@ -70,12 +80,15 @@ handle_event(Event, Type) ->
     EReport = error_logger_tty_h:write_event(
 		tag_event(Event),io_lib),
     if is_list(EReport) ->
-	    ct:log(error_logger, EReport, []);
+	    ct_logs:LogFunc(error_logger, EReport, []);
        true -> %% Report is an atom if no logging is to be done
 	    ignore
     end,
-    {ok, Type}.
+    {ok, LogFunc}.
 
+handle_info({set_logfunc,NewLogFunc,Reply},_) ->
+    Reply ! {ok,NewLogFunc},
+    {ok, NewLogFunc};
 handle_info(_,State) -> {ok, State}.
 
 handle_call(_Query, _Type) -> {error, bad_query}.
@@ -85,3 +98,12 @@ terminate(_Reason, _Type) ->
 
 tag_event(Event) ->
     {calendar:local_time(), Event}.
+
+set_log_func(Func) ->
+    error_logger ! {set_logfunc, Func, self()},
+    receive
+	{ok,Func} ->
+	    Func
+    after 1000 ->
+	    tc_log
+    end.
