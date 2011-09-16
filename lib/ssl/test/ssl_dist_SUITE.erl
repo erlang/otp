@@ -39,7 +39,7 @@ suite() ->
     [{ct_hooks,[ts_install_cth]}].
 
 all() ->
-    [basic].
+    [basic, payload].
 
 groups() ->
     [].
@@ -124,6 +124,55 @@ basic(Config) when is_list(Config) ->
 			    SslPid ! {self(), ping},
 			    receive
 				{SslPid, pong} ->
+				    ok
+			    end
+		    end)
+     end,
+    stop_ssl_node(NH1),
+    stop_ssl_node(NH2),
+    success(Config).
+
+
+payload(doc) ->
+    ["Test that send a lot of data between the ssl distributed noes"];
+payload(suite) ->
+    [];
+payload(Config) when is_list(Config) ->
+    NH1 = start_ssl_node(Config),
+    Node1 = NH1#node_handle.nodename,
+    NH2 = start_ssl_node(Config),
+    Node2 = NH2#node_handle.nodename,
+
+    pong = apply_on_ssl_node(NH1, fun () -> net_adm:ping(Node2) end),
+
+    [Node2] = apply_on_ssl_node(NH1, fun () -> nodes() end),
+    [Node1] = apply_on_ssl_node(NH2, fun () -> nodes() end),
+
+    %%
+    %% Check that we are able to communicate over the erlang
+    %% distribution between the ssl nodes.
+    %%
+    Ref = make_ref(),
+    spawn(fun () ->
+		  apply_on_ssl_node(
+		    NH1,
+		    fun () ->
+			    send_to_tstcntrl({Ref, self()}),
+			    receive
+				{From, Msg} ->
+				    From ! {self(), Msg}
+			    end
+		    end)
+	  end),
+     receive
+	 {Ref, SslPid} ->
+	     ok = apply_on_ssl_node(
+		    NH2,
+		    fun () ->
+			    Msg = crypto:rand_bytes(100000),
+			    SslPid ! {self(), Msg},
+			    receive
+				{SslPid, Msg} ->
 				    ok
 			    end
 		    end)
