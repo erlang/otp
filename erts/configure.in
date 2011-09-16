@@ -1496,6 +1496,7 @@ if test "x$enable_sctp" = "xyes" ; then
 	 #include <sys/socket.h>
 	 #endif
 	])
+    AC_CHECK_FUNCS([sctp_bindx sctp_peeloff])
     AC_CHECK_DECLS([SCTP_UNORDERED, SCTP_ADDR_OVER, SCTP_ABORT,
                     SCTP_EOF, SCTP_SENDALL, SCTP_ADDR_CONFIRMED], [], [],
         [#if HAVE_SYS_SOCKET_H

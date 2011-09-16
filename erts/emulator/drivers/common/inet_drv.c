@@ -294,7 +294,6 @@ static unsigned long one_value = 1;
 #     define sctp_adaptation_layer_event sctp_adaption_layer_event
 #endif
 
-static void *h_libsctp = NULL;
 #ifdef __GNUC__
 static typeof(sctp_bindx) *p_sctp_bindx = NULL;
 static typeof(sctp_peeloff) *p_sctp_peeloff = NULL;
@@ -3467,20 +3466,32 @@ static int inet_init()
     /* Check the size of SCTP AssocID -- currently both this driver and the
        Erlang part require 32 bit: */
     ASSERT(sizeof(sctp_assoc_t)==ASSOC_ID_LEN);
-#   ifndef LIBSCTP
-#     error LIBSCTP not defined
-#   endif
-    if (erts_sys_ddll_open_noext(STRINGIFY(LIBSCTP), &h_libsctp, NULL) == 0) {
-	void *ptr;
-	if (erts_sys_ddll_sym(h_libsctp, "sctp_bindx", &ptr) == 0) {
-	    p_sctp_bindx = ptr;
-	    inet_init_sctp();
-	    add_driver_entry(&sctp_inet_driver_entry);
-	    if (erts_sys_ddll_sym(h_libsctp, "sctp_peeloff", &ptr) == 0) {
-		p_sctp_peeloff = ptr;
+#   if defined(HAVE_SCTP_BINDX) && defined (HAVE_SCTP_PEELOFF)
+    p_sctp_bindx = sctp_bindx;
+    p_sctp_peeloff = sctp_peeloff;
+    inet_init_sctp();
+    add_driver_entry(&sctp_inet_driver_entry);
+#   else
+#       ifndef LIBSCTP
+#           error LIBSCTP not defined
+#       endif
+    {
+	static void *h_libsctp = NULL;
+
+	if (erts_sys_ddll_open_noext(STRINGIFY(LIBSCTP), &h_libsctp, NULL)
+	    == 0) {
+	    void *ptr;
+	    if (erts_sys_ddll_sym(h_libsctp, "sctp_bindx", &ptr) == 0) {
+		p_sctp_bindx = ptr;
+		inet_init_sctp();
+		add_driver_entry(&sctp_inet_driver_entry);
+		if (erts_sys_ddll_sym(h_libsctp, "sctp_peeloff", &ptr) == 0) {
+		    p_sctp_peeloff = ptr;
+		}
 	    }
 	}
     }
+#   endif
 #endif
 
     /* remove the dummy inet driver */
