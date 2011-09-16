@@ -1202,6 +1202,7 @@ type(erlang, process_flag, 2, Xs) ->
 		 case t_atom_vals(Flag) of
 		   ['error_handler'] -> t_atom();
 		   ['min_heap_size'] -> t_non_neg_integer();
+		   ['scheduler'] -> t_non_neg_integer();
 		   ['monitor_nodes'] -> t_boolean();
 		   ['priority'] -> t_process_priority_level();
 		   ['save_calls'] -> t_non_neg_integer();
@@ -1902,7 +1903,7 @@ type(prim_file, internal_native2name, 1, Xs) ->
 	 fun (_) -> t_prim_file_name() end);
 type(prim_file, internal_normalize_utf8, 1, Xs) ->
   strict(arg_types(prim_file, internal_normalize_utf8, 1), Xs,  
-	 fun (_) -> t_binary() end);
+	 fun (_) -> t_unicode_string() end);
 %%-- gen_tcp ------------------------------------------------------------------
 %% NOTE: All type information for this module added to avoid loss of precision
 type(gen_tcp, accept, 1, Xs) ->
@@ -3744,6 +3745,7 @@ arg_types(erlang, process_display, 2) ->
 arg_types(erlang, process_flag, 2) ->
   [t_sup([t_atom('trap_exit'), t_atom('error_handler'),
 	  t_atom('min_heap_size'), t_atom('priority'), t_atom('save_calls'),
+	  t_atom('scheduler'),                             % undocumented
 	  t_atom('monitor_nodes'), 			  % undocumented
 	  t_tuple([t_atom('monitor_nodes'), t_list()])]), % undocumented
    t_sup([t_boolean(), t_atom(), t_non_neg_integer()])];
@@ -3785,7 +3787,7 @@ arg_types(erlang, send, 3) ->
 arg_types(erlang, send_after, 3) ->
   [t_non_neg_integer(), t_sup(t_pid(), t_atom()), t_any()];
 arg_types(erlang, seq_trace, 2) ->
-  [t_atom(), t_sup([t_boolean(), t_tuple([t_fixnum(), t_fixnum()]), t_nil()])];
+  [t_atom(), t_sup([t_boolean(), t_tuple([t_fixnum(), t_fixnum()]), t_fixnum(), t_nil()])];
 arg_types(erlang, seq_trace_info, 1) ->
   [t_seq_trace_info()];
 arg_types(erlang, seq_trace_print, 1) ->
@@ -4034,7 +4036,7 @@ arg_types(ets, match_object, 3) ->
 arg_types(ets, match_spec_compile, 1) ->
   [t_matchspecs()];
 arg_types(ets, match_spec_run_r, 3) ->
-  [t_matchspecs(), t_any(), t_list()];
+  [t_list(t_tuple()),t_matchspecs(), t_list()];
 arg_types(ets, member, 2) ->
   [t_tab(), t_any()];
 arg_types(ets, new, 2) ->
@@ -4066,8 +4068,12 @@ arg_types(ets, select_reverse, 3) ->
 arg_types(ets, slot, 2) ->
   [t_tab(), t_non_neg_fixnum()]; % 2nd arg can be 0
 arg_types(ets, setopts, 2) ->
-  Opt = t_sup(t_tuple([t_atom('heir'), t_pid(), t_any()]),
-	      t_tuple([t_atom('heir'), t_atom('none')])),
+  Opt = t_sup([t_tuple([t_atom('heir'), t_pid(), t_any()]),
+	       t_tuple([t_atom('heir'), t_atom('none')]),
+	       t_tuple([t_atom('protection'),
+			t_sup([t_atom('protected'),
+			       t_atom('private'),
+			       t_atom('public')])])]),
   [t_tab(), t_sup(Opt, t_list(Opt))];
 arg_types(ets, update_counter, 3) ->
   Int = t_integer(),
@@ -4859,6 +4865,9 @@ t_ets_info_items() ->
 	 t_atom('owner'),
 	 t_atom('protection'),
 	 t_atom('size'),
+	 t_atom('compressed'),
+	 t_atom('heir'),
+	 t_atom('stats'),
 	 t_atom('type')]).
 
 %% =====================================================================
