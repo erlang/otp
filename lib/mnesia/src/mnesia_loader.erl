@@ -57,7 +57,7 @@ disc_load_table(Tab, Reason) ->
 do_get_disc_copy2(Tab, _Reason, Storage, _Type) when Storage == unknown ->
     verbose("Local table copy of ~p has recently been deleted, ignored.~n",
 	    [Tab]),
-    {loaded, ok};  %% ?
+    {not_loaded, storage_unknown};
 do_get_disc_copy2(Tab, Reason, Storage, Type) when Storage == disc_copies ->
     %% NOW we create the actual table
     Repair = mnesia_monitor:get_env(auto_repair),
