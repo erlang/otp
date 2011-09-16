@@ -36,7 +36,7 @@
 -export([make_all_suites_index/1,make_all_runs_index/1]).
 
 %% Logging stuff directly from testcase
--export([tc_log/3,tc_print/3,tc_pal/3,
+-export([tc_log/3,tc_print/3,tc_pal/3,ct_log/3,
 	 basic_html/0]).
 
 %% Simulate logger process for use without ct environment running
@@ -360,6 +360,23 @@ tc_pal(Category,Format,Args) ->
     ok.
 
 
+%%%-----------------------------------------------------------------
+%%% @spec tc_pal(Category,Format,Args) -> ok
+%%%      Category = atom()
+%%%      Format = string()
+%%%      Args = list()
+%%%
+%%% @doc Print and log to the ct framework log
+%%%
+%%% <p>This function is called by internal ct functions to
+%%% force logging to the ct framework log</p>
+ct_log(Category,Format,Args) ->
+    cast({ct_log,[{div_header(Category),[]},
+		  {Format,Args},
+		  {div_footer(),[]}]}),
+    ok.
+
+
 %%%=================================================================
 %%% Internal functions
 int_header() ->
@@ -516,7 +533,12 @@ logger_loop(State) ->
 	{clear_stylesheet,_} when State#logger_state.stylesheet == undefined ->
 	    logger_loop(State);
 	{clear_stylesheet,_} ->
-	    logger_loop(State#logger_state{stylesheet=undefined});	   
+	    logger_loop(State#logger_state{stylesheet=undefined});
+	{ct_log, List} ->
+	    Fd = State#logger_state.ct_log_fd,
+	    [begin io:format(Fd,Str,Args),io:nl(Fd) end ||
+				{Str,Args} <- List],
+	    logger_loop(State);
 	stop ->
 	    io:format(State#logger_state.ct_log_fd,
 		      int_header()++int_footer(),
