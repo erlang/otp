@@ -1778,7 +1778,8 @@ format_reply(binary, _, N, Data) when N > 0 ->  % Header mode
 format_reply(binary, _, _, Data) ->  
     Data;
 format_reply(list, Packet, _, Data)
-  when Packet == http; Packet == {http, headers};  Packet == http_bin; Packet == {http_bin, headers} ->
+  when Packet == http; Packet == {http, headers};  Packet == http_bin; Packet == {http_bin, headers}; Packet == httph;
+       Packet == httph_bin->
     Data;
 format_reply(list, _,_, Data) ->
     binary_to_list(Data).
@@ -2090,7 +2091,9 @@ set_socket_opts(Socket, [{packet, Packet}| Opts], SockOpts, Other) when Packet =
 									Packet == tpkt;
 									Packet == line;
 									Packet == http;
-									Packet == http_bin ->
+									Packet == httph;
+									Packet == http_bin;
+									Packet == httph_bin ->
     set_socket_opts(Socket, Opts, 
 		    SockOpts#socket_options{packet = Packet}, Other);
 set_socket_opts(_, [{packet, _} = Opt| _], SockOpts, _) ->
