@@ -819,6 +819,14 @@ t_delete_all_objects(Config) when is_list(Config) ->
     repeat_for_opts(t_delete_all_objects_do),
     ?line verify_etsmem(EtsMem).
 
+get_kept_objects(T) ->
+    case ets:info(T,stats) of
+	false ->
+	    0;
+	{_,_,_,_,_,_,KO}  ->
+	    KO
+    end.
+
 t_delete_all_objects_do(Opts) ->
     ?line T=ets_new(x,Opts),
     ?line filltabint(T,4000),
@@ -828,10 +836,10 @@ t_delete_all_objects_do(Opts) ->
     ?line true = ets:delete_all_objects(T),
     ?line '$end_of_table' = ets:next(T,O),
     ?line 0 = ets:info(T,size),
-    ?line 4000 = ets:info(T,kept_objects),
+    ?line 4000 = get_kept_objects(T),
     ?line ets:safe_fixtable(T,false),
     ?line 0 = ets:info(T,size),
-    ?line 0 = ets:info(T,kept_objects),
+    ?line 0 = get_kept_objects(T),
     ?line filltabint(T,4000),
     ?line 4000 = ets:info(T,size),
     ?line true = ets:delete_all_objects(T),
@@ -861,10 +869,10 @@ t_delete_object_do(Opts) ->
     ?line ets:delete_object(T,{First, integer_to_list(First)}),
     ?line Next = ets:next(T,First),
     ?line 3999 = ets:info(T,size),
-    ?line 1 = ets:info(T,kept_objects),
+    ?line 1 = get_kept_objects(T),
     ?line ets:safe_fixtable(T,false),
     ?line 3999 = ets:info(T,size),
-    ?line 0 = ets:info(T,kept_objects),
+    ?line 0 = get_kept_objects(T),
     ?line ets:delete(T),
     ?line T1 = ets_new(x,[ordered_set | Opts]),
     ?line filltabint(T1,4000),
@@ -4971,7 +4979,7 @@ grow_pseudo_deleted_do(Type) ->
 				     [true]}]),
     Left = Mult*(Mod-1),
     ?line Left = ets:info(T,size),
-    ?line Mult = ets:info(T,kept_objects),
+    ?line Mult = get_kept_objects(T),
     filltabstr(T,Mult),
     spawn_opt(fun()-> ?line true = ets:info(T,fixed),
 		       Self ! start,
@@ -4985,7 +4993,7 @@ grow_pseudo_deleted_do(Type) ->
     ?line true = ets:safe_fixtable(T,false),
     io:format("Unfix table done. ~p nitems=~p\n",[now(),ets:info(T,size)]),
     ?line false = ets:info(T,fixed),
-    ?line 0 = ets:info(T,kept_objects),
+    ?line 0 = get_kept_objects(T),
     ?line done = receive_any(),
     %%verify_table_load(T), % may fail if concurrency is poor (genny)
     ets:delete(T),
@@ -5012,7 +5020,7 @@ shrink_pseudo_deleted_do(Type) ->
 				     [{'>', '$1', Half}],
 				     [true]}]),    
     ?line Half = ets:info(T,size),
-    ?line Half = ets:info(T,kept_objects),
+    ?line Half = get_kept_objects(T),
     spawn_opt(fun()-> ?line true = ets:info(T,fixed),
 		      Self ! start,
 		      io:format("Starting to delete... ~p\n",[now()]),
@@ -5025,7 +5033,7 @@ shrink_pseudo_deleted_do(Type) ->
     ?line true = ets:safe_fixtable(T,false),
     io:format("Unfix table done. ~p nitems=~p\n",[now(),ets:info(T,size)]),
     ?line false = ets:info(T,fixed),
-    ?line 0 = ets:info(T,kept_objects),
+    ?line 0 = get_kept_objects(T),
     ?line done = receive_any(),
     %%verify_table_load(T), % may fail if concurrency is poor (genny)
     ets:delete(T),
@@ -5141,7 +5149,7 @@ smp_fixed_delete_do() ->
     ?line 0 = ets:info(T,size),
     ?line true = ets:info(T,fixed),
     ?line Buckets = num_of_buckets(T),
-    ?line NumOfObjs = ets:info(T,kept_objects),
+    ?line NumOfObjs = get_kept_objects(T),
     ets:safe_fixtable(T,false),
     %% Will fail as unfix does not shrink the table:
     %%?line Mem = ets:info(T,memory),
@@ -5173,7 +5181,7 @@ smp_unfix_fix_do() ->
     Left = NumOfObjs - Deleted,
     ?line Left = ets:info(T,size),
     ?line true = ets:info(T,fixed),
-    ?line Deleted = ets:info(T,kept_objects),
+    ?line Deleted = get_kept_objects(T),
     
     {Child, Mref} = 
 	spawn_opt(fun()-> ?line true = ets:info(T,fixed),
@@ -5190,7 +5198,7 @@ smp_unfix_fix_do() ->
 				       end,
 				       Deleted),
 			  ?line 0 = ets:info(T,size),
-			  ?line true = ets:info(T,kept_objects) >= Left,		      
+			  ?line true = get_kept_objects(T) >= Left,		      
 			  ?line done = receive_any()
 		  end, 
 		  [link, monitor, {scheduler,2}]),
@@ -5203,7 +5211,7 @@ smp_unfix_fix_do() ->
     Child ! done,
     {'DOWN', Mref, process, Child, normal} = receive_any(),
     ?line false = ets:info(T,fixed),
-    ?line 0 = ets:info(T,kept_objects),
+    ?line 0 = get_kept_objects(T),
     %%verify_table_load(T),
     ets:delete(T),
     process_flag(scheduler,0).
@@ -5241,7 +5249,7 @@ otp_8166_do(WC) ->
     ZombieCrPid ! quit,    
     {'DOWN', ZombieCrMref, process, ZombieCrPid, normal} = receive_any(),
     ?line false = ets:info(T,fixed),
-    ?line 0 = ets:info(T,kept_objects),
+    ?line 0 = get_kept_objects(T),
     %%verify_table_load(T),
     ets:delete(T),
     process_flag(scheduler,0).
@@ -5308,7 +5316,7 @@ otp_8166_zombie_creator(T,Deleted) ->
 
 verify_table_load(T) ->
     ?line Stats = ets:info(T,stats),
-    ?line {Buckets,AvgLen,StdDev,ExpSD,_MinLen,_MaxLen} = Stats,
+    ?line {Buckets,AvgLen,StdDev,ExpSD,_MinLen,_MaxLen,_} = Stats,
     ?line ok = if
 		   AvgLen > 7 ->
 		       io:format("Table overloaded: Stats=~p\n~p\n",
@@ -5920,7 +5928,7 @@ very_big_num(0, Result) ->
     ?line Result.
 
 make_port() ->
-    ?line open_port({spawn, efile}, [eof]).
+    ?line open_port({spawn, "efile"}, [eof]).
 
 make_pid() ->
     ?line spawn_link(?MODULE, sleeper, []).
