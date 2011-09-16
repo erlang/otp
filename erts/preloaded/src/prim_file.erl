@@ -374,7 +374,7 @@ read(#file_descriptor{module = ?MODULE, data = {Port, _}}, Size)
 		    {ok, Data};
 		{error, enomem} ->
 		    %% Garbage collecting here might help if
-		    %% the current processes has some old binaries left.
+		    %% the current processes have some old binaries left.
 		    erlang:garbage_collect(),
 		    case drv_command(Port, <<?FILE_READ, Size:64>>) of
 			{ok, {0, _Data}} when Size =/= 0 ->
@@ -940,7 +940,7 @@ drv_get_response(Port) ->
 
 
 
-%% Converts a list of mode atoms into an mode word for the driver.
+%% Converts a list of mode atoms into a mode word for the driver.
 %% Returns {Mode, Portopts, Setopts} where Portopts is a list of 
 %% options for erlang:open_port/2 and Setopts is a list of 
 %% setopt commands to send to the port, or error Reason upon failure.

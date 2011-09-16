@@ -396,7 +396,7 @@ handle_timeout(State = #state{loader = inet}, Parent) ->
     inet_timeout_handler(State, Parent).
 
 %%% --------------------------------------------------------
-%%% Functions which handles efile as prim_loader (default).
+%%% Functions which handle efile as prim_loader (default).
 %%% --------------------------------------------------------
 
 %%% Reading many files in parallel is an optimization. 
@@ -523,7 +523,7 @@ efile_timeout_handler(#state{n_timeouts = N} = State, _Parent) ->
     end.
 
 %%% --------------------------------------------------------
-%%% Functions which handles inet prim_loader
+%%% Functions which handle inet prim_loader
 %%% --------------------------------------------------------
 
 %%

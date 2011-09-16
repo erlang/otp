@@ -21,7 +21,7 @@
 
 -module(prim_zip).
 
-%% unzipping piecemal
+%% unzipping piecemeal
 -export([
 	 open/1,
 	 open/3,

@@ -345,7 +345,7 @@ notify(Pids) ->
     lists:foreach(fun(Pid) -> Pid ! {init,started} end, Pids).
 
 %% Garbage collect all info about initially loaded modules.
-%% This information is temporary stored until the code_server
+%% This information is temporarily stored until the code_server
 %% is started.
 %% We force the garbage collection as the init process holds
 %% this information during the initialisation of the system and
