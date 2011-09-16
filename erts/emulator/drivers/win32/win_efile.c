@@ -127,6 +127,8 @@ static int errno_map(DWORD last_error) {
 	return EBUSY;
     case ERROR_NO_PROC_SLOTS:
 	return EAGAIN;
+    case ERROR_CANT_RESOLVE_FILENAME:
+	return EMLINK;
     case ERROR_ARENA_TRASHED:
     case ERROR_INVALID_BLOCK:
     case ERROR_BAD_ENVIRONMENT:
@@ -1405,7 +1407,7 @@ efile_readlink(Efile_error* errInfo, char* name, char* buffer, size_t size)
 	    DWORD fileAttributes =  GetFileAttributesW(wname);
 	    if ((fileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)) {
 		BOOLEAN success = 0;
-		HANDLE h = CreateFileW(wname, GENERIC_READ, 0,NULL, OPEN_EXISTING, 0, NULL);
+		HANDLE h = CreateFileW(wname, GENERIC_READ, 0,NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
 		int len;
 		if(h != INVALID_HANDLE_VALUE) {
 		    success = pGetFinalPathNameByHandle(h, wbuffer, size,0);
@@ -1421,7 +1423,7 @@ efile_readlink(Efile_error* errInfo, char* name, char* buffer, size_t size)
 			if (*wbuffer == L'\\')
 			    *wbuffer = L'/';
 		    CloseHandle(h);
-		}
+		} 
 		FreeLibrary(hModule);
 		if (success) {
 		    return 1;
