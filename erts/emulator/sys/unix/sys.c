@@ -3087,9 +3087,9 @@ get_value(char* rest, char** argv, int* ip)
 void
 erl_sys_args(int* argc, char** argv)
 {
-    erts_smp_rwmtx_init(&environ_rwmtx, "environ");
-
     int i, j;
+
+    erts_smp_rwmtx_init(&environ_rwmtx, "environ");
 
     i = 1;
 
