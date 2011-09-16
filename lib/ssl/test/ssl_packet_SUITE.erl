@@ -151,6 +151,9 @@ all() ->
      packet_cdr_decode, packet_cdr_decode_list,
      packet_http_decode, packet_http_decode_list,
      packet_http_bin_decode_multi, packet_http_error_passive,
+     packet_httph_active, packet_httph_bin_active,
+     packet_httph_active_once, packet_httph_bin_active_once,
+     packet_httph_passive, packet_httph_bin_passive,
      packet_line_decode, packet_line_decode_list,
      packet_asn1_decode, packet_asn1_decode_list,
      packet_tpkt_decode, packet_tpkt_decode_list,
@@ -1594,7 +1597,7 @@ client_http_decode(Socket, HttpRequest) ->
 %%--------------------------------------------------------------------
 packet_http_decode_list(doc) ->
     ["Test setting the packet option {packet, http}, {mode, list}"
-     "(Body will be litst too)"];
+     "(Body will be list too)"];
 packet_http_decode_list(suite) ->
     [];
 packet_http_decode_list(Config) when is_list(Config) ->
@@ -1804,7 +1807,304 @@ server_http_decode_error(Socket, HttpResponse) ->
     assert_packet_opt(Socket, http),
     ok = ssl:send(Socket, HttpResponse),
     ok.
+%%--------------------------------------------------------------------
+packet_httph_active(doc) ->
+    ["Test setting the packet option {packet, httph}"];
+packet_httph_active(suite) ->
+    [];
+packet_httph_active(Config) when is_list(Config) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
+    Trailer = "Content-Encoding: gzip\r\n"
+	"\r\n",
+
+    Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
+					{from, self()},
+					{mfa, {?MODULE, server_send_trailer,
+					       [Trailer]}},
+					{options, [{active, true}, binary |
+						   ServerOpts]}]),
+
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {?MODULE, client_http_decode_trailer_active,
+					       []}},
+					{options, [{active, true},
+						   {packet, httph},
+						   list |
+						   ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+
+server_send_trailer(Socket, Trailer)->
+    ssl:send(Socket, Trailer),
+    ok.
+
+client_http_decode_trailer_active(Socket) ->
+    receive
+	{ssl, Socket,
+	 {http_header,36,'Content-Encoding',undefined,"gzip"}} ->
+	    ok;
+	Other1 ->
+	    exit({?LINE, Other1})
+    end,
+    receive
+	{ssl, Socket, http_eoh}  ->
+	    ok;
+	Other2 ->
+	    exit({?LINE, Other2})
+    end,
+    ok.
+
+%%--------------------------------------------------------------------
+packet_httph_bin_active(doc) ->
+    ["Test setting the packet option {packet, httph_bin}"];
+packet_httph_bin_active(suite) ->
+    [];
+packet_httph_bin_active(Config) when is_list(Config) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Trailer = "Content-Encoding: gzip\r\n"
+	"\r\n",
+
+    Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
+					{from, self()},
+					{mfa, {?MODULE, server_send_trailer,
+					       [Trailer]}},
+					{options, [{active, true}, binary |
+						   ServerOpts]}]),
+
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {?MODULE, client_http_decode_trailer_bin_active,
+					       []}},
+					{options, [{active, true},
+						   {packet, httph_bin},
+						   list |
+						   ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+client_http_decode_trailer_bin_active(Socket) ->
+    receive
+	{ssl, Socket,
+	 {http_header,36,'Content-Encoding',undefined, <<"gzip">>}} ->
+	    ok;
+	Other1 ->
+	    exit({?LINE, Other1})
+    end,
+    receive
+	{ssl, Socket, http_eoh}  ->
+	    ok;
+	Other2 ->
+	    exit({?LINE, Other2})
+    end,
+    ok.
+%%--------------------------------------------------------------------
+packet_httph_active_once(doc) ->
+    ["Test setting the packet option {packet, httph}"];
+packet_httph_active_once(suite) ->
+    [];
+packet_httph_active_once(Config) when is_list(Config) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Trailer = "Content-Encoding: gzip\r\n"
+	"\r\n",
+
+    Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
+					{from, self()},
+					{mfa, {?MODULE, server_send_trailer,
+					       [Trailer]}},
+					{options, [{active, true}, binary |
+						   ServerOpts]}]),
+
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {?MODULE, client_http_decode_trailer_active_once,
+					       []}},
+					{options, [{active, false},
+						   {packet, httph},
+						   list |
+						   ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+
+client_http_decode_trailer_active_once(Socket) ->
+    ssl:setopts(Socket, [{active, once}]),
+    receive
+	{ssl, Socket,
+	 {http_header,36,'Content-Encoding',undefined,"gzip"}} ->
+	    ok;
+	Other1 ->
+	    exit({?LINE, Other1})
+    end,
+    ssl:setopts(Socket, [{active, once}]),
+    receive
+	{ssl, Socket, http_eoh}  ->
+	    ok;
+	Other2 ->
+	    exit({?LINE, Other2})
+    end,
+    ok.
+%%--------------------------------------------------------------------
+packet_httph_bin_active_once(doc) ->
+    ["Test setting the packet option {packet, httph_bin}"];
+packet_httph_bin_active_once(suite) ->
+    [];
+packet_httph_bin_active_once(Config) when is_list(Config) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Trailer = "Content-Encoding: gzip\r\n"
+	"\r\n",
+
+    Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
+					{from, self()},
+					{mfa, {?MODULE, server_send_trailer,
+					       [Trailer]}},
+					{options, [{active, true}, binary |
+						   ServerOpts]}]),
+
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {?MODULE, client_http_decode_trailer_bin_active_once,
+					       []}},
+					{options, [{active, false},
+						   {packet, httph_bin},
+						   list |
+						   ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+client_http_decode_trailer_bin_active_once(Socket) ->
+    ssl:setopts(Socket, [{active, once}]),
+    receive
+	{ssl, Socket,
+	 {http_header,36,'Content-Encoding',undefined, <<"gzip">>}} ->
+	    ok;
+	Other1 ->
+	    exit({?LINE, Other1})
+    end,
+    ssl:setopts(Socket, [{active, once}]),
+    receive
+	{ssl, Socket, http_eoh}  ->
+	    ok;
+	Other2 ->
+	    exit({?LINE, Other2})
+    end,
+    ok.
+
+%%--------------------------------------------------------------------
+
+packet_httph_passive(doc) ->
+    ["Test setting the packet option {packet, httph}"];
+packet_httph_passive(suite) ->
+    [];
+packet_httph_passive(Config) when is_list(Config) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Trailer = "Content-Encoding: gzip\r\n"
+	"\r\n",
+
+    Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
+					{from, self()},
+					{mfa, {?MODULE, server_send_trailer,
+					       [Trailer]}},
+					{options, [{active, true}, binary |
+						   ServerOpts]}]),
+
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {?MODULE, client_http_decode_trailer_passive,
+					       []}},
+					{options, [{active, false},
+						   {packet, httph},
+						   list |
+						   ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+client_http_decode_trailer_passive(Socket) ->
+    {ok,{http_header,36,'Content-Encoding',undefined,"gzip"}} = ssl:recv(Socket, 0),
+    {ok, http_eoh} = ssl:recv(Socket, 0),
+    ok.
+
+%%--------------------------------------------------------------------
+packet_httph_bin_passive(doc) ->
+    ["Test setting the packet option {packet, httph_bin}"];
+packet_httph_bin_passive(suite) ->
+    [];
+packet_httph_bin_passive(Config) when is_list(Config) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Trailer = "Content-Encoding: gzip\r\n"
+	"\r\n",
+
+    Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
+					{from, self()},
+					{mfa, {?MODULE, server_send_trailer,
+					       [Trailer]}},
+					{options, [{active, true}, binary |
+						   ServerOpts]}]),
+
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {?MODULE, client_http_decode_trailer_bin_passive,
+					       []}},
+					{options, [{active, false},
+						   {packet, httph_bin},
+						   list |
+						   ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+client_http_decode_trailer_bin_passive(Socket) ->
+    {ok,{http_header,36,'Content-Encoding',undefined,<<"gzip">>}} = ssl:recv(Socket, 0),
+    {ok, http_eoh} = ssl:recv(Socket, 0),
+    ok.
 
 %%--------------------------------------------------------------------
 packet_line_decode(doc) ->
