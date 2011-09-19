@@ -25,12 +25,12 @@
 
 -export([suite/0,
          all/0,
+         groups/0,
          init_per_suite/1,
          end_per_suite/1]).
 
 %% testcases
--export([scramble/1,
-         add/1,
+-export([add/1,
          add_new/1,
          del/1,
          repl/1,
@@ -46,7 +46,10 @@ suite() ->
     [{timetrap, {seconds, 10}}].
 
 all() ->
-    [scramble | tc()].
+    [{group, all} | tc()].
+
+groups() ->
+    [{all, [parallel], tc()}].
 
 tc() ->
     [add,
@@ -64,9 +67,6 @@ end_per_suite(_Config) ->
     ok = diameter:stop().
 
 %% ===========================================================================
-
-scramble(Config) ->
-    [] = ?util:run(?util:scramble([{?MODULE, [F, Config]} || F <- tc()])).
 
 add(_) ->
     Ref = make_ref(),

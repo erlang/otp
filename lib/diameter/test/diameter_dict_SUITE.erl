@@ -24,11 +24,11 @@
 -module(diameter_dict_SUITE).
 
 -export([suite/0,
-         all/0]).
+         all/0,
+         groups/0]).
 
 %% testcases
--export([scramble/1,
-         append/1,
+-export([append/1,
          fetch/1,
          fetch_keys/1,
          filter/1,
@@ -51,7 +51,10 @@ suite() ->
     [{timetrap, {seconds, 10}}].
 
 all() ->
-    [scramble | tc()].
+    [{group, all} | tc()].
+
+groups() ->
+    [{all, [parallel], tc()}].
 
 tc() ->
     [append,
@@ -67,9 +70,6 @@ tc() ->
      update_counter].
 
 %% ===========================================================================
-
-scramble(Config) ->
-    [] = ?util:run(?util:scramble([{?MODULE, [F, Config]} || F <- tc()])).
 
 -define(KV100, [{N,[N]} || N <- lists:seq(1,100)]).
 

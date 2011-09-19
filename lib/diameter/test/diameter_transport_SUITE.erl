@@ -26,12 +26,12 @@
 
 -export([suite/0,
          all/0,
+         groups/0,
          init_per_suite/1,
          end_per_suite/1]).
 
 %% testcases
--export([scramble/1,
-         tcp_accept/1,
+-export([tcp_accept/1,
          tcp_connect/1,
          sctp_accept/1,
          sctp_connect/1]).
@@ -99,7 +99,10 @@ suite() ->
     [{timetrap, {minutes, 2}}].
 
 all() ->
-    [scramble | tc()].
+    [{group, all} | tc()].
+
+groups() ->
+    [{all, [parallel], tc()}].
 
 tc() ->
     [tcp_accept,
@@ -113,12 +116,6 @@ init_per_suite(Config) ->
 
 end_per_suite(_Config) ->
     ok = diameter:stop().
-
-%% ===========================================================================
-%% scramble/1
-
-scramble(Config) ->
-    [] = ?util:run(?util:scramble([{?MODULE, [F, Config]} || F <- tc()])).
 
 %% ===========================================================================
 %% tcp_accept/1
