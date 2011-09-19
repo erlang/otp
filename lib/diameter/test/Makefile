@@ -67,7 +67,7 @@ SOURCE = $(HRL_FILES) $(ERL_FILES)
 
 TARGET_FILES = $(MODULES:%=%.$(EMULATOR))
 
-APP_CASES   = app appup
+APP_CASES   = app
 
 TRANSPORT_CASES = tcp
 
@@ -229,9 +229,6 @@ help:
 	@echo "    app"
 	@echo "      Run the $(APPLICATION) application sub-test-suite. "
 	@echo ""
-	@echo "    appup"
-	@echo "      Run the $(APPLICATION) application upgrade (appup) sub-test-suite. "
-	@echo ""
 	@echo "    compiler"
 	@echo "      Run the $(APPLICATION) compiler sub-test-suite(s). "
 	@echo ""
@@ -241,9 +238,6 @@ help:
 	@echo ""
 	@echo "    sync"
 	@echo "      Run the $(APPLICATION) sync sub-test-suite. "
-	@echo ""
-	@echo "    session"
-	@echo "      Run the $(APPLICATION) session sub-test-suite. "
 	@echo ""
 	@echo "    stats"
 	@echo "      Run the $(APPLICATION) stats sub-test-suite. "
@@ -309,14 +303,14 @@ log:
 
 # This assumes GNU sed to exit 1 if the output looks to indicate failure.
 # diameter_ct:run/1 itself can't tell (it seems).
-app codec: log make
+app codec dict: log make
 	$(MERL) $(ARGS) \
 	        -sname diameter_test_$@ \
 	        -s diameter_ct run $@ \
 	        -s init stop \
 	| sed '/ FAILED /h; p; $$!d; x; /./!d; Q 1'
 
-appup compiler conf sync session stats reg peer tcp: make
+compiler conf sync stats reg peer tcp: make
 	$(MERL) $(ARGS) -sname diameter_$@ $(ERL_PATH) \
             -s $(DIAMETER_TEST_SERVER) t diameter_$@_test \
             $(ESTOP)

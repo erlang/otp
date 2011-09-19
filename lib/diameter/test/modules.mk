@@ -28,12 +28,12 @@ MODULES = \
 	diameter_codec_SUITE \
 	diameter_codec_test \
 	diameter_app_SUITE \
+	diameter_dict_SUITE \
 	\
 	diameter_compiler_test \
 	diameter_config_test \
 	diameter_peer_test \
 	diameter_reg_test \
-	diameter_session_test \
 	diameter_stats_test \
 	diameter_sync_test \
 	diameter_tcp_test \
