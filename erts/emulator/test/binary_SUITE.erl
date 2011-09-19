@@ -478,6 +478,11 @@ terms(Config) when is_list(Config) ->
 			  Sz when is_integer(Sz), size(Bin) =< Sz ->
 			      ok
 		      end,
+              Bin1 = term_to_binary(Term, [{minor_version, 1}]),
+              case erlang:external_size(Bin1, [{minor_version, 1}]) of
+              Sz1 when is_integer(Sz1), size(Bin1) =< Sz1 ->
+                  ok
+              end,
 		      Term = binary_to_term(Bin),
 		      Term = binary_to_term(Bin, [safe]),
 		      Unaligned = make_unaligned_sub_binary(Bin),
@@ -510,7 +515,12 @@ terms_float(Config) when is_list(Config) ->
 			      Term = binary_to_term(Bin0),
 			      Bin1 = term_to_binary(Term, [{minor_version,1}]),
 			      Term = binary_to_term(Bin1),
-			      true = size(Bin1) < size(Bin0)
+			      true = size(Bin1) < size(Bin0),
+                  Size0 = erlang:external_size(Term),
+                  Size00 = erlang:external_size(Term, [{minor_version, 0}]),
+                  Size1 = erlang:external_size(Term, [{minor_version, 1}]),
+                  true = (Size0 =:= Size00),
+                  true = Size1 < Size0
 		      end).
 
 external_size(Config) when is_list(Config) ->
@@ -526,7 +536,9 @@ external_size(Config) when is_list(Config) ->
 	    io:format("  Aligned size: ~p\n", [Sz1]),
 	    io:format("Unaligned size: ~p\n", [Sz2]),
 	    ?line ?t:fail()
-    end.
+    end,
+    ?line erlang:external_size(Bin) =:= erlang:external_size(Bin, [{minor_version, 1}]),
+    ?line erlang:external_size(Unaligned) =:= erlang:external_size(Unaligned, [{minor_version, 1}]).
 
 external_size_1(Term, Size0, Limit) when Size0 < Limit ->
     case erlang:external_size(Term) of

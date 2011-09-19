@@ -396,6 +396,7 @@ src_tests_script(Config) when is_list(Config) ->
     ?line PSAVE = code:get_path(),		% Save path
 
     ?line {LatestDir, LatestName} = create_script(latest,Config),
+    ?line BootFile = LatestName ++ ".boot",
 
     ?line DataDir = filename:absname(?copydir),
     ?line LibDir = fname([DataDir, d_missing_src, lib]),
@@ -416,13 +417,31 @@ src_tests_script(Config) when is_list(Config) ->
     ?line Erl2 = filename:join([P1,"..","src","db2.erl"]),
     ?line file:delete(Erl2),
 
-    %% Then make script - two warnings should be issued when
-    %% src_tests is given
+    %% Then make script
+
+    %% .boot file should not exist
+    ?line ok = file:delete(BootFile),
+    ?line false = filelib:is_regular(BootFile),
+    %% With warnings_as_errors and src_tests option, an error should be issued
+    ?line error =
+	systools:make_script(LatestName, [silent, {path, N}, src_tests,
+					  warnings_as_errors]),
+    ?line error =
+	systools:make_script(LatestName, [{path, N}, src_tests,
+					  warnings_as_errors]),
+
+    %% due to warnings_as_errors .boot file should still not exist
+    ?line false = filelib:is_regular(BootFile),
+
+    %% Two warnings should be issued when src_tests is given
     %% 1. old object code for db1.beam
     %% 2. missing source code for db2.beam
     ?line {ok, _, [{warning,{obj_out_of_date,_}},
 		   {warning,{source_not_found,_}}]} =
 	systools:make_script(LatestName, [silent, {path, N}, src_tests]),
+
+    %% .boot file should exist now
+    ?line true = filelib:is_regular(BootFile),
 
     %% Without the src_tests option, no warning should be issued
     ?line {ok, _, []} =
@@ -1150,6 +1169,21 @@ normal_relup(Config) when is_list(Config) ->
 			    [{path, P}, silent]),
     ?line ok = check_relup([{db, "2.1"}], [{db, "1.0"}]),
 
+    %% file should not be written if warnings_as_errors is enabled.
+    %% delete before running tests.
+    ?line ok = file:delete("relup"),
+
+    %% Check that warnings are treated as errors
+    ?line error =
+	systools:make_relup(LatestName, [LatestName2], [LatestName1],
+			    [{path, P}, warnings_as_errors]),
+    ?line error =
+	systools:make_relup(LatestName, [LatestName2], [LatestName1],
+			    [{path, P}, silent, warnings_as_errors]),
+
+    %% relup file should not exist
+    ?line false = filelib:is_regular("relup"),
+
     %% Check that warnings get through
     ?line ok = systools:make_relup(LatestName, [LatestName2], [LatestName1],
 				   [{path, P}]),
@@ -1158,6 +1192,9 @@ normal_relup(Config) when is_list(Config) ->
 	systools:make_relup(LatestName, [LatestName2], [LatestName1],
 			    [{path, P}, silent]),
     ?line ok = check_relup([{fe, "3.1"}, {db, "2.1"}], [{db, "1.0"}]),
+
+    %% relup file should exist now
+    ?line true = filelib:is_regular("relup"),
 
     ?line ok = file:set_cwd(OldDir),
     ok.

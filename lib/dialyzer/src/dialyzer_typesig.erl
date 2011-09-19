@@ -62,7 +62,8 @@
 -type dep()      :: integer().  %% type variable names used as constraint ids
 -type type_var() :: erl_types:erl_type(). %% actually: {'c','var',_,_}
 
--record(fun_var, {'fun' :: fun((_) -> erl_types:erl_type()), deps :: [dep()]}).
+-record(fun_var, {'fun' :: fun((_) -> erl_types:erl_type()), deps :: [dep()],
+		  origin :: integer()}).
 
 -type constr_op()    :: 'eq' | 'sub'.
 -type fvar_or_type() :: #fun_var{} | erl_types:erl_type().
@@ -121,8 +122,10 @@
 
 -ifdef(DEBUG).
 -define(debug(__String, __Args), io:format(__String, __Args)).
+-define(mk_fun_var(Fun, Vars), mk_fun_var(?LINE, Fun, Vars)).
 -else.
 -define(debug(__String, __Args), ok).
+-define(mk_fun_var(Fun, Vars), mk_fun_var(Fun, Vars)).
 -endif.
 
 %% ============================================================================
@@ -218,10 +221,10 @@ traverse(Tree, DefinedVars, State) ->
     binary ->
       {State1, SegTypes} = traverse_list(cerl:binary_segments(Tree),
 					 DefinedVars, State),
-      Type = mk_fun_var(fun(Map) ->
-			    TmpSegTypes = lookup_type_list(SegTypes, Map),
-			    t_bitstr_concat(TmpSegTypes)
-			end, SegTypes),
+      Type = ?mk_fun_var(fun(Map) ->
+			     TmpSegTypes = lookup_type_list(SegTypes, Map),
+			     t_bitstr_concat(TmpSegTypes)
+			 end, SegTypes),
       {state__store_conj(mk_var(Tree), sub, Type, State1), mk_var(Tree)};
     bitstr ->
       Size = cerl:bitstr_size(Tree),
@@ -236,7 +239,7 @@ traverse(Tree, DefinedVars, State) ->
 	  N when is_integer(N) -> {State1, t_bitstr(0, N)};
 	  any -> % Size is not a literal
 	    {state__store_conj(SizeType, sub, t_non_neg_integer(), State1),
-	     mk_fun_var(bitstr_constr(SizeType, UnitVal), [SizeType])}
+	     ?mk_fun_var(bitstr_constr(SizeType, UnitVal), [SizeType])}
 	end,
       ValTypeConstr =
 	case cerl:concrete(cerl:bitstr_type(Tree)) of
@@ -250,8 +253,8 @@ traverse(Tree, DefinedVars, State) ->
 	    case state__is_in_match(State1) of
 	      true ->
 		Flags = cerl:concrete(cerl:bitstr_flags(Tree)),
-		mk_fun_var(bitstr_val_constr(SizeType, UnitVal, Flags),
-			   [SizeType]);
+		?mk_fun_var(bitstr_val_constr(SizeType, UnitVal, Flags),
+			    [SizeType]);
 	      false -> t_integer()
 	    end;
 	  utf8  -> t_integer();
@@ -281,24 +284,24 @@ traverse(Tree, DefinedVars, State) ->
 	  {State, t_cons(HdVar, TlVar)};
 	false ->
 	  ConsVar = mk_var(Tree),
-	  ConsType = mk_fun_var(fun(Map) ->
-				    t_cons(lookup_type(HdVar, Map),
-					   lookup_type(TlVar, Map))
-				end, [HdVar, TlVar]),
-	  HdType = mk_fun_var(fun(Map) ->
-				  Cons = lookup_type(ConsVar, Map),
-				  case t_is_cons(Cons) of
-				    false -> t_any();
-				    true -> t_cons_hd(Cons)
-				  end
-			      end, [ConsVar]),
-	  TlType = mk_fun_var(fun(Map) ->
-				  Cons = lookup_type(ConsVar, Map),
-				  case t_is_cons(Cons) of
-				    false -> t_any();
-				    true -> t_cons_tl(Cons)
-				  end
-			      end, [ConsVar]),
+	  ConsType = ?mk_fun_var(fun(Map) ->
+				     t_cons(lookup_type(HdVar, Map),
+					    lookup_type(TlVar, Map))
+				 end, [HdVar, TlVar]),
+	  HdType = ?mk_fun_var(fun(Map) ->
+				   Cons = lookup_type(ConsVar, Map),
+				   case t_is_cons(Cons) of
+				     false -> t_any();
+				     true -> t_cons_hd(Cons)
+				   end
+			       end, [ConsVar]),
+	  TlType = ?mk_fun_var(fun(Map) ->
+				   Cons = lookup_type(ConsVar, Map),
+				   case t_is_cons(Cons) of
+				     false -> t_any();
+				     true -> t_cons_tl(Cons)
+				   end
+			       end, [ConsVar]),
 	  State2 = state__store_conj_lists([HdVar, TlVar, ConsVar], sub,
 					   [HdType, TlType, ConsType],
 					   State1),
@@ -656,25 +659,25 @@ get_plt_constr(MFA, Dst, ArgVars, State) ->
       {RetType, ArgCs} =
 	case PltRes of
 	  none ->
-	    {mk_fun_var(fun(Map) ->
-			    ArgTypes = lookup_type_list(ArgVars, Map),
-			    dialyzer_contracts:get_contract_return(C, ArgTypes)
-			end, ArgVars), GenArgs};
+	    {?mk_fun_var(fun(Map) ->
+			     ArgTypes = lookup_type_list(ArgVars, Map),
+			     dialyzer_contracts:get_contract_return(C, ArgTypes)
+			 end, ArgVars), GenArgs};
 	  {value, {PltRetType, PltArgTypes}} ->
 	    %% Need to combine the contract with the success typing.
-	    {mk_fun_var(
-	       fun(Map) ->
-		   ArgTypes0 = lookup_type_list(ArgVars, Map),
-		   ArgTypes = case FunModule =:= Module of
-				false ->
-				  List = lists:zip(PltArgTypes, ArgTypes0),
-				  [erl_types:t_unopaque_on_mismatch(T1, T2, Opaques)
-				   || {T1, T2} <- List];
-				true -> ArgTypes0
-			      end,
-		   CRet = dialyzer_contracts:get_contract_return(C, ArgTypes),
-		   t_inf(CRet, PltRetType, opaque)
-	       end, ArgVars),
+	    {?mk_fun_var(
+		fun(Map) ->
+		    ArgTypes0 = lookup_type_list(ArgVars, Map),
+		    ArgTypes = case FunModule =:= Module of
+				 false ->
+				   List = lists:zip(PltArgTypes, ArgTypes0),
+				   [erl_types:t_unopaque_on_mismatch(T1, T2, Opaques)
+				    || {T1, T2} <- List];
+				 true -> ArgTypes0
+			       end,
+		    CRet = dialyzer_contracts:get_contract_return(C, ArgTypes),
+		    t_inf(CRet, PltRetType, opaque)
+		end, ArgVars),
 	     [t_inf(X, Y, opaque) || {X, Y} <- lists:zip(GenArgs, PltArgTypes)]}
 	end,
       state__store_conj_lists([Dst|ArgVars], sub, [RetType|ArgCs], State)
@@ -766,10 +769,10 @@ handle_clauses_1([Clause|Tail], TopVar, Arg, DefinedVars,
 	  case SubtrTypes =:= overflow of
 	    true -> S;
 	    false ->
-	      SubtrPatVar = mk_fun_var(fun(Map) ->
-					   TmpType = lookup_type(Arg, Map),
-					   t_subtract_list(TmpType, SubtrTypes)
-				       end, [Arg]),
+	      SubtrPatVar = ?mk_fun_var(fun(Map) ->
+					    TmpType = lookup_type(Arg, Map),
+					    t_subtract_list(TmpType, SubtrTypes)
+					end, [Arg]),
 	      state__store_conj(Arg, sub, SubtrPatVar, S)
 	  end
       end,
@@ -1043,10 +1046,10 @@ handle_guard(Guard, DefinedVars, State) ->
 
 get_bif_constr({erlang, Op, 2}, Dst, Args = [Arg1, Arg2], _State)
   when Op =:= '+'; Op =:= '-'; Op =:= '*' ->
-  ReturnType = mk_fun_var(fun(Map) ->
-			      TmpArgTypes = lookup_type_list(Args, Map),
-			      erl_bif_types:type(erlang, Op, 2, TmpArgTypes)
-			  end, Args),
+  ReturnType = ?mk_fun_var(fun(Map) ->
+			       TmpArgTypes = lookup_type_list(Args, Map),
+			       erl_bif_types:type(erlang, Op, 2, TmpArgTypes)
+			   end, Args),
   ArgFun =
     fun(A, Pos) ->
 	F =
@@ -1074,7 +1077,7 @@ get_bif_constr({erlang, Op, 2}, Dst, Args = [Arg1, Arg2], _State)
 		  end
 	      end
 	  end,
-	mk_fun_var(F, [Dst, A])
+	?mk_fun_var(F, [Dst, A])
     end,
   Arg1FunVar = ArgFun(Arg2, 2),
   Arg2FunVar = ArgFun(Arg1, 1),
@@ -1131,12 +1134,12 @@ get_bif_constr({erlang, Op, 2}, Dst, [Arg1, Arg2] = Args, _State)
       '>=' -> {ArgFun(Arg1, Arg2, '>='), ArgFun(Arg2, Arg1, '=<')}
     end,
   DstArgs = [Dst, Arg1, Arg2],
-  Arg1Var = mk_fun_var(Arg1Fun, DstArgs),
-  Arg2Var = mk_fun_var(Arg2Fun, DstArgs),
-  DstVar = mk_fun_var(fun(Map) ->
-			  TmpArgTypes = lookup_type_list(Args, Map),
-			  erl_bif_types:type(erlang, Op, 2, TmpArgTypes)
-		      end, Args),
+  Arg1Var = ?mk_fun_var(Arg1Fun, DstArgs),
+  Arg2Var = ?mk_fun_var(Arg2Fun, DstArgs),
+  DstVar = ?mk_fun_var(fun(Map) ->
+			   TmpArgTypes = lookup_type_list(Args, Map),
+			   erl_bif_types:type(erlang, Op, 2, TmpArgTypes)
+		       end, Args),
   mk_conj_constraint_list([mk_constraint(Dst, sub, DstVar),
 			   mk_constraint(Arg1, sub, Arg1Var),
 			   mk_constraint(Arg2, sub, Arg2Var)]);
@@ -1172,13 +1175,13 @@ get_bif_constr({erlang, '++', 2}, Dst, [Hd, Tl] = Args, _State) ->
 	      end
 	  end,
   DstL = [Dst],
-  HdVar = mk_fun_var(HdFun, DstL),
-  TlVar = mk_fun_var(TlFun, DstL),
+  HdVar = ?mk_fun_var(HdFun, DstL),
+  TlVar = ?mk_fun_var(TlFun, DstL),
   ArgTypes = erl_bif_types:arg_types(erlang, '++', 2),
-  ReturnType = mk_fun_var(fun(Map) ->
-			      TmpArgTypes = lookup_type_list(Args, Map),
-			      erl_bif_types:type(erlang, '++', 2, TmpArgTypes)
-			  end, Args),
+  ReturnType = ?mk_fun_var(fun(Map) ->
+			       TmpArgTypes = lookup_type_list(Args, Map),
+			       erl_bif_types:type(erlang, '++', 2, TmpArgTypes)
+			   end, Args),
   Cs = mk_constraints(Args, sub, ArgTypes),
   mk_conj_constraint_list([mk_constraint(Dst, sub, ReturnType),
 			   mk_constraint(Hd, sub, HdVar),
@@ -1209,7 +1212,7 @@ get_bif_constr({erlang, is_function, 2}, Dst, [Fun, Arity], _State) ->
 		 false -> t_any()
 	       end
 	   end,
-  ArgV = mk_fun_var(ArgFun, [Dst, Arity]),
+  ArgV = ?mk_fun_var(ArgFun, [Dst, Arity]),
   mk_conj_constraint_list([mk_constraint(Dst, sub, t_boolean()),
 			   mk_constraint(Arity, sub, t_integer()),
 			   mk_constraint(Fun, sub, ArgV)]);
@@ -1232,12 +1235,12 @@ get_bif_constr({erlang, is_record, 2}, Dst, [Var, Tag] = Args, _State) ->
 		 false -> t_any()
 	       end
 	   end,
-  ArgV = mk_fun_var(ArgFun, [Dst]),
+  ArgV = ?mk_fun_var(ArgFun, [Dst]),
   DstFun = fun(Map) ->
 	       TmpArgTypes = lookup_type_list(Args, Map),
 	       erl_bif_types:type(erlang, is_record, 2, TmpArgTypes)
 	   end,
-  DstV = mk_fun_var(DstFun, Args),
+  DstV = ?mk_fun_var(DstFun, Args),
   mk_conj_constraint_list([mk_constraint(Dst, sub, DstV),
 			   mk_constraint(Tag, sub, t_atom()),
 			   mk_constraint(Var, sub, ArgV)]);
@@ -1280,7 +1283,7 @@ get_bif_constr({erlang, is_record, 3}, Dst, [Var, Tag, Arity] = Args, State) ->
 	  false -> t_any()
 	end
     end,
-  ArgV = mk_fun_var(ArgFun, [Tag, Arity, Dst]),
+  ArgV = ?mk_fun_var(ArgFun, [Tag, Arity, Dst]),
   DstFun = fun(Map) ->
 	       [TmpVar, TmpTag, TmpArity] = TmpArgTypes = lookup_type_list(Args, Map),
 	       TmpArgTypes2 =
@@ -1314,7 +1317,7 @@ get_bif_constr({erlang, is_record, 3}, Dst, [Var, Tag, Arity] = Args, State) ->
 		 end,
 	       erl_bif_types:type(erlang, is_record, 3, TmpArgTypes2)
 	   end,
-  DstV = mk_fun_var(DstFun, Args),
+  DstV = ?mk_fun_var(DstFun, Args),
   mk_conj_constraint_list([mk_constraint(Dst, sub, DstV),
 			   mk_constraint(Arity, sub, t_integer()),
 			   mk_constraint(Tag, sub, t_atom()),
@@ -1359,9 +1362,9 @@ get_bif_constr({erlang, 'and', 2}, Dst, [Arg1, Arg2] = Args, _State) ->
 		   end
 	       end
 	   end,
-  ArgV1 = mk_fun_var(ArgFun(Arg2), [Arg2, Dst]),
-  ArgV2 = mk_fun_var(ArgFun(Arg1), [Arg1, Dst]),
-  DstV = mk_fun_var(DstFun, Args),
+  ArgV1 = ?mk_fun_var(ArgFun(Arg2), [Arg2, Dst]),
+  ArgV2 = ?mk_fun_var(ArgFun(Arg1), [Arg1, Dst]),
+  DstV = ?mk_fun_var(DstFun, Args),
   mk_conj_constraint_list([mk_constraint(Dst, sub, DstV),
 			   mk_constraint(Arg1, sub, ArgV1),
 			   mk_constraint(Arg2, sub, ArgV2)]);
@@ -1403,9 +1406,9 @@ get_bif_constr({erlang, 'or', 2}, Dst, [Arg1, Arg2] = Args, _State) ->
 		   end
 	       end
 	   end,
-  ArgV1 = mk_fun_var(ArgFun(Arg2), [Arg2, Dst]),
-  ArgV2 = mk_fun_var(ArgFun(Arg1), [Arg1, Dst]),
-  DstV = mk_fun_var(DstFun, Args),
+  ArgV1 = ?mk_fun_var(ArgFun(Arg2), [Arg2, Dst]),
+  ArgV2 = ?mk_fun_var(ArgFun(Arg1), [Arg1, Dst]),
+  DstV = ?mk_fun_var(DstFun, Args),
   F = fun(A) ->
 	  try [mk_constraint(A, sub, True)]
 	  catch throw:error -> []
@@ -1433,8 +1436,8 @@ get_bif_constr({erlang, 'not', 1}, Dst, [Arg] = Args, _State) ->
 		end
 	    end
 	end,
-  ArgV = mk_fun_var(Fun(Dst), [Dst]),
-  DstV = mk_fun_var(Fun(Arg), Args),
+  ArgV = ?mk_fun_var(Fun(Dst), [Dst]),
+  DstV = ?mk_fun_var(Fun(Arg), Args),
   mk_conj_constraint_list([mk_constraint(Arg, sub, ArgV),
 			   mk_constraint(Dst, sub, DstV)]);
 get_bif_constr({erlang, '=:=', 2}, Dst, [Arg1, Arg2] = Args, _State) ->
@@ -1467,9 +1470,9 @@ get_bif_constr({erlang, '=:=', 2}, Dst, [Arg1, Arg2] = Args, _State) ->
 	       end
 	   end,
   DstArgs = [Dst, Arg1, Arg2],
-  ArgV1 = mk_fun_var(ArgFun(Arg1, Arg2), DstArgs),
-  ArgV2 = mk_fun_var(ArgFun(Arg2, Arg1), DstArgs),
-  DstV = mk_fun_var(DstFun, Args),
+  ArgV1 = ?mk_fun_var(ArgFun(Arg1, Arg2), DstArgs),
+  ArgV2 = ?mk_fun_var(ArgFun(Arg2, Arg1), DstArgs),
+  DstV = ?mk_fun_var(DstFun, Args),
   mk_conj_constraint_list([mk_constraint(Dst, sub, DstV),
 			   mk_constraint(Arg1, sub, ArgV1),
 			   mk_constraint(Arg2, sub, ArgV2)]);
@@ -1510,10 +1513,10 @@ get_bif_constr({erlang, '==', 2}, Dst, [Arg1, Arg2] = Args, _State) ->
 	    end
 	end
     end,
-  DstV = mk_fun_var(DstFun, Args),
+  DstV = ?mk_fun_var(DstFun, Args),
   ArgL = [Arg1, Arg2, Dst],
-  ArgV1 = mk_fun_var(ArgFun(Arg2, Arg1), ArgL),
-  ArgV2 = mk_fun_var(ArgFun(Arg1, Arg2), ArgL),
+  ArgV1 = ?mk_fun_var(ArgFun(Arg2, Arg1), ArgL),
+  ArgV2 = ?mk_fun_var(ArgFun(Arg1, Arg2), ArgL),
   mk_conj_constraint_list([mk_constraint(Dst, sub, DstV),
 			   mk_constraint(Arg1, sub, ArgV1),
 			   mk_constraint(Arg2, sub, ArgV2)]);
@@ -1531,7 +1534,7 @@ get_bif_constr({erlang, element, 2} = _BIF, Dst, Args,
 		       end,
 		erl_bif_types:type(erlang, element, 2, ATs2)
 	    end,
-      ReturnType = mk_fun_var(Fun, Args),
+      ReturnType = ?mk_fun_var(Fun, Args),
       ArgTypes = erl_bif_types:arg_types(erlang, element, 2),
       Cs = mk_constraints(Args, sub, ArgTypes),
       NewCs =
@@ -1553,7 +1556,7 @@ get_bif_constr({M, F, A} = _BIF, Dst, Args, State) ->
 		    false -> T
 		  end
 	end,
-      ReturnType = mk_fun_var(fun(Map) ->
+      ReturnType = ?mk_fun_var(fun(Map) ->
 				  TmpArgTypes0 = lookup_type_list(Args, Map),
 				  TmpArgTypes = [UnopaqueFun(T) || T<- TmpArgTypes0],
 				  erl_bif_types:type(M, F, A, TmpArgTypes)
@@ -1608,7 +1611,7 @@ get_bif_test_constr(Dst, Arg, Type, State) ->
 		 false -> t_any()
 	       end
 	   end,
-  ArgV = mk_fun_var(ArgFun, [Dst]),
+  ArgV = ?mk_fun_var(ArgFun, [Dst]),
   DstFun = fun(Map) ->
 	       ArgType = lookup_type(Arg, Map),
 	       case t_is_none(t_inf(ArgType, Type)) of
@@ -1633,7 +1636,7 @@ get_bif_test_constr(Dst, Arg, Type, State) ->
 		   end
 	       end
 	   end,
-  DstV = mk_fun_var(DstFun, [Arg]),
+  DstV = ?mk_fun_var(DstFun, [Arg]),
   mk_conj_constraint_list([mk_constraint(Dst, sub, DstV),
 			   mk_constraint(Arg, sub, ArgV)]).
 
@@ -2323,11 +2326,24 @@ mk_constraint(Lhs, Op, Rhs) ->
 constraint_opnd_is_any(#fun_var{}) -> false;
 constraint_opnd_is_any(Type) -> t_is_any(Type).
 
+-ifdef(DEBUG).
+
+-spec mk_fun_var(fun((_) -> erl_types:erl_type()), [erl_types:erl_type()],
+		    integer()) -> #fun_var{}.
+
+mk_fun_var(Line, Fun, Types) ->
+  Deps = [t_var_name(Var) || Var <- t_collect_vars(t_product(Types))],
+  #fun_var{'fun' = Fun, deps = ordsets:from_list(Deps), origin = Line}.
+
+-else.
+
 -spec mk_fun_var(fun((_) -> erl_types:erl_type()), [erl_types:erl_type()]) -> #fun_var{}.
 
 mk_fun_var(Fun, Types) ->
   Deps = [t_var_name(Var) || Var <- t_collect_vars(t_product(Types))],
   #fun_var{'fun' = Fun, deps = ordsets:from_list(Deps)}.
+
+-endif.
 
 -spec get_deps(constr()) -> [dep()].
 
@@ -2679,8 +2695,9 @@ find_constraint(Tuple, [_|Cs]) ->
 -endif.
 
 -ifdef(DEBUG).
-format_type(#fun_var{deps = Deps}) ->
-  io_lib:format("Fun(~s)", [lists:flatten([format_type(t_var(X))||X<-Deps])]);
+format_type(#fun_var{deps = Deps, origin = Origin}) ->
+  io_lib:format("Fun@L~p(~s)",
+		[Origin, lists:flatten([format_type(t_var(X))||X<-Deps])]);
 format_type(Type) ->
   case cerl:is_literal(Type) of
     true -> io_lib:format("~w", [cerl:concrete(Type)]);

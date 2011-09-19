@@ -17,13 +17,17 @@
  * %CopyrightEnd%
  */
 #include <string.h>
+#include <limits.h>
 #include "eidef.h"
 #include "eiext.h"
 #include "putget.h"
 
 int ei_encode_atom(char *buf, int *index, const char *p)
 {
-    return ei_encode_atom_len(buf, index, p, strlen(p));
+    size_t len = strlen(p);
+
+    if (len >= INT_MAX) return -1;
+    return ei_encode_atom_len(buf, index, p, len);
 }
 
 int ei_encode_atom_len(char *buf, int *index, const char *p, int len)

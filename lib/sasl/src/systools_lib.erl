@@ -24,7 +24,7 @@
 %%         
 
 -export([file_term2binary/2, read_term/1, read_term_from_stream/2,
-	 get_dirs/1, get_path/1]).
+	 get_dirs/1, get_path/1, werror/2]).
 
 -include_lib("kernel/include/file.hrl").
 
@@ -219,6 +219,7 @@ flat([H|T], Ack) ->
     flat(T, [H|Ack]);
 flat([], Ack) ->
     lists:reverse(Ack).
-    
-			       
+
+werror(Options, Warnings) ->
+    lists:member(warnings_as_errors, Options) andalso Warnings =/= [].
 

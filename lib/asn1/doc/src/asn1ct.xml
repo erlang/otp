@@ -53,7 +53,7 @@
         <v>Option = ber_bin | per_bin | uper_bin | der | compact_bit_string | 
 	noobj | {n2n,EnumTypeName} |{outdir,Dir} | {i,IncludeDir} | optimize | 
 	driver | asn1config | undec_rest | {inline,OutputName} | inline |
-	{macro_name_prefix, Prefix} | {record_name_prefix, Prefix} | verbose</v>
+	{macro_name_prefix, Prefix} | {record_name_prefix, Prefix} | verbose | warnings_as_errors</v>
         <v>OldOption = ber | per</v> 
         <v>Reason = term()</v>
         <v>Prefix = string()</v>
@@ -288,6 +288,10 @@ Binary = binary()
           <item>
             <p>Causes more verbose information from the compiler
               describing what it is doing.</p>
+          </item>
+          <tag><c>warnings_as_errors</c></tag>
+          <item>
+            <p>Causes warnings to be treated as errors.</p>
           </item>
         </taglist>
         <p>Any additional option that is applied will be passed to

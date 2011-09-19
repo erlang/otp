@@ -555,8 +555,14 @@ fe80::204:acff:fe17:bf38
                  mode will return <c>{ok, HttpPacket}</c> from <c>gen_tcp:recv</c>
                  while an active socket will send messages like <c>{http,
                  Socket, HttpPacket}</c>.</p>
-                 <p>Note that the packet type <c>httph</c> is not
-                 needed when reading from a socket.</p>   
+              </item>
+              <tag><c>httph | httph_bin</c></tag>
+              <item>
+                <p>These two types are often not needed as the socket will
+		automatically switch from <c>http</c>/<c>http_bin</c> to
+		<c>httph</c>/<c>httph_bin</c> internally after the first line
+		has been read. There might be occasions however when they are
+		useful, such as parsing trailers from chunked encoding.</p>
               </item>
             </taglist>
           </item>

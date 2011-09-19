@@ -366,7 +366,7 @@ type(erlang, '>', 2, Xs = [Lhs, Rhs]) ->
 	  is_integer(LhsMax), is_integer(RhsMin), RhsMin >= LhsMax -> F;
 	  true -> t_boolean()
 	end;
-      false -> t_boolean()
+      false -> compare('>', Lhs, Rhs)
     end,
   strict(Xs, Ans);
 type(erlang, '>=', 2, Xs = [Lhs, Rhs]) ->
@@ -384,7 +384,7 @@ type(erlang, '>=', 2, Xs = [Lhs, Rhs]) ->
 	  is_integer(LhsMax), is_integer(RhsMin), RhsMin > LhsMax -> F;
 	  true -> t_boolean()
 	end;
-      false -> t_boolean()
+      false -> compare('>=', Lhs, Rhs)
     end,
   strict(Xs, Ans);
 type(erlang, '<', 2, Xs = [Lhs, Rhs]) ->
@@ -402,7 +402,7 @@ type(erlang, '<', 2, Xs = [Lhs, Rhs]) ->
 	  is_integer(LhsMin), is_integer(RhsMax), RhsMax =< LhsMin -> F;
 	  true -> t_boolean()
 	end;
-      false -> t_boolean()
+      false -> compare('<', Lhs, Rhs)
     end,
   strict(Xs, Ans);
 type(erlang, '=<', 2, Xs = [Lhs, Rhs]) ->
@@ -420,7 +420,7 @@ type(erlang, '=<', 2, Xs = [Lhs, Rhs]) ->
 	  is_integer(LhsMin), is_integer(RhsMax), RhsMax < LhsMin -> F;
 	  true -> t_boolean()
 	end;
-      false -> t_boolean()
+      false -> compare('=<', Lhs, Rhs)
     end,
   strict(Xs, Ans);
 type(erlang, '+', 1, Xs) ->
@@ -739,6 +739,7 @@ type(erlang, element, 2, Xs) ->
 type(erlang, erase, 0, _) -> t_any();
 type(erlang, erase, 1, _) -> t_any();
 type(erlang, external_size, 1, _) -> t_integer();
+type(erlang, external_size, 2, _) -> t_integer();
 type(erlang, finish_after_on_load, 2, Xs) ->
   %% Internal BIF used by on_load.
   strict(arg_types(erlang, finish_after_on_load, 2), Xs,
@@ -1202,6 +1203,7 @@ type(erlang, process_flag, 2, Xs) ->
 		 case t_atom_vals(Flag) of
 		   ['error_handler'] -> t_atom();
 		   ['min_heap_size'] -> t_non_neg_integer();
+		   ['scheduler'] -> t_non_neg_integer();
 		   ['monitor_nodes'] -> t_boolean();
 		   ['priority'] -> t_process_priority_level();
 		   ['save_calls'] -> t_non_neg_integer();
@@ -1902,7 +1904,7 @@ type(prim_file, internal_native2name, 1, Xs) ->
 	 fun (_) -> t_prim_file_name() end);
 type(prim_file, internal_normalize_utf8, 1, Xs) ->
   strict(arg_types(prim_file, internal_normalize_utf8, 1), Xs,  
-	 fun (_) -> t_binary() end);
+	 fun (_) -> t_unicode_string() end);
 %%-- gen_tcp ------------------------------------------------------------------
 %% NOTE: All type information for this module added to avoid loss of precision
 type(gen_tcp, accept, 1, Xs) ->
@@ -3178,6 +3180,50 @@ arith(Op, X1, X2) ->
   end.
 
 %%=============================================================================
+%% Comparison of terms
+%%=============================================================================
+
+compare(Op, Lhs, Rhs) ->
+  case t_is_none(t_inf(Lhs, Rhs)) of
+    false -> t_boolean();
+    true ->
+      case Op of
+	'<' -> always_smaller(Lhs, Rhs);
+	'>' -> always_smaller(Rhs, Lhs);
+	'=<' -> always_smaller(Lhs, Rhs);
+	'>=' -> always_smaller(Rhs, Lhs)
+      end
+  end.
+
+always_smaller(Type1, Type2) ->
+  {Min1, Max1} = type_ranks(Type1),
+  {Min2, Max2} = type_ranks(Type2),
+  if Max1 < Min2 -> t_atom('true');
+     Min1 > Max2 -> t_atom('false');
+     true        -> t_boolean()
+  end.
+
+type_ranks(Type) ->
+  type_ranks(Type, 1, 0, 0, type_order()).
+
+type_ranks(_Type, _I, Min, Max, []) -> {Min, Max};
+type_ranks(Type, I, Min, Max, [TypeClass|Rest]) ->
+  {NewMin, NewMax} =
+    case t_is_none(t_inf(Type, TypeClass)) of
+      true  -> {Min, Max};
+      false -> case Min of
+		 0 -> {I, I};
+		 _ -> {Min, I}
+	       end
+    end,
+  type_ranks(Type, I+1, NewMin, NewMax, Rest).
+
+type_order() ->
+  [t_number(), t_atom(), t_reference(), t_fun(), t_port(), t_pid(), t_tuple(),
+   t_list(), t_binary()].
+
+
+%%=============================================================================
 
 -spec arg_types(atom(), atom(), arity()) -> [erl_types:erl_type()] | 'unknown'.
 
@@ -3446,6 +3492,8 @@ arg_types(erlang, exit, 2) ->
   [t_sup(t_pid(), t_port()), t_any()];
 arg_types(erlang, external_size, 1) ->
   [t_any()]; % takes any term as input
+arg_types(erlang, external_size, 2) ->
+  [t_any(), t_list()]; % takes any term as input and a list of options
 arg_types(erlang, finish_after_on_load, 2) ->
   [t_atom(), t_boolean()];
 arg_types(erlang, float, 1) ->
@@ -3700,6 +3748,7 @@ arg_types(erlang, process_display, 2) ->
 arg_types(erlang, process_flag, 2) ->
   [t_sup([t_atom('trap_exit'), t_atom('error_handler'),
 	  t_atom('min_heap_size'), t_atom('priority'), t_atom('save_calls'),
+	  t_atom('scheduler'),                             % undocumented
 	  t_atom('monitor_nodes'), 			  % undocumented
 	  t_tuple([t_atom('monitor_nodes'), t_list()])]), % undocumented
    t_sup([t_boolean(), t_atom(), t_non_neg_integer()])];
@@ -3738,7 +3787,7 @@ arg_types(erlang, send, 3) ->
 arg_types(erlang, send_after, 3) ->
   [t_non_neg_integer(), t_sup(t_pid(), t_atom()), t_any()];
 arg_types(erlang, seq_trace, 2) ->
-  [t_atom(), t_sup([t_boolean(), t_tuple([t_fixnum(), t_fixnum()]), t_nil()])];
+  [t_atom(), t_sup([t_boolean(), t_tuple([t_fixnum(), t_fixnum()]), t_fixnum(), t_nil()])];
 arg_types(erlang, seq_trace_info, 1) ->
   [t_seq_trace_info()];
 arg_types(erlang, seq_trace_print, 1) ->
@@ -3987,7 +4036,7 @@ arg_types(ets, match_object, 3) ->
 arg_types(ets, match_spec_compile, 1) ->
   [t_matchspecs()];
 arg_types(ets, match_spec_run_r, 3) ->
-  [t_matchspecs(), t_any(), t_list()];
+  [t_list(t_tuple()),t_matchspecs(), t_list()];
 arg_types(ets, member, 2) ->
   [t_tab(), t_any()];
 arg_types(ets, new, 2) ->
@@ -4019,8 +4068,12 @@ arg_types(ets, select_reverse, 3) ->
 arg_types(ets, slot, 2) ->
   [t_tab(), t_non_neg_fixnum()]; % 2nd arg can be 0
 arg_types(ets, setopts, 2) ->
-  Opt = t_sup(t_tuple([t_atom('heir'), t_pid(), t_any()]),
-	      t_tuple([t_atom('heir'), t_atom('none')])),
+  Opt = t_sup([t_tuple([t_atom('heir'), t_pid(), t_any()]),
+	       t_tuple([t_atom('heir'), t_atom('none')]),
+	       t_tuple([t_atom('protection'),
+			t_sup([t_atom('protected'),
+			       t_atom('private'),
+			       t_atom('public')])])]),
   [t_tab(), t_sup(Opt, t_list(Opt))];
 arg_types(ets, update_counter, 3) ->
   Int = t_integer(),
@@ -4812,6 +4865,9 @@ t_ets_info_items() ->
 	 t_atom('owner'),
 	 t_atom('protection'),
 	 t_atom('size'),
+	 t_atom('compressed'),
+	 t_atom('heir'),
+	 t_atom('stats'),
 	 t_atom('type')]).
 
 %% =====================================================================

@@ -415,6 +415,13 @@ rand_uniform(From,To) when is_binary(From), is_binary(To) ->
 	    Whatever
     end;
 rand_uniform(From,To) when is_integer(From),is_integer(To) ->
+    if From < 0 -> 
+	    rand_uniform_pos(0, To - From) + From;
+       true ->
+	    rand_uniform_pos(From, To)
+    end.
+
+rand_uniform_pos(From,To) when From < To ->
     BinFrom = mpint(From),
     BinTo = mpint(To),
     case rand_uniform(BinFrom, BinTo) of
@@ -422,7 +429,9 @@ rand_uniform(From,To) when is_integer(From),is_integer(To) ->
             erlint(Result);
         Other ->
             Other
-    end.
+    end;
+rand_uniform_pos(_,_) ->
+    error(badarg).
 
 rand_uniform_nif(_From,_To) -> ?nif_stub.     
 

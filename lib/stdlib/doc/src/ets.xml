@@ -513,6 +513,9 @@ Error: fun containing local Erlang function calls
               the table has been fixed by the process.</p>
             <p>If the table never has been fixed, the call returns
               <c>false</c>.</p>
+          <item><c>Item=stats, Value=tuple()</c>          <br></br>
+	  Returns internal statistics about set, bag and duplicate_bag tables on an internal format used by OTP test suites.
+	  Not for production use.</item>
           </item>
         </list>
       </desc>

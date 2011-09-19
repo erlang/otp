@@ -571,8 +571,9 @@ erts_mtx_destroy(erts_mtx_t *mtx)
 		"Most likely a bug in pthread implementation.";
 	    erts_send_warning_to_logger_str_nogl(warn);
 	}
+	else
 #endif
-	erts_thr_fatal_error(res, "destroy mutex");
+	    erts_thr_fatal_error(res, "destroy mutex");
     }
 #endif
 }
@@ -675,8 +676,9 @@ erts_cnd_destroy(erts_cnd_t *cnd)
 		"Most likely a bug in pthread implementation.";
 	    erts_send_warning_to_logger_str_nogl(warn);
 	}
+	else
 #endif
-	erts_thr_fatal_error(res, "destroy condition variable");
+	    erts_thr_fatal_error(res, "destroy condition variable");
     }
 #endif
 }
@@ -810,8 +812,9 @@ erts_rwmtx_destroy(erts_rwmtx_t *rwmtx)
 		"Most likely a bug in pthread implementation.";
 	    erts_send_warning_to_logger_str_nogl(warn);
 	}
+	else
 #endif
-	erts_thr_fatal_error(res, "destroy rwmutex");
+	    erts_thr_fatal_error(res, "destroy rwmutex");
     }
 #endif
 }
@@ -1496,8 +1499,9 @@ erts_spinlock_destroy(erts_spinlock_t *lock)
 		"Most likely a bug in pthread implementation.";
 	    erts_send_warning_to_logger_str_nogl(warn);
 	}
+	else
 #endif
-	erts_thr_fatal_error(res, "destroy rwlock");
+	    erts_thr_fatal_error(res, "destroy rwlock");
     }
 #else
     (void)lock;
@@ -1614,8 +1618,9 @@ erts_rwlock_destroy(erts_rwlock_t *lock)
 		"Most likely a bug in pthread implementation.";
 	    erts_send_warning_to_logger_str_nogl(warn);
 	}
+	else
 #endif
-	erts_thr_fatal_error(res, "destroy rwlock");
+	    erts_thr_fatal_error(res, "destroy rwlock");
     }
 #else
     (void)lock;

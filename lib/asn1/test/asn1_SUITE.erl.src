@@ -2236,8 +2236,10 @@ test_compile_options(Config) ->
     	  ?line ok = test_compile_options:path(Config),
     	  ?line ok = test_compile_options:noobj(Config),
 	  ?line ok = test_compile_options:record_name_prefix(Config),
-	  ?line ok = test_compile_options:verbose(Config)
+	  ?line ok = test_compile_options:verbose(Config),
+	  ?line ok = test_compile_options:warnings_as_errors(Config)
     end.
+
 testDoubleEllipses(suite) ->  [];
 testDoubleEllipses(Config) ->
     ?line testDoubleEllipses:compile(Config,?BER,[]),

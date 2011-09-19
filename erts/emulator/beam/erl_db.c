@@ -3658,9 +3658,6 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
 	    ret = am_true;
 	else
 	    ret = am_false;
-    } else if (What == am_atom_put("kept_objects",12)) {
-	ret = make_small(IS_HASH_TABLE(tb->common.status)
-			 ? db_kept_items_hash(&tb->hash) : 0);
     } else if (What == am_atom_put("safe_fixed",10)) {
 #ifdef ERTS_SMP
 	erts_smp_mtx_lock(&tb->common.fixlock);
@@ -3702,7 +3699,7 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
 	    Eterm* hp;
 
 	    db_calc_stats_hash(&tb->hash, &stats);
-	    hp = HAlloc(p, 1 + 6 + FLOAT_SIZE_OBJECT*3);
+	    hp = HAlloc(p, 1 + 7 + FLOAT_SIZE_OBJECT*3);
 	    f.fd = stats.avg_chain_len;
 	    avg = make_float(hp);
 	    PUT_DOUBLE(f, hp);
@@ -3717,10 +3714,11 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
 	    std_dev_exp = make_float(hp);
 	    PUT_DOUBLE(f, hp);
 	    hp += FLOAT_SIZE_OBJECT;
-	    ret = TUPLE6(hp, make_small(erts_smp_atomic_read(&tb->hash.nactive)),
+	    ret = TUPLE7(hp, make_small(erts_smp_atomic_read(&tb->hash.nactive)),
 			 avg, std_dev_real, std_dev_exp,
 			 make_small(stats.min_chain_len),
-			 make_small(stats.max_chain_len));
+			 make_small(stats.max_chain_len),
+			 make_small(db_kept_items_hash(&tb->hash)));
 	}
 	else {
 	    ret = am_false;

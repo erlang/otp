@@ -214,7 +214,12 @@ insert_rec(Rec, InPlace, InitBy, LogV) when is_record(Rec, commit) ->
 	{Tid, committed} ->
 	    do_insert_rec(Tid, Rec, InPlace, InitBy, LogV);
 	{Tid, aborted} ->
-	    mnesia_schema:undo_prepare_commit(Tid, Rec)
+	    case InitBy of
+		startup ->
+		    mnesia_schema:undo_prepare_commit(Tid, Rec);
+		_ ->
+		    ok
+	    end
     end;
 insert_rec(H, _InPlace, _InitBy, _LogV) when is_record(H, log_header) ->
     CurrentVersion = mnesia_log:version(),

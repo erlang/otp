@@ -113,7 +113,7 @@ noenv_forms(Forms, Opt) when is_atom(Opt) ->
 
 noenv_output_generated(Opts) ->
     {_,Passes} = passes(file, expand_opts(Opts)),
-    any(fun ({save_binary,_F}) -> true;
+    any(fun ({save_binary,_T,_F}) -> true;
 	    (_Other) -> false
 	end, Passes).
 
@@ -122,6 +122,7 @@ noenv_output_generated(Opts) ->
 %%
 
 -define(pass(P), {P,fun P/1}).
+-define(pass(P,T), {P,fun T/1,fun P/1}).
 
 env_default_opts() ->
     Key = "ERL_COMPILER_OPTIONS",
@@ -304,7 +305,7 @@ run_tc({Name,Fun}, St) ->
     Val.
 
 comp_ret_ok(#compile{code=Code,warnings=Warn0,module=Mod,options=Opts}=St) ->
-    case member(warnings_as_errors, Opts) andalso length(Warn0) > 0 of
+    case werror(St) of
         true ->
             case member(report_warnings, Opts) of
                 true ->
@@ -338,6 +339,11 @@ comp_ret_err(#compile{warnings=Warn0,errors=Err0,options=Opts}=St) ->
 	true -> {error,Err,Warn};
 	false -> error
     end.
+
+not_werror(St) -> not werror(St).
+
+werror(#compile{options=Opts,warnings=Ws}) ->
+    Ws =/= [] andalso member(warnings_as_errors, Opts).
 
 %% messages_per_file([{File,[Message]}]) -> [{File,[Message]}]
 messages_per_file(Ms) ->
@@ -373,7 +379,7 @@ passes(Type, Opts) ->
     %% insert a first pass to remove the file (unless the
     %% source file is a BEAM file).
     {Ext,case last(Passes) of
-	     {save_binary,_Fun} ->
+	     {save_binary,_TestFun,_Fun} ->
 		 case Passes of
 		     [{read_beam_file,_}|_] ->
 			 %% The BEAM is both input and output.
@@ -655,7 +661,7 @@ asm_passes() ->
 
 binary_passes() ->
     [{native_compile,fun test_native/1,fun native_compile/1},
-     {unless,binary,?pass(save_binary)}].
+     {unless,binary,?pass(save_binary,not_werror)}].
 
 %%%
 %%% Compiler passes.
@@ -1379,28 +1385,34 @@ report_errors(#compile{options=Opts,errors=Errors}) ->
     end.
 
 report_warnings(#compile{options=Opts,warnings=Ws0}) ->
-    case member(report_warnings, Opts) of
+    Werror = member(warnings_as_errors, Opts),
+    P = case Werror of
+	    true -> "";
+	    false -> "Warning: "
+	end,
+    ReportWerror = Werror andalso member(report_errors, Opts),
+    case member(report_warnings, Opts) orelse ReportWerror of
 	true ->
-	    Ws1 = flatmap(fun({{F,_L},Eds}) -> format_message(F, Eds);
-			     ({F,Eds}) -> format_message(F, Eds) end,
+	    Ws1 = flatmap(fun({{F,_L},Eds}) -> format_message(F, P, Eds);
+			     ({F,Eds}) -> format_message(F, P, Eds) end,
 			  Ws0),
 	    Ws = lists:sort(Ws1),
 	    foreach(fun({_,Str}) -> io:put_chars(Str) end, Ws);
 	false -> ok
     end.
 
-format_message(F, [{{Line,Column}=Loc,Mod,E}|Es]) ->
-    M = {{F,Loc},io_lib:format("~s:~w:~w Warning: ~s\n",
-                                [F,Line,Column,Mod:format_error(E)])},
-    [M|format_message(F, Es)];
-format_message(F, [{Line,Mod,E}|Es]) ->
-    M = {{F,{Line,0}},io_lib:format("~s:~w: Warning: ~s\n",
-                                [F,Line,Mod:format_error(E)])},
-    [M|format_message(F, Es)];
-format_message(F, [{Mod,E}|Es]) ->
-    M = {none,io_lib:format("~s: Warning: ~s\n", [F,Mod:format_error(E)])},
-    [M|format_message(F, Es)];
-format_message(_, []) -> [].
+format_message(F, P, [{{Line,Column}=Loc,Mod,E}|Es]) ->
+    M = {{F,Loc},io_lib:format("~s:~w:~w ~s~s\n",
+                                [F,Line,Column,P,Mod:format_error(E)])},
+    [M|format_message(F, P, Es)];
+format_message(F, P, [{Line,Mod,E}|Es]) ->
+    M = {{F,{Line,0}},io_lib:format("~s:~w: ~s~s\n",
+                                [F,Line,P,Mod:format_error(E)])},
+    [M|format_message(F, P, Es)];
+format_message(F, P, [{Mod,E}|Es]) ->
+    M = {none,io_lib:format("~s: ~s~s\n", [F,P,Mod:format_error(E)])},
+    [M|format_message(F, P, Es)];
+format_message(_, _, []) -> [].
 
 %% list_errors(File, ErrorDescriptors) -> ok
 

@@ -527,7 +527,6 @@ erts_sys_pre_init(void)
 void
 erl_sys_init(void)
 {
-    erts_smp_rwmtx_init(&environ_rwmtx, "environ");
 #if !DISABLE_VFORK
  {
     int res;
@@ -3090,6 +3089,8 @@ erl_sys_args(int* argc, char** argv)
 {
     int i, j;
 
+    erts_smp_rwmtx_init(&environ_rwmtx, "environ");
+
     i = 1;
 
     ASSERT(argc && argv);
@@ -3151,4 +3152,5 @@ erl_sys_args(int* argc, char** argv)
 	    argv[j++] = argv[i];
     }
     *argc = j;
+
 }
