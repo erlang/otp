@@ -25,12 +25,12 @@
   xmlns:exsl="http://exslt.org/common"
   extension-element-prefixes="exsl">
 
-  <xsl:preserve-space elements="code pre"/>
+  <xsl:preserve-space elements="code pre p"/>
   <xsl:strip-space elements="*"/>
   <xsl:output method="text" encoding="UTF-8" indent="no"/>
 
   <!-- Start of Dialyzer type/spec tags. See also the templates
-        matching "name" and "seealso"
+        matching "name", "seealso" and "br"
   -->
 
   <!-- Note: specs data for *one* module (as opposed to html and pdf) -->
@@ -137,8 +137,8 @@
          (there is no spec with more than one clause) -->
     <xsl:if test="count($clause/guard) > 0 or count($type) > 0">
       <xsl:text>&#10;.RS</xsl:text>
-      <xsl:text>&#10;.TP</xsl:text>
-      <xsl:text>&#10;Types</xsl:text>
+      <xsl:text>&#10;.TP 3</xsl:text>
+      <xsl:text>&#10;Types:&#10;</xsl:text>
 
         <xsl:choose>
           <xsl:when test="$output_subtypes">
@@ -223,10 +223,13 @@
 
     <xsl:for-each select="$subtype">
       <xsl:variable name="tname" select="typename"/>
-      <xsl:text>&#10;</xsl:text>
-      <xsl:apply-templates select="string"/>
-      <xsl:text>&#10;.br</xsl:text>
-      <xsl:apply-templates select="$type_desc[@variable = $tname]"/>
+      <xsl:variable name="string" select="string"/>
+      <xsl:if test="string-length($string) > 0">
+	<xsl:text>&#10;</xsl:text>
+	<xsl:apply-templates select="$string"/>
+	<xsl:text>&#10;.br</xsl:text>
+	<xsl:apply-templates select="$type_desc[@variable = $tname]"/>
+      </xsl:if>
     </xsl:for-each>
   </xsl:template>
 
@@ -319,8 +322,7 @@
   </xsl:template>
 
   <xsl:template match="typehead">
-    <xsl:text>&#10;.nf&#10;</xsl:text>
-    <xsl:text>&#10;.B&#10;</xsl:text>
+    <xsl:text>&#10;.nf&#10;&#10;</xsl:text>
     <xsl:apply-templates/>
     <xsl:text>&#10;.br</xsl:text>
     <xsl:text>&#10;.fi</xsl:text>
@@ -343,6 +345,13 @@
     <xsl:text>&#10;</xsl:text>
     <xsl:apply-templates/>
     <xsl:text>&#10;.br</xsl:text>
+  </xsl:template>
+
+  <!-- The name of data types -->
+  <xsl:template match="marker">
+    <xsl:if test="string-length(.) != 0">
+      <xsl:text>\fB</xsl:text><xsl:apply-templates/><xsl:text>\fR\&amp;</xsl:text>
+    </xsl:if>
   </xsl:template>
 
   <!-- Used both in <datatype> and in <func>! -->
@@ -465,13 +474,13 @@
     <xsl:text>&#10;.TP 2&#10;</xsl:text>
     <xsl:text>*&#10;</xsl:text>
     <xsl:apply-templates/>
-    <xsl:text>&#10;.LP&#10;</xsl:text>
+    <xsl:text>&#10;.LP</xsl:text>
   </xsl:template>
 
   <xsl:template match="taglist">
     <xsl:text>&#10;.RS 2</xsl:text>
     <xsl:apply-templates select="tag|item"/>
-    <xsl:text>&#10;.RE&#10;</xsl:text>
+    <xsl:text>&#10;.RE</xsl:text>
   </xsl:template>
 
   <xsl:template match="taglist/tag">
@@ -494,7 +503,7 @@
       </xsl:when>
       <xsl:otherwise>
         <xsl:text>&#10;.RS 2</xsl:text>
-        <xsl:text>&#10;.LP&#10;&#10;.LP&#10;</xsl:text>
+        <xsl:text>&#10;.LP&#10;</xsl:text>
         <xsl:value-of select="$content"/>
         <xsl:text>&#10;.RE</xsl:text>
       </xsl:otherwise>
@@ -529,7 +538,16 @@
   </xsl:template>
 
   <xsl:template match="br">
-    <xsl:text>&#10;.br&#10;</xsl:text>
+    <xsl:choose>
+      <xsl:when test="ancestor::head">
+        <!-- The header of Dialyzer specs.
+             .B makes next line appear in bold face -->
+        <xsl:text>&#10;.B&#10;</xsl:text>
+      </xsl:when>
+      <xsl:otherwise>
+        <xsl:text>&#10;.br&#10;</xsl:text>
+      </xsl:otherwise>
+    </xsl:choose>
   </xsl:template>
 
   <xsl:template match="c">
@@ -547,17 +565,17 @@
   <!-- Code -->
   <xsl:template match="code">
     <xsl:text>&#10;.LP&#10;</xsl:text>
-    <xsl:text>&#10;.nf&#10;</xsl:text>
+    <xsl:text>.nf&#10;</xsl:text>
     <xsl:apply-templates/>
-    <xsl:text>&#10;.fi&#10;</xsl:text>
+    <xsl:text>&#10;.fi</xsl:text>
   </xsl:template>
 
   <!-- Pre -->
   <xsl:template match="pre">
     <xsl:text>&#10;.LP&#10;</xsl:text>
-    <xsl:text>&#10;.nf&#10;</xsl:text>
+    <xsl:text>.nf&#10;</xsl:text>
     <xsl:apply-templates/>
-    <xsl:text>&#10;.fi&#10;</xsl:text>
+    <xsl:text>&#10;.fi</xsl:text>
   </xsl:template>
 
 
@@ -715,8 +733,8 @@
     <!-- The case where @name != 0 is taken care of in "type_name" -->
     <xsl:if test="string-length(@name) = 0 and string-length(@variable) = 0">
       <xsl:text>&#10;.RS</xsl:text>
-      <xsl:text>&#10;.TP</xsl:text>
-      <xsl:text>&#10;Types</xsl:text>
+      <xsl:text>&#10;.TP 3</xsl:text>
+      <xsl:text>&#10;Types:&#10;</xsl:text>
       <xsl:apply-templates/>
       <xsl:text>&#10;.RE</xsl:text>
     </xsl:if>
@@ -788,7 +806,36 @@
   <!-- Replace ' by \&' ans . by \&. -->
   <xsl:template match="text()">
     <xsl:variable name="startstring">
-      <xsl:value-of select="normalize-space()"/><xsl:text> </xsl:text>
+      <xsl:value-of select="normalize-space()"/>
+    </xsl:variable>
+    <!-- 'C' is just any character but whitespace -->
+    <xsl:variable name="tmp" select="normalize-space(concat('C',.,'C'))"/>
+    <xsl:variable name="space_before">
+      <xsl:choose>
+         <!-- '<p>A<marker id="swamp"/> swamp</p>' does not work; instead:
+              '<p>A <marker id="swamp"/>swamp</p>' -->
+         <xsl:when test="starts-with($tmp, 'C ')
+                and not (string(preceding-sibling::*[position()=1]) = ''
+                         and parent::p)">
+           <!-- and not (position() = 1 and parent::p)"> -->
+           <xsl:text> </xsl:text>
+         </xsl:when>
+         <xsl:otherwise>
+           <xsl:text/>
+         </xsl:otherwise>
+      </xsl:choose>
+    </xsl:variable>
+    <xsl:variable name="space_after">
+      <xsl:choose>
+         <xsl:when test="substring($tmp, string-length($tmp)-1,1) = ' '
+                         and $startstring != ''
+                         and not (position() = last() and parent::p)">
+           <xsl:text> </xsl:text>
+         </xsl:when>
+         <xsl:otherwise>
+           <xsl:text/>
+         </xsl:otherwise>
+      </xsl:choose>
     </xsl:variable>
     <xsl:variable name="rep1">
       <xsl:call-template name="replace-string">
@@ -804,11 +851,16 @@
         <xsl:with-param name="with" select="&quot;\&amp;&apos;&quot;" />
       </xsl:call-template>
     </xsl:variable>
-    <xsl:call-template name="replace-string">
-      <xsl:with-param name="text" select="$rep2" />
-      <xsl:with-param name="replace" select="&quot;.&quot;" />
-      <xsl:with-param name="with" select="&quot;\&amp;.&quot;" />
-    </xsl:call-template>
+    <xsl:variable name="reply">
+      <xsl:call-template name="replace-string">
+        <xsl:with-param name="text" select="$rep2" />
+        <xsl:with-param name="replace" select="&quot;.&quot;" />
+        <xsl:with-param name="with" select="&quot;\&amp;.&quot;" />
+      </xsl:call-template>
+    </xsl:variable>
+    <xsl:value-of select="$space_before"/>
+    <xsl:value-of select="$reply"/>
+    <xsl:value-of select="$space_after"/>
   </xsl:template>
 
   <!-- Template replace-string is borrowed at http://www.dpawson.co.uk/xsl/sect2/replace.html -->
