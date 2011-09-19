@@ -119,7 +119,7 @@ start_client(Opts,Nodes) ->
 
 try_random(random,Low,High) ->
     random:uniform()*(High-Low)+Low;
-try_random(Float,_Low,_High) when number(Float) -> Float.
+try_random(Float,_Low,_High) when is_number(Float) -> Float.
     
 
 %%-----------------------------------------------------------------

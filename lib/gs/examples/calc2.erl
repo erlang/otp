@@ -54,7 +54,7 @@ calc() ->
 
 calc_loop(Lbl,M,V,Op) ->
     receive
-	{gs,_,click,D,_} when integer(D) -> 
+	{gs,_,click,D,_} when is_integer(D) -> 
 	    digit_press(Lbl,M,V*10+D,Op);
 	{gs,_,click,'C',_} -> 
 	    c(Lbl,M,V,Op);
