@@ -55,9 +55,10 @@
 -include("ftp_internal.hrl").
 
 %% Constante used in internal state definition
--define(CONNECTION_TIMEOUT, 60*1000).
--define(DEFAULT_MODE,       passive).
--define(PROGRESS_DEFAULT,   ignore).
+-define(CONNECTION_TIMEOUT,  60*1000).
+-define(DATA_ACCEPT_TIMEOUT, infinity).
+-define(DEFAULT_MODE,        passive).
+-define(PROGRESS_DEFAULT,    ignore).
 
 %% Internal Constants
 -define(FTP_PORT, 21).
@@ -88,7 +89,8 @@
 	  %% data needed further on.
 	  caller = undefined, % term()     
 	  ipfamily,     % inet | inet6 | inet6fb4
-	  progress = ignore   % ignore | pid()	    
+	  progress = ignore,   % ignore | pid()	    
+	  dtimeout = ?DATA_ACCEPT_TIMEOUT  % non_neg_integer() | infinity
 	 }).
 
 
@@ -847,6 +849,7 @@ start_options(Options) ->
 %%    host
 %%    port
 %%    timeout
+%%    dtimeout
 %%    progress
 open_options(Options) ->
     ?fcrt("open_options", [{options, Options}]), 
@@ -875,7 +878,12 @@ open_options(Options) ->
 	   (_) -> false
 	end,
     ValidateTimeout = 
-	fun(Timeout) when is_integer(Timeout) andalso (Timeout > 0) -> true;
+	fun(Timeout) when is_integer(Timeout) andalso (Timeout >= 0) -> true;
+	   (_) -> false
+	end,
+    ValidateDTimeout = 
+	fun(DTimeout) when is_integer(DTimeout) andalso (DTimeout >= 0) -> true;
+	   (infinity) -> true;
 	   (_) -> false
 	end,
     ValidateProgress = 
@@ -893,6 +901,7 @@ open_options(Options) ->
 	 {port,     ValidatePort,     false, ?FTP_PORT},
 	 {ipfamily, ValidateIpFamily, false, inet},
 	 {timeout,  ValidateTimeout,  false, ?CONNECTION_TIMEOUT}, 
+	 {dtimeout, ValidateDTimeout, false, ?DATA_ACCEPT_TIMEOUT}, 
 	 {progress, ValidateProgress, false, ?PROGRESS_DEFAULT}], 
     validate_options(Options, ValidOptions, []).
 
@@ -1037,13 +1046,15 @@ handle_call({_, {open, ip_comm, Opts}}, From, State) ->
 	    Mode     = key_search(mode,     Opts, ?DEFAULT_MODE),
 	    Port     = key_search(port,     Opts, ?FTP_PORT), 
 	    Timeout  = key_search(timeout,  Opts, ?CONNECTION_TIMEOUT),
+	    DTimeout = key_search(dtimeout, Opts, ?DATA_ACCEPT_TIMEOUT),
 	    Progress = key_search(progress, Opts, ignore),
 	    IpFamily = key_search(ipfamily, Opts, inet),
-	    
+
 	    State2 = State#state{client   = From, 
 				 mode     = Mode,
 				 progress = progress(Progress),
-				 ipfamily = IpFamily}, 
+				 ipfamily = IpFamily, 
+				 dtimeout = DTimeout}, 
 
 	    ?fcrd("handle_call(open) -> setup ctrl connection with", 
 		  [{host, Host}, {port, Port}, {timeout, Timeout}]), 
@@ -1064,11 +1075,13 @@ handle_call({_, {open, ip_comm, Host, Opts}}, From, State) ->
     Mode     = key_search(mode,     Opts, ?DEFAULT_MODE),
     Port     = key_search(port,     Opts, ?FTP_PORT), 
     Timeout  = key_search(timeout,  Opts, ?CONNECTION_TIMEOUT),
+    DTimeout = key_search(dtimeout, Opts, ?DATA_ACCEPT_TIMEOUT),
     Progress = key_search(progress, Opts, ignore),
     
     State2 = State#state{client   = From, 
 			 mode     = Mode,
-			 progress = progress(Progress)}, 
+			 progress = progress(Progress), 
+			 dtimeout = DTimeout}, 
 
     case setup_ctrl_connection(Host, Port, Timeout, State2) of
 	{ok, State3, WaitTimeout} ->
@@ -1657,9 +1670,19 @@ handle_ctrl_result({pos_compl, Lines},
 %%--------------------------------------------------------------------------
 %% Directory listing 
 handle_ctrl_result({pos_prel, _}, #state{caller = {dir, Dir}} = State) ->
-    NewState = accept_data_connection(State),
-    activate_data_connection(NewState),
-    {noreply, NewState#state{caller = {handle_dir_result, Dir}}};
+    case accept_data_connection(State) of
+	{ok, NewState} ->
+	    activate_data_connection(NewState),
+	    {noreply, NewState#state{caller = {handle_dir_result, Dir}}};
+	{error, _Reason} = ERROR ->
+	    case State#state.client of
+		undefined ->
+		    {stop, ERROR, State};
+		From ->
+		    gen_server:reply(From, ERROR),
+		    {stop, normal, State#state{client = undefined}}
+	    end
+    end;
 
 handle_ctrl_result({pos_compl, _}, #state{caller = {handle_dir_result, Dir,
 						    Data}, client = From} 
@@ -1756,9 +1779,19 @@ handle_ctrl_result({Status, _},
 %%--------------------------------------------------------------------------
 %% File handling - recv_bin
 handle_ctrl_result({pos_prel, _}, #state{caller = recv_bin} = State) ->
-    NewState = accept_data_connection(State),
-    activate_data_connection(NewState),
-    {noreply, NewState};
+    case accept_data_connection(State) of
+	{ok, NewState} ->
+	    activate_data_connection(NewState),
+	    {noreply, NewState};
+	{error, _Reason} = ERROR ->
+	    case State#state.client of
+		undefined ->
+		    {stop, ERROR, State};
+		From ->
+		    gen_server:reply(From, ERROR),
+		    {stop, normal, State#state{client = undefined}}
+	    end
+    end;
 
 handle_ctrl_result({pos_compl, _}, #state{caller = {recv_bin, Data},
 					  client = From} = State) ->
@@ -1780,16 +1813,37 @@ handle_ctrl_result({Status, _}, #state{caller = {recv_bin, _}} = State) ->
 handle_ctrl_result({pos_prel, _}, #state{client = From,
 					 caller = start_chunk_transfer}
 		   = State) ->
-    NewState = accept_data_connection(State),
-    gen_server:reply(From, ok),
-    {noreply, NewState#state{chunk = true, client = undefined,
-			     caller = undefined}};
+    case accept_data_connection(State) of
+	{ok, NewState} ->
+	    gen_server:reply(From, ok),
+	    {noreply, NewState#state{chunk = true, client = undefined,
+				     caller = undefined}};
+	{error, _Reason} = ERROR ->
+	    case State#state.client of
+		undefined ->
+		    {stop, ERROR, State};
+		From ->
+		    gen_server:reply(From, ERROR),
+		    {stop, normal, State#state{client = undefined}}
+	    end
+    end;
+
 %%--------------------------------------------------------------------------
 %% File handling - recv_file
 handle_ctrl_result({pos_prel, _}, #state{caller = {recv_file, _}} = State) ->
-    NewState = accept_data_connection(State),
-    activate_data_connection(NewState),
-    {noreply, NewState};
+    case accept_data_connection(State) of
+	{ok, NewState} ->
+	    activate_data_connection(NewState),
+	    {noreply, NewState};
+	{error, _Reason} = ERROR ->
+	    case State#state.client of
+		undefined ->
+		    {stop, ERROR, State};
+		From ->
+		    gen_server:reply(From, ERROR),
+		    {stop, normal, State#state{client = undefined}}
+	    end
+    end;
 
 handle_ctrl_result({Status, _}, #state{caller = {recv_file, Fd}} = State) ->
     file_close(Fd),
@@ -1800,17 +1854,38 @@ handle_ctrl_result({Status, _}, #state{caller = {recv_file, Fd}} = State) ->
 %% File handling - transfer_*
 handle_ctrl_result({pos_prel, _}, #state{caller = {transfer_file, Fd}} 
 		   = State) ->
-    NewState = accept_data_connection(State),
-    send_file(Fd, NewState); 
+    case accept_data_connection(State) of
+	{ok, NewState} ->
+	    send_file(Fd, NewState); 
+	{error, _Reason} = ERROR ->
+	    case State#state.client of
+		undefined ->
+		    {stop, ERROR, State};
+		From ->
+		    gen_server:reply(From, ERROR),
+		    {stop, normal, State#state{client = undefined}}
+	    end
+    end;
 
 handle_ctrl_result({pos_prel, _}, #state{caller = {transfer_data, Bin}} 
 		   = State) ->
-    NewState = accept_data_connection(State),
-    send_data_message(NewState, Bin),
-    close_data_connection(NewState),
-    activate_ctrl_connection(NewState),
-    {noreply, NewState#state{caller = transfer_data_second_phase,
-			     dsock = undefined}};
+    case accept_data_connection(State) of
+	{ok, NewState} ->
+	    send_data_message(NewState, Bin),
+	    close_data_connection(NewState),
+	    activate_ctrl_connection(NewState),
+	    {noreply, NewState#state{caller = transfer_data_second_phase,
+				     dsock = undefined}};
+	{error, _Reason} = ERROR ->
+	    case State#state.client of
+		undefined ->
+		    {stop, ERROR, State};
+		From ->
+		    gen_server:reply(From, ERROR),
+		    {stop, normal, State#state{client = undefined}}
+	    end
+    end;
+
 %%--------------------------------------------------------------------------
 %% Default
 handle_ctrl_result({Status, Lines}, #state{client = From} = State) 
@@ -2009,16 +2084,20 @@ connect2(Host, Port, IpFam, Timeout) ->
 	    Error
     end.
 	    
-		
 
-accept_data_connection(#state{mode = active,
-			      dsock = {lsock, LSock}} = State) ->
-    {ok, Socket} = gen_tcp:accept(LSock),
-    gen_tcp:close(LSock),
-    State#state{dsock = Socket};
+accept_data_connection(#state{mode     = active,
+			      dtimeout = DTimeout, 
+			      dsock    = {lsock, LSock}} = State) ->
+    case gen_tcp:accept(LSock, DTimeout) of
+	{ok, Socket} ->
+	    gen_tcp:close(LSock),
+	    {ok, State#state{dsock = Socket}};
+	{error, Reason} ->
+	    {error, {data_connect_failed, Reason}}
+    end;
 
 accept_data_connection(#state{mode = passive} = State) ->
-    State.
+    {ok, State}.
 
 send_ctrl_message(#state{csock = Socket, verbose = Verbose}, Message) ->
     %% io:format("send control message: ~n~p~n", [lists:flatten(Message)]),
