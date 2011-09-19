@@ -278,7 +278,7 @@ fall_column([], _X, _Y, ColumnAcc, ChecksAcc) ->
 fall_column([black|Colors], X, Y, ColumnAcc, ChecksAcc) ->
     case find_box(Colors) of
 	false -> {ColumnAcc, ChecksAcc};
-	NewColors when list(NewColors) ->
+	NewColors when is_list(NewColors) ->
 		fall_one_step(NewColors, X, Y, ColumnAcc, ChecksAcc)
     end;
 fall_column([Color|Colors], X, Y, ColumnAcc, ChecksAcc) ->
@@ -330,7 +330,7 @@ new_column_list([], _, _) -> [].
 %%----------------------------------------------------------------------
 %% Returns: a reversed list of colors.
 %%----------------------------------------------------------------------
-columntuple_to_list(ColumnTuple) when tuple(ColumnTuple) ->
+columntuple_to_list(ColumnTuple) when is_tuple(ColumnTuple) ->
     columntuple_to_list(tuple_to_list(ColumnTuple),[]).
 
 columntuple_to_list([],Acc) -> Acc;
