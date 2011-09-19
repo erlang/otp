@@ -88,7 +88,6 @@
         it is recommended that it contains at least 32 characters and
         that both upper and lower case letters as well as digits and
         special characters are used.</p>
-      <p></p>
       <p>The default type -- and currently the only type -- of crypto
         algorithm is <c>des3_cbc</c>, three rounds of DES. The key string
         will be scrambled using <c>erlang:md5/1</c> to generate

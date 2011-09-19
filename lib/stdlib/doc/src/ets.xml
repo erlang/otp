@@ -512,11 +512,10 @@ Error: fun containing local Erlang function calls
               of the reference counter, keeping track of how many times
               the table has been fixed by the process.</p>
             <p>If the table never has been fixed, the call returns
-              <c>false</c>.</p>
-          <item><c>Item=stats, Value=tuple()</c>          <br></br>
+              <c>false</c>.</p></item>
+          <item><p><c>Item=stats, Value=tuple()</c>          <br></br>
 	  Returns internal statistics about set, bag and duplicate_bag tables on an internal format used by OTP test suites.
-	  Not for production use.</item>
-          </item>
+	  Not for production use.</p></item>
         </list>
       </desc>
     </func>
@@ -661,9 +660,9 @@ ets:is_compiled_ms(Broken).</code>
           table. The difference being the same as between <c>=:=</c>
           and <c>==</c>. As an example, one might insert an object
           with the
-          <c>integer()</c><c>1</c> as a key in an <c>ordered_set</c>
+          <c>integer()</c> <c>1</c> as a key in an <c>ordered_set</c>
           and get the object returned as a result of doing a
-          <c>lookup/2</c> with the <c>float()</c><c>1.0</c> as the
+          <c>lookup/2</c> with the <c>float()</c> <c>1.0</c> as the
           key to search for.</p>
         <p>If the table is of type <c>set</c> or <c>ordered_set</c>,
           the function returns either the empty list or a list with one
@@ -946,7 +945,7 @@ ets:select(Table,MatchSpec),</code>
           table is named or not. If one or more options are left out,
           the default values are used. This means that not specifying
           any options (<c>[]</c>) is the same as specifying
-          <c>[set,protected,{keypos,1},{heir,none},{write_concurrency,false},{read_concurrency,false}]</c>.</p>
+          <c>[set, protected, {keypos,1}, {heir,none}, {write_concurrency,false}, {read_concurrency,false}]</c>.</p>
         <list type="bulleted">
           <item>
             <p><c>set</c>
@@ -963,7 +962,7 @@ ets:select(Table,MatchSpec),</code>
               <c>ordered_set</c> tables regard keys as equal when they
               <em>compare equal</em>, not only when they match. This
               means that to an <c>ordered_set</c>, the
-              <c>integer()</c><c>1</c> and the <c>float()</c><c>1.0</c> are regarded as equal. This also means that the
+              <c>integer()</c> <c>1</c> and the <c>float()</c> <c>1.0</c> are regarded as equal. This also means that the
               key used to lookup an element not necessarily
               <em>matches</em> the key in the elements returned, if
               <c>float()</c>'s and <c>integer()</c>'s are mixed in

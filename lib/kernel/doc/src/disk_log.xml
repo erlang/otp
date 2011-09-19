@@ -475,8 +475,7 @@
       <fsummary>Close a disk log.</fsummary>
       <type name="close_error_rsn"/>
       <desc>
-        <p>          <marker id="close_1"></marker>
-The function <c>close/1</c> closes a
+        <p><marker id="close_1"></marker>The function <c>close/1</c> closes a
           local or distributed disk log properly. An internally
           formatted log must be closed before the Erlang system is
           stopped, otherwise the log is regarded as unclosed and the

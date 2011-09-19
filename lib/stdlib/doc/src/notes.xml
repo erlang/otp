@@ -2632,7 +2632,7 @@
             that is, also when starting a gen_server, gen_fsm etc. </p>
           <p>This limitation has now been properly documented and the
             behavior of the <c>gen_fsm</c>, <c>gen_server</c>, and
-            <c>proc_lib</c><c>start</c> and <c>start_link</c>
+            <c>proc_lib</c> <c>start</c> and <c>start_link</c>
             functions when providing this option has been changed
             from hanging indefinitely to failing with reason
             <c>badarg</c>.</p>
@@ -2749,7 +2749,6 @@
             <c>join</c> option that can be used to force QLC to use a
             particular kind of join in some QLC expression.</p>
           <p>Several other changes have also been included:</p>
-          <p></p>
           <list type="bulleted">
             <item>
               <p>The new <c>tmpdir</c> option of <c>cursor/2</c>,
