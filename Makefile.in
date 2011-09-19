@@ -349,8 +349,7 @@ endif
 all_bootstraps: emulator \
      bootstrap_setup \
      secondary_bootstrap_build secondary_bootstrap_copy \
-     tertiary_bootstrap_build tertiary_bootstrap_copy \
-     fourth_bootstrap_build fourth_bootstrap_copy 
+     tertiary_bootstrap_build tertiary_bootstrap_copy
 
 #
 # Use these targets when you want to use the erl and erlc
@@ -563,6 +562,8 @@ secondary_bootstrap_copy:
 	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools ; fi
 	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/ebin ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/ebin ; fi
 	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/include ; fi
+	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/orber ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/orber ; fi
+	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/orber/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/orber/include ; fi
 	for x in lib/parsetools/ebin/*.beam; do \
 		BN=`basename $$x`; \
 		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/ebin/$$BN; \
@@ -610,6 +611,16 @@ secondary_bootstrap_copy:
 		true; \
 	done
 #	cp -f lib/asn1/src/*.erl lib/asn1/src/*.hrl $(BOOTSTRAP_ROOT)/bootstrap/lib/asn1/src
+	for x in lib/orber/include/*.hrl; do \
+		BN=`basename $$x`; \
+		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/orber/include/$$BN; \
+		test -f  $$TF && \
+		test '!' -z "`find $$x -newer $$TF -print`" && \
+			cp $$x $$TF; \
+		test '!' -f $$TF && \
+			cp $$x $$TF; \
+		true; \
+	done
 
 tertiary_bootstrap_build:
 	cd lib && \
@@ -631,13 +642,6 @@ tertiary_bootstrap_copy:
 		true; \
 	done
 #	cp lib/snmp/ebin/*.beam $(BOOTSTRAP_ROOT)/bootstrap/lib/snmp/ebin
-
-fourth_bootstrap_build:
-	cd lib && \
-	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)$${PATH} \
-		$(MAKE) opt FOURTH_BOOTSTRAP=true
-
-fourth_bootstrap_copy:
 	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/sasl ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/sasl ; fi
 	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/sasl/ebin ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/sasl/ebin ; fi
 	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/sasl/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/sasl/include ; fi
@@ -724,7 +728,6 @@ fourth_bootstrap_copy:
 			cp $$x $$TF; \
 		true; \
 	done
-
 #	cp lib/syntax_tools/ebin/*.beam $(BOOTSTRAP_ROOT)/bootstrap/lib/syntax_tools/ebin
 
 .PHONY: check_recreate_primary_bootstrap recreate_primary_bootstrap
@@ -896,7 +899,6 @@ old_bootstrap_nc_for_ne_all_stages:
 	cd lib && $(MAKE) BOOTSTRAP=1 TYPE=release release
 	cd lib && $(MAKE) SECONDARY_BOOTSTRAP=1 TYPE=release release
 	cd lib && $(MAKE) TERTIARY_BOOTSTRAP=1 TYPE=release release
-	cd lib && $(MAKE) FOURTH_BOOTSTRAP=1 TYPE=release release
 
 
 
