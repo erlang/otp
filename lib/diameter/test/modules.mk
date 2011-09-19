@@ -21,12 +21,14 @@ TEST_SPEC_FILE = diameter.spec
 
 COVER_SPEC_FILE = diameter.cover
 
-BEHAVIOUR_MODULES = 
-
 MODULES = \
-	$(BEHAVIOUR_MODULES) \
-	diameter_SUITE \
-	diameter_app_test \
+	diameter_ct \
+	diameter_util \
+	diameter_enum \
+	diameter_codec_SUITE \
+	diameter_codec_test \
+	diameter_app_SUITE \
+	\
 	diameter_appup_test \
 	diameter_compiler_test \
 	diameter_config_test \
@@ -39,9 +41,5 @@ MODULES = \
 	diameter_test_lib \
 	diameter_test_server
 
-
 INTERNAL_HRL_FILES = \
 	diameter_test_lib.hrl
-
-
-
