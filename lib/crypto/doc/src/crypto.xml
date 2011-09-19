@@ -744,7 +744,7 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
         <p>Generate a random number <c><![CDATA[N, Lo =< N < Hi.]]></c> Uses the
           <c>crypto</c> library pseudo-random number generator. The
           arguments (and result) can be either erlang integers or binary
-          multi-precision integers.</p>
+          multi-precision integers. <c>Hi</c> must be larger than <c>Lo</c>.</p>
       </desc>
     </func>
     <func>
