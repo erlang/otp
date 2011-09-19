@@ -30,6 +30,24 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 5.7.5.2</title>
+
+    <section><title>Known Bugs and Problems</title>
+      <list>
+        <item>
+          <p>
+	    Two bugs in gen_sctp has been corrected: getopts/setopts
+	    hence also send could only be called from socket owner,
+	    and options 'linger', 'rcvbuf' and 'sndbuf' was read from
+	    wrong protocol layer hence read wrong values by getopts.</p>
+          <p>
+	    Own Id: OTP-9544</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 5.7.5.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
