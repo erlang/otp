@@ -129,7 +129,7 @@ start(Id, Pgm0, Hosts) ->
             {error,Reason}
     end.
 
-%% Hosts must be a list on form ['1.2.3.4' ...]
+%% Hosts must be a list of form ['1.2.3.4' ...]
 start_it("inet", Id, Pid, Hosts) ->
     process_flag(trap_exit, true),
     ?dbg(inet, {Id,Pid,Hosts}),
