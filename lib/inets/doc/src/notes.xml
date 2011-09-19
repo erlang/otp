@@ -69,6 +69,14 @@
 	  <p>Own Id: OTP-9434</p>
         </item>
 
+        <item>
+          <p>[httpd] Fix httpd directory traversal on Windows. 
+	  Directory traversal was possible on Windows where
+	  backward slash is used as directory separator. </p>
+	  <p>András Veres-Szentkirályi.</p>
+	  <p>Own Id: OTP-9561</p>
+        </item>
+
       </list>
     </section>
 

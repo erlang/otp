@@ -20,12 +20,14 @@
  [
   {"5.7", 
    [
+    {load_module, httpd_request, soft_purge, soft_purge, []}, 
     {load_module, httpc_cookie, soft_purge, soft_purge, [http_util]}, 
     {load_module, http_util, soft_purge, soft_purge, []}
    ]
   }, 
   {"5.6", 
    [
+    {load_module, httpd_request, soft_purge, soft_purge, []}, 
     {load_module, httpc, soft_purge, soft_purge, [httpc_manager]}, 
     {load_module, http_transport, soft_purge, soft_purge, [http_transport]},
     {load_module, httpc_cookie, soft_purge, soft_purge, [http_util]}, 
@@ -59,12 +61,14 @@
  [
   {"5.7", 
    [
+    {load_module, httpd_request, soft_purge, soft_purge, []}, 
     {load_module, httpc_cookie, soft_purge, soft_purge, [http_util]}, 
     {load_module, http_util, soft_purge, soft_purge, []}
    ]
   }, 
   {"5.6", 
    [
+    {load_module, httpd_request, soft_purge, soft_purge, []}, 
     {load_module, httpc, soft_purge, soft_purge, [httpc_manager]}, 
     {load_module, http_transport, soft_purge, soft_purge, [http_transport]},
     {load_module, httpc_cookie, soft_purge, soft_purge, [http_util]}, 
