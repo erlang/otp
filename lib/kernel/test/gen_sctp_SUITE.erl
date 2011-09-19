@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -172,7 +172,9 @@ xfer_active(Config) when is_list(Config) ->
 		?line test_server:fail({unexpected,flush()})
 	end,
     ?line io:format("SbAssocId=~p~n", [SbAssocId]),
-    ?line ok = gen_sctp:send(Sa, SaAssocId, 0, Data),
+    ?line ok =
+	do_from_other_process(
+	  fun () -> gen_sctp:send(Sa, SaAssocId, 0, Data) end),
     ?line receive
 	      {sctp,Sb,Loopback,Pa,
 	       {[#sctp_sndrcvinfo{stream=Stream,
@@ -382,3 +384,31 @@ api_connect_init(Config) when is_list(Config) ->
     ?line ok = gen_sctp:close(Sa),
     ?line ok = gen_sctp:close(Sb),
     ok.
+
+
+
+do_from_other_process(Fun) ->
+    Parent = self(),
+    Ref = make_ref(),
+    Child =
+	spawn(fun () ->
+		      try Fun() of
+			  Result ->
+			      Parent ! {Ref,Result}
+		      catch
+			  Class:Reason ->
+			      Stacktrace = erlang:get_stacktrace(),
+			      Parent ! {Ref,Class,Reason,Stacktrace}
+		      end
+	      end),
+    Mref = erlang:monitor(process, Child),
+    receive
+	{Ref,Result} ->
+	    receive {'DOWN',Mref,_,_,_} -> Result end;
+	{Ref,Class,Reason,Stacktrace} ->
+	    receive {'DOWN',Mref,_,_,_} ->
+		    erlang:raise(Class, Reason, Stacktrace)
+	    end;
+	{'DOWN',Mref,_,_,Reason} ->
+	    erlang:exit(Reason)
+    end.
