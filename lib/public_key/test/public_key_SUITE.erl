@@ -537,7 +537,10 @@ rsa_sign_verify(Config) when is_list(Config) ->
     false = public_key:verify(Msg, sha, <<1:8, RSASign/binary>>, PublicRSA), 
 
     RSASign1 = public_key:sign(Msg, md5, PrivateRSA),
-    true = public_key:verify(Msg, md5, RSASign1, PublicRSA).
+    true = public_key:verify(Msg, md5, RSASign1, PublicRSA),
+
+    RSASign2 = public_key:sign(Msg, md2, PrivateRSA),
+    true = public_key:verify(Msg, md2, RSASign2, PublicRSA).
     
 %%--------------------------------------------------------------------
 
