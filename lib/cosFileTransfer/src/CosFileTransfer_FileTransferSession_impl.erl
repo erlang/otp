@@ -792,7 +792,7 @@ target_FTS_operation(State, _SrcFile, DestFile, Op, Offset) ->
             %% Delete the temporary local copy.
 	    delete_tmp_file(TempName, 
 			    "Transfer completed but failed to remove temporary local copy."),
-            %% Completed the transfer succesfully.
+            %% Completed the transfer successfully.
 	    {reply, ok, State};
 	{error, epath} ->
 	    delete_tmp_file(TempName,

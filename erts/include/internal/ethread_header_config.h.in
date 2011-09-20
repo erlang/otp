@@ -90,7 +90,7 @@
 /* Define if sched_yield() returns an int. */
 #undef ETHR_SCHED_YIELD_RET_INT
 
-/* Define if you want compatibilty with x86 processors before pentium4. */
+/* Define if you want compatibility with x86 processors before pentium4. */
 #undef ETHR_PRE_PENTIUM4_COMPAT
 
 /* Define if you have the pthread_rwlockattr_setkind_np() function. */

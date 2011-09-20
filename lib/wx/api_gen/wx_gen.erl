@@ -38,7 +38,7 @@ devcode() -> erase(),safe(fun gen_code/0,false).
 safe(What, QuitOnErr) ->
     try 
 	What(),
-	io:format("Completed succesfully~n~n", []),
+	io:format("Completed successfully~n~n", []),
 	QuitOnErr andalso gen_util:halt(0)
     catch Err:Reason ->
 	    io:format("Error in ~p ~p~n", [get(current_class),get(current_func)]),

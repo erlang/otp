@@ -55,7 +55,7 @@ store_directory_data(_Directory, _DirData, _Server_root) ->
 %% API
 %%
 
-%% Compability API
+%% Compatibility API
 
 store_user(UserName, Password, Port, Dir, _AccessPassword) ->
    %% AccessPassword is ignored - was not used in previous version

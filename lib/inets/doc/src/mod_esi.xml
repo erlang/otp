@@ -31,8 +31,8 @@
   <module>mod_esi</module>
   <modulesummary>Erlang Server Interface </modulesummary>
   <description>
-    <p>This module defines the API - Erlang Server Interface (ESI).
-    Which is a more efficient way of writing erlang scripts
+    <p>This module defines the Erlang Server Interface (ESI) API.
+    It is a more efficient way of writing erlang scripts
     for your Inets web server than writing them as common CGI scripts.</p>
 
     <marker id="deliver"></marker>
@@ -95,12 +95,12 @@
           the server uses when <c>deliver/2</c> is called; do not
           assume anything about the datatype.</p>
         <p>Use this callback function to dynamically generate dynamic web
-          content. when a part of the page is generated send the
+          content. When a part of the page is generated send the
           data back to the client through <c>deliver/2</c>. Note
           that the first chunk of data sent to the client must at
           least contain all HTTP header fields that the response
           will generate. If the first chunk does not contain the
-          <em>End of HTTP the header</em>, that is <c>"\r\n\r\n",</c>
+          <em>End of HTTP header</em>, that is <c>"\r\n\r\n",</c>
           the server will
           assume that no HTTP header fields will be generated.</p>
       </desc>
@@ -118,8 +118,8 @@
       <desc>
         <p>This callback format consumes a lot of memory since the
           whole response must be generated before it is sent to the
-          user. This functions is deprecated and only keept for backwards
-          compatibility. 
+          user. This function is deprecated and only kept for backwards
+          compatibility.
           For new development Module:Function/3 should be used.</p>
       </desc>
     </func>

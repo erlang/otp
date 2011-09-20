@@ -29,7 +29,7 @@
 
 -record(node_sets, 
 	{spilled,    % Nodes marked for spilling
-	 colored     % Nodes succesfully colored
+	 colored     % Nodes successfully colored
 	}).
 
 spilled(Node_sets) -> Node_sets#node_sets.spilled.

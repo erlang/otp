@@ -1225,7 +1225,7 @@ Lock syntax table.  The effect is that `apply' in the atom
       `( (char-after (1- (or ,pos (point)))))))
 
 ;; defvar some obsolete variables, which we still support for
-;; backwardscompatibility reasons.
+;; backwards compatibility reasons.
 (eval-when-compile
   (defvar comment-indent-hook)
   (defvar dabbrev-case-fold-search)

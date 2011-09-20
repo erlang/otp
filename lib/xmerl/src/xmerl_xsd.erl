@@ -742,7 +742,7 @@ element_content({IDC,S},El,Env)
 	    {{IDC,IDConstr},S3};
 	Err ->
 	    S3 = acc_errs(S2,{error_path(El,El#xmlElement.name),?MODULE,
-			      {erronous_content_in_identity_constraint,IDC,Err}}),
+			      {erroneous_content_in_identity_constraint,IDC,Err}}),
 	    {{IDC,[]},S3}
     end;
 element_content({selector,S},Sel,_Env) ->
@@ -5571,7 +5571,7 @@ format_error({incomplete_file,_FileName,_Other}) ->
     "Schema: The file containing a schema state must be produced by xmerl_xsd:state2file/[1,2].";
 format_error({unexpected_content_in_any,A}) ->
     io_lib:format("Schema: The any type is considered to have no content besides annotation. ~p was found.",[A]);
-format_error({erronous_content_in_identity_constraint,IDC,Err}) ->
+format_error({erroneous_content_in_identity_constraint,IDC,Err}) ->
     io_lib:format("Schema: An ~p identity constraint must have one selector and one or more field in content. This case ~p",[IDC,Err]);
 format_error({missing_xpath_attribute,IDCContent}) ->
     io_lib:format("Schema: A ~p in a identity constraint must have a xpath attribute.",[IDCContent]);

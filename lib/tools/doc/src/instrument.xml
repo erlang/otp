@@ -342,7 +342,7 @@
         <p>Stores the current memory allocation map on the file
           <c>File</c>. Returns <c>true</c> if the emulator has been
           started with the "<c>+Mim true</c>" command-line argument, and
-          the map was successfuly stored; otherwise, <c>false</c>. The
+          the map was successfully stored; otherwise, <c>false</c>. The
           contents of the file can later be read using
           <seealso marker="#read_memory_data/1">read_memory_data/1</seealso>.
           <em>NOTE:</em><c>store_memory_data/0</c> blocks execution of
@@ -360,7 +360,7 @@
         <p>Stores the current memory status on the file
           <c>File</c>. Returns <c>true</c> if the emulator has been
           started with the "<c>+Mis true</c>", or "<c>+Mim true</c>"
-          command-line arguments, and the data was successfuly stored;
+          command-line arguments, and the data was successfully stored;
           otherwise, <c>false</c>. The contents of the file can later be
           read using
           <seealso marker="#read_memory_status/1">read_memory_status/1</seealso>.</p>

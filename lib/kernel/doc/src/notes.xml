@@ -2535,7 +2535,7 @@
             <c>badarg</c> if a process is already registered. As it
             turns out there is no check in <c>global</c> if a process is
             registered under more than one name. If some process is
-            accidentaly or by design given several names, it is
+            accidentally or by design given several names, it is
             possible that the name registry becomes inconsistent due
             to the way the resolve function is called when name
             clashes are discovered (see <c>register_name/3</c> in
