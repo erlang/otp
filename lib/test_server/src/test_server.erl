@@ -612,6 +612,7 @@ do_run_test_case_apply(Mod, Func, Args, Name, RunInit, TimetrapData) ->
     print(minor, "Current directory is ~p\n", [Cwd]),
     print_timestamp(minor,"Started at "),
     TCCallback = get(test_server_testcase_callback),
+    LogOpts = get(test_server_logopts),
     Ref = make_ref(),
     OldGLeader = group_leader(),
     %% Set ourself to group leader for the spawned process
@@ -621,7 +622,7 @@ do_run_test_case_apply(Mod, Func, Args, Name, RunInit, TimetrapData) ->
 	  fun() ->
 		  run_test_case_eval(Mod, Func, Args, Name, Ref,
 				     RunInit, TimetrapData,
-				     TCCallback)
+				     LogOpts, TCCallback)
 	  end),
     group_leader(OldGLeader, self()),
     put(test_server_detected_fail, []),
@@ -979,7 +980,8 @@ spawn_fw_call(Mod,{end_per_testcase,Func},EndConf,Pid,
 			E = {failed,Reason} ->
 			    {E,{error,Reason}};
 			Result ->
-			    {Result,Result}
+			    E = {failed,{Mod,end_per_testcase,Why}},
+			    {Result,E}
 		    end,
 		FailLoc = proplists:get_value(tc_fail_loc, EndConf),
 		case catch do_end_tc_call(Mod,Func, FailLoc,
@@ -1092,8 +1094,9 @@ job_proxy_msgloop() ->
 %% or sends a message {failed, File, Line} to it's group_leader
 
 run_test_case_eval(Mod, Func, Args0, Name, Ref, RunInit,
-		   TimetrapData, TCCallback) ->
-    put(test_server_multiply_timetraps,TimetrapData),
+		   TimetrapData, LogOpts, TCCallback) ->
+    put(test_server_multiply_timetraps, TimetrapData),
+    put(test_server_logopts, LogOpts),
 
     {{Time,Value},Loc,Opts} =
 	case test_server_sup:framework_call(init_tc,[?pl2a(Mod),Func,Args0],
