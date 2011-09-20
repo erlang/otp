@@ -43,6 +43,7 @@
 -export([to_utf16be/1, from_utf16be/1, from_utf16be/2]).
 -export([to_utf16le/1, from_utf16le/1, from_utf16le/2]).
 -export([to_utf8/1, from_utf8/1]).
+-export([from_latin9/1]).
 
 %%% NB: Non-canonical UTF-8 encodings and incorrectly used
 %%% surrogate-pair codes are disallowed by this code.  There are
@@ -184,6 +185,20 @@ from_utf8(List) ->
 	    exit({ucs,{bad_utf8_character_code}})
     end.
 
+%%% Latin9 support
+from_latin9(Bin) when is_binary(Bin) -> from_latin9(binary_to_list(Bin));
+from_latin9(List) ->
+    [ latin9_to_ucs4(Char) || Char <- List].
+
+latin9_to_ucs4(16#A4) -> 16#20AC;
+latin9_to_ucs4(16#A6) -> 16#160;
+latin9_to_ucs4(16#A8) -> 16#161;
+latin9_to_ucs4(16#B4) -> 16#17D;
+latin9_to_ucs4(16#B8) -> 16#17E;
+latin9_to_ucs4(16#BC) -> 16#152;
+latin9_to_ucs4(16#BD) -> 16#153;
+latin9_to_ucs4(16#BE) -> 16#178;
+latin9_to_ucs4(Other) -> Other.
 
 
 
@@ -476,6 +491,8 @@ to_unicode(Input,Cs) when Cs=='iso_8859-1:1987';Cs=='iso-ir-100';
 			  Cs=='l1';Cs=='ibm819';
 			  Cs=='cp819';Cs=='csisolatin1' ->
     Input;
+to_unicode(Input,Cs) when Cs=='iso_8859-15';Cs=='iso-8859-15';Cs=='latin9' ->
+    from_latin9(Input);
 % to_unicode(Input,Cs) when Cs=='mnemonic';Cs=='"mnemonic+ascii+38';
 % 			  Cs=='mnem';Cs=='"mnemonic+ascii+8200' ->
 %     from_mnemonic(Input);
