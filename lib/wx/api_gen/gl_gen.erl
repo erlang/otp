@@ -44,7 +44,7 @@ devcode() -> spawn(fun() -> safe(fun gen_code/0,false) end).
 safe(What, QuitOnErr) ->
     try 
 	What(),
-	io:format("Completed succesfully~n~n", []),
+	io:format("Completed successfully~n~n", []),
 	QuitOnErr andalso gen_util:halt(0)
     catch Err:Reason ->
 	    io:format("Error ~p: ~p:~p~n  ~p~n", 

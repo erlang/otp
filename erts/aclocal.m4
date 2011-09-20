@@ -1363,7 +1363,8 @@ case "$GCC-$host_cpu" in
     ;;
 esac
 
-
+test $enable_ethread_pre_pentium4_compatibility = yes &&
+  AC_DEFINE(ETHR_PRE_PENTIUM4_COMPAT, 1, [Define if you want compatibility with x86 processors before pentium4.])
 
 AC_DEFINE(ETHR_HAVE_ETHREAD_DEFINES, 1, \
 [Define if you have all ethread defines])
@@ -1645,11 +1646,11 @@ dnl Freely inspired by AC_TRY_LINK. (Maybe better to create a
 dnl AC_LANG_JAVA instead...)
 AC_DEFUN(ERL_TRY_LINK_JAVA,
 [java_link='$JAVAC conftest.java 1>&AC_FD_CC'
-changequote(«, »)dnl
+changequote(, )dnl
 cat > conftest.java <<EOF
-«$1»
+$1
 class conftest { public static void main(String[] args) {
-   «$2»
+   $2
    ; return; }}
 EOF
 changequote([, ])dnl

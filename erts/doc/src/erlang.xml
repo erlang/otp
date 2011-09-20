@@ -5979,7 +5979,7 @@ true</pre>
           </item>
           <tag><c>wordsize</c></tag>
           <item>
-            <p>Same as <c>{wordsize, internal}</c></p>
+            <p>Same as <c>{wordsize, internal}.</c></p>
           </item>
           <tag><c>{wordsize, internal}</c></tag>
           <item>
@@ -5988,7 +5988,7 @@ true</pre>
               and on a pure 64-bit architecture 8 is returned. On a
               halfword 64-bit emulator, 4 is returned, as the Erlang
               terms are stored using a virtual wordsize of half the
-              systems wordsize.</p>
+              system's wordsize.</p>
           </item>
           <tag><c>{wordsize, external}</c></tag>
           <item>

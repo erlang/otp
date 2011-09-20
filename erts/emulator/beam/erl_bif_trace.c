@@ -679,7 +679,7 @@ trace_3(Process* p, Eterm pid_spec, Eterm how, Eterm list)
 		    } else if (tracer != NIL) {
 			tracee_port->tracer_proc = tracer;
 		    }
-		    /* matches are not counted for ports since it would violate compability */	
+		    /* matches are not counted for ports since it would violate compatibility */
 		    /* This could be a reason to modify this function or make a new one. */
 		}
 	    }

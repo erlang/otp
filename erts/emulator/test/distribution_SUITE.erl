@@ -173,7 +173,7 @@ bulk_sendsend(Terms, BinSize) ->
     Ratio = if MonitorCount2 == 0 -> MonitorCount1 / 1.0;
                true               -> MonitorCount1 / MonitorCount2
             end,
-    %% A somewhat arbitrary ratio, but hopefully one that will accomodate
+    %% A somewhat arbitrary ratio, but hopefully one that will accommodate
     %% a wide range of CPU speeds.
     true = (Ratio > 8.0),
     {comment,

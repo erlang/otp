@@ -269,7 +269,7 @@ insert_expr_last(CFG0, Label, Instr) ->
 %% is a branch operation).
 insert_expr_last_work(_, Instr, []) ->
   %% This case should not happen since this means that block was completely 
-  %% empty when the function was called. For compability we insert it last.
+  %% empty when the function was called. For compatibility we insert it last.
   [Instr];
 insert_expr_last_work(_, Instr, [Code1]) ->
   %% We insert the code next to last.

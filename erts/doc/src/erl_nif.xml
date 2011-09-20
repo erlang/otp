@@ -216,14 +216,14 @@ ok
       <p/>
       <code type="none">
     ERL_NIF_TERM term;
-    MyStruct* ptr = enif_alloc_resource(my_resource_type, sizeof(MyStruct));
+    MyStruct* obj = enif_alloc_resource(my_resource_type, sizeof(MyStruct));
 
     /* initialize struct ... */
 
-    term = enif_make_resource(env, ptr);
+    term = enif_make_resource(env, obj);
 
     if (keep_a_reference_of_our_own) {
-        /* store 'ptr' in static variable, private data or other resource object */
+        /* store 'obj' in static variable, private data or other resource object */
     }
     else {
         enif_release_resource(obj);

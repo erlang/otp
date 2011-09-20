@@ -437,7 +437,7 @@ try_set_default(Name,Key,Info,Where) ->
 %%% @doc Test server framework callback, called by the test_server
 %%% when a test case is finished.
 end_tc(Mod, Fun, Args) ->
-    %% Have to keep end_tc/3 for backwards compatabilty issues
+    %% Have to keep end_tc/3 for backwards compatibility issues
     end_tc(Mod, Fun, Args, '$end_tc_dummy').
 end_tc(?MODULE,error_in_suite,_, _) ->		% bad start!
     ok;

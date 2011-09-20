@@ -253,7 +253,7 @@ all() ->
      unknown_server_ca_fail, der_input,
      unknown_server_ca_accept_verify_none,
      unknown_server_ca_accept_verify_peer,
-     unknown_server_ca_accept_backwardscompatibilty,
+     unknown_server_ca_accept_backwardscompatibility,
      %%different_ca_peer_sign,
      no_reuses_session_server_restart_new_cert,
      no_reuses_session_server_restart_new_cert_file, reuseaddr,
@@ -3282,11 +3282,11 @@ unknown_server_ca_accept_verify_peer(Config) when is_list(Config) ->
     ssl_test_lib:close(Client).
 
 %%--------------------------------------------------------------------
-unknown_server_ca_accept_backwardscompatibilty(doc) ->
+unknown_server_ca_accept_backwardscompatibility(doc) ->
     ["Test that old style verify_funs will work"];
-unknown_server_ca_accept_backwardscompatibilty(suite) ->
+unknown_server_ca_accept_backwardscompatibility(suite) ->
     [];
-unknown_server_ca_accept_backwardscompatibilty(Config) when is_list(Config) ->
+unknown_server_ca_accept_backwardscompatibility(Config) when is_list(Config) ->
     ClientOpts =  ?config(client_opts, Config),
     ServerOpts =  ?config(server_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),

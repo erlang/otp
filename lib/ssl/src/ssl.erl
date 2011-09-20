@@ -1011,7 +1011,7 @@ version() ->
                                 
 %% Only used to remove exit messages from old ssl
 %% First is a nonsense clause to provide some
-%% backward compability for orber that uses this
+%% backward compatibility for orber that uses this
 %% function in a none recommended way, but will
 %% work correctly if a valid pid is returned.
 pid(#sslsocket{fd = new_ssl}) ->

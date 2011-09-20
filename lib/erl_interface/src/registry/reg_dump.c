@@ -215,6 +215,7 @@ static int mn_send_write(int fd, erlang_pid *mnesia, const char *key, ei_reg_obj
     else ei_encode_long(msgbuf,&index,(long)(obj->val.p));  /* just the pointer */
     break;
   default:
+    if (dbuf) free(dbuf);
     return -1;
   }
 

@@ -39,7 +39,7 @@
 %% body part. Note that it is presumed that <Data> starts with a
 %% string including "\r\n\r\n" if there is any header information
 %% present. The returned headers will not contain the HTTP header body
-%% delimiter \r\n. (All header, header delimiters are keept.)
+%% delimiter \r\n. (All header, header delimiters are kept.)
 %% Ex: ["Content-Type : text/html\r\n Connection : closing \r\n\r\n" | 
 %% io_list()] -->  {"Content-Type : text/html\r\n Connection : closing \r\n",
 %% io_list()}

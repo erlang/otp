@@ -58,7 +58,7 @@ cases() ->
     [otp_2740, otp_2760, otp_5761, otp_9402, otp_9417,
      otp_9395_check_old_code, otp_9395_check_and_purge,
      otp_9395_update_many_mods, otp_9395_rm_many_mods,
-     instructions, eval_appup].
+     instructions, eval_appup, supervisor_which_children_timeout].
 
 groups() ->
     [{release,[],
@@ -521,6 +521,29 @@ no_cc() ->
 %%%-----------------------------------------------------------------
 %%% Testing of reported bugs and other tickets.
 %%%-----------------------------------------------------------------
+
+%%-----------------------------------------------------------------
+%% release_handler_1:get_supervised_procs/0 test
+%%-----------------------------------------------------------------
+supervisor_which_children_timeout(Conf) ->
+    PrivDir = priv_dir(Conf),
+    Dir = filename:join(PrivDir,"supervisor_which_children_timeout"),
+    DataDir = ?config(data_dir,Conf),
+    LibDir = filename:join([DataDir,release_handler_timeouts]),
+
+    Rel1 = create_and_install_fake_first_release(Dir,[{dummy,"0.1",LibDir}]),
+
+    {ok, Node} = t_start_node(supervisor_which_children_timeout, Rel1, []),
+    Proc = rpc:call(Node, erlang, whereis, [dummy_sup_2]),
+    ok = rpc:call(Node, sys, suspend, [Proc]),
+    Result = {badrpc, {'EXIT', {suspended_supervisor, _}}} =
+        rpc:call(Node, release_handler_1, get_supervised_procs, []),
+    ?t:format("release_handler_1:get_supervised_procs/0: ~p~n", [Result]),
+
+    ok.
+
+supervisor_which_children_timeout(cleanup, Conf) ->
+    stop_node(node_name(supervisor_which_children_timeout)).
 
 %%-----------------------------------------------------------------
 %% Ticket: OTP-2740

@@ -38,7 +38,7 @@
 %%====================================================================
 
 %%--------------------------------------------------------------------
--spec verify_data(DER::binary()) -> {md5 | sha,  binary(), binary()}.
+-spec verify_data(DER::binary()) -> {md2 | md5 | sha,  binary(), binary()}.
 %%
 %% Description: Extracts data from DerCert needed to call public_key:verify/4.
 %%--------------------------------------------------------------------	 
@@ -378,6 +378,8 @@ digest_type(?sha1WithRSAEncryption) ->
     sha;
 digest_type(?md5WithRSAEncryption) ->
     md5;
+digest_type(?md2WithRSAEncryption) ->
+    md2;
 digest_type(?'id-dsa-with-sha1') ->
     sha.
 

@@ -377,7 +377,7 @@
 ( 1) typedef enum { 
 ( 2)     portTypeUnknown,      /* An uninitialized port */
 ( 3)     portTypeListener,     /* A listening port/socket */
-( 4)     portTypeAcceptor,     /* An intermidiate stage when accepting 
+( 4)     portTypeAcceptor,     /* An intermediate stage when accepting
 ( 5)                              on a listen port */
 ( 6)     portTypeConnector,    /* An intermediate stage when connecting */
 ( 7)     portTypeCommand,      /* A connected open port in command mode */
