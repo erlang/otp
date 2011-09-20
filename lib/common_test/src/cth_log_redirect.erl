@@ -71,7 +71,7 @@ handle_event({_Type, GL, _Msg}, State) when node(GL) /= node() ->
     {ok, State};
 handle_event(Event, LogFunc) ->
     case lists:keyfind(sasl, 1, application:which_applications()) of
-	undefined ->
+	false ->
 	    sasl_not_started;
 	_Else ->
 	    {ok, ErrLogType} = application:get_env(sasl, errlog_type),
