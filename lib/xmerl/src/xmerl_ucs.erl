@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 2005-2009. All Rights Reserved.
-%% 
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -177,7 +177,7 @@ to_utf8(List) when is_list(List) -> lists:flatmap(fun to_utf8/1, List);
 to_utf8(Ch) -> char_to_utf8(Ch).
 
 from_utf8(Bin) when is_binary(Bin) -> from_utf8(binary_to_list(Bin));
-from_utf8(List) -> 
+from_utf8(List) ->
     case expand_utf8(List) of
 	{Result,0} -> Result;
 	{_Res,_NumBadChar} ->
@@ -238,7 +238,7 @@ from_ucs4le(Bin,Acc,Tail) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% UCS-2 support
-%%% FIXME! Don't know how to encode UCS-2!! 
+%%% FIXME! Don't know how to encode UCS-2!!
 %%% Currently I just encode as UCS-4, but strips the 16 higher bits.
 char_to_ucs2be(Ch) ->
     true = is_iso10646(Ch),
@@ -259,15 +259,15 @@ from_ucs2be(Bin,Acc,Tail) ->
 
 char_to_ucs2le(Ch) ->
     true = is_iso10646(Ch),
-    [(Ch bsr 16) band 16#FF,
-     (Ch bsr 24)].
+    [Ch band 16#FF,
+     (Ch bsr 8) band 16#FF].
 
 
 from_ucs2le(<<Ch:16/little-signed-integer, Rest/binary>>,Acc,Tail) ->
     if Ch < 0; Ch >= 16#D800, Ch < 16#E000; Ch =:= 16#FFFE; Ch =:= 16#FFFF ->
 	    exit({bad_character_code,Ch});
        true ->
-	    from_ucs4le(Rest,[Ch|Acc],Tail)
+	    from_ucs2le(Rest,[Ch|Acc],Tail)
     end;
 from_ucs2le(<<>>,Acc,Tail) ->
     lists:reverse(Acc,Tail);
