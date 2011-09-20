@@ -303,6 +303,9 @@ int ei_reg_restore(int fd, ei_reg *reg, const char *mntab)
     if (mn_decode_insert(reg,msgbuf,&index,keybuf)) goto restore_failure;
   }
   
+  if (keybuf) free(keybuf);
+  if (dbuf) free(dbuf);
+
   /* wait for unlink */
   if (mn_unlink(fd)) return -1;
 
@@ -310,8 +313,6 @@ int ei_reg_restore(int fd, ei_reg *reg, const char *mntab)
   ei_hash_foreach(reg->tab,clean_obj);
 
   /* success */
-  if (keybuf) free(keybuf);
-  if (dbuf) free(dbuf);
   return 0;
 
 restore_failure:

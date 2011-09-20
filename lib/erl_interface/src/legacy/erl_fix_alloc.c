@@ -109,6 +109,10 @@ void *erl_eterm_alloc (void)
 	erl_eterm_state->freed--;      
     } else if ((b = malloc(sizeof(*b))) == NULL) {
 	erl_errno = ENOMEM;
+#ifdef _REENTRANT
+	ei_mutex_unlock(erl_eterm_state->lock);
+#endif /* _REENTRANT */
+	return NULL;
     }
     erl_eterm_state->allocated++;
     b->free = 0;
