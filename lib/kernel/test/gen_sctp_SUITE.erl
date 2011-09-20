@@ -109,29 +109,44 @@ xfer_min(Config) when is_list(Config) ->
 				 inbound_streams=SaInboundStreams,
 				 assoc_id=SaAssocId}=SaAssocChange} =
 	gen_sctp:connect(Sa, Loopback, Pb, []),
-    ?line {ok,{Loopback,
-	       Pa,[],
+    ?line {SbAssocId,SaOutboundStreams,SaInboundStreams} =
+	case recv_event(ok(gen_sctp:recv(Sb, infinity))) of
+	      {Loopback,Pa,
 	       #sctp_assoc_change{state=comm_up,
 				  error=0,
 				  outbound_streams=SbOutboundStreams,
 				  inbound_streams=SbInboundStreams,
-				  assoc_id=SbAssocId}}} =
-	gen_sctp:recv(Sb, infinity),
-    ?line SaOutboundStreams = SbInboundStreams,
-    ?line SbOutboundStreams = SaInboundStreams,
+				  assoc_id=AssocId}} ->
+		  {AssocId,SbInboundStreams,SbOutboundStreams};
+	      {Loopback,Pa,
+	       #sctp_paddr_change{state=addr_confirmed,
+				  addr={Loopback,Pa},
+				  error=0,
+				  assoc_id=AssocId}} ->
+		{Loopback,Pa,
+		 #sctp_assoc_change{state=comm_up,
+				    error=0,
+				    outbound_streams=SbOutboundStreams,
+				    inbound_streams=SbInboundStreams,
+				    assoc_id=AssocId}} =
+		    ?line recv_event(ok(gen_sctp:recv(Sb, infinity))),
+		{AssocId,SbInboundStreams,SbOutboundStreams}
+	end,
+
     ?line ok = gen_sctp:send(Sa, SaAssocId, 0, Data),
-    ?line case gen_sctp:recv(Sb, infinity) of
-	      {ok,{Loopback,
-		   Pa,
-		   [#sctp_sndrcvinfo{stream=Stream,
-				     assoc_id=SbAssocId}],
-		   Data}} -> ok;
-	      {ok,{Loopback,
-		   Pa,[],
+    ?line case ok(gen_sctp:recv(Sb, infinity)) of
+	      {Loopback,
+	       Pa,
+	       [#sctp_sndrcvinfo{stream=Stream,
+				 assoc_id=SbAssocId}],
+	       Data} -> ok;
+	      Event1 ->
+		  {Loopback,Pa,
 		   #sctp_paddr_change{addr = {Loopback,_},
 				      state = addr_available,
 				      error = 0,
-				      assoc_id = SbAssocId}}} ->
+				      assoc_id = SbAssocId}} =
+		      recv_event(Event1),
 		  {ok,{Loopback,
 		       Pa,
 		       [#sctp_sndrcvinfo{stream=Stream,
@@ -139,30 +154,40 @@ xfer_min(Config) when is_list(Config) ->
 		       Data}} =	gen_sctp:recv(Sb, infinity)
 	  end,
     ?line ok = gen_sctp:send(Sb, SbAssocId, 0, Data),
-    ?line {ok,{Loopback,
-	       Pb,
+    ?line case ok(gen_sctp:recv(Sa, infinity)) of
+	      {Loopback,Pb,
 	       [#sctp_sndrcvinfo{stream=Stream,
 				 assoc_id=SaAssocId}],
-	       Data}} =
-	gen_sctp:recv(Sa, infinity),
+	       Data} ->
+		  ok;
+	      Event2 ->
+		  {Loopback,Pb,
+		   #sctp_paddr_change{addr={_,Pb},
+				      state=addr_confirmed,
+				      error=0,
+				      assoc_id=SaAssocId}} =
+		      ?line recv_event(Event2),
+		  ?line {Loopback,
+			 Pb,
+			 [#sctp_sndrcvinfo{stream=Stream,
+					   assoc_id=SaAssocId}],
+			 Data} =
+		      ok(gen_sctp:recv(Sa, infinity))
+	  end,
     %%
     ?line ok = gen_sctp:eof(Sa, SaAssocChange),
-    ?line {ok,{Loopback,
- 	       Pa,[],
- 	       #sctp_shutdown_event{assoc_id=SbAssocId}}} =
- 	gen_sctp:recv(Sb, infinity),
-    ?line {ok,{Loopback,
- 	       Pb,[],
- 	       #sctp_assoc_change{state=shutdown_comp,
- 				  error=0,
- 				  assoc_id=SaAssocId}}} =
- 	gen_sctp:recv(Sa, infinity),
-    ?line {ok,{Loopback,
- 	       Pa,[],
- 	       #sctp_assoc_change{state=shutdown_comp,
- 				  error=0,
- 				  assoc_id=SbAssocId}}} =
- 	gen_sctp:recv(Sb, infinity),
+    ?line {Loopback,Pa,#sctp_shutdown_event{assoc_id=SbAssocId}} =
+	recv_event(ok(gen_sctp:recv(Sb, infinity))),
+    ?line {Loopback,Pb,
+	   #sctp_assoc_change{state=shutdown_comp,
+			      error=0,
+			      assoc_id=SaAssocId}} =
+ 	recv_event(ok(gen_sctp:recv(Sa, infinity))),
+    ?line {Loopback,Pa,
+	   #sctp_assoc_change{state=shutdown_comp,
+			      error=0,
+			      assoc_id=SbAssocId}} =
+ 	recv_event(ok(gen_sctp:recv(Sb, infinity))),
     ?line ok = gen_sctp:close(Sa),
     ?line ok = gen_sctp:close(Sb),
     
@@ -187,32 +212,51 @@ xfer_active(Config) when is_list(Config) ->
     
     ?line {ok,Sa} = gen_sctp:open([{active,true}]),
     ?line {ok,Pa} = inet:port(Sa),
-    ?line {ok,#sctp_assoc_change{state=comm_up,
-				 error=0,
-				 outbound_streams=SaOutboundStreams,
-				 inbound_streams=SaInboundStreams,
-				 assoc_id=SaAssocId}=SaAssocChange} =
-	gen_sctp:connect(Sa, Loopback, Pb, []),
+    ?line ok = gen_sctp:connect_init(Sa, Loopback, Pb, []),
+    ?line #sctp_assoc_change{state=comm_up,
+			     error=0,
+			     outbound_streams=SaOutboundStreams,
+			     inbound_streams=SaInboundStreams,
+			     assoc_id=SaAssocId} = SaAssocChange =
+	recv_assoc_change(Sa, Loopback, Pb, Timeout),
     ?line io:format("Sa=~p, Pa=~p, Sb=~p, Pb=~p, SaAssocId=~p, "
 		    "SaOutboundStreams=~p, SaInboundStreams=~p~n",
 		    [Sa,Pa,Sb,Pb,SaAssocId,
 		     SaOutboundStreams,SaInboundStreams]),
-    ?line SbAssocId = 
-	receive
-	    {sctp,Sb,Loopback,Pa,
-	     {[],
-	      #sctp_assoc_change{state=comm_up,
-				 error=0,
-				   outbound_streams=SbOutboundStreams,
-				 inbound_streams=SbInboundStreams,
-				 assoc_id=SBAI}}} ->
-		?line SaOutboundStreams = SbInboundStreams,
-		?line  SaInboundStreams = SbOutboundStreams,
-		SBAI
-	after Timeout ->
-		?line test_server:fail({unexpected,flush()})
-	end,
+    ?line #sctp_assoc_change{state=comm_up,
+			     error=0,
+			     outbound_streams=SbOutboundStreams,
+			     inbound_streams=SbInboundStreams,
+			     assoc_id=SbAssocId} =
+	recv_assoc_change(Sb, Loopback, Pa, Timeout),
+    ?line SbOutboundStreams = SaInboundStreams,
+    ?line SbInboundStreams = SaOutboundStreams,
     ?line io:format("SbAssocId=~p~n", [SbAssocId]),
+
+    ?line case recv_paddr_change(Sa, Loopback, Pb, 314) of
+	      #sctp_paddr_change{state=addr_confirmed,
+				 addr={_,Pb},
+				 error=0,
+				 assoc_id=SaAssocId} -> ok;
+	      #sctp_paddr_change{state=addr_available,
+				 addr={_,Pb},
+				 error=0,
+				 assoc_id=SaAssocId} -> ok;
+	      timeout -> ok
+	  end,
+    ?line case recv_paddr_change(Sb, Loopback, Pa, 314) of
+	      #sctp_paddr_change{state=addr_confirmed,
+				 addr={Loopback,Pa},
+				 error=0,
+				 assoc_id=SbAssocId} -> ok;
+	      #sctp_paddr_change{state=addr_available,
+				 addr={Loopback,Pa},
+				 error=0,
+				 assoc_id=SbAssocId} -> ok;
+	      timeout -> ok
+	  end,
+    ?line [] = flush(),
+
     ?line ok =
 	do_from_other_process(
 	  fun () -> gen_sctp:send(Sa, SaAssocId, 0, Data) end),
@@ -220,19 +264,7 @@ xfer_active(Config) when is_list(Config) ->
 	      {sctp,Sb,Loopback,Pa,
 	       {[#sctp_sndrcvinfo{stream=Stream,
 				  assoc_id=SbAssocId}],
-		Data}} -> ok;
-	      {sctp,Sb,Loopback,Pa,
-	       {[],
-		#sctp_paddr_change{addr = {Loopback,_},
-				   state = addr_available,
-				   error = 0,
-				   assoc_id = SbAssocId}}} ->
-		  ?line receive
-			    {sctp,Sb,Loopback,Pa,
-			     {[#sctp_sndrcvinfo{stream=Stream,
-						assoc_id=SbAssocId}],
-			      Data}} -> ok
-			end
+		Data}} -> ok
 	  after Timeout ->
 		  ?line test_server:fail({unexpected,flush()})
 	  end,
@@ -247,23 +279,19 @@ xfer_active(Config) when is_list(Config) ->
 	  end,
     %%
     ?line ok = gen_sctp:abort(Sa, SaAssocChange),
-    ?line receive
-	      {sctp,Sb,Loopback,Pa,
-	       {[],
-		#sctp_assoc_change{state=comm_lost,
-				   assoc_id=SbAssocId}}} -> ok
-	  after Timeout ->
+    ?line case recv_assoc_change(Sb, Loopback, Pa, Timeout) of
+	      #sctp_assoc_change{state=comm_lost,
+				 assoc_id=SbAssocId} -> ok;
+	      timeout ->
 		  ?line test_server:fail({unexpected,flush()})
 	  end,
     ?line ok = gen_sctp:close(Sb),
-    ?line receive
-              {sctp,Sa,Loopback,Pb,
-               {[],
-                #sctp_assoc_change{state=comm_lost,
-                                   assoc_id=SaAssocId}}} -> ok
-          after Timeout ->
-                  ?line test_server:fail({unexpected,flush()})
-          end,
+    ?line case recv_assoc_change(Sa, Loopback, Pb, Timeout) of
+	      #sctp_assoc_change{state=comm_lost,
+				 assoc_id=SaAssocId} -> ok;
+	      timeout ->
+		  ?line test_server:fail({unexpected,flush()})
+	  end,
     ?line receive
               {sctp_error,Sa,enotconn} -> ok % Solaris
           after 17 -> ok %% Only happens on Solaris
@@ -275,6 +303,30 @@ xfer_active(Config) when is_list(Config) ->
 	  after 17 -> ok
 	  end,
     ok.
+
+recv_assoc_change(S, Addr, Port, Timeout) ->
+    receive
+	{sctp,S,Addr,Port,{[], #sctp_assoc_change{}=AssocChange}} ->
+	    AssocChange;
+	{sctp,S,Addr,Port,
+	 {[#sctp_sndrcvinfo{assoc_id=AssocId}],
+	  #sctp_assoc_change{assoc_id=AssocId}=AssocChange}} ->
+	    AssocChange
+    after Timeout ->
+	    timeout
+    end.
+
+recv_paddr_change(S, Addr, Port, Timeout) ->
+    receive
+	{sctp,S,Addr,Port,{[], #sctp_paddr_change{}=PaddrChange}} ->
+	    PaddrChange;
+	{sctp,S,Addr,Port,
+	 {[#sctp_sndrcvinfo{assoc_id=AssocId}],
+	  #sctp_paddr_change{assoc_id=AssocId}=PaddrChange}} ->
+	    PaddrChange
+    after Timeout ->
+	    timeout
+    end.
 
 def_sndrcvinfo(doc) ->
     "Test that #sctp_sndrcvinfo{} parameters set on a socket "
@@ -312,20 +364,33 @@ def_sndrcvinfo(Config) when is_list(Config) ->
        assoc_id=S2AssocId} = S2AssocChange =
 	ok(gen_sctp:connect(S2, Loopback, P1, [])),
     ?LOGVAR(S2AssocChange),
-    ?line case ok(gen_sctp:recv(S1)) of
-	      {Loopback, P2,[],
+    ?line case recv_event(ok(gen_sctp:recv(S1))) of
+	      {Loopback,P2,
 	       #sctp_assoc_change{
+			  state=comm_up,
+			  error=0,
+			  assoc_id=S1AssocId}} ->
+		  ?LOGVAR(S1AssocId);
+	      {Loopback,P2,
+	       #sctp_paddr_change{
+			  state=addr_confirmed,
+			  error=0,
+			  assoc_id=S1AssocId}} ->
+		  ?LOGVAR(S1AssocId),
+		  {Loopback,P2,
+		   #sctp_assoc_change{
 			      state=comm_up,
 			      error=0,
-			      assoc_id=S1AssocId}} ->
-		  ?LOGVAR(S1AssocId)
+			      assoc_id=S1AssocId}} =
+		      recv_event(ok(gen_sctp:recv(S1)))
 	  end,
+
     ?line #sctp_sndrcvinfo{
-       ppid=17, context=0, timetolive=0, assoc_id=S1AssocId} =
+       ppid=17, context=0, timetolive=0} = %, assoc_id=S1AssocId} =
 	getopt(
 	  S1, sctp_default_send_param, #sctp_sndrcvinfo{assoc_id=S1AssocId}),
     ?line #sctp_sndrcvinfo{
-       ppid=0, context=0, timetolive=0, assoc_id=S2AssocId} =
+       ppid=0, context=0, timetolive=0} = %, assoc_id=S2AssocId} =
 	getopt(
 	  S2, sctp_default_send_param, #sctp_sndrcvinfo{assoc_id=S2AssocId}),
     %%
@@ -335,7 +400,19 @@ def_sndrcvinfo(Config) when is_list(Config) ->
 	      {Loopback,P1,
 	       [#sctp_sndrcvinfo{
 		   stream=1, ppid=17, context=0, assoc_id=S2AssocId}],
-	       <<"1: ",Data/binary>>} -> ok
+	       <<"1: ",Data/binary>>} -> ok;
+	      Event1 ->
+		  ?line {Loopback,P1,
+			 #sctp_paddr_change{state=addr_confirmed,
+					    addr={_,P1},
+					    error=0,
+					    assoc_id=S2AssocId}} =
+		      recv_event(Event1),
+		  ?line {Loopback,P1,
+			 [#sctp_sndrcvinfo{
+			     stream=1, ppid=17, context=0, assoc_id=S2AssocId}],
+			 <<"1: ",Data/binary>>} =
+		      ok(gen_sctp:recv(S2))
 	  end,
     %%
     ?line ok =
@@ -368,10 +445,12 @@ def_sndrcvinfo(Config) when is_list(Config) ->
 	       [#sctp_sndrcvinfo{
 		   stream=1, ppid=0, context=0, assoc_id=S1AssocId}],
 	       <<"3: ",Data/binary>>} -> ok;
-	      {Loopback,P2,[],
-	       #sctp_paddr_change{
-			  addr={Loopback,_}, state=addr_available,
-			  error=0, assoc_id=S1AssocId}} ->
+	      Event2 ->
+		  {Loopback,P2,
+		   #sctp_paddr_change{
+			      addr={Loopback,_}, state=addr_available,
+			      error=0, assoc_id=S1AssocId}} =
+		      recv_event(Event2),
 		  ?line case ok(gen_sctp:recv(S1)) of
 			    {Loopback,P2,
 			     [#sctp_sndrcvinfo{
@@ -525,7 +604,10 @@ api_listen(Config) when is_list(Config) ->
 			     #sctp_assoc_change{
 				  state=comm_lost}}} =
 		      gen_sctp:recv(Sa, infinity);
-	      {error,#sctp_assoc_change{state=cant_assoc}} -> ok
+	      {error,#sctp_assoc_change{state=cant_assoc}} ->
+		  ok%;
+	      %% {error,{Localhost,Pb,_,#sctp_assoc_change{state=cant_assoc}}} ->
+	      %% 	  ok
 	  end,
     ?line ok = gen_sctp:listen(Sb, true),
     ?line {ok,#sctp_assoc_change{state=comm_up,
@@ -557,28 +639,40 @@ api_connect_init(Config) when is_list(Config) ->
     ?line {ok,Sa} = gen_sctp:open(),
     ?line case gen_sctp:connect_init(Sa, localhost, Pb, []) of
 	      {error,econnrefused} ->
-		  ?line {ok,{Localhost,
-			     Pb,[],
-			     #sctp_assoc_change{state=comm_lost}}} =
-		      gen_sctp:recv(Sa, infinity);
+		  ?line {Localhost,Pb,#sctp_assoc_change{state=comm_lost}} =
+		      recv_event(ok(gen_sctp:recv(Sa, infinity)));
 	      ok ->
-		  ?line {ok,{Localhost,
-			     Pb,[],
-			     #sctp_assoc_change{state=cant_assoc}}} =
-		      gen_sctp:recv(Sa, infinity)
+		  ?line {Localhost,Pb,#sctp_assoc_change{state=cant_assoc}} =
+		      recv_event(ok(gen_sctp:recv(Sa, infinity)))
 	  end,
     ?line ok = gen_sctp:listen(Sb, true),
     ?line case gen_sctp:connect_init(Sa, localhost, Pb, []) of
 	      ok ->
-		  ?line {ok,{Localhost,
-			     Pb,[],
-			     #sctp_assoc_change{
-				  state = comm_up}}} =
-		      gen_sctp:recv(Sa, infinity)
+		  ?line {Localhost,Pb,#sctp_assoc_change{state=comm_up}} =
+		      recv_event(ok(gen_sctp:recv(Sa, infinity)))
 	  end,
     ?line ok = gen_sctp:close(Sa),
     ?line ok = gen_sctp:close(Sb),
     ok.
+
+recv_event({Addr,Port,[],#sctp_assoc_change{}=AssocChange}) ->
+    {Addr,Port,AssocChange};
+recv_event({Addr,Port,
+	    [#sctp_sndrcvinfo{assoc_id=Assoc}],
+	    #sctp_assoc_change{assoc_id=Assoc}=AssocChange}) ->
+    {Addr,Port,AssocChange};
+recv_event({Addr,Port,[],#sctp_paddr_change{}=PaddrChange}) ->
+    {Addr,Port,PaddrChange};
+recv_event({Addr,Port,
+	    [#sctp_sndrcvinfo{assoc_id=Assoc}],
+	    #sctp_paddr_change{assoc_id=Assoc}=PaddrChange}) ->
+    {Addr,Port,PaddrChange};
+recv_event({Addr,Port,[],#sctp_shutdown_event{}=ShutdownEvent}) ->
+    {Addr,Port,ShutdownEvent};
+recv_event({Addr,Port,
+	    [#sctp_sndrcvinfo{assoc_id=Assoc}],
+	    #sctp_shutdown_event{assoc_id=Assoc}=ShutdownEvent}) ->
+    {Addr,Port,ShutdownEvent}.
 
 api_opts(doc) ->
     "Test socket options";
@@ -645,9 +739,14 @@ implicit_inet6(S1, Addr) ->
     ?line P2 = ok(inet:port(S2)),
     ?line #sctp_assoc_change{state=comm_up} =
 	ok(gen_sctp:connect(S2, Addr, P1, [])),
-    ?line case ok(gen_sctp:recv(S1)) of
-	      {Addr,P2,[],#sctp_assoc_change{state=comm_up}} ->
-		  ok
+    ?line case recv_event(ok(gen_sctp:recv(S1))) of
+	      {Addr,P2,#sctp_assoc_change{state=comm_up}} ->
+		  ok;
+	      {Addr,P2,#sctp_paddr_change{state=addr_confirmed,
+					  addr={Addr,P2},
+					  error=0}} ->
+		  {Addr,P2,#sctp_assoc_change{state=comm_up}} =
+		      recv_event(ok(gen_sctp:recv(S1)))
 	  end,
     ?line case ok(inet:sockname(S1)) of
 	      {Addr,P1} -> ok;
@@ -692,14 +791,29 @@ xfer_stream_min(Config) when is_list(Config) ->
 				 inbound_streams=SaInboundStreams,
 				 assoc_id=SaAssocId}} =
 	gen_sctp:connect(Sa, Loopback, Pb, []),
-    ?line {ok,{Loopback,
-	       Pa,[],
-	       #sctp_assoc_change{state=comm_up,
-				  error=0,
-				  outbound_streams=SbOutboundStreams,
-				  inbound_streams=SbInboundStreams,
-				  assoc_id=SbAssocId}}} =
-	gen_sctp:recv(Sb, infinity),
+    ?line {SbOutboundStreams,SbInboundStreams,SbAssocId} =
+	case recv_event(ok(gen_sctp:recv(Sb, infinity))) of
+	    {Loopback,Pa,
+	     #sctp_assoc_change{state=comm_up,
+				error=0,
+				outbound_streams=OS,
+				inbound_streams=IS,
+				assoc_id=AI}} ->
+		{OS,IS,AI};
+	    {Loopback,Pa,
+	     #sctp_paddr_change{state=addr_confirmed,
+				addr={Loopback,Pa},
+				error=0,
+				assoc_id=AI}} ->
+		{Loopback,Pa,
+		 ?line #sctp_assoc_change{state=comm_up,
+					  error=0,
+					  outbound_streams=OS,
+					  inbound_streams=IS,
+					  assoc_id=AI}} =
+		    recv_event(ok(gen_sctp:recv(Sb, infinity))),
+		{OS,IS,AI}
+	end,
     ?line SaOutboundStreams = SbInboundStreams,
     ?line SbOutboundStreams = SaInboundStreams,
     ?line ok = gen_sctp:send(Sa, SaAssocId, 0, Data),
@@ -724,24 +838,33 @@ xfer_stream_min(Config) when is_list(Config) ->
     ?line ok =
 	do_from_other_process(
 	  fun () -> gen_sctp:send(Sb, SbAssocId, 0, Data) end),
-    ?line {ok,{Loopback,
-	       Pb,
+    ?line case ok(gen_sctp:recv(Sa, infinity)) of
+	      {Loopback,Pb,
 	       [#sctp_sndrcvinfo{stream=Stream,
 				 assoc_id=SaAssocId}],
-	       Data}} =
-	gen_sctp:recv(Sa, infinity),
-    %%
+	       Data} -> ok;
+	      Event1 ->
+		  ?line {Loopback,Pb,
+			 #sctp_paddr_change{state=addr_confirmed,
+					    addr={_,Pb},
+					    error=0,
+					    assoc_id=SaAssocId}} =
+		      recv_event(Event1),
+		  ?line {Loopback,Pb,
+			 [#sctp_sndrcvinfo{stream=Stream,
+					   assoc_id=SaAssocId}],
+			 Data} =
+		      ok(gen_sctp:recv(Sa, infinity))
+	  end,
     ?line ok = gen_sctp:close(Sa),
-    ?line {ok,{Loopback,
-	       Pa,[],
-	       #sctp_shutdown_event{assoc_id=SbAssocId}}} =
-	gen_sctp:recv(Sb, infinity),
-    ?line {ok,{Loopback,
-	       Pa,[],
-	       #sctp_assoc_change{state=shutdown_comp,
-				  error=0,
-				  assoc_id=SbAssocId}}} =
-	gen_sctp:recv(Sb, infinity),
+    ?line {Loopback,Pa,
+	   #sctp_shutdown_event{assoc_id=SbAssocId}} =
+	recv_event(ok(gen_sctp:recv(Sb, infinity))),
+    ?line {Loopback,Pa,
+	   #sctp_assoc_change{state=shutdown_comp,
+			      error=0,
+			      assoc_id=SbAssocId}} =
+	recv_event(ok(gen_sctp:recv(Sb, infinity))),
     ?line ok = gen_sctp:close(Sb),
 
     ?line receive
@@ -822,8 +945,8 @@ peeloff(Config) when is_list(Config) ->
     ?line inet:i(sctp),
     ?line ok = socket_stop(S1),
     ?line ok = socket_stop(S2),
-    ?line {Addr,P2,[],#sctp_shutdown_event{assoc_id=S1Ai}} =
-	ok(socket_stop(S3)),
+    ?line {Addr,P2,#sctp_shutdown_event{assoc_id=S1Ai}} =
+	recv_event(ok(socket_stop(S3))),
     ok.
 
 
@@ -857,8 +980,8 @@ buffers(Config) when is_list(Config) ->
     ?line {Addr,P2,S1Ai,Stream,Data} = socket_resp(H_b),
     %%
     ?line ok = socket_stop(S1),
-    ?line {Addr,P1,[],#sctp_shutdown_event{assoc_id=S2Ai}} =
-	ok(socket_stop(S2)),
+    ?line {Addr,P1,#sctp_shutdown_event{assoc_id=S2Ai}} =
+	recv_event(ok(socket_stop(S2))),
     ok.
 
 mk_data(Words) ->
@@ -935,38 +1058,83 @@ socket_handler(Socket, Timeout) ->
 	(socket) ->
 	    Socket;
 	(recv_assoc) ->
-	    {AssocAddr,AssocPort,[],
-	     #sctp_assoc_change{state=comm_up,
-				error=0,
-				outbound_streams=Os,
-				inbound_streams=Is,
-				assoc_id=AssocId}} =
-		ok(gen_sctp:recv(Socket, infinity)),
-	    case log(gen_sctp:recv(Socket, Timeout)) of
-		{ok,AssocAddr,AssocPort,[],
-		 #sctp_paddr_change{addr = {AssocAddr,AssocPort},
-				    state = addr_available,
-				    error = 0,
-				    assoc_id = AssocId}} -> ok;
-		{error,timeout} -> ok
-	    end,
-	    {AssocId,Os,Is,AssocAddr,AssocPort};
+	    case recv_event(ok(gen_sctp:recv(Socket, Timeout))) of
+		{AssocAddr,AssocPort,
+		 #sctp_paddr_change{state=addr_confirmed,
+				    addr={_,AssocPort},
+				    error=0,
+				    assoc_id=AssocId}} ->
+		    {AssocAddr,AssocPort,
+		     #sctp_assoc_change{state=comm_up,
+					error=0,
+					outbound_streams=Os,
+					inbound_streams=Is,
+					assoc_id=AssocId}} =
+			recv_event(ok(gen_sctp:recv(Socket, infinity))),
+		    {AssocId,Os,Is,AssocAddr,AssocPort};
+		{AssocAddr,AssocPort,
+		 #sctp_assoc_change{state=comm_up,
+				    error=0,
+				    outbound_streams=Os,
+				    inbound_streams=Is,
+				    assoc_id=AssocId}} ->
+		    {AssocId,Os,Is,AssocAddr,AssocPort}
+	    end;
+	    %% {AssocAddr,AssocPort,[],
+	    %%  #sctp_assoc_change{state=comm_up,
+	    %% 			error=0,
+	    %% 			outbound_streams=Os,
+	    %% 			inbound_streams=Is,
+	    %% 			assoc_id=AssocId}} =
+	    %% 	ok(gen_sctp:recv(Socket, infinity)),
+	    %% case log(gen_sctp:recv(Socket, Timeout)) of
+	    %% 	{ok,AssocAddr,AssocPort,[],
+	    %% 	 #sctp_paddr_change{addr = {AssocAddr,AssocPort},
+	    %% 			    state = addr_available,
+	    %% 			    error = 0,
+	    %% 			    assoc_id = AssocId}} -> ok;
+	    %% 	{error,timeout} -> ok
+	    %% end,
+	    %% {AssocId,Os,Is,AssocAddr,AssocPort};
 	({connect,ConAddr,ConPort,ConOpts}) ->
-	    #sctp_assoc_change{state=comm_up,
-			       error=0,
-			       outbound_streams=Os,
-			       inbound_streams=Is,
-			       assoc_id=AssocId} =
-		ok(gen_sctp:connect(Socket, ConAddr, ConPort, ConOpts)),
-	    case log(gen_sctp:recv(Socket, Timeout)) of
-		{ok,ConAddr,ConPort,[],
-		 #sctp_paddr_change{addr = {ConAddr,ConPort},
-				    state = addr_available,
-				    error = 0,
-				    assoc_id = AssocId}} -> ok;
-		{error,timeout} -> ok
-	    end,
-	    {AssocId,Os,Is};
+	    ok = gen_sctp:connect_init(Socket, ConAddr, ConPort, ConOpts),
+	    case recv_event(ok(gen_sctp:recv(Socket, Timeout))) of
+		{ConAddr,ConPort,
+		 #sctp_paddr_change{state=addr_confirmed,
+				    addr={_,ConPort},
+				    error=0,
+				    assoc_id=AssocId}} ->
+		    {ConAddr,ConPort,
+		     #sctp_assoc_change{state=comm_up,
+					error=0,
+					outbound_streams=Os,
+					inbound_streams=Is,
+					assoc_id=AssocId}} =
+			recv_event(ok(gen_sctp:recv(Socket, infinity))),
+		    {AssocId,Os,Is};
+		{ConAddr,ConPort,
+		 #sctp_assoc_change{state=comm_up,
+				    error=0,
+				    outbound_streams=Os,
+				    inbound_streams=Is,
+				    assoc_id=AssocId}} ->
+		    {AssocId,Os,Is}
+	    end;
+	    %% #sctp_assoc_change{state=comm_up,
+	    %% 		       error=0,
+	    %% 		       outbound_streams=Os,
+	    %% 		       inbound_streams=Is,
+	    %% 		       assoc_id=AssocId} =
+	    %% 	ok(gen_sctp:connect(Socket, ConAddr, ConPort, ConOpts)),
+	    %% case log(gen_sctp:recv(Socket, Timeout)) of
+	    %% 	{ok,ConAddr,ConPort,[],
+	    %% 	 #sctp_paddr_change{addr = {ConAddr,ConPort},
+	    %% 			    state = addr_available,
+	    %% 			    error = 0,
+	    %% 			    assoc_id = AssocId}} -> ok;
+	    %% 	{error,timeout} -> ok
+	    %% end,
+	    %% {AssocId,Os,Is};
 	({send,AssocId,Stream,Data}) ->
 	    gen_sctp:send(Socket, AssocId, Stream, Data);
 	({send,S,AssocId,Stream,Data}) ->
