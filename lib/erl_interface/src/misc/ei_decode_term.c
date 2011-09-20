@@ -25,8 +25,8 @@
 #include "ei_decode_term.h"
 #include "putget.h"
 
-/* Returns 0 on successful encoding, -1 on error, and 1 if the term seems
-   alright, but does not fit in the term structure. If it returns 0, the
+/* Returns 1 on successful encoding, -1 on error, and 0 if the term seems
+   alright, but does not fit in the term structure. If it returns 1, the
    index will be incremented, and the term contains the decoded term. */
 
 int ei_decode_ei_term(const char* buf, int* index, ei_term* term)
@@ -111,10 +111,10 @@ int ei_decode_ei_term(const char* buf, int* index, ei_term* term)
 	break;
     case ERL_SMALL_TUPLE_EXT:
 	term->arity = get8(s);
-	break; /*return 0;*/
+	break;
     case ERL_LARGE_TUPLE_EXT:
 	term->arity = get32be(s);
-	break; /*return 0;*/
+	break;
     case ERL_NIL_EXT:
 	term->arity = 0;
 	break;
@@ -123,7 +123,7 @@ int ei_decode_ei_term(const char* buf, int* index, ei_term* term)
 	return 0;
     case ERL_LIST_EXT:
 	term->arity = get32be(s);
-	break; /*return 0;*/
+	break;
     case ERL_BINARY_EXT:
 	term->size = get32be(s);
 	return 0;
