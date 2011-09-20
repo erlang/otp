@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -83,15 +83,17 @@
 -define(INET_REQ_IFSET,         23).
 -define(INET_REQ_SUBSCRIBE,     24).
 -define(INET_REQ_GETIFADDRS,    25).
+-define(INET_REQ_ACCEPT,        26).
+-define(INET_REQ_LISTEN,        27).
 %% TCP requests
--define(TCP_REQ_ACCEPT,         40).
--define(TCP_REQ_LISTEN,         41).
+%%-define(TCP_REQ_ACCEPT,         40). MOVED
+%%-define(TCP_REQ_LISTEN,         41). MERGED
 -define(TCP_REQ_RECV,           42).
 -define(TCP_REQ_UNRECV,         43).
 -define(TCP_REQ_SHUTDOWN,       44).
 %% UDP and SCTP requests
 -define(PACKET_REQ_RECV,        60).
--define(SCTP_REQ_LISTEN,        61).
+%%-define(SCTP_REQ_LISTEN,        61). MERGED
 -define(SCTP_REQ_BINDX,	        62). %% Multi-home SCTP bind
 
 %% subscribe codes, INET_REQ_SUBSCRIBE

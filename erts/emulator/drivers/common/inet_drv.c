@@ -484,15 +484,17 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 #define INET_REQ_IFSET         23
 #define INET_REQ_SUBSCRIBE     24
 #define INET_REQ_GETIFADDRS    25
+#define INET_REQ_ACCEPT        26
+#define INET_REQ_LISTEN        27
 /* TCP requests */
-#define TCP_REQ_ACCEPT         40
-#define TCP_REQ_LISTEN         41
+/* #define TCP_REQ_ACCEPT         40 MOVED */
+/* #define TCP_REQ_LISTEN         41 MERGED */
 #define TCP_REQ_RECV           42
 #define TCP_REQ_UNRECV         43
 #define TCP_REQ_SHUTDOWN       44
 /* UDP and SCTP requests */
 #define PACKET_REQ_RECV        60 /* Common for UDP and SCTP         */
-#define SCTP_REQ_LISTEN	       61 /* Different from TCP; not for UDP */
+/* #define SCTP_REQ_LISTEN       61 MERGED Different from TCP; not for UDP */
 #define SCTP_REQ_BINDX	       62 /* Multi-home SCTP bind            */
 
 /* INET_REQ_SUBSCRIBE sub-requests */
@@ -628,10 +630,14 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 ** End of interface constants.
 **--------------------------------------------------------------------------*/
 
-#define INET_STATE_CLOSED    0
-#define INET_STATE_OPEN      (INET_F_OPEN)
-#define INET_STATE_BOUND     (INET_STATE_OPEN | INET_F_BOUND)
-#define INET_STATE_CONNECTED (INET_STATE_BOUND | INET_F_ACTIVE)
+#define INET_STATE_CLOSED          (0)
+#define INET_STATE_OPEN            (INET_F_OPEN)
+#define INET_STATE_BOUND           (INET_STATE_OPEN | INET_F_BOUND)
+#define INET_STATE_CONNECTED       (INET_STATE_BOUND | INET_F_ACTIVE)
+#define INET_STATE_LISTENING       (INET_STATE_BOUND | INET_F_LISTEN)
+#define INET_STATE_CONNECTING      (INET_STATE_BOUND | INET_F_CON)
+#define INET_STATE_ACCEPTING       (INET_STATE_LISTENING | INET_F_ACC)
+#define INET_STATE_MULTI_ACCEPTING (INET_STATE_ACCEPTING | INET_F_MULTI_CLIENT)
 
 #define IS_OPEN(d) \
  (((d)->state & INET_F_OPEN) == INET_F_OPEN)
@@ -809,16 +815,6 @@ typedef struct {
 
 
 
-#define TCP_STATE_CLOSED     INET_STATE_CLOSED
-#define TCP_STATE_OPEN       (INET_F_OPEN)
-#define TCP_STATE_BOUND      (TCP_STATE_OPEN | INET_F_BOUND)
-#define TCP_STATE_CONNECTED  (TCP_STATE_BOUND | INET_F_ACTIVE)
-#define TCP_STATE_LISTEN     (TCP_STATE_BOUND | INET_F_LISTEN)
-#define TCP_STATE_CONNECTING (TCP_STATE_BOUND | INET_F_CON)
-#define TCP_STATE_ACCEPTING  (TCP_STATE_LISTEN | INET_F_ACC)
-#define TCP_STATE_MULTI_ACCEPTING (TCP_STATE_ACCEPTING | INET_F_MULTI_CLIENT)
-
-
 #define TCP_MAX_PACKET_SIZE 0x4000000  /* 64 M */
 
 #define MAX_VSIZE 16		/* Max number of entries allowed in an I/O
@@ -874,12 +870,6 @@ static struct erl_drv_entry tcp_inet_driver_entry =
     inet_stop_select
 };
 
-#define PACKET_STATE_CLOSED     INET_STATE_CLOSED
-#define PACKET_STATE_OPEN       (INET_F_OPEN)
-#define PACKET_STATE_BOUND      (PACKET_STATE_OPEN  | INET_F_BOUND)
-#define SCTP_STATE_LISTEN	(PACKET_STATE_BOUND | INET_F_LISTEN)
-#define SCTP_STATE_CONNECTING   (PACKET_STATE_BOUND | INET_F_CON)
-#define PACKET_STATE_CONNECTED  (PACKET_STATE_BOUND | INET_F_ACTIVE)
 
 
 static int        packet_inet_init(void);
@@ -7807,22 +7797,22 @@ static tcp_descriptor* tcp_inet_copy(tcp_descriptor* desc,SOCKET s,
 static void tcp_close_check(tcp_descriptor* desc)
 {
     /* XXX:PaN - multiple clients to handle! */
-    if (desc->inet.state == TCP_STATE_ACCEPTING) {
+    if (desc->inet.state == INET_STATE_ACCEPTING) {
 	inet_async_op *this_op = desc->inet.opt;
 	sock_select(INETP(desc), FD_ACCEPT, 0);
-	desc->inet.state = TCP_STATE_LISTEN;
+	desc->inet.state = INET_STATE_LISTENING;
 	if (this_op != NULL) {
 	    driver_demonitor_process(desc->inet.port, &(this_op->monitor));
 	}
 	async_error_am(INETP(desc), am_closed);
     } 
-    else if (desc->inet.state == TCP_STATE_MULTI_ACCEPTING) {
+    else if (desc->inet.state == INET_STATE_MULTI_ACCEPTING) {
 	int id,req;
 	ErlDrvTermData caller;
 	ErlDrvMonitor monitor;
 
 	sock_select(INETP(desc), FD_ACCEPT, 0);
-	desc->inet.state = TCP_STATE_LISTEN;
+	desc->inet.state = INET_STATE_LISTENING;
 	while (deq_multi_op(desc,&id,&req,&caller,NULL,&monitor) == 0) {
 	    driver_demonitor_process(desc->inet.port, &monitor);
 	    send_async_error(desc->inet.port, desc->inet.dport, id, caller, am_closed);
@@ -7830,10 +7820,10 @@ static void tcp_close_check(tcp_descriptor* desc)
 	clean_multi_timers(&(desc->mtd), desc->inet.port);
     }
 
-    else if (desc->inet.state == TCP_STATE_CONNECTING) {
+    else if (desc->inet.state == INET_STATE_CONNECTING) {
 	async_error_am(INETP(desc), am_closed);
     }
-    else if (desc->inet.state == TCP_STATE_CONNECTED) {
+    else if (desc->inet.state == INET_STATE_CONNECTED) {
 	async_error_am_all(INETP(desc), am_closed);
     }
 }
@@ -7894,11 +7884,11 @@ static int tcp_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 	else
 	    return ctl_error(EINVAL, rbuf, rsize);
 
-    case TCP_REQ_LISTEN: { /* argument backlog */
+    case INET_REQ_LISTEN: { /* argument backlog */
 
 	int backlog;
 	DEBUGF(("tcp_inet_ctl(%ld): LISTEN\r\n", (long)desc->inet.port)); 
-	if (desc->inet.state == TCP_STATE_CLOSED)
+	if (desc->inet.state == INET_STATE_CLOSED)
 	    return ctl_xerror(EXBADPORT, rbuf, rsize);
 	if (!IS_OPEN(INETP(desc)))
 	    return ctl_xerror(EXBADPORT, rbuf, rsize);
@@ -7909,7 +7899,7 @@ static int tcp_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 	backlog = get_int16(buf);
 	if (IS_SOCKET_ERROR(sock_listen(desc->inet.s, backlog)))
 	    return ctl_error(sock_errno(), rbuf, rsize);
-	desc->inet.state = TCP_STATE_LISTEN;
+	desc->inet.state = INET_STATE_LISTENING;
 	return ctl_reply(INET_REP_OK, NULL, 0, rbuf, rsize);
     }
 
@@ -7945,13 +7935,13 @@ static int tcp_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 		((sock_errno() == ERRNO_BLOCK) ||  /* Winsock2 */
 		 (sock_errno() == EINPROGRESS))) {	/* Unix & OSE!! */
           sock_select(INETP(desc), FD_CONNECT, 1);
-	    desc->inet.state = TCP_STATE_CONNECTING;
+	    desc->inet.state = INET_STATE_CONNECTING;
 	    if (timeout != INET_INFINITY)
 		driver_set_timer(desc->inet.port, timeout);
 	    enq_async(INETP(desc), tbuf, INET_REQ_CONNECT);
 	}
 	else if (code == 0) { /* ok we are connected */
-	    desc->inet.state = TCP_STATE_CONNECTED;
+	    desc->inet.state = INET_STATE_CONNECTED;
 	    if (desc->inet.active)
 		sock_select(INETP(desc), (FD_READ|FD_CLOSE), 1);
 	    enq_async(INETP(desc), tbuf, INET_REQ_CONNECT);
@@ -7963,7 +7953,7 @@ static int tcp_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 	return ctl_reply(INET_REP_OK, tbuf, 2, rbuf, rsize);
     }
 
-    case TCP_REQ_ACCEPT: {  /* do async accept */
+    case INET_REQ_ACCEPT: {  /* do async accept */
 	char tbuf[2];
 	unsigned timeout;
 	inet_address remote;
@@ -7973,14 +7963,14 @@ static int tcp_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 	DEBUGF(("tcp_inet_ctl(%ld): ACCEPT\r\n", (long)desc->inet.port)); 
 	/* INPUT: Timeout(4) */
 
-	if ((desc->inet.state != TCP_STATE_LISTEN && desc->inet.state != TCP_STATE_ACCEPTING &&
-	     desc->inet.state != TCP_STATE_MULTI_ACCEPTING) || len != 4) {
+	if ((desc->inet.state != INET_STATE_LISTENING && desc->inet.state != INET_STATE_ACCEPTING &&
+	     desc->inet.state != INET_STATE_MULTI_ACCEPTING) || len != 4) {
 	    return ctl_error(EINVAL, rbuf, rsize);
 	}
 
 	timeout = get_int32(buf);
 
-	if (desc->inet.state == TCP_STATE_ACCEPTING) {
+	if (desc->inet.state == INET_STATE_ACCEPTING) {
 	    unsigned long time_left = 0;
 	    int oid = 0;
 	    ErlDrvTermData ocaller = ERL_DRV_NIL;
@@ -8009,10 +7999,10 @@ static int tcp_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 		mtd = add_multi_timer(&(desc->mtd), desc->inet.port, caller, 
 				      timeout, &tcp_inet_multi_timeout);
 	    }
-	    enq_multi_op(desc, tbuf, TCP_REQ_ACCEPT, caller, mtd, &monitor);
-	    desc->inet.state = TCP_STATE_MULTI_ACCEPTING;
+	    enq_multi_op(desc, tbuf, INET_REQ_ACCEPT, caller, mtd, &monitor);
+	    desc->inet.state = INET_STATE_MULTI_ACCEPTING;
 	    return ctl_reply(INET_REP_OK, tbuf, 2, rbuf, rsize);
-	} else if (desc->inet.state == TCP_STATE_MULTI_ACCEPTING) {
+	} else if (desc->inet.state == INET_STATE_MULTI_ACCEPTING) {
 	    ErlDrvTermData caller = driver_caller(desc->inet.port);
 	    MultiTimerData *mtd = NULL;
 	    ErlDrvMonitor monitor;
@@ -8024,7 +8014,7 @@ static int tcp_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 		mtd = add_multi_timer(&(desc->mtd), desc->inet.port, caller, 
 				      timeout, &tcp_inet_multi_timeout);
 	    }
-	    enq_multi_op(desc, tbuf, TCP_REQ_ACCEPT, caller, mtd, &monitor);
+	    enq_multi_op(desc, tbuf, INET_REQ_ACCEPT, caller, mtd, &monitor);
 	    return ctl_reply(INET_REP_OK, tbuf, 2, rbuf, rsize);
  	} else {
 	    n = sizeof(desc->inet.remote);
@@ -8036,8 +8026,8 @@ static int tcp_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 					       &monitor) != 0) { 
 			return ctl_xerror("noproc", rbuf, rsize);
 		    }
-		    enq_async_w_tmo(INETP(desc), tbuf, TCP_REQ_ACCEPT, timeout, &monitor);
-		    desc->inet.state = TCP_STATE_ACCEPTING;
+		    enq_async_w_tmo(INETP(desc), tbuf, INET_REQ_ACCEPT, timeout, &monitor);
+		    desc->inet.state = INET_STATE_ACCEPTING;
 		    sock_select(INETP(desc),FD_ACCEPT,1);
 		    if (timeout != INET_INFINITY) {
 			driver_set_timer(desc->inet.port, timeout);
@@ -8064,8 +8054,8 @@ static int tcp_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 		driver_select(accept_desc->inet.port, accept_desc->inet.event, 
 			      ERL_DRV_READ, 1);
 #endif
-		accept_desc->inet.state = TCP_STATE_CONNECTED;
-		enq_async(INETP(desc), tbuf, TCP_REQ_ACCEPT);
+		accept_desc->inet.state = INET_STATE_CONNECTED;
+		enq_async(INETP(desc), tbuf, INET_REQ_ACCEPT);
 		async_ok_port(INETP(desc), accept_desc->inet.dport);
 	    }
 	    return ctl_reply(INET_REP_OK, tbuf, 2, rbuf, rsize);
@@ -8171,7 +8161,7 @@ static void tcp_inet_timeout(ErlDrvData e)
 	    (long)desc->inet.port, desc->inet.s)); 
     if ((state & INET_F_MULTI_CLIENT)) { /* Multi-client always means multi-timers */
 	fire_multi_timers(&(desc->mtd), desc->inet.port, e);
-    } else if ((state & TCP_STATE_CONNECTED) == TCP_STATE_CONNECTED) {
+    } else if ((state & INET_STATE_CONNECTED) == INET_STATE_CONNECTED) {
 	if (desc->busy_on_send) {
 	    ASSERT(IS_BUSY(INETP(desc)));
 	    desc->inet.caller = desc->inet.busy_caller;
@@ -8191,20 +8181,20 @@ static void tcp_inet_timeout(ErlDrvData e)
 	    async_error_am(INETP(desc), am_timeout);
 	}
     }
-    else if ((state & TCP_STATE_CONNECTING) == TCP_STATE_CONNECTING) {
+    else if ((state & INET_STATE_CONNECTING) == INET_STATE_CONNECTING) {
 	/* assume connect timeout */
 	/* close the socket since it's not usable (see man pages) */
 	erl_inet_close(INETP(desc));
 	async_error_am(INETP(desc), am_timeout);
     }
-    else if ((state & TCP_STATE_ACCEPTING) == TCP_STATE_ACCEPTING) {
+    else if ((state & INET_STATE_ACCEPTING) == INET_STATE_ACCEPTING) {
 	inet_async_op *this_op = desc->inet.opt;
 	/* timer is set on accept */
 	sock_select(INETP(desc), FD_ACCEPT, 0);
 	if (this_op != NULL) {
 	    driver_demonitor_process(desc->inet.port, &(this_op->monitor));
 	}
-	desc->inet.state = TCP_STATE_LISTEN;
+	desc->inet.state = INET_STATE_LISTENING;
 	async_error_am(INETP(desc), am_timeout);
     }
     DEBUGF(("tcp_inet_timeout(%ld) }\r\n", (long)desc->inet.port)); 
@@ -8222,7 +8212,7 @@ static void tcp_inet_multi_timeout(ErlDrvData e, ErlDrvTermData caller)
     driver_demonitor_process(desc->inet.port, &monitor);
     if (desc->multi_first == NULL) {
 	sock_select(INETP(desc),FD_ACCEPT,0);
-	desc->inet.state = TCP_STATE_LISTEN; /* restore state */
+	desc->inet.state = INET_STATE_LISTENING; /* restore state */
     }
     send_async_error(desc->inet.port, desc->inet.dport, id, caller, am_timeout);
 }
@@ -8288,7 +8278,7 @@ static void tcp_inet_process_exit(ErlDrvData e, ErlDrvMonitor *monitorp)
     ErlDrvTermData who = driver_get_monitored_process(desc->inet.port,monitorp);
     int state = desc->inet.state;
 
-    if ((state & TCP_STATE_MULTI_ACCEPTING) == TCP_STATE_MULTI_ACCEPTING) {
+    if ((state & INET_STATE_MULTI_ACCEPTING) == INET_STATE_MULTI_ACCEPTING) {
 	int id,req;
 	MultiTimerData *timeout;
 	if (remove_multi_op(desc, &id, &req, who, &timeout, NULL) != 0) {
@@ -8299,15 +8289,15 @@ static void tcp_inet_process_exit(ErlDrvData e, ErlDrvMonitor *monitorp)
 	}
 	if (desc->multi_first == NULL) {
 	    sock_select(INETP(desc),FD_ACCEPT,0);
-	    desc->inet.state = TCP_STATE_LISTEN; /* restore state */
+	    desc->inet.state = INET_STATE_LISTENING; /* restore state */
 	}
-    } else if ((state & TCP_STATE_ACCEPTING) == TCP_STATE_ACCEPTING) {
+    } else if ((state & INET_STATE_ACCEPTING) == INET_STATE_ACCEPTING) {
 	int did,drid; 
 	ErlDrvTermData dcaller;
 	deq_async(INETP(desc), &did, &dcaller, &drid);
 	driver_cancel_timer(desc->inet.port);
 	sock_select(INETP(desc),FD_ACCEPT,0);
-	desc->inet.state = TCP_STATE_LISTEN; /* restore state */
+	desc->inet.state = INET_STATE_LISTENING; /* restore state */
     }
 } 
 
@@ -8849,8 +8839,8 @@ static void tcp_inet_event(ErlDrvData e, ErlDrvEvent event)
 
 
 /* socket has input:
-** 1. TCP_STATE_ACCEPTING  => non block accept ? 
-** 2. TCP_STATE_CONNECTED => read input
+** 1. INET_STATE_ACCEPTING  => non block accept ?
+** 2. INET_STATE_CONNECTED => read input
 */
 static int tcp_inet_input(tcp_descriptor* desc, HANDLE event)
 {
@@ -8859,7 +8849,7 @@ static int tcp_inet_input(tcp_descriptor* desc, HANDLE event)
     long port = (long) desc->inet.port;  /* Used after driver_exit() */
 #endif
     DEBUGF(("tcp_inet_input(%ld) {s=%d\r\n", port, desc->inet.s));
-    if (desc->inet.state == TCP_STATE_ACCEPTING) {
+    if (desc->inet.state == INET_STATE_ACCEPTING) {
 	SOCKET s;
 	unsigned int len;
 	inet_address remote;
@@ -8874,7 +8864,7 @@ static int tcp_inet_input(tcp_descriptor* desc, HANDLE event)
 	}
 
 	sock_select(INETP(desc),FD_ACCEPT,0);
-	desc->inet.state = TCP_STATE_LISTEN; /* restore state */
+	desc->inet.state = INET_STATE_LISTENING; /* restore state */
 
 	if (this_op != NULL) {
 	    driver_demonitor_process(desc->inet.port, &(this_op->monitor));
@@ -8914,11 +8904,11 @@ static int tcp_inet_input(tcp_descriptor* desc, HANDLE event)
 	    driver_select(accept_desc->inet.port, accept_desc->inet.event, 
 			  ERL_DRV_READ, 1);
 #endif
-	    accept_desc->inet.state = TCP_STATE_CONNECTED;
+	    accept_desc->inet.state = INET_STATE_CONNECTED;
 	    ret =  async_ok_port(INETP(desc), accept_desc->inet.dport);
 	    goto done;
 	}
-    } else if (desc->inet.state == TCP_STATE_MULTI_ACCEPTING) {
+    } else if (desc->inet.state == INET_STATE_MULTI_ACCEPTING) {
 	SOCKET s;
 	unsigned int len;
 	inet_address remote;
@@ -8930,7 +8920,7 @@ static int tcp_inet_input(tcp_descriptor* desc, HANDLE event)
 	int times = 0;
 #endif
 
-	while (desc->inet.state == TCP_STATE_MULTI_ACCEPTING) {
+	while (desc->inet.state == INET_STATE_MULTI_ACCEPTING) {
 	    len = sizeof(desc->inet.remote);
 	    s = sock_accept(desc->inet.s, (struct sockaddr*) &remote, &len);
 	    
@@ -8950,7 +8940,7 @@ static int tcp_inet_input(tcp_descriptor* desc, HANDLE event)
 	    
 	    if (desc->multi_first == NULL) {
 		sock_select(INETP(desc),FD_ACCEPT,0);
-		desc->inet.state = TCP_STATE_LISTEN; /* restore state */
+		desc->inet.state = INET_STATE_LISTENING; /* restore state */
 	    }
 	    
 	    if (timeout != NULL) {
@@ -8981,7 +8971,7 @@ static int tcp_inet_input(tcp_descriptor* desc, HANDLE event)
 		driver_select(accept_desc->inet.port, accept_desc->inet.event, 
 			      ERL_DRV_READ, 1);
 #endif
-		accept_desc->inet.state = TCP_STATE_CONNECTED;
+		accept_desc->inet.state = INET_STATE_CONNECTED;
 		ret =  send_async_ok_port(desc->inet.port, desc->inet.dport, 
 					  id, caller, accept_desc->inet.dport);
 	    }
@@ -9259,8 +9249,8 @@ static void tcp_inet_drv_input(ErlDrvData data, ErlDrvEvent event)
 }
 
 /* socket ready for ouput:
-** 1. TCP_STATE_CONNECTING => non block connect ?
-** 2. TCP_STATE_CONNECTED  => write output
+** 1. INET_STATE_CONNECTING => non block connect ?
+** 2. INET_STATE_CONNECTED  => write output
 */
 static int tcp_inet_output(tcp_descriptor* desc, HANDLE event)
 {
@@ -9269,7 +9259,7 @@ static int tcp_inet_output(tcp_descriptor* desc, HANDLE event)
 
     DEBUGF(("tcp_inet_output(%ld) {s=%d\r\n", 
 	    (long)desc->inet.port, desc->inet.s));
-    if (desc->inet.state == TCP_STATE_CONNECTING) {
+    if (desc->inet.state == INET_STATE_CONNECTING) {
 	sock_select(INETP(desc),FD_CONNECT,0);
 
 	driver_cancel_timer(ix);  /* posssibly cancel a timer */
@@ -9289,7 +9279,7 @@ static int tcp_inet_output(tcp_descriptor* desc, HANDLE event)
 				 (struct sockaddr*) &desc->inet.remote, &sz);
 
 	    if (IS_SOCKET_ERROR(code)) {
-		desc->inet.state = TCP_STATE_BOUND;  /* restore state */
+		desc->inet.state = INET_STATE_BOUND;  /* restore state */
 		ret =  async_error(INETP(desc), sock_errno());
 		goto done;
 	    }
@@ -9302,7 +9292,7 @@ static int tcp_inet_output(tcp_descriptor* desc, HANDLE event)
 				   (void *)&error, &sz);
 
 	    if ((code < 0) || error) {
-		desc->inet.state = TCP_STATE_BOUND;  /* restore state */
+		desc->inet.state = INET_STATE_BOUND;  /* restore state */
 		ret = async_error(INETP(desc), error);
 		goto done;
 	    }
@@ -9310,7 +9300,7 @@ static int tcp_inet_output(tcp_descriptor* desc, HANDLE event)
 #endif /* SO_ERROR */
 #endif /* !__WIN32__ */
 
-	desc->inet.state = TCP_STATE_CONNECTED;
+	desc->inet.state = INET_STATE_CONNECTED;
 	if (desc->inet.active)
 	    sock_select(INETP(desc),(FD_READ|FD_CLOSE),1);
 	async_ok(INETP(desc));
@@ -9600,14 +9590,14 @@ static int packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 
 	    if (IS_SOCKET_ERROR(code) && (sock_errno() == EINPROGRESS)) {
 		/* XXX: Unix only -- WinSock would have a different cond! */
-		desc->state = SCTP_STATE_CONNECTING;
+		desc->state = INET_STATE_CONNECTING;
 		if (timeout != INET_INFINITY)
 		    driver_set_timer(desc->port, timeout);
 		enq_async(desc, tbuf, INET_REQ_CONNECT);
 	    }
 	    else if (code == 0) { /* OK we are connected */
 		sock_select(desc, FD_CONNECT, 0);
-		desc->state = PACKET_STATE_CONNECTED;
+		desc->state = INET_STATE_CONNECTED;
 		enq_async(desc, tbuf, INET_REQ_CONNECT);
 		async_ok(desc);
 	    }
@@ -9653,11 +9643,11 @@ static int packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
     }
 
 #ifdef HAVE_SCTP
-    case SCTP_REQ_LISTEN:
+    case INET_REQ_LISTEN:
 	{	/* LISTEN is only for SCTP sockets, not UDP. This code is borrowed
 		   from the TCP section. Returns: {ok,[]} on success.
 		*/
-	    int flag;
+	    int backlog;
 	    
 	    DEBUGF(("packet_inet_ctl(%ld): LISTEN\r\n", (long)desc->port)); 
 	    if (!IS_SCTP(desc))
@@ -9667,15 +9657,14 @@ static int packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 	    if (!IS_BOUND(desc))
 		return ctl_xerror(EXBADSEQ, rbuf, rsize);
 
-	    /* The arg is a binary value: 1:enable, 0:disable */
-	    if (len != 1)
+	    if (len != 2)
 		return ctl_error(EINVAL, rbuf, rsize);
-	    flag = get_int8(buf);
+	    backlog = get_int16(buf);
 
-	    if (IS_SOCKET_ERROR(sock_listen(desc->s, flag)))
+	    if (IS_SOCKET_ERROR(sock_listen(desc->s, backlog)))
 		return ctl_error(sock_errno(), rbuf, rsize);
 
-	    desc->state = SCTP_STATE_LISTEN;   /* XXX: not used? */
+	    desc->state = INET_STATE_LISTENING;   /* XXX: not used? */
 	    return ctl_reply(INET_REP_OK, NULL, 0, rbuf, rsize);
 	}
 
@@ -10063,7 +10052,7 @@ static void packet_inet_drv_output(ErlDrvData e, ErlDrvEvent event)
 }
 
 /* UDP/SCTP socket ready for output:
-**	This is a Back-End for Non-Block SCTP Connect (SCTP_STATE_CONNECTING)
+**	This is a Back-End for Non-Block SCTP Connect (INET_STATE_CONNECTING)
 */
 static int packet_inet_output(udp_descriptor* udesc, HANDLE event)
 {
@@ -10074,7 +10063,7 @@ static int packet_inet_output(udp_descriptor* udesc, HANDLE event)
     DEBUGF(("packet_inet_output(%ld) {s=%d\r\n", 
 	    (long)desc->port, desc->s));
 
-    if (desc->state == SCTP_STATE_CONNECTING) {
+    if (desc->state == INET_STATE_CONNECTING) {
 	sock_select(desc, FD_CONNECT, 0);
 
 	driver_cancel_timer(ix);  /* posssibly cancel a timer */
@@ -10094,7 +10083,7 @@ static int packet_inet_output(udp_descriptor* udesc, HANDLE event)
 				 (struct sockaddr*) &desc->remote, &sz);
 
 	    if (IS_SOCKET_ERROR(code)) {
-		desc->state = PACKET_STATE_BOUND;  /* restore state */
+		desc->state = INET_STATE_BOUND;  /* restore state */
 		ret =  async_error(desc, sock_errno());
 		goto done;
 	    }
@@ -10107,7 +10096,7 @@ static int packet_inet_output(udp_descriptor* udesc, HANDLE event)
 				   (void *)&error, &sz);
 
 	    if ((code < 0) || error) {
-		desc->state = PACKET_STATE_BOUND;  /* restore state */
+		desc->state = INET_STATE_BOUND;  /* restore state */
 		ret = async_error(desc, error);
 		goto done;
 	    }
@@ -10115,7 +10104,7 @@ static int packet_inet_output(udp_descriptor* udesc, HANDLE event)
 #endif /* SO_ERROR */
 #endif /* !__WIN32__ */
 
-	desc->state = PACKET_STATE_CONNECTED;
+	desc->state = INET_STATE_CONNECTED;
 	async_ok(desc);
     }
     else {

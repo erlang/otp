@@ -318,7 +318,7 @@ accept_opts(L, S) ->
     end.
 
 async_accept(L, Time) ->
-    case ctl_cmd(L,?TCP_REQ_ACCEPT, [enc_time(Time)]) of
+    case ctl_cmd(L,?INET_REQ_ACCEPT, [enc_time(Time)]) of
 	{ok, [R1,R0]} -> {ok, ?u16(R1,R0)};
 	Error -> Error
     end.
@@ -334,16 +334,13 @@ async_accept(L, Time) ->
 %% listening) is also accepted:
 
 listen(S) -> listen(S, ?LISTEN_BACKLOG).
-    
+
+listen(S, true) -> listen(S, ?LISTEN_BACKLOG);
+listen(S, false) -> listen(S, 0);
 listen(S, BackLog) when is_port(S), is_integer(BackLog) ->
-    case ctl_cmd(S, ?TCP_REQ_LISTEN, [?int16(BackLog)]) of
+    case ctl_cmd(S, ?INET_REQ_LISTEN, [?int16(BackLog)]) of
 	{ok, _} -> ok;
 	Error   -> Error
-    end;
-listen(S, Flag)   when is_port(S), is_boolean(Flag) ->
-    case ctl_cmd(S, ?SCTP_REQ_LISTEN, enc_value(set, bool8, Flag)) of
-	{ok,_} -> ok;
-	Error -> Error
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
