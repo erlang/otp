@@ -111,7 +111,7 @@ connect(S, Addr, Port, Opts, Timer) ->
 
 connect_get_assoc(S, Addr, Port, false, Timer) ->
     case recv(S, inet:timeout(Timer)) of
-	{ok, {Addr, Port, [], #sctp_assoc_change{state=St}=Ev}} ->
+	{ok, {Addr, Port, _, #sctp_assoc_change{state=St}=Ev}} ->
 	    if St =:= comm_up ->
 		    %% Yes, successfully connected, return the whole
 		    %% sctp_assoc_change event (containing, in particular,
@@ -132,7 +132,7 @@ connect_get_assoc(S, Addr, Port, false, Timer) ->
 connect_get_assoc(S, Addr, Port, Active, Timer) ->
     Timeout = inet:timeout(Timer),
     receive
-	{sctp,S,Addr,Port,{[],#sctp_assoc_change{state=St}=Ev}} ->
+	{sctp,S,Addr,Port,{_,#sctp_assoc_change{state=St}=Ev}} ->
 	    case Active of
 		once ->
 		    prim_inet:setopt(S, active, once);
