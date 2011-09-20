@@ -34,6 +34,12 @@
 %% If you change this, remember to update ct_util:look -> stop clause as well.
 -define(config_name, ct_hooks).
 
+%% All of the hooks which are to be started by default. Remove by issuing
+%% -enable_builtin_hooks false to when starting common test.
+-define(BUILTIN_HOOKS,[#ct_hook_config{ module = cth_log_redirect,
+					opts = [],
+					prio = ctfirst }]).
+
 -record(ct_hook_config, {id, module, prio, scope, opts = [], state = []}).
 
 %% -------------------------------------------------------------------------
@@ -44,7 +50,8 @@
 -spec init(State :: term()) -> ok |
 			       {error, Reason :: term()}.
 init(Opts) ->
-    call(get_new_hooks(Opts, undefined), ok, init, []).
+    call(get_new_hooks(Opts, undefined) ++ get_builtin_hooks(Opts),
+	 ok, init, []).
 		      
 
 %% @doc Called after all suites are done.
@@ -283,6 +290,14 @@ get_new_hooks(Config) when is_list(Config) ->
 get_new_hooks(_Config) ->
     [].
 
+get_builtin_hooks(Opts) ->
+    case proplists:get_value(enable_builtin_hooks,Opts) of
+	false ->
+	    [];
+	_Else ->
+	    [{HookConf, call_id, undefined} || HookConf <- ?BUILTIN_HOOKS]
+    end.
+
 save_suite_data_async(Hooks) ->
     ct_util:save_suite_data_async(?config_name, Hooks).
 
@@ -290,7 +305,7 @@ get_hooks() ->
     lists:keysort(#ct_hook_config.prio,ct_util:read_suite_data(?config_name)).
 
 %% Sort all calls in this order:
-%% call_id < call_init < Hook Priority 1 < .. < Hook Priority N
+%% call_id < call_init < ctfirst < Priority 1 < .. < Priority N < ctlast
 %% If Hook Priority is equal, check when it has been installed and
 %% sort on that instead.
 resort(Calls, Hooks) ->
@@ -311,6 +326,14 @@ resort(Calls, Hooks) ->
 		      %% If priorities are equal, we check the position in the
 		      %% hooks list
 		      pos(Id1,Hooks) < pos(Id2,Hooks);
+		  P1 == ctfirst ->
+		      true;
+		  P2 == ctfirst ->
+		      false;
+		  P1 == ctlast ->
+		      false;
+		  P2 == ctlast ->
+		      true;
 		  true ->
 		      P1 < P2
 	      end

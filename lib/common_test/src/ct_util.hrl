@@ -37,6 +37,7 @@
 		   userconfig=[],
 		   event_handler=[],
 		   ct_hooks=[],
+		   enable_builtin_hooks=true,
 		   include=[],
 		   multiply_timetraps=[],
 		   scale_timetraps=[],
