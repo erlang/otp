@@ -25,7 +25,8 @@
 
 
 %% CTH Callbacks
--export([id/1, init/2, post_init_per_group/4, pre_end_per_group/3]).
+-export([id/1, init/2, post_init_per_group/4, pre_end_per_group/3,
+	 post_end_per_testcase/4]).
 
 %% Event handler Callbacks
 -export([init/1,
@@ -50,6 +51,11 @@ post_init_per_group(Group, Config, Result, tc_log) ->
 post_init_per_group(_Group, _Config, Result, State) ->
     {Result, State}.
 
+post_end_per_testcase(_TC, _Config, Result, State) ->
+    %% Make sure that the event queue is flushed
+    %% before ending this test case.
+    gen_event:call(error_logger, ?MODULE, flush),
+    {Result, State}.
 
 pre_end_per_group(Group, Config, {ct_log, Group}) ->
     {Config, set_log_func(tc_log)};
@@ -86,12 +92,14 @@ handle_event(Event, LogFunc) ->
     end,
     {ok, LogFunc}.
 
-handle_info({set_logfunc,NewLogFunc,Reply},_) ->
-    Reply ! {ok,NewLogFunc},
-    {ok, NewLogFunc};
+
 handle_info(_,State) -> {ok, State}.
 
-handle_call(_Query, _Type) -> {error, bad_query}.
+handle_call(flush,State) ->
+    {ok, ok, State};
+handle_call({set_logfunc,NewLogFunc},_) ->
+    {ok, NewLogFunc, NewLogFunc};
+handle_call(_Query, _State) -> {error, bad_query}.
 
 terminate(_Reason, _Type) ->
     [].
@@ -100,10 +108,4 @@ tag_event(Event) ->
     {calendar:local_time(), Event}.
 
 set_log_func(Func) ->
-    error_logger ! {set_logfunc, Func, self()},
-    receive
-	{ok,Func} ->
-	    Func
-    after 1000 ->
-	    tc_log
-    end.
+    gen_event:call(error_logger, ?MODULE, {set_logfunc, Func}).
