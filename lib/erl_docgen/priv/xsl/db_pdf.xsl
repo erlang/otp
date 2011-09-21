@@ -1382,16 +1382,15 @@
   <!-- Func -->
   <xsl:template match="func">
     <xsl:param name="partnum"/>
-
-    <xsl:apply-templates select="name"/>
-    <xsl:apply-templates
-        select="name[string-length(@arity) > 0 and position()=last()]"
-        mode="types"/>
-
-    <xsl:apply-templates select="fsummary|type|desc">
-      <xsl:with-param name="partnum" select="$partnum"/>
-    </xsl:apply-templates>
-
+    <fo:block space-before="1.5em">
+      <xsl:apply-templates select="name"/>
+      <xsl:apply-templates
+	  select="name[string-length(@arity) > 0 and position()=last()]"
+	  mode="types"/>
+      <xsl:apply-templates select="fsummary|type|desc">
+	<xsl:with-param name="partnum" select="$partnum"/>
+      </xsl:apply-templates>
+    </fo:block>
   </xsl:template>
 
 
@@ -1424,14 +1423,10 @@
     <xsl:param name="partnum"/>
     <xsl:choose>
       <xsl:when test="ancestor::cref">
-        <fo:block id="{generate-id(nametext)}">
-          <xsl:value-of select="ret"/><xsl:text> </xsl:text><xsl:value-of select="nametext"/>
-        </fo:block>
+        <fo:block id="{generate-id(nametext)}"><xsl:value-of select="ret"/><xsl:text></xsl:text><xsl:value-of select="nametext"/></fo:block>
       </xsl:when>
       <xsl:otherwise>
-        <fo:block id="{generate-id(.)}">
-          <xsl:value-of select="."/>
-        </fo:block>
+        <fo:block id="{generate-id(.)}"><xsl:value-of select="."/></fo:block>
       </xsl:otherwise>
     </xsl:choose>
   </xsl:template>
@@ -1468,7 +1463,7 @@
         </fo:block>
       </fo:list-item-label>
       <fo:list-item-body start-indent="body-start()" format="justify">
-        <fo:block font-weight="bold">
+        <fo:block font-weight="bold" font-family="monospace" >
           <xsl:apply-templates>
             <xsl:with-param name="partnum" select="$partnum"/>
           </xsl:apply-templates>
