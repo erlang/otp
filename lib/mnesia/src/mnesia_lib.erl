@@ -1141,11 +1141,17 @@ db_erase(ram_copies, Tab, Key) -> ?ets_delete(Tab, Key), ok;
 db_erase(disc_copies, Tab, Key) -> ?ets_delete(Tab, Key), ok;
 db_erase(disc_only_copies, Tab, Key) -> dets:delete(Tab, Key).
 
+db_match_erase(Tab, '_') ->
+    db_delete_all(val({Tab, storage_type}),Tab);
 db_match_erase(Tab, Pat) ->
     db_match_erase(val({Tab, storage_type}), Tab, Pat).
 db_match_erase(ram_copies, Tab, Pat) -> ?ets_match_delete(Tab, Pat), ok;
 db_match_erase(disc_copies, Tab, Pat) -> ?ets_match_delete(Tab, Pat), ok;
 db_match_erase(disc_only_copies, Tab, Pat) -> dets:match_delete(Tab, Pat).
+
+db_delete_all(ram_copies, Tab) ->       ets:delete_all_objects(Tab);
+db_delete_all(disc_copies, Tab) ->      ets:delete_all_objects(Tab);
+db_delete_all(disc_only_copies, Tab) -> dets:delete_all_objects(Tab).
 
 db_first(Tab) ->
     db_first(val({Tab, storage_type}), Tab).

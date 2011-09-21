@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 
 -module(ex_listCtrl).
@@ -25,7 +25,7 @@
 -export([start/1, init/1, terminate/2,  code_change/3,
 	 handle_info/2, handle_call/3, handle_event/2]).
 
--record(state, 
+-record(state,
 	{
 	  parent,
 	  config,
@@ -40,11 +40,11 @@ init(Config) ->
         wx:batch(fun() -> do_init(Config) end).
 
 do_init(Config) ->
-    Parent = proplists:get_value(parent, Config),  
+    Parent = proplists:get_value(parent, Config),
     Panel = wxPanel:new(Parent, []),
 
     %% Setup sizers
-    MainSizer = wxStaticBoxSizer:new(?wxVERTICAL, Panel, 
+    MainSizer = wxStaticBoxSizer:new(?wxVERTICAL, Panel,
 				     [{label, "wxListCtrl"}]),
 
     Notebook = wxNotebook:new(Panel, 1, [{style, ?wxBK_DEFAULT}]),
@@ -81,14 +81,46 @@ do_init(Config) ->
     wxListCtrl:setItemBackgroundColour(ListCtrl3,3,?wxGREEN),
     wxListCtrl:setItemBackgroundColour(ListCtrl3,0,?wxCYAN),
 
+    IA = wxListItemAttr:new(),
+    wxListItemAttr:setTextColour(IA, {190, 25, 25}),
+    LC4Opts = [{style, ?wxLC_REPORT bor ?wxLC_VIRTUAL},
+	       {onGetItemText, fun(_This, Item, 0) ->
+				       "Row " ++ integer_to_list(Item);
+				  (_, Item, 1) when Item rem 5 == 0 ->
+				       "Column 2";
+				  (_, _, _) -> ""
+			       end},
+	       {onGetItemAttr, fun(_This, Item) when Item rem 3 == 0 ->
+				       IA;
+				  (_This, _Item)  ->
+				       wx:typeCast(wx:null(), wxListItemAttr)
+			       end},
+	       {onGetItemColumnImage, fun(_This, Item, 1) ->
+					      Item rem 4;
+					 (_, _, _) ->
+					      -1
+				      end}
+	      ],
+    ListCtrl4 = wxListCtrl:new(Notebook, LC4Opts),
+    wxListCtrl:setImageList(ListCtrl4, IL, ?wxIMAGE_LIST_SMALL),
+
+    wxListCtrl:insertColumn(ListCtrl4, 0, "Column 1"),
+    wxListCtrl:insertColumn(ListCtrl4, 1, "Column 2"),
+    wxListCtrl:setColumnWidth(ListCtrl4, 0, 200),
+    wxListCtrl:setColumnWidth(ListCtrl4, 1, 200),
+    wxListCtrl:setItemCount(ListCtrl4, 1000000),
+
+
     wxListCtrl:connect(ListCtrl1, command_list_item_selected, []),
     wxListCtrl:connect(ListCtrl2, command_list_item_selected, []),
     wxListCtrl:connect(ListCtrl3, command_list_item_selected, []),
+    wxListCtrl:connect(ListCtrl4, command_list_item_selected, []),
 
     %% Add to sizers
     wxNotebook:addPage(Notebook, ListCtrl1, "List", []),
     wxNotebook:addPage(Notebook, ListCtrl2, "Report", []),
     wxNotebook:addPage(Notebook, ListCtrl3, "Colored multiselect", []),
+    wxNotebook:addPage(Notebook, ListCtrl4, "Virtual Report", []),
 
     wxSizer:add(MainSizer, Notebook, [{proportion, 1},
 				      {flag, ?wxEXPAND}]),
@@ -145,4 +177,4 @@ create_list_ctrl(Win, Options) ->
 
     ListCtrl.
 
-    
+
