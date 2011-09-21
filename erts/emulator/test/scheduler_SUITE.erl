@@ -1039,7 +1039,7 @@ sbt_test(Config, CpuTCmd, ClBt, Bt, LP) ->
     ?line ok.
     
 scheduler_suspend(Config) when is_list(Config) ->
-    ?line Dog = ?t:timetrap(?t:minutes(2)),
+    ?line Dog = ?t:timetrap(?t:minutes(5)),
     ?line lists:foreach(fun (S) -> scheduler_suspend_test(Config, S) end,
 			[64, 32, 16, default]),
     ?line ?t:timetrap_cancel(Dog),
