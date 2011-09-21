@@ -2328,10 +2328,7 @@ type(lists, keyfind, 3, Xs) ->
 		     case t_tuple_subtypes(Tuple) of
 		       unknown -> Ret;
 		       List ->
-			 Keys = [type(erlang, element, 2, [Y, S])
-				 || S <- List],
-			 Infs = [t_inf(Key, X) || Key <- Keys],
-			 case all_is_none(Infs) of
+			 case key_comparisons_fail(X, Y, List) of
 			   true -> t_atom('false');
 			   false -> Ret
 			 end
@@ -2361,9 +2358,7 @@ type(lists, keymember, 3, Xs) ->
 		     case t_tuple_subtypes(Tuple) of
 		       unknown -> t_boolean();
 		       List ->
-			 Keys = [type(erlang, element, 2, [Y,S]) || S <- List],
-			 Infs = [t_inf(Key, X) || Key <- Keys],
-			 case all_is_none(Infs) of
+			 case key_comparisons_fail(X, Y, List) of
 			   true -> t_atom('false');
 			   false -> t_boolean()
 			 end
@@ -2393,10 +2388,7 @@ type(lists, keysearch, 3, Xs) ->
 		     case t_tuple_subtypes(Tuple) of
 		       unknown -> Ret;
 		       List ->
-			 Keys = [type(erlang, element, 2, [Y, S])
-				 || S <- List],
-			 Infs = [t_inf(Key, X) || Key <- Keys],
-			 case all_is_none(Infs) of
+			 case key_comparisons_fail(X, Y, List) of
 			   true -> t_atom('false');
 			   false -> Ret
 			 end
@@ -2824,9 +2816,6 @@ list_replace(1, E, [_X | Xs]) ->
 any_is_none_or_unit(Ts) ->
   lists:any(fun erl_types:t_is_none_or_unit/1, Ts).
 
-all_is_none(Ts) ->
-  lists:all(fun erl_types:t_is_none/1, Ts).
-
 check_guard([X], Test, Type) ->
   check_guard_single(X, Test, Type).
 
@@ -3221,6 +3210,15 @@ type_order() ->
   [t_number(), t_atom(), t_reference(), t_fun(), t_port(), t_pid(), t_tuple(),
    t_list(), t_binary()].
 
+key_comparisons_fail(X0, KeyPos, TupleList) ->
+  X = case t_is_number(t_inf(X0, t_number())) of
+	false -> X0;
+	true -> t_number()
+      end,
+  lists:all(fun(Tuple) ->
+		Key = type(erlang, element, 2, [KeyPos, Tuple]),
+		t_is_none(t_inf(Key, X))
+	    end, TupleList).
 
 %%=============================================================================
 
