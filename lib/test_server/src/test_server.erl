@@ -746,6 +746,9 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate, Comment, CurrConf) ->
 			Other
 		end,
 	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate1,NewComment2,CurrConf);
+	{read_comment,From} ->
+	    From ! {self(),read_comment,Comment},
+	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,CurrConf);
 	{set_curr_conf,NewCurrConf} ->
 	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,NewCurrConf);
 	{'EXIT',Pid,{Ref,Time,Value,Loc,Opts}} ->
@@ -1443,9 +1446,13 @@ do_end_per_testcase(Mod,EndFunc,Func,Conf) ->
 	{'$test_server_ok',_} ->
 	    ok;
 	{'EXIT',Reason} = Why ->
-	    comment(io_lib:format("<font color=\"red\">"
+	    Comment0 = case read_comment() of
+			   ""  -> "";
+			   Cmt -> Cmt ++ "<br>"
+		       end,
+	    comment(io_lib:format("~s<font color=\"red\">"
 				  "WARNING: ~w crashed!"
-				  "</font>\n",[EndFunc])),
+				  "</font>\n",[Comment0,EndFunc])),
 	    group_leader() ! {printout,12,
 			      "WARNING: ~w crashed!\n"
 			      "Reason: ~p\n"
@@ -1455,9 +1462,13 @@ do_end_per_testcase(Mod,EndFunc,Func,Conf) ->
 				 mod_loc(get_loc()))]},
 	    {failed,{Mod,end_per_testcase,Why}};
 	Other ->
-	    comment(io_lib:format("<font color=\"red\">"
+	    Comment0 = case read_comment() of
+			   ""  -> "";
+			   Cmt -> Cmt ++ "<br>"
+		       end,
+	    comment(io_lib:format("~s<font color=\"red\">"
 				  "WARNING: ~w thrown!"
-				  "</font>\n",[EndFunc])),
+				  "</font>\n",[Comment0,EndFunc])),
 	    group_leader() ! {printout,12,
 			      "WARNING: ~w thrown!\n"
 			      "Reason: ~p\n"
@@ -2362,6 +2373,22 @@ is_native(Mod) ->
 comment(String) ->
     group_leader() ! {comment,String},
     ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% read_comment() -> string()
+%%
+%% Read the current comment string stored in
+%% state during test case execution.
+read_comment() ->
+    MsgLooper = group_leader(),
+    MsgLooper ! {read_comment,self()},
+    receive
+	{MsgLooper,read_comment,Comment} ->
+	    Comment
+    after
+	5000 ->
+	    ""
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% os_type() -> OsType
