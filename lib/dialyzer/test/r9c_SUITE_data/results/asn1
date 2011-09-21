@@ -6,7 +6,7 @@ asn1ct.erl:672: The pattern <{'false', Result}, _, _> can never match the type <
 asn1ct.erl:909: Guard test is_atom(Ext::[49 | 97 | 98 | 100 | 110 | 115]) can never succeed
 asn1ct_check.erl:1698: The pattern {'error', _} can never match the type [any()]
 asn1ct_check.erl:2733: The pattern {'type', Tag, _, _, _, _} can never match the type 'ASN1_OPEN_TYPE' | {_,_} | {'fixedtypevaluefield',_,_}
-asn1ct_check.erl:2738: The pattern <_S, _> can never match since previous clauses completely covered the type <#state{},#ObjectClassFieldType{class::#objectclass{fields::maybe_improper_list() | {_,_,_,_}},fieldname::{_,maybe_improper_list()},type::'ASN1_OPEN_TYPE' | {_,_} | {'fixedtypevaluefield',_,_}}>
+asn1ct_check.erl:2738: The pattern <_S, _> can never match since previous clauses completely covered the type <#state{},#'ObjectClassFieldType'{class::#objectclass{fields::maybe_improper_list() | {_,_,_,_}},fieldname::{_,maybe_improper_list()},type::'ASN1_OPEN_TYPE' | {_,_} | {'fixedtypevaluefield',_,_}}>
 asn1ct_check.erl:2887: The variable Other can never match since previous clauses completely covered the type any()
 asn1ct_check.erl:3188: The pattern <_S, [], B> can never match the type <#state{},{'SingleValue',_},{'ValueRange',_}>
 asn1ct_check.erl:3190: The pattern <_S, A, []> can never match the type <#state{},{'SingleValue',_},{'ValueRange',_}>
@@ -29,8 +29,8 @@ asn1ct_check.erl:5128: Guard test is_record(Type::{_,_} | {'fixedtypevaluefield'
 asn1ct_check.erl:540: The pattern <_S, {'poc', _ObjSet, _Params}> can never match since previous clauses completely covered the type <#state{},_>
 asn1ct_check.erl:5517: The pattern <_, []> can never match the type <_,[{'ABSTRACT-SYNTAX',{_,_,_}} | {'TYPE-IDENTIFIER',{_,_,_}},...]>
 asn1ct_constructed_ber.erl:1075: The pattern {{{'ObjectClassFieldType', _, _, _, {'objectfield', PrimFieldName1, PFNList}}, _}, {'componentrelation', _, _}} can never match the type {#type{},_}
-asn1ct_constructed_ber.erl:695: The pattern {'EXTENSIONMARK', _, _} can never match the type #ComponentType{}
-asn1ct_constructed_ber.erl:748: The pattern <Erules, TopType, {CompList, _ExtList}> can never match the type <_,maybe_improper_list(),[#ComponentType{typespec::{_,_,_,_,_,_}}]>
+asn1ct_constructed_ber.erl:695: The pattern {'EXTENSIONMARK', _, _} can never match the type #'ComponentType'{}
+asn1ct_constructed_ber.erl:748: The pattern <Erules, TopType, {CompList, _ExtList}> can never match the type <_,maybe_improper_list(),[#'ComponentType'{typespec::{_,_,_,_,_,_}}]>
 asn1ct_constructed_ber_bin_v2.erl:914: The pattern {{{'ObjectClassFieldType', _, _, _, {'objectfield', PrimFieldName1, PFNList}}, _}, {'componentrelation', _, _}} can never match the type {#type{},_}
 asn1ct_gen.erl:740: The pattern [] can never match the type [any(),...]
 asn1ct_gen_ber.erl:974: The pattern <Erules, [{Name, Def} | Rest]> can never match the type <_,[#typedef{name::atom(),typespec::{_,_,_,_,_,_}}]>

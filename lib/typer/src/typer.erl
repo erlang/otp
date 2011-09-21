@@ -539,7 +539,7 @@ get_type_string(F, A, Info, Mode) ->
       case {Mode, Type} of
 	{file, {contract, _}} -> "";
 	_ ->
-	  Prefix = lists:concat(["-spec ", F]),
+	  Prefix = lists:concat(["-spec ", erl_types:atom_to_string(F)]),
 	  lists:concat([Prefix, TypeStr, "."])
       end;
     true ->
