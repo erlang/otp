@@ -30,6 +30,8 @@ CHMOD=chmod
 
 all: $(ALL_OBJS)
 
+$(EI_COMMON_OBJS): gccifier@exe@
+
 @IFEQ@ (@erl_interface_cross_compile@, true)
 gccifier@exe@:
 	$(CP) gccifier.sh gccifier@exe@
