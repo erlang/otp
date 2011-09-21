@@ -87,8 +87,17 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-
+init_per_testcase(update_cpu_info, Config) ->
+    case os:find_executable("taskset") of
+	false ->
+	    {skip,"Could not find 'taskset' in path"};
+	_ ->
+	    init_per_tc(update_cpu_info, Config)
+    end;
 init_per_testcase(Case, Config) when is_list(Config) ->
+    init_per_tc(Case, Config).
+
+init_per_tc(Case, Config) ->
     Dog = ?t:timetrap(?DEFAULT_TIMEOUT),
     process_flag(priority, max),
     erlang:display({'------------', ?MODULE, Case, '------------'}),
