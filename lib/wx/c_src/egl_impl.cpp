@@ -95,7 +95,7 @@ int egl_init_opengl(void *erlCallbacks)
 }
 
 int load_gl_functions() {
-  DL_CHAR * DLName = OPENGL_LIB;
+  DL_CHAR * DLName = (DL_CHAR *) OPENGL_LIB;
   DL_LIB_P LIBhandle = dlopen(DLName, RTLD_LAZY);
   //fprintf(stderr, "Loading GL: %s\r\n", (const char*)DLName);
   void * func = NULL;
@@ -127,7 +127,7 @@ int load_gl_functions() {
     fprintf(stderr, "Could NOT load OpenGL library: %s\r\n", DLName);
   };
 
-  DLName = OPENGLU_LIB;
+  DLName = (DL_CHAR *) OPENGLU_LIB;
   LIBhandle = dlopen(DLName, RTLD_LAZY);
   // fprintf(stderr, "Loading GLU: %s\r\n", (const char*)DLName);
   func = NULL;
