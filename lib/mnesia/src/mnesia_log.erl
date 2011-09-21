@@ -1021,7 +1021,8 @@ add_recs([LogH|Rest], N)
        LogH#log_header.log_version >= "1.0" ->    
     add_recs(Rest, N);
 add_recs([{{Tab, _Key}, _Val, clear_table} | Rest], N) ->
-    true = ets:match_delete(Tab, '_'),
-    add_recs(Rest, N+ets:info(Tab, size));  
+    Size = ets:info(Tab, size),
+    true = ets:delete_all_objects(Tab),
+    add_recs(Rest, N+Size);
 add_recs([], N) ->
     N.

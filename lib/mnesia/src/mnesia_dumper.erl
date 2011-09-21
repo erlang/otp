@@ -364,7 +364,7 @@ dets_insert(Op,Tab,Key,Val) ->
 	    ok = dets:delete_object(Tab, Val);
 	clear_table ->
 	    dets_cleared(Tab),
-	    ok = dets:match_delete(Tab, '_')
+	    ok = dets:delete_all_objects(Tab)
     end.
 	    
 dets_updated(Tab,Key) -> 
