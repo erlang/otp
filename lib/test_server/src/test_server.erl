@@ -1235,7 +1235,7 @@ run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback) ->
 	    %% call user callback function if defined
 	    Return1 = user_callback(TCCallback, Mod, Func, 'end', Return),
 	    {Return2,Opts} = process_return_val([Return1], Mod, Func,
-						Args1, Loc, Return1),
+						Args1, {Mod,Func}, Return1),
 	    {{T,Return2},Loc,Opts}
     end.
 
