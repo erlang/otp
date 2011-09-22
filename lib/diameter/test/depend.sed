@@ -24,6 +24,7 @@
 
 /^-include/!d
 /^-include_lib/d
+/diameter_gen/d
 
 s@^-include("@@
 s@".*@@

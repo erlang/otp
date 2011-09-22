@@ -92,7 +92,9 @@ ifeq ($(USE_DIAMETER_HIPE),true)
 ERL_COMPILE_FLAGS += +native -DDIAMETER_hipe_special=true
 endif
 
-ERL_COMPILE_FLAGS += $(DIAMETER_ERL_COMPILE_FLAGS)
+ERL_COMPILE_FLAGS += $(DIAMETER_ERL_COMPILE_FLAGS) \
+                     -DDIAMETER_CT=true \
+                     -I $(DIAMETER_TOP)/src/app
 
 # ----------------------------------------------------
 # Targets
@@ -183,7 +185,7 @@ help:
 # diameter_ct:run/1 itself can't tell (it seems).
 $(SUITES): log targets
 	$(ERL) -noshell \
-	        -pa ../ebin \
+	        -pa $(DIAMETER_TOP)/ebin \
 	        -sname diameter_test_$@ \
 	        -s diameter_ct run diameter_$@_SUITE \
 	        -s init stop \
