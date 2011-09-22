@@ -316,8 +316,8 @@
     <xsl:attribute name="font-family">monospace</xsl:attribute>
     <!-- xsl:attribute name="font-size">0.8em</xsl:attribute -->
     <xsl:attribute name="keep-with-next.within-page">always</xsl:attribute>
-    <xsl:attribute name="space-after">0.3em</xsl:attribute>
-    <xsl:attribute name="space-before">1.5em</xsl:attribute>
+    <xsl:attribute name="space-after">0.25em</xsl:attribute>
+    <!-- xsl:attribute name="space-before">1.5em</xsl:attribute -->
   </xsl:attribute-set> 
 
   <xsl:attribute-set name="type-listblock">
