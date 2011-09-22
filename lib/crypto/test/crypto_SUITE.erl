@@ -138,14 +138,15 @@ link_test_2(Drv) ->
 	    Libs = os:cmd(Cmd),
 	    io:format("~p\n", [Libs]),
 	    case string:str(Libs, "libcrypto") of
-		0 -> ok;
-		_ ->
+		0 -> 
 		    case ?t:is_commercial() of
 			true ->
-			    ?t:fail({libcrypto,not_statically_linked});
+			    ?t:fail({libcrypto,statically_linked});
 			false ->
-			    {comment,"Not statically linked (OK for open-source platform)"}
-		    end
+			    {comment,"Statically linked (OK for open-source platform)"}
+		    end;
+		_ ->
+		    ok
 	    end
     end.
 
