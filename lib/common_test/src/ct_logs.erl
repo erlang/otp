@@ -509,6 +509,7 @@ logger_loop(State) ->
 	    print_style(GL, State#logger_state.stylesheet),
 	    set_evmgr_gl(GL),
 	    TCGLs = add_tc_gl(TCPid,GL,State),
+	    make_last_run_index(State#logger_state.start_time),
 	    return(From,ok),
 	    logger_loop(State#logger_state{tc_groupleaders=TCGLs});
 	{{end_tc,TCPid},From} ->
