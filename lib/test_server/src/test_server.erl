@@ -1194,12 +1194,17 @@ run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback) ->
 			    SaveCfg1={save_config,_} ->
 				{FWReturn,TSReturn,[SaveCfg1|lists:keydelete(save_config,1,
 									     EndConf1)]};
-			    {fail,ReasonToFail} ->                % user has failed the testcase
+			    {fail,ReasonToFail} ->
+				%% user has failed the testcase
 				fw_error_notify(Mod, Func, EndConf1, ReasonToFail),
 				{{error,ReasonToFail},{failed,ReasonToFail},EndConf1};
-			    {failed,{_,end_per_testcase,_}} = Failure -> % unexpected termination
+			    {failed,{_,end_per_testcase,_}} = Failure when FWReturn == ok ->
+				%% unexpected termination in end_per_testcase
+				%% report this as the result to the framework
 				{Failure,TSReturn,EndConf1};
 			    _ ->
+				%% test case result should be reported to framework
+				%% no matter the status of end_per_testcase
 				{FWReturn,TSReturn,EndConf1}
 			end,
 		    %% clear current state in controller loop
