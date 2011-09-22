@@ -659,7 +659,7 @@ test_events(lib_error) ->
      {?eh,test_stats,{0,2,{0,0}}},
      {?eh,tc_start,{lib_error_1_SUITE,lines_hang}},
      {?eh,tc_done,
-      {lib_lines,do_hang,{failed,{timetrap_timeout,3000}}}},
+      {lib_error_1_SUITE,lines_hang,{failed,{timetrap_timeout,3000}}}},
      {?eh,test_stats,{0,3,{0,0}}},
      {?eh,tc_start,{lib_error_1_SUITE,lines_throw}},
      {?eh,tc_done,
