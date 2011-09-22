@@ -182,7 +182,11 @@ do_start(Parent,Mode,LogDir) ->
     %% Initialize ct_hooks
     try ct_hooks:init(Opts) of
 	ok ->
-	    Parent ! {self(),started}
+	    Parent ! {self(),started};
+	{fail,CTHReason} ->
+	    ct_logs:tc_print('Suite Callback',CTHReason,[]),
+	    self() ! {{stop,{self(),{user_error,CTHReason}}},
+		      {Parent,make_ref()}}
     catch
 	_:CTHReason ->
 	    ct_logs:tc_print('Suite Callback',CTHReason,[]),
