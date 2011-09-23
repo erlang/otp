@@ -126,11 +126,9 @@ get_tcp_address(Socket) ->
 		  family = inet
 		}.
 
-accept_loop(Proxy, Type, Listen, Extra) ->
+accept_loop(Proxy, erts = Type, Listen, Extra) ->
     process_flag(priority, max),
-    case Type of
-	erts ->
-	    case gen_tcp:accept(Listen) of
+    case gen_tcp:accept(Listen) of
 		{ok, Socket} ->
 		    Extra ! {accept,self(),Socket,inet,proxy},
 		    receive 
@@ -142,29 +140,30 @@ accept_loop(Proxy, Type, Listen, Extra) ->
 			    exit(unsupported_protocol)
 		    end;
 		Error ->
-		    exit(Error)
+	    exit(Error)
+    end,
+    accept_loop(Proxy, Type, Listen, Extra);
+
+accept_loop(Proxy, world = Type, Listen, Extra) ->
+    process_flag(priority, max),
+    case gen_tcp:accept(Listen) of
+	{ok, Socket} ->
+	    Opts = get_ssl_options(server),
+	    case ssl:ssl_accept(Socket, Opts) of
+		{ok, SslSocket} ->
+		    PairHandler =
+			spawn_link(fun() ->
+					   setup_connection(SslSocket, Extra)
+				   end),
+		    ok = ssl:controlling_process(SslSocket, PairHandler),
+		    flush_old_controller(PairHandler, SslSocket);
+		_ ->
+		    gen_tcp:close(Socket)
 	    end;
-	world ->
-	    case gen_tcp:accept(Listen) of
-		{ok, Socket} ->
-		    Opts = get_ssl_options(server),
-		    case ssl:ssl_accept(Socket, Opts) of
-			{ok, SslSocket} ->
-			    PairHandler =
-				spawn_link(fun() ->
-						   setup_connection(SslSocket, Extra)
-					   end),
-			    ok = ssl:controlling_process(SslSocket, PairHandler),
-			    flush_old_controller(PairHandler, SslSocket);
-			_ ->
-			    gen_tcp:close(Socket)
-		    end;
-		Error ->
-		    exit(Error)
-	    end
+	Error ->
+	    exit(Error)
     end,
     accept_loop(Proxy, Type, Listen, Extra).
-
 
 try_connect(Port) ->
     case gen_tcp:connect({127,0,0,1}, Port, [{active, false}, {packet,?PPRE}]) of
