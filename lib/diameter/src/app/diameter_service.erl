@@ -1398,15 +1398,15 @@ recv_answer(Timeout,
     %% is, from the last peer to which we've transmitted.
 
     receive
-        {answer = A, Ref, Rq, Pkt} ->     %% Answer from peer.
+        {answer = A, Ref, Rq, Pkt} ->     %% Answer from peer
             {A, Rq, Pkt};
-        {timeout = Reason, TRef, _} ->       %% No timely reply
+        {timeout = Reason, TRef, _} ->    %% No timely reply
             {error, Req, Reason};
-        {failover = Reason, TRef, false} ->  %% No alternative peer.
+        {failover = Reason, TRef, false} ->  %% No alternate peer
             {error, Req, Reason};
-        {failover, TRef, Transport} ->       %% Resend to alternate peer.
+        {failover, TRef, Transport} ->    %% Resend to alternate peer
             try_retransmit(Timeout, SvcName, Req, Transport);
-        {failover, TRef} ->  %% May have missed failover notification.
+        {failover, TRef} ->  %% May have missed failover notification
             Seqs = diameter_codec:sequence_numbers(RPkt),
             Pid  = whois(SvcName),
             is_pid(Pid) andalso (Pid ! {failover, TRef, Seqs}),
@@ -2482,6 +2482,7 @@ rpd(Pid, Alias, PDict) ->
 %%%
 %%% Output: {TransportPid, #diameter_caps{}, #diameter_app{}}
 %%%         | false
+%%%         | {error, Reason}
 %%% ---------------------------------------------------------------------------
 
 %% Initial call, from an arbitrary process.
@@ -2540,22 +2541,12 @@ get_destination(Msg, Dict) ->
     [str(get_avp_value(Dict, 'Destination-Realm', Msg)),
      str(get_avp_value(Dict, 'Destination-Host', Msg))].
 
-%% TODO:
-%%
-%% Should add some way of specifying destination directly so that the
-%% only requirement is that the prepare_request callback returns
-%% something specific. (eg. {host, DH}; that is, let the caller specify.)
-%%
-%% Also, there is no longer any need to call get_destination at all in
-%% the default case.
-
-str(T)
-  when T == undefined;
-       T == [] ->
+%% This is not entirely correct. The avp could have an arity 1, in
+%% which case an empty list is a DiameterIdentity of length 0 rather
+%% than the list of no values we treat it as by mapping to undefined.
+%% This behaviour is documented.
+str([]) ->
     undefined;
-str([X])
-  when is_list(X) ->
-    X;
 str(T) ->
     T.
 
@@ -2690,7 +2681,8 @@ peers(Alias, RH, Filter, Peers) ->
     end.
 
 %% Place a peer whose Destination-Host/Realm matches those of the
-%% request at the front of the result list.
+%% request at the front of the result list. Could add some sort of
+%% 'sort' option to allow more control.
 
 ps([], _, _, {Ys, Ns}) ->
     lists:reverse(Ys, Ns);
@@ -2700,11 +2692,11 @@ ps([{_TPid, #diameter_caps{} = Caps} = TC | Rest], RH, Filter, Acc) ->
                               TC,
                               Acc)).
 
-pacc(true, true, TC, {Ts, Fs}) ->
-    {[TC|Ts], Fs};
-pacc(true, false, TC, {Ts, Fs}) ->
-    {Ts, [TC|Fs]};
-pacc(false, _, _, Acc) ->
+pacc(true, true, Peer, {Ts, Fs}) ->
+    {[Peer|Ts], Fs};
+pacc(true, false, Peer, {Ts, Fs}) ->
+    {Ts, [Peer|Fs]};
+pacc(_, _, _, Acc) ->
     Acc.
 
 %% caps_filter/3
@@ -2712,17 +2704,19 @@ pacc(false, _, _, Acc) ->
 caps_filter(C, RH, {neg, F}) ->
     not caps_filter(C, RH, F);
 
-caps_filter(C, RH, {all, L}) ->
+caps_filter(C, RH, {all, L})
+  when is_list(L) ->
     lists:all(fun(F) -> caps_filter(C, RH, F) end, L);
 
-caps_filter(C, RH, {any, L}) ->
+caps_filter(C, RH, {any, L})
+  when is_list(L) ->
     lists:any(fun(F) -> caps_filter(C, RH, F) end, L);
 
-caps_filter(#diameter_caps{origin_host = {_,H}}, [_,DH], host) ->
-    eq(undefined, DH, H);
+caps_filter(#diameter_caps{origin_host = {_,OH}}, [_,DH], host) ->
+    eq(undefined, DH, OH);
 
-caps_filter(#diameter_caps{origin_realm = {_,R}}, [DR,_], realm) ->
-    eq(undefined, DR, R);
+caps_filter(#diameter_caps{origin_realm = {_,OR}}, [DR,_], realm) ->
+    eq(undefined, DR, OR);
 
 caps_filter(C, _, Filter) ->
     caps_filter(C, Filter).
@@ -2738,6 +2732,9 @@ caps_filter(#diameter_caps{origin_host = {_,OH}}, {host, H}) ->
 caps_filter(#diameter_caps{origin_realm = {_,OR}}, {realm, R}) ->
     eq(any, R, OR);
 
+%% Anything else is expected to be an eval filter. Filter failure is
+%% documented as being equivalent to a non-matching filter.
+
 caps_filter(C, T) ->
     try
         {eval, F} = T,
@@ -2746,8 +2743,14 @@ caps_filter(C, T) ->
         _:_ -> false
     end.
 
-eq(X, A, B) ->
-    X == A orelse A == B.
+eq(Any, Id, PeerId) ->
+    Any == Id orelse try
+                         iolist_to_binary(Id) == iolist_to_binary(PeerId)
+                     catch
+                         _:_ -> false
+                     end.
+%% OctetString() can be specified as an iolist() so test for string
+%% rather then term equality.
 
 %% transports/1
 

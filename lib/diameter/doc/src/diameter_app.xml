@@ -269,7 +269,12 @@ The candidate peers list will only include those
 which are selected by any <c>filter</c> option specified in the call to
 <seealso marker="diameter#call">diameter:call/4</seealso>, and only
 those which have indicated support for the Diameter application in
-question.</p>
+question.
+The order of the elements is unspecified except that any
+peers whose Origin-Host and Origin-Realm matches that of the
+outgoing request (in the sense of a <c>{filter, {all, [host, realm]}}</c>
+option to <seealso marker="diameter#call">diameter:call/4</seealso>)
+will be placed at the head of the list.</p>
 
 <p>
 The return values <c>false</c> and <c>{false, State}</c> are
