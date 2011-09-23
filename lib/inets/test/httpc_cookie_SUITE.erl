@@ -119,10 +119,18 @@ end_per_testcase(Case, Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [session_cookies_only, netscape_cookies, cookie_cancel,
-     cookie_expires, persistent_cookie, domain_cookie,
-     secure_cookie, update_cookie, update_cookie_session,
-     cookie_attributes].
+    [
+     session_cookies_only, 
+     netscape_cookies, 
+     cookie_cancel,
+     cookie_expires, 
+     persistent_cookie, 
+     domain_cookie,
+     secure_cookie, 
+     update_cookie, 
+     update_cookie_session,
+     cookie_attributes
+    ].
 
 groups() -> 
     [].
@@ -305,38 +313,93 @@ secure_cookie(Config) when is_list(Config) ->
     tsp("secure_cookie -> done"),
     ok.
     
+expect_cookie_header(No, ExpectedCookie) ->
+    case httpc:cookie_header(?URL) of
+	{"cookie", ExpectedCookie} ->
+	    ok;
+    	{"cookie", BadCookie} ->
+	    io:format("Bad Cookie ~w: "
+		      "~n   Expected: ~s"
+		      "~n   Received: ~s"
+		      "~n", [No, ExpectedCookie, BadCookie]),
+	    exit({bad_cookie_header, No, ExpectedCookie, BadCookie})
+    end.
+
+print_cookies(Pre) ->
+    io:format("~s: ", [Pre]),
+    print_cookies2(httpc:which_cookies()).
+
+print_cookies2([]) ->
+    ok;
+print_cookies2([{cookies, Cookies}|Rest]) ->
+    print_cookies3("Cookies", Cookies),
+    print_cookies2(Rest);
+print_cookies2([{session_cookies, Cookies}|Rest]) ->
+    print_cookies3("Session Cookies", Cookies),
+    print_cookies2(Rest);
+print_cookies2([_|Rest]) ->
+    print_cookies2(Rest).
+
+print_cookies3(Header, []) ->
+    io:format("   ~s: []", [Header]);
+print_cookies3(Header, Cookies) ->
+    io:format("   ~s: ", [Header]),
+    Prefix      = "      ", 
+    PrintCookie = 
+	fun(Cookie) -> 
+		io:format("~s", [httpc_cookie:image_of(Prefix, Cookie)]) 
+	end, 
+    lists:foreach(PrintCookie, Cookies).
+
 update_cookie(doc)->
-    ["Test that a cookie can be updated."];
+    ["Test that a (plain) cookie can be updated."];
 update_cookie(suite) ->
     [];
-update_cookie(Config) when is_list(Config)->
-    SetCookieHeaders = [{"set-cookie", "test_cookie=true; path=/;"
-			 "max-age=6500"},
-			{"set-cookie", "test_cookie2=true; path=/;"
-			 "max-age=6500"}],
+update_cookie(Config) when is_list(Config) ->
+    print_cookies("Cookies before store"),
+
+    SetCookieHeaders = 
+	[{"set-cookie", "test_cookie=true; path=/; max-age=6500"},
+	 {"set-cookie", "test_cookie2=true; path=/; max-age=6500"}],
     httpc:store_cookies(SetCookieHeaders, ?URL),
-    {"cookie", "$Version=0; test_cookie2=true; $Path=/; "
-     "test_cookie=true; $Path=/"} = httpc:cookie_header(?URL),
-    NewSetCookieHeaders = [{"set-cookie", "test_cookie=false; "
-			    "path=/;max-age=6500"}],
+    print_cookies("Cookies after first store"),
+    ExpectCookie1 = 
+	"$Version=0; "
+	"test_cookie=true; $Path=/; "
+	"test_cookie2=true; $Path=/", 
+    expect_cookie_header(1, ExpectCookie1), 
+
+    NewSetCookieHeaders = 
+	[{"set-cookie", "test_cookie=false; path=/; max-age=6500"}],
     httpc:store_cookies(NewSetCookieHeaders, ?URL),
-    {"cookie", "$Version=0; test_cookie2=true; $Path=/; "
-     "test_cookie=false; $Path=/"} = httpc:cookie_header(?URL).
-    
+    print_cookies("Cookies after second store"),    
+    ExpectCookie2 = 
+	"$Version=0; "
+	"test_cookie2=true; $Path=/; "
+	"test_cookie=false; $Path=/", 
+    expect_cookie_header(2, ExpectCookie2).
+
 update_cookie_session(doc)->
-    ["Test that a cookie can be updated."];
+    ["Test that a session cookie can be updated."];
 update_cookie_session(suite) ->
     [];
 update_cookie_session(Config) when is_list(Config)->
+    print_cookies("Cookies before store"),
+
     SetCookieHeaders = [{"set-cookie", "test_cookie=true; path=/"},
 			{"set-cookie", "test_cookie2=true; path=/"}],
     httpc:store_cookies(SetCookieHeaders, ?URL),
-    {"cookie", "$Version=0; test_cookie2=true; $Path=/; "
-     "test_cookie=true; $Path=/"} = httpc:cookie_header(?URL),
+    print_cookies("Cookies after first store"),
+    ExpectedCookie1 = 
+	"$Version=0; test_cookie=true; $Path=/; test_cookie2=true; $Path=/",
+    expect_cookie_header(1, ExpectedCookie1), 
+
     NewSetCookieHeaders = [{"set-cookie", "test_cookie=false; path=/"}],
     httpc:store_cookies(NewSetCookieHeaders, ?URL),
-    {"cookie", "$Version=0; test_cookie2=true; $Path=/; "
-     "test_cookie=false; $Path=/"} = httpc:cookie_header(?URL).
+    print_cookies("Cookies after second store"),    
+    ExpectedCookie2 = 
+	"$Version=0; test_cookie2=true; $Path=/; test_cookie=false; $Path=/", 
+    expect_cookie_header(2, ExpectedCookie2).
     
 
 cookie_attributes(doc) -> 

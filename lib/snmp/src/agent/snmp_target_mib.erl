@@ -383,10 +383,18 @@ is_valid_tag(Tag, TDomain, TAddress) ->
     is_valid_tag(TDomain, TAddress, Tag, []).
 
 is_valid_tag(TDomain, TAddress, Tag, Key) ->
+    ?vtrace("is_valid_tag -> entry with"
+	    "~n   TDomain:  ~p"
+	    "~n   TAddress: ~p"
+	    "~n   Tag:      ~p"
+	    "~n   Key:      ~p", [TDomain, TAddress, Tag, Key]),
     case table_next(snmpTargetAddrTable, Key) of
 	endOfTable -> 
+	    ?vtrace("is_valid_tag -> endOfTable", []),
 	    false;
 	NextKey -> 
+	    ?vtrace("is_valid_tag -> next key found"
+		    "~n   NextKey: ~p", [NextKey]),
 	    case get(snmpTargetAddrTable, NextKey, [?snmpTargetAddrTDomain,
 						    ?snmpTargetAddrTAddress,
 						    ?snmpTargetAddrTagList,
@@ -395,6 +403,8 @@ is_valid_tag(TDomain, TAddress, Tag, Key) ->
 		 {value, TAddress}, % RFC2576: chapters 5.2.1 & 5.3
 		 {value, TagList}, 
 		 {value, []}] ->
+		    ?vtrace("is_valid_tag -> found with exact match"
+			    "~n   TagList: ~p", [TagList]),
 		    case snmp_misc:is_tag_member(Tag, TagList) of
 			true ->
 			    ?vtrace("is_valid_tag -> exact: "
@@ -410,9 +420,14 @@ is_valid_tag(TDomain, TAddress, Tag, Key) ->
 		 {value, TAddress2},
 		 {value, TagList}, 
 		 {value, TMask}] when TMask =/= [] ->
+		    ?vtrace("is_valid_tag -> found with exact match"
+			    "~n   TagList: ~p"
+			    "~n   TMask:   ~p", [TagList, TMask]),
 		    case snmp_misc:is_tmask_match(TAddress, TAddress2, 
 						  TMask) of
 			true ->
+			    ?vtrace("is_valid_tag -> "
+				    "tmask match - now check tag member", []),
 			    case snmp_misc:is_tag_member(Tag, TagList) of
 				true ->
 				    ?vtrace("is_valid_tag -> masked: "
@@ -425,10 +440,12 @@ is_valid_tag(TDomain, TAddress, Tag, Key) ->
 						 Tag, NextKey)
 			    end;
 			false ->
+			    ?vtrace("is_valid_tag -> tmask NO match", []),
 			    is_valid_tag(TDomain, TAddress,
 					 Tag, NextKey)
 		    end;
 		_ ->
+		    ?vtrace("is_valid_tag -> not found - try next", []),
 		    is_valid_tag(TDomain, TAddress, Tag, NextKey)
 	    end
     end.
@@ -591,9 +608,9 @@ snmpTargetAddrTable(print) ->
 				[Prefix, element(?snmpTargetAddrName, Row),
 				 Prefix, element(?snmpTargetAddrTDomain, Row),
 				 case element(?snmpTargetAddrTDomain, Row) of
-				     ?snmpUDPDomain -> udp;
-				     ?transportDomainUdpIpv4 -> udpIpv4;
-				     ?transportDomainUdpIpv6 -> udpIpv6;
+				     ?snmpUDPDomain -> snmpUDPDomain;
+				     ?transportDomainUdpIpv4 -> transportDomainUdpIpv4;
+				     ?transportDomainUdpIpv6 -> transportDomainUdpIpv6;
 				     _ -> undefined
 				 end,
 				 Prefix, element(?snmpTargetAddrTAddress, Row),

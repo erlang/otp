@@ -79,16 +79,18 @@
         <p>Print debug info. </p>
 	<p><c>verbosity</c> = <c>trace</c> | <c>debug</c> | <c>log</c> | <c>info</c> | <c>silence</c></p>
 	<p>Defaults to <c>silence</c>.</p>
+	<marker id="option_w"></marker>
 	<marker id="option_warnings"></marker>
       </item>
 
-      <tag>--warnings</tag>
+      <tag>--warnings | --W</tag>
       <item>
         <p>Print warning messages. </p>
 	<marker id="option_wae"></marker>
+	<marker id="option_werror"></marker>
       </item>
 
-      <tag>--wae</tag>
+      <tag>--wae | --Werror</tag>
       <item>
         <p>Warnings as errors. 
 	Indicates that warnings shall be treated as errors. </p>
@@ -211,7 +213,7 @@
 
   <section>
     <title>SEE ALSO</title>
-    <p><seealso marker="erlc">erlc(1)</seealso>,
+    <p><seealso marker="erts:erlc">erlc(1)</seealso>,
     <seealso marker="compiler:compile">compile(3)</seealso>,
     <seealso marker="snmp:snmpc">snmpc(3)</seealso></p>
   </section>
