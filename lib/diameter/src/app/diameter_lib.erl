@@ -46,14 +46,9 @@
 report(Reason, MFA) ->
     info_report(Reason, MFA).
 
-info_report(Reason, {M,F,A}) ->
-    error_logger:info_report("   Reason: ~p~n"
-			     "      Pid: ~p~n"
-			     "     Node: ~p~n"
-			     "   Module: ~p~n"
-			     " Function: ~p~n"
-			     "Arguments: ~p~n",
-			     [Reason, self(), node(), M, F, A]).
+info_report(Reason, MFA) ->
+    report(fun error_logger:info_report/1, Reason, MFA),
+    true.
 
 %%% ---------------------------------------------------------------------------
 %%% # error_report(Reason, MFA)
@@ -69,7 +64,7 @@ warning_report(Reason, MFA) ->
     report(fun error_logger:warning_report/1, Reason, MFA).
 
 report(Fun, Reason, MFA) ->
-    Fun([{reason, Reason}, {who, self()}, {where, node()}, {what, MFA}]),
+    Fun([{why, Reason}, {who, self()}, {what, MFA}]),
     false.
 
 %%% ---------------------------------------------------------------------------
