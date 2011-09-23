@@ -260,38 +260,36 @@ find_fixpoint(OptFun, Is0) ->
 	Is -> find_fixpoint(OptFun, Is)
     end.
 
-opt([{test,Test0,{f,Lnum}=Lbl,Ops}=I|Is0], Acc, St) ->
-    case Is0 of
-	[{jump,{f,Lnum}}|Is] ->
-	    %% We have
-	    %%    Test Label Ops
-	    %%    jump Label
-	    %% The test instruction is definitely not needed.
-	    %% The jump instruction is not needed if there is
-	    %% a definition of Label following the jump instruction.
-	    case is_label_defined(Is, Lnum) of
-		false ->
-		    %% The jump instruction is still needed.
-		    opt(Is0, [I|Acc], label_used(Lbl, St));
-		true ->
-		    %% Neither the test nor the jump are needed.
-		    opt(Is, Acc, St)
-	    end;
-	[{jump,To}|Is] ->
-	    case is_label_defined(Is, Lnum) of
-		false ->
-		    opt(Is0, [I|Acc], label_used(Lbl, St));
-		true ->
-		    case invert_test(Test0) of
-			not_possible ->
-			    opt(Is0, [I|Acc], label_used(Lbl, St));
-			Test ->
-			    opt([{test,Test,To,Ops}|Is], Acc, St)
-		    end
-	    end;
-	_Other ->
-	    opt(Is0, [I|Acc], label_used(Lbl, St))
+opt([{test,_,{f,L}=Lbl,_}=I|[{jump,{f,L}}|_]=Is], Acc, St) ->
+    %% We have
+    %%    Test Label Ops
+    %%    jump Label
+    %% The test instruction is not needed if the test is pure
+    %% (it modifies neither registers nor bit syntax state).
+    case beam_utils:is_pure_test(I) of
+	false ->
+	    %% Test is not pure; we must keep it.
+	    opt(Is, [I|Acc], label_used(Lbl, St));
+	true ->
+	    %% The test is pure and its failure label is the same
+	    %% as in the jump that follows -- thus it is not needed.
+	    opt(Is, Acc, St)
     end;
+opt([{test,Test0,{f,L}=Lbl,Ops}=I|[{jump,To}|Is]=Is0], Acc, St) ->
+    case is_label_defined(Is, L) of
+	false ->
+	    opt(Is0, [I|Acc], label_used(Lbl, St));
+	true ->
+	    case invert_test(Test0) of
+		not_possible ->
+		    opt(Is0, [I|Acc], label_used(Lbl, St));
+		Test ->
+		    %% Invert the test and remove the jump.
+		    opt([{test,Test,To,Ops}|Is], Acc, St)
+	    end
+    end;
+opt([{test,_,{f,_}=Lbl,_}=I|Is], Acc, St) ->
+    opt(Is, [I|Acc], label_used(Lbl, St));
 opt([{test,_,{f,_}=Lbl,_,_,_}=I|Is], Acc, St) ->
     opt(Is, [I|Acc], label_used(Lbl, St));
 opt([{select_val,_R,Fail,{list,Vls}}=I|Is], Acc, St) ->
