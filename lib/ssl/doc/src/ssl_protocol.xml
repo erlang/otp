@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2010</year>
+      <year>2003</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -25,18 +25,18 @@
     <file>ssl_protocol.xml</file>
   </header>
   
-  <p>The erlang ssl application currently supports SSL 3.0 and TLS 1.0
+  <p>The erlang SSL application currently supports SSL 3.0 and TLS 1.0
   RFC 2246, and will in the future also support later versions of TLS.
   SSL 2.0 is not supported.
   </p>
 
-  <p>By default erlang ssl is run over the TCP/IP protocol even
+  <p>By default erlang SSL is run over the TCP/IP protocol even
   though you could plug in any other reliable transport protocol
   with the same API as gen_tcp.</p>
   
   <p>If a client and server wants to use an upgrade mechanism, such as
-  defined by RFC2817, to upgrade a regular TCP/IP connection to an ssl
-  connection the erlang ssl API supports this. This can be useful for
+  defined by RFC2817, to upgrade a regular TCP/IP connection to an SSL
+  connection the erlang SSL API supports this. This can be useful for
   things such as supporting HTTP and HTTPS on the same port and
   implementing virtual hosting.
   </p>
@@ -131,7 +131,7 @@
      connections. Sessions are used to avoid the expensive negotiation
      of new security parameters for each connection."</p>
 
-     <p>Session data is by default kept by the ssl application in a
+     <p>Session data is by default kept by the SSL application in a
      memory storage hence session data will be lost at application
      restart or takeover. Users may define their own callback module
      to handle session data storage if persistent data storage is
@@ -140,8 +140,8 @@
      possible to configure the amount of time the session data should be
      saved.</p>
 
-     <p>Ssl clients will by default try to reuse an available session,
-     ssl servers will by default agree to reuse sessions when clients
+     <p>SSL clients will by default try to reuse an available session,
+     SSL servers will by default agree to reuse sessions when clients
      ask to do so.</p>
 
    </section>

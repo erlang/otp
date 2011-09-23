@@ -55,14 +55,14 @@
 %% compiled module. This is necessary so that the code can be loaded
 %% on remote nodes that are started after the compilation.
 %%
-%% PARELLALISM
+%% PARALLELISM
 %% To take advantage of SMP when doing the cover analysis both the data 
 %% collection and analysis has been parallelized. One process is spawned for
 %% each node when collecting data, and on the remote node when collecting data
 %% one process is spawned per module. 
 %% 
 %% When analyzing data it is possible to issue multiple analyse(_to_file)/X 
-%% calls at once. They are however all calls (for backwardscompatability 
+%% calls at once. They are however all calls (for backwards compatibility
 %% reasons) so the user of cover will have to spawn several processes to to the
 %% calls ( or use async_analyse_to_file ). 
 %%

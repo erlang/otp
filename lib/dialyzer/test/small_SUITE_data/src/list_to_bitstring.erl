@@ -2,7 +2,7 @@
 %% From: Ken Robinson
 %% Date: 28/04/2011, 17:26
 %%
-%% Program that produced borus "Function has no local return" warnings
+%% Program that produced bogus "Function has no local return" warnings
 %% due to erlang:list_to_bitstring/1 having erroneous hard coded type
 %% information, namely accepting iolist() instead of bitstrlist().
 %% Fixed 29/04/2011.

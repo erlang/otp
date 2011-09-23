@@ -283,17 +283,16 @@ long_names(doc) ->
 long_names(Config) when is_list(Config) ->
     ?line DataDir = ?config(data_dir, Config),
     ?line Long = filename:join(DataDir, "long_names.tar"),
+    run_in_short_tempdir(Config,
+			 fun() -> do_long_names(Long) end).
 
+do_long_names(Long) ->
     %% Try table/2 and extract/2.
     ?line case erl_tar:table(Long, [verbose]) of
 	      {ok,List} when is_list(List) ->
 		  ?line io:format("~p\n", [List])
 	  end,
 
-
-    %% To avoid getting too long paths for Windows to handle, extract into
-    %% the current directory (which is the test_server directory). Its path
-    %% is quite a bit shorter than the path to priv_dir.
     ?line {ok,Cwd} = file:get_cwd(),
     ?line ok = erl_tar:extract(Long),
     ?line Base = filename:join([Cwd, "original_software", "written_by",
@@ -312,17 +311,16 @@ long_names(Config) when is_list(Config) ->
     ?line "Here"++_ = binary_to_list(First),
     ?line "And"++_ = binary_to_list(Second),
 
-    %% Clean up.
-    ?line delete_files([filename:join(Cwd, "original_software"),EmptyDir]),
-
     ok.
 
 create_long_names(doc) ->
     ["Creates a tar file from a deep directory structure (filenames are ",
      "longer than 100 characters)."];
 create_long_names(Config) when is_list(Config) ->
-    ?line PrivDir = ?config(priv_dir, Config),
-    ?line ok = file:set_cwd(PrivDir),
+    run_in_short_tempdir(Config, fun create_long_names/0).
+    
+create_long_names() ->
+    ?line {ok,Dir} = file:get_cwd(),
     Dirs = ["aslfjkshjkhliuf",
 	    "asdhjfehnbfsky",
 	    "sahajfskdfhsz",
@@ -334,7 +332,7 @@ create_long_names(Config) when is_list(Config) ->
     ?line AFile = filename:join(DeepDir, "a_file"),
     ?line Hello = "hello, world\n",
     ?line ok = file:write_file(AFile, Hello),
-    ?line TarName = filename:join(PrivDir,  "my_tar_with_long_names.tar"),
+    ?line TarName = filename:join(Dir,  "my_tar_with_long_names.tar"),
     ?line ok = erl_tar:create(TarName, [AFile]),
 
     %% Print contents.
@@ -346,9 +344,6 @@ create_long_names(Config) when is_list(Config) ->
     ?line ok = erl_tar:extract(TarName, [{cwd,ExtractDir}]),
     ?line {ok, Bin} = file:read_file(filename:join(ExtractDir, AFile)),
     ?line Hello = binary_to_list(Bin),
-
-    %% Clean up.
-    ?line delete_files([ExtractDir,TarName,hd(Dirs)]),
 
     ok.
 
@@ -734,3 +729,42 @@ delete_files([Item|Rest]) ->
     end,
     delete_files(Rest).
 
+%% Move to a temporary directory with as short name as possible and
+%% execute Fun. Remove the directory and any files in it afterwards.
+%% This is necessary because pathnames on Windows may be limited to
+%% 260 characters.
+run_in_short_tempdir(Config, Fun) ->
+    {ok,Cwd} = file:get_cwd(),
+    PrivDir0 = ?config(priv_dir, Config),
+
+    %% Normalize name to make sure that there is no slash at the end.
+    PrivDir = filename:absname(PrivDir0),
+
+    %% We need a base directory with a much shorter pathname than
+    %% priv_dir. We KNOW that priv_dir is located four levels below
+    %% the directory that common_test puts the ct_run.* directories
+    %% in. That fact is not documented, but an usually reliable source
+    %% assured me that the directory structure is unlikely to change
+    %% in future versions of common_test because of backward
+    %% compatibility (tools developed by users of common_test depend
+    %% on the current directory layout).
+    Base = lists:foldl(fun(_, D) ->
+			       filename:dirname(D)
+		       end, PrivDir, [1,2,3,4]),
+
+    Dir = make_temp_dir(Base, 0),
+    ok = file:set_cwd(Dir),
+    io:format("Running test in ~s\n", [Dir]),
+    try
+	Fun()
+    after
+	file:set_cwd(Cwd),
+	delete_files([Dir])
+    end.
+
+make_temp_dir(Base, I) ->
+    Name = filename:join(Base, integer_to_list(I, 36)),
+    case file:make_dir(Name) of
+	ok -> Name;
+	{error,eexist} -> make_temp_dir(Base, I+1)
+    end.

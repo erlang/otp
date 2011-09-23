@@ -320,7 +320,7 @@ pragma(G, File, T) ->
 		 time,
 		 time("pragma registration  ", ic_pragma, pragma_reg, [G,T]),
 		 ic_pragma:pragma_reg(G,T)) of
-	%% All pragmas were succesfully applied
+	%% All pragmas were successfully applied
 	{ok,Clean} ->
 	    typing(G, File, Clean);
        

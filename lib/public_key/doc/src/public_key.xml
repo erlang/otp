@@ -79,7 +79,7 @@
     <p><code> rsa_padding() =  'rsa_pkcs1_padding' | 'rsa_pkcs1_oaep_padding'
     | 'rsa_no_padding'</code></p>
     
-    <p><code> rsa_digest_type()  = 'md5' | 'sha' </code></p>
+    <p><code> rsa_digest_type()  = 'md2' | 'md5' | 'sha' </code></p>
 
     <p><code> dss_digest_type()  = 'none' | 'sha' </code></p>
 

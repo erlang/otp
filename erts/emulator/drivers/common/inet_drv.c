@@ -7012,7 +7012,7 @@ static int sctp_fill_opts(inet_descriptor* desc, char* buf, int buflen,
 	default:
 	    RETURN_ERROR(spec, -EINVAL); /* No more valid options */
 	}
-	/* If we get here one result has been succesfully loaded */
+	/* If we get here one result has been successfully loaded */
 	length ++;
     }
     if (buflen != 0) RETURN_ERROR(spec, -EINVAL); /* Optparam mismatch */

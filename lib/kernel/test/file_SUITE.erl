@@ -2165,7 +2165,7 @@ write_compressed(Config) when is_list(Config) ->
     ?line Second = io:get_line(Fd1, ''),
     ?line ok = ?FILE_MODULE:close(Fd1),
 
-    %% Verify succesful compression by uncompressing the file
+    %% Verify successful compression by uncompressing the file
     %% using zlib:gunzip/1.
 
     ?line {ok,Contents} = file:read_file(MyFile),

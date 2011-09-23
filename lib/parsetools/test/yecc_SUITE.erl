@@ -173,6 +173,7 @@ syntax(Config) when is_list(Config) ->
     %% Report errors. Very simple test of format_error/1.
     Ret = [return, {report, true}],
     Filename = filename:join(Dir, "file.yrl"),
+    Parserfile = filename:join(Dir, "file.erl"),
     Parserfile1 = filename:join(Dir, "a file"),
 
     ?line ok = file:write_file(Filename, <<"">>),
@@ -248,12 +249,17 @@ syntax(Config) when is_list(Config) ->
         yecc:file(Filename, Ret),
 
     %% Bad declaration with warnings_as_errors.
+    ok = file:delete(Parserfile),
     error = yecc:file(Filename, [warnings_as_errors]),
+    false = filelib:is_regular(Parserfile),
     error = yecc:file(Filename, [return_warnings,warnings_as_errors]),
-    {ok,_,[{_,[{2,yecc,bad_declaration}]}]} =
-        yecc:file(Filename, [return_warnings]),
+    false = filelib:is_regular(Parserfile),
     {error,_,[{_,[{2,yecc,bad_declaration}]}]} =
         yecc:file(Filename, [return_errors,warnings_as_errors]),
+    false = filelib:is_regular(Parserfile),
+    {ok,_,[{_,[{2,yecc,bad_declaration}]}]} =
+        yecc:file(Filename, [return_warnings]),
+    true = filelib:is_regular(Parserfile),
 
     %% Bad declaration.
     ?line ok = file:write_file(Filename, 

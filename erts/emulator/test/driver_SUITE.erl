@@ -1590,7 +1590,7 @@ otp_6879(Config) when is_list(Config) ->
 				      end
 			end,
 			Procs),
-    %% Also try it when input exeeds default buffer (256 bytes)
+    %% Also try it when input exceeds default buffer (256 bytes)
     ?line Data = lists:seq(1, 1000),
     ?line case open_port({spawn, Drv}, []) of
 	      Port when is_port(Port) ->

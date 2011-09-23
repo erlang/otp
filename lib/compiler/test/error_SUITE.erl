@@ -183,23 +183,47 @@ get_compilation_errors(Config, Filename) ->
     E.
 
 warnings_as_errors(Config) when is_list(Config) ->
-    Ts = [{warnings_as_errors,
+    ?line TestFile = test_filename(Config),
+    ?line BeamFile = filename:rootname(TestFile, ".erl") ++ ".beam",
+    ?line OutDir = ?config(priv_dir, Config),
+
+    Ts1 = [{warnings_as_errors,
            <<"
                t() ->
                  A = unused,
                  ok.
              ">>,
-           [export_all,warnings_as_errors],
-          {error,
-           [],
-           [{3,erl_lint,{unused_var,'A'}}]} }],
-    ?line [] = run(Config, Ts),
+	    [warnings_as_errors, export_all, {outdir, OutDir}],
+	    {error,
+	     [],
+	     [{3,erl_lint,{unused_var,'A'}}]} }],
+    ?line [] = run(Ts1, TestFile, write_beam),
+    ?line false = filelib:is_regular(BeamFile),
+
+    Ts2 = [{warning_unused_var,
+           <<"
+               t() ->
+                 A = unused,
+                 ok.
+             ">>,
+	    [return_warnings, export_all, {outdir, OutDir}],
+	    {warning,
+	       [{3,erl_lint,{unused_var,'A'}}]} }],
+
+    ?line [] = run(Ts2, TestFile, write_beam),
+    ?line true = filelib:is_regular(BeamFile),
+    ?line ok = file:delete(BeamFile),
+
     ok.
 
 
 run(Config, Tests) ->
+    ?line File = test_filename(Config),
+    run(Tests, File, dont_write_beam).
+
+run(Tests, File, WriteBeam) ->
     F = fun({N,P,Ws,E}, BadL) ->
-                case catch run_test(Config, P, Ws) of
+                case catch run_test(P, File, Ws, WriteBeam) of
                     E -> 
                         BadL;
                     Bad -> 
@@ -211,8 +235,12 @@ run(Config, Tests) ->
     lists:foldl(F, [], Tests).
 
 run2(Config, Tests) ->
+    ?line File = test_filename(Config),
+    run2(Tests, File, dont_write_beam).
+
+run2(Tests, File, WriteBeam) ->
     F = fun({N,P,Ws,E}, BadL) ->
-                case catch filter(run_test(Config, P, Ws)) of
+                case catch filter(run_test(P, File, Ws, WriteBeam)) of
                     E ->
                         BadL;
                     Bad ->
@@ -231,12 +259,19 @@ filter(X) ->
 
 %% Compiles a test module and returns the list of errors and warnings.
 
-run_test(Conf, Test0, Warnings) ->
-    Filename = 'errors_test.erl',
-    ?line DataDir = ?config(priv_dir, Conf),
+test_filename(Conf) ->
+    Filename = "errors_test.erl",
+    DataDir = ?config(priv_dir, Conf),
+    filename:join(DataDir, Filename).
+
+run_test(Test0, File, Warnings, WriteBeam) ->
     ?line Test = ["-module(errors_test). ", Test0],
-    ?line File = filename:join(DataDir, Filename),
-    ?line Opts = [binary,return_errors|Warnings],
+    ?line Opts = case WriteBeam of
+		     dont_write_beam ->
+			 [binary,return_errors|Warnings];
+		     write_beam ->
+			 [return_errors|Warnings]
+		 end,
     ?line ok = file:write_file(File, Test),
 
     %% Compile once just to print all errors and warnings.
@@ -251,6 +286,10 @@ run_test(Conf, Test0, Warnings) ->
 		    {ok,errors_test,_,[]} ->
 			%io:format("compile:file(~s,~p) ->~n~p~n",
 			%	  [File,Opts,Ws]),
+			[];
+		    {ok,errors_test,[{_File,Ws}]} ->
+			{warning,Ws};
+		    {ok,errors_test,[]} ->
 			[];
 		    {error,[{XFile,Es}],Ws} = _ZZ when is_list(XFile) ->
 			%io:format("compile:file(~s,~p) ->~n~p~n",

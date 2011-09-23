@@ -15,6 +15,12 @@ autom4te.cache
 !/erts/preloaded/ebin/*.beam
 !/lib/*/test/*_SUITE_data/*.beam
 
+#
+# Generated source code files.
+#
+/bootstrap/lib/compiler/egen
+/bootstrap/lib/stdlib/egen
+
 # Compiler derivatives
 #
 # Do not use too creative wildcards.
@@ -101,12 +107,12 @@ IDL-GENERATED
 
 /bootstrap/bin/*
 /bootstrap/target
-!/bootstrap/bin/*.script
 !/bootstrap/bin/*.boot
 
 /bootstrap/lib/asn1
 /bootstrap/lib/hipe
 /bootstrap/lib/ic
+/bootstrap/lib/orber
 /bootstrap/lib/parsetools
 /bootstrap/lib/sasl
 /bootstrap/lib/snmp

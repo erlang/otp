@@ -404,7 +404,7 @@ path_default(#http_cookie{path = undefined} = Cookie, DefaultPath) ->
 path_default(Cookie, _) ->
     Cookie.
 
-%% Note: if the path is only / that / will be keept
+%% Note: if the path is only / that / will be kept
 skip_right_most_slash("/") ->
     "/";
 skip_right_most_slash(Str) ->

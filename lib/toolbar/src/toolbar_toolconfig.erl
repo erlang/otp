@@ -126,7 +126,7 @@ loop(S,Window) ->
 				    show_info(Window,Info),
 				    move_focus(Window,file);
 				
-				%% Erronous version number -- Notify user
+				%% Erroneous version number -- Notify user
 				{error,version} ->
 				    Win = Window#tfwindow.window,
 				    tool_utils:notify(Win,[FileName,
@@ -136,7 +136,7 @@ loop(S,Window) ->
 				_Error ->
 				    Win = Window#tfwindow.window,
 				    tool_utils:notify(Win,[FileName,
-				       "File is on erronous format"])
+				       "File is in erroneous format"])
 			    end;
 				
 			%% The file can not be read, show default values

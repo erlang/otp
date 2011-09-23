@@ -214,7 +214,12 @@ insert_rec(Rec, InPlace, InitBy, LogV) when is_record(Rec, commit) ->
 	{Tid, committed} ->
 	    do_insert_rec(Tid, Rec, InPlace, InitBy, LogV);
 	{Tid, aborted} ->
-	    mnesia_schema:undo_prepare_commit(Tid, Rec)
+	    case InitBy of
+		startup ->
+		    mnesia_schema:undo_prepare_commit(Tid, Rec);
+		_ ->
+		    ok
+	    end
     end;
 insert_rec(H, _InPlace, _InitBy, _LogV) when is_record(H, log_header) ->
     CurrentVersion = mnesia_log:version(),
@@ -359,7 +364,7 @@ dets_insert(Op,Tab,Key,Val) ->
 	    ok = dets:delete_object(Tab, Val);
 	clear_table ->
 	    dets_cleared(Tab),
-	    ok = dets:match_delete(Tab, '_')
+	    ok = dets:delete_all_objects(Tab)
     end.
 	    
 dets_updated(Tab,Key) -> 

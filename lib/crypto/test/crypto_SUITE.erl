@@ -878,10 +878,17 @@ rand_uniform_aux_test(0) ->
 rand_uniform_aux_test(N) ->
     ?line L = N*1000,
     ?line H = N*100000+1,
+    ?line crypto_rand_uniform(L, H),
+    ?line crypto_rand_uniform(-L, L),
+    ?line crypto_rand_uniform(-H, -L),
+    ?line crypto_rand_uniform(-H, L),
+    ?line rand_uniform_aux_test(N-1).
+
+crypto_rand_uniform(L,H) ->
     ?line R1 = crypto:rand_uniform(L, H),
     ?line t(R1 >= L),
-    ?line t(R1 < H),
-    ?line rand_uniform_aux_test(N-1).
+    ?line t(R1 < H).
+
 
 %%
 %%
@@ -1075,16 +1082,30 @@ rsa_sign_test(Config) when is_list(Config) ->
     
     PrivKey = [crypto:mpint(PubEx), crypto:mpint(Mod), crypto:mpint(PrivEx)],
     PubKey  = [crypto:mpint(PubEx), crypto:mpint(Mod)],
-    ?line Sig1 = crypto:rsa_sign(sized_binary(Msg), PrivKey),
-    ?line m(crypto:rsa_verify(sized_binary(Msg), sized_binary(Sig1),PubKey), true),
+    ?line Sig = crypto:rsa_sign(sized_binary(Msg), PrivKey),
+    ?line m(crypto:rsa_verify(sized_binary(Msg), sized_binary(Sig),PubKey), true),
     
-    ?line Sig2 = crypto:rsa_sign(md5, sized_binary(Msg), PrivKey),
-    ?line m(crypto:rsa_verify(md5, sized_binary(Msg), sized_binary(Sig2),PubKey), true),
-    
-    ?line m(Sig1 =:= Sig2, false),
-    ?line m(crypto:rsa_verify(md5, sized_binary(Msg), sized_binary(Sig1),PubKey), false),
-    ?line m(crypto:rsa_verify(sha, sized_binary(Msg), sized_binary(Sig1),PubKey), true),
+    ?line Sig_md2 = crypto:rsa_sign(md2, sized_binary(Msg), PrivKey),
+    ?line Sig_md5 = crypto:rsa_sign(md5, sized_binary(Msg), PrivKey),
+    ?line Sig_sha = crypto:rsa_sign(sha, sized_binary(Msg), PrivKey),
+
+    ?line m(Sig =:= Sig_sha, true),
+    ?line m(Sig_md2 =:= Sig_md5, false),
+    ?line m(Sig_md2 =:= Sig_sha, false),
+    ?line m(Sig_md5 =:= Sig_sha, false),
   
+    ?line m(crypto:rsa_verify(md2, sized_binary(Msg), sized_binary(Sig_md2),PubKey), true),
+    ?line m(crypto:rsa_verify(md2, sized_binary(Msg), sized_binary(Sig_md5),PubKey), false),
+    ?line m(crypto:rsa_verify(md2, sized_binary(Msg), sized_binary(Sig_sha),PubKey), false),
+
+    ?line m(crypto:rsa_verify(md5, sized_binary(Msg), sized_binary(Sig_md2),PubKey), false),
+    ?line m(crypto:rsa_verify(md5, sized_binary(Msg), sized_binary(Sig_md5),PubKey), true),
+    ?line m(crypto:rsa_verify(md5, sized_binary(Msg), sized_binary(Sig_sha),PubKey), false),
+
+    ?line m(crypto:rsa_verify(sha, sized_binary(Msg), sized_binary(Sig_md2),PubKey), false),
+    ?line m(crypto:rsa_verify(sha, sized_binary(Msg), sized_binary(Sig_md5),PubKey), false),
+    ?line m(crypto:rsa_verify(sha, sized_binary(Msg), sized_binary(Sig_sha),PubKey), true),
+
     ok.
     
 dsa_sign_test(doc) ->

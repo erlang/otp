@@ -79,7 +79,7 @@ compile_erl(Config) when is_list(Config) ->
 
     ?line run(Config, Cmd, FileName, "-Werror",
 	      ["compile: warnings being treated as errors\$",
-	       "Warning: function foo/0 is unused\$",
+	       "function foo/0 is unused\$",
 	       "_ERROR_"]),
 
     %% Check a bad file.
@@ -213,12 +213,33 @@ deep_cwd_1(PrivDir) ->
 arg_overflow(Config) when is_list(Config) ->
     ?line {SrcDir, _OutDir, Cmd} = get_cmd(Config),
     ?line FileName = filename:join(SrcDir, "erl_test_ok.erl"),
-    ?line Args = lists:flatten([ ["-D", integer_to_list(N), "=1 "] ||
-            N <- lists:seq(1,10000) ]),
+    %% Each -D option will be expanded to three arguments when
+    %% invoking 'erl'.
+    ?line NumDOptions = num_d_options(),
+    ?line Args = lists:flatten([ ["-D", integer_to_list(N, 36), "=1 "] ||
+            N <- lists:seq(1, NumDOptions) ]),
     ?line run(Config, Cmd, FileName, Args,
 	      ["Warning: function foo/0 is unused\$",
 	       "_OK_"]),
     ok.
+
+num_d_options() ->
+    case {os:type(),os:version()} of
+	{{win32,_},_} ->
+	    %% The maximum size of a command line in the command
+	    %% shell on Windows is 8191 characters.
+	    %% Each -D option is expanded to "@dv NN 1", i.e.
+	    %% 8 characters. (Numbers up to 1295 can be expressed
+	    %% as two 36-base digits.)
+	    1000;
+	{{unix,linux},Version} when Version < {2,6,23} ->
+	    %% On some older 64-bit versions of Linux, the maximum number
+	    %% of arguments is 16383.
+	    %% See: http://www.in-ulm.de/~mascheck/various/argmax/
+	    5440;
+	{_,_} ->
+	    12000
+    end.
 
 erlc() ->
     case os:find_executable("erlc") of

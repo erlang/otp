@@ -13,7 +13,30 @@ LIB= \
      lib/a-1.0/ebin/a_sup.@EMULATOR@ \
      lib/b-1.0/ebin/b_server.@EMULATOR@ \
      lib/b-1.0/ebin/b_lib.@EMULATOR@ \
-     lib/b-2.0/ebin/b_server.@EMULATOR@
+     lib/b-2.0/ebin/b_server.@EMULATOR@ \
+     lib/many_mods-1.0/ebin/m.@EMULATOR@ \
+     lib/many_mods-1.0/ebin/m1.@EMULATOR@ \
+     lib/many_mods-1.0/ebin/m2.@EMULATOR@ \
+     lib/many_mods-1.0/ebin/m3.@EMULATOR@ \
+     lib/many_mods-1.0/ebin/m4.@EMULATOR@ \
+     lib/many_mods-1.0/ebin/m5.@EMULATOR@ \
+     lib/many_mods-1.0/ebin/m6.@EMULATOR@ \
+     lib/many_mods-1.0/ebin/m7.@EMULATOR@ \
+     lib/many_mods-1.0/ebin/m8.@EMULATOR@ \
+     lib/many_mods-1.0/ebin/m9.@EMULATOR@ \
+     lib/many_mods-1.0/ebin/m10.@EMULATOR@ \
+     lib/many_mods-1.1/ebin/m.@EMULATOR@ \
+     lib/many_mods-1.1/ebin/m1.@EMULATOR@ \
+     lib/many_mods-1.1/ebin/m2.@EMULATOR@ \
+     lib/many_mods-1.1/ebin/m3.@EMULATOR@ \
+     lib/many_mods-1.1/ebin/m4.@EMULATOR@ \
+     lib/many_mods-1.1/ebin/m5.@EMULATOR@ \
+     lib/many_mods-1.1/ebin/m6.@EMULATOR@ \
+     lib/many_mods-1.1/ebin/m7.@EMULATOR@ \
+     lib/many_mods-1.1/ebin/m8.@EMULATOR@ \
+     lib/many_mods-1.1/ebin/m9.@EMULATOR@ \
+     lib/many_mods-1.1/ebin/m10.@EMULATOR@ \
+     lib/many_mods-2.0/ebin/m.@EMULATOR@
 
 APP= \
      app1_app2/lib1/app1-1.0/ebin/app1_sup.@EMULATOR@ \
@@ -41,8 +64,13 @@ C= \
      c/b.@EMULATOR@ \
      c/c_sup.@EMULATOR@
     
+SUP= \
+	 release_handler_timeouts/dummy-0.1/ebin/dummy_app.@EMULATOR@ \
+	 release_handler_timeouts/dummy-0.1/ebin/dummy_server.@EMULATOR@ \
+	 release_handler_timeouts/dummy-0.1/ebin/dummy_sup.@EMULATOR@ \
+	 release_handler_timeouts/dummy-0.1/ebin/dummy_sup_2.@EMULATOR@
 
-all: $(P2B) $(LIB) $(APP) $(OTP2740) $(C)
+all: $(P2B) $(LIB) $(APP) $(OTP2740) $(C) $(SUP)
 
 P2B/a-2.0/ebin/a.@EMULATOR@: P2B/a-2.0/src/a.erl
 	erlc $(EFLAGS) -oP2B/a-2.0/ebin P2B/a-2.0/src/a.erl
@@ -75,6 +103,52 @@ lib/b-1.0/ebin/b_lib.@EMULATOR@: lib/b-1.0/src/b_lib.erl
 lib/b-2.0/ebin/b_server.@EMULATOR@: lib/b-2.0/src/b_server.erl
 	erlc $(EFLAGS) -olib/b-2.0/ebin lib/b-2.0/src/b_server.erl
 
+lib/many_mods-1.0/ebin/m.@EMULATOR@: lib/many_mods-1.0/src/m.erl
+	erlc $(EFLAGS) -olib/many_mods-1.0/ebin lib/many_mods-1.0/src/m.erl
+lib/many_mods-1.0/ebin/m1.@EMULATOR@: lib/many_mods-1.0/src/m1.erl
+	erlc $(EFLAGS) -olib/many_mods-1.0/ebin lib/many_mods-1.0/src/m1.erl
+lib/many_mods-1.0/ebin/m2.@EMULATOR@: lib/many_mods-1.0/src/m2.erl
+	erlc $(EFLAGS) -olib/many_mods-1.0/ebin lib/many_mods-1.0/src/m2.erl
+lib/many_mods-1.0/ebin/m3.@EMULATOR@: lib/many_mods-1.0/src/m3.erl
+	erlc $(EFLAGS) -olib/many_mods-1.0/ebin lib/many_mods-1.0/src/m3.erl
+lib/many_mods-1.0/ebin/m4.@EMULATOR@: lib/many_mods-1.0/src/m4.erl
+	erlc $(EFLAGS) -olib/many_mods-1.0/ebin lib/many_mods-1.0/src/m4.erl
+lib/many_mods-1.0/ebin/m5.@EMULATOR@: lib/many_mods-1.0/src/m5.erl
+	erlc $(EFLAGS) -olib/many_mods-1.0/ebin lib/many_mods-1.0/src/m5.erl
+lib/many_mods-1.0/ebin/m6.@EMULATOR@: lib/many_mods-1.0/src/m6.erl
+	erlc $(EFLAGS) -olib/many_mods-1.0/ebin lib/many_mods-1.0/src/m6.erl
+lib/many_mods-1.0/ebin/m7.@EMULATOR@: lib/many_mods-1.0/src/m7.erl
+	erlc $(EFLAGS) -olib/many_mods-1.0/ebin lib/many_mods-1.0/src/m7.erl
+lib/many_mods-1.0/ebin/m8.@EMULATOR@: lib/many_mods-1.0/src/m8.erl
+	erlc $(EFLAGS) -olib/many_mods-1.0/ebin lib/many_mods-1.0/src/m8.erl
+lib/many_mods-1.0/ebin/m9.@EMULATOR@: lib/many_mods-1.0/src/m9.erl
+	erlc $(EFLAGS) -olib/many_mods-1.0/ebin lib/many_mods-1.0/src/m9.erl
+lib/many_mods-1.0/ebin/m10.@EMULATOR@: lib/many_mods-1.0/src/m10.erl
+	erlc $(EFLAGS) -olib/many_mods-1.0/ebin lib/many_mods-1.0/src/m10.erl
+lib/many_mods-1.1/ebin/m.@EMULATOR@: lib/many_mods-1.1/src/m.erl
+	erlc $(EFLAGS) -olib/many_mods-1.1/ebin lib/many_mods-1.1/src/m.erl
+lib/many_mods-1.1/ebin/m1.@EMULATOR@: lib/many_mods-1.1/src/m1.erl
+	erlc $(EFLAGS) -olib/many_mods-1.1/ebin lib/many_mods-1.1/src/m1.erl
+lib/many_mods-1.1/ebin/m2.@EMULATOR@: lib/many_mods-1.1/src/m2.erl
+	erlc $(EFLAGS) -olib/many_mods-1.1/ebin lib/many_mods-1.1/src/m2.erl
+lib/many_mods-1.1/ebin/m3.@EMULATOR@: lib/many_mods-1.1/src/m3.erl
+	erlc $(EFLAGS) -olib/many_mods-1.1/ebin lib/many_mods-1.1/src/m3.erl
+lib/many_mods-1.1/ebin/m4.@EMULATOR@: lib/many_mods-1.1/src/m4.erl
+	erlc $(EFLAGS) -olib/many_mods-1.1/ebin lib/many_mods-1.1/src/m4.erl
+lib/many_mods-1.1/ebin/m5.@EMULATOR@: lib/many_mods-1.1/src/m5.erl
+	erlc $(EFLAGS) -olib/many_mods-1.1/ebin lib/many_mods-1.1/src/m5.erl
+lib/many_mods-1.1/ebin/m6.@EMULATOR@: lib/many_mods-1.1/src/m6.erl
+	erlc $(EFLAGS) -olib/many_mods-1.1/ebin lib/many_mods-1.1/src/m6.erl
+lib/many_mods-1.1/ebin/m7.@EMULATOR@: lib/many_mods-1.1/src/m7.erl
+	erlc $(EFLAGS) -olib/many_mods-1.1/ebin lib/many_mods-1.1/src/m7.erl
+lib/many_mods-1.1/ebin/m8.@EMULATOR@: lib/many_mods-1.1/src/m8.erl
+	erlc $(EFLAGS) -olib/many_mods-1.1/ebin lib/many_mods-1.1/src/m8.erl
+lib/many_mods-1.1/ebin/m9.@EMULATOR@: lib/many_mods-1.1/src/m9.erl
+	erlc $(EFLAGS) -olib/many_mods-1.1/ebin lib/many_mods-1.1/src/m9.erl
+lib/many_mods-1.1/ebin/m10.@EMULATOR@: lib/many_mods-1.1/src/m10.erl
+	erlc $(EFLAGS) -olib/many_mods-1.1/ebin lib/many_mods-1.1/src/m10.erl
+lib/many_mods-2.0/ebin/m.@EMULATOR@: lib/many_mods-2.0/src/m.erl
+	erlc $(EFLAGS) -olib/many_mods-2.0/ebin lib/many_mods-2.0/src/m.erl
 
 
 app1_app2/lib1/app1-1.0/ebin/app1_sup.@EMULATOR@: app1_app2/lib1/app1-1.0/src/app1_sup.erl
@@ -126,3 +200,12 @@ c/b.@EMULATOR@: c/b.erl
 	erlc $(EFLAGS) -oc c/b.erl
 c/c_sup.@EMULATOR@: c/c_sup.erl
 	erlc $(EFLAGS) -oc c/c_sup.erl
+
+release_handler_timeouts/dummy-0.1/ebin/dummy_app.@EMULATOR@: release_handler_timeouts/dummy-0.1/src/dummy_app.erl
+	erlc $(EFLAGS) -orelease_handler_timeouts/dummy-0.1/ebin release_handler_timeouts/dummy-0.1/src/dummy_app.erl
+release_handler_timeouts/dummy-0.1/ebin/dummy_server.@EMULATOR@: release_handler_timeouts/dummy-0.1/src/dummy_server.erl
+	erlc $(EFLAGS) -orelease_handler_timeouts/dummy-0.1/ebin release_handler_timeouts/dummy-0.1/src/dummy_server.erl
+release_handler_timeouts/dummy-0.1/ebin/dummy_sup.@EMULATOR@: release_handler_timeouts/dummy-0.1/src/dummy_sup.erl
+	erlc $(EFLAGS) -orelease_handler_timeouts/dummy-0.1/ebin release_handler_timeouts/dummy-0.1/src/dummy_sup.erl
+release_handler_timeouts/dummy-0.1/ebin/dummy_sup_2.@EMULATOR@: release_handler_timeouts/dummy-0.1/src/dummy_sup_2.erl
+	erlc $(EFLAGS) -orelease_handler_timeouts/dummy-0.1/ebin release_handler_timeouts/dummy-0.1/src/dummy_sup_2.erl

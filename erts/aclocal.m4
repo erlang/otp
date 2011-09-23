@@ -125,6 +125,9 @@ AC_DEFUN(LM_FIND_EMU_CC,
 			ac_cv_prog_emu_cc,
 			[
 AC_TRY_COMPILE([],[
+#ifdef __llvm__
+#error "llvm is currently unable to compile beam_emu.c"
+#endif
     __label__ lbl1;
     __label__ lbl2;
     int x = magic();
@@ -140,7 +143,7 @@ lbl2:
 ],ac_cv_prog_emu_cc=$CC,ac_cv_prog_emu_cc=no)
 
 if test $ac_cv_prog_emu_cc = no; then
-	for ac_progname in emu_cc.sh gcc; do
+	for ac_progname in emu_cc.sh gcc-4.2 gcc; do
   		IFS="${IFS= 	}"; ac_save_ifs="$IFS"; IFS=":"
   		ac_dummy="$PATH"
   		for ac_dir in $ac_dummy; do
@@ -1363,7 +1366,8 @@ case "$GCC-$host_cpu" in
     ;;
 esac
 
-
+test $enable_ethread_pre_pentium4_compatibility = yes &&
+  AC_DEFINE(ETHR_PRE_PENTIUM4_COMPAT, 1, [Define if you want compatibility with x86 processors before pentium4.])
 
 AC_DEFINE(ETHR_HAVE_ETHREAD_DEFINES, 1, \
 [Define if you have all ethread defines])
@@ -1645,11 +1649,11 @@ dnl Freely inspired by AC_TRY_LINK. (Maybe better to create a
 dnl AC_LANG_JAVA instead...)
 AC_DEFUN(ERL_TRY_LINK_JAVA,
 [java_link='$JAVAC conftest.java 1>&AC_FD_CC'
-changequote(«, »)dnl
+changequote(, )dnl
 cat > conftest.java <<EOF
-«$1»
+$1
 class conftest { public static void main(String[] args) {
-   «$2»
+   $2
    ; return; }}
 EOF
 changequote([, ])dnl

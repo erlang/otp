@@ -9,6 +9,7 @@ MODULES= \
 	andor_SUITE \
 	apply_SUITE \
 	beam_validator_SUITE \
+	beam_disasm_SUITE \
 	bs_bincomp_SUITE \
 	bs_bit_binaries_SUITE \
 	bs_construct_SUITE \

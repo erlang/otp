@@ -47,7 +47,7 @@
 	 module_identity/1,
 	 agent_capabilities/1,
 	 module_compliance/1, 
-	 warnings_as_errors/1, 
+	 warnings_as_errors/1,
 
 	 otp_6150/1,
 	 otp_8574/1, 
@@ -101,7 +101,7 @@ all() ->
      module_identity, 
      agent_capabilities, 
      module_compliance, 
-     warnings_as_errors, 
+     warnings_as_errors,
      {group, tickets}
     ].
 
@@ -282,8 +282,8 @@ warnings_as_errors(Config) when is_list(Config) ->
     MibDir  = ?config(mib_dir,  Config),
     MibFile = join(MibDir, "OTP8574-MIB.mib"),
     OutFile = join(Dir, "OTP8574-MIB.bin"),
-    Opts =  [{group_check, false}, 
-	     {outdir,      Dir}, 
+    Opts =  [{group_check, false},
+	     {outdir,      Dir},
 	     {verbosity,   trace},
 	     relaxed_row_name_assign_check],
     {error, compilation_failed} =
@@ -291,6 +291,7 @@ warnings_as_errors(Config) when is_list(Config) ->
     false = filelib:is_regular(OutFile),
     {ok, _} = snmpc:compile(MibFile, Opts),
     true = filelib:is_regular(OutFile),
+    ok = file:delete(OutFile),
     ok.
 
 

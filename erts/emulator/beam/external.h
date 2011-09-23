@@ -160,6 +160,7 @@ Uint erts_encode_dist_ext_size(Eterm, Uint32, ErtsAtomCacheMap *);
 void erts_encode_dist_ext(Eterm, byte **, Uint32, ErtsAtomCacheMap *);
 
 Uint erts_encode_ext_size(Eterm);
+Uint erts_encode_ext_size_2(Eterm, unsigned);
 Uint erts_encode_ext_size_ets(Eterm);
 void erts_encode_ext(Eterm, byte **);
 byte* erts_encode_ext_ets(Eterm, byte *, struct erl_off_heap_header** ext_off_heap);

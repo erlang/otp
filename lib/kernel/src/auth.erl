@@ -212,7 +212,7 @@ handle_info({From,badcookie,net_kernel,{From,spawn_link,_M,_F,_A,_Gleader}}, O) 
     {noreply, O};
 handle_info({_From,badcookie,ddd_server,_Mess}, O) ->
     %% Ignore bad messages to the ddd server, they will be resent
-    %% If the authentication is succesful
+    %% If the authentication is successful
     {noreply, O};
 handle_info({From,badcookie,rex,_Msg}, O) ->
     auth:print(getnode(From), 

@@ -270,6 +270,7 @@ bool WxeApp::OnInit()
   global_me = new wxeMemEnv();
   wxe_batch = new wxList;
   wxe_batch_cb_saved = new wxList;
+  cb_buff = NULL;
 
   wxIdleEvent::SetMode(wxIDLE_PROCESS_SPECIFIED);
 
@@ -330,22 +331,12 @@ void handle_event_callback(ErlDrvPort port, ErlDrvTermData process)
   driver_monitor_process(port, process, &monitor);
   // Should we be able to handle commands when recursing? probably
   erl_drv_mutex_lock(wxe_batch_locker_m);
-  //fprintf(stderr, "\r\nCB Start ");fflush(stderr);
+  // fprintf(stderr, "\r\nCB EV Start ");fflush(stderr);
   app->dispatch_cb(wxe_batch, wxe_batch_cb_saved, process);
-  //fprintf(stderr, ".. done \r\n");fflush(stderr);
+  // fprintf(stderr, ".. done \r\n");fflush(stderr);
   wxe_batch_caller = 0;
   erl_drv_mutex_unlock(wxe_batch_locker_m);
   driver_demonitor_process(port, &monitor);
-}
-
-void handle_callback_batch(ErlDrvPort port)
-{
-  WxeApp * app = (WxeApp *) wxTheApp;
-  // Should we be able to handle commands when recursing? probably
-  erl_drv_mutex_lock(wxe_batch_locker_m);
-  app->dispatch(wxe_batch, 0, WXE_CALLBACK);
-  wxe_batch_caller = 0;
-  erl_drv_mutex_unlock(wxe_batch_locker_m);
 }
 
 // Called by wx thread
@@ -394,7 +385,10 @@ int WxeApp::dispatch(wxList * batch, int blevel, int list_type)
 	    case WXE_CB_RETURN:
 	      // erl_drv_mutex_unlock(wxe_batch_locker_m); should be called after
 	      // whatever cleaning is necessary
-	      memcpy(cb_buff, event->buffer, event->len);
+	      if(event->len > 0) {
+		cb_buff = (char *) driver_alloc(event->len);
+		memcpy(cb_buff, event->buffer, event->len);
+	      }
 	      return blevel;
 	    default:
 	      erl_drv_mutex_unlock(wxe_batch_locker_m);	      
@@ -447,7 +441,10 @@ void WxeApp::dispatch_cb(wxList * batch, wxList * temp, ErlDrvTermData process) 
 	      case WXE_DEBUG_PING:
 		break;
 	      case WXE_CB_RETURN:
-		memcpy(cb_buff, event->buffer, event->len);
+		if(event->len > 0) {
+		  cb_buff = (char *) driver_alloc(event->len);
+		  memcpy(cb_buff, event->buffer, event->len);
+		}
 		callback_returned = 1;
 		return;
 	      case WXE_CB_START:
@@ -469,7 +466,7 @@ void WxeApp::dispatch_cb(wxList * batch, wxList * temp, ErlDrvTermData process) 
 	      }
 	      delete event;
 	    } else {
-	    // fprintf(stderr, "  sav %d \r\n", event->op);
+	    // fprintf(stderr, "  save %d \r\n", event->op);
 	    temp->Append(event);
 	  }
 	}
@@ -893,8 +890,6 @@ int wxCALLBACK wxEListCtrlCompare(long item1, long item2, long callbackInfoPtr)
 {
   callbackInfo * cb = (callbackInfo *)callbackInfoPtr;
   wxeMemEnv * memenv =  ((WxeApp *) wxTheApp)->getMemEnv(cb->port);
-  char * bp = ((WxeApp *) wxTheApp)->cb_buff;
-  
   wxeReturn rt = wxeReturn(WXE_DRV_PORT, memenv->owner, false);
   rt.addInt(cb->callbackID);
   rt.addInt(item1);
@@ -903,6 +898,13 @@ int wxCALLBACK wxEListCtrlCompare(long item1, long item2, long callbackInfoPtr)
   rt.addAtom("_wx_invoke_cb_");
   rt.addTupleCount(3);
   rt.send();
-  handle_callback_batch(cb->port);
-  return *(int*) bp;
+  handle_event_callback(cb->port, memenv->owner);
+
+  if(((WxeApp *) wxTheApp)->cb_buff) {
+    int res = * (int*) ((WxeApp *) wxTheApp)->cb_buff;
+    driver_free(((WxeApp *) wxTheApp)->cb_buff);
+    ((WxeApp *) wxTheApp)->cb_buff = NULL;
+    return res;
+  }
+  return 0;
 }

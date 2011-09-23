@@ -2723,11 +2723,14 @@ erts_init_scheduling(int mrq, int no_schedulers, int no_schedulers_online)
 	esdp->match_pseudo_process = NULL;
 	esdp->ssi = ERTS_SCHED_SLEEP_INFO_IX(ix);
 	esdp->free_process = NULL;
-#if HALFWORD_HEAP
-	/* Registers need to be heap allocated (correct memory range) for tracing to work */
-	esdp->save_reg = erts_alloc(ERTS_ALC_T_BEAM_REGISTER, ERTS_X_REGS_ALLOCATED * sizeof(Eterm));
 #endif
-#endif
+	esdp->x_reg_array =
+	    erts_alloc_permanent_cache_aligned(ERTS_ALC_T_BEAM_REGISTER,
+					       ERTS_X_REGS_ALLOCATED *
+					       sizeof(Eterm));
+	esdp->f_reg_array =
+	    erts_alloc_permanent_cache_aligned(ERTS_ALC_T_BEAM_REGISTER,
+					       MAX_REG * sizeof(FloatDef));
 #if !HEAP_ON_C_STACK
 	esdp->num_tmp_heap_used = 0;
 #endif
@@ -5785,10 +5788,13 @@ erts_sched_stat_term(Process *p, int total)
 void
 erts_schedule_misc_op(void (*func)(void *), void *arg)
 {
-    ErtsRunQueue *rq = erts_get_runq_current(NULL);
+    ErtsRunQueue *rq;
     ErtsMiscOpList *molp = misc_op_list_alloc();
+    ErtsSchedulerData *esdp = erts_get_scheduler_data();
 
-    if (!rq) {
+    if (esdp) {
+	rq = esdp->run_queue;
+    } else {
 	/*
 	 * This can only happen when the sys msg dispatcher
 	 * thread schedules misc ops (this happens *very*

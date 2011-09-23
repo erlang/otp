@@ -163,7 +163,7 @@
 %% The 8(c) version uses a different hashing algorithm, erlang:phash
 %% (former versions use erlang:hash).
 %% Version 8(b) files are only converted to version 8(c) if repair is
-%% done, so we need compatability with 8(b) for a _long_ time.
+%% done, so we need compatibility with 8(b) for a _long_ time.
 %%
 %% There are known bugs due to the fact that keys and objects are
 %% sometimes compared (==) and sometimes matched (=:=). The version

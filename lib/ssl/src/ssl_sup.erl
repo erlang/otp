@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -24,7 +24,7 @@
 -behaviour(supervisor).
 
 %% API
--export([start_link/0]).
+-export([start_link/0, manager_opts/0]).
 
 %% Supervisor callback
 -export([init/1]).
@@ -62,6 +62,22 @@ init([]) ->
     {ok, {{one_for_all, 10, 3600}, [Child2, SessionCertManager,
 				    ConnetionManager]}}.
 
+
+manager_opts() ->
+    CbOpts = case application:get_env(ssl, session_cb) of
+		 {ok, Cb} when is_atom(Cb) ->
+		     InitArgs = session_cb_init_args(),
+		     [{session_cb, Cb}, {session_cb_init_args, InitArgs}];
+		 _  ->
+		     []
+	     end,
+    case application:get_env(ssl, session_lifetime) of
+	{ok, Time} when is_integer(Time) ->
+	    [{session_lifetime, Time}| CbOpts];
+	_  ->
+	    CbOpts
+    end.
+    
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
@@ -86,21 +102,6 @@ connection_manager_child_spec() ->
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
 
 
-manager_opts() ->
-    CbOpts = case application:get_env(ssl, session_cb) of
-		 {ok, Cb} when is_atom(Cb) ->
-		     InitArgs = session_cb_init_args(),
-		     [{session_cb, Cb}, {session_cb_init_args, InitArgs}];
-		 _  ->
-		     []
-	     end,
-    case application:get_env(ssl, session_lifetime) of
-	{ok, Time} when is_integer(Time) ->
-	    [{session_lifetime, Time}| CbOpts];
-	_  ->
-	    CbOpts
-    end.
-    
 session_cb_init_args() ->
     case application:get_env(ssl, session_cb_init_args) of
 	{ok, Args} when is_list(Args) ->

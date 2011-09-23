@@ -55,7 +55,7 @@
 -type rsa_padding()          :: 'rsa_pkcs1_padding' | 'rsa_pkcs1_oaep_padding' 
 			      | 'rsa_no_padding'.
 -type public_crypt_options() :: [{rsa_pad, rsa_padding()}].
--type rsa_digest_type()      :: 'md5' | 'sha'.
+-type rsa_digest_type()      :: 'md2' | 'md5' | 'sha'.
 -type dss_digest_type()      :: 'none' | 'sha'.
 
 -define(UINT32(X), X:32/unsigned-big-integer).
@@ -307,7 +307,8 @@ encrypt_private(PlainText, #'RSAPrivateKey'{modulus = N,
 sign(PlainText, DigestType,  #'RSAPrivateKey'{modulus = N,  publicExponent = E,
 					      privateExponent = D}) 
   when is_binary(PlainText),
-       (DigestType == md5 orelse
+       (DigestType == md2 orelse
+	DigestType == md5 orelse
 	DigestType == sha) ->
     
     crypto:rsa_sign(DigestType, sized_binary(PlainText), [crypto:mpint(E),
@@ -335,7 +336,10 @@ sign(PlainText, sha, #'DSAPrivateKey'{p = P, q = Q, g = G, x = X})
 %%--------------------------------------------------------------------
 verify(PlainText, DigestType, Signature, 
        #'RSAPublicKey'{modulus = Mod, publicExponent = Exp}) 
-  when is_binary (PlainText), DigestType == sha; DigestType == md5 ->
+  when is_binary(PlainText),
+       (DigestType == md2 orelse
+	DigestType == md5 orelse
+	DigestType == sha) ->
     crypto:rsa_verify(DigestType,
 		      sized_binary(PlainText), 
 		      sized_binary(Signature), 

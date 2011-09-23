@@ -2772,7 +2772,7 @@ ready_output(ErlDrvData drv_data, ErlDrvEvent ready_event)
     DEBUGF(("ready_output(%d, 0x%x)\n", drv_data, ready_event));
     set_busy_port(dp->port_num, 0);
     if (!(dp->outbuf)) {
-	/* Happens because event sometimes get signalled during a succesful
+	/* Happens because event sometimes get signalled during a successful
 	   write... */
 	return;
     }
@@ -3283,6 +3283,7 @@ erts_sys_pre_init(void)
     }
 #endif
     erts_smp_atomic_init_nob(&sys_misc_mem_sz, 0);
+    erts_sys_env_init();
 }
 
 void noinherit_std_handle(DWORD type)
@@ -3297,8 +3298,6 @@ void noinherit_std_handle(DWORD type)
 void erl_sys_init(void)
 {
     HANDLE handle;
-
-    erts_sys_env_init();
 
     noinherit_std_handle(STD_OUTPUT_HANDLE);
     noinherit_std_handle(STD_INPUT_HANDLE);

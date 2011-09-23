@@ -405,7 +405,7 @@ woke_up(ErtsPollSet ps)
 static ERTS_INLINE void
 wake_poller(ErtsPollSet ps, int interrupted)
 {
-    int wake;
+    int wake = 0;
 #ifdef ERTS_SMP
     erts_aint32_t wakeup_state;
     if (!interrupted)

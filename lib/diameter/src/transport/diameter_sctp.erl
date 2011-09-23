@@ -525,7 +525,22 @@ recv({[#sctp_sndrcvinfo{stream = Id}], Bin}, #transport{parent = Pid})
 
 recv({[], #sctp_shutdown_event{assoc_id = Id}},
      #transport{assoc_id = Id}) ->
-    stop.
+    stop;
+
+%% Note that diameter_sctp(3) documents that sctp_events cannot be
+%% specified in the list of options passed to gen_sctp and that
+%% gen_opts/1 guards against this. This is to ensure that we know what
+%% events to expect and also to ensure that we receive
+%% #sctp_sndrcvinfo{} with each incoming message (data_io_event =
+%% true). Adaptation layer events (ie. #sctp_adaptation_event{}) are
+%% disabled by default so don't handle it. We could simply disable
+%% events we don't react to but don't.
+
+recv({[], #sctp_paddr_change{}}, _) ->
+    ok;
+
+recv({[], #sctp_pdapi_event{}}, _) ->
+    ok.
 
 %% up/1
 
@@ -591,7 +606,7 @@ f([], _, _) ->
 
 %% assoc_id/1
 
-assoc_id(#sctp_shutdown_event{assoc_id = Id}) ->  %% undocumented
+assoc_id(#sctp_shutdown_event{assoc_id = Id}) ->
     Id;
 assoc_id(#sctp_assoc_change{assoc_id = Id}) ->
     Id;

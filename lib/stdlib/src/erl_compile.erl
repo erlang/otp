@@ -41,7 +41,6 @@ compiler(".idl") ->    {ic,              compile};
 compiler(".asn1") ->   {asn1ct,          compile_asn1};
 compiler(".asn") ->    {asn1ct,          compile_asn};
 compiler(".py") ->     {asn1ct,          compile_py};
-compiler(".xml") ->    {xmerl_scan,      process};
 compiler(_) ->         no.
 
 %% Entry from command line.

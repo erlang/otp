@@ -227,11 +227,13 @@ do_log_decision(D, DoTell, NodeD) ->
     note_outcome(D2),
     case mnesia_monitor:use_dir() of
 	true ->
-	    mnesia_log:append(latest_log, D2),
 	    if
 		DoTell == true, Outcome /= unclear ->
 		    tell_im_certain(NodeD#decision.disc_nodes--[node()],D2),
-		    tell_im_certain(NodeD#decision.ram_nodes--[node()], D2);
+		    tell_im_certain(NodeD#decision.ram_nodes--[node()], D2),
+		    mnesia_log:log(D2);
+		Outcome /= unclear ->
+		    mnesia_log:log(D2);
 		true ->
 		    ignore
 	    end;

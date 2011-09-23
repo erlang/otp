@@ -48,7 +48,7 @@
 	  included_fail_script/1, included_bug_script/1, exref_script/1]).
 -export([ tar_options/1, normal_tar/1, no_mod_vsn_tar/1, variable_tar/1,
 	  src_tests_tar/1, shadow_tar/1, var_tar/1,
-	  exref_tar/1, link_tar/1]).
+	  exref_tar/1, link_tar/1, otp_9507/1]).
 -export([ normal_relup/1, abnormal_relup/1, no_appup_relup/1,
 	  bad_appup_relup/1, app_start_type_relup/1, otp_3065/1]).
 -export([
@@ -81,7 +81,7 @@ groups() ->
      {tar, [],
       [tar_options, normal_tar, no_mod_vsn_tar, variable_tar,
        src_tests_tar, shadow_tar, var_tar,
-       exref_tar, link_tar]},
+       exref_tar, link_tar, otp_9507]},
      {relup, [],
       [normal_relup, abnormal_relup, no_appup_relup,
        bad_appup_relup, app_start_type_relup]},
@@ -396,6 +396,7 @@ src_tests_script(Config) when is_list(Config) ->
     ?line PSAVE = code:get_path(),		% Save path
 
     ?line {LatestDir, LatestName} = create_script(latest,Config),
+    ?line BootFile = LatestName ++ ".boot",
 
     ?line DataDir = filename:absname(?copydir),
     ?line LibDir = fname([DataDir, d_missing_src, lib]),
@@ -416,13 +417,31 @@ src_tests_script(Config) when is_list(Config) ->
     ?line Erl2 = filename:join([P1,"..","src","db2.erl"]),
     ?line file:delete(Erl2),
 
-    %% Then make script - two warnings should be issued when
-    %% src_tests is given
+    %% Then make script
+
+    %% .boot file should not exist
+    ?line ok = file:delete(BootFile),
+    ?line false = filelib:is_regular(BootFile),
+    %% With warnings_as_errors and src_tests option, an error should be issued
+    ?line error =
+	systools:make_script(LatestName, [silent, {path, N}, src_tests,
+					  warnings_as_errors]),
+    ?line error =
+	systools:make_script(LatestName, [{path, N}, src_tests,
+					  warnings_as_errors]),
+
+    %% due to warnings_as_errors .boot file should still not exist
+    ?line false = filelib:is_regular(BootFile),
+
+    %% Two warnings should be issued when src_tests is given
     %% 1. old object code for db1.beam
     %% 2. missing source code for db2.beam
     ?line {ok, _, [{warning,{obj_out_of_date,_}},
 		   {warning,{source_not_found,_}}]} =
 	systools:make_script(LatestName, [silent, {path, N}, src_tests]),
+
+    %% .boot file should exist now
+    ?line true = filelib:is_regular(BootFile),
 
     %% Without the src_tests option, no warning should be issued
     ?line {ok, _, []} =
@@ -1066,6 +1085,48 @@ exref_tar(Config) when is_list(Config) ->
     ?line ok = file:set_cwd(OldDir),
     ok.
 
+
+
+%% otp_9507
+%%
+otp_9507(suite) -> [];
+otp_9507(doc) ->
+    ["make_tar failed when path given as just 'ebin'."];
+otp_9507(Config) when is_list(Config) ->
+    ?line {ok, OldDir} = file:get_cwd(),
+
+    ?line {LatestDir, LatestName} = create_script(latest_small,Config),
+
+    ?line DataDir = filename:absname(?copydir),
+    ?line LibDir = fname([DataDir, d_normal, lib]),
+    ?line FeDir = fname([LibDir, 'fe-3.1']),
+
+    ?line ok = file:set_cwd(FeDir),
+
+    RelName = fname([LatestDir,LatestName]),
+
+    ?line P1 = ["./ebin",
+	       fname([DataDir, lib, kernel, ebin]),
+	       fname([DataDir, lib, stdlib, ebin])],
+    ?line {ok, _, _} = systools:make_script(RelName, [silent, {path, P1}]),
+    ?line ok = systools:make_tar(RelName, [{path, P1}]),
+    ?line Content1 = tar_contents(RelName),
+
+    ?line P2 = ["ebin",
+	       fname([DataDir, lib, kernel, ebin]),
+	       fname([DataDir, lib, stdlib, ebin])],
+
+    %% Tickets solves the following line - it used to fail with
+    %% {function_clause,[{filename,join,[[]]},...}
+    ?line ok = systools:make_tar(RelName, [{path, P2}]),
+    ?line Content2 = tar_contents(RelName),
+    true = (Content1 == Content2),
+
+    ?line ok = file:set_cwd(OldDir),
+
+    ok.
+
+
 %% The relup stuff.
 %%
 %%
@@ -1108,6 +1169,21 @@ normal_relup(Config) when is_list(Config) ->
 			    [{path, P}, silent]),
     ?line ok = check_relup([{db, "2.1"}], [{db, "1.0"}]),
 
+    %% file should not be written if warnings_as_errors is enabled.
+    %% delete before running tests.
+    ?line ok = file:delete("relup"),
+
+    %% Check that warnings are treated as errors
+    ?line error =
+	systools:make_relup(LatestName, [LatestName2], [LatestName1],
+			    [{path, P}, warnings_as_errors]),
+    ?line error =
+	systools:make_relup(LatestName, [LatestName2], [LatestName1],
+			    [{path, P}, silent, warnings_as_errors]),
+
+    %% relup file should not exist
+    ?line false = filelib:is_regular("relup"),
+
     %% Check that warnings get through
     ?line ok = systools:make_relup(LatestName, [LatestName2], [LatestName1],
 				   [{path, P}]),
@@ -1116,6 +1192,9 @@ normal_relup(Config) when is_list(Config) ->
 	systools:make_relup(LatestName, [LatestName2], [LatestName1],
 			    [{path, P}, silent]),
     ?line ok = check_relup([{fe, "3.1"}, {db, "2.1"}], [{db, "1.0"}]),
+
+    %% relup file should exist now
+    ?line true = filelib:is_regular("relup"),
 
     ?line ok = file:set_cwd(OldDir),
     ok.
