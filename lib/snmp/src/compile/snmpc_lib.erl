@@ -1754,12 +1754,12 @@ error(FormatStr, Data, Line) when is_list(FormatStr) ->
     exit(error).
 
 print_error(FormatStr, Data) when is_list(FormatStr) ->
-    ok = io:format("~s: Error: " ++ FormatStr,[get(filename)|Data]),
+    ok = io:format("~s: " ++ FormatStr,[get(filename)|Data]),
     put(errors,yes),
     io:format("~n").
     
 print_error(FormatStr, Data,Line) when is_list(FormatStr) ->
-    ok = io:format("~s: ~w: Error: " ++ FormatStr,[get(filename), Line |Data]),
+    ok = io:format("~s: ~w: " ++ FormatStr,[get(filename), Line |Data]),
     put(errors,yes),
     io:format("~n").
 
