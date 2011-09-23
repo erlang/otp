@@ -181,6 +181,10 @@ release_docs_spec:
 # Dependencies
 # ----------------------------------------------------
 
+$(SPEC_FILES:%.dia=$(EBIN)/%.$(EMULATOR)): \
+	$(DIAMETER_TOP)/include/diameter.hrl \
+	$(DIAMETER_TOP)/include/diameter_gen.hrl
+
 depend: depend.mk
 
 # Generate dependencies makefile. It's assumed that the compile target
