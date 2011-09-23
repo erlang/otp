@@ -116,7 +116,7 @@ init_tc1(Mod,Func,[Config0],DoInit) when is_list(Config0) ->
     Config = lists:keydelete(watchdog,1,Config1),
     if Func /= init_per_suite, DoInit /= true ->
 	    ok;
-	true ->
+       true ->
 	    %% delete all default values used in previous suite
 	    ct_config:delete_default_config(suite),
 	    %% release all name -> key bindings (once per suite)
@@ -133,7 +133,7 @@ init_tc1(Mod,Func,[Config0],DoInit) when is_list(Config0) ->
     ct_config:delete_default_config(testcase),
     case add_defaults(Mod,Func,TestCaseInfo,DoInit) of
 	Error = {suite0_failed,_} ->
-	    ct_logs:init_tc(),
+	    ct_logs:init_tc(false),
 	    FuncSpec = group_or_func(Func,Config0),
 	    ct_event:notify(#event{name=tc_start,
 				   node=node(),
@@ -143,7 +143,7 @@ init_tc1(Mod,Func,[Config0],DoInit) when is_list(Config0) ->
 	{SuiteInfo,MergeResult} ->
 	    case MergeResult of
 		{error,Reason} when DoInit == false ->
-		    ct_logs:init_tc(),
+		    ct_logs:init_tc(false),
 		    FuncSpec = group_or_func(Func,Config0),
 		    ct_event:notify(#event{name=tc_start,
 					   node=node(),
@@ -194,8 +194,11 @@ init_tc2(Mod,Func,SuiteInfo,MergeResult,Config,DoInit) ->
 	Conns ->
 	    ct_util:silence_connections(Conns)
     end,
-    
-    ct_logs:init_tc(),
+    if Func /= init_per_suite, DoInit /= true ->
+	    ct_logs:init_tc(false);
+       true ->
+	    ct_logs:init_tc(true)
+    end,
     FuncSpec = group_or_func(Func,Config),
     ct_event:notify(#event{name=tc_start,
 			   node=node(),

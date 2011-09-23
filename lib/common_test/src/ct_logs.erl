@@ -28,7 +28,7 @@
 
 -module(ct_logs).
 
--export([init/1,close/2,init_tc/0,end_tc/1]).
+-export([init/1,close/2,init_tc/1,end_tc/1]).
 -export([get_log_dir/0,log/3,start_log/1,cont_log/2,end_log/0]).
 -export([set_stylesheet/2,clear_stylesheet/1]).
 -export([add_external_logs/1,add_link/3]).
@@ -197,15 +197,14 @@ cast(Msg) ->
 	    ?MODULE ! Msg
     end.
 
-
 %%%-----------------------------------------------------------------
-%%% @spec init_tc() -> ok
+%%% @spec init_tc(RefreshLog) -> ok
 %%%
 %%% @doc Test case initiation (tool-internal use only).
 %%%
 %%% <p>This function is called by ct_framework:init_tc/3</p>
-init_tc() ->
-    call({init_tc,self(),group_leader()}),
+init_tc(RefreshLog) ->
+    call({init_tc,self(),group_leader(),RefreshLog}),
     ok.
 
 %%%-----------------------------------------------------------------
@@ -505,11 +504,15 @@ logger_loop(State) ->
 		    [begin io:format(Fd,Str,Args),io:nl(Fd) end || {Str,Args} <- List],
 		    logger_loop(State#logger_state{tc_groupleaders=TCGLs})
 	    end;
-	{{init_tc,TCPid,GL},From} ->
+	{{init_tc,TCPid,GL,RefreshLog},From} ->
 	    print_style(GL, State#logger_state.stylesheet),
 	    set_evmgr_gl(GL),
 	    TCGLs = add_tc_gl(TCPid,GL,State),
-	    make_last_run_index(State#logger_state.start_time),
+	    if not RefreshLog ->
+		    ok;
+	       true ->
+		    make_last_run_index(State#logger_state.start_time)
+	    end,
 	    return(From,ok),
 	    logger_loop(State#logger_state{tc_groupleaders=TCGLs});
 	{{end_tc,TCPid},From} ->
