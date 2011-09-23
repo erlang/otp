@@ -646,7 +646,7 @@ init_per_testcase3(Case, Config) ->
 		    ok ->
 			"mod_htaccess";
 		    Other ->
-			error_logger:info_report("Other: ~p~n", [Other]),
+			error_logger:info_msg("Other: ~p~n", [Other]),
 			{skip, "SSL does not seem to be supported"}
 		end;
 	    [X, $s, $s, $l, $_ | Rest] ->
@@ -663,7 +663,7 @@ init_per_testcase3(Case, Config) ->
 		    ok ->
 			Rest;
 		    Other ->
-			error_logger:info_report("Other: ~p~n", [Other]),
+			error_logger:info_msg("Other: ~p~n", [Other]),
 			{skip, "SSL does not seem to be supported"}
 		end;
 	    "ipv6_" ++ _  = TestCaseStr ->

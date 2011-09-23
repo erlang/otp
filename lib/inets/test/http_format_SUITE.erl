@@ -584,7 +584,9 @@ convert_netscapecookie_date(Config) when is_list(Config) ->
 	http_util:convert_netscapecookie_date("Sun, 12-Dec-06 08:59:38 GMT"),
     {{2006,12,12},{8,59,38}} = 
 	http_util:convert_netscapecookie_date("Sun 12-Dec-06 08:59:38 GMT"),
-     ok.
+    {{2036,1,1},{8,0,1}} = 
+	http_util:convert_netscapecookie_date("Tue Jan 01 08:00:01 2036 GMT"),
+    ok.
 
 %%--------------------------------------------------------------------
 %%% Internal functions

@@ -32,6 +32,57 @@
     <file>notes.xml</file>
   </header>
   
+  <section><title>Inets 5.7.1</title>
+
+    <section><title>Improvements and New Features</title>
+    <p>-</p>
+
+<!--
+      <list>
+        <item>
+          <p>[httpc|httpd] Added support for IPv6 with ssl. </p>
+	  <p>Own Id: OTP-5566</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+<!--
+    <p>-</p>
+-->
+
+      <list>
+        <item>
+          <p>[httpc] Parsing of a cookie expire date should be more forgiving. 
+	  That is, if the parsing fails, the date should be ignored.
+	  Also added support for (yet another) date format: 
+	  "Tue Jan 01 08:00:01 2036 GMT". </p>
+	  <p>Own Id: OTP-9433</p>
+        </item>
+
+        <item>
+          <p>[httpc] Rewrote cookie parsing. Among other things solving 
+	  cookie processing from www.expedia.com. </p>
+	  <p>Own Id: OTP-9434</p>
+        </item>
+
+        <item>
+          <p>[httpd] Fix httpd directory traversal on Windows. 
+	  Directory traversal was possible on Windows where
+	  backward slash is used as directory separator. </p>
+	  <p>András Veres-Szentkirályi.</p>
+	  <p>Own Id: OTP-9561</p>
+        </item>
+
+      </list>
+    </section>
+
+  </section> <!-- 5.7.1 -->
+
+
   <section><title>Inets 5.7</title>
 
     <section><title>Improvements and New Features</title>
