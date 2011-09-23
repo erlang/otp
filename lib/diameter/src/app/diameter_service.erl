@@ -463,7 +463,7 @@ handle_call(stop, _From, S) ->
 %% stating a monitor that waits for DOWN before returning.
 
 handle_call(Req, From, S) ->
-    ?REPORT(unknown_request, ?FUNC, [Req, From]),
+    unexpected(handle_call, [Req, From], S),
     {reply, nok, S}.
 
 %%% ---------------------------------------------------------------------------
@@ -471,7 +471,7 @@ handle_call(Req, From, S) ->
 %%% ---------------------------------------------------------------------------
 
 handle_cast(Req, S) ->
-    ?REPORT(unknown_request, ?FUNC, [Req]),
+    unexpected(handle_cast, [Req], S),
     {noreply, S}.
 
 %%% ---------------------------------------------------------------------------
@@ -553,8 +553,8 @@ transition({failover, TRef, Seqs}, S) ->
     failover(TRef, Seqs, S),
     ok;
 
-transition(Req, _) ->
-    ?REPORT(unknown_request, ?FUNC, [Req]),
+transition(Req, S) ->
+    unexpected(handle_info, [Req], S),
     ok.
 
 %%% ---------------------------------------------------------------------------
@@ -590,6 +590,9 @@ code_change(FromVsn, SvcName, Extra, #diameter_app{alias = Alias} = A) ->
 
 %% ===========================================================================
 %% ===========================================================================
+
+unexpected(F, A, #state{service_name = Name}) ->
+    ?UNEXPECTED(F, A ++ [Name]).
 
 cb([_|_] = M, F, A) ->
     eval(M, F, A);

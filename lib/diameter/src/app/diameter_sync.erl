@@ -204,37 +204,37 @@ handle_call(?REQUEST(Type, Name, Req, Max, Timeout),
     T = find(Name, QD),
     nq(queued(T) =< Max, T, {Type, From}, Name, Req, Timeout, State);
 
-handle_call(Request, _From, State) ->
-    {reply, call(Request, State), State}.
+handle_call(Request, From, State) ->
+    {reply, call(Request, From, State), State}.
 
-%% call/2
+%% call/3
 
-call(?CARP(Name), #state{queue = QD}) ->
+call(?CARP(Name), _, #state{queue = QD}) ->
     pcar(find(Name, QD));
 
-call(state, State) ->
+call(state, _, State) ->
     State;
 
-call(uptime, #state{time = T}) ->
+call(uptime, _, #state{time = T}) ->
     diameter_lib:now_diff(T);
 
-call({flush, Name}, #state{queue = QD}) ->
+call({flush, Name}, _, #state{queue = QD}) ->
     cancel(find(Name, QD));
 
-call(pending, #state{pending = N}) ->
+call(pending, _, #state{pending = N}) ->
     N;
 
-call({pending, Name}, #state{queue = QD}) ->
+call({pending, Name}, _, #state{queue = QD}) ->
     queued(find(Name, QD));
 
-call(queues, #state{queue = QD}) ->
+call(queues, _, #state{queue = QD}) ->
     fetch_keys(QD);
 
-call({pids, Name}, #state{queue = QD}) ->
+call({pids, Name}, _, #state{queue = QD}) ->
     plist(find(Name, QD));
 
-call(Req, _State) ->  %% ignore
-    warning_msg("received unexpected request:~n~w", [Req]),
+call(Req, From, _State) ->  %% ignore
+    ?UNEXPECTED(handle_call, [Req, From]),
     nok.
 
 %%% ----------------------------------------------------------
@@ -242,7 +242,7 @@ call(Req, _State) ->  %% ignore
 %%% ----------------------------------------------------------
 
 handle_cast(Msg, State) ->
-    warning_msg("received unexpected message:~n~w", [Msg]),
+    ?UNEXPECTED([Msg]),
     {noreply, State}.
 
 %%% ----------------------------------------------------------
@@ -267,7 +267,7 @@ info({'DOWN', MRef, process, Pid, Info},
                 queue = dq(fetch(Name, QD), Pid, Info, Name, QD)};
 
 info(Info, State) ->
-    warning_msg("received unknown info:~n~w", [Info]),
+    ?UNEXPECTED(handle_info, [Info]),
     State.
 
 reply({call, From}, T) ->
@@ -548,8 +548,3 @@ gen_call(Server, Req, Timeout) ->
         exit: _ ->
             timeout
     end.
-
-%% warning_msg/2
-
-warning_msg(F, A) ->
-    ?diameter_warning("~p: " ++ F, [?MODULE | A]).
