@@ -1151,13 +1151,6 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 		ASSERT(!(flgs & ERTS_SSI_FLG_SLEEPING));
 		goto sys_woken;
 	    }
-	    if (!(flgs & ERTS_SSI_FLG_SLEEPING)) {
-		flgs = sched_prep_cont_spin_wait(ssi);
-		if (!(flgs & ERTS_SSI_FLG_WAITING)) {
-		    ASSERT(!(flgs & ERTS_SSI_FLG_SLEEPING));
-		    goto sys_woken;
-		}
-	    }
 
 	    /*
 	     * If we got new I/O tasks we aren't allowed to
