@@ -84,7 +84,7 @@ default_settings_dir(Win) ->
 	    {ok, CWD} = file:get_cwd(),
 	    
 	    Msg = ["Default directory ", DefDir, " does not exist. ",
-		   "Click Ok to create it or ",
+		   "Click OK to create it or ",
 		   "Cancel to use other directory."],
 	    case dbg_wx_win:confirm(Win, Msg) of
 		ok ->

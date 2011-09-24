@@ -81,12 +81,12 @@ create_win(GS, {X, Y}, function, Mod, _Line) ->
 			  {pack_x, 2}, {pack_y, 3},
 			  {selectmode, multiple}]),
 
-    %% Add Ok and Cancel buttons
-    {Wbtn, Hbtn} = dbg_ui_win:min_size(["Ok","Cancel"], 70, 30),
+    %% Add OK and Cancel buttons
+    {Wbtn, Hbtn} = dbg_ui_win:min_size(["OK","Cancel"], 70, 30),
     Bot = gs:frame(Frm, [{pack_x, {1, 3}}, {pack_y, 4}]),
-    Ok = gs:button(Bot, [{x, Pad}, {y, Pad},
+    OK = gs:button(Bot, [{x, Pad}, {y, Pad},
 			 {width, Wbtn}, {height, Hbtn},
-			 {label, {text,"Ok"}}, {font, Font}]),
+			 {label, {text,"OK"}}, {font, Font}]),
     Cancel = gs:button(Bot, [{x, W-Pad-Wbtn}, {y, Pad},
 			     {width, Wbtn}, {height, Hbtn},
 			     {label, {text,"Cancel"}}, {font, Font}]),
@@ -95,7 +95,7 @@ create_win(GS, {X, Y}, function, Mod, _Line) ->
     gs:config(Win, [{width, Wfrm}, {height, Hfrm}, {map, true}]),
     #winInfo{type=function, win=Win,
 	     packer=Frm, entries=Entries, trigger=enable,
-	     ok=Ok, cancel=Cancel, listbox=Lb, funcs=[]};
+	     ok=OK, cancel=Cancel, listbox=Lb, funcs=[]};
 create_win(GS, {X, Y}, Type, Mod, Line) ->
     Pad = 8,
     W = 230,
@@ -161,12 +161,12 @@ create_win(GS, {X, Y}, Type, Mod, Line) ->
 			 {align, w}, {group, Grp},
 			 {data, {trigger, delete}}]),
 
-    %% Add Ok and Cancel buttons
-    {Wbtn, Hbtn} = dbg_ui_win:min_size(["Ok","Cancel"], 70, 30),
+    %% Add OK and Cancel buttons
+    {Wbtn, Hbtn} = dbg_ui_win:min_size(["OK","Cancel"], 70, 30),
     Ybtn = Yacc + Pad + Hfrm + Pad,
-    Ok = gs:button(Win, [{x, Pad}, {y, Ybtn},
+    OK = gs:button(Win, [{x, Pad}, {y, Ybtn},
 			 {width, Wbtn}, {height, Hbtn},
-			 {label, {text,"Ok"}}, {font, Font}]),
+			 {label, {text,"OK"}}, {font, Font}]),
     gs:button(Win, [{x, W-Pad-Wbtn}, {y, Ybtn},
 		    {width, Wbtn}, {height, Hbtn},
 		    {label, {text,"Cancel"}}, {font, Font}]),
@@ -175,7 +175,7 @@ create_win(GS, {X, Y}, Type, Mod, Line) ->
     gs:config(Win, [{width, W}, {height, Hwin}, {map, true}]),
 
     #winInfo{type=Type, win=Win,
-	     entries=Entries, trigger=enable, ok=Ok}.
+	     entries=Entries, trigger=enable, ok=OK}.
 
 %%--------------------------------------------------------------------
 %% update_functions(WinInfo, Funcs) -> WinInfo
@@ -229,7 +229,7 @@ handle_event({gs, LB, keypress, window, [Key|_]}, WinInfo) ->
 	Key/='Tab', Key/='Return' ->
 	    ignore;
 	true ->
-	    handle_event({gs, LB, click, listbox, ["Ok"]}, WinInfo)
+	    handle_event({gs, LB, click, listbox, ["OK"]}, WinInfo)
     end;
 handle_event({gs, Ent, keypress, Data, [Key|_]}, WinInfo) ->
     case WinInfo#winInfo.type of
@@ -249,14 +249,14 @@ handle_event({gs, Ent, keypress, Data, [Key|_]}, WinInfo) ->
 	    case next_entry(Ent, WinInfo#winInfo.entries) of
 		last ->
 		    gs:config(WinInfo#winInfo.ok, flash),
-		    handle_event({gs, Ent, click, Data, ["Ok"]}, WinInfo);
+		    handle_event({gs, Ent, click, Data, ["OK"]}, WinInfo);
 		Next ->
 		    gs:config(Next, {setfocus, true}),
 		    ignore
 	    end;
 	_Type -> ignore
     end;
-handle_event({gs, _Id, click, _Data, ["Ok"|_]}, WinInfo) ->
+handle_event({gs, _Id, click, _Data, ["OK"|_]}, WinInfo) ->
     case check_input(WinInfo#winInfo.entries) of
 	error -> ignore;
 	Data when WinInfo#winInfo.type/=function ->

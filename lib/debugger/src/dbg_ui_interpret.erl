@@ -145,7 +145,7 @@ interpret_all(State, Dir, [File0|Files]) ->
 	    Window = dbg_ui_filedialog_win:get_window(State#state.win),
 	    Error = format_error(int:interpretable(File)),
 	    Msg = ["Error when interpreting:", File, Error,
-		   "Ok to continue?"],
+		   "OK to continue?"],
 	    case tool_utils:confirm(Window, Msg) of
 		ok -> interpret_all(State, Dir, Files);
 		cancel -> true

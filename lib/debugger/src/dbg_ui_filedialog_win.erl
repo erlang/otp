@@ -100,7 +100,7 @@ create_win(GS, Title, {X,Y}, Mode, Filter, Extra, FileName) ->
     Opts = [{y, Y4}, {width, Wbtn}, {height, Hbtn}, {font, Font}],
     case Mode of
 	normal ->
-	    gs:button(Win, [{label, {text,"Ok"}}, {x, Pad},
+	    gs:button(Win, [{label, {text,"OK"}}, {x, Pad},
 			    {data, select} | Opts]),
 	    gs:button(Win, [{label, {text,"Filter"}}, {x, Wlb/2-Wbtn/2},
 			    {data, filter} | Opts]),
