@@ -50,10 +50,10 @@ current I/O-protocol.</p>
 and execution time efficiency has triggered extensions to the protocol
 over the years, making the protocol larger and somewhat less easy to
 implement than the original. It can certainly be argumented that the
-current protocol is to complex, but this text describes how it looks
+current protocol is too complex, but this text describes how it looks
 today, not how it should have looked.</p>
 
-<p>The basic ideas from the original protocol still holds. The io_server
+<p>The basic ideas from the original protocol still hold. The io_server
 and client communicate with one single, rather simplistic protocol and
 no server state is ever present in the client. Any io_server can be
 used together with any client code and client code need not be aware
@@ -62,7 +62,7 @@ of the actual device the io_server communicates with.</p>
 <section>
 <title>Protocol basics</title>
 
-<p>As described in Roberts paper, servers and clients communicate using
+<p>As described in Robert's paper, servers and clients communicate using
 io_request/io_reply tuples as follows:</p>
 
 <p><em>{io_request, From, ReplyAs, Request}</em><br/>
@@ -103,7 +103,7 @@ Reply part.</p>
 <em>{put_chars, Encoding, Module, Function, Args}</em>
 </p>
 <list type="bulleted">
-<item>Encoding is either 'latin1' or 'unicode', meaning that the
+<item>Encoding is either 'unicode' or 'latin1', meaning that the
   characters are (in case of binaries) encoded as either UTF-8 or
   iso-latin-1 (pure bytes). A well behaved io_server should also
   return error if list elements contain integers > 255 when the
@@ -116,13 +116,13 @@ Reply part.</p>
   produces. Note that byte-oriented data is simplest sent using latin1
   Encoding</item>
 
-<item>Characters are the data to be put on the device. If encoding is
-  latin1, this is an iolist(). If encoding is unicode, this is an
+<item>Characters are the data to be put on the device. If Encoding is
+  latin1, this is an iolist(). If Encoding is unicode, this is an
   Erlang standard mixed unicode list (one integer in a list per
   character, characters in binaries represented as UTF-8).</item>
 
 <item>Module, Function, Args denotes a function which will be called to
-  produce the data (like io_lib:format), Args is a list of arguments
+  produce the data (like io_lib:format). Args is a list of arguments
   to the function. The function should produce data in the given
   Encoding. The io_server should call the function as apply(Mod, Func,
   Args) and will put the returned data on the device as if it was sent
@@ -164,7 +164,7 @@ latin1, Module, Function, Args} respectively. </p>
 <list type="bulleted">
 <item>Encoding denotes how data is to be sent back to the client and
   what data is sent to the function denoted by
-  Module/Function/Arity. If the function supplied returns data as a
+  Module/Function/ExtraArgs. If the function supplied returns data as a
   list, the data is converted to this encoding. If however the
   function supplied returns data in some other format, no conversion
   can be done and it's up to the client supplied function to return
@@ -179,7 +179,7 @@ latin1, Module, Function, Args} respectively. </p>
 <item>Prompt is a list of characters (not mixed, no binaries) or an atom()
   to be output as a prompt for input on the device. The Prompt is
   often ignored by the io_server and a Prompt set to '' should always
-  be ignored (and result in nothing being written to the device). </item>
+  be ignored (and result in nothing being written to the device).</item>
 
 <item><p>Module, Function, ExtraArgs denotes a function and arguments to
   determine when enough data is written. The function should take two
@@ -550,7 +550,7 @@ request({get_line, Encoding, _Prompt}, State) -&gt;
 </code>
 
 <p>Here we have cheated a little by more or less only implementing
-get_until and using internal helpers to implement get__chars and
+get_until and using internal helpers to implement get_chars and
 get_line. In production code, this might be to inefficient, but that
 of course depends on the frequency of the different requests. Before
 we start actually implementing the functions put_chars/2 and
@@ -618,7 +618,7 @@ encounter an error or the list is exhausted. The last return value is
 sent back to the client (it's first returned to the main loop and then
 sent back by the function io_reply).</p>
 
-<p>The getopt and setopt requests is also simple to handle, we just
+<p>The getopt and setopt requests are also simple to handle, we just
 change or read our state record:</p>
 
 <code>
