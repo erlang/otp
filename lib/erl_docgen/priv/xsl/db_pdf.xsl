@@ -732,21 +732,22 @@
   <xsl:template name="bookmarks1">
     <xsl:param name="entries"/>
     <xsl:if test="$entries != ''">
+      <xsl:for-each select="$entries">
 
-      <fo:bookmark internal-destination="{generate-id(/book/parts/part)}"
-        starting-state="hide">
-        <fo:bookmark-title>User's Guide</fo:bookmark-title>
-
-        <xsl:for-each select="$entries">
+        <fo:bookmark internal-destination="{generate-id(header/title)}"
+          starting-state="hide">
+          <fo:bookmark-title><xsl:value-of select="header/title"/></fo:bookmark-title>
+          
           <xsl:call-template name="bookmarks2">
             <xsl:with-param name="entries"
               select="chapter[header/title]"/>
           </xsl:call-template>
-        </xsl:for-each>
-
-      </fo:bookmark>
+          
+        </fo:bookmark>
+      </xsl:for-each>
     </xsl:if>
   </xsl:template>
+
 
   <xsl:template name="bookmarks2">
     <xsl:param name="entries"/>
@@ -934,9 +935,9 @@
   <xsl:template match="part">
     <xsl:variable name="partnum"><xsl:number level="any" from="book" count="part|application"/></xsl:variable>
 
-    <fo:block xsl:use-attribute-sets="h1" id="{generate-id()}">
+    <fo:block xsl:use-attribute-sets="h1" id="{generate-id(header/title)}">
       <xsl:value-of select="$partnum"/>&#160;&#160;&#160;
-      <xsl:text>User's Guide</xsl:text>
+      <xsl:value-of select="header/title"/>
     </fo:block>
 
     <xsl:apply-templates select="description">
