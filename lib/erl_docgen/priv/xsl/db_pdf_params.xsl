@@ -29,7 +29,7 @@
 
  <!-- Fixed strings -->
  <xsl:variable name="companyname"><xsl:value-of select="/book/header/copyright/holder"/></xsl:variable>
-  <xsl:variable name="copyright">Copyright &#169; <xsl:value-of select="/book/header/copyright/year[1]"/><xsl:text>-</xsl:text><xsl:value-of select="substring-after(substring-after($gendate, ' '), ' ')"/></xsl:variable>
+  <xsl:variable name="copyright">Copyright &#169; <xsl:value-of select="/book/header/copyright/year[1]"/><xsl:text>-</xsl:text><xsl:value-of select="substring-after(normalize-space(substring-after($gendate, ' ')), ' ')"/></xsl:variable>
 
   <!-- FIXME: remove when appendix creation has been fixed -->
   <!-- xsl:variable name="appendix_title"-->
