@@ -405,6 +405,38 @@ terminate(State) ->
     ok.</code>
   </section>
 
+  <marker id="builtin_cths"/>
+  <section>
+    <title>Built-in CTHs</title>
+    <p>Common Test is delivered with a couple of general purpose CTHs that
+    can be enabled by the user to provide some generic testing functionality.
+    Some of these are enabled by default when starting running common_test,
+    they can be disabled by setting <c>enable_builtin_hooks</c> to
+    <c>false</c> on the command line or in the test specification. In the
+    table below there is a list of all current CTHs which are delivered with
+    Common Test.</p>
+
+    <table>
+      <row>
+	<cell><em>CTH Name</em></cell>
+	<cell><em>Is Built-in</em></cell>
+	<cell><em>Description</em></cell>
+      </row>
+      <row>
+	<cell>cth_log_redirect</cell>
+	<cell>yes</cell>
+	<cell>Captures all error_logger and SASL logging events and prints them
+	to the current test case log. If an event can not be associated with a
+	testcase it will be printed in the common test framework log. This will
+	happen for testcases which are run in parallel and events which occur
+	inbetween testcases. You can configure the level of
+	<seealso marker="sasl:sasl_app">SASL</seealso> events report
+	using the normal SASL mechanisms. </cell>
+      </row>
+    </table>
+
+  </section>
+
 </chapter>
 
 

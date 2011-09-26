@@ -69,7 +69,8 @@ MODULES= \
 	ct_config_xml \
 	ct_slave \
         ct_hooks\
-        ct_hooks_lock
+        ct_hooks_lock\
+	cth_log_redirect
 
 TARGET_MODULES= $(MODULES:%=$(EBIN)/%)
 

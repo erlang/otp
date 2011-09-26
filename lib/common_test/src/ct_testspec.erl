@@ -646,6 +646,10 @@ add_tests([{ct_hooks, _Node, []}|Ts], Spec) ->
 add_tests([{ct_hooks, Hooks}|Ts], Spec) ->
     add_tests([{ct_hooks, all_nodes, Hooks}|Ts], Spec);
 
+%% -- enable_builtin_hooks --
+add_tests([{enable_builtin_hooks,Bool}|Ts],Spec) ->
+    add_tests(Ts, Spec#testspec{ enable_builtin_hooks = Bool });
+
 %% --- include ---
 add_tests([{include,all_nodes,InclDirs}|Ts],Spec) ->
     Tests = lists:map(fun(N) -> {include,N,InclDirs} end, list_nodes(Spec)),
@@ -1104,6 +1108,7 @@ valid_terms() ->
      {event_handler,4},
      {ct_hooks,2},
      {ct_hooks,3},
+     {enable_builtin_hooks,1},
      {multiply_timetraps,2},
      {multiply_timetraps,3},
      {scale_timetraps,2},
