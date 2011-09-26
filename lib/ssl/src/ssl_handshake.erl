@@ -39,6 +39,8 @@
 	 encode_handshake/2, init_hashes/0, update_hashes/2,
 	 decrypt_premaster_secret/2]).
 
+-export([dec_hello_extensions/2]).
+
 -type tls_handshake() :: #client_hello{} | #server_hello{} |
 			 #server_hello_done{} | #certificate{} | #certificate_request{} |
 			 #client_key_exchange{} | #finished{} | #certificate_verify{} |
@@ -912,9 +914,11 @@ dec_hello_extensions(<<?UINT16(?RENEGOTIATION_EXT), ?UINT16(Len), Info:Len/binar
 		      end,	    
     dec_hello_extensions(Rest, [{renegotiation_info, 
 			   #renegotiation_info{renegotiated_connection = RenegotiateInfo}} | Acc]);
-dec_hello_extensions(<<?UINT16(_), ?UINT16(Len), _Unknown:Len, Rest/binary>>, Acc) ->
+dec_hello_extensions(<<?UINT16(_), ?UINT16(Len), _Unknown:Len/binary, Rest/binary>>, Acc) ->
     dec_hello_extensions(Rest, Acc);
 %% Need this clause?
+%% I don't think we need this clause anymore. It was previously catching parsing errors caused by the missing /binary.
+%% Maybe we should be logging an error somewhere because we really should not be entering this clause.
 dec_hello_extensions(_, Acc) ->
     Acc.
 
