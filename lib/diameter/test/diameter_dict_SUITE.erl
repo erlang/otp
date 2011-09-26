@@ -25,7 +25,9 @@
 
 -export([suite/0,
          all/0,
-         groups/0]).
+         groups/0,
+         init_per_group/2,
+         end_per_group/2]).
 
 %% testcases
 -export([append/1,
@@ -68,6 +70,12 @@ tc() ->
      merge,
      update,
      update_counter].
+
+init_per_group(_, Config) ->
+    Config.
+
+end_per_group(_, _) ->
+    ok.
 
 %% ===========================================================================
 
