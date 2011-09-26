@@ -55,6 +55,7 @@
 	       config = [],
 	       event_handlers = [],
 	       ct_hooks = [],
+	       enable_builtin_hooks = true,
 	       include = [],
 	       silent_connections,
 	       stylesheet,
@@ -173,6 +174,10 @@ script_start1(Parent, Args) ->
 			    end, false, Args),
     EvHandlers = event_handler_args2opts(Args),
     CTHooks = ct_hooks_args2opts(Args),
+    EnableBuiltinHooks = get_start_opt(enable_builtin_hooks,
+				       fun([CT]) -> list_to_atom(CT);
+					  ([]) -> true
+				       end, true, Args),
 
     %% check flags and set corresponding application env variables
 
@@ -237,6 +242,7 @@ script_start1(Parent, Args) ->
    StartOpts = #opts{label = Label, vts = Vts, shell = Shell, cover = Cover,
 		     logdir = LogDir, event_handlers = EvHandlers,
 		     ct_hooks = CTHooks,
+		     enable_builtin_hooks = EnableBuiltinHooks,
 		     include = IncludeDirs,
 		     silent_connections = SilentConns,
 		     stylesheet = Stylesheet,
@@ -311,6 +317,11 @@ script_start2(StartOpts = #opts{vts = undefined,
 			AllCTHooks = merge_vals(
 					[StartOpts#opts.ct_hooks,
 					 SpecStartOpts#opts.ct_hooks]),
+
+			EnableBuiltinHooks =
+			    choose_val(
+			      StartOpts#opts.enable_builtin_hooks,
+			      SpecStartOpts#opts.enable_builtin_hooks),
 			
 			AllInclude = merge_vals([StartOpts#opts.include,
 						 SpecStartOpts#opts.include]),
@@ -323,6 +334,8 @@ script_start2(StartOpts = #opts{vts = undefined,
 					   config = SpecStartOpts#opts.config,
 					   event_handlers = AllEvHs,
 					   ct_hooks = AllCTHooks,
+					   enable_builtin_hooks =
+					       EnableBuiltinHooks,
 					   include = AllInclude,
 					   multiply_timetraps = MultTT,
 					   scale_timetraps = ScaleTT}}
@@ -339,9 +352,7 @@ script_start2(StartOpts = #opts{vts = undefined,
 	{[],_} ->
 	    {error,no_testspec_specified};
 	{undefined,_} ->   % no testspec used
-	    case check_and_install_configfiles(InitConfig, TheLogDir,
-					       Opts#opts.event_handlers,
-					       Opts#opts.ct_hooks) of
+	    case check_and_install_configfiles(InitConfig, TheLogDir, Opts) of
 		ok ->      % go on read tests from start flags
 		    script_start3(Opts#opts{config=InitConfig,
 					    logdir=TheLogDir}, Args);
@@ -351,9 +362,7 @@ script_start2(StartOpts = #opts{vts = undefined,
 	{_,_} ->           % testspec used
 	    %% merge config from start flags with config from testspec
 	    AllConfig = merge_vals([InitConfig, Opts#opts.config]),
-	    case check_and_install_configfiles(AllConfig, TheLogDir,
-					       Opts#opts.event_handlers,
-					       Opts#opts.ct_hooks) of
+	    case check_and_install_configfiles(AllConfig, TheLogDir, Opts) of
 		ok ->      % read tests from spec
 		    {Run,Skip} = ct_testspec:prepare_tests(Terms, node()),
 		    do_run(Run, Skip, Opts#opts{config=AllConfig,
@@ -367,9 +376,7 @@ script_start2(StartOpts, Args) ->
     %% read config/userconfig from start flags
     InitConfig = ct_config:prepare_config_list(Args),
     LogDir = which(logdir, StartOpts#opts.logdir),
-    case check_and_install_configfiles(InitConfig, LogDir,
-				       StartOpts#opts.event_handlers,
-				       StartOpts#opts.ct_hooks) of
+    case check_and_install_configfiles(InitConfig, LogDir, StartOpts) of
 	ok ->      % go on read tests from start flags
 	    script_start3(StartOpts#opts{config=InitConfig,
 					 logdir=LogDir}, Args);
@@ -377,12 +384,17 @@ script_start2(StartOpts, Args) ->
 	    Error
     end.
 
-check_and_install_configfiles(Configs, LogDir, EvHandlers, CTHooks) ->
+check_and_install_configfiles(
+  Configs, LogDir, #opts{
+	     event_handlers = EvHandlers,
+	     ct_hooks = CTHooks,
+	     enable_builtin_hooks = EnableBuiltinHooks} ) ->
     case ct_config:check_config_files(Configs) of
 	false ->
 	    install([{config,Configs},
 		     {event_handler,EvHandlers},
-		     {ct_hooks,CTHooks}], LogDir);
+		     {ct_hooks,CTHooks},
+		     {enable_builtin_hooks,EnableBuiltinHooks}], LogDir);
 	{value,{error,{nofile,File}}} ->
 	    {error,{cant_read_config_file,File}};
 	{value,{error,{wrong_config,Message}}}->
@@ -451,18 +463,19 @@ script_start4(#opts{vts = true, config = Config, event_handlers = EvHandlers,
 script_start4(#opts{label = Label, shell = true, config = Config,
 		    event_handlers = EvHandlers,
 		    ct_hooks = CTHooks,
+		    enable_builtin_hooks = EnableBuiltinHooks,
 		    logdir = LogDir, testspecs = Specs}, _Args) ->
     %% label - used by ct_logs
     application:set_env(common_test, test_label, Label),
 
-    InstallOpts = [{config,Config},{event_handler,EvHandlers},
-		   {ct_hooks, CTHooks}],
     if Config == [] ->
 	    ok;
        true ->
 	    io:format("\nInstalling: ~p\n\n", [Config])
     end,
-    case install(InstallOpts) of
+    case install([{config,Config},{event_handler,EvHandlers},
+		  {ct_hooks, CTHooks},
+		  {enable_builtin_hooks,EnableBuiltinHooks}]) of
 	ok ->
 	    ct_util:start(interactive, LogDir),
 	    log_ts_names(Specs),
@@ -682,6 +695,11 @@ run_test1(StartOpts) ->
 
     %% CT Hooks
     CTHooks = get_start_opt(ct_hooks, value, [], StartOpts),
+    EnableBuiltinHooks = get_start_opt(enable_builtin_hooks,
+				       fun(EBH) when EBH == true;
+						     EBH == false ->
+					       EBH
+				       end, true, StartOpts),
 
     %% silent connections
     SilentConns = get_start_opt(silent_connections,
@@ -754,6 +772,7 @@ run_test1(StartOpts) ->
 		 cover = Cover, step = Step, logdir = LogDir, config = CfgFiles,
 		 event_handlers = EvHandlers,
 		 ct_hooks = CTHooks,
+		 enable_builtin_hooks = EnableBuiltinHooks,
 		 include = Include,
 		 silent_connections = SilentConns,
 		 stylesheet = Stylesheet,
@@ -808,24 +827,28 @@ run_spec_file(Relaxed,
 
 	    AllCTHooks = merge_vals([Opts#opts.ct_hooks,
 				      SpecOpts#opts.ct_hooks]),
+	    EnableBuiltinHooks = choose_val(Opts#opts.enable_builtin_hooks,
+					    SpecOpts#opts.enable_builtin_hooks),
 	    
 	    application:set_env(common_test, include, AllInclude),
 
-	    case check_and_install_configfiles(AllConfig,
-					       which(logdir,LogDir),
-					       AllEvHs,
-					       AllCTHooks) of
+	    Opts1 = Opts#opts{label = Label,
+			      cover = Cover,
+			      logdir = which(logdir, LogDir),
+			      config = AllConfig,
+			      event_handlers = AllEvHs,
+			      include = AllInclude,
+			      testspecs = AbsSpecs,
+			      multiply_timetraps = MultTT,
+			      scale_timetraps = ScaleTT,
+			      ct_hooks = AllCTHooks,
+			      enable_builtin_hooks = EnableBuiltinHooks
+			     },
+
+	    case check_and_install_configfiles(AllConfig,Opts1#opts.logdir,
+					       Opts1) of
 		ok ->
-		    Opts1 = Opts#opts{label = Label,
-				      cover = Cover,
-				      logdir = which(logdir, LogDir),
-				      config = AllConfig,
-				      event_handlers = AllEvHs,
-				      include = AllInclude,
-				      testspecs = AbsSpecs,
-				      multiply_timetraps = MultTT,
-				      scale_timetraps = ScaleTT,
-				      ct_hooks = AllCTHooks},
+
 		    {Run,Skip} = ct_testspec:prepare_tests(TS, node()),
 		    reformat_result(catch do_run(Run, Skip, Opts1, StartOpts));
 		{error,GCFReason} ->
@@ -834,13 +857,10 @@ run_spec_file(Relaxed,
     end.
 
 run_prepared(Run, Skip, Opts = #opts{logdir = LogDir,
-				     config = CfgFiles,
-				     event_handlers = EvHandlers,
-				     ct_hooks = CTHooks},
+				     config = CfgFiles },
 	     StartOpts) ->
     LogDir1 = which(logdir, LogDir),
-    case check_and_install_configfiles(CfgFiles, LogDir1,
-				       EvHandlers, CTHooks) of
+    case check_and_install_configfiles(CfgFiles, LogDir1, Opts) of
 	ok ->
 	    reformat_result(catch do_run(Run, Skip, Opts#opts{logdir = LogDir1},
 					 StartOpts));
@@ -872,7 +892,8 @@ check_config_file(Callback, File)->
 run_dir(Opts = #opts{logdir = LogDir,
 		     config = CfgFiles,
 		     event_handlers = EvHandlers,
-		     ct_hooks = CTHook }, StartOpts) ->
+		     ct_hooks = CTHook,
+		     enable_builtin_hooks = EnableBuiltinHooks }, StartOpts) ->
     LogDir1 = which(logdir, LogDir),
     Opts1 = Opts#opts{logdir = LogDir1},
     AbsCfgFiles =
@@ -895,7 +916,8 @@ run_dir(Opts = #opts{logdir = LogDir,
 		  end, CfgFiles),
     case install([{config,AbsCfgFiles},
 		  {event_handler,EvHandlers},
-		  {ct_hooks, CTHook}], LogDir1) of
+		  {ct_hooks, CTHook},
+		  {enable_builtin_hooks,EnableBuiltinHooks}], LogDir1) of
 	ok -> ok;
 	{error,IReason} -> exit(IReason)
     end,
@@ -999,9 +1021,8 @@ run_testspec1(TestSpec) ->
 		end,
 	    application:set_env(common_test, include, AllInclude),
 	    LogDir1 = which(logdir,Opts#opts.logdir),
-	    case check_and_install_configfiles(Opts#opts.config, LogDir1,
-					       Opts#opts.event_handlers,
-					       Opts#opts.ct_hooks) of
+	    case check_and_install_configfiles(
+		   Opts#opts.config, LogDir1, Opts) of
 		ok ->
 		    Opts1 = Opts#opts{testspecs = [],
 				      logdir = LogDir1,
@@ -1020,6 +1041,7 @@ get_data_for_node(#testspec{label = Labels,
 			    userconfig = UsrCfgs,
 			    event_handler = EvHs,
 			    ct_hooks = CTHooks,
+			    enable_builtin_hooks = EnableBuiltinHooks,
 			    include = Incl,
 			    multiply_timetraps = MTs,
 			    scale_timetraps = STs}, Node) ->
@@ -1042,6 +1064,7 @@ get_data_for_node(#testspec{label = Labels,
 	  config = ConfigFiles,
 	  event_handlers = EvHandlers,
 	  ct_hooks = FiltCTHooks,
+	  enable_builtin_hooks = EnableBuiltinHooks,
 	  include = Include,
 	  multiply_timetraps = MT,
 	  scale_timetraps = ST}.
@@ -2067,8 +2090,11 @@ get_start_opt(Key, IfExists, IfNotExists, Args) ->
     end.
 
 ct_hooks_args2opts(Args) ->
-    ct_hooks_args2opts(
-      proplists:get_value(ct_hooks, Args, []),[]).
+    lists:foldl(fun({ct_hooks,Hooks}, Acc) ->
+			ct_hooks_args2opts(Hooks,Acc);
+		   (_,Acc) ->
+			Acc
+		end,[],Args).
 
 ct_hooks_args2opts([CTH,Arg,Prio,"and"| Rest],Acc) ->
     ct_hooks_args2opts(Rest,[{list_to_atom(CTH),

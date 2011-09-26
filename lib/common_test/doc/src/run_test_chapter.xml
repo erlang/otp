@@ -150,6 +150,8 @@
         <seealso marker="event_handler_chapter#event_handling">event handlers</seealso> including start arguments.</item>
       <item><c><![CDATA[-ct_hooks <ct_hooks>]]></c>, to install
         <seealso marker="ct_hooks_chapter#installing">Common Test Hooks</seealso> including start arguments.</item>
+      <item><c><![CDATA[-enable_builtin_hooks <bool>]]></c>, to enable/disable
+        <seealso marker="ct_hooks_chapter#builtin_cths">Built-in Common Test Hooks</seealso>. Default is <c>true</c>.</item>
       <item><c><![CDATA[-include]]></c>, specifies include directories (see above).</item>
       <item><c><![CDATA[-no_auto_compile]]></c>, disables the automatic test suite compilation feature (see above).</item>
       <item><c><![CDATA[-multiply_timetraps <n>]]></c>, extends <seealso marker="write_test_chapter#timetraps">timetrap
@@ -450,6 +452,8 @@
 
       {ct_hooks, CTHModules}.
       {ct_hooks, NodeRefs, CTHModules}.
+
+      {enable_builtin_hooks, Bool}.
     </pre>
       <p>Test terms:</p>
     <pre>
@@ -631,7 +635,11 @@
       <p>The minor log file contain full details of every single test
 	case, each one in a separate file. This way the files should
 	be easy to compare with previous test runs, even if the set of
-	test cases change.</p>
+	test cases change. If SASL is running those logs will also be
+        printed there by the
+	<seealso marker="common_test:ct_hooks_chapter#builtin_cths">
+	  cth_log_redirect built-in hook</seealso>.
+        </p>
       
       <p>Which information goes where is user configurable via the
 	test server controller. Three threshold values determine what
