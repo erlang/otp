@@ -2074,10 +2074,10 @@ scan_element(T, S, Pos, Name, StartL, StartC, Attrs, Lang, Parents,
     {AttName, NamespaceInfo, T1, S1} = scan_name(T, S),
     {T2, S2} = scan_eq(T1, S1),
     {AttType,_DefaultDecl} = get_att_type(S2,AttName,Name),
-    {AttValue, T3, S3,IsNorm} = scan_att_value(T2, S2, AttType),
+    {AttValue, T3a, S3a,IsNorm} = scan_att_value(T2, S2, AttType),
 %%    check_default_value(S3,DefaultDecl,AttValue),
     NewNS = check_namespace(AttName, NamespaceInfo, AttValue, NS),
-    wfc_whitespace_betw_attrs(hd(T3),S3),
+    {T3,S3} = wfc_whitespace_betw_attrs(T3a,S3a),
     ?strip4,  
     AttrPos = case Attrs of
 		  [] ->
@@ -3284,12 +3284,17 @@ wfc_legal_char(Ch,S) ->
     end.
 
 
-wfc_whitespace_betw_attrs(WS,_S) when ?whitespace(WS) ->
-    ok;
-wfc_whitespace_betw_attrs($/,_S) ->
-    ok;
-wfc_whitespace_betw_attrs($>,_S) ->
-    ok;
+wfc_whitespace_betw_attrs([WS |_]=L,S) when ?whitespace(WS) ->
+    {L,S};
+wfc_whitespace_betw_attrs([$/ |_]=L,S) ->
+    {L,S};
+wfc_whitespace_betw_attrs([$> |_]=L,S) ->
+    {L,S};
+wfc_whitespace_betw_attrs([],S=#xmerl_scanner{continuation_fun = F}) ->
+    ?dbg("cont()...~n", []),
+    F(fun(MoreBytes, S1) -> wfc_whitespace_betw_attrs(MoreBytes, S1) end,
+      fun(S1) -> ?fatal(unexpected_end, S1) end,
+      S);
 wfc_whitespace_betw_attrs(_,S) ->
     ?fatal({whitespace_required_between_attributes},S).
 
