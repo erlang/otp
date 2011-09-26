@@ -1031,6 +1031,10 @@ make_conf(Mod, Name, Props, TestSpec) ->
 	    true ->
 		{{Mod,init_per_group},{Mod,end_per_group}};
 	    false ->
+		ct_logs:log("TEST INFO", "init_per_group/2 and "
+			    "end_per_group/2 missing for group "
+			    "~p in ~p, using default.",
+			    [Name,Mod]),
 		{{?MODULE,ct_init_per_group},
 		 {?MODULE,ct_end_per_group}}
 	end,
@@ -1208,14 +1212,14 @@ error_in_suite(Config) ->
 %% use these instead
 ct_init_per_group(GroupName, Config) ->
     ct:comment(io_lib:format("start of ~p", [GroupName])),
-    ct_logs:log("WARNING", "init_per_group/2 for ~w missing "
+    ct_logs:log("TEST INFO", "init_per_group/2 for ~w missing "
 		"in suite, using default.",
 		[GroupName]),
     Config.
 
 ct_end_per_group(GroupName, _) ->
     ct:comment(io_lib:format("end of ~p", [GroupName])),
-    ct_logs:log("WARNING", "end_per_group/2 for ~w missing "
+    ct_logs:log("TEST INFO", "end_per_group/2 for ~w missing "
 		"in suite, using default.",
 		[GroupName]),
     ok.
