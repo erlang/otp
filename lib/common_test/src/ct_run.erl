@@ -509,7 +509,7 @@ script_start4(#opts{label = Label, profile = Profile,
     case install(InstallOpts) of
 	ok ->
 	    ct_util:start(interactive, LogDir),
-	    ct_util:set_testdata(logopts, LogOpts),
+	    ct_util:set_testdata({logopts, LogOpts}),
 	    log_ts_names(Specs),
 	    io:nl(),
 	    ok;
