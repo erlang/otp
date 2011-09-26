@@ -2039,6 +2039,21 @@ add_init_and_end_per_suite([{skip_case,{conf,_,{Mod,_},_}}=Case|Cases], LastMod,
     PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod, NextRef, FwMod)];
 add_init_and_end_per_suite([{skip_case,_}=Case|Cases], LastMod, LastRef, FwMod) ->
     [Case|add_init_and_end_per_suite(Cases, LastMod, LastRef, FwMod)];
+add_init_and_end_per_suite([{conf,Ref,Props,{FwMod,Func}}=Case|Cases], LastMod,
+			   LastRef, FwMod) ->
+    %% if Mod == FwMod, this conf test is (probably) a test case group where
+    %% the init- and end-functions are missing in the suite, and if so,
+    %% the suite name should be stored as {suite,Suite} in Props
+    case proplists:get_value(suite, Props) of
+	Suite when Suite =/= undefined, Suite =/= LastMod ->
+	    {PreCases, NextMod, NextRef} =
+		do_add_init_and_end_per_suite(LastMod, LastRef, Suite),
+	    Case1 = {conf,Ref,proplists:delete(suite,Props),{FwMod,Func}},
+	    PreCases ++ [Case1|add_init_and_end_per_suite(Cases, NextMod,
+							  NextRef, FwMod)];
+	_ ->
+	    [Case|add_init_and_end_per_suite(Cases, LastMod, LastRef, FwMod)]
+    end;
 add_init_and_end_per_suite([{conf,_,_,{Mod,_}}=Case|Cases], LastMod,
 			   LastRef, FwMod) when Mod =/= LastMod, Mod =/= FwMod ->
     {PreCases, NextMod, NextRef} =

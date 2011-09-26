@@ -478,7 +478,6 @@ end_tc(Mod,Func,TCPid,Result,Args,Return) ->
 	_ ->
 	    ok
     end,
-
     ct_util:delete_testdata(comment),
     ct_util:delete_suite_data(last_saved_config),
     FuncSpec =
@@ -1026,19 +1025,20 @@ make_conf(Mod, Name, Props, TestSpec) ->
 	_ ->
 	    ok
     end,
-    {InitConf,EndConf} =
+    {InitConf,EndConf,ExtraProps} =
 	case erlang:function_exported(Mod,init_per_group,2) of
 	    true ->
-		{{Mod,init_per_group},{Mod,end_per_group}};
+		{{Mod,init_per_group},{Mod,end_per_group},[]};
 	    false ->
 		ct_logs:log("TEST INFO", "init_per_group/2 and "
 			    "end_per_group/2 missing for group "
 			    "~p in ~p, using default.",
 			    [Name,Mod]),
 		{{?MODULE,ct_init_per_group},
-		 {?MODULE,ct_end_per_group}}
+		 {?MODULE,ct_end_per_group},
+		 [{suite,Mod}]}
 	end,
-    {conf,[{name,Name}|Props],InitConf,TestSpec,EndConf}.
+    {conf,[{name,Name}|Props++ExtraProps],InitConf,TestSpec,EndConf}.
 
 %%%-----------------------------------------------------------------
 
