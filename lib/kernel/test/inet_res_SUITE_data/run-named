@@ -2,7 +2,7 @@
 ##
 ## %CopyrightBegin%
 ## 
-## Copyright Ericsson AB 2009. All Rights Reserved.
+## Copyright Ericsson AB 2009-2011. All Rights Reserved.
 ## 
 ## The contents of this file are subject to the Erlang Public License,
 ## Version 1.1, (the "License"); you may not use this file except in
@@ -155,7 +155,7 @@ $NAMED $NAMED_FG -c "$CONF_FILE" >"$LOG_FILE" 2>&1 </dev/null &
 NAMED=$!
 trap "kill -TERM $NAMED >/dev/null 2>&1; wait $NAMED >/dev/null 2>&1" \
     0 1 2 3 15
-sleep 1 # Give name server time to load its zone files
+sleep 2 # Give name server time to load its zone files
 echo "Running: Enter \`\`quit'' to terminate nameserver[$NAMED]..."
 while read LINE; do 
     test :"$LINE" = :'quit' && break
