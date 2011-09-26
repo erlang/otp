@@ -36,3 +36,4 @@ SPECIAL_TARGETS =
 include $(ERL_TOP)/make/otp_subdir.mk
 
 
+# touched by patch 1176
