@@ -355,9 +355,9 @@ initiate_state(Opts,Schema) ->
     XSDBase = filename:dirname(Schema),
     {{state,S},RestOpts}=new_state(Opts),
     S2 = create_tables(S),
-    S3 = initiate_state2(S2#xsd_state{schema_name = Schema, xsd_base=XSDBase,
-				      fetch_fun = fun fetch/2}, 
-			 RestOpts).
+    initiate_state2(S2#xsd_state{schema_name = Schema, xsd_base=XSDBase,
+				 fetch_fun = fun fetch/2}, 
+		    RestOpts).
 
 initiate_state2(S,[]) ->
     S;

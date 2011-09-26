@@ -149,7 +149,7 @@ run(TestDirs) ->
 %%%               {repeat,N} | {duration,DurTime} | {until,StopTime} |
 %%%               {force_stop,Bool} | {decrypt,DecryptKeyOrFile} |
 %%%               {refresh_logs,LogDir} | {basic_html,Bool} | 
-%%%               {ct_hooks, CTHs}
+%%%               {ct_hooks, CTHs} | {enable_builtin_hooks,Bool}
 %%%   TestDirs = [string()] | string()
 %%%   Suites = [string()] | string()
 %%%   Cases = [atom()] | atom()
