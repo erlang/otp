@@ -206,6 +206,8 @@ JAVADOCFLAGS = \
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
+_create_dirs := $(shell mkdir -p $(JAVA_OUT_DIR))
+
 $(HTMLDIR)/%.gif: %.gif
 	$(INSTALL_DATA) $< $@
 
@@ -256,10 +258,7 @@ clean clean_docs clean_tex:
 
 endif
 
-$(JAVA_OUT_DIR):
-	mkdir $(JAVA_OUT_DIR)
-
-$(JAVADOC_GENERATED_FILES): $(JAVA_OUT_DIR)
+$(JAVADOC_GENERATED_FILES):
 	@(cd ../../java_src; $(JAVADOC) $(JAVADOCFLAGS) com.ericsson.otp.ic)
 
 man: $(MAN3_FILES)
