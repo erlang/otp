@@ -21,9 +21,8 @@
 %% Test encode/decode of dictionary-related modules. Each test case
 %% runs multiple tests in parallel since many of the tests are just
 %% the same code with different in-data: implementing each test as a
-%% single testcase would make for much duplication with ct's
-%% requirement of one function per testcase. (Instead of allowing a
-%% testcase to be an MFA instead of function name, say.)
+%% single testcase would make for much duplication with ct's current
+%% requirement of one function per testcase.
 %%
 
 -module(diameter_codec_SUITE).

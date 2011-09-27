@@ -68,12 +68,6 @@
 
 -define(VALUES(Rec), tl(tuple_to_list(Rec))).
 
-%%% ----------------------------------------------------------
-%%% # log/4
-%%%
-%%% Called to have something to trace on for happenings of interest.
-%%% ----------------------------------------------------------
-
 log(_Slogan, _Mod, _Line, _Details) ->
     ok.
 
@@ -82,9 +76,6 @@ log(_Slogan, _Mod, _Line, _Details) ->
 %%% ----------------------------------------------------------
 
 help() ->
-    ?INFO:usage(usage()).
-
-usage() ->
     not_yet_implemented.
 
 %%% ----------------------------------------------------------
@@ -99,29 +90,22 @@ table(T)
   when (T == diameter_peer) orelse (T == diameter_reg) ->
     ?INFO:format(collect(T), fields(T), fun ?INFO:split/2);
 
-table(diameter_service = T) ->
-    Fs = [name, started] ++ fields(T) ++ [peerT,
-                                          connT,
-                                          share_peers,
-                                          use_shared_peers,
-                                          shared_peers,
-                                          local_peers,
-                                          monitor],
-    ?INFO:format(T,
-                 fun(R) ->
-                         [I,N,S|Vs] = ?VALUES(R),
-                         {Fs, [N,I] ++ ?VALUES(S) ++ Vs}
-                 end,
-                 fun ?INFO:split/2);
-
 table(Table)
   when is_atom(Table) ->
     case fields(Table) of
         undefined = No ->
             No;
         Fields ->
-            ?INFO:format(Table, Fields, fun ?INFO:split/2)
+            ?INFO:format(Table, Fields, fun split/2)
     end.
+
+split([started, name | Fs], [S, N | Vs]) ->
+    {name, [started | Fs], N, [S | Vs]};
+split([[F|FT]|Fs], [Rec|Vs]) ->
+    [_, V | VT] = tuple_to_list(Rec),
+    {F, FT ++ Fs, V, VT ++ Vs};
+split([F|Fs], [V|Vs]) ->
+    {F, Fs, V, Vs}.
 
 %%% ----------------------------------------------------------
 %%% # TableName()
@@ -146,13 +130,13 @@ table(Table)
 %%% ----------------------------------------------------------
 
 tables() ->
-    format_all(fun ?INFO:split/3).
-
-format_all(SplitFun) ->
-    ?INFO:format(field(?LOCAL), SplitFun, fun collect/1).
+    ?INFO:format(field(?LOCAL), fun split/3, fun collect/1).
 
 field(Tables) ->
     lists:map(fun(T) -> {T, fields(T)} end, lists:sort(Tables)).
+
+split(_, Fs, Vs) ->
+    split(Fs, Vs).
 
 %%% ----------------------------------------------------------
 %%% # modules()
@@ -396,76 +380,24 @@ stop() ->
 %% tp/1
 
 tpl(T) ->
-    dbg(tpl, dbg(T)).
+    dbg(tpl, T).
 
 tp(T) ->
-    dbg(tp, dbg(T)).
-
-%% dbg/1
-
-dbg(x) ->
-    [{M, x, []} || M <- [diameter_tcp,
-                         diameter_etcp,
-                         diameter_sctp,
-                         diameter_peer_fsm,
-                         diameter_watchdog]];
-
-dbg(log) ->
-    {?MODULE, log, 4};
-
-dbg({log = F, Mods})
-  when is_list(Mods) ->
-    {?MODULE, F, [{['_','$1','_','_'],
-                   [?ORCOND([{'==', '$1', M} || M <- Mods])],
-                   []}]};
-
-dbg({log = F, Mod}) ->
-    dbg({F, [Mod]});
-
-dbg(send) ->
-    {diameter_peer, send, 2};
-
-dbg(recv) ->
-    {diameter_peer, recv, 2};
-
-dbg(sendrecv) ->
-    [{diameter_peer, send, 2},
-     {diameter_peer, recv, 2}];
-
-dbg(decode) ->
-    [{diameter_codec,decode,2}];
-
-dbg(encode) ->
-    [{diameter_codec,encode,2,[]},
-     {diameter_codec,encode,3,[]},
-     {diameter_codec,encode,4}];
-
-dbg(transition = T) ->
-    [{?MODULE, log, [{[T,M,'_','_'],[],[]}]}
-     || M <- [diameter_watchdog, diameter_peer_fsm]];
-
-dbg(T) ->
-    T.
+    dbg(tp, T).
 
 %% dbg/2
 
-dbg(TF, L)
+dbg(F, L)
   when is_list(L) ->
-    {ok, lists:foldl(fun(T,A) -> {ok, X} = dbg(TF, T), [X|A] end, [], L)};
+    [dbg(F, X) || X <- L];
 
 dbg(F, M)
   when is_atom(M) ->
-    dbg(F, {M});
+    apply(dbg, F, [M, x]);
 
 dbg(F, T)
   when is_tuple(T) ->
-    [_|_] = A = tuple_to_list(T),
-    {ok,_} = apply(dbg, F, case is_list(lists:last(A)) of
-                               false ->
-                                   A ++ [[{'_',[],[{exception_trace}]}]];
-                               true ->
-                                   A
-                           end).
+    apply(dbg, F, tuple_to_list(T)).
 
 %% ===========================================================================
 %% ===========================================================================
@@ -493,15 +425,19 @@ peers(Name) ->
 
 peers(_, undefined) ->
     [];
-peers(Name, {Cs,As}) ->
-    mk_peer(Name, connector, Cs) ++ mk_peer(Name, acceptor, As).
+peers(Name, Ts) ->
+    lists:flatmap(fun(T) -> mk_peers(Name, T) end, Ts).
 
-mk_peer(Name, T, Ts) ->
-    [[Name | mk_peer(T,Vs)] || Vs <- Ts].
+mk_peers(Name, [_, {type, connect} | _] = Ts) ->
+    [[Name | mk_peer(Ts)]];
+mk_peers(Name, [R, {type, listen}, O, {accept = A, As}]) ->
+    [[Name | mk_peer([R, {type, A}, O | Ts])] || Ts <- As].
+%% This is a bit lame: service_info works to build this list and out
+%% of something like what we want here and then we take it apart.
 
-mk_peer(Type, Vs) ->
-    [Ref, State, Opts, WPid, TPid, SApps, Caps]
-        = get_values(Vs, [ref, state, options, watchdog, peer, apps, caps]),
+mk_peer(Vs) ->
+    [Type, Ref, State, Opts, WPid, TPid, SApps, Caps]
+        = get_values(Vs, [type,ref,state,options,watchdog,peer,apps,caps]),
     [Ref, State, [{type, Type} | Opts], s(WPid), s(TPid), SApps, Caps].
 
 get_values(Vs, Ks) ->
@@ -509,9 +445,13 @@ get_values(Vs, Ks) ->
 
 s(undefined = T) ->
     T;
+s({Pid, _Started, _State}) ->
+    state(Pid);
+s({Pid, _Started}) ->
+    state(Pid).
 
 %% Collect states from watchdog/transport pids.
-s(Pid) ->
+state(Pid) ->
     MRef = erlang:monitor(process, Pid),
     Pid ! {state, self()},
     receive
@@ -541,7 +481,18 @@ fields(diameter_stats) ->
             []
     end;
 
-?FIELDS(diameter_service);
+fields(diameter_service) ->
+    [started,
+     name,
+     record_info(fields, diameter_service),
+     peerT,
+     connT,
+     share_peers,
+     use_shared_peers,
+     shared_peers,
+     local_peers,
+     monitor];
+
 ?FIELDS(diameter_event);
 ?FIELDS(diameter_uri);
 ?FIELDS(diameter_avp);

@@ -26,7 +26,7 @@
 %%                /        |
 %%   CLIENT.REALM1         |
 %%                \        |
-%%                  ---- RELAY.REALM3 ---- SERVER2.REALM3
+%%                  ---- RELAY.REALM3 ---- SERVER1.REALM3
 %%                                   \
 %%                                     --- SERVER2.REALM3
 %%
