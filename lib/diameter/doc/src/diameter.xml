@@ -277,6 +277,10 @@ callback.</p>
 
 </taglist>
 
+<p>
+An invalid option will cause <seealso marker="#call">call/4</seealso>
+to fail.</p>
+
 <marker id="capability"/>
 </item>
 
@@ -405,6 +409,8 @@ sense.</p>
 <code>
 eval([{M,F,A} | T]) ->
     apply(M, F, T ++ A);
+eval([[F|A] | T]) ->
+    eval([F | T ++ A]);
 eval([F|A]) ->
     apply(F, A);
 eval(F) ->
@@ -461,14 +467,14 @@ or any peer if the request does not contain
 a <c>Destination-Realm</c> AVP.</p>
 </item>
 
-<tag><c>{host, any|UTF8String()}</c></tag>
+<tag><c>{host, any|DiameterIdentity()}</c></tag>
 <item>
 <p>
 Matches only those peers whose <c>Origin-Host</c> has the
 specified value, or all peers if the atom <c>any</c>.</p>
 </item>
 
-<tag><c>{realm, any|UTF8String()</c></tag>
+<tag><c>{realm, any|DiameterIdentity()</c></tag>
 <item>
 <p>
 Matches only those peers whose <c>Origin-Realm</c> has the
@@ -478,8 +484,9 @@ value, or all peers if the atom <c>any</c>.</p>
 <tag><c>{eval, evaluable()}</c></tag>
 <item>
 <p>
-Matches only those peers for which the specified evaluable() evaluates
-to true on the peer's <c>diameter_caps</c> record.</p>
+Matches only those peers for which the specified evaluable() returns
+<c>true</c> on the connection's <c>diameter_caps</c> record.
+Any other return value or exception is equivalent to <c>false</c>.</p>
 </item>
 
 <tag><c>{neg, peer_filter()}</c></tag>
@@ -502,6 +509,21 @@ specified list.</p>
 </item>
 
 </taglist>
+
+<p>
+Note that the <c>host</c> and <c>realm</c> filters examine the
+outgoing request as passed to <seealso marker="#call">call/4</seealso>,
+assuming that this is a record- or list-valued message() as documented
+in <seealso marker="diameter_app">diameter_app(3)</seealso>, and that
+the message contains at most one of each AVP.
+If this is not the case then the <c>{host|realm, DiameterIdentity()}</c>
+filters must be used to achieve the desired result.
+Note also that an empty host/realm (which should not be typical)
+is equivalent to an unspecified one for the purposes of filtering.</p>
+
+<p>
+An invalid filter is equivalent to <c>{any, []}</c>, a filter
+that matches no peer.</p>
 
 <marker id="service_event"/>
 </item>
@@ -787,7 +809,7 @@ transports.</p>
 <type>
 <v>SvcName = service_name()</v>
 <v>App = application_alias()</v>
-<v>Request = diameter_app:message()</v>
+<v>Request = diameter_app:message() | term()</v>
 <v>Answer = term()</v>
 <v>Options = [call_opt()]</v>
 </type>
@@ -819,9 +841,8 @@ If there are no suitable peers, or if
 <seealso marker="diameter_app#pick_peer">pick_peer/4</seealso>
 rejects them by returning 'false', then <c>{error, no_connection}</c>
 is returned.
-If <seealso marker="diameter_app#pick_peer">pick_peer/4</seealso>
-selects a candidate peer then a request process is spawned for the
-outgoing request, in which there is a
+Otherwise <seealso marker="diameter_app#pick_peer">pick_peer/4</seealso>
+is followed by a
 <seealso
 marker="diameter_app#prepare_request">prepare_request/3</seealso>
 callback, the message is encoded and sent.</p>
