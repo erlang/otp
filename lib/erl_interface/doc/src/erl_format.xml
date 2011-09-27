@@ -4,7 +4,7 @@
 <cref>
   <header>
     <copyright>
-      <year>1996</year><year>2009</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -105,7 +105,7 @@ erl_format("[{name,~a},{age,~i},{data,~w}]",
           values in <c><![CDATA[Term]]></c>. </p>
         <p>If <c><![CDATA[Term]]></c> and <c><![CDATA[Pattern]]></c> can be matched, the
           function returns a non-zero value and binds any unbound
-          variables in <c><![CDATA[Pattern]]></c>. If <c><![CDATA[Term]]></c><c><![CDATA[Pattern]]></c> do
+          variables in <c><![CDATA[Pattern]]></c>. If <c><![CDATA[Term]]></c> <c><![CDATA[Pattern]]></c> do
           not match, the function returns 0. For example:</p>
         <code type="none"><![CDATA[
 ETERM *term, *pattern, *pattern2;

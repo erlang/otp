@@ -2898,11 +2898,11 @@ os_prompt%</pre>
 	      <seealso marker="stdlib:unicode_usage">stdlib users guide
 	      </seealso> for details.</p>
 
-	      <note>The characters in the name (if given as a list)
+	      <note><p>The characters in the name (if given as a list)
 	      can only be &gt; 255 if the Erlang VM is started in
 	      Unicode file name translation mode, otherwise the name
 	      of the executable is limited to the ISO-latin-1
-	      character set.</note>
+	      character set.</p></note>
   
 	      <p>If the <c>Command</c> cannot be run, an error
 	      exception, with the posix error code as the reason, is
@@ -3015,11 +3015,11 @@ os_prompt%</pre>
 	    Unicode translation of arguments, they can be supplied as
 	    binaries in whatever encoding is deemed appropriate.</p>
 
-	      <note>The characters in the arguments (if given as a
+	      <note><p>The characters in the arguments (if given as a
 	      list of characters) can only be &gt; 255 if the Erlang
 	      VM is started in Unicode file name mode,
 	      otherwise the arguments are limited to the
-	      ISO-latin-1 character set.</note>
+	      ISO-latin-1 character set.</p></note>
 
 	    <p>If one, for any reason, wants to explicitly set the
 	    program name in the argument vector, the <c>arg0</c>

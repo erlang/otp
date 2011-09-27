@@ -246,7 +246,7 @@ If a new item is inserted with the same key as
               </p>
           </item>
           <item>
-            <p><c>{max,MaxTabs}</c><c>MaxTabs</c> is a list of
+            <p><c>{max,MaxTabs}</c>. <c>MaxTabs</c> is a list of
               tables that should be included in the checkpoint. The
               default is []. For these tables, the redundancy will be
               maximized and checkpoint information will be retained together
@@ -274,7 +274,7 @@ If a new item is inserted with the same key as
               </p>
           </item>
           <item>
-            <p><c>{ram_overrides_dump,Bool} </c> Only applicable
+            <p><c>{ram_overrides_dump,Bool}</c>. Only applicable
               for <c>ram_copies</c>.  <c>Bool</c> allows you to choose
               to backup the table state as it is in RAM, or as it is on
               disc. <c>true</c> means that the latest committed

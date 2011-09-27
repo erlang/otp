@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1999</year><year>2010</year>
+      <year>1999</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -138,7 +138,7 @@
       <fsummary>Opens a connection to the database. </fsummary>
       <type>
         <v>ConnectStr = string()</v>
-        <d>An example of a connection string:<c>"DSN=sql-server;UID=aladdin;PWD=sesame"</c>where DSN is your ODBC Data Source Name, UID is a database user id and PWD is the password for that user. These are usually the attributes required in the connection string, but some drivers have other driver specific attributes, for example<c>"DSN=Oracle8;DBQ=gandalf;UID=aladdin;PWD=sesame"</c>where DBQ is your TNSNAMES.ORA entry name e.g. some Oracle specific configuration attribute.</d>
+        <d>An example of a connection string: <c>"DSN=sql-server;UID=aladdin;PWD=sesame"</c> where DSN is your ODBC Data Source Name, UID is a database user id and PWD is the password for that user. These are usually the attributes required in the connection string, but some drivers have other driver specific attributes, for example <c>"DSN=Oracle8;DBQ=gandalf;UID=aladdin;PWD=sesame"</c> where DBQ is your TNSNAMES.ORA entry name e.g. some Oracle specific configuration attribute.</d>
         <v>Options = [] | [option()]</v>
         <d>All options has default values. </d>
         <v>option() = {auto_commit, on | off} | {timeout, milliseconds()}
@@ -432,7 +432,7 @@
       <desc>
         <p>Selects <c>N</c> consecutive rows of the result set. If
           <c>Position</c> is <c>next</c> it is semantically equivalent
-          of calling <c>next/[1,2]</c><c>N</c> times. If
+          of calling <c>next/[1,2]</c> <c>N</c> times. If
           <c>Position</c> is <c>{relative, Pos}</c>, <c>Pos</c> will be
           used as an offset from the current cursor position to
           determine the first selected row. If <c>Position</c> is

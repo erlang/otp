@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1144,10 +1144,10 @@ setCaret(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=CaretT,ref=CaretRef}) ->
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowsetclientsize">external documentation</a>.
 %% <br /> Alternatives:
 %% <p><c>
-%% setClientSize(This::wxWindow(), Size::{W::integer(),H::integer()}) -> ok </c>
+%% setClientSize(This::wxWindow(), Size::{W::integer(), H::integer()}) -> ok </c>
 %% </p>
 %% <p><c>
-%% setClientSize(This::wxWindow(), Rect::{X::integer(),Y::integer(),W::integer(),H::integer()}) -> ok </c>
+%% setClientSize(This::wxWindow(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}) -> ok </c>
 %% </p>
 setClientSize(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH})
  when is_integer(SizeW),is_integer(SizeH) ->

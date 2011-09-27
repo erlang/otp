@@ -243,12 +243,10 @@
       <name name="extract" arity="2"/>
       <fsummary>Extract files from a zip archive</fsummary>
       <desc>
-        <p>The           <marker id="unzip_1"></marker>
-<c>unzip/1</c> function extracts
-          all files from a zip archive. The
-                    <marker id="unzip_2"></marker>
-<c>unzip/2</c> function provides options
-          to extract some files, and more.</p>
+        <p>The <marker id="unzip_1"></marker><c>unzip/1</c> function extracts
+          all files from a zip archive.
+          The <marker id="unzip_2"></marker><c>unzip/2</c> function provides
+           options to extract some files, and more.</p>
         <p>If the <c><anno>Archive</anno></c> argument is given as a binary,
           the contents of the binary is assumed to be a zip archive,
           otherwise it should be a filename.</p>
@@ -413,8 +411,8 @@
       <name name="zip_open" arity="2"/>
       <fsummary>Open an archive and return a handle to it</fsummary>
       <desc>
-        <p>The           <marker id="zip_open"></marker>
-<c>zip_open</c> function opens a
+        <p>The <marker id="zip_open"></marker><c>zip_open</c> function
+          opens a
           zip archive, and reads and saves its directory. This
           means that subsequently reading files from the archive will be
           faster than unzipping files one at a time with <c>unzip</c>.</p>
@@ -436,8 +434,7 @@
       <name name="zip_get" arity="2"/>
       <fsummary>Extract files from an open archive</fsummary>
       <desc>
-        <p>The           <marker id="zip_get"></marker>
-<c>zip_get</c> function extracts
+        <p>The <marker id="zip_get"></marker><c>zip_get</c> function extracts
           one or all files from an open archive.</p>
         <p>The files will be unzipped to memory or to file, depending on
           the options given to the <c>zip_open</c> function when the
@@ -448,9 +445,8 @@
       <name name="zip_close" arity="1"/>
       <fsummary>Close an open archive</fsummary>
       <desc>
-        <p>The           <marker id="zip_close"></marker>
-<c>zip_close/1</c> function closes
-          a zip archive, previously opened with <c>zip_open</c>. All
+        <p>The <marker id="zip_close"></marker><c>zip_close/1</c> function
+          closes a zip archive, previously opened with <c>zip_open</c>. All
           resources are closed, and the handle should not be used after
           closing.</p>
       </desc>
