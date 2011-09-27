@@ -2526,7 +2526,7 @@ str(T) ->
 
 %% get_avp_value/3
 %%
-%% Support outgoing messages in one of three forms:
+%% Find an AVP in a message of one of three forms:
 %%
 %% - a message record (as generated from a .dia spec) or
 %% - a list of an atom message name followed by 2-tuple, avp name/value pairs.
@@ -2558,8 +2558,9 @@ get_avp_value(_, Name, [_MsgName | Avps]) ->
             undefined
     end;
 
-get_avp_value(Dict, Name, Rec)
-  when is_tuple(Rec) ->
+%% Message is typically a record but not necessarily: diameter:call/4
+%% can be passed an arbitrary term.
+get_avp_value(Dict, Name, Rec) ->
     try
         Dict:'#get-'(Name, Rec)
     catch
