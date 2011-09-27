@@ -74,13 +74,14 @@ marker="diameter_transport#start">diameter_transport(3)</seealso>.</p>
 <p>
 The only diameter_tcp-specific argument is the options list.
 Options <c>raddr</c> and <c>rport</c> specify the remote address
-and port for a connector and not valid for a listener.
+and port for a connecting transport and not valid for a listening
+transport.
 Remaining options are any accepted by gen_tcp:connect/3 for
-a connector, or gen_tcp:listen/2 for a listener, with the exception
-of <c>binary</c>, <c>packet</c> and <c>active</c>.
-Also, option <c>port</c> can be specified for a listener to specify the
-local listening port, the default being the standardized 3868 if
-unspecified.
+a connecting transport, or gen_tcp:listen/2 for a listening transport,
+with the exception of <c>binary</c>, <c>packet</c> and <c>active</c>.
+Also, option <c>port</c> can be specified for a listening transport
+to specify the local listening port, the default being the standardized
+3868 if unspecified.
 Note that option <c>ip</c> specifies the local address.</p>
 
 <p>
