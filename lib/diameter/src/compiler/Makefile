@@ -94,16 +94,6 @@ info:
 	@echo ""
 
 # ----------------------------------------------------
-# Special Build Targets
-# ----------------------------------------------------
-
-# Invoked from ../app to add modules to the app file.
-$(APP_TARGET): force
-	M=`echo $(MODULES) | sed -e 's/^ *//' -e 's/ *$$//' -e 'y/ /,/'`; \
-	echo "/%COMPILER_MODULES%/s//$$M/;w;q" | tr ';' '\n' \
-	| ed -s $@
-
-# ----------------------------------------------------
 # Release Target
 # ----------------------------------------------------
 ifneq ($(ERL_TOP),)

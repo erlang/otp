@@ -30,7 +30,8 @@
          ipaddr/1,
          spawn_opts/2,
          wait/1,
-         fold_tuple/3]).
+         fold_tuple/3,
+         log/4]).
 
 -include("diameter_internal.hrl").
 
@@ -260,3 +261,12 @@ ft(undefined, {_, T}) ->
     T;
 ft(Value, {Idx, T}) ->
     setelement(Idx, T, Value).
+
+%%% ----------------------------------------------------------
+%%% # log(Slogan, Mod, Line, Details)
+%%%
+%%% Called to have something to trace on for happenings of interest.
+%%% ----------------------------------------------------------
+
+log(_, _, _, _) ->
+    ok.
