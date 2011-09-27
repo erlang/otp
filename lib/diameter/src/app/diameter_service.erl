@@ -1971,24 +1971,20 @@ reply(Msg, Dict, TPid, #diameter_packet{errors = [H|_] = Es} = Pkt) ->
 
 %% make_reply_packet/2
 
+%% Binaries and header/avp lists are sent as-is.
 make_reply_packet(Bin, _)
   when is_binary(Bin) ->
     #diameter_packet{bin = Bin};
-
 make_reply_packet([#diameter_header{} | _] = Msg, _) ->
     #diameter_packet{msg = Msg};
 
+%% Otherwise a reply message clears the R and T flags and retains the
+%% P flag. The E flag will be set at encode.
 make_reply_packet(Msg, #diameter_packet{header = ReqHdr}) ->
-    #diameter_header{end_to_end_id = EId,
-                     hop_by_hop_id = Hid,
-                     is_proxiable = P}
-        = ReqHdr,
-
-    Hdr = #diameter_header{version = ?DIAMETER_VERSION,
-                           end_to_end_id = EId,
-                           hop_by_hop_id = Hid,
-                           is_proxiable = P,
-                           is_retransmitted = false},
+    Hdr = ReqHdr#diameter_header{version = ?DIAMETER_VERSION,
+                                 is_request = false,
+                                 is_error = undefined,
+                                 is_retransmitted = false},
     #diameter_packet{header = Hdr,
                      msg = Msg}.
 
@@ -2122,16 +2118,6 @@ answer_message({OH, OR, RC}, Avps) ->
                        {'Origin-Realm', OR},
                        {'Result-Code', RC}
                        | session_id(Code, Vid, Avps)].
-
-session_id(Code, Vid, Avps)
-  when is_list(Avps) ->
-    try
-        {value, #diameter_avp{} = Avp} = find_avp(Code, Vid, Avps),
-        Avp
-    catch
-        error: _ ->
-            []
-    end;
 
 session_id(Code, Vid, Avps)
   when is_list(Avps) ->
