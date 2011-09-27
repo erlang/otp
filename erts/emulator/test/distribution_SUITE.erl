@@ -1597,8 +1597,8 @@ bad_dist_ext_control(Config) when is_list(Config) ->
     ?line stop_node(Victim).
 
 bad_dist_ext_connection_id(Config) when is_list(Config) ->
-    ?line {ok, Offender} = start_node(bad_dist_ext_receive_offender),
-    ?line {ok, Victim} = start_node(bad_dist_ext_receive_victim),
+    ?line {ok, Offender} = start_node(bad_dist_ext_connection_id_offender),
+    ?line {ok, Victim} = start_node(bad_dist_ext_connection_id_victim),
     ?line start_node_monitors([Offender,Victim]),
 
     ?line Parent = self(),
