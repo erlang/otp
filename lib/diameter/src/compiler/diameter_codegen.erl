@@ -37,7 +37,6 @@
          file/2,
          file/3]).
 
--include_lib("diameter/src/app/diameter_internal.hrl").
 -include("diameter_forms.hrl").
 
 %% Generated functions that could have no generated clauses will have

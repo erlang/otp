@@ -37,9 +37,10 @@
 %% Failure reports always get a stack trace.
 -define(STACK, erlang:get_stacktrace()).
 
-%% Info report for anything unexpected.
--define(REPORT(Reason, Func, Args),
-        diameter_lib:report(Reason, {?MODULE, Func, Args})).
+%% Warning report for unexpected messages in various processes.
+-define(UNEXPECTED(F,A),
+        diameter_lib:warning_report(unexpected, {?MODULE, F, A})).
+-define(UNEXPECTED(A), ?UNEXPECTED(?FUNC, A)).
 
 %% Something to trace on.
 -define(LOG(Slogan, Details),
@@ -77,19 +78,3 @@
          server_id,
          is_dynamic,
          expiration}).
-
-%%%----------------------------------------------------------------------
-%%% Error/warning/info message macro(s)
-%%%----------------------------------------------------------------------
-
--define(diameter_info(F, A),
-        (catch error_logger:info_msg("[ ~w : ~w : ~p ] ~n" ++ F ++ "~n",
-                                     [?APPLICATION, ?MODULE, self()|A]))).
-
--define(diameter_warning(F, A),
-        (catch error_logger:warning_msg("[ ~w : ~w : ~p ] ~n" ++ F ++ "~n",
-                                        [?APPLICATION, ?MODULE, self()|A]))).
-
--define(diameter_error(F, A),
-        (catch error_logger:error_msg("[ ~w : ~w : ~p ] ~n" ++ F ++ "~n",
-                                      [?APPLICATION, ?MODULE, self()|A]))).
