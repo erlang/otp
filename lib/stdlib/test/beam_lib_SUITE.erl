@@ -571,8 +571,18 @@ do_encrypted_abstr(Beam, Key) ->
     ?line {ok,{simple,[{"Abst",Abst}]}} = beam_lib:chunks(Beam, ["Abst"]),
 
     ?line {ok,cleared} = beam_lib:clear_crypto_key_fun(),
+
+    %% Try to force a stop/start race.
+    ?line start_stop_race(10000),
+
     ok.
 
+start_stop_race(0) ->
+    ok;
+start_stop_race(N) ->
+    {error,_} = beam_lib:crypto_key_fun(bad_fun),
+    undefined = beam_lib:clear_crypto_key_fun(),
+    start_stop_race(N-1).
 
 bad_fun(F) ->
     {error,E} = beam_lib:crypto_key_fun(F),
