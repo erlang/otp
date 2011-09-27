@@ -213,6 +213,10 @@ $ <input>erl -sname foobar</input></pre>
             <p><c>net_kernel</c> is currently changing
               <c>net_ticktime</c> to <c><anno>NetTicktime</anno></c> seconds.</p>
           </item>
+          <tag><c>ignored</c></tag>
+          <item>
+            <p>The local node is not alive.</p>
+          </item>
         </taglist>
       </desc>
     </func>
