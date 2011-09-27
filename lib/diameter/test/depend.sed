@@ -1,5 +1,4 @@
-#-*-makefile-*-   ; force emacs to enter makefile-mode
-
+#
 # %CopyrightBegin%
 #
 # Copyright Ericsson AB 2010-2011. All Rights Reserved.
@@ -16,25 +15,17 @@
 # under the License.
 #
 # %CopyrightEnd%
+#
 
-TEST_SPEC_FILE  = diameter.spec
-COVER_SPEC_FILE = diameter.cover
+#
+# Extract local include dependencies from .erl files. The output is massaged
+# further in Makefile.
+#
 
-MODULES = \
-	diameter_ct \
-	diameter_util \
-	diameter_enum \
-	diameter_codec_SUITE \
-	diameter_codec_test \
-	diameter_app_SUITE \
-	diameter_dict_SUITE \
-	diameter_reg_SUITE \
-	diameter_sync_SUITE \
-	diameter_stats_SUITE \
-	diameter_watchdog_SUITE \
-	diameter_transport_SUITE \
-	diameter_traffic_SUITE \
-	diameter_relay_SUITE
+/^-include/!d
+/^-include_lib/d
+/diameter_gen/d
 
-INTERNAL_HRL_FILES = \
-	diameter_ct.hrl
+s@^-include("@@
+s@".*@@
+s@^@$(EBIN)/.$(EMULATOR): @

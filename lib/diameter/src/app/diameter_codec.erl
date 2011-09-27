@@ -140,10 +140,10 @@ make_flags(Flags0, #diameter_header{is_request       = R,
 mf(undefined, F, _) ->
     F;
 mf(B, F, N) ->  %% reset the affected bit
-    (F bxor (F band (1 bsl N))) bor (bit(B) bsl N).
+    (F bxor (F band (1 bsl N))) bor bit(B, N).
 
-bit(true)  -> 1;
-bit(false) -> 0.
+bit(true, N)  -> 1 bsl N;
+bit(false, _) -> 0.
 
 %% values/1
 
@@ -199,24 +199,15 @@ msg_header(Mod, MsgName, Header) ->
 
 p(Flags, #diameter_header{is_request = true,
                           is_proxiable = P}) ->
-    Flags bor choose(P, 2#01000000, 0);
+    Flags band (2#10110000 bor choose(P, 2#01000000, 0));
 p(Flags, _) ->
     Flags.
 
-%% The header below is that of the incoming request being answered,
-%% not of the answer (which hasn't been encoded yet).
-
 h(Mod, 'answer-message' = MsgName, Header) ->
     ?BASE = Mod,
-    #diameter_header{is_request = true,
-                     cmd_code = Code}
-        = Header,
+    #diameter_header{cmd_code = Code} = Header,
     {_, Flags, ApplId} = ?BASE:msg_header(MsgName),
     {Code, Flags, ApplId};
-
-h(Mod, MsgName, #diameter_header{is_request = true,
-                                 cmd_code = Code}) ->
-    {Code, _, _} = Mod:msg_header(MsgName); %% ensure Code
 
 h(Mod, MsgName, _) ->
     Mod:msg_header(MsgName).
@@ -290,7 +281,8 @@ decode_avps(MsgName, Mod, Pkt, {Bs, Avps}) ->  %% invalid avp bits ...
 
 decode_avps('', Mod, Pkt, Avps) ->  %% unknown message ...
     ?LOG(unknown, {Mod, Pkt#diameter_packet.header}),
-    Pkt#diameter_packet{errors = lists:reverse(Avps)};
+    Pkt#diameter_packet{avps = lists:reverse(Avps),
+                        errors = [3001]};   %% DIAMETER_COMMAND_UNSUPPORTED
 %% msg = undefined identifies this case.
 
 decode_avps(MsgName, Mod, Pkt, Avps) ->  %% ... or not

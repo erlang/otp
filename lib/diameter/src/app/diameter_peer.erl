@@ -148,7 +148,7 @@ handle_call(uptime, _, #state{id = Time} = State) ->
     {reply, diameter_lib:now_diff(Time), State};
 
 handle_call(Req, From, State) ->
-    warning_msg("received unexpected request from ~p:~n~w", [From, Req]),
+    ?UNEXPECTED([Req, From]),
     {reply, nok, State}.
 
 %%% ----------------------------------------------------------
@@ -156,7 +156,7 @@ handle_call(Req, From, State) ->
 %%% ----------------------------------------------------------
 
 handle_cast(Msg, State) ->
-    warning_msg("received unexpected message:~n~w", [Msg]),
+    ?UNEXPECTED([Msg]),
     {noreply, State}.
 
 %%% ----------------------------------------------------------
@@ -169,7 +169,7 @@ handle_info({notify, SvcName, T}, S) ->
     {noreply, S};
 
 handle_info(Info, State) ->
-    warning_msg("received unexpected info:~n~w", [Info]),
+    ?UNEXPECTED([Info]),
     {noreply, State}.
 
 %% ----------------------------------------------------------
@@ -223,8 +223,3 @@ value([], V) ->
 
 call(Request) ->
     gen_server:call(?SERVER, Request, infinity).
-
-%% warning_msg/2
-
-warning_msg(F, A) ->
-    ?diameter_warning("~p: " ++ F, [?MODULE | A]).

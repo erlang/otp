@@ -269,7 +269,12 @@ The candidate peers list will only include those
 which are selected by any <c>filter</c> option specified in the call to
 <seealso marker="diameter#call">diameter:call/4</seealso>, and only
 those which have indicated support for the Diameter application in
-question.</p>
+question.
+The order of the elements is unspecified except that any
+peers whose Origin-Host and Origin-Realm matches that of the
+outgoing request (in the sense of a <c>{filter, {all, [host, realm]}}</c>
+option to <seealso marker="diameter#call">diameter:call/4</seealso>)
+will be placed at the head of the list.</p>
 
 <p>
 The return values <c>false</c> and <c>{false, State}</c> are
@@ -467,11 +472,11 @@ callback returned false.</p>
 <v>Packet  = packet()</v>
 <v>SvcName = term()</v>
 <v>Peer    = peer()</v>
-<v>Action  = Reply | {relay, Opts} | discard | {eval, Action, ContF}</v>
+<v>Action  = Reply | {relay, Opts} | discard | {eval, Action, PostF}</v>
 <v>Reply   = {reply, message()}
            | {protocol_error, 3000..3999}</v>
 <v>Opts    = diameter:call_opts()</v>
-<v>ContF   = diameter:evaluable()</v>
+<v>PostF   = diameter:evaluable()</v>
 </type>
 <desc>
 <p>
@@ -559,26 +564,28 @@ will cause the request process in question to fail.</p>
 <tag><c>{relay, Opts}</c></tag>
 <item>
 <p>
-Relay a request to another peer.
-The appropriate Route-Record AVP will be added to the relayed request
-by diameter and <seealso marker="#pick_peer">pick_peer/4</seealso>
-and <seealso marker="#prepare_request">prepare_request/3</seealso>
-callback will take place just as if <seealso
+Relay a request to another peer in the role of a Diameter relay agent.
+If a routing loop is detected then the request is answered with
+3005 (DIAMETER_LOOP_DETECTED).
+Otherwise a Route-Record AVP (containing the sending peer's Origin-Host) is
+added to the request and <seealso marker="#pick_peer">pick_peer/4</seealso>
+and subsequent callbacks take place just as if <seealso
 marker="diameter#call">diameter:call/4</seealso> had been called
 explicitly.
-However, returning a <c>relay</c> tuple also causes the End-to-End
-Identifier to be preserved in the header of the relayed request as
-required by RFC 3588.</p>
+The End-to-End Identifier of the incoming request is preserved in the
+header of the relayed request.</p>
 
 <p>
-The returned <c>Opts</c> should not specify <c>detach</c> and
-the <seealso marker="#handle_answer">handle_answer/4</seealso>
-callback following from a relayed request must return its first
+The returned <c>Opts</c> should not specify <c>detach</c>.
+A subsequent <seealso marker="#handle_answer">handle_answer/4</seealso>
+callback for the relayed request must return its first
 argument, the <c>diameter_packet</c> record containing the answer
 message.
 Note that the <c>extra</c> option can be specified to supply arguments
-that can distinguish the relay case from others if so desired,
-although the form of the request message may be sufficient.</p>
+that can distinguish the relay case from others if so desired.
+Any other return value (for example, from a
+<seealso marker="#handle_error">handle_error/4</seealso> callback)
+causes the request to be answered with 3002 (DIAMETER_UNABLE_TO_DELIVER).</p>
 </item>
 
 <tag><c>discard</c></tag>
@@ -587,18 +594,18 @@ although the form of the request message may be sufficient.</p>
 Discard the request.</p>
 </item>
 
-<tag><c>{eval, Action, ContF}</c></tag>
+<tag><c>{eval, Action, PostF}</c></tag>
 <item>
 <p>
 Handle the request as if <c>Action</c> has been returned and then
-evaluate <c>ContF</c> in the request process.</p>
+evaluate <c>PostF</c> in the request process.</p>
 </item>
 
 </taglist>
 
 <p>
-Note that diameter will respond to protocol errors in an incoming
-request without invoking <c>handle_request/3</c>.</p>
+Note that protocol errors detected by diameter will result in an
+answer message without <c>handle_request/3</c> being invoked.</p>
 
 </desc>
 </func>
