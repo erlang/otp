@@ -58,12 +58,20 @@ SPEC_ERL_FILES = \
 SPEC_HRL_FILES = \
 	$(SPEC_FILES:%.dia=%.hrl)
 
+MODULES = \
+	$(RUNTIME_MODULES) \
+	$(HELP_MODULES)
+
 APP_MODULES = \
-	$(MODULES) \
+	$(RUNTIME_MODULES) \
 	$(SPEC_FILES:%.dia=%)
 
+TARGET_MODULES = \
+	$(APP_MODULES) \
+	$(HELP_MODULES)
+
 TARGET_FILES = \
-	$(APP_MODULES:%=$(EBIN)/%.$(EMULATOR)) \
+	$(TARGET_MODULES:%=$(EBIN)/%.$(EMULATOR)) \
 	$(APP_TARGET) \
 	$(APPUP_TARGET)
 
@@ -125,17 +133,15 @@ info:
 # ----------------------------------------------------
 
 # Generate the app file and then modules into in. This shouldn't know
-# about ../{compiler,transport} but good enough for now.
+# about ../transport but good enough for now.
 $(APP_TARGET): $(APP_SRC) \
                ../../vsn.mk \
                modules.mk \
-               ../compiler/modules.mk \
                ../transport/modules.mk
 	sed -e 's;%VSN%;$(VSN);' $< > $@
 	M=`echo $(APP_MODULES) | sed -e 's/^ *//' -e 's/ *$$//' -e 'y/ /,/'`; \
 	echo "/%APP_MODULES%/s//$$M/;w;q" | tr ';' '\n' \
 	| ed -s $@
-	$(MAKE) -C ../compiler  $(APP_TARGET) APP_TARGET=$(APP_TARGET)
 	$(MAKE) -C ../transport $(APP_TARGET) APP_TARGET=$(APP_TARGET)
 
 $(APPUP_TARGET): $(APPUP_SRC) ../../vsn.mk
@@ -149,7 +155,6 @@ app: $(APP_TARGET) $(APPUP_TARGET)
 # erl/hrl from application spec
 diameter_gen_%.erl diameter_gen_%.hrl: diameter_gen_%.dia
 	../../bin/diameterc -i $(EBIN) -o $(@D) $<
-
 
 # ----------------------------------------------------
 # Release Target

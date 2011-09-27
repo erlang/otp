@@ -86,13 +86,21 @@ vsn(Config) ->
 %% ===========================================================================
 %% # modules/1
 %%
-%% Ensure that the app file module list match the installed beams.
+%% Ensure that the app file modules and installed modules differ by
+%% compiler/help modules.
 %% ===========================================================================
 
 modules(Config) ->
     Mods = fetch(modules, fetch(app, Config)),
     Installed = code_mods(),
-    {[], []} = {Mods -- Installed, Installed -- Mods}.
+    Help = [diameter_callback,
+            diameter_codegen,
+            diameter_dbg,
+            diameter_exprecs,
+            diameter_info,
+            diameter_spec_scan,
+            diameter_spec_util],
+    {[], Help} = {Mods -- Installed, lists:sort(Installed -- Mods)}.
 
 code_mods() ->
     Dir  = code:lib_dir(?APP, ebin),

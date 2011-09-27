@@ -44,7 +44,7 @@
 
 %% Something to trace on.
 -define(LOG(Slogan, Details),
-	diameter_dbg:log(Slogan, ?MODULE, ?LINE, Details)).
+	diameter_lib:log(Slogan, ?MODULE, ?LINE, Details)).
 -define(LOGC(Bool, Slogan, Details), ((Bool) andalso ?LOG(Slogan, Details))).
 
 %% Compensate for no builtin ?FUNC for use in log reports.
