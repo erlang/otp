@@ -1688,9 +1688,9 @@ recv_request({Id, Alias}, T, TPid, Apps, Caps, Pkt) ->
 %%   DIAMETER_APPLICATION_UNSUPPORTED   3007
 %%      A request was sent for an application that is not supported.
 
-recv_request(false, {_, OH, OR}, TPid, _, _, Pkt) ->
-    ?LOG({error, application}, Pkt),
-    reply(answer_message({OH, OR, 3007}, collect_avps(Pkt)), ?BASE, TPid, Pkt).
+recv_request(false, T, TPid, _, _, Pkt) ->
+    As = collect_avps(Pkt),
+    protocol_error(3007, T, TPid, Pkt#diameter_packet{avps = As}).
 
 collect_avps(Pkt) ->
     case diameter_codec:collect_avps(Pkt) of
@@ -1709,13 +1709,9 @@ collect_avps(Pkt) ->
 %%      set to an unrecognized value, or that is inconsistent with the
 %%      AVP's definition.
 %%
-recv_request({_, OH, OR}, {TPid, _}, _, #diameter_packet{errors = [Bs | _],
-                                                         bin = Bin,
-                                                         avps = Avps}
-                                        = Pkt)
+recv_request(T, {TPid, _}, _, #diameter_packet{errors = [Bs | _]} = Pkt)
   when is_bitstring(Bs) ->
-    ?LOG({error, invalid_avp_bits}, Bin),
-    reply(answer_message({OH, OR, 3009}, Avps), ?BASE, TPid, Pkt);
+    protocol_error(3009, T, TPid, Pkt);
 
 %% Either we support this application but don't recognize the command
 %% or we're a relay and the command isn't proxiable.
@@ -1725,18 +1721,15 @@ recv_request({_, OH, OR}, {TPid, _}, _, #diameter_packet{errors = [Bs | _],
 %%      recognize or support.  This MUST be used when a Diameter node
 %%      receives an experimental command that it does not understand.
 %%
-recv_request({_, OH, OR},
+recv_request(T,
              {TPid, _},
              #diameter_app{id = Id},
              #diameter_packet{header = #diameter_header{is_proxiable = P},
-                              msg = M,
-                              avps = Avps,
-                              bin = Bin}
+                              msg = M}
              = Pkt)
   when ?APP_ID_RELAY /= Id, undefined == M;
        ?APP_ID_RELAY == Id, not P ->
-    ?LOG({error, command_unsupported}, Bin),
-    reply(answer_message({OH, OR, 3001}, Avps), ?BASE, TPid, Pkt);
+    protocol_error(3001, T, TPid, Pkt);
 
 %% Error bit was set on a request.
 %%
@@ -1745,15 +1738,12 @@ recv_request({_, OH, OR},
 %%      either set to an invalid combination, or to a value that is
 %%      inconsistent with the command code's definition.
 %%
-recv_request({_, OH, OR},
+recv_request(T,
              {TPid, _},
              _,
-             #diameter_packet{header = #diameter_header{is_error = true},
-                              avps = Avps,
-                              bin = Bin}
+             #diameter_packet{header = #diameter_header{is_error = true}}
              = Pkt) ->
-    ?LOG({error, error_bit}, Bin),
-    reply(answer_message({OH, OR, 3008}, Avps), ?BASE, TPid, Pkt);
+    protocol_error(3008, T, TPid, Pkt);
 
 %% A message in a locally supported application or a proxiable message
 %% in the relay application. Don't distinguish between the two since
@@ -1881,7 +1871,7 @@ resend(true, _, _, T, {TPid, _}, Pkt) ->  %% Route-Record loop
 resend(false,
        Opts,
        App,
-       {SvcName, _, _},
+       {SvcName, _, _} = T,
        {TPid, #diameter_caps{origin_host = {_, OH}}},
        #diameter_packet{header = Hdr0,
                         avps = Avps}
@@ -1890,46 +1880,41 @@ resend(false,
     Seq = diameter_session:sequence(),
     Hdr = Hdr0#diameter_header{hop_by_hop_id = Seq},
     Msg = [Hdr, Route | Avps],
-    %% Filter sender as ineligible receiver.
-    reply(call(SvcName, App, Msg, [{filter, {neg, {host, OH}}} | Opts]),
-          TPid,
-          Pkt).
+    resend(call(SvcName, App, Msg, Opts), T, TPid, Pkt).
 %% The incoming request is relayed with the addition of a
-%% Route-Record. Note the requirement on the return from call/4.
-%% This places a requirement on the values returned by the
-%% handle_answer and handle_error callbacks of the application module
-%% in question.
+%% Route-Record. Note the requirement on the return from call/4 below,
+%% which places a requirement on the value returned by the
+%% handle_answer callback of the application module in question.
+%%
+%% Note that there's nothing stopping the request from being relayed
+%% back to the sender. A pick_peer callback may want to avoid this but
+%% a smart peer might recognize the potential loop and choose another
+%% route. A less smart one will probably just relay the request back
+%% again and force us to detect the loop. A pick_peer that wants to
+%% avoid this can specify filter to avoid the possibility.
+%% Eg. {neg, {host, OH} where #diameter_caps{origin_host = {OH, _}}.
 %%
 %% RFC 6.3 says that a relay agent does not modify Origin-Host but
 %% says nothing about a proxy. Assume it should behave the same way.
 
-%% reply/3
+%% resend/4
 %%
 %% Relay a reply to a relayed request.
 
 %% Answer from the peer: reset the hop by hop identifier and send.
-reply(#diameter_packet{bin = B}
-      = Pkt,
-      TPid,
-      #diameter_packet{header = #diameter_header{hop_by_hop_id = Id},
-                       transport_data = TD}) ->
+resend(#diameter_packet{bin = B}
+       = Pkt,
+       _,
+       TPid,
+       #diameter_packet{header = #diameter_header{hop_by_hop_id = Id},
+                        transport_data = TD}) ->
     send(TPid, Pkt#diameter_packet{bin = diameter_codec:hop_by_hop_id(Id, B),
                                    transport_data = TD});
 %% TODO: counters
 
-%% Not. Ignoring the error feels harsh but there is no appropriate
-%% Result-Code for a protocol error (which this isn't really anyway)
-%% and the RFC doesn't provide any guidance how to act. A weakness
-%% here is that we don't deal well with a decode error: the request
-%% will simply timeout on the peer's end. Better would be to just send
-%% the answer (with modified hop by hop identifier) on regardless, at
-%% least in the relay case in which there's no examination of the
-%% answer. In the proxy case it's not clear that the callback won't
-%% examine the answer. Just be quiet here since a decode error causes
-%% the request process to crash (or not depending on the error and
-%% config and/or handle_answer callback).
-reply(_, _, _) ->
-    ok.
+%% Or not: DIAMETER_UNABLE_TO_DELIVER.
+resend(_, T, TPid, Pkt) ->
+    protocol_error(3002, T, TPid, Pkt).
 
 %% is_loop/4
 %%
