@@ -1399,10 +1399,14 @@ do_clause(C, Arg, ArgType0, OrigArgType, Map,
 		    true -> Any = t_any(), [Any || _ <- Pats];
 		    false -> t_to_tlist(OrigArgType)
 		  end,
-		case bind_pat_vars(Pats, OrigArgTypes, [], Map1, State1) of
-		  {error, bind, _, _, _} -> {{pattern_match, PatTypes}, false};
-		  {_, _} -> {{pattern_match_cov, PatTypes}, false}
-		end;
+		Tag =
+		  case bind_pat_vars(Pats, OrigArgTypes, [], Map1, State1) of
+		    {error,   bind, _, _, _} -> pattern_match;
+		    {error, record, _, _, _} -> record_match;
+		    {error, opaque, _, _, _} -> opaque_match;
+		    {_, _} -> pattern_match_cov
+		  end,
+		{{Tag, PatTypes}, false};
 	      false ->
 		%% Try to find out if this is a default clause in a list
 		%% comprehension and supress this. A real Hack(tm)
@@ -1442,12 +1446,12 @@ do_clause(C, Arg, ArgType0, OrigArgType, Map,
 			     opaque -> [PatString, format_type(Type, State1),
 					format_type(OpaqueTerm, State1)]
 			   end,
-		FailedMsg = case ErrorType of
-			      bind  -> {pattern_match, PatTypes};
-			      record -> {record_match, PatTypes};
-			      opaque -> {opaque_match, PatTypes}
+		FailedTag = case ErrorType of
+			      bind  -> pattern_match;
+			      record -> record_match;
+			      opaque -> opaque_match
 			    end,
-		{FailedMsg, Force0}
+		{{FailedTag, PatTypes}, Force0}
 	    end,
 	  WarnType = case Msg of
 		       {opaque_match, _} -> ?WARN_OPAQUE;
