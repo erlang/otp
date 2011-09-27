@@ -247,7 +247,6 @@
 -define(MAX_BYTE, 255).
 -define(MAX_CHAR, 16#10ffff).
 
--define(WIDENING_LIMIT, 7).
 -define(UNIT_MULTIPLIER, 8).
 
 -define(TAG_IMMED1_SIZE, 4).
