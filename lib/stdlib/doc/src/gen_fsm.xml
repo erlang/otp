@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2010</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -430,7 +430,6 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
       denote a state of the state machine. <em>state data</em> is used
       to denote the internal state of the Erlang process which
       implements the state machine.</p>
-    <p></p>
   </section>
   <funcs>
     <func>

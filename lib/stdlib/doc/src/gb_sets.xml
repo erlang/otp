@@ -61,7 +61,6 @@
       and do the same thing in the <c>sets</c> and <c>ordsets</c>
       modules. That is, by only changing the module name for each call,
       you can try out different set representations.</p>
-    <p></p>
     <list type="bulleted">
       <item>
         <p><c>add_element/2</c></p>

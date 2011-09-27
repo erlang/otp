@@ -101,7 +101,7 @@
           <c><anno>Bin</anno></c> is the contents of the file as a binary.</p>
 
 	  <p>The <c><anno>Filename</anno></c> can also be a file in an archive. For example
-          <c>/otp/root/lib/mnesia-4.4.7.ez/mnesia-4.4.7/ebin/mnesia_backup.beam</c>.
+          <c>$OTPROOT/lib/</c><c>mnesia-4.4.7.ez/mnesia-4.4.7/ebin/</c><c>mnesia.beam</c>.
           See <seealso marker="kernel:code">code(3)</seealso> about archive files.</p>
       </desc>
     </func>
@@ -124,7 +124,7 @@
           the names of all the files in the directory. The names are
           not sorted.</p>
 	  <p>The <c><anno>Dir</anno></c> can also be a directory in an archive. For example
-          <c>/otp/root/lib/mnesia-4.4.7.ez/mnesia-4.4.7/ebin</c>.
+          <c>$OTPROOT/lib/</c><c>mnesia-4.4.7.ez/mnesia-4.4.7/ebin</c>.
            See <seealso marker="kernel:code">code(3)</seealso> about archive files.</p>
       </desc>
     </func>
@@ -143,7 +143,7 @@
         <p>See <seealso marker="kernel:file">file(3)</seealso> for more info about
           the record <c>file_info</c>.</p>
 	<p>The <c><anno>Filename</anno></c> can also be a file in an archive. For example
-          <c>/otp/root/lib/mnesia-4.4.7.ez/mnesia-4.4.7/ebin/mnesia_backup.beam</c>.
+          <c>$OTPROOT/lib/</c><c>mnesia-4.4.7.ez/mnesia-4.4.7/ebin/</c><c>mnesia</c>.
           See <seealso marker="kernel:code">code(3)</seealso> about archive files.</p>
       </desc>
     </func>

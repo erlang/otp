@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2009</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -336,7 +336,7 @@ element -> list : '$1'.    </code>
     <code type="none">
 {cons, {atom, 1, a,} {cons, {atom, 1, b},
                             {cons, {atom, 1, c}, nil}}}    </code>
-    <p>The associated code contains <c>pseudo variables</c><c>'$1'</c>, <c>'$2'</c>, <c>'$3'</c>, etc. which refer to (are
+    <p>The associated code contains <c>pseudo variables</c> <c>'$1'</c>, <c>'$2'</c>, <c>'$3'</c>, etc. which refer to (are
       bound to) the values associated previously by the parser with
       the symbols of the right hand side of the rule. When these
       symbols are terminal categories, the values are token tuples of

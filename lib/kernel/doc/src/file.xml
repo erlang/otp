@@ -60,11 +60,13 @@
     converted, why the Unicode mode for file names is not default on
     systems having completely transparent file naming.</p>
 
-    <note>As of R14B01, the most basic file handling modules
-    (<c>file</c>, <c>prim_file</c>, <c>filelib</c> and
-    <c>filename</c>) accept raw file names, but the rest of OTP is not
-    guaranteed to handle them, why Unicode file naming on systems
-    where it is not default is still considered experimental.</note>
+    <note>
+      <p>As of R14B01, the most basic file handling modules
+      (<c>file</c>, <c>prim_file</c>, <c>filelib</c> and
+      <c>filename</c>) accept raw file names, but the rest of OTP is not
+      guaranteed to handle them, why Unicode file naming on systems
+      where it is not default is still considered experimental.</p>
+    </note>
 
     <p>Raw file names is a new feature in OTP R14B01, which allows the
     user to supply completely uninterpreted file names to the
@@ -249,11 +251,9 @@
           </item>
         </taglist>
         <p>Example:</p>
-        <code type="none">
-f.txt:  {person, "kalle", 25}.
+<code type="none">f.txt:  {person, "kalle", 25}.
         {person, "pelle", 30}.</code>
-        <pre>
-1> <input>file:consult("f.txt").</input>
+<pre>1> <input>file:consult("f.txt").</input>
 {ok,[{person,"kalle",25},{person,"pelle",30}]}</pre>
       </desc>
     </func>
@@ -362,7 +362,6 @@ f.txt:  {person, "kalle", 25}.
           <p>In a future release, a bad type for the
             <c><anno>Filename</anno></c> argument will probably generate
             an exception.</p>
-          <p></p>
         </warning>
       </desc>
     </func>
@@ -1523,7 +1522,6 @@ f.txt:  {person, "kalle", 25}.
           <p>In a future release, a bad type for the
             <c><anno>Dir</anno></c>
             argument will probably generate an exception.</p>
-          <p></p>
         </warning>
       </desc>
     </func>

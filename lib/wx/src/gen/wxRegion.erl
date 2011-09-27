@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -48,7 +48,7 @@ new() ->
 %% new(Bmp::wxBitmap:wxBitmap()) -> wxRegion() </c>
 %% </p>
 %% <p><c>
-%% new(Rect::{X::integer(),Y::integer(),W::integer(),H::integer()}) -> wxRegion() </c>
+%% new(Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}) -> wxRegion() </c>
 %% </p>
 new(#wx_ref{type=BmpT,ref=BmpRef}) ->
   ?CLASS(BmpT,wxBitmap),

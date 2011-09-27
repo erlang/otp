@@ -688,7 +688,6 @@ ets:match_spec_run(ets:lookup(86033, {2,2}),
     </datatype>
     <datatype>
       <name name="tmp_file_usage"></name>
-      <desc><p></p></desc>
     </datatype>
   </datatypes>
 

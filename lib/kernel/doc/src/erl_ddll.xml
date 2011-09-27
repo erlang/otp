@@ -989,7 +989,7 @@
                       <c>{ok, pending_driver}</c> or <c>{ok, pending_process}</c>.</p>
                   </item>
                 </taglist>
-                <p>The <c>pending_driver</c><c>MonitorOption</c> is by far
+                <p>The <c>pending_driver</c> <c>MonitorOption</c> is by far
                   the most useful and it has to be used to ensure that the
                   driver has really been unloaded and the ports closed
                   whenever the <c>kill_ports</c> option is used or the
