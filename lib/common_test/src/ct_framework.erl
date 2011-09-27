@@ -1296,6 +1296,10 @@ report(What,Data) ->
 		    ok;
 		{end_per_group,_} ->
 		    ok;
+		{ct_init_per_group,_} ->
+		    ok;
+		{ct_end_per_group,_} ->
+		    ok;
 		{_,ok} ->
 		    add_to_stats(ok);
 		{_,{skipped,{failed,{_,init_per_testcase,_}}}} ->
