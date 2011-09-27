@@ -255,12 +255,13 @@ w(L) ->
 fold_tuple(_, T, undefined) ->
     T;
 
-fold_tuple(N, T0, T) ->
-    element(2, lists:foldl(fun(X, {M,_} = A) -> {M+1, ft(X, A)} end,
-                           {N, T0},
-                           lists:nthtail(N-1, tuple_to_list(T)))).
+fold_tuple(N, T0, T1) ->
+    {_, T} = lists:foldl(fun(V, {I,_} = IT) -> {I+1, ft(V, IT)} end,
+                         {N, T0},
+                         lists:nthtail(N-1, tuple_to_list(T1))),
+    T.
 
-ft(undefined, T) ->
+ft(undefined, {_, T}) ->
     T;
-ft(X, {N, T}) ->
-    setelement(N, T, X).
+ft(Value, {Idx, T}) ->
+    setelement(Idx, T, Value).
