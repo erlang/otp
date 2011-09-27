@@ -81,6 +81,13 @@ init_per_suite(Config) ->
 end_per_suite(Config) ->
     Config.
 
+init_per_testcase(big_boot_embedded, Config) ->
+    case catch crypto:start() of
+	ok ->
+	    init_per_testcase(do_big_boot_embedded, Config);
+	_Else ->
+	    {skip, "Needs crypto!"}
+    end;
 init_per_testcase(_Func, Config) ->
     Dog=?t:timetrap(?t:minutes(5)),
     P=code:get_path(),
