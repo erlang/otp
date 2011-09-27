@@ -60,28 +60,28 @@ pick_peer([Peer|_], _, _SvcName, _State) ->
 %%% ----------------------------------------------------------
 
 prepare_request(Pkt, _SvcName, _Peer) ->
-    Pkt.
+    {send, Pkt}.
 
 %%% ----------------------------------------------------------
 %%% # prepare_retransmit/3
 %%% ----------------------------------------------------------
 
 prepare_retransmit(Pkt, _SvcName, _Peer) ->
-    Pkt.
+    {send, Pkt}.
 
 %%% ----------------------------------------------------------
 %%% # handle_request/3
 %%% ----------------------------------------------------------
 
 handle_request(_Pkt, _SvcName, _Peer) ->
-    discard.
+    {protocol_error, 3001}.  %% DIAMETER_COMMAND_UNSUPPORTED
 
 %%% ----------------------------------------------------------
 %%% # handle_answer/4
 %%% ----------------------------------------------------------
 
 handle_answer(#diameter_packet{msg = Ans}, _Req, _SvcName, _Peer) ->
-    {ok, Ans}.
+    Ans.
 
 %%% ---------------------------------------------------------------------------
 %%% # handle_error/4
