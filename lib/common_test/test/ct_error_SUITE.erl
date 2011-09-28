@@ -60,7 +60,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [cfg_error, lib_error, no_compile, timetrap_end_conf,
-     timetrap_normal, timetrap_extended].
+     timetrap_normal, timetrap_extended, timetrap_parallel,
+     timetrap_fun].
 
 groups() -> 
     [].
@@ -226,6 +227,28 @@ timetrap_parallel(Config) when is_list(Config) ->
 
     TestEvents = events_to_check(timetrap_parallel),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
+
+%%%-----------------------------------------------------------------
+%%%
+timetrap_fun(Config) when is_list(Config) ->
+    DataDir = ?config(data_dir, Config),
+    Join = fun(D, S) -> filename:join(D, "error/test/"++S) end,
+    Suites = [Join(DataDir, "timetrap_4_SUITE"),
+	      Join(DataDir, "timetrap_5_SUITE"),
+	      Join(DataDir, "timetrap_6_SUITE"),
+	      Join(DataDir, "timetrap_7_SUITE")],
+    {Opts,ERPid} = setup([{suite,Suites}], Config),
+    ok = ct_test_support:run(Opts, Config),
+    Events = ct_test_support:get_events(ERPid, Config),
+
+    ct_test_support:log_events(timetrap_fun,
+			       reformat(Events, ?eh),
+			       ?config(priv_dir, Config),
+			       Opts),
+
+    TestEvents = events_to_check(timetrap_fun),
+    ok = ct_test_support:verify_events(TestEvents, Events, Config).
+
 
 %%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
@@ -814,7 +837,7 @@ test_events(timetrap_parallel) ->
     [
      {?eh,start_logging,{'DEF','RUNDIR'}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
-     {?eh,start_info,{1,1,7}},
+     {?eh,start_info,{1,1,8}},
      {?eh,tc_done,{timetrap_3_SUITE,init_per_suite,ok}},
      {parallel,
       [{?eh,tc_start,
@@ -826,8 +849,11 @@ test_events(timetrap_parallel) ->
        {?eh,tc_start,{timetrap_3_SUITE,tc2}},
        {?eh,tc_start,{timetrap_3_SUITE,tc3}},
        {?eh,tc_start,{timetrap_3_SUITE,tc4}},
+       {?eh,tc_start,{timetrap_3_SUITE,tc5}},
        {?eh,tc_start,{timetrap_3_SUITE,tc6}},
        {?eh,tc_start,{timetrap_3_SUITE,tc7}},
+       {?eh,tc_done,
+        {timetrap_3_SUITE,tc5,ok}},
        {?eh,tc_done,
         {timetrap_3_SUITE,tc1,{failed,{timetrap_timeout,500}}}},
        {?eh,tc_done,
@@ -842,11 +868,90 @@ test_events(timetrap_parallel) ->
         {timetrap_3_SUITE,tc4,{failed,{timetrap_timeout,2000}}}},
        {?eh,tc_done,
         {timetrap_3_SUITE,tc3,{failed,{timetrap_timeout,3000}}}},
-       {?eh,test_stats,{0,7,{0,0}}},
+       {?eh,test_stats,{1,7,{0,0}}},
        {?eh,tc_start,
 	{timetrap_3_SUITE,{end_per_group,g1,[parallel]}}},
        {?eh,tc_done,
 	{timetrap_3_SUITE,{end_per_group,g1,[parallel]},ok}}]},
      {?eh,tc_done,{timetrap_3_SUITE,end_per_suite,ok}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
-     {?eh,stop_logging,[]}].
+     {?eh,stop_logging,[]}];
+
+test_events(timetrap_fun) ->
+    [
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,start_info,{4,4,17}},
+     {?eh,tc_done,{timetrap_4_SUITE,init_per_suite,ok}},
+     {?eh,tc_start,{timetrap_4_SUITE,tc0}},
+     {?eh,tc_done,
+      {timetrap_4_SUITE,tc0,{failed,{timetrap_timeout,1000}}}},
+     {?eh,tc_start,{timetrap_4_SUITE,tc1}},
+     {?eh,tc_done,
+      {timetrap_4_SUITE,tc1,{failed,{timetrap_timeout,2000}}}},
+     {?eh,tc_start,{timetrap_4_SUITE,tc2}},
+     {?eh,tc_done,
+      {timetrap_4_SUITE,tc2,{failed,{timetrap_timeout,500}}}},
+     {?eh,tc_start,{timetrap_4_SUITE,tc3}},
+     {?eh,tc_done,
+      {timetrap_4_SUITE,tc3,{failed,{timetrap_timeout,1000}}}},
+     {?eh,test_stats,{0,4,{0,0}}},
+     {?eh,tc_done,{timetrap_4_SUITE,end_per_suite,ok}},
+
+     {?eh,tc_done,{timetrap_5_SUITE,init_per_suite,ok}},
+     {?eh,tc_start,{timetrap_5_SUITE,tc0}},
+     {?eh,tc_done,
+      {timetrap_5_SUITE,tc0,{failed,{timetrap_timeout,1000}}}},
+     {?eh,test_stats,{0,5,{0,0}}},
+     {?eh,tc_start,{timetrap_5_SUITE,tc1}},
+     {?eh,tc_done,
+      {timetrap_5_SUITE,tc1,{skipped,{timetrap_error,kaboom}}}},
+     {?eh,tc_start,{timetrap_5_SUITE,tc2}},
+     {?eh,tc_done,
+      {timetrap_5_SUITE,tc2,{skipped,{timetrap_error,kaboom}}}},
+     {?eh,tc_start,{timetrap_5_SUITE,tc3}},
+     {?eh,tc_done,
+      {timetrap_5_SUITE,tc3,
+       {skipped,{invalid_time_format,{timetrap_utils,timetrap_val,[5000]}}}}},
+     {?eh,tc_start,{timetrap_5_SUITE,tc4}},
+     {?eh,tc_done,
+      {timetrap_5_SUITE,tc4,{skipped,{invalid_time_format,'_'}}}},
+     {?eh,test_stats,{0,5,{0,4}}},
+     {?eh,tc_start,{timetrap_5_SUITE,tc5}},
+     {?eh,tc_done,
+      {timetrap_5_SUITE,tc5,{failed,{timetrap_timeout,1000}}}},
+     {?eh,tc_start,{timetrap_5_SUITE,tc6}},
+     {?eh,tc_done,
+      {timetrap_5_SUITE,tc6,{failed,{timetrap_timeout,1000}}}},
+     {?eh,tc_start,{timetrap_5_SUITE,tc7}},
+     {?eh,tc_done,
+      {timetrap_5_SUITE,tc7,{failed,{timetrap_timeout,1000}}}},
+     {?eh,test_stats,{0,8,{0,4}}},
+     {?eh,tc_done,{timetrap_5_SUITE,end_per_suite,ok}},
+
+     {?eh,tc_start,{timetrap_6_SUITE,init_per_suite}},
+     {?eh,tc_done,
+      {timetrap_6_SUITE,init_per_suite,{skipped,{timetrap_error,kaboom}}}},
+     {?eh,tc_auto_skip,
+      {timetrap_6_SUITE,tc0,{fw_auto_skip,{timetrap_error,kaboom}}}},
+     {?eh,test_stats,{0,8,{0,5}}},
+     {?eh,tc_auto_skip,
+      {timetrap_6_SUITE,end_per_suite,{fw_auto_skip,{timetrap_error,kaboom}}}},
+
+     {?eh,tc_done,{timetrap_7_SUITE,init_per_suite,ok}},
+     {?eh,tc_start,{timetrap_7_SUITE,tc0}},
+     {?eh,tc_done,
+      {timetrap_7_SUITE,tc0,{failed,{timetrap_timeout,1000}}}},
+     {?eh,tc_start,{timetrap_7_SUITE,tc1}},
+     {?eh,tc_done,
+      {timetrap_7_SUITE,tc1,{failed,{timetrap_timeout,2000}}}},
+     {?eh,tc_start,{timetrap_7_SUITE,tc2}},
+     {?eh,tc_done,
+      {timetrap_7_SUITE,tc2,{failed,{timetrap_timeout,500}}}},
+     {?eh,tc_start,{timetrap_7_SUITE,tc3}},
+     {?eh,tc_done,
+      {timetrap_7_SUITE,tc3,{failed,{timetrap_timeout,1000}}}},
+     {?eh,test_stats,{0,12,{0,5}}},
+     {?eh,tc_done,{timetrap_7_SUITE,end_per_suite,ok}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,stop_logging,[]}
+    ].

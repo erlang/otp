@@ -1921,30 +1921,53 @@ time_ms({seconds,N}) -> seconds(N);
 time_ms({Other,_N}) ->
     format("=== ERROR: Invalid time specification: ~p. "
 	   "Should be seconds, minutes, or hours.~n", [Other]),
-    exit({invalid_time_spec,Other});
+    exit({invalid_time_format,Other});
 time_ms(Ms) when is_integer(Ms) -> Ms;
 time_ms(infinity) -> infinity;
 time_ms(Fun) when is_function(Fun) ->
-    try Fun() of
-	Val -> time_ms1(Val)
-    catch
-	_:Error ->
-	    exit({timetrap_error,Error})
-    end;
-time_ms({M,F,A}) when is_atom(M), is_atom(F), is_list(A) ->
-    try apply(M, F, A) of
-	Val -> time_ms1(Val)
-    catch
-	_:Error ->
-	    exit({timetrap_error,Error})
-    end;
-time_ms(Other) -> exit({invalid_time_spec,Other}).
+    time_ms_apply(Fun);
+time_ms({M,F,A}=MFA) when is_atom(M), is_atom(F), is_list(A) ->
+    time_ms_apply(MFA);
+time_ms(Other) -> exit({invalid_time_format,Other}).
 
-time_ms1(MFA = {M,F,A}) when is_atom(M), is_atom(F), is_list(A) ->
-    exit({invalid_time_spec,MFA});
-time_ms1(Fun) when is_function(Fun) ->
-    exit({invalid_time_spec,Fun});
-time_ms1(Other) ->
+time_ms_apply(Func) ->
+    time_ms_apply(Func, [5000,30000,60000,infinity]).
+
+time_ms_apply(Func, TOs) ->
+    Apply = fun() ->
+		    case Func of
+			{M,F,A} ->
+			    exit({self(),apply(M, F, A)});
+			Fun ->
+			    exit({self(),Fun()})
+		    end
+	    end,
+    Pid = spawn(Apply),
+    Ref = monitor(process, Pid),
+    time_ms_wait(Func, Pid, Ref, TOs).
+
+time_ms_wait(Func, Pid, Ref, [TO|TOs]) ->
+    receive
+	{'DOWN',Ref,process,Pid,{Pid,Result}} ->
+	    time_ms_check(Result);
+	{'DOWN',Ref,process,Pid,Error} ->
+	    exit({timetrap_error,Error})
+    after
+	TO ->
+	    format("=== WARNING: No return from timetrap function ~p~n", [Func]),
+	    time_ms_wait(Func, Pid, Ref, TOs)
+    end;
+%% this clause will never execute if 'infinity' is in TOs list, that's ok!
+time_ms_wait(Func, Pid, Ref, []) ->
+    demonitor(Ref),
+    exit(Pid, kill),
+    exit({timetrap_error,{no_return_from_timetrap_function,Func}}).
+
+time_ms_check(MFA = {M,F,A}) when is_atom(M), is_atom(F), is_list(A) ->
+    exit({invalid_time_format,MFA});
+time_ms_check(Fun) when is_function(Fun) ->
+    exit({invalid_time_format,Fun});
+time_ms_check(Other) ->
     time_ms(Other).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

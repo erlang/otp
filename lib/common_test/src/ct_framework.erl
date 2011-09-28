@@ -204,12 +204,14 @@ init_tc2(Mod,Func,SuiteInfo,MergeResult,Config,DoInit) ->
 			   node=node(),
 			   data={Mod,FuncSpec}}),
     
-    case configure(MergedInfo1,MergedInfo1,SuiteInfo,{Func,DoInit},Config) of
+    case catch configure(MergedInfo1,MergedInfo1,SuiteInfo,{Func,DoInit},Config) of
 	{suite0_failed,Reason} ->
 	    ct_util:set_testdata({curr_tc,{Mod,{suite0_failed,{require,Reason}}}}),
 	    {skip,{require_failed_in_suite0,Reason}};
 	{error,Reason} ->
 	    {auto_skip,{require_failed,Reason}};
+	{'EXIT',Reason} ->
+	    {auto_skip,Reason};
 	{ok, FinalConfig} ->
 	    case MergeResult of
 		{error,Reason} ->
@@ -1305,6 +1307,10 @@ report(What,Data) ->
 		{_,{skipped,{failed,{_,init_per_testcase,_}}}} ->
 		    add_to_stats(auto_skipped);
 		{_,{skipped,{require_failed,_}}} ->
+		    add_to_stats(auto_skipped);
+		{_,{skipped,{timetrap_error,_}}} ->
+		    add_to_stats(auto_skipped);
+		{_,{skipped,{invalid_time_format,_}}} ->
 		    add_to_stats(auto_skipped);
 		{_,{skipped,_}} ->
 		    add_to_stats(user_skipped);
