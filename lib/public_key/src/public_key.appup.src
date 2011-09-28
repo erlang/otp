@@ -1,12 +1,6 @@
 %% -*- erlang -*-
 {"%VSN%",
  [
-  {"0.12",
-   [
-    {update, public_key, soft, soft_purge, soft_purge, []},
-    {update, pubkey_cert, soft, soft_purge, soft_purge, []},
-   ]
-  },
  {"0.11",
    [
     {update, public_key, soft, soft_purge, soft_purge, []},
@@ -41,12 +35,6 @@
   }
  ],
  [
-  {"0.12",
-   [
-    {update, public_key, soft, soft_purge, soft_purge, []},
-    {update, pubkey_cert, soft, soft_purge, soft_purge, []},
-   ]
-  },
   {"0.11",
    [
     {update, public_key, soft, soft_purge, soft_purge, []},
