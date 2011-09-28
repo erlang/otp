@@ -466,14 +466,20 @@ write_typed_file(File, Info) ->
   case file:make_dir(TyperAnnDir) of
     {error, Reason} ->
       case Reason of
-	eexist -> %% TypEr dir exists; remove old typer files
-	  ok = file:delete(NewFileName),
+	eexist -> %% TypEr dir exists; remove old typer files if they exist
+	  case file:delete(NewFileName) of
+	    ok -> ok;
+	    {error, enoent} -> ok;
+	    {error, _} ->
+	      Msg = io_lib:format("Error in deleting file ~s\n", [NewFileName]),
+	      fatal_error(Msg)
+	  end,
 	  write_typed_file(File, Info, NewFileName);
 	enospc ->
 	  Msg = io_lib:format("Not enough space in ~p\n", [Dir]),
 	  fatal_error(Msg);
 	eacces ->
-	  Msg = io:format("No write permission in ~p\n", [Dir]),
+	  Msg = io_lib:format("No write permission in ~p\n", [Dir]),
 	  fatal_error(Msg);
 	_ ->
 	  Msg = io_lib:format("Unhandled error ~s when writing ~p\n",
