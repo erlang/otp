@@ -250,9 +250,10 @@ xfer_active(Config) when is_list(Config) ->
 				 error=0,
 				 assoc_id=SbAssocId} -> ok;
 	      #sctp_paddr_change{state=addr_available,
-				 addr={Loopback,Pa},
+				 addr={Loopback,P},
 				 error=0,
-				 assoc_id=SbAssocId} -> ok;
+				 assoc_id=SbAssocId} ->
+		  ?line match_unless_solaris(Pa, P);
 	      timeout -> ok
 	  end,
     ?line [] = flush(),
@@ -266,7 +267,7 @@ xfer_active(Config) when is_list(Config) ->
 				  assoc_id=SbAssocId}],
 		Data}} -> ok
 	  after Timeout ->
-		  ?line test_server:fail({unexpected,flush()})
+		  ?line test_server:fail({timeout,flush()})
 	  end,
     ?line ok = gen_sctp:send(Sb, SbAssocId, 0, Data),
     ?line receive
@@ -275,7 +276,7 @@ xfer_active(Config) when is_list(Config) ->
 				  assoc_id=SaAssocId}],
 		Data}} -> ok
 	  after Timeout ->
-		  ?line test_server:fail({unexpected,flush()})
+		  ?line test_server:fail({timeout,flush()})
 	  end,
     %%
     ?line ok = gen_sctp:abort(Sa, SaAssocChange),
@@ -283,19 +284,20 @@ xfer_active(Config) when is_list(Config) ->
 	      #sctp_assoc_change{state=comm_lost,
 				 assoc_id=SbAssocId} -> ok;
 	      timeout ->
-		  ?line test_server:fail({unexpected,flush()})
+		  ?line test_server:fail({timeout,flush()})
 	  end,
     ?line ok = gen_sctp:close(Sb),
     ?line case recv_assoc_change(Sa, Loopback, Pb, Timeout) of
 	      #sctp_assoc_change{state=comm_lost,
 				 assoc_id=SaAssocId} -> ok;
 	      timeout ->
-		  ?line test_server:fail({unexpected,flush()})
+		  ?line io:format("timeout waiting for comm_lost on Sa~n"),
+		  ?line match_unless_solaris(ok, {timeout,flush()})
 	  end,
     ?line receive
-              {sctp_error,Sa,enotconn} -> ok % Solaris
-          after 17 -> ok %% Only happens on Solaris
-          end,
+	      {sctp_error,Sa,enotconn} -> ok % Solaris
+	  after 17 -> ok
+	  end,
     ?line ok = gen_sctp:close(Sa),
     %%
     ?line receive
@@ -780,17 +782,28 @@ xfer_stream_min(Config) when is_list(Config) ->
     ?line Data = <<"The quick brown fox jumps over a lazy dog 0123456789">>,
     ?line Loopback = {127,0,0,1},
     ?line {ok,Sb} = gen_sctp:open([{type,seqpacket}]),
+    ?line ?LOGVAR(Sb),
     ?line {ok,Pb} = inet:port(Sb),
+    ?line ?LOGVAR(Pb),
     ?line ok = gen_sctp:listen(Sb, true),
 
     ?line {ok,Sa} = gen_sctp:open([{type,stream}]),
+    ?line ?LOGVAR(Sa),
     ?line {ok,Pa} = inet:port(Sa),
-    ?line {ok,#sctp_assoc_change{state=comm_up,
-				 error=0,
-				 outbound_streams=SaOutboundStreams,
-				 inbound_streams=SaInboundStreams,
-				 assoc_id=SaAssocId}} =
-	gen_sctp:connect(Sa, Loopback, Pb, []),
+    ?line ?LOGVAR(Pa),
+    ?line #sctp_assoc_change{state=comm_up,
+			     error=0,
+			     outbound_streams=SaOutboundStreams,
+			     inbound_streams=SaInboundStreams,
+			     assoc_id=SaAssocId_X} =
+	log_ok(gen_sctp:connect(Sa, Loopback, Pb, [])),
+    ?line ?LOGVAR(SaAssocId_X),
+    ?line [{_,#sctp_paddrinfo{assoc_id=SaAssocId,state=active}}] =
+	log_ok(inet:getopts(Sa, [{sctp_get_peer_addr_info,
+				  #sctp_paddrinfo{address={Loopback,Pb}}}])),
+    ?line ?LOGVAR(SaAssocId),
+    ?line match_unless_solaris(SaAssocId_X, SaAssocId),
+
     ?line {SbOutboundStreams,SbInboundStreams,SbAssocId} =
 	case recv_event(log_ok(gen_sctp:recv(Sb, infinity))) of
 	    {Loopback,Pa,
@@ -814,8 +827,11 @@ xfer_stream_min(Config) when is_list(Config) ->
 		    recv_event(log_ok(gen_sctp:recv(Sb, infinity))),
 		{OS,IS,AI}
 	end,
+    ?line ?LOGVAR(SbAssocId),
     ?line SaOutboundStreams = SbInboundStreams,
+    ?line ?LOGVAR(SaOutboundStreams),
     ?line SbOutboundStreams = SaInboundStreams,
+    ?line ?LOGVAR(SbOutboundStreams),
     ?line ok = gen_sctp:send(Sa, SaAssocId, 0, Data),
     ?line case gen_sctp:recv(Sb, infinity) of
 	      {ok,{Loopback,
@@ -966,7 +982,11 @@ peeloff(Config) when is_list(Config) ->
     ?line ?LOGVAR(S3),
     ?line P3 = socket_call(S3, get_port),
     ?line ?LOGVAR(P3),
-    ?line S3Ai = S1Ai,
+    ?line [{_,#sctp_paddrinfo{assoc_id=S3Ai,state=active}}] =
+	socket_call(S3,
+	    {getopts,[{sctp_get_peer_addr_info,
+		       #sctp_paddrinfo{address={Addr,P2}}}]}),
+    %%?line S3Ai = S1Ai,
     ?line ?LOGVAR(S3Ai),
     %%
     ?line socket_call(S3, {send,S3Ai,Stream,<<"Number three">>}),
@@ -989,7 +1009,8 @@ peeloff(Config) when is_list(Config) ->
     ?line socket_close_verbose(S2),
     ?line
 	receive
-	    {S3,{Addr,P2,#sctp_shutdown_event{assoc_id=S3Ai}}} -> ok
+	    {S3,{Addr,P2,#sctp_shutdown_event{assoc_id=S3Ai_X}}} ->
+		?line match_unless_solaris(S3Ai, S3Ai_X)
 	after Timeout ->
 		socket_bailout([S3])
 	end,
@@ -1011,11 +1032,10 @@ buffers(doc) ->
 buffers(suite) ->
     [];
 buffers(Config) when is_list(Config) ->
-    ?line Limit = 8192,
-    ?line Data = mk_data(Limit),
+    ?line Limit = 4096,
     ?line Addr = {127,0,0,1},
     ?line Stream = 1,
-    ?line Timeout = 1333,
+    ?line Timeout = 3333,
     ?line S1 = socket_open([{ip,Addr}], Timeout),
     ?line ?LOGVAR(S1),
     ?line P1 = socket_call(S1, get_port),
@@ -1047,9 +1067,12 @@ buffers(Config) when is_list(Config) ->
 	end,
     %%
     ?line socket_call(S1, {setopts,[{recbuf,Limit}]}),
-    ?line case socket_call(S1, {getopts,[recbuf]}) of
-	      [{recbuf,RB1}] when RB1 >= Limit -> ok
-	  end,
+    ?line Recbuf =
+	    case socket_call(S1, {getopts,[recbuf]}) of
+		[{recbuf,RB1}] when RB1 >= Limit -> RB1
+	    end,
+    ?line Data = mk_data(Recbuf+Limit),
+    ?line socket_call(S2, {setopts,[{sndbuf,Recbuf+Limit}]}),
     ?line socket_call(S2, {send,S2Ai,Stream,Data}),
     ?line
 	receive
@@ -1076,13 +1099,13 @@ buffers(Config) when is_list(Config) ->
     ?line [] = flush(),
     ok.
 
-mk_data(Words) ->
-    mk_data(0, Words, <<>>).
+mk_data(Bytes) ->
+    mk_data(0, Bytes, <<>>).
 %%
-mk_data(Words, Words, Bin) ->
-    Bin;
-mk_data(N, Words, Bin) ->
-    mk_data(N+1, Words, <<Bin/binary,N:32>>).
+mk_data(N, Bytes, Bin) when N < Bytes ->
+    mk_data(N+4, Bytes, <<Bin/binary,N:32>>);
+mk_data(_, _, Bin) ->
+    Bin.
 
 %%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% socket gen_server ultra light
@@ -1247,14 +1270,17 @@ s_loop(Socket, Timeout, Parent, Handler, State) ->
 	    s_loop(Socket, Timeout, Parent, Handler, NewState);
 	{sctp,Socket,Addr,Port,
 	 {SRI,#sctp_paddr_change{assoc_id=AssocId,
-				 addr={_,Port},
+				 addr={_,P},
 				 state=St}=SPC}} ->
+	    match_unless_solaris(Port, P),
 	    case SRI of
 		[#sctp_sndrcvinfo{assoc_id=AssocId,stream=0}] -> ok;
 		[] -> ok
 	    end,
 	    case {gb_get({assoc_change,AssocId}, State),St} of
-		{[],_} when St =:= addr_confirmed -> ok
+		{[{_,{Addr,Port,#sctp_assoc_change{state=comm_up}}}|_],
+		 addr_available} -> ok;
+		{[],addr_confirmed} -> ok
 	    end,
 	    Key = {paddr_change,AssocId},
 	    Val = {now(),{Addr,Port,SPC}},
@@ -1298,4 +1324,10 @@ gb_get(Key, GBT) ->
 	    [];
 	{value,V} ->
 	    V
+    end.
+
+match_unless_solaris(A, B) ->
+    case os:type() of
+	{unix,sunos} -> B;
+	_ -> A = B
     end.
