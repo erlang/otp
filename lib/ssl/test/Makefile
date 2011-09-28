@@ -35,8 +35,9 @@ VSN=$(GS_VSN)
 # ----------------------------------------------------
 
 MODULES = \
-        ssl_test_lib \
+	ssl_test_lib \
 	ssl_basic_SUITE \
+	ssl_handshake_SUITE \
 	ssl_packet_SUITE \
 	ssl_payload_SUITE \
 	ssl_to_openssl_SUITE \
@@ -46,7 +47,7 @@ MODULES = \
 	old_ssl_active_SUITE \
 	old_ssl_active_once_SUITE \
 	old_ssl_passive_SUITE \
-        old_ssl_verify_SUITE \
+	old_ssl_verify_SUITE \
 	old_ssl_peer_cert_SUITE \
 	old_ssl_misc_SUITE \
 	old_ssl_protocol_SUITE \
