@@ -15,7 +15,7 @@
 %% USA
 %%
 %% @copyright 2003 Richard Carlsson
-%% @author Richard Carlsson <richardc@it.uu.se>
+%% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @see edoc
 %% @end 
 %% =====================================================================

@@ -13,13 +13,10 @@
 %% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
 %% USA
 %%
-%% $Id: eunit_lib.erl 339 2009-04-05 14:10:47Z rcarlsson $
-%%
 %% @copyright 2004-2007 Mickaël Rémond, Richard Carlsson
 %% @author Mickaël Rémond <mickael.remond@process-one.net>
 %%   [http://www.process-one.net/]
-%% @author Richard Carlsson <richardc@it.uu.se>
-%%   [http://user.it.uu.se/~richardc/]
+%% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @private
 %% @see eunit
 %% @doc Utility functions for eunit

@@ -13,9 +13,7 @@
 %% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
 %% USA
 %%
-%% $Id: eunit_server.erl 267 2008-10-19 18:48:03Z rcarlsson $
-%%
-%% @author Richard Carlsson <richardc@it.uu.se>
+%% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @copyright 2006 Richard Carlsson
 %% @private
 %% @see eunit
