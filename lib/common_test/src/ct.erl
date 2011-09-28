@@ -151,7 +151,7 @@ run(TestDirs) ->
 %%%               {refresh_logs,LogDir} | {logopts,LogOpts} | {basic_html,Bool} |
 %%%               {ct_hooks, CTHs}
 %%%   TestDirs = [string()] | string()
-%%%   Suites = [string()] | string()
+%%%   Suites = [string()] | [atom()] | string() | atom()
 %%%   Cases = [atom()] | atom()
 %%%   Groups = [atom()] | atom()
 %%%   TestSpecs = [string()] | string()
