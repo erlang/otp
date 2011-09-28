@@ -13,8 +13,6 @@
 %% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
 %% USA
 %%
-%% $Id: eunit.hrl 337 2009-03-09 08:38:28Z rcarlsson $
-%%
 %% Copyright (C) 2004-2006 Mickaël Rémond, Richard Carlsson
 
 %% Including this file turns on testing and defines TEST, unless NOTEST
