@@ -635,6 +635,25 @@ bin_load(Process *c_p, ErtsProcLocks c_p_locks,
     }
 
     /*
+     * Initialize code area.
+     */
+    state.code_buffer_size = erts_next_heap_size(2048 + state.num_functions, 0);
+    state.code = (BeamInstr *) erts_alloc(ERTS_ALC_T_CODE,
+				    sizeof(BeamInstr) * state.code_buffer_size);
+
+    state.code[MI_NUM_FUNCTIONS] = state.num_functions;
+    state.ci = MI_FUNCTIONS + state.num_functions + 1;
+
+    state.code[MI_ATTR_PTR] = 0;
+    state.code[MI_ATTR_SIZE] = 0;
+    state.code[MI_ATTR_SIZE_ON_HEAP] = 0;
+    state.code[MI_COMPILE_PTR] = 0;
+    state.code[MI_COMPILE_SIZE] = 0;
+    state.code[MI_COMPILE_SIZE_ON_HEAP] = 0;
+    state.code[MI_NUM_BREAKPOINTS] = 0;
+
+
+    /*
      * Read the atom table.
      */
 
@@ -1362,24 +1381,6 @@ read_code_header(LoaderState* stp)
 	stp->labels[i].looprec_targeted = 0;
 #endif
     }
-
-    /*
-     * Initialize code area.
-     */
-    stp->code_buffer_size = erts_next_heap_size(2048 + stp->num_functions, 0);
-    stp->code = (BeamInstr *) erts_alloc(ERTS_ALC_T_CODE,
-				    sizeof(BeamInstr) * stp->code_buffer_size);
-
-    stp->code[MI_NUM_FUNCTIONS] = stp->num_functions;
-    stp->ci = MI_FUNCTIONS + stp->num_functions + 1;
-
-    stp->code[MI_ATTR_PTR] = 0;
-    stp->code[MI_ATTR_SIZE] = 0;
-    stp->code[MI_ATTR_SIZE_ON_HEAP] = 0;
-    stp->code[MI_COMPILE_PTR] = 0;
-    stp->code[MI_COMPILE_SIZE] = 0;
-    stp->code[MI_COMPILE_SIZE_ON_HEAP] = 0;
-    stp->code[MI_NUM_BREAKPOINTS] = 0;
 
     stp->new_bs_put_strings = 0;
     stp->catches = 0;
