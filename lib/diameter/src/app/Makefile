@@ -52,6 +52,9 @@ INCDIR = ../../include
 
 include modules.mk
 
+SPEC_MODULES = \
+	$(SPEC_FILES:%.dia=%)
+
 SPEC_ERL_FILES = \
 	$(SPEC_FILES:%.dia=%.erl)
 
@@ -64,7 +67,7 @@ MODULES = \
 
 APP_MODULES = \
 	$(RUNTIME_MODULES) \
-	$(SPEC_FILES:%.dia=%)
+	$(SPEC_MODULES)
 
 TARGET_MODULES = \
 	$(APP_MODULES) \
@@ -186,7 +189,8 @@ release_docs_spec:
 # Dependencies
 # ----------------------------------------------------
 
-$(SPEC_FILES:%.dia=$(EBIN)/%.$(EMULATOR)): \
+$(SPEC_MODULES:%=$(EBIN)/%.$(EMULATOR)): \
+	$(EBIN)/diameter_exprecs.$(EMULATOR) \
 	$(DIAMETER_TOP)/include/diameter.hrl \
 	$(DIAMETER_TOP)/include/diameter_gen.hrl
 
