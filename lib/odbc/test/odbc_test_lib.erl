@@ -36,18 +36,25 @@ match_float(Float, Match, Delta) ->
     (Float < Match + Delta) and (Float > Match - Delta).
 
 odbc_check() ->
-    case erlang:system_info({wordsize, external}) of
-	4 ->
-	    ok;
-	Other ->
-	    case os:type() of
-		{unix, linux} ->
+    case os:type() of
+	{unix,darwin} ->
+	    lists:flatten(
+	      io_lib:format("Currently we have no working drivers for MAC",
+			    []));
+	_ ->
+	    case erlang:system_info({wordsize, external}) of
+		4 ->
 		    ok;
-		Platform ->
-		    lists:flatten(
-		      io_lib:format("Word on platform ~w size"
-				    " ~w not supported", [Other,
-							  Platform]))
+		Other ->
+		    case os:type() of
+			{unix, linux} ->
+			    ok;
+			Platform ->
+			    lists:flatten(
+			      io_lib:format("Word on platform ~w size"
+					    " ~w not supported", [Other,
+								  Platform]))
+		    end
 	    end
     end.
 
