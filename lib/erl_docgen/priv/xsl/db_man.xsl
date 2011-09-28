@@ -512,16 +512,40 @@
 
   <!-- Note -->
   <xsl:template match="note">
-    <xsl:text>&#10;.SS Note:</xsl:text>
+    <xsl:text>&#10;.LP&#10;</xsl:text>
+    <xsl:text>&#10;.RS -4</xsl:text>
+    <xsl:text>&#10;.B&#10;</xsl:text>
+    <xsl:text>Note:</xsl:text>
+    <xsl:text>&#10;.RE</xsl:text>
     <xsl:apply-templates/>
     <xsl:text>&#10;</xsl:text>
   </xsl:template>
 
   <!-- Warning -->
   <xsl:template match="warning">
-    <xsl:text>&#10;.SS Warning:</xsl:text>
+    <xsl:text>&#10;.LP&#10;</xsl:text>
+    <xsl:text>&#10;.RS -4</xsl:text>
+    <xsl:text>&#10;.B&#10;</xsl:text>
+    <xsl:text>Warning:</xsl:text>
+    <xsl:text>&#10;.RE</xsl:text>
     <xsl:apply-templates/>
     <xsl:text>&#10;</xsl:text>
+  </xsl:template>
+
+  <xsl:template match="warning/p | note/p">
+    <xsl:variable name="content">
+      <xsl:text>&#10;</xsl:text>
+      <xsl:apply-templates/>
+    </xsl:variable>
+    <xsl:choose>
+      <xsl:when test="position() = 1">
+        <xsl:value-of select="$content"/>
+      </xsl:when>
+      <xsl:otherwise>
+        <xsl:text>&#10;.LP</xsl:text>
+        <xsl:value-of select="$content"/>
+      </xsl:otherwise>
+    </xsl:choose>
   </xsl:template>
 
  <!-- Paragraph -->
