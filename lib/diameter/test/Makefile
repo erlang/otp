@@ -40,16 +40,6 @@ VSN = $(DIAMETER_VSN)
 
 RELSYSDIR = $(RELEASE_PATH)/diameter_test
 
-ifeq ($(findstring win32,$(TARGET)),win32)
-MAKEFILE_SRC = Makefile.win32.src
-else
-MAKEFILE_SRC = Makefile.src
-endif
-
-ifeq ($(TT_DIR),)
-TT_DIR = /tmp
-endif
-
 # ----------------------------------------------------
 # Target Specs
 # ----------------------------------------------------
@@ -67,16 +57,7 @@ TARGET_FILES = $(MODULES:%=%.$(EMULATOR))
 SUITE_MODULES = $(filter diameter_%_SUITE, $(MODULES))
 SUITES = $(SUITE_MODULES:diameter_%_SUITE=%)
 
-EMAKEFILE  = Emakefile
-MAKE_EMAKE = $(wildcard $(TOP)/make/make_emakefile)
-
-ifeq ($(MAKE_EMAKE),)
-BUILDTARGET   = $(TARGET_FILES)
 RELTEST_FILES = $(TEST_SPEC_FILE) $(COVER_SPEC_FILE) $(SOURCE)
-else
-BUILDTARGET   = emakebuild
-RELTEST_FILES = $(EMAKEFILE) $(TEST_SPEC_FILE) $(COVER_SPEC_FILE) $(SOURCE)
-endif
 
 # ----------------------------------------------------
 # FLAGS
@@ -84,14 +65,8 @@ endif
 
 include ../src/app/diameter.mk 
 
-ifeq ($(USE_DIAMETER_TEST_CODE),true)
-ERL_COMPILE_FLAGS += -DDIAMETER_TEST_CODE=mona_lisa_spelar_doom
-endif
-
-ifeq ($(USE_DIAMETER_HIPE),true)
-ERL_COMPILE_FLAGS += +native -DDIAMETER_hipe_special=true
-endif
-
+# This is only used to compile suite locally when running with a
+# target like 'all' below. Target release_tests only installs source.
 ERL_COMPILE_FLAGS += $(DIAMETER_ERL_COMPILE_FLAGS) \
                      -DDIAMETER_CT=true \
                      -I $(DIAMETER_TOP)/src/app
@@ -100,35 +75,24 @@ ERL_COMPILE_FLAGS += $(DIAMETER_ERL_COMPILE_FLAGS) \
 # Targets
 # ----------------------------------------------------
 
-all test: $(SUITES)
+all: $(SUITES)
 
-tests debug opt: $(BUILDTARGET)
-
-beam targets: $(TARGET_FILES)
-
-emakebuild: $(EMAKEFILE)
-
-$(EMAKEFILE): 
-	$(MAKE_EMAKE) $(ERL_COMPILE_FLAGS) -o $(EBIN) '*_SUITE_make' $(MODULES) \
-	| grep -v Warning \
-	> $(EMAKEFILE)
+tests debug opt: $(TARGET_FILES)
 
 clean:
-	rm -f $(EMAKEFILE)
 	rm -f $(TARGET_FILES) 
 	rm -f depend.mk
 
 realclean: clean
+	rm -rf log
 	rm -f errs core *~
 
-.PHONY: all emakebuild test tests debug opt beam targets clean realclean
+.PHONY: all tests debug opt clean realclean
 
 docs:
 
 info:
-	@echo "MAKE_EMAKE  = $(MAKE_EMAKE)"
-	@echo "EMAKEFILE   = $(EMAKEFILE)"
-	@echo "BUILDTARGET = $(BUILDTARGET)"
+	@echo "TARGET_FILES = $(TARGET_FILES)"
 	@echo
 	@echo "ERL_COMPILE_FLAGS = $(ERL_COMPILE_FLAGS)"
 	@echo "ERL  = $(ERL)"
@@ -144,15 +108,6 @@ info:
 
 help:
 	@echo
-	@echo "This Makefile controls the test of the $(APPLICATION) application."
-	@echo
-	@echo "There are two separate ways to perform the test of $(APPLICATION)."
-	@echo
-	@echo "  a) Run the official OTP test-server (which we do not describe here)"
-	@echo
-	@echo "  b) Run individual suites using targets in this makefile, target"
-	@echo "     xxx running the testcases contained in $(APPLICATION)_xxx_SUITE."
-	@echo
 	@echo "Targets:"
 	@echo
 	@echo "    all"
@@ -161,10 +116,10 @@ help:
 	@echo "    $(SUITES)"
 	@echo "        Run a specific test suite."
 	@echo
-	@echo "    beam"
+	@echo "    tests"
 	@echo "        Compile all test-code."
 	@echo
-	@echo "    clean"
+	@echo "    clean | realclean"
 	@echo "        Remove generated files."
 	@echo
 	@echo "    info"
@@ -183,7 +138,7 @@ help:
 
 # Exit with a non-zero status if the output looks to indicate failure.
 # diameter_ct:run/1 itself can't tell (it seems).
-$(SUITES): log targets
+$(SUITES): log tests
 	$(ERL) -noshell \
 	        -pa $(DIAMETER_TOP)/ebin \
 	        -sname diameter_test_$@ \
@@ -207,7 +162,7 @@ release_spec:
 
 release_docs_spec:
 
-release_tests_spec: tests
+release_tests_spec:
 	$(INSTALL_DIR)  $(RELSYSDIR)
 	$(INSTALL_DATA) $(RELTEST_FILES) $(RELSYSDIR)
 
