@@ -142,7 +142,9 @@ EMEM_OBJS = $(addprefix $(EMEM_OBJ_DIR)/,$(notdir $(EMEM_SRCS:.c=.o)))
 # Misc targets
 #
 
-all: $(CREATE_DIRS) erts_lib $(PROGS) $(DRIVERS)
+_create_dirs := $(shell mkdir -p $(CREATE_DIRS))
+
+all: erts_lib $(PROGS) $(DRIVERS)
 
 erts_lib:
 	cd $(ERL_TOP)/erts/lib_src && $(MAKE) $(TYPE)
@@ -156,13 +158,6 @@ clean:
 	$(RM) -f ./*~
 
 .PHONY: all erts_lib docs clean
-
-#
-# Make dir targets
-#
-
-$(CREATE_DIRS):
-	$(MKDIR) -p $@
 
 #
 # Object targets

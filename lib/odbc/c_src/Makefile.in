@@ -89,9 +89,10 @@ TARGET_FLAGS =  @TARGET_FLAGS@
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
+_create_dirs := $(shell mkdir -p $(OBJ_DIR) $(BIN_DIR))
 
 ifdef EXE_TARGET
-opt debug: create_dirs $(EXE_TARGET) 
+opt debug: $(EXE_TARGET) 
 else
 opt debug:
 endif
@@ -118,10 +119,6 @@ endif
 
 $(OBJ_DIR)/odbcserver.o: odbcserver.c
 	$(CC) $(CFLAGS) $(INCLUDES) $(TARGET_FLAGS) -o $@ -c odbcserver.c
-
-create_dirs:
-	$(INSTALL_DIR) $(OBJ_DIR)
-	$(INSTALL_DIR) $(BIN_DIR)
 
 # ----------------------------------------------------
 # Release Target
