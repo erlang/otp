@@ -1716,7 +1716,16 @@ adjusted_sleep(MSecs) ->
 %% to read when using this function, rather than exit directly.
 fail(Reason) ->
     comment(cast_to_list(Reason)),
-    exit({suite_failed,Reason}).
+    try
+	exit({suite_failed,Reason})
+    catch
+	Class:R ->
+	    case erlang:get_stacktrace() of
+		[{?MODULE,fail,1,_}|Stk] -> ok;
+		Stk -> ok
+	    end,
+	    erlang:raise(Class, R, Stk)
+    end.
 
 cast_to_list(X) when is_list(X) -> X;
 cast_to_list(X) when is_atom(X) -> atom_to_list(X);
@@ -1730,7 +1739,16 @@ cast_to_list(X) -> lists:flatten(io_lib:format("~p", [X])).
 %% Immediately calls exit. Included because test suites are easier
 %% to read when using this function, rather than exit directly.
 fail() ->
-    exit(suite_failed).
+    try
+	exit(suite_failed)
+    catch
+	Class:R ->
+	    case erlang:get_stacktrace() of
+		[{?MODULE,fail,0,_}|Stk] -> ok;
+		Stk -> ok
+	    end,
+	    erlang:raise(Class, R, Stk)
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% break(Comment) -> ok
