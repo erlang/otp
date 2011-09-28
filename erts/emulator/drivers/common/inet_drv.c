@@ -6764,7 +6764,7 @@ static int sctp_fill_opts(inet_descriptor* desc, char* buf, int buflen,
 		      2*LOAD_ATOM_CNT + LOAD_INT_CNT + 2*LOAD_TUPLE_CNT);
 	    i = LOAD_ATOM	(spec, i, am_sctp_adaptation_layer);
 	    i = LOAD_ATOM	(spec, i, am_sctp_setadaptation);
-	    i = LOAD_INT	(spec, i, ad.ssb_adaptation_ind);
+	    i = LOAD_INT	(spec, i, sock_ntohl(ad.ssb_adaptation_ind));
 	    i = LOAD_TUPLE	(spec, i, 2);
 	    i = LOAD_TUPLE	(spec, i, 2);
 	    break;
