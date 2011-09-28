@@ -20,7 +20,7 @@
 -module(busy_port_SUITE).
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2, 
+	 init_per_group/2,end_per_group/2,end_per_testcase/2,
 	 io_to_busy/1, message_order/1, send_3/1, 
 	 system_monitor/1, no_trap_exit/1,
 	 no_trap_exit_unlinked/1, trap_exit/1, multiple_writers/1,
@@ -53,6 +53,20 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
+end_per_testcase(_Case, Config) when is_list(Config) ->
+    case whereis(busy_drv_server) of
+	undefined ->
+	    ok;
+	Pid when is_pid(Pid) ->
+	    Ref = monitor(process, Pid),
+	    unlink(Pid),
+	    exit(Pid, kill),
+	    receive
+		{'DOWN',Ref,process,Pid,_} ->
+		    ok
+	    end
+    end,
+    Config.
 
 %% Tests I/O operations to a busy port, to make sure a suspended send
 %% operation is correctly restarted.  This used to crash Beam.

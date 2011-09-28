@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -130,7 +130,7 @@ prepend(This,Width,Height, Options) -> wxSizer:prepend(This,Width,Height, Option
 %% @hidden
 prepend(This,Width,Height) -> wxSizer:prepend(This,Width,Height).
 %% @hidden
-prepend(This,Window) -> wxSizer:prepend(This,Window).
+prepend(This,Item) -> wxSizer:prepend(This,Item).
 %% @hidden
 layout(This) -> wxSizer:layout(This).
 %% @hidden
@@ -146,7 +146,7 @@ insert(This,Index,Width,Height, Options) -> wxSizer:insert(This,Index,Width,Heig
 %% @hidden
 insert(This,Index,Width,Height) -> wxSizer:insert(This,Index,Width,Height).
 %% @hidden
-insert(This,Index,Window) -> wxSizer:insert(This,Index,Window).
+insert(This,Index,Item) -> wxSizer:insert(This,Index,Item).
 %% @hidden
 hide(This,Window, Options) -> wxSizer:hide(This,Window, Options).
 %% @hidden
