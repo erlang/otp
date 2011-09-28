@@ -81,7 +81,9 @@ open(Protocol, Family, Type, Req, Data) ->
 		    Error
 	    end
     catch
-	error:Reason -> {error,Reason}
+	%% The only (?) way to get here is to try to open
+	%% the sctp driver when it does not exist
+	error:badarg -> {error,eprotonosupport}
     end.
 
 enc_family(inet) -> ?INET_AF_INET;

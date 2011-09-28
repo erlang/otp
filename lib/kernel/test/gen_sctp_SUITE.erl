@@ -44,17 +44,12 @@ groups() ->
     [].
 
 init_per_suite(Config) ->
-    try gen_sctp:open() of
+    case gen_sctp:open() of
 	{ok,Socket} ->
 	    gen_sctp:close(Socket),
 	    [];
-	_ ->
-	    []
-    catch
-	error:badarg ->
-	    {skip,"SCTP not supported on this machine"};
-	_:_ ->
-	    Config
+	{error,eprotonosupport} ->
+	    {skip,"SCTP not supported on this machine"}
     end.
 
 end_per_suite(_Conifig) ->
