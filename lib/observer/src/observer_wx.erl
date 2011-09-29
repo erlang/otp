@@ -1,0 +1,506 @@
+%%
+%% %CopyrightBegin%
+%%
+%% Copyright Ericsson AB 2011. All Rights Reserved.
+%%
+%% The contents of this file are subject to the Erlang Public License,
+%% Version 1.1, (the "License"); you may not use this file except in
+%% compliance with the License. You should have received a copy of the
+%% Erlang Public License along with this software. If not, it can be
+%% retrieved online at http://www.erlang.org/.
+%%
+%% Software distributed under the License is distributed on an "AS IS"
+%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+%% the License for the specific language governing rights and limitations
+%% under the License.
+%%
+%% %CopyrightEnd%
+-module(observer_wx).
+
+-behaviour(wx_object).
+
+-export([start/0]).
+-export([create_menus/2, create_menu/2, create_txt_dialog/4, try_rpc/4,
+	 return_to_localnode/2]).
+
+-export([init/1, handle_event/2, handle_cast/2, terminate/2, code_change/3,
+	 handle_call/3, handle_info/2, check_page_title/1]).
+
+%% Includes
+-include_lib("wx/include/wx.hrl").
+
+-include("observer_defs.hrl").
+
+%% Defines
+
+-define(ID_PING, 1).
+-define(ID_CONNECT, 2).
+-define(ID_NOTEBOOK, 3).
+
+-define(FIRST_NODES_MENU_ID, 1000).
+-define(LAST_NODES_MENU_ID,  2000).
+
+%% Records
+-record(state,
+	{frame,
+	 menubar,
+	 status_bar,
+	 notebook,
+	 main_panel,
+	 pro_panel,
+	 tv_panel,
+	 sys_panel,
+	 active_tab,
+	 node,
+	 nodes
+	}).
+
+start() ->
+    wx_object:start(?MODULE, [], []).
+
+create_menus(Object, Menus) when is_list(Menus) ->
+    wx_object:call(Object, {create_menus, Menus}).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+init(_Args) ->
+    wx:new(),
+    Frame = wxFrame:new(wx:null(), ?wxID_ANY, "Observer", [{size, {1000, 500}},
+							   {style, ?wxDEFAULT_FRAME_STYLE}]),
+    IconFile = filename:join(code:priv_dir(observer), "erlang_observer.png"),
+    Icon = wxIcon:new(IconFile, [{type,?wxBITMAP_TYPE_PNG}]),
+    wxFrame:setIcon(Frame, Icon),
+    wxIcon:destroy(Icon),
+
+    State = #state{frame = Frame},
+    UpdState = setup(State),
+    wxFrame:show(Frame),
+    net_kernel:monitor_nodes(true),
+    {Frame, UpdState}.
+
+setup(#state{frame = Frame} = State) ->
+    %% Setup Menubar & Menus
+    MenuBar = wxMenuBar:new(),
+
+    {Nodes, NodeMenus} = get_nodes(),
+    DefMenus = default_menus(NodeMenus),
+    create_menu(DefMenus, MenuBar),
+
+    wxFrame:setMenuBar(Frame, MenuBar),
+    StatusBar = wxFrame:createStatusBar(Frame, []),
+    wxFrame:setTitle(Frame, atom_to_list(node())),
+    wxStatusBar:setStatusText(StatusBar, atom_to_list(node())),
+
+    %% Setup panels
+    Panel = wxPanel:new(Frame, []),
+    Notebook = wxNotebook:new(Panel, ?ID_NOTEBOOK, [{style, ?wxBK_DEFAULT}]),
+
+    %% Setup sizer
+    MainSizer = wxBoxSizer:new(?wxVERTICAL),
+
+    %% System Panel
+    SysPanel = observer_sys_wx:start_link(Notebook, self()),
+    wxNotebook:addPage(Notebook, SysPanel, "System", []),
+
+    %% Process Panel
+    ProPanel = observer_pro_wx:start_link(Notebook, self()),
+    wxNotebook:addPage(Notebook, ProPanel, "Processes", []),
+
+    %% Table Viewer Panel
+    TVPanel = observer_tv_wx:start_link(Notebook, self()),
+    wxNotebook:addPage(Notebook, TVPanel, "Table Viewer", []),
+
+    wxSizer:add(MainSizer, Notebook, [{proportion, 1}, {flag, ?wxEXPAND}]),
+    wxPanel:setSizer(Panel, MainSizer),
+
+    wxNotebook:connect(Notebook, command_notebook_page_changed),
+    wxFrame:connect(Frame, close_window, [{skip, true}]),
+    wxMenu:connect(Frame, command_menu_selected, [{skip, true}]),
+
+    SysPid = wx_object:get_pid(SysPanel),
+    SysPid ! {active, node()},
+    UpdState = State#state{main_panel = Panel,
+			   notebook = Notebook,
+			   menubar = MenuBar,
+			   status_bar = StatusBar,
+			   sys_panel = SysPanel,
+			   pro_panel = ProPanel,
+			   tv_panel  = TVPanel,
+			   active_tab = SysPid,
+			   node  = node(),
+			   nodes = Nodes
+			  },
+    UpdState.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%Callbacks
+handle_event(#wx{obj = Notebook, id = ?ID_NOTEBOOK,
+		 event = #wxNotebook{type = command_notebook_page_changed}},
+	     #state{active_tab=Previous, node=Node, notebook = Notebook} = State) ->
+    io:format("Command notebook changed ~n"),
+    Pid = get_active_pid(State),
+    Previous ! not_active,
+    Pid ! {active, Node},
+    {noreply, State#state{active_tab=Pid}};
+
+handle_event(#wx{event = #wxClose{}}, State) ->
+    {stop, normal, State};
+
+handle_event(#wx{id = ?wxID_EXIT, event = #wxCommand{type = command_menu_selected}}, State) ->
+    io:format("~p ~p, you clicked close", [?MODULE, ?LINE]),
+    {stop, normal, State};
+
+handle_event(#wx{id = ?wxID_HELP, event = #wxCommand{type = command_menu_selected}}, State) ->
+    io:format("~p ~p, you clicked help", [?MODULE, ?LINE]),
+    {noreply, State};
+
+handle_event(#wx{id = ?ID_CONNECT, event = #wxCommand{type = command_menu_selected}},
+	     #state{frame = Frame} = State) ->
+    UpdState = case create_connect_dialog(connect, State) of
+		   cancel ->
+		       State;
+		   {value, [], _, _} ->
+		       create_txt_dialog(Frame, "Node must have a name",
+					 "Error", ?wxICON_ERROR),
+		       State;
+		   {value, NodeName, LongOrShort, Cookie} -> %Shortname,
+		       try
+			   case connect(list_to_atom(NodeName), LongOrShort, list_to_atom(Cookie)) of
+			       {ok, set_cookie} ->
+				   change_node_view(node(), State);
+			       {error, set_cookie} ->
+				   create_txt_dialog(Frame, "Could not set cookie",
+						     "Error", ?wxICON_ERROR),
+				   State;
+			       {error, net_kernel, _Reason} ->
+				   create_txt_dialog(Frame, "Could not enable node",
+						     "Error", ?wxICON_ERROR),
+				   State
+			   end
+		       catch _:_ ->
+			       create_txt_dialog(Frame, "Could not enable node",
+						 "Error", ?wxICON_ERROR),
+			       State
+		       end
+	       end,
+    {noreply, UpdState};
+
+handle_event(#wx{id = ?ID_PING, event = #wxCommand{type = command_menu_selected}},
+	     #state{frame = Frame} = State) ->
+    UpdState = case create_connect_dialog(ping, State) of
+		   cancel ->
+		       State;
+		   {value, Value} when is_list(Value) ->
+		       try
+
+			   Node = list_to_atom(Value),
+			   case net_adm:ping(Node) of
+			       pang ->
+				   create_txt_dialog(Frame, "Connect failed", "Pang", ?wxICON_EXCLAMATION),
+				   State;
+			       pong ->
+				   change_node_view(Node, State)
+			   end
+
+		       catch _:_ ->
+			       create_txt_dialog(Frame, "Connect failed", "Pang", ?wxICON_EXCLAMATION),
+			       State
+		       end
+	       end,
+    {noreply, UpdState};
+
+handle_event(#wx{id = Id, event = #wxCommand{type = command_menu_selected}}, State)
+  when Id > ?FIRST_NODES_MENU_ID, Id < ?LAST_NODES_MENU_ID ->
+
+    Node = lists:nth(Id - ?FIRST_NODES_MENU_ID, State#state.nodes),
+    UpdState = change_node_view(Node, State),
+    {noreply, UpdState};
+
+handle_event(Event, State) ->
+    Pid = get_active_pid(State),
+    Pid ! Event,
+    {noreply, State}.
+
+handle_cast(Cast, State) ->
+    io:format("~p:~p: Got cast ~p~n", [?MODULE, ?LINE, Cast]),
+    {noreply, State}.
+
+handle_call({create_menus, TabMenus}, _From, State = #state{menubar=MenuBar}) ->
+    wx:batch(fun() ->
+		     {_Nodes, NodeMenus} = get_nodes(),
+		     DefMenus = default_menus(NodeMenus),
+		     Menus = merge_menus(DefMenus, TabMenus),
+		     clean_menus(MenuBar),
+		     create_menu(Menus, MenuBar)
+	     end),
+    {reply, ok, State};
+
+handle_call(Msg, _From, State) ->
+    io:format("~p~p: Got Call ~p~n",[?MODULE, ?LINE, Msg]),
+    {reply, ok, State}.
+
+handle_info({nodeup, _Node}, State) ->
+    State2 = update_node_list(State),
+    {noreply, State2};
+
+handle_info({nodedown, Node},
+	    #state{frame = Frame} = State) ->
+    State2 = case Node =:= State#state.node of
+		 true ->
+		     change_node_view(node(), State);
+		 false ->
+		     State
+	     end,
+    State3 = update_node_list(State2),
+    Msg = ["Node down: " | atom_to_list(Node)],
+    create_txt_dialog(Frame, Msg, "Node down", ?wxICON_EXCLAMATION),
+    {noreply, State3};
+
+handle_info(Info, State) ->
+    io:format("~p, ~p, Handle info: ~p~n", [?MODULE, ?LINE, Info]),
+    {noreply, State}.
+
+terminate(Reason, #state{frame = Frame}) ->
+    wxFrame:destroy(Frame),
+    io:format("~p terminating. Reason: ~p~n", [?MODULE, Reason]),
+    ok.
+
+code_change(_, _, State) ->
+    {stop, not_yet_implemented, State}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+try_rpc(Node, Mod, Func, Args) ->
+    case
+	rpc:call(Node, Mod, Func, Args) of
+	{badrpc, Reason} ->
+	    error_logger:error_report([{node, Node},
+				       {call, {Mod, Func, Args}},
+				       {reason, {badrpc, Reason}}]),
+	    error({badrpc, Reason});
+	Res ->
+	    Res
+    end.
+
+return_to_localnode(Frame, Node) ->
+    case node() =/= Node of
+	true ->
+	    create_txt_dialog(Frame, "Error occured on remote node",
+			      "Error", ?wxICON_ERROR),
+	    disconnect_node(Node);
+	false ->
+	    ok
+    end.
+
+create_txt_dialog(Frame, Msg, Title, Style) ->
+    MD = wxMessageDialog:new(Frame, Msg, [{style, Style}]),
+    wxMessageDialog:setTitle(MD, Title),
+    wxDialog:showModal(MD),
+    wxDialog:destroy(MD).
+
+connect(NodeName, 0, Cookie) ->
+    connect2(NodeName, shortnames, Cookie);
+connect(NodeName, 1, Cookie) ->
+    connect2(NodeName, longnames, Cookie).
+
+connect2(NodeName, Opts, Cookie) ->
+    case net_kernel:start([NodeName, Opts]) of
+	{ok, _} ->
+	    case is_alive() of
+		true ->
+		    erlang:set_cookie(node(), Cookie),
+		    {ok, set_cookie};
+		false ->
+		    {error, set_cookie}
+	    end;
+	{error, Reason} ->
+	    {error, net_kernel, Reason}
+    end.
+
+change_node_view(Node, State = #state{pro_panel=Pro, sys_panel=Sys, tv_panel=Tv}) ->
+    lists:foreach(fun(Pid) -> wx_object:get_pid(Pid) ! {node, Node} end,
+		  [Pro, Sys, Tv]),
+    StatusText = ["Observer - " | atom_to_list(Node)],
+    wxFrame:setTitle(State#state.frame, StatusText),
+    wxStatusBar:setStatusText(State#state.status_bar, StatusText),
+    State#state{node = Node}.
+
+check_page_title(Notebook) ->
+    Selection = wxNotebook:getSelection(Notebook),
+    wxNotebook:getPageText(Notebook, Selection).
+
+get_active_pid(#state{notebook=Notebook, pro_panel=Pro, sys_panel=Sys, tv_panel=Tv}) ->
+    Panel = case check_page_title(Notebook) of
+		"Processes" -> Pro;
+		"System" -> Sys;
+		"Table Viewer" -> Tv
+	    end,
+    wx_object:get_pid(Panel).
+
+create_connect_dialog(ping, #state{frame = Frame}) ->
+    Dialog = wxTextEntryDialog:new(Frame, "Connect to node"),
+    case wxDialog:showModal(Dialog) of
+	?wxID_OK ->
+	    Value = wxTextEntryDialog:getValue(Dialog),
+	    wxDialog:destroy(Dialog),
+	    {value, Value};
+	?wxID_CANCEL ->
+	    wxDialog:destroy(Dialog),
+	    cancel
+    end;
+create_connect_dialog(connect, #state{frame = Frame}) ->
+    Dialog = wxDialog:new(Frame, ?wxID_ANY, "Distribute node "),
+
+    VSizer = wxBoxSizer:new(?wxVERTICAL),
+    RadioBoxSizer = wxBoxSizer:new(?wxHORIZONTAL),
+
+    Choices = ["Short name", "Long name"],
+    RadioBox = wxRadioBox:new(Dialog, 1, "",
+			      ?wxDefaultPosition,
+			      ?wxDefaultSize,
+			      Choices,
+			      [{majorDim, 2},
+			       {style, ?wxHORIZONTAL}]),
+
+    NameText = wxStaticText:new(Dialog, ?wxID_ANY, "Node name: "),
+    NameCtrl = wxTextCtrl:new(Dialog, ?wxID_ANY, [{size, {200, 25}}, {style, ?wxDEFAULT}]),
+    wxTextCtrl:setValue(NameCtrl, "observer"),
+    CookieText = wxStaticText:new(Dialog, ?wxID_ANY, "Secret cookie: "),
+    CookieCtrl = wxTextCtrl:new(Dialog, ?wxID_ANY, [{size, {200, 25}}, {style, ?wxDEFAULT}]),
+
+    BtnSizer = wxDialog:createStdDialogButtonSizer(Dialog, ?wxID_DEFAULT),
+    Flags = [{flag, ?wxEXPAND bor ?wxALL}, {border, 5}],
+    wxSizer:add(RadioBoxSizer, RadioBox, Flags),
+
+    wxSizer:add(VSizer, RadioBoxSizer, Flags),
+    wxSizer:addSpacer(VSizer, 10),
+    wxSizer:add(VSizer, NameText),
+    wxSizer:add(VSizer, NameCtrl, Flags),
+    wxSizer:addSpacer(VSizer, 10),
+    wxSizer:add(VSizer, CookieText),
+    wxSizer:add(VSizer, CookieCtrl, Flags),
+    wxSizer:addSpacer(VSizer, 10),
+    wxSizer:add(VSizer, BtnSizer, [{flag, ?wxALIGN_LEFT}]),
+
+    wxWindow:setSizer(Dialog, VSizer),
+    CookiePath = filename:join(os:getenv("HOME"), ".erlang.cookie"),
+    DefaultCookie = case filelib:is_file(CookiePath) of
+			true ->
+			    {ok, IoDevice} = file:open(CookiePath, read),
+			    case file:read_line(IoDevice) of
+				{ok, Cookie} ->
+				    Cookie;
+				_ ->
+				    ""
+			    end;
+			false ->
+			    ""
+		    end,
+    wxTextCtrl:setValue(CookieCtrl, DefaultCookie),
+    case wxDialog:showModal(Dialog) of
+	?wxID_OK ->
+	    NameValue = wxTextCtrl:getValue(NameCtrl),
+	    NameLngthValue = wxRadioBox:getSelection(RadioBox),
+	    CookieValue = wxTextCtrl:getValue(CookieCtrl),
+	    wxDialog:destroy(Dialog),
+	    {value, NameValue, NameLngthValue, CookieValue};
+	?wxID_CANCEL ->
+	    wxDialog:destroy(Dialog),
+	    cancel
+    end.
+
+default_menus(NodesMenuItems) ->
+    FileMenu = {"File", [#create_menu{id = ?wxID_EXIT, text = "Quit"}]},
+    HelpMenu = {"Help", [#create_menu{id = ?wxID_HELP, text = "Help"}]},
+    NodeMenu = case erlang:is_alive() of
+		   true ->
+		       {"Nodes", NodesMenuItems ++
+			    [#create_menu{id = ?ID_PING, text = "Connect Node"}]};
+		   false ->
+		       {"Nodes", NodesMenuItems ++
+			    [#create_menu{id = ?ID_CONNECT, text = "Enable distribution"}]}
+	       end,
+    [FileMenu, NodeMenu, HelpMenu].
+
+clean_menus(MenuBar) ->
+    Count = wxMenuBar:getMenuCount(MenuBar),
+    remove_menu_item(MenuBar, Count).
+
+remove_menu_item(MenuBar, Item) when Item > -1 ->
+    Menu = wxMenuBar:getMenu(MenuBar, Item),
+    wxMenuBar:remove(MenuBar, Item),
+    wxMenu:destroy(Menu),
+    remove_menu_item(MenuBar, Item-1);
+remove_menu_item(_, _) ->
+    ok.
+
+merge_menus([{Label, Items}|Default], [{Label, TabItems}|TabMenus]) ->
+    [{Label, TabItems ++ Items} | merge_menus(Default, TabMenus)];
+merge_menus([Menu = {"File", _}|Default], TabMenus) ->
+    [Menu | merge_menus(Default, TabMenus)];
+merge_menus(Default = [{"Nodes", _}|_], TabMenus) ->
+    TabMenus ++ Default.
+
+create_menu(Menus, MenuBar) ->
+    Add = fun({Name, MenuItems}) ->
+		  Menu = wxMenu:new(),
+		  lists:foreach(fun(Record) ->
+					create_menu_item(Record, Menu)
+				end,
+				MenuItems),
+		  wxMenuBar:append(MenuBar, Menu, Name)
+	  end,
+    wx:foreach(Add, Menus),
+    ok.
+
+create_menu_item(#create_menu{id = Id, text = Text, type = Type, check = Check}, Menu) ->
+    case Type of
+	append ->
+	    wxMenu:append(Menu, Id, Text);
+	check ->
+	    wxMenu:appendCheckItem(Menu, Id, Text),
+	    wxMenu:check(Menu, Id, Check);
+	radio ->
+	    wxMenu:appendRadioItem(Menu, Id, Text),
+	    wxMenu:check(Menu, Id, Check);
+	separator ->
+	    wxMenu:appendSeparator(Menu)
+    end;
+create_menu_item(separator, Menu) ->
+    wxMenu:appendSeparator(Menu).
+
+
+get_nodes() ->
+    Nodes = [node()| nodes()],
+    {_, Menues} =
+	lists:foldl(fun(Node, {Id, Acc}) when Id < ?LAST_NODES_MENU_ID ->
+			    {Id + 1, [#create_menu{id = Id + ?FIRST_NODES_MENU_ID,
+						   text =  atom_to_list(Node)} | Acc]}
+		    end,
+		    {1, []},
+		    Nodes),
+    {Nodes, lists:reverse(Menues)}.
+
+update_node_list(State = #state{menubar=MenuBar}) ->
+    {Nodes, NodesMenuItems} = get_nodes(),
+    NodeMenuId = wxMenuBar:findMenu(MenuBar, "Nodes"),
+    NodeMenu = wxMenuBar:getMenu(MenuBar, NodeMenuId),
+    wx:foreach(fun(Item) ->
+		       wxMenu:'Destroy'(NodeMenu, Item)
+	       end,
+	       wxMenu:getMenuItems(NodeMenu)),
+
+    wx:foreach(fun(Record) ->
+		       create_menu_item(Record, NodeMenu)
+	       end, NodesMenuItems),
+
+    case erlang:is_alive() of
+	true ->
+	    create_menu_item(#create_menu{id = ?ID_PING, text = "Connect node"}, NodeMenu);
+	false ->
+	    create_menu_item(#create_menu{id = ?ID_CONNECT, text = "Enable distribution"}, NodeMenu)
+    end,
+    State#state{nodes = Nodes}.
