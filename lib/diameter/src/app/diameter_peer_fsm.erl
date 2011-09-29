@@ -52,6 +52,9 @@
 -define(GOAWAY, ?'DIAMETER_BASE_DISCONNECT-CAUSE_DO_NOT_WANT_TO_TALK_TO_YOU').
 -define(REBOOT, ?'DIAMETER_BASE_DISCONNECT-CAUSE_REBOOTING').
 
+-define(NO_INBAND_SECURITY, 0).
+-define(TLS, 1).
+
 -define(LOOP_TIMEOUT, 2000).
 
 %% RFC 3588:
@@ -195,10 +198,8 @@ handle_info(T, #state{} = State) ->
             ?LOG(stop, T),
             x(T, State)
     catch
-        throw: {?MODULE, close = C, Reason} ->
-            ?LOG(C, {Reason, T}),
-            x(Reason, State);
-        throw: {?MODULE, abort, Reason}  ->
+        throw: {?MODULE, Tag, Reason}  ->
+            ?LOG(Tag, {Reason, T}),
             {stop, {shutdown, Reason}, State}
     end.
 
@@ -281,10 +282,9 @@ transition(shutdown, _) ->  %% DPR already send: ensure expected timeout
 
 %% Request to close the transport connection.
 transition({close = T, Pid}, #state{parent = Pid,
-                                    transport = TPid}
-                             = S) ->
+                                    transport = TPid}) ->
     diameter_peer:close(TPid),
-    close(T,S);
+    {stop, T};
 
 %% DPA reception has timed out.
 transition(dpa_timeout, _) ->
@@ -418,11 +418,11 @@ rcv('CER' = N, Pkt, #state{state = recv_CER} = S) ->
 
 %% Anything but CER/CEA in a non-Open state is an error, as is
 %% CER/CEA in anything but recv_CER/Wait-CEA.
-rcv(Name, _, #state{state = PS} = S)
+rcv(Name, _, #state{state = PS})
   when PS /= 'Open';
        Name == 'CER';
        Name == 'CEA' ->
-    close({Name, PS}, S);
+    {stop, {Name, PS}};
 
 rcv(N, Pkt, S)
   when N == 'DWR';
@@ -497,15 +497,20 @@ build_answer('CER',
     #diameter_service{capabilities = #diameter_caps{origin_host = OH}}
         = Svc,
 
-    {SupportedApps, #diameter_caps{origin_host = DH} = RCaps, CEA}
+    {SupportedApps,
+     #diameter_caps{origin_host = DH} = RCaps,
+     #diameter_base_CEA{'Result-Code' = RC}
+     = CEA}
         = recv_CER(CER, S),
 
     try
-        [] == SupportedApps
-            andalso ?THROW({no_common_application, 5010}),
+        2001 == RC  %% DIAMETER_SUCCESS
+            orelse ?THROW({sent_CEA, RC}),
         register_everywhere({?MODULE, connection, OH, DH})
             orelse ?THROW({election_lost, 4003}),
-        {CEA, [fun open/4, Pkt, SupportedApps, RCaps]}
+        #diameter_base_CEA{'Inband-Security-Id' = [IS]}
+            = CEA,
+        {CEA, [fun open/5, Pkt, SupportedApps, RCaps, {accept, IS}]}
     catch
         ?FAILURE({Reason, RC}) ->
             {answer('CER', S) ++ [{'Result-Code', RC}],
@@ -613,7 +618,7 @@ recv_CER(CER, #state{service = Svc}) ->
 handle_CEA(#diameter_packet{header = #diameter_header{version = V},
                             bin = Bin}
            = Pkt,
-           #state{service = Svc}
+           #state{service = #diameter_service{capabilities = LCaps}}
            = S)
   when is_binary(Bin) ->
     ?LOG(recv, 'CEA'),
@@ -626,7 +631,11 @@ handle_CEA(#diameter_packet{header = #diameter_header{version = V},
 
     [] == Errors orelse close({errors, Errors}, S),
 
-    {SApps, #diameter_caps{origin_host = DH} = RCaps} = recv_CEA(CEA, S),
+    {SApps, [IS], #diameter_caps{origin_host = DH} = RCaps}
+        = recv_CEA(CEA, S),
+
+    #diameter_caps{origin_host = OH}
+        = LCaps,
 
     %% Ensure that we don't already have a connection to the peer in
     %% question. This isn't the peer election of 3588 except in the
@@ -634,39 +643,61 @@ handle_CEA(#diameter_packet{header = #diameter_header{version = V},
     %% receive a CER/CEA, the first that arrives wins the right to a
     %% connection with the peer.
 
-    #diameter_service{capabilities = #diameter_caps{origin_host = OH}}
-        = Svc,
-
     register_everywhere({?MODULE, connection, OH, DH})
-        orelse
-        close({'CEA', DH}, S),
+        orelse close({'CEA', DH}, S),
 
-    open(DPkt, SApps, RCaps, S).
+    open(DPkt, SApps, RCaps, {connect, IS}, S).
 
 %% recv_CEA/2
 
 recv_CEA(CEA, #state{service = Svc} = S) ->
     case diameter_capx:recv_CEA(CEA, Svc) of
-        {ok, {[], _}} ->
+        {ok, {_,_}} -> %% return from old code
+            close({'CEA', update}, S);
+        {ok, {[], _, _}} ->
             close({'CEA', no_common_application}, S);
-        {ok, T} ->
+        {ok, {_, [], _}} ->
+            close({'CEA', no_common_security}, S);
+        {ok, {_,_,_} = T} ->
             T;
         {error, Reason} ->
             close({'CEA', Reason}, S)
     end.
 
-%% open/4
+%% open/5
 
-open(Pkt, SupportedApps, RCaps, #state{parent = Pid,
-                                       service = Svc}
-                                = S) ->
-    #diameter_service{capabilities = #diameter_caps{origin_host = OH}
+open(Pkt, SupportedApps, RCaps, {Type, IS}, #state{parent = Pid,
+                                                   service = Svc}
+                                            = S) ->
+    #diameter_service{capabilities = #diameter_caps{origin_host = OH,
+                                                    inband_security_id = LS}
                                    = LCaps}
         = Svc,
     #diameter_caps{origin_host = DH}
         = RCaps,
+
+    tls_ack(lists:member(?TLS, LS), Type, IS, S),
     Pid ! {open, self(), {OH,DH}, {capz(LCaps, RCaps), SupportedApps, Pkt}},
+
     S#state{state = 'Open'}.
+
+%% We've advertised TLS support: tell the transport the result
+%% and expect a reply when the handshake is complete.
+tls_ack(true, Type, IS, #state{transport = TPid} = S) ->
+    Ref = make_ref(),
+    MRef = erlang:monitor(process, TPid),
+    TPid ! {diameter, {tls, Ref, Type, IS == ?TLS}},
+    receive
+        {diameter, {tls, Ref}} ->
+            erlang:demonitor(MRef, [flush]);
+        {'DOWN', MRef, process, _, _} = T ->
+            close({tls_ack, T}, S)
+    end;
+
+%% Or not. Don't send anything to the transport so that transports
+%% not supporting TLS work as before without modification.
+tls_ack(false, _, _, _) ->
+    ok.
 
 capz(#diameter_caps{} = L, #diameter_caps{} = R) ->
     #diameter_caps{}

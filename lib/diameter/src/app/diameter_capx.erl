@@ -62,6 +62,7 @@
 -define(NOSECURITY, ?'DIAMETER_BASE_RESULT-CODE_DIAMETER_NO_COMMON_SECURITY').
 
 -define(NO_INBAND_SECURITY, 0).
+-define(TLS, 1).
 
 %% ===========================================================================
 
@@ -80,7 +81,7 @@ recv_CER(CER, Svc) ->
     try_it([fun rCER/2, CER, Svc]).
 
 -spec recv_CEA(#diameter_base_CEA{}, #diameter_service{})
-   -> tried({['Unsigned32'()], #diameter_caps{}}).
+   -> tried({['Unsigned32'()], ['Unsigned32'()], #diameter_caps{}}).
 
 recv_CEA(CEA, Svc) ->
     try_it([fun rCEA/2, CEA, Svc]).
@@ -126,10 +127,11 @@ mk_caps(Caps0, Opts) ->
 set_cap({Key, _}, _) ->
     ?THROW({duplicate, Key}).
 
-cap(K, V) when K == 'Origin-Host';
-               K == 'Origin-Realm';
-               K == 'Vendor-Id';
-               K == 'Product-Name' ->
+cap(K, V)
+  when K == 'Origin-Host';
+       K == 'Origin-Realm';
+       K == 'Vendor-Id';
+       K == 'Product-Name' ->
     V;
 
 cap('Host-IP-Address', Vs)
@@ -139,11 +141,8 @@ cap('Host-IP-Address', Vs)
 cap('Firmware-Revision', V) ->
     [V];
 
-%% Not documented but accept it as long as it's what we support.
-cap('Inband-Security-Id', [0] = Vs) ->  %% NO_INBAND_SECURITY
-    Vs;
-
-cap(K, Vs) when K /= 'Inband-Security-Id', is_list(Vs) ->
+cap(_, Vs)
+  when is_list(Vs) ->
     Vs;
 
 cap(K, V) ->
@@ -161,28 +160,10 @@ ipaddr(A) ->
 %%
 %% Build a CER record to send to a remote peer.
 
-bCER(#diameter_caps{origin_host = Host,
-                    origin_realm = Realm,
-                    host_ip_address = Addrs,
-                    vendor_id = Vid,
-                    product_name = Name,
-                    origin_state_id = OSI,
-                    supported_vendor_id = SVid,
-                    auth_application_id = AuId,
-                    acct_application_id = AcId,
-                    vendor_specific_application_id = VSA,
-                    firmware_revision = Rev}) ->
-    #diameter_base_CER{'Origin-Host' = Host,
-                       'Origin-Realm' = Realm,
-                       'Host-IP-Address' = Addrs,
-                       'Vendor-Id' = Vid,
-                       'Product-Name' = Name,
-                       'Origin-State-Id' = OSI,
-                       'Supported-Vendor-Id' = SVid,
-                       'Auth-Application-Id' = AuId,
-                       'Acct-Application-Id' = AcId,
-                       'Vendor-Specific-Application-Id' = VSA,
-                       'Firmware-Revision' = Rev}.
+%% Use the fact that diameter_caps has the same field names as CER.
+bCER(#diameter_caps{} = Rec) ->
+    #diameter_base_CER{}
+        = list_to_tuple([diameter_base_CER | tl(tuple_to_list(Rec))]).
 
 %% rCER/2
 %%
@@ -219,19 +200,16 @@ bCER(#diameter_caps{origin_host = Host,
 %% That is, each side sends all of its capabilities and is responsible for
 %% not sending commands that the peer doesn't support.
 
-%% TODO: Make it an option to send only common applications in CEA to
-%%       allow backwards compatibility, and also because there are likely
-%%       servers that expect this. Or maybe a callback.
-
 %% 6.10.  Inband-Security-Id AVP
 %%
 %%   NO_INBAND_SECURITY                0
 %%      This peer does not support TLS.  This is the default value, if the
 %%      AVP is omitted.
+%%
+%%   TLS                               1
+%%      This node supports TLS security, as defined by [TLS].
 
 rCER(CER, #diameter_service{capabilities = LCaps} = Svc) ->
-    #diameter_base_CER{'Inband-Security-Id' = RIS}
-        = CER,
     #diameter_base_CEA{}
         = CEA
         = cea_from_cer(bCER(LCaps)),
@@ -241,56 +219,95 @@ rCER(CER, #diameter_service{capabilities = LCaps} = Svc) ->
 
     {SApps,
      RCaps,
-     build_CEA([] == SApps,
-               RIS,
-               lists:member(?NO_INBAND_SECURITY, RIS),
-               CEA#diameter_base_CEA{'Result-Code' = ?SUCCESS,
-                                     'Inband-Security-Id' = []})}.
+     build_CEA(SApps,
+               LCaps,
+               RCaps,
+               CEA#diameter_base_CEA{'Result-Code' = ?SUCCESS})}.
 
-%% TODO: 5.3 of RFC3588 says we MUST return DIAMETER_NO_COMMON_APPLICATION
+%% TODO: 5.3 of RFC 3588 says we MUST return DIAMETER_NO_COMMON_APPLICATION
 %%       in the CEA and SHOULD disconnect the transport. However, we have
 %%       no way to guarantee the send before disconnecting.
 
-build_CEA(true, _, _, CEA) ->
+build_CEA([], _, _, CEA) ->
     CEA#diameter_base_CEA{'Result-Code' = ?NOAPP};
-build_CEA(false, [_|_], false, CEA) ->
-    CEA#diameter_base_CEA{'Result-Code' = ?NOSECURITY};
-build_CEA(false, [_|_], true, CEA) ->
-    CEA#diameter_base_CEA{'Inband-Security-Id' = [?NO_INBAND_SECURITY]};
-build_CEA(false, [], false, CEA) ->
-    CEA.
+
+build_CEA(_, LCaps, RCaps, CEA) ->
+    case common_security(LCaps, RCaps) of
+        [] ->
+            CEA#diameter_base_CEA{'Result-Code' = ?NOSECURITY};
+        [_] = IS ->
+            CEA#diameter_base_CEA{'Inband-Security-Id' = IS}
+    end.
+
+%% common_security/2
+
+common_security(#diameter_caps{inband_security_id = LS},
+                #diameter_caps{inband_security_id = RS}) ->
+    cs(LS, RS).
+
+%% Unspecified is equivalent to NO_INBAND_SECURITY.
+cs([], RS) ->
+    cs([?NO_INBAND_SECURITY], RS);
+cs(LS, []) ->
+    cs(LS, [?NO_INBAND_SECURITY]);
+
+%% Agree on TLS if both parties support it. When sending CEA, this is
+%% to ensure the peer is clear that we will be expecting a TLS
+%% handshake since there is no ssl:maybe_accept that would allow the
+%% peer to choose between TLS or not upon reception of our CEA. When
+%% receiving CEA it deals with a server that isn't explicit about its choice.
+%% TODO: Make the choice configurable.
+cs(LS, RS) ->
+    Is = ordsets:to_list(ordsets:intersection(ordsets:from_list(LS),
+                                              ordsets:from_list(RS))),
+    case lists:member(?TLS, Is) of
+        true ->
+            [?TLS];
+        false when [] == Is ->
+            Is;
+        false ->
+            [hd(Is)]  %% probably NO_INBAND_SECURITY
+    end.
+%% The only two values defined by RFC 3588 are NO_INBAND_SECURITY and
+%% TLS but don't enforce this. In theory this allows some other
+%% security mechanism we don't have to know about, although in
+%% practice something there may be a need for more synchronization
+%% than notification by way of an event subscription offers.
 
 %% cea_from_cer/1
 
+%% CER is a subset of CEA, the latter adding Result-Code and a few
+%% more AVP's.
 cea_from_cer(#diameter_base_CER{} = CER) ->
     lists:foldl(fun(F,A) -> to_cea(CER, F, A) end,
                 #diameter_base_CEA{},
                 record_info(fields, diameter_base_CER)).
 
 to_cea(CER, Field, CEA) ->
-    try ?BASE:'#info-'(diameter_base_CEA, {index, Field}) of
-        N ->
-            setelement(N, CEA, ?BASE:'#get-'(Field, CER))
+    try ?BASE:'#get-'(Field, CER) of
+        V -> ?BASE:'#set-'({Field, V}, CEA)
     catch
-        error: _ ->
-            CEA
+        error: _ -> CEA
     end.
-
+        
 %% rCEA/2
 
-rCEA(CEA, #diameter_service{capabilities = LCaps} = Svc)
-  when is_record(CEA, diameter_base_CEA) ->
-    #diameter_base_CEA{'Result-Code' = RC}
-        = CEA,
-
+rCEA(#diameter_base_CEA{'Result-Code' = RC}
+     = CEA,
+     #diameter_service{capabilities = LCaps}
+     = Svc) ->
     RC == ?SUCCESS orelse ?THROW({'Result-Code', RC}),
 
     RCaps = capx_to_caps(CEA),
     SApps = common_applications(LCaps, RCaps, Svc),
 
-    [] == SApps andalso ?THROW({no_common_apps, LCaps, RCaps}),
+    [] == SApps andalso ?THROW(no_common_applications),
 
-    {SApps, RCaps};
+    IS = common_security(LCaps, RCaps),
+
+    [] == IS andalso ?THROW(no_common_security),
+
+    {SApps, IS, RCaps};
 
 rCEA(CEA, _Svc) ->
     ?THROW({invalid, CEA}).
