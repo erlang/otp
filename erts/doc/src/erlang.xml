@@ -1196,11 +1196,16 @@ true
           </item>
           <tag><c>{new_uniq, Uniq}</c></tag>
           <item>
-            <p><c>Uniq</c> (a binary) is a unique value for this fun.</p>
+            <p><c>Uniq</c> (a binary) is a unique value for this fun.
+	    It is calculated from the compiled code for the entire module.</p>
           </item>
           <tag><c>{uniq, Uniq}</c></tag>
           <item>
-            <p><c>Uniq</c> (an integer) is a unique value for this fun.</p>
+            <p><c>Uniq</c> (an integer) is a unique value for this fun.
+	    Starting in the R15 release, this integer is calculated from
+	    the compiled code for the entire module. Before R15, this
+	    integer was based on only the body of the fun.
+	    </p>
           </item>
         </taglist>
       </desc>

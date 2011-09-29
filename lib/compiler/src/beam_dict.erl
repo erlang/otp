@@ -22,7 +22,7 @@
 
 -export([new/0,opcode/2,highest_opcode/1,
 	 atom/2,local/4,export/4,import/4,
-	 string/2,lambda/5,literal/2,line/2,fname/2,
+	 string/2,lambda/4,literal/2,line/2,fname/2,
 	 atom_table/1,local_table/1,export_table/1,import_table/1,
 	 string_table/1,lambda_table/1,literal_table/1,
 	 line_table/1]).
@@ -133,13 +133,16 @@ string(Str, Dict) when is_list(Str) ->
 	    {NextOffset-Offset,Dict}
     end.
 
-%% Returns the index for a funentry (adding it to the table if necessary).
-%%    lambda(Lbl, Index, Uniq, NumFree, Dict) -> {Index,Dict'}
--spec lambda(label(), non_neg_integer(), integer(), non_neg_integer(), bdict()) ->
+%% Returns the index for a fun entry.
+%%    lambda(Lbl, Index, NumFree, Dict) -> {Index,Dict'}
+-spec lambda(label(), non_neg_integer(), non_neg_integer(), bdict()) ->
         {non_neg_integer(), bdict()}.
 
-lambda(Lbl, Index, OldUniq, NumFree, #asm{lambdas=Lambdas0}=Dict) ->
+lambda(Lbl, Index, NumFree, #asm{lambdas=Lambdas0}=Dict) ->
     OldIndex = length(Lambdas0),
+    %% Initialize OldUniq to 0. It will be set to an unique value
+    %% based on the MD5 checksum of the BEAM code for the module.
+    OldUniq = 0,
     Lambdas = [{Lbl,{OldIndex,Lbl,Index,NumFree,OldUniq}}|Lambdas0],
     {OldIndex,Dict#asm{lambdas=Lambdas}}.
 

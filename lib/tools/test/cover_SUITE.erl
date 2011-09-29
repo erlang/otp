@@ -583,21 +583,14 @@ otp_6115_1(Config) ->
     %% called -- running cover compiled code when there is no cover
     %% server and thus no ets tables to bump counters in, makes no
     %% sense.
-    ?line Pid1 = f1:start_fail(),
-
-    %% If f1 is cover compiled, a process P is started with a
-    %% reference to the fun created in start_ok/0, and
-    %% cover:stop() is called, then P should survive.
-    %% This is because (the fun held by) P always references the current
-    %% version of the module, and is thus not affected by the cover
-    %% compiled version being unloaded.
-    ?line Pid2 = f1:start_ok(),
+    Pid1 = f1:start_a(),
+    Pid2 = f1:start_b(),
 
     %% Now stop cover
     ?line cover:stop(),
     
-    %% Ensure that f1 is loaded (and not cover compiled), that Pid1
-    %% is dead and Pid2 is alive, but with no reference to old code
+    %% Ensure that f1 is loaded (and not cover compiled), and that
+    %% both Pid1 and Pid2 are dead.
     case code:which(f1) of
 	Beam when is_list(Beam) ->
 	    ok;
@@ -608,19 +601,15 @@ otp_6115_1(Config) ->
 	undefined ->
 	    ok;
 	_PI1 ->
-	    RefToOldP = erlang:check_process_code(Pid1, f1),
-	    ?line ?t:fail({"Pid1 still alive", RefToOldP})
+	    RefToOldP1 = erlang:check_process_code(Pid1, f1),
+	    ?t:fail({"Pid1 still alive", RefToOldP1})
     end,
     case process_info(Pid2) of
-	PI2 when is_list(PI2) ->
-	    case erlang:check_process_code(Pid2, f2) of
-		false ->
-		    ok;
-		true ->
-		    ?line ?t:fail("Pid2 has ref to old code")
-	    end;
 	undefined ->
-	    ?line ?t:fail("Pid2 has died")
+	    ok;
+	_PI2 ->
+	    RefToOldP2 = erlang:check_process_code(Pid1, f2),
+	    ?t:fail({"Pid2 still alive", RefToOldP2})
     end,
 
     ?line file:set_cwd(CWD),

@@ -146,8 +146,10 @@ build_file(Code, Attr, Dict, NumLabels, NumFuncs, Abst, SourceFile, Opts) ->
 
     Essentials0 = [AtomChunk,CodeChunk,StringChunk,ImportChunk,
 		   ExpChunk,LambdaChunk,LiteralChunk],
-    Essentials = [iolist_to_binary(C) || C <- Essentials0],
-    {Attributes,Compile} = build_attributes(Opts, SourceFile, Attr, Essentials),
+    Essentials1 = [iolist_to_binary(C) || C <- Essentials0],
+    MD5 = module_md5(Essentials1),
+    Essentials = finalize_fun_table(Essentials1, MD5),
+    {Attributes,Compile} = build_attributes(Opts, SourceFile, Attr, MD5),
     AttrChunk = chunk(<<"Attr">>, Attributes),
     CompileChunk = chunk(<<"CInf">>, Compile),
 
@@ -165,6 +167,24 @@ build_file(Code, Attr, Dict, NumLabels, NumFuncs, Abst, SourceFile, Opts) ->
 		      CompileChunk,AbstChunk,LineChunk]
 	     end,
     build_form(<<"BEAM">>, Chunks).
+
+%% finalize_fun_table(Essentials, MD5) -> FinalizedEssentials
+%%  Update the 'old_uniq' field in the entry for each fun in the
+%%  'FunT' chunk. We'll use part of the MD5 for the module as a
+%%  unique value.
+
+finalize_fun_table(Essentials, MD5) ->
+    [finalize_fun_table_1(E, MD5) || E <- Essentials].
+
+finalize_fun_table_1(<<"FunT",Keep:8/binary,Table0/binary>>, MD5) ->
+    <<Uniq:27,_:101/bits>> = MD5,
+    Table = finalize_fun_table_2(Table0, Uniq, <<>>),
+    <<"FunT",Keep/binary,Table/binary>>;
+finalize_fun_table_1(Chunk, _) -> Chunk.
+
+finalize_fun_table_2(<<Keep:20/binary,0:32,T/binary>>, Uniq, Acc) ->
+    finalize_fun_table_2(T, Uniq, <<Acc/binary,Keep/binary,Uniq:32>>);
+finalize_fun_table_2(<<>>, _, Acc) -> Acc.
 
 %% Build an IFF form.
 
@@ -202,7 +222,7 @@ flatten_exports(Exps) ->
 flatten_imports(Imps) ->
     list_to_binary(map(fun({M,F,A}) -> <<M:32,F:32,A:32>> end, Imps)).
 
-build_attributes(Opts, SourceFile, Attr, Essentials) ->
+build_attributes(Opts, SourceFile, Attr, MD5) ->
     Misc = case member(slim, Opts) of
 	       false ->
 		   {{Y,Mo,D},{H,Mi,S}} = erlang:universaltime(),
@@ -210,7 +230,7 @@ build_attributes(Opts, SourceFile, Attr, Essentials) ->
 	       true -> []
 	   end,
     Compile = [{options,Opts},{version,?COMPILER_VSN}|Misc],
-    {term_to_binary(calc_vsn(Attr, Essentials)),term_to_binary(Compile)}.
+    {term_to_binary(set_vsn_attribute(Attr, MD5)),term_to_binary(Compile)}.
 
 build_line_table(Dict) ->
     {NumLineInstrs,NumFnames0,Fnames0,NumLines,Lines0} =
@@ -243,31 +263,29 @@ encode_line_items([], _) -> [].
 %% We'll not change an existing 'vsn' attribute.
 %%
 
-calc_vsn(Attr, Essentials0) ->
+set_vsn_attribute(Attr, MD5) ->
     case keymember(vsn, 1, Attr) of
 	true -> Attr;
 	false ->
-	    Essentials = filter_essentials(Essentials0),
-	    <<Number:128>> = erlang:md5(Essentials),
+	    <<Number:128>> = MD5,
 	    [{vsn,[Number]}|Attr]
     end.
 
+module_md5(Essentials0) ->
+    Essentials = filter_essentials(Essentials0),
+    erlang:md5(Essentials).
+
 %% filter_essentials([Chunk]) -> [Chunk']
 %%  Filter essentials so that we obtain the same MD5 as code:module_md5/1 and
-%%  beam_lib:md5/1 would calculate for this module.
+%%  beam_lib:md5/1 would calculate for this module.  Note that at this
+%%  point, the 'old_uniq' entry for each fun in the 'FunT' chunk is zeroed,
+%%  so there is no need to go through the 'FunT' chunk.
 
-filter_essentials([<<"FunT",_Sz:4/binary,Entries:4/binary,Table0/binary>>|T]) ->
-    Table = filter_funtab(Table0, <<0:32>>),
-    [Entries,Table|filter_essentials(T)];
 filter_essentials([<<_Tag:4/binary,Sz:32,Data:Sz/binary,_Padding/binary>>|T]) ->
     [Data|filter_essentials(T)];
 filter_essentials([<<>>|T]) ->
     filter_essentials(T);
 filter_essentials([]) -> [].
-
-filter_funtab(<<Important:20/binary,_OldUniq:4/binary,T/binary>>, Zero) ->
-    [Important,Zero|filter_funtab(T, Zero)];
-filter_funtab(<<>>, _) -> [].
 
 bif_type(fnegate, 1) -> {op,fnegate};
 bif_type(fadd, 2)   -> {op,fadd};
@@ -310,8 +328,8 @@ make_op({test,Cond,Fail,Ops}, Dict) when is_list(Ops) ->
     encode_op(Cond, [Fail|Ops], Dict);
 make_op({test,Cond,Fail,Live,[Op|Ops],Dst}, Dict) when is_list(Ops) ->
     encode_op(Cond, [Fail,Op,Live|Ops++[Dst]], Dict);
-make_op({make_fun2,{f,Lbl},Index,OldUniq,NumFree}, Dict0) ->
-    {Fun,Dict} = beam_dict:lambda(Lbl, Index, OldUniq, NumFree, Dict0),
+make_op({make_fun2,{f,Lbl},Index,_OldUniq,NumFree}, Dict0) ->
+    {Fun,Dict} = beam_dict:lambda(Lbl, Index, NumFree, Dict0),
     make_op({make_fun2,Fun}, Dict);
 make_op({kill,Y}, Dict) ->
     make_op({init,Y}, Dict);
