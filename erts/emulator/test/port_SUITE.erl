@@ -724,6 +724,8 @@ open_ports(Name, Settings) ->
 		    [];
 		system_limit ->
 		    [];
+		enomem ->
+		    [];
 		Other ->
 		    ?line test_server:fail({open_ports, Other})
 	    end;

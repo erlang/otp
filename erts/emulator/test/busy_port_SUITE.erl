@@ -509,12 +509,12 @@ hs_busy_pcmd(Prt, Opts, StartFun, EndFun) ->
     P = spawn_link(fun () ->
 			   erlang:yield(),
 			   Tester ! {self(), doing_port_command},
-			   Start = os:timestamp(),
+			   Start = now(),
 			   Res = try {return,
 				      port_command(Prt, [], Opts)}
 				 catch Exception:Error -> {Exception, Error}
 				 end,
-			   End = os:timestamp(),
+			   End = now(),
 			   Time = round(timer:now_diff(End, Start)/1000),
 			   Tester ! {self(), port_command_result, Res, Time}
 		   end),

@@ -336,7 +336,7 @@ receiver2(Num, TotSize) ->
 
 link_to_busy(doc) -> "Test that link/1 to a busy distribution port works.";
 link_to_busy(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(30)),
+    ?line Dog = test_server:timetrap(test_server:seconds(60)),
     ?line {ok, Node} = start_node(link_to_busy),
     ?line Recv = spawn(Node, erlang, apply, [fun sink/1, [link_to_busy_sink]]),
 
@@ -383,7 +383,7 @@ tail_applied_linker(Pid) ->
     
 exit_to_busy(doc) -> "Test that exit/2 to a busy distribution port works.";
 exit_to_busy(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(30)),
+    ?line Dog = test_server:timetrap(test_server:seconds(60)),
     ?line {ok, Node} = start_node(exit_to_busy),
 
     Tracer = case os:getenv("TRACE_BUSY_DIST_PORT") of

@@ -294,7 +294,7 @@ t_getaddr_v6(Config) when is_list(Config) ->
     ?line {Name,FullName,IPStr,_IP,_,IP_46_Str,IP46} =
 	ct:get_config(test_host_ipv4_only),
     case {inet:getaddr(IP_46_Str, inet6),inet:getaddr(Name, inet6)} of
-	{{ok,IP46},{ok,_}} -> 
+	{{ok,IP46},{ok,V4Addr}} when V4Addr /= {0,0,0,0,0,0,0,1} ->
 	    %% Since we suceeded in parsing an IPv6 address string and
 	    %% look up the name, this computer fully supports IPv6.
 	    ?line {ok,IP46} = inet:getaddr(IP46, inet6),
