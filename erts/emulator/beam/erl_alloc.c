@@ -2960,6 +2960,29 @@ erts_allocator_options(void *proc)
     return res;
 }
 
+void *erts_alloc_permanent_cache_aligned(ErtsAlcType_t type, Uint size)
+{
+    UWord v = (UWord) erts_alloc(type, size + (ERTS_CACHE_LINE_SIZE-1));
+
+#ifdef VALGRIND
+    {   /* Avoid Leak_PossiblyLost */
+	static UWord vg_root_set[10];
+	static unsigned ix = 0;
+	if (ix >= sizeof(vg_root_set) / sizeof(*vg_root_set)) {
+	    erl_exit(ERTS_ABORT_EXIT, "Too many erts_alloc_permanent_cache_aligned's\n");
+	}
+	vg_root_set[ix++] = v;  /* not thread safe */
+    }
+#endif
+
+    if (v & ERTS_CACHE_LINE_MASK) {
+	v = (v & ~ERTS_CACHE_LINE_MASK) + ERTS_CACHE_LINE_SIZE;
+    }
+    ASSERT((v & ERTS_CACHE_LINE_MASK) == 0);
+    return (void*)v;
+}
+
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
  * Deprecated functions                                                    *
  *                                                                         *
@@ -3582,7 +3605,5 @@ install_debug_functions(void)
     }
     return FENCE_SZ;
 }
-
-
 
 #endif /* #ifdef DEBUG */
