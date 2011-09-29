@@ -48,6 +48,8 @@ MODULES= \
 	observer_sys_wx \
 	observer_trace_wx \
 	observer_traceoptions_wx \
+	observer_tv_table \
+	observer_tv_wx \
 	ttb \
 	ttb_et
 
