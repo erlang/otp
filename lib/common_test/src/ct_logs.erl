@@ -838,6 +838,7 @@ make_one_index_entry1(SuiteName, Link, Label, Success, Fail, UserSkip, AutoSkip,
 				    ""
 			    end
 		    end,
+    CtRunDir = filename:dirname(filename:dirname(Link)),
     {Lbl,Timestamp,Node,AllInfo} =
 	case All of
 	    {true,OldRuns} -> 
@@ -847,7 +848,6 @@ make_one_index_entry1(SuiteName, Link, Label, Success, Fail, UserSkip, AutoSkip,
 			    _ -> NodeOrDate
 			end,
 		N = ["<TD ALIGN=right><FONT SIZE=-1>",Node1,"</FONT></TD>\n"],
-		CtRunDir = filename:dirname(filename:dirname(Link)),
 		L = ["<TD ALIGN=center><FONT SIZE=-1><B>",Label,"</FONT></B></TD>\n"],
 		T = ["<TD><FONT SIZE=-1>",timestamp(CtRunDir),"</FONT></TD>\n"],
 		CtLogFile = filename:join(CtRunDir,?ct_log_name),
@@ -866,7 +866,7 @@ make_one_index_entry1(SuiteName, Link, Label, Success, Fail, UserSkip, AutoSkip,
 	if NotBuilt == 0 ->
 		["<TD ALIGN=right>",integer_to_list(NotBuilt),"</TD>\n"];
 	   true ->
-		["<TD ALIGN=right><A HREF=\"",?ct_log_name,"\">",
+		["<TD ALIGN=right><A HREF=\"",filename:join(CtRunDir,?ct_log_name),"\">",
 		integer_to_list(NotBuilt),"</A></TD>\n"]
 	end,
     FailStr =
