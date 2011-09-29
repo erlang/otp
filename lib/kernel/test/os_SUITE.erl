@@ -117,9 +117,21 @@ space_in_name(Config) when is_list(Config) ->
     ?line ok = file:change_mode(Echo, 8#777),	% Make it executable on Unix.
 
     %% Run the echo program.
-
-    ?line comp("", os:cmd("\"" ++ Echo ++ "\"")),
-    ?line comp("a::b::c", os:cmd("\"" ++ Echo ++ "\" a b c")),
+    %% Quoting on windows depends on if the full path of the executable 
+    %% contains special characters. Paths when running common_tests always
+    %% include @, why Windows would always fail if we do not double the 
+    %% quotes (this is the behaviour of cmd.exe, not Erlang's idea).
+    Quote = case os:type() of
+                {win32,_} ->
+		    case (Echo -- "&<>()@^|") =:= Echo of
+		        true -> "\"";
+			false -> "\"\""
+	 	    end;
+		_ ->
+		    "\""
+	    end,
+    ?line comp("", os:cmd(Quote ++ Echo ++ Quote)),
+    ?line comp("a::b::c", os:cmd(Quote ++ Echo ++ Quote ++ " a b c")),
     ?t:sleep(5),
     ?line [] = receive_all(),
     ok.
