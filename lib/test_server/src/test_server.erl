@@ -749,7 +749,8 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate, Comment, CurrConf) ->
 	{read_comment,From} ->
 	    From ! {self(),read_comment,Comment},
 	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,CurrConf);
-	{set_curr_conf,NewCurrConf} ->
+	{set_curr_conf,From,NewCurrConf} ->
+	    From ! {self(),set_curr_conf,ok},
 	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,NewCurrConf);
 	{'EXIT',Pid,{Ref,Time,Value,Loc,Opts}} ->
 	    RetVal = {Time/1000000,Value,mod_loc(Loc),Opts,Comment},
@@ -973,10 +974,19 @@ spawn_fw_call(Mod,{init_per_testcase,Func},_,Pid,{timetrap_timeout,TVal}=Why,
 
 spawn_fw_call(Mod,{end_per_testcase,Func},EndConf,Pid,
 	      {timetrap_timeout,TVal}=Why,_Loc,SendTo,Comment) ->
+    %%! This is a temporary fix that keeps Test Server alive during
+    %%! execution of a parallel test case group, when sometimes
+    %%! this clause gets called with EndConf == undefined. See OTP-9594
+    %%! for more info.
+    EndConf1 = if EndConf == undefined ->
+		       [{tc_status,{failed,{Mod,end_per_testcase,Why}}}];
+		  true ->
+		       EndConf
+	       end,
     FwCall =
 	fun() ->
 		{RetVal,Report} =
-		    case proplists:get_value(tc_status, EndConf) of
+		    case proplists:get_value(tc_status, EndConf1) of
 			undefined ->
 			    E = {failed,{Mod,end_per_testcase,Why}},
 			    {E,E};
@@ -986,9 +996,9 @@ spawn_fw_call(Mod,{end_per_testcase,Func},EndConf,Pid,
 			    E = {failed,{Mod,end_per_testcase,Why}},
 			    {Result,E}
 		    end,
-		FailLoc = proplists:get_value(tc_fail_loc, EndConf),
+		FailLoc = proplists:get_value(tc_fail_loc, EndConf1),
 		case catch do_end_tc_call(Mod,Func, FailLoc,
-					  {Pid,Report,[EndConf]}, Why) of
+					  {Pid,Report,[EndConf1]}, Why) of
 		    {'EXIT',FwEndTCErr} ->
 			exit({fw_notify_done,end_tc,FwEndTCErr});
 		    _ ->
@@ -1160,7 +1170,8 @@ run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback) ->
 		    %% call user callback function if defined
 		    NewConf1 = user_callback(TCCallback, Mod, Func, init, NewConf),
 		    %% save current state in controller loop
-		    group_leader() ! {set_curr_conf,{{Mod,Func},NewConf1}},
+		    sync_send(group_leader(),set_curr_conf,{{Mod,Func},NewConf1},
+			      5000, fun() -> exit(no_answer_from_group_leader) end),
 		    put(test_server_loc, {Mod,Func}),
 		    %% execute the test case
 		    {{T,Return},Loc} = {ts_tc(Mod, Func, [NewConf1]),get_loc()},
@@ -1188,7 +1199,8 @@ run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback) ->
 		    %% call user callback function if defined
 		    EndConf1 = user_callback(TCCallback, Mod, Func, 'end', EndConf),
 		    %% update current state in controller loop
-		    group_leader() ! {set_curr_conf,EndConf1},
+		    sync_send(group_leader(),set_curr_conf,EndConf1,
+			      5000, fun() -> exit(no_answer_from_group_leader) end),
 		    {FWReturn1,TSReturn1,EndConf2} =
 			case end_per_testcase(Mod, Func, EndConf1) of
 			    SaveCfg1={save_config,_} ->
@@ -1208,7 +1220,8 @@ run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback) ->
 				{FWReturn,TSReturn,EndConf1}
 			end,
 		    %% clear current state in controller loop
-		    group_leader() ! {set_curr_conf,undefined},
+		    sync_send(group_leader(),set_curr_conf,undefined,
+			      5000, fun() -> exit(no_answer_from_group_leader) end),
 		    put(test_server_init_or_end_conf,undefined),
 		    case do_end_tc_call(Mod,Func, Loc,
 					{FWReturn1,[EndConf2]}, TSReturn1) of
@@ -2015,6 +2028,19 @@ timetrap_cancel() ->
 hours(N)   -> trunc(N * 1000 * 60 * 60).
 minutes(N) -> trunc(N * 1000 * 60).
 seconds(N) -> trunc(N * 1000).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% sync_send(Pid,Tag,Msg,Timeout,DoAfter) -> Result
+%%
+sync_send(Pid,Tag,Msg,Timeout,DoAfter) ->
+    Pid ! {Tag,self(),Msg},
+    receive
+	{Pid,Tag,Result} ->
+	    Result
+    after Timeout ->
+	    DoAfter()
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% timecall(M,F,A) -> {Time,Val}
