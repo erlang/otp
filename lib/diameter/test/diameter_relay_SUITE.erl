@@ -147,13 +147,6 @@ end_per_group(_, _) ->
 
 init_per_suite(Config) ->
     ok = diameter:start(),
-
-    dbg:tracer(port, dbg:trace_port(file, "relay.dbg")),
-    dbg:p(all,c),
-    dbg:tpl(diameter_service, x),
-    dbg:tp(?MODULE, x),
-
-
     [S1,S2,S3,S4] = S = [server(N, ?DICT_COMMON) || N <- [?SERVER1,
                                                           ?SERVER2,
                                                           ?SERVER3,
