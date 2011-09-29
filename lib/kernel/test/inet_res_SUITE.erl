@@ -117,9 +117,15 @@ ns_init(ZoneDir, PrivDir, DataDir) ->
     case os:type() of
 	{unix,_} when ZoneDir =:= undefined -> undefined;
 	{unix,_} ->
-	    {ok,S} = gen_udp:open(0, [{reuseaddr,true}]),
-	    {ok,PortNum} = inet:port(S),
-	    gen_udp:close(S),
+	    PortNum = case {os:type(),os:version()} of
+			  {{unix,solaris},{M,V,_}} when M =< 5, V < 10 ->
+			      11895 + random:uniform(100);
+			  _ ->
+			      {ok,S} = gen_udp:open(0, [{reuseaddr,true}]),
+			      {ok,PNum} = inet:port(S),
+			      gen_udp:close(S),
+			      PNum
+		      end,
 	    RunNamed = filename:join(DataDir, ?RUN_NAMED),
 	    NS = {{127,0,0,1},PortNum},
 	    P = erlang:open_port({spawn_executable,RunNamed},

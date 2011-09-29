@@ -87,8 +87,17 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-
+init_per_testcase(update_cpu_info, Config) ->
+    case os:find_executable("taskset") of
+	false ->
+	    {skip,"Could not find 'taskset' in path"};
+	_ ->
+	    init_per_tc(update_cpu_info, Config)
+    end;
 init_per_testcase(Case, Config) when is_list(Config) ->
+    init_per_tc(Case, Config).
+
+init_per_tc(Case, Config) ->
     Dog = ?t:timetrap(?DEFAULT_TIMEOUT),
     process_flag(priority, max),
     erlang:display({'------------', ?MODULE, Case, '------------'}),
@@ -1030,7 +1039,7 @@ sbt_test(Config, CpuTCmd, ClBt, Bt, LP) ->
     ?line ok.
     
 scheduler_suspend(Config) when is_list(Config) ->
-    ?line Dog = ?t:timetrap(?t:minutes(2)),
+    ?line Dog = ?t:timetrap(?t:minutes(5)),
     ?line lists:foreach(fun (S) -> scheduler_suspend_test(Config, S) end,
 			[64, 32, 16, default]),
     ?line ?t:timetrap_cancel(Dog),
