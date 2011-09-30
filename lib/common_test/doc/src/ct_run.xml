@@ -83,7 +83,7 @@
     <title>Run tests from command line</title>
     <pre>
 	ct_run [-dir TestDir1 TestDir2 .. TestDirN] |
-	[-suite Suite1 Suite2 .. SuiteN
+	[[-dir TestDir] -suite Suite1 Suite2 .. SuiteN
 	 [[-group Group1 Group2 .. GroupN] [-case Case1 Case2 .. CaseN]]]
 	[-step [config | keep_inactive]]
 	[-config ConfigFile1 ConfigFile2 .. ConfigFileN]
@@ -92,6 +92,7 @@
 	[-decrypt_key Key] | [-decrypt_file KeyFile]
 	[-label Label]
 	[-logdir LogDir]
+	[-logopts LogOpts]
 	[-silent_connections [ConnType1 ConnType2 .. ConnTypeN]]
 	[-stylesheet CSSFile]
 	[-cover CoverCfgFile]
@@ -117,6 +118,7 @@
 	[-decrypt_key Key] | [-decrypt_file KeyFile]
 	[-label Label]
 	[-logdir LogDir]
+	[-logopts LogOpts]
 	[-allow_user_terms]
 	[-silent_connections [ConnType1 ConnType2 .. ConnTypeN]]
 	[-stylesheet CSSFile]
@@ -138,10 +140,11 @@
     <pre>
         ct_run -vts [-browser Browser]
         [-dir TestDir1 TestDir2 .. TestDirN] |
-        [-suite Suite [[-group Group] [-case Case]]]
+        [[dir TestDir] -suite Suite [[-group Group] [-case Case]]]
 	[-config ConfigFile1 ConfigFile2 .. ConfigFileN]
 	[-userconfig CallbackModule1 ConfigString1 and CallbackModule2
          ConfigString2 and .. and CallbackModuleN ConfigStringN]
+	[-logopts LogOpts]
 	[-decrypt_key Key] | [-decrypt_file KeyFile]
 	[-include InclDir1 InclDir2 .. InclDirN]
 	[-no_auto_compile]

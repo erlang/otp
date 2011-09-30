@@ -128,6 +128,15 @@
     <p><c>$ ct_run -suite $SYS1_TEST/setup_SUITE -case start stop</c></p>
     <p><c>$ ct_run -suite $SYS1_TEST/setup_SUITE -group installation -case start stop</c></p>
     
+    <p>It is also possible to combine the <c>dir</c>, <c>suite</c> and <c>group/case</c> flags. E.g, to run
+    <c>x_SUITE</c> and <c>y_SUITE</c> in directory <c>testdir</c>:</p>
+
+    <p><c>$ ct_run -dir ./testdir -suite x_SUITE y_SUITE</c></p>
+
+    <p>This has the same effect as calling:</p>
+
+    <p><c>$ ct_run -suite ./testdir/x_SUITE ./testdir/y_SUITE</c></p>
+
     <p>Other flags that may be used with <c>ct_run</c>:</p>
     <list>
       <item><c><![CDATA[-logdir <dir>]]></c>, specifies where the HTML log files are to be written.</item>
@@ -165,6 +174,8 @@
       <item><c><![CDATA[-decrypt_file <key_file>]]></c>, points out a file containing a decryption key for 
         <seealso marker="config_file_chapter#encrypted_config_files">encrypted configuration files</seealso>.</item>
       <item><c><![CDATA[-basic_html]]></c>, switches off html enhancements that might not be compatible with older browsers.</item>
+      <item><c><![CDATA[-logopts <opts>]]></c>, makes it possible to modify aspects of the logging behaviour, see
+        <seealso marker="run_test_chapter#logopts">Log options</seealso> below.</item>
     </list>
 
     <note><p>Directories passed to Common Test may have either relative or absolute paths.</p></note>
@@ -644,6 +655,30 @@
 	always created initially when a test starts. This makes it possible
 	to follow test progress simply by refreshing pages in the HTML browser.
 	Statistics totals are not presented until a test is complete however.</p>
+
+	<section>
+	  <marker id="logopts"></marker>
+	  <title>Log options</title>
+	  <p>With the <c>logopts</c> start flag, it's possible to specify
+	  options that modify some aspects of the logging behaviour.
+	  Currently, the following options are available:</p>
+	  <list>
+	    <item><c>no_src</c></item>
+	    <item><c>no_nl</c></item>
+	  </list>
+	  <p>With <c>no_src</c>, the html version of the test suite source
+	  code will not be generated during the test run (and consequently
+	  not be available in the log file system).</p>
+	  <p>With <c>no_nl</c>, Common Test will not add a newline character
+	  (\n) to the end of an output string that it receives from a call to e.g.
+	  <c>io:format/2</c>, and which it prints to the test case log.</p>
+	  <p>For example, if a test is started with:</p>
+	  <p><c>$ ct_run -suite my_SUITE -logopts no_src</c></p>
+	  <p>then printouts during the test made by successive calls to <c>io:format("x")</c>,
+	  will appear in the test case log as:</p>
+	  <p><c>xxx</c></p>
+	  <p>instead of each <c>x</c> printed on a new line, which is the default behaviour.</p>
+	</section>
 
       </section>
   
