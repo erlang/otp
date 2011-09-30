@@ -249,11 +249,15 @@ collect_tests_from_file1([Spec|Specs],TestSpec,Relaxed) ->
     SpecDir = filename:dirname(filename:absname(Spec)),
     case file:consult(Spec) of
 	{ok,Terms} ->	    
-	    TestSpec1 = collect_tests(Terms,TestSpec#testspec{spec_dir=SpecDir},
+	    TestSpec1 = collect_tests(Terms,
+				      TestSpec#testspec{spec_dir=SpecDir},
 				      Relaxed),
 	    collect_tests_from_file1(Specs,TestSpec1,Relaxed);
 	{error,Reason} ->
-	    throw({error,{Spec,Reason}})
+	    ReasonStr =
+		lists:flatten(io_lib:format("~s",
+					    [file:format_error(Reason)])),
+	    throw({error,{Spec,ReasonStr}})
     end;
 collect_tests_from_file1([],TS=#testspec{config=Cfgs,event_handler=EvHs,
 					 include=Incl,tests=Tests},_) ->
@@ -480,6 +484,26 @@ add_tests([{logdir,Node,Dir}|Ts],Spec) ->
     add_tests(Ts,Spec#testspec{logdir=Dirs1});
 add_tests([{logdir,Dir}|Ts],Spec) ->
     add_tests([{logdir,all_nodes,Dir}|Ts],Spec);
+
+%% --- logopts ---
+add_tests([{logopts,all_nodes,Opts}|Ts],Spec) ->
+    LogOpts = Spec#testspec.logopts,
+    Tests = [{logopts,N,Opts} ||
+		N <- list_nodes(Spec),
+		lists:keymember(ref2node(N,Spec#testspec.nodes),1,
+				LogOpts) == false],
+    add_tests(Tests++Ts,Spec);
+add_tests([{logopts,Nodes,Opts}|Ts],Spec) when is_list(Nodes) ->
+    Ts1 = separate(Nodes,logopts,[Opts],Ts,Spec#testspec.nodes),
+    add_tests(Ts1,Spec);
+add_tests([{logopts,Node,Opts}|Ts],Spec) ->
+    LogOpts = Spec#testspec.logopts,
+    LogOpts1 = [{ref2node(Node,Spec#testspec.nodes),Opts} |
+		lists:keydelete(ref2node(Node,Spec#testspec.nodes),
+				1,LogOpts)],
+    add_tests(Ts,Spec#testspec{logopts=LogOpts1});
+add_tests([{logopts,Opts}|Ts],Spec) ->
+    add_tests([{logopts,all_nodes,Opts}|Ts],Spec);
 
 %% --- label ---
 add_tests([{label,all_nodes,Lbl}|Ts],Spec) ->
@@ -1097,6 +1121,8 @@ valid_terms() ->
      {merge_tests,1},
      {logdir,2},
      {logdir,3},
+     {logopts,2},
+     {logopts,3},
      {label,2},
      {label,3},
      {event_handler,2},

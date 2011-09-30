@@ -177,7 +177,7 @@ members([],_MakefileMods,I,Rest) ->
     {I,Rest}.
 
 
-%% Any flags that are not recognixed as make flags are passed directly
+%% Any flags that are not recognised as make flags are passed directly
 %% to the compiler.
 %% So for example make:all([load,debug_info]) will make everything
 %% with the debug_info flag and load it.

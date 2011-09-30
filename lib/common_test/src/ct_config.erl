@@ -204,9 +204,9 @@ get_config_file_list(Opts) ->
     DefaultConfigs = process_default_configs(Opts),
     CfgFiles =
 	if
-	    DefaultConfigs == []->
+	    DefaultConfigs == [] ->
 		[];
-	    true->
+	    true ->
 		[{?ct_config_txt, DefaultConfigs}]
 	end ++
 	process_user_configs(Opts, []),
@@ -240,12 +240,12 @@ read_config_files(Opts) ->
 		  end,
 
     ConfigFiles = case lists:keyfind(config, 1, Opts) of
-		      {config,ConfigLists}->
+		      {config,ConfigLists} ->
                           lists:foldr(fun({Callback,Files}, Acc) ->
 					      AddCallback(Callback,Files)
 						  ++ Acc
 				      end,[],ConfigLists);
-		      false->
+		      false ->
 			  []
 		  end,
     read_config_files_int(ConfigFiles, fun store_config/3).
@@ -255,7 +255,9 @@ read_config_files_int([{Callback, File}|Files], FunToSave) ->
 	{ok, Config} ->
 	    FunToSave(Config, Callback, File),
 	    read_config_files_int(Files, FunToSave);
-	{error, ErrorName, ErrorDetail}->
+	{error, {ErrorName, ErrorDetail}} ->
+	    {user_error, {ErrorName, File, ErrorDetail}};
+	{error, ErrorName, ErrorDetail} ->
 	    {user_error, {ErrorName, File, ErrorDetail}}
     end;
 read_config_files_int([], _FunToSave) ->
@@ -283,7 +285,7 @@ rewrite_config(Config, Callback, File) ->
 			      config=File,_='_'}),
     Updater = fun({Key, Value}) ->
 	case keyfindall(Key, #ct_conf.key, OldRows) of
-	    []->
+	    [] ->
 		ets:insert(?attr_table,
 			   #ct_conf{key=Key,
 				    value=Value,
@@ -453,9 +455,9 @@ update_conf(Name, NewConfig) ->
 
 reload_conf(KeyOrName) ->
     case lookup_handler_for_config(KeyOrName) of
-	[]->
+	[] ->
 	    undefined;
-	HandlerList->
+	HandlerList ->
 	    HandlerList2 = lists:usort(HandlerList),
 	    read_config_files_int(HandlerList2, fun rewrite_config/3),
 	    get_config(KeyOrName)
@@ -711,13 +713,13 @@ random_bytes_1(N, Acc) -> random_bytes_1(N-1, [random:uniform(255)|Acc]).
 
 check_callback_load(Callback) ->
     case code:is_loaded(Callback) of
-	{file, _Filename}->
+	{file, _Filename} ->
 	    check_exports(Callback);
-	false->
+	false ->
 	    case code:load_file(Callback) of
-		{module, Callback}->
+		{module, Callback} ->
 		    check_exports(Callback);
-		{error, Error}->
+		{error, Error} ->
 		    {error, Error}
 	    end
     end.
@@ -745,14 +747,14 @@ check_config_files(Configs) ->
 					  end,
 					  Files)
 			end;
-		{error, Why}->
+		{error, Why} ->
 		    {error, {callback, {Callback,Why}}}
 	    end;
 	({Callback, []}) ->
 	    case check_callback_load(Callback) of
-		{ok, Callback}->
+		{ok, Callback} ->
 		     Callback:check_parameter([]);
-		{error, Why}->
+		{error, Why} ->
 		     {error, {callback, {Callback,Why}}}
 	    end
     end,
@@ -773,15 +775,15 @@ prepare_user_configs([], Acc, _) ->
 
 prepare_config_list(Args) ->
     ConfigFiles = case lists:keysearch(ct_config, 1, Args) of
-		      {value,{ct_config,Files}}->
+		      {value,{ct_config,Files}} ->
 			  [{?ct_config_txt,[filename:absname(F) || F <- Files]}];
-		      false->
+		      false ->
 			  []
 		  end,
     UserConfigs = case lists:keysearch(userconfig, 1, Args) of
-		      {value,{userconfig,UserConfigFiles}}->
+		      {value,{userconfig,UserConfigFiles}} ->
 			  prepare_user_configs(UserConfigFiles, [], new);
-		      false->
+		      false ->
 			  []
 		  end,
     ConfigFiles ++ UserConfigs.

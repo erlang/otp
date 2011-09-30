@@ -27,30 +27,30 @@
 % read config file
 read_config(ConfigFile) ->
     case catch do_read_xml_config(ConfigFile) of
-	{ok, Config}->
-	    {ok, Config};
-	{error, Error, ErroneousString}->
-	    {error, Error, ErroneousString}
+	{ok,Config} ->
+	    {ok,Config};
+	Error = {error,_} ->
+	    Error
     end.
 
 % check file exists
-check_parameter(File)->
+check_parameter(File) ->
     case filelib:is_file(File) of
-	true->
-	    {ok, {file, File}};
-	false->
-	    {error, {nofile, File}}
+	true ->
+	    {ok,{file,File}};
+	false ->
+	    {error,{nofile,File}}
     end.
 
 % actual reading of the config
-do_read_xml_config(ConfigFile)->
+do_read_xml_config(ConfigFile) ->
     case catch xmerl_sax_parser:file(ConfigFile,
-	    [{event_fun, fun event/3},
-	    {event_state, []}]) of
-	{ok, EntityList, _}->
-	    {ok, lists:reverse(transform_entity_list(EntityList))};
-	Oops->
-	    {error, parsing_failed, Oops}
+	    [{event_fun,fun event/3},
+	     {event_state,[]}]) of
+	{ok,EntityList,_} ->
+	    {ok,lists:reverse(transform_entity_list(EntityList))};
+	Oops ->
+	    {error,{parsing_failed,Oops}}
     end.
 
 % event callback for xmerl_sax_parser
@@ -92,18 +92,18 @@ tag(_El, State) ->
 	State.
 
 % transform of the ugly deeply nested entity list to the key-value "tree"
-transform_entity_list(EntityList)->
+transform_entity_list(EntityList) ->
     lists:map(fun transform_entity/1, EntityList).
 
 % transform entity from {list(), list()} to {atom(), term()}
 transform_entity({Tag, [Value|Rest]}) when
-    is_tuple(Value)->
+    is_tuple(Value) ->
 	{list_to_atom(Tag), transform_entity_list(lists:reverse([Value|Rest]))};
-transform_entity({Tag, String})->
+transform_entity({Tag, String}) ->
     case list_to_term(String) of
-	{ok, Value}->
+	{ok, Value} ->
 	    {list_to_atom(Tag), Value};
-	Error->
+	Error ->
 	     throw(Error)
     end.
 
@@ -111,8 +111,8 @@ transform_entity({Tag, String})->
 list_to_term(String) ->
     {ok, T, _} = erl_scan:string(String++"."),
     case catch erl_parse:parse_term(T) of
-        {ok, Term} ->
-            {ok, Term};
+        {ok,Term} ->
+            {ok,Term};
         Error ->
-            {error, Error, String}
+            {error,{Error,String}}
     end.

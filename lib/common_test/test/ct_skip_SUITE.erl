@@ -369,7 +369,7 @@ test_events(auto_skip) ->
 			       {test_server,my_apply,3},
 			       {test_server,init_per_testcase,3},
 			       {test_server,run_test_case_eval1,6},
-			       {test_server,run_test_case_eval,8}]}}}}}},
+			       {test_server,run_test_case_eval,9}]}}}}}},
 	 {?eh,tc_start,
 	  {auto_skip_9_SUITE,{end_per_group,g5,[parallel]}}},
 	 {?eh,tc_done,

@@ -565,7 +565,7 @@ test_events(repeat_cs_until_any_fail) ->
 	     {test_server,my_apply,3},
 	     {test_server,ts_tc,3},
 	     {test_server,run_test_case_eval1,6},
-	     {test_server,run_test_case_eval,8}]}}}}},
+	     {test_server,run_test_case_eval,9}]}}}}},
        {?eh,test_stats,{5,2,{0,0}}},
        {?eh,tc_start,{repeat_1_SUITE,tc_fail_2}},
        {?eh,tc_done,

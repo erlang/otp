@@ -133,9 +133,15 @@
 	    {require,Name,Required} | {userdata,UserData} |
 	    {silent_connections,Conns} | {stylesheet,CSSFile} | 
 	    {ct_hooks, CTHs}</v>
-	<v> Time = MilliSec | {seconds,integer()} | {minutes,integer()}
-	  | {hours,integer()}</v>
+	<v> Time = TimeVal | TimeFunc</v>
+	<v> TimeVal = MilliSec | {seconds,integer()} | {minutes,integer()} |
+	    {hours,integer()}</v>
+	<v> TimeFunc = {Mod,Func,Args} | Fun</v>
 	<v> MilliSec = integer()</v>
+	<v> Mod = atom()</v>
+	<v> Func = atom()</v>
+	<v> Args = list()</v>
+	<v> Fun = fun()</v>
 	<v> Required = Key | {Key,SubKeys}</v>
 	<v> Key = atom()</v>
 	<v> SubKeys = SubKey | [SubKey]</v>
@@ -161,7 +167,9 @@
 	  test case is allowed to take (including <c>init_per_testcase/2</c>
 	  and <c>end_per_testcase/2</c>). If the timetrap time is
 	  exceeded, the test case fails with reason
-	  <c>timetrap_timeout</c>.</p>
+	  <c>timetrap_timeout</c>. If a <c>TimeFunc</c> function is specified,
+	  it will be called initially and must return a value on
+	  <c>TimeVal</c> format.</p>
 	
 	<p>The <c>require</c> tag specifies configuration variables
 	  that are required by test cases in the suite. If the required
@@ -248,7 +256,7 @@
 	</type>
 	<desc>	
 	  
-	  <p> MANDATORY (only if one or more groups are defined) </p>
+	  <p> OPTIONAL </p>
 	  
 	  <p>This function is called before execution of a test case group.
 	  It typically contains initialization which is common for
@@ -279,7 +287,7 @@
 	</type>
 	
 	<desc>	
-	  <p> MANDATORY (only if one or more groups are defined) </p>
+	  <p> OPTIONAL </p>
 	  
 	  <p>This function is called after the execution of a test case group is finished.
 	    It is meant to be used for cleaning up after <c>init_per_group/2</c>.
@@ -353,9 +361,15 @@
 	<v> Info = {timetrap,Time} | {require,Required} | 
 	    {require,Name,Required} | {userdata,UserData} |
 	    {silent_connections,Conns}</v>
-	<v> Time = MilliSec | {seconds,integer()} | {minutes,integer()}
-	  | {hours,integer()}</v>
+	<v> Time = TimeVal | TimeFunc</v>
+	<v> TimeVal = MilliSec | {seconds,integer()} | {minutes,integer()} |
+	    {hours,integer()}</v>
+	<v> TimeFunc = {Mod,Func,Args} | Fun</v>
 	<v> MilliSec = integer()</v>
+	<v> Mod = atom()</v>
+	<v> Func = atom()</v>
+	<v> Args = list()</v>
+	<v> Fun = fun()</v>
 	<v> Required = Key | {Key,SubKeys}</v>
 	<v> Key = atom()</v>
 	<v> SubKeys = SubKey | [SubKey]</v>
@@ -378,7 +392,9 @@
 	  exceeded, the test case fails with reason
 	  <c>timetrap_timeout</c>. <c>init_per_testcase/2</c>
 	  and <c>end_per_testcase/2</c> are included in the
-	  timetrap time.</p>
+	  timetrap time. If a <c>TimeFunc</c> function is specified,
+	  it will be called before the test case (or <c>init_per_testcase/2</c>)
+	  and must return a value on <c>TimeVal</c> format.</p>
 	
 	<p>The <c>require</c> tag specifies configuration variables
 	  that are required by the test case. If the required
