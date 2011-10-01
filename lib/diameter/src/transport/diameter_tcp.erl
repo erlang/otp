@@ -385,74 +385,78 @@ transition({'DOWN', _, process, Pid, _}, #transport{parent = Pid}) ->
 %% using Nagle.
 
 recv(Bin, #transport{parent = Pid, frag = Head} = S) ->
-    S#transport{frag = recv(Pid, Head, Bin)}.
+    case recv1(Head, Bin) of
+        {Msg, B} when is_binary(Msg) ->
+            diameter_peer:recv(Pid, Msg),
+            recv(B, S#transport{frag = <<>>});
+        Frag ->
+            S#transport{frag = Frag}
+    end.
 
-%% recv/3
+%% recv1/2
 
 %% No previous fragment.
-recv(Pid, <<>>, Bin) ->
-    rcv(Pid, Bin);
+recv1(<<>>, Bin) ->
+    rcv(Bin);
 
-recv(Pid, {TRef, Head}, Bin) ->
+recv1({TRef, Head}, Bin) ->
     erlang:cancel_timer(TRef),
-    rcv(Pid, Head, Bin).
+    rcv(Head, Bin).
 
-%% rcv/3
+%% rcv/2
 
 %% Not even the first four bytes of the header.
-rcv(Pid, Head, Bin)
+rcv(Head, Bin)
   when is_binary(Head) ->
-    rcv(Pid, <<Head/binary, Bin/binary>>);
+    rcv(<<Head/binary, Bin/binary>>);
 
 %% Or enough to know how many bytes to extract.
-rcv(Pid, {Len, N, Head, Acc}, Bin) ->
-    rcv(Pid, Len, N + size(Bin), Head, [Bin | Acc]).
+rcv({Len, N, Head, Acc}, Bin) ->
+    rcv(Len, N + size(Bin), Head, [Bin | Acc]).
 
-%% rcv/5
+%% rcv/4
 
 %% Extract a message for which we have all bytes.
-rcv(Pid, Len, N, Head, Acc)
+rcv(Len, N, Head, Acc)
   when Len =< N ->
-    rcv(Pid, rcv1(Pid, Len, bin(Head, Acc)));
+    rcv1(Len, bin(Head, Acc));
 
 %% Wait for more packets.
-rcv(_, Len, N, Head, Acc) ->
+rcv(Len, N, Head, Acc) ->
     {start_timer(), {Len, N, Head, Acc}}.
 
 %% rcv/2
 
 %% Nothing left.
-rcv(_, <<>> = Bin) ->
+rcv(<<>> = Bin) ->
     Bin;
 
 %% Well, this isn't good. Chances are things will go south from here
 %% but if we're lucky then the bytes we have extend to an intended
 %% message boundary and we can recover by simply discarding them,
 %% which is the result of receiving them.
-rcv(Pid, <<_:1/binary, Len:24, _/binary>> = Bin)
+rcv(<<_:1/binary, Len:24, _/binary>> = Bin)
   when Len < 20 ->
-    diameter_peer:recv(Pid, Bin),
-    <<>>;
+    {Bin, <<>>};
 
 %% Enough bytes to extract a message.
-rcv(Pid, <<_:1/binary, Len:24, _/binary>> = Bin)
+rcv(<<_:1/binary, Len:24, _/binary>> = Bin)
   when Len =< size(Bin) ->
-    rcv(Pid, rcv1(Pid, Len, Bin));
+    rcv1(Len, Bin);
 
 %% Or not: wait for more packets.
-rcv(_, <<_:1/binary, Len:24, _/binary>> = Head) ->
+rcv(<<_:1/binary, Len:24, _/binary>> = Head) ->
     {start_timer(), {Len, size(Head), Head, []}};
 
 %% Not even 4 bytes yet.
-rcv(_, Head) ->
+rcv(Head) ->
     {start_timer(), Head}.
 
-%% rcv1/3
+%% rcv1/2
 
-rcv1(Pid, Len, Bin) ->
+rcv1(Len, Bin) ->
     <<Msg:Len/binary, Rest/binary>> = Bin,
-    diameter_peer:recv(Pid, Msg),
-    Rest.
+    {Msg, Rest}.
 
 %% bin/[12]
 
