@@ -43,7 +43,9 @@ It can be specified as the value of a transport_module option to
 <seealso
 marker="diameter#add_transport">diameter:add_transport/2</seealso>
 and implements the behaviour documented in
-<seealso marker="diameter_transport">diameter_transport(3)</seealso>.</p>
+<seealso marker="diameter_transport">diameter_transport(3)</seealso>.
+TLS security is supported, a connection being upgraded if
+TLS is negotiated during capabilities exchange.</p>
 
 <marker id="start"/>
 </description>
@@ -60,10 +62,14 @@ and implements the behaviour documented in
 <v>Type = connect | accept</v>
 <v>Ref = reference()</v>
 <v>Svc = #diameter_service{}</v>
-<v>Opt = {raddr, ip_address()} | {rport, integer()} | term()</v>
+<v>Opt = OwnOpt | TlsOpt | TcpOpt</v>
 <v>Pid = pid()</v>
 <v>LAddr = ip_address()</v>
 <v>Reason = term()</v>
+<v>OwnOpt = {raddr, ip_address()}
+          | {rport, integer()}</v>
+<v>TlsOpt = {ssl_options, list()}</v>
+<v>TcpOpt = term()</v>
 </type>
 <desc>
 
@@ -74,8 +80,11 @@ marker="diameter_transport#start">diameter_transport(3)</seealso>.</p>
 <p>
 The only diameter_tcp-specific argument is the options list.
 Options <c>raddr</c> and <c>rport</c> specify the remote address
-and port for a connecting transport and not valid for a listening
+and port for a connecting transport and are not valid for a listening
 transport.
+Option <c>ssl_options</c> specifies options to be passed
+to ssl:connect/2 of ssl:ssl_accept/2 in case capabilities exchange
+results in TLS being chosen for inband security.
 Remaining options are any accepted by gen_tcp:connect/3 for
 a connecting transport, or gen_tcp:listen/2 for a listening transport,
 with the exception of <c>binary</c>, <c>packet</c> and <c>active</c>.
@@ -83,6 +92,24 @@ Also, option <c>port</c> can be specified for a listening transport
 to specify the local listening port, the default being the standardized
 3868 if unspecified.
 Note that option <c>ip</c> specifies the local address.</p>
+
+<p>
+The <c>ssl_options</c> option must be specified if and only if
+the transport in question has specified an Inband-Security-Id
+AVP with value TLS on the relevant call to
+<seealso
+marker="diameter#start_service">start_service/2</seealso> or
+<seealso
+marker="diameter#add_transport">add_transport/2</seealso>,
+so that the transport process will receive notification of
+whether or not to commence with a TLS handshake following capabilities
+exchange.
+Failing to specify <c>ssl_options</c> on a TLS-capable transport
+for which TLS is negotiated will cause TLS handshake to fail.
+Failing to specify TLS capability when <c>ssl_options</c> has been
+specified will cause the transport process to wait for a notification
+that will not be forthcoming, which will eventually cause the RFC 3539
+watchdog to take down the connection.</p>
 
 <p>
 If the service specifies more than one Host-IP-Address and
@@ -104,6 +131,7 @@ The returned local address list has length one.</p>
 <title>SEE ALSO</title>
 
 <p>
+<seealso marker="diameter">diameter(3)</seealso>,
 <seealso marker="diameter_transport">diameter_transport(3)</seealso></p>
 
 </section>
