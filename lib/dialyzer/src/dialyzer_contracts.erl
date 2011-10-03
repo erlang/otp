@@ -480,7 +480,7 @@ invalid_contract_warning({M, F, A}, FileLine, SuccType, RecDict) ->
 extra_range_warning({M, F, A}, FileLine, ExtraRanges, STRange) ->
   ERangesStr = erl_types:t_to_string(ExtraRanges),
   STRangeStr = erl_types:t_to_string(STRange),
-  {?WARN_CONTRACT_TYPES, FileLine,
+  {?WARN_CONTRACT_SUPERTYPE, FileLine,
    {extra_range, [M, F, A, ERangesStr, STRangeStr]}}.
 
 picky_contract_check(CSig0, Sig0, MFA, FileLine, Contract, RecDict, Acc) ->
