@@ -39,6 +39,7 @@ MODULES = \
 	ssl_basic_SUITE \
 	ssl_handshake_SUITE \
 	ssl_packet_SUITE \
+	ssl_cipher_SUITE \
 	ssl_payload_SUITE \
 	ssl_to_openssl_SUITE \
 	ssl_session_cache_SUITE	\
@@ -55,6 +56,7 @@ HRL_FILES_SRC = \
 	ssl_internal.hrl\
 	ssl_alert.hrl \
 	ssl_handshake.hrl \
+	ssl_cipher.hrl \
 	ssl_record.hrl
 
 HRL_FILES_INC = 
