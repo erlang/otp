@@ -35,11 +35,12 @@
 	 nodename}
        ).
 
+%% Test server callback functions
 suite() ->
     [{ct_hooks,[ts_install_cth]}].
 
 all() ->
-    [basic, payload].
+    [basic, payload, plain_options, plain_verify_options].
 
 groups() ->
     [].
@@ -50,10 +51,12 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-init_per_suite(Config) ->
+init_per_suite(Config0) ->
     try crypto:start() of
 	ok ->
-	    add_ssl_opts_config(Config)
+	    Config = add_ssl_opts_config(Config0),
+	    setup_certs(Config),
+	    Config
     catch _:_ ->
 	    {skip, "Crypto did not start"}
     end.
@@ -62,24 +65,19 @@ end_per_suite(Config) ->
     application:stop(crypto),
     Config.
 
-init_per_testcase(Case, Config) when list(Config) ->
+init_per_testcase(Case, Config) when is_list(Config) ->
     Dog = ?t:timetrap(?t:seconds(?DEFAULT_TIMETRAP_SECS)),
     [{watchdog, Dog},{testcase, Case}|Config].
 
-end_per_testcase(_Case, Config) when list(Config) ->
+end_per_testcase(_Case, Config) when is_list(Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),
     ok.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%                                                                       %%
-%% Testcases                                                             %%
-%%                                                                       %%
-
+%%--------------------------------------------------------------------
+%% Test cases starts here.
+%%--------------------------------------------------------------------
 basic(doc) ->
     ["Test that two nodes can connect via ssl distribution"];
-basic(suite) ->
-    [];
 basic(Config) when is_list(Config) ->
     NH1 = start_ssl_node(Config),
     Node1 = NH1#node_handle.nodename,
@@ -132,11 +130,9 @@ basic(Config) when is_list(Config) ->
     stop_ssl_node(NH2),
     success(Config).
 
-
+%%--------------------------------------------------------------------
 payload(doc) ->
     ["Test that send a lot of data between the ssl distributed noes"];
-payload(suite) ->
-    [];
 payload(Config) when is_list(Config) ->
     NH1 = start_ssl_node(Config),
     Node1 = NH1#node_handle.nodename,
@@ -148,10 +144,6 @@ payload(Config) when is_list(Config) ->
     [Node2] = apply_on_ssl_node(NH1, fun () -> nodes() end),
     [Node1] = apply_on_ssl_node(NH2, fun () -> nodes() end),
 
-    %%
-    %% Check that we are able to communicate over the erlang
-    %% distribution between the ssl nodes.
-    %%
     Ref = make_ref(),
     spawn(fun () ->
 		  apply_on_ssl_node(
@@ -180,13 +172,57 @@ payload(Config) when is_list(Config) ->
     stop_ssl_node(NH1),
     stop_ssl_node(NH2),
     success(Config).
+%%--------------------------------------------------------------------
+plain_options(doc) ->
+    ["Test specifying additional options"];
+plain_options(Config) when is_list(Config) ->
+    DistOpts = "-ssl_dist_opt server_secure_renegotiate true "
+	"client_secure_renegotiate true "
+	"server_reuse_sessions true client_reuse_sessions true  "
+	"client_verify verify_none server_verify verify_none "
+	"server_depth 1 client_depth 1 "
+	"server_hibernate_after 500 client_hibernate_after 500",
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%                                                                       %%
-%% Internal functions                                                    %%
-%%                                                                       %%
+    NH1 = start_ssl_node([{additional_dist_opts, DistOpts} | Config]),
+    Node1 = NH1#node_handle.nodename,
+    NH2 = start_ssl_node([{additional_dist_opts, DistOpts} | Config]),
+    Node2 = NH2#node_handle.nodename,
 
-%%
+    pong = apply_on_ssl_node(NH1, fun () -> net_adm:ping(Node2) end),
+
+    [Node2] = apply_on_ssl_node(NH1, fun () -> nodes() end),
+    [Node1] = apply_on_ssl_node(NH2, fun () -> nodes() end),
+
+    stop_ssl_node(NH1),
+    stop_ssl_node(NH2),
+    success(Config).
+%%--------------------------------------------------------------------
+plain_verify_options(doc) ->
+    ["Test specifying additional options"];
+plain_verify_options(Config) when is_list(Config) ->
+    DistOpts = "-ssl_dist_opt server_secure_renegotiate true "
+	"client_secure_renegotiate true "
+	"server_reuse_sessions true client_reuse_sessions true  "
+	"server_hibernate_after 500 client_hibernate_after 500",
+
+    NH1 = start_ssl_node([{additional_dist_opts, DistOpts}, {many_verify_opts, true} | Config]),
+    Node1 = NH1#node_handle.nodename,
+    NH2 = start_ssl_node([{additional_dist_opts, DistOpts}, {many_verify_opts, true} | Config]),
+    Node2 = NH2#node_handle.nodename,
+
+    pong = apply_on_ssl_node(NH1, fun () -> net_adm:ping(Node2) end),
+
+    [Node2] = apply_on_ssl_node(NH1, fun () -> nodes() end),
+    [Node1] = apply_on_ssl_node(NH2, fun () -> nodes() end),
+
+    stop_ssl_node(NH1),
+    stop_ssl_node(NH2),
+    success(Config).
+
+%%--------------------------------------------------------------------
+%%% Internal functions
+%%--------------------------------------------------------------------
+
 %% ssl_node side api
 %%
 
@@ -201,7 +237,7 @@ send_to_tstcntrl(Message) ->
 %% test_server side api
 %%
 
-apply_on_ssl_node(Node, M, F, A) when atom(M), atom(F), list(A) ->
+apply_on_ssl_node(Node, M, F, A) when is_atom(M), is_atom(F), is_list(A) ->
     Ref = make_ref(),
     send_to_ssl_node(Node, {apply, self(), Ref, M, F, A}),
     receive
@@ -243,7 +279,7 @@ start_ssl_node(Config) ->
 start_ssl_node(Config, XArgs) ->
     Name = mk_node_name(Config),
     SSL = ?config(ssl_opts, Config),
-    SSLDistOpts = setup_dist_opts(Name, ?config(priv_dir, Config)),
+    SSLDistOpts = setup_dist_opts(Config),
     start_ssl_node_raw(Name, SSL ++ " " ++ SSLDistOpts ++ XArgs).
 
 start_ssl_node_raw(Name, Args) ->
@@ -253,7 +289,7 @@ start_ssl_node_raw(Name, Args) ->
     CmdLine = mk_node_cmdline(ListenPort, Name, Args),
     ?t:format("Attempting to start ssl node ~s: ~s~n", [Name, CmdLine]),
     case open_port({spawn, CmdLine}, []) of
-	Port when port(Port) ->
+	Port when is_port(Port) ->
 	    unlink(Port),
 	    erlang:port_close(Port),
 	    case await_ssl_node_up(Name, LSock) of
@@ -412,7 +448,7 @@ tstsrvr_con_loop(Name, Socket, Parent) ->
 %%
 
 % cnct2tstsrvr() is called via command line arg -run ...
-cnct2tstsrvr([Host, Port]) when list(Host), list(Port) ->
+cnct2tstsrvr([Host, Port]) when is_list(Host), is_list(Port) ->
     %% Spawn connection handler on ssl node side
     ConnHandler
 	= spawn(fun () ->
@@ -455,7 +491,7 @@ notify_ssl_node_up(Socket) ->
 
 send_to_tstsrvr(Term) ->
     case catch ets:lookup_element(test_server_info, test_server_handler, 2) of
-	Hndlr when pid(Hndlr) ->
+	Hndlr when is_pid(Hndlr) ->
 	    Hndlr ! {relay_to_test_server, term_to_binary(Term)}, ok;
 	_ ->
 	    receive after 200 -> ok end,
@@ -536,8 +572,9 @@ do_append_files([F|Fs], RF) ->
     ok = file:write(RF, Data),
     do_append_files(Fs, RF).
 
-setup_dist_opts(Name, PrivDir) ->
-    NodeDir = filename:join([PrivDir, Name]),
+setup_certs(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    NodeDir = filename:join([PrivDir, "Certs"]),
     RGenDir = filename:join([NodeDir, "rand_gen"]),
     ok = file:make_dir(NodeDir),
     ok = file:make_dir(RGenDir),
@@ -552,10 +589,46 @@ setup_dist_opts(Name, PrivDir) ->
     CC = filename:join([CDir, "cert.pem"]),
     CK = filename:join([CDir, "key.pem"]),
     CKC = filename:join([CDir, "keycert.pem"]),
-    append_files([CK, CC], CKC),
-    "-proto_dist inet_tls "
-	++ "-ssl_dist_opt server_certfile " ++ SKC ++ " "
-	++ "-ssl_dist_opt client_certfile " ++ CKC ++ " ".
+    append_files([CK, CC], CKC).
+
+setup_dist_opts(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    DataDir = ?config(data_dir, Config),
+    Dhfile = filename:join([DataDir, "dHParam.pem"]),
+    NodeDir = filename:join([PrivDir, "Certs"]),
+    SDir = filename:join([NodeDir, "server"]),
+    CDir = filename:join([NodeDir, "client"]),
+    SC = filename:join([SDir, "cert.pem"]),
+    SK = filename:join([SDir, "key.pem"]),
+    SKC = filename:join([SDir, "keycert.pem"]),
+    SCA = filename:join([CDir, "cacerts.pem"]),
+    CC = filename:join([CDir, "cert.pem"]),
+    CK = filename:join([CDir, "key.pem"]),
+    CKC = filename:join([CDir, "keycert.pem"]),
+    CCA = filename:join([SDir, "cacerts.pem"]),
+
+    DistOpts = case  proplists:get_value(many_verify_opts, Config, false) of
+		   false ->
+		       "-proto_dist inet_tls "
+			   ++ "-ssl_dist_opt server_certfile " ++ SKC ++ " "
+			   ++ "-ssl_dist_opt client_certfile " ++ CKC ++ " ";
+		   true ->
+		       "-proto_dist inet_tls "
+			   ++ "-ssl_dist_opt server_certfile " ++ SC ++ " "
+			   ++ "-ssl_dist_opt server_keyfile " ++ SK ++ " "
+			   ++ "-ssl_dist_opt server_cacertfile " ++ SCA ++ " "
+			   ++ "-ssl_dist_opt server_verify verify_peer "
+			   ++ "-ssl_dist_opt server_fail_if_no_peer_cert true "
+			   ++ "-ssl_dist_opt server_ciphers DHE-RSA-AES256-SHA:DHE-RSA-AES128-SHA "
+			   ++ "-ssl_dist_opt server_dhfile " ++ Dhfile ++ " "
+			   ++ "-ssl_dist_opt client_certfile " ++ CC ++ " "
+			   ++ "-ssl_dist_opt client_keyfile " ++ CK ++ " "
+			   ++ "-ssl_dist_opt client_cacertfile " ++ CCA ++ " "
+			   ++ "-ssl_dist_opt client_verify verify_peer "
+			   ++ "-ssl_dist_opt client_ciphers DHE-RSA-AES256-SHA:DHE-RSA-AES128-SHA "
+	       end,
+    MoreOpts = proplists:get_value(additional_dist_opts, Config, []),
+    DistOpts ++ MoreOpts.
 
 %%
 %% Start scripts etc...
