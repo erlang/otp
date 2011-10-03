@@ -71,8 +71,8 @@
         {socket  :: inet:socket(),  %% accept or connect socket
          parent  :: pid(),          %% of process that started us
          module  :: module(),       %% gen_tcp-like module
-         frag = <<>> :: binary() | {tref(), frag()}}). %% message fragment
-
+         frag = <<>> :: binary() | {tref(), frag()},  %% message fragment
+         ssl     :: boolean() | [term()]}). %% ssl options
 %% The usual transport using gen_tcp can be replaced by anything
 %% sufficiently gen_tcp-like by passing a 'module' option as the first
 %% (for simplicity) transport option. The transport_module diameter_etcp
@@ -122,12 +122,14 @@ i({T, Ref, Mod, Pid, Opts, Addrs})
     %% that does nothing but kill us with the parent until call
     %% returns.
     {ok, MPid} = diameter_tcp_sup:start_child(#monitor{parent = Pid}),
-    Sock = i(T, Ref, Mod, Pid, Opts, Addrs),
+    {[SslOpts], Rest} = proplists:split(Opts, [ssl_options]),
+    Sock = i(T, Ref, Mod, Pid, Rest, Addrs),
     MPid ! {stop, self()},  %% tell the monitor to die
     setopts(Mod, Sock),
     #transport{parent = Pid,
                module = Mod,
-               socket = Sock};
+               socket = Sock,
+               ssl = ssl_opts(Mod, SslOpts)};
 
 %% A monitor process to kill the transport if the parent dies.
 i(#monitor{parent = Pid, transport = TPid} = S) ->
@@ -150,6 +152,14 @@ i({listen, LRef, APid, {Mod, Opts, Addrs}}) ->
     erlang:monitor(process, APid),
     true = diameter_reg:add_new({?MODULE, listener, {LRef, {LAddr, LSock}}}),
     start_timer(#listener{socket = LSock}).
+
+ssl_opts(_, []) ->
+    false;
+ssl_opts(Mod, [{ssl_options, Opts}])
+  when is_list(Opts) ->
+    [{Mod, tcp, tcp_closed} | Opts];
+ssl_opts(_, L) ->
+    ?ERROR({ssl_options, L}).
 
 %% i/6
 
@@ -258,6 +268,8 @@ handle_info(T, #monitor{} = S) ->
 %% # code_change/3
 %% ---------------------------------------------------------------------------
 
+code_change(_, {transport, _, _, _, _} = S, _) ->
+    {ok, #transport{} = list_to_tuple(tuple_to_list(S) ++ [false])};
 code_change(_, State, _) ->
     {ok, State}.
 
@@ -332,17 +344,56 @@ t(T,S) ->
 
 %% transition/2
 
-%% Incoming message.
-transition({tcp, Sock, Data}, #transport{socket = Sock,
-                                         module = M}
-                              = S) ->
-    setopts(M, Sock),
-    recv(Data, S);
+%% Initial incoming message when we might need to upgrade to TLS:
+%% don't request another message until we know.
+transition({tcp, Sock, Bin}, #transport{socket = Sock,
+                                        parent = Pid,
+                                        frag = Head,
+                                        module = M,
+                                        ssl = Opts}
+                             = S)
+  when is_list(Opts) ->
+    case recv1(Head, Bin) of
+        {Msg, B} when is_binary(Msg) ->
+            diameter_peer:recv(Pid, Msg),
+            S#transport{frag = B};
+        Frag ->
+            setopts(M, Sock),
+            S#transport{frag = Frag}
+    end;
 
-transition({tcp_closed, Sock}, #transport{socket = Sock}) ->
+%% Incoming message.
+transition({P, Sock, Bin}, #transport{socket = Sock,
+                                      module = M,
+                                      ssl = B}
+                           = S)
+  when P == tcp, not B;
+       P == ssl, B ->
+    setopts(M, Sock),
+    recv(Bin, S);
+
+%% Capabilties exchange has decided on whether or not to run over TLS.
+transition({diameter, {tls, Ref, Type, B}}, #transport{parent = Pid}
+                                            = S) ->
+    #transport{socket = Sock,
+               module = M}
+        = NS
+        = tls_handshake(Type, B, S),
+    Pid ! {diameter, {tls, Ref}},
+    setopts(M, Sock),
+    NS#transport{ssl = B};
+
+transition({C, Sock}, #transport{socket = Sock,
+                                 ssl = B})
+  when C == tcp_closed, not B;
+       C == ssl_closed, B ->
     stop;
 
-transition({tcp_error, Sock, _Reason} = T, #transport{socket = Sock} = S) ->
+transition({E, Sock, _Reason} = T, #transport{socket = Sock,
+                                              ssl = B}
+                                   = S)
+  when E == tcp_error, not B;
+       E == ssl_error, B ->
     ?ERROR({T,S});
 
 %% Outgoing message.
@@ -378,6 +429,29 @@ transition({'DOWN', _, process, Pid, _}, #transport{parent = Pid}) ->
     stop.
 
 %% Crash on anything unexpected.
+
+%% tls_handshake/3
+%%
+%% In the case that no tls message is received (eg. the service hasn't
+%% been configured to advertise TLS support) we will simply never ask
+%% for another TCP message, which will force the watchdog to
+%% eventually take us down.
+
+tls_handshake(Type, true, #transport{socket = Sock,
+                                     ssl = Opts}
+                          = S) ->
+    is_list(Opts) orelse ?ERROR({tls, Opts}),
+    {ok, SSock} = tls(Type, Sock, Opts),
+    S#transport{socket = SSock,
+                module = ssl};
+
+tls_handshake(_, false, S) ->
+    S.
+
+tls(connect, Sock, Opts) ->
+    ssl:connect(Sock, Opts);
+tls(accept, Sock, Opts) ->
+    ssl:ssl_accept(Sock, Opts).
 
 %% recv/2
 %%
@@ -509,6 +583,8 @@ connect(Mod, Host, Port, Opts) ->
 
 send(gen_tcp, Sock, Bin) ->
     gen_tcp:send(Sock, Bin);
+send(ssl, Sock, Bin) ->
+    ssl:send(Sock, Bin);
 send(M, Sock, Bin) ->
     M:send(Sock, Bin).
 
@@ -516,6 +592,8 @@ send(M, Sock, Bin) ->
 
 setopts(gen_tcp, Sock, Opts) ->
     inet:setopts(Sock, Opts);
+setopts(ssl, Sock, Opts) ->
+    ssl:setopts(Sock, Opts);
 setopts(M, Sock, Opts) ->
     M:setopts(Sock, Opts).
 
@@ -531,5 +609,12 @@ setopts(M, Sock) ->
 
 lport(gen_tcp, Sock) ->
     inet:port(Sock);
+lport(ssl, Sock) ->
+    case ssl:sockname(Sock) of
+        {ok, {_Addr, PortNr}} ->
+            {ok, PortNr};
+        {error, _} = No ->
+            No
+    end;
 lport(M, Sock) ->
     M:port(Sock).
