@@ -198,13 +198,19 @@ cmp_integer(_Config) ->
 cmp_bignum(_Config) ->
     span_cmp((1 bsl 58) - 1.0),%% Smallest bignum float
 
-    %% Test I to I+1 bignum segment overflow
+    %% Test when the big num goes from I to I+1 in size
     [span_cmp((1 bsl (32*I)) - 1.0) || I <- lists:seq(2,30)],
 
+    %% Test bignum greater then largest float
     cmp((1 bsl (64*16)) - 1, (1 bsl (64*15)) * 1.0),
+    %% Test when num is much larger then float
     [cmp((1 bsl (32*I)) - 1, (1 bsl (32*(I-2))) * 1.0) || I <- lists:seq(3,30)],
+    %% Test when float is much larger than num
     [cmp((1 bsl (64*15)) * 1.0, (1 bsl (32*(I)))) || I <- lists:seq(1,29)],
-    ok.
+
+    %% Test that all int == float works as they should
+    [true = 1 bsl N == (1 bsl N)*1.0 || N <- lists:seq(0, 1023)],
+    [true = (1 bsl N)*-1 == (1 bsl N)*-1.0 || N <- lists:seq(0, 1023)].
 
 span_cmp(Axis) ->
     span_cmp(Axis, 25).
@@ -212,6 +218,14 @@ span_cmp(Axis, Length) ->
     span_cmp(Axis, round(Axis) bsr 52, Length).
 span_cmp(Axis, Incr, Length) ->
     [span_cmp(Axis, Incr, Length, 1 bsl (1 bsl I)) || I <- lists:seq(0,6)].
+%% This function creates tests around number axis. Both <, > and == is tested
+%% for both negative and positive numbers.
+%%
+%% Axis: The number around which to do the tests eg. (1 bsl 58) - 1.0
+%% Incr: How much to increment the test numbers inbetween each test.
+%% Length: Length/2 is the number of Incr away from Axis to test on the
+%%         negative and positive plane.
+%% Diff: How much the float and int should differ when comparing
 span_cmp(Axis, Incr, Length, Diff) ->
     [begin
 	 cmp(round(Axis*-1.0)+Diff+I*Incr,Axis*-1.0+I*Incr),
@@ -227,23 +241,34 @@ cmp(Big,Small) when is_float(Big) ->
 		 io_lib:format("~f > ~p",[Big,Small])),
     BigLtSmall = lists:flatten(
 		 io_lib:format("~f < ~p",[Big,Small])),
+    BigEqSmall = lists:flatten(
+		 io_lib:format("~f == ~p",[Big,Small])),
     SmallGtBig = lists:flatten(
 		   io_lib:format("~p > ~f",[Small,Big])),
     SmallLtBig = lists:flatten(
 		   io_lib:format("~p < ~f",[Small,Big])),
-    cmp(Big,Small,BigGtSmall,BigLtSmall,SmallGtBig,SmallLtBig);
+    SmallEqBig = lists:flatten(
+		   io_lib:format("~p == ~f",[Small,Big])),
+    cmp(Big,Small,BigGtSmall,BigLtSmall,SmallGtBig,SmallLtBig,
+	SmallEqBig,BigEqSmall);
 cmp(Big,Small) when is_float(Small) ->
     BigGtSmall = lists:flatten(
 		   io_lib:format("~p > ~f",[Big,Small])),
     BigLtSmall = lists:flatten(
 		   io_lib:format("~p < ~f",[Big,Small])),
+    BigEqSmall = lists:flatten(
+		   io_lib:format("~p == ~f",[Big,Small])),
     SmallGtBig = lists:flatten(
 		   io_lib:format("~f > ~p",[Small,Big])),
     SmallLtBig = lists:flatten(
 		   io_lib:format("~f < ~p",[Small,Big])),
-    cmp(Big,Small,BigGtSmall,BigLtSmall,SmallGtBig,SmallLtBig).
+    SmallEqBig = lists:flatten(
+		   io_lib:format("~f == ~p",[Small,Big])),
+    cmp(Big,Small,BigGtSmall,BigLtSmall,SmallGtBig,SmallLtBig,
+	SmallEqBig,BigEqSmall).
 
-cmp(Big,Small,BigGtSmall,BigLtSmall,SmallGtBig,SmallLtBig) ->
+cmp(Big,Small,BigGtSmall,BigLtSmall,SmallGtBig,SmallLtBig,
+    SmallEqBig,BigEqSmall) ->
     {_,_,_,true} = {Big,Small,BigGtSmall,
 		    Big > Small},
     {_,_,_,false} = {Big,Small,BigLtSmall,
@@ -251,7 +276,11 @@ cmp(Big,Small,BigGtSmall,BigLtSmall,SmallGtBig,SmallLtBig) ->
     {_,_,_,false} = {Big,Small,SmallGtBig,
 		     Small > Big},
     {_,_,_,true} = {Big,Small,SmallLtBig,
-		    Small < Big}.
+		    Small < Big},
+    {_,_,_,false} = {Big,Small,SmallEqBig,
+		     Small == Big},
+    {_,_,_,false} = {Big,Small,BigEqSmall,
+		     Big == Small}.
 
 id(I) -> I.
     
