@@ -77,6 +77,7 @@ init(_Args) ->
     UpdState = setup(State),
     wxFrame:show(Frame),
     net_kernel:monitor_nodes(true),
+    process_flag(trap_exit, true),
     {Frame, UpdState}.
 
 setup(#state{frame = Frame} = State) ->

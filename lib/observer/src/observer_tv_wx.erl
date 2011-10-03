@@ -25,10 +25,6 @@
 
 -export([get_table_list/1]). %% RPC called move to runtime tools?
 
--export([get_wx_parent/1, interval_dialog/5]).
-
--import(observer_pro_wx, [to_str/1]).
-
 -behaviour(wx_object).
 -include_lib("wx/include/wx.hrl").
 -include("observer_defs.hrl").
@@ -58,8 +54,7 @@
 	  opt=#opt{},
 	  selected,
 	  tabs,
-	  refr_timer=false,
-	  refr_intv=30
+	  timer
 	}).
 
 start_link(Notebook,  Parent) ->
@@ -97,7 +92,8 @@ init([Notebook, Parent]) ->
     wxListCtrl:connect(Grid, size, [{skip, true}]),
 
     wxWindow:setFocus(Grid),
-    {Panel, #state{grid=Grid, parent=Parent}}.
+    Timer = observer_lib:start_timer(10),
+    {Panel, #state{grid=Grid, parent=Parent, timer=Timer}}.
 
 handle_event(#wx{id=?ID_REFRESH},
 	     State = #state{node=Node, grid=Grid, opt=Opt}) ->
@@ -164,31 +160,14 @@ handle_event(#wx{id=?ID_TABLE_INFO},
 	    {noreply, State};
 	R when is_integer(R) ->
 	    Table = lists:nth(Sel+1, Tabs),
-	    Parent = get_wx_parent(Grid),
-	    display_table_info(Parent, Node, Type, Table),
+	    display_table_info(Grid, Node, Type, Table),
 	    {noreply, State}
     end;
 
 handle_event(#wx{id=?ID_REFRESH_INTERVAL},
-	     State = #state{grid=Grid, refr_timer=Timer0, refr_intv=Intv0}) ->
-    Parent = get_wx_parent(Grid),
-    case interval_dialog(Parent, Timer0 /= false, Intv0, 10, 5*60) of
-	cancel ->
-	    {noreply, State};
-	{true, Intv} ->
-	    case Timer0 of
-		false -> ok;
-		_ -> timer:cancel(Timer0)
-	    end,
-	    {ok, Timer} = timer:send_interval(Intv * 1000, refresh_interval),
-	    {noreply, State#state{refr_timer=Timer, refr_intv=Intv}};
-	{false, _} ->
-	    case Timer0 of
-		false -> ok;
-		_ -> timer:cancel(Timer0)
-	    end,
-	    {noreply, State#state{refr_timer=false}}
-    end;
+	     State = #state{grid=Grid, timer=Timer0}) ->
+    Timer = observer_lib:interval_dialog(Grid, Timer0, 10, 5*60),
+    {noreply, State#state{timer=Timer}};
 
 handle_event(Event, State) ->
     io:format("~p:~p, handle event ~p\n", [?MODULE, ?LINE, Event]),
@@ -207,36 +186,22 @@ handle_cast(Event, State) ->
     {noreply, State}.
 
 handle_info(refresh_interval, State = #state{node=Node, grid=Grid, opt=Opt}) ->
-    io:format("refresh interval ~p~n", [time()]),
     Tables = get_tables(Node, Opt),
     Tabs = update_grid(Grid, Opt, Tables),
     {noreply, State#state{tabs=Tabs}};
 
-handle_info({active, Node},
-	    State = #state{parent=Parent, grid=Grid, opt=Opt,
-			   refr_timer = Refr, refr_intv=Intv}) ->
+handle_info({active, Node}, State = #state{parent=Parent, grid=Grid, opt=Opt,
+					   timer=Timer0}) ->
     Tables = get_tables(Node, Opt),
     Tabs = update_grid(Grid, Opt, Tables),
     wxWindow:setFocus(Grid),
     create_menus(Parent, Opt),
-    Timer = case Refr of
-		true ->
-		    {ok, Ref} = timer:send_interval(Intv*1000, refresh_interval),
-		    Ref;
-		false ->
-		    false
-	    end,
-    {noreply, State#state{node=Node, tabs=Tabs, refr_timer=Timer}};
+    Timer = observer_lib:start_timer(Timer0),
+    {noreply, State#state{node=Node, tabs=Tabs, timer=Timer}};
 
-handle_info(not_active, State = #state{refr_timer = Timer0}) ->
-    Timer = case Timer0 of
-		false -> false;
-		true -> true;
-		Timer0 ->
-		    timer:cancel(Timer0),
-		    true
-	    end,
-    {noreply, State#state{refr_timer=Timer}};
+handle_info(not_active, State = #state{timer = Timer0}) ->
+    Timer = observer_lib:stop_timer(Timer0),
+    {noreply, State#state{timer=Timer}};
 
 handle_info({node, Node}, State = #state{grid=Grid, opt=Opt}) ->
     Tables = get_tables(Node, Opt),
@@ -370,7 +335,8 @@ get_table_list(#opt{type=mnesia, sys_hidden=HideSys}) ->
 	   end,
     lists:foldl(Info, [], mnesia:system_info(tables)).
 
-display_table_info(Parent, Node, Source, Table) ->
+display_table_info(Parent0, Node, Source, Table) ->
+    Parent = observer_lib:get_wx_parent(Parent0),
     Title = "Table Info: " ++ atom_to_list(Table#tab.name),
     Frame = wxMiniFrame:new(Parent, ?wxID_ANY, Title,
 			    [{style, ?wxCAPTION bor ?wxCLOSE_BOX bor ?wxRESIZE_BORDER}]),
@@ -407,10 +373,10 @@ display_table_info(Parent, Node, Source, Table) ->
 		 | MnesiaSettings ]},
     Memory = {"Memory Usage",
 	      [{"Number of objects", Table#tab.size},
-	       {"Memory allocated",  integer_to_list(Table#tab.memory div 1024) ++ "kB"},
+	       {"Memory allocated",  {bytes, Table#tab.memory}},
 	       {"Compressed",        Table#tab.compressed}]},
 
-    Sizer = display_info_wx(Frame, [IdInfo, Settings, Memory]),
+    {_, Sizer, _} = observer_lib:display_info(Frame, [IdInfo,Settings,Memory]),
     wxSizer:setSizeHints(Sizer, Frame),
     wxFrame:center(Frame),
     wxFrame:show(Frame).
@@ -419,44 +385,6 @@ list_to_strings([]) -> "None";
 list_to_strings([A]) -> integer_to_list(A);
 list_to_strings([A,B]) ->
     integer_to_list(A) ++ " ," ++ list_to_strings(B).
-
-get_wx_parent(Window) ->
-    Parent = wxWindow:getParent(Window),
-    case wx:is_null(Parent) of
-	true -> Window;
-	false -> get_wx_parent(Parent)
-    end.
-
-display_info_wx(Frame, Info) ->
-    Panel = wxPanel:new(Frame),
-    wxWindow:setBackgroundColour(Panel, {255,255,255}),
-    Sizer = wxBoxSizer:new(?wxVERTICAL),
-    wxSizer:addSpacer(Sizer, 5),
-    Add = fun(BoxInfo) ->
-		  Box = create_box(Panel, BoxInfo),
-		  wxSizer:add(Sizer, Box, [{flag, ?wxEXPAND bor ?wxALL},
-					   {border, 5}])
-	  end,
-    [Add(I) || I <- Info],
-    wxSizer:addSpacer(Sizer, 5),
-    wxWindow:setSizerAndFit(Panel, Sizer),
-    Sizer.
-
-create_box(Panel, {Title, Info}) ->
-    Box = wxStaticBoxSizer:new(?wxHORIZONTAL, Panel, [{label, Title}]),
-    Left  = wxBoxSizer:new(?wxVERTICAL),
-    Right = wxBoxSizer:new(?wxVERTICAL),
-    Expand = [{flag, ?wxEXPAND}],
-    AddRow = fun({Desc, Value}) ->
-		     wxSizer:add(Left, wxStaticText:new(Panel, ?wxID_ANY, Desc ++ ":"), Expand),
-		     wxSizer:add(Right, wxStaticText:new(Panel, ?wxID_ANY, to_str(Value)), Expand)
-	     end,
-    [AddRow(Entry) || Entry <- Info],
-    wxSizer:add(Box, Left),
-    wxSizer:addSpacer(Box, 10),
-    wxSizer:add(Box, Right),
-    wxSizer:addSpacer(Box, 30),
-    Box.
 
 sys_tables() ->
     [ac_tab,  asn1,
@@ -512,56 +440,8 @@ mnesia_tables() ->
     ].
 
 handle_error(Foo) ->
-    try
-	Str = io_lib:format("ERROR: ~s~n",[Foo]),
-	display_info(Str)
-    catch _:_ ->
-	    display_info(io_lib:format("ERROR: ~p~n",[Foo]))
-    end,
-    ok.
-
-display_info(Str) ->
-    Dlg = wxMessageDialog:new(wx:null(), Str),
-    wxMessageDialog:showModal(Dlg),
-    wxMessageDialog:destroy(Dlg),
-    ok.
-
-interval_dialog(Parent, Enabled, Value, Min, Max) ->
-    Dialog = wxDialog:new(Parent, ?wxID_ANY, "Update Interval",
-			  [{style, ?wxDEFAULT_DIALOG_STYLE bor
-				?wxRESIZE_BORDER}]),
-    Panel = wxPanel:new(Dialog),
-    Check = wxCheckBox:new(Panel, ?wxID_ANY, "Periodical refresh"),
-    wxCheckBox:setValue(Check, Enabled),
-    Style = ?wxSL_HORIZONTAL bor ?wxSL_AUTOTICKS bor ?wxSL_LABELS,
-    Slider = wxSlider:new(Panel, ?wxID_ANY, Value, Min, Max,
-			  [{style, Style}, {size, {200, -1}}]),
-    wxWindow:enable(Slider, [{enable, Enabled}]),
-    InnerSizer = wxBoxSizer:new(?wxVERTICAL),
-    Buttons = wxDialog:createButtonSizer(Dialog, ?wxOK bor ?wxCANCEL),
-    Flags = [{flag, ?wxEXPAND bor ?wxALL}, {border, 2}],
-    wxSizer:add(InnerSizer, Check,  Flags),
-    wxSizer:add(InnerSizer, Slider, Flags),
-    wxPanel:setSizer(Panel, InnerSizer),
-    TopSizer = wxBoxSizer:new(?wxVERTICAL),
-    wxSizer:add(TopSizer, Panel, [{flag, ?wxEXPAND bor ?wxALL}, {border, 5}]),
-    wxSizer:add(TopSizer, Buttons, [{flag, ?wxEXPAND}]),
-    wxWindow:setSizerAndFit(Dialog, TopSizer),
-    wxSizer:setSizeHints(TopSizer, Dialog),
-    wxCheckBox:connect(Check, command_checkbox_clicked,
-		       [{callback, fun(#wx{event=#wxCommand{commandInt=Enable0}},_) ->
-					   Enable = Enable0 > 0,
-					   wxWindow:enable(Slider, [{enable, Enable}])
-				   end}]),
-    Res = case wxDialog:showModal(Dialog) of
-	      ?wxID_OK ->
-		  {wxCheckBox:isChecked(Check), wxSlider:getValue(Slider)};
-	      ?wxID_CANCEL ->
-		  cancel
-	  end,
-    wxDialog:destroy(Dialog),
-    Res.
-
+    Str = io_lib:format("ERROR: ~s~n",[Foo]),
+    observer_lib:display_info_dialog(Str).
 
 update_grid(Grid, Opt, Tables) ->
     wx:batch(fun() -> update_grid2(Grid, Opt, Tables) end).
@@ -582,7 +462,7 @@ update_grid2(Grid, #opt{sort_key=Sort,sort_incr=Dir}, Tables) ->
 
 		lists:foreach(fun({_, ignore}) -> ignore;
 				 ({Col, Val}) ->
-				      wxListCtrl:setItem(Grid, Row, Col, to_str(Val))
+				      wxListCtrl:setItem(Grid, Row, Col, observer_lib:to_str(Val))
 			      end,
 			      [{0,Name}, {1,Id}, {2,Size}, {3, Memory div 1024},
 			       {4,Owner}, {5,RegName}]),

@@ -16,34 +16,10 @@
 %%
 %% %CopyrightEnd%
 
--record(trace_options, {send         = false,
-			treceive     = false,
-			functions    = false,
-			events       = false,
-			on_1st_spawn = false,
-			on_all_spawn = false,
-			on_1st_link  = false,
-			on_all_link  = false,
-			main_window  = true}).
+-module(observer).
 
--record(match_spec, {alias,
-		     term_ms = [],
-		     str_ms = [],
-		     fun2ms}).
+-export([start/0]).
 
--record(traced_func, {func_name, %atom
-		      arity, %integer
-		      match_spec = #match_spec{}}).
 
--record(on_spawn, {checkbox, all_spawn, first_spawn}).
-
--record(on_link, {checkbox, all_link, first_link}).
-
--record(pid, {window, traced}).
-
--record(create_menu,
-	{id,
-	 text,
-	 type = append,
-	 check = false
-	}).
+start() ->
+    observer_wx:start().

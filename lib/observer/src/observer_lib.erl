@@ -1,0 +1,199 @@
+%%
+%% %CopyrightBegin%
+%%
+%% Copyright Ericsson AB 2011. All Rights Reserved.
+%%
+%% The contents of this file are subject to the Erlang Public License,
+%% Version 1.1, (the "License"); you may not use this file except in
+%% compliance with the License. You should have received a copy of the
+%% Erlang Public License along with this software. If not, it can be
+%% retrieved online at http://www.erlang.org/.
+%%
+%% Software distributed under the License is distributed on an "AS IS"
+%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+%% the License for the specific language governing rights and limitations
+%% under the License.
+%%
+%% %CopyrightEnd%
+
+-module(observer_lib).
+
+-export([get_wx_parent/1,
+	 display_info_dialog/1,
+	 interval_dialog/4, start_timer/1, stop_timer/1,
+	 display_info/2, update_info/2, to_str/1]).
+
+-include_lib("wx/include/wx.hrl").
+
+get_wx_parent(Window) ->
+    Parent = wxWindow:getParent(Window),
+    case wx:is_null(Parent) of
+	true -> Window;
+	false -> get_wx_parent(Parent)
+    end.
+
+interval_dialog(Parent0, {Timer, Value}, Min, Max) ->
+    Parent = get_wx_parent(Parent0),
+    Dialog = wxDialog:new(Parent, ?wxID_ANY, "Update Interval",
+			  [{style, ?wxDEFAULT_DIALOG_STYLE bor
+				?wxRESIZE_BORDER}]),
+    Panel = wxPanel:new(Dialog),
+    Check = wxCheckBox:new(Panel, ?wxID_ANY, "Periodical refresh"),
+    wxCheckBox:setValue(Check, Timer /= false),
+    Style = ?wxSL_HORIZONTAL bor ?wxSL_AUTOTICKS bor ?wxSL_LABELS,
+    Slider = wxSlider:new(Panel, ?wxID_ANY, Value, Min, Max,
+			  [{style, Style}, {size, {200, -1}}]),
+    wxWindow:enable(Slider, [{enable, Timer /= false}]),
+    InnerSizer = wxBoxSizer:new(?wxVERTICAL),
+    Buttons = wxDialog:createButtonSizer(Dialog, ?wxOK bor ?wxCANCEL),
+    Flags = [{flag, ?wxEXPAND bor ?wxALL}, {border, 2}],
+    wxSizer:add(InnerSizer, Check,  Flags),
+    wxSizer:add(InnerSizer, Slider, Flags),
+    wxPanel:setSizer(Panel, InnerSizer),
+    TopSizer = wxBoxSizer:new(?wxVERTICAL),
+    wxSizer:add(TopSizer, Panel, [{flag, ?wxEXPAND bor ?wxALL}, {border, 5}]),
+    wxSizer:add(TopSizer, Buttons, [{flag, ?wxEXPAND}]),
+    wxWindow:setSizerAndFit(Dialog, TopSizer),
+    wxSizer:setSizeHints(TopSizer, Dialog),
+    wxCheckBox:connect(Check, command_checkbox_clicked,
+		       [{callback, fun(#wx{event=#wxCommand{commandInt=Enable0}},_) ->
+					   Enable = Enable0 > 0,
+					   wxWindow:enable(Slider, [{enable, Enable}])
+				   end}]),
+    Res = case wxDialog:showModal(Dialog) of
+	      ?wxID_OK ->
+		  Enabled = wxCheckBox:isChecked(Check),
+		  setup_timer(Enabled, {Timer, wxSlider:getValue(Slider)});
+	      ?wxID_CANCEL ->
+		  {Timer, Value}
+	  end,
+    wxDialog:destroy(Dialog),
+    Res.
+
+stop_timer(Timer = {false, _}) -> Timer;
+stop_timer(Timer = {true, _}) -> Timer;
+stop_timer(Timer = {_, Intv}) ->
+    setup_timer(false, Timer),
+    {true, Intv}.
+start_timer(Intv) when is_integer(Intv) ->
+    setup_timer(true, {true, Intv});
+start_timer(Timer) ->
+    setup_timer(true, Timer).
+
+setup_timer(false, {Timer, Value})
+  when is_boolean(Timer) ->
+    {false, Value};
+setup_timer(true,  {false, Value}) ->
+    {ok, Timer} = timer:send_interval(Value * 1000, refresh_interval),
+    {Timer, Value};
+setup_timer(Bool, {Timer, Old}) ->
+    timer:cancel(Timer),
+    setup_timer(Bool, {false, Old}).
+
+display_info_dialog(Str) ->
+    Dlg = wxMessageDialog:new(wx:null(), Str),
+    wxMessageDialog:showModal(Dlg),
+    wxMessageDialog:destroy(Dlg),
+    ok.
+
+%% display_info(Parent, [{Title, [{Label, Info}]}]) -> {Panel, Sizer, InfoFieldsToUpdate}
+display_info(Frame, Info) ->
+    Panel = wxPanel:new(Frame),
+    wxWindow:setBackgroundColour(Panel, {255,255,255}),
+    Sizer = wxBoxSizer:new(?wxVERTICAL),
+    wxSizer:addSpacer(Sizer, 5),
+    Add = fun(BoxInfo) ->
+		  {Box, InfoFs} = create_box(Panel, BoxInfo),
+		  wxSizer:add(Sizer, Box, [{flag, ?wxEXPAND bor ?wxALL},
+					   {border, 5}]),
+		  wxSizer:addSpacer(Sizer, 5),
+		  InfoFs
+	  end,
+    InfoFs = [Add(I) || I <- Info],
+    wxWindow:setSizerAndFit(Panel, Sizer),
+    {Panel, Sizer, InfoFs}.
+
+update_info([Fields|Fs], [{_Header, SubStructure}| Rest]) ->
+    update_info2(Fields, SubStructure),
+    update_info(Fs, Rest);
+update_info([Fields|Fs], [{_Header, _Attrib, SubStructure}| Rest]) ->
+    update_info2(Fields, SubStructure),
+    update_info(Fs, Rest);
+update_info([], []) ->
+    ok.
+
+update_info2([Field|Fs], [{_Str, Value}|Rest]) ->
+    wxStaticText:setLabel(Field, to_str(Value)),
+    update_info2(Fs, Rest);
+update_info2([], []) -> ok.
+
+
+to_str(Value) when is_atom(Value) ->
+    atom_to_list(Value);
+to_str({bytes, B}) ->
+    KB = B div 1024,
+    MB = KB div 1024,
+    if
+	MB > 10 -> integer_to_list(MB) ++ " mB";
+	KB >  0 -> integer_to_list(KB) ++ " kB";
+	true -> integer_to_list(B) ++ " B "
+    end;
+to_str({time_ms, MS}) ->
+    S = MS div 1000,
+    Min = S div 60,
+    Hours = Min div 60,
+    Days = Hours div 24,
+    if
+	Days > 0 -> integer_to_list(Days) ++ " Days";
+	Hours > 0 -> integer_to_list(Hours) ++ " Hours";
+	Min > 0 -> integer_to_list(Min) ++ " Mins";
+	true -> integer_to_list(S) ++ " Secs"
+    end;
+
+to_str({A, B}) ->
+    lists:concat([A, ":", B]);
+to_str({M,F,A}) ->
+    lists:concat([M, ":", F, "/", A]);
+to_str(Value) when is_list(Value) ->
+    case lists:all(fun(X) -> is_integer(X) end, Value) of
+	true -> Value;
+	false ->
+	    lists:foldl(fun(X, Acc) ->
+				to_str(X) ++ " " ++ Acc end,
+			"", Value)
+    end;
+to_str(Port) when is_port(Port) ->
+    erlang:port_to_list(Port);
+to_str(Pid) when is_pid(Pid) ->
+    pid_to_list(Pid);
+to_str(No) when is_integer(No) ->
+    integer_to_list(No);
+to_str(ShouldNotGetHere) ->
+    erlang:error({?MODULE, to_str, ShouldNotGetHere}).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+get_box_info({Title, List}) when is_list(List) -> {Title, ?wxALIGN_LEFT, List};
+get_box_info({Title, left, List}) -> {Title, ?wxALIGN_LEFT, List};
+get_box_info({Title, right, List}) -> {Title, ?wxALIGN_RIGHT, List}.
+
+create_box(Panel, Data) ->
+    {Title, Align, Info} = get_box_info(Data),
+    Box = wxStaticBoxSizer:new(?wxHORIZONTAL, Panel, [{label, Title}]),
+    Left  = wxBoxSizer:new(?wxVERTICAL),
+    Right = wxBoxSizer:new(?wxVERTICAL),
+    Expand    = [{flag, ?wxEXPAND}],
+    ExpAlign  = [{flag, Align}],
+    AddRow = fun({Desc, Value}) ->
+		     wxSizer:add(Left, wxStaticText:new(Panel, ?wxID_ANY, Desc ++ ":"), Expand),
+		     Field = wxStaticText:new(Panel, ?wxID_ANY, to_str(Value)),
+		     wxSizer:add(Right, Field, ExpAlign),
+		     Field
+	     end,
+    InfoFields = [AddRow(Entry) || Entry <- Info],
+    wxSizer:add(Box, Left),
+    wxSizer:addSpacer(Box, 10),
+    wxSizer:add(Box, Right),
+    wxSizer:addSpacer(Box, 30),
+    {Box, InfoFields}.

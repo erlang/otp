@@ -23,19 +23,19 @@
 
 %% wx_object callbacks
 -export([init/1, handle_info/2, terminate/2, code_change/3, handle_call/3,
-	 handle_event/2, handle_cast/2, to_str/1]).
--export([get_row/4, get_attr/3]).
+	 handle_event/2, handle_cast/2]).
 
 -include_lib("wx/include/wx.hrl").
--include_lib("runtime_tools/include/observer_backend.hrl").
+-include("../include/etop.hrl").
 -include("observer_defs.hrl").
+-include("etop_defs.hrl").
 
 %% Defines
 -define(COL_PID,  0).
 -define(COL_NAME, 1).
 -define(COL_TIME, 2).
 -define(COL_REDS, 3).
--define(COL_MEM, 4).
+-define(COL_MEM,  4).
 -define(COL_MSG,  5).
 -define(COL_FUN,  6).
 
@@ -47,66 +47,57 @@
 -define(ID_TRACEMENU, 206).
 -define(ID_TRACE_ALL_MENU, 207).
 -define(ID_TRACE_NEW_MENU, 208).
--define(ID_NO_OF_LINES, 209).
--define(ID_ACCUMULATE, 210).
-
--define(START_LINES, 50). %% hardcoded startvalue representing the number of visible lines
+-define(ID_ACCUMULATE, 209).
 
 %% Records
 -record(attrs, {even, odd, deleted, changed, searched}).
 
+-record(sort,
+	{
+	  sort_key=?COL_REDS,
+	  sort_incr=false
+	}).
+
 -record(holder, {parent,
 		 info,
-		 attrs}).
-
+		 sort = #sort{},
+		 accum = [],
+		 attrs,
+		 node,
+		 backend_pid
+		}).
 
 -record(pro_wx_state, {parent,
-		       etop_monitor,
-		       holder_monitor,
 		       grid,
 		       panel,
 		       popup_menu,
 		       parent_notebook,
 		       trace_options = #trace_options{},
 		       match_specs = [],
-		       refr_timer = false,
+		       timer,
 		       tracemenu_opened,
 		       procinfo_menu_pids = [],
 		       selected_pids = [],
 		       last_selected,
-		       sort_dir = decr, % decr::atom | incr::incr
 		       holder}).
 
 start_link(Notebook, Parent) ->
     wx_object:start_link(?MODULE, [Notebook, Parent], []).
 
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 init([Notebook, Parent]) ->
-    {EtopMonitor, Config} = etop:start(observer),
-    SortDir = decr,
     Attrs = create_attrs(),
     Self = self(),
-    change_lines(?START_LINES),
-    Info = etop:update(Config, SortDir),
-    {Holder, HolderMon} = spawn_monitor(fun() ->
-						init_table_holder(Self,
-								  Info,
-								  Attrs)
-					end),
-    Count = length(Info#etop_info.procinfo),
-    {ProPanel, State} = setup(Notebook, Parent, Holder, Count),
-    refresh_grid(Holder, SortDir),
+    Holder = spawn_link(fun() -> init_table_holder(Self, Attrs) end),
+    {ProPanel, State} = setup(Notebook, Parent, Holder),
     MatchSpecs = generate_matchspecs(),
-    {ProPanel, State#pro_wx_state{etop_monitor = EtopMonitor,
-				  holder_monitor = HolderMon,
-				  sort_dir = SortDir,
-				  match_specs = MatchSpecs}}.
 
-setup(Notebook, Parent, Holder, Count) ->
+    {ProPanel, State#pro_wx_state{holder = Holder, match_specs = MatchSpecs}}.
+
+setup(Notebook, Parent, Holder) ->
     ProPanel = wxPanel:new(Notebook, []),
 
-    Grid = create_list_box(ProPanel, Holder, Count),
+    Grid = create_list_box(ProPanel, Holder),
     Sizer = wxBoxSizer:new(?wxVERTICAL),
     wxSizer:add(Sizer, Grid, [{flag, ?wxEXPAND bor ?wxALL},
 			      {proportion, 1},
@@ -122,7 +113,9 @@ setup(Notebook, Parent, Holder, Count) ->
 			   popup_menu = Popup,
 			   parent_notebook = Notebook,
 			   tracemenu_opened = false,
-			   holder = Holder},
+			   holder = Holder,
+			   timer = {false, 10}
+			  },
     {ProPanel, State}.
 
 generate_matchspecs() ->
@@ -152,14 +145,16 @@ generate_matchspecs() ->
 
 %% UI-creation
 
-create_pro_menu(Parent) ->
-    MenuEntries = [{"View",
-		    [#create_menu{id = ?ID_REFRESH, text = "Refresh"},
+create_pro_menu(Parent, Holder) ->
+    MenuEntries = [{"File",
+		    [#create_menu{id = ?ID_DUMP_TO_FILE, text = "Dump to file"}]},
+		   {"View",
+		    [#create_menu{id = ?ID_ACCUMULATE, text = "Accumulate",
+				  type  = check,
+				  check = call(Holder, {get_accum, self()})},
+		     separator,
+		     #create_menu{id = ?ID_REFRESH, text = "Refresh\tCtrl-R"},
 		     #create_menu{id = ?ID_REFRESH_INTERVAL, text = "Refresh Interval"}]},
-		   {"Options",
-		    [#create_menu{id = ?ID_DUMP_TO_FILE, text = "Dump to file"},
-		     #create_menu{id = ?ID_ACCUMULATE, text = "Accumulate", type = check},
-		     #create_menu{id = ?ID_NO_OF_LINES, text = "Number of lines"}]},
 		   {"Trace",
 		    [#create_menu{id = ?ID_TRACEMENU, text = "Trace selected processes"},
 		     #create_menu{id = ?ID_TRACE_NEW_MENU, text = "Trace new processes"},
@@ -188,13 +183,17 @@ create_popup_menu(ParentFrame) ->
     wxSizer:setSizeHints(Sizer, MiniFrame),
     MiniFrame.
 
-create_list_box(Panel, Holder, Count) ->
+create_list_box(Panel, Holder) ->
     Style = ?wxLC_REPORT bor ?wxLC_VIRTUAL,
     ListCtrl = wxListCtrl:new(Panel, [{style, Style},
 				      {onGetItemText,
-				       fun(_, Item, Col) -> get_row(Holder, Item, Col) end},
+				       fun(_, Row, Col) ->
+					       call(Holder, {get_row, self(), Row, Col})
+				       end},
 				      {onGetItemAttr,
-				       fun(_, Item) -> get_attr(Holder, Item) end}
+				       fun(_, Item) ->
+					       call(Holder, {get_attr, self(), Item})
+				       end}
 				     ]),
     Li = wxListItem:new(),
     AddListEntry = fun({Name, Align, DefSize}, Col) ->
@@ -207,9 +206,9 @@ create_list_box(Panel, Holder, Count) ->
     ListItems = [{"Pid", ?wxLIST_FORMAT_CENTRE,  120},
 		 {"Name or Initial Func", ?wxLIST_FORMAT_LEFT, 200},
 		 {"Time", ?wxLIST_FORMAT_CENTRE, 50},
-		 {"Reds", ?wxLIST_FORMAT_CENTRE, 50},
-		 {"Memory", ?wxLIST_FORMAT_CENTRE, 50},
-		 {"MsgQ",  ?wxLIST_FORMAT_LEFT, 50},
+		 {"Reds", ?wxLIST_FORMAT_RIGHT, 100},
+		 {"Memory", ?wxLIST_FORMAT_RIGHT, 100},
+		 {"MsgQ",  ?wxLIST_FORMAT_RIGHT, 50},
 		 {"Current Function", ?wxLIST_FORMAT_LEFT,  200}],
     lists:foldl(AddListEntry, 0, ListItems),
     wxListItem:destroy(Li),
@@ -219,110 +218,7 @@ create_list_box(Panel, Holder, Count) ->
     wxListCtrl:connect(ListCtrl, command_list_item_right_click),
     wxListCtrl:connect(ListCtrl, command_list_col_click),
     wxListCtrl:connect(ListCtrl, command_list_item_selected),
-    wxListCtrl:setItemCount(ListCtrl, Count),
     ListCtrl.
-
-change_node(Node) ->
-    etop_server ! {config, {node, Node}}.
-
-get_node() ->
-    etop_server ! {get_opt, node, self()},
-    receive
-	{node, Node} ->
-	    Node
-    end.
-
-change_accum(Bool) ->
-    etop_server ! {config, {accumulate, Bool}}.
-
-change_lines(Int) when is_integer(Int) ->
-    etop_server ! {config, {lines, Int}}.
-
-get_lines() ->
-    etop_server ! {get_opt, lines, self()},
-    receive
-	{lines, Lines} ->
-	    Lines
-    end.
-
-change_intv(NewIntv) ->
-    etop_server ! {config, {interval, NewIntv}}.
-
-get_intv() ->
-    etop_server ! {get_opt, intv, self()},
-    receive
-	{intv, Intv} ->
-	    Intv
-    end.
-
-get_sort() ->
-    etop_server ! {get_opt, sort, self()},
-    receive {sort, Sort} ->
-	    Sort
-    end.
-
-refresh_grid(Holder, Dir) ->
-    etop_server ! {update, Holder, Dir}.
-
-change_sort(Col, Dir) ->
-    case get_sort() =:= map_sort_order(Col) of
-	true when Dir =:= incr->
-	    decr;
-	true when Dir =:= decr ->
-	    incr;
-	false ->
-	    change_sort(Col),
-	    Dir
-    end.
-change_sort(?COL_PID) ->
-    etop_server ! {config, {sort, pid}};
-change_sort(?COL_NAME) ->
-    etop_server ! {config, {sort, name}};
-change_sort(?COL_TIME) ->
-    etop_server ! {config, {sort, runtime}};
-change_sort(?COL_REDS) ->
-    etop_server ! {config, {sort, reductions}};
-change_sort(?COL_MEM) ->
-    etop_server ! {config, {sort, memory}};
-change_sort(?COL_MSG) ->
-    etop_server ! {config, {sort, msg_q}};
-change_sort(?COL_FUN) ->
-    etop_server ! {config, {sort, cf}}.
-
-
-map_sort_order(Col) ->
-    case Col of
-	?COL_PID  -> pid;
-	?COL_NAME -> name;
-	?COL_TIME -> runtime;
-	?COL_REDS -> reductions;
-	?COL_MEM  -> memory;
-	?COL_MSG  -> msg_q;
-	?COL_FUN  -> cf
-    end.
-
-to_str(Value) when is_atom(Value) ->
-    atom_to_list(Value);
-to_str({A, B}) ->
-    lists:concat([A, ":", B]);
-to_str({M,F,A}) ->
-    lists:concat([M, ":", F, "/", A]);
-to_str(Value) when is_list(Value) ->
-    case lists:all(fun(X) -> is_integer(X) end, Value) of
-	true -> Value;
-	false ->
-	    lists:foldl(fun(X, Acc) ->
-				to_str(X) ++ " " ++ Acc end,
-			"", Value)
-    end;
-to_str(Port) when is_port(Port) ->
-    erlang:port_to_list(Port);
-to_str(Pid) when is_pid(Pid) ->
-    pid_to_list(Pid);
-to_str(No) when is_integer(No) ->
-    integer_to_list(No);
-to_str(ShouldNotGetHere) ->
-    erlang:error({?MODULE, to_str, ShouldNotGetHere}).
 
 clear_all(Grid) ->
     lists:foreach(fun(I) ->
@@ -338,7 +234,7 @@ set_selected_items(Grid, Holder, Pids) ->
 set_selected_items(_, _, Index, Pids, Max, Acc) when Pids =:= []; Index =:= Max ->
     Acc;
 set_selected_items(Grid, Holder, Index, Pids, Max, Acc) ->
-    {ok, Pid} = get_row(Holder, Index, pid),
+    {ok, Pid} = call(Holder, {get_row, self(), Index, pid}),
     case lists:member(Pid, Pids) of
 	true ->
 	    wxListCtrl:setItemState(Grid, Index,
@@ -353,125 +249,14 @@ get_selected_items(Grid) ->
     get_selected_items(Grid, -1, []).
 
 get_selected_items(Grid, Index, ItemAcc) ->
-    Item = wxListCtrl:getNextItem(Grid, Index,
-				  [{geometry, ?wxLIST_NEXT_ALL}, {state, ?wxLIST_STATE_SELECTED}]),
+    Item = wxListCtrl:getNextItem(Grid, Index, [{geometry, ?wxLIST_NEXT_ALL},
+						{state, ?wxLIST_STATE_SELECTED}]),
     case Item of
 	-1 ->
 	    lists:reverse(ItemAcc);
 	_ ->
 	    get_selected_items(Grid, Item, [Item+1 | ItemAcc])
     end.
-
-interval_dialog(ParentFrame, ParentPid, Enabled, Value, Min, Max) ->
-    Dialog = wxDialog:new(ParentFrame, ?wxID_ANY, "Update Interval",
-			  [{style, ?wxDEFAULT_DIALOG_STYLE bor
-				?wxRESIZE_BORDER}]),
-    Panel = wxPanel:new(Dialog),
-    Check = wxCheckBox:new(Panel, ?wxID_ANY, "Periodical refresh"),
-    wxCheckBox:setValue(Check, Enabled),
-    Style = ?wxSL_HORIZONTAL bor ?wxSL_AUTOTICKS bor ?wxSL_LABELS,
-    Slider = wxSlider:new(Panel, ?wxID_ANY, Value, Min, Max,
-			  [{style, Style}, {size, {200, -1}}]),
-    wxWindow:enable(Slider, [{enable, Enabled}]),
-    InnerSizer = wxBoxSizer:new(?wxVERTICAL),
-
-    OKBtn = wxButton:new(Dialog, ?wxID_OK),
-    CancelBtn = wxButton:new(Dialog, ?wxID_CANCEL),
-    Buttons = wxStdDialogButtonSizer:new(),
-    wxStdDialogButtonSizer:addButton(Buttons, OKBtn),
-    wxStdDialogButtonSizer:addButton(Buttons, CancelBtn),
-
-    Flags = [{flag, ?wxEXPAND bor ?wxALL}, {border, 2}],
-    wxSizer:add(InnerSizer, Check,  Flags),
-    wxSizer:add(InnerSizer, Slider, Flags),
-    wxPanel:setSizer(Panel, InnerSizer),
-    TopSizer = wxBoxSizer:new(?wxVERTICAL),
-    wxSizer:add(TopSizer, Panel, [{flag, ?wxEXPAND bor ?wxALL}, {border, 5}]),
-    wxSizer:add(TopSizer, Buttons, [{flag, ?wxEXPAND}]),
-    wxStdDialogButtonSizer:realize(Buttons),
-    wxWindow:setSizerAndFit(Dialog, TopSizer),
-    wxSizer:setSizeHints(TopSizer, Dialog),
-    wxCheckBox:connect(Check, command_checkbox_clicked,
-		       [{callback, fun(#wx{event=#wxCommand{type = command_checkbox_clicked,
-							    commandInt=Enable0}},_) ->
-					   Enable = Enable0 > 0,
-					   wxWindow:enable(Slider, [{enable, Enable}])
-				   end}]),
-
-    wxButton:connect(OKBtn, command_button_clicked,
-		     [{callback,
-		       fun(#wx{id = ?wxID_OK,
-			       event = #wxCommand{type = command_button_clicked}},_) ->
-			       ParentPid ! {wxCheckBox:isChecked(Check), wxSlider:getValue(Slider)},
-			       wxDialog:destroy(Dialog)
-		       end}]),
-    wxButton:connect(CancelBtn, command_button_clicked,
-		     [{callback,
-		       fun(#wx{id = ?wxID_CANCEL,
-			       event = #wxCommand{type = command_button_clicked}},_) ->
-			       ParentPid ! cancel,
-			       wxDialog:destroy(Dialog)
-		       end}]),
-
-    wxDialog:show(Dialog).
-
-
-
-line_dialog(ParentFrame, OldLines, Holder, Dir) ->
-    Dialog = wxDialog:new(ParentFrame, ?wxID_ANY, "Enter number of lines",
-			  [{style, ?wxDEFAULT_DIALOG_STYLE bor ?wxRESIZE_BORDER}]),
-    Panel = wxPanel:new(Dialog),
-    TxtCtrl = wxTextCtrl:new(Panel, ?wxID_ANY, [{value, OldLines}]),
-    InnerSz = wxBoxSizer:new(?wxVERTICAL),
-    wxSizer:add(InnerSz, TxtCtrl, [{flag, ?wxEXPAND bor ?wxALL}]),
-    wxPanel:setSizer(Panel, InnerSz),
-
-    OKBtn = wxButton:new(Dialog, ?wxID_OK),
-    CancelBtn = wxButton:new(Dialog, ?wxID_CANCEL),
-
-    Buttons = wxStdDialogButtonSizer:new(),
-    wxStdDialogButtonSizer:addButton(Buttons, OKBtn),
-    wxStdDialogButtonSizer:addButton(Buttons, CancelBtn),
-
-    TopSz = wxBoxSizer:new(?wxVERTICAL),
-    wxSizer:add(TopSz, Panel, [{flag, ?wxEXPAND bor ?wxALL}, {border, 5}]),
-    wxSizer:add(TopSz, Buttons, [{flag, ?wxEXPAND}]),
-    wxStdDialogButtonSizer:realize(Buttons),
-    wxWindow:setSizerAndFit(Dialog, TopSz),
-    wxSizer:setSizeHints(TopSz, Dialog),
-
-    wxButton:connect(OKBtn, command_button_clicked,
-		     [{callback,
-		       fun(#wx{id = ?wxID_OK,
-			       event = #wxCommand{type = command_button_clicked}},_) ->
-			       try
-				   NewLines = list_to_integer(wxTextCtrl:getValue(TxtCtrl)),
-				   case NewLines >= 0 of
-				       true ->
-					   change_lines(NewLines),
-					   refresh_grid(Holder, Dir);
-				       false ->
-					   observer_wx:create_txt_dialog(Panel,
-									 "Invalid input",
-									 "Error",
-									 ?wxICON_ERROR)
-				   end
-			       catch error:badarg ->
-				       observer_wx:create_txt_dialog(Panel,
-								     "Invalid input",
-								     "Error",
-								     ?wxICON_ERROR)
-			       end,
-			       wxDialog:destroy(Dialog)
-		       end}]),
-    wxButton:connect(CancelBtn, command_button_clicked,
-		     [{callback,
-		       fun(#wx{id = ?wxID_CANCEL,
-			       event = #wxCommand{type = command_button_clicked}},_) ->
-			       wxDialog:destroy(Dialog)
-		       end}]),
-    wxDialog:show(Dialog).
-
 
 create_attrs() ->
     Font = wxSystemSettings:getFont(?wxSYS_DEFAULT_GUI_FONT),
@@ -484,6 +269,7 @@ create_attrs() ->
 dump_to_file(Parent, FileName, Holder) ->
     case file:open(FileName, [write]) of
 	{ok, Fd} ->
+	    %% Holder closes the file when it's done
 	    Holder ! {dump, Fd};
 	{error, Reason} ->
 	    FailMsg = file:format_error(Reason),
@@ -501,67 +287,34 @@ start_procinfo(Node, Pid, Frame, Opened) ->
 	    [Pid | Opened]
     end.
 
-
-
-get_selected_pids(Holder, Indices) ->
+call(Holder, What) ->
     Ref = erlang:monitor(process, Holder),
-    Holder ! {get_pids, self(), Indices},
-    receive
-	{'DOWN', Ref, _, _, _} -> [];
-	{Holder, Res} ->
-	    erlang:demonitor(Ref),
-	    Res
-    end.
-
-get_row(Holder, Row, Column) ->
-    Ref = erlang:monitor(process, Holder),
-    Holder ! {get_row, self(), Row, Column},
+    Holder ! What,
     receive
 	{'DOWN', Ref, _, _, _} -> "";
 	{Holder, Res} ->
 	    erlang:demonitor(Ref),
 	    Res
+    after 2000 ->
+	    io:format("Hanging call ~p~n",[What])
     end.
-
-
-get_attr(Holder, Item) ->
-    Ref = erlang:monitor(process, Holder),
-    Holder ! {get_attr, self(), Item},
-    receive
-	{'DOWN', Ref, _, _, _} -> "";
-	{Holder, Res} ->
-	    erlang:demonitor(Ref),
-	    Res
-    end.
-
 
 %%%%%%%%%%%%%%%%%%%%%%% Callbacks %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-handle_info({'DOWN', Ref, _, _, _},
-	    #pro_wx_state{etop_monitor = EtopMon} = State) when Ref =:= EtopMon ->
-    io:format("Etop died~n"),
-    {stop, shutdown, State};
-
-handle_info({'DOWN', Ref, _, _, _},
-	    #pro_wx_state{holder_monitor = HMonitor} = State) when Ref =:= HMonitor ->
-    io:format("Holder died~n"),
-    {stop, shutdown, State};
 
 handle_info({holder_updated, Count}, #pro_wx_state{grid = Grid,
 						   holder = Holder,
 						   selected_pids = Pids} = State) ->
     Pids2 = wx:batch(fun() ->
-			     wxListCtrl:setItemCount(Grid, Count),
 			     clear_all(Grid),
 			     Pids2 = set_selected_items(Grid, Holder, Pids),
+			     wxListCtrl:setItemCount(Grid, Count),
 			     wxListCtrl:refreshItems(Grid, 0, Count),
 			     Pids2
 		     end),
     {noreply, State#pro_wx_state{selected_pids = Pids2}};
 
-handle_info(refresh_interval, #pro_wx_state{sort_dir = Dir,
-					    holder = Holder} = State) ->
-    refresh_grid(Holder, Dir),
+handle_info(refresh_interval, #pro_wx_state{holder = Holder} = State) ->
+    Holder ! refresh,
     {noreply, State};
 
 handle_info({tracemenu_closed, TraceOpts, MatchSpecs}, State) ->
@@ -574,38 +327,18 @@ handle_info({procinfo_menu_closed, Pid},
     NewPids = lists:delete(Pid, Opened),
     {noreply, State#pro_wx_state{procinfo_menu_pids = NewPids}};
 
-handle_info({active, Node}, #pro_wx_state{holder = Holder,
-					  sort_dir = Dir,
-					  refr_timer = Timer0,
-					  parent = Parent} = State) ->
-    create_pro_menu(Parent),
-    change_node(Node),
-    refresh_grid(Holder, Dir),
-    Timer = case Timer0 of
-		true ->
-		    Intv = get_intv(),
-		    {ok, Ref} = timer:send_interval(Intv, refresh_interval),
-		    Ref;
-		false ->
-		    false
-	    end,
-    {noreply, State#pro_wx_state{refr_timer = Timer}};
+handle_info({active, Node},
+	    #pro_wx_state{holder = Holder, timer = Timer, parent = Parent} = State) ->
+    create_pro_menu(Parent, Holder),
+    Holder ! {change_node, Node},
+    {noreply, State#pro_wx_state{timer = observer_lib:start_timer(Timer)}};
 
-handle_info(not_active, #pro_wx_state{refr_timer = Timer0} = State) ->
-    Timer = case Timer0 of
-		false -> false;
-		true -> true;
-		Timer0 ->
-		    timer:cancel(Timer0),
-		    true
-	    end,
-    {noreply, State#pro_wx_state{refr_timer=Timer,
-				 selected_pids = [],
-				 last_selected = undefined}};
+handle_info(not_active, #pro_wx_state{timer = Timer0} = State) ->
+    Timer = observer_lib:stop_timer(Timer0),
+    {noreply, State#pro_wx_state{timer=Timer, selected_pids = [], last_selected = undefined}};
 
-handle_info({node, Node}, #pro_wx_state{holder = Holder, sort_dir = Dir} = State) ->
-    change_node(Node),
-    refresh_grid(Holder, Dir),
+handle_info({node, Node}, #pro_wx_state{holder = Holder} = State) ->
+    Holder ! {change_node, Node},
     {noreply, State#pro_wx_state{selected_pids = [],
 				 last_selected = undefined}};
 
@@ -649,57 +382,21 @@ handle_event(#wx{id = ?ID_DUMP_TO_FILE},
     end,
     {noreply, State};
 
-handle_event(#wx{id = ?ID_ACCUMULATE, event = #wxCommand{type = command_menu_selected,
-							 commandInt = CmdInt}},
-	     #pro_wx_state{holder = Holder,
-			   sort_dir = Dir} = State) when CmdInt =:= 1->
-    change_accum(true),
-    refresh_grid(Holder, Dir),
-    {noreply, State};
-
-handle_event(#wx{id = ?ID_ACCUMULATE, event = #wxCommand{type = command_menu_selected,
-							 commandInt = CmdInt}},
-	     #pro_wx_state{holder = Holder,
-			   sort_dir = Dir} = State) when CmdInt =:= 0 ->
-    change_accum(false),
-    refresh_grid(Holder, Dir),
-    {noreply, State};
-
-handle_event(#wx{id = ?ID_NO_OF_LINES, event = #wxCommand{type = command_menu_selected}},
-	     #pro_wx_state{panel = Panel,
-			   sort_dir = Dir,
-			   holder = Holder} = State) ->
-    OldLines = integer_to_list(get_lines()),
-    line_dialog(Panel, OldLines, Holder, Dir),
+handle_event(#wx{id = ?ID_ACCUMULATE,
+		 event = #wxCommand{type = command_menu_selected, commandInt = CmdInt}},
+	     #pro_wx_state{holder = Holder} = State) ->
+    Holder ! {accum, CmdInt =:= 1},
     {noreply, State};
 
 handle_event(#wx{id = ?ID_REFRESH, event = #wxCommand{type = command_menu_selected}},
-	     #pro_wx_state{sort_dir = Dir, holder = Holder} = State) ->
-    refresh_grid(Holder, Dir),
+	     #pro_wx_state{holder = Holder} = State) ->
+    Holder ! refresh,
     {noreply, State};
 
 handle_event(#wx{id = ?ID_REFRESH_INTERVAL},
-	     #pro_wx_state{panel = Panel, refr_timer=Timer0} = State) ->
-    Intv0 = get_intv() div 1000,
-    interval_dialog(Panel, self(), Timer0 /= false, Intv0, 1, 5*60),
-    receive
-	cancel ->
-	    {noreply, State};
-	{true, Intv} ->
-	    case Timer0 of
-		false -> ok;
-		_ -> timer:cancel(Timer0)
-	    end,
-	    change_intv(Intv),
-	    {ok, Timer} = timer:send_interval(Intv * 1000, refresh_interval),
-	    {noreply, State#pro_wx_state{refr_timer=Timer}};
-	{false, _} ->
-	    case Timer0 of
-		false -> ok;
-		_ -> timer:cancel(Timer0)
-	    end,
-	    {noreply, State#pro_wx_state{refr_timer=false}}
-    end;
+	     #pro_wx_state{panel = Panel, timer=Timer0} = State) ->
+    Timer = observer_lib:interval_dialog(Panel, Timer0, 1, 5*60),
+    {noreply, State#pro_wx_state{timer=Timer}};
 
 handle_event(#wx{id = ?ID_KILL}, #pro_wx_state{popup_menu = Pop,
 					       selected_pids = Pids,
@@ -712,17 +409,19 @@ handle_event(#wx{id = ?ID_KILL}, #pro_wx_state{popup_menu = Pop,
 
 
 handle_event(#wx{id = ?ID_PROC},
-	     #pro_wx_state{panel = Panel,
+	     #pro_wx_state{holder=Holder,
+			   panel = Panel,
 			   popup_menu = Pop,
 			   last_selected = Pid,
 			   procinfo_menu_pids = Opened} = State) ->
     wxWindow:show(Pop, [{show, false}]),
-    Node = get_node(),
+    Node = call(Holder, {get_node, self()}),
     Opened2 = start_procinfo(Node, Pid, Panel, Opened),
     {noreply, State#pro_wx_state{procinfo_menu_pids = Opened2}};
 
 handle_event(#wx{id = ?ID_TRACEMENU},
-	     #pro_wx_state{popup_menu = Pop,
+	     #pro_wx_state{holder=Holder,
+			   popup_menu = Pop,
 			   trace_options = Options,
 			   match_specs = MatchSpecs,
 			   selected_pids = Pids,
@@ -734,7 +433,7 @@ handle_event(#wx{id = ?ID_TRACEMENU},
 	    observer_wx:create_txt_dialog(Panel, "No selected processes", "Tracer", ?wxICON_EXCLAMATION),
 	    {noreply, State};
 	Pids ->
-	    Node = get_node(),
+	    Node = call(Holder, {get_node, self()}),
 	    observer_trace_wx:start(Node,
 				    Pids,
 				    Options,
@@ -745,11 +444,12 @@ handle_event(#wx{id = ?ID_TRACEMENU},
     end;
 
 handle_event(#wx{id = ?ID_TRACE_ALL_MENU, event = #wxCommand{type = command_menu_selected}},
-	     #pro_wx_state{trace_options = Options,
+	     #pro_wx_state{holder=Holder,
+			   trace_options = Options,
 			   match_specs = MatchSpecs,
 			   tracemenu_opened = false,
 			   panel = Panel} = State) ->
-    Node = get_node(),
+    Node = call(Holder, {get_node, self()}),
     observer_trace_wx:start(Node,
 			    all,
 			    Options,
@@ -760,11 +460,12 @@ handle_event(#wx{id = ?ID_TRACE_ALL_MENU, event = #wxCommand{type = command_menu
 
 
 handle_event(#wx{id = ?ID_TRACE_NEW_MENU, event = #wxCommand{type = command_menu_selected}},
-	     #pro_wx_state{trace_options = Options,
+	     #pro_wx_state{holder=Holder,
+			   trace_options = Options,
 			   match_specs = MatchSpecs,
 			   tracemenu_opened = false,
 			   panel = Panel} = State) ->
-    Node = get_node(),
+    Node = call(Holder, {get_node, self()}),
     observer_trace_wx:start(Node,
 			    new,
 			    Options,
@@ -790,7 +491,7 @@ handle_event(#wx{event = #wxList{type = command_list_item_right_click,
 	     #pro_wx_state{popup_menu = Popup,
 			   holder = Holder} = State) ->
 
-    case get_row(Holder, Row, pid) of
+    case call(Holder, {get_row, self(), Row, pid}) of
 	{error, undefined} ->
 	    wxWindow:show(Popup, [{show, false}]),
 	    undefined;
@@ -806,29 +507,28 @@ handle_event(#wx{event = #wxList{type = command_list_item_selected,
 			   popup_menu = Pop,
 			   holder = Holder} = State) ->
 
-    NewPid = case get_row(Holder, Row, pid) of
+    NewPid = case call(Holder, {get_row, self(), Row, pid}) of
 		 {error, undefined} ->
 		     undefined;
 		 {ok, P} when is_pid(P) ->
 		     P
 	     end,
     wxWindow:show(Pop, [{show, false}]),
-    Pids = get_selected_pids(Holder, get_selected_items(Grid)),
+    Pids = call(Holder, {get_pids, self(), get_selected_items(Grid)}),
     {noreply, State#pro_wx_state{selected_pids = Pids,
 				 last_selected = NewPid}};
 
 handle_event(#wx{event = #wxList{type = command_list_col_click, col = Col}},
-	     #pro_wx_state{sort_dir = OldDir,
-			   holder = Holder} = State) ->
-    NewDir = change_sort(Col, OldDir),
-    refresh_grid(Holder, NewDir),
-    {noreply, State#pro_wx_state{sort_dir = NewDir}};
+	     #pro_wx_state{holder = Holder} = State) ->
+    Holder !  {change_sort, Col},
+    {noreply, State};
 
 handle_event(#wx{event = #wxList{type = command_list_item_activated}},
-	     #pro_wx_state{panel = Panel,
+	     #pro_wx_state{holder=Holder,
+			   panel = Panel,
 			   procinfo_menu_pids= Opened,
 			   last_selected = Pid} = State) when Pid =/= undefined ->
-    Node = get_node(),
+    Node = call(Holder, {get_node, self()}),
     Opened2 = start_procinfo(Node, Pid, Panel, Opened),
     {noreply, State#pro_wx_state{procinfo_menu_pids = Opened2}};
 
@@ -837,56 +537,59 @@ handle_event(Event, State) ->
     {noreply, State}.
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%TABLE HOLDER%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-
-init_table_holder(Parent, Info, Attrs) ->
+init_table_holder(Parent, Attrs) ->
+    Backend = spawn_link(node(), observer_backend,etop_collect,[self()]),
     table_holder(#holder{parent = Parent,
-			 info = Info,
-			 attrs = Attrs}).
+			 info = #etop_info{procinfo=[]},
+			 node = node(),
+			 backend_pid = Backend,
+			 attrs = Attrs
+			}).
 
-
-table_holder(#holder{parent = Parent,
-		     info = Info,
-		     attrs = Attrs} = S0) ->
+table_holder(#holder{info=#etop_info{procinfo=Info}, attrs=Attrs,
+		     node=Node, backend_pid=Backend} = S0) ->
     receive
 	{get_row, From, Row, Col} ->
-	    get_row(From, Row, Col, Info#etop_info.procinfo),
+	    get_row(From, Row, Col, Info),
 	    table_holder(S0);
 	{get_attr, From, Row} ->
 	    get_attr(From, Row, Attrs),
 	    table_holder(S0);
+	{Backend, EtopInfo = #etop_info{}} ->
+	    State = handle_update(EtopInfo, S0),
+	    table_holder(State#holder{backend_pid=undefined});
+	refresh when is_pid(Backend)->
+	    table_holder(S0); %% Already updating
+	refresh ->
+	    Pid = spawn_link(Node,observer_backend,etop_collect,[self()]),
+	    table_holder(S0#holder{backend_pid=Pid});
+	{change_sort, Col} ->
+	    State = change_sort(Col, S0),
+	    table_holder(State);
 	{get_pids, From, Indices} ->
-	    get_pids(From, Indices, Info#etop_info.procinfo),
+	    get_pids(From, Indices, Info),
 	    table_holder(S0);
-	{update, #etop_info{procinfo = ProcInfo} = NewInfo} ->
-	    Parent ! {holder_updated, length(ProcInfo)},
-	    table_holder(S0#holder{info = NewInfo});
+	{get_node, From} ->
+	    From ! {self(), Node},
+	    table_holder(S0);
+	{change_node, NewNode} ->
+	    case Node == NewNode of
+		true ->
+		    table_holder(S0);
+		false ->
+		    self() ! refresh,
+		    table_holder(S0#holder{node=NewNode})
+	    end;
+	{accum, Bool} ->
+	    table_holder(change_accum(Bool,S0));
+	{get_accum, From} ->
+	    From ! {self(), S0#holder.accum == true},
+	    table_holder(S0);
 	{dump, Fd} ->
-	    etop_server ! {observer_dump, Fd, Info},
+	    etop_txt:do_update(Fd, S0#holder.info, #opts{node=Node}),
+	    file:close(Fd),
 	    table_holder(S0);
 	stop ->
 	    ok;
@@ -895,33 +598,69 @@ table_holder(#holder{parent = Parent,
 	    table_holder(S0)
     end.
 
+change_sort(Col, S0 = #holder{parent=Parent, info=EI=#etop_info{procinfo=Data}, sort=Sort0}) ->
+    {Sort, ProcInfo} = sort(Col, Sort0, Data),
+    Parent ! {holder_updated, length(Data)},
+    S0#holder{info=EI#etop_info{procinfo=ProcInfo}, sort=Sort}.
 
-get_procinfo_data(?COL_PID, #etop_proc_info{pid = Pid}) ->
-    Pid;
-get_procinfo_data(?COL_NAME, #etop_proc_info{name = Name})  ->
-    Name;
-get_procinfo_data(?COL_MEM, #etop_proc_info{mem = Mem}) ->
-    Mem;
-get_procinfo_data(?COL_TIME, #etop_proc_info{runtime = RT}) ->
-    RT;
-get_procinfo_data(?COL_REDS, #etop_proc_info{reds = Reds}) ->
-    Reds;
-get_procinfo_data(?COL_FUN, #etop_proc_info{cf = CF}) ->
-    CF;
-get_procinfo_data(?COL_MSG, #etop_proc_info{mq = MQ}) ->
-    MQ.
+change_accum(true, S0) ->
+    S0#holder{accum=true};
+change_accum(false, S0 = #holder{info=#etop_info{procinfo=Info}}) ->
+    self() ! refresh,
+    S0#holder{accum=lists:sort(Info)}.
+
+handle_update(EI=#etop_info{procinfo=ProcInfo0},
+	      S0 = #holder{parent=Parent, sort=Sort=#sort{sort_key=KeyField}}) ->
+    {ProcInfo1, S1} = accum(ProcInfo0, S0),
+    {_SO, ProcInfo} = sort(KeyField, Sort#sort{sort_key=undefined}, ProcInfo1),
+    Parent ! {holder_updated, length(ProcInfo)},
+    S1#holder{info=EI#etop_info{procinfo=ProcInfo}}.
+
+accum(ProcInfo, State = #holder{accum=true}) ->
+    {ProcInfo, State};
+accum(ProcInfo0, State = #holder{accum=Previous}) ->
+    ProcInfo = lists:sort(ProcInfo0),
+    {accum2(ProcInfo,Previous,[]), State#holder{accum=ProcInfo}}.
+
+accum2([PI = #etop_proc_info{pid=Pid, reds=Reds, runtime=RT}|PIs],
+       [#etop_proc_info{pid=Pid, reds=OldReds, runtime=OldRT}|Old], Acc) ->
+    accum2(PIs, Old, [PI#etop_proc_info{reds=Reds-OldReds, runtime=RT-OldRT}|Acc]);
+accum2(PIs = [#etop_proc_info{pid=Pid}|_], [#etop_proc_info{pid=OldPid}|Old], Acc)
+  when Pid > OldPid ->
+    accum2(PIs, Old, Acc);
+accum2([PI|PIs], Old, Acc) ->
+    accum2(PIs, Old, [PI|Acc]);
+accum2([], _, Acc) -> Acc.
+
+sort(Col, Opt = #sort{sort_key=Col, sort_incr=Bool}, Table) ->
+    {Opt#sort{sort_incr=not Bool}, lists:reverse(Table)};
+sort(Col, S=#sort{sort_incr=true}, Table) ->
+    {S#sort{sort_key=Col}, lists:keysort(col_to_element(Col), Table)};
+sort(Col, S=#sort{sort_incr=false}, Table) ->
+    {S#sort{sort_key=Col}, lists:reverse(lists:keysort(col_to_element(Col), Table))}.
+
+
+
+
+
+get_procinfo_data(Col, Info) ->
+    element(col_to_element(Col), Info).
+col_to_element(?COL_PID)  -> #etop_proc_info.pid;
+col_to_element(?COL_NAME) -> #etop_proc_info.name;
+col_to_element(?COL_MEM)  -> #etop_proc_info.mem;
+col_to_element(?COL_TIME) -> #etop_proc_info.runtime;
+col_to_element(?COL_REDS) -> #etop_proc_info.reds;
+col_to_element(?COL_FUN)  -> #etop_proc_info.cf;
+col_to_element(?COL_MSG)  -> #etop_proc_info.mq.
 
 get_pids(From, Indices, ProcInfo) ->
-    From ! {self(),
-	    [X#etop_proc_info.pid || X <-
-					 [lists:nth(I, ProcInfo) || I <- Indices]]}.
+    Processes = [lists:nth(I, ProcInfo) || I <- Indices],
+    From ! {self(), [X#etop_proc_info.pid || X <- Processes]}.
 
 get_row(From, Row, pid, Info) ->
     Pid = case Row =:= -1 of
-	      true ->
-		  {error, undefined};
-	      false ->
-		  {ok, get_procinfo_data(?COL_PID, lists:nth(Row+1, Info))}
+	      true ->  {error, undefined};
+	      false -> {ok, get_procinfo_data(?COL_PID, lists:nth(Row+1, Info))}
 	  end,
     From ! {self(), Pid};
 get_row(From, Row, Col, Info) ->
@@ -936,9 +675,7 @@ get_row(From, Row, Col, Info) ->
 
 get_attr(From, Row, Attrs) ->
     Attribute = case Row rem 2 =:= 0 of
-		    true ->
-			Attrs#attrs.even;
-		    false ->
-			Attrs#attrs.odd
+		    true ->  Attrs#attrs.even;
+		    false -> Attrs#attrs.odd
 		end,
     From ! {self(), Attribute}.

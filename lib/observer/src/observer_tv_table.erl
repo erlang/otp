@@ -26,7 +26,7 @@
 
 -export([get_table/3]).
 
--import(observer_pro_wx, [to_str/1]).
+-import(observer_lib, [to_str/1]).
 
 -behaviour(wx_object).
 -include_lib("wx/include/wx.hrl").
@@ -58,7 +58,8 @@
 	  pid,
 	  source,
 	  tab,
-	  attrs
+	  attrs,
+	  timer
 	}).
 
 -record(opt,
@@ -401,6 +402,11 @@ handle_event(#wx{id=?ID_TABLE_INFO},
     observer_tv_wx:display_table_info(Frame, Node, Source, Table),
     {noreply, State};
 
+handle_event(#wx{id=?ID_REFRESH_INTERVAL},
+	     State = #state{grid=Grid, timer=Timer0}) ->
+    Timer = observer_lib:interval_dialog(Grid, Timer0, 10, 5*60),
+    {noreply, State#state{timer=Timer}};
+
 handle_event(Event, State) ->
     io:format("~p:~p, handle event ~p\n", [?MODULE, ?LINE, Event]),
     {noreply, State}.
@@ -586,10 +592,10 @@ sort(Col, S=#holder{n=N, parent=Parent, sort=Opt0, table=Table0}) ->
 
 sort(Col, Opt = #opt{sort_key=Col, sort_incr=Bool}, Table) ->
     {Opt#opt{sort_incr=not Bool}, lists:reverse(Table)};
-sort(Col, #opt{sort_incr=true}, Table) ->
-    {#opt{sort_key=Col}, keysort(Col, Table)};
-sort(Col, #opt{sort_incr=false}, Table) ->
-    {#opt{sort_key=Col}, lists:reverse(keysort(Col, Table))}.
+sort(Col, S=#opt{sort_incr=true}, Table) ->
+    {S#opt{sort_key=Col}, keysort(Col, Table)};
+sort(Col, S=#opt{sort_incr=false}, Table) ->
+    {S=#opt{sort_key=Col}, lists:reverse(keysort(Col, Table))}.
 
 keysort(Col, Table) ->
     Sort = fun([A0|_], [B0|_]) ->
