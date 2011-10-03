@@ -2670,6 +2670,7 @@ tailrecur_ne:
 		// Float is within the no loss limit
 		f1.fd = signed_val(aw);
 		j = float_comp(f1.fd, f2.fd);
+#if ERTS_SIZEOF_ETERM == 8
 	    } else if (f2.fd > (double) (MAX_SMALL + 1)) {
 		// Float is a positive bignum, i.e. bigger
 		j = -1;
@@ -2679,6 +2680,12 @@ tailrecur_ne:
 	    } else { // Float is a Sint but less precise
 		j = signed_val(aw) - (Sint) f2.fd;
 	    }
+#else
+	    } else {
+		// If float is positive it is bigger than small
+		j = (f2.fd > 0.0) ? -1 : 1;
+	    }
+#endif // ERTS_SIZEOF_ETERM == 8
 	    break;
 	case BIG_FLOAT:
 	    GET_DOUBLE(bw, f2);
@@ -2710,6 +2717,7 @@ tailrecur_ne:
 		// Float is within the no loss limit
 		f2.fd = signed_val(bw);
 		j = float_comp(f1.fd, f2.fd);
+#if ERTS_SIZEOF_ETERM == 8
 	    } else if (f1.fd > (double) (MAX_SMALL + 1)) {
 		// Float is a positive bignum, i.e. bigger
 		j = 1;
@@ -2719,6 +2727,12 @@ tailrecur_ne:
 	    } else { // Float is a Sint but less precise it
 		j = (Sint) f1.fd - signed_val(bw);
 	    }
+#else
+	    } else {
+		// If float is positive it is bigger than small
+		j = (f1.fd > 0.0) ? 1 : -1;
+	    }
+#endif // ERTS_SIZEOF_ETERM == 8
 	    break;
 	case FLOAT_BIG:
 	    GET_DOUBLE(aw, f1);
