@@ -17,9 +17,9 @@
 # 
 # %CopyrightEnd%
 
-SCRIPT_SKELETONS = \
-	meas.sh.skel \
-	mstone1.sh.skel
+SCRIPT_SKELETON_SRC = \
+	meas.sh.skel.src \
+	mstone1.sh.skel.src
 
 MESSAGE_PACKAGES = \
 	time_test.msgs
