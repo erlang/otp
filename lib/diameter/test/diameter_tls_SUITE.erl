@@ -18,15 +18,17 @@
 %%
 
 %%
-%% Tests of traffic between four Diameter nodes connected as follows.
+%% Tests of traffic between six Diameter nodes connected as follows.
 %%
-%%                  ---- SERVER.REALM1
+%%                  ---- SERVER.REALM1  (TLS after capabilities exchange)
 %%                /
-%%   CLIENT.REALM0 ----- SERVER.REALM2
+%%               /  ---- SERVER.REALM2  (ditto)
+%%              | /
+%%   CLIENT.REALM0 ----- SERVER.REALM3  (no security)
+%%              | \
+%%               \  ---- SERVER.REALM4  (TLS at connection establishment)
 %%                \
-%%                  ---- SERVER.REALM3
-%%
-%% The first two connections are established over TLS, the third not.
+%%                  ---- SERVER.REALM5  (ditto)
 %%
 
 -module(diameter_tls_SUITE).
@@ -43,6 +45,8 @@
 -export([send1/1,
          send2/1,
          send3/1,
+         send4/1,
+         send5/1,
          remove_transports/1,
          stop_services/1]).
 
@@ -73,6 +77,10 @@
 -define(SERVER1, "SERVER.REALM1").
 -define(SERVER2, "SERVER.REALM2").
 -define(SERVER3, "SERVER.REALM3").
+-define(SERVER4, "SERVER.REALM4").
+-define(SERVER5, "SERVER.REALM5").
+
+-define(SERVERS, [?SERVER1, ?SERVER2, ?SERVER3, ?SERVER4, ?SERVER5]).
 
 -define(DICT_COMMON,  ?DIAMETER_DICT_COMMON).
 
@@ -113,13 +121,12 @@
                   {capabilities, Caps}]}).
 
 -define(SUCCESS, 2001).
-
 -define(LOGOUT, ?'DIAMETER_BASE_TERMINATION-CAUSE_DIAMETER_LOGOUT').
 
 %% ===========================================================================
 
 suite() ->
-    [{timetrap, {seconds, 10}}].
+    [{timetrap, {seconds, 15}}].
 
 all() ->
     [{group, N} || {N, _, _} <- groups()]
@@ -141,24 +148,14 @@ init_per_suite(Config) ->
     ok = diameter:start(),
 
     Dir = proplists:get_value(priv_dir, Config),
-    Servers = [server(?SERVER1,
-                      inband_security([?TLS]),
-                      ssl_options(Dir, "server1")),
-               server(?SERVER2,
-                      inband_security([?NO_INBAND_SECURITY, ?TLS]),
-                      ssl_options(Dir, "server2")),
-               server(?SERVER3,
-                      [],
-                      [])],
+    Servers = [server(S, sopts(S, Dir)) || S <- ?SERVERS],
 
     ok = diameter:start_service(?CLIENT, ?SERVICE(?CLIENT, ?DICT_COMMON)),
-
     true = diameter:subscribe(?CLIENT),
 
-    Connections = connect(?CLIENT,
-                          Servers,
-                          inband_security([?NO_INBAND_SECURITY, ?TLS]),
-                          ssl_options(Dir, "client")),
+    Opts = ssl_options(Dir, "client"),
+    Connections = [connect(?CLIENT, S, copts(N, Opts))
+                   || {S,N} <- lists:zip(Servers, ?SERVERS)],
 
     [{transports, lists:zip(Servers, Connections)} | Config].
 
@@ -172,72 +169,12 @@ end_per_suite(_Config) ->
 tc() ->
     [send1,
      send2,
-     send3].
+     send3,
+     send4,
+     send5].
 
 %% ===========================================================================
-
-inband_security(Ids) ->
-    [{'Inband-Security-Id', Ids}].
-
-ssl_options(Dir, Base) ->
-    {Key, Cert} = make_cert(Dir, Base ++ "_key.pem", Base ++ "_ca.pem"),
-    [{ssl_options, [{certfile, Cert}, {keyfile, Key}]}].
-
-server(Host, Caps, Opts) ->
-    ok = diameter:start_service(Host, ?SERVICE(Host, ?DICT_COMMON)),
-    {ok, LRef} = diameter:add_transport(Host, ?LISTEN(Caps, Opts)),
-    {LRef, portnr(LRef)}.
-
-connect(Host, {_LRef, PortNr}, Caps, Opts) ->
-    {ok, Ref} = diameter:add_transport(Host, ?CONNECT(PortNr, Caps, Opts)),
-    ok = receive
-             #diameter_event{service = Host,
-                             info = {up, Ref, _, _, #diameter_packet{}}} ->
-                 ok
-         after 2000 ->
-                 false
-         end,
-    Ref;
-connect(Host, Ports, Caps, Opts) ->
-    [connect(Host, P, Caps, Opts) || P <- Ports].
-
-portnr(LRef) ->
-    portnr(LRef, 20).
-
-portnr(LRef, N)
-  when 0 < N ->
-    case diameter_reg:match({diameter_tcp, listener, {LRef, '_'}}) of
-        [{T, _Pid}] ->
-            {_, _, {LRef, {_Addr, LSock}}} = T,
-            {ok, PortNr} = inet:port(LSock),
-            PortNr;
-        [] ->
-            receive after 50 -> ok end,
-            portnr(LRef, N-1)
-    end.
-
-realm(Host) ->
-    tl(lists:dropwhile(fun(C) -> C /= $. end, Host)).
-
-make_cert(Dir, Keyfile, Certfile) ->
-    [K,C] = Paths = [filename:join([Dir, F]) || F <- [Keyfile, Certfile]],
-
-    KCmd = join(["openssl genrsa -out", K, "2048"]),
-    CCmd = join(["openssl req -new -x509 -key", K, "-out", C, "-days 7",
-                 "-subj /C=SE/ST=./L=Stockholm/CN=www.erlang.org"]),
-
-    %% Hope for the best and only check that files are written.
-    os:cmd(KCmd),
-    os:cmd(CCmd),
-
-    [_,_] = [T || P <- Paths, {ok, T} <- [file:read_file_info(P)]],
-
-    {K,C}.
-
-join(Strs) ->
-    string:join(Strs, " ").
-
-%% ===========================================================================
+%% testcases
 
 %% Send an STR intended for a specific server and expect success.
 send1(_Config) ->
@@ -246,46 +183,22 @@ send2(_Config) ->
     call(?SERVER2).
 send3(_Config) ->
     call(?SERVER3).
+send4(_Config) ->
+    call(?SERVER4).
+send5(_Config) ->
+    call(?SERVER5).
 
 %% Remove the client transports and expect the corresponding server
 %% transport to go down.
 remove_transports(Config) ->
     Ts = proplists:get_value(transports, Config),
-
-    true = diameter:subscribe(?SERVER1),
-    true = diameter:subscribe(?SERVER2),
-    true = diameter:subscribe(?SERVER3),
-
+    [] = [T || S <- ?SERVERS, T <- [diameter:subscribe(S)], T /= true],
     lists:map(fun disconnect/1, Ts).
 
-disconnect({{LRef, _PortNr}, CRef}) ->
-    ok = diameter:remove_transport(?CLIENT, CRef),
-    ok = receive #diameter_event{info = {down, LRef, _, _}} -> ok
-         after 2000 -> false
-         end.
-
 stop_services(_Config) ->
-    S = [?CLIENT, ?SERVER1, ?SERVER2, ?SERVER3],
-    Ok = [ok || _ <- S],
-    Ok = [diameter:stop_service(H) || H <- S].
-
-%% ===========================================================================
-
-call(Server) ->
-    Realm = realm(Server),
-    Req = ['STR', {'Destination-Realm', Realm},
-                  {'Termination-Cause', ?LOGOUT},
-                  {'Auth-Application-Id', ?APP_ID}],
-    #diameter_base_STA{'Result-Code' = ?SUCCESS,
-                       'Origin-Host' = Server,
-                       'Origin-Realm' = Realm}
-        = call(Req, [{filter, realm}]).
-
-call(Req, Opts) ->
-    diameter:call(?CLIENT, ?APP_ALIAS, Req, Opts).
-    
-set([H|T], Vs) ->
-    [H | Vs ++ T].
+    Hs = [?CLIENT | ?SERVERS],
+    Ok = [ok || _ <- Hs],
+    Ok = [diameter:stop_service(H) || H <- Hs].
 
 %% ===========================================================================
 %% diameter callbacks
@@ -345,3 +258,128 @@ handle_request(#diameter_packet{msg = #diameter_base_STR{'Session-Id' = SId}},
                                'Session-Id' = SId,
                                'Origin-Host' = OH,
                                'Origin-Realm' = OR}}.
+
+%% ===========================================================================
+%% support functions
+
+call(Server) ->
+    Realm = realm(Server),
+    Req = ['STR', {'Destination-Realm', Realm},
+                  {'Termination-Cause', ?LOGOUT},
+                  {'Auth-Application-Id', ?APP_ID}],
+    #diameter_base_STA{'Result-Code' = ?SUCCESS,
+                       'Origin-Host' = Server,
+                       'Origin-Realm' = Realm}
+        = call(Req, [{filter, realm}]).
+
+call(Req, Opts) ->
+    diameter:call(?CLIENT, ?APP_ALIAS, Req, Opts).
+
+set([H|T], Vs) ->
+    [H | Vs ++ T].
+
+disconnect({{LRef, _PortNr}, CRef}) ->
+    ok = diameter:remove_transport(?CLIENT, CRef),
+    ok = receive #diameter_event{info = {down, LRef, _, _}} -> ok
+         after 2000 -> false
+         end.
+
+realm(Host) ->
+    tl(lists:dropwhile(fun(C) -> C /= $. end, Host)).
+
+inband_security(Ids) ->
+    [{'Inband-Security-Id', Ids}].
+
+ssl_options(Dir, Base) ->
+    {Key, Cert} = make_cert(Dir, Base ++ "_key.pem", Base ++ "_ca.pem"),
+    [{ssl_options, [{certfile, Cert}, {keyfile, Key}]}].
+
+make_cert(Dir, Keyfile, Certfile) ->
+    [K,C] = Paths = [filename:join([Dir, F]) || F <- [Keyfile, Certfile]],
+
+    KCmd = join(["openssl genrsa -out", K, "2048"]),
+    CCmd = join(["openssl req -new -x509 -key", K, "-out", C, "-days 7",
+                 "-subj /C=SE/ST=./L=Stockholm/CN=www.erlang.org"]),
+
+    %% Hope for the best and only check that files are written.
+    os:cmd(KCmd),
+    os:cmd(CCmd),
+
+    [_,_] = [T || P <- Paths, {ok, T} <- [file:read_file_info(P)]],
+
+    {K,C}.
+
+join(Strs) ->
+    string:join(Strs, " ").
+
+%% server/2
+
+server(Host, {Caps, Opts}) ->
+    ok = diameter:start_service(Host, ?SERVICE(Host, ?DICT_COMMON)),
+    {ok, LRef} = diameter:add_transport(Host, ?LISTEN(Caps, Opts)),
+    {LRef, portnr(LRef)}.
+
+sopts(?SERVER1, Dir) ->
+    {inband_security([?TLS]),
+     ssl_options(Dir, "server1")};
+sopts(?SERVER2, Dir) ->
+    {inband_security([?NO_INBAND_SECURITY, ?TLS]),
+     ssl_options(Dir, "server2")};
+sopts(?SERVER3, _) ->
+    {[], []};
+sopts(?SERVER4, Dir) ->
+    {[], ssl(ssl_options(Dir, "server4"))};
+sopts(?SERVER5, Dir) ->
+    {[], ssl(ssl_options(Dir, "server5"))}.
+
+ssl([{ssl_options = T, Opts}]) ->
+    [{T, true} | Opts].
+
+portnr(LRef) ->
+    portnr(LRef, 20).
+
+portnr(LRef, N)
+  when 0 < N ->
+    case diameter_reg:match({diameter_tcp, listener, {LRef, '_'}}) of
+        [{T, _Pid}] ->
+            {_, _, {LRef, {_Addr, LSock}}} = T,
+            {ok, PortNr} = to_portnr(LSock) ,
+            PortNr;
+        [] ->
+            receive after 500 -> ok end,
+            portnr(LRef, N-1)
+    end.
+
+to_portnr(Sock)
+  when is_port(Sock) ->
+    inet:port(Sock);
+to_portnr(Sock) ->
+    case ssl:sockname(Sock) of
+        {ok, {_,N}} ->
+            {ok, N};
+        No ->
+            No
+    end.
+
+%% connect/3
+
+connect(Host, {_LRef, PortNr}, {Caps, Opts}) ->
+    {ok, Ref} = diameter:add_transport(Host, ?CONNECT(PortNr, Caps, Opts)),
+    ok = receive
+             #diameter_event{service = Host,
+                             info = {up, Ref, _, _, #diameter_packet{}}} ->
+                 ok
+         after 2000 ->
+                 false
+         end,
+    Ref.
+
+copts(S, Opts)
+  when S == ?SERVER1;
+       S == ?SERVER2;
+       S == ?SERVER3 ->
+    {inband_security([?NO_INBAND_SECURITY, ?TLS]), Opts};
+copts(S, Opts)
+  when S == ?SERVER4;
+       S == ?SERVER5 ->
+    {[], ssl(Opts)}.

@@ -44,8 +44,9 @@ It can be specified as the value of a transport_module option to
 marker="diameter#add_transport">diameter:add_transport/2</seealso>
 and implements the behaviour documented in
 <seealso marker="diameter_transport">diameter_transport(3)</seealso>.
-TLS security is supported, a connection being upgraded if
-TLS is negotiated during capabilities exchange.</p>
+TLS security is supported, both as an upgrade following
+capabilities exchange as specified by RFC 3588 and
+at connection establishment as in the current draft standard.</p>
 
 <marker id="start"/>
 </description>
@@ -62,14 +63,15 @@ TLS is negotiated during capabilities exchange.</p>
 <v>Type = connect | accept</v>
 <v>Ref = reference()</v>
 <v>Svc = #diameter_service{}</v>
-<v>Opt = OwnOpt | TlsOpt | TcpOpt</v>
+<v>Opt = OwnOpt | SslOpt | OtherOpt</v>
 <v>Pid = pid()</v>
 <v>LAddr = ip_address()</v>
 <v>Reason = term()</v>
 <v>OwnOpt = {raddr, ip_address()}
-          | {rport, integer()}</v>
-<v>TlsOpt = {ssl_options, list()}</v>
-<v>TcpOpt = term()</v>
+          | {rport, integer()}
+          | {port, integer()}</v>
+<v>SslOpt = {ssl_options, true | list()}</v>
+<v>OtherOpt = term()</v>
 </type>
 <desc>
 
@@ -82,19 +84,23 @@ The only diameter_tcp-specific argument is the options list.
 Options <c>raddr</c> and <c>rport</c> specify the remote address
 and port for a connecting transport and are not valid for a listening
 transport.
-Option <c>ssl_options</c> specifies options to be passed
-to ssl:connect/2 of ssl:ssl_accept/2 in case capabilities exchange
-results in TLS being chosen for inband security.
-Remaining options are any accepted by gen_tcp:connect/3 for
-a connecting transport, or gen_tcp:listen/2 for a listening transport,
-with the exception of <c>binary</c>, <c>packet</c> and <c>active</c>.
+Option <c>ssl_options</c> must be specified for a transport
+that must be able to support TLS: a value of <c>true</c> results in a
+TLS handshake immediately upon connection establishment while
+list() specifies options to be passed to ssl:connect/2 of ssl:ssl_accept/2
+after capabilities exchange if TLS is negotiated.
+Remaining options are any accepted by ssl:connect/3 or gen_tcp:connect/3 for
+a connecting transport, or ssl:listen/3 or gen_tcp:listen/2 for
+a listening transport, depending on whether or not <c>{ssl_options, true}</c>
+has been specified.
+Options <c>binary</c>, <c>packet</c> and <c>active</c> cannot be specified.
 Also, option <c>port</c> can be specified for a listening transport
 to specify the local listening port, the default being the standardized
 3868 if unspecified.
 Note that option <c>ip</c> specifies the local address.</p>
 
 <p>
-The <c>ssl_options</c> option must be specified if and only if
+An <c>ssl_options</c> list must be specified if and only if
 the transport in question has specified an Inband-Security-Id
 AVP with value TLS on the relevant call to
 <seealso
@@ -104,7 +110,7 @@ marker="diameter#add_transport">add_transport/2</seealso>,
 so that the transport process will receive notification of
 whether or not to commence with a TLS handshake following capabilities
 exchange.
-Failing to specify <c>ssl_options</c> on a TLS-capable transport
+Failing to specify an options list on a TLS-capable transport
 for which TLS is negotiated will cause TLS handshake to fail.
 Failing to specify TLS capability when <c>ssl_options</c> has been
 specified will cause the transport process to wait for a notification

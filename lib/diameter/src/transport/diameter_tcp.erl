@@ -45,6 +45,9 @@
 -define(LISTENER_TIMEOUT, 30000).
 -define(FRAGMENT_TIMEOUT, 1000).
 
+%% cb_info passed to ssl.
+-define(TCP_CB(Mod), {Mod, tcp, tcp_closed, tcp_error}).
+
 %% The same gen_server implementation supports three different kinds
 %% of processes: an actual transport process, one that will club it to
 %% death should the parent die before a connection is established, and
@@ -122,14 +125,15 @@ i({T, Ref, Mod, Pid, Opts, Addrs})
     %% that does nothing but kill us with the parent until call
     %% returns.
     {ok, MPid} = diameter_tcp_sup:start_child(#monitor{parent = Pid}),
-    {[SslOpts], Rest} = proplists:split(Opts, [ssl_options]),
-    Sock = i(T, Ref, Mod, Pid, Rest, Addrs),
+    {SslOpts, Rest} = ssl(Opts),
+    Sock = i(T, Ref, Mod, Pid, SslOpts, Rest, Addrs),
     MPid ! {stop, self()},  %% tell the monitor to die
-    setopts(Mod, Sock),
+    M = if SslOpts -> ssl; true -> Mod end,
+    setopts(M, Sock),
     #transport{parent = Pid,
-               module = Mod,
+               module = M,
                socket = Sock,
-               ssl = ssl_opts(Mod, SslOpts)};
+               ssl = SslOpts};
 
 %% A monitor process to kill the transport if the parent dies.
 i(#monitor{parent = Pid, transport = TPid} = S) ->
@@ -153,15 +157,29 @@ i({listen, LRef, APid, {Mod, Opts, Addrs}}) ->
     true = diameter_reg:add_new({?MODULE, listener, {LRef, {LAddr, LSock}}}),
     start_timer(#listener{socket = LSock}).
 
-ssl_opts(_, []) ->
+ssl(Opts) ->
+    {[SslOpts], Rest} = proplists:split(Opts, [ssl_options]),
+    {ssl_opts(SslOpts), Rest}.
+
+ssl_opts([]) ->
     false;
-ssl_opts(Mod, [{ssl_options, Opts}])
+ssl_opts([{ssl_options, true}]) ->
+    true;
+ssl_opts([{ssl_options, Opts}])
   when is_list(Opts) ->
-    [{Mod, tcp, tcp_closed} | Opts];
-ssl_opts(_, L) ->
+    Opts;
+ssl_opts(L) ->
     ?ERROR({ssl_options, L}).
 
-%% i/6
+%% i/7
+
+%% Establish a TLS connection before capabilities exchange ...
+i(Type, Ref, Mod, Pid, true, Opts, Addrs) ->
+    i(Type, Ref, ssl, Pid, [{cb_info, ?TCP_CB(Mod)} | Opts], Addrs);
+
+%% ... or not.
+i(Type, Ref, Mod, Pid, _, Opts, Addrs) ->
+    i(Type, Ref, Mod, Pid, Opts, Addrs).
 
 i(accept, Ref, Mod, Pid, Opts, Addrs) ->
     {LAddr, LSock} = listener(Ref, {Mod, Opts, Addrs}),
@@ -437,14 +455,25 @@ transition({'DOWN', _, process, Pid, _}, #transport{parent = Pid}) ->
 %% for another TCP message, which will force the watchdog to
 %% eventually take us down.
 
+%% TLS has already been established with the connection.
+tls_handshake(_, _, #transport{ssl = true} = S) ->
+    S;
+
+%% Capabilities exchange negotiated TLS but transport was not
+%% configured with an options list.
+tls_handshake(_, true, #transport{ssl = false}) ->
+    ?ERROR(no_ssl_options);
+
+%% Capabilities exchange negotiated TLS: upgrade the connection.
 tls_handshake(Type, true, #transport{socket = Sock,
+                                     module = M,
                                      ssl = Opts}
                           = S) ->
-    is_list(Opts) orelse ?ERROR({tls, Opts}),
-    {ok, SSock} = tls(Type, Sock, Opts),
+    {ok, SSock} = tls(Type, Sock, [{cb_info, ?TCP_CB(M)} | Opts]),
     S#transport{socket = SSock,
                 module = ssl};
 
+%% Capabilities exchange has not negotiated TLS.
 tls_handshake(_, false, S) ->
     S.
 
@@ -567,15 +596,18 @@ flush(_, S) ->
 
 %% accept/2
 
-accept(gen_tcp, LSock) ->
-    gen_tcp:accept(LSock);
+accept(ssl, LSock) ->
+    case ssl:transport_accept(LSock) of
+        {ok, Sock} ->
+            {ssl:ssl_accept(Sock), Sock};
+        {error, _} = No ->
+            No
+    end;
 accept(Mod, LSock) ->
     Mod:accept(LSock).
 
 %% connect/4
 
-connect(gen_tcp, Host, Port, Opts) ->
-    gen_tcp:connect(Host, Port, Opts);
 connect(Mod, Host, Port, Opts) ->
     Mod:connect(Host, Port, Opts).
 
