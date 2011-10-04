@@ -30,6 +30,23 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 2.0.3.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Changed crypto and ssl to be dynamically linked to
+	    OpenSSL and use version 0.9.8 of OpenSSL (instead of
+	    0.9.7) on PowerPC.</p>
+          <p>
+	    Own Id: OTP-9603 Aux Id: seq11912 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 2.0.3.1</title>
 
     <section><title>Improvements and New Features</title>
