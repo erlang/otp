@@ -6537,7 +6537,7 @@ static int sctp_fill_opts(inet_descriptor* desc, char* buf, int buflen,
 	    struct linger lg;
 	    unsigned int  sz = sizeof(lg);
 	    
-	    if (sock_getopt(desc->s, IPPROTO_SCTP, SO_LINGER,
+	    if (sock_getopt(desc->s, SOL_SOCKET, SO_LINGER,
 			    &lg, &sz) < 0) continue;
 	    /* Fill in the response: */
 	    PLACE_FOR(spec, i, 
@@ -6573,7 +6573,7 @@ static int sctp_fill_opts(inet_descriptor* desc, char* buf, int buflen,
 	    {
 	    case INET_OPT_RCVBUF   :
 	    {
-		proto  = IPPROTO_SCTP;
+		proto  = SOL_SOCKET;
 		type   = SO_RCVBUF;
 		is_int = 1;
 		tag    = am_recbuf;
@@ -6581,7 +6581,7 @@ static int sctp_fill_opts(inet_descriptor* desc, char* buf, int buflen,
 	    }
 	    case INET_OPT_SNDBUF   :
 	    {
-		proto  = IPPROTO_SCTP;
+		proto  = SOL_SOCKET;
 		type   = SO_SNDBUF;
 		is_int = 1;
 		tag    = am_sndbuf;
@@ -7027,8 +7027,7 @@ static int sctp_fill_opts(inet_descriptor* desc, char* buf, int buflen,
     i = LOAD_TUPLE(spec, i, 3);
 
     /* Now, convert "spec" into the returnable term: */
-    /* desc->caller = 0;	  What does it mean? */
-    driver_output_term(desc->port, spec, i);
+    driver_send_term(desc->port, driver_caller(desc->port), spec, i);
     FREE(spec);
 
     (*dest)[0] = INET_REP_SCTP;
