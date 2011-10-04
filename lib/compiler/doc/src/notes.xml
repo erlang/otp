@@ -31,6 +31,34 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 4.7.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Compiler options given in the source code using a
+	    <c>-compile()</c> attribute used to be included twice in
+	    <c>Mod:module_info(compile)</c>. They are now only
+	    included once at the beginning of the list of options.</p>
+          <p>
+	    Own Id: OTP-9534</p>
+        </item>
+        <item>
+          <p>
+	    beam_disasm: Handle stripped BEAM files</p>
+          <p>
+	    beam_disasm:file/1 would crash if asked to disassemble a
+	    stripped BEAM file without an "Attr" chunk. (Thanks to
+	    Haitao Li)</p>
+          <p>
+	    Own Id: OTP-9571</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 4.7.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

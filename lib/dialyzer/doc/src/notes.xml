@@ -31,6 +31,115 @@
   <p>This document describes the changes made to the Dialyzer
     application.</p>
 
+<section><title>Dialyzer 2.4.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Update results of race_SUITE/extract_translations Update
+	    results of small_SUITE/flatten Add codec_can and
+	    list_to_bitstring tests Fix bug when reporting unused
+	    functions Update Dialyzer r9c_suite results Fix dialyzer
+	    warning on default clause for binary comprehension
+	    (Thanks to Ivan Dubrov)</p>
+          <p>
+	    Own Id: OTP-9483</p>
+        </item>
+        <item>
+          <p>
+	    Fix server loop detection</p>
+          <p>
+	    Dialyzer does not normally emit warnings for functions
+	    that implement non-terminating server loops. This
+	    detection failed when some of the elements in an SCC
+	    terminated normally (being for example list
+	    comprehensions or other generic anonymous functions that
+	    were included in the SCC). This patch fixes that.</p>
+          <p>
+	    Own Id: OTP-9489</p>
+        </item>
+        <item>
+          <p>
+	    Add a proplist() type</p>
+          <p>
+	    Recently I was adding specs to an API and found that
+	    there is no canonical proplist() type defined. (Thanks to
+	    Ryan Zezeski)</p>
+          <p>
+	    Own Id: OTP-9499</p>
+        </item>
+        <item>
+          <p>
+	    Suppress some warnings about generation of non-returning
+	    funs</p>
+          <p>
+	    No warnings are emitted for funs that are non-returning
+	    when the function that generates them has a contract that
+	    specifies that it will return such a non-returning fun.</p>
+          <p>
+	    Enhance Dialyzer's inference on comparisons</p>
+          <p>
+	    This patch makes Dialyzer aware of Erlang's total
+	    ordering of terms, enabling discrepancy detection in
+	    cases where e.g. integer() &lt; tuple() is treated as a
+	    comparison that might also return false (when it is
+	    certain to always return true).</p>
+          <p>
+	    Minor fix in dead code</p>
+          <p>
+	    Fix infinite loop in dataflow</p>
+          <p>
+	    Update r9c/{inets,mnesia} results in dialyzer's test
+	    suite</p>
+          <p>
+	    Add origin information to #fun_var closures</p>
+          <p>
+	    (Thanks to Tuncer Ayaz and Maria Christakis)</p>
+          <p>
+	    Own Id: OTP-9529</p>
+        </item>
+        <item>
+          <p>
+	    Quote atoms if necessary in types</p>
+          <p>
+	    Atoms in some occurrences were not correctly quoted when
+	    formatted to strings, for instance by the typer program
+	    (Thanks to Tomas Abrahamsson)</p>
+          <p>
+	    Update Dialyzer's reference results</p>
+          <p>
+	    Own Id: OTP-9560</p>
+        </item>
+        <item>
+          <p>
+	    Fix typer's crash for nonexisting files Remove unused
+	    macro Fix bug in dataflow Decrease tuple arity limit This
+	    fixes a memory related crash.</p>
+          <p>
+	    Own Id: OTP-9597</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Types for several BIFs have been extended/corrected. Also
+	    the types for types for <c>lists:keyfind/3</c>,
+	    <c>lists:keysearch/3</c>, and <c>lists:keyemember/3</c>
+	    have been corrected. The incorrect/incomplete types could
+	    cause false dialyzer warnings.</p>
+          <p>
+	    Own Id: OTP-9496</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 2.4.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

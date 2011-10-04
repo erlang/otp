@@ -30,7 +30,21 @@
     <file>notes.xml</file>
   </header>
 
-  <section>
+  <section><title>cosFileTransfer 1.1.12</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> XML files have been corrected. </p>
+          <p>
+	    Own Id: OTP-9550 Aux Id: OTP-9541 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section>
     <title>cosFileTransfer 1.1.11</title>
 
     <section>

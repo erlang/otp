@@ -34,6 +34,23 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 0.13</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    replace "a ssl" with "an ssl" reindent
+	    pkix_path_validation/3 Trivial documentation fixes
+	    (Thanks to Christian von Roques )</p>
+          <p>
+	    Own Id: OTP-9464</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 0.12</title>
 
     <section><title>Improvements and New Features</title>

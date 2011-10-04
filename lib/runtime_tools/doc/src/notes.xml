@@ -31,6 +31,23 @@
   <p>This document describes the changes made to the Runtime_Tools
     application.</p>
 
+<section><title>Runtime_Tools 1.8.6</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Two new built-in trace pattern aliases have been added:
+	    caller_trace (c) and caller_exception_trace (cx). See the
+	    dbg:ltp/0 documentation for more info.</p>
+          <p>
+	    Own Id: OTP-9458</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Runtime_Tools 1.8.5</title>
 
     <section><title>Improvements and New Features</title>

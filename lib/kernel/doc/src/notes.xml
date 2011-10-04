@@ -30,6 +30,62 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 2.14.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix type of Packet arg of gen_tcp:send/2 and
+	    gen_udp:send/4</p>
+          <p>
+	    The type is marked as a binary() or a string() but in
+	    practice it can be an iodata(). The test suite was
+	    updated to confirm the gen_tcp/2 and gen_udp:send/4
+	    functions accept iodata() (iolists) packets. (Thanks to
+	    Filipe David Manana)</p>
+          <p>
+	    Own Id: OTP-9514</p>
+        </item>
+        <item>
+	    <p> XML files have been corrected. </p>
+          <p>
+	    Own Id: OTP-9550 Aux Id: OTP-9541 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> The types and specifications of the inet modules have
+	    been improved. </p>
+          <p>
+	    Own Id: OTP-9260</p>
+        </item>
+        <item>
+	    <p> Types and specifications have been added. </p>
+          <p>
+	    Own Id: OTP-9356</p>
+        </item>
+        <item>
+	    <p> Contracts in STDLIB and Kernel have been improved and
+	    type errors have been corrected. </p>
+          <p>
+	    Own Id: OTP-9485</p>
+        </item>
+        <item>
+	    <p> Update documentation and specifications of some of
+	    the zlib functions. </p>
+          <p>
+	    Own Id: OTP-9506</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 2.14.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

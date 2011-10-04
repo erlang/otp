@@ -30,6 +30,69 @@
   </header>
   <p>This document describes the changes made to HiPE.</p>
 
+<section><title>Hipe 3.8.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Clean up hipe.hrl.src (Thanks to Tuncer Ayaz)</p>
+          <p>
+	    Own Id: OTP-9511</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug with binary pattern matching of floats of
+	    variable size</p>
+          <p>
+	    Pattern matching of floats with variable size
+	    (&lt;&lt;F:S/float&gt;&gt;) did always fail. Judging from
+	    similar code for ints, this bug is simply a typo.(Thanks
+	    to Paul Guyot)</p>
+          <p>
+	    Own Id: OTP-9556</p>
+        </item>
+        <item>
+          <p>
+	    Quote atoms if necessary in types</p>
+          <p>
+	    Atoms in some occurrences were not correctly quoted when
+	    formatted to strings, for instance by the typer program
+	    (Thanks to Tomas Abrahamsson)</p>
+          <p>
+	    Update Dialyzer's reference results</p>
+          <p>
+	    Own Id: OTP-9560</p>
+        </item>
+        <item>
+          <p>
+	    Fix typer's crash for nonexisting files Remove unused
+	    macro Fix bug in dataflow Decrease tuple arity limit This
+	    fixes a memory related crash.</p>
+          <p>
+	    Own Id: OTP-9597</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Types for several BIFs have been extended/corrected. Also
+	    the types for types for <c>lists:keyfind/3</c>,
+	    <c>lists:keysearch/3</c>, and <c>lists:keyemember/3</c>
+	    have been corrected. The incorrect/incomplete types could
+	    cause false dialyzer warnings.</p>
+          <p>
+	    Own Id: OTP-9496</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Hipe 3.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

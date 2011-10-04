@@ -30,6 +30,31 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 2.0.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    <c>crypto:rand_uniform</c> works correctly for negative
+	    integers. Fails with <c>badarg</c> exception for invalid
+	    ranges (when <c>Hi =&lt; Lo</c>) instead of returning
+	    incorrect output.</p>
+          <p>
+	    Own Id: OTP-9526</p>
+        </item>
+        <item>
+          <p>
+	    Fix win32 OpenSSL static linking (Thanks to Dave
+	    Cottlehuber)</p>
+          <p>
+	    Own Id: OTP-9532</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 2.0.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
