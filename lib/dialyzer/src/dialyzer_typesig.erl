@@ -2161,13 +2161,21 @@ get_apply_constr(FunLabels, Dst, ArgTypes, #state{callgraph = CG} = State) ->
   case lists:member(error, MFAs) of
     true -> error;
     false ->
-      Constrs = [begin
-		   State1 = state__new_constraint_context(State),
-		   State2 = get_plt_constr(MFA, Dst, ArgTypes, State1),
-		   state__cs(State2)
-		 end || {ok, MFA} <- MFAs],
-      ApplyConstr = mk_disj_constraint_list(Constrs),
-      {ok, state__store_conj(ApplyConstr, State)}
+      Constrs0 =
+	[begin
+	   State1 = state__new_constraint_context(State),
+	   try get_plt_constr(MFA, Dst, ArgTypes, State1) of
+	       State2 -> state__cs(State2)
+	   catch
+	     throw:error -> error
+	   end
+	 end || {ok, MFA} <- MFAs],
+      case [C || C <- Constrs0, C =/= error] of
+	[] -> throw(error);
+	Constrs ->
+	  ApplyConstr = mk_disj_constraint_list(Constrs),
+	  {ok, state__store_conj(ApplyConstr, State)}
+      end
   end.
 
 state__scc(#state{scc = SCC}) ->
