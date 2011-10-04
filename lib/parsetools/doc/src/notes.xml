@@ -30,6 +30,52 @@
   </header>
   <p>This document describes the changes made to the Parsetools application.</p>
 
+<section><title>Parsetools 2.0.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Dialyzer warnings have been removed. </p>
+          <p>
+	    Own Id: OTP-8318</p>
+        </item>
+        <item>
+          <p>
+	    yecc: add warnings_as_errors option(Thanks to Tuncer
+	    ayaz)</p>
+          <p>
+	    Own Id: OTP-9376</p>
+        </item>
+        <item>
+          <p>
+	    Fix incorrect order of pseudo variables in yecc example</p>
+          <p>
+	    The example is for converting from infix to prefix. This
+	    change uses to correct ordering of the triplet. (Thanks
+	    to Garret Smith)</p>
+          <p>
+	    Own Id: OTP-9484</p>
+        </item>
+        <item>
+          <p>
+	    Implement or fix -Werror option</p>
+          <p>
+	    If -Werror is enabled and there are warnings no output
+	    file is written. Also make sure that error/warning
+	    reporting is consistent. (Thanks to Tuncer Ayaz)</p>
+          <p>
+	    Own Id: OTP-9536</p>
+        </item>
+        <item>
+	    <p> XML files have been corrected. </p>
+          <p>
+	    Own Id: OTP-9550 Aux Id: OTP-9541 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Parsetools 2.0.5</title>
 
     <section><title>Improvements and New Features</title>

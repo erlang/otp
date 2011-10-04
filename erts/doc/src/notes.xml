@@ -30,6 +30,344 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 5.8.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Several bugs concerning constant binary constructions
+	    such as &lt;&lt;0:4294967295&gt;&gt; have been corrected.
+	    Depending on the actual size of the binary and the type
+	    of run-time system (32-bit, halfword, 64-bit), such
+	    expression could either crash the run-time system or make
+	    the loader refuse loading of the module.</p>
+          <p>
+	    Own Id: OTP-9284</p>
+        </item>
+        <item>
+          <p>
+	    The Erlsrv utility failed to stop the erlang machine if
+	    no StopAction was defined when the service was stopped.
+	    This is now corrected.</p>
+          <p>
+	    Own Id: OTP-9344</p>
+        </item>
+        <item>
+          <p>
+	    Due to a bug in glibc the runtime system could abort
+	    while trying to destroy a mutex. A fix for this was
+	    introduced in R14B02. This fix did, however, not solve
+	    the problem. The runtime system will now issue a warning
+	    instead of aborting.</p>
+          <p>
+	    Own Id: OTP-9373 Aux Id: OTP-9009 </p>
+        </item>
+        <item>
+          <p>
+	    Replace atom in DRV macro in prim_file with string</p>
+          <p>
+	    An experimental version of Dialyzer discovered that the
+	    atom that replaced the DRV macro in prim_file ends up in
+	    calls to erlang:open_port({spawn, Driver}, Portopts) as
+	    the Driver argument. The documentation states that this
+	    call requires a string there.</p>
+          <p>
+	    This change is also consistent with the one introduced in
+	    commit 0f03b1e9d2bef3bc830c31a369261af4c5234727 by Kostis
+	    Sagonas.</p>
+          <p>
+	    Own Id: OTP-9377</p>
+        </item>
+        <item>
+          <p>
+	    Fix typos in the epmd documentation (Thanks to Holger
+	    Weiﬂ )</p>
+          <p>
+	    Own Id: OTP-9387</p>
+        </item>
+        <item>
+          <p>
+	    Fix faulty integer terms created by NIF API from 64-bit
+	    integers on halfword emulator. (Thanks to Paolo Negri and
+	    Paul Davis)</p>
+          <p>
+	    Own Id: OTP-9394</p>
+        </item>
+        <item>
+          <p>
+	    Fix <c>epmd</c> crash on vxworks caused by faulty
+	    argument to select() system call.</p>
+          <p>
+	    Own Id: OTP-9427 Aux Id: seq11855 </p>
+        </item>
+        <item>
+          <p>
+	    The ets:test_ms function could in rare cases truncate the
+	    error messages. This is now corrected.</p>
+          <p>
+	    Own Id: OTP-9435</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug related to hibernate and HiPE (clear
+	    F_HIBERNATE_SCHED flag)</p>
+          <p>
+	    F_HIBERNATE_SCHED flag that was introduced in
+	    b7ecdcd1ae9e11b8f75e must be cleared in hipe_mode_switch
+	    as well. Otherwise, processes running HiPE code that
+	    hibernate, wake up and then trap into a BIF will not be
+	    rescheduled.(Thanks to Paul Guyot)</p>
+          <p>
+	    Own Id: OTP-9452</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug in FreeBSD topology detection code (Thanks to
+	    Paul Guyot)</p>
+          <p>
+	    Own Id: OTP-9453</p>
+        </item>
+        <item>
+          <p>
+	    Fix use of logical operator &amp;&amp; with constant
+	    operand instead of bitwise &amp; (Thanks to Cristian
+	    Greco)</p>
+          <p>
+	    Own Id: OTP-9454</p>
+        </item>
+        <item>
+          <p>
+	    inet: error if fd does not match socket domain</p>
+          <p>
+	    If an IPv4 fd is opened as an IPv6 socket, unexpected
+	    behaviour can occur. For example, if an IPv4 UDP socket
+	    is opened and passed into Erlang as an IPv6 socket, the
+	    first 3 bytes (corresponding to 1 byte representing the
+	    protocol family, 2 bytes set to the port) are stripped
+	    from the payload. The cause of the UDP payload truncation
+	    happens in inet_drv.c:packet_inet_input when a call to
+	    inet_get_address fails silently because the family is set
+	    to PF_INET6 but the buffer len is the size of an IPv4
+	    struct sockaddr_in.</p>
+          <p>
+	    (Thanks to Andrew Tunnell-Jones for finding the bug and
+	    the test case!)</p>
+          <p>
+	    Own Id: OTP-9455</p>
+        </item>
+        <item>
+          <p>
+	    erts: use a union to avoid strict aliasing issues</p>
+          <p>
+	    Use a union for pointer type conversion to avoid compiler
+	    warnings about strict-aliasing violations with gcc-4.1.
+	    gcc >= 4.2 does not emit the warning. erts: adapt
+	    matrix_nif to R14 erl_nif API changes (Thanks To Tuncer
+	    Ayaz)</p>
+          <p>
+	    Own Id: OTP-9487</p>
+        </item>
+        <item>
+          <p>
+	    fix 64-bit issues in the garbage collection (Thanks to
+	    Richard Carlsson)</p>
+          <p>
+	    Own Id: OTP-9488</p>
+        </item>
+        <item>
+          <p>
+	    epmd: fix compiler warnings</p>
+          <p>
+	    Suppress compiler warnings about ignored return values.
+	    (Thanks to Michael Santos )</p>
+          <p>
+	    Own Id: OTP-9500</p>
+        </item>
+        <item>
+          <p>
+	    Fix non-existing function (erlang:disconnect/1) in
+	    distributed reference manual (Thanks to Fabian KrÛl)</p>
+          <p>
+	    Own Id: OTP-9504</p>
+        </item>
+        <item>
+          <p>
+	    Document fdatasync -lrt requirement (SunOS &lt;= 5.10)
+	    (Thanks to Tuncer Ayaz)</p>
+          <p>
+	    Own Id: OTP-9512</p>
+        </item>
+        <item>
+          <p>
+	    Let epmd ignore empty ERL_EPMD_ADDRESS</p>
+          <p>
+	    If the environment variable ERL_EPMD_ADDRESS is set to
+	    the empty string, empd now behaves like it does by
+	    default when ERL_EPMD_ADDRESS is unset. That is, in this
+	    case, epmd now listens on all available interfaces
+	    instead of using only the loopback interface, which
+	    happened because epmd added the loopback address to the
+	    (in this case empty) list of addresses specified via
+	    ERL_EPMD_ADDRESS.</p>
+          <p>
+	    Also, epmd now ignores ERL_EPMD_ADDRESS if it contains
+	    only separator characters (comma and space).</p>
+          <p>
+	    The same applies to epmd's -address option.(Thanks to
+	    Holger Weiﬂ)</p>
+          <p>
+	    Own Id: OTP-9525</p>
+        </item>
+        <item>
+          <p>
+	    Remove dead code in erl_compile (Thanks to Tuncer Ayaz)</p>
+          <p>
+	    Own Id: OTP-9527</p>
+        </item>
+        <item>
+          <p>
+	    Add erlang:external_size/2 BIF</p>
+          <p>
+	    This BIF's second parameter is a list of options.
+	    Currently the only allowed option is {minor_version,
+	    Version} where version is either 0 (default) or 1.
+	    (Thanks to Filipe David Manana )</p>
+          <p>
+	    Own Id: OTP-9528</p>
+        </item>
+        <item>
+          <p>
+	    Fix enif_compare on 64bits machines</p>
+          <p>
+	    In 64bits machines the Sint type has a size of 8 bytes,
+	    while on 32bits machines it has a 4 bytes size.
+	    enif_compare was ignoring this and therefore returning
+	    incorrect values when the result of the CMP function
+	    (which returns a Sint value) doesn't fit in 4 bytes.
+	    (Thanks to Filipe David Manana)</p>
+          <p>
+	    Own Id: OTP-9533</p>
+        </item>
+        <item>
+          <p>
+	    Implement or fix -Werror option</p>
+          <p>
+	    If -Werror is enabled and there are warnings no output
+	    file is written. Also make sure that error/warning
+	    reporting is consistent. (Thanks to Tuncer Ayaz)</p>
+          <p>
+	    Own Id: OTP-9536</p>
+        </item>
+        <item>
+	    <p>In some rare cases we did not have a run queue when
+	    scheduling misc ops. This is now fixed.</p>
+          <p>
+	    Own Id: OTP-9537</p>
+        </item>
+        <item>
+	    <p>Remove misc. compiler warnings</p>
+          <p>
+	    Own Id: OTP-9542</p>
+        </item>
+        <item>
+          <p>
+	    Two bugs in gen_sctp has been corrected: getopts/setopts
+	    hence also send could only be called from socket owner,
+	    and options 'linger', 'rcvbuf' and 'sndbuf' was read from
+	    wrong protocol layer hence read wrong values by getopts.</p>
+          <p>
+	    Own Id: OTP-9544</p>
+        </item>
+        <item>
+          <p>
+	    Erlang/OTP can now be built on MacOS X Lion.</p>
+          <p>
+	    Own Id: OTP-9547</p>
+        </item>
+        <item>
+	    <p> XML files have been corrected. </p>
+          <p>
+	    Own Id: OTP-9550 Aux Id: OTP-9541 </p>
+        </item>
+        <item>
+          <p>
+	    Fix potential errors inspired by running cppcheck(1)
+	    (Thanks to Christian von Roques)</p>
+          <p>
+	    Own Id: OTP-9557</p>
+        </item>
+        <item>
+	    <p>When auxiliary work was enqueued on a scheduler, the
+	    wakeup of the scheduler in order to handle this work
+	    could be lost. Wakeups in order to handle ordinary work
+	    were not effected by this bug. The bug only effected
+	    runtime systems with SMP support as follows:</p> <list>
+	    <item>Deallocation of some ETS data structures could be
+	    delayed.</item> <item>On Linux systems not using the NPTL
+	    thread library (typically ancient systems with kernel
+	    versions prior to 2.6) and Windows systems, the <c>{Port,
+	    {exit_status, Status}}</c> message from a terminating
+	    port program could be delayed. That is, it only effected
+	    port programs which had been started by passing
+	    <c>exit_status</c> as an option to
+	    <c>open_port/2</c>.</item> </list>
+          <p>
+	    Own Id: OTP-9567</p>
+        </item>
+        <item>
+          <p>
+	    Handle rare race in the crypto key server functionality</p>
+          <p>
+	    Own Id: OTP-9586</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Types and specifications have been added. </p>
+          <p>
+	    Own Id: OTP-9356</p>
+        </item>
+        <item>
+          <p>
+	    New allocator strategy "address order first fit". May
+	    ease the emptying of memory carriers and thereby real
+	    release of memory back to the OS.</p>
+          <p>
+	    Own Id: OTP-9424</p>
+        </item>
+        <item>
+          <p>
+	    The new <c>erlang:check_old_code/1</c> BIF checks whether
+	    a module has old code.</p>
+          <p>
+	    Own Id: OTP-9495</p>
+        </item>
+        <item>
+	    <p> Update documentation and specifications of some of
+	    the zlib functions. </p>
+          <p>
+	    Own Id: OTP-9506</p>
+        </item>
+        <item>
+          <p>
+	    Detect the available CPUs on IRIX</p>
+          <p>
+	    Add support for querying the number of configured and
+	    online processors on SGI systems running IRIX.(Thanks to
+	    Holger Weiﬂ)</p>
+          <p>
+	    Own Id: OTP-9531</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 5.8.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

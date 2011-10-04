@@ -31,6 +31,39 @@
   <p>This document describes the changes made to the wxErlang
     application.</p>
 
+<section><title>Wx 0.99</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    wx: fix obsolete guard warning (list/1) (Thanks to Tuncer
+	    Ayaz)</p>
+          <p>
+	    Own Id: OTP-9513</p>
+        </item>
+        <item>
+	    <p> XML files have been corrected. </p>
+          <p>
+	    Own Id: OTP-9550 Aux Id: OTP-9541 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Support virtual tables in wxListCtrl.</p>
+          <p>
+	    Own Id: OTP-9415</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Wx 0.98.10</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

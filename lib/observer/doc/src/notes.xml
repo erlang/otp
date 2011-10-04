@@ -31,6 +31,22 @@
   <p>This document describes the changes made to the Observer
     application.</p>
 
+<section><title>Observer 0.9.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Do not install *.bat files on non-win32 machines (Thanks
+	    to Hans Ulrich Niedermann)</p>
+          <p>
+	    Own Id: OTP-9515</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Observer 0.9.9</title>
 
     <section><title>Improvements and New Features</title>

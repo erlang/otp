@@ -32,7 +32,21 @@
     <file>notes.xml</file>
   </header>
 
-  <section>
+  <section><title>Orber 3.6.22</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> XML files have been corrected. </p>
+          <p>
+	    Own Id: OTP-9550 Aux Id: OTP-9541 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section>
     <title>Orber 3.6.21</title>
 
     <section>

@@ -38,7 +38,50 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Mnesia.</p>
 
-  <section><title>Mnesia 4.4.19</title>
+  <section><title>Mnesia 4.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix protocol issues. Mnesia-4.4.19 could not communicate
+	    with to older nodes.</p>
+          <p>
+	    Own Id: OTP-9473</p>
+        </item>
+        <item>
+	    <p> XML files have been corrected. </p>
+          <p>
+	    Own Id: OTP-9550 Aux Id: OTP-9541 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Dump the log even if no transactions have been invoked on
+	    local node, otherwise the log will grow forever with
+	    decisions from the other nodes who have tables on disk.
+	    Thanks Marek Majkowski.</p>
+          <p>
+	    Own Id: OTP-9551</p>
+        </item>
+        <item>
+          <p>
+	    Use dedicated api for clear_table, i.e. instead of
+	    match_delete use delete_all_objects. Thanks KukHyun Lee.</p>
+          <p>
+	    Own Id: OTP-9558</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.4.19</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
