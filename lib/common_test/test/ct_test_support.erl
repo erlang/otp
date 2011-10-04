@@ -23,7 +23,6 @@
 %%%
 -module(ct_test_support).
 
--include_lib("test_server/include/test_server.hrl").
 -include_lib("common_test/include/ct_event.hrl").
 -include_lib("common_test/include/ct.hrl").
 

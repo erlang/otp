@@ -280,6 +280,8 @@
 	    the timetrap time is exceeded, the test case fails with
 	    reason <c>timetrap_timeout</c>. Note that <c>init_per_testcase</c> 
 	    and <c>end_per_testcase</c> are included in the timetrap time.
+	    Please see the <seealso marker="write_test_chapter#timetraps">Timetrap</seealso>
+	    section for more details.
 	  </p>
 	</item>
 	<tag><em><c>userdata</c></em></tag>
@@ -699,8 +701,8 @@
   </section>
 
   <section>
-    <title>Timetrap timeouts</title>
     <marker id="timetraps"></marker>
+    <title>Timetrap timeouts</title>
     <p>The default time limit for a test case is 30 minutes, unless a
       <c>timetrap</c> is specified either by the suite info function
       or a test case info function. The timetrap timeout value defined
@@ -723,6 +725,13 @@
       multipled by <c>multiply_timetraps</c>, and possibly scaled up if
       <c>scale_timetraps</c> is enabled, the function <c>ct:sleep/1</c>
       may be called.</p>
+    <p>A function (<c>fun</c> or <c>MFA</c>) may be specified as timetrap value
+      in the suite- and test case info function, e.g:</p>
+      <p><c>{timetrap,{test_utils,get_timetrap_value,[?MODULE,system_start]}}</c></p>
+      <p>The function will be called initially by Common Test (before execution
+	of the suite or the test case) and must return a time value such as an
+	integer (millisec), or a <c>{SecMinOrHourTag,Time}</c> tuple. More
+	information can be found in the <c>common_test</c> reference manual.</p>
   </section>
 
   <section>
@@ -818,6 +827,3 @@
     </list>
   </section>
 </chapter>
-
-
-

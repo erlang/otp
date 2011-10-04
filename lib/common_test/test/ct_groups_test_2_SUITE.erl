@@ -173,16 +173,14 @@ test_events(missing_conf) ->
      {?eh,start_info,{1,1,2}},
      {?eh,tc_start,{ct_framework,ct_init_per_group}},
      {?eh,tc_done,{ct_framework,ct_init_per_group,ok}},
-     {?eh,test_stats,{1,0,{0,0}}},
      {?eh,tc_start,{missing_conf_SUITE,tc1}},
      {?eh,tc_done,{missing_conf_SUITE,tc1,ok}},
-     {?eh,test_stats,{2,0,{0,0}}},
+     {?eh,test_stats,{1,0,{0,0}}},
      {?eh,tc_start,{missing_conf_SUITE,tc2}},
      {?eh,tc_done,{missing_conf_SUITE,tc2,ok}},
-     {?eh,test_stats,{3,0,{0,0}}},
+     {?eh,test_stats,{2,0,{0,0}}},
      {?eh,tc_start,{ct_framework,ct_end_per_group}},
      {?eh,tc_done,{ct_framework,ct_end_per_group,ok}},
-     {?eh,test_stats,{4,0,{0,0}}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
     ];

@@ -148,10 +148,10 @@ run(TestDirs) ->
 %%%               {auto_compile,Bool} | {multiply_timetraps,M} | {scale_timetraps,Bool} |
 %%%               {repeat,N} | {duration,DurTime} | {until,StopTime} |
 %%%               {force_stop,Bool} | {decrypt,DecryptKeyOrFile} |
-%%%               {refresh_logs,LogDir} | {basic_html,Bool} | 
+%%%               {refresh_logs,LogDir} | {logopts,LogOpts} | {basic_html,Bool} | 
 %%%               {ct_hooks, CTHs} | {enable_builtin_hooks,Bool}
 %%%   TestDirs = [string()] | string()
-%%%   Suites = [string()] | string()
+%%%   Suites = [string()] | [atom()] | string() | atom()
 %%%   Cases = [atom()] | atom()
 %%%   Groups = [atom()] | atom()
 %%%   TestSpecs = [string()] | string()
@@ -177,6 +177,8 @@ run(TestDirs) ->
 %%%   DecryptKeyOrFile = {key,DecryptKey} | {file,DecryptFile}
 %%%   DecryptKey = string()
 %%%   DecryptFile = string()
+%%%   LogOpts = [LogOpt]
+%%%   LogOpt = no_nl | no_src
 %%%   CTHs = [CTHModule | {CTHModule, CTHInitArgs}]
 %%%   CTHModule = atom()
 %%%   CTHInitArgs = term()

@@ -119,6 +119,11 @@ test_server_conf02_SUITE(Config) ->
 run_test_server_tests(SuiteName, NCases, NFail, NExpected, NSucc, 
 		      NUsrSkip, NAutoSkip, 
 		      NActualSkip, NActualFail, NActualSucc, Config) ->
+
+    ct:log("See test case log files under:~n~p~n",
+	   [filename:join([proplists:get_value(priv_dir, Config),
+			   SuiteName++".logs"])]),
+
     Node = proplists:get_value(node, Config),
     {ok,_Pid} = rpc:call(Node,test_server_ctrl, start, []),
     rpc:call(Node,
@@ -132,6 +137,7 @@ run_test_server_tests(SuiteName, NCases, NFail, NExpected, NSucc,
 	  end),
     
     rpc:call(Node,test_server_ctrl, stop, []),
+
     {ok,#suite{ n_cases = NCases,
 		n_cases_failed = NFail,
 		n_cases_expected = NExpected, 
