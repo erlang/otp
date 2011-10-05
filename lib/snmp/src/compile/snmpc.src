@@ -234,7 +234,7 @@ process_args(["--verbosity", Verbosity0|Args], #state{verbosity = V} = State)
 process_args(["--verbosity"|_Args], #state{verbosity = V}) 
   when (V =/= undefined) ->
     e(lists:flatten(io_lib:format("Verbosity already set to ~w", [V])));
-process_args(["--w"|Args], State) ->
+process_args(["--W"|Args], State) ->
     process_args(Args, State#state{warnings = true});
 process_args(["--warnings"|Args], State) ->
     process_args(Args, State#state{warnings = true});
