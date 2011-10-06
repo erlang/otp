@@ -136,9 +136,9 @@ check_ip(Socket) ->
     end.
 
 get_ifs(Socket) ->
-    case ssl_prim:peername(Socket) of
+    case inet:peername(Socket) of
 	{ok, {IP, _}} ->
-	    case ssl_prim:getif(Socket) of
+	    case inet:getif(Socket) of
 		{ok, IFs} -> {ok, IFs, IP};
 		Error     -> Error
 	    end;

@@ -126,11 +126,9 @@ get_tcp_address(Socket) ->
 		  family = inet
 		}.
 
-accept_loop(Proxy, Type, Listen, Extra) ->
+accept_loop(Proxy, erts = Type, Listen, Extra) ->
     process_flag(priority, max),
-    case Type of
-	erts ->
-	    case gen_tcp:accept(Listen) of
+    case gen_tcp:accept(Listen) of
 		{ok, Socket} ->
 		    Extra ! {accept,self(),Socket,inet,proxy},
 		    receive 
@@ -142,29 +140,30 @@ accept_loop(Proxy, Type, Listen, Extra) ->
 			    exit(unsupported_protocol)
 		    end;
 		Error ->
-		    exit(Error)
+	    exit(Error)
+    end,
+    accept_loop(Proxy, Type, Listen, Extra);
+
+accept_loop(Proxy, world = Type, Listen, Extra) ->
+    process_flag(priority, max),
+    case gen_tcp:accept(Listen) of
+	{ok, Socket} ->
+	    Opts = get_ssl_options(server),
+	    case ssl:ssl_accept(Socket, Opts) of
+		{ok, SslSocket} ->
+		    PairHandler =
+			spawn_link(fun() ->
+					   setup_connection(SslSocket, Extra)
+				   end),
+		    ok = ssl:controlling_process(SslSocket, PairHandler),
+		    flush_old_controller(PairHandler, SslSocket);
+		_ ->
+		    gen_tcp:close(Socket)
 	    end;
-	world ->
-	    case gen_tcp:accept(Listen) of
-		{ok, Socket} ->
-		    Opts = get_ssl_options(server),
-		    case ssl:ssl_accept(Socket, Opts) of
-			{ok, SslSocket} ->
-			    PairHandler =
-				spawn_link(fun() ->
-						   setup_connection(SslSocket, Extra)
-					   end),
-			    ok = ssl:controlling_process(SslSocket, PairHandler),
-			    flush_old_controller(PairHandler, SslSocket);
-			_ ->
-			    gen_tcp:close(Socket)
-		    end;
-		Error ->
-		    exit(Error)
-	    end
+	Error ->
+	    exit(Error)
     end,
     accept_loop(Proxy, Type, Listen, Extra).
-
 
 try_connect(Port) ->
     case gen_tcp:connect({127,0,0,1}, Port, [{active, false}, {packet,?PPRE}]) of
@@ -244,60 +243,60 @@ loop_conn(World, Erts) ->
 get_ssl_options(Type) ->
     case init:get_argument(ssl_dist_opt) of
 	{ok, Args} ->
-	    [{erl_dist, true} | ssl_options(Type, Args)];
+	    [{erl_dist, true} | ssl_options(Type, lists:append(Args))];
 	_ ->
 	    [{erl_dist, true}]
     end.
 
 ssl_options(_,[]) ->
     [];
-ssl_options(server, [["client_" ++ _, _Value]|T]) ->
+ssl_options(server, ["client_" ++ _, _Value |T]) ->
      ssl_options(server,T);
-ssl_options(client, [["server_" ++ _, _Value]|T]) ->
+ssl_options(client, ["server_" ++ _, _Value|T]) ->
     ssl_options(client,T);
-ssl_options(server, [["server_certfile", Value]|T]) ->
+ssl_options(server, ["server_certfile", Value|T]) ->
     [{certfile, Value} | ssl_options(server,T)];
-ssl_options(client, [["client_certfile", Value]|T]) ->
+ssl_options(client, ["client_certfile", Value | T]) ->
     [{certfile, Value} | ssl_options(client,T)];
-ssl_options(server, [["server_cacertfile", Value]|T]) ->
+ssl_options(server, ["server_cacertfile", Value|T]) ->
     [{cacertfile, Value} | ssl_options(server,T)];
-ssl_options(client, [["client_cacertfile", Value]|T]) ->
+ssl_options(client, ["client_cacertfile", Value|T]) ->
      [{cacertfile, Value} | ssl_options(client,T)];
-ssl_options(server, [["server_keyfile", Value]|T]) ->
+ssl_options(server, ["server_keyfile", Value|T]) ->
     [{keyfile, Value} | ssl_options(server,T)];
-ssl_options(client, [["client_keyfile", Value]|T]) ->
+ssl_options(client, ["client_keyfile", Value|T]) ->
     [{keyfile, Value} | ssl_options(client,T)];
-ssl_options(server, [["server_password", Value]|T]) ->
+ssl_options(server, ["server_password", Value|T]) ->
     [{password, Value} | ssl_options(server,T)];
-ssl_options(client, [["client_password", Value]|T]) ->
+ssl_options(client, ["client_password", Value|T]) ->
     [{password, Value} | ssl_options(client,T)];
-ssl_options(server, [["server_verify", Value]|T]) ->
+ssl_options(server, ["server_verify", Value|T]) ->
     [{verify, atomize(Value)} | ssl_options(server,T)];
-ssl_options(client, [["client_verify", Value]|T]) ->
+ssl_options(client, ["client_verify", Value|T]) ->
      [{verify, atomize(Value)} | ssl_options(client,T)];
-ssl_options(server, [["server_reuse_sessions", Value]|T]) ->
+ssl_options(server, ["server_reuse_sessions", Value|T]) ->
     [{reuse_sessions, atomize(Value)} | ssl_options(server,T)];
-ssl_options(client, [["client_reuse_sessions", Value]|T]) ->
+ssl_options(client, ["client_reuse_sessions", Value|T]) ->
     [{reuse_sessions, atomize(Value)} | ssl_options(client,T)];
-ssl_options(server, [["server_secure_renegotiation", Value]|T]) ->
-    [{secure_renegotiation, atomize(Value)} | ssl_options(server,T)];
-ssl_options(client, [["client_secure_renegotiation", Value]|T]) ->
-    [{secure_renegotiation, atomize(Value)} | ssl_options(client,T)];
-ssl_options(server, [["server_depth", Value]|T]) ->
+ssl_options(server, ["server_secure_renegotiate", Value|T]) ->
+    [{secure_renegotiate, atomize(Value)} | ssl_options(server,T)];
+ssl_options(client, ["client_secure_renegotiate", Value|T]) ->
+    [{secure_renegotiate, atomize(Value)} | ssl_options(client,T)];
+ssl_options(server, ["server_depth", Value|T]) ->
     [{depth, list_to_integer(Value)} | ssl_options(server,T)];
-ssl_options(client, [["client_depth", Value]|T]) ->
+ssl_options(client, ["client_depth", Value|T]) ->
     [{depth, list_to_integer(Value)} | ssl_options(client,T)];
-ssl_options(server, [["server_hibernate_after", Value]|T]) ->
+ssl_options(server, ["server_hibernate_after", Value|T]) ->
     [{hibernate_after, list_to_integer(Value)} | ssl_options(server,T)];
-ssl_options(client, [["client_hibernate_after", Value]|T]) ->
+ssl_options(client, ["client_hibernate_after", Value|T]) ->
     [{hibernate_after, list_to_integer(Value)} | ssl_options(client,T)];
-ssl_options(server, [["server_ciphers", Value]|T]) ->
+ssl_options(server, ["server_ciphers", Value|T]) ->
      [{ciphers, Value} | ssl_options(server,T)];
-ssl_options(client, [["client_ciphers", Value]|T]) ->
+ssl_options(client, ["client_ciphers", Value|T]) ->
     [{ciphers, Value} | ssl_options(client,T)];
-ssl_options(server, [["server_dhfile", Value]|T]) ->
+ssl_options(server, ["server_dhfile", Value|T]) ->
      [{dhfile, Value} | ssl_options(server,T)];
-ssl_options(server, [["server_fail_if_no_peer_cert", Value]|T]) ->
+ssl_options(server, ["server_fail_if_no_peer_cert", Value|T]) ->
     [{fail_if_no_peer_cert, atomize(Value)} | ssl_options(server,T)];
 ssl_options(_,_) ->
     exit(malformed_ssl_dist_opt).
