@@ -312,10 +312,9 @@ struct ext_segment {
     struct segment* segtab[1];     /* The segment table */
 };
 #define SIZEOF_EXTSEG(NSEGS) \
-    (sizeof(struct ext_segment) - sizeof(struct segment*) + sizeof(struct segment*)*(NSEGS))
+    (offsetof(struct ext_segment,segtab) + sizeof(struct segment*)*(NSEGS))
 
 #if defined(DEBUG) || defined(VALGRIND)
-#  include <stddef.h> /* offsetof */
 #  define EXTSEG(SEGTAB_PTR) \
     ((struct ext_segment*) (((char*)(SEGTAB_PTR)) - offsetof(struct ext_segment,segtab)))
 #endif
