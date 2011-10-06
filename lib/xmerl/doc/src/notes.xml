@@ -31,6 +31,63 @@
   <p>This document describes the changes made to the Xmerl application.</p>
 
 
+<section><title>Xmerl 1.2.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fixed a schema search bug in xmerl_xsd. </p> <p> A
+	    new flag was needed in the xsd_state record so if the
+	    state is saved there is an incompatibility and a state
+	    conversion is needed. </p>
+          <p>
+	    *** INCOMPATIBILITY with R14B03 ***</p>
+          <p>
+	    Own Id: OTP-9410</p>
+        </item>
+        <item>
+	    <p> Fixed xmerl_scan problems with entities in attribute
+	    values. </p>
+          <p>
+	    Own Id: OTP-9411</p>
+        </item>
+        <item>
+	    <p> Streaming bug in xmerl_scan. </p> <p> If the
+	    continuation_fun runs out of input at the end of an
+	    attribute value then it crashed. (Thanks to Simon
+	    Cornish) </p>
+          <p>
+	    Own Id: OTP-9457</p>
+        </item>
+        <item>
+          <p>
+	    Fixed xmerl_ucs UCS2 little endian en/decoding</p>
+          <p>
+	    Corrected number of shift bytes in
+	    xmerl_ucs:char_to_ucs2le and recursive call from
+	    from_ucs2le to from_ucs4le. (Thanks to Michal Ptaszek)</p>
+          <p>
+	    Own Id: OTP-9548</p>
+        </item>
+        <item>
+          <p>
+	    Add latin9 (iso-8859-15) support in xmerl_ucs (Thanks to
+	    David Julien)</p>
+          <p>
+	    Own Id: OTP-9552</p>
+        </item>
+        <item>
+          <p>
+	    Improve spelling throughout documentation, code comments
+	    and error messages</p>
+          <p>
+	    Own Id: OTP-9555</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Xmerl 1.2.9</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

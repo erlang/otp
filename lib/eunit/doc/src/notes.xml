@@ -32,6 +32,63 @@
   </header>
   <p>This document describes the changes made to the EUnit application.</p>
 
+<section><title>Eunit 2.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Generate separate surefire XMLs for each test suite</p>
+          <p>
+	    Previously the test cases of all test suites (=modules)
+	    were put in one and the same surefire report XML thereby
+	    breaking the principle of least astonishment and making
+	    post analysis harder. Assume the following layout:</p>
+          <p>
+	    src/x.erl src/y.erl test/x_tests.erl test/y_tests.erl</p>
+          <p>
+	    The results for both x_tests and y_tests were written to
+	    only one report grouped under either module x or y
+	    (seemingly randomly).</p>
+          <p>
+	    Now two reports, one for module x and one for y are
+	    generated. (Thanks to Klas Johansson)</p>
+          <p>
+	    Own Id: OTP-9465</p>
+        </item>
+        <item>
+          <p>
+	    Updated to EUnit version 2.2.0</p>
+          <p>
+	    New macros assertNotMatch(Guard, Expr),
+	    assertNotEqual(Unexpected, Expr), and
+	    assertNotException(Class, Term, Expr). </p>
+          <p>
+	    The debugMsg macro now also prints the pid of the current
+	    process.</p>
+          <p>
+	    When testing all modules in a directory, tests in
+	    Module_tests.erl are no longer executed twice.</p>
+          <p>
+	    The use of regexp internally has been replaced with re.
+	    (Thanks to Richard Carlsson)</p>
+          <p>
+	    Own Id: OTP-9505</p>
+        </item>
+        <item>
+          <p>
+	    Removed some never-matching clauses reported by dialyzer
+	    Updated author e-mails and homepages Removed cvs keywords
+	    from files Removed files that should not be checked in
+	    (Thanks to Richard Carlsson)</p>
+          <p>
+	    Own Id: OTP-9591</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Eunit 2.1.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

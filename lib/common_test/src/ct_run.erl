@@ -33,7 +33,7 @@
 
 
 %% Exported for VTS
--export([run_make/3,do_run/3,tests/1,tests/2,tests/3]).
+-export([run_make/3,do_run/4,tests/1,tests/2,tests/3]).
 
 
 %% Misc internal functions
@@ -46,12 +46,14 @@
 -define(testdir(Name, Suite), ct_util:get_testdir(Name, Suite)).
 
 -record(opts, {label,
+	       profile,
 	       vts,
 	       shell,
 	       cover,
 	       coverspec,
 	       step,
 	       logdir,
+	       logopts = [],
 	       config = [],
 	       event_handlers = [],
 	       ct_hooks = [],
@@ -157,15 +159,19 @@ script_start(Args) ->
 	end,
     stop_trace(Tracing),
     timer:sleep(1000),
+    io:nl(),
     Res.
 
 script_start1(Parent, Args) ->
     %% read general start flags
     Label = get_start_opt(label, fun([Lbl]) -> Lbl end, Args),
+    Profile = get_start_opt(profile, fun([Prof]) -> Prof end, Args),
     Vts = get_start_opt(vts, true, Args),
     Shell = get_start_opt(shell, true, Args),
     Cover = get_start_opt(cover, fun([CoverFile]) -> ?abs(CoverFile) end, Args),
     LogDir = get_start_opt(logdir, fun([LogD]) -> LogD end, Args),
+    LogOpts = get_start_opt(logopts, fun(Os) -> [list_to_atom(O) || O <- Os] end,
+			    [], Args),
     MultTT = get_start_opt(multiply_timetraps,
 			   fun([MT]) -> list_to_integer(MT) end, 1, Args),
     ScaleTT = get_start_opt(scale_timetraps,
@@ -239,8 +245,10 @@ script_start1(Parent, Args) ->
 	    application:set_env(common_test, basic_html, true)
     end,
 
-   StartOpts = #opts{label = Label, vts = Vts, shell = Shell, cover = Cover,
-		     logdir = LogDir, event_handlers = EvHandlers,
+   StartOpts = #opts{label = Label, profile = Profile,
+		     vts = Vts, shell = Shell, cover = Cover,
+		     logdir = LogDir, logopts = LogOpts,
+		     event_handlers = EvHandlers,
 		     ct_hooks = CTHooks,
 		     enable_builtin_hooks = EnableBuiltinHooks,
 		     include = IncludeDirs,
@@ -303,8 +311,14 @@ script_start2(StartOpts = #opts{vts = undefined,
 			Label = choose_val(StartOpts#opts.label,
 					   SpecStartOpts#opts.label),
 
+			Profile = choose_val(StartOpts#opts.profile,
+					     SpecStartOpts#opts.profile),
+
 			LogDir = choose_val(StartOpts#opts.logdir,
 					    SpecStartOpts#opts.logdir),
+
+			AllLogOpts = merge_vals([StartOpts#opts.logopts,
+						 SpecStartOpts#opts.logopts]),
 
 			Cover = choose_val(StartOpts#opts.cover,
 					   SpecStartOpts#opts.cover),
@@ -328,9 +342,11 @@ script_start2(StartOpts = #opts{vts = undefined,
 			application:set_env(common_test, include, AllInclude),
 
 			{TS,StartOpts#opts{label = Label,
+					   profile = Profile,
 					   testspecs = Specs,
 					   cover = Cover,
 					   logdir = LogDir,
+					   logopts = AllLogOpts,
 					   config = SpecStartOpts#opts.config,
 					   event_handlers = AllEvHs,
 					   ct_hooks = AllCTHooks,
@@ -404,50 +420,72 @@ check_and_install_configfiles(
     end.
 
 script_start3(StartOpts, Args) ->
-    case proplists:get_value(dir, Args) of
-	[] ->
+    StartOpts1 = get_start_opt(step,
+			       fun(Step) ->
+				       StartOpts#opts{step = Step,
+						      cover = undefined}
+			       end, StartOpts, Args),
+    case {proplists:get_value(dir, Args),
+	  proplists:get_value(suite, Args),
+	  groups_and_cases(proplists:get_value(group, Args),
+			   proplists:get_value(testcase, Args))} of
+	%% flag specified without data
+	{_,_,Error={error,_}} ->
+	    Error;
+	{_,[],_} ->
+	    {error,no_suite_specified};
+	{[],_,_} ->
 	    {error,no_dir_specified};
-	Dirs when is_list(Dirs) ->
+
+	{Dirs,undefined,[]} when is_list(Dirs) ->
 	    script_start4(StartOpts#opts{tests = tests(Dirs)}, Args);
-	undefined ->
-	    case proplists:get_value(suite, Args) of
-		[] ->
-		    {error,no_suite_specified};
-		Suites when is_list(Suites) ->
-		    StartOpts1 =
-			get_start_opt(step,
-				      fun(Step) ->
-					      StartOpts#opts{step = Step,
-							     cover = undefined}
-				      end, StartOpts, Args),
-		    DirMods = [suite_to_test(S) || S <- Suites],
-		    case groups_and_cases(proplists:get_value(group, Args),
-					  proplists:get_value(testcase, Args)) of
-			Error = {error,_} ->
-			    Error;
-			[] when DirMods =/= [] ->
-			    Ts = tests(DirMods),
-			    script_start4(StartOpts1#opts{tests = Ts}, Args);
-			GroupsAndCases when length(DirMods) == 1 ->
-			    Ts = tests(DirMods, GroupsAndCases),
-			    script_start4(StartOpts1#opts{tests = Ts}, Args);
-			[_,_|_] when length(DirMods) > 1 ->
-			    {error,multiple_suites_and_cases};
-			_ ->
-			    {error,incorrect_suite_option}
-		    end;
-		undefined ->
-		    if StartOpts#opts.vts ; StartOpts#opts.shell ->
-			    script_start4(StartOpts#opts{tests = []}, Args);
-		       true ->
-			    script_usage(),
-			    {error,incorrect_usage}
-		    end
+
+	{undefined,Suites,[]} when is_list(Suites) ->
+	    Ts = tests([suite_to_test(S) || S <- Suites]),
+	    script_start4(StartOpts1#opts{tests = Ts}, Args);
+
+	{undefined,Suite,GsAndCs} when is_list(Suite) ->
+	    case [suite_to_test(S) || S <- Suite] of
+		DirMods = [_] ->
+		    Ts = tests(DirMods, GsAndCs),
+		    script_start4(StartOpts1#opts{tests = Ts}, Args);
+		[_,_|_] ->
+		    {error,multiple_suites_and_cases};
+		_ ->
+		    {error,incorrect_start_options}
+	    end;
+
+	{[_,_|_],Suite,[]} when is_list(Suite) ->
+	    {error,multiple_dirs_and_suites};
+
+	{[Dir],Suite,GsAndCs} when is_list(Dir), is_list(Suite) ->
+	    case [suite_to_test(Dir,S) || S <- Suite] of
+		DirMods when GsAndCs == [] ->
+		    Ts = tests(DirMods),
+		    script_start4(StartOpts1#opts{tests = Ts}, Args);
+		DirMods = [_] when GsAndCs /= [] ->
+		    Ts = tests(DirMods, GsAndCs),
+		    script_start4(StartOpts1#opts{tests = Ts}, Args);
+		[_,_|_] when GsAndCs /= [] ->
+		    {error,multiple_suites_and_cases};
+		_ ->
+		    {error,incorrect_start_options}
+	    end;
+
+	{undefined,undefined,GsAndCs} when GsAndCs /= [] ->
+	    {error,incorrect_start_options};
+
+	{undefined,undefined,_} ->
+	    if StartOpts#opts.vts ; StartOpts#opts.shell ->
+		    script_start4(StartOpts#opts{tests = []}, Args);
+	       true ->
+		    script_usage(),
+		    {error,missing_start_options}
 	    end
     end.
 
 script_start4(#opts{vts = true, config = Config, event_handlers = EvHandlers,
-		    tests = Tests, logdir = LogDir}, _Args) ->
+		    tests = Tests, logdir = LogDir, logopts = LogOpts}, _Args) ->
     ConfigFiles =
 	lists:foldl(fun({ct_config_plain,CfgFiles}, AllFiles) when
 			      is_list(hd(CfgFiles)) ->
@@ -458,15 +496,20 @@ script_start4(#opts{vts = true, config = Config, event_handlers = EvHandlers,
 		       (_, AllFiles) ->
 			    AllFiles
 		    end, [], Config),
-    vts:init_data(ConfigFiles, EvHandlers, ?abs(LogDir), Tests);
+    vts:init_data(ConfigFiles, EvHandlers, ?abs(LogDir), LogOpts, Tests);
 
-script_start4(#opts{label = Label, shell = true, config = Config,
+script_start4(#opts{label = Label, profile = Profile,
+		    shell = true, config = Config,
 		    event_handlers = EvHandlers,
 		    ct_hooks = CTHooks,
+		    logopts = LogOpts,
 		    enable_builtin_hooks = EnableBuiltinHooks,
 		    logdir = LogDir, testspecs = Specs}, _Args) ->
     %% label - used by ct_logs
     application:set_env(common_test, test_label, Label),
+
+    %% profile - used in ct_util
+    application:set_env(common_test, profile, Profile),
 
     if Config == [] ->
 	    ok;
@@ -478,6 +521,7 @@ script_start4(#opts{label = Label, shell = true, config = Config,
 		  {enable_builtin_hooks,EnableBuiltinHooks}]) of
 	ok ->
 	    ct_util:start(interactive, LogDir),
+	    ct_util:set_testdata({logopts, LogOpts}),
 	    log_ts_names(Specs),
 	    io:nl(),
 	    ok;
@@ -518,6 +562,7 @@ script_usage() ->
 	      "\n\t[-decrypt_key Key] | [-decrypt_file KeyFile]"
 	      "\n\t[-dir TestDir1 TestDir2 .. TestDirN] |"
 	      "\n\t[-suite Suite [-case Case]]"
+	      "\n\t[-logopts LogOpt1 LogOpt2 .. LogOptN]"
 	      "\n\t[-include InclDir1 InclDir2 .. InclDirN]"
 	      "\n\t[-no_auto_compile]"
 	      "\n\t[-multiply_timetraps N]"
@@ -534,8 +579,9 @@ script_usage() ->
 	      "\n\t[-silent_connections [ConnType1 ConnType2 .. ConnTypeN]]"
 	      "\n\t[-stylesheet CSSFile]"
 	      "\n\t[-cover CoverCfgFile]"
-	      "\n\t[-event_handler EvHandler1 and EvHandler2 .. EvHandlerN]"
-	      "\n\t[-ct_hooks CTHook1 and CTHook2 .. CTHookN]"
+	      "\n\t[-event_handler EvHandler1 EvHandler2 .. EvHandlerN]"
+	      "\n\t[-logopts LogOpt1 LogOpt2 .. LogOptN]"
+	      "\n\t[-ct_hooks CTHook1 CTHook2 .. CTHookN]"
 	      "\n\t[-include InclDir1 InclDir2 .. InclDirN]"
 	      "\n\t[-no_auto_compile]"
 	      "\n\t[-multiply_timetraps N]"
@@ -553,8 +599,9 @@ script_usage() ->
 	      "\n\t[-silent_connections [ConnType1 ConnType2 .. ConnTypeN]]"
 	      "\n\t[-stylesheet CSSFile]"
 	      "\n\t[-cover CoverCfgFile]"
-	      "\n\t[-event_handler EvHandler1 and EvHandler2 .. EvHandlerN]"
-	      "\n\t[-ct_hooks CTHook1 and CTHook2 .. CTHookN]"
+	      "\n\t[-event_handler EvHandler1 EvHandler2 .. EvHandlerN]"
+	      "\n\t[-logopts LogOpt1 LogOpt2 .. LogOptN]"
+	      "\n\t[-ct_hooks CTHook1 CTHook2 .. CTHookN]"
 	      "\n\t[-include InclDir1 InclDir2 .. InclDirN]"
 	      "\n\t[-no_auto_compile]"
 	      "\n\t[-multiply_timetraps N]"
@@ -632,6 +679,16 @@ run_test(StartOpt) when is_tuple(StartOpt) ->
     run_test([StartOpt]);
 
 run_test(StartOpts) when is_list(StartOpts) ->
+    CTPid = spawn(fun() -> run_test1(StartOpts) end),
+    Ref = monitor(process, CTPid),
+    receive
+	{'DOWN',Ref,process,CTPid,{user_error,Error}} ->
+		    Error;
+	{'DOWN',Ref,process,CTPid,Other} ->
+		    Other
+    end.
+
+run_test1(StartOpts) when is_list(StartOpts) ->
     case proplists:get_value(refresh_logs, StartOpts) of
 	undefined ->
 	    Tracing = start_trace(StartOpts),
@@ -640,7 +697,7 @@ run_test(StartOpts) when is_list(StartOpts) ->
 	    Res =
 		case ct_repeat:loop_test(func, StartOpts) of
 		    false ->
-			case catch run_test1(StartOpts) of
+			case catch run_test2(StartOpts) of
 			    {'EXIT',Reason} ->
 				file:set_cwd(Cwd),
 				{error,Reason};
@@ -651,20 +708,27 @@ run_test(StartOpts) when is_list(StartOpts) ->
 			Result
 		end,
 	    stop_trace(Tracing),
-	    Res;
+	    exit(Res);
 	RefreshDir ->
 	    refresh_logs(?abs(RefreshDir)),
-	    ok
+	    exit(done)
     end.
 
-run_test1(StartOpts) ->
+run_test2(StartOpts) ->
     %% label
     Label = get_start_opt(label, fun(Lbl) when is_list(Lbl) -> Lbl;
 				    (Lbl) when is_atom(Lbl) -> atom_to_list(Lbl)
 				 end, StartOpts),
+    %% profile
+    Profile = get_start_opt(profile, fun(Prof) when is_list(Prof) -> Prof;
+					(Prof) when is_atom(Prof) -> atom_to_list(Prof)
+				     end, StartOpts),
     %% logdir
     LogDir = get_start_opt(logdir, fun(LD) when is_list(LD) -> LD end,
 			   StartOpts),
+    %% logopts
+    LogOpts = get_start_opt(logopts, value, [], StartOpts),
+
     %% config & userconfig
     CfgFiles = ct_config:get_config_file_list(StartOpts),
 
@@ -768,8 +832,9 @@ run_test1(StartOpts) ->
     %% stepped execution
     Step = get_start_opt(step, value, StartOpts),
 
-    Opts = #opts{label = Label,
-		 cover = Cover, step = Step, logdir = LogDir, config = CfgFiles,
+    Opts = #opts{label = Label, profile = Profile,
+		 cover = Cover, step = Step, logdir = LogDir,
+		 logopts = LogOpts, config = CfgFiles,
 		 event_handlers = EvHandlers,
 		 ct_hooks = CTHooks,
 		 enable_builtin_hooks = EnableBuiltinHooks,
@@ -811,8 +876,12 @@ run_spec_file(Relaxed,
 	    SpecOpts = get_data_for_node(TS, node()),
 	    Label = choose_val(Opts#opts.label,
 			       SpecOpts#opts.label),
+	    Profile = choose_val(Opts#opts.profile,
+			       SpecOpts#opts.profile),
 	    LogDir = choose_val(Opts#opts.logdir,
 				SpecOpts#opts.logdir),
+	    AllLogOpts = merge_vals([Opts#opts.logopts,
+				     SpecOpts#opts.logopts]),
 	    AllConfig = merge_vals([CfgFiles, SpecOpts#opts.config]),
 	    Cover = choose_val(Opts#opts.cover,
 			       SpecOpts#opts.cover),
@@ -833,8 +902,10 @@ run_spec_file(Relaxed,
 	    application:set_env(common_test, include, AllInclude),
 
 	    Opts1 = Opts#opts{label = Label,
+			      profile = Profile,
 			      cover = Cover,
 			      logdir = which(logdir, LogDir),
+			      logopts = AllLogOpts,
 			      config = AllConfig,
 			      event_handlers = AllEvHs,
 			      include = AllInclude,
@@ -848,7 +919,6 @@ run_spec_file(Relaxed,
 	    case check_and_install_configfiles(AllConfig,Opts1#opts.logdir,
 					       Opts1) of
 		ok ->
-
 		    {Run,Skip} = ct_testspec:prepare_tests(TS, node()),
 		    reformat_result(catch do_run(Run, Skip, Opts1, StartOpts));
 		{error,GCFReason} ->
@@ -921,67 +991,102 @@ run_dir(Opts = #opts{logdir = LogDir,
 	ok -> ok;
 	{error,IReason} -> exit(IReason)
     end,
-    case lists:keysearch(dir, 1, StartOpts) of
-	{value,{_,Dirs=[Dir|_]}} when not is_integer(Dir),
-	                              length(Dirs)>1 ->
-	    %% multiple dirs (no suite)
-	    reformat_result(catch do_run(tests(Dirs), [], Opts1, StartOpts));
-	false ->				% no dir
-	    %% fun for converting suite name to {Dir,Mod} tuple
-	    S2M = fun(S) when is_list(S) ->
-			  {filename:dirname(S),
-			   list_to_atom(filename:rootname(filename:basename(S)))};
-		     (A) ->
-			  {".",A}
-		  end,
-	    case lists:keysearch(suite, 1, StartOpts) of
-		{value,{_,Suite}} when is_integer(hd(Suite)) ; is_atom(Suite) ->
-		    {Dir,Mod} = S2M(Suite),
-		    case groups_and_cases(proplists:get_value(group, StartOpts),
-					  proplists:get_value(testcase, StartOpts)) of
-			Error = {error,_} ->
-			    exit(Error);
+    case {proplists:get_value(dir, StartOpts),
+	  proplists:get_value(suite, StartOpts),
+	  groups_and_cases(proplists:get_value(group, StartOpts),
+			   proplists:get_value(testcase, StartOpts))} of
+	%% flag specified without data
+	{_,_,Error={error,_}} ->
+	    Error;
+	{_,[],_} ->
+	    {error,no_suite_specified};
+	{[],_,_} ->
+	    {error,no_dir_specified};
+
+	{Dirs=[Hd|_],undefined,[]} when is_list(Dirs), not is_integer(Hd) ->
+	    Dirs1 = [if is_atom(D) -> atom_to_list(D);
+			true -> D end || D <- Dirs],
+	    reformat_result(catch do_run(tests(Dirs1), [], Opts1, StartOpts));
+
+	{Dir=[Hd|_],undefined,[]} when is_list(Dir) and is_integer(Hd) ->
+	    reformat_result(catch do_run(tests(Dir), [], Opts1, StartOpts));
+
+	{Dir,undefined,[]} when is_atom(Dir) and (Dir /= undefined) ->
+	    reformat_result(catch do_run(tests(atom_to_list(Dir)),
+					 [], Opts1, StartOpts));
+
+	{undefined,Suites=[Hd|_],[]} when not is_integer(Hd) ->
+	    Suites1 = [suite_to_test(S) || S <- Suites],
+	    reformat_result(catch do_run(tests(Suites1), [], Opts1, StartOpts));
+
+	{undefined,Suite,[]} when is_atom(Suite) and
+				  (Suite /= undefined) ->
+	    {Dir,Mod} = suite_to_test(Suite),
+	    reformat_result(catch do_run(tests(Dir, Mod), [], Opts1, StartOpts));
+
+	{undefined,Suite,GsAndCs} when is_atom(Suite) and
+				       (Suite /= undefined) ->
+	    {Dir,Mod} = suite_to_test(Suite),
+	    reformat_result(catch do_run(tests(Dir, Mod, GsAndCs),
+					 [], Opts1, StartOpts));
+
+	{undefined,[Hd,_|_],_GsAndCs} when not is_integer(Hd) ->
+	    exit(multiple_suites_and_cases);
+
+	{undefined,Suite=[Hd|Tl],GsAndCs} when is_integer(Hd) ;
+					       (is_list(Hd) and	(Tl == [])) ;
+					       (is_atom(Hd) and	(Tl == [])) ->
+	    {Dir,Mod} = suite_to_test(Suite),
+	    reformat_result(catch do_run(tests(Dir, Mod, GsAndCs),
+					 [], Opts1, StartOpts));
+
+	{[Hd,_|_],_Suites,[]} when is_list(Hd) ; not is_integer(Hd) ->
+	    exit(multiple_dirs_and_suites);
+
+	{undefined,undefined,GsAndCs} when GsAndCs /= [] ->
+	    exit(incorrect_start_options);
+
+	{Dir,Suite,GsAndCs} when is_integer(hd(Dir)) ;
+				 (is_atom(Dir) and (Dir /= undefined)) ;
+				 ((length(Dir) == 1) and is_atom(hd(Dir))) ;
+				 ((length(Dir) == 1) and is_list(hd(Dir))) ->
+	    Dir1 = if is_atom(Dir) -> atom_to_list(Dir);
+		      true -> Dir end,
+	    if Suite == undefined ->
+		  exit(incorrect_start_options);
+
+	       is_integer(hd(Suite)) ;
+	       (is_atom(Suite) and (Suite /= undefined)) ;
+	       ((length(Suite) == 1) and is_atom(hd(Suite))) ;
+	       ((length(Suite) == 1) and is_list(hd(Suite))) ->
+		    {Dir2,Mod} = suite_to_test(Dir1, Suite),
+		    case GsAndCs of
 			[] ->
-			    reformat_result(catch do_run(tests(Dir, listify(Mod)),
+			    reformat_result(catch do_run(tests(Dir2, Mod),
 							 [], Opts1, StartOpts));
-			GsAndCs ->
-			    reformat_result(catch do_run(tests(Dir, Mod, GsAndCs),
+			_ ->
+			    reformat_result(catch do_run(tests(Dir2, Mod, GsAndCs),
 							 [], Opts1, StartOpts))
 		    end;
-		{value,{_,Suites}} ->
-		    reformat_result(catch do_run(tests(lists:map(S2M, Suites)),
-						 [], Opts1, StartOpts));
-		_ ->
-		    exit(no_tests_specified)
+
+		is_list(Suite) ->		% multiple suites
+		    case [suite_to_test(Dir1, S) || S <- Suite] of
+			[_,_|_] when GsAndCs /= [] ->
+			    exit(multiple_suites_and_cases);
+			[{Dir2,Mod}] when GsAndCs /= [] ->
+			    reformat_result(catch do_run(tests(Dir2, Mod, GsAndCs),
+							 [], Opts1, StartOpts));
+			DirMods ->
+			    reformat_result(catch do_run(tests(DirMods),
+							 [], Opts1, StartOpts))
+		    end
 	    end;
-	{value,{_,Dir}} ->
-	    case lists:keysearch(suite, 1, StartOpts) of
-		{value,{_,Suite}} when is_integer(hd(Suite)) ; is_atom(Suite) ->
-		    Mod = if is_atom(Suite) -> Suite;
-			     true -> list_to_atom(Suite)
-			  end,
-		    case groups_and_cases(proplists:get_value(group, StartOpts),
-					  proplists:get_value(testcase, StartOpts)) of
-			Error = {error,_} ->
-			    exit(Error);
-			[] ->
-			    reformat_result(catch do_run(tests(Dir, listify(Mod)),
-							 [], Opts1, StartOpts));
-			GsAndCs ->
-			    reformat_result(catch do_run(tests(Dir, Mod, GsAndCs),
-							 [], Opts1, StartOpts))
-		    end;
-		{value,{_,Suites=[Suite|_]}} when is_list(Suite) ->
-		    Mods = lists:map(fun(Str) -> list_to_atom(Str) end, Suites),
-		    reformat_result(catch do_run(tests(delistify(Dir), Mods),
-						 [], Opts1, StartOpts));
-		{value,{_,Suites}} ->
-		    reformat_result(catch do_run(tests(delistify(Dir), Suites),
-						 [], Opts1, StartOpts));
-	        false ->			% no suite, only dir
-		    reformat_result(catch do_run(tests(listify(Dir)),
-						 [], Opts1, StartOpts))
-	    end
+
+	{undefined,undefined,[]} ->
+	    exit(no_test_specified);
+
+	{Dir,Suite,GsAndCs} ->
+	    exit({incorrect_start_options,{Dir,Suite,GsAndCs}})
     end.
 
 %%%-----------------------------------------------------------------
@@ -992,19 +1097,38 @@ run_dir(Opts = #opts{logdir = LogDir,
 %%% the same as those used in test specification files.
 %%% @equiv ct:run_testspec/1
 %%%-----------------------------------------------------------------
-
 run_testspec(TestSpec) ->
-    {ok,Cwd} = file:get_cwd(),
-    io:format("~nCommon Test starting (cwd is ~s)~n~n", [Cwd]),
-    case catch run_testspec1(TestSpec) of
-	{'EXIT',Reason} ->
-	    file:set_cwd(Cwd),
-	    {error,Reason};
-	Result ->
-	    Result
+    CTPid = spawn(fun() -> run_testspec1(TestSpec) end),
+    Ref = monitor(process, CTPid),
+    receive
+	{'DOWN',Ref,process,CTPid,{user_error,Error}} ->
+		    Error;
+	{'DOWN',Ref,process,CTPid,Other} ->
+		    Other
     end.
 
 run_testspec1(TestSpec) ->
+    {ok,Cwd} = file:get_cwd(),
+    io:format("~nCommon Test starting (cwd is ~s)~n~n", [Cwd]),
+    case catch run_testspec2(TestSpec) of
+	{'EXIT',Reason} ->
+	    file:set_cwd(Cwd),
+	    exit({error,Reason});
+	Result ->
+	    exit(Result)
+    end.
+
+run_testspec2(File) when is_list(File), is_integer(hd(File)) ->
+    case file:read_file_info(File) of
+	{ok,_} ->
+	    exit("Bad argument, "
+		 "use ct:run_test([{spec," ++ File ++ "}])");
+	_ ->
+	    exit("Bad argument, list of tuples expected, "
+		 "use ct:run_test/1 for test specification files")
+    end;
+
+run_testspec2(TestSpec) ->
     case catch ct_testspec:collect_tests_from_list(TestSpec, false) of
 	{E,CTReason}  when E == error ; E == 'EXIT' ->
 	    exit(CTReason);
@@ -1035,7 +1159,9 @@ run_testspec1(TestSpec) ->
     end.
 
 get_data_for_node(#testspec{label = Labels,
+			    profile = Profiles,
 			    logdir = LogDirs,
+			    logopts = LogOptsList,
 			    cover = CoverFs,
 			    config = Cfgs,
 			    userconfig = UsrCfgs,
@@ -1046,10 +1172,15 @@ get_data_for_node(#testspec{label = Labels,
 			    multiply_timetraps = MTs,
 			    scale_timetraps = STs}, Node) ->
     Label = proplists:get_value(Node, Labels),
+    Profile = proplists:get_value(Node, Profiles),
     LogDir = case proplists:get_value(Node, LogDirs) of
 		 undefined -> ".";
 		 Dir -> Dir
 	     end,
+    LogOpts = case proplists:get_value(Node, LogOptsList) of
+		  undefined -> [];
+		  LOs -> LOs
+	      end,
     Cover = proplists:get_value(Node, CoverFs),
     MT = proplists:get_value(Node, MTs),
     ST = proplists:get_value(Node, STs),
@@ -1059,7 +1190,9 @@ get_data_for_node(#testspec{label = Labels,
     FiltCTHooks = [Hook || {N,Hook} <- CTHooks, N==Node],
     Include =  [I || {N,I} <- Incl, N==Node],
     #opts{label = Label,
+	  profile = Profile,
 	  logdir = LogDir,
+	  logopts = LogOpts,
 	  cover = Cover,
 	  config = ConfigFiles,
 	  event_handlers = EvHandlers,
@@ -1141,8 +1274,24 @@ reformat_result({user_error,Reason}) ->
 reformat_result(Result) ->
     Result.
 
-suite_to_test(Suite) ->
-    {filename:dirname(Suite),list_to_atom(filename:rootname(filename:basename(Suite)))}.
+suite_to_test(Suite) when is_atom(Suite) ->
+    suite_to_test(atom_to_list(Suite));
+
+suite_to_test(Suite) when is_list(Suite) ->
+    {filename:dirname(Suite),
+     list_to_atom(filename:rootname(filename:basename(Suite)))}.
+
+suite_to_test(Dir, Suite) when is_atom(Suite) ->
+    suite_to_test(Dir, atom_to_list(Suite));
+
+suite_to_test(Dir, Suite) when is_list(Suite) ->
+    case filename:dirname(Suite) of
+	"." ->
+	    {Dir,list_to_atom(filename:rootname(Suite))};
+	DirName ->				% ignore Dir
+	    File = filename:basename(Suite),
+	    {DirName,list_to_atom(filename:rootname(File))}
+    end.
 
 groups_and_cases(Gs, Cs) when ((Gs == undefined) or (Gs == [])) and
 			      ((Cs == undefined) or (Cs == [])) ->
@@ -1176,9 +1325,11 @@ tests(TestDirs) when is_list(TestDirs), is_list(hd(TestDirs)) ->
     [{?testdir(TestDir,all),all,all} || TestDir <- TestDirs].
 
 do_run(Tests, Misc) when is_list(Misc) ->
-    do_run(Tests, Misc, ".").
+    do_run(Tests, Misc, ".", []).
 
-do_run(Tests, Misc, LogDir) when is_list(Misc) ->
+do_run(Tests, Misc, LogDir, LogOpts) when is_list(Misc),
+					  is_list(LogDir),
+					  is_list(LogOpts) ->
     Opts =
 	case proplists:get_value(step, Misc) of
 	    undefined ->
@@ -1193,11 +1344,10 @@ do_run(Tests, Misc, LogDir) when is_list(Misc) ->
 	    CoverFile ->
 		Opts#opts{cover = CoverFile}
 	end,
-    do_run(Tests, [], Opts1#opts{logdir = LogDir}, []).
+    do_run(Tests, [], Opts1#opts{logdir = LogDir}, []);
 
-do_run(Tests, Skip, Opts, Args) ->
-    #opts{label = Label, cover = Cover} = Opts,
-
+do_run(Tests, Skip, Opts, Args) when is_record(Opts, opts) ->
+    #opts{label = Label, profile = Profile, cover = Cover} = Opts,
     %% label - used by ct_logs
     TestLabel =
 	if Label == undefined -> undefined;
@@ -1206,6 +1356,15 @@ do_run(Tests, Skip, Opts, Args) ->
 	   true               -> undefined
 	end,
     application:set_env(common_test, test_label, TestLabel),
+
+    %% profile - used in ct_util
+    TestProfile =
+	if Profile == undefined -> undefined;
+	   is_atom(Profile)     -> atom_to_list(Profile);
+	   is_list(Profile)     -> Profile;
+	   true                 -> undefined
+	end,
+    application:set_env(common_test, profile, TestProfile),
 
     case code:which(test_server) of
 	non_existing ->
@@ -1241,6 +1400,8 @@ do_run(Tests, Skip, Opts, Args) ->
 		_Pid ->
 		    %% save stylesheet info
 		    ct_util:set_testdata({stylesheet,Opts#opts.stylesheet}),
+		    %% save logopts
+		    ct_util:set_testdata({logopts,Opts#opts.logopts}),
 		    %% enable silent connections
 		    case Opts#opts.silent_connections of
 			[] ->
@@ -2008,7 +2169,14 @@ maybe_interpret1(Suite, Cases, StepOpts) when is_list(Cases) ->
 
 maybe_interpret2(Suite, Cases, StepOpts) ->
     set_break_on_config(Suite, StepOpts),
-    [i:ib(Suite, Case, 1) || Case <- Cases],
+    [begin try i:ib(Suite, Case, 1) of
+	       _ -> ok
+	   catch
+	       _:_Error ->
+		   io:format(user, "Invalid breakpoint: ~w:~w/1~n",
+			     [Suite,Case])
+	   end
+     end || Case <- Cases, is_atom(Case)],
     test_server_ctrl:multiply_timetraps(infinity),
     WinOp = case lists:member(keep_inactive, ensure_atom(StepOpts)) of
 		true -> no_kill;
@@ -2021,10 +2189,18 @@ maybe_interpret2(Suite, Cases, StepOpts) ->
 set_break_on_config(Suite, StepOpts) ->
     case lists:member(config, ensure_atom(StepOpts)) of
 	true ->
-	    i:ib(Suite, init_per_suite, 1),
-	    i:ib(Suite, init_per_testcase, 2),
-	    i:ib(Suite, end_per_testcase, 2),
-	    i:ib(Suite, end_per_suite, 1);
+	    SetBPIfExists = fun(F,A) ->
+				    case erlang:function_exported(Suite, F, A) of
+					true -> i:ib(Suite, F, A);
+					false -> ok
+				    end
+			    end,
+	    SetBPIfExists(init_per_suite, 1),
+	    SetBPIfExists(init_per_group, 2),
+	    SetBPIfExists(init_per_testcase, 2),
+	    SetBPIfExists(end_per_testcase, 2),
+	    SetBPIfExists(end_per_group, 2),
+	    SetBPIfExists(end_per_suite, 1);
 	false ->
 	    ok
     end.
@@ -2078,6 +2254,15 @@ get_start_opt(Key, IfExists, Args) ->
     get_start_opt(Key, IfExists, undefined, Args).
 
 get_start_opt(Key, IfExists, IfNotExists, Args) ->
+    try try_get_start_opt(Key, IfExists, IfNotExists, Args) of
+	Result ->
+	    Result
+    catch
+	error:_ ->
+	    exit({user_error,{bad_argument,Key}})
+    end.
+
+try_get_start_opt(Key, IfExists, IfNotExists, Args) ->
     case lists:keysearch(Key, 1, Args) of
 	{value,{Key,Val}} when is_function(IfExists) ->
 	    IfExists(Val);
@@ -2252,6 +2437,8 @@ opts2args(EnvStartOpts) ->
 					   end, EHs),
 			  [_LastAnd|StrsR] = lists:reverse(lists:flatten(Strs)),
 			  [{event_handler_init,lists:reverse(StrsR)}];
+		     ({logopts,LOs}) when is_list(LOs) ->
+			  [{logopts,[atom_to_list(LO) || LO <- LOs]}];
 		     ({ct_hooks,[]}) ->
 			  [];
 		     ({ct_hooks,CTHs}) when is_list(CTHs) ->
@@ -2315,32 +2502,31 @@ is_suite(ModOrFile) when is_list(ModOrFile) ->
     end.
 
 get_all_testcases(Suite) ->
-    %%! this needs to be updated to handle testcase groups later!!
-    case catch Suite:all() of
-	{'EXIT',Why} ->
-	    {error,Why};
-	{skip,_} ->
-	    [];
-	Cases ->
-	    AllCases =
-		lists:foldl(fun({sequence,SeqName}, All) ->
-				    case catch Suite:sequences() of
-					{'EXIT',_} ->
-					    All;
-					Seqs ->
-					    case proplists:get_value(SeqName, Seqs) of
-						undefined ->
-						    All;
-						SeqCases ->
-						    lists:reverse(SeqCases) ++ All
-					    end
-				    end;
-			       (Case,All) ->
-				    [Case|All]
-			    end, [], Cases),
-	    lists:reverse(AllCases)
+    try ct_framework:get_all_cases(Suite) of
+	{error,_Reason} = Error ->
+	    Error;
+	SuiteCases ->
+	    Cases = [C || {_S,C} <- SuiteCases],
+	    try Suite:sequences() of
+		[] ->
+		    Cases;
+		Seqs ->
+		    TCs1 = lists:flatten([TCs || {_,TCs} <- Seqs]),
+		    lists:reverse(
+		      lists:foldl(fun(TC, Acc) ->
+					  case lists:member(TC, Acc) of
+					      true  -> Acc;
+					      false -> [TC | Acc]
+					  end
+				  end, [], Cases ++ TCs1))
+	    catch
+		_:_ ->
+		    Cases
+	    end
+    catch
+	_:Error ->
+	    {error,Error}
     end.
-					
 
 %% Internal tracing support. If {ct_trace,TraceSpec} is present, the
 %% TraceSpec file will be consulted and dbg used to trace function
@@ -2361,8 +2547,8 @@ start_trace(Args) ->
 			    false
 		    end;
 		{_,Error} ->
-		    io:format("Warning! Tracing not started. Reason: ~p~n~n",
-			      [Error]),
+		    io:format("Warning! Tracing not started. Reason: ~s~n~n",
+			      [file:format_error(Error)]),
 		    false
 	    end;
 	false ->

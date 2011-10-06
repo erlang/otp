@@ -28,7 +28,7 @@
 
 -module(ct_logs).
 
--export([init/1,close/1,init_tc/0,end_tc/1]).
+-export([init/1,close/2,init_tc/1,end_tc/1]).
 -export([get_log_dir/0,log/3,start_log/1,cont_log/2,end_log/0]).
 -export([set_stylesheet/2,clear_stylesheet/1]).
 -export([add_external_logs/1,add_link/3]).
@@ -97,11 +97,11 @@ logdir_node_prefix() ->
     logdir_prefix()++"."++atom_to_list(node()).
 
 %%%-----------------------------------------------------------------
-%%% @spec close(Info) -> ok
+%%% @spec close(Info, StartDir) -> ok
 %%%
 %%% @doc Create index pages with test results and close the CT Log
 %%% (tool-internal use only).
-close(Info) ->
+close(Info, StartDir) ->
     make_last_run_index(),
 
     ct_event:notify(#event{name=stop_logging,node=node(),data=[]}),
@@ -124,14 +124,29 @@ close(Info) ->
 		    ok;
 		Error ->
 		    io:format("Warning! Cleanup failed: ~p~n", [Error])
-	    end;
+	    end,
+	    make_all_suites_index(stop),
+	    make_all_runs_index(stop);
        true -> 
-	    file:set_cwd("..")
-    end,       
-
-    make_all_suites_index(stop),
-    make_all_runs_index(stop),
-
+	    file:set_cwd(".."),
+	    make_all_suites_index(stop),
+	    make_all_runs_index(stop),
+	    case ct_util:get_profile_data(browser, StartDir) of
+		undefined ->
+		    ok;
+		BrowserData ->
+		    case {proplists:get_value(prog, BrowserData),
+			  proplists:get_value(args, BrowserData),
+			  proplists:get_value(page, BrowserData)} of
+			{Prog,Args,Page} when is_list(Args),
+					      is_list(Page) ->
+			    URL = "\"file://" ++ ?abs(Page) ++ "\"",
+			    ct_util:open_url(Prog, Args, URL);
+			_ ->
+			    ok
+		    end
+	    end
+    end,
     ok.
 
 %%%-----------------------------------------------------------------
@@ -182,15 +197,14 @@ cast(Msg) ->
 	    ?MODULE ! Msg
     end.
 
-
 %%%-----------------------------------------------------------------
-%%% @spec init_tc() -> ok
+%%% @spec init_tc(RefreshLog) -> ok
 %%%
 %%% @doc Test case initiation (tool-internal use only).
 %%%
 %%% <p>This function is called by ct_framework:init_tc/3</p>
-init_tc() ->
-    call({init_tc,self(),group_leader()}),
+init_tc(RefreshLog) ->
+    call({init_tc,self(),group_leader(),RefreshLog}),
     ok.
 
 %%%-----------------------------------------------------------------
@@ -486,8 +500,8 @@ logger_loop(State) ->
 							  [Str,Args]),
 						%% stop the testcase, we need
 						%% to see the fault
-						exit(Pid,logging_failed),
-						ok;
+						exit(Pid,{log_printout_error,Str,Args}),
+						[];
 					    IoStr when IoList == [] ->
 						[IoStr];
 					    IoStr ->
@@ -507,10 +521,15 @@ logger_loop(State) ->
 		    [begin io:format(Fd,Str,Args),io:nl(Fd) end || {Str,Args} <- List],
 		    logger_loop(State#logger_state{tc_groupleaders=TCGLs})
 	    end;
-	{{init_tc,TCPid,GL},From} ->
+	{{init_tc,TCPid,GL,RefreshLog},From} ->
 	    print_style(GL, State#logger_state.stylesheet),
 	    set_evmgr_gl(GL),
 	    TCGLs = add_tc_gl(TCPid,GL,State),
+	    if not RefreshLog ->
+		    ok;
+	       true ->
+		    make_last_run_index(State#logger_state.start_time)
+	    end,
 	    return(From,ok),
 	    logger_loop(State#logger_state{tc_groupleaders=TCGLs});
 	{{end_tc,TCPid},From} ->
@@ -841,6 +860,7 @@ make_one_index_entry1(SuiteName, Link, Label, Success, Fail, UserSkip, AutoSkip,
 				    ""
 			    end
 		    end,
+    CtRunDir = filename:dirname(filename:dirname(Link)),
     {Lbl,Timestamp,Node,AllInfo} =
 	case All of
 	    {true,OldRuns} -> 
@@ -850,7 +870,6 @@ make_one_index_entry1(SuiteName, Link, Label, Success, Fail, UserSkip, AutoSkip,
 			    _ -> NodeOrDate
 			end,
 		N = ["<TD ALIGN=right><FONT SIZE=-1>",Node1,"</FONT></TD>\n"],
-		CtRunDir = filename:dirname(filename:dirname(Link)),
 		L = ["<TD ALIGN=center><FONT SIZE=-1><B>",Label,"</FONT></B></TD>\n"],
 		T = ["<TD><FONT SIZE=-1>",timestamp(CtRunDir),"</FONT></TD>\n"],
 		CtLogFile = filename:join(CtRunDir,?ct_log_name),
@@ -869,7 +888,7 @@ make_one_index_entry1(SuiteName, Link, Label, Success, Fail, UserSkip, AutoSkip,
 	if NotBuilt == 0 ->
 		["<TD ALIGN=right>",integer_to_list(NotBuilt),"</TD>\n"];
 	   true ->
-		["<TD ALIGN=right><A HREF=\"",?ct_log_name,"\">",
+		["<TD ALIGN=right><A HREF=\"",filename:join(CtRunDir,?ct_log_name),"\">",
 		integer_to_list(NotBuilt),"</A></TD>\n"]
 	end,
     FailStr =

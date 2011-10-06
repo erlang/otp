@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -16,18 +16,20 @@
 %%
 %% %CopyrightEnd%
 %%
--module(ts_if_1_SUITE).
+-module(timetrap_3_SUITE).
 
 -compile(export_all).
 
 -include_lib("common_test/include/ct.hrl").
+
+-define(TO, 3).
 
 %%--------------------------------------------------------------------
 %% Function: suite() -> Info
 %% Info = [tuple()]
 %%--------------------------------------------------------------------
 suite() ->
-    [{timetrap,{seconds,2}}].
+    [{timetrap,{seconds,?TO}}].
 
 %%--------------------------------------------------------------------
 %% Function: init_per_suite(Config0) ->
@@ -52,10 +54,6 @@ end_per_suite(_Config) ->
 %% Config0 = Config1 = [tuple()]
 %% Reason = term()
 %%--------------------------------------------------------------------
-init_per_group(g1, _Config) ->
-    {skip,g1_got_skipped};
-init_per_group(g3, _Config) ->
-    {skip,g3_got_skipped};
 init_per_group(_GroupName, Config) ->
     Config.
 
@@ -66,38 +64,6 @@ init_per_group(_GroupName, Config) ->
 %% Config0 = Config1 = [tuple()]
 %%--------------------------------------------------------------------
 end_per_group(_GroupName, _Config) ->
-    ok.
-
-%%--------------------------------------------------------------------
-%% Function: init_per_testcase(TestCase, Config0) ->
-%%               Config1 | {skip,Reason} | {skip_and_save,Reason,Config1}
-%% TestCase = atom()
-%% Config0 = Config1 = [tuple()]
-%% Reason = term()
-%%--------------------------------------------------------------------
-init_per_testcase(tc1, Config) ->
-    timer:sleep(5000),
-    Config;
-init_per_testcase(tc8, _Config) ->
-    {skip,"tc8 skipped"};
-init_per_testcase(tc11, Config) ->
-    bad_format;
-init_per_testcase(_TestCase, Config) ->
-    Config.
-
-%%--------------------------------------------------------------------
-%% Function: end_per_testcase(TestCase, Config0) ->
-%%               void() | {save_config,Config1}
-%% TestCase = atom()
-%% Config0 = Config1 = [tuple()]
-%%--------------------------------------------------------------------
-end_per_testcase(tc2, Config) ->
-    timer:sleep(5000);
-end_per_testcase(tc12, Config) ->
-    ct:comment("end_per_testcase(tc12) called!"),
-    ct:pal("end_per_testcase(tc12) called!", []),
-    ok;
-end_per_testcase(_TestCase, _Config) ->
     ok.
 
 %%--------------------------------------------------------------------
@@ -113,13 +79,7 @@ end_per_testcase(_TestCase, _Config) ->
 %% N = integer() | forever
 %%--------------------------------------------------------------------
 groups() ->
-    [{g1,[],[gtc1]},
-     {g2,[parallel],[{g3,[],[gtc2]}]},
-     
-     {seq2,[sequence],[tc4,tc5]}].
-
-sequences() ->
-    [{seq1,[tc4,tc5]}].
+    [{g1,[parallel],[tc0,tc1,tc2,tc3,tc4,tc5,tc6,tc7]}].
 
 %%--------------------------------------------------------------------
 %% Function: all() -> GroupsAndTestCases | {skip,Reason}
@@ -128,68 +88,59 @@ sequences() ->
 %% TestCase = atom()
 %% Reason = term()
 %%--------------------------------------------------------------------
-all() -> 
-    [tc1, tc2, tc3,
-     {sequence,seq1},
-     {group,seq2},
-     tc6, tc7, 
-     tc8, tc9, tc10, 
-     tc11,
-     {group,g1},
-     {group,g2},
-     tc12, tc13].
+all() ->
+    [{group,g1}].
 
+tc0() ->
+    [{timetrap,2000}].
+tc0(_) ->
+    ct:comment("TO after 2 sec"),
+    ct:sleep({seconds,5}),
+    ok.
+
+tc1() ->
+    [{timetrap,500}].
 tc1(_) ->
-    exit(should_have_been_skipped).
+    ct:comment("TO after 1/2 sec"),
+    ct:sleep({seconds,5}),
+    ok.
 
+tc2() ->
+    [{timetrap,1000}].
 tc2(_) ->
-    timeout_in_end_per_testcase.
+    ct:comment("TO after 1 sec"),
+    ct:sleep({seconds,5}),
+    ok.
 
-tc3(_) ->
-   timer:sleep(5000).
+tc3(_) ->    
+    ct:comment(io_lib:format("TO after ~w sec", [?TO])),
+    ct:sleep({seconds,5}),
+    ok.
 
+tc4() ->
+    [{timetrap,2000}].
 tc4(_) ->
-    exit(failed_on_purpose).
+    ct:comment(io_lib:format("TO after 2 sec", [])),
+    ct:sleep({seconds,5}),
+    ok.
 
+tc5() ->
+    [{timetrap,2000}].
 tc5(_) ->
-    exit(should_have_been_skipped).
+    ct:comment("No timeout"),
+    ct:sleep({seconds,1}),
+    ok.
 
 tc6() ->
-    [{require,void}].
+    [{timetrap,1000}].
 tc6(_) ->
-    exit(should_have_been_skipped).
+    ct:comment("TO after 1 sec"),
+    ct:sleep({seconds,5}),
+    ok.
 
 tc7() ->
-    bad_format.
+    [{timetrap,1500}].
 tc7(_) ->
-    done.
-
-tc8(_) ->
-    exit(should_have_been_skipped).
-
-tc9(_) ->
-    {skip,'tc9 skipped'}.
-
-tc10(config) ->
-    done.
-
-tc11(_) ->
-    exit(should_have_been_skipped).
-
-
-gtc1(_) ->
-    exit(should_have_been_skipped).
-
-gtc2(_) ->
-    exit(should_have_been_skipped).
-
-tc12(_) ->
-    F = fun() -> ct:abort_current_testcase('stopping tc12') end,
-    spawn(F),
-    timer:sleep(1000),
-    exit(should_have_been_aborted).
-
-tc13(_) ->
-    success.
-
-
+    ct:comment("TO after 1 1/2 sec"),
+    ct:sleep({seconds,5}),
+    ok.

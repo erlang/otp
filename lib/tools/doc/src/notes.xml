@@ -30,6 +30,44 @@
   </header>
   <p>This document describes the changes made to the Tools application.</p>
 
+<section><title>Tools 2.6.6.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Teach the emacs mode to compile yecc and leex files</p>
+          <p>
+	    If visiting a .yrl or .xrl file in emacs with
+	    erlang-mode, then the `erlang-compile' function (normally
+	    bound to C-c C-k), now knows how to compile yecc and leex
+	    files, and then, if that compilation succeeds, also
+	    compiles the resulting .erl files.</p>
+          <p>
+	    Also introduce a `erlang-compile-command-function-alist'
+	    to make it possible to hook in other functions for
+	    computing compilation commands/expressions, depending on
+	    file name. (Thanks to Tomas Abrahamsson )</p>
+          <p>
+	    Own Id: OTP-9503</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Bugs in xref(3) have been fixed. (Thanks to Matthias
+	    Lang.) </p>
+          <p>
+	    Own Id: OTP-9416</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Tools 2.6.6.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

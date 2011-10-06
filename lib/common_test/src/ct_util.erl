@@ -47,7 +47,7 @@
 
 -export([get_mode/0, create_table/3, read_opts/0]).
 
--export([set_cwd/1, reset_cwd/0]).
+-export([set_cwd/1, reset_cwd/0, get_start_dir/0]).
 
 -export([parse_table/1]).
 
@@ -60,6 +60,9 @@
 -export([kill_attached/2, get_attached/1, ct_make_ref/0]).
 
 -export([warn_duplicates/1]).
+
+-export([get_profile_data/0, get_profile_data/1,
+	 get_profile_data/2, open_url/3]).
 
 -include("ct_event.hrl").
 -include("ct_util.hrl").
@@ -121,13 +124,15 @@ do_start(Parent,Mode,LogDir) ->
 	ok -> ok;
 	E -> exit(E)
     end,
+    DoExit = fun(Reason) -> file:set_cwd(StartDir), exit(Reason) end,
     Opts = case read_opts() of
 	       {ok,Opts1} ->
 		   Opts1;
 	       Error ->
 		   Parent ! {self(),Error},
-		   exit(Error)
+		   DoExit(Error)
 	   end,
+
     %% start an event manager (if not already started by master)
     case ct_event:start_link() of
 	{error,{already_started,_}} ->
@@ -140,16 +145,23 @@ do_start(Parent,Mode,LogDir) ->
 		    ct_event:add_handler([{vts,VtsPid}])
 	    end
     end,
+
     %% start ct_config server
-    ct_config:start(Mode),
+    try ct_config:start(Mode) of
+	_ -> ok
+    catch
+	_Class:CfgError ->
+	    DoExit(CfgError)
+    end,
+
     %% add user event handlers
     case lists:keysearch(event_handler,1,Opts) of
 	{value,{_,Handlers}} ->
 	    Add = fun({H,Args}) ->
 			  case catch gen_event:add_handler(?CT_EVMGR_REF,H,Args) of
 			      ok -> ok;
-			      {'EXIT',Why} -> exit(Why);
-			      Other -> exit({event_handler,Other})
+			      {'EXIT',Why} -> DoExit(Why);
+			      Other -> DoExit({event_handler,Other})
 			  end
 		  end,
 	    case catch lists:foreach(Add,Handlers) of
@@ -168,10 +180,15 @@ do_start(Parent,Mode,LogDir) ->
 			   data={StartTime,
 				 lists:flatten(TestLogDir)}}),
     %% Initialize ct_hooks
-    case catch ct_hooks:init(Opts) of
+    try ct_hooks:init(Opts) of
 	ok ->
 	    Parent ! {self(),started};
-	{_,CTHReason} ->
+	{fail,CTHReason} ->
+	    ct_logs:tc_print('Suite Callback',CTHReason,[]),
+	    self() ! {{stop,{self(),{user_error,CTHReason}}},
+		      {Parent,make_ref()}}
+    catch
+	_:CTHReason ->
 	    ct_logs:tc_print('Suite Callback',CTHReason,[]),
 	    self() ! {{stop,{self(),{user_error,CTHReason}}},
 		      {Parent,make_ref()}}
@@ -242,6 +259,9 @@ set_cwd(Dir) ->
 
 reset_cwd() ->
     call(reset_cwd).
+
+get_start_dir() ->
+    call(get_start_dir).
 
 loop(Mode,TestData,StartDir) ->
     receive 
@@ -319,6 +339,9 @@ loop(Mode,TestData,StartDir) ->
 	{reset_cwd,From} ->
 	    return(From,file:set_cwd(StartDir)),
 	    loop(From,TestData,StartDir);
+	{get_start_dir,From} ->
+	    return(From,StartDir),
+	    loop(From,TestData,StartDir);
 	{{stop,Info},From} ->
 	    Time = calendar:local_time(),
 	    ct_event:sync_notify(#event{name=test_done,
@@ -332,7 +355,7 @@ loop(Mode,TestData,StartDir) ->
 	    ets:delete(?conn_table),
 	    ets:delete(?board_table),
 	    ets:delete(?suite_table),
-	    ct_logs:close(Info),
+	    ct_logs:close(Info, StartDir),
 	    ct_event:stop(),
 	    ct_config:stop(),
 	    file:set_cwd(StartDir),
@@ -727,6 +750,79 @@ warn_duplicates(Suites) ->
     lists:foreach(Warn, Suites),
     ok.
 
+%%%-----------------------------------------------------------------
+%%% @spec
+%%%
+%%% @doc
+get_profile_data() ->
+    get_profile_data(all).
+
+get_profile_data(KeyOrStartDir) ->
+    if is_atom(KeyOrStartDir) ->
+	    get_profile_data(KeyOrStartDir, get_start_dir());
+       is_list(KeyOrStartDir) ->
+	    get_profile_data(all, KeyOrStartDir)
+    end.
+
+get_profile_data(Key, StartDir) ->
+    Profile = case application:get_env(common_test, profile) of
+		  {ok,undefined} -> default;
+		  {ok,Prof}      -> Prof;
+		  _              -> default
+	      end,
+    get_profile_data(Profile, Key, StartDir).
+
+get_profile_data(Profile, Key, StartDir) ->
+    File = case Profile of
+	       default ->
+		   ?ct_profile_file;
+	       _ when is_list(Profile) ->
+		   ?ct_profile_file ++ "." ++ Profile;
+	       _ when is_atom(Profile) ->
+		   ?ct_profile_file ++ "." ++ atom_to_list(Profile)
+	   end,
+    FullNameWD = filename:join(StartDir, File),
+    {WhichFile,Result} =
+	case file:consult(FullNameWD) of
+	    {error,enoent} ->
+		case init:get_argument(home) of
+		    {ok,[[HomeDir]]} ->
+			FullNameHome = filename:join(HomeDir, File),
+			{FullNameHome,file:consult(FullNameHome)};
+		    _ ->
+			{File,{error,enoent}}
+		end;
+	    Consulted ->
+		{FullNameWD,Consulted}
+	end,
+    case Result of
+	{error,enoent} when Profile /= default ->
+	    io:format(user, "~nERROR! Missing profile file ~p~n", [File]),
+	    undefined;
+	{error,enoent} when Profile == default ->
+	    undefined;
+	{error,Reason} ->
+	    io:format(user,"~nERROR! Error in profile file ~p: ~p~n",
+		      [WhichFile,Reason]),
+	    undefined;
+	{ok,Data} ->
+	    Data1 = case Data of
+			[List] when is_list(List) ->
+			    List;
+			_ when is_list(Data) ->
+			    Data;
+			_ ->
+			    io:format(user,
+				      "~nERROR! Invalid profile data in ~p~n",
+				      [WhichFile]),
+			    []
+		    end,
+	    if Key == all ->
+		    Data1;
+	       true ->
+		    proplists:get_value(Key, Data)
+	    end
+    end.
 
 %%%-----------------------------------------------------------------
 %%% Internal functions
@@ -799,3 +895,28 @@ abs_name2([H|T],Acc) ->
     abs_name2(T,[H|Acc]);
 abs_name2([],Acc) ->
     filename:join(lists:reverse(Acc)).
+
+open_url(iexplore, Args, URL) ->
+    {ok,R} = win32reg:open([read]),
+    ok = win32reg:change_key(R,"applications\\iexplore.exe\\shell\\open\\command"),
+    case win32reg:values(R) of
+	{ok, Paths} ->
+	    Path = proplists:get_value(default, Paths),
+	    [Cmd | _] = string:tokens(Path, "%"),
+	    Cmd1 = Cmd ++ " " ++ Args ++ " " ++ URL,
+	    io:format(user, "~nOpening ~s with command:~n  ~s~n", [URL,Cmd1]),
+	    open_port({spawn,Cmd1}, []);
+	_ ->
+	    io:format("~nNo path to iexplore.exe~n",[])
+    end,
+    win32reg:close(R),
+    ok;
+
+open_url(Prog, Args, URL) ->
+    ProgStr = if is_atom(Prog) -> atom_to_list(Prog);
+		 is_list(Prog) -> Prog
+	      end,
+    Cmd = ProgStr ++ " " ++ Args ++ " " ++ URL,
+    io:format(user, "~nOpening ~s with command:~n  ~s~n", [URL,Cmd]),
+    open_port({spawn,Cmd},[]),
+    ok.

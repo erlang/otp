@@ -29,7 +29,7 @@ read_config(ConfigFile) ->
 	{ok,Config} ->
 	    {ok, Config};
 	{error,enoent} ->
-	    {error, config_file_error, enoent};
+	    {error,{config_file_error,file:format_error(enoent)}};
 	{error,Reason} ->
 	    Key =
 		case application:get_env(common_test, decrypt) of
@@ -45,23 +45,27 @@ read_config(ConfigFile) ->
 		end,
 	    case Key of
 		{error,no_crypt_file} ->
-		    {error, config_file_error, Reason};
+		    {error,{config_file_error,
+			    lists:flatten(
+			      io_lib:format("~s",[file:format_error(Reason)]))}};
 		{error,CryptError} ->
-		    {error, decrypt_file_error, CryptError};
+		    {error,{decrypt_file_error,CryptError}};
 		_ when is_list(Key) ->
-		    case ct_config:decrypt_config_file(ConfigFile, undefined, {key,Key}) of
+		    case ct_config:decrypt_config_file(ConfigFile,
+						       undefined,
+						       {key,Key}) of
 			{ok,CfgBin} ->
 			    case read_config_terms(CfgBin) of
 				{error,ReadFail} ->
-				    {error, config_file_error, ReadFail};
+				    {error,{config_file_error,ReadFail}};
 				Config ->
-				    {ok, Config}
+				    {ok,Config}
 			    end;
 			{error,DecryptFail} ->
-			    {error, decrypt_config_error, DecryptFail}
+			    {error,{decrypt_config_error,DecryptFail}}
 		    end;
 		_ ->
-		    {error, bad_decrypt_key, Key}
+		    {error,{bad_decrypt_key,Key}}
 	    end
     end.
 
@@ -69,9 +73,9 @@ read_config(ConfigFile) ->
 check_parameter(File)->
     case filelib:is_file(File) of
 	true->
-	    {ok, {file, File}};
+	    {ok,{file,File}};
 	false->
-	    {error, {nofile, File}}
+	    {error,{nofile,File}}
     end.
 
 read_config_terms(Bin) when is_binary(Bin) ->

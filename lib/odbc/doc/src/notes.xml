@@ -31,7 +31,49 @@
   <p>This document describes the changes made to the odbc application.
   </p>
 
-  <section><title>ODBC 2.10.10</title>
+  <section><title>ODBC 2.10.11</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    When using output parameters the internal odbc state was
+	    not correctly cleaned causing the next call to
+	    param_query to misbehave.</p>
+          <p>
+	    Own Id: OTP-9444</p>
+        </item>
+        <item>
+	    <p> XML files have been corrected. </p>
+          <p>
+	    Own Id: OTP-9550 Aux Id: OTP-9541 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add code to handle old ODBC drivers on solaris. Also adds
+	    tests with MySQL.</p>
+          <p>
+	    Own Id: OTP-8407</p>
+        </item>
+        <item>
+          <p>
+	    Odbc now supports SQL_WLONGVARCHAR, thanks to Hanfei Shen
+	    for the patch.</p>
+          <p>
+	    Own Id: OTP-8493</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.10.10</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

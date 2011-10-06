@@ -24,10 +24,10 @@
 
 -module(ct_framework).
 
--export([init_tc/3, end_tc/3, end_tc/4, get_suite/2, report/2, warn/1]).
--export([error_notification/4]).
+-export([init_tc/3, end_tc/3, end_tc/4, get_suite/2, get_all_cases/1]).
+-export([report/2, warn/1, error_notification/4]).
 
--export([overview_html_header/1]).
+-export([get_logopts/0, format_comment/1, overview_html_header/1]).
 
 -export([error_in_suite/1, ct_init_per_group/2, ct_end_per_group/2]).
 
@@ -116,7 +116,7 @@ init_tc1(Mod,Func,[Config0],DoInit) when is_list(Config0) ->
     Config = lists:keydelete(watchdog,1,Config1),
     if Func /= init_per_suite, DoInit /= true ->
 	    ok;
-	true ->
+       true ->
 	    %% delete all default values used in previous suite
 	    ct_config:delete_default_config(suite),
 	    %% release all name -> key bindings (once per suite)
@@ -133,7 +133,7 @@ init_tc1(Mod,Func,[Config0],DoInit) when is_list(Config0) ->
     ct_config:delete_default_config(testcase),
     case add_defaults(Mod,Func,TestCaseInfo,DoInit) of
 	Error = {suite0_failed,_} ->
-	    ct_logs:init_tc(),
+	    ct_logs:init_tc(false),
 	    FuncSpec = group_or_func(Func,Config0),
 	    ct_event:notify(#event{name=tc_start,
 				   node=node(),
@@ -143,7 +143,7 @@ init_tc1(Mod,Func,[Config0],DoInit) when is_list(Config0) ->
 	{SuiteInfo,MergeResult} ->
 	    case MergeResult of
 		{error,Reason} when DoInit == false ->
-		    ct_logs:init_tc(),
+		    ct_logs:init_tc(false),
 		    FuncSpec = group_or_func(Func,Config0),
 		    ct_event:notify(#event{name=tc_start,
 					   node=node(),
@@ -194,19 +194,24 @@ init_tc2(Mod,Func,SuiteInfo,MergeResult,Config,DoInit) ->
 	Conns ->
 	    ct_util:silence_connections(Conns)
     end,
-    
-    ct_logs:init_tc(),
+    if Func /= init_per_suite, DoInit /= true ->
+	    ct_logs:init_tc(false);
+       true ->
+	    ct_logs:init_tc(true)
+    end,
     FuncSpec = group_or_func(Func,Config),
     ct_event:notify(#event{name=tc_start,
 			   node=node(),
 			   data={Mod,FuncSpec}}),
     
-    case configure(MergedInfo1,MergedInfo1,SuiteInfo,{Func,DoInit},Config) of
+    case catch configure(MergedInfo1,MergedInfo1,SuiteInfo,{Func,DoInit},Config) of
 	{suite0_failed,Reason} ->
 	    ct_util:set_testdata({curr_tc,{Mod,{suite0_failed,{require,Reason}}}}),
 	    {skip,{require_failed_in_suite0,Reason}};
 	{error,Reason} ->
 	    {auto_skip,{require_failed,Reason}};
+	{'EXIT',Reason} ->
+	    {auto_skip,Reason};
 	{ok, FinalConfig} ->
 	    case MergeResult of
 		{error,Reason} ->
@@ -245,7 +250,12 @@ add_defaults(Mod,Func,FuncInfo,DoInit) ->
 		Error = {error,_} -> {SuiteInfo,Error};
 		MergedInfo -> {SuiteInfo,MergedInfo}
 	    end;
-	{'EXIT',Reason} -> 
+	{'EXIT',Reason} ->
+	    ErrStr = io_lib:format("~n*** ERROR *** "
+				   "~w:suite/0 failed: ~p~n",
+				   [Mod,Reason]),
+	    io:format(ErrStr, []),
+	    io:format(user, ErrStr, []),
 	    {suite0_failed,{exited,Reason}};
 	SuiteInfo when is_list(SuiteInfo) ->
 	    case lists:all(fun(E) when is_tuple(E) -> true;
@@ -261,9 +271,19 @@ add_defaults(Mod,Func,FuncInfo,DoInit) ->
 			MergedInfo -> {SuiteInfo1,MergedInfo}
 		    end;
 		false ->
+		    ErrStr = io_lib:format("~n*** ERROR *** "
+					   "Invalid return value from "
+					   "~w:suite/0: ~p~n", [Mod,SuiteInfo]),
+		    io:format(ErrStr, []),
+		    io:format(user, ErrStr, []),
 		    {suite0_failed,bad_return_value}
 	    end;
-	_ ->
+	SuiteInfo ->
+	    ErrStr = io_lib:format("~n*** ERROR *** "
+				   "Invalid return value from "
+				   "~w:suite/0: ~p~n", [Mod,SuiteInfo]),
+	    io:format(ErrStr, []),
+	    io:format(user, ErrStr, []),
 	    {suite0_failed,bad_return_value}
     end.
 
@@ -451,7 +471,6 @@ end_tc(Mod,Func,TCPid,Result,Args,Return) ->
 	{value,{watchdog,Dog}} -> test_server:timetrap_cancel(Dog);
 	false -> ok
     end,
-
     %% save the testcase process pid so that it can be used
     %% to look up the attached trace window later
     case ct_util:get_testdata(interpret) of
@@ -461,7 +480,6 @@ end_tc(Mod,Func,TCPid,Result,Args,Return) ->
 	_ ->
 	    ok
     end,
-
     ct_util:delete_testdata(comment),
     ct_util:delete_suite_data(last_saved_config),
     FuncSpec =
@@ -767,6 +785,37 @@ get_suite(Mod, Name) ->
 
 %%%-----------------------------------------------------------------
 
+get_all_cases(Suite) ->
+    case get_suite(Suite, all) of
+	[{?MODULE,error_in_suite,[[{error,_}=Error]]}] ->
+		Error;
+	[{?MODULE,error_in_suite,[[Error]]}] ->
+	    {error,Error};
+	Tests ->
+	    Cases = get_all_cases1(Suite, Tests),
+	    lists:reverse(
+	      lists:foldl(fun(TC, TCs) ->
+				  case lists:member(TC, TCs) of
+				      true  -> TCs;
+				      false -> [TC | TCs]
+				  end
+			  end, [], Cases))
+    end.
+
+get_all_cases1(Suite, [{conf,_Props,_Init,GrTests,_End} | Tests]) ->
+    get_all_cases1(Suite, GrTests) ++ get_all_cases1(Suite, Tests);
+
+get_all_cases1(Suite, [Test | Tests]) when is_atom(Test) ->
+    [{Suite,Test} | get_all_cases1(Suite, Tests)];
+
+get_all_cases1(Suite, [Test | Tests]) ->
+    [Test | get_all_cases1(Suite, Tests)];
+
+get_all_cases1(_, []) ->
+    [].
+
+%%%-----------------------------------------------------------------
+
 find_groups(Mod, Name, TCs, GroupDefs) ->
     Found = find(Mod, Name, TCs, GroupDefs, [], GroupDefs, false),
     trim(Found).
@@ -978,15 +1027,20 @@ make_conf(Mod, Name, Props, TestSpec) ->
 	_ ->
 	    ok
     end,
-    {InitConf,EndConf} =
+    {InitConf,EndConf,ExtraProps} =
 	case erlang:function_exported(Mod,init_per_group,2) of
 	    true ->
-		{{Mod,init_per_group},{Mod,end_per_group}};
+		{{Mod,init_per_group},{Mod,end_per_group},[]};
 	    false ->
+		ct_logs:log("TEST INFO", "init_per_group/2 and "
+			    "end_per_group/2 missing for group "
+			    "~p in ~p, using default.",
+			    [Name,Mod]),
 		{{?MODULE,ct_init_per_group},
-		 {?MODULE,ct_end_per_group}}
+		 {?MODULE,ct_end_per_group},
+		 [{suite,Mod}]}
 	end,
-    {conf,[{name,Name}|Props],InitConf,TestSpec,EndConf}.
+    {conf,[{name,Name}|Props++ExtraProps],InitConf,TestSpec,EndConf}.
 
 %%%-----------------------------------------------------------------
 
@@ -1159,13 +1213,15 @@ error_in_suite(Config) ->
 %% if the group config functions are missing in the suite,
 %% use these instead
 ct_init_per_group(GroupName, Config) ->
-    ct_logs:log("WARNING", "init_per_group/2 for ~w missing "
+    ct:comment(io_lib:format("start of ~p", [GroupName])),
+    ct_logs:log("TEST INFO", "init_per_group/2 for ~w missing "
 		"in suite, using default.",
 		[GroupName]),
     Config.
 
 ct_end_per_group(GroupName, _) ->
-    ct_logs:log("WARNING", "end_per_group/2 for ~w missing "
+    ct:comment(io_lib:format("end of ~p", [GroupName])),
+    ct_logs:log("TEST INFO", "end_per_group/2 for ~w missing "
 		"in suite, using default.",
 		[GroupName]),
     ok.
@@ -1242,11 +1298,19 @@ report(What,Data) ->
 		    ok;
 		{end_per_group,_} ->
 		    ok;
+		{ct_init_per_group,_} ->
+		    ok;
+		{ct_end_per_group,_} ->
+		    ok;
 		{_,ok} ->
 		    add_to_stats(ok);
 		{_,{skipped,{failed,{_,init_per_testcase,_}}}} ->
 		    add_to_stats(auto_skipped);
 		{_,{skipped,{require_failed,_}}} ->
+		    add_to_stats(auto_skipped);
+		{_,{skipped,{timetrap_error,_}}} ->
+		    add_to_stats(auto_skipped);
+		{_,{skipped,{invalid_time_format,_}}} ->
 		    add_to_stats(auto_skipped);
 		{_,{skipped,_}} ->
 		    add_to_stats(user_skipped);
@@ -1330,6 +1394,21 @@ add_data_dir(File,Config) when is_list(File) ->
 	_ ->
 	    File
     end.
+
+%%%-----------------------------------------------------------------
+%%% @spec get_logopts() -> [LogOpt]
+get_logopts() ->
+    case ct_util:get_testdata(logopts) of
+	undefined ->
+	    [];
+	LogOpts ->
+	    LogOpts
+    end.
+
+%%%-----------------------------------------------------------------
+%%% @spec format_comment(Comment) -> HtmlComment
+format_comment(Comment) ->
+    "<font color=\"green\">" ++ Comment ++ "</font>".
 
 %%%-----------------------------------------------------------------
 %%% @spec overview_html_header(TestName) -> Header

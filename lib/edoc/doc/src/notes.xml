@@ -31,6 +31,57 @@
   <p>This document describes the changes made to the EDoc
     application.</p>
 
+<section><title>Edoc 0.7.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p><c>no_return</c> is a new built-in type. </p>
+          <p>
+	    Own Id: OTP-9350</p>
+        </item>
+        <item>
+          <p>
+	    synchronized with edoc development version</p>
+          <p>
+	    forgot to ensure that xmerl is found in path for
+	    include_lib to work</p>
+          <p>
+	    fix -spec declaration that doesn't work in R13B04</p>
+          <p>
+	    eliminate warnings about unused imports</p>
+          <p>
+	    removed CVS-keywords from source files (Thanks to Richard
+	    Carlsson )</p>
+          <p>
+	    Own Id: OTP-9463</p>
+        </item>
+        <item>
+          <p>
+	    Add a proplist() type</p>
+          <p>
+	    Recently I was adding specs to an API and found that
+	    there is no canonical proplist() type defined. (Thanks to
+	    Ryan Zezeski)</p>
+          <p>
+	    Own Id: OTP-9499</p>
+        </item>
+        <item>
+          <p>
+	    Removed some never-matching clauses reported by dialyzer
+	    Fix macro expansion in comments following Erlang types
+	    URI-escape bytes as two hex digits always (reported by
+	    Alfonso De Gregorio) Updated author e-mail Recognize some
+	    more URI schemas in wiki text, in particular https
+	    (Thanks to Richard Carlsson)</p>
+          <p>
+	    Own Id: OTP-9590</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Edoc 0.7.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

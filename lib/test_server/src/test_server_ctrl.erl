@@ -173,7 +173,7 @@
 %%% TEST_SERVER INTERFACE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -export([output/2, print/2, print/3, print_timestamp/2]).
 -export([start_node/3, stop_node/1, wait_for_node/1, is_release_available/1]).
--export([format/1, format/2, format/3]).
+-export([format/1, format/2, format/3, to_string/1]).
 -export([get_target_info/0]).
 -export([get_hosts/0]).
 -export([get_target_os_type/0]).
@@ -1297,6 +1297,7 @@ terminate(_Reason, State) ->
     end,
     kill_all_jobs(State#state.jobs),
     test_server_node:stop(State#state.target_info),
+    test_server_h:restore(),
     ok.
 
 kill_all_jobs([{_Name,JobPid}|Jobs]) ->
@@ -1349,6 +1350,10 @@ init_tester(Mod, Func, Args, Dir, Name, {SumLev,MajLev,MinLev},
     put(test_server_minor_level, MinLev),
     put(test_server_random_seed, proplists:get_value(random_seed, ExtraTools)),
     put(test_server_testcase_callback, TCCallback),
+    %% before first print, read and set logging options
+    LogOpts = test_server_sup:framework_call(get_logopts, [], []),
+    put(test_server_logopts, LogOpts),
+    put(test_server_log_nl, not lists:member(no_nl, LogOpts)),
     StartedExtraTools = start_extra_tools(ExtraTools),
     {TimeMy,Result} = ts_tc(Mod, Func, Args),
     put(test_server_common_io_handler, undefined),
@@ -1664,6 +1669,11 @@ do_test_cases(TopCases, SkipCases,
 	      Config, TimetrapData) when is_list(TopCases),
 					 is_tuple(TimetrapData) ->
     start_log_file(),
+    FwMod =
+	case os:getenv("TEST_SERVER_FRAMEWORK") of
+	    FW when FW =:= false; FW =:= "undefined" -> ?MODULE;
+	    FW -> list_to_atom(FW)
+	end,
     case collect_all_cases(TopCases, SkipCases) of
 	{error,Why} ->
 	    print(1, "Error starting: ~p", [Why]),
@@ -1676,11 +1686,11 @@ do_test_cases(TopCases, SkipCases,
 	    put(test_server_cases, N),
 	    put(test_server_case_num, 0),
 	    TestSpec =
-		add_init_and_end_per_suite(TestSpec0, undefined, undefined),
-
+		add_init_and_end_per_suite(TestSpec0, undefined, undefined, FwMod),
 	    TI = get_target_info(),
-	    print(1, "Starting test~s", [print_if_known(N, {", ~w test cases",[N]},
-							{" (with repeated test cases)",[]})]),
+	    print(1, "Starting test~s",
+		  [print_if_known(N, {", ~w test cases",[N]},
+				  {" (with repeated test cases)",[]})]),
 	    Test = get(test_server_name),
 	    test_server_sup:framework_call(report, [tests_start,{Test,N}]),
 
@@ -1709,13 +1719,12 @@ do_test_cases(TopCases, SkipCases,
 	    print(html, "<br>Used Erlang ~s in <tt>~s</tt>.\n",
 		  [erlang:system_info(version), code:root_dir()]),
 
-	    case os:getenv("TEST_SERVER_FRAMEWORK") of
-		FW when FW =:= false; FW =:= "undefined" ->
+	    if FwMod == ?MODULE ->
 		    print(html, "<p>Target:<br>\n"),
 		    print_who(TI#target_info.host, TI#target_info.username),
 		    print(html, "<br>Used Erlang ~s in <tt>~s</tt>.\n",
 			  [TI#target_info.version, TI#target_info.root_dir]);
-		_ ->
+		true ->
 		    case test_server_sup:framework_call(target_info, []) of
 			TargetInfo when is_list(TargetInfo),
 			                length(TargetInfo) > 0 ->
@@ -1884,11 +1893,12 @@ start_minor_log_file1(Mod, Func, LogDir, AbsName) ->
 	      []),
 
     SrcListing = downcase(cast_to_list(Mod)) ++ ?src_listing_ext,
-    case filelib:is_file(filename:join(LogDir, SrcListing)) of
-	true ->
+    case {filelib:is_file(filename:join(LogDir, SrcListing)),
+	  lists:member(no_src, get(test_server_logopts))} of
+	{true,false} ->
 	    print(Lev, "<a href=\"~s#~s\">source code for ~p:~p/1</a>\n",
 		  [SrcListing,Func,Mod,Func]);
-	false -> ok
+	_ -> ok
     end,
 
     io:fwrite(Fd, "<pre>\n", []),
@@ -2005,54 +2015,69 @@ copy_html_file(Src, DestDir) ->
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% add_init_and_end_per_suite(TestSpec, Mod, Ref) -> NewTestSpec
+%% add_init_and_end_per_suite(TestSpec, Mod, Ref, FwMod) -> NewTestSpec
 %%
 %% Expands TestSpec with an initial init_per_suite, and a final
 %% end_per_suite element, per each discovered suite in the list.
 
-add_init_and_end_per_suite([{make,_,_}=Case|Cases], LastMod, LastRef) ->
-    [Case|add_init_and_end_per_suite(Cases, LastMod, LastRef)];
-add_init_and_end_per_suite([{skip_case,{{Mod,all},_}}=Case|Cases], LastMod, LastRef)
-  when Mod =/= LastMod ->
+add_init_and_end_per_suite([{make,_,_}=Case|Cases], LastMod, LastRef, FwMod) ->
+    [Case|add_init_and_end_per_suite(Cases, LastMod, LastRef, FwMod)];
+add_init_and_end_per_suite([{skip_case,{{Mod,all},_}}=Case|Cases], LastMod,
+			   LastRef, FwMod) when Mod =/= LastMod ->
     {PreCases, NextMod, NextRef} =
 	do_add_end_per_suite_and_skip(LastMod, LastRef, Mod),
-    PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod, NextRef)];
-add_init_and_end_per_suite([{skip_case,{{Mod,_},_}}=Case|Cases], LastMod, LastRef)
-  when Mod =/= LastMod ->
+    PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod, NextRef, FwMod)];
+add_init_and_end_per_suite([{skip_case,{{Mod,_},_}}=Case|Cases], LastMod,
+			   LastRef, FwMod) when Mod =/= LastMod ->
     {PreCases, NextMod, NextRef} =
 	do_add_init_and_end_per_suite(LastMod, LastRef, Mod),
-    PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod, NextRef)];
-add_init_and_end_per_suite([{skip_case,{conf,_,{Mod,_},_}}=Case|Cases], LastMod, LastRef)
-  when Mod =/= LastMod ->
+    PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod, NextRef, FwMod)];
+add_init_and_end_per_suite([{skip_case,{conf,_,{Mod,_},_}}=Case|Cases], LastMod,
+			   LastRef, FwMod) when Mod =/= LastMod ->
     {PreCases, NextMod, NextRef} =
 	do_add_init_and_end_per_suite(LastMod, LastRef, Mod),
-    PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod, NextRef)];
-add_init_and_end_per_suite([{skip_case,_}=Case|Cases], LastMod, LastRef) ->
-    [Case|add_init_and_end_per_suite(Cases, LastMod, LastRef)];
-add_init_and_end_per_suite([{conf,_,_,{Mod,_}}=Case|Cases], LastMod, LastRef)
-  when Mod =/= LastMod ->
+    PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod, NextRef, FwMod)];
+add_init_and_end_per_suite([{skip_case,_}=Case|Cases], LastMod, LastRef, FwMod) ->
+    [Case|add_init_and_end_per_suite(Cases, LastMod, LastRef, FwMod)];
+add_init_and_end_per_suite([{conf,Ref,Props,{FwMod,Func}}=Case|Cases], LastMod,
+			   LastRef, FwMod) ->
+    %% if Mod == FwMod, this conf test is (probably) a test case group where
+    %% the init- and end-functions are missing in the suite, and if so,
+    %% the suite name should be stored as {suite,Suite} in Props
+    case proplists:get_value(suite, Props) of
+	Suite when Suite =/= undefined, Suite =/= LastMod ->
+	    {PreCases, NextMod, NextRef} =
+		do_add_init_and_end_per_suite(LastMod, LastRef, Suite),
+	    Case1 = {conf,Ref,proplists:delete(suite,Props),{FwMod,Func}},
+	    PreCases ++ [Case1|add_init_and_end_per_suite(Cases, NextMod,
+							  NextRef, FwMod)];
+	_ ->
+	    [Case|add_init_and_end_per_suite(Cases, LastMod, LastRef, FwMod)]
+    end;
+add_init_and_end_per_suite([{conf,_,_,{Mod,_}}=Case|Cases], LastMod,
+			   LastRef, FwMod) when Mod =/= LastMod, Mod =/= FwMod ->
     {PreCases, NextMod, NextRef} =
 	do_add_init_and_end_per_suite(LastMod, LastRef, Mod),
-    PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod, NextRef)];
-add_init_and_end_per_suite([{conf,_,_,_}=Case|Cases], LastMod, LastRef) ->
-    [Case|add_init_and_end_per_suite(Cases, LastMod, LastRef)];
-add_init_and_end_per_suite([{Mod,_}=Case|Cases], LastMod, LastRef)
-  when Mod =/= LastMod ->
+    PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod, NextRef, FwMod)];
+add_init_and_end_per_suite([{conf,_,_,_}=Case|Cases], LastMod, LastRef, FwMod) ->
+    [Case|add_init_and_end_per_suite(Cases, LastMod, LastRef, FwMod)];
+add_init_and_end_per_suite([{Mod,_}=Case|Cases], LastMod, LastRef, FwMod)
+  when Mod =/= LastMod, Mod =/= FwMod ->
     {PreCases, NextMod, NextRef} =
 	do_add_init_and_end_per_suite(LastMod, LastRef, Mod),
-    PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod, NextRef)];
-add_init_and_end_per_suite([{Mod,_,_}=Case|Cases], LastMod, LastRef)
-  when Mod =/= LastMod ->
+    PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod, NextRef, FwMod)];
+add_init_and_end_per_suite([{Mod,_,_}=Case|Cases], LastMod, LastRef, FwMod)
+  when Mod =/= LastMod, Mod =/= FwMod ->
     {PreCases, NextMod, NextRef} =
 	do_add_init_and_end_per_suite(LastMod, LastRef, Mod),
-    PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod, NextRef)];
-add_init_and_end_per_suite([Case|Cases], LastMod, LastRef)->
-    [Case|add_init_and_end_per_suite(Cases, LastMod, LastRef)];
-add_init_and_end_per_suite([], _LastMod, undefined) ->
+    PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod, NextRef, FwMod)];
+add_init_and_end_per_suite([Case|Cases], LastMod, LastRef, FwMod)->
+    [Case|add_init_and_end_per_suite(Cases, LastMod, LastRef, FwMod)];
+add_init_and_end_per_suite([], _LastMod, undefined, _FwMod) ->
     [];
-add_init_and_end_per_suite([], _LastMod, skipped_suite) ->
+add_init_and_end_per_suite([], _LastMod, skipped_suite, _FwMod) ->
     [];
-add_init_and_end_per_suite([], LastMod, LastRef) ->
+add_init_and_end_per_suite([], LastMod, LastRef, _FwMod) ->
     [{conf,LastRef,[],{LastMod,end_per_suite}}].
 
 do_add_init_and_end_per_suite(LastMod, LastRef, Mod) ->
@@ -2101,7 +2126,12 @@ run_test_cases(TestSpec, Config, TimetrapData) ->
 
     maybe_open_job_sock(),
 
-    html_convert_modules(TestSpec, Config),
+    case lists:member(no_src, get(test_server_logopts)) of
+	true ->
+	    ok;
+	false ->
+	    html_convert_modules(TestSpec, Config)
+    end,
 
     run_test_cases_loop(TestSpec, [Config], TimetrapData, [], []),
 
@@ -2310,7 +2340,8 @@ run_test_cases_loop([{auto_skip_case,{Type,Ref,Case,Comment},SkipMode}|Cases],
 		    handle_test_case_io_and_status(),
 		    set_io_buffering(undefined),
 		    {Mod,Func} = skip_case(auto, Ref, 0, Case, Comment, false, SkipMode),
-		    test_server_sup:framework_call(report, [tc_auto_skip,{?pl2a(Mod),Func,Comment}]),
+		    test_server_sup:framework_call(report, [tc_auto_skip,
+							    {?pl2a(Mod),Func,Comment}]),
 		    run_test_cases_loop(Cases, Config, TimetrapData, ParentMode,
 					delete_status(Ref, Status));
 		_ ->
@@ -2318,7 +2349,8 @@ run_test_cases_loop([{auto_skip_case,{Type,Ref,Case,Comment},SkipMode}|Cases],
 		    %% parallel group (io buffering is active)
 		    wait_for_cases(Ref),
 		    {Mod,Func} = skip_case(auto, Ref, 0, Case, Comment, true, SkipMode),
-		    test_server_sup:framework_call(report, [tc_auto_skip,{?pl2a(Mod),Func,Comment}]),
+		    test_server_sup:framework_call(report, [tc_auto_skip,
+							    {?pl2a(Mod),Func,Comment}]),
 		    case CurrIOHandler of
 			{Ref,_} ->
 			    %% current_io_handler was set by start conf of this
@@ -3959,8 +3991,11 @@ progress(ok, _CaseNum, Mod, Func, _Loc, RetVal, Time,
 	case RetVal of
 	    {comment,RetComment} ->
 		String = to_string(RetComment),
+		HtmlCmt = test_server_sup:framework_call(format_comment,
+							 [String],
+							 String),
 		print(major, "=result        ok: ~s", [String]),
-		"<td>" ++ String ++ "</td>";
+		"<td>" ++ HtmlCmt ++ "</td>";
 	    _ ->
 		print(major, "=result        ok", []),
 		case Comment0 of
@@ -4345,14 +4380,18 @@ output_to_fd(Fd, [$=|Msg], internal) ->
     io:put_chars(Fd, [$=]),
     io:put_chars(Fd, Msg),
     io:put_chars(Fd, "\n");
+
 output_to_fd(Fd, Msg, internal) ->
     io:put_chars(Fd, [$=,$=,$=,$ ]),
     io:put_chars(Fd, Msg),
     io:put_chars(Fd, "\n");
+
 output_to_fd(Fd, Msg, _Sender) ->
     io:put_chars(Fd, Msg),
-    io:put_chars(Fd, "\n").
-
+    case get(test_server_log_nl) of
+	false -> ok;
+	_     -> io:put_chars(Fd, "\n")
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% timestamp_filename_get(Leader) -> string()
@@ -4665,7 +4704,7 @@ collect_case_invoke(Mod, Case, MFA, St) ->
 		    collect_subcases(Mod, Case, MFA, St, Suite)
 	    end;
 	_ ->
-	    Suite = test_server_sup:framework_call(get_suite, [?pl2a(Mod),Case],[]),
+	    Suite = test_server_sup:framework_call(get_suite, [?pl2a(Mod),Case], []),
 	    collect_subcases(Mod, Case, MFA, St, Suite)
     end.
 
