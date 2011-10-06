@@ -1754,17 +1754,6 @@ system_code_change(State, _Module, _OldVsn, _Extra) ->
 %%% Internal functions
 %%%----------------------------------------------------------------------
 
-constants(FH, FileName) ->
-    Version = FH#fileheader.version,
-    if 
-        Version =< 8 ->
-            dets_v8:constants();
-        Version =:= 9 ->
-            dets_v9:constants();
-        true ->
-            throw({error, {not_a_dets_file, FileName}})
-    end.
-
 %% -> {ok, Fd, fileheader()} | throw(Error)
 read_file_header(FileName, Access, RamFile) ->
     BF = if
@@ -1842,7 +1831,11 @@ do_bchunk_init(Head, Tab) ->
 		    {H2, {error, old_version}};
 		Parms ->
                     L = dets_utils:all_allocated(H2),
-                    C0 = #dets_cont{no_objs = default, bin = <<>>, alloc = L},
+                    Bin = if
+                              L =:= <<>> -> eof;
+                              true -> <<>>
+                          end,
+                    C0 = #dets_cont{no_objs = default, bin = Bin, alloc = L},
 		    BinParms = term_to_binary(Parms),
 		    {H2, {C0#dets_cont{tab = Tab, proc = self(),what = bchunk},
                           [BinParms]}}
@@ -2478,9 +2471,7 @@ fopen2(Fname, Tab) ->
             Do = case Mod:check_file_header(FH, Fd) of
                      {ok, Head1, ExtraInfo} ->
                          Head2 = Head1#head{filename = Fname},
-                         try Mod:init_freelist(Head2, ExtraInfo) of
-                             Ftab ->
-                                 {ok, Head1#head{freelists = Ftab}}
+                         try {ok, Mod:init_freelist(Head2, ExtraInfo)}
                          catch
                              throw:_ ->
                                  {repair, " has bad free lists, repairing ..."}
@@ -2574,9 +2565,7 @@ fopen_existing_file(Tab, OpenArgs) ->
     Do = case Wh of
              {Tag, Hd, Extra} when Tag =:= final; Tag =:= compact ->
                  Hd1 = Hd#head{filename = Fname},
-                 try Mod:init_freelist(Hd1, Extra) of
-                     Ftab ->
-                         {Tag, Hd#head{freelists = Ftab}}
+                 try {Tag, Mod:init_freelist(Hd1, Extra)}
                  catch
                      throw:_ ->
                          {repair, " has bad free lists, repairing ..."}
@@ -3164,8 +3153,12 @@ init_scan(Head, NoObjs) ->
     check_safe_fixtable(Head),
     FreeLists = dets_utils:get_freelists(Head),
     Base = Head#head.base,
-    {From, To} = dets_utils:find_next_allocated(FreeLists, Base, Base),
-    #dets_cont{no_objs = NoObjs, bin = <<>>, alloc = {From, To, <<>>}}.
+    case dets_utils:find_next_allocated(FreeLists, Base, Base) of
+        {From, To} ->
+            #dets_cont{no_objs = NoObjs, bin = <<>>, alloc = {From,To,<<>>}};
+        none ->
+            #dets_cont{no_objs = NoObjs, bin = eof, alloc = <<>>}
+    end.
 
 check_safe_fixtable(Head) ->
     case (Head#head.fixed =:= false) andalso 
@@ -3266,18 +3259,18 @@ view(FileName) ->
     case catch read_file_header(FileName, read, false) of
         {ok, Fd, FH} ->
 	    Mod = FH#fileheader.mod,
-            try
-                case Mod:check_file_header(FH, Fd) of
-                    {ok, H0, ExtraInfo} ->
-                        Ftab = Mod:init_freelist(H0, ExtraInfo),
-                        {_Bump, Base} = constants(FH, FileName),
-                        H = H0#head{freelists=Ftab, base = Base},
-                        v_free_list(H),
-                        Mod:v_segments(H),
-                        ok;
-                    X ->
-                        X
-                end
+            try Mod:check_file_header(FH, Fd) of
+                {ok, H0, ExtraInfo} ->
+                    Mod = FH#fileheader.mod,
+                    case Mod:check_file_header(FH, Fd) of
+                        {ok, H0, ExtraInfo} ->
+                            H = Mod:init_freelist(H0, ExtraInfo),
+                            v_free_list(H),
+                            Mod:v_segments(H),
+                            ok;
+                        X ->
+                            X
+                    end
             after file:close(Fd)
             end;
 	X -> 
