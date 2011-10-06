@@ -51,16 +51,15 @@ init([]) ->
 
     %% Does not start any port programs so it does matter
     %% so much if it is not used!
-    Child2 = {ssl_broker_sup, {ssl_broker_sup, start_link, []},
-	      permanent, 2000, supervisor, [ssl_broker_sup]},
+    %% Child2 = {ssl_broker_sup, {ssl_broker_sup, start_link, []},
+    %% 	      permanent, 2000, supervisor, [ssl_broker_sup]},
 
 
     %% New ssl
     SessionCertManager = session_and_cert_manager_child_spec(),
     ConnetionManager = connection_manager_child_spec(),
 
-    {ok, {{one_for_all, 10, 3600}, [Child2, SessionCertManager,
-				    ConnetionManager]}}.
+    {ok, {{one_for_all, 10, 3600}, [SessionCertManager, ConnetionManager]}}.
 
 
 manager_opts() ->

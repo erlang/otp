@@ -34,7 +34,6 @@
 -include("ssl_record.hrl").
 -include("ssl_cipher.hrl"). 
 -include("ssl_internal.hrl").
--include("ssl_int.hrl").
 -include_lib("public_key/include/public_key.hrl"). 
 
 %% Internal application API

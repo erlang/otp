@@ -24,6 +24,9 @@
 
 -include_lib("public_key/include/public_key.hrl"). 
 
+%% Looks like it does for backwards compatibility reasons
+-record(sslsocket, {fd = nil, pid = nil}).
+
 -type reason()            :: term().
 -type reply()             :: term().
 -type msg()               :: term().
