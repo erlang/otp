@@ -137,8 +137,9 @@
          (there is no spec with more than one clause) -->
     <xsl:if test="count($clause/guard) > 0 or count($type) > 0">
       <xsl:text>&#10;.RS</xsl:text>
-      <xsl:text>&#10;.TP 3</xsl:text>
+      <xsl:text>&#10;.LP</xsl:text>
       <xsl:text>&#10;Types:&#10;</xsl:text>
+      <xsl:text>&#10;.RS 3</xsl:text>
 
         <xsl:choose>
           <xsl:when test="$output_subtypes">
@@ -164,6 +165,8 @@
           <xsl:with-param name="type_desc" select="$type_desc"/>
           <xsl:with-param name="local_types" select="$local_types"/>
         </xsl:call-template>
+        <xsl:text>&#10;.RE</xsl:text>
+
       <xsl:text>&#10;.RE</xsl:text>
 
     </xsl:if>
@@ -257,8 +260,8 @@
 
   <!-- Similar to <d> -->
   <xsl:template match="type_desc">
-    <xsl:text>&#10;</xsl:text><xsl:apply-templates/>
-    <xsl:text>&#10;.br</xsl:text>
+    <xsl:text>&#10;.RS 2&#10;</xsl:text><xsl:apply-templates/>
+    <xsl:text>&#10;.RE</xsl:text>
   </xsl:template>
 
   <!-- Datatypes -->
@@ -757,9 +760,11 @@
     <!-- The case where @name != 0 is taken care of in "type_name" -->
     <xsl:if test="string-length(@name) = 0 and string-length(@variable) = 0">
       <xsl:text>&#10;.RS</xsl:text>
-      <xsl:text>&#10;.TP 3</xsl:text>
+      <xsl:text>&#10;.LP</xsl:text>
       <xsl:text>&#10;Types:&#10;</xsl:text>
+      <xsl:text>&#10;.RS 3</xsl:text>
       <xsl:apply-templates/>
+      <xsl:text>&#10;.RE</xsl:text>
       <xsl:text>&#10;.RE</xsl:text>
     </xsl:if>
   </xsl:template>
@@ -767,14 +772,14 @@
 
   <!-- V -->
   <xsl:template match="v">
-    <xsl:text>&#10;</xsl:text><xsl:value-of select="normalize-space(text())"/>
+    <xsl:text>&#10;</xsl:text><xsl:apply-templates/>
     <xsl:text>&#10;.br</xsl:text>
   </xsl:template>
 
   <!-- D -->
   <xsl:template match="d">
-    <xsl:text>&#10;</xsl:text><xsl:apply-templates/>
-    <xsl:text>&#10;.br</xsl:text>
+    <xsl:text>&#10;.RS 2&#10;</xsl:text><xsl:apply-templates/>
+    <xsl:text>&#10;.RE</xsl:text>
   </xsl:template>
 
   <!-- Desc -->
