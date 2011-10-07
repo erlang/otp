@@ -110,24 +110,17 @@ create_window(ParentFrame, TraceOpts) ->
 	   trace_options = TraceOpts#trace_options{main_window = false}}.
 
 create_menues(MenuBar) ->
-    observer_wx:create_menu(
-      [
-       {"File", [
-		 #create_menu{id = ?LOAD_TRACEOPTS, text = "Load settings"},
-		 #create_menu{id = ?SAVE_TRACEOPTS, text = "Save settings"},
-		 separator,
-		 #create_menu{id = ?SAVE_BUFFER, text = "Save buffer"},
-		 separator,
-		 #create_menu{id = ?CLOSE, text = "Close"}
-		]},
-       {"View", [
-		 #create_menu{id = ?CLEAR, text = "Clear buffer"}
-		]},
-       {"Options", [
-		    #create_menu{id = ?OPTIONS, text = "Trace options"}
-		   ]}
-      ],
-      MenuBar).
+    Menus = [{"File", [#create_menu{id = ?LOAD_TRACEOPTS, text = "Load settings"},
+		       #create_menu{id = ?SAVE_TRACEOPTS, text = "Save settings"},
+		       separator,
+		       #create_menu{id = ?SAVE_BUFFER, text = "Save buffer"},
+		       separator,
+		       #create_menu{id = ?CLOSE, text = "Close"}
+		      ]},
+	     {"View", [#create_menu{id = ?CLEAR, text = "Clear buffer"}]},
+	     {"Options", [#create_menu{id = ?OPTIONS, text = "Trace options"}]}
+	    ],
+    observer_lib:create_menus(Menus, MenuBar, new_window).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -370,7 +363,7 @@ textformat(Other) ->
     io_lib:format("~p~n",[Other]).
 
 
-tuple_space(X) when is_tuple(X) -> print(size(X), X, "}");
+tuple_space(X) when is_tuple(X) -> print(tuple_size(X), X, "}");
 tuple_space(X)                  -> io_lib:format("~p",[X]).
 
 

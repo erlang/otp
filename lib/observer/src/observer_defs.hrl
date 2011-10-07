@@ -47,3 +47,5 @@
 	 type = append,
 	 check = false
 	}).
+
+-record(attrs, {even, odd, deleted, changed, searched}).

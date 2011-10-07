@@ -192,12 +192,9 @@ create_page(Notebook, Node, Module, What) ->
     {Panel, Stc}.
 
 create_menus(MenuBar) ->
-    observer_wx:create_menu(
-      [
-       {"File", [#create_menu{id = ?CLOSE, text = "Close"}]},
-       {"View", [#create_menu{id = ?REFRESH, text = "Refresh"}]}
-      ],
-      MenuBar).
+    Menus = [{"File", [#create_menu{id = ?CLOSE, text = "Close"}]},
+	     {"View", [#create_menu{id = ?REFRESH, text = "Refresh"}]}],
+    observer_lib:create_menus(Menus, MenuBar, new_window).
 
 check_boxes(CheckListBox, Bool, all) ->
     lists:foreach(fun(Index) ->

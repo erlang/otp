@@ -65,7 +65,7 @@ EXAMPLE_FILES= multitrace.erl
 TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR)) $(APP_TARGET) $(APPUP_TARGET)
 
 PRIVDIR= ../priv
-WEBTOOLFILES= $(PRIVDIR)/crashdump_viewer.tool
+WEBTOOLFILES= $(PRIVDIR)/crashdump_viewer.tool $(PRIVDIR)/erlang_observer.png
 BINDIR= $(PRIVDIR)/bin
 ifeq ($(findstring win32,$(TARGET)),win32)
 WIN32_EXECUTABLES= $(BINDIR)/etop.bat $(BINDIR)/getop.bat $(BINDIR)/cdv.bat

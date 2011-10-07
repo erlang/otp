@@ -50,7 +50,6 @@
 -define(ID_ACCUMULATE, 209).
 
 %% Records
--record(attrs, {even, odd, deleted, changed, searched}).
 
 -record(sort,
 	{
@@ -60,44 +59,43 @@
 
 -record(holder, {parent,
 		 info,
-		 sort = #sort{},
-		 accum = [],
+		 sort=#sort{},
+		 accum=[],
 		 attrs,
 		 node,
 		 backend_pid
 		}).
 
--record(pro_wx_state, {parent,
-		       grid,
-		       panel,
-		       popup_menu,
-		       parent_notebook,
-		       trace_options = #trace_options{},
-		       match_specs = [],
-		       timer,
-		       tracemenu_opened,
-		       procinfo_menu_pids = [],
-		       selected_pids = [],
-		       last_selected,
-		       holder}).
+-record(state, {parent,
+		grid,
+		panel,
+		popup_menu,
+		parent_notebook,
+		trace_options=#trace_options{},
+		match_specs=[],
+		timer,
+		tracemenu_opened,
+		procinfo_menu_pids=[],
+		sel={[], []},
+		holder}).
 
 start_link(Notebook, Parent) ->
     wx_object:start_link(?MODULE, [Notebook, Parent], []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 init([Notebook, Parent]) ->
-    Attrs = create_attrs(),
+    Attrs = observer_lib:create_attrs(),
     Self = self(),
     Holder = spawn_link(fun() -> init_table_holder(Self, Attrs) end),
     {ProPanel, State} = setup(Notebook, Parent, Holder),
     MatchSpecs = generate_matchspecs(),
 
-    {ProPanel, State#pro_wx_state{holder = Holder, match_specs = MatchSpecs}}.
+    {ProPanel, State#state{holder=Holder, match_specs=MatchSpecs}}.
 
 setup(Notebook, Parent, Holder) ->
     ProPanel = wxPanel:new(Notebook, []),
 
-    Grid = create_list_box(ProPanel, Holder),
+    Grid  = create_list_box(ProPanel, Holder),
     Sizer = wxBoxSizer:new(?wxVERTICAL),
     wxSizer:add(Sizer, Grid, [{flag, ?wxEXPAND bor ?wxALL},
 			      {proportion, 1},
@@ -107,15 +105,15 @@ setup(Notebook, Parent, Holder) ->
 
     Popup = create_popup_menu(ProPanel),
 
-    State =  #pro_wx_state{parent = Parent,
-			   grid        = Grid,
-			   panel       = ProPanel,
-			   popup_menu = Popup,
-			   parent_notebook = Notebook,
-			   tracemenu_opened = false,
-			   holder = Holder,
-			   timer = {false, 10}
-			  },
+    State =  #state{parent=Parent,
+		    grid=Grid,
+		    panel=ProPanel,
+		    popup_menu=Popup,
+		    parent_notebook=Notebook,
+		    tracemenu_opened=false,
+		    holder=Holder,
+		    timer={false, 10}
+		   },
     {ProPanel, State}.
 
 generate_matchspecs() ->
@@ -147,18 +145,18 @@ generate_matchspecs() ->
 
 create_pro_menu(Parent, Holder) ->
     MenuEntries = [{"File",
-		    [#create_menu{id = ?ID_DUMP_TO_FILE, text = "Dump to file"}]},
+		    [#create_menu{id=?ID_DUMP_TO_FILE, text="Dump to file"}]},
 		   {"View",
-		    [#create_menu{id = ?ID_ACCUMULATE, text = "Accumulate",
-				  type  = check,
-				  check = call(Holder, {get_accum, self()})},
+		    [#create_menu{id=?ID_ACCUMULATE, text="Accumulate",
+				  type=check,
+				  check=call(Holder, {get_accum, self()})},
 		     separator,
-		     #create_menu{id = ?ID_REFRESH, text = "Refresh\tCtrl-R"},
-		     #create_menu{id = ?ID_REFRESH_INTERVAL, text = "Refresh Interval"}]},
+		     #create_menu{id=?ID_REFRESH, text="Refresh\tCtrl-R"},
+		     #create_menu{id=?ID_REFRESH_INTERVAL, text="Refresh Interval"}]},
 		   {"Trace",
-		    [#create_menu{id = ?ID_TRACEMENU, text = "Trace selected processes"},
-		     #create_menu{id = ?ID_TRACE_NEW_MENU, text = "Trace new processes"},
-		     #create_menu{id = ?ID_TRACE_ALL_MENU, text = "Trace all processes"}]}
+		    [#create_menu{id=?ID_TRACEMENU, text="Trace selected processes"},
+		     #create_menu{id=?ID_TRACE_NEW_MENU, text="Trace new processes"},
+		     #create_menu{id=?ID_TRACE_ALL_MENU, text="Trace all processes"}]}
 		  ],
     observer_wx:create_menus(Parent, MenuEntries).
 
@@ -213,58 +211,15 @@ create_list_box(Panel, Holder) ->
     lists:foldl(AddListEntry, 0, ListItems),
     wxListItem:destroy(Li),
 
+    wxListCtrl:setItemCount(ListCtrl, 1),
     wxListCtrl:connect(ListCtrl, size, [{skip, true}]),
     wxListCtrl:connect(ListCtrl, command_list_item_activated),
     wxListCtrl:connect(ListCtrl, command_list_item_right_click),
     wxListCtrl:connect(ListCtrl, command_list_col_click),
-    wxListCtrl:connect(ListCtrl, command_list_item_selected),
+    %% Use focused instead of selected, selected doesn't generate events
+    %% for all multiple selections on Linux
+    wxListCtrl:connect(ListCtrl, command_list_item_focused),
     ListCtrl.
-
-clear_all(Grid) ->
-    lists:foreach(fun(I) ->
-			  wxListCtrl:setItemState(Grid, I, 0, ?wxLIST_STATE_SELECTED),
-			  wxListCtrl:setItemState(Grid, I, 0, ?wxLIST_STATE_FOCUSED)
-		  end,
-		  lists:seq(0, wxListCtrl:getItemCount(Grid))).
-
-set_selected_items(Grid, Holder, Pids) ->
-    Count = wxListCtrl:getItemCount(Grid),
-    set_selected_items(Grid, Holder, 0, Pids, Count, []).
-
-set_selected_items(_, _, Index, Pids, Max, Acc) when Pids =:= []; Index =:= Max ->
-    Acc;
-set_selected_items(Grid, Holder, Index, Pids, Max, Acc) ->
-    {ok, Pid} = call(Holder, {get_row, self(), Index, pid}),
-    case lists:member(Pid, Pids) of
-	true ->
-	    wxListCtrl:setItemState(Grid, Index,
-				    ?wxLIST_STATE_SELECTED,
-				    ?wxLIST_STATE_SELECTED),
-	    set_selected_items(Grid, Holder, Index+1, lists:delete(Pid, Pids), Max, [Pid | Acc]);
-	false ->
-	    set_selected_items(Grid, Holder, Index+1, Pids, Max, Acc)
-    end.
-
-get_selected_items(Grid) ->
-    get_selected_items(Grid, -1, []).
-
-get_selected_items(Grid, Index, ItemAcc) ->
-    Item = wxListCtrl:getNextItem(Grid, Index, [{geometry, ?wxLIST_NEXT_ALL},
-						{state, ?wxLIST_STATE_SELECTED}]),
-    case Item of
-	-1 ->
-	    lists:reverse(ItemAcc);
-	_ ->
-	    get_selected_items(Grid, Item, [Item+1 | ItemAcc])
-    end.
-
-create_attrs() ->
-    Font = wxSystemSettings:getFont(?wxSYS_DEFAULT_GUI_FONT),
-    Text = wxSystemSettings:getColour(?wxSYS_COLOUR_LISTBOXTEXT),
-    #attrs{even = wx:typeCast(wx:null(), wxListItemAttr),
-	   odd  = wxListItemAttr:new(Text, {240,240,255}, Font),
-	   searched = wxListItemAttr:new(Text, {235,215,90}, Font)
-	  }.
 
 dump_to_file(Parent, FileName, Holder) ->
     case file:open(FileName, [write]) of
@@ -278,6 +233,8 @@ dump_to_file(Parent, FileName, Holder) ->
 	    wxDialog:destroy(MD)
     end.
 
+start_procinfo(_Node, undefined, _Frame, Opened) ->
+    Opened;
 start_procinfo(Node, Pid, Frame, Opened) ->
     case lists:member(Pid, Opened) of
 	true ->
@@ -296,57 +253,53 @@ call(Holder, What) ->
 	    erlang:demonitor(Ref),
 	    Res
     after 2000 ->
-	    io:format("Hanging call ~p~n",[What])
+	    io:format("Hanging call ~p~n",[What]),
+	    ""
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%% Callbacks %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-handle_info({holder_updated, Count}, #pro_wx_state{grid = Grid,
-						   holder = Holder,
-						   selected_pids = Pids} = State) ->
-    Pids2 = wx:batch(fun() ->
-			     clear_all(Grid),
-			     Pids2 = set_selected_items(Grid, Holder, Pids),
-			     wxListCtrl:setItemCount(Grid, Count),
-			     wxListCtrl:refreshItems(Grid, 0, Count),
-			     Pids2
-		     end),
-    {noreply, State#pro_wx_state{selected_pids = Pids2}};
+handle_info({holder_updated, Count}, State0=#state{grid=Grid}) ->
+    State = update_selection(State0),
 
-handle_info(refresh_interval, #pro_wx_state{holder = Holder} = State) ->
+    wxListCtrl:setItemCount(Grid, Count),
+    wxListCtrl:refreshItems(Grid, 0, Count-1),
+
+    {noreply, State};
+
+handle_info(refresh_interval, #state{holder=Holder}=State) ->
     Holder ! refresh,
     {noreply, State};
 
 handle_info({tracemenu_closed, TraceOpts, MatchSpecs}, State) ->
-    {noreply, State#pro_wx_state{tracemenu_opened = false,
-				 trace_options = TraceOpts,
-				 match_specs = MatchSpecs}};
+    {noreply, State#state{tracemenu_opened=false,
+			  trace_options=TraceOpts,
+			  match_specs=MatchSpecs}};
 
 handle_info({procinfo_menu_closed, Pid},
-	    #pro_wx_state{procinfo_menu_pids = Opened} = State) ->
+	    #state{procinfo_menu_pids=Opened}=State) ->
     NewPids = lists:delete(Pid, Opened),
-    {noreply, State#pro_wx_state{procinfo_menu_pids = NewPids}};
+    {noreply, State#state{procinfo_menu_pids=NewPids}};
 
 handle_info({active, Node},
-	    #pro_wx_state{holder = Holder, timer = Timer, parent = Parent} = State) ->
+	    #state{holder=Holder, timer=Timer, parent=Parent}=State) ->
     create_pro_menu(Parent, Holder),
     Holder ! {change_node, Node},
-    {noreply, State#pro_wx_state{timer = observer_lib:start_timer(Timer)}};
+    {noreply, State#state{timer=observer_lib:start_timer(Timer)}};
 
-handle_info(not_active, #pro_wx_state{timer = Timer0} = State) ->
+handle_info(not_active, #state{timer=Timer0}=State) ->
     Timer = observer_lib:stop_timer(Timer0),
-    {noreply, State#pro_wx_state{timer=Timer, selected_pids = [], last_selected = undefined}};
+    {noreply, State#state{timer=Timer}};
 
-handle_info({node, Node}, #pro_wx_state{holder = Holder} = State) ->
+handle_info({node, Node}, #state{holder=Holder}=State) ->
     Holder ! {change_node, Node},
-    {noreply, State#pro_wx_state{selected_pids = [],
-				 last_selected = undefined}};
+    {noreply, State};
 
 handle_info(Info, State) ->
     io:format("~p, ~p, Handled unexpected info: ~p~n", [?MODULE, ?LINE, Info]),
     {noreply, State}.
 
-terminate(Reason, #pro_wx_state{holder = Holder}) ->
+terminate(Reason, #state{holder=Holder}) ->
     io:format("~p terminating. Reason: ~p~n", [?MODULE, Reason]),
     Holder ! stop,
     etop:stop(),
@@ -367,9 +320,7 @@ handle_cast(Msg, State) ->
 
 %%%%%%%%%%%%%%%%%%%%LOOP%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-handle_event(#wx{id = ?ID_DUMP_TO_FILE},
-	     #pro_wx_state{panel = Panel,
-			   holder = Holder} = State) ->
+handle_event(#wx{id=?ID_DUMP_TO_FILE}, #state{panel=Panel, holder=Holder}=State) ->
     FD  =  wxFileDialog:new(Panel,
 			    [{style,?wxFD_SAVE bor ?wxFD_OVERWRITE_PROMPT}]),
     case wxFileDialog:showModal(FD) of
@@ -382,51 +333,48 @@ handle_event(#wx{id = ?ID_DUMP_TO_FILE},
     end,
     {noreply, State};
 
-handle_event(#wx{id = ?ID_ACCUMULATE,
-		 event = #wxCommand{type = command_menu_selected, commandInt = CmdInt}},
-	     #pro_wx_state{holder = Holder} = State) ->
+handle_event(#wx{id=?ID_ACCUMULATE,
+		 event=#wxCommand{type=command_menu_selected, commandInt=CmdInt}},
+	     #state{holder=Holder}=State) ->
     Holder ! {accum, CmdInt =:= 1},
     {noreply, State};
 
-handle_event(#wx{id = ?ID_REFRESH, event = #wxCommand{type = command_menu_selected}},
-	     #pro_wx_state{holder = Holder} = State) ->
+handle_event(#wx{id=?ID_REFRESH, event=#wxCommand{type=command_menu_selected}},
+	     #state{holder=Holder}=State) ->
     Holder ! refresh,
     {noreply, State};
 
-handle_event(#wx{id = ?ID_REFRESH_INTERVAL},
-	     #pro_wx_state{panel = Panel, timer=Timer0} = State) ->
+handle_event(#wx{id=?ID_REFRESH_INTERVAL},
+	     #state{panel=Panel, timer=Timer0}=State) ->
     Timer = observer_lib:interval_dialog(Panel, Timer0, 1, 5*60),
-    {noreply, State#pro_wx_state{timer=Timer}};
+    {noreply, State#state{timer=Timer}};
 
-handle_event(#wx{id = ?ID_KILL}, #pro_wx_state{popup_menu = Pop,
-					       selected_pids = Pids,
-					       last_selected = ToKill} = State) ->
-
+handle_event(#wx{id=?ID_KILL},
+	     #state{popup_menu=Pop,sel={[_|Ids], [ToKill|Pids]}}=State) ->
     wxWindow:show(Pop, [{show, false}]),
     exit(ToKill, kill),
-    Pids2 = lists:delete(ToKill, Pids),
-    {noreply, State#pro_wx_state{selected_pids = Pids2, last_selected = undefined}};
+    {noreply, State#state{sel={Ids,Pids}}};
 
 
-handle_event(#wx{id = ?ID_PROC},
-	     #pro_wx_state{holder=Holder,
-			   panel = Panel,
-			   popup_menu = Pop,
-			   last_selected = Pid,
-			   procinfo_menu_pids = Opened} = State) ->
+handle_event(#wx{id=?ID_PROC},
+	     #state{panel=Panel,
+		    popup_menu=Pop,
+		    holder=Holder,
+		    sel={_, [Pid|_]},
+		    procinfo_menu_pids=Opened}=State) ->
     wxWindow:show(Pop, [{show, false}]),
     Node = call(Holder, {get_node, self()}),
     Opened2 = start_procinfo(Node, Pid, Panel, Opened),
-    {noreply, State#pro_wx_state{procinfo_menu_pids = Opened2}};
+    {noreply, State#state{procinfo_menu_pids=Opened2}};
 
-handle_event(#wx{id = ?ID_TRACEMENU},
-	     #pro_wx_state{holder=Holder,
-			   popup_menu = Pop,
-			   trace_options = Options,
-			   match_specs = MatchSpecs,
-			   selected_pids = Pids,
-			   tracemenu_opened = false,
-			   panel = Panel} = State)  ->
+handle_event(#wx{id=?ID_TRACEMENU},
+	     #state{holder=Holder,
+		    popup_menu=Pop,
+		    trace_options=Options,
+		    match_specs=MatchSpecs,
+		    sel=Pids,
+		    tracemenu_opened=false,
+		    panel=Panel}=State)  ->
     wxWindow:show(Pop, [{show, false}]),
     case Pids of
 	[] ->
@@ -440,15 +388,15 @@ handle_event(#wx{id = ?ID_TRACEMENU},
 				    MatchSpecs,
 				    Panel,
 				    self()),
-	    {noreply,  State#pro_wx_state{tracemenu_opened = true}}
+	    {noreply,  State#state{tracemenu_opened=true}}
     end;
 
-handle_event(#wx{id = ?ID_TRACE_ALL_MENU, event = #wxCommand{type = command_menu_selected}},
-	     #pro_wx_state{holder=Holder,
-			   trace_options = Options,
-			   match_specs = MatchSpecs,
-			   tracemenu_opened = false,
-			   panel = Panel} = State) ->
+handle_event(#wx{id=?ID_TRACE_ALL_MENU, event=#wxCommand{type=command_menu_selected}},
+	     #state{holder=Holder,
+		    trace_options=Options,
+		    match_specs=MatchSpecs,
+		    tracemenu_opened=false,
+		    panel=Panel}=State) ->
     Node = call(Holder, {get_node, self()}),
     observer_trace_wx:start(Node,
 			    all,
@@ -456,15 +404,15 @@ handle_event(#wx{id = ?ID_TRACE_ALL_MENU, event = #wxCommand{type = command_menu
 			    MatchSpecs,
 			    Panel,
 			    self()),
-    {noreply, State#pro_wx_state{tracemenu_opened = true}};
+    {noreply, State#state{tracemenu_opened=true}};
 
 
-handle_event(#wx{id = ?ID_TRACE_NEW_MENU, event = #wxCommand{type = command_menu_selected}},
-	     #pro_wx_state{holder=Holder,
-			   trace_options = Options,
-			   match_specs = MatchSpecs,
-			   tracemenu_opened = false,
-			   panel = Panel} = State) ->
+handle_event(#wx{id=?ID_TRACE_NEW_MENU, event=#wxCommand{type=command_menu_selected}},
+	     #state{holder=Holder,
+		    trace_options=Options,
+		    match_specs=MatchSpecs,
+		    tracemenu_opened=false,
+		    panel=Panel}=State) ->
     Node = call(Holder, {get_node, self()}),
     observer_trace_wx:start(Node,
 			    new,
@@ -472,10 +420,10 @@ handle_event(#wx{id = ?ID_TRACE_NEW_MENU, event = #wxCommand{type = command_menu
 			    MatchSpecs,
 			    Panel,
 			    self()),
-    {noreply,  State#pro_wx_state{tracemenu_opened = true}};
+    {noreply,  State#state{tracemenu_opened=true}};
 
 handle_event(#wx{event=#wxSize{size={W,_}}},
-	     #pro_wx_state{grid=Grid} = State) ->
+	     #state{grid=Grid}=State) ->
     wx:batch(fun() ->
 		     Cols = wxListCtrl:getColumnCount(Grid),
 		     Last = lists:foldl(fun(I, Last) ->
@@ -486,10 +434,10 @@ handle_event(#wx{event=#wxSize{size={W,_}}},
 	     end),
     {noreply, State};
 
-handle_event(#wx{event = #wxList{type = command_list_item_right_click,
-				 itemIndex = Row}},
-	     #pro_wx_state{popup_menu = Popup,
-			   holder = Holder} = State) ->
+handle_event(#wx{event=#wxList{type=command_list_item_right_click,
+			       itemIndex=Row}},
+	     #state{popup_menu=Popup,
+		    holder=Holder}=State) ->
 
     case call(Holder, {get_row, self(), Row, pid}) of
 	{error, undefined} ->
@@ -501,55 +449,96 @@ handle_event(#wx{event = #wxList{type = command_list_item_right_click,
     end,
     {noreply, State};
 
-handle_event(#wx{event = #wxList{type = command_list_item_selected,
-				 itemIndex = Row}},
-	     #pro_wx_state{grid = Grid,
-			   popup_menu = Pop,
-			   holder = Holder} = State) ->
+handle_event(#wx{event=#wxList{type=command_list_item_focused,
+			       itemIndex=Row}},
+	     #state{grid=Grid,popup_menu=Pop,holder=Holder} = State) ->
+    case Row >= 0 of
+	true ->
+	    wxWindow:show(Pop, [{show, false}]),
+	    SelIds = [Row|lists:delete(Row, get_selected_items(Grid))],
+	    Pids = call(Holder, {get_pids, self(), SelIds}),
+	    %% io:format("Focused ~p -> ~p~n",[State#state.sel, {SelIds, Pids}]),
+	    {noreply, State#state{sel={SelIds, Pids}}};
+	false ->
+	    %% io:format("Focused -1~n",[]),
+	    {noreply, State}
+    end;
 
-    NewPid = case call(Holder, {get_row, self(), Row, pid}) of
-		 {error, undefined} ->
-		     undefined;
-		 {ok, P} when is_pid(P) ->
-		     P
-	     end,
-    wxWindow:show(Pop, [{show, false}]),
-    Pids = call(Holder, {get_pids, self(), get_selected_items(Grid)}),
-    {noreply, State#pro_wx_state{selected_pids = Pids,
-				 last_selected = NewPid}};
-
-handle_event(#wx{event = #wxList{type = command_list_col_click, col = Col}},
-	     #pro_wx_state{holder = Holder} = State) ->
+handle_event(#wx{event=#wxList{type=command_list_col_click, col=Col}},
+	     #state{holder=Holder}=State) ->
     Holder !  {change_sort, Col},
     {noreply, State};
 
-handle_event(#wx{event = #wxList{type = command_list_item_activated}},
-	     #pro_wx_state{holder=Holder,
-			   panel = Panel,
-			   procinfo_menu_pids= Opened,
-			   last_selected = Pid} = State) when Pid =/= undefined ->
+handle_event(#wx{event=#wxList{type=command_list_item_activated}},
+	     #state{panel=Panel, procinfo_menu_pids=Opened,
+		    holder=Holder,
+		    sel={_, [Pid|_]}}=State)
+  when Pid =/= undefined ->
     Node = call(Holder, {get_node, self()}),
-    Opened2 = start_procinfo(Node, Pid, Panel, Opened),
-    {noreply, State#pro_wx_state{procinfo_menu_pids = Opened2}};
+    Opened2=start_procinfo(Node, Pid, Panel, Opened),
+    {noreply, State#state{procinfo_menu_pids=Opened2}};
 
 handle_event(Event, State) ->
     io:format("~p~p, handle event ~p\n", [?MODULE, ?LINE, Event]),
     {noreply, State}.
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+update_selection(State=#state{holder=Holder, grid=Grid,
+			      sel={SelIds0, SelPids0}}) ->
+    Sel = {SelIds,_SelPids} = call(Holder, {get_rows_from_pids, self(), SelPids0}),
+    set_focus(SelIds0, SelIds, Grid),
+    case SelIds =:= SelIds0 of
+	true -> ok;
+	false ->
+	    wx:batch(fun() ->
+			     [wxListCtrl:setItemState(Grid, I, 0, ?wxLIST_STATE_SELECTED) ||
+				 I <- SelIds0],
+			     [wxListCtrl:setItemState(Grid, I, 16#FFFF, ?wxLIST_STATE_SELECTED) ||
+				 I <- SelIds]
+		     end)
+    end,
+    %%io:format("Update ~p -> ~p~n",[{SelIds0, SelPids0}, Sel]),
+    State#state{sel=Sel}.
+
+get_selected_items(Grid) ->
+    get_selected_items(Grid, -1, []).
+
+get_selected_items(Grid, Index, ItemAcc) ->
+    Item = wxListCtrl:getNextItem(Grid, Index, [{geometry, ?wxLIST_NEXT_ALL},
+						{state, ?wxLIST_STATE_SELECTED}]),
+    case Item of
+	-1 ->
+	    lists:reverse(ItemAcc);
+	_ ->
+	    get_selected_items(Grid, Item, [Item | ItemAcc])
+    end.
+
+set_focus([], [], _Grid) -> ok;
+set_focus([Same|_], [Same|_], _Grid) -> ok;
+set_focus([], [New|_], Grid) ->
+    wxListCtrl:setItemState(Grid, New, 16#FFFF, ?wxLIST_STATE_FOCUSED);
+set_focus([Old|_], [], Grid) ->
+    wxListCtrl:setItemState(Grid, Old, 0, ?wxLIST_STATE_FOCUSED);
+set_focus([Old|_], [New|_], Grid) ->
+    wxListCtrl:setItemState(Grid, Old, 0, ?wxLIST_STATE_FOCUSED),
+    wxListCtrl:setItemState(Grid, New, 16#FFFF, ?wxLIST_STATE_FOCUSED).
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%TABLE HOLDER%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 init_table_holder(Parent, Attrs) ->
     Backend = spawn_link(node(), observer_backend,etop_collect,[self()]),
-    table_holder(#holder{parent = Parent,
-			 info = #etop_info{procinfo=[]},
-			 node = node(),
-			 backend_pid = Backend,
-			 attrs = Attrs
+    table_holder(#holder{parent=Parent,
+			 info=#etop_info{procinfo=[]},
+			 node=node(),
+			 backend_pid=Backend,
+			 attrs=Attrs
 			}).
 
 table_holder(#holder{info=#etop_info{procinfo=Info}, attrs=Attrs,
-		     node=Node, backend_pid=Backend} = S0) ->
+		     node=Node, backend_pid=Backend}=S0) ->
     receive
 	{get_row, From, Row, Col} ->
 	    get_row(From, Row, Col, Info),
@@ -557,7 +546,7 @@ table_holder(#holder{info=#etop_info{procinfo=Info}, attrs=Attrs,
 	{get_attr, From, Row} ->
 	    get_attr(From, Row, Attrs),
 	    table_holder(S0);
-	{Backend, EtopInfo = #etop_info{}} ->
+	{Backend, EtopInfo=#etop_info{}} ->
 	    State = handle_update(EtopInfo, S0),
 	    table_holder(State#holder{backend_pid=undefined});
 	refresh when is_pid(Backend)->
@@ -571,6 +560,10 @@ table_holder(#holder{info=#etop_info{procinfo=Info}, attrs=Attrs,
 	{get_pids, From, Indices} ->
 	    get_pids(From, Indices, Info),
 	    table_holder(S0);
+	{get_rows_from_pids, From, Pids} ->
+	    get_rows_from_pids(From, Pids, Info),
+	    table_holder(S0);
+
 	{get_node, From} ->
 	    From ! {self(), Node},
 	    table_holder(S0);
@@ -598,50 +591,48 @@ table_holder(#holder{info=#etop_info{procinfo=Info}, attrs=Attrs,
 	    table_holder(S0)
     end.
 
-change_sort(Col, S0 = #holder{parent=Parent, info=EI=#etop_info{procinfo=Data}, sort=Sort0}) ->
-    {Sort, ProcInfo} = sort(Col, Sort0, Data),
+change_sort(Col, S0=#holder{parent=Parent, info=EI=#etop_info{procinfo=Data}, sort=Sort0}) ->
+    {Sort, ProcInfo}=sort(Col, Sort0, Data),
     Parent ! {holder_updated, length(Data)},
     S0#holder{info=EI#etop_info{procinfo=ProcInfo}, sort=Sort}.
 
 change_accum(true, S0) ->
     S0#holder{accum=true};
-change_accum(false, S0 = #holder{info=#etop_info{procinfo=Info}}) ->
+change_accum(false, S0=#holder{info=#etop_info{procinfo=Info}}) ->
     self() ! refresh,
     S0#holder{accum=lists:sort(Info)}.
 
 handle_update(EI=#etop_info{procinfo=ProcInfo0},
-	      S0 = #holder{parent=Parent, sort=Sort=#sort{sort_key=KeyField}}) ->
+	      S0=#holder{parent=Parent, sort=Sort=#sort{sort_key=KeyField}}) ->
     {ProcInfo1, S1} = accum(ProcInfo0, S0),
     {_SO, ProcInfo} = sort(KeyField, Sort#sort{sort_key=undefined}, ProcInfo1),
     Parent ! {holder_updated, length(ProcInfo)},
     S1#holder{info=EI#etop_info{procinfo=ProcInfo}}.
 
-accum(ProcInfo, State = #holder{accum=true}) ->
+accum(ProcInfo, State=#holder{accum=true}) ->
     {ProcInfo, State};
-accum(ProcInfo0, State = #holder{accum=Previous}) ->
+accum(ProcInfo0, State=#holder{accum=Previous}) ->
     ProcInfo = lists:sort(ProcInfo0),
     {accum2(ProcInfo,Previous,[]), State#holder{accum=ProcInfo}}.
 
-accum2([PI = #etop_proc_info{pid=Pid, reds=Reds, runtime=RT}|PIs],
+accum2([PI=#etop_proc_info{pid=Pid, reds=Reds, runtime=RT}|PIs],
        [#etop_proc_info{pid=Pid, reds=OldReds, runtime=OldRT}|Old], Acc) ->
     accum2(PIs, Old, [PI#etop_proc_info{reds=Reds-OldReds, runtime=RT-OldRT}|Acc]);
-accum2(PIs = [#etop_proc_info{pid=Pid}|_], [#etop_proc_info{pid=OldPid}|Old], Acc)
+accum2(PIs=[#etop_proc_info{pid=Pid}|_], [#etop_proc_info{pid=OldPid}|Old], Acc)
   when Pid > OldPid ->
     accum2(PIs, Old, Acc);
 accum2([PI|PIs], Old, Acc) ->
     accum2(PIs, Old, [PI|Acc]);
 accum2([], _, Acc) -> Acc.
 
-sort(Col, Opt = #sort{sort_key=Col, sort_incr=Bool}, Table) ->
+sort(Col, Opt=#sort{sort_key=Col, sort_incr=Bool}, Table) ->
     {Opt#sort{sort_incr=not Bool}, lists:reverse(Table)};
 sort(Col, S=#sort{sort_incr=true}, Table) ->
     {S#sort{sort_key=Col}, lists:keysort(col_to_element(Col), Table)};
 sort(Col, S=#sort{sort_incr=false}, Table) ->
     {S#sort{sort_key=Col}, lists:reverse(lists:keysort(col_to_element(Col), Table))}.
 
-
-
-
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 get_procinfo_data(Col, Info) ->
     element(col_to_element(Col), Info).
@@ -654,8 +645,8 @@ col_to_element(?COL_FUN)  -> #etop_proc_info.cf;
 col_to_element(?COL_MSG)  -> #etop_proc_info.mq.
 
 get_pids(From, Indices, ProcInfo) ->
-    Processes = [lists:nth(I, ProcInfo) || I <- Indices],
-    From ! {self(), [X#etop_proc_info.pid || X <- Processes]}.
+    Processes = [(lists:nth(I+1, ProcInfo))#etop_proc_info.pid || I <- Indices],
+    From ! {self(), Processes}.
 
 get_row(From, Row, pid, Info) ->
     Pid = case Row =:= -1 of
@@ -666,12 +657,21 @@ get_row(From, Row, pid, Info) ->
 get_row(From, Row, Col, Info) ->
     Data = case Row+1 > length(Info) of
 	       true ->
-		   null;
+		   "";
 	       false ->
 		   ProcInfo = lists:nth(Row+1, Info),
 		   get_procinfo_data(Col, ProcInfo)
 	   end,
-    From ! {self(), io_lib:format("~p", [Data])}.
+    From ! {self(), observer_lib:to_str(Data)}.
+
+get_rows_from_pids(From, Pids0, Info) ->
+    Res = lists:foldl(fun(Pid, Data = {Ids, Pids}) ->
+			      case index(Pid, Info, 0) of
+				  false -> Data;
+				  Index -> {[Index|Ids], [Pid|Pids]}
+			      end
+		      end, {[],[]}, Pids0),
+    From ! {self(), Res}.
 
 get_attr(From, Row, Attrs) ->
     Attribute = case Row rem 2 =:= 0 of
@@ -679,3 +679,7 @@ get_attr(From, Row, Attrs) ->
 		    false -> Attrs#attrs.odd
 		end,
     From ! {self(), Attribute}.
+
+index(Pid, [#etop_proc_info{pid=Pid}|_], Index) -> Index;
+index(Pid, [_|PI], Index) -> index(Pid, PI, Index+1);
+index(_, _, _) -> false.

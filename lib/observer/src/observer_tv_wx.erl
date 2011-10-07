@@ -339,7 +339,7 @@ display_table_info(Parent0, Node, Source, Table) ->
     Parent = observer_lib:get_wx_parent(Parent0),
     Title = "Table Info: " ++ atom_to_list(Table#tab.name),
     Frame = wxMiniFrame:new(Parent, ?wxID_ANY, Title,
-			    [{style, ?wxCAPTION bor ?wxCLOSE_BOX bor ?wxRESIZE_BORDER}]),
+			    [{style, ?wxCAPTION bor ?wxCLOSE_BOX}]),
 
     IdInfo = {"Identification and Owner",
 	      [{"Name", Table#tab.name},

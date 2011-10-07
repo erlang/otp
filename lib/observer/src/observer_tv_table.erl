@@ -26,6 +26,7 @@
 
 -export([get_table/3]).
 
+-include("observer_defs.hrl").
 -import(observer_lib, [to_str/1]).
 
 -behaviour(wx_object).
@@ -67,8 +68,6 @@
 	  sort_key=2,
 	  sort_incr=true
 	}).
-
--record(attrs, {even, odd, deleted, changed, searched}).
 
 -record(search,
 	{enable=true,          %  Subwindow is enabled
@@ -116,7 +115,7 @@ init([Parent, Opts]) ->
 	ColumnNames = column_names(Node, Source, TabId),
 	KeyPos = key_pos(Node, Source, TabId),
 
-	Attrs = create_attrs(),
+	Attrs = observer_lib:create_attrs(),
 
 	Self = self(),
 	Holder = spawn_link(fun() ->
@@ -587,7 +586,7 @@ parse_ets_data([], Cols, Tab) ->
 
 sort(Col, S=#holder{n=N, parent=Parent, sort=Opt0, table=Table0}) ->
     {Opt, Table} = sort(Col, Opt0, Table0),
-    Parent ! {refresh, 0, N},
+    Parent ! {refresh, 0, N-1},
     S#holder{sort=Opt, table=Table}.
 
 sort(Col, Opt = #opt{sort_key=Col, sort_incr=Bool}, Table) ->
@@ -595,7 +594,7 @@ sort(Col, Opt = #opt{sort_key=Col, sort_incr=Bool}, Table) ->
 sort(Col, S=#opt{sort_incr=true}, Table) ->
     {S#opt{sort_key=Col}, keysort(Col, Table)};
 sort(Col, S=#opt{sort_incr=false}, Table) ->
-    {S=#opt{sort_key=Col}, lists:reverse(keysort(Col, Table))}.
+    {S#opt{sort_key=Col}, lists:reverse(keysort(Col, Table))}.
 
 keysort(Col, Table) ->
     Sort = fun([A0|_], [B0|_]) ->
@@ -800,13 +799,3 @@ key_pos(Node, ets, TabId) ->
     KeyPos = rpc:call(Node, ets, info, [TabId, keypos]),
     is_integer(KeyPos) orelse throw(node_or_table_down),
     KeyPos.
-
-create_attrs() ->
-    Font = wxSystemSettings:getFont(?wxSYS_DEFAULT_GUI_FONT),
-    Text = wxSystemSettings:getColour(?wxSYS_COLOUR_LISTBOXTEXT),
-    #attrs{even = wx:typeCast(wx:null(), wxListItemAttr),
-	   odd  = wxListItemAttr:new(Text, {240,240,255}, Font),
-	   deleted = wxListItemAttr:new({240,30,30}, {100,100,100}, Font),
-	   changed = wxListItemAttr:new(Text, {255,215,0}, Font),
-	   searched = wxListItemAttr:new(Text, {235,215,90}, Font)
-	  }.

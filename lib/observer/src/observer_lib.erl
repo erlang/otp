@@ -21,9 +21,13 @@
 -export([get_wx_parent/1,
 	 display_info_dialog/1,
 	 interval_dialog/4, start_timer/1, stop_timer/1,
-	 display_info/2, update_info/2, to_str/1]).
+	 display_info/2, update_info/2, to_str/1,
+	 create_menus/3, create_menu_item/3,
+	 create_attrs/0
+	]).
 
 -include_lib("wx/include/wx.hrl").
+-include("observer_defs.hrl").
 
 get_wx_parent(Window) ->
     Parent = wxWindow:getParent(Window),
@@ -171,6 +175,77 @@ to_str(No) when is_integer(No) ->
 to_str(ShouldNotGetHere) ->
     erlang:error({?MODULE, to_str, ShouldNotGetHere}).
 
+create_menus(Menus, MenuBar, Type) ->
+    Add = fun({Tag, Ms}, Index) ->
+		  create_menu(Tag, Ms, Index, MenuBar, Type)
+	  end,
+    [{First, _}|_] = Menus,
+    OnMac = os:type() =:= {unix, darwin},
+    Index = if Type =:= default -> 0;
+	       First =:= "File" -> 0;
+	       OnMac -> 0;
+	       true -> 1
+	    end,
+    wx:foldl(Add, Index, Menus),
+    ok.
+
+create_menu("File", MenuItems, Index, MenuBar, Type) ->
+    OnMac = os:type() =:= {unix, darwin},
+    if OnMac, Type =:= default ->
+	    Index;
+       not OnMac, Type =:= plugin ->
+	    MenuId = wxMenuBar:findMenu(MenuBar, "File"),
+	    Menu = wxMenuBar:getMenu(MenuBar, MenuId),
+	    lists:foldl(fun(Record, N) ->
+				create_menu_item(Record, Menu, N)
+			end, 0, MenuItems),
+	    Index + 1;
+       true ->
+	    Menu = wxMenu:new(),
+	    lists:foldl(fun(Record, N) ->
+				create_menu_item(Record, Menu, N)
+			end, 0, MenuItems),
+	    wxMenuBar:insert(MenuBar, Index, Menu, "File"),
+	    Index+1
+    end;
+create_menu(Name, MenuItems, Index, MenuBar, _Type) ->
+    Menu = wxMenu:new(),
+    lists:foldl(fun(Record, N) ->
+			create_menu_item(Record, Menu, N)
+		end, 0, MenuItems),
+    wxMenuBar:insert(MenuBar, Index, Menu, Name),
+    Index+1.
+
+create_menu_item(#create_menu{id = ?wxID_HELP=Id}, Menu, Index) ->
+    wxMenu:insert(Menu, Index, Id),
+    Index+1;
+create_menu_item(#create_menu{id = Id, text = Text, type = Type, check = Check}, Menu, Index) ->
+    case Type of
+	append ->
+	    wxMenu:insert(Menu, Index, Id, [{text, Text}]);
+	check ->
+	    wxMenu:insertCheckItem(Menu, Index, Id, Text),
+	    wxMenu:check(Menu, Id, Check);
+	radio ->
+	    wxMenu:insertRadioItem(Menu, Index, Id, Text),
+	    wxMenu:check(Menu, Id, Check);
+	separator ->
+	    wxMenu:insertSeparator(Menu, Index)
+    end,
+    Index+1;
+create_menu_item(separator, Menu, Index) ->
+    wxMenu:insertSeparator(Menu, Index),
+    Index+1.
+
+create_attrs() ->
+    Font = wxSystemSettings:getFont(?wxSYS_DEFAULT_GUI_FONT),
+    Text = wxSystemSettings:getColour(?wxSYS_COLOUR_LISTBOXTEXT),
+    #attrs{even = wxListItemAttr:new(Text, {255,255,255}, Font),
+	   odd  = wxListItemAttr:new(Text, {240,240,255}, Font),
+	   deleted = wxListItemAttr:new({240,30,30}, {100,100,100}, Font),
+	   changed = wxListItemAttr:new(Text, {255,215,0}, Font),
+	   searched = wxListItemAttr:new(Text, {235,215,90}, Font)
+	  }.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
