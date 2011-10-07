@@ -42,13 +42,19 @@
          end_per_suite/1]).
 
 %% testcases
--export([send1/1,
+-export([start_ssl/1,
+         start_diameter/1,
+         start_services/1,
+         add_transports/1,
+         send1/1,
          send2/1,
          send3/1,
          send4/1,
          send5/1,
          remove_transports/1,
-         stop_services/1]).
+         stop_services/1,
+         stop_diameter/1,
+         stop_ssl/1]).
 
 %% diameter callbacks
 -export([peer_up/3,
@@ -70,6 +76,8 @@
 -include("diameter_ct.hrl").
 
 %% ===========================================================================
+
+-define(util, diameter_util).
 
 -define(ADDR, {127,0,0,1}).
 
@@ -129,8 +137,12 @@ suite() ->
     [{timetrap, {seconds, 15}}].
 
 all() ->
-    [{group, N} || {N, _, _} <- groups()]
-        ++ [remove_transports, stop_services].
+    [start_ssl,
+     start_diameter,
+     start_services,
+     add_transports]
+        ++ [{group, N} || {N, _, _} <- groups()]
+        ++ [remove_transports, stop_services, stop_diameter, stop_ssl].
 
 groups() ->
     Ts = tc(),
@@ -144,33 +156,18 @@ end_per_group(_, _) ->
     ok.
 
 init_per_suite(Config) ->
-    init(os:find_executable("openssl"), Config).
-
-init(false, _) ->
-    {skip, no_openssl};
-init(_, Config) ->
-    ok = ssl:start(),
-    ok = diameter:start(),
-
-    Dir = proplists:get_value(priv_dir, Config),
-    Servers = [server(S, sopts(S, Dir)) || S <- ?SERVERS],
-
-    ok = diameter:start_service(?CLIENT, ?SERVICE(?CLIENT, ?DICT_COMMON)),
-    true = diameter:subscribe(?CLIENT),
-
-    Opts = ssl_options(Dir, "client"),
-    Connections = [connect(?CLIENT, S, copts(N, Opts))
-                   || {S,N} <- lists:zip(Servers, ?SERVERS)],
-
-    [{transports, lists:zip(Servers, Connections)} | Config].
+    case os:find_executable("openssl") of
+        false ->
+            {skip, no_openssl};
+        _ ->
+            Config
+    end.
 
 end_per_suite(_Config) ->
-    ok = diameter:stop(),
-    ok = ssl:stop().
+    ok.
 
 %% Testcases to run when services are started and connections
-%% established. These are trivial, the interesting stuff is setting up
-%% the connections in init_per_suite/2.
+%% established.
 tc() ->
     [send1,
      send2,
@@ -180,6 +177,50 @@ tc() ->
 
 %% ===========================================================================
 %% testcases
+
+start_ssl(_Config) ->
+    ok = ssl:start().
+
+start_diameter(_Config) ->
+    ok = diameter:start().
+
+start_services(Config) ->
+    Dir = proplists:get_value(priv_dir, Config),
+    Servers = [server(S, sopts(S, Dir)) || S <- ?SERVERS],
+
+    ok = diameter:start_service(?CLIENT, ?SERVICE(?CLIENT, ?DICT_COMMON)),
+
+    {save_config, [Dir | Servers]}.
+
+add_transports(Config) ->
+    {_, [Dir | Servers]} = proplists:get_value(saved_config, Config),
+
+    true = diameter:subscribe(?CLIENT),
+
+    Opts = ssl_options(Dir, "client"),
+    Connections = [connect(?CLIENT, S, copts(N, Opts))
+                   || {S,N} <- lists:zip(Servers, ?SERVERS)],
+
+    ?util:write_priv(Config, "cfg", lists:zip(Servers, Connections)).
+
+
+%% Remove the client transports and expect the corresponding server
+%% transport to go down.
+remove_transports(Config) ->
+    Ts = ?util:read_priv(Config, "cfg"),
+    [] = [T || S <- ?SERVERS, T <- [diameter:subscribe(S)], T /= true],
+    lists:map(fun disconnect/1, Ts).
+
+stop_services(_Config) ->
+    [] = [{H,T} || H <- [?CLIENT | ?SERVERS],
+                   T <- [diameter:stop_service(H)],
+                   T /= ok].
+
+stop_diameter(_Config) ->
+    ok = diameter:stop().
+
+stop_ssl(_Config) ->
+    ok = ssl:stop().
 
 %% Send an STR intended for a specific server and expect success.
 send1(_Config) ->
@@ -192,18 +233,6 @@ send4(_Config) ->
     call(?SERVER4).
 send5(_Config) ->
     call(?SERVER5).
-
-%% Remove the client transports and expect the corresponding server
-%% transport to go down.
-remove_transports(Config) ->
-    Ts = proplists:get_value(transports, Config),
-    [] = [T || S <- ?SERVERS, T <- [diameter:subscribe(S)], T /= true],
-    lists:map(fun disconnect/1, Ts).
-
-stop_services(_Config) ->
-    Hs = [?CLIENT | ?SERVERS],
-    Ok = [ok || _ <- Hs],
-    Ok = [diameter:stop_service(H) || H <- Hs].
 
 %% ===========================================================================
 %% diameter callbacks
