@@ -123,6 +123,7 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
                called= [] :: [{fa(),line()}],		%Called functions
                usage = #usage{}		:: #usage{},
 	       specs = dict:new()	:: dict(),	%Type specifications
+	       callbacks = dict:new()   :: dict(),      %Callback types
 	       types = dict:new()	:: dict(),	%Type definitions
 	       exp_types=gb_sets:empty():: gb_set()	%Exported types
               }).
@@ -310,8 +311,6 @@ format_error({conflicting_behaviours,{Name,Arity},B,FirstL,FirstB}) ->
 format_error({undefined_behaviour_func, {Func,Arity}, Behaviour}) ->
     io_lib:format("undefined callback function ~w/~w (behaviour '~w')",
 		  [Func,Arity,Behaviour]);
-format_error({undefined_behaviour_func, {Func,Arity,_Spec}, Behaviour}) ->
-    format_error({undefined_behaviour_func, {Func,Arity}, Behaviour});
 format_error({undefined_behaviour,Behaviour}) ->
     io_lib:format("behaviour ~w undefined", [Behaviour]);
 format_error({undefined_behaviour_callbacks,Behaviour}) ->
@@ -320,6 +319,9 @@ format_error({undefined_behaviour_callbacks,Behaviour}) ->
 format_error({ill_defined_behaviour_callbacks,Behaviour}) ->
     io_lib:format("behaviour ~w callback functions erroneously defined",
 		  [Behaviour]);
+format_error({behaviour_info, {_M,F,A}}) ->
+    io_lib:format("cannot define callback attibute for ~w/~w when "
+                  "behaviour_info is defined",[F,A]);
 %% --- types and specs ---
 format_error({singleton_typevar, Name}) ->
     io_lib:format("type variable ~w is only used once (is unbound)", [Name]);
@@ -348,12 +350,16 @@ format_error({type_syntax, Constr}) ->
     io_lib:format("bad ~w type", [Constr]);
 format_error({redefine_spec, {M, F, A}}) ->
     io_lib:format("spec for ~w:~w/~w already defined", [M, F, A]);
+format_error({redefine_callback, {M, F, A}}) ->
+    io_lib:format("callback ~w:~w/~w already defined", [M, F, A]);
 format_error({spec_fun_undefined, {M, F, A}}) ->
     io_lib:format("spec for undefined function ~w:~w/~w", [M, F, A]);
 format_error({missing_spec, {F,A}}) ->
     io_lib:format("missing specification for function ~w/~w", [F, A]);
 format_error(spec_wrong_arity) ->
     "spec has the wrong arity";
+format_error(callback_wrong_arity) ->
+    "callback has the wrong arity";
 format_error({imported_predefined_type, Name}) ->
     io_lib:format("referring to built-in type ~w as a remote type; "
 		  "please take out the module name", [Name]);
@@ -747,6 +753,8 @@ attribute_state({attribute,L,opaque,{TypeName,TypeDef,Args}}, St) ->
     type_def(opaque, L, TypeName, TypeDef, Args, St);
 attribute_state({attribute,L,spec,{Fun,Types}}, St) ->
     spec_decl(L, Fun, Types, St);
+attribute_state({attribute,L,callback,{Fun,Types}}, St) ->
+    callback_decl(L, Fun, Types, St);
 attribute_state({attribute,L,on_load,Val}, St) ->
     on_load(L, Val, St);
 attribute_state({attribute,_L,_Other,_Val}, St) -> % Ignore others
@@ -840,7 +848,8 @@ post_traversal_check(Forms, St0) ->
     StB = check_unused_types(Forms, StA),
     StC = check_untyped_records(Forms, StB),
     StD = check_on_load(StC),
-    check_unused_records(Forms, StD).
+    StE = check_unused_records(Forms, StD),
+    check_callback_information(StE).
 
 %% check_behaviour(State0) -> State
 %% Check that the behaviour attribute is valid.
@@ -1137,6 +1146,23 @@ check_unused_records(Forms, St0) ->
                   end, St0, Unused);
         _ ->
             St0
+    end.
+
+check_callback_information(#lint{callbacks = Callbacks,
+				 defined = Defined} = State) ->
+    case gb_sets:is_member({behaviour_info,1}, Defined) of
+	false -> State;
+	true ->
+	    case dict:size(Callbacks) of
+		0 -> State;
+		_ ->
+		    CallbacksList = dict:to_list(Callbacks),
+		    FoldL =
+			fun({Fa,Line},St) ->
+				add_error(Line, {behaviour_info, Fa}, St)
+			end,
+		    lists:foldl(FoldL, State, CallbacksList)
+	    end
     end.
 
 %% For storing the import list we use the orddict module.
@@ -2770,6 +2796,20 @@ spec_decl(Line, MFA0, TypeSpecs, St0 = #lint{specs = Specs, module = Mod}) ->
 	false -> check_specs(TypeSpecs, Arity, St1)
     end.
 
+%% callback_decl(Line, Fun, Types, State) -> State.
+
+callback_decl(Line, MFA0, TypeSpecs,
+	      St0 = #lint{callbacks = Callbacks, module = Mod}) ->
+    MFA = case MFA0 of
+	      {F, Arity} -> {Mod, F, Arity};
+	      {_M, _F, Arity} -> MFA0
+	  end,
+    St1 = St0#lint{callbacks = dict:store(MFA, Line, Callbacks)},
+    case dict:is_key(MFA, Callbacks) of
+	true -> add_error(Line, {redefine_callback, MFA}, St1);
+	false -> check_specs(TypeSpecs, Arity, St1)
+    end.
+
 check_specs([FunType|Left], Arity, St0) ->
     {FunType1, CTypes} =
 	case FunType of
@@ -3275,6 +3315,8 @@ modify_line1({attribute,L,record,{Name,Fields}}, Mf) ->
     {attribute,Mf(L),record,{Name,modify_line1(Fields, Mf)}};
 modify_line1({attribute,L,spec,{Fun,Types}}, Mf) ->
     {attribute,Mf(L),spec,{Fun,modify_line1(Types, Mf)}};
+modify_line1({attribute,L,callback,{Fun,Types}}, Mf) ->
+    {attribute,Mf(L),callback,{Fun,modify_line1(Types, Mf)}};
 modify_line1({attribute,L,type,{TypeName,TypeDef,Args}}, Mf) ->
     {attribute,Mf(L),type,{TypeName,modify_line1(TypeDef, Mf),
 			   modify_line1(Args, Mf)}};

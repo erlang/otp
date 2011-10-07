@@ -20,24 +20,20 @@
 
 -module(inets_service).
 
--export([behaviour_info/1]).
-
-behaviour_info(callbacks) ->
-    [{start_standalone,         1}, 
-     {start_service,            1},
-     {stop_service,             1},
-     {services,                 0},
-     {service_info,             1}];
-behaviour_info(_) ->
-    undefined.
-
 %% Starts service stand-alone
 %% start_standalone(Config) ->  % {ok, Pid} | {error, Reason}
 %%    <service>:start_link(Config).
 
+-callback start_standalone(Config :: term()) ->
+    {ok, pid()} | {error, Reason :: term()}.
+
 %% Starts service as part of inets
 %% start_service(Config) -> % {ok, Pid} | {error, Reason}
 %%    <service_sup>:start_child(Config).
+
+-callback start_service(Config :: term()) ->
+    {ok, pid()} | {error, Reason :: term()}.
+
 %% Stop service
 %% stop_service(Pid) ->  % ok | {error, Reason}   
 %%   <service_sup>:stop_child(maybe_map_pid_to_other_ref(Pid)).
@@ -51,6 +47,9 @@ behaviour_info(_) ->
 %%            Error
 %%    end.
 
+-callback stop_service(Service :: term()) ->
+    ok | {error, Reason :: term()}.
+
 %% Returns list of running services. Services started as stand alone
 %% are not listed 
 %% services() -> % [{Service, Pid}] 
@@ -59,7 +58,12 @@ behaviour_info(_) ->
 %%   [{httpc, Pid} || {_, Pid, _, _} <- 
 %%			supervisor:which_children(httpc_profile_sup)].
 
+-callback services() ->
+    [{Service :: term(), pid()}].
 
-%% service_info() -> [{Property, Value}] | {error, Reason}
+%% service_info() -> {ok, [{Property, Value}]} | {error, Reason}
 %% ex: httpc:service_info() -> [{profile, ProfileName}] 
 %%     httpd:service_info() -> [{host, Host}, {port, Port}]
+
+-callback service_info(Service :: term()) ->
+    {ok, [{Property :: term(), Value :: term()}]} | {error, Reason :: term()}.
