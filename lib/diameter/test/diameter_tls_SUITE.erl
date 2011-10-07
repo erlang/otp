@@ -144,6 +144,11 @@ end_per_group(_, _) ->
     ok.
 
 init_per_suite(Config) ->
+    init(os:find_executable("openssl"), Config).
+
+init(false, _) ->
+    {skip, no_openssl};
+init(_, Config) ->
     ok = ssl:start(),
     ok = diameter:start(),
 
