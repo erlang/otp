@@ -41,6 +41,7 @@
 #include "erl_cpu_topology.h"
 #include "erl_thr_progress.h"
 #include "erl_thr_queue.h"
+#include "erl_async.h"
 
 #define ERTS_RUNQ_CHECK_BALANCE_REDS_PER_SCHED (2000*CONTEXT_REDS)
 #define ERTS_RUNQ_CALL_CHECK_BALANCE_REDS \
@@ -363,6 +364,12 @@ dbg_chk_aux_work_val(erts_aint32_t value)
 #endif
 #ifdef ERTS_SSI_AUX_WORK_MISC_THR_PRGR
     valid |= ERTS_SSI_AUX_WORK_MISC_THR_PRGR;
+#endif
+#ifdef ERTS_SSI_AUX_WORK_ASYNC_READY
+    valid |= ERTS_SSI_AUX_WORK_ASYNC_READY;
+#endif
+#ifdef ERTS_SSI_AUX_WORK_ASYNC_READY_CLEAN
+    valid |= ERTS_SSI_AUX_WORK_ASYNC_READY_CLEAN;
 #endif
 
 #ifdef ERTS_SSI_AUX_WORK_FIX_ALLOC_LOWER_LIM
@@ -870,6 +877,73 @@ erts_schedule_multi_misc_aux_work(int ignore_self,
    }
 }
 
+#if ERTS_USE_ASYNC_READY_Q
+
+void
+erts_notify_check_async_ready_queue(void *vno)
+{
+    int ix = ((int) (SWord) vno) -1;
+    set_aux_work_flags_wakeup_nob(ERTS_SCHED_SLEEP_INFO_IX(ix),
+				  ERTS_SSI_AUX_WORK_ASYNC_READY);
+}
+
+static erts_aint32_t
+handle_async_ready(ErtsAuxWorkData *awdp,
+		   erts_aint32_t aux_work)
+{
+    ErtsSchedulerSleepInfo *ssi = awdp->ssi;
+    unset_aux_work_flags(ssi, ERTS_SSI_AUX_WORK_ASYNC_READY);
+    if (erts_check_async_ready(awdp->async_ready.queue)) {
+	if (set_aux_work_flags(ssi, ERTS_SSI_AUX_WORK_ASYNC_READY)
+	    & ERTS_SSI_AUX_WORK_ASYNC_READY_CLEAN) {
+	    unset_aux_work_flags(ssi, ERTS_SSI_AUX_WORK_ASYNC_READY_CLEAN);
+	    aux_work &= ~ERTS_SSI_AUX_WORK_ASYNC_READY_CLEAN;
+	}
+	return aux_work;
+    }
+#ifdef ERTS_SMP
+    awdp->async_ready.need_thr_prgr = 0;
+#endif
+    set_aux_work_flags(ssi, ERTS_SSI_AUX_WORK_ASYNC_READY_CLEAN);
+    return ((aux_work & ~ERTS_SSI_AUX_WORK_ASYNC_READY)
+	    | ERTS_SSI_AUX_WORK_ASYNC_READY_CLEAN);
+}
+
+static erts_aint32_t
+handle_async_ready_clean(ErtsAuxWorkData *awdp,
+			 erts_aint32_t aux_work)
+{
+    void *thr_prgr_p;
+
+#ifdef ERTS_SMP
+    if (awdp->async_ready.need_thr_prgr
+	&& !erts_thr_progress_has_reached(awdp->misc.thr_prgr)) {
+	return aux_work & ~ERTS_SSI_AUX_WORK_ASYNC_READY_CLEAN;
+    }
+
+    awdp->async_ready.need_thr_prgr = 0;
+    thr_prgr_p = (void *) &awdp->async_ready.thr_prgr;
+#else
+    thr_prgr_p = NULL;
+#endif
+
+    switch (erts_async_ready_clean(awdp->async_ready.queue, thr_prgr_p)) {
+    case ERTS_ASYNC_READY_CLEAN:
+	unset_aux_work_flags(awdp->ssi, ERTS_SSI_AUX_WORK_ASYNC_READY_CLEAN);
+	return aux_work & ~ERTS_SSI_AUX_WORK_ASYNC_READY_CLEAN;
+#ifdef ERTS_SMP
+    case ERTS_ASYNC_READY_NEED_THR_PRGR:
+	erts_thr_progress_wakeup(awdp->esdp,
+				 awdp->async_ready.thr_prgr);
+	awdp->async_ready.need_thr_prgr = 1;
+#endif
+    default:
+	return aux_work;
+    }
+}
+
+#endif
+
 static erts_aint32_t
 handle_fix_alloc(ErtsAuxWorkData *awdp, erts_aint32_t aux_work)
 {
@@ -1108,6 +1182,16 @@ handle_aux_work(ErtsAuxWorkData *awdp, erts_aint32_t aux_work)
 	aux_work = handle_misc_aux_work(awdp, aux_work);
 	ERTS_DBG_CHK_AUX_WORK_VAL(aux_work);
     }
+#if ERTS_USE_ASYNC_READY_Q
+    if (aux_work & ERTS_SSI_AUX_WORK_ASYNC_READY) {
+	aux_work = handle_async_ready(awdp, aux_work);
+	ERTS_DBG_CHK_AUX_WORK_VAL(aux_work);
+    }
+    if (aux_work & ERTS_SSI_AUX_WORK_ASYNC_READY_CLEAN) {
+	aux_work = handle_async_ready_clean(awdp, aux_work);
+	ERTS_DBG_CHK_AUX_WORK_VAL(aux_work);
+    }
+#endif
 #ifdef ERTS_SMP_SCHEDULERS_NEED_TO_CHECK_CHILDREN
     if (aux_work & ERTS_SSI_AUX_WORK_CHECK_CHILDREN) {
 	aux_work = handle_check_children(awdp, aux_work);
@@ -3237,6 +3321,13 @@ init_aux_work_data(ErtsAuxWorkData *awdp, ErtsSchedulerData *esdp)
     awdp->dd.completed_callback = NULL;
     awdp->dd.completed_arg = NULL;
 #endif
+#ifdef ERTS_USE_ASYNC_READY_Q
+#ifdef ERTS_SMP
+    awdp->async_ready.need_thr_prgr = 0;
+    awdp->async_ready.thr_prgr = ERTS_THR_PRGR_VAL_WAITING;
+#endif
+    awdp->async_ready.queue = NULL;
+#endif
 }
 
 void
@@ -4447,6 +4538,9 @@ sched_thread_func(void *vesdp)
 #ifdef ERTS_SMP
 #if HAVE_ERTS_MSEG
     erts_mseg_late_init();
+#endif
+#if ERTS_USE_ASYNC_READY_Q
+    esdp->aux_work_data.async_ready.queue = erts_get_async_ready_queue(no);
 #endif
 
     erts_sched_init_check_cpu_bind(esdp);

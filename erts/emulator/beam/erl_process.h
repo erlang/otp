@@ -54,6 +54,7 @@ typedef struct process Process;
 #include "erl_atom_table.h"
 #include "external.h"
 #include "erl_mseg.h"
+#include "erl_async.h"
 
 #ifdef HIPE
 #include "hipe_process.h"
@@ -256,11 +257,13 @@ typedef enum {
 #endif
 #define ERTS_SSI_AUX_WORK_FIX_ALLOC_LOWER_LIM	(((erts_aint32_t) 1) << 4)
 #define ERTS_SSI_AUX_WORK_FIX_ALLOC_DEALLOC	(((erts_aint32_t) 1) << 5)
+#define ERTS_SSI_AUX_WORK_ASYNC_READY		(((erts_aint32_t) 1) << 6)
+#define ERTS_SSI_AUX_WORK_ASYNC_READY_CLEAN	(((erts_aint32_t) 1) << 7)
 #ifdef ERTS_SMP
-#define ERTS_SSI_AUX_WORK_DD			(((erts_aint32_t) 1) << 6)
-#define ERTS_SSI_AUX_WORK_DD_THR_PRGR		(((erts_aint32_t) 1) << 7)
+#define ERTS_SSI_AUX_WORK_DD			(((erts_aint32_t) 1) << 8)
+#define ERTS_SSI_AUX_WORK_DD_THR_PRGR		(((erts_aint32_t) 1) << 9)
 #endif
-#define ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK	(((erts_aint32_t) 1) << 8)
+#define ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK	(((erts_aint32_t) 1) << 10)
 
 #if !HAVE_ERTS_MSEG
 #  undef ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK
@@ -417,6 +420,15 @@ typedef struct {
 	void (*completed_callback)(void *);
 	void (*completed_arg)(void *);
     } dd;
+#endif
+#ifdef ERTS_USE_ASYNC_READY_Q
+    struct {
+#ifdef ERTS_SMP
+	int need_thr_prgr;
+	ErtsThrPrgrVal thr_prgr;
+#endif
+	void *queue;
+    } async_ready;
 #endif
 } ErtsAuxWorkData;
 
@@ -1100,6 +1112,9 @@ Eterm erts_multi_scheduling_blockers(Process *);
 void erts_start_schedulers(void);
 void erts_alloc_notify_delayed_dealloc(int);
 void erts_smp_notify_check_children_needed(void);
+#endif
+#if ERTS_USE_ASYNC_READY_Q
+void erts_notify_check_async_ready_queue(void *);
 #endif
 void erts_schedule_misc_aux_work(int sched_id,
 				 void (*func)(void *),

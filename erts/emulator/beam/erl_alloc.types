@@ -201,7 +201,7 @@ type	LINEBUF		STANDARD	SYSTEM		line_buf
 type	IOQ		STANDARD	SYSTEM		io_queue
 type	BITS_BUF	STANDARD	SYSTEM		bits_buf
 type	TMP_DIST_BUF	TEMPORARY	SYSTEM		tmp_dist_buf
-type	ASYNC_Q		LONG_LIVED	SYSTEM		async_queue
+type	ASYNC_DATA	LONG_LIVED	SYSTEM		internal_async_data
 type	ESTACK		TEMPORARY	SYSTEM		estack
 type	PORT_CALL_BUF	TEMPORARY	SYSTEM		port_call_buf
 type	DB_TABLE	ETS		ETS		db_tab
@@ -307,12 +307,6 @@ type	T_THR_PRGR_DATA	SHORT_LIVED	SYSTEM		temp_thr_prgr_data
 type	ETHR_STD	STANDARD	SYSTEM		ethread_standard
 type	ETHR_SL		SHORT_LIVED	SYSTEM		ethread_short_lived
 type	ETHR_LL		LONG_LIVED	SYSTEM		ethread_long_lived
-
-+ifnot smp
-
-type	ARCALLBACK	LONG_LIVED	SYSTEM		async_ready_callback
-
-+endif
 
 +endif
 

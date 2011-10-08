@@ -55,23 +55,31 @@ erts_sys_putenv(char *key_value, int sep_ix)
 }
 
 int
-erts_sys_getenv(char *key, char *value, size_t *size)
+erts_sys_getenv__(char *key, char *value, size_t *size)
 {
     size_t req_size = 0;
     int res = 0;
     DWORD new_size;
 
-    erts_smp_rwmtx_rlock(&environ_rwmtx);
     SetLastError(0);
     new_size = GetEnvironmentVariable((LPCTSTR) key,
 				      (LPTSTR) value,
 				      (DWORD) *size);
     res = !new_size && GetLastError() == ERROR_ENVVAR_NOT_FOUND ? -1 : 0;
-    erts_smp_rwmtx_runlock(&environ_rwmtx);
     if (res < 0)
 	return res;
     res = new_size > *size ? 1 : 0;
     *size = new_size;
+    return res;
+}
+
+int
+erts_sys_getenv(char *key, char *value, size_t *size)
+{
+    int res;
+    erts_smp_rwmtx_rlock(&environ_rwmtx);
+    res = erts_sys_getenv__(key, value, size);
+    erts_smp_rwmtx_runlock(&environ_rwmtx);
     return res;
 }
 

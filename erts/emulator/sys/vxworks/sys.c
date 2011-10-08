@@ -1520,6 +1520,12 @@ erts_sys_getenv(char *key, char *value, size_t *size)
     return res;
 }
 
+int
+erts_sys_getenv__(char *key, char *value, size_t *size)
+{
+    return erts_sys_getenv(key, value, size);
+}
+
 void
 sys_init_io(void)
 {

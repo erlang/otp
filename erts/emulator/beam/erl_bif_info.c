@@ -39,6 +39,7 @@
 #include "dist.h"
 #include "erl_gc.h"
 #include "erl_cpu_topology.h"
+#include "erl_async.h"
 #include "erl_thr_progress.h"
 #ifdef HIPE
 #include "hipe_arch.h"

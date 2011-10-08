@@ -42,6 +42,7 @@
 #include "erl_bits.h"
 #include "erl_version.h"
 #include "error.h"
+#include "erl_async.h"
 
 extern ErlDrvEntry fd_driver_entry;
 extern ErlDrvEntry vanilla_driver_entry;
@@ -4579,7 +4580,10 @@ int driver_lock_driver(ErlDrvPort ix)
 
     erts_smp_mtx_lock(&erts_driver_list_lock);
 
-    if (prt == NULL) return -1;
+    if (prt == NULL) {
+	erts_smp_mtx_unlock(&erts_driver_list_lock);
+	return -1;
+    }
 
     ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
     if ((dh = (DE_Handle*)prt->drv_ptr->handle ) == NULL) {

@@ -110,10 +110,6 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"fun_tab",				NULL			},
     {	"environ",				NULL			},
 #endif
-    {	"asyncq",				"address"		},
-#ifndef ERTS_SMP
-    {	"async_ready",				NULL			},
-#endif
     {	"efile_drv",				"address"		},
 #if defined(ENABLE_CHILD_WAITER_THREAD) || defined(ERTS_SMP)
     {	"child_status",				NULL			},
@@ -138,6 +134,7 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"alcu_init_atoms",			NULL			},
     {	"mseg_init_atoms",			NULL			},
     {	"drv_tsd",				NULL			},
+    {	"async_enq_mtx",			NULL			},
 #ifdef ERTS_SMP
     {	"sys_msg_q", 				NULL			},
     {	"atom_tab",				NULL			},
@@ -173,12 +170,12 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"timeofday",				NULL			},
     {	"breakpoints",				NULL			},
     {	"pollsets_lock",			NULL			},
-    {	"async_id",				NULL			},
     {	"pix_lock",				"address"		},
     {	"run_queues_lists",			NULL			},
     {	"sched_stat",				NULL			},
     {	"run_queue_sleep_list",			"address"		},
 #endif
+    {	"async_init_mtx",			NULL			},
 #ifdef ERTS_SMP
     {	"proc_lck_qs_alloc",			NULL 			},
 #endif

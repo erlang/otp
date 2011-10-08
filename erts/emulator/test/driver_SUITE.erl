@@ -76,7 +76,8 @@
 	 driver_select_use/1,
 	 thread_mseg_alloc_cache_clean/1,
 	 otp_9302/1,
-	 thr_free_drv/1]).
+	 thr_free_drv/1,
+	 async_blast/1]).
 
 -export([bin_prefix/2]).
 
@@ -145,7 +146,8 @@ all() ->
      smp_select, driver_select_use,
      thread_mseg_alloc_cache_clean,
      otp_9302,
-     thr_free_drv].
+     thr_free_drv,
+     async_blast].
 
 groups() -> 
     [{timer, [],
@@ -1911,17 +1913,30 @@ otp_9302(Config) when is_list(Config) ->
     ?line port_command(Port, ""),
     ?line {msg, block} = get_port_msg(Port, infinity),
     ?line {msg, job} = get_port_msg(Port, infinity),
-    ?line case erlang:system_info(thread_pool_size) of
-	      0 ->
-		  {msg, cancel} = get_port_msg(Port, infinity);
-	      _ ->
-		  ok
-	  end,
-    ?line {msg, job} = get_port_msg(Port, infinity),
+    ?line C = case erlang:system_info(thread_pool_size) of
+		  0 ->
+		      ?line {msg, cancel} = get_port_msg(Port, infinity),
+		      ?line {msg, job} = get_port_msg(Port, infinity),
+		      ?line false;
+		  _ ->
+		      case get_port_msg(Port, infinity) of
+			  {msg, cancel} -> %% Cancel always fail in Rel >= 15
+			      ?line {msg, job} = get_port_msg(Port, infinity),
+			      ?line false;
+			  {msg, job} ->
+			      ?line ok,
+			      ?line true
+		      end
+	      end,
     ?line {msg, end_of_jobs} = get_port_msg(Port, infinity),
     ?line no_msg = get_port_msg(Port, 2000),
     ?line port_close(Port),
-    ?line ok.
+    ?line case C of
+	      true ->
+		  ?line {comment, "Async job cancelled"};
+	      false ->
+		  ?line {comment, "Async job not cancelled"}
+	  end.
 
 thr_free_drv(Config) when is_list(Config) ->
     ?line Path = ?config(data_dir, Config),
@@ -1954,6 +1969,48 @@ thr_free_drv_control(Port, N) ->
 %	    io:format("N=~p, SID=~p", [N, erlang:system_info(scheduler_id)]),
 	    thr_free_drv_control(Port, N+1)
     end.
+	    
+async_blast(Config) when is_list(Config) ->
+    ?line Path = ?config(data_dir, Config),
+    ?line erl_ddll:start(),
+    ?line ok = load_driver(Path, async_blast_drv),
+    ?line SchedOnln = erlang:system_info(schedulers_online),
+    ?line MemBefore = driver_alloc_size(),
+    ?line Start = os:timestamp(),
+    ?line Blast = fun () ->
+			  Port = open_port({spawn, async_blast_drv}, []),
+			  true = is_port(Port),
+			  port_command(Port, ""),
+			  receive
+			      {Port, done} ->
+				  ok
+			  end,
+			  port_close(Port)
+		  end,
+    ?line Ps = lists:map(fun (N) ->
+				 spawn_opt(Blast,
+					   [{scheduler,
+					     (N rem SchedOnln)+ 1},
+					    monitor])
+			 end,
+			 lists:seq(1, 100)),
+    ?line MemMid = driver_alloc_size(),
+    ?line lists:foreach(fun ({Pid, Mon}) ->
+				receive
+				    {'DOWN',Mon,process,Pid,_} -> ok
+				end
+			end, Ps),
+    ?line End = os:timestamp(),
+    ?line MemAfter = driver_alloc_size(),
+    ?line io:format("MemBefore=~p, MemMid=~p, MemAfter=~p~n",
+		    [MemBefore, MemMid, MemAfter]),
+    ?line AsyncBlastTime = timer:now_diff(End,Start)/1000000,
+    ?line io:format("AsyncBlastTime=~p~n", [AsyncBlastTime]),
+    ?line MemBefore = MemAfter,
+    ?line erlang:display({async_blast_time, AsyncBlastTime}),
+    ?line ok.
+
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% 		Utilities

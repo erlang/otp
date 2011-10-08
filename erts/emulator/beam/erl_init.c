@@ -44,6 +44,7 @@
 #include "erl_cpu_topology.h"
 #include "erl_thr_progress.h"
 #include "erl_thr_queue.h"
+#include "erl_async.h"
 
 #ifdef HIPE
 #include "hipe_mode_switch.h"	/* for hipe_mode_switch_init() */
@@ -101,8 +102,6 @@ int erts_backtrace_depth;	/* How many functions to show in a backtrace
 				 * in error codes.
 				 */
 
-int erts_async_max_threads;  /* number of threads for async support */
-int erts_async_thread_suggested_stack_size;
 erts_smp_atomic32_t erts_max_gen_gcs;
 
 Eterm erts_error_logger_warnings; /* What to map warning logs to, am_error, 
@@ -279,6 +278,7 @@ erl_init(int ncpu)
     erts_init_node_tables();
     init_dist();
     erl_drv_thr_init();
+    erts_init_async();
     init_io();
     init_copy();
     init_load();
@@ -605,6 +605,8 @@ early_init(int *argc, char **argv) /*
     int max_main_threads;
     int max_reader_groups;
     int reader_groups;
+    char envbuf[21]; /* enough for any 64-bit integer */
+    size_t envbufsz;
 
     use_multi_run_queue = 1;
     erts_printf_eterm_func = erts_printf_term;
@@ -676,6 +678,16 @@ early_init(int *argc, char **argv) /*
     schdlrs = no_schedulers;
     schdlrs_onln = no_schedulers_online;
 
+    envbufsz = sizeof(envbuf);
+
+    /* erts_sys_getenv() not initialized yet; need erts_sys_getenv__() */
+    if (erts_sys_getenv__("ERL_THREAD_POOL_SIZE", envbuf, &envbufsz) == 0)
+	erts_async_max_threads = atoi(envbuf);
+    else
+	erts_async_max_threads = 0;
+    if (erts_async_max_threads > ERTS_MAX_NO_OF_ASYNC_THREADS)
+	erts_async_max_threads = ERTS_MAX_NO_OF_ASYNC_THREADS;
+
     if (argc && argv) {
 	int i = 1;
 	while (i < *argc) {
@@ -700,6 +712,20 @@ early_init(int *argc, char **argv) /*
 					 max_reader_groups);
 			    erts_usage();
 			}
+		    }
+		    break;
+		}
+		case 'A': {
+		    /* set number of threads in thread pool */
+		    char *arg = get_arg(argv[i]+2, argv[i+1], &i);
+		    if (((erts_async_max_threads = atoi(arg)) < 0) ||
+			(erts_async_max_threads > ERTS_MAX_NO_OF_ASYNC_THREADS)) {
+			erts_fprintf(stderr,
+				     "bad number of async threads %s\n",
+				     arg);
+			erts_usage();
+			VERBOSE(DEBUG_SYSTEM, ("using %d async-threads\n",
+					       erts_async_max_threads));
 		    }
 		    break;
 		}
@@ -783,9 +809,12 @@ early_init(int *argc, char **argv) /*
      * ** Aux thread (see erl_process.c)
      * ** Sys message dispatcher thread (see erl_trace.c)
      *
-     * * No unmanaged threads that need to register.
+     * * Unmanaged threads that need to register:
+     * ** Async threads (see erl_async.c)
      */
-    erts_thr_progress_init(no_schedulers, no_schedulers+1, 0);
+    erts_thr_progress_init(no_schedulers,
+			   no_schedulers+2,
+			   erts_async_max_threads);
 #endif
     erts_thr_q_init();
     erts_init_utils();
@@ -867,7 +896,6 @@ erl_start(int argc, char **argv)
     int have_break_handler = 1;
     char envbuf[21]; /* enough for any 64-bit integer */
     size_t envbufsz;
-    int async_max_threads = erts_async_max_threads;
     int ncpu = early_init(&argc, argv);
 
     envbufsz = sizeof(envbuf);
@@ -881,11 +909,6 @@ erl_start(int argc, char **argv)
 	Uint16 max_gen_gcs = atoi(envbuf);
 	erts_smp_atomic32_set_nob(&erts_max_gen_gcs,
 				  (erts_aint32_t) max_gen_gcs);
-    }
-
-    envbufsz = sizeof(envbuf);
-    if (erts_sys_getenv("ERL_THREAD_POOL_SIZE", envbuf, &envbufsz) == 0) {
-	async_max_threads = atoi(envbuf);
     }
 
 #if (defined(__APPLE__) && defined(__MACH__)) || defined(__DARWIN__)
@@ -1315,17 +1338,8 @@ erl_start(int argc, char **argv)
 	    break;
 	}
 
-	case 'A':
-	    /* set number of threads in thread pool */
-	    arg = get_arg(argv[i]+2, argv[i+1], &i);
-	    if (((async_max_threads = atoi(arg)) < 0) ||
-		(async_max_threads > ERTS_MAX_NO_OF_ASYNC_THREADS)) {
-		erts_fprintf(stderr, "bad number of async threads %s\n", arg);
-		erts_usage();
-	    }
-
-	    VERBOSE(DEBUG_SYSTEM, ("using %d async-threads\n",
-				   async_max_threads));
+	case 'A': /* Was handled in early init just read past it */
+	    (void) get_arg(argv[i]+2, argv[i+1], &i);
 	    break;
 
 	case 'a':
@@ -1414,10 +1428,6 @@ erl_start(int argc, char **argv)
 	i++;
     }
 
-#ifdef USE_THREADS
-    erts_async_max_threads = async_max_threads;
-#endif
-
     /* Delayed check of +P flag */
     if (erts_max_processes < ERTS_MIN_PROCESSES
 	|| erts_max_processes > ERTS_MAX_PROCESSES
@@ -1463,6 +1473,10 @@ erl_start(int argc, char **argv)
     erts_sys_main_thread(); /* May or may not return! */
 #else
     erts_thr_set_main_status(1, 1);
+#if ERTS_USE_ASYNC_READY_Q
+    erts_get_scheduler_data()->aux_work_data.async_ready.queue
+	= erts_get_async_ready_queue(1);
+#endif
     set_main_stack_size();
     process_main();
 #endif
@@ -1535,14 +1549,7 @@ system_cleanup(int exit_code)
     erts_cleanup_incgc();
 #endif
 
-#if defined(USE_THREADS)
-    exit_async();
-#endif
-
-    /*
-     * A lot more cleaning could/should have been done...
-     */
-
+    erts_exit_flush_async();
 }
 
 /*

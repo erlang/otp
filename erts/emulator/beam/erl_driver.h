@@ -28,6 +28,14 @@
 #  include "config.h"
 #endif
 
+#define ERL_DRV_DEPRECATED_FUNC
+#ifdef __GNUC__
+#  if __GNUC__ >= 3
+#    undef ERL_DRV_DEPRECATED_FUNC
+#    define ERL_DRV_DEPRECATED_FUNC __attribute__((deprecated))
+#  endif
+#endif
+
 #ifdef SIZEOF_CHAR
 #  define SIZEOF_CHAR_SAVED__ SIZEOF_CHAR
 #  undef SIZEOF_CHAR
@@ -582,8 +590,11 @@ EXTERN long driver_async(ErlDrvPort ix,
 			 void* async_data,
 			 void (*async_free)(void*));
 
-
-EXTERN int driver_async_cancel(unsigned int key);
+/*
+ * driver_async_cancel() is deprecated. It is scheduled for removal
+ * in OTP-R16. For more information see the erl_driver(3) documentation.
+ */
+EXTERN int driver_async_cancel(unsigned int key) ERL_DRV_DEPRECATED_FUNC;
 
 /* Locks the driver in the machine "forever", there is
    no unlock function. Note that this is almost never useful, as an open
