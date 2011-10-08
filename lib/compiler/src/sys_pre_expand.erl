@@ -31,8 +31,6 @@
 -import(ordsets, [from_list/1,add_element/2,union/2]).
 -import(lists,   [member/2,foldl/3,foldr/3]).
 
--compile({nowarn_deprecated_function, {erlang,hash,2}}).
-
 -include("../include/erl_bits.hrl").
 
 -record(expand, {module=[],                     %Module name
@@ -49,7 +47,6 @@
                  func=[],                       %Current function
                  arity=[],                      %Arity for current function
                  fcount=0,                      %Local fun count
-                 fun_index=0,                   %Global index for funs
                  bitdefault,
                  bittypes
                 }).
@@ -542,28 +539,26 @@ lc_tq(_Line, [], St0) ->
 %% "Implicit" funs {'fun', Line, {function, F, A}} are not changed.
 
 fun_tq(Lf, {function,F,A}=Function, St0) ->
-    {As,St1} = new_vars(A, Lf, St0),
-    Cs = [{clause,Lf,As,[],[{call,Lf,{atom,Lf,F},As}]}],
     case erl_internal:bif(F, A) of
         true ->
+	    {As,St1} = new_vars(A, Lf, St0),
+	    Cs = [{clause,Lf,As,[],[{call,Lf,{atom,Lf,F},As}]}],
             fun_tq(Lf, {clauses,Cs}, St1);
         false ->
-            Index = St0#expand.fun_index,
-            Uniq = erlang:hash(Cs, (1 bsl 27)-1),
-            {Fname,St2} = new_fun_name(St1),
-            {{'fun',Lf,Function,{Index,Uniq,Fname}},
-             St2#expand{fun_index=Index+1}}
+            {Fname,St1} = new_fun_name(St0),
+            Index = Uniq = 0,
+            {{'fun',Lf,Function,{Index,Uniq,Fname}},St1}
     end;
 fun_tq(L, {function,M,F,A}, St) ->
     {{call,L,{remote,L,{atom,L,erlang},{atom,L,make_fun}},
       [{atom,L,M},{atom,L,F},{integer,L,A}]},St};
 fun_tq(Lf, {clauses,Cs0}, St0) ->
-    Uniq = erlang:hash(Cs0, (1 bsl 27)-1),
     {Cs1,St1} = fun_clauses(Cs0, St0),
-    Index = St1#expand.fun_index,
     {Fname,St2} = new_fun_name(St1),
-    {{'fun',Lf,{clauses,Cs1},{Index,Uniq,Fname}},
-     St2#expand{fun_index=Index+1}}.
+    %% Set dummy values for Index and Uniq -- the real values will
+    %% be assigned by beam_asm.
+    Index = Uniq = 0,
+    {{'fun',Lf,{clauses,Cs1},{Index,Uniq,Fname}},St2}.
 
 fun_clauses([{clause,L,H0,G0,B0}|Cs0], St0) ->
     {H,St1} = head(H0, St0),
