@@ -176,8 +176,6 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"async_id",				NULL			},
     {	"pix_lock",				"address"		},
     {	"run_queues_lists",			NULL			},
-    {	"misc_aux_work_queue",			"index"			},
-    {	"misc_aux_work_pre_alloc_lock",		"address"		},
     {	"sched_stat",				NULL			},
     {	"run_queue_sleep_list",			"address"		},
 #endif

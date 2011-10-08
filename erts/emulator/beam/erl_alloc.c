@@ -3075,10 +3075,10 @@ erts_request_alloc_info(struct process *c_p,
 
 #ifdef ERTS_SMP
     if (erts_no_schedulers > 1)
-	erts_smp_schedule_misc_aux_work(1,
-					erts_no_schedulers,
-					reply_alloc_info,
-					(void *) air);
+	erts_schedule_multi_misc_aux_work(1,
+					  erts_no_schedulers,
+					  reply_alloc_info,
+					  (void *) air);
 #endif
 
     reply_alloc_info((void *) air);
