@@ -43,6 +43,7 @@
 #include "packet_parser.h"
 #include "erl_cpu_topology.h"
 #include "erl_thr_progress.h"
+#include "erl_thr_queue.h"
 
 #ifdef HIPE
 #include "hipe_mode_switch.h"	/* for hipe_mode_switch_init() */
@@ -786,6 +787,7 @@ early_init(int *argc, char **argv) /*
      */
     erts_thr_progress_init(no_schedulers, no_schedulers+1, 0);
 #endif
+    erts_thr_q_init();
     erts_init_utils();
     erts_early_init_cpu_topology(no_schedulers,
 				 &max_main_threads,

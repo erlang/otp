@@ -50,6 +50,15 @@
 #   command line argument to make_alloc_types. The variable X is false
 #   after a "+disable X" statement or if it has never been mentioned.
 
++if smp
++disable threads_no_smp
++else
++if threads
++enable threads_no_smp
++else
++disable threads_no_smp
++endif
++endif
 
 # --- Allocator declarations -------------------------------------------------
 #
@@ -253,6 +262,19 @@ type	EXT_TERM_DATA	SHORT_LIVED	PROCESSES	external_term_data
 type	ZLIB		STANDARD	SYSTEM		zlib
 type	CPU_GRPS_MAP	LONG_LIVED	SYSTEM		cpu_groups_map
 type	AUX_WORK_TMO	LONG_LIVED	SYSTEM		aux_work_timeouts
+
++if threads_no_smp
+# Need thread safe allocs, but std_alloc and fix_alloc are not;
+# use driver_alloc which is...
+type	THR_Q_EL	DRIVER 	   	SYSTEM		thr_q_element
+type	THR_Q_EL_SL	DRIVER		SYSTEM		sl_thr_q_element
++else
+type	THR_Q_EL	STANDARD   	SYSTEM		thr_q_element
+type	THR_Q_EL_SL	FIXED_SIZE	SYSTEM		sl_thr_q_element
++endif
+type	THR_Q		STANDARD	SYSTEM		thr_queue
+type	THR_Q_SL	SHORT_LIVED	SYSTEM		short_lived_thr_queue
+type	THR_Q_LL	LONG_LIVED	SYSTEM		long_lived_thr_queue
 
 +if smp
 type	ASYNC		SHORT_LIVED	SYSTEM		async
