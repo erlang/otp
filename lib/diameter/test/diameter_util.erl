@@ -33,9 +33,9 @@
 %% diameter-specific
 -export([lport/2,
          lport/3,
-         service/1,
          listen/2,
-         connect/3]).
+         connect/3,
+         disconnect/4]).
 
 %% common_test-specific
 -export([write_priv/3,
@@ -254,27 +254,12 @@ lp(M, Ref, T) ->
     end.
 
 %% ---------------------------------------------------------------------------
-%% service/1
-%%
-%% Start a new diameter service and return its generated name.
-
-service(Opts) ->
-    Name = make_ref(),
-
-    case diameter:start_service(Name, Opts) of
-        ok ->
-            {ok, Name};
-        {error, _} = No ->
-            No
-    end.
-
-%% ---------------------------------------------------------------------------
 %% listen/2
 %%
 %% Add a listening transport on the loopback address and a free port.
 
 listen(SvcName, Prot) ->
-    add_transport(SvcName, {listen, transport(Prot, listen)}).
+    add_transport(SvcName, {listen, opts(Prot, listen)}).
 
 %% ---------------------------------------------------------------------------
 %% connect/3
@@ -282,15 +267,31 @@ listen(SvcName, Prot) ->
 %% Add a connecting transport on and connect to a listening transport
 %% with the specified reference.
 
-connect(SvcName, Prot, LRef) ->
-    [PortNr] = lport(Prot, LRef),
-    Ref = add_transport(SvcName, {connect, transport(Prot, PortNr)}),
-    true = diameter:subscribe(SvcName),
-    receive
-        {diameter_event, SvcName, {up, Ref, _, _, _}} -> Ref
-    after 2000 ->
-            error({up, SvcName, Prot, PortNr})
-    end.
+connect(Client, Prot, LRef) ->
+    [PortNr] = lport(Prot, LRef, 20),
+    Ref = add_transport(Client, {connect, opts(Prot, PortNr)}),
+    true = diameter:subscribe(Client),
+    ok = receive
+             {diameter_event, Client, {up, Ref, _, _, _}} -> ok
+         after 2000 ->
+                 {Client, Prot, PortNr, process_info(self(), messages)}
+         end,
+    Ref.
+
+%% ---------------------------------------------------------------------------
+%% disconnect/4
+%%
+%% Remove the client transport and expect the server transport to go
+%% down.
+
+disconnect(Client, Ref, Server, LRef) ->
+    true = diameter:subscribe(Server),
+    ok = diameter:remove_transport(Client, Ref),
+    ok = receive
+             {diameter_event, Server, {down, LRef, _, _}} -> ok
+         after 2000 ->
+                 {Client, Ref, Server, LRef, process_info(self(), messages)}
+         end.
 
 %% ---------------------------------------------------------------------------
 
@@ -304,14 +305,6 @@ tmod(tcp) ->
     diameter_tcp;
 tmod(sctp) ->
     diameter_sctp.
-
-transport(Prot, T) ->
-    {tag(T), opts(Prot, T)}.
-
-tag(listen = T) ->
-    T;
-tag(_PortNr) ->
-    connect.
 
 opts(Prot, T) ->
     [{transport_module, tmod(Prot)},
