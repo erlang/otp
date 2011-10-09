@@ -158,9 +158,9 @@ i({listen, LRef, APid, {Mod, Opts, Addrs}}) ->
     LAddr = get_addr(LA, Addrs),
     LPort = get_port(LP),
     {ok, LSock} = Mod:listen(LPort, gen_opts(LAddr, Rest)),
+    true = diameter_reg:add_new({?MODULE, listener, {LRef, {LAddr, LSock}}}),
     proc_lib:init_ack({ok, self(), {LAddr, LSock}}),
     erlang:monitor(process, APid),
-    true = diameter_reg:add_new({?MODULE, listener, {LRef, {LAddr, LSock}}}),
     start_timer(#listener{socket = LSock}).
 
 ssl(Opts) ->
