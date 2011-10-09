@@ -32,14 +32,19 @@
 
 %% diameter-specific
 -export([lport/2,
-         lport/3]).
+         lport/3,
+         service/1,
+         listen/2,
+         connect/3]).
 
 %% common_test-specific
 -export([write_priv/3,
-         read_priv/2]).
+         read_priv/2,
+         map_priv/3]).
 
 -define(L, atom_to_list).
 
+%% ---------------------------------------------------------------------------
 %% consult/2
 %%
 %% Extract info from the app/appup file (presumably) of the named
@@ -64,6 +69,7 @@ consult(Path) ->
 %% Name/Path in the return value distinguish the errors and allow for
 %% a useful badmatch.
 
+%% ---------------------------------------------------------------------------
 %% run/1
 %%
 %% Evaluate functions in parallel and return a list of those that
@@ -79,6 +85,7 @@ cons(true, _, _, Acc) ->
 cons(false, F, RC, Acc) ->
     [{F, RC} | Acc].
 
+%% ---------------------------------------------------------------------------
 %% fold/3
 %%
 %% Parallel fold. Results are folded in the order received.
@@ -124,6 +131,7 @@ down(MRef) ->
 down() ->
     receive {'DOWN', MRef, process, _, Reason} -> {MRef, Reason} end.
 
+%% ---------------------------------------------------------------------------
 %% foldl/3
 %%
 %% Parallel fold. Results are folded in order of the function list.
@@ -139,6 +147,7 @@ recvl([{MRef, F} | L], Ref, Fun, Acc) ->
     R = down(MRef),
     recvl(L, Ref, Fun, acc(R, Ref, F, Fun, Acc)).
 
+%% ---------------------------------------------------------------------------
 %% scramble/1
 %%
 %% Sort a list into random order.
@@ -158,7 +167,10 @@ s(Acc, L) ->
     {H, [T|Rest]} = lists:split(random:uniform(length(L)) - 1, L),
     s([T|Acc], H ++ Rest).
 
+%% ---------------------------------------------------------------------------
 %% eval/1
+%%
+%% Evaluate a function in one of a number of forms.
 
 eval({M,[F|A]})
   when is_atom(F) ->
@@ -179,7 +191,52 @@ eval(F)
   when is_function(F,0) ->
     F().
 
+%% ---------------------------------------------------------------------------
+%% write_priv/3
+%%
+%% Write an arbitrary term to a named file.
+
+write_priv(Config, Name, Term) ->
+    write(path(Config, Name), Term).
+
+write(Path, Term) ->
+    ok = file:write_file(Path, term_to_binary(Term)).
+
+%% read_priv/2
+%%
+%% Read a term from a file.
+
+read_priv(Config, Name) ->
+    read(path(Config, Name)).
+
+read(Path) ->
+    {ok, Bin} = file:read_file(Path),
+    binary_to_term(Bin).
+    
+%% map_priv/3
+%%
+%% Modify a term in a file and return both old and new values.
+
+map_priv(Config, Name, Fun1) ->
+    map(path(Config, Name), Fun1).
+
+map(Path, Fun1) ->
+    T0 = read(Path),
+    T1 = Fun1(T0),
+    write(Path, T1),
+    {T0, T1}.
+
+path(Config, Name)
+  when is_atom(Name) ->
+    path(Config, ?L(Name));
+path(Config, Name) ->
+    Dir = proplists:get_value(priv_dir, Config),
+    filename:join([Dir, Name]).
+
+%% ---------------------------------------------------------------------------
 %% lport/2-3
+%%
+%% Lookup the port number of a tcp/sctp listening transport.
 
 lport(M, Ref) ->
     lport(M, Ref, 1).
@@ -187,9 +244,6 @@ lport(M, Ref) ->
 lport(M, Ref, Tries) ->
     lp(tmod(M), Ref, Tries).
 
-tmod(sctp) -> diameter_sctp;
-tmod(tcp)  -> diameter_tcp.
-    
 lp(M, Ref, T) ->
     L = [N || {listen, N, _} <- M:ports(Ref)],
     if [] /= L orelse T =< 1 ->
@@ -199,17 +253,71 @@ lp(M, Ref, T) ->
             lp(M, Ref, T-1)
     end.
 
-%% write_priv/3
+%% ---------------------------------------------------------------------------
+%% service/1
+%%
+%% Start a new diameter service and return its generated name.
 
-write_priv(Config, Name, Term) ->
-    Dir = proplists:get_value(priv_dir, Config),
-    Path = filename:join([Dir, Name]),
-    ok = file:write_file(Path, term_to_binary(Term)).
+service(Opts) ->
+    Name = make_ref(),
 
-%% read_priv/2
+    case diameter:start_service(Name, Opts) of
+        ok ->
+            {ok, Name};
+        {error, _} = No ->
+            No
+    end.
 
-read_priv(Config, Name) ->
-    Dir = proplists:get_value(priv_dir, Config),
-    Path = filename:join([Dir, Name]),
-    {ok, Bin} = file:read_file(Path),
-    binary_to_term(Bin).
+%% ---------------------------------------------------------------------------
+%% listen/2
+%%
+%% Add a listening transport on the loopback address and a free port.
+
+listen(SvcName, Prot) ->
+    add_transport(SvcName, {listen, transport(Prot, listen)}).
+
+%% ---------------------------------------------------------------------------
+%% connect/3
+%%
+%% Add a connecting transport on and connect to a listening transport
+%% with the specified reference.
+
+connect(SvcName, Prot, LRef) ->
+    [PortNr] = lport(Prot, LRef),
+    Ref = add_transport(SvcName, {connect, transport(Prot, PortNr)}),
+    true = diameter:subscribe(SvcName),
+    receive
+        {diameter_event, SvcName, {up, Ref, _, _, _}} -> Ref
+    after 2000 ->
+            error({up, SvcName, Prot, PortNr})
+    end.
+
+%% ---------------------------------------------------------------------------
+
+-define(ADDR, {127,0,0,1}).
+
+add_transport(SvcName, T) ->
+    {ok, Ref} = diameter:add_transport(SvcName, T),
+    Ref.
+
+tmod(tcp) ->
+    diameter_tcp;
+tmod(sctp) ->
+    diameter_sctp.
+
+transport(Prot, T) ->
+    {tag(T), opts(Prot, T)}.
+
+tag(listen = T) ->
+    T;
+tag(_PortNr) ->
+    connect.
+
+opts(Prot, T) ->
+    [{transport_module, tmod(Prot)},
+     {transport_config, [{ip, ?ADDR}, {port, 0} | opts(T)]}].
+
+opts(listen) ->
+    [];
+opts(PortNr) ->
+    [{raddr, ?ADDR}, {rport, PortNr}].
