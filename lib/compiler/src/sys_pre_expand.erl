@@ -535,7 +535,6 @@ lc_tq(_Line, [], St0) ->
 %% Transform an "explicit" fun {'fun', Line, {clauses, Cs}} into an
 %% extended form {'fun', Line, {clauses, Cs}, Info}, unless it is the
 %% name of a BIF (erl_lint has checked that it is not an import).
-%% Process the body sequence directly to get the new and used variables.
 %% "Implicit" funs {'fun', Line, {function, F, A}} are not changed.
 
 fun_tq(Lf, {function,F,A}=Function, St0) ->
