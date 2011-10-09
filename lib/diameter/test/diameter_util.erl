@@ -23,12 +23,19 @@
 %% Utility functions.
 %%
 
+%% generic
 -export([consult/2,
          run/1,
          fold/3,
          foldl/3,
-         scramble/1,
-         write_priv/3,
+         scramble/1]).
+
+%% diameter-specific
+-export([lport/2,
+         lport/3]).
+
+%% common_test-specific
+-export([write_priv/3,
          read_priv/2]).
 
 -define(L, atom_to_list).
@@ -171,6 +178,26 @@ eval(L)
 eval(F)
   when is_function(F,0) ->
     F().
+
+%% lport/2-3
+
+lport(M, Ref) ->
+    lport(M, Ref, 1).
+
+lport(M, Ref, Tries) ->
+    lp(tmod(M), Ref, Tries).
+
+tmod(sctp) -> diameter_sctp;
+tmod(tcp)  -> diameter_tcp.
+    
+lp(M, Ref, T) ->
+    L = [N || {listen, N, _} <- M:ports(Ref)],
+    if [] /= L orelse T =< 1 ->
+            L;
+       true ->
+            receive after 50 -> ok end,
+            lp(M, Ref, T-1)
+    end.
 
 %% write_priv/3
 

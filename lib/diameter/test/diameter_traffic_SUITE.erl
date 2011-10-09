@@ -253,21 +253,6 @@ tc() ->
      send_multiple_filters_3,
      send_anything].
 
-portnr() ->
-    portnr(20).
-
-portnr(N)
-  when 0 < N ->
-    case diameter_reg:match({diameter_tcp, listener, '_'}) of
-        [{T, _Pid}] ->
-            {_, _, {_LRef, {_Addr, LSock}}} = T,
-            {ok, PortNr} = inet:port(LSock),
-            PortNr;
-        [] ->
-            receive after 50 -> ok end,
-            portnr(N-1)
-    end.
-
 %% ===========================================================================
 %% start/stop testcases
 
@@ -281,7 +266,8 @@ start_services(_Config) ->
 add_transports(Config) ->
     {ok, LRef} = diameter:add_transport(?SERVER, ?LISTEN),
     true = diameter:subscribe(?CLIENT),
-    {ok, CRef} = diameter:add_transport(?CLIENT, ?CONNECT(portnr())),
+    [PortNr] = ?util:lport(tcp, LRef, 20),
+    {ok, CRef} = diameter:add_transport(?CLIENT, ?CONNECT(PortNr)),
     {up, CRef, _Peer, _Cfg, #diameter_packet{}}
         = receive #diameter_event{service = ?CLIENT, info = I} -> I
           after 2000 -> false

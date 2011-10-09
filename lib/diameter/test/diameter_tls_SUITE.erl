@@ -351,7 +351,7 @@ join(Strs) ->
 server(Host, {Caps, Opts}) ->
     ok = diameter:start_service(Host, ?SERVICE(Host, ?DICT_COMMON)),
     {ok, LRef} = diameter:add_transport(Host, ?LISTEN(Caps, Opts)),
-    {LRef, portnr(LRef)}.
+    {LRef, hd([_] = ?util:lport(tcp, LRef, 20))}.
 
 sopts(?SERVER1, Dir) ->
     {inband_security([?TLS]),
@@ -368,32 +368,6 @@ sopts(?SERVER5, Dir) ->
 
 ssl([{ssl_options = T, Opts}]) ->
     [{T, true} | Opts].
-
-portnr(LRef) ->
-    portnr(LRef, 20).
-
-portnr(LRef, N)
-  when 0 < N ->
-    case diameter_reg:match({diameter_tcp, listener, {LRef, '_'}}) of
-        [{T, _Pid}] ->
-            {_, _, {LRef, {_Addr, LSock}}} = T,
-            {ok, PortNr} = to_portnr(LSock) ,
-            PortNr;
-        [] ->
-            receive after 500 -> ok end,
-            portnr(LRef, N-1)
-    end.
-
-to_portnr(Sock)
-  when is_port(Sock) ->
-    inet:port(Sock);
-to_portnr(Sock) ->
-    case ssl:sockname(Sock) of
-        {ok, {_,N}} ->
-            {ok, N};
-        No ->
-            No
-    end.
 
 %% connect/3
 

@@ -269,22 +269,7 @@ realm(Host) ->
 server(Host, Dict) ->
     ok = diameter:start_service(Host, ?SERVICE(Host, Dict)),
     {ok, LRef} = diameter:add_transport(Host, ?LISTEN),
-    {LRef, portnr(LRef)}.
-
-portnr(LRef) ->
-    portnr(LRef, 20).
-
-portnr(LRef, N)
-  when 0 < N ->
-    case diameter_reg:match({diameter_tcp, listener, {LRef, '_'}}) of
-        [{T, _Pid}] ->
-            {_, _, {LRef, {_Addr, LSock}}} = T,
-            {ok, PortNr} = inet:port(LSock),
-            PortNr;
-        [] ->
-            receive after 50 -> ok end,
-            portnr(LRef, N-1)
-    end.
+    {LRef, hd([_] = ?util:lport(tcp, LRef, 20))}.
 
 connect(Host, {_LRef, PortNr}) ->
     {ok, Ref} = diameter:add_transport(Host, ?CONNECT(PortNr)),
