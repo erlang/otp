@@ -1568,8 +1568,10 @@ repair(Config, V) ->
     ?line FileSize = dets:info(TabRef, memory),
     ?line ok = dets:close(TabRef),
     crash(Fname, FileSize+20),
-    ?line {error, {bad_freelists, Fname}} = 
+    %% Used to return bad_freelists, but that changed in OTP-9622
+    ?line {ok, TabRef} =
 	dets:open_file(TabRef, [{file,Fname},{version,V}]),
+    ?line ok = dets:close(TabRef),
     ?line file:delete(Fname),
 
     %% File not closed, opening with read and read_write access tried.
