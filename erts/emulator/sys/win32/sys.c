@@ -3384,7 +3384,7 @@ erl_sys_schedule(int runnable)
 {
 #ifdef ERTS_SMP
     erts_check_io(!runnable);
-    ERTS_SMP_LC_ASSERT(!ERTS_LC_IS_BLOCKING);
+    ERTS_SMP_LC_ASSERT(!erts_thr_progress_is_blocking());
 #else
     if (runnable) {
 	erts_check_io(0);	/* Poll for I/O */

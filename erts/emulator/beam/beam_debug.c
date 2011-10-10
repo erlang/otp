@@ -37,6 +37,7 @@
 #include "beam_load.h"
 #include "beam_bp.h"
 #include "erl_binary.h"
+#include "erl_thr_progress.h"
 
 #ifdef ARCH_64
 # define HEXF "%016bpX"
@@ -107,7 +108,7 @@ erts_debug_breakpoint_2(Process* p, Eterm MFA, Eterm bool)
     }
 
     erts_smp_proc_unlock(p, ERTS_PROC_LOCK_MAIN);
-    erts_smp_block_system(0);
+    erts_smp_thr_progress_block();
 
     if (bool == am_true) {
 	res = make_small(erts_set_debug_break(mfa, specified));
@@ -115,7 +116,7 @@ erts_debug_breakpoint_2(Process* p, Eterm MFA, Eterm bool)
 	res = make_small(erts_clear_debug_break(mfa, specified));
     }
 
-    erts_smp_release_system();
+    erts_smp_thr_progress_unblock();
     erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
 
     return res;

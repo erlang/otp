@@ -33,6 +33,7 @@
 #include "beam_catches.h"
 #include "erl_binary.h"
 #include "erl_nif.h"
+#include "erl_thr_progress.h"
 
 static void set_default_trace_pattern(Eterm module);
 static Eterm check_process_code(Process* rp, Module* modp);
@@ -64,7 +65,7 @@ load_module_2(BIF_ALIST_2)
 	goto error;
     }
     erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-    erts_smp_block_system(0);
+    erts_smp_thr_progress_block();
 
     erts_export_consolidate();
 
@@ -103,7 +104,7 @@ load_module_2(BIF_ALIST_2)
 
  done:
     erts_free_aligned_binary_bytes(temp_alloc);
-    erts_smp_release_system();
+    erts_smp_thr_progress_unblock();
     erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 
     BIF_RET(res);
@@ -118,12 +119,12 @@ BIF_RETTYPE purge_module_1(BIF_ALIST_1)
     }
 
     erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-    erts_smp_block_system(0);
+    erts_smp_thr_progress_block();
 
     erts_export_consolidate();
     purge_res = purge_module(atom_val(BIF_ARG_1));
 
-    erts_smp_release_system();
+    erts_smp_thr_progress_unblock();
     erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 
     if (purge_res < 0) {
@@ -152,12 +153,12 @@ BIF_RETTYPE code_make_stub_module_3(BIF_ALIST_3)
     Eterm res;
 
     erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-    erts_smp_block_system(0);
+    erts_smp_thr_progress_block();
 
     erts_export_consolidate();
     res = erts_make_stub_module(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
 
-    erts_smp_release_system();
+    erts_smp_thr_progress_unblock();
     erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
     return res;
 }
@@ -239,7 +240,7 @@ BIF_RETTYPE delete_module_1(BIF_ALIST_1)
 	goto badarg;
 
     erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-    erts_smp_block_system(0);
+    erts_smp_thr_progress_block();
 
     {
 	Module *modp = erts_get_module(BIF_ARG_1);
@@ -260,7 +261,7 @@ BIF_RETTYPE delete_module_1(BIF_ALIST_1)
 	}
     }
 
-    erts_smp_release_system();
+    erts_smp_thr_progress_unblock();
     erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 
     if (res == am_badarg) {
@@ -352,7 +353,7 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
     }
 
     erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-    erts_smp_block_system(0);
+    erts_smp_thr_progress_block();
 
     if (BIF_ARG_2 == am_true) {
 	int i;
@@ -391,7 +392,7 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 	modp->catches = BEAM_CATCHES_NIL;
 	remove_from_address_table(code);
     }
-    erts_smp_release_system();
+    erts_smp_thr_progress_unblock();
     erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
     BIF_RET(am_true);
 }
@@ -728,10 +729,10 @@ delete_code(Process *c_p, ErtsProcLocks c_p_locks, Module* modp)
     if (modp->code != NULL && modp->code[MI_NUM_BREAKPOINTS] > 0) {
 	if (c_p && c_p_locks)
 	    erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
-	erts_smp_block_system(0);
+	erts_smp_thr_progress_block();
 	erts_clear_module_break(modp);
 	modp->code[MI_NUM_BREAKPOINTS] = 0;
-	erts_smp_release_system();
+	erts_smp_thr_progress_unblock();
 	if (c_p && c_p_locks)
 	    erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
     }

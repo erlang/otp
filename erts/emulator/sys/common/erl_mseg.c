@@ -38,6 +38,7 @@
 #include "erl_time.h"
 #include "erl_alloc.h"
 #include "big.h"
+#include "erl_thr_progress.h"
 
 #if HAVE_ERTS_MSEG
 
@@ -450,14 +451,12 @@ mseg_recreate(ErtsMsegAllctr_t *ma, MemKind* mk, void *old_seg, Uint old_size, U
 do {									\
     if ((MA)->is_thread_safe)						\
 	ERTS_LC_ASSERT(erts_lc_mtx_is_locked(&(MA)->mtx)		\
-		       || erts_smp_is_system_blocked(0)			\
-		       || (ERTS_IS_CRASH_DUMPING			\
-			   && erts_smp_is_system_blocked(ERTS_BS_FLG_ALLOW_GC)));\
+		       || erts_smp_thr_progress_is_blocking()		\
+		       || ERTS_IS_CRASH_DUMPING);			\
     else								\
 	ERTS_LC_ASSERT((MA)->ix == (int) erts_get_scheduler_id()	\
-		       || erts_smp_is_system_blocked(0)			\
-		       || (ERTS_IS_CRASH_DUMPING			\
-			   && erts_smp_is_system_blocked(ERTS_BS_FLG_ALLOW_GC)));\
+		       || erts_smp_thr_progress_is_blocking()		\
+		       || ERTS_IS_CRASH_DUMPING);			\
 } while (0)
 #define ERTS_DBG_MK_CHK_THR_ACCESS(MK) \
   ERTS_DBG_MA_CHK_THR_ACCESS((MK)->ma)

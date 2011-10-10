@@ -41,6 +41,7 @@
 #include "bif.h"
 #include "external.h"
 #include "erl_binary.h"
+#include "erl_thr_progress.h"
 
 /* Turn this on to get printouts of all distribution messages
  * which go on the line
@@ -430,11 +431,11 @@ int erts_do_net_exits(DistEntry *dep, Eterm reason)
 	erts_smp_rwmtx_rwunlock(&erts_dist_table_rwmtx);
 
 	nodename = erts_this_dist_entry->sysname;
-	erts_smp_block_system(ERTS_BS_FLG_ALLOW_GC);
+	erts_smp_thr_progress_block();
 	erts_set_this_node(am_Noname, 0);
 	erts_is_alive = 0;
 	send_nodes_mon_msgs(NULL, am_nodedown, nodename, am_visible, nd_reason);
-	erts_smp_release_system();
+	erts_smp_thr_progress_unblock();
 
     }
     else { /* recursive call via erts_do_exit_port() will end up here */
@@ -2330,11 +2331,11 @@ BIF_RETTYPE setnode_2(BIF_ALIST_2)
 #endif
 
     erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-    erts_smp_block_system(ERTS_BS_FLG_ALLOW_GC);
+    erts_smp_thr_progress_block();
     erts_set_this_node(BIF_ARG_1, (Uint32) creation);
     erts_is_alive = 1;
     send_nodes_mon_msgs(NULL, am_nodeup, BIF_ARG_1, am_visible, NIL);
-    erts_smp_release_system();
+    erts_smp_thr_progress_unblock();
     erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 
     BIF_RET(am_true);

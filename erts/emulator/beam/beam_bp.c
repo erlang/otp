@@ -167,7 +167,7 @@ erts_bp_init(void) {
 int 
 erts_set_trace_break(Eterm mfa[3], int specified, Binary *match_spec,
 		     Eterm tracer_pid) {
-    ERTS_SMP_LC_ASSERT(erts_smp_is_system_blocked(0));
+    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
     return set_break(mfa, specified, match_spec,
 		     (BeamInstr) BeamOp(op_i_trace_breakpoint), 0, tracer_pid);
 }
@@ -175,7 +175,7 @@ erts_set_trace_break(Eterm mfa[3], int specified, Binary *match_spec,
 int 
 erts_set_mtrace_break(Eterm mfa[3], int specified, Binary *match_spec,
 		      Eterm tracer_pid) {
-    ERTS_SMP_LC_ASSERT(erts_smp_is_system_blocked(0));
+    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
     return set_break(mfa, specified, match_spec,
 		     (BeamInstr) BeamOp(op_i_mtrace_breakpoint), 0, tracer_pid);
 }
@@ -184,7 +184,7 @@ erts_set_mtrace_break(Eterm mfa[3], int specified, Binary *match_spec,
 
 void
 erts_set_mtrace_bif(BeamInstr *pc, Binary *match_spec, Eterm tracer_pid) {
-    ERTS_SMP_LC_ASSERT(erts_smp_is_system_blocked(0));
+    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
     set_function_break(NULL, pc, BREAK_IS_BIF, match_spec, (BeamInstr) BeamOp(op_i_mtrace_breakpoint), 0, tracer_pid);
 }
 
@@ -198,35 +198,35 @@ void erts_clear_time_trace_bif(BeamInstr *pc) {
 
 int 
 erts_set_debug_break(Eterm mfa[3], int specified) {
-    ERTS_SMP_LC_ASSERT(erts_smp_is_system_blocked(0));
+    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
     return set_break(mfa, specified, NULL, 
 		     (BeamInstr) BeamOp(op_i_debug_breakpoint), 0, NIL);
 }
 
 int 
 erts_set_count_break(Eterm mfa[3], int specified, enum erts_break_op count_op) {
-    ERTS_SMP_LC_ASSERT(erts_smp_is_system_blocked(0));
+    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
     return set_break(mfa, specified, NULL, 
 		     (BeamInstr) BeamOp(op_i_count_breakpoint), count_op, NIL);
 }
 
 int
 erts_set_time_break(Eterm mfa[3], int specified, enum erts_break_op count_op) {
-    ERTS_SMP_LC_ASSERT(erts_smp_is_system_blocked(0));
+    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
     return set_break(mfa, specified, NULL,
 		     (BeamInstr) BeamOp(op_i_time_breakpoint), count_op, NIL);
 }
 
 int
 erts_clear_trace_break(Eterm mfa[3], int specified) {
-    ERTS_SMP_LC_ASSERT(erts_smp_is_system_blocked(0));
+    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
     return clear_break(mfa, specified, 
 		       (BeamInstr) BeamOp(op_i_trace_breakpoint));
 }
 
 int
 erts_clear_mtrace_break(Eterm mfa[3], int specified) {
-    ERTS_SMP_LC_ASSERT(erts_smp_is_system_blocked(0));
+    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
     return clear_break(mfa, specified, 
 		       (BeamInstr) BeamOp(op_i_mtrace_breakpoint));
 }
@@ -238,41 +238,41 @@ erts_clear_mtrace_bif(BeamInstr *pc) {
 
 int
 erts_clear_debug_break(Eterm mfa[3], int specified) {
-    ERTS_SMP_LC_ASSERT(erts_smp_is_system_blocked(0));
+    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
     return clear_break(mfa, specified, 
 		       (BeamInstr) BeamOp(op_i_debug_breakpoint));
 }
 
 int
 erts_clear_count_break(Eterm mfa[3], int specified) {
-    ERTS_SMP_LC_ASSERT(erts_smp_is_system_blocked(0));
+    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
     return clear_break(mfa, specified, 
 		       (BeamInstr) BeamOp(op_i_count_breakpoint));
 }
 
 int
 erts_clear_time_break(Eterm mfa[3], int specified) {
-    ERTS_SMP_LC_ASSERT(erts_smp_is_system_blocked(0));
+    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
     return clear_break(mfa, specified,
 		       (BeamInstr) BeamOp(op_i_time_breakpoint));
 }
 
 int
 erts_clear_break(Eterm mfa[3], int specified) {
-    ERTS_SMP_LC_ASSERT(erts_smp_is_system_blocked(0));
+    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
     return clear_break(mfa, specified, 0);
 }
 
 int 
 erts_clear_module_break(Module *modp) {
-    ERTS_SMP_LC_ASSERT(erts_smp_is_system_blocked(0));
+    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
     ASSERT(modp);
     return clear_module_break(modp, NULL, 0, 0);
 }
 
 int
 erts_clear_function_break(Module *modp, BeamInstr *pc) {
-    ERTS_SMP_LC_ASSERT(erts_smp_is_system_blocked(0));
+    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
     ASSERT(modp);
     return clear_function_break(modp, pc, BREAK_IS_ERL, 0);
 }
@@ -975,7 +975,7 @@ static int set_function_break(Module *modp, BeamInstr *pc, int bif,
 		BpDataTime *bdt = (BpDataTime *) bd;
 		Uint i = 0;
 
-		ERTS_SMP_LC_ASSERT(erts_smp_is_system_blocked(0));
+		ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
 
 		if (count_op == erts_break_stop) {
 		    bdt->pause = 1;

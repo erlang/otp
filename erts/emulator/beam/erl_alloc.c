@@ -1866,9 +1866,7 @@ erts_memory(int *print_to_p, void *print_to_arg, void *proc, Eterm earg)
     int only_one_value = 0;
     ErtsAlcUFixInfo_t fi[ERTS_ALC_NO_FIXED_SIZES] = {{0,0}};
 
-    ERTS_SMP_LC_ASSERT(erts_smp_is_system_blocked(0)
-		       || (ERTS_IS_CRASH_DUMPING
-			   && erts_smp_is_system_blocked(ERTS_BS_FLG_ALLOW_GC)));
+    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
 
     /* Figure out whats wanted... */
 
@@ -2506,9 +2504,7 @@ erts_allocator_info(int to, void *arg)
 {
     ErtsAlcType_t a;
 
-    ERTS_SMP_LC_ASSERT(erts_smp_is_system_blocked(0)
-		       || (ERTS_IS_CRASH_DUMPING
-			   && erts_smp_is_system_blocked(ERTS_BS_FLG_ALLOW_GC)));
+    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
 
     for (a = ERTS_ALC_A_MIN; a <= ERTS_ALC_A_MAX; a++) {
 	int ai;

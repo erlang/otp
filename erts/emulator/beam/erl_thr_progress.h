@@ -32,7 +32,22 @@
 
 #include "sys.h"
 
-#ifdef ERTS_SMP
+#ifndef ERTS_SMP
+
+#define erts_smp_thr_progress_block() ((void) 0)
+#define erts_smp_thr_progress_unblock() ((void) 0)
+#define erts_smp_thr_progress_is_blocking() 1
+
+#else /* ERTS_SMP */
+
+#define erts_smp_thr_progress_block erts_thr_progress_block
+#define erts_smp_thr_progress_unblock erts_thr_progress_unblock
+#define erts_smp_thr_progress_is_blocking erts_thr_progress_is_blocking
+
+void erts_thr_progress_fatal_error_block(SWord timeout);
+void erts_thr_progress_block(void);
+void erts_thr_progress_unblock(void);
+int erts_thr_progress_is_blocking(void);
 
 typedef Uint64 ErtsThrPrgrVal;
 
@@ -41,9 +56,14 @@ typedef Uint64 ErtsThrPrgrVal;
 typedef struct {
     int id;
     int is_managed;
+    int is_blocking;
+    int is_temporary;
+
+    /* --- Part below only for registered threads --- */
+
     ErtsThrPrgrVal wakeup_request[ERTS_THR_PRGR_WAKEUP_DATA_SIZE];
 
-    /* --- Part below only for managed threads */
+    /* --- Part below only for managed threads --- */
 
     int leader; /* Needs to be first in the managed threads part */
     int active;
@@ -77,8 +97,11 @@ extern erts_tsd_key_t erts_thr_prgr_data_key__;
 
 typedef struct {
     void *arg;
-    void (*wakeup)(void *arg);
-} ErtsThrPrgrWakeupCallback;
+    void (*wakeup)(void *);
+    void (*prepare_wait)(void *);
+    void (*wait)(void *);
+    void (*finalize_wait)(void *);
+} ErtsThrPrgrCallbacks;
 
 typedef struct {
     ERTS_THR_PRGR_ATOMIC current;
@@ -89,9 +112,9 @@ extern ErtsThrPrgr erts_thr_prgr__;
 void erts_thr_progress_pre_init(void);
 void erts_thr_progress_init(int no_schedulers, int managed, int unmanaged);
 void erts_thr_progress_register_managed_thread(ErtsSchedulerData *esdp,
-					       ErtsThrPrgrWakeupCallback *,
+					       ErtsThrPrgrCallbacks *,
 					       int);
-void erts_thr_progress_register_unmanaged_thread(ErtsThrPrgrWakeupCallback *);
+void erts_thr_progress_register_unmanaged_thread(ErtsThrPrgrCallbacks *);
 void erts_thr_progress_active(ErtsSchedulerData *esdp, int on);
 void erts_thr_progress_wakeup(ErtsSchedulerData *esdp,
 			      ErtsThrPrgrVal value);

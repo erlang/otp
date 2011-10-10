@@ -26,6 +26,7 @@
 #include "bif.h"
 #include "error.h"
 #include "big.h"
+#include "erl_thr_progress.h"
 
 /****************************************************************************
 ** BIF Timer support
@@ -686,7 +687,7 @@ erts_bif_timer_foreach(void (*func)(Eterm, Eterm, ErlHeapFragment *, void *),
 {
     int i;
 
-    ERTS_SMP_LC_ASSERT(erts_smp_is_system_blocked(0));
+    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
 
     for (i = 0; i < TIMER_HASH_VEC_SZ; i++) {
 	ErtsBifTimer *btm;

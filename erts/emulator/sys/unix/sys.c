@@ -52,6 +52,7 @@
 #define ERTS_WANT_GOT_SIGUSR1
 #define WANT_NONBLOCKING    /* must define this to pull in defs from sys.h */
 #include "sys.h"
+#include "erl_thr_progress.h"
 
 #if defined(__APPLE__) && defined(__MACH__) && !defined(__DARWIN__)
 #define __DARWIN__ 1
@@ -2425,11 +2426,7 @@ void erts_do_break_handling(void)
      * therefore, make sure that all threads but this one are blocked before
      * proceeding!
      */
-    erts_smp_block_system(0);
-    /*
-     * NOTE: since we allow gc we are not allowed to lock
-     *       (any) process main locks while blocking system...
-     */
+    erts_smp_thr_progress_block();
 
     /* during break we revert to initial settings */
     /* this is done differently for oldshell */
@@ -2457,7 +2454,7 @@ void erts_do_break_handling(void)
       tcsetattr(0,TCSANOW,&temp_mode);
     }
 
-    erts_smp_release_system();
+    erts_smp_thr_progress_unblock();
 }
 
 /* Fills in the systems representation of the jam/beam process identifier.
@@ -2868,7 +2865,7 @@ erl_sys_schedule(int runnable)
 {
 #ifdef ERTS_SMP
     ERTS_CHK_IO(!runnable);
-    ERTS_SMP_LC_ASSERT(!ERTS_LC_IS_BLOCKING);
+    ERTS_SMP_LC_ASSERT(!erts_thr_progress_is_blocking());
 #else
     if (runnable) {
 	ERTS_CHK_IO(0);		/* Poll for I/O */
@@ -2937,15 +2934,15 @@ signal_dispatcher_thread_func(void *unused)
 	     *         to other threads.
 	     *
 	     * NOTE 2: The signal dispatcher thread is not a blockable
-	     *         thread (i.e., it hasn't called 
-	     *         erts_register_blockable_thread()). This is
-	     *         intentional. We want to be able to interrupt
-	     *         writing of a crash dump by hitting C-c twice.
-	     *         Since it isn't a blockable thread it is important
-	     *         that it doesn't change the state of any data that
-	     *         a blocking thread expects to have exclusive access
-	     *         to (unless the signal dispatcher itself explicitly
-	     *         is blocking all blockable threads).
+	     *         thread (i.e., not a thread managed by the
+	     *         erl_thr_progress module). This is intentional.
+	     *         We want to be able to interrupt writing of a crash
+	     *         dump by hitting C-c twice. Since it isn't a
+	     *         blockable thread it is important that it doesn't
+	     *         change the state of any data that a blocking thread
+	     *         expects to have exclusive access to (unless the
+	     *         signal dispatcher itself explicitly is blocking all
+	     *         blockable threads).
 	     */
 	    switch (buf[i]) {
 	    case 0: /* Emulator initialized */
@@ -2985,7 +2982,7 @@ signal_dispatcher_thread_func(void *unused)
 			 buf[i]);
 	    }
 	}
-	ERTS_SMP_LC_ASSERT(!ERTS_LC_IS_BLOCKING);
+	ERTS_SMP_LC_ASSERT(!erts_thr_progress_is_blocking());
     }
     return NULL;
 }

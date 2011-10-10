@@ -272,6 +272,7 @@ type	MISC_AUX_WORK_Q	LONG_LIVED	SYSTEM		misc_aux_work_q
 type	MISC_AUX_WORK	SHORT_LIVED	SYSTEM		misc_aux_work
 type	THR_PRGR_IDATA	LONG_LIVED	SYSTEM		thr_prgr_internal_data
 type	THR_PRGR_DATA	LONG_LIVED	SYSTEM		thr_prgr_data
+type	T_THR_PRGR_DATA	SHORT_LIVED	SYSTEM		temp_thr_prgr_data
 +endif
 
 #
