@@ -26,15 +26,16 @@
 -export([suite/0,
          all/0,
          groups/0,
-         init_per_suite/1,
-         end_per_suite/1,
          init_per_group/2,
          end_per_group/2,
          init_per_testcase/2,
          end_per_testcase/2]).
 
 %% testcases
--export([result_codes/1,
+-export([start/1,
+         start_services/1,
+         add_transports/1,
+         result_codes/1,
          send_ok/1,
          send_arbitrary/1,
          send_unknown/1,
@@ -73,7 +74,8 @@
          send_multiple_filters_3/1,
          send_anything/1,
          remove_transports/1,
-         stop_services/1]).
+         stop_services/1,
+         stop/1]).
 
 %% diameter callbacks
 -export([peer_up/3,
@@ -95,6 +97,8 @@
 -include("diameter_ct.hrl").
 
 %% ===========================================================================
+
+-define(util, diameter_util).
 
 -define(ADDR, {127,0,0,1}).
 
@@ -177,30 +181,18 @@ suite() ->
     [{timetrap, {seconds, 10}}].
 
 all() ->
-    [result_codes | [{group, N} || {N, _, _} <- groups()]]
-        ++ [remove_transports, stop_services].
+    [start, start_services, add_transports, result_codes
+     | [{group, N} || {N, _, _} <- groups()]]
+        ++ [remove_transports, stop_services, stop].
 
 groups() ->
     Ts = tc(),
-    [{E, [], Ts} || E <- ?ENCODINGS]
-        ++ [{?P(E), [parallel], Ts} || E <- ?ENCODINGS].
+    [{grp(E,P), P, Ts} || E <- ?ENCODINGS, P <- [[], [parallel]]].
 
-init_per_suite(Config) ->
-    ok = diameter:start(),
-    ok = diameter:start_service(?SERVER, ?SERVICE(?SERVER)),
-    ok = diameter:start_service(?CLIENT, ?SERVICE(?CLIENT)),
-    {ok, LRef} = diameter:add_transport(?SERVER, ?LISTEN),
-    true = diameter:subscribe(?CLIENT),
-    {ok, CRef} = diameter:add_transport(?CLIENT, ?CONNECT(portnr())),
-    {up, CRef, _Peer, _Config, #diameter_packet{}}
-        = receive #diameter_event{service = ?CLIENT, info = I} -> I
-          after 2000 -> false
-          end,
-    true = diameter:unsubscribe(?CLIENT),
-    [{transports, {LRef, CRef}} | Config].
-
-end_per_suite(_Config) ->
-    ok = diameter:stop().
+grp(E, []) ->
+    E;
+grp(E, [parallel]) ->
+    ?P(E).
 
 init_per_group(Name, Config) ->
     E = case ?L(Name) of
@@ -275,6 +267,45 @@ portnr(N)
             receive after 50 -> ok end,
             portnr(N-1)
     end.
+
+%% ===========================================================================
+%% start/stop testcases
+
+start(_Config) ->
+    ok = diameter:start().
+
+start_services(_Config) ->
+    ok = diameter:start_service(?SERVER, ?SERVICE(?SERVER)),
+    ok = diameter:start_service(?CLIENT, ?SERVICE(?CLIENT)).
+
+add_transports(Config) ->
+    {ok, LRef} = diameter:add_transport(?SERVER, ?LISTEN),
+    true = diameter:subscribe(?CLIENT),
+    {ok, CRef} = diameter:add_transport(?CLIENT, ?CONNECT(portnr())),
+    {up, CRef, _Peer, _Cfg, #diameter_packet{}}
+        = receive #diameter_event{service = ?CLIENT, info = I} -> I
+          after 2000 -> false
+          end,
+    true = diameter:unsubscribe(?CLIENT),
+    ?util:write_priv(Config, "transport", {LRef, CRef}).
+
+%% Remove the client transport and expect the server transport to
+%% go down.
+remove_transports(Config) ->
+    {LRef, CRef} = ?util:read_priv(Config, "transport"),
+    true = diameter:subscribe(?SERVER),
+    ok = diameter:remove_transport(?CLIENT, CRef),
+    {down, LRef, _, _}
+        = receive #diameter_event{service = ?SERVER, info = I} -> I
+          after 2000 -> false
+          end.
+
+stop_services(_Config) ->
+    ok = diameter:stop_service(?CLIENT),
+    ok = diameter:stop_service(?SERVER).
+
+stop(_Config) ->
+    ok = diameter:stop().
 
 %% ===========================================================================
 
@@ -532,21 +563,6 @@ send_anything(Config) ->
     #diameter_base_STA{'Result-Code' = ?SUCCESS}
         = call(Config, anything).
     
-%% Remove the client transport and expect the server transport to
-%% go down.
-remove_transports(Config) ->
-    {LRef, CRef} = proplists:get_value(transports, Config),
-    true = diameter:subscribe(?SERVER),
-    ok = diameter:remove_transport(?CLIENT, CRef),
-    {down, LRef, _, _}
-        = receive #diameter_event{service = ?SERVER, info = I} -> I
-          after 2000 -> false
-          end.
-
-stop_services(_Config) ->
-    {ok, ok} = {diameter:stop_service(?CLIENT),
-                diameter:stop_service(?SERVER)}.
-
 %% ===========================================================================
 
 call(Config, Req) ->

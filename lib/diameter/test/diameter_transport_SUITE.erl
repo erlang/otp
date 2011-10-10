@@ -33,10 +33,12 @@
          end_per_suite/1]).
 
 %% testcases
--export([tcp_accept/1,
+-export([start/1,
+         tcp_accept/1,
          tcp_connect/1,
          sctp_accept/1,
-         sctp_connect/1]).
+         sctp_connect/1,
+         stop/1]).
 
 -export([accept/1,
          connect/1,
@@ -101,7 +103,7 @@ suite() ->
     [{timetrap, {minutes, 2}}].
 
 all() ->
-    [{group, all} | tc()].
+    [start | tc()] ++ [{group, all}, stop].
 
 groups() ->
     [{all, [parallel], tc()}].
@@ -119,10 +121,17 @@ end_per_group(_, _) ->
     ok.
 
 init_per_suite(Config) ->
-    ok = diameter:start(),
     [{sctp, have_sctp()} | Config].
 
 end_per_suite(_Config) ->
+    ok.
+
+%% ===========================================================================
+
+start(_Config) ->
+    ok = diameter:start().
+
+stop(_Config) ->
     ok = diameter:stop().
 
 %% ===========================================================================

@@ -28,7 +28,8 @@
          fold/3,
          foldl/3,
          scramble/1,
-         ps/0]).
+         write_priv/3,
+         read_priv/2]).
 
 -define(L, atom_to_list).
 
@@ -150,11 +151,6 @@ s(Acc, L) ->
     {H, [T|Rest]} = lists:split(random:uniform(length(L)) - 1, L),
     s([T|Acc], H ++ Rest).
 
-%% ps/0
-
-ps() ->
-    [{P, process_info(P)} || P <- erlang:processes()].
-
 %% eval/1
 
 eval({M,[F|A]})
@@ -175,3 +171,18 @@ eval(L)
 eval(F)
   when is_function(F,0) ->
     F().
+
+%% write_priv/3
+
+write_priv(Config, Name, Term) ->
+    Dir = proplists:get_value(priv_dir, Config),
+    Path = filename:join([Dir, Name]),
+    ok = file:write_file(Path, term_to_binary(Term)).
+
+%% read_priv/2
+
+read_priv(Config, Name) ->
+    Dir = proplists:get_value(priv_dir, Config),
+    Path = filename:join([Dir, Name]),
+    {ok, Bin} = file:read_file(Path),
+    binary_to_term(Bin).

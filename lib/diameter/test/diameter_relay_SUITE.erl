@@ -37,20 +37,22 @@
          all/0,
          groups/0,
          init_per_group/2,
-         end_per_group/2,
-         init_per_suite/1,
-         end_per_suite/1]).
+         end_per_group/2]).
 
 %% testcases
--export([send1/1,
+-export([start/1,
+         start_services/1,
+         connect/1,
+         send1/1,
          send2/1,
          send3/1,
          send4/1,
          send_loop/1,
          send_timeout_1/1,
          send_timeout_2/1,
-         remove_transports/1,
-         stop_services/1]).
+         disconnect/1,
+         stop_services/1,
+         stop/1]).
 
 %% diameter callbacks
 -export([peer_up/3,
@@ -73,6 +75,8 @@
 
 %% ===========================================================================
 
+-define(util, diameter_util).
+
 -define(ADDR, {127,0,0,1}).
 
 -define(CLIENT,  "CLIENT.REALM1").
@@ -82,6 +86,10 @@
 -define(RELAY2,  "RELAY.REALM3").
 -define(SERVER3, "SERVER1.REALM3").
 -define(SERVER4, "SERVER2.REALM3").
+
+-define(SERVICES, [?CLIENT,
+                   ?RELAY1, ?RELAY2,
+                   ?SERVER1, ?SERVER2, ?SERVER3, ?SERVER4]).
 
 -define(DICT_COMMON,  ?DIAMETER_DICT_COMMON).
 -define(DICT_RELAY,   ?DIAMETER_DICT_RELAY).
@@ -131,13 +139,15 @@ suite() ->
     [{timetrap, {seconds, 10}}].
 
 all() ->
-    [{group, N} || {N, _, _} <- groups()]
-        ++ [remove_transports, stop_services].
+    [start, start_services, connect]
+        ++ tc()
+        ++ [{group, all},
+            disconnect,
+            stop_services,
+            stop].
 
 groups() ->
-    Ts = tc(),
-    [{all, [], Ts},
-     {p, [parallel], Ts}].
+    [{all, [parallel], tc()}].
 
 init_per_group(_, Config) ->
     Config.
@@ -145,32 +155,7 @@ init_per_group(_, Config) ->
 end_per_group(_, _) ->
     ok.
 
-init_per_suite(Config) ->
-    ok = diameter:start(),
-    [S1,S2,S3,S4] = S = [server(N, ?DICT_COMMON) || N <- [?SERVER1,
-                                                          ?SERVER2,
-                                                          ?SERVER3,
-                                                          ?SERVER4]],
-    [R1,R2] = R = [server(N, ?DICT_RELAY) || N <- [?RELAY1, ?RELAY2]],
-    
-    ok = diameter:start_service(?CLIENT, ?SERVICE(?CLIENT, ?DICT_COMMON)),
-
-    true = diameter:subscribe(?RELAY1),
-    true = diameter:subscribe(?RELAY2),
-    true = diameter:subscribe(?CLIENT),
-
-    [C1,C2] = connect(?RELAY1, [S1,S2]),
-    [C3,C4] = connect(?RELAY2, [S3,S4]),
-    [C5,C6] = connect(?CLIENT, [R1,R2]),
-
-    C7 = connect(?RELAY1, R2),
-
-    [{transports, {S, R, [C1,C2,C3,C4,C5,C6,C7]}} | Config].
-
-end_per_suite(_Config) ->
-    ok = diameter:stop().
-
-%% Testcases to run when services are started and connections
+%% Traffic cases run when services are started and connections
 %% established.
 tc() ->
     [send1,
@@ -181,43 +166,65 @@ tc() ->
      send_timeout_1,
      send_timeout_2].
 
-server(Host, Dict) ->
-    ok = diameter:start_service(Host, ?SERVICE(Host, Dict)),
-    {ok, LRef} = diameter:add_transport(Host, ?LISTEN),
-    {LRef, portnr(LRef)}.
+%% ===========================================================================
+%% start/stop testcases
 
-connect(Host, {_LRef, PortNr}) ->
-    {ok, Ref} = diameter:add_transport(Host, ?CONNECT(PortNr)),
-    ok = receive
-             #diameter_event{service = Host,
-                             info = {up, Ref, _, _, #diameter_packet{}}} ->
-                 ok
-         after 2000 ->
-                 false
-         end,
-    Ref;
-connect(Host, Ports) ->
-    [connect(Host, P) || P <- Ports].
+start(_Config) ->
+    ok = diameter:start().
 
-portnr(LRef) ->
-    portnr(LRef, 20).
+start_services(_Config) ->
+    S = [server(N, ?DICT_COMMON) || N <- [?SERVER1,
+                                          ?SERVER2,
+                                          ?SERVER3,
+                                          ?SERVER4]],
+    R = [server(N, ?DICT_RELAY) || N <- [?RELAY1, ?RELAY2]],
 
-portnr(LRef, N)
-  when 0 < N ->
-    case diameter_reg:match({diameter_tcp, listener, {LRef, '_'}}) of
-        [{T, _Pid}] ->
-            {_, _, {LRef, {_Addr, LSock}}} = T,
-            {ok, PortNr} = inet:port(LSock),
-            PortNr;
-        [] ->
-            receive after 50 -> ok end,
-            portnr(LRef, N-1)
-    end.
+    ok = diameter:start_service(?CLIENT, ?SERVICE(?CLIENT, ?DICT_COMMON)),
 
-realm(Host) ->
-    tl(lists:dropwhile(fun(C) -> C /= $. end, Host)).
+    {save_config, S ++ R}.
+
+connect(Config) ->
+    {_, [S1,S2,S3,S4,R1,R2] = SR} = proplists:get_value(saved_config, Config),
+
+    true = diameter:subscribe(?RELAY1),
+    true = diameter:subscribe(?RELAY2),
+    true = diameter:subscribe(?CLIENT),
+
+    [R1S1,R1S2] = connect(?RELAY1, [S1,S2]),
+    [R2S3,R2S4] = connect(?RELAY2, [S3,S4]),
+    [CR1,CR2]   = connect(?CLIENT, [R1,R2]),
+
+    R1R2 = connect(?RELAY1, R2),
+
+    ?util:write_priv(Config, "cfg", SR ++ [R1S1,R1S2,R2S3,R2S4,CR1,CR2,R1R2]).
+
+%% Remove the client transports and expect the corresponding server
+%% transport to go down.
+disconnect(Config) ->
+    [S1,S2,S3,S4,R1,R2,R1S1,R1S2,R2S3,R2S4,CR1,CR2,R1R2]
+        = ?util:read_priv(Config, "cfg"),
+
+    [?CLIENT | Svcs] = ?SERVICES,
+    [] = [{S,T} || S <- Svcs, T <- [diameter:subscribe(S)], T /= true],
+
+    disconnect(?RELAY1, S1, R1S1),
+    disconnect(?RELAY1, S2, R1S2),
+    disconnect(?RELAY2, S3, R2S3),
+    disconnect(?RELAY2, S4, R2S4),
+    disconnect(?CLIENT, R1, CR1),
+    disconnect(?CLIENT, R2, CR2),
+    disconnect(?RELAY1, R2, R1R2).
+
+stop_services(_Config) ->
+    [] = [{H,T} || H <- ?SERVICES,
+                   T <- [diameter:stop_service(H)],
+                   T /= ok].
+
+stop(_Config) ->
+    ok = diameter:stop().
 
 %% ===========================================================================
+%% traffic testcases
 
 %% Send an STR intended for a specific server and expect success.
 send1(_Config) ->
@@ -254,39 +261,49 @@ send_timeout(Tmo) ->
                   {'Re-Auth-Request-Type', ?AUTHORIZE_ONLY}],
     call(Req, [{filter, realm}, {timeout, Tmo}]).
 
-%% Remove the client transports and expect the corresponding server
-%% transport to go down.
-remove_transports(Config) ->
-    {[S1,S2,S3,S4], [R1,R2], [C1,C2,C3,C4,C5,C6,C7]}
-        = proplists:get_value(transports, Config),
+%% ===========================================================================
 
-    true = diameter:subscribe(?SERVER1),
-    true = diameter:subscribe(?SERVER2),
-    true = diameter:subscribe(?SERVER3),
-    true = diameter:subscribe(?SERVER4),
-    true = diameter:subscribe(?RELAY1),
-    true = diameter:subscribe(?RELAY2),
+realm(Host) ->
+    tl(lists:dropwhile(fun(C) -> C /= $. end, Host)).
 
-    disconnect(S1, ?RELAY1, C1),
-    disconnect(S2, ?RELAY1, C2),
-    disconnect(S3, ?RELAY2, C3),
-    disconnect(S4, ?RELAY2, C4),
-    disconnect(R1, ?CLIENT, C5),
-    disconnect(R2, ?CLIENT, C6),
-    disconnect(R2, ?RELAY1, C7).
+server(Host, Dict) ->
+    ok = diameter:start_service(Host, ?SERVICE(Host, Dict)),
+    {ok, LRef} = diameter:add_transport(Host, ?LISTEN),
+    {LRef, portnr(LRef)}.
 
-disconnect({LRef, _PortNr}, Client, CRef) ->
+portnr(LRef) ->
+    portnr(LRef, 20).
+
+portnr(LRef, N)
+  when 0 < N ->
+    case diameter_reg:match({diameter_tcp, listener, {LRef, '_'}}) of
+        [{T, _Pid}] ->
+            {_, _, {LRef, {_Addr, LSock}}} = T,
+            {ok, PortNr} = inet:port(LSock),
+            PortNr;
+        [] ->
+            receive after 50 -> ok end,
+            portnr(LRef, N-1)
+    end.
+
+connect(Host, {_LRef, PortNr}) ->
+    {ok, Ref} = diameter:add_transport(Host, ?CONNECT(PortNr)),
+    ok = receive
+             #diameter_event{service = Host,
+                             info = {up, Ref, _, _, #diameter_packet{}}} ->
+                 ok
+         after 2000 ->
+                 false
+         end,
+    Ref;
+connect(Host, Ports) ->
+    [connect(Host, P) || P <- Ports].
+
+disconnect(Client, {LRef, _PortNr}, CRef) ->
     ok = diameter:remove_transport(Client, CRef),
     ok = receive #diameter_event{info = {down, LRef, _, _}} -> ok
          after 2000 -> false
          end.
-
-stop_services(_Config) ->
-    S = [?CLIENT, ?RELAY1, ?RELAY2, ?SERVER1, ?SERVER2, ?SERVER3, ?SERVER4],
-    Ok = [ok || _ <- S],
-    Ok = [diameter:stop_service(H) || H <- S].
-
-%% ===========================================================================
 
 call(Server) ->
     Realm = realm(Server),
