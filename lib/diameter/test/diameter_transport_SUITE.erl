@@ -180,7 +180,9 @@ have_sctp() ->
     try gen_sctp:open() of
         {ok, Sock} ->
             gen_sctp:close(Sock),
-            true
+            true;
+        {error, eprotonosupport} ->  %% fail on any other reason
+            false
     catch
         error: badarg ->
             false
