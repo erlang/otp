@@ -50,7 +50,7 @@
 	  src_tests_tar/1, shadow_tar/1, var_tar/1,
 	  exref_tar/1, link_tar/1, otp_9507/1]).
 -export([ normal_relup/1, abnormal_relup/1, no_appup_relup/1,
-	  bad_appup_relup/1, app_start_type_relup/1, otp_3065/1]).
+	  bad_appup_relup/1, app_start_type_relup/1, regexp_relup/1, otp_3065/1]).
 -export([otp_6226/1]).
 -export([normal_hybrid/1,hybrid_no_old_sasl/1,hybrid_no_new_sasl/1]).
 -export([init_per_suite/1, end_per_suite/1, 
@@ -84,7 +84,8 @@ groups() ->
        exref_tar, link_tar, otp_9507]},
      {relup, [],
       [normal_relup, abnormal_relup, no_appup_relup,
-       bad_appup_relup, app_start_type_relup]},
+       bad_appup_relup, app_start_type_relup, regexp_relup
+      ]},
      {hybrid, [], [normal_hybrid,hybrid_no_old_sasl,hybrid_no_new_sasl]},
      {tickets, [], [otp_6226]}].
 
@@ -1244,10 +1245,24 @@ check_relup(UpVsnL, DnVsnL) ->
 	       [{App, Vsn} || {load_object_code,{App,Vsn,_}} <- Dn]),
     ok.
 
+check_relup_up_only(UpVsnL) ->
+    {ok, [{_V1, [{_, _, Up}], []}]} = file:consult(relup),
+    [] = foldl(fun(X, Acc) ->
+		       true = lists:member(X, Acc),
+		       lists:delete(X, Acc) end,
+	       UpVsnL,
+	       [{App, Vsn} || {load_object_code,{App,Vsn,_}} <- Up]),
+    ok.
+
 check_restart_emulator() ->
     {ok, [{_V1, [{_, _, Up}], [{_, _, Dn}]}]} = file:consult(relup),
     restart_new_emulator = lists:last(Up),
     restart_new_emulator = lists:last(Dn),
+    ok.
+
+check_restart_emulator_up_only() ->
+    {ok, [{_V1, [{_, _, Up}], []}]} = file:consult(relup),
+    restart_new_emulator = lists:last(Up),
     ok.
 
 check_restart_emulator_diff_erts() ->
@@ -1402,6 +1417,47 @@ app_start_type_relup(Config) when is_list(Config) ->
     ?line true = lists:member({apply,{application,unload,[webtool]}}, DownInstructionsT),
     ?line true = lists:member({apply,{application,unload,[snmp]}}, DownInstructionsT),
     ?line true = lists:member({apply,{application,unload,[xmerl]}}, DownInstructionsT),
+    ok.
+
+
+%% regexp_relup
+regexp_relup(Config) ->
+    ?line {ok, OldDir} = file:get_cwd(),
+
+    ?line {LatestDir,LatestName}   = create_script(latest_small,Config),
+    ?line {_LatestDir0,LatestName0} = create_script(latest_small0,Config),
+    ?line {_LatestDir1,LatestName1} = create_script(latest_small2,Config),
+
+    ?line DataDir = filename:absname(?copydir),
+    ?line P = [fname([DataDir, d_regexp_appup, lib, '*', ebin]),
+	       fname([DataDir, lib, kernel, ebin]),
+	       fname([DataDir, lib, stdlib, ebin])],
+
+    ?line ok = file:set_cwd(LatestDir),
+
+    %% Upgrade fe 2.1 -> 3.1, and downgrade 2.1 -> 3.1
+    %% Shall match the first entry if fe-3.1 appup.
+    ?line {ok, _, _, []} =
+	systools:make_relup(LatestName, [LatestName0], [LatestName0],
+			    [{path, P}, silent]),
+    ?line ok = check_relup([{fe, "3.1"}], [{fe, "2.1"}]),
+
+    %% Upgrade fe 2.1.1 -> 3.1
+    %% Shall match the second entry in fe-3.1 appup. Have added a
+    %% restart_new_emulator instruction there to distinguish it from
+    %% the first entry...
+    ?line {ok, _, _, []} =
+	systools:make_relup(LatestName, [LatestName1], [], [{path, P}, silent]),
+    ?line ok = check_relup_up_only([{fe, "3.1"}]),
+    ?line ok = check_restart_emulator_up_only(),
+
+    %% Attempt downgrade fe 3.1 -> 2.1.1
+    %% Shall not match any entry!!
+    ?line {error,systools_relup,{no_relup,_,_,_}} =
+	systools:make_relup(LatestName, [], [LatestName1], [{path, P}, silent]),
+
+    ?line ok = file:set_cwd(OldDir),
+
     ok.
 
 
@@ -1980,6 +2036,18 @@ create_script(latest_small1,Config) ->
 		    " {erts, \"4.4\"}, \n"
 		    " [{kernel, \"1.0\"}, {stdlib, \"1.0\"}, \n"
 		    "  {fe, \"500.18.7\"}]}.\n",
+		    []),
+    ?line ok = file:close(Fd),
+    {filename:dirname(Name), filename:basename(Name)};
+create_script(latest_small2,Config) ->
+    ?line PrivDir = ?privdir,
+    ?line Name = fname(PrivDir, 'latest-small2'),
+    ?line {ok,Fd} = file:open(Name++".rel",write),
+    ?line io:format(Fd,
+		    "{release, {\"Test release 2\", \"LATEST_SMALL2\"}, \n"
+		    " {erts, \"4.4\"}, \n"
+		    " [{kernel, \"1.0\"}, {stdlib, \"1.0\"}, \n"
+		    "  {fe, \"2.1.1\"}]}.\n",
 		    []),
     ?line ok = file:close(Fd),
     {filename:dirname(Name), filename:basename(Name)};

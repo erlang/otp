@@ -451,12 +451,28 @@ get_script_from_appup(Mode, TopApp, BaseVsn, Ws, RUs) ->
 		  %% XXX Why is this a warning only?
 		  [{bad_vsn, {TopVsn, TopApp#application.vsn}}| Ws]
 	  end,
-    case lists:keysearch(BaseVsn, 1, VsnRUs) of
-	{value, {_, RU}} ->
+    case search_for_version(BaseVsn, length(BaseVsn), VsnRUs) of
+	{ok, RU} ->
 	    {RUs ++ [RU], Ws1};
-	_ ->
+	error ->
 	    throw({error, ?MODULE, {no_relup, FName, TopApp, BaseVsn}})
     end.
+
+search_for_version(BaseVsn,_,[{BaseVsn,RU}|_]) ->
+    {ok,RU};
+search_for_version(BaseVsn,Size,[{Vsn,RU}|VsnRUs]) when is_binary(Vsn) ->
+    case re:run(BaseVsn,Vsn,[unicode,{capture,first,index}]) of
+	{match,[{0,Size}]} ->
+	    {ok, RU};
+	_ ->
+	    search_for_version(BaseVsn,Size,VsnRUs)
+    end;
+search_for_version(BaseVsn,Size,[_|VsnRUs]) ->
+    search_for_version(BaseVsn,Size,VsnRUs);
+search_for_version(_,_,[]) ->
+    error.
+
+
 
 
 %% Primitives for the "lists of release names" that we upgrade from
