@@ -411,6 +411,14 @@ transition({diameter, {send, Msg}}, S) ->
 transition({diameter, {close, Pid}}, #transport{parent = Pid}) ->
     stop;
 
+%% TLS over SCTP is described in RFC 3436 but has limitations as
+%% described in RFC 6083. The latter describes DTLS over SCTP, which
+%% addresses these limitations, DTLS itself being described in RFC
+%% 4347. TLS is primarily used over TCP, which the current RFC 3588
+%% draft acknowledges by equating TLS with TLS/TCP and DTLS/SCTP.
+transition({diameter, {tls, _Ref, _Type, _Bool}}, _) ->
+    stop;
+
 %% Listener process has died.
 transition({'DOWN', _, process, Pid, _}, #transport{mode = {accept, Pid}}) ->
     stop;

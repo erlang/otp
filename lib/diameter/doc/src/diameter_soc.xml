@@ -57,9 +57,13 @@ including the P Flag in the AVP header.</p>
 
 <item>
 <p>
-There is no TLS support.
-It's unclear (aka uninvestigated) how TLS would impact
-diameter but IPsec can be used without it needing to know.</p>
+There is no TLS support over SCTP.
+RFC 3588 requires that a Diameter server support TLS but in
+practise this seems to mean TLS over SCTP since there are limitations
+with running over SCTP: see RFC 6083 (DTLS over SCTP), which is a
+response to RFC 3436 (TLS over SCTP).
+The current RFC 3588 draft acknowledges this by equating
+TLS with TLS/TCP and DTLS/SCTP but we do not yet support DTLS.</p>
 </item>
 
 <item>
