@@ -193,7 +193,7 @@ cmp_zero(_Config) ->
 cmp_integer(_Config) ->
     Axis = (1 bsl 53)-2.0, %% The point where floating points become unprecise
     span_cmp(Axis,2,200),
-    cmp(Axis*Axis, round(Axis)).
+    cmp(Axis*Axis,round(Axis)).
 
 cmp_bignum(_Config) ->
     span_cmp((1 bsl 58) - 1.0),%% Smallest bignum float
@@ -202,23 +202,39 @@ cmp_bignum(_Config) ->
     [span_cmp((1 bsl (32*I)) - 1.0) || I <- lists:seq(2,30)],
 
     cmp((1 bsl (64*16)) - 1, (1 bsl (64*15)) * 1.0),
+    [cmp((1 bsl (32*I)) - 1, (1 bsl (32*(I-2))) * 1.0) || I <- lists:seq(3,30)],
     ok.
 
 span_cmp(Axis) ->
-    span_cmp(Axis, 50).
+    span_cmp(Axis, 25).
 span_cmp(Axis, Length) ->
     span_cmp(Axis, round(Axis) bsr 52, Length).
 span_cmp(Axis, Incr, Length) ->
-    [cmp(round(Axis*-1.0)+1+I*Incr,Axis*-1.0+I*Incr)
-     || I <- lists:seq((Length div 2)*-1,(Length div 2))],
-    [cmp(round(Axis)+1+I*Incr,Axis+I*Incr) ||
-	I <- lists:seq((Length div 2)*-1,(Length div 2))].
+    [span_cmp(Axis, Incr, Length, 1 bsl (1 bsl I)) || I <- lists:seq(0,6)].
+span_cmp(Axis, Incr, Length, Diff) ->
+    [begin
+	 cmp(round(Axis*-1.0)+Diff+I*Incr,Axis*-1.0+I*Incr),
+	 cmp(Axis*-1.0+I*Incr,round(Axis*-1.0)-Diff+I*Incr)
+     end || I <- lists:seq((Length div 2)*-1,(Length div 2))],
+    [begin
+	 cmp(round(Axis)+Diff+I*Incr,Axis+I*Incr),
+	 cmp(Axis+I*Incr,round(Axis)-Diff+I*Incr)
+     end || I <- lists:seq((Length div 2)*-1,(Length div 2))].
 
-cmp(Big,Small) ->
+cmp(Big,Small) when is_float(Big) ->
     BigSmall = lists:flatten(
-		 io_lib:format("~p > ~p",[Big,Small])),
+		 io_lib:format("~f > ~p",[Big,Small])),
     SmallBig = lists:flatten(
-		 io_lib:format("~p < ~p",[Big,Small])),
+		 io_lib:format("~f < ~p",[Big,Small])),
+    cmp(Big,Small,BigSmall,SmallBig);
+cmp(Big,Small) when is_float(Small) ->
+    BigSmall = lists:flatten(
+		 io_lib:format("~p > ~f",[Big,Small])),
+    SmallBig = lists:flatten(
+		 io_lib:format("~p < ~f",[Big,Small])),
+    cmp(Big,Small,BigSmall,SmallBig).
+
+cmp(Big,Small,BigSmall,SmallBig) ->
     {_,_,_,true} = {Big,Small,BigSmall,
 		    Big > Small},
     {_,_,_,false} = {Big,Small,SmallBig,
