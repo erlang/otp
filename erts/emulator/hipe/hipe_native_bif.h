@@ -23,6 +23,7 @@
 #ifndef HIPE_NATIVE_BIF_H
 #define HIPE_NATIVE_BIF_H
 
+#include "bif.h"
 #include "hipe_arch.h"
 
 /*
@@ -71,8 +72,8 @@ AEXTERN(void,nbif_select_msg,(Process*));
 AEXTERN(Eterm,nbif_cmp_2,(void));
 AEXTERN(Eterm,nbif_eq_2,(void));
 
-Eterm hipe_nonclosure_address(Process*, Eterm, Uint);
-Eterm hipe_conv_big_to_float(Process*, Eterm);
+BIF_RETTYPE hipe_nonclosure_address(BIF_ALIST_2);
+BIF_RETTYPE hipe_conv_big_to_float(BIF_ALIST_1);
 void hipe_fclearerror_error(Process*);
 void hipe_select_msg(Process*);
 void hipe_gc(Process*, Eterm);
