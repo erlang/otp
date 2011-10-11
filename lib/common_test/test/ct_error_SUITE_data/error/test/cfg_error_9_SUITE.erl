@@ -76,7 +76,7 @@ init_per_testcase(tc1, Config) ->
     Config;
 init_per_testcase(tc2, Config) ->
     ct:comment("init_per_testcase(tc2) timeout"),
-    timer:sleep(5000),
+    ct:sleep(5000),
     Config;
 init_per_testcase(tc3, Config) ->
     badmatch = ?config(void, Config),
@@ -96,22 +96,20 @@ init_per_testcase(_, Config) ->
 %%--------------------------------------------------------------------
 end_per_testcase(tc11, _Config) ->
     ct:comment("A warning should be printed"),
-    exit(warning_should_be_printed),
-    done;
+    exit(warning_should_be_printed);
 end_per_testcase(tc12, _Config) ->
     ct:comment("A warning should be printed"),
-    timer:sleep(5000),
-    done;
+    ct:sleep(5000);
 end_per_testcase(tc13, Config) ->
     ct:comment("A warning should be printed"),
-    badmatch = ?config(void, Config),
-    done;
+    badmatch = ?config(void, Config);
 end_per_testcase(tc14, Config) ->
     ok = ?config(tc_status, Config),
     {fail,tc14_should_be_failed};
 end_per_testcase(tc15, Config) ->
-    {failed,byebye} = ?config(tc_status, Config),
-    ok;
+    exit(kaboom);
+end_per_testcase(tc16, Config) ->
+    ct:sleep(5000);
 end_per_testcase(_TestCase, _Config) ->
     done.
 
@@ -139,7 +137,7 @@ groups() ->
 %%--------------------------------------------------------------------
 all() -> 
     [tc1,tc2,tc3,tc4,tc5,tc6,tc7,
-     tc11,tc12,tc13,tc14].
+     tc11,tc12,tc13,tc14,tc15,tc16].
 
 tc1(_) ->
     fini.
@@ -189,4 +187,6 @@ tc14(_) ->
     ct:comment("This one should be failed by eptc"),
     yes.
 tc15(_) ->
-    exit(byebye).
+    exit(this_error_must_show).
+tc16(_) ->
+    exit(this_error_must_show).

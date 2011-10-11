@@ -59,7 +59,6 @@
       processes are started in order from left to right according to
       this list. When the supervisor terminates, it first terminates
       its child processes in reversed start order, from right to left.</p>
-    <p></p>
     <p>A supervisor can have one of the following <em>restart strategies</em>:</p>
     <list type="bulleted">
       <item>

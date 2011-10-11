@@ -43,7 +43,6 @@
 #include <openssl/aes.h>
 #include <openssl/md5.h>
 #include <openssl/md4.h>
-#include <openssl/md2.h>
 #include <openssl/sha.h>
 #include <openssl/bn.h>
 #include <openssl/objects.h>
@@ -268,7 +267,6 @@ static ERL_NIF_TERM atom_true;
 static ERL_NIF_TERM atom_false;
 static ERL_NIF_TERM atom_sha;
 static ERL_NIF_TERM atom_md5;
-static ERL_NIF_TERM atom_md2;
 static ERL_NIF_TERM atom_ripemd160;
 static ERL_NIF_TERM atom_error;
 static ERL_NIF_TERM atom_rsa_pkcs1_padding;
@@ -339,7 +337,6 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_false = enif_make_atom(env,"false");
     atom_sha = enif_make_atom(env,"sha");
     atom_md5 = enif_make_atom(env,"md5");
-    atom_md2 = enif_make_atom(env,"md2");
     atom_ripemd160 = enif_make_atom(env,"ripemd160");
     atom_error = enif_make_atom(env,"error");
     atom_rsa_pkcs1_padding = enif_make_atom(env,"rsa_pkcs1_padding");
@@ -1050,28 +1047,16 @@ static ERL_NIF_TERM dss_verify(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     return(i > 0) ? atom_true : atom_false;
 }
 
-struct hash_def {
-    int type;
-    unsigned int m_len;
-    unsigned char * (*func) (const unsigned char *d, size_t n, unsigned char *md);
-};
-
-static const struct hash_def md2_hash_def  = { NID_md2,  MD2_DIGEST_LENGTH, &MD2};
-static const struct hash_def md5_hash_def  = { NID_md5,  MD5_DIGEST_LENGTH, &MD5};
-static const struct hash_def sha1_hash_def = { NID_sha1, SHA_DIGEST_LENGTH, &SHA1};
-
 static ERL_NIF_TERM rsa_verify(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Type, Data, Signature, Key=[E,N]) */
     ErlNifBinary data_bin, sign_bin;
     unsigned char hmacbuf[SHA_DIGEST_LENGTH];
     ERL_NIF_TERM head, tail, ret;
-    int i;
+    int i, is_sha;
     RSA* rsa = RSA_new();
-    const struct hash_def *hash_def = NULL;
 
-    if      (argv[0] == atom_sha)  hash_def = &sha1_hash_def;
-    else if (argv[0] == atom_md5)  hash_def = &md5_hash_def;
-    else if (argv[0] == atom_md2)  hash_def = &md2_hash_def;
+    if (argv[0] == atom_sha) is_sha = 1;
+    else if (argv[0] == atom_md5) is_sha = 0;
     else goto badarg;
 
     if (!inspect_mpint(env, argv[1], &data_bin)
@@ -1085,9 +1070,16 @@ static ERL_NIF_TERM rsa_verify(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 	ret = enif_make_badarg(env);
     }
     else {
-	(void) *hash_def->func(data_bin.data+4, data_bin.size-4, hmacbuf);
-	i = RSA_verify(hash_def->type, hmacbuf, hash_def->m_len,
-		       sign_bin.data+4, sign_bin.size-4, rsa);
+	if (is_sha) {
+	    SHA1(data_bin.data+4, data_bin.size-4, hmacbuf);
+	    i = RSA_verify(NID_sha1, hmacbuf, SHA_DIGEST_LENGTH,
+			   sign_bin.data+4, sign_bin.size-4, rsa);
+	}
+	else {
+	    MD5(data_bin.data+4, data_bin.size-4, hmacbuf);
+	    i = RSA_verify(NID_md5, hmacbuf, MD5_DIGEST_LENGTH,
+			   sign_bin.data+4, sign_bin.size-4, rsa);
+	}
 	ret = (i==1 ? atom_true : atom_false);
     }
     RSA_free(rsa);
@@ -1229,12 +1221,10 @@ static ERL_NIF_TERM rsa_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     unsigned char hmacbuf[SHA_DIGEST_LENGTH];
     unsigned rsa_s_len;
     RSA *rsa = RSA_new();
-    int i;
-    const struct hash_def *hash_def = NULL;
+    int i, is_sha;
 
-    if      (argv[0] == atom_sha)  hash_def = &sha1_hash_def;
-    else if (argv[0] == atom_md5)  hash_def = &md5_hash_def;
-    else if (argv[0] == atom_md2)  hash_def = &md2_hash_def;
+    if (argv[0] == atom_sha) is_sha = 1;
+    else if (argv[0] == atom_md5) is_sha = 0;
     else goto badarg;
 
     if (!inspect_mpint(env,argv[1],&data_bin)
@@ -1250,10 +1240,18 @@ static ERL_NIF_TERM rsa_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 	return enif_make_badarg(env);
     }
     enif_alloc_binary(RSA_size(rsa), &ret_bin);
-    (void) *hash_def->func(data_bin.data+4, data_bin.size-4, hmacbuf);
-    ERL_VALGRIND_ASSERT_MEM_DEFINED(hmacbuf, hash_def->m_len);
-    i =  RSA_sign(hash_def->type, hmacbuf, hash_def->m_len,
-		  ret_bin.data, &rsa_s_len, rsa);
+    if (is_sha) {
+	SHA1(data_bin.data+4, data_bin.size-4, hmacbuf);
+	ERL_VALGRIND_ASSERT_MEM_DEFINED(hmacbuf, SHA_DIGEST_LENGTH);
+	i =  RSA_sign(NID_sha1, hmacbuf, SHA_DIGEST_LENGTH,
+		      ret_bin.data, &rsa_s_len, rsa);
+    }
+    else {
+	MD5(data_bin.data+4, data_bin.size-4, hmacbuf);
+	ERL_VALGRIND_ASSERT_MEM_DEFINED(hmacbuf, MD5_DIGEST_LENGTH);
+	i = RSA_sign(NID_md5, hmacbuf,MD5_DIGEST_LENGTH,
+		     ret_bin.data, &rsa_s_len, rsa);     
+    }
     RSA_free(rsa);
     if (i) {
 	ERL_VALGRIND_MAKE_MEM_DEFINED(ret_bin.data, rsa_s_len);

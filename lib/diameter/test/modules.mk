@@ -17,31 +17,25 @@
 #
 # %CopyrightEnd%
 
-TEST_SPEC_FILE = diameter.spec
-
+TEST_SPEC_FILE  = diameter.spec
 COVER_SPEC_FILE = diameter.cover
 
-BEHAVIOUR_MODULES = 
-
 MODULES = \
-	$(BEHAVIOUR_MODULES) \
-	diameter_SUITE \
-	diameter_app_test \
-	diameter_appup_test \
-	diameter_compiler_test \
-	diameter_config_test \
-	diameter_peer_test \
-	diameter_reg_test \
-	diameter_session_test \
-	diameter_stats_test \
-	diameter_sync_test \
-	diameter_tcp_test \
-	diameter_test_lib \
-	diameter_test_server
-
+	diameter_ct \
+	diameter_util \
+	diameter_enum \
+	diameter_codec_SUITE \
+	diameter_codec_test \
+	diameter_app_SUITE \
+	diameter_dict_SUITE \
+	diameter_reg_SUITE \
+	diameter_sync_SUITE \
+	diameter_stats_SUITE \
+	diameter_watchdog_SUITE \
+	diameter_transport_SUITE \
+	diameter_traffic_SUITE \
+	diameter_relay_SUITE \
+	diameter_tls_SUITE
 
 INTERNAL_HRL_FILES = \
-	diameter_test_lib.hrl
-
-
-
+	diameter_ct.hrl

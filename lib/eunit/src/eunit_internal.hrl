@@ -1,11 +1,7 @@
 %% -------------------------------------------------------------------
 %% File: eunit_internal.hrl
 %%
-%% $Id: eunit_internal.hrl 329 2009-03-01 11:23:32Z rcarlsson $ 
-%%
-%% @author Richard Carlsson <richardc@it.uu.se>
-%% @copyright 2006 Richard Carlsson
-%% @doc 
+%% Copyright (C) 2006 Richard Carlsson <carlsson.richard@gmail.com>
 
 -define(SERVER, eunit_server).
 -define(DEFAULT_TEST_SUFFIX, "_test").

@@ -207,7 +207,7 @@ handle_call({flush, Contrib}, _From, State) ->
     {reply, fetch(Contrib), State};
 
 handle_call(Req, From, State) ->
-    warning_msg("received unexpected request from ~p:~n~w", [From, Req]),
+    ?UNEXPECTED([Req, From]),
     {reply, nok, State}.
 
 %% ----------------------------------------------------------
@@ -219,7 +219,7 @@ handle_cast({incr, Rec}, State) ->
     {noreply, State};
 
 handle_cast(Msg, State) ->
-    warning_msg("received unexpected message:~n~w", [Msg]),
+    ?UNEXPECTED([Msg]),
     {noreply, State}.
 
 %% ----------------------------------------------------------
@@ -231,7 +231,7 @@ handle_info({'DOWN', _MRef, process, Pid, _}, State) ->
     {noreply, State};
 
 handle_info(Info, State) ->
-    warning_msg("received unknown info:~n~w", [Info]),
+    ?UNEXPECTED([Info]),
     {noreply, State}.
 
 %% ----------------------------------------------------------
@@ -340,8 +340,3 @@ cast(Msg) ->
 
 call(Request) ->
     gen_server:call(?SERVER, Request, infinity).
-
-%% warning_msg/2
-
-warning_msg(F, A) ->
-    ?diameter_warning("~p: " ++ F, [?MODULE | A]).

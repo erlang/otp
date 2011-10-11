@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2010</year>
+      <year>2004</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -30,6 +30,22 @@
   </header>
   <p>This document describes the changes made to the Webtool
     application.</p>
+
+<section><title>WebTool 0.8.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Do not install *.bat files on non-win32 machines (Thanks
+	    to Hans Ulrich Niedermann)</p>
+          <p>
+	    Own Id: OTP-9515</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>WebTool 0.8.8</title>
 

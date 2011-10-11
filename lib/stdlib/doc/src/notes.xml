@@ -30,6 +30,168 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 1.17.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    erl_tar:extract failed when executed inside a directory
+	    with some parent directory to which the user has no read
+	    access. This has been corrected.</p>
+          <p>
+	    Own Id: OTP-9368</p>
+        </item>
+        <item>
+	    <p> A bug in <c>erl_scan:set_attribute/3</c> has been
+	    fixed. </p>
+          <p>
+	    Own Id: OTP-9412</p>
+        </item>
+        <item>
+	    <p> The contract of <c>io_lib:fread()</c> has been
+	    corrected. </p>
+          <p>
+	    Own Id: OTP-9413 Aux Id: seq11873 </p>
+        </item>
+        <item>
+          <p>
+	    A crash in io_lib:fread/2 when end of input data was
+	    encountered while trying to match literal characters,
+	    which should return {more,_,_,_} but instead crashed, has
+	    been corrected. Reported by Klas Johansson.</p>
+          <p>
+	    A similar peculiarity for io:fread when encountering end
+	    of file before any field data has also been corrected.</p>
+          <p>
+	    Own Id: OTP-9439</p>
+        </item>
+        <item>
+	    <p> The contract of <c>timer:now_diff()</c> has been
+	    corrected. (Thanks to Alex Morarash). </p>
+          <p>
+	    Own Id: OTP-9450</p>
+        </item>
+        <item>
+          <p>
+	    Fix minor typo in gen_fsm documentation (Thanks to Haitao
+	    Li)</p>
+          <p>
+	    Own Id: OTP-9456</p>
+        </item>
+        <item>
+	    <p>The contracts of <c>zip:zip_list_dir/1</c> and
+	    <c>zip:zip_get/2</c> have been corrected. </p>
+          <p>
+	    Own Id: OTP-9471 Aux Id: seq11887, OTP-9472 </p>
+        </item>
+        <item>
+	    <p> A bug in <c>zip:zip_open()</c> has been fixed. </p>
+          <p>
+	    Own Id: OTP-9472 Aux Id: seq11887, OTP-9471 </p>
+        </item>
+        <item>
+          <p>
+	    Fix trivial documentation errors(Thanks to Matthias Lang)</p>
+          <p>
+	    Own Id: OTP-9498</p>
+        </item>
+        <item>
+          <p>
+	    Add a proplist() type</p>
+          <p>
+	    Recently I was adding specs to an API and found that
+	    there is no canonical proplist() type defined. (Thanks to
+	    Ryan Zezeski)</p>
+          <p>
+	    Own Id: OTP-9499</p>
+        </item>
+        <item>
+          <p>
+	    fix supervisors restarting temporary children</p>
+          <p>
+	    In the current implementation of supervisors, temporary
+	    children should never be restarted. However, when a
+	    temporary child is restarted as part of a one_for_all or
+	    rest_for_one strategy where the failing process is not
+	    the temporary child, the supervisor still tries to
+	    restart it.</p>
+          <p>
+	    Because the supervisor doesn't keep some of the MFA
+	    information of temporary children, this causes the
+	    supervisor to hit its restart limit and crash.</p>
+          <p>
+	    This patch fixes the behaviour by inserting a clause in
+	    terminate_children/2-3 (private function) that will omit
+	    temporary children when building a list of killed
+	    processes, to avoid having the supervisor trying to
+	    restart them again.</p>
+          <p>
+	    Only supervisors in need of restarting children used the
+	    list, so the change should be of no impact for the
+	    functions that called terminate_children/2-3 only to kill
+	    all children.</p>
+          <p>
+	    The documentation has been modified to make this
+	    behaviour more explicit. (Thanks to Fred Hebert)</p>
+          <p>
+	    Own Id: OTP-9502</p>
+        </item>
+        <item>
+          <p>
+	    fix broken edoc annotations (Thanks to Richard Carlsson)</p>
+          <p>
+	    Own Id: OTP-9516</p>
+        </item>
+        <item>
+	    <p> XML files have been corrected. </p>
+          <p>
+	    Own Id: OTP-9550 Aux Id: OTP-9541 </p>
+        </item>
+        <item>
+          <p>
+	    Handle rare race in the crypto key server functionality</p>
+          <p>
+	    Own Id: OTP-9586</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Types and specifications have been added. </p>
+          <p>
+	    Own Id: OTP-9356</p>
+        </item>
+        <item>
+	    <p> The contracts of the <c>queue</c> module have been
+	    modified. </p>
+          <p>
+	    Own Id: OTP-9418</p>
+        </item>
+        <item>
+	    <p> Contracts in STDLIB and Kernel have been improved and
+	    type errors have been corrected. </p>
+          <p>
+	    Own Id: OTP-9485</p>
+        </item>
+        <item>
+          <p>
+	    Types for several BIFs have been extended/corrected. Also
+	    the types for types for <c>lists:keyfind/3</c>,
+	    <c>lists:keysearch/3</c>, and <c>lists:keyemember/3</c>
+	    have been corrected. The incorrect/incomplete types could
+	    cause false dialyzer warnings.</p>
+          <p>
+	    Own Id: OTP-9496</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 1.17.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
@@ -2632,7 +2794,7 @@
             that is, also when starting a gen_server, gen_fsm etc. </p>
           <p>This limitation has now been properly documented and the
             behavior of the <c>gen_fsm</c>, <c>gen_server</c>, and
-            <c>proc_lib</c><c>start</c> and <c>start_link</c>
+            <c>proc_lib</c> <c>start</c> and <c>start_link</c>
             functions when providing this option has been changed
             from hanging indefinitely to failing with reason
             <c>badarg</c>.</p>
@@ -2749,7 +2911,6 @@
             <c>join</c> option that can be used to force QLC to use a
             particular kind of join in some QLC expression.</p>
           <p>Several other changes have also been included:</p>
-          <p></p>
           <list type="bulleted">
             <item>
               <p>The new <c>tmpdir</c> option of <c>cursor/2</c>,

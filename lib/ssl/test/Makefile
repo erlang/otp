@@ -35,33 +35,23 @@ VSN=$(GS_VSN)
 # ----------------------------------------------------
 
 MODULES = \
-        ssl_test_lib \
+	ssl_test_lib \
 	ssl_basic_SUITE \
+	ssl_handshake_SUITE \
 	ssl_packet_SUITE \
 	ssl_payload_SUITE \
 	ssl_to_openssl_SUITE \
 	ssl_session_cache_SUITE	\
 	ssl_dist_SUITE \
-	ssl_test_MACHINE \
-	old_ssl_active_SUITE \
-	old_ssl_active_once_SUITE \
-	old_ssl_passive_SUITE \
-        old_ssl_verify_SUITE \
-	old_ssl_peer_cert_SUITE \
-	old_ssl_misc_SUITE \
-	old_ssl_protocol_SUITE \
-	old_transport_accept_SUITE \
-	old_ssl_dist_SUITE \
 	make_certs\
 	erl_make_certs
 
 
 ERL_FILES = $(MODULES:%=%.erl)
 
-HRL_FILES = ssl_test_MACHINE.hrl 
+HRL_FILES =
 
 HRL_FILES_SRC = \
-	ssl_int.hrl \
 	ssl_internal.hrl\
 	ssl_alert.hrl \
 	ssl_handshake.hrl \

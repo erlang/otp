@@ -74,11 +74,12 @@ marker="diameter_transport#start">diameter_transport(3)</seealso>.</p>
 <p>
 The only diameter_sctp-specific argument is the options list.
 Options <c>raddr</c> and <c>rport</c> specify the remote address
-and port for a connector and not valid for a listener.
+and port for a connecting transport and not valid for a listening
+transport.
 The former is required while latter defaults to 3868 if unspecified.
 More than one <c>raddr</c> option can be specified, in which case the
-connector in question attempts each in sequence until an association
-is established.
+connecting transport in question attempts each in sequence until
+an association is established.
 Remaining options are any accepted by gen_sctp:open/1, with the exception
 of options <c>mode</c>, <c>binary</c>, <c>list</c>, <c>active</c>
 and <c>sctp_events</c>.
@@ -89,7 +90,8 @@ and port respectively.</p>
 Multiple <c>ip</c> options can be specified for a multihomed peer.
 If none are specified then the values of Host-IP-Address
 on the service are used. (In particular, one of these must be specified.)
-Option <c>port</c> defaults to 3868 for a listener and 0 for a connector.</p>
+Option <c>port</c> defaults to 3868 for a listening transport and 0 for a
+connecting transport.</p>
 
 <p>
 diameter_sctp uses the <c>transport_data</c> field of

@@ -31,6 +31,25 @@
   <p>This document describes the changes made to the asn1 application.</p>
 
 
+<section><title>Asn1 1.6.18</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Implement or fix -Werror option</p>
+          <p>
+	    If -Werror is enabled and there are warnings no output
+	    file is written. Also make sure that error/warning
+	    reporting is consistent. (Thanks to Tuncer Ayaz)</p>
+          <p>
+	    Own Id: OTP-9536</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Asn1 1.6.17</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

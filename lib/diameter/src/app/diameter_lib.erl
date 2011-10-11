@@ -30,7 +30,8 @@
          ipaddr/1,
          spawn_opts/2,
          wait/1,
-         fold_tuple/3]).
+         fold_tuple/3,
+         log/4]).
 
 -include("diameter_internal.hrl").
 
@@ -46,14 +47,9 @@
 report(Reason, MFA) ->
     info_report(Reason, MFA).
 
-info_report(Reason, {M,F,A}) ->
-    error_logger:info_report("   Reason: ~p~n"
-			     "      Pid: ~p~n"
-			     "     Node: ~p~n"
-			     "   Module: ~p~n"
-			     " Function: ~p~n"
-			     "Arguments: ~p~n",
-			     [Reason, self(), node(), M, F, A]).
+info_report(Reason, MFA) ->
+    report(fun error_logger:info_report/1, Reason, MFA),
+    true.
 
 %%% ---------------------------------------------------------------------------
 %%% # error_report(Reason, MFA)
@@ -69,7 +65,7 @@ warning_report(Reason, MFA) ->
     report(fun error_logger:warning_report/1, Reason, MFA).
 
 report(Fun, Reason, MFA) ->
-    Fun([{reason, Reason}, {who, self()}, {where, node()}, {what, MFA}]),
+    Fun([{why, Reason}, {who, self()}, {what, MFA}]),
     false.
 
 %%% ---------------------------------------------------------------------------
@@ -255,12 +251,22 @@ w(L) ->
 fold_tuple(_, T, undefined) ->
     T;
 
-fold_tuple(N, T0, T) ->
-    element(2, lists:foldl(fun(X, {M,_} = A) -> {M+1, ft(X, A)} end,
-                           {N, T0},
-                           lists:nthtail(N-1, tuple_to_list(T)))).
+fold_tuple(N, T0, T1) ->
+    {_, T} = lists:foldl(fun(V, {I,_} = IT) -> {I+1, ft(V, IT)} end,
+                         {N, T0},
+                         lists:nthtail(N-1, tuple_to_list(T1))),
+    T.
 
-ft(undefined, T) ->
+ft(undefined, {_, T}) ->
     T;
-ft(X, {N, T}) ->
-    setelement(N, T, X).
+ft(Value, {Idx, T}) ->
+    setelement(Idx, T, Value).
+
+%%% ----------------------------------------------------------
+%%% # log(Slogan, Mod, Line, Details)
+%%%
+%%% Called to have something to trace on for happenings of interest.
+%%% ----------------------------------------------------------
+
+log(_, _, _, _) ->
+    ok.

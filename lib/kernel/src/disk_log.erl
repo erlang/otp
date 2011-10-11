@@ -1240,19 +1240,28 @@ is_owner(Pid, L) ->
 
 %% ok | throw(Error)
 rename_file(File, NewFile, halt) ->
-    file:rename(File, NewFile);
+    case file:rename(File, NewFile) of
+        ok ->
+            ok;
+        Else ->
+            file_error(NewFile, Else)
+    end;
 rename_file(File, NewFile, wrap) ->
     rename_file(wrap_file_extensions(File), File, NewFile, ok).
 
-rename_file([Ext|Exts], File, NewFile, Res) ->
-    NRes = case file:rename(add_ext(File, Ext), add_ext(NewFile, Ext)) of
+rename_file([Ext|Exts], File, NewFile0, Res) ->
+    NewFile = add_ext(NewFile0, Ext),
+    NRes = case file:rename(add_ext(File, Ext), NewFile) of
 	       ok ->
 		   Res;
 	       Else ->
-		   Else
+		   file_error(NewFile, Else)
 	   end,
-    rename_file(Exts, File, NewFile, NRes);
+    rename_file(Exts, File, NewFile0, NRes);
 rename_file([], _File, _NewFiles, Res) -> Res.
+
+file_error(FileName, {error, Error}) ->
+    {error, {file_error, FileName, Error}}.
 
 %% "Old" error messages have been kept, arg_mismatch has been added.
 %%-spec compare_arg(dlog_options(), #arg{}, 
@@ -1947,7 +1956,8 @@ monitor_request(Pid, Req) ->
     receive 
 	{'DOWN', Ref, process, Pid, _Info} ->
 	    {error, no_such_log};
-	{disk_log, Pid, Reply} ->
+	{disk_log, Pid, Reply} when not is_tuple(Reply) orelse
+                                    element(2, Reply) =/= disk_log_stopped ->
 	    erlang:demonitor(Ref),
 	    receive 
 		{'DOWN', Ref, process, Pid, _Reason} ->

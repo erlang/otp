@@ -62,7 +62,7 @@ char integer float atom string var
 '==' '/=' '=<' '<' '>=' '>' '=:=' '=/=' '<='
 '<<' '>>'
 '!' '=' '::' '..' '...'
-'spec' % helper
+'spec' 'callback' % helper
 dot.
 
 Expect 2.
@@ -77,6 +77,7 @@ attribute -> '-' atom attr_val               : build_attribute('$2', '$3').
 attribute -> '-' atom typed_attr_val         : build_typed_attribute('$2','$3').
 attribute -> '-' atom '(' typed_attr_val ')' : build_typed_attribute('$2','$4').
 attribute -> '-' 'spec' type_spec            : build_type_spec('$2', '$3').
+attribute -> '-' 'callback' type_spec        : build_type_spec('$2', '$3').
 
 type_spec -> spec_fun type_sigs : {'$1', '$2'}.
 type_spec -> '(' spec_fun type_sigs ')' : {'$2', '$3'}.
@@ -549,6 +550,8 @@ Erlang code.
       ErrorInfo :: error_info().
 parse_form([{'-',L1},{atom,L2,spec}|Tokens]) ->
     parse([{'-',L1},{'spec',L2}|Tokens]);
+parse_form([{'-',L1},{atom,L2,callback}|Tokens]) ->
+    parse([{'-',L1},{'callback',L2}|Tokens]);
 parse_form(Tokens) ->
     parse(Tokens).
 
@@ -603,7 +606,8 @@ build_typed_attribute({atom,La,Attr},_) ->
         _      -> ret_err(La, "bad attribute")
     end.
 
-build_type_spec({spec,La}, {SpecFun, TypeSpecs}) ->
+build_type_spec({Kind,La}, {SpecFun, TypeSpecs})
+  when (Kind =:= spec) or (Kind =:= callback) ->
     NewSpecFun =
 	case SpecFun of
 	    {atom, _, Fun} ->
@@ -617,7 +621,7 @@ build_type_spec({spec,La}, {SpecFun, TypeSpecs}) ->
 		%% Old style spec. Allow this for now.
 		{Mod,Fun,Arity}
 	    end,
-    {attribute,La,spec,{NewSpecFun, TypeSpecs}}.
+    {attribute,La,Kind,{NewSpecFun, TypeSpecs}}.
 
 find_arity_from_specs([Spec|_]) ->
     %% Use the first spec to find the arity. If all are not the same,

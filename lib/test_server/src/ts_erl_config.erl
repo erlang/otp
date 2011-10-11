@@ -222,7 +222,6 @@ erl_interface(Vars,OsType) ->
 		end,
     CrossCompile = case OsType of
 		       vxworks -> "true";
-		       ose ->     "true";
 		       _ ->       "false"
 		   end,
     [{erl_interface_libpath, filename:nativename(LibPath)},
@@ -329,8 +328,6 @@ sock_libraries({win32, _}) ->
 sock_libraries({unix, _}) ->
     "";	% Included in general libraries if needed.
 sock_libraries(vxworks) ->
-    "";
-sock_libraries(ose) ->
     "".
 
 link_library(LibName,{win32, _}) ->
@@ -339,8 +336,6 @@ link_library(LibName,{unix, _}) ->
     "lib" ++ LibName ++ ".a";
 link_library(LibName,vxworks) ->
     "lib" ++ LibName ++ ".a";
-link_library(_LibName,ose) ->
-    "";
 link_library(_LibName,_Other) ->
     exit({link_library, not_supported}).
 

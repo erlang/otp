@@ -21,14 +21,18 @@
 # massaged in Makefile.
 #
 
-/^<com>\([^<]*\)<\/com>/b rf
-/^<module>\([^<]*\)<\/module>/b rf
+/^<com>/b c
+/^<module>/b c
 
 /^<chapter>/!d
 
+# Chapter: html basename is same as xml.
 s@@$(HTMLDIR)/%FILE%.html: %FILE%.xml@
 q
 
-:rf
-s@@$(HTMLDIR)/\1.html: %FILE%.xml@
+# Reference: html basename is from contents of com/module element.
+:c
+s@^[^>]*>@@
+s@<.*@@
+s@.*@$(HTMLDIR)/&.html: %FILE%.xml@
 q

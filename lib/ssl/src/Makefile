@@ -41,13 +41,8 @@ MODULES= \
 	ssl \
 	ssl_alert \
 	ssl_app \
-	ssl_broker \
-	ssl_broker_sup \
 	ssl_dist_sup\
-	ssl_server \
 	ssl_sup \
-	ssl_prim \
-	inet_ssl_dist \
 	inet_tls_dist \
 	ssl_certificate\
 	ssl_certificate_db\
@@ -67,7 +62,7 @@ MODULES= \
 	ssl_tls_dist_proxy
 
 INTERNAL_HRL_FILES = \
-	 ssl_int.hrl ssl_broker_int.hrl ssl_debug.hrl \
+	 ssl_debug.hrl \
 	 ssl_alert.hrl ssl_cipher.hrl ssl_handshake.hrl ssl_internal.hrl \
 	 ssl_record.hrl
 

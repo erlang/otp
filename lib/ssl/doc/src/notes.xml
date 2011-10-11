@@ -30,7 +30,59 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
   
-  <section>
+  <section><title>SSL 4.1.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    replace "a ssl" with "an ssl" reindent
+	    pkix_path_validation/3 Trivial documentation fixes
+	    (Thanks to Christian von Roques )</p>
+          <p>
+	    Own Id: OTP-9464</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Adds function clause to avoid denial of service attack.
+	    Thanks to Vinod for reporting this vulnerability.</p>
+          <p>
+	    Own Id: OTP-9364</p>
+        </item>
+        <item>
+          <p>
+	    Error handling code now takes care of inet:getopts/2 and
+	    inets:setopts/2 crashes. Thanks to Richard Jones for
+	    reporting this.</p>
+          <p>
+	    Own Id: OTP-9382</p>
+        </item>
+        <item>
+          <p>
+	    Support explicit use of packet option httph and httph_bin</p>
+          <p>
+	    Own Id: OTP-9461</p>
+        </item>
+        <item>
+          <p>
+	    Decoding of hello extensions could fail to come to the
+	    correct conclusion due to an error in a binary match
+	    pattern. Thanks to Ben Murphy.</p>
+          <p>
+	    Own Id: OTP-9589</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section>
     <title>SSL 4.1.5</title>
     
     <section><title>Improvements and New Features</title>

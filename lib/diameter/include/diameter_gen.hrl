@@ -44,14 +44,14 @@ encode_avps(Name, Rec) ->
                              ?MODULE,
                              ?LINE,
                              {Reason, Name, Rec}),
-            erlang:error(list_to_tuple(Reason ++ [Name, Rec, ?MODULE]));
+            erlang:error(list_to_tuple(Reason ++ [Name]));
         error: Reason ->
             Stack = erlang:get_stacktrace(),
             diameter_dbg:log({encode, failure},
                              ?MODULE,
                              ?LINE,
                              {Reason, Name, Rec, Stack}),
-            erlang:error({encode_failure, Reason, Name, Rec, ?MODULE, Stack})
+            erlang:error({encode_failure, Reason, Name, Stack})
     end.
 
 %% encode/2

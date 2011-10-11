@@ -3,7 +3,7 @@
 	EDoc overview page
 
 
-@author Richard Carlsson <richardc@it.uu.se>
+@author Richard Carlsson <carlsson.richard@gmail.com>
 @copyright 2003-2006 Richard Carlsson
 @version {@version}
 @title Welcome to EDoc
@@ -277,12 +277,12 @@ The following tags can be used before a module declaration:
       Examples:
 ```%% @author Richard Carlsson'''
 
-```%% @author Richard Carlsson <richardc@it.uu.se>
+```%% @author Richard Carlsson <carlsson.richard@gmail.com>
    %%   [http://user.it.uu.se/~richardc/]'''
 
-```%% @author <richardc@it.uu.se>'''
+```%% @author <carlsson.richard@gmail.com>'''
 
-```%% @author richardc@it.uu.se [http://user.it.uu.se/~richardc/]'''
+```%% @author carlsson.richard@gmail.com [http://user.it.uu.se/~richardc/]'''
       </dd>
 
 <dt><a name="mtag-copyright">`@copyright'</a></dt>

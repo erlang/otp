@@ -4,7 +4,7 @@
 <cref>
   <header>
     <copyright>
-      <year>2002</year><year>2010</year>
+      <year>2002</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -126,9 +126,8 @@
       carrier". Main multiblock carriers are never deallocated. The
       size of the main multiblock carrier is determined by the value
       of the <seealso marker="#M_mmbcs">mmbcs</seealso> parameter.</p>
-    <p>      <marker id="mseg_mbc_sizes"></marker>
-
-      Sizes of multiblock carriers allocated via <c>mseg_alloc</c> are
+    <p><marker id="mseg_mbc_sizes"></marker>Sizes of multiblock carriers
+      allocated via <c>mseg_alloc</c> are
       decided based on the values of the largest multiblock carrier
       size (<seealso marker="#M_lmbcs">lmbcs</seealso>), the smallest
       multiblock carrier size (<seealso marker="#M_smbcs">smbcs</seealso>),
@@ -157,9 +156,8 @@
     <p>Coalescing of free blocks are always performed immediately.
       Boundary tags (headers and footers) in free blocks are used
       which makes the time complexity for coalescing constant.</p>
-    <p>      <marker id="strategy"></marker>
-
-      The memory allocation strategy used for multiblock carriers by an
+    <p><marker id="strategy"></marker>The memory allocation strategy
+      used for multiblock carriers by an
       allocator is configurable via the <seealso marker="#M_as">as</seealso>
       parameter. Currently the following strategies are available:</p>
     <taglist>
@@ -445,10 +443,10 @@
        in "the <c>alloc_util</c> framework" section.</item>
       <tag><marker id="M_t"><c><![CDATA[+M<S>t true|false|<amount>]]></c></marker></tag>
       <item>
-       Multiple, thread specific instances of the allocator.
-       This option will only have any effect on the runtime system
-       with SMP support. Default behaviour on the runtime system with
-       SMP support (<c>N</c> equals the number of scheduler threads):
+        <p>Multiple, thread specific instances of the allocator.
+           This option will only have any effect on the runtime system
+           with SMP support. Default behaviour on the runtime system with
+           SMP support (<c>N</c> equals the number of scheduler threads):</p>
        <taglist>
          <tag><c>temp_alloc</c></tag>
 	 <item><c>N + 1</c> instances.</item>
@@ -459,10 +457,10 @@
 	 <c>16</c>. <c>16</c> instances when <c>N</c> is greater than
 	 <c>16</c>.</item>
        </taglist>
-       <c>temp_alloc</c> will always use <c>N + 1</c> instances when
-       this option has been enabled regardless of the amount passed.
-       Other allocators will use the same amount of instances as the
-       amount passed as long as it isn't greater than <c>N</c>.       
+       <p><c>temp_alloc</c> will always use <c>N + 1</c> instances when
+          this option has been enabled regardless of the amount passed.
+          Other allocators will use the same amount of instances as the
+          amount passed as long as it isn't greater than <c>N</c>.</p>
       </item>
     </taglist>
     <p>Currently the following flags are available for configuration of

@@ -173,15 +173,20 @@ bulk_sendsend(Terms, BinSize) ->
     Ratio = if MonitorCount2 == 0 -> MonitorCount1 / 1.0;
                true               -> MonitorCount1 / MonitorCount2
             end,
-    %% A somewhat arbitrary ratio, but hopefully one that will accommodate
-    %% a wide range of CPU speeds.
-    true = (Ratio > 8.0),
-    {comment,
-     integer_to_list(Rate1) ++ " K/s, " ++
-     integer_to_list(Rate2) ++ " K/s, " ++
-     integer_to_list(MonitorCount1) ++ " monitor msgs, " ++
-     integer_to_list(MonitorCount2) ++ " monitor msgs, " ++
-     float_to_list(Ratio) ++ " monitor ratio"}.    
+    Comment = integer_to_list(Rate1) ++ " K/s, " ++
+	integer_to_list(Rate2) ++ " K/s, " ++
+	integer_to_list(MonitorCount1) ++ " monitor msgs, " ++
+	integer_to_list(MonitorCount2) ++ " monitor msgs, " ++
+	float_to_list(Ratio) ++ " monitor ratio",
+    if
+	%% A somewhat arbitrary ratio, but hopefully one that will
+	%% accommodate a wide range of CPU speeds.
+	Ratio > 8.0 ->
+	    {comment,Comment};
+	true ->
+	    io:put_chars(Comment),
+	    ?line ?t:fail(ratio_too_low)
+    end.
 
 bulk_sendsend2(Terms, BinSize, BusyBufSize) ->
     ?line Dog = test_server:timetrap(test_server:seconds(30)),
@@ -331,7 +336,7 @@ receiver2(Num, TotSize) ->
 
 link_to_busy(doc) -> "Test that link/1 to a busy distribution port works.";
 link_to_busy(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(30)),
+    ?line Dog = test_server:timetrap(test_server:seconds(60)),
     ?line {ok, Node} = start_node(link_to_busy),
     ?line Recv = spawn(Node, erlang, apply, [fun sink/1, [link_to_busy_sink]]),
 
@@ -378,7 +383,7 @@ tail_applied_linker(Pid) ->
     
 exit_to_busy(doc) -> "Test that exit/2 to a busy distribution port works.";
 exit_to_busy(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(30)),
+    ?line Dog = test_server:timetrap(test_server:seconds(60)),
     ?line {ok, Node} = start_node(exit_to_busy),
 
     Tracer = case os:getenv("TRACE_BUSY_DIST_PORT") of
@@ -1597,8 +1602,8 @@ bad_dist_ext_control(Config) when is_list(Config) ->
     ?line stop_node(Victim).
 
 bad_dist_ext_connection_id(Config) when is_list(Config) ->
-    ?line {ok, Offender} = start_node(bad_dist_ext_receive_offender),
-    ?line {ok, Victim} = start_node(bad_dist_ext_receive_victim),
+    ?line {ok, Offender} = start_node(bad_dist_ext_connection_id_offender),
+    ?line {ok, Victim} = start_node(bad_dist_ext_connection_id_victim),
     ?line start_node_monitors([Offender,Victim]),
 
     ?line Parent = self(),

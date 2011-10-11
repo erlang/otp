@@ -177,9 +177,9 @@
      archives. But the functions in <c>erl_prim_loader</c> may also be
      used by other applications to read files from archives. For
      example, the call
-     <c>erl_prim_loader:list_dir("/otp/root/lib/mnesia-4.4.7.ez/mnesia-4.4.7/examples/bench)"</c>
+     <c>erl_prim_loader:list_dir( "/otp/root/lib/mnesia-4.4.7.ez/mnesia-4.4.7/examples/bench)"</c>
      would list the contents of a directory inside an archive.
-     See <seealso marker="erts:erl_prim_loader">erl_prim_loader(3)</seealso></p>
+     See <seealso marker="erts:erl_prim_loader">erl_prim_loader(3)</seealso></p>.
 
     <p>An application archive file and a regular application directory
      may coexist. This may be useful when there is a need of having

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2007</year><year>2010</year>
+      <year>2007</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -30,6 +30,22 @@
   </header>
   <p>This document describes the changes made to the DocBuilder
      application.</p>
+
+<section><title>Docbuilder 0.9.8.11</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The docbuilder application has been deprecated and will
+	    be removed in the R15 release.</p>
+          <p>
+	    Own Id: OTP-9509</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Docbuilder 0.9.8.10</title>
 

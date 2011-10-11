@@ -28,8 +28,6 @@
 -export([get_application/0, get_application/1, info/0]).
 -export([start_type/0]).
 
--export([behaviour_info/1]).
-
 %%%-----------------------------------------------------------------
 
 -type start_type() :: 'normal'
@@ -59,12 +57,12 @@
 
 %%------------------------------------------------------------------
 
--spec behaviour_info(atom()) -> 'undefined' | [{atom(), byte()}].
+-callback start(StartType :: normal | {takeover, node()} | {failover, node()},
+		StartArgs :: term()) ->
+    {ok, pid()} | {ok, pid(), State :: term()} | {error, Reason :: term}.
 
-behaviour_info(callbacks) ->
-    [{start,2},{stop,1}];
-behaviour_info(_Other) ->
-    undefined.
+-callback stop(State :: term()) ->
+    term().
 
 %%%-----------------------------------------------------------------
 %%% This module is API towards application_controller and

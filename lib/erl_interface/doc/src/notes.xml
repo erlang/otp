@@ -30,6 +30,53 @@
   </header>
   <p>This document describes the changes made to the Erl_interface application.</p>
 
+<section><title>Erl_Interface 3.7.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Align ei buffer according to size of pointers</p>
+          <p>
+	    Own Id: OTP-9390</p>
+        </item>
+        <item>
+	    <p> XML files have been corrected. </p>
+          <p>
+	    Own Id: OTP-9550 Aux Id: OTP-9541 </p>
+        </item>
+        <item>
+          <p>
+	    Make comment and documentation reflect code in
+	    erl_interface/src/misc/ei_decode_term.c (Thanks to Anneli
+	    Cuss)</p>
+          <p>
+	    Own Id: OTP-9559</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    ei: integer overflow in string/atom encoding</p>
+          <p>
+	    ei_encode_atom() and ei_encode_string() use strlen() to
+	    get the length of the buffer. As strlen() returns an
+	    unsigned long long and both ei functions take a signed
+	    integer, the length fields may overflow.</p>
+          <p>
+	    Check so that the results of strlen can be held in a
+	    signed integer. (Thanks to Michael Santos)</p>
+          <p>
+	    Own Id: OTP-9530</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erl_Interface 3.7.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

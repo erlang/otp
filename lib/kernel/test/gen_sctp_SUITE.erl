@@ -212,7 +212,9 @@ xfer_active(Config) when is_list(Config) ->
 		?line test_server:fail({unexpected,flush()})
 	end,
     ?line io:format("SbAssocId=~p~n", [SbAssocId]),
-    ?line ok = gen_sctp:send(Sa, SaAssocId, 0, Data),
+    ?line ok =
+	do_from_other_process(
+	  fun () -> gen_sctp:send(Sa, SaAssocId, 0, Data) end),
     ?line receive
 	      {sctp,Sb,Loopback,Pa,
 	       {[#sctp_sndrcvinfo{stream=Stream,
@@ -378,11 +380,14 @@ def_sndrcvinfo(Config) when is_list(Config) ->
 			end
 	  end,
     ?line ok =
-	gen_sctp:send(
-	  S2,
-	  #sctp_sndrcvinfo{stream=0, ppid=20, assoc_id=S2AssocId},
-	  <<"4: ",Data/binary>>),
-    ?line case ok(gen_sctp:recv(S1)) of
+	do_from_other_process(
+	  fun () ->
+		  gen_sctp:send(
+		    S2,
+		    #sctp_sndrcvinfo{stream=0, ppid=20, assoc_id=S2AssocId},
+		    <<"4: ",Data/binary>>)
+	  end),
+    ?line case ok(do_from_other_process(fun() -> gen_sctp:recv(S1) end)) of
 	      {Loopback,P2,
 	       [#sctp_sndrcvinfo{
 		   stream=0, ppid=20, context=0, assoc_id=S1AssocId}],
@@ -575,6 +580,8 @@ api_opts(doc) ->
 api_opts(suite) ->
     [];
 api_opts(Config) when is_list(Config) ->
+    ?line Sndbuf = 32768,
+    ?line Recbuf = 65536,
     ?line {ok,S} = gen_sctp:open(0),
     ?line OSType = os:type(),
     ?line case {inet:setopts(S, [{linger,{true,2}}]),OSType} of
@@ -582,7 +589,15 @@ api_opts(Config) when is_list(Config) ->
                   ok;
               {{error,einval},{unix,sunos}} ->
                   ok
-          end.
+          end,
+    ?line ok = inet:setopts(S, [{sndbuf,Sndbuf}]),
+    ?line ok = inet:setopts(S, [{recbuf,Recbuf}]),
+    ?line case inet:getopts(S, [sndbuf]) of
+	      {ok,[{sndbuf,SB}]} when SB >= Sndbuf -> ok
+	  end,
+    ?line case inet:getopts(S, [recbuf]) of
+	      {ok,[{recbuf,RB}]} when RB >= Recbuf -> ok
+	  end.
 
 implicit_inet6(Config) when is_list(Config) ->
     ?line Hostname = ok(inet:gethostname()),
@@ -638,3 +653,31 @@ implicit_inet6(S1, Addr) ->
 	      {{0,0,0,0,0,0,0,0},P2} -> ok
 	  end,
     ?line ok = gen_sctp:close(S2).
+
+
+
+do_from_other_process(Fun) ->
+    Parent = self(),
+    Ref = make_ref(),
+    Child =
+	spawn(fun () ->
+		      try Fun() of
+			  Result ->
+			      Parent ! {Ref,Result}
+		      catch
+			  Class:Reason ->
+			      Stacktrace = erlang:get_stacktrace(),
+			      Parent ! {Ref,Class,Reason,Stacktrace}
+		      end
+	      end),
+    Mref = erlang:monitor(process, Child),
+    receive
+	{Ref,Result} ->
+	    receive {'DOWN',Mref,_,_,_} -> Result end;
+	{Ref,Class,Reason,Stacktrace} ->
+	    receive {'DOWN',Mref,_,_,_} ->
+		    erlang:raise(Class, Reason, Stacktrace)
+	    end;
+	{'DOWN',Mref,_,_,Reason} ->
+	    erlang:exit(Reason)
+    end.

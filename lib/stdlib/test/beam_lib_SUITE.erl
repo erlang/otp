@@ -181,7 +181,8 @@ error(Conf) when is_list(Conf) ->
     ?line verify(not_a_beam_file, beam_lib:info(<<"short">>)),
 
     ?line {Binary1, _} = split_binary(Binary, byte_size(Binary)-10),
-    ?line verify(chunk_too_big, beam_lib:chunks(Binary1, ["Abst"])),
+    LastChunk = last_chunk(Binary),
+    ?line verify(chunk_too_big, beam_lib:chunks(Binary1, [LastChunk])),
     ?line Chunks = chunk_info(Binary),
     ?line {value, {_, AbstractStart, _}} = lists:keysearch("Abst", 1, Chunks),
     ?line {Binary2, _} = split_binary(Binary, AbstractStart),
@@ -204,6 +205,12 @@ error(Conf) when is_list(Conf) ->
     ?line file:delete(BeamFile),
     ?line file:delete(ACopy),
     ok.
+
+last_chunk(Bin) ->
+    L = beam_lib:info(Bin),
+    {chunks,Chunks} = lists:keyfind(chunks, 1, L),
+    {Last,_,_} = lists:last(Chunks),
+    Last.
 
 do_error(BeamFile, ACopy) ->
     % evil tests
@@ -584,8 +591,18 @@ do_encrypted_abstr(Beam, Key) ->
     ?line {ok,{simple,[{"Abst",Abst}]}} = beam_lib:chunks(Beam, ["Abst"]),
 
     ?line {ok,cleared} = beam_lib:clear_crypto_key_fun(),
+
+    %% Try to force a stop/start race.
+    ?line start_stop_race(10000),
+
     ok.
 
+start_stop_race(0) ->
+    ok;
+start_stop_race(N) ->
+    {error,_} = beam_lib:crypto_key_fun(bad_fun),
+    undefined = beam_lib:clear_crypto_key_fun(),
+    start_stop_race(N-1).
 
 bad_fun(F) ->
     {error,E} = beam_lib:crypto_key_fun(F),

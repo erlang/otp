@@ -243,12 +243,11 @@
 -define(REC_TYPE_LIMIT, 2).
 
 -define(TUPLE_TAG_LIMIT, 5).
--define(TUPLE_ARITY_LIMIT, 10).
+-define(TUPLE_ARITY_LIMIT, 8).
 -define(SET_LIMIT, 13).
 -define(MAX_BYTE, 255).
 -define(MAX_CHAR, 16#10ffff).
 
--define(WIDENING_LIMIT, 7).
 -define(UNIT_MULTIPLIER, 8).
 
 -define(TAG_IMMED1_SIZE, 4).

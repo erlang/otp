@@ -84,7 +84,7 @@
       <name name="send_after" arity="3"/>
       <fsummary>Send <c>Message</c>to <c>Pid</c>after a specified <c>Time</c>.</fsummary>
       <desc>
-        <p></p>
+        <p>
         <taglist>
           <tag><c>send_after/3</c></tag>
           <item>
@@ -98,6 +98,7 @@
             <p>Same as <c>send_after(<anno>Time</anno>, self(), <anno>Message</anno>)</c>.</p>
           </item>
         </taglist>
+        </p>
       </desc>
     </func>
     <func>
@@ -107,7 +108,7 @@
       <name name="exit_after" arity="3"/>
       <fsummary>Send an exit signal with <c>Reason</c>after a specified <c>Time</c>.</fsummary>
       <desc>
-        <p></p>
+        <p>
         <taglist>
           <tag><c>exit_after/3</c></tag>
           <item>
@@ -128,6 +129,7 @@
             <p>Same as <c>exit_after(<anno>Time</anno>, self(), kill)</c>.     </p>
           </item>
         </taglist>
+        </p>
       </desc>
     </func>
     <func>
@@ -144,7 +146,7 @@
       <name name="send_interval" arity="3"/>
       <fsummary>Send <c>Message</c>repeatedly at intervals of <c>Time</c>.</fsummary>
       <desc>
-        <p></p>
+        <p>
         <taglist>
           <tag><c>send_interval/3</c></tag>
           <item>
@@ -158,6 +160,7 @@
             <p>Same as <c>send_interval(<anno>Time</anno>, self(), <anno>Message</anno>)</c>.</p>
           </item>
         </taglist>
+        </p>
       </desc>
     </func>
     <func>
@@ -188,7 +191,7 @@
       Function, Arguments)</c> or <c>apply(Fun, Arguments)</c></fsummary>
       <type_desc variable="Time">In microseconds</type_desc>
       <desc>
-        <p></p>
+        <p>
         <taglist>
           <tag><c>tc/3</c></tag>
           <item>
@@ -209,6 +212,7 @@
           </item>
 
         </taglist>
+        </p>
       </desc>
     </func>
     <func>
@@ -254,7 +258,6 @@
   <section>
     <title>Examples</title>
     <p>This example illustrates  how to print out "Hello World!" in 5 seconds:</p>
-    <p></p>
     <pre>
       1> <input>timer:apply_after(5000, io, format, ["~nHello World!~n", []]).</input>
       {ok,TRef}

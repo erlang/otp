@@ -121,8 +121,6 @@
    <p> <c>hash() = md5 | sha
     </c></p>
 
-    <p><c>ssl_imp() = new | old - default is new.</c></p>
-    
   </section>
 
   <section>
@@ -177,9 +175,9 @@
       by the peer also.
       </item>
 
-      <tag>{ssl_imp, ssl_imp()}</tag>
-      <item>Specify which ssl implementation you want to use. Defaults to
-      new.
+      <tag>{ssl_imp, new | old}</tag>
+      <item>No longer has any meaning as the old implementation has
+      been removed, it will be ignored.
       </item>
 
       <tag>{secure_renegotiate, boolean()}</tag>
@@ -649,10 +647,10 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
         <p> Upgrades a gen_tcp, or
 	  equivalent, socket to an ssl socket i.e. performs the
 	ssl server-side handshake.</p>
-	<p><warning>Note that the listen socket should be in {active, false} mode
+	<warning><p>Note that the listen socket should be in {active, false} mode
 	before telling the client that the server is ready to upgrade
 	and calling this function, otherwise the upgrade may
-	or may not succeed depending on timing.</warning></p>
+	or may not succeed depending on timing.</p></warning>
       </desc>
     </func>
     

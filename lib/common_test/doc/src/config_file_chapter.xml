@@ -285,7 +285,7 @@
           <c>{ok, Config}</c> - if the configuration variables are read successfully,
         </item>
         <item>
-          <c>{error, Error, ErrorDetails}</c> - if the callback module fails to
+          <c>{error, {Error, ErrorDetails}}</c> - if the callback module fails to
           proceed with the given configuration parameters.
         </item>
       </list>
@@ -422,14 +422,14 @@ stop()->
 call(Client, Request)->
     case whereis(?REGISTERED_NAME) of
         undefined->
-            {error, not_started, Request};
+            {error, {not_started, Request}};
         Pid->
             Pid ! {Client, Request},
             receive
                 Reply->
                     {ok, Reply}
             after 4000->
-                {error, timeout, Request}
+                {error, {timeout, Request}}
             end
     end.
 

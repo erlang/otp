@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -298,18 +298,8 @@ hide(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=WindowRef}, Option
   wxe_util:call(WindowOP,
   <<ThisRef:32/?UI,WindowRef:32/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxSizer(),Index::integer(),X::term()) -> wxSizerItem:wxSizerItem()
+%% @spec (This::wxSizer(), Index::integer(), Item::wxSizerItem:wxSizerItem()) -> wxSizerItem:wxSizerItem()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizer.html#wxsizerinsert">external documentation</a>.
-%% <br /> Alternatives:
-%% <p><c>
-%% insert(This::wxSizer(), Index::integer(), Window::wxWindow:wxWindow() | wxSizer()) -> insert(This,Index,Window, []) </c></p>
-%% <p><c>
-%% insert(This::wxSizer(), Index::integer(), Item::wxSizerItem:wxSizerItem()) -> wxSizerItem:wxSizerItem() </c>
-%% </p>
-
-insert(This,Index,Window)
- when is_record(This, wx_ref),is_integer(Index),is_record(Window, wx_ref) ->
-  insert(This,Index,Window, []);
 insert(#wx_ref{type=ThisT,ref=ThisRef},Index,#wx_ref{type=ItemT,ref=ItemRef})
  when is_integer(Index) ->
   ?CLASS(ThisT,wxSizer),
@@ -437,18 +427,8 @@ layout(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:cast(?wxSizer_Layout,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxSizer(),X::term()) -> wxSizerItem:wxSizerItem()
+%% @spec (This::wxSizer(), Item::wxSizerItem:wxSizerItem()) -> wxSizerItem:wxSizerItem()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizer.html#wxsizerprepend">external documentation</a>.
-%% <br /> Alternatives:
-%% <p><c>
-%% prepend(This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer()) -> prepend(This,Window, []) </c></p>
-%% <p><c>
-%% prepend(This::wxSizer(), Item::wxSizerItem:wxSizerItem()) -> wxSizerItem:wxSizerItem() </c>
-%% </p>
-
-prepend(This,Window)
- when is_record(This, wx_ref),is_record(Window, wx_ref) ->
-  prepend(This,Window, []);
 prepend(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ItemT,ref=ItemRef}) ->
   ?CLASS(ThisT,wxSizer),
   ?CLASS(ItemT,wxSizerItem),

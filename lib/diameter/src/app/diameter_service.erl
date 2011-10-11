@@ -463,7 +463,7 @@ handle_call(stop, _From, S) ->
 %% stating a monitor that waits for DOWN before returning.
 
 handle_call(Req, From, S) ->
-    ?REPORT(unknown_request, ?FUNC, [Req, From]),
+    unexpected(handle_call, [Req, From], S),
     {reply, nok, S}.
 
 %%% ---------------------------------------------------------------------------
@@ -471,7 +471,7 @@ handle_call(Req, From, S) ->
 %%% ---------------------------------------------------------------------------
 
 handle_cast(Req, S) ->
-    ?REPORT(unknown_request, ?FUNC, [Req]),
+    unexpected(handle_cast, [Req], S),
     {noreply, S}.
 
 %%% ---------------------------------------------------------------------------
@@ -553,8 +553,8 @@ transition({failover, TRef, Seqs}, S) ->
     failover(TRef, Seqs, S),
     ok;
 
-transition(Req, _) ->
-    ?REPORT(unknown_request, ?FUNC, [Req]),
+transition(Req, S) ->
+    unexpected(handle_info, [Req], S),
     ok.
 
 %%% ---------------------------------------------------------------------------
@@ -590,6 +590,9 @@ code_change(FromVsn, SvcName, Extra, #diameter_app{alias = Alias} = A) ->
 
 %% ===========================================================================
 %% ===========================================================================
+
+unexpected(F, A, #state{service_name = Name}) ->
+    ?UNEXPECTED(F, A ++ [Name]).
 
 cb([_|_] = M, F, A) ->
     eval(M, F, A);
@@ -1398,15 +1401,15 @@ recv_answer(Timeout,
     %% is, from the last peer to which we've transmitted.
 
     receive
-        {answer = A, Ref, Rq, Pkt} ->     %% Answer from peer.
+        {answer = A, Ref, Rq, Pkt} ->     %% Answer from peer
             {A, Rq, Pkt};
-        {timeout = Reason, TRef, _} ->       %% No timely reply
+        {timeout = Reason, TRef, _} ->    %% No timely reply
             {error, Req, Reason};
-        {failover = Reason, TRef, false} ->  %% No alternative peer.
+        {failover = Reason, TRef, false} ->  %% No alternate peer
             {error, Req, Reason};
-        {failover, TRef, Transport} ->       %% Resend to alternate peer.
+        {failover, TRef, Transport} ->    %% Resend to alternate peer
             try_retransmit(Timeout, SvcName, Req, Transport);
-        {failover, TRef} ->  %% May have missed failover notification.
+        {failover, TRef} ->  %% May have missed failover notification
             Seqs = diameter_codec:sequence_numbers(RPkt),
             Pid  = whois(SvcName),
             is_pid(Pid) andalso (Pid ! {failover, TRef, Seqs}),
@@ -1685,9 +1688,9 @@ recv_request({Id, Alias}, T, TPid, Apps, Caps, Pkt) ->
 %%   DIAMETER_APPLICATION_UNSUPPORTED   3007
 %%      A request was sent for an application that is not supported.
 
-recv_request(false, {_, OH, OR}, TPid, _, _, Pkt) ->
-    ?LOG({error, application}, Pkt),
-    reply(answer_message({OH, OR, 3007}, collect_avps(Pkt)), ?BASE, TPid, Pkt).
+recv_request(false, T, TPid, _, _, Pkt) ->
+    As = collect_avps(Pkt),
+    protocol_error(3007, T, TPid, Pkt#diameter_packet{avps = As}).
 
 collect_avps(Pkt) ->
     case diameter_codec:collect_avps(Pkt) of
@@ -1706,13 +1709,9 @@ collect_avps(Pkt) ->
 %%      set to an unrecognized value, or that is inconsistent with the
 %%      AVP's definition.
 %%
-recv_request({_, OH, OR}, {TPid, _}, _, #diameter_packet{errors = [Bs | _],
-                                                         bin = Bin,
-                                                         avps = Avps}
-                                        = Pkt)
+recv_request(T, {TPid, _}, _, #diameter_packet{errors = [Bs | _]} = Pkt)
   when is_bitstring(Bs) ->
-    ?LOG({error, invalid_avp_bits}, Bin),
-    reply(answer_message({OH, OR, 3009}, Avps), ?BASE, TPid, Pkt);
+    protocol_error(3009, T, TPid, Pkt);
 
 %% Either we support this application but don't recognize the command
 %% or we're a relay and the command isn't proxiable.
@@ -1722,18 +1721,15 @@ recv_request({_, OH, OR}, {TPid, _}, _, #diameter_packet{errors = [Bs | _],
 %%      recognize or support.  This MUST be used when a Diameter node
 %%      receives an experimental command that it does not understand.
 %%
-recv_request({_, OH, OR},
+recv_request(T,
              {TPid, _},
              #diameter_app{id = Id},
              #diameter_packet{header = #diameter_header{is_proxiable = P},
-                              msg = M,
-                              avps = Avps,
-                              bin = Bin}
+                              msg = M}
              = Pkt)
   when ?APP_ID_RELAY /= Id, undefined == M;
        ?APP_ID_RELAY == Id, not P ->
-    ?LOG({error, command_unsupported}, Bin),
-    reply(answer_message({OH, OR, 3001}, Avps), ?BASE, TPid, Pkt);
+    protocol_error(3001, T, TPid, Pkt);
 
 %% Error bit was set on a request.
 %%
@@ -1742,15 +1738,12 @@ recv_request({_, OH, OR},
 %%      either set to an invalid combination, or to a value that is
 %%      inconsistent with the command code's definition.
 %%
-recv_request({_, OH, OR},
+recv_request(T,
              {TPid, _},
              _,
-             #diameter_packet{header = #diameter_header{is_error = true},
-                              avps = Avps,
-                              bin = Bin}
+             #diameter_packet{header = #diameter_header{is_error = true}}
              = Pkt) ->
-    ?LOG({error, error_bit}, Bin),
-    reply(answer_message({OH, OR, 3008}, Avps), ?BASE, TPid, Pkt);
+    protocol_error(3008, T, TPid, Pkt);
 
 %% A message in a locally supported application or a proxiable message
 %% in the relay application. Don't distinguish between the two since
@@ -1878,7 +1871,7 @@ resend(true, _, _, T, {TPid, _}, Pkt) ->  %% Route-Record loop
 resend(false,
        Opts,
        App,
-       {SvcName, _, _},
+       {SvcName, _, _} = T,
        {TPid, #diameter_caps{origin_host = {_, OH}}},
        #diameter_packet{header = Hdr0,
                         avps = Avps}
@@ -1887,46 +1880,41 @@ resend(false,
     Seq = diameter_session:sequence(),
     Hdr = Hdr0#diameter_header{hop_by_hop_id = Seq},
     Msg = [Hdr, Route | Avps],
-    %% Filter sender as ineligible receiver.
-    reply(call(SvcName, App, Msg, [{filter, {neg, {host, OH}}} | Opts]),
-          TPid,
-          Pkt).
+    resend(call(SvcName, App, Msg, Opts), T, TPid, Pkt).
 %% The incoming request is relayed with the addition of a
-%% Route-Record. Note the requirement on the return from call/4.
-%% This places a requirement on the values returned by the
-%% handle_answer and handle_error callbacks of the application module
-%% in question.
+%% Route-Record. Note the requirement on the return from call/4 below,
+%% which places a requirement on the value returned by the
+%% handle_answer callback of the application module in question.
+%%
+%% Note that there's nothing stopping the request from being relayed
+%% back to the sender. A pick_peer callback may want to avoid this but
+%% a smart peer might recognize the potential loop and choose another
+%% route. A less smart one will probably just relay the request back
+%% again and force us to detect the loop. A pick_peer that wants to
+%% avoid this can specify filter to avoid the possibility.
+%% Eg. {neg, {host, OH} where #diameter_caps{origin_host = {OH, _}}.
 %%
 %% RFC 6.3 says that a relay agent does not modify Origin-Host but
 %% says nothing about a proxy. Assume it should behave the same way.
 
-%% reply/3
+%% resend/4
 %%
 %% Relay a reply to a relayed request.
 
 %% Answer from the peer: reset the hop by hop identifier and send.
-reply(#diameter_packet{bin = B}
-      = Pkt,
-      TPid,
-      #diameter_packet{header = #diameter_header{hop_by_hop_id = Id},
-                       transport_data = TD}) ->
+resend(#diameter_packet{bin = B}
+       = Pkt,
+       _,
+       TPid,
+       #diameter_packet{header = #diameter_header{hop_by_hop_id = Id},
+                        transport_data = TD}) ->
     send(TPid, Pkt#diameter_packet{bin = diameter_codec:hop_by_hop_id(Id, B),
                                    transport_data = TD});
 %% TODO: counters
 
-%% Not. Ignoring the error feels harsh but there is no appropriate
-%% Result-Code for a protocol error (which this isn't really anyway)
-%% and the RFC doesn't provide any guidance how to act. A weakness
-%% here is that we don't deal well with a decode error: the request
-%% will simply timeout on the peer's end. Better would be to just send
-%% the answer (with modified hop by hop identifier) on regardless, at
-%% least in the relay case in which there's no examination of the
-%% answer. In the proxy case it's not clear that the callback won't
-%% examine the answer. Just be quiet here since a decode error causes
-%% the request process to crash (or not depending on the error and
-%% config and/or handle_answer callback).
-reply(_, _, _) ->
-    ok.
+%% Or not: DIAMETER_UNABLE_TO_DELIVER.
+resend(_, T, TPid, Pkt) ->
+    protocol_error(3002, T, TPid, Pkt).
 
 %% is_loop/4
 %%
@@ -1971,24 +1959,20 @@ reply(Msg, Dict, TPid, #diameter_packet{errors = [H|_] = Es} = Pkt) ->
 
 %% make_reply_packet/2
 
+%% Binaries and header/avp lists are sent as-is.
 make_reply_packet(Bin, _)
   when is_binary(Bin) ->
     #diameter_packet{bin = Bin};
-
 make_reply_packet([#diameter_header{} | _] = Msg, _) ->
     #diameter_packet{msg = Msg};
 
+%% Otherwise a reply message clears the R and T flags and retains the
+%% P flag. The E flag will be set at encode.
 make_reply_packet(Msg, #diameter_packet{header = ReqHdr}) ->
-    #diameter_header{end_to_end_id = EId,
-                     hop_by_hop_id = Hid,
-                     is_proxiable = P}
-        = ReqHdr,
-
-    Hdr = #diameter_header{version = ?DIAMETER_VERSION,
-                           end_to_end_id = EId,
-                           hop_by_hop_id = Hid,
-                           is_proxiable = P,
-                           is_retransmitted = false},
+    Hdr = ReqHdr#diameter_header{version = ?DIAMETER_VERSION,
+                                 is_request = false,
+                                 is_error = undefined,
+                                 is_retransmitted = false},
     #diameter_packet{header = Hdr,
                      msg = Msg}.
 
@@ -2122,16 +2106,6 @@ answer_message({OH, OR, RC}, Avps) ->
                        {'Origin-Realm', OR},
                        {'Result-Code', RC}
                        | session_id(Code, Vid, Avps)].
-
-session_id(Code, Vid, Avps)
-  when is_list(Avps) ->
-    try
-        {value, #diameter_avp{} = Avp} = find_avp(Code, Vid, Avps),
-        Avp
-    catch
-        error: _ ->
-            []
-    end;
 
 session_id(Code, Vid, Avps)
   when is_list(Avps) ->
@@ -2482,6 +2456,7 @@ rpd(Pid, Alias, PDict) ->
 %%%
 %%% Output: {TransportPid, #diameter_caps{}, #diameter_app{}}
 %%%         | false
+%%%         | {error, Reason}
 %%% ---------------------------------------------------------------------------
 
 %% Initial call, from an arbitrary process.
@@ -2540,28 +2515,18 @@ get_destination(Msg, Dict) ->
     [str(get_avp_value(Dict, 'Destination-Realm', Msg)),
      str(get_avp_value(Dict, 'Destination-Host', Msg))].
 
-%% TODO:
-%%
-%% Should add some way of specifying destination directly so that the
-%% only requirement is that the prepare_request callback returns
-%% something specific. (eg. {host, DH}; that is, let the caller specify.)
-%%
-%% Also, there is no longer any need to call get_destination at all in
-%% the default case.
-
-str(T)
-  when T == undefined;
-       T == [] ->
+%% This is not entirely correct. The avp could have an arity 1, in
+%% which case an empty list is a DiameterIdentity of length 0 rather
+%% than the list of no values we treat it as by mapping to undefined.
+%% This behaviour is documented.
+str([]) ->
     undefined;
-str([X])
-  when is_list(X) ->
-    X;
 str(T) ->
     T.
 
 %% get_avp_value/3
 %%
-%% Support outgoing messages in one of three forms:
+%% Find an AVP in a message of one of three forms:
 %%
 %% - a message record (as generated from a .dia spec) or
 %% - a list of an atom message name followed by 2-tuple, avp name/value pairs.
@@ -2593,8 +2558,9 @@ get_avp_value(_, Name, [_MsgName | Avps]) ->
             undefined
     end;
 
-get_avp_value(Dict, Name, Rec)
-  when is_tuple(Rec) ->
+%% Message is typically a record but not necessarily: diameter:call/4
+%% can be passed an arbitrary term.
+get_avp_value(Dict, Name, Rec) ->
     try
         Dict:'#get-'(Name, Rec)
     catch
@@ -2690,7 +2656,8 @@ peers(Alias, RH, Filter, Peers) ->
     end.
 
 %% Place a peer whose Destination-Host/Realm matches those of the
-%% request at the front of the result list.
+%% request at the front of the result list. Could add some sort of
+%% 'sort' option to allow more control.
 
 ps([], _, _, {Ys, Ns}) ->
     lists:reverse(Ys, Ns);
@@ -2700,11 +2667,11 @@ ps([{_TPid, #diameter_caps{} = Caps} = TC | Rest], RH, Filter, Acc) ->
                               TC,
                               Acc)).
 
-pacc(true, true, TC, {Ts, Fs}) ->
-    {[TC|Ts], Fs};
-pacc(true, false, TC, {Ts, Fs}) ->
-    {Ts, [TC|Fs]};
-pacc(false, _, _, Acc) ->
+pacc(true, true, Peer, {Ts, Fs}) ->
+    {[Peer|Ts], Fs};
+pacc(true, false, Peer, {Ts, Fs}) ->
+    {Ts, [Peer|Fs]};
+pacc(_, _, _, Acc) ->
     Acc.
 
 %% caps_filter/3
@@ -2712,17 +2679,19 @@ pacc(false, _, _, Acc) ->
 caps_filter(C, RH, {neg, F}) ->
     not caps_filter(C, RH, F);
 
-caps_filter(C, RH, {all, L}) ->
+caps_filter(C, RH, {all, L})
+  when is_list(L) ->
     lists:all(fun(F) -> caps_filter(C, RH, F) end, L);
 
-caps_filter(C, RH, {any, L}) ->
+caps_filter(C, RH, {any, L})
+  when is_list(L) ->
     lists:any(fun(F) -> caps_filter(C, RH, F) end, L);
 
-caps_filter(#diameter_caps{origin_host = {_,H}}, [_,DH], host) ->
-    eq(undefined, DH, H);
+caps_filter(#diameter_caps{origin_host = {_,OH}}, [_,DH], host) ->
+    eq(undefined, DH, OH);
 
-caps_filter(#diameter_caps{origin_realm = {_,R}}, [DR,_], realm) ->
-    eq(undefined, DR, R);
+caps_filter(#diameter_caps{origin_realm = {_,OR}}, [DR,_], realm) ->
+    eq(undefined, DR, OR);
 
 caps_filter(C, _, Filter) ->
     caps_filter(C, Filter).
@@ -2738,6 +2707,9 @@ caps_filter(#diameter_caps{origin_host = {_,OH}}, {host, H}) ->
 caps_filter(#diameter_caps{origin_realm = {_,OR}}, {realm, R}) ->
     eq(any, R, OR);
 
+%% Anything else is expected to be an eval filter. Filter failure is
+%% documented as being equivalent to a non-matching filter.
+
 caps_filter(C, T) ->
     try
         {eval, F} = T,
@@ -2746,8 +2718,14 @@ caps_filter(C, T) ->
         _:_ -> false
     end.
 
-eq(X, A, B) ->
-    X == A orelse A == B.
+eq(Any, Id, PeerId) ->
+    Any == Id orelse try
+                         iolist_to_binary(Id) == iolist_to_binary(PeerId)
+                     catch
+                         _:_ -> false
+                     end.
+%% OctetString() can be specified as an iolist() so test for string
+%% rather then term equality.
 
 %% transports/1
 

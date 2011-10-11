@@ -4,14 +4,9 @@
     {modules, [ssl,
 	       ssl_app,
 	       ssl_sup,
-	       ssl_server,
-	       ssl_broker,
-	       ssl_broker_sup,
-	       ssl_prim,
 	       inet_tls_dist,
 	       ssl_tls_dist_proxy,
 	       ssl_dist_sup,
-	       inet_ssl_dist,
 	       ssl_tls1,
 	       ssl_ssl3,
 	       ssl_ssl2,
@@ -29,7 +24,7 @@
 	       ssl_certificate,
 	       ssl_alert
 	       ]},
-    {registered, [ssl_sup, ssl_server, ssl_broker_sup]},
+    {registered, [ssl_sup, ssl_manager]},
     {applications, [crypto, public_key, kernel, stdlib]},
     {env, []},
     {mod, {ssl_app, []}}]}.

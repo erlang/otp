@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -29,6 +29,12 @@
 -import(proplists, [get_value/2,get_value/3]).
 
 -compile(export_all).
+
+-define(DBGCF(Class, Func, Format, Args),
+	case {get(current_class), get(current_func)} of
+	    {Class, Func} -> io:format("~p:~p: " ++ Format, [?MODULE,?LINE] ++ Args);
+	    _ -> ok
+	end).
 
 code() ->  safe(fun gen_code/0,true).
 xml()  ->  safe(fun gen_xml/0,true). 
@@ -957,17 +963,17 @@ erl_skip_opt(All=[Ms=[{_,{Len,_,_},_}|_]|R],Acc1=[{_,{N,_,_},_}|_], Acc2) ->
     end;
 erl_skip_opt([],Acc1,Acc2) -> [strip_ti(Acc1)|Acc2].
 
-erl_skip_opt2([F={_,{N,In,_},M=#method{where=Where}}|Ms],Acc1,Acc2,Check) -> 
+erl_skip_opt2([F={_,{N,In,_},M=#method{where=Where}}|Ms],Acc1,Acc2,Check) ->
     case N > 0 andalso lists:last(In) =:= opt_list of
-	true when Where =/= merged_c, Where =/= taylormade -> 
-	    case Check of 
-		[] -> 
+	true when Where =/= merged_c, Where =/= taylormade ->
+	    case Check of
+		[] ->
 		    erl_skip_opt2(Ms,[F|Acc1],[M#method{where=erl_no_opt}|Acc2],[]);
-		_  -> 
+		_  ->
 		    Skipped = reverse(tl(reverse(In))),
 		    T = fun({_,{_,Args,_},_}) -> true =:= types_differ(Skipped,Args) end,
 		    case lists:all(T, Check) of
-			true -> 
+			true ->
 			    erl_skip_opt2(Ms,[F|Acc1],
 					  [M#method{where=erl_no_opt}|Acc2],
 					  Check);
@@ -976,7 +982,7 @@ erl_skip_opt2([F={_,{N,In,_},M=#method{where=Where}}|Ms],Acc1,Acc2,Check) ->
 		    end
 	    end;
  	_ ->
-	    erl_skip_opt2(Ms,[F|Acc1],Acc2,[])
+	    erl_skip_opt2(Ms,[F|Acc1],Acc2,Check)
     end;
 erl_skip_opt2([],Acc1,Acc2,_) -> {Acc1,Acc2}.
 
@@ -1025,7 +1031,6 @@ types_differ([{class,C1}|R1], [{class,C2}|R2]) ->
 	true -> 
 	    true;
 	false -> 
-%%	_ ->
 	    {class,C1,C2};
 	{class,C1,C2} -> 
 	    {class,C1,C2};

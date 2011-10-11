@@ -896,13 +896,17 @@ call_crypto_server(Req) ->
 	gen_server:call(?CRYPTO_KEY_SERVER, Req, infinity)
     catch
 	exit:{noproc,_} ->
-	    start_crypto_server(),
-	    erlang:yield(),
-	    call_crypto_server(Req)
+	    %% Not started.
+	    call_crypto_server_1(Req);
+	exit:{normal,_} ->
+	    %% The process finished just as we called it.
+	    call_crypto_server_1(Req)
     end.
 
-start_crypto_server() ->
-    gen_server:start({local,?CRYPTO_KEY_SERVER}, ?MODULE, [], []).
+call_crypto_server_1(Req) ->
+    gen_server:start({local,?CRYPTO_KEY_SERVER}, ?MODULE, [], []),
+    erlang:yield(),
+    call_crypto_server(Req).
 
 -spec init([]) -> {'ok', #state{}}.
 

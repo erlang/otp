@@ -143,6 +143,34 @@ connection.
 Pid is the pid() of the parent process.</p>
 </item>
 
+<tag><c>{diameter, {tls, Ref, Type, Bool}}</c></tag>
+<item>
+<p>
+Indication of whether or not capabilities exchange has selected
+inband security using TLS.
+Ref is a reference() that must be included in the
+<c>{diameter, {tls, Ref}}</c> reply message to the transport's
+parent process (see below).
+Type is either <c>connect</c> or <c>accept</c> depending on
+whether the process has been started for a connecting or listening
+transport respectively.
+Bool is a boolean() indicating whether or not the transport connection
+should be upgraded to TLS.</p>
+
+<p>
+If TLS is requested (Bool = true) then a connecting process should
+initiate a TLS handshake with the peer and an accepting process should
+prepare to accept a handshake.
+A successful handshake should be followed by a <c>{diameter, {tls, Ref}}</c>
+message to the parent process.
+A failed handshake should cause the process to exit.</p>
+
+<p>
+This message is only sent to a transport process over whose
+<c>Inband-Security-Id</c> configuration has indicated support for
+TLS.</p>
+</item>
+
 </taglist>
 
 <p>
@@ -182,6 +210,16 @@ corresponding answer message in the case that the inbound message is a
 request unless the sender sets another value.
 How the <c>transport_data</c> is used/interpreted is up to the
 transport module.</p>
+</item>
+
+<tag><c>{diameter, {tls, Ref}}</c></tag>
+<item>
+<p>
+Acknowledgment of a successful TLS handshake.
+Ref is the reference() received in the
+<c>{diameter, {tls, Ref, Type, Bool}}</c> message in response
+to which the reply is sent.
+A transport must exit if a handshake is not successful.</p>
 </item>
 
 </taglist>

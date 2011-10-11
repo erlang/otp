@@ -32,6 +32,150 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Test_Server 3.4.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    An error in how comments are colored in the test suite
+	    overview html log file has been corrected. As result, a
+	    new framework callback function, format_comment/1, has
+	    been introduced.</p>
+          <p>
+	    Own Id: OTP-9237</p>
+        </item>
+        <item>
+          <p>
+	    Test Server did not release SASL TTY handlers
+	    (sasl_report_tty_h and error_logger_tty_h) properly after
+	    each test run. This error has been fixed.</p>
+          <p>
+	    Own Id: OTP-9311</p>
+        </item>
+        <item>
+          <p>
+	    Automatically generated init- and end-configuration
+	    functions for test case groups caused incorrect execution
+	    order of test cases. This has been corrected.</p>
+          <p>
+	    Own Id: OTP-9369</p>
+        </item>
+        <item>
+          <p>
+	    If ct:log/2 was called with bad arguments, this could
+	    cause the Common Test IO handling process to crash. This
+	    fault has been corrected.</p>
+          <p>
+	    Own Id: OTP-9371 Aux Id: OTP-8933 </p>
+        </item>
+        <item>
+          <p>
+	    A bug has been fixed that made Test Server call the
+	    end_tc/3 framework function with an incorrect module name
+	    as first argument.</p>
+          <p>
+	    Own Id: OTP-9379 Aux Id: seq11863 </p>
+        </item>
+        <item>
+          <p>
+	    If end_per_testcase caused a timetrap timeout, the actual
+	    test case status was discarded and the test case logged
+	    as successful (even if the case had actually failed
+	    before the call to end_per_testcase). This fault has been
+	    fixed.</p>
+          <p>
+	    Own Id: OTP-9397</p>
+        </item>
+        <item>
+          <p>
+	    If a timetrap timeout occured during execution of of a
+	    function in a lib module (i.e. a function called directly
+	    or indirectly from a test case), the Suite argument in
+	    the end_tc/3 framework callback function would not
+	    correctly contain the name of the test suite, but the lib
+	    module. (This would only happen if the lib module was
+	    compiled with ct.hrl included). This error has been
+	    solved.</p>
+          <p>
+	    Own Id: OTP-9398</p>
+        </item>
+        <item>
+          <p>
+	    Add a proplist() type</p>
+          <p>
+	    Recently I was adding specs to an API and found that
+	    there is no canonical proplist() type defined. (Thanks to
+	    Ryan Zezeski)</p>
+          <p>
+	    Own Id: OTP-9499</p>
+        </item>
+        <item>
+	    <p> XML files have been corrected. </p>
+          <p>
+	    Own Id: OTP-9550 Aux Id: OTP-9541 </p>
+        </item>
+        <item>
+          <p>
+	    If a test suite would start with a test case group
+	    defined without the init_per_group/2 and end_per_group/2
+	    function, init_per_suite/1 would not execute initially
+	    and logging of the test run would fail. This error has
+	    been fixed.</p>
+          <p>
+	    Own Id: OTP-9584</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    A new option, 'logopts', has been introduced, to make it
+	    possible to modify some aspects of the logging behaviour
+	    in Common Test (or Test Server). For example, whenever an
+	    io printout is made, test_server adds newline (\n) to the
+	    end of the output string. This may not always be a
+	    preferred action and can therefore be disabled by means
+	    of "ct_run ... -logopts no_nl" (or ct:run_test([...,
+	    {logopts,[no_nl]}])). A new framework callback function,
+	    get_logopts/0, has been introduced (see the ct_framework
+	    module for details).</p>
+          <p>
+	    Own Id: OTP-9372 Aux Id: OTP-9396 </p>
+        </item>
+        <item>
+          <p>
+	    A new option, 'logopts', has been introduced, to make it
+	    possible to modify some aspects of the logging behaviour
+	    in Common Test (or Test Server). For example, if the html
+	    version of the test suite source code should not be
+	    generated during the test run (and consequently be
+	    unavailable in the log file system), the feature may be
+	    disabled by means of "ct_run ... -logopts no_src" (or
+	    ct:run_test([..., {logopts,[no_src]}])). A new framework
+	    callback function, get_logopts/0, has been introduced
+	    (see the ct_framework module for details).</p>
+          <p>
+	    Own Id: OTP-9396 Aux Id: seq11869, OTP-9372 </p>
+        </item>
+        <item>
+          <p>
+	    It is now possible to use a tuple {M,F,A}, or a fun, as
+	    timetrap specification in the suite info function or test
+	    case info functions. The function must return a valid
+	    timeout value, as documented in the common_test man page
+	    and in the User's Guide.</p>
+          <p>
+	    Own Id: OTP-9501 Aux Id: seq11894 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Test_Server 3.4.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

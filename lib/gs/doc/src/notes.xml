@@ -30,7 +30,21 @@
   </header>
   <p>This document describes the changes made to the GS application.</p>
 
-  <section><title>GS 1.5.13</title>
+  <section><title>GS 1.5.14</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Remove misc. compiler warnings</p>
+          <p>
+	    Own Id: OTP-9542</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>GS 1.5.13</title>
 
     <section><title>Improvements and New Features</title>
       <list>

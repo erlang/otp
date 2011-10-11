@@ -143,7 +143,7 @@ tc1(_) ->
     exit(should_have_been_skipped).
 
 tc2(_) ->
-    exit(should_have_been_skipped).
+    timeout_in_end_per_testcase.
 
 tc3(_) ->
    timer:sleep(5000).

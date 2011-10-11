@@ -22,17 +22,13 @@ SPEC_FILES = \
 	diameter_gen_base_accounting.dia \
 	diameter_gen_relay.dia
 
-MODULES = \
+RUNTIME_MODULES = \
 	diameter \
 	diameter_app \
-	diameter_callback \
 	diameter_capx \
 	diameter_config \
-	diameter_dbg \
 	diameter_codec \
 	diameter_dict \
-	diameter_exprecs \
-	diameter_info \
 	diameter_lib \
 	diameter_misc_sup \
 	diameter_peer \
@@ -48,6 +44,12 @@ MODULES = \
 	diameter_types \
 	diameter_watchdog \
 	diameter_watchdog_sup
+
+HELP_MODULES = \
+	diameter_callback \
+	diameter_exprecs \
+	diameter_dbg \
+	diameter_info
 
 INTERNAL_HRL_FILES = \
 	diameter_internal.hrl \

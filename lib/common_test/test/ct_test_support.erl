@@ -23,8 +23,8 @@
 %%%
 -module(ct_test_support).
 
--include_lib("test_server/include/test_server.hrl").
 -include_lib("common_test/include/ct_event.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -export([init_per_suite/1, init_per_suite/2, end_per_suite/1,
 	 init_per_testcase/2, end_per_testcase/2,
@@ -46,9 +46,10 @@ init_per_suite(Config) ->
 init_per_suite(Config, Level) ->
     case os:type() of
 	{win32, _} ->
-	    %% Extend timeout for windows as starting node
+	    %% Extend timeout to 1 hour for windows as starting node
 	    %% can take a long time there
-	    test_server:timetrap( 120000 * test_server:timetrap_scale_factor());
+	    test_server:timetrap( 60*60*1000 * 
+				      test_server:timetrap_scale_factor());
 	_ ->
 	    ok
     end,

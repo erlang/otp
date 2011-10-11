@@ -470,7 +470,7 @@ efile_get_file_from_port2(#state{prim_state = PS} = State, File) ->
     end.
 
 efile_get_file_from_port3(State, File, [P | Paths]) ->
-    case efile_get_file_from_port2(State, concat([P,"/",File])) of
+    case efile_get_file_from_port2(State, join(P, File)) of
         {{error,Reason},State1} when Reason =/= emfile ->
             case Paths of
                 [] ->                           % return last error
@@ -644,7 +644,7 @@ inet_get_file_from_port(State, File, Paths) ->
     end.
 
 inet_get_file_from_port1(File, [P | Paths], State) ->
-    File1 = concat([P,"/",File]),
+    File1 = join(P, File),
     case inet_send_and_rcv({get,File1}, File1, State) of
         {{error,Reason},State1} ->
             case Paths of
@@ -1152,14 +1152,8 @@ send_all(U, [IP | AL], Cmd) ->
     send_all(U, AL, Cmd);
 send_all(_U, [], _) -> ok.
 
-%%concat([A|T]) when is_atom(A) ->              %Atom
-%%    atom_to_list(A) ++ concat(T);
-concat([C|T]) when C >= 0, C =< 255 ->
-    [C|concat(T)];
-concat([S|T]) ->                                %String
-    S ++ concat(T);
-concat([]) ->
-    [].
+join(P, F) ->
+    P ++ "/" ++ F.
 
 member(X, [X|_]) -> true;
 member(X, [_|Y]) -> member(X, Y);

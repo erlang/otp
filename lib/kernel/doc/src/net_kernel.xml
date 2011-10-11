@@ -37,13 +37,10 @@
       monitoring of the network.</p>
     <p>An Erlang node is started using the command line flag
       <c>-name</c> or <c>-sname</c>:</p>
-    <pre>
-$ <input>erl -sname foobar</input></pre>
+<pre>$ <input>erl -sname foobar</input></pre>
     <p>It is also possible to call <c>net_kernel:start([foobar])</c>
       directly from the normal Erlang shell prompt:</p>
-    <p></p>
-    <pre>
-1> <input>net_kernel:start([foobar, shortnames]).</input>
+<pre>1> <input>net_kernel:start([foobar, shortnames]).</input>
 {ok,&lt;0.64.0>}
 (foobar@gringotts)2></pre>
     <p>If the node is started with the command line flag <c>-sname</c>,
@@ -226,7 +223,6 @@ $ <input>erl -sname foobar</input></pre>
           <c><anno>NetTicktime</anno></c> seconds. <c><anno>TransitionPeriod</anno></c> defaults
           to 60.</p>
         <p>Some definitions:</p>
-        <p></p>
         <taglist>
           <tag>The minimum transition traffic interval (<c>MTTI</c>)</tag>
           <item>

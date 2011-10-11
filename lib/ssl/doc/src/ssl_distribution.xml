@@ -175,7 +175,7 @@ Eshell V5.0  (abort with ^G)
 
     <p>One can specify the simpler SSL options certfile, keyfile,
     password, cacertfile, verify, reuse_sessions,
-    secure_renegotiation, depth, hibernate_after and ciphers (use old
+    secure_renegotiate, depth, hibernate_after and ciphers (use old
     string format) by adding the prefix server_ or client_ to the
     option name. The server can also take the options dhfile and
     fail_if_no_peer_cert (also prefixed).
@@ -201,7 +201,7 @@ Eshell V5.0  (abort with ^G)
     <code type="none">
 $ erl -boot /home/me/ssl/start_ssl -proto_dist inet_tls
   -ssl_dist_opt server_certfile "/home/me/ssl/erlserver.pem" 
-  -ssl_dist_opt server_secure_renegotiation true client_secure_renegotiate true
+  -ssl_dist_opt server_secure_renegotiate true client_secure_renegotiate true
   -sname ssl_test
 Erlang (BEAM) emulator version 5.0 [source]
  
@@ -224,7 +224,7 @@ Eshell V5.0  (abort with ^G)
     <code type="none">
 $ ERL_FLAGS="-boot /home/me/ssl/start_ssl -proto_dist inet_tls
   -ssl_dist_opt server_certfile /home/me/ssl/erlserver.pem
-  -ssl_dist_opt server_secure_renegotiation true client_secure_renegotiate true"
+  -ssl_dist_opt server_secure_renegotiate true client_secure_renegotiate true"
 $ export ERL_FLAGS
 $ erl -sname ssl_test
 Erlang (BEAM) emulator version 5.0 [source]
@@ -237,7 +237,7 @@ Eshell V5.0  (abort with ^G)
  {boot,["/home/me/ssl/start_ssl"]},
  {proto_dist,["inet_tls"]},
  {ssl_dist_opt,["server_certfile","/home/me/ssl/erlserver.pem"]},
- {ssl_dist_opt,["server_secure_renegotiation","true",
+ {ssl_dist_opt,["server_secure_renegotiate","true",
                 "client_secure_renegotiate","true"]
  {home,["/home/me"]}]    </code>
     <p>The <c>init:get_arguments()</c> call verifies that the correct
