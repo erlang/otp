@@ -9307,7 +9307,7 @@ static int tcp_inet_output(tcp_descriptor* desc, HANDLE event)
 		goto done;
 	    }
 	}
-#endif /* SOCKOPT_CONNECT_STAT */
+#endif /* SO_ERROR */
 #endif /* !__WIN32__ */
 
 	desc->inet.state = TCP_STATE_CONNECTED;
@@ -10112,7 +10112,7 @@ static int packet_inet_output(udp_descriptor* udesc, HANDLE event)
 		goto done;
 	    }
 	}
-#endif /* SOCKOPT_CONNECT_STAT */
+#endif /* SO_ERROR */
 #endif /* !__WIN32__ */
 
 	desc->state = PACKET_STATE_CONNECTED;

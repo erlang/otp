@@ -2025,9 +2025,6 @@ int erl_memory_show(int p0, int p1, int p2, int p3, int p4, int p5,
 	erts_printf("The memory block used by elib is save_malloc'ed "
 		   "at 0x%08x.\n", (unsigned int) alloc_pool_ptr);
     }
-#ifdef NO_FIX_ALLOC
-    erts_printf("Fix_alloc is disabled in this build\n");
-#endif
     erts_printf("Statistics from elib_malloc:\n");
     ELIB_LOCK;
 
