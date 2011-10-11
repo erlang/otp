@@ -1486,7 +1486,7 @@ normal_hybrid(Config) ->
     ?line ok = file:set_cwd(OldDir),
 
     ?line BasePaths = {"testkernelpath","teststdlibpath","testsaslpath"},
-    ?line {ok,Hybrid} = systools_make:make_boot_hybrid("tmp_vsn",Boot1,Boot2,
+    ?line {ok,Hybrid} = systools_make:make_hybrid_boot("tmp_vsn",Boot1,Boot2,
 						       BasePaths, [dummy,args]),
 
     ?line {script,{"Test release 4","tmp_vsn"},Script} = binary_to_term(Hybrid),
@@ -1560,7 +1560,7 @@ normal_hybrid(Config) ->
 
     ok.
 
-%% Check that systools_make:make_boot_hybrid fails with a meaningful
+%% Check that systools_make:make_hybrid_boot fails with a meaningful
 %% error message if the FromBoot does not include the sasl
 %% application.
 hybrid_no_old_sasl(Config) ->
@@ -1584,14 +1584,14 @@ hybrid_no_old_sasl(Config) ->
 
     ?line BasePaths = {"testkernelpath","teststdlibpath","testsaslpath"},
     ?line {error,{app_not_replaced,sasl}} =
-	systools_make:make_boot_hybrid("tmp_vsn",Boot1,Boot2,
+	systools_make:make_hybrid_boot("tmp_vsn",Boot1,Boot2,
 				       BasePaths,[dummy,args]),
 
     ?line ok = file:set_cwd(OldDir),
     ok.
 
 
-%% Check that systools_make:make_boot_hybrid fails with a meaningful
+%% Check that systools_make:make_hybrid_boot fails with a meaningful
 %% error message if the ToBoot does not include the sasl
 %% application.
 hybrid_no_new_sasl(Config) ->
@@ -1615,7 +1615,7 @@ hybrid_no_new_sasl(Config) ->
 
     ?line BasePaths = {"testkernelpath","teststdlibpath","testsaslpath"},
     ?line {error,{app_not_found,sasl}} =
-	systools_make:make_boot_hybrid("tmp_vsn",Boot1,Boot2,
+	systools_make:make_hybrid_boot("tmp_vsn",Boot1,Boot2,
 				       BasePaths,[dummy,args]),
 
     ?line ok = file:set_cwd(OldDir),

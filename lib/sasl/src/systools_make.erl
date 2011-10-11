@@ -31,7 +31,7 @@
 
 -export([read_application/4]).
 
--export([make_boot_hybrid/5]).
+-export([make_hybrid_boot/5]).
 
 -import(lists, [filter/2, keysort/2, keysearch/3, map/2, reverse/1,
 		append/1, foldl/3,  member/2, foreach/2]).
@@ -182,9 +182,9 @@ return({error,Mod,Error},_,Flags) ->
 %% Boot1 = Boot2 = Boot = binary()
 %% Reason = {app_not_found,App} | {app_not_replaced,App}
 %% App = kernel | stdlib | sasl
-make_boot_hybrid(TmpVsn, Boot1, Boot2, Paths, Args) ->
-    catch do_make_boot_hybrid(TmpVsn, Boot1, Boot2, Paths, Args).
-do_make_boot_hybrid(TmpVsn, Boot1, Boot2, Paths, Args) ->
+make_hybrid_boot(TmpVsn, Boot1, Boot2, Paths, Args) ->
+    catch do_make_hybrid_boot(TmpVsn, Boot1, Boot2, Paths, Args).
+do_make_hybrid_boot(TmpVsn, Boot1, Boot2, Paths, Args) ->
     {script,{_RelName1,_RelVsn1},Script1} = binary_to_term(Boot1),
     {script,{RelName2,_RelVsn2},Script2} = binary_to_term(Boot2),
     MatchPaths = get_regexp_path(Paths),

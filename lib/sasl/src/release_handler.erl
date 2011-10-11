@@ -1049,10 +1049,9 @@ new_emulator_make_tmp_release(CurrentRelease,ToRelease,RelDir,Opts,Masters) ->
 					erts_vsn=ToRelease#release.erts_vsn,
 					libs = BaseLibs ++ RestLibs,
 					status = unpacked},
-    new_emulator_make_boot_hybrid(CurrentVsn,ToVsn,TmpVsn,BaseLibs,
+    new_emulator_make_hybrid_boot(CurrentVsn,ToVsn,TmpVsn,BaseLibs,
 				  RelDir,Opts,Masters),
-    SysConfig = filename:join([RelDir,CurrentVsn,"sys.config"]),
-    copy_file(SysConfig,filename:join(RelDir,TmpVsn),Masters),
+    new_emulator_make_hybrid_config(CurrentVsn,ToVsn,TmpVsn,RelDir,Masters),
     {TmpVsn,TmpRelease}.
 
 check_base_libs([_,_,_]=BaseLibs,_Vsn) ->
@@ -1069,7 +1068,7 @@ find_missing(SomeMissing,[H|T],Vsn) ->
 	    throw({error,{missing_base_app,Vsn,H}})
     end.
 
-new_emulator_make_boot_hybrid(CurrentVsn,ToVsn,TmpVsn,BaseLibs,RelDir,Opts,Masters) ->
+new_emulator_make_hybrid_boot(CurrentVsn,ToVsn,TmpVsn,BaseLibs,RelDir,Opts,Masters) ->
     FromBootFile = filename:join([RelDir,CurrentVsn,"start.boot"]),
     ToBootFile = filename:join([RelDir,ToVsn,"start.boot"]),
     TmpBootFile = filename:join([RelDir,TmpVsn,"start.boot"]),
@@ -1080,13 +1079,57 @@ new_emulator_make_boot_hybrid(CurrentVsn,ToVsn,TmpVsn,BaseLibs,RelDir,Opts,Maste
     [KernelPath,SaslPath,StdlibPath] =
 	[filename:join(Path,ebin) || {_,_,Path} <- lists:keysort(1,BaseLibs)],
     Paths = {KernelPath,StdlibPath,SaslPath},
-    case systools_make:make_boot_hybrid(TmpVsn,FromBoot,ToBoot,Paths,Args) of
+    case systools_make:make_hybrid_boot(TmpVsn,FromBoot,ToBoot,Paths,Args) of
 	{ok,TmpBoot} ->
 	    write_file(TmpBootFile,TmpBoot,Masters);
 	{error,Reason} ->
 	    throw({error,{could_not_create_hybrid_boot,Reason}})
     end.
 
+new_emulator_make_hybrid_config(CurrentVsn,ToVsn,TmpVsn,RelDir,Masters) ->
+    FromFile = filename:join([RelDir,CurrentVsn,"sys.config"]),
+    ToFile = filename:join([RelDir,ToVsn,"sys.config"]),
+    TmpFile = filename:join([RelDir,TmpVsn,"sys.config"]),
+
+    FromConfig =
+	case consult(FromFile,Masters) of
+	    {ok,[FC]} ->
+		FC;
+	    {error,Error1} ->
+		io:format("Warning: ~p can not read ~p: ~p~n",
+			  [?MODULE,FromFile,Error1]),
+		[]
+	end,
+
+    [Kernel,Stdlib,Sasl] =
+	case consult(ToFile,Masters) of
+	    {ok,[ToConfig]} ->
+		[lists:keyfind(App,1,ToConfig) || App <- [kernel,stdlib,sasl]];
+	    {error,Error2} ->
+		io:format("Warning: ~p can not read ~p: ~p~n",
+			  [?MODULE,ToFile,Error2]),
+		[false,false,false]
+	end,
+
+    Config1 = replace_config(kernel,FromConfig,Kernel),
+    Config2 = replace_config(stdlib,Config1,Stdlib),
+    Config3 = replace_config(sasl,Config2,Sasl),
+
+    ConfigStr = io_lib:format("~p.~n",[Config3]),
+    write_file(TmpFile,ConfigStr,Masters).
+
+%% Take the configuration for application App from the new config and
+%% insert in the old config.
+%% If no entry exists in the new config, then delete the entry (if it exists)
+%% from the old config.
+%% If entry exists in the new config, but not in the old config, then
+%% add the entry.
+replace_config(App,Config,false) ->
+    lists:keydelete(App,1,Config);
+replace_config(App,Config,AppConfig) ->
+    lists:keystore(App,1,Config,AppConfig).
+
+%% Remove all files related to the temporary release
 new_emulator_rm_tmp_release(?tmp_vsn(_)=TmpVsn,RelDir,Releases,Masters) ->
     remove_dir(filename:join(RelDir,TmpVsn),Masters),
     lists:keydelete(TmpVsn,#release.vsn,Releases);
