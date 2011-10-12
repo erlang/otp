@@ -259,13 +259,6 @@ AS_HELP_STRING([--enable-m32-build],
   esac
 ],enable_m32_build=no)
 
-AC_ARG_ENABLE(fixalloc,
-AS_HELP_STRING([--disable-fixalloc], [disable the use of fix_alloc]))
-if test x${enable_fixalloc} = xno ; then
-  AC_DEFINE(NO_FIX_ALLOC,[],
-	    [Define if you don't want the fix allocator in Erlang])
-fi
-
 AC_SUBST(PERFCTR_PATH)
 AC_ARG_WITH(perfctr,
 AS_HELP_STRING([--with-perfctr=PATH],
@@ -914,16 +907,6 @@ fi
 
 AC_SUBST(ERLANG_OSTYPE)
 
-dnl Which sysv4 would this be, and what is it for???
-dnl XXX: replace with feature tests.
-case $host_os in
-  sysv4*)
-    AC_DEFINE(SOCKOPT_CONNECT_STAT,[],[Obscure SYSV feature])
-    AC_DEFINE(NO_PRAGMA_WEAK,[],[Obscure SYSV feature])
-    LIBS="$LIBS -lgen -lc -L /usr/ucblib -lucb"
-    ;;
-esac
-
 # Check how to export functions from the emulator executable, needed
 # when dynamically loaded drivers are loaded (so that they can find
 # emulator functions).
@@ -1484,7 +1467,7 @@ AC_CHECK_HEADERS(fcntl.h limits.h unistd.h syslog.h dlfcn.h ieeefp.h \
                  sys/types.h sys/stropts.h sys/sysctl.h \
                  sys/ioctl.h sys/time.h sys/uio.h \
                  sys/socket.h sys/sockio.h sys/socketio.h \
-                 net/errno.h malloc.h mach-o/dyld.h arpa/nameser.h \
+                 net/errno.h malloc.h arpa/nameser.h \
 		 pty.h util.h utmp.h langinfo.h poll.h sdkddkver.h)
 
 AC_CHECK_HEADER(sys/resource.h,
@@ -1808,11 +1791,6 @@ AC_CHECK_FUNCS([ieee_handler fpsetmask finite isnan isinf res_gethostbyname dlop
 		flockfile fstat strlcpy strlcat setsid posix2time setlocale nl_langinfo poll])
 
 AC_CHECK_DECLS([posix2time],,,[#include <time.h>])
-
-if test "X$host" = "Xwin32"; then
-	ac_cv_func_setvbuf_reversed=yes
-fi
-AC_FUNC_SETVBUF_REVERSED	
 
 disable_vfork=false
 if test "x$EMU_THR_LIB_NAME" != "x"; then
