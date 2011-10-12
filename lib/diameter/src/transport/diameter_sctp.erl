@@ -546,10 +546,10 @@ send(Sock, AssocId, Stream, Bin) ->
 %% recv/2
 
 %% Association established ...
-recv({[], #sctp_assoc_change{state = comm_up,
-                             outbound_streams = OS,
-                             inbound_streams = IS,
-                             assoc_id = Id}},
+recv({_, #sctp_assoc_change{state = comm_up,
+                            outbound_streams = OS,
+                            inbound_streams = IS,
+                            assoc_id = Id}},
      #transport{assoc_id = undefined,
                 mode = {T, _},
                 socket = Sock}
@@ -562,7 +562,7 @@ recv({[], #sctp_assoc_change{state = comm_up,
                    streams = {IS, OS}});
 
 %% ... or not: try the next address.
-recv({[], #sctp_assoc_change{} = E},
+recv({_, #sctp_assoc_change{} = E},
      #transport{assoc_id = undefined,
                 socket = Sock,
                 mode = {connect = C, {[RA|RAs], RP, Es}}}
@@ -570,7 +570,7 @@ recv({[], #sctp_assoc_change{} = E},
     S#transport{mode = {C, connect(Sock, RAs, RP, [{RA,E} | Es])}};
 
 %% Lost association after establishment.
-recv({[], #sctp_assoc_change{}}, _) ->
+recv({_, #sctp_assoc_change{}}, _) ->
     stop;
 
 %% Inbound Diameter message.
@@ -580,7 +580,7 @@ recv({[#sctp_sndrcvinfo{stream = Id}], Bin}, #transport{parent = Pid})
                                              bin = Bin}),
     ok;
 
-recv({[], #sctp_shutdown_event{assoc_id = Id}},
+recv({_, #sctp_shutdown_event{assoc_id = Id}},
      #transport{assoc_id = Id}) ->
     stop;
 
@@ -593,10 +593,10 @@ recv({[], #sctp_shutdown_event{assoc_id = Id}},
 %% disabled by default so don't handle it. We could simply disable
 %% events we don't react to but don't.
 
-recv({[], #sctp_paddr_change{}}, _) ->
+recv({_, #sctp_paddr_change{}}, _) ->
     ok;
 
-recv({[], #sctp_pdapi_event{}}, _) ->
+recv({_, #sctp_pdapi_event{}}, _) ->
     ok.
 
 %% up/1
