@@ -280,6 +280,57 @@ static unsigned long one_value = 1;
 #     define    SCTP_EOF        MSG_EOF
 #endif
 
+/* More Solaris 10 fixes: */
+#if ! HAVE_DECL_SCTP_CLOSED && HAVE_DECL_SCTPS_IDLE
+#    define SCTP_CLOSED SCTPS_IDLE
+#    undef HAVE_DECL_SCTP_CLOSED
+#    define HAVE_DECL_SCTP_CLOSED 1
+#endif
+#if ! HAVE_DECL_SCTP_BOUND && HAVE_DECL_SCTPS_BOUND
+#    define SCTP_BOUND SCTPS_BOUND
+#    undef HAVE_DECL_SCTP_BOUND
+#    define HAVE_DECL_SCTP_BOUND 1
+#endif
+#if ! HAVE_DECL_SCTP_LISTEN && HAVE_DECL_SCTPS_LISTEN
+#    define SCTP_LISTEN SCTPS_LISTEN
+#    undef HAVE_DECL_SCTP_LISTEN
+#    define HAVE_DECL_SCTP_LISTEN 1
+#endif
+#if ! HAVE_DECL_SCTP_COOKIE_WAIT && HAVE_DECL_SCTPS_COOKIE_WAIT
+#    define SCTP_COOKIE_WAIT SCTPS_COOKIE_WAIT
+#    undef HAVE_DECL_SCTP_COOKIE_WAIT
+#    define HAVE_DECL_SCTP_COOKIE_WAIT 1
+#endif
+#if ! HAVE_DECL_SCTP_COOKIE_ECHOED && HAVE_DECL_SCTPS_COOKIE_ECHOED
+#    define SCTP_COOKIE_ECHOED SCTPS_COOKIE_ECHOED
+#    undef HAVE_DECL_SCTP_COOKIE_ECHOED
+#    define HAVE_DECL_SCTP_COOKIE_ECHOED 1
+#endif
+#if ! HAVE_DECL_SCTP_ESTABLISHED && HAVE_DECL_SCTPS_ESTABLISHED
+#    define SCTP_ESTABLISHED SCTPS_ESTABLISHED
+#    undef HAVE_DECL_SCTP_ESTABLISHED
+#    define HAVE_DECL_SCTP_ESTABLISHED 1
+#endif
+#if ! HAVE_DECL_SCTP_SHUTDOWN_PENDING && HAVE_DECL_SCTPS_SHUTDOWN_PENDING
+#    define SCTP_SHUTDOWN_PENDING SCTPS_SHUTDOWN_PENDING
+#    undef HAVE_DECL_SCTP_SHUTDOWN_PENDING
+#    define HAVE_DECL_SCTP_SHUTDOWN_PENDING 1
+#endif
+#if ! HAVE_DECL_SCTP_SHUTDOWN_SENT && HAVE_DECL_SCTPS_SHUTDOWN_SENT
+#    define SCTP_SHUTDOWN_SENT SCTPS_SHUTDOWN_SENT
+#    undef HAVE_DECL_SCTP_SHUTDOWN_SENT
+#    define HAVE_DECL_SCTP_SHUTDOWN_SENT 1
+#endif
+#if ! HAVE_DECL_SCTP_SHUTDOWN_RECEIVED && HAVE_DECL_SCTPS_SHUTDOWN_RECEIVED
+#    define SCTP_SHUTDOWN_RECEIVED SCTPS_SHUTDOWN_RECEIVED
+#    undef HAVE_DECL_SCTP_SHUTDOWN_RECEIVED
+#    define HAVE_DECL_SCTP_SHUTDOWN_RECEIVED 1
+#endif
+#if ! HAVE_DECL_SCTP_SHUTDOWN_ACK_SENT && HAVE_DECL_SCTPS_SHUTDOWN_ACK_SENT
+#    define SCTP_SHUTDOWN_ACK_SENT SCTPS_SHUTDOWN_ACK_SENT
+#    undef HAVE_DECL_SCTP_SHUTDOWN_ACK_SENT
+#    define HAVE_DECL_SCTP_SHUTDOWN_ACK_SENT 1
+#endif
 /* New spelling in lksctp 2.6.22 or maybe even earlier:
  *  adaption -> adaptation
  */
@@ -1846,6 +1897,7 @@ static int inet_reply_ok(inet_descriptor* desc)
     return driver_send_term(desc->port, caller, spec, i);    
 }
 
+#ifdef HAVE_SCTP
 static int inet_reply_ok_port(inet_descriptor* desc, ErlDrvTermData dport)
 {
     ErlDrvTermData spec[2*LOAD_ATOM_CNT + 2*LOAD_PORT_CNT + 2*LOAD_TUPLE_CNT];
@@ -1863,6 +1915,7 @@ static int inet_reply_ok_port(inet_descriptor* desc, ErlDrvTermData dport)
     desc->caller = 0;
     return driver_send_term(desc->port, caller, spec, i);
 }
+#endif
 
 /* send:
 **   {inet_reply, S, {error, Reason}} 
@@ -2402,14 +2455,19 @@ static ErlDrvTermData   am_sctp_rtoinfo, /* Option names */
     am_active,                         am_inactive,
     
     /* For #sctp_status{}: */
-    am_empty,                          am_closed,
+#    if HAVE_DECL_SCTP_EMPTY
+    am_empty,
+#    endif
+#    if HAVE_DECL_SCTP_BOUND
+    am_bound,
+#    endif
+#    if HAVE_DECL_SCTP_LISTEN
+    am_listen,
+#    endif
     am_cookie_wait,                    am_cookie_echoed,
     am_established,                    am_shutdown_pending,
     am_shutdown_sent,                  am_shutdown_received,
     am_shutdown_ack_sent;
-    /* Not yet implemented in the Linux kernel:
-    ** am_bound,                          am_listen;
-    */
 
 /*
 ** Parsing of "sctp_sndrcvinfo": ancillary data coming with received msgs.
@@ -3403,8 +3461,15 @@ static void inet_init_sctp(void) {
     INIT_ATOM(inactive);
     
     /* For #sctp_status{}: */
+#    if HAVE_DECL_SCTP_EMPTY
     INIT_ATOM(empty);
-    INIT_ATOM(closed);
+#    endif
+#    if HAVE_DECL_SCTP_BOUND
+    INIT_ATOM(bound);
+#    endif
+#    if HAVE_DECL_SCTP_LISTEN
+    INIT_ATOM(listen);
+#    endif
     INIT_ATOM(cookie_wait);
     INIT_ATOM(cookie_echoed);
     INIT_ATOM(established);
@@ -3412,10 +3477,6 @@ static void inet_init_sctp(void) {
     INIT_ATOM(shutdown_sent);
     INIT_ATOM(shutdown_received);
     INIT_ATOM(shutdown_ack_sent);
-    /* Not yet implemented in the Linux kernel:
-    ** INIT_ATOM(bound);
-    ** INIT_ATOM(listen);
-    */
 }
 #endif /* HAVE_SCTP */
 
@@ -4487,6 +4548,7 @@ static int inet_ctl_ifset(inet_descriptor* desc, char* buf, int len,
 
 
 
+#if defined(__WIN32__) || defined(HAVE_GETIFADDRS)
 /* Latin-1 to utf8 */
 
 static int utf8_len(const char *c, int m) {
@@ -4509,6 +4571,7 @@ static void utf8_encode(const char *c, int m, char *p) {
 	}
     }
 }
+#endif
 
 #if defined(__WIN32__)
 
@@ -6907,7 +6970,7 @@ static int sctp_fill_opts(inet_descriptor* desc, char* buf, int buflen,
 	    break;
 	}
 	/* The following option is not available in Solaris 10: */
-#	ifdef SCTP_DELAYED_ACK_TIME
+#	if HAVE_DECL_SCTP_DELAYED_ACK_TIME
 	case SCTP_OPT_DELAYED_ACK_TIME:
 	{
 	    struct       sctp_assoc_value av;
@@ -6954,7 +7017,7 @@ static int sctp_fill_opts(inet_descriptor* desc, char* buf, int buflen,
 	    switch(st.sstat_state)
 	    {
             /*  SCTP_EMPTY is not supported on SOLARIS10: */
-#	    ifdef SCTP_EMPTY
+#	    if HAVE_DECL_SCTP_EMPTY
 	    case SCTP_EMPTY:
 		i = LOAD_ATOM	(spec, i, am_empty);
 		break;
@@ -6962,14 +7025,16 @@ static int sctp_fill_opts(inet_descriptor* desc, char* buf, int buflen,
 	    case SCTP_CLOSED:
 		i = LOAD_ATOM   (spec, i, am_closed);
 		break;
-	    /* The following states are not supported by Linux Kernel SCTP yet:
+#           if HAVE_DECL_SCTP_BOUND
 	    case SCTP_BOUND:
 		i = LOAD_ATOM	(spec, i, am_bound);
 		break;
+#           endif
+#           if HAVE_DECL_SCTP_LISTEN
 	    case SCTP_LISTEN:
 		i = LOAD_ATOM	(spec, i, am_listen);
 		break;
-	    */
+#           endif
 	    case SCTP_COOKIE_WAIT:
 		i = LOAD_ATOM	(spec, i, am_cookie_wait);
 		break;
