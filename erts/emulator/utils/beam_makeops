@@ -105,7 +105,9 @@ my %match_engine_ops;		# All opcodes for the match engine.
 my %gen_transform_offset;
 my @transformations;
 my @call_table;
+my %call_table;
 my @pred_table;
+my %pred_table;
 
 # Operand types for generic instructions.
 
@@ -185,6 +187,12 @@ sub define_type_bit {
     define_type_bit('P', $type_bit{'u'});
     define_type_bit('Q', $type_bit{'u'});
 }
+
+#
+# Pre-define the 'fail' instruction. It is used internally
+# by the 'try_me_else_fail' instruction.
+#
+$match_engine_ops{'TOP_fail'} = 1;
 
 #
 # Sanity checks.
@@ -1304,7 +1312,8 @@ sub tr_gen {
 
     foreach $ref (@g) {
 	my($line, $orig_transform, $from_ref, $to_ref) = @$ref;
-	my $so_far = tr_gen_from($line, @$from_ref);
+	my $used_ref = used_vars($from_ref, $to_ref);
+	my $so_far = tr_gen_from($line, $used_ref, @$from_ref);
 	tr_gen_to($line, $orig_transform, $so_far, @$to_ref);
     }
 
@@ -1313,9 +1322,22 @@ sub tr_gen {
     #
     my($offset) = 0;
     print "Uint op_transform[] = {\n";
-    foreach $key (keys %gen_transform) {
+    foreach $key (sort keys %gen_transform) {
 	$gen_transform_offset{$key} = $offset;
-	foreach $instr (@{$gen_transform{$key}}) {
+	my @instr = @{$gen_transform{$key}};
+
+	#
+	# If the last instruction is 'fail', remove it and
+	# convert the previous 'try_me_else' to 'try_me_else_fail'.
+	#
+	if (is_instr($instr[$#instr], 'fail')) {
+	    pop(@instr);
+	    my $i = $#instr;
+	    $i-- while !is_instr($instr[$i], 'try_me_else');
+	    $instr[$i] = make_op('', 'try_me_else_fail');
+	}
+
+	foreach $instr (@instr) {
 	    my($size, $instr_ref, $comment) = @$instr;
 	    my($op, @args) = @$instr_ref;
 	    print "    ";
@@ -1342,8 +1364,48 @@ sub tr_gen {
     print "};\n\n";
 }
 
+sub used_vars {
+    my($from_ref,$to_ref) = @_;
+    my %used;
+    my %seen;
+
+    foreach my $ref (@$from_ref) {
+	my($name,$arity,@ops) = @$ref;
+	if ($name =~ /^[.]/) {
+	    foreach my $var (@ops) {
+		$used{$var} = 1;
+	    }
+	} else {
+	    # Any variable that is used at least twice on the
+	    # left-hand side is used. (E.g. "move R R".)
+	    foreach my $op (@ops) {
+		my($var, $type, $type_val) = @$op;
+		next if $var eq '';
+		$used{$var} = 1 if $seen{$var};
+		$seen{$var} = 1;
+	    }
+	}
+    }
+
+    foreach my $ref (@$to_ref) {
+	my($name, $arity, @ops) = @$ref;
+	if ($name =~ /^[.]/) {
+	    foreach my $var (@ops) {
+		$used{$var} = 1;
+	    }
+	} else {
+	    foreach my $op (@ops) {
+		my($var, $type, $type_val) = @$op;
+		next if $var eq '';
+		$used{$var} = 1;
+	    }
+	}
+    }
+    \%used;
+}
+
 sub tr_gen_from {
-    my($line, @tr) = @_;
+    my($line,$used_ref,@tr) = @_;
     my(%var) = ();
     my(%var_type);
     my($var_num) = 0;
@@ -1353,11 +1415,17 @@ sub tr_gen_from {
     my(@fix_pred_funcs);
     my($op, $ref);		# Loop variables.
     my $where = "left side of transformation in line $line: ";
+    my %var_used = %$used_ref;
+    my $may_fail = 0;
+    my $is_first = 1;
 
     foreach $ref (@tr) {
 	my($name, $arity, @ops) = @$ref;
 	my($key) = "$name/$arity";
 	my($opnum);
+
+	$may_fail = 1 unless $is_first;
+	$is_first = 0;
 
 	#
 	# A name starting with a period is a C pred function to be called.
@@ -1365,13 +1433,12 @@ sub tr_gen_from {
 
 	if ($name =~ /^\.(\w+)/) {
 	    $name = $1;
+	    $may_fail = 1;
 	    my $var;
 	    my(@args);
 
-	    my $next_instr = pop(@code); # Get rid of 'next_instr'
 	    push(@fix_pred_funcs, scalar(@code));
 	    push(@code, [$name, @ops]);
-	    push(@code, $next_instr);
 	    next;
 	}
 
@@ -1383,17 +1450,21 @@ sub tr_gen_from {
 	    unless defined $gen_opnum{$name,$arity};
 	$opnum = $gen_opnum{$name,$arity};
 
-	push(@code, &make_op("$name/$arity", 'is_op', $opnum));
+	push(@code, make_op("$name/$arity", 'next_instr', $opnum));
 	$min_window++;
 	foreach $op (@ops) {
 	    my($var, $type, $type_val, $cond, $val) = @$op;
+	    my $ignored_var = "$var (ignored)";
 
 	    if ($type ne '' && $type ne '*') {
+		$may_fail = 1;
+
 		#
 		# The is_bif, is_not_bif, and is_func instructions have
 		# their own built-in type test and don't need to
 		# be guarded with a type test instruction.
 		#
+		$ignored_var = '';
 		unless ($cond eq 'is_bif' or
 			$cond eq 'is_not_bif' or
 			$cond eq 'is_func') {
@@ -1407,7 +1478,7 @@ sub tr_gen_from {
 			push(@code, &make_op($types, 'is_type', $type_mask));
 		    } else {
 			$cond = '';
-			push(@code, &make_op($types, 'is_type_eq',
+			push(@code, &make_op("$types== $val", 'is_type_eq',
 					     $type_mask, $val));
 		    }
 		}
@@ -1415,46 +1486,55 @@ sub tr_gen_from {
 
 	    if ($cond eq 'is_func') {
 		my($m, $f, $a) = split(/:/, $val);
+		$ignored_var = '';
+		$may_fail = 1;
 		push(@code, &make_op('', "$cond", "am_$m",
 				     "am_$f", $a));
 	    } elsif ($cond ne '') {
+		$ignored_var = '';
+		$may_fail = 1;
 		push(@code, &make_op('', "$cond", $val));
 	    }
 
 	    if ($var ne '') {
 		if (defined $var{$var}) {
+		    $ignored_var = '';
+		    $may_fail = 1;
 		    push(@code, &make_op($var, 'is_same_var', $var{$var}));
 		} elsif ($type eq '*') {
 		    #
 		    # Reserve a hole for a 'rest_args' instruction.
 		    #
+		    $ignored_var = '';
 		    push(@fix_rest_args, scalar(@code));
 		    push(@code, $var);
-		} else {
+		} elsif ($var_used{$var}) {
+		    $ignored_var = '';
 		    $var_type{$var} = 'scalar';
 		    $var{$var} = $var_num;
 		    $var_num++;
 		    push(@code, &make_op($var, 'set_var', $var{$var}));
 		}
 	    }
-	    if (is_set_var_instr($code[$#code])) {
+	    if (is_instr($code[$#code], 'set_var')) {
 		my $ref = pop @code;
 		my $comment = $ref->[2];
 		my $var = $ref->[1][1];
 		push(@code, make_op($comment, 'set_var_next_arg', $var));
 	    } else {
-		push(@code, &make_op('', 'next_arg'));
+		push(@code, &make_op($ignored_var, 'next_arg'));
 	    }
 	}
-	push(@code, &make_op('', 'next_instr'));
-	pop(@code) if $code[$#code]->[1][0] eq 'next_arg';
+
+	# Remove redundant 'next_arg' instructions before the end
+	# of the instruction.
+	pop(@code) while is_instr($code[$#code], 'next_arg');
     }
 
     #
     # Insert the commit operation.
     #
-    pop(@code);		# Get rid of 'next_instr'
-    push(@code, &make_op('', 'commit'));
+    push(@code, make_op($may_fail ? '' : 'always reached', 'commit'));
 
     #
     # If there is an rest_args instruction, we must insert its correct
@@ -1484,9 +1564,8 @@ sub tr_gen_from {
 		push(@args, "var+$var{$var}");
 	    }
 	}
-	splice(@code, $index, 1, &make_op("$name()",
-					  'pred', scalar(@pred_table)));
-	push(@pred_table, [$name, @args]);
+	my $pi = tr_next_index(\@pred_table, \%pred_table, $name, @args);
+	splice(@code, $index, 1, make_op("$name()", 'pred', $pi));
     }
 
     $te_max_vars = $var_num
@@ -1502,6 +1581,10 @@ sub tr_gen_to {
     my(@code) = @$code_ref;
     my($op, $ref);		# Loop variables.
     my($where) = "right side of transformation in line $line: ";
+
+    my $last_instr = $code[$#code];
+    my $cannot_fail = is_instr($last_instr, 'commit') &&
+	(get_comment($last_instr) =~ /^always/);
 
     foreach $ref (@tr) {
 	my($name, $arity, @ops) = @$ref;
@@ -1524,9 +1607,10 @@ sub tr_gen_to {
 		    push(@args, "var+$var{$var}");
 		}
 	    }
-	    pop(@code);	# Get rid of 'next_instr'
-	    push(@code, &make_op("$name()", 'call', scalar(@call_table)));
-	    push(@call_table, [$name, @args]);
+	    pop(@code);	# Get rid of 'commit' instruction
+	    my $index = tr_next_index(\@call_table, \%call_table,
+				      $name, @args);
+	    push(@code, make_op("$name()", 'call_end', $index));
 	    last;
 	}
 
@@ -1543,27 +1627,27 @@ sub tr_gen_to {
 	# Create code to build the generic instruction.
 	#
 
-	push(@code, &make_op('', 'new_instr'));
-	push(@code, &make_op("$name/$arity", 'store_op', $opnum, $arity));
+	push(@code, make_op("$name/$arity", 'new_instr', $opnum));
 	foreach $op (@ops) {
 	    my($var, $type, $type_val) = @$op;
 
 	    if ($var ne '') {
 		&error($where, "variable '$var' unbound")
 		    unless defined $var{$var};
-		push(@code, &make_op($var, 'store_var', $var{$var}));
+		push(@code, &make_op($var, 'store_var_next_arg', $var{$var}));
 	    } elsif ($type ne '') {
 		push(@code, &make_op('', 'store_type', "TAG_$type"));
 		if ($type_val) {
 		    push(@code, &make_op('', 'store_val', $type_val));
 		}
+		push(@code, make_op('', 'next_arg'));
 	    }
-	    push(@code, &make_op('', 'next_arg'));
 	}
-	pop(@code) if $code[$#code]->[1][0] eq 'next_arg';
+	pop(@code) if is_instr($code[$#code], 'next_arg');
     }
 
-    push(@code, &make_op('', 'end'));
+    push(@code, make_op('', 'end'))
+	unless is_instr($code[$#code], 'call_end');
 
     #
     # Chain together all codes segments having the same first operation.
@@ -1575,11 +1659,20 @@ sub tr_gen_to {
     $min_window{$key} = $min_window
 	if $min_window{$key} > $min_window;
 
-    pop(@{$gen_transform{$key}})
+    my $prev_last;
+    $prev_last = pop(@{$gen_transform{$key}})
 	if defined @{$gen_transform{$key}}; # Fail
-    my(@prefix) = (&make_op($comment), &make_op('', 'try_me_else', &tr_code_len(@code)));
-    unshift(@code, @prefix);
-    push(@{$gen_transform{$key}}, @code, &make_op('', 'fail'));
+
+    if ($prev_last && !is_instr($prev_last, 'fail')) {
+	error("Line $line: A previous transformation shadows '$orig_transform'");
+    }
+    unless ($cannot_fail) {
+	unshift(@code, make_op('', 'try_me_else',
+			       tr_code_len(@code)));
+	push(@code, make_op(""), make_op("$key", 'fail'));
+    }
+    unshift(@code, make_op($comment));
+    push(@{$gen_transform{$key}}, @code),
 }
 
 sub tr_code_len {
@@ -1597,21 +1690,38 @@ sub make_op {
     [scalar(@op), [@op], $comment];
 }
 
-sub is_set_var_instr {
-    my($ref) = @_;
+sub is_instr {
+    my($ref,$op) = @_;
     return 0 unless ref($ref) eq 'ARRAY';
-    $ref->[1][0] eq 'set_var';
+    $ref->[1][0] eq $op;
+}
+
+sub get_comment {
+    my($ref,$op) = @_;
+    return '' unless ref($ref) eq 'ARRAY';
+    $ref->[2];
+}
+
+sub tr_next_index {
+    my($lref,$href,$name,@args) = @_;
+    my $code = "RVAL = $name(" . join(', ', 'st', @args) . "); break;\n";
+    my $index;
+
+    if (defined $$href{$code}) {
+	$index = $$href{$code};
+    } else {
+	$index = scalar(@$lref);
+	push(@$lref, $code);
+	$$href{$code} = $index;
+    }
+    $index;
 }
 
 sub tr_gen_call {
     my(@call_table) = @_;
     my($i);
 
-    print "\n";
     for ($i = 0; $i < @call_table; $i++) {
-	my $ref = $call_table[$i];
-	my($name, @args) = @$ref;
-	print "case $i: RVAL = $name(", join(', ', 'st', @args), "); break;\n";
+	print "case $i: $call_table[$i]";
     }
-    print "\n";
 }
