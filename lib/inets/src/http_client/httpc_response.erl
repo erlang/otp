@@ -350,7 +350,7 @@ redirect(Response = {StatusLine, Headers, Body}, Request) ->
 		{error, Reason} ->
 		    {ok, error(Request, Reason), Data};
 		%% Automatic redirection
-		{Scheme, _, Host, Port, Path,  Query} -> 
+		{ok, {Scheme, _, Host, Port, Path,  Query}} -> 
 		    NewHeaders = 
 			(Request#request.headers)#http_request_h{host = 
 								 Host},

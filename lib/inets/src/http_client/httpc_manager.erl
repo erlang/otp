@@ -398,12 +398,12 @@ handle_call(which_cookies, _, #state{cookie_db = CookieDb} = State) ->
 handle_call({which_cookies, Url}, _, #state{cookie_db = CookieDb} = State) ->
     ?hcrv("which cookies", [{url, Url}]),
     case http_uri:parse(Url) of
-	{Scheme, _, Host, Port, Path, _} ->
+	{ok, {Scheme, _, Host, Port, Path, _}} ->
 	    CookieHeaders = 
 		httpc_cookie:header(CookieDb, Scheme, {Host, Port}, Path),
 	    {reply, CookieHeaders, State};
-	Msg ->
-	    {reply, Msg, State}
+	{error, _} = ERROR ->
+	    {reply, ERROR, State}
     end;
 
 handle_call(info, _, State) ->

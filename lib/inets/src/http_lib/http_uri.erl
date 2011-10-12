@@ -16,7 +16,9 @@
 %%
 %% %CopyrightEnd%
 %%
-%%
+%% 
+%% RFC 3986
+%% 
 
 -module(http_uri).
 
@@ -32,7 +34,7 @@ parse(AbsURI) ->
 	{Scheme, Rest} ->
 	    case (catch parse_uri_rest(Scheme, Rest)) of
 		{UserInfo, Host, Port, Path, Query} ->
-		    {Scheme, UserInfo, Host, Port, Path, Query};
+		    {ok, {Scheme, UserInfo, Host, Port, Path, Query}};
 		_  ->
 		    {error, {malformed_url, AbsURI}}
 	    end

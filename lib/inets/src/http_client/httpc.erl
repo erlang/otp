@@ -157,7 +157,7 @@ request(Method, {Url, Headers}, HTTPOptions, Options, Profile)
     case http_uri:parse(Url) of
 	{error, Reason} ->
 	    {error, Reason};
-	ParsedUrl ->
+	{ok, ParsedUrl} ->
 	    handle_request(Method, Url, ParsedUrl, Headers, [], [], 
 			   HTTPOptions, Options, Profile)
     end;
@@ -176,7 +176,7 @@ request(Method, {Url,Headers,ContentType,Body}, HTTPOptions, Options, Profile)
     case http_uri:parse(Url) of
 	{error, Reason} ->
 	    {error, Reason};
-	ParsedUrl ->
+	{ok, ParsedUrl} ->
 	    handle_request(Method, Url, 
 			   ParsedUrl, Headers, ContentType, Body, 
 			   HTTPOptions, Options, Profile)
@@ -267,7 +267,7 @@ store_cookies(SetCookieHeaders, Url, Profile)
 			    {profile,            Profile}]),
     try 
 	begin
-	    {_, _, Host, Port, Path, _} = http_uri:parse(Url),
+	    {ok, {_, _, Host, Port, Path, _}} = http_uri:parse(Url),
 	    Address     = {Host, Port}, 
 	    ProfileName = profile_name(Profile),
 	    Cookies     = httpc_cookie:cookies(SetCookieHeaders, Path, Host),
