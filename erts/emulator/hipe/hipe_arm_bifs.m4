@@ -25,8 +25,9 @@ include(`hipe/hipe_arm_asm.m4')
 	.text
 	.p2align 2
 
-`#define JOIN3(A,B,C)		A##B##C
-#define TEST_GOT_MBUF(ARITY)	ldr r1, [P, #P_MBUF]; cmp r1, #0; blne JOIN3(nbif_,ARITY,_gc_after_bif)'
+define(TEST_GOT_MBUF,`ldr r1, [P, #P_MBUF]	/* `TEST_GOT_MBUF' */
+	cmp r1, #0
+	blne nbif_$1_gc_after_bif')
 
 /*
  * standard_bif_interface_1(nbif_name, cbif_name)

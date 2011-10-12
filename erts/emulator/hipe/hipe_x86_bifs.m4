@@ -28,9 +28,13 @@ include(`hipe/hipe_x86_asm.m4')
 #define TEST_GOT_EXN	cmpl	$THE_NON_VALUE,%eax
 #endif'
 
-`#define TEST_GOT_MBUF		movl P_MBUF(P), %edx; testl %edx, %edx; jnz 3f; 2:
-#define JOIN3(A,B,C)		A##B##C
-#define HANDLE_GOT_MBUF(ARITY)	3: call JOIN3(nbif_,ARITY,_gc_after_bif); jmp 2b'
+define(TEST_GOT_MBUF,`movl P_MBUF(P), %edx	# `TEST_GOT_MBUF'
+	testl %edx, %edx
+	jnz 3f	
+2:')
+define(HANDLE_GOT_MBUF,`
+3:	call nbif_$1_gc_after_bif	# `HANDLE_GOT_MBUF'
+	jmp 2b')
 
 /*
  * standard_bif_interface_1(nbif_name, cbif_name)

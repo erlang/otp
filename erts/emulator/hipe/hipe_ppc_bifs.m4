@@ -25,9 +25,14 @@ include(`hipe/hipe_ppc_asm.m4')
 	.text
 	.p2align 2
 
-`#define TEST_GOT_MBUF		LOAD r4, P_MBUF(P) SEMI CMPI r4, 0 SEMI bne- 3f SEMI 2:
-#define JOIN3(A,B,C)		A##B##C
-#define HANDLE_GOT_MBUF(ARITY)	3: bl CSYM(JOIN3(nbif_,ARITY,_gc_after_bif)) SEMI b 2b'
+define(TEST_GOT_MBUF,`LOAD r4, P_MBUF(P)	# `TEST_GOT_MBUF'
+	CMPI r4, 0
+	bne- 3f
+2:')
+define(HANDLE_GOT_MBUF,`
+3:	bl CSYM(nbif_$1_gc_after_bif)	# `HANDLE_GOT_MBUF'
+	b 2b')
+
 
 /*
  * standard_bif_interface_1(nbif_name, cbif_name)

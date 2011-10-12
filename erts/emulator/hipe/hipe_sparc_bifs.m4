@@ -28,12 +28,19 @@ include(`hipe/hipe_sparc_asm.m4')
 /*
  * Test for exception. This macro executes its delay slot.
  */
-`#define __TEST_GOT_EXN(LABEL)	cmp %o0, THE_NON_VALUE; bz,pn %icc, LABEL
-#define TEST_GOT_EXN(ARITY)	__TEST_GOT_EXN(JOIN3(nbif_,ARITY,_simple_exception))'
+define(TEST_GOT_EXN,`cmp %o0, THE_NON_VALUE	! `TEST_GOT_EXN'
+	bz,pn %icc, nbif_$1_simple_exception')
 
-`#define TEST_GOT_MBUF		ld [P+P_MBUF], %o1; cmp %o1, 0; bne 3f; nop; 2:
-#define JOIN3(A,B,C)		A##B##C
-#define HANDLE_GOT_MBUF(ARITY)	3: call JOIN3(nbif_,ARITY,_gc_after_bif); nop; b 2b; nop'
+define(TEST_GOT_MBUF,`ld [P+P_MBUF], %o1	! `TEST_GOT_MBUF'
+	cmp %o1, 0
+	bne 3f
+	nop
+2:')
+define(HANDLE_GOT_MBUF,`
+3:	call nbif_$1_gc_after_bif	! `HANDLE_GOT_MBUF'
+	nop
+	b 2b
+	nop')
 
 /*
  * standard_bif_interface_1(nbif_name, cbif_name)
