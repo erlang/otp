@@ -685,12 +685,11 @@ open(Pkt, SupportedApps, RCaps, {Type, IS}, #state{parent = Pid,
 %% and expect a reply when the handshake is complete.
 tls_ack(true, Type, IS, #state{transport = TPid} = S) ->
     Ref = make_ref(),
-    MRef = erlang:monitor(process, TPid),
     TPid ! {diameter, {tls, Ref, Type, IS == ?TLS}},
     receive
         {diameter, {tls, Ref}} ->
-            erlang:demonitor(MRef, [flush]);
-        {'DOWN', MRef, process, _, _} = T ->
+            ok;
+        {'DOWN', _, process, TPid, _} = T ->
             close({tls_ack, T}, S)
     end;
 
