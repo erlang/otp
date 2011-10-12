@@ -96,7 +96,7 @@ ERL_COMPILE_FLAGS += \
 debug opt: $(TARGET_FILES) 
 
 clean:
-	rm -f $(TARGET_FILES) $(GEN_ERL_MODULES:%=%.erl) $(GEN_HRL_FILES) $(CLASS_FILES)
+	rm -f $(TARGET_FILES) $(GEN_ERL_MODULES:%=%.erl) $(GEN_HRL_FILES) $(CLASS_FILES) IDL-GENERATED
 	rm -f errs core *~
 
 docs:
