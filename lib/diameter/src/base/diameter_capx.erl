@@ -224,10 +224,6 @@ rCER(CER, #diameter_service{capabilities = LCaps} = Svc) ->
                RCaps,
                CEA#diameter_base_CEA{'Result-Code' = ?SUCCESS})}.
 
-%% TODO: 5.3 of RFC 3588 says we MUST return DIAMETER_NO_COMMON_APPLICATION
-%%       in the CEA and SHOULD disconnect the transport. However, we have
-%%       no way to guarantee the send before disconnecting.
-
 build_CEA([], _, _, CEA) ->
     CEA#diameter_base_CEA{'Result-Code' = ?NOAPP};
 
