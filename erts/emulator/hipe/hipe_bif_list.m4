@@ -176,10 +176,10 @@ gc_bif_interface_0(nbif_hipe_bifs_nstack_used_size_0, hipe_bifs_nstack_used_size
 /*
  * Arithmetic operators called indirectly by the HiPE compiler.
  */
-standard_bif_interface_2(nbif_add_2, erts_mixed_plus)
-standard_bif_interface_2(nbif_sub_2, erts_mixed_minus)
-standard_bif_interface_2(nbif_mul_2, erts_mixed_times)
-standard_bif_interface_2(nbif_div_2, erts_mixed_div)
+standard_bif_interface_2(nbif_add_2, splus_2)
+standard_bif_interface_2(nbif_sub_2, sminus_2)
+standard_bif_interface_2(nbif_mul_2, stimes_2)
+standard_bif_interface_2(nbif_div_2, div_2)
 standard_bif_interface_2(nbif_intdiv_2, intdiv_2)
 standard_bif_interface_2(nbif_rem_2, rem_2)
 standard_bif_interface_2(nbif_bsl_2, bsl_2)

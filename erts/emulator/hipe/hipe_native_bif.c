@@ -99,8 +99,10 @@ void hipe_gc(Process *p, Eterm need)
  *  has begun.
  * XXX: BUG: native code should check return status
  */
-Eterm hipe_set_timeout(Process *p, Eterm timeout_value)
+BIF_RETTYPE hipe_set_timeout(BIF_ALIST_1)
 {
+    Process* p = BIF_P;
+    Eterm timeout_value = BIF_ARG_1;
 #if !defined(ARCH_64)
     Uint time_val;
 #endif
@@ -286,8 +288,13 @@ static struct StackTrace *get_trace_from_exc(Eterm exc)
  * This does what the (misnamed) Beam instruction 'raise_ss' does,
  * namely, a proper re-throw of an exception that was caught by 'try'.
  */
-Eterm hipe_rethrow(Process *c_p, Eterm exc, Eterm value)
+
+BIF_RETTYPE hipe_rethrow(BIF_ALIST_2)
 {
+    Process* c_p = BIF_P;
+    Eterm exc = BIF_ARG_1;
+    Eterm value = BIF_ARG_2;
+
     c_p->fvalue = value;
     if (c_p->freason == EXC_NULL) {
 	/* a safety check for the R10-0 case; should not happen */
@@ -411,8 +418,12 @@ Eterm hipe_bs_utf8_size(Eterm arg)
 	return make_small(4);
 }
 
-Eterm hipe_bs_put_utf8(Process *p, Eterm arg, byte *base, unsigned int offset)
+BIF_RETTYPE hipe_bs_put_utf8(BIF_ALIST_3)
 {
+    Process* p = BIF_P;
+    Eterm arg = BIF_ARG_1;
+    byte* base = (byte*) BIF_ARG_2;
+    Uint offset = (Uint) BIF_ARG_3;
     byte *save_bin_buf;
     Uint save_bin_offset;
     int res;
@@ -468,13 +479,21 @@ Eterm hipe_bs_put_utf16(Process *p, Eterm arg, byte *base, unsigned int offset, 
     return new_offset;
 }
 
-Eterm hipe_bs_put_utf16be(Process *p, Eterm arg, byte *base, unsigned int offset)
+BIF_RETTYPE hipe_bs_put_utf16be(BIF_ALIST_3)
 {
+    Process *p = BIF_P;
+    Eterm arg = BIF_ARG_1;
+    byte *base = (byte*) BIF_ARG_2; 
+    Uint offset = (Uint) BIF_ARG_3;
     return hipe_bs_put_utf16(p, arg, base, offset, 0);
 }
 
-Eterm hipe_bs_put_utf16le(Process *p, Eterm arg, byte *base, unsigned int offset)
+BIF_RETTYPE hipe_bs_put_utf16le(BIF_ALIST_3)
 {
+    Process *p = BIF_P;
+    Eterm arg = BIF_ARG_1;
+    byte *base = (byte*) BIF_ARG_2; 
+    Uint offset = (Uint) BIF_ARG_3;
     return hipe_bs_put_utf16(p, arg, base, offset, BSF_LITTLE);
 }
 
@@ -489,8 +508,10 @@ static int validate_unicode(Eterm arg)
     return 1;
 }
 
-Eterm hipe_bs_validate_unicode(Process *p, Eterm arg)
+BIF_RETTYPE hipe_bs_validate_unicode(BIF_ALIST_1)
 {
+    Process *p = BIF_P;
+    Eterm arg = BIF_ARG_1;
     if (!validate_unicode(arg))
 	BIF_ERROR(p, BADARG);
     return NIL;
