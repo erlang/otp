@@ -76,274 +76,274 @@
 
 @messages
 
-      CER  ::= < Diameter Header: 257, REQ >
-                { Origin-Host }
-                { Origin-Realm }
-             1* { Host-IP-Address }
-                { Vendor-Id }
-                { Product-Name }
-                [ Origin-State-Id ]
-              * [ Supported-Vendor-Id ]
-              * [ Auth-Application-Id ]
-              * [ Inband-Security-Id ]
-              * [ Acct-Application-Id ]
-              * [ Vendor-Specific-Application-Id ]
-                [ Firmware-Revision ]
-              * [ AVP ]
+      CER ::= < Diameter Header: 257, REQ >
+              { Origin-Host }
+              { Origin-Realm }
+           1* { Host-IP-Address }
+              { Vendor-Id }
+              { Product-Name }
+              [ Origin-State-Id ]
+            * [ Supported-Vendor-Id ]
+            * [ Auth-Application-Id ]
+            * [ Inband-Security-Id ]
+            * [ Acct-Application-Id ]
+            * [ Vendor-Specific-Application-Id ]
+              [ Firmware-Revision ]
+            * [ AVP ]
 
-      CEA  ::= < Diameter Header: 257 >
-                { Result-Code }
-                { Origin-Host }
-                { Origin-Realm }
-             1* { Host-IP-Address }
-                { Vendor-Id }
-                { Product-Name }
-                [ Origin-State-Id ]
-                [ Error-Message ]
-              * [ Failed-AVP ]
-              * [ Supported-Vendor-Id ]
-              * [ Auth-Application-Id ]
-              * [ Inband-Security-Id ]
-              * [ Acct-Application-Id ]
-              * [ Vendor-Specific-Application-Id ]
-                [ Firmware-Revision ]
-              * [ AVP ]
+      CEA ::= < Diameter Header: 257 >
+              { Result-Code }
+              { Origin-Host }
+              { Origin-Realm }
+           1* { Host-IP-Address }
+              { Vendor-Id }
+              { Product-Name }
+              [ Origin-State-Id ]
+              [ Error-Message ]
+            * [ Failed-AVP ]
+            * [ Supported-Vendor-Id ]
+            * [ Auth-Application-Id ]
+            * [ Inband-Security-Id ]
+            * [ Acct-Application-Id ]
+            * [ Vendor-Specific-Application-Id ]
+              [ Firmware-Revision ]
+            * [ AVP ]
 
-      DPR   ::= < Diameter Header: 282, REQ >
-                 { Origin-Host }
-                 { Origin-Realm }
-                 { Disconnect-Cause }
+      DPR ::= < Diameter Header: 282, REQ >
+              { Origin-Host }
+              { Origin-Realm }
+              { Disconnect-Cause }
 
-      DPA   ::= < Diameter Header: 282 >
-                 { Result-Code }
-                 { Origin-Host }
-                 { Origin-Realm }
-                 [ Error-Message ]
-               * [ Failed-AVP ]
+      DPA ::= < Diameter Header: 282 >
+              { Result-Code }
+              { Origin-Host }
+              { Origin-Realm }
+              [ Error-Message ]
+            * [ Failed-AVP ]
 
-      DWR   ::= < Diameter Header: 280, REQ >
-                 { Origin-Host }
-                 { Origin-Realm }
-                 [ Origin-State-Id ]
+      DWR ::= < Diameter Header: 280, REQ >
+              { Origin-Host }
+              { Origin-Realm }
+              [ Origin-State-Id ]
 
-      DWA   ::= < Diameter Header: 280 >
-                 { Result-Code }
-                 { Origin-Host }
-                 { Origin-Realm }
-                 [ Error-Message ]
-               * [ Failed-AVP ]
-                 [ Origin-State-Id ]
+      DWA ::= < Diameter Header: 280 >
+              { Result-Code }
+              { Origin-Host }
+              { Origin-Realm }
+              [ Error-Message ]
+            * [ Failed-AVP ]
+              [ Origin-State-Id ]
 
-   answer-message  ::= < Diameter Header: code, ERR [PXY] >
-                     0*1< Session-Id >
-                        { Origin-Host }
-                        { Origin-Realm }
-                        { Result-Code }
-                        [ Origin-State-Id ]
-                        [ Error-Reporting-Host ]
-                        [ Proxy-Info ]
-                      * [ AVP ]
+   answer-message ::= < Diameter Header: code, ERR [PXY] >
+                  0*1 < Session-Id >
+                      { Origin-Host }
+                      { Origin-Realm }
+                      { Result-Code }
+                      [ Origin-State-Id ]
+                      [ Error-Reporting-Host ]
+                      [ Proxy-Info ]
+                    * [ AVP ]
 
-      RAR   ::= < Diameter Header: 258, REQ, PXY >
-                 < Session-Id >
-                 { Origin-Host }
-                 { Origin-Realm }
-                 { Destination-Realm }
-                 { Destination-Host }
-                 { Auth-Application-Id }
-                 { Re-Auth-Request-Type }
-                 [ User-Name ]
-                 [ Origin-State-Id ]
-               * [ Proxy-Info ]
-               * [ Route-Record ]
-               * [ AVP ]
+      RAR ::= < Diameter Header: 258, REQ, PXY >
+              < Session-Id >
+              { Origin-Host }
+              { Origin-Realm }
+              { Destination-Realm }
+              { Destination-Host }
+              { Auth-Application-Id }
+              { Re-Auth-Request-Type }
+              [ User-Name ]
+              [ Origin-State-Id ]
+            * [ Proxy-Info ]
+            * [ Route-Record ]
+            * [ AVP ]
 
-      RAA   ::= < Diameter Header: 258, PXY >
-                 < Session-Id >
-                 { Result-Code }
-                 { Origin-Host }
-                 { Origin-Realm }
-                 [ User-Name ]
-                 [ Origin-State-Id ]
-                 [ Error-Message ]
-                 [ Error-Reporting-Host ]
-               * [ Failed-AVP ]
-               * [ Redirect-Host ]
-                 [ Redirect-Host-Usage ]
-                 [ Redirect-Max-Cache-Time ]
-               * [ Proxy-Info ]
-               * [ AVP ]
+      RAA ::= < Diameter Header: 258, PXY >
+              < Session-Id >
+              { Result-Code }
+              { Origin-Host }
+              { Origin-Realm }
+              [ User-Name ]
+              [ Origin-State-Id ]
+              [ Error-Message ]
+              [ Error-Reporting-Host ]
+            * [ Failed-AVP ]
+            * [ Redirect-Host ]
+              [ Redirect-Host-Usage ]
+              [ Redirect-Max-Cache-Time ]
+            * [ Proxy-Info ]
+            * [ AVP ]
 
-      STR  ::= < Diameter Header: 275, REQ, PXY >
-                < Session-Id >
-                { Origin-Host }
-                { Origin-Realm }
-                { Destination-Realm }
-                { Auth-Application-Id }
-                { Termination-Cause }
-                [ User-Name ]
-                [ Destination-Host ]
-              * [ Class ]
-                [ Origin-State-Id ]
-              * [ Proxy-Info ]
-              * [ Route-Record ]
-              * [ AVP ]
+      STR ::= < Diameter Header: 275, REQ, PXY >
+              < Session-Id >
+              { Origin-Host }
+              { Origin-Realm }
+              { Destination-Realm }
+              { Auth-Application-Id }
+              { Termination-Cause }
+              [ User-Name ]
+              [ Destination-Host ]
+            * [ Class ]
+              [ Origin-State-Id ]
+            * [ Proxy-Info ]
+            * [ Route-Record ]
+            * [ AVP ]
 
-      STA   ::= < Diameter Header: 275, PXY >
-                 < Session-Id >
-                 { Result-Code }
-                 { Origin-Host }
-                 { Origin-Realm }
-                 [ User-Name ]
-               * [ Class ]
-                 [ Error-Message ]
-                 [ Error-Reporting-Host ]
-               * [ Failed-AVP ]
-                 [ Origin-State-Id ]
-               * [ Redirect-Host ]
-                 [ Redirect-Host-Usage ]
-                 [ Redirect-Max-Cache-Time ]
-               * [ Proxy-Info ]
-               * [ AVP ]
+      STA ::= < Diameter Header: 275, PXY >
+              < Session-Id >
+              { Result-Code }
+              { Origin-Host }
+              { Origin-Realm }
+              [ User-Name ]
+            * [ Class ]
+              [ Error-Message ]
+              [ Error-Reporting-Host ]
+            * [ Failed-AVP ]
+              [ Origin-State-Id ]
+            * [ Redirect-Host ]
+              [ Redirect-Host-Usage ]
+              [ Redirect-Max-Cache-Time ]
+            * [ Proxy-Info ]
+            * [ AVP ]
 
-      ASR   ::= < Diameter Header: 274, REQ, PXY >
-                 < Session-Id >
-                 { Origin-Host }
-                 { Origin-Realm }
-                 { Destination-Realm }
-                 { Destination-Host }
-                 { Auth-Application-Id }
-                 [ User-Name ]
-                 [ Origin-State-Id ]
-               * [ Proxy-Info ]
-               * [ Route-Record ]
-               * [ AVP ]
+      ASR ::= < Diameter Header: 274, REQ, PXY >
+              < Session-Id >
+              { Origin-Host }
+              { Origin-Realm }
+              { Destination-Realm }
+              { Destination-Host }
+              { Auth-Application-Id }
+              [ User-Name ]
+              [ Origin-State-Id ]
+            * [ Proxy-Info ]
+            * [ Route-Record ]
+            * [ AVP ]
 
-      ASA   ::= < Diameter Header: 274, PXY >
-                 < Session-Id >
-                 { Result-Code }
-                 { Origin-Host }
-                 { Origin-Realm }
-                 [ User-Name ]
-                 [ Origin-State-Id ]
-                 [ Error-Message ]
-                 [ Error-Reporting-Host ]
-               * [ Failed-AVP ]
-               * [ Redirect-Host ]
-                 [ Redirect-Host-Usage ]
-                 [ Redirect-Max-Cache-Time ]
-               * [ Proxy-Info ]
-               * [ AVP ]
+      ASA ::= < Diameter Header: 274, PXY >
+              < Session-Id >
+              { Result-Code }
+              { Origin-Host }
+              { Origin-Realm }
+              [ User-Name ]
+              [ Origin-State-Id ]
+              [ Error-Message ]
+              [ Error-Reporting-Host ]
+            * [ Failed-AVP ]
+            * [ Redirect-Host ]
+              [ Redirect-Host-Usage ]
+              [ Redirect-Max-Cache-Time ]
+            * [ Proxy-Info ]
+            * [ AVP ]
 
-      ACR  ::= < Diameter Header: 271, REQ, PXY >
-                < Session-Id >
-                { Origin-Host }
-                { Origin-Realm }
-                { Destination-Realm }
-                { Accounting-Record-Type }
-                { Accounting-Record-Number }
-                [ Acct-Application-Id ]
-                [ Vendor-Specific-Application-Id ]
-                [ User-Name ]
-                [ Accounting-Sub-Session-Id ]
-                [ Acct-Session-Id ]
-                [ Acct-Multi-Session-Id ]
-                [ Acct-Interim-Interval ]
-                [ Accounting-Realtime-Required ]
-                [ Origin-State-Id ]
-                [ Event-Timestamp ]
-              * [ Proxy-Info ]
-              * [ Route-Record ]
-              * [ AVP ]
+      ACR ::= < Diameter Header: 271, REQ, PXY >
+              < Session-Id >
+              { Origin-Host }
+              { Origin-Realm }
+              { Destination-Realm }
+              { Accounting-Record-Type }
+              { Accounting-Record-Number }
+              [ Acct-Application-Id ]
+              [ Vendor-Specific-Application-Id ]
+              [ User-Name ]
+              [ Accounting-Sub-Session-Id ]
+              [ Acct-Session-Id ]
+              [ Acct-Multi-Session-Id ]
+              [ Acct-Interim-Interval ]
+              [ Accounting-Realtime-Required ]
+              [ Origin-State-Id ]
+              [ Event-Timestamp ]
+            * [ Proxy-Info ]
+            * [ Route-Record ]
+            * [ AVP ]
 
-      ACA  ::= < Diameter Header: 271, PXY >
-                < Session-Id >
-                { Result-Code }
-                { Origin-Host }
-                { Origin-Realm }
-                { Accounting-Record-Type }
-                { Accounting-Record-Number }
-                [ Acct-Application-Id ]
-                [ Vendor-Specific-Application-Id ]
-                [ User-Name ]
-                [ Accounting-Sub-Session-Id ]
-                [ Acct-Session-Id ]
-                [ Acct-Multi-Session-Id ]
-                [ Error-Reporting-Host ]
-                [ Acct-Interim-Interval ]
-                [ Accounting-Realtime-Required ]
-                [ Origin-State-Id ]
-                [ Event-Timestamp ]
-              * [ Proxy-Info ]
-              * [ AVP ]
+      ACA ::= < Diameter Header: 271, PXY >
+              < Session-Id >
+              { Result-Code }
+              { Origin-Host }
+              { Origin-Realm }
+              { Accounting-Record-Type }
+              { Accounting-Record-Number }
+              [ Acct-Application-Id ]
+              [ Vendor-Specific-Application-Id ]
+              [ User-Name ]
+              [ Accounting-Sub-Session-Id ]
+              [ Acct-Session-Id ]
+              [ Acct-Multi-Session-Id ]
+              [ Error-Reporting-Host ]
+              [ Acct-Interim-Interval ]
+              [ Accounting-Realtime-Required ]
+              [ Origin-State-Id ]
+              [ Event-Timestamp ]
+            * [ Proxy-Info ]
+            * [ AVP ]
 
 @enum Disconnect-Cause
 
-   REBOOTING                         0
-   BUSY                              1
-   DO_NOT_WANT_TO_TALK_TO_YOU        2
+   REBOOTING                      0
+   BUSY                           1
+   DO_NOT_WANT_TO_TALK_TO_YOU     2
 
 @enum Redirect-Host-Usage
 
-   DONT_CACHE                        0
-   ALL_SESSION                       1
-   ALL_REALM                         2
-   REALM_AND_APPLICATION             3
-   ALL_APPLICATION                   4
-   ALL_HOST                          5
-   ALL_USER                          6
+   DONT_CACHE                     0
+   ALL_SESSION                    1
+   ALL_REALM                      2
+   REALM_AND_APPLICATION          3
+   ALL_APPLICATION                4
+   ALL_HOST                       5
+   ALL_USER                       6
 
 @enum Auth-Request-Type
 
-   AUTHENTICATE_ONLY          1
-   AUTHORIZE_ONLY             2
-   AUTHORIZE_AUTHENTICATE     3
+   AUTHENTICATE_ONLY              1
+   AUTHORIZE_ONLY                 2
+   AUTHORIZE_AUTHENTICATE         3
 
 @enum Auth-Session-State
 
-   STATE_MAINTAINED              0
-   NO_STATE_MAINTAINED           1
+   STATE_MAINTAINED               0
+   NO_STATE_MAINTAINED            1
 
 @enum Re-Auth-Request-Type
 
-   AUTHORIZE_ONLY             0
-   AUTHORIZE_AUTHENTICATE     1
+   AUTHORIZE_ONLY                 0
+   AUTHORIZE_AUTHENTICATE         1
 
 @enum Termination-Cause
 
-   DIAMETER_LOGOUT                   1
-   DIAMETER_SERVICE_NOT_PROVIDED     2
-   DIAMETER_BAD_ANSWER               3
-   DIAMETER_ADMINISTRATIVE           4
-   DIAMETER_LINK_BROKEN              5
-   DIAMETER_AUTH_EXPIRED             6
-   DIAMETER_USER_MOVED               7
-   DIAMETER_SESSION_TIMEOUT          8
+   DIAMETER_LOGOUT                1
+   DIAMETER_SERVICE_NOT_PROVIDED  2
+   DIAMETER_BAD_ANSWER            3
+   DIAMETER_ADMINISTRATIVE        4
+   DIAMETER_LINK_BROKEN           5
+   DIAMETER_AUTH_EXPIRED          6
+   DIAMETER_USER_MOVED            7
+   DIAMETER_SESSION_TIMEOUT       8
 
 @enum Session-Server-Failover
 
-   REFUSE_SERVICE             0
-   TRY_AGAIN                  1
-   ALLOW_SERVICE              2
-   TRY_AGAIN_ALLOW_SERVICE    3
+   REFUSE_SERVICE                 0
+   TRY_AGAIN                      1
+   ALLOW_SERVICE                  2
+   TRY_AGAIN_ALLOW_SERVICE        3
 
 @enum Accounting-Record-Type
 
-   EVENT_RECORD                    1
-   START_RECORD                    2
-   INTERIM_RECORD                  3
-   STOP_RECORD                     4
+   EVENT_RECORD                   1
+   START_RECORD                   2
+   INTERIM_RECORD                 3
+   STOP_RECORD                    4
 
 @enum Accounting-Realtime-Required
 
-   DELIVER_AND_GRANT                           1
-   GRANT_AND_STORE                             2
-   GRANT_AND_LOSE                              3
+   DELIVER_AND_GRANT              1
+   GRANT_AND_STORE                2
+   GRANT_AND_LOSE                 3
 
 @define Result-Code
 
 ;; 7.1.1.  Informational
-   DIAMETER_MULTI_ROUND_AUTH         1001
+   DIAMETER_MULTI_ROUND_AUTH          1001
 
 ;; 7.1.2.  Success
    DIAMETER_SUCCESS                   2001
@@ -393,16 +393,16 @@
                    * [ AVP ]
 
       Failed-AVP ::= < AVP Header: 279 >
-                    1* {AVP}
+                  1* {AVP}
 
       Experimental-Result ::= < AVP Header: 297 >
-                                 { Vendor-Id }
-                                 { Experimental-Result-Code }
+                              { Vendor-Id }
+                              { Experimental-Result-Code }
 
   Vendor-Specific-Application-Id ::= < AVP Header: 260 >
-                                     1* { Vendor-Id }
-                                        [ Auth-Application-Id ]
-                                        [ Acct-Application-Id ]
+                                  1* { Vendor-Id }
+                                     [ Auth-Application-Id ]
+                                     [ Acct-Application-Id ]
 
 ;; The E2E-Sequence AVP is defined in RFC 3588 as Grouped, but 
 ;; there is no definition of the group - only an informal text stating

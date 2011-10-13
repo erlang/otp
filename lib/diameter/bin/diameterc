@@ -120,7 +120,7 @@ arg(["-H" | Args], #argv{output = Output} = A) ->
 
 arg(["-d" | Args], #argv{options = Opts, output = Output} = A) ->
     arg(Args, A#argv{options = [debug | Opts],
-                            output = [spec | Output]});
+                     output = [spec | Output]});
 
 arg([[$- = M, C, H | T] | Args], A)  %% clustered options
   when C /= $i, C /= $o ->
