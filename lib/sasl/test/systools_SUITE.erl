@@ -1157,7 +1157,7 @@ normal_relup(Config) when is_list(Config) ->
     ?line ok = file:set_cwd(LatestDir),
 
     %% OTP-2561: Check that the option 'restart_emulator' generates a
-    %% "restart_new_emulator" instruction.
+    %% "restart_emulator" instruction.
     ?line {ok, _ , _, []} =
          systools:make_relup(LatestName, [LatestName1], [LatestName1],
 			     [{path, P},restart_emulator,silent]),
@@ -1256,19 +1256,19 @@ check_relup_up_only(UpVsnL) ->
 
 check_restart_emulator() ->
     {ok, [{_V1, [{_, _, Up}], [{_, _, Dn}]}]} = file:consult(relup),
-    restart_new_emulator = lists:last(Up),
-    restart_new_emulator = lists:last(Dn),
+    restart_emulator = lists:last(Up),
+    restart_emulator = lists:last(Dn),
     ok.
 
 check_restart_emulator_up_only() ->
     {ok, [{_V1, [{_, _, Up}], []}]} = file:consult(relup),
-    restart_new_emulator = lists:last(Up),
+    restart_emulator = lists:last(Up),
     ok.
 
 check_restart_emulator_diff_erts() ->
     {ok, [{_V1, [{_, _, Up}], [{_, _, Dn}]}]} = file:consult(relup),
     [restart_new_emulator|_] = Up,
-    restart_new_emulator = lists:last(Dn),
+    restart_emulator = lists:last(Dn),
     ok.
 
 %% make_relup
@@ -1444,7 +1444,7 @@ regexp_relup(Config) ->
 
     %% Upgrade fe 2.1.1 -> 3.1
     %% Shall match the second entry in fe-3.1 appup. Have added a
-    %% restart_new_emulator instruction there to distinguish it from
+    %% restart_emulator instruction there to distinguish it from
     %% the first entry...
     ?line {ok, _, _, []} =
 	systools:make_relup(LatestName, [LatestName1], [], [{path, P}, silent]),

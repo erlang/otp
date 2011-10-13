@@ -15,7 +15,7 @@
     [{update, fe1, soft, soft_purge, soft_purge, []},
      {update, fe2, soft, soft_purge, soft_purge, [fe1]},
      {update, fe3, {advanced, extra}, soft_purge, soft_purge,[fe1, fe2]},
-     restart_new_emulator]}
+     restart_emulator]}
   ],
 
   %% Downgrade to:

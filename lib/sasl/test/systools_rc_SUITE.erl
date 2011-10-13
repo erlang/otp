@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -21,14 +21,15 @@
 -include_lib("test_server/include/test_server.hrl").
 -include_lib("sasl/src/systools.hrl").
 -export([all/0,groups/0,init_per_group/2,end_per_group/2, 
-	 syntax_check/1, translate/1, translate_app/1]).
+	 syntax_check/1, translate/1, translate_app/1,
+	 translate_emulator_restarts/1]).
 
 %%-----------------------------------------------------------------
 %% erl -compile systools_rc_SUITE @i ../src/ @i ../../test_server/include/
 %% c(systools_rc_SUITE, [{i, "../src"}, {i, "../../test_server/include"}]).
 %%-----------------------------------------------------------------
 all() -> 
-    [syntax_check, translate, translate_app].
+    [syntax_check, translate, translate_app, translate_emulator_restarts].
 
 groups() -> 
     [].
@@ -87,7 +88,8 @@ syntax_check(Config) when is_list(Config) ->
 	  {sync_nodes, id1, {m, f, [a]}},
 	  {sync_nodes, id2, [cp1, cp2]},
 	  {apply, {m,f,[a]}},
-	  restart_new_emulator
+	  restart_new_emulator,
+	  restart_emulator
 	  ],
     ?line {ok, _} = systools_rc:translate_scripts([S2], Apps, []),
     S3 = [{apply, {m, f, a}}],
@@ -486,3 +488,85 @@ io:format("X2=~p~n", [X2]),
 	   {purge,[pelle,kalle]},
 	   {apply,{application,unload,[pelle]}}] = X3,
     ?line ok.
+
+
+translate_emulator_restarts(_Config) ->
+    Apps =
+	[#application{name = test,
+		      description = "TEST",
+		      vsn = "1.0",
+		      modules = [{foo,1},{bar,1},{baz,1}],
+		      regs = [],
+		      mod = {sasl, []}},
+	 #application{name = test,
+		      description = "TEST2",
+		      vsn = "1.0",
+		      modules = [{x,1},{y,1},{z,1}],
+		      regs = [],
+		      mod = {sasl, []}}],
+    %% restart_new_emulator
+    Up1 = [{update, foo, soft, soft_purge, soft_purge, []},restart_new_emulator],
+    ?line {ok, X1} = systools_rc:translate_scripts([Up1], Apps, []),
+    ?line [restart_new_emulator,
+	   {load_object_code, {test,"1.0",[foo]}},
+	   point_of_no_return,
+	   {suspend,[foo]},
+	   {load,{foo,soft_purge,soft_purge}},
+	   {resume,[foo]}] = X1,
+
+    %% restart_emulator
+    Up2 = [{update, foo, soft, soft_purge, soft_purge, []},restart_emulator],
+    ?line {ok, X2} = systools_rc:translate_scripts([Up2], Apps, []),
+    ?line [{load_object_code, {test,"1.0",[foo]}},
+	   point_of_no_return,
+	   {suspend,[foo]},
+	   {load,{foo,soft_purge,soft_purge}},
+	   {resume,[foo]},
+	   restart_emulator] = X2,
+
+    %% restart_emulator + restart_new_emulator
+    Up3 = [{update, foo, soft, soft_purge, soft_purge, []},
+	   restart_emulator,
+	   restart_new_emulator],
+    ?line {ok, X3} = systools_rc:translate_scripts([Up3], Apps, []),
+    ?line [restart_new_emulator,
+	   {load_object_code, {test,"1.0",[foo]}},
+	   point_of_no_return,
+	   {suspend,[foo]},
+	   {load,{foo,soft_purge,soft_purge}},
+	   {resume,[foo]},
+	   restart_emulator] = X3,
+
+    %% restart_emulator + restart_new_emulator
+    Up4a = [{update, foo, soft, soft_purge, soft_purge, []},
+	    restart_emulator,
+	    restart_new_emulator],
+    Up4b = [restart_new_emulator,
+	    {update, x, soft, soft_purge, soft_purge, []},
+	    restart_emulator,
+	    restart_emulator],
+    ?line {ok, X4} = systools_rc:translate_scripts([Up4a,Up4b], Apps, []),
+    ?line [restart_new_emulator,
+	   {load_object_code, {test,"1.0",[foo,x]}},
+	   point_of_no_return,
+	   {suspend,[foo]},
+	   {load,{foo,soft_purge,soft_purge}},
+	   {resume,[foo]},
+	   {suspend,[x]},
+	   {load,{x,soft_purge,soft_purge}},
+	   {resume,[x]},
+	   restart_emulator] = X4,
+
+    %% only restart_new_emulator
+    Up5 = [restart_new_emulator],
+    ?line {ok, X5} = systools_rc:translate_scripts([Up5], Apps, []),
+    ?line [restart_new_emulator,
+	   point_of_no_return] = X5,
+
+    %% only restart_emulator
+    Up6 = [restart_emulator],
+    ?line {ok, X6} = systools_rc:translate_scripts([Up6], Apps, []),
+    ?line [point_of_no_return,
+	   restart_emulator] = X6,
+
+    ok.

@@ -99,8 +99,8 @@ eval_script(Script, Apps, LibDirs, NewLibs, Opts) ->
 					   After) of
 			EvalState4 when is_record(EvalState4, eval_state) ->
 			    {ok, EvalState4#eval_state.unpurged};
-			restart_new_emulator ->
-			    restart_new_emulator;
+			restart_emulator ->
+			    restart_emulator;
 			Error ->
 			    {'EXIT', Error}
 		    end;
@@ -251,7 +251,7 @@ do_check_old_code(Mod,Procs) ->
 %%    must also exectue the same line.  Waits for all these nodes to get
 %%    to this line.
 %% point_of_no_return
-%% restart_new_emulator
+%% restart_emulator
 %% {stop_application, Appl}     - Impl with apply
 %% {unload_application, Appl}   - Impl with {remove..}
 %% {load_application, Appl}     - Impl with {load..}
@@ -410,8 +410,8 @@ eval({sync_nodes, Id, Nodes}, EvalState) ->
 eval({apply, {M, F, A}}, EvalState) ->
     apply(M, F, A),
     EvalState;
-eval(restart_new_emulator, _EvalState) ->
-    throw(restart_new_emulator).
+eval(restart_emulator, _EvalState) ->
+    throw(restart_emulator).
 
 get_opt(Tag, EvalState, Default) ->
     case lists:keysearch(Tag, 1, EvalState#eval_state.opts) of

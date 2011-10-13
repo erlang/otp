@@ -338,7 +338,7 @@ check_script(Script, LibDirs) ->
 %%-----------------------------------------------------------------
 %% eval_script(Script, Apps, LibDirs, NewLibs, Opts) ->
 %%                                             {ok, UnPurged} |
-%%                                             restart_new_emulator |
+%%                                             restart_emulator |
 %%                                             {error, Error}
 %%                                             {'EXIT', Reason}
 %% If sync_nodes is present, the calling process must have called
@@ -375,7 +375,7 @@ create_RELEASES(Root, RelDir, RelFile, LibDirs) ->
 
 %%-----------------------------------------------------------------
 %% Func: upgrade_app(App, Dir) -> {ok, Unpurged}
-%%                              | restart_new_emulator
+%%                              | restart_emulator
 %%                              | {error, Error}
 %% Types:
 %%   App = atom()
@@ -395,7 +395,7 @@ upgrade_app(App, NewDir) ->
 %%-----------------------------------------------------------------
 %% Func: downgrade_app(App, Dir)
 %%       downgrade_app(App, Vsn, Dir) -> {ok, Unpurged}
-%%                                     | restart_new_emulator
+%%                                     | restart_emulator
 %%                                     | {error, Error}
 %% Types:
 %%   App = atom()
@@ -618,11 +618,11 @@ handle_call({install_release, Vsn, ErrorAction, Opts}, From, S) ->
 	    {reply, {ok, CurrentVsn, Descr}, NewS};
 	{error, Reason}   ->
 	    {reply, {error, Reason}, NS}; 
-	{restart_new_emulator, CurrentVsn, Descr} ->
+	{restart_emulator, CurrentVsn, Descr} ->
 	    gen_server:reply(From, {ok, CurrentVsn, Descr}),
 	    init:reboot(),
 	    {noreply, NS};
-	{restart_new_emulator_then_continue, CurrentVsn, Descr} ->
+	{restart_new_emulator, CurrentVsn, Descr} ->
 	    gen_server:reply(From, {continue_after_restart, CurrentVsn, Descr}),
 	    init:reboot(),
 	    {noreply, NS};
@@ -991,7 +991,7 @@ do_install_release(#state{start_prg = StartPrg,
 		    prepare_restart_new_emulator(StartPrg, RootDir,
 						 RelDir, TmpVsn, TmpRelease,
 						 NReleases, Masters),
-		    {restart_new_emulator_then_continue, CurrentVsn, Descr};
+		    {restart_new_emulator, CurrentVsn, Descr};
 		{ok, {CurrentVsn, Descr, Script}} ->
 		    %% In case there has been an emulator upgrade,
 		    %% remove the temporary release
@@ -1012,14 +1012,14 @@ do_install_release(#state{start_prg = StartPrg,
 			    mon_nodes(false),
 			    NReleases1 = set_status(Vsn, current, NReleases),
 			    {ok, NReleases1, Unpurged, CurrentVsn, Descr};
-			restart_new_emulator when Static == true ->
+			restart_emulator when Static == true ->
 			    throw(static_emulator);
-			restart_new_emulator ->
+			restart_emulator ->
 			    mon_nodes(false),
 			    prepare_restart_new_emulator(StartPrg, RootDir,
 							 RelDir, Vsn, Release,
 							 NReleases, Masters),
-			    {restart_new_emulator, CurrentVsn, Descr};
+			    {restart_emulator, CurrentVsn, Descr};
 			Else ->
 			    application_controller:config_change(EnvBefore),
 			    mon_nodes(false),
