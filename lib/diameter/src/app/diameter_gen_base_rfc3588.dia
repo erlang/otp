@@ -340,7 +340,7 @@
    GRANT_AND_STORE                             2
    GRANT_AND_LOSE                              3
 
-@result_code Result-Code
+@define Result-Code
 
 ;; 7.1.1.  Informational
    DIAMETER_MULTI_ROUND_AUTH         1001

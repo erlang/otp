@@ -204,9 +204,11 @@ chunk({avp_vendor_id = T, [{number, I}], Body}, Dict) ->
 chunk({enum, [N], Str}, Dict) ->
     append(enums, {atomize(N), parse_enums(Str)}, Dict);
 
-%% result_codes -> [{ResultName, [{Value, Name}, ...]}, ...]
-chunk({result_code, [N], Str}, Dict) ->
-    append(result_codes, {atomize(N), parse_enums(Str)}, Dict);
+%% defines -> [{DefineName, [{Value, Name}, ...]}, ...]
+chunk({define, [N], Str}, Dict) ->
+    append(defines, {atomize(N), parse_enums(Str)}, Dict);
+chunk({result_code, [_] = N, Str}, Dict) ->  %% backwards compatibility
+    chunk({define, N, Str}, Dict);
 
 %% commands -> [{Name, Abbrev}, ...]
 chunk({commands = T, [], Body}, Dict) ->

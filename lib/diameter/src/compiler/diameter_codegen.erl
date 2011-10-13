@@ -707,9 +707,9 @@ gen_hrl(Path, Mod, Spec) ->
     write("ENUM Macros",
           Fd,
           m_enums(PREFIX, false, get_value(enums, Spec))),
-    write("RESULT CODE Macros",
+    write("DEFINE Macros",
           Fd,
-          m_enums(PREFIX, false, get_value(result_codes, Spec))),
+          m_enums(PREFIX, false, get_value(defines, Spec))),
 
     lists:foreach(fun({M,Es}) ->
                           write("ENUM Macros from " ++ atom_to_list(M),
