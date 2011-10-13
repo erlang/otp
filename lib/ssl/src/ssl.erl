@@ -27,16 +27,13 @@
 	 transport_accept/2, ssl_accept/1, ssl_accept/2, ssl_accept/3,
 	 cipher_suites/0, cipher_suites/1, close/1, shutdown/2,
 	 connect/3, connect/2, connect/4, connection_info/1,
-	 controlling_process/2, listen/2, pid/1, peername/1, recv/2,
-	 recv/3, send/2, getopts/2, setopts/2, sockname/1,
+	 controlling_process/2, listen/2, pid/1, peername/1, peercert/1,
+	 recv/2, recv/3, send/2, getopts/2, setopts/2, sockname/1,
 	 versions/0, session_info/1, format_error/1,
 	 renegotiate/1]).
 
-%% Should be deprecated as soon as old ssl is removed
 -deprecated({pid, 1, next_major_release}).
-%-deprecated({peercert, 2, next_major_release}).
 
-%%-include("ssl_int.hrl").
 -include("ssl_internal.hrl").
 -include("ssl_record.hrl").
 -include("ssl_cipher.hrl").
@@ -286,6 +283,19 @@ connection_info(#sslsocket{pid = Pid}) ->
 %%--------------------------------------------------------------------
 peername(#sslsocket{pid = Pid}) ->
     ssl_connection:peername(Pid).
+
+%%--------------------------------------------------------------------
+-spec peercert(#sslsocket{}) ->{ok, DerCert::binary()} | {error, reason()}.
+%%
+%% Description: Returns the peercert.
+%%--------------------------------------------------------------------
+peercert(#sslsocket{pid = Pid}) ->
+    case ssl_connection:peer_certificate(Pid) of
+	{ok, undefined} ->
+	    {error, no_peercert};
+        Result ->
+	    Result
+    end.
 
 %%--------------------------------------------------------------------
 -spec cipher_suites() -> [erl_cipher_suite()].
