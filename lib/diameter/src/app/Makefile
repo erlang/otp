@@ -148,6 +148,10 @@ $(APP_TARGET): $(APP_SRC) \
 $(APPUP_TARGET): $(APPUP_SRC) ../../vsn.mk
 	sed -e 's;%VSN%;$(VSN);' $< > $@
 
+# This isn't a dependency for $(DICT_ERL_FILES) $(DICT_HRL_FILES)
+# since it would force recompilation: compiler must explicity be made
+# first, which ../Makefile does. Should share a makefile for proper
+# dependencies. (Aka, recursive make considered harmful.)
 compiler:
 	$(MAKE) -C ../$@
 
@@ -187,8 +191,6 @@ release_docs_spec:
 
 diameter_gen_base_accounting.erl diameter_gen_relay.erl: \
 	$(EBIN)/diameter_gen_base_rfc3588.beam
-
-$(DICT_ERL_FILES) $(DICT_HRL_FILES): compiler
 
 $(DICT_ERL_FILES:%.erl=$(EBIN)/%.$(EMULATOR)): \
 	$(DIAMETER_TOP)/include/diameter.hrl \
