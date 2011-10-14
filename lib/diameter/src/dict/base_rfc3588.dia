@@ -18,6 +18,7 @@
 ;;
 
 @id 0
+@name   diameter_gen_base_rfc3588
 @prefix diameter_base
 @vendor 0 IETF
 

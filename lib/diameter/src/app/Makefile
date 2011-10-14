@@ -28,8 +28,6 @@ EBIN = ../../ebin
 include $(DIAMETER_TOP)/make/$(TARGET)/rules.mk
 endif
 
-
-
 # ----------------------------------------------------
 # Application version
 # ----------------------------------------------------
@@ -52,19 +50,10 @@ INCDIR = ../../include
 
 include modules.mk
 
-diameter_gen_base_accounting.erl: \
-	$(EBIN)/diameter_gen_base_rfc3588.beam
-diameter_gen_relay.erl: \
-	$(EBIN)/diameter_gen_base_rfc3588.beam
-
-SPEC_MODULES = \
-	$(SPEC_FILES:%.dia=%)
-
-SPEC_ERL_FILES = \
-	$(SPEC_FILES:%.dia=%.erl)
-
-SPEC_HRL_FILES = \
-	$(SPEC_FILES:%.dia=%.hrl)
+DICT_FILES     = $(DICTIONARIES:%=../dict/%.dia)
+DICT_MODULES   = $(DICTIONARIES:%=diameter_gen_%)
+DICT_ERL_FILES = $(DICT_MODULES:%=%.erl)
+DICT_HRL_FILES = $(DICT_MODULES:%=%.hrl)
 
 MODULES = \
 	$(RUNTIME_MODULES) \
@@ -72,7 +61,7 @@ MODULES = \
 
 APP_MODULES = \
 	$(RUNTIME_MODULES) \
-	$(SPEC_MODULES)
+	$(DICT_MODULES)
 
 TARGET_MODULES = \
 	$(APP_MODULES) \
@@ -118,7 +107,7 @@ debug:
 opt: $(TARGET_FILES)
 
 clean:
-	rm -f $(TARGET_FILES) $(SPEC_ERL_FILES) $(SPEC_HRL_FILES)
+	rm -f $(TARGET_FILES) $(DICT_ERL_FILES) $(DICT_HRL_FILES)
 	rm -f $(APP_TARGET) $(APPUP_TARGET)
 	rm -f errs core *~ diameter_gen_*.forms diameter_gen_*.spec
 	rm -f depend.mk
@@ -127,8 +116,8 @@ docs:
 
 info:
 	@echo ""
-	@echo "SPEC_FILES = $(FILES)"
-	@echo "MODULES    = $(MODULES)"
+	@echo "DICTIONARIES = $(DICTIONARIES)"
+	@echo "MODULES      = $(MODULES)"
 	@echo ""
 	@echo "EXTERNAL_HRL_FILES = $(EXTERNAL_HRL_FILES)"
 	@echo "INTERNAL_HRL_FILES = $(INTERNAL_HRL_FILES)"
@@ -139,6 +128,10 @@ info:
 # ----------------------------------------------------
 # Special Build Targets
 # ----------------------------------------------------
+
+# erl/hrl from application spec
+diameter_gen_%.erl diameter_gen_%.hrl: ../dict/%.dia
+	../../bin/diameterc -i $(EBIN) $<
 
 # Generate the app file and then modules into in. This shouldn't know
 # about ../transport but good enough for now.
@@ -158,13 +151,10 @@ $(APPUP_TARGET): $(APPUP_SRC) ../../vsn.mk
 compiler:
 	$(MAKE) -C ../$@
 
-app: $(APP_TARGET) $(APPUP_TARGET)
+app:  $(APP_TARGET) $(APPUP_TARGET)
+dict: $(DICT_ERL_FILES)
 
-# erl/hrl from application spec
-diameter_gen_%.erl diameter_gen_%.hrl: diameter_gen_%.dia
-	../../bin/diameterc -i $(EBIN) -o $(@D) $<
-
-$(SPEC_MODULES:%=$(EBIN)/%.$(EMULATOR)): $(EBIN)/diameter_exprecs.$(EMULATOR)
+$(DICT_MODULES:%=$(EBIN)/%.$(EMULATOR)): $(EBIN)/diameter_exprecs.$(EMULATOR)
 
 # ----------------------------------------------------
 # Release Target
@@ -180,14 +170,15 @@ release_spec: opt
 	$(INSTALL_DIR)  $(RELSYSDIR)/bin
 	$(INSTALL_DIR)  $(RELSYSDIR)/ebin
 	$(INSTALL_DIR)  $(RELSYSDIR)/src/app
+	$(INSTALL_DIR)  $(RELSYSDIR)/src/dict
 	$(INSTALL_DIR)  $(RELSYSDIR)/include
 	$(INSTALL_DIR)  $(RELSYSDIR)/examples
 	$(INSTALL_SCRIPT) $(ESCRIPT_FILES) $(RELSYSDIR)/bin
 	$(INSTALL_DATA) $(TARGET_FILES) $(RELSYSDIR)/ebin
-	$(INSTALL_DATA) $(MODULES:%=%.erl) $(SPEC_ERL_FILES) $(RELSYSDIR)/src/app
-	$(INSTALL_DATA) $(SPEC_FILES) $(RELSYSDIR)/src/app
+	$(INSTALL_DATA) $(MODULES:%=%.erl) $(DICT_ERL_FILES) $(RELSYSDIR)/src/app
+	$(INSTALL_DATA) $(DICT_FILES) $(RELSYSDIR)/src/dict
 	$(INSTALL_DATA) $(INTERNAL_HRL_FILES) $(RELSYSDIR)/src/app
-	$(INSTALL_DATA) $(EXTERNAL_HRL_FILES) $(SPEC_HRL_FILES) $(RELSYSDIR)/include
+	$(INSTALL_DATA) $(EXTERNAL_HRL_FILES) $(DICT_HRL_FILES) $(RELSYSDIR)/include
 	$(INSTALL_DATA) $(EXAMPLE_FILES) $(RELSYSDIR)/examples
 
 release_docs_spec:
@@ -196,7 +187,12 @@ release_docs_spec:
 # Dependencies
 # ----------------------------------------------------
 
-$(SPEC_FILES:%.dia=$(EBIN)/%.$(EMULATOR)): \
+diameter_gen_base_accounting.erl diameter_gen_relay.erl: \
+	$(EBIN)/diameter_gen_base_rfc3588.beam
+
+$(DICT_ERL_FILES) $(DICT_HRL_FILES): compiler
+
+$(DICT_ERL_FILES:%.erl=$(EBIN)/%.$(EMULATOR)): \
 	$(DIAMETER_TOP)/include/diameter.hrl \
 	$(DIAMETER_TOP)/include/diameter_gen.hrl
 
@@ -214,5 +210,6 @@ depend.mk: depend.sed $(MODULES:%=%.erl) Makefile
 
 -include depend.mk
 
-.PRECIOUS: $(SPEC_ERL_FILES) $(SPEC_HRL_FILES)
-.PHONY: app clean debug depend info opt compiler release_spec release_docs_spec
+.PRECIOUS: $(DICT_ERL_FILES) $(DICT_HRL_FILES)
+.PHONY: app clean debug depend info opt compiler dict
+.PHONY: release_spec release_docs_spec

@@ -18,6 +18,7 @@
 ;;
 
 @id 3
+@name   diameter_gen_base_accounting
 @prefix diameter_base_accounting
 @vendor 0 IETF
 
