@@ -34,19 +34,28 @@
 %%
 %% Output: orddict()
 
-parse(Path, Options) ->
-    put({?MODULE, verbose}, lists:member(verbose, Options)),
+parse(Path, Opts) ->
+    put({?MODULE, verbose}, lists:member(verbose, Opts)),
     {ok, B} = file:read_file(Path),
     Chunks = chunk(B),
-    Spec = make_spec(Chunks),
+    Spec = reset(make_spec(Chunks), Opts, [name, prefix]),
     true = groups_defined(Spec),  %% sanity checks
     true = customs_defined(Spec), %%
-    Full = import_enums(import_groups(import_avps(insert_codes(Spec),
-                                                  Options))),
+    Full = import_enums(import_groups(import_avps(insert_codes(Spec), Opts))),
     true = enums_defined(Full),   %% sanity checks
     true = v_flags_set(Spec),
     Full.
 
+reset(Spec, Opts, Keys) ->
+    lists:foldl(fun(K,S) -> reset(lists:keyfind(K, 1, Opts), S) end,
+                Spec,
+                Keys).
+
+reset({Key, Str}, Spec) ->
+    orddict:store(Key, ?ATOM(Str), Spec);
+reset(_, Spec) ->
+    Spec.
+    
 %% Optional reports when running verbosely.
 report(What, Data) ->
     report(get({?MODULE, verbose}), What, Data).
