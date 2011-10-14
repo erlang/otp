@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2005-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2005-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -23,11 +23,13 @@
  *
  * Based on the examples in Appendix E of Motorola's
  * "Programming Environments Manual For 32-Bit Implementations
- * of the PowerPC Architecture". Uses eieio instead of sync
- * in the unlock sequence, as suggested in the manual.
+ * of the PowerPC Architecture".
  */
 #ifndef ETHREAD_PPC_SPINLOCK_H
 #define ETHREAD_PPC_SPINLOCK_H
+
+#define ETHR_HAVE_NATIVE_SPINLOCKS 1
+#define ETHR_NATIVE_SPINLOCK_IMPL "ethread"
 
 /* Unlocked if zero, locked if non-zero. */
 typedef struct {
@@ -45,7 +47,7 @@ ethr_native_spinlock_init(ethr_native_spinlock_t *lock)
 static ETHR_INLINE void
 ethr_native_spin_unlock(ethr_native_spinlock_t *lock)
 {
-    __asm__ __volatile__("eieio" : : : "memory");
+    ETHR_MEMBAR(ETHR_LoadStore|ETHR_StoreStore);
     lock->lock = 0;
 }
 

@@ -198,7 +198,7 @@ Uint
 erts_sys_misc_mem_sz(void)
 {
     Uint res = (Uint) erts_check_io_size();
-    res += (Uint) erts_smp_atomic_read(&sys_misc_mem_sz);
+    res += (Uint) erts_smp_atomic_read_mb(&sys_misc_mem_sz);
     return res;
 }
 
@@ -648,7 +648,7 @@ new_driver_data(int port_num, int packet_bytes, int wait_objs_required, int use_
 		erts_smp_mtx_unlock(&sys_driver_data_lock);
 		return NULL;
 	    }
-	    erts_smp_atomic_add(&sys_misc_mem_sz, dp->inBufSize);
+	    erts_smp_atomic_add_nob(&sys_misc_mem_sz, dp->inBufSize);
 	    dp->outBufSize = 0;
 	    dp->outbuf = NULL;
 	    dp->port_num = port_num;
@@ -733,8 +733,8 @@ release_driver_data(DriverData* dp)
 #endif
 
     if (dp->inbuf != NULL) {
-	ASSERT(erts_smp_atomic_read(&sys_misc_mem_sz) >= dp->inBufSize);
-	erts_smp_atomic_add(&sys_misc_mem_sz, -1*dp->inBufSize);
+	ASSERT(erts_smp_atomic_read_nob(&sys_misc_mem_sz) >= dp->inBufSize);
+	erts_smp_atomic_add_nob(&sys_misc_mem_sz, -1*dp->inBufSize);
 	DRV_BUF_FREE(dp->inbuf);
 	dp->inBufSize = 0;
 	dp->inbuf = NULL;
@@ -742,8 +742,8 @@ release_driver_data(DriverData* dp)
     ASSERT(dp->inBufSize == 0);
 
     if (dp->outbuf != NULL) {
-	ASSERT(erts_smp_atomic_read(&sys_misc_mem_sz) >= dp->outBufSize);
-	erts_smp_atomic_add(&sys_misc_mem_sz, -1*dp->outBufSize);
+	ASSERT(erts_smp_atomic_read_nob(&sys_misc_mem_sz) >= dp->outBufSize);
+	erts_smp_atomic_add_nob(&sys_misc_mem_sz, -1*dp->outBufSize);
 	DRV_BUF_FREE(dp->outbuf);
 	dp->outBufSize = 0;
 	dp->outbuf = NULL;
@@ -1162,7 +1162,8 @@ spawn_init(void)
 #endif
     driver_data = (struct driver_data *)
 	erts_alloc(ERTS_ALC_T_DRV_TAB, max_files * sizeof(struct driver_data));
-    erts_smp_atomic_add(&sys_misc_mem_sz, max_files*sizeof(struct driver_data));
+    erts_smp_atomic_add_nob(&sys_misc_mem_sz,
+			    max_files*sizeof(struct driver_data));
     for (i = 0; i < max_files; i++)
 	driver_data[i].port_num = PORT_FREE;
 
@@ -1698,7 +1699,7 @@ create_child_process
 static int create_pipe(HANDLE *phRead, HANDLE *phWrite, BOOL inheritRead, BOOL overlapped_io)
 {
     SECURITY_ATTRIBUTES sa = {sizeof(SECURITY_ATTRIBUTES), NULL, TRUE};
-    char pipe_name[128];	/* Name of pipe. */
+    char pipe_name[256];	/* Name of pipe. */
     Uint calls;
 
     /*
@@ -1735,9 +1736,9 @@ static int create_pipe(HANDLE *phRead, HANDLE *phWrite, BOOL inheritRead, BOOL o
      * Otherwise, create named pipes.
      */
 
-    calls = (Uint) erts_smp_atomic_inctest(&pipe_creation_counter);
-    sprintf(pipe_name, "\\\\.\\pipe\\erlang44_%d_%d",
-	    getpid(), calls);
+    calls = (UWord) erts_smp_atomic_inc_read_nob(&pipe_creation_counter);
+    erts_snprintf(pipe_name, sizeof(pipe_name),
+		  "\\\\.\\pipe\\erlang44_%d_%bpu", getpid(), calls);
 
     DEBUGF(("Creating pipe %s\n", pipe_name));
     sa.bInheritHandle = inheritRead;
@@ -2529,7 +2530,7 @@ output(ErlDrvData drv_data, char* buf, int len)
     }
 
     dp->outBufSize = pb+len;
-    erts_smp_atomic_add(&sys_misc_mem_sz, dp->outBufSize);
+    erts_smp_atomic_add_nob(&sys_misc_mem_sz, dp->outBufSize);
 
     /*
      * Store header bytes (if any).
@@ -2558,8 +2559,8 @@ output(ErlDrvData drv_data, char* buf, int len)
     } else {
 	dp->out.ov.Offset += pb+len; /* For vanilla driver. */
 	/* XXX OffsetHigh should be changed too. */
-	ASSERT(erts_smp_atomic_read(&sys_misc_mem_sz) >= dp->outBufSize);
-	erts_smp_atomic_add(&sys_misc_mem_sz, -1*dp->outBufSize);
+	ASSERT(erts_smp_atomic_read_nob(&sys_misc_mem_sz) >= dp->outBufSize);
+	erts_smp_atomic_add_nob(&sys_misc_mem_sz, -1*dp->outBufSize);
 	DRV_BUF_FREE(dp->outbuf);
 	dp->outBufSize = 0;
 	dp->outbuf = NULL;
@@ -2673,9 +2674,9 @@ ready_input(ErlDrvData drv_data, ErlDrvEvent ready_event)
 			    error = ERROR_NOT_ENOUGH_MEMORY;
 			    break; /* Break out of loop into error handler. */
 			}
-			ASSERT(erts_smp_atomic_read(&sys_misc_mem_sz) >= dp->inBufSize);
-			erts_smp_atomic_add(&sys_misc_mem_sz,
-					    dp->totalNeeded - dp->inBufSize);
+			ASSERT(erts_smp_atomic_read_nob(&sys_misc_mem_sz) >= dp->inBufSize);
+			erts_smp_atomic_add_nob(&sys_misc_mem_sz,
+						dp->totalNeeded - dp->inBufSize);
 			dp->inBufSize = dp->totalNeeded;
 			dp->inbuf = new_buf;
 		    }
@@ -2775,8 +2776,8 @@ ready_output(ErlDrvData drv_data, ErlDrvEvent ready_event)
 	   write... */
 	return;
     }
-    ASSERT(erts_smp_atomic_read(&sys_misc_mem_sz) >= dp->outBufSize);
-    erts_smp_atomic_add(&sys_misc_mem_sz, -1*dp->outBufSize);
+    ASSERT(erts_smp_atomic_read_nob(&sys_misc_mem_sz) >= dp->outBufSize);
+    erts_smp_atomic_add_nob(&sys_misc_mem_sz, -1*dp->outBufSize);
     DRV_BUF_FREE(dp->outbuf);
     dp->outBufSize = 0;
     dp->outbuf = NULL;
@@ -2926,8 +2927,8 @@ Preload* sys_preloaded(void)
 			   (num_preloaded+1)*sizeof(Preload));
     res_name = erts_alloc(ERTS_ALC_T_PRELOADED,
 			  (num_preloaded+1)*sizeof(unsigned));
-    erts_smp_atomic_add(&sys_misc_mem_sz,
-			(num_preloaded+1)*sizeof(Preload)
+    erts_smp_atomic_add_nob(&sys_misc_mem_sz,
+			    (num_preloaded+1)*sizeof(Preload)
 			    + (num_preloaded+1)*sizeof(unsigned));
     for (i = 0; i < num_preloaded; i++) {
 	int n;
@@ -2939,7 +2940,7 @@ Preload* sys_preloaded(void)
 	n = GETWORD(data);
 	data += 2;
 	preloaded[i].name = erts_alloc(ERTS_ALC_T_PRELOADED, n+1);
-	erts_smp_atomic_add(&sys_misc_mem_sz, n+1);
+	erts_smp_atomic_add_nob(&sys_misc_mem_sz, n+1);
 	sys_memcpy(preloaded[i].name, data, n);
 	preloaded[i].name[n] = '\0';
 	data += n;
@@ -3281,7 +3282,7 @@ erts_sys_pre_init(void)
 #endif
     }
 #endif
-    erts_smp_atomic_init(&sys_misc_mem_sz, 0);
+    erts_smp_atomic_init_nob(&sys_misc_mem_sz, 0);
     erts_sys_env_init();
 }
 
@@ -3309,7 +3310,7 @@ void erl_sys_init(void)
     erts_smp_tsd_key_create(&win32_errstr_key);
     InitializeCriticalSection(&htbc_lock);
 #endif
-    erts_smp_atomic_init(&pipe_creation_counter,0);
+    erts_smp_atomic_init_nob(&pipe_creation_counter,0);
     /*
      * Test if we have named pipes or not.
      */

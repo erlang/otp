@@ -273,12 +273,6 @@ Some of the available `configure` options are:
 *   `--with-ssl=PATH` - Specify location of OpenSSL include and lib
 *   `--{with,without}-ssl` - OpenSSL (without implies that the `crypto`,
     `ssh`, and `ssl` won't be built)
-*   `--enable-ethread-pre-pentium4-compatibility` - Enable compatibility with
-    x86 processors before pentium 4 (back to 486) in the ethread library. If
-    not passed the ethread library (part of the runtime system) will use
-    instructions that first appeared on the pentium 4 processor when building
-    for x86. This option will be automatically enabled if required on the
-    build machine.
 *   `--with-libatomic_ops=PATH` - Use the `libatomic_ops` library for atomic
     memory accesses. If `configure` should inform you about no native atomic
     implementation available, you typically want to try using the

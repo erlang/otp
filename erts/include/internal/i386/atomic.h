@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2005-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2005-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -25,53 +25,42 @@
  */
 
 #undef ETHR_INCLUDE_ATOMIC_IMPL__
-#if !defined(ETHR_X86_ATOMIC32_H__) && defined(ETHR_ATOMIC_WANT_32BIT_IMPL__)
-#define ETHR_X86_ATOMIC32_H__
-#define ETHR_INCLUDE_ATOMIC_IMPL__ 4
-#undef ETHR_ATOMIC_WANT_32BIT_IMPL__
-#elif !defined(ETHR_X86_ATOMIC64_H__) && defined(ETHR_ATOMIC_WANT_64BIT_IMPL__)
-#define ETHR_X86_ATOMIC64_H__
-#define ETHR_INCLUDE_ATOMIC_IMPL__ 8
-#undef ETHR_ATOMIC_WANT_64BIT_IMPL__
+#if !defined(ETHR_X86_ATOMIC32_H__) \
+    && defined(ETHR_ATOMIC_WANT_32BIT_IMPL__)
+#  define ETHR_X86_ATOMIC32_H__
+#  define ETHR_INCLUDE_ATOMIC_IMPL__ 4
+#  undef ETHR_ATOMIC_WANT_32BIT_IMPL__
+#elif !defined(ETHR_X86_ATOMIC64_H__) \
+      && defined(ETHR_ATOMIC_WANT_64BIT_IMPL__)
+#  define ETHR_X86_ATOMIC64_H__
+#  define ETHR_INCLUDE_ATOMIC_IMPL__ 8
+#  undef ETHR_ATOMIC_WANT_64BIT_IMPL__
 #endif
 
 #ifdef ETHR_INCLUDE_ATOMIC_IMPL__
 
-#ifndef ETHR_X86_ATOMIC_COMMON__
-#define ETHR_X86_ATOMIC_COMMON__
+#  ifndef ETHR_X86_ATOMIC_COMMON__
+#    define ETHR_X86_ATOMIC_COMMON__
+#    define ETHR_ATOMIC_HAVE_INC_DEC_INSTRUCTIONS 1
+#  endif /* ETHR_X86_ATOMIC_COMMON__ */
 
-#define ETHR_ATOMIC_HAVE_INC_DEC_INSTRUCTIONS 1
-
-#if defined(__x86_64__) || !defined(ETHR_PRE_PENTIUM4_COMPAT)
-#define ETHR_MEMORY_BARRIER __asm__ __volatile__("mfence" : : : "memory")
-#define ETHR_WRITE_MEMORY_BARRIER __asm__ __volatile__("sfence" : : : "memory")
-#define ETHR_READ_MEMORY_BARRIER __asm__ __volatile__("lfence" : : : "memory")
-#define ETHR_READ_DEPEND_MEMORY_BARRIER __asm__ __volatile__("" : : : "memory")
-#else
-#define ETHR_MEMORY_BARRIER \
-do { \
-    volatile ethr_sint32_t x___ = 0; \
-    __asm__ __volatile__("lock; incl %0" : "=m"(x___) : "m"(x___) : "memory"); \
-} while (0)
-#endif
-
-#endif /* ETHR_X86_ATOMIC_COMMON__ */
-
-#if ETHR_INCLUDE_ATOMIC_IMPL__ == 4
-#define ETHR_HAVE_NATIVE_ATOMIC32 1
-#define ETHR_NATMC_FUNC__(X) ethr_native_atomic32_ ## X
-#define ETHR_ATMC_T__ ethr_native_atomic32_t
-#define ETHR_AINT_T__ ethr_sint32_t
-#define ETHR_AINT_SUFFIX__ "l"
-#elif ETHR_INCLUDE_ATOMIC_IMPL__ == 8
-#define ETHR_HAVE_NATIVE_ATOMIC64 1
-#define ETHR_NATMC_FUNC__(X) ethr_native_atomic64_ ## X
-#define ETHR_ATMC_T__ ethr_native_atomic64_t
-#define ETHR_AINT_T__ ethr_sint64_t
-#define ETHR_AINT_SUFFIX__ "q"
-#else
-#error "Unsupported integer size"
-#endif
+#  if ETHR_INCLUDE_ATOMIC_IMPL__ == 4
+#    define ETHR_HAVE_NATIVE_ATOMIC32 1
+#    define ETHR_NATIVE_ATOMIC32_IMPL "ethread"
+#    define ETHR_NATMC_FUNC__(X) ethr_native_atomic32_ ## X
+#    define ETHR_ATMC_T__ ethr_native_atomic32_t
+#    define ETHR_AINT_T__ ethr_sint32_t
+#    define ETHR_AINT_SUFFIX__ "l"
+#  elif ETHR_INCLUDE_ATOMIC_IMPL__ == 8
+#    define ETHR_HAVE_NATIVE_ATOMIC64 1
+#    define ETHR_NATIVE_ATOMIC64_IMPL "ethread"
+#    define ETHR_NATMC_FUNC__(X) ethr_native_atomic64_ ## X
+#    define ETHR_ATMC_T__ ethr_native_atomic64_t
+#    define ETHR_AINT_T__ ethr_sint64_t
+#    define ETHR_AINT_SUFFIX__ "q"
+#  else
+#    error "Unsupported integer size"
+#  endif
 
 /* An atomic is an aligned ETHR_AINT_T__ accessed via locked operations.
  */
@@ -81,87 +70,28 @@ typedef struct {
 
 #if defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_ATOMIC_IMPL__)
 
+#if ETHR_INCLUDE_ATOMIC_IMPL__ == 4
+#  define ETHR_HAVE_ETHR_NATIVE_ATOMIC32_ADDR 1
+#else
+#  define ETHR_HAVE_ETHR_NATIVE_ATOMIC64_ADDR 1
+#endif
+
 static ETHR_INLINE ETHR_AINT_T__ *
 ETHR_NATMC_FUNC__(addr)(ETHR_ATMC_T__ *var)
 {
     return (ETHR_AINT_T__ *) &var->counter;
 }
 
-static ETHR_INLINE void
-ETHR_NATMC_FUNC__(init)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ i)
-{
-    var->counter = i;
-}
-
-static ETHR_INLINE void
-ETHR_NATMC_FUNC__(set)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ i)
-{
-    var->counter = i;
-}
+#if ETHR_INCLUDE_ATOMIC_IMPL__ == 4
+#  define ETHR_HAVE_ETHR_NATIVE_ATOMIC32_CMPXCHG_MB 1
+#else
+#  define ETHR_HAVE_ETHR_NATIVE_ATOMIC64_CMPXCHG_MB 1
+#endif
 
 static ETHR_INLINE ETHR_AINT_T__
-ETHR_NATMC_FUNC__(read)(ETHR_ATMC_T__ *var)
-{
-    return var->counter;
-}
-
-static ETHR_INLINE void
-ETHR_NATMC_FUNC__(add)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ incr)
-{
-    __asm__ __volatile__(
-       "lock; add" ETHR_AINT_SUFFIX__ " %1, %0"
-       : "=m"(var->counter)
-       : "ir"(incr), "m"(var->counter));
-}      
-       
-static ETHR_INLINE void
-ETHR_NATMC_FUNC__(inc)(ETHR_ATMC_T__ *var)
-{
-    __asm__ __volatile__(
-	"lock; inc" ETHR_AINT_SUFFIX__ " %0"
-	: "=m"(var->counter)
-	: "m"(var->counter));
-}
-
-static ETHR_INLINE void
-ETHR_NATMC_FUNC__(dec)(ETHR_ATMC_T__ *var)
-{
-    __asm__ __volatile__(
-	"lock; dec" ETHR_AINT_SUFFIX__ " %0"
-	: "=m"(var->counter)
-	: "m"(var->counter));
-}
-
-static ETHR_INLINE ETHR_AINT_T__
-ETHR_NATMC_FUNC__(add_return)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ incr)
-{
-    ETHR_AINT_T__ tmp;
-
-    tmp = incr;
-    __asm__ __volatile__(
-	"lock; xadd" ETHR_AINT_SUFFIX__ " %0, %1" /* xadd didn't exist prior to the 486 */
-	: "=r"(tmp)
-	: "m"(var->counter), "0"(tmp));
-    /* now tmp is the atomic's previous value */
-    return tmp + incr;
-}
-
-static ETHR_INLINE ETHR_AINT_T__
-ETHR_NATMC_FUNC__(inc_return)(ETHR_ATMC_T__ *var)
-{
-    return ETHR_NATMC_FUNC__(add_return)(var, (ETHR_AINT_T__) 1);
-}
-
-static ETHR_INLINE ETHR_AINT_T__
-ETHR_NATMC_FUNC__(dec_return)(ETHR_ATMC_T__ *var)
-{
-    return ETHR_NATMC_FUNC__(add_return)(var, (ETHR_AINT_T__) -1);
-}
-
-static ETHR_INLINE ETHR_AINT_T__
-ETHR_NATMC_FUNC__(cmpxchg)(ETHR_ATMC_T__ *var,
-			   ETHR_AINT_T__ new,
-			   ETHR_AINT_T__ old)
+ETHR_NATMC_FUNC__(cmpxchg_mb)(ETHR_ATMC_T__ *var,
+			      ETHR_AINT_T__ new,
+			      ETHR_AINT_T__ old)
 {
     __asm__ __volatile__(
       "lock; cmpxchg" ETHR_AINT_SUFFIX__ " %2, %3"
@@ -171,110 +101,148 @@ ETHR_NATMC_FUNC__(cmpxchg)(ETHR_ATMC_T__ *var,
     return old;
 }
 
-static ETHR_INLINE ETHR_AINT_T__
-ETHR_NATMC_FUNC__(and_retold)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ mask)
-{
-    ETHR_AINT_T__ tmp, old;
-
-    tmp = var->counter;
-    do {
-	old = tmp;
-        tmp = ETHR_NATMC_FUNC__(cmpxchg)(var, tmp & mask, tmp);
-    } while (__builtin_expect(tmp != old, 0));
-    /* now tmp is the atomic's previous value */
-    return tmp;
-}
+#if ETHR_INCLUDE_ATOMIC_IMPL__ == 4
+#  define ETHR_HAVE_ETHR_NATIVE_ATOMIC32_XCHG_MB 1
+#else
+#  define ETHR_HAVE_ETHR_NATIVE_ATOMIC64_XCHG_MB 1
+#endif
 
 static ETHR_INLINE ETHR_AINT_T__
-ETHR_NATMC_FUNC__(or_retold)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ mask)
-{
-    ETHR_AINT_T__ tmp, old;
-
-    tmp = var->counter;
-    do {
-	old = tmp;
-        tmp = ETHR_NATMC_FUNC__(cmpxchg)(var, tmp | mask, tmp);
-    } while (__builtin_expect(tmp != old, 0));
-    /* now tmp is the atomic's previous value */
-    return tmp;
-}
-
-static ETHR_INLINE ETHR_AINT_T__
-ETHR_NATMC_FUNC__(xchg)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ val)
+ETHR_NATMC_FUNC__(xchg_mb)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ val)
 {   
     ETHR_AINT_T__ tmp = val;
     __asm__ __volatile__(
 	"xchg" ETHR_AINT_SUFFIX__ " %0, %1"
 	: "=r"(tmp)
-	: "m"(var->counter), "0"(tmp));
+	: "m"(var->counter), "0"(tmp)
+	: "memory");
     /* now tmp is the atomic's previous value */ 
     return tmp;
 } 
 
-/*
- * Atomic ops with at least specified barriers.
- */
-
-static ETHR_INLINE ETHR_AINT_T__
-ETHR_NATMC_FUNC__(read_acqb)(ETHR_ATMC_T__ *var)
-{
-    ETHR_AINT_T__ val;
-#if defined(__x86_64__) || !defined(ETHR_PRE_PENTIUM4_COMPAT)
-    val = var->counter;
+#if ETHR_INCLUDE_ATOMIC_IMPL__ == 4
+#  define ETHR_HAVE_ETHR_NATIVE_ATOMIC32_SET 1
 #else
-    val = ETHR_NATMC_FUNC__(add_return)(var, 0);
+#  define ETHR_HAVE_ETHR_NATIVE_ATOMIC64_SET 1
 #endif
-    __asm__ __volatile__("" : : : "memory");
-    return val;
+
+static ETHR_INLINE void
+ETHR_NATMC_FUNC__(set)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ i)
+{
+    var->counter = i;
 }
+
+#if ETHR_INCLUDE_ATOMIC_IMPL__ == 4
+#  define ETHR_HAVE_ETHR_NATIVE_ATOMIC32_SET_RELB 1
+#else
+#  define ETHR_HAVE_ETHR_NATIVE_ATOMIC64_SET_RELB 1
+#endif
 
 static ETHR_INLINE void
 ETHR_NATMC_FUNC__(set_relb)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ i)
 {
-    __asm__ __volatile__("" : : : "memory");
-#if defined(__x86_64__) || !defined(ETHR_PRE_PENTIUM4_COMPAT)
-    var->counter = i;
-#else
-    (void) ETHR_NATMC_FUNC__(xchg)(var, i);
-#endif
+#if defined(_M_IX86)
+    if (ETHR_X86_RUNTIME_CONF_HAVE_NO_SSE2__)
+	(void) ETHR_NATMC_FUNC__(xchg_mb)(var, i);
+    else
+#endif /* _M_IX86 */
+    {
+	ETHR_MEMBAR(ETHR_LoadStore|ETHR_StoreStore);
+	var->counter = i;
+    }
 }
 
-static ETHR_INLINE ETHR_AINT_T__
-ETHR_NATMC_FUNC__(inc_return_acqb)(ETHR_ATMC_T__ *var)
-{
-    ETHR_AINT_T__ res = ETHR_NATMC_FUNC__(inc_return)(var);
-    __asm__ __volatile__("" : : : "memory");
-    return res;
-}
+#if ETHR_INCLUDE_ATOMIC_IMPL__ == 4
+#  define ETHR_HAVE_ETHR_NATIVE_ATOMIC32_SET_MB 1
+#else
+#  define ETHR_HAVE_ETHR_NATIVE_ATOMIC64_SET_MB 1
+#endif
 
 static ETHR_INLINE void
-ETHR_NATMC_FUNC__(dec_relb)(ETHR_ATMC_T__ *var)
+ETHR_NATMC_FUNC__(set_mb)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ i)
 {
-    __asm__ __volatile__("" : : : "memory");
-    ETHR_NATMC_FUNC__(dec)(var);
+    (void) ETHR_NATMC_FUNC__(xchg_mb)(var, i);
 }
 
-static ETHR_INLINE ETHR_AINT_T__
-ETHR_NATMC_FUNC__(dec_return_relb)(ETHR_ATMC_T__ *var)
-{
-    __asm__ __volatile__("" : : : "memory");
-    return ETHR_NATMC_FUNC__(dec_return)(var);
-}
+#if ETHR_INCLUDE_ATOMIC_IMPL__ == 4
+#  define ETHR_HAVE_ETHR_NATIVE_ATOMIC32_READ 1
+#else
+#  define ETHR_HAVE_ETHR_NATIVE_ATOMIC64_READ 1
+#endif
 
 static ETHR_INLINE ETHR_AINT_T__
-ETHR_NATMC_FUNC__(cmpxchg_acqb)(ETHR_ATMC_T__ *var,
-				ETHR_AINT_T__ new,
-				ETHR_AINT_T__ old)
+ETHR_NATMC_FUNC__(read)(ETHR_ATMC_T__ *var)
 {
-    return ETHR_NATMC_FUNC__(cmpxchg)(var, new, old);
+    return var->counter;
 }
 
-static ETHR_INLINE ETHR_AINT_T__
-ETHR_NATMC_FUNC__(cmpxchg_relb)(ETHR_ATMC_T__ *var,
-				ETHR_AINT_T__ new,
-				ETHR_AINT_T__ old)
+#if ETHR_INCLUDE_ATOMIC_IMPL__ == 4
+#  define ETHR_HAVE_ETHR_NATIVE_ATOMIC32_ADD_MB 1
+#else
+#  define ETHR_HAVE_ETHR_NATIVE_ATOMIC64_ADD_MB 1
+#endif
+
+static ETHR_INLINE void
+ETHR_NATMC_FUNC__(add_mb)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ incr)
 {
-    return ETHR_NATMC_FUNC__(cmpxchg)(var, new, old);
+    __asm__ __volatile__(
+       "lock; add" ETHR_AINT_SUFFIX__ " %1, %0"
+       : "=m"(var->counter)
+       : "ir"(incr), "m"(var->counter)
+       : "memory");
+}      
+
+#if ETHR_INCLUDE_ATOMIC_IMPL__ == 4
+#  define ETHR_HAVE_ETHR_NATIVE_ATOMIC32_INC_MB 1
+#else
+#  define ETHR_HAVE_ETHR_NATIVE_ATOMIC64_INC_MB 1
+#endif
+       
+static ETHR_INLINE void
+ETHR_NATMC_FUNC__(inc_mb)(ETHR_ATMC_T__ *var)
+{
+    __asm__ __volatile__(
+	"lock; inc" ETHR_AINT_SUFFIX__ " %0"
+	: "=m"(var->counter)
+	: "m"(var->counter)
+	: "memory");
+}
+
+#if ETHR_INCLUDE_ATOMIC_IMPL__ == 4
+#  define ETHR_HAVE_ETHR_NATIVE_ATOMIC32_DEC_MB 1
+#else
+#  define ETHR_HAVE_ETHR_NATIVE_ATOMIC64_DEC_MB 1
+#endif
+
+static ETHR_INLINE void
+ETHR_NATMC_FUNC__(dec_mb)(ETHR_ATMC_T__ *var)
+{
+    __asm__ __volatile__(
+	"lock; dec" ETHR_AINT_SUFFIX__ " %0"
+	: "=m"(var->counter)
+	: "m"(var->counter)
+	: "memory");
+}
+
+#if ETHR_INCLUDE_ATOMIC_IMPL__ == 4
+#  define ETHR_HAVE_ETHR_NATIVE_ATOMIC32_ADD_RETURN_MB 1
+#else
+#  define ETHR_HAVE_ETHR_NATIVE_ATOMIC64_ADD_RETURN_MB 1
+#endif
+
+static ETHR_INLINE ETHR_AINT_T__
+ETHR_NATMC_FUNC__(add_return_mb)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ incr)
+{
+    ETHR_AINT_T__ tmp;
+
+    tmp = incr;
+    __asm__ __volatile__(
+	"lock; xadd" ETHR_AINT_SUFFIX__ " %0, %1" /* xadd didn't exist prior to the 486 */
+	: "=r"(tmp)
+	: "m"(var->counter), "0"(tmp)
+	: "memory");
+    /* now tmp is the atomic's previous value */
+    return tmp + incr;
 }
 
 #endif /* ETHR_TRY_INLINE_FUNCS */

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -75,7 +75,7 @@ void atom_info(int to, void *to_arg)
     index_info(to, to_arg, &erts_atom_table);
 #ifdef ERTS_ATOM_PUT_OPS_STAT
     erts_print(to, to_arg, "atom_put_ops: %ld\n",
-	       erts_smp_atomic_read(&atom_put_ops));
+	       erts_smp_atomic_read_nob(&atom_put_ops));
 #endif
 
     if (lock)
@@ -213,7 +213,7 @@ am_atom_put(const char* name, int len)
 	len = MAX_ATOM_LENGTH;
     }
 #ifdef ERTS_ATOM_PUT_OPS_STAT
-    erts_smp_atomic_inc(&atom_put_ops);
+    erts_smp_atomic_inc_nob(&atom_put_ops);
 #endif
     a.len = len;
     a.name = (byte*)name;
@@ -309,7 +309,7 @@ init_atom_table(void)
     rwmtx_opt.lived = ERTS_SMP_RWMTX_LONG_LIVED;
 
 #ifdef ERTS_ATOM_PUT_OPS_STAT
-    erts_smp_atomic_init(&atom_put_ops, 0);
+    erts_smp_atomic_init_nob(&atom_put_ops, 0);
 #endif
 
     erts_smp_rwmtx_init_opt(&atom_table_lock, &rwmtx_opt, "atom_tab");

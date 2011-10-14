@@ -108,9 +108,9 @@ static ErlTimer *tiw_min_ptr;
 static int itime; /* Constant after init */
 
 erts_smp_atomic_t do_time;	/* set at clock interrupt */
-static ERTS_INLINE erts_aint_t do_time_read(void) { return erts_smp_atomic_read(&do_time); }
+static ERTS_INLINE erts_aint_t do_time_read(void) { return erts_smp_atomic_read_acqb(&do_time); }
 static ERTS_INLINE erts_aint_t do_time_update(void) { return do_time_read(); }
-static ERTS_INLINE void do_time_init(void) { erts_smp_atomic_init(&do_time, 0L); }
+static ERTS_INLINE void do_time_init(void) { erts_smp_atomic_init_nob(&do_time, 0L); }
 
 /* get the time (in units of itime) to the next timeout,
    or -1 if there are no timeouts                     */

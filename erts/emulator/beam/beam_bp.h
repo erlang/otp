@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -165,8 +165,8 @@ do {                                                             \
     bdc = (BpDataCount *) bdc->next;                             \
     ASSERT(bdc);                                                 \
     bds[ix] = (BpData *) bdc;                                    \
-    count = erts_smp_atomic_read(&bdc->acount);                  \
-    if (count >= 0)  erts_smp_atomic_inc(&bdc->acount);          \
+    count = erts_smp_atomic_read_nob(&bdc->acount);                  \
+    if (count >= 0)  erts_smp_atomic_inc_nob(&bdc->acount);      \
     *(instr_result) = bdc->orig_instr;                           \
 } while (0)
 

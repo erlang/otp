@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2005-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2005-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -23,6 +23,9 @@
  */
 #ifndef ETHREAD_I386_SPINLOCK_H
 #define ETHREAD_I386_SPINLOCK_H
+
+#define ETHR_HAVE_NATIVE_SPINLOCKS 1
+#define ETHR_NATIVE_SPINLOCK_IMPL "ethread"
 
 /* A spinlock is the low byte of an aligned 32-bit integer.
  * A non-zero value means that the lock is locked.
@@ -46,16 +49,20 @@ ethr_native_spin_unlock(ethr_native_spinlock_t *lock)
      * On i386 this needs to be a locked operation
      * to avoid Pentium Pro errata 66 and 92.
      */
-#if defined(__x86_64__) || !defined(ETHR_PRE_PENTIUM4_COMPAT)
-    __asm__ __volatile__("" : : : "memory");
-    *(unsigned char*)&lock->lock = 0;
-#else
-    char tmp = 0;
-    __asm__ __volatile__(
-	"xchgb %b0, %1"
-	: "=q"(tmp), "=m"(lock->lock)
-	: "0"(tmp) : "memory");
+#if !defined(__x86_64__)
+    if (ETHR_X86_RUNTIME_CONF_HAVE_NO_SSE2__) {
+	char tmp = 0;
+	__asm__ __volatile__(
+	    "xchgb %b0, %1"
+	    : "=q"(tmp), "=m"(lock->lock)
+	    : "0"(tmp) : "memory");
+    }
+    else
 #endif
+    {
+	ETHR_MEMBAR(ETHR_LoadStore|ETHR_StoreStore);
+	*(unsigned char*)&lock->lock = 0;
+    }
 }
 
 static ETHR_INLINE int

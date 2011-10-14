@@ -2,7 +2,7 @@ dnl Process this file with autoconf to produce a configure script.
 
 dnl %CopyrightBegin%
 dnl
-dnl Copyright Ericsson AB 1998-2010. All Rights Reserved.
+dnl Copyright Ericsson AB 1998-2011. All Rights Reserved.
 dnl
 dnl The contents of this file are subject to the Erlang Public License,
 dnl Version 1.1, (the "License"); you may not use this file except in
@@ -305,10 +305,6 @@ AS_HELP_STRING([--enable-m32-build],
 	enable_m32_build=yes ;;
   esac
 ],enable_m32_build=no)
-
-AC_ARG_ENABLE(ethread-pre-pentium4-compatibility,
-	      AS_HELP_STRING([--enable-ethread-pre-pentium4-compatibility],
-			     [enable compatibility with x86 processors before pentium 4 (back to 486) in the ethread library]))
 
 AC_ARG_WITH(libatomic_ops,
 	    AS_HELP_STRING([--with-libatomic_ops=PATH],

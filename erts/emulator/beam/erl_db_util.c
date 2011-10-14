@@ -491,7 +491,7 @@ erts_match_set_release_result(Process* c_p)
 
 /* The trace control word. */
 
-static erts_smp_atomic_t trace_control_word;
+static erts_smp_atomic32_t trace_control_word;
 
 /* This needs to be here, before the bif table... */
 
@@ -911,7 +911,7 @@ static void db_free_tmp_uncompressed(DbTerm* obj);
 
 BIF_RETTYPE db_get_trace_control_word_0(Process *p) 
 {
-    Uint32 tcw = (Uint32) erts_smp_atomic_read(&trace_control_word);
+    Uint32 tcw = (Uint32) erts_smp_atomic32_read_acqb(&trace_control_word);
     BIF_RET(erts_make_integer((Uint) tcw, p));
 }
 
@@ -924,7 +924,8 @@ BIF_RETTYPE db_set_trace_control_word_1(Process *p, Eterm new)
     if (val != ((Uint32)val))
 	BIF_ERROR(p, BADARG);
     
-    old_tcw = (Uint32) erts_smp_atomic_xchg(&trace_control_word, (erts_aint_t) val);
+    old_tcw = (Uint32) erts_smp_atomic32_xchg_relb(&trace_control_word,
+						   (erts_aint32_t) val);
     BIF_RET(erts_make_integer((Uint) old_tcw, p));
 }
 
@@ -1249,7 +1250,7 @@ void db_initialize_util(void){
 	  sizeof(DMCGuardBif), 
 	  (int (*)(const void *, const void *)) &cmp_guard_bif);
     match_pseudo_process_init();
-    erts_smp_atomic_init(&trace_control_word, 0);
+    erts_smp_atomic32_init_nob(&trace_control_word, 0);
 }
 
 

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -25,6 +25,18 @@
 #ifndef ETHREAD_LIBATOMIC_OPS_H__
 #define ETHREAD_LIBATOMIC_OPS_H__
 
+#if (defined(ETHR_HAVE_LIBATOMIC_OPS) \
+     && ((ETHR_SIZEOF_AO_T == 4 && !defined(ETHR_HAVE_NATIVE_ATOMIC32)) \
+	 || (ETHR_SIZEOF_AO_T == 8 && !defined(ETHR_HAVE_NATIVE_ATOMIC64))))
+
+#if defined(__x86_64__)
+#define AO_USE_PENTIUM4_INSTRS
+#endif
+
+#include "atomic_ops.h"
+#include "ethr_membar.h"
 #include "ethr_atomic.h"
+
+#endif
 
 #endif

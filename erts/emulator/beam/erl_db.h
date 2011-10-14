@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -86,11 +86,11 @@ do {									\
     erts_aint_t sz__ = (((erts_aint_t) (ALLOC_SZ))			\
 			- ((erts_aint_t) (FREE_SZ)));			\
     ASSERT((TAB));							\
-    erts_smp_atomic_add(&(TAB)->common.memory_size, sz__);		\
+    erts_smp_atomic_add_nob(&(TAB)->common.memory_size, sz__);		\
 } while (0)
 
 #define ERTS_ETS_MISC_MEM_ADD(SZ) \
-  erts_smp_atomic_add(&erts_ets_misc_mem_size, (SZ));
+  erts_smp_atomic_add_nob(&erts_ets_misc_mem_size, (SZ));
 
 ERTS_GLB_INLINE void *erts_db_alloc(ErtsAlcType_t type,
 				    DbTable *tab,
@@ -227,7 +227,7 @@ erts_db_free(ErtsAlcType_t type, DbTable *tab, void *ptr, Uint size)
     ERTS_DB_ALC_MEM_UPDATE_(tab, size, 0);
 
     ASSERT(((void *) tab) != ptr
-	   || erts_smp_atomic_read(&tab->common.memory_size) == 0);
+	   || erts_smp_atomic_read_nob(&tab->common.memory_size) == 0);
 
     erts_free(type, ptr);
 }

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -25,16 +25,24 @@
 #ifndef ETHREAD_GCC_H__
 #define ETHREAD_GCC_H__
 
-#if !defined(ETHR_HAVE_NATIVE_ATOMICS) && defined(ETHR_HAVE_GCC_ATOMIC_OPS)
-#define ETHR_HAVE_NATIVE_ATOMICS 1
+#ifndef ETHR_MEMBAR
+#  include "ethr_membar.h"
+#endif
 
-#define ETHR_ATOMIC_WANT_32BIT_IMPL__
-#include "ethr_atomic.h"
-#if ETHR_SIZEOF_PTR == 8
+#if !defined(ETHR_HAVE_NATIVE_ATOMIC32)
+#  define ETHR_ATOMIC_WANT_32BIT_IMPL__
+#  include "ethr_atomic.h"
+#endif
+
+#if ETHR_SIZEOF_PTR == 8 && !defined(ETHR_HAVE_NATIVE_ATOMIC64)
 #  define ETHR_ATOMIC_WANT_64BIT_IMPL__
 #  include "ethr_atomic.h"
 #endif
 
+#if (!defined(ETHR_HAVE_NATIVE_DW_ATOMIC) \
+     && !(ETHR_SIZEOF_PTR == 4 && defined(ETHR_HAVE_NATIVE_ATOMIC64)) \
+     && !(ETHR_SIZEOF_PTR == 8 && defined(ETHR_HAVE_NATIVE_ATOMIC128)))
+#  include "ethr_dw_atomic.h"
 #endif
 
 #endif

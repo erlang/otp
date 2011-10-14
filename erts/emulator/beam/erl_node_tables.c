@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2001-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -118,7 +118,7 @@ dist_table_alloc(void *dep_tmpl)
     dep->finalized_out_queue.first	= NULL;
     dep->finalized_out_queue.last	= NULL;
 
-    erts_smp_atomic_init(&dep->dist_cmd_scheduled, 0);
+    erts_smp_atomic_init_nob(&dep->dist_cmd_scheduled, 0);
     erts_port_task_handle_init(&dep->dist_cmd);
     dep->send				= NULL;
     dep->cache				= NULL;
@@ -767,7 +767,7 @@ void erts_init_node_tables(void)
 
     erts_this_dist_entry->finalized_out_queue.first	= NULL;
     erts_this_dist_entry->finalized_out_queue.last	= NULL;
-    erts_smp_atomic_init(&erts_this_dist_entry->dist_cmd_scheduled, 0);
+    erts_smp_atomic_init_nob(&erts_this_dist_entry->dist_cmd_scheduled, 0);
     erts_port_task_handle_init(&erts_this_dist_entry->dist_cmd);
     erts_this_dist_entry->send				= NULL;
     erts_this_dist_entry->cache				= NULL;
