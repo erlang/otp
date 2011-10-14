@@ -112,6 +112,10 @@
 -export([mk_relup/3, mk_relup/4, format_error/1, format_warning/1]).
 -include("systools.hrl").
 
+
+%% For test purposes only - used by kernel, stdlib and sasl tests
+-export([appup_search_for_version/2]).
+
 %%-----------------------------------------------------------------
 %% mk_relup(TopRelFile, BaseUpRelDcs, BaseDnRelDcs)
 %% mk_relup(TopRelFile, BaseUpRelDcs, BaseDnRelDcs, Opts) -> Ret
@@ -452,25 +456,28 @@ get_script_from_appup(Mode, TopApp, BaseVsn, Ws, RUs) ->
 		  %% XXX Why is this a warning only?
 		  [{bad_vsn, {TopVsn, TopApp#application.vsn}}| Ws]
 	  end,
-    case search_for_version(BaseVsn, length(BaseVsn), VsnRUs) of
+    case appup_search_for_version(BaseVsn, VsnRUs) of
 	{ok, RU} ->
 	    {RUs ++ [RU], Ws1};
 	error ->
 	    throw({error, ?MODULE, {no_relup, FName, TopApp, BaseVsn}})
     end.
 
-search_for_version(BaseVsn,_,[{BaseVsn,RU}|_]) ->
+appup_search_for_version(BaseVsn, VsnRUs) ->
+    appup_search_for_version(BaseVsn, length(BaseVsn), VsnRUs).
+
+appup_search_for_version(BaseVsn,_,[{BaseVsn,RU}|_]) ->
     {ok,RU};
-search_for_version(BaseVsn,Size,[{Vsn,RU}|VsnRUs]) when is_binary(Vsn) ->
+appup_search_for_version(BaseVsn,Size,[{Vsn,RU}|VsnRUs]) when is_binary(Vsn) ->
     case re:run(BaseVsn,Vsn,[unicode,{capture,first,index}]) of
 	{match,[{0,Size}]} ->
 	    {ok, RU};
 	_ ->
-	    search_for_version(BaseVsn,Size,VsnRUs)
+	    appup_search_for_version(BaseVsn,Size,VsnRUs)
     end;
-search_for_version(BaseVsn,Size,[_|VsnRUs]) ->
-    search_for_version(BaseVsn,Size,VsnRUs);
-search_for_version(_,_,[]) ->
+appup_search_for_version(BaseVsn,Size,[_|VsnRUs]) ->
+    appup_search_for_version(BaseVsn,Size,VsnRUs);
+appup_search_for_version(_,_,[]) ->
     error.
 
 
