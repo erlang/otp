@@ -114,7 +114,6 @@ arg(["-o", Dir | Args], #argv{options = Opts} = A) ->
     arg(Args, A#argv{options = [{outdir, Dir} | Opts]});
 
 arg(["-i", Dir | Args], #argv{options = Opts} = A) ->
-    true = dir_exists(Dir),
     arg(Args, A#argv{options = Opts ++ [{include, Dir}]});
 
 arg(["--name", Name | Args], #argv{options = Opts} = A) ->
