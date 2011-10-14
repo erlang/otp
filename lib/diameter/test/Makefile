@@ -17,14 +17,13 @@
 # %CopyrightEnd%
 
 ifeq ($(ERL_TOP),)
-TOP = $(DIAMETER_TOP)
+include $(DIAMETER_TOP)/make/target.mk
+include $(DIAMETER_TOP)/make/$(TARGET)/rules.mk
 else
-TOP = $(ERL_TOP)
-DIAMETER_TOP = $(TOP)/lib/diameter
+include $(ERL_TOP)/make/target.mk
+include $(ERL_TOP)/make/$(TARGET)/otp.mk
+DIAMETER_TOP = $(ERL_TOP)/lib/diameter
 endif
-
-include $(TOP)/make/target.mk
-include $(TOP)/make/$(TARGET)/otp.mk
 
 # ----------------------------------------------------
 # Application version
@@ -63,13 +62,11 @@ RELTEST_FILES = $(TEST_SPEC_FILE) $(COVER_SPEC_FILE) $(SOURCE)
 # FLAGS
 # ----------------------------------------------------
 
-include ../src/app/diameter.mk 
-
 # This is only used to compile suite locally when running with a
 # target like 'all' below. Target release_tests only installs source.
-ERL_COMPILE_FLAGS += $(DIAMETER_ERL_COMPILE_FLAGS) \
+ERL_COMPILE_FLAGS += +warn_unused_vars \
                      -DDIAMETER_CT=true \
-                     -I $(DIAMETER_TOP)/src/app
+                     -I $(DIAMETER_TOP)/src/gen
 
 # ----------------------------------------------------
 # Targets
@@ -156,7 +153,11 @@ log:
 # Release Targets
 # ---------------------------------------------------- 
 
-include $(TOP)/make/otp_release_targets.mk
+ifeq ($(ERL_TOP),)
+include $(DIAMETER_TOP)/make/release_targets.mk
+else
+include $(ERL_TOP)/make/otp_release_targets.mk
+endif
 
 release_spec: 
 

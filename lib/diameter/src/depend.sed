@@ -18,14 +18,34 @@
 #
 
 #
-# Extract include dependencies from .erl files. The output is massaged
-# further in Makefile.
+# Extract include dependencies from .erl files. First line of input
+# is the path to the module in question (minus the .erl extension),
+# the rest is the contents of the module.
 #
 
+1{
+  s@^[^/]*/@@
+  h
+  d
+}
+
+# Only interested in includes of diameter hrls.
 /^-include/!d
 /"diameter/!d
 
-s@^-include_lib("[^/]*@$(DIAMETER_TOP)@
+# Extract the name of the included files in one of two forms:
+#
+#   $(INCDIR)/diameter.hrl
+#   diameter_internal.hrl
+
+s@^-include_lib(".*/@$(INCDIR)/@
 s@^-include("@@
 s@".*@@
-s@^@$(EBIN)/.$(EMULATOR): @
+
+# Retrieve the path to our module from the hold space, morph it
+# into a beam path and turn it into a dependency like this:
+#
+#   $(EBIN)/diameter_service.$(EMULATOR): $(INCDIR)/diameter.hrl
+
+G
+s@^\(.*\)\n\(.*\)@$(EBIN)/\2.$(EMULATOR): \1@
