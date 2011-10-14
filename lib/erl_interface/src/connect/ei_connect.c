@@ -1154,7 +1154,9 @@ static unsigned int gen_challenge(void)
 	struct timeval tv;
 	clock_t cpu;
 	pid_t pid;
+#if !defined(__QNXNTO__) 
 	u_long hid;
+#endif
 	uid_t uid;
 	gid_t gid;
 	struct utsname name;
@@ -1164,7 +1166,9 @@ static unsigned int gen_challenge(void)
     uname(&s.name);
     s.cpu  = clock();
     s.pid  = getpid();
+#if !defined(__QNXNTO__) 
     s.hid  = gethostid();
+#endif
     s.uid  = getuid();
     s.gid  = getgid();
 
