@@ -47,7 +47,6 @@ RUNTIME_MODULES = \
 
 HELP_MODULES = \
 	diameter_callback \
-	diameter_exprecs \
 	diameter_dbg \
 	diameter_info
 

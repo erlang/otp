@@ -19,6 +19,7 @@
 
 MODULES = \
 	diameter_codegen \
+	diameter_exprecs \
 	diameter_spec_scan \
 	diameter_spec_util \
 	diameter_make

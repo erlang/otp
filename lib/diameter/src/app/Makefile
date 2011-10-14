@@ -185,8 +185,6 @@ release_docs_spec:
 # Dependencies
 # ----------------------------------------------------
 
-$(DICT_MODULES:%=$(EBIN)/%.$(EMULATOR)): $(EBIN)/diameter_exprecs.$(EMULATOR)
-
 diameter_gen_base_accounting.erl diameter_gen_relay.erl: \
 	$(EBIN)/diameter_gen_base_rfc3588.beam
 
