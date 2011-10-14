@@ -199,6 +199,22 @@ hipe_call_from_native_is_recursive(Process *p, Eterm reg[])
     return 0;
 }
 
+/* BEAM called native, which called BIF that returned trap
+ * Discard bif parameters.
+ * If tailcall, also clean up native stub continuation. */
+static __inline__ int
+hipe_trap_from_native_is_recursive(Process *p)
+{
+    if (p->hipe.narity > NR_ARG_REGS) {
+	p->hipe.nsp += (p->hipe.narity - NR_ARG_REGS);
+    }
+    if (p->hipe.nra != (void(*)(void))&nbif_return)
+	return 1;
+    hipe_pop_risc_nra_frame(p);
+    return 0;
+}
+
+
 /* Native makes a call which needs to unload the parameters.
    This differs from hipe_call_from_native_is_recursive() in
    that it doesn't check for or pop the BEAM-calls-native frame.

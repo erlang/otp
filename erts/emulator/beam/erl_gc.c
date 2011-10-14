@@ -315,6 +315,11 @@ erts_gc_after_bif_call(Process* p, Eterm result, Eterm* regs, Uint arity)
 
     if (is_non_value(result)) {
 	if (p->freason == TRAP) {
+	  #if HIPE
+	    if (regs == NULL) {
+		regs = ERTS_PROC_GET_SCHDATA(p)->x_reg_array;
+	    }
+	  #endif
 	    cost = erts_garbage_collect(p, 0, regs, p->arity);
 	} else {
 	    cost = erts_garbage_collect(p, 0, regs, arity);
