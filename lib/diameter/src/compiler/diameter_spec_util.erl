@@ -38,7 +38,7 @@ parse(Path, Opts) ->
     put({?MODULE, verbose}, lists:member(verbose, Opts)),
     {ok, B} = file:read_file(Path),
     Chunks = chunk(B),
-    Spec = reset(make_spec(Chunks), Opts, [name, prefix]),
+    Spec = reset(make_spec(Chunks), Opts, [name, prefix, inherits]),
     true = groups_defined(Spec),  %% sanity checks
     true = customs_defined(Spec), %%
     Full = import_enums(import_groups(import_avps(insert_codes(Spec), Opts))),
@@ -47,12 +47,22 @@ parse(Path, Opts) ->
     Full.
 
 reset(Spec, Opts, Keys) ->
-    lists:foldl(fun(K,S) -> reset(lists:keyfind(K, 1, Opts), S) end,
+    lists:foldl(fun(K,S) ->
+                        reset([{A,?ATOM(V)} || {A,V} <- Opts, A == K], S)
+                end,
                 Spec,
                 Keys).
 
-reset({Key, Str}, Spec) ->
-    orddict:store(Key, ?ATOM(Str), Spec);
+reset(L, Spec)
+  when is_list(L) ->
+    lists:foldl(fun reset/2, Spec, L);
+
+reset({inherits = Key, '-'}, Spec) ->
+    orddict:erase(Key, Spec);
+reset({inherits = Key, Dict}, Spec) ->
+    orddict:append(Key, Dict, Spec);
+reset({Key, Atom}, Spec) ->
+    orddict:store(Key, Atom, Spec);
 reset(_, Spec) ->
     Spec.
     
