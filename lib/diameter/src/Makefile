@@ -194,15 +194,12 @@ release_spec: opt
 	$(INSTALL_DATA) $(EXTERNAL_HRL_FILES) $(DICT_HRL_FILES) \
 	                $(RELSYSDIR)/include
 	$(INSTALL_DATA) $(EXAMPLE_FILES) $(RELSYSDIR)/examples
-	for dir in $(TARGET_DIRS); do \
-	    $(MAKE) release_subdir SRCDIR=$$dir; \
-	done
+	$(MAKE) $(TARGET_DIRS:%/=release_src_%)
 
-release_subdir:
-	[ -d "$(SRCDIR)" ]
-	$(INSTALL_DATA) $(filter $(SRCDIR)%,$(TARGET_MODULES:%=%.erl) \
-	                                    $(INTERNAL_HRL_FILES)) \
-	                $(RELSYSDIR)/src/$(SRCDIR)
+$(TARGET_DIRS:%/=release_src_%): release_src_%:
+	$(INSTALL_DATA) $(filter $*/%,$(TARGET_MODULES:%=%.erl) \
+	                              $(INTERNAL_HRL_FILES)) \
+	                $(RELSYSDIR)/src/$*
 
 release_docs_spec:
 
@@ -235,7 +232,7 @@ depend.mk: depend.sed $(MODULES:%=%.erl) Makefile
 .PRECIOUS: $(DICT_ERL_FILES) $(DICT_HRL_FILES)
 .PHONY: app clean depend dict info release_subdir
 .PHONY: debug opt release_docs_spec release_spec
-.PHONY: $(TARGET_DIRS:%/=%)
+.PHONY: $(TARGET_DIRS:%/=%) $(TARGET_DIRS:%/=release_src_%)
 
 .SECONDEXPANSION:
 
