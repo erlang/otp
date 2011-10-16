@@ -171,11 +171,6 @@ $(APPUP_TARGET): $(APPUP_SRC) ../vsn.mk
 app:  $(APP_TARGET) $(APPUP_TARGET)
 dict: $(DICT_ERL_FILES)
 
-# Make the modules from a subdirectory.
-$(TARGET_DIRS:%/=%):
-	$(MAKE) \
-	  $(patsubst $@/%,$(EBIN)/%.$(EMULATOR),$(filter $@/%,$(TARGET_MODULES)))
-
 # ----------------------------------------------------
 # Release Target
 # ----------------------------------------------------
@@ -241,3 +236,9 @@ depend.mk: depend.sed $(MODULES:%=%.erl) Makefile
 .PHONY: app clean depend dict info release_subdir
 .PHONY: debug opt release_docs_spec release_spec
 .PHONY: $(TARGET_DIRS:%/=%)
+
+.SECONDEXPANSION:
+
+# Make the modules from a subdirectory.
+$(TARGET_DIRS:%/=%): \
+  $$(patsubst $$@/%,$(EBIN)/%.$(EMULATOR),$$(filter $$@/%,$(TARGET_MODULES)))
