@@ -24,6 +24,10 @@ DICTS = \
 	base_accounting \
 	relay
 
+# The yecc grammar for the dictionary parser.
+DICT_YRL = \
+	diameter_dict_parser
+
 # Handwritten (runtime) modules included in the app file.
 RT_MODULES = \
 	base/diameter \
@@ -62,7 +66,7 @@ CT_MODULES = \
 	base/diameter_info \
 	compiler/diameter_codegen \
 	compiler/diameter_exprecs \
-	compiler/diameter_spec_scan \
+	compiler/diameter_dict_scanner \
 	compiler/diameter_spec_util \
 	compiler/diameter_make
 
