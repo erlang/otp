@@ -19,7 +19,7 @@
 
 # Runtime dictionary files in ./dict. Modules will be generated from
 # these are included in the app file.
-RT_DICTS = \
+DICTS = \
 	base_rfc3588 \
 	base_accounting \
 	relay
@@ -66,13 +66,13 @@ CT_MODULES = \
 	compiler/diameter_spec_util \
 	compiler/diameter_make
 
-# Released hrl files intended for public consumption.
-EXTERNAL_HRL_FILES = \
-	../include/diameter.hrl \
-	../include/diameter_gen.hrl
+# Released hrl files in ../include intended for public consumption.
+EXTERNAL_HRLS = \
+	diameter.hrl \
+	diameter_gen.hrl
 
-# Release hrl files intended for private use.
-INTERNAL_HRL_FILES = \
+# Released hrl files intended for private use.
+INTERNAL_HRLS = \
 	base/diameter_internal.hrl \
 	base/diameter_types.hrl \
 	compiler/diameter_forms.hrl

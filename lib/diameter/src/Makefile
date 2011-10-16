@@ -46,15 +46,14 @@ INCDIR = ../include
 VPATH = .:base:compiler:transport:gen
 
 # ----------------------------------------------------
-# Target Specs
+# Target specs
 # ----------------------------------------------------
 
 include modules.mk
 
-DICT_FILES     = $(RT_DICTS:%=dict/%.dia)
-DICT_MODULES   = $(RT_DICTS:%=gen/diameter_gen_%)
-DICT_ERL_FILES = $(DICT_MODULES:%=%.erl)
-DICT_HRL_FILES = $(DICT_MODULES:%=%.hrl)
+DICT_MODULES = $(DICTS:%=gen/diameter_gen_%)
+DICT_ERLS    = $(DICT_MODULES:%=%.erl)
+DICT_HRLS    = $(DICT_MODULES:%=%.hrl)
 
 # Modules to build before compiling dictionaries.
 COMPILER_MODULES = $(filter compiler/%, $(CT_MODULES))
@@ -91,11 +90,8 @@ APPUP_FILE   = diameter.appup
 APPUP_SRC    = $(APPUP_FILE).src
 APPUP_TARGET = $(EBIN)/$(APPUP_FILE)
 
-EXAMPLE_FILES = $(EXAMPLES:%=../examples/%)
-BIN_FILES     = $(BINS:%=../bin/%)
-
 # ----------------------------------------------------
-# FLAGS
+# Flags
 # ----------------------------------------------------
 
 ifeq ($(TYPE),debug)
@@ -105,60 +101,26 @@ endif
 ERL_COMPILE_FLAGS += \
 	+'{parse_transform,sys_pre_attributes}' \
 	+'{attribute,insert,app_vsn,$(APP_VSN)}' \
+	+warn_export_vars \
 	+warn_unused_vars \
 	-pa $(realpath $(EBIN)) \
 	-I $(INCDIR) \
 	-I gen
-# -pa is so that we can include_lib from our include directory. The
-# path has to be absolute to contain the application name.
+# -pa is to be able to include_lib from the include directory: the
+# path must contain the application name.
 
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
 
-debug:
-	@$(MAKE) TYPE=debug opt
-
-opt: $(TARGET_FILES)
-
-clean:
-	rm -f $(TARGET_FILES) $(DICT_ERL_FILES) $(DICT_HRL_FILES)
-	rm -f $(APP_TARGET) $(APPUP_TARGET)
-	rm -f errs core *~ gen/diameter_gen_*.forms gen/diameter_gen_*.spec
-	rm -f depend.mk
-
-docs:
-
-list = echo $(1):; echo $($(1)) | tr ' ' '\n' | sort | sed 's@^@  @'
-
-info:
-	@echo ========================================
-	@$(call list,RT_DICTS)
-	@echo
-	@$(call list,RT_MODULES)
-	@echo
-	@$(call list,CT_MODULES)
-	@echo
-	@$(call list,TARGET_MODULES)
-	@echo
-	@$(call list,TARGET_DIRS)
-	@echo
-	@$(call list,EXTERNAL_HRL_FILES)
-	@echo
-	@$(call list,INTERNAL_HRL_FILES)
-	@echo
-	@$(call list,EXAMPLE_FILES)
-	@echo
-	@$(call list,BIN_FILES)
-	@echo ========================================
-
-# ----------------------------------------------------
-# Special Build Targets
-# ----------------------------------------------------
-
 # erl/hrl from dictionary file.
 gen/diameter_gen_%.erl gen/diameter_gen_%.hrl: dict/%.dia
 	../bin/diameterc -o gen -i $(EBIN) $<
+
+opt: $(TARGET_FILES)
+
+debug:
+	@$(MAKE) TYPE=debug opt
 
 # Generate the app file.
 $(APP_TARGET): $(APP_SRC) ../vsn.mk modules.mk
@@ -171,10 +133,39 @@ $(APPUP_TARGET): $(APPUP_SRC) ../vsn.mk
 	sed -e 's;%VSN%;$(VSN);' $< > $@
 
 app:  $(APP_TARGET) $(APPUP_TARGET)
-dict: $(DICT_ERL_FILES)
+dict: $(DICT_ERLS)
+
+docs:
+
+list = echo $(1):; echo $($(1)) | tr ' ' '\n' | sort | sed 's@^@  @'
+
+info:
+	@echo ========================================
+	@$(call list,DICTS)
+	@echo
+	@$(call list,RT_MODULES)
+	@echo
+	@$(call list,CT_MODULES)
+	@echo
+	@$(call list,TARGET_MODULES)
+	@echo
+	@$(call list,TARGET_DIRS)
+	@echo
+	@$(call list,EXTERNAL_HRLS)
+	@echo
+	@$(call list,INTERNAL_HRLS)
+	@echo
+	@$(call list,EXAMPLES)
+	@echo
+	@$(call list,BINS)
+	@echo ========================================
+
+clean:
+	rm -f $(TARGET_FILES) $(DICT_ERLS) $(DICT_HRLS)
+	rm -f depend.mk
 
 # ----------------------------------------------------
-# Release Target
+# Release targets
 # ----------------------------------------------------
 
 ifeq ($(ERL_TOP),)
@@ -186,21 +177,21 @@ endif
 release_spec: opt
 	$(INSTALL_DIR) $(RELSYSDIR)/bin \
 	               $(RELSYSDIR)/ebin \
-	               $(RELSYSDIR)/src/dict \
-	               $(TARGET_DIRS:%=$(RELSYSDIR)/src/%) \
+	               $(RELSYSDIR)/examples \
 	               $(RELSYSDIR)/include \
-	               $(RELSYSDIR)/examples
-	$(INSTALL_SCRIPT) $(BIN_FILES) $(RELSYSDIR)/bin
+	               $(RELSYSDIR)/src/dict \
+	               $(TARGET_DIRS:%/=$(RELSYSDIR)/src/%)
+	$(INSTALL_SCRIPT) $(BINS:%=../bin/%) $(RELSYSDIR)/bin
 	$(INSTALL_DATA) $(TARGET_FILES) $(RELSYSDIR)/ebin
-	$(INSTALL_DATA) $(DICT_FILES) $(RELSYSDIR)/src/dict
-	$(INSTALL_DATA) $(EXTERNAL_HRL_FILES) $(DICT_HRL_FILES) \
+	$(INSTALL_DATA) $(EXAMPLES:%=../examples/%) $(RELSYSDIR)/examples
+	$(INSTALL_DATA) $(EXTERNAL_HRLS:%=../include/%) $(DICT_HRLS) \
 	                $(RELSYSDIR)/include
-	$(INSTALL_DATA) $(EXAMPLE_FILES) $(RELSYSDIR)/examples
+	$(INSTALL_DATA) $(DICTS:%=dict/%.dia) $(RELSYSDIR)/src/dict
 	$(MAKE) $(TARGET_DIRS:%/=release_src_%)
 
 $(TARGET_DIRS:%/=release_src_%): release_src_%:
 	$(INSTALL_DATA) $(filter $*/%,$(TARGET_MODULES:%=%.erl) \
-	                              $(INTERNAL_HRL_FILES)) \
+	                              $(INTERNAL_HRLS)) \
 	                $(RELSYSDIR)/src/$*
 
 release_docs_spec:
@@ -231,13 +222,17 @@ depend.mk: depend.sed $(MODULES:%=%.erl) Makefile
 
 -include depend.mk
 
-.PRECIOUS: $(DICT_ERL_FILES) $(DICT_HRL_FILES)
+.PRECIOUS: $(DICT_ERLS) $(DICT_HRLS)
 .PHONY: app clean depend dict info release_subdir
 .PHONY: debug opt release_docs_spec release_spec
 .PHONY: $(TARGET_DIRS:%/=%) $(TARGET_DIRS:%/=release_src_%)
 
+# ----------------------------------------------------
+# Targets using secondary expansion
+# ----------------------------------------------------
+
 .SECONDEXPANSION:
 
-# Make the modules from a subdirectory.
+# Make beams from a subdirectory.
 $(TARGET_DIRS:%/=%): \
   $$(patsubst $$@/%,$(EBIN)/%.$(EMULATOR),$$(filter $$@/%,$(TARGET_MODULES)))
