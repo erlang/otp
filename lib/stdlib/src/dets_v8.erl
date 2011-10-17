@@ -21,7 +21,7 @@
 %% Dets files, implementation part. This module handles versions up to
 %% and including 8(c). To be called from dets.erl only.
 
--export([constants/0, mark_dirty/1, read_file_header/2,
+-export([mark_dirty/1, read_file_header/2,
          check_file_header/2, do_perform_save/1, initiate_file/11,
          init_freelist/2, fsck_input/4,
          bulk_input/3, output_objs/4, write_cache/1, may_grow/3,
@@ -196,10 +196,6 @@
 %%-define(DEBUGF(X,Y), io:format(X, Y)).
 -define(DEBUGF(X,Y), void).
 
-%% {Bump}
-constants() ->
-    {?BUMP, ?BASE}.
-
 %% -> ok | throw({NewHead,Error})
 mark_dirty(Head) ->
     Dirty = [{?CLOSED_PROPERLY_POS, <<?NOT_PROPERLY_CLOSED:32>>}],
@@ -308,8 +304,9 @@ init_freelist(Head, {convert_freelist,_Version}) ->
     Pos = Head#head.freelists_p,
     case catch prterm(Head, Pos, ?OHDSZ) of
 	{0, _Sz, Term}  ->
-	    FreeList = lists:reverse(Term),
-	    dets_utils:init_slots_from_old_file(FreeList, Ftab);
+	    FreeList1 = lists:reverse(Term),
+            FreeList = dets_utils:init_slots_from_old_file(FreeList1, Ftab),
+            Head#head{freelists = FreeList, base = ?BASE};
 	_ ->
 	    throw({error, {bad_freelists, Head#head.filename}})
     end;
@@ -318,7 +315,7 @@ init_freelist(Head, _) ->
     Pos = Head#head.freelists_p,
     case catch prterm(Head, Pos, ?OHDSZ) of
 	{0, _Sz, Term}  ->
-	    Term;
+            Head#head{freelists = Term, base = ?BASE};
 	_ ->
 	    throw({error, {bad_freelists, Head#head.filename}})
     end.
@@ -331,6 +328,7 @@ read_file_header(Fd, FileName) ->
     {ok, EOF} = dets_utils:position_close(Fd, FileName, eof),
     {ok, <<FileSize:32>>} = dets_utils:pread_close(Fd, FileName, EOF-4, 4),
     FH = #fileheader{freelist = Freelist,
+                     fl_base = ?BASE,
 		     cookie = Cookie,
 		     closed_properly = CP,
 		     type = dets_utils:code_to_type(Type2),
@@ -413,7 +411,7 @@ check_file_header(FH, Fd) ->
 	      version = ?FILE_FORMAT_VERSION,
 	      mod = ?MODULE,
 	      bump = ?BUMP,
-	      base = ?BASE},
+	      base = FH#fileheader.fl_base},
 	    {ok, H, ExtraInfo};
 	Error ->
 	    Error
