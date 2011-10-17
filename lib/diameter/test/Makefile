@@ -77,7 +77,7 @@ ERL_COMPILE_FLAGS += $(DIAMETER_ERL_COMPILE_FLAGS) \
 
 all: $(SUITES)
 
-tests debug opt: $(TARGET_FILES)
+beam tests debug opt: $(TARGET_FILES)
 
 clean:
 	rm -f $(TARGET_FILES) 

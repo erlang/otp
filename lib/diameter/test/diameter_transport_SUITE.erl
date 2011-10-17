@@ -69,16 +69,6 @@
                                       = #diameter_caps{host_ip_address
                                                        = Addrs}}).
 
-%% The term diameter_tcp/sctp registers after opening a listening
-%% socket. This is an implementation detail that should probably be
-%% replaced by some documented way of getting at the port number of
-%% the listening socket, which is what we're after since we specify
-%% port 0 to get something unused.
--define(TCP_LISTENER(Ref, Addr, LSock),
-        {diameter_tcp, listener, {Ref, {Addr, LSock}}}).
--define(SCTP_LISTENER(Ref, Addr, LSock),
-        {diameter_sctp, listener, {Ref, {[Addr], LSock}}}).
-
 %% The term we register after open a listening port with gen_tcp.
 -define(TEST_LISTENER(Ref, PortNr),
         {?MODULE, listen, Ref, PortNr}).
@@ -227,7 +217,7 @@ init(accept, {Prot, Ref}) ->
 
 init(gen_connect, {Prot, Ref}) ->
     %% Lookup the peer's listening socket.
-    {ok, PortNr} = inet:port(lsock(Prot, Ref)),
+    [PortNr] = ?util:lport(Prot, Ref, 20),
 
     %% Connect, send a message and receive it back.
     {ok, Sock} = gen_connect(Prot, PortNr, Ref),
@@ -264,22 +254,16 @@ init(connect, {Prot, Ref}) ->
     MRef = erlang:monitor(process, TPid),
     ?RECV({'DOWN', MRef, process, _, _}).
 
-lsock(sctp, Ref) ->
-    [{?SCTP_LISTENER(_ , _, LSock), _}]
-        = match(?SCTP_LISTENER(Ref, ?ADDR, '_')),
-    LSock;
-lsock(tcp, Ref) ->
-    [{?TCP_LISTENER(_ , _, LSock), _}]
-        = match(?TCP_LISTENER(Ref, ?ADDR, '_')),
-    LSock.
-
 match(Pat) ->
-    case diameter_reg:match(Pat) of
-        [] ->
+    match(Pat, 20).
+
+match(Pat, T) ->
+    L = diameter_reg:match(Pat),
+    if [] /= L orelse 1 == T ->
+            L;
+       true ->
             ?WAIT(50),
-            match(Pat);
-        L ->
-            L
+            match(Pat, T-1)
     end.
 
 bin(sctp, #diameter_packet{bin = Bin}) ->
@@ -343,7 +327,7 @@ start_accept(Prot, Ref) ->
 
     %% Configure the same port number for transports on the same
     %% reference.
-    PortNr = portnr(Prot, Ref),
+    [PortNr | _] = ?util:lport(Prot, Ref) ++ [0],
     {Mod, Opts} = tmod(Prot),
 
     try
@@ -372,23 +356,6 @@ tmod(sctp) ->
     {diameter_sctp, [{sctp_initmsg, ?SCTP_INIT}]};
 tmod(tcp) ->
     {diameter_tcp, []}.
-
-portnr(sctp, Ref) ->
-    case diameter_reg:match(?SCTP_LISTENER(Ref, ?ADDR, '_')) of
-        [{?SCTP_LISTENER(_, _, LSock), _}] ->
-            {ok, N} = inet:port(LSock),
-            N;
-        [] ->
-            0
-    end;
-portnr(tcp, Ref) ->
-    case diameter_reg:match(?TCP_LISTENER(Ref, ?ADDR, '_')) of
-        [{?TCP_LISTENER(_, _, LSock), _}] ->
-            {ok, N} = inet:port(LSock),
-            N;
-        [] ->
-            0
-    end.
 
 %% ===========================================================================
 

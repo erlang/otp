@@ -44,6 +44,7 @@
 %% testcases
 -export([start_ssl/1,
          start_diameter/1,
+         make_certs/1, make_certs/0,
          start_services/1,
          add_transports/1,
          send1/1,
@@ -134,11 +135,12 @@
 %% ===========================================================================
 
 suite() ->
-    [{timetrap, {seconds, 15}}].
+    [{timetrap, {seconds, 10}}].
 
 all() ->
     [start_ssl,
      start_diameter,
+     make_certs,
      start_services,
      add_transports]
         ++ [{group, N} || {N, _, _} <- groups()]
@@ -183,6 +185,18 @@ start_ssl(_Config) ->
 
 start_diameter(_Config) ->
     ok = diameter:start().
+
+make_certs() ->
+    [{timetrap, {seconds, 30}}].
+
+make_certs(Config) ->
+    Dir = proplists:get_value(priv_dir, Config),
+
+    [] = ?util:run([[fun make_cert/2, Dir, B] || B <- ["server1",
+                                                       "server2",
+                                                       "server4",
+                                                       "server5",
+                                                       "client"]]).
 
 start_services(Config) ->
     Dir = proplists:get_value(priv_dir, Config),
@@ -325,8 +339,12 @@ inband_security(Ids) ->
     [{'Inband-Security-Id', Ids}].
 
 ssl_options(Dir, Base) ->
-    {Key, Cert} = make_cert(Dir, Base ++ "_key.pem", Base ++ "_ca.pem"),
-    [{ssl_options, [{certfile, Cert}, {keyfile, Key}]}].
+    Root = filename:join([Dir, Base]),
+    [{ssl_options, [{certfile, Root ++ "_ca.pem"},
+                    {keyfile,  Root ++ "_key.pem"}]}].
+
+make_cert(Dir, Base) ->
+    make_cert(Dir, Base ++ "_key.pem", Base ++ "_ca.pem").
 
 make_cert(Dir, Keyfile, Certfile) ->
     [K,C] = Paths = [filename:join([Dir, F]) || F <- [Keyfile, Certfile]],
@@ -351,7 +369,7 @@ join(Strs) ->
 server(Host, {Caps, Opts}) ->
     ok = diameter:start_service(Host, ?SERVICE(Host, ?DICT_COMMON)),
     {ok, LRef} = diameter:add_transport(Host, ?LISTEN(Caps, Opts)),
-    {LRef, portnr(LRef)}.
+    {LRef, hd([_] = ?util:lport(tcp, LRef, 20))}.
 
 sopts(?SERVER1, Dir) ->
     {inband_security([?TLS]),
@@ -368,32 +386,6 @@ sopts(?SERVER5, Dir) ->
 
 ssl([{ssl_options = T, Opts}]) ->
     [{T, true} | Opts].
-
-portnr(LRef) ->
-    portnr(LRef, 20).
-
-portnr(LRef, N)
-  when 0 < N ->
-    case diameter_reg:match({diameter_tcp, listener, {LRef, '_'}}) of
-        [{T, _Pid}] ->
-            {_, _, {LRef, {_Addr, LSock}}} = T,
-            {ok, PortNr} = to_portnr(LSock) ,
-            PortNr;
-        [] ->
-            receive after 500 -> ok end,
-            portnr(LRef, N-1)
-    end.
-
-to_portnr(Sock)
-  when is_port(Sock) ->
-    inet:port(Sock);
-to_portnr(Sock) ->
-    case ssl:sockname(Sock) of
-        {ok, {_,N}} ->
-            {ok, N};
-        No ->
-            No
-    end.
 
 %% connect/3
 

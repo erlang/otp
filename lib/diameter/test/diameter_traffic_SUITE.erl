@@ -127,19 +127,6 @@
                         {module, ?MODULE},
                         {answer_errors, callback}]}]).
 
-%% Config for diameter:add_transport/2. In the listening case, listen
-%% on a free port that we then lookup using the implementation detail
-%% that diameter_tcp registers the port with diameter_reg.
--define(CONNECT(PortNr),
-        {connect, [{transport_module, diameter_tcp},
-                   {transport_config, [{raddr, ?ADDR},
-                                       {rport, PortNr},
-                                       {ip, ?ADDR},
-                                       {port, 0}]}]}).
--define(LISTEN,
-        {listen, [{transport_module, diameter_tcp},
-                  {transport_config, [{ip, ?ADDR}, {port, 0}]}]}).
-
 -define(SUCCESS,
         ?'DIAMETER_BASE_RESULT-CODE_DIAMETER_SUCCESS').
 -define(COMMAND_UNSUPPORTED,
@@ -253,21 +240,6 @@ tc() ->
      send_multiple_filters_3,
      send_anything].
 
-portnr() ->
-    portnr(20).
-
-portnr(N)
-  when 0 < N ->
-    case diameter_reg:match({diameter_tcp, listener, '_'}) of
-        [{T, _Pid}] ->
-            {_, _, {_LRef, {_Addr, LSock}}} = T,
-            {ok, PortNr} = inet:port(LSock),
-            PortNr;
-        [] ->
-            receive after 50 -> ok end,
-            portnr(N-1)
-    end.
-
 %% ===========================================================================
 %% start/stop testcases
 
@@ -279,26 +251,13 @@ start_services(_Config) ->
     ok = diameter:start_service(?CLIENT, ?SERVICE(?CLIENT)).
 
 add_transports(Config) ->
-    {ok, LRef} = diameter:add_transport(?SERVER, ?LISTEN),
-    true = diameter:subscribe(?CLIENT),
-    {ok, CRef} = diameter:add_transport(?CLIENT, ?CONNECT(portnr())),
-    {up, CRef, _Peer, _Cfg, #diameter_packet{}}
-        = receive #diameter_event{service = ?CLIENT, info = I} -> I
-          after 2000 -> false
-          end,
-    true = diameter:unsubscribe(?CLIENT),
+    LRef = ?util:listen(?SERVER, tcp),
+    CRef = ?util:connect(?CLIENT, tcp, LRef),
     ?util:write_priv(Config, "transport", {LRef, CRef}).
 
-%% Remove the client transport and expect the server transport to
-%% go down.
 remove_transports(Config) ->
     {LRef, CRef} = ?util:read_priv(Config, "transport"),
-    true = diameter:subscribe(?SERVER),
-    ok = diameter:remove_transport(?CLIENT, CRef),
-    {down, LRef, _, _}
-        = receive #diameter_event{service = ?SERVER, info = I} -> I
-          after 2000 -> false
-          end.
+    ?util:disconnect(?CLIENT, CRef, ?SERVER, LRef).
 
 stop_services(_Config) ->
     ok = diameter:stop_service(?CLIENT),
