@@ -240,7 +240,7 @@ flatmap(Fun, List1) ->
     <func>
       <name name="keydelete" arity="3"/>
       <fsummary>Delete an element from a list of tuples</fsummary>
-      <type_desc variable="N">1..tuple_size(Tuple)</type_desc>
+      <type_desc variable="N">1..tuple_size(<anno>Tuple</anno>)</type_desc>
       <desc>
         <p>Returns a copy of <c><anno>TupleList1</anno></c> where the first
           occurrence of a tuple whose <c><anno>N</anno></c>th element compares equal to
@@ -266,7 +266,7 @@ flatmap(Fun, List1) ->
     <func>
       <name name="keymap" arity="3"/>
       <fsummary>Map a function over a list of tuples</fsummary>
-      <type_desc variable="N">1..tuple_size(Tuple)</type_desc>
+      <type_desc variable="N">1..tuple_size(<anno>Tuple</anno>)</type_desc>
       <desc>
         <p>Returns a list of tuples where, for each tuple in
           <c><anno>TupleList1</anno></c>, the <c><anno>N</anno></c>th element <c><anno>Term1</anno></c> of the tuple
@@ -298,7 +298,7 @@ flatmap(Fun, List1) ->
     <func>
       <name name="keymerge" arity="3"/>
       <fsummary>Merge two key-sorted lists of tuples</fsummary>
-      <type_desc variable="N">1..tuple_size(Tuple)</type_desc>
+      <type_desc variable="N">1..tuple_size(<anno>Tuple</anno>)</type_desc>
       <desc>
         <p>Returns the sorted list formed by merging <c><anno>TupleList1</anno></c>
           and <c><anno>TupleList2</anno></c>. The merge is performed on
@@ -312,7 +312,7 @@ flatmap(Fun, List1) ->
     <func>
       <name name="keyreplace" arity="4"/>
       <fsummary>Replace an element in a list of tuples</fsummary>
-      <type_desc variable="N">1..tuple_size(Tuple)</type_desc>
+      <type_desc variable="N">1..tuple_size(<anno>Tuple</anno>)</type_desc>
       <desc>
         <p>Returns a copy of <c><anno>TupleList1</anno></c> where the first
           occurrence of a <c>T</c> tuple whose <c><anno>N</anno></c>th element
@@ -342,7 +342,7 @@ flatmap(Fun, List1) ->
     <func>
       <name name="keysort" arity="2"/>
       <fsummary>Sort a list of tuples</fsummary>
-      <type_desc variable="N">1..tuple_size(Tuple)</type_desc>
+      <type_desc variable="N">1..tuple_size(<anno>Tuple</anno>)</type_desc>
       <desc>
         <p>Returns a list containing the sorted elements of the list
           <c><anno>TupleList1</anno></c>. Sorting is performed on the <c><anno>N</anno></c>th
@@ -352,7 +352,7 @@ flatmap(Fun, List1) ->
     <func>
       <name name="keystore" arity="4"/>
       <fsummary>Store an element in a list of tuples</fsummary>
-      <type_desc variable="N">1..tuple_size(Tuple)</type_desc>
+      <type_desc variable="N">1..tuple_size(<anno>Tuple</anno>)</type_desc>
       <desc>
         <p>Returns a copy of <c><anno>TupleList1</anno></c> where the first
           occurrence of a tuple <c>T</c> whose <c><anno>N</anno></c>th element
@@ -366,7 +366,7 @@ flatmap(Fun, List1) ->
     <func>
       <name name="keytake" arity="3"/>
       <fsummary>Extract an element from a list of tuples</fsummary>
-      <type_desc variable="N">1..tuple_size(Tuple)</type_desc>
+      <type_desc variable="N">1..tuple_size(<anno>Tuple</anno>)</type_desc>
       <desc>
         <p>Searches the list of tuples <c><anno>TupleList1</anno></c> for a tuple
           whose <c><anno>N</anno></c>th element compares equal to <c><anno>Key</anno></c>.
@@ -500,7 +500,7 @@ flatmap(Fun, List1) ->
     <func>
       <name name="nth" arity="2"/>
       <fsummary>Return the Nth element of a list</fsummary>
-      <type_desc variable="N">1..length(List)</type_desc>
+      <type_desc variable="N">1..length(<anno>List</anno>)</type_desc>
       <desc>
         <p>Returns the <c><anno>N</anno></c>th element of <c><anno>List</anno></c>. For example:</p>
         <pre>
@@ -511,7 +511,7 @@ c</pre>
     <func>
       <name name="nthtail" arity="2"/>
       <fsummary>Return the Nth tail of a list</fsummary>
-      <type_desc variable="N">0..length(List)</type_desc>
+      <type_desc variable="N">0..length(<anno>List</anno>)</type_desc>
       <desc>
         <p>Returns the <c><anno>N</anno></c>th tail of <c><anno>List</anno></c>, that is, the sublist of
           <c><anno>List</anno></c> starting at <c><anno>N</anno>+1</c> and continuing up to
@@ -630,7 +630,7 @@ length(lists:seq(From, To, Incr)) == (To-From+Incr) div Incr</code>
     <func>
       <name name="split" arity="2"/>
       <fsummary>Split a list into two lists</fsummary>
-      <type_desc variable="N">0..length(List1)</type_desc>
+      <type_desc variable="N">0..length(<anno>List1</anno>)</type_desc>
       <desc>
         <p>Splits <c><anno>List1</anno></c> into <c><anno>List2</anno></c> and <c><anno>List3</anno></c>.
           <c><anno>List2</anno></c> contains the first <c><anno>N</anno></c> elements and
@@ -670,7 +670,7 @@ splitwith(Pred, List) ->
     <func>
       <name name="sublist" arity="3"/>
       <fsummary>Return a sub-list starting at a given position and with a given number of elements</fsummary>
-      <type_desc variable="Start">1..(length(List1)+1)</type_desc>
+      <type_desc variable="Start">1..(length(<anno>List1</anno>)+1)</type_desc>
       <desc>
         <p>Returns the sub-list of <c><anno>List1</anno></c> starting at <c><anno>Start</anno></c>
           and with (max) <c><anno>Len</anno></c> elements. It is not an error for
@@ -732,7 +732,7 @@ splitwith(Pred, List) ->
     <func>
       <name name="ukeymerge" arity="3"/>
       <fsummary>Merge two key-sorted lists of tuples, removing duplicates</fsummary>
-      <type_desc variable="N">1..tuple_size(Tuple)</type_desc>
+      <type_desc variable="N">1..tuple_size(<anno>Tuple</anno>)</type_desc>
       <desc>
         <p>Returns the sorted list formed by merging <c><anno>TupleList1</anno></c>
           and <c><anno>TupleList2</anno></c>. The merge is performed on the
@@ -746,7 +746,7 @@ splitwith(Pred, List) ->
     <func>
       <name name="ukeysort" arity="2"/>
       <fsummary>Sort a list of tuples, removing duplicates</fsummary>
-      <type_desc variable="N">1..tuple_size(Tuple)</type_desc>
+      <type_desc variable="N">1..tuple_size(<anno>Tuple</anno>)</type_desc>
       <desc>
         <p>Returns a list containing the sorted elements of the list
           <c><anno>TupleList1</anno></c> where all but the first tuple of the

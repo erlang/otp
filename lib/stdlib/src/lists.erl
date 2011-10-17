@@ -628,9 +628,10 @@ keydelete3(_, _, []) -> [].
 -spec keyreplace(Key, N, TupleList1, NewTuple) -> TupleList2 when
       Key :: term(),
       N :: pos_integer(),
-      TupleList1 :: [tuple()],
-      TupleList2 :: [tuple()],
-      NewTuple :: tuple().
+      TupleList1 :: [Tuple],
+      TupleList2 :: [Tuple],
+      NewTuple :: Tuple,
+      Tuple :: tuple().
 
 keyreplace(K, N, L, New) when is_integer(N), N > 0, is_tuple(New) ->
     keyreplace3(K, N, L, New).
@@ -660,9 +661,10 @@ keytake(_K, _N, [], _L) -> false.
 -spec keystore(Key, N, TupleList1, NewTuple) -> TupleList2 when
       Key :: term(),
       N :: pos_integer(),
-      TupleList1 :: [tuple()],
-      TupleList2 :: [tuple(), ...],
-      NewTuple :: tuple().
+      TupleList1 :: [Tuple],
+      TupleList2 :: [Tuple, ...],
+      NewTuple :: Tuple,
+      Tuple :: tuple().
 
 keystore(K, N, L, New) when is_integer(N), N > 0, is_tuple(New) ->
     keystore2(K, N, L, New).
@@ -740,8 +742,9 @@ keysort_1(_I, X, _EX, [], R) ->
       TupleList1 :: [T1],
       TupleList2 :: [T2],
       TupleList3 :: [(T1 | T2)],
-      T1 :: tuple(),
-      T2 :: tuple().
+      T1 :: Tuple,
+      T2 :: Tuple,
+      Tuple :: tuple().
 
 keymerge(Index, T1, L2) when is_integer(Index), Index > 0 -> 
     case L2 of
@@ -842,8 +845,9 @@ ukeysort_1(_I, X, _EX, []) ->
       TupleList1 :: [T1],
       TupleList2 :: [T2],
       TupleList3 :: [(T1 | T2)],
-      T1 :: tuple(),
-      T2 :: tuple().
+      T1 :: Tuple,
+      T2 :: Tuple,
+      Tuple :: tuple().
 
 ukeymerge(Index, L1, T2) when is_integer(Index), Index > 0 ->
     case L1 of
@@ -873,8 +877,9 @@ rukeymerge(Index, T1, L2) when is_integer(Index), Index > 0 ->
 -spec keymap(Fun, N, TupleList1) -> TupleList2 when
       Fun :: fun((Term1 :: term()) -> Term2 :: term()),
       N :: pos_integer(),
-      TupleList1 :: [tuple()],
-      TupleList2 :: [tuple()].
+      TupleList1 :: [Tuple],
+      TupleList2 :: [Tuple],
+      Tuple :: tuple().
 
 keymap(Fun, Index, [Tup|Tail]) ->
    [setelement(Index, Tup, Fun(element(Index, Tup)))|keymap(Fun, Index, Tail)];
