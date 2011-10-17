@@ -37,6 +37,9 @@
          code_change/3,
          terminate/2]).
 
+-export([ports/0,
+         ports/1]).
+
 -include_lib("diameter/include/diameter.hrl").
 
 -define(ERROR(T), erlang:error({T, ?MODULE, ?LINE})).
@@ -130,10 +133,13 @@ i({T, Ref, Mod, Pid, Opts, Addrs})
     MPid ! {stop, self()},  %% tell the monitor to die
     M = if SslOpts -> ssl; true -> Mod end,
     setopts(M, Sock),
+    putr(ref, Ref),
     #transport{parent = Pid,
                module = M,
                socket = Sock,
                ssl = SslOpts};
+%% Put the reference in the process dictionary since we now use it
+%% advertise the ssl socket after TLS upgrade.
 
 %% A monitor process to kill the transport if the parent dies.
 i(#monitor{parent = Pid, transport = TPid} = S) ->
@@ -152,9 +158,9 @@ i({listen, LRef, APid, {Mod, Opts, Addrs}}) ->
     LAddr = get_addr(LA, Addrs),
     LPort = get_port(LP),
     {ok, LSock} = Mod:listen(LPort, gen_opts(LAddr, Rest)),
+    true = diameter_reg:add_new({?MODULE, listener, {LRef, {LAddr, LSock}}}),
     proc_lib:init_ack({ok, self(), {LAddr, LSock}}),
     erlang:monitor(process, APid),
-    true = diameter_reg:add_new({?MODULE, listener, {LRef, {LAddr, LSock}}}),
     start_timer(#listener{socket = LSock}).
 
 ssl(Opts) ->
@@ -181,20 +187,22 @@ i(Type, Ref, Mod, Pid, true, Opts, Addrs) ->
 i(Type, Ref, Mod, Pid, _, Opts, Addrs) ->
     i(Type, Ref, Mod, Pid, Opts, Addrs).
 
-i(accept, Ref, Mod, Pid, Opts, Addrs) ->
+i(accept = T, Ref, Mod, Pid, Opts, Addrs) ->
     {LAddr, LSock} = listener(Ref, {Mod, Opts, Addrs}),
     proc_lib:init_ack({ok, self(), [LAddr]}),
     Sock = ok(accept(Mod, LSock)),
+    true = diameter_reg:add_new({?MODULE, T, {Ref, Sock}}),
     diameter_peer:up(Pid),
     Sock;
 
-i(connect, _, Mod, Pid, Opts, Addrs) ->
+i(connect = T, Ref, Mod, Pid, Opts, Addrs) ->
     {[LA, RA, RP], Rest} = proplists:split(Opts, [ip, raddr, rport]),
     LAddr = get_addr(LA, Addrs),
     RAddr = get_addr(RA, []),
     RPort = get_port(RP),
     proc_lib:init_ack({ok, self(), [LAddr]}),
     Sock = ok(connect(Mod, RAddr, RPort, gen_opts(LAddr, Rest))),
+    true = diameter_reg:add_new({?MODULE, T, {Ref, Sock}}),
     diameter_peer:up(Pid, {RAddr, RPort}),
     Sock.
 
@@ -255,6 +263,43 @@ gen_opts(LAddr, Opts) ->
      | Opts].
 
 %% ---------------------------------------------------------------------------
+%% # ports/1
+%% ---------------------------------------------------------------------------
+
+ports() ->
+    Ts = diameter_reg:match({?MODULE, '_', '_'}),
+    [{type(T), resolve(T,S), Pid} || {{?MODULE, T, {_,S}}, Pid} <- Ts].
+
+ports(Ref) ->
+    Ts = diameter_reg:match({?MODULE, '_', {Ref, '_'}}),
+    [{type(T), resolve(T,S), Pid} || {{?MODULE, T, {R,S}}, Pid} <- Ts,
+                                     R == Ref].
+
+type(listener) ->
+    listen;
+type(T) ->
+    T.
+
+sock(listener, {_LAddr, Sock}) ->
+    Sock;
+sock(_, Sock) ->
+    Sock.
+
+resolve(Type, S) ->
+    Sock = sock(Type, S),
+    try
+        ok(portnr(Sock))
+    catch
+        _:_ -> Sock
+    end.
+
+portnr(Sock)
+  when is_port(Sock) ->
+    portnr(gen_tcp, Sock);
+portnr(Sock) ->
+    portnr(ssl, Sock).
+
+%% ---------------------------------------------------------------------------
 %% # handle_call/3
 %% ---------------------------------------------------------------------------
 
@@ -299,6 +344,12 @@ terminate(_, _) ->
     ok.
 
 %% ---------------------------------------------------------------------------
+
+putr(Key, Val) ->
+    put({?MODULE, Key}, Val).
+
+getr(Key) ->
+    get({?MODULE, Key}).
 
 %% start_timer/1
 
@@ -436,10 +487,10 @@ transition({timeout, TRef, flush}, S) ->
     flush(TRef, S);
 
 %% Request for the local port number.
-transition({resolve_port, RPid}, #transport{socket = Sock,
-                                            module = M})
-  when is_pid(RPid) ->
-    RPid ! lport(M, Sock),
+transition({resolve_port, Pid}, #transport{socket = Sock,
+                                           module = M})
+  when is_pid(Pid) ->
+    Pid ! portnr(M, Sock),
     ok;
 
 %% Parent process has died.
@@ -470,6 +521,10 @@ tls_handshake(Type, true, #transport{socket = Sock,
                                      ssl = Opts}
                           = S) ->
     {ok, SSock} = tls(Type, Sock, [{cb_info, ?TCP_CB(M)} | Opts]),
+    Ref = getr(ref),
+    is_reference(Ref)  %% started in new code
+        andalso
+        (true = diameter_reg:add_new({?MODULE, Type, {Ref, SSock}})),
     S#transport{socket = SSock,
                 module = ssl};
 
@@ -637,16 +692,16 @@ setopts(M, Sock) ->
         X  -> x({setopts, M, Sock, X})  %% possibly on peer disconnect
     end.
 
-%% lport/2
+%% portnr/2
 
-lport(gen_tcp, Sock) ->
+portnr(gen_tcp, Sock) ->
     inet:port(Sock);
-lport(ssl, Sock) ->
+portnr(ssl, Sock) ->
     case ssl:sockname(Sock) of
         {ok, {_Addr, PortNr}} ->
             {ok, PortNr};
         {error, _} = No ->
             No
     end;
-lport(M, Sock) ->
+portnr(M, Sock) ->
     M:port(Sock).
