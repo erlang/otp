@@ -341,7 +341,7 @@ expr({call,_,{remote,_,Mod,Func},As0}, Bs0, Lf, Ef, RBs) ->
         true ->
             bif(F, As, Bs3, Ef, RBs);
         false ->
-            do_apply({M,F}, As, Bs3, Ef, RBs)
+            do_apply(M, F, As, Bs3, Ef, RBs)
     end;
 expr({call,_,{atom,_,Func},As0}, Bs0, Lf, Ef, RBs) ->
     case erl_internal:bif(Func, length(As0)) of
@@ -499,11 +499,11 @@ local_func2({eval,F,As,Bs}, RBs) -> % This reply is not documented.
 bif(apply, [erlang,apply,As], Bs, Ef, RBs) ->
     bif(apply, As, Bs, Ef, RBs);
 bif(apply, [M,F,As], Bs, Ef, RBs) ->
-    do_apply({M,F}, As, Bs, Ef, RBs);
+    do_apply(M, F, As, Bs, Ef, RBs);
 bif(apply, [F,As], Bs, Ef, RBs) ->
     do_apply(F, As, Bs, Ef, RBs);
 bif(Name, As, Bs, Ef, RBs) ->
-    do_apply({erlang,Name}, As, Bs, Ef, RBs).
+    do_apply(erlang, Name, As, Bs, Ef, RBs).
 
 %% do_apply(MF, Arguments, Bindings, ExternalFuncHandler, RBs) ->
 %%	{value,Value,Bindings} | Value when
@@ -561,6 +561,19 @@ do_apply(Func, As, Bs0, Ef, RBs) ->
             F(Func,As);
         {no_env,{value,F}} ->
             ret_expr(F(Func, As), Bs0, RBs)
+    end.
+
+do_apply(Mod, Func, As, Bs0, Ef, RBs) ->
+    case Ef of
+        none when RBs =:= value ->
+            %% Make tail recursive calls when possible.
+            apply(Mod, Func, As);
+        none ->
+            ret_expr(apply(Mod, Func, As), Bs0, RBs);
+        {value,F} when RBs =:= value ->
+            F({Mod,Func}, As);
+        {value,F} ->
+            ret_expr(F({Mod,Func}, As), Bs0, RBs)
     end.
 
 %% eval_lc(Expr, [Qualifier], Bindings, LocalFunctionHandler, 
@@ -731,10 +744,10 @@ expr_list([], Vs, _, Bs, _Lf, _Ef) ->
     {reverse(Vs),Bs}.
 
 eval_op(Op, Arg1, Arg2, Bs, Ef, RBs) ->
-    do_apply({erlang,Op}, [Arg1,Arg2], Bs, Ef, RBs).
+    do_apply(erlang, Op, [Arg1,Arg2], Bs, Ef, RBs).
 
 eval_op(Op, Arg, Bs, Ef, RBs) ->
-    do_apply({erlang,Op}, [Arg], Bs, Ef, RBs).
+    do_apply(erlang, Op, [Arg], Bs, Ef, RBs).
 
 %% if_clauses(Clauses, Bindings, LocalFuncHandler, ExtFuncHandler, RBs)
 
@@ -920,8 +933,9 @@ guard0([], _Bs, _Lf, _Ef) -> true.
 
 guard_test({call,L,{atom,Ln,F},As0}, Bs0, Lf, Ef) ->
     TT = type_test(F),
-    guard_test({call,L,{tuple,Ln,[{atom,Ln,erlang},{atom,Ln,TT}]},As0},
-               Bs0, Lf, Ef);
+    G = {call,L,{atom,Ln,TT},As0},
+    try {value,true,_} = expr(G, Bs0, Lf, Ef, none)
+    catch error:_ -> {value,false,Bs0} end;
 guard_test({call,L,{remote,_Lr,{atom,_Lm,erlang},{atom,_Lf,_F}=T},As0}, 
            Bs0, Lf, Ef) ->
     guard_test({call,L,T,As0}, Bs0, Lf, Ef);
