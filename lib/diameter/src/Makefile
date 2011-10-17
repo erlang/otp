@@ -106,9 +106,11 @@ ERL_COMPILE_FLAGS += \
 	+'{parse_transform,sys_pre_attributes}' \
 	+'{attribute,insert,app_vsn,$(APP_VSN)}' \
 	+warn_unused_vars \
-	-pa $(EBIN) \
+	-pa $(realpath $(EBIN)) \
 	-I $(INCDIR) \
 	-I gen
+# -pa is so that we can include_lib from our include directory. The
+# path has to be absolute to contain the application name.
 
 # ----------------------------------------------------
 # Targets
