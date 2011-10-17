@@ -44,6 +44,7 @@
 -export([upgrade_restart_1a/1]).
 -export([upgrade_restart_2/1]).
 -export([upgrade_restart_2a/1]).
+-export([upgrade_restart_2b/1]).
 -export([upgrade_restart_3/1]).
 -export([client1_1/4]).
 -export([client2/3]).
@@ -403,7 +404,20 @@ upgrade_restart_2(TestNode) ->
     ?print(["upgrade_restart_2 start"]),
 
     %% Check that the node has been restarted once more after the tmp release
+    case init:script_id() of
+	{"SASL-test","P2B"} ->
+	    upgrade_restart_2a(TestNode);
+	{"SASL-test","__new_emulator__P1G"} ->
+	    %% catched the node too early - give it another try
+	    {wait,whereis(init)}
+    end.
+
+upgrade_restart_2a(TestNode) ->
+    ?print(["upgrade_restart_2a start"]),
+
+    %% This time we must be there, else something is definitely wrong
     {"SASL-test","P2B"} = init:script_id(),
+
     ?check_release_states([permanent,current]),
     ?check_running_app(a,"1.1"),
 
@@ -412,11 +426,11 @@ upgrade_restart_2(TestNode) ->
 
     ok.
 
-upgrade_restart_2a(TestNode) ->
-    ?print(["upgrade_restart_2a start"]),
+upgrade_restart_2b(TestNode) ->
+    ?print(["upgrade_restart_2b start"]),
 
     {ok,"P1G",[old_emu,rm_appl]} = release_handler:install_release("P1G"),
-    ?print(["upgrade_restart_2a P1G installed"]),
+    ?print(["upgrade_restart_2b P1G installed"]),
     ok.
 
 upgrade_restart_3(TestNode) ->

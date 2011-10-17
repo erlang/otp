@@ -375,11 +375,18 @@ upgrade_restart(Conf) when is_list(Conf) ->
     wait_nodes_up([{TestNode,TestNodeInit1}],"upgrade_restart_1",[a]),
 
     %% install P1G
+    case rpc_inst(TestNode, upgrade_restart_2, []) of
+	ok ->
+	    ok;
+	{wait,TestNodeInit2a} ->
+	    %% We catched the node too early - it was supposed to
+	    %% restart twice, so let's wait for one more restart.
+	    wait_nodes_up([{TestNode,TestNodeInit2a}],"upgrade_restart_2a",[])
+    end,
     TestNodeInit2 = rpc:call(TestNode,erlang,whereis,[init]),
-    ok = rpc_inst(TestNode, upgrade_restart_2, []),
     stop_cover(TestNode),
-    ok = rpc_inst(TestNode, upgrade_restart_2a, []),
-    wait_nodes_up([{TestNode,TestNodeInit2}],"upgrade_restart_2",[]),
+    ok = rpc_inst(TestNode, upgrade_restart_2b, []),
+    wait_nodes_up([{TestNode,TestNodeInit2}],"upgrade_restart_2b",[]),
 
     %% Check that P1G is going again
     ok = rpc_inst(TestNode, upgrade_restart_3, []),
