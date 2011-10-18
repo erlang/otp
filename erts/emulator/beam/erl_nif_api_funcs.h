@@ -137,6 +137,7 @@ ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM,enif_make_uint64,(ErlNifEnv*, ErlNifUInt64));
 #endif
 ERL_NIF_API_FUNC_DECL(int,enif_is_exception,(ErlNifEnv*, ERL_NIF_TERM term));
 ERL_NIF_API_FUNC_DECL(int,enif_make_reverse_list,(ErlNifEnv*, ERL_NIF_TERM term, ERL_NIF_TERM *list));
+ERL_NIF_API_FUNC_DECL(int,enif_is_number,(ErlNifEnv*, ERL_NIF_TERM term));
 
 /*
 ** Add new entries here to keep compatibility on Windows!!!
@@ -258,6 +259,7 @@ ERL_NIF_API_FUNC_DECL(int,enif_make_reverse_list,(ErlNifEnv*, ERL_NIF_TERM term,
 
 #  define enif_is_exception ERL_NIF_API_FUNC_MACRO(enif_is_exception)
 #  define enif_make_reverse_list ERL_NIF_API_FUNC_MACRO(enif_make_reverse_list)
+#  define enif_is_number ERL_NIF_API_FUNC_MACRO(enif_is_number)
 
 /*
 ** Add new entries here
