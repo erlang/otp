@@ -30,6 +30,7 @@ include ../../vsn.mk
 
 VSN = $(INETS_VSN)
 
+
 # ----------------------------------------------------
 # Release directory specification
 # ----------------------------------------------------
@@ -41,8 +42,8 @@ RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 # ----------------------------------------------------
 
 MODULES = \
-	inets_service \
 	inets \
+	inets_service \
 	inets_app \
 	inets_sup \
 	inets_regexp
