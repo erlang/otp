@@ -42,6 +42,9 @@ RELSYSDIR = $(RELEASE_PATH)/lib/diameter-$(VSN)
 EBIN   = ../ebin
 INCDIR = ../include
 
+# Dumbed down to make 3.80. In 3.81 and later it's just $(realpath $(EBIN)).
+ABS_EBIN := $(shell cd $(EBIN) && pwd)
+
 # Where make should look for dependencies.
 VPATH = .:base:compiler:transport:gen
 
@@ -103,7 +106,7 @@ ERL_COMPILE_FLAGS += \
 	+'{attribute,insert,app_vsn,$(APP_VSN)}' \
 	+warn_export_vars \
 	+warn_unused_vars \
-	-pa $(realpath $(EBIN)) \
+	-pa $(ABS_EBIN) \
 	-I $(INCDIR) \
 	-I gen
 # -pa is to be able to include_lib from the include directory: the
@@ -228,7 +231,7 @@ depend.mk: depend.sed $(MODULES:%=%.erl) Makefile
 .PHONY: $(TARGET_DIRS:%/=%) $(TARGET_DIRS:%/=release_src_%)
 
 # ----------------------------------------------------
-# Targets using secondary expansion
+# Targets using secondary expansion (make >= 3.81)
 # ----------------------------------------------------
 
 .SECONDEXPANSION:
