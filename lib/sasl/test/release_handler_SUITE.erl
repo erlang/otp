@@ -58,7 +58,8 @@ cases() ->
     [otp_2740, otp_2760, otp_5761, otp_9402, otp_9417,
      otp_9395_check_old_code, otp_9395_check_and_purge,
      otp_9395_update_many_mods, otp_9395_rm_many_mods,
-     instructions, eval_appup, supervisor_which_children_timeout].
+     instructions, eval_appup, supervisor_which_children_timeout,
+     release_handler_which_releases].
 
 groups() ->
     [{release,[],
@@ -544,6 +545,32 @@ supervisor_which_children_timeout(Conf) ->
 
 supervisor_which_children_timeout(cleanup, Conf) ->
     stop_node(node_name(supervisor_which_children_timeout)).
+
+%%-----------------------------------------------------------------
+%% release_handler:which_releases/0 and 1 test
+%%-----------------------------------------------------------------
+release_handler_which_releases(Conf) ->
+    PrivDir = priv_dir(Conf),
+    Dir = filename:join(PrivDir,"release_handler_which_releases"),
+    DataDir = ?config(data_dir,Conf),
+    LibDir = filename:join([DataDir,release_handler_timeouts]),
+
+    Rel1 = create_and_install_fake_first_release(Dir,[{dummy,"0.1",LibDir}]),
+
+    {ok, Node} = t_start_node(release_handler_which_releases, Rel1, []),
+    Releases0 = rpc:call(Node, release_handler, which_releases, []),
+    Releases1 = rpc:call(Node, release_handler, which_releases, [permanent]),
+    Releases2 = rpc:call(Node, release_handler, which_releases, [old]),
+
+    1 = length(Releases0),
+    1 = length(Releases1),
+    0 = length(Releases2),
+
+    ?t:format("release_handler:which_releases/0: ~p~n", [Releases0]),
+    ?t:format("release_handler:which_releases/1: ~p~n", [Releases1]),
+    ?t:format("release_handler:which_releases/1: ~p~n", [Releases2]),
+
+    ok.
 
 %%-----------------------------------------------------------------
 %% Ticket: OTP-2740

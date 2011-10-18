@@ -431,6 +431,18 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
         <p>Returns all releases known to the release handler.</p>
       </desc>
     </func>
+    <func>
+      <name>which_releases(Status) -> [{Name, Vsn, Apps, Status}]</name>
+      <fsummary>Return all known releases of a specific status</fsummary>
+      <type>
+        <v>Name = Vsn = string()</v>
+        <v>Apps = ["App-Vsn"]</v>
+        <v>Status = unpacked | current | permanent | old</v>
+      </type>
+      <desc>
+        <p>Returns all releases known to the release handler of a specific status.</p>
+      </desc>
+    </func>
   </funcs>
 
   <section>
