@@ -1878,8 +1878,17 @@ parse_url(suite) ->
     [];
 parse_url(Config) when is_list(Config) ->
     %% ipv6
-    {http,[],"2010:836B:4179::836B:4179",80,"/foobar.html",[]}
-	= http_uri:parse("http://[2010:836B:4179::836B:4179]/foobar.html"),
+    {http,[],"2010:836B:4179::836B:4179",80,"/foobar.html",[]} = 
+	http_uri:parse("http://[2010:836B:4179::836B:4179]/foobar.html"),
+    {http,[],"[2010:836B:4179::836B:4179]",80,"/foobar.html",[]} = 
+	http_uri:parse("http://[2010:836B:4179::836B:4179]/foobar.html", 
+		       [{ipv6_host_with_brackets, true}]),
+    {http,[],"2010:836B:4179::836B:4179",80,"/foobar.html",[]} = 
+	http_uri:parse("http://[2010:836B:4179::836B:4179]/foobar.html", 
+		       [{ipv6_host_with_brackets, false}]),
+    {http,[],"2010:836B:4179::836B:4179",80,"/foobar.html",[]} = 
+	http_uri:parse("http://[2010:836B:4179::836B:4179]/foobar.html", 
+		       [{foo, false}]),
     {error,
      {malformed_url,"http://2010:836B:4179::836B:4179/foobar.html"}} =
 	http_uri:parse("http://2010:836B:4179::836B:4179/foobar.html"), 
@@ -1914,6 +1923,8 @@ parse_url(Config) when is_list(Config) ->
 	http_uri:parse("http://www.somedomain.com/%25abc"),
     {http,[],"www.somedomain.com",80,"/%25abc", "?foo=bar"} =
 	http_uri:parse("http://www.somedomain.com/%25abc?foo=bar"),
+
+    
     ok.    
 
 

@@ -90,25 +90,28 @@
 %%% All data associated to a specific HTTP request
 -record(request,
 	{
-	 id,            % ref() - Request Id
-	 from,          % pid() - Caller
-	 redircount = 0,% Number of redirects made for this request
-	 scheme,        % http | https 
-	 address,       % ({Host,Port}) Destination Host and Port
-	 path,          % string() - Path of parsed URL
-	 pquery,        % string() - Rest of parsed URL
-	 method,        % atom() - HTTP request Method
-	 headers,       % #http_request_h{}
-	 content,       % {ContentType, Body} - Current HTTP request
-	 settings,      % #http_options{} - User defined settings
-	 abs_uri,       % string() ex: "http://www.erlang.org"
-	 userinfo,      % string() - optinal "<userinfo>@<host>:<port>"
-	 stream,	% Boolean() - stream async reply?
-	 headers_as_is, % Boolean() - workaround for servers that does
-			% not honor the http standard, can also be used for testing purposes.
-	 started,       % integer() > 0 - When we started processing the request
-	 timer,         % undefined | ref()
-	 socket_opts    % undefined | [socket_option()]
+	  id,            % ref() - Request Id
+	  from,          % pid() - Caller
+	  redircount = 0,% Number of redirects made for this request
+	  scheme,        % http | https 
+	  address,       % ({Host,Port}) Destination Host and Port
+	  path,          % string() - Path of parsed URL
+	  pquery,        % string() - Rest of parsed URL
+	  method,        % atom() - HTTP request Method
+	  headers,       % #http_request_h{}
+	  content,       % {ContentType, Body} - Current HTTP request
+	  settings,      % #http_options{} - User defined settings
+	  abs_uri,       % string() ex: "http://www.erlang.org"
+	  userinfo,      % string() - optinal "<userinfo>@<host>:<port>"
+	  stream,	 % boolean() - stream async reply?
+	  headers_as_is, % boolean() - workaround for servers that does
+			 % not honor the http standard, can also be used 
+			 % for testing purposes.
+	  started,       % integer() > 0 - When we started processing the 
+			 % request
+	  timer,         % undefined | ref()
+	  socket_opts,   % undefined | [socket_option()]
+	  ipv6_host_with_brackets % boolean()
 	}
        ).               
 
