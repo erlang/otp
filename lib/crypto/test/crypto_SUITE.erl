@@ -44,7 +44,11 @@
 	 md5_mac_io/1,
 	 des_cbc/1,
 	 des_cbc_iter/1,
+	 des_cfb/1,
+	 des_cfb_iter/1,
 	 des_ecb/1,
+	 des3_cbc/1,
+	 des3_cfb/1,
 	 aes_cfb/1,
 	 aes_cbc/1,
 	 aes_cbc_iter/1,
@@ -75,8 +79,8 @@ all() ->
      md5_mac_io, sha, sha_update, 
      hmac_update_sha, hmac_update_sha_n, hmac_update_md5_n, hmac_update_md5_io, hmac_update_md5,
      %% sha256, sha256_update, sha512,sha512_update,
-     des_cbc, aes_cfb, aes_cbc,
-     aes_cbc_iter, aes_ctr, aes_ctr_stream, des_cbc_iter, des_ecb,
+     des_cbc, des_cfb, des3_cbc, des3_cfb, aes_cfb, aes_cbc,
+     aes_cbc_iter, aes_ctr, aes_ctr_stream, des_cbc_iter, des_cfb_iter, des_ecb,
      rand_uniform_test, strong_rand_test,
      rsa_verify_test, dsa_verify_test, rsa_sign_test,
      dsa_sign_test, rsa_encrypt_decrypt, dh, exor_test,
@@ -292,7 +296,7 @@ sha(Config) when is_list(Config) ->
 		hexstr2bin("84983E441C3BD26EBAAE4AA1F95129E5E54670F1")).
 
 
-%% 
+%%
 hmac_update_sha_n(doc) ->
     ["Request a larger-than-allowed SHA1 HMAC using hmac_init, hmac_update, and hmac_final_n. "
      "Expected values for examples are generated using crypto:sha_mac." ];
@@ -547,6 +551,40 @@ des_cbc_iter(Config) when is_list(Config) ->
 
 %%
 %%
+des_cfb(doc) ->
+    "Encrypt and decrypt according to CFB DES. and check the result. "
+	"Example is from FIPS-81.";
+des_cfb(suite) ->
+    [];
+des_cfb(Config) when is_list(Config) ->
+    ?line Key =  hexstr2bin("0123456789abcdef"),
+    ?line IVec = hexstr2bin("1234567890abcdef"),
+    ?line Plain = "Now is the",
+    ?line Cipher = crypto:des_cfb_encrypt(Key, IVec, Plain),
+    ?line m(Cipher, hexstr2bin("f31fda07011462ee187f")),
+    ?line m(list_to_binary(Plain),
+	    crypto:des_cfb_decrypt(Key, IVec, Cipher)).
+
+%%
+%%
+des_cfb_iter(doc) ->
+        "Encrypt and decrypt according to CFB DES in two steps, and "
+    "check the result. Example is from FIPS-81.";
+des_cfb_iter(suite) ->
+    [];
+des_cfb_iter(Config) when is_list(Config) ->
+    ?line Key =  hexstr2bin("0123456789abcdef"),
+    ?line IVec = hexstr2bin("1234567890abcdef"),
+    ?line Plain1 = "Now i",
+    ?line Plain2 = "s the",
+    ?line Cipher1 = crypto:des_cfb_encrypt(Key, IVec, Plain1),
+    ?line IVec2 = crypto:des_cfb_ivec(IVec, Cipher1),
+    ?line Cipher2 = crypto:des_cfb_encrypt(Key, IVec2, Plain2),
+    ?line Cipher = list_to_binary([Cipher1, Cipher2]),
+    ?line m(Cipher, hexstr2bin("f31fda07011462ee187f")).
+
+%%
+%%
 des_ecb(doc) ->
     "Encrypt and decrypt according to ECB DES and check the result. "
     "Example are from FIPS-81.";
@@ -566,6 +604,66 @@ des_ecb(Config) when is_list(Config) ->
     ?line m(Cipher5, <<"he time ">>),
     ?line Cipher6 = crypto:des_ecb_decrypt(Key, hexstr2bin("893d51ec4b563b53")),
     ?line m(Cipher6, <<"for all ">>).
+
+%%
+%%
+des3_cbc(doc) ->
+    "Encrypt and decrypt according to CBC 3DES, and check the result.";
+des3_cbc(suite) ->
+    [];
+des3_cbc(Config) when is_list(Config) ->
+    ?line Key1 = hexstr2bin("0123456789abcdef"),
+    ?line Key2 = hexstr2bin("fedcba9876543210"),
+    ?line Key3 = hexstr2bin("0f2d4b6987a5c3e1"),
+    ?line IVec = hexstr2bin("1234567890abcdef"),
+    ?line Plain = "Now is the time for all ",
+    ?line Cipher = crypto:des3_cbc_encrypt(Key1, Key2, Key3, IVec, Plain),
+    ?line m(Cipher, hexstr2bin("8a2667ee5577267cd9b1af2c5a0480"
+			       "0bac1ae66970fb2b89")),
+    ?line m(list_to_binary(Plain),
+	    crypto:des3_cbc_decrypt(Key1, Key2, Key3, IVec, Cipher)),
+    ?line Plain2 = "7654321 Now is the time for " ++ [0, 0, 0, 0],
+    ?line Cipher2 = crypto:des3_cbc_encrypt(Key1, Key2, Key3, IVec, Plain2),
+    ?line m(Cipher2, hexstr2bin("eb33ec6ede2c8e90f6877e77b95d5"
+				"4c83cee22907f7f0041ca1b7abe202bfafe")),
+    ?line m(list_to_binary(Plain2),
+	    crypto:des3_cbc_decrypt(Key1, Key2, Key3, IVec, Cipher2)),
+
+    ?line Key =  hexstr2bin("0123456789abcdef"),
+    ?line DESCipher = crypto:des3_cbc_encrypt(Key, Key, Key, IVec, Plain),
+    ?line m(DESCipher, hexstr2bin("e5c7cdde872bf27c43e934008c389c"
+			       "0f683788499a7c05f6")),
+    ?line m(list_to_binary(Plain),
+	    crypto:des3_cbc_decrypt(Key, Key, Key, IVec, DESCipher)),
+    ?line DESCipher2 = crypto:des3_cbc_encrypt(Key, Key, Key, IVec, Plain2),
+    ?line m(DESCipher2, hexstr2bin("b9916b8ee4c3da64b4f44e3cbefb9"
+				"9484521388fa59ae67d58d2e77e86062733")),
+    ?line m(list_to_binary(Plain2),
+	    crypto:des3_cbc_decrypt(Key, Key, Key, IVec, DESCipher2)).
+
+%%
+%%
+des3_cfb(doc) ->
+    "Encrypt and decrypt according to CFB 3DES, and check the result.";
+des3_cfb(suite) ->
+    [];
+des3_cfb(Config) when is_list(Config) ->
+    ?line Key1 = hexstr2bin("0123456789abcdef"),
+    ?line Key2 = hexstr2bin("fedcba9876543210"),
+    ?line Key3 = hexstr2bin("0f2d4b6987a5c3e1"),
+    ?line IVec = hexstr2bin("1234567890abcdef"),
+    ?line Plain = "Now is the time for all ",
+    ?line Cipher = crypto:des3_cfb_encrypt(Key1, Key2, Key3, IVec, Plain),
+    ?line m(Cipher, hexstr2bin("fc0ba7a20646ba53cc8bff263f0937"
+			       "1deab42a00666db02c")),
+    ?line m(list_to_binary(Plain),
+	    crypto:des3_cfb_decrypt(Key1, Key2, Key3, IVec, Cipher)),
+    ?line Plain2 = "7654321 Now is the time for " ++ [0, 0, 0, 0],
+    ?line Cipher2 = crypto:des3_cfb_encrypt(Key1, Key2, Key3, IVec, Plain2),
+    ?line m(Cipher2, hexstr2bin("8582c59ac01897422632c0accb66c"
+				"e413f5efab838fce7e41e2ba67705bad5bc")),
+    ?line m(list_to_binary(Plain2),
+	    crypto:des3_cfb_decrypt(Key1, Key2, Key3, IVec, Cipher2)).
 
 %%
 %%
@@ -1233,8 +1331,8 @@ rc4_test(doc) ->
 rc4_test(suite) ->
     [];
 rc4_test(Config) when is_list(Config) ->
-    CT1 = <<"hej på dig">>,
-    R1 = <<71,112,14,44,140,33,212,144,155,47>>,
+    CT1 = <<"Yo baby yo">>,
+    R1 = <<118,122,68,110,157,166,141,212,139,39>>,
     K = "apaapa",
     R1 = crypto:rc4_encrypt(K, CT1),
     CT1 = crypto:rc4_encrypt(K, R1),
@@ -1248,14 +1346,14 @@ rc4_stream_test(doc) ->
 rc4_stream_test(suite) ->
     [];
 rc4_stream_test(Config) when is_list(Config) ->
-    CT1 = <<"hej">>,
-    CT2 = <<" på dig">>,
+    CT1 = <<"Yo ">>,
+    CT2 = <<"baby yo">>,
     K = "apaapa",
     State0 = crypto:rc4_set_key(K),
     {State1, R1} = crypto:rc4_encrypt_with_state(State0, CT1),
     {_State2, R2} = crypto:rc4_encrypt_with_state(State1, CT2),
     R = list_to_binary([R1, R2]),
-    <<71,112,14,44,140,33,212,144,155,47>> = R,
+    <<118,122,68,110,157,166,141,212,139,39>> = R,
     ok.
 
 blowfish_cfb64(doc) -> ["Test Blowfish encrypt/decrypt."];
