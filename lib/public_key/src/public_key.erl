@@ -154,7 +154,6 @@ der_decode(Asn1Type, Der) when (Asn1Type == 'PrivateKeyInfo') or (Asn1Type ==  '
 			       andalso is_binary(Der) ->
     try
 	{ok, Decoded} = 'PKCS-FRAME':decode(Asn1Type, Der),
-	
 	Decoded
     catch
 	error:{badmatch, {error, _}} = Error ->

@@ -20,6 +20,7 @@
 -module(pbe_SUITE).
 
 -include_lib("test_server/include/test_server.hrl").
+-include_lib("public_key/include/public_key.hrl").
 
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
@@ -157,7 +158,7 @@ pbdkdf2(Config) when is_list(Config) ->
     <<16#ea, 16#6c, 16#01, 16#4d, 16#c7, 16#2d, 16#6f, 16#8c, 
       16#cd, 16#1e, 16#d9, 16#2a, 16#ce, 16#1d, 16#41, 16#f0,  
       16#d8,  16#de,  16#89, 16#57>>  =
-	pubkey_pbe:pbdkdf2("password", "salt", 2, 20, 20, fun crypto:sha_mac/2),
+	pubkey_pbe:pbdkdf2("password", "salt", 2, 20, fun crypto:sha_mac/3, 20),
 
      %% Input:
      %%   P = "password" (8 octets)
@@ -172,7 +173,7 @@ pbdkdf2(Config) when is_list(Config) ->
 
     <<16#4b, 16#00, 16#79, 16#01, 16#b7, 16#65, 16#48, 16#9a,
       16#be, 16#ad, 16#49, 16#d9, 16#26, 16#f7, 16#21, 16#d0,
-      16#65, 16#a4, 16#29, 16#c1>> = pubkey_pbe:pbdkdf2("password", "salt", 4096, 20, 20, fun crypto:sha_mac/2),
+      16#65, 16#a4, 16#29, 16#c1>> = pubkey_pbe:pbdkdf2("password", "salt", 4096, 20, fun crypto:sha_mac/3, 20),
 
     %% Input:
     %%    P = "password" (8 octets)
@@ -188,7 +189,7 @@ pbdkdf2(Config) when is_list(Config) ->
     
     <<16#ee, 16#fe, 16#3d, 16#61, 16#cd, 16#4d, 16#a4, 16#e4, 
       16#e9, 16#94, 16#5b, 16#3d, 16#6b, 16#a2, 16#15, 16#8c, 
-      16#26, 16#34, 16#e9, 16#84>> = pubkey_pbe:pbdkdf2("password", "salt", 16777216, 20, 20, fun crypto:sha_mac/2),
+      16#26, 16#34, 16#e9, 16#84>> = pubkey_pbe:pbdkdf2("password", "salt", 16777216, 20, fun crypto:sha_mac/3, 20),
     
     %% Input:
     %%    P = "passwordPASSWORDpassword" (24 octets)
@@ -207,7 +208,7 @@ pbdkdf2(Config) when is_list(Config) ->
       16#8b, 16#29, 16#1a, 16#96, 16#4c, 16#f2, 16#f0, 16#70, 
       16#38>>
 	= pubkey_pbe:pbdkdf2("passwordPASSWORDpassword", 
-			     "saltSALTsaltSALTsaltSALTsaltSALTsalt", 4096, 25, 20, fun crypto:sha_mac/2),
+			     "saltSALTsaltSALTsaltSALTsaltSALTsalt", 4096, 25, fun crypto:sha_mac/3, 20),
     
      %% Input:
      %%   P = "pass\0word" (9 octets)
@@ -222,30 +223,37 @@ pbdkdf2(Config) when is_list(Config) ->
     <<16#56, 16#fa, 16#6a, 16#a7, 16#55, 16#48, 16#09, 16#9d, 
       16#cc, 16#37, 16#d7, 16#f0, 16#34, 16#25, 16#e0, 16#c3>>
 	= pubkey_pbe:pbdkdf2("pass\0word", 
-			     "sa\0lt", 4096, 16, 20, fun crypto:sha_mac/2).
+			     "sa\0lt", 4096, 16, fun crypto:sha_mac/3, 20).
     
-
-pbe_des_cbc(doc) ->
-    ["Tests reading a password DES-CBC encrypted key file"];
-pbe_des_cbc(Config) when is_list(Config) ->
+encrypted_private_key_info(doc) ->
+    ["Tests reading a EncryptedPrivateKeyInfo file different ciphers"];
+encrypted_private_key_info(Config) when is_list(Config) ->
     Datadir = ?config(data_dir, Config),
-    {ok, Pem} = file:read_file(filename:join(Datadir, "des_cbc_enc_key.pem")),
+    {ok, PemDes} = file:read_file(filename:join(Datadir, "des_cbc_enc_key.pem")),
     
+    PemDesEntry = public_key:pem_decode(PemDes),
+    test_server:format("Pem entry: ~p" , [PemDesEntry]),
+    [{'PrivateKeyInfo', _, {"DES-CBC",_}} = PubEntry0] = PemDesEntry,
+    KeyInfo = public_key:pem_entry_decode(PubEntry0, "password"),
     
-    PemE = public_key:pem_decode(Pem),
-    test_server:format("PemE: ~p" , [PemE]),
-    [{'PrivateKeyInfo', _, _} = PubEntry0] = PemE,
-    Key = public_key:pem_entry_decode(PubEntry0, "password"),
-    test_server:format("Key: ~p" , [Key]).
+    {ok, Pem3Des} = file:read_file(filename:join(Datadir, "des_ede3_cbc_enc_key.pem")),
 
-pbe_des3_ede(doc) ->
-    ["Tests reading a password DES-CBC encrypted key file"];
-pbe_des3_ede(Config) when is_list(Config) ->
-    Datadir = ?config(data_dir, Config),
-    {ok, Pem} = file:read_file(filename:join(Datadir, "des_ede3_cbc_enc_key.pem")),
+    Pem3DesEntry = public_key:pem_decode(Pem3Des),
+    test_server:format("Pem entry: ~p" , [Pem3DesEntry]),
+    [{'PrivateKeyInfo', _, {"DES-EDE3-CBC",_}} = PubEntry1] = Pem3DesEntry,
+    KeyInfo = public_key:pem_entry_decode(PubEntry1, "password"),
 
-    PemE = public_key:pem_decode(Pem),
-    test_server:format("PemE: ~p" , [PemE]),
-    [{'PrivateKeyInfo', _, _} = PubEntry0] = PemE,
-    Key = public_key:pem_entry_decode(PubEntry0, "password"),
-    test_server:format("Key: ~p" , [Key]).
+    {ok, PemRc2} = file:read_file(filename:join(Datadir, "rc2_cbc_enc_key.pem")),
+
+    PemRc2Entry = public_key:pem_decode(PemRc2),
+    test_server:format("Pem entry: ~p" , [PemRc2Entry]),
+    [{'PrivateKeyInfo', _, {"RC2-CBC",_}} = PubEntry2] = PemRc2Entry,
+    KeyInfo = public_key:pem_entry_decode(PubEntry2, "password"),
+
+    check_key_info(KeyInfo).
+
+
+check_key_info(#'PrivateKeyInfo'{privateKeyAlgorithm =
+				     #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?rsaEncryption},
+				 privateKey = Key}) ->
+    #'RSAPrivateKey'{} = public_key:der_decode('RSAPrivateKey', iolist_to_binary(Key)).

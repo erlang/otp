@@ -49,6 +49,7 @@
 	 des_ecb/1,
 	 des3_cbc/1,
 	 des3_cfb/1,
+	 rc2_cbc/1,
 	 aes_cfb/1,
 	 aes_cbc/1,
 	 aes_cbc_iter/1,
@@ -79,8 +80,10 @@ all() ->
      md5_mac_io, sha, sha_update, 
      hmac_update_sha, hmac_update_sha_n, hmac_update_md5_n, hmac_update_md5_io, hmac_update_md5,
      %% sha256, sha256_update, sha512,sha512_update,
-     des_cbc, des_cfb, des3_cbc, des3_cfb, aes_cfb, aes_cbc,
+     des_cbc, des_cfb, des3_cbc, des3_cfb, rc2_cbc, aes_cfb, aes_cbc,
      aes_cbc_iter, aes_ctr, aes_ctr_stream, des_cbc_iter, des_cfb_iter, des_ecb,
+     des_cbc, rc2_cbc, aes_cfb, aes_cbc,
+     aes_cbc_iter, aes_ctr, aes_ctr_stream, des_cbc_iter, des_ecb,
      rand_uniform_test, strong_rand_test,
      rsa_verify_test, dsa_verify_test, rsa_sign_test,
      dsa_sign_test, rsa_encrypt_decrypt, dh, exor_test,
@@ -347,7 +350,7 @@ hmac_update_md5(Config) when is_list(Config) ->
     Key2 = "A fine speach by a fine man!",
     ?line Long1 = "Four score and seven years ago our fathers brought forth on this continent a new nation, conceived in liberty, and dedicated to the proposition that all men are created equal.",
     ?line Long2 = "Now we are engaged in a great civil war, testing whether that nation, or any nation, so conceived and so dedicated, can long endure. We are met on a great battle-field of that war. We have come to dedicate a portion of that field, as a final resting place for those who here gave their lives that that nation might live. It is altogether fitting and proper that we should do this.",
-    ?line Long3 = "But, in a larger sense, we can not dedicate, we can not consecrate, we can not hallow this ground. The brave men, living and dead, who struggled here, have consecrated it, far above our poor power to add or detract. The world will little note, nor long remember what we say here, but it can never forget what they did here. It is for us the living, rather, to be dedicated here to the unfinished work which they who fought here have thus far so nobly advanced. It is rather for us to be here dedicated to the great task remaining before us-that from these honored dead we take increased devotion to that cause for which they gave the last full measure of devotion—that we here highly resolve that these dead shall not have died in vain-that this nation, under God, shall have a new birth of freedom-and that government of the people, by the people, for the people, shall not perish from the earth.",
+    ?line Long3 = "But, in a larger sense, we can not dedicate, we can not consecrate, we can not hallow this ground. The brave men, living and dead, who struggled here, have consecrated it, far above our poor power to add or detract. The world will little note, nor long remember what we say here, but it can never forget what they did here. It is for us the living, rather, to be dedicated here to the unfinished work which they who fought here have thus far so nobly advanced. It is rather for us to be here dedicated to the great task remaining before us-that from these honored dead we take increased devotion to that cause for which they gave the last full measure of devotion that we here highly resolve that these dead shall not have died in vain-that this nation, under God, shall have a new birth of freedom-and that government of the people, by the people, for the people, shall not perish from the earth.",
     ?line CtxA = crypto:hmac_init(md5, Key2),
     ?line CtxB = crypto:hmac_update(CtxA, Long1),
     ?line CtxC = crypto:hmac_update(CtxB, Long2),
@@ -604,6 +607,21 @@ des_ecb(Config) when is_list(Config) ->
     ?line m(Cipher5, <<"he time ">>),
     ?line Cipher6 = crypto:des_ecb_decrypt(Key, hexstr2bin("893d51ec4b563b53")),
     ?line m(Cipher6, <<"for all ">>).
+%%
+%%
+rc2_cbc(doc) ->
+    "Encrypt and decrypt according to RC2 CBC and check the result. "
+    "Example stripped out from public_key application test";
+rc2_cbc(Config) when is_list(Config) ->
+   
+    Key = <<146,210,160,124,215,227,153,239,227,17,222,140,3,93,27,191>>,
+    IV = <<72,91,135,182,25,42,35,210>>,
+
+    Cipher = <<36,245,206,158,168,230,58,69,148,137,32,192,250,41,237,181,181,251, 192,2,175,135,177,171,57,30,111,117,159,149,15,28,88,158,28,81,28,115, 85,219,241,82,117,222,91,85,73,117,164,25,182,52,191,64,123,57,26,19, 211,27,253,31,194,219,231,104,247,240,172,130,119,21,225,154,101,247, 32,216,42,216,133,169,78,22,97,27,227,26,196,224,172,168,17,9,148,55, 203,91,252,40,61,226,236,221,215,160,78,63,13,181,68,57,196,241,185, 207, 116,129,152,237,60,139,247,153,27,146,161,246,222,98,185,222,152, 187,135, 236,86,34,7,110,91,230,173,34,160,242,202,222,121,127,181,140, 101,203,195, 190,88,250,86,147,127,87,72,126,171,16,71,47,110,248,88, 14,29,143,161,152, 129,236,148,22,152,186,208,119,70,8,174,193,203,100, 193,203,200,117,102,242, 134,142,96,125,135,200,217,190,76,117,50,70, 209,186,101,241,200,91,40,193,54, 90,195,38,47,59,197,38,234,86,223,16, 51,253,204,129,20,171,66,21,241,26,135,216, 196,114,110,91,15,53,40, 164,201,136,113,95,247,51,181,208,241,68,168,98,151,36, 155,72,24,57, 42,191,14,125,204,10,167,214,233,138,115,125,234,121,134,227,26,247, 77,200,117,110,117,111,168,156,206,67,159,149,189,173,150,193,91,199, 216,153,22, 189,137,185,89,160,13,131,132,58,109,28,110,246,252,251,14, 232,91,38,52,29,101,188,69,123,50,0,130,178,93,73,239,118,7,77,35,59, 253,10,159,45,86,142,37,78,232,48>>,
+    Text = <<48,130,1,85,2,1,0,48,13,6,9,42,134,72,134,247,13,1,1,1,5,0,4,130,1,63,48,130, 1,59,2,1,0,2,65,0,222,187,252,44,9,214,27,173,162,169,70,47,36,34,78,84,204, 107,60,192,117,95,21,206,49,142,245,126,121,223,23,2,107,106,133,204,161,36, 40,2,114,69,4,93,242,5,42,50,154,47,154,211,209,123,120,161,5,114,173,155,34, 191,52,59,2,3,1,0,1,2,64,45,144,169,106,220,236,71,39,67,82,123,192,35,21,61, 143,13,110,150,180,12,142,210,40,39,109,70,125,132,51,6,66,159,134,112,85, 155,243,118,221,65,133,127,99,151,194,252,141,149,224,229,62,214,45,228,32, 184,85,67,14,228,161,184,161,2,33,0,255,202,240,131,130,57,49,224,115,255,83, 79,6,165,212,21,179,212,20,188,97,74,69,68,163,223,247,237,39,24,23,235,2,33, 0,222,234,48,36,33,23,219,45,59,136,55,245,143,29,165,48,255,131,207,146,131, 104,13,163,54,131,236,78,88,54,16,241,2,33,0,230,2,99,129,173,176,166,131, 241,106,143,76,9,107,70,41,121,185,228,39,124,200,159,62,216,169,5,180,111, 169,255,159,2,33,0,151,193,70,212,209,210,179,219,175,83,165,4,255,81,103,76, 92,39,24,0,222,132,208,3,244,241,10,198,171,54,227,129,2,32,43,250,20,31,16, 189,168,116,225,1,125,132,94,130,118,124,28,56,232,39,69,218,244,33,240,200, 205,9,215,101,35,135,7,7,7,7,7,7,7>>,
+    
+    Text = crypto:rc2_cbc_decrypt(Key, IV, Cipher),
+    Cipher = crypto:rc2_cbc_encrypt(Key, IV, Text).
 
 %%
 %%
