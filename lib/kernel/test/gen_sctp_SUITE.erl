@@ -43,7 +43,7 @@ all() ->
 groups() -> 
     [].
 
-init_per_suite(Config) ->
+init_per_suite(_Config) ->
     case gen_sctp:open() of
 	{ok,Socket} ->
 	    gen_sctp:close(Socket),
@@ -52,7 +52,7 @@ init_per_suite(Config) ->
 	    {skip,"SCTP not supported on this machine"}
     end.
 
-end_per_suite(_Conifig) ->
+end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
@@ -975,8 +975,9 @@ peeloff(Config) when is_list(Config) ->
     %%
     ?line S3 = socket_peeloff(Socket1, S1Ai, Timeout),
     ?line ?LOGVAR(S3),
-    ?line P3 = socket_call(S3, get_port),
-    ?line ?LOGVAR(P3),
+    ?line P3_X = socket_call(S3, get_port),
+    ?line ?LOGVAR(P3_X),
+    ?line P3 = case P3_X of 0 -> P1; _ -> P3_X end,
     ?line [{_,#sctp_paddrinfo{assoc_id=S3Ai,state=active}}] =
 	socket_call(S3,
 	    {getopts,[{sctp_get_peer_addr_info,
