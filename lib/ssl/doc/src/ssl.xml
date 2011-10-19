@@ -71,7 +71,8 @@
       {fail_if_no_peer_cert, boolean()}
       {depth, integer()} |
       {cert, der_encoded()}| {certfile, path()} |
-      {key, der_encoded()} | {keyfile, path()} | {password, string()} |
+      {key, {'RSAPrivateKey'| 'DSAPrivateKey' | 'PrivateKeyInfo', der_encoded()}} |
+      {keyfile, path()} | {password, string()} |
       {cacerts, [der_encoded()]} | {cacertfile, path()} |
       |{dh, der_encoded()} | {dhfile, path()} | {ciphers, ciphers()} |
       {ssl_imp, ssl_imp()} | {reuse_sessions, boolean()} | {reuse_session, fun()} 
@@ -139,7 +140,7 @@
       <tag>{certfile, path()}</tag>
       <item>Path to a file containing the user's certificate.</item>
       
-      <tag>{key, der_encoded()}</tag>
+      <tag>{key, {'RSAPrivateKey'| 'DSAPrivateKey' | 'PrivateKeyInfo', der_encoded()}}</tag>
       <item> The DER encoded users private key. If this option
       is supplied it will override the keyfile option.</item>
       

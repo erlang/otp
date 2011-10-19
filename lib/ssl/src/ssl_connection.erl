@@ -1126,18 +1126,38 @@ init_private_key(DbHandle, undefined, KeyFile, Password, _) ->
 	{ok, List} = ssl_manager:cache_pem_file(KeyFile, DbHandle),
 	[PemEntry] = [PemEntry || PemEntry = {PKey, _ , _} <- List,
 				  PKey =:= 'RSAPrivateKey' orelse
-				      PKey =:= 'DSAPrivateKey'],
-	public_key:pem_entry_decode(PemEntry, Password)
+				      PKey =:= 'DSAPrivateKey' orelse
+				      PKey =:= 'PrivateKeyInfo'
+		     ],
+	private_key(public_key:pem_entry_decode(PemEntry, Password))
     catch 
 	Error:Reason ->
 	    handle_file_error(?LINE, Error, Reason, KeyFile, ekeyfile,
 			      erlang:get_stacktrace()) 
     end;
 
+%% First two clauses are for backwards compatibility
 init_private_key(_,{rsa, PrivateKey}, _, _,_) ->
-    public_key:der_decode('RSAPrivateKey', PrivateKey);
+    init_private_key('RSAPrivateKey', PrivateKey);
 init_private_key(_,{dsa, PrivateKey},_,_,_) ->
-    public_key:der_decode('DSAPrivateKey', PrivateKey).
+    init_private_key('DSAPrivateKey', PrivateKey);
+init_private_key(_,{Asn1Type, PrivateKey},_,_,_) ->
+    private_key(init_private_key(Asn1Type, PrivateKey)).
+
+init_private_key(Asn1Type, PrivateKey) ->
+    public_key:der_decode(Asn1Type, PrivateKey).
+
+private_key(#'PrivateKeyInfo'{privateKeyAlgorithm =
+				 #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'rsaEncryption'},
+			     privateKey = Key}) ->
+    public_key:der_decode('RSAPrivateKey', iolist_to_binary(Key));
+
+private_key(#'PrivateKeyInfo'{privateKeyAlgorithm =
+				 #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'id-dsa'},
+			     privateKey = Key}) ->
+    public_key:der_decode('DSAPrivateKey', iolist_to_binary(Key));
+private_key(Key) ->
+    Key.
 
 -spec(handle_file_error(_,_,_,_,_,_) -> no_return()).
 handle_file_error(Line, Error, {badmatch, Reason}, File, Throw, Stack) ->

@@ -109,6 +109,9 @@ special_init(TestCase, Config)
        TestCase == erlang_server_openssl_client_no_wrap_sequence_number ->
     check_sane_openssl_renegotaite(Config);
 
+special_init(ssl2_erlang_server_openssl_client, Config) ->
+    check_sane_openssl_sslv2(Config);
+
 special_init(_, Config) ->
     Config.
     
@@ -1430,6 +1433,14 @@ check_sane_openssl_renegotaite(Config) ->
 	    {skip, "Known renegotiation bug in OppenSSL"};
 	"OpenSSL 0.9.7" ++ _ ->
 	    {skip, "Known renegotiation bug in OppenSSL"};
+	_ ->
+	    Config
+    end.
+
+check_sane_openssl_sslv2(Config) ->
+    case os:cmd("openssl version") of
+	"OpenSSL 1.0.0e" ++ _ ->
+	    {skip, "Known option bug"};
 	_ ->
 	    Config
     end.
