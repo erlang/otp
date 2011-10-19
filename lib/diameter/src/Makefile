@@ -177,13 +177,12 @@ else
 include $(ERL_TOP)/make/otp_release_targets.mk
 endif
 
+# Can't $(INSTALL_DIR) more than on directory at a time on Solaris.
+
 release_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)/bin \
-	               $(RELSYSDIR)/ebin \
-	               $(RELSYSDIR)/examples \
-	               $(RELSYSDIR)/include \
-	               $(RELSYSDIR)/src/dict \
-	               $(TARGET_DIRS:%/=$(RELSYSDIR)/src/%)
+	for d in bin ebin examples include src/dict $(TARGET_DIRS:%/=src/%); do \
+	    $(INSTALL_DIR) $(RELSYSDIR)/$$d; \
+	done
 	$(INSTALL_SCRIPT) $(BINS:%=../bin/%) $(RELSYSDIR)/bin
 	$(INSTALL_DATA) $(TARGET_FILES) $(RELSYSDIR)/ebin
 	$(INSTALL_DATA) $(EXAMPLES:%=../examples/%) $(RELSYSDIR)/examples
