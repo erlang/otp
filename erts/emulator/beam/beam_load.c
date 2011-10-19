@@ -5687,7 +5687,17 @@ patch_funentries(Eterm Patchlist)
 
     fe = erts_get_fun_entry(Mod, uniq, index);
     fe->native_address = (Uint *)native_address;
-    erts_refc_dec(&fe->refc, 1);
+
+    /* Deliberate MEMORY LEAK of native fun entries!!!
+     *
+     * Uncomment line below when hipe code upgrade and purging works correctly.
+     * Today we may get cases when old (leaked) native code of a purged module
+     * gets called and tries to create instances of a deleted fun entry.
+     *
+     * Reproduced on a debug emulator with stdlib_test/qlc_SUITE:join_merge
+     *
+     * erts_refc_dec(&fe->refc, 1);
+     */
 
     if (!patch(Addresses, (Uint) fe))
       return 0;
