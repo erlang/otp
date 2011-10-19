@@ -31,6 +31,22 @@
   </header>
 
    <section>
+    <title>IC 4.2.28</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>
+	    Incorrect use of ets:match changed to ets:match_object.</p>
+          <p>
+            Own Id: OTP-9630 </p>
+        </item>
+      </list>
+    </section>
+   </section>
+
+   <section>
     <title>IC 4.2.27</title>
 
     <section>
