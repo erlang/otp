@@ -40,8 +40,9 @@ define(HANDLE_GOT_MBUF,`
  * standard_bif_interface_1(nbif_name, cbif_name)
  * standard_bif_interface_2(nbif_name, cbif_name)
  * standard_bif_interface_3(nbif_name, cbif_name)
+ * standard_bif_interface_0(nbif_name, cbif_name)
  *
- * Generate native interface for a BIF with 1-3 parameters and
+ * Generate native interface for a BIF with 0-3 parameters and
  * standard failure mode.
  */
 define(standard_bif_interface_1,
@@ -149,13 +150,7 @@ ASYM($1):
 	TYPE_FUNCTION(ASYM($1))
 #endif')
 
-/*
- * fail_bif_interface_0(nbif_name, cbif_name)
- *
- * Generate native interface for a BIF with 0 parameters and
- * standard failure mode.
- */
-define(fail_bif_interface_0,
+define(standard_bif_interface_0,
 `
 #ifndef HAVE_$1
 #`define' HAVE_$1

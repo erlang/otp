@@ -70,21 +70,15 @@
  ****************************************************************/
 
 /*
+ * standard_bif_interface_0(nbif_name, cbif_name)
  * standard_bif_interface_1(nbif_name, cbif_name)
  * standard_bif_interface_2(nbif_name, cbif_name)
  * standard_bif_interface_3(nbif_name, cbif_name)
  *
- * A BIF with implicit P parameter, 1-3 ordinary parameters,
+ * A BIF with implicit P parameter, 0-3 ordinary parameters,
  * which may fail.
  * HP and FCALLS may be read and updated.
  * HP_LIMIT, NSP, NSP_LIMIT, and NRA may not be accessed.
- */
-
-/*
- * fail_bif_interface_0(nbif_name, cbif_name)
- *
- * A zero-arity BIF which may fail, otherwise
- * identical to standard_bif_interface_N.
  */
 
 /*
@@ -150,8 +144,8 @@
 /*
  * Zero-arity BIFs that can fail.
  */
-fail_bif_interface_0(nbif_memory_0, memory_0)
-fail_bif_interface_0(nbif_processes_0, processes_0)
+standard_bif_interface_0(nbif_memory_0, memory_0)
+standard_bif_interface_0(nbif_processes_0, processes_0)
 
 /*
  * BIFs and primops that may do a GC (change heap limit and walk the native stack).
@@ -259,11 +253,6 @@ ifelse(ERTS_SMP,1,`
 nocons_nofail_primop_interface_0(nbif_clear_timeout, hipe_clear_timeout)
 noproc_primop_interface_1(nbif_atomic_inc, hipe_atomic_inc)
 ',)dnl
-
-/*
- * Implement standard_bif_interface_0 as nofail_primop_interface_0.
- */
-define(standard_bif_interface_0,`nofail_primop_interface_0($1, $2)')
 
 /*
  * Standard BIFs.
