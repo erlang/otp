@@ -207,7 +207,7 @@ all() ->
     [app, alerts, connection_info, protocol_versions,
      empty_protocol_versions, controlling_process,
      controller_dies, client_closes_socket,
-     connect_dist, peername, sockname, socket_options,
+     connect_dist, peername, peercert, sockname, socket_options,
      invalid_inet_get_option, invalid_inet_get_option_not_list,
      invalid_inet_get_option_improper_list,
      invalid_inet_set_option, invalid_inet_set_option_not_list,
@@ -661,6 +661,44 @@ peername(Config) when is_list(Config) ->
 
 peername_result(S) ->
     ssl:peername(S).
+
+%%--------------------------------------------------------------------
+peercert(doc) ->
+    [""];
+peercert(suite) ->
+    [];
+peercert(Config) when is_list(Config) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
+					{from, self()},
+			   {mfa, {?MODULE, peercert_result, []}},
+			   {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port},
+					{host, Hostname},
+			   {from, self()},
+			   {mfa, {?MODULE, peercert_result, []}},
+			   {options, ClientOpts}]),
+
+    CertFile = proplists:get_value(certfile, ServerOpts),
+    [{'Certificate', BinCert, _}]= ssl_test_lib:pem_to_der(CertFile),
+
+    ServerMsg = {error, no_peercert},
+    ClientMsg = {ok, BinCert},
+
+    test_server:format("Testcase ~p, Client ~p  Server ~p ~n",
+		       [self(), Client, Server]),
+
+    ssl_test_lib:check_result(Server, ServerMsg, Client, ClientMsg),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+peercert_result(Socket) ->
+    ssl:peercert(Socket).
 
 %%--------------------------------------------------------------------
 sockname(doc) -> 

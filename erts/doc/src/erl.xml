@@ -994,7 +994,7 @@
           the <c><![CDATA[-extra]]></c> section, i.e. the end of the command line
           following after an <c><![CDATA[-extra]]></c> flag.</p>
       </item>
-      <tag><c><![CDATA[ERL_ZFLAGS]]></c>and <c><![CDATA[ERL_FLAGS]]></c></tag>
+      <tag><c><![CDATA[ERL_ZFLAGS]]></c> and <c><![CDATA[ERL_FLAGS]]></c></tag>
       <item>
         <p>The content of these environment variables will be added to the
           end of the command line for <c><![CDATA[erl]]></c>.</p>

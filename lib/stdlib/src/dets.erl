@@ -1754,17 +1754,6 @@ system_code_change(State, _Module, _OldVsn, _Extra) ->
 %%% Internal functions
 %%%----------------------------------------------------------------------
 
-constants(FH, FileName) ->
-    Version = FH#fileheader.version,
-    if 
-        Version =< 8 ->
-            dets_v8:constants();
-        Version =:= 9 ->
-            dets_v9:constants();
-        true ->
-            throw({error, {not_a_dets_file, FileName}})
-    end.
-
 %% -> {ok, Fd, fileheader()} | throw(Error)
 read_file_header(FileName, Access, RamFile) ->
     BF = if
@@ -1842,7 +1831,11 @@ do_bchunk_init(Head, Tab) ->
 		    {H2, {error, old_version}};
 		Parms ->
                     L = dets_utils:all_allocated(H2),
-                    C0 = #dets_cont{no_objs = default, bin = <<>>, alloc = L},
+                    Bin = if
+                              L =:= <<>> -> eof;
+                              true -> <<>>
+                          end,
+                    C0 = #dets_cont{no_objs = default, bin = Bin, alloc = L},
 		    BinParms = term_to_binary(Parms),
 		    {H2, {C0#dets_cont{tab = Tab, proc = self(),what = bchunk},
                           [BinParms]}}
@@ -2475,10 +2468,23 @@ fopen2(Fname, Tab) ->
 	    %% Fd is not always closed upon error, but exit is soon called.
 	    {ok, Fd, FH} = read_file_header(Fname, Acc, Ram),
             Mod = FH#fileheader.mod,
-	    case Mod:check_file_header(FH, Fd) of
-		{error, not_closed} ->
-		    io:format(user,"dets: file ~p not properly closed, "
-			      "repairing ...~n", [Fname]),
+            Do = case Mod:check_file_header(FH, Fd) of
+                     {ok, Head1, ExtraInfo} ->
+                         Head2 = Head1#head{filename = Fname},
+                         try {ok, Mod:init_freelist(Head2, ExtraInfo)}
+                         catch
+                             throw:_ ->
+                                 {repair, " has bad free lists, repairing ..."}
+                         end;
+                     {error, not_closed} ->
+                         M = " not properly closed, repairing ...",
+                         {repair, M};
+                     Else ->
+                         Else
+                 end,
+            case Do of
+		{repair, Mess} ->
+                    io:format(user, "dets: file ~p~s~n", [Fname, Mess]),
                     Version = default,
                     case fsck(Fd, Tab, Fname, FH, default, default, Version) of
                         ok ->
@@ -2486,9 +2492,9 @@ fopen2(Fname, Tab) ->
                         Error ->
                             throw(Error)
                     end;
-		{ok, Head, ExtraInfo} ->
+		{ok, Head} ->
 		    open_final(Head, Fname, Acc, Ram, ?DEFAULT_CACHE, 
-			       Tab, ExtraInfo, false);
+			       Tab, false);
 		{error, Reason} ->
 		    throw({error, {Reason, Fname}})
 	    end;
@@ -2520,12 +2526,13 @@ fopen_existing_file(Tab, OpenArgs) ->
     V9 = (Version =:= 9) or (Version =:= default),
     MinF = (MinSlots =:= default) or (MinSlots =:= FH#fileheader.min_no_slots),
     MaxF = (MaxSlots =:= default) or (MaxSlots =:= FH#fileheader.max_no_slots),
-    Do = case (FH#fileheader.mod):check_file_header(FH, Fd) of
+    Mod = (FH#fileheader.mod),
+    Wh = case Mod:check_file_header(FH, Fd) of
 	     {ok, Head, true} when Rep =:= force, Acc =:= read_write,
 				   FH#fileheader.version =:= 9,
 				   FH#fileheader.no_colls =/= undefined,
 				   MinF, MaxF, V9 ->
-		 {compact, Head};
+		 {compact, Head, true};
              {ok, _Head, _Extra} when Rep =:= force, Acc =:= read ->
                  throw({error, {access_mode, Fname}});
 	     {ok, Head, need_compacting} when Acc =:= read ->
@@ -2555,6 +2562,17 @@ fopen_existing_file(Tab, OpenArgs) ->
 	     {error, Reason} ->
 		 throw({error, {Reason, Fname}})
 	 end,
+    Do = case Wh of
+             {Tag, Hd, Extra} when Tag =:= final; Tag =:= compact ->
+                 Hd1 = Hd#head{filename = Fname},
+                 try {Tag, Mod:init_freelist(Hd1, Extra)}
+                 catch
+                     throw:_ ->
+                         {repair, " has bad free lists, repairing ..."}
+                 end;
+             Else ->
+                 Else
+         end,
     case Do of
 	_ when FH#fileheader.type =/= Type ->
 	    throw({error, {type_mismatch, Fname}});
@@ -2563,8 +2581,7 @@ fopen_existing_file(Tab, OpenArgs) ->
 	{compact, SourceHead} ->
 	    io:format(user, "dets: file ~p is now compacted ...~n", [Fname]),
 	    {ok, NewSourceHead} = open_final(SourceHead, Fname, read, false,
-					     ?DEFAULT_CACHE, Tab, true,
-                                             Debug),
+					     ?DEFAULT_CACHE, Tab, Debug),
 	    case catch compact(NewSourceHead) of
 		ok ->
 		    erlang:garbage_collect(),
@@ -2584,9 +2601,9 @@ fopen_existing_file(Tab, OpenArgs) ->
 		      Version, OpenArgs);
 	_ when FH#fileheader.version =/= Version, Version =/= default ->
 	    throw({error, {version_mismatch, Fname}});
-	{final, H, EI} ->
+	{final, H} ->
 	    H1 = H#head{auto_save = Auto},
-	    open_final(H1, Fname, Acc, Ram, CacheSz, Tab, EI, Debug)
+	    open_final(H1, Fname, Acc, Ram, CacheSz, Tab, Debug)
     end.
 
 do_repair(Fd, Tab, Fname, FH, MinSlots, MaxSlots, Version, OpenArgs) ->
@@ -2600,19 +2617,16 @@ do_repair(Fd, Tab, Fname, FH, MinSlots, MaxSlots, Version, OpenArgs) ->
     end.
 
 %% -> {ok, head()} | throw(Error)
-open_final(Head, Fname, Acc, Ram, CacheSz, Tab, ExtraInfo, Debug) ->
+open_final(Head, Fname, Acc, Ram, CacheSz, Tab, Debug) ->
     Head1 = Head#head{access = Acc,
 		      ram_file = Ram,
 		      filename = Fname,
 		      name = Tab,
 		      cache = dets_utils:new_cache(CacheSz)},
     init_disk_map(Head1#head.version, Tab, Debug),
-    Mod = Head#head.mod,
-    Mod:cache_segps(Head1#head.fptr, Fname, Head1#head.next),
-    Ftab = Mod:init_freelist(Head1, ExtraInfo),
+    (Head1#head.mod):cache_segps(Head1#head.fptr, Fname, Head1#head.next),
     check_growth(Head1),
-    NewHead = Head1#head{freelists = Ftab},
-    {ok, NewHead}.
+    {ok, Head1}.
 
 %% -> {ok, head()} | throw(Error)
 fopen_init_file(Tab, OpenArgs) ->
@@ -3139,8 +3153,12 @@ init_scan(Head, NoObjs) ->
     check_safe_fixtable(Head),
     FreeLists = dets_utils:get_freelists(Head),
     Base = Head#head.base,
-    {From, To} = dets_utils:find_next_allocated(FreeLists, Base, Base),
-    #dets_cont{no_objs = NoObjs, bin = <<>>, alloc = {From, To, <<>>}}.
+    case dets_utils:find_next_allocated(FreeLists, Base, Base) of
+        {From, To} ->
+            #dets_cont{no_objs = NoObjs, bin = <<>>, alloc = {From,To,<<>>}};
+        none ->
+            #dets_cont{no_objs = NoObjs, bin = eof, alloc = <<>>}
+    end.
 
 check_safe_fixtable(Head) ->
     case (Head#head.fixed =:= false) andalso 
@@ -3241,18 +3259,20 @@ view(FileName) ->
     case catch read_file_header(FileName, read, false) of
         {ok, Fd, FH} ->
 	    Mod = FH#fileheader.mod,
-	    case Mod:check_file_header(FH, Fd) of
-		{ok, H0, ExtraInfo} ->
-		    Ftab = Mod:init_freelist(H0, ExtraInfo),
-		    {_Bump, Base} = constants(FH, FileName),
-		    H = H0#head{freelists=Ftab, base = Base},
-		    v_free_list(H),
-		    Mod:v_segments(H),
-		    file:close(Fd);
-		X ->
-		    file:close(Fd),
-		    X
-	    end;
+            try Mod:check_file_header(FH, Fd) of
+                {ok, H0, ExtraInfo} ->
+                    Mod = FH#fileheader.mod,
+                    case Mod:check_file_header(FH, Fd) of
+                        {ok, H0, ExtraInfo} ->
+                            H = Mod:init_freelist(H0, ExtraInfo),
+                            v_free_list(H),
+                            Mod:v_segments(H),
+                            ok;
+                        X ->
+                            X
+                    end
+            after file:close(Fd)
+            end;
 	X -> 
 	    X
     end.

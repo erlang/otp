@@ -26,6 +26,10 @@
 -export([seed/0, seed/1, seed/3, uniform/0, uniform/1,
 	 uniform_s/1, uniform_s/2, seed0/0]).
 
+-define(PRIME1, 30269).
+-define(PRIME2, 30307).
+-define(PRIME3, 30323).
+
 %%-----------------------------------------------------------------------
 %% The type of the state
 
@@ -44,7 +48,11 @@ seed0() ->
 -spec seed() -> ran().
 
 seed() ->
-    reseed(seed0()).
+    case seed_put(seed0()) of
+	undefined -> seed0();
+	{_,_,_} = Tuple -> Tuple
+    end.	
+
 
 %% seed({A1, A2, A3}) 
 %%  Seed random number generation 
@@ -66,17 +74,15 @@ seed({A1, A2, A3}) ->
       A3 :: integer().
 
 seed(A1, A2, A3) ->
-    put(random_seed, 
-	{abs(A1) rem 30269, abs(A2) rem 30307, abs(A3) rem 30323}).
+    seed_put({(abs(A1) rem (?PRIME1-1)) + 1,   % Avoid seed numbers that are
+	      (abs(A2) rem (?PRIME2-1)) + 1,   % even divisors of the
+	      (abs(A3) rem (?PRIME3-1)) + 1}). % corresponding primes.
 
 
--spec reseed(ran()) -> ran().
-
-reseed({A1, A2, A3}) ->
-    case seed(A1, A2, A3) of
-	undefined -> seed0();
-	{_,_,_} = Tuple -> Tuple
-    end.	
+-spec seed_put(ran()) -> 'undefined' | ran().
+     
+seed_put(Seed) ->
+    put(random_seed, Seed).
 
 %% uniform()
 %%  Returns a random float between 0 and 1.
@@ -88,11 +94,11 @@ uniform() ->
 		       undefined -> seed0();
 		       Tuple -> Tuple
 		   end,
-    B1 = (A1*171) rem 30269,
-    B2 = (A2*172) rem 30307,
-    B3 = (A3*170) rem 30323,
+    B1 = (A1*171) rem ?PRIME1,
+    B2 = (A2*172) rem ?PRIME2,
+    B3 = (A3*170) rem ?PRIME3,
     put(random_seed, {B1,B2,B3}),
-    R = A1/30269 + A2/30307 + A3/30323,
+    R = B1/?PRIME1 + B2/?PRIME2 + B3/?PRIME3,
     R - trunc(R).
 
 %% uniform(N) -> I
@@ -116,10 +122,10 @@ uniform(N) when is_integer(N), N >= 1 ->
       State1 :: ran().
 
 uniform_s({A1, A2, A3}) ->
-    B1 = (A1*171) rem 30269,
-    B2 = (A2*172) rem 30307,
-    B3 = (A3*170) rem 30323,
-    R = A1/30269 + A2/30307 + A3/30323,
+    B1 = (A1*171) rem ?PRIME1,
+    B2 = (A2*172) rem ?PRIME2,
+    B3 = (A3*170) rem ?PRIME3,
+    R = B1/?PRIME1 + B2/?PRIME2 + B3/?PRIME3,
     {R - trunc(R), {B1,B2,B3}}.
 
 %% uniform_s(N, State) -> {I, NewState}

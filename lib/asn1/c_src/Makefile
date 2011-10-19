@@ -62,7 +62,7 @@ NIF_OBJ_FILES = $(OBJDIR)/asn1_erl_nif.o
 
 
 ifeq ($(TARGET),win32)
-NIF_SHARED_OBJ_FILES = $(LIBDIR)/asn1_erl_nif.dll
+NIF_SHARED_OBJ_FILE = $(LIBDIR)/asn1_erl_nif.dll
 CLIB_FLAGS =
 LN=cp
 else

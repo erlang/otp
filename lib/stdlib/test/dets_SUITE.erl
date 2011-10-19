@@ -34,6 +34,8 @@
 -define(datadir(Conf), ?config(data_dir, Conf)).
 -endif.
 
+-compile(r13). % OTP-9607
+
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, 
 	 not_run/1, newly_started/1, basic_v8/1, basic_v9/1,
@@ -53,7 +55,7 @@
          simultaneous_open/1, insert_new/1, repair_continuation/1,
          otp_5487/1, otp_6206/1, otp_6359/1, otp_4738/1, otp_7146/1,
          otp_8070/1, otp_8856/1, otp_8898/1, otp_8899/1, otp_8903/1,
-         otp_8923/1, otp_9282/1]).
+         otp_8923/1, otp_9282/1, otp_9607/1]).
 
 -export([dets_dirty_loop/0]).
 
@@ -112,7 +114,7 @@ all() ->
 	     many_clients, otp_4906, otp_5402, simultaneous_open,
 	     insert_new, repair_continuation, otp_5487, otp_6206,
 	     otp_6359, otp_4738, otp_7146, otp_8070, otp_8856, otp_8898,
-	     otp_8899, otp_8903, otp_8923, otp_9282]
+	     otp_8899, otp_8903, otp_8923, otp_9282, otp_9607]
     end.
 
 groups() -> 
@@ -554,7 +556,11 @@ dets_dirty_loop() ->
 	{From, [write, Name, Value]} ->
 	    Ret = dets:insert(Name, Value),
 	    From ! {self(), Ret},
-	    dets_dirty_loop()
+	    dets_dirty_loop();
+        {From, [close, Name]} ->
+            Ret = dets:close(Name),
+            From ! {self(), Ret},
+            dets_dirty_loop()
     end.
 
 
@@ -1568,8 +1574,10 @@ repair(Config, V) ->
     ?line FileSize = dets:info(TabRef, memory),
     ?line ok = dets:close(TabRef),
     crash(Fname, FileSize+20),
-    ?line {error, {bad_freelists, Fname}} = 
+    %% Used to return bad_freelists, but that changed in OTP-9622
+    ?line {ok, TabRef} =
 	dets:open_file(TabRef, [{file,Fname},{version,V}]),
+    ?line ok = dets:close(TabRef),
     ?line file:delete(Fname),
 
     %% File not closed, opening with read and read_write access tried.
@@ -3880,9 +3888,90 @@ some_calls(Tab, Config) ->
     ?line ok = dets:close(T),
     file:delete(File).
 
+otp_9607(doc) ->
+    ["OTP-9607. Test downgrading the slightly changed format."];
+otp_9607(suite) ->
+    [];
+otp_9607(Config) when is_list(Config) ->
+    %% Note: the bug is about almost full tables. The fix of that
+    %% problem is *not* tested here.
+    Version = r13b,
+    case ?t:is_release_available(atom_to_list(Version)) of
+        true ->
+            T = otp_9607,
+            File = filename(T, Config),
+            Key = a,
+            Value = 1,
+            Args = [{file,File}],
+            ?line {ok, T} = dets:open_file(T, Args),
+            ?line ok = dets:insert(T, {Key, Value}),
+            ?line ok = dets:close(T),
+
+            ?line Call = fun(P, A) ->
+                                 P ! {self(), A},
+                                 receive
+                                     {P, Ans} ->
+                                         Ans
+                                 after 5000 ->
+                                         exit(other_process_dead)
+                                 end
+                         end,
+            %% Create a file on the modified format, read the file
+            %% with an emulator that doesn't know about the modified
+            %% format.
+            ?line {ok, Node} = start_node_rel(Version, Version, slave),
+            ?line Pid = rpc:call(Node, erlang, spawn,
+                                 [?MODULE, dets_dirty_loop, []]),
+            ?line {error,{needs_repair, File}} =
+                Call(Pid, [open, T, Args++[{repair,false}]]),
+            io:format("Expect repair:~n"),
+            ?line {ok, T} = Call(Pid, [open, T, Args]),
+            ?line [{Key,Value}] = Call(Pid, [read, T, Key]),
+            ?line ok = Call(Pid, [close, T]),
+            file:delete(File),
+
+            %% Create a file on the unmodified format. Modify the file
+            %% using an emulator that must not turn the file into the
+            %% modified format. Read the file and make sure it is not
+            %% repaired.
+            ?line {ok, T} = Call(Pid, [open, T, Args]),
+            ?line ok = Call(Pid, [write, T, {Key,Value}]),
+            ?line [{Key,Value}] = Call(Pid, [read, T, Key]),
+            ?line ok = Call(Pid, [close, T]),
+
+            Key2 = b,
+            Value2 = 2,
+
+            ?line {ok, T} = dets:open_file(T, Args),
+            ?line [{Key,Value}] = dets:lookup(T, Key),
+            ?line ok = dets:insert(T, {Key2,Value2}),
+            ?line ok = dets:close(T),
+
+            ?line {ok, T} = Call(Pid, [open, T, Args++[{repair,false}]]),
+            ?line [{Key2,Value2}] = Call(Pid, [read, T, Key2]),
+            ?line ok = Call(Pid, [close, T]),
+
+            ?t:stop_node(Node),
+            file:delete(File),
+            ok;
+        false ->
+	    {skipped, "No support for old node"}
+    end.
+
+
+
 %%
 %% Parts common to several test cases
 %% 
+
+start_node_rel(Name, Rel, How) ->
+    Release = [{release, atom_to_list(Rel)}],
+    ?line Pa = filename:dirname(code:which(?MODULE)),
+    ?line test_server:start_node(Name, How,
+                                 [{args,
+                                   " -kernel net_setuptime 100 "
+                                   " -pa " ++ Pa},
+                                  {erl, Release}]).
 
 crash(File, Where) ->
     crash(File, Where, 10).

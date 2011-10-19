@@ -35,7 +35,8 @@ MODULES = \
 	diameter_transport_SUITE \
 	diameter_traffic_SUITE \
 	diameter_relay_SUITE \
-	diameter_tls_SUITE
+	diameter_tls_SUITE \
+	diameter_failover_SUITE
 
 INTERNAL_HRL_FILES = \
 	diameter_ct.hrl
