@@ -340,7 +340,9 @@ redirect(Response = {StatusLine, Headers, Body}, Request) ->
 	undefined ->
 	    transparent(Response, Request);
 	RedirUrl ->
-	    case http_uri:parse(RedirUrl) of
+	    UrlParseOpts = [{ipv6_host_with_brackets, 
+			     Request#request.ipv6_host_with_brackets}], 
+	    case http_uri:parse(RedirUrl, UrlParseOpts) of
 		{error, no_scheme} when
 		(Request#request.settings)#http_options.relaxed ->
 		    NewLocation = fix_relative_uri(Request, RedirUrl),
@@ -350,10 +352,9 @@ redirect(Response = {StatusLine, Headers, Body}, Request) ->
 		{error, Reason} ->
 		    {ok, error(Request, Reason), Data};
 		%% Automatic redirection
-		{Scheme, _, Host, Port, Path,  Query} -> 
+		{ok, {Scheme, _, Host, Port, Path,  Query}} -> 
 		    NewHeaders = 
-			(Request#request.headers)#http_request_h{host = 
-								 Host},
+			(Request#request.headers)#http_request_h{host = Host},
 		    NewRequest = 
 			Request#request{redircount = 
 					Request#request.redircount+1,

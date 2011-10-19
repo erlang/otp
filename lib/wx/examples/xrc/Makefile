@@ -28,7 +28,8 @@ TESTMODS = xrc
 TESTTARGETS = $(TESTMODS:%=%.beam)
 TESTSRC = $(TESTMODS:%=%.erl)
 
-RESOURCEFILES = appicon.ico basicdlg.xpm custclas.xpm fileopen.gif menu.xrc \
+RESOURCEFILES = \
+	appicon.ico basicdlg.xpm custclas.xpm fileopen.gif menu.xrc \
 	resource.xrc uncenter.xpm  variable.xrc appicon.xpm basicdlg.xrc \
 	custclas.xrc filesave.gif platform.xpm stop.xpm uncenter.xrc \
 	artprov.xpm controls.xpm derivdlg.xpm frame.xrc platform.xrc \
@@ -59,7 +60,7 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 
 docs: 
 
-release_spec: 
+release_spec: opt
 	$(INSTALL_DIR) $(EXRELSYSDIR)
 	$(INSTALL_DATA) $(TESTSRC) $(EXRELSYSDIR)
 	$(INSTALL_DATA) $(TESTTARGETS) $(EXRELSYSDIR)

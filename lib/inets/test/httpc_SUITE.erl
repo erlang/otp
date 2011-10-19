@@ -1878,22 +1878,31 @@ parse_url(suite) ->
     [];
 parse_url(Config) when is_list(Config) ->
     %% ipv6
-    {http,[],"2010:836B:4179::836B:4179",80,"/foobar.html",[]}
-	= http_uri:parse("http://[2010:836B:4179::836B:4179]/foobar.html"),
+    {ok, {http,[],"2010:836B:4179::836B:4179",80,"/foobar.html",[]}} = 
+	http_uri:parse("http://[2010:836B:4179::836B:4179]/foobar.html"),
+    {ok, {http,[],"[2010:836B:4179::836B:4179]",80,"/foobar.html",[]}} = 
+	http_uri:parse("http://[2010:836B:4179::836B:4179]/foobar.html", 
+		       [{ipv6_host_with_brackets, true}]),
+    {ok, {http,[],"2010:836B:4179::836B:4179",80,"/foobar.html",[]}} = 
+	http_uri:parse("http://[2010:836B:4179::836B:4179]/foobar.html", 
+		       [{ipv6_host_with_brackets, false}]),
+    {ok, {http,[],"2010:836B:4179::836B:4179",80,"/foobar.html",[]}} = 
+	http_uri:parse("http://[2010:836B:4179::836B:4179]/foobar.html", 
+		       [{foo, false}]),
     {error,
      {malformed_url,"http://2010:836B:4179::836B:4179/foobar.html"}} =
 	http_uri:parse("http://2010:836B:4179::836B:4179/foobar.html"), 
 
     %% ipv4
-    {http,[],"127.0.0.1",80,"/foobar.html",[]} =
+    {ok, {http,[],"127.0.0.1",80,"/foobar.html",[]}} =
 	http_uri:parse("http://127.0.0.1/foobar.html"),
     
     %% host
-    {http,[],"localhost",8888,"/foobar.html",[]} = 
+    {ok, {http,[],"localhost",8888,"/foobar.html",[]}} = 
 	http_uri:parse("http://localhost:8888/foobar.html"),
     
     %% Userinfo
-    {http,"nisse:foobar","localhost",8888,"/foobar.html",[]} =
+    {ok, {http,"nisse:foobar","localhost",8888,"/foobar.html",[]}} =
 	http_uri:parse("http://nisse:foobar@localhost:8888/foobar.html"),
     
     %% Scheme error
@@ -1902,18 +1911,20 @@ parse_url(Config) when is_list(Config) ->
 	http_uri:parse("localhost:8888/foobar.html"),
     
     %% Query
-    {http,[],"localhost",8888,"/foobar.html","?foo=bar&foobar=42"} =
+    {ok, {http,[],"localhost",8888,"/foobar.html","?foo=bar&foobar=42"}} =
 	http_uri:parse("http://localhost:8888/foobar.html?foo=bar&foobar=42"),
     
     %%  Esc chars
-    {http,[],"www.somedomain.com",80,"/%2Eabc",[]} =
+    {ok, {http,[],"www.somedomain.com",80,"/%2Eabc",[]}} =
 	http_uri:parse("http://www.somedomain.com/%2Eabc"),
-    {http,[],"www.somedomain.com",80,"/%252Eabc",[]} = 
+    {ok, {http,[],"www.somedomain.com",80,"/%252Eabc",[]}} = 
 	http_uri:parse("http://www.somedomain.com/%252Eabc"),
-    {http,[],"www.somedomain.com",80,"/%25abc",[]} =
+    {ok, {http,[],"www.somedomain.com",80,"/%25abc",[]}} =
 	http_uri:parse("http://www.somedomain.com/%25abc"),
-    {http,[],"www.somedomain.com",80,"/%25abc", "?foo=bar"} =
+    {ok, {http,[],"www.somedomain.com",80,"/%25abc", "?foo=bar"}} =
 	http_uri:parse("http://www.somedomain.com/%25abc?foo=bar"),
+
+    
     ok.    
 
 
@@ -2058,12 +2069,14 @@ http_invalid_http(Config) when is_list(Config) ->
 
 %%-------------------------------------------------------------------------
 
+-define(GOOGLE, "www.google.com").
+
 hexed_query_otp_6191(doc) ->
     [];
 hexed_query_otp_6191(suite) ->
     [];
 hexed_query_otp_6191(Config) when is_list(Config) ->
-    Google = "www.google.com",
+    Google = ?GOOGLE, 
     GoogleSearch = "http://" ++ Google ++ "/search",
     Search1 = "?hl=en&q=a%D1%85%D1%83%D0%B9&btnG=Google+Search", 
     URI1    = GoogleSearch ++ Search1,
@@ -2072,10 +2085,31 @@ hexed_query_otp_6191(Config) when is_list(Config) ->
     Search3 = "?hl=en&q=%foo",
     URI3    = GoogleSearch ++ Search3, 
 
-    {http, [], Google, 80, "/search", _} = http_uri:parse(URI1),
-    {http, [], Google, 80, "/search", _} = http_uri:parse(URI2),
-    {http, [], Google, 80, "/search", _} = http_uri:parse(URI3),
+    Verify1 = 
+	fun({http, [], ?GOOGLE, 80, "/search", _}) -> ok;
+	   (_) -> error
+	end,
+    Verify2 = Verify1, 
+    Verify3 = Verify1, 
+    verify_uri(URI1, Verify1), 
+    verify_uri(URI2, Verify2), 
+    verify_uri(URI3, Verify3), 
     ok.
+
+verify_uri(URI, Verify) ->
+    case http_uri:parse(URI) of
+	{ok, ParsedURI} ->
+	    case Verify(ParsedURI) of
+		ok ->
+		    ok;
+		error ->
+		    Reason = {unexpected_parse_result, URI, ParsedURI}, 
+		    ERROR  = {error, Reason}, 
+		    throw(ERROR)
+	    end;
+	{error, _} = ERROR ->
+	    throw(ERROR)
+    end.
 
 
 %%-------------------------------------------------------------------------
