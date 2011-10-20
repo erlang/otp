@@ -349,6 +349,10 @@ call:start_link(id1)</code>
 supervisor:terminate_child(Sup, Pid)</code>
     <p>where <c>Sup</c> is the pid, or name, of the supervisor and
     <c>Pid</c> is the pid of the child.</p>
+    <p>Because a <c>simple_one_for_one</c> supervisor could have many children,
+    it shuts them all down at same time. So, order in which they are stopped is
+    not defined. For the same reason, it could have an overhead with regards to
+    the <c>Shutdown</c> strategy.</p>
   </section>
 
   <section>
