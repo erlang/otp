@@ -845,8 +845,7 @@ erts_bs_put_utf8(ERL_BITS_PROTO_1(Eterm arg))
 	dst[1] = 0x80 | (val & 0x3F);
 	num_bits = 16;
     } else if (val < 0x10000UL) {
-	if ((0xD800 <= val && val <= 0xDFFF) ||
-	    val == 0xFFFE || val == 0xFFFF) {
+	if (0xD800 <= val && val <= 0xDFFF) {
 	    return 0;
 	}
 	dst[0] = 0xE0 | (val >> 12);
@@ -886,8 +885,7 @@ erts_bs_put_utf16(ERL_BITS_PROTO_2(Eterm arg, Uint flags))
 	return 0;
     }
     val = unsigned_val(arg);
-    if (val > 0x10FFFF || (0xD800 <= val && val <= 0xDFFF) ||
-	val == 0xFFFE || val == 0xFFFF) {
+    if (val > 0x10FFFF || (0xD800 <= val && val <= 0xDFFF)) {
 	return 0;
     }
 
@@ -1652,8 +1650,7 @@ erts_bs_get_utf8(ErlBinMatchBuffer* mb)
 	    return THE_NON_VALUE;
 	}
 	result = (((result << 6) + a) << 6) + b - (Eterm) 0x000E2080UL;
-	if ((0xD800 <= result && result <= 0xDFFF) ||
-	    result == 0xFFFE || result == 0xFFFF) {
+	if (0xD800 <= result && result <= 0xDFFF) {
 	    return THE_NON_VALUE;
 	}
 	mb->offset += 24;
@@ -1723,9 +1720,6 @@ erts_bs_get_utf16(ErlBinMatchBuffer* mb, Uint flags)
 	w1 = (src[0] << 8) | src[1];
     }
     if (w1 < 0xD800 || w1 > 0xDFFF) {
-	if (w1 == 0xFFFE || w1 == 0xFFFF) {
-	    return THE_NON_VALUE;
-	}
 	mb->offset += 16;
 	return make_small(w1);
     } else if (w1 > 0xDBFF) {

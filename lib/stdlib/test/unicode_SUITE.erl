@@ -322,7 +322,7 @@ roundtrips(Config) when is_list(Config) ->
 ex_roundtrips(Config) when is_list(Config) ->
     ?line L1 = ranges(0, 16#D800 - 1, 
 		      erlang:system_info(context_reductions) * 11),
-    ?line L2 = ranges(16#DFFF + 1, 16#FFFE - 1, 
+    ?line L2 = ranges(16#DFFF + 1, 16#10000 - 1,
 		      erlang:system_info(context_reductions) * 11),
     %?line L3 = ranges(16#FFFF + 1, 16#10FFFF, 
     %		      erlang:system_info(context_reductions) * 11),
@@ -569,7 +569,6 @@ utf16_illegal_sequences_bif(Config) when is_list(Config) ->
 ex_utf16_illegal_sequences_bif(Config) when is_list(Config) ->
     ?line utf16_fail_range_bif_simple(16#10FFFF+1, 16#10FFFF+512), %Too large.
     ?line utf16_fail_range_bif(16#D800, 16#DFFF),		%Reserved for UTF-16.
-    ?line utf16_fail_range_bif(16#FFFE, 16#FFFF),		%Non-characters.
 
     ?line lonely_hi_surrogate_bif(16#D800, 16#DBFF,incomplete),
     ?line lonely_hi_surrogate_bif(16#DC00, 16#DFFF,error),
@@ -644,7 +643,6 @@ utf8_illegal_sequences_bif(Config) when is_list(Config) ->
 ex_utf8_illegal_sequences_bif(Config) when is_list(Config) ->
     ?line fail_range_bif(16#10FFFF+1, 16#10FFFF+512), %Too large.
     ?line fail_range_bif(16#D800, 16#DFFF),		%Reserved for UTF-16.
-    ?line fail_range_bif(16#FFFE, 16#FFFF),		%Reserved (BOM).
 
     %% Illegal first character.
     ?line [fail_bif(<<I,16#8F,16#8F,16#8F>>,unicode) || I <- lists:seq(16#80, 16#BF)],
