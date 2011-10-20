@@ -1053,7 +1053,7 @@ validRestartType(RestartType) -> throw({invalid_restart_type, RestartType}).
 
 validShutdown(Shutdown, _) 
   when is_integer(Shutdown), Shutdown > 0 -> true;
-validShutdown(infinity, supervisor)    -> true;
+validShutdown(infinity, _)             -> true;
 validShutdown(brutal_kill, _)          -> true;
 validShutdown(Shutdown, _)             -> throw({invalid_shutdown, Shutdown}).
 

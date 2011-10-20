@@ -169,7 +169,15 @@ child_spec() = {Id,StartFunc,Restart,Shutdown,Type,Modules}
           <c>exit(Child,kill)</c>.</p>
         <p>If the child process is another supervisor, <c>Shutdown</c>
           should be set to <c>infinity</c> to give the subtree ample
-          time to shutdown.</p>
+          time to shutdown. It is also allowed to set it to <c>infinity</c>,
+          if the child process is a worker.</p>
+        <warning>
+          <p>Be careful by setting the <c>Shutdown</c> strategy to
+          <c>infinity</c> when the child process is a worker. Because, in this
+          situation, the termination of the supervision tree depends on the
+          child process, it must be implemented in a safe way and its cleanup
+          procedure must always return.</p>
+        </warning>
         <p><em>Important note on simple-one-for-one supervisors:</em>
           The dynamically created child processes of a
           simple-one-for-one supervisor are not explicitly killed,

@@ -181,8 +181,16 @@ init(...) ->
            terminated using <c>exit(Child, kill)</c>.</item>
           <item>If the child process is another supervisor, it should be
            set to <c>infinity</c> to give the subtree enough time to
-           shutdown.</item>
+           shutdown. It is also allowed to set it to <c>infinity</c>, if the
+           child process is a worker.</item>
         </list>
+        <warning>
+          <p>Be careful by setting the <c>Shutdown</c> strategy to
+          <c>infinity</c> when the child process is a worker. Because, in this
+          situation, the termination of the supervision tree depends on the
+          child process, it must be implemented in a safe way and its cleanup
+          procedure must always return.</p>
+        </warning>
       </item>
       <item>
         <p><c>Type</c> specifies if the child process is a supervisor or
