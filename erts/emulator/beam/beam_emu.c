@@ -234,6 +234,12 @@ BeamInstr beam_return_trace[1];      /* OpCode(i_return_trace) */
 BeamInstr beam_exception_trace[1];   /* UGLY also OpCode(i_return_trace) */
 BeamInstr beam_return_time_trace[1]; /* OpCode(i_return_time_trace) */
 
+
+/*
+ * We should warn only once for tuple funs.
+ */
+static erts_smp_atomic_t warned_for_tuple_funs;
+
 /*
  * All Beam instructions in numerical order.
  */
@@ -1015,6 +1021,7 @@ init_emulator(void)
 #if defined(VXWORKS)
     init_done = 0;
 #endif
+    erts_smp_atomic_init_nob(&warned_for_tuple_funs, (erts_aint_t) 0);
     process_main();
 }
 
@@ -6187,6 +6194,26 @@ call_fun(Process* p,		/* Current process. */
 	if (!is_atom(module) || !is_atom(function)) {
 	    goto badfun;
 	}
+
+	/*
+	 * If this is the first time a tuple fun is used,
+	 * send a warning to the logger.
+	 */
+	if (erts_smp_atomic_xchg_nob(&warned_for_tuple_funs,
+				     (erts_aint_t) 1) == 0) {
+	    erts_dsprintf_buf_t* dsbufp;
+
+	    dsbufp = erts_create_logger_dsbuf();
+	    erts_dsprintf(dsbufp, "Call to tuple fun {%T,%T}.\n\n"
+			  "Tuple funs are deprecated and will be removed "
+			  "in R16. Use \"fun M:F/A\" instead, for example "
+			  "\"fun %T:%T/%d\".\n\n"
+			  "(This warning will only be shown the first time "
+			  "a tuple fun is called.)\n",
+			  module, function, module, function, arity);
+	    erts_send_warning_to_logger(p->group_leader, dsbufp);
+	}
+
 	if ((ep = erts_find_export_entry(module, function, arity)) == NULL) {
 	    ep = erts_find_export_entry(erts_proc_get_error_handler(p),
 					am_undefined_function, 3);
