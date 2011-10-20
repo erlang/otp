@@ -879,9 +879,8 @@ Ei = Value |
     and UTF-32, respectively.</p>
 
     <p>When constructing a segment of a <c>utf</c> type, <c>Value</c>
-    must be an integer in one of the ranges 0..16#D7FF,
-    16#E000..16#FFFD, or 16#10000..16#10FFFF
-    (i.e. a valid Unicode code point). Construction
+    must be an integer in the range 0..16#D7FF or
+    16#E000....16#10FFFF. Construction
     will fail with a <c>badarg</c> exception if <c>Value</c> is
     outside the allowed ranges. The size of the resulting binary
     segment depends on the type and/or <c>Value</c>. For <c>utf8</c>,
@@ -896,14 +895,13 @@ Ei = Value |
     <c><![CDATA[<<$a/utf8,$b/utf8,$c/utf8>>]]></c>.</p>
 
     <p>A successful match of a segment of a <c>utf</c> type results
-    in an integer in one of the ranges 0..16#D7FF, 16#E000..16#FFFD,
-    or 16#10000..16#10FFFF
-    (i.e. a valid Unicode code point). The match will fail if returned value
+    in an integer in the range 0..16#D7FF or  16#E000..16#10FFFF.
+    The match will fail if returned value
     would fall outside those ranges.</p>
 
     <p>A segment of type <c>utf8</c> will match 1 to 4 bytes in the binary,
     if the binary at the match position contains a valid UTF-8 sequence.
-    (See RFC-2279 or the Unicode standard.)</p>
+    (See RFC-3629 or the Unicode standard.)</p>
 
     <p>A segment of type <c>utf16</c> may match 2 or 4 bytes in the binary.
     The match will fail if the binary at the match position does not contain

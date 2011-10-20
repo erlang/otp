@@ -3967,8 +3967,7 @@ void process_main(void)
       * too big numbers).
       */
      if (is_not_small(val) || val > make_small(0x10FFFFUL) ||
-	 (make_small(0xD800UL) <= val && val <= make_small(0xDFFFUL)) ||
-	 val == make_small(0xFFFEUL) || val == make_small(0xFFFFUL)) {
+	 (make_small(0xD800UL) <= val && val <= make_small(0xDFFFUL))) {
 	 goto badarg;
      }
      Next(2);
@@ -3987,8 +3986,8 @@ void process_main(void)
       * the valid range).
       */
      if (is_not_small(tmp_arg1) || tmp_arg1 > make_small(0x10FFFFUL) ||
-	 (make_small(0xD800UL) <= tmp_arg1 && tmp_arg1 <= make_small(0xDFFFUL)) ||
-	 tmp_arg1 == make_small(0xFFFEUL) || tmp_arg1 == make_small(0xFFFFUL)) {
+	 (make_small(0xD800UL) <= tmp_arg1 &&
+	  tmp_arg1 <= make_small(0xDFFFUL))) {
 	 ErlBinMatchBuffer *mb = ms_matchbuffer(tmp_arg2);
 
 	 mb->offset -= 32;
