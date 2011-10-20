@@ -133,9 +133,3 @@ release_docs_spec: docs
 release_spec:
 
 release_tests_spec:
-
-# ----------------------------------------------------
-# Include dependency
-# ----------------------------------------------------
-
-include make.dep

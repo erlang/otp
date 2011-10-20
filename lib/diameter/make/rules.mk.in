@@ -112,8 +112,6 @@ $(EBIN)/%.beam: $(ESRC)/%.erl
 # ----------------------------------------------------
 # export VSN
 
-# DOCSUPPORT = 1
-
 # TOPDOCDIR=../../../../doc
 
 DOCDIR = ..
