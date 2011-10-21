@@ -250,15 +250,22 @@ otp_4871(Config) when is_list(Config) ->
     %% so there are some sanity checks before killing.
     ?line {ok,Epp} = epp:open(File, []),
     timer:sleep(1),
-    ?line {current_function,{epp,_,_}} = process_info(Epp, current_function),
+    ?line true = current_module(Epp, epp),
     ?line {monitored_by,[Io]} = process_info(Epp, monitored_by),
-    ?line {current_function,{file_io_server,_,_}} =
-	process_info(Io, current_function),
+    ?line true = current_module(Io, file_io_server),
     ?line exit(Io, emulate_crash),
     timer:sleep(1),
     ?line {error,{_Line,epp,cannot_parse}} = otp_4871_parse_file(Epp),
     ?line epp:close(Epp),
     ok.
+
+current_module(Pid, Mod) ->
+    case process_info(Pid, current_function) of
+        {current_function, undefined} ->
+            true = test_server:is_native(Mod);
+        {current_function, {Mod, _, _}} ->
+            true
+    end.
 
 otp_4871_parse_file(Epp) ->
     case epp:parse_erl_form(Epp) of
