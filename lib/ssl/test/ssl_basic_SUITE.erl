@@ -3038,7 +3038,8 @@ tcp_delivery_workaround(Server, ServerMsg, Client, ClientMsg) ->
 		{Client, ClientMsg} ->
 		    ok;
 		{Client, {error,closed}} ->
-		    test_server:format("client got close");
+		    test_server:format("client got close"),
+		    ok;
 		Unexpected ->
 		    test_server:fail(Unexpected) 
 	    end;
