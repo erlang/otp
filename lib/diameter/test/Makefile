@@ -65,9 +65,11 @@ ERL_COMPILE_FLAGS += +warn_export_vars \
 # Targets
 # ----------------------------------------------------
 
-all: $(SUITES)
+all: opt
 
-beam tests debug opt: $(TARGET_FILES)
+run: $(SUITES)
+
+debug opt: $(TARGET_FILES)
 
 clean:
 	rm -f $(TARGET_FILES) 
@@ -94,22 +96,22 @@ help:
 	@echo "Useful targets:"
 	@echo
 	@echo "    all:"
+	@echo "        Compile all test suites."
+	@echo
+	@echo "    run:"
 	@echo "        Compile and run all test suites."
 	@echo
 	@echo "    $(SUITES):"
 	@echo "        Compile and run a specific test suite."
 	@echo
-	@echo "    beam:"
-	@echo "        Compile all test-code."
-	@echo
 	@echo "    clean | realclean:"
 	@echo "        Remove generated files."
 	@echo
 	@echo "    info:"
-	@echo "        Echo some interesting variables."
+	@echo "        Echo some relevant variables."
 	@echo ========================================
 
-.PHONY: all beam clean debug docs help info opt realclean tests
+.PHONY: all run clean debug docs help info opt realclean
 
 # ----------------------------------------------------
 # Special Targets
@@ -118,12 +120,12 @@ help:
 # Exit with a non-zero status if the output looks to indicate failure.
 # diameter_ct:run/1 itself can't tell (it seems). The absolute -pa is
 # because ct will change directories.
-$(SUITES): log tests
+$(SUITES): log opt
 	$(ERL) -noshell \
-	        -pa $(realpath ../ebin) \
-	        -sname diameter_test_$@ \
-	        -s diameter_ct run diameter_$@_SUITE \
-	        -s init stop \
+	       -pa $(realpath ../ebin) \
+	       -sname diameter_test_$@ \
+	       -s diameter_ct run diameter_$@_SUITE \
+	       -s init stop \
 	| awk '1{rc=0} {print} / FAILED /{rc=1} END{exit rc}'
 # Shorter in sed but requires a GNU extension (ie. Q).
 
