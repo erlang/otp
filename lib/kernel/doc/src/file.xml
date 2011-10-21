@@ -539,7 +539,7 @@
       <desc>
         <p>Makes a hard link from <c><anno>Existing</anno></c> to
           <c><anno>New</anno></c>, on
-          platforms that support links (Unix). This function returns
+          platforms that support links (Unix and Windows). This function returns
           <c>ok</c> if the link was successfully created, or
           <c>{error, <anno>Reason</anno>}</c>. On platforms that do not support
           links, <c>{error,enotsup}</c> is returned.</p>
@@ -566,11 +566,12 @@
       <name name="make_symlink" arity="2"/>
       <fsummary>Make a symbolic link to a file or directory</fsummary>
       <desc>
-        <p>This function creates a symbolic link <c><anno>Name2</anno></c> to
-          the file or directory <c><anno>Name1</anno></c>, on platforms that
-          support
-          symbolic links (most Unix systems). <c><anno>Name1</anno></c> need not
-          exist. This function returns <c>ok</c> if the link was
+        <p>This function creates a symbolic link <c><anno>New</anno></c> to
+          the file or directory <c><anno>Existing</anno></c>, on platforms that
+          support symbolic links (most Unix systems and Windows beginning with
+	  Vista).
+	  <c><anno>Existing</anno></c> need not exist.
+          This function returns <c>ok</c> if the link was
           successfully created, or <c>{error, <anno>Reason</anno>}</c>.
           On platforms
           that do not support symbolic links, <c>{error, enotsup}</c>
@@ -580,11 +581,11 @@
           <tag><c>eacces</c></tag>
           <item>
             <p>Missing read or write permissions for the parent directories
-            of <c><anno>Name1</anno></c> or <c><anno>Name2</anno></c>.</p>
+            of <c><anno>Existing</anno></c> or <c><anno>New</anno></c>.</p>
           </item>
           <tag><c>eexist</c></tag>
           <item>
-            <p><c><anno>Name2</anno></c> already exists.</p>
+            <p><c><anno>New</anno></c> already exists.</p>
           </item>
           <tag><c>enotsup</c></tag>
           <item>
