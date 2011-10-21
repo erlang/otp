@@ -38,5 +38,5 @@ MODULES = \
 	diameter_tls_SUITE \
 	diameter_failover_SUITE
 
-INTERNAL_HRL_FILES = \
+HRL_FILES = \
 	diameter_ct.hrl

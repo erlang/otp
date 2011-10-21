@@ -20,7 +20,7 @@
 {application, diameter,
  [{description, "Diameter protocol"},
   {vsn, "%VSN%"},
-  {modules, [%APP_MODULES%,%TRANSPORT_MODULES%]},
+  {modules, [%MODULES%]},
   {registered, []},
   {applications, [stdlib, kernel]},
   {env, []},

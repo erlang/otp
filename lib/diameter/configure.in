@@ -132,7 +132,6 @@ dnl </STANDALONE DIAMETER>
 
 AC_OUTPUT(
 	Makefile:Makefile.in
-	src/app/diameter.mk:src/app/diameter.mk.in
 	make/$host/rules.mk:make/rules.mk.in
 	)
 

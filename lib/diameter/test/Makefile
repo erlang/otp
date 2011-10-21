@@ -17,14 +17,12 @@
 # %CopyrightEnd%
 
 ifeq ($(ERL_TOP),)
-TOP = $(DIAMETER_TOP)
+include $(DIAMETER_TOP)/make/target.mk
+include $(DIAMETER_TOP)/make/$(TARGET)/rules.mk
 else
-TOP = $(ERL_TOP)
-DIAMETER_TOP = $(TOP)/lib/diameter
+include $(ERL_TOP)/make/target.mk
+include $(ERL_TOP)/make/$(TARGET)/otp.mk
 endif
-
-include $(TOP)/make/target.mk
-include $(TOP)/make/$(TARGET)/otp.mk
 
 # ----------------------------------------------------
 # Application version
@@ -46,30 +44,22 @@ RELSYSDIR = $(RELEASE_PATH)/diameter_test
 
 include modules.mk
 
-EBIN = .
-
-HRL_FILES = $(INTERNAL_HRL_FILES)
-ERL_FILES = $(MODULES:%=%.erl)
-
-SOURCE = $(HRL_FILES) $(ERL_FILES) 
+ERL_FILES    = $(MODULES:%=%.erl)
 TARGET_FILES = $(MODULES:%=%.$(EMULATOR))
 
 SUITE_MODULES = $(filter diameter_%_SUITE, $(MODULES))
-SUITES = $(SUITE_MODULES:diameter_%_SUITE=%)
-
-RELTEST_FILES = $(TEST_SPEC_FILE) $(COVER_SPEC_FILE) $(SOURCE)
+SUITES        = $(SUITE_MODULES:diameter_%_SUITE=%)
 
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
 
-include ../src/app/diameter.mk 
-
 # This is only used to compile suite locally when running with a
 # target like 'all' below. Target release_tests only installs source.
-ERL_COMPILE_FLAGS += $(DIAMETER_ERL_COMPILE_FLAGS) \
+ERL_COMPILE_FLAGS += +warn_export_vars \
+                     +warn_unused_vars \
                      -DDIAMETER_CT=true \
-                     -I $(DIAMETER_TOP)/src/app
+                     -I ../src/gen
 
 # ----------------------------------------------------
 # Targets
@@ -85,62 +75,52 @@ clean:
 
 realclean: clean
 	rm -rf log
-	rm -f errs core *~
-
-.PHONY: all tests debug opt clean realclean
 
 docs:
 
+list = echo $(1):; echo $($(1)) | tr ' ' '\n' | sort | sed 's@^@  @'
+
 info:
-	@echo "TARGET_FILES = $(TARGET_FILES)"
+	@echo ========================================
+	@$(call list,MODULES)
 	@echo
-	@echo "ERL_COMPILE_FLAGS = $(ERL_COMPILE_FLAGS)"
-	@echo "ERL  = $(ERL)"
-	@echo "ERLC = $(ERLC)"
+	@$(call list,HRL_FILES)
 	@echo
-	@echo "HRL_FILES    = $(HRL_FILES)"
-	@echo "ERL_FILES    = $(ERL_FILES)"
-	@echo "TARGET_FILES = $(TARGET_FILES)"
-	@echo
-	@echo "SUITE_MODULES = $(SUITE_MODULES)"
-	@echo "SUITES        = $(SUITES)"
-	@echo
+	@$(call list,SUITES)
+	@echo ========================================
 
 help:
+	@echo ========================================
+	@echo "Useful targets:"
 	@echo
-	@echo "Targets:"
+	@echo "    all:"
+	@echo "        Compile and run all test suites."
 	@echo
-	@echo "    all"
-	@echo "        Run all test suites."
+	@echo "    $(SUITES):"
+	@echo "        Compile and run a specific test suite."
 	@echo
-	@echo "    $(SUITES)"
-	@echo "        Run a specific test suite."
-	@echo
-	@echo "    tests"
+	@echo "    beam:"
 	@echo "        Compile all test-code."
 	@echo
-	@echo "    clean | realclean"
+	@echo "    clean | realclean:"
 	@echo "        Remove generated files."
 	@echo
-	@echo "    info"
-	@echo "        Prints various environment variables."
-	@echo "        May be useful when debugging this Makefile."
-	@echo
-	@echo "    help"
-	@echo "        Print this info."
-	@echo
+	@echo "    info:"
+	@echo "        Echo some interesting variables."
+	@echo ========================================
 
-.PHONY: docs info help
+.PHONY: all beam clean debug docs help info opt realclean tests
 
 # ----------------------------------------------------
 # Special Targets
 # ----------------------------------------------------
 
 # Exit with a non-zero status if the output looks to indicate failure.
-# diameter_ct:run/1 itself can't tell (it seems).
+# diameter_ct:run/1 itself can't tell (it seems). The absolute -pa is
+# because ct will change directories.
 $(SUITES): log tests
 	$(ERL) -noshell \
-	        -pa $(DIAMETER_TOP)/ebin \
+	        -pa $(realpath ../ebin) \
 	        -sname diameter_test_$@ \
 	        -s diameter_ct run diameter_$@_SUITE \
 	        -s init stop \
@@ -156,7 +136,11 @@ log:
 # Release Targets
 # ---------------------------------------------------- 
 
-include $(TOP)/make/otp_release_targets.mk
+ifeq ($(ERL_TOP),)
+include $(DIAMETER_TOP)/make/release_targets.mk
+else
+include $(ERL_TOP)/make/otp_release_targets.mk
+endif
 
 release_spec: 
 
@@ -164,7 +148,11 @@ release_docs_spec:
 
 release_tests_spec:
 	$(INSTALL_DIR)  $(RELSYSDIR)
-	$(INSTALL_DATA) $(RELTEST_FILES) $(RELSYSDIR)
+	$(INSTALL_DATA) $(TEST_SPEC_FILE) \
+	                $(COVER_SPEC_FILE) \
+	                $(HRL_FILES) \
+	                $(ERL_FILES) \
+	                $(RELSYSDIR)
 
 .PHONY: release_spec release_docs_spec release_test_specs
 
