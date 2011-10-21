@@ -20,7 +20,8 @@
 MODULES = \
 	diameter_codegen \
 	diameter_spec_scan \
-	diameter_spec_util
+	diameter_spec_util \
+	diameter_make
 
 HRL_FILES = \
 	diameter_forms.hrl

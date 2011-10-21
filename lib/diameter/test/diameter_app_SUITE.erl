@@ -98,6 +98,7 @@ modules(Config) ->
             diameter_dbg,
             diameter_exprecs,
             diameter_info,
+            diameter_make,
             diameter_spec_scan,
             diameter_spec_util],
     {[], Help} = {Mods -- Installed, lists:sort(Installed -- Mods)}.

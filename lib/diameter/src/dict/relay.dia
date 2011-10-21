@@ -18,6 +18,7 @@
 ;;
 
 @id 0xFFFFFFFF
+@name   diameter_gen_relay
 @prefix diameter_relay
 @vendor 0 IETF
 

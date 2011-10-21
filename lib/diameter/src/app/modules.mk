@@ -17,10 +17,10 @@
 # 
 # %CopyrightEnd%
 
-SPEC_FILES = \
-	diameter_gen_base_rfc3588.dia \
-	diameter_gen_base_accounting.dia \
-	diameter_gen_relay.dia
+DICTIONARIES = \
+	base_rfc3588 \
+	base_accounting \
+	relay
 
 RUNTIME_MODULES = \
 	diameter \

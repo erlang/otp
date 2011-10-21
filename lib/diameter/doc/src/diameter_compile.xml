@@ -64,9 +64,10 @@ Defaults to the current working directory.</p>
 <item>
 <p>
 Specifies a directory to add to the code path.
-Typically used to point at beam files corresponding to dictionaries
-included by the one being compiled (using the <c>@includes</c> directive):
-inclusion is a beam dependency, not an erl/hrl dependency.</p>
+Use to point at beam files corresponding to dictionaries
+inherited by the one being compiled using <c>@inherits</c> or
+<c>--inherits</c>.
+Inheritance is a beam dependency, not an erl/hrl dependency.</p>
 
 <p>
 Multiple <c>-i</c> options can be specified.</p>
@@ -82,6 +83,31 @@ Supresses erl generation.</p>
 <item>
 <p>
 Supresses hrl generation.</p>
+</item>
+
+<tag><![CDATA[--name <name>]]></tag>
+<item>
+<p>
+Set <c>@name</c> in the dictionary file.
+Overrides any setting in the file itself.</p>
+</item>
+
+<tag><![CDATA[--prefix <prefix>]]></tag>
+<item>
+<p>
+Set <c>@prefix</c> in the dictionary file.
+Overrides any setting in the file itself.</p>
+</item>
+
+<tag><![CDATA[--inherits <dict>]]></tag>
+<item>
+<p>
+Append an <c>@inherits</c> to the dictionary file.
+Specifying <c>'-'</c> as the dictionary has the effect of clearing
+any previous inherits, effectively ignoring previous inherits.</p>
+
+<p>
+Multiple <c>--inherits</c> options can be specified.</p>
 </item>
 
 </taglist>

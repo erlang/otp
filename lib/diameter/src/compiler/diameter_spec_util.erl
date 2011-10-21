@@ -34,19 +34,38 @@
 %%
 %% Output: orddict()
 
-parse(Path, Options) ->
-    put({?MODULE, verbose}, lists:member(verbose, Options)),
+parse(Path, Opts) ->
+    put({?MODULE, verbose}, lists:member(verbose, Opts)),
     {ok, B} = file:read_file(Path),
     Chunks = chunk(B),
-    Spec = make_spec(Chunks),
+    Spec = reset(make_spec(Chunks), Opts, [name, prefix, inherits]),
     true = groups_defined(Spec),  %% sanity checks
     true = customs_defined(Spec), %%
-    Full = import_enums(import_groups(import_avps(insert_codes(Spec),
-                                                  Options))),
+    Full = import_enums(import_groups(import_avps(insert_codes(Spec), Opts))),
     true = enums_defined(Full),   %% sanity checks
     true = v_flags_set(Spec),
     Full.
 
+reset(Spec, Opts, Keys) ->
+    lists:foldl(fun(K,S) ->
+                        reset([{A,?ATOM(V)} || {A,V} <- Opts, A == K], S)
+                end,
+                Spec,
+                Keys).
+
+reset(L, Spec)
+  when is_list(L) ->
+    lists:foldl(fun reset/2, Spec, L);
+
+reset({inherits = Key, '-'}, Spec) ->
+    orddict:erase(Key, Spec);
+reset({inherits = Key, Dict}, Spec) ->
+    orddict:append(Key, Dict, Spec);
+reset({Key, Atom}, Spec) ->
+    orddict:store(Key, Atom, Spec);
+reset(_, Spec) ->
+    Spec.
+    
 %% Optional reports when running verbosely.
 report(What, Data) ->
     report(get({?MODULE, verbose}), What, Data).
@@ -204,9 +223,11 @@ chunk({avp_vendor_id = T, [{number, I}], Body}, Dict) ->
 chunk({enum, [N], Str}, Dict) ->
     append(enums, {atomize(N), parse_enums(Str)}, Dict);
 
-%% result_codes -> [{ResultName, [{Value, Name}, ...]}, ...]
-chunk({result_code, [N], Str}, Dict) ->
-    append(result_codes, {atomize(N), parse_enums(Str)}, Dict);
+%% defines -> [{DefineName, [{Value, Name}, ...]}, ...]
+chunk({define, [N], Str}, Dict) ->
+    append(defines, {atomize(N), parse_enums(Str)}, Dict);
+chunk({result_code, [_] = N, Str}, Dict) ->  %% backwards compatibility
+    chunk({define, N, Str}, Dict);
 
 %% commands -> [{Name, Abbrev}, ...]
 chunk({commands = T, [], Body}, Dict) ->
