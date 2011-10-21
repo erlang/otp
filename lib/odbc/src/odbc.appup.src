@@ -1,10 +1,12 @@
 %% -*- erlang -*-
 {"%VSN%",
  [
+  {"2.10.11", [{restart_application, odbc}]},
   {"2.10.10", [{restart_application, odbc}]},
   {"2.10.9", [{restart_application, odbc}]}
  ],
  [
+  {"2.10.11", [{restart_application, odbc}]},
   {"2.10.10", [{restart_application, odbc}]},
   {"2.10.9", [{restart_application, odbc}]}
  ]}.
