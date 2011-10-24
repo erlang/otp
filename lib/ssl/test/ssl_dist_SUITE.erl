@@ -54,9 +54,14 @@ end_per_group(_GroupName, Config) ->
 init_per_suite(Config0) ->
     try crypto:start() of
 	ok ->
-	    Config = add_ssl_opts_config(Config0),
-	    setup_certs(Config),
-	    Config
+	    case test_server:is_cover() of
+		false ->
+		    Config = add_ssl_opts_config(Config0),
+		    setup_certs(Config),
+		    Config;
+		true ->
+		    {skip, "Can not be covered"}
+	    end
     catch _:_ ->
 	    {skip, "Crypto did not start"}
     end.
