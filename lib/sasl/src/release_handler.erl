@@ -193,11 +193,15 @@ check_check_install_options([],Purge) ->
 %%-----------------------------------------------------------------
 %% Purpose: Executes the relup script for the specified version.
 %%          The release must be unpacked.
-%% Returns: {ok, FromVsn, Descr} | {error, Reason}
+%% Returns: {ok, FromVsn, Descr} |
+%%          {continue_after_restart, FromVsn, Descr} |
+%%          {error, Reason}
 %%          Reason = {already_installed, Vsn} |
 %%                   {bad_relup_file, RelFile} |
 %%                   {no_such_release, Vsn} |
 %%                   {no_such_from_vsn, Vsn} |
+%%                   {could_not_create_hybrid_boot,Why} |
+%%                   {missing_base_app,Vsn,App} |
 %%                   {illegal_option, Opt}} |
 %%                   exit_reason()
 %%-----------------------------------------------------------------
