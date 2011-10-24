@@ -82,8 +82,8 @@ docs:
 %.erl %.hrl: %.set.asn
 	erlc $(ASN_FLAGS) $<
 
-$(HRL_FILES):	$(ASN_HRLS)
-	cp -p $^ $(INCLUDE)
+$(INCLUDE)/%.hrl: %.hrl
+	cp -p $<  $@
 
 # ----------------------------------------------------
 # Release Target

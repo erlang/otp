@@ -61,11 +61,14 @@
     <p><code>string = [bytes()]</code></p>
    
     <p><code>pki_asn1_type() = 'Certificate' | 'RSAPrivateKey'| 'RSAPublicKey'
-    'DSAPrivateKey' | 'DSAPublicKey' | 'DHParameter' | 'SubjectPublicKeyInfo'</code></p>
+    'DSAPrivateKey' | 'DSAPublicKey' | 'DHParameter' | 'SubjectPublicKeyInfo'| 'PrivateKeyInfo'</code></p>
     
     <p><code>pem_entry () = {pki_asn1_type(), binary(), %% DER or encrypted DER
-          not_encrypted | {"DES-CBC" | "DES-EDE3-CBC",  crypto:rand_bytes(8)}}.</code></p>
-    
+          not_encrypted | cipher_info()} </code></p>
+
+    <p><code>cipher_info()  =  {"RC2-CBC | "DES-CBC" | "DES-EDE3-CBC", crypto:rand_bytes(8)} |
+    'PBES2-params'} </code></p>
+	  
     <p><code>rsa_public_key()  = #'RSAPublicKey'{}</code></p>
 
     <p><code>rsa_private_key() = #'RSAPrivateKey'{} </code></p>
@@ -118,7 +121,8 @@
 <funcs>    
 
   <func>
-    <name>decrypt_private(CipherText, Key [, Options]) -> binary()</name>
+    <name>decrypt_private(CipherText, Key) -> binary()</name>
+    <name>decrypt_private(CipherText, Key, Options) -> binary()</name>
     <fsummary>Public key decryption.</fsummary>
     <type>
       <v>CipherText = binary()</v>
@@ -131,7 +135,8 @@
   </func>
 
   <func>
-    <name>decrypt_public(CipherText, Key [, Options]) - > binary()</name>
+    <name>decrypt_public(CipherText, Key) - > binary()</name>
+    <name>decrypt_public(CipherText, Key, Options) - > binary()</name>
     <fsummary></fsummary>
     <type>
       <v>CipherText = binary()</v>
@@ -198,7 +203,8 @@
   </func>
 
    <func>
-    <name>pem_entry_decode(PemEntry [, Password]) -> term()</name>
+    <name>pem_entry_decode(PemEntry) -> term()</name>
+    <name>pem_entry_decode(PemEntry, Password) -> term()</name>
     <fsummary>Decodes a pem entry.</fsummary>
     <type>
       <v> PemEntry = pem_entry() </v> 
@@ -213,7 +219,8 @@
   </func>
 
    <func>
-    <name>pem_entry_encode(Asn1Type, Entity [,{CipherInfo, Password}]) -> pem_entry()</name>
+    <name>pem_entry_encode(Asn1Type, Entity) -> pem_entry()</name>
+    <name>pem_entry_encode(Asn1Type, Entity, {CipherInfo, Password}) -> pem_entry()</name>
     <fsummary> Creates a pem entry that can be fed to pem_encode/1.</fsummary>
     <type>
       <v>Asn1Type = pki_asn1_type()</v>
@@ -224,7 +231,7 @@
       dsa_public_key() and this function will create the appropriate
       'SubjectPublicKeyInfo' entry.
       </d>
-      <v>CipherInfo = {"DES-CBC" | "DES-EDE3-CBC",  crypto:rand_bytes(8)}</v>
+      <v>CipherInfo = cipher_info()</v>
       <v>Password = string()</v> 
   </type> 
   <desc> 

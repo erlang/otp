@@ -215,19 +215,19 @@ encrypted_pem(Config) when is_list(Config) ->
 
     Salt0 = crypto:rand_bytes(8),
     Entry0 = public_key:pem_entry_encode('RSAPrivateKey', RSAKey,
-					 {{"DES-EDE3-CBC", {md5, Salt0}}, "1234abcd"}),
+					 {{"DES-EDE3-CBC", Salt0}, "1234abcd"}),
     RSAKey = public_key:pem_entry_decode(Entry0,"1234abcd"),
     Des3KeyFile = filename:join(Datadir, "des3_client_key.pem"),
     erl_make_certs:der_to_pem(Des3KeyFile, [Entry0]),
-    [{'RSAPrivateKey', _, {"DES-EDE3-CBC", {md5, Salt0}}}] =
+    [{'RSAPrivateKey', _, {"DES-EDE3-CBC", Salt0}}] =
 	erl_make_certs:pem_to_der(Des3KeyFile),
 
     Salt1 = crypto:rand_bytes(8),
     Entry1 = public_key:pem_entry_encode('RSAPrivateKey', RSAKey,
-					   {{"DES-CBC", {md5, Salt1}}, "4567efgh"}),
+					   {{"DES-CBC", Salt1}, "4567efgh"}),
     DesKeyFile = filename:join(Datadir, "des_client_key.pem"),
     erl_make_certs:der_to_pem(DesKeyFile, [Entry1]),
-    [{'RSAPrivateKey', _, {"DES-CBC", {md5, Salt1}}} =Entry2] =
+    [{'RSAPrivateKey', _, {"DES-CBC", Salt1}} =Entry2] =
 	erl_make_certs:pem_to_der(DesKeyFile),
     true = check_entry_type(public_key:pem_entry_decode(Entry2, "4567efgh"),
 			     'RSAPrivateKey').
@@ -698,27 +698,6 @@ pkix_path_validation(Config) when is_list(Config) ->
 	public_key:pkix_path_validation(unknown_ca, [Cert1], [{verify_fun,
 							      VerifyFunAndState1}]),
     ok.
-
-%%--------------------------------------------------------------------
-%% deprecated(doc) -> 
-%%     ["Check deprecated functions."];
-%% deprecated(suite) -> 
-%%     [];
-%% deprecated(Config) when is_list(Config) -> 
-%%     Datadir = ?config(data_dir, Config),
-%%     {ok, [DsaKey = {'DSAPrivateKey', _DsaKey, _}]} =
-%% 	public_key:pem_to_der(filename:join(Datadir, "dsa.pem")), 
-%%     {ok, [RsaKey = {'RSAPrivateKey', _RsaKey,_}]} =
-%% 	public_key:pem_to_der(filename:join(Datadir, "client_key.pem")),
-%%     {ok, [ProtectedRsaKey = {'RSAPrivateKey', _ProtectedRsaKey,_}]} =
-%% 	public_key:pem_to_der(filename:join(Datadir, "rsa.pem")),
-
-%%     {ok, #'DSAPrivateKey'{}} = public_key:decode_private_key(DsaKey),
-%%     {ok, #'RSAPrivateKey'{}} = public_key:decode_private_key(RsaKey),
-%%     {ok, #'RSAPrivateKey'{}} = public_key:decode_private_key(ProtectedRsaKey, "abcd1234"),
-%%     ok.
-
-%%--------------------------------------------------------------------
 
 check_entry_type(#'DSAPrivateKey'{}, 'DSAPrivateKey') ->
     true;

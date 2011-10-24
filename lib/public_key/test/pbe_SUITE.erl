@@ -226,7 +226,7 @@ pbdkdf2(Config) when is_list(Config) ->
 			     "sa\0lt", 4096, 16, fun crypto:sha_mac/3, 20).
     
 encrypted_private_key_info(doc) ->
-    ["Tests reading a EncryptedPrivateKeyInfo file different ciphers"];
+    ["Tests reading a EncryptedPrivateKeyInfo file encrypted with different ciphers"];
 encrypted_private_key_info(Config) when is_list(Config) ->
     Datadir = ?config(data_dir, Config),
     {ok, PemDes} = file:read_file(filename:join(Datadir, "des_cbc_enc_key.pem")),
