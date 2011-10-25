@@ -371,9 +371,9 @@ profile_decode_text_messages(Slogan, Codec, Config, Msgs0) ->
 		decode_text_messages(Codec, Config, Bins, [])
 	  end,
     %% Make a dry run, just to make sure all modules are loaded:
-    io:format("make a dry run..~n", []),
+    io:format("make a dry run...~n", []),
     (catch Fun()),
-    io:format("make the run..~n", []),
+    io:format("make the run...~n", []),
     megaco_profile:profile(Slogan, Fun).
 
 %% (catch megaco_codec_v1_test:profile_encode_compact_text_messages()).
