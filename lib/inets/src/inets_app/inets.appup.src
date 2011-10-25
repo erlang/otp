@@ -18,6 +18,13 @@
 
 {"%VSN%",
  [
+  {"5.3.5",
+   [
+    {load_module, http_util, soft_purge, soft_purge, []},
+    {load_module, httpd_util, soft_purge, soft_purge, [http_util]},
+    {load_module, httpd_file, soft_purge, soft_purge, []}
+   ]
+  }, 
   {"5.3.4",
    [
     {restart_application, inets}
@@ -39,27 +46,19 @@
    ]
   }, 
   {"5.3",
-   [
-    {restart_application, inets}
-   ]
-  }, 
-  {"5.2",
-   [
-    {restart_application, inets}
-   ]
-  }, 
-  {"5.1.3",
-   [
-    {restart_application, inets}
-   ]
-  }, 
-  {"5.1.2",
    [
     {restart_application, inets}
    ]
   }     
  ],
  [	
+  {"5.3.5",
+   [
+    {load_module, http_util, soft_purge, soft_purge, []},
+    {load_module, httpd_util, soft_purge, soft_purge, [http_util]},
+    {load_module, httpd_file, soft_purge, soft_purge, []}
+   ]
+  }, 
   {"5.3.4",
    [
     {restart_application, inets}
@@ -81,21 +80,6 @@
    ]
   }, 
   {"5.3",
-   [
-    {restart_application, inets}
-   ]
-  }, 
-  {"5.2",
-   [
-    {restart_application, inets}
-   ]
-  }, 
-  {"5.1.3",
-   [
-    {restart_application, inets}
-   ]
-  }, 
-  {"5.1.2",
    [
     {restart_application, inets}
    ]

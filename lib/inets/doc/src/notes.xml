@@ -32,6 +32,20 @@
     <file>notes.xml</file>
   </header>
   
+  <section><title>Inets 5.3.6</title>
+  
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>[httpd] XSS prevention did not work for hex-encoded URL's. </p>
+          <p>Own Id: OTP-9655</p>
+        </item>
+      </list>
+    </section>
+  
+  </section> <!-- 5.3.6 -->
+
+
   <section><title>Inets 5.3.5</title>
   
     <section><title>Fixed Bugs and Malfunctions</title>
