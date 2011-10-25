@@ -57,9 +57,9 @@
 -include("diameter_types.hrl").
 -include("diameter_gen_base_rfc3588.hrl").
 
--define(SUCCESS, ?'DIAMETER_BASE_RESULT-CODE_DIAMETER_SUCCESS').
--define(NOAPP, ?'DIAMETER_BASE_RESULT-CODE_DIAMETER_NO_COMMON_APPLICATION').
--define(NOSECURITY, ?'DIAMETER_BASE_RESULT-CODE_DIAMETER_NO_COMMON_SECURITY').
+-define(SUCCESS,    2001).  %% DIAMETER_SUCCESS
+-define(NOAPP,      5010).  %% DIAMETER_NO_COMMON_APPLICATION
+-define(NOSECURITY, 5017).  %% DIAMETER_NO_COMMON_SECURITY
 
 -define(NO_INBAND_SECURITY, 0).
 -define(TLS, 1).
@@ -96,7 +96,7 @@ try_it([Fun | Args]) ->
     try apply(Fun, Args) of
         T -> {ok, T}
     catch
-        throw: ?FAILURE(Reason) -> {error, {Reason, Args}}
+        throw: ?FAILURE(Reason) -> {error, Reason}
     end.
 
 %% mk_caps/2
@@ -288,25 +288,12 @@ to_cea(CER, Field, CEA) ->
         
 %% rCEA/2
 
-rCEA(#diameter_base_CEA{'Result-Code' = RC}
-     = CEA,
-     #diameter_service{capabilities = LCaps}
-     = Svc) ->
-    RC == ?SUCCESS orelse ?THROW({'Result-Code', RC}),
-
+rCEA(CEA, #diameter_service{capabilities = LCaps} = Svc) ->
     RCaps = capx_to_caps(CEA),
     SApps = common_applications(LCaps, RCaps, Svc),
-
-    [] == SApps andalso ?THROW(no_common_applications),
-
     IS = common_security(LCaps, RCaps),
 
-    [] == IS andalso ?THROW(no_common_security),
-
-    {SApps, IS, RCaps};
-
-rCEA(CEA, _Svc) ->
-    ?THROW({invalid, CEA}).
+    {SApps, IS, RCaps}.
 
 %% capx_to_caps/1
 

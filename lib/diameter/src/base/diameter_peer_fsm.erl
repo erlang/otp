@@ -325,9 +325,10 @@ send_CER(#state{mode = {connect, Remote},
                 service = #diameter_service{capabilities = Caps},
                 transport = TPid}
          = S) ->
-    req_send_CER(Caps#diameter_caps.origin_host, Remote)
+    OH = Caps#diameter_caps.origin_host,
+    req_send_CER(OH, Remote)
         orelse
-        close(connected, S),
+        close({already_connected, Remote, Caps}, S),
     CER = build_CER(S),
     ?LOG(send, 'CER'),
     send(TPid, encode(CER)),
@@ -469,19 +470,19 @@ handle_request(Type, #diameter_packet{} = Pkt, S) ->
 %% send_answer/3
 
 send_answer(Type, ReqPkt, #state{transport = TPid} = S) ->
-    #diameter_packet{header = #diameter_header{version = V,
-                                               end_to_end_id = Eid,
-                                               hop_by_hop_id = Hid,
-                                               is_proxiable = P},
+    #diameter_packet{header = H,
                      transport_data = TD}
         = ReqPkt,
 
-    {Msg, PostF} = build_answer(Type, V, ReqPkt, S),
+    {Msg, PostF} = build_answer(Type, ReqPkt, S),
 
-    Pkt = #diameter_packet{header = #diameter_header{version = V,
-                                                     end_to_end_id = Eid,
-                                                     hop_by_hop_id = Hid,
-                                                     is_proxiable = P},
+    %% An answer message clears the R and T flags and retains the P
+    %% flag. The E flag is set at encode.
+    Pkt = #diameter_packet{header
+                           = H#diameter_header{version = ?DIAMETER_VERSION,
+                                               is_request = false,
+                                               is_error = undefined,
+                                               is_retransmitted = false},
                            msg = Msg,
                            transport_data = TD},
 
@@ -493,57 +494,79 @@ eval([F|A], S) ->
 eval(ok, S) ->
     S.
 
-%% build_answer/4
+%% build_answer/3
 
 build_answer('CER',
-             ?DIAMETER_VERSION,
              #diameter_packet{msg = CER,
-                              header = #diameter_header{is_error = false},
+                              header = #diameter_header{version
+                                                        = ?DIAMETER_VERSION,
+                                                        is_error = false},
                               errors = []}
              = Pkt,
-             #state{service = Svc}
-             = S) ->
+             S) ->
     {SupportedApps, RCaps, #diameter_base_CEA{'Result-Code' = RC,
-                                              'Inband-Security-Id' = [IS]}
+                                              'Inband-Security-Id' = IS}
                            = CEA}
         = recv_CER(CER, S),
 
-    #diameter_service{capabilities = LCaps}
-        = Svc,
-
     #diameter_caps{origin_host = {OH, DH}}
         = Caps
-        = capz(LCaps, RCaps),
+        = capz(caps(S), RCaps),
 
     try
         2001 == RC  %% DIAMETER_SUCCESS
-            orelse ?THROW({result_code, RC}),
+            orelse ?THROW(RC),
         register_everywhere({?MODULE, connection, OH, DH})
-            orelse ?THROW({result_code, 4003}),  %% DIAMETER_ELECTION_LOST
+            orelse ?THROW(4003),  %% DIAMETER_ELECTION_LOST
         caps_cb(Caps)
     of
-        ok -> {CEA, [fun open/5, Pkt, SupportedApps, Caps, {accept, IS}]}
+        N -> {cea(CEA, N), [fun open/5, Pkt,
+                                        SupportedApps,
+                                        Caps,
+                                        {accept, hd([_] = IS)}]}
     catch
-        ?FAILURE(discard = T) ->
-            close({'CER', T, DH}, S);
-        ?FAILURE({result_code, N}) ->
-            {answer_message(cea(S), N), [fun close/2, {'CER', N, DH}]}
+        ?FAILURE(Reason) ->
+            rejected(Reason, {'CER', Reason, Caps, Pkt}, S)
     end;
 
 %% The error checks below are similar to those in diameter_service for
 %% other messages. Should factor out the commonality.
 
-build_answer(Type, V, #diameter_packet{header = H, errors = Es} = Pkt, S) ->
-    FailedAvp = failed_avp([A || {_,A} <- Es]),
-    Msg = answer_message(answer(Type, S), rc(V, H, Es)),
-    {set(Msg, FailedAvp), if 'CER' == Type ->
-                                  [fun close/2, {Type, V, Pkt}];
-                             true ->
-                                  ok
-                          end}.
+build_answer(Type,
+             #diameter_packet{header = H,
+                              errors = Es}
+             = Pkt,
+             S) ->
+    RC = rc(H, Es),
+    {answer(Type, RC, Es, S), post(Type, RC, Pkt, S)}.
 
-cea(S) ->
-    answer('CER', S).
+cea(CEA, ok) ->
+    CEA;
+cea(CEA, 2001) ->
+    CEA;
+cea(CEA, RC) ->
+    CEA#diameter_base_CEA{'Result-Code' = RC}.
+
+post('CER' = T, RC, Pkt, S) ->
+    [fun close/2, {T, caps(S), {RC, Pkt}}];
+post(_, _, _, _) ->
+    ok.
+
+rejected({capabilities_cb, _F, Reason}, T, S) ->
+    rejected(Reason, T, S);
+
+rejected(discard, T, S) ->
+    close(T, S);
+rejected({N, Es}, T, S) ->
+    {answer('CER', N, Es, S), [fun close/2, T]};
+rejected(N, T, S) ->
+    rejected({N, []}, T, S).
+
+answer(Type, RC, Es, S) ->
+    set(answer(Type, RC, S), failed_avp([A || {_,A} <- Es])).
+
+answer(Type, RC, S) ->
+    answer_message(answer(Type, S), RC).
 
 %% answer_message/2
 
@@ -576,19 +599,19 @@ set(['answer-message' | _] = Ans, FailedAvp) ->
 set([_|_] = Ans, FailedAvp) ->
     Ans ++ FailedAvp.
 
-%% rc/3
+%% rc/2
 
-rc(_, #diameter_header{is_error = true}, _) ->
+rc(#diameter_header{is_error = true}, _) ->
     3008;  %% DIAMETER_INVALID_HDR_BITS
 
-rc(_, _, [Bs|_])
+rc(_, [Bs|_])
   when is_bitstring(Bs) ->
     3009;  %% DIAMETER_INVALID_HDR_BITS
 
-rc(?DIAMETER_VERSION, _, Es) ->
+rc(#diameter_header{version = ?DIAMETER_VERSION}, Es) ->
     rc(Es);
 
-rc(_, _, _) ->
+rc(_, _) ->
     5011.  %% DIAMETER_UNSUPPORTED_VERSION
 
 %% rc/1
@@ -656,27 +679,25 @@ recv_CER(CER, #state{service = Svc}) ->
 
 %% handle_CEA/1
 
-handle_CEA(#diameter_packet{header = #diameter_header{version = V},
-                            bin = Bin}
+handle_CEA(#diameter_packet{bin = Bin}
            = Pkt,
            #state{service = #diameter_service{capabilities = LCaps}}
            = S)
   when is_binary(Bin) ->
     ?LOG(recv, 'CEA'),
 
-    ?DIAMETER_VERSION == V orelse close({version, V}, S),
-
-    #diameter_packet{msg = CEA, errors = Errors}
+    #diameter_packet{msg = CEA}
         = DPkt
         = diameter_codec:decode(?BASE, Pkt),
 
-    [] == Errors orelse close({errors, Errors}, S),
-
-    {SApps, [IS], RCaps} = recv_CEA(CEA, S),
+    {SApps, IS, RCaps} = recv_CEA(DPkt, S),
 
     #diameter_caps{origin_host = {OH, DH}}
         = Caps
         = capz(LCaps, RCaps),
+
+    #diameter_base_CEA{'Result-Code' = RC}
+        = CEA,
 
     %% Ensure that we don't already have a connection to the peer in
     %% question. This isn't the peer election of 3588 except in the
@@ -684,30 +705,42 @@ handle_CEA(#diameter_packet{header = #diameter_header{version = V},
     %% receive a CER/CEA, the first that arrives wins the right to a
     %% connection with the peer.
 
-    register_everywhere({?MODULE, connection, OH, DH})
-        orelse close({'CEA', DH}, S),
-
-    try caps_cb(Caps) of
-        ok -> open(DPkt, SApps, Caps, {connect, IS}, S)
+    try
+        2001 == RC
+            orelse ?THROW(RC),
+        [] == SApps
+            andalso ?THROW(no_common_application),
+        [] == IS
+            andalso ?THROW(no_common_security),
+        register_everywhere({?MODULE, connection, OH, DH})
+            orelse ?THROW(election_lost),
+        caps_cb(Caps)
+    of
+        _ -> open(DPkt, SApps, Caps, {connect, hd([_] = IS)}, S)
     catch
-        ?FAILURE(Reason) -> close(Reason, S)
+        ?FAILURE(Reason) -> close({'CEA', Reason, Caps, DPkt}, S)
     end.
+%% Check more than the result code since the peer could send 2001
+%% regardless.
 
 %% recv_CEA/2
 
-recv_CEA(CEA, #state{service = Svc} = S) ->
-    case diameter_capx:recv_CEA(CEA, Svc) of
-        {ok, {_,_}} -> %% return from old code
-            close({'CEA', update}, S);
-        {ok, {[], _, _}} ->
-            close({'CEA', no_common_application}, S);
-        {ok, {_, [], _}} ->
-            close({'CEA', no_common_security}, S);
-        {ok, {_,_,_} = T} ->
-            T;
-        {error, Reason} ->
-            close({'CEA', Reason}, S)
-    end.
+recv_CEA(#diameter_packet{header = #diameter_header{version
+                                                    = ?DIAMETER_VERSION,
+                                                    is_error = false},
+                          msg = CEA,
+                          errors = []},
+         #state{service = Svc}) ->
+    {ok, T} = diameter_capx:recv_CEA(CEA, Svc),
+    T;
+
+recv_CEA(Pkt, S) ->
+    close({'CEA', caps(S), Pkt}, S).
+
+caps(#diameter_service{capabilities = Caps}) ->
+    Caps;
+caps(#state{service = Svc}) ->
+    caps(Svc).
 
 %% caps_cb/1
 
@@ -721,17 +754,21 @@ ccb([F | Rest], T) ->
     case diameter_lib:eval([F|T]) of
         ok ->
             ccb(Rest, T);
+        N when 2 == N div 1000 ->  %% 2xxx Result-Code
+            N;
         Res ->
-            ?THROW({{capabilities_cb, F}, rejected(Res)})
+            ?THROW({capabilities_cb, F, rejected(Res)})
     end.
+%% Note that returning 2xxx causes the capabilities exchange to be
+%% accepted directly, without further callbacks.
 
-rejected({result_code, N} = T)
-  when 1000 =< N, N < 6000 ->
-    T;
 rejected(discard = T) ->
     T;
 rejected(unknown) ->
-    {result_code, 3010}.  %% DIAMETER_UNKNOWN_PEER
+    3010;  %% DIAMETER_UNKNOWN_PEER
+rejected(N)
+  when is_integer(N) ->
+    N.
 
 %% open/5
 
@@ -740,26 +777,26 @@ open(Pkt, SupportedApps, Caps, {Type, IS}, #state{parent = Pid} = S) ->
                    inband_security_id = {LS,_}}
         = Caps,
 
-    tls_ack(lists:member(?TLS, LS), Type, IS, S),
+    tls_ack(lists:member(?TLS, LS), Caps, Type, IS, S),
     Pid ! {open, self(), H, {Caps, SupportedApps, Pkt}},
 
     S#state{state = 'Open'}.
 
 %% We've advertised TLS support: tell the transport the result
 %% and expect a reply when the handshake is complete.
-tls_ack(true, Type, IS, #state{transport = TPid} = S) ->
+tls_ack(true, Caps, Type, IS, #state{transport = TPid} = S) ->
     Ref = make_ref(),
     TPid ! {diameter, {tls, Ref, Type, IS == ?TLS}},
     receive
         {diameter, {tls, Ref}} ->
             ok;
-        {'DOWN', _, process, TPid, _} = T ->
-            close({tls_ack, T}, S)
+        {'DOWN', _, process, TPid, Reason} ->
+            close({tls_ack, Reason, Caps}, S)
     end;
 
 %% Or not. Don't send anything to the transport so that transports
 %% not supporting TLS work as before without modification.
-tls_ack(false, _, _, _) ->
+tls_ack(false, _, _, _, _) ->
     ok.
 
 capz(#diameter_caps{} = L, #diameter_caps{} = R) ->

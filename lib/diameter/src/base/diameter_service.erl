@@ -983,7 +983,8 @@ peer_cb(MFA, Alias) ->
 connection_down(Pid, #state{peerT = PeerT,
                             connT = ConnT}
                      = S) ->
-    #peer{conn = TPid}
+    #peer{op_state = ?STATE_UP,  %% assert
+          conn = TPid}
         = P
         = fetch(PeerT, Pid),
 
@@ -992,6 +993,9 @@ connection_down(Pid, #state{peerT = PeerT,
     connection_down(P,C,S).
 
 %% connection_down/3
+
+connection_down(#peer{op_state = ?STATE_DOWN}, _, S) ->
+    S;
 
 connection_down(#peer{conn = TPid,
                       op_state = ?STATE_UP}
@@ -1034,13 +1038,23 @@ down_conn(Id, Alias, TC, {SvcName, Apps}) ->
 
 %% Peer process has died.
 
-peer_down(Pid, _Reason, #state{peerT = PeerT} = S) ->
+peer_down(Pid, Reason, #state{peerT = PeerT} = S) ->
     P = fetch(PeerT, Pid),
     ets:delete_object(PeerT, P),
+    closed(Reason, P, S),
     restart(P,S),
     peer_down(P,S).
 
-%% peer_down/2
+%% Send an event at connection establishment failure.
+closed({shutdown, {close, _TPid, Reason}},
+       #peer{op_state = ?STATE_DOWN,
+             ref = Ref,
+             type = Type,
+             options = Opts},
+       #state{service_name = SvcName}) ->
+    send_event(SvcName, {closed, Ref, Reason, {type(Type), Opts}});
+closed(_, _, _) ->
+    ok.
 
 %% The peer has never come up ...
 peer_down(#peer{conn = B}, S)
@@ -1048,27 +1062,9 @@ peer_down(#peer{conn = B}, S)
     S;
 
 %% ... or it has.
-peer_down(#peer{ref = Ref,
-                conn = TPid,
-                type = Type,
-                options = Opts}
-          = P,
-          #state{service_name = SvcName,
-                 connT = ConnT}
-          = S) ->
-    #conn{caps = Caps}
-        = C
-        = fetch(ConnT, TPid),
+peer_down(#peer{conn = TPid} = P, #state{connT = ConnT} = S) ->
+    #conn{} = C = fetch(ConnT, TPid),
     ets:delete_object(ConnT, C),
-    try
-        pd(P,C,S)
-    after
-        send_event(SvcName, {closed, Ref, {TPid, Caps}, {type(Type), Opts}})
-    end.
-
-pd(#peer{op_state = ?STATE_DOWN}, _, S) ->
-    S;
-pd(#peer{op_state = ?STATE_UP} = P, C, S) ->
     connection_down(P,C,S).
 
 %% restart/2
