@@ -53,7 +53,7 @@
 #else
 #  define OpCase(OpCode)    lb_##OpCode
 #  define CountCase(OpCode) lb_count_##OpCode
-#  define Goto(Rel) goto *(Rel)
+#  define Goto(Rel) goto *((void *)Rel)
 #  define LabelAddr(Label) &&Label
 #  define OpCode(OpCode)  (&&lb_##OpCode)
 #endif
