@@ -472,8 +472,10 @@ cnct2tstsrvr([Host, Port]) when is_list(Host), is_list(Port) ->
 				ets:insert(test_server_info,
 					   {test_server_handler, self()}),
 				ssl_node_con_loop(Socket);
-			    _Error ->
-				halt("Failed to connect to test server")
+			    Error ->
+				halt("Failed to connect to test server " ++
+					 lists:flatten(io_lib:format("Host:~p ~n Port:~p~n Error:~p~n",
+								     [Host, Port, Error])))
 			end
 		end),
     spawn(fun () ->
@@ -481,9 +483,8 @@ cnct2tstsrvr([Host, Port]) when is_list(Host), is_list(Port) ->
 		  receive
 		      {'DOWN', Mon, process, ConnHandler, Reason} ->
 			  receive after 1000 -> ok end,
-			  halt("test server connection handler terminated: "
-			       ++
-			       lists:flatten(io_lib:format("~p", [Reason])))
+			  halt("test server connection handler terminated: " ++
+				   lists:flatten(io_lib:format("~p", [Reason])))
 		  end
 	  end).
 
