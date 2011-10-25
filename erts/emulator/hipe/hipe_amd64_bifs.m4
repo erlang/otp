@@ -58,7 +58,11 @@ ASYM($1):
 
 	/* make the call on the C stack */
 	SWITCH_ERLANG_TO_C
+	pushq	%rsi
+	movq	%rsp, %rsi	/* Eterm* BIF__ARGS */
+	sub	$(8), %rsp	/* stack frame 16-byte alignment */
 	call	CSYM($2)
+	add	$(1*8 + 8), %rsp
 	TEST_GOT_MBUF
 	SWITCH_C_TO_ERLANG
 
@@ -86,7 +90,11 @@ ASYM($1):
 
 	/* make the call on the C stack */
 	SWITCH_ERLANG_TO_C
+	pushq	%rdx
+	pushq 	%rsi
+	movq	%rsp, %rsi	/* Eterm* BIF__ARGS */
 	call	CSYM($2)
+	add	$(2*8), %rsp
 	TEST_GOT_MBUF
 	SWITCH_C_TO_ERLANG
 
@@ -115,7 +123,13 @@ ASYM($1):
 
 	/* make the call on the C stack */
 	SWITCH_ERLANG_TO_C
+	pushq 	%rcx
+	pushq	%rdx
+	pushq	%rsi
+	movq	%rsp, %rsi	/* Eterm* BIF__ARGS */
+	sub	$(8), %rsp	/* stack frame 16-byte alignment */  
 	call	CSYM($2)
+	add	$(3*8 + 8), %rsp
 	TEST_GOT_MBUF
 	SWITCH_C_TO_ERLANG
 

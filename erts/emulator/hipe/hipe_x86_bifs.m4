@@ -60,7 +60,9 @@ ASYM($1):
 
 	/* make the call on the C stack */
 	NBIF_ARG_REG(0,P)
-	NBIF_ARG(1,1,0)
+	NBIF_ARG(2,1,0)
+	lea 8(%esp), %eax
+	NBIF_ARG_REG(1,%eax)	# BIF__ARGS
 	call	CSYM($2)
 	TEST_GOT_MBUF
 
@@ -92,8 +94,10 @@ ASYM($1):
 
 	/* make the call on the C stack */
 	NBIF_ARG_REG(0,P)
-	NBIF_ARG(1,2,0)
-	NBIF_ARG(2,2,1)
+	NBIF_ARG(2,2,0)
+	NBIF_ARG(3,2,1)
+	lea 8(%esp), %eax
+	NBIF_ARG_REG(1,%eax)	# BIF__ARGS
 	call	CSYM($2)
 	TEST_GOT_MBUF
 
@@ -125,9 +129,11 @@ ASYM($1):
 
 	/* make the call on the C stack */
 	NBIF_ARG_REG(0,P)
-	NBIF_ARG(1,3,0)
-	NBIF_ARG(2,3,1)
-	NBIF_ARG(3,3,2)
+	NBIF_ARG(2,3,0)
+	NBIF_ARG(3,3,1)
+	NBIF_ARG(4,3,2)
+	lea 8(%esp), %eax
+	NBIF_ARG_REG(1,%eax)	# BIF__ARGS
 	call	CSYM($2)
 	TEST_GOT_MBUF
 
@@ -162,6 +168,7 @@ ASYM($1):
 
 	/* make the call on the C stack */
 	NBIF_ARG_REG(0,P)
+	/* skip BIF__ARGS */	
 	call	CSYM($2)
 	TEST_GOT_MBUF
 

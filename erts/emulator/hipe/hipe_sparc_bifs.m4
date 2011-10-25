@@ -62,6 +62,8 @@ $1:
 
 	/* Save caller-save registers and call the C function. */
 	SAVE_CONTEXT_BIF
+	st 	%o1, [%o0+P_ARG0]	! Store BIF__ARGS in def_arg_reg
+	add	%o0, P_ARG0, %o1
 	call	$2
 	nop
 	TEST_GOT_MBUF
@@ -88,6 +90,9 @@ $1:
 
 	/* Save caller-save registers and call the C function. */
 	SAVE_CONTEXT_BIF
+	st 	%o1, [%o0+P_ARG0]	! Store BIF__ARGS in def_arg_reg
+	st 	%o2, [%o0+P_ARG1]
+	add	%o0, P_ARG0, %o1
 	call	$2
 	nop
 	TEST_GOT_MBUF
@@ -115,6 +120,10 @@ $1:
 
 	/* Save caller-save registers and call the C function. */
 	SAVE_CONTEXT_BIF
+	st 	%o1, [%o0+P_ARG0]	! Store BIF__ARGS in def_arg_reg
+	st 	%o2, [%o0+P_ARG1]
+	st 	%o3, [%o0+P_ARG2]
+	add	%o0, P_ARG0, %o1
 	call	$2
 	nop
 	TEST_GOT_MBUF
@@ -145,6 +154,7 @@ $1:
 
 	/* Save caller-save registers and call the C function. */
 	SAVE_CONTEXT_BIF
+	/* ignore empty BIF__ARGS */
 	call	$2
 	nop
 	TEST_GOT_MBUF
@@ -178,6 +188,7 @@ $1:
 
 	/* Save caller-save registers and call the C function. */
 	SAVE_CONTEXT_GC
+	/* ignore empty BIF__ARGS */
 	call	$2
 	nop
 	TEST_GOT_MBUF
@@ -202,6 +213,8 @@ $1:
 
 	/* Save caller-save registers and call the C function. */
 	SAVE_CONTEXT_GC
+	st 	%o1, [%o0+P_ARG0]	! Store BIF__ARGS in def_arg_reg
+	add	%o0, P_ARG0, %o1
 	call	$2
 	nop
 	TEST_GOT_MBUF
@@ -228,6 +241,9 @@ $1:
 
 	/* Save caller-save registers and call the C function. */
 	SAVE_CONTEXT_GC
+	st 	%o1, [%o0+P_ARG0]	! Store BIF__ARGS in def_arg_reg
+	st 	%o2, [%o0+P_ARG1]
+	add	%o0, P_ARG0, %o1
 	call	$2
 	nop
 	TEST_GOT_MBUF

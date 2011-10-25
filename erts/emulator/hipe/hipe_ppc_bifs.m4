@@ -54,6 +54,8 @@ ASYM($1):
 
 	/* Save caller-save registers and call the C function. */
 	SAVE_CONTEXT_BIF
+	STORE	r4, P_ARG0(r3)		# Store BIF__ARGS in def_arg_reg[]
+	addi	r4, r3, P_ARG0
 	bl	CSYM($2)
 	TEST_GOT_MBUF
 
@@ -82,6 +84,9 @@ ASYM($1):
 
 	/* Save caller-save registers and call the C function. */
 	SAVE_CONTEXT_BIF
+	STORE	r4, P_ARG0(r3)		# Store BIF__ARGS in def_arg_reg[]
+	STORE	r5, P_ARG1(r3)
+	addi	r4, r3, P_ARG0
 	bl	CSYM($2)
 	TEST_GOT_MBUF
 
@@ -111,6 +116,10 @@ ASYM($1):
 
 	/* Save caller-save registers and call the C function. */
 	SAVE_CONTEXT_BIF
+	STORE	r4, P_ARG0(r3)		# Store BIF__ARGS in def_arg_reg[]
+	STORE	r5, P_ARG1(r3)
+	STORE	r6, P_ARG2(r3)
+	addi	r4, r3, P_ARG0
 	bl	CSYM($2)
 	TEST_GOT_MBUF
 
@@ -143,6 +152,7 @@ ASYM($1):
 
 	/* Save caller-save registers and call the C function. */
 	SAVE_CONTEXT_BIF
+	/* ignore empty BIF__ARGS */
 	bl	CSYM($2)
 	TEST_GOT_MBUF
 
@@ -178,6 +188,7 @@ ASYM($1):
 
 	/* Save caller-save registers and call the C function. */
 	SAVE_CONTEXT_GC
+	/* ignore empty BIF__ARGS */
 	bl	CSYM($2)
 	TEST_GOT_MBUF
 
@@ -201,6 +212,8 @@ ASYM($1):
 
 	/* Save caller-save registers and call the C function. */
 	SAVE_CONTEXT_GC
+	STORE	r4, P_ARG0(r3)		# Store BIF__ARGS in def_arg_reg[]
+	addi	r4, r3, P_ARG0
 	bl	CSYM($2)
 	TEST_GOT_MBUF
 
@@ -229,6 +242,9 @@ ASYM($1):
 
 	/* Save caller-save registers and call the C function. */
 	SAVE_CONTEXT_GC
+	STORE	r4, P_ARG0(r3)		# Store BIF__ARGS in def_arg_reg[]
+	STORE	r5, P_ARG1(r3)
+	addi	r4, r3, P_ARG0
 	bl	CSYM($2)
 	TEST_GOT_MBUF
 
