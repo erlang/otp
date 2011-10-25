@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -24,11 +24,11 @@
 %%-compile(export_all).
 
 -export([all/1,init_per_testcase/2,fin_per_testcase/2,
-	 basic/1,api_open_close/1,api_listen/1,api_connect_init/1,
+	 basic/1,api_open_close/1,api_listen/1,api_connect_init/1,api_opts/1,
 	 xfer_min/1,xfer_active/1]).
 
 all(suite) ->
-    [basic,api_open_close,api_listen,api_connect_init,xfer_min,xfer_active].
+    [basic,api_open_close,api_listen,api_connect_init,api_opts,xfer_min,xfer_active].
 
 init_per_testcase(_Func, Config) ->
     Dog = test_server:timetrap(test_server:seconds(15)),
@@ -172,7 +172,9 @@ xfer_active(Config) when is_list(Config) ->
 		?line test_server:fail({unexpected,flush()})
 	end,
     ?line io:format("SbAssocId=~p~n", [SbAssocId]),
-    ?line ok = gen_sctp:send(Sa, SaAssocId, 0, Data),
+    ?line ok =
+	do_from_other_process(
+	  fun () -> gen_sctp:send(Sa, SaAssocId, 0, Data) end),
     ?line receive
 	      {sctp,Sb,Loopback,Pa,
 	       {[#sctp_sndrcvinfo{stream=Stream,
@@ -382,3 +384,48 @@ api_connect_init(Config) when is_list(Config) ->
     ?line ok = gen_sctp:close(Sa),
     ?line ok = gen_sctp:close(Sb),
     ok.
+
+api_opts(doc) ->
+    "Test socket options";
+api_opts(suite) ->
+    [];
+api_opts(Config) when is_list(Config) ->
+    ?line Sndbuf = 32768,
+    ?line Recbuf = 65536,
+    ?line {ok,S} = gen_sctp:open(0),
+    ?line ok = inet:setopts(S, [{sndbuf,Sndbuf}]),
+    ?line ok = inet:setopts(S, [{recbuf,Recbuf}]),
+    ?line case inet:getopts(S, [sndbuf]) of
+	      {ok,[{sndbuf,SB}]} when SB >= Sndbuf -> ok
+	  end,
+    ?line case inet:getopts(S, [recbuf]) of
+	      {ok,[{recbuf,RB}]} when RB >= Recbuf -> ok
+	  end.
+
+
+
+do_from_other_process(Fun) ->
+    Parent = self(),
+    Ref = make_ref(),
+    Child =
+	spawn(fun () ->
+		      try Fun() of
+			  Result ->
+			      Parent ! {Ref,Result}
+		      catch
+			  Class:Reason ->
+			      Stacktrace = erlang:get_stacktrace(),
+			      Parent ! {Ref,Class,Reason,Stacktrace}
+		      end
+	      end),
+    Mref = erlang:monitor(process, Child),
+    receive
+	{Ref,Result} ->
+	    receive {'DOWN',Mref,_,_,_} -> Result end;
+	{Ref,Class,Reason,Stacktrace} ->
+	    receive {'DOWN',Mref,_,_,_} ->
+		    erlang:raise(Class, Reason, Stacktrace)
+	    end;
+	{'DOWN',Mref,_,_,Reason} ->
+	    erlang:exit(Reason)
+    end.
