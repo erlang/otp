@@ -3112,7 +3112,8 @@ tsp(F) ->
     tsp(F, []).
 tsp(F, A) ->
     Timestamp = formated_timestamp(), 
-    test_server:format("** ~s ** ~p ~p:" ++ F ++ "~n", [Timestamp, self(), ?MODULE | A]).
+    test_server:format("** ~s ** ~p ~p:" ++ F ++ "~n", 
+		       [Timestamp, self(), ?MODULE | A]).
 
 formated_timestamp() ->
     format_timestamp( os:timestamp() ).

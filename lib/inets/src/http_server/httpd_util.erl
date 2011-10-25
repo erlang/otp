@@ -180,10 +180,10 @@ message(301,URL,_) ->
 message(304, _URL,_) ->
     "The document has not been changed.";
 message(400, none, _) ->
-    "Your browser sent a query that this server could not understand.";
+    "Your browser sent a query that this server could not understand. ";
 message(400, Msg, _) ->
     "Your browser sent a query that this server could not understand. " ++ 
-	http_util:html_encode(Msg);
+	html_encode(http_uri:decode(Msg));
 message(401, none, _) ->
     "This server could not verify that you
 are authorized to access the document you
@@ -193,29 +193,29 @@ browser doesn't understand how to supply
 the credentials required.";
 message(403,RequestURI,_) ->
     "You don't have permission to access " ++ 
-	http_util:html_encode(RequestURI) ++ 
+	html_encode(RequestURI) ++ 
 	" on this server.";
 message(404,RequestURI,_) ->
     "The requested URL " ++ 
-	http_util:html_encode(RequestURI) ++ 
+	html_encode(RequestURI) ++ 
 	" was not found on this server.";
 message(408, Timeout, _) ->
     Timeout;
 message(412,none,_) ->
     "The requested preconditions where false";
 message(413, Reason,_) ->
-    "Entity: " ++ http_util:html_encode(Reason);
+    "Entity: " ++ html_encode(Reason);
 message(414,ReasonPhrase,_) ->
-    "Message " ++ http_util:html_encode(ReasonPhrase) ++ ".";
+    "Message " ++ html_encode(ReasonPhrase) ++ ".";
 message(416,ReasonPhrase,_) ->
-    http_util:html_encode(ReasonPhrase);
+    html_encode(ReasonPhrase);
 
 message(500,_,ConfigDB) ->
     ServerAdmin = lookup(ConfigDB, server_admin, "unknown@unknown"),
     "The server encountered an internal error or "
 	"misconfiguration and was unable to complete "
 	"your request.<P>Please contact the server administrator "
-	++ http_util:html_encode(ServerAdmin) ++ 
+	++ html_encode(ServerAdmin) ++ 
 	", and inform them of the time the error occurred "
 	"and anything you might have done that may have caused the error.";
 
@@ -224,17 +224,17 @@ message(501,{Method, RequestURI, HTTPVersion}, _ConfigDB) ->
 	is_atom(Method) ->
 	    atom_to_list(Method)++
 		" to " ++ 
-		http_util:html_encode(RequestURI) ++ 
+		html_encode(RequestURI) ++ 
 		" (" ++ HTTPVersion ++ ") not supported.";
 	is_list(Method) ->
 	    Method++
 		" to " ++ 
-		http_util:html_encode(RequestURI) ++ 
+		html_encode(RequestURI) ++ 
 		" (" ++ HTTPVersion ++ ") not supported."
     end;
 
 message(503, String, _ConfigDB) ->
-    "This service in unavailable due to: " ++ http_util:html_encode(String).
+    "This service in unavailable due to: " ++ html_encode(String).
 
 maybe_encode(URI) ->
     case lists:member($%, URI) of
@@ -243,6 +243,9 @@ maybe_encode(URI) ->
 		      false ->
 			     http_uri:encode(URI)
 		     end.
+
+html_encode(String) ->
+    http_util:html_encode(http_uri:decode(String)).
 
 %%convert_rfc_date(Date)->{{YYYY,MM,DD},{HH,MIN,SEC}}
 
