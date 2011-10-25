@@ -132,7 +132,7 @@ if test "X$host" = "Xwin32" -a "x$GCC" != "xyes"; then
 		AC_MSG_RESULT([Cygwin and VC])
 		MIXED_CYGWIN_VC=yes
 		CPPFLAGS="$CPPFLAGS -DERTS_MIXED_CYGWIN_VC"
-	elif test -x /usr/bin/i686-pc-msys-gcc.exe; then
+	elif test -x /usr/bin/msysinfo; then
 	        CFLAGS="-O2"
 		MIXED_MSYS=yes
 		AC_MSG_RESULT([MSYS and VC])
