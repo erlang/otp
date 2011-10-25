@@ -45,7 +45,7 @@
 /* #define HARDDEBUG 1 */
 
 #if defined(NO_JUMP_TABLE)
-#  define OpCase(OpCode)    case op_##OpCode: lb_##OpCode
+#  define OpCase(OpCode)    case op_##OpCode
 #  define CountCase(OpCode) case op_count_##OpCode
 #  define OpCode(OpCode)    ((Uint*)op_##OpCode)
 #  define Goto(Rel) {Go = (int)(Rel); goto emulator_loop;}
@@ -199,7 +199,7 @@ do {                                     \
     }                                                        \
   } while (0)
 
-#define ClauseFail() goto lb_jump_f
+#define ClauseFail() goto jump_f
 
 #define SAVE_CP(X)				\
    do {						\
@@ -2540,6 +2540,7 @@ void process_main(void)
  lb_Cl_error: {
      if (Arg(0) != 0) {
 	 OpCase(jump_f): {
+	 jump_f:
 	     SET_I((BeamInstr *) Arg(0));
 	     Goto(*I);
 	 }
@@ -3113,7 +3114,7 @@ void process_main(void)
 
  /* Fall through */
  OpCase(error_action_code): {
- no_error_handler:
+    handle_error:
      reg[0] = r(0);
      SWAPOUT;
      I = handle_error(c_p, NULL, reg, NULL);
@@ -3274,7 +3275,7 @@ void process_main(void)
  OpCase(i_func_info_IaaI): {
      c_p->freason = EXC_FUNCTION_CLAUSE;
      c_p->current = I + 2;
-     goto lb_error_action_code;
+     goto handle_error;
  }
 
  OpCase(try_case_end_s):
@@ -4960,7 +4961,7 @@ void process_main(void)
      if (I) {
 	 Goto(*I);
      }
-     goto no_error_handler;
+     goto handle_error;
  }
 
 
