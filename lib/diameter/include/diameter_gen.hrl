@@ -40,14 +40,14 @@ encode_avps(Name, Rec) ->
         list_to_binary(encode(Name, Rec))
     catch
         throw: {?MODULE, Reason} ->
-            diameter_dbg:log({encode, error},
+            diameter_lib:log({encode, error},
                              ?MODULE,
                              ?LINE,
                              {Reason, Name, Rec}),
             erlang:error(list_to_tuple(Reason ++ [Name]));
         error: Reason ->
             Stack = erlang:get_stacktrace(),
-            diameter_dbg:log({encode, failure},
+            diameter_lib:log({encode, failure},
                              ?MODULE,
                              ?LINE,
                              {Reason, Name, Rec, Stack}),
@@ -159,7 +159,7 @@ d_rc(Name, {Avps, {Rec, [] = Failed}}) ->
         {Rec, Avps, Failed}
     catch
         throw: {?MODULE, {AvpName, Reason}} ->
-            diameter_dbg:log({decode, error},
+            diameter_lib:log({decode, error},
                              ?MODULE,
                              ?LINE,
                              {AvpName, Reason, Rec}),
@@ -260,7 +260,7 @@ d(Name, Avp, {Avps, Acc}) ->
             %% respond sensibly to. Log the occurence for traceability,
             %% but the peer will also receive info in the resulting
             %% answer-message.
-            diameter_dbg:log({decode, failure},
+            diameter_lib:log({decode, failure},
                              ?MODULE,
                              ?LINE,
                              {Reason, Avp, erlang:get_stacktrace()}),
