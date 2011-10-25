@@ -209,7 +209,7 @@ gen/diameter_gen_base_accounting.hrl gen/diameter_gen_relay.hrl: \
 gen/diameter_gen_base_rfc3588.erl gen/diameter_gen_base_rfc3588.hrl: \
 	$(COMPILER_MODULES:compiler/%=$(EBIN)/%.$(EMULATOR))
 
-$(DICT_MODULES:%=$(EBIN)/%.$(EMULATOR)): \
+$(DICT_MODULES:gen/%=$(EBIN)/%.$(EMULATOR)): \
 	$(INCDIR)/diameter.hrl \
 	$(INCDIR)/diameter_gen.hrl
 
