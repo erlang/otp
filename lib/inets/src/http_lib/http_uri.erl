@@ -47,19 +47,7 @@ encode(URI) ->
     lists:append(lists:map(fun(Char) -> uri_encode(Char, Reserved) end, URI)).
 
 decode(String) ->
-    try
-	begin
-	    do_decode(String)
-	end
-    catch
-	throw:{bad_hex_value, _BadChar} ->
-	    %% The string is either badly encoded or a string 
-	    %% containing a % followed by a non-hex char.
-	    %% In any case, return as-is since there is nothing 
-	    %% we can do...
-	    %% Note that the valid hex-chars are: 0-9, a-f and A-F.
-	    String
-    end.
+    do_decode(String).
 
 do_decode([$%,Hex1,Hex2|Rest]) ->
     [hex2dec(Hex1)*16+hex2dec(Hex2)|do_decode(Rest)];
@@ -156,5 +144,4 @@ uri_encode(Char, Reserved) ->
 
 hex2dec(X) when (X>=$0) andalso (X=<$9) -> X-$0;
 hex2dec(X) when (X>=$A) andalso (X=<$F) -> X-$A+10;
-hex2dec(X) when (X>=$a) andalso (X=<$f) -> X-$a+10;
-hex2dec(X)                              -> throw({bad_hex_value, X}).
+hex2dec(X) when (X>=$a) andalso (X=<$f) -> X-$a+10.
