@@ -103,7 +103,7 @@ dir(Dir) ->
 %%   <dt>{regexp, string()}</dt>
 %%
 %%       <dd>The value denotes a regular expression (see module
-%%       `regexp').  Tidying will only be applied to those
+%%       `re').  Tidying will only be applied to those
 %%       regular files whose names match this pattern. The default
 %%       value is `".*\\.erl$"', which matches normal
 %%       Erlang source file names.</dd>
@@ -124,7 +124,7 @@ dir(Dir) ->
 %%
 %% See the function {@link file/2} for further options.
 %%
-%% @see //stdlib/regexp
+%% @see //stdlib/re
 %% @see file/2
 
 -record(dir, {follow_links = false :: boolean(),
