@@ -41,8 +41,7 @@
     strings and binaries.</p>
 
     <p>The regular expression syntax and semantics resemble that of
-    Perl. This library replaces the deprecated pure-Erlang regexp
-    library; it has a richer syntax, more options and is faster.</p>
+    Perl.</p>
 
     <p>The library's matching algorithms are currently based on the
     PCRE library, but not all of the PCRE library is interfaced and

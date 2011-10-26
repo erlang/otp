@@ -85,7 +85,6 @@
 	     queue,
 	     random,
 	     re,
-	     regexp,
 	     sets,
 	     shell,
 	     shell_default,

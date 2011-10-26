@@ -83,7 +83,6 @@ XML_REF3_FILES = \
 	queue.xml \
 	random.xml \
 	re.xml \
-	regexp.xml \
 	sets.xml \
 	shell.xml \
 	shell_default.xml \
