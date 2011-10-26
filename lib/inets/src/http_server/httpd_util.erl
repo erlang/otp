@@ -183,7 +183,7 @@ message(400, none, _) ->
     "Your browser sent a query that this server could not understand. ";
 message(400, Msg, _) ->
     "Your browser sent a query that this server could not understand. " ++ 
-	html_encode(http_uri:decode(Msg));
+	html_encode(Msg);
 message(401, none, _) ->
     "This server could not verify that you
 are authorized to access the document you

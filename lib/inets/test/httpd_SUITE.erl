@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1627,7 +1627,7 @@ ticket_6003(Config) ->
 				     ?IP_PORT, ?config(node, Config),
 				     "GET http://www.erlang.org/%skalle "
 				     "HTTP/1.0\r\n\r\n",
-				     [{statuscode, 400},
+				     [{statuscode, 404},
 				      {version, "HTTP/1.0"}]),
     ok.
 

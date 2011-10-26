@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -100,12 +100,19 @@ send_status(#mod{socket_type = SocketType,
 		 socket      = Socket, 
 		 config_db   = ConfigDB} = ModData, StatusCode, PhraseArgs) ->
 
+    ?hdrd("send status", [{status_code, StatusCode}, 
+			  {phrase_args, PhraseArgs}]), 
+
     ReasonPhrase = httpd_util:reason_phrase(StatusCode),
     Message      = httpd_util:message(StatusCode, PhraseArgs, ConfigDB),
     Body         = get_body(ReasonPhrase, Message),
 
-    send_header(ModData, StatusCode, [{content_type, "text/html"},
-			    {content_length, integer_to_list(length(Body))}]),
+    ?hdrt("send status - header", [{reason_phrase, ReasonPhrase}, 
+     				   {message,       Message}]), 
+    send_header(ModData, StatusCode, 
+		[{content_type,   "text/html"},
+		 {content_length, integer_to_list(length(Body))}]),
+
     httpd_socket:deliver(SocketType, Socket, Body).
 
 
@@ -345,8 +352,9 @@ transform({Field, Value}) when is_list(Field) ->
 %% Leave this method and go on to the newer form of response
 %% OTP-4408
 %%----------------------------------------------------------------------
-send_response_old(#mod{method      = "HEAD"} = ModData,
+send_response_old(#mod{method = "HEAD"} = ModData,
 		  StatusCode, Response) ->
+
     NewResponse = lists:flatten(Response),
     
     case httpd_util:split(NewResponse, [?CR, ?LF, ?CR, ?LF],2) of

@@ -197,9 +197,7 @@ init_per_testcase(Case, Timeout, Config) ->
 		TmpConfig2 = 
 		    lists:keydelete(local_ssl_server, 1, TmpConfig),
 		%% Will start inets 
-		Server = 
-		    inets_test_lib:start_http_server(
-		      filename:join(PrivDir, SslConfFile)),
+		Server = start_http_server(PrivDir, SslConfFile),
 		[{watchdog, Dog}, {local_ssl_server, Server} | TmpConfig2];
 	    "proxy_" ++ Rest ->
 		case Rest of			       
@@ -209,9 +207,8 @@ init_per_testcase(Case, Timeout, Config) ->
 			    ok ->
 				[{watchdog, Dog} | TmpConfig];
 			    _ ->
-				[{skip, 
-				  "SSL does not seem to be supported"} 
-				 | TmpConfig]
+				[skip("SSL does not seem to be supported") |  
+				 TmpConfig]
 			end;
 		    _ ->
 			%% We use erlang.org for the proxy tests 
@@ -239,23 +236,20 @@ init_per_testcase(Case, Timeout, Config) ->
 				    ],
 				case lists:member(Rest, BadCases) of
 				    true ->
-					[{skip, 
-					  "TC and server not compatible"}|
+					[skip("TC and server not compatible") | 
 					 TmpConfig];
 				    false ->
 					inets:start(),
 					[{watchdog, Dog} | TmpConfig]
 				end;
 			    false ->
-				[{skip, "proxy not responding"} | TmpConfig]
+				[skip("proxy not responding") | TmpConfig]
 			end
 		end;
 	    _ -> 
 		TmpConfig2 = lists:keydelete(local_server, 1, TmpConfig),
-		Server = 
-		    %% Will start inets 
-		    inets_test_lib:start_http_server(
-		      filename:join(PrivDir, IpConfFile)),
+		%% Will start inets 
+		Server = start_http_server(PrivDir, IpConfFile),
 		[{watchdog, Dog}, {local_server, Server} | TmpConfig2]
 	end,
     
@@ -264,10 +258,11 @@ init_per_testcase(Case, Timeout, Config) ->
     inets:enable_trace(max, io, httpc),
     %% inets:enable_trace(max, io, all),
     %% snmp:set_trace([gen_tcp, inet_tcp, prim_inet]),
-    io:format(user, "~n~n*** INIT ~w:~w ***~n"
-	      "     NewConfig: ~p~n~n", 
-	      [?MODULE, Case, NewConfig]),
     NewConfig.
+
+start_http_server(ConfDir, ConfFile) ->
+    inets_test_lib:start_http_server( filename:join(ConfDir, ConfFile) ).
+
 
 %%--------------------------------------------------------------------
 %% Function: end_per_testcase(Case, Config) -> _
