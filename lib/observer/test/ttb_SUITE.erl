@@ -37,21 +37,32 @@
 -define(FNAME, "temptest").
 -define(DIRNAME, "ddtemp").
 
-init_per_testcase(_Case, Config) ->
-    ttb:stop(),
-    os:cmd("rm -rf " ++ ?OUTPUT),
-    os:cmd("rm -rf ttb_upload*"),
-    os:cmd("rm -rf " ++ ?DIRNAME),
-    os:cmd("rm -rf *@*"),
-    os:cmd("rm -rf ttb_last_config"),
+init_per_testcase(Case, Config) ->
     ?line Dog=test_server:timetrap(?default_timeout),
-    [{watchdog, Dog}|Config].
-end_per_testcase(Case, Config) ->
-    Dog=?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
+    ttb:stop(),
+    rm(?OUTPUT),
+    [rm(Upload) || Upload<-filelib:wildcard("ttb_upload*")],
+    rm(?DIRNAME),
+    [rm(At) || At <- filelib:wildcard("*@*")],
+    rm("ttb_last_config"),
+    %% Workaround for bug(?) in test_server - if the test case fails
+    %% with a timetrap timeout, then end_per_testcase will run with
+    %% faulty group_leader - which in turn makes test_server:stop_node
+    %% hang (stop_node is called by most of the cleanup functions).
+    %% Therefore we do the cleanup before each testcase instead - this
+    %% is obviously not 100% correct, but it will at least make sure
+    %% that the nodes which are to be started in a test case at are
+    %% terminated.
     try apply(?MODULE,Case,[cleanup,Config])
     catch error:undef -> ok
     end,
+    [{watchdog, Dog}|Config].
+end_per_testcase(Case, Config) ->
+    %% try apply(?MODULE,Case,[cleanup,Config])
+    %% catch error:undef -> ok
+    %% end,
+    Dog=?config(watchdog, Config),
+    ?t:timetrap_cancel(Dog),
     ok.
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -84,6 +95,7 @@ groups() ->
     [].
 
 init_per_suite(Config) ->
+    clean_priv_dir(Config),
     Config.
 
 end_per_suite(_Config) ->
@@ -105,7 +117,7 @@ file(Config) when is_list(Config) ->
     ?line {ok,OtherNode} = ?t:start_node(node2,slave,[]),
     ?line c:nl(?MODULE),
     ?line S = self(),
-    ?line Privdir=?config(priv_dir, Config),
+    ?line Privdir=priv_dir(Config),
     ?line File = filename:join(Privdir,"file"),
     ?line {ok,[Node]} =
 	ttb:tracer(Node,[{file, File},
@@ -144,7 +156,7 @@ file_no_pi(Config) when is_list(Config) ->
     ?line {ok,OtherNode} = ?t:start_node(node2,slave,[]),
     ?line c:nl(?MODULE),
     ?line S = self(),
-    ?line Privdir=?config(priv_dir, Config),
+    ?line Privdir=priv_dir(Config),
     ?line File = filename:join(Privdir,"file"),
     ?line {ok,[_,_]} =
 	ttb:tracer([Node,OtherNode],[{file, File},
@@ -180,7 +192,7 @@ file_fetch(Config) when is_list(Config) ->
     ?line {ok,OtherNode} = ?t:start_node(node2,slave,[]),
     ?line c:nl(?MODULE),
     ?line S = self(),
-    ?line Privdir=?config(priv_dir, Config),
+    ?line Privdir=priv_dir(Config),
     ?line ThisDir = filename:join(Privdir,this),
     ?line ok = file:make_dir(ThisDir),
     ?line OtherDir = filename:join(Privdir,other),
@@ -248,7 +260,7 @@ wrap(Config) when is_list(Config) ->
     ?line {ok,OtherNode} = ?t:start_node(node2,slave,[]),
     ?line c:nl(?MODULE),
     ?line S = self(),
-    ?line Privdir=?config(priv_dir, Config),
+    ?line Privdir=priv_dir(Config),
     ?line File = filename:join(Privdir,"wrap"),
     ?line {ok,[_,_]} = 
 	ttb:tracer([Node,OtherNode],[{file, {wrap,File,200,3}},
@@ -302,7 +314,7 @@ wrap_merge(Config) when is_list(Config) ->
     ?line {ok,OtherNode} = ?t:start_node(node2,slave,[]),
     ?line c:nl(?MODULE),
     ?line S = self(),
-    ?line Privdir=?config(priv_dir, Config),
+    ?line Privdir=priv_dir(Config),
     ?line File = filename:join(Privdir,"wrap_merge"),
     ?line {ok,[_,_]} = 
 	ttb:tracer([Node,OtherNode],[{file, {wrap,File,200,3}},
@@ -343,7 +355,7 @@ wrap_merge_fetch_format(Config) when is_list(Config) ->
     ?line {ok,OtherNode} = ?t:start_node(node2,slave,[]),
     ?line c:nl(?MODULE),
     ?line S = self(),
-    ?line Privdir=?config(priv_dir, Config),
+    ?line Privdir=priv_dir(Config),
     ?line File = filename:join(Privdir,"wrap_merge_fetch_format"),
 
     %% I'm setting priv_dir as cwd, so ttb_upload directory is created there
@@ -387,7 +399,7 @@ write_config1(Config) when is_list(Config) ->
     ?line c:nl(?MODULE),
     ?line S = self(),
 
-    ?line Privdir=?config(priv_dir, Config),
+    ?line Privdir=priv_dir(Config),
     ?line File = filename:join(Privdir,"write_config1"),
     ?line ok = ttb:write_config(File,
 				[{ttb,tracer,[[Node,OtherNode],
@@ -438,7 +450,7 @@ write_config2(Config) when is_list(Config) ->
     ?line {ok,OtherNode} = ?t:start_node(node2,slave,[]),
     ?line c:nl(?MODULE),
     ?line S = self(),
-    ?line Privdir=?config(priv_dir, Config),
+    ?line Privdir=priv_dir(Config),
     ?line File = filename:join(Privdir,"write_config2"),
     ?line {ok,[_,_]} = 
 	ttb:tracer([Node,OtherNode],[{file, File},
@@ -490,7 +502,7 @@ write_config3(Config) when is_list(Config) ->
     ?line {ok,OtherNode} = ?t:start_node(node2,slave,[]),
     ?line c:nl(?MODULE),
     ?line S = self(),
-    ?line Privdir=?config(priv_dir, Config),
+    ?line Privdir=priv_dir(Config),
     ?line File = filename:join(Privdir,"write_config3"),
     ?line {ok,[_,_]} = 
 	ttb:tracer([Node,OtherNode],[{file, File},
@@ -559,7 +571,7 @@ history(Config) when is_list(Config) ->
     ?line S = self(),
 
     ?line Nodes = [Node,OtherNode],
-    ?line Privdir=?config(priv_dir, Config),
+    ?line Privdir=priv_dir(Config),
     ?line File = filename:join(Privdir,"history"),
     ?line StartOpts = [{file, File},
 		       {handler,{fun myhandler/4, S}}],
@@ -597,7 +609,7 @@ write_trace_info(Config) when is_list(Config) ->
     ?line {ok,OtherNode} = ?t:start_node(node2,slave,[]),
     ?line c:nl(?MODULE),
     ?line S = self(),
-    ?line Privdir=?config(priv_dir, Config),
+    ?line Privdir=priv_dir(Config),
     ?line File = filename:join(Privdir,"write_trace_info"),
     ?line {ok,[_,_]} = 
 	ttb:tracer([Node,OtherNode],[{file, File},
@@ -630,7 +642,7 @@ seq_trace(doc) ->
 seq_trace(Config) when is_list(Config) ->
     ?line S = self(),
 
-    ?line Privdir=?config(priv_dir, Config),
+    ?line Privdir=priv_dir(Config),
     ?line File = filename:join(Privdir,"seq_trace"),
     ?line {ok,[Node]} = ttb:tracer(node(),[{file,File},
 				     {handler,{fun myhandler/4, S}}]),
@@ -697,7 +709,7 @@ diskless(Config) when is_list(Config) ->
     ?line {ok,RemoteNode} = ?t:start_node(node2,slave,[]),
     ?line c:nl(?MODULE),
     ?line S = self(),
-    ?line Privdir=?config(priv_dir, Config),
+    ?line Privdir=priv_dir(Config),
     ?line File = filename:join(Privdir,"diskless"),
     ?line {ok,[RemoteNode]} = 
 	ttb:tracer([RemoteNode],[{file, {local, File}},
@@ -726,7 +738,7 @@ diskless_wrap(Config) when is_list(Config) ->
     ?line {ok,RemoteNode} = ?t:start_node(node2,slave,[]),
     ?line c:nl(?MODULE),
     ?line S = self(),
-    ?line Privdir=?config(priv_dir, Config),
+    ?line Privdir=priv_dir(Config),
     ?line File = filename:join(Privdir,"diskless"),
     ?line {ok,[RemoteNode]} =
 	ttb:tracer([RemoteNode],[{file, {local, {wrap,File,200,3}}},
@@ -765,7 +777,7 @@ otp_4967_2(doc) ->
     ["OTP-4967: Trace message sent to {Name, Node}"];
 otp_4967_2(Config) when is_list(Config) ->
     io:format("1: ~p",[now()]),
-    ?line Privdir = ?config(priv_dir,Config),
+    ?line Privdir = priv_dir(Config),
     io:format("2: ~p",[now()]),
     ?line File = filename:join(Privdir,"otp_4967"),
     io:format("3: ~p",[now()]),
@@ -1495,4 +1507,28 @@ helper_msgs(N, TracingType) ->
             ttb_helper:msgs_ip(N);
         _ ->
             ttb_helper:msgs(N)
+    end.
+
+priv_dir(Conf) ->
+    %% Due to problem with long paths on windows => creating a new
+    %% priv_dir under data_dir
+    Dir = filename:absname(filename:join(?config(data_dir, Conf),priv_dir)),
+    filelib:ensure_dir(filename:join(Dir,"*")),
+    Dir.
+
+clean_priv_dir(Config) ->
+    PrivDir = priv_dir(Config),
+    case filelib:is_dir(PrivDir) of
+        true -> rm(PrivDir);
+        false -> ok
+    end.
+
+rm(This) ->
+    case filelib:is_dir(This) of
+        true ->
+            {ok,Files} = file:list_dir(This),
+            [rm(filename:join(This,F)) || F <- Files],
+	    file:del_dir(This);
+        false ->
+	    file:delete(This)
     end.

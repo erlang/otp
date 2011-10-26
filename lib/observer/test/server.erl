@@ -16,8 +16,9 @@ stop() ->
 
 loop(Data, Num) ->
     receive
-	{put,From,Ting} -> From ! ok,
+	{put,From,Ting} -> timer:sleep(2),
 			   received(From,Ting),
+			   From ! ok,
 			   loop([Ting|Data], Num+1);
 	{get,From}      -> From ! Data,
 			   loop(Data, Num+1);
