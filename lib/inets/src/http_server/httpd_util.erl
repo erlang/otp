@@ -245,7 +245,13 @@ maybe_encode(URI) ->
 		     end.
 
 html_encode(String) ->
-    http_util:html_encode(http_uri:decode(String)).
+    try http_uri:decode(String) of
+	Decoded when is_list(Decoded) ->
+	    http_util:html_encode(Decoded)
+    catch 
+	_:_ ->
+	    http_util:html_encode(String)
+    end.
 
 %%convert_rfc_date(Date)->{{YYYY,MM,DD},{HH,MIN,SEC}}
 
@@ -259,7 +265,7 @@ convert_request_date([D,A,Y,DateType| Rest])->
 		 fun convert_rfc850_date/1
 	 end,
     case catch Func([D,A,Y,DateType| Rest]) of
-	{ok,Date} ->
+	{ok, Date} ->
 	    Date;
 	_Error->
 	    bad_date
