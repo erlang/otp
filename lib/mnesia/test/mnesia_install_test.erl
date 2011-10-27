@@ -205,7 +205,7 @@ silly_upgrade(Config) when is_list(Config) ->
     ?match(ok, mnesia:install_fallback(Bup2)),
     file:delete(Bup2),
     %% Will generate intentional crash, fatal error
-    ?match([], mnesia_test_lib:stop_mnesia([Node2])),  
+    ?match([], mnesia_test_lib:stop_mnesia([Node2])),
     wait_till_dead([Node1, Node2]),
     ?match([], mnesia_test_lib:start_mnesia([Node1, Node2], [Tab1, Tab2])),
     ?match(match, verify_state(Tab1, Tab2, CpState)),
@@ -213,22 +213,29 @@ silly_upgrade(Config) when is_list(Config) ->
     ?match(ok, mnesia:install_fallback(Bup)),
     file:delete(Bup),
     %% Will generate intentional crash, fatal error
-    ?match([], mnesia_test_lib:stop_mnesia([Node1, Node2])),  
+    ?match([], mnesia_test_lib:stop_mnesia([Node1, Node2])),
     wait_till_dead([Node1, Node2]),
     ?match([], mnesia_test_lib:start_mnesia([Node1, Node2], [Tab1, Tab2])),
     CpState2 = [X || X <- CpState, element(1, X) /= Tab1],
     ?match(match, verify_state(Tab1, Tab2, CpState2)),
     ?verify_mnesia(Nodes, []).
 
-wait_till_dead([]) -> ok;
-wait_till_dead([N|Ns]) ->
+wait_till_dead([]) ->
+    ok; %% timer:sleep(5);
+wait_till_dead(Repeat = [N|Ns]) ->
     Apps = rpc:call(N, application, which_applications, []),
     case lists:keymember(mnesia, 1, Apps) of
-	true -> 
+	true ->
 	    timer:sleep(10),
-	    wait_till_dead([N|Ns]);
-	false -> 
-	    wait_till_dead(Ns)
+	    wait_till_dead(Repeat);
+	false ->
+	    case rpc:call(N, erlang, whereis, [mnesia_monitor]) of
+		undefined ->
+		    wait_till_dead(Ns);
+		_ ->
+		    timer:sleep(10),
+		    wait_till_dead(Repeat)
+	    end
     end.
 
 add_some_records(Tab1, Tab2, Old) ->
