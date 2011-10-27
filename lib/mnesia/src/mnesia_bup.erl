@@ -372,7 +372,9 @@ mk_str() ->
     lists:concat([node()] ++ Now ++ ".TMP").
 
 make_initial_backup(Ns, Opaque, Mod) ->
-    Schema = [{schema, schema, mnesia_schema:get_initial_schema(disc_copies, Ns)}],
+    Orig = mnesia_schema:get_initial_schema(disc_copies, Ns),
+    Modded = proplists:delete(storage_properties, proplists:delete(majority, Orig)),
+    Schema = [{schema, schema, Modded}],
     O2 = do_apply(Mod, open_write, [Opaque], Opaque),
     O3 = do_apply(Mod, write, [O2, [mnesia_log:backup_log_header()]], O2),
     O4 = do_apply(Mod, write, [O3, Schema], O3),
