@@ -736,8 +736,11 @@ find_nodes(Tuple, I, T) when is_tuple(Tuple) ->
 	  end,
     {NL, NI, T1} = foldl(Fun, {[], I, T}, L),
     Tag = case Tag0 of
-	      _ when is_function(Tag0) -> Tag0;
-	      _ when is_atom(Tag0) -> {sofs, Tag0}
+	      _ when is_function(Tag0) ->
+		  Tag0;
+	      _ when is_atom(Tag0) ->
+		  Arity = length(NL),
+		  fun sofs:Tag0/Arity
 	  end,
     find_node({apply, Tag, NL}, NI, T1).
 
