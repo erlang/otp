@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -32,7 +32,7 @@
 -export([fun2ms/1]).
 
 %% Local exports
--export([erlang_trace/3,get_info/0]).
+-export([erlang_trace/3,get_info/0,deliver_and_flush/1]).
 
 %% Debug exports
 -export([wrap_presort/2, wrap_sort/2, wrap_postsort/1, wrap_sortfix/2,
@@ -348,17 +348,16 @@ trace_port_control(Operation) ->
     trace_port_control(node(), Operation).
 
 trace_port_control(Node, flush) ->
-    Ref = erlang:trace_delivered(all),
-    receive
-	{trace_delivered,all,Ref} -> ok
-    end,
-    case trace_port_control(Node, $f, "") of
-	{ok, [0]} ->
-	    ok;
-	{ok, _} ->
-	    {error, not_supported_by_trace_driver};
-	Other ->
-	    Other
+    case get_tracer(Node) of
+	{ok, Port} when is_port(Port) ->
+	    case catch rpc:call(Node,?MODULE,deliver_and_flush,[Port]) of
+		[0] ->
+		    ok;
+		_ ->
+		    {error, not_supported_by_trace_driver}
+	    end;
+	_ ->
+	    {error, no_trace_driver}
     end;
 trace_port_control(Node,get_listen_port) ->
     case trace_port_control(Node,$p, "") of
@@ -378,7 +377,14 @@ trace_port_control(Node, Command, Arg) ->
 	    {error, no_trace_driver}
     end.
     
-
+%% A bit more than just flush - it also makes sure all trace messages
+%% are delivered first, before flushing the driver.
+deliver_and_flush(Port) ->
+    Ref = erlang:trace_delivered(all),
+    receive
+	{trace_delivered,all,Ref} -> ok
+    end,
+    erlang:port_control(Port, $f, "").
 					   
 
 trace_port(file, {Filename, wrap, Tail}) ->
@@ -684,18 +690,12 @@ loop({C,T}=SurviveLinks, Table) ->
 	    %% tracing on the node it removes from the list of active trace nodes,
 	    %% we will call erlang:trace_delivered/1 on ALL nodes that we have
 	    %% connections to.
-	    Delivered = fun() ->
-				Ref = erlang:trace_delivered(all),
-				receive
-				    {trace_delivered,all,Ref} -> ok
-				end
-			end,
-	    catch rpc:multicall(nodes(), erlang, apply, [Delivered,[]]),
-	    Ref = erlang:trace_delivered(all),
-	    receive
-		{trace_delivered,all,Ref} ->
-		    exit(done)
-	    end;
+	    %% If it is a file trace driver, we will also flush the port.
+	    lists:foreach(fun({Node,{_Relay,Port}}) ->
+				  rpc:call(Node,?MODULE,deliver_and_flush,[Port])
+			  end,
+			  get()),
+	    exit(done);
 	{From, {link_to, Pid}} -> 	    
 	    case (catch link(Pid)) of
 		{'EXIT', Reason} ->
