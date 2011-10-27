@@ -39,7 +39,7 @@
          change_table_load_order/2,
 	 change_table_majority/2,
 	 change_table_frag/2,
-	 clear_table/1,
+%%	 clear_table/1,  %% removed since it is not a schema op anymore
          create_table/1,
 	 cs2list/1,
          del_snmp/1,
@@ -1151,10 +1151,6 @@ do_change_table_frag(Tab, _Change) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Clear a table
-
-%% No need for a schema transaction
-clear_table(Tab) ->
-    schema_transaction(fun() -> do_clear_table(Tab) end).
 
 do_clear_table(schema) ->
     mnesia:abort({bad_type, schema});
