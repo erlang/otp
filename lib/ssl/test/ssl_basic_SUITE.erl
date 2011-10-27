@@ -2592,7 +2592,7 @@ client_renegotiate(Config) when is_list(Config) ->
 				   {options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
  
-    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
 					{host, Hostname},
 					{from, self()}, 
 					{mfa, {?MODULE, 
@@ -3589,14 +3589,13 @@ hibernate(Config) ->
 					{from, self()},
 					{mfa, {?MODULE, send_recv_result_active, []}},
 					{options, [{hibernate_after, 1000}|ClientOpts]}]),
-
-    { current_function, { _M, _F, _A } } =
+    {current_function, _} =
         process_info(Pid, current_function),
 
     timer:sleep(1100),
 
-    { current_function, { erlang, hibernate, 3} } =
-        process_info(Pid, current_function),
+    {current_function, {erlang, hibernate, 3}} =
+	process_info(Pid, current_function),
 
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
