@@ -87,8 +87,10 @@ dbg(_, _, _) ->
 
 
 
-apply({M, F} = Function, Args) 
+apply({M, F}, Args) 
   when is_atom(M), is_atom(F), is_list(Args) ->
+    Arity = length(Args),
+    Function = fun M:F/Arity,
     apply_1(Function, Args, []);
 apply(Fun, Args) 
   when is_function(Fun), is_list(Args) ->
@@ -98,8 +100,10 @@ apply(A, B) ->
 
 apply(M, F, Args) when is_atom(M), is_atom(F), is_list(Args) ->
     apply_1({M, F}, Args, []);
-apply({M, F} = Function, Args, Options) 
+apply({M, F}, Args, Options) 
   when is_atom(M), is_atom(F), is_list(Args), is_list(Options) ->
+    Arity = length(Args),
+    Function = fun M:F/Arity,
     apply_1(Function, Args, Options);
 apply(Fun, Args, Options) 
   when is_function(Fun), is_list(Args), is_list(Options) ->
@@ -109,7 +113,9 @@ apply(A, B, C) ->
 
 apply(Module, Function, Args, Options) 
   when is_atom(Module), is_atom(Function), is_list(Args), is_list(Options) ->
-    apply_1({Module, Function}, Args, Options);
+    Arity = length(Args),
+    Fun = fun Module:Function/Arity,
+    apply_1(Fun, Args, Options);
 apply(A, B, C, D) ->
     erlang:error(badarg, [A, B, C, D]).
 
