@@ -2736,7 +2736,8 @@ static int sctp_parse_async_event
 #	    ifdef HAVE_STRUCT_SCTP_REMOTE_ERROR_SRE_DATA
 	    chunk = (char*) (&(sptr->sre_data));
 #	    else
-	    chunk = ((char*)sptr) + sizeof(*sptr);
+	    chunk = ((char*) &(sptr->sre_assoc_id))
+		+ sizeof(sptr->sre_assoc_id);
 #	    endif
 	    chlen = sptr->sre_length  - (chunk - (char *)sptr);
 	    i = sctp_parse_error_chunk(spec, i, chunk, chlen);
@@ -2787,7 +2788,8 @@ static int sctp_parse_async_event
 #	    ifdef HAVE_STRUCT_SCTP_SEND_FAILED_SSF_DATA
 	    chunk = (char*) (&(sptr->ssf_data));
 #	    else
-	    chunk = ((char*)sptr) + sizeof(*sptr);
+	    chunk = ((char*) &(sptr->ssf_assoc_id))
+		+ sizeof(sptr->ssf_assoc_id);
 #	    endif
 	    chlen = sptr->ssf_length - (chunk - (char*) sptr);
 	    choff = chunk - bin->orig_bytes;
