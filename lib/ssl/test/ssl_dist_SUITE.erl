@@ -70,11 +70,31 @@ end_per_suite(Config) ->
     application:stop(crypto),
     Config.
 
+init_per_testcase(plain_verify_options = Case, Config) when is_list(Config) ->
+    SslFlags = setup_dist_opts([{many_verify_opts, true} | Config]),
+    Flags = case os:getenv("ERL_FLAGS") of
+		false ->
+		    os:putenv("ERL_FLAGS", SslFlags),
+		    "";
+		OldFlags ->
+		    os:putenv("ERL_FLAGS", OldFlags ++ "" ++ SslFlags),
+		    OldFlags
+    end,
+    common_init(Case, [{old_flags, Flags} | Config]);
+
 init_per_testcase(Case, Config) when is_list(Config) ->
+    common_init(Case, Config).
+
+common_init(Case, Config) ->
     Dog = ?t:timetrap(?t:seconds(?DEFAULT_TIMETRAP_SECS)),
     [{watchdog, Dog},{testcase, Case}|Config].
 
-end_per_testcase(_Case, Config) when is_list(Config) ->
+end_per_testcase(Case, Config) when is_list(Config) ->
+    Flags = proplists:get_value(old_flags, Config),
+    os:putenv("ERL_FLAGS", Flags),
+    common_end(Case, Config).
+
+common_end(_, Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),
     ok.
@@ -210,9 +230,9 @@ plain_verify_options(Config) when is_list(Config) ->
 	"server_reuse_sessions true client_reuse_sessions true  "
 	"server_hibernate_after 500 client_hibernate_after 500",
 
-    NH1 = start_ssl_node([{additional_dist_opts, DistOpts}, {many_verify_opts, true} | Config]),
+    NH1 = start_ssl_node([{additional_dist_opts, DistOpts} | Config]),
     Node1 = NH1#node_handle.nodename,
-    NH2 = start_ssl_node([{additional_dist_opts, DistOpts}, {many_verify_opts, true} | Config]),
+    NH2 = start_ssl_node([{additional_dist_opts, DistOpts} | Config]),
     Node2 = NH2#node_handle.nodename,
 
     pong = apply_on_ssl_node(NH1, fun () -> net_adm:ping(Node2) end),
@@ -619,19 +639,34 @@ setup_dist_opts(Config) ->
 			   ++ "-ssl_dist_opt server_certfile " ++ SKC ++ " "
 			   ++ "-ssl_dist_opt client_certfile " ++ CKC ++ " ";
 		   true ->
-		       "-proto_dist inet_tls "
-			   ++ "-ssl_dist_opt server_certfile " ++ SC ++ " "
-			   ++ "-ssl_dist_opt server_keyfile " ++ SK ++ " "
-			   ++ "-ssl_dist_opt server_cacertfile " ++ SCA ++ " "
-			   ++ "-ssl_dist_opt server_verify verify_peer "
-			   ++ "-ssl_dist_opt server_fail_if_no_peer_cert true "
-			   ++ "-ssl_dist_opt server_ciphers DHE-RSA-AES256-SHA:DHE-RSA-AES128-SHA "
-			   ++ "-ssl_dist_opt server_dhfile " ++ Dhfile ++ " "
-			   ++ "-ssl_dist_opt client_certfile " ++ CC ++ " "
-			   ++ "-ssl_dist_opt client_keyfile " ++ CK ++ " "
-			   ++ "-ssl_dist_opt client_cacertfile " ++ CCA ++ " "
-			   ++ "-ssl_dist_opt client_verify verify_peer "
-			   ++ "-ssl_dist_opt client_ciphers DHE-RSA-AES256-SHA:DHE-RSA-AES128-SHA "
+		       case os:type() of
+			   {win32, _} ->
+			       "-proto_dist inet_tls "
+				   ++ "-ssl_dist_opt server_certfile " ++ SKC ++ " "
+				   ++ "-ssl_dist_opt server_cacertfile " ++ SCA ++ " "
+				   ++ "-ssl_dist_opt server_verify verify_peer "
+				   ++ "-ssl_dist_opt server_fail_if_no_peer_cert true "
+				   ++ "-ssl_dist_opt server_ciphers DHE-RSA-AES256-SHA\:DHE-RSA-AES128-SHA "
+				   ++ "-ssl_dist_opt server_dhfile " ++ Dhfile ++ " "
+				   ++ "-ssl_dist_opt client_certfile " ++ CKC ++ " "
+				   ++ "-ssl_dist_opt client_cacertfile " ++ CCA ++ " "
+				   ++ "-ssl_dist_opt client_verify verify_peer "
+				   ++ "-ssl_dist_opt client_ciphers DHE-RSA-AES256-SHA\:DHE-RSA-AES128-SHA ";
+			   _ ->
+			       "-proto_dist inet_tls "
+				   ++ "-ssl_dist_opt server_certfile " ++ SC ++ " "
+				   ++ "-ssl_dist_opt server_keyfile " ++ SK ++ " "
+				   ++ "-ssl_dist_opt server_cacertfile " ++ SCA ++ " "
+				   ++ "-ssl_dist_opt server_verify verify_peer "
+				   ++ "-ssl_dist_opt server_fail_if_no_peer_cert true "
+				   ++ "-ssl_dist_opt server_ciphers DHE-RSA-AES256-SHA\:DHE-RSA-AES128-SHA "
+				   ++ "-ssl_dist_opt server_dhfile " ++ Dhfile ++ " "
+				   ++ "-ssl_dist_opt client_certfile " ++ CC ++ " "
+				   ++ "-ssl_dist_opt client_keyfile " ++ CK ++ " "
+				   ++ "-ssl_dist_opt client_cacertfile " ++ CCA ++ " "
+				   ++ "-ssl_dist_opt client_verify verify_peer "
+				   ++ "-ssl_dist_opt client_ciphers DHE-RSA-AES256-SHA\:DHE-RSA-AES128-SHA "
+		       end
 	       end,
     MoreOpts = proplists:get_value(additional_dist_opts, Config, []),
     DistOpts ++ MoreOpts.
