@@ -267,7 +267,11 @@ ERL_NIF_API_FUNC_DECL(int,enif_is_number,(ErlNifEnv*, ERL_NIF_TERM term));
 #endif
 
 
-#if defined(__GNUC__)
+#if defined(__GNUC__) && !(defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_))
+
+/* Inline functions for compile time type checking of arguments to
+   variadic functions.
+*/
 
 #  define ERL_NIF_INLINE __inline__
 
@@ -453,7 +457,7 @@ static ERL_NIF_INLINE ERL_NIF_TERM enif_make_list9(ErlNifEnv* env,
 
 #  undef ERL_NIF_INLINE
 
-#else
+#else /* fallback with macros */
 
 #ifndef enif_make_list1
 #  define enif_make_list1(ENV,E1) enif_make_list(ENV,1,E1)
@@ -476,7 +480,7 @@ static ERL_NIF_INLINE ERL_NIF_TERM enif_make_list9(ErlNifEnv* env,
 #  define enif_make_tuple9(ENV,E1,E2,E3,E4,E5,E6,E7,E8,E9) enif_make_tuple(ENV,9,E1,E2,E3,E4,E5,E6,E7,E8,E9)
 #endif
 
-#endif /* defined(__GNUC__) */
+#endif /* __GNUC__ && !WIN32 */
 
 #ifndef enif_make_pid
 
