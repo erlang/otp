@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -687,6 +687,11 @@ loop(NodeInfo, SessionInfo) ->
 			{MetaFile,undefined}
 		end,
 	    loop(dict:store(Node,{AbsoluteMetaFile,MetaPid},NodeInfo), SessionInfo);
+	{ip_to_file_trace_port,Port,Sender} ->
+	    Ports = proplists:get_value(ip_to_file_trace_ports, SessionInfo, []),
+	    NewSessionInfo = [{ip_to_file_trace_ports,[Port|Ports]}|SessionInfo],
+	    Sender ! {?MODULE,ok},
+	    loop(NodeInfo, NewSessionInfo);
 	{get_nodes,Sender} ->
 	    Sender ! {?MODULE,dict:fetch_keys(NodeInfo)},
 	    loop(NodeInfo, SessionInfo);
@@ -736,7 +741,7 @@ loop(NodeInfo, SessionInfo) ->
             end
     end.
 
-do_stop(nofetch, Sender, NodeInfo, _) ->
+do_stop(nofetch, Sender, NodeInfo, SessionInfo) ->
     write_config(?last_config, all),
     dict:fold(
       fun(Node,{_,MetaPid},_) ->
@@ -744,6 +749,7 @@ do_stop(nofetch, Sender, NodeInfo, _) ->
       end,
       ok,
       NodeInfo),
+    stop_ip_to_file_trace_ports(SessionInfo),
     dbg:stop_clear(),
     ets:delete(?history_table),
     Sender ! {?MODULE, stopped};
@@ -766,6 +772,7 @@ do_stop({FetchOrFormat, UserDir}, Sender, NodeInfo, SessionInfo) ->
           end,
           [],
           NodeInfo),
+    stop_ip_to_file_trace_ports(SessionInfo),
     dbg:stop_clear(),
     AllNodes =
         lists:map(
@@ -783,6 +790,19 @@ do_stop({FetchOrFormat, UserDir}, Sender, NodeInfo, SessionInfo) ->
         {format, Opts} -> format(Dir, Opts)
     end,
     Sender ! {?MODULE,{stopped,Absname}}.
+
+stop_ip_to_file_trace_ports(SessionInfo) ->
+    lists:foreach(fun(Port) ->
+			  case lists:member(Port,erlang:ports()) of
+			      true ->
+				  dbg:deliver_and_flush(Port),
+				  erlang:port_close(Port);
+			      false ->
+				  ok
+			  end
+		  end,
+		  proplists:get_value(ip_to_file_trace_ports,SessionInfo,[])).
+
 
 make_node_dead(Node, NodeInfo, SessionInfo) ->
     {MetaFile,_} = dict:fetch(Node, NodeInfo),
@@ -1263,6 +1283,9 @@ ip_to_file(Trace, {_, only} = State) ->
 ip_to_file(Trace,{{file,File}, ShellOutput}) ->
     Fun = dbg:trace_port(file,File), %File can be a filename or a wrap spec
     Port = Fun(),
+    %% Store the port so it can be properly closed
+    ?MODULE ! {ip_to_file_trace_port, Port, self()},
+    receive {?MODULE,ok} -> ok end,
     case Trace of
         {metadata, _, _} -> ok;
         Trace            -> show_trace(Trace, ShellOutput)
