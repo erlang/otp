@@ -98,7 +98,8 @@ open_help_default(Parent, File) ->
                                _Else -> "netscape -remote \"openURL(file:" ++ File ++ ")\""
 			  end;
 		      {win32,_AnyType} ->
-			  "netscape.exe -h " ++ regexp:gsub(File,"\\\\","/");
+			  "netscape.exe -h " ++
+			      re:replace(File,"\\\\","/",[global,{return,list}]);
 		      _Other ->
 			  unknown
 		  end;

@@ -1380,9 +1380,10 @@ fetch_log_dist_trace_2(Config) ->
     io:format("~p~n",[NodeResults]),
     CheckFun=fun({N,{complete,[{trace_log,FileResults1},{ti_log,[{ok,TiFile}]}]}}) ->
 		     Fun2=fun({ok,File}) ->
-				  {match,1,_}=
-				      regexp:first_match(File,
-							 "^"++"p1"++Name++atom_to_list(N)),
+				  match=
+				      re:run(File,
+					     "^"++"p1"++Name++atom_to_list(N),
+					     [{capture,none}]),
 				  true;
 			     (_) ->
 				  false
@@ -1425,8 +1426,8 @@ fetch_log_dist_trace_3(Config) ->
     CheckFun=fun({N,{ok,[{trace_log,PrivDir2,[F1,F2]},{ti_log,PrivDir2,[F3]}]}})->
 		     PrivDir2=PrivDir,
 		     RegExp="^"++Name++atom_to_list(N)++"[0-9]+"++"\.log",
-		     {match,1,_}=regexp:first_match(F1,RegExp),
-		     {match,1,_}=regexp:first_match(F2,RegExp),
+		     match=re:run(F1,RegExp,[{capture,none}]),
+		     match=re:run(F2,RegExp,[{capture,none}]),
 		     F3=Name++"_ti_"++atom_to_list(N)++".ti",
 		     true;
 		(_) ->
@@ -1439,9 +1440,10 @@ fetch_log_dist_trace_3(Config) ->
 io:format("~p~n",[NodeResults2]),
     CheckFun2=fun({N,{complete,[{trace_log,FileResults1},{ti_log,[{ok,TiFile}]}]}}) ->
 		     Fun2=fun({ok,File}) ->
-				  {match,1,_}=
-				      regexp:first_match(File,
-							 "^"++"p1"++Name++atom_to_list(N)),
+				  match=
+				      re:run(File,
+					     "^"++"p1"++Name++atom_to_list(N),
+					    [{capture,none}]),
 				  true;
 			     (_) ->
 				  false
@@ -2649,8 +2651,8 @@ check_on_nodes([],_,_,_,_) ->
 how_many_files_regexp([],_,N) ->
     {ok,N};
 how_many_files_regexp([FName|Rest],RegExp,N) ->
-    case regexp:first_match(FName,RegExp) of
-	{match,1,_} ->
+    case re:run(FName,RegExp,[{capture,none}]) of
+	match ->
 	    how_many_files_regexp(Rest,RegExp,N+1);
 	nomatch ->
 	    how_many_files_regexp(Rest,RegExp,N);

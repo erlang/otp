@@ -19,7 +19,7 @@
 %% Support module to the inviso tool.
 %%
 %% Authors:
-%% Lennart Öhman, lennart.ohman@st.se
+%% Lennart Ã–hman, lennart.ohman@st.se
 %% -----------------------------------------------------------------------------
 
 -module(inviso_tool_lib).
@@ -145,10 +145,10 @@ expand_module_names_2(Nodes,DirStr,ModStr,Opts) ->
 %% Always returns a regexp or {error,Reason}. 
 expand_module_names_special_regexp(Str) ->
     StrLen=length(Str),
-    case regexp:first_match(Str,"[0-9a-zA-Z_/]*") of
-	{match,1,StrLen} ->                  % Ok, it is the special case.
+    case re:run(Str,"[0-9a-zA-Z_/]*") of
+	{match,[{0,StrLen}]} ->	             % Ok, it is the special case.
 	    {ok,".*"++Str++".*"};            % Convert it to a proper regexp.
-	{match,_,_} ->
+	{match,_} ->
 	    {ok,Str};                        % Keep it and hope it is a regexp.
 	nomatch ->
 	    {ok,Str};                        % Keep it and hope it is a regexp.
