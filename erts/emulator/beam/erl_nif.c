@@ -130,10 +130,13 @@ static void pre_nif_noproc(ErlNifEnv* env, struct erl_module_nif* mod_nif)
     env->tmp_obj_list = NULL;
 }
 
-/* Temporary object header, auto-deallocated when NIF returns. */
+/* Temporary object header, auto-deallocated when NIF returns
+ * or when independent environment is cleared.
+ */
 struct enif_tmp_obj_t {
     struct enif_tmp_obj_t* next;
     void (*dtor)(struct enif_tmp_obj_t*);
+    ErtsAlcType_t allocator;
     /*char data[];*/
 };
 
@@ -244,7 +247,7 @@ ErlNifEnv* enif_alloc_env(void)
     msg_env->env.hp_end = phony_heap;
     msg_env->env.heap_frag = NULL;
     msg_env->env.mod_nif = NULL;
-    msg_env->env.tmp_obj_list = (struct enif_tmp_obj_t*) 1; /* invalid non-NULL */
+    msg_env->env.tmp_obj_list = NULL;
     msg_env->env.proc = &msg_env->phony_proc;
     memset(&msg_env->phony_proc, 0, sizeof(Process));
     HEAP_START(&msg_env->phony_proc) = phony_heap;
@@ -289,6 +292,7 @@ void enif_clear_env(ErlNifEnv* env)
     menv->env.hp = menv->env.hp_end = HEAP_TOP(p);
     
     ASSERT(!is_offheap(&MSO(p)));
+    free_tmp_objs(env);
 }
 int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
 	      ErlNifEnv* msg_env, ERL_NIF_TERM msg)
@@ -440,24 +444,31 @@ int enif_is_number(ErlNifEnv* env, ERL_NIF_TERM term)
     return is_number(term);
 }
 
+static ERTS_INLINE int is_proc_bound(ErlNifEnv* env)
+{
+    return env->mod_nif != NULL;
+}
+
 static void aligned_binary_dtor(struct enif_tmp_obj_t* obj)
 {
-    erts_free_aligned_binary_bytes_extra((byte*)obj,ERTS_ALC_T_TMP);
+    erts_free_aligned_binary_bytes_extra((byte*)obj, obj->allocator);
 }
 
 int enif_inspect_binary(ErlNifEnv* env, Eterm bin_term, ErlNifBinary* bin)
 {
+    ErtsAlcType_t allocator = is_proc_bound(env) ? ERTS_ALC_T_TMP : ERTS_ALC_T_NIF;
     union {
 	struct enif_tmp_obj_t* tmp;
 	byte* raw_ptr;
     }u;
     u.tmp = NULL;
-    bin->data = erts_get_aligned_binary_bytes_extra(bin_term, &u.raw_ptr, ERTS_ALC_T_TMP,
+    bin->data = erts_get_aligned_binary_bytes_extra(bin_term, &u.raw_ptr, allocator,
 						    sizeof(struct enif_tmp_obj_t));
     if (bin->data == NULL) {
 	return 0;
     }
     if (u.tmp != NULL) {
+	u.tmp->allocator = allocator;
 	u.tmp->next = env->tmp_obj_list;
 	u.tmp->dtor = &aligned_binary_dtor;
 	env->tmp_obj_list = u.tmp;
@@ -471,12 +482,13 @@ int enif_inspect_binary(ErlNifEnv* env, Eterm bin_term, ErlNifBinary* bin)
 
 static void tmp_alloc_dtor(struct enif_tmp_obj_t* obj)
 {
-    erts_free(ERTS_ALC_T_TMP,  obj);
+    erts_free(obj->allocator,  obj);
 }
 
 int enif_inspect_iolist_as_binary(ErlNifEnv* env, Eterm term, ErlNifBinary* bin)
 {
     struct enif_tmp_obj_t* tobj;
+    ErtsAlcType_t allocator;
     Uint sz;
     if (is_binary(term)) {
 	return enif_inspect_binary(env,term,bin);
@@ -491,8 +503,10 @@ int enif_inspect_iolist_as_binary(ErlNifEnv* env, Eterm term, ErlNifBinary* bin)
     if (erts_iolist_size(term, &sz)) {
 	return 0;
     }
-    
-    tobj = erts_alloc(ERTS_ALC_T_TMP, sz + sizeof(struct enif_tmp_obj_t));
+
+    allocator = is_proc_bound(env) ? ERTS_ALC_T_TMP : ERTS_ALC_T_NIF;
+    tobj = erts_alloc(allocator, sz + sizeof(struct enif_tmp_obj_t));
+    tobj->allocator = allocator;
     tobj->next = env->tmp_obj_list;
     tobj->dtor = &tmp_alloc_dtor;
     env->tmp_obj_list = tobj;
@@ -1743,8 +1757,10 @@ struct readonly_check_t
 };
 static void add_readonly_check(ErlNifEnv* env, unsigned char* ptr, unsigned sz)
 {
-    struct readonly_check_t* obj = erts_alloc(ERTS_ALC_T_TMP, 
+    ErtsAlcType_t allocator = is_proc_bound(env) ? ERTS_ALC_T_TMP : ERTS_ALC_T_NIF;
+    struct readonly_check_t* obj = erts_alloc(allocator, 
 					      sizeof(struct readonly_check_t));
+    obj->hdr.allocator = allocator;
     obj->hdr.next = env->tmp_obj_list;
     env->tmp_obj_list = &obj->hdr;
     obj->hdr.dtor = &readonly_check_dtor;
@@ -1761,7 +1777,7 @@ static void readonly_check_dtor(struct enif_tmp_obj_t* o)
 		" %x != %x\r\nABORTING\r\n", chksum, obj->checksum);
 	abort();
     }
-    erts_free(ERTS_ALC_T_TMP,  obj);
+    erts_free(obj->hdr.allocator,  obj);
 }
 static unsigned calc_checksum(unsigned char* ptr, unsigned size)
 {
