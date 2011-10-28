@@ -1,0 +1,9 @@
+
+sample_callback_wrong.erl:15: The inferred return type for sample_callback_2/0 is 42 which is not valid return for the callback of the sample_behaviour behaviour
+sample_callback_wrong.erl:16: The inferred return type for sample_callback_3/0 is 'fair' which is not valid return for the callback of the sample_behaviour behaviour
+sample_callback_wrong.erl:17: The inferred return type for sample_callback_4/1 is 'fail' which is not valid return for the callback of the sample_behaviour behaviour
+sample_callback_wrong.erl:19: The inferred return type for sample_callback_5/1 is string() which is not valid return for the callback of the sample_behaviour behaviour
+sample_callback_wrong.erl:19: The inferred type for the 1st argument of sample_callback_5/1 is atom() which is not valid for the callback of the sample_behaviour behaviour
+sample_callback_wrong.erl:21: The inferred return type for sample_callback_6/3 is {'okk',number()} which is not valid return for the callback of the sample_behaviour behaviour
+sample_callback_wrong.erl:21: The inferred type for the 3rd argument of sample_callback_6/3 is atom() which is not valid for the callback of the sample_behaviour behaviour
+sample_callback_wrong.erl:3: Undefined callback function sample_callback_1/0 (behaviour 'sample_behaviour')

@@ -1,0 +1,8 @@
+
+gen_server_incorrect_args.erl:3: Undefined callback function code_change/3 (behaviour 'gen_server')
+gen_server_incorrect_args.erl:3: Undefined callback function handle_cast/2 (behaviour 'gen_server')
+gen_server_incorrect_args.erl:3: Undefined callback function handle_info/2 (behaviour 'gen_server')
+gen_server_incorrect_args.erl:3: Undefined callback function init/1 (behaviour 'gen_server')
+gen_server_incorrect_args.erl:3: Undefined callback function terminate/2 (behaviour 'gen_server')
+gen_server_incorrect_args.erl:7: The inferred return type for handle_call/3 is {'no'} | {'ok'} which is not valid return for the callback of the gen_server behaviour
+gen_server_incorrect_args.erl:7: The inferred type for the 2nd argument of handle_call/3 is 'boo' | 'foo' which is not valid for the callback of the gen_server behaviour

@@ -1,0 +1,4 @@
+
+incorrect_args_callback.erl:12: The inferred type for the 2nd argument of bar/2 is 'yes' which is not valid for the callback of the correct_behaviour behaviour
+incorrect_return_callback.erl:9: The inferred return type for foo/0 is 'error' which is not valid return for the callback of the correct_behaviour behaviour
+missing_callback.erl:5: Undefined callback function foo/0 (behaviour 'correct_behaviour')

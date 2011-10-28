@@ -1,0 +1,2 @@
+
+supervisor_incorrect_return.erl:14: The inferred return type for init/1 is {'ok',{{'one_against_one',0,1},[{_,_,_,_,_,_},...]}} which is not valid return for the callback of the supervisor behaviour

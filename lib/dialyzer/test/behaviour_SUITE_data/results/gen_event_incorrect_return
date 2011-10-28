@@ -1,0 +1,2 @@
+
+gen_event_incorrect_return.erl:16: The inferred return type for init/1 is 'error' which is not valid return for the callback of the gen_event behaviour

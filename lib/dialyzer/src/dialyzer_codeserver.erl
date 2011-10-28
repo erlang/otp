@@ -253,7 +253,7 @@ store_temp_contracts(Mod, SpecDict, CallbackDict,
     false -> CS1#codeserver{temp_callbacks = dict:store(Mod, CallbackDict, Cb)}
   end.
 
--spec get_temp_contracts(codeserver()) -> dict().
+-spec get_temp_contracts(codeserver()) -> {dict(), dict()}.
 
 get_temp_contracts(#codeserver{temp_contracts = TempContDict,
 			       temp_callbacks = TempCallDict}) ->
