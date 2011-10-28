@@ -70,7 +70,7 @@ msgs(N) ->
 msgs_ip(N) ->
     [c(client, put, [test_msg]) || _ <- lists:seq(1, N)],
     s(server, received, [a,b]),
-    timer:sleep(100). %% allow trace messages to arrive over tcp/ip
+    timer:sleep(200). %% allow trace messages to arrive over tcp/ip
 
 run() ->
     ttb({local, "A"}),

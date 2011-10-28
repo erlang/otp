@@ -23,6 +23,6 @@ get() ->
 
 put(Thing) ->
     erlang:send({server,server_node()}, {put,self(),Thing}),
-    receive ok -> ok
+    receive ok -> timer:sleep(2), ok
     after 1000 -> no_reply
     end.

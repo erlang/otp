@@ -519,7 +519,7 @@ ensure_no_overloaded_nodes() ->
                          [];
                      _ ->
                          ?MODULE ! {get_overloaded, self()},
-                         receive O -> O end
+                         receive {overloaded,O} -> O end
                  end,
     case Overloaded of
         [] -> ok;
@@ -720,7 +720,7 @@ loop(NodeInfo, SessionInfo) ->
                                 lists:keydelete(overloaded, 1, SessionInfo)},
 	    loop(NodeInfo, [{overloaded, [Node|Overloaded]} | SI]);
         {get_overloaded, Pid} ->
-            Pid ! proplists:get_value(overloaded, SessionInfo, []),
+            Pid ! {overloaded,proplists:get_value(overloaded, SessionInfo, [])},
             loop(NodeInfo, SessionInfo);
 	trace_started ->
 	    case proplists:get_value(timer, SessionInfo) of
