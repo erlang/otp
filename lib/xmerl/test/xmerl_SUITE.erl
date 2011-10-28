@@ -58,7 +58,7 @@ groups() ->
      {ticket_tests, [],
       [ticket_5998, ticket_7211, ticket_7214, ticket_7430,
        ticket_6873, ticket_7496, ticket_8156, ticket_8697,
-       ticket_9411, ticket_9457]},
+       ticket_9411, ticket_9457, ticket_9664_schema, ticket_9664_dtd]},
      {app_test, [], [{xmerl_app_test, all}]},
      {appup_test, [], [{xmerl_appup_test, all}]}].
 
@@ -284,7 +284,7 @@ export(Config) ->
     ?line {E,_} = xmerl_scan:file(TestFile),
     ?line Exported = xmerl:export([E],xmerl_xml,[{prolog,Prolog}]),
     B = list_to_binary(Exported++"\n"),
-    ?line {ok,B} = file:read_file(TestFile),
+    ?line {ok, B} = file:read_file(TestFile),
     ok.
 
 %%----------------------------------------------------------------------
@@ -608,6 +608,38 @@ ticket_9457_cont(Continue, Exception, GlobalState) ->
 	_ ->
 	    Exception(GlobalState)
     end.
+
+
+ticket_9664_schema(suite) -> [];
+ticket_9664_schema(doc) -> 
+    ["Test that comments are handled correct whith"];
+ticket_9664_schema(Config) ->
+
+    ?line {E, _} = xmerl_scan:file(filename:join([?config(data_dir, Config), misc,
+						  "ticket_9664_schema.xml"]),[]),
+    ?line {ok, S} = xmerl_xsd:process_schema(filename:join([?config(data_dir, Config), misc,
+							    "motorcycles.xsd"])),
+    ?line {E1, _} = xmerl_xsd:validate(E, S),
+
+    ?line {E1,_} = xmerl_xsd:process_validate(filename:join([?config(data_dir,Config), misc,
+							    "motorcycles.xsd"]),E,[]),
+
+    ?line {E1,_} = xmerl_scan:file(filename:join([?config(data_dir,Config),  misc,
+						 "ticket_9664_schema.xml"]), 
+				  [{schemaLocation, [{"mc", "motorcycles.xsd"}]},
+				   {validation, schema}]),
+    ok.
+
+ticket_9664_dtd(suite) -> [];
+ticket_9664_dtd(doc) -> 
+    ["Test that comments are handled correct whith"];
+ticket_9664_dtd(Config) ->
+    ?line {E, _} = xmerl_scan:file(filename:join([?config(data_dir, Config),  misc,
+						  "ticket_9664_dtd.xml"]),[]),
+    ?line {E, _} = xmerl_scan:file(filename:join([?config(data_dir, Config),  misc,
+						  "ticket_9664_dtd.xml"]),[{validation, true}]),
+    ok.
+
 
 %%======================================================================
 %% Support Functions

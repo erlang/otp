@@ -156,6 +156,7 @@
 	  declarations = [],	   % [{Name, Attrs}]
 	  doctype_name,
 	  doctype_DTD = internal, % internal | DTDId
+	  comments = true,
 	  document = false,
 	  default_attrs = false,
 	  rules,

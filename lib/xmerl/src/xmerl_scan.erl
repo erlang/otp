@@ -103,6 +103,9 @@
 %%  <dt><code>{document, Flag}</code></dt>
 %%    <dd>Set to 'true' if xmerl should return a complete XML document
 %%    as an xmlDocument record (default 'false').</dd>
+%%  <dt><code>{comments, Flag}</code></dt>
+%%    <dd>Set to 'false' if xmerl should skip comments otherwise they will
+%%    be returned as xmlComment records (default 'true').</dd>
 %%  <dt><code>{default_attrs, Flag}</code></dt>
 %%    <dd>Set to 'true' if xmerl should add to elements missing attributes
 %%    with a defined default value (default 'false').</dd>
@@ -394,6 +397,8 @@ initial_state([{doctype_DTD,DTD}|T], S) ->
     initial_state(T,S#xmerl_scanner{doctype_DTD = DTD});
 initial_state([{document, F}|T], S) when is_boolean(F) ->
     initial_state(T,S#xmerl_scanner{document = F});
+initial_state([{comments, F}|T], S) when is_boolean(F) ->
+    initial_state(T,S#xmerl_scanner{comments = F});
 initial_state([{default_attrs, F}|T], S) when is_boolean(F) ->
     initial_state(T,S#xmerl_scanner{default_attrs = F});
 initial_state([{text_decl,Bool}|T], S) ->
@@ -546,8 +551,8 @@ scan_document(Str0, S=#xmerl_scanner{event_fun = Event,
     Str=if
 	    Charset == "utf-8" ->
 		Str0;
-	    Charset=/=undefined -> % Default character set is UTF-8
-		xmerl_ucs:to_unicode(Str0,list_to_atom(Charset));
+	    Charset =/= undefined -> % Default character set is UTF-8
+		xmerl_ucs:to_unicode(Str0, list_to_atom(Charset));
 	    true -> %% Charset is undefined if no external input is
                     %% given, and no auto detection of character
                     %% encoding was made.
@@ -559,10 +564,10 @@ scan_document(Str0, S=#xmerl_scanner{event_fun = Event,
 %%     M2 = erlang:memory(),
 %%     io:format("Memory status after prolog: ~p~n",[M2]),
     %%io:format("scan_document 2, prolog parsed~n",[]),
-    T2 = scan_mandatory("<",T1,1,S2,expected_element_start_tag),
+    T2 = scan_mandatory("<", T1, 1, S2, expected_element_start_tag),
 %%     M3 = erlang:memory(),
 %%     io:format("Memory status before element: ~p~n",[M3]),
-    {Res, T3, S3} =scan_element(T2,S2,Pos),
+    {Res, T3, S3} = scan_element(T2,S2,Pos),
 %%     M4 = erlang:memory(),
 %%     io:format("Memory status after element: ~p~n",[M4]),
     {Misc, _Pos1, Tail, S4}=scan_misc(T3, S3, Pos + 1),
@@ -574,41 +579,41 @@ scan_document(Str0, S=#xmerl_scanner{event_fun = Event,
 					       col = S4#xmerl_scanner.col,
 					       data = document}, S4),
 
-    {Res2,S6} = case validation_mode(ValidateResult) of
+    {Res2, S6} = case validation_mode(ValidateResult) of
 	     off ->
-		 {Res,cleanup(S5)};
+		 {Res, cleanup(S5)};
 	     dtd when Env == element; Env == prolog ->
 		 check_decl2(S5),
-		 case xmerl_validate:validate(S5,Res) of
-		     {'EXIT',{error,Reason}} ->
-			 S5b=cleanup(S5),
-			 ?fatal({failed_validation,Reason}, S5b);
-		     {'EXIT',Reason} ->
-			 S5b=cleanup(S5),
-			 ?fatal({failed_validation,Reason}, S5b);
-		     {error,Reason} ->
-			 S5b=cleanup(S5),
-			 ?fatal({failed_validation,Reason}, S5b);
-		     {error,Reason,_Next} ->
-			 S5b=cleanup(S5),
-			 ?fatal({failed_validation,Reason}, S5b);
+		 case xmerl_validate:validate(S5, Res) of
+		     {'EXIT', {error, Reason}} ->
+			 S5b = cleanup(S5),
+			 ?fatal({failed_validation, Reason}, S5b);
+		     {'EXIT', Reason} ->
+			 S5b = cleanup(S5),
+			 ?fatal({failed_validation, Reason}, S5b);
+		     {error, Reason} ->
+			 S5b = cleanup(S5),
+			 ?fatal({failed_validation, Reason}, S5b);
+		     {error, Reason, _Next} ->
+			 S5b = cleanup(S5),
+			 ?fatal({failed_validation, Reason}, S5b);
 		     _XML ->
-			 {Res,cleanup(S5)}
+			 {Res, cleanup(S5)}
 		 end;
 	     schema ->
-		 case schemaLocations(Res,S5) of
-		     {ok,Schemas} ->
+		 case schemaLocations(Res, S5) of
+		     {ok, Schemas} ->
 			 cleanup(S5),
 			 %%io:format("Schemas: ~p~nRes: ~p~ninhertih_options(S): ~p~n",
 			 %%          [Schemas,Res,inherit_options(S5)]),
-			 XSDRes = xmerl_xsd:process_validate(Schemas,Res,
+			 XSDRes = xmerl_xsd:process_validate(Schemas, Res,
 							     inherit_options(S5)),
-			 handle_schema_result(XSDRes,S5);
+			 handle_schema_result(XSDRes, S5);
 		     _ ->
-			 {Res,cleanup(S5)}
+			 {Res, cleanup(S5)}
 		 end;
 	     _ ->
-		 {Res,cleanup(S5)}
+		 {Res, cleanup(S5)}
 	 end,
 
     Res3 =
@@ -617,7 +622,7 @@ scan_document(Str0, S=#xmerl_scanner{event_fun = Event,
 		Content = lists:reverse(Prolog, [Res2 | lists:reverse(Misc)]),
 		#xmlDocument{content = Content};
 	    false ->
-		Res2#xmlElement{pos = 1}
+		Res2
 	end,
     {Res3, Tail, S6}.
 
@@ -633,11 +638,11 @@ scan_decl(Str, S=#xmerl_scanner{event_fun = Event,
 			    data = document}, S),
     
     case scan_prolog(Str, S1, _StartPos = 1) of
-	{T2="<"++_, S2} ->
+	{_,_,T2="<"++_, S2} ->
 	    {{S2#xmerl_scanner.user_state,T2},[],S2};
-	{[], S2}->
+	{_,_,[], S2}->
 	    {[],[],S2};
-	{T2, S2} ->
+	{_,_,T2, S2} ->
 	    {_,_,S3} = scan_content(T2,S2,[],_Attrs=[],S2#xmerl_scanner.space,
 				    _Lang=[],_Parents=[],#xmlNamespace{}),
 	    {T2,[],S3}
@@ -783,16 +788,22 @@ scan_misc([], S=#xmerl_scanner{continuation_fun = F}, Pos, Acc) ->
     F(fun(MoreBytes, S1) -> scan_misc(MoreBytes, S1, Pos, Acc) end,
       fun(S1) -> {Acc, Pos, [], S1} end,
       S);
-scan_misc("<!--" ++ T, S0=#xmerl_scanner{acc_fun = F}, Pos, Acc) -> % Comment
+scan_misc("<!--" ++ T, S0=#xmerl_scanner{acc_fun = F, comments=CF}, Pos, Acc) -> % Comment
     ?bump_col(4),
     {C, T1, S1} = scan_comment(T, S, Pos, _Parents = [], _Lang = []),
-    {Acc2, Pos2, S3} = case F(C, Acc, S1) of
-			   {Acc1, S2} ->
-			       {Acc1, Pos + 1, S2};
-			   {Acc1, Pos1, S2} ->
-			       {Acc1, Pos1, S2}
-		       end,
-    scan_misc(T1,S3,Pos2,Acc2);
+    case CF of
+	true ->
+	    {Acc2, Pos2, S3} = 
+		case F(C, Acc, S1) of
+		    {Acc1, S2} ->
+			{Acc1, Pos + 1, S2};
+		    {Acc1, Pos1, S2} ->
+			{Acc1, Pos1, S2}
+		end,
+	    scan_misc(T1, S3, Pos2, Acc2);
+	false ->
+	    scan_misc(T1, S1, Pos, Acc)
+    end;
 scan_misc("<?" ++ T, S0=#xmerl_scanner{acc_fun = F}, Pos, Acc) -> % PI
     ?dbg("prolog(\"<?\")~n", []),
     ?bump_col(2),
@@ -2553,6 +2564,23 @@ scan_content("&" ++ T, S0, Pos, Name, Attrs, Space, Lang, Parents, NS, Acc,[]) -
 	_ ->
 	    scan_content(string_to_char_set(S1#xmerl_scanner.encoding,ExpRef)++T1,S1,Pos,Name,Attrs,Space,Lang,Parents,NS,Acc,[])
     end;
+scan_content("<!--" ++ T, S0=#xmerl_scanner{acc_fun = F, comments=CF}, Pos, Name, Attrs, Space, 
+	     Lang, Parents, NS, Acc,[]) ->
+    ?bump_col(4),
+    {C, T1, S1} = scan_comment(T, S, Pos, Parents, Lang),
+    case CF of
+	true ->
+	    {Acc2, Pos2, S3} = 
+		case F(C, Acc, S1) of
+		    {Acc1, S2} ->
+			{Acc1, Pos + 1, S2};
+		    {Acc1, Pos1, S2} ->
+			{Acc1, Pos1, S2}
+		end,
+	    scan_content(T1, S3, Pos2, Name, Attrs, Space, Lang, Parents, NS, Acc2,[]);
+	false ->
+	    scan_content(T1, S1, Pos, Name, Attrs, Space, Lang, Parents, NS, Acc,[])
+    end;   
 scan_content("<" ++ T, S0, Pos, Name, Attrs, Space, Lang, Parents, NS, Acc,[]) ->
     ?bump_col(1),
     {Markup, T1, S1} = 
@@ -2612,10 +2640,6 @@ scan_content_markup("![CDATA[" ++ T, S0, Pos, _Name, _Attrs,
 scan_content_markup("?"++T,S0,Pos,_Name,_Attrs,_Space,_Lang,Parents,_NS) ->
     ?bump_col(1),
     scan_pi(T, S, Pos, Parents);
-scan_content_markup("!--" ++ T, S0, Pos, _Name, _Attrs,
-		    _Space, Lang, Parents, _NS) ->
-    ?bump_col(1),
-    scan_comment(T, S, Pos, Parents, Lang);
 scan_content_markup(T, S, Pos, _Name, _Attrs, Space, Lang, Parents, NS) ->
     scan_element(T, S, Pos, Space, Lang, Parents, NS).
 
@@ -4033,7 +4057,7 @@ schemaLocations(El,#xmerl_scanner{schemaLocation=SL}) ->
 
 schemaLocations(#xmlElement{attributes=Atts,xmlbase=_Base}) -> 
     Pred = fun(#xmlAttribute{name=schemaLocation}) -> false;
-	      (#xmlAttribute{namespace={_,"schemaLocation"}}) -> false;
+	      (#xmlAttribute{nsinfo={_,"schemaLocation"}}) -> false;
 	      (_) -> true
 	   end,
     case lists:dropwhile(Pred,Atts) of
