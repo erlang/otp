@@ -1238,15 +1238,15 @@ report_error(Error, Reason, Child, SupName) ->
     error_logger:error_report(supervisor_report, ErrorMsg).
 
 
-extract_child(Child) when is_pid(Child#child.pid) ->
-    [{pid, Child#child.pid},
+extract_child(Child) when is_list(Child#child.pid) ->
+    [{nb_children, length(Child#child.pid)},
      {name, Child#child.name},
      {mfargs, Child#child.mfargs},
      {restart_type, Child#child.restart_type},
      {shutdown, Child#child.shutdown},
      {child_type, Child#child.child_type}];
 extract_child(Child) ->
-    [{nb_children, length(Child#child.pid)},
+    [{pid, Child#child.pid},
      {name, Child#child.name},
      {mfargs, Child#child.mfargs},
      {restart_type, Child#child.restart_type},
