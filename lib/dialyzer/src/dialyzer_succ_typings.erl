@@ -476,7 +476,7 @@ doit(Module) ->
   {ok, Code} = dialyzer_utils:get_core_from_abstract_code(AbstrCode),
   {ok, Records} = dialyzer_utils:get_record_and_type_info(AbstrCode),
   %% contract typing info in dictionary format
-  {ok, Contracts} =
+  {ok, Contracts, _Callbacks} =
     dialyzer_utils:get_spec_info(cerl:concrete(cerl:module_name(Code)),
                                  AbstrCode, Records),
   Sigs0 = get_top_level_signatures(Code, Records, Contracts),
