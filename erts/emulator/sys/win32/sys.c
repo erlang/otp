@@ -216,6 +216,9 @@ void sys_tty_reset(int exit_code)
 void erl_sys_args(int* argc, char** argv)
 {
     char *event_name;
+
+    erts_sys_env_init();
+
     nohup = get_and_remove_option(argc, argv, "-nohup");
 
 #ifdef DEBUG
@@ -3214,7 +3217,6 @@ erts_sys_pre_init(void)
     }
 #endif
     erts_smp_atomic_init_nob(&sys_misc_mem_sz, 0);
-    erts_sys_env_init();
 }
 
 void noinherit_std_handle(DWORD type)

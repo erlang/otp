@@ -92,6 +92,8 @@ typedef struct {
 #endif
 } erts_rwmtx_t;
 
+#define ERTS_MTX_OPT_DEFAULT_INITER ETHR_MUTEX_OPT_DEFAULT_INITER
+#define ERTS_CND_OPT_DEFAULT_INITER ETHR_COND_OPT_DEFAULT_INITER
 #define ERTS_RWMTX_OPT_DEFAULT_INITER ETHR_RWMUTEX_OPT_DEFAULT_INITER
 #define ERTS_RWMTX_TYPE_NORMAL ETHR_RWMUTEX_TYPE_NORMAL
 #define ERTS_RWMTX_TYPE_FREQUENT_READ ETHR_RWMUTEX_TYPE_FREQUENT_READ
@@ -1129,6 +1131,16 @@ erts_cnd_wait(erts_cnd_t *cnd, erts_mtx_t *mtx)
 	erts_thr_fatal_error(res, "wait on condition variable");
 #endif
 }
+
+/*
+ * IMPORTANT note about erts_cnd_signal() and erts_cnd_broadcast()
+ *
+ * POSIX allow a call to `pthread_cond_signal' or `pthread_cond_broadcast'
+ * even though the associated mutex/mutexes isn't/aren't locked by the
+ * caller. Our implementation do not allow that in order to avoid a
+ * performance penalty. That is, all associated mutexes *need* to be
+ * locked by the caller of erts_cnd_signal()/erts_cnd_broadcast()!
+ */
 
 ERTS_GLB_INLINE void
 erts_cnd_signal(erts_cnd_t *cnd)

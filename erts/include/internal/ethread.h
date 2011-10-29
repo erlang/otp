@@ -191,7 +191,6 @@ typedef DWORD ethr_tsd_key;
 #undef ETHR_HAVE_ETHR_SIG_FUNCS
 
 #define ETHR_USE_OWN_RWMTX_IMPL__
-#define ETHR_USE_OWN_MTX_IMPL__
 
 #define ETHR_YIELD() (Sleep(0), 0)
 
