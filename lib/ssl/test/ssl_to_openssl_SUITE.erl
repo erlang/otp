@@ -1134,7 +1134,7 @@ cipher(CipherSuite, Version, Config, ClientOpts, ServerOpts) ->
     CertFile = proplists:get_value(certfile, ServerOpts),
     KeyFile = proplists:get_value(keyfile, ServerOpts),
    
-    Cmd = "openssl s_server -accept " ++ integer_to_list(Port)  ++ 
+    Cmd = "openssl s_server -accept " ++ integer_to_list(Port)  ++  version_flag(Version) ++
 	" -cert " ++ CertFile ++ " -key " ++ KeyFile ++ "",
 
     test_server:format("openssl cmd: ~p~n", [Cmd]),
@@ -1181,6 +1181,12 @@ cipher(CipherSuite, Version, Config, ClientOpts, ServerOpts) ->
 	     end,
     process_flag(trap_exit, false),
     Return.
+
+
+version_flag(tlsv1) ->
+    " -tls1 ";
+version_flag(sslv3) ->
+    " -ssl3 ".
 
 %%--------------------------------------------------------------------
 erlang_client_bad_openssl_server(doc) ->
