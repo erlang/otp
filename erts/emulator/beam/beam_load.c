@@ -1570,10 +1570,15 @@ read_code_header(LoaderState* stp)
     /*
      * Verify the number of the highest opcode used.
      */
-
     GetInt(stp, 4, opcode_max);
     if (opcode_max > MAX_GENERIC_OPCODE) {
-	LoadError2(stp, "use of opcode %d; this emulator supports only up to %d",
+	LoadError2(stp,
+		   "This BEAM file was compiled for a later version"
+		   " of the run-time system than " ERLANG_OTP_RELEASE ".\n"
+		   "  To fix this, please recompile this module with an "
+		   ERLANG_OTP_RELEASE " compiler.\n"
+		   "  (Use of opcode %d; this emulator supports "
+		   "only up to %d.)",
 		   opcode_max, MAX_GENERIC_OPCODE);
     }
 
