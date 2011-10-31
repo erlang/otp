@@ -3924,7 +3924,7 @@ renegotiate(Socket, Data) ->
     end.
 
 renegotiate_reuse_session(Socket, Data) ->
-    %% Make sure session is registerd
+    %% Make sure session is registered
     test_server:sleep(?SLEEP),
     renegotiate(Socket, Data).
 

@@ -41,7 +41,7 @@ struct port;
 typedef struct reg_proc
 {
     HashBucket bucket;  /* MUST BE LOCATED AT TOP OF STRUCT!!! */
-    Process *p;         /* The process registerd (only one of this and
+    Process *p;         /* The process registered (only one of this and
 			   'pt' is non-NULL */
     struct port *pt;    /* The port registered */
     Eterm name;         /* Atom name */
