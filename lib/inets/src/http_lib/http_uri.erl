@@ -21,7 +21,8 @@
 -module(http_uri).
 
 -export([parse/1]).
--export([parse/1, encode/1, decode/1]).
+-export([encode/1, decode/1]).
+
 
 %%%=========================================================================
 %%%  API
@@ -45,16 +46,21 @@ encode(URI) ->
 			       $\\, $', $^, $%, $ ]),
     lists:append(lists:map(fun(Char) -> uri_encode(Char, Reserved) end, URI)).
 
-decode([$%,Hex1,Hex2|Rest]) ->
-    [hex2dec(Hex1)*16+hex2dec(Hex2)|decode(Rest)];
-decode([First|Rest]) ->
-    [First|decode(Rest)];
-decode([]) ->
+decode(String) ->
+    do_decode(String).
+
+do_decode([$%,Hex1,Hex2|Rest]) ->
+    [hex2dec(Hex1)*16+hex2dec(Hex2)|do_decode(Rest)];
+do_decode([First|Rest]) ->
+    [First|do_decode(Rest)];
+do_decode([]) ->
     [].
+
 
 %%%========================================================================
 %%% Internal functions
 %%%========================================================================
+
 parse_scheme(AbsURI) ->
     case split_uri(AbsURI, ":", {error, no_scheme}, 1, 1) of
 	{error, no_scheme} ->
