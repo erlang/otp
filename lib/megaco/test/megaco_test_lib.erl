@@ -21,6 +21,7 @@
 %%----------------------------------------------------------------------
 %% Purpose: Lightweight test server
 %%----------------------------------------------------------------------
+%%
 
 -module(megaco_test_lib).
 
@@ -684,7 +685,7 @@ skip(Actual, File, Line) ->
 
 fatal_skip(Actual, File, Line) ->
     error(Actual, File, Line),
-    exit(shutdown).
+    exit({skipped, {fatal, Actual, File, Line}}).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -748,6 +749,7 @@ proxy_loop(OwnId, Controller) ->
 	    Controller ! {msg, OwnId, OtherMsg},
 	    proxy_loop(OwnId, Controller)
     end.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Test server callbacks
@@ -852,10 +854,10 @@ watchdog(Pid, Time) ->
 prepare_test_case(Actions, N, Config, File, Line) ->
     OrigNodes = lookup_config(nodes, Config),
     TestNodes = lookup_config(nodenames, Config), %% For testserver
-    This = node(),
+    This      = node(),
     SomeNodes = OrigNodes ++ (TestNodes -- OrigNodes),
-    AllNodes = [This | (SomeNodes -- [This])],
-    Nodes = pick_n_nodes(N, AllNodes, File, Line),
+    AllNodes  = [This | (SomeNodes -- [This])],
+    Nodes     = pick_n_nodes(N, AllNodes, File, Line),
     start_nodes(Nodes, File, Line),
     do_prepare_test_case(Actions, Nodes, Config, File, Line).
 
