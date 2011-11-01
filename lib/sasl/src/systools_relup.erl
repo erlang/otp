@@ -112,6 +112,7 @@
 -export([mk_relup/3, mk_relup/4, format_error/1, format_warning/1]).
 -include("systools.hrl").
 
+-define(R15_SASL_VSN,"2.2").
 
 %% For test purposes only - used by kernel, stdlib and sasl tests
 -export([appup_search_for_version/2]).
@@ -269,20 +270,25 @@ foreach_baserel_up(TopRel, TopApps, [BaseRelDc|BaseRelDcs], Path, Opts,
 
     {RUs4, Ws4} = check_for_emulator_restart(TopRel, BaseRel, RUs3, Ws3, Opts),
 
-    BaseApps =
+    {BaseNameVsns,BaseApps} =
 	case systools_make:get_release(BaseRelFile, Path) of
 	    {ok, _, NameVsnApps, _Warns} ->
-		lists:map(fun({_,App}) -> App end, NameVsnApps);
+		%% NameVsnApps = [{{Name,Vsn},#application}]
+		%% Gives two lists - [{Name,Vsn}] and [#application]
+		lists:unzip(NameVsnApps);
 	    Other1 ->
 		throw(Other1)
 	end,
 
     case systools_rc:translate_scripts(up, RUs4, TopApps, BaseApps) of
-	{ok, RUs} ->
+	{ok, RUs5} ->
+
+	    {RUs, Ws5} = fix_r15_sasl_upgrade(RUs5,Ws4,BaseNameVsns),
+
 	    VDR = {BaseRel#release.vsn,
 		   extract_description(BaseRelDc), RUs},
 	    foreach_baserel_up(TopRel, TopApps, BaseRelDcs, Path, 
-			       Opts, Ws4, [VDR| Acc]);
+			       Opts, Ws5, [VDR| Acc]);
 	XXX ->
 	    throw(XXX)
     end;
@@ -346,12 +352,9 @@ foreach_baserel_dn( _, _, [], _, _, Ws, Acc) ->
 check_for_emulator_restart(#release{erts_vsn = Vsn1, name = N1}, 
                            #release{erts_vsn = Vsn2, name = N2}, RUs, Ws, 
                            Opts) when Vsn1 /= Vsn2 ->
-    %% The diff_vsn_restart_new_emulator instruction will be replaced
-    %% by a restart_new_emulator instruction in systools_rc, and
-    %% placed in the proper order according to mode (up or dn).
-    %% We will also allow an extra restart of emulator (specified by
-    %% the restart_emulator option) at the end of the upgrade, for
-    %% application specific purposes.
+    %% Automatically insert a restart_new_emulator instruction when
+    %% erts version is changed. Also allow extra restart at the end of
+    %% the upgrade if restart_emulator option is given.
     NewRUs = [[restart_new_emulator]|RUs],
     NewWs = [{erts_vsn_changed, {N1, N2}} | Ws],
     check_for_restart_emulator_opt(NewRUs, NewWs, Opts);
@@ -365,6 +368,23 @@ check_for_restart_emulator_opt(RUs, Ws, Opts) ->
     end.
 
 
+%% Special handling of the upgrade from pre R15 to post R15. In R15,
+%% upgrade of the emulator was improved by moving the restart of the
+%% emulator before the rest of the upgrade instructions. However, it
+%% can only work if the release_handler is already upgraded to a post
+%% R15 version. If not, the upgrade instructions must be backwards
+%% compatible - i.e. restart_new_emulator will be the last
+%% instruction, executed after all code loading, code_change etc.
+fix_r15_sasl_upgrade([restart_new_emulator | RestRUs]=RUs, Ws, BaseApps) ->
+    case lists:keyfind(sasl,1,BaseApps) of
+	{sasl,Vsn} when Vsn < ?R15_SASL_VSN -> 
+	    {lists:delete(restart_emulator,RestRUs) ++ [restart_new_emulator],
+	     [pre_R15_emulator_upgrade|Ws]};
+	_ ->
+	    {RUs,Ws}
+    end;
+fix_r15_sasl_upgrade(RUs, Ws, _BaseApps) ->
+    {RUs,Ws}.
 
 
 %% collect_appup_scripts(Mode, TopApps, BaseRel, Ws, RUs) -> {NRUs, NWs}
