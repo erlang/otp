@@ -1100,8 +1100,9 @@ change_group(Name, GroupId)
       Mtime :: date_time(),
       Reason :: posix() | badarg.
 
-change_time(Name, Time) 
-  when is_tuple(Time) ->
+change_time(Name, {{Y, M, D}, {H, Min, Sec}}=Time)
+  when is_integer(Y), is_integer(M), is_integer(D),
+       is_integer(H), is_integer(Min), is_integer(Sec)->
     write_file_info(Name, #file_info{mtime=Time}).
 
 -spec change_time(Filename, Atime, Mtime) -> ok | {error, Reason} when
@@ -1110,8 +1111,12 @@ change_time(Name, Time)
       Mtime :: date_time(),
       Reason :: posix() | badarg.
 
-change_time(Name, Atime, Mtime) 
-  when is_tuple(Atime), is_tuple(Mtime) ->
+change_time(Name, {{AY, AM, AD}, {AH, AMin, ASec}}=Atime,
+         {{MY, MM, MD}, {MH, MMin, MSec}}=Mtime)
+  when is_integer(AY), is_integer(AM), is_integer(AD),
+       is_integer(AH), is_integer(AMin), is_integer(ASec),
+       is_integer(MY), is_integer(MM), is_integer(MD),
+       is_integer(MH), is_integer(MMin), is_integer(MSec)->
     write_file_info(Name, #file_info{atime=Atime, mtime=Mtime}).
 
 %%%-----------------------------------------------------------------
