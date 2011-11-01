@@ -78,6 +78,7 @@ traverse_modules(ModData,[Module|Rest]) ->
 				[Module, Reason])),
 	    report_error(mod_log, ModData#mod.config_db, String),
 	    report_error(mod_disk_log, ModData#mod.config_db, String),
+	    send_status(ModData, 500, none),
 	    done;
 	done ->
 	    ?hdrt("traverse modules - done", []), 

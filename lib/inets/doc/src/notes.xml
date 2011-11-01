@@ -40,6 +40,15 @@
           <p>[httpd] XSS prevention did not work for hex-encoded URL's. </p>
           <p>Own Id: OTP-9655</p>
         </item>
+
+        <item>
+          <p>[httpd] GET request with malformed header date caused 
+	  server crash (non-fatal) with no reply to client. Will
+	  now result in a reply with status code 400. </p>
+          <p>Own Id: OTP-9674</p>
+          <p>Aux Id: seq11936</p>
+        </item>
+
       </list>
     </section>
   
