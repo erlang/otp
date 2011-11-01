@@ -140,6 +140,7 @@ Eterm big_lshift(Eterm, Sint, Eterm*);
 int big_comp (Wterm, Wterm);
 int big_ucomp (Eterm, Eterm);
 int big_to_double(Wterm x, double* resp);
+Eterm double_to_big(double, Eterm*);
 Eterm small_to_big(Sint, Eterm*);
 Eterm uint_to_big(Uint, Eterm*);
 Eterm uword_to_big(UWord, Eterm*);

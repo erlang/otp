@@ -1584,6 +1584,62 @@ big_to_double(Wterm x, double* resp)
     return 0;
 }
 
+/*
+ * Logic has been copied from erl_bif_guard.c and slightly
+ * modified to use a static instead of dynamic heap
+ */
+Eterm
+double_to_big(double x, Eterm *heap)
+{
+    int is_negative;
+    int ds;
+    ErtsDigit* xp;
+    Eterm res;
+    int i;
+    size_t sz;
+    Eterm* hp;
+    double dbase;
+
+    if (x >= 0) {
+	is_negative = 0;
+    } else {
+	is_negative = 1;
+	x = -x;
+    }
+
+    /* Unscale & (calculate exponent) */
+    ds = 0;
+    dbase = ((double) (D_MASK) + 1);
+    while (x >= 1.0) {
+	x /= dbase; /* "shift" right */
+	ds++;
+    }
+    sz = BIG_NEED_SIZE(ds); /* number of words including arity */
+
+    hp = heap;
+    res = make_big(hp);
+    xp = (ErtsDigit*) (hp + 1);
+
+    for (i = ds - 1; i >= 0; i--) {
+	ErtsDigit d;
+
+	x *= dbase; /* "shift" left */
+	d = x; /* trunc */
+	xp[i] = d; /* store digit */
+	x -= d; /* remove integer part */
+    }
+    while ((ds & (BIG_DIGITS_PER_WORD - 1)) != 0) {
+	xp[ds++] = 0;
+    }
+
+    if (is_negative) {
+	*hp = make_neg_bignum_header(sz-1);
+    } else {
+	*hp = make_pos_bignum_header(sz-1);
+    }
+    return res;
+}
+
 
 /*
  ** Estimate the number of decimal digits (include sign)

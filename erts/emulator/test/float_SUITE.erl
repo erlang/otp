@@ -25,7 +25,7 @@
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
 	 fpe/1,fp_drv/1,fp_drv_thread/1,denormalized/1,match/1,
-	 bad_float_unpack/1]).
+	 bad_float_unpack/1,cmp_zero/1, cmp_integer/1, cmp_bignum/1]).
 -export([otp_7178/1]).
 
 
@@ -41,10 +41,10 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [fpe, fp_drv, fp_drv_thread, otp_7178, denormalized,
-     match, bad_float_unpack].
+     match, bad_float_unpack, {group, comparison}].
 
 groups() -> 
-    [].
+    [{comparison, [parallel], [cmp_zero, cmp_integer, cmp_bignum]}].
 
 init_per_suite(Config) ->
     Config.
@@ -186,6 +186,101 @@ bad_float_unpack(Config) when is_list(Config) ->
 
 bad_float_unpack_match(<<F:64/float>>) -> F;
 bad_float_unpack_match(<<I:64/integer-signed>>) -> I.
+
+cmp_zero(_Config) ->
+    cmp(0.5e-323,0).
+
+cmp_integer(_Config) ->
+    Axis = (1 bsl 53)-2.0, %% The point where floating points become unprecise
+    span_cmp(Axis,2,200),
+    cmp(Axis*Axis,round(Axis)).
+
+cmp_bignum(_Config) ->
+    span_cmp((1 bsl 58) - 1.0),%% Smallest bignum float
+
+    %% Test when the big num goes from I to I+1 in size
+    [span_cmp((1 bsl (32*I)) - 1.0) || I <- lists:seq(2,30)],
+
+    %% Test bignum greater then largest float
+    cmp((1 bsl (64*16)) - 1, (1 bsl (64*15)) * 1.0),
+    %% Test when num is much larger then float
+    [cmp((1 bsl (32*I)) - 1, (1 bsl (32*(I-2))) * 1.0) || I <- lists:seq(3,30)],
+    %% Test when float is much larger than num
+    [cmp((1 bsl (64*15)) * 1.0, (1 bsl (32*(I)))) || I <- lists:seq(1,29)],
+
+    %% Test that all int == float works as they should
+    [true = 1 bsl N == (1 bsl N)*1.0 || N <- lists:seq(0, 1023)],
+    [true = (1 bsl N)*-1 == (1 bsl N)*-1.0 || N <- lists:seq(0, 1023)].
+
+span_cmp(Axis) ->
+    span_cmp(Axis, 25).
+span_cmp(Axis, Length) ->
+    span_cmp(Axis, round(Axis) bsr 52, Length).
+span_cmp(Axis, Incr, Length) ->
+    [span_cmp(Axis, Incr, Length, 1 bsl (1 bsl I)) || I <- lists:seq(0,6)].
+%% This function creates tests around number axis. Both <, > and == is tested
+%% for both negative and positive numbers.
+%%
+%% Axis: The number around which to do the tests eg. (1 bsl 58) - 1.0
+%% Incr: How much to increment the test numbers inbetween each test.
+%% Length: Length/2 is the number of Incr away from Axis to test on the
+%%         negative and positive plane.
+%% Diff: How much the float and int should differ when comparing
+span_cmp(Axis, Incr, Length, Diff) ->
+    [begin
+	 cmp(round(Axis*-1.0)+Diff+I*Incr,Axis*-1.0+I*Incr),
+	 cmp(Axis*-1.0+I*Incr,round(Axis*-1.0)-Diff+I*Incr)
+     end || I <- lists:seq((Length div 2)*-1,(Length div 2))],
+    [begin
+	 cmp(round(Axis)+Diff+I*Incr,Axis+I*Incr),
+	 cmp(Axis+I*Incr,round(Axis)-Diff+I*Incr)
+     end || I <- lists:seq((Length div 2)*-1,(Length div 2))].
+
+cmp(Big,Small) when is_float(Big) ->
+    BigGtSmall = lists:flatten(
+		 io_lib:format("~f > ~p",[Big,Small])),
+    BigLtSmall = lists:flatten(
+		 io_lib:format("~f < ~p",[Big,Small])),
+    BigEqSmall = lists:flatten(
+		 io_lib:format("~f == ~p",[Big,Small])),
+    SmallGtBig = lists:flatten(
+		   io_lib:format("~p > ~f",[Small,Big])),
+    SmallLtBig = lists:flatten(
+		   io_lib:format("~p < ~f",[Small,Big])),
+    SmallEqBig = lists:flatten(
+		   io_lib:format("~p == ~f",[Small,Big])),
+    cmp(Big,Small,BigGtSmall,BigLtSmall,SmallGtBig,SmallLtBig,
+	SmallEqBig,BigEqSmall);
+cmp(Big,Small) when is_float(Small) ->
+    BigGtSmall = lists:flatten(
+		   io_lib:format("~p > ~f",[Big,Small])),
+    BigLtSmall = lists:flatten(
+		   io_lib:format("~p < ~f",[Big,Small])),
+    BigEqSmall = lists:flatten(
+		   io_lib:format("~p == ~f",[Big,Small])),
+    SmallGtBig = lists:flatten(
+		   io_lib:format("~f > ~p",[Small,Big])),
+    SmallLtBig = lists:flatten(
+		   io_lib:format("~f < ~p",[Small,Big])),
+    SmallEqBig = lists:flatten(
+		   io_lib:format("~f == ~p",[Small,Big])),
+    cmp(Big,Small,BigGtSmall,BigLtSmall,SmallGtBig,SmallLtBig,
+	SmallEqBig,BigEqSmall).
+
+cmp(Big,Small,BigGtSmall,BigLtSmall,SmallGtBig,SmallLtBig,
+    SmallEqBig,BigEqSmall) ->
+    {_,_,_,true} = {Big,Small,BigGtSmall,
+		    Big > Small},
+    {_,_,_,false} = {Big,Small,BigLtSmall,
+		     Big < Small},
+    {_,_,_,false} = {Big,Small,SmallGtBig,
+		     Small > Big},
+    {_,_,_,true} = {Big,Small,SmallLtBig,
+		    Small < Big},
+    {_,_,_,false} = {Big,Small,SmallEqBig,
+		     Small == Big},
+    {_,_,_,false} = {Big,Small,BigEqSmall,
+		     Big == Small}.
 
 id(I) -> I.
     

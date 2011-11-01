@@ -561,11 +561,15 @@ number &lt; atom &lt; reference &lt; fun &lt; port &lt; pid &lt; tuple &lt; list
     <p>Lists are compared element by element. Tuples are ordered by
       size, two tuples with the same size are compared element by
       element.</p>
-    <p>If one of the compared terms is an integer and the other a
-      float, the integer is first converted into a float, unless the
-      operator is one of =:= and =/=. If the integer is too big to fit
-      in a float no conversion is done, but the order is determined by
-      inspecting the sign of the numbers.</p>
+      <p>When comparing an integer to a float, the term with the lesser
+      precision will be converted into the other term's type, unless the
+      operator is one of =:= and =/=. A float is more precise than
+      an integer until all significant figures of the float are to the left of
+      the decimal point. This happens when the float is larger/smaller then
+      +/-9007199254740992.0. The conversion strategy is changed
+      depending on the size of the float because otherwise comparison of large
+      floats and integers would loose their transitivity.</p>
+
     <p>Returns the Boolean value of the expression, <c>true</c> or
       <c>false</c>.</p>
     <p>Examples:</p>
