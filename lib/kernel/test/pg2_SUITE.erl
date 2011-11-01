@@ -47,6 +47,7 @@ init_per_testcase(Case, Config) ->
     [{?TESTCASE, Case}, {watchdog, Dog} | Config].
 
 end_per_testcase(_Case, _Config) ->
+    test_server_ctrl:kill_slavenodes(),
     Dog = ?config(watchdog, _Config),
     test_server:timetrap_cancel(Dog),
     ok.
