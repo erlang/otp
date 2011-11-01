@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -520,14 +520,14 @@ http_1_1_ip(doc) ->
     ["HTTP/1.1"];
 http_1_1_ip(suite) ->
     [
-     ip_host, 
-     ip_chunked, 
-     ip_expect, 
-     ip_range, 
-     ip_if_test, 
-     ip_http_trace,
-     ip_http1_1_head, 
-     ip_mod_cgi_chunked_encoding_test
+     %% ip_host, 
+     %% ip_chunked, 
+     %% ip_expect, 
+     %% ip_range, 
+     ip_if_test%% , 
+     %% ip_http_trace,
+     %% ip_http1_1_head, 
+     %% ip_mod_cgi_chunked_encoding_test
     ].
 
 %%-------------------------------------------------------------------------

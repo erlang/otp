@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -80,6 +80,12 @@
 verify_request(SocketType, Host, Port, Node, RequestStr, Options) ->
     verify_request(SocketType, Host, Port, Node, RequestStr, Options, 30000).
 verify_request(SocketType, Host, Port, Node, RequestStr, Options, TimeOut) ->
+    io:format("~p ~w[~w]verify_request -> entry with"
+	      "~n   Host:       ~p"
+	      "~n   Port:       ~p"
+	      "~n   RequestStr: ~p"
+	      "~n   Options:    ~p"
+	      "~n", [self(), ?MODULE, ?LINE, Host, Port, RequestStr, Options]),
     {ok, Socket} = inets_test_lib:connect_bin(SocketType, Host, Port),
     inets_test_lib:send(SocketType, Socket, RequestStr),
     
@@ -100,11 +106,20 @@ verify_request(SocketType, Host, Port, Node, RequestStr, Options, TimeOut) ->
 	    ValidateResult
     end.
 
-request(#state{mfa = {Module, Function, Args}, 
-	       request = RequestStr, socket = Socket} = State, TimeOut) ->
+request(#state{mfa     = {Module, Function, Args}, 
+	       request = RequestStr, 
+	       socket = Socket} = State, TimeOut) ->
+    io:format("~p ~w[~w]request -> entry with"
+	      "~n   Module:   ~p"
+	      "~n   Function: ~p"
+	      "~n   Args:     ~p"
+	      "~n", [self(), ?MODULE, ?LINE, Module, Function, Args]),
     HeadRequest = lists:sublist(RequestStr, 1, 4),
     receive 
 	{tcp, Socket, Data} ->
+	    io:format("~p ~w[~w]request -> received (tcp) data"
+		      "~n   Data: ~p"
+		      "~n", [self(), ?MODULE, ?LINE, Data]),
 	    print(tcp, Data, State),
 	    case Module:Function([Data | Args]) of
 		{ok, Parsed} ->
@@ -115,11 +130,19 @@ request(#state{mfa = {Module, Function, Args},
 		    request(State#state{mfa = NewMFA}, TimeOut)
 	    end;
 	{tcp_closed, Socket} when Function == whole_body ->
+	    io:format("~p ~w[~w]request -> "
+		      "received (tcp) closed when whole_body"
+		      "~n", [self(), ?MODULE, ?LINE]),
 	    print(tcp, "closed", State),
 	    State#state{body = hd(Args)}; 
 	{tcp_closed, Socket} ->
+	    io:format("~p ~w[~w]request -> received (tcp) closed"
+		      "~n", [self(), ?MODULE, ?LINE]),
 	    test_server:fail(connection_closed);
 	{tcp_error, Socket, Reason} ->
+	    io:format("~p ~w[~w]request -> received (tcp) error"
+		      "~n   Reason: ~p"
+		      "~n", [self(), ?MODULE, ?LINE, Reason]),
 	    test_server:fail({tcp_error, Reason});    
 	{ssl, Socket, Data} ->
 	    print(ssl, Data, State),
@@ -139,11 +162,21 @@ request(#state{mfa = {Module, Function, Args},
 	{ssl_error, Socket, Reason} ->
 	    test_server:fail({ssl_error, Reason})
     after TimeOut ->
+	    io:format("~p ~w[~w]request -> timeout"
+		      "~n", [self(), ?MODULE, ?LINE]),
 	    test_server:fail(connection_timed_out)    
     end.
 
 handle_http_msg({Version, StatusCode, ReasonPharse, Headers, Body}, 
 		State = #state{request = RequestStr}) ->
+    io:format("~p ~w[~w]handle_http_msg -> entry with"
+	      "~n   Version:      ~p"
+	      "~n   StatusCode:   ~p"
+	      "~n   ReasonPharse: ~p"
+	      "~n   Headers:      ~p"
+	      "~n   Body:         ~p"
+	      "~n", [self(), ?MODULE, ?LINE, 
+		     Version, StatusCode, ReasonPharse, Headers, Body]),
     case is_expect(RequestStr) of
 	true ->
 	    State#state{status_line = {Version, 
