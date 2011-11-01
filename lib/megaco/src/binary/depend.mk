@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2001-2009. All Rights Reserved.
+# Copyright Ericsson AB 2001-2011. All Rights Reserved.
 # 
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -24,9 +24,9 @@
 # but for per_bin it means that a stage in the encode
 # is done in the asn1 driver.
 #
-# +driver
+# +nif
 # For ber_bin this means that part of the decode is done
-# in the asn1 driver.
+# in the asn1 nif.
 #
 # +asn1config
 # This is only used by the ber_bin, and means that 
@@ -45,22 +45,22 @@ endif
 
 BER_V1_FLAGS             = $(ASN1_CT_OPTS)
 BER_BIN_V1_FLAGS         = $(ASN1_CT_OPTS) +asn1config +optimize
-BER_BIN_DRV_V1_FLAGS     = $(ASN1_CT_OPTS) +asn1config +optimize +driver
+BER_BIN_DRV_V1_FLAGS     = $(ASN1_CT_OPTS) +asn1config +optimize +nif
 BER_V2_FLAGS             = $(ASN1_CT_OPTS)
 BER_BIN_V2_FLAGS         = $(ASN1_CT_OPTS) +asn1config +optimize
-BER_BIN_DRV_V2_FLAGS     = $(ASN1_CT_OPTS) +asn1config +optimize +driver
+BER_BIN_DRV_V2_FLAGS     = $(ASN1_CT_OPTS) +asn1config +optimize +nif
 BER_PREV3A_FLAGS         = $(ASN1_CT_OPTS)
 BER_BIN_PREV3A_FLAGS     = $(ASN1_CT_OPTS) +asn1config +optimize
-BER_BIN_DRV_PREV3A_FLAGS = $(ASN1_CT_OPTS) +asn1config +optimize +driver
+BER_BIN_DRV_PREV3A_FLAGS = $(ASN1_CT_OPTS) +asn1config +optimize +nif
 BER_PREV3B_FLAGS         = $(ASN1_CT_OPTS)
 BER_BIN_PREV3B_FLAGS     = $(ASN1_CT_OPTS) +asn1config +optimize
-BER_BIN_DRV_PREV3B_FLAGS = $(ASN1_CT_OPTS) +asn1config +optimize +driver
+BER_BIN_DRV_PREV3B_FLAGS = $(ASN1_CT_OPTS) +asn1config +optimize +nif
 BER_PREV3C_FLAGS         = $(ASN1_CT_OPTS)
 BER_BIN_PREV3C_FLAGS     = $(ASN1_CT_OPTS) +asn1config +optimize
-BER_BIN_DRV_PREV3C_FLAGS = $(ASN1_CT_OPTS) +asn1config +optimize +driver
+BER_BIN_DRV_PREV3C_FLAGS = $(ASN1_CT_OPTS) +asn1config +optimize +nif
 BER_V3_FLAGS             = $(ASN1_CT_OPTS)
 BER_BIN_V3_FLAGS         = $(ASN1_CT_OPTS) +asn1config +optimize
-BER_BIN_DRV_V3_FLAGS     = $(ASN1_CT_OPTS) +asn1config +optimize +driver
+BER_BIN_DRV_V3_FLAGS     = $(ASN1_CT_OPTS) +asn1config +optimize +nif
 PER_V1_FLAGS             = $(ASN1_CT_OPTS)
 PER_BIN_V1_FLAGS         = $(ASN1_CT_OPTS)
 PER_BIN_DRV_V1_FLAGS     = $(ASN1_CT_OPTS) +optimize
