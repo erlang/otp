@@ -117,8 +117,9 @@ server1(Iport, Oport, Shell) ->
     {Curr,Shell1} =
 	case init:get_argument(remsh) of
 	    {ok,[[Node]]} ->
-		RShell = {list_to_atom(Node),shell,start,[]},
-		RGr = group:start(self(), RShell),
+		ANode = list_to_atom(Node),
+		RShell = {ANode,shell,start,[]},
+		RGr = group:start(self(), RShell, rem_sh_opts(ANode)),
 		{RGr,RShell};
 	    E when E =:= error ; E =:= {ok,[[]]} ->
 		{group:start(self(), Shell),Shell}
@@ -133,6 +134,9 @@ server1(Iport, Oport, Shell) ->
 	       Iport, Oport),
     %% Enter the server loop.
     server_loop(Iport, Oport, Curr, User, Gr).
+
+rem_sh_opts(Node) ->
+    [{expand_fun,fun(B)-> rpc:call(Node,edlin_expand,expand,[B]) end}].
 
 %% start_user()
 %%  Start a group leader process and register it as 'user', unless,
