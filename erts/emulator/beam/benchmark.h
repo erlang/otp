@@ -92,7 +92,6 @@
  * BM_COUNT(var) in the code where you want to increase it.
  *
  */
-extern unsigned long long processes_busy;
 extern unsigned long long processes_spawned;
 extern unsigned long long messages_sent;
 extern unsigned long long messages_copied;
