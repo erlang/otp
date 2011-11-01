@@ -39,8 +39,8 @@ handle_error(_Reason, Op, _ModData, Path) ->
     handle_error(500, Op, none, Path, "").
 	    
 handle_error(StatusCode, Op, none, Path, Reason) ->
-    {StatusCode, none, ?NICE("Can't " ++ Op ++ Path ++ Reason)};
+    {StatusCode, none, ?NICE("Can't " ++ Op ++ " " ++ Path ++ Reason)};
 
 handle_error(StatusCode, Op, ModData, Path, Reason) ->
     {StatusCode, ModData#mod.request_uri,
-     ?NICE("Can't " ++ Op ++ Path ++ Reason)}.
+     ?NICE("Can't " ++ Op ++ " " ++ Path ++ Reason)}.

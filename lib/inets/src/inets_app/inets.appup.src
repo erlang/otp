@@ -18,6 +18,15 @@
 
 {"%VSN%",
  [
+  {"5.3.5",
+   [
+    {load_module, http_util,      soft_purge, soft_purge, []},
+    {load_module, httpd_util,     soft_purge, soft_purge, [http_util]},
+    {load_module, httpd_file,     soft_purge, soft_purge, []},
+    {load_module, mod_responsecontrol, soft_purge, soft_purge, []},
+    {load_module, httpd_response, soft_purge, soft_purge, [mod_responsecontrol]}
+   ]
+  }, 
   {"5.3.4",
    [
     {restart_application, inets}
@@ -42,7 +51,7 @@
    [
     {restart_application, inets}
    ]
-  }, 
+  },
   {"5.2",
    [
     {restart_application, inets}
@@ -57,9 +66,18 @@
    [
     {restart_application, inets}
    ]
-  }     
+  }
  ],
  [	
+  {"5.3.5",
+   [
+    {load_module, http_util,      soft_purge, soft_purge, []},
+    {load_module, httpd_util,     soft_purge, soft_purge, [http_util]},
+    {load_module, httpd_file,     soft_purge, soft_purge, []},
+    {load_module, mod_responsecontrol, soft_purge, soft_purge, []},
+    {load_module, httpd_response, soft_purge, soft_purge, [mod_responsecontrol]}
+   ]
+  }, 
   {"5.3.4",
    [
     {restart_application, inets}
@@ -84,7 +102,7 @@
    [
     {restart_application, inets}
    ]
-  }, 
+  },
   {"5.2",
    [
     {restart_application, inets}
