@@ -2642,7 +2642,7 @@ tailrecur_ne:
 	FloatDef f1, f2;
 	Eterm big;
 #if HEAP_ON_C_STACK
-	Eterm big_buf[32]; /* If HEAP_ON_C_STACK */
+	Eterm big_buf[CMP_TMP_HEAP_SIZE]; /* If HEAP_ON_C_STACK */
 #else
 	Eterm *big_buf = erts_get_scheduler_data()->cmp_tmp_heap;
 #endif
