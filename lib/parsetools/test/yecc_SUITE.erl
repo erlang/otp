@@ -1197,7 +1197,7 @@ yeccpre(Config) when is_list(Config) ->
                 catch error: error ->
                         ok
                 end,
-                try parse_and_scan({{yecc_test, scan}, [exit]})
+                try parse_and_scan({fun yecc_test:scan/1, [exit]})
                 catch exit: exit ->
                         ok
                 end,
@@ -1650,10 +1650,11 @@ yeccpre_v1_2() ->
 parse(Tokens) ->
     yeccpars0(Tokens, false).
 
-parse_and_scan({F, A}) -> % Fun or {M, F}
+parse_and_scan({F, A}) ->
     yeccpars0([], {F, A});
 parse_and_scan({M, F, A}) ->
-    yeccpars0([], {{M, F}, A}).
+    Arity = length(A),
+    yeccpars0([], {fun M:F/Arity, A}).
 
 format_error(Message) ->
     case io_lib:deep_char_list(Message) of
