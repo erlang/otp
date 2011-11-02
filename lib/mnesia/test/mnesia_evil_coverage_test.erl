@@ -244,7 +244,7 @@ db_node_lifecycle(Config) when is_list(Config) ->
     ?match([], mnesia_test_lib:start_mnesia(AllNodes)),
 
     ?match([SNs, SNs, SNs], 
-	   lists:map({lists, sort}, 
+	   lists:map(fun lists:sort/1,
 		     element(1, rpc:multicall(AllNodes, mnesia, table_info, 
 					      [schema, disc_copies])))),
 
@@ -259,7 +259,7 @@ db_node_lifecycle(Config) when is_list(Config) ->
            mnesia:change_table_copy_type(schema, Node2, disc_copies)),
 
     ?match([SNs, SNs, SNs], 
-	   lists:map({lists, sort}, 
+	   lists:map(fun lists:sort/1,
 		     element(1, rpc:multicall(AllNodes, mnesia, table_info, 
 					      [schema, disc_copies])))),
 
