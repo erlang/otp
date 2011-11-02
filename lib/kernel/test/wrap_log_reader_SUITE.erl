@@ -561,4 +561,4 @@ rec(M, Where) ->
     end.
 	    
 pps() ->
-    {erlang:ports(), lists:filter({erlang, is_process_alive}, processes())}.
+    {erlang:ports(), lists:filter(fun erlang:is_process_alive/1, processes())}.
