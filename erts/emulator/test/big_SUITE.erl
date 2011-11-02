@@ -26,7 +26,7 @@
 	 shift_limit_1/1, powmod/1, system_limit/1, otp_6692/1]).
 
 %% Internal exports.
--export([eval/1, funcall/2]).
+-export([eval/1]).
 -export([init/3]).
 
 -export([fac/1, fib/1, pow/2, gcd/2, lcm/2]).
@@ -162,12 +162,15 @@ multi_match([Node|Ns], Expr, Rs) ->
 multi_match([], _, Rs) -> Rs.
 
 eval(Expr) ->
-    Fun = {?MODULE,funcall},
-    {value,V,_} = erl_eval:expr(Expr, [], Fun),	%Applied arithmetic BIFs.
-    V = eval(Expr, Fun),			%Real arithmetic instructions.
-    V.
+    LFH = fun(Name, As) -> apply(?MODULE, Name, As) end,
 
-funcall(F, As) -> apply(?MODULE, F, As).
+    %% Applied arithmetic BIFs.
+    {value,V,_} = erl_eval:expr(Expr, [], {value,LFH}),
+
+    %% Real arithmetic instructions.
+    V = eval(Expr, LFH),
+
+    V.
 
 %% Like a subset of erl_eval:expr/3, but uses real arithmetic instructions instead of
 %% applying them (it does make a difference).
