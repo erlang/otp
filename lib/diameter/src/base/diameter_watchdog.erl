@@ -179,11 +179,11 @@ transition({close, TPid, _Reason}, #watchdog{transport = TPid}) ->
 %% state okay as the result of the Peer State Machine reaching the
 %% Open state.
 %%
-%% If we're an acceptor then we may be resuming a connection that went
-%% down in another acceptor process, in which case this is the
-%% transition below, from down into reopen. That is, it's not until
-%% we know the identity of the peer (ie. now) that we know that we're
-%% in state down rather than initial.
+%% If we're accepting then we may be resuming a connection that went
+%% down in another watchdog process, in which case this is the
+%% transition below, from down to reopen. That is, it's not until we
+%% know the identity of the peer (ie. now) that we know that we're in
+%% state down rather than initial.
 
 transition({open, TPid, Hosts, T} = Open,
            #watchdog{transport = TPid,
