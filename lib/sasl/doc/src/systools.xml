@@ -111,6 +111,11 @@
           low-level instruction to restart the emulator is appended to
           the relup scripts. This ensures that a complete reboot of
           the system is done when the system is upgraded or downgraded.</p>
+	<p>If an upgrade includes a change from an emulator earlier
+	  than OTP R15 to OTP R15 or later, the warning
+	  <c>pre_R15_emulator_upgrade</c> is issued. See <seealso
+	  marker="doc/design_principles:appup_cookbook">Design
+	  Principles</seealso> for more information about this.</p>
         <p>By default, errors and warnings are printed to tty and
           the function returns <c>ok</c> or <c>error</c>. If the option
           <c>silent</c> is provided, the function instead returns

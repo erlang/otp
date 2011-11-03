@@ -640,5 +640,23 @@ code_change(_OldVsn, State, port) ->
       updates etc. can be used without having to specify <c>.appup</c>
       files.</p>
   </section>
+
+  <section>
+    <title>Emulator Upgrade from pre OTP R15</title>
+    <p>From OTP R15, an emulator upgrade is performed by restarting
+    the emulator with new versions of the core applications
+    (<c>kernel</c>, <c>stdlib</c> and <c>sasl</c>) before loading code
+    and running upgrade instruction for other applications. For this
+    to work, the release to upgrade from must includes OTP R15 or
+    later. For the case where the release to upgrade from includes an
+    earlier emulator version, <c>systools:make_relup</c> will create a
+    backwards compatible relup file. This means that all upgrade
+    instructions will be executed before the emulator is
+    restarted. The new application code will therefore be loaded into
+    the old emulator. If the new code is compiled with the new
+    emulator, there might be cases where the beam format has changed
+    and beam files can not be loaded. To overcome this problem, the
+    new code should be compiled with the old emulator.</p>
+  </section>
 </chapter>
 
