@@ -55,7 +55,8 @@
 -define(NO_INBAND_SECURITY, 0).
 -define(TLS, 1).
 
--define(LOOP_TIMEOUT, 2000).
+%% A 2xxx series Result-Code. Not necessarily 2001.
+-define(IS_SUCCESS(N), 2 == (N) div 1000).
 
 %% RFC 3588:
 %%
@@ -706,7 +707,7 @@ handle_CEA(#diameter_packet{bin = Bin}
     %% connection with the peer.
 
     try
-        2001 == RC
+        ?IS_SUCCESS(RC)
             orelse ?THROW(RC),
         [] == SApps
             andalso ?THROW(no_common_application),
@@ -720,8 +721,11 @@ handle_CEA(#diameter_packet{bin = Bin}
     catch
         ?FAILURE(Reason) -> close({'CEA', Reason, Caps, DPkt}, S)
     end.
-%% Check more than the result code since the peer could send 2001
-%% regardless.
+%% Check more than the result code since the peer could send success
+%% regardless. If not 2001 then a peer_up callback could do anything
+%% required. It's not unimaginable that a peer agreeing to TLS after
+%% capabilities exchange could send DIAMETER_LIMITED_SUCCESS = 2002,
+%% even if this isn't required by RFC 3588.
 
 %% recv_CEA/2
 
@@ -754,7 +758,7 @@ ccb([F | Rest], T) ->
     case diameter_lib:eval([F|T]) of
         ok ->
             ccb(Rest, T);
-        N when 2 == N div 1000 ->  %% 2xxx Result-Code
+        N when ?IS_SUCCESS(N) ->  %% 2xxx result code: accept immediately
             N;
         Res ->
             ?THROW({capabilities_cb, F, rejected(Res)})
