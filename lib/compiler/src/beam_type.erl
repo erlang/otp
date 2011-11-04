@@ -168,6 +168,8 @@ simplify_float_1([{set,[D0],[A,B],{alloc,_,{gc_bif,Op0,{f,0}}}}=I|Is]=Is0, Ts0, 
 simplify_float_1([{set,_,_,{'catch',_}}=I|Is]=Is0, _Ts, Rs0, Acc0) ->
     Acc = flush_all(Rs0, Is0, Acc0),
     simplify_float_1(Is, tdb_new(), Rs0, [I|Acc]);
+simplify_float_1([{set,_,_,{line,_}}=I|Is], Ts, Rs, Acc) ->
+    simplify_float_1(Is, Ts, Rs, [I|Acc]);
 simplify_float_1([I|Is]=Is0, Ts0, Rs0, Acc0) ->
     Ts = update(I, Ts0),
     {Rs,Acc} = flush(Rs0, Is0, Acc0),
