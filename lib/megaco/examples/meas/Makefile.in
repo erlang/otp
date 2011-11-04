@@ -1,7 +1,7 @@
 # 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2002-2009. All Rights Reserved.
+# Copyright Ericsson AB 2002-2011. All Rights Reserved.
 # 
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -35,11 +35,18 @@ VSN=$(MEGACO_VSN)
 
 
 # ----------------------------------------------------
+# Configured variables
+# ----------------------------------------------------
+PERL = @PERL@
+
+
+# ----------------------------------------------------
 # Release directory specification
 # ----------------------------------------------------
 RELSYSDIR         = $(RELEASE_PATH)/lib/megaco-$(VSN)
 EXAMPLE_RELSYSDIR = $(RELSYSDIR)/examples
 MEAS_RELSYSDIR    = $(EXAMPLE_RELSYSDIR)/meas
+
 
 # ----------------------------------------------------
 # Target Specs
@@ -49,8 +56,12 @@ include modules.mk
 
 ERL_FILES = $(MODULES:%=%.erl)
 
-TARGET_FILES =  \
+SCRIPT_SKELETONS = $(SCRIPT_SKELETON_SRC:%.src=%)
+
+ERL_TARGETS = \
 	$(ERL_FILES:%.erl=$(EBIN)/%.$(EMULATOR))
+
+TARGET_FILES = $(SCRIPT_SKELETONS) $(ERL_TARGETS)
 
 
 # ----------------------------------------------------
@@ -91,11 +102,26 @@ debug:
 
 opt: $(TARGET_FILES) 
 
+script_skeletons: $(SCRIPT_SKELETONS)
+
+info:
+	@echo "MODULES   = $(MODULES)"
+	@echo "ERL_FILED = $(ERL_FILES)"
+	@echo ""
+	@echo "SCRIPT_SKELETON_SRC = $(SCRIPT_SKELETON_SRC)"
+	@echo "SCRIPT_SKELETONS    = $(SCRIPT_SKELETONS)"
+	@echo ""
+	@echo "TARGET_FILES = $(TARGET_FILES)"
+	@echo ""
+
 clean:
 	rm -f $(TARGET_FILES) 
 	rm -f errs core *~
 
 docs:
+
+conf: 
+	cd ../..; $(MAKE) conf
 
 
 # ----------------------------------------------------
@@ -119,6 +145,14 @@ release_docs_spec:
 # ----------------------------------------------------
 # Include dependencies
 # ----------------------------------------------------
+
+meas.sh.skel: meas.sh.skel.src
+	@echo "transforming $< to $@"
+	$(PERL) -p -e 's?%VSN%?$(VSN)? ' < $< > $@
+
+mstone1.sh.skel: mstone1.sh.skel.src
+	@echo "transforming $< to $@"
+	$(PERL) -p -e 's?%VSN%?$(VSN)? ' < $< > $@
 
 megaco_codec_transform.$(EMULATOR): megaco_codec_transform.erl
 

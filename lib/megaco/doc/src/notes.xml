@@ -50,6 +50,11 @@
 
       <list type="bulleted">
         <item>
+          <p>Minor improvemnts to the emasurement tool mstone1. </p>
+          <p>Own Id: OTP-9604</p>
+        </item>
+
+        <item>
 	  <p>The profiling test tool has been rewritten. </p>
 	  <p>H&aring;kan Mattsson</p>
           <p>Own Id: OTP-9679</p>
