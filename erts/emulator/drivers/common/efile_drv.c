@@ -2493,13 +2493,20 @@ file_flush(ErlDrvData e) {
 static int 
 file_control(ErlDrvData e, unsigned int command, 
 			 char* buf, int len, char **rbuf, int rlen) {
+    /*
+     *  warning: variable ‘desc’ set but not used 
+     *  [-Wunused-but-set-variable]
+     *  ... no kidding ...
+     *
+     *
     file_descriptor *desc = (file_descriptor *)e;
     switch (command) {
     default:
 	return 0;
-    } /* switch (command) */
+    } 
     ASSERT(0);
-    desc = NULL; /* XXX Avoid warning while empty switch */
+    desc = NULL; 
+    */
     return 0;
 }
 
