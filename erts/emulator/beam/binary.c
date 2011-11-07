@@ -356,8 +356,10 @@ BIF_RETTYPE erts_list_to_binary_bif(Process *p, Eterm arg)
 {
     Eterm bin;
     Uint size;
-    int offset;
     byte* bytes;
+#ifdef DEBUG
+    int offset;
+#endif
 
     if (is_nil(arg)) {
 	BIF_RET(new_binary(p,(byte*)"",0));
@@ -372,7 +374,11 @@ BIF_RETTYPE erts_list_to_binary_bif(Process *p, Eterm arg)
     }
     bin = new_binary(p, (byte *)NULL, size);
     bytes = binary_bytes(bin);
-    offset = io_list_to_buf(arg, (char*) bytes, size);
+#ifdef DEBUG
+    offset = 
+#endif
+	io_list_to_buf(arg, (char*) bytes, size);
+
     ASSERT(offset == 0);
     BIF_RET(bin);
     
