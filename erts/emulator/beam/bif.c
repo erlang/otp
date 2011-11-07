@@ -4291,8 +4291,7 @@ void
 erts_bif_prep_await_proc_exit_data_trap(Process *c_p, Eterm pid, Eterm ret)
 {
     if (skip_current_msgq(c_p)) {
-	Eterm unused;
-	ERTS_BIF_PREP_TRAP3(unused, await_proc_exit_trap, c_p, pid, am_data, ret);
+	ERTS_BIF_PREP_TRAP3_NO_RET(await_proc_exit_trap, c_p, pid, am_data, ret);
     }
 }
 
@@ -4300,8 +4299,7 @@ void
 erts_bif_prep_await_proc_exit_reason_trap(Process *c_p, Eterm pid)
 {
     if (skip_current_msgq(c_p)) {
-	Eterm unused;
-	ERTS_BIF_PREP_TRAP3(unused, await_proc_exit_trap, c_p,
+	ERTS_BIF_PREP_TRAP3_NO_RET(await_proc_exit_trap, c_p,
 			    pid, am_reason, am_undefined);
     }
 }
@@ -4316,7 +4314,6 @@ erts_bif_prep_await_proc_exit_apply_trap(Process *c_p,
 {
     ASSERT(is_atom(module) && is_atom(function));
     if (skip_current_msgq(c_p)) {
-	Eterm unused;
 	Eterm term;
 	Eterm *hp;
 	int i;
@@ -4328,7 +4325,7 @@ erts_bif_prep_await_proc_exit_apply_trap(Process *c_p,
 	    hp += 2;
 	}
 	term = TUPLE3(hp, module, function, term);
-	ERTS_BIF_PREP_TRAP3(unused, await_proc_exit_trap, c_p, pid, am_apply, term);
+	ERTS_BIF_PREP_TRAP3_NO_RET(await_proc_exit_trap, c_p, pid, am_apply, term);
     }
 }
 
