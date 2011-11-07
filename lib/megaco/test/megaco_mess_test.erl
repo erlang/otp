@@ -34,12 +34,12 @@
 
 %% -compile(export_all).
 -export([
-	 all/0,groups/0,init_per_group/2,end_per_group/2, 
-	 init_per_testcase/2, 
-	 end_per_testcase/2,
+	 all/0, groups/0, 
+	 init_per_suite/1,    end_per_suite/1, 
+	 init_per_group/2,    end_per_group/2, 
+	 init_per_testcase/2, end_per_testcase/2,
 
 	 connect/1,
-
 	
 	 request_and_reply_plain/1,
 	 request_and_no_reply/1,
@@ -347,39 +347,83 @@ end_per_testcase(Case, Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 all() -> 
-    [connect, {group, request_and_reply},
-     {group, pending_ack}, dist, {group, tickets}].
+    [
+     connect, 
+     {group, request_and_reply},
+     {group, pending_ack}, 
+     dist, 
+     {group, tickets}
+    ].
 
 groups() -> 
-    [{request_and_reply, [],
-      [request_and_reply_plain, request_and_no_reply,
+    [
+     {request_and_reply, [],
+      [request_and_reply_plain, 
+       request_and_no_reply,
        request_and_reply_pending_ack_no_pending,
        request_and_reply_pending_ack_one_pending,
        single_trans_req_and_reply,
        single_trans_req_and_reply_sendopts,
-       request_and_reply_and_ack, request_and_reply_and_no_ack,
+       request_and_reply_and_ack, 
+       request_and_reply_and_no_ack,
        request_and_reply_and_late_ack,
        trans_req_and_reply_and_req]},
      {pending_ack, [],
       [pending_ack_plain,
        request_and_pending_and_late_reply]},
      {tickets, [],
-      [otp_4359, otp_4836, otp_5805, otp_5881, otp_5887,
-       otp_6253, otp_6275, otp_6276, {group, otp_6442},
-       {group, otp_6865}, otp_7189, otp_7259, otp_7713,
-       {group, otp_8183}, otp_8212]},
+      [otp_4359, 
+       otp_4836, 
+       otp_5805, 
+       otp_5881, 
+       otp_5887,
+       otp_6253, 
+       otp_6275, 
+       otp_6276, 
+       {group, otp_6442},
+       {group, otp_6865}, 
+       otp_7189, 
+       otp_7259, 
+       otp_7713,
+       {group, otp_8183}, 
+       otp_8212]},
      {otp_6442, [],
-      [otp_6442_resend_request1, otp_6442_resend_request2,
-       otp_6442_resend_reply1, otp_6442_resend_reply2]},
+      [otp_6442_resend_request1, 
+       otp_6442_resend_request2,
+       otp_6442_resend_reply1, 
+       otp_6442_resend_reply2]},
      {otp_6865, [],
       [otp_6865_request_and_reply_plain_extra1,
        otp_6865_request_and_reply_plain_extra2]},
-     {otp_8183, [], [otp_8183_request1]}].
+     {otp_8183, [], [otp_8183_request1]}
+    ].
+
+
+init_per_suite(Config) ->
+    io:format("~w:init_per_suite -> entry with"
+	      "~n   Config: ~p"
+	      "~n", [?MODULE, Config]),
+    Config.
+
+end_per_suite(_Config) ->
+    io:format("~w:end_per_suite -> entry with"
+	      "~n   _Config: ~p"
+	      "~n", [?MODULE, _Config]),
+    ok.
+
 
 init_per_group(_GroupName, Config) ->
+    io:format("~w:init_per_group -> entry with"
+	      "~n   _GroupName: ~p"
+	      "~n   Config: ~p"
+	      "~n", [?MODULE, _GroupName, Config]),
     Config.
 
 end_per_group(_GroupName, Config) ->
+    io:format("~w:end_per_group -> entry with"
+	      "~n   _GroupName: ~p"
+	      "~n   Config: ~p"
+	      "~n", [?MODULE, _GroupName, Config]),
     Config.
 
 
@@ -394,12 +438,16 @@ connect(Config) when is_list(Config) ->
     PrelMid = preliminary_mid,
     MgMid   = ipv4_mid(4711),
 
+    d("connect -> start megaco app",[]),
     ?VERIFY(ok, application:start(megaco)),
+    d("connect -> start (MG) user ~p",[MgMid]),
     ?VERIFY(ok,	megaco:start_user(MgMid, [{send_mod, bad_send_mod},
 	                                  {request_timer, infinity},
 	                                  {reply_timer, infinity}])),
 
+    d("connect -> get receive info for ~p",[MgMid]),
     MgRH = user_info(MgMid, receive_handle),
+    d("connect -> (MG) try connect to MGC",[]),
     {ok, PrelCH} = ?VERIFY({ok, _}, megaco:connect(MgRH, PrelMid, sh, self())),
 
     connections([PrelCH]),
@@ -6776,16 +6824,12 @@ rapalr_mg_notify_request_ar(Rid, Tid, Cid) ->
 
 
 
-
-
-
-
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 dist(suite) ->
     [];
 dist(Config) when is_list(Config) ->
+    ?SKIP("Needs a re-write..."),
     [_Local, Dist] = ?ACQUIRE_NODES(2, Config),
     d("dist -> start proxy",[]),
     megaco_mess_user_test:start_proxy(),
@@ -6897,7 +6941,11 @@ dist(Config) when is_list(Config) ->
 
     ?VERIFY(ok, application:stop(megaco)),
     ?RECEIVE([]),
-    d("dist -> done",[]),
+
+    d("dist -> stop proxy",[]),
+    megaco_mess_user_test:stop_proxy(),
+
+    d("dist -> done", []),
     ok.
 
 

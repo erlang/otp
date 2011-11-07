@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2007-2010. All Rights Reserved.
+# Copyright Ericsson AB 2007-2011. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -22,7 +22,7 @@
 #
 
 ERL_HOME=<path to otp top dir>
-MEGACO_HOME=$ERL_HOME/lib/erlang/lib/<megaco dir>
+MEGACO_HOME=$ERL_HOME/lib/erlang/lib/megaco-%VSN%
 MEAS_HOME=$MEGACO_HOME/examples/meas
 PATH=$ERL_HOME/bin:$PATH
 
