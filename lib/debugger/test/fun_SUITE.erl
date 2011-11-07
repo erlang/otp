@@ -24,8 +24,10 @@
 	 init_per_testcase/2,end_per_testcase/2,
 	 init_per_suite/1,end_per_suite/1,
 	 good_call/1,bad_apply/1,bad_fun_call/1,badarity/1,
-	 ext_badarity/1,otp_6061/1]).
--export([nothing/0]).
+	 ext_badarity/1,otp_6061/1,external/1]).
+
+%% Internal exports.
+-export([nothing/0,call_me/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -46,7 +48,7 @@ end_per_group(_GroupName, Config) ->
 
 cases() -> 
     [good_call, bad_apply, bad_fun_call, badarity,
-     ext_badarity, otp_6061].
+     ext_badarity, otp_6061, external].
 
 init_per_testcase(_Case, Config) ->
     test_lib:interpret(?MODULE),
@@ -244,3 +246,47 @@ test_otp_6061(Starter) ->
 	       fun() -> Starter ! working end,
 	       fun() -> Starter ! not_working end],
     lists:foreach(fun(P)->(lists:nth(P,PassesF))() end,Passes).
+
+-define(APPLY(M, F, A), (fun(Fun) -> {ok,{a,b}} = Fun({a,b}) end)(fun M:F/A)).
+-define(APPLY2(M, F, A),
+	(fun(Map) ->
+		 Id = fun(I) -> I end,
+		 List = [x,y],
+		 List = Map(Id, List),
+		 {type,external} = erlang:fun_info(Map, type)
+	 end)(fun M:F/A)).
+
+external(Config) when is_list(Config) ->
+    Mod = id(?MODULE),
+    Func = id(call_me),
+    Arity = id(1),
+
+    ?APPLY(?MODULE, call_me, 1),
+    ?APPLY(?MODULE, call_me, Arity),
+    ?APPLY(?MODULE, Func, 1),
+    ?APPLY(?MODULE, Func, Arity),
+    ?APPLY(Mod, call_me, 1),
+    ?APPLY(Mod, call_me, Arity),
+    ?APPLY(Mod, Func, 1),
+    ?APPLY(Mod, Func, Arity),
+
+    ListsMod = id(lists),
+    ListsMap = id(map),
+    ListsArity = id(2),
+
+    ?APPLY2(lists, map, 2),
+    ?APPLY2(lists, map, ListsArity),
+    ?APPLY2(lists, ListsMap, 2),
+    ?APPLY2(lists, ListsMap, ListsArity),
+    ?APPLY2(ListsMod, map, 2),
+    ?APPLY2(ListsMod, map, ListsArity),
+    ?APPLY2(ListsMod, ListsMap, 2),
+    ?APPLY2(ListsMod, ListsMap, ListsArity),
+
+    ok.
+
+call_me(I) ->
+    {ok,I}.
+
+id(I) ->
+    I.

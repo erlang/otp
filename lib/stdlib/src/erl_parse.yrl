@@ -35,7 +35,7 @@ tuple
 %struct
 record_expr record_tuple record_field record_fields
 if_expr if_clause if_clauses case_expr cr_clause cr_clauses receive_expr
-fun_expr fun_clause fun_clauses
+fun_expr fun_clause fun_clauses atom_or_var integer_or_var
 try_expr try_catch try_clause try_clauses query_expr
 function_call argument_list
 exprs guard
@@ -395,10 +395,16 @@ receive_expr -> 'receive' cr_clauses 'after' expr clause_body 'end' :
 
 fun_expr -> 'fun' atom '/' integer :
 	{'fun',?line('$1'),{function,element(3, '$2'),element(3, '$4')}}.
-fun_expr -> 'fun' atom ':' atom '/' integer :
-	{'fun',?line('$1'),{function,element(3, '$2'),element(3, '$4'),element(3,'$6')}}.
+fun_expr -> 'fun' atom_or_var ':' atom_or_var '/' integer_or_var :
+	{'fun',?line('$1'),{function,'$2','$4','$6'}}.
 fun_expr -> 'fun' fun_clauses 'end' :
 	build_fun(?line('$1'), '$2').
+
+atom_or_var -> atom : '$1'.
+atom_or_var -> var : '$1'.
+
+integer_or_var -> integer : '$1'.
+integer_or_var -> var : '$1'.
 
 fun_clauses -> fun_clause : ['$1'].
 fun_clauses -> fun_clause ';' fun_clauses : ['$1' | '$3'].

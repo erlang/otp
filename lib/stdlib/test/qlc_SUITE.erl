@@ -6632,7 +6632,7 @@ otp_7232(Config) when is_list(Config) ->
              {call,_,
                {remote,_,{atom,_,qlc},{atom,_,sort}},
                [{cons,_,
-                      {'fun',_,{function,math,sqrt,_}},
+                      {'fun',_,{function,{atom,_,math},{atom,_,sqrt},_}},
                       {cons,_,
                             {string,_,\"<0.4.1>\"}, % could use list_to_pid..
                             {cons,_,{string,_,\"#Ref<\"++_},{nil,_}}}},

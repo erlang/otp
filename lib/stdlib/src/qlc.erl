@@ -1272,7 +1272,10 @@ abstr_term(Fun, Line) when is_function(Fun) ->
             case erlang:fun_info(Fun, type) of
                 {type, external} ->
                     {module, Module} = erlang:fun_info(Fun, module),
-                    {'fun', Line, {function,Module,Name,Arity}};
+                    {'fun', Line, {function,
+				   {atom,Line,Module},
+				   {atom,Line,Name},
+				   {integer,Line,Arity}}};
                 {type, local} ->
                     {'fun', Line, {function,Name,Arity}}
             end

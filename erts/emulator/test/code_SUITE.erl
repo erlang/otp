@@ -278,7 +278,8 @@ t_check_old_code(Config) when is_list(Config) ->
 
 external_fun(Config) when is_list(Config) ->
     ?line false = erlang:function_exported(another_code_test, x, 1),
-    ?line ExtFun = erlang:make_fun(id(another_code_test), x, 1),
+    AnotherCodeTest = id(another_code_test),
+    ExtFun = fun AnotherCodeTest:x/1,
     ?line {'EXIT',{undef,_}} = (catch ExtFun(answer)),
     ?line false = erlang:function_exported(another_code_test, x, 1),
     ?line false = lists:member(another_code_test, erlang:loaded()),

@@ -573,6 +573,13 @@ expr({'catch',L,E0}, St0) ->
 expr({'fun',L,{function,F,A},{_,_,_}=Id}, St) ->
     Lanno = lineno_anno(L, St),
     {#c_var{anno=Lanno++[{id,Id}],name={F,A}},[],St};
+expr({'fun',L,{function,M,F,A}}, St0) ->
+    {As,Aps,St1} = safe_list([M,F,A], St0),
+    Lanno = lineno_anno(L, St1),
+    {#icall{anno=#a{anno=Lanno},
+	    module=#c_literal{val=erlang},
+	    name=#c_literal{val=make_fun},
+	    args=As},Aps,St1};
 expr({'fun',L,{clauses,Cs},Id}, St) ->
     fun_tq(Id, Cs, L, St);
 expr({call,L,{remote,_,M,F},As0}, #core{wanted=Wanted}=St0) ->
