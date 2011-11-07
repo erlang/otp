@@ -2373,10 +2373,11 @@ undo_prepare_op(Tid, {op, add_table_copy, Storage, Node, TabDef}) ->
 
 undo_prepare_op(_Tid, {op, del_table_copy, _, Node, TabDef})
   when Node == node() ->
+    WriteLocker = get(mnesia_lock),
+    WriteLocker =/= undefined andalso (WriteLocker ! die),
     Cs = list2cs(TabDef),
     Tab = Cs#cstruct.name,
     mnesia_lib:set({Tab, where_to_read}, Node);
-
 
 undo_prepare_op(_Tid, {op, change_table_copy_type, N, FromS, ToS, TabDef})
         when N == node() ->
