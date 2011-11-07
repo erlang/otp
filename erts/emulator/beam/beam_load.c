@@ -758,6 +758,14 @@ bin_load(Process *c_p, ErtsProcLocks c_p_locks,
     }
 
     /*
+     * Since the literal table *may* have contained external
+     * funs (containing references to export entries), now is
+     * the time to consolidate the export tables.
+     */
+
+    erts_export_consolidate();
+
+    /*
      * Load the code chunk.
      */
 

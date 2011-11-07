@@ -116,7 +116,6 @@ func(Config) when is_list(Config) ->
           {func_3,
            <<"t() -> fun t/0.">>},
           {func_4,
-           %% Has already been expanded away in sys_pre_expand.
            <<"t() -> fun modul:foo/3.">>},
           {func_5, % 'when' is moved down one line
            <<"tkjlksjflksdjflsdjlk()
@@ -127,7 +126,9 @@ func(Config) when is_list(Config) ->
            <<"t() ->
                   (fun() ->
                            true
-                   end)().">>}
+                   end)().">>},
+	  {func_7,
+           <<"t(M, F, A) -> fun M:F/A.">>}
           ],
     ?line compile(Config, Ts),
     ok.

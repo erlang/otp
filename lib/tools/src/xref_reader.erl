@@ -158,15 +158,20 @@ expr({'try',_Line,Es,Scs,Ccs,As}, S) ->
     S2 = clauses(Scs, S1),
     S3 = clauses(Ccs, S2),
     expr(As, S3);
-expr({call, Line,
-      {remote, _, {atom,_,erlang}, {atom,_,make_fun}},
-      [{atom,_,Mod}, {atom,_,Fun}, {integer,_,Arity}]}, S) ->
-    %% Added in R10B-6. M:F/A.
-    expr({'fun', Line, {function, Mod, Fun, Arity}}, S);
-expr({'fun', Line, {function, Mod, Name, Arity}}, S) ->
-    %% Added in R10B-6. M:F/A.
+expr({'fun', Line, {function, {atom,_,Mod},
+		    {atom,_,Name},
+		    {integer,_,Arity}}}, S) ->
+    %% New format in R15. M:F/A (literals).
     As = lists:duplicate(Arity, {atom, Line, foo}),
     external_call(Mod, Name, As, Line, false, S);
+expr({'fun', Line, {function, Mod, Name, {integer,_,Arity}}}, S) ->
+    %% New format in R15. M:F/A (one or more variables).
+    As = lists:duplicate(Arity, {atom, Line, foo}),
+    external_call(erlang, apply, [Mod, Name, list2term(As)], Line, true, S);
+expr({'fun', Line, {function, Mod, Name, _Arity}}, S) ->
+    %% New format in R15. M:F/A (one or more variables).
+    As = {var, Line, '_'},
+    external_call(erlang, apply, [Mod, Name, As], Line, true, S);
 expr({'fun', Line, {function, Name, Arity}, _Extra}, S) ->
     %% Added in R8.
     handle_call(local, S#xrefr.module, Name, Arity, Line, S);
@@ -286,10 +291,10 @@ check_funarg(W, ArgsList, Line, S) ->
     expr(ArgsList, S1).
 
 funarg({'fun', _, _Clauses, _Extra}, _S) -> true;
-funarg({var, _, Var}, S) -> member(Var, S#xrefr.funvars);
-funarg({call,_,{remote,_,{atom,_,erlang},{atom,_,make_fun}},_MFA}, _S) ->
-    %% R10B-6. M:F/A.
+funarg({'fun', _, {function,_,_,_}}, _S) ->
+    %% New abstract format for fun M:F/A in R15.
     true;
+funarg({var, _, Var}, S) -> member(Var, S#xrefr.funvars);
 funarg(_, _S) -> false.
 
 fun_args(apply2, [FunArg, Args]) -> {FunArg, Args};
