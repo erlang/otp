@@ -2892,8 +2892,8 @@ smp_sig_notify(char c)
 static void *
 signal_dispatcher_thread_func(void *unused)
 {
-    int initialized = 0;
 #if !CHLDWTHR
+    int initialized = 0;
     int notify_check_children = 0;
 #endif
 #ifdef ERTS_ENABLE_LOCK_CHECK
@@ -2933,8 +2933,8 @@ signal_dispatcher_thread_func(void *unused)
 	     */
 	    switch (buf[i]) {
 	    case 0: /* Emulator initialized */
-		initialized = 1;
 #if !CHLDWTHR
+		initialized = 1;
 		if (!notify_check_children)
 #endif
 		    break;
