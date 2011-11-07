@@ -1297,7 +1297,9 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     Uint32 status;
     Sint keypos;
     int is_named, is_fine_locked, frequent_read, is_compressed;
+#ifdef DEBUG
     int cret;
+#endif
     DeclareTmpHeap(meta_tuple,3,BIF_P);
     DbTableMethod* meth;
     erts_smp_rwmtx_t *mmtl;
@@ -1445,7 +1447,10 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     tb->common.fixations = NULL;
     tb->common.compress = is_compressed;
 
-    cret = meth->db_create(BIF_P, tb);
+#ifdef DEBUG
+    cret = 
+#endif
+	meth->db_create(BIF_P, tb);
     ASSERT(cret == DB_ERROR_NONE);
 
     erts_smp_spin_lock(&meta_main_tab_main_lock);
@@ -2606,7 +2611,9 @@ BIF_RETTYPE ets_info_1(BIF_ALIST_1)
     int i;
     Eterm* hp;
     /*Process* rp = NULL;*/
+    /* If/when we implement lockless private tables:
     Eterm owner;
+    */
 
     if ((tb = db_get_table(BIF_P, BIF_ARG_1, DB_INFO, LCK_READ)) == NULL) {
 	if (is_atom(BIF_ARG_1) || is_small(BIF_ARG_1)) {
@@ -2615,7 +2622,9 @@ BIF_RETTYPE ets_info_1(BIF_ALIST_1)
 	BIF_ERROR(BIF_P, BADARG);
     }
 
+    /* If/when we implement lockless private tables:
     owner = tb->common.owner;
+    */
 
     /* If/when we implement lockless private tables:
     if ((tb->common.status & DB_PRIVATE) && owner != BIF_P->id) {
