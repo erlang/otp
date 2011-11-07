@@ -84,8 +84,6 @@
 		keymember/3,keyfind/3]).
 -import(ordsets, [add_element/2,del_element/2,union/2,union/1,subtract/2]).
 
--compile({nowarn_deprecated_function, {erlang,hash,2}}).
-
 -include("core_parse.hrl").
 -include("v3_kernel.hrl").
 
@@ -1658,31 +1656,31 @@ uexpr(#k_catch{anno=A,body=B0}, {break,Rs0}, St0) ->
     {Ns,St3} = new_vars(1 - length(Rs0), St2),
     Rs1 = Rs0 ++ Ns,
     {#k_catch{anno=#k{us=Bu,ns=lit_list_vars(Rs1),a=A},body=B1,ret=Rs1},Bu,St3};
-uexpr(#ifun{anno=A,vars=Vs,body=B0}=IFun, {break,Rs}, St0) ->
+uexpr(#ifun{anno=A,vars=Vs,body=B0}, {break,Rs}, St0) ->
     {B1,Bu,St1} = ubody(B0, return, St0),	%Return out of new function
     Ns = lit_list_vars(Vs),
     Free = subtract(Bu, Ns),			%Free variables in fun
     Fvs = make_vars(Free),
     Arity = length(Vs) + length(Free),
-    {{Index,Uniq,Fname}, St3} =
+    {Fname,St} =
 	case lists:keyfind(id, 1, A) of 
-	    {id,Id} ->
-		{Id, St1};
+	    {id,{_,_,Fname0}} ->
+		{Fname0,St1};
 	    false ->
-		%% No id annotation. Must invent one.
-		I = St1#kern.fcount,
-		U = erlang:hash(IFun, (1 bsl 27)-1),
-		{N, St2} = new_fun_name(St1),
-		{{I,U,N}, St2}
+		%% No id annotation. Must invent a fun name.
+		new_fun_name(St1)
 	end,
     Fun = #k_fdef{anno=#k{us=[],ns=[],a=A},func=Fname,arity=Arity,
 		  vars=Vs ++ Fvs,body=B1},
+    %% Set dummy values for Index and Uniq -- the real values will
+    %% be assigned by beam_asm.
+    Index = Uniq = 0,
     {#k_bif{anno=#k{us=Free,ns=lit_list_vars(Rs),a=A},
  	    op=#k_internal{name=make_fun,arity=length(Free)+3},
  	    args=[#k_atom{val=Fname},#k_int{val=Arity},
  		  #k_int{val=Index},#k_int{val=Uniq}|Fvs],
  	    ret=Rs},
-     Free,add_local_function(Fun, St3)};
+     Free,add_local_function(Fun, St)};
 uexpr(Lit, {break,Rs}, St) ->
     %% Transform literals to puts here.
     %%ok = io:fwrite("uexpr ~w:~p~n", [?LINE,Lit]),
