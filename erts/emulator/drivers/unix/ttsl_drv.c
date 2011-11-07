@@ -242,7 +242,7 @@ static ErlDrvData ttysl_start(ErlDrvPort port, char* buf)
 #ifndef HAVE_TERMCAP
     return ERL_DRV_ERROR_GENERAL;
 #else
-    char *s, *t, c, *l;
+    char *s, *t, *l;
     int canon, echo, sig;	/* Terminal characteristics */
     int flag;
     extern int using_oldshell; /* set this to let the rest of erts know */
@@ -262,7 +262,6 @@ static ErlDrvData ttysl_start(ErlDrvPort port, char* buf)
 	s++;
 	/* Find end of this argument (start of next) and insert NUL. */
 	if ((t = strchr(s, ' '))) {
-	    c = *t;
 	    *t = '\0';
 	}
 	if ((flag = ((*s == '+') ? 1 : ((*s == '-') ? -1 : 0)))) {
