@@ -681,6 +681,7 @@ Eterm enif_make_sub_binary(ErlNifEnv* env, ERL_NIF_TERM bin_term,
     ErlSubBin* sb;
     Eterm orig;
     Uint offset, bit_offset, bit_size; 
+#ifdef DEBUG
     unsigned src_size;
 
     ASSERT(is_binary(bin_term));
@@ -688,6 +689,7 @@ Eterm enif_make_sub_binary(ErlNifEnv* env, ERL_NIF_TERM bin_term,
     ASSERT(pos <= src_size);
     ASSERT(size <= src_size);
     ASSERT(pos + size <= src_size);   
+#endif
     sb = (ErlSubBin*) alloc_heap(env, ERL_SUB_BIN_SIZE);
     ERTS_GET_REAL_BIN(bin_term, orig, offset, bit_offset, bit_size);
     sb->thing_word = HEADER_SUB_BIN;
