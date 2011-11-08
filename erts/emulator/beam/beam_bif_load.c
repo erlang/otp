@@ -66,8 +66,6 @@ load_module_2(BIF_ALIST_2)
     erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
     erts_smp_block_system(0);
 
-    erts_export_consolidate();
-
     hp = HAlloc(BIF_P, 3);
     sz = binary_size(BIF_ARG_2);
     if ((i = erts_load_module(BIF_P, 0,

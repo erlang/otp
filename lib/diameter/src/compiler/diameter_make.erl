@@ -18,103 +18,61 @@
 %%
 
 %%
-%% Driver for the encoder generator utility.
+%% Module alternative to diameterc for dictionary compilation.
+%%
+%% Eg. 1> diameter_make:dict("mydict.dia").
+%%
+%%     $ erl -noshell \
+%%           -boot start_clean \
+%%           -s diameter_make dict mydict.dia \
+%%           -s init stop
 %%
 
 -module(diameter_make).
 
--export([spec/0,
-         hrl/0,
-         erl/0]).
+-export([dict/1,
+         dict/2,
+         spec/1,
+         spec/2]).
 
--spec spec() -> no_return().
--spec hrl()  -> no_return().
--spec erl()  -> no_return().
+-type opt() :: {outdir|include|name|prefix|inherits, string()}
+             | verbose
+             | debug.
 
-spec() ->
-    make(spec).
+%% dict/1-2
 
-hrl() ->
-    make(hrl).
+-spec dict(string(), [opt()])
+   -> ok.
 
-erl() ->
-    make(erl).
+dict(File, Opts) ->
+    make(File,
+         Opts,
+         spec(File, Opts),
+         [spec || _ <- [1], lists:member(debug, Opts)] ++ [erl, hrl]).
 
-%% make/1
+dict(File) ->
+    dict(File, []).
 
-make(Mode) ->
-    Args = init:get_plain_arguments(),
-    Opts = try options(Args) catch throw: help -> help(Mode) end,
-    Files = proplists:get_value(files, Opts, []),
-    lists:foreach(fun(F) -> from_file(F, Mode, Opts) end, Files),
-    halt(0).
+%% spec/2
 
-%% from_file/3
+-spec spec(string(), [opt()])
+   -> orddict:orddict().
 
-from_file(F, Mode, Opts) ->
-    try to_spec(F, Mode, Opts) of
-        Spec ->
-            from_spec(F, Spec, Mode, Opts)
+spec(File, Opts) ->
+    diameter_spec_util:parse(File, Opts).
+
+spec(File) ->
+    spec(File, []).
+
+%% ===========================================================================
+
+make(_, _, _, []) ->
+    ok;
+make(File, Opts, Spec, [Mode | Rest]) ->
+    try diameter_codegen:from_spec(File, Spec, Opts, Mode) of
+        ok ->
+            make(File, Opts, Spec, Rest)
     catch
         error: Reason ->
-            io:format("==> ~p parse failure:~n~p~n",
-                      [F, {Reason, erlang:get_stacktrace()}]),
-            halt(1)
+            {error, {Reason, Mode, erlang:get_stacktrace()}}
     end.
-
-%% to_spec/2
-
-%% Try to read the input as an already parsed file or else parse it.
-to_spec(F, spec, Opts) ->
-    diameter_spec_util:parse(F, Opts);
-to_spec(F, _, _) ->
-    {ok, [Spec]} = file:consult(F),
-    Spec.
-
-%% from_spec/4
-
-from_spec(File, Spec, Mode, Opts) ->
-    try
-        diameter_codegen:from_spec(File, Spec, Opts, Mode)
-    catch
-        error: Reason ->
-            io:format("==> ~p codegen failure:~n~p~n~p~n",
-                      [Mode, File, {Reason, erlang:get_stacktrace()}]),
-            halt(1)
-    end.
-
-%% options/1
-
-options(["-v" | Rest]) ->
-    [verbose | options(Rest)];
-
-options(["-o", Outdir | Rest]) ->
-    [{outdir, Outdir} | options(Rest)];
-
-options(["-i", Incdir | Rest]) ->
-    [{include, Incdir} | options(Rest)];
-
-options(["-h" | _]) ->
-    throw(help);
-
-options(["--" | Fs]) ->
-    [{files, Fs}];
-
-options(["-" ++ _ = Opt | _]) ->
-    io:fwrite("==> unknown option: ~s~n", [Opt]),
-    throw(help);
-
-options(Fs) ->  %% trailing arguments
-    options(["--" | Fs]).
-
-%% help/1
-
-help(M) ->
-    io:fwrite("Usage: ~p ~p [Options] [--] File ...~n"
-              "Options:~n"
-              " -v              verbose output~n"
-              " -h              shows this help message~n"
-              " -o OutDir       where to put the output files~n"
-              " -i IncludeDir   where to search for beams to import~n",
-              [?MODULE, M]),
-    halt(1).

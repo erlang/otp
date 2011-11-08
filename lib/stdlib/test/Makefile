@@ -65,6 +65,7 @@ MODULES= \
 	stdlib_SUITE \
 	string_SUITE \
 	supervisor_1 \
+	supervisor_2 \
 	naughty_child \
 	shell_SUITE \
 	supervisor_SUITE \

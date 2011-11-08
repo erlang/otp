@@ -367,6 +367,19 @@ capabilities exchange message.
 Optional, defaults to the empty list.</p>
 </item>
 
+<tag><c>{'Inband-Security-Id', [Unsigned32()]}</c></tag>
+<item>
+<p>
+Values of Inband-Security-Id AVPs sent in an outgoing
+capabilities exchange message.
+Optional, defaults to the empty list, which is equivalent to a
+list containing only 0 (= NO_INBAND_SECURITY).</p>
+
+<p>
+If 1 (= TLS) is specified then TLS is selected if the CER/CEA received
+from the peer offers it.</p>
+</item>
+
 <tag><c>{'Acct-Application-Id', [Unsigned32()]}</c></tag>
 <item>
 <p>
@@ -683,6 +696,14 @@ in question.</p>
 AVP's used to construct outgoing CER/CEA messages.
 Any AVP specified takes precedence over a corresponding value specified
 for the service in question.</p>
+
+<p>
+Specifying a capability as a transport option
+may be particularly appropriate for Inband-Security-Id in case
+TLS is desired over TCP as implemented by
+<seealso marker="diameter_tcp">diameter_tcp(3)</seealso> but
+not over SCTP as implemented by
+<seealso marker="diameter_sctp">diameter_sctp(3)</seealso>.</p>
 </item>
 
 <tag><c>{watchdog_timer, TwInit}</c></tag>

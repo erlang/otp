@@ -2359,8 +2359,8 @@ list_wrapset(Prefix,Suffix) ->
 
 list_wrapset_2([File|Rest],RegExp) ->
     Length=length(File),
-    case regexp:first_match(File,RegExp) of
-	{match,1,Length} ->                  % This is a member of the set.
+    case re:run(File,RegExp) of
+	{match,[{0,Length}]} ->                  % This is a member of the set.
 	    [File|list_wrapset_2(Rest,RegExp)];
 	_ ->
 	    list_wrapset_2(Rest,RegExp)

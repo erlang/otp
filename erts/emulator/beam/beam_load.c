@@ -758,6 +758,14 @@ bin_load(Process *c_p, ErtsProcLocks c_p_locks,
     }
 
     /*
+     * Since the literal table *may* have contained external
+     * funs (containing references to export entries), now is
+     * the time to consolidate the export tables.
+     */
+
+    erts_export_consolidate();
+
+    /*
      * Load the code chunk.
      */
 
@@ -1570,10 +1578,15 @@ read_code_header(LoaderState* stp)
     /*
      * Verify the number of the highest opcode used.
      */
-
     GetInt(stp, 4, opcode_max);
     if (opcode_max > MAX_GENERIC_OPCODE) {
-	LoadError2(stp, "use of opcode %d; this emulator supports only up to %d",
+	LoadError2(stp,
+		   "This BEAM file was compiled for a later version"
+		   " of the run-time system than " ERLANG_OTP_RELEASE ".\n"
+		   "  To fix this, please recompile this module with an "
+		   ERLANG_OTP_RELEASE " compiler.\n"
+		   "  (Use of opcode %d; this emulator supports "
+		   "only up to %d.)",
 		   opcode_max, MAX_GENERIC_OPCODE);
     }
 
@@ -1887,14 +1900,6 @@ load_code(LoaderState* stp)
 	}
 
 	/*
-	 * Special error message instruction.
-	 */
-	if (stp->genop->op == genop_too_old_compiler_0) {
-	    LoadError0(stp, "please re-compile this module with an " 
-		       ERLANG_OTP_RELEASE " compiler");
-	}
-
-	/*
 	 * From the collected generic instruction, find the specific
 	 * instruction.
 	 */
@@ -1945,7 +1950,27 @@ load_code(LoaderState* stp)
 			       ERLANG_OTP_RELEASE " compiler ");
 		}
 
-		LoadError0(stp, "no specific operation found");
+		/*
+		 * Some generic instructions should have a special
+		 * error message.
+		 */
+		switch (stp->genop->op) {
+		case genop_too_old_compiler_0:
+		    LoadError0(stp, "please re-compile this module with an "
+			       ERLANG_OTP_RELEASE " compiler");
+		case genop_unsupported_guard_bif_3:
+		    {
+			Eterm Mod = (Eterm) stp->genop->a[0].val;
+			Eterm Name = (Eterm) stp->genop->a[1].val;
+			Uint arity = (Uint) stp->genop->a[2].val;
+			FREE_GENOP(stp, stp->genop);
+			stp->genop = 0;
+			LoadError3(stp, "unsupported guard BIF: %T:%T/%d\n",
+				   Mod, Name, arity);
+		    }
+		default:
+		    LoadError0(stp, "no specific operation found");
+		}
 	    }
 
 	    stp->specific_op = specific;
@@ -2408,6 +2433,8 @@ load_code(LoaderState* stp)
 #else
 #define no_fpe_signals(St) 0
 #endif
+
+#define never(St) 0
 
 /*
  * Predicate that tests whether a jump table can be used.
@@ -3664,10 +3691,7 @@ gen_guard_bif1(LoaderState* stp, GenOpArg Fail, GenOpArg Live, GenOpArg Bif,
     BifFunction bf;
 
     NEW_GENOP(stp, op);
-    op->op = genop_i_gc_bif1_5;
-    op->arity = 5;
-    op->a[0] = Fail;
-    op->a[1].type = TAG_u;
+    op->next = NULL;
     bf = stp->import[Bif.val].bf;
     /* The translations here need to have a reverse counterpart in
        beam_emu.c:translate_gc_bif for error handling to work properly. */
@@ -3688,19 +3712,30 @@ gen_guard_bif1(LoaderState* stp, GenOpArg Fail, GenOpArg Live, GenOpArg Bif,
     } else if (bf == trunc_1) {
 	op->a[1].val = (BeamInstr) (void *) erts_gc_trunc_1;
     } else {
-	abort();
+	op->op = genop_unsupported_guard_bif_3;
+	op->arity = 3;
+	op->a[0].type = TAG_a;
+	op->a[0].val = stp->import[Bif.val].module;
+	op->a[1].type = TAG_a;
+	op->a[1].val = stp->import[Bif.val].function;
+	op->a[2].type = TAG_u;
+	op->a[2].val = stp->import[Bif.val].arity;
+	return op;
     }
+    op->op = genop_i_gc_bif1_5;
+    op->arity = 5;
+    op->a[0] = Fail;
+    op->a[1].type = TAG_u;
     op->a[2] = Src;
     op->a[3] = Live;
     op->a[4] = Dst;
-    op->next = NULL;
     return op;
 }
 
 /*
- * This is used by the ops.tab rule that rewrites gc_bifs with two parameters
+ * This is used by the ops.tab rule that rewrites gc_bifs with two parameters.
  * The instruction returned is then again rewritten to an i_load instruction
- * folowed by i_gc_bif2_jIId, to handle literals properly.
+ * followed by i_gc_bif2_jIId, to handle literals properly.
  * As opposed to the i_gc_bif1_jIsId, the instruction  i_gc_bif2_jIId is
  * always rewritten, regardless of if there actually are any literals.
  */
@@ -3712,31 +3747,39 @@ gen_guard_bif2(LoaderState* stp, GenOpArg Fail, GenOpArg Live, GenOpArg Bif,
     BifFunction bf;
 
     NEW_GENOP(stp, op);
-    op->op = genop_ii_gc_bif2_6;
-    op->arity = 6;
-    op->a[0] = Fail;
-    op->a[1].type = TAG_u;
+    op->next = NULL;
     bf = stp->import[Bif.val].bf;
     /* The translations here need to have a reverse counterpart in
        beam_emu.c:translate_gc_bif for error handling to work properly. */
     if (bf == binary_part_2) {
 	op->a[1].val = (BeamInstr) (void *) erts_gc_binary_part_2;
     } else {
-	abort();
+	op->op = genop_unsupported_guard_bif_3;
+	op->arity = 3;
+	op->a[0].type = TAG_a;
+	op->a[0].val = stp->import[Bif.val].module;
+	op->a[1].type = TAG_a;
+	op->a[1].val = stp->import[Bif.val].function;
+	op->a[2].type = TAG_u;
+	op->a[2].val = stp->import[Bif.val].arity;
+	return op;
     }
+    op->op = genop_ii_gc_bif2_6;
+    op->arity = 6;
+    op->a[0] = Fail;
+    op->a[1].type = TAG_u;
     op->a[2] = S1;
     op->a[3] = S2;
     op->a[4] = Live;
     op->a[5] = Dst;
-    op->next = NULL;
     return op;
 }
 
 /*
- * This is used by the ops.tab rule that rewrites gc_bifs with three parameters
+ * This is used by the ops.tab rule that rewrites gc_bifs with three parameters.
  * The instruction returned is then again rewritten to a move instruction that
  * uses r[0] for temp storage, followed by an i_load instruction,
- * folowed by i_gc_bif3_jIsId, to handle literals properly. Rewriting
+ * followed by i_gc_bif3_jIsId, to handle literals properly. Rewriting
  * always occur, as with the gc_bif2 counterpart.
  */
 static GenOp*
@@ -3747,18 +3790,27 @@ gen_guard_bif3(LoaderState* stp, GenOpArg Fail, GenOpArg Live, GenOpArg Bif,
     BifFunction bf;
 
     NEW_GENOP(stp, op);
-    op->op = genop_ii_gc_bif3_7;
-    op->arity = 7;
-    op->a[0] = Fail;
-    op->a[1].type = TAG_u;
+    op->next = NULL;
     bf = stp->import[Bif.val].bf;
     /* The translations here need to have a reverse counterpart in
        beam_emu.c:translate_gc_bif for error handling to work properly. */
     if (bf == binary_part_3) {
 	op->a[1].val = (BeamInstr) (void *) erts_gc_binary_part_3;
     } else {
-	abort();
+	op->op = genop_unsupported_guard_bif_3;
+	op->arity = 3;
+	op->a[0].type = TAG_a;
+	op->a[0].val = stp->import[Bif.val].module;
+	op->a[1].type = TAG_a;
+	op->a[1].val = stp->import[Bif.val].function;
+	op->a[2].type = TAG_u;
+	op->a[2].val = stp->import[Bif.val].arity;
+	return op;
     }
+    op->op = genop_ii_gc_bif3_7;
+    op->arity = 7;
+    op->a[0] = Fail;
+    op->a[1].type = TAG_u;
     op->a[2] = S1;
     op->a[3] = S2;
     op->a[4] = S3;
@@ -4225,6 +4277,7 @@ transform_engine(LoaderState* st)
     GenOp* instr;
     Uint* pc;
     int rval;
+    static Uint restart_fail[1] = {TOP_fail};
 
     ASSERT(gen_opc[st->genop->op].transform != -1);
     pc = op_transform + gen_opc[st->genop->op].transform;
@@ -4238,7 +4291,6 @@ transform_engine(LoaderState* st)
     ASSERT(restart != NULL);
     pc = restart;
     ASSERT(*pc < NUM_TOPS);	/* Valid instruction? */
-    ASSERT(*pc == TOP_try_me_else || *pc == TOP_fail);
     instr = st->genop;
 
 #define RETURN(r) rval = (r); goto do_return;
@@ -4251,7 +4303,9 @@ transform_engine(LoaderState* st)
 	op = *pc++;
 
 	switch (op) {
-	case TOP_is_op:
+	case TOP_next_instr:
+	    instr = instr->next;
+	    ap = 0;
 	    if (instr == NULL) {
 		/*
 		 * We'll need at least one more instruction to decide whether
@@ -4438,10 +4492,6 @@ transform_engine(LoaderState* st)
 	case TOP_next_arg:
 	    ap++;
 	    break;
-	case TOP_next_instr:
-	    instr = instr->next;
-	    ap = 0;
-	    break;
 	case TOP_commit:
 	    instr = instr->next; /* The next_instr was optimized away. */
 
@@ -4459,8 +4509,8 @@ transform_engine(LoaderState* st)
 #endif
 	    break;
 
-#if defined(TOP_call)
-	case TOP_call:
+#if defined(TOP_call_end)
+	case TOP_call_end:
 	    {
 		GenOp** lastp;
 		GenOp* new_instr;
@@ -4497,7 +4547,7 @@ transform_engine(LoaderState* st)
 		*lastp = st->genop;
 		st->genop = new_instr;
 	    }
-	    break;
+	    RETURN(TE_OK);
 #endif
 	case TOP_new_instr:
 	    /*
@@ -4506,11 +4556,9 @@ transform_engine(LoaderState* st)
 	    NEW_GENOP(st, instr);
 	    instr->next = st->genop;
 	    st->genop = instr;
+	    instr->op = op = *pc++;
+	    instr->arity = gen_opc[op].arity;
 	    ap = 0;
-	    break;
-	case TOP_store_op:
-	    instr->op = *pc++;
-	    instr->arity = *pc++;
 	    break;
 	case TOP_store_type:
 	    i = *pc++;
@@ -4521,21 +4569,25 @@ transform_engine(LoaderState* st)
 	    i = *pc++;
 	    instr->a[ap].val = i;
 	    break;
-	case TOP_store_var:
+	case TOP_store_var_next_arg:
 	    i = *pc++;
 	    ASSERT(i < TE_MAX_VARS);
 	    instr->a[ap].type = var[i].type;
 	    instr->a[ap].val = var[i].val;
+	    ap++;
 	    break;
 	case TOP_try_me_else:
 	    restart = pc + 1;
 	    restart += *pc++;
 	    ASSERT(*pc < NUM_TOPS); /* Valid instruction? */
 	    break;
+	case TOP_try_me_else_fail:
+	    restart = restart_fail;
+	    break;
 	case TOP_end:
 	    RETURN(TE_OK);
 	case TOP_fail:
-	    RETURN(TE_FAIL)
+	    RETURN(TE_FAIL);
 	default:
 	    ASSERT(0);
 	}

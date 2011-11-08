@@ -154,18 +154,23 @@ decipher(?AES, HashSz, CipherState, Fragment, Version) ->
 
 block_decipher(Fun, #cipher_state{key=Key, iv=IV} = CipherState0, 
 	       HashSz, Fragment, Version) ->
-    try Fun(Key, IV, Fragment) of
-	Text ->
-	    GBC = generic_block_cipher_from_bin(Text, HashSz),
-	    case is_correct_padding(GBC, Version) of
-		true ->
-		    Content = GBC#generic_block_cipher.content,
-		    Mac = GBC#generic_block_cipher.mac,
-		    CipherState1 = CipherState0#cipher_state{iv=next_iv(Fragment, IV)},
-		    {Content, Mac, CipherState1};
-		false ->
-		    ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
-	    end
+    try 
+	Text = Fun(Key, IV, Fragment),
+	GBC = generic_block_cipher_from_bin(Text, HashSz),
+	Content = GBC#generic_block_cipher.content,
+	Mac = GBC#generic_block_cipher.mac,
+	CipherState1 = CipherState0#cipher_state{iv=next_iv(Fragment, IV)},
+	case is_correct_padding(GBC, Version) of
+	    true ->
+		{Content, Mac, CipherState1};
+	    false ->
+		%% decryption failed or invalid padding,
+		%% intentionally break Content to make
+		%% sure a packet with a an invalid padding
+		%% but otherwise correct data will fail
+		%% the MAC test later
+		{<<16#F0, Content/binary>>, Mac, CipherState1}
+	end
     catch
 	_:_ ->
 	    %% This is a DECRYPTION_FAILED but
@@ -500,14 +505,38 @@ hash_size(md5) ->
 hash_size(sha) ->
     20.
 
+%% RFC 5246: 6.2.3.2.  CBC Block Cipher
+%%
+%%   Implementation note: Canvel et al. [CBCTIME] have demonstrated a
+%%   timing attack on CBC padding based on the time required to compute
+%%   the MAC.  In order to defend against this attack, implementations
+%%   MUST ensure that record processing time is essentially the same
+%%   whether or not the padding is correct.  In general, the best way to
+%%   do this is to compute the MAC even if the padding is incorrect, and
+%%   only then reject the packet.  For instance, if the pad appears to be
+%%   incorrect, the implementation might assume a zero-length pad and then
+%%   compute the MAC.  This leaves a small timing channel, since MAC
+%%   performance depends to some extent on the size of the data fragment,
+%%   but it is not believed to be large enough to be exploitable, due to
+%%   the large block size of existing MACs and the small size of the
+%%   timing signal.
+%%
+%% implementation note:
+%%   We return the original (possibly invalid) PadLength in any case.
+%%   A invalid PadLength will be cought by is_correct_padding/2
+%%
 generic_block_cipher_from_bin(T, HashSize) ->
     Sz1 = byte_size(T) - 1,
-    <<_:Sz1/binary, ?BYTE(PadLength)>> = T,
+    <<_:Sz1/binary, ?BYTE(PadLength0)>> = T,
+    PadLength = if
+		    PadLength0 >= Sz1 -> 0;
+		    true -> PadLength0
+		end,
     CompressedLength = byte_size(T) - PadLength - 1 - HashSize,
     <<Content:CompressedLength/binary, Mac:HashSize/binary,
-     Padding:PadLength/binary, ?BYTE(PadLength)>> = T,
+     Padding:PadLength/binary, ?BYTE(PadLength0)>> = T,
     #generic_block_cipher{content=Content, mac=Mac,
-			  padding=Padding, padding_length=PadLength}.
+			  padding=Padding, padding_length=PadLength0}.
 
 generic_stream_cipher_from_bin(T, HashSz) ->
     Sz = byte_size(T),
@@ -516,17 +545,18 @@ generic_stream_cipher_from_bin(T, HashSz) ->
     #generic_stream_cipher{content=Content,
 			   mac=Mac}.
 
-is_correct_padding(_, {3, 0}) ->
-    true; 
-%% For interoperability reasons we do not check the padding in TLS 1.0 as it
-%% is not strictly required and breaks interopability with for instance 
-%% Google. 
-is_correct_padding(_, {3, 1}) ->
-    true; 
+%% For interoperability reasons we do not check the padding content in
+%% SSL 3.0 and TLS 1.0 as it is not strictly required and breaks
+%% interopability with for instance Google. 
+is_correct_padding(#generic_block_cipher{padding_length = Len,
+										 padding = Padding}, {3, N})
+  when N == 0; N == 1 ->
+    Len == byte_size(Padding); 
 %% Padding must be check in TLS 1.1 and after  
-is_correct_padding(#generic_block_cipher{padding_length = Len, padding = Padding}, _) ->
-    list_to_binary(lists:duplicate(Len, Len))  == Padding.
-
+is_correct_padding(#generic_block_cipher{padding_length = Len,
+										 padding = Padding}, _) ->
+    Len == byte_size(Padding) andalso
+		list_to_binary(lists:duplicate(Len, Len)) == Padding.
 										      
 get_padding(Length, BlockSize) ->
     get_padding_aux(BlockSize, Length rem BlockSize).

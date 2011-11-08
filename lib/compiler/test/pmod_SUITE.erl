@@ -96,6 +96,10 @@ basic_1(Config, Opts) ->
     ?line error = Prop4:bar_bar({s,a,b}),
     ?line error = Prop4:bar_bar([]),
 
+    %% Call from a fun.
+    Fun = fun(Arg) -> Prop4:bar(Arg) end,
+    ?line ok = Fun({s,0}),
+
     ok.
 
 otp_8447(Config) when is_list(Config) ->

@@ -113,7 +113,7 @@ debug:
 	@${MAKE} TYPE=debug
 
 clean:
-	rm -f $(TARGET_FILES) $(GEN_FILES)  $(APP_TARGET)
+	rm -f $(TARGET_FILES) $(GEN_FILES)  $(APP_TARGET) IDL-GENERATED
 	rm -f errs core *~
 
 $(APP_TARGET): $(APP_SRC)

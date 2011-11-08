@@ -96,7 +96,6 @@ ac_cv_func_sbrk=${ac_cv_func_sbrk=no}
 ac_cv_func_select=${ac_cv_func_select=no}
 ac_cv_func_setlocale=${ac_cv_func_setlocale=yes}
 ac_cv_func_setsid=${ac_cv_func_setsid=no}
-ac_cv_func_setvbuf_reversed=${ac_cv_func_setvbuf_reversed=yes}
 ac_cv_func_socket=${ac_cv_func_socket=no}
 ac_cv_func_strchr=${ac_cv_func_strchr=yes}
 ac_cv_func_strerror=${ac_cv_func_strerror=yes}
@@ -124,7 +123,6 @@ ac_cv_header_ieeefp_h=${ac_cv_header_ieeefp_h=no}
 ac_cv_header_inttypes_h=${ac_cv_header_inttypes_h=no}
 ac_cv_header_langinfo_h=${ac_cv_header_langinfo_h=no}
 ac_cv_header_limits_h=${ac_cv_header_limits_h=yes}
-ac_cv_header_mach_o_dyld_h=${ac_cv_header_mach_o_dyld_h=no}
 ac_cv_header_malloc_h=${ac_cv_header_malloc_h=yes}
 ac_cv_header_memory_h=${ac_cv_header_memory_h=yes}
 ac_cv_header_net_errno_h=${ac_cv_header_net_errno_h=no}

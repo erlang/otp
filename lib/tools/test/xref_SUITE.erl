@@ -46,7 +46,8 @@
 -export([
 	 add/1, default/1, info/1, lib/1, read/1, read2/1, remove/1,
 	 replace/1, update/1, deprecated/1, trycatch/1,
-         abstract_modules/1, fun_mfa/1, qlc/1]).
+         abstract_modules/1, fun_mfa/1, fun_mfa_r14/1,
+	 fun_mfa_vars/1, qlc/1]).
 
 -export([
 	 analyze/1, basic/1, md/1, q/1, variables/1, unused_locals/1]).
@@ -82,7 +83,7 @@ groups() ->
      {files, [],
       [add, default, info, lib, read, read2, remove, replace,
        update, deprecated, trycatch, abstract_modules, fun_mfa,
-       qlc]},
+       fun_mfa_r14, fun_mfa_vars, qlc]},
      {analyses, [],
       [analyze, basic, md, q, variables, unused_locals]},
      {misc, [], [format_error, otp_7423, otp_7831]}].
@@ -1769,6 +1770,88 @@ fun_mfa(Conf) when is_list(Conf) ->
 
     ?line ok = file:delete(File),
     ?line ok = file:delete(Beam),
+    ok.
+
+%% Same as the previous test case, except that we use a BEAM file
+%% that was compiled by an R14 compiler to test backward compatibility.
+fun_mfa_r14(Conf) when is_list(Conf) ->
+    Dir = ?config(data_dir, Conf),
+    MFile = fname(Dir, "fun_mfa_r14"),
+
+    A = fun_mfa_r14,
+    {ok, _} = xref:start(s),
+    {ok, A} = xref:add_module(s, MFile, {warnings,false}),
+    {ok, [{{{A,t,0},{'$M_EXPR','$F_EXPR',0}},[7]},
+	  {{{A,t,0},{A,t,0}},[6]},
+	  {{{A,t1,0},{'$M_EXPR','$F_EXPR',0}},[11]},
+	  {{{A,t1,0},{A,t,0}},[10]},
+	  {{{A,t2,0},{A,t,0}},[14]},
+	  {{{A,t3,0},{A,t3,0}},[17]}]} =
+        xref:q(s, "(Lin) E"),
+
+    ok = check_state(s),
+    xref:stop(s),
+
+    ok.
+
+%% fun M:F/A with varibles.
+fun_mfa_vars(Conf) when is_list(Conf) ->
+    Dir = ?copydir,
+    File = fname(Dir, "fun_mfa_vars.erl"),
+    MFile = fname(Dir, "fun_mfa_vars"),
+    Beam = fname(Dir, "fun_mfa_vars.beam"),
+    Test = <<"-module(fun_mfa_vars).
+
+              -export([t/1, t1/1, t2/3]).
+
+              t(Mod) ->
+                  F = fun Mod:bar/2,
+                  (F)(a, b).
+
+              t1(Name) ->
+                  F = fun ?MODULE:Name/1,
+                  (F)(a).
+
+              t2(Mod, Name, Arity) ->
+                  F = fun Mod:Name/Arity,
+                  (F)(a).
+
+              t3(Arity) ->
+                  F = fun ?MODULE:t/Arity,
+                  (F)(1, 2, 3).
+
+              t4(Mod, Name) ->
+                  F = fun Mod:Name/3,
+                  (F)(a, b, c).
+
+              t5(Mod, Arity) ->
+                  F = fun Mod:t/Arity,
+                  (F)().
+             ">>,
+
+    ok = file:write_file(File, Test),
+    A = fun_mfa_vars,
+    {ok, A} = compile:file(File, [report,debug_info,{outdir,Dir}]),
+    {ok, _} = xref:start(s),
+    {ok, A} = xref:add_module(s, MFile, {warnings,false}),
+    {ok, [{{{A,t,1},{'$M_EXPR','$F_EXPR',2}},[7]},
+	  {{{A,t,1},{'$M_EXPR',bar,2}},[6]},
+	  {{{A,t1,1},{'$M_EXPR','$F_EXPR',1}},[11]},
+	  {{{A,t1,1},{A,'$F_EXPR',1}},[10]},
+	  {{{A,t2,3},{'$M_EXPR','$F_EXPR',-1}},[14]},
+	  {{{A,t2,3},{'$M_EXPR','$F_EXPR',1}},[15]},
+	  {{{A,t3,1},{'$M_EXPR','$F_EXPR',3}},[19]},
+	  {{{A,t3,1},{fun_mfa_vars,t,-1}},[18]},
+	  {{{A,t4,2},{'$M_EXPR','$F_EXPR',3}},[22,23]},
+	  {{{A,t5,2},{'$M_EXPR','$F_EXPR',0}},[27]},
+	  {{{A,t5,2},{'$M_EXPR',t,-1}},[26]}]} =
+	xref:q(s, "(Lin) E"),
+
+    ok = check_state(s),
+    xref:stop(s),
+
+    ok = file:delete(File),
+    ok = file:delete(Beam),
     ok.
 
 qlc(suite) -> [];

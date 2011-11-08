@@ -160,6 +160,17 @@ do {							\
     (Ret) = THE_NON_VALUE;				\
 } while (0)
 
+#define ERTS_BIF_PREP_TRAP3_NO_RET(Trap, Proc, A0, A1, A2)\
+do {							\
+    (Proc)->arity = 3;					\
+    (Proc)->def_arg_reg[0] = (Eterm) (A0);		\
+    (Proc)->def_arg_reg[1] = (Eterm) (A1);		\
+    (Proc)->def_arg_reg[2] = (Eterm) (A2);		\
+    *((UWord *) (UWord) ((Proc)->def_arg_reg + 3)) = (UWord) ((Trap)->address);	\
+    (Proc)->freason = TRAP;				\
+} while (0)
+
+
 #define BIF_TRAP0(p, Trap_) do {			\
       (p)->arity = 0;					\
       *((UWord *) (UWord) ((p)->def_arg_reg + 3)) = (UWord) ((Trap_)->address);	\

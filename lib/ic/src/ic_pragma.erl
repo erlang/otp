@@ -1601,7 +1601,7 @@ remove_inheriters(S,RS,InheriterList) ->
 	    ReducedInhList;
 	_Other ->
 	    CleanList = 
-                ets:match(S, {inherits,'_','_'}),
+                ets:match_object(S, {inherits,'_','_'}),
 %	    CodeOptList = 
 %		[X || X <- EtsList, element(1,X) == codeopt],
 	    NoInheriters =remove_inheriters2(S,ReducedInhList,CleanList),
@@ -1648,7 +1648,7 @@ remove_inh([X],[Y],List,EtsList) ->
 %%%----------------------------------------------
 remove_inherited(S,InheriterList) ->
     CleanList = 
-        ets:match(S, {inherits, '_', '_'}),
+        ets:match_object(S, {inherits, '_', '_'}),
     remove_inherited(S,InheriterList,CleanList).
 
 
@@ -1766,7 +1766,7 @@ inherits2(_X,Y,Z,EtsList) ->
 %%     false otherwise   
 %%
 is_inherited_by(Interface1,Interface2,PragmaTab) ->
-    InheritsList = ets:match(PragmaTab, {inherits, '_', '_'}),
+    InheritsList = ets:match_object(PragmaTab, {inherits, '_', '_'}),
     inherits(Interface2,Interface1,InheritsList).
 
 

@@ -98,6 +98,7 @@ modules(Config) ->
             diameter_dbg,
             diameter_exprecs,
             diameter_info,
+            diameter_make,
             diameter_spec_scan,
             diameter_spec_util],
     {[], Help} = {Mods -- Installed, lists:sort(Installed -- Mods)}.
@@ -147,14 +148,13 @@ appvsn(Name) ->
 %% ===========================================================================
 %% # xref/1
 %%
-%% Ensure that no function in our application calls an undefined function.
+%% Ensure that no function in our application calls an undefined function
+%% or one in an application we haven't specified as a dependency. (Almost.)
 %% ===========================================================================
 
 xref(Config) ->
     App = fetch(app, Config),
-    Mods = fetch(modules, App) -- [diameter_codegen, diameter_dbg],
-    %% Skip modules that aren't required at runtime and that have
-    %% dependencies beyond those applications listed in the app file.
+    Mods = fetch(modules, App),
 
     {ok, XRef} = xref:start(make_name(xref_test_name)),
     ok = xref:set_default(XRef, [{verbose, false}, {warnings, false}]),
@@ -164,7 +164,10 @@ xref(Config) ->
     %% stop xref from complaining about calls to module erlang, which
     %% was previously in kernel. Erts isn't an application however, in
     %% the sense that there's no .app file, and isn't listed in
-    %% applications. Seems less than ideal.
+    %% applications. Seems less than ideal. Also, diameter_tcp does
+    %% call ssl despite ssl not being listed as a dependency in the
+    %% app file since ssl is only required for TLS security: it's up
+    %% to a client who wants TLS it to start ssl.
     ok = lists:foreach(fun(A) -> add_application(XRef, A) end,
                        [?APP, erts | fetch(applications, App)]),
 
@@ -173,7 +176,11 @@ xref(Config) ->
     xref:stop(XRef),
 
     %% Only care about calls from our own application.
-    [] = lists:filter(fun({{M,_,_},_}) -> lists:member(M, Mods) end, Undefs).
+    [] = lists:filter(fun({{F,_,_},{T,_,_}}) ->
+                              lists:member(F, Mods)
+                                  andalso {F,T} /= {diameter_tcp, ssl}
+                      end,
+                      Undefs).
 
 add_application(XRef, App) ->
     add_application(XRef, App, code:lib_dir(App)).

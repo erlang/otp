@@ -64,8 +64,7 @@ end_per_group(_GroupName, Config) ->
 
 utf8_roundtrip(Config) when is_list(Config) ->
     ?line utf8_roundtrip(0, 16#D7FF),
-    ?line utf8_roundtrip(16#E000, 16#FFFD),
-    ?line utf8_roundtrip(16#10000, 16#10FFFF),
+    ?line utf8_roundtrip(16#E000, 16#10FFFF),
     ok.
 
 utf8_roundtrip(First, Last) when First =< Last ->
@@ -91,8 +90,7 @@ utf16_roundtrip(Config) when is_list(Config) ->
 
 do_utf16_roundtrip(Fun) ->
     do_utf16_roundtrip(0, 16#D7FF, Fun),
-    do_utf16_roundtrip(16#E000, 16#FFFD, Fun),
-    do_utf16_roundtrip(16#10000, 16#10FFFF, Fun).
+    do_utf16_roundtrip(16#E000, 16#10FFFF, Fun).
 
 do_utf16_roundtrip(First, Last, Fun) when First =< Last ->
     Fun(First),
@@ -129,8 +127,7 @@ utf32_roundtrip(Config) when is_list(Config) ->
 
 do_utf32_roundtrip(Fun) ->
     do_utf32_roundtrip(0, 16#D7FF, Fun),
-    do_utf32_roundtrip(16#E000, 16#FFFD, Fun),
-    do_utf32_roundtrip(16#10000, 16#10FFFF, Fun).
+    do_utf32_roundtrip(16#E000, 16#10FFFF, Fun).
 
 do_utf32_roundtrip(First, Last, Fun) when First =< Last ->
     Fun(First),
@@ -158,7 +155,6 @@ utf32_little_roundtrip(Char) ->
 utf8_illegal_sequences(Config) when is_list(Config) ->
     ?line fail_range(16#10FFFF+1, 16#10FFFF+512), %Too large.
     ?line fail_range(16#D800, 16#DFFF),		%Reserved for UTF-16.
-    ?line fail_range(16#FFFE, 16#FFFF),		%Non-characters.
 
     %% Illegal first character.
     ?line [fail(<<I,16#8F,16#8F,16#8F>>) || I <- lists:seq(16#80, 16#BF)],
@@ -251,7 +247,6 @@ fail_1(_) -> ok.
 utf16_illegal_sequences(Config) when is_list(Config) ->
     ?line utf16_fail_range(16#10FFFF+1, 16#10FFFF+512), %Too large.
     ?line utf16_fail_range(16#D800, 16#DFFF),		%Reserved for UTF-16.
-    ?line utf16_fail_range(16#FFFE, 16#FFFF),		%Non-characters.
 
     ?line lonely_hi_surrogate(16#D800, 16#DFFF),
     ?line leading_lo_surrogate(16#DC00, 16#DFFF),
@@ -300,7 +295,6 @@ leading_lo_surrogate(_, _, _) -> ok.
 utf32_illegal_sequences(Config) when is_list(Config) ->
     ?line utf32_fail_range(16#10FFFF+1, 16#10FFFF+512), %Too large.
     ?line utf32_fail_range(16#D800, 16#DFFF),		%Reserved for UTF-16.
-    ?line utf32_fail_range(16#FFFE, 16#FFFF),		%Non-characters.
     ?line utf32_fail_range(-100, -1),
     ok.
 

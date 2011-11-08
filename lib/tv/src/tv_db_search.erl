@@ -244,10 +244,10 @@ get_entry_text() ->
 
 
 string_to_regexp(Str) ->
-    case regexp:parse(Str) of
+    case re:compile(Str) of
 	{ok, RegExp} ->
 	    {ok, RegExp};
-	_Error ->
+	{error, _Error} ->
 	    case get(error_msg_mode) of
 		normal ->
 		    {error, {not_a_regexp, "Please enter a regular expression!"}};
@@ -410,33 +410,11 @@ search_for_regexp(Pattern, Elem, ListAsStr) ->
 		lists:flatten(tv_io_lib:write(Elem))
 	end,
 
-    case regexp:first_match(ListToSearch, Pattern) of
-	{match, _, _} ->
+    case re:run(ListToSearch, Pattern, [{capture,none}]) of
+	match ->
 	    found;
-	_Other ->
+	nomatch ->
 	    not_found
-	    %% The code below shall be used instead if it is desired to 
-	    %% compare each *element* in the tuples to the regular expression,
-	    %% i.e., treat each element as a new line/string.
-	    %% The difference is most easily explained through an example:
-	    %% If we treat each tuple as a new line/string, the regular expression
-	    %% "^{win" will match the string "{win, 1, 2, 3}", but not the string 
-	    %% "{1, {win,2}}".
-	    %% If we treat each element as a new line/string, the RE "^{win" will match
-	    %% both strings above.
-    
-	    %% SearchList = tuple_to_list(Elem),
-	    %% case lists:dropwhile(
-	    %%	   fun(H) ->
-	    %%		   nomatch == regexp:first_match(lists:flatten(io_lib:write(H)), 
-	    %%						 Pattern)
-	    %%	   end,
-	    %%	   SearchList) of
-	    %%	[] ->
-	    %%	    not_found;
-	    %%	_AnyList ->
-	    %%	    found
-	    %% end
     end.
 
 

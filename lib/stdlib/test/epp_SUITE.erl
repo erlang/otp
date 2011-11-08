@@ -20,7 +20,7 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2]).
 
--export([rec_1/1, predef_mac/1,
+-export([rec_1/1, include_local/1, predef_mac/1,
 	 upcase_mac_1/1, upcase_mac_2/1,
 	 variable_1/1, otp_4870/1, otp_4871/1, otp_5362/1,
          pmod/1, not_circular/1, skip_header/1, otp_6277/1, otp_7702/1,
@@ -63,7 +63,7 @@ end_per_testcase(_, Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [rec_1, {group, upcase_mac}, predef_mac,
+    [rec_1, {group, upcase_mac}, include_local, predef_mac,
      {group, variable}, otp_4870, otp_4871, otp_5362, pmod,
      not_circular, skip_header, otp_6277, otp_7702, otp_8130,
      overload_mac, otp_8388, otp_8470, otp_8503, otp_8562,
@@ -95,6 +95,22 @@ rec_1(Config) when is_list(Config) ->
     %% we should encounter errors
     ?line {value, _} = lists:keysearch(error, 1, List),
     ?line check_errors(List),
+    ok.
+
+include_local(doc) ->
+    [];
+include_local(suite) ->
+    [];
+include_local(Config) when is_list(Config) ->
+    ?line DataDir = ?config(data_dir, Config),
+    ?line File = filename:join(DataDir, "include_local.erl"),
+    %% include_local.erl includes include/foo.hrl which
+    %% includes bar.hrl (also in include/) without requiring
+    %% any additional include path, and overriding any file
+    %% of the same name that the path points to
+    ?line {ok, List} = epp:parse_file(File, [DataDir], []),
+    ?line {value, {attribute,_,a,{true,true}}} =
+	lists:keysearch(a,3,List),
     ok.
 
 %%% Here is a little reimplementation of epp:parse_file, which times out
@@ -234,15 +250,22 @@ otp_4871(Config) when is_list(Config) ->
     %% so there are some sanity checks before killing.
     ?line {ok,Epp} = epp:open(File, []),
     timer:sleep(1),
-    ?line {current_function,{epp,_,_}} = process_info(Epp, current_function),
+    ?line true = current_module(Epp, epp),
     ?line {monitored_by,[Io]} = process_info(Epp, monitored_by),
-    ?line {current_function,{file_io_server,_,_}} =
-	process_info(Io, current_function),
+    ?line true = current_module(Io, file_io_server),
     ?line exit(Io, emulate_crash),
     timer:sleep(1),
     ?line {error,{_Line,epp,cannot_parse}} = otp_4871_parse_file(Epp),
     ?line epp:close(Epp),
     ok.
+
+current_module(Pid, Mod) ->
+    case process_info(Pid, current_function) of
+        {current_function, undefined} ->
+            true = test_server:is_native(Mod);
+        {current_function, {Mod, _, _}} ->
+            true
+    end.
 
 otp_4871_parse_file(Epp) ->
     case epp:parse_erl_form(Epp) of

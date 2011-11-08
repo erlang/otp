@@ -147,7 +147,7 @@
       </type>
       <desc>
         <p>This function ensures that the results displayed by
-          <c>analyse/0</c> and <c>total_analyse/0</c> are printed both to
+			<c>analyze/0,1,2</c> are printed both to
           the file <c>File</c> and the screen.</p>
       </desc>
     </func>

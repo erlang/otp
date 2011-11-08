@@ -212,7 +212,7 @@ debug:
 opt: $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET)
 
 clean:
-	rm -f $(TARGET_FILES) $(GEN_FILES) $(APP_TARGET) $(APPUP_TARGET)
+	rm -f $(TARGET_FILES) $(GEN_FILES) $(APP_TARGET) $(APPUP_TARGET) IDL-GENERATED
 	rm -f errs core *~
 
 $(APP_TARGET): $(APP_SRC) ../vsn.mk

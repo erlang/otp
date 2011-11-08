@@ -138,12 +138,6 @@ man: $(MAN6_FILES) $(MAN3_FILES) $(MAN1_FILES)
 
 debug opt: 
 
-#
-# checkout make.dep before generating new dependecies
-#
-#make_doc_depend: xml
-#	docdepend > make.dep
-
 clean clean_docs:
 	rm -f $(CT_XML_FILES)
 	rm -rf $(HTMLDIR)/*
@@ -176,12 +170,3 @@ release_docs_spec: docs
 release_spec:
 
 release_tests_spec:
-
-# ----------------------------------------------------
-# Include dependency
-# ----------------------------------------------------
-
-include make.dep
-# DO NOT DELETE
-
-

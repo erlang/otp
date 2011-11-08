@@ -931,18 +931,13 @@ void
 os_flavor(char* namebuf, 	/* Where to return the name. */
 	  unsigned size) 	/* Size of name buffer. */
 {
-    static int called = 0;
-    static struct utsname uts;	/* Information about the system. */
+    struct utsname uts;		/* Information about the system. */
+    char* s;
 
-    if (!called) {
-	char* s;
-
-	(void) uname(&uts);
-	called = 1;
-	for (s = uts.sysname; *s; s++) {
-	    if (isupper((int) *s)) {
-		*s = tolower((int) *s);
-	    }
+    (void) uname(&uts);
+    for (s = uts.sysname; *s; s++) {
+	if (isupper((int) *s)) {
+	    *s = tolower((int) *s);
 	}
     }
     strcpy(namebuf, uts.sysname);
@@ -2892,8 +2887,8 @@ smp_sig_notify(char c)
 static void *
 signal_dispatcher_thread_func(void *unused)
 {
-    int initialized = 0;
 #if !CHLDWTHR
+    int initialized = 0;
     int notify_check_children = 0;
 #endif
 #ifdef ERTS_ENABLE_LOCK_CHECK
@@ -2933,8 +2928,8 @@ signal_dispatcher_thread_func(void *unused)
 	     */
 	    switch (buf[i]) {
 	    case 0: /* Emulator initialized */
-		initialized = 1;
 #if !CHLDWTHR
+		initialized = 1;
 		if (!notify_check_children)
 #endif
 		    break;

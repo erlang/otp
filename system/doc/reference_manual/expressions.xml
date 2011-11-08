@@ -561,11 +561,15 @@ number &lt; atom &lt; reference &lt; fun &lt; port &lt; pid &lt; tuple &lt; list
     <p>Lists are compared element by element. Tuples are ordered by
       size, two tuples with the same size are compared element by
       element.</p>
-    <p>If one of the compared terms is an integer and the other a
-      float, the integer is first converted into a float, unless the
-      operator is one of =:= and =/=. If the integer is too big to fit
-      in a float no conversion is done, but the order is determined by
-      inspecting the sign of the numbers.</p>
+      <p>When comparing an integer to a float, the term with the lesser
+      precision will be converted into the other term's type, unless the
+      operator is one of =:= and =/=. A float is more precise than
+      an integer until all significant figures of the float are to the left of
+      the decimal point. This happens when the float is larger/smaller then
+      +/-9007199254740992.0. The conversion strategy is changed
+      depending on the size of the float because otherwise comparison of large
+      floats and integers would loose their transitivity.</p>
+
     <p>Returns the Boolean value of the expression, <c>true</c> or
       <c>false</c>.</p>
     <p>Examples:</p>
@@ -879,9 +883,8 @@ Ei = Value |
     and UTF-32, respectively.</p>
 
     <p>When constructing a segment of a <c>utf</c> type, <c>Value</c>
-    must be an integer in one of the ranges 0..16#D7FF,
-    16#E000..16#FFFD, or 16#10000..16#10FFFF
-    (i.e. a valid Unicode code point). Construction
+    must be an integer in the range 0..16#D7FF or
+    16#E000....16#10FFFF. Construction
     will fail with a <c>badarg</c> exception if <c>Value</c> is
     outside the allowed ranges. The size of the resulting binary
     segment depends on the type and/or <c>Value</c>. For <c>utf8</c>,
@@ -896,14 +899,13 @@ Ei = Value |
     <c><![CDATA[<<$a/utf8,$b/utf8,$c/utf8>>]]></c>.</p>
 
     <p>A successful match of a segment of a <c>utf</c> type results
-    in an integer in one of the ranges 0..16#D7FF, 16#E000..16#FFFD,
-    or 16#10000..16#10FFFF
-    (i.e. a valid Unicode code point). The match will fail if returned value
+    in an integer in the range 0..16#D7FF or  16#E000..16#10FFFF.
+    The match will fail if returned value
     would fall outside those ranges.</p>
 
     <p>A segment of type <c>utf8</c> will match 1 to 4 bytes in the binary,
     if the binary at the match position contains a valid UTF-8 sequence.
-    (See RFC-2279 or the Unicode standard.)</p>
+    (See RFC-3629 or the Unicode standard.)</p>
 
     <p>A segment of type <c>utf16</c> may match 2 or 4 bytes in the binary.
     The match will fail if the binary at the match position does not contain
@@ -991,15 +993,19 @@ fun Module:Name/Arity</pre>
     <pre>
 fun (Arg1,...,ArgN) -> Name(Arg1,...,ArgN) end</pre>
     <p>In <c>Module:Name/Arity</c>, <c>Module</c> and <c>Name</c> are atoms
-      and <c>Arity</c> is an integer.
+      and <c>Arity</c> is an integer. Starting from the R15 release,
+      <c>Module</c>, <c>Name</c>, and <c>Arity</c> may also be variables.
       A fun defined in this way will refer to the function <c>Name</c>
-      with arity <c>Arity</c> in the <em>latest</em> version of module <c>Module</c>.
+      with arity <c>Arity</c> in the <em>latest</em> version of module
+      <c>Module</c>. A fun defined in this way will not be dependent on
+      the code for module in which it is defined.
       </p>
     <p>When applied to a number N of arguments, a tuple
       <c>{Module,FunctionName}</c> is interpreted as a fun, referring
       to the function <c>FunctionName</c> with arity N in the module
       <c>Module</c>. The function must be exported.
-      <em>This usage is deprecated.</em> 
+      <em>This usage is deprecated.</em> Use <c>fun Module:Name/Arity</c>
+      instead.
       See <seealso marker="#calls">Function Calls</seealso> for an example.</p>
     <p>More examples can be found in <em>Programming Examples</em>.</p>
   </section>

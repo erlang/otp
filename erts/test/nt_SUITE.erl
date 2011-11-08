@@ -490,12 +490,12 @@ middleman(Waitfor) ->
 match_event(_X, []) ->
     nomatch;
 match_event({Time,Cat,Fac,Sev,Mes},[{Pid,Ref,{Cat,Fac,Sev,MesRE}} | Tail]) ->
-    case regexp:match(Mes,MesRE) of
-	{match,_,_} ->
+    case re:run(Mes,MesRE,[{capture,none}]) of
+	match ->
 	    %%io:format("Match!~n"),
 	    {ok,{Pid,Ref,Time,Mes},Tail};
-	_Z ->
-	    %%io:format("No match (~p)~n",[_Z]),
+	nomatch ->
+	    %%io:format("No match~n"),
 	    case match_event({Time,Cat,Fac,Sev,Mes},Tail) of
 		{ok,X,Rest} ->
 		    {ok,X,[{Pid,Ref,{Cat,Fac,Sev,MesRE}} | Rest]};

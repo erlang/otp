@@ -190,8 +190,6 @@ EMACS_COMPILE_OPTIONS=-q --no-site-file -batch -f batch-byte-compile
 # ----------------------------------------------------
 export VSN
 
-DOCSUPPORT = 1
-
 TOPDOCDIR=../../../../doc
 
 DOCDIR = ..

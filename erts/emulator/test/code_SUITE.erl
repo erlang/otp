@@ -25,7 +25,7 @@
 	 t_check_process_code_ets/1,
 	 external_fun/1,get_chunk/1,module_md5/1,make_stub/1,
 	 make_stub_many_funs/1,constant_pools/1,
-	 false_dependency/1,coverage/1]).
+	 false_dependency/1,coverage/1,fun_confusion/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -35,7 +35,7 @@ all() ->
     [new_binary_types, t_check_process_code,
      t_check_process_code_ets, t_check_old_code, external_fun, get_chunk,
      module_md5, make_stub, make_stub_many_funs,
-     constant_pools, false_dependency, coverage].
+     constant_pools, false_dependency, coverage, fun_confusion].
 
 groups() -> 
     [].
@@ -278,7 +278,8 @@ t_check_old_code(Config) when is_list(Config) ->
 
 external_fun(Config) when is_list(Config) ->
     ?line false = erlang:function_exported(another_code_test, x, 1),
-    ?line ExtFun = erlang:make_fun(id(another_code_test), x, 1),
+    AnotherCodeTest = id(another_code_test),
+    ExtFun = fun AnotherCodeTest:x/1,
     ?line {'EXIT',{undef,_}} = (catch ExtFun(answer)),
     ?line false = erlang:function_exported(another_code_test, x, 1),
     ?line false = lists:member(another_code_test, erlang:loaded()),
@@ -553,6 +554,30 @@ coverage(Config) when is_list(Config) ->
     ?line {'EXIT',{badarg,_}} = (catch erlang:check_process_code(self(), [not_a_module])),
     ?line {'EXIT',{badarg,_}} = (catch erlang:delete_module([a,b,c])),
     ?line {'EXIT',{badarg,_}} = (catch erlang:module_loaded(42)),
+    ok.
+
+fun_confusion(Config) when is_list(Config) ->
+    Data = ?config(data_dir, Config),
+    Src = filename:join(Data, "fun_confusion"),
+    Mod = fun_confusion,
+
+    %% Load first version of module.
+    compile_load(Mod, Src, 1),
+    F1 = Mod:f(),
+    1 = F1(),
+
+    %% Load second version of module.
+    compile_load(Mod, Src, 2),
+    F2 = Mod:f(),
+
+    %% F1 should refer to the old code, not the newly loaded code.
+    1 = F1(),
+    2 = F2(),
+    ok.
+
+compile_load(Mod, Src, Ver) ->
+    {ok,Mod,Code1} = compile:file(Src, [binary,{d,version,Ver}]),
+    {module,Mod} = code:load_binary(Mod, "fun_confusion.beam", Code1),
     ok.
 
 %% Utilities.

@@ -40,22 +40,10 @@ run([]) ->
 run1(Name) ->
     CFile = Name ++ ".c",
     {ok, Bin} = file:read_file(CFile),
-    String = binary_to_list(Bin),
-
-    %% This ConstPart stuff is because you can't retrieve part of a match.
-    %% Long live Perl!  
-    
-    ConstPart = "\nTESTCASE\\(",
-    ConstPartLen = 10,
-    {match, Matches} = regexp:matches(String, ConstPart++"[_a-zA-Z]*"),
-    Cases = get_names(Matches, ConstPartLen, Bin, []),
+    RE = "\nTESTCASE\\(([_a-zA-Z]*)\\)",
+    {match, Cases0} = re:run(Bin, RE, [{capture,all_but_first,list},global]),
+    Cases = lists:concat(Cases0),
     generate(Name, Cases).
-
-get_names([{Start, Length}|Rest], Skip, Bin, Result) ->
-    Name = binary_to_list(Bin, Start+Skip, Start+Length-1),
-    get_names(Rest, Skip, Bin, [Name|Result]);
-get_names([], _Skip, _Bin, Result) ->
-    lists:reverse(Result).
 
 generate(TcName, Cases) ->
     Hrl = TcName ++ "_cases.hrl",

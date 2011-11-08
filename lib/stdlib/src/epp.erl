@@ -267,8 +267,10 @@ init_server(Pid, Name, File, AtLocation, Path, Pdm, Pre) ->
     case user_predef(Pdm, Ms0) of
 	{ok,Ms1} ->
 	    epp_reply(Pid, {ok,self()}),
+            %% ensure directory of current source file is first in path
+            Path1 = [filename:dirname(Name) | Path],
 	    St = #epp{file=File, location=AtLocation, delta=0, name=Name,
-                      name2=Name, path=Path, macs=Ms1, pre_opened = Pre},
+                      name2=Name, path=Path1, macs=Ms1, pre_opened = Pre},
 	    From = wait_request(St),
 	    enter_file_reply(From, Name, AtLocation, AtLocation),
 	    wait_req_scan(St);
@@ -360,18 +362,18 @@ wait_req_skip(St, Sis) ->
     From = wait_request(St),
     skip_toks(From, St, Sis).
 
-%% enter_file(Path, FileName, IncludeToken, From, EppState)
+%% enter_file(FileName, IncludeToken, From, EppState)
 %% leave_file(From, EppState)
 %%  Handle entering and leaving included files. Notify caller when the
 %%  current file is changed. Note it is an error to exit a file if we are
 %%  in a conditional. These functions never return.
 
-enter_file(_Path, _NewName, Inc, From, St)
+enter_file(_NewName, Inc, From, St)
   when length(St#epp.sstk) >= 8 ->
     epp_reply(From, {error,{abs_loc(Inc),epp,{depth,"include"}}}),
     wait_req_scan(St);
-enter_file(Path, NewName, Inc, From, St) ->
-    case file:path_open(Path, NewName, [read]) of
+enter_file(NewName, Inc, From, St) ->
+    case file:path_open(St#epp.path, NewName, [read]) of
 	{ok,NewF,Pname} ->
             Loc = start_loc(St#epp.location),
 	    wait_req_scan(enter_file2(NewF, Pname, From, St, Loc));
@@ -384,13 +386,16 @@ enter_file(Path, NewName, Inc, From, St) ->
 %%  Set epp to use this file and "enter" it.
 
 enter_file2(NewF, Pname, From, St, AtLocation) ->
-    enter_file2(NewF, Pname, From, St, AtLocation, []).
-
-enter_file2(NewF, Pname, From, St, AtLocation, ExtraPath) ->
     Loc = start_loc(AtLocation),
     enter_file_reply(From, Pname, Loc, AtLocation),
     Ms = dict:store({atom,'FILE'}, {none,[{string,Loc,Pname}]}, St#epp.macs),
-    Path = St#epp.path ++ ExtraPath,
+    %% update the head of the include path to be the directory of the new
+    %% source file, so that an included file can always include other files
+    %% relative to its current location (this is also how C does it); note
+    %% that the directory of the parent source file (the previous head of
+    %% the path) must be dropped, otherwise the path used within the current
+    %% file will depend on the order of file inclusions in the parent files
+    Path = [filename:dirname(Pname) | tl(St#epp.path)],
     #epp{file=NewF,location=Loc,name=Pname,delta=0,
          sstk=[St|St#epp.sstk],path=Path,macs=Ms}.
 
@@ -655,7 +660,7 @@ scan_undef(_Toks, Undef, From, St) ->
 scan_include([{'(',_Llp},{string,_Lf,NewName0},{')',_Lrp},{dot,_Ld}], Inc,
 	     From, St) ->
     NewName = expand_var(NewName0),
-    enter_file(St#epp.path, NewName, Inc, From, St);
+    enter_file(NewName, Inc, From, St);
 scan_include(_Toks, Inc, From, St) ->
     epp_reply(From, {error,{abs_loc(Inc),epp,{bad,include}}}),
     wait_req_scan(St).
@@ -687,9 +692,8 @@ scan_include_lib([{'(',_Llp},{string,_Lf,NewName0},{')',_Lrp},{dot,_Ld}],
 		    LibName = fname_join([LibDir | Rest]),
 		    case file:open(LibName, [read]) of
 			{ok,NewF} ->
-			    ExtraPath = [filename:dirname(LibName)],
 			    wait_req_scan(enter_file2(NewF, LibName, From,
-                                                      St, Loc, ExtraPath));
+                                                      St, Loc));
 			{error,_E2} ->
 			    epp_reply(From,
 				      {error,{abs_loc(Inc),epp,

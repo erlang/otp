@@ -1831,11 +1831,16 @@ block_queue2(Conf) when is_list(Conf) ->
     %% Asynchronous stuff is ignored.
     ?line ok = disk_log:balog_terms(n, [<<"foo">>,<<"bar">>]),
     ?line ok = disk_log:balog_terms(n, [<<"more">>,<<"terms">>]),
+    Parent = self(),
     ?line Fun = 
-        fun() -> {error,disk_log_stopped} = disk_log:sync(n)
+        fun() ->
+                {error,no_such_log} = disk_log:sync(n),
+                receive {disk_log, _, {error, disk_log_stopped}} -> ok end,
+                Parent ! disk_log_stopped_ok
         end,
     ?line spawn(Fun),
     ?line ok = sync_do(Pid, close),
+    ?line receive disk_log_stopped_ok -> ok end,
     ?line sync_do(Pid, terminate),
     ?line {ok,<<>>} = file:read_file(File ++ ".1"),
     ?line del(File, No),    
@@ -2708,7 +2713,7 @@ error_log(Conf) when is_list(Conf) ->
     % reopen (rename) fails, the log is terminated, ./File.2/ exists
     ?line {ok, n} = disk_log:open([{name, n}, {file, File}, {type, halt},
 				   {format, external},{size, 100000}]),
-    ?line {error, eisdir} = disk_log:reopen(n, LDir),
+    ?line {error, {file_error, _, eisdir}} = disk_log:reopen(n, LDir),
     ?line true = (P0 == pps()),
     ?line file:delete(File),
 
@@ -2719,7 +2724,7 @@ error_log(Conf) when is_list(Conf) ->
     ?line {ok, n} = disk_log:open([{name, n}, {file, File2}, {type, wrap},
 				   {format, external},{size, {100, No}}]),
     ?line ok = disk_log:blog_terms(n, [B,B,B]),
-    ?line {error, eisdir} = disk_log:reopen(n, File),
+    ?line {error, {file_error, _, eisdir}} = disk_log:reopen(n, File),
     ?line {error, no_such_log} = disk_log:close(n),
     ?line del(File2, No),
     ?line del(File, No),

@@ -119,6 +119,10 @@ static char erts_system_version[] = ("Erlang " ERLANG_OTP_RELEASE
 # define PERFMON_GETPCR			_IOR('P', 2, unsigned long long)
 #endif
 
+/* Cached, pre-built {OsType,OsFlavor} and {Major,Minor,Build} tuples */
+static Eterm os_type_tuple;
+static Eterm os_version_tuple;
+
 static Eterm
 current_function(Process* p, Process* rp, Eterm** hpp, int full_info);
 static Eterm current_stacktrace(Process* p, Process* rp, Eterm** hpp);
@@ -2227,16 +2231,7 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	return erts_instr_get_type_info(BIF_P);
     }
     else if (BIF_ARG_1 == am_os_type) {
-       Eterm type = am_atom_put(os_type, strlen(os_type));
-       Eterm flav, tup;
-       char *buf = erts_alloc(ERTS_ALC_T_TMP, 1024); /* More than enough */
-
-       os_flavor(buf, 1024);
-       flav = am_atom_put(buf, strlen(buf));
-       hp = HAlloc(BIF_P, 3);
-       tup = TUPLE2(hp, type, flav);
-       erts_free(ERTS_ALC_T_TMP, (void *) buf);
-       BIF_RET(tup);
+	BIF_RET(os_type_tuple);
     }
     else if (BIF_ARG_1 == am_allocator) {
 	BIF_RET(erts_allocator_options((void *) BIF_P));
@@ -2262,16 +2257,7 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
         BIF_RET(am_false);
     }
     else if (BIF_ARG_1 == am_os_version) {
-       int major, minor, build;
-       Eterm tup;
-
-       os_version(&major, &minor, &build);
-       hp = HAlloc(BIF_P, 4);
-       tup = TUPLE3(hp,
-		    make_small(major),
-		    make_small(minor),
-		    make_small(build));
-       BIF_RET(tup);
+	BIF_RET(os_version_tuple);
     }
     else if (BIF_ARG_1 == am_version) {
 	int n = strlen(ERLANG_VERSION);
@@ -4107,6 +4093,27 @@ BIF_RETTYPE erts_debug_lock_counters_1(BIF_ALIST_1)
     BIF_ERROR(BIF_P, BADARG);
 }
 
+static void os_info_init(void)
+{
+    Eterm type = am_atom_put(os_type, strlen(os_type));
+    Eterm flav;
+    int major, minor, build;
+    char* buf = erts_alloc(ERTS_ALC_T_TMP, 1024); /* More than enough */
+    Eterm* hp;
+
+    os_flavor(buf, 1024);
+    flav = am_atom_put(buf, strlen(buf));
+    erts_free(ERTS_ALC_T_TMP, (void *) buf);
+    hp = erts_alloc(ERTS_ALC_T_LL_TEMP_TERM, (3+4)*sizeof(Eterm));
+    os_type_tuple = TUPLE2(hp, type, flav);
+    hp += 3;
+    os_version(&major, &minor, &build);
+    os_version_tuple = TUPLE3(hp,
+			      make_small(major),
+			      make_small(minor),
+			      make_small(build));
+}
+
 void
 erts_bif_info_init(void)
 {
@@ -4114,4 +4121,5 @@ erts_bif_info_init(void)
     erts_smp_atomic_init_nob(&hipe_test_reschedule_flag, 0);
 
     process_info_init();
+    os_info_init();
 }

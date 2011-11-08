@@ -669,7 +669,9 @@ proc_safelock(Process *a_proc,
 	      ErtsProcLocks b_need_locks)
 {
     Process *p1, *p2;
+#ifdef ERTS_ENABLE_LOCK_CHECK
     Eterm pid1, pid2;
+#endif
     erts_pix_lock_t *pix_lck1, *pix_lck2;
     ErtsProcLocks need_locks1, have_locks1, need_locks2, have_locks2;
     ErtsProcLocks unlock_mask;
@@ -684,24 +686,32 @@ proc_safelock(Process *a_proc,
     if (a_proc) {
 	if (a_proc->id < b_proc->id) {
 	    p1 = a_proc;
+#ifdef ERTS_ENABLE_LOCK_CHECK
 	    pid1 = a_proc->id;
+#endif
 	    pix_lck1 = a_pix_lck;
 	    need_locks1 = a_need_locks;
 	    have_locks1 = a_have_locks;
 	    p2 = b_proc;
+#ifdef ERTS_ENABLE_LOCK_CHECK
 	    pid2 = b_proc->id;
+#endif
 	    pix_lck2 = b_pix_lck;
 	    need_locks2 = b_need_locks;
 	    have_locks2 = b_have_locks;
 	}
 	else if (a_proc->id > b_proc->id) {
 	    p1 = b_proc;
+#ifdef ERTS_ENABLE_LOCK_CHECK
 	    pid1 = b_proc->id;
+#endif
 	    pix_lck1 = b_pix_lck;
 	    need_locks1 = b_need_locks;
 	    have_locks1 = b_have_locks;
 	    p2 = a_proc;
+#ifdef ERTS_ENABLE_LOCK_CHECK
 	    pid2 = a_proc->id;
+#endif
 	    pix_lck2 = a_pix_lck;
 	    need_locks2 = a_need_locks;
 	    have_locks2 = a_have_locks;
@@ -710,12 +720,16 @@ proc_safelock(Process *a_proc,
 	    ERTS_LC_ASSERT(a_proc == b_proc);
 	    ERTS_LC_ASSERT(a_proc->id == b_proc->id);
 	    p1 = a_proc;
+#ifdef ERTS_ENABLE_LOCK_CHECK
 	    pid1 = a_proc->id;
+#endif
 	    pix_lck1 = a_pix_lck;
 	    need_locks1 = a_need_locks | b_need_locks;
 	    have_locks1 = a_have_locks | b_have_locks;
 	    p2 = NULL;
+#ifdef ERTS_ENABLE_LOCK_CHECK
 	    pid2 = 0;
+#endif
 	    pix_lck2 = NULL;
 	    need_locks2 = 0;
 	    have_locks2 = 0;
@@ -723,12 +737,16 @@ proc_safelock(Process *a_proc,
     }
     else {
 	p1 = b_proc;
+#ifdef ERTS_ENABLE_LOCK_CHECK
 	pid1 = b_proc->id;
+#endif
 	pix_lck1 = b_pix_lck;
 	need_locks1 = b_need_locks;
 	have_locks1 = b_have_locks;
 	p2 = NULL;
+#ifdef ERTS_ENABLE_LOCK_CHECK
 	pid2 = 0;
+#endif
 	pix_lck2 = NULL;
 	need_locks2 = 0;
 	have_locks2 = 0;

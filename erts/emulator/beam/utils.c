@@ -2642,7 +2642,7 @@ tailrecur_ne:
 	FloatDef f1, f2;
 	Eterm big;
 #if HEAP_ON_C_STACK
-	Eterm big_buf[2]; /* If HEAP_ON_C_STACK */
+	Eterm big_buf[32]; /* If HEAP_ON_C_STACK */
 #else
 	Eterm *big_buf = erts_get_scheduler_data()->cmp_tmp_heap;
 #endif
@@ -2653,41 +2653,108 @@ tailrecur_ne:
 	Eterm aw = a;
 	Eterm bw = b;
 #endif
+#define MAX_LOSSLESS_FLOAT ((double)((1LL << 53) - 2))
+#define MIN_LOSSLESS_FLOAT ((double)(((1LL << 53) - 2)*-1))
 	b_tag = tag_val_def(bw);
 
 	switch(_NUMBER_CODE(a_tag, b_tag)) {
 	case SMALL_BIG:
-	    big = small_to_big(signed_val(a), big_buf);
-	    j = big_comp(big, bw);
-	    break;
-	case SMALL_FLOAT:
-	    f1.fd = signed_val(a);
-	    GET_DOUBLE(bw, f2);
-	    j = float_comp(f1.fd, f2.fd);
+	    j = big_sign(bw) ? 1 : -1;
 	    break;
 	case BIG_SMALL:
-	    big = small_to_big(signed_val(b), big_buf);
-	    j = big_comp(aw, big);
+	    j = big_sign(aw) ? -1 : 1;
+	    break;
+	case SMALL_FLOAT:
+	    GET_DOUBLE(bw, f2);
+	    if (f2.fd < MAX_LOSSLESS_FLOAT && f2.fd > MIN_LOSSLESS_FLOAT) {
+		// Float is within the no loss limit
+		f1.fd = signed_val(aw);
+		j = float_comp(f1.fd, f2.fd);
+#if ERTS_SIZEOF_ETERM == 8
+	    } else if (f2.fd > (double) (MAX_SMALL + 1)) {
+		// Float is a positive bignum, i.e. bigger
+		j = -1;
+	    } else if (f2.fd < (double) (MIN_SMALL - 1)) {
+		// Float is a negative bignum, i.e. smaller
+		j = 1;
+	    } else { // Float is a Sint but less precise
+		j = signed_val(aw) - (Sint) f2.fd;
+	    }
+#else
+	    } else {
+		// If float is positive it is bigger than small
+		j = (f2.fd > 0.0) ? -1 : 1;
+	    }
+#endif // ERTS_SIZEOF_ETERM == 8
 	    break;
 	case BIG_FLOAT:
-	    if (big_to_double(aw, &f1.fd) < 0) {
-		j = big_sign(a) ? -1 : 1;
+	    GET_DOUBLE(bw, f2);
+	    if ((f2.fd < (double) (MAX_SMALL + 1))
+		    && (f2.fd > (double) (MIN_SMALL - 1))) {
+		// Float is a Sint
+		j = big_sign(aw) ? -1 : 1;
+	    } else if ((pow(2.0,(big_arity(aw)-1.0)*D_EXP)-1.0) > fabs(f2.fd)) {
+		// If bignum size shows that it is bigger than the abs float
+		j = big_sign(aw) ? -1 : 1;
+	    } else if ((pow(2.0,(big_arity(aw))*D_EXP)-1.0) < fabs(f2.fd)) {
+		// If bignum size shows that it is smaller than the abs float
+		j = f2.fd < 0 ? 1 : -1;
+	    } else if (f2.fd < MAX_LOSSLESS_FLOAT && f2.fd > MIN_LOSSLESS_FLOAT) {
+		// Float is within the no loss limit
+		if (big_to_double(aw, &f1.fd) < 0) {
+		    j = big_sign(aw) ? -1 : 1;
+		} else {
+		    j = float_comp(f1.fd, f2.fd);
+		}
 	    } else {
-		GET_DOUBLE(bw, f2);
-		j = float_comp(f1.fd, f2.fd);
+		big = double_to_big(f2.fd, big_buf);
+		j = big_comp(aw, big);
 	    }
 	    break;
 	case FLOAT_SMALL:
 	    GET_DOUBLE(aw, f1);
-	    f2.fd = signed_val(b);
-	    j = float_comp(f1.fd, f2.fd);
+	    if (f1.fd < MAX_LOSSLESS_FLOAT && f1.fd > MIN_LOSSLESS_FLOAT) {
+		// Float is within the no loss limit
+		f2.fd = signed_val(bw);
+		j = float_comp(f1.fd, f2.fd);
+#if ERTS_SIZEOF_ETERM == 8
+	    } else if (f1.fd > (double) (MAX_SMALL + 1)) {
+		// Float is a positive bignum, i.e. bigger
+		j = 1;
+	    } else if (f1.fd < (double) (MIN_SMALL - 1)) {
+		// Float is a negative bignum, i.e. smaller
+		j = -1;
+	    } else { // Float is a Sint but less precise it
+		j = (Sint) f1.fd - signed_val(bw);
+	    }
+#else
+	    } else {
+		// If float is positive it is bigger than small
+		j = (f1.fd > 0.0) ? 1 : -1;
+	    }
+#endif // ERTS_SIZEOF_ETERM == 8
 	    break;
 	case FLOAT_BIG:
-	    if (big_to_double(bw, &f2.fd) < 0) {
-		j = big_sign(b) ? 1 : -1;
+	    GET_DOUBLE(aw, f1);
+	    if ((f1.fd < (double) (MAX_SMALL + 1))
+		    && (f1.fd > (double) (MIN_SMALL - 1))) { // Float is a Sint
+		j = big_sign(bw) ? 1 : -1;
+	    } else if ((pow(2.0, (big_arity(bw) - 1.0) * D_EXP) - 1.0) > fabs(f1.fd)) {
+		// If bignum size shows that it is bigger than the abs float
+		j = big_sign(bw) ? 1 : -1;
+	    } else if ((pow(2.0,(big_arity(bw))*D_EXP)-1.0) < fabs(f1.fd)) {
+		// If bignum size shows that it is smaller than the abs float
+		j = f1.fd < 0 ? -1 : 1;
+	    } else if (f1.fd < MAX_LOSSLESS_FLOAT && f1.fd > MIN_LOSSLESS_FLOAT) {
+		// Float is within the no loss limit
+		if (big_to_double(bw, &f2.fd) < 0) {
+		    j = big_sign(bw) ? 1 : -1;
+		} else {
+		    j = float_comp(f1.fd, f2.fd);
+		}
 	    } else {
-		GET_DOUBLE(aw, f1);
-		j = float_comp(f1.fd, f2.fd);
+		big = double_to_big(f1.fd, big_buf);
+		j = big_comp(big, bw);
 	    }
 	    break;
 	default:

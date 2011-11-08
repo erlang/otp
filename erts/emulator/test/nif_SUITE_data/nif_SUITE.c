@@ -832,6 +832,7 @@ static ERL_NIF_TERM release_resource(ErlNifEnv* env, int argc, const ERL_NIF_TER
  * argv[7] an empty list
  * argv[8] a non-empty list
  * argv[9] a tuple
+ * argv[10] a number (small, big integer or float)
  */
 static ERL_NIF_TERM check_is(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
@@ -848,6 +849,7 @@ static ERL_NIF_TERM check_is(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     if (!enif_is_list(env, argv[7])) return enif_make_badarg(env);
     if (!enif_is_list(env, argv[8])) return enif_make_badarg(env);
     if (!enif_is_tuple(env, argv[9])) return enif_make_badarg(env);
+    if (!enif_is_number(env, argv[10])) return enif_make_badarg(env);
 
     return ok_atom;
 }
@@ -1455,7 +1457,7 @@ static ErlNifFunc nif_funcs[] =
     {"release_resource", 1, release_resource},
     {"last_resource_dtor_call", 0, last_resource_dtor_call},
     {"make_new_resource", 2, make_new_resource},
-    {"check_is", 10, check_is},
+    {"check_is", 11, check_is},
     {"check_is_exception", 0, check_is_exception},
     {"length_test", 5, length_test},
     {"make_atoms", 0, make_atoms},

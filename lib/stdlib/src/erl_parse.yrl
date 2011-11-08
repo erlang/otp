@@ -35,7 +35,7 @@ tuple
 %struct
 record_expr record_tuple record_field record_fields
 if_expr if_clause if_clauses case_expr cr_clause cr_clauses receive_expr
-fun_expr fun_clause fun_clauses
+fun_expr fun_clause fun_clauses atom_or_var integer_or_var
 try_expr try_catch try_clause try_clauses query_expr
 function_call argument_list
 exprs guard
@@ -62,7 +62,7 @@ char integer float atom string var
 '==' '/=' '=<' '<' '>=' '>' '=:=' '=/=' '<='
 '<<' '>>'
 '!' '=' '::' '..' '...'
-'spec' % helper
+'spec' 'callback' % helper
 dot.
 
 Expect 2.
@@ -77,6 +77,7 @@ attribute -> '-' atom attr_val               : build_attribute('$2', '$3').
 attribute -> '-' atom typed_attr_val         : build_typed_attribute('$2','$3').
 attribute -> '-' atom '(' typed_attr_val ')' : build_typed_attribute('$2','$4').
 attribute -> '-' 'spec' type_spec            : build_type_spec('$2', '$3').
+attribute -> '-' 'callback' type_spec        : build_type_spec('$2', '$3').
 
 type_spec -> spec_fun type_sigs : {'$1', '$2'}.
 type_spec -> '(' spec_fun type_sigs ')' : {'$2', '$3'}.
@@ -394,10 +395,16 @@ receive_expr -> 'receive' cr_clauses 'after' expr clause_body 'end' :
 
 fun_expr -> 'fun' atom '/' integer :
 	{'fun',?line('$1'),{function,element(3, '$2'),element(3, '$4')}}.
-fun_expr -> 'fun' atom ':' atom '/' integer :
-	{'fun',?line('$1'),{function,element(3, '$2'),element(3, '$4'),element(3,'$6')}}.
+fun_expr -> 'fun' atom_or_var ':' atom_or_var '/' integer_or_var :
+	{'fun',?line('$1'),{function,'$2','$4','$6'}}.
 fun_expr -> 'fun' fun_clauses 'end' :
 	build_fun(?line('$1'), '$2').
+
+atom_or_var -> atom : '$1'.
+atom_or_var -> var : '$1'.
+
+integer_or_var -> integer : '$1'.
+integer_or_var -> var : '$1'.
 
 fun_clauses -> fun_clause : ['$1'].
 fun_clauses -> fun_clause ';' fun_clauses : ['$1' | '$3'].
@@ -549,6 +556,8 @@ Erlang code.
       ErrorInfo :: error_info().
 parse_form([{'-',L1},{atom,L2,spec}|Tokens]) ->
     parse([{'-',L1},{'spec',L2}|Tokens]);
+parse_form([{'-',L1},{atom,L2,callback}|Tokens]) ->
+    parse([{'-',L1},{'callback',L2}|Tokens]);
 parse_form(Tokens) ->
     parse(Tokens).
 
@@ -603,7 +612,8 @@ build_typed_attribute({atom,La,Attr},_) ->
         _      -> ret_err(La, "bad attribute")
     end.
 
-build_type_spec({spec,La}, {SpecFun, TypeSpecs}) ->
+build_type_spec({Kind,La}, {SpecFun, TypeSpecs})
+  when (Kind =:= spec) or (Kind =:= callback) ->
     NewSpecFun =
 	case SpecFun of
 	    {atom, _, Fun} ->
@@ -617,7 +627,7 @@ build_type_spec({spec,La}, {SpecFun, TypeSpecs}) ->
 		%% Old style spec. Allow this for now.
 		{Mod,Fun,Arity}
 	    end,
-    {attribute,La,spec,{NewSpecFun, TypeSpecs}}.
+    {attribute,La,Kind,{NewSpecFun, TypeSpecs}}.
 
 find_arity_from_specs([Spec|_]) ->
     %% Use the first spec to find the arity. If all are not the same,

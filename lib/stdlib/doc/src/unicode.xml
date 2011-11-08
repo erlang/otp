@@ -203,8 +203,7 @@
 	     <item>greater than <c>16#10FFFF</c>
 	     (the maximum unicode character),</item>
 	     <item>in the range <c>16#D800</c> to <c>16#DFFF</c>
-	     (invalid unicode range)</item>
-	     <item>or equal to 16#FFFE or 16#FFFF (non characters)</item>
+	       (invalid range reserved for UTF-16 surrogate pairs)</item>
 	   </list>
 	   is found.
 	   </item>

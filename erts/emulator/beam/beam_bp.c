@@ -612,9 +612,13 @@ static void bp_hash_delete(bp_time_hash_t *hash) {
 static void bp_time_diff(bp_data_time_item_t *item, /* out */
 	process_breakpoint_time_t *pbt,             /* in  */
 	Uint ms, Uint s, Uint us) {
-    int dms,ds,dus;
+    int ds,dus;
+#ifdef DEBUG
+    int dms;
+
 
     dms = ms - pbt->ms;
+#endif
     ds  = s  - pbt->s;
     dus = us - pbt->us;
 
@@ -622,7 +626,9 @@ static void bp_time_diff(bp_data_time_item_t *item, /* out */
      * this is ok.
      */
 
+#ifdef DEBUG
     ASSERT(dms >= 0 || ds >= 0 || dus >= 0);
+#endif
 
     if (dus < 0) {
 	dus += 1000000;
