@@ -60,7 +60,8 @@ cases() ->
     [otp_2740, otp_2760, otp_5761, otp_9402, otp_9417,
      otp_9395_check_old_code, otp_9395_check_and_purge,
      otp_9395_update_many_mods, otp_9395_rm_many_mods,
-     instructions, eval_appup, supervisor_which_children_timeout].
+     instructions, eval_appup, supervisor_which_children_timeout,
+     install_release_syntax_check].
 
 groups() ->
     [{release,[],
@@ -619,6 +620,22 @@ supervisor_which_children_timeout(Conf) ->
 
 supervisor_which_children_timeout(cleanup, Conf) ->
     stop_node(node_name(supervisor_which_children_timeout)).
+
+
+%% Test that check_install_release will fail for illegal relup
+%% instructions, even after point of no return.
+install_release_syntax_check(Conf) when is_list(Conf) ->
+
+    S1 = [point_of_no_return, illegal_instruction],
+    {error,{illegal_instruction_after_point_of_no_return,illegal_instruction}} =
+	release_handler_1:check_script(S1,[]),
+
+    S2 = [point_of_no_return,restart_new_emulator],
+    {error,{illegal_instruction_after_point_of_no_return,restart_new_emulator}} =
+	release_handler_1:check_script(S2,[]),
+
+    ok.
+
 
 %%-----------------------------------------------------------------
 %% Ticket: OTP-2740
