@@ -31,6 +31,8 @@ override TYPE=opt
 endif
 
 SO_EXT    = @SO_EXT@
+OBJC_CC=@OBJC_CC@
+OBJC_CFLAGS=@OBJC_CFLAGS@
 
 GENERAL     = wxe_driver wxe_ps_init wxe_impl wxePrintout wxe_return wxe_gl
 GENERAL_H   = wxe_driver.h wxe_impl.h wxe_return.h
@@ -116,6 +118,7 @@ endif
 GL_LIBS         = @GL_LIBS@
 
 CC_O		= $(CC) -c $(CFLAGS) $(WX_CFLAGS) $(COMMON_CFLAGS)
+OBJC_CC_O	= $(OBJC_CC) -c $(CFLAGS) $(OBJC_CFLAGS) $(WX_CFLAGS) $(COMMON_CFLAGS)
 CPP_O		= $(CPP) -c $(CXX_FLAGS) $(WX_CXX_FLAGS)  $(COMMON_CFLAGS) 
 
 # Targets
@@ -151,6 +154,10 @@ $(SYS_TYPE)/%.o: %.cpp
 $(SYS_TYPE)/%.o: %.c 
 	mkdir -p $(SYS_TYPE)
 	$(CC_O) $< -o $@
+
+$(SYS_TYPE)/wxe_ps_init.o: wxe_ps_init.c 
+	mkdir -p $(SYS_TYPE)
+	$(OBJC_CC_O) $< -o $@
 
 $(SYS_TYPE)/%.o: gen/%.cpp 
 	mkdir -p $(SYS_TYPE)
