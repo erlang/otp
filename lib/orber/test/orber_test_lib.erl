@@ -296,8 +296,7 @@ slave_sup() ->
 
 start_ssl(true, Node) ->
     rpc:call(Node, ssl, start, []),
-    rpc:call(Node, crypto, start, []),
-    rpc:call(Node, ssl, seed, ["testing"]);
+    rpc:call(Node, crypto, start, []);
 start_ssl(_, _) ->
     ok.
 

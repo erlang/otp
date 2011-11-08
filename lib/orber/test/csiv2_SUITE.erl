@@ -696,7 +696,6 @@ ssl_client_peercert_api(_Config) ->
 		?match({ok,_,_}, orber_test_lib:js_node(Options)),
 	    crypto:start(),
 	    ssl:start(),
-	    ssl:seed("testing"),
 	    SSLOptions = orber_test_lib:get_options(ssl, server),
 	    {ok, LSock} = ?match({ok, _}, ssl:listen(0, SSLOptions)),
 	    {ok, {_Address, LPort}} = ?match({ok, {_, _}}, ssl:sockname(LSock)),
@@ -857,8 +856,7 @@ fake_server_ORB(Type, Port, Options, Action, Data) ->
 
 start_ssl(ssl) ->
     crypto:start(),
-    ssl:start(),
-    ssl:seed("testing");
+    ssl:start();
 start_ssl(_) ->
     ok.
 
