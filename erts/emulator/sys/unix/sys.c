@@ -931,18 +931,13 @@ void
 os_flavor(char* namebuf, 	/* Where to return the name. */
 	  unsigned size) 	/* Size of name buffer. */
 {
-    static int called = 0;
-    static struct utsname uts;	/* Information about the system. */
+    struct utsname uts;		/* Information about the system. */
+    char* s;
 
-    if (!called) {
-	char* s;
-
-	(void) uname(&uts);
-	called = 1;
-	for (s = uts.sysname; *s; s++) {
-	    if (isupper((int) *s)) {
-		*s = tolower((int) *s);
-	    }
+    (void) uname(&uts);
+    for (s = uts.sysname; *s; s++) {
+	if (isupper((int) *s)) {
+	    *s = tolower((int) *s);
 	}
     }
     strcpy(namebuf, uts.sysname);
