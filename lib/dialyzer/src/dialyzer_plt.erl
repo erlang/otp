@@ -48,6 +48,7 @@
          insert_exported_types/2,
 	 lookup/2,
 	 lookup_contract/2,
+	 lookup_callbacks/2,
 	 lookup_module/2,
 	 merge_plts/1,
          merge_plts_or_report_conflicts/2,
@@ -151,6 +152,19 @@ insert_callbacks(#plt{callbacks = Callbacks} = Plt, Codeserver) ->
 lookup_contract(#plt{contracts = Contracts},
 		{M, F, _} = MFA) when is_atom(M), is_atom(F) ->
   table_lookup(Contracts, MFA).
+
+-spec lookup_callbacks(plt(), module()) -> [{mfa(),
+					     {{Filename::string(),
+					       Line::pos_integer()},
+					      #contract{}}}].
+
+lookup_callbacks(#plt{callbacks = Callbacks}, Mod) when is_atom(Mod) ->
+  FunModFilter =
+    fun({M, _F, _A}, _Val) -> M =:= Mod;
+       (       _Key, _Val) -> false
+    end,
+  ModCallbacks = dict:filter(FunModFilter, Callbacks),
+  dict:to_list(ModCallbacks).
 
 -spec delete_contract_list(plt(), [mfa()]) -> plt().
 
