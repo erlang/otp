@@ -78,7 +78,7 @@ analyze_callgraph(Callgraph, Plt, Codeserver, Parent) ->
   State = #st{callgraph = Callgraph, plt = Plt, 
 	      codeserver = Codeserver, parent = Parent},
   NewState = get_refined_success_typings(State),
-  NewState#st.plt.
+  dialyzer_plt:insert_callbacks(NewState#st.plt, Codeserver).
 
 %%--------------------------------------------------------------------
 

@@ -43,6 +43,7 @@
 	 %% insert/3,
 	 insert_list/2,
 	 insert_contract_list/2,
+	 insert_callbacks/2,
 	 insert_types/2,
          insert_exported_types/2,
 	 lookup/2,
@@ -79,6 +80,7 @@
 -record(plt, {info           = table_new() :: dict(),
 	      types          = table_new() :: dict(),
 	      contracts      = table_new() :: dict(),
+	      callbacks      = table_new() :: dict(),
               exported_types = sets:new()  :: set()}).
 -opaque plt() :: #plt{}.
 
@@ -91,6 +93,7 @@
 		   file_md5_list = []          :: [file_md5()],
 		   info = dict:new()           :: dict(),
 		   contracts = dict:new()      :: dict(),
+		   callbacks = dict:new()      :: dict(),
 		   types = dict:new()          :: dict(),
                    exported_types = sets:new() :: set(),
 		   mod_deps                    :: mod_deps(),
@@ -105,26 +108,43 @@ new() ->
 
 -spec delete_module(plt(), atom()) -> plt().
 
-delete_module(#plt{info = Info, types = Types, contracts = Contracts,
+delete_module(#plt{info = Info, types = Types,
+		   contracts = Contracts,
+		   callbacks = Callbacks,
                    exported_types = ExpTypes}, Mod) ->
   #plt{info = table_delete_module(Info, Mod),
        types = table_delete_module2(Types, Mod),
        contracts = table_delete_module(Contracts, Mod),
+       callbacks = table_delete_module(Callbacks, Mod),
        exported_types = table_delete_module1(ExpTypes, Mod)}.
 
 -spec delete_list(plt(), [mfa() | integer()]) -> plt().
 
-delete_list(#plt{info = Info, types = Types, contracts = Contracts,
+delete_list(#plt{info = Info, types = Types,
+		 contracts = Contracts,
+		 callbacks = Callbacks,
                  exported_types = ExpTypes}, List) ->
   #plt{info = table_delete_list(Info, List),
        types = Types,
        contracts = table_delete_list(Contracts, List),
+       callbacks = table_delete_list(Callbacks, List),
        exported_types = ExpTypes}.
 
 -spec insert_contract_list(plt(), dialyzer_contracts:plt_contracts()) -> plt().
 
 insert_contract_list(#plt{contracts = Contracts} = PLT, List) ->
   PLT#plt{contracts = table_insert_list(Contracts, List)}.
+
+-spec insert_callbacks(plt(), dialyzer_codeserver:codeserver()) -> plt().
+
+insert_callbacks(#plt{callbacks = Callbacks} = Plt, Codeserver) ->
+  FunPreferNew = fun(_Key, _Val1, Val2) -> Val2 end,
+  FunDictMerger =
+    fun(_Key, Value, AccIn) -> dict:merge(FunPreferNew, Value, AccIn) end,
+  MergedCallbacks = dict:fold(FunDictMerger, dict:new(),
+			      dialyzer_codeserver:get_callbacks(Codeserver)),
+  List = dict:to_list(MergedCallbacks),
+  Plt#plt{callbacks = table_insert_list(Callbacks, List)}.
 
 -spec lookup_contract(plt(), mfa_patt()) -> 'none' | {'value', #contract{}}.
 
@@ -134,8 +154,10 @@ lookup_contract(#plt{contracts = Contracts},
 
 -spec delete_contract_list(plt(), [mfa()]) -> plt().
 
-delete_contract_list(#plt{contracts = Contracts} = PLT, List) ->
-  PLT#plt{contracts = table_delete_list(Contracts, List)}.
+delete_contract_list(#plt{contracts = Contracts,
+			  callbacks = Callbacks} = PLT, List) ->
+  PLT#plt{contracts = table_delete_list(Contracts, List),
+	  callbacks = table_delete_list(Callbacks, List)}.
 
 %% -spec insert(plt(), mfa() | integer(), {_, _}) -> plt().
 %%
@@ -230,6 +252,7 @@ from_file(FileName, ReturnInfo) ->
 	  Plt = #plt{info = Rec#file_plt.info,
 		     types = Rec#file_plt.types,
 		     contracts = Rec#file_plt.contracts,
+		     callbacks = Rec#file_plt.callbacks,
                      exported_types = Rec#file_plt.exported_types},
 	  case ReturnInfo of
 	    false -> Plt;
@@ -284,26 +307,34 @@ get_record_from_file(FileName) ->
 -spec merge_plts([plt()]) -> plt().
 
 merge_plts(List) ->
-  InfoList = [Info || #plt{info = Info} <- List],
-  TypesList = [Types || #plt{types = Types} <- List],
-  ExpTypesList = [ExpTypes || #plt{exported_types = ExpTypes} <- List],
-  ContractsList = [Contracts || #plt{contracts = Contracts} <- List],
+  {InfoList, TypesList, ExpTypesList, ContractsList, CallbacksList} =
+    group_fields(List),
   #plt{info = table_merge(InfoList),
        types = table_merge(TypesList),
        exported_types = sets_merge(ExpTypesList),
-       contracts = table_merge(ContractsList)}.
+       contracts = table_merge(ContractsList),
+       callbacks = table_merge(CallbacksList)
+      }.
 
 -spec merge_disj_plts([plt()]) -> plt().
 
 merge_disj_plts(List) ->
+  {InfoList, TypesList, ExpTypesList, ContractsList, CallbacksList} =
+    group_fields(List),
+  #plt{info = table_disj_merge(InfoList),
+       types = table_disj_merge(TypesList),
+       exported_types = sets_disj_merge(ExpTypesList),
+       contracts = table_disj_merge(ContractsList),
+       callbacks = table_disj_merge(CallbacksList)
+      }.
+
+group_fields(List) ->
   InfoList = [Info || #plt{info = Info} <- List],
   TypesList = [Types || #plt{types = Types} <- List],
   ExpTypesList = [ExpTypes || #plt{exported_types = ExpTypes} <- List],
   ContractsList = [Contracts || #plt{contracts = Contracts} <- List],
-  #plt{info = table_disj_merge(InfoList),
-       types = table_disj_merge(TypesList),
-       exported_types = sets_disj_merge(ExpTypesList),
-       contracts = table_disj_merge(ContractsList)}.
+  CallbacksList = [Callbacks || #plt{callbacks = Callbacks} <- List],
+  {InfoList, TypesList, ExpTypesList, ContractsList, CallbacksList}.
 
 -spec merge_plts_or_report_conflicts([file:filename()], [plt()]) -> plt().
 
@@ -329,7 +360,7 @@ find_duplicates(List) ->
 
 to_file(FileName,
 	#plt{info = Info, types = Types, contracts = Contracts,
-             exported_types = ExpTypes},
+	     callbacks = Callbacks, exported_types = ExpTypes},
 	ModDeps, {MD5, OldModDeps}) ->
   NewModDeps = dict:merge(fun(_Key, OldVal, NewVal) ->
 			      ordsets:union(OldVal, NewVal)
@@ -340,6 +371,7 @@ to_file(FileName,
 		     file_md5_list = MD5,
 		     info = Info,
 		     contracts = Contracts,
+		     callbacks = Callbacks,
 		     types = Types,
                      exported_types = ExpTypes,
 		     mod_deps = NewModDeps,
