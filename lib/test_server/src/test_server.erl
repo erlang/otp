@@ -1525,7 +1525,7 @@ get_loc(Pid) ->
 get_mf(MFs) ->
     get_mf(MFs, {undefined,undefined}).
 
-get_mf([MF|MFs], Found) when is_tuple(MF) ->
+get_mf([MF|MFs], _Found) when is_tuple(MF) ->
     ModFunc = {Mod,_} = case MF of
 			    {M,F,_} -> {M,F};
 			    MF -> MF
