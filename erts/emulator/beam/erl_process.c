@@ -111,6 +111,7 @@ static Sint p_serial;
 static Uint p_serial_mask;
 static Uint p_serial_shift;
 
+int erts_sched_compact_load;
 Uint erts_no_schedulers;
 Uint erts_max_processes = ERTS_DEFAULT_MAX_PROCESSES;
 Uint erts_process_tab_index_mask;
@@ -2214,6 +2215,9 @@ check_balance(ErtsRunQueue *c_rq)
 	if (mmax_len < run_queue_info[qix].max_len)
 	    mmax_len = run_queue_info[qix].max_len;
     }
+
+    if (!erts_sched_compact_load)
+	goto all_active;
 
     if (!forced && half_full_scheds != blnc_no_rqs) {
 	int min = 1;
