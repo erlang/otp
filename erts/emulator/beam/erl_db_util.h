@@ -326,8 +326,10 @@ ERTS_GLB_INLINE int db_eq(DbTableCommon* tb, Eterm a, DbTerm* b)
 (T)->common.owner == (P)->id)
 
 /* Function prototypes */
-Eterm db_get_trace_control_word_0(Process *p);
-Eterm db_set_trace_control_word_1(Process *p, Eterm val);
+BIF_RETTYPE db_get_trace_control_word(Process* p);
+BIF_RETTYPE db_set_trace_control_word(Process* p, Eterm tcw);
+BIF_RETTYPE db_get_trace_control_word_0(BIF_ALIST_0);
+BIF_RETTYPE db_set_trace_control_word_1(BIF_ALIST_1);
 
 void db_initialize_util(void);
 Eterm db_getkey(int keypos, Eterm obj);

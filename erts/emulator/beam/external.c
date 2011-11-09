@@ -988,16 +988,16 @@ BIF_RETTYPE erts_debug_dist_ext_to_term_2(BIF_ALIST_2)
 }
 
 
-Eterm
-term_to_binary_1(Process* p, Eterm Term)
+BIF_RETTYPE term_to_binary_1(BIF_ALIST_1)
 {
-    return erts_term_to_binary(p, Term, 0, TERM_TO_BINARY_DFLAGS);
+    return erts_term_to_binary(BIF_P, BIF_ARG_1, 0, TERM_TO_BINARY_DFLAGS);
 }
 
-
-Eterm
-term_to_binary_2(Process* p, Eterm Term, Eterm Flags)
+BIF_RETTYPE term_to_binary_2(BIF_ALIST_2)
 {
+    Process* p = BIF_P;
+    Eterm Term = BIF_ARG_1;
+    Eterm Flags = BIF_ARG_2;
     int level = 0;
     Uint flags = TERM_TO_BINARY_DFLAGS;
 
@@ -1256,8 +1256,11 @@ BIF_RETTYPE binary_to_term_2(BIF_ALIST_2)
 }
 
 Eterm
-external_size_1(Process* p, Eterm Term)
+external_size_1(BIF_ALIST_1)
 {
+    Process* p = BIF_P;
+    Eterm Term = BIF_ARG_1;
+
     Uint size = erts_encode_ext_size(Term);
     if (IS_USMALL(0, size)) {
 	BIF_RET(make_small(size));
@@ -1268,13 +1271,13 @@ external_size_1(Process* p, Eterm Term)
 }
 
 Eterm
-external_size_2(Process* p, Eterm Term, Eterm Flags)
+external_size_2(BIF_ALIST_2)
 {
     Uint size;
     Uint flags = TERM_TO_BINARY_DFLAGS;
 
-    while (is_list(Flags)) {
-        Eterm arg = CAR(list_val(Flags));
+    while (is_list(BIF_ARG_2)) {
+        Eterm arg = CAR(list_val(BIF_ARG_2));
         Eterm* tp;
 
         if (is_tuple(arg) && *(tp = tuple_val(arg)) == make_arityval(2)) {
@@ -1293,19 +1296,19 @@ external_size_2(Process* p, Eterm Term, Eterm Flags)
             }
         } else {
         error:
-            BIF_ERROR(p, BADARG);
+            BIF_ERROR(BIF_P, BADARG);
         }
-        Flags = CDR(list_val(Flags));
+        BIF_ARG_2 = CDR(list_val(BIF_ARG_2));
     }
-    if (is_not_nil(Flags)) {
+    if (is_not_nil(BIF_ARG_2)) {
         goto error;
     }
 
-    size = erts_encode_ext_size_2(Term, flags);
+    size = erts_encode_ext_size_2(BIF_ARG_1, flags);
     if (IS_USMALL(0, size)) {
         BIF_RET(make_small(size));
     } else {
-        Eterm* hp = HAlloc(p, BIG_UINT_HEAP_SIZE);
+        Eterm* hp = HAlloc(BIF_P, BIG_UINT_HEAP_SIZE);
         BIF_RET(uint_to_big(size, hp));
     }
 }

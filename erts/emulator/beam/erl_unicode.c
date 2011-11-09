@@ -47,7 +47,7 @@ typedef struct _restart_context {
 
 static Uint max_loop_limit;
 
-static BIF_RETTYPE utf8_to_list(BIF_ALIST_1);
+static BIF_RETTYPE utf8_to_list(Process *p, Eterm arg1);
 static BIF_RETTYPE finalize_list_to_list(Process *p, 
 					 byte *bytes,
 					 Eterm rest,
@@ -1828,13 +1828,13 @@ static BIF_RETTYPE characters_to_list_trap_4(BIF_ALIST_1)
  * Instead of building an utf8 buffer, we analyze the binary given and use that.
  */
 
-static BIF_RETTYPE utf8_to_list(BIF_ALIST_1)
+static BIF_RETTYPE utf8_to_list(Process* p, Eterm arg)
 {
-    if (!is_binary(BIF_ARG_1) || aligned_binary_size(BIF_ARG_1) < 0) {
-	BIF_ERROR(BIF_P,BADARG);
+    if (!is_binary(arg) || aligned_binary_size(arg) < 0) {
+	BIF_ERROR(p, BADARG);
     }
-    return do_bif_utf8_to_list(BIF_P, BIF_ARG_1, 0U, 0U, 0U, 
-			       ERTS_UTF8_ANALYZE_MORE,NIL);
+    return do_bif_utf8_to_list(p, arg, 0U, 0U, 0U,
+			       ERTS_UTF8_ANALYZE_MORE, NIL);
 }
 
 

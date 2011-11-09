@@ -948,8 +948,10 @@ static void erts_dump_links(ErtsLink *root, int indent)
     erts_destroy_tmp_dsbuf(dsbufp);
 }
 
-Eterm erts_debug_dump_monitors_1(Process *p, Eterm pid)
+Eterm erts_debug_dump_monitors_1(BIF_ALIST_1)
 {
+    Process *p = BIF_P;
+    Eterm pid = BIF_ARG_1;
     Process *rp;
     DistEntry *dep;
     rp = erts_pid2proc(p, ERTS_PROC_LOCK_MAIN, pid, ERTS_PROC_LOCK_LINK);
@@ -976,8 +978,10 @@ Eterm erts_debug_dump_monitors_1(Process *p, Eterm pid)
     }
 }
 
-Eterm erts_debug_dump_links_1(Process *p, Eterm pid)
+Eterm erts_debug_dump_links_1(BIF_ALIST_1)
 {
+    Process *p = BIF_P;
+    Eterm pid = BIF_ARG_1;
     Process *rp;
     DistEntry *dep;
     if (is_internal_port(pid)) {

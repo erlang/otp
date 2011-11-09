@@ -142,9 +142,11 @@ static void ddll_no_more_references(void *vdh);
  * really load and add as LOADED {ok,loaded} {ok,pending_driver}
  * {error, permanent} {error,load_error()}
  */
-BIF_RETTYPE erl_ddll_try_load_3(Process *p, Eterm path_term, 
-				Eterm name_term, Eterm options)
+BIF_RETTYPE erl_ddll_try_load_3(BIF_ALIST_3)
 {
+    Eterm path_term = BIF_ARG_1;
+    Eterm name_term = BIF_ARG_2;
+    Eterm options = BIF_ARG_3;
     char *path = NULL;
     Uint path_len;
     char *name = NULL;
@@ -236,7 +238,7 @@ BIF_RETTYPE erl_ddll_try_load_3(Process *p, Eterm path_term,
     sys_strcpy(path+path_len,name);
 
 #if DDLL_SMP
-    erts_smp_proc_unlock(p, ERTS_PROC_LOCK_MAIN);
+    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
     lock_drv_list();
 #endif
     if ((drv = lookup_driver(name)) != NULL) {
@@ -247,7 +249,7 @@ BIF_RETTYPE erl_ddll_try_load_3(Process *p, Eterm path_term,
 	} else {
 	    dh = drv->handle;
 	    if (dh->status == ERL_DE_OK) {
-		int is_last = is_last_user(dh,p);
+		int is_last = is_last_user(dh, BIF_P);
 		if (reload == 1 && !is_last) {
 		    /*Want reload if no other users, 
 		      but there are others...*/
@@ -261,7 +263,8 @@ BIF_RETTYPE erl_ddll_try_load_3(Process *p, Eterm path_term,
 			soft_error_term = am_inconsistent;
 			goto soft_error;
 		    }
-		    if ((old = find_proc_entry(dh, p, ERL_DE_PROC_LOADED)) == 
+		    if ((old = find_proc_entry(dh, BIF_P,
+					       ERL_DE_PROC_LOADED)) ==
 			NULL) {
 			soft_error_term = am_not_loaded_by_this_process;
 			goto soft_error;
@@ -272,7 +275,7 @@ BIF_RETTYPE erl_ddll_try_load_3(Process *p, Eterm path_term,
 		    }
 		    /* Reload requested and granted */
 		    dereference_all_processes(dh);
-		    set_driver_reloading(dh, p, path, name, flags);
+		    set_driver_reloading(dh, BIF_P, path, name, flags);
 		    if (dh->flags & ERL_DE_FL_KILL_PORTS) {
 			kill_ports = 1;
 		    }
@@ -286,7 +289,7 @@ BIF_RETTYPE erl_ddll_try_load_3(Process *p, Eterm path_term,
 			soft_error_term = am_inconsistent;
 			goto soft_error;
 		    }
-		    add_proc_loaded(dh,p);
+		    add_proc_loaded(dh, BIF_P);
 		    erts_ddll_reference_driver(dh);
 		    monitor = 0;
 		    ok_term = mkatom("already_loaded");
@@ -308,7 +311,7 @@ BIF_RETTYPE erl_ddll_try_load_3(Process *p, Eterm path_term,
 		notify_all(dh, drv->name, 
 			   ERL_DE_PROC_AWAIT_UNLOAD, am_UP, 
 			   am_unload_cancelled);
-		add_proc_loaded(dh,p);
+		add_proc_loaded(dh, BIF_P);
 		erts_ddll_reference_driver(dh);
 		monitor = 0;
 		ok_term = mkatom("already_loaded");
@@ -325,7 +328,8 @@ BIF_RETTYPE erl_ddll_try_load_3(Process *p, Eterm path_term,
 		    goto soft_error;
 		}
 		/* Load of granted unload... */
-		add_proc_loaded_deref(dh,p); /* Dont reference, will happen after reload */
+		/* Don't reference, will happen after reload */
+		add_proc_loaded_deref(dh, BIF_P);
 		++monitor;
 		ok_term = am_pending_driver;
 	    } else { /* ERL_DE_PERMANENT */
@@ -345,7 +349,7 @@ BIF_RETTYPE erl_ddll_try_load_3(Process *p, Eterm path_term,
 	    goto soft_error;
 	} else {
 	    dh->flags = flags;
-	    add_proc_loaded(dh,p);
+	    add_proc_loaded(dh, BIF_P);
 	    first_ddll_reference(dh);
 	    monitor = 0;
 	    ok_term = mkatom("loaded");
@@ -397,18 +401,18 @@ BIF_RETTYPE erl_ddll_try_load_3(Process *p, Eterm path_term,
 #if DDLL_SMP
     erts_ddll_reference_driver(dh);
     unlock_drv_list();
-    erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
+    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
     lock_drv_list();
     erts_ddll_dereference_driver(dh);
 #endif
 
-    p->flags |= F_USING_DDLL;
+    BIF_P->flags |= F_USING_DDLL;
     if (monitor) {
-	Eterm mref = add_monitor(p, dh, ERL_DE_PROC_AWAIT_LOAD);
-	hp = HAlloc(p,4);
+	Eterm mref = add_monitor(BIF_P, dh, ERL_DE_PROC_AWAIT_LOAD);
+	hp = HAlloc(BIF_P, 4);
 	t = TUPLE3(hp, am_ok, ok_term, mref);
     } else {
-	hp = HAlloc(p,3);
+	hp = HAlloc(BIF_P, 3);
 	t = TUPLE2(hp, am_ok, ok_term);
     }
 #if DDLL_SMP
@@ -416,33 +420,33 @@ BIF_RETTYPE erl_ddll_try_load_3(Process *p, Eterm path_term,
 #endif
     erts_free(ERTS_ALC_T_DDLL_TMP_BUF, (void *) path);
     erts_free(ERTS_ALC_T_DDLL_TMP_BUF, (void *) name);
-    ERTS_SMP_LC_ASSERT(ERTS_PROC_LOCK_MAIN & erts_proc_lc_my_proc_locks(p));
+    ERTS_SMP_LC_ASSERT(ERTS_PROC_LOCK_MAIN & erts_proc_lc_my_proc_locks(BIF_P));
     BIF_RET(t);
  soft_error:
 #if DDLL_SMP
     unlock_drv_list();
-    erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
+    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 #endif
     if (do_build_load_error) {
-	soft_error_term = build_load_error(p, build_this_load_error);
+	soft_error_term = build_load_error(BIF_P, build_this_load_error);
     }
 
-    hp = HAlloc(p,3);
+    hp = HAlloc(BIF_P, 3);
     t = TUPLE2(hp, am_error, soft_error_term);
     erts_free(ERTS_ALC_T_DDLL_TMP_BUF, (void *) path);
     erts_free(ERTS_ALC_T_DDLL_TMP_BUF, (void *) name);
-    ERTS_SMP_LC_ASSERT(ERTS_PROC_LOCK_MAIN & erts_proc_lc_my_proc_locks(p));
+    ERTS_SMP_LC_ASSERT(ERTS_PROC_LOCK_MAIN & erts_proc_lc_my_proc_locks(BIF_P));
     BIF_RET(t);
  error:
     assert_drv_list_not_locked();
-    ERTS_SMP_LC_ASSERT(ERTS_PROC_LOCK_MAIN & erts_proc_lc_my_proc_locks(p));
+    ERTS_SMP_LC_ASSERT(ERTS_PROC_LOCK_MAIN & erts_proc_lc_my_proc_locks(BIF_P));
     if (path != NULL) {
 	erts_free(ERTS_ALC_T_DDLL_TMP_BUF, (void *) path);
     }
     if (name != NULL) {
 	erts_free(ERTS_ALC_T_DDLL_TMP_BUF, (void *) name);
     }
-    BIF_ERROR(p,BADARG);
+    BIF_ERROR(BIF_P, BADARG);
 }
 
 /*
@@ -481,8 +485,10 @@ BIF_RETTYPE erl_ddll_try_load_3(Process *p, Eterm path_term,
    any AWAIT_LOAD-waiters with {'DOWN', ref(), driver, name(), load_cancelled}
    If the driver made itself permanent, {'UP', ref(), driver, name(), permanent}
 */
-Eterm erl_ddll_try_unload_2(Process *p, Eterm name_term, Eterm options)
+Eterm erl_ddll_try_unload_2(BIF_ALIST_2)
 {
+    Eterm name_term = BIF_ARG_1;
+    Eterm options = BIF_ARG_2;
     char *name = NULL;
     Eterm ok_term = NIL;
     Eterm soft_error_term = NIL;
@@ -495,7 +501,7 @@ Eterm erl_ddll_try_unload_2(Process *p, Eterm name_term, Eterm options)
     Eterm l;
     int kill_ports = 0;
 
-    erts_smp_proc_unlock(p, ERTS_PROC_LOCK_MAIN);
+    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
 
     for(l = options; is_list(l); l =  CDR(list_val(l))) {
 	Eterm opt = CAR(list_val(l));
@@ -548,7 +554,7 @@ Eterm erl_ddll_try_unload_2(Process *p, Eterm name_term, Eterm options)
     if (dh->flags & ERL_DE_FL_KILL_PORTS) {
 	kill_ports = 1;
     }
-    if ((pe = find_proc_entry(dh, p, ERL_DE_PROC_LOADED)) == NULL) {
+    if ((pe = find_proc_entry(dh, BIF_P, ERL_DE_PROC_LOADED)) == NULL) {
 	if (num_procs(dh, ERL_DE_PROC_LOADED) > 0) {
 	    soft_error_term = am_not_loaded_by_this_process;
 	    goto soft_error;
@@ -624,22 +630,22 @@ done:
 #if DDLL_SMP
     erts_ddll_reference_driver(dh);
     unlock_drv_list();
-    erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
+    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
     lock_drv_list();
     erts_ddll_dereference_driver(dh);
 #endif
     erts_free(ERTS_ALC_T_DDLL_TMP_BUF, (void *) name);
-    p->flags |= F_USING_DDLL;
+    BIF_P->flags |= F_USING_DDLL;
     if (monitor > 0) {
-	Eterm mref = add_monitor(p, dh, ERL_DE_PROC_AWAIT_UNLOAD);
-	hp = HAlloc(p,4);
+	Eterm mref = add_monitor(BIF_P, dh, ERL_DE_PROC_AWAIT_UNLOAD);
+	hp = HAlloc(BIF_P, 4);
 	t = TUPLE3(hp, am_ok, ok_term, mref);
     } else {
-	hp = HAlloc(p,3);
+	hp = HAlloc(BIF_P, 3);
 	t = TUPLE2(hp, am_ok, ok_term);
     }
     if (kill_ports > 1) {
-	ERTS_BIF_CHK_EXITED(p); /* May be exited by port killing */
+	ERTS_BIF_CHK_EXITED(BIF_P); /* May be exited by port killing */
     }
 #if DDLL_SMP
     unlock_drv_list();
@@ -651,8 +657,8 @@ soft_error:
     unlock_drv_list();
 #endif
     erts_free(ERTS_ALC_T_DDLL_TMP_BUF, (void *) name);
-    erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
-    hp = HAlloc(p,3);
+    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+    hp = HAlloc(BIF_P, 3);
     t = TUPLE2(hp, am_error, soft_error_term);
     BIF_RET(t);
  
@@ -661,21 +667,21 @@ soft_error:
     if (name != NULL) {
 	erts_free(ERTS_ALC_T_DDLL_TMP_BUF, (void *) name);
     }
-    erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
-    BIF_ERROR(p,BADARG);
+    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+    BIF_ERROR(BIF_P, BADARG);
 }
 
 
 /* 
  * A shadow of the "real" demonitor BIF
  */
-BIF_RETTYPE erl_ddll_demonitor_1(Process *p, Eterm ref)
+BIF_RETTYPE erl_ddll_demonitor_1(BIF_ALIST_1)
 {
-   if (is_not_internal_ref(ref)) {
-       BIF_ERROR(p, BADARG);
+   if (is_not_internal_ref(BIF_ARG_1)) {
+       BIF_ERROR(BIF_P, BADARG);
    }
-   if (p->flags & F_USING_DDLL) {
-       erts_ddll_remove_monitor(p, ref, ERTS_PROC_LOCK_MAIN);
+   if (BIF_P->flags & F_USING_DDLL) {
+       erts_ddll_remove_monitor(BIF_P, BIF_ARG_1, ERTS_PROC_LOCK_MAIN);
    }
    BIF_RET(am_true);
 }
@@ -683,18 +689,18 @@ BIF_RETTYPE erl_ddll_demonitor_1(Process *p, Eterm ref)
 /* 
  * A shadow of the "real" monitor BIF
  */
-BIF_RETTYPE erl_ddll_monitor_2(Process *p, Eterm dr, Eterm what)
+BIF_RETTYPE erl_ddll_monitor_2(BIF_ALIST_2)
 {
-    if (dr != am_driver) {
-	BIF_ERROR(p,BADARG);
+    if (BIF_ARG_1 != am_driver) {
+	BIF_ERROR(BIF_P, BADARG);
     }
-    return erts_ddll_monitor_driver(p, what, ERTS_PROC_LOCK_MAIN);
+    return erts_ddll_monitor_driver(BIF_P, BIF_ARG_2, ERTS_PROC_LOCK_MAIN);
 }
 
 /* 
  * Return list of loaded drivers {ok,[string()]} 
  */
-Eterm erl_ddll_loaded_drivers_0(Process *p)
+BIF_RETTYPE erl_ddll_loaded_drivers_0(BIF_ALIST_0)
 {
     Eterm *hp;
     int need = 3;
@@ -706,7 +712,7 @@ Eterm erl_ddll_loaded_drivers_0(Process *p)
     for (drv = driver_list; drv; drv = drv->next) {
 	need += sys_strlen(drv->name)*2+2;
     }
-    hp = HAlloc(p,need);
+    hp = HAlloc(BIF_P, need);
     for (drv = driver_list; drv; drv = drv->next) {
 	Eterm l;
 	l = buf_to_intlist(&hp, drv->name, sys_strlen(drv->name), NIL);
@@ -726,8 +732,11 @@ Eterm erl_ddll_loaded_drivers_0(Process *p)
  * item is processes, driver_options, port_count, linked_in_driver, 
  * permanent, awaiting_load, awaiting_unload 
  */
-Eterm erl_ddll_info_2(Process *p, Eterm name_term, Eterm item) 
+BIF_RETTYPE erl_ddll_info_2(BIF_ALIST_2)
 {
+    Process *p = BIF_P;
+    Eterm name_term = BIF_ARG_1;
+    Eterm item = BIF_ARG_2;
     char *name = NULL;
     Eterm res = NIL;
     erts_driver_t *drv;
@@ -850,8 +859,10 @@ Eterm erl_ddll_info_2(Process *p, Eterm name_term, Eterm item)
  * Backend for erl_ddll:format_error, handles all "soft" errors returned by builtins,
  * possibly by calling the system specific error handler
  */
-Eterm erl_ddll_format_error_int_1(Process *p, Eterm code_term)
+BIF_RETTYPE erl_ddll_format_error_int_1(BIF_ALIST_1)
 {
+    Process *p = BIF_P;
+    Eterm code_term = BIF_ARG_1;
     char *errstring = NULL;
     int errint;
     int len;

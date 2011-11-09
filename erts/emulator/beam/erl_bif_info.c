@@ -123,6 +123,8 @@ static char erts_system_version[] = ("Erlang " ERLANG_OTP_RELEASE
 static Eterm os_type_tuple;
 static Eterm os_version_tuple;
 
+static BIF_RETTYPE port_info(Process* p, Eterm portid, Eterm item);
+
 static Eterm
 current_function(Process* p, Process* rp, Eterm** hpp, int full_info);
 static Eterm current_stacktrace(Process* p, Process* rp, Eterm** hpp);
@@ -2104,7 +2106,7 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	BIF_RET(am_undefined);
 #endif
     } else if (BIF_ARG_1 == am_trace_control_word) {
-	BIF_RET(db_get_trace_control_word_0(BIF_P));
+	BIF_RET(db_get_trace_control_word(BIF_P));
     } else if (ERTS_IS_ATOM_STR("ets_realloc_moves", BIF_ARG_1)) {
  	BIF_RET((erts_ets_realloc_always_moves) ? am_true : am_false);
     } else if (ERTS_IS_ATOM_STR("ets_always_compress", BIF_ARG_1)) {
@@ -2695,9 +2697,11 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
     BIF_ERROR(BIF_P, BADARG);
 }
 
-Eterm
-port_info_1(Process* p, Eterm pid)
+BIF_RETTYPE
+port_info_1(BIF_ALIST_1)
 {
+    Process* p = BIF_P;
+    Eterm pid = BIF_ARG_1;
     static Eterm keys[] = {
 	am_name,
 	am_links,
@@ -2720,7 +2724,7 @@ port_info_1(Process* p, Eterm pid)
     for (i = 0; i < ASIZE(keys); i++) {
 	Eterm item;
 
-	item = port_info_2(p, pid, keys[i]);
+	item = port_info(p, pid, keys[i]);
 	if (is_non_value(item)) {
 	    return THE_NON_VALUE;
 	}
@@ -2729,7 +2733,7 @@ port_info_1(Process* p, Eterm pid)
 	}
 	items[i] = item;
     }
-    reg_name = port_info_2(p, pid, am_registered_name);
+    reg_name = port_info(p, pid, am_registered_name);
 
     /*
      * Build the resulting list.
@@ -2765,24 +2769,27 @@ port_info_1(Process* p, Eterm pid)
 
 BIF_RETTYPE port_info_2(BIF_ALIST_2)
 {
+    return port_info(BIF_P, BIF_ARG_1, BIF_ARG_2);
+}
+
+static BIF_RETTYPE port_info(Process* p, Eterm portid, Eterm item)
+{
     BIF_RETTYPE ret;
-    Eterm portid = BIF_ARG_1;
     Port *prt;
-    Eterm item = BIF_ARG_2;
     Eterm res;
     Eterm* hp;
     int count;
 
     if (is_internal_port(portid))
-	prt = erts_id2port(portid, BIF_P, ERTS_PROC_LOCK_MAIN);
+	prt = erts_id2port(portid, p, ERTS_PROC_LOCK_MAIN);
     else if (is_atom(portid))
-	erts_whereis_name(BIF_P, ERTS_PROC_LOCK_MAIN,
+	erts_whereis_name(p, ERTS_PROC_LOCK_MAIN,
 			  portid, NULL, 0, 0, &prt);
     else if (is_external_port(portid)
 	     && external_port_dist_entry(portid) == erts_this_dist_entry)
 	BIF_RET(am_undefined);
     else {
-	BIF_ERROR(BIF_P, BADARG);
+	BIF_ERROR(p, BADARG);
     }
 
     if (!prt) {
@@ -2790,7 +2797,7 @@ BIF_RETTYPE port_info_2(BIF_ALIST_2)
     }
 
     if (item == am_id) {
-	hp = HAlloc(BIF_P, 3);
+	hp = HAlloc(p, 3);
 	res = make_small(internal_port_number(portid));
     }
     else if (item == am_links) {
@@ -2802,10 +2809,10 @@ BIF_RETTYPE port_info_2(BIF_ALIST_2)
 
 	erts_doforall_links(prt->nlinks, &collect_one_link, &mic);
 
-	hp = HAlloc(BIF_P, 3 + mic.sz);
+	hp = HAlloc(p, 3 + mic.sz);
 	res = NIL;
 	for (i = 0; i < mic.mi_i; i++) {
-	    item = STORE_NC(&hp, &MSO(BIF_P), mic.mi[i].entity); 
+	    item = STORE_NC(&hp, &MSO(p), mic.mi[i].entity);
 	    res = CONS(hp, item, res);
 	    hp += 2;
 	}
@@ -2821,11 +2828,11 @@ BIF_RETTYPE port_info_2(BIF_ALIST_2)
 
 	erts_doforall_monitors(prt->monitors, &collect_one_origin_monitor, &mic);
 
-	hp = HAlloc(BIF_P, 3 + mic.sz);
+	hp = HAlloc(p, 3 + mic.sz);
 	res = NIL;
 	for (i = 0; i < mic.mi_i; i++) {
 	    Eterm t;
-	    item = STORE_NC(&hp, &MSO(BIF_P), mic.mi[i].entity); 
+	    item = STORE_NC(&hp, &MSO(p), mic.mi[i].entity);
 	    t = TUPLE2(hp, am_process, item);
 	    hp += 3;
 	    res = CONS(hp, t, res);
@@ -2837,25 +2844,25 @@ BIF_RETTYPE port_info_2(BIF_ALIST_2)
     else if (item == am_name) {
 	count = sys_strlen(prt->name);
 
-	hp = HAlloc(BIF_P, 3 + 2*count);
+	hp = HAlloc(p, 3 + 2*count);
 	res = buf_to_intlist(&hp, prt->name, count, NIL);
     }
     else if (item == am_connected) {
-	hp = HAlloc(BIF_P, 3);
+	hp = HAlloc(p, 3);
 	res = prt->connected; /* internal pid */
     }
     else if (item == am_input) {
 	Uint hsz = 3;
 	Uint n = prt->bytes_in;
 	(void) erts_bld_uint(NULL, &hsz, n);
-	hp = HAlloc(BIF_P, hsz);
+	hp = HAlloc(p, hsz);
 	res = erts_bld_uint(&hp, NULL, n);
     }
     else if (item == am_output) {
 	Uint hsz = 3;
 	Uint n = prt->bytes_out;
 	(void) erts_bld_uint(NULL, &hsz, n);
-	hp = HAlloc(BIF_P, hsz);
+	hp = HAlloc(p, hsz);
 	res = erts_bld_uint(&hp, NULL, n);
     }
     else if (item == am_registered_name) {
@@ -2865,7 +2872,7 @@ BIF_RETTYPE port_info_2(BIF_ALIST_2)
 	    ERTS_BIF_PREP_RET(ret, NIL);
 	    goto done;
 	} else {
-	    hp = HAlloc(BIF_P, 3);
+	    hp = HAlloc(p, 3);
 	    res = reg->name;
 	}
     }
@@ -2877,7 +2884,7 @@ BIF_RETTYPE port_info_2(BIF_ALIST_2)
 	Uint size = 0;
 	ErlHeapFragment* bp;
 
-	hp = HAlloc(BIF_P, 3);
+	hp = HAlloc(p, 3);
 
 	erts_doforall_links(prt->nlinks, &one_link_size, &size);
 
@@ -2894,18 +2901,18 @@ BIF_RETTYPE port_info_2(BIF_ALIST_2)
 	   hard to retrieve... */
 	
 	(void) erts_bld_uint(NULL, &hsz, size);
-	hp = HAlloc(BIF_P, hsz);
+	hp = HAlloc(p, hsz);
 	res = erts_bld_uint(&hp, NULL, size);
     }
     else if (item == am_queue_size) {
 	Uint ioq_size = erts_port_ioq_size(prt);
 	Uint hsz = 3;
 	(void) erts_bld_uint(NULL, &hsz, ioq_size);
-	hp = HAlloc(BIF_P, hsz);
+	hp = HAlloc(p, hsz);
 	res = erts_bld_uint(&hp, NULL, ioq_size);
     }
     else if (ERTS_IS_ATOM_STR("locking", item)) {
-	hp = HAlloc(BIF_P, 3);
+	hp = HAlloc(p, 3);
 #ifndef ERTS_SMP
 	res = am_false;
 #else
@@ -2924,7 +2931,7 @@ BIF_RETTYPE port_info_2(BIF_ALIST_2)
 #endif
     }
     else {
-	ERTS_BIF_PREP_ERROR(ret, BIF_P, BADARG);
+	ERTS_BIF_PREP_ERROR(ret, p, BADARG);
 	goto done;
     }
 
@@ -2938,9 +2945,12 @@ BIF_RETTYPE port_info_2(BIF_ALIST_2)
 }
 
 
-Eterm
-fun_info_2(Process* p, Eterm fun, Eterm what)
+BIF_RETTYPE
+fun_info_2(BIF_ALIST_2)
 {
+    Process* p = BIF_P;
+    Eterm fun = BIF_ARG_1;
+    Eterm what = BIF_ARG_2;
     Eterm* hp;
     Eterm val;
 

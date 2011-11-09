@@ -42,6 +42,9 @@ struct hipe_process_state {
     void (*nra)(void);		/* Native code return address. */
 #endif
     unsigned int narity;	/* Arity of BIF call, for stack walks. */
+#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
+    void (*bif_callee)(void);   /* When calling BIF's via debug wrapper */
+#endif
 };
 
 extern void hipe_arch_print_pcb(struct hipe_process_state *p);

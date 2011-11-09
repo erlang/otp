@@ -35,6 +35,17 @@
 #include "hipe_stack.h"
 #include "hipe_bif0.h"	/* hipe_mfa_info_table_init() */
 
+#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
+#    define ERTS_SMP_REQ_PROC_MAIN_LOCK(P) \
+        if ((P)) erts_proc_lc_require_lock((P), ERTS_PROC_LOCK_MAIN)
+#    define ERTS_SMP_UNREQ_PROC_MAIN_LOCK(P) \
+        if ((P)) erts_proc_lc_unrequire_lock((P), ERTS_PROC_LOCK_MAIN)
+#else
+#    define ERTS_SMP_REQ_PROC_MAIN_LOCK(P)
+#    define ERTS_SMP_UNREQ_PROC_MAIN_LOCK(P)
+#endif
+
+
 /*
  * Internal debug support.
  * #define HIPE_DEBUG to the desired debug level:
@@ -318,8 +329,8 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	   * Native code called a BIF, which "failed" with a TRAP to BEAM.
 	   * Prior to returning, the BIF stored (see BIF_TRAP<N>):
 
-	   * the callee's address in p->def_arg_reg[3]
-	   * the callee's parameters in p->def_arg_reg[0..2]
+	   * the callee's address in p->i
+	   * the callee's parameters in reg[0..2]
 	   * the callee's arity in p->arity (for BEAM gc purposes)
 	   *
 	   * We need to remove the BIF's parameters from the native
@@ -331,19 +342,8 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	   */
 	  unsigned int i, is_recursive = 0;
 
-	  /* Save p->arity, then update it with the original BIF's arity.
-	     Get rid of any stacked parameters in that call. */
-	  /* XXX: hipe_call_from_native_is_recursive() copies data to
-	     reg[], which is useless in the TRAP case. Maybe write a
-	     specialised hipe_trap_from_native_is_recursive() later. */
           if (p->hipe.nsp != NULL) {
-	      unsigned int callee_arity;
-	      callee_arity = p->arity;
-	      p->arity = p->hipe.narity; /* caller's arity */
-	      is_recursive = hipe_call_from_native_is_recursive(p, reg);
-
-	      p->i = (Eterm *)(p->def_arg_reg[3]);
-	      p->arity = callee_arity;
+	      is_recursive = hipe_trap_from_native_is_recursive(p);
           }
 
 	  /* Schedule next process if current process was hibernated or is waiting
@@ -353,15 +353,14 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	      goto do_schedule;
 	  }
 	  if (p->status == P_WAITING) {
+	      for (i = 0; i < p->arity; ++i)
+		  p->arg_reg[i] = reg[i]; 	      
 	      goto do_schedule;
 	  }
 
-	  for (i = 0; i < p->arity; ++i)
-	      reg[i] = p->def_arg_reg[i];
-
 	  if (is_recursive)
 	      hipe_push_beam_trap_frame(p, reg, p->arity);
-
+	  
 	  result = HIPE_MODE_SWITCH_RES_CALL;
 	  break;
       }
@@ -470,7 +469,9 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 #if !(NR_ARG_REGS > 5)
 	      int reds_in = p->def_arg_reg[5];
 #endif
+	      ERTS_SMP_UNREQ_PROC_MAIN_LOCK(p);
 	      p = schedule(p, reds_in - p->fcalls);
+	      ERTS_SMP_REQ_PROC_MAIN_LOCK(p);
 #ifdef ERTS_SMP
 	      p->hipe_smp.have_receive_locks = 0;
 	      reg = p->scheduler_data->x_reg_array;

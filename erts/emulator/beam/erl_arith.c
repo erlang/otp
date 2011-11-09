@@ -164,14 +164,14 @@ BIF_RETTYPE bxor_2(BIF_ALIST_2)
     BIF_RET(erts_bxor(BIF_P, BIF_ARG_1, BIF_ARG_2));
 } 
 
-BIF_RETTYPE bsl_2(Process* p, Eterm arg1, Eterm arg2)
+BIF_RETTYPE bsl_2(BIF_ALIST_2)
 {
-    BIF_RET(shift(p, arg1, arg2, 0));
+    BIF_RET(shift(BIF_P, BIF_ARG_1, BIF_ARG_2, 0));
 } 
 
-BIF_RETTYPE bsr_2(Process* p, Eterm arg1, Eterm arg2)
+BIF_RETTYPE bsr_2(BIF_ALIST_2)
 {
-    BIF_RET(shift(p, arg1, arg2, 1));
+    BIF_RET(shift(BIF_P, BIF_ARG_1, BIF_ARG_2, 1));
 } 
 
 static Eterm

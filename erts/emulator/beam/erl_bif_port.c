@@ -48,6 +48,9 @@ static void free_args(char **);
 
 char *erts_default_arg0 = "default";
 
+static BIF_RETTYPE
+port_call(Process* p, Eterm arg1, Eterm arg2, Eterm arg3);
+
 BIF_RETTYPE open_port_2(BIF_ALIST_2)
 {
     int port_num;
@@ -117,11 +120,9 @@ id_or_name2port(Process *c_p, Eterm id)
 #define ERTS_PORT_COMMAND_FLAG_FORCE		(((Uint32) 1) << 0)
 #define ERTS_PORT_COMMAND_FLAG_NOSUSPEND	(((Uint32) 1) << 1)
 
-static BIF_RETTYPE do_port_command(Process *BIF_P,
-				   Eterm BIF_ARG_1,
-				   Eterm BIF_ARG_2,
-				   Eterm BIF_ARG_3,
-				   Uint32 flags)
+static BIF_RETTYPE
+do_port_command(Process *BIF_P, Eterm arg1, Eterm arg2, Eterm arg3,
+		Uint32 flags)
 {
     BIF_RETTYPE res;
     Port *p;
@@ -135,7 +136,7 @@ static BIF_RETTYPE do_port_command(Process *BIF_P,
     	profile_runnable_proc(BIF_P, am_inactive);
     }
 
-    p = id_or_name2port(BIF_P, BIF_ARG_1);
+    p = id_or_name2port(BIF_P, arg1);
     if (!p) {
     	if (IS_TRACED_FL(BIF_P, F_TRACE_SCHED_PROCS)) {
 	    trace_virtual_sched(BIF_P, am_in);
@@ -172,13 +173,13 @@ static BIF_RETTYPE do_port_command(Process *BIF_P,
 		monitor_generic(BIF_P, am_busy_port, p->id);
 	    }
 	    ERTS_BIF_PREP_YIELD3(res, bif_export[BIF_port_command_3], BIF_P,
-				 BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);    
+				 arg1, arg2, arg3);
 	}
     } else {
 	int wres;
 	erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
 	ERTS_SMP_CHK_NO_PROC_LOCKS;
-	wres = erts_write_to_port(BIF_P->id, p, BIF_ARG_2);
+	wres = erts_write_to_port(BIF_P->id, p, arg2);
 	erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 	if (wres != 0) {
 	    ERTS_BIF_PREP_ERROR(res, BIF_P, BADARG);
@@ -237,10 +238,16 @@ BIF_RETTYPE port_command_3(BIF_ALIST_3)
 
 BIF_RETTYPE port_call_2(BIF_ALIST_2)
 {
-    return port_call_3(BIF_P,BIF_ARG_1,make_small(0),BIF_ARG_2);
+    return port_call(BIF_P,BIF_ARG_1, make_small(0), BIF_ARG_2);
 }
 
 BIF_RETTYPE port_call_3(BIF_ALIST_3)
+{
+    return port_call(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
+}
+
+static BIF_RETTYPE
+port_call(Process* c_p, Eterm arg1, Eterm arg2, Eterm arg3)
 {
     Uint op;
     Port *p;
@@ -266,15 +273,15 @@ BIF_RETTYPE port_call_3(BIF_ALIST_3)
     /* trace of port scheduling with virtual process descheduling
      * lock wait 
      */
-    if (IS_TRACED_FL(BIF_P, F_TRACE_SCHED_PROCS)) {
-    	trace_virtual_sched(BIF_P, am_out);
+    if (IS_TRACED_FL(c_p, F_TRACE_SCHED_PROCS)) {
+	trace_virtual_sched(c_p, am_out);
     }
 
     if (erts_system_profile_flags.runnable_procs && erts_system_profile_flags.exclusive) {
-    	profile_runnable_proc(BIF_P, am_inactive);
+	profile_runnable_proc(c_p, am_inactive);
     }
 
-    p = id_or_name2port(BIF_P, BIF_ARG_1);
+    p = id_or_name2port(c_p, arg1);
     if (!p) {
     error:
 	if (port_resp != port_result && 
@@ -286,22 +293,22 @@ BIF_RETTYPE port_call_3(BIF_ALIST_3)
 	/* Need to virtual schedule in the process if there
 	 * was an error.
 	 */
-    	if (IS_TRACED_FL(BIF_P, F_TRACE_SCHED_PROCS)) {
-    	    trace_virtual_sched(BIF_P, am_in);
+	if (IS_TRACED_FL(c_p, F_TRACE_SCHED_PROCS)) {
+	    trace_virtual_sched(c_p, am_in);
     	}
 
 	if (erts_system_profile_flags.runnable_procs && erts_system_profile_flags.exclusive) {
-    	    profile_runnable_proc(BIF_P, am_active);
+	    profile_runnable_proc(c_p, am_active);
     	}
 
 	if (p)
 	    erts_port_release(p);
 #ifdef ERTS_SMP
-	ERTS_SMP_BIF_CHK_PENDING_EXIT(BIF_P, ERTS_PROC_LOCK_MAIN);
+	ERTS_SMP_BIF_CHK_PENDING_EXIT(c_p, ERTS_PROC_LOCK_MAIN);
 #else
-	ERTS_BIF_CHK_EXITED(BIF_P);
+	ERTS_BIF_CHK_EXITED(c_p);
 #endif
-	BIF_ERROR(BIF_P, BADARG);
+	BIF_ERROR(c_p, BADARG);
     }
 
     if ((drv = p->drv_ptr) == NULL) {
@@ -310,10 +317,10 @@ BIF_RETTYPE port_call_3(BIF_ALIST_3)
     if (drv->call == NULL) {
 	goto error;
     }
-    if (!term_to_Uint(BIF_ARG_2, &op)) {
+    if (!term_to_Uint(arg2, &op)) {
 	goto error;
     }
-    p->caller = BIF_P->id;
+    p->caller = c_p->id;
     
     /* Lock taken, virtual schedule of port */
     if (IS_TRACED_FL(p, F_TRACE_SCHED_PORTS)) {
@@ -323,19 +330,19 @@ BIF_RETTYPE port_call_3(BIF_ALIST_3)
     if (erts_system_profile_flags.runnable_ports && !erts_port_is_scheduled(p)) {
     	profile_runnable_port(p, am_active);
     }
-    size = erts_encode_ext_size(BIF_ARG_3);
+    size = erts_encode_ext_size(arg3);
     if (size > sizeof(port_input))
 	bytes = erts_alloc(ERTS_ALC_T_PORT_CALL_BUF, size);
 
     endp = bytes;
-    erts_encode_ext(BIF_ARG_3, &endp);
+    erts_encode_ext(arg3, &endp);
 
     real_size = endp - bytes;
     if (real_size > size) {
 	erl_exit(1, "%s, line %d: buffer overflow: %d word(s)\n",
 		 __FILE__, __LINE__, endp - (bytes + size));
     }
-    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+    erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
     prc  = (char *) port_resp;
     fpe_was_unmasked = erts_block_fpe();
     ret = drv->call((ErlDrvData)p->drv_data, 
@@ -356,7 +363,7 @@ BIF_RETTYPE port_call_3(BIF_ALIST_3)
    
     port_resp = (byte *) prc;
     p->caller = NIL;
-    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+    erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
 #ifdef HARDDEBUG
     { 
 	int z;
@@ -382,14 +389,14 @@ BIF_RETTYPE port_call_3(BIF_ALIST_3)
     if (result_size < 0) {
 	goto error;
     }
-    hp = HAlloc(BIF_P, result_size);
+    hp = HAlloc(c_p, result_size);
     hp_end = hp + result_size;
     endp = port_resp;
-    res = erts_decode_ext(&hp, &MSO(BIF_P), &endp);
+    res = erts_decode_ext(&hp, &MSO(c_p), &endp);
     if (res == THE_NON_VALUE) {
 	goto error;
     }
-    HRelease(BIF_P, hp_end, hp);
+    HRelease(c_p, hp_end, hp);
     if (port_resp != port_result && !(ret_flags & DRIVER_CALL_KEEP_BUFFER)) {
 	driver_free(port_resp);
     }
@@ -398,16 +405,16 @@ BIF_RETTYPE port_call_3(BIF_ALIST_3)
     if (p)
 	erts_port_release(p);
 #ifdef ERTS_SMP
-    ERTS_SMP_BIF_CHK_PENDING_EXIT(BIF_P, ERTS_PROC_LOCK_MAIN);
+    ERTS_SMP_BIF_CHK_PENDING_EXIT(c_p, ERTS_PROC_LOCK_MAIN);
 #else
-    ERTS_BIF_CHK_EXITED(BIF_P);
+    ERTS_BIF_CHK_EXITED(c_p);
 #endif
-    if (IS_TRACED_FL(BIF_P, F_TRACE_SCHED_PROCS)) {
-    	trace_virtual_sched(BIF_P, am_in);
+    if (IS_TRACED_FL(c_p, F_TRACE_SCHED_PROCS)) {
+	trace_virtual_sched(c_p, am_in);
     }
 
     if (erts_system_profile_flags.runnable_procs && erts_system_profile_flags.exclusive) {
-    	profile_runnable_proc(BIF_P, am_active);
+	profile_runnable_proc(c_p, am_active);
     }
   
     return res;

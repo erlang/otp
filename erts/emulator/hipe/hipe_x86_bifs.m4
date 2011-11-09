@@ -20,6 +20,7 @@ changecom(`/*', `*/')dnl
 
 
 include(`hipe/hipe_x86_asm.m4')
+#`include' "config.h"
 #`include' "hipe_literals.h"
 
 `#if THE_NON_VALUE == 0
@@ -28,16 +29,27 @@ include(`hipe/hipe_x86_asm.m4')
 #define TEST_GOT_EXN	cmpl	$THE_NON_VALUE,%eax
 #endif'
 
-`#define TEST_GOT_MBUF		movl P_MBUF(P), %edx; testl %edx, %edx; jnz 3f; 2:
-#define JOIN3(A,B,C)		A##B##C
-#define HANDLE_GOT_MBUF(ARITY)	3: call JOIN3(nbif_,ARITY,_gc_after_bif); jmp 2b'
+`#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
+#  define CALL_BIF(F)	movl $CSYM(F), P_BIF_CALLEE(P); call CSYM(hipe_debug_bif_wrapper) 
+#else
+#  define CALL_BIF(F)	call	CSYM(F)
+#endif'
+
+define(TEST_GOT_MBUF,`movl P_MBUF(P), %edx	# `TEST_GOT_MBUF'
+	testl %edx, %edx
+	jnz 3f	
+2:')
+define(HANDLE_GOT_MBUF,`
+3:	call nbif_$1_gc_after_bif	# `HANDLE_GOT_MBUF'
+	jmp 2b')
 
 /*
  * standard_bif_interface_1(nbif_name, cbif_name)
  * standard_bif_interface_2(nbif_name, cbif_name)
  * standard_bif_interface_3(nbif_name, cbif_name)
+ * standard_bif_interface_0(nbif_name, cbif_name)
  *
- * Generate native interface for a BIF with 1-3 parameters and
+ * Generate native interface for a BIF with 0-3 parameters and
  * standard failure mode.
  */
 define(standard_bif_interface_1,
@@ -56,8 +68,10 @@ ASYM($1):
 
 	/* make the call on the C stack */
 	NBIF_ARG_REG(0,P)
-	NBIF_ARG(1,1,0)
-	call	CSYM($2)
+	NBIF_ARG(2,1,0)
+	lea 8(%esp), %eax
+	NBIF_ARG_REG(1,%eax)	# BIF__ARGS
+	CALL_BIF($2)
 	TEST_GOT_MBUF
 
 	/* switch to native stack */
@@ -88,9 +102,11 @@ ASYM($1):
 
 	/* make the call on the C stack */
 	NBIF_ARG_REG(0,P)
-	NBIF_ARG(1,2,0)
-	NBIF_ARG(2,2,1)
-	call	CSYM($2)
+	NBIF_ARG(2,2,0)
+	NBIF_ARG(3,2,1)
+	lea 8(%esp), %eax
+	NBIF_ARG_REG(1,%eax)	# BIF__ARGS
+	CALL_BIF($2)
 	TEST_GOT_MBUF
 
 	/* switch to native stack */
@@ -121,10 +137,12 @@ ASYM($1):
 
 	/* make the call on the C stack */
 	NBIF_ARG_REG(0,P)
-	NBIF_ARG(1,3,0)
-	NBIF_ARG(2,3,1)
-	NBIF_ARG(3,3,2)
-	call	CSYM($2)
+	NBIF_ARG(2,3,0)
+	NBIF_ARG(3,3,1)
+	NBIF_ARG(4,3,2)
+	lea 8(%esp), %eax
+	NBIF_ARG_REG(1,%eax)	# BIF__ARGS
+	CALL_BIF($2)
 	TEST_GOT_MBUF
 
 	/* switch to native stack */
@@ -139,13 +157,7 @@ ASYM($1):
 	TYPE_FUNCTION(ASYM($1))
 #endif')
 
-/*
- * fail_bif_interface_0(nbif_name, cbif_name)
- *
- * Generate native interface for a BIF with 0 parameters and
- * standard failure mode.
- */
-define(fail_bif_interface_0,
+define(standard_bif_interface_0,
 `
 #ifndef HAVE_$1
 #`define' HAVE_$1
@@ -158,7 +170,8 @@ ASYM($1):
 
 	/* make the call on the C stack */
 	NBIF_ARG_REG(0,P)
-	call	CSYM($2)
+	/* skip BIF__ARGS */	
+	CALL_BIF($2)
 	TEST_GOT_MBUF
 
 	/* switch to native stack */

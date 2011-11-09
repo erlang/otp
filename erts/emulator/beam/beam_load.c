@@ -5369,9 +5369,12 @@ find_function_from_pc(BeamInstr* pc)
  * Read a specific chunk from a Beam binary.
  */
 
-Eterm
-code_get_chunk_2(Process* p, Eterm Bin, Eterm Chunk)
+BIF_RETTYPE
+code_get_chunk_2(BIF_ALIST_2)
 {
+    Process* p = BIF_P;
+    Eterm Bin = BIF_ARG_1;
+    Eterm Chunk = BIF_ARG_2;
     LoaderState state;
     Uint chunk = 0;
     ErlSubBin* sb;
@@ -5436,9 +5439,11 @@ code_get_chunk_2(Process* p, Eterm Bin, Eterm Chunk)
  * Calculate the MD5 for a module.
  */
   
-Eterm
-code_module_md5_1(Process* p, Eterm Bin)
+BIF_RETTYPE
+code_module_md5_1(BIF_ALIST_1)
 {
+    Process* p = BIF_P;
+    Eterm Bin = BIF_ARG_1;
     LoaderState state;
     byte* temp_alloc = NULL;
 
@@ -5695,7 +5700,17 @@ patch_funentries(Eterm Patchlist)
 
     fe = erts_get_fun_entry(Mod, uniq, index);
     fe->native_address = (Uint *)native_address;
-    erts_refc_dec(&fe->refc, 1);
+
+    /* Deliberate MEMORY LEAK of native fun entries!!!
+     *
+     * Uncomment line below when hipe code upgrade and purging works correctly.
+     * Today we may get cases when old (leaked) native code of a purged module
+     * gets called and tries to create instances of a deleted fun entry.
+     *
+     * Reproduced on a debug emulator with stdlib_test/qlc_SUITE:join_merge
+     *
+     * erts_refc_dec(&fe->refc, 1);
+     */
 
     if (!patch(Addresses, (Uint) fe))
       return 0;

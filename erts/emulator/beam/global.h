@@ -852,10 +852,16 @@ void erts_queue_monitor_message(Process *,
 				Eterm,
 				Eterm);
 void erts_init_bif(void);
+Eterm erl_send(Process *p, Eterm to, Eterm msg);
+
+/* erl_bif_op.c */
+
+Eterm erl_is_function(Process* p, Eterm arg1, Eterm arg2);
 
 /* erl_bif_port.c */
 
 /* erl_bif_trace.c */
+Eterm erl_seq_trace_info(Process *p, Eterm arg1);
 void erts_system_monitor_clear(Process *c_p);
 void erts_system_profile_clear(Process *c_p);
 
@@ -1641,8 +1647,7 @@ void monitor_generic(Process *p, Eterm type, Eterm spec);
 Uint erts_trace_flag2bit(Eterm flag);
 int erts_trace_flags(Eterm List, 
 		 Uint *pMask, Eterm *pTracer, int *pCpuTimestamp);
-Eterm erts_bif_trace(int bif_index, Process* p, 
-		     Eterm arg1, Eterm arg2, Eterm arg3, BeamInstr *I);
+Eterm erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr *I);
 
 #ifdef ERTS_SMP
 void erts_send_pending_trace_msgs(ErtsSchedulerData *esdp);

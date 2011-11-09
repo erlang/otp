@@ -34,27 +34,7 @@
 
 static Eterm keyfind(int Bif, Process* p, Eterm Key, Eterm Pos, Eterm List);
 
-/*
- * erlang:'++'/2
- */
-
-Eterm
-ebif_plusplus_2(Process* p, Eterm A, Eterm B)
-{
-    return append_2(p, A, B);
-}
-
-/*
- * erlang:'--'/2
- */
-
-Eterm
-ebif_minusminus_2(Process* p, Eterm A, Eterm B)
-{
-    return subtract_2(p, A, B);
-}
-
-BIF_RETTYPE append_2(BIF_ALIST_2)
+static BIF_RETTYPE append(Process* p, Eterm A, Eterm B)
 {
     Eterm list;
     Eterm copy;
@@ -63,18 +43,18 @@ BIF_RETTYPE append_2(BIF_ALIST_2)
     Eterm* hp;
     int i;
 
-    if ((i = list_length(BIF_ARG_1)) < 0) {
-	BIF_ERROR(BIF_P, BADARG);
+    if ((i = list_length(A)) < 0) {
+	BIF_ERROR(p, BADARG);
     }
     if (i == 0) {
-	BIF_RET(BIF_ARG_2);
-    } else if (is_nil(BIF_ARG_2)) {
-	BIF_RET(BIF_ARG_1);
+	BIF_RET(B);
+    } else if (is_nil(B)) {
+	BIF_RET(A);
     }
 
     need = 2*i;
-    hp = HAlloc(BIF_P, need); 
-    list = BIF_ARG_1;
+    hp = HAlloc(p, need);
+    list = A;
     copy = last = CONS(hp, CAR(list_val(list)), make_list(hp+2));
     list = CDR(list_val(list));
     hp += 2;
@@ -85,12 +65,31 @@ BIF_RETTYPE append_2(BIF_ALIST_2)
 	list = CDR(listp);
 	hp += 2;
     }
-    CDR(list_val(last)) = BIF_ARG_2;
+    CDR(list_val(last)) = B;
     BIF_RET(copy);
 }
 
+/*
+ * erlang:'++'/2
+ */
+
+Eterm
+ebif_plusplus_2(BIF_ALIST_2)
+{
+    return append(BIF_P, BIF_ARG_1, BIF_ARG_2);
+}
+
+BIF_RETTYPE append_2(BIF_ALIST_2)
+{
+    return append(BIF_P, BIF_ARG_1, BIF_ARG_2);
+}
+
+/*
+ * erlang:'--'/2
+ */
+
 #define SMALL_VEC_SIZE 10
-BIF_RETTYPE subtract_2(BIF_ALIST_2)
+static Eterm subtract(Process* p, Eterm A, Eterm B)
 {
     Eterm  list;
     Eterm* hp;
@@ -103,17 +102,17 @@ BIF_RETTYPE subtract_2(BIF_ALIST_2)
     int     n;
     int     m;
     
-    if ((n = list_length(BIF_ARG_1)) < 0) {
-	BIF_ERROR(BIF_P, BADARG);
+    if ((n = list_length(A)) < 0) {
+	BIF_ERROR(p, BADARG);
     }
-    if ((m = list_length(BIF_ARG_2)) < 0) {
-	BIF_ERROR(BIF_P, BADARG);
+    if ((m = list_length(B)) < 0) {
+	BIF_ERROR(p, BADARG);
     }
     
     if (n == 0)
 	BIF_RET(NIL);
     if (m == 0)
-	BIF_RET(BIF_ARG_1);
+	BIF_RET(A);
     
     /* allocate element vector */
     if (n <= SMALL_VEC_SIZE)
@@ -123,7 +122,7 @@ BIF_RETTYPE subtract_2(BIF_ALIST_2)
     
     /* PUT ALL ELEMENTS IN VP */
     vp = vec_p;
-    list = BIF_ARG_1;
+    list = A;
     i = n;
     while(i--) {
 	Eterm* listp = list_val(list);
@@ -132,7 +131,7 @@ BIF_RETTYPE subtract_2(BIF_ALIST_2)
     }
     
     /* UNMARK ALL DELETED CELLS */
-    list = BIF_ARG_2;
+    list = B;
     m = 0;  /* number of deleted elements */
     while(is_list(list)) {
 	Eterm* listp = list_val(list);
@@ -153,11 +152,11 @@ BIF_RETTYPE subtract_2(BIF_ALIST_2)
     if (m == n)      /* All deleted ? */
 	res = NIL;
     else if (m == 0)  /* None deleted ? */
-	res = BIF_ARG_1;
+	res = A;
     else {			/* REBUILD LIST */
 	res = NIL;
 	need = 2*(n - m);
-	hp = HAlloc(BIF_P, need);
+	hp = HAlloc(p, need);
 	vp = vec_p + n - 1;
 	while(vp >= vec_p) {
 	    if (is_value(*vp)) {
@@ -170,6 +169,16 @@ BIF_RETTYPE subtract_2(BIF_ALIST_2)
     if (vec_p != small_vec)
 	erts_free(ERTS_ALC_T_TMP, (void *) vec_p);
     BIF_RET(res);
+}
+
+BIF_RETTYPE ebif_minusminus_2(BIF_ALIST_2)
+{
+    return subtract(BIF_P, BIF_ARG_1, BIF_ARG_2);
+}
+
+BIF_RETTYPE subtract_2(BIF_ALIST_2)
+{
+    return subtract(BIF_P, BIF_ARG_1, BIF_ARG_2);
 }
 
 BIF_RETTYPE lists_member_2(BIF_ALIST_2)
@@ -278,11 +287,12 @@ BIF_RETTYPE lists_reverse_2(BIF_ALIST_2)
 }
 
 BIF_RETTYPE
-lists_keymember_3(Process* p, Eterm Key, Eterm Pos, Eterm List)
+lists_keymember_3(BIF_ALIST_3)
 {
     Eterm res;
 
-    res = keyfind(BIF_lists_keymember_3, p, Key, Pos, List);
+    res = keyfind(BIF_lists_keymember_3, BIF_P,
+		  BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
     if (is_value(res) && is_tuple(res)) {
 	return am_true;
     } else {
@@ -291,23 +301,25 @@ lists_keymember_3(Process* p, Eterm Key, Eterm Pos, Eterm List)
 }
 
 BIF_RETTYPE
-lists_keysearch_3(Process* p, Eterm Key, Eterm Pos, Eterm List)
+lists_keysearch_3(BIF_ALIST_3)
 {
     Eterm res;
     
-    res = keyfind(BIF_lists_keysearch_3, p, Key, Pos, List);
+    res = keyfind(BIF_lists_keysearch_3, BIF_P,
+		  BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
     if (is_non_value(res) || is_not_tuple(res)) {
 	return res;
     } else {			/* Tuple */
-	Eterm* hp = HAlloc(p, 3);
+	Eterm* hp = HAlloc(BIF_P, 3);
 	return TUPLE2(hp, am_value, res);
     }
 }
 
 BIF_RETTYPE
-lists_keyfind_3(Process* p, Eterm Key, Eterm Pos, Eterm List)
+lists_keyfind_3(BIF_ALIST_3)
 {
-    return keyfind(BIF_lists_keyfind_3, p, Key, Pos, List);
+    return keyfind(BIF_lists_keyfind_3, BIF_P,
+		   BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
 }
 
 static Eterm

@@ -20,7 +20,9 @@ changecom(`/*', `*/')dnl
 
 
 include(`hipe/hipe_amd64_asm.m4')
+#`include' "config.h"
 #`include' "hipe_literals.h"
+
 
 `#if THE_NON_VALUE == 0
 #define TEST_GOT_EXN	testq	%rax, %rax
@@ -28,16 +30,27 @@ include(`hipe/hipe_amd64_asm.m4')
 #define TEST_GOT_EXN	cmpq	$THE_NON_VALUE, %rax
 #endif'
 
-`#define TEST_GOT_MBUF		movq P_MBUF(P), %rdx; testq %rdx, %rdx; jnz 3f; 2:
-#define JOIN3(A,B,C)		A##B##C
-#define HANDLE_GOT_MBUF(ARITY)	3: call JOIN3(nbif_,ARITY,_gc_after_bif); jmp 2b'
+define(TEST_GOT_MBUF,`movq P_MBUF(P), %rdx	# `TEST_GOT_MBUF'
+	testq %rdx, %rdx
+	jnz 3f	
+2:')
+define(HANDLE_GOT_MBUF,`
+3:	call nbif_$1_gc_after_bif	# `HANDLE_GOT_MBUF'
+	jmp 2b')
+
+`#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
+#  define CALL_BIF(F)	movq $CSYM(F), P_BIF_CALLEE(P); call CSYM(hipe_debug_bif_wrapper) 
+#else
+#  define CALL_BIF(F)	call	CSYM(F)
+#endif'
 
 /*
  * standard_bif_interface_1(nbif_name, cbif_name)
  * standard_bif_interface_2(nbif_name, cbif_name)
  * standard_bif_interface_3(nbif_name, cbif_name)
+ * standard_bif_interface_0(nbif_name, cbif_name)
  *
- * Generate native interface for a BIF with 1-3 parameters and
+ * Generate native interface for a BIF with 0-3 parameters and
  * standard failure mode.
  */
 define(standard_bif_interface_1,
@@ -54,7 +67,11 @@ ASYM($1):
 
 	/* make the call on the C stack */
 	SWITCH_ERLANG_TO_C
-	call	CSYM($2)
+	pushq	%rsi
+	movq	%rsp, %rsi	/* Eterm* BIF__ARGS */
+	sub	$(8), %rsp	/* stack frame 16-byte alignment */
+	CALL_BIF($2)
+	add	$(1*8 + 8), %rsp
 	TEST_GOT_MBUF
 	SWITCH_C_TO_ERLANG
 
@@ -82,7 +99,11 @@ ASYM($1):
 
 	/* make the call on the C stack */
 	SWITCH_ERLANG_TO_C
-	call	CSYM($2)
+	pushq	%rdx
+	pushq 	%rsi
+	movq	%rsp, %rsi	/* Eterm* BIF__ARGS */
+	CALL_BIF($2)
+	add	$(2*8), %rsp
 	TEST_GOT_MBUF
 	SWITCH_C_TO_ERLANG
 
@@ -111,7 +132,13 @@ ASYM($1):
 
 	/* make the call on the C stack */
 	SWITCH_ERLANG_TO_C
-	call	CSYM($2)
+	pushq 	%rcx
+	pushq	%rdx
+	pushq	%rsi
+	movq	%rsp, %rsi	/* Eterm* BIF__ARGS */
+	sub	$(8), %rsp	/* stack frame 16-byte alignment */  
+	CALL_BIF($2)
+	add	$(3*8 + 8), %rsp
 	TEST_GOT_MBUF
 	SWITCH_C_TO_ERLANG
 
@@ -124,13 +151,7 @@ ASYM($1):
 	TYPE_FUNCTION(ASYM($1))
 #endif')
 
-/*
- * fail_bif_interface_0(nbif_name, cbif_name)
- *
- * Generate native interface for a BIF with 0 parameters and
- * standard failure mode.
- */
-define(fail_bif_interface_0,
+define(standard_bif_interface_0,
 `
 #ifndef HAVE_$1
 #`define' HAVE_$1
@@ -143,7 +164,7 @@ ASYM($1):
 
 	/* make the call on the C stack */
 	SWITCH_ERLANG_TO_C
-	call	CSYM($2)
+	CALL_BIF($2)
 	TEST_GOT_MBUF
 	SWITCH_C_TO_ERLANG
 

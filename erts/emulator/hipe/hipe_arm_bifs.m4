@@ -20,18 +20,27 @@ changecom(`/*', `*/')dnl
 
 
 include(`hipe/hipe_arm_asm.m4')
+#`include' "config.h"
 #`include' "hipe_literals.h"
 
 	.text
 	.p2align 2
 
-`#define JOIN3(A,B,C)		A##B##C
-#define TEST_GOT_MBUF(ARITY)	ldr r1, [P, #P_MBUF]; cmp r1, #0; blne JOIN3(nbif_,ARITY,_gc_after_bif)'
+`#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
+#  define CALL_BIF(F)	mov r14, #F; str r14, [r0, #P_BIF_CALLEE]; bl hipe_debug_bif_wrapper
+#else
+#  define CALL_BIF(F)	bl	F
+#endif'
+
+define(TEST_GOT_MBUF,`ldr r1, [P, #P_MBUF]	/* `TEST_GOT_MBUF' */
+	cmp r1, #0
+	blne nbif_$1_gc_after_bif')
 
 /*
  * standard_bif_interface_1(nbif_name, cbif_name)
  * standard_bif_interface_2(nbif_name, cbif_name)
  * standard_bif_interface_3(nbif_name, cbif_name)
+ * standard_bif_interface_0(nbif_name, cbif_name)
  *
  * Generate native interface for a BIF with 1-3 parameters and
  * standard failure mode.
@@ -48,7 +57,9 @@ $1:
 
 	/* Save caller-save registers and call the C function. */
 	SAVE_CONTEXT_BIF
-	bl	$2
+	str	r1, [r0, #P_ARG0]	/* Store BIF__ARGS in def_arg_reg[] */
+	add	r1, r0, #P_ARG0
+	CALL_BIF($2)
 	TEST_GOT_MBUF(1)
 
 	/* Restore registers. Check for exception. */
@@ -73,7 +84,10 @@ $1:
 
 	/* Save caller-save registers and call the C function. */
 	SAVE_CONTEXT_BIF
-	bl	$2
+	str	r1, [r0, #P_ARG0]	/* Store BIF__ARGS in def_arg_reg[] */
+	str	r2, [r0, #P_ARG1]
+	add	r1, r0, #P_ARG0
+	CALL_BIF($2)
 	TEST_GOT_MBUF(2)
 
 	/* Restore registers. Check for exception. */
@@ -99,7 +113,11 @@ $1:
 
 	/* Save caller-save registers and call the C function. */
 	SAVE_CONTEXT_BIF
-	bl	$2
+	str	r1, [r0, #P_ARG0]	/* Store BIF__ARGS in def_arg_reg[] */
+	str	r2, [r0, #P_ARG1]
+	str	r3, [r0, #P_ARG2]
+	add	r1, r0, #P_ARG0
+	CALL_BIF($2)
 	TEST_GOT_MBUF(3)
 
 	/* Restore registers. Check for exception. */
@@ -111,13 +129,7 @@ $1:
 	.type	$1, %function
 #endif')
 
-/*
- * fail_bif_interface_0(nbif_name, cbif_name)
- *
- * Generate native interface for a BIF with 0 parameters and
- * standard failure mode.
- */
-define(fail_bif_interface_0,
+define(standard_bif_interface_0,
 `
 #ifndef HAVE_$1
 #`define' HAVE_$1
@@ -128,7 +140,8 @@ $1:
 
 	/* Save caller-save registers and call the C function. */
 	SAVE_CONTEXT_BIF
-	bl	$2
+	/* ignore empty BIF__ARGS */
+	CALL_BIF($2)
 	TEST_GOT_MBUF(0)
 
 	/* Restore registers. Check for exception. */
