@@ -76,6 +76,11 @@
 
 #define FILE_OPT_DELAYED_WRITE 0
 #define FILE_OPT_READ_AHEAD    1
+#define FILE_SENDFILE_OFFSET 0x10
+#define FILE_SENDFILE_NBYTES 0x08
+#define FILE_SENDFILE_NODISKIO 0x4
+#define FILE_SENDFILE_MNOWAIT 0x2
+#define FILE_SENDFILE_SYNC 0x1
 
 /* IPREAD variants */
 
@@ -218,7 +223,6 @@ typedef unsigned char uchar;
 static ErlDrvData file_start(ErlDrvPort port, char* command);
 static int file_init(void);
 static void file_stop(ErlDrvData);
-static void file_ready_output(ErlDrvData data, ErlDrvEvent event);
 static void file_output(ErlDrvData, char* buf, int len);
 static int file_control(ErlDrvData, unsigned int command, 
 			char* buf, int len, char **rbuf, int rlen);
@@ -226,7 +230,6 @@ static void file_timeout(ErlDrvData);
 static void file_outputv(ErlDrvData, ErlIOVec*);
 static void file_async_ready(ErlDrvData, ErlDrvThreadData);
 static void file_flush(ErlDrvData);
-static void file_stop_select(ErlDrvEvent event, void* _);
 
 
 
@@ -256,18 +259,6 @@ typedef struct {
     ErlDrvPDL       q_mtx;    /* Mutex for the driver queue, known by the emulator. Also used for
 				 mutual exclusion when accessing field(s) below. */
     size_t          write_buffered;
-    ErlDrvTermData caller;      /* recipient of sync reply */
-    /* sendfile call state to retry/resume on event */
-    int command; /* same as d->command. for sendfile. TODO: this seems wrong */
-    struct {
-	int eagain;
-	int out_fd;
-	/* TODO: Use Sint64 instead? What about 32-bit off_t linux */
-	off_t offset;
-	size_t count;
-	size_t chunksize;
-	ErlDrvSInt64 written;
-    } sendfile;
 } file_descriptor;
 
 
@@ -279,7 +270,7 @@ struct erl_drv_entry efile_driver_entry = {
     file_stop,
     NULL,
     NULL,
-    file_ready_output,
+    NULL,
     "efile",
     NULL,
     NULL,
@@ -296,7 +287,7 @@ struct erl_drv_entry efile_driver_entry = {
     ERL_DRV_FLAG_USE_PORT_LOCKING,
     NULL,
     NULL,
-    file_stop_select
+    NULL
 };
 
 
@@ -415,6 +406,18 @@ struct t_data
 	    Sint64 length;
 	    int advise;
 	} fadvise;
+#ifdef HAVE_SENDFILE
+	struct {
+	    int out_fd;
+	    off_t offset;
+	    size_t nbytes;
+	    int flags;
+	    int hdr_cnt; 	   /* number of header iovecs */
+	    struct iovec *headers;  /* pointer to header iovecs */
+	    int trl_cnt; 	   /* number of trailer iovecs */
+	    struct iovec *trailers; /* pointer to trailer iovecs */
+	} sendfile;
+#endif
     } c;
     char b[1];
 };
@@ -1710,71 +1713,27 @@ static void invoke_fadvise(void *data)
     d->result_ok = efile_fadvise(&d->errInfo, fd, offset, length, advise);
 }
 
-
-
-static void do_sendfile(file_descriptor *desc);
-static void file_ready_output(ErlDrvData data, ErlDrvEvent event)
-{
-    file_descriptor* d = (file_descriptor*) data;
-
-    switch (d->command) {
-    case FILE_SENDFILE:
-	driver_select(d->port, (ErlDrvEvent)d->sendfile.out_fd,
-		      ERL_DRV_WRITE, 0);
-	do_sendfile(d);
-	break;
-    default:
-	break;
-    }
-}
-
-static void file_stop_select(ErlDrvEvent event, void* _)
-{
-    /* TODO: close socket? */
+static void free_sendfile(void *data) {
+    EF_FREE(data);
 }
 
 static void invoke_sendfile(void *data)
 {
-    ((struct t_data *)data)->again = 0;
-}
+    struct t_data *d = (struct t_data *) data;
+    int fd = (int)d->fd;
+    int out_fd = (int) d->c.sendfile.out_fd;
+    off_t offset = (off_t) d->c.sendfile.offset;
+    size_t nbytes = (size_t) d->c.sendfile.nbytes;
 
-static void do_sendfile(file_descriptor *d)
-{
-    int fd = d->fd;
-    int out_fd = d->sendfile.out_fd;
-    off_t offset = d->sendfile.offset;
-    size_t count = d->sendfile.count;
-    size_t chunksize = count < d->sendfile.chunksize
-	? count : d->sendfile.chunksize;
-    int result_ok = 0;
-    Efile_error errInfo;
+    d->result_ok = efile_sendfile(&d->errInfo, fd, out_fd, offset, &nbytes);
+    d->c.sendfile.offset = offset;
+    d->c.sendfile.nbytes = nbytes;
+    d->again = 0;
 
-    result_ok = efile_sendfile(&errInfo, fd, out_fd, &offset, &chunksize);
-
-    if (result_ok) {
-	d->sendfile.offset += chunksize;
-	d->sendfile.written += chunksize;
-	d->sendfile.count -= chunksize;
-	if (d->sendfile.count > 0) {
-	    driver_select(d->port, (ErlDrvEvent)d->sendfile.out_fd,
-			  ERL_DRV_USE|ERL_DRV_WRITE, 1);
-	} else {
-	    printf("==> sendfile DONE eagain=%d\n", d->sendfile.eagain);
-	    reply_Uint(d, d->sendfile.written);
-	}
-    } else if (errInfo.posix_errno == EAGAIN || errInfo.posix_errno == EINTR) {
-	if (chunksize > 0) {
-	    d->sendfile.offset += chunksize;
-	    d->sendfile.written += chunksize;
-	    d->sendfile.count -= chunksize;
-	}
-	d->sendfile.eagain++;
-
-	driver_select(d->port, (ErlDrvEvent)d->sendfile.out_fd,
-		      ERL_DRV_USE|ERL_DRV_WRITE, 1);
+    if (d->result_ok) {
+	printf("==> sendfile DONE nbytes=%d\n", d->c.sendfile.nbytes);
     } else {
-	printf("==> sendfile ERROR %s\n", erl_errno_id(errInfo.posix_errno));
-	ef_send_posix_error(d, d->caller, errInfo.posix_errno);
+	printf("==> sendfile ERROR %s\n", erl_errno_id(d->errInfo.posix_errno));
     }
 }
 
@@ -2190,9 +2149,12 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
 	  free_preadv(data);
 	  break;
       case FILE_SENDFILE:
-	  driver_select(desc->port, (ErlDrvEvent)desc->sendfile.out_fd,
-			ERL_DRV_USE|ERL_DRV_WRITE, 1);
-	  free_data(data);
+	  if (!d->result_ok) {
+	      reply_error(desc, &d->errInfo);
+	  } else {
+	      reply_Sint64(desc, d->c.sendfile.nbytes);
+	  }
+	  free_sendfile(data);
 	  break;
       default:
 	abort();
@@ -3334,37 +3296,71 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    goto done;
 	} /* case FILE_OPT_DELAYED_WRITE: */
     } ASSERT(0); goto done; /* case FILE_SETOPT: */
-    case FILE_SENDFILE:
-	{
+    case FILE_SENDFILE: {
+
 	struct t_data *d;
-	    d = EF_SAFE_ALLOC(sizeof(struct t_data));
-	    d->fd = desc->fd;
-	    d->command = command;
-	    d->invoke = invoke_sendfile;
-	    d->free = free_data;
-	    d->level = 2;
-	    desc->sendfile.out_fd = get_int32((uchar*) buf);
-	    /* TODO: are off_t and size_t 64bit on all platforms?
-	       off_t is 32bit on win32 msvc. maybe configurable in msvc.
-	       Maybe use '#if SIZEOF_SIZE_T == 4'? */
-	    desc->sendfile.offset = get_int64(((uchar*) buf)
-					     + sizeof(Sint32));
-	    desc->sendfile.count = get_int64(((uchar*) buf)
-					    + sizeof(Sint32)
-					    + sizeof(Sint64));
-	    desc->sendfile.chunksize = get_int64(((uchar*) buf)
-					    + sizeof(Sint32)
-					    + 2*sizeof(Sint64));
-	    desc->sendfile.written = 0;
-	    desc->sendfile.eagain = 0;
-	    /* TODO: shouldn't d->command be enough? */
-	    desc->command = command;
-	    desc->caller = driver_caller(desc->port);
+	Uint32 out_fd, offsetH, offsetL, nbytesH, nbytesL;
+	char flags;
+
+	/* DestFD:32, Offset:64, Bytes:64,
+	 ChunkSize:64,
+	 (get_bit(Nodiskio)):1,
+	 (get_bit(MNowait)):1,
+	 (get_bit(Sync)):1,0:5,
+	 (encode_hdtl(Headers))/binary,
+	 (encode_hdtl(Trailers))/binary */
+	if (ev->size < 1 + 1 + 5 * sizeof(Uint32) + sizeof(char)
+		|| !EV_GET_UINT32(ev, &out_fd, &p, &q)
+		|| !EV_GET_CHAR(ev, &flags, &p, &q)
+		|| !EV_GET_UINT32(ev, &offsetH, &p, &q)
+		|| !EV_GET_UINT32(ev, &offsetL, &p, &q)
+		|| !EV_GET_UINT32(ev, &nbytesH, &p, &q)
+		|| !EV_GET_UINT32(ev, &nbytesL, &p, &q)) {
+	    /* Buffer has wrong length to contain all the needed values */
+	    reply_posix_error(desc, EINVAL);
 	    goto done;
 	}
-    
+
+	d = EF_SAFE_ALLOC(sizeof(struct t_data));
+	d->fd = desc->fd;
+	d->command = command;
+	d->invoke = invoke_sendfile;
+	d->free = free_sendfile;
+	d->level = 2;
+
+	d->c.sendfile.out_fd = (int) out_fd;
+	d->c.sendfile.flags = (int) flags;
+
+#if SIZEOF_OFF_T == 4
+	if (offsetH != 0) {
+	    reply_posix_error(desc, EINVAL);
+	    goto done;
+	}
+	d->c.sendfile.offset = (off_t) offsetT;
+#else
+	d->c.sendfile.offset = ((off_t) offsetH << 32) | offsetL;
+#endif
+
+#if SIZEOF_SIZE_T == 4
+	if (nbytesH != 0) {
+	    reply_posix_error(desc, EINVAL);
+	    goto done;
+	}
+	d->c.sendfile.nbytes = (size_t) nbytesT;
+#else
+	d->c.sendfile.nbytes = ((size_t) nbytesH << 32) | nbytesL;
+#endif
+
+	printf("sendfile(nbytes => %d, offset => %d, flags => %x)\r\n",d->c.sendfile.nbytes,d->c.sendfile.offset, d->c.sendfile.flags);
+
+	/* Do HEADER TRAILER stuff by calculating pointer places, not by copying data! */
+
+	cq_enq(desc, d);
+	goto done;
+    } /* case FILE_SENDFILE: */
+
     } /* switch(command) */
-    
+
     if (lseek_flush_read(desc, &err) < 0) {
 	reply_posix_error(desc, err);
 	goto done;

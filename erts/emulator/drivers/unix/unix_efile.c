@@ -1471,19 +1471,34 @@ efile_fadvise(Efile_error* errInfo, int fd, Sint64 offset,
 #ifdef HAVE_SENDFILE
 int
 efile_sendfile(Efile_error* errInfo, int in_fd, int out_fd,
-	       off_t offset, size_t *ret_nbytes)
+	       off_t offset, size_t *nbytes)
 {
 #if defined(__linux__) || (defined(__sun) && defined(__SVR4))
-    ssize_t retval;
-    do {
-	retval = sendfile(out_fd, in_fd, &offset, *ret_nbytes);
-    } while (retval == -1 && (errno == EINTR || errno == EAGAIN));
-    *ret_nbytes = retval;
+    ssize_t retval, nbytes_sent = 0;
+    if (*nbytes == 0) {
+	*nbytes = (1 << 20) - 1;
+	do {
+	    retval = sendfile(out_fd, in_fd, &offset, *nbytes);
+	    nbytes_sent += retval;
+	    printf("retval: %d, errno: %d, offset: %d, nbytes: %d\r\n", retval, errno, offset,*nbytes);
+	} while ((retval == -1 && errno == EINTR)
+		|| (retval > 0 && errno == EAGAIN));
+    } else {
+	do {
+	    retval = sendfile(out_fd, in_fd, &offset, *nbytes);
+	    if (retval > 0) {
+		nbytes_sent += retval;
+		*nbytes -= retval;
+	    }
+	} while ((retval == -1 && errno == EINTR)
+		|| (*nbytes > 0 && errno == EAGAIN));
+    }
+    *nbytes = nbytes_sent;
     return check_error(retval == -1 ? -1 : 0, errInfo);
 #elif defined(DARWIN)
-    off_t len = *ret_nbytes;
+    off_t len = *nbytes;
     int retval = sendfile(in_fd, out_fd, *offset, &len, NULL, 0);
-    *ret_nbytes = len;
+    *nbytes = len;
     return check_error(retval, errInfo);
 #elif defined(__FreeBSD__) || defined(__DragonFly__)
     off_t len = 0;

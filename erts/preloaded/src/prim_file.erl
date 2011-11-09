@@ -547,12 +547,13 @@ write_file(_, _) ->
 sendfile(#file_descriptor{module = ?MODULE, data = {Port, _}},
 	 DestFD, Offset, Bytes, ChunkSize, Headers, Trailers,
 	 Nodiskio, MNowait, Sync) ->
-
-    drv_command(Port, <<?FILE_SENDFILE, DestFD:32, Offset:64, Bytes:64,
-			ChunkSize:64,
+    drv_command(Port, <<?FILE_SENDFILE, DestFD:32,
 			(get_bit(Nodiskio)):1,
 			(get_bit(MNowait)):1,
 			(get_bit(Sync)):1,0:5,
+			Offset:64/unsigned,
+			Bytes:64/unsigned,
+			ChunkSize:64,
 			(encode_hdtl(Headers))/binary,
 			(encode_hdtl(Trailers))/binary>>).
 

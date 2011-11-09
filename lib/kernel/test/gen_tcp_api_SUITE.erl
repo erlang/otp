@@ -34,7 +34,8 @@
 	 t_recv_timeout/1, t_recv_eof/1,
 	 t_shutdown_write/1, t_shutdown_both/1, t_shutdown_error/1,
 	 t_fdopen/1, t_implicit_inet6/1,
-	 t_sendfile/0, t_sendfile/1, t_sendfile_hdtl/1, t_sendfile_partial/1,
+	 t_sendfile_small/1, t_sendfile_big/1,
+	 t_sendfile_hdtl/1, t_sendfile_partial/1,
 	 t_sendfile_offset/1]).
 
 -export([sendfile_server/1]).
@@ -56,7 +57,8 @@ groups() ->
      {t_sendfile_ioserv, [], sendfile_all()}].
 
 sendfile_all() ->
-    [t_sendfile,t_sendfile_hdtl, t_sendfile_partial, t_sendfile_offset].
+%    [t_sendfile,t_sendfile_hdtl, t_sendfile_partial, t_sendfile_offset].
+    [t_sendfile_big].
 
 init_per_suite(Config) ->
     Config.
@@ -66,19 +68,25 @@ end_per_suite(_Config) ->
 
 init_per_group(t_sendfile, Config) ->
     Priv = ?config(priv_dir, Config),
-    Filename = filename:join(Priv, "sendfile_small.html"),
-    {ok, D} = file:open(Filename,[write]),
-    io:format(D,"yo baby yo",[]),
-    file:sync(D),
-    file:close(D),
-    [{small_file, Filename}|Config];
+    SFilename = filename:join(Priv, "sendfile_small.html"),
+    {ok, DS} = file:open(SFilename,[write]),
+    io:format(DS,"yo baby yo",[]),
+    file:sync(DS),
+    file:close(DS),
+    BFilename = filename:join(Priv, "sendfile_big.html"),
+    {ok, DB} = file:open(BFilename,[write,raw]),
+    [file:write(DB,[<<0:(10*8*1024*1024)>>]) ||
+	_I <- lists:seq(1,51)],
+    file:sync(DB),
+    file:close(DB),
+    [{small_file, SFilename},{big_file, BFilename}|Config];
 init_per_group(t_sendfile_raw, Config) ->
     [{file_opts, [raw]}|Config];
 init_per_group(_GroupName, Config) ->
     Config.
 
 end_per_group(_GroupName, Config) ->
-    Config.
+    file:delete(proplists:get_value(big_file, Config)).
 
 
 init_per_testcase(_Func, Config) ->
@@ -258,12 +266,19 @@ implicit_inet6(S, Addr) ->
     ?line ok = gen_tcp:close(S2),
     ?line ok = gen_tcp:close(S1).
 
-
-t_sendfile() ->
-    [{timetrap, {seconds, 5}}].
-
-t_sendfile(Config) when is_list(Config) ->
+t_sendfile_small(Config) when is_list(Config) ->
     Filename = proplists:get_value(small_file, Config),
+
+    Send = fun(Sock) ->
+		   {Size, Data} = sendfile_file_info(Filename),
+		   {ok, Size} = gen_tcp:sendfile(Filename, Sock),
+		   Data
+	   end,
+
+    ok = sendfile_send(Send).
+
+t_sendfile_big(Config) when is_list(Config) ->
+    Filename = proplists:get_value(big_file, Config),
 
     Send = fun(Sock) ->
 		   {Size, Data} = sendfile_file_info(Filename),
@@ -281,7 +296,7 @@ t_sendfile_partial(Config) ->
 			 {_Size, <<Data:5/binary,_/binary>>} =
 			     sendfile_file_info(Filename),
 			 {ok,D} = file:open(Filename,[read|FileOpts]),
-			 {ok,5} = gen_tcp:sendfile(D,Sock,undefined,5,[]),
+			 {ok,5} = gen_tcp:sendfile(D,Sock,0,5,[]),
 			 file:close(D),
 			 Data
 		 end,
@@ -289,20 +304,24 @@ t_sendfile_partial(Config) ->
 
     {_Size, <<FData:5/binary,SData:3/binary,_/binary>>} =
 	sendfile_file_info(Filename),
-    {ok,D} = file:open(Filename,[read|FileOpts]),
+    {ok,D} = file:open(Filename,[read,binary|FileOpts]),
+    {ok, <<FData/binary>>} = file:read(D,5),
     FSend = fun(Sock) ->
-		    {ok,5} = gen_tcp:sendfile(D,Sock,undefined,5,[]),
+		    {ok,5} = gen_tcp:sendfile(D,Sock,0,5,[]),
 		    FData
 	    end,
 
     ok = sendfile_send(FSend),
 
     SSend = fun(Sock) ->
-		    {ok,3} = gen_tcp:sendfile(D,Sock,undefined,3,[]),
+		    {ok,3} = gen_tcp:sendfile(D,Sock,5,3,[]),
 		    SData
 	    end,
 
     ok = sendfile_send(SSend),
+
+    {ok, <<SData/binary>>} = file:read(D,3),
+
     file:close(D).
 
 t_sendfile_offset(Config) ->
@@ -330,7 +349,7 @@ t_sendfile_hdtl(Config) ->
 		   {ok,D} = file:open(Filename,[read|FileOpts]),
 		   AllSize = Size+HdtlSize,
 		   {ok, AllSize} = gen_tcp:sendfile(
-				     D, Sock,undefined,undefined,
+				     D, Sock,0,0,
 				     [{headers,Headers},
 				      {trailers,Trailers}]),
 		   file:close(D),
@@ -356,9 +375,9 @@ t_sendfile_hdtl(Config) ->
 
     SendTl = fun(Sock) ->
 		       Trailers = [<<"trailer1">>,"trailer2"],
-		       D = Send(Sock,Trailers,undefined,
+		       D = Send(Sock,undefined,Trailers,
 			    iolist_size([Trailers])),
-		       iolist_to_binary([Trailers,D])
+		       iolist_to_binary([D,Trailers])
 	       end,
     ok = sendfile_send(SendTl).
 

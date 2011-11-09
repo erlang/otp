@@ -314,14 +314,14 @@ unrecv(S, Data) when is_port(S) ->
 %% Send data using sendfile
 %%
 
--define(MAX_CHUNK_SIZE, (1 bsl 30)*2-1).
+-define(MAX_CHUNK_SIZE, (1 bsl 20)*20). %% 20 MB, has to fit in primary memory
 
 -spec sendfile(File, Sock, Offset, Bytes, Opts) ->
    {'ok', non_neg_integer()} | {'error', inet:posix()} when
       File :: file:io_device(),
       Sock :: socket(),
-      Offset :: non_neg_integer() | undefined,
-      Bytes :: non_neg_integer() | undefined,
+      Offset :: non_neg_integer(),
+      Bytes :: non_neg_integer(),
       Opts :: [sendfile_option()].
 sendfile(File, Sock, Offset, Bytes, Opts) when is_pid(File) ->
     Ref = erlang:monitor(process, File),
@@ -359,8 +359,7 @@ sendfile(File, Sock)  ->
 	{error, Reason} ->
 	    {error, Reason};
 	{ok, Fd} ->
-	    {ok, #file_info{size = Bytes}} = file:read_file_info(File),
-	    Res = sendfile(Fd, Sock, 0, Bytes, []),
+	    Res = sendfile(Fd, Sock, 0, 0, []),
 	    file:close(Fd),
 	    Res
     end.
@@ -461,21 +460,17 @@ sendfile_fallback(File, Sock, Offset, Bytes, ChunkSize, Headers, Trailers) ->
     end.
 
 
-sendfile_fallback(File, Sock, undefined, Bytes, ChunkSize) ->
-    sendfile_fallback_int(File, Sock, Bytes, ChunkSize, 0);
 sendfile_fallback(File, Sock, Offset, Bytes, ChunkSize) ->
-    {ok, CurrPos} = file:position(File, 0),
+    {ok, CurrPos} = file:position(File, {cur, 0}),
     {ok, _NewPos} = file:position(File, {bof, Offset}),
     Res = sendfile_fallback_int(File, Sock, Bytes, ChunkSize, 0),
     file:position(File, {bof, CurrPos}),
     Res.
 
 
-sendfile_fallback_int(_File, _Sock, BytesSent, _ChunkSize, BytesSent) ->
-    {ok, BytesSent};
 sendfile_fallback_int(File, Sock, Bytes, ChunkSize, BytesSent)
-  when Bytes > BytesSent; Bytes == undefined ->
-    Size = if Bytes == undefined ->
+  when Bytes > BytesSent; Bytes == 0 ->
+    Size = if Bytes == 0 ->
 		   ChunkSize;
 	       (Bytes - BytesSent + ChunkSize) > 0 ->
 		   Bytes - BytesSent;
@@ -496,7 +491,9 @@ sendfile_fallback_int(File, Sock, Bytes, ChunkSize, BytesSent)
 	    {ok, BytesSent};
 	Error ->
 	    Error
-    end.
+    end;
+sendfile_fallback_int(_File, _Sock, BytesSent, _ChunkSize, BytesSent) ->
+    {ok, BytesSent}.
 
 sendfile_send(Sock, Data, Old) ->
     Len = iolist_size(Data),
