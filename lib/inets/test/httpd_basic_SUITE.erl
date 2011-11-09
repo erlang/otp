@@ -272,29 +272,12 @@ find_URL_path([_ | Rest]) ->
 
 
 tsp(F) ->
-    tsp(F, []).
+    inets_test_lib:tsp(F).
 tsp(F, A) ->
-    test_server:format("~p ~p:" ++ F ++ "~n", [self(), ?MODULE | A]).
+    inets_test_lib:tsp(F, A).
 
-
-tsp(F) ->
-    tsp(F, []).
-tsp(F, A) ->
-    Timestamp = formated_timestamp(), 
-    test_server:format("** ~s ** ~p ~p:" ++ F ++ "~n", 
-		       [Timestamp, self(), ?MODULE | A]).
-
-formated_timestamp() ->
-    format_timestamp( os:timestamp() ).
-
-format_timestamp({_N1, _N2, N3} = Now) ->
-    {Date, Time}   = calendar:now_to_datetime(Now),
-    {YYYY,MM,DD}   = Date,
-    {Hour,Min,Sec} = Time,
-    FormatDate =
-        io_lib:format("~.4w:~.2.0w:~.2.0w ~.2.0w:~.2.0w:~.2.0w 4~w",
-                      [YYYY,MM,DD,Hour,Min,Sec,round(N3/1000)]),
-    lists:flatten(FormatDate).
+tsf(Reason) ->
+    test_server:fail(Reason).
 
 
 skip(Reason) ->

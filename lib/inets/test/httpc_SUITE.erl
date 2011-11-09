@@ -376,10 +376,10 @@ init_per_testcase(Case, Timeout, Config) ->
 	end,
     
     %% This will fail for the ipv6_ - cases (but that is ok)
-    httpc:set_options([{proxy, {{?PROXY, ?PROXY_PORT}, 
-     				["localhost", ?IPV6_LOCAL_HOST]}},
-		       {ipfamily, inet6fb4}]),
-
+    ProxyExceptions = ["localhost", ?IPV6_LOCAL_HOST], 
+    http:set_options([{proxy, {{?PROXY, ?PROXY_PORT}, ProxyExceptions}}]),
+    inets:enable_trace(max, io, httpc),
+    %% inets:enable_trace(max, io, all),
     %% snmp:set_trace([gen_tcp]),
     NewConfig.
 
@@ -395,13 +395,6 @@ init_per_testcase_ssl(Tag, PrivDir, SslConfFile, Config) ->
 	       filename:join(PrivDir, SslConfFile), Tag),
     tsp("init_per_testcase(~w) -> Server: ~p", [Tag, Server]),
     [{local_ssl_server, Server} | Config2].
-
-    ProxyExceptions = ["localhost", ?IPV6_LOCAL_HOST], 
-    http:set_options([{proxy, {{?PROXY, ?PROXY_PORT}, ProxyExceptions}}]),
-    inets:enable_trace(max, io, httpc),
-    %% inets:enable_trace(max, io, all),
-    %% snmp:set_trace([gen_tcp, inet_tcp, prim_inet]),
-    NewConfig.
 
 start_http_server(ConfDir, ConfFile) ->
     inets_test_lib:start_http_server( filename:join(ConfDir, ConfFile) ).
@@ -3522,23 +3515,9 @@ p(F, A) ->
     io:format("~p ~w:" ++ F ++ "~n", [self(), ?MODULE | A]).
 
 tsp(F) ->
-    tsp(F, []).
+    inets_test_lib:tsp(F).
 tsp(F, A) ->
-    Timestamp = formated_timestamp(), 
-    test_server:format("** ~s ** ~p ~p:" ++ F ++ "~n", 
-		       [Timestamp, self(), ?MODULE | A]).
-
-formated_timestamp() ->
-    format_timestamp( os:timestamp() ).
-
-format_timestamp({_N1, _N2, N3} = Now) ->
-    {Date, Time}   = calendar:now_to_datetime(Now),
-    {YYYY,MM,DD}   = Date,
-    {Hour,Min,Sec} = Time,
-    FormatDate =
-        io_lib:format("~.4w:~.2.0w:~.2.0w ~.2.0w:~.2.0w:~.2.0w 4~w",
-                      [YYYY,MM,DD,Hour,Min,Sec,round(N3/1000)]),
-    lists:flatten(FormatDate).
+    inets_test_lib:tsp(F, A).
 
 tsf(Reason) ->
     test_server:fail(Reason).
@@ -3593,3 +3572,6 @@ ensure_started(App) when is_atom(App) ->
 	    throw({error, {failed_starting, App, Error}})
     end.
 
+
+skip(Reason) ->
+    {skip, Reason}.
