@@ -252,3 +252,17 @@ obj:*/ssleay.*
    fun:start_thread
    fun:clone
 }
+
+{
+Prebuilt constant terms in os_info_init (PossiblyLost)
+Memcheck:Leak
+fun:malloc
+fun:erts_sys_alloc
+...
+fun:erts_alloc
+fun:os_info_init
+fun:erts_bif_info_init
+fun:erl_init
+fun:erl_start
+fun:main
+}
