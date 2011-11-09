@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -78,6 +78,7 @@ traverse_modules(ModData,[Module|Rest]) ->
 				[Module, Reason])),
 	    report_error(mod_log, ModData#mod.config_db, String),
 	    report_error(mod_disk_log, ModData#mod.config_db, String),
+	    send_status(ModData, 500, none),
 	    done;
 	done ->
 	    ?hdrt("traverse modules - done", []), 
