@@ -866,7 +866,7 @@ typedef struct {
     Eterm* fname_ptr;		/* Pointer to fname table */
 } FunctionInfo;
 
-int erts_load_module(Process *c_p, ErtsProcLocks c_p_locks,
+Eterm erts_load_module(Process *c_p, ErtsProcLocks c_p_locks,
 		     Eterm group_leader, Eterm* mod, byte* code, int size);
 void init_load(void);
 BeamInstr* find_function_from_pc(BeamInstr* pc);

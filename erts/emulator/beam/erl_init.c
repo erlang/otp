@@ -436,7 +436,7 @@ static void
 load_preloaded(void)
 {
     int i;
-    int res;
+    Eterm res;
     Preload* preload_p;
     Eterm module_name;
     byte* code;
@@ -455,8 +455,9 @@ load_preloaded(void)
 		     name);
 	res = erts_load_module(NULL, 0, NIL, &module_name, code, length);
 	sys_preload_end(&preload_p[i]);
-	if (res < 0)
-	    erl_exit(1,"Failed loading preloaded module %s\n", name);
+	if (res != NIL)
+	    erl_exit(1,"Failed loading preloaded module %s (%T)\n",
+		     name, res);
 	i++;
     }
 }

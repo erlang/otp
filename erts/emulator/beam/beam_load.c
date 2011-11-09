@@ -494,10 +494,10 @@ typedef struct {
   } while (0)
 
 
-static int bin_load(Process *c_p, ErtsProcLocks c_p_locks,
+static Eterm bin_load(Process *c_p, ErtsProcLocks c_p_locks,
 		    Eterm group_leader, Eterm* modp, byte* bytes, int unloaded_size);
 static void init_state(LoaderState* stp);
-static int insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
+static Eterm insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
 			   Eterm group_leader, Eterm module,
 			   BeamInstr* code, Uint size, BeamInstr catches);
 static int scan_iff_file(LoaderState* stp, Uint* chunk_types,
@@ -592,7 +592,7 @@ define_file(LoaderState* stp, char* name, int idx)
     stp->file_left = stp->chunks[idx].size;
 }
 
-int
+Eterm
 erts_load_module(Process *c_p,
 		 ErtsProcLocks c_p_locks,
 		 Eterm group_leader, /* Group leader or NIL if none. */
@@ -604,7 +604,7 @@ erts_load_module(Process *c_p,
 		 int size)	/* Size of code to load. */
 {
     ErlDrvBinary* bin;
-    int result;
+    Eterm result;
 
     if (size >= 4 && code[0] == 'F' && code[1] == 'O' &&
 	code[2] == 'R' && code[3] == '1') {
@@ -617,7 +617,7 @@ erts_load_module(Process *c_p,
 	 * The BEAM module is compressed (or possibly invalid/corrupted).
 	 */
 	if ((bin = (ErlDrvBinary *) erts_gzinflate_buffer((char*)code, size)) == NULL) {
-	    return -1;
+	    return am_badfile;
 	}
 	result = bin_load(c_p, c_p_locks, group_leader, modp,
 			  (byte*)bin->orig_bytes, bin->orig_size);
@@ -638,12 +638,12 @@ extern void check_allocated_block(Uint type, void *blk);
 #define CHKBLK(TYPE,BLK) /* nothing */
 #endif
 
-static int
+static Eterm
 bin_load(Process *c_p, ErtsProcLocks c_p_locks,
 	 Eterm group_leader, Eterm* modp, byte* bytes, int unloaded_size)
 {
     LoaderState state;
-    int rval = -1;
+    Eterm retval = am_badfile;
 
     init_state(&state);
     state.module = *modp;
@@ -793,9 +793,9 @@ bin_load(Process *c_p, ErtsProcLocks c_p_locks,
      */
     
     CHKBLK(ERTS_ALC_T_CODE,state.code);
-    rval = insert_new_code(c_p, c_p_locks, state.group_leader, state.module,
-			   state.code, state.loaded_size, state.catches);
-    if (rval < 0) {
+    retval = insert_new_code(c_p, c_p_locks, state.group_leader, state.module,
+			     state.code, state.loaded_size, state.catches);
+    if (retval != NIL) {
 	goto load_error;
     }
     CHKBLK(ERTS_ALC_T_CODE,state.code);
@@ -811,7 +811,6 @@ bin_load(Process *c_p, ErtsProcLocks c_p_locks,
     debug_dump_code(state.code,state.ci);
 #endif
 #endif
-    rval = 0;
     state.code = NULL;		/* Prevent code from being freed. */
     *modp = state.module;
 
@@ -820,7 +819,7 @@ bin_load(Process *c_p, ErtsProcLocks c_p_locks,
      * indicate that the on_load function must be run.
      */
     if (state.on_load) {
-	rval = -5;
+	retval = am_on_load;
     }
 
  load_error:
@@ -883,7 +882,7 @@ bin_load(Process *c_p, ErtsProcLocks c_p_locks,
 	erts_free(ERTS_ALC_T_LOADER_TMP, state.fname);
     }
 
-    return rval;
+    return retval;
 }
 
 
@@ -919,21 +918,22 @@ init_state(LoaderState* stp)
     stp->fname = 0;
 }
 
-static int
+static Eterm
 insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
-		Eterm group_leader, Eterm module, BeamInstr* code, Uint size, BeamInstr catches)
+		Eterm group_leader, Eterm module, BeamInstr* code,
+		Uint size, BeamInstr catches)
 {
     Module* modp;
-    int rval;
+    Eterm retval;
     int i;
 
-    if ((rval = beam_make_current_old(c_p, c_p_locks, module)) < 0) {
+    if ((retval = beam_make_current_old(c_p, c_p_locks, module)) < 0) {
 	erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
 	erts_dsprintf(dsbufp,
 		      "Module %T must be purged before loading\n",
 		      module);
 	erts_send_error_to_logger(group_leader, dsbufp);
-	return rval;
+	return retval;
     }
 
     /*
@@ -966,7 +966,7 @@ insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
     modules[i].end = (BeamInstr *) (((byte *)code) + size);
     num_loaded_modules++;
     mid_module = &modules[num_loaded_modules/2];
-    return 0;
+    return NIL;
 }
 
 static int
@@ -5889,7 +5889,7 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
 
     rval = insert_new_code(p, 0, p->group_leader, Mod, code, code_size,
 			   BEAM_CATCHES_NIL);
-    if (rval < 0) {
+    if (rval != NIL) {
 	goto error;
     }
 
