@@ -1,14 +1,8 @@
 %%
 %% %CopyrightBegin%
-<<<<<<< HEAD
-%%
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
-%%
-=======
 %% 
 %% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %% 
->>>>>>> bmk/inets/httpd/xss_when_erl_encoded/r13/OTP-9655
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
