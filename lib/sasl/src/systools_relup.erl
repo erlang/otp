@@ -205,7 +205,13 @@ do_mk_relup(TopRelFile, BaseUpRelDcs, BaseDnRelDcs, Path, Opts) ->
 	%% TopRel = #release
 	%% NameVsnApps = [{{Name, Vsn}, #application}]
 	{ok, TopRel, NameVsnApps, Ws0} ->
-	    %%
+	    case lists:member({warning,missing_sasl},Ws0) of
+		true ->
+		    throw({error,?MODULE,{missing_sasl,TopRel}});
+		false ->
+		    ok
+	    end,
+
 	    %% TopApps = [#application]
 	    TopApps = lists:map(fun({_, App}) -> App end, NameVsnApps),
 
@@ -252,7 +258,21 @@ foreach_baserel_up(TopRel, TopApps, [BaseRelDc|BaseRelDcs], Path, Opts,
 	       Ws, Acc) ->
     BaseRelFile = extract_filename(BaseRelDc),
 
-    {ok, BaseRel} = systools_make:read_release(BaseRelFile, Path),
+    {BaseRel, {BaseNameVsns, BaseApps}, Ws0} =
+	case systools_make:get_release(BaseRelFile, Path) of
+	    {ok, BR, NameVsnApps, Warns} ->
+		case lists:member({warning,missing_sasl},Warns) of
+		    true ->
+			throw({error,?MODULE,{missing_sasl,BR}});
+		    false ->
+			%% NameVsnApps = [{{Name,Vsn},#application}]
+			%% Gives two lists - [{Name,Vsn}] and [#application]
+			{BR,lists:unzip(NameVsnApps),Warns}
+		end;
+	    Other1 ->
+		throw(Other1)
+	end,
+
 
     %%
     %% BaseRel = #release
@@ -262,23 +282,13 @@ foreach_baserel_up(TopRel, TopApps, [BaseRelDc|BaseRelDcs], Path, Opts,
     %% application, one for each added applications, and one for
     %% each removed applications.
     %%
-    {RUs1, Ws1} = collect_appup_scripts(up, TopApps, BaseRel, Ws, []),
+    {RUs1, Ws1} = collect_appup_scripts(up, TopApps, BaseRel, Ws0++Ws, []),
 
     {RUs2, Ws2} = create_add_app_scripts(BaseRel, TopRel, RUs1, Ws1),
 
     {RUs3, Ws3} = create_remove_app_scripts(BaseRel, TopRel, RUs2, Ws2),
 
     {RUs4, Ws4} = check_for_emulator_restart(TopRel, BaseRel, RUs3, Ws3, Opts),
-
-    {BaseNameVsns,BaseApps} =
-	case systools_make:get_release(BaseRelFile, Path) of
-	    {ok, _, NameVsnApps, _Warns} ->
-		%% NameVsnApps = [{{Name,Vsn},#application}]
-		%% Gives two lists - [{Name,Vsn}] and [#application]
-		lists:unzip(NameVsnApps);
-	    Other1 ->
-		throw(Other1)
-	end,
 
     case systools_rc:translate_scripts(up, RUs4, TopApps, BaseApps) of
 	{ok, RUs5} ->
@@ -303,41 +313,41 @@ foreach_baserel_dn(TopRel, TopApps, [BaseRelDc|BaseRelDcs], Path, Opts,
 	       Ws, Acc) ->
     BaseRelFile = extract_filename(BaseRelDc),
 
-    {ok, BaseRel} = systools_make:read_release(BaseRelFile, Path),
+    {BaseRel, BaseApps, Ws0} =
+	case systools_make:get_release(BaseRelFile, Path) of
+	    %%
+	    %% NameVsnApps = [{{Name, Vsn}, #application}]
+	    {ok, BR, NameVsnApps, Warns} ->
+		case lists:member({warning,missing_sasl},Warns) of
+		    true ->
+			throw({error,?MODULE,{missing_sasl,BR}});
+		    false ->
+			%% NApps = [#application]
+			NApps = lists:map(fun({_,App}) -> App end, NameVsnApps),
+			{BR, NApps, Warns}
+		end;
+	    Other ->
+		throw(Other)
+	end,
 
     %% BaseRel = #release
 
     %% RUs = (release upgrade scripts)
     %%
-    {RUs1, Ws1} = collect_appup_scripts(dn, TopApps, BaseRel, Ws, []),
+    {RUs1, Ws1} = collect_appup_scripts(dn, TopApps, BaseRel, Ws0++Ws, []),
 
-    {BaseApps, Ws2} =
-	case systools_make:get_release(BaseRelFile, Path) of
-	    %%
-	    %% NameVsnApps = [{{Name, Vsn}, #application}]
-	    {ok, _, NameVsnApps, Warns} ->
-		%%
-		%% NApps = [#application]
-		NApps = lists:map(fun({_,App}) -> App end, NameVsnApps),
-		{NApps, Warns ++ Ws1};
-	    Other ->
-		throw(Other)
-	end,
+    {RUs2, Ws2} = create_add_app_scripts(TopRel, BaseRel, RUs1, Ws1),
 
-    RUs2 = RUs1,
+    {RUs3, Ws3} = create_remove_app_scripts(TopRel, BaseRel, RUs2, Ws2),
 
-    {RUs3, Ws3} = create_add_app_scripts(TopRel, BaseRel, RUs2, Ws2),
+    {RUs4, Ws4} = check_for_emulator_restart(TopRel, BaseRel, RUs3, Ws3, Opts),
 
-    {RUs4, Ws4} = create_remove_app_scripts(TopRel, BaseRel, RUs3, Ws3),
-
-    {RUs5, Ws5} = check_for_emulator_restart(TopRel, BaseRel, RUs4, Ws4, Opts),
-
-    case systools_rc:translate_scripts(dn, RUs5, BaseApps, TopApps) of
+    case systools_rc:translate_scripts(dn, RUs4, BaseApps, TopApps) of
 	{ok, RUs} ->
 	    VDR = {BaseRel#release.vsn,
 		   extract_description(BaseRelDc), RUs},
 	    foreach_baserel_dn(TopRel, TopApps, BaseRelDcs, Path, 
-			       Opts, Ws5, [VDR| Acc]);
+			       Opts, Ws4, [VDR| Acc]);
 	XXX -> 
 	    throw(XXX)
     end;
@@ -598,7 +608,9 @@ format_error({no_relup, File, App, Vsn}) ->
 		  "in file ~p~n",
 		  [App#application.name, App#application.vsn, 
 		   App#application.name, Vsn, File]);
-
+format_error({missing_sasl,Release}) ->
+    io_lib:format("No sasl application in release ~p, ~p. Can not be upgraded.",
+		  [Release#release.name, Release#release.vsn]);
 format_error(Error) ->
     io:format("~p~n", [Error]).
 

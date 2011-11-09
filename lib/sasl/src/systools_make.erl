@@ -364,13 +364,13 @@ get_release(File, Path, ModTestP, Machine) ->
     end.
 	
 get_release1(File, Path, ModTestP, Machine) ->
-    {ok, Release} = read_release(File, Path),
+    {ok, Release, Warnings1} = read_release(File, Path),
     {ok, Appls0} = collect_applications(Release, Path),
     {ok, Appls1} = check_applications(Appls0),
     {ok, Appls2} = sort_included_applications(Appls1, Release), % OTP-4121
-    {ok, Warnings} = check_modules(Appls2, Path, ModTestP, Machine),
+    {ok, Warnings2} = check_modules(Appls2, Path, ModTestP, Machine),
     {ok, Appls} = sort_appls(Appls2),
-    {ok, Release, Appls, Warnings}.
+    {ok, Release, Appls, Warnings1 ++ Warnings2}.
 
 %%______________________________________________________________________
 %% read_release(File, Path) -> {ok, #release} | throw({error, What})
@@ -385,11 +385,12 @@ read_release(File, Path) ->
 
 check_rel(Release) ->
     case catch check_rel1(Release) of
-	{ok, {Name,Vsn,Evsn,Appl,Incl}} ->
+	{ok, {Name,Vsn,Evsn,Appl,Incl}, Ws} ->
 	    {ok, #release{name=Name, vsn=Vsn,
 			  erts_vsn=Evsn,
 			  applications=Appl,
-			  incl_apps=Incl}};
+			  incl_apps=Incl},
+	    Ws};
 	{error, Error} ->
 	    throw({error,?MODULE,Error});
 	Error ->
@@ -400,8 +401,8 @@ check_rel1({release,{Name,Vsn},{erts,EVsn},Appl}) when is_list(Appl) ->
     check_name(Name),
     check_vsn(Vsn),
     check_evsn(EVsn),
-    {Appls,Incls} = check_appl(Appl),
-    {ok, {Name,Vsn,EVsn,Appls,Incls}};
+    {{Appls,Incls},Ws} = check_appl(Appl),
+    {ok, {Name,Vsn,EVsn,Appls,Incls},Ws};
 check_rel1(_) ->
     {error, badly_formatted_release}.
 
@@ -454,8 +455,8 @@ check_appl(Appl) ->
 		end,
 		Appl) of
 	[] ->
-	    mandatory_applications(Appl),
-	    split_app_incl(Appl);
+	    {ok,Ws} = mandatory_applications(Appl),
+	    {split_app_incl(Appl),Ws};
 	Illegal ->
 	    throw({error, {illegal_applications,Illegal}})
     end.
@@ -466,7 +467,12 @@ mandatory_applications(Appl) ->
     Mand = mandatory_applications(),
     case filter(fun(X) -> member(X, AppNames) end, Mand) of
 	Mand ->
-	    ok;
+	    case member(sasl,AppNames) of
+		true ->
+		    {ok,[]};
+		_ ->
+		    {ok, [{warning,missing_sasl}]}
+	    end;
 	_ ->
 	    throw({error, {missing_mandatory_app, Mand}})
     end.
@@ -2312,5 +2318,9 @@ form_warn(Prefix, {exref_undef, Undef}) ->
 			      [Prefix,M,F,A])
 	end,
     map(F, Undef);
+form_warn(Prefix, missing_sasl) ->
+    io_lib:format("~s: Missing application sasl. "
+		  "Can not upgrade with this release~n",
+		  [Prefix]);
 form_warn(Prefix, What) ->
     io_lib:format("~s ~p~n", [Prefix,What]).
