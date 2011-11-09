@@ -2571,24 +2571,24 @@ ticket_5913(doc) ->
     ["Tests that a header without last-modified is handled"];
 ticket_5913(suite) -> [];
 ticket_5913(Config) ->
-    ok=httpd_test_lib:verify_request(ip_comm, ?config(host, Config),
-				     ?IP_PORT, ?config(node, Config),
+    ok = httpd_test_lib:verify_request(ip_comm, ?config(host, Config),
+				       ?IP_PORT, ?config(node, Config),
 				       "GET /cgi-bin/erl/httpd_example:get_bin "
 				       "HTTP/1.0\r\n\r\n", 
 				       [{statuscode, 200},
-				       {version, "HTTP/1.0"}]),
+					{version, "HTTP/1.0"}]),
     ok.
 
 ticket_6003(doc) ->
     ["Tests that a URI with a bad hexadecimal code is handled"];
 ticket_6003(suite) -> [];
 ticket_6003(Config) ->
-    ok=httpd_test_lib:verify_request(ip_comm, ?config(host, Config),
-				     ?IP_PORT, ?config(node, Config),
-				     "GET http://www.erlang.org/%skalle "
-				     "HTTP/1.0\r\n\r\n",
-				     [{statuscode, 400},
-				      {version, "HTTP/1.0"}]),
+    ok = httpd_test_lib:verify_request(ip_comm, ?config(host, Config),
+				       ?IP_PORT, ?config(node, Config),
+				       "GET http://www.erlang.org/%skalle "
+				       "HTTP/1.0\r\n\r\n",
+				       [{statuscode, 400},
+					{version, "HTTP/1.0"}]),
     ok.
 
 ticket_7304(doc) ->
