@@ -20,8 +20,8 @@
 -behaviour(wx_object).
 
 -export([start/0]).
--export([create_menus/2, create_txt_dialog/4, try_rpc/4,
-	 return_to_localnode/2]).
+-export([create_menus/2, get_attrib/1,
+	 create_txt_dialog/4, try_rpc/4, return_to_localnode/2]).
 
 -export([init/1, handle_event/2, handle_cast/2, terminate/2, code_change/3,
 	 handle_call/3, handle_info/2, check_page_title/1]).
@@ -62,6 +62,9 @@ start() ->
 create_menus(Object, Menus) when is_list(Menus) ->
     wx_object:call(Object, {create_menus, Menus}).
 
+get_attrib(What) ->
+    wx_object:call(observer, {get_attrib, What}).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -79,6 +82,7 @@ init(_Args) ->
     wxFrame:show(Frame),
     net_kernel:monitor_nodes(true),
     process_flag(trap_exit, true),
+    register(observer, self()),
     {Frame, UpdState}.
 
 setup(#state{frame = Frame} = State) ->
@@ -133,16 +137,19 @@ setup(#state{frame = Frame} = State) ->
 			   node  = node(),
 			   nodes = Nodes
 			  },
+    %% Create resources which we don't want to duplicate
+    SysFont = wxSystemSettings:getFont(?wxSYS_DEFAULT_GUI_FONT),
+    SysFontSize = wxFont:getPointSize(SysFont),
+    Modern = wxFont:new(SysFontSize, ?wxFONTFAMILY_MODERN, ?wxFONTSTYLE_NORMAL, ?wxFONTWEIGHT_NORMAL),
+    put({font, modern}, Modern),
     UpdState.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%Callbacks
-handle_event(#wx{obj = Notebook, id = ?ID_NOTEBOOK,
-		 event = Ev = #wxNotebook{type = command_notebook_page_changing}},
-	     #state{active_tab=Previous, node=Node, notebook = Notebook} = State) ->
-    io:format("Command notebook changed ~p ~n", [Ev]),
+handle_event(#wx{event=#wxNotebook{type=command_notebook_page_changing}},
+	     #state{active_tab=Previous, node=Node} = State) ->
     Pid = get_active_pid(State),
     Previous ! not_active,
     Pid ! {active, Node},
@@ -232,8 +239,7 @@ handle_event(Event, State) ->
     Pid ! Event,
     {noreply, State}.
 
-handle_cast(Cast, State) ->
-    io:format("~p:~p: Got cast ~p~n", [?MODULE, ?LINE, Cast]),
+handle_cast(_Cast, State) ->
     {noreply, State}.
 
 handle_call({create_menus, TabMenus}, _From,
@@ -244,8 +250,10 @@ handle_call({create_menus, TabMenus}, _From,
 	     end),
     {reply, ok, State#state{menus=TabMenus}};
 
-handle_call(Msg, _From, State) ->
-    io:format("~p~p: Got Call ~p~n",[?MODULE, ?LINE, Msg]),
+handle_call({get_attrib, Attrib}, _From, State) ->
+    {reply, get(Attrib), State};
+
+handle_call(_Msg, _From, State) ->
     {reply, ok, State}.
 
 handle_info({nodeup, _Node}, State) ->
@@ -265,13 +273,11 @@ handle_info({nodedown, Node},
     create_txt_dialog(Frame, Msg, "Node down", ?wxICON_EXCLAMATION),
     {noreply, State3};
 
-handle_info(Info, State) ->
-    io:format("~p, ~p, Handle info: ~p~n", [?MODULE, ?LINE, Info]),
+handle_info(_Info, State) ->
     {noreply, State}.
 
-terminate(Reason, #state{frame = Frame}) ->
+terminate(_Reason, #state{frame = Frame}) ->
     wxFrame:destroy(Frame),
-    io:format("~p terminating. Reason: ~p~n", [?MODULE, Reason]),
     ok.
 
 code_change(_, _, State) ->

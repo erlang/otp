@@ -59,8 +59,10 @@ init2([Notebook, Parent]) ->
     {Info, Stat} = info_fields(),
     Panel = wxPanel:new(Notebook),
     Sizer = wxBoxSizer:new(?wxHORIZONTAL),
-    {FPanel0, _FSizer0, Fields0} = observer_lib:display_info(Panel, fill_info(Info, SysInfo)),
-    {FPanel1, _FSizer1, Fields1} = observer_lib:display_info(Panel, fill_info(Stat, SysInfo)),
+    {FPanel0, _FSizer0, Fields0} =
+	observer_lib:display_info(Panel, observer_lib:fill_info(Info, SysInfo)),
+    {FPanel1, _FSizer1, Fields1} =
+	observer_lib:display_info(Panel, observer_lib:fill_info(Stat, SysInfo)),
     wxSizer:add(Sizer, FPanel0, [{flag, ?wxEXPAND bor ?wxTOP bor ?wxBOTTOM bor ?wxLEFT},
 				 {proportion, 1}, {border, 5}]),
     wxSizer:add(Sizer, FPanel1, [{flag, ?wxEXPAND bor ?wxTOP bor ?wxBOTTOM bor ?wxRIGHT},
@@ -81,7 +83,8 @@ update_syspage(#sys_wx_state{node = Node, fields=Fields, sizer=Sizer}) ->
     try
     SysInfo = observer_wx:try_rpc(Node, ?MODULE, sys_info, []),
     {Info, Stat} = info_fields(),
-    observer_lib:update_info(Fields, fill_info(Info, SysInfo) ++ fill_info(Stat, SysInfo)),
+    observer_lib:update_info(Fields, observer_lib:fill_info(Info, SysInfo) ++
+				 observer_lib:fill_info(Stat, SysInfo)),
     wxSizer:layout(Sizer)
     catch E:R ->
 	    io:format("~p:~p ~p~n",[E,R, erlang:get_stacktrace()])
@@ -123,14 +126,6 @@ info_fields() ->
 	     ]}
 	   ],
     {Info, Stat}.
-
-fill_info([{Str, Key}|Rest], Data) when is_atom(Key) ->
-    [{Str, proplists:get_value(Key,Data)} | fill_info(Rest, Data)];
-fill_info([{Str,SubStructure}|Rest], Data) ->
-    [{Str, fill_info(SubStructure, Data)}|fill_info(Rest,Data)];
-fill_info([{Str,Attrib,SubStructure}|Rest], Data) ->
-    [{Str, Attrib, fill_info(SubStructure, Data)}|fill_info(Rest,Data)];
-fill_info([], _) -> [].
 
 %%%%%%%%%%%%%%%%%%%%%%% Callbacks %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

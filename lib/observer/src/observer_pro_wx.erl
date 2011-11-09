@@ -233,14 +233,14 @@ dump_to_file(Parent, FileName, Holder) ->
 	    wxDialog:destroy(MD)
     end.
 
-start_procinfo(_Node, undefined, _Frame, Opened) ->
+start_procinfo(undefined, _Frame, Opened) ->
     Opened;
-start_procinfo(Node, Pid, Frame, Opened) ->
+start_procinfo(Pid, Frame, Opened) ->
     case lists:member(Pid, Opened) of
 	true ->
 	    Opened;
 	false ->
-	    observer_procinfo:start(Node, Pid, Frame, self()),
+	    observer_procinfo:start(Pid, Frame, self()),
 	    [Pid | Opened]
     end.
 
@@ -356,23 +356,21 @@ handle_event(#wx{id=?ID_KILL},
     {noreply, State#state{sel={Ids,Pids}}};
 
 
-handle_event(#wx{id=?ID_PROC},
+handle_event(#wx{id = ?ID_PROC},
 	     #state{panel=Panel,
 		    popup_menu=Pop,
-		    holder=Holder,
 		    sel={_, [Pid|_]},
 		    procinfo_menu_pids=Opened}=State) ->
     wxWindow:show(Pop, [{show, false}]),
-    Node = call(Holder, {get_node, self()}),
-    Opened2 = start_procinfo(Node, Pid, Panel, Opened),
+    Opened2 = start_procinfo(Pid, Panel, Opened),
     {noreply, State#state{procinfo_menu_pids=Opened2}};
 
-handle_event(#wx{id=?ID_TRACEMENU},
+handle_event(#wx{id = ?ID_TRACEMENU},
 	     #state{holder=Holder,
 		    popup_menu=Pop,
 		    trace_options=Options,
 		    match_specs=MatchSpecs,
-		    sel=Pids,
+		    sel={_, Pids},
 		    tracemenu_opened=false,
 		    panel=Panel}=State)  ->
     wxWindow:show(Pop, [{show, false}]),
@@ -471,15 +469,13 @@ handle_event(#wx{event=#wxList{type=command_list_col_click, col=Col}},
 
 handle_event(#wx{event=#wxList{type=command_list_item_activated}},
 	     #state{panel=Panel, procinfo_menu_pids=Opened,
-		    holder=Holder,
 		    sel={_, [Pid|_]}}=State)
   when Pid =/= undefined ->
-    Node = call(Holder, {get_node, self()}),
-    Opened2=start_procinfo(Node, Pid, Panel, Opened),
+    Opened2 = start_procinfo(Pid, Panel, Opened),
     {noreply, State#state{procinfo_menu_pids=Opened2}};
 
 handle_event(Event, State) ->
-    io:format("~p~p, handle event ~p\n", [?MODULE, ?LINE, Event]),
+    io:format("~p:~p: handle event ~p\n", [?MODULE, ?LINE, Event]),
     {noreply, State}.
 
 

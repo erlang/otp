@@ -21,7 +21,7 @@
 -export([get_wx_parent/1,
 	 display_info_dialog/1,
 	 interval_dialog/4, start_timer/1, stop_timer/1,
-	 display_info/2, update_info/2, to_str/1,
+	 display_info/2, fill_info/2, update_info/2, to_str/1,
 	 create_menus/3, create_menu_item/3,
 	 create_attrs/0
 	]).
@@ -117,6 +117,22 @@ display_info(Frame, Info) ->
     wxWindow:setSizerAndFit(Panel, Sizer),
     {Panel, Sizer, InfoFs}.
 
+fill_info([{Str, Key}|Rest], Data) when is_atom(Key); is_function(Key) ->
+    [{Str, get_value(Key, Data)} | fill_info(Rest, Data)];
+fill_info([{Str, {Format, Key}}|Rest], Data)
+  when is_atom(Key); is_function(Key), is_atom(Format) ->
+    [{Str, {Format, get_value(Key,Data)}} | fill_info(Rest, Data)];
+fill_info([{Str,SubStructure}|Rest], Data) when is_list(SubStructure) ->
+    [{Str, fill_info(SubStructure, Data)}|fill_info(Rest,Data)];
+fill_info([{Str,Attrib,SubStructure}|Rest], Data) ->
+    [{Str, Attrib, fill_info(SubStructure, Data)}|fill_info(Rest,Data)];
+fill_info([], _) -> [].
+
+get_value(Key, Data) when is_atom(Key) ->
+    proplists:get_value(Key,Data);
+get_value(Fun, Data) when is_function(Fun) ->
+    Fun(Data).
+
 update_info([Fields|Fs], [{_Header, SubStructure}| Rest]) ->
     update_info2(Fields, SubStructure),
     update_info(Fs, Rest);
@@ -154,9 +170,9 @@ to_str({time_ms, MS}) ->
 	true -> integer_to_list(S) ++ " Secs"
     end;
 
-to_str({A, B}) ->
+to_str({A, B}) when is_atom(A), is_atom(B) ->
     lists:concat([A, ":", B]);
-to_str({M,F,A}) ->
+to_str({M,F,A}) when is_atom(M), is_atom(F), is_integer(A) ->
     lists:concat([M, ":", F, "/", A]);
 to_str(Value) when is_list(Value) ->
     case lists:all(fun(X) -> is_integer(X) end, Value) of
@@ -172,8 +188,8 @@ to_str(Pid) when is_pid(Pid) ->
     pid_to_list(Pid);
 to_str(No) when is_integer(No) ->
     integer_to_list(No);
-to_str(ShouldNotGetHere) ->
-    erlang:error({?MODULE, to_str, ShouldNotGetHere}).
+to_str(Term) ->
+    io_lib:format("~w", [Term]).
 
 create_menus(Menus, MenuBar, Type) ->
     Add = fun({Tag, Ms}, Index) ->

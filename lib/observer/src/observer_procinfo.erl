@@ -20,7 +20,7 @@
 
 -behaviour(wx_object).
 
--export([start/4]).
+-export([start/3]).
 
 -export([init/1, handle_event/2, handle_cast/2, terminate/2, code_change/3,
 	 handle_call/3, handle_info/2]).
@@ -28,452 +28,78 @@
 -include_lib("wx/include/wx.hrl").
 -include("observer_defs.hrl").
 
--define(CLOSE, 601).
--define(REFRESH, 602).
+-define(REFRESH, 601).
 -define(SELECT_ALL, 603).
 -define(ID_NOTEBOOK, 604).
 
--record(procinfo_state, {parent,
-			 frame,
-			 node,
-			 pid,
-			 module,
-			 procinfo_stc,
-			 modinfo_stc,
-			 modcode_stc,
-			 checklistbox,
-			 current_view, % proc_info::atom | module_info::atom | module_code::atom
-			 itemlist = [{backtrace, false},
-				     {binary, false},
-				     {catchlevel, false},
-				     {current_function, false},
-				     {dictionary, false},
-				     {error_handler, true},
-				     {garbage_collection, true},
-				     {group_leader, true},
-				     {heap_size, true},
-				     {initial_call, false},
-				     {last_calls, false},
-				     {links, true},
-				     {memory, false},
-				     {message_queue_len, true},
-				     {messages, false},
-				     {monitored_by, false},
-				     {monitors, false},
-				     {priority, true},
-				     {reductions, false},
-				     {registered_name, false},
-				     {sequential_trace_token, false},
-				     {stack_size, false},
-				     {status, false},
-				     {suspending, false},
-				     {total_heap_size, false},
-				     {trace, false},
-				     {trap_exit,true}]
-			}).
+-record(state, {parent,
+		frame,
+		pid,
+		pages=[]
+	       }).
 
+-record(worker, {panel, callback}).
 
-
-
-start(Node, Process, ParentFrame, Parent) ->
-    wx_object:start(?MODULE, [Node, Process, ParentFrame, Parent], []).
+start(Process, ParentFrame, Parent) ->
+    wx_object:start(?MODULE, [Process, ParentFrame, Parent], []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-init([Node, Process, ParentFrame, Parent]) ->
+init([Pid, ParentFrame, Parent]) ->
     try
-	State = #procinfo_state{parent = Parent,
-				node = Node,
-				pid = Process,
-				current_view = proc_info
-			       },
-	ItemList = State#procinfo_state.itemlist,
-	Name = case observer_wx:try_rpc(Node, erlang, process_info, [Process, registered_name]) of
-		   [] ->
-		       undefined;
-		   {registered_name, M} ->
-		       M
-	       end,
-	{initial_call, {Module, _, _}} = observer_wx:try_rpc(Node, erlang, process_info, [Process, initial_call]),
-	{Frame, ProcStc, CheckListBox, ModInfoStc, ModCodeStc} = setup(ParentFrame, Node, Process, ItemList, Module, Name),
-	{Frame, State#procinfo_state{frame = Frame,
-				     module = Module,
-				     procinfo_stc = ProcStc,
-				     modinfo_stc = ModInfoStc,
-				     modcode_stc = ModCodeStc,
-				     checklistbox = CheckListBox}}
+	Title=case observer_wx:try_rpc(node(Pid), erlang, process_info, [Pid, registered_name]) of
+		  [] -> io_lib:format("~p",[Pid]);
+		  {registered_name, Registered} -> atom_to_list(Registered)
+	      end,
+	Frame=wxFrame:new(ParentFrame, ?wxID_ANY, [atom_to_list(node(Pid)), $:, Title],
+			  [{style, ?wxDEFAULT_FRAME_STYLE}, {size, {800,700}}]),
+	MenuBar = wxMenuBar:new(),
+	create_menus(MenuBar),
+	wxFrame:setMenuBar(Frame, MenuBar),
+
+	Notebook = wxNotebook:new(Frame, ?ID_NOTEBOOK, [{style, ?wxBK_DEFAULT}]),
+
+	ProcessPage = init_panel(Notebook, "Process Information", Pid, fun init_process_page/2),
+	MessagePage = init_panel(Notebook, "Messages", Pid, fun init_message_page/2),
+	DictPage    = init_panel(Notebook, "Dictionary", Pid, fun init_dict_page/2),
+	StackPage   = init_panel(Notebook, "Stack Trace", Pid, fun init_stack_page/2),
+
+	wxFrame:connect(Frame, close_window),
+	wxMenu:connect(Frame, command_menu_selected),
+	%% wxNotebook:connect(Notebook, command_notebook_page_changed, [{skip,true}]),
+	wxFrame:show(Frame),
+	{Frame, #state{parent=Parent,
+		       pid=Pid,
+		       frame=Frame,
+		       pages=[ProcessPage,MessagePage,DictPage,StackPage]
+		      }}
     catch error:{badrpc, _} ->
-	    observer_wx:return_to_localnode(ParentFrame, Node),
-	    {stop, badrpc, #procinfo_state{parent = Parent,
-					   pid = Process}}
+	    observer_wx:return_to_localnode(ParentFrame, node(Pid)),
+	    {stop, badrpc, #state{parent=Parent, pid=Pid}};
+	  Error:Reason ->
+	    io:format("~p:~p: ~p ~p~n ~p~n",
+		      [?MODULE, ?LINE, Error, Reason, erlang:get_stacktrace()])
     end.
 
-
-setup(ParentFrame, Node, Pid, ItemList, Module, Name) ->
-    Title = case Name of
-		undefined ->
-		    atom_to_list(Node) ++ ":" ++ atom_to_list(Module);
-		Name ->
-		    atom_to_list(Node) ++ ":" ++ atom_to_list(Name)
-	    end,
-    Frame = wxFrame:new(ParentFrame, ?wxID_ANY, Title,
-			[{style, ?wxDEFAULT_FRAME_STYLE},
-			 {size, {900,900}}]),
-    Panel = wxPanel:new(Frame, []),
-    MainSz = wxBoxSizer:new(?wxHORIZONTAL),
-    Notebook = wxNotebook:new(Panel, ?ID_NOTEBOOK, [{style, ?wxBK_DEFAULT}]),
-    wxNotebook:connect(Notebook, command_notebook_page_changed),
-    {CodePanel, CheckListBox, CodeStc} = create_procinfo_page(Notebook, Node, Pid, ItemList),
-    {ModInfoPanel, ModInfoStc} = create_page(Notebook, Node, Module, module_info),
-    {ModCodePanel, ModCodeStc} = create_page(Notebook, Node, Module, module_code),
-    wxNotebook:addPage(Notebook, CodePanel, "Process information", []),
-    wxNotebook:addPage(Notebook, ModInfoPanel, "Module information", []),
-    wxNotebook:addPage(Notebook, ModCodePanel, "Module code", []),
-    MenuBar = wxMenuBar:new(),
-    create_menus(MenuBar),
-    wxWindow:setSizer(Panel, MainSz),
-    wxSizer:add(MainSz, Notebook, [{flag, ?wxEXPAND}, {proportion, 1}]),
-    wxFrame:setMenuBar(Frame, MenuBar),
-    wxFrame:show(Frame),
-    wxFrame:connect(Frame, close_window),
-    wxMenu:connect(Frame, command_menu_selected),
-    {Frame, CodeStc, CheckListBox, ModInfoStc, ModCodeStc}.
-
-
-create_procinfo_page(Notebook, Node, Pid, ItemList) ->
-    Panel = wxPanel:new(Notebook),
-    MainSz = wxBoxSizer:new(?wxHORIZONTAL),
-    CheckSz = wxStaticBoxSizer:new(?wxVERTICAL, Panel, [{label, "View"}]),
-    BtnSz = wxBoxSizer:new(?wxHORIZONTAL),
-
-    Stc = create_styled_txtctrl(Panel, proc_info),
-    Txt = get_formatted_values(Node, Pid, ItemList),
-    set_text(Stc, Txt, text),
-    Choices = [atom_to_list(Tag) || {Tag, _} <- ItemList],
-    CheckListBox = wxCheckListBox:new(Panel, ?wxID_ANY, [{choices, Choices},
-							 {style, ?wxLB_EXTENDED},
-							 {style, ?wxLB_SORT},
-							 {style, ?wxLB_NEEDED_SB}]),
-    check_boxes(CheckListBox, ItemList),
-    wxCheckListBox:connect(CheckListBox, command_checklistbox_toggled),
-
-    SelAllBtn = wxButton:new(Panel, ?SELECT_ALL, [{label, "Select all"}]),
-    DeSelAllBtn = wxButton:new(Panel, ?SELECT_ALL, [{label, "Deselect all"}]),
-
-    wxButton:connect(SelAllBtn, command_button_clicked, [{userData, true}]),
-    wxButton:connect(DeSelAllBtn, command_button_clicked, [{userData, false}]),
-    wxWindow:setSizer(Panel, MainSz),
-    wxSizer:add(MainSz, Stc, [{proportion, 1}, {flag, ?wxEXPAND}]),
-    wxSizer:add(CheckSz, CheckListBox, [{proportion, 1}]),
-    wxSizer:add(BtnSz, SelAllBtn),
-    wxSizer:add(BtnSz, DeSelAllBtn),
-    wxSizer:add(CheckSz, BtnSz),
-    wxSizer:add(MainSz, CheckSz, [{flag, ?wxEXPAND}]),
-    {Panel, CheckListBox, Stc}.
-
-create_page(Notebook, Node, Module, What) ->
-    Panel = wxPanel:new(Notebook, []),
-    Sizer = wxBoxSizer:new(?wxVERTICAL),
-    Stc = create_styled_txtctrl(Panel, What),
-    {Sort, Txt} = case What of
-		      module_info ->
-			  {text, get_formatted_modinfo(Node, Module)};
-		      module_code ->
-			  case get_src_file(Node, Module) of
-			      {ok, File} ->
-				  {file, File};
-			      error->
-				  {text, "Error! Could not read sourcefile"}
-			  end
-		  end,
-    set_text(Stc, Txt, Sort),
-    wxWindow:setSizer(Panel, Sizer),
-    wxSizer:add(Sizer, Stc, [{flag, ?wxEXPAND}, {proportion, 1}]),
-    {Panel, Stc}.
-
-create_menus(MenuBar) ->
-    Menus = [{"File", [#create_menu{id = ?CLOSE, text = "Close"}]},
-	     {"View", [#create_menu{id = ?REFRESH, text = "Refresh"}]}],
-    observer_lib:create_menus(Menus, MenuBar, new_window).
-
-check_boxes(CheckListBox, Bool, all) ->
-    lists:foreach(fun(Index) ->
-			  wxCheckListBox:check(CheckListBox, Index, [{check, Bool}])
-		  end,
-		  lists:seq(0, wxControlWithItems:getCount(CheckListBox))).
-check_boxes(CheckListBox, ItemList) ->
-    lists:foldl(fun({_, Bool}, Index) ->
-			wxCheckListBox:check(CheckListBox, Index, [{check, Bool}]),
-			Index+1
-		end,
-		0, ItemList).
-
-create_styled_txtctrl(Parent, View) ->
-    FixedFont = wxFont:new(11, ?wxFONTFAMILY_TELETYPE, ?wxFONTSTYLE_NORMAL, ?wxNORMAL,[]),
-    Stc = wxStyledTextCtrl:new(Parent),
-    wxStyledTextCtrl:styleClearAll(Stc),
-    wxStyledTextCtrl:styleSetFont(Stc, ?wxSTC_STYLE_DEFAULT, FixedFont),
-    wxStyledTextCtrl:setLexer(Stc, ?wxSTC_LEX_ERLANG),
-    wxStyledTextCtrl:setMarginType(Stc, 2, ?wxSTC_MARGIN_NUMBER),
-    W = wxStyledTextCtrl:textWidth(Stc, ?wxSTC_STYLE_LINENUMBER, "9"),
-    wxStyledTextCtrl:setMarginWidth(Stc, 2, W*3),
-
-    wxStyledTextCtrl:setSelectionMode(Stc, ?wxSTC_SEL_LINES),
-    wxStyledTextCtrl:setUseHorizontalScrollBar(Stc, false),
-
-    Styles =  [{?wxSTC_ERLANG_DEFAULT,  {0,0,0}},
-	       {?wxSTC_ERLANG_COMMENT,  {160,53,35}},
-	       {?wxSTC_ERLANG_VARIABLE, {150,100,40}},
-	       {?wxSTC_ERLANG_NUMBER,   {5,5,100}},
-	       {?wxSTC_ERLANG_KEYWORD,  {130,40,172}},
-	       {?wxSTC_ERLANG_STRING,   {170,45,132}},
-	       {?wxSTC_ERLANG_OPERATOR, {30,0,0}},
-	       {?wxSTC_ERLANG_ATOM,     {0,0,0}},
-	       {?wxSTC_ERLANG_FUNCTION_NAME, {64,102,244}},
-	       {?wxSTC_ERLANG_CHARACTER,{236,155,172}},
-	       {?wxSTC_ERLANG_MACRO,    {40,144,170}},
-	       {?wxSTC_ERLANG_RECORD,   {40,100,20}},
-	       {?wxSTC_ERLANG_SEPARATOR,{0,0,0}},
-	       {?wxSTC_ERLANG_NODE_NAME,{0,0,0}}],
-    SetStyle = fun({Style, Color}) ->
-		       wxStyledTextCtrl:styleSetFont(Stc, Style, FixedFont),
-		       wxStyledTextCtrl:styleSetForeground(Stc, Style, Color)
-	       end,
-    [SetStyle(Style) || Style <- Styles],
-
-    KeyWords = case View of
-		   proc_info ->
-		       get_procinfo_keywords();
-		   module_info ->
-		       get_modinfo_keywords();
-		   module_code ->
-		       get_erl_keywords()
-	       end,
-    wxStyledTextCtrl:setKeyWords(Stc, 0, KeyWords),
-    Stc.
-
-get_erl_keywords() ->
-    L = ["after","begin","case","try","cond","catch","andalso","orelse",
-	 "end","fun","if","let","of","query","receive","when","bnot","not",
-	 "div","rem","band","and","bor","bxor","bsl","bsr","or","xor"],
-    lists:flatten([K ++ " "|| K <- L] ++ [0]).
-get_procinfo_keywords() ->
-    L = ["backtrace","binary","catchlevel","current_function","dictionary",
-	 "error_handler","garbage_collection","group_leader", "heap_size",
-	 "initial_call","last_calls","links","memory","message_queue_len",
-	 "messages","monitored_by","monitors", "priority","reductions",
-	 "registered_name", "sequential_trace_token","stack_size","status",
-	 "suspending", "total_heap_size","trace","trap_exit"],
-    lists:flatten([K ++ " "|| K <- L] ++ [0]).
-get_modinfo_keywords() ->
-    L = ["exports", "imports", "attributes", "compile"],
-    lists:flatten([K ++ " "|| K <- L] ++ [0]).
-
-get_formatted_values(Node, Process, ItemList) ->
-    TagList = [Tag || {Tag, Bool} <- ItemList, Bool =:= true],
-    Values = observer_wx:try_rpc(Node, erlang, process_info, [Process, TagList]),
-    lists:flatten(format_value(Values, [])).
-
-format_value([], Acc) ->
-    lists:reverse(Acc);
-format_value([{backtrace, Bin} | T], Acc) ->
-    format_value(T, [io_lib:format("{backtrace,~s}~n", [binary_to_list(Bin)]) | Acc]);
-format_value([H|T], Acc) ->
-    format_value(T, [io_lib:format("~p~n", [H]) | Acc]).
-
-get_formatted_modinfo(Node, Module) ->
-    Info = observer_wx:try_rpc(Node, Module, module_info, []),
-    lists:flatten([io_lib:format("~p~n", [I]) || I <- Info]).
-get_src_remote(Node, Module) ->
-    case observer_wx:try_rpc(Node, filename, find_src, [Module]) of
-	{error, _} ->
-	    error;
-	{SrcFile, _} ->
-	    case observer_wx:try_rpc(Node, file, read_file_info, [SrcFile ++ ".erl"]) of
-		{error, _} ->
-		    error;
-		{ok, _} ->
-		    {ok, SrcFile ++ ".erl"}
-	    end
-    end.
-
-get_src_local(Module) ->
-    case filename:find_src(Module) of
-	{error, _} ->
-	    error;
-        {SrcFile, _} ->
-            case file:read_file_info(SrcFile ++ ".erl") of
-                {error, _} ->
-		    error;
-                {ok, _} ->
-                    {ok, SrcFile ++ ".erl"}
-            end
-    end.
-
-get_src_file(Node, Module) ->
-    case get_src_remote(Node, Module) of
-	{ok, SrcFile} ->
-	    {ok, SrcFile};
-	error ->
-	    get_src_local(Module)
-    end.
-
-
-set_text(Stc, Text, text) ->
-    wxStyledTextCtrl:setReadOnly(Stc, false),
-    wxStyledTextCtrl:setText(Stc, Text),
-    wxStyledTextCtrl:setReadOnly(Stc, true);
-set_text(Stc, File, file) ->
-    wxStyledTextCtrl:setReadOnly(Stc, false),
-    wxStyledTextCtrl:loadFile(Stc, File),
-    wxStyledTextCtrl:setReadOnly(Stc, true).
-
-update_procinfo_page(Stc, Node, Process, ItemList) ->
-    Txt = get_formatted_values(Node, Process, ItemList),
-    set_text(Stc, Txt, text).
-update_modinfo_page(Stc, Node, Module) ->
-    Txt = get_formatted_modinfo(Node, Module),
-    set_text(Stc, Txt, text).
-update_modcode_page(Stc, Node, Module) ->
-    case get_src_file(Node, Module) of
-	{ok, File} ->
-	    set_text(Stc, File, file);
-	error ->
-	    set_text(Stc, "Error! Could not read sourcefile", text)
-    end.
+init_panel(Notebook, Str, Pid, Fun) ->
+    Panel  = wxPanel:new(Notebook),
+    Sizer  = wxBoxSizer:new(?wxHORIZONTAL),
+    {Window,Callback} = Fun(Panel, Pid),
+    wxSizer:add(Sizer, Window, [{flag, ?wxEXPAND bor ?wxALL}, {proportion, 1}, {border, 5}]),
+    wxPanel:setSizer(Panel, Sizer),
+    true = wxNotebook:addPage(Notebook, Panel, Str),
+    #worker{panel=Panel, callback=Callback}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%Callbacks%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-handle_event(#wx{event = #wxClose{type = close_window}},
-	     State) ->
+handle_event(#wx{event=#wxClose{type=close_window}}, State) ->
     {stop, shutdown, State};
 
-handle_event(#wx{id = ?CLOSE,
-		 event = #wxCommand{type = command_menu_selected}},
-	     State) ->
+handle_event(#wx{id=?wxID_CLOSE, event=#wxCommand{type=command_menu_selected}}, State) ->
     {stop, shutdown, State};
 
-handle_event(#wx{id = ?REFRESH,
-		 event = #wxCommand{type = command_menu_selected}},
-	     #procinfo_state{current_view = Current,
-			     frame = Frame,
-			     node = Node,
-			     pid = Pid,
-			     procinfo_stc = Stc,
-			     itemlist = ItemList} = State) when Current =:= proc_info ->
-    try
-	update_procinfo_page(Stc, Node, Pid, ItemList),
-	{noreply, State}
-    catch error:{badrpc, _} ->
-	    observer_wx:return_to_localnode(Frame, Node),
-	    {stop, badrpc, State}
-    end;
-
-handle_event(#wx{id = ?REFRESH,
-		 event = #wxCommand{type = command_menu_selected}},
-	     #procinfo_state{current_view = Current,
-			     frame = Frame,
-			     node = Node,
-			     modinfo_stc = Stc,
-			     module = Module} = State) when Current =:= module_info ->
-    try
-	update_modinfo_page(Stc, Node, Module),
-	{noreply, State}
-    catch error:{badrpc, _} ->
-	    observer_wx:return_to_localnode(Frame, Node),
-	    {stop, badrpc, State}
-    end;
-
-handle_event(#wx{id = ?REFRESH,
-		 event = #wxCommand{type = command_menu_selected}},
-	     #procinfo_state{current_view = Current,
-			     modcode_stc = Stc,
-			     frame = Frame,
-			     node = Node,
-			     module = Module} = State) when Current =:= module_code ->
-    try
-	update_modcode_page(Stc, Node, Module),
-	{noreply, State}
-    catch error:{badrpc, _} ->
-	    observer_wx:return_to_localnode(Frame, Node),
-	    {stop, badrpc, State}
-    end;
-
-
-handle_event(#wx{obj = Notebook, id = ?ID_NOTEBOOK,
-		 event = #wxNotebook{type = command_notebook_page_changed}},
-	     #procinfo_state{frame = Frame,
-			     module = Module,
-			     procinfo_stc = ProcStc,
-			     modcode_stc = CodeStc,
-			     modinfo_stc = ModInfoStc,
-			     node = Node,
-			     pid = Pid,
-			     itemlist = ItemList} = State) ->
-    try
-	Current = case observer_wx:check_page_title(Notebook) of
-		      "Process information" ->
-			  update_procinfo_page(ProcStc, Node, Pid, ItemList),
-			  proc_info;
-		      "Module information" ->
-			  update_modinfo_page(ModInfoStc, Node, Module),
-			  module_info;
-		      "Module code" ->
-			  update_modcode_page(CodeStc, Node, Module),
-			  module_code
-		  end,
-	{noreply, State#procinfo_state{current_view = Current}}
-    catch error:{badrpc, _} ->
-	    observer_wx:return_to_localnode(Frame, Node),
-	    {stop, badrpc, State}
-    end;
-
-handle_event(#wx{event = #wxCommand{type = command_checklistbox_toggled,
-				    commandInt = Index},
-		 obj = CheckListbox},
-	     #procinfo_state{frame = Frame,
-			     node = Node,
-			     pid = Process,
-			     procinfo_stc = Stc,
-			     itemlist = ItemList} = State) ->
-    try
-	{Tag, _} = lists:nth(Index+1, ItemList),
-	ItemList2 = case wxCheckListBox:isChecked(CheckListbox, Index) of
-			true ->
-			    lists:keyreplace(Tag, 1, ItemList, {Tag, true});
-			false ->
-			    lists:keyreplace(Tag, 1, ItemList, {Tag, false})
-		    end,
-	Txt = get_formatted_values(Node, Process, ItemList2),
-	set_text(Stc, Txt, text),
-	{noreply, State#procinfo_state{itemlist = ItemList2}}
-
-    catch error:{badrpc, _} ->
-	    observer_wx:return_to_localnode(Frame, Node),
-	    {stop, badrpc, State}
-    end;
-
-handle_event(#wx{id = ?SELECT_ALL,
-		 event = #wxCommand{type = command_button_clicked},
-		 userData = Bool},
-	     #procinfo_state{frame = Frame,
-			     node = Node,
-			     pid = Process,
-			     itemlist = ItemList,
-			     procinfo_stc = Stc,
-			     checklistbox = CheckListBox} = State) ->
-    try
-	check_boxes(CheckListBox, Bool, all),
-	ItemList2 = lists:keymap(fun(_) ->
-					 Bool
-				 end,
-				 2, ItemList),
-	Txt = get_formatted_values(Node, Process, ItemList2),
-	set_text(Stc, Txt, text),
-	{noreply, State#procinfo_state{itemlist = ItemList2}}
-    catch error:{badrpc, _} ->
-	    observer_wx:return_to_localnode(Frame, Node),
-	    {stop, badrpc, State}
-    end;
+handle_event(#wx{id=?REFRESH}, #state{pages=Pages}=State) ->
+    [(W#worker.callback)() || W <- Pages],
+    {noreply, State};
 
 handle_event(Event, State) ->
     io:format("~p: ~p, Handle event: ~p~n", [?MODULE, ?LINE, Event]),
@@ -491,18 +117,158 @@ handle_cast(Cast, State) ->
     io:format("~p ~p: Got cast ~p~n", [?MODULE, ?LINE, Cast]),
     {noreply, State}.
 
-terminate(Reason, #procinfo_state{parent = Parent,
-				  pid = Pid,
-				  frame = Frame}) ->
-    io:format("~p terminating. Reason: ~p~n", [?MODULE, Reason]),
+terminate(_Reason, #state{parent=Parent,pid=Pid,frame=Frame}) ->
     Parent ! {procinfo_menu_closed, Pid},
     case Frame of
-	undefined ->
-	    ok;
-	_ ->
-	    wxFrame:destroy(Frame)
+	undefined ->  ok;
+	_ -> wxFrame:destroy(Frame)
     end,
     ok.
 
 code_change(_, _, State) ->
     {stop, not_yet_implemented, State}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+init_process_page(Panel, Pid) ->
+    Fields = process_info_fields(Pid),
+    {FPanel, _, UpFields} = observer_lib:display_info(Panel, Fields),
+    {FPanel, fun() -> observer_lib:update_info(UpFields, process_info_fields(Pid)) end}.
+
+init_text_page(Parent) ->
+    Style = ?wxTE_MULTILINE bor ?wxTE_RICH2 bor ?wxTE_READONLY,
+    Text = wxTextCtrl:new(Parent, ?wxID_ANY, [{style, Style}]),
+    Font = observer_wx:get_attrib({font, modern}),
+    Attr = wxTextAttr:new(?wxBLACK, [{font, Font}]),
+    true = wxTextCtrl:setDefaultStyle(Text, Attr),
+    wxTextAttr:destroy(Attr),
+    Text.
+
+init_message_page(Parent, Pid) ->
+    Text = init_text_page(Parent),
+    Format = fun(Message, Number) ->
+		     {io_lib:format("~-4.w ~p~n", [Number, Message]),
+		      Number+1}
+	     end,
+    Update = fun() ->
+		     {messages,RawMessages} =
+			 observer_wx:try_rpc(node(Pid), erlang, process_info, [Pid, messages]),
+		     {Messages,_} = lists:mapfoldl(Format, 1, RawMessages),
+		     Last = wxTextCtrl:getLastPosition(Text),
+		     wxTextCtrl:remove(Text, 0, Last),
+		     case Messages =:= [] of
+			 true ->
+			     wxTextCtrl:writeText(Text, "No messages");
+			 false ->
+			     wxTextCtrl:writeText(Text, Messages)
+		     end
+	     end,
+    Update(),
+    {Text, Update}.
+
+init_dict_page(Parent, Pid) ->
+    Text = init_text_page(Parent),
+    Update = fun() ->
+		     {dictionary,RawDict} =
+			 observer_wx:try_rpc(node(Pid), erlang, process_info, [Pid, dictionary]),
+		     Dict = [io_lib:format("~-20.w ~p~n", [K, V]) || {K, V} <- RawDict],
+		     Last = wxTextCtrl:getLastPosition(Text),
+		     wxTextCtrl:remove(Text, 0, Last),
+		     wxTextCtrl:writeText(Text, Dict)
+	     end,
+    Update(),
+    {Text, Update}.
+
+init_stack_page(Parent, Pid) ->
+    Text = init_text_page(Parent),
+    Format = fun({Mod, Fun, Arg, Info}) ->
+		     Str = io_lib:format("~w:~w/~w", [Mod,Fun,Arg]),
+		     case Info of
+			 [{file,File},{line,Line}] ->
+			     io_lib:format("~-45.s ~s:~w~n", [Str,File,Line]);
+			 _ ->
+			     [Str,$\n]
+		     end
+	     end,
+    Update = fun() ->
+		     {current_stacktrace,RawBt} =
+			 observer_wx:try_rpc(node(Pid), erlang, process_info,
+					     [Pid, current_stacktrace]),
+		     Last = wxTextCtrl:getLastPosition(Text),
+		     wxTextCtrl:remove(Text, 0, Last),
+		     [wxTextCtrl:writeText(Text, Format(Entry)) || Entry <- RawBt]
+	     end,
+    Update(),
+    {Text, Update}.
+
+create_menus(MenuBar) ->
+    Menus = [{"File", [#create_menu{id=?wxID_CLOSE, text="Close"}]},
+	     {"View", [#create_menu{id=?REFRESH, text="Refresh\tCtrl-R"}]}],
+    observer_lib:create_menus(Menus, MenuBar, new_window).
+
+process_info_fields(Pid) ->
+    RawInfo = observer_wx:try_rpc(node(Pid), erlang, process_info, [Pid, item_list()]),
+    Struct = [{"Overview",
+	       [{"Initial Call",     initial_call},
+		{"Current Function", current_function},
+		{"Registered Name",  registered_name},
+		{"Status",           status},
+		{"Message Queue Len",message_queue_len},
+		{"Priority",         priority},
+		{"Trap Exit",        trap_exit},
+		{"Reductions",       reductions},
+		{"Binary",           binary},
+		{"Last Calls",       last_calls},
+		{"Catch Level",      catchlevel},
+		{"Trace",            trace},
+		{"Suspending",       suspending},
+		{"Sequential Trace Token", sequential_trace_token},
+		{"Error Handler",    error_handler}]},
+	      {"Connections",
+	       [{"Group Leader",     group_leader},
+		{"Links",            links},
+		{"Monitors",         monitors},
+		{"Monitored by",     monitored_by}]},
+	      {"Memory and Garbage Collection", right,
+	       [{"Memory",           {bytes, memory}},
+		{"Stack and Heaps",  {bytes, total_heap_size}},
+		{"Heap Size",        {bytes, heap_size}},
+		{"Stack Size",       {bytes, stack_size}},
+		{"GC Min Heap Size", {bytes, get_gc_info(min_heap_size)}},
+		{"GC FullSweep After", get_gc_info(fullsweep_after)}
+	       ]}],
+    observer_lib:fill_info(Struct, RawInfo).
+
+item_list() ->
+    [ %% backtrace,
+      binary,
+      catchlevel,
+      current_function,
+      %% dictionary,
+      error_handler,
+      garbage_collection,
+      group_leader,
+      heap_size,
+      initial_call,
+      last_calls,
+      links,
+      memory,
+      message_queue_len,
+      %% messages,
+      monitored_by,
+      monitors,
+      priority,
+      reductions,
+      registered_name,
+      sequential_trace_token,
+      stack_size,
+      status,
+      suspending,
+      total_heap_size,
+      trace,
+      trap_exit].
+
+get_gc_info(Arg) ->
+    fun(Data) ->
+	    GC = proplists:get_value(garbage_collection, Data),
+	    proplists:get_value(Arg, GC)
+    end.
