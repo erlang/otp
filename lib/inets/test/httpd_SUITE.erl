@@ -740,6 +740,19 @@ end_per_testcase2(Case, Config) ->
 
 
 %%-------------------------------------------------------------------------
+http_1_1_ip(doc) ->
+    ["HTTP/1.1"];
+http_1_1_ip(suite) ->
+    [
+     ip_host, 
+     ip_chunked, 
+     ip_expect, 
+     ip_range, 
+     ip_if_test, 
+     ip_http_trace,
+     ip_http1_1_head, 
+     ip_mod_cgi_chunked_encoding_test
+    ].
 
 %%-------------------------------------------------------------------------
 

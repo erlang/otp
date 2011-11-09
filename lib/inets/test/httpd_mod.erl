@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%%
+%% 
 %% Copyright Ericsson AB 2005-2011. All Rights Reserved.
-%%
+%% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
@@ -88,13 +88,13 @@ actions(Type, Port, Host, Node) ->
 
 %%-------------------------------------------------------------------------
 security(ServerRoot, Type, Port, Host, Node) ->
-%%     io:format(user, "~w:security -> entry with"
-%% 	      "~n   ServerRoot: ~p"
-%% 	      "~n   Type:       ~p"
-%% 	      "~n   Port:       ~p"
-%% 	      "~n   Host:       ~p"
-%% 	      "~n   Node:       ~p"
-%% 	      "~n", [?MODULE, ServerRoot, Type, Port, Host, Node]),
+    %% io:format(user, "~w:security -> entry with"
+    %% 	      "~n   ServerRoot: ~p"
+    %% 	      "~n   Type:       ~p"
+    %% 	      "~n   Port:       ~p"
+    %% 	      "~n   Host:       ~p"
+    %% 	      "~n   Node:       ~p"
+    %% 	      "~n", [?MODULE, ServerRoot, Type, Port, Host, Node]),
     
 %%     io:format(user, "~w:security -> register~n", [?MODULE]), 
     global:register_name(mod_security_test, self()),   % Receive events
@@ -175,8 +175,8 @@ security(ServerRoot, Type, Port, Host, Node) ->
 	[{"one",_, Port, OpenDir,_}] ->
 	    ok;
 	Blocked ->
-	    io:format(user, "~w:security -> Blocked: ~p"
-		      "~n", [?MODULE, Blocked]),
+	    %% io:format(user, "~w:security -> Blocked: ~p"
+	    %% 	      "~n", [?MODULE, Blocked]),
 	    exit({unexpected_blocked, Blocked})
     end,
 	    
@@ -917,11 +917,11 @@ list_users(Node, Root, _Host, Port, Dir) ->
 
 
 receive_security_event(Event, Node, Port) ->
-%%     io:format(user, "~w:receive_security_event -> entry with"
-%% 	      "~n   Event: ~p"
-%% 	      "~n   Node:  ~p"
-%% 	      "~n   Port:  ~p"
-%% 	      "~n", [?MODULE, Event, Node, Port]),
+    %% io:format(user, "~w:receive_security_event -> entry with"
+    %% 	      "~n   Event: ~p"
+    %% 	      "~n   Node:  ~p"
+    %% 	      "~n   Port:  ~p"
+    %% 	      "~n", [?MODULE, Event, Node, Port]),
     receive 
 	Event ->
 	    ok;
