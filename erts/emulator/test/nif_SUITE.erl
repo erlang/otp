@@ -35,7 +35,9 @@
 	 resource_takeover/1,
 	 threading/1, send/1, send2/1, send3/1, send_threaded/1, neg/1, 
 	 is_checks/1,
-	 get_length/1, make_atom/1, make_string/1, reverse_list_test/1]).
+	 get_length/1, make_atom/1, make_string/1, reverse_list_test/1,
+	 otp_9668/1
+	]).
 
 -export([many_args_100/100]).
 
@@ -60,7 +62,9 @@ all() ->
      iolist_as_binary, resource, resource_binary,
      resource_takeover, threading, send, send2, send3,
      send_threaded, neg, is_checks, get_length, make_atom,
-     make_string,reverse_list_test].
+     make_string,reverse_list_test,
+     otp_9668
+    ].
 
 groups() -> 
     [].
@@ -1236,6 +1240,20 @@ reverse_list_test(Config) ->
     ?line RevList = reverse_list(List),
     ?line badarg = reverse_list(foo).
 
+otp_9668(doc) -> ["Memory leak of tmp-buffer when inspecting iolist or unaligned binary in unbound environment"];
+otp_9668(Config) ->
+    ensure_lib_loaded(Config, 1),
+    TmpMem = tmpmem(),
+    IOList = ["This",' ',<<"is">>,' ',[<<"an iolist">>,'.']],    
+    otp_9668_nif(IOList),
+
+    <<_:5/bitstring,UnalignedBin:10/binary,_/bitstring>> = <<"Abuse me as unaligned">>,
+    otp_9668_nif(UnalignedBin),
+
+    ?line verify_tmpmem(TmpMem),
+    ok.
+
+
 tmpmem() ->
     case erlang:system_info({allocator,temp_alloc}) of
 	false -> undefined;
@@ -1345,6 +1363,7 @@ send_term(_,_) -> ?nif_stub.
 reverse_list(_) -> ?nif_stub.
 echo_int(_) -> ?nif_stub.
 type_sizes() -> ?nif_stub.
+otp_9668_nif(_) -> ?nif_stub.
 
 nif_stub_error(Line) ->
     exit({nif_not_loaded,module,?MODULE,line,Line}).
