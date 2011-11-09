@@ -36,9 +36,9 @@ handle_error(emfile, Op, _ModData, Path) ->
     handle_error(500, Op, none, Path, ": Too many open files");
 handle_error({enfile,_}, Op, _ModData, Path) ->
     handle_error(500, Op, none, Path, ": File table overflow");
-handle_error(_Reason, Op, ModData, Path) ->
-    handle_error(404, Op, ModData, Path, ": File not found").
-
+handle_error(_Reason, Op, _ModData, Path) ->
+    handle_error(500, Op, none, Path, "").
+	    
 handle_error(StatusCode, Op, none, Path, Reason) ->
     {StatusCode, none, ?NICE("Can't " ++ Op ++ " " ++ Path ++ Reason)};
 handle_error(StatusCode, Op, ModData, Path, Reason) ->

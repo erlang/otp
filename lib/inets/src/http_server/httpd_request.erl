@@ -309,12 +309,12 @@ validate_uri(RequestURI) ->
 		(catch http_uri:decode(string:left(RequestURI, Ndx)))
 	end,
     case UriNoQueryNoHex of
-	{'EXIT',_Reason} ->
+	{'EXIT', _Reason} ->
 	    {error, {bad_request, {malformed_syntax, RequestURI}}};
 	_ ->
 	    Path  = format_request_uri(UriNoQueryNoHex),
-	    Path2 = [X||X<-string:tokens(Path, "/\\"),X=/="."], 
-	    validate_path( Path2,0, RequestURI)
+	    Path2 = [X||X<-string:tokens(Path, "/"),X=/="."], %% OTP-5938
+	    validate_path(Path2, 0, RequestURI)
     end.
 
 validate_path([], _, _) ->

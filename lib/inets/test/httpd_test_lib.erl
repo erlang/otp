@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%%
+%% 
 %% Copyright Ericsson AB 2001-2011. All Rights Reserved.
-%%
+%% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
@@ -235,13 +235,14 @@ handle_http_body(Body, State = #state{headers = Headers,
      end.
 
 validate(RequestStr, #state{status_line = {Version, StatusCode, _},
-		headers = Headers, 
-		body = Body}, Options, N, P) ->
+			    headers     = Headers, 
+			    body        = Body}, Options, N, P) ->
     
     %% tsp("validate -> entry with"
     %% 	"~n   StatusCode: ~p"
     %% 	"~n   Headers:    ~p"
     %% 	"~n   Body:       ~p", [StatusCode, Headers, Body]),
+
     check_version(Version, Options),
     case lists:keysearch(statuscode, 1, Options) of
 	{value, _} ->
@@ -255,6 +256,7 @@ validate(RequestStr, #state{status_line = {Version, StatusCode, _},
 	       list_to_integer(Headers#http_response_h.'content-length'),
 	       Body).
 
+
 %%--------------------------------------------------------------------
 %% Internal functions
 %%------------------------------------------------------------------
@@ -263,21 +265,20 @@ check_version(Version, Options) ->
 	{value, {version, Version}} ->
 	    	   ok;
 	{value, {version, Ver}} ->
-	    test_server:fail({wrong_version, [{got, Version},
-						     {expected, Ver}]});
+	    tsf({wrong_version, [{got, Version},
+					      {expected, Ver}]});
 	_ ->
 	   case Version of
 	       "HTTP/1.1" ->
 		   ok;
 	       _ ->
-		   test_server:fail({wrong_version, [{got, Version},
-						     {expected, "HTTP/1.1"}]})
+		   tsf({wrong_version, [{got,      Version}, 
+					{expected, "HTTP/1.1"}]})
 	   end
     end.
 
 check_status_code(StatusCode, [], Options) ->
-    test_server:fail({wrong_status_code, [{got, StatusCode}, 
-					  {expected, Options}]});
+    tsf({wrong_status_code, [{got, StatusCode}, {expected, Options}]});
 check_status_code(StatusCode, Current = [_ | Rest], Options) ->
     case lists:keysearch(statuscode, 1, Current) of
 	{value, {statuscode, StatusCode}} ->
@@ -285,8 +286,7 @@ check_status_code(StatusCode, Current = [_ | Rest], Options) ->
 	{value, {statuscode, _OtherStatus}} ->
 	    check_status_code(StatusCode, Rest, Options);
 	false ->
-	    test_server:fail({wrong_status_code, [{got, StatusCode}, 
-				       {expected, Options}]})
+	    tsf({wrong_status_code, [{got, StatusCode}, {expected, Options}]})
     end.
 
 do_validate(_, [], _, _) ->
@@ -317,8 +317,7 @@ do_validate(Header, [{header, HeaderField, Value}|Rest],N,P) ->
 			      Header})
     end,
     do_validate(Header, Rest, N, P);
-do_validate(Header,[{no_last_modified,HeaderField}|Rest],N,P) ->
-%    io:format("Header: ~p~nHeaderField: ~p~n",[Header,HeaderField]),
+do_validate(Header,[{no_last_modified, HeaderField}|Rest],N,P) ->
     case lists:keysearch(HeaderField,1,Header) of
 	{value,_} ->
 	    test_server:fail({wrong_header_field_value, HeaderField, 
@@ -331,7 +330,6 @@ do_validate(Header, [_Unknown | Rest], N, P) ->
     do_validate(Header, Rest, N, P).
 
 is_expect(RequestStr) ->
-   
     case inets_regexp:match(RequestStr, "xpect:100-continue") of
 	{match, _, _}->
 	    true;
@@ -340,15 +338,15 @@ is_expect(RequestStr) ->
     end.
 
 %% OTP-5775, content-length
-check_body("GET /cgi-bin/erl/httpd_example:get_bin HTTP/1.0\r\n\r\n", 200, "text/html", Length, _Body) when Length /= 274->
-    test_server:fail(content_length_error);
+check_body("GET /cgi-bin/erl/httpd_example:get_bin HTTP/1.0\r\n\r\n", 200, "text/html", Length, _Body) when (Length =/= 274) ->
+    tsf(content_length_error);
 check_body("GET /cgi-bin/cgi_echo HTTP/1.0\r\n\r\n", 200, "text/plain", 
 	   _, Body) ->
     case size(Body) of
 	100 ->
 	    ok;
 	_ ->
-	    test_server:fail(content_length_error)
+	    tsf(content_length_error)
     end;
 
 check_body(RequestStr, 200, "text/html", _, Body) ->
