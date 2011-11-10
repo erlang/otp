@@ -366,7 +366,7 @@ check_for_emulator_restart(#release{erts_vsn = Vsn1, name = N1},
     %% erts version is changed. Also allow extra restart at the end of
     %% the upgrade if restart_emulator option is given.
     NewRUs = [[restart_new_emulator]|RUs],
-    NewWs = [{erts_vsn_changed, {N1, N2}} | Ws],
+    NewWs = [{erts_vsn_changed, {{N1,Vsn1}, {N2,Vsn2}}} | Ws],
     check_for_restart_emulator_opt(NewRUs, NewWs, Opts);
 check_for_emulator_restart(_, _, RUs, Ws, Opts) ->
     check_for_restart_emulator_opt(RUs, Ws, Opts).

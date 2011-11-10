@@ -618,7 +618,7 @@ supervisor_which_children_timeout(Conf) ->
 
     ok.
 
-supervisor_which_children_timeout(cleanup, Conf) ->
+supervisor_which_children_timeout(cleanup, _Conf) ->
     stop_node(node_name(supervisor_which_children_timeout)).
 
 
