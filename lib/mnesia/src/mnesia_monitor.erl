@@ -536,7 +536,11 @@ handle_info({'EXIT', Pid, R}, State) when Pid == State#state.supervisor ->
 
 handle_info({'EXIT', Pid, fatal}, State) when node(Pid) == node() ->
     dbg_out("~p got FATAL ERROR from: ~p~n",[?MODULE, Pid]),
-    exit(State#state.supervisor, shutdown),
+    %% This may hang supervisor if a shutdown happens at the same time as an fatal
+    %% is in progress
+    %% exit(State#state.supervisor, shutdown),
+    %% It is better to kill an innocent process
+    catch exit(whereis(mnesia_locker), kill),
     {noreply, State};
 
 handle_info(Msg = {'EXIT',Pid,_}, State) ->

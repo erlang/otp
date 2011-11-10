@@ -758,7 +758,7 @@ make_activate(Tab, Props) ->
 	[] ->
 	    Cs2 = Cs#cstruct{frag_properties = Props},
 	    [Cs3] = expand_cstruct(Cs2, activate),
-	    TabDef = mnesia_schema:cs2list(Cs3),
+	    TabDef = mnesia_schema:vsn_cs2list(Cs3),
 	    Op = {op, change_table_frag, activate, TabDef},
 	    [[Op]];
 	BadProps ->
@@ -783,7 +783,7 @@ make_deactivate(Tab) ->
 	    mnesia:abort({combine_error, Tab, "Too many fragments"});
 	true ->
 	    Cs2 = Cs#cstruct{frag_properties = []},
-	    TabDef = mnesia_schema:cs2list(Cs2),
+	    TabDef = mnesia_schema:vsn_cs2list(Cs2),
 	    Op = {op, change_table_frag, deactivate, TabDef},
 	    [[Op]]
     end.
@@ -850,7 +850,7 @@ make_add_frag(Tab, SortedNs) ->
     SplitOps = split(Tab, FH2, FromIndecies, FragNames, []),
 
     Cs2 = replace_frag_hash(Cs, FH2),
-    TabDef = mnesia_schema:cs2list(Cs2),
+    TabDef = mnesia_schema:vsn_cs2list(Cs2),
     BaseOp = {op, change_table_frag, {add_frag, SortedNs}, TabDef},
 
     [BaseOp, NewOp | SplitOps].
@@ -962,7 +962,7 @@ make_del_frag(Tab) ->
 	    LastFrag = element(N, FragNames),
 	    [LastOp] = mnesia_schema:make_delete_table(LastFrag, single_frag),
 	    Cs2 = replace_frag_hash(Cs, FH2),
-	    TabDef = mnesia_schema:cs2list(Cs2),
+	    TabDef = mnesia_schema:vsn_cs2list(Cs2),
 	    BaseOp = {op, change_table_frag, del_frag, TabDef},
 	    [BaseOp, LastOp | MergeOps];
 	_ ->
@@ -1075,7 +1075,7 @@ make_add_node(Tab, Node) when is_atom(Node)  ->
 	    Props = Cs#cstruct.frag_properties,
 	    Props2 = lists:keyreplace(node_pool, 1, Props, {node_pool, Pool2}),
 	    Cs2 = Cs#cstruct{frag_properties = Props2},
-	    TabDef = mnesia_schema:cs2list(Cs2),
+	    TabDef = mnesia_schema:vsn_cs2list(Cs2),
 	    Op = {op, change_table_frag, {add_node, Node}, TabDef},
 	    [Op];
 	true ->
@@ -1104,7 +1104,7 @@ make_del_node(Tab, Node) when is_atom(Node) ->
 	    Pool2 = Pool -- [Node],
 	    Props = lists:keyreplace(node_pool, 1, Cs#cstruct.frag_properties, {node_pool, Pool2}),
 	    Cs2 = Cs#cstruct{frag_properties = Props},
-	    TabDef = mnesia_schema:cs2list(Cs2),
+	    TabDef = mnesia_schema:vsn_cs2list(Cs2),
 	    Op = {op, change_table_frag, {del_node, Node}, TabDef},
 	    [Op];
 	false ->

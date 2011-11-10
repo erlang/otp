@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1795,7 +1795,7 @@ subscribe_extended(Config) when is_list(Config) ->
     ?match({mnesia_table_event, {delete, schema, {schema, Tab1}, [{schema, Tab1, _}],_}}, recv_event()),
     ?match({mnesia_table_event, {write, schema, {schema, Tab1, _}, [], _}}, recv_event()),
 
-    ?match({atomic, ok}, mnesia_schema:clear_table(Tab2)),
+    ?match({atomic, ok}, mnesia:clear_table(Tab2)),
     ?match({mnesia_table_event, {delete, schema, {schema, Tab2}, [{schema, Tab2, _}],_}}, 
 	   recv_event()),
     ?match({mnesia_table_event, {write, schema, {schema, Tab2, _}, [], _}}, recv_event()),
