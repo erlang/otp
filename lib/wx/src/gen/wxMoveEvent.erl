@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -41,7 +41,7 @@
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec (This::wxMoveEvent()) -> {X::integer(),Y::integer()}
+%% @spec (This::wxMoveEvent()) -> {X::integer(), Y::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmoveevent.html#wxmoveeventgetposition">external documentation</a>.
 getPosition(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxMoveEvent),

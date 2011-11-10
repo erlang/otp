@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -93,7 +93,7 @@ new(Parent,Id)
   new(Parent,Id, []).
 
 %% @spec (Parent::wxWindow:wxWindow(), Id::integer(), [Option]) -> wxCalendarCtrl()
-%% Option = {date, wx:datetime()} | {pos, {X::integer(),Y::integer()}} | {size, {W::integer(),H::integer()}} | {style, integer()}
+%% Option = {date, wx:datetime()} | {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcalendarctrl.html#wxcalendarctrlwxcalendarctrl">external documentation</a>.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
  when is_integer(Id),is_list(Options) ->
@@ -114,7 +114,7 @@ create(This,Parent,Id)
   create(This,Parent,Id, []).
 
 %% @spec (This::wxCalendarCtrl(), Parent::wxWindow:wxWindow(), Id::integer(), [Option]) -> bool()
-%% Option = {date, wx:datetime()} | {pos, {X::integer(),Y::integer()}} | {size, {W::integer(),H::integer()}} | {style, integer()}
+%% Option = {date, wx:datetime()} | {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcalendarctrl.html#wxcalendarctrlcreate">external documentation</a>.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
  when is_integer(Id),is_list(Options) ->
@@ -297,7 +297,7 @@ resetAttr(#wx_ref{type=ThisT,ref=ThisRef},Day)
   wxe_util:cast(?wxCalendarCtrl_ResetAttr,
   <<ThisRef:32/?UI,Day:32/?UI>>).
 
-%% @spec (This::wxCalendarCtrl(), Pos::{X::integer(),Y::integer()}) -> {WxCalendarHitTestResult,Date::wx:datetime(),Wd::WeekDay}
+%% @spec (This::wxCalendarCtrl(), Pos::{X::integer(), Y::integer()}) -> {WxCalendarHitTestResult, Date::wx:datetime(), Wd::WeekDay}
 %% WxCalendarHitTestResult = integer()
 %% WeekDay = integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcalendarctrl.html#wxcalendarctrlhittest">external documentation</a>.

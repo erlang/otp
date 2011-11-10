@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -303,13 +303,13 @@ create(#wx_ref{type=ThisT,ref=ThisRef},Width,Height,Data,Alpha, Options)
   wxe_util:cast(?wxImage_Destroy,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxImage()) -> {bool(),R::integer(),G::integer(),B::integer()}
+%% @spec (This::wxImage()) -> {bool(), R::integer(), G::integer(), B::integer()}
 %% @equiv findFirstUnusedColour(This, [])
 findFirstUnusedColour(This)
  when is_record(This, wx_ref) ->
   findFirstUnusedColour(This, []).
 
-%% @spec (This::wxImage(), [Option]) -> {bool(),R::integer(),G::integer(),B::integer()}
+%% @spec (This::wxImage(), [Option]) -> {bool(), R::integer(), G::integer(), B::integer()}
 %% Option = {startR, integer()} | {startG, integer()} | {startB, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximage.html#wximagefindfirstunusedcolour">external documentation</a>.
 findFirstUnusedColour(#wx_ref{type=ThisT,ref=ThisRef}, Options)
@@ -413,7 +413,7 @@ getMaskRed(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxImage_GetMaskRed,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxImage()) -> {bool(),R::integer(),G::integer(),B::integer()}
+%% @spec (This::wxImage()) -> {bool(), R::integer(), G::integer(), B::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximage.html#wximagegetorfindmaskcolour">external documentation</a>.
 getOrFindMaskColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxImage),
@@ -435,7 +435,7 @@ getRed(#wx_ref{type=ThisT,ref=ThisRef},X,Y)
   wxe_util:call(?wxImage_GetRed,
   <<ThisRef:32/?UI,X:32/?UI,Y:32/?UI>>).
 
-%% @spec (This::wxImage(), Rect::{X::integer(),Y::integer(),W::integer(),H::integer()}) -> wxImage()
+%% @spec (This::wxImage(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}) -> wxImage()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximage.html#wximagegetsubimage">external documentation</a>.
 getSubImage(#wx_ref{type=ThisT,ref=ThisRef},{RectX,RectY,RectW,RectH})
  when is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH) ->
@@ -615,13 +615,13 @@ rescale(#wx_ref{type=ThisT,ref=ThisRef},Width,Height, Options)
   wxe_util:call(?wxImage_Rescale,
   <<ThisRef:32/?UI,Width:32/?UI,Height:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxImage(), Size::{W::integer(),H::integer()}, Pos::{X::integer(),Y::integer()}) -> wxImage()
+%% @spec (This::wxImage(), Size::{W::integer(), H::integer()}, Pos::{X::integer(), Y::integer()}) -> wxImage()
 %% @equiv resize(This,Size,Pos, [])
 resize(This,Size={SizeW,SizeH},Pos={PosX,PosY})
  when is_record(This, wx_ref),is_integer(SizeW),is_integer(SizeH),is_integer(PosX),is_integer(PosY) ->
   resize(This,Size,Pos, []).
 
-%% @spec (This::wxImage(), Size::{W::integer(),H::integer()}, Pos::{X::integer(),Y::integer()}, [Option]) -> wxImage()
+%% @spec (This::wxImage(), Size::{W::integer(), H::integer()}, Pos::{X::integer(), Y::integer()}, [Option]) -> wxImage()
 %% Option = {r, integer()} | {g, integer()} | {b, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximage.html#wximageresize">external documentation</a>.
 resize(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH},{PosX,PosY}, Options)
@@ -635,14 +635,14 @@ resize(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH},{PosX,PosY}, Options)
   wxe_util:call(?wxImage_Resize,
   <<ThisRef:32/?UI,SizeW:32/?UI,SizeH:32/?UI,PosX:32/?UI,PosY:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxImage(), Angle::float(), Centre_of_rotation::{X::integer(),Y::integer()}) -> wxImage()
+%% @spec (This::wxImage(), Angle::float(), Centre_of_rotation::{X::integer(), Y::integer()}) -> wxImage()
 %% @equiv rotate(This,Angle,Centre_of_rotation, [])
 rotate(This,Angle,Centre_of_rotation={Centre_of_rotationX,Centre_of_rotationY})
  when is_record(This, wx_ref),is_float(Angle),is_integer(Centre_of_rotationX),is_integer(Centre_of_rotationY) ->
   rotate(This,Angle,Centre_of_rotation, []).
 
-%% @spec (This::wxImage(), Angle::float(), Centre_of_rotation::{X::integer(),Y::integer()}, [Option]) -> wxImage()
-%% Option = {interpolating, bool()} | {offset_after_rotation, {X::integer(),Y::integer()}}
+%% @spec (This::wxImage(), Angle::float(), Centre_of_rotation::{X::integer(), Y::integer()}, [Option]) -> wxImage()
+%% Option = {interpolating, bool()} | {offset_after_rotation, {X::integer(), Y::integer()}}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximage.html#wximagerotate">external documentation</a>.
 rotate(#wx_ref{type=ThisT,ref=ThisRef},Angle,{Centre_of_rotationX,Centre_of_rotationY}, Options)
  when is_float(Angle),is_integer(Centre_of_rotationX),is_integer(Centre_of_rotationY),is_list(Options) ->
@@ -730,13 +730,13 @@ scale(#wx_ref{type=ThisT,ref=ThisRef},Width,Height, Options)
   wxe_util:call(?wxImage_Scale,
   <<ThisRef:32/?UI,Width:32/?UI,Height:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxImage(), Size::{W::integer(),H::integer()}, Pos::{X::integer(),Y::integer()}) -> wxImage()
+%% @spec (This::wxImage(), Size::{W::integer(), H::integer()}, Pos::{X::integer(), Y::integer()}) -> wxImage()
 %% @equiv size(This,Size,Pos, [])
 size(This,Size={SizeW,SizeH},Pos={PosX,PosY})
  when is_record(This, wx_ref),is_integer(SizeW),is_integer(SizeH),is_integer(PosX),is_integer(PosY) ->
   size(This,Size,Pos, []).
 
-%% @spec (This::wxImage(), Size::{W::integer(),H::integer()}, Pos::{X::integer(),Y::integer()}, [Option]) -> wxImage()
+%% @spec (This::wxImage(), Size::{W::integer(), H::integer()}, Pos::{X::integer(), Y::integer()}, [Option]) -> wxImage()
 %% Option = {r, integer()} | {g, integer()} | {b, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximage.html#wximagesize">external documentation</a>.
 size(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH},{PosX,PosY}, Options)
@@ -881,7 +881,7 @@ setPalette(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=PaletteT,ref=PaletteRef}
   wxe_util:cast(?wxImage_SetPalette,
   <<ThisRef:32/?UI,PaletteRef:32/?UI>>).
 
-%% @spec (This::wxImage(), Rect::{X::integer(),Y::integer(),W::integer(),H::integer()}, R::integer(), G::integer(), B::integer()) -> ok
+%% @spec (This::wxImage(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}, R::integer(), G::integer(), B::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximage.html#wximagesetrgb">external documentation</a>.
 setRGB(#wx_ref{type=ThisT,ref=ThisRef},{RectX,RectY,RectW,RectH},R,G,B)
  when is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH),is_integer(R),is_integer(G),is_integer(B) ->

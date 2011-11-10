@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -60,7 +60,7 @@ new(#wx_ref{type=CT,ref=CRef}) ->
   wxe_util:construct(?wxAuiPaneInfo_new_1,
   <<CRef:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo(), Size::{W::integer(),H::integer()}) -> wxAuiPaneInfo()
+%% @spec (This::wxAuiPaneInfo(), Size::{W::integer(), H::integer()}) -> wxAuiPaneInfo()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfobestsize">external documentation</a>.
 bestSize(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH})
  when is_integer(SizeW),is_integer(SizeH) ->
@@ -250,7 +250,7 @@ floatable(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   wxe_util:call(?wxAuiPaneInfo_Floatable,
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxAuiPaneInfo(), Pos::{X::integer(),Y::integer()}) -> wxAuiPaneInfo()
+%% @spec (This::wxAuiPaneInfo(), Pos::{X::integer(), Y::integer()}) -> wxAuiPaneInfo()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfofloatingposition">external documentation</a>.
 floatingPosition(#wx_ref{type=ThisT,ref=ThisRef},{PosX,PosY})
  when is_integer(PosX),is_integer(PosY) ->
@@ -266,7 +266,7 @@ floatingPosition(#wx_ref{type=ThisT,ref=ThisRef},X,Y)
   wxe_util:call(?wxAuiPaneInfo_FloatingPosition_2,
   <<ThisRef:32/?UI,X:32/?UI,Y:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo(), Size::{W::integer(),H::integer()}) -> wxAuiPaneInfo()
+%% @spec (This::wxAuiPaneInfo(), Size::{W::integer(), H::integer()}) -> wxAuiPaneInfo()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfofloatingsize">external documentation</a>.
 floatingSize(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH})
  when is_integer(SizeW),is_integer(SizeH) ->
@@ -513,7 +513,7 @@ leftDockable(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   wxe_util:call(?wxAuiPaneInfo_LeftDockable,
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxAuiPaneInfo(), Size::{W::integer(),H::integer()}) -> wxAuiPaneInfo()
+%% @spec (This::wxAuiPaneInfo(), Size::{W::integer(), H::integer()}) -> wxAuiPaneInfo()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfomaxsize">external documentation</a>.
 maxSize(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH})
  when is_integer(SizeW),is_integer(SizeH) ->
@@ -547,7 +547,7 @@ maximizeButton(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   wxe_util:call(?wxAuiPaneInfo_MaximizeButton,
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxAuiPaneInfo(), Size::{W::integer(),H::integer()}) -> wxAuiPaneInfo()
+%% @spec (This::wxAuiPaneInfo(), Size::{W::integer(), H::integer()}) -> wxAuiPaneInfo()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfominsize">external documentation</a>.
 minSize(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH})
  when is_integer(SizeW),is_integer(SizeH) ->

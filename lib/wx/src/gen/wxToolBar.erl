@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -327,21 +327,21 @@ findToolForPosition(#wx_ref{type=ThisT,ref=ThisRef},X,Y)
   wxe_util:call(?wxToolBar_FindToolForPosition,
   <<ThisRef:32/?UI,X:32/?UI,Y:32/?UI>>).
 
-%% @spec (This::wxToolBar()) -> {W::integer(),H::integer()}
+%% @spec (This::wxToolBar()) -> {W::integer(), H::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoolbar.html#wxtoolbargettoolsize">external documentation</a>.
 getToolSize(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxToolBar),
   wxe_util:call(?wxToolBar_GetToolSize,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxToolBar()) -> {W::integer(),H::integer()}
+%% @spec (This::wxToolBar()) -> {W::integer(), H::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoolbar.html#wxtoolbargettoolbitmapsize">external documentation</a>.
 getToolBitmapSize(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxToolBar),
   wxe_util:call(?wxToolBar_GetToolBitmapSize,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxToolBar()) -> {W::integer(),H::integer()}
+%% @spec (This::wxToolBar()) -> {W::integer(), H::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoolbar.html#wxtoolbargetmargins">external documentation</a>.
 getMargins(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxToolBar),
@@ -504,7 +504,7 @@ setMargins(#wx_ref{type=ThisT,ref=ThisRef},X,Y)
   wxe_util:cast(?wxToolBar_SetMargins,
   <<ThisRef:32/?UI,X:32/?UI,Y:32/?UI>>).
 
-%% @spec (This::wxToolBar(), Size::{W::integer(),H::integer()}) -> ok
+%% @spec (This::wxToolBar(), Size::{W::integer(), H::integer()}) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoolbar.html#wxtoolbarsettoolbitmapsize">external documentation</a>.
 setToolBitmapSize(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH})
  when is_integer(SizeW),is_integer(SizeH) ->

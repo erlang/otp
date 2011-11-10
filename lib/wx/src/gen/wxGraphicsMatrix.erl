@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -45,7 +45,7 @@ concat(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=TT,ref=TRef}) ->
   wxe_util:cast(?wxGraphicsMatrix_Concat,
   <<ThisRef:32/?UI,TRef:32/?UI>>).
 
-%% @spec (This::wxGraphicsMatrix()) -> {A::float(),B::float(),C::float(),D::float(),Tx::float(),Ty::float()}
+%% @spec (This::wxGraphicsMatrix()) -> {A::float(), B::float(), C::float(), D::float(), Tx::float(), Ty::float()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicsmatrix.html#wxgraphicsmatrixget">external documentation</a>.
 get(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGraphicsMatrix),
@@ -128,14 +128,14 @@ set(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   wxe_util:cast(?wxGraphicsMatrix_Set,
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxGraphicsMatrix()) -> {X::float(),Y::float()}
+%% @spec (This::wxGraphicsMatrix()) -> {X::float(), Y::float()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicsmatrix.html#wxgraphicsmatrixtransformpoint">external documentation</a>.
 transformPoint(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGraphicsMatrix),
   wxe_util:call(?wxGraphicsMatrix_TransformPoint,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxGraphicsMatrix()) -> {Dx::float(),Dy::float()}
+%% @spec (This::wxGraphicsMatrix()) -> {Dx::float(), Dy::float()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicsmatrix.html#wxgraphicsmatrixtransformdistance">external documentation</a>.
 transformDistance(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGraphicsMatrix),

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -99,7 +99,7 @@ new(Parent)
   new(Parent, []).
 
 %% @spec (Parent::wxWindow:wxWindow(), [Option]) -> wxHtmlWindow()
-%% Option = {id, integer()} | {pos, {X::integer(),Y::integer()}} | {size, {W::integer(),H::integer()}} | {style, integer()}
+%% Option = {id, integer()} | {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmlwindow.html#wxhtmlwindowwxhtmlwindow">external documentation</a>.
 new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->
@@ -217,7 +217,7 @@ selectionToText(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxHtmlWindow_SelectionToText,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxHtmlWindow(), Pos::{X::integer(),Y::integer()}) -> ok
+%% @spec (This::wxHtmlWindow(), Pos::{X::integer(), Y::integer()}) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmlwindow.html#wxhtmlwindowselectline">external documentation</a>.
 selectLine(#wx_ref{type=ThisT,ref=ThisRef},{PosX,PosY})
  when is_integer(PosX),is_integer(PosY) ->
@@ -225,7 +225,7 @@ selectLine(#wx_ref{type=ThisT,ref=ThisRef},{PosX,PosY})
   wxe_util:cast(?wxHtmlWindow_SelectLine,
   <<ThisRef:32/?UI,PosX:32/?UI,PosY:32/?UI>>).
 
-%% @spec (This::wxHtmlWindow(), Pos::{X::integer(),Y::integer()}) -> ok
+%% @spec (This::wxHtmlWindow(), Pos::{X::integer(), Y::integer()}) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmlwindow.html#wxhtmlwindowselectword">external documentation</a>.
 selectWord(#wx_ref{type=ThisT,ref=ThisRef},{PosX,PosY})
  when is_integer(PosX),is_integer(PosY) ->

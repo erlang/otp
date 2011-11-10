@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -192,13 +192,13 @@ drawIcon(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=IconT,ref=IconRef},X,Y,W,H
   wxe_util:cast(?wxGraphicsContext_DrawIcon,
   <<ThisRef:32/?UI,IconRef:32/?UI,X:64/?F,Y:64/?F,W:64/?F,H:64/?F>>).
 
-%% @spec (This::wxGraphicsContext(), N::integer(), Points::{X::float(),Y::float()}) -> ok
+%% @spec (This::wxGraphicsContext(), N::integer(), Points::{X::float(), Y::float()}) -> ok
 %% @equiv drawLines(This,N,Points, [])
 drawLines(This,N,Points={PointsX,PointsY})
  when is_record(This, wx_ref),is_integer(N),is_number(PointsX),is_number(PointsY) ->
   drawLines(This,N,Points, []).
 
-%% @spec (This::wxGraphicsContext(), N::integer(), Points::{X::float(),Y::float()}, [Option]) -> ok
+%% @spec (This::wxGraphicsContext(), N::integer(), Points::{X::float(), Y::float()}, [Option]) -> ok
 %% Option = {fillStyle, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicscontext.html#wxgraphicscontextdrawlines">external documentation</a>.
 drawLines(#wx_ref{type=ThisT,ref=ThisRef},N,{PointsX,PointsY}, Options)
@@ -331,7 +331,7 @@ getPartialTextExtents(#wx_ref{type=ThisT,ref=ThisRef},Text,Widths)
   <<ThisRef:32/?UI,(byte_size(Text_UC)):32/?UI,(Text_UC)/binary, 0:(((8- ((0+byte_size(Text_UC)) band 16#7)) band 16#7))/unit:8,(length(Widths)):32/?UI,
 0:32,  (<< <<C:64/float>> || C <- Widths>>)/binary>>).
 
-%% @spec (This::wxGraphicsContext(), Text::string()) -> {Width::float(),Height::float(),Descent::float(),ExternalLeading::float()}
+%% @spec (This::wxGraphicsContext(), Text::string()) -> {Width::float(), Height::float(), Descent::float(), ExternalLeading::float()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicscontext.html#wxgraphicscontextgettextextent">external documentation</a>.
 getTextExtent(#wx_ref{type=ThisT,ref=ThisRef},Text)
  when is_list(Text) ->
@@ -438,7 +438,7 @@ strokeLine(#wx_ref{type=ThisT,ref=ThisRef},X1,Y1,X2,Y2)
   wxe_util:cast(?wxGraphicsContext_StrokeLine,
   <<ThisRef:32/?UI,0:32,X1:64/?F,Y1:64/?F,X2:64/?F,Y2:64/?F>>).
 
-%% @spec (This::wxGraphicsContext(), N::integer(), Points::{X::float(),Y::float()}) -> ok
+%% @spec (This::wxGraphicsContext(), N::integer(), Points::{X::float(), Y::float()}) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicscontext.html#wxgraphicscontextstrokelines">external documentation</a>.
 strokeLines(#wx_ref{type=ThisT,ref=ThisRef},N,{PointsX,PointsY})
  when is_integer(N),is_number(PointsX),is_number(PointsY) ->
@@ -446,7 +446,7 @@ strokeLines(#wx_ref{type=ThisT,ref=ThisRef},N,{PointsX,PointsY})
   wxe_util:cast(?wxGraphicsContext_StrokeLines_2,
   <<ThisRef:32/?UI,N:32/?UI,PointsX:64/float,PointsY:64/float>>).
 
-%% @spec (This::wxGraphicsContext(), N::integer(), BeginPoints::{X::float(),Y::float()}, EndPoints::{X::float(),Y::float()}) -> ok
+%% @spec (This::wxGraphicsContext(), N::integer(), BeginPoints::{X::float(), Y::float()}, EndPoints::{X::float(), Y::float()}) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicscontext.html#wxgraphicscontextstrokelines">external documentation</a>.
 strokeLines(#wx_ref{type=ThisT,ref=ThisRef},N,{BeginPointsX,BeginPointsY},{EndPointsX,EndPointsY})
  when is_integer(N),is_number(BeginPointsX),is_number(BeginPointsY),is_number(EndPointsX),is_number(EndPointsY) ->

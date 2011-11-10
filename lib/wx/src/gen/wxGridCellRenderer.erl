@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -32,7 +32,7 @@
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec (This::wxGridCellRenderer(), Grid::wxGrid:wxGrid(), Attr::wxGridCellAttr:wxGridCellAttr(), Dc::wxDC:wxDC(), Rect::{X::integer(),Y::integer(),W::integer(),H::integer()}, Row::integer(), Col::integer(), IsSelected::bool()) -> ok
+%% @spec (This::wxGridCellRenderer(), Grid::wxGrid:wxGrid(), Attr::wxGridCellAttr:wxGridCellAttr(), Dc::wxDC:wxDC(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}, Row::integer(), Col::integer(), IsSelected::bool()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridcellrenderer.html#wxgridcellrendererdraw">external documentation</a>.
 draw(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=GridT,ref=GridRef},#wx_ref{type=AttrT,ref=AttrRef},#wx_ref{type=DcT,ref=DcRef},{RectX,RectY,RectW,RectH},Row,Col,IsSelected)
  when is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH),is_integer(Row),is_integer(Col),is_boolean(IsSelected) ->
@@ -43,7 +43,7 @@ draw(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=GridT,ref=GridRef},#wx_ref{typ
   wxe_util:cast(?wxGridCellRenderer_Draw,
   <<ThisRef:32/?UI,GridRef:32/?UI,AttrRef:32/?UI,DcRef:32/?UI,RectX:32/?UI,RectY:32/?UI,RectW:32/?UI,RectH:32/?UI,Row:32/?UI,Col:32/?UI,(wxe_util:from_bool(IsSelected)):32/?UI>>).
 
-%% @spec (This::wxGridCellRenderer(), Grid::wxGrid:wxGrid(), Attr::wxGridCellAttr:wxGridCellAttr(), Dc::wxDC:wxDC(), Row::integer(), Col::integer()) -> {W::integer(),H::integer()}
+%% @spec (This::wxGridCellRenderer(), Grid::wxGrid:wxGrid(), Attr::wxGridCellAttr:wxGridCellAttr(), Dc::wxDC:wxDC(), Row::integer(), Col::integer()) -> {W::integer(), H::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridcellrenderer.html#wxgridcellrenderergetbestsize">external documentation</a>.
 getBestSize(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=GridT,ref=GridRef},#wx_ref{type=AttrT,ref=AttrRef},#wx_ref{type=DcT,ref=DcRef},Row,Col)
  when is_integer(Row),is_integer(Col) ->

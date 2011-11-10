@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -93,7 +93,7 @@ new(Parent)
   new(Parent, []).
 
 %% @spec (Parent::wxWindow:wxWindow(), [Option]) -> wxFileDialog()
-%% Option = {message, string()} | {defaultDir, string()} | {defaultFile, string()} | {wildCard, string()} | {style, integer()} | {pos, {X::integer(),Y::integer()}} | {sz, {W::integer(),H::integer()}}
+%% Option = {message, string()} | {defaultDir, string()} | {defaultFile, string()} | {wildCard, string()} | {style, integer()} | {pos, {X::integer(), Y::integer()}} | {sz, {W::integer(), H::integer()}}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfiledialog.html#wxfiledialogwxfiledialog">external documentation</a>.
 new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->

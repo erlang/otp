@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -75,7 +75,7 @@ getPixel(#wx_ref{type=ThisT,ref=ThisRef},Red,Green,Blue)
   wxe_util:call(?wxPalette_GetPixel,
   <<ThisRef:32/?UI,Red:32/?UI,Green:32/?UI,Blue:32/?UI>>).
 
-%% @spec (This::wxPalette(), Pixel::integer()) -> {bool(),Red::integer(),Green::integer(),Blue::integer()}
+%% @spec (This::wxPalette(), Pixel::integer()) -> {bool(), Red::integer(), Green::integer(), Blue::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpalette.html#wxpalettegetrgb">external documentation</a>.
 getRGB(#wx_ref{type=ThisT,ref=ThisRef},Pixel)
  when is_integer(Pixel) ->

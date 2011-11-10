@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -94,7 +94,7 @@ new(Parent,Id)
   new(Parent,Id, []).
 
 %% @spec (Parent::wxWindow:wxWindow(), Id::integer(), [Option]) -> wxFilePickerCtrl()
-%% Option = {path, string()} | {message, string()} | {wildcard, string()} | {pos, {X::integer(),Y::integer()}} | {size, {W::integer(),H::integer()}} | {style, integer()} | {validator, wx:wx()}
+%% Option = {path, string()} | {message, string()} | {wildcard, string()} | {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()} | {validator, wx:wx()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfilepickerctrl.html#wxfilepickerctrlwxfilepickerctrl">external documentation</a>.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
  when is_integer(Id),is_list(Options) ->
@@ -118,7 +118,7 @@ create(This,Parent,Id)
   create(This,Parent,Id, []).
 
 %% @spec (This::wxFilePickerCtrl(), Parent::wxWindow:wxWindow(), Id::integer(), [Option]) -> bool()
-%% Option = {path, string()} | {message, string()} | {wildcard, string()} | {pos, {X::integer(),Y::integer()}} | {size, {W::integer(),H::integer()}} | {style, integer()} | {validator, wx:wx()}
+%% Option = {path, string()} | {message, string()} | {wildcard, string()} | {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()} | {validator, wx:wx()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfilepickerctrl.html#wxfilepickerctrlcreate">external documentation</a>.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
  when is_integer(Id),is_list(Options) ->

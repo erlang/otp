@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -89,7 +89,7 @@ getIcon(This)
 %%<br /> Option = {size, integer()}
 %% </p>
 %% <p><c>
-%% getIcon(This::wxIconBundle(), Size::{W::integer(),H::integer()}) -> wxIcon:wxIcon() </c>
+%% getIcon(This::wxIconBundle(), Size::{W::integer(), H::integer()}) -> wxIcon:wxIcon() </c>
 %% </p>
 getIcon(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->

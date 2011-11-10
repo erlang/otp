@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -78,13 +78,13 @@ parent_class(wxWindow) -> true;
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec (Parent::wxWindow:wxWindow(), Id::integer(), Title::string(), Pos::{X::integer(),Y::integer()}, Size::{W::integer(),H::integer()}, Choices::[[string()]]) -> wxRadioBox()
+%% @spec (Parent::wxWindow:wxWindow(), Id::integer(), Title::string(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[[string()]]) -> wxRadioBox()
 %% @equiv new(Parent,Id,Title,Pos,Size,Choices, [])
 new(Parent,Id,Title,Pos={PosX,PosY},Size={SizeW,SizeH},Choices)
  when is_record(Parent, wx_ref),is_integer(Id),is_list(Title),is_integer(PosX),is_integer(PosY),is_integer(SizeW),is_integer(SizeH),is_list(Choices) ->
   new(Parent,Id,Title,Pos,Size,Choices, []).
 
-%% @spec (Parent::wxWindow:wxWindow(), Id::integer(), Title::string(), Pos::{X::integer(),Y::integer()}, Size::{W::integer(),H::integer()}, Choices::[[string()]], [Option]) -> wxRadioBox()
+%% @spec (Parent::wxWindow:wxWindow(), Id::integer(), Title::string(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[[string()]], [Option]) -> wxRadioBox()
 %% Option = {majorDim, integer()} | {style, integer()} | {val, wx:wx()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxradiobox.html#wxradioboxwxradiobox">external documentation</a>.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id,Title,{PosX,PosY},{SizeW,SizeH},Choices, Options)
@@ -101,13 +101,13 @@ new(#wx_ref{type=ParentT,ref=ParentRef},Id,Title,{PosX,PosY},{SizeW,SizeH},Choic
   wxe_util:construct(?wxRadioBox_new,
   <<ParentRef:32/?UI,Id:32/?UI,(byte_size(Title_UC)):32/?UI,(Title_UC)/binary, 0:(((8- ((4+byte_size(Title_UC)) band 16#7)) band 16#7))/unit:8,PosX:32/?UI,PosY:32/?UI,SizeW:32/?UI,SizeH:32/?UI,(length(Choices_UCA)):32/?UI, (<< <<(byte_size(UC_Str)):32/?UI, UC_Str/binary>>|| UC_Str <- Choices_UCA>>)/binary, 0:(((8- ((4 + lists:sum([byte_size(S)+4||S<-Choices_UCA])) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
-%% @spec (This::wxRadioBox(), Parent::wxWindow:wxWindow(), Id::integer(), Title::string(), Pos::{X::integer(),Y::integer()}, Size::{W::integer(),H::integer()}, Choices::[[string()]]) -> bool()
+%% @spec (This::wxRadioBox(), Parent::wxWindow:wxWindow(), Id::integer(), Title::string(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[[string()]]) -> bool()
 %% @equiv create(This,Parent,Id,Title,Pos,Size,Choices, [])
 create(This,Parent,Id,Title,Pos={PosX,PosY},Size={SizeW,SizeH},Choices)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),is_list(Title),is_integer(PosX),is_integer(PosY),is_integer(SizeW),is_integer(SizeH),is_list(Choices) ->
   create(This,Parent,Id,Title,Pos,Size,Choices, []).
 
-%% @spec (This::wxRadioBox(), Parent::wxWindow:wxWindow(), Id::integer(), Title::string(), Pos::{X::integer(),Y::integer()}, Size::{W::integer(),H::integer()}, Choices::[[string()]], [Option]) -> bool()
+%% @spec (This::wxRadioBox(), Parent::wxWindow:wxWindow(), Id::integer(), Title::string(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[[string()]], [Option]) -> bool()
 %% Option = {majorDim, integer()} | {style, integer()} | {val, wx:wx()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxradiobox.html#wxradioboxcreate">external documentation</a>.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,Title,{PosX,PosY},{SizeW,SizeH},Choices, Options)
@@ -251,7 +251,7 @@ getItemToolTip(#wx_ref{type=ThisT,ref=ThisRef},Item)
   wxe_util:call(?wxRadioBox_GetItemToolTip,
   <<ThisRef:32/?UI,Item:32/?UI>>).
 
-%% @spec (This::wxRadioBox(), Pt::{X::integer(),Y::integer()}) -> integer()
+%% @spec (This::wxRadioBox(), Pt::{X::integer(), Y::integer()}) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxradiobox.html#wxradioboxgetitemfrompoint">external documentation</a>.
 getItemFromPoint(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY})
  when is_integer(PtX),is_integer(PtY) ->

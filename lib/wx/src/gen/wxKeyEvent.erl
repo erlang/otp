@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -78,7 +78,7 @@ getModifiers(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxKeyEvent_GetModifiers,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxKeyEvent()) -> {X::integer(),Y::integer()}
+%% @spec (This::wxKeyEvent()) -> {X::integer(), Y::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxkeyevent.html#wxkeyeventgetposition">external documentation</a>.
 getPosition(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxKeyEvent),

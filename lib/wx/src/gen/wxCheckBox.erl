@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -90,7 +90,7 @@ new(Parent,Id,Label)
   new(Parent,Id,Label, []).
 
 %% @spec (Parent::wxWindow:wxWindow(), Id::integer(), Label::string(), [Option]) -> wxCheckBox()
-%% Option = {pos, {X::integer(),Y::integer()}} | {size, {W::integer(),H::integer()}} | {style, integer()} | {validator, wx:wx()}
+%% Option = {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()} | {validator, wx:wx()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcheckbox.html#wxcheckboxwxcheckbox">external documentation</a>.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id,Label, Options)
  when is_integer(Id),is_list(Label),is_list(Options) ->
@@ -112,7 +112,7 @@ create(This,Parent,Id,Label)
   create(This,Parent,Id,Label, []).
 
 %% @spec (This::wxCheckBox(), Parent::wxWindow:wxWindow(), Id::integer(), Label::string(), [Option]) -> bool()
-%% Option = {pos, {X::integer(),Y::integer()}} | {size, {W::integer(),H::integer()}} | {style, integer()} | {validator, wx:wx()}
+%% Option = {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()} | {validator, wx:wx()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcheckbox.html#wxcheckboxcreate">external documentation</a>.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,Label, Options)
  when is_integer(Id),is_list(Label),is_list(Options) ->

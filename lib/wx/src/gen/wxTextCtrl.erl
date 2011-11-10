@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -96,7 +96,7 @@ new(Parent,Id)
   new(Parent,Id, []).
 
 %% @spec (Parent::wxWindow:wxWindow(), Id::integer(), [Option]) -> wxTextCtrl()
-%% Option = {value, string()} | {pos, {X::integer(),Y::integer()}} | {size, {W::integer(),H::integer()}} | {style, integer()} | {validator, wx:wx()}
+%% Option = {value, string()} | {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()} | {validator, wx:wx()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextctrl.html#wxtextctrlwxtextctrl">external documentation</a>.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
  when is_integer(Id),is_list(Options) ->
@@ -176,7 +176,7 @@ create(This,Parent,Id)
   create(This,Parent,Id, []).
 
 %% @spec (This::wxTextCtrl(), Parent::wxWindow:wxWindow(), Id::integer(), [Option]) -> bool()
-%% Option = {value, string()} | {pos, {X::integer(),Y::integer()}} | {size, {W::integer(),H::integer()}} | {style, integer()} | {validator, wx:wx()}
+%% Option = {value, string()} | {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()} | {validator, wx:wx()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextctrl.html#wxtextctrlcreate">external documentation</a>.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
  when is_integer(Id),is_list(Options) ->
@@ -266,7 +266,7 @@ getRange(#wx_ref{type=ThisT,ref=ThisRef},From,To)
   wxe_util:call(?wxTextCtrl_GetRange,
   <<ThisRef:32/?UI,From:32/?UI,To:32/?UI>>).
 
-%% @spec (This::wxTextCtrl()) -> {From::integer(),To::integer()}
+%% @spec (This::wxTextCtrl()) -> {From::integer(), To::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextctrl.html#wxtextctrlgetselection">external documentation</a>.
 getSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxTextCtrl),
@@ -357,7 +357,7 @@ paste(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:cast(?wxTextCtrl_Paste,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxTextCtrl(), Pos::integer()) -> {bool(),X::integer(),Y::integer()}
+%% @spec (This::wxTextCtrl(), Pos::integer()) -> {bool(), X::integer(), Y::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextctrl.html#wxtextctrlpositiontoxy">external documentation</a>.
 positionToXY(#wx_ref{type=ThisT,ref=ThisRef},Pos)
  when is_integer(Pos) ->

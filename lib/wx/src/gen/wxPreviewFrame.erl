@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -95,7 +95,7 @@ new(Preview,Parent)
   new(Preview,Parent, []).
 
 %% @spec (Preview::wxPrintPreview:wxPrintPreview(), Parent::wxWindow:wxWindow(), [Option]) -> wxPreviewFrame()
-%% Option = {title, string()} | {pos, {X::integer(),Y::integer()}} | {size, {W::integer(),H::integer()}} | {style, integer()}
+%% Option = {title, string()} | {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpreviewframe.html#wxpreviewframewxpreviewframe">external documentation</a>.
 new(#wx_ref{type=PreviewT,ref=PreviewRef},#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->

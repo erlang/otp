@@ -86,7 +86,7 @@ new(Parent,Id)
   new(Parent,Id, []).
 
 %% @spec (Parent::wxWindow(), Id::integer(), [Option]) -> wxWindow()
-%% Option = {pos, {X::integer(),Y::integer()}} | {size, {W::integer(),H::integer()}} | {style, integer()}
+%% Option = {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowwxwindow">external documentation</a>.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
  when is_integer(Id),is_list(Options) ->
@@ -99,7 +99,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
   wxe_util:construct(?wxWindow_new_3,
   <<ParentRef:32/?UI,Id:32/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxWindow(), Size::{W::integer(),H::integer()}) -> ok
+%% @spec (This::wxWindow(), Size::{W::integer(), H::integer()}) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowcachebestsize">external documentation</a>.
 cacheBestSize(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH})
  when is_integer(SizeW),is_integer(SizeH) ->
@@ -193,7 +193,7 @@ clearBackground(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:cast(?wxWindow_ClearBackground,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxWindow(), Pt::{X::integer(),Y::integer()}) -> {X::integer(),Y::integer()}
+%% @spec (This::wxWindow(), Pt::{X::integer(), Y::integer()}) -> {X::integer(), Y::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowclienttoscreen">external documentation</a>.
 clientToScreen(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY})
  when is_integer(PtX),is_integer(PtY) ->
@@ -201,7 +201,7 @@ clientToScreen(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY})
   wxe_util:call(?wxWindow_ClientToScreen_1,
   <<ThisRef:32/?UI,PtX:32/?UI,PtY:32/?UI>>).
 
-%% @spec (This::wxWindow(), X::integer(), Y::integer()) -> {X::integer(),Y::integer()}
+%% @spec (This::wxWindow(), X::integer(), Y::integer()) -> {X::integer(), Y::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowclienttoscreen">external documentation</a>.
 clientToScreen(#wx_ref{type=ThisT,ref=ThisRef},X,Y)
  when is_integer(X),is_integer(Y) ->
@@ -227,7 +227,7 @@ close(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   wxe_util:call(?wxWindow_Close,
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxWindow(), Sz::{W::integer(),H::integer()}) -> {W::integer(),H::integer()}
+%% @spec (This::wxWindow(), Sz::{W::integer(), H::integer()}) -> {W::integer(), H::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowconvertdialogtopixels">external documentation</a>.
 convertDialogToPixels(#wx_ref{type=ThisT,ref=ThisRef},{SzW,SzH})
  when is_integer(SzW),is_integer(SzH) ->
@@ -235,7 +235,7 @@ convertDialogToPixels(#wx_ref{type=ThisT,ref=ThisRef},{SzW,SzH})
   wxe_util:call(?wxWindow_ConvertDialogToPixels,
   <<ThisRef:32/?UI,SzW:32/?UI,SzH:32/?UI>>).
 
-%% @spec (This::wxWindow(), Sz::{W::integer(),H::integer()}) -> {W::integer(),H::integer()}
+%% @spec (This::wxWindow(), Sz::{W::integer(), H::integer()}) -> {W::integer(), H::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowconvertpixelstodialog">external documentation</a>.
 convertPixelsToDialog(#wx_ref{type=ThisT,ref=ThisRef},{SzW,SzH})
  when is_integer(SzW),is_integer(SzH) ->
@@ -406,7 +406,7 @@ getBackgroundStyle(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxWindow_GetBackgroundStyle,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxWindow()) -> {W::integer(),H::integer()}
+%% @spec (This::wxWindow()) -> {W::integer(), H::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowgetbestsize">external documentation</a>.
 getBestSize(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxWindow),
@@ -447,7 +447,7 @@ getChildren(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxWindow_GetChildren,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxWindow()) -> {W::integer(),H::integer()}
+%% @spec (This::wxWindow()) -> {W::integer(), H::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowgetclientsize">external documentation</a>.
 getClientSize(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxWindow),
@@ -538,14 +538,14 @@ getLabel(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxWindow_GetLabel,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxWindow()) -> {W::integer(),H::integer()}
+%% @spec (This::wxWindow()) -> {W::integer(), H::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowgetmaxsize">external documentation</a>.
 getMaxSize(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:call(?wxWindow_GetMaxSize,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxWindow()) -> {W::integer(),H::integer()}
+%% @spec (This::wxWindow()) -> {W::integer(), H::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowgetminsize">external documentation</a>.
 getMinSize(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxWindow),
@@ -566,28 +566,28 @@ getParent(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxWindow_GetParent,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxWindow()) -> {X::integer(),Y::integer()}
+%% @spec (This::wxWindow()) -> {X::integer(), Y::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowgetposition">external documentation</a>.
 getPosition(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:call(?wxWindow_GetPosition,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxWindow()) -> {X::integer(),Y::integer(),W::integer(),H::integer()}
+%% @spec (This::wxWindow()) -> {X::integer(), Y::integer(), W::integer(), H::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowgetrect">external documentation</a>.
 getRect(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:call(?wxWindow_GetRect,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxWindow()) -> {X::integer(),Y::integer()}
+%% @spec (This::wxWindow()) -> {X::integer(), Y::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowgetscreenposition">external documentation</a>.
 getScreenPosition(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:call(?wxWindow_GetScreenPosition,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxWindow()) -> {X::integer(),Y::integer(),W::integer(),H::integer()}
+%% @spec (This::wxWindow()) -> {X::integer(), Y::integer(), W::integer(), H::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowgetscreenrect">external documentation</a>.
 getScreenRect(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxWindow),
@@ -618,7 +618,7 @@ getScrollThumb(#wx_ref{type=ThisT,ref=ThisRef},Orient)
   wxe_util:call(?wxWindow_GetScrollThumb,
   <<ThisRef:32/?UI,Orient:32/?UI>>).
 
-%% @spec (This::wxWindow()) -> {W::integer(),H::integer()}
+%% @spec (This::wxWindow()) -> {W::integer(), H::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowgetsize">external documentation</a>.
 getSize(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxWindow),
@@ -632,13 +632,13 @@ getSizer(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxWindow_GetSizer,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxWindow(), String::string()) -> {X::integer(),Y::integer(),Descent::integer(),ExternalLeading::integer()}
+%% @spec (This::wxWindow(), String::string()) -> {X::integer(), Y::integer(), Descent::integer(), ExternalLeading::integer()}
 %% @equiv getTextExtent(This,String, [])
 getTextExtent(This,String)
  when is_record(This, wx_ref),is_list(String) ->
   getTextExtent(This,String, []).
 
-%% @spec (This::wxWindow(), String::string(), [Option]) -> {X::integer(),Y::integer(),Descent::integer(),ExternalLeading::integer()}
+%% @spec (This::wxWindow(), String::string(), [Option]) -> {X::integer(), Y::integer(), Descent::integer(), ExternalLeading::integer()}
 %% Option = {theFont, wxFont:wxFont()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowgettextextent">external documentation</a>.
 getTextExtent(#wx_ref{type=ThisT,ref=ThisRef},String, Options)
@@ -665,7 +665,7 @@ getUpdateRegion(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxWindow_GetUpdateRegion,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxWindow()) -> {W::integer(),H::integer()}
+%% @spec (This::wxWindow()) -> {W::integer(), H::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowgetvirtualsize">external documentation</a>.
 getVirtualSize(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxWindow),
@@ -749,10 +749,10 @@ isEnabled(#wx_ref{type=ThisT,ref=ThisRef}) ->
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowisexposed">external documentation</a>.
 %% <br /> Alternatives:
 %% <p><c>
-%% isExposed(This::wxWindow(), Pt::{X::integer(),Y::integer()}) -> bool() </c>
+%% isExposed(This::wxWindow(), Pt::{X::integer(), Y::integer()}) -> bool() </c>
 %% </p>
 %% <p><c>
-%% isExposed(This::wxWindow(), Rect::{X::integer(),Y::integer(),W::integer(),H::integer()}) -> bool() </c>
+%% isExposed(This::wxWindow(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}) -> bool() </c>
 %% </p>
 isExposed(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY})
  when is_integer(PtX),is_integer(PtY) ->
@@ -848,7 +848,7 @@ makeModal(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   wxe_util:cast(?wxWindow_MakeModal,
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxWindow(), Pt::{X::integer(),Y::integer()}) -> ok
+%% @spec (This::wxWindow(), Pt::{X::integer(), Y::integer()}) -> ok
 %% @equiv move(This,Pt, [])
 move(This,Pt={PtX,PtY})
  when is_record(This, wx_ref),is_integer(PtX),is_integer(PtY) ->
@@ -860,7 +860,7 @@ move(This,Pt={PtX,PtY})
 %% <p><c>
 %% move(This::wxWindow(), X::integer(), Y::integer()) -> move(This,X,Y, []) </c></p>
 %% <p><c>
-%% move(This::wxWindow(), Pt::{X::integer(),Y::integer()}, [Option]) -> ok </c>
+%% move(This::wxWindow(), Pt::{X::integer(), Y::integer()}, [Option]) -> ok </c>
 %%<br /> Option = {flags, integer()}
 %% </p>
 
@@ -961,7 +961,7 @@ popupMenu(This,Menu)
   popupMenu(This,Menu, []).
 
 %% @spec (This::wxWindow(), Menu::wxMenu:wxMenu(), [Option]) -> bool()
-%% Option = {pos, {X::integer(),Y::integer()}}
+%% Option = {pos, {X::integer(), Y::integer()}}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowpopupmenu">external documentation</a>.
 popupMenu(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=MenuT,ref=MenuRef}, Options)
  when is_list(Options) ->
@@ -996,7 +996,7 @@ refresh(This)
   refresh(This, []).
 
 %% @spec (This::wxWindow(), [Option]) -> ok
-%% Option = {eraseBackground, bool()} | {rect, {X::integer(),Y::integer(),W::integer(),H::integer()}}
+%% Option = {eraseBackground, bool()} | {rect, {X::integer(), Y::integer(), W::integer(), H::integer()}}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowrefresh">external documentation</a>.
 refresh(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
@@ -1008,13 +1008,13 @@ refresh(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   wxe_util:cast(?wxWindow_Refresh,
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxWindow(), Rect::{X::integer(),Y::integer(),W::integer(),H::integer()}) -> ok
+%% @spec (This::wxWindow(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}) -> ok
 %% @equiv refreshRect(This,Rect, [])
 refreshRect(This,Rect={RectX,RectY,RectW,RectH})
  when is_record(This, wx_ref),is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH) ->
   refreshRect(This,Rect, []).
 
-%% @spec (This::wxWindow(), Rect::{X::integer(),Y::integer(),W::integer(),H::integer()}, [Option]) -> ok
+%% @spec (This::wxWindow(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}, [Option]) -> ok
 %% Option = {eraseBackground, bool()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowrefreshrect">external documentation</a>.
 refreshRect(#wx_ref{type=ThisT,ref=ThisRef},{RectX,RectY,RectW,RectH}, Options)
@@ -1049,14 +1049,14 @@ reparent(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=NewParentT,ref=NewParentRe
   wxe_util:call(?wxWindow_Reparent,
   <<ThisRef:32/?UI,NewParentRef:32/?UI>>).
 
-%% @spec (This::wxWindow()) -> {X::integer(),Y::integer()}
+%% @spec (This::wxWindow()) -> {X::integer(), Y::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowscreentoclient">external documentation</a>.
 screenToClient(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:call(?wxWindow_ScreenToClient_2,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxWindow(), Pt::{X::integer(),Y::integer()}) -> {X::integer(),Y::integer()}
+%% @spec (This::wxWindow(), Pt::{X::integer(), Y::integer()}) -> {X::integer(), Y::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowscreentoclient">external documentation</a>.
 screenToClient(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY})
  when is_integer(PtX),is_integer(PtY) ->
@@ -1087,7 +1087,7 @@ scrollWindow(This,Dx,Dy)
   scrollWindow(This,Dx,Dy, []).
 
 %% @spec (This::wxWindow(), Dx::integer(), Dy::integer(), [Option]) -> ok
-%% Option = {rect, {X::integer(),Y::integer(),W::integer(),H::integer()}}
+%% Option = {rect, {X::integer(), Y::integer(), W::integer(), H::integer()}}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowscrollwindow">external documentation</a>.
 scrollWindow(#wx_ref{type=ThisT,ref=ThisRef},Dx,Dy, Options)
  when is_integer(Dx),is_integer(Dy),is_list(Options) ->
@@ -1184,7 +1184,7 @@ setCursor(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=CursorT,ref=CursorRef}) -
   wxe_util:call(?wxWindow_SetCursor,
   <<ThisRef:32/?UI,CursorRef:32/?UI>>).
 
-%% @spec (This::wxWindow(), MaxSize::{W::integer(),H::integer()}) -> ok
+%% @spec (This::wxWindow(), MaxSize::{W::integer(), H::integer()}) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowsetmaxsize">external documentation</a>.
 setMaxSize(#wx_ref{type=ThisT,ref=ThisRef},{MaxSizeW,MaxSizeH})
  when is_integer(MaxSizeW),is_integer(MaxSizeH) ->
@@ -1192,7 +1192,7 @@ setMaxSize(#wx_ref{type=ThisT,ref=ThisRef},{MaxSizeW,MaxSizeH})
   wxe_util:cast(?wxWindow_SetMaxSize,
   <<ThisRef:32/?UI,MaxSizeW:32/?UI,MaxSizeH:32/?UI>>).
 
-%% @spec (This::wxWindow(), MinSize::{W::integer(),H::integer()}) -> ok
+%% @spec (This::wxWindow(), MinSize::{W::integer(), H::integer()}) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowsetminsize">external documentation</a>.
 setMinSize(#wx_ref{type=ThisT,ref=ThisRef},{MinSizeW,MinSizeH})
  when is_integer(MinSizeW),is_integer(MinSizeH) ->
@@ -1353,9 +1353,9 @@ setScrollPos(#wx_ref{type=ThisT,ref=ThisRef},Orient,Pos, Options)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowsetsize">external documentation</a>.
 %% <br /> Alternatives:
 %% <p><c>
-%% setSize(This::wxWindow(), Rect::{X::integer(),Y::integer(),W::integer(),H::integer()}) -> setSize(This,Rect, []) </c></p>
+%% setSize(This::wxWindow(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}) -> setSize(This,Rect, []) </c></p>
 %% <p><c>
-%% setSize(This::wxWindow(), Size::{W::integer(),H::integer()}) -> ok </c>
+%% setSize(This::wxWindow(), Size::{W::integer(), H::integer()}) -> ok </c>
 %% </p>
 
 setSize(This,Rect={RectX,RectY,RectW,RectH})
@@ -1374,7 +1374,7 @@ setSize(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH})
 %% setSize(This::wxWindow(), Width::integer(), Height::integer()) -> ok </c>
 %% </p>
 %% <p><c>
-%% setSize(This::wxWindow(), Rect::{X::integer(),Y::integer(),W::integer(),H::integer()}, [Option]) -> ok </c>
+%% setSize(This::wxWindow(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}, [Option]) -> ok </c>
 %%<br /> Option = {sizeFlags, integer()}
 %% </p>
 setSize(#wx_ref{type=ThisT,ref=ThisRef},Width,Height)
@@ -1409,7 +1409,7 @@ setSize(#wx_ref{type=ThisT,ref=ThisRef},X,Y,Width,Height, Options)
   wxe_util:cast(?wxWindow_SetSize_5,
   <<ThisRef:32/?UI,X:32/?UI,Y:32/?UI,Width:32/?UI,Height:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxWindow(), MinSize::{W::integer(),H::integer()}) -> ok
+%% @spec (This::wxWindow(), MinSize::{W::integer(), H::integer()}) -> ok
 %% @equiv setSizeHints(This,MinSize, [])
 setSizeHints(This,MinSize={MinSizeW,MinSizeH})
  when is_record(This, wx_ref),is_integer(MinSizeW),is_integer(MinSizeH) ->
@@ -1421,8 +1421,8 @@ setSizeHints(This,MinSize={MinSizeW,MinSizeH})
 %% <p><c>
 %% setSizeHints(This::wxWindow(), MinW::integer(), MinH::integer()) -> setSizeHints(This,MinW,MinH, []) </c></p>
 %% <p><c>
-%% setSizeHints(This::wxWindow(), MinSize::{W::integer(),H::integer()}, [Option]) -> ok </c>
-%%<br /> Option = {maxSize, {W::integer(),H::integer()}} | {incSize, {W::integer(),H::integer()}}
+%% setSizeHints(This::wxWindow(), MinSize::{W::integer(), H::integer()}, [Option]) -> ok </c>
+%%<br /> Option = {maxSize, {W::integer(), H::integer()}} | {incSize, {W::integer(), H::integer()}}
 %% </p>
 
 setSizeHints(This,MinW,MinH)
@@ -1520,7 +1520,7 @@ setToolTip(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=TipT,ref=TipRef}) ->
   wxe_util:cast(?wxWindow_SetToolTip_1_1,
   <<ThisRef:32/?UI,TipRef:32/?UI>>).
 
-%% @spec (This::wxWindow(), Size::{W::integer(),H::integer()}) -> ok
+%% @spec (This::wxWindow(), Size::{W::integer(), H::integer()}) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowsetvirtualsize">external documentation</a>.
 setVirtualSize(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH})
  when is_integer(SizeW),is_integer(SizeH) ->
@@ -1536,7 +1536,7 @@ setVirtualSize(#wx_ref{type=ThisT,ref=ThisRef},X,Y)
   wxe_util:cast(?wxWindow_SetVirtualSize_2,
   <<ThisRef:32/?UI,X:32/?UI,Y:32/?UI>>).
 
-%% @spec (This::wxWindow(), MinSize::{W::integer(),H::integer()}) -> ok
+%% @spec (This::wxWindow(), MinSize::{W::integer(), H::integer()}) -> ok
 %% @equiv setVirtualSizeHints(This,MinSize, [])
 setVirtualSizeHints(This,MinSize={MinSizeW,MinSizeH})
  when is_record(This, wx_ref),is_integer(MinSizeW),is_integer(MinSizeH) ->
@@ -1548,8 +1548,8 @@ setVirtualSizeHints(This,MinSize={MinSizeW,MinSizeH})
 %% <p><c>
 %% setVirtualSizeHints(This::wxWindow(), MinW::integer(), MinH::integer()) -> setVirtualSizeHints(This,MinW,MinH, []) </c></p>
 %% <p><c>
-%% setVirtualSizeHints(This::wxWindow(), MinSize::{W::integer(),H::integer()}, [Option]) -> ok </c>
-%%<br /> Option = {maxSize, {W::integer(),H::integer()}}
+%% setVirtualSizeHints(This::wxWindow(), MinSize::{W::integer(), H::integer()}, [Option]) -> ok </c>
+%%<br /> Option = {maxSize, {W::integer(), H::integer()}}
 %% </p>
 
 setVirtualSizeHints(This,MinW,MinH)

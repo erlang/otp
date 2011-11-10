@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -39,7 +39,7 @@ getKeyState(Key)
   wxe_util:call(?utils_wxGetKeyState,
   <<Key:32/?UI>>).
 
-%% @spec () -> {X::integer(),Y::integer()}
+%% @spec () -> {X::integer(), Y::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_miscellany.html#wxgetmouseposition">external documentation</a>.
 getMousePosition() ->
   wxe_util:call(?utils_wxGetMousePosition,
@@ -74,14 +74,14 @@ findMenuItemId(#wx_ref{type=FrameT,ref=FrameRef},MenuString,ItemString)
   wxe_util:call(?utils_wxFindMenuItemId,
   <<FrameRef:32/?UI,(byte_size(MenuString_UC)):32/?UI,(MenuString_UC)/binary, 0:(((8- ((0+byte_size(MenuString_UC)) band 16#7)) band 16#7))/unit:8,(byte_size(ItemString_UC)):32/?UI,(ItemString_UC)/binary, 0:(((8- ((4+byte_size(ItemString_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @spec (Pt::{X::integer(),Y::integer()}) -> wxWindow:wxWindow()
+%% @spec (Pt::{X::integer(), Y::integer()}) -> wxWindow:wxWindow()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_miscellany.html#wxgenericfindwindowatpoint">external documentation</a>.
 genericFindWindowAtPoint({PtX,PtY})
  when is_integer(PtX),is_integer(PtY) ->
   wxe_util:call(?utils_wxGenericFindWindowAtPoint,
   <<PtX:32/?UI,PtY:32/?UI>>).
 
-%% @spec (Pt::{X::integer(),Y::integer()}) -> wxWindow:wxWindow()
+%% @spec (Pt::{X::integer(), Y::integer()}) -> wxWindow:wxWindow()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_miscellany.html#wxfindwindowatpoint">external documentation</a>.
 findWindowAtPoint({PtX,PtY})
  when is_integer(PtX),is_integer(PtY) ->

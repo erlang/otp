@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -165,7 +165,7 @@ getFont(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxGridCellAttr_GetFont,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxGridCellAttr()) -> {HAlign::integer(),VAlign::integer()}
+%% @spec (This::wxGridCellAttr()) -> {HAlign::integer(), VAlign::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridcellattr.html#wxgridcellattrgetalignment">external documentation</a>.
 getAlignment(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGridCellAttr),

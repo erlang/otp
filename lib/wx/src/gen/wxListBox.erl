@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -94,7 +94,7 @@ new(Parent,Id)
   new(Parent,Id, []).
 
 %% @spec (Parent::wxWindow:wxWindow(), Id::integer(), [Option]) -> wxListBox()
-%% Option = {pos, {X::integer(),Y::integer()}} | {size, {W::integer(),H::integer()}} | {choices, [[string()]]} | {style, integer()} | {validator, wx:wx()}
+%% Option = {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {choices, [[string()]]} | {style, integer()} | {validator, wx:wx()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistbox.html#wxlistboxwxlistbox">external documentation</a>.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
  when is_integer(Id),is_list(Options) ->
@@ -109,13 +109,13 @@ new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
   wxe_util:construct(?wxListBox_new_3,
   <<ParentRef:32/?UI,Id:32/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxListBox(), Parent::wxWindow:wxWindow(), Id::integer(), Pos::{X::integer(),Y::integer()}, Size::{W::integer(),H::integer()}, Choices::[[string()]]) -> bool()
+%% @spec (This::wxListBox(), Parent::wxWindow:wxWindow(), Id::integer(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[[string()]]) -> bool()
 %% @equiv create(This,Parent,Id,Pos,Size,Choices, [])
 create(This,Parent,Id,Pos={PosX,PosY},Size={SizeW,SizeH},Choices)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),is_integer(PosX),is_integer(PosY),is_integer(SizeW),is_integer(SizeH),is_list(Choices) ->
   create(This,Parent,Id,Pos,Size,Choices, []).
 
-%% @spec (This::wxListBox(), Parent::wxWindow:wxWindow(), Id::integer(), Pos::{X::integer(),Y::integer()}, Size::{W::integer(),H::integer()}, Choices::[[string()]], [Option]) -> bool()
+%% @spec (This::wxListBox(), Parent::wxWindow:wxWindow(), Id::integer(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[[string()]], [Option]) -> bool()
 %% Option = {style, integer()} | {validator, wx:wx()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistbox.html#wxlistboxcreate">external documentation</a>.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,{PosX,PosY},{SizeW,SizeH},Choices, Options)
@@ -139,7 +139,7 @@ deselect(#wx_ref{type=ThisT,ref=ThisRef},N)
   wxe_util:cast(?wxListBox_Deselect,
   <<ThisRef:32/?UI,N:32/?UI>>).
 
-%% @spec (This::wxListBox()) -> {integer(),ASelections::[integer()]}
+%% @spec (This::wxListBox()) -> {integer(), ASelections::[integer()]}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistbox.html#wxlistboxgetselections">external documentation</a>.
 getSelections(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxListBox),
@@ -174,7 +174,7 @@ set(#wx_ref{type=ThisT,ref=ThisRef},Items)
   wxe_util:cast(?wxListBox_Set,
   <<ThisRef:32/?UI,(length(Items_UCA)):32/?UI, (<< <<(byte_size(UC_Str)):32/?UI, UC_Str/binary>>|| UC_Str <- Items_UCA>>)/binary, 0:(((8- ((0 + lists:sum([byte_size(S)+4||S<-Items_UCA])) band 16#7)) band 16#7))/unit:8>>).
 
-%% @spec (This::wxListBox(), Point::{X::integer(),Y::integer()}) -> integer()
+%% @spec (This::wxListBox(), Point::{X::integer(), Y::integer()}) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistbox.html#wxlistboxhittest">external documentation</a>.
 hitTest(#wx_ref{type=ThisT,ref=ThisRef},{PointX,PointY})
  when is_integer(PointX),is_integer(PointY) ->

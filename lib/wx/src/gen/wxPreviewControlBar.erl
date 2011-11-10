@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -83,7 +83,7 @@ new(Preview,Buttons,Parent)
   new(Preview,Buttons,Parent, []).
 
 %% @spec (Preview::wxPrintPreview:wxPrintPreview(), Buttons::integer(), Parent::wxWindow:wxWindow(), [Option]) -> wxPreviewControlBar()
-%% Option = {pos, {X::integer(),Y::integer()}} | {size, {W::integer(),H::integer()}} | {style, integer()}
+%% Option = {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpreviewcontrolbar.html#wxpreviewcontrolbarwxpreviewcontrolbar">external documentation</a>.
 new(#wx_ref{type=PreviewT,ref=PreviewRef},Buttons,#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_integer(Buttons),is_list(Options) ->

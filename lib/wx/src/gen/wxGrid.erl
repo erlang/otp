@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -151,7 +151,7 @@ new(Parent,Id)
 %% new(Parent::wxWindow:wxWindow(), X::integer(), Y::integer()) -> new(Parent,X,Y, []) </c></p>
 %% <p><c>
 %% new(Parent::wxWindow:wxWindow(), Id::integer(), [Option]) -> wxGrid() </c>
-%%<br /> Option = {pos, {X::integer(),Y::integer()}} | {size, {W::integer(),H::integer()}} | {style, integer()}
+%%<br /> Option = {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()}
 %% </p>
 
 new(Parent,X,Y)
@@ -306,7 +306,7 @@ beginBatch(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:cast(?wxGrid_BeginBatch,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxGrid(), TopLeft::{R::integer(),C::integer()}, BottomRight::{R::integer(),C::integer()}) -> {X::integer(),Y::integer(),W::integer(),H::integer()}
+%% @spec (This::wxGrid(), TopLeft::{R::integer(), C::integer()}, BottomRight::{R::integer(), C::integer()}) -> {X::integer(), Y::integer(), W::integer(), H::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridblocktodevicerect">external documentation</a>.
 blockToDeviceRect(#wx_ref{type=ThisT,ref=ThisRef},{TopLeftR,TopLeftC},{BottomRightR,BottomRightC})
  when is_integer(TopLeftR),is_integer(TopLeftC),is_integer(BottomRightR),is_integer(BottomRightC) ->
@@ -342,7 +342,7 @@ canEnableCellControl(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxGrid_CanEnableCellControl,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxGrid(), Coords::{R::integer(),C::integer()}) -> {X::integer(),Y::integer(),W::integer(),H::integer()}
+%% @spec (This::wxGrid(), Coords::{R::integer(), C::integer()}) -> {X::integer(), Y::integer(), W::integer(), H::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridcelltorect">external documentation</a>.
 cellToRect(#wx_ref{type=ThisT,ref=ThisRef},{CoordsR,CoordsC})
  when is_integer(CoordsR),is_integer(CoordsC) ->
@@ -350,7 +350,7 @@ cellToRect(#wx_ref{type=ThisT,ref=ThisRef},{CoordsR,CoordsC})
   wxe_util:call(?wxGrid_CellToRect_1,
   <<ThisRef:32/?UI,CoordsR:32/?UI,CoordsC:32/?UI>>).
 
-%% @spec (This::wxGrid(), Row::integer(), Col::integer()) -> {X::integer(),Y::integer(),W::integer(),H::integer()}
+%% @spec (This::wxGrid(), Row::integer(), Col::integer()) -> {X::integer(), Y::integer(), W::integer(), H::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridcelltorect">external documentation</a>.
 cellToRect(#wx_ref{type=ThisT,ref=ThisRef},Row,Col)
  when is_integer(Row),is_integer(Col) ->
@@ -586,7 +586,7 @@ getBatchCount(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxGrid_GetBatchCount,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxGrid(), Row::integer(), Col::integer()) -> {Horiz::integer(),Vert::integer()}
+%% @spec (This::wxGrid(), Row::integer(), Col::integer()) -> {Horiz::integer(), Vert::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridgetcellalignment">external documentation</a>.
 getCellAlignment(#wx_ref{type=ThisT,ref=ThisRef},Row,Col)
  when is_integer(Row),is_integer(Col) ->
@@ -634,7 +634,7 @@ getCellTextColour(#wx_ref{type=ThisT,ref=ThisRef},Row,Col)
   wxe_util:call(?wxGrid_GetCellTextColour,
   <<ThisRef:32/?UI,Row:32/?UI,Col:32/?UI>>).
 
-%% @spec (This::wxGrid(), Coords::{R::integer(),C::integer()}) -> string()
+%% @spec (This::wxGrid(), Coords::{R::integer(), C::integer()}) -> string()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridgetcellvalue">external documentation</a>.
 getCellValue(#wx_ref{type=ThisT,ref=ThisRef},{CoordsR,CoordsC})
  when is_integer(CoordsR),is_integer(CoordsC) ->
@@ -650,7 +650,7 @@ getCellValue(#wx_ref{type=ThisT,ref=ThisRef},Row,Col)
   wxe_util:call(?wxGrid_GetCellValue_2,
   <<ThisRef:32/?UI,Row:32/?UI,Col:32/?UI>>).
 
-%% @spec (This::wxGrid()) -> {Horiz::integer(),Vert::integer()}
+%% @spec (This::wxGrid()) -> {Horiz::integer(), Vert::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridgetcollabelalignment">external documentation</a>.
 getColLabelAlignment(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGrid),
@@ -679,7 +679,7 @@ getColMinimalAcceptableWidth(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxGrid_GetColMinimalAcceptableWidth,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxGrid()) -> {Horiz::integer(),Vert::integer()}
+%% @spec (This::wxGrid()) -> {Horiz::integer(), Vert::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridgetdefaultcellalignment">external documentation</a>.
 getDefaultCellAlignment(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGrid),
@@ -728,7 +728,7 @@ getDefaultEditor(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxGrid_GetDefaultEditor,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxGrid(), C::{R::integer(),C::integer()}) -> wxGridCellEditor:wxGridCellEditor()
+%% @spec (This::wxGrid(), C::{R::integer(), C::integer()}) -> wxGridCellEditor:wxGridCellEditor()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridgetdefaulteditorforcell">external documentation</a>.
 getDefaultEditorForCell(#wx_ref{type=ThisT,ref=ThisRef},{CR,CC})
  when is_integer(CR),is_integer(CC) ->
@@ -869,7 +869,7 @@ getRowMinimalAcceptableHeight(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxGrid_GetRowMinimalAcceptableHeight,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxGrid()) -> {Horiz::integer(),Vert::integer()}
+%% @spec (This::wxGrid()) -> {Horiz::integer(), Vert::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridgetrowlabelalignment">external documentation</a>.
 getRowLabelAlignment(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGrid),
@@ -913,7 +913,7 @@ getScrollLineY(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxGrid_GetScrollLineY,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxGrid()) -> [{R::integer(),C::integer()}]
+%% @spec (This::wxGrid()) -> [{R::integer(), C::integer()}]
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridgetselectedcells">external documentation</a>.
 getSelectedCells(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGrid),
@@ -941,14 +941,14 @@ getSelectionBackground(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxGrid_GetSelectionBackground,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxGrid()) -> [{R::integer(),C::integer()}]
+%% @spec (This::wxGrid()) -> [{R::integer(), C::integer()}]
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridgetselectionblocktopleft">external documentation</a>.
 getSelectionBlockTopLeft(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:call(?wxGrid_GetSelectionBlockTopLeft,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxGrid()) -> [{R::integer(),C::integer()}]
+%% @spec (This::wxGrid()) -> [{R::integer(), C::integer()}]
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridgetselectionblockbottomright">external documentation</a>.
 getSelectionBlockBottomRight(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGrid),
@@ -1065,7 +1065,7 @@ isEditable(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxGrid_IsEditable,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxGrid(), Coords::{R::integer(),C::integer()}) -> bool()
+%% @spec (This::wxGrid(), Coords::{R::integer(), C::integer()}) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridisinselection">external documentation</a>.
 isInSelection(#wx_ref{type=ThisT,ref=ThisRef},{CoordsR,CoordsC})
  when is_integer(CoordsR),is_integer(CoordsC) ->
@@ -1096,7 +1096,7 @@ isSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxGrid_IsSelection,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxGrid(), Coords::{R::integer(),C::integer()}) -> bool()
+%% @spec (This::wxGrid(), Coords::{R::integer(), C::integer()}) -> bool()
 %% @equiv isVisible(This,Coords, [])
 isVisible(This,Coords={CoordsR,CoordsC})
  when is_record(This, wx_ref),is_integer(CoordsR),is_integer(CoordsC) ->
@@ -1108,7 +1108,7 @@ isVisible(This,Coords={CoordsR,CoordsC})
 %% <p><c>
 %% isVisible(This::wxGrid(), Row::integer(), Col::integer()) -> isVisible(This,Row,Col, []) </c></p>
 %% <p><c>
-%% isVisible(This::wxGrid(), Coords::{R::integer(),C::integer()}, [Option]) -> bool() </c>
+%% isVisible(This::wxGrid(), Coords::{R::integer(), C::integer()}, [Option]) -> bool() </c>
 %%<br /> Option = {wholeCellVisible, bool()}
 %% </p>
 
@@ -1136,7 +1136,7 @@ isVisible(#wx_ref{type=ThisT,ref=ThisRef},Row,Col, Options)
   wxe_util:call(?wxGrid_IsVisible_3,
   <<ThisRef:32/?UI,Row:32/?UI,Col:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxGrid(), Coords::{R::integer(),C::integer()}) -> ok
+%% @spec (This::wxGrid(), Coords::{R::integer(), C::integer()}) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridmakecellvisible">external documentation</a>.
 makeCellVisible(#wx_ref{type=ThisT,ref=ThisRef},{CoordsR,CoordsC})
  when is_integer(CoordsR),is_integer(CoordsC) ->
@@ -1255,13 +1255,13 @@ selectAll(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:cast(?wxGrid_SelectAll,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxGrid(), TopLeft::{R::integer(),C::integer()}, BottomRight::{R::integer(),C::integer()}) -> ok
+%% @spec (This::wxGrid(), TopLeft::{R::integer(), C::integer()}, BottomRight::{R::integer(), C::integer()}) -> ok
 %% @equiv selectBlock(This,TopLeft,BottomRight, [])
 selectBlock(This,TopLeft={TopLeftR,TopLeftC},BottomRight={BottomRightR,BottomRightC})
  when is_record(This, wx_ref),is_integer(TopLeftR),is_integer(TopLeftC),is_integer(BottomRightR),is_integer(BottomRightC) ->
   selectBlock(This,TopLeft,BottomRight, []).
 
-%% @spec (This::wxGrid(), TopLeft::{R::integer(),C::integer()}, BottomRight::{R::integer(),C::integer()}, [Option]) -> ok
+%% @spec (This::wxGrid(), TopLeft::{R::integer(), C::integer()}, BottomRight::{R::integer(), C::integer()}, [Option]) -> ok
 %% Option = {addToSelected, bool()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridselectblock">external documentation</a>.
 selectBlock(#wx_ref{type=ThisT,ref=ThisRef},{TopLeftR,TopLeftC},{BottomRightR,BottomRightC}, Options)
@@ -1434,7 +1434,7 @@ setCellTextColour(#wx_ref{type=ThisT,ref=ThisRef},Val,Row,Col)
   wxe_util:cast(?wxGrid_SetCellTextColour_3_1,
   <<ThisRef:32/?UI,(wxe_util:colour_bin(Val)):16/binary,Row:32/?UI,Col:32/?UI>>).
 
-%% @spec (This::wxGrid(), Coords::{R::integer(),C::integer()}, S::string()) -> ok
+%% @spec (This::wxGrid(), Coords::{R::integer(), C::integer()}, S::string()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridsetcellvalue">external documentation</a>.
 setCellValue(#wx_ref{type=ThisT,ref=ThisRef},{CoordsR,CoordsC},S)
  when is_integer(CoordsR),is_integer(CoordsC),is_list(S) ->

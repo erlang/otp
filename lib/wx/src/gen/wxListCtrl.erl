@@ -263,7 +263,7 @@ findItem(This,Start,Str)
 %%<br /> Option = {partial, bool()}
 %% </p>
 %% <p><c>
-%% findItem(This::wxListCtrl(), Start::integer(), Pt::{X::integer(),Y::integer()}, Direction::integer()) -> integer() </c>
+%% findItem(This::wxListCtrl(), Start::integer(), Pt::{X::integer(), Y::integer()}, Direction::integer()) -> integer() </c>
 %% </p>
 findItem(#wx_ref{type=ThisT,ref=ThisRef},Start,Str, Options)
  when is_integer(Start),is_list(Str),is_list(Options) ->
@@ -365,7 +365,7 @@ getItemFont(#wx_ref{type=ThisT,ref=ThisRef},Item)
   wxe_util:call(?wxListCtrl_GetItemFont,
   <<ThisRef:32/?UI,Item:32/?UI>>).
 
-%% @spec (This::wxListCtrl(), Item::integer(), Pos::{X::integer(),Y::integer()}) -> bool()
+%% @spec (This::wxListCtrl(), Item::integer(), Pos::{X::integer(), Y::integer()}) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistctrl.html#wxlistctrlgetitemposition">external documentation</a>.
 getItemPosition(#wx_ref{type=ThisT,ref=ThisRef},Item,{PosX,PosY})
  when is_integer(Item),is_integer(PosX),is_integer(PosY) ->
@@ -373,13 +373,13 @@ getItemPosition(#wx_ref{type=ThisT,ref=ThisRef},Item,{PosX,PosY})
   wxe_util:call(?wxListCtrl_GetItemPosition,
   <<ThisRef:32/?UI,Item:32/?UI,PosX:32/?UI,PosY:32/?UI>>).
 
-%% @spec (This::wxListCtrl(), Item::integer(), Rect::{X::integer(),Y::integer(),W::integer(),H::integer()}) -> bool()
+%% @spec (This::wxListCtrl(), Item::integer(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}) -> bool()
 %% @equiv getItemRect(This,Item,Rect, [])
 getItemRect(This,Item,Rect={RectX,RectY,RectW,RectH})
  when is_record(This, wx_ref),is_integer(Item),is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH) ->
   getItemRect(This,Item,Rect, []).
 
-%% @spec (This::wxListCtrl(), Item::integer(), Rect::{X::integer(),Y::integer(),W::integer(),H::integer()}, [Option]) -> bool()
+%% @spec (This::wxListCtrl(), Item::integer(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}, [Option]) -> bool()
 %% Option = {code, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistctrl.html#wxlistctrlgetitemrect">external documentation</a>.
 getItemRect(#wx_ref{type=ThisT,ref=ThisRef},Item,{RectX,RectY,RectW,RectH}, Options)
@@ -391,7 +391,7 @@ getItemRect(#wx_ref{type=ThisT,ref=ThisRef},Item,{RectX,RectY,RectW,RectH}, Opti
   wxe_util:call(?wxListCtrl_GetItemRect,
   <<ThisRef:32/?UI,Item:32/?UI,RectX:32/?UI,RectY:32/?UI,RectW:32/?UI,RectH:32/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxListCtrl()) -> {W::integer(),H::integer()}
+%% @spec (This::wxListCtrl()) -> {W::integer(), H::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistctrl.html#wxlistctrlgetitemspacing">external documentation</a>.
 getItemSpacing(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxListCtrl),
@@ -462,14 +462,14 @@ getTopItem(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxListCtrl_GetTopItem,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxListCtrl()) -> {X::integer(),Y::integer(),W::integer(),H::integer()}
+%% @spec (This::wxListCtrl()) -> {X::integer(), Y::integer(), W::integer(), H::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistctrl.html#wxlistctrlgetviewrect">external documentation</a>.
 getViewRect(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxListCtrl),
   wxe_util:call(?wxListCtrl_GetViewRect,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxListCtrl(), Point::{X::integer(),Y::integer()}) -> {integer(),Flags::integer()}
+%% @spec (This::wxListCtrl(), Point::{X::integer(), Y::integer()}) -> {integer(), Flags::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistctrl.html#wxlistctrlhittest">external documentation</a>.
 hitTest(#wx_ref{type=ThisT,ref=ThisRef},{PointX,PointY})
  when is_integer(PointX),is_integer(PointY) ->
@@ -692,7 +692,7 @@ setItemColumnImage(#wx_ref{type=ThisT,ref=ThisRef},Item,Column,Image)
   wxe_util:call(?wxListCtrl_SetItemColumnImage,
   <<ThisRef:32/?UI,Item:32/?UI,Column:32/?UI,Image:32/?UI>>).
 
-%% @spec (This::wxListCtrl(), Item::integer(), Pos::{X::integer(),Y::integer()}) -> bool()
+%% @spec (This::wxListCtrl(), Item::integer(), Pos::{X::integer(), Y::integer()}) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistctrl.html#wxlistctrlsetitemposition">external documentation</a>.
 setItemPosition(#wx_ref{type=ThisT,ref=ThisRef},Item,{PosX,PosY})
  when is_integer(Item),is_integer(PosX),is_integer(PosY) ->

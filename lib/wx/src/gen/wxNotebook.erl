@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -93,7 +93,7 @@ new(Parent,Winid)
   new(Parent,Winid, []).
 
 %% @spec (Parent::wxWindow:wxWindow(), Winid::integer(), [Option]) -> wxNotebook()
-%% Option = {pos, {X::integer(),Y::integer()}} | {size, {W::integer(),H::integer()}} | {style, integer()}
+%% Option = {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebook.html#wxnotebookwxnotebook">external documentation</a>.
 new(#wx_ref{type=ParentT,ref=ParentRef},Winid, Options)
  when is_integer(Winid),is_list(Options) ->
@@ -160,7 +160,7 @@ create(This,Parent,Id)
   create(This,Parent,Id, []).
 
 %% @spec (This::wxNotebook(), Parent::wxWindow:wxWindow(), Id::integer(), [Option]) -> bool()
-%% Option = {pos, {X::integer(),Y::integer()}} | {size, {W::integer(),H::integer()}} | {style, integer()}
+%% Option = {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebook.html#wxnotebookcreate">external documentation</a>.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
  when is_integer(Id),is_list(Options) ->
@@ -263,7 +263,7 @@ getThemeBackgroundColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxNotebook_GetThemeBackgroundColour,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxNotebook(), Pt::{X::integer(),Y::integer()}) -> {integer(),Flags::integer()}
+%% @spec (This::wxNotebook(), Pt::{X::integer(), Y::integer()}) -> {integer(), Flags::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebook.html#wxnotebookhittest">external documentation</a>.
 hitTest(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY})
  when is_integer(PtX),is_integer(PtY) ->
@@ -300,7 +300,7 @@ setImageList(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ImageListT,ref=ImageLi
   wxe_util:cast(?wxNotebook_SetImageList,
   <<ThisRef:32/?UI,ImageListRef:32/?UI>>).
 
-%% @spec (This::wxNotebook(), Padding::{W::integer(),H::integer()}) -> ok
+%% @spec (This::wxNotebook(), Padding::{W::integer(), H::integer()}) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebook.html#wxnotebooksetpadding">external documentation</a>.
 setPadding(#wx_ref{type=ThisT,ref=ThisRef},{PaddingW,PaddingH})
  when is_integer(PaddingW),is_integer(PaddingH) ->
@@ -308,7 +308,7 @@ setPadding(#wx_ref{type=ThisT,ref=ThisRef},{PaddingW,PaddingH})
   wxe_util:cast(?wxNotebook_SetPadding,
   <<ThisRef:32/?UI,PaddingW:32/?UI,PaddingH:32/?UI>>).
 
-%% @spec (This::wxNotebook(), Size::{W::integer(),H::integer()}) -> ok
+%% @spec (This::wxNotebook(), Size::{W::integer(), H::integer()}) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebook.html#wxnotebooksetpagesize">external documentation</a>.
 setPageSize(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH})
  when is_integer(SizeW),is_integer(SizeH) ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -88,7 +88,7 @@ new(Parent,Id,Label)
   new(Parent,Id,Label, []).
 
 %% @spec (Parent::wxWindow:wxWindow(), Id::integer(), Label::wxBitmap:wxBitmap(), [Option]) -> wxStaticBitmap()
-%% Option = {pos, {X::integer(),Y::integer()}} | {size, {W::integer(),H::integer()}} | {style, integer()}
+%% Option = {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstaticbitmap.html#wxstaticbitmapwxstaticbitmap">external documentation</a>.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id,#wx_ref{type=LabelT,ref=LabelRef}, Options)
  when is_integer(Id),is_list(Options) ->
@@ -109,7 +109,7 @@ create(This,Parent,Id,Label)
   create(This,Parent,Id,Label, []).
 
 %% @spec (This::wxStaticBitmap(), Parent::wxWindow:wxWindow(), Id::integer(), Label::wxBitmap:wxBitmap(), [Option]) -> bool()
-%% Option = {pos, {X::integer(),Y::integer()}} | {size, {W::integer(),H::integer()}} | {style, integer()}
+%% Option = {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstaticbitmap.html#wxstaticbitmapcreate">external documentation</a>.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,#wx_ref{type=LabelT,ref=LabelRef}, Options)
  when is_integer(Id),is_list(Options) ->

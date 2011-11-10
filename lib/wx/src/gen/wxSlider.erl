@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -90,7 +90,7 @@ new(Parent,Id,Value,MinValue,MaxValue)
   new(Parent,Id,Value,MinValue,MaxValue, []).
 
 %% @spec (Parent::wxWindow:wxWindow(), Id::integer(), Value::integer(), MinValue::integer(), MaxValue::integer(), [Option]) -> wxSlider()
-%% Option = {pos, {X::integer(),Y::integer()}} | {size, {W::integer(),H::integer()}} | {style, integer()} | {validator, wx:wx()}
+%% Option = {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()} | {validator, wx:wx()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxslider.html#wxsliderwxslider">external documentation</a>.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id,Value,MinValue,MaxValue, Options)
  when is_integer(Id),is_integer(Value),is_integer(MinValue),is_integer(MaxValue),is_list(Options) ->
@@ -111,7 +111,7 @@ create(This,Parent,Id,Value,MinValue,MaxValue)
   create(This,Parent,Id,Value,MinValue,MaxValue, []).
 
 %% @spec (This::wxSlider(), Parent::wxWindow:wxWindow(), Id::integer(), Value::integer(), MinValue::integer(), MaxValue::integer(), [Option]) -> bool()
-%% Option = {pos, {X::integer(),Y::integer()}} | {size, {W::integer(),H::integer()}} | {style, integer()} | {validator, wx:wx()}
+%% Option = {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()} | {validator, wx:wx()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxslider.html#wxslidercreate">external documentation</a>.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,Value,MinValue,MaxValue, Options)
  when is_integer(Id),is_integer(Value),is_integer(MinValue),is_integer(MaxValue),is_list(Options) ->
