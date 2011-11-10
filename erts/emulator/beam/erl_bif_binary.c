@@ -1152,7 +1152,7 @@ static int do_binary_match(Process *p, Eterm subject, Uint hsstart, Uint hsend,
 	    erts_free_aligned_binary_bytes(temp_alloc);
 	    return DO_BIN_MATCH_RESTART;
 	} else {
-	    Eterm epos = erts_make_integer(pos+hsstart,p);
+	    Eterm epos = erts_make_integer(pos,p);
 	    Eterm erlen = erts_make_integer(rlen,p);
 	    hp = HAlloc(p,3);
 	    ret = TUPLE2(hp, epos, erlen);

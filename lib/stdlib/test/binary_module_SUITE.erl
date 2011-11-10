@@ -20,7 +20,7 @@
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, 
-	 interesting/1,random_ref_comp/1,random_ref_sr_comp/1,
+	 interesting/1,scope_return/1,random_ref_comp/1,random_ref_sr_comp/1,
 	 random_ref_fla_comp/1,parts/1, bin_to_list/1, list_to_bin/1,
 	 copy/1, referenced/1,guard/1,encode_decode/1,badargs/1,longest_common_trap/1]).
 
@@ -67,7 +67,7 @@ end_per_testcase(_Case, Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [interesting, random_ref_fla_comp, random_ref_sr_comp,
+    [scope_return,interesting, random_ref_fla_comp, random_ref_sr_comp,
      random_ref_comp, parts, bin_to_list, list_to_bin, copy,
      referenced, guard, encode_decode, badargs,
      longest_common_trap].
@@ -378,6 +378,20 @@ subj() ->
   Subject= <<X1/binary>>,
   Subject.
 
+
+scope_return(doc) ->
+    ["Test correct return values for scopes (OTP-9701)."];
+scope_return(Config) when is_list(Config) ->
+    N=10000,
+    Bin=binary:copy(<<"a">>,N),
+    scope_loop(Bin,0,N).
+
+scope_loop(_,N,N) ->
+    ok;
+scope_loop(Bin,N,M) ->
+    ?line {N,1} = binary:match(Bin,<<"a">>,[{scope,{N,1}}]),
+    ?line {N,1} = binary:match(Bin,[<<"a">>,<<"b">>],[{scope,{N,1}}]),
+    scope_loop(Bin,N+1,M).
 
 interesting(doc) ->
     ["Try some interesting patterns"];
