@@ -555,7 +555,6 @@ extern Eterm node_cookie;
 extern erts_smp_atomic_t erts_bytes_out;	/* no bytes written out */
 extern erts_smp_atomic_t erts_bytes_in;		/* no bytes sent into the system */
 extern Uint display_items;	/* no of items to display in traces etc */
-extern Uint display_loads;	/* print info about loaded modules */
 
 extern int erts_backtrace_depth;
 extern erts_smp_atomic32_t erts_max_gen_gcs;

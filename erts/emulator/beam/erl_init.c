@@ -92,7 +92,6 @@ int erts_use_sender_punish;
  */
 
 Uint display_items;	    	/* no of items to display in traces etc */
-Uint display_loads;		/* print info about loaded modules */
 int H_MIN_SIZE;			/* The minimum heap grain */
 int BIN_VH_MIN_SIZE;		/* The minimum binary virtual*/
 
@@ -499,8 +498,6 @@ void erts_usage(void)
 
     erts_fprintf(stderr, "-K boolean  enable or disable kernel poll\n");
 
-    erts_fprintf(stderr, "-l          turn on auto load tracing\n");
-
     erts_fprintf(stderr, "-M<X> <Y>   memory allocator switches,\n");
     erts_fprintf(stderr, "            see the erts_alloc(3) documentation for more info.\n");
 
@@ -616,7 +613,6 @@ early_init(int *argc, char **argv) /*
     erts_printf_eterm_func = erts_printf_term;
     erts_disable_tolerant_timeofday = 0;
     display_items = 200;
-    display_loads = 0;
     erts_backtrace_depth = DEFAULT_BACKTRACE_SIZE;
     erts_async_max_threads = 0;
     erts_async_thread_suggested_stack_size = ERTS_ASYNC_THREAD_MIN_STACK_SIZE;
@@ -981,9 +977,6 @@ erl_start(int argc, char **argv)
 		erts_fprintf(stderr, "%s unknown flag %s\n", argv[0], argv[i]);
 		erts_usage();
 	    }
-	case 'l':
-	    display_loads++;
-	    break;
 	case 'L':
 	    erts_no_line_info = 1;
 	    break;

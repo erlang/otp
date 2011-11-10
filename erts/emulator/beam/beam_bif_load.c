@@ -654,9 +654,6 @@ purge_module(int module)
      * Any code to purge?
      */
     if (modp->old_code == 0) {
-	if (display_loads) {
-	    erts_printf("No code to purge for %T\n", make_atom(module));
-	}
 	return -1;
     }
 
@@ -785,9 +782,6 @@ beam_make_current_old(Process *c_p, ErtsProcLocks c_p_locks, Eterm module)
     if (modp->code != NULL && modp->old_code != NULL)  {
 	return -3;
     } else if (modp->old_code == NULL) { /* Make the current version old. */
-	if (display_loads) {
-	    erts_printf("saving old code\n");
-	}
 	delete_code(c_p, c_p_locks, modp);
 	delete_export_references(module);
     }
