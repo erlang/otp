@@ -49,3 +49,9 @@
 	}).
 
 -record(attrs, {even, odd, deleted, changed, searched}).
+-define(BG_EVEN,    {230,230,250}).
+-define(BG_ODD,     {255,255,255}).
+-define(BG_DELETED, {100,100,100}).
+-define(FG_DELETED, {240,30,30}).
+-define(BG_SEARCHED,{235,215,90}).
+-define(BG_CHANGED, {230,230,250}).

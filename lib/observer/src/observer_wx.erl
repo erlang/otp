@@ -70,8 +70,9 @@ get_attrib(What) ->
 
 init(_Args) ->
     wx:new(),
-    Frame = wxFrame:new(wx:null(), ?wxID_ANY, "Observer", [{size, {1000, 500}},
-							   {style, ?wxDEFAULT_FRAME_STYLE}]),
+    catch wxSystemOptions:setOption("mac.listctrl.always_use_generic", 1),
+    Frame = wxFrame:new(wx:null(), ?wxID_ANY, "Observer",
+			[{size, {1000, 500}}, {style, ?wxDEFAULT_FRAME_STYLE}]),
     IconFile = filename:join(code:priv_dir(observer), "erlang_observer.png"),
     Icon = wxIcon:new(IconFile, [{type,?wxBITMAP_TYPE_PNG}]),
     wxFrame:setIcon(Frame, Icon),
@@ -162,7 +163,15 @@ handle_event(#wx{id = ?wxID_EXIT, event = #wxCommand{type = command_menu_selecte
     {stop, normal, State};
 
 handle_event(#wx{id = ?wxID_HELP, event = #wxCommand{type = command_menu_selected}}, State) ->
-    io:format("~p ~p, you clicked help", [?MODULE, ?LINE]),
+    External = "http://www.erlang.org/doc/apps/observer/index.html",
+    Internal = filename:join([code:lib_dir(observer),"doc", "html", "index.html"]),
+    Help = case filelib:is_file(Internal) of
+	       true -> Internal;
+	       false -> External
+	   end,
+    wx_misc:launchDefaultBrowser(Help) orelse
+	create_txt_dialog(State#state.frame, "Could not launch browser: ~n " ++ Help,
+			  "Error", ?wxICON_ERROR),
     {noreply, State};
 
 handle_event(#wx{id = ?wxID_ABOUT, event = #wxCommand{type = command_menu_selected}},
@@ -483,11 +492,9 @@ get_nodes() ->
     Nodes = [node()| nodes()],
     {_, Menues} =
 	lists:foldl(fun(Node, {Id, Acc}) when Id < ?LAST_NODES_MENU_ID ->
-			    {Id + 1, [#create_menu{id = Id + ?FIRST_NODES_MENU_ID,
-						   text =  atom_to_list(Node)} | Acc]}
-		    end,
-		    {1, []},
-		    Nodes),
+			    {Id + 1, [#create_menu{id=Id + ?FIRST_NODES_MENU_ID,
+						   text=atom_to_list(Node)} | Acc]}
+		    end, {1, []}, Nodes),
     {Nodes, lists:reverse(Menues)}.
 
 update_node_list(State = #state{menubar=MenuBar}) ->

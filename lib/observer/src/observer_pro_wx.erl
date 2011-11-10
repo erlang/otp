@@ -182,7 +182,7 @@ create_popup_menu(ParentFrame) ->
     MiniFrame.
 
 create_list_box(Panel, Holder) ->
-    Style = ?wxLC_REPORT bor ?wxLC_VIRTUAL,
+    Style = ?wxLC_REPORT bor ?wxLC_VIRTUAL bor ?wxLC_HRULES,
     ListCtrl = wxListCtrl:new(Panel, [{style, Style},
 				      {onGetItemText,
 				       fun(_, Row, Col) ->
@@ -296,11 +296,10 @@ handle_info({node, Node}, #state{holder=Holder}=State) ->
     {noreply, State};
 
 handle_info(Info, State) ->
-    io:format("~p, ~p, Handled unexpected info: ~p~n", [?MODULE, ?LINE, Info]),
+    io:format("~p:~p, Unexpected info: ~p~n", [?MODULE, ?LINE, Info]),
     {noreply, State}.
 
-terminate(Reason, #state{holder=Holder}) ->
-    io:format("~p terminating. Reason: ~p~n", [?MODULE, Reason]),
+terminate(_Reason, #state{holder=Holder}) ->
     Holder ! stop,
     etop:stop(),
     ok.
@@ -310,12 +309,12 @@ code_change(_, _, State) ->
 
 
 handle_call(Msg, _From, State) ->
-    io:format("~p~p: Got Call ~p~n",[?MODULE, ?LINE, Msg]),
+    io:format("~p:~p: Unhandled call ~p~n",[?MODULE, ?LINE, Msg]),
     {reply, ok, State}.
 
 
 handle_cast(Msg, State) ->
-    io:format("~p ~p: Unhandled cast ~p~n", [?MODULE, ?LINE, Msg]),
+    io:format("~p:~p: Unhandled cast ~p~n", [?MODULE, ?LINE, Msg]),
     {noreply, State}.
 
 %%%%%%%%%%%%%%%%%%%%LOOP%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

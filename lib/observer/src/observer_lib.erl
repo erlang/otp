@@ -255,12 +255,15 @@ create_menu_item(separator, Menu, Index) ->
 
 create_attrs() ->
     Font = wxSystemSettings:getFont(?wxSYS_DEFAULT_GUI_FONT),
-    Text = wxSystemSettings:getColour(?wxSYS_COLOUR_LISTBOXTEXT),
-    #attrs{even = wxListItemAttr:new(Text, {255,255,255}, Font),
-	   odd  = wxListItemAttr:new(Text, {240,240,255}, Font),
-	   deleted = wxListItemAttr:new({240,30,30}, {100,100,100}, Font),
-	   changed = wxListItemAttr:new(Text, {255,215,0}, Font),
-	   searched = wxListItemAttr:new(Text, {235,215,90}, Font)
+    Text = case wxSystemSettings:getColour(?wxSYS_COLOUR_LISTBOXTEXT) of
+	       {255,255,255,_} -> {10,10,10};  %% Is white on Mac for some reason
+	       Color -> Color
+	   end,
+    #attrs{even = wxListItemAttr:new(Text, ?BG_EVEN, Font),
+	   odd  = wxListItemAttr:new(Text, ?BG_ODD, Font),
+	   deleted = wxListItemAttr:new(?FG_DELETED, ?BG_DELETED, Font),
+	   changed = wxListItemAttr:new(Text, ?BG_CHANGED, Font),
+	   searched = wxListItemAttr:new(Text, ?BG_SEARCHED, Font)
 	  }.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

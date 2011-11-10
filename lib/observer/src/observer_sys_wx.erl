@@ -47,14 +47,7 @@ start_link(Notebook, Parent) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-init(Args) ->
-    try
-	init2(Args)
-    catch E:R ->
-	    io:format("~p:~p ~p~n",[E,R, erlang:get_stacktrace()])
-    end.
-
-init2([Notebook, Parent]) ->
+init([Notebook, Parent]) ->
     SysInfo = sys_info(),
     {Info, Stat} = info_fields(),
     Panel = wxPanel:new(Notebook),
@@ -80,16 +73,11 @@ create_sys_menu(Parent) ->
     observer_wx:create_menus(Parent, [View]).
 
 update_syspage(#sys_wx_state{node = Node, fields=Fields, sizer=Sizer}) ->
-    try
     SysInfo = observer_wx:try_rpc(Node, ?MODULE, sys_info, []),
     {Info, Stat} = info_fields(),
     observer_lib:update_info(Fields, observer_lib:fill_info(Info, SysInfo) ++
 				 observer_lib:fill_info(Stat, SysInfo)),
-    wxSizer:layout(Sizer)
-    catch E:R ->
-	    io:format("~p:~p ~p~n",[E,R, erlang:get_stacktrace()])
-    end,
-    ok.
+    wxSizer:layout(Sizer).
 
 info_fields() ->
     Info = [{"System and Architecture",
@@ -165,18 +153,17 @@ handle_info(not_active, #sys_wx_state{timer = Timer} = State) ->
     {noreply, State#sys_wx_state{timer = observer_lib:stop_timer(Timer)}};
 
 handle_info(Info, State) ->
-    io:format("~p, ~p, Handle info: ~p~n", [?MODULE, ?LINE, Info]),
+    io:format("~p:~p: Unhandled info: ~p~n", [?MODULE, ?LINE, Info]),
     {noreply, State}.
 
-terminate(Reason, _State) ->
-    io:format("~p terminating. Reason: ~p~n", [?MODULE, Reason]),
+terminate(_Reason, _State) ->
     ok.
 
 code_change(_, _, State) ->
     {stop, not_yet_implemented, State}.
 
 handle_call(Msg, _From, State) ->
-    io:format("~p~p: Got Call ~p~n",[?MODULE, ?LINE, Msg]),
+    io:format("~p~p: Unhandled Call ~p~n",[?MODULE, ?LINE, Msg]),
     {reply, ok, State}.
 
 handle_cast(Msg, State) ->
@@ -199,7 +186,7 @@ handle_event(#wx{id = ?ID_REFRESH_INTERVAL,
     {noreply, State#sys_wx_state{timer=Timer}};
 
 handle_event(Event, State) ->
-    io:format("handle event ~p\n", [Event]),
+    io:format("~p:~p: Unhandled event ~p\n", [?MODULE,?LINE,Event]),
     {noreply, State}.
 
 

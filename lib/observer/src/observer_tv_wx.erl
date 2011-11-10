@@ -173,16 +173,13 @@ handle_event(Event, State) ->
     io:format("~p:~p, handle event ~p\n", [?MODULE, ?LINE, Event]),
     {noreply, State}.
 
-handle_sync_event(Event, _Obj, _State) ->
-    io:format("~p:~p, handle sync_event ~p\n", [?MODULE, ?LINE, Event]),
+handle_sync_event(_Event, _Obj, _State) ->
     ok.
 
-handle_call(Event, From, State) ->
-    io:format("~p:~p, handle call (~p) ~p\n", [?MODULE, ?LINE, From, Event]),
+handle_call(_Event, _From, State) ->
     {noreply, State}.
 
-handle_cast(Event, State) ->
-    io:format("~p:~p, handle cast ~p\n", [?MODULE, ?LINE, Event]),
+handle_cast(_Event, State) ->
     {noreply, State}.
 
 handle_info(refresh_interval, State = #state{node=Node, grid=Grid, opt=Opt}) ->
@@ -213,12 +210,10 @@ handle_info({error, Error}, State) ->
     handle_error(Error),
     {noreply, State};
 
-handle_info(Event, State) ->
-    io:format("~p:~p, handle info ~p\n", [?MODULE, ?LINE, Event]),
+handle_info(_Event, State) ->
     {noreply, State}.
 
-terminate(Event, _State) ->
-    io:format("~p:~p, terminate ~p\n", [?MODULE, ?LINE, Event]),
+terminate(_Event, _State) ->
     ok.
 
 code_change(_, _, State) ->
@@ -339,7 +334,8 @@ display_table_info(Parent0, Node, Source, Table) ->
     Parent = observer_lib:get_wx_parent(Parent0),
     Title = "Table Info: " ++ atom_to_list(Table#tab.name),
     Frame = wxMiniFrame:new(Parent, ?wxID_ANY, Title,
-			    [{style, ?wxCAPTION bor ?wxCLOSE_BOX}]),
+			    [{style, ?wxSYSTEM_MENU bor ?wxCAPTION
+				  bor ?wxCLOSE_BOX bor ?wxRESIZE_BORDER}]),
 
     IdInfo = {"Identification and Owner",
 	      [{"Name", Table#tab.name},
@@ -452,7 +448,7 @@ update_grid2(Grid, #opt{sort_key=Sort,sort_incr=Dir}, Tables) ->
 		 protection = Protection, reg_name = RegName}, Row) ->
 		_Item = wxListCtrl:insertItem(Grid, Row, ""),
 		if (Row rem 2) =:= 0 ->
-			wxListCtrl:setItemBackgroundColour(Grid, Row, {240,240,255});
+			wxListCtrl:setItemBackgroundColour(Grid, Row, ?BG_EVEN);
 		   true -> ignore
 		end,
 		if Protection == private ->
@@ -466,7 +462,6 @@ update_grid2(Grid, #opt{sort_key=Sort,sort_incr=Dir}, Tables) ->
 			      end,
 			      [{0,Name}, {1,Id}, {2,Size}, {3, Memory div 1024},
 			       {4,Owner}, {5,RegName}]),
-		%% wxListCtrl:setItemData(Grid, Item, Item),
 		Row + 1
 	end,
     ProcInfo = case Dir of
