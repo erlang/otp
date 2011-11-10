@@ -82,8 +82,8 @@ create_win(Parent, Pos, function, Mod, _Line) ->
     wxComboBox:connect(Text, command_text_updated),
     wxListBox:connect(LB, command_listbox_selected),
     wxListBox:connect(LB, command_listbox_doubleclicked),
-    OkId   = wxDialog:getAffirmativeId(Win),
-    OKButt = wxWindow:findWindowById(OkId, [{parent, Win}]),
+    OKId   = wxDialog:getAffirmativeId(Win),
+    OKButt = wxWindow:findWindowById(OKId, [{parent, Win}]),
     wxWindow:disable(OKButt),
     wxDialog:centreOnParent(Win),
     wxDialog:show(Win),
@@ -141,8 +141,8 @@ create_win(Parent, Pos, Type, Mod, Line) ->
     wxComboBox:setFocus(ModT),
     wxDialog:connect(Win, command_button_clicked),
     wxDialog:connect(Win, command_text_updated),
-    OkId   = wxDialog:getAffirmativeId(Win),
-    OKButt = wxWindow:findWindowById(OkId),
+    OKId   = wxDialog:getAffirmativeId(Win),
+    OKButt = wxWindow:findWindowById(OKId),
     wxWindow:disable(OKButt),
     wxDialog:centreOnParent(Win),
     wxDialog:show(Win),
@@ -180,30 +180,30 @@ handle_event(#wx{id=?wxID_CANCEL}, #winInfo{win=Win}) ->
     wxDialog:destroy(Win),
     stopped;
 handle_event(#wx{event=#wxCommand{type=command_text_updated}}, 
-	     #winInfo{type=function, text=Text, ok=Ok}) ->
+	     #winInfo{type=function, text=Text, ok=OK}) ->
     Module = wxComboBox:getValue(Text),
-    wxWindow:disable(Ok),
+    wxWindow:disable(OK),
     {module, list_to_atom(Module)};
 handle_event(#wx{event=#wxCommand{type=command_text_updated}}, 
-	     #winInfo{text=Text, ok=Ok, entries=Es}) ->
+	     #winInfo{text=Text, ok=OK, entries=Es}) ->
     Module = wxComboBox:getValue(Text),
     case check_input(Es) of
-	error -> wxWindow:disable(Ok);
-	_Data when Module =/= "" -> wxWindow:enable(Ok);
-	_ -> wxWindow:disable(Ok)
+	error -> wxWindow:disable(OK);
+	_Data when Module =/= "" -> wxWindow:enable(OK);
+	_ -> wxWindow:disable(OK)
     end,
     ignore;
 handle_event(#wx{event=#wxCommand{type=command_listbox_selected}}, 
-	     #winInfo{type=function, listbox=LB, ok=Ok}) ->
+	     #winInfo{type=function, listbox=LB, ok=OK}) ->
     case wxListBox:getSelections(LB) of
-	{N,_} when N > 0 -> wxWindow:enable(Ok);
-	_ -> wxWindow:disable(Ok)
+	{N,_} when N > 0 -> wxWindow:enable(OK);
+	_ -> wxWindow:disable(OK)
     end,
     ignore;
-handle_event(#wx{id=OKorListBox, event=#wxCommand{type=OkorDoubleClick}},
+handle_event(#wx{id=OKorListBox, event=#wxCommand{type=OKorDoubleClick}},
 	     #winInfo{type=function,win=Win,listbox=LB,funcs=Funcs,text=Text})
   when OKorListBox =:= ?wxID_OK; 
-       OkorDoubleClick =:= command_listbox_doubleclicked ->
+       OKorDoubleClick =:= command_listbox_doubleclicked ->
     Mod = wxComboBox:getValue(Text),
     {_, IndexL} = wxListBox:getSelections(LB),
     Breaks = [[list_to_atom(Mod)|lists:nth(Index+1, Funcs)] || Index <- IndexL],

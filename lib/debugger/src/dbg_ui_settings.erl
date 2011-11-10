@@ -136,8 +136,8 @@ default_settings_dir(GS) ->
 	    {ok, CWD} = file:get_cwd(),
 	    
 	    Msg = ["Default directory", DefDir, "does not exist.",
-		   "Click Ok to create it or", 
-		   "Cancel to use other directory!"],
+		   "Click OK to create it or",
+		   "Cancel to use other directory."],
 	    case tool_utils:confirm(GS, Msg) of
 		ok ->
 		    ToolsDir = filename:dirname(DefDir),
