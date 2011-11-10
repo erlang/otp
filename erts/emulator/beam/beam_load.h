@@ -26,6 +26,7 @@
 Eterm beam_make_current_old(Process *c_p, ErtsProcLocks c_p_locks,
 			    Eterm module);
 
+
 typedef struct gen_op_entry {
    char* name;
    int arity;

@@ -866,8 +866,14 @@ typedef struct {
     Eterm* fname_ptr;		/* Pointer to fname table */
 } FunctionInfo;
 
+struct LoaderState* erts_alloc_loader_state(void);
+Eterm erts_prepare_loading(struct LoaderState*,  Process *c_p,
+			   Eterm group_leader, Eterm* modp,
+			   byte* code, Uint size);
+Eterm erts_finish_loading(struct LoaderState* stp, Process* c_p,
+			  ErtsProcLocks c_p_locks, Eterm* modp);
 Eterm erts_load_module(Process *c_p, ErtsProcLocks c_p_locks,
-		     Eterm group_leader, Eterm* mod, byte* code, int size);
+		      Eterm group_leader, Eterm* mod, byte* code, Uint size);
 void init_load(void);
 BeamInstr* find_function_from_pc(BeamInstr* pc);
 Eterm* erts_build_mfa_item(FunctionInfo* fi, Eterm* hp,
