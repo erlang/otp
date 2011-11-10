@@ -48,7 +48,7 @@ split(Subject,RE) ->
       Subject :: iodata() | unicode:charlist(),
       RE :: mp() | iodata() | unicode:charlist(),
       Options :: [ Option ],
-      Option :: anchored | global | notbol | noteol | notempty
+      Option :: anchored | notbol | noteol | notempty
               | {offset, non_neg_integer()} | {newline, nl_spec()}
               | bsr_anycrlf | bsr_unicode | {return, ReturnType}
               | {parts, NumParts} | group | trim | CompileOpt,
