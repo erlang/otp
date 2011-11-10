@@ -31160,6 +31160,56 @@ case wxSystemSettings_GetScreenType: { // wxSystemSettings::GetScreenType
  rt.addInt(Result);
  break;
 }
+case wxSystemOptions_GetOption: { // wxSystemOptions::GetOption
+ int * nameLen = (int *) bp; bp += 4;
+ wxString name = wxString(bp, wxConvUTF8);
+ bp += *nameLen+((8-((4+ *nameLen) & 7)) & 7);
+ wxString Result = wxSystemOptions::GetOption(name);
+ rt.add(Result);
+ break;
+}
+case wxSystemOptions_GetOptionInt: { // wxSystemOptions::GetOptionInt
+ int * nameLen = (int *) bp; bp += 4;
+ wxString name = wxString(bp, wxConvUTF8);
+ bp += *nameLen+((8-((4+ *nameLen) & 7)) & 7);
+ int Result = wxSystemOptions::GetOptionInt(name);
+ rt.addInt(Result);
+ break;
+}
+case wxSystemOptions_HasOption: { // wxSystemOptions::HasOption
+ int * nameLen = (int *) bp; bp += 4;
+ wxString name = wxString(bp, wxConvUTF8);
+ bp += *nameLen+((8-((4+ *nameLen) & 7)) & 7);
+ bool Result = wxSystemOptions::HasOption(name);
+ rt.addBool(Result);
+ break;
+}
+case wxSystemOptions_IsFalse: { // wxSystemOptions::IsFalse
+ int * nameLen = (int *) bp; bp += 4;
+ wxString name = wxString(bp, wxConvUTF8);
+ bp += *nameLen+((8-((4+ *nameLen) & 7)) & 7);
+ bool Result = wxSystemOptions::IsFalse(name);
+ rt.addBool(Result);
+ break;
+}
+case wxSystemOptions_SetOption_2_1: { // wxSystemOptions::SetOption
+ int * nameLen = (int *) bp; bp += 4;
+ wxString name = wxString(bp, wxConvUTF8);
+ bp += *nameLen+((8-((4+ *nameLen) & 7)) & 7);
+ int * valueLen = (int *) bp; bp += 4;
+ wxString value = wxString(bp, wxConvUTF8);
+ bp += *valueLen+((8-((4+ *valueLen) & 7)) & 7);
+ wxSystemOptions::SetOption(name,value);
+ break;
+}
+case wxSystemOptions_SetOption_2_0: { // wxSystemOptions::SetOption
+ int * nameLen = (int *) bp; bp += 4;
+ wxString name = wxString(bp, wxConvUTF8);
+ bp += *nameLen+((8-((4+ *nameLen) & 7)) & 7);
+ int * value = (int *) bp; bp += 4;
+ wxSystemOptions::SetOption(name,(int) *value);
+ break;
+}
 case wxAuiNotebookEvent_SetSelection: { // wxAuiNotebookEvent::SetSelection
  wxAuiNotebookEvent *This = (wxAuiNotebookEvent *) getPtr(bp,memenv); bp += 4;
  int * s = (int *) bp; bp += 4;
@@ -31294,7 +31344,7 @@ case wxAuiManagerEvent_CanVeto: { // wxAuiManagerEvent::CanVeto
 }
 case wxLogNull_new: { // wxLogNull::wxLogNull
  wxLogNull * Result = new wxLogNull();
- newPtr((void *) Result, 224, memenv);
+ newPtr((void *) Result, 225, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxLogNull");
  break;
 }
@@ -31347,7 +31397,7 @@ void WxeApp::delete_object(void *ptr, wxeRefData *refd) {
   case 212: /* delete (wxFileDataObject *) ptr;These objects must be deleted by owner object */ break;
   case 213: /* delete (wxTextDataObject *) ptr;These objects must be deleted by owner object */ break;
   case 214: /* delete (wxBitmapDataObject *) ptr;These objects must be deleted by owner object */ break;
-  case 224: delete (wxLogNull *) ptr; break;
+  case 225: delete (wxLogNull *) ptr; break;
   default: delete (wxObject *) ptr;
 }}
 

@@ -1034,6 +1034,7 @@ gen_macros() ->
     w("#include <wx/html/htmlwin.h>~n"),
     w("#include <wx/html/htmlcell.h>~n"),
     w("#include <wx/filename.h>~n"),
+    w("#include <wx/sysopt.h>~n"),
 
     w("~n~n", []),
     w("#ifndef wxICON_DEFAULT_BITMAP_TYPE~n",[]),
