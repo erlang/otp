@@ -33,10 +33,10 @@
    [
     {load_module, http_uri,       soft_purge, soft_purge, []},
     {load_module, httpd_util,     soft_purge, soft_purge, [http_util]},
-    {load_module, httpd_file,     soft_purge, soft_purge, []}
+    {load_module, httpd_file,     soft_purge, soft_purge, []}, 
     {load_module, httpd_request,  soft_purge, soft_purge, []}, 
     {load_module, httpc_cookie,   soft_purge, soft_purge, [http_util]}, 
-    {load_module, http_util,      soft_purge, soft_purge, []}
+    {load_module, http_util,      soft_purge, soft_purge, []}, 
     {load_module, mod_responsecontrol, soft_purge, soft_purge, []},
     {load_module, httpd_response, soft_purge, soft_purge, [mod_responsecontrol]}
    ]
@@ -45,7 +45,7 @@
    [
     {load_module, http_uri,          soft_purge, soft_purge, []},
     {load_module, httpd_util,        soft_purge, soft_purge, [http_util]},
-    {load_module, httpd_file,        soft_purge, soft_purge, []}
+    {load_module, httpd_file,        soft_purge, soft_purge, []}, 
     {load_module, httpd_request,     soft_purge, soft_purge, []}, 
     {load_module, httpc,             soft_purge, soft_purge, [httpc_manager]}, 
     {load_module, http_transport,    soft_purge, soft_purge, [http_transport]},
@@ -95,10 +95,10 @@
    [
     {load_module, http_uri,       soft_purge, soft_purge, []},
     {load_module, httpd_util,     soft_purge, soft_purge, [http_util]},
-    {load_module, httpd_file,     soft_purge, soft_purge, []}
+    {load_module, httpd_file,     soft_purge, soft_purge, []}, 
     {load_module, httpd_request,  soft_purge, soft_purge, []}, 
     {load_module, httpc_cookie,   soft_purge, soft_purge, [http_util]}, 
-    {load_module, http_util,      soft_purge, soft_purge, []}
+    {load_module, http_util,      soft_purge, soft_purge, []}, 
     {load_module, mod_responsecontrol, soft_purge, soft_purge, []},
     {load_module, httpd_response, soft_purge, soft_purge, [mod_responsecontrol]}
    ]
@@ -107,7 +107,7 @@
    [
     {load_module, http_uri,         soft_purge, soft_purge, []},
     {load_module, httpd_util,       soft_purge, soft_purge, [http_util]},
-    {load_module, httpd_file,       soft_purge, soft_purge, []}
+    {load_module, httpd_file,       soft_purge, soft_purge, []}, 
     {load_module, httpd_request,    soft_purge, soft_purge, []}, 
     {load_module, httpc,            soft_purge, soft_purge, [httpc_manager]}, 
     {load_module, http_transport,   soft_purge, soft_purge, [http_transport]},
