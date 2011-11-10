@@ -497,6 +497,7 @@ typedef struct {
 static Eterm bin_load(Process *c_p, ErtsProcLocks c_p_locks,
 		    Eterm group_leader, Eterm* modp, byte* bytes, int unloaded_size);
 static void init_state(LoaderState* stp);
+static void free_state(LoaderState* stp);
 static Eterm insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
 			   Eterm group_leader, Eterm module,
 			   BeamInstr* code, Uint size, BeamInstr catches);
@@ -823,65 +824,7 @@ bin_load(Process *c_p, ErtsProcLocks c_p_locks,
     }
 
  load_error:
-    if (state.code != 0) {
-	erts_free(ERTS_ALC_T_CODE, state.code);
-    }
-    if (state.labels != NULL) {
-	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) state.labels);
-    }
-    if (state.atom != NULL) {
-	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) state.atom);
-    }
-    if (state.import != NULL) {
-	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) state.import);
-    }
-    if (state.export != NULL) {
-	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) state.export);
-    }
-    if (state.lambdas != state.def_lambdas) {
-	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) state.lambdas);
-    }
-    if (state.literals != NULL) {
-	int i;
-	for (i = 0; i < state.num_literals; i++) {
-	    if (state.literals[i].heap != NULL) {
-		erts_free(ERTS_ALC_T_LOADER_TMP, (void *) state.literals[i].heap);
-	    }
-	}
-	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) state.literals);
-    }
-    while (state.literal_patches != NULL) {
-	LiteralPatch* next = state.literal_patches->next;
-	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) state.literal_patches);
-	state.literal_patches = next;
-    }
-    while (state.string_patches != NULL) {
-	StringPatch* next = state.string_patches->next;
-	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) state.string_patches);
-	state.string_patches = next;
-    }
-    while (state.genop_blocks) {
-	GenOpBlock* next = state.genop_blocks->next;
-	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) state.genop_blocks);
-	state.genop_blocks = next;
-    }
-
-    if (state.line_item != 0) {
-	erts_free(ERTS_ALC_T_LOADER_TMP, state.line_item);
-    }
-
-    if (state.line_instr != 0) {
-	erts_free(ERTS_ALC_T_LOADER_TMP, state.line_instr);
-    }
-
-    if (state.func_line != 0) {
-	erts_free(ERTS_ALC_T_LOADER_TMP, state.func_line);
-    }
-
-    if (state.fname != 0) {
-	erts_free(ERTS_ALC_T_LOADER_TMP, state.fname);
-    }
-
+    free_state(&state);
     return retval;
 }
 
@@ -916,6 +859,70 @@ init_state(LoaderState* stp)
     stp->line_instr = 0;
     stp->func_line = 0;
     stp->fname = 0;
+}
+
+static void
+free_state(LoaderState* stp)
+{
+    if (stp->code != 0) {
+	erts_free(ERTS_ALC_T_CODE, stp->code);
+    }
+    if (stp->labels != NULL) {
+	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) stp->labels);
+    }
+    if (stp->atom != NULL) {
+	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) stp->atom);
+    }
+    if (stp->import != NULL) {
+	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) stp->import);
+    }
+    if (stp->export != NULL) {
+	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) stp->export);
+    }
+    if (stp->lambdas != stp->def_lambdas) {
+	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) stp->lambdas);
+    }
+    if (stp->literals != NULL) {
+	int i;
+	for (i = 0; i < stp->num_literals; i++) {
+	    if (stp->literals[i].heap != NULL) {
+		erts_free(ERTS_ALC_T_LOADER_TMP,
+			  (void *) stp->literals[i].heap);
+	    }
+	}
+	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) stp->literals);
+    }
+    while (stp->literal_patches != NULL) {
+	LiteralPatch* next = stp->literal_patches->next;
+	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) stp->literal_patches);
+	stp->literal_patches = next;
+    }
+    while (stp->string_patches != NULL) {
+	StringPatch* next = stp->string_patches->next;
+	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) stp->string_patches);
+	stp->string_patches = next;
+    }
+    while (stp->genop_blocks) {
+	GenOpBlock* next = stp->genop_blocks->next;
+	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) stp->genop_blocks);
+	stp->genop_blocks = next;
+    }
+
+    if (stp->line_item != 0) {
+	erts_free(ERTS_ALC_T_LOADER_TMP, stp->line_item);
+    }
+
+    if (stp->line_instr != 0) {
+	erts_free(ERTS_ALC_T_LOADER_TMP, stp->line_instr);
+    }
+
+    if (stp->func_line != 0) {
+	erts_free(ERTS_ALC_T_LOADER_TMP, stp->func_line);
+    }
+
+    if (stp->fname != 0) {
+	erts_free(ERTS_ALC_T_LOADER_TMP, stp->fname);
+    }
 }
 
 static Eterm
@@ -5905,12 +5912,7 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
 
     if (patch_funentries(Patchlist)) {
 	erts_free_aligned_binary_bytes(temp_alloc);
-	if (state.lambdas != state.def_lambdas) {
-	    erts_free(ERTS_ALC_T_LOADER_TMP, (void *) state.lambdas);
-	}
-	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) state.labels);
-	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) state.atom);
-	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) state.export);
+	free_state(&state);
 	if (bin != NULL) {
 	    driver_free_binary(bin);
 	}
@@ -5918,27 +5920,7 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
     }
 
  error:
-    erts_free_aligned_binary_bytes(temp_alloc);
-    if (code != NULL) {
-	erts_free(ERTS_ALC_T_CODE, code);
-    }
-    if (state.labels != NULL) {
-	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) state.labels);
-    }
-    if (state.lambdas != state.def_lambdas) {
-	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) state.lambdas);
-    }
-    if (state.atom != NULL) {
-	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) state.atom);
-    }
-    if (state.export != NULL) {
-	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) state.export);
-    }
-    if (bin != NULL) {
-	driver_free_binary(bin);
-    }
-
-	
+    free_state(&state);
     BIF_ERROR(p, BADARG);
 }
 
