@@ -38,7 +38,35 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Mnesia.</p>
 
-  <section><title>Mnesia 4.5</title>
+  <section><title>Mnesia 4.5.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix deadlock in mnesia:del_table_copy/2.</p>
+          <p>
+	    Own Id: OTP-9689 Aux Id: seq11927 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Allow schema operations when using different mnesia
+	    versions.</p>
+          <p>
+	    Own Id: OTP-9657 Aux Id: seq11926 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
