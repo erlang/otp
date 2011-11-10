@@ -110,11 +110,16 @@ check_all_callbacks(Module, Behaviour, [Cb|Rest], Plt, Acc) ->
 	Acc00 = Acc0,
 	{ReturnType, ArgTypes} = RetArgTypes,
 	Acc01 =
-	  case erl_types:t_is_none(erl_types:t_inf(ReturnType, CbReturnType)) of
-	    false -> Acc00;
-	    true ->
-	      [{callback_type_mismatch,[Behaviour, Function,
-					Arity, ReturnType]}|Acc00]
+	  case erl_types:t_is_subtype(ReturnType, CbReturnType) of
+	    true -> Acc00;
+	    false ->
+	      case erl_types:t_is_none(
+		     erl_types:t_inf(ReturnType, CbReturnType)) of
+		false -> Acc00;
+		true ->
+		  [{callback_type_mismatch,[Behaviour, Function,
+					    Arity, ReturnType]}|Acc00]
+	      end
 	  end,
 	Acc02 =
 	  case erl_types:any_none(

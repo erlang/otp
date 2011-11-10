@@ -13,7 +13,7 @@
 	]).
 
 sample_callback_1() -> 42.       % This is a valid return.
-sample_callback_2() -> foo.      % This is a valid return.
+sample_callback_2() -> halt().   % Crashes are also allowed.
 sample_callback_3() -> {ok, 17}. % This is a valid return.
 sample_callback_4(Input) ->
     case Input of
