@@ -25,7 +25,7 @@
 %% Test encode/decode of dictionary-related modules.
 %%
 
--include_lib("diameter/include/diameter.hrl").
+-include("diameter.hrl").
 
 -define(BASE, diameter_gen_base_rfc3588).
 -define(BOOL, [true, false]).

@@ -58,7 +58,7 @@ SUITES        = $(SUITE_MODULES:diameter_%_SUITE=%)
 # target like 'all' below. Target release_tests only installs source.
 ERL_COMPILE_FLAGS += +warn_export_vars \
                      +warn_unused_vars \
-                     -DDIAMETER_CT=true \
+                     -I ../include \
                      -I ../src/gen
 
 # ----------------------------------------------------
@@ -138,6 +138,9 @@ log:
 # Release Targets
 # ---------------------------------------------------- 
 
+/%: % force
+	sed -f release.sed $< > $(RELSYSDIR)$@
+
 ifeq ($(ERL_TOP),)
 include $(DIAMETER_TOP)/make/release_targets.mk
 else
@@ -153,10 +156,16 @@ release_tests_spec:
 	$(INSTALL_DATA) $(TEST_SPEC_FILE) \
 	                $(COVER_SPEC_FILE) \
 	                $(HRL_FILES) \
-	                $(ERL_FILES) \
 	                $(RELSYSDIR)
+	$(MAKE) $(ERL_FILES:%=/%)
+
+force:
 
 .PHONY: release_spec release_docs_spec release_test_specs
+.PHONY: force
+
+# Can't just make $(ERL_FILES:%=/%) phony since then implicit rule
+# searching is skipped.
 
 # ----------------------------------------------------
 
@@ -165,7 +174,7 @@ depend: depend.mk
 # Generate dependencies makefile.
 depend.mk: depend.sed $(MODULES:%=%.erl) Makefile
 	(for f in $(MODULES); do \
-	     sed -f $< $$f.erl | sed "s@/@/$$f@"; \
+	     (echo $$f; cat $$f.erl) | sed -f $<; \
 	 done) \
 	> $@
 

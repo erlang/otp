@@ -18,24 +18,18 @@
 #
 
 #
-# Extract local include dependencies from an .erl file. The first
-# input line is the module name.
+# This bit of gymnastics is to replace the include of diameter's
+# public hrls by include_lib when releasing testsuites, so that they
+# compile both in the development filesystem (where generated hrls
+# aren't in diameter/include) and with common_test's autocompilation
+# on an installed release. Solving the problem by installing generated
+# hrls to ../include is anathema: that directory is for handwritten
+# source.)
 #
 
-# Store the module name in the hold space.
-1{
-  h
-  d
-}
+/^-include("/!b
+/"diameter_gen_/b s
+/"diameter\./!b
 
-# Throw away everything but local includes.
-/^-include_lib/d
-/^-include/!d
-/diameter_gen/d
-/diameter\./d
-
-# Output a dependency of the beam on the included file.
-s@^-include("@@
-s@".*@@
-G
-s@^\(.*\)\n\(.*\)@$(EBIN)/\2.$(EMULATOR): \1@
+:s
+s@("@_lib&diameter/include/@

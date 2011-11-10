@@ -87,13 +87,8 @@
          handle_error/5,
          handle_request/3]).
 
--ifdef(DIAMETER_CT).
+-include("diameter.hrl").
 -include("diameter_gen_base_rfc3588.hrl").
--else.
--include_lib("diameter/include/diameter_gen_base_rfc3588.hrl").
--endif.
-
--include_lib("diameter/include/diameter.hrl").
 -include("diameter_ct.hrl").
 
 %% ===========================================================================
