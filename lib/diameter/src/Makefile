@@ -177,7 +177,7 @@ else
 include $(ERL_TOP)/make/otp_release_targets.mk
 endif
 
-# Can't $(INSTALL_DIR) more than on directory at a time on Solaris.
+# Can't $(INSTALL_DIR) more than one directory at a time on Solaris.
 
 release_spec: opt
 	for d in bin ebin examples include src/dict $(TARGET_DIRS:%/=src/%); do \
