@@ -802,8 +802,7 @@ false</pre>
       <type>
         <v>MonitorRef = reference()</v>
         <v>OptionList = [Option]</v>
-        <v>Option = flush</v>
-        <v>Option = info</v>
+        <v>&nbsp;Option = flush | info</v>
       </type>
       <desc>
         <p>The returned value is <c>true</c> unless <c>info</c> is part
