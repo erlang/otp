@@ -176,11 +176,11 @@ dilbert@uab</pre>
       </row>
       <row>
         <cell align="left" valign="middle"><c>is_alive()</c></cell>
-        <cell align="left" valign="middle">Returns <c>true</c>if the runtime system is a node and can connect to other nodes, <c>false</c>otherwise.</cell>
+        <cell align="left" valign="middle">Returns <c>true</c> if the runtime system is a node and can connect to other nodes, <c>false</c> otherwise.</cell>
       </row>
       <row>
         <cell align="left" valign="middle"><c>monitor_node(Node, true|false)</c></cell>
-        <cell align="left" valign="middle">Monitor the status of <c>Node</c>. A message<c>{nodedown, Node}</c>is received if the connection to it is lost.</cell>
+        <cell align="left" valign="middle">Monitor the status of <c>Node</c>. A message<c>{nodedown, Node}</c> is received if the connection to it is lost.</cell>
       </row>
       <row>
         <cell align="left" valign="middle"><c>node()</c></cell>
@@ -200,7 +200,7 @@ dilbert@uab</pre>
       </row>
       <row>
         <cell align="left" valign="middle"><c>set_cookie(Node, Cookie)</c></cell>
-        <cell align="left" valign="middle">Sets the magic cookie used when connecting to <c>Node</c>. If <c>Node</c>is the current node, <c>Cookie</c>will be used when connecting to all new nodes.</cell>
+        <cell align="left" valign="middle">Sets the magic cookie used when connecting to <c>Node</c>. If <c>Node</c> is the current node, <c>Cookie</c> will be used when connecting to all new nodes.</cell>
       </row>
       <row>
         <cell align="left" valign="middle"><c>spawn[_link|_opt](Node, Fun)</c></cell>

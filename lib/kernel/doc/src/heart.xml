@@ -42,7 +42,7 @@
       system.</p>
     <p>An Erlang runtime system to be monitored by a heart program,
       should be started with the command line flag <c>-heart</c> (see
-      also <seealso marker="erts:erl">erl(1)</seealso>. The <c>heart</c>
+      also <seealso marker="erts:erl">erl(1)</seealso>). The <c>heart</c>
       process is then started automatically:</p>
     <pre>
 % <input>erl -heart ...</input></pre>
