@@ -158,7 +158,9 @@ ERLANG_LIBDIR     = $(DESTDIR)$(ERLANG_INST_LIBDIR)
 MAKE		= @MAKE_PROG@
 
 # This should be set to the target "arch-vendor-os"
-export TARGET	= @TARGET@
+TARGET	:= @TARGET@
+include $(ERL_TOP)/make/target.mk
+export TARGET
 
 BOOTSTRAP_ONLY = @BOOTSTRAP_ONLY@
 
