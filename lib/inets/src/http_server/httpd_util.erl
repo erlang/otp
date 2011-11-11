@@ -178,11 +178,12 @@ message(301,URL,_) ->
     "The document has moved <A HREF=\""++ maybe_encode(URL) ++"\">here</A>.";
 message(304, _URL,_) ->
     "The document has not been changed.";
-message(400,none,_) ->
-    "Your browser sent a query that this server could not understand.";
-message(400,Msg,_) ->
-    "Your browser sent a query that this server could not understand. "++ http_util:html_encode(Msg);
-message(401,none,_) ->
+message(400, none, _) ->
+    "Your browser sent a query that this server could not understand. ";
+message(400, Msg, _) ->
+    "Your browser sent a query that this server could not understand. " ++ 
+	html_encode(Msg);
+message(401, none, _) ->
     "This server could not verify that you
 are authorized to access the document you
 	requested.  Either you supplied the wrong
@@ -190,40 +191,49 @@ credentials (e.g., bad password), or your
 browser doesn't understand how to supply
 the credentials required.";
 message(403,RequestURI,_) ->
-    "You don't have permission to access "++ http_util:html_encode(RequestURI) ++" on this server.";
+    "You don't have permission to access " ++ 
+	html_encode(RequestURI) ++ 
+	" on this server.";
 message(404,RequestURI,_) ->
-    "The requested URL " ++ http_util:html_encode(RequestURI) ++ " was not found on this server.";
+    "The requested URL " ++ 
+	html_encode(RequestURI) ++ 
+	" was not found on this server.";
 message(408, Timeout, _) ->
     Timeout;
 message(412,none,_) ->
     "The requested preconditions were false";
 message(413, Reason,_) ->
-    "Entity: " ++ http_util:html_encode(Reason);
+    "Entity: " ++ html_encode(Reason);
 message(414,ReasonPhrase,_) ->
-    "Message "++ http_util:html_encode(ReasonPhrase) ++".";
+    "Message " ++ html_encode(ReasonPhrase) ++ ".";
 message(416,ReasonPhrase,_) ->
-    http_util:html_encode(ReasonPhrase);
+    html_encode(ReasonPhrase);
 
 message(500,_,ConfigDB) ->
     ServerAdmin=lookup(ConfigDB,server_admin,"unknown@unknown"),
     "The server encountered an internal error or "
 	"misconfiguration and was unable to complete "
 	"your request.<P>Please contact the server administrator "
-	++ http_util:html_encode(ServerAdmin) ++ ", and inform them of the time the error occurred "
+	++ html_encode(ServerAdmin) ++ 
+	", and inform them of the time the error occurred "
 	"and anything you might have done that may have caused the error.";
 
 message(501,{Method, RequestURI, HTTPVersion}, _ConfigDB) ->
     if
 	is_atom(Method) ->
-        http_util:html_encode(atom_to_list(Method))++
-		" to "++ http_util:html_encode(RequestURI)++" ("++ http_util:html_encode(HTTPVersion)++") not supported.";
+	    atom_to_list(Method) ++
+		" to " ++ 
+		html_encode(RequestURI) ++ 
+		" (" ++ HTTPVersion ++ ") not supported.";
 	is_list(Method) ->
-	    http_util:html_encode(Method)++
-		" to "++ http_util:html_encode(RequestURI)++" ("++ http_util:html_encode(HTTPVersion)++") not supported."
+	    Method ++
+		" to " ++ 
+		html_encode(RequestURI) ++ 
+		" (" ++ HTTPVersion ++ ") not supported."
     end;
 
 message(503, String, _ConfigDB) ->
-    "This service in unavailable due to: "++ http_util:html_encode(String).
+    "This service in unavailable due to: " ++ html_encode(String).
 
 maybe_encode(URI) ->
     Decoded = try http_uri:decode(URI) of
@@ -232,6 +242,15 @@ maybe_encode(URI) ->
 	error:_ -> URI
     end,
     http_uri:encode(Decoded).
+
+html_encode(String) ->
+    try http_uri:decode(String) of
+	Decoded when is_list(Decoded) ->
+	    http_util:html_encode(Decoded)
+    catch 
+	_:_ ->
+	    http_util:html_encode(String)
+    end.
 
 %%convert_rfc_date(Date)->{{YYYY,MM,DD},{HH,MIN,SEC}}
 
@@ -245,7 +264,7 @@ convert_request_date([D,A,Y,DateType| Rest])->
 		 fun convert_rfc850_date/1
 	 end,
     case catch Func([D,A,Y,DateType| Rest]) of
-	{ok,Date} ->
+	{ok, Date} ->
 	    Date;
 	_Error->
 	    bad_date

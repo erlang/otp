@@ -740,6 +740,19 @@ end_per_testcase2(Case, Config) ->
 
 
 %%-------------------------------------------------------------------------
+http_1_1_ip(doc) ->
+    ["HTTP/1.1"];
+http_1_1_ip(suite) ->
+    [
+     ip_host, 
+     ip_chunked, 
+     ip_expect, 
+     ip_range, 
+     ip_if_test, 
+     ip_http_trace,
+     ip_http1_1_head, 
+     ip_mod_cgi_chunked_encoding_test
+    ].
 
 %%-------------------------------------------------------------------------
 
@@ -2571,24 +2584,24 @@ ticket_5913(doc) ->
     ["Tests that a header without last-modified is handled"];
 ticket_5913(suite) -> [];
 ticket_5913(Config) ->
-    ok=httpd_test_lib:verify_request(ip_comm, ?config(host, Config),
-				     ?IP_PORT, ?config(node, Config),
+    ok = httpd_test_lib:verify_request(ip_comm, ?config(host, Config),
+				       ?IP_PORT, ?config(node, Config),
 				       "GET /cgi-bin/erl/httpd_example:get_bin "
 				       "HTTP/1.0\r\n\r\n", 
 				       [{statuscode, 200},
-				       {version, "HTTP/1.0"}]),
+					{version, "HTTP/1.0"}]),
     ok.
 
 ticket_6003(doc) ->
     ["Tests that a URI with a bad hexadecimal code is handled"];
 ticket_6003(suite) -> [];
 ticket_6003(Config) ->
-    ok=httpd_test_lib:verify_request(ip_comm, ?config(host, Config),
-				     ?IP_PORT, ?config(node, Config),
-				     "GET http://www.erlang.org/%skalle "
-				     "HTTP/1.0\r\n\r\n",
-				     [{statuscode, 400},
-				      {version, "HTTP/1.0"}]),
+    ok = httpd_test_lib:verify_request(ip_comm, ?config(host, Config),
+				       ?IP_PORT, ?config(node, Config),
+				       "GET http://www.erlang.org/%skalle "
+				       "HTTP/1.0\r\n\r\n",
+				       [{statuscode, 400},
+					{version, "HTTP/1.0"}]),
     ok.
 
 ticket_7304(doc) ->

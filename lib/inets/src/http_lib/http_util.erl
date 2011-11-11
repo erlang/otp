@@ -206,9 +206,7 @@ timeout(Timeout, Started) ->
 
 html_encode(Chars) ->
     Reserved = sets:from_list([$&, $<, $>, $\", $', $/]),
-    lists:append(lists:map(fun(Char) ->
-	               char_to_html_entity(Char, Reserved)
-	           end, Chars)).
+    lists:append([char_to_html_entity(Char, Reserved) || Char <- Chars]).
 
 
 %%%========================================================================
