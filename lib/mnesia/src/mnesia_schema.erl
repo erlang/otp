@@ -39,9 +39,10 @@
          change_table_load_order/2,
 	 change_table_majority/2,
 	 change_table_frag/2,
-	 clear_table/1,
+%%	 clear_table/1,  %% removed since it is not a schema op anymore
          create_table/1,
 	 cs2list/1,
+	 vsn_cs2list/1,
          del_snmp/1,
          del_table_copy/2,
          del_table_index/2,
@@ -65,6 +66,7 @@
          merge_schema/0,
          merge_schema/1,
          move_table/3,
+	 normalize_cs/2,
          opt_create_dir/2,
          prepare_commit/3,
          purge_dir/2,
@@ -626,6 +628,17 @@ do_insert_schema_ops(Store, [Head | Tail]) ->
 do_insert_schema_ops(_Store, []) ->
     ok.
 
+api_list2cs(List) when is_list(List) ->
+    Name = pick(unknown, name, List, must),
+    Keys = check_keys(Name, List, record_info(fields, cstruct)),
+    check_duplicates(Name, Keys),
+    list2cs(List);
+api_list2cs(Other) ->
+    mnesia:abort({badarg, Other}).
+
+vsn_cs2list(Cs) ->
+    cs2list(need_old_cstructs(), Cs).
+
 cs2list(Cs) when is_record(Cs, cstruct) ->
     Tags = record_info(fields, cstruct),
     rec2list(Tags, Tags, 2, Cs);
@@ -648,7 +661,7 @@ cs2list(Cs) when element(1, Cs) == cstruct, tuple_size(Cs) == 17 ->
 
 cs2list(false, Cs) ->
     cs2list(Cs);
-cs2list(ver4_4_18, Cs) ->
+cs2list(ver4_4_18, Cs) -> %% Or earlier
     Orig = record_info(fields, cstruct),
     Tags = [name,type,ram_copies,disc_copies,disc_only_copies,
 	    load_order,access_mode,index,snmp,local_content,
@@ -671,13 +684,19 @@ rec2list([], _, _Pos, _Rec) ->
 rec2list(Tags, [_|Orig], Pos, Rec) ->
     rec2list(Tags, Orig, Pos+1, Rec).
 
-api_list2cs(List) when is_list(List) ->
-    Name = pick(unknown, name, List, must),
-    Keys = check_keys(Name, List, record_info(fields, cstruct)),
-    check_duplicates(Name, Keys),
-    list2cs(List);
-api_list2cs(Other) ->
-    mnesia:abort({badarg, Other}).
+normalize_cs(Cstructs, Node) ->
+    %% backward-compatibility hack; normalize before returning
+    case need_old_cstructs([Node]) of
+	false ->
+	    Cstructs;
+	Version ->
+	    %% some other format
+	    [convert_cs(Version, Cs) || Cs <- Cstructs]
+    end.
+
+convert_cs(Version, Cs) ->
+    Fields = [Value || {_, Value} <- cs2list(Version, Cs)],
+    list_to_tuple([cstruct|Fields]).
 
 list2cs(List) when is_list(List) ->
     Name = pick(unknown, name, List, must),
@@ -1048,7 +1067,7 @@ unsafe_make_create_table(Cs) ->
     Nodes = mnesia_lib:intersect(mnesia_lib:cs_to_nodes(Cs), RunningNodes),
     Store = Ts#tidstore.store,
     mnesia_locker:wlock_no_exist(Tid, Store, Tab, Nodes),
-    [{op, create_table, cs2list(Cs)}].
+    [{op, create_table, vsn_cs2list(Cs)}].
 
 check_if_exists(Tab) ->
     TidTs = get_tid_ts_and_lock(schema, write),
@@ -1133,7 +1152,7 @@ make_delete_table2(Tab) ->
     Cs = val({Tab, cstruct}),
     ensure_active(Cs),
     ensure_writable(Tab),
-    {op, delete_table, cs2list(Cs)}.
+    {op, delete_table, vsn_cs2list(Cs)}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Change fragmentation of a table
@@ -1152,10 +1171,6 @@ do_change_table_frag(Tab, _Change) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Clear a table
 
-%% No need for a schema transaction
-clear_table(Tab) ->
-    schema_transaction(fun() -> do_clear_table(Tab) end).
-
 do_clear_table(schema) ->
     mnesia:abort({bad_type, schema});
 do_clear_table(Tab) ->
@@ -1166,7 +1181,7 @@ do_clear_table(Tab) ->
 make_clear_table(Tab) ->
     Cs = val({Tab, cstruct}),
     ensure_writable(Tab),
-    [{op, clear_table, cs2list(Cs)}].
+    [{op, clear_table, vsn_cs2list(Cs)}].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -1206,7 +1221,7 @@ make_add_table_copy(Tab, Node, Storage) ->
 	IsRunning == false ->
 	    mnesia:abort({not_active, schema, Node})
     end,
-    [{op, add_table_copy, Storage, Node, cs2list(Cs2)}].
+    [{op, add_table_copy, Storage, Node, vsn_cs2list(Cs2)}].
 
 del_table_copy(Tab, Node) ->
     schema_transaction(fun() -> do_del_table_copy(Tab, Node) end).
@@ -1235,11 +1250,11 @@ make_del_table_copy(Tab, Node) ->
 	    ensure_not_active(Tab, Node),
             verify_cstruct(Cs2),
 	    Ops = remove_node_from_tabs(val({schema, tables}), Node),
-	    [{op, del_table_copy, ram_copies, Node, cs2list(Cs2)} | Ops];
+	    [{op, del_table_copy, ram_copies, Node, vsn_cs2list(Cs2)} | Ops];
         _ ->
 	    ensure_active(Cs),
             verify_cstruct(Cs2),
-            [{op, del_table_copy, Storage, Node, cs2list(Cs2)}]
+            [{op, del_table_copy, Storage, Node, vsn_cs2list(Cs2)}]
     end.
 
 remove_node_from_tabs([], _Node) ->
@@ -1253,7 +1268,7 @@ remove_node_from_tabs([Tab|Rest], Node) ->
 	unknown ->
 	    case IsFragModified of
 		true ->
-		    [{op, change_table_frag, {del_node, Node}, cs2list(Cs)} |
+		    [{op, change_table_frag, {del_node, Node}, vsn_cs2list(Cs)} |
 		     remove_node_from_tabs(Rest, Node)];
 		false ->
 		    remove_node_from_tabs(Rest, Node)
@@ -1262,11 +1277,11 @@ remove_node_from_tabs([Tab|Rest], Node) ->
 	    Cs2 = new_cs(Cs, Node, Storage, del),
 	    case mnesia_lib:cs_to_nodes(Cs2) of
 		[] ->
-		    [{op, delete_table, cs2list(Cs)} |
+		    [{op, delete_table, vsn_cs2list(Cs)} |
 		     remove_node_from_tabs(Rest, Node)];
 		_Ns ->
 		    verify_cstruct(Cs2),
-		    [{op, del_table_copy, ram_copies, Node, cs2list(Cs2)}|
+		    [{op, del_table_copy, ram_copies, Node, vsn_cs2list(Cs2)}|
 		     remove_node_from_tabs(Rest, Node)]
 	    end
     end.
@@ -1318,9 +1333,9 @@ make_move_table(Tab, FromNode, ToNode) ->
     Cs2 = new_cs(Cs, ToNode, Storage, add),
     Cs3 = new_cs(Cs2, FromNode, Storage, del),
     verify_cstruct(Cs3),
-    [{op, add_table_copy, Storage, ToNode, cs2list(Cs2)},
+    [{op, add_table_copy, Storage, ToNode, vsn_cs2list(Cs2)},
      {op, sync_trans},
-     {op, del_table_copy, Storage, FromNode, cs2list(Cs3)}].
+     {op, del_table_copy, Storage, FromNode, vsn_cs2list(Cs3)}].
 
 %% end of functions to add and delete nodes to tables
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1357,7 +1372,7 @@ make_change_table_copy_type(Tab, Node, ToS) ->
     Cs3 = new_cs(Cs2, Node, ToS, add),
     verify_cstruct(Cs3),
 
-    [{op, change_table_copy_type, Node, FromS, ToS, cs2list(Cs3)}].
+    [{op, change_table_copy_type, Node, FromS, ToS, vsn_cs2list(Cs3)}].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% change index functions ....
@@ -1383,7 +1398,7 @@ make_add_table_index(Tab, Pos) ->
     Ix2 = lists:sort([Pos | Ix]),
     Cs2 = Cs#cstruct{index = Ix2},
     verify_cstruct(Cs2),
-    [{op, add_index, Pos, cs2list(Cs2)}].
+    [{op, add_index, Pos, vsn_cs2list(Cs2)}].
 
 del_table_index(Tab, Pos) ->
     schema_transaction(fun() -> do_del_table_index(Tab, Pos) end).
@@ -1404,7 +1419,7 @@ make_del_table_index(Tab, Pos) ->
     verify(true, lists:member(Pos, Ix), {no_exists, Tab, Pos}),
     Cs2 = Cs#cstruct{index = lists:delete(Pos, Ix)},
     verify_cstruct(Cs2),
-    [{op, del_index, Pos, cs2list(Cs2)}].
+    [{op, del_index, Pos, vsn_cs2list(Cs2)}].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -1427,7 +1442,7 @@ make_add_snmp(Tab, Ustruct) ->
     verify(true, mnesia_snmp_hook:check_ustruct(Ustruct), Error),
     Cs2 = Cs#cstruct{snmp = Ustruct},
     verify_cstruct(Cs2),
-    [{op, add_snmp, Ustruct, cs2list(Cs2)}].
+    [{op, add_snmp, Ustruct, vsn_cs2list(Cs2)}].
 
 del_snmp(Tab) ->
     schema_transaction(fun() -> do_del_snmp(Tab) end).
@@ -1445,7 +1460,7 @@ make_del_snmp(Tab) ->
     ensure_active(Cs),
     Cs2 = Cs#cstruct{snmp = []},
     verify_cstruct(Cs2),
-    [{op, del_snmp, cs2list(Cs2)}].
+    [{op, del_snmp, vsn_cs2list(Cs2)}].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
@@ -1477,26 +1492,26 @@ make_transform(Tab, Fun, NewAttrs, NewRecName) ->
 	[] ->
 	    Cs2 = Cs#cstruct{attributes = NewAttrs, record_name = NewRecName},
 	    verify_cstruct(Cs2),
-	    [{op, transform, Fun, cs2list(Cs2)}];
+	    [{op, transform, Fun, vsn_cs2list(Cs2)}];
 	PosList ->
 	    DelIdx = fun(Pos, Ncs) ->
 			     Ix = Ncs#cstruct.index,
 			     Ncs1 = Ncs#cstruct{index = lists:delete(Pos, Ix)},
-			     Op = {op, del_index, Pos, cs2list(Ncs1)},
+			     Op = {op, del_index, Pos, vsn_cs2list(Ncs1)},
 			     {Op, Ncs1}
 		     end,
 	    AddIdx = fun(Pos, Ncs) ->
 			     Ix = Ncs#cstruct.index,
 			     Ix2 = lists:sort([Pos | Ix]),
 			     Ncs1 = Ncs#cstruct{index = Ix2},
-			     Op = {op, add_index, Pos, cs2list(Ncs1)},
+			     Op = {op, add_index, Pos, vsn_cs2list(Ncs1)},
 			     {Op, Ncs1}
 		     end,
             {DelOps, Cs1} = lists:mapfoldl(DelIdx, Cs, PosList),
 	    Cs2 = Cs1#cstruct{attributes = NewAttrs, record_name = NewRecName},
             {AddOps, Cs3} = lists:mapfoldl(AddIdx, Cs2, PosList),
 	    verify_cstruct(Cs3),
-	    lists:flatten([DelOps, {op, transform, Fun, cs2list(Cs2)}, AddOps])
+	    lists:flatten([DelOps, {op, transform, Fun, vsn_cs2list(Cs2)}, AddOps])
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1520,7 +1535,7 @@ make_change_table_access_mode(Tab, Mode) ->
     verify(false, OldMode ==  Mode, {already_exists, Tab, Mode}),
     Cs2 = Cs#cstruct{access_mode = Mode},
     verify_cstruct(Cs2),
-    [{op, change_table_access_mode, cs2list(Cs2), OldMode, Mode}].
+    [{op, change_table_access_mode, vsn_cs2list(Cs2), OldMode, Mode}].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -1541,7 +1556,7 @@ make_change_table_load_order(Tab, LoadOrder) ->
     OldLoadOrder = Cs#cstruct.load_order,
     Cs2 = Cs#cstruct{load_order = LoadOrder},
     verify_cstruct(Cs2),
-    [{op, change_table_load_order, cs2list(Cs2), OldLoadOrder, LoadOrder}].
+    [{op, change_table_load_order, vsn_cs2list(Cs2), OldLoadOrder, LoadOrder}].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -1571,14 +1586,14 @@ make_change_table_majority(Tab, Majority) ->
 				ensure_active(CsT),
 				CsT2 = CsT#cstruct{majority = Majority},
 				verify_cstruct(CsT2),
-				{op, change_table_majority, cs2list(CsT2),
+				{op, change_table_majority, vsn_cs2list(CsT2),
 				 OldMajority, Majority}
 			end, FragNames);
 		  false    -> [];
 		  {_, _}   -> mnesia:abort({bad_type, Tab})
 	      end,
     verify_cstruct(Cs2),
-    [{op, change_table_majority, cs2list(Cs2), OldMajority, Majority} | FragOps].
+    [{op, change_table_majority, vsn_cs2list(Cs2), OldMajority, Majority} | FragOps].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -1619,7 +1634,7 @@ make_write_table_properties(Tab, [Prop | Props], Cs) ->
     MergedProps = lists:merge(DelProps, [Prop]),
     Cs2 = Cs#cstruct{user_properties = MergedProps},
     verify_cstruct(Cs2),
-    [{op, write_property, cs2list(Cs2), Prop} |
+    [{op, write_property, vsn_cs2list(Cs2), Prop} |
      make_write_table_properties(Tab, Props, Cs2)];
 make_write_table_properties(_Tab, [], _Cs) ->
     [].
@@ -1740,7 +1755,7 @@ make_delete_table_properties(Tab, [PropKey | PropKeys], Cs) ->
     Props = lists:keydelete(PropKey, 1, OldProps),
     Cs2 = Cs#cstruct{user_properties = Props},
     verify_cstruct(Cs2),
-    [{op, delete_property, cs2list(Cs2), PropKey} |
+    [{op, delete_property, vsn_cs2list(Cs2), PropKey} |
      make_delete_table_properties(Tab, PropKeys, Cs2)];
 make_delete_table_properties(_Tab, [], _Cs) ->
     [].
@@ -2166,12 +2181,17 @@ receive_sync(Nodes, Pids) ->
 	    {abort, Else}
     end.
 
-lock_del_table(Tab, Node, Cs, Father) ->
+lock_del_table(Tab, NewNode, Cs0, Father) ->
     Ns = val({schema, active_replicas}),
     process_flag(trap_exit,true),
     Lock = fun() ->
 		   mnesia:write_lock_table(Tab),
-		   {Res, []} = rpc:multicall(Ns, ?MODULE, set_where_to_read, [Tab, Node, Cs]),
+		   %% Sigh using cs record
+		   Set = fun(Node) ->
+				 [Cs] = normalize_cs([Cs0], Node),
+				 rpc:call(Node, ?MODULE, set_where_to_read, [Tab, NewNode, Cs])
+			 end,
+		   Res = [Set(Node) || Node <- Ns],
 		   Filter = fun(ok) ->
 				    false;
 			       ({badrpc, {'EXIT', {undef, _}}}) ->
@@ -2353,10 +2373,11 @@ undo_prepare_op(Tid, {op, add_table_copy, Storage, Node, TabDef}) ->
 
 undo_prepare_op(_Tid, {op, del_table_copy, _, Node, TabDef})
   when Node == node() ->
+    WriteLocker = get(mnesia_lock),
+    WriteLocker =/= undefined andalso (WriteLocker ! die),
     Cs = list2cs(TabDef),
     Tab = Cs#cstruct.name,
     mnesia_lib:set({Tab, where_to_read}, Node);
-
 
 undo_prepare_op(_Tid, {op, change_table_copy_type, N, FromS, ToS, TabDef})
         when N == node() ->
@@ -2828,6 +2849,9 @@ fetch_cstructs(Node) ->
 	false ->
 	    rpc:call(Node, mnesia_controller, get_remote_cstructs, [])
     end.
+
+need_old_cstructs() ->
+    need_old_cstructs(val({schema, where_to_write})).
 
 need_old_cstructs(Nodes) ->
     Filter = fun(Node) -> not mnesia_monitor:needs_protocol_conversion(Node) end,

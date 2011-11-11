@@ -121,7 +121,7 @@ handle_system_event({mnesia_up, Node}, State) ->
     {ok, State#state{nodes = Nodes}}; 
 
 handle_system_event({mnesia_down, Node}, State) ->
-    case mnesia:system_info(fallback_activated) of
+    case mnesia:system_info(fallback_activated) andalso Node =/= node() of
 	true ->
 	    case mnesia_monitor:get_env(fallback_error_function) of
 		{mnesia, lkill} ->
@@ -129,8 +129,8 @@ handle_system_event({mnesia_down, Node}, State) ->
 			"must be restarted. Forcing shutdown "
 			"after mnesia_down from ~p...~n",
 		    report_fatal(Msg, [Node], nocore, State#state.dumped_core),
-		    mnesia:lkill(),
-		    exit(fatal);
+		    catch exit(whereis(mnesia_monitor), fatal),
+		    {ok, State};
 		{UserMod, UserFunc} ->
 		    Msg = "Warning: A fallback is installed and Mnesia got mnesia_down "
 			"from ~p. ~n",

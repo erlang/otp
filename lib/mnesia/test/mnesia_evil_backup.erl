@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -244,9 +244,9 @@ restore(Config, Op)  ->
     [rpc:call(Node, ?MODULE, check_tab, [Res31, ?LINE]) || Node <- Nodes],
 
     %% Restore all tables on it's nodes
-    mnesia_schema:clear_table(Tab1),
-    mnesia_schema:clear_table(Tab2),
-    mnesia_schema:clear_table(Tab3),
+    mnesia:clear_table(Tab1),
+    mnesia:clear_table(Tab2),
+    mnesia:clear_table(Tab3),
     [mnesia:dirty_write({Tab1, N, N+1}) || N <- lists:seq(1, 11)],
     [mnesia:dirty_write({Tab2, N, N+1}) || N <- lists:seq(1, 11)],
     [mnesia:dirty_write({Tab3, N, N+1}) || N <- lists:seq(1, 11)],
