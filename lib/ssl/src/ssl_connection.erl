@@ -303,12 +303,13 @@ init([Role, Host, Port, Socket, {SSLOpts0, _} = Options,
       User, CbInfo]) ->
     State0 = initial_state(Role, Host, Port, Socket, Options, User, CbInfo),
     Hashes0 = ssl_handshake:init_hashes(),    
-
+    TimeStamp = calendar:datetime_to_gregorian_seconds({date(), time()}),
     try ssl_init(SSLOpts0, Role) of
 	{ok, Ref, CertDbHandle, CacheHandle, OwnCert, Key, DHParams} ->
 	    Session = State0#state.session,
 	    State = State0#state{tls_handshake_hashes = Hashes0,
-				 session = Session#session{own_certificate = OwnCert},
+				 session = Session#session{own_certificate = OwnCert,
+							   time_stamp = TimeStamp},
 				 cert_db_ref = Ref,
 				 cert_db = CertDbHandle,
 				 session_cache = CacheHandle,
