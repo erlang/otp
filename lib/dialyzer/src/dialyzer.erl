@@ -442,14 +442,18 @@ message_to_string({opaque_type_test, [Fun, Opaque]}) ->
 message_to_string({race_condition, [M, F, Args, Reason]}) ->
   io_lib:format("The call ~w:~w~s ~s\n", [M, F, Args, Reason]);
 %%----- Warnings for behaviour errors --------------------
-message_to_string({callback_type_mismatch, [B, F, A, O]}) ->
+message_to_string({callback_type_mismatch, [B, F, A, T]}) ->
   io_lib:format("The inferred return type for ~w/~w is ~s which is not valid"
 		" return for the callback of the ~w behaviour\n",
-		[F, A, erl_types:t_to_string(O), B]);
-message_to_string({callback_arg_type_mismatch, [B, F, A, N, O]}) ->
+		[F, A, T, B]);
+message_to_string({callback_arg_type_mismatch, [B, F, A, N, T]}) ->
   io_lib:format("The inferred type for the ~s argument of ~w/~w is ~s which is"
 		" not valid for the callback of the ~w behaviour"
-		"\n", [ordinal(N), F, A, erl_types:t_to_string(O), B]);
+		"\n", [ordinal(N), F, A, T, B]);
+message_to_string({callback_spec_type_mismatch, [B, F, A, ST, CT]}) ->
+  io_lib:format("The return type ~s in the specification of ~w/~w is not a"
+		" subtype of ~s, which is the expected return type for the"
+		" callback of ~w behaviour.\n", [ST, F, A, CT, B]);
 message_to_string({callback_missing, [B, F, A]}) ->
   io_lib:format("Undefined callback function ~w/~w (behaviour '~w')\n",
 		[F, A, B]);

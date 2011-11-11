@@ -88,20 +88,26 @@ get_warnings(Module, [Behaviour|Rest], State, Acc) ->
   NewAcc = check_behaviour(Module, Behaviour, State, Acc),
   get_warnings(Module, Rest, State, NewAcc).
 
-check_behaviour(Module, Behaviour, #state{plt = Plt}, Acc) ->
+check_behaviour(Module, Behaviour, #state{plt = Plt} = State, Acc) ->
   case dialyzer_plt:lookup_callbacks(Plt, Behaviour) of
     [] -> [{callback_info_missing, [Behaviour]}|Acc];
-    Callbacks -> check_all_callbacks(Module, Behaviour, Callbacks, Plt, Acc)
+    Callbacks -> check_all_callbacks(Module, Behaviour, Callbacks, State, Acc)
   end.
 
-check_all_callbacks(_Module, _Behaviour, [], _Plt, Acc) ->
+check_all_callbacks(_Module, _Behaviour, [], _State, Acc) ->
   Acc;
-check_all_callbacks(Module, Behaviour, [Cb|Rest], Plt, Acc) ->
+check_all_callbacks(Module, Behaviour, [Cb|Rest],
+		    #state{plt = Plt, codeserver = Codeserver} = State, Acc) ->
   {{Behaviour, Function, Arity},
    {{_BehFile, _BehLine}, Callback}} = Cb,
   CbMFA = {Module, Function, Arity},
   CbReturnType = dialyzer_contracts:get_contract_return(Callback),
   CbArgTypes = dialyzer_contracts:get_contract_args(Callback),
+  Records =
+    case dict:find(Module, dialyzer_codeserver:get_records(Codeserver)) of
+      {ok, V} -> V;
+      error -> dict:new()
+    end,
   Acc0 = Acc,
   Acc1 = 
     case dialyzer_plt:lookup(Plt, CbMFA) of
@@ -117,8 +123,9 @@ check_all_callbacks(Module, Behaviour, [Cb|Rest], Plt, Acc) ->
 		     erl_types:t_inf(ReturnType, CbReturnType)) of
 		false -> Acc00;
 		true ->
-		  [{callback_type_mismatch,[Behaviour, Function,
-					    Arity, ReturnType]}|Acc00]
+		  [{callback_type_mismatch,
+		    [Behaviour, Function, Arity,
+		     erl_types:t_to_string(ReturnType, Records)]}|Acc00]
 	      end
 	  end,
 	Acc02 =
@@ -127,32 +134,44 @@ check_all_callbacks(Module, Behaviour, [Cb|Rest], Plt, Acc) ->
 	    false -> Acc01;
 	    true ->
 	      find_mismatching_args(ArgTypes, CbArgTypes, Behaviour,
-				    Function, Arity, 1, Acc01)
+				    Function, Arity, Records, 1, Acc01)
 	  end,
 	Acc02
     end,
   Acc2 =
-    case dialyzer_plt:lookup_contract(Plt, CbMFA) of
-      'none' -> Acc1;
-      {value, _Contract} ->
-	%% TODO: Check spec for discrepancies
-	Acc1
+    case dialyzer_codeserver:lookup_mfa_contract(CbMFA, Codeserver) of
+      'error' -> Acc1;
+      {ok, {{File, Line}, Contract}} ->
+	Acc10 = Acc1,
+	SpecReturnType = dialyzer_contracts:get_contract_return(Contract),
+	SpecArgTypes = dialyzer_contracts:get_contract_args(Contract),
+	Acc11 =
+	  case erl_types:t_is_subtype(SpecReturnType, CbReturnType) of
+	    true -> Acc10;
+	    false -> [{callback_spec_type_mismatch,
+		       [File, Line, Behaviour, Function, Arity,
+			erl_types:t_to_string(SpecReturnType, Records),
+			erl_types:t_to_string(CbReturnType, Records)]}|Acc10]
+	  end,
+	Acc11
     end,
   NewAcc = Acc2,
-  check_all_callbacks(Module, Behaviour, Rest, Plt, NewAcc).
+  check_all_callbacks(Module, Behaviour, Rest, State, NewAcc).
 
-find_mismatching_args([], [], _Behaviour, _Function, _Arity, _N, Acc) ->
+find_mismatching_args([], [], _Beh, _Function, _Arity, _Records, _N, Acc) ->
   Acc;
 find_mismatching_args([Type|Rest], [CbType|CbRest], Behaviour,
-		      Function, Arity, N, Acc) ->
+		      Function, Arity, Records, N, Acc) ->
   case erl_types:t_is_none(erl_types:t_inf(Type, CbType)) of
     false ->
-      find_mismatching_args(Rest, CbRest, Behaviour, Function, Arity, N+1, Acc);
+      find_mismatching_args(Rest, CbRest, Behaviour, Function,
+			    Arity, Records, N+1, Acc);
     true ->
       NewAcc =
 	[{callback_arg_type_mismatch,
-	  [Behaviour, Function, Arity, N, Type]}|Acc],
-      find_mismatching_args(Rest, CbRest, Behaviour, Function, Arity, N+1, NewAcc)
+	  [Behaviour, Function, Arity, N, erl_types:t_to_string(Type, Records)]}|Acc],
+      find_mismatching_args(Rest, CbRest, Behaviour, Function,
+			    Arity, Records, N+1, NewAcc)
   end.
 
 add_tag_file_line(_Module, {Tag, [B|_R]} = Warn, State)
@@ -160,6 +179,9 @@ add_tag_file_line(_Module, {Tag, [B|_R]} = Warn, State)
        Tag =:= callback_info_missing ->
   {B, Line} = lists:keyfind(B, 1, State#state.behlines),
   {?WARN_BEHAVIOUR, {State#state.filename, Line}, Warn};
+add_tag_file_line(Module, {Tag, [File, Line|R]}, State)
+  when Tag =:= callback_spec_type_mismatch ->
+  {?WARN_BEHAVIOUR, {File, Line}, {Tag, R}};
 add_tag_file_line(Module, {_Tag, [_B, Fun, Arity|_R]} = Warn, State) ->
   {_A, FunCode} =
     dialyzer_codeserver:lookup_mfa_code({Module, Fun, Arity},
