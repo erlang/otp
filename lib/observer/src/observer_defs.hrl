@@ -26,10 +26,12 @@
 			on_all_link  = false,
 			main_window  = true}).
 
--record(match_spec, {alias,
-		     term_ms = [],
-		     str_ms = [],
-		     fun2ms}).
+-record(match_spec, {name = "",
+		     term = [],
+		     str  = [],
+		     func = ""}).
+
+-record(tpattern, {m, fa, ms}).
 
 -record(traced_func, {func_name, %atom
 		      arity, %integer
@@ -49,9 +51,12 @@
 	}).
 
 -record(attrs, {even, odd, deleted, changed, searched}).
+-define(EVEN(Row), ((Row rem 2) =:= 0)).
 -define(BG_EVEN,    {230,230,250}).
 -define(BG_ODD,     {255,255,255}).
 -define(BG_DELETED, {100,100,100}).
 -define(FG_DELETED, {240,30,30}).
 -define(BG_SEARCHED,{235,215,90}).
 -define(BG_CHANGED, {230,230,250}).
+
+-define(LCTRL_WDECR, 4). %% Remove some pixels in column width to avoid creating unnecessary scrollbar

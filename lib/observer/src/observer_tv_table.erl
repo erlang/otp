@@ -264,7 +264,7 @@ handle_event(#wx{event=#wxSize{size={W,_}}},  State=#state{grid=Grid}) ->
 		     Cols = wxListCtrl:getColumnCount(Grid),
 		     Last = lists:foldl(fun(I, Last) ->
 						Last - wxListCtrl:getColumnWidth(Grid, I)
-					end, W-2, lists:seq(0, Cols - 2)),
+					end, W-?LCTRL_WDECR, lists:seq(0, Cols - 2)),
 		     Size = max(?DEFAULT_COL_WIDTH, Last),
 		     wxListCtrl:setColumnWidth(Grid, Cols-1, Size)
 	     end),

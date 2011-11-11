@@ -20,7 +20,7 @@
 -behaviour(wx_object).
 
 -export([start/0]).
--export([create_menus/2, get_attrib/1,
+-export([create_menus/2, get_attrib/1, get_tracer/0,
 	 create_txt_dialog/4, try_rpc/4, return_to_localnode/2]).
 
 -export([init/1, handle_event/2, handle_cast/2, terminate/2, code_change/3,
@@ -40,6 +40,8 @@
 -define(FIRST_NODES_MENU_ID, 1000).
 -define(LAST_NODES_MENU_ID,  2000).
 
+-define(TRACE_STR, "Trace Overview").
+
 %% Records
 -record(state,
 	{frame,
@@ -51,6 +53,7 @@
 	 pro_panel,
 	 tv_panel,
 	 sys_panel,
+	 trace_panel,
 	 active_tab,
 	 node,
 	 nodes
@@ -65,10 +68,13 @@ create_menus(Object, Menus) when is_list(Menus) ->
 get_attrib(What) ->
     wx_object:call(observer, {get_attrib, What}).
 
+get_tracer() ->
+    wx_object:call(observer, get_tracer).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 init(_Args) ->
+    register(observer, self()),
     wx:new(),
     catch wxSystemOptions:setOption("mac.listctrl.always_use_generic", 1),
     Frame = wxFrame:new(wx:null(), ?wxID_ANY, "Observer",
@@ -80,10 +86,8 @@ init(_Args) ->
 
     State = #state{frame = Frame},
     UpdState = setup(State),
-    wxFrame:show(Frame),
     net_kernel:monitor_nodes(true),
     process_flag(trap_exit, true),
-    register(observer, self()),
     {Frame, UpdState}.
 
 setup(#state{frame = Frame} = State) ->
@@ -103,12 +107,23 @@ setup(#state{frame = Frame} = State) ->
     Panel = wxPanel:new(Frame, []),
     Notebook = wxNotebook:new(Panel, ?ID_NOTEBOOK, [{style, ?wxBK_DEFAULT}]),
 
-    %% Setup sizer
-    MainSizer = wxBoxSizer:new(?wxVERTICAL),
-
     %% System Panel
     SysPanel = observer_sys_wx:start_link(Notebook, self()),
     wxNotebook:addPage(Notebook, SysPanel, "System", []),
+
+    %% Setup sizer create early to get it when window shows
+    MainSizer = wxBoxSizer:new(?wxVERTICAL),
+
+    wxSizer:add(MainSizer, Notebook, [{proportion, 1}, {flag, ?wxEXPAND}]),
+    wxPanel:setSizer(Panel, MainSizer),
+
+    wxNotebook:connect(Notebook, command_notebook_page_changing),
+    wxFrame:connect(Frame, close_window, [{skip, true}]),
+    wxMenu:connect(Frame, command_menu_selected),
+    wxFrame:show(Frame),
+
+    %% I postpone the creation of the other tabs so they can query/use
+    %% the window size
 
     %% Process Panel
     ProPanel = observer_pro_wx:start_link(Notebook, self()),
@@ -118,12 +133,9 @@ setup(#state{frame = Frame} = State) ->
     TVPanel = observer_tv_wx:start_link(Notebook, self()),
     wxNotebook:addPage(Notebook, TVPanel, "Table Viewer", []),
 
-    wxSizer:add(MainSizer, Notebook, [{proportion, 1}, {flag, ?wxEXPAND}]),
-    wxPanel:setSizer(Panel, MainSizer),
-
-    wxNotebook:connect(Notebook, command_notebook_page_changing),
-    wxFrame:connect(Frame, close_window, [{skip, true}]),
-    wxMenu:connect(Frame, command_menu_selected),
+    %% Trace Viewer Panel
+    TracePanel = observer_trace_wx:start_link(Notebook, self()),
+    wxNotebook:addPage(Notebook, TracePanel, ?TRACE_STR, []),
 
     SysPid = wx_object:get_pid(SysPanel),
     SysPid ! {active, node()},
@@ -134,6 +146,7 @@ setup(#state{frame = Frame} = State) ->
 			   sys_panel = SysPanel,
 			   pro_panel = ProPanel,
 			   tv_panel  = TVPanel,
+			   trace_panel = TracePanel,
 			   active_tab = SysPid,
 			   node  = node(),
 			   nodes = Nodes
@@ -143,6 +156,7 @@ setup(#state{frame = Frame} = State) ->
     SysFontSize = wxFont:getPointSize(SysFont),
     Modern = wxFont:new(SysFontSize, ?wxFONTFAMILY_MODERN, ?wxFONTSTYLE_NORMAL, ?wxFONTWEIGHT_NORMAL),
     put({font, modern}, Modern),
+    put({font, fixed}, Modern),
     UpdState.
 
 
@@ -262,6 +276,9 @@ handle_call({create_menus, TabMenus}, _From,
 handle_call({get_attrib, Attrib}, _From, State) ->
     {reply, get(Attrib), State};
 
+handle_call(get_tracer, _From, State=#state{trace_panel=TraceP}) ->
+    {reply, TraceP, State};
+
 handle_call(_Msg, _From, State) ->
     {reply, ok, State}.
 
@@ -360,11 +377,12 @@ check_page_title(Notebook) ->
     Selection = wxNotebook:getSelection(Notebook),
     wxNotebook:getPageText(Notebook, Selection).
 
-get_active_pid(#state{notebook=Notebook, pro_panel=Pro, sys_panel=Sys, tv_panel=Tv}) ->
+get_active_pid(#state{notebook=Notebook, pro_panel=Pro, sys_panel=Sys, tv_panel=Tv, trace_panel=Trace}) ->
     Panel = case check_page_title(Notebook) of
 		"Processes" -> Pro;
 		"System" -> Sys;
-		"Table Viewer" -> Tv
+		"Table Viewer" -> Tv;
+		?TRACE_STR -> Trace
 	    end,
     wx_object:get_pid(Panel).
 

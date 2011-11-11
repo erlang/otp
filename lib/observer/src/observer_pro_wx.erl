@@ -71,10 +71,7 @@
 		panel,
 		popup_menu,
 		parent_notebook,
-		trace_options=#trace_options{},
-		match_specs=[],
 		timer,
-		tracemenu_opened,
 		procinfo_menu_pids=[],
 		sel={[], []},
 		holder}).
@@ -88,9 +85,7 @@ init([Notebook, Parent]) ->
     Self = self(),
     Holder = spawn_link(fun() -> init_table_holder(Self, Attrs) end),
     {ProPanel, State} = setup(Notebook, Parent, Holder),
-    MatchSpecs = generate_matchspecs(),
-
-    {ProPanel, State#state{holder=Holder, match_specs=MatchSpecs}}.
+    {ProPanel, State#state{holder=Holder}}.
 
 setup(Notebook, Parent, Holder) ->
     ProPanel = wxPanel:new(Notebook, []),
@@ -105,41 +100,16 @@ setup(Notebook, Parent, Holder) ->
 
     Popup = create_popup_menu(ProPanel),
 
-    State =  #state{parent=Parent,
-		    grid=Grid,
-		    panel=ProPanel,
-		    popup_menu=Popup,
-		    parent_notebook=Notebook,
-		    tracemenu_opened=false,
-		    holder=Holder,
-		    timer={false, 10}
+    State = #state{parent=Parent,
+		   grid=Grid,
+		   panel=ProPanel,
+		   popup_menu=Popup,
+		   parent_notebook=Notebook,
+		   holder=Holder,
+		   timer={false, 10}
 		   },
     {ProPanel, State}.
 
-generate_matchspecs() ->
-    try
-	StrMs1 = "[{'_', [], [{return_trace}]}].",
-	StrMs2 = "[{'_', [], [{exception_trace}]}].",
-	StrMs3 = "[{'_', [], [{message, {caller}}]}].",
-	StrMs4 = "[{'_', [], [{message, {process_dump}}]}].",
-
-	{ok, Tokens1, _} = erl_scan:string(StrMs1),
-	{ok, Tokens2, _} = erl_scan:string(StrMs2),
-	{ok, Tokens3, _} = erl_scan:string(StrMs3),
-	{ok, Tokens4, _} = erl_scan:string(StrMs4),
-	{ok, Term1} = erl_parse:parse_term(Tokens1),
-	{ok, Term2} = erl_parse:parse_term(Tokens2),
-	{ok, Term3} = erl_parse:parse_term(Tokens3),
-	{ok, Term4} = erl_parse:parse_term(Tokens4),
-
-	[#match_spec{term_ms = Term1, str_ms = StrMs1},
-	 #match_spec{term_ms = Term2, str_ms = StrMs2},
-	 #match_spec{term_ms = Term3, str_ms = StrMs3},
-	 #match_spec{term_ms = Term4, str_ms = StrMs4}]
-    catch
-	_:_ ->
-	    []
-    end.
 
 %% UI-creation
 
@@ -155,8 +125,9 @@ create_pro_menu(Parent, Holder) ->
 		     #create_menu{id=?ID_REFRESH_INTERVAL, text="Refresh Interval"}]},
 		   {"Trace",
 		    [#create_menu{id=?ID_TRACEMENU, text="Trace selected processes"},
-		     #create_menu{id=?ID_TRACE_NEW_MENU, text="Trace new processes"},
-		     #create_menu{id=?ID_TRACE_ALL_MENU, text="Trace all processes"}]}
+		     #create_menu{id=?ID_TRACE_NEW_MENU, text="Trace new processes"}
+		     %% , #create_menu{id=?ID_TRACE_ALL_MENU, text="Trace all processes"}
+		    ]}
 		  ],
     observer_wx:create_menus(Parent, MenuEntries).
 
@@ -271,11 +242,6 @@ handle_info(refresh_interval, #state{holder=Holder}=State) ->
     Holder ! refresh,
     {noreply, State};
 
-handle_info({tracemenu_closed, TraceOpts, MatchSpecs}, State) ->
-    {noreply, State#state{tracemenu_opened=false,
-			  trace_options=TraceOpts,
-			  match_specs=MatchSpecs}};
-
 handle_info({procinfo_menu_closed, Pid},
 	    #state{procinfo_menu_pids=Opened}=State) ->
     NewPids = lists:delete(Pid, Opened),
@@ -365,59 +331,20 @@ handle_event(#wx{id = ?ID_PROC},
     {noreply, State#state{procinfo_menu_pids=Opened2}};
 
 handle_event(#wx{id = ?ID_TRACEMENU},
-	     #state{holder=Holder,
-		    popup_menu=Pop,
-		    trace_options=Options,
-		    match_specs=MatchSpecs,
-		    sel={_, Pids},
-		    tracemenu_opened=false,
-		    panel=Panel}=State)  ->
+	     #state{popup_menu=Pop, sel={_, Pids}, panel=Panel}=State)  ->
     wxWindow:show(Pop, [{show, false}]),
     case Pids of
 	[] ->
 	    observer_wx:create_txt_dialog(Panel, "No selected processes", "Tracer", ?wxICON_EXCLAMATION),
 	    {noreply, State};
 	Pids ->
-	    Node = call(Holder, {get_node, self()}),
-	    observer_trace_wx:start(Node,
-				    Pids,
-				    Options,
-				    MatchSpecs,
-				    Panel,
-				    self()),
-	    {noreply,  State#state{tracemenu_opened=true}}
+	    observer_trace_wx:add_processes(observer_wx:get_tracer(), Pids),
+	    {noreply,  State}
     end;
 
-handle_event(#wx{id=?ID_TRACE_ALL_MENU, event=#wxCommand{type=command_menu_selected}},
-	     #state{holder=Holder,
-		    trace_options=Options,
-		    match_specs=MatchSpecs,
-		    tracemenu_opened=false,
-		    panel=Panel}=State) ->
-    Node = call(Holder, {get_node, self()}),
-    observer_trace_wx:start(Node,
-			    all,
-			    Options,
-			    MatchSpecs,
-			    Panel,
-			    self()),
-    {noreply, State#state{tracemenu_opened=true}};
-
-
-handle_event(#wx{id=?ID_TRACE_NEW_MENU, event=#wxCommand{type=command_menu_selected}},
-	     #state{holder=Holder,
-		    trace_options=Options,
-		    match_specs=MatchSpecs,
-		    tracemenu_opened=false,
-		    panel=Panel}=State) ->
-    Node = call(Holder, {get_node, self()}),
-    observer_trace_wx:start(Node,
-			    new,
-			    Options,
-			    MatchSpecs,
-			    Panel,
-			    self()),
-    {noreply,  State#state{tracemenu_opened=true}};
+handle_event(#wx{id=?ID_TRACE_NEW_MENU, event=#wxCommand{type=command_menu_selected}}, State) ->
+    observer_trace_wx:add_processes(observer_wx:get_tracer(), [new]),
+    {noreply,  State};
 
 handle_event(#wx{event=#wxSize{size={W,_}}},
 	     #state{grid=Grid}=State) ->
@@ -425,8 +352,9 @@ handle_event(#wx{event=#wxSize{size={W,_}}},
 		     Cols = wxListCtrl:getColumnCount(Grid),
 		     Last = lists:foldl(fun(I, Last) ->
 						Last - wxListCtrl:getColumnWidth(Grid, I)
-					end, W-2, lists:seq(0, Cols - 2)),
+					end, W-Cols*3-?LCTRL_WDECR, lists:seq(0, Cols - 2)),
 		     Size = max(200, Last),
+		     %% io:format("Width ~p ~p => ~p~n",[W, Last, Size]),
 		     wxListCtrl:setColumnWidth(Grid, Cols-1, Size)
 	     end),
     {noreply, State};
