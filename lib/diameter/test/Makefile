@@ -58,16 +58,18 @@ SUITES        = $(SUITE_MODULES:diameter_%_SUITE=%)
 # target like 'all' below. Target release_tests only installs source.
 ERL_COMPILE_FLAGS += +warn_export_vars \
                      +warn_unused_vars \
-                     -DDIAMETER_CT=true \
+                     -I ../include \
                      -I ../src/gen
 
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
 
-all: $(SUITES)
+all: opt
 
-beam tests debug opt: $(TARGET_FILES)
+run: $(SUITES)
+
+debug opt: $(TARGET_FILES)
 
 clean:
 	rm -f $(TARGET_FILES) 
@@ -94,22 +96,22 @@ help:
 	@echo "Useful targets:"
 	@echo
 	@echo "    all:"
+	@echo "        Compile all test suites."
+	@echo
+	@echo "    run:"
 	@echo "        Compile and run all test suites."
 	@echo
 	@echo "    $(SUITES):"
 	@echo "        Compile and run a specific test suite."
 	@echo
-	@echo "    beam:"
-	@echo "        Compile all test-code."
-	@echo
 	@echo "    clean | realclean:"
 	@echo "        Remove generated files."
 	@echo
 	@echo "    info:"
-	@echo "        Echo some interesting variables."
+	@echo "        Echo some relevant variables."
 	@echo ========================================
 
-.PHONY: all beam clean debug docs help info opt realclean tests
+.PHONY: all run clean debug docs help info opt realclean
 
 # ----------------------------------------------------
 # Special Targets
@@ -118,12 +120,12 @@ help:
 # Exit with a non-zero status if the output looks to indicate failure.
 # diameter_ct:run/1 itself can't tell (it seems). The absolute -pa is
 # because ct will change directories.
-$(SUITES): log tests
+$(SUITES): log opt
 	$(ERL) -noshell \
-	        -pa $(realpath ../ebin) \
-	        -sname diameter_test_$@ \
-	        -s diameter_ct run diameter_$@_SUITE \
-	        -s init stop \
+	       -pa $(realpath ../ebin) \
+	       -sname diameter_test_$@ \
+	       -s diameter_ct run diameter_$@_SUITE \
+	       -s init stop \
 	| awk '1{rc=0} {print} / FAILED /{rc=1} END{exit rc}'
 # Shorter in sed but requires a GNU extension (ie. Q).
 
@@ -135,6 +137,9 @@ log:
 # ----------------------------------------------------
 # Release Targets
 # ---------------------------------------------------- 
+
+/%: % force
+	sed -f release.sed $< > $(RELSYSDIR)$@
 
 ifeq ($(ERL_TOP),)
 include $(DIAMETER_TOP)/make/release_targets.mk
@@ -151,10 +156,16 @@ release_tests_spec:
 	$(INSTALL_DATA) $(TEST_SPEC_FILE) \
 	                $(COVER_SPEC_FILE) \
 	                $(HRL_FILES) \
-	                $(ERL_FILES) \
 	                $(RELSYSDIR)
+	$(MAKE) $(ERL_FILES:%=/%)
+
+force:
 
 .PHONY: release_spec release_docs_spec release_test_specs
+.PHONY: force
+
+# Can't just make $(ERL_FILES:%=/%) phony since then implicit rule
+# searching is skipped.
 
 # ----------------------------------------------------
 
@@ -163,7 +174,7 @@ depend: depend.mk
 # Generate dependencies makefile.
 depend.mk: depend.sed $(MODULES:%=%.erl) Makefile
 	(for f in $(MODULES); do \
-	     sed -f $< $$f.erl | sed "s@/@/$$f@"; \
+	     (echo $$f; cat $$f.erl) | sed -f $<; \
 	 done) \
 	> $@
 

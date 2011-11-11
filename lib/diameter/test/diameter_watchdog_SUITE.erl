@@ -36,7 +36,7 @@
          id/1,    %% jitter callback
          run/1]).
 
--include_lib("diameter/include/diameter.hrl").
+-include("diameter.hrl").
 -include("diameter_ct.hrl").
 
 %% ===========================================================================
