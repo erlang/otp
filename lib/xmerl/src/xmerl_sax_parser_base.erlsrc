@@ -944,14 +944,19 @@ parse_att_value(?STRING_REST("&", Rest), State, Stop, Acc)  ->
 	{unparsed, Name, _}  ->
 	    ?fatal_error(State1, "Unparsed entity reference in  attribute value: " ++ Name)
     end;
-parse_att_value(?STRING_UNBOUND_REST(Stop, Rest), State, Stop, Acc) -> 
+parse_att_value(?STRING_UNBOUND_REST(Stop, Rest), State, Stop, Acc) ->
     {lists:reverse(Acc), Rest, State};
-parse_att_value(?STRING_UNBOUND_REST($<, _Rest), State, _Stop, _Acc)   -> 
+parse_att_value(?STRING_UNBOUND_REST($<, _Rest), State, _Stop, _Acc)   ->
     ?fatal_error(State,  "< not allowed in attribute value");
-parse_att_value(?STRING_UNBOUND_REST(C, Rest), State, Stop, Acc)   -> 
-    parse_att_value(Rest, State, Stop, [C|Acc]);
-parse_att_value(Bytes, State, Stop, Acc)   -> 
-    unicode_incomplete_check([Bytes, State, Stop, Acc, fun parse_att_value/4], 
+parse_att_value(?STRING_UNBOUND_REST(C, Rest), State, Stop, Acc)   ->
+    if
+	?is_char(C) ->
+	    parse_att_value(Rest, State, Stop, [C|Acc]);
+	true ->
+	     ?fatal_error(State, lists:flatten(io_lib:format("Bad character in attribute value: ~p", [C])))
+    end;
+parse_att_value(Bytes, State, Stop, Acc)   ->
+    unicode_incomplete_check([Bytes, State, Stop, Acc, fun parse_att_value/4],
 			     undefined).
 
 
@@ -1120,10 +1125,10 @@ parse_content(?STRING_UNBOUND_REST(C, Rest), State, Acc, _IgnorableWS) ->
 	?is_char(C) ->
 	    parse_content(Rest, State, [C|Acc], false);
 	true ->
-	     ?fatal_error(State, "Bad character in content: " ++ C)
-    end;   
-parse_content(Bytes, State, Acc, IgnorableWS)   -> 
-    unicode_incomplete_check([Bytes, State, Acc, IgnorableWS, fun parse_content/4], 
+	     ?fatal_error(State, lists:flatten(io_lib:format("Bad character in content: ~p", [C])))
+    end;
+parse_content(Bytes, State, Acc, IgnorableWS)   ->
+    unicode_incomplete_check([Bytes, State, Acc, IgnorableWS, fun parse_content/4],
 			     undefined).
 
 
@@ -2522,11 +2527,16 @@ parse_entity_value(?STRING_REST("%", Rest), #xmerl_sax_parser_state{file_type=Ty
 			
 	    end
     end;
-parse_entity_value(?STRING_UNBOUND_REST(Stop, Rest), State, Stop, Acc) -> 
+parse_entity_value(?STRING_UNBOUND_REST(Stop, Rest), State, Stop, Acc) ->
     {lists:reverse(Acc), Rest, State};
-parse_entity_value(?STRING_UNBOUND_REST(C, Rest), State, Stop, Acc)   -> 
-    parse_entity_value(Rest, State, Stop, [C|Acc]);
-parse_entity_value(Bytes, State, Stop, Acc)   -> 
+parse_entity_value(?STRING_UNBOUND_REST(C, Rest), State, Stop, Acc)   ->
+    if
+	?is_char(C) ->
+	    parse_entity_value(Rest, State, Stop, [C|Acc]);
+	true ->
+	     ?fatal_error(State, lists:flatten(io_lib:format("Bad character in entity value: ~p", [C])))
+    end;
+parse_entity_value(Bytes, State, Stop, Acc)   ->
     unicode_incomplete_check([Bytes, State, Stop, Acc, fun parse_entity_value/4],
 			     undefined).
 
