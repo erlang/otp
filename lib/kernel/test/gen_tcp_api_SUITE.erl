@@ -38,7 +38,7 @@
 	 t_sendfile_hdtl/1, t_sendfile_partial/1,
 	 t_sendfile_offset/1]).
 
--export([sendfile_server/1]).
+-export([sendfile_server/2]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -57,8 +57,15 @@ groups() ->
      {t_sendfile_ioserv, [], sendfile_all()}].
 
 sendfile_all() ->
-%    [t_sendfile,t_sendfile_hdtl, t_sendfile_partial, t_sendfile_offset].
-    [t_sendfile_big].
+    [
+     t_sendfile_small
+     ,t_sendfile_big
+%     ,t_sendfile_hdtl
+     ,t_sendfile_partial
+     ,t_sendfile_offset
+    ].
+%    [t_sendfile_big].
+%    [t_sendfile_small].
 
 init_per_suite(Config) ->
     Config.
@@ -75,8 +82,7 @@ init_per_group(t_sendfile, Config) ->
     file:close(DS),
     BFilename = filename:join(Priv, "sendfile_big.html"),
     {ok, DB} = file:open(BFilename,[write,raw]),
-    [file:write(DB,[<<0:(10*8*1024*1024)>>]) ||
-	_I <- lists:seq(1,51)],
+    [file:write(DB,[<<0:(10*8*1024*1024)>>]) || _I <- lists:seq(1,51)],
     file:sync(DB),
     file:close(DB),
     [{small_file, SFilename},{big_file, BFilename}|Config];
@@ -85,8 +91,11 @@ init_per_group(t_sendfile_raw, Config) ->
 init_per_group(_GroupName, Config) ->
     Config.
 
-end_per_group(_GroupName, Config) ->
-    file:delete(proplists:get_value(big_file, Config)).
+end_per_group(t_sendfile, Config) ->
+    file:delete(proplists:get_value(big_file, Config));
+end_per_group(_,_Config) ->
+    ok.
+
 
 
 init_per_testcase(_Func, Config) ->
@@ -281,12 +290,13 @@ t_sendfile_big(Config) when is_list(Config) ->
     Filename = proplists:get_value(big_file, Config),
 
     Send = fun(Sock) ->
-		   {Size, Data} = sendfile_file_info(Filename),
+		   {ok, #file_info{size = Size}} =
+		       file:read_file_info(Filename),
 		   {ok, Size} = gen_tcp:sendfile(Filename, Sock),
-		   Data
+		   Size
 	   end,
 
-    ok = sendfile_send(Send).
+    ok = sendfile_send("localhost", Send, 0).
 
 t_sendfile_partial(Config) ->
     Filename = proplists:get_value(small_file, Config),
@@ -386,7 +396,9 @@ t_sendfile_hdtl(Config) ->
 sendfile_send(Send) ->
     sendfile_send("localhost",Send).
 sendfile_send(Host, Send) ->
-    spawn_link(?MODULE, sendfile_server, [self()]),
+    sendfile_send(Host, Send, []).
+sendfile_send(Host, Send, Orig) ->
+    spawn_link(?MODULE, sendfile_server, [self(), Orig]),
     receive
 	{server, Port} ->
 	    {ok, Sock} = gen_tcp:connect(Host, Port,
@@ -400,25 +412,29 @@ sendfile_send(Host, Send) ->
 	    end
     end.
 
-sendfile_server(ClientPid) ->
+sendfile_server(ClientPid, Orig) ->
     {ok, LSock} = gen_tcp:listen(0, [binary, {packet, 0},
 					   {active, false},
 					   {reuseaddr, true}]),
     {ok, Port} = inet:port(LSock),
     ClientPid ! {server, Port},
     {ok, Sock} = gen_tcp:accept(LSock),
-    {ok, Bin} = sendfile_do_recv(Sock, []),
+    {ok, Bin} = sendfile_do_recv(Sock, Orig),
     ok = gen_tcp:close(Sock),
     ClientPid ! {ok, Bin}.
 
--define(SENDFILE_TIMEOUT, 5000).
-
+-define(SENDFILE_TIMEOUT, 10000).
+%% f(),{ok, S} = gen_tcp:connect("localhost",7890,[binary]),gen_tcp:sendfile("/ldisk/lukas/otp/sendfiletest.dat",S).
 sendfile_do_recv(Sock, Bs) ->
     case gen_tcp:recv(Sock, 0, ?SENDFILE_TIMEOUT) of
-	{ok, B} ->
+	{ok, B} when is_list(Bs) ->
 	    sendfile_do_recv(Sock, [B|Bs]);
-	{error, closed} ->
-	    {ok, iolist_to_binary(lists:reverse(Bs))}
+	{error, closed} when is_list(Bs) ->
+	    {ok, iolist_to_binary(lists:reverse(Bs))};
+	{ok, B} when is_integer(Bs) ->
+	    sendfile_do_recv(Sock, byte_size(B) + Bs);
+	{error, closed} when is_integer(Bs) ->
+	    {ok, Bs}
     end.
 
 sendfile_file_info(File) ->

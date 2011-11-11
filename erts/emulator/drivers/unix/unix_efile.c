@@ -1469,31 +1469,27 @@ efile_fadvise(Efile_error* errInfo, int fd, Sint64 offset,
 }
 
 #ifdef HAVE_SENDFILE
+#define SENDFILE_CHUNK_SIZE ((1 << 30) - 1)
 int
 efile_sendfile(Efile_error* errInfo, int in_fd, int out_fd,
-	       off_t offset, size_t *nbytes)
+	       off_t *offset, size_t *nbytes)
 {
 #if defined(__linux__) || (defined(__sun) && defined(__SVR4))
-    ssize_t retval, nbytes_sent = 0;
+    ssize_t retval, written = 0;
+    // printf("sendfile(%d,%d,%d,%d)\r\n",out_fd,in_fd,*offset,*nbytes);
     if (*nbytes == 0) {
-	*nbytes = (1 << 20) - 1;
 	do {
-	    retval = sendfile(out_fd, in_fd, &offset, *nbytes);
-	    nbytes_sent += retval;
-	    printf("retval: %d, errno: %d, offset: %d, nbytes: %d\r\n", retval, errno, offset,*nbytes);
-	} while ((retval == -1 && errno == EINTR)
-		|| (retval > 0 && errno == EAGAIN));
+	    *nbytes = SENDFILE_CHUNK_SIZE; // chunk size
+	    retval = sendfile(out_fd, in_fd, offset, *nbytes);
+	    if (retval > 0)
+		written += retval;
+	} while (retval == SENDFILE_CHUNK_SIZE);
     } else {
-	do {
-	    retval = sendfile(out_fd, in_fd, &offset, *nbytes);
-	    if (retval > 0) {
-		nbytes_sent += retval;
-		*nbytes -= retval;
-	    }
-	} while ((retval == -1 && errno == EINTR)
-		|| (*nbytes > 0 && errno == EAGAIN));
+	retval =  sendfile(out_fd, in_fd, offset, *nbytes);
+	if (retval > 0)
+	    written = retval;
     }
-    *nbytes = nbytes_sent;
+    *nbytes = written;
     return check_error(retval == -1 ? -1 : 0, errInfo);
 #elif defined(DARWIN)
     off_t len = *nbytes;
