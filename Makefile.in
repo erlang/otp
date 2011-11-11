@@ -854,7 +854,8 @@ tests release_tests: $(TEST_DIRS)
 
 $(TEST_DIRS):
 	if test -f $@/Makefile; then \
-		(cd $@; $(MAKE) TESTROOT=$(TESTSUITE_ROOT) release_tests) || exit $$?; \
+	    (cd $@; $(MAKE) TESTROOT=$(TESTSUITE_ROOT) \
+	    PATH=$(ERL_TOP)/bin:$(BOOT_PREFIX)$${PATH} release_tests) || exit $$?; \
 	fi
 
 #
