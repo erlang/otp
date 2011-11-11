@@ -26,7 +26,6 @@
 #include "benchmark.h"
 
 #ifdef BM_COUNTERS
-unsigned long long processes_busy;
 unsigned long long processes_spawned;
 unsigned long long messages_sent;
 unsigned long long messages_copied;
@@ -184,7 +183,6 @@ void init_benchmarking()
 #endif /* BM_TIMERS */
 
 #ifdef BM_COUNTERS
-    processes_busy     = 0;
     processes_spawned  = 0;
     messages_sent      = 0;
     messages_copied    = 0;
