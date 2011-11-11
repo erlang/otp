@@ -368,12 +368,16 @@ emtp_state_destroy(emtp_state *statep)
 
 
 #define GET_UI8(UI, BP) ((UI) = *((BP)++))
+#define SKIP_UI8(BP) ((BP)++)
+
 #define GET_UI16(UI, BP)						\
  do {									\
      (UI) = ((( (usgnd_int_16) (BP)[0]) << 8)				\
 	     | ((usgnd_int_16) (BP)[1]));				\
      (BP) += UI16_SZ;							\
 } while(0)
+#define SKIP_UI16(BP) ((BP) += UI16_SZ)
+
 
 #define GET_UI32(UI, BP)						\
  do {									\
@@ -383,6 +387,7 @@ emtp_state_destroy(emtp_state *statep)
 	     | ( (usgnd_int_32) (BP)[3]));				\
      (BP) += UI32_SZ;							\
 } while(0)
+#define SKIP_UI32(BP) ((BP) += UI32_SZ)
 
 #define GET_UI64(UI, BP)						\
  do {									\
@@ -396,6 +401,7 @@ emtp_state_destroy(emtp_state *statep)
 	     | ( (usgnd_int_64) (BP)[7]));				\
      (BP) += UI64_SZ;							\
 } while(0)
+#define SKIP_UI64(BP) ((BP) += UI64_SZ)
 
 #define GET_VSZ_UI16(UI, BP, MSB)					\
 do {									\
@@ -1267,11 +1273,10 @@ parse_header(emtp_state *statep,
 
 	switch (statep->version.major) {
 	case 1: {
-	    usgnd_int_32 hdr_sz;
 	    NEED(2*UI32_SZ + 2*UI16_SZ, trace_size);
 
 	    GET_UI32(statep->flags, tracep);
-	    GET_UI32(hdr_sz, tracep); /* ignore this; may contain garbage! */
+	    SKIP_UI32(tracep); /* ignore this; may contain garbage! */
 	    GET_UI16(statep->max_allocator_ix, tracep);
 	    GET_UI16(statep->max_block_type_ix, tracep);
 
@@ -1564,13 +1569,13 @@ parse_header(emtp_state *statep,
 		}
 
 		case ERTS_MT_BLOCK_TYPE_HDR_TAG: {
-		    usgnd_int_16 bt_ix, a_ix, btflgs;
+		    usgnd_int_16 bt_ix, a_ix;
 
 		    if (entry_sz
 			< UI8_SZ + 3*UI16_SZ + UI8_SZ + 0 + UI16_SZ)
 			ERROR(EMTP_PARSE_ERROR);
 
-		    GET_UI16(btflgs, c_p);
+		    SKIP_UI16(c_p); /* bitflags */
 		    GET_UI16(bt_ix, c_p);
 		    if (bt_ix > statep->max_block_type_ix)
 			ERROR(EMTP_PARSE_ERROR);

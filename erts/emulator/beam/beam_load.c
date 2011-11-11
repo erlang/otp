@@ -1416,7 +1416,7 @@ static int
 read_line_table(LoaderState* stp)
 {
     unsigned version;
-    unsigned flags;
+    ERTS_DECLARE_DUMMY(unsigned flags);
     int num_line_items;
     BeamInstr* lp;
     int i;

@@ -310,12 +310,12 @@
 #define DREM(a1,a0,b,r) do {				\
 	ErtsDigit __a1 = (a1);				\
 	ErtsDigit __b = (b);				\
-	ErtsDigit __q0;					\
+	ERTS_DECLARE_DUMMY(ErtsDigit __q0);		\
 	DDIVREM((__a1 % __b), (a0), __b, __q0, r);	\
     } while(0)
 
 #define DDIV(a1,a0,b,q)	do {			\
-	ErtsDigit _tmp;				\
+	ERTS_DECLARE_DUMMY(ErtsDigit _tmp);	\
 	DDIVREM(a1,a0,b,q,_tmp);		\
     } while(0)
 
@@ -413,8 +413,8 @@
     } while(0)
 
 #define DDIV2(a1,a0,b1,b0,q) do {		\
-	ErtsDigit _tmp_r1;			\
-	ErtsDigit _tmp_r0;			\
+	ERTS_DECLARE_DUMMY(ErtsDigit _tmp_r1);	\
+	ERTS_DECLARE_DUMMY(ErtsDigit _tmp_r0);	 \
 	D2DIVREM(a1,a0,b1,b0,q,_tmp_r1,_tmp_r0); \
     } while(0)
 
@@ -810,7 +810,9 @@ static dsize_t D_div(ErtsDigit* x, dsize_t xl, ErtsDigit d, ErtsDigit* q, ErtsDi
     }
 
     do {
-	ErtsDigit q0, a0, b1, b0, b;
+	ErtsDigit q0, a0, b0;
+	ERTS_DECLARE_DUMMY(ErtsDigit b);
+	ERTS_DECLARE_DUMMY(ErtsDigit b1);
 
 	if (d > a1) {
 	    a0 = *xp; 

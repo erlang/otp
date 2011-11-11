@@ -227,8 +227,8 @@ static ERTS_INLINE int simple_loops_to_common(int cost)
 
 static Sint aligned_binary_size(Eterm binary)
 {
-    unsigned char *bytes;
-    Uint bitoffs;
+    ERTS_DECLARE_DUMMY(unsigned char *bytes);
+    ERTS_DECLARE_DUMMY(Uint bitoffs);
     Uint bitsize;
     
     ERTS_GET_BINARY_BYTES(binary, bytes, bitoffs, bitsize);
@@ -894,7 +894,9 @@ static BIF_RETTYPE build_utf8_return(Process *p,Eterm bin,int pos,
 
 static BIF_RETTYPE characters_to_utf8_trap(BIF_ALIST_3)
 {
+#ifdef DEBUG
     Eterm *real_bin;
+#endif
     byte* bytes;
     Eterm rest_term;
     int left, sleft;
@@ -908,8 +910,10 @@ static BIF_RETTYPE characters_to_utf8_trap(BIF_ALIST_3)
     
     /*erts_printf("Trap %T!\r\n",BIF_ARG_2);*/
     ASSERT(is_binary(BIF_ARG_1));
+#ifdef DEBUG
     real_bin = binary_val(BIF_ARG_1);
     ASSERT(*real_bin == HEADER_PROC_BIN);
+#endif
     pos = (int) binary_size(BIF_ARG_1);
     bytes = binary_bytes(BIF_ARG_1);
     sleft = left = allowed_iterations(BIF_P);
@@ -1719,7 +1723,7 @@ static BIF_RETTYPE do_bif_utf8_to_list(Process *p,
     if (b_sz) {
 	ErlSubBin *sb;
 	Eterm orig;
-	Uint offset;
+	ERTS_DECLARE_DUMMY(Uint offset);
 	ASSERT(state != ERTS_UTF8_OK);
 	hp = HAlloc(p, ERL_SUB_BIN_SIZE);
 	sb = (ErlSubBin *) hp;
@@ -2566,11 +2570,11 @@ BIF_RETTYPE prim_file_internal_native2name_1(BIF_ALIST_1)
 
 BIF_RETTYPE prim_file_internal_normalize_utf8_1(BIF_ALIST_1)
 {
-    Eterm real_bin;
-    Uint offset;
+    ERTS_DECLARE_DUMMY(Eterm real_bin);
+    ERTS_DECLARE_DUMMY(Uint offset);
     Uint size,num_chars;
     Uint bitsize;
-    Uint bitoffs;
+    ERTS_DECLARE_DUMMY(Uint bitoffs);
     Eterm ret;
     byte *temp_alloc = NULL;
     byte *bytes;

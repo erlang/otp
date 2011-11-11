@@ -952,7 +952,7 @@ io_list_to_vec(Eterm obj,	/* io-list */
 do {									\
     int _size = binary_size(obj);					\
     Eterm _real;							\
-    Uint _offset;							\
+    ERTS_DECLARE_DUMMY(Uint _offset);					\
     int _bitoffs;							\
     int _bitsize;							\
     ERTS_GET_REAL_BIN(obj, _real, _offset, _bitoffs, _bitsize);		\
@@ -2171,8 +2171,8 @@ erts_port_control(Process* p, Port* prt, Uint command, Eterm iolist)
      * and with its length in to_len.
      */
     if (is_binary(iolist) && binary_bitoffset(iolist) == 0) {
-	Uint bitoffs;
-	Uint bitsize;
+	ERTS_DECLARE_DUMMY(Uint bitoffs);
+	ERTS_DECLARE_DUMMY(Uint bitsize);
 	ERTS_GET_BINARY_BYTES(iolist, to_port, bitoffs, bitsize);
 	to_len = binary_size(iolist);
     } else {
