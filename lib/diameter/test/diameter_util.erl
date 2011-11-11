@@ -33,8 +33,8 @@
 %% diameter-specific
 -export([lport/2,
          lport/3,
-         listen/2,
-         connect/3,
+         listen/2, listen/3,
+         connect/3, connect/4,
          disconnect/4]).
 
 %% common_test-specific
@@ -254,22 +254,28 @@ lp(M, Ref, T) ->
     end.
 
 %% ---------------------------------------------------------------------------
-%% listen/2
+%% listen/2-3
 %%
 %% Add a listening transport on the loopback address and a free port.
 
 listen(SvcName, Prot) ->
-    add_transport(SvcName, {listen, opts(Prot, listen)}).
+    listen(SvcName, Prot, []).
+
+listen(SvcName, Prot, Opts) ->
+    add_transport(SvcName, {listen, opts(Prot, listen) ++ Opts}).
 
 %% ---------------------------------------------------------------------------
-%% connect/3
+%% connect/2-3
 %%
 %% Add a connecting transport on and connect to a listening transport
 %% with the specified reference.
 
 connect(Client, Prot, LRef) ->
+    connect(Client, Prot, LRef, []).
+
+connect(Client, Prot, LRef, Opts) ->
     [PortNr] = lport(Prot, LRef, 20),
-    Ref = add_transport(Client, {connect, opts(Prot, PortNr)}),
+    Ref = add_transport(Client, {connect, opts(Prot, PortNr) ++ Opts}),
     true = diameter:subscribe(Client),
     ok = receive
              {diameter_event, Client, {up, Ref, _, _, _}} -> ok

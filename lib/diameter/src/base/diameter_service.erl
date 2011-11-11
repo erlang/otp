@@ -983,7 +983,8 @@ peer_cb(MFA, Alias) ->
 connection_down(Pid, #state{peerT = PeerT,
                             connT = ConnT}
                      = S) ->
-    #peer{conn = TPid}
+    #peer{op_state = ?STATE_UP,  %% assert
+          conn = TPid}
         = P
         = fetch(PeerT, Pid),
 
@@ -992,6 +993,9 @@ connection_down(Pid, #state{peerT = PeerT,
     connection_down(P,C,S).
 
 %% connection_down/3
+
+connection_down(#peer{op_state = ?STATE_DOWN}, _, S) ->
+    S;
 
 connection_down(#peer{conn = TPid,
                       op_state = ?STATE_UP}
@@ -1034,13 +1038,23 @@ down_conn(Id, Alias, TC, {SvcName, Apps}) ->
 
 %% Peer process has died.
 
-peer_down(Pid, _Reason, #state{peerT = PeerT} = S) ->
+peer_down(Pid, Reason, #state{peerT = PeerT} = S) ->
     P = fetch(PeerT, Pid),
     ets:delete_object(PeerT, P),
+    closed(Reason, P, S),
     restart(P,S),
     peer_down(P,S).
 
-%% peer_down/2
+%% Send an event at connection establishment failure.
+closed({shutdown, {close, _TPid, Reason}},
+       #peer{op_state = ?STATE_DOWN,
+             ref = Ref,
+             type = Type,
+             options = Opts},
+       #state{service_name = SvcName}) ->
+    send_event(SvcName, {closed, Ref, Reason, {type(Type), Opts}});
+closed(_, _, _) ->
+    ok.
 
 %% The peer has never come up ...
 peer_down(#peer{conn = B}, S)
@@ -1048,27 +1062,9 @@ peer_down(#peer{conn = B}, S)
     S;
 
 %% ... or it has.
-peer_down(#peer{ref = Ref,
-                conn = TPid,
-                type = Type,
-                options = Opts}
-          = P,
-          #state{service_name = SvcName,
-                 connT = ConnT}
-          = S) ->
-    #conn{caps = Caps}
-        = C
-        = fetch(ConnT, TPid),
+peer_down(#peer{conn = TPid} = P, #state{connT = ConnT} = S) ->
+    #conn{} = C = fetch(ConnT, TPid),
     ets:delete_object(ConnT, C),
-    try
-        pd(P,C,S)
-    after
-        send_event(SvcName, {closed, Ref, {TPid, Caps}, {type(Type), Opts}})
-    end.
-
-pd(#peer{op_state = ?STATE_DOWN}, _, S) ->
-    S;
-pd(#peer{op_state = ?STATE_UP} = P, C, S) ->
     connection_down(P,C,S).
 
 %% restart/2
@@ -1259,11 +1255,11 @@ send_request({TPid, Caps, App}, Msg, Opts, Caller, SvcName) ->
     #diameter_app{module = ModX}
         = App,
 
-    Pkt = make_packet(Msg),
+    Pkt = make_request_packet(Msg),
 
     case cb(ModX, prepare_request, [Pkt, SvcName, {TPid, Caps}]) of
         {send, P} ->
-            send_request(make_packet(P, Pkt),
+            send_request(make_request_packet(P, Pkt),
                          TPid,
                          Caps,
                          App,
@@ -1278,70 +1274,73 @@ send_request({TPid, Caps, App}, Msg, Opts, Caller, SvcName) ->
             ?ERROR({invalid_return, prepare_request, App, T})
     end.
 
-%% make_packet/1
+%% make_request_packet/1
 %%
 %% Turn an outgoing request as passed to call/4 into a diameter_packet
 %% record in preparation for a prepare_request callback.
 
-make_packet(Bin)
+make_request_packet(Bin)
   when is_binary(Bin) ->
     #diameter_packet{header = diameter_codec:decode_header(Bin),
                      bin = Bin};
 
-make_packet(#diameter_packet{msg = [#diameter_header{} = Hdr | Avps]} = Pkt) ->
-    Pkt#diameter_packet{msg = [make_header(Hdr) | Avps]};
+make_request_packet(#diameter_packet{msg = [#diameter_header{} = Hdr | Avps]}
+                    = Pkt) ->
+    Pkt#diameter_packet{msg = [make_request_header(Hdr) | Avps]};
 
-make_packet(#diameter_packet{header = Hdr} = Pkt) ->
-    Pkt#diameter_packet{header = make_header(Hdr)};
+make_request_packet(#diameter_packet{header = Hdr} = Pkt) ->
+    Pkt#diameter_packet{header = make_request_header(Hdr)};
 
-make_packet(Msg) ->
-    make_packet(#diameter_packet{msg = Msg}).
+make_request_packet(Msg) ->
+    make_request_packet(#diameter_packet{msg = Msg}).
 
-%% make_header/1
+%% make_request_header/1
 
-make_header(undefined) ->
+make_request_header(undefined) ->
     Seq = diameter_session:sequence(),
-    make_header(#diameter_header{end_to_end_id = Seq,
-                                 hop_by_hop_id = Seq});
+    make_request_header(#diameter_header{end_to_end_id = Seq,
+                                         hop_by_hop_id = Seq});
 
-make_header(#diameter_header{version = undefined} = Hdr) ->
-    make_header(Hdr#diameter_header{version = ?DIAMETER_VERSION});
+make_request_header(#diameter_header{version = undefined} = Hdr) ->
+    make_request_header(Hdr#diameter_header{version = ?DIAMETER_VERSION});
 
-make_header(#diameter_header{end_to_end_id = undefined} = H) ->
+make_request_header(#diameter_header{end_to_end_id = undefined} = H) ->
     Seq = diameter_session:sequence(),
-    make_header(H#diameter_header{end_to_end_id = Seq});
+    make_request_header(H#diameter_header{end_to_end_id = Seq});
 
-make_header(#diameter_header{hop_by_hop_id = undefined} = H) ->
+make_request_header(#diameter_header{hop_by_hop_id = undefined} = H) ->
     Seq = diameter_session:sequence(),
-    make_header(H#diameter_header{hop_by_hop_id = Seq});
+    make_request_header(H#diameter_header{hop_by_hop_id = Seq});
 
-make_header(#diameter_header{} = Hdr) ->
+make_request_header(#diameter_header{} = Hdr) ->
     Hdr;
 
-make_header(T) ->
+make_request_header(T) ->
     ?ERROR({invalid_header, T}).
 
-%% make_packet/2
+%% make_request_packet/2
 %%
 %% Reconstruct a diameter_packet from the return value of
 %% prepare_request or prepare_retransmit callback.
 
-make_packet(Bin, _)
+make_request_packet(Bin, _)
   when is_binary(Bin) ->
-    make_packet(Bin);
+    make_request_packet(Bin);
 
-make_packet(#diameter_packet{msg = [#diameter_header{} | _]} = Pkt, _) ->
+make_request_packet(#diameter_packet{msg = [#diameter_header{} | _]}
+                    = Pkt,
+                    _) ->
     Pkt;
 
 %% Returning a diameter_packet with no header from a prepare_request
 %% or prepare_retransmit callback retains the header passed into it.
 %% This is primarily so that the end to end and hop by hop identifiers
 %% are retained.
-make_packet(#diameter_packet{header = Hdr} = Pkt,
+make_request_packet(#diameter_packet{header = Hdr} = Pkt,
             #diameter_packet{header = Hdr0}) ->
     Pkt#diameter_packet{header = fold_record(Hdr0, Hdr)};
 
-make_packet(Msg, Pkt) ->
+make_request_packet(Msg, Pkt) ->
     Pkt#diameter_packet{msg = Msg}.
 
 %% fold_record/2
@@ -1533,7 +1532,7 @@ retransmit({TPid, Caps, #diameter_app{alias = Alias} = App},
 
     case cb(App, prepare_retransmit, [Pkt, SvcName, {TPid, Caps}]) of
         {send, P} ->
-            retransmit(make_packet(P, Pkt), TPid, Caps, Req, Timeout);
+            retransmit(make_request_packet(P, Pkt), TPid, Caps, Req, Timeout);
         {discard, Reason} ->
             ?THROW(Reason);
         discard ->
@@ -1946,7 +1945,7 @@ reply(Msg, Dict, TPid, #diameter_packet{errors = Es,
                        = ReqPkt)
   when [] == Es;
        is_record(hd(Msg), diameter_header) ->
-    Pkt = diameter_codec:encode(Dict, make_reply_packet(Msg, ReqPkt)),
+    Pkt = diameter_codec:encode(Dict, make_answer_packet(Msg, ReqPkt)),
     incr(send, Pkt, Dict, TPid),  %% count result codes in sent answers
     send(TPid, Pkt#diameter_packet{transport_data = TD});
 
@@ -1957,18 +1956,19 @@ reply(Msg, Dict, TPid, #diameter_packet{errors = [H|_] = Es} = Pkt) ->
           TPid,
           Pkt#diameter_packet{errors = []}).
 
-%% make_reply_packet/2
+%% make_answer_packet/2
 
 %% Binaries and header/avp lists are sent as-is.
-make_reply_packet(Bin, _)
+make_answer_packet(Bin, _)
   when is_binary(Bin) ->
     #diameter_packet{bin = Bin};
-make_reply_packet([#diameter_header{} | _] = Msg, _) ->
+make_answer_packet([#diameter_header{} | _] = Msg, _) ->
     #diameter_packet{msg = Msg};
 
 %% Otherwise a reply message clears the R and T flags and retains the
-%% P flag. The E flag will be set at encode.
-make_reply_packet(Msg, #diameter_packet{header = ReqHdr}) ->
+%% P flag. The E flag will be set at encode. 6.2 of 3588 requires the
+%% same P flag on an answer as on the request.
+make_answer_packet(Msg, #diameter_packet{header = ReqHdr}) ->
     Hdr = ReqHdr#diameter_header{version = ?DIAMETER_VERSION,
                                  is_request = false,
                                  is_error = undefined,

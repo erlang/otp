@@ -190,26 +190,13 @@ encode_avps(Avps) ->
 
 %% msg_header/3
 
-msg_header(Mod, MsgName, Header) ->
-    {Code, Flags, ApplId} = h(Mod, MsgName, Header),
-    {Code, p(Flags, Header), ApplId}.
-
-%% 6.2 of 3588 requires the same 'P' bit on an answer as on the
-%% request.
-
-p(Flags, #diameter_header{is_request = true,
-                          is_proxiable = P}) ->
-    Flags band (2#10110000 bor choose(P, 2#01000000, 0));
-p(Flags, _) ->
-    Flags.
-
-h(Mod, 'answer-message' = MsgName, Header) ->
+msg_header(Mod, 'answer-message' = MsgName, Header) ->
     ?BASE = Mod,
     #diameter_header{cmd_code = Code} = Header,
     {_, Flags, ApplId} = ?BASE:msg_header(MsgName),
     {Code, Flags, ApplId};
 
-h(Mod, MsgName, _) ->
+msg_header(Mod, MsgName, _) ->
     Mod:msg_header(MsgName).
 
 %% rec2msg/2
@@ -554,8 +541,3 @@ pack_avp(Code, Flags, Vid, Sz, Bin) ->
 pack_avp(Code, Flags, Sz, Bin) ->
     Length = Sz + 8,
     <<Code:32, Flags:8, Length:24, Bin/binary>>.
-
-%% ===========================================================================
-
-choose(true, X, _)  -> X;
-choose(false, _, X) -> X.

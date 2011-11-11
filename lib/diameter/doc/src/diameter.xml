@@ -431,7 +431,7 @@ eval(F) ->
 </code>
 
 <p>
-Evaluating an evaluable() <c>E</c> on an argument list <c>A</c>
+Applying an evaluable() <c>E</c> to an argument list <c>A</c>
 is meant in the sense of <c>eval([E|A])</c>.</p>
 
 <p>
@@ -565,7 +565,7 @@ Pkt    = #diameter_packet{}
 </code>
 
 <p>
-Reports that the RFC 3539 watchdog state machine has
+The RFC 3539 watchdog state machine has
 transitioned into (<c>up</c>) or out of (<c>down</c>) the open
 state.
 If a <c>diameter_packet</c> record is present in an <c>up</c> tuple
@@ -576,9 +576,9 @@ connectivity.</p>
 
 <p>
 Note that a single up/down event for a given peer corresponds to
-as many peer_up/down callbacks as there are Diameter
-applications shared by the peer, as determined during capablilities
-exchange.
+as many <seealso marker="diameter_app#peer_up">peer_up/peer_down</seealso>
+callbacks as there are Diameter applications shared by the peer,
+as determined during capablilities exchange.
 That is, the event communicates connectivity with the
 peer as a whole while the callbacks communicate connectivity with
 respect to individual Diameter applications.</p>
@@ -597,12 +597,96 @@ transport connection with a peer following <c>reconnect_timer</c> or
 <c>watchdog_timer</c> expiry.</p>
 </item>
 
+<tag><c>{closed, Ref, Reason, Config}</c></tag>
+<item>
+<code>
+Ref = transport_ref()
+Config = {connect|listen, [transport_opt()]}
+</code>
+
+<p>
+Capabilities exchange has failed. <c>Reason</c> can be one of
+the following.</p>
+
+<taglist>
+
+<tag><c>{'CER', Result, Caps, Pkt}</c></tag>
+<item>
+<code>
+Result = ResultCode | {capabilities_cb, CB, ResultCode|discard}
+Caps = #diameter_caps{}
+Pkt  = #diameter_packet{}
+ResultCode = integer()
+CB = evaluable()
+</code>
+
+<p>
+An incoming CER has been answered with the indicated result code or
+discarded.
+The capabilities record contains pairs of values for the the local
+node and remote peer.
+The packet record contains the CER in question.
+In the case of rejection by a capabilities callback, the tuple
+indicates the rejecting callback.</p>
+</item>
+
+<tag><c>{'CER', Caps, {ResultCode, Pkt}}</c></tag>
+<item>
+<code>
+ResultCode = integer()
+Caps = #diameter_caps{}
+Pkt  = #diameter_packet{}
+</code>
+
+<p>
+An incoming CER contained errors and has been answered with the
+indicated result code.
+The capabilities record contains only values for the the local
+node.
+The packet record contains the CER in question.</p>
+</item>
+
+<tag><c>{'CEA', Result, Caps, Pkt}</c></tag>
+<item>
+<code>
+Result = integer() | atom() | {capabilities_cb, CB, ResultCode|discard}
+Caps = #diameter_caps{}
+Pkt  = #diameter_packet{}
+ResultCode = integer()
+</code>
+
+<p>
+An incoming CEA has been rejected for the indicated reason.
+An integer-valued <c>Result</c> indicates the result code sent
+by the peer.
+The capabilities record contains pairs of values for the the local
+node and remote peer.
+The packet record contains the CEA in question.
+In the case of rejection by a capabilities callback, the tuple
+indicates the rejecting callback.</p>
+</item>
+
+<tag><c>{'CEA', Caps, Pkt}</c></tag>
+<item>
+<code>
+Caps = #diameter_caps{}
+Pkt  = #diameter_packet{}
+</code>
+
+<p>
+An incoming CER contained errors and has been rejected.
+The capabilities record contains only values for the the local node.
+The packet record contains the CEA in question.</p>
+</item>
+
+</taglist>
+</item>
+
 </taglist>
 
 <p>
 For forward compatibility, a subscriber should be prepared to receive
-<c>diameter_event.info</c> of forms other than those documented
-above.</p>
+info fields of forms other than the above.</p>
 
 <marker id="service_name"/>
 </item>
@@ -704,6 +788,31 @@ TLS is desired over TCP as implemented by
 <seealso marker="diameter_tcp">diameter_tcp(3)</seealso> but
 not over SCTP as implemented by
 <seealso marker="diameter_sctp">diameter_sctp(3)</seealso>.</p>
+</item>
+
+<tag><c>{capabilities_cb, evaluable()}</c></tag>
+<item>
+<p>
+A callback invoked upon reception of CER/CEA during capabilities
+exchange in order to ask whether or not the connection should
+be accepted.
+Applied to the transport reference (as returned by <seealso
+marker="#add_transport">add_transport/2</seealso>) and
+<c>diameter_caps</c> record of the connection.
+Returning <c>ok</c> accepts the connection.
+Returning <c>integer()</c> causes an incoming
+CER to be answered with the specified Result-Code.
+Returning <c>discard</c> causes an incoming CER to
+be discarded.
+Returning <c>unknown</c> is equivalent to returning <c>3010</c>,
+DIAMETER_UNKNOWN_PEER.
+Returning anything but <c>ok</c> or a 2xxx series result
+code causes the transport connection to be broken.</p>
+
+<p>
+Multiple <c>capabilities_cb</c> options can be specified, in which
+case the corresponding callbacks are applied until either all return
+<c>ok</c> or one does not.</p>
 </item>
 
 <tag><c>{watchdog_timer, TwInit}</c></tag>

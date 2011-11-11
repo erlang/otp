@@ -33,6 +33,7 @@ MODULES = \
 	diameter_stats_SUITE \
 	diameter_watchdog_SUITE \
 	diameter_transport_SUITE \
+	diameter_capx_SUITE \
 	diameter_traffic_SUITE \
 	diameter_relay_SUITE \
 	diameter_tls_SUITE \
