@@ -836,8 +836,11 @@ try_file(undefined, ObjFilename, Mod, Rules) ->
 	Error -> Error
     end;
 try_file(Src, _ObjFilename, Mod, _Rules) ->
-    List = Mod:module_info(compile),
-    {options, Options} = lists:keyfind(options, 1, List),
+    List = case Mod:module_info(compile) of
+	       none -> [];
+	       List0 -> List0
+	   end,
+    Options = proplists:get_value(options, List, []),
     {ok, Cwd} = file:get_cwd(),
     AbsPath = make_abs_path(Cwd, Src),
     {AbsPath, filter_options(dirname(AbsPath), Options, [])}.
