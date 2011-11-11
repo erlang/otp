@@ -399,25 +399,28 @@ test_attribute_value(_Rule,Attr,_,_) ->
 
 %% +type valid_contents([rule()],[xmlElement()])->
 %%              [xmlElement() | {error,???}.
-valid_contents(Rule,XMLS,Rules,S,WSActionMode)->
-    case parse(Rule,XMLS,Rules,WSActionMode,S) of
-	{XML_N,[]}->
-	    lists:flatten(XML_N);
-	{_,[#xmlElement{name=Name}|_T]} ->
-	    exit({error,{element,Name,isnt_comprise_in_the_rule,Rule}});
-	{_,[#xmlText{}=Txt|_T]} ->
-	    exit({error,{element,text,Txt,isnt_comprise_in_the_rule,Rule}});
-	{error,Reason} ->
-	    {error,Reason};
-	{error,Reason,N} ->
-	    {error,Reason,N}
+valid_contents(Rule, XMLS, Rules, S, WSActionMode)->
+    case parse(Rule, XMLS, Rules, WSActionMode, S) of
+	{error, Reason} ->
+	    {error, Reason};
+	{error, Reason, N} ->
+	    {error, Reason, N};
+	{XML_N, Rest} ->   %The list may consist of xmlComment{} records
+	    case lists:dropwhile(fun(X) when is_record(X, xmlComment) -> true; (_) -> false end, Rest) of 
+		[] ->
+		    lists:flatten(XML_N);
+		[#xmlElement{name=Name} |_T] ->
+		    exit({error, {element, Name, isnt_comprise_in_the_rule, Rule}});
+		[#xmlText{} = Txt |_T] ->
+		    exit({error, {element, text, Txt, isnt_comprise_in_the_rule, Rule}})
+	    end
     end.
 
-parse({'*',SubRule},XMLS,Rules,WSaction,S)->
-    star(SubRule,XMLS,Rules,WSaction,[],S); 
-parse({'+',SubRule},XMLS,Rules,WSaction,S) ->
-    plus(SubRule,XMLS,Rules,WSaction,S);
-parse({choice,CHOICE},XMLS,Rules,WSaction,S)->
+parse({'*', SubRule}, XMLS, Rules, WSaction, S)->
+    star(SubRule, XMLS, Rules, WSaction, [], S); 
+parse({'+',SubRule}, XMLS, Rules, WSaction, S) ->
+    plus(SubRule, XMLS, Rules, WSaction, S);
+parse({choice,CHOICE}, XMLS, Rules, WSaction, S)->
 %    case XMLS of
 %	[] ->
 %	    io:format("~p~n",[{choice,CHOICE,[]}]);
@@ -426,47 +429,49 @@ parse({choice,CHOICE},XMLS,Rules,WSaction,S)->
 %	[#xmlText{value=V}|_] ->
 %	    io:format("~p~n",[{choice,CHOICE,{text,V}}])
 %    end,
-    choice(CHOICE,XMLS,Rules,WSaction,S);
-parse(empty,[],_Rules,_WSaction,_S) ->
-    {[],[]};
-parse({'?',SubRule},XMLS,Rules,_WSaction,S)->
-    question(SubRule,XMLS,Rules,S);
-parse({seq,List},XMLS,Rules,WSaction,S) ->
-    seq(List,XMLS,Rules,WSaction,S);
-parse(El_Name,[#xmlElement{name=El_Name}=XML|T],Rules,_WSaction,S) 
+    choice(CHOICE, XMLS, Rules, WSaction, S);
+parse(empty, [], _Rules, _WSaction, _S) ->
+    {[], []};
+parse({'?', SubRule}, XMLS, Rules, _WSaction, S)->
+    question(SubRule, XMLS, Rules, S);
+parse({seq,List}, XMLS, Rules, WSaction, S) ->
+    seq(List, XMLS, Rules, WSaction, S);
+parse(El_Name, [#xmlElement{name=El_Name} = XML |T], Rules, _WSaction, S) 
   when is_atom(El_Name)->
-    case do_validation(read_rules(Rules,El_Name),XML,Rules,S) of
-	{error,R} ->
+    case do_validation(read_rules(Rules, El_Name), XML, Rules, S) of
+	{error, R} ->
 %	    {error,R};
 	    exit(R);
-	{error,R,_N}->
+	{error, R, _N}->
 %	    {error,R,N};
 	    exit(R);
 	XML_->
-	    {[XML_],T}
+	    {[XML_], T}
     end;
-parse(any,Cont,Rules,_WSaction,S) ->
-    case catch parse_any(Cont,Rules,S) of
-	Err = {error,_} -> Err;
-	ValidContents -> {ValidContents,[]}
+parse(any, Cont, Rules, _WSaction, S) ->
+    case catch parse_any(Cont, Rules, S) of
+	Err = {error, _} -> Err;
+	ValidContents -> {ValidContents, []}
     end;
-parse(El_Name,[#xmlElement{name=Name}|_T]=S,_Rules,_WSa,_S) when is_atom(El_Name)->
+parse(El_Name, [#xmlElement{name=Name} |_T] = XMLS, _Rules, _WSa, _S) when is_atom(El_Name) ->
     {error,
-     {element_seq_not_conform,{wait,El_Name},{is,Name}},
-     {{next,S},{act,[]}} };
-parse(_El_Name,[#xmlPI{}=H|T],_Rules,_WSa,_S) ->
-    {[H],T};
-parse('#PCDATA',XML,_Rules,_WSa,_S)->
+     {element_seq_not_conform,{wait, El_Name}, {is, Name}},
+     {{next, XMLS}, {act, []}}};
+parse(El_Name, [#xmlComment{} |T], Rules, WSa, S) ->
+    parse(El_Name, T, Rules, WSa, S);
+parse(_El_Name, [#xmlPI{} = H |T], _Rules, _WSa, _S) ->
+    {[H], T};
+parse('#PCDATA', XMLS, _Rules, _WSa, _S)->
     %%% PCDATA it is 0 , 1 or more #xmlText{}.
-    parse_pcdata(XML);
-parse(El_Name,[#xmlText{}|_T]=S,_Rules,_WSa,_S)->
+    parse_pcdata(XMLS);
+parse(El_Name, [#xmlText{}|_T] = XMLS, _Rules, _WSa, _S)->
     {error,
-     {text_in_place_of,El_Name},
-     {{next,S},{act,[]}}};
-parse([],_,_,_,_) ->
-    {error,no_rule};
-parse(Rule,[],_,_,_) ->
-    {error,{no_xml_element,Rule}}.
+     {text_in_place_of, El_Name},
+     {{next, XMLS}, {act, []}}};
+parse([], _, _, _, _) ->
+    {error, no_rule};
+parse(Rule, [], _, _, _) ->
+    {error, {no_xml_element, Rule}}.
 
 parse_any([],_Rules,_S) ->
     [];
@@ -618,11 +623,15 @@ el_name(#xmlElement{name=Name})->
 
 parse_pcdata([#xmlText{}=H|T])->
     parse_pcdata(T,[H]);
+parse_pcdata([#xmlComment{}|T])->
+    parse_pcdata(T,[]);
 parse_pcdata(H) ->
     {[],H}.
 
 parse_pcdata([#xmlText{}=H|T],Acc)->
     parse_pcdata(T,Acc++[H]);
+parse_pcdata([#xmlComment{}|T],Acc)->
+    parse_pcdata(T,Acc);
 parse_pcdata(H,Acc) ->
     {Acc,H}.
 

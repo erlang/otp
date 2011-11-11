@@ -144,6 +144,7 @@ Expect 2.
 %% [7]
 'NodeTest' -> 'NameTest' : '$1' .
 'NodeTest' -> 'node_type' '(' ')' : {node_type, value('$1')} .
+'NodeTest' -> 'processing-instruction' '(' ')' : {node_type, value('$1')} .
 'NodeTest' -> 'processing-instruction' '(' 'literal' ')' 
 	: {processing_instruction, value('$3')} .
 

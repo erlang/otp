@@ -210,7 +210,7 @@ ticket_7496() ->
     ?line {Doc3,_} = xmerl_scan:file("documentRoot.xml"),
     ?line ok = Test(Doc3,"//child",[child,child,child]),
     ?line ok = Test(Doc3,"//child[@name='beta']",[child]),
-    ?line [{xmlAttribute,id,[],[],[],[],1,[],"2",false}] =
+    ?line [{xmlAttribute,id,[],[],[],_,1,[],"2",false}] =
 	xmerl_xpath:string("/documentRoot/parent/child[@name='beta']/@id",Doc3),
     ?line ok = Test(Doc3,"/documentRoot/parent/child|/documentRoot/parent/pet",
 		    [child,child,child,pet,pet]),

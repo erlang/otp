@@ -100,7 +100,21 @@
 %%    <dd>Set default character set used (default UTF-8).
 %%    This character set is used only if not explicitly given by the XML
 %%    declaration. </dd>
+%%  <dt><code>{document, Flag}</code></dt>
+%%    <dd>Set to 'true' if xmerl should return a complete XML document
+%%    as an xmlDocument record (default 'false').</dd>
+%%  <dt><code>{comments, Flag}</code></dt>
+%%    <dd>Set to 'false' if xmerl should skip comments otherwise they will
+%%    be returned as xmlComment records (default 'true').</dd>
+%%  <dt><code>{default_attrs, Flag}</code></dt>
+%%    <dd>Set to 'true' if xmerl should add to elements missing attributes
+%%    with a defined default value (default 'false').</dd>
 %% </dl>
+%% @type document() = xmlElement() | xmlDocument(). <p>
+%% The document returned by <tt>xmerl_scan:string/[1,2]</tt> and
+%% <tt>xmerl_scan:file/[1,2]</tt>. The type of the returned record depends on
+%% the value of the document option passed to the function.
+%% </p>
 
 
 -module(xmerl_scan).
@@ -224,7 +238,7 @@ cont_state(X, S=#xmerl_scanner{fun_states = FS}) ->
 file(F) ->
     file(F, []).
 
-%% @spec file(Filename::string(), Options::option_list()) -> {xmlElement(),Rest}
+%% @spec file(Filename::string(), Options::option_list()) -> {document(),Rest}
 %%   Rest = list()
 %%% @doc Parse file containing an XML document
 file(F, Options) ->
@@ -264,7 +278,7 @@ int_file_decl(F, Options,_ExtCharset) ->
 string(Str) ->  
     string(Str, []).
 
-%% @spec string(Text::list(),Options::option_list()) -> {xmlElement(),Rest}
+%% @spec string(Text::list(),Options::option_list()) -> {document(),Rest}
 %%   Rest = list()
 %%% @doc Parse string containing an XML document
 string(Str, Options) ->
@@ -381,6 +395,12 @@ initial_state([{quiet, F}|T], S) when F==true; F==false ->
     initial_state(T, S#xmerl_scanner{quiet = F});
 initial_state([{doctype_DTD,DTD}|T], S) ->
     initial_state(T,S#xmerl_scanner{doctype_DTD = DTD});
+initial_state([{document, F}|T], S) when is_boolean(F) ->
+    initial_state(T,S#xmerl_scanner{document = F});
+initial_state([{comments, F}|T], S) when is_boolean(F) ->
+    initial_state(T,S#xmerl_scanner{comments = F});
+initial_state([{default_attrs, F}|T], S) when is_boolean(F) ->
+    initial_state(T,S#xmerl_scanner{default_attrs = F});
 initial_state([{text_decl,Bool}|T], S) ->
     initial_state(T,S#xmerl_scanner{text_decl=Bool});
 initial_state([{environment,Env}|T], S) ->
@@ -518,6 +538,7 @@ scan_document(Str0, S=#xmerl_scanner{event_fun = Event,
 				     line = L, col = C,
 				     environment=Env,
 				     encoding=Charset,
+				     document=Document,
 				     validation=ValidateResult}) ->
     S1 = Event(#xmerl_event{event = started,
 			    line = L,
@@ -530,8 +551,8 @@ scan_document(Str0, S=#xmerl_scanner{event_fun = Event,
     Str=if
 	    Charset == "utf-8" ->
 		Str0;
-	    Charset=/=undefined -> % Default character set is UTF-8
-		xmerl_ucs:to_unicode(Str0,list_to_atom(Charset));
+	    Charset =/= undefined -> % Default character set is UTF-8
+		xmerl_ucs:to_unicode(Str0, list_to_atom(Charset));
 	    true -> %% Charset is undefined if no external input is
                     %% given, and no auto detection of character
                     %% encoding was made.
@@ -539,17 +560,17 @@ scan_document(Str0, S=#xmerl_scanner{event_fun = Event,
 	end,
 %%     M1 = erlang:memory(),
 %%     io:format("Memory status before prolog: ~p~n",[M1]),
-    {T1, S2} = scan_prolog(Str, S1, _StartPos = 1),
+    {Prolog, Pos, T1, S2} = scan_prolog(Str, S1, _StartPos = 1),
 %%     M2 = erlang:memory(),
 %%     io:format("Memory status after prolog: ~p~n",[M2]),
     %%io:format("scan_document 2, prolog parsed~n",[]),
-    T2 = scan_mandatory("<",T1,1,S2,expected_element_start_tag),
+    T2 = scan_mandatory("<", T1, 1, S2, expected_element_start_tag),
 %%     M3 = erlang:memory(),
 %%     io:format("Memory status before element: ~p~n",[M3]),
-    {Res, T3, S3} =scan_element(T2,S2,_StartPos = 1),
+    {Res, T3, S3} = scan_element(T2,S2,Pos),
 %%     M4 = erlang:memory(),
 %%     io:format("Memory status after element: ~p~n",[M4]),
-    {Tail, S4}=scan_misc(T3, S3, _StartPos = 1),
+    {Misc, _Pos1, Tail, S4}=scan_misc(T3, S3, Pos + 1),
 %%     M5 = erlang:memory(),
 %%     io:format("Memory status after misc: ~p~n",[M5]),
     
@@ -558,44 +579,52 @@ scan_document(Str0, S=#xmerl_scanner{event_fun = Event,
 					       col = S4#xmerl_scanner.col,
 					       data = document}, S4),
 
-    {Res2,S6} = case validation_mode(ValidateResult) of
+    {Res2, S6} = case validation_mode(ValidateResult) of
 	     off ->
-		 {Res,cleanup(S5)};
+		 {Res, cleanup(S5)};
 	     dtd when Env == element; Env == prolog ->
 		 check_decl2(S5),
-		 case xmerl_validate:validate(S5,Res) of
-		     {'EXIT',{error,Reason}} ->
-			 S5b=cleanup(S5),
-			 ?fatal({failed_validation,Reason}, S5b);
-		     {'EXIT',Reason} ->
-			 S5b=cleanup(S5),
-			 ?fatal({failed_validation,Reason}, S5b);
-		     {error,Reason} ->
-			 S5b=cleanup(S5),
-			 ?fatal({failed_validation,Reason}, S5b);
-		     {error,Reason,_Next} ->
-			 S5b=cleanup(S5),
-			 ?fatal({failed_validation,Reason}, S5b);
+		 case xmerl_validate:validate(S5, Res) of
+		     {'EXIT', {error, Reason}} ->
+			 S5b = cleanup(S5),
+			 ?fatal({failed_validation, Reason}, S5b);
+		     {'EXIT', Reason} ->
+			 S5b = cleanup(S5),
+			 ?fatal({failed_validation, Reason}, S5b);
+		     {error, Reason} ->
+			 S5b = cleanup(S5),
+			 ?fatal({failed_validation, Reason}, S5b);
+		     {error, Reason, _Next} ->
+			 S5b = cleanup(S5),
+			 ?fatal({failed_validation, Reason}, S5b);
 		     _XML ->
-			 {Res,cleanup(S5)}
+			 {Res, cleanup(S5)}
 		 end;
 	     schema ->
-		 case schemaLocations(Res,S5) of
-		     {ok,Schemas} ->
+		 case schemaLocations(Res, S5) of
+		     {ok, Schemas} ->
 			 cleanup(S5),
 			 %%io:format("Schemas: ~p~nRes: ~p~ninhertih_options(S): ~p~n",
 			 %%          [Schemas,Res,inherit_options(S5)]),
-			 XSDRes = xmerl_xsd:process_validate(Schemas,Res,
+			 XSDRes = xmerl_xsd:process_validate(Schemas, Res,
 							     inherit_options(S5)),
-			 handle_schema_result(XSDRes,S5);
+			 handle_schema_result(XSDRes, S5);
 		     _ ->
-			 {Res,cleanup(S5)}
+			 {Res, cleanup(S5)}
 		 end;
 	     _ ->
-		 {Res,cleanup(S5)}
+		 {Res, cleanup(S5)}
 	 end,
 
-    {Res2, Tail, S6}.
+    Res3 =
+	case Document of
+	    true ->
+		Content = lists:reverse(Prolog, [Res2 | lists:reverse(Misc)]),
+		#xmlDocument{content = Content};
+	    false ->
+		Res2
+	end,
+    {Res3, Tail, S6}.
 
 
 scan_decl(Str, S=#xmerl_scanner{event_fun = Event,
@@ -609,11 +638,11 @@ scan_decl(Str, S=#xmerl_scanner{event_fun = Event,
 			    data = document}, S),
     
     case scan_prolog(Str, S1, _StartPos = 1) of
-	{T2="<"++_, S2} ->
+	{_,_,T2="<"++_, S2} ->
 	    {{S2#xmerl_scanner.user_state,T2},[],S2};
-	{[], S2}->
+	{_,_,[], S2}->
 	    {[],[],S2};
-	{T2, S2} ->
+	{_,_,T2, S2} ->
 	    {_,_,S3} = scan_content(T2,S2,[],_Attrs=[],S2#xmerl_scanner.space,
 				    _Lang=[],_Parents=[],#xmlNamespace{}),
 	    {T2,[],S3}
@@ -624,14 +653,17 @@ scan_decl(Str, S=#xmerl_scanner{event_fun = Event,
 %%% prolog    ::=    XMLDecl? Misc* (doctypedecl Misc*)?
 %%%
 %% empty text declarations are handled by the first function clause.
-scan_prolog([], S=#xmerl_scanner{continuation_fun = F}, Pos) ->
+scan_prolog(T, S, Pos) ->
+    scan_prolog(T, S, Pos, []).
+scan_prolog([], S=#xmerl_scanner{continuation_fun = F}, Pos, Acc) ->
     ?dbg("cont()...~n", []),
-    F(fun(MoreBytes, S1) -> scan_prolog(MoreBytes, S1, Pos) end,
-      fun(S1) -> {[], S1} end,
+    F(fun(MoreBytes, S1) -> scan_prolog(MoreBytes, S1, Pos, Acc) end,
+      fun(S1) -> {Acc, Pos, [], S1} end,
       S);
-scan_prolog("<?xml"++T,S0=#xmerl_scanner{encoding=Charset0,col=Col,line=L},Pos)
-  when ?whitespace(hd(T)) ->
-    {Charset,T3, S3}=
+scan_prolog("<?xml"++T,
+	    S0=#xmerl_scanner{encoding=Charset0,col=Col,line=L},
+	    Pos,Acc) when ?whitespace(hd(T)) ->
+    {Charset, T3, S3} =
     if
 	Col==1,L==1,S0#xmerl_scanner.text_decl==true -> 
 	    ?dbg("prolog(\"<?xml\")~n", []),
@@ -639,13 +671,13 @@ scan_prolog("<?xml"++T,S0=#xmerl_scanner{encoding=Charset0,col=Col,line=L},Pos)
 	    {_,T1,S1} = mandatory_strip(T,S),
 	    {Decl,T2, S2}=scan_text_decl(T1,S1),
 	    Encoding=Decl#xmlDecl.encoding,
-	    {Encoding,T2, S2#xmerl_scanner{encoding=Encoding}};
+	    {Encoding, T2, S2#xmerl_scanner{encoding=Encoding}};
 	Col==1,L==1 -> 
 	    ?dbg("prolog(\"<?xml\")~n", []),
 	    ?bump_col(5),
 	    {Decl,T2, S2}=scan_xml_decl(T, S),
 	    Encoding=Decl#xmlDecl.encoding,
-	    {Encoding,T2, S2#xmerl_scanner{encoding=Encoding}};
+	    {Encoding, T2, S2#xmerl_scanner{encoding=Encoding}};
 	true ->
 	    ?fatal({xml_declaration_must_be_first_in_doc,Col,L},S0)
     end,
@@ -659,7 +691,7 @@ scan_prolog("<?xml"++T,S0=#xmerl_scanner{encoding=Charset0,col=Col,line=L},Pos)
     %% Now transform to declared character set.
     if
 	Charset==Charset0 -> % Document already transformed to this charset!
-	    scan_prolog(T3, S3, Pos);
+	    scan_prolog(T3, S3, Pos, Acc);
 	Charset0=/=undefined ->
 	    %% For example may an external entity
 	    %% have the BOM for utf-16 and the internal
@@ -668,17 +700,18 @@ scan_prolog("<?xml"++T,S0=#xmerl_scanner{encoding=Charset0,col=Col,line=L},Pos)
 	    %% 'iso-10646-utf-1', and Charset will be 'utf-16', all
 	    %% legal.
 	    %%
-	    scan_prolog(T3,S3#xmerl_scanner{encoding=Charset0},Pos);
+	    scan_prolog(T3,S3#xmerl_scanner{encoding=Charset0},Pos,Acc);
 	Charset == "utf-8" ->
-	    scan_prolog(T3, S3, Pos);
+	    scan_prolog(T3, S3, Pos, Acc);
 	Charset=/=undefined -> % Document not previously transformed
 	    T4=xmerl_ucs:to_unicode(T3,list_to_atom(Charset)),
-	    scan_prolog(T4, S3, Pos);
+	    scan_prolog(T4, S3, Pos, Acc);
 	true -> % No encoding info given
-	    scan_prolog(T3, S3, Pos)
+	    scan_prolog(T3, S3, Pos, Acc)
     end;
-scan_prolog("<!DOCTYPE" ++ T, S0=#xmerl_scanner{environment=prolog,
-						encoding=_Charset}, Pos) ->
+scan_prolog("<!DOCTYPE" ++ T,
+	    S0=#xmerl_scanner{environment=prolog,encoding=_Charset},
+	    Pos, Acc) ->
     ?dbg("prolog(\"<!DOCTYPE\")~n", []),
     ?bump_col(9),
     %% If no known character set assume it is UTF-8
@@ -687,10 +720,13 @@ scan_prolog("<!DOCTYPE" ++ T, S0=#xmerl_scanner{environment=prolog,
 	   true -> T
        end,
     {T2, S1} = scan_doctype(T1, S),
-    scan_misc(T2, S1, Pos);
-scan_prolog(Str="%"++_T,S=#xmerl_scanner{environment={external,_}},_Pos) ->
-    scan_ext_subset(Str,S);
-scan_prolog(Str, S0 = #xmerl_scanner{user_state=_US,encoding=_Charset},Pos) ->
+    scan_misc(T2, S1, Pos, Acc);
+scan_prolog(Str="%"++_T,S=#xmerl_scanner{environment={external,_}},
+	    Pos,Acc) ->
+    {T, S1} = scan_ext_subset(Str,S),
+    {Acc, Pos, T, S1};
+scan_prolog(Str, S0 = #xmerl_scanner{user_state=_US,encoding=_Charset},
+	    Pos,Acc) ->
     ?dbg("prolog(\"<\")~n", []),
     
     %% Check for Comments, PI before possible DOCTYPE declaration
@@ -700,26 +736,28 @@ scan_prolog(Str, S0 = #xmerl_scanner{user_state=_US,encoding=_Charset},Pos) ->
 %%	  Charset==undefined -> xmerl_ucs:to_unicode(Str,'utf-8');
 	  true -> Str
       end,
-    {T1, S1}=scan_misc(T, S, Pos),
-    scan_prolog2(T1,S1,Pos).
+    {Acc1, Pos1, T1, S1}=scan_misc(T, S, Pos, Acc),
+    scan_prolog2(T1,S1,Pos1,Acc1).
 
 
 
-scan_prolog2([], S=#xmerl_scanner{continuation_fun = F}, Pos) ->
+scan_prolog2([], S=#xmerl_scanner{continuation_fun = F}, Pos, Acc) ->
     ?dbg("cont()...~n", []),
-    F(fun(MoreBytes, S1) -> scan_prolog2(MoreBytes, S1, Pos) end,
-      fun(S1) -> {[], S1} end,
+    F(fun(MoreBytes, S1) -> scan_prolog2(MoreBytes, S1, Pos, Acc) end,
+      fun(S1) -> {Acc, Pos, [], S1} end,
       S);
-scan_prolog2("<!DOCTYPE" ++ T, S0=#xmerl_scanner{environment=prolog}, Pos) ->
+scan_prolog2("<!DOCTYPE" ++ T, S0=#xmerl_scanner{environment=prolog},
+	     Pos, Acc) ->
     ?dbg("prolog(\"<!DOCTYPE\")~n", []),
     ?bump_col(9),
     {T1, S1} = scan_doctype(T, S),
-    scan_misc(T1, S1, Pos);
-scan_prolog2(Str = "<!" ++ _, S, _Pos) ->
+    scan_misc(T1, S1, Pos, Acc);
+scan_prolog2(Str = "<!" ++ _, S, Pos, Acc) ->
     ?dbg("prolog(\"<!\")~n", []),
     %% In e.g. a DTD, we jump directly to markup declarations
-    scan_ext_subset(Str, S);
-scan_prolog2(Str, S0 = #xmerl_scanner{user_state=_US},Pos) ->
+    {T, S1} = scan_ext_subset(Str, S),
+    {Acc, Pos, T, S1};
+scan_prolog2(Str, S0 = #xmerl_scanner{user_state=_US},Pos,Acc) ->
     ?dbg("prolog(\"<\")~n", []),
     
     %% Here we consider the DTD provided by doctype_DTD option,
@@ -733,7 +771,7 @@ scan_prolog2(Str, S0 = #xmerl_scanner{user_state=_US},Pos) ->
 	end,
     %% Check for more Comments and PI after DOCTYPE declaration
 %    ?bump_col(1),
-    scan_misc(Str, S1, Pos).
+    scan_misc(Str, S1, Pos, Acc).
 
 
 
@@ -743,26 +781,46 @@ scan_prolog2(Str, S0 = #xmerl_scanner{user_state=_US},Pos) ->
 %% - Neither of Comment and PI are returned in the resulting parsed
 %%   structure.
 %% - scan_misc/3 implements Misc* as that is how the rule is always used
-scan_misc([], S=#xmerl_scanner{continuation_fun = F}, Pos) ->
+scan_misc(T, S, Pos) ->
+    scan_misc(T, S, Pos, []).
+scan_misc([], S=#xmerl_scanner{continuation_fun = F}, Pos, Acc) ->
     ?dbg("cont()...~n", []),
-    F(fun(MoreBytes, S1) -> scan_misc(MoreBytes, S1, Pos) end,
-      fun(S1) -> {[], S1} end,
+    F(fun(MoreBytes, S1) -> scan_misc(MoreBytes, S1, Pos, Acc) end,
+      fun(S1) -> {Acc, Pos, [], S1} end,
       S);
-scan_misc("<!--" ++ T, S0, Pos) -> % Comment
+scan_misc("<!--" ++ T, S0=#xmerl_scanner{acc_fun = F, comments=CF}, Pos, Acc) -> % Comment
     ?bump_col(4),
-    {_, T1, S1} = scan_comment(T, S, Pos, _Parents = [], _Lang = []),
-    scan_misc(T1,S1,Pos);
-scan_misc("<?" ++ T, S0, Pos) -> % PI
+    {C, T1, S1} = scan_comment(T, S, Pos, _Parents = [], _Lang = []),
+    case CF of
+	true ->
+	    {Acc2, Pos2, S3} = 
+		case F(C, Acc, S1) of
+		    {Acc1, S2} ->
+			{Acc1, Pos + 1, S2};
+		    {Acc1, Pos1, S2} ->
+			{Acc1, Pos1, S2}
+		end,
+	    scan_misc(T1, S3, Pos2, Acc2);
+	false ->
+	    scan_misc(T1, S1, Pos, Acc)
+    end;
+scan_misc("<?" ++ T, S0=#xmerl_scanner{acc_fun = F}, Pos, Acc) -> % PI
     ?dbg("prolog(\"<?\")~n", []),
     ?bump_col(2),
-    {_PI, T1, S1} = scan_pi(T, S, Pos),
-    scan_misc(T1,S1,Pos);
-scan_misc(T=[H|_T], S, Pos) when ?whitespace(H) ->
+    {PI, T1, S1} = scan_pi(T, S, Pos, []),
+    {Acc2, Pos2, S3} = case F(PI, Acc, S1) of
+			   {Acc1, S2} ->
+			       {Acc1, Pos + 1, S2};
+			   {Acc1, Pos1, S2} ->
+			       {Acc1, Pos1, S2}
+		       end,
+    scan_misc(T1,S3,Pos2,Acc2);
+scan_misc(T=[H|_T], S, Pos, Acc) when ?whitespace(H) ->
     ?dbg("prolog(whitespace)~n", []),
     {_,T1,S1}=strip(T,S),
-    scan_misc(T1,S1,Pos);
-scan_misc(T,S,_Pos) ->
-    {T,S}.
+    scan_misc(T1,S1,Pos,Acc);
+scan_misc(T,S,Pos,Acc) ->
+    {Acc,Pos,T,S}.
 
 
 cleanup(S=#xmerl_scanner{keep_rules = false,
@@ -789,7 +847,8 @@ scan_xml_decl(T, S) ->
     Attr = #xmlAttribute{name = version,
 			 parents = [{xml, _XMLPos = 1}],
 			 value = Vsn},
-    scan_xml_decl(T4, S4, #xmlDecl{attributes = [Attr]}).
+    scan_xml_decl(T4, S4, #xmlDecl{vsn = Vsn,
+				   attributes = [Attr]}).
 
 scan_xml_decl([], S=#xmerl_scanner{continuation_fun = F}, Decl) ->
     ?dbg("cont()...~n", []),
@@ -1025,50 +1084,53 @@ xml_vsn([H|T], S=#xmerl_scanner{col = C}, Delim, Acc) ->
 
 %%%%%%% [16] PI ::= '<?' PITarget (S (Char* - (Char* '?>' Char*)))? '?>'
 
-scan_pi([], S=#xmerl_scanner{continuation_fun = F}, Pos) ->
+scan_pi([], S=#xmerl_scanner{continuation_fun = F}, Pos, Ps) ->
     ?dbg("cont()...~n", []),
-    F(fun(MoreBytes, S1) -> scan_pi(MoreBytes, S1, Pos) end,
+    F(fun(MoreBytes, S1) -> scan_pi(MoreBytes, S1, Pos, Ps) end,
       fun(S1) -> ?fatal(unexpected_end, S1) end,
       S);
-scan_pi(Str = [H1,H2,H3 | T],S0=#xmerl_scanner{line = L, col = C}, Pos)
+scan_pi(Str = [H1,H2,H3 | T],S0=#xmerl_scanner{line = L, col = C}, Pos, Ps)
   when H1==$x;H1==$X ->
     %% names beginning with [xX][mM][lL] are reserved for future use.
     ?bump_col(3),
     if 
 	((H2==$m) or (H2==$M)) and
 	((H3==$l) or (H3==$L)) ->
-	    scan_wellknown_pi(T,S,Pos);
+	    scan_wellknown_pi(T,S,Pos,Ps);
 	true ->
 	    {Target, _NamespaceInfo, T1, S1} = scan_name(Str, S),
-	    scan_pi(T1, S1, Target, L, C, Pos, [])
+	    scan_pi(T1, S1, Target, L, C, Pos, Ps, [])
     end;
-scan_pi(Str, S=#xmerl_scanner{line = L, col = C}, Pos) ->
+scan_pi(Str, S=#xmerl_scanner{line = L, col = C}, Pos, Ps) ->
     {Target, _NamespaceInfo, T1, S1} = scan_name(Str, S),
-    scan_pi(T1, S1, Target, L, C, Pos,[]).
+    scan_pi(T1, S1, Target, L, C, Pos, Ps, []).
 
 
 %%% More info on xml-stylesheet can be found at:
 %%%   "Associating Style Sheets with XML documents", Version 1.0,
 %%%   W3C Recommendation 29 June 1999 (http://www.w3.org/TR/xml-stylesheet/)
-scan_wellknown_pi("-stylesheet"++T, S0=#xmerl_scanner{line=L,col=C},Pos) ->
+scan_wellknown_pi("-stylesheet"++T, S0=#xmerl_scanner{line=L,col=C},Pos,Ps) ->
     ?dbg("prolog(\"<?xml-stylesheet\")~n", []),
     ?bump_col(16),
-    scan_pi(T, S, "xml-stylesheet",L,C,Pos,[]);
-scan_wellknown_pi(Str,S,_Pos) ->
+    scan_pi(T, S, "xml-stylesheet",L,C,Pos,Ps,[]);
+scan_wellknown_pi(Str,S,_Pos,_Ps) ->
     ?fatal({invalid_target_name, lists:sublist(Str, 1, 10)}, S).
 
 
 
-scan_pi([], S=#xmerl_scanner{continuation_fun = F}, Target,L, C, Pos, Acc) ->
+scan_pi([], S=#xmerl_scanner{continuation_fun = F}, Target,
+	L, C, Pos, Ps, Acc) ->
     ?dbg("cont()...~n", []),
-    F(fun(MoreBytes, S1) -> scan_pi(MoreBytes, S1, Target, L, C, Pos, Acc) end,
+    F(fun(MoreBytes, S1) -> scan_pi(MoreBytes, S1, Target,
+				    L, C, Pos, Ps, Acc) end,
       fun(S1) -> ?fatal(unexpected_end, S1) end,
       S);
 scan_pi("?>" ++ T, S0 = #xmerl_scanner{hook_fun = Hook,
 				       event_fun = Event}, 
-	Target, L, C, Pos, Acc) ->
+	Target, L, C, Pos, Ps, Acc) ->
     ?bump_col(2),
     PI = #xmlPI{name = Target,
+		parents = Ps,
 		pos = Pos,
 		value = lists:reverse(Acc)},
     S1 = #xmerl_scanner{} = Event(#xmerl_event{event = ended,
@@ -1077,22 +1139,25 @@ scan_pi("?>" ++ T, S0 = #xmerl_scanner{hook_fun = Hook,
 					       data = PI}, S),
     {Ret, S2} = Hook(PI, S1),
     {Ret, T, S2};
-scan_pi([H|T], S, Target, L, C, Pos, Acc) when ?whitespace(H) ->
+scan_pi([H|T], S, Target, L, C, Pos, Ps, Acc) when ?whitespace(H) ->
     ?strip1,
-    scan_pi2(T1, S1, Target, L, C, Pos, Acc);
-scan_pi([H|_T],S,_Target, _L, _C, _Pos, _Acc) ->
+    scan_pi2(T1, S1, Target, L, C, Pos, Ps, Acc);
+scan_pi([H|_T],S,_Target, _L, _C, _Pos, _Ps, _Acc) ->
     ?fatal({expected_whitespace_OR_end_of_PI,{char,H}}, S).
 
-scan_pi2([], S=#xmerl_scanner{continuation_fun = F}, Target,L, C, Pos, Acc) ->
+scan_pi2([], S=#xmerl_scanner{continuation_fun = F}, Target,
+	 L, C, Pos, Ps, Acc) ->
     ?dbg("cont()...~n", []),
-    F(fun(MoreBytes, S1) -> scan_pi2(MoreBytes, S1, Target, L, C, Pos, Acc) end,
+    F(fun(MoreBytes, S1) -> scan_pi2(MoreBytes, S1, Target,
+				     L, C, Pos, Ps, Acc) end,
       fun(S1) -> ?fatal(unexpected_end, S1) end,
       S);
 scan_pi2("?>" ++ T, S0 = #xmerl_scanner{hook_fun = Hook,
 				       event_fun = Event}, 
-	Target, L, C, Pos, Acc) ->
+	 Target, L, C, Pos, Ps, Acc) ->
     ?bump_col(2),
     PI = #xmlPI{name = Target,
+		parents = Ps,
 		pos = Pos,
 		value = lists:reverse(Acc)},
     S1 = #xmerl_scanner{} = Event(#xmerl_event{event = ended,
@@ -1101,10 +1166,10 @@ scan_pi2("?>" ++ T, S0 = #xmerl_scanner{hook_fun = Hook,
 					       data = PI}, S),
     {Ret, S2} = Hook(PI, S1),
     {Ret, T, S2};
-scan_pi2(Str, S0, Target, L, C, Pos, Acc) ->
+scan_pi2(Str, S0, Target, L, C, Pos, Ps, Acc) ->
     ?bump_col(1),
     {Ch,T} = wfc_legal_char(Str,S),
-    scan_pi2(T, S, Target, L, C, Pos, [Ch|Acc]).
+    scan_pi2(T, S, Target, L, C, Pos, Ps, [Ch|Acc]).
 
 
 
@@ -1575,7 +1640,7 @@ scan_markup_decl("<!--" ++ T, S0) ->
     scan_comment(T, S);
 scan_markup_decl("<?" ++ T, S0) ->
     ?bump_col(2),
-    {_PI, T1, S1} = scan_pi(T, S,_Pos=markup),
+    {_PI, T1, S1} = scan_pi(T, S,_Pos=markup,[]),
     strip(T1, S1);
 scan_markup_decl("<!ELEMENT" ++ T, 
 		 #xmerl_scanner{rules_read_fun = Read,
@@ -1981,7 +2046,7 @@ scan_element(T, S, Pos) ->
 scan_element(T, S=#xmerl_scanner{line=L,col=C},
 	     Pos, SpaceDefault,Lang, Parents, NS) ->
     {Name, NamespaceInfo, T1, S1} = scan_name(T, S),
-    vc_Element_valid(Name,S),
+    vc_Element_valid(Name,NamespaceInfo,S),
     ?strip2,
     scan_element(T2, S2, Pos, Name, L, C, _Attrs = [], 
 		 Lang, Parents, NamespaceInfo, NS, 
@@ -2016,7 +2081,8 @@ scan_element("/>" ++ T, S0 = #xmerl_scanner{hook_fun = Hook,
     Attrs = lists:reverse(Attrs0),
     E=processed_whole_element(S, Pos, Name, Attrs, Lang, Parents,NSI,Namespace),
     
-    wfc_unique_att_spec(Attrs,S),
+    #xmlElement{attributes = Attrs1} = E,
+    wfc_unique_att_spec(Attrs1,S),
     S1 = #xmerl_scanner{} = Event(#xmerl_event{event = ended,
 					       line = L,
 					       col = C,
@@ -2086,9 +2152,10 @@ scan_element(T, S, Pos, Name, StartL, StartC, Attrs, Lang, Parents,
 		      P+1
 	      end,
     Attr = #xmlAttribute{name = AttName, 
+			 parents = [{Name, Pos}|Parents],
 			 pos = AttrPos,
 			 language = Lang,
-			 namespace = NamespaceInfo,
+			 nsinfo = NamespaceInfo,
 			 value = AttValue,
 			 normalized = IsNorm},
     XMLBase=if
@@ -2109,6 +2176,14 @@ scan_element(T, S, Pos, Name, StartL, StartC, Attrs, Lang, Parents,
 				xmlbase_cache=S#xmerl_scanner.xmlbase}),
     scan_element(T4, S5, Pos, Name, StartL, StartC, [Attr|Attrs], 
 		 Lang, Parents, NSI, NewNS, SpaceDefault).
+
+get_default_attrs(S = #xmerl_scanner{rules_read_fun = Read}, ElemName) ->
+    case Read(elem_def, ElemName, S) of
+	#xmlElement{attributes = Attrs} ->
+	    [ {AttName, AttValue} ||
+	      {AttName, _, AttValue, _, _} <- Attrs, AttValue =/= no_value ];
+	_ -> []
+    end.
 
 get_att_type(S=#xmerl_scanner{rules_read_fun=Read},AttName,ElemName) ->
     case Read(elem_def,ElemName,S) of
@@ -2139,6 +2214,23 @@ processed_whole_element(S=#xmerl_scanner{hook_fun = _Hook,
 			Pos, Name, Attrs, Lang, Parents, NSI, Namespace) ->
     Language = check_language(Attrs, Lang),
 
+    AllAttrs =
+	case S#xmerl_scanner.default_attrs of
+	    true ->
+		[ #xmlAttribute{name = AttName,
+				parents = [{Name, Pos} | Parents],
+				language = Lang,
+				nsinfo = NSI,
+				namespace = Namespace,
+				value = AttValue,
+				normalized = true} ||
+		  {AttName, AttValue} <- get_default_attrs(S, Name),
+		  AttValue =/= no_value,
+		  not lists:keymember(AttName, #xmlAttribute.name, Attrs) ];
+	    false ->
+		Attrs
+	end,
+
     {ExpName, ExpAttrs} = 
 	case S#xmerl_scanner.namespace_conformant of
 	    true ->
@@ -2153,14 +2245,15 @@ processed_whole_element(S=#xmerl_scanner{hook_fun = _Hook,
 		TempNamespace = Namespace#xmlNamespace{default = []},
 		ExpAttrsX = 
 		    [A#xmlAttribute{
+		       namespace=Namespace,
 		       expanded_name=expanded_name(
 				       A#xmlAttribute.name, 
-				       A#xmlAttribute.namespace,
+				       A#xmlAttribute.nsinfo,
 						% NSI,
-				       TempNamespace, S)} || A <- Attrs],
+				       TempNamespace, S)} || A <- AllAttrs],
 		{expanded_name(Name, NSI, Namespace, S), ExpAttrsX};
 	    false ->
-		{Name, Attrs}
+		{Name, AllAttrs}
 	end,
 
     #xmlElement{name = Name,
@@ -2194,10 +2287,32 @@ check_namespace(_, _, _, NS) ->
 
 expanded_name(Name, [], #xmlNamespace{default = []}, _S) ->
     Name;
-expanded_name(Name, [], #xmlNamespace{default = URI}, _S) ->
-    {URI, Name};
-expanded_name(_Name, {"xmlns", Local}, _NS, _S) -> % CHECK THIS /JB
-    {"xmlns",Local};
+expanded_name(Name, [], #xmlNamespace{default = URI}, S) ->
+    case URI of
+	'http://www.w3.org/XML/1998/namespace' ->
+	    ?fatal(cannot_bind_default_namespace_to_xml_namespace_name, S);
+	'http://www.w3.org/2000/xmlns/' ->
+	    ?fatal(cannot_bind_default_namespace_to_xmlns_namespace_name, S);
+	_ ->
+	    {URI, Name}
+    end;
+expanded_name(Name, N = {"xmlns", Local}, #xmlNamespace{nodes = Ns}, S) ->
+    {_, Value} = lists:keyfind(Local, 1, Ns),
+    case Name of
+	'xmlns:xml' when Value =/= 'http://www.w3.org/XML/1998/namespace' ->
+	    ?fatal({xml_prefix_cannot_be_redeclared, Value}, S);
+	'xmlns:xmlns' ->
+	    ?fatal({xmlns_prefix_cannot_be_declared, Value}, S);
+	_ ->
+	    case Value of
+		'http://www.w3.org/XML/1998/namespace' ->
+		    ?fatal({cannot_bind_prefix_to_xml_namespace, Local}, S);
+		'http://www.w3.org/2000/xmlns/' ->
+		    ?fatal({cannot_bind_prefix_to_xmlns_namespace, Local}, S);
+		_ ->
+		    N
+	    end
+    end;
 expanded_name(_Name, {Prefix, Local}, #xmlNamespace{nodes = Ns}, S) ->
     case lists:keysearch(Prefix, 1, Ns) of
 	{value, {_, URI}} ->
@@ -2449,9 +2564,23 @@ scan_content("&" ++ T, S0, Pos, Name, Attrs, Space, Lang, Parents, NS, Acc,[]) -
 	_ ->
 	    scan_content(string_to_char_set(S1#xmerl_scanner.encoding,ExpRef)++T1,S1,Pos,Name,Attrs,Space,Lang,Parents,NS,Acc,[])
     end;
-scan_content("<!--" ++ T, S, Pos, Name, Attrs, Space, Lang, Parents, NS, Acc,[]) ->
-    {_, T1, S1} = scan_comment(T, S, Pos, Parents, Lang),
-    scan_content(T1, S1, Pos+1, Name, Attrs, Space, Lang, Parents, NS, Acc,[]);
+scan_content("<!--" ++ T, S0=#xmerl_scanner{acc_fun = F, comments=CF}, Pos, Name, Attrs, Space, 
+	     Lang, Parents, NS, Acc,[]) ->
+    ?bump_col(4),
+    {C, T1, S1} = scan_comment(T, S, Pos, Parents, Lang),
+    case CF of
+	true ->
+	    {Acc2, Pos2, S3} = 
+		case F(C, Acc, S1) of
+		    {Acc1, S2} ->
+			{Acc1, Pos + 1, S2};
+		    {Acc1, Pos1, S2} ->
+			{Acc1, Pos1, S2}
+		end,
+	    scan_content(T1, S3, Pos2, Name, Attrs, Space, Lang, Parents, NS, Acc2,[]);
+	false ->
+	    scan_content(T1, S1, Pos, Name, Attrs, Space, Lang, Parents, NS, Acc,[])
+    end;   
 scan_content("<" ++ T, S0, Pos, Name, Attrs, Space, Lang, Parents, NS, Acc,[]) ->
     ?bump_col(1),
     {Markup, T1, S1} = 
@@ -2508,9 +2637,9 @@ scan_content_markup("![CDATA[" ++ T, S0, Pos, _Name, _Attrs,
 		    _Space, _Lang, Parents, _NS) ->
     ?bump_col(8),
     scan_cdata(T, S, Pos, Parents);
-scan_content_markup("?"++T,S0,Pos,_Name,_Attrs,_Space,_Lang,_Parents,_NS) ->
+scan_content_markup("?"++T,S0,Pos,_Name,_Attrs,_Space,_Lang,Parents,_NS) ->
     ?bump_col(1),
-    scan_pi(T, S, Pos);
+    scan_pi(T, S, Pos, Parents);
 scan_content_markup(T, S, Pos, _Name, _Attrs, Space, Lang, Parents, NS) ->
     scan_element(T, S, Pos, Space, Lang, Parents, NS).
 
@@ -3259,12 +3388,18 @@ mandatory_delimeter_wfc(T,S) ->
 
 wfc_unique_att_spec([],_S) ->
     ok;
-wfc_unique_att_spec([#xmlAttribute{name=N}|Atts],S) ->
+wfc_unique_att_spec([#xmlAttribute{name=N,expanded_name=EN}|Atts],S) ->
     case lists:keymember(N,#xmlAttribute.name,Atts) of
 	true ->
 	    ?fatal({error,{unique_att_spec_required,N}},S);
 	_ ->
-	    wfc_unique_att_spec(Atts,S)
+	    case S#xmerl_scanner.namespace_conformant andalso
+		    lists:keymember(EN, #xmlAttribute.expanded_name, Atts) of
+		true ->
+		    ?fatal({error,{unique_att_spec_required,EN}},S);
+		_ ->
+		    wfc_unique_att_spec(Atts,S)
+	    end
     end.
 
 wfc_legal_char(Chars,S) when is_list(Chars)->
@@ -3313,6 +3448,11 @@ wfc_Internal_parsed_entity(internal,Value,S) ->
 wfc_Internal_parsed_entity(_,_,_) ->
     ok.
 
+vc_Element_valid(_Name, {"xmlns", _},
+		 S = #xmerl_scanner{namespace_conformant = true}) ->
+    ?fatal({error,{illegal_element_prefix,xmlns}},S);
+vc_Element_valid(Name, _, S) ->
+    vc_Element_valid(Name, S).
 
 vc_Element_valid(_Name,#xmerl_scanner{environment=internal_parsed_entity}) ->
     ok;
@@ -3917,7 +4057,7 @@ schemaLocations(El,#xmerl_scanner{schemaLocation=SL}) ->
 
 schemaLocations(#xmlElement{attributes=Atts,xmlbase=_Base}) -> 
     Pred = fun(#xmlAttribute{name=schemaLocation}) -> false;
-	      (#xmlAttribute{namespace={_,"schemaLocation"}}) -> false;
+	      (#xmlAttribute{nsinfo={_,"schemaLocation"}}) -> false;
 	      (_) -> true
 	   end,
     case lists:dropwhile(Pred,Atts) of

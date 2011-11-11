@@ -245,21 +245,27 @@ process_validate2({SE,_},Schema,Xml,Opts) ->
     S4 = validation_options(S3,Opts),
     validate3(Schema,Xml,S4).
 
-validate3(Schema,Xml,S=#xsd_state{errors=[]}) -> 
-    Ret = {_,S2} = 
-	case catch validate_xml(Xml,S) of
-	    {[XML2],[],Sx}  ->
-		{XML2,Sx};
-	    {XML2,[],Sx} ->
-		{XML2,Sx};
-	    {_,UnValidated,Sx} ->
-		{Xml,acc_errs(Sx,{error_path(UnValidated,Xml#xmlElement.name),?MODULE,
-				  {unvalidated_rest,UnValidated}})};
-	    _Err = {error,Reason} ->
-		{Xml,acc_errs(S,Reason)};
-	    {'EXIT',Reason} ->
-		{Xml,acc_errs(S,{error_path(Xml,Xml#xmlElement.name),?MODULE,
-				 {undefined,{internal_error,Reason}}})}
+validate3(Schema, Xml,S =#xsd_state{errors=[]}) -> 
+    Ret = {_, S2} = 
+	case catch validate_xml(Xml, S) of
+	    _Err = {error, Reason} ->
+		{Xml, acc_errs(S, Reason)};
+	    {'EXIT', Reason} ->
+		{Xml, acc_errs(S, {error_path(Xml, Xml#xmlElement.name), ?MODULE,
+				 {undefined, {internal_error, Reason}}})};
+	    {XML2, Rest, Sx} ->
+		case lists:dropwhile(fun(X) when is_record(X, xmlComment) -> true; (_) -> false end, Rest) of
+		    [] ->
+			case XML2 of
+			    [XML3] ->
+				{XML3,Sx};
+			    XML3 ->
+				{XML3,Sx}
+			end;
+		    UnValidated ->
+			{Xml,acc_errs(Sx,{error_path(UnValidated,Xml#xmlElement.name),?MODULE,
+					  {unvalidated_rest,UnValidated}})}
+		end
 	end,
     save_to_file(S2,filename:rootname(Schema)++".tab2"),
     case S2#xsd_state.errors of
@@ -1950,7 +1956,7 @@ fetch_external_schema(Path,S) when is_list(Path) ->
 			{EXSD,S#xsd_state{schema_name=File}}
 		end;
 	    {_,{string,String},_} -> %% this is for a user defined fetch fun that returns an xml document on string format.
-		?debug("scanning string: ~p~n",[File]),
+		?debug("scanning string: ~p~n",[String]),
 		case xmerl_scan:string(String,S#xsd_state.xml_options) of
 		    {error,Reason} ->
 			{error,acc_errs(S,{[],?MODULE,{parsing_external_schema_failed,Path,Reason}})};
@@ -2520,9 +2526,9 @@ check_element_type([],#schema_complex_type{name=_Name,block=_Bl,content=C},
 	    {error,{error_path(Checked,undefined),?MODULE,
 		    {empty_content_not_allowed,C}}}
     end;
-check_element_type(C,{anyType,_},_Env,_Block,S,_Checked) ->
+check_element_type(C, {anyType, _}, _Env, _Block, S, _Checked) ->
     %% permitt anything
-    {C,[],S};
+    {lists:reverse(C), [], S};
 
 check_element_type(XML=[#xmlText{}|_],Type=#schema_simple_type{},
 		    _Env,_Block,S,_Checked) ->
@@ -2585,7 +2591,7 @@ check_element_type(XML=[XMLEl=#xmlElement{name=Name}|RestXML],
 	    S6 = check_form(ElName,Name,XMLEl,
 			    actual_form_value(CMEl#schema_element.form,
 					      S5#xsd_state.elementFormDefault),
-			    S5),
+			    S5), 
 	    %Step into content of XML element.
 	    {Content,_,S7} =
 		case
@@ -2605,12 +2611,12 @@ check_element_type(XML=[XMLEl=#xmlElement{name=Name}|RestXML],
 	     RestXML,
 	     set_scope(S5#xsd_state.scope,set_num_el(S7,S6))};
 	true ->
-	    {error,{error_path(XMLEl,Name),?MODULE,
-		    {element_not_suitable_with_schema,ElName,S}}};
+	    {error,{error_path(XMLEl, Name), ?MODULE,
+		    {element_not_suitable_with_schema, ElName, S}}};
 	_ when S#xsd_state.num_el >= Min -> 
 	    %% it may be a match error or an optional element not
 	    %% present
-	    {[],XML,S#xsd_state{num_el=0}}; 
+	    {[], XML, S#xsd_state{num_el=0}}; 
 	_ -> 
 	    {error,{error_path(XMLEl,Name),?MODULE,
 		    {element_not_suitable_with_schema,ElName,CMName,CMEl,S}}}
@@ -2645,7 +2651,7 @@ check_element_type(XML=[#xmlElement{}|_Rest],
 check_element_type(XML=[E=#xmlElement{name=Name}|Rest],
 		   Any={any,{Namespace,_Occ={Min,_},ProcessorContents}},Env,
 		   _Block,S,_Checked) ->
-    ?debug("check any: {any,{~p,~p,~p}}~n",[Namespace,Occ,ProcessorContents]),
+    ?debug("check any: {any,{~p,~p,~p}}~n",[Namespace,_Occ,ProcessorContents]),
     %% ProcessorContents any of lax | strict | skip
     %% lax: may validate if schema is found
     %% strict: must validate
@@ -2710,8 +2716,11 @@ check_element_type([],CM,_Env,_Block,S,Checked) ->
 	    {error,{error_path(Checked,undefined),?MODULE,
 		    {empty_content_not_allowed,CM}}}
     end;
+check_element_type([C = #xmlComment{} |Rest],CM,Env,Block,S,Checked) ->
+     check_element_type(Rest,CM,Env,Block,S,[C |Checked]);
 check_element_type(XML,CM,_Env,_Block,S,_Checked) ->
     {error,{error_path(XML,undefined),?MODULE,{match_failure,XML,CM,S}}}.
+
 %% single xml content object and single schema object
 check_text_type(XML=[#xmlText{}|_],optional_text,S) ->
 %    {XMLTxt,optional_text};
@@ -2730,7 +2739,7 @@ check_text_type([XMLTxt=#xmlText{}|_],CMEl,_S) ->
 	    {cannot_contain_text,XMLTxt,CMEl}}}.
 
 split_xmlText(XML) ->
-    splitwith(fun(#xmlText{}) -> true;(_) -> false end,XML).
+    splitwith(fun(#xmlText{}) -> true;(#xmlComment{}) -> true;(_) -> false end,XML).
 
 %% Sequence
 check_sequence([T=#xmlText{}|Rest],Els,Occ,Env,S,Checked) ->
@@ -2773,6 +2782,8 @@ check_sequence(Seq=[_InstEl=#xmlElement{}|_],[El|Els],Occ={_Min,_Max},Env,S,Chec
 			   count_num_el(set_num_el(S3,S2)),
 			   Ret++Checked)
     end;
+check_sequence([C = #xmlComment{} |Rest], Els, Occ, Env, S, Checked) ->
+    check_sequence(Rest,Els,Occ,Env,S,[C |Checked]);
 check_sequence(Rest,[],_Occ,_Env,S,Checked) ->
     {Checked,Rest,set_num_el(S,0)};
 check_sequence([],Els,_Occ,_Env,S,Checked) ->
@@ -2869,6 +2880,8 @@ check_all(XML=[E=#xmlElement{name=Name}|RestXML],CM,Occ,Env,S,
 		   {element_not_in_all,ElName,E,CM}},
 	    check_all(RestXML,CM,Occ,Env,acc_errs(S,Err),[E|Checked],PrevXML)
     end;
+check_all([C=#xmlComment{} |RestXML], CM, Occ, Env, S, Checked, XML) ->
+    check_all(RestXML, CM, Occ, Env, S, [C |Checked], XML);
 check_all(XML,[],_,_,S,Checked,_) ->
     {Checked,XML,S};
 check_all([],CM,_Occ,_,S,Checked,_PrevXML) ->
@@ -2920,7 +2933,7 @@ check_target_namespace(XMLEl,S) ->
 
 schemaLocations(El=#xmlElement{attributes=Atts},S) ->
     Pred = fun(#xmlAttribute{name=schemaLocation}) -> false;
-	      (#xmlAttribute{namespace={_,"schemaLocation"}}) -> false;
+	      (#xmlAttribute{nsinfo={_,"schemaLocation"}}) -> false;
 	      (_) -> true
 	   end,
     case lists:dropwhile(Pred,Atts) of

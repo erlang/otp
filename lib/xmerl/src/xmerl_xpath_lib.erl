@@ -49,5 +49,7 @@ primary_expr({function_call, F, Args}, C) ->
 	    %% here, we should look up the function in the context provided 
 	    %% by the caller, but we haven't figured this out yet.
 	    exit({not_a_core_function, F})
-    end.
+    end;
+primary_expr(PrimExpr, _C) ->
+    exit({primary_expression, {not_implemented, PrimExpr}}).
 
