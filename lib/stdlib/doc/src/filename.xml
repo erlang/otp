@@ -295,6 +295,12 @@
         <p>Finds the source filename and compiler options for a module.
           The result can be fed to <c>compile:file/2</c> in order to
           compile the file again.</p>
+
+	<warning><p>We don't recommend using this function. If possible,
+	use <seealso marker="beam_lib">beam_lib(3)</seealso> to extract
+	the abstract code format from the BEAM file and compile that
+	instead.</p></warning>
+
         <p>The <c><anno>Beam</anno></c> argument, which can be a string or an atom,
           specifies either the module name or the path to the source
           code, with or without the <c>".erl"</c> extension. In either
