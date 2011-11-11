@@ -183,6 +183,8 @@ key_derivation_params(#'PBES2-params'{keyDerivationFunc = KeyDerivationFunc,
 %% ?'id-hmacWithSHA1, but we need some kind of ASN1-fix for this.
 pseudo_random_function(#'PBKDF2-params_prf'{algorithm = 
 						{_,_, _,'id-hmacWithSHA1'}}) ->
+    {fun crypto:sha_mac/3, pseudo_output_length(?'id-hmacWithSHA1')};
+pseudo_random_function(#'PBKDF2-params_prf'{algorithm = ?'id-hmacWithSHA1'}) ->
     {fun crypto:sha_mac/3, pseudo_output_length(?'id-hmacWithSHA1')}.
 
 pseudo_output_length(?'id-hmacWithSHA1') ->
