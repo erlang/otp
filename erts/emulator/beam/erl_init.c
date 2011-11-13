@@ -71,6 +71,8 @@ static void erl_init(int ncpu);
 
 #define ERTS_MIN_COMPAT_REL 7
 
+static erts_atomic_t exiting;
+
 #ifdef ERTS_SMP
 erts_smp_atomic32_t erts_writing_erl_crash_dump;
 erts_tsd_key_t erts_is_crash_dumping_key;
@@ -646,6 +648,7 @@ early_init(int *argc, char **argv) /*
     erts_use_r9_pids_ports = 0;
 
     erts_sys_pre_init();
+    erts_atomic_init_nob(&exiting, 0);
 #ifdef ERTS_SMP
     erts_thr_progress_pre_init();
 #endif
@@ -1506,6 +1509,29 @@ __decl_noreturn void erts_thr_fatal_error(int err, char *what)
 static void
 system_cleanup(int exit_code)
 {
+    /*
+     * Make sure only one thread exits the runtime system.
+     */
+    if (erts_atomic_inc_read_nob(&exiting) != 1) {
+	/*
+	 * Another thread is currently exiting the system;
+	 * wait for it to do its job.
+	 */
+#ifdef ERTS_SMP
+	if (erts_thr_progress_is_managed_thread()) {
+	    /*
+	     * The exiting thread might be waiting for
+	     * us to block; need to update status...
+	     */
+	    erts_thr_progress_active(NULL, 0);
+	    erts_thr_progress_prepare_wait(NULL);
+	}
+#endif
+	/* Wait forever... */
+	while (1)
+	    erts_milli_sleep(10000000);
+    }
+
     /* No cleanup wanted if ...
      * 1. we are about to do an abnormal exit
      * 2. we haven't finished initializing, or
@@ -1570,9 +1596,9 @@ __decl_noreturn void erl_exit0(char *file, int line, int n, char *fmt,...)
 
     va_start(args, fmt);
 
-    save_statistics();
-
     system_cleanup(n);
+
+    save_statistics();
 
     an = abs(n);
 
@@ -1610,9 +1636,9 @@ __decl_noreturn void erl_exit(int n, char *fmt,...)
 
     va_start(args, fmt);
 
-    save_statistics();
-
     system_cleanup(n);
+
+    save_statistics();
 
     an = abs(n);
 
