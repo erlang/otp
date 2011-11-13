@@ -296,7 +296,8 @@ lists_roundtrip_2(Config) when is_list(Config) ->
 	  {[z,23|24],tail3},
 	  {[z|25],tail3},
 	  {"abc123",sub3atom},
-	  {"abc",sub3atom}
+	  {"abc",sub3atom},
+	  {"abcdefg",codepointBug}
 	 ],
     Trans =
 	fun ([_|T], tail) ->
@@ -308,7 +309,9 @@ lists_roundtrip_2(Config) when is_list(Config) ->
 	    (L, tail3) when is_list(L) ->
 		null;
 	    ([_,_,_|L], sub3atom) ->
-		list_to_atom(L)
+		list_to_atom(L);
+	    (L, codepointBug) ->
+		L
 	end,
     OutTrans =
 	fun ({L,Twist}) ->
