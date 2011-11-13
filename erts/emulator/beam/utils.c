@@ -43,6 +43,7 @@
 #include "erl_smp.h"
 #include "erl_time.h"
 #include "erl_thr_progress.h"
+#include "erl_thr_queue.h"
 #include "erl_sched_spec_pre_alloc.h"
 
 #undef M_TRIM_THRESHOLD

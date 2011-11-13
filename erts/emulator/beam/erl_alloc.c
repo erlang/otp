@@ -41,6 +41,7 @@
 #include "erl_monitors.h"
 #include "erl_bif_timer.h"
 #include "erl_cpu_topology.h"
+#include "erl_thr_queue.h"
 #if defined(ERTS_ALC_T_DRV_SEL_D_STATE) || defined(ERTS_ALC_T_DRV_EV_D_STATE)
 #include "erl_check_io.h"
 #endif
@@ -524,6 +525,10 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
 	= sizeof(ErtsDrvSelectDataState);
     fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_MSG_REF)]
 	= sizeof(ErlMessage);
+#ifdef ERTS_SMP
+    fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_THR_Q_EL_SL)]
+	= sizeof(ErtsThrQElement_t);
+#endif
 #ifdef HARD_DEBUG
     hdbg_init();
 #endif
@@ -3070,10 +3075,10 @@ erts_request_alloc_info(struct process *c_p,
 
 #ifdef ERTS_SMP
     if (erts_no_schedulers > 1)
-	erts_smp_schedule_misc_aux_work(1,
-					erts_no_schedulers,
-					reply_alloc_info,
-					(void *) air);
+	erts_schedule_multi_misc_aux_work(1,
+					  erts_no_schedulers,
+					  reply_alloc_info,
+					  (void *) air);
 #endif
 
     reply_alloc_info((void *) air);

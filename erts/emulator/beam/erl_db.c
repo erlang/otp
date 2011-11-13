@@ -280,8 +280,7 @@ static void schedule_free_dbtable(DbTable* tb)
     ASSERT(scheds >= 1);
     ASSERT(erts_refc_read(&tb->common.ref, 0) == 0);
     erts_refc_init(&tb->common.ref, scheds);
-    ERTS_THR_MEMORY_BARRIER;
-    erts_smp_schedule_misc_aux_work(0, scheds, chk_free_dbtable, tb);
+    erts_schedule_multi_misc_aux_work(0, scheds, chk_free_dbtable, tb);
 #else
     free_dbtable(tb);
 #endif

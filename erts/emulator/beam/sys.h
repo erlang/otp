@@ -475,15 +475,6 @@ __decl_noreturn void __noreturn erl_exit(int n, char*, ...);
 #define ERTS_ABORT_EXIT	(INT_MIN + 1)	/* no crash dump; only abort() */
 #define ERTS_DUMP_EXIT	(127)		/* crash dump; then exit() */
 
-
-#ifndef ERTS_SMP
-int check_async_ready(void);
-#ifdef USE_THREADS
-void sys_async_ready(int hndl);
-int erts_register_async_ready_callback(void (*funcp)(void));
-#endif
-#endif
-
 Eterm erts_check_io_info(void *p);
 
 /* Size of misc memory allocated from system dependent code */
@@ -671,6 +662,8 @@ int erts_sys_putenv(char *key_value, int sep_ix);
    *size), a value > 0 if value buffer is too small (*size is set to needed
    size), and a value < 0 on failure. */
 int erts_sys_getenv(char *key, char *value, size_t *size);
+/* erts_sys_getenv__() is only allowed to be used in early init phase */
+int erts_sys_getenv__(char *key, char *value, size_t *size);
 
 /* Easier to use, but not as efficient, environment functions */
 char *erts_read_env(char *key);

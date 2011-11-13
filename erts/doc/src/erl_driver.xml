@@ -1638,12 +1638,19 @@ ERL_DRV_EXT2TERM     char *buf, ErlDrvUInt len
       <fsummary>Cancel an asynchronous call</fsummary>
       <desc>
         <marker id="driver_async_cancel"></marker>
-        <p>This function cancels an asynchronous operation, by removing
-          it from the queue. Only functions in the queue can be
-          cancelled; if a function is executing, it's too late to
-          cancel it. The <c>async_free</c> function is also called.</p>
-        <p>The return value is 1 if the operation was removed from the
-          queue, otherwise 0.</p>
+        <p>This function used to cancel a scheduled asynchronous operation,
+	  if it was still in the queue. It returned 1 if it succeeded, and
+	  0 if it failed.</p>
+	<p>Since it could not guarantee success, it was more or less useless.
+	   The user had to implement synchronization of cancellation anyway.
+	   It also unnecessarily complicated the implementation. Therefore,
+	   as of OTP-R15B <c>driver_async_cancel()</c> is deprecated, and
+	   scheduled for removal in OTP-R16. It will currently always fail,
+	   and return 0.</p>
+	<warning><p><c>driver_async_cancel()</c> is deferred and will
+	            be removed in the OTP-R16 release.</p>
+	</warning>
+
       </desc>
     </func>
     <func>
