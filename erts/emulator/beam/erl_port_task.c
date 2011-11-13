@@ -711,23 +711,6 @@ typedef struct {
     int *resp;
 } ErtsPortTaskExeBlockData;
 
-static void
-prepare_for_block(void *vd)
-{
-    ErtsPortTaskExeBlockData *d = (ErtsPortTaskExeBlockData *) vd;
-    erts_smp_runq_unlock(d->runq);
-}
-
-static void
-resume_after_block(void *vd)
-{
-    ErtsPortTaskExeBlockData *d = (ErtsPortTaskExeBlockData *) vd;
-    erts_smp_runq_lock(d->runq);
-    if (d->resp)
-	*d->resp = (erts_smp_atomic_read_nob(&erts_port_task_outstanding_io_tasks)
-		    != (erts_aint_t) 0);
-}
-
 /*
  * Run all scheduled tasks for the first port in run queue. If
  * new tasks appear while running reschedule port (free task is
@@ -751,11 +734,6 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
     ErtsPortTaskExeBlockData blk_data = {runq, NULL};
 
     ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(runq));
-
-    erts_smp_activity_begin(ERTS_ACTIVITY_IO,
-			    prepare_for_block,
-			    resume_after_block,
-			    (void *) &blk_data);
 
     ERTS_PT_CHK_PORTQ(runq);
 
@@ -988,10 +966,6 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 
  done:
     blk_data.resp = &res;
-    erts_smp_activity_end(ERTS_ACTIVITY_IO,
-			  prepare_for_block,
-			  resume_after_block,
-			  (void *) &blk_data);
 
     ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(runq));
 

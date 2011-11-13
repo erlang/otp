@@ -83,11 +83,7 @@
 #define CP_SIZE 1
 
 #define ErtsHAllocLockCheck(P) \
-  ERTS_SMP_LC_ASSERT((ERTS_PROC_LOCK_MAIN & erts_proc_lc_my_proc_locks((P))) \
-      	             || ((P)->id == ERTS_INVALID_PID) \
-		     || ((P)->scheduler_data \
-			 && (P) == (P)->scheduler_data->match_pseudo_process) \
-		     || erts_is_system_blocked(0))
+  ERTS_SMP_LC_ASSERT(erts_dbg_check_halloc_lock((P)))
 
 
 #ifdef DEBUG

@@ -1068,6 +1068,9 @@ int erts_proclist_same(ErtsProcList *, Process *);
 
 int erts_sched_set_wakeup_limit(char *str);
 
+#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
+int erts_dbg_check_halloc_lock(Process *p);
+#endif
 #ifdef DEBUG
 void erts_dbg_multi_scheduling_return_trap(Process *, Eterm);
 #endif
@@ -1248,16 +1251,11 @@ erts_psd_get(Process *p, int ix)
 #if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
     ErtsProcLocks locks = erts_proc_lc_my_proc_locks(p);
     if (ERTS_LC_PSD_ANY_LOCK == erts_psd_required_locks[ix].get_locks)
-	ERTS_SMP_LC_ASSERT(locks
-			   || erts_is_system_blocked(0)
-			   || (ERTS_IS_CRASH_DUMPING
-			       && erts_is_system_blocked(ERTS_BS_FLG_ALLOW_GC)));
+	ERTS_SMP_LC_ASSERT(locks || erts_thr_progress_is_blocking());
     else {
 	locks &= erts_psd_required_locks[ix].get_locks;
 	ERTS_SMP_LC_ASSERT(erts_psd_required_locks[ix].get_locks == locks
-			   || erts_is_system_blocked(0)
-			   || (ERTS_IS_CRASH_DUMPING
-			       && erts_is_system_blocked(ERTS_BS_FLG_ALLOW_GC)));
+			   || erts_thr_progress_is_blocking());
     }
 #endif
     ASSERT(0 <= ix && ix < ERTS_PSD_SIZE);
@@ -1274,16 +1272,11 @@ erts_psd_set(Process *p, ErtsProcLocks plocks, int ix, void *data)
 #if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
     ErtsProcLocks locks = erts_proc_lc_my_proc_locks(p);
     if (ERTS_LC_PSD_ANY_LOCK == erts_psd_required_locks[ix].set_locks)
-	ERTS_SMP_LC_ASSERT(locks
-			   || erts_is_system_blocked(0)
-			   || (ERTS_IS_CRASH_DUMPING
-			       && erts_is_system_blocked(ERTS_BS_FLG_ALLOW_GC)));
+	ERTS_SMP_LC_ASSERT(locks || erts_thr_progress_is_blocking());
     else {
 	locks &= erts_psd_required_locks[ix].set_locks;
 	ERTS_SMP_LC_ASSERT(erts_psd_required_locks[ix].set_locks == locks
-			   || erts_is_system_blocked(0)
-			   || (ERTS_IS_CRASH_DUMPING
-			       && erts_is_system_blocked(ERTS_BS_FLG_ALLOW_GC)));
+			   || erts_thr_progress_is_blocking());
     }
 #endif
     ASSERT(0 <= ix && ix < ERTS_PSD_SIZE);
@@ -1630,8 +1623,6 @@ erts_sched_poke(ErtsSchedulerSleepInfo *ssi)
     erts_aint32_t flags;
     ERTS_THR_MEMORY_BARRIER;
     flags = erts_smp_atomic32_read_nob(&ssi->flags);
-    ASSERT(!(flags & ERTS_SSI_FLG_SLEEPING)
-	   || (flags & ERTS_SSI_FLG_WAITING));
     if (flags & ERTS_SSI_FLG_SLEEPING) {
 	flags = erts_smp_atomic32_read_band_nob(&ssi->flags, ~ERTS_SSI_FLGS_SLEEP);
 	erts_sched_finish_poke(ssi, flags);

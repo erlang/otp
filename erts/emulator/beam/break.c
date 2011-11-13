@@ -37,6 +37,7 @@
 #include "beam_load.h"
 #include "erl_instrument.h"
 #include "erl_bif_timer.h"
+#include "erl_thr_progress.h"
 
 /* Forward declarations -- should really appear somewhere else */
 static void process_killer(void);
@@ -653,20 +654,18 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
     if (ERTS_SOMEONE_IS_CRASH_DUMPING)
 	return;
 
-    /* Wait for all threads to block. If all threads haven't blocked
+#ifdef ERTS_SMP
+    /*
+     * Wait for all managed threads to block. If all threads haven't blocked
      * after a minute, we go anyway and hope for the best...
      *
      * We do not release system again. We expect an exit() or abort() after
      * dump has been written.
-     *
-     * NOTE: We allow gc therefore it is important not to lock *any*
-     *       process locks.
      */
-    erts_smp_emergency_block_system(60000, ERTS_BS_FLG_ALLOW_GC);
+    erts_thr_progress_fatal_error_block(60000);
     /* Either worked or not... */
 
     /* Allow us to pass certain places without locking... */
-#ifdef ERTS_SMP
     erts_smp_atomic32_set_mb(&erts_writing_erl_crash_dump, 1);
     erts_smp_tsd_set(erts_is_crash_dumping_key, (void *) 1);
 #else

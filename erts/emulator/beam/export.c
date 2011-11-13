@@ -208,7 +208,8 @@ erts_export_put(Eterm mod, Eterm func, unsigned int arity)
     Export e;
     int ix;
 
-    ERTS_SMP_LC_ASSERT(erts_initialized == 0 || erts_smp_is_system_blocked(0));
+    ERTS_SMP_LC_ASSERT(erts_initialized == 0
+		       || erts_smp_thr_progress_is_blocking());
     ASSERT(is_atom(mod));
     ASSERT(is_atom(func));
     e.code[0] = mod;
@@ -265,7 +266,8 @@ erts_export_consolidate(void)
     HashInfo hi;
 #endif
 
-    ERTS_SMP_LC_ASSERT(erts_initialized == 0 || erts_smp_is_system_blocked(0));
+    ERTS_SMP_LC_ASSERT(erts_initialized == 0
+		       || erts_smp_thr_progress_is_blocking());
 
     export_write_lock();
     erts_index_merge(&secondary_export_table, &export_table);

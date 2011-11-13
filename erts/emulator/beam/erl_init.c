@@ -248,10 +248,6 @@ erl_init(int ncpu)
 {
     init_benchmarking();
 
-#ifdef ERTS_SMP
-    erts_system_block_init();
-#endif
-
     erts_init_monitors();
     erts_init_gc();
     erts_init_time();
@@ -780,6 +776,16 @@ early_init(int *argc, char **argv) /*
 						 -M flags. */
     /* Require allocators */
 #ifdef ERTS_SMP
+    /*
+     * Thread progress management:
+     *
+     * * Managed threads:
+     * ** Scheduler threads (see erl_process.c)
+     * ** Aux thread (see erl_process.c)
+     * ** Sys message dispatcher thread (see erl_trace.c)
+     *
+     * * No unmanaged threads that need to register.
+     */
     erts_thr_progress_init(no_schedulers, no_schedulers+1, 0);
 #endif
     erts_init_utils();
@@ -1503,7 +1509,6 @@ system_cleanup(int exit_code)
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_check_exact(NULL, 0);
 #endif
-    erts_smp_block_system(ERTS_BS_FLG_ALLOW_GC); /* We never release it... */
 #endif
 
 #ifdef HYBRID

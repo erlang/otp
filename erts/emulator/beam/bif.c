@@ -36,6 +36,7 @@
 #include "beam_bp.h"
 #include "erl_db_util.h"
 #include "register.h"
+#include "erl_thr_progress.h"
 
 static Export* flush_monitor_message_trap = NULL;
 static Export* set_cpu_topology_trap = NULL;
@@ -4033,11 +4034,11 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 	}
 
 	erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-	erts_smp_block_system(0);
+	erts_smp_thr_progress_block();
 
 	H_MIN_SIZE = erts_next_heap_size(n, 0);
 
-	erts_smp_release_system();
+	erts_smp_thr_progress_unblock();
 	erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 
 	BIF_RET(make_small(oval));
@@ -4049,11 +4050,11 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 	}
 
 	erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-	erts_smp_block_system(0);
+	erts_smp_thr_progress_block();
 
 	BIN_VH_MIN_SIZE = erts_next_heap_size(n, 0);
 
-	erts_smp_release_system();
+	erts_smp_thr_progress_unblock();
 	erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 
 	BIF_RET(make_small(oval));
@@ -4087,7 +4088,7 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 	Uint i;
 	ErlMessage* mp;
 	erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-	erts_smp_block_system(0);
+	erts_smp_thr_progress_block();
 
 	for (i = 0; i < erts_max_processes; i++) {
 	    if (process_tab[i] != (Process*) 0) {
@@ -4104,7 +4105,7 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 	    }
 	}
 
-	erts_smp_release_system();
+	erts_smp_thr_progress_unblock();
 	erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 
 	BIF_RET(am_true);

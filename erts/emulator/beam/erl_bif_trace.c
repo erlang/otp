@@ -37,6 +37,7 @@
 #include "erl_version.h"
 #include "beam_bp.h"
 #include "erl_binary.h"
+#include "erl_thr_progress.h"
 
 #define DECL_AM(S) Eterm AM_ ## S = am_atom_put(#S, sizeof(#S) - 1)
 
@@ -108,7 +109,7 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
     Eterm meta_tracer_pid = p->id;
 
     erts_smp_proc_unlock(p, ERTS_PROC_LOCK_MAIN);
-    erts_smp_block_system(0);
+    erts_smp_thr_progress_block();
 
     UseTmpHeap(3,p);
     /*
@@ -337,7 +338,7 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
 
  done:
     UnUseTmpHeap(3,p);
-    erts_smp_release_system();
+    erts_smp_thr_progress_unblock();
     erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
 
     return make_small(matches);
@@ -347,7 +348,7 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
     MatchSetUnref(match_prog_set);
 
     UnUseTmpHeap(3,p);
-    erts_smp_release_system();
+    erts_smp_thr_progress_unblock();
     erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
     BIF_ERROR(p, BADARG);
 }
@@ -644,7 +645,7 @@ Eterm trace_3(BIF_ALIST_3)
 
 #ifdef ERTS_SMP
 	    erts_smp_proc_unlock(p, ERTS_PROC_LOCK_MAIN);
-	    erts_smp_block_system(0);
+	    erts_smp_thr_progress_block();
 	    system_blocked = 1;
 #endif
 
@@ -725,7 +726,7 @@ Eterm trace_3(BIF_ALIST_3)
 
 #ifdef ERTS_SMP
     if (system_blocked) {
-	erts_smp_release_system();
+	erts_smp_thr_progress_unblock();
 	erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
     }
 #endif
@@ -740,7 +741,7 @@ Eterm trace_3(BIF_ALIST_3)
 
 #ifdef ERTS_SMP
     if (system_blocked) {
-	erts_smp_release_system();
+	erts_smp_thr_progress_unblock();
 	erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
     }
 #endif
@@ -1076,7 +1077,7 @@ trace_info_func(Process* p, Eterm func_spec, Eterm key)
 #ifdef ERTS_SMP
     if ( (key == am_call_time) || (key == am_all)) {
 	erts_smp_proc_unlock(p, ERTS_PROC_LOCK_MAIN);
-	erts_smp_block_system(0);
+	erts_smp_thr_progress_block();
     }
 #endif
 
@@ -1084,7 +1085,7 @@ trace_info_func(Process* p, Eterm func_spec, Eterm key)
 
 #ifdef ERTS_SMP
     if ( (key == am_call_time) || (key == am_all)) {
-	erts_smp_release_system();
+	erts_smp_thr_progress_unblock();
 	erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
     }
 #endif
@@ -1870,7 +1871,7 @@ void erts_system_monitor_clear(Process *c_p) {
 #ifdef ERTS_SMP
     if (c_p) {
 	erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
-	erts_smp_block_system(0);
+	erts_smp_thr_progress_block();
     }
 #endif
     erts_set_system_monitor(NIL);
@@ -1880,7 +1881,7 @@ void erts_system_monitor_clear(Process *c_p) {
     erts_system_monitor_flags.busy_dist_port = 0;
 #ifdef ERTS_SMP
     if (c_p) {
-	erts_smp_release_system();
+	erts_smp_thr_progress_unblock();
 	erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
     }
 #endif
@@ -1981,7 +1982,7 @@ system_monitor(Process *p, Eterm monitor_pid, Eterm list)
 
 	system_blocked = 1;
 	erts_smp_proc_unlock(p, ERTS_PROC_LOCK_MAIN);
-	erts_smp_block_system(0);
+	erts_smp_thr_progress_block();
 
 	if (!erts_pid2proc(p, ERTS_PROC_LOCK_MAIN, monitor_pid, 0))
 	    goto error;
@@ -2015,7 +2016,7 @@ system_monitor(Process *p, Eterm monitor_pid, Eterm list)
 	erts_system_monitor_flags.busy_port = !!busy_port;
 	erts_system_monitor_flags.busy_dist_port = !!busy_dist_port;
 
-	erts_smp_release_system();
+	erts_smp_thr_progress_unblock();
 	erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
 	BIF_RET(prev);
     }
@@ -2023,7 +2024,7 @@ system_monitor(Process *p, Eterm monitor_pid, Eterm list)
  error:
 
     if (system_blocked) {
-	erts_smp_release_system();
+	erts_smp_thr_progress_unblock();
 	erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
     }
 
@@ -2036,7 +2037,7 @@ void erts_system_profile_clear(Process *c_p) {
 #ifdef ERTS_SMP
     if (c_p) {
 	erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
-	erts_smp_block_system(0);
+	erts_smp_thr_progress_block();
     }
 #endif
     erts_set_system_profile(NIL);
@@ -2046,7 +2047,7 @@ void erts_system_profile_clear(Process *c_p) {
     erts_system_profile_flags.exclusive = 0;
 #ifdef ERTS_SMP
     if (c_p) {
-	erts_smp_release_system();
+	erts_smp_thr_progress_unblock();
 	erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
     }
 #endif
@@ -2110,7 +2111,7 @@ BIF_RETTYPE system_profile_2(BIF_ALIST_2)
 	system_blocked = 1;
 	
 	erts_smp_proc_unlock(p, ERTS_PROC_LOCK_MAIN);
-	erts_smp_block_system(0);
+	erts_smp_thr_progress_block();
 
 	/* Check if valid process, no locks are taken */
 
@@ -2152,7 +2153,7 @@ BIF_RETTYPE system_profile_2(BIF_ALIST_2)
 	erts_system_profile_flags.runnable_procs = !!runnable_procs;
 	erts_system_profile_flags.exclusive = !!exclusive;
 
-	erts_smp_release_system();
+	erts_smp_thr_progress_unblock();
 	erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
 	
 	BIF_RET(prev);
@@ -2161,7 +2162,7 @@ BIF_RETTYPE system_profile_2(BIF_ALIST_2)
 
     error:
 	if (system_blocked) {
-	    erts_smp_release_system();
+	    erts_smp_thr_progress_unblock();
 	    erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
     	}
 

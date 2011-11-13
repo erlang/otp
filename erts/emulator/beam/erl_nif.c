@@ -32,6 +32,7 @@
 #include "error.h"
 #include "big.h"
 #include "beam_bp.h"
+#include "erl_thr_progress.h"
 
 #include <limits.h>
 #include <stddef.h> /* offsetof */
@@ -1204,7 +1205,7 @@ enif_open_resource_type(ErlNifEnv* env,
     ErlNifResourceFlags op = flags;
     Eterm module_am, name_am;
 
-    ASSERT(erts_smp_is_system_blocked(0));
+    ASSERT(erts_smp_thr_progress_is_blocking());
     ASSERT(module_str == NULL); /* for now... */
     module_am = make_atom(env->mod_nif->mod->module);
     name_am = enif_make_atom(env, name_str);
@@ -1498,7 +1499,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 
     /* Block system (is this the right place to do it?) */
     erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-    erts_smp_block_system(0);
+    erts_smp_thr_progress_block();
 
     /* Find calling module */
     ASSERT(BIF_P->current != NULL);
@@ -1687,7 +1688,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 	erts_sys_ddll_free_error(&errdesc);
     }
 
-    erts_smp_release_system();
+    erts_smp_thr_progress_unblock();
     erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
     erts_free(ERTS_ALC_T_TMP, lib_name);
     BIF_RET(ret);
@@ -1699,7 +1700,7 @@ erts_unload_nif(struct erl_module_nif* lib)
 {
     ErlNifResourceType* rt;
     ErlNifResourceType* next;
-    ASSERT(erts_smp_is_system_blocked(0));
+    ASSERT(erts_smp_thr_progress_is_blocking());
     ASSERT(lib != NULL);
     ASSERT(lib->mod != NULL);
     for (rt = resource_type_list.next;

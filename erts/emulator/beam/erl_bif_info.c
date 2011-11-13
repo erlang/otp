@@ -39,6 +39,7 @@
 #include "dist.h"
 #include "erl_gc.h"
 #include "erl_cpu_topology.h"
+#include "erl_thr_progress.h"
 #ifdef HIPE
 #include "hipe_arch.h"
 #endif
@@ -2188,7 +2189,7 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 
 	/* Need to be the only thread running... */
 	erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-	erts_smp_block_system(0);
+	erts_smp_thr_progress_block();
 
 	if (BIF_ARG_1 == am_info)
 	    info(ERTS_PRINT_DSBUF, (void *) dsbufp);
@@ -2199,7 +2200,7 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	else
 	    distribution_info(ERTS_PRINT_DSBUF, (void *) dsbufp);
 
-	erts_smp_release_system();
+	erts_smp_thr_progress_unblock();
 	erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 
 	ASSERT(dsbufp && dsbufp->str);
@@ -2211,7 +2212,7 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	i = 0;
 	/* Need to be the only thread running... */
 	erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-	erts_smp_block_system(0);
+	erts_smp_thr_progress_block();
 	for (dep = erts_visible_dist_entries; dep; dep = dep->next) 
 	    ++i;
 	for (dep = erts_hidden_dist_entries; dep; dep = dep->next)
@@ -2234,7 +2235,7 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	    res = CONS(hp, tpl, res);
 	    hp += 2;
 	}
-	erts_smp_release_system();
+	erts_smp_thr_progress_unblock();
 	erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 	BIF_RET(res);
     } else if (BIF_ARG_1 == am_system_version) {
@@ -3397,10 +3398,10 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 	else if (ERTS_IS_ATOM_STR("memory", BIF_ARG_1)) {
 	    Eterm res;
 	    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-	    erts_smp_block_system(0);
+	    erts_smp_thr_progress_block();
 	    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 	    res = erts_memory(NULL, NULL, BIF_P, THE_NON_VALUE);
-	    erts_smp_release_system();
+	    erts_smp_thr_progress_unblock();
 	    BIF_RET(res);
 	}
     }
@@ -3656,10 +3657,10 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 		if (ms > 0) {
 		    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
 		    if (block)
-			erts_smp_block_system(0);
+			erts_smp_thr_progress_block();
 		    while (erts_milli_sleep((long) ms) != 0);
 		    if (block)
-			erts_smp_release_system();
+			erts_smp_thr_progress_unblock();
 		    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 		}
 		BIF_RET(am_true);
@@ -3869,10 +3870,10 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 	    }
 
 	    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-	    erts_smp_block_system(0);
+	    erts_smp_thr_progress_block();
 	    old_use_opt = !erts_disable_proc_not_running_opt;
 	    erts_disable_proc_not_running_opt = !use_opt;
-	    erts_smp_release_system();
+	    erts_smp_thr_progress_unblock();
 	    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 	    BIF_RET(old_use_opt ? am_true : am_false);
 #else
@@ -4044,7 +4045,7 @@ BIF_RETTYPE erts_debug_lock_counters_1(BIF_ALIST_1)
     	Eterm* hp;
 
 	erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-	erts_smp_block_system(0);
+	erts_smp_thr_progress_block();
 
 	erts_lcnt_set_rt_opt(ERTS_LCNT_OPT_SUSPEND);
 	data = erts_lcnt_get_data();
@@ -4062,17 +4063,17 @@ BIF_RETTYPE erts_debug_lock_counters_1(BIF_ALIST_1)
 	
 	erts_lcnt_clear_rt_opt(ERTS_LCNT_OPT_SUSPEND);
 
-	erts_smp_release_system();
+	erts_smp_thr_progress_unblock();
 	erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 	
 	BIF_RET(res);
     } else if (BIF_ARG_1 == am_clear) {
 	erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-	erts_smp_block_system(0);
+	erts_smp_thr_progress_block();
 
 	erts_lcnt_clear_counters();
 
-	erts_smp_release_system();
+	erts_smp_thr_progress_unblock();
 	erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 
 	BIF_RET(am_ok);
@@ -4083,7 +4084,7 @@ BIF_RETTYPE erts_debug_lock_counters_1(BIF_ALIST_1)
 	    case 2:
 		if (ERTS_IS_ATOM_STR("copy_save", tp[1])) {
 		    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-		    erts_smp_block_system(0);
+		    erts_smp_thr_progress_block();
 		    if (tp[2] == am_true) {
 
 			res = erts_lcnt_set_rt_opt(ERTS_LCNT_OPT_COPYSAVE) ? am_true : am_false;
@@ -4093,17 +4094,17 @@ BIF_RETTYPE erts_debug_lock_counters_1(BIF_ALIST_1)
 			res = erts_lcnt_clear_rt_opt(ERTS_LCNT_OPT_COPYSAVE) ? am_true : am_false;
 
 		    } else {
-			erts_smp_release_system();
+			erts_smp_thr_progress_unblock();
 			erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 			BIF_ERROR(BIF_P, BADARG);
 		    }
-		    erts_smp_release_system();
+		    erts_smp_thr_progress_unblock();
 		    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 		    BIF_RET(res);
 
 		} else if (ERTS_IS_ATOM_STR("process_locks", tp[1])) {
 		    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-		    erts_smp_block_system(0);
+		    erts_smp_thr_progress_block();
 		    if (tp[2] == am_true) {
 
 			res = erts_lcnt_set_rt_opt(ERTS_LCNT_OPT_PROCLOCK) ? am_true : am_false;
@@ -4113,11 +4114,11 @@ BIF_RETTYPE erts_debug_lock_counters_1(BIF_ALIST_1)
 			res = erts_lcnt_set_rt_opt(ERTS_LCNT_OPT_PROCLOCK) ? am_true : am_false;
 
 		    } else {
-			erts_smp_release_system();
+			erts_smp_thr_progress_unblock();
 			erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 			BIF_ERROR(BIF_P, BADARG);
 		    }
-		    erts_smp_release_system();
+		    erts_smp_thr_progress_unblock();
 		    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 		    BIF_RET(res);
 		 }

@@ -36,6 +36,7 @@
 #include "dist.h"
 #include "beam_bp.h"
 #include "beam_catches.h"
+#include "erl_thr_progress.h"
 #ifdef HIPE
 #include "hipe_mode_switch.h"
 #include "hipe_bif1.h"
@@ -70,7 +71,7 @@ do {									\
     }									\
     else								\
 	erts_lc_check_exact(NULL, 0);					\
-    ERTS_SMP_LC_ASSERT(!ERTS_LC_IS_BLOCKING);				\
+    	ERTS_SMP_LC_ASSERT(!erts_thr_progress_is_blocking());		\
 } while (0)
 #    define ERTS_SMP_REQ_PROC_MAIN_LOCK(P) \
         if ((P)) erts_proc_lc_require_lock((P), ERTS_PROC_LOCK_MAIN)

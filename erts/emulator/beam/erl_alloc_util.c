@@ -482,9 +482,7 @@ do {									\
 	else {								\
 	    ERTS_SMP_LC_ASSERT(						\
 		ethr_equal_tids((A)->debug.tid, erts_thr_self())	\
-		|| erts_is_system_blocked(ERTS_BS_FLG_ALLOW_GC)		\
-		|| (ERTS_IS_CRASH_DUMPING				\
-		    && erts_is_system_blocked(ERTS_BS_FLG_ALLOW_GC)));	\
+		|| erts_thr_progress_is_blocking());			\
 	}								\
     }									\
 } while (0)

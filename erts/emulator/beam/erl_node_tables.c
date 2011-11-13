@@ -26,6 +26,7 @@
 #include "dist.h"
 #include "big.h"
 #include "error.h"
+#include "erl_thr_progress.h"
 
 Hash erts_dist_table;
 Hash erts_node_table;
@@ -907,7 +908,7 @@ erts_get_node_and_dist_references(struct process *proc)
 #endif
 
     erts_smp_proc_unlock(proc, ERTS_PROC_LOCK_MAIN);
-    erts_smp_block_system(0);
+    erts_smp_thr_progress_block();
     /* No need to lock any thing since we are alone... */
 
     if (references_atoms_need_init) {
@@ -951,7 +952,7 @@ erts_get_node_and_dist_references(struct process *proc)
 
     delete_reference_table();
 
-    erts_smp_release_system();
+    erts_smp_thr_progress_unblock();
     erts_smp_proc_lock(proc, ERTS_PROC_LOCK_MAIN);
     return res;
 }

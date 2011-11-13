@@ -362,8 +362,6 @@ erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
     }
     erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
 
-    erts_smp_locked_activity_begin(ERTS_ACTIVITY_GC);
-
     ERTS_CHK_OFFHEAP(p);
 
     ErtsGcQuickSanityCheck(p);
@@ -396,8 +394,6 @@ erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
     if (IS_TRACED_FL(p, F_TRACE_GC)) {
         trace_gc(p, am_gc_end);
     }
-
-    erts_smp_locked_activity_end(ERTS_ACTIVITY_GC);
 
     if (erts_system_monitor_long_gc != 0) {
 	Uint ms2, s2, us2;
@@ -482,7 +478,6 @@ erts_garbage_collect_hibernate(Process* p)
     p->gcstatus = p->status;
     p->status = P_GARBING;
     erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
-    erts_smp_locked_activity_begin(ERTS_ACTIVITY_GC);
     ErtsGcQuickSanityCheck(p);
     ASSERT(p->mbuf_sz == 0);
     ASSERT(p->mbuf == 0);
@@ -596,7 +591,6 @@ erts_garbage_collect_hibernate(Process* p)
     erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS);
     p->status = p->gcstatus;
     erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
-    erts_smp_locked_activity_end(ERTS_ACTIVITY_GC);
 }
 
 
@@ -621,7 +615,6 @@ erts_garbage_collect_literals(Process* p, Eterm* literals, Uint lit_size)
     p->gcstatus = p->status;
     p->status = P_GARBING;
     erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
-    erts_smp_locked_activity_begin(ERTS_ACTIVITY_GC);
 
     /*
      * We assume that the caller has already done a major collection
@@ -724,7 +717,6 @@ erts_garbage_collect_literals(Process* p, Eterm* literals, Uint lit_size)
     erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS);
     p->status = p->gcstatus;
     erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
-    erts_smp_locked_activity_end(ERTS_ACTIVITY_GC);
 }
 
 static int

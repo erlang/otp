@@ -36,6 +36,7 @@
 #include "error.h"
 #include "erl_binary.h"
 #include "erl_bits.h"
+#include "erl_thr_progress.h"
 
 #if 0
 #define DEBUG_PRINTOUTS
@@ -159,7 +160,7 @@ static Uint active_sched;
 void
 erts_system_profile_setup_active_schedulers(void)
 {
-    ERTS_SMP_LC_ASSERT(erts_is_system_blocked(0));
+    ERTS_SMP_LC_ASSERT(erts_thr_progress_is_blocking());
     active_sched = erts_active_schedulers();
 }
 
@@ -1940,7 +1941,8 @@ trace_proc(Process *c_p, Process *t_p, Eterm what, Eterm data)
     Eterm* hp;
     int need;
 
-    ERTS_SMP_LC_ASSERT((erts_proc_lc_my_proc_locks(t_p) != 0) || erts_is_system_blocked(0));
+    ERTS_SMP_LC_ASSERT((erts_proc_lc_my_proc_locks(t_p) != 0)
+		       || erts_thr_progress_is_blocking());
     if (is_internal_port(t_p->tracer_proc)) {
 #define LOCAL_HEAP_SIZE (5+5)
 	DeclareTmpHeapNoproc(local_heap,LOCAL_HEAP_SIZE);
@@ -2742,7 +2744,8 @@ trace_port(Port *t_p, Eterm what, Eterm data) {
     Eterm mess;
     Eterm* hp;
 
-    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(t_p) || erts_is_system_blocked(0));
+    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(t_p)
+		       || erts_thr_progress_is_blocking());
 
     if (is_internal_port(t_p->tracer_proc)) {
 #define LOCAL_HEAP_SIZE (5+5)
@@ -3018,8 +3021,6 @@ static ErtsSysMsgQ *sys_message_queue_end;
 static erts_tid_t sys_msg_dispatcher_tid;
 static erts_cnd_t smq_cnd;
 
-static int dispatcher_waiting;
-
 ERTS_QUALLOC_IMPL(smq_element, ErtsSysMsgQ, 20, ERTS_ALC_T_SYS_MSG_Q)
 
 static void
@@ -3061,18 +3062,6 @@ enqueue_sys_msg(enum ErtsSysMsgType type,
     erts_smp_mtx_lock(&smq_mtx);
     enqueue_sys_msg_unlocked(type, from, to, msg, bp);
     erts_smp_mtx_unlock(&smq_mtx);
-}
-
-static void
-prepare_for_block(void *unused)
-{
-    erts_smp_mtx_unlock(&smq_mtx);
-}
-
-static void
-resume_after_block(void *unused)
-{
-    erts_smp_mtx_lock(&smq_mtx);
 }
 
 void
@@ -3140,10 +3129,10 @@ sys_msg_disp_failure(ErtsSysMsgQ *smqp, Eterm receiver)
 	    && !erts_system_monitor_flags.busy_port
 	    && !erts_system_monitor_flags.busy_dist_port)
 	    break; /* Everything is disabled */
-	erts_smp_block_system(ERTS_BS_FLG_ALLOW_GC);
+	erts_smp_thr_progress_block();
 	if (system_monitor == receiver || receiver == NIL)
 	    erts_system_monitor_clear(NULL);
-	erts_smp_release_system();
+	erts_smp_thr_progress_unblock();
 	break;
 	 case SYS_MSG_TYPE_SYSPROF:
 	if (receiver == NIL
@@ -3153,11 +3142,11 @@ sys_msg_disp_failure(ErtsSysMsgQ *smqp, Eterm receiver)
 	    && !erts_system_profile_flags.scheduler)
 		 break;
 	/* Block system to clear flags */
-	erts_smp_block_system(0);
+	erts_smp_thr_progress_block();
 	if (system_profile == receiver || receiver == NIL) { 
 		erts_system_profile_clear(NULL);
 	}
-	erts_smp_release_system();
+	erts_smp_thr_progress_unblock();
 	break;
     case SYS_MSG_TYPE_ERRLGR: {
 	char *no_elgger = "(no error logger present)";
@@ -3198,22 +3187,68 @@ sys_msg_disp_failure(ErtsSysMsgQ *smqp, Eterm receiver)
     }
 }
 
+static void
+sys_msg_dispatcher_wakeup(void *vwait_p)
+{
+    int *wait_p = (int *) vwait_p;
+    erts_smp_mtx_lock(&smq_mtx);
+    *wait_p = 0;
+    erts_smp_cnd_signal(&smq_cnd);
+    erts_smp_mtx_unlock(&smq_mtx);
+}
+
+static void
+sys_msg_dispatcher_prep_wait(void *vwait_p)
+{
+    int *wait_p = (int *) vwait_p;
+    erts_smp_mtx_lock(&smq_mtx);
+    *wait_p = 1;
+    erts_smp_mtx_unlock(&smq_mtx);
+}
+
+static void
+sys_msg_dispatcher_fin_wait(void *vwait_p)
+{
+    int *wait_p = (int *) vwait_p;
+    erts_smp_mtx_lock(&smq_mtx);
+    *wait_p = 0;
+    erts_smp_mtx_unlock(&smq_mtx);
+}
+
+static void
+sys_msg_dispatcher_wait(void *vwait_p)
+{
+    int *wait_p = (int *) vwait_p;
+    erts_smp_mtx_lock(&smq_mtx);
+    while (*wait_p)
+	erts_smp_cnd_wait(&smq_cnd, &smq_mtx);
+    erts_smp_mtx_unlock(&smq_mtx);
+}
+
 static void *
 sys_msg_dispatcher_func(void *unused)
 {
+    ErtsThrPrgrCallbacks callbacks;
     ErtsSysMsgQ *local_sys_message_queue = NULL;
+    int wait = 0;
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_set_thread_name("system message dispatcher");
 #endif
 
-    erts_register_blockable_thread();
-    erts_smp_activity_begin(ERTS_ACTIVITY_IO, NULL, NULL, NULL);
+    callbacks.arg = (void *) &wait;
+    callbacks.wakeup = sys_msg_dispatcher_wakeup;
+    callbacks.prepare_wait = sys_msg_dispatcher_prep_wait;
+    callbacks.wait = sys_msg_dispatcher_wait;
+    callbacks.finalize_wait = sys_msg_dispatcher_fin_wait;
+
+    erts_thr_progress_register_managed_thread(NULL, &callbacks, 0);
 
     while (1) {
+	int end_wait = 0;
 	ErtsSysMsgQ *smqp;
 
-	ERTS_SMP_LC_ASSERT(!ERTS_LC_IS_BLOCKING);
+	ERTS_SMP_LC_ASSERT(!erts_thr_progress_is_blocking());
 
 	erts_smp_mtx_lock(&smq_mtx);
 
@@ -3225,26 +3260,27 @@ sys_msg_dispatcher_func(void *unused)
 	}
 
 	/* Fetch current trace message queue ... */
-	erts_smp_activity_change(ERTS_ACTIVITY_IO,
-				 ERTS_ACTIVITY_WAIT,
-				 prepare_for_block,
-				 resume_after_block,
-				 NULL);
-	dispatcher_waiting = 1;
+	if (!sys_message_queue) {
+	    erts_smp_mtx_unlock(&smq_mtx);
+	    end_wait = 1;
+	    erts_thr_progress_active(NULL, 0);
+	    erts_thr_progress_prepare_wait(NULL);
+	    erts_smp_mtx_lock(&smq_mtx);
+	}
+
 	while (!sys_message_queue)
 	    erts_smp_cnd_wait(&smq_cnd, &smq_mtx);
-	dispatcher_waiting = 0;
-	erts_smp_activity_change(ERTS_ACTIVITY_WAIT,
-				 ERTS_ACTIVITY_IO,
-				 prepare_for_block,
-				 resume_after_block,
-				 NULL);
 
 	local_sys_message_queue = sys_message_queue;
 	sys_message_queue = NULL;
 	sys_message_queue_end = NULL;
 
 	erts_smp_mtx_unlock(&smq_mtx);
+
+	if (end_wait) {
+	    erts_thr_progress_finalize_wait(NULL);
+	    erts_thr_progress_active(NULL, 1);
+	}
 
 	/* Send trace messages ... */
 
@@ -3255,6 +3291,9 @@ sys_msg_dispatcher_func(void *unused)
 	    ErtsProcLocks proc_locks = ERTS_PROC_LOCKS_MSG_SEND;
 	    Process *proc = NULL;
 	    Port *port = NULL;
+
+	    if (erts_thr_progress_update(NULL))
+		erts_thr_progress_leader_update(NULL);
 
 #ifdef DEBUG_PRINTOUTS
 	    print_msg_type(smqp);
@@ -3369,7 +3408,6 @@ sys_msg_dispatcher_func(void *unused)
 	}
     }
 
-    erts_smp_activity_end(ERTS_ACTIVITY_IO, NULL, NULL, NULL);
     return NULL;
 }
 
@@ -3419,7 +3457,6 @@ init_sys_msg_dispatcher(void)
     sys_message_queue_end = NULL;
     erts_smp_cnd_init(&smq_cnd);
     erts_smp_mtx_init(&smq_mtx, "sys_msg_q");
-    dispatcher_waiting = 0;
     erts_smp_thr_create(&sys_msg_dispatcher_tid,
 			sys_msg_dispatcher_func,
 			NULL,
