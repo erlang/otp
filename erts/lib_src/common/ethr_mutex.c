@@ -2367,7 +2367,7 @@ dbg_unlock_wake(ethr_rwmutex *rwmtx,
     exp = have_w ? ETHR_RWMTX_W_FLG__ : 0;
 
     if (rwmtx->type != ETHR_RWMUTEX_TYPE_NORMAL)
-	imask = ETHR_RWMTX_R_PEND_UNLCK_MASK__;
+	imask = ETHR_RWMTX_R_PEND_UNLCK_MASK__|ETHR_RWMTX_R_ABRT_UNLCK_FLG__;
     else {
 #ifdef ETHR_RLOCK_WITH_INC_DEC
 	imask = ETHR_RWMTX_RS_MASK__;
