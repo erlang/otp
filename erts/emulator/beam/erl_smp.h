@@ -822,6 +822,16 @@ erts_smp_cnd_wait(erts_smp_cnd_t *cnd, erts_smp_mtx_t *mtx)
 #endif
 }
 
+/*
+ * IMPORTANT note about erts_smp_cnd_signal() and erts_smp_cnd_broadcast()
+ *
+ * POSIX allow a call to `pthread_cond_signal' or `pthread_cond_broadcast'
+ * even though the associated mutex/mutexes isn't/aren't locked by the
+ * caller. Our implementation do not allow that in order to avoid a
+ * performance penalty. That is, all associated mutexes *need* to be
+ * locked by the caller of erts_smp_cnd_signal()/erts_smp_cnd_broadcast()!
+ */
+
 ERTS_GLB_INLINE void
 erts_smp_cnd_signal(erts_smp_cnd_t *cnd)
 {

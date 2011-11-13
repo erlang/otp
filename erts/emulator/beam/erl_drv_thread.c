@@ -158,7 +158,9 @@ erl_drv_mutex_create(char *name)
 				       (sizeof(ErlDrvMutex)
 					+ (name ? sys_strlen(name) + 1 : 0)));
     if (dmtx) {
-	if (ethr_mutex_init(&dmtx->mtx) != 0) {
+	ethr_mutex_opt opt = ETHR_MUTEX_OPT_DEFAULT_INITER;
+	opt.posix_compliant = 1;
+	if (ethr_mutex_init_opt(&dmtx->mtx, &opt) != 0) {
 	    erts_free(ERTS_ALC_T_DRV_MTX, (void *) dmtx);
 	    dmtx = NULL;
 	}
@@ -226,7 +228,9 @@ erl_drv_cond_create(char *name)
 				      (sizeof(ErlDrvCond)
 				       + (name ? sys_strlen(name) + 1 : 0)));
     if (dcnd) {
-	if (ethr_cond_init(&dcnd->cnd) != 0) {
+	ethr_cond_opt opt = ETHR_COND_OPT_DEFAULT_INITER;
+	opt.posix_compliant = 1;
+	if (ethr_cond_init_opt(&dcnd->cnd, &opt) != 0) {
 	    erts_free(ERTS_ALC_T_DRV_CND, (void *) dcnd);
 	    dcnd = NULL;
 	}
