@@ -3360,13 +3360,13 @@ void erl_sys_init(void)
 		 SEM_FAILCRITICALERRORS | SEM_NOOPENFILEERRORBOX); 
 }
 
-#ifdef ERTS_SMP
 void
 erts_sys_schedule_interrupt(int set)
 {
     erts_check_io_interrupt(set);
 }
 
+#ifdef ERTS_SMP
 void
 erts_sys_schedule_interrupt_timed(int set, long msec)
 {
@@ -3386,7 +3386,6 @@ erl_sys_schedule(int runnable)
     erts_check_io(!runnable);
     ERTS_SMP_LC_ASSERT(!ERTS_LC_IS_BLOCKING);
 #else
-    erts_check_io_interrupt(0);
     if (runnable) {
 	erts_check_io(0);	/* Poll for I/O */
 	check_async_ready();	/* Check async completions */

@@ -120,7 +120,9 @@ end_per_group(_GroupName, Config) ->
 
 init_per_testcase(count_children_memory, Config) ->
     try erlang:memory() of
-	_ -> Config
+	_ ->
+	    erts_debug:set_internal_state(available_internal_state, true),
+	    Config
     catch error:notsup ->
 	    {skip, "+Meamin used during test; erlang:memory/1 not available"}
     end;
@@ -128,6 +130,9 @@ init_per_testcase(_Case, Config) ->
     erlang:display(_Case),
     Config.
 
+end_per_testcase(count_children_memory, _Config) ->
+    catch erts_debug:set_internal_state(available_internal_state, false),
+    ok;
 end_per_testcase(_Case, _Config) ->
     ok.
 
@@ -1136,25 +1141,25 @@ count_children_memory(Config) when is_list(Config) ->
     [supervisor:start_child(sup_test, []) || _Ignore <- lists:seq(1,1000)],
 
     garbage_collect(),
-    _Size1 = erlang:memory(processes_used),
+    _Size1 = proc_memory(),
     Children = supervisor:which_children(sup_test),
-    _Size2 = erlang:memory(processes_used),
+    _Size2 = proc_memory(),
     ChildCount = get_child_counts(sup_test),
-    _Size3 = erlang:memory(processes_used),
+    _Size3 = proc_memory(),
 
     [supervisor:start_child(sup_test, []) || _Ignore2 <- lists:seq(1,1000)],
 
     garbage_collect(),
     Children2 = supervisor:which_children(sup_test),
-    Size4 = erlang:memory(processes_used),
+    Size4 = proc_memory(),
     ChildCount2 = get_child_counts(sup_test),
-    Size5 = erlang:memory(processes_used),
+    Size5 = proc_memory(),
 
     garbage_collect(),
     Children3 = supervisor:which_children(sup_test),
-    Size6 = erlang:memory(processes_used),
+    Size6 = proc_memory(),
     ChildCount3 = get_child_counts(sup_test),
-    Size7 = erlang:memory(processes_used),
+    Size7 = proc_memory(),
 
     1000 = length(Children),
     [1,1000,0,1000] = ChildCount,
@@ -1179,6 +1184,10 @@ count_children_memory(Config) when is_list(Config) ->
 
     [terminate(SupPid, Pid, child, kill) || {undefined, Pid, worker, _Modules} <- Children3],
     [1,0,0,0] = get_child_counts(sup_test).
+
+proc_memory() ->
+    erts_debug:set_internal_state(wait, deallocations),
+    erlang:memory(processes_used).
 
 %%-------------------------------------------------------------------------
 do_not_save_start_parameters_for_temporary_children(doc) ->

@@ -444,7 +444,7 @@ erts_time_left(ErlTimer *p)
 }
 
 #ifdef DEBUG
-void erts_p_slpq()
+void erts_p_slpq(void)
 {
     int i;
     ErlTimer* p;

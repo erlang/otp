@@ -62,15 +62,28 @@ init_per_suite(Config) when is_list(Config) ->
     Config.
 
 end_per_suite(Config) when is_list(Config) ->
+    catch erts_debug:set_internal_state(available_internal_state, false),
     Config.
 
 init_per_testcase(_Case, Config) ->
     Dog = ?t:timetrap(?t:minutes(15)),
+    %% Wait for deallocations to complete since we measure
+    %% runtime in test cases.
+    wait_deallocations(),
     [{watchdog, Dog}|Config].
 
 end_per_testcase(_Func, Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog).
+
+wait_deallocations() ->
+    try
+	erts_debug:set_internal_state(wait, deallocations)
+    catch
+	error:undef ->
+	    erts_debug:set_internal_state(available_internal_state, true),
+	    wait_deallocations()
+    end.
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 

@@ -1159,7 +1159,13 @@ int erts_poll_wait(ErtsPollSet ps,
 
 	HARDDEBUGF(("Start waiting %d [%d]",num_h, (int) timeout));
 	ERTS_POLLSET_UNLOCK(ps);
+#ifdef ERTS_SMP
+	erts_thr_progress_prepare_wait(NULL);
+#endif
 	WaitForMultipleObjects(num_h, harr, FALSE, timeout);
+#ifdef ERTS_SMP
+	erts_thr_progress_finalize_wait(NULL);
+#endif
 	ERTS_POLLSET_LOCK(ps);
 	HARDDEBUGF(("Stop waiting %d [%d]",num_h, (int) timeout));
 	woke_up(ps);

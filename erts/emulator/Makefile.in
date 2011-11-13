@@ -721,7 +721,7 @@ RUN_OBJS = \
 	$(OBJDIR)/external.o		$(OBJDIR)/dist.o \
 	$(OBJDIR)/binary.o		$(OBJDIR)/erl_db.o \
 	$(OBJDIR)/erl_db_util.o		$(OBJDIR)/erl_db_hash.o \
-	$(OBJDIR)/erl_db_tree.o		$(OBJDIR)/fix_alloc.o \
+	$(OBJDIR)/erl_db_tree.o		$(OBJDIR)/erl_thr_progress.o \
 	$(OBJDIR)/big.o			$(OBJDIR)/hash.o \
 	$(OBJDIR)/index.o		$(OBJDIR)/atom.o \
 	$(OBJDIR)/module.o		$(OBJDIR)/export.o \
@@ -738,7 +738,8 @@ RUN_OBJS = \
 	$(OBJDIR)/erl_bif_re.o		$(OBJDIR)/erl_unicode.o \
 	$(OBJDIR)/packet_parser.o	$(OBJDIR)/safe_hash.o \
 	$(OBJDIR)/erl_zlib.o		$(OBJDIR)/erl_nif.o \
-	$(OBJDIR)/erl_bif_binary.o      $(OBJDIR)/erl_ao_firstfit_alloc.o
+	$(OBJDIR)/erl_bif_binary.o      $(OBJDIR)/erl_ao_firstfit_alloc.o \
+	$(OBJDIR)/erl_sched_spec_pre_alloc.o
 
 ifeq ($(TARGET),win32)
 DRV_OBJS = \

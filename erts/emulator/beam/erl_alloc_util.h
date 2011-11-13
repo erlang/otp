@@ -20,9 +20,12 @@
 #ifndef ERL_ALLOC_UTIL__
 #define ERL_ALLOC_UTIL__
 
-#define ERTS_ALCU_VSN_STR "2.2"
+#define ERTS_ALCU_VSN_STR "3.0"
 
 #include "erl_alloc_types.h"
+
+#define ERTS_AU_PREF_ALLOC_BITS 11
+#define ERTS_AU_MAX_PREF_ALLOC_INSTANCES (1 << ERTS_AU_PREF_ALLOC_BITS)
 
 typedef struct Allctr_t_ Allctr_t;
 
@@ -35,6 +38,7 @@ typedef struct {
     char *name_prefix;
     ErtsAlcType_t alloc_no;
     int force;
+    int ix;
     int ts;
     int tspec;
     int tpref;
@@ -53,12 +57,20 @@ typedef struct {
     UWord mbcgs;
     UWord sbmbct;
     UWord sbmbcs;
+
+    void *fix;
+    size_t *fix_type_size;
 } AllctrInit_t;
 
 typedef struct {
     UWord blocks;
     UWord carriers;
 } AllctrSize_t;
+
+typedef struct {
+    UWord allocated;
+    UWord used;
+} ErtsAlcUFixInfo_t;
 
 #ifndef SMALL_MEMORY
 
@@ -71,6 +83,7 @@ typedef struct {
     NULL,                                                                  \
     ERTS_ALC_A_INVALID,	/* (number) alloc_no: allocator number           */\
     0,			/* (bool)   force:  force enabled                */\
+    0,			/* (number) ix: instance index                   */\
     1,			/* (bool)   ts:     thread safe                  */\
     0,			/* (bool)   tspec:  thread specific              */\
     0,			/* (bool)   tpref:  thread preferred             */\
@@ -88,7 +101,10 @@ typedef struct {
     1024*1024,		/* (bytes)  smbcs:  smallest mbc size            */\
     10,			/* (amount) mbcgs:  mbc growth stages            */\
     256,	       	/* (bytes)  sbmbct:  small block mbc threshold   */\
-    8*1024		/* (bytes)  sbmbcs:  small block mbc size        */\
+    8*1024,		/* (bytes)  sbmbcs:  small block mbc size        */ \
+    /* --- Data not options -------------------------------------------- */\
+    NULL,		/* (ptr)    fix                                  */\
+    NULL		/* (ptr)    fix_type_size                        */\
 }
 
 #else /* if SMALL_MEMORY */
@@ -102,6 +118,7 @@ typedef struct {
     NULL,                                                                  \
     ERTS_ALC_A_INVALID,	/* (number) alloc_no: allocator number           */\
     0,			/* (bool)   force:  force enabled                */\
+    0,			/* (number) ix: instance index                   */\
     1,			/* (bool)   ts:     thread safe                  */\
     0,			/* (bool)   tspec:  thread specific              */\
     0,			/* (bool)   tpref:  thread preferred             */\
@@ -118,7 +135,10 @@ typedef struct {
     128*1024,		/* (bytes)  smbcs:  smallest mbc size            */\
     10,			/* (amount) mbcgs:  mbc growth stages            */\
     256,	       	/* (bytes)  sbmbct:  small block mbc threshold   */\
-    8*1024		/* (bytes)  sbmbcs:  small block mbc size        */\
+    8*1024,		/* (bytes)  sbmbcs:  small block mbc size        */ \
+    /* --- Data not options -------------------------------------------- */\
+    NULL,		/* (ptr)    fix                                  */\
+    NULL		/* (ptr)    fix_type_size                        */\
 }
 
 #endif
@@ -132,6 +152,7 @@ void *	erts_alcu_alloc_ts(ErtsAlcType_t, void *, Uint);
 void *	erts_alcu_realloc_ts(ErtsAlcType_t, void *, void *, Uint);
 void *	erts_alcu_realloc_mv_ts(ErtsAlcType_t, void *, void *, Uint);
 void	erts_alcu_free_ts(ErtsAlcType_t, void *, void *);
+#ifdef ERTS_SMP
 void *	erts_alcu_alloc_thr_spec(ErtsAlcType_t, void *, Uint);
 void *	erts_alcu_realloc_thr_spec(ErtsAlcType_t, void *, void *, Uint);
 void *	erts_alcu_realloc_mv_thr_spec(ErtsAlcType_t, void *, void *, Uint);
@@ -141,12 +162,16 @@ void *	erts_alcu_realloc_thr_pref(ErtsAlcType_t, void *, void *, Uint);
 void *	erts_alcu_realloc_mv_thr_pref(ErtsAlcType_t, void *, void *, Uint);
 void	erts_alcu_free_thr_pref(ErtsAlcType_t, void *, void *);
 #endif
+#endif
 Eterm	erts_alcu_au_info_options(int *, void *, Uint **, Uint *);
 Eterm	erts_alcu_info_options(Allctr_t *, int *, void *, Uint **, Uint *);
 Eterm	erts_alcu_sz_info(Allctr_t *, int, int *, void *, Uint **, Uint *);
 Eterm	erts_alcu_info(Allctr_t *, int, int *, void *, Uint **, Uint *);
 void	erts_alcu_init(AlcUInit_t *);
-void    erts_alcu_current_size(Allctr_t *, AllctrSize_t *);
+void    erts_alcu_current_size(Allctr_t *, AllctrSize_t *,
+			       ErtsAlcUFixInfo_t *, int);
+void    erts_alcu_check_delayed_dealloc(Allctr_t *, int, int *, int *);
+erts_aint32_t erts_alcu_fix_alloc_shrink(Allctr_t *, erts_aint32_t);
 
 #endif
 
@@ -246,13 +271,83 @@ typedef struct {
     } blocks;
 } CarriersStats_t;
 
+#ifdef ERTS_SMP
+
+typedef union ErtsAllctrDDBlock_t_ ErtsAllctrDDBlock_t;
+
+union ErtsAllctrDDBlock_t_ {
+    erts_atomic_t atmc_next;
+    ErtsAllctrDDBlock_t *ptr_next;
+};
+
+typedef struct {
+    ErtsAllctrDDBlock_t marker;
+    erts_atomic_t last;
+    erts_atomic_t um_refc[2];
+    erts_atomic32_t um_refc_ix;
+} ErtsDDTail_t;
+
+typedef struct {
+    /*
+     * This structure needs to be cache line aligned for best
+     * performance.
+     */
+    union {
+	/* Modified by threads returning memory to this allocator */
+	ErtsDDTail_t data;
+	char align__[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(ErtsDDTail_t))];
+    } tail;
+    /*
+     * Everything below this point is *only* accessed by the
+     * thread owning the allocator.
+     */
+    struct {
+	ErtsAllctrDDBlock_t *first;
+	ErtsAllctrDDBlock_t *unref_end;
+	struct {
+	    ErtsThrPrgrVal thr_progress;
+	    int thr_progress_reached;
+	    int um_refc_ix;
+	    ErtsAllctrDDBlock_t *unref_end;
+	} next;
+	int used_marker;
+    } head;
+} ErtsAllctrDDQueue_t;
+
+#endif
+
+typedef struct {
+    size_t type_size;
+    SWord list_size;
+    void *list;
+    SWord max_used;
+    SWord limit;
+    SWord allocated;
+    SWord used;
+} ErtsAlcFixList_t;
+
 struct Allctr_t_ {
+#ifdef ERTS_SMP
+    struct {
+	/*
+	 * We want the queue at the beginning of
+	 * the Allctr_t struct, due to cache line
+	 * alignment reasons.
+	 */
+	ErtsAllctrDDQueue_t q;
+	int		use;
+	int		ix;
+    } dd;
+#endif
 
     /* Allocator name prefix */
     char *		name_prefix;
 
     /* Allocator number */
     ErtsAlcType_t	alloc_no;
+
+    /* Instance index */
+    int			ix;
 
     /* Alloc, realloc and free names as atoms */
     struct {
@@ -278,6 +373,7 @@ struct Allctr_t_ {
     Uint		mbc_growth_stages;
     Uint		sbmbc_threshold;
     Uint		sbmbc_size;
+
 #if HAVE_ERTS_MSEG
     ErtsMsegOpt_t	mseg_opt;
 #endif
@@ -315,6 +411,10 @@ struct Allctr_t_ {
     void		(*check_mbc)		(Allctr_t *, Carrier_t *);
 #endif
 
+    int			fix_n_base;
+    int			fix_shrink_scheduled;
+    ErtsAlcFixList_t	*fix;
+
 #ifdef USE_THREADS
     /* Mutex for this allocator */
     erts_mtx_t		mutex;
@@ -323,6 +423,7 @@ struct Allctr_t_ {
 	Allctr_t	*prev;
 	Allctr_t	*next;
     } ts_list;
+
 #endif
 
     int			atoms_initialized;

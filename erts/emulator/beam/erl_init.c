@@ -42,6 +42,7 @@
 #include "erl_misc_utils.h"
 #include "packet_parser.h"
 #include "erl_cpu_topology.h"
+#include "erl_thr_progress.h"
 
 #ifdef HIPE
 #include "hipe_mode_switch.h"	/* for hipe_mode_switch_init() */
@@ -260,6 +261,8 @@ erl_init(int ncpu)
 			 no_schedulers,
 			 no_schedulers_online);
     erts_init_cpu_topology(); /* Must be after init_scheduling */
+    erts_alloc_late_init();
+
     H_MIN_SIZE      = erts_next_heap_size(H_MIN_SIZE, 0);
     BIN_VH_MIN_SIZE = erts_next_heap_size(BIN_VH_MIN_SIZE, 0);
 
@@ -644,6 +647,9 @@ early_init(int *argc, char **argv) /*
     erts_use_r9_pids_ports = 0;
 
     erts_sys_pre_init();
+#ifdef ERTS_SMP
+    erts_thr_progress_pre_init();
+#endif
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_init();
@@ -767,11 +773,15 @@ early_init(int *argc, char **argv) /*
 
     erts_no_schedulers = (Uint) no_schedulers;
 #endif
+    erts_early_init_scheduling(no_schedulers);
 
+    alloc_opts.ncpu = ncpu;
     erts_alloc_init(argc, argv, &alloc_opts); /* Handles (and removes)
 						 -M flags. */
     /* Require allocators */
-    erts_early_init_scheduling();
+#ifdef ERTS_SMP
+    erts_thr_progress_init(no_schedulers, no_schedulers+1, 0);
+#endif
     erts_init_utils();
     erts_early_init_cpu_topology(no_schedulers,
 				 &max_main_threads,
@@ -1524,9 +1534,6 @@ system_cleanup(int exit_code)
 
 #if defined(USE_THREADS)
     exit_async();
-#endif
-#if HAVE_ERTS_MSEG
-    erts_mseg_exit();
 #endif
 
     /*

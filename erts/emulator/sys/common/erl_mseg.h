@@ -44,7 +44,7 @@ typedef struct {
     Uint amcbf;
     Uint rmcbf;
     Uint mcs;
-    Uint cci;
+    Uint nos;
 } ErtsMsegInit_t;
 
 #define ERTS_MSEG_INIT_DEFAULT_INITIALIZER				\
@@ -60,6 +60,7 @@ typedef struct {
     int  preserv;
     UWord abs_shrink_th;
     UWord rel_shrink_th;
+    int sched_spec;
 #if HALFWORD_HEAP
     int low_mem;
 #endif
@@ -75,14 +76,14 @@ void *erts_mseg_realloc(ErtsAlcType_t, void *, Uint, Uint *);
 void *erts_mseg_realloc_opt(ErtsAlcType_t, void *, Uint, Uint *,
 			    const ErtsMsegOpt_t *);
 void  erts_mseg_clear_cache(void);
-Uint  erts_mseg_no(void);
+void  erts_mseg_cache_check(void);
+Uint  erts_mseg_no( const ErtsMsegOpt_t *);
 Uint  erts_mseg_unit_size(void);
 void  erts_mseg_init(ErtsMsegInit_t *init);
 void  erts_mseg_late_init(void); /* Have to be called after all allocators,
 				   threads and timers have been initialized. */
-void  erts_mseg_exit(void);
-Eterm erts_mseg_info_options(int *, void*, Uint **, Uint *);
-Eterm erts_mseg_info(int *, void*, int, Uint **, Uint *);
+Eterm erts_mseg_info_options(int, int *, void*, Uint **, Uint *);
+Eterm erts_mseg_info(int, int *, void*, int, Uint **, Uint *);
 
 #endif /* #if HAVE_ERTS_MSEG */
 

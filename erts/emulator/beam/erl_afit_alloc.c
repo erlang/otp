@@ -65,16 +65,20 @@ erts_afalc_start(AFAllctr_t *afallctr,
 		 AFAllctrInit_t *afinit,
 		 AllctrInit_t *init)
 {
-    AFAllctr_t nulled_state = {{0}};
-    /* {{0}} is used instead of {0}, in order to avoid (an incorrect) gcc
-       warning. gcc warns if {0} is used as initializer of a struct when
-       the first member is a struct (not if, for example, the third member
-       is a struct). */
+    struct {
+	int dummy;
+	AFAllctr_t allctr;
+    } zero = {0};
+    /* The struct with a dummy element first is used in order to avoid (an
+       incorrect) gcc warning. gcc warns if {0} is used as initializer of
+       a struct when the first member is a struct (not if, for example,
+       the third member is a struct). */
+
     Allctr_t *allctr = (Allctr_t *) afallctr;
 
-    init->sbmbct = 0; /* Small mbc not supported by afit */
+    sys_memcpy((void *) afallctr, (void *) &zero.allctr, sizeof(AFAllctr_t));
 
-    sys_memcpy((void *) afallctr, (void *) &nulled_state, sizeof(AFAllctr_t));
+    init->sbmbct = 0; /* Small mbc not supported by afit */
 
     allctr->mbc_header_size		= sizeof(Carrier_t);
     allctr->min_mbc_size		= MIN_MBC_SZ;

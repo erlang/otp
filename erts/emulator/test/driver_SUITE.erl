@@ -75,7 +75,8 @@
 	 smp_select/1,
 	 driver_select_use/1,
 	 thread_mseg_alloc_cache_clean/1,
-	 otp_9302/1]).
+	 otp_9302/1,
+	 thr_free_drv/1]).
 
 -export([bin_prefix/2]).
 
@@ -143,7 +144,8 @@ all() ->
      otp_6879, caller, many_events, missing_callbacks,
      smp_select, driver_select_use,
      thread_mseg_alloc_cache_clean,
-     otp_9302].
+     otp_9302,
+     thr_free_drv].
 
 groups() -> 
     [{timer, [],
@@ -1792,7 +1794,7 @@ driver_select_use0(Config) ->
 
 thread_mseg_alloc_cache_clean(Config) when is_list(Config) ->
     case {erlang:system_info(threads),
-	  erlang:system_info({allocator,mseg_alloc}),
+	  mseg_inst_info(0),
 	  driver_alloc_sbct()} of
 	{_, false, _} ->
 	    ?line {skipped, "No mseg_alloc"};
@@ -1804,13 +1806,13 @@ thread_mseg_alloc_cache_clean(Config) when is_list(Config) ->
 	    ?line {skipped, "driver_alloc() using too large single block threshold"};
 	{_, _, 0} ->
 	    ?line {skipped, "driver_alloc() using too low single block threshold"};
-	{true, MsegAllocInfo, SBCT} ->
+	{true, _MsegAllocInfo, SBCT} ->
 	    ?line DrvName = 'thr_alloc_drv',
 	    ?line Path = ?config(data_dir, Config),
 	    ?line erl_ddll:start(),
 	    ?line ok = load_driver(Path, DrvName),   
 	    ?line Port = open_port({spawn, DrvName}, []),
-	    ?line CCI = mseg_alloc_cci(MsegAllocInfo),
+	    ?line CCI = 1000,
 	    ?line ?t:format("CCI = ~p~n", [CCI]),
 	    ?line CCC = mseg_alloc_ccc(),
 	    ?line ?t:format("CCC = ~p~n", [CCC]),
@@ -1831,7 +1833,7 @@ mseg_alloc_cci(MsegAllocInfo) ->
     ?line CCI.
 
 mseg_alloc_ccc() ->
-    mseg_alloc_ccc(erlang:system_info({allocator,mseg_alloc})).
+    mseg_alloc_ccc(mseg_inst_info(0)).
 
 mseg_alloc_ccc(MsegAllocInfo) ->
     ?line {value,{memkind, MKL}} = lists:keysearch(memkind,1,MsegAllocInfo),
@@ -1841,7 +1843,7 @@ mseg_alloc_ccc(MsegAllocInfo) ->
     ?line GigaCCC*1000000000 + CCC.
 
 mseg_alloc_cached_segments() ->
-    mseg_alloc_cached_segments(erlang:system_info({allocator,mseg_alloc})).
+    mseg_alloc_cached_segments(mseg_inst_info(0)).
 
 mseg_alloc_cached_segments(MsegAllocInfo) ->
     MemName = case is_halfword_vm() of
@@ -1858,6 +1860,13 @@ mseg_alloc_cached_segments(MsegAllocInfo) ->
     ?line {value,{cached_segments, CS}}
 	= lists:keysearch(cached_segments, 1, SL),
     ?line CS.
+
+mseg_inst_info(I) ->
+    {value, {instance, I, Value}}
+	= lists:keysearch(I,
+			  2,
+			  erlang:system_info({allocator,mseg_alloc})),
+    Value.
 
 is_halfword_vm() ->
     case {erlang:system_info({wordsize, internal}),
@@ -1913,6 +1922,38 @@ otp_9302(Config) when is_list(Config) ->
     ?line no_msg = get_port_msg(Port, 2000),
     ?line port_close(Port),
     ?line ok.
+
+thr_free_drv(Config) when is_list(Config) ->
+    ?line Path = ?config(data_dir, Config),
+    ?line erl_ddll:start(),
+    ?line ok = load_driver(Path, thr_free_drv),
+    ?line MemBefore = driver_alloc_size(),
+%    io:format("SID=~p", [erlang:system_info(scheduler_id)]),
+    ?line Port = open_port({spawn, thr_free_drv}, []),
+    ?line MemPeek = driver_alloc_size(),
+    ?line true = is_port(Port),
+    ?line ok = thr_free_drv_control(Port, 0),
+    ?line port_close(Port),
+    ?line MemAfter = driver_alloc_size(),
+    ?line io:format("MemPeek=~p~n", [MemPeek]),
+    ?line io:format("MemBefore=~p, MemAfter=~p~n", [MemBefore, MemAfter]),
+    ?line MemBefore = MemAfter,
+    ?line case MemPeek of
+	      undefined -> ok;
+	      _ ->
+		  ?line true = MemPeek > MemBefore
+	  end,
+    ?line ok.
+
+thr_free_drv_control(Port, N) ->
+    case erlang:port_control(Port, 0, "") of
+	"done" ->
+	    ok;
+	"more" ->
+	    erlang:yield(),
+%	    io:format("N=~p, SID=~p", [N, erlang:system_info(scheduler_id)]),
+	    thr_free_drv_control(Port, N+1)
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% 		Utilities
@@ -2077,3 +2118,33 @@ start_node(Config) when is_list(Config) ->
 
 stop_node(Node) ->
     ?t:stop_node(Node).
+
+wait_deallocations() ->
+    try
+	erts_debug:set_internal_state(wait, deallocations)
+    catch error:undef ->
+	    erts_debug:set_internal_state(available_internal_state, true),
+	    wait_deallocations()
+    end.
+
+driver_alloc_size() ->
+    wait_deallocations(),
+    case erlang:system_info({allocator_sizes, driver_alloc}) of
+	false ->
+	    undefined;
+	MemInfo ->
+	    CS = lists:foldl(
+		   fun ({instance, _, L}, Acc) ->
+			   {value,{_,SBMBCS}} = lists:keysearch(sbmbcs, 1, L),
+			   {value,{_,MBCS}} = lists:keysearch(mbcs, 1, L),
+			   {value,{_,SBCS}} = lists:keysearch(sbcs, 1, L),
+			   [SBMBCS,MBCS,SBCS | Acc]
+		   end,
+		   [],
+		   MemInfo),
+	    lists:foldl(
+	      fun(L, Sz0) ->
+		      {value,{_,Sz,_,_}} = lists:keysearch(blocks_size, 1, L),
+		      Sz0+Sz
+	      end, 0, CS)
+    end.

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2006-2009. All Rights Reserved.
+ * Copyright Ericsson AB 2006-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -216,6 +216,9 @@ typedef struct {
 #endif
 } ErtsPollInfo;
 
+#ifdef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
+void		ERTS_POLL_EXPORT(erts_poll_async_sig_interrupt)(ErtsPollSet);
+#endif
 void		ERTS_POLL_EXPORT(erts_poll_interrupt)(ErtsPollSet,
 						      int);
 void		ERTS_POLL_EXPORT(erts_poll_interrupt_timed)(ErtsPollSet,

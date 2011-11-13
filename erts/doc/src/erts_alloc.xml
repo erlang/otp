@@ -58,11 +58,8 @@
       <item>Allocator used for memory blocks that are expected to be
        long-lived, for example Erlang code.</item>
       <tag><c>fix_alloc</c></tag>
-      <item>A very fast allocator used for some fix-sized
-       data. <c>fix_alloc</c> manages a set of memory pools from
-       which memory blocks are handed out. <c>fix_alloc</c>
-       allocates memory pools from <c>ll_alloc</c>. Memory pools
-       that have been allocated are never deallocated.</item>
+      <item>A fast allocator used for some frequently used
+       fixed size data types.</item>
       <tag><c>std_alloc</c></tag>
       <item>Allocator used for most memory blocks not allocated via any of
        the other allocators described above.</item>
@@ -83,7 +80,7 @@
       where only small blocks are placed. Currently this allocator is
       disabled by default.</item>
     </taglist>
-    <p><c>sys_alloc</c> and <c>fix_alloc</c> are always enabled and
+    <p><c>sys_alloc</c> is always enabled and
       cannot be disabled. <c>mseg_alloc</c> is always enabled if it is
       available and an allocator that uses it is enabled. All other
       allocators can be <seealso marker="#M_e">enabled or disabled</seealso>.
@@ -104,7 +101,7 @@
     <marker id="alloc_util"></marker>
     <title>The alloc_util framework</title>
     <p>Internally a framework called <c>alloc_util</c> is used for
-      implementing allocators. <c>sys_alloc</c>, <c>fix_alloc</c>, and
+      implementing allocators. <c>sys_alloc</c>, and
       <c>mseg_alloc</c> do not use this framework; hence, the
       following does <em>not</em> apply to them.</p>
     <p>An allocator manages multiple areas, called carriers, in which
@@ -212,6 +209,14 @@
 	  This since it will only cause problems for other allocators.</p>
       </item>
     </taglist>
+    <p>Apart from the ordinary allocators described above a number of
+       pre-allocators are used for some specific data types. These
+       pre-allocators pre-allocate a fixed amount of memory for certain data
+       types when the run-time system starts. As long as there are available
+       pre-allocated memory, it will be used. When no pre-allocated memory is
+       available, memory will be allocated in ordinary allocators. These
+       pre-allocators are typically much faster than the ordinary allocators,
+       but can only satisfy a limited amount of requests.</p>
   </section>
 
   <note><p>
@@ -272,18 +277,6 @@
        Max cached segments. The maximum number of memory segments
        stored in the memory segment cache. Valid range is
        0-30. Default value is 5.</item>
-      <tag><marker id="MMcci"><c><![CDATA[+MMcci <time>]]></c></marker></tag>
-      <item>
-       Cache check interval (in milliseconds). The memory segment
-       cache is checked for segments to destroy at an interval
-       determined by this parameter. Default value is 1000.</item>
-    </taglist>
-    <p>The following flags are available for configuration of
-      <c>fix_alloc</c>:</p>
-    <taglist>
-      <tag><marker id="MFe"><c>+MFe true</c></marker></tag>
-      <item>
-       Enable <c>fix_alloc</c>. Note: <c>fix_alloc</c> cannot be disabled.</item>
     </taglist>
     <p>The following flags are available for configuration of
       <c>sys_alloc</c>:</p>
@@ -322,7 +315,7 @@
        based on <c>alloc_util</c>. If <c>u</c> is used as subsystem
        identifier (i.e., <c><![CDATA[<S> = u]]></c>) all allocators based on
        <c>alloc_util</c> will be effected. If <c>B</c>, <c>D</c>, <c>E</c>,
-       <c>H</c>, <c>L</c>, <c>R</c>, <c>S</c>, or <c>T</c> is used as
+        <c>F</c>, <c>H</c>, <c>L</c>, <c>R</c>, <c>S</c>, or <c>T</c> is used as
        subsystem identifier, only the specific allocator identified will be
        effected:</p>
     <taglist>
@@ -441,26 +434,23 @@
        kilobytes). See <seealso marker="#mseg_mbc_sizes">the description
        on how sizes for mseg_alloc multiblock carriers are decided</seealso>
        in "the <c>alloc_util</c> framework" section.</item>
-      <tag><marker id="M_t"><c><![CDATA[+M<S>t true|false|<amount>]]></c></marker></tag>
+      <tag><marker id="M_t"><c><![CDATA[+M<S>t true|false]]></c></marker></tag>
       <item>
-        <p>Multiple, thread specific instances of the allocator.
-           This option will only have any effect on the runtime system
-           with SMP support. Default behaviour on the runtime system with
-           SMP support (<c>N</c> equals the number of scheduler threads):</p>
+       Multiple, thread specific instances of the allocator.
+       This option will only have any effect on the runtime system
+       with SMP support. Default behaviour on the runtime system with
+       SMP support:
        <taglist>
-         <tag><c>temp_alloc</c></tag>
-	 <item><c>N + 1</c> instances.</item>
          <tag><c>ll_alloc</c></tag>
 	 <item><c>1</c> instance.</item>
          <tag>Other allocators</tag>
-	 <item><c>N</c> instances when <c>N</c> is less than or equal to
-	 <c>16</c>. <c>16</c> instances when <c>N</c> is greater than
-	 <c>16</c>.</item>
+	 <item><c>NoSchedulers+1</c> instances. Each scheduler will use
+	 a lock-free instance of its own and other threads will use
+	 a common instance.</item>
        </taglist>
-       <p><c>temp_alloc</c> will always use <c>N + 1</c> instances when
-          this option has been enabled regardless of the amount passed.
-          Other allocators will use the same amount of instances as the
-          amount passed as long as it isn't greater than <c>N</c>.</p>
+       It was previously (before ERTS version 5.9) possible to configure
+       a smaller amount of thread specific instances than schedulers.
+       This is, however, not possible any more.
       </item>
     </taglist>
     <p>Currently the following flags are available for configuration of

@@ -193,6 +193,8 @@ typedef struct { int gcc_is_buggy; } erts_rwlock_t;
 
 #endif /* #ifdef USE_THREADS */
 
+#define ERTS_AINT_NULL ((erts_aint_t) NULL)
+
 #define ERTS_AINT_T_MAX (~(((erts_aint_t) 1) << (sizeof(erts_aint_t)*8-1)))
 #define ERTS_AINT_T_MIN ((((erts_aint_t) 1) << (sizeof(erts_aint_t)*8-1)))
 #define ERTS_AINT32_T_MAX (~(((erts_aint32_t) 1) << (sizeof(erts_aint32_t)*8-1)))

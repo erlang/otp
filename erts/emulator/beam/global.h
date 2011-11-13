@@ -547,7 +547,7 @@ ERTS_GLB_INLINE void erts_may_save_closed_port(Port *prt)
 	tombstone = (Eterm*) erts_smp_atomic_add_read_nob(&erts_dead_ports_ptr,
 							  -(erts_aint_t)sizeof(Eterm));
 	ASSERT(tombstone+1 != NULL);
-	ASSERT(prt->snapshot == erts_smp_atomic_read_nob(&erts_ports_snapshot) - 1);
+	ASSERT(prt->snapshot == erts_smp_atomic32_read_nob(&erts_ports_snapshot) - 1);
 	*tombstone = prt->id;
     }
     /*else no ongoing snapshot or port was already included or created after snapshot */

@@ -263,6 +263,7 @@ int erts_use_kernel_poll = 0;
 struct {
     int (*select)(ErlDrvPort, ErlDrvEvent, int, int);
     int (*event)(ErlDrvPort, ErlDrvEvent, ErlDrvEventData);
+    void (*check_io_as_interrupt)(void);
     void (*check_io_interrupt)(int);
     void (*check_io_interrupt_tmd)(int, long);
     void (*check_io)(int);
@@ -302,6 +303,9 @@ init_check_io(void)
     if (erts_use_kernel_poll) {
 	io_func.select			= driver_select_kp;
 	io_func.event			= driver_event_kp;
+#ifdef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
+	io_func.check_io_as_interrupt	= erts_check_io_async_sig_interrupt_kp;
+#endif
 	io_func.check_io_interrupt	= erts_check_io_interrupt_kp;
 	io_func.check_io_interrupt_tmd	= erts_check_io_interrupt_timed_kp;
 	io_func.check_io		= erts_check_io_kp;
@@ -314,6 +318,9 @@ init_check_io(void)
     else {
 	io_func.select			= driver_select_nkp;
 	io_func.event			= driver_event_nkp;
+#ifdef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
+	io_func.check_io_as_interrupt	= erts_check_io_async_sig_interrupt_nkp;
+#endif
 	io_func.check_io_interrupt	= erts_check_io_interrupt_nkp;
 	io_func.check_io_interrupt_tmd	= erts_check_io_interrupt_timed_nkp;
 	io_func.check_io		= erts_check_io_nkp;
@@ -325,6 +332,11 @@ init_check_io(void)
     }
 }
 
+#ifdef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
+#define ERTS_CHK_IO_AS_INTR()	(*io_func.check_io_as_interrupt)()
+#else
+#define ERTS_CHK_IO_AS_INTR()	(*io_func.check_io_interrupt)(1)
+#endif
 #define ERTS_CHK_IO_INTR	(*io_func.check_io_interrupt)
 #define ERTS_CHK_IO_INTR_TMD	(*io_func.check_io_interrupt_tmd)
 #define ERTS_CHK_IO		(*io_func.check_io)
@@ -339,6 +351,11 @@ init_check_io(void)
     max_files = erts_check_io_max_files();
 }
 
+#ifdef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
+#define ERTS_CHK_IO_AS_INTR()	erts_check_io_async_sig_interrupt()
+#else
+#define ERTS_CHK_IO_AS_INTR()	erts_check_io_interrupt(1)
+#endif
 #define ERTS_CHK_IO_INTR	erts_check_io_interrupt
 #define ERTS_CHK_IO_INTR_TMD	erts_check_io_interrupt_timed
 #define ERTS_CHK_IO		erts_check_io
@@ -346,13 +363,13 @@ init_check_io(void)
 
 #endif
 
-#ifdef ERTS_SMP
 void
 erts_sys_schedule_interrupt(int set)
 {
     ERTS_CHK_IO_INTR(set);
 }
 
+#ifdef ERTS_SMP
 void
 erts_sys_schedule_interrupt_timed(int set, long msec)
 {
@@ -731,7 +748,7 @@ break_requested(void)
       erl_exit(ERTS_INTR_EXIT, "");
 
   ERTS_SET_BREAK_REQUESTED;
-  ERTS_CHK_IO_INTR(1); /* Make sure we don't sleep in poll */
+  ERTS_CHK_IO_AS_INTR(); /* Make sure we don't sleep in poll */
 }
 
 /* set up signal handlers for break and quit */
@@ -1140,7 +1157,7 @@ static RETSIGTYPE onchld(int signum)
     smp_sig_notify('C');
 #else
     children_died = 1;
-    ERTS_CHK_IO_INTR(1); /* Make sure we don't sleep in poll */
+    ERTS_CHK_IO_AS_INTR(); /* Make sure we don't sleep in poll */
 #endif
 }
 
@@ -2848,7 +2865,6 @@ erl_sys_schedule(int runnable)
     ERTS_CHK_IO(!runnable);
     ERTS_SMP_LC_ASSERT(!ERTS_LC_IS_BLOCKING);
 #else
-    ERTS_CHK_IO_INTR(0);
     if (runnable) {
 	ERTS_CHK_IO(0);		/* Poll for I/O */
 	check_async_ready();	/* Check async completions */

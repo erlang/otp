@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2006-2009. All Rights Reserved.
+ * Copyright Ericsson AB 2006-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -40,6 +40,10 @@ Eterm erts_check_io_info_kp(void *);
 Eterm erts_check_io_info_nkp(void *);
 int erts_check_io_max_files_kp(void);
 int erts_check_io_max_files_nkp(void);
+#ifdef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
+void erts_check_io_async_sig_interrupt_kp(void);
+void erts_check_io_async_sig_interrupt_nkp(void);
+#endif
 void erts_check_io_interrupt_kp(int);
 void erts_check_io_interrupt_nkp(int);
 void erts_check_io_interrupt_timed_kp(int, long);
@@ -56,6 +60,9 @@ int erts_check_io_debug_nkp(void);
 Uint erts_check_io_size(void);
 Eterm erts_check_io_info(void *);
 int erts_check_io_max_files(void);
+#ifdef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
+void erts_check_io_async_sig_interrupt(void);
+#endif
 void erts_check_io_interrupt(int);
 void erts_check_io_interrupt_timed(int, long);
 void erts_check_io(int);

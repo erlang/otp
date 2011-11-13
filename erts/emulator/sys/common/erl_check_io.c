@@ -66,6 +66,9 @@ typedef char EventStateFlags;
 
 #define ERTS_CIO_POLL_CTL	ERTS_POLL_EXPORT(erts_poll_control)
 #define ERTS_CIO_POLL_WAIT	ERTS_POLL_EXPORT(erts_poll_wait)
+#ifdef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
+#define ERTS_CIO_POLL_AS_INTR 	ERTS_POLL_EXPORT(erts_poll_async_sig_interrupt)
+#endif
 #define ERTS_CIO_POLL_INTR 	ERTS_POLL_EXPORT(erts_poll_interrupt)
 #define ERTS_CIO_POLL_INTR_TMD	ERTS_POLL_EXPORT(erts_poll_interrupt_timed)
 #define ERTS_CIO_NEW_POLLSET 	ERTS_POLL_EXPORT(erts_poll_create_pollset)
@@ -1114,6 +1117,14 @@ eready(Eterm id, ErtsDrvEventState *state, ErlDrvEventData event_data)
 #endif
 
 static void bad_fd_in_pollset( ErtsDrvEventState *, Eterm, Eterm, ErtsPollEvents);
+
+#ifdef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
+void
+ERTS_CIO_EXPORT(erts_check_io_async_sig_interrupt)(void)
+{
+    ERTS_CIO_POLL_AS_INTR(pollset.ps);
+}
+#endif
 
 void
 ERTS_CIO_EXPORT(erts_check_io_interrupt)(int set)

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2003-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2003-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -502,12 +502,6 @@ write_trace_header(char *nodename, char *pid, char *hostname)
 	    switch (i) {
 	    case ERTS_ALC_A_SYSTEM:
 		PUT_UI16(tracep, ERTS_MTRACE_SEGMENT_ID);
-		break;
-	    case ERTS_ALC_A_FIXED_SIZE:
-		if (erts_allctrs_info[ERTS_FIX_CORE_ALLOCATOR].enabled)
-		    PUT_UI16(tracep, ERTS_FIX_CORE_ALLOCATOR);
-		else
-		    PUT_UI16(tracep, ERTS_ALC_A_SYSTEM);
 		break;
 	    default:
 		PUT_UI16(tracep, ERTS_MTRACE_SEGMENT_ID);
