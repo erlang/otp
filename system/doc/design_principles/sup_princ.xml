@@ -160,10 +160,13 @@ init(...) ->
           be restarted.</p>
         <list type="bulleted">
           <item>A <c>permanent</c> child process is always restarted.</item>
-          <item>A <c>temporary</c> child process is never restarted.</item>
+          <item>A <c>temporary</c> child process is never restarted
+          (not even when the supervisor's restart strategy
+          is <c>rest_for_one</c> or <c>one_for_all</c> and a sibling's
+          death causes the temporary process to be terminated).</item>
           <item>A <c>transient</c> child process is restarted only if it
            terminates abnormally, i.e. with another exit reason than
-          <c>normal</c>.</item>
+          <c>normal</c>, <c>shutdown</c> or <c>{shutdown,Term}</c>.</item>
         </list>
       </item>
       <item>
