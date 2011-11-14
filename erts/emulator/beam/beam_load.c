@@ -287,7 +287,6 @@ typedef struct {
     BeamInstr* code;		/* Loaded code. */
     int ci;			/* Current index into loaded code. */
     Label* labels;
-    BeamInstr new_bs_put_strings;	/* Linked list of i_new_bs_put_string instructions. */
     StringPatch* string_patches; /* Linked list of position into string table to patch. */
     BeamInstr catches;		/* Linked list of catch_yf instructions. */
     unsigned loaded_size;	/* Final size of code when loaded. */
@@ -1602,7 +1601,6 @@ read_code_header(LoaderState* stp)
 #endif
     }
 
-    stp->new_bs_put_strings = 0;
     stp->catches = 0;
     return 1;
 
@@ -2314,32 +2312,6 @@ load_code(LoaderState* stp)
 	    stp->on_load = ci;
 	    break;
 	case op_bs_put_string_II:
-	    {
-		/*
-		 * At entry:
-		 *
-		 * code[ci-3]	&&lb_i_new_bs_put_string_II
-		 * code[ci-2]	length of string
-		 * code[ci-1]   offset into string table
-		 *
-		 * Since we don't know the address of the string table yet,
-		 * just check the offset and length for validity, and use
-		 * the instruction field as a link field to link all put_string
-		 * instructions into a single linked list.  At exit:
-		 *
-		 * code[ci-3]	pointer to next i_new_bs_put_string instruction (or 0
-		 *		if this is the last)
-		 */
-		Uint offset = code[ci-1];
-		Uint len = code[ci-2];
-		unsigned strtab_size = stp->chunks[STR_CHUNK].size;
-		if (offset > strtab_size || offset + len > strtab_size) {
-		    LoadError2(stp, "invalid string reference %d, size %d", offset, len);
-		}
-		code[ci-3] = stp->new_bs_put_strings;
-		stp->new_bs_put_strings = ci - 3;
-	    }
-	    break;
 	case op_i_bs_match_string_rfII:
 	case op_i_bs_match_string_xfII:
 	    new_string_patch(stp, ci-1);
@@ -3876,7 +3848,6 @@ freeze_code(LoaderState* stp)
 {
     BeamInstr* code = stp->code;
     Uint *literal_end = NULL;
-    Uint index;
     int i;
     byte* str_table;
     unsigned strtab_size = stp->chunks[STR_CHUNK].size;
@@ -4096,20 +4067,8 @@ freeze_code(LoaderState* stp)
 	   ((byte *) code) + size);
 
     /*
-     * Go through all i_new_bs_put_strings instructions, restore the pointer to
-     * the instruction and convert string offsets to pointers (to the
-     * FIRST character).
+     * Patch all instructions that refer to the string table.
      */
-
-    index = stp->new_bs_put_strings;
-    while (index != 0) {
-	Uint next = code[index];
-	code[index] = BeamOpCode(op_bs_put_string_II);
-	code[index+2] = (BeamInstr) (str_table + code[index+2]);
-	index = next;
-    }
-    CHKBLK(ERTS_ALC_T_CODE,code);
-
     {
 	StringPatch* sp = stp->string_patches;
 
