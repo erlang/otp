@@ -55,6 +55,7 @@
 -define(all_runs_name, "all_runs.html").
 -define(index_name, "index.html").
 -define(totals_name, "totals.info").
+-define(css_default, "ct_default.css").
 
 -define(table_color1,"#ADD8E6").
 -define(table_color2,"#E4F0FE").
@@ -167,9 +168,9 @@ get_log_dir() ->
     call({get_log_dir,false}).
 
 %%%-----------------------------------------------------------------
-%%% @spec get_log_dir(Abs) -> {ok,Dir} | {error,Reason}
-get_log_dir(Abs) ->
-    call({get_log_dir,Abs}).
+%%% @spec get_log_dir(ReturnAbsName) -> {ok,Dir} | {error,Reason}
+get_log_dir(ReturnAbsName) ->
+    call({get_log_dir,ReturnAbsName}).
 
 %%%-----------------------------------------------------------------
 %%% make_last_run_index() -> ok
@@ -444,8 +445,6 @@ log_timestamp({MS,S,US}) ->
 logger(Parent,Mode) ->
     register(?MODULE,self()),
 
-    put(basic_html, basic_html()),
-
     %%! Below is a temporary workaround for the limitation of
     %%! max one test run per second. 
     %%! --->
@@ -457,7 +456,6 @@ logger(Parent,Mode) ->
 		timer:sleep(1000),
 		Time1 = calendar:local_time(),
 		Dir1 = make_dirname(Time1),
-
 		{Time1,Dir1};
 	    false ->
 		{Time0,Dir0}
@@ -466,6 +464,38 @@ logger(Parent,Mode) ->
 
     file:make_dir(Dir),
     AbsDir = ?abs(Dir),
+    put(ct_run_dir, AbsDir),
+
+    case basic_html() of
+	true ->
+	    put(basic_html, true);
+	BasicHtml ->
+	    put(basic_html, BasicHtml),
+	    %% copy stylesheet to log dir (both top dir and test run
+	    %% dir) so logs are independent of Common Test installation
+	    CTPath = code:lib_dir(common_test),
+	    CSSFileSrc = filename:join(filename:join(CTPath, "priv"),
+				       ?css_default),
+	    CSSFileDestTop = filename:join(".", ?css_default),
+	    CSSFileDestRun = filename:join(Dir, ?css_default),
+	    case file:copy(CSSFileSrc, CSSFileDestTop) of
+		{error,Reason0} ->
+		    io:format(user, "ERROR! "++
+			      "CSS file ~p could not be copied to ~p. "++
+			      "Reason: ~p~n", [CSSFileDestTop, Reason0]),
+		    exit({css_file_error,CSSFileDestTop});
+		_ ->
+		    case file:copy(CSSFileSrc, CSSFileDestRun) of
+			{error,Reason1} ->
+			    io:format(user, "ERROR! "++
+				      "CSS file ~p could not be copied to ~p. "++
+				      "Reason: ~p~n", [CSSFileDestRun, Reason1]),
+			    exit({css_file_error,CSSFileDestRun});
+			_ ->
+			    ok
+		    end
+	    end
+    end,
     ct_event:notify(#event{name=start_logging,node=node(),
 			   data=AbsDir}),
     make_all_runs_index(start),
@@ -670,7 +700,7 @@ set_evmgr_gl(GL) ->
 
 open_ctlog() ->
     {ok,Fd} = file:open(?ct_log_name,[write]),
-    io:format(Fd,header("Common Test Framework Log"),[]),
+    io:format(Fd, header("Common Test Framework Log"), []),
     case file:consult(ct_run:variables_file_name("../")) of
 	{ok,Vars} ->
 	    io:format(Fd, config_table(Vars), []);
@@ -741,7 +771,7 @@ print_style_error(Fd,StyleSheet,Reason) ->
     print_style(Fd,undefined).    
 
 close_ctlog(Fd) ->
-    io:format(Fd,"</pre>",[]),
+    io:format(Fd,"\n</pre>\n",[]),
     io:format(Fd,footer(),[]),
     file:close(Fd).
 
@@ -1126,8 +1156,7 @@ header1(Title, SubTitle) ->
 			    xhtml("</center>\n<br>\n", "</center>\n<br />\n")];
 		      true -> xhtml("<br>\n", "<br />\n")
 		   end,
-    CTPath = code:lib_dir(common_test),
-    CSSFile = filename:join(filename:join(CTPath, "priv"), "ct_default.css"),
+    CSSFile = locate_default_css_file(),
     [xhtml(["<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 3.2 Final//EN\">\n",
 	    "<html>\n"],
 	   ["<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\"\n",
@@ -1956,12 +1985,48 @@ basic_html() ->
     end.
 
 %%%-----------------------------------------------------------------
+%%% @spec locate_default_css_file() -> CSSFile
+%%%
+%%% @doc
+%%%
+locate_default_css_file() ->
+    {ok,CWD} = file:get_cwd(),
+    CSSFileInCwd = filename:join(CWD, ?css_default),
+    case filelib:is_file(CSSFileInCwd) of
+	true ->
+	    CSSFileInCwd;
+	false ->
+	    CSSResultFile =
+		case {whereis(?MODULE),self()} of
+		    {Self,Self} ->
+			%% executed on the ct_logs process
+			filename:join(get(ct_run_dir), ?css_default);
+		    _ ->			
+			%% executed on other process than ct_logs
+			{ok,RunDir} = get_log_dir(true),
+			filename:join(RunDir, ?css_default)
+		end,
+	    case filelib:is_file(CSSResultFile) of
+		true ->
+		    CSSResultFile;
+		false ->
+		    %% last resort, try use css file in CT installation
+		    CTPath = code:lib_dir(common_test),		
+		    filename:join(filename:join(CTPath, "priv"), ?css_default)
+	    end
+    end.
+
+%%%-----------------------------------------------------------------
 %%% @spec get_ts_html_wrapper(TestName, PrintLabel) -> {Mode,Header,Footer}
 %%%
 %%% @doc
 %%%
 get_ts_html_wrapper(TestName, PrintLabel) ->
-    TestName1 = lists:flatten(io_lib:format("~p", [TestName])),
+    TestName1 = if is_list(TestName) ->
+			lists:flatten(TestName);
+		   true ->
+			lists:flatten(io_lib:format("~p", [TestName]))
+		end,
     Basic = basic_html(),
     LabelStr =
 	if not PrintLabel ->
@@ -1994,7 +2059,7 @@ get_ts_html_wrapper(TestName, PrintLabel) ->
 	    {basic_html,
 	     ["<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 3.2 Final//EN\">\n",
 	      "<html>\n",
-	      "<head><title>Test ", TestName1, " results</title>\n",
+	      "<head><title>", TestName1, "</title>\n",
 	      "<meta http-equiv=\"cache-control\" content=\"no-cache\">\n",
 	      "</head>\n",
 	      "<body", Bgr, " bgcolor=\"white\" text=\"black\" ",
@@ -2014,12 +2079,12 @@ get_ts_html_wrapper(TestName, PrintLabel) ->
 		 "Open Telecom Platform</a><br />\n",
 		 "Updated: <!date>", current_time(), "<!/date>",
 		 "<br />\n</div>\n"],
-	    CSSFile = filename:join(filename:join(CTPath, "priv"), "ct_default.css"),
+	    CSSFile = locate_default_css_file(),
 	    {xhtml,
 	     ["<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\"\n",
 	      "\"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">\n",
 	      "<html xmlns=\"http://www.w3.org/1999/xhtml\" xml:lang=\"en\" lang=\"en\">\n",
-	      "<head>\n<title>Test ", TestName1, " results</title>\n",
+	      "<head>\n<title>", TestName1, "</title>\n",
 	      "<meta http-equiv=\"cache-control\" content=\"no-cache\">\n",
 	      "<link rel=\"stylesheet\" href=\"file:///", CSSFile, "\" type=\"text/css\">",
 	      "</head>\n","<body>\n", 

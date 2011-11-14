@@ -16,25 +16,25 @@ a:visited {
 
 h1 {
     font-family: verdana, arial, sans-serif; font-size: 200%; 
-    letter-spacing: -2.5px; word-spacing: 2px; font-weight: bold;
+    letter-spacing: -2px; word-spacing: 2px; font-weight: bold;
     color: #3F3F3F;
 }
 
 h2 {
     font-family: verdana, arial, sans-serif; font-size: 175%;
-    letter-spacing: -2.5px; word-spacing: 2px; font-weight: normal;
+    letter-spacing: -2px; word-spacing: 2px; font-weight: normal;
     color: #3F3F3F;
 }
 
 h3 {
     font-family: verdana, arial, sans-serif; font-size: 140%;
-    letter-spacing: -2.5px; word-spacing: 2px; font-weight: bold;
+    letter-spacing: -2px; word-spacing: 2px; font-weight: bold;
     color: #3F3F3F;
 }
 
 h4 {
     font-family: verdana, arial, sans-serif; font-size: 120%;
-    letter-spacing: -2.5px; word-spacing: 2px; font-weight: normal;
+    letter-spacing: -2px; word-spacing: 2px; font-weight: normal;
     color: #3F3F3F;
 }
 
@@ -49,9 +49,8 @@ ul {
     margin:  1em;
 }
 li {
-    font-family: "Trebuchet MS", "Lucida Sans Unicode", verdana, arial, sans-serif;
-    font-size: .9em; color: #000000;
-    margin: .4em 0;
+    font-size: 0.95em; color: #000000;
+    margin: .3em 0;
 }
 
 pre {
@@ -67,31 +66,33 @@ code {
 }
 
 div.mono_sm {
-    font-family: "Courier New", monospace; font-size: 80%;
+    font-family: "Courier New", monospace; font-size: .75em;
     word-spacing: 1px; color: #000000;
 }
 
 div.mono_la {
-    font-family: "Courier New", monospace; font-size: 100%;
+    font-family: "Courier New", monospace; font-size: .8em;
     color: #000000;
 }
 
 div.copyright {
     padding: 20px 0px 0px 0px; 
-    font-family: "Courier New", monospace; font-size: 80%;
+    font-family: "Courier New", monospace; font-size: .7em;
     color: #000000;
 }
 
 div.ct_internal { 
     background: lightgrey; color: black; 
     font-family: "Monaco", "Andale Mono", "Consolas", monospace;
-    font-size: 90%;
+    font-size: .95em;
+    margin: .2em 0 0 0;
 }
 
 div.default { 
     background: lightgreen; color: black; 
     font-family: "Monaco", "Andale Mono", "Consolas", monospace;
-    font-size: 90%;
+    font-size: 1.05em;
+    margin: .2em 0 0 0;
 }
 
 div.label {
