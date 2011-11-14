@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -348,12 +348,15 @@ init_it(Starter, Parent, Name0, Mod, Args, Options) ->
 	    proc_lib:init_ack(Starter, {ok, self()}), 	    
 	    loop(Parent, Name, StateName, StateData, Mod, Timeout, Debug);
 	{stop, Reason} ->
+	    unregister_name(Name0),
 	    proc_lib:init_ack(Starter, {error, Reason}),
 	    exit(Reason);
 	ignore ->
+	    unregister_name(Name0),
 	    proc_lib:init_ack(Starter, ignore),
 	    exit(normal);
 	{'EXIT', Reason} ->
+	    unregister_name(Name0),
 	    proc_lib:init_ack(Starter, {error, Reason}),
 	    exit(Reason);
 	Else ->
@@ -365,6 +368,13 @@ init_it(Starter, Parent, Name0, Mod, Args, Options) ->
 name({local,Name}) -> Name;
 name({global,Name}) -> Name;
 name(Pid) when is_pid(Pid) -> Pid.
+
+unregister_name({local,Name}) ->
+    _ = (catch unregister(Name));
+unregister_name({global,Name}) ->
+    _ = global:unregister_name(Name);
+unregister_name(Pid) when is_pid(Pid) ->
+    Pid.
 
 %%-----------------------------------------------------------------
 %% The MAIN loop
