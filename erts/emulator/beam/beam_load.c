@@ -351,11 +351,6 @@ typedef struct {
     int loc_size;		/* Size of location info in bytes (2/4) */
 } LoaderState;
 
-typedef struct {
-    unsigned num_functions;	/* Number of functions. */
-    Eterm* func_tab[1];		/* Pointers to each function. */
-} LoadedCode;
-
 /*
  * Layout of the line table.
  */
