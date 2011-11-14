@@ -1000,8 +1000,10 @@ do_install_release(#state{start_prg = StartPrg,
 		    %% In case there has been an emulator upgrade,
 		    %% remove the temporary release
 		    NReleases =
-			new_emulator_rm_tmp_release(LatestRelease#release.vsn,
-						    RelDir,Releases,Masters),
+			new_emulator_rm_tmp_release(
+			  LatestRelease#release.vsn,
+			  LatestRelease#release.erts_vsn,
+			  Vsn,RelDir,Releases,Masters),
 
 		    %% Then execute the relup script
 		    mon_nodes(true),
@@ -1134,11 +1136,45 @@ replace_config(App,Config,AppConfig) ->
     lists:keystore(App,1,Config,AppConfig).
 
 %% Remove all files related to the temporary release
-new_emulator_rm_tmp_release(?tmp_vsn(_)=TmpVsn,RelDir,Releases,Masters) ->
+new_emulator_rm_tmp_release(?tmp_vsn(_)=TmpVsn,EVsn,NewVsn,
+			    RelDir,Releases,Masters) ->
+    case os:type() of
+	{win32, nt} ->
+	    rename_tmp_service(EVsn,TmpVsn,NewVsn);
+	_ ->
+	    ok
+    end,
     remove_dir(filename:join(RelDir,TmpVsn),Masters),
     lists:keydelete(TmpVsn,#release.vsn,Releases);
-new_emulator_rm_tmp_release(_,_,Releases,_) ->
+new_emulator_rm_tmp_release(_,_,_,_,Releases,_) ->
     Releases.
+
+%% Rename the tempoarary service (for erts ugprade) to the real ToVsn
+rename_tmp_service(EVsn,TmpVsn,NewVsn) ->
+    FromName = hd(string:tokens(atom_to_list(node()),"@")) ++ "_" ++ TmpVsn,
+    ToName = hd(string:tokens(atom_to_list(node()),"@")) ++ "_" ++ NewVsn,
+    case erlsrv:get_service(EVsn,ToName) of
+	{error, _Error} ->
+	    ok;
+	_Data ->
+	    erlsrv:remove_service(ToName)
+    end,
+    rename_service(EVsn,FromName,ToName).
+
+
+%% Rename a service and check that it succeeded
+rename_service(EVsn,FromName,ToName) ->
+    case erlsrv:rename_service(EVsn,FromName,ToName) of
+	{ok,_} ->
+	    case erlsrv:get_service(EVsn,ToName) of
+		{error,Error1} ->
+		    throw({error,Error1});
+		_Data2 ->
+		    ok
+	    end;
+	Error2 ->
+	    throw({error,{service_rename_failed, Error2}})
+    end.
 
 
 %%% This code chunk updates the services in one of two ways,
@@ -1157,26 +1193,16 @@ do_make_services_permanent(PermanentVsn,Vsn, PermanentEVsn, EVsn) ->
 	    %% rename.
 	    case os:getenv("ERLSRV_SERVICE_NAME") == PermName of
 		true ->
-		    case erlsrv:rename_service(EVsn,PermName,Name) of
-			{ok,_} ->
-			    case erlsrv:get_service(EVsn,Name) of
-				{error,Error2} ->
-				    throw({error,Error2});
-				_Data2 ->
-				    %% The interfaces for doing this are
-				    %% NOT published and may be subject to
-				    %% change. Do NOT do this anywhere else!
+		    rename_service(EVsn,PermName,Name),
+		    %% The interfaces for doing this are
+		    %% NOT published and may be subject to
+		    %% change. Do NOT do this anywhere else!
 
-				    os:putenv("ERLSRV_SERVICE_NAME", Name),
+		    os:putenv("ERLSRV_SERVICE_NAME", Name),
 
-				    %% Restart heart port program, this 
-				    %% function is only to be used here.
-				    heart:cycle(),
-				    ok
-			    end;
-			Error3 ->
-			    throw({error,{service_rename_failed, Error3}})
-		    end;
+		    %% Restart heart port program, this
+		    %% function is only to be used here.
+		    heart:cycle();
 		false ->
 		    throw({error,service_name_missmatch})
 	    end;

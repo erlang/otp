@@ -382,7 +382,8 @@ upgrade_restart(Conf) when is_list(Conf) ->
 	{wait,TestNodeInit2a} ->
 	    %% We catched the node too early - it was supposed to
 	    %% restart twice, so let's wait for one more restart.
-	    wait_nodes_up([{TestNode,TestNodeInit2a}],"upgrade_restart_2a",[])
+	    wait_nodes_up([{TestNode,TestNodeInit2a}],"upgrade_restart_2a",[]),
+	    ok = rpc_inst(TestNode, upgrade_restart_2a, [])
     end,
     TestNodeInit2 = rpc:call(TestNode,erlang,whereis,[init]),
     stop_cover(TestNode),
