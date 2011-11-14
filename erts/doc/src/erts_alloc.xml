@@ -212,8 +212,8 @@
     <p>Apart from the ordinary allocators described above a number of
        pre-allocators are used for some specific data types. These
        pre-allocators pre-allocate a fixed amount of memory for certain data
-       types when the run-time system starts. As long as there are available
-       pre-allocated memory, it will be used. When no pre-allocated memory is
+       types when the run-time system starts. As long as pre-allocated memory
+       is available, it will be used. When no pre-allocated memory is
        available, memory will be allocated in ordinary allocators. These
        pre-allocators are typically much faster than the ordinary allocators,
        but can only satisfy a limited amount of requests.</p>
