@@ -473,23 +473,26 @@ logger(Parent,Mode) ->
 	    put(basic_html, BasicHtml),
 	    %% copy stylesheet to log dir (both top dir and test run
 	    %% dir) so logs are independent of Common Test installation
+	    {ok,Cwd} = file:get_cwd(),
 	    CTPath = code:lib_dir(common_test),
 	    CSSFileSrc = filename:join(filename:join(CTPath, "priv"),
 				       ?css_default),
-	    CSSFileDestTop = filename:join(".", ?css_default),
-	    CSSFileDestRun = filename:join(Dir, ?css_default),
+	    CSSFileDestTop = filename:join(Cwd, ?css_default),
+	    CSSFileDestRun = filename:join(AbsDir, ?css_default),
 	    case file:copy(CSSFileSrc, CSSFileDestTop) of
 		{error,Reason0} ->
 		    io:format(user, "ERROR! "++
 			      "CSS file ~p could not be copied to ~p. "++
-			      "Reason: ~p~n", [CSSFileDestTop, Reason0]),
+			      "Reason: ~p~n",
+			      [CSSFileSrc,CSSFileDestTop,Reason0]),
 		    exit({css_file_error,CSSFileDestTop});
 		_ ->
 		    case file:copy(CSSFileSrc, CSSFileDestRun) of
 			{error,Reason1} ->
 			    io:format(user, "ERROR! "++
 				      "CSS file ~p could not be copied to ~p. "++
-				      "Reason: ~p~n", [CSSFileDestRun, Reason1]),
+				      "Reason: ~p~n",
+				      [CSSFileSrc,CSSFileDestRun,Reason1]),
 			    exit({css_file_error,CSSFileDestRun});
 			_ ->
 			    ok
