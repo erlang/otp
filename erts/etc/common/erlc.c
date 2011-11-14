@@ -185,6 +185,7 @@ main(int argc, char** argv)
      * Push initial arguments.
      */
 
+    PUSH("+sbtu");
     PUSH("-noinput");
     PUSH2("-mode", "minimal");
     PUSH2("-boot", "start_clean");
