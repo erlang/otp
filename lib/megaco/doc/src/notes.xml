@@ -55,6 +55,13 @@
         </item>
 
         <item>
+	  <p>ASN.1 no longer makes use of a driver to accelerate encode/decode, 
+	  instead it uses NIFs. The encoding config option is <em>still</em> 
+	  the same, i.e. <c>driver</c>. </p>
+          <p>Own Id: OTP-9672</p>
+        </item>
+
+        <item>
 	  <p>The profiling test tool has been rewritten. </p>
 	  <p>H&aring;kan Mattsson</p>
           <p>Own Id: OTP-9679</p>
