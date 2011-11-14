@@ -19,8 +19,9 @@
 -module(supervisor_bridge_SUITE).
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,starting/1,
-	 mini_terminate/1,mini_die/1,badstart/1]).
--export([client/1,init/1,internal_loop_init/1,terminate/2]).
+	 mini_terminate/1,mini_die/1,badstart/1,
+         simple_global_supervisor/1]).
+-export([client/1,init/1,internal_loop_init/1,terminate/2,server9212/0]).
 
 -include_lib("test_server/include/test_server.hrl").
 -define(bridge_name,supervisor_bridge_SUITE_server).
@@ -31,7 +32,7 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [starting, mini_terminate, mini_die, badstart].
+    [starting, mini_terminate, mini_die, badstart, simple_global_supervisor].
 
 groups() -> 
     [].
@@ -138,7 +139,9 @@ init(3) ->
     receive
 	{InternalPid,init_done} ->
 	    {ok,InternalPid,self()}
-    end.
+    end;
+init({4,Result}) ->
+    Result.
 
 internal_loop_init(Parent) ->
     register(?work_bridge_name, self()),
@@ -160,7 +163,9 @@ terminate(Reason,{Parent,Worker}) ->
     io:format("Terminating bridge...\n"),
     exit(Worker,kill),
     Parent ! {dying,Reason},
-    anything.
+    anything;
+terminate(_Reason, _State) ->
+    any.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -197,3 +202,30 @@ badstart(Config) when is_list(Config) ->
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% OTP-9212. Restart of global supervisor.
+
+simple_global_supervisor(suite) -> [];
+simple_global_supervisor(doc) -> "Globally registered supervisor.";
+simple_global_supervisor(Config) when is_list(Config) ->
+    ?line Dog = test_server:timetrap({seconds,10}),
+
+    Child = {child, {?MODULE,server9212,[]}, permanent, 2000, worker, []},
+    InitResult = {ok, {{one_for_all,3,60}, [Child]}},
+    {ok, Sup} =
+        supervisor:start_link({local,bridge9212}, ?MODULE, {4,InitResult}),
+
+    BN_1 = global:whereis_name(?bridge_name),
+    ?line exit(BN_1, kill),
+    timer:sleep(200),
+    BN_2 = global:whereis_name(?bridge_name),
+    ?line true = is_pid(BN_2),
+    ?line true = BN_1 =/= BN_2,
+
+    ?line process_flag(trap_exit, true),
+    exit(Sup, kill),
+    ?line receive {'EXIT', Sup, killed} -> ok end,
+    ?line test_server:timetrap_cancel(Dog),
+    ok.
+
+server9212() ->
+    supervisor_bridge:start_link({global,?bridge_name}, ?MODULE, 3).

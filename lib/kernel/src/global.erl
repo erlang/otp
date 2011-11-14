@@ -1235,7 +1235,15 @@ ins_name_ext(Name, Pid, Method, RegNode, FromPidOrNode, ExtraInfo, S0) ->
 
 where(Name) ->
     case ets:lookup(global_names, Name) of
-	[{_Name, Pid, _Method, _RPid, _Ref}] -> Pid;
+	[{_Name, Pid, _Method, _RPid, _Ref}] ->
+	    if node(Pid) == node() ->
+		    case is_process_alive(Pid) of
+			true  -> Pid;
+			false -> undefined
+		    end;
+	       true ->
+		    Pid
+	    end;
 	[] -> undefined
     end.
 
