@@ -66,7 +66,7 @@ trusted_cert_and_path(CertChain, CertDbHandle, CertDbRef) ->
 		    {ok, IssuerId} ->
 			{other, IssuerId};
 		    {error, issuer_not_found} ->
-			case find_issuer(OtpCert, no_candidate, CertDbHandle) of
+			case find_issuer(OtpCert, CertDbHandle) of
 			    {ok, IssuerId} ->
 				{other, IssuerId};
 			    Other ->
@@ -193,7 +193,7 @@ certificate_chain(OtpCert, _Cert, CertDbHandle, CertsDbRef, Chain) ->
 	{_, true = SelfSigned} ->
 	    certificate_chain(CertDbHandle, CertsDbRef, Chain, ignore, ignore, SelfSigned);
 	{{error, issuer_not_found}, SelfSigned} ->
-	    case find_issuer(OtpCert, no_candidate, CertDbHandle) of
+	    case find_issuer(OtpCert, CertDbHandle) of
 		{ok, {SerialNr, Issuer}} ->
 		    certificate_chain(CertDbHandle, CertsDbRef, Chain,
 				      SerialNr, Issuer, SelfSigned);
@@ -227,17 +227,24 @@ certificate_chain(CertDbHandle, CertsDbRef, Chain, SerialNr, Issuer, _SelfSigned
 	    {ok, lists:reverse(Chain)}		      
     end.
 
-find_issuer(OtpCert, PrevCandidateKey, CertDbHandle) ->
-    case ssl_manager:issuer_candidate(PrevCandidateKey, CertDbHandle) of
- 	no_more_candidates ->
- 	    {error, issuer_not_found};
- 	{Key, {_Cert, ErlCertCandidate}} ->
-	    case public_key:pkix_is_issuer(OtpCert, ErlCertCandidate) of
-		true ->
-		    public_key:pkix_issuer_id(ErlCertCandidate, self);
-		false ->
-		    find_issuer(OtpCert, Key, CertDbHandle)
-	    end
+find_issuer(OtpCert, CertDbHandle) ->
+    IsIssuerFun = fun({_Key, {_Der, #'OTPCertificate'{} = ErlCertCandidate}}, Acc) ->
+			  case public_key:pkix_is_issuer(OtpCert, ErlCertCandidate) of
+			      true ->
+				  throw(public_key:pkix_issuer_id(ErlCertCandidate, self));
+			      false ->
+				  Acc
+			  end;
+		     (_, Acc) ->
+			  Acc
+		  end,
+
+    try ssl_certificate_db:foldl(IsIssuerFun, issuer_not_found, CertDbHandle) of
+	issuer_not_found ->
+	    {error, issuer_not_found}
+    catch 
+	{ok, _IssuerId} = Return ->
+	    Return
     end.
 
 is_valid_extkey_usage(KeyUse, client) ->
