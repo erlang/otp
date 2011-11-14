@@ -125,7 +125,8 @@ check_all_callbacks(Module, Behaviour, [Cb|Rest],
 		true ->
 		  [{callback_type_mismatch,
 		    [Behaviour, Function, Arity,
-		     erl_types:t_to_string(ReturnType, Records)]}|Acc00]
+		     erl_types:t_to_string(ReturnType, Records),
+		     erl_types:t_to_string(CbReturnType, Records)]}|Acc00]
 	      end
 	  end,
 	Acc02 =
@@ -133,7 +134,7 @@ check_all_callbacks(Module, Behaviour, [Cb|Rest],
 		 erl_types:t_inf_lists(ArgTypes, CbArgTypes)) of
 	    false -> Acc01;
 	    true ->
-	      find_mismatching_args(ArgTypes, CbArgTypes, Behaviour,
+	      find_mismatching_args(type, ArgTypes, CbArgTypes, Behaviour,
 				    Function, Arity, Records, 1, Acc01)
 	  end,
 	Acc02
@@ -153,24 +154,40 @@ check_all_callbacks(Module, Behaviour, [Cb|Rest],
 			erl_types:t_to_string(SpecReturnType, Records),
 			erl_types:t_to_string(CbReturnType, Records)]}|Acc10]
 	  end,
-	Acc11
+	Acc12 =
+	  case erl_types:any_none(
+		 erl_types:t_inf_lists(SpecArgTypes, CbArgTypes)) of
+	    false -> Acc11;
+	    true ->
+	      find_mismatching_args({spec, File, Line}, SpecArgTypes,
+				    CbArgTypes, Behaviour, Function,
+				    Arity, Records, 1, Acc11)
+	  end,
+	Acc12
     end,
   NewAcc = Acc2,
   check_all_callbacks(Module, Behaviour, Rest, State, NewAcc).
 
-find_mismatching_args([], [], _Beh, _Function, _Arity, _Records, _N, Acc) ->
+find_mismatching_args(_, [], [], _Beh, _Function, _Arity, _Records, _N, Acc) ->
   Acc;
-find_mismatching_args([Type|Rest], [CbType|CbRest], Behaviour,
+find_mismatching_args(Kind, [Type|Rest], [CbType|CbRest], Behaviour,
 		      Function, Arity, Records, N, Acc) ->
   case erl_types:t_is_none(erl_types:t_inf(Type, CbType)) of
     false ->
-      find_mismatching_args(Rest, CbRest, Behaviour, Function,
+      find_mismatching_args(Kind, Rest, CbRest, Behaviour, Function,
 			    Arity, Records, N+1, Acc);
     true ->
+      Info =
+	[Behaviour, Function, Arity, N,
+	 erl_types:t_to_string(Type, Records),
+	 erl_types:t_to_string(CbType, Records)],
       NewAcc =
-	[{callback_arg_type_mismatch,
-	  [Behaviour, Function, Arity, N, erl_types:t_to_string(Type, Records)]}|Acc],
-      find_mismatching_args(Rest, CbRest, Behaviour, Function,
+	[case Kind of
+	   type -> {callback_arg_type_mismatch, Info};
+	   {spec, File, Line} ->
+	     {callback_spec_arg_type_mismatch, [File, Line | Info]}
+	 end | Acc],
+      find_mismatching_args(Kind, Rest, CbRest, Behaviour, Function,
 			    Arity, Records, N+1, NewAcc)
   end.
 
@@ -178,9 +195,15 @@ add_tag_file_line(_Module, {Tag, [B|_R]} = Warn, State)
   when Tag =:= callback_missing;
        Tag =:= callback_info_missing ->
   {B, Line} = lists:keyfind(B, 1, State#state.behlines),
-  {?WARN_BEHAVIOUR, {State#state.filename, Line}, Warn};
-add_tag_file_line(Module, {Tag, [File, Line|R]}, State)
-  when Tag =:= callback_spec_type_mismatch ->
+  Category =
+    case Tag of
+      callback_missing -> ?WARN_BEHAVIOUR;
+      callback_info_missing -> ?WARN_UNDEFINED_CALLBACK
+    end,
+  {Category, {State#state.filename, Line}, Warn};
+add_tag_file_line(_Module, {Tag, [File, Line|R]}, _State)
+  when Tag =:= callback_spec_type_mismatch;
+       Tag =:= callback_spec_arg_type_mismatch ->
   {?WARN_BEHAVIOUR, {File, Line}, {Tag, R}};
 add_tag_file_line(Module, {_Tag, [_B, Fun, Arity|_R]} = Warn, State) ->
   {_A, FunCode} =
