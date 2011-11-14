@@ -99,7 +99,13 @@
 #  include "config.h"
 #endif
 #include <stdlib.h>
+
+// Need (NON)BLOCKING macros for sendfile
+#ifndef WANT_NONBLOCKING
+#define WANT_NONBLOCKING
+#endif
 #include "sys.h"
+
 #include "erl_driver.h"
 #include "erl_efile.h"
 #include "erl_threads.h"
@@ -1728,12 +1734,14 @@ static void invoke_sendfile(void *data)
 
     result = efile_sendfile(&d->errInfo, fd, out_fd, &d->c.sendfile.offset, &nbytes);
 
-    /* printf("sendfile: result: %d, errno: %d, offset: %d, nbytes: %d\r\n",
-	    result, errno, d->c.sendfile.offset,nbytes);*/
+    //printf("sendfile: result: %d, errno: %d, offset: %d, nbytes: %d\r\n",result, errno, d->c.sendfile.offset,nbytes);
     d->c.sendfile.written += nbytes;
 
     if (result == 1) {
-	if (d->c.sendfile.nbytes == 0 && nbytes != 0) {
+	if (sys_info.async_threads != 0) {
+	    printf("==> sendfile DONE written=%ld\r\n", d->c.sendfile.written);
+	    d->result_ok = 0;
+	} else if (d->c.sendfile.nbytes == 0 && nbytes != 0) {
 	    d->result_ok = 1;
 	} else if ((d->c.sendfile.nbytes - nbytes) != 0) {
 	    d->result_ok = 1;
@@ -2189,14 +2197,20 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
 	  free_preadv(data);
 	  break;
       case FILE_SENDFILE:
-	  //printf("efile_ready_async: sendfile (d->result_ok == %d)\r\n",d->result_ok);
+	  printf("efile_ready_async: sendfile (d->result_ok == %d)\r\n",d->result_ok);
 	  if (d->result_ok == -1) {
 	      desc->sendfile_state = not_sending;
 	      reply_error(desc, &d->errInfo);
+	      if (sys_info.async_threads != 0) {
+		  SET_NONBLOCKING(d->c.sendfile.out_fd);
+	      }
 	      free_sendfile(data);
 	  } else if (d->result_ok == 0) {
 	      desc->sendfile_state = not_sending;
 	      reply_Sint64(desc, d->c.sendfile.written);
+	      if (sys_info.async_threads != 0) {
+		SET_NONBLOCKING(d->c.sendfile.out_fd);
+	      }
 	      free_sendfile(data);
 	  } else if (d->result_ok == 1) { // If we are using select to send the rest of the data
 	      desc->sendfile_state = sending;
@@ -3348,9 +3362,9 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 
     case FILE_SENDFILE: {
 
-		struct t_data *d;
-		Uint32 out_fd, offsetH, offsetL, nbytesH, nbytesL;
-		char flags;
+        struct t_data *d;
+	Uint32 out_fd, offsetH, offsetL, nbytesH, nbytesL;
+	char flags;
 
 	/* DestFD:32, Offset:64, Bytes:64,
 	 ChunkSize:64,
@@ -3405,6 +3419,10 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	printf("sendfile(nbytes => %d, offset => %d, flags => %x)\r\n",d->c.sendfile.nbytes,d->c.sendfile.offset, d->c.sendfile.flags);
 
 	/* Do HEADER TRAILER stuff by calculating pointer places, not by copying data! */
+
+	if (sys_info.async_threads != 0) {
+	    SET_BLOCKING(d->c.sendfile.out_fd);
+	}
 
 	cq_enq(desc, d);
 	goto done;
