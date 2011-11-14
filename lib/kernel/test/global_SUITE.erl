@@ -436,7 +436,7 @@ lock_global2(Id, Parent) ->
 
 %cp1 - cp3 are started, and the name 'test' registered for a process on
 %test_server. Then it is checked that the name is registered on all
-%nodes, using whereis_name and safe_whereis_name. Check that the same
+%nodes, using whereis_name. Check that the same
 %name can't be registered with another value. Exit the registered
 %process and check that the name disappears. Register a new process
 %(Pid2) under the name 'test'. Let another new process (Pid3)
@@ -465,10 +465,6 @@ names(Config) when is_list(Config) ->
     % test that it is registered at all nodes
     ?line 
     ?UNTIL(begin 
-            (Pid =:= global:safe_whereis_name(test)) and
-            (Pid =:= rpc:call(Cp1, global, safe_whereis_name, [test])) and
-            (Pid =:= rpc:call(Cp2, global, safe_whereis_name, [test])) and
-            (Pid =:= rpc:call(Cp3, global, safe_whereis_name, [test])) and
             (Pid =:= global:whereis_name(test)) and
             (Pid =:= rpc:call(Cp1, global, whereis_name, [test])) and
             (Pid =:= rpc:call(Cp2, global, whereis_name, [test])) and
@@ -566,10 +562,7 @@ names_hidden(Config) when is_list(Config) ->
 
     % Check that it didn't get registered on visible nodes
     ?line
-    ?UNTIL((undefined =:= global:safe_whereis_name(test)) and
-           (undefined =:= rpc:call(Cp1, global, safe_whereis_name, [test])) and
-           (undefined =:= rpc:call(Cp2, global, safe_whereis_name, [test])) and
-           (undefined =:= global:whereis_name(test)) and
+    ?UNTIL((undefined =:= global:whereis_name(test)) and
            (undefined =:= rpc:call(Cp1, global, whereis_name, [test])) and
            (undefined =:= rpc:call(Cp2, global, whereis_name, [test]))),
 
@@ -579,11 +572,7 @@ names_hidden(Config) when is_list(Config) ->
 
     % test that it is registered at all nodes
     ?line
-    ?UNTIL((Pid =:= global:safe_whereis_name(test)) and
-           (Pid =:= rpc:call(Cp1, global, safe_whereis_name, [test])) and
-           (Pid =:= rpc:call(Cp2, global, safe_whereis_name, [test])) and
-           (HPid =:= rpc:call(Cp3, global, safe_whereis_name, [test])) and
-           (Pid =:= global:whereis_name(test)) and
+    ?UNTIL((Pid =:= global:whereis_name(test)) and
            (Pid =:= rpc:call(Cp1, global, whereis_name, [test])) and
            (Pid =:= rpc:call(Cp2, global, whereis_name, [test])) and
            (HPid =:= rpc:call(Cp3, global, whereis_name, [test])) and

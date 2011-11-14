@@ -694,7 +694,7 @@ multicall_down(Config) when is_list(Config) ->
     %% We use 'global' as a gen_server to call.
     ?line {Good, Bad} = gen_server:multi_call([Name, node()],
 					      global_name_server,
-					      {whereis, gurkburk},
+					      info,
 					      3000),
     io:format("good = ~p, bad = ~p~n", [Good, Bad]),
     ?line [Name] = Bad,
