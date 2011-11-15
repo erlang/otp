@@ -45,6 +45,7 @@
 #include "erl_thr_progress.h"
 #include "erl_thr_queue.h"
 #include "erl_sched_spec_pre_alloc.h"
+#include "beam_bp.h"
 
 #undef M_TRIM_THRESHOLD
 #undef M_TOP_PAD

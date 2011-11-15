@@ -144,8 +144,6 @@ extern erts_smp_spinlock_t erts_bp_lock;
 #define ErtsSmpBPUnlock(BDC)
 #endif
 
-ERTS_INLINE Uint bp_sched2ix(void);
-
 #ifdef ERTS_SMP
 #define bp_sched2ix_proc(p) ((p)->scheduler_data->no - 1)
 #else
@@ -246,5 +244,20 @@ void erts_clear_time_trace_bif(BeamInstr *pc);
 BpData *erts_get_time_break(Process *p, BeamInstr *pc);
 
 BeamInstr *erts_find_local_func(Eterm mfa[3]);
+
+ERTS_GLB_INLINE Uint erts_bp_sched2ix(void);
+
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+ERTS_GLB_INLINE Uint erts_bp_sched2ix(void)
+{
+#ifdef ERTS_SMP
+    ErtsSchedulerData *esdp;
+    esdp = erts_get_scheduler_data();
+    return esdp->no - 1;
+#else
+    return 0;
+#endif
+}
+#endif
 
 #endif /* _BEAM_BP_H */
