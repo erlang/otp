@@ -45,13 +45,6 @@
 	 ssh_decode/2, ssh_encode/2
 	]).
 
-%% Deprecated
--export([decode_private_key/1, decode_private_key/2, pem_to_der/1]).
-
--deprecated({pem_to_der, 1, next_major_release}).
--deprecated({decode_private_key, 1, next_major_release}).
--deprecated({decode_private_key, 2, next_major_release}).
-
 -type rsa_padding()          :: 'rsa_pkcs1_padding' | 'rsa_pkcs1_oaep_padding' 
 			      | 'rsa_no_padding'.
 -type public_crypt_options() :: [{rsa_pad, rsa_padding()}].
@@ -104,22 +97,23 @@ pem_entry_decode({Asn1Type, Der, not_encrypted}) when is_atom(Asn1Type),
 pem_entry_decode({Asn1Type, Der, not_encrypted}, _) when is_atom(Asn1Type),
 							 is_binary(Der) ->
     der_decode(Asn1Type, Der);
+pem_entry_decode({Asn1Type, CryptDer, {Cipher, #'PBES2-params'{}}} = PemEntry, 
+		 Password) when is_atom(Asn1Type) andalso
+				is_binary(CryptDer) andalso
+				is_list(Cipher) ->
+    do_pem_entry_decode(PemEntry, Password);
 pem_entry_decode({Asn1Type, CryptDer, {Cipher, Salt}} = PemEntry, 
-		 Password) when is_atom(Asn1Type),
-				is_binary(CryptDer),
-				is_list(Cipher),
-				is_binary(Salt),
-				erlang:byte_size(Salt) == 8
-				->
-    Der = pubkey_pem:decipher(PemEntry, Password),
-    der_decode(Asn1Type, Der).
+		 Password) when is_atom(Asn1Type) andalso
+				is_binary(CryptDer) andalso
+				is_list(Cipher) andalso
+				is_binary(Salt) andalso
+				erlang:byte_size(Salt) == 8 ->
+    do_pem_entry_decode(PemEntry, Password).
 
 %%--------------------------------------------------------------------
 -spec pem_entry_encode(pki_asn1_type(), term()) -> pem_entry().
--spec pem_entry_encode(pki_asn1_type(), term(),
-		       {{Cipher :: string(), Salt :: binary()}, string()}) ->
-			      pem_entry().
-%
+-spec pem_entry_encode(pki_asn1_type(), term(), term()) -> pem_entry().
+%%
 %% Description: Creates a pem entry that can be feed to pem_encode/1.
 %%--------------------------------------------------------------------
 pem_entry_encode('SubjectPublicKeyInfo', Entity=#'RSAPublicKey'{}) ->
@@ -137,21 +131,36 @@ pem_entry_encode('SubjectPublicKeyInfo',
 pem_entry_encode(Asn1Type, Entity)  when is_atom(Asn1Type) ->
     Der = der_encode(Asn1Type, Entity),
     {Asn1Type, Der, not_encrypted}.
-pem_entry_encode(Asn1Type, Entity, 
-		 {{Cipher, Salt}= CipherInfo, Password}) when is_atom(Asn1Type),
-							      is_list(Cipher),
-							      is_binary(Salt),
-							      erlang:byte_size(Salt) == 8,
-							      is_list(Password)->
-    Der = der_encode(Asn1Type, Entity),
-    DecryptDer = pubkey_pem:cipher(Der, CipherInfo, Password),
-    {Asn1Type, DecryptDer, CipherInfo}.
+pem_entry_encode(Asn1Type, Entity, {{Cipher, #'PBES2-params'{}} = CipherInfo, 
+				    Password}) when is_atom(Asn1Type) andalso
+						    is_list(Password) andalso
+						    is_list(Cipher) ->
+    do_pem_entry_encode(Asn1Type, Entity, CipherInfo, Password);
 
+pem_entry_encode(Asn1Type, Entity, {{Cipher, Salt} = CipherInfo, 
+				    Password}) when is_atom(Asn1Type) andalso
+						    is_list(Password) andalso
+						    is_list(Cipher) andalso
+						    is_binary(Salt) andalso
+						    erlang:byte_size(Salt) == 8 ->
+    do_pem_entry_encode(Asn1Type, Entity, CipherInfo, Password).
+    
 %%--------------------------------------------------------------------
 -spec der_decode(asn1_type(), Der::binary()) -> term().
 %%
 %% Description: Decodes a public key asn1 der encoded entity.
 %%--------------------------------------------------------------------
+der_decode(Asn1Type, Der) when (Asn1Type == 'PrivateKeyInfo') or 
+			       (Asn1Type == 'EncryptedPrivateKeyInfo')
+			       andalso is_binary(Der) ->
+    try
+	{ok, Decoded} = 'PKCS-FRAME':decode(Asn1Type, Der),
+	Decoded
+    catch
+	error:{badmatch, {error, _}} = Error ->
+	    erlang:error(Error)
+    end;
+
 der_decode(Asn1Type, Der) when is_atom(Asn1Type), is_binary(Der) ->
     try 
 	{ok, Decoded} = 'OTP-PUB-KEY':decode(Asn1Type, Der),
@@ -166,6 +175,16 @@ der_decode(Asn1Type, Der) when is_atom(Asn1Type), is_binary(Der) ->
 %%
 %% Description: Encodes a public key entity with asn1 DER encoding.
 %%--------------------------------------------------------------------
+der_encode(Asn1Type, Entity) when (Asn1Type == 'PrivateKeyInfo') or 
+				  (Asn1Type == 'EncryptedPrivateKeyInfo') ->
+     try
+	{ok, Encoded} = 'PKCS-FRAME':encode(Asn1Type, Entity),
+	iolist_to_binary(Encoded)
+    catch
+	error:{badmatch, {error, _}} = Error ->
+	    erlang:error(Error)
+    end;
+
 der_encode(Asn1Type, Entity) when is_atom(Asn1Type) ->
     try 
 	{ok, Encoded} = 'OTP-PUB-KEY':encode(Asn1Type, Entity),
@@ -535,6 +554,14 @@ ssh_encode(Entries, Type) when is_list(Entries),
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+do_pem_entry_encode(Asn1Type, Entity, CipherInfo, Password) ->
+    Der = der_encode(Asn1Type, Entity),
+    DecryptDer = pubkey_pem:cipher(Der, CipherInfo, Password),
+    {Asn1Type, DecryptDer, CipherInfo}.
+  
+do_pem_entry_decode({Asn1Type,_, _} = PemEntry, Password) ->
+    Der = pubkey_pem:decipher(PemEntry, Password),
+    der_decode(Asn1Type, Der).
 
 encrypt_public(PlainText, N, E, Options)->
     Padding = proplists:get_value(rsa_pad, Options, rsa_pkcs1_padding),
@@ -632,20 +659,3 @@ validate(DerCert, #path_validation_state{working_issuer_name = Issuer,
 sized_binary(Binary) ->
     Size = size(Binary),
     <<?UINT32(Size), Binary/binary>>.
-
-%%--------------------------------------------------------------------
-%%% Deprecated functions
-%%--------------------------------------------------------------------
-pem_to_der(CertSource) ->
-    {ok, Bin} = file:read_file(CertSource),
-    {ok, pubkey_pem:decode(Bin)}.
-
-decode_private_key(KeyInfo) ->
-    decode_private_key(KeyInfo, no_passwd).
-
-decode_private_key(KeyInfo = {'RSAPrivateKey', _, _}, Password) ->
-    DerEncoded = pubkey_pem:decode_key(KeyInfo, Password),
-    'OTP-PUB-KEY':decode('RSAPrivateKey', DerEncoded);
-decode_private_key(KeyInfo = {'DSAPrivateKey', _, _}, Password) ->
-    DerEncoded = pubkey_pem:decode_key(KeyInfo, Password),
-    'OTP-PUB-KEY':decode('DSAPrivateKey', DerEncoded).

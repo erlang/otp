@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2008-2010. All Rights Reserved.
+# Copyright Ericsson AB 2008-2011. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -38,12 +38,12 @@ RELSYSDIR = $(RELEASE_PATH)/lib/public_key-$(VSN)
 .SUFFIXES: .asn1
 .PRECIOUS: %.erl
 
-ASN_TOP = OTP-PUB-KEY
+ASN_TOP = OTP-PUB-KEY PKCS-FRAME
 ASN_MODULES = PKIX1Explicit88 PKIX1Implicit88 PKIX1Algorithms88 \
-	PKIXAttributeCertificate PKCS-1 PKCS-3 OTP-PKIX 
+	PKIXAttributeCertificate PKCS-1 PKCS-3 PKCS-8 InformationFramework PKCS5v2-0  OTP-PKIX 
 ASN_ASNS = $(ASN_MODULES:%=%.asn1)
-ASN_ERLS = $(ASN_TOP).erl
-ASN_HRLS = $(ASN_TOP).hrl
+ASN_ERLS = $(ASN_TOP:%=%.erl)
+ASN_HRLS = $(ASN_TOP:%=%.hrl)
 ASN_CONFIGS = OTP-PUB-KEY.asn1config
 ASN_DBS = $(ASN_MODULES:%=%.asn1db) OTP-PUB-KEY.asn1db  
 ASN_TABLES = $(ASN_MODULES:%=%.table)
@@ -82,8 +82,8 @@ docs:
 %.erl %.hrl: %.set.asn
 	erlc $(ASN_FLAGS) $<
 
-$(HRL_FILES):	$(ASN_HRLS)
-	cp -p $(ASN_HRLS) $(INCLUDE)
+$(INCLUDE)/%.hrl: %.hrl
+	cp -p $<  $@
 
 # ----------------------------------------------------
 # Release Target
@@ -113,3 +113,9 @@ OTP-PUB-KEY.asn1db:		PKIX1Algorithms88.asn1 \
 				PKCS-1.asn1\
 				PKCS-3.asn1\
 				OTP-PKIX.asn1
+
+$(EBIN)/PKCS-FRAME.beam: 	        PKCS-FRAME.erl PKCS-FRAME.hrl
+PKCS-FRAME.erl PKCS-FRAME.hrl:			PKCS-FRAME.asn1db
+PKCS-FRAME.asn1db:			PKCS-8.asn1\
+					InformationFramework.asn1\
+					PKCS5v2-0.asn1

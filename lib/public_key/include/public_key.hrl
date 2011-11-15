@@ -23,6 +23,7 @@
 -define(public_key, true).
 
 -include("OTP-PUB-KEY.hrl").
+-include("PKCS-FRAME.hrl").
 
 -record('SubjectPublicKeyInfoAlgorithm', {
  	  algorithm, 

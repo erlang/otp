@@ -42,10 +42,11 @@ MODULES = \
 	public_key \
 	pubkey_pem \
 	pubkey_ssh \
+	pubkey_pbe \
 	pubkey_cert \
-        pubkey_cert_records 
+	pubkey_cert_records 
 
-HRL_FILES = $(INCLUDE)/public_key.hrl
+HRL_FILES = $(INCLUDE)/public_key.hrl 
 
 INTERNAL_HRL_FILES = 
 
@@ -109,4 +110,3 @@ release_spec: opt
 	$(INSTALL_DATA) $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET) $(RELSYSDIR)/ebin
 
 release_docs_spec:
-

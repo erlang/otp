@@ -27,7 +27,7 @@
 -export([sha/1, sha_init/0, sha_update/2, sha_final/1]).
 %-export([sha256/1, sha256_init/0, sha256_update/2, sha256_final/1]).
 %-export([sha512/1, sha512_init/0, sha512_update/2, sha512_final/1]).
--export([md5_mac/2, md5_mac_96/2, sha_mac/2, sha_mac_96/2]).
+-export([md5_mac/2, md5_mac_96/2, sha_mac/2, sha_mac/3, sha_mac_96/2]).
 -export([hmac_init/2, hmac_update/2, hmac_final/1, hmac_final_n/2]).
 -export([des_cbc_encrypt/3, des_cbc_decrypt/3, des_cbc_ivec/1]).
 -export([des_ecb_encrypt/2, des_ecb_decrypt/2]).
@@ -42,7 +42,7 @@
 -export([aes_cfb_128_encrypt/3, aes_cfb_128_decrypt/3]).
 -export([exor/2]).
 -export([rc4_encrypt/2, rc4_set_key/1, rc4_encrypt_with_state/2]).
--export([rc2_40_cbc_encrypt/3, rc2_40_cbc_decrypt/3]).
+-export([rc2_cbc_encrypt/3, rc2_cbc_decrypt/3, rc2_40_cbc_encrypt/3, rc2_40_cbc_decrypt/3]).
 -export([dss_verify/3, dss_verify/4, rsa_verify/3, rsa_verify/4]).
 -export([dss_sign/2, dss_sign/3, rsa_sign/2, rsa_sign/3]).
 -export([rsa_public_encrypt/3, rsa_private_decrypt/3]).
@@ -83,7 +83,7 @@
 		    dss_verify,dss_sign,
 		    rsa_verify,rsa_sign,
 		    rsa_public_encrypt,rsa_private_decrypt, 
-		    rsa_private_encrypt,rsa_public_decrypt, 
+		    rsa_private_encrypt,rsa_public_decrypt,
 		    dh_generate_key, dh_compute_key,
 		    aes_cbc_128_encrypt, aes_cbc_128_decrypt,
 		    exor,
@@ -91,7 +91,7 @@
 		    rc2_40_cbc_encrypt, rc2_40_cbc_decrypt,
 		    %% idea_cbc_encrypt, idea_cbc_decrypt,
 		    aes_cbc_256_encrypt, aes_cbc_256_decrypt,
-            aes_ctr_encrypt, aes_ctr_decrypt,
+		    aes_ctr_encrypt, aes_ctr_decrypt,
                     aes_ctr_stream_init, aes_ctr_stream_encrypt, aes_ctr_stream_decrypt,
 		    info_lib]).
 
@@ -259,6 +259,9 @@ md5_mac_n(_Key,_Data,_MacSz) -> ?nif_stub.
 
 sha_mac(Key, Data) ->
     sha_mac_n(Key,Data,20).
+
+sha_mac(Key, Data, Size) ->
+    sha_mac_n(Key, Data, Size).
 
 sha_mac_96(Key, Data) ->
     sha_mac_n(Key,Data,12).
@@ -689,16 +692,25 @@ rc4_encrypt(_Key, _Data) -> ?nif_stub.
 rc4_set_key(_Key) -> ?nif_stub.
 rc4_encrypt_with_state(_State, _Data) -> ?nif_stub.
 
-%%
-%% RC2 - 40 bits block cipher
-%%
-rc2_40_cbc_encrypt(Key, IVec, Data) ->
-    rc2_40_cbc_crypt(Key,IVec,Data,true).
 
-rc2_40_cbc_decrypt(Key, IVec, Data) ->
-    rc2_40_cbc_crypt(Key,IVec,Data,false).
+%% RC2 block cipher
 
-rc2_40_cbc_crypt(_Key, _IVec, _Data, _IsEncrypt) -> ?nif_stub.    
+rc2_cbc_encrypt(Key, IVec, Data) ->
+    rc2_cbc_crypt(Key,IVec,Data,true).
+
+rc2_cbc_decrypt(Key, IVec, Data) ->
+    rc2_cbc_crypt(Key,IVec,Data,false).
+
+rc2_cbc_crypt(_Key, _IVec, _Data, _IsEncrypt) -> ?nif_stub.
+
+%%
+%% RC2 - 40 bits block cipher - Backwards compatibility not documented.
+%%
+rc2_40_cbc_encrypt(Key, IVec, Data) when erlang:byte_size(Key) == 5 ->
+    rc2_cbc_crypt(Key,IVec,Data,true).
+
+rc2_40_cbc_decrypt(Key, IVec, Data)  when erlang:byte_size(Key) == 5 ->
+    rc2_cbc_crypt(Key,IVec,Data,false).
 
 %%
 %% DH Diffie-Hellman functions

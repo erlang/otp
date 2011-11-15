@@ -3,10 +3,12 @@
    {vsn, "%VSN%"},
    {modules, [	  public_key,
 		  pubkey_pem,
+		  pubkey_pbe,	
 		  pubkey_ssh,
 		  pubkey_cert,
 		  pubkey_cert_records,
-		  'OTP-PUB-KEY'
+		  'OTP-PUB-KEY',
+		  'PKCS-FRAME'
             ]},
    {applications, [crypto, kernel, stdlib]},
    {registered, []},

@@ -154,7 +154,7 @@ static ERL_NIF_TERM exor(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rc4_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rc4_set_key(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rc4_encrypt_with_state(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM rc2_40_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM rc2_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rsa_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM dss_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rsa_public_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -234,7 +234,7 @@ static ErlNifFunc nif_funcs[] = {
     {"rc4_encrypt", 2, rc4_encrypt},
     {"rc4_set_key", 1, rc4_set_key},
     {"rc4_encrypt_with_state", 2, rc4_encrypt_with_state},
-    {"rc2_40_cbc_crypt", 4, rc2_40_cbc_crypt},
+    {"rc2_cbc_crypt", 4, rc2_cbc_crypt},
     {"rsa_sign_nif", 3, rsa_sign_nif},
     {"dss_sign_nif", 3, dss_sign_nif},
     {"rsa_public_crypt", 4, rsa_public_crypt},
@@ -1237,30 +1237,31 @@ static ERL_NIF_TERM rc4_encrypt_with_state(ErlNifEnv* env, int argc, const ERL_N
     return enif_make_tuple2(env,new_state,new_data);
 }   
 
-static ERL_NIF_TERM rc2_40_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+static ERL_NIF_TERM rc2_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Key,IVec,Data,IsEncrypt) */
     ErlNifBinary key_bin, ivec_bin, data_bin;
     RC2_KEY rc2_key;
     ERL_NIF_TERM ret;
-
+    unsigned char iv_copy[8];
+    
     if (!enif_inspect_iolist_as_binary(env, argv[0], &key_bin)
-	|| key_bin.size != 5
+	|| (key_bin.size != 5 && key_bin.size != 8 && key_bin.size != 16)
 	|| !enif_inspect_binary(env, argv[1], &ivec_bin)
 	|| ivec_bin.size != 8
-	|| !enif_inspect_iolist_as_binary(env, argv[2], &data_bin)) {
-
+	|| !enif_inspect_iolist_as_binary(env, argv[2], &data_bin)
+	|| data_bin.size % 8 != 0) {
 	return enif_make_badarg(env);
     }
-
-    RC2_set_key(&rc2_key, 5, key_bin.data, 40);
+    
+    RC2_set_key(&rc2_key, key_bin.size, key_bin.data, key_bin.size*8);
+    memcpy(iv_copy, ivec_bin.data, 8);
     RC2_cbc_encrypt(data_bin.data,
-		    enif_make_new_binary(env, data_bin.size, &ret), 
+		    enif_make_new_binary(env, data_bin.size, &ret),
 		    data_bin.size, &rc2_key,
-		    ivec_bin.data,
+		    iv_copy,
 		    (argv[3] == atom_true));
-
     return ret;
-}   
+}
 
 static ERL_NIF_TERM rsa_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Type,Data,Key=[E,N,D]) */

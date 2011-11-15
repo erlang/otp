@@ -2784,7 +2784,7 @@ extended_key_usage_verify_peer(Config) when is_list(Config) ->
    
     KeyFile = filename:join(PrivDir, "otpCA/private/key.pem"), 
     [KeyEntry] = ssl_test_lib:pem_to_der(KeyFile),
-    Key = public_key:pem_entry_decode(KeyEntry),
+    Key = ssl_test_lib:public_key(public_key:pem_entry_decode(KeyEntry)),
 
     ServerCertFile = proplists:get_value(certfile, ServerOpts),
     NewServerCertFile = filename:join(PrivDir, "server/new_cert.pem"),
@@ -2846,7 +2846,7 @@ extended_key_usage_verify_none(Config) when is_list(Config) ->
 
     KeyFile = filename:join(PrivDir, "otpCA/private/key.pem"),
     [KeyEntry] = ssl_test_lib:pem_to_der(KeyFile),
-    Key = public_key:pem_entry_decode(KeyEntry),
+    Key = ssl_test_lib:public_key(public_key:pem_entry_decode(KeyEntry)),
 
     ServerCertFile = proplists:get_value(certfile, ServerOpts),
     NewServerCertFile = filename:join(PrivDir, "server/new_cert.pem"),
@@ -2908,7 +2908,7 @@ no_authority_key_identifier(Config) when is_list(Config) ->
    
     KeyFile = filename:join(PrivDir, "otpCA/private/key.pem"),
     [KeyEntry] = ssl_test_lib:pem_to_der(KeyFile),
-    Key = public_key:pem_entry_decode(KeyEntry),
+    Key = ssl_test_lib:public_key(public_key:pem_entry_decode(KeyEntry)),
 
     CertFile = proplists:get_value(certfile, ServerOpts),
     NewCertFile = filename:join(PrivDir, "server/new_cert.pem"),
@@ -2966,7 +2966,7 @@ invalid_signature_server(Config) when is_list(Config) ->
    
     KeyFile = filename:join(PrivDir, "server/key.pem"),
     [KeyEntry] = ssl_test_lib:pem_to_der(KeyFile),
-    Key = public_key:pem_entry_decode(KeyEntry),
+    Key = ssl_test_lib:public_key(public_key:pem_entry_decode(KeyEntry)),
 
     ServerCertFile = proplists:get_value(certfile, ServerOpts),
     NewServerCertFile = filename:join(PrivDir, "server/invalid_cert.pem"),
@@ -3006,7 +3006,7 @@ invalid_signature_client(Config) when is_list(Config) ->
    
     KeyFile = filename:join(PrivDir, "client/key.pem"),
     [KeyEntry] = ssl_test_lib:pem_to_der(KeyFile),
-    Key = public_key:pem_entry_decode(KeyEntry),
+    Key = ssl_test_lib:public_key(public_key:pem_entry_decode(KeyEntry)),
 
     ClientCertFile = proplists:get_value(certfile, ClientOpts),
     NewClientCertFile = filename:join(PrivDir, "client/invalid_cert.pem"),
@@ -3083,7 +3083,7 @@ cert_expired(Config) when is_list(Config) ->
    
     KeyFile = filename:join(PrivDir, "otpCA/private/key.pem"),
     [KeyEntry] = ssl_test_lib:pem_to_der(KeyFile),
-    Key = public_key:pem_entry_decode(KeyEntry),
+    Key = ssl_test_lib:public_key(public_key:pem_entry_decode(KeyEntry)),
 
     ServerCertFile = proplists:get_value(certfile, ServerOpts),
     NewServerCertFile = filename:join(PrivDir, "server/expired_cert.pem"),
@@ -3358,14 +3358,14 @@ der_input_opts(Opts) ->
     Keyfile = proplists:get_value(keyfile, Opts),
     Dhfile = proplists:get_value(dhfile, Opts),
     [{_, Cert, _}] = ssl_test_lib:pem_to_der(Certfile),
-    [{_, Key, _}]  = ssl_test_lib:pem_to_der(Keyfile),
+    [{Asn1Type, Key, _}]  = ssl_test_lib:pem_to_der(Keyfile),
     [{_, DHParams, _}]  = ssl_test_lib:pem_to_der(Dhfile),
     CaCerts =
 	lists:map(fun(Entry) ->
 			  {_, CaCert, _} = Entry,
 			  CaCert
 		  end, ssl_test_lib:pem_to_der(CaCertsfile)),
-    {Cert, {rsa, Key}, CaCerts, DHParams}.
+    {Cert, {Asn1Type, Key}, CaCerts, DHParams}.
 
 %%--------------------------------------------------------------------
 %% different_ca_peer_sign(doc) ->

@@ -23,8 +23,8 @@
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 
--include_lib("common_test/include/ct.hrl").
--include_lib("test_server/include/test_server_line.hrl").
+%%-include_lib("common_test/include/ct.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -include_lib("public_key/include/public_key.hrl").
 
@@ -107,7 +107,7 @@ all() ->
      {group, ssh_public_key_decode_encode},
      encrypt_decrypt,
      {group, sign_verify},
-     pkix, pkix_path_validation, deprecated].
+     pkix, pkix_path_validation].
 
 groups() -> 
     [{pem_decode_encode, [], [dsa_pem, rsa_pem, encrypted_pem,
@@ -698,27 +698,6 @@ pkix_path_validation(Config) when is_list(Config) ->
 	public_key:pkix_path_validation(unknown_ca, [Cert1], [{verify_fun,
 							      VerifyFunAndState1}]),
     ok.
-
-%%--------------------------------------------------------------------
-deprecated(doc) -> 
-    ["Check deprecated functions."];
-deprecated(suite) -> 
-    [];
-deprecated(Config) when is_list(Config) -> 
-    Datadir = ?config(data_dir, Config),
-    {ok, [DsaKey = {'DSAPrivateKey', _DsaKey, _}]} =
-	public_key:pem_to_der(filename:join(Datadir, "dsa.pem")), 
-    {ok, [RsaKey = {'RSAPrivateKey', _RsaKey,_}]} =
-	public_key:pem_to_der(filename:join(Datadir, "client_key.pem")),
-    {ok, [ProtectedRsaKey = {'RSAPrivateKey', _ProtectedRsaKey,_}]} =
-	public_key:pem_to_der(filename:join(Datadir, "rsa.pem")),
-
-    {ok, #'DSAPrivateKey'{}} = public_key:decode_private_key(DsaKey),
-    {ok, #'RSAPrivateKey'{}} = public_key:decode_private_key(RsaKey),
-    {ok, #'RSAPrivateKey'{}} = public_key:decode_private_key(ProtectedRsaKey, "abcd1234"),
-    ok.
-
-%%--------------------------------------------------------------------
 
 check_entry_type(#'DSAPrivateKey'{}, 'DSAPrivateKey') ->
     true;

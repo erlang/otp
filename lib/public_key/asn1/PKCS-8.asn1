@@ -1,0 +1,83 @@
+PKCS-8 {iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1) pkcs-8(8)
+        modules(1) pkcs-8(1)} 
+
+-- $Revision: 1.5 $
+
+-- This module has been checked for conformance with the ASN.1
+-- standard by the OSS ASN.1 Tools
+
+DEFINITIONS IMPLICIT TAGS ::= 
+
+BEGIN
+
+-- EXPORTS All --
+-- All types and values defined in this module is exported for use in other
+-- ASN.1 modules.
+
+IMPORTS
+
+-- informationFramework
+--        FROM UsefulDefinitions {joint-iso-itu-t(2) ds(5) module(1)
+--                                usefulDefinitions(0) 3} 
+
+Attribute
+--        FROM InformationFramework informationFramework
+        FROM InformationFramework;
+
+-- This import is really unnecessary since ALGORITHM-IDENTIFIER is defined as a 
+-- TYPE-IDENTIFIER
+-- Renome this import and replace all occurences of ALGORITHM-IDENTIFIER with
+-- TYPE-IDENTIFIER as a workaround for weaknesses in the ASN.1 compiler
+--AlgorithmIdentifier, ALGORITHM-IDENTIFIER
+--        FROM PKCS5v2-0 {iso(1) member-body(2) us(840) rsadsi(113549)
+--        pkcs(1) pkcs-5(5) modules(16) pkcs-5(1)};
+
+-- Inlined from PKCS5v2-0 since it is the only thing imported from that module
+-- AlgorithmIdentifier { ALGORITHM-IDENTIFIER:InfoObjectSet } ::= 
+AlgorithmIdentifier { TYPE-IDENTIFIER:InfoObjectSet } ::= 
+SEQUENCE {
+--  algorithm ALGORITHM-IDENTIFIER.&id({InfoObjectSet}),
+  algorithm TYPE-IDENTIFIER.&id({InfoObjectSet}),
+--  parameters ALGORITHM-IDENTIFIER.&Type({InfoObjectSet}
+  parameters TYPE-IDENTIFIER.&Type({InfoObjectSet}
+    {@algorithm}) OPTIONAL }
+
+-- Private-key information syntax
+
+PrivateKeyInfo ::= SEQUENCE {
+  version Version,
+--  privateKeyAlgorithm AlgorithmIdentifier {{PrivateKeyAlgorithms}},
+  privateKeyAlgorithm AlgorithmIdentifier {{...}},
+  privateKey PrivateKey,
+  attributes [0] Attributes OPTIONAL }
+
+Version ::= INTEGER {v1(0)} (v1,...)
+
+PrivateKey ::= OCTET STRING
+
+-- Attributes ::= SET OF Attribute
+Attributes ::= SET OF Attribute {{...}}
+
+-- Encrypted private-key information syntax
+
+EncryptedPrivateKeyInfo ::= SEQUENCE {
+--    encryptionAlgorithm AlgorithmIdentifier {{KeyEncryptionAlgorithms}},
+    encryptionAlgorithm AlgorithmIdentifier {{...}},
+    encryptedData EncryptedData 
+}
+
+EncryptedData ::= OCTET STRING
+
+-- PrivateKeyAlgorithms ALGORITHM-IDENTIFIER ::= {
+PrivateKeyAlgorithms TYPE-IDENTIFIER ::= {
+    ... -- For local profiles
+}
+
+-- KeyEncryptionAlgorithms ALGORITHM-IDENTIFIER ::= {
+KeyEncryptionAlgorithms TYPE-IDENTIFIER ::= {
+    ... -- For local profiles
+}
+
+END
+
+

@@ -608,8 +608,11 @@ validate_option(certfile, Value) when Value == undefined; is_list(Value) ->
 validate_option(key, undefined) ->
     undefined;
 validate_option(key, {KeyType, Value}) when is_binary(Value),
-					    KeyType == rsa;
-					    KeyType == dsa ->
+					    KeyType == rsa; %% Backwards compatibility
+					    KeyType == dsa; %% Backwards compatibility
+					    KeyType == 'RSAPrivateKey';
+					    KeyType == 'DSAPrivateKey';
+					    KeyType == 'PrivateKeyInfo' ->
     {KeyType, Value};
 validate_option(keyfile, Value) when is_list(Value) ->
     Value;
