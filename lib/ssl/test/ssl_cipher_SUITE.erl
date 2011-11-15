@@ -134,7 +134,7 @@ aes_decipher_good(Config) when is_list(Config) ->
     Version = {3,3},
     Content = <<183,139,16,132,10,209,67,86,168,100,61,217,145,57,36,56,72,69,76,76,79,10>>,
     Mac = <<71,136,212,107,223,200,70,232,127,116,148,205,232,35,158,113,237,174,15,217,192,168,35,8,6,107,107,233,25,174,90,111>>,
-    {Content, Mac, CipherState1} = ssl_cipher:decipher(?AES, HashSz, CipherState, Fragment, Version),
+    {Content, Mac, _} = ssl_cipher:decipher(?AES, HashSz, CipherState, Fragment, Version),
     ok.
 
 %%--------------------------------------------------------------------
@@ -155,7 +155,7 @@ aes_decipher_fail(Config) when is_list(Config) ->
 		 198,181,81,19,98,162,213,228,74,224,253,168,156,59,195,122,
 		 108,101,107,242,20,15,169,150,163,107,101,94,93,104,241,165>>,
     Version = {3,3},
-    {Content, Mac, CipherState1} = ssl_cipher:decipher(?AES, HashSz, CipherState, Fragment, Version),
+    {Content, Mac, _} = ssl_cipher:decipher(?AES, HashSz, CipherState, Fragment, Version),
     32 = byte_size(Content),
     32 = byte_size(Mac),
     ok.
