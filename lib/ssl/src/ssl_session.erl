@@ -103,9 +103,9 @@ select_session([], _, _) ->
 
 select_session(Sessions, #ssl_options{ciphers = Ciphers,
 				      reuse_sessions = ReuseSession}, OwnCert) ->
-    IsResumable = 
- 	fun(Session) -> 
- 		ReuseSession andalso (Session#session.is_resumable) andalso  
+    IsResumable =
+	fun(Session) ->
+		ReuseSession andalso resumable(Session#session.is_resumable) andalso
  		    lists:member(Session#session.cipher_suite, Ciphers)
 		    andalso (OwnCert == Session#session.own_certificate)
  	end,
@@ -147,10 +147,10 @@ is_resumable(SuggestedSessionId, Port, ReuseEnabled, ReuseFun, Cache,
 	#session{cipher_suite = CipherSuite,
 		 own_certificate = SessionOwnCert,
 		 compression_method = Compression,
-		 is_resumable = Is_resumable,
+		 is_resumable = IsResumable,
 		 peer_certificate = PeerCert} = Session ->
 	    ReuseEnabled 
-		andalso Is_resumable  
+		andalso resumable(IsResumable)
 		andalso (OwnCert == SessionOwnCert)
 		andalso valid_session(Session, SecondLifeTime) 
 		andalso ReuseFun(SuggestedSessionId, PeerCert, 
@@ -158,3 +158,8 @@ is_resumable(SuggestedSessionId, Port, ReuseEnabled, ReuseFun, Cache,
 	undefined ->
 	    false
     end.
+
+resumable(new) ->
+    false;
+resumable(IsResumable) ->
+    IsResumable.

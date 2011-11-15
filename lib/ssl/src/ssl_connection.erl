@@ -352,8 +352,7 @@ hello(start, #state{host = Host, port = Port, role = client,
     State1 = State0#state{connection_states = CS2,
 			 negotiated_version = Version, %% Requested version
 			  session =
-			      Session0#session{session_id = Hello#client_hello.session_id,
-					       is_resumable = false},
+			      Session0#session{session_id = Hello#client_hello.session_id},
 			  tls_handshake_hashes = Hashes1},
     {Record, State} = next_record(State1),
     next_state(hello, Record, State);
@@ -2008,16 +2007,16 @@ next_state_is_connection(State0) ->
 					       public_key_info = undefined,
 					       tls_handshake_hashes = {<<>>, <<>>}}).
 
-register_session(_, _, _, #session{is_resumable = true} = Session) ->
-    Session; %% Already registered
-register_session(client, Host, Port, Session0) ->
+register_session(client, Host, Port, #session{is_resumable = new} = Session0) ->
     Session = Session0#session{is_resumable = true},
     ssl_manager:register_session(Host, Port, Session),
     Session;
-register_session(server, _, Port, Session0) ->
+register_session(server, _, Port, #session{is_resumable = new} = Session0) ->
     Session = Session0#session{is_resumable = true},
     ssl_manager:register_session(Port, Session),
-    Session.
+    Session;
+register_session(_, _, _, Session) ->
+    Session. %% Already registered
 
 invalidate_session(client, Host, Port, Session) ->
     ssl_manager:invalidate_session(Host, Port, Session);
@@ -2041,7 +2040,7 @@ initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions}, User,
 	   %% We do not want to save the password in the state so that
 	   %% could be written in the clear into error logs.
 	   ssl_options = SSLOptions#ssl_options{password = undefined},	   
-	   session = #session{is_resumable = false},
+	   session = #session{is_resumable = new},
 	   transport_cb = CbModule,
 	   data_tag = DataTag,
 	   close_tag = CloseTag,

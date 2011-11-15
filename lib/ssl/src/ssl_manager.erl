@@ -278,25 +278,16 @@ handle_cast({register_session, Port, Session},
     CacheCb:update(Cache, {Port, NewSession#session.session_id}, NewSession),
     {noreply, State};
 
-%%% When a session is invalidated we need to wait a while before deleting
-%%% it as there might be pending connections that rightfully needs to look
-%%% up the session data but new connections should not get to use this session.
 handle_cast({invalidate_session, Host, Port,
 	     #session{session_id = ID} = Session},
 	    #state{session_cache = Cache,
 		   session_cache_cb = CacheCb} = State) ->
-    CacheCb:update(Cache, {{Host, Port}, ID}, Session#session{is_resumable = false}),
-    TRef =
-	erlang:send_after(delay_time(), self(), {delayed_clean_session, {{Host, Port}, ID}}),
-    {noreply, State#state{last_delay_timer = TRef}};
+    invalidate_session(Cache, CacheCb, {{Host, Port}, ID}, Session, State);
 
 handle_cast({invalidate_session, Port, #session{session_id = ID} = Session},
 	    #state{session_cache = Cache,
 		   session_cache_cb = CacheCb} = State) ->
-    CacheCb:update(Cache, {Port, ID}, Session#session{is_resumable = false}),
-    TRef =
-	erlang:send_after(delay_time(), self(), {delayed_clean_session, {Port, ID}}),
-    {noreply, State#state{last_delay_timer = TRef}};
+    invalidate_session(Cache, CacheCb, {Port, ID}, Session, State);
 
 handle_cast({recache_pem, File, LastWrite, Pid, From},
 	    #state{certificate_db = [_, FileToRefDb, _]} = State0) ->
@@ -320,7 +311,7 @@ handle_cast({recache_pem, File, LastWrite, Pid, From},
 %%				      {stop, reason(), #state{}}.
 %%
 %% Description: Handling all non call/cast messages
-%%-------------------------------------------------------------------- 
+%%-------------------------------------------------------------------
 handle_info(validate_sessions, #state{session_cache_cb = CacheCb,
 				      session_cache = Cache,
 				      session_lifetime = LifeTime
@@ -443,4 +434,21 @@ delay_time() ->
 	    Time;
 	_ ->
 	   ?CLEAN_SESSION_DB
+    end.
+
+invalidate_session(Cache, CacheCb, Key, Session, State) ->
+    case CacheCb:lookup(Cache, Key) of
+	undefined -> %% Session is already invalidated
+	    {noreply, State};
+	#session{is_resumable = new} ->
+	    CacheCb:delete(Cache, Key),
+	    {noreply, State};
+	_ ->
+	    %% When a registered session is invalidated we need to wait a while before deleting
+	    %% it as there might be pending connections that rightfully needs to look
+	    %% up the session data but new connections should not get to use this session.
+	    CacheCb:update(Cache, Key, Session#session{is_resumable = false}),
+	    TRef =
+		erlang:send_after(delay_time(), self(), {delayed_clean_session, Key}),
+	    {noreply, State#state{last_delay_timer = TRef}}
     end.
