@@ -219,19 +219,6 @@ AC_SUBST(OBJC_CFLAGS)
 
 case $host_os in
     darwin*)
-	AC_TRY_COMPILE([],[
-		#if __GNUC__ >= 4 
-		;
-		#else
-		#error old or no gcc
-		#endif
-		],
-		gcc_need_no_cpp_precomp=no,
-		gcc_need_no_cpp_precomp=yes)
-
-	if test x$gcc_need_no_cpp_precomp = xyes; then
-	   CFLAGS="-no-cpp-precomp $CFLAGS"
-	fi
 	LDFLAGS="-bundle -flat_namespace -undefined warning -fPIC $LDFLAGS"
 	# Check sizof_void_p as future will hold 64bit MacOS wx
 	if test $ac_cv_sizeof_void_p = 4; then
