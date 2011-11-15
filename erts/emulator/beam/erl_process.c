@@ -7136,7 +7136,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->pending_exit.bp = NULL;
 #endif
 
-#if !defined(NO_FPE_SIGNALS)
+#if !defined(NO_FPE_SIGNALS) || defined(HIPE)
     p->fp_exception = 0;
 #endif
 
@@ -7310,7 +7310,7 @@ void erts_init_empty_process(Process *p)
     p->run_queue = ERTS_RUNQ_IX(0);
 #endif
 
-#if !defined(NO_FPE_SIGNALS)
+#if !defined(NO_FPE_SIGNALS) || defined(HIPE)
     p->fp_exception = 0;
 #endif
 

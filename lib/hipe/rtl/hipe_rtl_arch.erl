@@ -65,7 +65,8 @@
 	 %% alignment/0,
 	 nr_of_return_regs/0,
          log2_word_size/0,
-         word_size/0
+         word_size/0,
+	 mk_fp_check_result/1
 	]).
 
 -include("hipe_literals.hrl").
@@ -558,6 +559,12 @@ eval_cond_bits(Cond, N, Z, V, C) ->
 %%----------------------------------------------------------------------
 
 fwait() ->
+    case ?ERTS_NO_FPE_SIGNALS of
+	1 -> [];
+	0 -> fwait_real()
+    end.
+
+fwait_real() ->
   case get(hipe_target_arch) of
     x86 -> [hipe_rtl:mk_call([], 'fwait', [], [], [], not_remote)];
     amd64 -> [hipe_rtl:mk_call([], 'fwait', [], [], [], not_remote)];
@@ -573,6 +580,12 @@ fwait() ->
 %%   Returns RTL code to restore the FPU after a floating-point exception.
 %% @end
 handle_fp_exception() ->
+    case ?ERTS_NO_FPE_SIGNALS of
+	1 -> [];
+	0 -> handle_real_fp_exception()
+    end.
+
+handle_real_fp_exception() ->
   case get(hipe_target_arch) of
     x86 ->
       ContLbl = hipe_rtl:mk_new_label(),
@@ -655,3 +668,15 @@ nr_of_return_regs() ->
       1
     %% hipe_amd64_registers:nr_rets();
   end.
+
+
+mk_fp_check_result(Result) ->
+    case ?ERTS_NO_FPE_SIGNALS of
+	0 ->
+	    [];
+	1 ->
+	    [hipe_rtl:mk_fstore(proc_pointer(),
+				hipe_rtl:mk_imm(?P_FLOAT_RESULT),
+				Result),
+	     hipe_rtl:mk_call([], emulate_fpe, [], [], [], not_remote)]
+    end.

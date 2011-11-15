@@ -140,3 +140,5 @@ atom bs_put_utf16le
 atom bs_get_utf16
 atom bs_validate_unicode
 atom bs_validate_unicode_retract
+atom emulate_fpe
+
