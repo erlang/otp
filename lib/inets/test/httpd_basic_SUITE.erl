@@ -59,9 +59,28 @@ init_per_suite(Config) ->
 	"~n   Config: ~p", [Config]),
     ok = inets:start(),
     PrivDir = ?config(priv_dir, Config),
-    HttpdConf = [{port, 0}, {ipfamily, inet}, 
-		 {server_name, "httpd_test"}, {server_root, PrivDir},
-		 {document_root, PrivDir}, {bind_address, "localhost"}],
+
+    Dummy = 
+"<HTML>
+<HEAD>
+<TITLE>/index.html</TITLE>
+</HEAD>
+<BODY>
+DUMMY
+</BODY>
+</HTML>",
+
+    DummyFile = filename:join([PrivDir,"dummy.html"]),
+    {ok, Fd}  = file:open(DummyFile, [write]),
+    ok        = file:write(Fd, Dummy),
+    ok        = file:close(Fd), 
+    HttpdConf = [{port,          0}, 
+		 {ipfamily,      inet}, 
+		 {server_name,   "httpd_test"}, 
+		 {server_root,   PrivDir},
+		 {document_root, PrivDir}, 
+		 {bind_address,  "localhost"}],
+
     [{httpd_conf, HttpdConf} |  Config].
 
 %%--------------------------------------------------------------------
@@ -133,6 +152,10 @@ uri_too_long_414(Config) when is_list(Config) ->
  				        {version, "HTTP/0.9"}]),    
     inets:stop(httpd, Pid).
     
+
+%%-------------------------------------------------------------------------
+%%-------------------------------------------------------------------------
+
 header_too_long_413(doc) ->
     ["Test that too long headers's get 413 HTTP code"];
 header_too_long_413(suite) ->
@@ -152,34 +175,92 @@ header_too_long_413(Config) when is_list(Config) ->
  				        {version, "HTTP/1.1"}]),
     inets:stop(httpd, Pid).
    
+
+%%-------------------------------------------------------------------------
+%%-------------------------------------------------------------------------
+
 escaped_url_in_error_body(doc) ->
     ["Test Url-encoding see OTP-8940"];
 escaped_url_in_error_body(suite) ->
     [];
 escaped_url_in_error_body(Config) when is_list(Config) ->
-    tsp("escaped_url_in_error_body -> entry with"
-	"~n   Config: ~p", [Config]),
-    HttpdConf = ?config(httpd_conf, Config),
-    {ok, Pid} = inets:start(httpd, [{port, 0} | HttpdConf]),
-    Info = httpd:info(Pid),
-    Port = proplists:get_value(port, Info),
-    _Address = proplists:get_value(bind_address, Info),
-    Path = "/<b>this_is_bold</b>",
-    URL = ?URL_START ++ integer_to_list(Port) ++ Path,
-    EscapedPath = http_uri:encode(Path),
-    {ok, {404, Body1}} = httpc:request(get, {URL, []},
-				       [{url_encode, true}, 
-					{version,    "HTTP/1.0"}],
-				      [{full_result, false}]),
-    EscapedPath = find_URL_path(string:tokens(Body1, " ")),
-    {ok, {404, Body2}} = httpc:request(get, {URL, []},
-				       [{url_encode,  false}, 
-					{version,     "HTTP/1.0"}], 
-				       [{full_result, false}]),
+    tsp("escaped_url_in_error_body -> entry"),
+    HttpdConf   = ?config(httpd_conf, Config),
+    {ok, Pid}   = inets:start(httpd, [{port, 0} | HttpdConf]),
+    Info        = httpd:info(Pid),
+    Port        = proplists:get_value(port,         Info),
+    _Address    = proplists:get_value(bind_address, Info),
+
+    %% Request 1
+    tsp("escaped_url_in_error_body -> request 1"),
+    URL1        = ?URL_START ++ integer_to_list(Port),
+    %% Make sure the server is ok, by making a request for a valid page
+    case httpc:request(get, {URL1 ++ "/dummy.html", []},
+		       [{url_encode,  false}, 
+			{version,     "HTTP/1.0"}],
+		       [{full_result, false}]) of
+	{ok, {200, _}} ->
+	    %% Don't care about the the body, just that we get a ok response
+	    ok;
+	{ok, UnexpectedOK1} ->
+	    tsf({unexpected_ok_1, UnexpectedOK1})
+    end,
+
+    %% Request 2
+    tsp("escaped_url_in_error_body -> request 2"),
+    %% Make sure the server is ok, by making a request for a valid page
+    case httpc:request(get, {URL1 ++ "/dummy.html", []},
+		       [{url_encode,  true}, 
+			{version,     "HTTP/1.0"}],
+		       [{full_result, false}]) of
+	{ok, {200, _}} ->
+	    %% Don't care about the the body, just that we get a ok response
+	    ok;
+	{ok, UnexpectedOK2} ->
+	    tsf({unexpected_ok_2, UnexpectedOK2})
+    end,
+
+    %% Request 3
+    tsp("escaped_url_in_error_body -> request 3"),
+    %% Ask for a non-existing page(1)
+    Path            = "/<b>this_is_bold<b>",
     HTMLEncodedPath = http_util:html_encode(Path),
-    HTMLEncodedPath = find_URL_path(string:tokens(Body2, " ")),
+    URL2            = URL1 ++ Path,
+    case httpc:request(get, {URL2, []},
+		       [{url_encode,  true}, 
+			{version,     "HTTP/1.0"}],
+		       [{full_result, false}]) of
+	{ok, {404, Body3}} ->
+	    case find_URL_path(string:tokens(Body3, " ")) of
+		HTMLEncodedPath ->
+		    ok;
+		BadPath3 ->
+		    tsf({unexpected_path_3, HTMLEncodedPath, BadPath3})
+	    end;
+	{ok, UnexpectedOK3} ->
+	    tsf({unexpected_ok_1, UnexpectedOK3})
+    end,
+
+    %% Request 4
+    tsp("escaped_url_in_error_body -> request 4"),
+    %% Ask for a non-existing page(2)
+    case httpc:request(get, {URL2, []}, 
+		       [{url_encode,  false}, 
+			{version,     "HTTP/1.0"}],
+		       [{full_result, false}]) of
+	{ok, {404, Body4}} ->
+	    case find_URL_path(string:tokens(Body4, " ")) of
+		HTMLEncodedPath ->
+		    ok;
+		BadPath4 ->
+		    tsf({unexpected_path_2, HTMLEncodedPath, BadPath4})
+	    end;
+	{ok, UnexpectedOK4} ->
+	    tsf({unexpected_ok_4, UnexpectedOK4})
+    end, 
+    tsp("escaped_url_in_error_body -> stop inets"),
     inets:stop(httpd, Pid),
-    tsp("escaped_url_in_error_body -> done"),
+    tsp("escaped_url_in_error_body -> done"),    
     ok.
 
 find_URL_path([]) ->
@@ -191,7 +272,14 @@ find_URL_path([_ | Rest]) ->
 
 
 tsp(F) ->
-    tsp(F, []).
+    inets_test_lib:tsp(F).
 tsp(F, A) ->
-    test_server:format("~p ~p:" ++ F ++ "~n", [self(), ?MODULE | A]).
+    inets_test_lib:tsp(F, A).
+
+tsf(Reason) ->
+    test_server:fail(Reason).
+
+
+skip(Reason) ->
+    {skip, Reason}.
 

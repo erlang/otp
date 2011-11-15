@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%%
+%% 
 %% Copyright Ericsson AB 1997-2011. All Rights Reserved.
-%%
+%% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
@@ -355,7 +355,7 @@ handle_http_msg({Method, Uri, Version, {RecordHeaders, Headers}, Body},
 	    Reason = io_lib:format("Forbidden URI: ~p~n", [URI]),
 	    error_log(Reason, ModData),
 	    {stop, normal, State#state{response_sent = true}};
-	{error,{bad_request, {malformed_syntax, URI}}} ->
+	{error, {bad_request, {malformed_syntax, URI}}} ->
 	    ?hdrd("validation failed: bad request - malformed syntax", 
 		  [{uri, URI}]),
 	    httpd_response:send_status(ModData#mod{http_version = Version},

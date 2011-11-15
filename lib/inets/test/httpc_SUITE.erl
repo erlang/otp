@@ -250,10 +250,10 @@ init_per_testcase(Case, Config) ->
     init_per_testcase(Case, 2, Config).
 
 init_per_testcase(Case, Timeout, Config) ->
-    io:format(user, "~n~n*** INIT ~w:~w[~w] ***~n~n", 
-	      [?MODULE, Case, Timeout]),
-    PrivDir     = ?config(priv_dir, Config),
-    tsp("init_per_testcase -> stop inets"),
+    io:format(user, 
+	      "~n~n*** INIT ~w:~w[~w] ***"
+	      "~n~n", [?MODULE, Case, Timeout]),
+    PrivDir = ?config(priv_dir, Config),
     application:stop(inets),
     Dog         = test_server:timetrap(inets_test_lib:minutes(Timeout)),
     TmpConfig   = lists:keydelete(watchdog, 1, Config),
@@ -289,12 +289,12 @@ init_per_testcase(Case, Timeout, Config) ->
 			    throw:{error, {failed_starting, App, _}} ->
 				SkipString = 
 				    "Could not start " ++ atom_to_list(App),
-				{skip, SkipString};
-			    _:X ->
+				skip(SkipString);
+			      _:X ->
 				SkipString = 
 				    lists:flatten(
 				      io_lib:format("Failed starting apps: ~p", [X])), 
-				{skip, SkipString}
+				skip(SkipString)
 			end;
 
 		    _ ->
@@ -323,14 +323,14 @@ init_per_testcase(Case, Timeout, Config) ->
 				    ],
 				case lists:member(Rest, BadCases) of
 				    true ->
-					[{skip, "TC and server not compatible"}|
+					[skip("TC and server not compatible") | 
 					 TmpConfig];
 				    false ->
 					inets:start(),
 					[{watchdog, Dog} | TmpConfig]
 				end;
 			    false ->
-				[{skip, "proxy not responding"} | TmpConfig]
+				[skip("proxy not responding") | TmpConfig]
 			end
 		end;
 
@@ -360,20 +360,19 @@ init_per_testcase(Case, Timeout, Config) ->
 			      io_lib:format("Failed starting apps: ~p", [X])), 
 			{skip, SkipString}
 		end;
+
 	    _ -> 
 		TmpConfig2 = lists:keydelete(local_server, 1, TmpConfig),
-		Server = 
-		    %% Will start inets 
-		    inets_test_lib:start_http_server(
-		      filename:join(PrivDir, IpConfFile)),
+		%% Will start inets 
+		Server = start_http_server(PrivDir, IpConfFile),
 		[{watchdog, Dog}, {local_server, Server} | TmpConfig2]
 	end,
     
     %% This will fail for the ipv6_ - cases (but that is ok)
-    httpc:set_options([{proxy, {{?PROXY, ?PROXY_PORT}, 
-     				["localhost", ?IPV6_LOCAL_HOST]}},
-		       {ipfamily, inet6fb4}]),
-
+    ProxyExceptions = ["localhost", ?IPV6_LOCAL_HOST], 
+    http:set_options([{proxy, {{?PROXY, ?PROXY_PORT}, ProxyExceptions}}]),
+    inets:enable_trace(max, io, httpc),
+    %% inets:enable_trace(max, io, all),
     %% snmp:set_trace([gen_tcp]),
     NewConfig.
 
@@ -390,7 +389,10 @@ init_per_testcase_ssl(Tag, PrivDir, SslConfFile, Config) ->
     tsp("init_per_testcase(~w) -> Server: ~p", [Tag, Server]),
     [{local_ssl_server, Server} | Config2].
 
-    
+start_http_server(ConfDir, ConfFile) ->
+    inets_test_lib:start_http_server( filename:join(ConfDir, ConfFile) ).
+
+
 %%--------------------------------------------------------------------
 %% Function: end_per_testcase(Case, Config) -> _
 %% Case - atom()
@@ -726,7 +728,7 @@ test_pipeline(URL) ->
 		    p("test_pipeline -> received reply for (async) request 2"),
 		    ok;
 		{http, Msg1} ->
-		    test_server:fail(Msg1)
+		    tsf(Msg1)
 	    end;
 	{http, {RequestId2, {{_, 200, _}, _, _}}} ->
 	    io:format("test_pipeline -> received reply for (async) request 2 - now wait for 1"),
@@ -735,14 +737,14 @@ test_pipeline(URL) ->
 		    io:format("test_pipeline -> received reply for (async) request 1"),
 		    ok;
 		{http, Msg2} ->
-		    test_server:fail(Msg2)
+		    tsf(Msg2)
 	    end;
 	{http, Msg3} ->
-	    test_server:fail(Msg3)
+	    tsf(Msg3)
     after 60000 ->
 	    receive Any1 ->
 		    tsp("received crap after timeout: ~n   ~p", [Any1]),
-		    test_server:fail({error, {timeout, Any1}})
+		    tsf({error, {timeout, Any1}})
 	    end
     end,
 
@@ -767,7 +769,7 @@ test_pipeline(URL) ->
      p("test_pipeline -> expect *no* reply for cancelled (async) request 4 (for 3 secs)"),
      receive
 	 {http, {RequestId3, _}} ->
-	     test_server:fail(http_cancel_request_failed)
+	     tsf(http_cancel_request_failed)
      after 3000 ->
 	     ok
      end,
@@ -780,11 +782,11 @@ test_pipeline(URL) ->
 		tsp("Receive : ~p", [Res]),
 		BinBody4;
 	    {http, Msg4} ->
-		test_server:fail(Msg4)
+		tsf(Msg4)
 	after 60000 ->
 		receive Any2 ->
 			tsp("received crap after timeout: ~n   ~p", [Any2]),
-			test_server:fail({error, {timeout, Any2}})
+			tsf({error, {timeout, Any2}})
 		end
 	end,
 
@@ -794,7 +796,7 @@ test_pipeline(URL) ->
     p("test_pipeline -> ensure no unexpected incomming"),
     receive
 	{http, Any} ->
-	    test_server:fail({unexpected_message, Any})
+	    tsf({unexpected_message, Any})
     after 500 ->
 	    ok
     end,
@@ -816,11 +818,11 @@ http_trace(Config) when is_list(Config) ->
 		{ok, {{_,200,_}, [_ | _], "TRACE /dummy.html" ++ _}} ->
 		    ok;
 		{ok, {{_,200,_}, [_ | _], WrongBody}} ->
-		    test_server:fail({wrong_body, WrongBody});
+		    tsf({wrong_body, WrongBody});
 		{ok, WrongReply} ->
-		    test_server:fail({wrong_reply, WrongReply});
+		    tsf({wrong_reply, WrongReply});
 		Error ->
-		    test_server:fail({failed, Error})
+		    tsf({failed, Error})
 	    end;
 	_ ->
 	    {skip, "Failed to start local http-server"}
@@ -843,7 +845,7 @@ http_async(Config) when is_list(Config) ->
 		    {http, {RequestId, {{_, 200, _}, _, BinBody}}} ->
 			BinBody;
 		    {http, Msg} ->
-			test_server:fail(Msg)
+			tsf(Msg)
 		end,
 	    
 	    inets_test_lib:check_body(binary_to_list(Body)),
@@ -853,7 +855,7 @@ http_async(Config) when is_list(Config) ->
 	    ok = httpc:cancel_request(NewRequestId),
 	    receive 
 		{http, {NewRequestId, _NewResult}} ->
-		    test_server:fail(http_cancel_request_failed)
+		    tsf(http_cancel_request_failed)
 	    after 3000 ->
 		    ok
 	    end;
@@ -902,7 +904,7 @@ http_save_to_file_async(Config) when is_list(Config) ->
 		{http, {RequestId, saved_to_file}} ->
 		    ok;
 		{http, Msg} ->
-		    test_server:fail(Msg)
+		    tsf(Msg)
 	    end,
 
 	    {ok, Bin} = file:read_file(FilePath), 
@@ -1448,10 +1450,10 @@ proxy_options(Config) when is_list(Config) ->
 			{value, {"allow", _}} ->
 			    ok;
 			_ ->
-			    test_server:fail(http_options_request_failed)
+			    tsf(http_options_request_failed)
 		    end;
 		Unexpected ->
-		    test_server:fail({unexpected_result, Unexpected})
+		    tsf({unexpected_result, Unexpected})
 	    end;
 	Reason ->
 	    {skip, Reason}
@@ -1472,7 +1474,7 @@ proxy_head(Config) when is_list(Config) ->
 		{ok, {{_,200, _}, [_ | _], []}} ->
 		    ok;
 		Unexpected ->
-		    test_server:fail({unexpected_result, Unexpected})
+		    tsf({unexpected_result, Unexpected})
 	    end;
 	Reason ->
 	    {skip, Reason}
@@ -1491,7 +1493,7 @@ proxy_get(Config) when is_list(Config) ->
 		{ok, {{_,200,_}, [_ | _], Body = [_ | _]}} ->
 		    inets_test_lib:check_body(Body);
 		Unexpected ->
-		    test_server:fail({unexpected_result, Unexpected})
+		    tsf({unexpected_result, Unexpected})
 	    end;
 	Reason ->
 	    {skip, Reason}
@@ -1570,7 +1572,7 @@ proxy_post(Config) when is_list(Config) ->
 		{ok, {{_,405,_}, [_ | _], [_ | _]}} ->
 		    ok;
 		Unexpected ->
-		    test_server:fail({unexpected_result, Unexpected})
+		    tsf({unexpected_result, Unexpected})
 	    end;
 	Reason ->
 	    {skip, Reason}
@@ -1595,7 +1597,7 @@ proxy_put(Config) when is_list(Config) ->
 		{ok, {{_,405,_}, [_ | _], [_ | _]}} ->
 		    ok;
 		Unexpected ->
-		    test_server:fail({unexpected_result, Unexpected})
+		    tsf({unexpected_result, Unexpected})
 	    end;
 	Reason ->
 	    {skip, Reason}
@@ -1620,7 +1622,7 @@ proxy_delete(Config) when is_list(Config) ->
 		{ok, {{_,404,_}, [_ | _], [_ | _]}} ->
 		    ok;
 		Unexpected ->
-		    test_server:fail({unexpected_result, Unexpected})
+		    tsf({unexpected_result, Unexpected})
 	    end;
 	Reason ->
 	    {skip, Reason}
@@ -1676,7 +1678,7 @@ proxy_auth(Config) when is_list(Config) ->
 		{ok, {{_,200, _}, [_ | _], [_|_]}} ->
 		    ok;
 		Unexpected ->
-		    test_server:fail({unexpected_result, Unexpected})
+		    tsf({unexpected_result, Unexpected})
 	    end;
 	Reason ->
 	    {skip, Reason}
@@ -1762,7 +1764,7 @@ http_stream(Config) when is_list(Config) ->
 	{http, {RequestId, stream_start, _Headers}} ->
 	    ok;
 	{http, Msg} ->
-	    test_server:fail(Msg)
+	    tsf(Msg)
     end,
 
     StreamedBody = receive_streamed_body(RequestId, <<>>),
@@ -1817,7 +1819,7 @@ once(URL) ->
 		  [RequestId, Pid]),
 		Pid;
 	    {http, Msg} ->
-		test_server:fail(Msg)
+		tsf(Msg)
 	end,
 
     tsp("once -> request handler: ~p", [NewPid]),
@@ -1860,7 +1862,7 @@ proxy_stream(Config) when is_list(Config) ->
 		{http, {RequestId, stream_start, _Headers}} ->
 		    ok;
 		{http, Msg} ->
-		    test_server:fail(Msg)
+		    tsf(Msg)
 	    end,
 	    
 	    StreamedBody = receive_streamed_body(RequestId, <<>>),
@@ -2979,7 +2981,7 @@ receive_streamed_body(RequestId, Body) ->
 	{http, {RequestId, stream_end, _Headers}} ->
 	    Body;
 	{http, Msg} ->	    
-	    test_server:fail(Msg)
+	    tsf(Msg)
     end.
 
 receive_streamed_body(RequestId, Body, Pid) ->
@@ -2993,7 +2995,7 @@ receive_streamed_body(RequestId, Body, Pid) ->
 	{http, {RequestId, stream_end, _Headers}} ->
 	    Body;
 	{http, Msg} ->	    
-	    test_server:fail(Msg)
+	    tsf(Msg)
     end.
 
 %% Perform a synchronous stop
@@ -3451,7 +3453,7 @@ handle_auth("Basic " ++ UserInfo, Challange, DefaultResponse) ->
     end.
 
 check_cookie([]) ->
-    test_server:fail(no_cookie_header);
+    tsf(no_cookie_header);
 check_cookie(["cookie:" ++ _Value | _]) ->
     ok;
 check_cookie([_Head | Tail]) ->
@@ -3509,9 +3511,9 @@ p(F, A) ->
     io:format("~p ~w:" ++ F ++ "~n", [self(), ?MODULE | A]).
 
 tsp(F) ->
-    tsp(F, []).
+    inets_test_lib:tsp(F).
 tsp(F, A) ->
-    test_server:format("~p ~p:" ++ F ++ "~n", [self(), ?MODULE | A]).
+    inets_test_lib:tsp(F, A).
 
 tsf(Reason) ->
     test_server:fail(Reason).
@@ -3566,3 +3568,6 @@ ensure_started(App) when is_atom(App) ->
 	    throw({error, {failed_starting, App, Error}})
     end.
 
+
+skip(Reason) ->
+    {skip, Reason}.
