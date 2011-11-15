@@ -324,16 +324,6 @@ do_autoconf ()
 	fi
 }
 
-mk_targetdir ()
-{
-    if [ ! -d $ERL_TOP/$TARGET ]; then
-	echo "creating  $ERL_TOP/$TARGET"
-	mkdir $ERL_TOP/$TARGET
-    else
-	echo "existing $ERL_TOP/$TARGET is used"
-    fi
-}
-
 run_configure ()
 {
     cdir="$ERL_TOP"
@@ -499,7 +489,6 @@ maybe_copy_static_cache ()
 do_configure ()
 {
     setup_make
-    mk_targetdir
 
     # Get `erl_build_tool_vars'
     . "$ERL_TOP/erl-build-tool-vars.sh" || exit 1
@@ -513,7 +502,6 @@ do_configure ()
 		  hide_vars OVERRIDE_TARGET TARGET
 		  TARGET=$BUILDSYS
 		  export TARGET
-		  mk_targetdir
 		  set_config_flags "$@"
 		  run_configure "$@"
 		  restore_vars OVERRIDE_TARGET TARGET;;

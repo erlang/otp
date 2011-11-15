@@ -136,21 +136,22 @@ ns_init(ZoneDir, PrivDir, DataDir) ->
 					 atom_to_list(ZoneDir)]},
 				  stderr_to_stdout,
 				  eof]),
-	    ns_start(ZoneDir, NS, P);
+	    ns_start(ZoneDir, PrivDir, NS, P);
 	_ ->
 	    throw("Only run on Unix")
     end.
 
-ns_start(ZoneDir, NS, P) ->
+ns_start(ZoneDir, PrivDir, NS, P) ->
     case ns_collect(P) of
 	eof ->
 	    erlang:error(eof);
 	"Running: "++_ ->
 	    {ZoneDir,NS,P};
 	"Error: "++Error ->
+	    ns_printlog(filename:join([PrivDir,ZoneDir,"named.log"])),
 	    throw(Error);
 	_ ->
-	    ns_start(ZoneDir, NS, P)
+	    ns_start(ZoneDir, PrivDir, NS, P)
     end.
 
 ns_end(undefined, _PrivDir) -> undefined;

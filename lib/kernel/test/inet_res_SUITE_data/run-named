@@ -47,6 +47,7 @@ CONF_FILE=named.conf
 INC_FILE=named_inc.conf
 PID_FILE=named.pid
 LOG_FILE=named.log
+EXIT_FILE=named.exit
 
 error () {
     r=$?
@@ -71,10 +72,14 @@ test -d "$SRCDIR" || \
 test -f "$SRCDIR/$INC_FILE" || \
     error "Missing file: $SRCDIR/$INC_FILE !"
 
-# Locate named and check version
+# Locate named and check version.
+# The bind-named name is used for tricking Apparmor and such
+# by copying/hardlinking the real named to that name.
 NAMED=named
-for n in /usr/sbin/named /usr/sbin/in.named; do
-    test -x "$n" && NAMED="$n"
+for n in /usr/local/bin/bind-named /usr/local/bin/named \
+    /usr/sbin/bind-named /usr/sbin/named /usr/sbin/in.named
+do
+    test -x "$n" && NAMED="$n" && break
 done
 NAMED_VER="`"$NAMED" -v 2>&1`" || \
     error "Name server not found!"
@@ -145,19 +150,27 @@ cat >>"$CONF_FILE" <<-CONF_FILE
 ( cd "$SRCDIR" && ls -1 ) | while read f; do
     cp -fp "$SRCDIR/$f" .
 done
+rm -f "$EXIT_FILE"
 
 # Start nameserver
 echo "Cwd: `pwd`"
 echo "Nameserver: $NAMED_VER"
 echo "Port: $2"
 echo "ZoneDir: $3"
-$NAMED $NAMED_FG -c "$CONF_FILE" >"$LOG_FILE" 2>&1 </dev/null &
-NAMED=$!
-trap "kill -TERM $NAMED >/dev/null 2>&1; wait $NAMED >/dev/null 2>&1" \
+echo "Command: $NAMED $NAMED_FG -c $CONF_FILE"
+($NAMED $NAMED_FG -c "$CONF_FILE" >"$LOG_FILE" 2>&1 </dev/null; \
+ echo "$?" >"$EXIT_FILE")&
+NAMED_PID=$!
+trap "kill -TERM $NAMED_PID >/dev/null 2>&1; wait $NAMED_PID >/dev/null 2>&1" \
     0 1 2 3 15
 sleep 2 # Give name server time to load its zone files
-echo "Running: Enter \`\`quit'' to terminate nameserver[$NAMED]..."
-while read LINE; do 
-    test :"$LINE" = :'quit' && break
-done
+if [ -f "$EXIT_FILE" ]; then
+    ERROR="`cat "$EXIT_FILE"`"
+    (exit "$ERROR")& error "$NAMED returned $ERROR on start"
+else
+    echo "Running: Enter \`\`quit'' to terminate nameserver[$NAMED_PID]..."
+    while read LINE; do
+	test :"$LINE" = :'quit' && break
+    done
+fi
 echo "Closing: Terminating nameserver..."
