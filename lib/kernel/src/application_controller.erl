@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1180,10 +1180,27 @@ terminate(Reason, S) ->
 	_ ->
 	    ok
     end,
+    ShutdownTimeout =
+	case application:get_env(kernel, shutdown_timeout) of
+	    undefined -> infinity;
+	    {ok,T} -> T
+	end,
     foreach(fun({_AppName, Id}) when is_pid(Id) -> 
+		    Ref = erlang:monitor(process, Id),
+		    unlink(Id),
 		    exit(Id, shutdown),
 		    receive
+			%% Proc died before link
 			{'EXIT', Id, _} -> ok
+		    after 0 ->
+			    receive
+				{'DOWN', Ref, process, Id, _} -> ok
+			    after ShutdownTimeout ->
+				    exit(Id, kill),
+				    receive
+					{'DOWN', Ref, process, Id, _} -> ok
+				    end
+			    end
 		    end;
 	       (_) -> ok
 	    end,
