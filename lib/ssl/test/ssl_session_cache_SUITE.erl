@@ -229,7 +229,7 @@ session_cleanup(Config)when is_list(Config) ->
 
     check_timer(DelayTimer),
 
-    test_server:sleep(?SLEEP),  %% Make sure clean has had to run
+    test_server:sleep(?SLEEP),  %% Make sure clean has had time to run
 
     undefined = ssl_session_cache:lookup(Cache, {{Hostname, Port}, Id}),
     undefined = ssl_session_cache:lookup(Cache, {Port, Id}),
