@@ -36,7 +36,8 @@
 -export([capture_start/0,capture_stop/0,capture_get/0]).
 -export([messages_get/0]).
 -export([hours/1,minutes/1,seconds/1,sleep/1,adjusted_sleep/1,timecall/3]).
--export([timetrap_scale_factor/0,timetrap/1,timetrap_cancel/1,timetrap_cancel/0]).
+-export([timetrap_scale_factor/0,timetrap/1,get_timetrap_info/0,
+	 timetrap_cancel/1,timetrap_cancel/0]).
 -export([m_out_of_n/3,do_times/4,do_times/2]).
 -export([call_crash/3,call_crash/4,call_crash/5]).
 -export([temp_name/1]).
@@ -1257,11 +1258,15 @@ run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback) ->
     end.
 
 do_end_tc_call(M,F, Loc, Res, Return) ->
+    IsSuite = case lists:reverse(atom_to_list(M)) of
+		  [$E,$T,$I,$U,$S,$_|_]  -> true;
+		  _ -> false
+	      end,
     FwMod = os:getenv("TEST_SERVER_FRAMEWORK"),
     {Mod,Func} =
 	if FwMod == M ; FwMod == "undefined"; FwMod == false ->
 		{M,F};
-	   is_list(Loc) and (length(Loc)>1) ->
+	   (not IsSuite) and is_list(Loc) and (length(Loc)>1) ->
 		%% If failure in other module (M) than suite, try locate
 		%% suite name in Loc list and call end_tc with Suite:TestCase
 		%% instead of M:F.
@@ -1524,7 +1529,10 @@ get_loc(Pid) ->
 	process_info(Pid, [current_stacktrace,dictionary]),
     lists:foreach(fun({Key,Val}) -> put(Key, Val) end, Dict),
     Stk = [rewrite_loc_item(Loc) || Loc <- Stk0],
-    put(test_server_loc, Stk),
+    case get(test_server_loc) of
+	undefined -> put(test_server_loc, Stk);
+	_ -> ok
+    end,
     get_loc().
 
 %% find the latest known Suite:Testcase
@@ -1856,7 +1864,9 @@ fail() ->
 break(Comment) ->
     case erase(test_server_timetraps) of
 	undefined -> ok;
-	List -> lists:foreach(fun({Ref,_}) -> timetrap_cancel(Ref) end, List)
+	List -> lists:foreach(fun({Ref,_,_}) -> 
+				      timetrap_cancel(Ref)
+			      end, List)
     end,
     io:format(user,
 	      "\n\n\n--- SEMIAUTOMATIC TESTING ---"
@@ -1945,8 +1955,8 @@ timetrap1(Timeout, Scale) ->
     TCPid = self(),
     Ref = spawn_link(test_server_sup,timetrap,[Timeout,Scale,TCPid]),
     case get(test_server_timetraps) of
-	undefined -> put(test_server_timetraps,[{Ref,TCPid}]);
-	List -> put(test_server_timetraps,[{Ref,TCPid}|List])
+	undefined -> put(test_server_timetraps,[{Ref,TCPid,{Timeout,Scale}}]);
+	List -> put(test_server_timetraps,[{Ref,TCPid,{Timeout,Scale}}|List])
     end,
     Ref.
 
@@ -2057,7 +2067,7 @@ timetrap_cancel(infinity) ->
 timetrap_cancel(Handle) ->
     case get(test_server_timetraps) of
 	undefined -> ok;
-	[{Handle,_}] -> erase(test_server_timetraps);
+	[{Handle,_,_}] -> erase(test_server_timetraps);
 	Timers -> put(test_server_timetraps,
 		      lists:keydelete(Handle, 1, Timers))
     end,
@@ -2073,10 +2083,27 @@ timetrap_cancel() ->
 	    ok;
 	Timers ->
 	    case lists:keysearch(self(), 2, Timers) of
-		{value,{Handle,_}} ->
+		{value,{Handle,_,_}} ->
 		    timetrap_cancel(Handle);
 		_ ->
 		    ok
+	    end
+    end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% get_timetrap_info() -> {Timeout,Scale} | undefined
+%%
+%% Read timetrap info for current test case
+get_timetrap_info() ->
+    case get(test_server_timetraps) of
+	undefined ->
+	    undefined;
+	Timers ->
+	    case lists:keysearch(self(), 2, Timers) of
+		{value,{_,_,Info}} ->
+		    Info;
+		_ ->
+		    undefined
 	    end
     end.
 

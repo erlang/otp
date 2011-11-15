@@ -36,6 +36,9 @@
 -include("ct_event.hrl").
 -include("ct_util.hrl").
 
+-define(val(Key, List), proplists:get_value(Key, List)). 
+-define(val(Key, List, Def), proplists:get_value(Key, List, Def)).   
+
 %%%-----------------------------------------------------------------
 %%% @spec init_tc(Mod,Func,Args) -> {ok,NewArgs} | {error,Reason} |
 %%%         {skip,Reason} | {auto_skip,Reason}
@@ -98,6 +101,17 @@ init_tc(Mod,Func,Config) ->
 	    {skip,InitFailed}
     end.	    
 
+init_tc1(?MODULE,error_in_suite,[Config0],_) when is_list(Config0) ->
+    ct_logs:init_tc(false),
+    ct_event:notify(#event{name=tc_start,
+			   node=node(),
+			   data={?MODULE,error_in_suite}}),
+    case ?val(error, Config0) of
+	undefined ->
+	    {skip,"unknown_error_in_suite"};
+	Reason ->
+	    {skip,Reason}
+    end;
 init_tc1(Mod,Func,[Config0],DoInit) when is_list(Config0) ->
     Config1 = 
 	case ct_util:read_suite_data(last_saved_config) of
@@ -122,19 +136,22 @@ init_tc1(Mod,Func,[Config0],DoInit) when is_list(Config0) ->
 	    %% release all name -> key bindings (once per suite)
 	    ct_config:release_allocated()
     end,
-    TestCaseInfo =
-	case catch apply(Mod,Func,[]) of
-	    Result when is_list(Result) -> Result;
-	    _ -> []
-	end,
+
+    GroupPath = ?val(tc_group_path, Config, []),
+    AllGroups =	[?val(tc_group_properties, Config, []) | GroupPath],
+
     %% clear all config data default values set by previous
     %% testcase info function (these should only survive the
     %% testcase, not the whole suite)
-    ct_config:delete_default_config(testcase),
-    case add_defaults(Mod,Func,TestCaseInfo,DoInit) of
+    FuncSpec = group_or_func(Func,Config0),
+    if is_tuple(FuncSpec) ->			% group
+	    ok;
+       true ->
+	    ct_config:delete_default_config(testcase)
+    end,
+    case add_defaults(Mod,Func,AllGroups,DoInit) of
 	Error = {suite0_failed,_} ->
 	    ct_logs:init_tc(false),
-	    FuncSpec = group_or_func(Func,Config0),
 	    ct_event:notify(#event{name=tc_start,
 				   node=node(),
 				   data={Mod,FuncSpec}}),
@@ -144,13 +161,13 @@ init_tc1(Mod,Func,[Config0],DoInit) when is_list(Config0) ->
 	    case MergeResult of
 		{error,Reason} when DoInit == false ->
 		    ct_logs:init_tc(false),
-		    FuncSpec = group_or_func(Func,Config0),
 		    ct_event:notify(#event{name=tc_start,
 					   node=node(),
 					   data={Mod,FuncSpec}}),
 		    {skip,Reason};
 		_ ->
-		    init_tc2(Mod,Func,SuiteInfo,MergeResult,Config,DoInit)
+		    init_tc2(Mod,Func,SuiteInfo,MergeResult,
+			     Config,DoInit)
 	    end
     end;
 init_tc1(_Mod,_Func,Args,_DoInit) ->
@@ -203,8 +220,9 @@ init_tc2(Mod,Func,SuiteInfo,MergeResult,Config,DoInit) ->
     ct_event:notify(#event{name=tc_start,
 			   node=node(),
 			   data={Mod,FuncSpec}}),
-    
-    case catch configure(MergedInfo1,MergedInfo1,SuiteInfo,{Func,DoInit},Config) of
+
+    case catch configure(MergedInfo1,MergedInfo1,SuiteInfo,
+			 {FuncSpec,DoInit},Config) of
 	{suite0_failed,Reason} ->
 	    ct_util:set_testdata({curr_tc,{Mod,{suite0_failed,{require,Reason}}}}),
 	    {skip,{require_failed_in_suite0,Reason}};
@@ -212,7 +230,7 @@ init_tc2(Mod,Func,SuiteInfo,MergeResult,Config,DoInit) ->
 	    {auto_skip,{require_failed,Reason}};
 	{'EXIT',Reason} ->
 	    {auto_skip,Reason};
-	{ok, FinalConfig} ->
+	{ok,FinalConfig} ->
 	    case MergeResult of
 		{error,Reason} ->
 		    %% suite0 configure finished now, report that 
@@ -241,12 +259,12 @@ ct_suite_init(Mod, Func, [Config]) when is_list(Config) ->
 	    Else
     end.
 
-add_defaults(Mod,Func,FuncInfo,DoInit) ->
+add_defaults(Mod,Func, GroupPath, DoInit) ->
     case (catch Mod:suite()) of
 	{'EXIT',{undef,_}} ->
 	    SuiteInfo = merge_with_suite_defaults(Mod,[]),
 	    SuiteInfoNoCTH = [I || I <- SuiteInfo, element(1,I) =/= ct_hooks],
-	    case add_defaults1(Mod,Func,FuncInfo,SuiteInfoNoCTH,DoInit) of
+	    case add_defaults1(Mod,Func, GroupPath, SuiteInfoNoCTH, DoInit) of
 		Error = {error,_} -> {SuiteInfo,Error};
 		MergedInfo -> {SuiteInfo,MergedInfo}
 	    end;
@@ -262,11 +280,11 @@ add_defaults(Mod,Func,FuncInfo,DoInit) ->
 			      (_) -> false
 			   end, SuiteInfo) of
 		true ->
-		    SuiteInfo1 = merge_with_suite_defaults(Mod,SuiteInfo),
+		    SuiteInfo1 = merge_with_suite_defaults(Mod, SuiteInfo),
 		    SuiteInfoNoCTH = [I || I <- SuiteInfo1,
 					   element(1,I) =/= ct_hooks],
-		    case add_defaults1(Mod,Func,FuncInfo,
-				       SuiteInfoNoCTH,DoInit) of
+		    case add_defaults1(Mod,Func, GroupPath,
+				       SuiteInfoNoCTH, DoInit) of
 			Error = {error,_} -> {SuiteInfo1,Error};
 			MergedInfo -> {SuiteInfo1,MergedInfo}
 		    end;
@@ -287,51 +305,147 @@ add_defaults(Mod,Func,FuncInfo,DoInit) ->
 	    {suite0_failed,bad_return_value}
     end.
 
-add_defaults1(_Mod,init_per_suite,[],SuiteInfo,_DoInit) ->
-    SuiteInfo;
-
-add_defaults1(Mod,Func,FuncInfo,SuiteInfo,DoInit) ->
-    %% mustn't re-require suite variables in test case info function,
-    %% can result in weird behaviour (suite values get overwritten)
+add_defaults1(Mod,Func, GroupPath, SuiteInfo, DoInit) ->
+    %% GroupPathInfo (for subgroup on level X) =
+    %%     [LevelXGroupInfo, LevelX-1GroupInfo, ..., TopLevelGroupInfo]
+    GroupPathInfo =  
+	lists:map(fun(GroupProps) ->
+			  Name = ?val(name, GroupProps),
+			  case catch Mod:group(Name) of
+			      GrInfo when is_list(GrInfo) -> GrInfo;
+			      _ -> []
+			  end
+		  end, GroupPath),
+    TestCaseInfo =
+	case catch apply(Mod,Func,[]) of
+	    TCInfo when is_list(TCInfo) -> TCInfo;
+	    _ -> []
+	end,
+    %% let test case info (also for all config funcs) override group info,
+    %% and lower level group info override higher level info
+    TCAndGroupInfo = [TestCaseInfo | remove_info_in_prev(TestCaseInfo,
+							 GroupPathInfo)],
+    %% find and save require terms found in suite info
     SuiteReqs = 
 	[SDDef || SDDef <- SuiteInfo,
 		  ((require == element(1,SDDef)) or
 		   (default_config == element(1,SDDef)))],
-    FuncReqs =
-	[FIDef || FIDef <- FuncInfo,
-		  require == element(1,FIDef)],
-    case [element(2,Clash) || Clash <- SuiteReqs,
-			      require == element(1, Clash),
-			      true == lists:keymember(element(2,Clash),2,
-						      FuncReqs)] of
+
+    case check_for_clashes(TestCaseInfo, GroupPathInfo, SuiteReqs) of
 	[] ->
-	    add_defaults2(Mod,Func,FuncInfo,SuiteInfo,SuiteReqs,DoInit);
+	    add_defaults2(Mod,Func, TCAndGroupInfo,SuiteInfo,SuiteReqs, DoInit);
 	Clashes ->
 	    {error,{config_name_already_in_use,Clashes}}
     end.
 
-add_defaults2(Mod,init_per_suite,IPSInfo,SuiteInfo,SuiteReqs,false) ->
-    %% not common practise to use a test case info function for
-    %% init_per_suite (usually handled by suite/0), but let's support
-    %% it just in case...
-    add_defaults2(Mod,init_per_suite,IPSInfo,SuiteInfo,SuiteReqs,true);
+%% Check that alias names are not already in use
+check_for_clashes(TCInfo, GrPathInfo, SuiteInfo) ->
+    {CurrGrInfo,SearchIn} = case GrPathInfo of
+				[] -> {[],[SuiteInfo]};
+				[Curr|Path] -> {Curr,[SuiteInfo|Path]}
+			    end,
+    ReqNames = fun(Info) -> [element(2,R) || R <- Info,
+					     size(R) == 3,
+					     require == element(1,R)]
+	       end,
+    ExistingNames = lists:flatten([ReqNames(L)  || L <- SearchIn]),
+    CurrGrReqNs = ReqNames(CurrGrInfo),
+    GrClashes = [Name || Name <- CurrGrReqNs,
+			 true == lists:member(Name, ExistingNames)],
+    AllReqNs = CurrGrReqNs ++ ExistingNames,
+    TCClashes = [Name || Name <- ReqNames(TCInfo),
+			 true == lists:member(Name, AllReqNs)],
+    TCClashes ++ GrClashes.
 
-add_defaults2(_Mod,_Func,FuncInfo,SuiteInfo,_,false) ->
-    %% include require elements from test case info, but not from suite/0
-    %% (since we've already required those vars)
-    FuncInfo ++
-	[SFDef || SFDef <- SuiteInfo,
-		  require /= element(1,SFDef),
-		  false == lists:keymember(element(1,SFDef),1,FuncInfo)];
+%% Delete the info terms in Terms from all following info lists
+remove_info_in_prev(Terms, [[] | Rest]) ->
+    [[] | remove_info_in_prev(Terms, Rest)];
+remove_info_in_prev(Terms, [Info | Rest]) ->
+    UniqueInInfo = [U || U <- Info,
+			  ((timetrap == element(1,U)) and
+			   (not lists:keymember(timetrap,1,Terms))) or 
+			  ((require == element(1,U)) and
+			   (not lists:member(U,Terms))) or
+			  ((default_config == element(1,U)) and
+                           (not keysmember([default_config,1,
+					    element(2,U),2], Terms)))],
+    OtherTermsInInfo = [T || T <- Info,
+			     timetrap /= element(1,T),
+			     require /= element(1,T),
+			     default_config /= element(1,T),
+			     false == lists:keymember(element(1,T),1,
+						      Terms)],
+    KeptInfo = UniqueInInfo ++ OtherTermsInInfo,
+    [KeptInfo | remove_info_in_prev(Terms ++ KeptInfo, Rest)];
+remove_info_in_prev(_, []) ->
+    [].
 
-add_defaults2(_Mod,_Func,FuncInfo,SuiteInfo,SuiteReqs,true) ->
-    %% We must include require elements from suite/0 here since
-    %% there's no init_per_suite call before this first test case.
-    %% Let other test case info elements override those from suite/0.
-    FuncInfo ++ SuiteReqs ++
-	[SDDef || SDDef <- SuiteInfo,
-		  require /= element(1,SDDef),
-		  false == lists:keymember(element(1,SDDef),1,FuncInfo)].    
+keysmember([Key,Pos|Next], List) ->
+    case [Elem || Elem <- List, Key == element(Pos,Elem)] of
+	[]    -> false;
+	Found -> keysmember(Next, Found)
+    end;
+keysmember([], _) -> true.
+
+
+add_defaults2(Mod,init_per_suite, IPSInfo, SuiteInfo,SuiteReqs, false) ->
+    add_defaults2(Mod,init_per_suite, IPSInfo, SuiteInfo,SuiteReqs, true);
+
+add_defaults2(_Mod,IPG, IPGAndGroupInfo, SuiteInfo,SuiteReqs, DoInit) when
+      IPG == init_per_group ; IPG == ct_init_per_group ->
+    %% If DoInit == true, we have to process the suite() list, otherwise
+    %% it has already been handled (see clause for init_per_suite)
+    case DoInit of		
+	true ->
+	    %% note: we know for sure this is a top level group
+	    Info = lists:flatten([IPGAndGroupInfo, SuiteReqs]),
+	    Info ++ remove_info_in_prev(Info, [SuiteInfo]);
+	false ->
+	    SuiteInfo1 =
+		remove_info_in_prev(lists:flatten([IPGAndGroupInfo,
+						   SuiteReqs]), [SuiteInfo]),
+	    %% don't require terms in prev groups (already processed)
+	    case IPGAndGroupInfo of
+		[IPGInfo] ->
+		    lists:flatten([IPGInfo,SuiteInfo1]);
+		[IPGInfo | [CurrGroupInfo | PrevGroupInfo]] ->
+		    PrevGroupInfo1 = delete_require_terms(PrevGroupInfo),
+		    lists:flatten([IPGInfo,CurrGroupInfo,PrevGroupInfo1,
+				   SuiteInfo1])
+	    end
+    end;
+
+add_defaults2(_Mod,_Func, TCAndGroupInfo, SuiteInfo,SuiteReqs, false) ->
+    %% Include require elements from test case info and current group,
+    %% but not from previous groups or suite/0 (since we've already required
+    %% those vars). Let test case info elements override group and suite
+    %% info elements.
+    SuiteInfo1 = remove_info_in_prev(lists:flatten([TCAndGroupInfo,
+						    SuiteReqs]), [SuiteInfo]),
+    %% don't require terms in prev groups (already processed)
+    case TCAndGroupInfo of
+	[TCInfo] ->
+	    lists:flatten([TCInfo,SuiteInfo1]);
+	[TCInfo | [CurrGroupInfo | PrevGroupInfo]] ->
+	    PrevGroupInfo1 = delete_require_terms(PrevGroupInfo),
+	    lists:flatten([TCInfo,CurrGroupInfo,PrevGroupInfo1,
+			   SuiteInfo1])
+    end;
+
+add_defaults2(_Mod,_Func, TCInfo, SuiteInfo,SuiteReqs, true) ->
+    %% Here we have to process the suite info list also (no call to
+    %% init_per_suite before this first test case). This TC can't belong
+    %% to a group, or the clause for (ct_)init_per_group would've caught this.
+    Info = lists:flatten([TCInfo, SuiteReqs]),
+    lists:flatten([Info,remove_info_in_prev(Info, [SuiteInfo])]).
+
+delete_require_terms([Info | Prev]) ->
+    Info1 = [T || T <- Info, 
+		  require /= element(1,T),
+		  default_config /= element(1,T)],
+    [Info1 | delete_require_terms(Prev)];
+delete_require_terms([]) ->
+    [].
 
 merge_with_suite_defaults(Mod,SuiteInfo) ->
     case lists:keysearch(suite_defaults,1,Mod:module_info(attributes)) of
@@ -364,7 +478,8 @@ configure([{require,Required}|Rest],Info,SuiteInfo,Scope,Config) ->
 	ok ->
 	    configure(Rest,Info,SuiteInfo,Scope,Config);
 	Error = {error,Reason} ->
-	    case required_default('_UNDEF',Required,Info,SuiteInfo,Scope) of
+	    case required_default('_UNDEF',Required,Info,
+				  SuiteInfo,Scope) of
 		ok ->
 		    configure(Rest,Info,SuiteInfo,Scope,Config);
 		_ ->
@@ -406,18 +521,24 @@ configure([],_,_,_,Config) ->
     {ok,[Config]}.
 
 %% the require element in Info may come from suite/0 and
-%% should be scoped 'suite', or come from the testcase info
-%% function and should then be scoped 'testcase'
-required_default(Name,Key,Info,SuiteInfo,{Func,true}) ->
+%% should be scoped 'suite', or come from the group info
+%% function and be scoped 'group', or come from the testcase
+%% info function and then be scoped 'testcase'
+
+required_default(Name,Key,Info,SuiteInfo,{FuncSpec,true}) ->
     case try_set_default(Name,Key,SuiteInfo,suite) of
 	ok ->
 	    ok;
 	_ ->
-	    required_default(Name,Key,Info,[],{Func,false})
+	    required_default(Name,Key,Info,[],{FuncSpec,false})
     end;
 required_default(Name,Key,Info,_,{init_per_suite,_}) ->
     try_set_default(Name,Key,Info,suite);
-required_default(Name,Key,Info,_,_) ->
+required_default(Name,Key,Info,_,{{init_per_group,GrName,_},_}) ->
+    try_set_default(Name,Key,Info,{group,GrName});
+required_default(Name,Key,Info,_,{{ct_init_per_group,GrName,_},_}) ->
+    try_set_default(Name,Key,Info,{group,GrName});
+required_default(Name,Key,Info,_,_FuncSpec) ->
     try_set_default(Name,Key,Info,testcase).
 
 try_set_default(Name,Key,Info,Where) ->
@@ -484,7 +605,11 @@ end_tc(Mod,Func,TCPid,Result,Args,Return) ->
     ct_util:delete_suite_data(last_saved_config),
     FuncSpec =
 	case group_or_func(Func,Args) of
-	    {_,GroupName,_Props} = Group ->			       
+	    {_,GroupName,_Props} = Group ->
+		if Func == end_per_group; Func == ct_end_per_group ->
+			ct_config:delete_default_config({group,GroupName});
+		   true -> ok
+		end,
 		case lists:keysearch(save_config,1,Args) of
 		    {value,{save_config,SaveConfig}} ->
 			ct_util:save_suite_data(
@@ -703,12 +828,14 @@ mark_as_failed1(_,_,_,[]) ->
     ok.
 
 group_or_func(Func, Config) when Func == init_per_group; 
-				 Func == end_per_group ->
-    case proplists:get_value(tc_group_properties,Config) of
+				 Func == end_per_group;
+				 Func == ct_init_per_group; 
+				 Func == ct_end_per_group ->
+    case ?val(tc_group_properties, Config) of
 	undefined ->
 	    {Func,unknown,[]};
 	GrProps ->
-	    GrName = proplists:get_value(name,GrProps),
+	    GrName = ?val(name,GrProps),
 	    {Func,GrName,proplists:delete(name,GrProps)}
     end;	  
 group_or_func(Func, _Config) ->
@@ -746,7 +873,7 @@ get_suite(Mod, all) ->
 
 %% group
 get_suite(Mod, Group={conf,Props,_Init,TCs,_End}) ->
-    Name = proplists:get_value(name, Props),
+    Name = ?val(name, Props),
     case catch apply(Mod, groups, []) of
 	{'EXIT',_} ->
 	    [Group];
@@ -764,7 +891,7 @@ get_suite(Mod, Group={conf,Props,_Init,TCs,_End}) ->
 			    %% a *subgroup* specified *only* as skipped (and not
 			    %% as an explicit test) should not be returned, or
 			    %% init/end functions for top groups will be executed
-			    case catch proplists:get_value(name, element(2, hd(ConfTests))) of
+			    case catch ?val(name, element(2, hd(ConfTests))) of
 				Name ->		% top group
 				    delete_subs(ConfTests, ConfTests);
 				_ ->
@@ -918,14 +1045,14 @@ delete_subs([], All) ->
     All.
 
 delete_conf({conf,Props,_,_,_}, Confs) ->
-    Name = proplists:get_value(name, Props),
+    Name = ?val(name, Props),
     [Conf || Conf = {conf,Props0,_,_,_} <- Confs,
-	     Name =/= proplists:get_value(name, Props0)].
+	     Name =/= ?val(name, Props0)].
 
 is_sub({conf,Props,_,_,_}=Conf, [{conf,_,_,Tests,_} | Confs]) ->
-    Name = proplists:get_value(name, Props),
+    Name = ?val(name, Props),
     case lists:any(fun({conf,Props0,_,_,_}) ->
-			   case proplists:get_value(name, Props0) of
+			   case ?val(name, Props0) of
 			       N when N == Name ->
 				   true;
 			       _ ->
@@ -1080,7 +1207,7 @@ expand_groups([], _ConfTests, _Mod) ->
 expand_groups({group,Name}, ConfTests, Mod) ->
     FindConf = 
 	fun({conf,Props,_,_,_}) ->
-		case proplists:get_value(name, Props) of
+		case ?val(name, Props) of
 		    Name -> true;
 		    _    -> false
 		end
@@ -1234,8 +1361,8 @@ report(What,Data) ->
 	loginfo ->
 	    %% logfiles and direcories have been created for a test and the
 	    %% top level test index page needs to be refreshed
-	    TestName = filename:basename(proplists:get_value(topdir, Data), ".logs"),
-	    RunDir = proplists:get_value(rundir, Data),
+	    TestName = filename:basename(?val(topdir, Data), ".logs"),
+	    RunDir = ?val(rundir, Data),
 	    ct_logs:make_all_suites_index({TestName,RunDir}),
 	    ok;
 	tests_start ->
@@ -1341,6 +1468,17 @@ report(What,Data) ->
 		    add_to_stats(auto_skipped);
 	       true -> 
 		    ok
+	    end;
+	framework_error ->
+	    case Data of
+		{{M,F},E} ->
+		    ct_event:sync_notify(#event{name=tc_done,
+						node=node(),
+						data={M,F,{framework_error,E}}});
+		_ ->
+		    ct_event:sync_notify(#event{name=tc_done,
+						node=node(),
+						data=Data})
 	    end;
 	_ ->
 	    ok

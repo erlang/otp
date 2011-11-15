@@ -2725,21 +2725,27 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 				      "(configuration case ~w)", [What]);
 			   (_) -> ok
 			end,
-
     CfgProps = if StartConf ->
 		       if Shuffle == undefined ->
 			       [{tc_group_properties,Props}];
 			  true ->
-			       [{tc_group_properties,[Shuffle|delete_shuffle(Props)]}]
+			       [{tc_group_properties,
+				 [Shuffle|delete_shuffle(Props)]}]
 		       end;
 		  not StartConf ->
 		       {TcOk,TcSkip,TcFail} = get_tc_results(Status1),
 		       [{tc_group_properties,get_props(Mode0)},
-			{tc_group_result,[{ok,TcOk},{skipped,TcSkip},{failed,TcFail}]}]
+			{tc_group_result,[{ok,TcOk},
+					  {skipped,TcSkip},
+					  {failed,TcFail}]}]
 	       end,
+    GroupPath = lists:flatmap(fun({_Ref,[],_T}) -> [];
+				 ({_Ref,GrProps,_T}) -> [GrProps] end, Mode0),
     ActualCfg =
-	update_config(hd(Config), [{priv_dir,get(test_server_priv_dir)},
-				   {data_dir,get_data_dir(Mod)}] ++ CfgProps),
+	update_config(hd(Config), 
+		      [{priv_dir,get(test_server_priv_dir)},
+		       {data_dir,get_data_dir(Mod)},
+		       {tc_group_path,GroupPath} | CfgProps]),
     CurrMode = curr_mode(Ref, Mode0, Mode),
 
     ConfCaseResult = run_test_case(Ref, 0, Mod, Func, [ActualCfg], skip_init, target,

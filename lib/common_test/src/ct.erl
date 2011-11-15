@@ -65,7 +65,7 @@
 	 pal/1, pal/2, pal/3,
 	 fail/1, fail/2, comment/1, comment/2,
 	 testcases/2, userdata/2, userdata/3,
-	 timetrap/1, sleep/1]).
+	 timetrap/1, get_timetrap_info/0, sleep/1]).
 
 %% New API for manipulating with config handlers
 -export([add_config/2, remove_config/2]).
@@ -703,7 +703,8 @@ userdata(TestDir, Suite) ->
 	    get_userdata(Info, "suite/0")
     end.
 
-get_userdata({'EXIT',{undef,_}}, Spec) ->
+get_userdata({'EXIT',{Undef,_}}, Spec) when Undef == undef;
+					     Undef == function_clause ->
     {error,list_to_atom(Spec ++ " is not defined")};
 get_userdata({'EXIT',Reason}, Spec) ->
     {error,{list_to_atom("error in " ++ Spec),Reason}};
@@ -719,16 +720,27 @@ get_userdata(_BadTerm, Spec) ->
     {error,list_to_atom(Spec ++ " must return a list")}.
    
 %%%-----------------------------------------------------------------
-%%% @spec userdata(TestDir, Suite, Case) -> TCUserData | {error,Reason}
+%%% @spec userdata(TestDir, Suite, GroupOrCase) -> TCUserData | {error,Reason}
 %%%       TestDir = string()
 %%%       Suite = atom()
-%%%       Case = atom()
+%%%       GroupOrCase = {group,GroupName} | atom()
+%%%       GroupName = atom()
 %%%       TCUserData = [term()]
 %%%       Reason = term()
 %%%
 %%% @doc Returns any data specified with the tag <code>userdata</code>
-%%% in the list of tuples returned from <code>Suite:Case/0</code>.
-userdata(TestDir, Suite, Case) ->
+%%% in the list of tuples returned from <code>Suite:group(GroupName)</code>
+%%% or <code>Suite:Case()</code>.
+userdata(TestDir, Suite, {group,GroupName}) ->
+    case make_and_load(TestDir, Suite) of
+	E = {error,_} ->
+	    E;
+	_ ->
+	    Info = (catch apply(Suite, group, [GroupName])),
+	    get_userdata(Info, "group("++atom_to_list(GroupName)++")")
+    end;
+
+userdata(TestDir, Suite, Case) when is_atom(Case) ->
     case make_and_load(TestDir, Suite) of
 	E = {error,_} ->
 	    E;
@@ -904,6 +916,18 @@ remove_config(Callback, Config) ->
 timetrap(Time) ->
     test_server:timetrap_cancel(),
     test_server:timetrap(Time).
+
+%%%-----------------------------------------------------------------
+%%% @spec get_timetrap_info() -> {Time,Scale}
+%%%       Time = integer() | infinity
+%%%       Scale = true | false
+%%%
+%%% @doc <p>Read info about the timetrap set for the current test case.
+%%%      <c>Scale</c> indicates if Common Test will attempt to automatically
+%%%      compensate timetraps for runtime delays introduced by e.g. tools like
+%%%      cover.</p>
+get_timetrap_info() ->
+    test_server:get_timetrap_info().
 
 %%%-----------------------------------------------------------------
 %%% @spec sleep(Time) -> ok
