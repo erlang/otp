@@ -224,6 +224,20 @@
 	 service_info/1
 	]).
 
+-ifdef('OTP-R14B-COMPILER').
+
+-export([behaviour_info/1]).
+
+behaviour_info(callbacks) ->
+    [{prepare, 6}, 
+     {open,    6}, 
+     {read,    1}, 
+     {write,   2}, 
+     {abort,   3}];
+behaviour_info(_) ->
+    undefined.
+
+-else.
 
 -type peer() :: {PeerType :: inet | inet6,
 		 PeerHost :: inet:ip_address(),
@@ -265,6 +279,8 @@
     {error, {Code :: error_code(), string()}}.
 
 -callback abort(Code :: error_code(), string(), State :: term()) -> 'ok'.
+
+-endif.
 
 -include("tftp.hrl").
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,6 +19,21 @@
 %%
 
 -module(inets_service).
+
+-ifdef('OTP-R14B-COMPILER').
+
+-export([behaviour_info/1]).
+
+behaviour_info(callbacks) ->
+        [{start_standalone,         1}, 
+	 {start_service,            1},
+	 {stop_service,             1},
+	 {services,                 0},
+	 {service_info,             1}];
+behaviour_info(_) ->
+        undefined.
+
+-else.
 
 %% Starts service stand-alone
 %% start_standalone(Config) ->  % {ok, Pid} | {error, Reason}
@@ -67,3 +82,5 @@
 
 -callback service_info(Service :: term()) ->
     {ok, [{Property :: term(), Value :: term()}]} | {error, Reason :: term()}.
+
+-endif.

@@ -51,7 +51,7 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 
 docs: 
 
-release_spec: 
+release_spec: opt
 	$(INSTALL_DIR) $(EXRELSYSDIR)
 	$(INSTALL_DATA) $(TESTSRC) $(EXRELSYSDIR)
 	$(INSTALL_DATA) copy.xpm sample.xpm $(TESTTARGETS) $(EXRELSYSDIR)

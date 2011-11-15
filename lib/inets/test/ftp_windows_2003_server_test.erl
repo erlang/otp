@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -87,14 +87,22 @@ end_per_testcase(Case, Config) ->
 %% Description: Returns a list of all test cases in this test suite
 %%--------------------------------------------------------------------
 all() -> 
-    [open, open_port, {group, passive}, {group, active},
-     api_missuse, not_owner, {group, progress_report}].
+    [
+     open, 
+     open_port, 
+     {group, passive}, 
+     {group, active},
+     api_missuse, 
+     not_owner, 
+     {group, progress_report}
+    ].
 
 groups() -> 
-    [{passive, [], ftp_suite_lib:passive(suite)},
-     {active, [], ftp_suite_lib:active(suite)},
-     {progress_report, [],
-      ftp_suite_lib:progress_report(suite)}].
+    [
+     {passive,         [], ftp_suite_lib:passive(suite)},
+     {active,          [], ftp_suite_lib:active(suite)},
+     {progress_report, [], ftp_suite_lib:progress_report(suite)}
+    ].
 
 init_per_group(_GroupName, Config) ->
     Config.

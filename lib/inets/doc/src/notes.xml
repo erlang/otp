@@ -35,17 +35,22 @@
   <section><title>Inets 5.8</title>
 
     <section><title>Improvements and New Features</title>
-    <p>-</p>
-
 <!--
+    <p>-</p>
+-->
+
       <list>
         <item>
-          <p>[httpc|httpd] Added support for IPv6 with ssl. </p>
-	  <p>Own Id: OTP-5566</p>
+          <p>[ftpc] Add a config option to specify a 
+	  <seealso marker="ftp#dtimeout">data connect timeout</seealso>.
+	  That is how long the ftp client will wait for the server to connect
+	  to the data socket. If this timeout occurs, an error will be 
+	  returned to the caller and the ftp client process will be 
+	  terminated. </p>
+	  <p>Own Id: OTP-9545</p>
         </item>
 
       </list>
--->
 
     </section>
 

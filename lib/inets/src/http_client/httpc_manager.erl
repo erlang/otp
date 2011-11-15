@@ -256,19 +256,27 @@ reset_cookies(ProfileName) ->
 
 
 %%--------------------------------------------------------------------
-%% Function: which_cookies(Url, ProfileName) -> [cookie()]
+%% Function: which_cookies(ProfileName)               -> [cookie()]
+%%           which_cookies(Url, ProfileName)          -> [cookie()]
+%%           which_cookies(Url, Options, ProfileName) -> [cookie()]
 %%
 %%	Url = string()
+%%	Options = [option()]
 %%      ProfileName = atom()
+%%      option() = {ipv6_host_with_brackets, boolean()}
 %%
 %% Description: Retrieves the cookies that would be sent when 
 %% requesting <Url>.
 %%--------------------------------------------------------------------
 
-which_cookies(ProfileName) ->
+which_cookies(ProfileName) when is_atom(ProfileName) ->
     call(ProfileName, which_cookies).
-which_cookies(Url, ProfileName) ->
-    call(ProfileName, {which_cookies, Url}).
+which_cookies(Url, ProfileName) 
+  when is_list(Url) andalso is_atom(ProfileName) ->
+    call(ProfileName, {which_cookies, Url, []}).
+which_cookies(Url, Options, ProfileName) 
+  when is_list(Url) andalso is_list(Options) andalso is_atom(ProfileName) ->
+    call(ProfileName, {which_cookies, Url, Options}).
 
 
 %%--------------------------------------------------------------------
@@ -395,15 +403,16 @@ handle_call(which_cookies, _, #state{cookie_db = CookieDb} = State) ->
     CookieHeaders = httpc_cookie:which_cookies(CookieDb),
     {reply, CookieHeaders, State};
 
-handle_call({which_cookies, Url}, _, #state{cookie_db = CookieDb} = State) ->
-    ?hcrv("which cookies", [{url, Url}]),
-    case http_uri:parse(Url) of
-	{Scheme, _, Host, Port, Path, _} ->
+handle_call({which_cookies, Url, Options}, _, 
+	    #state{cookie_db = CookieDb} = State) ->
+    ?hcrv("which cookies", [{url, Url}, {options, Options}]),
+    case http_uri:parse(Url, Options) of
+	{ok, {Scheme, _, Host, Port, Path, _}} ->
 	    CookieHeaders = 
 		httpc_cookie:header(CookieDb, Scheme, {Host, Port}, Path),
 	    {reply, CookieHeaders, State};
-	Msg ->
-	    {reply, Msg, State}
+	{error, _} = ERROR ->
+	    {reply, ERROR, State}
     end;
 
 handle_call(info, _, State) ->
