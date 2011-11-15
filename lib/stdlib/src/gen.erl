@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -273,7 +273,7 @@ reply({To, Tag}, Reply) ->
 %%%-----------------------------------------------------------------
 %%%  Misc. functions.
 %%%-----------------------------------------------------------------
-where({global, Name}) -> global:safe_whereis_name(Name);
+where({global, Name}) -> global:whereis_name(Name);
 where({local, Name})  -> whereis(Name).
 
 name_register({local, Name} = LN) ->

@@ -28,7 +28,7 @@
 
 %% External exports
 -export([start/0, start_link/0, stop/0, sync/0, sync/1,
-	 safe_whereis_name/1, whereis_name/1,  register_name/2, 
+	 whereis_name/1,  register_name/2,
          register_name/3, register_name_external/2, register_name_external/3,
          unregister_name_external/1,re_register_name/2, re_register_name/3,
 	 unregister_name/1, registered_names/0, send/2, node_disconnected/1,
@@ -202,10 +202,6 @@ send(Name, Msg) ->
       Name :: term().
 whereis_name(Name) ->
     where(Name).
-
--spec safe_whereis_name(term()) -> pid() | 'undefined'.
-safe_whereis_name(Name) ->
-    gen_server:call(global_name_server, {whereis, Name}, infinity).
 
 node_disconnected(Node) ->
     global_name_server ! {nodedown, Node}.
@@ -510,8 +506,7 @@ init([]) ->
 %%   delay can sometimes be quite substantial. Global guarantees that
 %%   the name will eventually be removed, but there is no
 %%   synchronization between nodes; the name can be removed from some
-%%   node(s) long before it is removed from other nodes. Using
-%%   safe_whereis_name is no cure.
+%%   node(s) long before it is removed from other nodes.
 %%
 %% - Global cannot handle problems with the distribution very well.
 %%   Depending on the value of the kernel variable 'net_ticktime' long
@@ -588,10 +583,6 @@ init([]) ->
         {'noreply', state()} |
 	{'reply', term(), state()} |
 	{'stop', 'normal', 'stopped', state()}.
-
-handle_call({whereis, Name}, From, S) ->
-    do_whereis(Name, From),
-    {noreply, S};
 
 handle_call({registrar, Fun}, From, S) ->
     S#state.the_registrar ! {trans_all_known, Fun, From},
@@ -1235,7 +1226,15 @@ ins_name_ext(Name, Pid, Method, RegNode, FromPidOrNode, ExtraInfo, S0) ->
 
 where(Name) ->
     case ets:lookup(global_names, Name) of
-	[{_Name, Pid, _Method, _RPid, _Ref}] -> Pid;
+	[{_Name, Pid, _Method, _RPid, _Ref}] ->
+	    if node(Pid) == node() ->
+		    case is_process_alive(Pid) of
+			true  -> Pid;
+			false -> undefined
+		    end;
+	       true ->
+		    Pid
+	    end;
 	[] -> undefined
     end.
 

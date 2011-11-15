@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -820,7 +820,7 @@ get_proc_name({local, Name}) ->
 	    exit(process_not_registered)
     end;    
 get_proc_name({global, Name}) ->
-    case global:safe_whereis_name(Name) of
+    case global:whereis_name(Name) of
 	undefined ->
 	    exit(process_not_registered_globally);
 	Pid when Pid =:= self() ->
@@ -842,7 +842,7 @@ get_parent() ->
 name_to_pid(Name) ->
     case whereis(Name) of
 	undefined ->
-	    case global:safe_whereis_name(Name) of
+	    case global:whereis_name(Name) of
 		undefined ->
 		    exit(could_not_find_registerd_name);
 		Pid ->
