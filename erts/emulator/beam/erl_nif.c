@@ -531,7 +531,7 @@ int enif_alloc_binary(size_t size, ErlNifBinary* bin)
     }
     refbin->flags = BIN_FLAG_DRV; /* BUGBUG: Flag? */
     erts_refc_init(&refbin->refc, 1);
-    refbin->orig_size = (long) size;
+    refbin->orig_size = (SWord) size;
 
     bin->size = size;
     bin->data = (unsigned char*) refbin->orig_bytes;
@@ -801,7 +801,7 @@ int enif_get_ulong(ErlNifEnv* env, Eterm term, unsigned long* ip)
     unsigned int tmp;
     ret = enif_get_uint(env,term,&tmp);
     if (ret) {
-      *ip = (long) tmp;
+      *ip = (unsigned long) tmp;
     }
     return ret;
 #else

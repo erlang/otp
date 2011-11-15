@@ -169,9 +169,11 @@ void erts_sys_env_init(void);
 extern volatile int erl_fp_exception;
 
 #include <float.h>
-#if defined (__GNUC__)
+/* I suspect this test isn't right, it might depend on the version of GCC
+   rather than if it's a MINGW gcc, but I havent been able to pinpoint the
+   exact point where _finite was added to the headers in cygwin... */
+#if defined (__GNUC__) && !defined(__MINGW32__)
 int _finite(double x);
-#endif
 #endif
 
 /*#define NO_FPE_SIGNALS*/
@@ -202,4 +204,5 @@ typedef long ssize_t;
 #ifdef USE_THREADS
 int init_async(int);
 int exit_async(void);
+#endif
 #endif

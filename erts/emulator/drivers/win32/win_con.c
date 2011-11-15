@@ -2138,7 +2138,7 @@ AddToCmdHistory(void)
     }
 }
 
-static TBBUTTON tbb[] =
+/*static TBBUTTON tbb[] =
 {
     0,          0,              TBSTATE_ENABLED, TBSTYLE_SEP,    0, 0, 0, 0,
     0,          0,              TBSTATE_ENABLED, TBSTYLE_SEP,    0, 0, 0, 0,
@@ -2170,6 +2170,39 @@ static TBBUTTON tbb[] =
     2,	        IDMENU_FONT,	TBSTATE_ENABLED, TBSTYLE_AUTOSIZE, 0, 0, 0, 0,
     3,	        IDMENU_ABOUT,	TBSTATE_ENABLED, TBSTYLE_AUTOSIZE, 0, 0, 0, 0,
     0,          0,              TBSTATE_ENABLED, TBSTYLE_SEP,    0, 0, 0, 0,
+    };*/
+static TBBUTTON tbb[] =
+{
+  {0,          0,              TBSTATE_ENABLED, TBSTYLE_SEP},
+  {0,          0,              TBSTATE_ENABLED, TBSTYLE_SEP},
+  {0,          0,              TBSTATE_ENABLED, TBSTYLE_SEP},
+  {0,          0,              TBSTATE_ENABLED, TBSTYLE_SEP},
+  {0,          0,              TBSTATE_ENABLED, TBSTYLE_SEP},
+  {0,          0,              TBSTATE_ENABLED, TBSTYLE_SEP},
+  {0,          0,              TBSTATE_ENABLED, TBSTYLE_SEP},
+  {0,          0,              TBSTATE_ENABLED, TBSTYLE_SEP},
+  {0,          0,              TBSTATE_ENABLED, TBSTYLE_SEP},
+  {0,          0,              TBSTATE_ENABLED, TBSTYLE_SEP},
+  {0,          0,              TBSTATE_ENABLED, TBSTYLE_SEP},
+  {0,          0,              TBSTATE_ENABLED, TBSTYLE_SEP},
+  {0,          0,              TBSTATE_ENABLED, TBSTYLE_SEP},
+  {0,          0,              TBSTATE_ENABLED, TBSTYLE_SEP},
+  {0,          0,              TBSTATE_ENABLED, TBSTYLE_SEP},
+  {0,          0,              TBSTATE_ENABLED, TBSTYLE_SEP},
+  {0,          0,              TBSTATE_ENABLED, TBSTYLE_SEP},
+  {0,          0,              TBSTATE_ENABLED, TBSTYLE_SEP},
+  {0,          0,              TBSTATE_ENABLED, TBSTYLE_SEP},
+  {0,          0,              TBSTATE_ENABLED, TBSTYLE_SEP},
+  {0,          0,              TBSTATE_ENABLED, TBSTYLE_SEP},
+  {0,          0,              TBSTATE_ENABLED, TBSTYLE_SEP},
+  {0,          0,              TBSTATE_ENABLED, TBSTYLE_SEP},
+  {0,          0,              TBSTATE_ENABLED, TBSTYLE_SEP},
+  {0,          0,              TBSTATE_ENABLED, TBSTYLE_SEP},
+  {0,          IDMENU_COPY,    TBSTATE_ENABLED, TBSTYLE_AUTOSIZE},
+  {1,	       IDMENU_PASTE,   TBSTATE_ENABLED, TBSTYLE_AUTOSIZE},
+  {2,	       IDMENU_FONT,    TBSTATE_ENABLED, TBSTYLE_AUTOSIZE},
+  {3,	       IDMENU_ABOUT,   TBSTATE_ENABLED, TBSTYLE_AUTOSIZE},
+  {0,          0,              TBSTATE_ENABLED, TBSTYLE_SEP} 
 };
 
 static TBADDBITMAP tbbitmap =
@@ -2177,6 +2210,17 @@ static TBADDBITMAP tbbitmap =
     HINST_COMMCTRL, IDB_STD_SMALL_COLOR,
 };
 
+#ifdef HARDDEBUG
+/* For really hard GUI startup debugging, place DEBUGBOX() macros in code
+   and get modal message boxes with the line number. */
+static void debug_box(int line) {
+  TCHAR buff[1024];
+  swprintf(buff,1024,TEXT("DBG:%d"),line);
+  MessageBox(NULL,buff,TEXT("DBG"),MB_OK|MB_APPLMODAL);
+}
+
+#define DEBUGBOX() debug_box(__LINE__)  
+#endif
 
 static HWND
 InitToolBar(HWND hwndParent) 
@@ -2190,7 +2234,6 @@ InitToolBar(HWND hwndParent)
     COLORMAP colorMap;
     colorMap.from = RGB(192, 192, 192);
     colorMap.to = backgroundColor;
-
     /* Create toolbar window with tooltips */
     hwndTB = CreateWindowEx(0,TOOLBARCLASSNAME,(TCHAR *)NULL,
 			    WS_CHILD|CCS_TOP|WS_CLIPSIBLINGS|TBSTYLE_TOOLTIPS,
@@ -2201,9 +2244,10 @@ InitToolBar(HWND hwndParent)
     tbbitmap.hInst = NULL;
     tbbitmap.nID   = (UINT) CreateMappedBitmap(beam_module, 1,0, &colorMap, 1);
     SendMessage(hwndTB, TB_ADDBITMAP, (WPARAM) 4, 
-		(WPARAM) &tbbitmap); 
+		(LPARAM) &tbbitmap); 
+
     SendMessage(hwndTB,TB_ADDBUTTONS, (WPARAM) 30,
-		(LPARAM) (LPTBBUTTON) tbb); 
+		(LPARAM) tbb); 
     if (toolbarVisible)
 	ShowWindow(hwndTB, SW_SHOW); 
 

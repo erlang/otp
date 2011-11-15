@@ -989,6 +989,19 @@ void erl_bin_write(unsigned char *, int, int);
 
 #endif
 
+#ifdef __WIN32__
+#ifdef ARCH_64
+#define ERTS_ALLOC_ALIGN_BYTES 16
+#define ERTS_SMALL_ABS(Small) _abs64(Small) 
+#else
+#define ERTS_ALLOC_ALIGN_BYTES 8
+#define ERTS_SMALL_ABS(Small) labs(Small) 
+#endif
+#else
+#define ERTS_ALLOC_ALIGN_BYTES 8
+#define ERTS_SMALL_ABS(Small) labs(Small) 
+#endif
+
 
 #ifdef __WIN32__
 

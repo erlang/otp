@@ -445,7 +445,7 @@ setup_port(Port* prt, Eterm pid, erts_driver_t *driver,
 
     prt->control_flags = 0;
     prt->connected = pid;
-    prt->drv_data = (long) drv_data;
+    prt->drv_data = (SWord) drv_data;
     prt->bytes_in = 0;
     prt->bytes_out = 0;
     prt->dist_entry = NULL;
@@ -648,7 +648,7 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
 	if (IS_TRACED_FL(port, F_TRACE_SCHED_PORTS)) {
 	    trace_sched_ports_where(port, am_out, am_start);
 	}
-	if (error_number_ptr && ((long) drv_data) == (long) -2)
+	if (error_number_ptr && ((SWord) drv_data) == (SWord) -2)
 	    *error_number_ptr = errno;
 #ifdef ERTS_SMP
 	if (port->xports)
@@ -657,10 +657,10 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
 #endif
     }
 
-    if (((long)drv_data) == -1 || 
-	((long)drv_data) == -2 || 
-	((long)drv_data) == -3) {
-	int res = (int) ((long) drv_data);
+    if (((SWord)drv_data) == -1 || 
+	((SWord)drv_data) == -2 || 
+	((SWord)drv_data) == -3) {
+	int res = (int) ((SWord) drv_data);
 
 	if (res == -3 && error_number_ptr) {
 	    *error_number_ptr = BADARG;
@@ -689,7 +689,7 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
 	erts_port_release(port);
 	return res;
     }
-    port->drv_data = (long) drv_data;
+    port->drv_data = (SWord) drv_data;
     return port_ix;
 }
 
@@ -3083,7 +3083,7 @@ driver_deliver_term(ErlDrvPort port,
 		Binary* bp = erts_bin_nrml_alloc(size);
 		ASSERT(bufp);
 		bp->flags = 0;
-		bp->orig_size = (long) size;
+		bp->orig_size = (SWord) size;
 		erts_refc_init(&bp->refc, 1);
 		sys_memcpy((void *) bp->orig_bytes, (void *) bufp, size);
 		pbp = (ProcBin *) hp;
@@ -3449,7 +3449,7 @@ driver_alloc_binary(int size)
 	return NULL; /* The driver write must take action */
     bin->flags = BIN_FLAG_DRV;
     erts_refc_init(&bin->refc, 1);
-    bin->orig_size = (long) size;
+    bin->orig_size = (SWord) size;
     return Binary2ErlDrvBinary(bin);
 }
 
@@ -4076,7 +4076,7 @@ drv_cancel_timer(Port *prt)
 	erts_port_task_abort(prt->id, &prt->timeout_task);
 }
 
-int driver_set_timer(ErlDrvPort ix, UWord t)
+int driver_set_timer(ErlDrvPort ix, unsigned long t)
 {
     Port* prt = erts_drvport2port(ix);
 

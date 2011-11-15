@@ -1325,7 +1325,7 @@ static dsize_t I_lshift(ErtsDigit* x, dsize_t xl, Sint y,
 	return 1;
     }
     else {
-	long ay = (y < 0) ? -y : y;
+	SWord ay = (y < 0) ? -y : y;
 	int bw = ay / D_EXP;
 	int sw = ay % D_EXP;
 	dsize_t rl;
