@@ -1511,9 +1511,22 @@ efile_sendfile(Efile_error* errInfo, int in_fd, int out_fd,
     *nbytes = written;
     return check_error(retval, errInfo);
 #elif defined(__FreeBSD__) || defined(__DragonFly__)
-    off_t len = 0;
-    int retval = sendfile(in_fd, out_fd, *offset, *nbytes, NULL, &len, 0);
-    *nbytes = len;
+#define SENDFILE_CHUNK_SIZE ((1 << (8*SIZEOF_SIZE_T)) - 1)
+    off_t len;
+    int retval;
+    do {
+      if (*nbytes > SENDFILE_CHUNK_SIZE)
+	retval = sendfile(in_fd, out_fd, *offset, SENDFILE_CHUNK_SIZE,
+			  NULL, &len, 0);
+      else
+	retval = sendfile(in_fd, out_fd, *offset, *nbytes, NULL, &len, 0);
+      if (retval != -1 || errno == EAGAIN || errno == EINTR) {
+	*offset += len;
+	*nbytes -= len;
+	written += len;
+      }
+    } while(len == SENDFILE_CHUNK_SIZE);
+    *nbytes = written;
     return check_error(retval, errInfo);
 #endif
 }
