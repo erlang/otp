@@ -35,7 +35,7 @@
 -export([add_external_logs/1,add_link/3]).
 -export([make_last_run_index/0]).
 -export([make_all_suites_index/1,make_all_runs_index/1]).
--export([get_ts_html_wrapper/2]).
+-export([get_ts_html_wrapper/3]).
 
 %% Logging stuff directly from testcase
 -export([tc_log/3,tc_print/3,tc_pal/3,ct_log/3,
@@ -213,6 +213,7 @@ cast(Msg) ->
 %%% <p>This function is called by ct_framework:init_tc/3</p>
 init_tc(RefreshLog) ->
     call({init_tc,self(),group_leader(),RefreshLog}),
+    io:format(xhtml("", "<br />")),
     ok.
 
 %%%-----------------------------------------------------------------
@@ -222,6 +223,7 @@ init_tc(RefreshLog) ->
 %%%
 %%% <p>This function is called by ct_framework:end_tc/3</p>
 end_tc(TCPid) ->
+    io:format(xhtml("<br>", "<br />")),
     %% use call here so that the TC process will wait and receive
     %% possible exit signals from ct_logs before end_tc returns ok 
     call({end_tc,TCPid}).
@@ -1159,7 +1161,8 @@ header1(Title, SubTitle) ->
 			    xhtml("</center>\n<br>\n", "</center>\n<br />\n")];
 		      true -> xhtml("<br>\n", "<br />\n")
 		   end,
-    CSSFile = locate_default_css_file(),
+    CSSFile = xhtml(fun() -> "" end, 
+		    fun() -> make_relative(locate_default_css_file()) end),
     [xhtml(["<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 3.2 Final//EN\">\n",
 	    "<html>\n"],
 	   ["<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\"\n",
@@ -1170,7 +1173,7 @@ header1(Title, SubTitle) ->
     "<title>" ++ Title ++ " " ++ SubTitle ++ "</title>\n",
     "<meta http-equiv=\"cache-control\" content=\"no-cache\">\n",
     xhtml("",
-	  ["<link rel=\"stylesheet\" href=\"file:///",CSSFile,"\" type=\"text/css\">"]),
+	  ["<link rel=\"stylesheet\" href=\"",CSSFile,"\" type=\"text/css\">"]),
     "</head>\n",
     body_tag(),
     "<center>\n",
@@ -1953,10 +1956,16 @@ last_test([], Latest) ->
 %%%
 %%% @doc
 %%%
+xhtml(HTML, XHTML) when is_function(HTML),
+			is_function(XHTML) ->
+    case get(basic_html) of
+	true -> HTML();
+	_    -> XHTML()
+    end;
 xhtml(HTML, XHTML) ->
     case get(basic_html) of
 	true -> HTML;
-	_ -> XHTML
+	_    -> XHTML
     end.
 
 %%%-----------------------------------------------------------------
@@ -2020,11 +2029,41 @@ locate_default_css_file() ->
     end.
 
 %%%-----------------------------------------------------------------
-%%% @spec get_ts_html_wrapper(TestName, PrintLabel) -> {Mode,Header,Footer}
+%%% @spec make_relative(AbsDir, Cwd) -> RelDir
+%%%
+%%% @doc Return directory path to File (last element of AbsDir), which
+%%%      is the path relative to Cwd. Examples when Cwd == "/ldisk/test/logs":
+%%%      make_relative("/ldisk/test/logs/run/trace.log") -> "run/trace.log"
+%%%      make_relative("/ldisk/test/trace.log") -> "../trace.log"
+%%%      make_relative("/ldisk/test/logs/trace.log") -> "trace.log"
+make_relative(AbsDir) ->
+    {ok,Cwd} = file:get_cwd(),
+    make_relative(AbsDir, Cwd).
+
+make_relative(AbsDir, Cwd) ->
+    DirTokens = filename:split(AbsDir),
+    CwdTokens = filename:split(Cwd),
+    filename:join(make_relative1(DirTokens, CwdTokens)).
+
+make_relative1([T | DirTs], [T | CwdTs]) ->
+    make_relative1(DirTs, CwdTs);
+make_relative1(Last = [_File], []) ->
+    Last;
+make_relative1(Last = [_File], CwdTs) ->
+    Ups = ["../" || _ <- CwdTs],
+    Ups ++ Last;
+make_relative1(DirTs, []) ->
+    DirTs;
+make_relative1(DirTs, CwdTs) ->
+    Ups = ["../" || _ <- CwdTs],
+    Ups ++ DirTs.
+
+%%%-----------------------------------------------------------------
+%%% @spec get_ts_html_wrapper(TestName, PrintLabel, Cwd) -> {Mode,Header,Footer}
 %%%
 %%% @doc
 %%%
-get_ts_html_wrapper(TestName, PrintLabel) ->
+get_ts_html_wrapper(TestName, PrintLabel, Cwd) ->
     TestName1 = if is_list(TestName) ->
 			lists:flatten(TestName);
 		   true ->
@@ -2046,8 +2085,10 @@ get_ts_html_wrapper(TestName, PrintLabel) ->
 	end,
     CTPath = code:lib_dir(common_test),
     {ok,CtLogdir} = get_log_dir(true),
-    AllRuns = filename:join(filename:dirname(CtLogdir), ?all_runs_name),
-    TestIndex = filename:join(filename:dirname(CtLogdir), ?index_name),
+    AllRuns = make_relative(filename:join(filename:dirname(CtLogdir),
+					  ?all_runs_name), Cwd),
+    TestIndex = make_relative(filename:join(filename:dirname(CtLogdir),
+					    ?index_name), Cwd),
     case Basic of
 	true ->
 	    TileFile = filename:join(filename:join(CTPath,"priv"),"tile1.jpg"),
@@ -2082,14 +2123,15 @@ get_ts_html_wrapper(TestName, PrintLabel) ->
 		 "Open Telecom Platform</a><br />\n",
 		 "Updated: <!date>", current_time(), "<!/date>",
 		 "<br />\n</div>\n"],
-	    CSSFile = locate_default_css_file(),
+	    CSSFile = xhtml(fun() -> "" end, 
+			    fun() -> make_relative(locate_default_css_file(), Cwd) end),
 	    {xhtml,
 	     ["<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\"\n",
 	      "\"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">\n",
 	      "<html xmlns=\"http://www.w3.org/1999/xhtml\" xml:lang=\"en\" lang=\"en\">\n",
 	      "<head>\n<title>", TestName1, "</title>\n",
 	      "<meta http-equiv=\"cache-control\" content=\"no-cache\">\n",
-	      "<link rel=\"stylesheet\" href=\"file:///", CSSFile, "\" type=\"text/css\">",
+	      "<link rel=\"stylesheet\" href=\"", CSSFile, "\" type=\"text/css\">",
 	      "</head>\n","<body>\n", 
 	      LabelStr, "\n"],
 	     ["<center>\n<br /><hr /><p>\n",

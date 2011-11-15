@@ -611,7 +611,7 @@ do_run_test_case_apply(Mod, Func, Args, Name, RunInit, TimetrapData) ->
     print(minor, "Test case started with:\n~s:~s(~p)\n", [Mod,Func,Args2Print]),
     print(minor, "Current directory is ~p\n", [Cwd]),
     print_timestamp(minor,"Started at "),
-    print(minor, "\n", []),
+    print(minor, "", []),
     TCCallback = get(test_server_testcase_callback),
     LogOpts = get(test_server_logopts),
     Ref = make_ref(),

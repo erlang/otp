@@ -175,7 +175,7 @@ linenum(Line) ->
 	end, 
     [A,Pred,integer_to_list(Line),":"].
 
-footer(Lines) ->
+footer(_Lines) ->
     "".
 %%    {_, Time} = statistics(runtime),
 %%    io:format("Converted ~p lines in ~.2f Seconds.~n",

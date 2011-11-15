@@ -27,7 +27,7 @@
 -export([init_tc/3, end_tc/3, end_tc/4, get_suite/2, get_all_cases/1]).
 -export([report/2, warn/1, error_notification/4]).
 
--export([get_logopts/0, format_comment/1, get_html_wrapper/2]).
+-export([get_logopts/0, format_comment/1, get_html_wrapper/3]).
 
 -export([error_in_suite/1, ct_init_per_group/2, ct_end_per_group/2]).
 
@@ -1411,6 +1411,6 @@ format_comment(Comment) ->
     "<font color=\"green\">" ++ Comment ++ "</font>".
 
 %%%-----------------------------------------------------------------
-%%% @spec get_html_wrapper(TestName, PrintLabel) -> Header
-get_html_wrapper(TestName, PrintLabel) ->
-    ct_logs:get_ts_html_wrapper(TestName, PrintLabel).
+%%% @spec get_html_wrapper(TestName, PrintLabel, Cwd) -> Header
+get_html_wrapper(TestName, PrintLabel, Cwd) ->
+    ct_logs:get_ts_html_wrapper(TestName, PrintLabel, Cwd).

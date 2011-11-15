@@ -214,6 +214,9 @@
 			  X == auto_skip -> skipped;
 			  true -> X end).
 
+-define(auto_skip_color, "#FFA64D").
+-define(user_skip_color, "#FF8000").
+
 -record(state,{jobs=[],levels={1,19,10},
 	       multiply_timetraps=1,scale_timetraps=true,
 	       finish=false,
@@ -1668,7 +1671,7 @@ do_test_cases(TopCases, SkipCases,
 do_test_cases(TopCases, SkipCases,
 	      Config, TimetrapData) when is_list(TopCases),
 					 is_tuple(TimetrapData) ->
-    start_log_file(),
+    {ok,TestDir} = start_log_file(),
     FwMod =
 	case os:getenv("TEST_SERVER_FRAMEWORK") of
 	    FW when FW =:= false; FW =:= "undefined" -> ?MODULE;
@@ -1700,10 +1703,9 @@ do_test_cases(TopCases, SkipCases,
 	    TestDescr = "Test " ++ TestName ++ " results",
 
 	    test_server_sup:framework_call(report, [tests_start,{Test,N}]),
-
 	    {Header,Footer} =
 		case test_server_sup:framework_call(get_html_wrapper, 
-						    [TestDescr,true], "") of
+						    [TestDescr,true,TestDir], "") of
 		    Empty when (Empty == "") ; (element(2,Empty) == "")  ->
 			put(basic_html, true),
 			{["<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 3.2 Final//EN\">\n",
@@ -1769,7 +1771,7 @@ do_test_cases(TopCases, SkipCases,
 			 "<table>") ++
 		   "<tr><th>Num</th><th>Module</th><th>Case</th><th>Log</th>"
 		   "<th>Time</th><th>Result</th><th>Comment</th></tr>\n",
-		  [print_if_known(N, {"Executing ~p test cases...\n",[N]},
+		  [print_if_known(N, {"<i>Executing <b>~p</b> test cases...</i>\n",[N]},
 				  {"",[]})]),
 	    print(html, xhtml("<br>", "<br />")),
 
@@ -1803,7 +1805,7 @@ do_test_cases(TopCase, SkipCases, Config, TimetrapSpec) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% start_log_file() -> ok | exit({Error,Reason})
+%% start_log_file() -> {ok,TestDirName} | exit({Error,Reason})
 %% Stem = string()
 %%
 %% Creates the log directories, the major log file and the html log file.
@@ -1854,7 +1856,7 @@ start_log_file() ->
 
     LogInfo = [{topdir,Dir},{rundir,lists:flatten(TestDir)}],
     test_server_sup:framework_call(report, [loginfo,LogInfo]),
-    ok.
+    {ok,TestDir}.
 
 make_html_link(LinkName, Target, Explanation) ->
     %% if possible use a relative reference to Target.
@@ -1915,7 +1917,8 @@ start_minor_log_file1(Mod, Func, LogDir, AbsName) ->
     TestDescr = io_lib:format("Test ~p:~p result", [Mod,Func]),
     {Header,Footer} =
 	case test_server_sup:framework_call(get_html_wrapper, 
-					    [TestDescr,false], "") of
+					    [TestDescr,false,
+					     filename:dirname(AbsName)], "") of
 	    Empty when (Empty == "") ; (element(2,Empty) == "")  ->
 		put(basic_html, true),
 		{["<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 3.2 Final//EN\">\n",
@@ -2041,10 +2044,11 @@ html_possibly_convert(Src, SrcInfo, Dest) ->
 	{ok,DestInfo} when DestInfo#file_info.mtime >= SrcInfo#file_info.mtime ->
 	    ok;					% dest file up to date
 	_ ->
+	    OutDir = get(test_server_log_dir_base),
 	    Header =
 		case test_server_sup:framework_call(get_html_wrapper, 
-						    ["Module "++Src,false],
-						    "") of
+						    ["Module "++Src,false,
+						     OutDir], "") of
 		    Empty when (Empty == "") ; (element(2,Empty) == "")  ->
 			["<!DOCTYPE HTML PUBLIC",
 			 "\"-//W3C//DTD HTML 3.2 Final//EN\">\n",
@@ -3215,8 +3219,8 @@ skip_case(Type, Ref, CaseNum, Case, Comment, SendSync, Mode) ->
 
 skip_case1(Type, CaseNum, Mod, Func, Comment, Mode) ->
     {{Col0,Col1},_} = get_font_style((CaseNum > 0), Mode),
-    ResultCol = if Type == auto -> "#ffcc99";
-		   Type == user -> "#ff9933"
+    ResultCol = if Type == auto -> ?auto_skip_color;
+		   Type == user -> ?user_skip_color
 		end,
 
     Comment1 = reason_to_string(Comment),
@@ -3901,9 +3905,10 @@ check_new_crash_dumps(Where) ->
 
 progress(skip, CaseNum, Mod, Func, Loc, Reason, Time,
 	 Comment, {St0,St1}) ->
-    {Reason1,{Color,Ret}} = if_auto_skip(Reason,
-					 fun() -> {"#ffcc99",auto_skip} end,
-					 fun() -> {"#ff9933",skip} end),
+    {Reason1,{Color,Ret}} = 
+	if_auto_skip(Reason,
+		     fun() -> {?auto_skip_color,auto_skip} end,
+		     fun() -> {?user_skip_color,skip} end),
     print(major, "=result        skipped", []),
     print(1, "*** SKIPPED *** ~s",
 	  [get_info_str(Func, CaseNum, get(test_server_cases))]),
