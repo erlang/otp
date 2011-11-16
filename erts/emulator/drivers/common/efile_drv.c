@@ -1748,7 +1748,7 @@ static void invoke_sendfile(void *data)
 {
     struct t_data *d = (struct t_data *)data;
     int fd = d->fd;
-    int out_fd = d->c.sendfile.out_fd;
+    int out_fd = (int)d->c.sendfile.out_fd;
     Uint64 nbytes = d->c.sendfile.nbytes;
     int result = 0;
     d->again = 0;
@@ -1790,7 +1790,7 @@ static void file_ready_output(ErlDrvData data, ErlDrvEvent event)
 
     switch (fd->d->command) {
     case FILE_SENDFILE:
-	driver_select(fd->port, (ErlDrvEvent)fd->d->c.sendfile.out_fd,
+	driver_select(fd->port, event,
 		      (int)ERL_DRV_WRITE,(int) 0);
 	invoke_sendfile((void *)fd->d);
 	file_async_ready(data, (ErlDrvThreadData)fd->d);
@@ -2232,8 +2232,8 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
 		  SET_NONBLOCKING(d->c.sendfile.out_fd);
 		  free_sendfile(data);
 	      } else {
-		driver_select(desc->port, (ErlDrvEvent)d->c.sendfile.out_fd,
-			      ERL_DRV_USE, 0);
+		driver_select(desc->port, (ErlDrvEvent)(long)d->c.sendfile.out_fd,
+			ERL_DRV_USE, 0);
 	      }
 	  } else if (d->result_ok == 0) {
 	      desc->sendfile_state = not_sending;
@@ -2242,13 +2242,12 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
 		SET_NONBLOCKING(d->c.sendfile.out_fd);
 		free_sendfile(data);
 	      } else {
-		driver_select(desc->port, (ErlDrvEvent)d->c.sendfile.out_fd,
-			      ERL_DRV_USE, 0);
+		driver_select(desc->port, (ErlDrvEvent)(long)d->c.sendfile.out_fd, ERL_DRV_USE, 0);
 	      }
 	  } else if (d->result_ok == 1) { // If we are using select to send the rest of the data
 	      desc->sendfile_state = sending;
 	      desc->d = d;
-	      driver_select(desc->port, (ErlDrvEvent)d->c.sendfile.out_fd,
+	      driver_select(desc->port, (ErlDrvEvent)(long)d->c.sendfile.out_fd,
 			    ERL_DRV_USE|ERL_DRV_WRITE, 1);
 	  }
 	  break;
