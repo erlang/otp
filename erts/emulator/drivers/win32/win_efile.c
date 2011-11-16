@@ -45,6 +45,23 @@
 #define INVALID_FILE_ATTRIBUTES ((DWORD) 0xFFFFFFFF)
 #endif
 
+// #define TICKS_PER_SECOND 10000000
+// #define EPOCH_DIFFERENCE 11644473600LL
+// 	time_t convertWindowsTimeToUnixTime(long long int input){
+// 	    long long int temp;
+// 	    temp = input / TICKS_PER_SECOND; //convert from 100ns intervals to seconds;
+// 	    temp = temp - EPOCH_DIFFERENCE;  //subtract number of seconds between epochs
+// 	    return (time_t) temp;
+// 	}
+
+#define TICKS_PER_SECOND (10000000)
+#define EPOCH_DIFFERENCE (11644473600LL)
+#define FILETIME_TO_EPOCH(time) \
+    (((time) / TICKS_PER_SECOND) - EPOCH_DIFFERENCE)
+#define EPOCH_TO_FILETIME(epoch) \
+    (EPOCH_DIFFERENCE + ((epoch) * TICKS_PER_SECOND))
+
+
 static int check_error(int result, Efile_error* errInfo);
 static int set_error(Efile_error* errInfo);
 static int is_root_unc_name(const WCHAR *path);
@@ -905,34 +922,21 @@ efile_fileinfo(Efile_error* errInfo, Efile_info* pInfo,
 	    }	
 	}
 
-#define GET_TIME(dst, src) \
-if (!FileTimeToLocalFileTime(&findbuf.src, &LocalFTime) || \
-    !FileTimeToSystemTime(&LocalFTime, &SystemTime)) { \
-    return set_error(errInfo); \
-} \
-(dst).year = SystemTime.wYear; \
-(dst).month = SystemTime.wMonth; \
-(dst).day = SystemTime.wDay; \
-(dst).hour = SystemTime.wHour; \
-(dst).minute = SystemTime.wMinute; \
-(dst).second = SystemTime.wSecond;
-
-        GET_TIME(pInfo->modifyTime, ftLastWriteTime);
+        pInfo->modifyTime = FILETIME_TO_EPOCH(findbuf.ftLastWriteTime);
 
         if (findbuf.ftLastAccessTime.dwLowDateTime == 0 &&
 	    findbuf.ftLastAccessTime.dwHighDateTime == 0) {
 	    pInfo->accessTime = pInfo->modifyTime;
 	} else {
-	    GET_TIME(pInfo->accessTime, ftLastAccessTime);
+	    pInfo->accessTime = FILETIME_TO_EPOCH(findbuf.ftLastAccessTime);
 	}
 
         if (findbuf.ftCreationTime.dwLowDateTime == 0 &&
 	    findbuf.ftCreationTime.dwHighDateTime == 0) {
 	    pInfo->cTime = pInfo->modifyTime;
 	} else {
-	    GET_TIME(pInfo->cTime, ftCreationTime);
+	    pInfo->cTime = FILETIME_TO_EPOCH(findbuf.ftCreationTime);
 	}
-#undef GET_TIME
         FindClose(findhandle);
     }
 
@@ -968,17 +972,12 @@ efile_write_info(Efile_error* errInfo,
 		 char* name)
 {
     SYSTEMTIME timebuf;
-    FILETIME LocalFileTime;
     FILETIME ModifyFileTime;
     FILETIME AccessFileTime;
     FILETIME CreationFileTime;
     HANDLE fd;
-    FILETIME* mtime = NULL;
-    FILETIME* atime = NULL;
-    FILETIME* ctime = NULL;
     DWORD attr;
     DWORD tempAttr;
-    BOOL modifyTime = FALSE;
     WCHAR *wname = (WCHAR *) name;
 
     /*
@@ -1003,57 +1002,36 @@ efile_write_info(Efile_error* errInfo,
      * Construct all file times.
      */
 
-#define MKTIME(tb, ts, ptr) \
-    timebuf.wYear = ts.year; \
-    timebuf.wMonth = ts.month; \
-    timebuf.wDay = ts.day; \
-    timebuf.wHour = ts.hour; \
-    timebuf.wMinute = ts.minute; \
-    timebuf.wSecond = ts.second; \
-    timebuf.wMilliseconds = 0; \
-    if (ts.year != -1) { \
-      modifyTime = TRUE; \
-      ptr = &tb; \
-      if (!SystemTimeToFileTime(&timebuf, &LocalFileTime ) || \
-	!LocalFileTimeToFileTime(&LocalFileTime, &tb)) { \
-        errno = EINVAL; \
-	return check_error(-1, errInfo); \
-     } \
-    }
-
-    MKTIME(ModifyFileTime, pInfo->modifyTime, mtime);
-    MKTIME(AccessFileTime, pInfo->accessTime, atime);
-    MKTIME(CreationFileTime, pInfo->cTime, ctime);
-#undef MKTIME
+    ModifyFileTime   = EPOCH_TO_FILETIME(pInfo->modifyTime);
+    AccessFileTime   = EPOCH_TO_FILETIME(pInfo->accessTime);
+    CreationFileTime = EPOCH_TO_FILETIME(pInfo->cTime);
 
     /*
      * If necessary, set the file times.
      */
 
-    if (modifyTime) {
-	/*
-	 * If the has read only access, we must temporarily turn on
-	 * write access (this is necessary for native filesystems,
-	 * but not for NFS filesystems).
-	 */
+    /*
+     * If the has read only access, we must temporarily turn on
+     * write access (this is necessary for native filesystems,
+     * but not for NFS filesystems).
+     */
 
-	if (tempAttr & FILE_ATTRIBUTE_READONLY) {
-	    tempAttr &= ~FILE_ATTRIBUTE_READONLY;
-	    if (!SetFileAttributesW(wname, tempAttr)) {
-		return set_error(errInfo);
-	    }
+    if (tempAttr & FILE_ATTRIBUTE_READONLY) {
+	tempAttr &= ~FILE_ATTRIBUTE_READONLY;
+	if (!SetFileAttributesW(wname, tempAttr)) {
+	    return set_error(errInfo);
 	}
+    }
 
-	fd = CreateFileW(wname, GENERIC_READ|GENERIC_WRITE,
-			FILE_SHARE_READ | FILE_SHARE_WRITE,
-			NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-	if (fd != INVALID_HANDLE_VALUE) {
-	    BOOL result = SetFileTime(fd, ctime, atime, mtime);
-	    if (!result) {
-		return set_error(errInfo);
-	    }
-	    CloseHandle(fd);
+    fd = CreateFileW(wname, GENERIC_READ|GENERIC_WRITE,
+	    FILE_SHARE_READ | FILE_SHARE_WRITE,
+	    NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (fd != INVALID_HANDLE_VALUE) {
+	BOOL result = SetFileTime(fd, &CreationFileTime, &AccessFileTime, &ModifyFileTime);
+	if (!result) {
+	    return set_error(errInfo);
 	}
+	CloseHandle(fd);
     }
 
     /*
