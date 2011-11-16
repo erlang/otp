@@ -224,7 +224,6 @@ typedef unsigned char uchar;
 static ErlDrvData file_start(ErlDrvPort port, char* command);
 static int file_init(void);
 static void file_stop(ErlDrvData);
-static void file_ready_output(ErlDrvData data, ErlDrvEvent event);
 static void file_output(ErlDrvData, char* buf, int len);
 static int file_control(ErlDrvData, unsigned int command, 
 			char* buf, int len, char **rbuf, int rlen);
@@ -232,12 +231,17 @@ static void file_timeout(ErlDrvData);
 static void file_outputv(ErlDrvData, ErlIOVec*);
 static void file_async_ready(ErlDrvData, ErlDrvThreadData);
 static void file_flush(ErlDrvData);
-static void file_stop_select(ErlDrvEvent event, void* _);
 
+#ifdef HAVE_SENDFILE
+static void file_ready_output(ErlDrvData data, ErlDrvEvent event);
+static void file_stop_select(ErlDrvEvent event, void* _);
+#endif /* HAVE_SENDFILE */
 
 
 enum e_timer {timer_idle, timer_again, timer_write};
+#ifdef HAVE_SENDFILE
 enum e_sendfile {sending, not_sending};
+#endif /* HAVE_SENDFILE */
 
 struct t_data;
 
@@ -252,7 +256,9 @@ typedef struct {
     struct t_data  *cq_head;  /* Queue of incoming commands */
     struct t_data  *cq_tail;  /* -""- */
     enum e_timer    timer_state;
+#ifdef HAVE_SENDFILE
     enum e_sendfile sendfile_state;
+#endif /* HAVE_SENDFILE */
     size_t          read_bufsize;
     ErlDrvBinary   *read_binp;
     size_t          read_offset;
@@ -275,7 +281,11 @@ struct erl_drv_entry efile_driver_entry = {
     file_stop,
     file_output,
     NULL,
+#ifdef HAVE_SENDFILE
     file_ready_output,
+#else
+    NULL,
+#endif /* HAVE_SENDFILE */
     "efile",
     NULL,
     NULL,
@@ -292,7 +302,11 @@ struct erl_drv_entry efile_driver_entry = {
     ERL_DRV_FLAG_USE_PORT_LOCKING,
     NULL,
     NULL,
+#ifdef HAVE_SENDFILE
     file_stop_select
+#else
+    NULL
+#endif /* HAVE_SENDFILE */
 };
 
 
@@ -344,12 +358,14 @@ struct t_readdir_buf {
      char buf[READDIR_BUFSIZE];
 };
 
+#ifdef HAVE_SENDFILE
 struct t_sendfile_hdtl {
     int hdr_cnt; 	   /* number of header iovecs */
     struct iovec *headers;  /* pointer to header iovecs */
     int trl_cnt; 	   /* number of trailer iovecs */
     struct iovec *trailers; /* pointer to trailer iovecs */
 };
+#endif /* HAVE_SENDFILE */
 
 struct t_data
 {
@@ -418,6 +434,7 @@ struct t_data
 	    Sint64 length;
 	    int advise;
 	} fadvise;
+#ifdef HAVE_SENDFILE
 	struct {
 	    int out_fd;
 	    off_t offset;
@@ -426,6 +443,7 @@ struct t_data
 	    short flags;
 	    struct t_sendfile_hdtl *hdtl;
 	} sendfile;
+#endif /* HAVE_SENDFILE */
     } c;
     char b[1];
 };
@@ -683,7 +701,9 @@ file_start(ErlDrvPort port, char* command)
     desc->cq_head = NULL;
     desc->cq_tail = NULL;
     desc->timer_state = timer_idle;
+#ifdef HAVE_SENDFILE
     desc->sendfile_state = not_sending;
+#endif
     desc->read_bufsize = 0;
     desc->read_binp = NULL;
     desc->read_offset = 0;
@@ -1723,6 +1743,7 @@ static void invoke_fadvise(void *data)
     d->result_ok = efile_fadvise(&d->errInfo, fd, offset, length, advise);
 }
 
+#ifdef HAVE_SENDFILE
 static void invoke_sendfile(void *data)
 {
     struct t_data *d = (struct t_data *)data;
@@ -1781,8 +1802,10 @@ static void file_ready_output(ErlDrvData data, ErlDrvEvent event)
 
 static void file_stop_select(ErlDrvEvent event, void* _)
 {
-    /* TODO: close socket? */
+
 }
+#endif /* HAVE_SENDFILE */
+
 
 static void free_readdir(void *data)
 {
@@ -1843,9 +1866,12 @@ static int try_again(file_descriptor *desc, struct t_data *d) {
 static void cq_execute(file_descriptor *desc) {
     struct t_data *d;
     register void *void_ptr; /* Soft cast variable */
-    if (desc->timer_state == timer_again ||
-	    desc->sendfile_state == sending)
+    if (desc->timer_state == timer_again)
 	return;
+#ifdef HAVE_SENDFILE
+    if (desc->sendfile_state == sending)
+	return;
+#endif
     if (! (d = cq_deq(desc)))
 	return;
     TRACE_F(("x%i", (int) d->command));
@@ -2196,6 +2222,7 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
 	  }
 	  free_preadv(data);
 	  break;
+#ifdef HAVE_SENDFILE
       case FILE_SENDFILE:
 	//printf("efile_ready_async: sendfile (d->result_ok == %d)\r\n",d->result_ok);
 	  if (d->result_ok == -1) {
@@ -2225,6 +2252,7 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
 			    ERL_DRV_USE|ERL_DRV_WRITE, 1);
 	  }
 	  break;
+#endif
       default:
 	abort();
     }
@@ -3368,6 +3396,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 
     case FILE_SENDFILE: {
 
+#ifdef HAVE_SENDFILE
         struct t_data *d;
 	Uint32 out_fd, offsetH, offsetL;
 	Uint64 nbytes;
@@ -3424,6 +3453,9 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	}
 
 	cq_enq(desc, d);
+#else
+	reply_posix_error(desc, ENOTSUP);
+#endif
 	goto done;
         } /* case FILE_SENDFILE: */
 

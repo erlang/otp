@@ -33,7 +33,7 @@
 #include <sys/types.h>
 #include <sys/uio.h>
 #endif
-#if defined(__linux__) || (defined(__sun) && defined(__SVR4))
+#if defined(HAVE_SENDFILE) && (defined(__linux__) || (defined(__sun) && defined(__SVR4)))
 #include <sys/sendfile.h>
 #endif
 
@@ -1530,12 +1530,4 @@ efile_sendfile(Efile_error* errInfo, int in_fd, int out_fd,
     return check_error(retval, errInfo);
 #endif
 }
-#else /* no sendfile() */
-int
-efile_sendfile(Efile_error* errInfo, int in_fd, int out_fd,
-	       off_t *offset, size_t *count)
-{
-    errno = ENOTSUP;
-    return check_error(-1, errInfo);
-}
-#endif
+#endif /* HAVE_SENDFILE */
