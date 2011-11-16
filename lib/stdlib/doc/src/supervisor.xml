@@ -158,7 +158,7 @@ child_spec() = {Id,StartFunc,Restart,Shutdown,Type,Modules}
           death causes the temporary process to be terminated) and a
           <c>transient</c> child process should be restarted only if
           it terminates abnormally, i.e. with another exit reason
-          than <c>normal</c>.</p>
+          than <c>normal</c>, <c>shutdown</c> or <c>{shutdown,Term}</c>.</p>
       </item>
       <item>
         <p><c>Shutdown</c> defines how a child process should be
@@ -355,14 +355,23 @@ child_spec() = {Id,StartFunc,Restart,Shutdown,Type,Modules}
       <desc>
         <p>Tells the supervisor <c><anno>SupRef</anno></c> to terminate the given
           child.</p>
+
         <p>If the supervisor is not <c>simple_one_for_one</c>,
-          <c><anno>Id</anno></c> must be the child specification identifier. The
-          process, if there is one, is terminated but the child
-          specification is kept by the supervisor. The child process
-          may later be restarted by the supervisor. The child process
-          can also be restarted explicitly by calling
+          <c><anno>Id</anno></c> must be the child specification
+          identifier. The process, if there is one, is terminated and,
+          unless it is a temporary child, the child specification is
+          kept by the supervisor. The child process may later be
+          restarted by the supervisor. The child process can also be
+          restarted explicitly by calling
           <c>restart_child/2</c>. Use <c>delete_child/2</c> to remove
           the child specification.</p>
+
+	<p>If the child is temporary, the child specification is deleted as
+	  soon as the process terminates. This means
+	  that <c>delete_child/2</c> has no meaning
+	  and <c>restart_child/2</c> can not be used for these
+	  children.</p>
+
         <p>If the supervisor is <c>simple_one_for_one</c>, <c><anno>Id</anno></c>
           must be the child process' <c>pid()</c>. I the specified
           process is alive, but is not a child of the given
@@ -399,26 +408,34 @@ child_spec() = {Id,StartFunc,Restart,Shutdown,Type,Modules}
       <name name="restart_child" arity="2"/>
       <fsummary>Restart a terminated child process belonging to a supervisor.</fsummary>
       <desc>
-        <p>Tells the supervisor <c><anno>SupRef</anno></c> to restart a child process
-          corresponding to the child specification identified by
-          <c><anno>Id</anno></c>. The child specification must exist and
-          the corresponding child process must not be running.</p>
-        <p>See <seealso marker="#SupRef"><c>start_child/2</c></seealso> for a description of
-          <c>SupRef</c>.</p>
-        <p>If the child specification identified by <c><anno>Id</anno></c> does not
-          exist, the function returns <c>{error,not_found}</c>. If
-          the child specification exists but the corresponding process
-          is already running, the function returns
+        <p>Tells the supervisor <c><anno>SupRef</anno></c> to restart
+          a child process corresponding to the child specification
+          identified by <c><anno>Id</anno></c>. The child
+          specification must exist and the corresponding child process
+          must not be running.</p>
+	<p>Note that for temporary children, the child specification
+	  is automatically deleted when the child terminates, and thus
+	  it is not possible to restart such children.</p>
+        <p>See <seealso marker="#SupRef"><c>start_child/2</c></seealso>
+          for a description of <c>SupRef</c>.</p>
+        <p>If the child specification identified
+          by <c><anno>Id</anno></c> does not exist, the function
+          returns <c>{error,not_found}</c>. If the child specification
+          exists but the corresponding process is already running, the
+          function returns
           <c>{error,running}</c>.</p>
-        <p>If the child process start function returns <c>{ok,<anno>Child</anno>}</c>
-          or <c>{ok,<anno>Child</anno>,<anno>Info</anno>}</c>, the pid is added to the supervisor
-          and the function returns the same value.</p>
+        <p>If the child process start function
+          returns <c>{ok,<anno>Child</anno>}</c>
+          or <c>{ok,<anno>Child</anno>,<anno>Info</anno>}</c>, the pid
+          is added to the supervisor and the function returns the same
+          value.</p>
         <p>If the child process start function returns <c>ignore</c>,
           the pid remains set to <c>undefined</c> and the function
           returns <c>{ok,undefined}</c>.</p>
-        <p>If the child process start function returns an error tuple or
-          an erroneous value, or if it fails, the function returns
-          <c>{error,<anno>Error</anno>}</c> where <c><anno>Error</anno></c> is a term containing
+        <p>If the child process start function returns an error tuple
+          or an erroneous value, or if it fails, the function returns
+          <c>{error,<anno>Error</anno>}</c>
+          where <c><anno>Error</anno></c> is a term containing
           information about the error.</p>
       </desc>
     </func>
