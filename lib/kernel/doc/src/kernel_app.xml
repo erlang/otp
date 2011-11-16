@@ -4,7 +4,7 @@
 <appref>
   <header>
     <copyright>
-      <year>1996</year><year>2009</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -230,6 +230,15 @@ MaxT = TickTime + TickTime / 4</code>
           <c>TickTime</c> value specified.</p>
         <p><em>Note:</em> Normally, a terminating node is detected
           immediately.</p>
+      </item>
+      <tag><c>shutdown_timeout = integer() | infinity</c></tag>
+      <item>
+        <p>Specifies the time <c>application_controller</c> will wait
+          for an application to terminate during node shutdown. If the
+          timer expires, <c>application_controller</c> will brutally
+          kill <c>application_master</c> of the hanging
+          application. If this parameter is undefined, it defaults
+          to <c>infinity</c>.</p>
       </item>
       <tag><c>sync_nodes_mandatory = [NodeName]</c></tag>
       <item>

@@ -33,7 +33,7 @@
 
 -export([config_change/1,
 	 distr_changed_tc1/1, distr_changed_tc2/1,
-	 shutdown_func/1, do_shutdown/1]).
+	 shutdown_func/1, do_shutdown/1, shutdown_timeout/1]).
 
 -define(TESTCASE, testcase_name).
 -define(testcase, ?config(?TESTCASE, Config)).
@@ -50,7 +50,7 @@ all() ->
      load_use_cache, {group, reported_bugs}, start_phases,
      script_start, nodedown_start, permit_false_start_local,
      permit_false_start_dist, get_key,
-     {group, distr_changed}, config_change, shutdown_func].
+     {group, distr_changed}, config_change, shutdown_func, shutdown_timeout].
 
 groups() -> 
     [{reported_bugs, [],
@@ -1912,6 +1912,32 @@ do_shutdown(Reason) ->
     receive 
 	{Pid, Tag, ok} -> ok 
     end.
+
+
+
+%%%-----------------------------------------------------------------
+%%% Tests the 'shutdown_timeout' kernel config parameter
+%%%-----------------------------------------------------------------
+shutdown_timeout(Config) when is_list(Config) ->
+    DataDir = ?config(data_dir,Config),
+    {ok,Cp1} = start_node(?MODULE_STRING++"_shutdown_timeout"),
+    wait_for_ready_net(),
+    ok = rpc:call(Cp1, application, set_env, [kernel, shutdown_timeout, 1000]),
+    rpc:call(Cp1, code, add_path, [filename:join([DataDir,deadlock])]),
+    ok = rpc:call(Cp1, application, start, [sasl]),
+    ok = rpc:call(Cp1, application, start, [deadlock]),
+    rpc:call(Cp1, deadlock, restart_and_fail, []),
+
+    ok = net_kernel:monitor_nodes(true),
+    _ = rpc:call(Cp1, init, stop, []),
+    receive
+	{nodedown,Cp1} ->
+	    ok
+    after 10000 ->
+	    ct:fail("timeout 10 sec: node termination hangs")
+    end,
+    ok.
+
 
 
 
