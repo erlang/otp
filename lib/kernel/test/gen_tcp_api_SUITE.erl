@@ -51,10 +51,7 @@ groups() ->
     [{t_accept, [], [t_accept_timeout]},
      {t_connect, [], [t_connect_timeout, t_connect_bad]},
      {t_recv, [], [t_recv_timeout, t_recv_eof]},
-     {t_sendfile, [], [{group, t_sendfile_raw},
-		       {group, t_sendfile_ioserv}]},
-     {t_sendfile_raw, [], sendfile_all()},
-     {t_sendfile_ioserv, [], sendfile_all()}].
+     {t_sendfile, [], [{group, sendfile_all()}]}].
 
 sendfile_all() ->
     [
@@ -76,8 +73,8 @@ end_per_suite(_Config) ->
 init_per_group(t_sendfile, Config) ->
     Priv = ?config(priv_dir, Config),
     SFilename = filename:join(Priv, "sendfile_small.html"),
-    {ok, DS} = file:open(SFilename,[write]),
-    io:format(DS,"yo baby yo",[]),
+    {ok, DS} = file:open(SFilename,[write,raw]),
+    file:write(DS,"yo baby yo"),
     file:sync(DS),
     file:close(DS),
     BFilename = filename:join(Priv, "sendfile_big.html"),
@@ -85,9 +82,9 @@ init_per_group(t_sendfile, Config) ->
     [file:write(DB,[<<0:(10*8*1024*1024)>>]) || _I <- lists:seq(1,51)],
     file:sync(DB),
     file:close(DB),
-    [{small_file, SFilename},{big_file, BFilename}|Config];
-init_per_group(t_sendfile_raw, Config) ->
-    [{file_opts, [raw]}|Config];
+    [{small_file, SFilename},
+     {file_opts,[raw,binary]},
+     {big_file, BFilename}|Config];
 init_per_group(_GroupName, Config) ->
     Config.
 
@@ -314,7 +311,7 @@ t_sendfile_partial(Config) ->
 
     {_Size, <<FData:5/binary,SData:3/binary,_/binary>>} =
 	sendfile_file_info(Filename),
-    {ok,D} = file:open(Filename,[read,binary|FileOpts]),
+    {ok,D} = file:open(Filename,[read|FileOpts]),
     {ok, <<FData/binary>>} = file:read(D,5),
     FSend = fun(Sock) ->
 		    {ok,5} = gen_tcp:sendfile(D,Sock,0,5,[]),
@@ -341,7 +338,7 @@ t_sendfile_offset(Config) ->
     Send = fun(Sock) ->
 		   {_Size, <<_:5/binary,Data:3/binary,_/binary>> = AllData} =
 		       sendfile_file_info(Filename),
-		   {ok,D} = file:open(Filename,[read,binary|FileOpts]),
+		   {ok,D} = file:open(Filename,[read|FileOpts]),
 		   {ok,3} = gen_tcp:sendfile(D,Sock,5,3,[]),
 		   {ok, AllData} = file:read(D,100),
 		   file:close(D),
