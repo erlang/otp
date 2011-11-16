@@ -1469,6 +1469,8 @@ efile_fadvise(Efile_error* errInfo, int fd, Sint64 offset,
 }
 
 #ifdef HAVE_SENDFILE
+#define SENDFILE_CHUNK_SIZE ((1 << 30) -1)
+
 int
 efile_sendfile(Efile_error* errInfo, int in_fd, int out_fd,
 	       off_t *offset, Uint64 *nbytes)
@@ -1476,7 +1478,6 @@ efile_sendfile(Efile_error* errInfo, int in_fd, int out_fd,
   //    printf("sendfile(%d,%d,%d,%d)\r\n",out_fd,in_fd,*offset,*nbytes);
     Uint64 written = 0;
 #if defined(__linux__) || (defined(__sun) && defined(__SVR4))
-#define SENDFILE_CHUNK_SIZE ((1 << (8*SIZEOF_SIZE_T)) - 1)
     ssize_t retval;
     do {
       // check if *nbytes is 0 or greater than the largest size_t
@@ -1488,11 +1489,10 @@ efile_sendfile(Efile_error* errInfo, int in_fd, int out_fd,
 	written += retval;
 	*nbytes -= retval;
       }
-    } while (retval == SENDFILE_CHUNK_SIZE);
+    } while (retval != -1 && retval == SENDFILE_CHUNK_SIZE);
     *nbytes = written;
     return check_error(retval == -1 ? -1 : 0, errInfo);
 #elif defined(DARWIN)
-#define SENDFILE_CHUNK_SIZE ((1 << (8*SIZEOF_OFF_T)) - 1)
     int retval;
     off_t len;
     do {
@@ -1511,7 +1511,6 @@ efile_sendfile(Efile_error* errInfo, int in_fd, int out_fd,
     *nbytes = written;
     return check_error(retval, errInfo);
 #elif defined(__FreeBSD__) || defined(__DragonFly__)
-#define SENDFILE_CHUNK_SIZE ((1 << (8*SIZEOF_SIZE_T)) - 1)
     off_t len;
     int retval;
     do {
