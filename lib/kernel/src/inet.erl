@@ -40,6 +40,10 @@
 
 -export([tcp_controlling_process/2, udp_controlling_process/2,
 	 tcp_close/1, udp_close/1]).
+
+%% used by sendfile
+-export([lock_socket/2]).
+
 %% used by socks5
 -export([setsockname/2, setpeername/2]).
 
@@ -1352,4 +1356,15 @@ stop_timer(Timer) ->
 		    false
 	    end;
 	T -> T
+    end.
+
+
+lock_socket(S,Val) ->
+    case erlang:port_info(S, connected) of
+	{connected, Pid} when Pid =/= self() ->
+	    {error, not_owner};
+	undefined ->
+	    {error, einval};
+	_ ->
+	    prim_inet:ignorefd(S,Val)
     end.
