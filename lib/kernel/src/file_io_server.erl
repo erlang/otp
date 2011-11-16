@@ -249,15 +249,6 @@ file_request(close,
 file_request({position,At}, 
 	     #state{handle=Handle,buf=Buf}=State) ->
     std_reply(position(Handle, At, Buf), State);
-file_request({sendfile,DestSock,Offset,Bytes,Opts},
-	     #state{handle=Handle}=State) ->
-    %% gen_tcp will call prim_file:sendfile with correct arguments
-    case gen_tcp:sendfile(Handle, DestSock, Offset, Bytes, Opts) of
-	{error,_}=Reply ->
-	    {stop,normal,Reply,State};
-	Reply ->
-	    {reply,Reply,State}
-    end;
 file_request(truncate, 
 	     #state{handle=Handle}=State) ->
     case ?PRIM_FILE:truncate(Handle) of

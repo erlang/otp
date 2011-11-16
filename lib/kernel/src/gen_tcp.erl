@@ -317,23 +317,15 @@ unrecv(S, Data) when is_port(S) ->
 -define(MAX_CHUNK_SIZE, (1 bsl 20)*20). %% 20 MB, has to fit in primary memory
 
 -spec sendfile(File, Sock, Offset, Bytes, Opts) ->
-   {'ok', non_neg_integer()} | {'error', inet:posix()} when
-      File :: file:io_device(),
+   {'ok', non_neg_integer()} | {'error', inet:posix() } |
+   {'error', not_owner} when
+      File :: file:fd(),
       Sock :: socket(),
       Offset :: non_neg_integer(),
       Bytes :: non_neg_integer(),
       Opts :: [sendfile_option()].
-sendfile(File, Sock, Offset, Bytes, Opts) when is_pid(File) ->
-    Ref = erlang:monitor(process, File),
-    File ! {file_request,self(),File,
-	    {sendfile,Sock,Offset,Bytes,Opts}},
-    receive
-	{file_reply,File,Reply} ->
-	    erlang:demonitor(Ref,[flush]),
-	    Reply;
-	{'DOWN', Ref, _, _, _} ->
-	    {error, terminated}
-    end;
+sendfile(File, _Sock, _Offet, _Bytes, _Opts) when is_pid(File) ->
+    {error, badarg};
 sendfile(File, Sock, Offset, Bytes, []) ->
     sendfile(File, Sock, Offset, Bytes, ?MAX_CHUNK_SIZE, undefined, undefined,
 	     false, false, false);
