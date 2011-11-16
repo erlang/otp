@@ -55,19 +55,18 @@
     </section>
 
     <section><title>Fixed Bugs and Malfunctions</title>
-    <p>-</p>
-
 <!--
+    <p>-</p>
+-->
+
       <list>
         <item>
-          <p>[httpc] Remove unnecessary usage of iolist_to_binary when 
-	  processing body (for PUT and POST). </p>
-	  <p>Filipe David Manana</p>
-	  <p>Own Id: OTP-9317</p>
+          <p>[httpd] Fix logging of content length in mod_log. </p>
+	  <p>Garrett Smith</p>
+	  <p>Own Id: OTP-9715</p>
         </item>
 
       </list>
--->
 
     </section>
 

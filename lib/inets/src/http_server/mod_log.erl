@@ -100,7 +100,7 @@ do(Info) ->
 		    transfer_log(Info,"-",AuthUser,Date,StatusCode,Size),
 		    {proceed,Info#mod.data};
 		{response, Head, _Body} ->
-		    Size = proplists:get_value(content_length,Head,unknown),
+                    Size = content_length(Head),
 		    Code = proplists:get_value(code,Head,unknown),
 		    transfer_log(Info, "-", AuthUser, Date, Code, Size),
 		    {proceed, Info#mod.data};
@@ -254,4 +254,10 @@ auth_user(Data) ->
 	    RemoteUser
     end.
 
-
+content_length(Head) ->
+    case proplists:get_value(content_length, Head) of
+        undefined ->
+            unknown;
+        Size ->
+            list_to_integer(Size)
+    end.
