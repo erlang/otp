@@ -45,21 +45,24 @@
 #define INVALID_FILE_ATTRIBUTES ((DWORD) 0xFFFFFFFF)
 #endif
 
-// #define TICKS_PER_SECOND 10000000
-// #define EPOCH_DIFFERENCE 11644473600LL
-// 	time_t convertWindowsTimeToUnixTime(long long int input){
-// 	    long long int temp;
-// 	    temp = input / TICKS_PER_SECOND; //convert from 100ns intervals to seconds;
-// 	    temp = temp - EPOCH_DIFFERENCE;  //subtract number of seconds between epochs
-// 	    return (time_t) temp;
-// 	}
-
-#define TICKS_PER_SECOND (10000000)
+#define TICKS_PER_SECOND (10000000ULL)
 #define EPOCH_DIFFERENCE (11644473600LL)
-#define FILETIME_TO_EPOCH(time) \
-    (((time) / TICKS_PER_SECOND) - EPOCH_DIFFERENCE)
-#define EPOCH_TO_FILETIME(epoch) \
-    (EPOCH_DIFFERENCE + ((epoch) * TICKS_PER_SECOND))
+
+#define FILETIME_TO_EPOCH(epoch, ft) \
+    do { \
+	ULARGE_INTEGER ull; \
+	ull.LowPart  = (ft).dwLowDateTime; \
+	ull.HighPart = (ft).dwHighDateTime; \
+	(epoch) = ((ull.QuadPart / TICKS_PER_SECOND) - EPOCH_DIFFERENCE); \
+    } while(0)
+
+#define EPOCH_TO_FILETIME(ft, epoch) \
+    do { \
+	ULARGE_INTEGER ull; \
+	ull.QuadPart = (((epoch)*TICKS_PER_SECOND) + EPOCH_DIFFERENCE); \
+	(ft).dwLowDateTime = ull.LowPart; \
+	(ft).dwHighDateTime = ull.HighPart; \
+    } while(0)
 
 
 static int check_error(int result, Efile_error* errInfo);
@@ -881,13 +884,7 @@ efile_fileinfo(Efile_error* errInfo, Efile_info* pInfo,
         findbuf.cFileName[0] = L'\0';
 
 	pInfo->links = 1;
-	pInfo->modifyTime.year = 1980;
-	pInfo->modifyTime.month = 1;
-	pInfo->modifyTime.day = 1;
-	pInfo->modifyTime.hour = 0;
-	pInfo->modifyTime.minute = 0;
-	pInfo->modifyTime.second = 0;
-
+	pInfo->modifyTime = 0;
 	pInfo->accessTime = pInfo->modifyTime;
     } else {
 	SYSTEMTIME SystemTime;
@@ -922,20 +919,20 @@ efile_fileinfo(Efile_error* errInfo, Efile_info* pInfo,
 	    }	
 	}
 
-        pInfo->modifyTime = FILETIME_TO_EPOCH(findbuf.ftLastWriteTime);
+        FILETIME_TO_EPOCH(pInfo->modifyTime, findbuf.ftLastWriteTime);
 
         if (findbuf.ftLastAccessTime.dwLowDateTime == 0 &&
 	    findbuf.ftLastAccessTime.dwHighDateTime == 0) {
 	    pInfo->accessTime = pInfo->modifyTime;
 	} else {
-	    pInfo->accessTime = FILETIME_TO_EPOCH(findbuf.ftLastAccessTime);
+	    FILETIME_TO_EPOCH(pInfo->accessTime, findbuf.ftLastAccessTime);
 	}
 
         if (findbuf.ftCreationTime.dwLowDateTime == 0 &&
 	    findbuf.ftCreationTime.dwHighDateTime == 0) {
 	    pInfo->cTime = pInfo->modifyTime;
 	} else {
-	    pInfo->cTime = FILETIME_TO_EPOCH(findbuf.ftCreationTime);
+	    FILETIME_TO_EPOCH(pInfo->cTime ,findbuf.ftCreationTime);
 	}
         FindClose(findhandle);
     }
@@ -1002,9 +999,9 @@ efile_write_info(Efile_error* errInfo,
      * Construct all file times.
      */
 
-    ModifyFileTime   = EPOCH_TO_FILETIME(pInfo->modifyTime);
-    AccessFileTime   = EPOCH_TO_FILETIME(pInfo->accessTime);
-    CreationFileTime = EPOCH_TO_FILETIME(pInfo->cTime);
+    EPOCH_TO_FILETIME(ModifyFileTime,   pInfo->modifyTime);
+    EPOCH_TO_FILETIME(AccessFileTime,   pInfo->accessTime);
+    EPOCH_TO_FILETIME(CreationFileTime, pInfo->cTime);
 
     /*
      * If necessary, set the file times.
