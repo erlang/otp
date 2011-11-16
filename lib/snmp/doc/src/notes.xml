@@ -32,6 +32,65 @@
     <file>notes.xml</file>
   </header>
 
+
+  <section>
+    <title>SNMP Development Toolkit 4.21.3</title>
+    <p>Version 4.21.3 supports code replacement in runtime from/to
+    version 4.21.2, 4.21.1, 4.21, 4.20.1, 4.20 and 4.19. </p>
+    
+    <section>
+      <title>Improvements and new features</title>
+<!--
+      <p>-</p>
+-->
+      
+      <list type="bulleted">
+        <item>
+          <p>[compiler] Improved version info printout. </p>
+          <p>Own Id: OTP-9618</p>
+        </item>
+
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <p>-</p> 
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>[compiler] foo. </p>
+          <p>Own Id: OTP-nnnn</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+
+
+    <section>
+      <title>Incompatibilities</title>
+<!--
+      <p>-</p> 
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>[compiler] The short warning option has been changed from 
+	  <c>--w</c> to <c>--W</c> to comply with the documentation. </p>
+          <p>Tuncer Ayaz</p>
+          <p>Own Id: OTP-9718</p>
+	</item>
+
+
+      </list>
+    </section>
+
+  </section> <!-- 4.21.3 -->
+
+
   <section>
     <title>SNMP Development Toolkit 4.21.2</title>
     <p>Version 4.21.2 supports code replacement in runtime from/to
