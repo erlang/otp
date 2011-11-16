@@ -70,8 +70,8 @@ typedef char DL_CHAR;
 #  define OPENGL_LIB "/System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib"
 #  define OPENGLU_LIB "/System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGLU.dylib"
 # else
-#  define OPENGL_LIB "libGL.so"
-#  define OPENGLU_LIB "libGLU.so"
+#  define OPENGL_LIB "libGL.so.1"
+#  define OPENGLU_LIB "libGLU.so.1"
 # endif
 #endif
 extern "C" {
@@ -121,7 +121,7 @@ int load_gl_functions() {
 	}
       }
     }
-    dlclose(LIBhandle);
+    // dlclose(LIBhandle);
     // fprintf(stderr, "OPENGL library is loaded\r\n");
   } else {
     fprintf(stderr, "Could NOT load OpenGL library: %s\r\n", DLName);
@@ -150,7 +150,7 @@ int load_gl_functions() {
 	}
       }
     }
-    dlclose(LIBhandle);
+    // dlclose(LIBhandle);
     // fprintf(stderr, "GLU library is loaded\r\n");
   } else {
     fprintf(stderr, "Could NOT load OpenGL GLU library: %s\r\n", DLName);
@@ -195,7 +195,7 @@ egl_ogla_error(GLenum errorCode)
   // msg.Printf(wxT("Tesselation error:  %d: "), (int)errorCode);
   // msg += wxString::FromAscii((char *) err);
   // send_msg("error", &msg);
-  fprintf(stderr, "Tesselation error: %d\r\n", (int) errorCode);
+  fprintf(stderr, "Tesselation error: %d: %s\r\n", (int) errorCode, err);
 }
 
 void CALLBACK
@@ -250,7 +250,7 @@ int erl_tess_impl(char* buff, ErlDrvPort port, ErlDrvTermData caller)
   int *vertices;
   int num_vertices;
   GLdouble *n;
-  int n_pos, AP, res;
+  int n_pos, AP;
 
   num_vertices = * (int *) buff; buff += 8; /* Align */
   n = (double *) buff; buff += 8*3;
@@ -293,7 +293,7 @@ int erl_tess_impl(char* buff, ErlDrvPort port, ErlDrvTermData caller)
   rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2; // Return tuple {list, Bin}
   rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2; // Result tuple
 
-  res = driver_send_term(port,caller,rt,AP);
+  driver_send_term(port,caller,rt,AP);
   /* fprintf(stderr, "List %d: %d %d %d \r\n",  */
   /* 	  res, */
   /* 	  n_pos,  */
