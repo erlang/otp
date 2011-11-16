@@ -1634,17 +1634,6 @@ create_child_process
 	WaitForSingleObject(hProcess, 50);
     }
     
-    /* 
-     * When an application spawns a process repeatedly, a new thread 
-     * instance will be created for each process but the previous 
-     * instances may not be cleaned up.  This results in a significant 
-     * virtual memory loss each time the process is spawned.  If there 
-     * is a WaitForInputIdle() call between CreateProcess() and
-     * CloseHandle(), the problem does not occur. PSS ID Number: Q124121
-     */
-    
-    WaitForInputIdle(piProcInfo.hProcess, 5000);
-    
     return ok;
 }
 
