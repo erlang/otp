@@ -36,7 +36,9 @@
 	 t_fdopen/1, t_implicit_inet6/1,
 	 t_sendfile_small/1, t_sendfile_big/1,
 	 t_sendfile_hdtl/1, t_sendfile_partial/1,
-	 t_sendfile_offset/1]).
+	 t_sendfile_offset/1, t_sendfile_sendafter/1,
+	 t_sendfile_recvafter/1, t_sendfile_sendduring/1,
+	 t_sendfile_recvduring/1]).
 
 -export([sendfile_server/2]).
 
@@ -60,6 +62,10 @@ sendfile_all() ->
 %     ,t_sendfile_hdtl
      ,t_sendfile_partial
      ,t_sendfile_offset
+     ,t_sendfile_sendafter
+     ,t_sendfile_recvafter
+     ,t_sendfile_sendduring
+     ,t_sendfile_recvduring
     ].
 %    [t_sendfile_big].
 %    [t_sendfile_small].
@@ -388,6 +394,64 @@ t_sendfile_hdtl(Config) ->
 	       end,
     ok = sendfile_send(SendTl).
 
+t_sendfile_sendafter(Config) ->
+    Filename = proplists:get_value(small_file, Config),
+
+    Send = fun(Sock) ->
+		   {Size, Data} = sendfile_file_info(Filename),
+		   {ok, Size} = gen_tcp:sendfile(Filename, Sock),
+		   ok = gen_tcp:send(Sock, <<2>>),
+		   <<Data/binary,2>>
+	   end,
+
+    ok = sendfile_send(Send).
+
+t_sendfile_recvafter(Config) ->
+    Filename = proplists:get_value(small_file, Config),
+
+    Send = fun(Sock) ->
+		   {Size, Data} = sendfile_file_info(Filename),
+		   {ok, Size} = gen_tcp:sendfile(Filename, Sock),
+		   ok = gen_tcp:send(Sock, <<1>>),
+		   {ok,<<1>>} = gen_tcp:recv(Sock, 1),
+		   <<Data/binary,1>>
+	   end,
+
+    ok = sendfile_send(Send).
+
+t_sendfile_sendduring(Config) ->
+    Filename = proplists:get_value(big_file, Config),
+
+    Send = fun(Sock) ->
+		   {ok, #file_info{size = Size}} =
+		       file:read_file_info(Filename),
+		   spawn_link(fun() ->
+				      timer:sleep(10),
+				      ok = gen_tcp:send(Sock, <<2>>)
+			      end),
+		   {ok, Size} = gen_tcp:sendfile(Filename, Sock),
+		   Size+1
+	   end,
+
+    ok = sendfile_send("localhost", Send, 0).
+
+t_sendfile_recvduring(Config) ->
+    Filename = proplists:get_value(big_file, Config),
+
+    Send = fun(Sock) ->
+		   {ok, #file_info{size = Size}} =
+		       file:read_file_info(Filename),
+		   spawn_link(fun() ->
+				      timer:sleep(10),
+				      ok = gen_tcp:send(Sock, <<1>>),
+				      {ok,<<1>>} = gen_tcp:recv(Sock, 1)
+			      end),
+		   {ok, Size} = gen_tcp:sendfile(Filename, Sock),
+		   timer:sleep(1000),
+		   Size+1
+	   end,
+
+    ok = sendfile_send("localhost", Send, 0).
 
 %% TODO: consolidate tests and reduce code
 sendfile_send(Send) ->
@@ -399,7 +463,8 @@ sendfile_send(Host, Send, Orig) ->
     receive
 	{server, Port} ->
 	    {ok, Sock} = gen_tcp:connect(Host, Port,
-					       [binary,{packet,0}]),
+					       [binary,{packet,0},
+						{active,false}]),
 	    Data = Send(Sock),
 	    ok = gen_tcp:close(Sock),
 	    receive
@@ -411,27 +476,36 @@ sendfile_send(Host, Send, Orig) ->
 
 sendfile_server(ClientPid, Orig) ->
     {ok, LSock} = gen_tcp:listen(0, [binary, {packet, 0},
-					   {active, false},
-					   {reuseaddr, true}]),
+				     {active, true},
+				     {reuseaddr, true}]),
     {ok, Port} = inet:port(LSock),
     ClientPid ! {server, Port},
     {ok, Sock} = gen_tcp:accept(LSock),
     {ok, Bin} = sendfile_do_recv(Sock, Orig),
-    ok = gen_tcp:close(Sock),
-    ClientPid ! {ok, Bin}.
+    ClientPid ! {ok, Bin},
+    gen_tcp:send(Sock, <<1>>).
 
 -define(SENDFILE_TIMEOUT, 10000).
 %% f(),{ok, S} = gen_tcp:connect("localhost",7890,[binary]),gen_tcp:sendfile("/ldisk/lukas/otp/sendfiletest.dat",S).
 sendfile_do_recv(Sock, Bs) ->
-    case gen_tcp:recv(Sock, 0, ?SENDFILE_TIMEOUT) of
-	{ok, B} when is_list(Bs) ->
-	    sendfile_do_recv(Sock, [B|Bs]);
-	{error, closed} when is_list(Bs) ->
+    receive
+	{tcp, Sock, B} ->
+	    case binary:match(B,<<1>>) of
+		nomatch when is_list(Bs) ->
+		    sendfile_do_recv(Sock, [B|Bs]);
+		nomatch when is_integer(Bs) ->
+		    sendfile_do_recv(Sock, byte_size(B) + Bs);
+		_ when is_list(Bs) ->
+		    {ok, iolist_to_binary(lists:reverse([B|Bs]))};
+		_ when is_integer(Bs) ->
+		    {ok, byte_size(B) + Bs}
+	    end;
+	{tcp_closed, Sock} when is_list(Bs) ->
 	    {ok, iolist_to_binary(lists:reverse(Bs))};
-	{ok, B} when is_integer(Bs) ->
-	    sendfile_do_recv(Sock, byte_size(B) + Bs);
-	{error, closed} when is_integer(Bs) ->
+	{tcp_closed, Sock} when is_integer(Bs) ->
 	    {ok, Bs}
+    after ?SENDFILE_TIMEOUT ->
+	    timeout
     end.
 
 sendfile_file_info(File) ->
