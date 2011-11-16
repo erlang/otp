@@ -1012,7 +1012,7 @@ case $ERTS_BUILD_SMP_EMU in
 			],
 			gcc_smp=okgcc,
 			gcc_smp=oldornogcc)
-Ω	ERTS_BUILD_SMP_EMU=yes
+	ERTS_BUILD_SMP_EMU=yes
 	case "$enable_threads-$gcc_smp-$found_threads-$host_os" in
 
 	    no-*)
