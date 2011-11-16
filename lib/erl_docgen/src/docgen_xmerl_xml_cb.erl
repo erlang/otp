@@ -15,11 +15,11 @@
 %%
 %%     $Id$
 %%
--module(docb_xmerl_xml_cb).
+-module(docgen_xmerl_xml_cb).
 
-%% This is the callback module for exporting XHTML to a DocBuilder
+%% This is the callback module for exporting XHTML to an
 %% erlref or chapter document in XML format.
-%% See docb_edoc_xml_cb.erl for further information.
+%% See docgen_edoc_xml_cb.erl for further information.
 %%
 %% The origin of this file is the xmerl module xmerl_otpsgml.erl
 %% written by Ulf Wiger and Richard Carlsson.
@@ -83,6 +83,6 @@ is_url("http:"++_) -> true;
 is_url("../"++_) -> true;
 is_url(FileRef) ->
     case filename:extension(FileRef) of
-	"" -> false; % no extension = xml file, DocBuilder resolves
-	_Ext -> true % extension, DocBuilder must not resolve
+	"" -> false; % no extension = xml file
+	_Ext -> true % extension
     end.

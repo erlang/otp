@@ -15,17 +15,13 @@
 %%
 %%     $Id$
 %%
--module(docb_edoc_xml_cb).
+-module(docgen_edoc_xml_cb).
 
-%% This is the EDoc callback module for creating DocBuilder erlref
-%% documents (man pages) in XML format, and also a DocBuilder chapter
+%% This is the EDoc callback module for creating erlref
+%% documents (man pages) in XML format, and also a chapter
 %% document based on "overview.edoc".
 %%
-%% Usage examples:
-%%   docb_gen File
-%%   docb_gen -chapter overview.edoc
-%% or (from an Erlang shell)
-%% edoc:file(File, [{layout,docb_edoc_xml_cb},{file_suffix,".xml"},
+%% edoc:file(File, [{layout,docgen_edoc_xml_cb},{file_suffix,".xml"},
 %%                  {preprocess,true}]).
 %%
 %% The origin of this file is the edoc module otpsgml_layout.erl
@@ -43,12 +39,12 @@
 module(Element, Opts) ->
     SortP = proplists:get_value(sort_functions, Opts, true),
     XML = layout_module(Element, SortP),
-    xmerl:export_simple([XML], docb_xmerl_xml_cb, []).
+    xmerl:export_simple([XML], docgen_xmerl_xml_cb, []).
 
 %% CHAPTER
 overview(Element, _Opts) ->
     XML = layout_chapter(Element),
-    xmerl:export_simple([XML], docb_xmerl_xml_cb, []).
+    xmerl:export_simple([XML], docgen_xmerl_xml_cb, []).
 
 %%--Internal functions--------------------------------------------------
 
@@ -433,12 +429,11 @@ otp_xmlify_e(E) ->
 %% Takes an <a> element and filters the attributes to decide wheather
 %% its a seealso/url or a marker.
 %% In the case of a seealso/url, the href part is checked, making
-%% sure a .xml/.html file extension is removed (as DocBuilder inserts
-%% .html extension when resolving cross references).
+%% sure a .xml/.html file extension is removed.
 %% Also, references to other applications //App has a href attribute
-%% value "OTPROOT/..." (due to app_default being set to "OTPROOT" in
-%% docb_gen.erl), in this case both href attribute and content must be
-%% formatted correctly according to DocBuilder requirements.
+%% value "OTPROOT/..." (due to app_default being set to "OTPROOT")
+%% , in this case both href attribute and content must be
+%% formatted correctly according to requirements.
 otp_xmlify_a(A) ->
     [Attr0] = filter_a_attrs(A#xmlElement.attributes),
     case Attr0 of
@@ -521,9 +516,8 @@ otp_xmlify_a_fileref(FileRef1, AppS) ->
 	    File;
 	[File, Ext, Marker0] ->
 	    %% Here is an awkward solution to an awkward problem
-	    %% The marker automatically inserted by DocBuilder at
-	    %% each function does not seem to work for EDoc generated
-	    %% ERLREFs.
+	    %% The marker automatically inserted at each function 
+	    %% does not seem to work for EDoc generated ERLREFs.
 	    %% So if the referenced marker is in an ERLREF generated
 	    %% by EDoc, keep it "as is", ie "function-arity".
 	    %% If the referenced marker is NOT in an ERLREF generated

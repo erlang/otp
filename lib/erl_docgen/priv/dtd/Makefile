@@ -62,7 +62,9 @@ DTD_FILES = \
 	fascicules.dtd \
 	terms.dtd
 
-
+ENT_FILES = \
+	xhtml-special.ent \
+	xhtml-symbol.ent
 
 # ----------------------------------------------------
 # FLAGS
@@ -87,8 +89,8 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 
 
 release_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)/priv/docbuilder_dtd
-	$(INSTALL_DATA) $(DTD_FILES) $(RELSYSDIR)/priv/docbuilder_dtd
+	$(INSTALL_DIR) $(RELSYSDIR)/priv/dtd
+	$(INSTALL_DATA) $(DTD_FILES)  $(ENT_FILES) $(RELSYSDIR)/priv/dtd
 
 
 release_docs_spec:

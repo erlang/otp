@@ -35,7 +35,9 @@ RELSYSDIR = $(RELEASE_PATH)/lib/erl_docgen-$(VSN)
 # Target Specs
 # ----------------------------------------------------
 MODULES = \
-	otp_specs
+	docgen_otp_specs \
+	docgen_edoc_xml_cb \
+	docgen_xmerl_xml_cb
 
 HRL_FILES = 
 

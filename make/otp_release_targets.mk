@@ -42,7 +42,7 @@ $(HTMLDIR)/index.html: $(XML_FILES) $(SPECS_FILES)
           --stringparam gendate "$$date" \
           --stringparam appname "$(APPLICATION)" \
           --stringparam appver "$(VSN)" \
-          -path $(DOCGEN)/priv/docbuilder_dtd \
+          -path $(DOCGEN)/priv/dtd \
           -path $(DOCGEN)/priv/dtd_html_entities \
             $(DOCGEN)/priv/xsl/db_html.xsl book.xml
 endif
@@ -52,7 +52,7 @@ $(HTMLDIR)/users_guide.html: $(XML_FILES)
 	$(XSLTPROC) --noout --stringparam outdir $(HTMLDIR) --stringparam docgen "$(DOCGEN)" --stringparam topdocdir "$(TOPDOCDIR)" \
 		--stringparam pdfdir "$(PDFDIR)" \
 		--stringparam gendate "$$date" --stringparam appname "$(APPLICATION)" --stringparam appver "$(VSN)" --xinclude  \
-		-path $(DOCGEN)/priv/docbuilder_dtd -path $(DOCGEN)/priv/dtd_html_entities $(DOCGEN)/priv/xsl/db_html.xsl book.xml
+		-path $(DOCGEN)/priv/dtd -path $(DOCGEN)/priv/dtd_html_entities $(DOCGEN)/priv/xsl/db_html.xsl book.xml
 
 %.fo: $(XML_FILES) $(SPECS_FILES)
 	date=`date +"%B %e %Y"`; \
@@ -62,7 +62,7 @@ $(HTMLDIR)/users_guide.html: $(XML_FILES)
          --stringparam appname "$(APPLICATION)" \
          --stringparam appver "$(VSN)" \
          --xinclude $(TOP_SPECS_PARAM) \
-         -path $(DOCGEN)/priv/docbuilder_dtd \
+         -path $(DOCGEN)/priv/dtd \
          -path $(DOCGEN)/priv/dtd_html_entities \
            $(DOCGEN)/priv/xsl/db_pdf.xsl book.xml > $@
 
@@ -78,7 +78,7 @@ $(HTMLDIR)/$(APPLICATION).eix: $(XML_FILES) $(SPECS_FILES)
 	date=`date +"%B %e %Y"`; \
 	$(XSLTPROC) --stringparam docgen "$(DOCGEN)" \
 		--stringparam gendate "$$date" --stringparam appname "$(APPLICATION)" --stringparam appver "$(VSN)" --xinclude $(TOP_SPECS_PARAM)  \
-		-path $(DOCGEN)/priv/docbuilder_dtd -path $(DOCGEN)/priv/dtd_html_entities $(DOCGEN)/priv/xsl/db_eix.xsl book.xml >  $@ 
+		-path $(DOCGEN)/priv/dtd -path $(DOCGEN)/priv/dtd_html_entities $(DOCGEN)/priv/xsl/db_eix.xsl book.xml >  $@ 
 
 docs: $(HTMLDIR)/$(APPLICATION).eix
 
