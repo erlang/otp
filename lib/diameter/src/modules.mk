@@ -67,7 +67,7 @@ CT_MODULES = \
 	compiler/diameter_codegen \
 	compiler/diameter_exprecs \
 	compiler/diameter_dict_scanner \
-	compiler/diameter_spec_util \
+	compiler/diameter_dict_util \
 	compiler/diameter_make
 
 # Released hrl files in ../include intended for public consumption.
@@ -79,7 +79,8 @@ EXTERNAL_HRLS = \
 INTERNAL_HRLS = \
 	base/diameter_internal.hrl \
 	base/diameter_types.hrl \
-	compiler/diameter_forms.hrl
+	compiler/diameter_forms.hrl \
+	compiler/diameter_vsn.hrl
 
 # Released files relative to ../bin.
 BINS = \

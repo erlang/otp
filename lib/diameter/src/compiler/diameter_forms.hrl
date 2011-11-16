@@ -21,6 +21,13 @@
 %% Macros used when building abstract code.
 %%
 
+%% Generated functions that could have no generated clauses will have
+%% a trailing ?BADARG clause that should never execute as called
+%% by diameter.
+-define(BADARG(N), {?clause, [?VAR('_') || _ <- lists:seq(1,N)],
+                    [],
+                    [?APPLY(erlang, error, [?ATOM(badarg)])]}).
+
 %% Form tag with line number.
 -define(F(T), T, ?LINE).
 %% Yes, that's right. The replacement is to the first unmatched ')'.
