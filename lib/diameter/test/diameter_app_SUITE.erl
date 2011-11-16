@@ -219,11 +219,14 @@ relup(Config) ->
     UpFrom = acc_rel(Dir, Rel, Up),
     DownTo = acc_rel(Dir, Rel, Down),
 
-    {[Name], [Name], UpFrom, DownTo}  %% no intersections
+    {[Name], [Name], [], []}  %% no current in up/down and go both ways
         = {[Name] -- UpFrom,
            [Name] -- DownTo,
            UpFrom -- DownTo,
            DownTo -- UpFrom},
+
+    [[], []] = [S -- sets:to_list(sets:from_list(S))
+                || S <- [UpFrom, DownTo]],
 
     {ok, _, _, []} = systools:make_relup(Name, UpFrom, DownTo, [{path, [Dir]},
                                                                 {outdir, Dir},

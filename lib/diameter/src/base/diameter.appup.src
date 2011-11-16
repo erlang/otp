@@ -20,28 +20,11 @@
 
 {"%VSN%",
  [
-  {"0.9",
-   [
-    {load_module, diameter,           soft_purge, soft_purge, []},
-    {load_module, diameter_capx,      soft_purge, soft_purge, []},
-    {load_module, diameter_codec,     soft_purge, soft_purge, [diameter_lib]},
-    {load_module, diameter_lib,       soft_purge, soft_purge, []},
-    {load_module, diameter_types,     soft_purge, soft_purge, []},
-    {load_module, diameter_gen_base_accounting, soft_purge, soft_purge, []},
-    {load_module, diameter_gen_base_rfc3588,    soft_purge, soft_purge, []},
-    {load_module, diameter_gen_relay, soft_purge, soft_purge, []},
-    {update, diameter_service,  soft, soft_purge, soft_purge, [diameter_lib]},
-    {update, diameter_config,   soft, soft_purge, soft_purge, []},
-    {update, diameter_peer,     soft, soft_purge, soft_purge, []},
-    {update, diameter_peer_fsm, soft, soft_purge, soft_purge, [diameter_lib]},
-    {update, diameter_reg,      soft, soft_purge, soft_purge, []},
-    {update, diameter_sctp,     soft, soft_purge, soft_purge, []},
-    {update, diameter_stats,    soft, soft_purge, soft_purge, []},
-    {update, diameter_sync,     soft, soft_purge, soft_purge, []},
-    {update, diameter_watchdog, soft, soft_purge, soft_purge, [diameter_lib]}
-   ]
-  }
+  {"0.9",  [{restart_application, diameter}]},
+  {"0.10", [{restart_application, diameter}]}
  ],
  [
+  {"0.9",  [{restart_application, diameter}]},
+  {"0.10", [{restart_application, diameter}]}
  ]
 }.
