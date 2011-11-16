@@ -134,12 +134,15 @@ release(Config) ->
     Rel = {release,
            {"diameter test release", fetch(vsn, App)},
            {erts, erlang:system_info(version)},
-           [{A, appvsn(A)} || A <- fetch(applications, App)]},
+           [{A, appvsn(A)} || A <- [sasl | fetch(applications, App)]]},
     Dir = fetch(priv_dir, Config),
     ok = write_file(filename:join([Dir, "diameter_test.rel"]), Rel),
     {ok, _, []} = systools:make_script("diameter_test", [{path, [Dir]},
                                                          {outdir, Dir},
                                                          silent]).
+
+%% sasl need to be included to avoid a missing_sasl warning, error
+%% in the case of relup/1.
 
 appvsn(Name) ->
     [{application, Name, App}] = diameter_util:consult(Name, app),
@@ -208,7 +211,7 @@ relup(Config) ->
 
     App = fetch(app, Config),
     Rel = [{erts, erlang:system_info(version)}
-           | [{A, appvsn(A)} || A <- fetch(applications, App)]],
+           | [{A, appvsn(A)} || A <- [sasl | fetch(applications, App)]]],
 
     Dir = fetch(priv_dir, Config),
 
