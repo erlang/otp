@@ -3719,12 +3719,6 @@ os_prompt%</pre>
 
           <tag><c>process_flag(save_calls, N)</c></tag>
           <item>
-	    <p>When there are runnable processes on priority <c>max</c>
-	      no processes on priority <c>low</c>, <c>normal</c>, or
-	      <c>high</c> will be selected for execution. As with the
-	      <c>high</c> priority, processes on lower priorities might
-	      execute in parallel with processes on priority <c>max</c>.
-	    </p>
             <p><c>N</c> must be an integer in the interval 0..10000.
               If <c>N</c> &gt; 0, call saving is made active for the
               process, which means that information about the <c>N</c>
