@@ -26,7 +26,7 @@
 -include_lib("public_key/include/public_key.hrl").
 
 -export([create/0, remove/1, add_trusted_certs/3, 
-	 remove_trusted_certs/2, lookup_trusted_cert/4, issuer_candidate/2,
+	 remove_trusted_certs/2, lookup_trusted_cert/4, foldl/3, 
 	 lookup_cached_certs/2, cache_pem_file/4, uncache_pem_file/2, lookup/2]).
 
 -type time()      :: {non_neg_integer(), non_neg_integer(), non_neg_integer()}.
@@ -127,8 +127,6 @@ uncache_pem_file(File, [_CertsDb, _FileToRefDb, PidToFileDb]) ->
 			  exit(Pid, shutdown)
 		  end, Pids).
 
-
-
 %%--------------------------------------------------------------------
 -spec remove_trusted_certs(pid(), [db_handle()]) -> term().
 				  
@@ -161,37 +159,6 @@ remove_trusted_certs(Pid, [CertsDb, FileToRefDb, PidToFileDb]) ->
     end.
 
 %%--------------------------------------------------------------------
--spec issuer_candidate(no_candidate | cert_key() | {file, term()}, term()) ->
-			      {cert_key(),{der_cert(), #'OTPCertificate'{}}} | no_more_candidates.
-%%
-%% Description: If a certificat does not define its issuer through
-%%              the extension 'ce-authorityKeyIdentifier' we can
-%%              try to find the issuer in the database over known
-%%              certificates. 
-%%--------------------------------------------------------------------
-issuer_candidate(no_candidate, Db) ->
-    case ets:first(Db) of
- 	'$end_of_table' ->
- 	    no_more_candidates;
-	{file, _} = Key ->
-	    issuer_candidate(Key, Db);
- 	Key ->
-	    [Cert] = lookup(Key, Db),
- 	    {Key, Cert}
-    end;
-
-issuer_candidate(PrevCandidateKey, Db) ->
-    case ets:next(Db, PrevCandidateKey) of
- 	'$end_of_table' ->
- 	    no_more_candidates;
-	{file, _} = Key ->
-	    issuer_candidate(Key, Db);
- 	Key ->
-	    [Cert] = lookup(Key, Db),
- 	    {Key, Cert}
-    end.
-
-%%--------------------------------------------------------------------
 -spec lookup(term(), db_handle()) -> term() | undefined.
 %%
 %% Description: Looks up an element in a certificat <Db>.
@@ -206,7 +173,18 @@ lookup(Key, Db) ->
 		   end,
 	    [Pick(Data) || Data <- Contents]
     end.
-
+%%--------------------------------------------------------------------
+-spec foldl(fun(), term(), db_handle()) -> term().
+%%
+%% Description: Calls Fun(Elem, AccIn) on successive elements of the
+%% cache, starting with AccIn == Acc0. Fun/2 must return a new
+%% accumulator which is passed to the next call. The function returns
+%% the final value of the accumulator. Acc0 is returned if the certifate
+%% db is empty.
+%%--------------------------------------------------------------------
+foldl(Fun, Acc0, Cache) ->
+    ets:foldl(Fun, Acc0, Cache).
+  
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------

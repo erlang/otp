@@ -29,8 +29,8 @@
 %% Internal application API
 -export([start_link/1, start_link_dist/1,
 	 connection_init/2, cache_pem_file/2,
-	 lookup_trusted_cert/4, issuer_candidate/2, client_session_id/4,
-	 server_session_id/4,
+	 lookup_trusted_cert/4,
+	 client_session_id/4, server_session_id/4,
 	 register_session/2, register_session/3, invalidate_session/2,
 	 invalidate_session/3]).
 
@@ -112,16 +112,7 @@ cache_pem_file(File, DbHandle) ->
 %% --------------------------------------------------------------------
 lookup_trusted_cert(DbHandle, Ref, SerialNumber, Issuer) ->
     ssl_certificate_db:lookup_trusted_cert(DbHandle, Ref, SerialNumber, Issuer).
-%%--------------------------------------------------------------------
--spec issuer_candidate(cert_key() | no_candidate, term()) ->
-			      {cert_key(),
-			       {der_cert(),
-				#'OTPCertificate'{}}} | no_more_candidates.
-%%
-%% Description: Return next issuer candidate.
-%%--------------------------------------------------------------------
-issuer_candidate(PrevCandidateKey, DbHandle) ->
-    ssl_certificate_db:issuer_candidate(PrevCandidateKey, DbHandle).
+
 %%--------------------------------------------------------------------
 -spec client_session_id(host(), inet:port_number(), #ssl_options{},
 			der_cert() | undefined) -> session_id().
