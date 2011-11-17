@@ -555,7 +555,6 @@ extern Eterm node_cookie;
 extern erts_smp_atomic_t erts_bytes_out;	/* no bytes written out */
 extern erts_smp_atomic_t erts_bytes_in;		/* no bytes sent into the system */
 extern Uint display_items;	/* no of items to display in traces etc */
-extern Uint display_loads;	/* print info about loaded modules */
 
 extern int erts_backtrace_depth;
 extern erts_smp_atomic32_t erts_max_gen_gcs;
@@ -867,8 +866,14 @@ typedef struct {
     Eterm* fname_ptr;		/* Pointer to fname table */
 } FunctionInfo;
 
-int erts_load_module(Process *c_p, ErtsProcLocks c_p_locks,
-		     Eterm group_leader, Eterm* mod, byte* code, int size);
+struct LoaderState* erts_alloc_loader_state(void);
+Eterm erts_prepare_loading(struct LoaderState*,  Process *c_p,
+			   Eterm group_leader, Eterm* modp,
+			   byte* code, Uint size);
+Eterm erts_finish_loading(struct LoaderState* stp, Process* c_p,
+			  ErtsProcLocks c_p_locks, Eterm* modp);
+Eterm erts_load_module(Process *c_p, ErtsProcLocks c_p_locks,
+		      Eterm group_leader, Eterm* mod, byte* code, Uint size);
 void init_load(void);
 BeamInstr* find_function_from_pc(BeamInstr* pc);
 Eterm* erts_build_mfa_item(FunctionInfo* fi, Eterm* hp,

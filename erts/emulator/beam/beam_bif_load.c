@@ -50,11 +50,11 @@ load_module_2(BIF_ALIST_2)
 {
     Eterm   reason;
     Eterm*  hp;
-    int      i;
     int      sz;
     byte*    code;
     Eterm res;
     byte* temp_alloc = NULL;
+    struct LoaderState* stp;
 
     if (is_not_atom(BIF_ARG_1)) {
     error:
@@ -64,47 +64,37 @@ load_module_2(BIF_ALIST_2)
     if ((code = erts_get_aligned_binary_bytes(BIF_ARG_2, &temp_alloc)) == NULL) {
 	goto error;
     }
+    hp = HAlloc(BIF_P, 3);
+
+    /*
+     * Read the BEAM file and prepare the module for loading.
+     */
+    stp = erts_alloc_loader_state();
+    sz = binary_size(BIF_ARG_2);
+    reason = erts_prepare_loading(stp, BIF_P, BIF_P->group_leader,
+				  &BIF_ARG_1, code, sz);
+    erts_free_aligned_binary_bytes(temp_alloc);
+    if (reason != NIL) {
+	res = TUPLE2(hp, am_error, reason);
+	BIF_RET(res);
+    }
+
+    /*
+     * Stop all other processes and finish the loading of the module.
+     */
     erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
     erts_smp_thr_progress_block();
 
-    hp = HAlloc(BIF_P, 3);
-    sz = binary_size(BIF_ARG_2);
-    if ((i = erts_load_module(BIF_P, 0,
-			      BIF_P->group_leader, &BIF_ARG_1, code, sz)) < 0) { 
-	switch (i) {
-	case -1: reason = am_badfile; break; 
-	case -2: reason = am_nofile; break;
-	case -3: reason = am_not_purged; break;
-	case -4:
-	    reason = am_atom_put("native_code", sizeof("native_code")-1);
-	    break;
-	case -5:
-	    {
-		/*
-		 * The module contains an on_load function. The loader
-		 * has loaded the module as usual, except that the
-		 * export entries does not point into the module, so it
-		 * is not possible to call any code in the module.
-		 */
-
-		ERTS_DECL_AM(on_load);
-		reason = AM_on_load;
-		break;
-	    }
-	default: reason = am_badfile; break;
-	}
+    reason = erts_finish_loading(stp, BIF_P, 0, &BIF_ARG_1);
+    if (reason != NIL) {
 	res = TUPLE2(hp, am_error, reason);
-	goto done;
+    } else {
+	set_default_trace_pattern(BIF_ARG_1);
+	res = TUPLE2(hp, am_module, BIF_ARG_1);
     }
 
-    set_default_trace_pattern(BIF_ARG_1);
-    res = TUPLE2(hp, am_module, BIF_ARG_1);
-
- done:
-    erts_free_aligned_binary_bytes(temp_alloc);
     erts_smp_thr_progress_unblock();
     erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
-
     BIF_RET(res);
 }
 
@@ -654,9 +644,6 @@ purge_module(int module)
      * Any code to purge?
      */
     if (modp->old_code == 0) {
-	if (display_loads) {
-	    erts_printf("No code to purge for %T\n", make_atom(module));
-	}
 	return -1;
     }
 
@@ -772,7 +759,7 @@ delete_export_references(Eterm module)
 }
 
 
-int
+Eterm
 beam_make_current_old(Process *c_p, ErtsProcLocks c_p_locks, Eterm module)
 {
     Module* modp = erts_put_module(module);
@@ -783,15 +770,12 @@ beam_make_current_old(Process *c_p, ErtsProcLocks c_p_locks, Eterm module)
      */
 
     if (modp->code != NULL && modp->old_code != NULL)  {
-	return -3;
+	return am_not_purged;
     } else if (modp->old_code == NULL) { /* Make the current version old. */
-	if (display_loads) {
-	    erts_printf("saving old code\n");
-	}
 	delete_code(c_p, c_p_locks, modp);
 	delete_export_references(module);
     }
-    return 0;
+    return NIL;
 }
 
 static int

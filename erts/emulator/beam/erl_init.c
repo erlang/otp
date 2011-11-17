@@ -92,7 +92,6 @@ int erts_use_sender_punish;
  */
 
 Uint display_items;	    	/* no of items to display in traces etc */
-Uint display_loads;		/* print info about loaded modules */
 int H_MIN_SIZE;			/* The minimum heap grain */
 int BIN_VH_MIN_SIZE;		/* The minimum binary virtual*/
 
@@ -437,7 +436,7 @@ static void
 load_preloaded(void)
 {
     int i;
-    int res;
+    Eterm res;
     Preload* preload_p;
     Eterm module_name;
     byte* code;
@@ -456,8 +455,9 @@ load_preloaded(void)
 		     name);
 	res = erts_load_module(NULL, 0, NIL, &module_name, code, length);
 	sys_preload_end(&preload_p[i]);
-	if (res < 0)
-	    erl_exit(1,"Failed loading preloaded module %s\n", name);
+	if (res != NIL)
+	    erl_exit(1,"Failed loading preloaded module %s (%T)\n",
+		     name, res);
 	i++;
     }
 }
@@ -498,8 +498,6 @@ void erts_usage(void)
     /*    erts_fprintf(stderr, "-i module  set the boot module (default init)\n"); */
 
     erts_fprintf(stderr, "-K boolean  enable or disable kernel poll\n");
-
-    erts_fprintf(stderr, "-l          turn on auto load tracing\n");
 
     erts_fprintf(stderr, "-M<X> <Y>   memory allocator switches,\n");
     erts_fprintf(stderr, "            see the erts_alloc(3) documentation for more info.\n");
@@ -616,7 +614,6 @@ early_init(int *argc, char **argv) /*
     erts_printf_eterm_func = erts_printf_term;
     erts_disable_tolerant_timeofday = 0;
     display_items = 200;
-    display_loads = 0;
     erts_backtrace_depth = DEFAULT_BACKTRACE_SIZE;
     erts_async_max_threads = 0;
     erts_async_thread_suggested_stack_size = ERTS_ASYNC_THREAD_MIN_STACK_SIZE;
@@ -981,9 +978,6 @@ erl_start(int argc, char **argv)
 		erts_fprintf(stderr, "%s unknown flag %s\n", argv[0], argv[i]);
 		erts_usage();
 	    }
-	case 'l':
-	    display_loads++;
-	    break;
 	case 'L':
 	    erts_no_line_info = 1;
 	    break;
