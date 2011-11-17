@@ -23,6 +23,8 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
 ENABLE_ALLOC_TYPE_VARS = @ENABLE_ALLOC_TYPE_VARS@
 HIPE_ENABLED=@HIPE_ENABLED@
+DTRACE_ENABLED=@DTRACE_ENABLED@
+DTRACE_ENABLED_2STEP=@DTRACE_ENABLED_2STEP@
 LIBS = @LIBS@
 Z_LIB=@Z_LIB@
 NO_INLINE_FUNCTIONS=false
@@ -483,6 +485,10 @@ GENERATE +=	$(HIPE_ASM) \
 endif
 endif
 
+ifdef DTRACE_ENABLED
+GENERATE += $(TARGET)/erlang_dtrace.h
+endif
+
 ifdef HIPE_ENABLED
 OPCODE_TABLES += hipe/hipe_ops.tab
 endif
@@ -590,6 +596,11 @@ $(TTF_DIR)/GENERATED: $(GENERATE)
 	echo $? >$(TTF_DIR)/GENERATED
 endif
 
+$(TARGET)/erlang_dtrace.h: beam/erlang_dtrace.d
+	dtrace -h -C -Ibeam -s $< -o ./erlang_dtrace.tmp
+	sed -e '/^#define[ 	]*ERLANG_[A-Z0-9_]*(.*)/y/ABCDEFGHIJKLMNOPQRSTUVWXYZ/abcdefghijklmnopqrstuvwxyz/' ./erlang_dtrace.tmp > $@
+	rm ./erlang_dtrace.tmp
+
 # ----------------------------------------------------------------------
 # Pattern rules
 #
@@ -632,7 +643,6 @@ else
 $(OBJDIR)/beam_emu.o: beam/beam_emu.c
 	$(EMU_CC) $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
 endif
-
 
 $(OBJDIR)/%.o: beam/%.c
 	$(CC) $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
@@ -833,7 +843,18 @@ endif
 
 BASE_OBJS = $(RUN_OBJS) $(EMU_OBJS) $(OS_OBJS) $(EXTRA_BASE_OBJS)
 
-OBJS =	$(BASE_OBJS) $(DRV_OBJS)
+before_DTrace_OBJS =	$(BASE_OBJS) $(DRV_OBJS)
+
+DTRACE_OBJS =
+ifdef DTRACE_ENABLED_2STEP
+DTRACE_OBJS = $(OBJDIR)/erlang_dtrace.o
+$(OBJDIR)/erlang_dtrace.o: $(before_DTrace_OBJS) $(TARGET)/erlang_dtrace.h
+	dtrace -G -C -Ibeam \
+	  -s beam/erlang_dtrace.d \
+	  -o $@ $(before_DTrace_OBJS)
+endif
+
+OBJS = $(before_DTrace_OBJS) $(DTRACE_OBJS)
 
 $(INIT_OBJS): $(TTF_DIR)/GENERATED
 $(OBJS): $(TTF_DIR)/GENERATED

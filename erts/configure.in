@@ -3546,6 +3546,81 @@ dnl
 LM_FIND_EMU_CC
 
 dnl
+dnl DTrace
+dnl
+
+AC_MSG_CHECKING(if --enable-dtrace option specified)
+AC_ARG_ENABLE(dtrace,
+        [AC_HELP_STRING([--enable-dtrace],
+                        [Configure with dtrace static probes])],
+        [enable_dtrace="$enable_dtrace"]) dnl, [enable_dtrace="no"])
+
+if test "$enable_dtrace" = "yes"; then
+        AC_CHECK_TOOL(DTRACE, dtrace, none)
+        test "$DTRACE" = "none" && AC_MSG_ERROR([No dtrace utility found.])
+else
+	AC_MSG_RESULT([not specified])
+fi
+
+AC_SUBST(DTRACE)
+
+AC_SUBST(DTRACE_CPP)
+AC_SUBST(DTRACE_ENABLED)
+AC_SUBST(DTRACE_ENABLED_2STEP)
+DTRACE_CPP=-C
+DTRACE_ENABLED=
+DTRACE_ENABLED_2STEP=
+DTRACE_2STEP_TEST=./dtrace-test.o
+DTRACE_BITS_FLAG=
+case $OPSYS in
+    freebsd)
+	if test "$BITS64" = "yes" ; then
+		DTRACE_BITS_FLAG=-64
+	else
+		DTRACE_BITS_FLAG=-32
+	fi
+    ;;
+    *)
+	: # Nothing to do
+    ;;
+esac
+if test "$enable_dtrace" = "yes" ; then
+        if test "$DTRACE" = "dtrace" ; then
+                AC_CHECK_HEADERS(sys/sdt.h)
+                # The OS X version of dtrace prints a spurious line here.
+                if ! dtrace -h $DTRACE_CPP -Iemulator/beam -o ./foo-dtrace.h -s emulator/beam/erlang_dtrace.d; then
+                        AC_MSG_ERROR([Could not precompile erlang_dtrace.d: dtrace -h failed])
+                fi
+                rm -f foo-dtrace.h
+
+                $RM -f $DTRACE_2STEP_TEST
+                if dtrace -G $DTRACE_CPP $DTRACE_BITS_FLAG -Iemulator/beam -o $DTRACE_2STEP_TEST -s emulator/beam/erlang_dtrace.d 2> /dev/null && \
+                   test -f $DTRACE_2STEP_TEST ; then
+                        rm $DTRACE_2STEP_TEST
+                        DTRACE_ENABLED_2STEP=yes
+                        AC_MSG_NOTICE([dtrace precompilation for 2-stage DTrace successful])
+                else
+                        AC_MSG_NOTICE([dtrace precompilation for 1-stage DTrace successful])
+                fi
+                DTRACE_ENABLED=yes
+                AC_DEFINE(HAVE_DTRACE, 1, [Define to enable DTrace probes (or SystemTap probes on Linux systems)])
+                case $OPSYS in
+                    linux)
+                        : # No extra libs to add to LIBS
+                    ;;
+                    freebsd)
+                        LIBS="$LIBS -lelf"
+                    ;;
+                    *)
+                        LIBS="$LIBS -ldtrace"
+                    ;;
+                esac
+        else
+                AC_MSG_ERROR([Dtrace preprocessing test failed.])
+        fi
+fi
+
+dnl
 dnl SSL, SSH and CRYPTO need the OpenSSL libraries
 dnl
 dnl Check flags --with-ssl, --without-ssl --with-ssl=PATH.
@@ -4388,6 +4463,7 @@ dnl
   ../lib/os_mon/c_src/$host/Makefile:../lib/os_mon/c_src/Makefile.in
 dnl  ../lib/ssl/c_src/$host/Makefile:../lib/ssl/c_src/Makefile.in
   ../lib/crypto/c_src/$host/Makefile:../lib/crypto/c_src/Makefile.in
+  ../lib/dtrace/c_src/$host/Makefile:../lib/dtrace/c_src/Makefile.in
   ../lib/orber/c_src/$host/Makefile:../lib/orber/c_src/Makefile.in
   ../lib/runtime_tools/c_src/$host/Makefile:../lib/runtime_tools/c_src/Makefile.in
   ../lib/tools/c_src/$host/Makefile:../lib/tools/c_src/Makefile.in
