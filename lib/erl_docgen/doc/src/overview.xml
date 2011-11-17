@@ -29,28 +29,6 @@
   </header>
 
   <section>
-    <title>Background</title>
-
-    <p>DocBuilder has been used within the OTP project to generate
-      documentation for Erlang/OTP itself for more than ten years.
-      It has now been released as a regular Erlang/OTP application.</p>
-
-    <p>The intention with DocBuilder is that it should be as easy to
-      use and maintain as possible and generate adequate documentation
-      for OTP's needs. It uses frames, which can probably be regarded as
-      old-fashioned today. Hopefully, this should be improved in
-      the future.</p>
-
-    <p>Originally, DocBuilder input was SGML files and external tools
-      was used for parsing. The internal version used in the OTP
-      project can generate not only HTML code but also LaTeX (for PDF
-      and PostScript) and nroff (for UNIX man pages). (Again, using
-      external tools). Because of this, the parsed source code is
-      transformed into a tree structure before being transformed again
-      into the desired format.</p>
-  </section>
-
-  <section>
     <title>DTD Suite</title>
 
     <p>Input is written as XML according to one of the DTDs and output
@@ -94,10 +72,6 @@
       the <c>application</c> or <c>part</c> DTD to write other types
       of documentation for the application.</p>
 
-    <p>A special kind of DTD,
-      <seealso marker="fasc_dtds">fascicules</seealso>, can be used to
-      specify the different parts of the documentation, and which one
-      of those should be shown as default.</p>
   </section>
 
   <section>
@@ -120,7 +94,7 @@
   <section>
     <title>Basic Tags</title>
 
-    <p>All DTDs in the DocBuilder DTD suite share a basic set of tags.
+    <p>All DTDs in the OTP DTD suite share a basic set of tags.
       An author can easily switch from one DTD to another and still use
       the same basic tags. It is furthermore easy to copy pieces of
       information from one document to another, even though they do not
@@ -143,13 +117,13 @@
 
     <p>For readability and simplicity, the examples have been kept as
       short as possible. For an example of what the generated HTML
-      will look like, it is recommended to look at the DocBuilder
-      documentation itself:</p>
+      will look like, it is recommended to look at the documentation of 
+      an OTP application.</p>
     <list>
-      <item>This User's Guide is written using the <c>part</c> and
+      <item>This User's Guides are written using the <c>part</c> and
 	<c>chapter</c> DTDs.</item>
 
-      <item>The Reference Manual is written using
+      <item>The Reference Manuals are written using
 	the <c>application</c>, <c>appref</c> and <c>erlref</c> DTDs.
       </item>
     </list>
@@ -162,23 +136,19 @@
       <item>
 	<p>Create the relevant XML files.</p>
 
-	<p>If there are EDoc comments in a module, the function
-	  <seealso marker="docb_gen#module/1">docb_gen:module/1,2</seealso>
+	<p>If there are EDoc comments in a module, the escript 
+	  <!-- seealso marker="xml_from_edoc">xml_from_edoc</seealso -->
+          <c>xml_from_edoc</c>
 	  can be used to generate an XML file according to
 	  the <c>erlref</c> DTD for this module.</p>
       </item>
 
-      <item>
+      <!-- item>
 	<p>The XML files can be validated using
 	  <seealso marker="docb_xml_check#validate/1">docb_xml_check:validate/1</seealso>.
 	</p>
-      </item>
+      </item -->
 
-      <item>
-	<p>Generate HTML files by using
-	  <seealso marker="docb_transform#file/1">docb_transform:file/1,2</seealso>.
-	</p>
-      </item>
     </list>
   </section>
 </chapter>

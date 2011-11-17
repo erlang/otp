@@ -104,7 +104,7 @@
   <section>
     <title>&lt;shorttitle&gt;</title>
 
-    <p>This optional tag is ignored by DocBuilder. It will likely be
+    <p>This optional tag is ignored. It will likely be
       removed in the future.</p>
   </section>
 
@@ -112,8 +112,7 @@
     <marker id="preparedTAG"></marker>
     <title>&lt;prepared&gt;</title>
 
-    <p>This tag is intended for administrative use and is ignored by
-      DocBuilder.</p>
+    <p>This tag is intended for administrative use and is ignored.</p>
   </section>
 
   <section>
@@ -121,7 +120,7 @@
     <title>&lt;responsible&gt;</title>
 
     <p>This optional tag is intended for administrative use and is
-      ignored by DocBuilder.</p>
+      ignored.</p>
   </section>
 
   <section>
@@ -141,7 +140,7 @@
     <title>&lt;approved&gt;</title>
 
     <p>This optional tag is intended for administrative use and is
-      ignored by DocBuilder.</p>
+      ignored.</p>
   </section>
 
   <section>
@@ -149,15 +148,14 @@
     <title>&lt;checked&gt;</title>
 
     <p>This optional tag is intended for administrative use and is
-      ignored by DocBuilder.</p>
+      ignored.</p>
   </section>
 
   <section>
     <marker id="dateTAG"></marker>
     <title>&lt;date&gt;</title>
 
-    <p>This tag is intended for administrative use and is ignored by
-      DocBuilder.</p>
+    <p>This tag is intended for administrative use and is ignored.</p>
   </section>
 
   <section>
@@ -177,7 +175,7 @@
     <title>&lt;file&gt;</title>
 
     <p>This optional tag is intended for administrative use and is
-      ignored by DocBuilder.</p>
+      ignored.</p>
   </section>
 </chapter>
 

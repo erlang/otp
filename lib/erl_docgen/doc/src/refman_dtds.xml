@@ -573,8 +573,8 @@
       a <c><![CDATA[<nametext>]]></c> (function name and arguments,
       plain text).</p>
 
-    <p>In the case of an <c>erlref</c> DTD, DocBuilder will
-      automatically try to add a
+    <p>In the case of an <c>erlref</c> DTD, it will
+      automatically be added a
       <seealso marker="inline_tags#markerTAG">marker</seealso>,
       <c><![CDATA[<marker id="Name/Arity">]]></c> or
       <c><![CDATA[<marker id="Name">]]></c>, based on the contents of
@@ -585,7 +585,7 @@
 <name>foo(Arg1, Arg2) -> ok | {error, Reason}</name>
     ]]></pre>
 
-    <p>DocBuilder will create a marker
+    <p>Then a marker like this will be added
       <c><![CDATA[<marker id="foo/2">]]></c> before the function
       definition in the generated HTML. That is, referring to
       the function using

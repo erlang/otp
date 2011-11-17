@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2009</year>
+      <year>1997</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -33,7 +33,7 @@
     as a paragraph or a list.</p>
 
   <p>The following subset of block tags are common for all DTDs in
-    the DocBuilder DTD suite:
+    the OTP DTD suite:
     <marker id="block_subset"></marker>
     <seealso marker="#pTAG">&lt;p&gt;</seealso>,
     <seealso marker="#preTAG">&lt;pre&gt;</seealso>,
@@ -81,7 +81,7 @@ sum([]) ->
     </code>
 
     <p>There is an attribute <c>type = "erl" | "c" | "none"</c>, but
-      currently this attribute is ignored by DocBuilder. Default value
+      currently this attribute is ignored. Default value
       is <c>"none"</c></p>
 
     <note>
@@ -99,18 +99,18 @@ sum([]) ->
       gives the file name and <c>tag</c> defines a string which
       delimits the code snippet. Example:</p>
     <pre>
-&lt;codeinclude file="gazonk" tag="%% Erlang example"/&gt;
+&lt;codeinclude file="example.txt" tag="%% Erlang example"/&gt;
     </pre>
     <p>results in:</p>
-    <codeinclude file="gazonk" tag="%% Erlang example"/>
+    <codeinclude file="example.txt" tag="%% Erlang example"/>
 
-    <p>provided there is a file named <c>gazonk</c> looking like this:
+    <p>provided there is a file named <c>examples.txt</c> looking like this:
     </p>
     <code>
 ...
 
 %% Erlang example
--module(gazonk).
+-module(example).
 
 start() ->
     {error,"Pid required!"}.
@@ -125,7 +125,7 @@ start(Pid) ->
     included.</p>
 
     <p>There is also an attribute <c>type = "erl" | "c" | "none"</c>, but
-      currently this attribute is ignored by DocBuilder. Default value
+      currently this attribute is ignored. Default value
       is <c>"none"</c></p>
   </section>
 

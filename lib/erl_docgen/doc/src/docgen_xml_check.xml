@@ -23,16 +23,16 @@
   The Initial Developer of the Original Code is Ericsson AB.
     </legalnotice>
 
-    <title>docb_xml_check</title>
+    <title>docgen_xml_check</title>
     <prepared></prepared>
     <docno></docno>
     <date></date>
     <rev></rev>
   </header>
-  <module>docb_xml_check</module>
+  <module>docgen_xml_check</module>
   <modulesummary>Validate XML documentation source code</modulesummary>
   <description>
-    <p><c>docb_xml_check</c> contains functions for validating XML
+    <p><c>docgen_xml_check</c> contains functions for validating XML
       documentation source code.</p>
   </description>
 

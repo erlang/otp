@@ -32,7 +32,7 @@
   <section>
     <title>Added Latin 1</title>
 
-    <p>The DocBuilder DTD suite uses the same character entities as
+    <p>The OTP DTD suite uses the same character entities as
       defined in HTML 3.2
       (<c>ISO 8879-1986//ENTITIES Added Latin 1//EN//HTML</c>). That is:
       for an &amp; (ampersand), use the entity: <c>&amp;amp;</c>, for

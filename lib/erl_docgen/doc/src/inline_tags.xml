@@ -92,7 +92,7 @@
       inline tag.</p>
   </section>
 
-  <section>
+  <!-- section>
     <marker id="pathTAG"></marker>
     <title>&lt;path&gt; - Path</title>
 
@@ -115,7 +115,7 @@
       in:</p>
     <p>"Look at the <path unix=".profile" windows="win.ini">start-up file</path>
       if you intend to alter the initial behavior."</p>
-  </section>
+  </section -->
 
   <section>
     <marker id="seealsoTAG"></marker>
@@ -150,16 +150,10 @@
 
     <p>Note the use of "#" before the name of the marker. Note also
       that the filename extension <c>.html</c> is omitted. This is
-      because the default behavior of DocBuilder is to translate
+      because the default behavior is to translate
       <c><![CDATA[<seealso marker="File#Marker">text</seealso>]]></c>
       to <c><![CDATA[<A HREF="File.html#Marker">text</A>]]></c>.</p>
 
-    <p>The default behaviour can be modified by using the callback
-      module option to <c>docb_transform:file/1,2</c> and defining a
-      callback function
-      <seealso marker="docb_transform#Module:seealso-1">Module:seealso/1</seealso>.
-      This possibility is for example used in OTP to resolve cross
-      references between applications.</p>
   </section>
     
   <section>
@@ -192,28 +186,6 @@
 <term id="HTML"><termdef>Hyper-Text Markup Language</termdef></term>
       ]]></pre>
 
-    <p>For a globally defined term, the tag is empty. Example:</p>
-    <pre><![CDATA[
-<term id="HTML"/>
-      ]]></pre>
-
-    <p>Global definitions are given to DocBuilder in a file, using the
-      <seealso marker="docb_transform#file/1">docb_transform:file/1,2</seealso>
-      option <c>term_defs</c>. The file should contain a list of tuples,
-      one for each term definition, on the format
-      <c>{Id,Name,Definition,Owner}</c>. The <c>Owner</c> part is just
-      for administration, if there are several people contributing to a
-      term definition file. Example:</p>
-    <pre>
-[...,
- {"HTML", "HTML", "Hyper-Text Markup Language", "Gunilla"},
- ...].
-    </pre>
-
-    <p>DocBuilder will collect both local and global definitions in a
-      glossary, which can be reached from a link in the left frame of
-      the HTML documentation.</p>
-
     <p>In the generated HTML, it is the term name which will be visible.
       For locally defined terms, the id and the name are the same.
       The name has a hypertext link to the definition in the glossary.
@@ -237,21 +209,6 @@
       <c>&lt;termdef&gt;</c>, but for a bibliography list rather than
       a glossary.</p>
 
-    <p>A global bibliography list is given to DocBuilder in a file,
-      using the <seealso marker="docb_transform#file/1">docb_transform:file/1,2</seealso>
-      option <c>cite_defs</c>. The file should contain a list of tuples,
-      one for each cite, on the format
-      <c>{Id,Title,Info,Owner}</c>. The <c>Owner</c> part is just
-      for administration, if there are several people contributing to a
-      bibliography file. Example:</p>
-    <pre>
-[...,
- {"erlbook",
-  "Concurrent Programming in ERLANG","J. Armstrong, R. Virding, C. Wikstr&ouml;m, "
-  "M. Williams, Concurrent Programming in ERLANG, Prentice Hall, 1996, ISBN 0-13-508301-X",
-  "jocke"},
- ...].
-    </pre>
   </section>
 </chapter>
 

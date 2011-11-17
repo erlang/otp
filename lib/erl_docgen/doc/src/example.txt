@@ -1,7 +1,7 @@
 This example code is used in block_tags.xml.
 
 %% Erlang example
--module(gazonk).
+-module(example).
 
 start() ->
     {error,"Pid required!"}.

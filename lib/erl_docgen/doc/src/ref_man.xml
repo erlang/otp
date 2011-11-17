@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="iso-8859-1" ?>
-<!DOCTYPE book SYSTEM "book.dtd">
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE application SYSTEM "application.dtd">
 
-<book xmlns:xi="http://www.w3.org/2001/XInclude">
-  <header titlestyle="normal">
+<application xmlns:xi="http://www.w3.org/2001/XInclude">
+  <header>
     <copyright>
-      <year>2004</year><year>2011</year>
+      <year>2011</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -21,23 +21,16 @@
     
     </legalnotice>
 
-    <title>Erl_Docgen</title>
-    <prepared>Lars Thorsen</prepared>
+    <title>Erl_Docgen Reference Manual</title>
+    <prepared>OTP Team</prepared>
     <docno></docno>
     <date>2011-11-10</date>
     <rev>0.3</rev>
-    <file>book.xml</file>
+    <file>ref_man.xml</file>
   </header>
-  <pagetext>erl_docgen</pagetext>
-  <preamble>
-    <contents level="2"></contents>
-  </preamble>
-  <parts lift="no">
-    <xi:include href="part.xml"/>
-  </parts>
-  <releasenotes>
-    <xi:include href="notes.xml"/>
-  </releasenotes>
-  <index></index>
-</book>
+  <description>
+    <p>The <em>erl_docgen</em> supports the OTP documentation build.</p>
+  </description>
+  <xi:include href="docgen_xml_check.xml"/>
+</application>
 

@@ -23,7 +23,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 # Macros
 #
 
-SUB_DIRECTORIES = src priv 
+SUB_DIRECTORIES = src priv doc/src
 #doc/src
 
 include vsn.mk
