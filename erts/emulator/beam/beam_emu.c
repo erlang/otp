@@ -42,6 +42,9 @@
 #include "hipe_bif1.h"
 #endif
 
+#include <assert.h>
+#include "dtrace-wrapper.h"
+
 /* #define HARDDEBUG 1 */
 
 #if defined(NO_JUMP_TABLE)
@@ -1050,6 +1053,143 @@ init_emulator(void)
 #  define REG_tmp_arg2
 #endif
 
+ERTS_INLINE void
+dtrace_proc_str(Process *process, char *process_buf)
+{
+    dtrace_pid_str(process->id, process_buf);
+}
+
+ERTS_INLINE void
+dtrace_pid_str(Eterm pid, char *process_buf)
+{
+    snprintf(process_buf, DTRACE_TERM_BUF_SIZE, "<%lu.%lu.%lu>",
+             pid_channel_no(pid),
+             pid_number(pid),
+             pid_serial(pid));
+}
+
+ERTS_INLINE void
+dtrace_port_str(Port *port, char *port_buf)
+{
+    snprintf(port_buf, DTRACE_TERM_BUF_SIZE, "#Port<%lu.%lu>",
+             port_channel_no(port->id),
+             port_number(port->id));
+}
+
+ERTS_INLINE void
+dtrace_drvport_str(ErlDrvPort drvport, char *port_buf)
+{
+    Port *port = erts_drvport2port(drvport);
+
+    snprintf(port_buf, DTRACE_TERM_BUF_SIZE, "#Port<%lu.%lu>",
+             port_channel_no(port->id),
+             port_number(port->id));
+}
+
+ERTS_INLINE void
+dtrace_fun_decode(Process *process,
+                  Eterm module, Eterm function, int arity,
+                  char *process_buf, char *mfa_buf)
+{
+    char funbuf[DTRACE_TERM_BUF_SIZE];
+    char *funptr = funbuf;
+    char *p = NULL;
+
+    if (process_buf) {
+        dtrace_proc_str(process, process_buf);
+    }
+
+    erts_snprintf(funbuf, sizeof(funbuf), "%T", function);
+    /*
+     * I'm not quite sure how these function names are synthesized,
+     *  but they almost always seem to be in the form of
+     *  '-name/arity-fun-0-' so I'm chopping them up when it's -fun-0-
+     *  (which seems to be the toplevel)
+     */
+    if (funbuf[0] == '\'' && funbuf[1] == '-'
+        && strlen(funbuf) > 3 && funbuf[strlen(funbuf) - 3] == '0') {
+        p = strchr(funbuf, '/');
+        if (p) {
+            *p = 0;
+        }
+        funptr += 2;
+    }
+
+    erts_snprintf(mfa_buf, DTRACE_TERM_BUF_SIZE, "%T:%s/%d",
+                  module, funptr, arity);
+}
+
+#ifdef HAVE_DTRACE
+
+#define DTRACE_CALL(p, m, f, a)                                 \
+    if (DTRACE_ENABLED(function_entry)) {                       \
+        DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);     \
+        DTRACE_CHARBUF(mfa, DTRACE_TERM_BUF_SIZE);              \
+        int depth = (STACK_START(p) - STACK_TOP(p))             \
+            / sizeof(Eterm*);                                   \
+        dtrace_fun_decode(p, m, f, a,                           \
+                          process_name, mfa);                   \
+        DTRACE3(function_entry, process_name, mfa, depth);      \
+    }
+
+#define DTRACE_RETURN(p, m, f, a)                               \
+    if (DTRACE_ENABLED(function_return)) {                      \
+        DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);     \
+        DTRACE_CHARBUF(mfa, DTRACE_TERM_BUF_SIZE);              \
+        int depth = (STACK_START(p) - STACK_TOP(p))             \
+            / sizeof(Eterm*);                                   \
+        dtrace_fun_decode(p, m, f, a,                           \
+                          process_name, mfa);                   \
+        DTRACE3(function_return, process_name, mfa, depth);     \
+    }
+
+#define DTRACE_BIF_ENTRY(p, m, f, a)                            \
+    if (DTRACE_ENABLED(bif_entry)) {                            \
+        DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);     \
+        DTRACE_CHARBUF(mfa, DTRACE_TERM_BUF_SIZE);              \
+        dtrace_fun_decode(p, m, f, a,                           \
+                          process_name, mfa);                   \
+        DTRACE2(bif_entry, process_name, mfa);                  \
+    }
+
+#define DTRACE_BIF_RETURN(p, m, f, a)                           \
+    if (DTRACE_ENABLED(bif_return)) {                           \
+        DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);     \
+        DTRACE_CHARBUF(mfa, DTRACE_TERM_BUF_SIZE);              \
+        dtrace_fun_decode(p, m, f, a,                           \
+                          process_name, mfa);                   \
+        DTRACE2(bif_return, process_name, mfa);                 \
+    }
+
+#define DTRACE_NIF_ENTRY(p, m, f, a)                            \
+    if (DTRACE_ENABLED(nif_entry)) {                            \
+        DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);     \
+        DTRACE_CHARBUF(mfa, DTRACE_TERM_BUF_SIZE);              \
+        dtrace_fun_decode(p, m, f, a,                           \
+                          process_name, mfa);                   \
+        DTRACE2(nif_entry, process_name, mfa);                  \
+    }
+
+#define DTRACE_NIF_RETURN(p, m, f, a)                           \
+    if (DTRACE_ENABLED(nif_return)) {                           \
+        DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);     \
+        DTRACE_CHARBUF(mfa, DTRACE_TERM_BUF_SIZE);              \
+        dtrace_fun_decode(p, m, f, a,                           \
+                          process_name, mfa);                   \
+        DTRACE2(nif_return, process_name, mfa);                 \
+    }
+
+#else /* HAVE_DTRACE */
+
+#define DTRACE_CALL(p, m, f, a)       do {} while (0)
+#define DTRACE_RETURN(p, m, f, a)     do {} while (0)
+#define DTRACE_BIF_ENTRY(p, m, f, a)  do {} while (0)
+#define DTRACE_BIF_RETURN(p, m, f, a) do {} while (0)
+#define DTRACE_NIF_ENTRY(p, m, f, a)  do {} while (0)
+#define DTRACE_NIF_RETURN(p, m, f, a) do {} while (0)
+
+#endif /* HAVE_DTRACE */
+
 /*
  * process_main() is called twice:
  * The first call performs some initialisation, including exporting
@@ -1221,6 +1361,28 @@ void process_main(void)
 #endif
 	SWAPIN;
 	ASSERT(VALID_INSTR(next));
+
+        if (DTRACE_ENABLED(process_scheduled)) {
+            DTRACE_CHARBUF(process_buf, DTRACE_TERM_BUF_SIZE);
+            DTRACE_CHARBUF(fun_buf, DTRACE_TERM_BUF_SIZE);
+            dtrace_proc_str(c_p, process_buf);
+
+            if (ERTS_PROC_IS_EXITING(c_p)) {
+                strcpy(fun_buf, "<exiting>");
+            } else {
+                BeamInstr *fptr = find_function_from_pc(c_p->i);
+                if (fptr) {
+                    dtrace_fun_decode(c_p, (Eterm)fptr[0],
+                                      (Eterm)fptr[1], (Uint)fptr[2],
+                                      NULL, fun_buf);
+                } else {
+                    snprintf(fun_buf, sizeof(fun_buf), "<unknown/%p>", next);
+                }
+            }
+
+            DTRACE2(process_scheduled, process_buf, fun_buf);
+        }
+
 	Goto(next);
     }
 
@@ -1486,7 +1648,13 @@ void process_main(void)
 
 
  OpCase(return): {
+    BeamInstr* fptr;
     SET_I(c_p->cp);
+
+    if (DTRACE_ENABLED(function_return) && (fptr = find_function_from_pc(c_p->cp))) {
+        DTRACE_RETURN(c_p, (Eterm)fptr[0], (Eterm)fptr[1], (Uint)fptr[2]);
+    }
+
     /*
      * We must clear the CP to make sure that a stale value do not
      * create a false module dependcy preventing code upgrading.
@@ -1755,6 +1923,7 @@ void process_main(void)
 	  * remove it...
 	  */
 	 ASSERT(!msgp->data.attached);
+         /* TODO: Add DTrace probe for this bad message situation? */
 	 UNLINK_MESSAGE(c_p, msgp);
 	 free_message(msgp);
 	 goto loop_rec__;
@@ -1797,6 +1966,22 @@ void process_main(void)
 	 msg = ERL_MESSAGE_TERM(msgp);
 	 seq_trace_output(SEQ_TRACE_TOKEN(c_p), msg, SEQ_TRACE_RECEIVE, 
 			  c_p->id, c_p);
+     }
+     if (DTRACE_ENABLED(message_receive)) {
+         Eterm token2 = NIL;
+         DTRACE_CHARBUF(receiver_name, DTRACE_TERM_BUF_SIZE);
+         Sint tok_label = 0, tok_lastcnt = 0, tok_serial = 0;
+
+         dtrace_proc_str(c_p, receiver_name);
+         token2 = SEQ_TRACE_TOKEN(c_p);
+         if (token2 != NIL) {
+             tok_label = signed_val(SEQ_TRACE_T_LABEL(token2));
+             tok_lastcnt = signed_val(SEQ_TRACE_T_LASTCNT(token2));
+             tok_serial = signed_val(SEQ_TRACE_T_SERIAL(token2));
+         }
+         DTRACE6(message_receive,
+                 receiver_name, size_object(ERL_MESSAGE_TERM(msgp)),
+                 c_p->msg.len - 1, tok_label, tok_lastcnt, tok_serial);
      }
      UNLINK_MESSAGE(c_p, msgp);
      JOIN_MESSAGE(c_p);
@@ -3157,6 +3342,8 @@ void process_main(void)
 	     */
 	    BifFunction vbf;
 
+	    DTRACE_NIF_ENTRY(c_p, (Eterm)I[-3], (Eterm)I[-2], (Uint)I[-1]);
+
 	    c_p->current = I-3; /* current and vbf set to please handle_error */ 
 	    SWAPOUT;
 	    c_p->fcalls = FCALLS - 1;
@@ -3178,6 +3365,9 @@ void process_main(void)
 	    ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(nif_bif_result));
 	    PROCESS_MAIN_CHK_LOCKS(c_p);
 	    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
+
+	    DTRACE_NIF_RETURN(c_p, (Eterm)I[-3], (Eterm)I[-2], (Uint)I[-1]);
+
 	    goto apply_bif_or_nif_epilogue;
 	 
 	OpCase(apply_bif):
@@ -3197,6 +3387,8 @@ void process_main(void)
 	    c_p->arity = 0;		/* To allow garbage collection on ourselves
 					 * (check_process_code/2).
 					 */
+	    DTRACE_BIF_ENTRY(c_p, (Eterm)I[-3], (Eterm)I[-2], (Uint)I[-1]);
+
 	    SWAPOUT;
 	    c_p->fcalls = FCALLS - 1;
 	    vbf = (BifFunction) Arg(0);
@@ -3215,6 +3407,8 @@ void process_main(void)
 		ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 		PROCESS_MAIN_CHK_LOCKS(c_p);
 	    }
+
+	    DTRACE_BIF_RETURN(c_p, (Eterm)I[-3], (Eterm)I[-2], (Uint)I[-1]);
 
 	apply_bif_or_nif_epilogue:
 	    ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
@@ -5899,6 +6093,13 @@ apply(Process* p, Eterm module, Eterm function, Eterm args, Eterm* reg)
 	save_calls(p, ep);
     }
 
+    if (DTRACE_ENABLED(function_entry) && ep->address) {
+        BeamInstr *fptr = find_function_from_pc(ep->address);
+        if (fptr) {
+            DTRACE_CALL(p, (Eterm)fptr[0], (Eterm)fptr[1], (Uint)fptr[2]);
+        }
+    }
+
     return ep->address;
 }
 
@@ -5948,6 +6149,13 @@ fixed_apply(Process* p, Eterm* reg, Uint arity)
 	save_calls(p, ep);
     }
 
+    if (DTRACE_ENABLED(function_entry)) {
+        BeamInstr *fptr = find_function_from_pc(ep->address);
+        if (fptr) {
+            DTRACE_CALL(p, (Eterm)fptr[0], (Eterm)fptr[1], (Uint)fptr[2]);
+        }
+    }
+
     return ep->address;
 }
 
@@ -5995,6 +6203,14 @@ erts_hibernate(Process* c_p, Eterm module, Eterm function, Eterm args, Eterm* re
 	erts_free(ERTS_ALC_T_ARG_REG, c_p->arg_reg);
 	c_p->arg_reg = c_p->def_arg_reg;
 	c_p->max_arg_reg = sizeof(c_p->def_arg_reg)/sizeof(c_p->def_arg_reg[0]);
+    }
+
+    if (DTRACE_ENABLED(process_hibernate)) {
+        DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);
+        DTRACE_CHARBUF(mfa, DTRACE_TERM_BUF_SIZE);
+        dtrace_fun_decode(c_p, module, function, arity,
+                          process_name, mfa);
+        DTRACE2(process_hibernate, process_name, mfa);
     }
 
     /*
@@ -6071,6 +6287,14 @@ call_fun(Process* p,		/* Current process. */
 	code_ptr = fe->address;
 	actual_arity = (int) code_ptr[-1];
 
+	if (DTRACE_ENABLED(function_entry)) {
+	    BeamInstr *fptr = find_function_from_pc(code_ptr);
+
+	    if (fptr) {
+		DTRACE_CALL(p, fe->module, (Eterm)fptr[1], actual_arity);
+	    }
+	}
+
 	if (actual_arity == arity+num_free) {
 	    if (num_free == 0) {
 		return code_ptr;
@@ -6089,7 +6313,7 @@ call_fun(Process* p,		/* Current process. */
 	} else {
 	    /*
 	     * Something wrong here. First build a list of the arguments.
-	     */  
+	     */
 
 	    if (is_non_value(args)) {
 		Uint sz = 2 * arity;
@@ -6164,6 +6388,7 @@ call_fun(Process* p,		/* Current process. */
 	actual_arity = (int) ep->code[2];
 
 	if (arity == actual_arity) {
+	    DTRACE_CALL(p, ep->code[0], ep->code[1], (Uint)ep->code[2]);
 	    return ep->address;
 	} else {
 	    /*
@@ -6239,6 +6464,7 @@ call_fun(Process* p,		/* Current process. */
 	    reg[1] = function;
 	    reg[2] = args;
 	}
+	DTRACE_CALL(p, module, function, arity);
 	return ep->address;
     } else {
     badfun:
