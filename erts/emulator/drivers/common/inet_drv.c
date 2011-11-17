@@ -8497,32 +8497,29 @@ static int tcp_deliver(tcp_descriptor* desc, int len)
     }
 
     while (len > 0) {
-	int code = 0;
+	int code;
 
 	inet_input_count(INETP(desc), len);
 
 	/* deliver binary? */
 	if (len*4 >= desc->i_buf->orig_size*3) { /* >=75% */
+	    code = tcp_reply_binary_data(desc, desc->i_buf,
+					 (desc->i_ptr_start -
+					  desc->i_buf->orig_bytes),
+					 len);
+	    if (code < 0)
+		return code;
+
 	    /* something after? */
 	    if (desc->i_ptr_start + len == desc->i_ptr) { /* no */
-		code = tcp_reply_binary_data(desc, desc->i_buf,
-					     (desc->i_ptr_start -
-					      desc->i_buf->orig_bytes),
-					     len);
 		tcp_clear_input(desc);
 	    }
 	    else { /* move trail to beginning of a new buffer */
-		ErlDrvBinary* bin;
+		ErlDrvBinary* bin = alloc_buffer(desc->i_bufsz);
 		char* ptr_end = desc->i_ptr_start + len;
 		int sz = desc->i_ptr - ptr_end;
 
-		bin = alloc_buffer(desc->i_bufsz);
 		memcpy(bin->orig_bytes, ptr_end, sz);
-
-		code = tcp_reply_binary_data(desc, desc->i_buf,
-					     (desc->i_ptr_start-
-					      desc->i_buf->orig_bytes),
-					     len);
 		free_buffer(desc->i_buf);
 		desc->i_buf = bin;
 		desc->i_ptr_start = desc->i_buf->orig_bytes;
@@ -8534,16 +8531,14 @@ static int tcp_deliver(tcp_descriptor* desc, int len)
 	    code = tcp_reply_data(desc, desc->i_ptr_start, len);
 	    /* XXX The buffer gets thrown away on error  (code < 0)    */
 	    /* Windows needs workaround for this in tcp_inet_event...  */
+	    if (code < 0)
+		return code;
 	    desc->i_ptr_start += len;
 	    if (desc->i_ptr_start == desc->i_ptr)
 		tcp_clear_input(desc);
 	    else
 		desc->i_remain = 0;
-
 	}
-
-	if (code < 0)
-	    return code;
 
 	count++;
 	len = 0;

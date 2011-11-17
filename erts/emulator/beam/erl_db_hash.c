@@ -312,13 +312,22 @@ struct ext_segment {
     struct segment* segtab[1];     /* The segment table */
 };
 #define SIZEOF_EXTSEG(NSEGS) \
-    (sizeof(struct ext_segment) - sizeof(struct segment*) + sizeof(struct segment*)*(NSEGS))
+    (offsetof(struct ext_segment,segtab) + sizeof(struct segment*)*(NSEGS))
 
-#ifdef DEBUG
-#  include <stddef.h> /* offsetof */
+#if defined(DEBUG) || defined(VALGRIND)
 #  define EXTSEG(SEGTAB_PTR) \
     ((struct ext_segment*) (((char*)(SEGTAB_PTR)) - offsetof(struct ext_segment,segtab)))
 #endif
+
+
+static ERTS_INLINE void SET_SEGTAB(DbTableHash* tb,
+				   struct segment** segtab)
+{
+    erts_smp_atomic_set_wb(&tb->segtab, (erts_aint_t) segtab);
+#ifdef VALGRIND
+    tb->top_ptr_to_segment_with_active_segtab = EXTSEG(segtab);
+#endif
+}
 
 
 /* How the table segments relate to each other:
@@ -649,7 +658,8 @@ int db_create_hash(Process *p, DbTable *tbl)
     erts_smp_atomic_init_nob(&tb->szm, SEGSZ_MASK);
     erts_smp_atomic_init_nob(&tb->nactive, SEGSZ);
     erts_smp_atomic_init_nob(&tb->fixdel, (erts_aint_t)NULL);
-    erts_smp_atomic_init_nob(&tb->segtab, (erts_aint_t) alloc_ext_seg(tb,0,NULL)->segtab);
+    erts_smp_atomic_init_nob(&tb->segtab, (erts_aint_t)NULL);
+    SET_SEGTAB(tb, alloc_ext_seg(tb,0,NULL)->segtab);
     tb->nsegs = NSEG_1;
     tb->nslots = SEGSZ;
 
@@ -2357,7 +2367,7 @@ static int alloc_seg(DbTableHash *tb)
 	    struct ext_segment* eseg;
 	    eseg = (struct ext_segment*) SEGTAB(tb)[seg_ix-1];
 	    MY_ASSERT(eseg!=NULL && eseg->s.is_ext_segment);
-	    erts_smp_atomic_set_wb(&tb->segtab, (erts_aint_t) eseg->segtab);
+	    SET_SEGTAB(tb, eseg->segtab);	    
 	    tb->nsegs = eseg->nsegs;
 	}
 	ASSERT(seg_ix < tb->nsegs);
@@ -2429,7 +2439,7 @@ static int free_seg(DbTableHash *tb, int free_records)
 	    MY_ASSERT(newtop->s.is_ext_segment);
 	    if (newtop->prev_segtab != NULL) {
 		/* Time to use a smaller segtab */
-		erts_smp_atomic_set_wb(&tb->segtab, (erts_aint_t)newtop->prev_segtab);
+		SET_SEGTAB(tb, newtop->prev_segtab);
 		tb->nsegs = seg_ix;
 		ASSERT(tb->nsegs == EXTSEG(SEGTAB(tb))->nsegs);
 	    }
@@ -2446,7 +2456,7 @@ static int free_seg(DbTableHash *tb, int free_records)
     if (seg_ix > 0) {
 	if (seg_ix < tb->nsegs) SEGTAB(tb)[seg_ix] = NULL;
     } else {
-	erts_smp_atomic_set_wb(&tb->segtab, (erts_aint_t)NULL);
+	SET_SEGTAB(tb, NULL);
     }
 #endif
     tb->nslots -= SEGSZ;

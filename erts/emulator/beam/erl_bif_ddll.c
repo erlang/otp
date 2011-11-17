@@ -1569,14 +1569,14 @@ static int do_load_driver_entry(DE_Handle *dh, char *path, char *name)
     
     if ((res = erts_sys_ddll_load_driver_init(dh->handle, 
 					      &init_handle)) != ERL_DE_NO_ERROR) {
-	erts_sys_ddll_close(dh->handle);
-	return ERL_DE_LOAD_ERROR_NO_INIT;
+	res = ERL_DE_LOAD_ERROR_NO_INIT;
+	goto error;
     }
     
     dp = erts_sys_ddll_call_init(init_handle);
     if (dp == NULL) {
-	erts_sys_ddll_close(dh->handle);
-	return ERL_DE_LOAD_ERROR_FAILED_INIT;
+	res = ERL_DE_LOAD_ERROR_FAILED_INIT;
+	goto error;
     }
 
     switch (dp->extended_marker) {
@@ -1594,24 +1594,27 @@ static int do_load_driver_entry(DE_Handle *dh, char *path, char *name)
 	    || dp->handle2 != NULL
 	    || dp->process_exit != NULL) {
 	    /* Old driver; needs to be recompiled... */
-	    return ERL_DE_LOAD_ERROR_INCORRECT_VERSION;
+	    res = ERL_DE_LOAD_ERROR_INCORRECT_VERSION;
+	    goto error;
 	}
 	break;
     case ERL_DRV_EXTENDED_MARKER:
 	if (ERL_DRV_EXTENDED_MAJOR_VERSION != dp->major_version
 	    || ERL_DRV_EXTENDED_MINOR_VERSION < dp->minor_version) {
 	    /* Incompatible driver version */
-	    return ERL_DE_LOAD_ERROR_INCORRECT_VERSION;
+	    res = ERL_DE_LOAD_ERROR_INCORRECT_VERSION;
+	    goto error;
 	}
 	break;
     default:
 	/* Old driver; needs to be recompiled... */
-	return ERL_DE_LOAD_ERROR_INCORRECT_VERSION;
+	res = ERL_DE_LOAD_ERROR_INCORRECT_VERSION;
+	goto error;
     }
 
     if (strcmp(name, dp->driver_name) != 0) {
-	erts_sys_ddll_close(dh->handle);
-	return ERL_DE_LOAD_ERROR_BAD_NAME;
+	res = ERL_DE_LOAD_ERROR_BAD_NAME;
+	goto error;
     }
     erts_smp_atomic_init_nob(&(dh->refc), (erts_aint_t) 0);
     dh->port_count = 0;
@@ -1626,11 +1629,14 @@ static int do_load_driver_entry(DE_Handle *dh, char *path, char *name)
 	 */
 	erts_free(ERTS_ALC_T_DDLL_HANDLE, dh->full_path);
 	dh->full_path = NULL;
-	erts_sys_ddll_close(dh->handle);
-	return ERL_DE_LOAD_ERROR_FAILED_INIT;
+	res = ERL_DE_LOAD_ERROR_FAILED_INIT;
+	goto error;
     }
-
     return ERL_DE_NO_ERROR;
+
+error:
+    erts_sys_ddll_close(dh->handle);
+    return res;
 }
 
 static int do_unload_driver_entry(DE_Handle *dh, Eterm *save_name)

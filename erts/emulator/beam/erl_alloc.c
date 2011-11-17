@@ -2758,16 +2758,18 @@ erts_allocator_options(void *proc)
 
 void *erts_alloc_permanent_cache_aligned(ErtsAlcType_t type, Uint size)
 {
-    UWord v = (UWord) erts_alloc(type, size + (ERTS_CACHE_LINE_SIZE-1));
+    UWord v = (UWord) erts_alloc(type, size + (ERTS_CACHE_LINE_SIZE-1)
+#ifdef VALGRIND
+				  + sizeof(UWord)
+#endif
+				 );
 
 #ifdef VALGRIND
-    {   /* Avoid Leak_PossiblyLost */
-	static UWord vg_root_set[10];
-	static unsigned ix = 0;
-	if (ix >= sizeof(vg_root_set) / sizeof(*vg_root_set)) {
-	    erl_exit(ERTS_ABORT_EXIT, "Too many erts_alloc_permanent_cache_aligned's\n");
-	}
-	vg_root_set[ix++] = v;  /* not thread safe */
+    {   /* Link them to avoid Leak_PossiblyLost */
+	static UWord* first_in_list = NULL;
+        *(UWord**)v = first_in_list;
+	first_in_list = (UWord*) v;
+	v += sizeof(UWord);
     }
 #endif
 
