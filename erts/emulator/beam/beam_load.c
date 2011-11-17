@@ -5993,6 +5993,10 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
     }
 
  error:
+    erts_free_aligned_binary_bytes(temp_alloc);
+    if (bin) {
+	driver_free_binary(bin);
+    }
     free_state(stp);
     BIF_ERROR(p, BADARG);
 }
