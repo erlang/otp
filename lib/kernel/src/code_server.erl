@@ -32,6 +32,8 @@
 
 -import(lists, [foreach/2]).
 
+-define(ANY_NATIVE_CODE_LOADED, any_native_code_loaded).
+
 -record(state, {supervisor,
 		root,
 		path,
@@ -96,6 +98,8 @@ init(Ref, Parent, [Root,Mode0]) ->
 	    error -> 
 		State0
 	end,
+
+    put(?ANY_NATIVE_CODE_LOADED, false),
 
     Parent ! {Ref,{ok,self()}},
     loop(State#state{supervisor = Parent}).
@@ -1278,20 +1282,35 @@ load_native_code(Mod, Bin) ->
     %% Therefore we must test for that the loader modules are available
     %% before trying to to load native code.
     case erlang:module_loaded(hipe_unified_loader) of
-	false -> no_native;
-	true -> hipe_unified_loader:load_native_code(Mod, Bin)
+	false ->
+	    no_native;
+	true ->
+	    Result = hipe_unified_loader:load_native_code(Mod, Bin),
+	    case Result of
+		{module,_} ->
+		    put(?ANY_NATIVE_CODE_LOADED, true);
+		_ ->
+		    ok
+	    end,
+	    Result
     end.
 
 hipe_result_to_status(Result) ->
     case Result of
-	{module,_} -> Result;
-	_ -> {error,Result}
+	{module,_} ->
+	    put(?ANY_NATIVE_CODE_LOADED, true),
+	    Result;
+	_ ->
+	    {error,Result}
     end.
 
 post_beam_load(Mod) ->
-    case erlang:module_loaded(hipe_unified_loader) of
-	false -> ok;
-	true -> hipe_unified_loader:post_beam_load(Mod)
+    %% post_beam_load/1 can potentially be very expensive because it
+    %% blocks multi-scheduling; thus we want to avoid the call if we
+    %% know that it is not needed.
+    case get(?ANY_NATIVE_CODE_LOADED) of
+	true -> hipe_unified_loader:post_beam_load(Mod);
+	false -> ok
     end.
 
 int_list([H|T]) when is_integer(H) -> int_list(T);
