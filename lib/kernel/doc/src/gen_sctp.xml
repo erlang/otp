@@ -270,7 +270,7 @@
 	it is bound to.</p>
 	<p>For type <c>seqpacket</c> sockets (the default)
 	<c><anno>IsServer</anno></c> must be <c>true</c> or <c>false</c>.
-	In the contrast to TCP, in SCTP there is no listening queue length.
+	In contrast to TCP, in SCTP there is no listening queue length.
 	If <c><anno>IsServer</anno></c> is <c>true</c> the socket accepts new associations, i.e.
 	it will become an SCTP server socket.</p>
 	<p>For type <c>stream</c> sockets <anno>Backlog</anno> defines
