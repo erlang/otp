@@ -103,16 +103,18 @@ extern Uint erts_total_code_size;
  */
 #define MI_LITERALS_START	8
 #define MI_LITERALS_END		9
+#define MI_LITERALS_OFF_HEAP	10
+
 
 /*
  * Pointer to the on_load function (or NULL if none).
  */
-#define MI_ON_LOAD_FUNCTION_PTR 10
+#define MI_ON_LOAD_FUNCTION_PTR 11
 
 /*
  * Pointer to the line table (or NULL if none).
  */
-#define MI_LINE_TABLE 11
+#define MI_LINE_TABLE 12
 
 /*
  * Start of function pointer table.  This table contains pointers to
@@ -123,5 +125,5 @@ extern Uint erts_total_code_size;
  * this table.
  */
 
-#define MI_FUNCTIONS         12
+#define MI_FUNCTIONS         13
 #endif /* _BEAM_LOAD_H */
