@@ -45,7 +45,15 @@
       SUSE Linux Enterprise Server 10 (x86_64) kernel 2.6.16.27-0.6-smp,
       with lksctp-tools-1.0.6, briefly on Solaris 10, and later on
       SUSE Linux Enterprise Server 10 Service Pack 1 (x86_64)
-      kernel 2.6.16.54-0.2.3-smp with lksctp-tools-1.0.7.</p>
+      kernel 2.6.16.54-0.2.3-smp with lksctp-tools-1.0.7,
+      and later also on FreeBSD 8.2.
+    </p>
+    <p>
+      This module was written for one-to-many style sockets
+      (type <c>seqpacket</c>). With the addition of
+      <seealso marker="#peeloff/2">peeloff/2</seealso>, one-to-one style
+      sockets (type <c>stream</c>) were introduced.
+    </p>
     <p>Record definitions for the <c>gen_sctp</c> module can be found using:</p>
 <pre>  -include_lib("kernel/include/inet_sctp.hrl").    </pre>
     <p>These record definitions use the "new" spelling 'adaptation',
@@ -254,15 +262,19 @@
       </desc>
     </func>
     <func>
-      <name name="listen" arity="2"/>
+      <name name="listen" arity="2" clause_i="1"/>
+      <name name="listen" arity="2" clause_i="2"/>
       <fsummary>Set up a socket to listen.</fsummary>
       <desc>
         <p>Sets up a socket to listen on the IP address and port number
-          it is bound to. <c><anno>IsServer</anno></c> must be <c>true</c>
-          or <c>false</c>.
-          In the contrast to TCP, in SCTP there is no listening queue length.
-          If <c><anno>IsServer</anno></c> is <c>true</c> the socket accepts new associations, i.e.
-          it will become an SCTP server socket.</p>
+	it is bound to.</p>
+	<p>For type <c>seqpacket</c> sockets (the default)
+	<c><anno>IsServer</anno></c> must be <c>true</c> or <c>false</c>.
+	In the contrast to TCP, in SCTP there is no listening queue length.
+	If <c><anno>IsServer</anno></c> is <c>true</c> the socket accepts new associations, i.e.
+	it will become an SCTP server socket.</p>
+	<p>For type <c>stream</c> sockets <anno>Backlog</anno> defines
+	the backlog queue length just like in TCP.</p>
       </desc>
     </func>
     <func>
@@ -295,9 +307,37 @@
           is used. In particular, the socket is opened in 
           <seealso marker="#option-binary">binary</seealso> and
           <seealso marker="#option-active">passive</seealso> mode,
+	  with <anno>SockType</anno> <c>seqpacket</c>,
           and with reasonably large
           <seealso marker="#option-sndbuf">kernel</seealso> and driver
           <seealso marker="#option-buffer">buffers.</seealso></p>
+      </desc>
+    </func>
+    <func>
+      <name name="peeloff" arity="2"/>
+      <fsummary>
+	Peel off a type <c>stream</c> socket from a type <c>seqpacket</c> one
+      </fsummary>
+      <desc>
+	<p>
+	  Branch off an existing association <anno>Assoc</anno>
+	  in a socket <anno>Socket</anno> of type <c>seqpacket</c>
+	  (one-to-may style) into
+	  a new socket <anno>NewSocket</anno> of type <c>stream</c>
+	  (one-to-one style).
+	</p>
+	<p>
+	  The existing association argument <anno>Assoc</anno>
+	  can be either a
+	  <seealso marker="#record-sctp_assoc_change">
+	    #sctp_assoc_change{}
+	  </seealso>
+	  record as returned from e.g
+	  <seealso marker="#recv-2">recv/*</seealso>,
+	  <seealso marker="#connect-5">connect/*</seealso> or
+	  from a listening socket in active mode. Or it can be just
+	  the field <c>assoc_id</c> integer from such a record.
+	</p>
       </desc>
     </func>
     <func>

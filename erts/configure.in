@@ -191,7 +191,7 @@ AS_HELP_STRING([--disable-kernel-poll], [disable kernel poll support]),
 
 
 AC_ARG_ENABLE(sctp,
-AS_HELP_STRING([--enable-sctp], [enable sctp support])
+AS_HELP_STRING([--enable-sctp], [enable sctp support (default)])
 AS_HELP_STRING([--disable-sctp], [disable sctp support]),
 [ case "$enableval" in
     no) enable_sctp=no ;;
@@ -1486,7 +1486,7 @@ AC_CHECK_HEADER(sys/devpoll.h, have_kernel_poll=/dev/poll)
 
 dnl Check for kernel SCTP support
 AC_SUBST(LIBSCTP)
-if test "x$enable_sctp" = "xyes" ; then
+if test "x$enable_sctp" != "xno" ; then
     AC_CHECK_HEADER(netinet/sctp.h,
         [LIBSCTP=libsctp.so.1
 	 AC_DEFINE(HAVE_SCTP_H, [1],
@@ -1496,8 +1496,21 @@ if test "x$enable_sctp" = "xyes" ; then
 	 #include <sys/socket.h>
 	 #endif
 	])
+    AC_CHECK_FUNCS([sctp_bindx sctp_peeloff])
     AC_CHECK_DECLS([SCTP_UNORDERED, SCTP_ADDR_OVER, SCTP_ABORT,
-                    SCTP_EOF, SCTP_SENDALL, SCTP_ADDR_CONFIRMED], [], [],
+                    SCTP_EOF, SCTP_SENDALL, SCTP_ADDR_CONFIRMED,
+		    SCTP_DELAYED_ACK_TIME,
+		    SCTP_EMPTY,
+		    SCTP_CLOSED, SCTPS_IDLE,
+		    SCTP_BOUND, SCTPS_BOUND,
+		    SCTP_LISTEN, SCTPS_LISTEN,
+		    SCTP_COOKIE_WAIT, SCTPS_COOKIE_WAIT,
+		    SCTP_COOKIE_ECHOED, SCTPS_COOKIE_ECHOED,
+		    SCTP_ESTABLISHED, SCTPS_ESTABLISHED,
+		    SCTP_SHUTDOWN_PENDING, SCTPS_SHUTDOWN_PENDING,
+		    SCTP_SHUTDOWN_SENT, SCTPS_SHUTDOWN_SENT,
+		    SCTP_SHUTDOWN_RECEIVED, SCTPS_SHUTDOWN_RECEIVED,
+		    SCTP_SHUTDOWN_ACK_SENT, SCTPS_SHUTDOWN_ACK_SENT], [], [],
         [#if HAVE_SYS_SOCKET_H
          #include <sys/socket.h>
          #endif

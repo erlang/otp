@@ -36,7 +36,7 @@
 
 -export([i/0, i/1, i/2]).
 
--export([getll/1, getfd/1, open/7, fdopen/5]).
+-export([getll/1, getfd/1, open/8, fdopen/6]).
 
 -export([tcp_controlling_process/2, udp_controlling_process/2,
 	 tcp_close/1, udp_close/1]).
@@ -115,7 +115,8 @@
       'mtu' | 'netmask' | 'flags' |'hwaddr'.
 
 -type address_family() :: 'inet' | 'inet6'.
--type protocol_option() :: 'tcp' | 'udp' | 'sctp'.
+-type socket_protocol() :: 'tcp' | 'udp' | 'sctp'.
+-type socket_type() :: 'stream' | 'dgram' | 'seqpacket'.
 -type stat_option() :: 
 	'recv_cnt' | 'recv_max' | 'recv_avg' | 'recv_oct' | 'recv_dvi' |
 	'send_cnt' | 'send_max' | 'send_avg' | 'send_oct' | 'send_pend'.
@@ -748,6 +749,8 @@ sctp_opt([Opt|Opts], Mod, R, As) ->
 		    sctp_opt(Opts, Mod, R#sctp_opts{port=P}, As);
 		Error -> Error
 	    end;
+	{type,Type} when Type =:= seqpacket; Type =:= stream ->
+	    sctp_opt(Opts, Mod, R#sctp_opts{type=Type}, As);
 	binary		-> sctp_opt (Opts, Mod, R, As, mode, binary);
 	list		-> sctp_opt (Opts, Mod, R, As, mode, list);
 	{sctp_module,_}	-> sctp_opt (Opts, Mod, R, As); % Done with
@@ -996,13 +999,14 @@ gethostbyaddr_tm_native(Addr, Timer, Opts) ->
 	   Addr :: ip_address(),
 	   Port :: port_number(),
 	   Opts :: [socket_setopt()],
-	   Protocol :: protocol_option(),
-	   Family :: 'inet' | 'inet6',
+	   Protocol :: socket_protocol(),
+	   Family :: address_family(),
+	   Type :: socket_type(),
 	   Module :: atom()) ->
 	{'ok', socket()} | {'error', posix()}.
 
-open(Fd, Addr, Port, Opts, Protocol, Family, Module) when Fd < 0 ->
-    case prim_inet:open(Protocol, Family) of
+open(Fd, Addr, Port, Opts, Protocol, Family, Type, Module) when Fd < 0 ->
+    case prim_inet:open(Protocol, Family, Type) of
 	{ok,S} ->
 	    case prim_inet:setopts(S, Opts) of
 		ok ->
@@ -1029,18 +1033,19 @@ open(Fd, Addr, Port, Opts, Protocol, Family, Module) when Fd < 0 ->
 	Error ->
 	    Error
     end;
-open(Fd, _Addr, _Port, Opts, Protocol, Family, Module) ->
-    fdopen(Fd, Opts, Protocol, Family, Module).
+open(Fd, _Addr, _Port, Opts, Protocol, Family, Type, Module) ->
+    fdopen(Fd, Opts, Protocol, Family, Type, Module).
 
 -spec fdopen(Fd :: non_neg_integer(),
 	     Opts :: [socket_setopt()],
-	     Protocol :: protocol_option(),
+	     Protocol :: socket_protocol(),
 	     Family :: address_family(),
+	     Type :: socket_type(),
 	     Module :: atom()) ->
 	{'ok', socket()} | {'error', posix()}.
 
-fdopen(Fd, Opts, Protocol, Family, Module) ->
-    case prim_inet:fdopen(Protocol, Fd, Family) of
+fdopen(Fd, Opts, Protocol, Family, Type, Module) ->
+    case prim_inet:fdopen(Protocol, Family, Type, Fd) of
 	{ok, S} ->
 	    case prim_inet:setopts(S, Opts) of
 		ok ->
@@ -1056,18 +1061,24 @@ fdopen(Fd, Opts, Protocol, Family, Module) ->
 %%  socket stat
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-i() -> i(tcp), i(udp).
+i() -> i(tcp), i(udp), i(sctp).
 
 i(Proto) -> i(Proto, [port, module, recv, sent, owner,
-		      local_address, foreign_address, state]).
+		      local_address, foreign_address, state, type]).
 
 i(tcp, Fs) ->
     ii(tcp_sockets(), Fs, tcp);
 i(udp, Fs) ->
-    ii(udp_sockets(), Fs, udp).
+    ii(udp_sockets(), Fs, udp);
+i(sctp, Fs) ->
+    ii(sctp_sockets(), Fs, sctp).
 
 ii(Ss, Fs, Proto) ->
-    LLs = [h_line(Fs) | info_lines(Ss, Fs, Proto)],
+    LLs =
+	case info_lines(Ss, Fs, Proto) of
+	    [] -> [];
+	    InfoLines -> [h_line(Fs) | InfoLines]
+	end,
     Maxs = foldl(
 	     fun(Line,Max0) -> smax(Max0,Line) end, 
 	     duplicate(length(Fs),0),LLs),
@@ -1135,6 +1146,7 @@ info(S, F, Proto) ->
 	    case prim_inet:gettype(S) of
 		{ok,{_,stream}} -> "STREAM";
 		{ok,{_,dgram}}  -> "DGRAM";
+		{ok,{_,seqpacket}} -> "SEQPACKET";
 		_ -> " "
 	    end;
 	fd ->
@@ -1186,6 +1198,7 @@ fmt_port(N, Proto) ->
 %% Return a list of all tcp sockets
 tcp_sockets() -> port_list("tcp_inet").
 udp_sockets() -> port_list("udp_inet").
+sctp_sockets() -> port_list("sctp_inet").
 
 %% Return all ports having the name 'Name'
 port_list(Name) ->

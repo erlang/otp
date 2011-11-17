@@ -27,7 +27,8 @@
 -include("inet_sctp.hrl").
 
 -export([open/0,open/1,open/2,close/1]).
--export([listen/2,connect/4,connect/5,connect_init/4,connect_init/5]).
+-export([listen/2,peeloff/2]).
+-export([connect/4,connect/5,connect_init/4,connect_init/5]).
 -export([eof/2,abort/2]).
 -export([send/3,send/4,recv/1,recv/2]).
 -export([error_string/1]).
@@ -109,9 +110,11 @@ open() ->
                    | {ifaddr,IP}
                    | inet:address_family()
                    | {port,Port}
+		   | {type,SockType}
                    | option(),
               IP :: inet:ip_address() | any | loopback,
               Port :: inet:port_number(),
+	      SockType :: seqpacket | stream,
               Socket :: sctp_socket().
 
 open(Opts) when is_list(Opts) ->
@@ -134,9 +137,11 @@ open(X) ->
                    | {ifaddr,IP}
                    | inet:address_family()
                    | {port,Port}
+		   | {type,SockType}
                    | option(),
       IP :: inet:ip_address() | any | loopback,
       Port :: inet:port_number(),
+      SockType :: seqpacket | stream,
       Socket :: sctp_socket().
 
 open(Port, Opts) when is_integer(Port), is_list(Opts) ->
@@ -161,16 +166,37 @@ close(S) ->
 -spec listen(Socket, IsServer) -> ok | {error, Reason} when
       Socket :: sctp_socket(),
       IsServer :: boolean(),
+      Reason :: term();
+	    (Socket, Backlog) -> ok | {error, Reason} when
+      Socket :: sctp_socket(),
+      Backlog :: integer(),
       Reason :: term().
 
-listen(S, Flag) when is_port(S), is_boolean(Flag) ->
+listen(S, Backlog)
+  when is_port(S), is_boolean(Backlog);
+       is_port(S), is_integer(Backlog) ->
     case inet_db:lookup_socket(S) of
 	{ok,Mod} ->
-	    Mod:listen(S, Flag);
+	    Mod:listen(S, Backlog);
 	Error -> Error
     end;
 listen(S, Flag) ->
     erlang:error(badarg, [S,Flag]).
+
+-spec peeloff(Socket, Assoc) -> {ok, NewSocket} | {error, Reason} when
+      Socket :: sctp_socket(),
+      Assoc :: #sctp_assoc_change{} | assoc_id(),
+      NewSocket :: sctp_socket(),
+      Reason :: term().
+
+peeloff(S, #sctp_assoc_change{assoc_id=AssocId}) when is_port(S) ->
+    peeloff(S, AssocId);
+peeloff(S, AssocId) when is_port(S), is_integer(AssocId) ->
+    case inet_db:lookup_socket(S) of
+	{ok,Mod} ->
+	    Mod:peeloff(S, AssocId);
+	Error -> Error
+    end.
 
 -spec connect(Socket, Addr, Port, Opts) -> {ok, Assoc} | {error, inet:posix()} when
       Socket :: sctp_socket(),

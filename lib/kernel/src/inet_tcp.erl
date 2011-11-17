@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -95,7 +95,7 @@ do_connect({A,B,C,D}, Port, Opts, Time) when ?ip(A,B,C,D), ?port(Port) ->
 			   port=BPort,
 			   opts=SockOpts}}
 	when ?ip(Ab,Bb,Cb,Db), ?port(BPort) ->
-	    case inet:open(Fd,BAddr,BPort,SockOpts,tcp,inet,?MODULE) of
+	    case inet:open(Fd,BAddr,BPort,SockOpts,tcp,inet,stream,?MODULE) of
 		{ok, S} ->
 		    case prim_inet:connect(S, {A,B,C,D}, Port, Time) of
 			ok    -> {ok,S};
@@ -117,7 +117,7 @@ listen(Port, Opts) ->
 			  port=BPort,
 			  opts=SockOpts}=R}
 	when ?ip(A,B,C,D), ?port(BPort) ->
-	    case inet:open(Fd,BAddr,BPort,SockOpts,tcp,inet,?MODULE) of
+	    case inet:open(Fd,BAddr,BPort,SockOpts,tcp,inet,stream,?MODULE) of
 		{ok, S} ->
 		    case prim_inet:listen(S, R#listen_opts.backlog) of
 			ok -> {ok, S};
@@ -150,4 +150,4 @@ accept(L,Timeout) ->
 %% Create a port/socket from a file descriptor 
 %%
 fdopen(Fd, Opts) ->
-    inet:fdopen(Fd, Opts, tcp, inet, ?MODULE).
+    inet:fdopen(Fd, Opts, tcp, inet, stream, ?MODULE).

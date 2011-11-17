@@ -729,7 +729,7 @@ udp_options() ->
 %% INET version IPv4 addresses
 %%
 ll_tcp_connect(LocalPort, IP, RemotePort) ->
-    case ll_open_set_bind(tcp, ?INET_FAMILY, tcp_options(),
+    case ll_open_set_bind(tcp, ?INET_FAMILY, stream, tcp_options(),
                           ?INET_ADDRESS, LocalPort) of
         {ok,S} ->
             case prim_inet:connect(S, IP, RemotePort, tcp_timeout()) of
@@ -743,11 +743,11 @@ ll_tcp_connect(LocalPort, IP, RemotePort) ->
 %% Open and initialize an udp port for broadcast
 %%
 ll_udp_open(P) ->
-    ll_open_set_bind(udp, ?INET_FAMILY, udp_options(), ?INET_ADDRESS, P).
+    ll_open_set_bind(udp, ?INET_FAMILY, dgram, udp_options(), ?INET_ADDRESS, P).
 
 
-ll_open_set_bind(Protocol, Family, SOpts, IP, Port) ->
-    case prim_inet:open(Protocol, Family) of
+ll_open_set_bind(Protocol, Family, Type, SOpts, IP, Port) ->
+    case prim_inet:open(Protocol, Family, Type) of
         {ok, S} ->
             case prim_inet:setopts(S, SOpts) of
                 ok ->
