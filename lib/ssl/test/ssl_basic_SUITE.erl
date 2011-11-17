@@ -37,6 +37,7 @@
 -define(LONG_TIMEOUT, 600000).
 -define(EXPIRE, 10).
 -define(SLEEP, 500).
+-define(RENEGOTIATION_DISABLE_TIME, 12000).
 
 %% Test server callback functions
 %%--------------------------------------------------------------------
@@ -257,7 +258,7 @@ all() ->
      %%different_ca_peer_sign,
      no_reuses_session_server_restart_new_cert,
      no_reuses_session_server_restart_new_cert_file, reuseaddr,
-     hibernate, connect_twice
+     hibernate, connect_twice, renegotiate_dos_mitigate
     ].
 
 groups() -> 
@@ -3655,7 +3656,40 @@ connect_twice(Config) when is_list(Config) ->
     ssl_test_lib:close(Client),
     ssl_test_lib:close(Client1).
 
+%%--------------------------------------------------------------------
+renegotiate_dos_mitigate(doc) -> 
+    ["Mitigate DOS computational attack by not allowing client to renegotiate many times in a row",
+    "immediately after each other"];
 
+renegotiate_dos_mitigate(suite) -> 
+    [];
+
+renegotiate_dos_mitigate(Config) when is_list(Config) -> 
+    ServerOpts = ?config(server_opts, Config),  
+    ClientOpts = ?config(client_opts, Config),  
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    
+    Server = 
+	ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+				   {from, self()},
+				   {mfa, {?MODULE, send_recv_result_active, []}},
+				   {options, [ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+ 
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+					{from, self()}, 
+					{mfa, {?MODULE, 
+					       renegotiate_immediately, []}},
+					{options, ClientOpts}]),
+    
+    ssl_test_lib:check_result(Client, ok, Server, ok), 
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+  
+    
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
@@ -3698,6 +3732,19 @@ renegotiate_reuse_session(Socket, Data) ->
     test_server:sleep(?SLEEP),
     renegotiate(Socket, Data).
 
+renegotiate_immediately(Socket) ->
+    receive 
+	{ssl, Socket, "Hello world"} ->
+	    ok
+    end,
+    ok = ssl:renegotiate(Socket),  
+    {error, renegotiation_rejected} = ssl:renegotiate(Socket),
+    test_server:sleep(?RENEGOTIATION_DISABLE_TIME +1),
+    ok = ssl:renegotiate(Socket),
+    test_server:format("Renegotiated again"),
+    ssl:send(Socket, "Hello world"),
+    ok.
+    
 new_config(PrivDir, ServerOpts0) ->
     CaCertFile = proplists:get_value(cacertfile, ServerOpts0),
     CertFile = proplists:get_value(certfile, ServerOpts0),

@@ -91,12 +91,14 @@
 	  renegotiation,        % {boolean(), From | internal | peer}
 	  recv_during_renegotiation,  %boolean() 
 	  send_queue,           % queue()
-	  terminated = false   %
+	  terminated = false,   %
+	  allow_renegotiate = true
 	 }).
 
 -define(DEFAULT_DIFFIE_HELLMAN_PARAMS, 
-	#'DHParameter'{prime = ?DEFAULT_DIFFIE_HELLMAN_PRIME, 
+	#'DHParameter'{prime = ?DEFAULT_DIFFIE_HELLMAN_PRIME,
 		       base = ?DEFAULT_DIFFIE_HELLMAN_GENERATOR}).
+-define(WAIT_TO_ALLOW_RENEGOTIATION, 12000).
 
 -type state_name()           :: hello | abbreviated | certify | cipher | connection.
 -type gen_fsm_state_return() :: {next_state, state_name(), #state{}} |
@@ -707,9 +709,25 @@ connection(#hello_request{}, #state{host = Host, port = Port,
 					       ConnectionStates1,
 					       tls_handshake_hashes = Hashes1}),
     next_state(hello, Record, State);
-connection(#client_hello{} = Hello, #state{role = server} = State) ->
-    hello(Hello, State);
+connection(#client_hello{} = Hello, #state{role = server, allow_renegotiate = true} = State) ->
+    %% Mitigate Computational DoS attack http://www.educatedguesswork.org/2011/10/ssltls_and_computational_dos.html
+    %% http://www.thc.org/thc-ssl-dos/ Rather than disabling client initiated renegotiation
+    %% we will disallow many client initiated renegotiations immediately after each other.
+    erlang:send_after(?WAIT_TO_ALLOW_RENEGOTIATION, self(), allow_renegotiate),
+    hello(Hello, State#state{allow_renegotiate = false});
 
+connection(#client_hello{}, #state{role = server, allow_renegotiate = false,
+				   connection_states = ConnectionStates0,
+				   socket = Socket, transport_cb = Transport,
+				   negotiated_version = Version} = State0) ->
+    Alert = ?ALERT_REC(?WARNING, ?NO_RENEGOTIATION),
+    {BinMsg, ConnectionStates} =
+	encode_alert(Alert, Version, ConnectionStates0),
+    Transport:send(Socket, BinMsg),
+    {Record, State} = next_record(State0#state{connection_states = 
+     						   ConnectionStates}),
+    next_state(connection, Record, State);
+  
 connection(timeout, State) ->
     {next_state, connection, State, hibernate};
 
@@ -984,6 +1002,9 @@ handle_info({'DOWN', MonitorRef, _, _, _}, _,
 	    State = #state{user_application={MonitorRef,_Pid}}) ->
     {stop, normal, State};   
 
+handle_info(allow_renegotiate, StateName, State) ->
+    {next_state, StateName, State#state{allow_renegotiate = true}, get_timeout(State)};
+    
 handle_info(Msg, StateName, State) ->
     Report = io_lib:format("SSL: Got unexpected info: ~p ~n", [Msg]),
     error_logger:info_report(Report),
@@ -2257,7 +2278,7 @@ renegotiate(#state{role = server,
     {Record, State} = next_record(State0#state{connection_states = 
 					       ConnectionStates,
 					       tls_handshake_hashes = Hs0}),
-    next_state(hello, Record, State).
+    next_state(hello, Record, State#state{allow_renegotiate = true}).
 
 notify_senders(SendQueue) -> 
     lists:foreach(fun({From, _}) ->
