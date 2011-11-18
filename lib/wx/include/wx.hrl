@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -36,12 +36,12 @@
 %% Callback event: {@link wxNavigationKeyEvent}
 -record(wxNavigationKey,{type, flags,focus}).
 
-%% @type wxSash() = #wxSash{type=wxEventType(),edge=WxSashEdgePosition,dragRect={X::integer(),Y::integer(),W::integer(),H::integer()},dragStatus=WxSashDragStatus}.
+%% @type wxSash() = #wxSash{type=wxEventType(),edge=WxSashEdgePosition,dragRect={X::integer(), Y::integer(), W::integer(), H::integer()},dragStatus=WxSashDragStatus}.
 %% <dl><dt>EventType:</dt> <dd><em>sash_dragged</em></dd></dl>
 %% Callback event: {@link wxSashEvent}
 -record(wxSash,{type, edge,dragRect,dragStatus}).
 
-%% @type wxList() = #wxList{type=wxEventType(),code=integer(),oldItemIndex=integer(),itemIndex=integer(),col=integer(),pointDrag={X::integer(),Y::integer()}}.
+%% @type wxList() = #wxList{type=wxEventType(),code=integer(),oldItemIndex=integer(),itemIndex=integer(),col=integer(),pointDrag={X::integer(), Y::integer()}}.
 %% <dl><dt>EventType:</dt> <dd><em>command_list_begin_drag</em>, <em>command_list_begin_rdrag</em>, <em>command_list_begin_label_edit</em>, <em>command_list_end_label_edit</em>, <em>command_list_delete_item</em>, <em>command_list_delete_all_items</em>, <em>command_list_key_down</em>, <em>command_list_insert_item</em>, <em>command_list_col_click</em>, <em>command_list_col_right_click</em>, <em>command_list_col_begin_drag</em>, <em>command_list_col_dragging</em>, <em>command_list_col_end_drag</em>, <em>command_list_item_selected</em>, <em>command_list_item_deselected</em>, <em>command_list_item_right_click</em>, <em>command_list_item_middle_click</em>, <em>command_list_item_activated</em>, <em>command_list_item_focused</em>, <em>command_list_cache_hint</em></dd></dl>
 %% Callback event: {@link wxListEvent}
 -record(wxList,{type, code,oldItemIndex,itemIndex,col,pointDrag}).
@@ -186,7 +186,7 @@
 %% Callback event: {@link wxUpdateUIEvent}
 -record(wxUpdateUI, {type}).
 
-%% @type wxSize() = #wxSize{type=wxEventType(),size={W::integer(),H::integer()},rect={X::integer(),Y::integer(),W::integer(),H::integer()}}.
+%% @type wxSize() = #wxSize{type=wxEventType(),size={W::integer(), H::integer()},rect={X::integer(), Y::integer(), W::integer(), H::integer()}}.
 %% <dl><dt>EventType:</dt> <dd><em>size</em></dd></dl>
 %% Callback event: {@link wxSizeEvent}
 -record(wxSize,{type, size,rect}).
@@ -261,7 +261,7 @@
 %% Callback event: {@link wxColourPickerEvent}
 -record(wxColourPicker,{type, colour}).
 
-%% @type wxTree() = #wxTree{type=wxEventType(),item=integer(),itemOld=integer(),pointDrag={X::integer(),Y::integer()}}.
+%% @type wxTree() = #wxTree{type=wxEventType(),item=integer(),itemOld=integer(),pointDrag={X::integer(), Y::integer()}}.
 %% <dl><dt>EventType:</dt> <dd><em>command_tree_begin_drag</em>, <em>command_tree_begin_rdrag</em>, <em>command_tree_begin_label_edit</em>, <em>command_tree_end_label_edit</em>, <em>command_tree_delete_item</em>, <em>command_tree_get_info</em>, <em>command_tree_set_info</em>, <em>command_tree_item_expanded</em>, <em>command_tree_item_expanding</em>, <em>command_tree_item_collapsed</em>, <em>command_tree_item_collapsing</em>, <em>command_tree_sel_changed</em>, <em>command_tree_sel_changing</em>, <em>command_tree_key_down</em>, <em>command_tree_item_activated</em>, <em>command_tree_item_right_click</em>, <em>command_tree_item_middle_click</em>, <em>command_tree_end_drag</em>, <em>command_tree_state_image_click</em>, <em>command_tree_item_gettooltip</em>, <em>command_tree_item_menu</em></dd></dl>
 %% Callback event: {@link wxTreeEvent}
 -record(wxTree,{type, item,itemOld,pointDrag}).

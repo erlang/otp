@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -89,7 +89,7 @@ new(Width,Height,Proportion,Flag,Border,#wx_ref{type=UserDataT,ref=UserDataRef})
   wxe_util:construct(?wxSizerItem_new_6,
   <<Width:32/?UI,Height:32/?UI,Proportion:32/?UI,Flag:32/?UI,Border:32/?UI,UserDataRef:32/?UI>>).
 
-%% @spec (This::wxSizerItem()) -> {W::integer(),H::integer()}
+%% @spec (This::wxSizerItem()) -> {W::integer(), H::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizeritem.html#wxsizeritemcalcmin">external documentation</a>.
 calcMin(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxSizerItem),
@@ -124,14 +124,14 @@ getFlag(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxSizerItem_GetFlag,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxSizerItem()) -> {W::integer(),H::integer()}
+%% @spec (This::wxSizerItem()) -> {W::integer(), H::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizeritem.html#wxsizeritemgetminsize">external documentation</a>.
 getMinSize(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxSizerItem),
   wxe_util:call(?wxSizerItem_GetMinSize,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxSizerItem()) -> {X::integer(),Y::integer()}
+%% @spec (This::wxSizerItem()) -> {X::integer(), Y::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizeritem.html#wxsizeritemgetposition">external documentation</a>.
 getPosition(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxSizerItem),
@@ -152,14 +152,14 @@ getRatio(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxSizerItem_GetRatio,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxSizerItem()) -> {X::integer(),Y::integer(),W::integer(),H::integer()}
+%% @spec (This::wxSizerItem()) -> {X::integer(), Y::integer(), W::integer(), H::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizeritem.html#wxsizeritemgetrect">external documentation</a>.
 getRect(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxSizerItem),
   wxe_util:call(?wxSizerItem_GetRect,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxSizerItem()) -> {W::integer(),H::integer()}
+%% @spec (This::wxSizerItem()) -> {W::integer(), H::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizeritem.html#wxsizeritemgetsize">external documentation</a>.
 getSize(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxSizerItem),
@@ -173,7 +173,7 @@ getSizer(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxSizerItem_GetSizer,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxSizerItem()) -> {W::integer(),H::integer()}
+%% @spec (This::wxSizerItem()) -> {W::integer(), H::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizeritem.html#wxsizeritemgetspacer">external documentation</a>.
 getSpacer(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxSizerItem),
@@ -230,7 +230,7 @@ setBorder(#wx_ref{type=ThisT,ref=ThisRef},Border)
   wxe_util:cast(?wxSizerItem_SetBorder,
   <<ThisRef:32/?UI,Border:32/?UI>>).
 
-%% @spec (This::wxSizerItem(), Pos::{X::integer(),Y::integer()}, Size::{W::integer(),H::integer()}) -> ok
+%% @spec (This::wxSizerItem(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizeritem.html#wxsizeritemsetdimension">external documentation</a>.
 setDimension(#wx_ref{type=ThisT,ref=ThisRef},{PosX,PosY},{SizeW,SizeH})
  when is_integer(PosX),is_integer(PosY),is_integer(SizeW),is_integer(SizeH) ->
@@ -254,7 +254,7 @@ setInitSize(#wx_ref{type=ThisT,ref=ThisRef},X,Y)
   wxe_util:cast(?wxSizerItem_SetInitSize,
   <<ThisRef:32/?UI,X:32/?UI,Y:32/?UI>>).
 
-%% @spec (This::wxSizerItem(), Size::{W::integer(),H::integer()}) -> ok
+%% @spec (This::wxSizerItem(), Size::{W::integer(), H::integer()}) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizeritem.html#wxsizeritemsetminsize">external documentation</a>.
 setMinSize(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH})
  when is_integer(SizeW),is_integer(SizeH) ->
@@ -285,7 +285,7 @@ setProportion(#wx_ref{type=ThisT,ref=ThisRef},Proportion)
 %% setRatio(This::wxSizerItem(), Ratio::float()) -> ok </c>
 %% </p>
 %% <p><c>
-%% setRatio(This::wxSizerItem(), Size::{W::integer(),H::integer()}) -> ok </c>
+%% setRatio(This::wxSizerItem(), Size::{W::integer(), H::integer()}) -> ok </c>
 %% </p>
 setRatio(#wx_ref{type=ThisT,ref=ThisRef},Ratio)
  when is_float(Ratio) ->
@@ -314,7 +314,7 @@ setSizer(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=SizerT,ref=SizerRef}) ->
   wxe_util:cast(?wxSizerItem_SetSizer,
   <<ThisRef:32/?UI,SizerRef:32/?UI>>).
 
-%% @spec (This::wxSizerItem(), Size::{W::integer(),H::integer()}) -> ok
+%% @spec (This::wxSizerItem(), Size::{W::integer(), H::integer()}) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizeritem.html#wxsizeritemsetspacer">external documentation</a>.
 setSpacer(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH})
  when is_integer(SizeW),is_integer(SizeH) ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -190,7 +190,7 @@ new(Parent)
   new(Parent, []).
 
 %% @spec (Parent::wxWindow:wxWindow(), [Option]) -> wxStyledTextCtrl()
-%% Option = {id, integer()} | {pos, {X::integer(),Y::integer()}} | {size, {W::integer(),H::integer()}} | {style, integer()}
+%% Option = {id, integer()} | {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstyledtextctrl.html#wxstyledtextctrlwxstyledtextctrl">external documentation</a>.
 new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->
@@ -211,7 +211,7 @@ create(This,Parent)
   create(This,Parent, []).
 
 %% @spec (This::wxStyledTextCtrl(), Parent::wxWindow:wxWindow(), [Option]) -> bool()
-%% Option = {id, integer()} | {pos, {X::integer(),Y::integer()}} | {size, {W::integer(),H::integer()}} | {style, integer()}
+%% Option = {id, integer()} | {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstyledtextctrl.html#wxstyledtextctrlcreate">external documentation</a>.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->
@@ -385,7 +385,7 @@ setViewWhiteSpace(#wx_ref{type=ThisT,ref=ThisRef},ViewWS)
   wxe_util:cast(?wxStyledTextCtrl_SetViewWhiteSpace,
   <<ThisRef:32/?UI,ViewWS:32/?UI>>).
 
-%% @spec (This::wxStyledTextCtrl(), Pt::{X::integer(),Y::integer()}) -> integer()
+%% @spec (This::wxStyledTextCtrl(), Pt::{X::integer(), Y::integer()}) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstyledtextctrl.html#wxstyledtextctrlpositionfrompoint">external documentation</a>.
 positionFromPoint(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY})
  when is_integer(PtX),is_integer(PtY) ->
@@ -425,7 +425,7 @@ setAnchor(#wx_ref{type=ThisT,ref=ThisRef},PosAnchor)
   wxe_util:cast(?wxStyledTextCtrl_SetAnchor,
   <<ThisRef:32/?UI,PosAnchor:32/?UI>>).
 
-%% @spec (This::wxStyledTextCtrl()) -> {string(),LinePos::integer()}
+%% @spec (This::wxStyledTextCtrl()) -> {string(), LinePos::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstyledtextctrl.html#wxstyledtextctrlgetcurline">external documentation</a>.
 getCurLine(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1454,7 +1454,7 @@ findText(#wx_ref{type=ThisT,ref=ThisRef},MinPos,MaxPos,Text, Options)
   wxe_util:call(?wxStyledTextCtrl_FindText,
   <<ThisRef:32/?UI,MinPos:32/?UI,MaxPos:32/?UI,(byte_size(Text_UC)):32/?UI,(Text_UC)/binary, 0:(((8- ((0+byte_size(Text_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
-%% @spec (This::wxStyledTextCtrl(), DoDraw::bool(), StartPos::integer(), EndPos::integer(), Draw::wxDC:wxDC(), Target::wxDC:wxDC(), RenderRect::{X::integer(),Y::integer(),W::integer(),H::integer()}, PageRect::{X::integer(),Y::integer(),W::integer(),H::integer()}) -> integer()
+%% @spec (This::wxStyledTextCtrl(), DoDraw::bool(), StartPos::integer(), EndPos::integer(), Draw::wxDC:wxDC(), Target::wxDC:wxDC(), RenderRect::{X::integer(), Y::integer(), W::integer(), H::integer()}, PageRect::{X::integer(), Y::integer(), W::integer(), H::integer()}) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstyledtextctrl.html#wxstyledtextctrlformatrange">external documentation</a>.
 formatRange(#wx_ref{type=ThisT,ref=ThisRef},DoDraw,StartPos,EndPos,#wx_ref{type=DrawT,ref=DrawRef},#wx_ref{type=TargetT,ref=TargetRef},{RenderRectX,RenderRectY,RenderRectW,RenderRectH},{PageRectX,PageRectY,PageRectW,PageRectH})
  when is_boolean(DoDraw),is_integer(StartPos),is_integer(EndPos),is_integer(RenderRectX),is_integer(RenderRectY),is_integer(RenderRectW),is_integer(RenderRectH),is_integer(PageRectX),is_integer(PageRectY),is_integer(PageRectW),is_integer(PageRectH) ->
@@ -3417,14 +3417,14 @@ setMargins(#wx_ref{type=ThisT,ref=ThisRef},Left,Right)
   wxe_util:cast(?wxStyledTextCtrl_SetMargins,
   <<ThisRef:32/?UI,Left:32/?UI,Right:32/?UI>>).
 
-%% @spec (This::wxStyledTextCtrl()) -> {StartPos::integer(),EndPos::integer()}
+%% @spec (This::wxStyledTextCtrl()) -> {StartPos::integer(), EndPos::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstyledtextctrl.html#wxstyledtextctrlgetselection">external documentation</a>.
 getSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:call(?wxStyledTextCtrl_GetSelection,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxStyledTextCtrl(), Pos::integer()) -> {X::integer(),Y::integer()}
+%% @spec (This::wxStyledTextCtrl(), Pos::integer()) -> {X::integer(), Y::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstyledtextctrl.html#wxstyledtextctrlpointfromposition">external documentation</a>.
 pointFromPosition(#wx_ref{type=ThisT,ref=ThisRef},Pos)
  when is_integer(Pos) ->
@@ -3562,7 +3562,7 @@ insertTextRaw(#wx_ref{type=ThisT,ref=ThisRef},Pos,Text)
   wxe_util:cast(?wxStyledTextCtrl_InsertTextRaw,
   <<ThisRef:32/?UI,Pos:32/?UI>>).
 
-%% @spec (This::wxStyledTextCtrl()) -> {binary(),LinePos::integer()}
+%% @spec (This::wxStyledTextCtrl()) -> {binary(), LinePos::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstyledtextctrl.html#wxstyledtextctrlgetcurlineraw">external documentation</a>.
 getCurLineRaw(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxStyledTextCtrl),

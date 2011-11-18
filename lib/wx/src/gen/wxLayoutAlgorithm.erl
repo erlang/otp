@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -65,7 +65,7 @@ layoutMDIFrame(This,Frame)
   layoutMDIFrame(This,Frame, []).
 
 %% @spec (This::wxLayoutAlgorithm(), Frame::wxMDIParentFrame:wxMDIParentFrame(), [Option]) -> bool()
-%% Option = {rect, {X::integer(),Y::integer(),W::integer(),H::integer()}}
+%% Option = {rect, {X::integer(), Y::integer(), W::integer(), H::integer()}}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlayoutalgorithm.html#wxlayoutalgorithmlayoutmdiframe">external documentation</a>.
 layoutMDIFrame(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=FrameT,ref=FrameRef}, Options)
  when is_list(Options) ->

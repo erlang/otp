@@ -830,7 +830,7 @@ doc_arg_type3(#type{base={comp,_,Tup}}) ->
     Doc = fun({int,V}) -> V ++ "::integer()";
 	     ({double,V}) -> V ++ "::float()"
 	  end,
-    "{" ++ args(Doc, ",", Tup) ++ "}";
+    "{" ++ args(Doc, ", ", Tup) ++ "}";
 doc_arg_type3(T) -> ?error({unknown_type,T}).
 
 doc_return_types(T, Ps) ->
@@ -839,9 +839,9 @@ doc_return_types2(void, []) ->    "ok";
 doc_return_types2(void, [#param{type=T}]) ->     doc_arg_type2(T);
 doc_return_types2(T, []) ->                      doc_arg_type2(T);
 doc_return_types2(void, Ps) ->
-    "{" ++ args(fun doc_arg_type/1,",",Ps) ++ "}";
+    "{" ++ args(fun doc_arg_type/1,", ",Ps) ++ "}";
 doc_return_types2(T, Ps) ->
-    "{" ++ doc_arg_type2(T) ++ "," ++ args(fun doc_arg_type/1,",",Ps) ++ "}".
+    "{" ++ doc_arg_type2(T) ++ ", " ++ args(fun doc_arg_type/1,", ",Ps) ++ "}".
 
 break(xhtml) -> "<br />";
 break(_) ->     "".

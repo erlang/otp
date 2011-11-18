@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -91,7 +91,7 @@ addPane(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=WindowRef},#wx_
   wxe_util:call(?wxAuiManager_AddPane_2_1,
   <<ThisRef:32/?UI,WindowRef:32/?UI,Pane_infoRef:32/?UI>>).
 
-%% @spec (This::wxAuiManager(), Window::wxWindow:wxWindow(), Pane_info::wxAuiPaneInfo:wxAuiPaneInfo(), Drop_pos::{X::integer(),Y::integer()}) -> bool()
+%% @spec (This::wxAuiManager(), Window::wxWindow:wxWindow(), Pane_info::wxAuiPaneInfo:wxAuiPaneInfo(), Drop_pos::{X::integer(), Y::integer()}) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauimanager.html#wxauimanageraddpane">external documentation</a>.
 addPane(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=WindowRef},#wx_ref{type=Pane_infoT,ref=Pane_infoRef},{Drop_posX,Drop_posY})
  when is_integer(Drop_posX),is_integer(Drop_posY) ->
@@ -123,7 +123,7 @@ getArtProvider(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxAuiManager_GetArtProvider,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxAuiManager()) -> {Width_pct::float(),Height_pct::float()}
+%% @spec (This::wxAuiManager()) -> {Width_pct::float(), Height_pct::float()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauimanager.html#wxauimanagergetdocksizeconstraint">external documentation</a>.
 getDockSizeConstraint(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxAuiManager),
@@ -275,7 +275,7 @@ setManagedWindow(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=Managed_wndT,ref=M
   wxe_util:cast(?wxAuiManager_SetManagedWindow,
   <<ThisRef:32/?UI,Managed_wndRef:32/?UI>>).
 
-%% @spec (This::wxAuiManager(), Rect::{X::integer(),Y::integer(),W::integer(),H::integer()}) -> ok
+%% @spec (This::wxAuiManager(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauimanager.html#wxauimanagershowhint">external documentation</a>.
 showHint(#wx_ref{type=ThisT,ref=ThisRef},{RectX,RectY,RectW,RectH})
  when is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH) ->

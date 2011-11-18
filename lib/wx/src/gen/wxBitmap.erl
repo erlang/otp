@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -194,7 +194,7 @@ getWidth(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxBitmap_GetWidth,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxBitmap(), Rect::{X::integer(),Y::integer(),W::integer(),H::integer()}) -> wxBitmap()
+%% @spec (This::wxBitmap(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}) -> wxBitmap()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbitmap.html#wxbitmapgetsubbitmap">external documentation</a>.
 getSubBitmap(#wx_ref{type=ThisT,ref=ThisRef},{RectX,RectY,RectW,RectH})
  when is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH) ->

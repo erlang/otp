@@ -331,9 +331,9 @@ void handle_event_callback(ErlDrvPort port, ErlDrvTermData process)
   driver_monitor_process(port, process, &monitor);
   // Should we be able to handle commands when recursing? probably
   erl_drv_mutex_lock(wxe_batch_locker_m);
-  // fprintf(stderr, "\r\nCB EV Start ");fflush(stderr);
+  //fprintf(stderr, "\r\nCB EV Start %lu \r\n", process);fflush(stderr);
   app->dispatch_cb(wxe_batch, wxe_batch_cb_saved, process);
-  // fprintf(stderr, ".. done \r\n");fflush(stderr);
+  //fprintf(stderr, "CB EV done %lu \r\n", process);fflush(stderr);
   wxe_batch_caller = 0;
   erl_drv_mutex_unlock(wxe_batch_locker_m);
   driver_demonitor_process(port, &monitor);
@@ -430,8 +430,9 @@ void WxeApp::dispatch_cb(wxList * batch, wxList * temp, ErlDrvTermData process) 
 	  wxeCommand *event = (wxeCommand *)node->GetData();
 	  wxeMemEnv *memenv = getMemEnv(event->port);
 	  batch->Erase(node);
+	  // fprintf(stderr, "  Ev %d %lu\r\n", event->op, event->caller);
 	  if(event->caller == process ||  // Callbacks from CB process only
-	     event->op == WXE_CB_START || // Recursive event callback allow
+	     event->op == WXE_CB_START || // Event callback start change process
 	     // Allow connect_cb during CB i.e. msg from wxe_server.
 	     (memenv && event->caller == memenv->owner))
 	    {
@@ -453,6 +454,7 @@ void WxeApp::dispatch_cb(wxList * batch, wxList * temp, ErlDrvTermData process) 
 		break;
 	      default:
 		erl_drv_mutex_unlock(wxe_batch_locker_m);
+		size_t start=temp->GetCount();
 		if(event->op < OPENGL_START) {
 		  // fprintf(stderr, "  cb %d \r\n", event->op);
 		  wxe_dispatch(*event);
@@ -460,9 +462,23 @@ void WxeApp::dispatch_cb(wxList * batch, wxList * temp, ErlDrvTermData process) 
 		  gl_dispatch(event->op,event->buffer,event->caller,event->bin);
 		}
 		erl_drv_mutex_lock(wxe_batch_locker_m);
-		break;
+		if(temp->GetCount() > start) {
+		  // We have recursed dispatch_cb and messages for this
+		  // callback may be saved on temp list move them
+		  // to orig list
+		  for(wxList::compatibility_iterator node = temp->Item(start);
+		      node;
+		      node = node->GetNext()) {
+		    wxeCommand *ev = (wxeCommand *)node->GetData();
+		    if(ev->caller == process) {
+		      batch->Append(ev);
+		      temp->Erase(node);
+		    }
+		  }
+		}
 		if(callback_returned)
 		  return;
+		break;
 	      }
 	      delete event;
 	    } else {

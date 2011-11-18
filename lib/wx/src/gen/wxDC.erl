@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -52,14 +52,14 @@
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec (This::wxDC(), DestPt::{X::integer(),Y::integer()}, Sz::{W::integer(),H::integer()}, Source::wxDC(), SrcPt::{X::integer(),Y::integer()}) -> bool()
+%% @spec (This::wxDC(), DestPt::{X::integer(), Y::integer()}, Sz::{W::integer(), H::integer()}, Source::wxDC(), SrcPt::{X::integer(), Y::integer()}) -> bool()
 %% @equiv blit(This,DestPt,Sz,Source,SrcPt, [])
 blit(This,DestPt={DestPtX,DestPtY},Sz={SzW,SzH},Source,SrcPt={SrcPtX,SrcPtY})
  when is_record(This, wx_ref),is_integer(DestPtX),is_integer(DestPtY),is_integer(SzW),is_integer(SzH),is_record(Source, wx_ref),is_integer(SrcPtX),is_integer(SrcPtY) ->
   blit(This,DestPt,Sz,Source,SrcPt, []).
 
-%% @spec (This::wxDC(), DestPt::{X::integer(),Y::integer()}, Sz::{W::integer(),H::integer()}, Source::wxDC(), SrcPt::{X::integer(),Y::integer()}, [Option]) -> bool()
-%% Option = {rop, integer()} | {useMask, bool()} | {srcPtMask, {X::integer(),Y::integer()}}
+%% @spec (This::wxDC(), DestPt::{X::integer(), Y::integer()}, Sz::{W::integer(), H::integer()}, Source::wxDC(), SrcPt::{X::integer(), Y::integer()}, [Option]) -> bool()
+%% Option = {rop, integer()} | {useMask, bool()} | {srcPtMask, {X::integer(), Y::integer()}}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcblit">external documentation</a>.
 blit(#wx_ref{type=ThisT,ref=ThisRef},{DestPtX,DestPtY},{SzW,SzH},#wx_ref{type=SourceT,ref=SourceRef},{SrcPtX,SrcPtY}, Options)
  when is_integer(DestPtX),is_integer(DestPtY),is_integer(SzW),is_integer(SzH),is_integer(SrcPtX),is_integer(SrcPtY),is_list(Options) ->
@@ -95,7 +95,7 @@ computeScaleAndOrigin(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:cast(?wxDC_ComputeScaleAndOrigin,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxDC(), Pt::{X::integer(),Y::integer()}) -> ok
+%% @spec (This::wxDC(), Pt::{X::integer(), Y::integer()}) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdccrosshair">external documentation</a>.
 crossHair(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY})
  when is_integer(PtX),is_integer(PtY) ->
@@ -142,7 +142,7 @@ deviceToLogicalYRel(#wx_ref{type=ThisT,ref=ThisRef},Y)
   wxe_util:call(?wxDC_DeviceToLogicalYRel,
   <<ThisRef:32/?UI,Y:32/?UI>>).
 
-%% @spec (This::wxDC(), Pt1::{X::integer(),Y::integer()}, Pt2::{X::integer(),Y::integer()}, Centre::{X::integer(),Y::integer()}) -> ok
+%% @spec (This::wxDC(), Pt1::{X::integer(), Y::integer()}, Pt2::{X::integer(), Y::integer()}, Centre::{X::integer(), Y::integer()}) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcdrawarc">external documentation</a>.
 drawArc(#wx_ref{type=ThisT,ref=ThisRef},{Pt1X,Pt1Y},{Pt2X,Pt2Y},{CentreX,CentreY})
  when is_integer(Pt1X),is_integer(Pt1Y),is_integer(Pt2X),is_integer(Pt2Y),is_integer(CentreX),is_integer(CentreY) ->
@@ -150,13 +150,13 @@ drawArc(#wx_ref{type=ThisT,ref=ThisRef},{Pt1X,Pt1Y},{Pt2X,Pt2Y},{CentreX,CentreY
   wxe_util:cast(?wxDC_DrawArc,
   <<ThisRef:32/?UI,Pt1X:32/?UI,Pt1Y:32/?UI,Pt2X:32/?UI,Pt2Y:32/?UI,CentreX:32/?UI,CentreY:32/?UI>>).
 
-%% @spec (This::wxDC(), Bmp::wxBitmap:wxBitmap(), Pt::{X::integer(),Y::integer()}) -> ok
+%% @spec (This::wxDC(), Bmp::wxBitmap:wxBitmap(), Pt::{X::integer(), Y::integer()}) -> ok
 %% @equiv drawBitmap(This,Bmp,Pt, [])
 drawBitmap(This,Bmp,Pt={PtX,PtY})
  when is_record(This, wx_ref),is_record(Bmp, wx_ref),is_integer(PtX),is_integer(PtY) ->
   drawBitmap(This,Bmp,Pt, []).
 
-%% @spec (This::wxDC(), Bmp::wxBitmap:wxBitmap(), Pt::{X::integer(),Y::integer()}, [Option]) -> ok
+%% @spec (This::wxDC(), Bmp::wxBitmap:wxBitmap(), Pt::{X::integer(), Y::integer()}, [Option]) -> ok
 %% Option = {useMask, bool()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcdrawbitmap">external documentation</a>.
 drawBitmap(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=BmpT,ref=BmpRef},{PtX,PtY}, Options)
@@ -169,7 +169,7 @@ drawBitmap(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=BmpT,ref=BmpRef},{PtX,Pt
   wxe_util:cast(?wxDC_DrawBitmap,
   <<ThisRef:32/?UI,BmpRef:32/?UI,PtX:32/?UI,PtY:32/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxDC(), Rect::{X::integer(),Y::integer(),W::integer(),H::integer()}) -> ok
+%% @spec (This::wxDC(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcdrawcheckmark">external documentation</a>.
 drawCheckMark(#wx_ref{type=ThisT,ref=ThisRef},{RectX,RectY,RectW,RectH})
  when is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH) ->
@@ -177,7 +177,7 @@ drawCheckMark(#wx_ref{type=ThisT,ref=ThisRef},{RectX,RectY,RectW,RectH})
   wxe_util:cast(?wxDC_DrawCheckMark,
   <<ThisRef:32/?UI,RectX:32/?UI,RectY:32/?UI,RectW:32/?UI,RectH:32/?UI>>).
 
-%% @spec (This::wxDC(), Pt::{X::integer(),Y::integer()}, Radius::integer()) -> ok
+%% @spec (This::wxDC(), Pt::{X::integer(), Y::integer()}, Radius::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcdrawcircle">external documentation</a>.
 drawCircle(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY},Radius)
  when is_integer(PtX),is_integer(PtY),is_integer(Radius) ->
@@ -185,7 +185,7 @@ drawCircle(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY},Radius)
   wxe_util:cast(?wxDC_DrawCircle,
   <<ThisRef:32/?UI,PtX:32/?UI,PtY:32/?UI,Radius:32/?UI>>).
 
-%% @spec (This::wxDC(), Rect::{X::integer(),Y::integer(),W::integer(),H::integer()}) -> ok
+%% @spec (This::wxDC(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcdrawellipse">external documentation</a>.
 drawEllipse(#wx_ref{type=ThisT,ref=ThisRef},{RectX,RectY,RectW,RectH})
  when is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH) ->
@@ -193,7 +193,7 @@ drawEllipse(#wx_ref{type=ThisT,ref=ThisRef},{RectX,RectY,RectW,RectH})
   wxe_util:cast(?wxDC_DrawEllipse_1,
   <<ThisRef:32/?UI,RectX:32/?UI,RectY:32/?UI,RectW:32/?UI,RectH:32/?UI>>).
 
-%% @spec (This::wxDC(), Pt::{X::integer(),Y::integer()}, Sz::{W::integer(),H::integer()}) -> ok
+%% @spec (This::wxDC(), Pt::{X::integer(), Y::integer()}, Sz::{W::integer(), H::integer()}) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcdrawellipse">external documentation</a>.
 drawEllipse(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY},{SzW,SzH})
  when is_integer(PtX),is_integer(PtY),is_integer(SzW),is_integer(SzH) ->
@@ -201,7 +201,7 @@ drawEllipse(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY},{SzW,SzH})
   wxe_util:cast(?wxDC_DrawEllipse_2,
   <<ThisRef:32/?UI,PtX:32/?UI,PtY:32/?UI,SzW:32/?UI,SzH:32/?UI>>).
 
-%% @spec (This::wxDC(), Pt::{X::integer(),Y::integer()}, Sz::{W::integer(),H::integer()}, Sa::float(), Ea::float()) -> ok
+%% @spec (This::wxDC(), Pt::{X::integer(), Y::integer()}, Sz::{W::integer(), H::integer()}, Sa::float(), Ea::float()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcdrawellipticarc">external documentation</a>.
 drawEllipticArc(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY},{SzW,SzH},Sa,Ea)
  when is_integer(PtX),is_integer(PtY),is_integer(SzW),is_integer(SzH),is_float(Sa),is_float(Ea) ->
@@ -209,7 +209,7 @@ drawEllipticArc(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY},{SzW,SzH},Sa,Ea)
   wxe_util:cast(?wxDC_DrawEllipticArc,
   <<ThisRef:32/?UI,PtX:32/?UI,PtY:32/?UI,SzW:32/?UI,SzH:32/?UI,0:32,Sa:64/?F,Ea:64/?F>>).
 
-%% @spec (This::wxDC(), Icon::wxIcon:wxIcon(), Pt::{X::integer(),Y::integer()}) -> ok
+%% @spec (This::wxDC(), Icon::wxIcon:wxIcon(), Pt::{X::integer(), Y::integer()}) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcdrawicon">external documentation</a>.
 drawIcon(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=IconT,ref=IconRef},{PtX,PtY})
  when is_integer(PtX),is_integer(PtY) ->
@@ -218,13 +218,13 @@ drawIcon(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=IconT,ref=IconRef},{PtX,Pt
   wxe_util:cast(?wxDC_DrawIcon,
   <<ThisRef:32/?UI,IconRef:32/?UI,PtX:32/?UI,PtY:32/?UI>>).
 
-%% @spec (This::wxDC(), Text::string(), Rect::{X::integer(),Y::integer(),W::integer(),H::integer()}) -> ok
+%% @spec (This::wxDC(), Text::string(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}) -> ok
 %% @equiv drawLabel(This,Text,Rect, [])
 drawLabel(This,Text,Rect={RectX,RectY,RectW,RectH})
  when is_record(This, wx_ref),is_list(Text),is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH) ->
   drawLabel(This,Text,Rect, []).
 
-%% @spec (This::wxDC(), Text::string(), Rect::{X::integer(),Y::integer(),W::integer(),H::integer()}, [Option]) -> ok
+%% @spec (This::wxDC(), Text::string(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}, [Option]) -> ok
 %% Option = {alignment, integer()} | {indexAccel, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcdrawlabel">external documentation</a>.
 drawLabel(#wx_ref{type=ThisT,ref=ThisRef},Text,{RectX,RectY,RectW,RectH}, Options)
@@ -238,7 +238,7 @@ drawLabel(#wx_ref{type=ThisT,ref=ThisRef},Text,{RectX,RectY,RectW,RectH}, Option
   wxe_util:cast(?wxDC_DrawLabel,
   <<ThisRef:32/?UI,(byte_size(Text_UC)):32/?UI,(Text_UC)/binary, 0:(((8- ((0+byte_size(Text_UC)) band 16#7)) band 16#7))/unit:8,RectX:32/?UI,RectY:32/?UI,RectW:32/?UI,RectH:32/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxDC(), Pt1::{X::integer(),Y::integer()}, Pt2::{X::integer(),Y::integer()}) -> ok
+%% @spec (This::wxDC(), Pt1::{X::integer(), Y::integer()}, Pt2::{X::integer(), Y::integer()}) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcdrawline">external documentation</a>.
 drawLine(#wx_ref{type=ThisT,ref=ThisRef},{Pt1X,Pt1Y},{Pt2X,Pt2Y})
  when is_integer(Pt1X),is_integer(Pt1Y),is_integer(Pt2X),is_integer(Pt2Y) ->
@@ -246,13 +246,13 @@ drawLine(#wx_ref{type=ThisT,ref=ThisRef},{Pt1X,Pt1Y},{Pt2X,Pt2Y})
   wxe_util:cast(?wxDC_DrawLine,
   <<ThisRef:32/?UI,Pt1X:32/?UI,Pt1Y:32/?UI,Pt2X:32/?UI,Pt2Y:32/?UI>>).
 
-%% @spec (This::wxDC(), Points::[{X::integer(),Y::integer()}]) -> ok
+%% @spec (This::wxDC(), Points::[{X::integer(), Y::integer()}]) -> ok
 %% @equiv drawLines(This,Points, [])
 drawLines(This,Points)
  when is_record(This, wx_ref),is_list(Points) ->
   drawLines(This,Points, []).
 
-%% @spec (This::wxDC(), Points::[{X::integer(),Y::integer()}], [Option]) -> ok
+%% @spec (This::wxDC(), Points::[{X::integer(), Y::integer()}], [Option]) -> ok
 %% Option = {xoffset, integer()} | {yoffset, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcdrawlines">external documentation</a>.
 drawLines(#wx_ref{type=ThisT,ref=ThisRef},Points, Options)
@@ -266,13 +266,13 @@ drawLines(#wx_ref{type=ThisT,ref=ThisRef},Points, Options)
   <<ThisRef:32/?UI,(length(Points)):32/?UI,
         (<< <<X:32/?I,Y:32/?I>> || {X,Y} <- Points>>)/binary, BinOpt/binary>>).
 
-%% @spec (This::wxDC(), Points::[{X::integer(),Y::integer()}]) -> ok
+%% @spec (This::wxDC(), Points::[{X::integer(), Y::integer()}]) -> ok
 %% @equiv drawPolygon(This,Points, [])
 drawPolygon(This,Points)
  when is_record(This, wx_ref),is_list(Points) ->
   drawPolygon(This,Points, []).
 
-%% @spec (This::wxDC(), Points::[{X::integer(),Y::integer()}], [Option]) -> ok
+%% @spec (This::wxDC(), Points::[{X::integer(), Y::integer()}], [Option]) -> ok
 %% Option = {xoffset, integer()} | {yoffset, integer()} | {fillStyle, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcdrawpolygon">external documentation</a>.
 drawPolygon(#wx_ref{type=ThisT,ref=ThisRef},Points, Options)
@@ -287,7 +287,7 @@ drawPolygon(#wx_ref{type=ThisT,ref=ThisRef},Points, Options)
   <<ThisRef:32/?UI,(length(Points)):32/?UI,
         (<< <<X:32/?I,Y:32/?I>> || {X,Y} <- Points>>)/binary, BinOpt/binary>>).
 
-%% @spec (This::wxDC(), Pt::{X::integer(),Y::integer()}) -> ok
+%% @spec (This::wxDC(), Pt::{X::integer(), Y::integer()}) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcdrawpoint">external documentation</a>.
 drawPoint(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY})
  when is_integer(PtX),is_integer(PtY) ->
@@ -295,7 +295,7 @@ drawPoint(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY})
   wxe_util:cast(?wxDC_DrawPoint,
   <<ThisRef:32/?UI,PtX:32/?UI,PtY:32/?UI>>).
 
-%% @spec (This::wxDC(), Rect::{X::integer(),Y::integer(),W::integer(),H::integer()}) -> ok
+%% @spec (This::wxDC(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcdrawrectangle">external documentation</a>.
 drawRectangle(#wx_ref{type=ThisT,ref=ThisRef},{RectX,RectY,RectW,RectH})
  when is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH) ->
@@ -303,7 +303,7 @@ drawRectangle(#wx_ref{type=ThisT,ref=ThisRef},{RectX,RectY,RectW,RectH})
   wxe_util:cast(?wxDC_DrawRectangle_1,
   <<ThisRef:32/?UI,RectX:32/?UI,RectY:32/?UI,RectW:32/?UI,RectH:32/?UI>>).
 
-%% @spec (This::wxDC(), Pt::{X::integer(),Y::integer()}, Sz::{W::integer(),H::integer()}) -> ok
+%% @spec (This::wxDC(), Pt::{X::integer(), Y::integer()}, Sz::{W::integer(), H::integer()}) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcdrawrectangle">external documentation</a>.
 drawRectangle(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY},{SzW,SzH})
  when is_integer(PtX),is_integer(PtY),is_integer(SzW),is_integer(SzH) ->
@@ -311,7 +311,7 @@ drawRectangle(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY},{SzW,SzH})
   wxe_util:cast(?wxDC_DrawRectangle_2,
   <<ThisRef:32/?UI,PtX:32/?UI,PtY:32/?UI,SzW:32/?UI,SzH:32/?UI>>).
 
-%% @spec (This::wxDC(), Text::string(), Pt::{X::integer(),Y::integer()}, Angle::float()) -> ok
+%% @spec (This::wxDC(), Text::string(), Pt::{X::integer(), Y::integer()}, Angle::float()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcdrawrotatedtext">external documentation</a>.
 drawRotatedText(#wx_ref{type=ThisT,ref=ThisRef},Text,{PtX,PtY},Angle)
  when is_list(Text),is_integer(PtX),is_integer(PtY),is_float(Angle) ->
@@ -320,7 +320,7 @@ drawRotatedText(#wx_ref{type=ThisT,ref=ThisRef},Text,{PtX,PtY},Angle)
   wxe_util:cast(?wxDC_DrawRotatedText,
   <<ThisRef:32/?UI,(byte_size(Text_UC)):32/?UI,(Text_UC)/binary, 0:(((8- ((0+byte_size(Text_UC)) band 16#7)) band 16#7))/unit:8,PtX:32/?UI,PtY:32/?UI,Angle:64/?F>>).
 
-%% @spec (This::wxDC(), R::{X::integer(),Y::integer(),W::integer(),H::integer()}, Radius::float()) -> ok
+%% @spec (This::wxDC(), R::{X::integer(), Y::integer(), W::integer(), H::integer()}, Radius::float()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcdrawroundedrectangle">external documentation</a>.
 drawRoundedRectangle(#wx_ref{type=ThisT,ref=ThisRef},{RX,RY,RW,RH},Radius)
  when is_integer(RX),is_integer(RY),is_integer(RW),is_integer(RH),is_float(Radius) ->
@@ -328,7 +328,7 @@ drawRoundedRectangle(#wx_ref{type=ThisT,ref=ThisRef},{RX,RY,RW,RH},Radius)
   wxe_util:cast(?wxDC_DrawRoundedRectangle_2,
   <<ThisRef:32/?UI,RX:32/?UI,RY:32/?UI,RW:32/?UI,RH:32/?UI,0:32,Radius:64/?F>>).
 
-%% @spec (This::wxDC(), Pt::{X::integer(),Y::integer()}, Sz::{W::integer(),H::integer()}, Radius::float()) -> ok
+%% @spec (This::wxDC(), Pt::{X::integer(), Y::integer()}, Sz::{W::integer(), H::integer()}, Radius::float()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcdrawroundedrectangle">external documentation</a>.
 drawRoundedRectangle(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY},{SzW,SzH},Radius)
  when is_integer(PtX),is_integer(PtY),is_integer(SzW),is_integer(SzH),is_float(Radius) ->
@@ -336,7 +336,7 @@ drawRoundedRectangle(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY},{SzW,SzH},Radius)
   wxe_util:cast(?wxDC_DrawRoundedRectangle_3,
   <<ThisRef:32/?UI,PtX:32/?UI,PtY:32/?UI,SzW:32/?UI,SzH:32/?UI,0:32,Radius:64/?F>>).
 
-%% @spec (This::wxDC(), Text::string(), Pt::{X::integer(),Y::integer()}) -> ok
+%% @spec (This::wxDC(), Text::string(), Pt::{X::integer(), Y::integer()}) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcdrawtext">external documentation</a>.
 drawText(#wx_ref{type=ThisT,ref=ThisRef},Text,{PtX,PtY})
  when is_list(Text),is_integer(PtX),is_integer(PtY) ->
@@ -359,13 +359,13 @@ endPage(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:cast(?wxDC_EndPage,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxDC(), Pt::{X::integer(),Y::integer()}, Col::wx:colour()) -> bool()
+%% @spec (This::wxDC(), Pt::{X::integer(), Y::integer()}, Col::wx:colour()) -> bool()
 %% @equiv floodFill(This,Pt,Col, [])
 floodFill(This,Pt={PtX,PtY},Col)
  when is_record(This, wx_ref),is_integer(PtX),is_integer(PtY),tuple_size(Col) =:= 3; tuple_size(Col) =:= 4 ->
   floodFill(This,Pt,Col, []).
 
-%% @spec (This::wxDC(), Pt::{X::integer(),Y::integer()}, Col::wx:colour(), [Option]) -> bool()
+%% @spec (This::wxDC(), Pt::{X::integer(), Y::integer()}, Col::wx:colour(), [Option]) -> bool()
 %% Option = {style, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcfloodfill">external documentation</a>.
 floodFill(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY},Col, Options)
@@ -412,7 +412,7 @@ getCharWidth(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxDC_GetCharWidth,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxDC(), Rect::{X::integer(),Y::integer(),W::integer(),H::integer()}) -> ok
+%% @spec (This::wxDC(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcgetclippingbox">external documentation</a>.
 getClippingBox(#wx_ref{type=ThisT,ref=ThisRef},{RectX,RectY,RectW,RectH})
  when is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH) ->
@@ -450,7 +450,7 @@ getMapMode(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxDC_GetMapMode,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxDC(), String::string()) -> {W::integer(),H::integer()}
+%% @spec (This::wxDC(), String::string()) -> {W::integer(), H::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcgetmultilinetextextent">external documentation</a>.
 getMultiLineTextExtent(#wx_ref{type=ThisT,ref=ThisRef},String)
  when is_list(String) ->
@@ -459,7 +459,7 @@ getMultiLineTextExtent(#wx_ref{type=ThisT,ref=ThisRef},String)
   wxe_util:call(?wxDC_GetMultiLineTextExtent_1,
   <<ThisRef:32/?UI,(byte_size(String_UC)):32/?UI,(String_UC)/binary, 0:(((8- ((0+byte_size(String_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @spec (This::wxDC(), String::string(), [Option]) -> {Width::integer(),Height::integer(),HeightLine::integer()}
+%% @spec (This::wxDC(), String::string(), [Option]) -> {Width::integer(), Height::integer(), HeightLine::integer()}
 %% Option = {font, wxFont:wxFont()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcgetmultilinetextextent">external documentation</a>.
 getMultiLineTextExtent(#wx_ref{type=ThisT,ref=ThisRef},String, Options)
@@ -489,7 +489,7 @@ getPen(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxDC_GetPen,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxDC(), Pt::{X::integer(),Y::integer()}, Col::wx:colour()) -> bool()
+%% @spec (This::wxDC(), Pt::{X::integer(), Y::integer()}, Col::wx:colour()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcgetpixel">external documentation</a>.
 getPixel(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY},Col)
  when is_integer(PtX),is_integer(PtY),tuple_size(Col) =:= 3; tuple_size(Col) =:= 4 ->
@@ -497,21 +497,21 @@ getPixel(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY},Col)
   wxe_util:call(?wxDC_GetPixel,
   <<ThisRef:32/?UI,PtX:32/?UI,PtY:32/?UI,(wxe_util:colour_bin(Col)):16/binary>>).
 
-%% @spec (This::wxDC()) -> {W::integer(),H::integer()}
+%% @spec (This::wxDC()) -> {W::integer(), H::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcgetppi">external documentation</a>.
 getPPI(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxDC),
   wxe_util:call(?wxDC_GetPPI,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxDC()) -> {W::integer(),H::integer()}
+%% @spec (This::wxDC()) -> {W::integer(), H::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcgetsize">external documentation</a>.
 getSize(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxDC),
   wxe_util:call(?wxDC_GetSize,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxDC()) -> {W::integer(),H::integer()}
+%% @spec (This::wxDC()) -> {W::integer(), H::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcgetsizemm">external documentation</a>.
 getSizeMM(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxDC),
@@ -525,7 +525,7 @@ getTextBackground(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxDC_GetTextBackground,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxDC(), String::string()) -> {W::integer(),H::integer()}
+%% @spec (This::wxDC(), String::string()) -> {W::integer(), H::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcgettextextent">external documentation</a>.
 getTextExtent(#wx_ref{type=ThisT,ref=ThisRef},String)
  when is_list(String) ->
@@ -534,7 +534,7 @@ getTextExtent(#wx_ref{type=ThisT,ref=ThisRef},String)
   wxe_util:call(?wxDC_GetTextExtent_1,
   <<ThisRef:32/?UI,(byte_size(String_UC)):32/?UI,(String_UC)/binary, 0:(((8- ((0+byte_size(String_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @spec (This::wxDC(), String::string(), [Option]) -> {X::integer(),Y::integer(),Descent::integer(),ExternalLeading::integer()}
+%% @spec (This::wxDC(), String::string(), [Option]) -> {X::integer(), Y::integer(), Descent::integer(), ExternalLeading::integer()}
 %% Option = {theFont, wxFont:wxFont()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcgettextextent">external documentation</a>.
 getTextExtent(#wx_ref{type=ThisT,ref=ThisRef},String, Options)
@@ -554,14 +554,14 @@ getTextForeground(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxDC_GetTextForeground,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxDC()) -> {X::float(),Y::float()}
+%% @spec (This::wxDC()) -> {X::float(), Y::float()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcgetuserscale">external documentation</a>.
 getUserScale(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxDC),
   wxe_util:call(?wxDC_GetUserScale,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxDC(), Rect::{X::integer(),Y::integer(),W::integer(),H::integer()}, InitialColour::wx:colour(), DestColour::wx:colour()) -> ok
+%% @spec (This::wxDC(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}, InitialColour::wx:colour(), DestColour::wx:colour()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcgradientfillconcentric">external documentation</a>.
 gradientFillConcentric(#wx_ref{type=ThisT,ref=ThisRef},{RectX,RectY,RectW,RectH},InitialColour,DestColour)
  when is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH),tuple_size(InitialColour) =:= 3; tuple_size(InitialColour) =:= 4,tuple_size(DestColour) =:= 3; tuple_size(DestColour) =:= 4 ->
@@ -569,7 +569,7 @@ gradientFillConcentric(#wx_ref{type=ThisT,ref=ThisRef},{RectX,RectY,RectW,RectH}
   wxe_util:cast(?wxDC_GradientFillConcentric_3,
   <<ThisRef:32/?UI,RectX:32/?UI,RectY:32/?UI,RectW:32/?UI,RectH:32/?UI,(wxe_util:colour_bin(InitialColour)):16/binary,(wxe_util:colour_bin(DestColour)):16/binary>>).
 
-%% @spec (This::wxDC(), Rect::{X::integer(),Y::integer(),W::integer(),H::integer()}, InitialColour::wx:colour(), DestColour::wx:colour(), CircleCenter::{X::integer(),Y::integer()}) -> ok
+%% @spec (This::wxDC(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}, InitialColour::wx:colour(), DestColour::wx:colour(), CircleCenter::{X::integer(), Y::integer()}) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcgradientfillconcentric">external documentation</a>.
 gradientFillConcentric(#wx_ref{type=ThisT,ref=ThisRef},{RectX,RectY,RectW,RectH},InitialColour,DestColour,{CircleCenterX,CircleCenterY})
  when is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH),tuple_size(InitialColour) =:= 3; tuple_size(InitialColour) =:= 4,tuple_size(DestColour) =:= 3; tuple_size(DestColour) =:= 4,is_integer(CircleCenterX),is_integer(CircleCenterY) ->
@@ -577,13 +577,13 @@ gradientFillConcentric(#wx_ref{type=ThisT,ref=ThisRef},{RectX,RectY,RectW,RectH}
   wxe_util:cast(?wxDC_GradientFillConcentric_4,
   <<ThisRef:32/?UI,RectX:32/?UI,RectY:32/?UI,RectW:32/?UI,RectH:32/?UI,(wxe_util:colour_bin(InitialColour)):16/binary,(wxe_util:colour_bin(DestColour)):16/binary,CircleCenterX:32/?UI,CircleCenterY:32/?UI>>).
 
-%% @spec (This::wxDC(), Rect::{X::integer(),Y::integer(),W::integer(),H::integer()}, InitialColour::wx:colour(), DestColour::wx:colour()) -> ok
+%% @spec (This::wxDC(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}, InitialColour::wx:colour(), DestColour::wx:colour()) -> ok
 %% @equiv gradientFillLinear(This,Rect,InitialColour,DestColour, [])
 gradientFillLinear(This,Rect={RectX,RectY,RectW,RectH},InitialColour,DestColour)
  when is_record(This, wx_ref),is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH),tuple_size(InitialColour) =:= 3; tuple_size(InitialColour) =:= 4,tuple_size(DestColour) =:= 3; tuple_size(DestColour) =:= 4 ->
   gradientFillLinear(This,Rect,InitialColour,DestColour, []).
 
-%% @spec (This::wxDC(), Rect::{X::integer(),Y::integer(),W::integer(),H::integer()}, InitialColour::wx:colour(), DestColour::wx:colour(), [Option]) -> ok
+%% @spec (This::wxDC(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}, InitialColour::wx:colour(), DestColour::wx:colour(), [Option]) -> ok
 %% Option = {nDirection, WxDirection}
 %% WxDirection = integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcgradientfilllinear">external documentation</a>.
@@ -710,7 +710,7 @@ setBrush(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=BrushT,ref=BrushRef}) ->
 %% setClippingRegion(This::wxDC(), Region::wxRegion:wxRegion()) -> ok </c>
 %% </p>
 %% <p><c>
-%% setClippingRegion(This::wxDC(), Rect::{X::integer(),Y::integer(),W::integer(),H::integer()}) -> ok </c>
+%% setClippingRegion(This::wxDC(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}) -> ok </c>
 %% </p>
 setClippingRegion(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=RegionT,ref=RegionRef}) ->
   ?CLASS(ThisT,wxDC),
@@ -723,7 +723,7 @@ setClippingRegion(#wx_ref{type=ThisT,ref=ThisRef},{RectX,RectY,RectW,RectH})
   wxe_util:cast(?wxDC_SetClippingRegion_1_1,
   <<ThisRef:32/?UI,RectX:32/?UI,RectY:32/?UI,RectW:32/?UI,RectH:32/?UI>>).
 
-%% @spec (This::wxDC(), Pt::{X::integer(),Y::integer()}, Sz::{W::integer(),H::integer()}) -> ok
+%% @spec (This::wxDC(), Pt::{X::integer(), Y::integer()}, Sz::{W::integer(), H::integer()}) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcsetclippingregion">external documentation</a>.
 setClippingRegion(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY},{SzW,SzH})
  when is_integer(PtX),is_integer(PtY),is_integer(SzW),is_integer(SzH) ->

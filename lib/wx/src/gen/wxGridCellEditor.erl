@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -50,7 +50,7 @@ isCreated(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxGridCellEditor_IsCreated,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxGridCellEditor(), Rect::{X::integer(),Y::integer(),W::integer(),H::integer()}) -> ok
+%% @spec (This::wxGridCellEditor(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridcelleditor.html#wxgridcelleditorsetsize">external documentation</a>.
 setSize(#wx_ref{type=ThisT,ref=ThisRef},{RectX,RectY,RectW,RectH})
  when is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH) ->
@@ -76,7 +76,7 @@ show(#wx_ref{type=ThisT,ref=ThisRef},Show, Options)
   wxe_util:cast(?wxGridCellEditor_Show,
   <<ThisRef:32/?UI,(wxe_util:from_bool(Show)):32/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxGridCellEditor(), RectCell::{X::integer(),Y::integer(),W::integer(),H::integer()}, Attr::wxGridCellAttr:wxGridCellAttr()) -> ok
+%% @spec (This::wxGridCellEditor(), RectCell::{X::integer(), Y::integer(), W::integer(), H::integer()}, Attr::wxGridCellAttr:wxGridCellAttr()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridcelleditor.html#wxgridcelleditorpaintbackground">external documentation</a>.
 paintBackground(#wx_ref{type=ThisT,ref=ThisRef},{RectCellX,RectCellY,RectCellW,RectCellH},#wx_ref{type=AttrT,ref=AttrRef})
  when is_integer(RectCellX),is_integer(RectCellY),is_integer(RectCellW),is_integer(RectCellH) ->

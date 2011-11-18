@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -100,7 +100,7 @@ new(Bitmap,SplashStyle,Milliseconds,Parent,Id)
   new(Bitmap,SplashStyle,Milliseconds,Parent,Id, []).
 
 %% @spec (Bitmap::wxBitmap:wxBitmap(), SplashStyle::integer(), Milliseconds::integer(), Parent::wxWindow:wxWindow(), Id::integer(), [Option]) -> wxSplashScreen()
-%% Option = {pos, {X::integer(),Y::integer()}} | {size, {W::integer(),H::integer()}} | {style, integer()}
+%% Option = {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsplashscreen.html#wxsplashscreenwxsplashscreen">external documentation</a>.
 new(#wx_ref{type=BitmapT,ref=BitmapRef},SplashStyle,Milliseconds,#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
  when is_integer(SplashStyle),is_integer(Milliseconds),is_integer(Id),is_list(Options) ->

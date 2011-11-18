@@ -132,7 +132,7 @@ addStretchSpacer(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   wxe_util:call(?wxSizer_AddStretchSpacer,
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxSizer()) -> {W::integer(),H::integer()}
+%% @spec (This::wxSizer()) -> {W::integer(), H::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizer.html#wxsizercalcmin">external documentation</a>.
 calcMin(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxSizer),
@@ -182,7 +182,7 @@ detach(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=WindowRef}) ->
   wxe_util:call(WindowOP,
   <<ThisRef:32/?UI,WindowRef:32/?UI>>).
 
-%% @spec (This::wxSizer(), Window::wxWindow:wxWindow()) -> {W::integer(),H::integer()}
+%% @spec (This::wxSizer(), Window::wxWindow:wxWindow()) -> {W::integer(), H::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizer.html#wxsizerfit">external documentation</a>.
 fit(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=WindowRef}) ->
   ?CLASS(ThisT,wxSizer),
@@ -241,21 +241,21 @@ getItem(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=WindowRef}, Opt
   wxe_util:call(WindowOP,
   <<ThisRef:32/?UI,WindowRef:32/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxSizer()) -> {W::integer(),H::integer()}
+%% @spec (This::wxSizer()) -> {W::integer(), H::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizer.html#wxsizergetsize">external documentation</a>.
 getSize(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxSizer),
   wxe_util:call(?wxSizer_GetSize,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxSizer()) -> {X::integer(),Y::integer()}
+%% @spec (This::wxSizer()) -> {X::integer(), Y::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizer.html#wxsizergetposition">external documentation</a>.
 getPosition(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxSizer),
   wxe_util:call(?wxSizer_GetPosition,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxSizer()) -> {W::integer(),H::integer()}
+%% @spec (This::wxSizer()) -> {W::integer(), H::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizer.html#wxsizergetminsize">external documentation</a>.
 getMinSize(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxSizer),
@@ -596,7 +596,7 @@ setDimension(#wx_ref{type=ThisT,ref=ThisRef},X,Y,Width,Height)
   wxe_util:cast(?wxSizer_SetDimension,
   <<ThisRef:32/?UI,X:32/?UI,Y:32/?UI,Width:32/?UI,Height:32/?UI>>).
 
-%% @spec (This::wxSizer(), Size::{W::integer(),H::integer()}) -> ok
+%% @spec (This::wxSizer(), Size::{W::integer(), H::integer()}) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizer.html#wxsizersetminsize">external documentation</a>.
 setMinSize(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH})
  when is_integer(SizeW),is_integer(SizeH) ->
@@ -612,14 +612,14 @@ setMinSize(#wx_ref{type=ThisT,ref=ThisRef},Width,Height)
   wxe_util:cast(?wxSizer_SetMinSize_2,
   <<ThisRef:32/?UI,Width:32/?UI,Height:32/?UI>>).
 
-%% @spec (This::wxSizer(),X::integer()|term(),Size::{W::integer(),H::integer()}) -> bool()
+%% @spec (This::wxSizer(),X::integer()|term(),Size::{W::integer(), H::integer()}) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizer.html#wxsizersetitemminsize">external documentation</a>.
 %% <br /> Alternatives:
 %% <p><c>
-%% setItemMinSize(This::wxSizer(), Index::integer(), Size::{W::integer(),H::integer()}) -> bool() </c>
+%% setItemMinSize(This::wxSizer(), Index::integer(), Size::{W::integer(), H::integer()}) -> bool() </c>
 %% </p>
 %% <p><c>
-%% setItemMinSize(This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer(), Size::{W::integer(),H::integer()}) -> bool() </c>
+%% setItemMinSize(This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer(), Size::{W::integer(), H::integer()}) -> bool() </c>
 %% </p>
 setItemMinSize(#wx_ref{type=ThisT,ref=ThisRef},Index,{SizeW,SizeH})
  when is_integer(Index),is_integer(SizeW),is_integer(SizeH) ->
