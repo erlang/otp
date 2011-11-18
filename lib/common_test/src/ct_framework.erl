@@ -27,7 +27,7 @@
 -export([init_tc/3, end_tc/3, end_tc/4, get_suite/2, get_all_cases/1]).
 -export([report/2, warn/1, error_notification/4]).
 
--export([get_logopts/0, format_comment/1, overview_html_header/1]).
+-export([get_logopts/0, format_comment/1, get_html_wrapper/3]).
 
 -export([error_in_suite/1, ct_init_per_group/2, ct_end_per_group/2]).
 
@@ -1411,30 +1411,6 @@ format_comment(Comment) ->
     "<font color=\"green\">" ++ Comment ++ "</font>".
 
 %%%-----------------------------------------------------------------
-%%% @spec overview_html_header(TestName) -> Header
-overview_html_header(TestName) ->
-    TestName1 = lists:flatten(io_lib:format("~p", [TestName])),
-    Label = case application:get_env(common_test, test_label) of
-		{ok,Lbl} when Lbl =/= undefined ->
-		    "<H1><FONT color=\"green\">" ++ Lbl ++ "</FONT></H1>\n";
-		_        ->
-		    ""
-	    end,
-    Bgr = case ct_logs:basic_html() of
-	      true ->
-		  "";
-	      false ->
-		  CTPath = code:lib_dir(common_test),
-		  TileFile = filename:join(filename:join(CTPath,"priv"),"tile1.jpg"),
-		  " background=\"" ++ TileFile ++ "\""
-	  end,
-
-    ["<html>\n",
-     "<head><title>Test ", TestName1, " results</title>\n",
-     "<meta http-equiv=\"cache-control\" content=\"no-cache\">\n",
-     "</head>\n",
-     "<body", Bgr, " bgcolor=\"white\" text=\"black\" ",
-     "link=\"blue\" vlink=\"purple\" alink=\"red\">\n",
-     Label,
-     "<H2>Results from test ", TestName1, "</H2>\n"].
-
+%%% @spec get_html_wrapper(TestName, PrintLabel, Cwd) -> Header
+get_html_wrapper(TestName, PrintLabel, Cwd) ->
+    ct_logs:get_ts_html_wrapper(TestName, PrintLabel, Cwd).

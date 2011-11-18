@@ -29,11 +29,13 @@
 -module(ct_logs).
 
 -export([init/1,close/2,init_tc/1,end_tc/1]).
--export([get_log_dir/0,log/3,start_log/1,cont_log/2,end_log/0]).
+-export([get_log_dir/0,get_log_dir/1]).
+-export([log/3,start_log/1,cont_log/2,end_log/0]).
 -export([set_stylesheet/2,clear_stylesheet/1]).
 -export([add_external_logs/1,add_link/3]).
 -export([make_last_run_index/0]).
 -export([make_all_suites_index/1,make_all_runs_index/1]).
+-export([get_ts_html_wrapper/3]).
 
 %% Logging stuff directly from testcase
 -export([tc_log/3,tc_print/3,tc_pal/3,ct_log/3,
@@ -53,6 +55,7 @@
 -define(all_runs_name, "all_runs.html").
 -define(index_name, "index.html").
 -define(totals_name, "totals.info").
+-define(css_default, "ct_default.css").
 
 -define(table_color1,"#ADD8E6").
 -define(table_color2,"#E4F0FE").
@@ -162,7 +165,12 @@ clear_stylesheet(TC) ->
 %%%-----------------------------------------------------------------
 %%% @spec get_log_dir() -> {ok,Dir} | {error,Reason}
 get_log_dir() ->
-    call(get_log_dir).
+    call({get_log_dir,false}).
+
+%%%-----------------------------------------------------------------
+%%% @spec get_log_dir(ReturnAbsName) -> {ok,Dir} | {error,Reason}
+get_log_dir(ReturnAbsName) ->
+    call({get_log_dir,ReturnAbsName}).
 
 %%%-----------------------------------------------------------------
 %%% make_last_run_index() -> ok
@@ -205,6 +213,7 @@ cast(Msg) ->
 %%% <p>This function is called by ct_framework:init_tc/3</p>
 init_tc(RefreshLog) ->
     call({init_tc,self(),group_leader(),RefreshLog}),
+    io:format(xhtml("", "<br />")),
     ok.
 
 %%%-----------------------------------------------------------------
@@ -214,6 +223,7 @@ init_tc(RefreshLog) ->
 %%%
 %%% <p>This function is called by ct_framework:end_tc/3</p>
 end_tc(TCPid) ->
+    io:format(xhtml("<br>", "<br />")),
     %% use call here so that the TC process will wait and receive
     %% possible exit signals from ct_logs before end_tc returns ok 
     call({end_tc,TCPid}).
@@ -448,7 +458,6 @@ logger(Parent,Mode) ->
 		timer:sleep(1000),
 		Time1 = calendar:local_time(),
 		Dir1 = make_dirname(Time1),
-
 		{Time1,Dir1};
 	    false ->
 		{Time0,Dir0}
@@ -456,8 +465,44 @@ logger(Parent,Mode) ->
     %%! <---
 
     file:make_dir(Dir),
+    AbsDir = ?abs(Dir),
+    put(ct_run_dir, AbsDir),
+
+    case basic_html() of
+	true ->
+	    put(basic_html, true);
+	BasicHtml ->
+	    put(basic_html, BasicHtml),
+	    %% copy stylesheet to log dir (both top dir and test run
+	    %% dir) so logs are independent of Common Test installation
+	    {ok,Cwd} = file:get_cwd(),
+	    CTPath = code:lib_dir(common_test),
+	    CSSFileSrc = filename:join(filename:join(CTPath, "priv"),
+				       ?css_default),
+	    CSSFileDestTop = filename:join(Cwd, ?css_default),
+	    CSSFileDestRun = filename:join(AbsDir, ?css_default),
+	    case file:copy(CSSFileSrc, CSSFileDestTop) of
+		{error,Reason0} ->
+		    io:format(user, "ERROR! "++
+			      "CSS file ~p could not be copied to ~p. "++
+			      "Reason: ~p~n",
+			      [CSSFileSrc,CSSFileDestTop,Reason0]),
+		    exit({css_file_error,CSSFileDestTop});
+		_ ->
+		    case file:copy(CSSFileSrc, CSSFileDestRun) of
+			{error,Reason1} ->
+			    io:format(user, "ERROR! "++
+				      "CSS file ~p could not be copied to ~p. "++
+				      "Reason: ~p~n",
+				      [CSSFileSrc,CSSFileDestRun,Reason1]),
+			    exit({css_file_error,CSSFileDestRun});
+			_ ->
+			    ok
+		    end
+	    end
+    end,
     ct_event:notify(#event{name=start_logging,node=node(),
-			   data=?abs(Dir)}),
+			   data=AbsDir}),
     make_all_runs_index(start),
     make_all_suites_index(start),
     case Mode of
@@ -472,7 +517,7 @@ logger(Parent,Mode) ->
     Parent ! {started,self(),{Time,filename:absname("")}},
     set_evmgr_gl(CtLogFd),
     logger_loop(#logger_state{parent=Parent,
-			      log_dir=Dir,
+			      log_dir=AbsDir,
 			      start_time=Time,
 			      orig_GL=group_leader(),
 			      ct_log_fd=CtLogFd,
@@ -536,12 +581,15 @@ logger_loop(State) ->
 	    set_evmgr_gl(State#logger_state.ct_log_fd),
 	    return(From,ok),
 	    logger_loop(State#logger_state{tc_groupleaders=rm_tc_gl(TCPid,State)});
-	{get_log_dir,From} ->
+	{{get_log_dir,true},From} ->
 	    return(From,{ok,State#logger_state.log_dir}),
+	    logger_loop(State);
+	{{get_log_dir,false},From} ->
+	    return(From,{ok,filename:basename(State#logger_state.log_dir)}),
 	    logger_loop(State);
 	{make_last_run_index,From} ->
 	    make_last_run_index(State#logger_state.start_time),
-	    return(From,State#logger_state.log_dir),
+	    return(From,filename:basename(State#logger_state.log_dir)),
 	    logger_loop(State);
 	{set_stylesheet,_,SSFile} when State#logger_state.stylesheet == SSFile ->
 	    logger_loop(State);
@@ -657,7 +705,7 @@ set_evmgr_gl(GL) ->
 
 open_ctlog() ->
     {ok,Fd} = file:open(?ct_log_name,[write]),
-    io:format(Fd,header("Common Test Framework"),[]),
+    io:format(Fd, header("Common Test Framework Log"), []),
     case file:consult(ct_run:variables_file_name("../")) of
 	{ok,Vars} ->
 	    io:format(Fd, config_table(Vars), []);
@@ -672,17 +720,22 @@ open_ctlog() ->
     end,
     print_style(Fd,undefined),
     io:format(Fd, 
-	      "<br><br><h2>Progress Log</h2>\n"
-	      "<pre>\n",[]),
+	      xhtml("<br><br><h2>Progress Log</h2>\n<pre>\n",
+		    "<br /><br /><h4>PROGRESS LOG</h4>\n<pre>\n"), []),
     Fd.
 
 print_style(Fd,undefined) ->
-    io:format(Fd,
-	      "<style>\n"
-	      "div.ct_internal { background:lightgrey; color:black }\n"
-	      "div.default     { background:lightgreen; color:black }\n"
-	      "</style>\n",
-	      []);
+    case basic_html() of
+	true ->
+	    io:format(Fd,
+		      "<style>\n"
+		      "div.ct_internal { background:lightgrey; color:black; }\n"
+		      "div.default     { background:lightgreen; color:black; }\n"
+		      "</style>\n",
+		      []);
+	_ ->
+	    ok
+    end;
 
 print_style(Fd,StyleSheet) ->
     case file:read_file(StyleSheet) of
@@ -723,7 +776,7 @@ print_style_error(Fd,StyleSheet,Reason) ->
     print_style(Fd,undefined).    
 
 close_ctlog(Fd) ->
-    io:format(Fd,"</pre>",[]),
+    io:format(Fd,"\n</pre>\n",[]),
     io:format(Fd,footer(),[]),
     file:close(Fd).
 
@@ -854,8 +907,8 @@ make_one_index_entry1(SuiteName, Link, Label, Success, Fail, UserSkip, AutoSkip,
 			    CrashDumpName = SuiteName ++ "_erl_crash.dump",
 			    case filelib:is_file(CrashDumpName) of
 				true ->
-				    ["&nbsp;<A HREF=\"", CrashDumpName,
-				     "\">(CrashDump)</A>"];
+				    ["&nbsp;<a href=\"", CrashDumpName,
+				     "\">(CrashDump)</a>"];
 				false ->
 				    ""
 			    end
@@ -869,32 +922,41 @@ make_one_index_entry1(SuiteName, Link, Label, Success, Fail, UserSkip, AutoSkip,
 			    0 -> "-";
 			    _ -> NodeOrDate
 			end,
-		N = ["<TD ALIGN=right><FONT SIZE=-1>",Node1,"</FONT></TD>\n"],
-		L = ["<TD ALIGN=center><FONT SIZE=-1><B>",Label,"</FONT></B></TD>\n"],
-		T = ["<TD><FONT SIZE=-1>",timestamp(CtRunDir),"</FONT></TD>\n"],
+		TS = timestamp(CtRunDir),
+		N = xhtml(["<td align=right><font size=\"-1\">",Node1,
+			   "</font></td>\n"],
+			  ["<td align=right>",Node1,"</td>\n"]),
+		L = xhtml(["<td align=center><font size=\"-1\"><b>",Label,
+			   "</font></b></td>\n"],
+			  ["<td align=center><b>",Label,"</b></td>\n"]),
+		T = xhtml(["<td><font size=\"-1\">",TS,"</font></td>\n"],
+			  ["<td>",TS,"</td>\n"]),
 		CtLogFile = filename:join(CtRunDir,?ct_log_name),
 		OldRunsLink = 
 		    case OldRuns of
 			[] -> "none";
-			_ ->  "<A HREF=\""++?all_runs_name++"\">Old Runs</A>"
+			_ ->  "<a href=\""++?all_runs_name++"\">Old Runs</a>"
 		    end,
-		A=["<TD><FONT SIZE=-1><A HREF=\"",CtLogFile,"\">CT Log</A></FONT></TD>\n",
-		   "<TD><FONT SIZE=-1>",OldRunsLink,"</FONT></TD>\n"],
+		A = xhtml(["<td><font size=\"-1\"><a href=\"",CtLogFile,
+			   "\">CT Log</a></font></td>\n",
+			   "<td><font size=\"-1\">",OldRunsLink,"</font></td>\n"],
+			  ["<td><a href=\"",CtLogFile,"\">CT Log</a></td>\n",
+			   "<td>",OldRunsLink,"</td>\n"]),
 		{L,T,N,A};
 	    false ->
 		{"","","",""}
 	end,
     NotBuiltStr =
 	if NotBuilt == 0 ->
-		["<TD ALIGN=right>",integer_to_list(NotBuilt),"</TD>\n"];
+		["<td align=right>",integer_to_list(NotBuilt),"</td>\n"];
 	   true ->
-		["<TD ALIGN=right><A HREF=\"",filename:join(CtRunDir,?ct_log_name),"\">",
-		integer_to_list(NotBuilt),"</A></TD>\n"]
+		["<td align=right><a href=\"",filename:join(CtRunDir,?ct_log_name),"\">",
+		integer_to_list(NotBuilt),"</a></td>\n"]
 	end,
     FailStr =
 	if Fail > 0 ->  
-		["<FONT color=\"red\">",
-		 integer_to_list(Fail),"</FONT>"];
+		["<font color=\"red\">",
+		 integer_to_list(Fail),"</font>"];
 	   true ->
 		integer_to_list(Fail)
 	end,
@@ -902,31 +964,33 @@ make_one_index_entry1(SuiteName, Link, Label, Success, Fail, UserSkip, AutoSkip,
 	if AutoSkip == undefined -> {UserSkip,"?","?"};
 	   true ->
 		ASStr = if AutoSkip > 0 ->
-				["<FONT color=\"brown\">",
-				 integer_to_list(AutoSkip),"</FONT>"];
+				["<font color=\"brown\">",
+				 integer_to_list(AutoSkip),"</font>"];
 			   true -> integer_to_list(AutoSkip)
 			end,
 		{UserSkip+AutoSkip,integer_to_list(UserSkip),ASStr}
 	end,
-    ["<TR valign=top>\n",
-     "<TD><FONT SIZE=-1><A HREF=\"",LogFile,"\">",SuiteName,"</A>",CrashDumpLink,"</FONT></TD>\n",
-     Lbl,
-     Timestamp,
-     "<TD ALIGN=right>",integer_to_list(Success),"</TD>\n",
-     "<TD ALIGN=right>",FailStr,"</TD>\n",
-     "<TD ALIGN=right>",integer_to_list(AllSkip),
-     " (",UserSkipStr,"/",AutoSkipStr,")</TD>\n",  
-     NotBuiltStr,
-     Node,
-     AllInfo,
-     "</TR>\n"].
+    [xhtml("<tr valign=top>\n",
+	   ["<tr class=\"",odd_or_even(),"\">\n"]),
+     xhtml("<td><font size=\"-1\"><a href=\"", "<td><a href=\""),
+     LogFile,"\">",SuiteName,"</a>", CrashDumpLink,
+     xhtml("</font></td>\n", "</td>\n"),
+     Lbl, Timestamp,
+     "<td align=right>",integer_to_list(Success),"</td>\n",
+     "<td align=right>",FailStr,"</td>\n",
+     "<td align=right>",integer_to_list(AllSkip),
+     " (",UserSkipStr,"/",AutoSkipStr,")</td>\n",  
+     NotBuiltStr, Node, AllInfo, "</tr>\n"].
+
 total_row(Success, Fail, UserSkip, AutoSkip, NotBuilt, All) ->
     {Label,TimestampCell,AllInfo} =
 	case All of
 	    true ->
-		{"<TD>&nbsp;</TD>\n",
-		 "<TD>&nbsp;</TD>\n",
-		 "<TD>&nbsp;</TD>\n<TD>&nbsp;</TD>\n"};
+		{"<td>&nbsp;</td>\n",
+		 "<td>&nbsp;</td>\n",
+		 "<td>&nbsp;</td>\n"
+		 "<td>&nbsp;</td>\n"
+		 "<td>&nbsp;</td>\n"};
 	    false ->
 		{"","",""}
 	end,
@@ -936,17 +1000,15 @@ total_row(Success, Fail, UserSkip, AutoSkip, NotBuilt, All) ->
 	   true -> {UserSkip+AutoSkip,
 		    integer_to_list(UserSkip),integer_to_list(AutoSkip)}
 	end,
-    ["<TR valign=top>\n",
-     "<TD><B>Total</B></TD>",
-     Label,
-     TimestampCell,
-     "<TD ALIGN=right><B>",integer_to_list(Success),"<B></TD>\n",
-     "<TD ALIGN=right><B>",integer_to_list(Fail),"<B></TD>\n",
-     "<TD ALIGN=right>",integer_to_list(AllSkip),
-     " (",UserSkipStr,"/",AutoSkipStr,")</TD>\n",  
-     "<TD ALIGN=right><B>",integer_to_list(NotBuilt),"<B></TD>\n",
-     AllInfo,
-     "</TR>\n"].
+    [xhtml("<tr valign=top>\n", 
+	   ["<tr class=\"",odd_or_even(),"\">\n"]),
+     "<td><b>Total</b></td>\n", Label, TimestampCell,
+     "<td align=right><b>",integer_to_list(Success),"<b></td>\n",
+     "<td align=right><b>",integer_to_list(Fail),"<b></td>\n",
+     "<td align=right>",integer_to_list(AllSkip),
+     " (",UserSkipStr,"/",AutoSkipStr,")</td>\n",  
+     "<td align=right><b>",integer_to_list(NotBuilt),"<b></td>\n",
+     AllInfo, "</tr>\n"].
 
 not_built(_BaseName,_LogDir,_All,[]) ->
     0;
@@ -1005,22 +1067,28 @@ index_header(Label, StartTime) ->
 	    undefined ->
 		header("Test Results", format_time(StartTime));
 	    _ ->
-		header("Test Results for \"" ++ Label ++ "\"",
+		header("Test Results for '" ++ Label ++ "'",
 		       format_time(StartTime))
 	end,
     [Head |
-     ["<CENTER>\n",
-      "<P><A HREF=\"",?ct_log_name,"\">Common Test Framework Log</A></P>",
-      "<TABLE border=\"3\" cellpadding=\"5\" "
-      "BGCOLOR=\"",?table_color3,"\">\n"
-      "<th><B>Test Name</B></th>\n",
-            "<th><font color=\"",?table_color3,"\">_</font>Ok"
-          "<font color=\"",?table_color3,"\">_</font></th>\n"
+     ["<center>\n",
+      xhtml(["<p><a href=\"",?ct_log_name,
+	     "\">Common Test Framework Log</a></p>"],
+	    ["<br />"
+	     "<div id=\"button_holder\" class=\"btn\">\n"
+	     "<a href=\"",?ct_log_name,
+	     "\">COMMON TEST FRAMEWORK LOG</a>\n</div>"]),
+      xhtml("<br>\n", "<br /><br /><br />\n"),
+      xhtml(["<table border=\"3\" cellpadding=\"5\" "
+	     "bgcolor=\"",?table_color3,"\">\n"], "<table>\n"),
+      "<th><b>Test Name</b></th>\n",
+      xhtml(["<th><font color=\"",?table_color3,"\">_</font>Ok"
+	     "<font color=\"",?table_color3,"\">_</font></th>\n"],
+	    "<th>Ok</th>\n"),
       "<th>Failed</th>\n",
-      "<th>Skipped<br>(User/Auto)</th>\n"
-      "<th>Missing<br>Suites</th>\n"
+      "<th>Skipped", xhtml("<br>", "<br />"), "(User/Auto)</th>\n"
+      "<th>Missing", xhtml("<br>", "<br />"), "Suites</th>\n"
       "\n"]].
-
 
 all_suites_index_header() ->
     {ok,Cwd} = file:get_cwd(),
@@ -1028,18 +1096,23 @@ all_suites_index_header() ->
 
 all_suites_index_header(IndexDir) ->
     LogDir = filename:basename(IndexDir),
-    AllRuns = "All test runs in \"" ++ LogDir ++ "\"",
+    AllRuns = xhtml(["All test runs in \"" ++ LogDir ++ "\""],
+		    "ALL RUNS"),
+    AllRunsLink = xhtml(["<a href=\"",?all_runs_name,"\">",AllRuns,"</a>\n"],
+			["<div id=\"button_holder\" class=\"btn\">\n"
+			 "<a href=\"",?all_runs_name,"\">",AllRuns,"</a>\n</div>"]),
     [header("Test Results") | 
-     ["<CENTER>\n",
-      "<A HREF=\"",?all_runs_name,"\">",AllRuns,"</A>\n",
-      "<br><br>\n",
-      "<TABLE border=\"3\" cellpadding=\"5\" "
-      "BGCOLOR=\"",?table_color2,"\">\n"
+     ["<center>\n",
+      AllRunsLink,
+      xhtml("<br><br>\n", "<br /><br />\n"),
+      xhtml(["<table border=\"3\" cellpadding=\"5\" "
+	     "bgcolor=\"",?table_color2,"\">\n"], "<table>\n"),
       "<th>Test Name</th>\n",
       "<th>Label</th>\n",
       "<th>Test Run Started</th>\n",
-      "<th><font color=\"",?table_color2,"\">_</font>Ok"
-          "<font color=\"",?table_color2,"\">_</font></th>\n"
+      xhtml(["<th><font color=\"",?table_color2,"\">_</font>Ok"
+	     "<font color=\"",?table_color2,"\">_</font></th>\n"],
+	    "<th>Ok</th>\n"),
       "<th>Failed</th>\n",
       "<th>Skipped<br>(User/Auto)</th>\n"
       "<th>Missing<br>Suites</th>\n"
@@ -1052,17 +1125,25 @@ all_runs_header() ->
     {ok,Cwd} = file:get_cwd(),
     LogDir = filename:basename(Cwd),
     Title = "All test runs in \"" ++ LogDir ++ "\"",
+    IxLink = [xhtml(["<p><a href=\"",?index_name,
+		     "\">Test Index Page</a></p>"],
+		    ["<div id=\"button_holder\" class=\"btn\">\n"
+		     "<a href=\"",?index_name,
+		     "\">TEST INDEX PAGE</a>\n</div>"]),
+	      xhtml("<br>\n", "<br /><br />\n")],
     [header(Title) |
-     ["<CENTER><TABLE border=\"3\" cellpadding=\"5\" "
-      "BGCOLOR=\"",?table_color1,"\">\n"
-      "<th><B>History</B></th>\n"
-      "<th><B>Node</B></th>\n"
-      "<th><B>Label</B></th>\n"
+     ["<center>\n", IxLink,
+      xhtml(["<table border=\"3\" cellpadding=\"5\" "
+	     "bgcolor=\"",?table_color1,"\">\n"], "<table>\n"),
+      "<th><b>History</b></th>\n"
+      "<th><b>Node</b></th>\n"
+      "<th><b>Label</b></th>\n"
       "<th>Tests</th>\n"
-      "<th><B>Test Names</B></th>\n"
-      "<th>Total</th>\n"
-      "<th><font color=\"",?table_color1,"\">_</font>Ok"
-          "<font color=\"",?table_color1,"\">_</font></th>\n"
+      "<th><b>Test Names</b></th>\n"
+      "<th>Total</th>\n",
+      xhtml(["<th><font color=\"",?table_color1,"\">_</font>Ok"
+	     "<font color=\"",?table_color1,"\">_</font></th>\n"],
+	    "<th>Ok</th>\n"),
       "<th>Failed</th>\n"
       "<th>Skipped<br>(User/Auto)</th>\n"
       "<th>Missing<br>Suites</th>\n"
@@ -1075,60 +1156,56 @@ header(Title, SubTitle) ->
 
 header1(Title, SubTitle) ->
     SubTitleHTML = if SubTitle =/= "" ->
-			   ["<CENTER>\n",
-			    "<H2>" ++ SubTitle ++ "</H2>\n",
-			    "</CENTER>\n<BR>\n"];
-		      true -> "<BR>\n"
+			   ["<center>\n",
+			    "<h3>" ++ SubTitle ++ "</h3>\n",
+			    xhtml("</center>\n<br>\n", "</center>\n<br />\n")];
+		      true -> xhtml("<br>\n", "<br />\n")
 		   end,
-    ["<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 3.2 Final//EN\">\n"
-     "<!-- autogenerated by '"++atom_to_list(?MODULE)++"'. -->\n"
-     "<HTML>\n",
-     "<HEAD>\n",
-
-     "<TITLE>" ++ Title ++ " " ++ SubTitle ++ "</TITLE>\n",
-     "<META HTTP-EQUIV=\"CACHE-CONTROL\" CONTENT=\"NO-CACHE\">\n",
-
-     "</HEAD>\n",
-
-     body_tag(),
-
-     "<!-- ---- DOCUMENT TITLE  ---- -->\n",
-
-     "<CENTER>\n",
-     "<H1>" ++ Title ++ "</H1>\n",
-     "</CENTER>\n",
-     SubTitleHTML,
-
-     "<!-- ---- CONTENT ---- -->\n"].
+    CSSFile = xhtml(fun() -> "" end, 
+		    fun() -> make_relative(locate_default_css_file()) end),
+    [xhtml(["<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 3.2 Final//EN\">\n",
+	    "<html>\n"],
+	   ["<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\"\n",
+	    "\"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">\n",
+	    "<html xmlns=\"http://www.w3.org/1999/xhtml\" xml:lang=\"en\" lang=\"en\">\n"]),
+    "<!-- autogenerated by '"++atom_to_list(?MODULE)++"' -->\n",
+    "<head>\n",
+    "<title>" ++ Title ++ " " ++ SubTitle ++ "</title>\n",
+    "<meta http-equiv=\"cache-control\" content=\"no-cache\">\n",
+    xhtml("",
+	  ["<link rel=\"stylesheet\" href=\"",CSSFile,"\" type=\"text/css\">"]),
+    "</head>\n",
+    body_tag(),
+    "<center>\n",
+    "<h1>" ++ Title ++ "</h1>\n",
+    "</center>\n",
+    SubTitleHTML,"\n"].
 
 index_footer() ->
-    ["</TABLE>\n"
-     "</CENTER>\n" | footer()].
+    ["</table>\n"
+     "</center>\n" | footer()].
 
 footer() ->
-     ["<P><CENTER>\n"
-      "<BR><BR>\n"
-      "<HR>\n"
-      "<P><FONT SIZE=-1>\n"
+     ["<center>\n",
+      xhtml("<br><br>\n<hr>\n", "<br /><br />\n"),
+      xhtml("<p><font size=\"-1\">\n", "<div class=\"copyright\">"),
       "Copyright &copy; ", year(),
-      " <A HREF=\"http://erlang.ericsson.se\">Open Telecom Platform</A><BR>\n"
-      "Updated: <!date>", current_time(), "<!/date><BR>\n"
-      "</FONT>\n"
-      "</CENTER>\n"
+      " <a href=\"http://www.erlang.org\">Open Telecom Platform</a>",
+      xhtml("<br>\n", "<br />\n"),
+      "Updated: <!date>", current_time(), "<!/date>",
+      xhtml("<br>\n", "<br />\n"),
+      xhtml("</font></p>\n", "</div>\n"),
+      "</center>\n"
       "</body>\n"].
 
 
 body_tag() ->
-    case basic_html() of
-	true ->
-	    "<body bgcolor=\"#FFFFFF\" text=\"#000000\" link=\"#0000FF\" "
-		"vlink=\"#800080\" alink=\"#FF0000\">\n";
-	false ->
-	    CTPath = code:lib_dir(common_test),
-	    TileFile = filename:join(filename:join(CTPath,"priv"),"tile1.jpg"),
-	    "<body background=\"" ++ TileFile ++ "\" bgcolor=\"#FFFFFF\" text=\"#000000\" link=\"#0000FF\" "
-		"vlink=\"#800080\" alink=\"#FF0000\">\n"
-    end.
+    CTPath = code:lib_dir(common_test),
+    TileFile = filename:join(filename:join(CTPath,"priv"),"tile1.jpg"),
+    xhtml("<body background=\"" ++ TileFile ++
+	      "\" bgcolor=\"#FFFFFF\" text=\"#000000\" link=\"#0000FF\" "
+	  "vlink=\"#800080\" alink=\"#FF0000\">\n",
+	  "<body>\n").
 
 current_time() ->
     format_time(calendar:local_time()).
@@ -1258,20 +1335,25 @@ config_table(Vars) ->
     [config_table_header()|config_table1(Vars)].
 
 config_table_header() ->
-    ["<h2>Configuration</h2>\n",
-     "<table border=\"3\" cellpadding=\"5\" bgcolor=\"",?table_color1,
-     "\"\n",
+    [
+     xhtml(["<h2>Configuration</h2>\n"
+	    "<table border=\"3\" cellpadding=\"5\" bgcolor=\"",?table_color1,"\"\n"],
+	   "<h4>CONFIGURATION</h4>\n<table>\n"),
      "<tr><th>Key</th><th>Value</th></tr>\n"].
 
 config_table1([{Key,Value}|Vars]) ->
-    ["<tr><td>", atom_to_list(Key), "</td>\n",
-     "<td><pre>",io_lib:format("~p",[Value]),"</pre></td></tr>\n" | 
+    [xhtml(["<tr><td>", atom_to_list(Key), "</td>\n",
+	   "<td><pre>",io_lib:format("~p",[Value]),"</pre></td></tr>\n"],
+	   ["<tr class=\"", odd_or_even(), "\">\n",
+	    "<td>", atom_to_list(Key), "</td>\n",
+	    "<td>", io_lib:format("~p",[Value]), "</td>\n</tr>\n"]) | 
      config_table1(Vars)];
 config_table1([]) ->
     ["</table>\n"].
 
 
 make_all_runs_index(When) ->
+    put(basic_html, basic_html()),
     AbsName = ?abs(?all_runs_name),
     notify_and_lock_file(AbsName),
     if When == start -> ok;
@@ -1280,8 +1362,7 @@ make_all_runs_index(When) ->
     Dirs = filelib:wildcard(logdir_prefix()++"*.*"),
     DirsSorted = (catch sort_all_runs(Dirs)),
     Header = all_runs_header(),
-    BasicHtml = basic_html(),
-    Index = [runentry(Dir, BasicHtml) || Dir <- DirsSorted],
+    Index = [runentry(Dir) || Dir <- DirsSorted],
     Result = file:write_file(AbsName,Header++Index++index_footer()),
     if When == start -> ok;
        true -> io:put_chars("done\n")
@@ -1309,22 +1390,22 @@ sort_all_runs(Dirs) ->
 interactive_link() ->
     [Dir|_] = lists:reverse(filelib:wildcard(logdir_prefix()++"*.*")),
     CtLog = filename:join(Dir,"ctlog.html"),
-    Body = ["Log from last interactive run: <A HREF=\"",CtLog,"\">",
-	    timestamp(Dir),"</A>"],
+    Body = ["Log from last interactive run: <a href=\"",CtLog,"\">",
+	    timestamp(Dir),"</a>"],
     file:write_file("last_interactive.html",Body),
     io:format("~n~nUpdated ~s\n"
 	      "Any CT activities will be logged here\n",
 	      [?abs("last_interactive.html")]).
 
-runentry(Dir, BasicHtml) ->
+runentry(Dir) ->
     TotalsFile = filename:join(Dir,?totals_name),
     TotalsStr =
 	case read_totals_file(TotalsFile) of
 	    {Node,Label,Logs,{TotSucc,TotFail,UserSkip,AutoSkip,NotBuilt}} ->
 		TotFailStr =
 		    if TotFail > 0 ->  
-			    ["<FONT color=\"red\">",
-			     integer_to_list(TotFail),"</FONT>"];
+			    ["<font color=\"red\">",
+			     integer_to_list(TotFail),"</font>"];
 		       true ->
 			    integer_to_list(TotFail)
 		    end,
@@ -1332,8 +1413,8 @@ runentry(Dir, BasicHtml) ->
 		    if AutoSkip == undefined -> {UserSkip,"?","?"};
 		       true ->
 			    ASStr = if AutoSkip > 0 ->
-					    ["<FONT color=\"brown\">",
-					     integer_to_list(AutoSkip),"</FONT>"];
+					    ["<font color=\"brown\">",
+					     integer_to_list(AutoSkip),"</font>"];
 				       true -> integer_to_list(AutoSkip)
 				    end,
 			    {UserSkip+AutoSkip,integer_to_list(UserSkip),ASStr}
@@ -1365,30 +1446,49 @@ runentry(Dir, BasicHtml) ->
 			    lists:flatten(io_lib:format("~s...",[Trunc]))
 		    end,
 		Total = TotSucc+TotFail+AllSkip,
-		A = ["<TD ALIGN=center><FONT SIZE=-1>",Node,"</FONT></TD>\n",
-		     "<TD ALIGN=center><FONT SIZE=-1><B>",Label,"</B></FONT></TD>\n",
-		     "<TD ALIGN=right>",NoOfTests,"</TD>\n"],
-		B = if BasicHtml ->
-			    ["<TD ALIGN=center><FONT SIZE=-1>",TestNamesTrunc,"</FONT></TD>\n"];
-		       true ->		     
-			    ["<TD ALIGN=center TITLE='",TestNames,"'><FONT SIZE=-1> ",
-			     TestNamesTrunc,"</FONT></TD>\n"]
-		    end,
-		C = ["<TD ALIGN=right>",integer_to_list(Total),"</TD>\n",
-		     "<TD ALIGN=right>",integer_to_list(TotSucc),"</TD>\n",
-		     "<TD ALIGN=right>",TotFailStr,"</TD>\n",
-		     "<TD ALIGN=right>",integer_to_list(AllSkip),
-		     " (",UserSkipStr,"/",AutoSkipStr,")</TD>\n",
-		     "<TD ALIGN=right>",integer_to_list(NotBuilt),"</TD>\n"],
+		A = xhtml(["<td align=center><font size=\"-1\">",Node,
+			   "</font></td>\n",
+			   "<td align=center><font size=\"-1\"><b>",Label,
+			   "</b></font></td>\n",
+			   "<td align=right>",NoOfTests,"</td>\n"],
+			  ["<td align=center>",Node,"</td>\n",
+			   "<td align=center><b>",Label,"</b></td>\n",
+			   "<td align=right>",NoOfTests,"</td>\n"]),
+		B = xhtml(["<td align=center title='",TestNames,"'><font size=\"-1\"> ",
+			   TestNamesTrunc,"</font></td>\n"],
+			  ["<td align=center title='",TestNames,"'> ",
+			   TestNamesTrunc,"</td>\n"]),
+		C = ["<td align=right>",integer_to_list(Total),"</td>\n",
+		     "<td align=right>",integer_to_list(TotSucc),"</td>\n",
+		     "<td align=right>",TotFailStr,"</td>\n",
+		     "<td align=right>",integer_to_list(AllSkip),
+		     " (",UserSkipStr,"/",AutoSkipStr,")</td>\n",
+		     "<td align=right>",integer_to_list(NotBuilt),"</td>\n"],
 		A++B++C;
 	    _ ->
-		["<TD ALIGN=center><FONT size=-1 color=\"red\">",
-		 "Test data missing or corrupt","</FONT></TD>\n"]
+		A = xhtml(["<td align=center><font size=\"-1\" color=\"red\">"
+			   "Test data missing or corrupt</font></td>\n",
+			   "<td align=center><font size=\"-1\">?</font></td>\n",
+			   "<td align=right>?</td>\n"],
+			  ["<td align=center><font color=\"red\">"
+			   "Test data missing or corrupt</font></td>\n",
+			   "<td align=center>?</td>\n",
+			   "<td align=right>?</td>\n"]),
+		B = xhtml(["<td align=center><font size=\"-1\">?</font></td>\n"],
+			  ["<td align=center>?</td>\n"]),
+		C = ["<td align=right>?</td>\n",
+		     "<td align=right>?</td>\n",
+		     "<td align=right>?</td>\n",
+		     "<td align=right>?</td>\n",
+		     "<td align=right>?</td>\n"],
+		A++B++C
 	end,	    
     Index = filename:join(Dir,?index_name),
-    ["<TR>\n"
-     "<TD><FONT SIZE=-1><A HREF=\"",Index,"\">",timestamp(Dir),"</A>",TotalsStr,"</FONT></TD>\n"
-     "</TR>\n"].
+    [xhtml("<tr>\n", ["<tr class=\"",odd_or_even(),"\">\n"]),
+     xhtml(["<td><font size=\"-1\"><a href=\"",Index,"\">",timestamp(Dir),"</a>",
+	    TotalsStr,"</font></td>\n"],
+	   ["<td><a href=\"",Index,"\">",timestamp(Dir),"</a>",TotalsStr,"</td>\n"]),
+     "</tr>\n"].
 
 write_totals_file(Name,Label,Logs,Totals) ->
     AbsName = ?abs(Name),
@@ -1482,6 +1582,7 @@ timestamp(Dir) ->
 %% Creates the top level index file. When == start | refresh.
 %% A copy of the dir tree under logdir is cached as a result.
 make_all_suites_index(When) when is_atom(When) ->
+    put(basic_html, basic_html()),
     AbsIndexName = ?abs(?index_name),
     notify_and_lock_file(AbsIndexName),
     LogDirs = filelib:wildcard(logdir_prefix()++".*/*"++?logdir_ext),
@@ -1493,6 +1594,7 @@ make_all_suites_index(When) when is_atom(When) ->
 %% This updates the top level index file using cached data from
 %% the initial index file creation.
 make_all_suites_index(NewTestData = {_TestName,DirName}) ->
+    put(basic_html, basic_html()),
     %% AllLogDirs = [{TestName,Label,Missing,{LastLogDir,Summary},OldDirs}|...]
     {AbsIndexName,LogDirData} = ct_util:get_testdata(test_index),
 
@@ -1850,6 +1952,38 @@ last_test([], Latest) ->
     Latest.
 
 %%%-----------------------------------------------------------------
+%%% @spec xhtml(HTML, XHTML) -> HTML | XHTML
+%%%
+%%% @doc
+%%%
+xhtml(HTML, XHTML) when is_function(HTML),
+			is_function(XHTML) ->
+    case get(basic_html) of
+	true -> HTML();
+	_    -> XHTML()
+    end;
+xhtml(HTML, XHTML) ->
+    case get(basic_html) of
+	true -> HTML;
+	_    -> XHTML
+    end.
+
+%%%-----------------------------------------------------------------
+%%% @spec odd_or_even() -> "odd" | "even"
+%%%
+%%% @doc
+%%%
+odd_or_even() ->
+    case get(odd_or_even) of
+	even ->
+	    put(odd_or_even, odd),
+	    "even";
+	_ ->
+	    put(odd_or_even, even),
+	    "odd"
+    end.
+
+%%%-----------------------------------------------------------------
 %%% @spec basic_html() -> true | false
 %%%
 %%% @doc
@@ -1860,4 +1994,150 @@ basic_html() ->
 	    true;
 	_ ->
 	    false
+    end.
+
+%%%-----------------------------------------------------------------
+%%% @spec locate_default_css_file() -> CSSFile
+%%%
+%%% @doc
+%%%
+locate_default_css_file() ->
+    {ok,CWD} = file:get_cwd(),
+    CSSFileInCwd = filename:join(CWD, ?css_default),
+    case filelib:is_file(CSSFileInCwd) of
+	true ->
+	    CSSFileInCwd;
+	false ->
+	    CSSResultFile =
+		case {whereis(?MODULE),self()} of
+		    {Self,Self} ->
+			%% executed on the ct_logs process
+			filename:join(get(ct_run_dir), ?css_default);
+		    _ ->			
+			%% executed on other process than ct_logs
+			{ok,RunDir} = get_log_dir(true),
+			filename:join(RunDir, ?css_default)
+		end,
+	    case filelib:is_file(CSSResultFile) of
+		true ->
+		    CSSResultFile;
+		false ->
+		    %% last resort, try use css file in CT installation
+		    CTPath = code:lib_dir(common_test),		
+		    filename:join(filename:join(CTPath, "priv"), ?css_default)
+	    end
+    end.
+
+%%%-----------------------------------------------------------------
+%%% @spec make_relative(AbsDir, Cwd) -> RelDir
+%%%
+%%% @doc Return directory path to File (last element of AbsDir), which
+%%%      is the path relative to Cwd. Examples when Cwd == "/ldisk/test/logs":
+%%%      make_relative("/ldisk/test/logs/run/trace.log") -> "run/trace.log"
+%%%      make_relative("/ldisk/test/trace.log") -> "../trace.log"
+%%%      make_relative("/ldisk/test/logs/trace.log") -> "trace.log"
+make_relative(AbsDir) ->
+    {ok,Cwd} = file:get_cwd(),
+    make_relative(AbsDir, Cwd).
+
+make_relative(AbsDir, Cwd) ->
+    DirTokens = filename:split(AbsDir),
+    CwdTokens = filename:split(Cwd),
+    filename:join(make_relative1(DirTokens, CwdTokens)).
+
+make_relative1([T | DirTs], [T | CwdTs]) ->
+    make_relative1(DirTs, CwdTs);
+make_relative1(Last = [_File], []) ->
+    Last;
+make_relative1(Last = [_File], CwdTs) ->
+    Ups = ["../" || _ <- CwdTs],
+    Ups ++ Last;
+make_relative1(DirTs, []) ->
+    DirTs;
+make_relative1(DirTs, CwdTs) ->
+    Ups = ["../" || _ <- CwdTs],
+    Ups ++ DirTs.
+
+%%%-----------------------------------------------------------------
+%%% @spec get_ts_html_wrapper(TestName, PrintLabel, Cwd) -> {Mode,Header,Footer}
+%%%
+%%% @doc
+%%%
+get_ts_html_wrapper(TestName, PrintLabel, Cwd) ->
+    TestName1 = if is_list(TestName) ->
+			lists:flatten(TestName);
+		   true ->
+			lists:flatten(io_lib:format("~p", [TestName]))
+		end,
+    Basic = basic_html(),
+    LabelStr =
+	if not PrintLabel ->
+		"";
+	   true ->
+		case {Basic,application:get_env(common_test, test_label)} of
+		    {true,{ok,Lbl}} when Lbl =/= undefined ->
+			"<h1><font color=\"green\">" ++ Lbl ++ "</font></h1>\n";
+		    {_,{ok,Lbl}} when Lbl =/= undefined ->
+			"<div class=\"label\">'" ++ Lbl ++ "'</div>\n";
+		    _ ->
+			""
+		end
+	end,
+    CTPath = code:lib_dir(common_test),
+    {ok,CtLogdir} = get_log_dir(true),
+    AllRuns = make_relative(filename:join(filename:dirname(CtLogdir),
+					  ?all_runs_name), Cwd),
+    TestIndex = make_relative(filename:join(filename:dirname(CtLogdir),
+					    ?index_name), Cwd),
+    case Basic of
+	true ->
+	    TileFile = filename:join(filename:join(CTPath,"priv"),"tile1.jpg"),
+	    Bgr = " background=\"" ++ TileFile ++ "\"",
+	    Copyright =
+		     ["<p><font size=\"-1\">\n",
+		      "Copyright &copy; ", year(),
+		      " <a href=\"http://www.erlang.org\">",
+		      "Open Telecom Platform</a><br>\n",
+		      "Updated: <!date>", current_time(), "<!/date>",
+		      "<br>\n</font></p>\n"],
+	    {basic_html,
+	     ["<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 3.2 Final//EN\">\n",
+	      "<html>\n",
+	      "<head><title>", TestName1, "</title>\n",
+	      "<meta http-equiv=\"cache-control\" content=\"no-cache\">\n",
+	      "</head>\n",
+	      "<body", Bgr, " bgcolor=\"white\" text=\"black\" ",
+	      "link=\"blue\" vlink=\"purple\" alink=\"red\">\n",
+	      LabelStr, "\n"],
+	     ["<center>\n<br><hr><p>\n",
+	      "<a href=\"", AllRuns,
+	      "\">Test run history\n</a>  |  ",
+	      "<a href=\"", TestIndex,
+	      "\">Top level test index\n</a>\n</p>\n",
+	      Copyright,"</center>\n</body>\n</html>\n"]};
+	_ ->
+	    Copyright = 
+		["<div class=\"copyright\">",
+		 "Copyright &copy; ", year(),
+		 " <a href=\"http://www.erlang.org\">",
+		 "Open Telecom Platform</a><br />\n",
+		 "Updated: <!date>", current_time(), "<!/date>",
+		 "<br />\n</div>\n"],
+	    CSSFile = xhtml(fun() -> "" end, 
+			    fun() -> make_relative(locate_default_css_file(), Cwd) end),
+	    {xhtml,
+	     ["<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\"\n",
+	      "\"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">\n",
+	      "<html xmlns=\"http://www.w3.org/1999/xhtml\" xml:lang=\"en\" lang=\"en\">\n",
+	      "<head>\n<title>", TestName1, "</title>\n",
+	      "<meta http-equiv=\"cache-control\" content=\"no-cache\">\n",
+	      "<link rel=\"stylesheet\" href=\"", CSSFile, "\" type=\"text/css\">",
+	      "</head>\n","<body>\n", 
+	      LabelStr, "\n"],
+	     ["<center>\n<br /><hr /><p>\n",
+	      "<a href=\"", AllRuns,
+	      "\">Test run history\n</a>  |  ",
+	      "<a href=\"", TestIndex,
+	      "\">Top level test index\n</a>\n</p>\n",
+	      Copyright,"</center>\n</body>\n</html>\n"]}
     end.
