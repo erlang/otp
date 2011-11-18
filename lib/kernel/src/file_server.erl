@@ -147,14 +147,23 @@ handle_call({get_cwd, Name}, _From, Handle) ->
 handle_call({read_file_info, Name}, _From, Handle) ->
     {reply, ?PRIM_FILE:read_file_info(Handle, Name), Handle};
 
+handle_call({read_file_info, Name, Opts}, _From, Handle) ->
+    {reply, ?PRIM_FILE:read_file_info(Handle, Name, Opts), Handle};
+
 handle_call({altname, Name}, _From, Handle) ->
     {reply, ?PRIM_FILE:altname(Handle, Name), Handle};
 
 handle_call({write_file_info, Name, Info}, _From, Handle) ->
     {reply, ?PRIM_FILE:write_file_info(Handle, Name, Info), Handle};
 
+handle_call({write_file_info, Name, Info, Opts}, _From, Handle) ->
+    {reply, ?PRIM_FILE:write_file_info(Handle, Name, Info, Opts), Handle};
+
 handle_call({read_link_info, Name}, _From, Handle) ->
     {reply, ?PRIM_FILE:read_link_info(Handle, Name), Handle};
+
+handle_call({read_link_info, Name, Opts}, _From, Handle) ->
+    {reply, ?PRIM_FILE:read_link_info(Handle, Name, Opts), Handle};
 
 handle_call({read_link, Name}, _From, Handle) ->
     {reply, ?PRIM_FILE:read_link(Handle, Name), Handle};

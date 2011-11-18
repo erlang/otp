@@ -45,9 +45,9 @@
 	 rename/2, rename/3, 
 	 make_dir/1, make_dir/2,
 	 del_dir/1, del_dir/2,
-	 read_file_info/1, read_file_info/2,
+	 read_file_info/1, read_file_info/2, read_file_info/3,
 	 altname/1, altname/2,
-	 write_file_info/2, write_file_info/3,
+	 write_file_info/2, write_file_info/3, write_file_info/4,
 	 make_link/2, make_link/3,
 	 make_symlink/2, make_symlink/3,
 	 read_link/1, read_link/2,
@@ -728,13 +728,23 @@ del_dir_int(Port, Dir) ->
 %% read_file_info/{1,2}
 
 read_file_info(File) ->
-    read_file_info_int({?DRV, [binary]}, File).
+    read_file_info_int({?DRV, [binary]}, File, local).
 
 read_file_info(Port, File) when is_port(Port) ->
-    read_file_info_int(Port, File).
+    read_file_info_int(Port, File, local).
 
-read_file_info_int(Port, File) ->
-    drv_command(Port, [?FILE_FSTAT, pathname(File)]).
+read_file_info(Port, File, Opts) when is_port(Port) ->
+    read_file_info_int(Port, File, plgv(time, Opts)).
+
+read_file_info_int(Port, File, TimeType) ->
+    case drv_command(Port, [?FILE_FSTAT, pathname(File)]) of
+	{ok, FI} -> {ok, FI#file_info{
+		    ctime = from_seconds(FI#file_info.ctime, TimeType),
+		    mtime = from_seconds(FI#file_info.mtime, TimeType),
+		    atime = from_seconds(FI#file_info.atime, TimeType)
+		}};
+	Error    -> Error
+    end.
 
 
 %% altname/{1,2}
@@ -748,37 +758,44 @@ altname(Port, File) when is_port(Port) ->
 altname_int(Port, File) ->
     drv_command(Port, [?FILE_ALTNAME, pathname(File)]).
 
-%% write_file_info/{2,3}
+%% write_file_info/{2,3,4}
 
 write_file_info(File, Info) ->
-    write_file_info_int({?DRV, [binary]}, File, Info).
+    write_file_info_int({?DRV, [binary]}, File, Info, local).
 
 write_file_info(Port, File, Info) when is_port(Port) ->
-    write_file_info_int(Port, File, Info).
+    write_file_info_int(Port, File, Info, local);
+
+write_file_info(File, Info, Opts) ->
+    write_file_info_int({?DRV, [binary]}, File, Info, plgv(time, Opts)).
+
+write_file_info(Port, File, Info, Opts) when is_port(Port) ->
+    write_file_info_int(Port, File, Info, plgv(time, Opts)).
 
 write_file_info_int(Port, 
 		    File, 
 		    #file_info{mode=Mode, 
 			       uid=Uid, 
 			       gid=Gid,
-			       atime=Atime, 
-			       mtime=Mtime, 
-			       ctime=Ctime}) when 
-		       (is_integer(Atime) orelse Atime =:= undefined) andalso
-		       (is_integer(Mtime) orelse Mtime =:= undefined) andalso
-		       (is_integer(Ctime) orelse Ctime =:= undefined) -> 
+			       atime=Atime0, 
+			       mtime=Mtime0, 
+			       ctime=Ctime},
+		       TimeType) ->
 
-    %% todo:	set atime to localtime() (seconds since epoch) if undefined
-    %%		set mtime to atime if undefined
-    %%		if both undefined ?
+    %% FIXME: wtf
+    {Atime, Mtime} = case {Atime0, Mtime0} of
+	{undefined, Mtime0} -> {erlang:localtime(), Mtime0};
+	{Atime0, undefined} -> {Atime0, Atime0};
+	Complete -> Complete
+    end,
 
     drv_command(Port, [?FILE_WRITE_INFO, 
 			int_to_int32bytes(Mode), 
 			int_to_int32bytes(Uid), 
 			int_to_int32bytes(Gid),
-			int_to_int64bytes(Atime), 
-			int_to_int64bytes(Mtime), 
-			int_to_int64bytes(Ctime),
+			int_to_int64bytes(to_seconds(Atime, TimeType)), 
+			int_to_int64bytes(to_seconds(Mtime, TimeType)), 
+			int_to_int64bytes(to_seconds(Ctime, TimeType)),
 			pathname(File)]).
 
 
@@ -825,15 +842,27 @@ read_link_int(Port, Link) ->
 %% read_link_info/{2,3}
 
 read_link_info(Link) ->
-    read_link_info_int({?DRV, [binary]}, Link).
+    read_link_info_int({?DRV, [binary]}, Link, local).
 
 read_link_info(Port, Link) when is_port(Port) ->
-    read_link_info_int(Port, Link).
+    read_link_info_int(Port, Link, local);
 
-read_link_info_int(Port, Link) ->
-    drv_command(Port, [?FILE_LSTAT, pathname(Link)]).
+read_link_info(Link, Opts) ->
+    read_link_info_int({?DRV, [binary]}, Link, plgv(time, Opts)).
+
+read_link_info(Port, Link, Opts) when is_port(Port) ->
+    read_link_info_int(Port, Link, plgv(time, Opts)).
 
 
+read_link_info_int(Port, Link, TimeType) ->
+    case drv_command(Port, [?FILE_LSTAT, pathname(Link)]) of
+	{ok, FI} -> {ok, FI#file_info{
+		    ctime = from_seconds(FI#file_info.ctime, TimeType),
+		    mtime = from_seconds(FI#file_info.mtime, TimeType),
+		    atime = from_seconds(FI#file_info.atime, TimeType)
+		}};
+	Error    -> Error
+    end.
 
 %% list_dir/{1,2}
 
@@ -1079,7 +1108,6 @@ translate_response(?FILE_RESP_DATA, List) ->
     {ok, ND};
 translate_response(?FILE_RESP_INFO, List) when is_list(List) ->
     {ok, transform_info(List)};
-    %{ok, transform_info_ints(get_uint32s(List))};
 translate_response(?FILE_RESP_NUMERR, L0) ->
     {N, L1} = get_uint64(L0),
     {error, {N, list_to_atom(L1)}};
@@ -1285,3 +1313,155 @@ reverse(L, T) -> lists:reverse(L, T).
 % in list_to_binary, which is caught and generates the {error,badarg} return
 pathname(File) ->
     (catch prim_file:internal_name2native(File)).
+
+
+%% proplist:get_value/2
+plgv(K,[{K, V}|_]) -> V;
+plgv(K,[_|KVs])    -> plgv(K,KVs);
+plgv(_,[])         -> undefined.
+
+
+%%
+%% We don't actually want this here
+%% We want to use epochs in all prim but erl_prim_loader makes that tricky
+%% It is probably needed to redo the whole erl_prim_loader
+
+-define(DAYS_FROM_0_TO_1970, 719528).
+-define(SECONDS_PER_DAY, 86400).
+-define(SECONDS_PER_HOUR, 3600).
+-define(SECONDS_PER_MINUTE, 60).
+-define(DAYS_PER_YEAR, 365).
+-define(DAYS_PER_LEAP_YEAR, 366).
+
+from_seconds(Seconds, utc) when is_integer(Seconds) ->
+    gregorian_seconds_to_datetime(Seconds + ?SECONDS_PER_DAY * ?DAYS_FROM_0_TO_1970);
+from_seconds(Seconds, local) when is_integer(Seconds) ->
+    erlang:universaltime_to_localtime(gregorian_seconds_to_datetime(Seconds + ?SECONDS_PER_DAY * ?DAYS_FROM_0_TO_1970)).
+
+to_seconds({_,_} = Datetime, utc) ->
+    datetime_to_gregorian_seconds(Datetime) - ?SECONDS_PER_DAY * ?DAYS_FROM_0_TO_1970;
+to_seconds({_,_} = Datetime, local) ->
+    datetime_to_gregorian_seconds(erlang:localtime_to_universaltime(Datetime)) - ?SECONDS_PER_DAY * ?DAYS_FROM_0_TO_1970;
+to_seconds(undefined, _) -> to_seconds(erlang:universaltime(), utc).
+
+%% perhaps like this
+
+posix_time(Time) ->
+    EpochStart = {{1970,1,1},{0,0,0}},
+    {Days,{Hour,Min,Sec}} = calendar:time_difference(EpochStart, Time),
+    86400*Days + 3600*Hour + 60*Min + Sec.
+
+posix_to_erlang_time(Sec) ->
+    OneMillion = 1000000,
+    Time = calendar:now_to_datetime({Sec div OneMillion, Sec rem OneMillion, 0}),
+    erlang:universaltime_to_localtime(Time).
+
+
+% from calendar, slightly modified
+
+%% calendar:datetime_to_gregorian_seconds/1
+
+datetime_to_gregorian_seconds({Date, Time}) ->
+    ?SECONDS_PER_DAY*date_to_gregorian_days(Date) + time_to_seconds(Time).
+
+
+time_to_seconds({H, M, S}) when is_integer(H), is_integer(M), is_integer(S) ->
+    H * ?SECONDS_PER_HOUR + M * ?SECONDS_PER_MINUTE + S.
+
+date_to_gregorian_days({Year, Month, Day}) ->
+    date_to_gregorian_days(Year, Month, Day).
+
+date_to_gregorian_days(Year, Month, Day) when is_integer(Day), Day > 0 ->
+    Last = last_day_of_the_month(Year, Month),
+    if
+	Day =< Last ->
+	    dy(Year) + dm(Month) + df(Year, Month) + Day - 1
+    end.
+
+last_day_of_the_month(Y, M) when is_integer(Y), Y >= 0 ->
+    last_day_of_the_month1(Y, M).
+
+last_day_of_the_month1(_, 4) -> 30;
+last_day_of_the_month1(_, 6) -> 30;
+last_day_of_the_month1(_, 9) -> 30;
+last_day_of_the_month1(_,11) -> 30;
+last_day_of_the_month1(Y, 2) ->
+   case is_leap_year(Y) of
+      true -> 29;
+      _    -> 28
+   end;
+last_day_of_the_month1(_, M) when is_integer(M), M > 0, M < 13 ->
+    31.
+
+dm(1) -> 0;    dm(2) ->  31;   dm(3) ->   59;   dm(4) ->  90;
+dm(5) -> 120;  dm(6) ->  151;  dm(7) ->  181;   dm(8) -> 212;
+dm(9) -> 243;  dm(10) -> 273;  dm(11) -> 304;  dm(12) -> 334.
+
+df(_, Month) when Month < 3 -> 0;
+df(Year, _) ->
+    case is_leap_year(Year) of
+	true -> 1;
+	false  -> 0
+    end.
+
+
+
+%% calendar:gregorian_seconds_to_datetime/1
+
+gregorian_seconds_to_datetime(Secs) when Secs >= 0 ->
+    Days = Secs div ?SECONDS_PER_DAY,
+    Rest = Secs rem ?SECONDS_PER_DAY,
+    {gregorian_days_to_date(Days), seconds_to_time(Rest)}.
+
+seconds_to_time(Secs0) when Secs0 >= 0, Secs0 < ?SECONDS_PER_DAY ->
+    Hour   = Secs0 div ?SECONDS_PER_HOUR,
+    Secs1  = Secs0 rem ?SECONDS_PER_HOUR,
+    Minute = Secs1 div ?SECONDS_PER_MINUTE,
+    Second = Secs1 rem ?SECONDS_PER_MINUTE,
+    {Hour, Minute, Second}.
+
+gregorian_days_to_date(Days) ->
+    {Year, DayOfYear} = day_to_year(Days),
+    {Month, DayOfMonth} = year_day_to_date(Year, DayOfYear),
+    {Year, Month, DayOfMonth}.
+
+day_to_year(DayOfEpoch) when DayOfEpoch >= 0 ->
+    Y0 = DayOfEpoch div ?DAYS_PER_YEAR,
+    {Y1, D1} = dty(Y0, DayOfEpoch, dy(Y0)),
+    {Y1, DayOfEpoch - D1}.
+
+dty(Y, D1, D2) when D1 < D2 -> dty(Y-1, D1, dy(Y-1));
+dty(Y, _D1, D2) -> {Y, D2}.
+
+dy(Y) when Y =< 0 -> 0; 
+dy(Y) -> 
+    X = Y - 1, 
+    (X div 4) - (X div 100) + (X div 400) + X*?DAYS_PER_YEAR + ?DAYS_PER_LEAP_YEAR.
+
+year_day_to_date(Year, DayOfYear) ->
+    ExtraDay = case is_leap_year(Year) of
+	true -> 1;
+	false -> 0
+    end,
+    {Month, Day} = year_day_to_date2(ExtraDay, DayOfYear),
+    {Month, Day + 1}.
+
+year_day_to_date2(_, Day) when Day < 31 -> {1, Day}; 
+year_day_to_date2(E, Day) when  31 =< Day, Day < 59 + E -> {2, Day - 31}; 
+year_day_to_date2(E, Day) when  59 + E =< Day, Day <  90 + E -> { 3, Day - ( 59 + E)}; 
+year_day_to_date2(E, Day) when  90 + E =< Day, Day < 120 + E -> { 4, Day - ( 90 + E)};
+year_day_to_date2(E, Day) when 120 + E =< Day, Day < 151 + E -> { 5, Day - (120 + E)}; 
+year_day_to_date2(E, Day) when 151 + E =< Day, Day < 181 + E -> { 6, Day - (151 + E)};
+year_day_to_date2(E, Day) when 181 + E =< Day, Day < 212 + E -> { 7, Day - (181 + E)}; 
+year_day_to_date2(E, Day) when 212 + E =< Day, Day < 243 + E -> { 8, Day - (212 + E)};
+year_day_to_date2(E, Day) when 243 + E =< Day, Day < 273 + E -> { 9, Day - (243 + E)};
+year_day_to_date2(E, Day) when 273 + E =< Day, Day < 304 + E -> {10, Day - (273 + E)};
+year_day_to_date2(E, Day) when 304 + E =< Day, Day < 334 + E -> {11, Day - (304 + E)};
+year_day_to_date2(E, Day) when 334 + E =< Day -> {12, Day - (334 + E)}.
+
+is_leap_year(Y) when is_integer(Y), Y >= 0 -> is_leap_year1(Y).
+is_leap_year1(Year) when Year rem 4 =:= 0, Year rem 100 > 0 -> true;
+is_leap_year1(Year) when Year rem 400 =:= 0 -> true;
+is_leap_year1(_) -> false.
+
+
