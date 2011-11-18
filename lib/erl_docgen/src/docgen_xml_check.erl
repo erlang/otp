@@ -15,7 +15,7 @@
 %% 
 %%     $Id$
 %%
--module(docb_xml_check).
+-module(docgen_xml_check).
 
 -export([validate/1]).
 -deprecated([{validate,1,next_major_release}]).
@@ -31,7 +31,7 @@ validate(File0) ->
 	   end,
     case filelib:is_regular(File) of
 	true ->
-	    DtdDir = docb_util:dtd_dir(),
+	    DtdDir = filename:join(code:priv_dir(erl_docgen), "dtd"),
 	    case catch xmerl_scan:file(File, [{validation,true},
 					      {fetch_path,[DtdDir]}]) of
 		{'EXIT', Error} ->

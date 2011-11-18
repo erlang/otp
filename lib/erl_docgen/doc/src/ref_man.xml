@@ -31,6 +31,6 @@
   <description>
     <p>The <em>erl_docgen</em> supports the OTP documentation build.</p>
   </description>
-  <xi:include href="docgen_xml_check.xml"/>
+  <xi:include href="erl_docgen_app.xml"/>
 </application>
 

@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2010. All Rights Reserved.
+# Copyright Ericsson AB 2011-2011. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -36,8 +36,8 @@ RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 # Target Specs
 # ----------------------------------------------------
 XML_APPLICATION_FILES = ref_man.xml
-XML_REF3_FILES = \
-	docgen_xml_check.xml
+XML_REF6_FILES = \
+	erl_docgen_app.xml
 
 XML_PART_FILES = \
 	part.xml
@@ -54,7 +54,7 @@ XML_CHAPTER_FILES = \
 
 BOOK_FILES = book.xml
 
-XML_FILES = $(BOOK_FILES) $(XML_APPLICATION_FILES) $(XML_REF3_FILES) \
+XML_FILES = $(BOOK_FILES) $(XML_APPLICATION_FILES) $(XML_REF6_FILES) \
             $(XML_PART_FILES) $(XML_CHAPTER_FILES) 
 
 TECHNICAL_DESCR_FILES = 
@@ -73,7 +73,7 @@ HTML_FILES = $(XML_APPLICATION_FILES:%.xml=$(HTMLDIR)/%.html) \
 
 INFO_FILE = ../../info
 
-MAN3_FILES = $(XML_REF3_FILES:%.xml=$(MAN3DIR)/%.3)
+MAN6_FILES = $(XML_REF6_FILES:%_app.xml=$(MAN6DIR)/%.6)
 
 HTML_REF_MAN_FILE = $(HTMLDIR)/index.html
 
@@ -104,12 +104,12 @@ html: gifs examples $(HTML_REF_MAN_FILE)
 
 clean clean_docs:
 	rm -rf $(HTMLDIR)/*
-	rm -f $(MAN3DIR)/*
+	rm -f $(MAN6DIR)/*
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
 	rm -f errs core *~
 	rm -f $(JD_HTML) $(JD_PACK)
 
-man: $(MAN3_FILES)
+man: $(MAN6_FILES)
 
 gifs: $(GIF_FILES:%=$(HTMLDIR)/%)
 
@@ -129,7 +129,7 @@ release_docs_spec: docs
 	$(INSTALL_DATA) $(HTMLDIR)/* \
 		$(RELSYSDIR)/doc/html
 	$(INSTALL_DATA) $(INFO_FILE) $(RELSYSDIR)
-	$(INSTALL_DIR) $(RELEASE_PATH)/man/man3
-	$(INSTALL_DATA) $(MAN3DIR)/* $(RELEASE_PATH)/man/man3
+	$(INSTALL_DIR) $(RELEASE_PATH)/man/man6
+	$(INSTALL_DATA) $(MAN6DIR)/* $(RELEASE_PATH)/man/man6
 
 release_spec:

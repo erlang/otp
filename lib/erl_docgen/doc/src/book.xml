@@ -35,6 +35,9 @@
   <parts lift="no">
     <xi:include href="part.xml"/>
   </parts>
+  <applications>
+    <xi:include href="ref_man.xml"/>
+  </applications>
   <releasenotes>
     <xi:include href="notes.xml"/>
   </releasenotes>
