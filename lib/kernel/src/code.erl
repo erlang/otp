@@ -324,15 +324,7 @@ start_link(Flags) ->
 %%-----------------------------------------------------------------
 
 do_start(Flags) ->
-    %% The following module_info/1 calls are here to ensure
-    %% that these modules are loaded prior to their use elsewhere in
-    %% the code_server.
-    %% Otherwise a deadlock may occur when the code_server is starting.
-    code_server = code_server:module_info(module),
-    packages = packages:module_info(module),
-    catch hipe_unified_loader:load_hipe_modules(),
-    Modules2 = [gb_sets, gb_trees, ets, os, binary, unicode, filename, lists],
-    lists:foreach(fun (M) -> M = M:module_info(module) end, Modules2),
+    load_code_server_prerequisites(),
 
     Mode = get_mode(Flags),
     case init:get_argument(root) of 
@@ -359,6 +351,25 @@ do_start(Flags) ->
 	    error_logger:error_msg("Can not start code server ~w ~n", [Other]),
 	    {error, crash}
     end.
+
+%% Make sure that all modules that the code_server process calls
+%% (directly or indirectly) are loaded. Otherwise the code_server
+%% process will deadlock.
+
+load_code_server_prerequisites() ->
+    %% Please keep the alphabetical order.
+    Needed = [binary,
+	      ets,
+	      filename,
+	      gb_sets,
+	      gb_trees,
+	      hipe_unified_loader,
+	      lists,
+	      os,
+	      packages,
+	      unicode],
+    [M = M:module_info(module) || M <- Needed],
+    ok.
 
 do_stick_dirs() ->
     do_s(compiler),
