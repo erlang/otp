@@ -5424,7 +5424,7 @@ code_get_chunk_2(BIF_ALIST_2)
     Process* p = BIF_P;
     Eterm Bin = BIF_ARG_1;
     Eterm Chunk = BIF_ARG_2;
-    LoaderState state;
+    LoaderState* stp;
     Uint chunk = 0;
     ErlSubBin* sb;
     Uint offset;
@@ -5436,15 +5436,19 @@ code_get_chunk_2(BIF_ALIST_2)
     Eterm real_bin;
     byte* temp_alloc = NULL;
 
+    stp = erts_alloc_loader_state();
     if ((start = erts_get_aligned_binary_bytes(Bin, &temp_alloc)) == NULL) {
     error:
 	erts_free_aligned_binary_bytes(temp_alloc);
+	if (stp) {
+	    free_state(stp);
+	}
 	BIF_ERROR(p, BADARG);
     }
-    state.module = THE_NON_VALUE; /* Suppress diagnostiscs */
-    state.file_name = "IFF header for Beam file";
-    state.file_p = start;
-    state.file_left = binary_size(Bin);
+    stp->module = THE_NON_VALUE; /* Suppress diagnostics */
+    stp->file_name = "IFF header for Beam file";
+    stp->file_p = start;
+    stp->file_left = binary_size(Bin);
     for (i = 0; i < 4; i++) {
 	Eterm* chunkp;
 	Eterm num;
@@ -5462,26 +5466,29 @@ code_get_chunk_2(BIF_ALIST_2)
     if (is_not_nil(Chunk)) {
 	goto error;
     }
-    if (!scan_iff_file(&state, &chunk, 1, 1) ||
-	state.chunks[0].start == NULL) {
-	erts_free_aligned_binary_bytes(temp_alloc);
-	return am_undefined;
+    if (!scan_iff_file(stp, &chunk, 1, 1) ||
+	stp->chunks[0].start == NULL) {
+	res = am_undefined;
+	goto done;
     }
     ERTS_GET_REAL_BIN(Bin, real_bin, offset, bitoffs, bitsize);
     if (bitoffs) {
-	res = new_binary(p, state.chunks[0].start, state.chunks[0].size);
+	res = new_binary(p, stp->chunks[0].start, stp->chunks[0].size);
     } else {
 	sb = (ErlSubBin *) HAlloc(p, ERL_SUB_BIN_SIZE);
 	sb->thing_word = HEADER_SUB_BIN;
 	sb->orig = real_bin;
-	sb->size = state.chunks[0].size;
+	sb->size = stp->chunks[0].size;
 	sb->bitsize = 0;
 	sb->bitoffs = 0;
-	sb->offs = offset + (state.chunks[0].start - start);
+	sb->offs = offset + (stp->chunks[0].start - start);
 	sb->is_writable = 0;
 	res = make_binary(sb);
     }
+
+ done:
     erts_free_aligned_binary_bytes(temp_alloc);
+    free_state(stp);
     return res;
 }
 
@@ -5494,21 +5501,29 @@ code_module_md5_1(BIF_ALIST_1)
 {
     Process* p = BIF_P;
     Eterm Bin = BIF_ARG_1;
-    LoaderState state;
+    LoaderState* stp;
     byte* temp_alloc = NULL;
+    Eterm res;
 
-    if ((state.file_p = erts_get_aligned_binary_bytes(Bin, &temp_alloc)) == NULL) {
+    stp = erts_alloc_loader_state();
+    if ((stp->file_p = erts_get_aligned_binary_bytes(Bin, &temp_alloc)) == NULL) {
+	free_state(stp);
 	BIF_ERROR(p, BADARG);
     }
-    state.module = THE_NON_VALUE; /* Suppress diagnostiscs */
-    state.file_name = "IFF header for Beam file";
-    state.file_left = binary_size(Bin);
-    if (!scan_iff_file(&state, chunk_types, NUM_CHUNK_TYPES, NUM_MANDATORY) ||
-	!verify_chunks(&state)) {
-	return am_undefined;
+    stp->module = THE_NON_VALUE; /* Suppress diagnostiscs */
+    stp->file_name = "IFF header for Beam file";
+    stp->file_left = binary_size(Bin);
+    if (!scan_iff_file(stp, chunk_types, NUM_CHUNK_TYPES, NUM_MANDATORY) ||
+	!verify_chunks(stp)) {
+	res = am_undefined;
+	goto done;
     }
+    res = new_binary(p, stp->mod_md5, sizeof(stp->mod_md5));
+
+ done:
     erts_free_aligned_binary_bytes(temp_alloc);
-    return new_binary(p, state.mod_md5, sizeof(state.mod_md5));
+    free_state(stp);
+    return res;
 }
 
 #define WORDS_PER_FUNCTION 6
