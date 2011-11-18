@@ -78,7 +78,6 @@ static char erts_system_version[] = ("Erlang " ERLANG_OTP_RELEASE
 #ifdef ERTS_SMP
 				     " [smp:%beu:%beu]"
 #endif
-				     " [rq:%beu]"
 #ifdef USE_THREADS
 				     " [async-threads:%d]"
 #endif
@@ -291,7 +290,7 @@ erts_print_system_version(int to, void *arg, Process *c_p)
 #endif
     return erts_print(to, arg, erts_system_version
 #ifdef ERTS_SMP
-		      , total, online, erts_no_run_queues
+		      , total, online
 #else
 		      , 1
 #endif

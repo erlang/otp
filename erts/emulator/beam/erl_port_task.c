@@ -1048,8 +1048,6 @@ erts_port_migrate(Port *prt, int *prt_locked,
     ERTS_SMP_LC_CHK_RUNQ_LOCK(from_rq, *from_locked);
     ERTS_SMP_LC_CHK_RUNQ_LOCK(to_rq, *to_locked);
 
-    ASSERT(!erts_common_run_queue);
-
     if (!*from_locked || !*to_locked) {
 	if (from_rq < to_rq) {
 	    if (!*to_locked) {

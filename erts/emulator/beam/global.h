@@ -204,7 +204,7 @@ erts_port_runq(Port *prt)
 	rq1 = rq2;
     }
 #else
-    return erts_common_run_queue;
+    return ERTS_RUNQ_IX(0);
 #endif
 }
 

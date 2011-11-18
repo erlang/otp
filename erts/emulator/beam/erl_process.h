@@ -143,12 +143,10 @@ extern int erts_sched_thread_suggested_stack_size;
   (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 1))
 #define ERTS_RUNQ_FLG_SUSPENDED \
   (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 2))
-#define ERTS_RUNQ_FLG_SHARED_RUNQ \
-  (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 3))
 #define ERTS_RUNQ_FLG_CHK_CPU_BIND \
-  (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 4))
+  (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 3))
 #define ERTS_RUNQ_FLG_INACTIVE \
-  (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 5))
+  (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 4))
 
 #define ERTS_RUNQ_FLGS_MIGRATION_QMASKS	\
   (ERTS_RUNQ_FLGS_EMIGRATE_QMASK	\
@@ -271,11 +269,6 @@ typedef enum {
 
 typedef struct ErtsSchedulerSleepInfo_ ErtsSchedulerSleepInfo;
 
-typedef struct {
-    erts_smp_spinlock_t lock;
-    ErtsSchedulerSleepInfo *list;
-} ErtsSchedulerSleepList;
-
 struct ErtsSchedulerSleepInfo_ {
 #ifdef ERTS_SMP
     ErtsSchedulerSleepInfo *next;
@@ -338,10 +331,6 @@ struct ErtsRunQueue_ {
     erts_smp_mtx_t mtx;
     erts_smp_cnd_t cnd;
 
-#ifdef ERTS_SMP
-    ErtsSchedulerSleepList sleepers;
-#endif
-
     ErtsSchedulerData *scheduler;
     int waiting; /* < 0 in sys schedule; > 0 on cnd variable */
     int woken;
@@ -387,7 +376,6 @@ typedef union {
 } ErtsAlignedRunQueue;
 
 extern ErtsAlignedRunQueue *erts_aligned_run_queues;
-extern ErtsRunQueue *erts_common_run_queue;
 
 #define ERTS_PROC_REDUCTIONS_EXECUTED(RQ, PRIO, REDS, AREDS)	\
 do {								\
@@ -471,11 +459,6 @@ struct ErtsSchedulerData_ {
     ErtsAtomCacheMap atom_cache_map;
 
     ErtsSchedAllocData alloc_data;
-
-#ifdef ERTS_SMP
-    /* NOTE: These fields are modified under held mutexes by other threads */
-    erts_smp_atomic32_t chk_cpu_bind; /* Only used when common run queue */
-#endif
 
 #ifdef ERTS_DO_VERIFY_UNUSED_TEMP_ALLOC
     erts_alloc_verify_func_t verify_unused_temp_alloc;
@@ -1082,7 +1065,7 @@ extern struct erts_system_profile_flags_t erts_system_profile_flags;
 void erts_pre_init_process(void);
 void erts_late_init_process(void);
 void erts_early_init_scheduling(int);
-void erts_init_scheduling(int, int, int);
+void erts_init_scheduling(int, int);
 
 ErtsProcList *erts_proclist_create(Process *);
 void erts_proclist_destroy(ErtsProcList *);
@@ -1467,8 +1450,7 @@ erts_get_runq_proc(Process *p)
     ASSERT(p->run_queue);
     return p->run_queue;
 #else
-    ASSERT(erts_common_run_queue);
-    return erts_common_run_queue;
+    return ERTS_RUNQ_IX(0);
 #endif
 }
 
@@ -1481,8 +1463,7 @@ erts_get_runq_current(ErtsSchedulerData *esdp)
 	esdp = erts_get_scheduler_data();
     return esdp->run_queue;
 #else
-    ASSERT(erts_common_run_queue);
-    return erts_common_run_queue;
+    return ERTS_RUNQ_IX(0);
 #endif
 }
 
