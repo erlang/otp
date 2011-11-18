@@ -1152,7 +1152,7 @@ static int do_binary_match(Process *p, Eterm subject, Uint hsstart, Uint hsend,
 	    erts_free_aligned_binary_bytes(temp_alloc);
 	    return DO_BIN_MATCH_RESTART;
 	} else {
-	    Eterm epos = erts_make_integer(pos+hsstart,p);
+	    Eterm epos = erts_make_integer(pos,p);
 	    Eterm erlen = erts_make_integer(rlen,p);
 	    hp = HAlloc(p,3);
 	    ret = TUPLE2(hp, epos, erlen);
@@ -1898,9 +1898,9 @@ static BIF_RETTYPE do_longest_common(Process *p, Eterm list, int direction)
     cd = (CommonData *) ERTS_MAGIC_BIN_DATA(mb);
     l = list;
     while (is_list(l)) {
-	Uint bitoffs;
+	ERTS_DECLARE_DUMMY(Uint bitoffs);
 	Uint bitsize;
-	Uint offset;
+	ERTS_DECLARE_DUMMY(Uint offset);
 	Eterm real_bin;
 	ProcBin* pb;
 
@@ -2377,7 +2377,7 @@ static BIF_RETTYPE do_binary_copy(Process *p, Eterm bin, Eterm en)
 {
     Uint n;
     byte *bytes;
-    Uint bit_offs;
+    ERTS_DECLARE_DUMMY(Uint bit_offs);
     Uint bit_size;
     size_t size;
     Uint reds = get_reds(p, BINARY_COPY_LOOP_FACTOR);
@@ -2406,9 +2406,9 @@ static BIF_RETTYPE do_binary_copy(Process *p, Eterm bin, Eterm en)
 
     if ((target_size - size) >= reds) {
 	Eterm orig;
-	Uint offset;
-	Uint bit_offset;
-	Uint bit_size;
+	ERTS_DECLARE_DUMMY(Uint offset);
+	ERTS_DECLARE_DUMMY(Uint bit_offset);
+	ERTS_DECLARE_DUMMY(Uint bit_size);
 	CopyBinState *cbs;
 	Eterm *hp;
 	Eterm trap_term;

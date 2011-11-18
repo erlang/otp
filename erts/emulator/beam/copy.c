@@ -134,7 +134,7 @@ Uint size_object(Eterm obj)
 		case SUB_BINARY_SUBTAG:
 		    {
 			Eterm real_bin;
-			Uint offset; /* Not used. */
+			ERTS_DECLARE_DUMMY(Uint offset); /* Not used. */
 			Uint bitsize;
 			Uint bitoffs;
 			Uint extra_bytes;

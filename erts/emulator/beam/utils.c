@@ -2955,14 +2955,14 @@ Eterm
 buf_to_intlist(Eterm** hpp, char *buf, int len, Eterm tail)
 {
     Eterm* hp = *hpp;
+    int i = len - 1;
 
-    buf += (len-1);
-    while(len > 0) {
-	tail = CONS(hp, make_small((byte)*buf), tail);
+    while(i >= 0) {
+	tail = CONS(hp, make_small((Uint)(byte)buf[i]), tail);
 	hp += 2;
-	buf--;
-	len--;
+	--i;
     }
+
     *hpp = hp;
     return tail;
 }

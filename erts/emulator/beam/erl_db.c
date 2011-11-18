@@ -1298,7 +1298,10 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     UWord heir_data;
     Uint32 status;
     Sint keypos;
-    int is_named, is_fine_locked, frequent_read, is_compressed;
+    int is_named, is_compressed;
+#ifdef ERTS_SMP
+    int is_fine_locked, frequent_read;
+#endif
 #ifdef DEBUG
     int cret;
 #endif
@@ -1316,8 +1319,10 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     status = DB_NORMAL | DB_SET | DB_PROTECTED;
     keypos = 1;
     is_named = 0;
+#ifdef ERTS_SMP
     is_fine_locked = 0;
     frequent_read = 0;
+#endif
     heir = am_none;
     heir_data = (UWord) am_undefined;
     is_compressed = erts_ets_always_compress;
@@ -1346,18 +1351,31 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 		    keypos = signed_val(tp[2]);
 		}		
 		else if (tp[1] == am_write_concurrency) {
+#ifdef ERTS_SMP
 		    if (tp[2] == am_true) {
 			is_fine_locked = 1;
 		    } else if (tp[2] == am_false) {
 			is_fine_locked = 0;
 		    } else break;
+#else
+		    if ((tp[2] != am_true) &&  (tp[2] != am_false)) {
+			break;
+		    }
+#endif
 		}
 		else if (tp[1] == am_read_concurrency) {
+#ifdef ERTS_SMP
 		    if (tp[2] == am_true) {
 			frequent_read = 1;
 		    } else if (tp[2] == am_false) {
 			frequent_read = 0;
 		    } else break;
+#else
+		    if ((tp[2] != am_true) &&  (tp[2] != am_false)) {
+			break;
+		    }
+#endif
+		    
 		}
 		else if (tp[1] == am_heir && tp[2] == am_none) {
 		    heir = am_none;
@@ -1397,11 +1415,11 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     }
     if (IS_HASH_TABLE(status)) {
 	meth = &db_hash;
-	#ifdef ERTS_SMP
+#ifdef ERTS_SMP
 	if (is_fine_locked && !(status & DB_PRIVATE)) {
 	    status |= DB_FINE_LOCKED;
 	}
-	#endif
+#endif
     }
     else if (IS_TREE_TABLE(status)) {
 	meth = &db_tree;

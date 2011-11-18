@@ -1057,7 +1057,7 @@ void process_main(void)
     Process* c_p = NULL;
     int reds_used;
 #ifdef DEBUG
-    Eterm pid;
+    ERTS_DECLARE_DUMMY(Eterm pid);
 #endif
 
     /*
@@ -1165,7 +1165,7 @@ void process_main(void)
     c_p = schedule(c_p, reds_used);
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 #ifdef DEBUG
-    pid = c_p->id;
+    pid = c_p->id; /* Save for debugging purpouses */
 #endif
     ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
     PROCESS_MAIN_CHK_LOCKS(c_p);

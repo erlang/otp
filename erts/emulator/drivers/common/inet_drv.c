@@ -9767,8 +9767,9 @@ static int packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 	*/
 	int code;
 	char tbuf[2];
+#ifdef HAVE_SCTP
 	unsigned timeout;
-
+#endif
 	DEBUGF(("packet_inet_ctl(%ld): CONNECT\r\n", (long)desc->port)); 
 	
 	/* INPUT: [ Timeout(4), Port(2), Address(N) ] */
@@ -9829,7 +9830,7 @@ static int packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 	else if (len < 6)
 	    return ctl_error(EINVAL, rbuf, rsize);
 	else {
-	    timeout = get_int32(buf); /* IGNORED */
+	    /* Ignore timeout */
 	    buf += 4;
 	    len -= 4;
 	    if (inet_set_address(desc->sfamily, 

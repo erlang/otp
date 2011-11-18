@@ -371,20 +371,30 @@ mseg_create(ErtsMsegAllctr_t *ma, MemKind* mk, Uint size)
 static ERTS_INLINE void
 mseg_destroy(ErtsMsegAllctr_t *ma, MemKind* mk, void *seg, Uint size)
 {
+#ifdef DEBUG
     int res;
+#endif
 
 #if HALFWORD_HEAP
     if (mk == &ma->low_mem) {
-	res = pmunmap((void *) seg, size);
+#ifdef DEBUG
+	res = 
+#endif
+	    pmunmap((void *) seg, size);
     }
     else
 #endif
     {
 #ifdef ERTS_MSEG_FAKE_SEGMENTS
 	erts_sys_free(ERTS_ALC_N_INVALID, NULL, seg);
+#ifdef DEBUG
 	res = 0;
+#endif
 #elif HAVE_MMAP
-	res = munmap((void *) seg, size);
+#ifdef DEBUG
+	res = 
+#endif
+	    munmap((void *) seg, size);
 #else
 # error "Missing mseg_destroy() implementation"
 #endif

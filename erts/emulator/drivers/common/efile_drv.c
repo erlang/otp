@@ -2472,16 +2472,22 @@ file_output(ErlDrvData e, char* buf, int count)
 static void 
 file_flush(ErlDrvData e) {
     file_descriptor *desc = (file_descriptor *)e;
+#ifdef DEBUG
     int r;
+#endif
 
     TRACE_C('f');
 
-    r = flush_write(desc, NULL);
+#ifdef DEBUG
+    r = 
+#endif
+	flush_write(desc, NULL);
     /* Only possible reason for bad return value is ENOMEM, and 
      * there is nobody to tell...
      */
+#ifdef DEBUG
     ASSERT(r == 0); 
-    r = 0; /* Avoiding warning */
+#endif
     cq_execute(desc);
 }
 
@@ -2531,12 +2537,14 @@ file_timeout(ErlDrvData e) {
 	driver_async(desc->port, KEY(desc), desc->invoke, desc->d, desc->free);
 	break;
     case timer_write: {
-	int r = flush_write(desc, NULL);
+#ifdef DEBUG
+	int r = 
+#endif
+	    flush_write(desc, NULL);
 	/* Only possible reason for bad return value is ENOMEM, and 
 	 * there is nobody to tell...
 	 */
 	ASSERT(r == 0); 
-	r = 0; /* Avoiding warning */
 	cq_execute(desc);
     } break;
     } /* case */

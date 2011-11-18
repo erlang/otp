@@ -103,6 +103,15 @@ typedef ERTS_SYS_FD_TYPE ErtsSysFdType;
 #  define ERTS_LIKELY(BOOL)   (BOOL)
 #  define ERTS_UNLIKELY(BOOL) (BOOL)
 #endif
+#ifdef __GNUC__
+#  if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ > 5)
+#    define ERTS_DECLARE_DUMMY(X) X __attribute__ ((unused))
+#  else
+#    define ERTS_DECLARE_DUMMY(X) X
+#  endif
+#else
+#  define ERTS_DECLARE_DUMMY(X) X
+#endif
 
 #if defined(DEBUG) || defined(ERTS_ENABLE_LOCK_CHECK)
 #  undef ERTS_CAN_INLINE
