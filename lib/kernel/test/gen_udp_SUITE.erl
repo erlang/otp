@@ -99,9 +99,9 @@ buffer_size(Config) when is_list(Config) ->
     ?line Bin = list_to_binary(lists:seq(0, Len-1)),
     ?line M = 8192 div Len,
     ?line Spec0 =
-	[{opt,M},{safe,M-1},{long,M+1},
-	 {opt,2*M},{safe,2*M-1},{long,2*M+1},
-	 {opt,4*M},{safe,4*M-1},{long,4*M+1}],
+	[{opt,M},{safe,M-3},{long,M+1},
+	 {opt,2*M},{safe,2*M-3},{long,2*M+1},
+	 {opt,4*M},{safe,4*M-3},{long,4*M+1}],
     ?line Spec =
 	[case Tag of
 	     opt ->
@@ -145,16 +145,27 @@ buffer_size_client(_, _, _, _, _, []) ->
     ?line ok;
 buffer_size_client(Server, IP, Port, 
 		   Socket, Cnt, [Opts|T]) when is_list(Opts) ->
+    ?line io:format("buffer_size_client Cnt=~w setopts ~p.~n", [Cnt,Opts]),
     ?line ok = inet:setopts(Socket, Opts),
     ?line Server ! {self(),setopts,Cnt},
     ?line receive {Server,setopts,Cnt} -> ok end,
     ?line buffer_size_client(Server, IP, Port, Socket, Cnt+1, T);
 buffer_size_client(Server, IP, Port, 
-		   Socket, Cnt, [{B,Replies}|T]) when is_binary(B) ->
-    ?line ok = gen_udp:send(Socket, IP, Port, B),
+		   Socket, Cnt, [{B,Replies}|T]=Opts) when is_binary(B) ->
+    ?line io:format(
+	    "buffer_size_client Cnt=~w send size ~w expecting ~p.~n",
+	    [Cnt,size(B),Replies]),
+    ?line ok = gen_udp:send(Socket, IP, Port, <<Cnt,B/binary>>),
     ?line receive
 	      {Server,Cnt,Reply} ->
-		  ?line case lists:member(Reply, Replies) of
+		  ?line Tag =
+		      if
+			  is_tuple(Reply) ->
+			      element(1, Reply);
+			  is_atom(Reply) ->
+			      Reply
+		      end,
+		  ?line case lists:member(Tag, Replies) of
 			    true -> ok;
 			    false ->
 				?line 
@@ -162,33 +173,61 @@ buffer_size_client(Server, IP, Port,
 					     byte_size(B),
 					     inet:getopts(Socket,
 							  [sndbuf,recbuf])})
-			end
-	  end,
-    ?line buffer_size_client(Server, IP, Port, Socket, Cnt+1, T).
+			end,
+		  ?line buffer_size_client(Server, IP, Port, Socket, Cnt+1, T)
+	  after 1313 ->
+		  ?line buffer_size_client(Server, IP, Port, Socket, Cnt, Opts)
+	  end.
 
 buffer_size_server(_, _, _, _, _, []) -> 
     ok;
 buffer_size_server(Client, IP, Port, 
 		   Socket, Cnt, [Opts|T]) when is_list(Opts) ->
     receive {Client,setopts,Cnt} -> ok end,
+    ?line io:format("buffer_size_server Cnt=~w setopts ~p.~n", [Cnt,Opts]),
     ok = inet:setopts(Socket, Opts),
     Client ! {self(),setopts,Cnt},
     buffer_size_server(Client, IP, Port, Socket, Cnt+1, T);
 buffer_size_server(Client, IP, Port, 
 		   Socket, Cnt, [{B,_}|T]) when is_binary(B) ->
+    ?line io:format(
+	    "buffer_size_server Cnt=~w expecting size ~w.~n",
+	    [Cnt,size(B)]),
     Client ! 
 	{self(),Cnt,
-	 receive
-	     {udp,Socket,IP,Port,D} when is_binary(D) ->
+	 case buffer_size_server_recv(Socket, IP, Port, Cnt) of
+	     D when is_binary(D) ->
 		 SizeD = byte_size(D),
+		 ?line io:format(
+			 "buffer_size_server Cnt=~w received size ~w.~n",
+			 [Cnt,SizeD]),
 		 case B of
-		     D ->                             correct;
-		     <<D:SizeD/binary,_/binary>> ->   truncated
+		     D ->
+			 correct;
+		     <<D:SizeD/binary,_/binary>> ->
+			 truncated;
+		     _ ->
+			 {unexpected,D}
 		 end;
-	     {udp_error,Socket,Error} ->              Error
-	 after 5000 ->                                timeout
+	     Error ->
+		 ?line io:format(
+			 "buffer_size_server Cnt=~w received error ~w.~n",
+			 [Cnt,Error]),
+		 Error
 	 end},
     buffer_size_server(Client, IP, Port, Socket, Cnt+1, T).
+
+buffer_size_server_recv(Socket, IP, Port, Cnt) ->
+    receive
+	{udp,Socket,IP,Port,<<Cnt,B/binary>>} ->
+	    B;
+	{udp,Socket,IP,Port,<<_/binary>>} ->
+	    buffer_size_server_recv(Socket, IP, Port, Cnt);
+	{udp_error,Socket,Error} ->
+	    Error
+    after 5000 ->
+	    {timeout,flush()}
+    end.
 
 
 
