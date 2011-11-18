@@ -513,6 +513,8 @@ void erts_usage(void)
     erts_fprintf(stderr, "-rg amount  set reader groups limit\n");
     erts_fprintf(stderr, "-sbt type   set scheduler bind type, valid types are:\n");
     erts_fprintf(stderr, "            u|ns|ts|ps|s|nnts|nnps|tnnps|db\n");
+    erts_fprintf(stderr, "-scl bool   enable/disable compaction of scheduler load,\n");
+    erts_fprintf(stderr, "            see the erl(1) documentation for more info.\n");
     erts_fprintf(stderr, "-sct cput   set cpu topology,\n");
     erts_fprintf(stderr, "            see the erl(1) documentation for more info.\n");
     erts_fprintf(stderr, "-swt val    set scheduler wakeup threshold, valid values are:\n");
@@ -610,6 +612,7 @@ early_init(int *argc, char **argv) /*
     char envbuf[21]; /* enough for any 64-bit integer */
     size_t envbufsz;
 
+    erts_sched_compact_load = 1;
     use_multi_run_queue = 1;
     erts_printf_eterm_func = erts_printf_term;
     erts_disable_tolerant_timeofday = 0;
@@ -1195,6 +1198,19 @@ erl_start(int argc, char **argv)
 				 "setting scheduler bind type '%s' failed: %s\n",
 				 arg,
 				 estr);
+		    erts_usage();
+		}
+	    }
+	    else if (has_prefix("cl", sub_param)) {
+		arg = get_arg(sub_param+2, argv[i+1], &i);
+		if (sys_strcmp("true", arg) == 0)
+		    erts_sched_compact_load = 1;
+		else if (sys_strcmp("false", arg) == 0)
+		    erts_sched_compact_load = 0;
+		else {
+		    erts_fprintf(stderr,
+				 "bad scheduler compact load value '%s'\n",
+				 arg);
 		    erts_usage();
 		}
 	    }
