@@ -748,6 +748,9 @@ handle_info({'DOWN', _Ref, _Type, _Process, normal}, State) ->
     
 handle_info({'DOWN', _Ref, _Type, _Process, timeout}, State) ->
     {stop, normal, State#state{reply_to = undefined}};
+
+handle_info({'DOWN', _Ref, _Type, _Process, shutdown}, State) ->
+    {stop, normal, State#state{reply_to = undefined}};
  
 handle_info({'DOWN', _Ref, _Type, Process, Reason}, State) ->
     {stop, {stopped, {'EXIT', Process, Reason}}, 
