@@ -41,7 +41,7 @@
 -export([all/0,suite/0,groups/0,init_per_group/2,end_per_group/2]).
 
 -export([ script_options/1, normal_script/1, no_mod_vsn_script/1,
-	  wildcard_script/1, variable_script/1,
+	  wildcard_script/1, variable_script/1, no_sasl_script/1,
 	  abnormal_script/1, src_tests_script/1, crazy_script/1,
 	  warn_shadow_script/1,
 	  included_script/1, included_override_script/1,
@@ -49,10 +49,11 @@
 -export([ tar_options/1, normal_tar/1, no_mod_vsn_tar/1, variable_tar/1,
 	  src_tests_tar/1, shadow_tar/1, var_tar/1,
 	  exref_tar/1, link_tar/1, otp_9507/1]).
--export([ normal_relup/1, abnormal_relup/1, no_appup_relup/1,
-	  bad_appup_relup/1, app_start_type_relup/1, otp_3065/1]).
--export([
-	 otp_6226/1]).
+-export([ normal_relup/1, restart_relup/1, abnormal_relup/1, no_sasl_relup/1,
+	  no_appup_relup/1, bad_appup_relup/1, app_start_type_relup/1,
+	  regexp_relup/1, otp_3065/1]).
+-export([otp_6226/1]).
+-export([normal_hybrid/1,hybrid_no_old_sasl/1,hybrid_no_new_sasl/1]).
 -export([init_per_suite/1, end_per_suite/1, 
 	 init_per_testcase/2, end_per_testcase/2]).
 
@@ -67,15 +68,15 @@ suite() ->
     [{ct_hooks, [ts_install_cth]}].
 
 all() -> 
-    [{group, script}, {group, tar}, {group, relup},
+    [{group, script}, {group, tar}, {group, relup}, {group, hybrid},
      {group, tickets}].
 
 groups() -> 
     [{script, [],
       [script_options, normal_script, no_mod_vsn_script,
        wildcard_script, variable_script, abnormal_script,
-       src_tests_script, crazy_script, warn_shadow_script,
-       included_script, included_override_script,
+       no_sasl_script, src_tests_script, crazy_script,
+       warn_shadow_script, included_script, included_override_script,
        included_fail_script, included_bug_script, exref_script,
        otp_3065]},
      {tar, [],
@@ -83,8 +84,10 @@ groups() ->
        src_tests_tar, shadow_tar, var_tar,
        exref_tar, link_tar, otp_9507]},
      {relup, [],
-      [normal_relup, abnormal_relup, no_appup_relup,
-       bad_appup_relup, app_start_type_relup]},
+      [normal_relup, restart_relup, abnormal_relup, no_sasl_relup,
+       no_appup_relup, bad_appup_relup, app_start_type_relup, regexp_relup
+      ]},
+     {hybrid, [], [normal_hybrid,hybrid_no_old_sasl,hybrid_no_new_sasl]},
      {tickets, [], [otp_6226]}].
 
 init_per_group(_GroupName, Config) ->
@@ -381,6 +384,32 @@ abnormal_script(Config) when is_list(Config) ->
 				  {{"should be","2.1"},
 				   {"found file", _, "2.0"}}}}}]} =
 	systools:make_script(LatestName, [silent, {path, P}]),
+
+    ?line ok = file:set_cwd(OldDir),
+    ok.
+
+
+%% make_script
+%%
+no_sasl_script(suite) -> [];
+no_sasl_script(doc) ->
+    ["Create script without sasl appl. Check warning."];
+no_sasl_script(Config) when is_list(Config) ->
+    ?line {ok, OldDir} = file:get_cwd(),
+
+    ?line {LatestDir, LatestName} = create_script(latest1_no_sasl,Config),
+
+    ?line DataDir = filename:absname(?copydir),
+    ?line LibDir = [fname([DataDir, d_normal, lib])],
+    ?line P = [fname([LibDir, '*', ebin]),
+	       fname([DataDir, lib, kernel, ebin]),
+	       fname([DataDir, lib, stdlib, ebin]),
+	       fname([DataDir, lib, sasl, ebin])],
+
+    ?line ok = file:set_cwd(LatestDir),
+
+    ?line {ok, _ , [{warning,missing_sasl}]} =
+	systools:make_script(LatestName,[{path, P},silent]),
 
     ?line ok = file:set_cwd(OldDir),
     ok.
@@ -1106,15 +1135,17 @@ otp_9507(Config) when is_list(Config) ->
     RelName = fname([LatestDir,LatestName]),
 
     ?line P1 = ["./ebin",
-	       fname([DataDir, lib, kernel, ebin]),
-	       fname([DataDir, lib, stdlib, ebin])],
+		fname([DataDir, lib, kernel, ebin]),
+		fname([DataDir, lib, stdlib, ebin]),
+		fname([DataDir, lib, sasl, ebin])],
     ?line {ok, _, _} = systools:make_script(RelName, [silent, {path, P1}]),
     ?line ok = systools:make_tar(RelName, [{path, P1}]),
     ?line Content1 = tar_contents(RelName),
 
     ?line P2 = ["ebin",
-	       fname([DataDir, lib, kernel, ebin]),
-	       fname([DataDir, lib, stdlib, ebin])],
+		fname([DataDir, lib, kernel, ebin]),
+		fname([DataDir, lib, stdlib, ebin]),
+		fname([DataDir, lib, sasl, ebin])],
 
     %% Tickets solves the following line - it used to fail with
     %% {function_clause,[{filename,join,[[]]},...}
@@ -1148,17 +1179,10 @@ normal_relup(Config) when is_list(Config) ->
     ?line LibDir = [fname([DataDir, d_normal, lib])],
     ?line P = [fname([LibDir, '*', ebin]),
 	       fname([DataDir, lib, kernel, ebin]),
-	       fname([DataDir, lib, stdlib, ebin])],
+	       fname([DataDir, lib, stdlib, ebin]),
+	       fname([DataDir, lib, sasl, ebin])],
 
     ?line ok = file:set_cwd(LatestDir),
-
-    %% OTP-2561: Check that the option 'restart_emulator' generates a
-    %% "restart_new_emulator" instruction.
-    ?line {ok, _ , _, []} =
-         systools:make_relup(LatestName, [LatestName1], [LatestName1],
-			     [{path, P},restart_emulator,silent]),
-    ?line ok = check_relup([{db, "2.1"}], [{db, "1.0"}]),
-    ?line ok = check_restart_emulator(),
 
     %% This is the ultra normal case
     ?line ok = systools:make_relup(LatestName, [LatestName1], [LatestName1],
@@ -1188,13 +1212,98 @@ normal_relup(Config) when is_list(Config) ->
     ?line ok = systools:make_relup(LatestName, [LatestName2], [LatestName1],
 				   [{path, P}]),
     ?line ok = check_relup([{fe, "3.1"}, {db, "2.1"}], [{db, "1.0"}]),
-    ?line {ok, _, _, [{erts_vsn_changed, _}]} =
+    ?line {ok, _, _, [pre_R15_emulator_upgrade,{erts_vsn_changed, _}]} =
 	systools:make_relup(LatestName, [LatestName2], [LatestName1],
 			    [{path, P}, silent]),
     ?line ok = check_relup([{fe, "3.1"}, {db, "2.1"}], [{db, "1.0"}]),
 
     %% relup file should exist now
     ?line true = filelib:is_regular("relup"),
+
+    ?line ok = file:set_cwd(OldDir),
+    ok.
+
+
+restart_relup(suite) -> [];
+restart_relup(doc) ->
+    ["Test relup which includes emulator restart"];
+restart_relup(Config) when is_list(Config) ->
+    ?line {ok, OldDir} = file:get_cwd(),
+
+    ?line {LatestDir,LatestName}   = create_script(latest0,Config),
+    ?line {_LatestDir1,LatestName1} = create_script(latest1,Config),
+    ?line {_LatestDir0CurrErts,LatestName0CurrErts} =
+	create_script(latest0_current_erts,Config),
+    ?line {_CurrentAllDir,CurrentAllName} = create_script(current_all,Config),
+    ?line {_CurrentAllFutErtsDir,CurrentAllFutErtsName} =
+	create_script(current_all_future_erts,Config),
+    ?line {_CurrentAllFutSaslDir,CurrentAllFutSaslName} =
+	create_script(current_all_future_sasl,Config),
+
+    ?line DataDir = filename:absname(?copydir),
+    ?line LibDir = [fname([DataDir, d_normal, lib])],
+    ?line P = [fname([LibDir, '*', ebin]),
+	       fname([DataDir, lib, kernel, ebin]),
+	       fname([DataDir, lib, stdlib, ebin]),
+	       fname([DataDir, lib, sasl, ebin]),
+	       fname([DataDir, lib, 'sasl-9.9', ebin])],
+
+    ?line ok = file:set_cwd(LatestDir),
+
+    %% OTP-2561: Check that the option 'restart_emulator' generates a
+    %% "restart_emulator" instruction.
+    ?line {ok, _ , _, []} =
+         systools:make_relup(LatestName, [LatestName1], [LatestName1],
+			     [{path, P},restart_emulator,silent]),
+    ?line ok = check_relup([{db, "2.1"}], [{db, "1.0"}]),
+    ?line ok = check_restart_emulator(),
+
+
+    %% Pre-R15 to Post-R15 upgrade
+    ?line {ok, _ , _, Ws} =
+         systools:make_relup(LatestName0CurrErts,
+			     [LatestName1],
+			     [LatestName1],
+			     [{path, P},silent]),
+    ?line ok = check_relup([{db,"2.1"}], [{db, "1.0"}]),
+    ?line ok = check_pre_to_post_r15_restart_emulator(),
+    ?line ok = check_pre_to_post_r15_warnings(Ws),
+
+
+    %% Check that new sasl version generates a restart_new_emulator
+    %% instruction
+    ?line {ok, _ , _, []} =
+         systools:make_relup(CurrentAllFutSaslName,
+			     [CurrentAllName],
+			     [CurrentAllName],
+			     [{path, P},silent]),
+    ?line ok = check_relup([{fe, "3.1"}], []),
+    ?line ok = check_restart_emulator_diff_coreapp(),
+
+
+    %% Check that new erts version generates a restart_new_emulator
+    %% instruction, if FromSaslVsn >= R15SaslVsn
+    %% (One erts_vsn_changed warning for upgrade and one for downgrade)
+    ?line {ok, _ , _, [{erts_vsn_changed,_},{erts_vsn_changed,_}]} =
+         systools:make_relup(CurrentAllFutErtsName,
+			     [CurrentAllName],
+			     [CurrentAllName],
+			     [{path, P},silent]),
+    ?line ok = check_relup([{fe, "3.1"}], []),
+    ?line ok = check_restart_emulator_diff_coreapp(),
+
+
+    %% Check that new erts version generates a restart_new_emulator
+    %% instruction, and can be combined with restart_emulator opt.
+    %% (One erts_vsn_changed warning for upgrade and one for downgrade)
+    ?line {ok, _ , _, [{erts_vsn_changed,_},{erts_vsn_changed,_}]} =
+         systools:make_relup(CurrentAllFutErtsName,
+			     [CurrentAllName],
+			     [CurrentAllName],
+			     [{path, P},restart_emulator,silent]),
+    ?line ok = check_relup([{fe, "3.1"}], []),
+    ?line ok = check_restart_emulator(),
+    ?line ok = check_restart_emulator_diff_coreapp(),
 
     ?line ok = file:set_cwd(OldDir),
     ok.
@@ -1216,10 +1325,40 @@ check_relup(UpVsnL, DnVsnL) ->
 	       [{App, Vsn} || {load_object_code,{App,Vsn,_}} <- Dn]),
     ok.
 
+check_relup_up_only(UpVsnL) ->
+    {ok, [{_V1, [{_, _, Up}], []}]} = file:consult(relup),
+    [] = foldl(fun(X, Acc) ->
+		       true = lists:member(X, Acc),
+		       lists:delete(X, Acc) end,
+	       UpVsnL,
+	       [{App, Vsn} || {load_object_code,{App,Vsn,_}} <- Up]),
+    ok.
+
 check_restart_emulator() ->
     {ok, [{_V1, [{_, _, Up}], [{_, _, Dn}]}]} = file:consult(relup),
+    restart_emulator = lists:last(Up),
+    restart_emulator = lists:last(Dn),
+    ok.
+
+check_restart_emulator_up_only() ->
+    {ok, [{_V1, [{_, _, Up}], []}]} = file:consult(relup),
+    restart_emulator = lists:last(Up),
+    ok.
+
+check_restart_emulator_diff_coreapp() ->
+    {ok, [{_V1, [{_, _, Up}], [{_, _, Dn}]}]} = file:consult(relup),
+    [restart_new_emulator|_] = Up,
+    restart_emulator = lists:last(Dn),
+    ok.
+
+check_pre_to_post_r15_restart_emulator() ->
+    {ok, [{_V1, [{_, _, Up}], [{_, _, Dn}]}]} = file:consult(relup),
     restart_new_emulator = lists:last(Up),
-    restart_new_emulator = lists:last(Dn),
+    restart_emulator = lists:last(Dn),
+    ok.
+
+check_pre_to_post_r15_warnings(Ws) ->
+    true = lists:member(pre_R15_emulator_upgrade,Ws),
     ok.
 
 %% make_relup
@@ -1235,13 +1374,14 @@ no_appup_relup(Config) when is_list(Config) ->
     ?line {_LatestDir1,LatestName1} = create_script(latest_small1,Config),
 
     ?line DataDir = filename:absname(?copydir),
-    ?line P1 = [fname([DataDir, d_no_appup, lib, 'fe-3.1', ebin]),
-		fname([DataDir, lib, kernel, ebin]),
-		fname([DataDir, lib, stdlib, ebin])],
 
     ?line ok = file:set_cwd(LatestDir),
 
     %% Check that appup might be missing
+    ?line P1 = [fname([DataDir, d_no_appup, lib, 'fe-3.1', ebin]),
+		fname([DataDir, lib, kernel, ebin]),
+		fname([DataDir, lib, stdlib, ebin]),
+		fname([DataDir, lib, sasl, ebin])],
     ?line ok =
 	systools:make_relup(LatestName, [LatestName], [], [{path, P1}]),
     ?line {ok,_, _, []} =
@@ -1249,22 +1389,29 @@ no_appup_relup(Config) when is_list(Config) ->
 			    [silent, {path, P1}]),
 
     %% Check that appup might NOT be missing when we need it
+    ?line P2 = [fname([DataDir, d_no_appup, lib, 'fe-3.1', ebin]),
+		fname([DataDir, d_no_appup, lib, 'fe-2.1', ebin]),
+		fname([DataDir, lib, kernel, ebin]),
+		fname([DataDir, lib, stdlib, ebin]),
+		fname([DataDir, lib, sasl, ebin])],
     ?line error =
-	systools:make_relup(LatestName, [LatestName0], [], [{path, P1}]),
+	systools:make_relup(LatestName, [LatestName0], [], [{path, P2}]),
     ?line {error,_,{file_problem, {_,{error,{open,_,_}}}}} =
 	systools:make_relup(LatestName, [], [LatestName0],
-			    [silent, {path, P1}]),
+			    [silent, {path, P2}]),
 
     %% Check that appups missing vsn traps
-    ?line P2 = [fname([DataDir, d_no_appup, lib, 'fe-2.1', ebin]),
+    ?line P3 = [fname([DataDir, d_no_appup, lib, 'fe-2.1', ebin]),
+		fname([DataDir, d_no_appup, lib, 'fe-500.18.7', ebin]),
 		fname([DataDir, lib, kernel, ebin]),
-		fname([DataDir, lib, stdlib, ebin])],
+		fname([DataDir, lib, stdlib, ebin]),
+		fname([DataDir, lib, sasl, ebin])],
 
     ?line error =
-	systools:make_relup(LatestName0, [LatestName1], [], [{path, P2}]),
+	systools:make_relup(LatestName0, [LatestName1], [], [{path, P3}]),
     ?line {error,_,{no_relup, _, _, _}} =
 	systools:make_relup(LatestName0, [], [LatestName1],
-			    [silent, {path, P2}]),
+			    [silent, {path, P3}]),
 
     ?line ok = file:set_cwd(OldDir),
     ok.
@@ -1282,8 +1429,10 @@ bad_appup_relup(Config) when is_list(Config) ->
 
     ?line DataDir = filename:absname(?copydir),
     ?line N2 = [fname([DataDir, d_bad_appup, lib, 'fe-3.1', ebin]),
+		fname([DataDir, d_bad_appup, lib, 'fe-2.1', ebin]),
 		fname([DataDir, lib, kernel, ebin]),
-		fname([DataDir, lib, stdlib, ebin])],
+		fname([DataDir, lib, stdlib, ebin]),
+		fname([DataDir, lib, sasl, ebin])],
 
     ?line ok = file:set_cwd(LatestDir),
 
@@ -1313,7 +1462,8 @@ abnormal_relup(Config) when is_list(Config) ->
     ?line P = [fname([DataDir, d_bad_app_vsn, lib, 'db-2.1', ebin]),
 	       fname([DataDir, d_bad_app_vsn, lib, 'fe-3.1', ebin]),
 	       fname([DataDir, lib, kernel, ebin]),
-	       fname([DataDir, lib, stdlib, ebin])],
+	       fname([DataDir, lib, stdlib, ebin]),
+	       fname([DataDir, lib, sasl, ebin])],
     
     ?line ok = file:set_cwd(LatestDir),
 
@@ -1325,6 +1475,37 @@ abnormal_relup(Config) when is_list(Config) ->
 	     [{error_reading,{db,{no_valid_version,
 				  {{"should be","2.1"},
 				   {"found file", _, "2.0"}}}}}]} = R0,
+    ?line ok = file:set_cwd(OldDir),
+    ok.
+
+
+%% make_relup
+%%
+no_sasl_relup(suite) -> [];
+no_sasl_relup(doc) ->
+    ["Check relup can not be created is sasl is not in rel file"];
+no_sasl_relup(Config) when is_list(Config) ->
+    ?line {ok, OldDir} = file:get_cwd(),
+    ?line {Dir1,Name1} = create_script(latest1_no_sasl,Config),
+    ?line {_Dir2,Name2} = create_script(latest1,Config),
+
+    ?line DataDir = filename:absname(?copydir),
+    ?line LibDir = [fname([DataDir, d_normal, lib])],
+    ?line P = [fname([LibDir, '*', ebin]),
+	       fname([DataDir, lib, kernel, ebin]),
+	       fname([DataDir, lib, stdlib, ebin]),
+	       fname([DataDir, lib, sasl, ebin])],
+
+    ?line ok = file:set_cwd(Dir1),
+
+    ?line error = systools:make_relup(Name2, [Name1], [Name1], [{path, P}]),
+    ?line R1 = systools:make_relup(Name2, [Name1], [Name1],[silent, {path, P}]),
+    ?line {error,systools_relup,{missing_sasl,_}} = R1,
+
+    ?line error = systools:make_relup(Name1, [Name2], [Name2], [{path, P}]),
+    ?line R2 = systools:make_relup(Name1, [Name2], [Name2],[silent, {path, P}]),
+    ?line {error,systools_relup,{missing_sasl,_}} = R2,
+
     ?line ok = file:set_cwd(OldDir),
     ok.
 
@@ -1342,33 +1523,241 @@ app_start_type_relup(Config) when is_list(Config) ->
     ?line Release2 = filename:join(Dir2,Name2),
 
     ?line {ok, Release2Relup, systools_relup, []} = systools:make_relup(Release2, [Release1], [Release1], [{outdir, PrivDir}, silent]),
-    ?line {"2", [{"1",[], UpInstructions}], [{"1",[], DownInstructions}]} = Release2Relup,
+    ?line {"LATEST_APP_START_TYPE2",
+	   [{"LATEST_APP_START_TYPE1",[], UpInstructions}],
+	   [{"LATEST_APP_START_TYPE1",[], DownInstructions}]} = Release2Relup,
     %% ?t:format("Up: ~p",[UpInstructions]),
     %% ?t:format("Dn: ~p",[DownInstructions]),
     ?line [{load_object_code, {mnesia, _, _}},
-           {load_object_code, {sasl, _, _}},
+           {load_object_code, {runtime_tools, _, _}},
            {load_object_code, {webtool, _, _}},
            {load_object_code, {snmp, _, _}},
            {load_object_code, {xmerl, _, _}},
            point_of_no_return
            | UpInstructionsT] = UpInstructions,
     ?line true = lists:member({apply,{application,start,[mnesia,permanent]}}, UpInstructionsT),
-    ?line true = lists:member({apply,{application,start,[sasl,transient]}}, UpInstructionsT),
+    ?line true = lists:member({apply,{application,start,[runtime_tools,transient]}}, UpInstructionsT),
     ?line true = lists:member({apply,{application,start,[webtool,temporary]}}, UpInstructionsT),
     ?line true = lists:member({apply,{application,load,[snmp]}}, UpInstructionsT),
     ?line false = lists:any(fun({apply,{application,_,[xmerl|_]}}) -> true; (_) -> false end, UpInstructionsT),
     ?line [point_of_no_return | DownInstructionsT] = DownInstructions,
     ?line true = lists:member({apply,{application,stop,[mnesia]}}, DownInstructionsT),
-    ?line true = lists:member({apply,{application,stop,[sasl]}}, DownInstructionsT),
+    ?line true = lists:member({apply,{application,stop,[runtime_tools]}}, DownInstructionsT),
     ?line true = lists:member({apply,{application,stop,[webtool]}}, DownInstructionsT),
     ?line true = lists:member({apply,{application,stop,[snmp]}}, DownInstructionsT),
     ?line true = lists:member({apply,{application,stop,[xmerl]}}, DownInstructionsT),
     ?line true = lists:member({apply,{application,unload,[mnesia]}}, DownInstructionsT),
-    ?line true = lists:member({apply,{application,unload,[sasl]}}, DownInstructionsT),
+    ?line true = lists:member({apply,{application,unload,[runtime_tools]}}, DownInstructionsT),
     ?line true = lists:member({apply,{application,unload,[webtool]}}, DownInstructionsT),
     ?line true = lists:member({apply,{application,unload,[snmp]}}, DownInstructionsT),
     ?line true = lists:member({apply,{application,unload,[xmerl]}}, DownInstructionsT),
     ok.
+
+
+%% regexp_relup
+regexp_relup(Config) ->
+    ?line {ok, OldDir} = file:get_cwd(),
+
+    ?line {LatestDir,LatestName}   = create_script(latest_small,Config),
+    ?line {_LatestDir0,LatestName0} = create_script(latest_small0,Config),
+    ?line {_LatestDir1,LatestName1} = create_script(latest_small2,Config),
+
+    ?line DataDir = filename:absname(?copydir),
+    ?line P = [fname([DataDir, d_regexp_appup, lib, '*', ebin]),
+	       fname([DataDir, lib, kernel, ebin]),
+	       fname([DataDir, lib, stdlib, ebin]),
+	       fname([DataDir, lib, sasl, ebin])],
+
+    ?line ok = file:set_cwd(LatestDir),
+
+    %% Upgrade fe 2.1 -> 3.1, and downgrade 2.1 -> 3.1
+    %% Shall match the first entry if fe-3.1 appup.
+    ?line {ok, _, _, []} =
+	systools:make_relup(LatestName, [LatestName0], [LatestName0],
+			    [{path, P}, silent]),
+    ?line ok = check_relup([{fe, "3.1"}], [{fe, "2.1"}]),
+
+    %% Upgrade fe 2.1.1 -> 3.1
+    %% Shall match the second entry in fe-3.1 appup. Have added a
+    %% restart_emulator instruction there to distinguish it from
+    %% the first entry...
+    ?line {ok, _, _, []} =
+	systools:make_relup(LatestName, [LatestName1], [], [{path, P}, silent]),
+    ?line ok = check_relup_up_only([{fe, "3.1"}]),
+    ?line ok = check_restart_emulator_up_only(),
+
+    %% Attempt downgrade fe 3.1 -> 2.1.1
+    %% Shall not match any entry!!
+    ?line {error,systools_relup,{no_relup,_,_,_}} =
+	systools:make_relup(LatestName, [], [LatestName1], [{path, P}, silent]),
+
+    ?line ok = file:set_cwd(OldDir),
+
+    ok.
+
+
+%% For upgrade of erts - create a boot file which is a hybrid between
+%% old and new release - i.e. starts erts, kernel, stdlib, sasl from
+%% new release, all other apps from old release.
+normal_hybrid(Config) ->
+    ?line {ok, OldDir} = file:get_cwd(),
+    ?line {Dir1,Name1} = create_script(latest1,Config),
+    ?line {_Dir2,Name2} = create_script(current_all,Config),
+
+    ?line DataDir = filename:absname(?copydir),
+    ?line LibDir = [fname([DataDir, d_normal, lib])],
+    ?line P = [fname([LibDir, '*', ebin]),
+	       fname([DataDir, lib, kernel, ebin]),
+	       fname([DataDir, lib, stdlib, ebin]),
+	       fname([DataDir, lib, sasl, ebin])],
+
+    ?line ok = file:set_cwd(Dir1),
+
+    ?line {ok, _ , []} = systools:make_script(Name1,[{path, P},silent]),
+    ?line {ok, _ , []} = systools:make_script(Name2,[{path, P},silent]),
+    ?line {ok,Boot1} = file:read_file(Name1 ++ ".boot"),
+    ?line {ok,Boot2} = file:read_file(Name2 ++ ".boot"),
+
+    ?line ok = file:set_cwd(OldDir),
+
+    ?line BasePaths = {"testkernelpath","teststdlibpath","testsaslpath"},
+    ?line {ok,Hybrid} = systools_make:make_hybrid_boot("tmp_vsn",Boot1,Boot2,
+						       BasePaths, [dummy,args]),
+
+    ?line {script,{"Test release","tmp_vsn"},Script} = binary_to_term(Hybrid),
+    ct:log("~p.~n",[Script]),
+
+    %% Check that all paths to base apps are replaced by paths from BaseLib
+    Boot1Str = io_lib:format("~p~n",[binary_to_term(Boot1)]),
+    HybridStr = io_lib:format("~p~n",[binary_to_term(Hybrid)]),
+    ReOpts = [global,{capture,first,list},unicode],
+    ?line {match,OldKernelMatch} = re:run(Boot1Str,"kernel-[0-9\.]+",ReOpts),
+    ?line {match,OldStdlibMatch} = re:run(Boot1Str,"stdlib-[0-9\.]+",ReOpts),
+    ?line {match,OldSaslMatch} = re:run(Boot1Str,"sasl-[0-9\.]+",ReOpts),
+
+    ?line nomatch = re:run(HybridStr,"kernel-[0-9\.]+",ReOpts),
+    ?line nomatch = re:run(HybridStr,"stdlib-[0-9\.]+",ReOpts),
+    ?line nomatch = re:run(HybridStr,"sasl-[0-9\.]+",ReOpts),
+    ?line {match,NewKernelMatch} = re:run(HybridStr,"testkernelpath",ReOpts),
+    ?line {match,NewStdlibMatch} = re:run(HybridStr,"teststdlibpath",ReOpts),
+    ?line {match,NewSaslMatch} = re:run(HybridStr,"testsaslpath",ReOpts),
+
+    NewKernelN = length(NewKernelMatch),
+    ?line NewKernelN = length(OldKernelMatch),
+    NewStdlibN = length(NewStdlibMatch),
+    ?line NewStdlibN = length(OldStdlibMatch),
+    NewSaslN = length(NewSaslMatch),
+    ?line NewSaslN = length(OldSaslMatch),
+
+    %% Check that application load instruction has correct versions
+    Apps = application:loaded_applications(),
+    {_,_,KernelVsn} = lists:keyfind(kernel,1,Apps),
+    {_,_,StdlibVsn} = lists:keyfind(stdlib,1,Apps),
+    {_,_,SaslVsn} = lists:keyfind(sasl,1,Apps),
+
+    ?line [KernelInfo] = [I || {kernelProcess,application_controller,
+			  {application_controller,start,
+			   [{application,kernel,I}]}} <- Script],
+    ?line [StdlibInfo] = [I || {apply,
+			  {application,load,
+			   [{application,stdlib,I}]}} <- Script],
+    ?line [SaslInfo] = [I || {apply,
+			{application,load,
+			 [{application,sasl,I}]}} <- Script],
+
+    ?line {vsn,KernelVsn} = lists:keyfind(vsn,1,KernelInfo),
+    ?line {vsn,StdlibVsn} = lists:keyfind(vsn,1,StdlibInfo),
+    ?line {vsn,SaslVsn} = lists:keyfind(vsn,1,SaslInfo),
+
+    %% Check that new_emulator_upgrade call is added
+    ?line [_,{apply,{release_handler,new_emulator_upgrade,[dummy,args]}}|_] =
+	lists:reverse(Script),
+
+    %% Check that db-1.0 and fe-3.1 are used (i.e. vsns from old release)
+    %% And that fe is in there (it exists in old rel but not in new)
+    ?line {match,DbMatch} = re:run(HybridStr,"db-[0-9\.]+",ReOpts),
+    ?line {match,[_|_]=FeMatch} = re:run(HybridStr,"fe-[0-9\.]+",ReOpts),
+    ?line true = lists:all(fun(["db-1.0"]) -> true;
+			(_)  -> false
+		     end,
+		     DbMatch),
+    ?line true = lists:all(fun(["fe-3.1"]) -> true;
+			(_)  -> false
+		     end,
+		     FeMatch),
+
+    %% Check that script has same length as old script, plus one (the
+    %% new_emulator_upgrade apply)
+    {_,_,Old} = binary_to_term(Boot1),
+    OldLength = length(Old),
+    NewLength = length(Script),
+    ?line NewLength = OldLength + 1,
+
+    ok.
+
+%% Check that systools_make:make_hybrid_boot fails with a meaningful
+%% error message if the FromBoot does not include the sasl
+%% application.
+hybrid_no_old_sasl(Config) ->
+    ?line {ok, OldDir} = file:get_cwd(),
+    ?line {Dir1,Name1} = create_script(latest1_no_sasl,Config),
+    ?line {_Dir2,Name2} = create_script(current_all,Config),
+
+    ?line DataDir = filename:absname(?copydir),
+    ?line LibDir = [fname([DataDir, d_normal, lib])],
+    ?line P = [fname([LibDir, '*', ebin]),
+	       fname([DataDir, lib, kernel, ebin]),
+	       fname([DataDir, lib, stdlib, ebin]),
+	       fname([DataDir, lib, sasl, ebin])],
+
+    ?line ok = file:set_cwd(Dir1),
+
+    ?line {ok, _ , [{warning,missing_sasl}]} =
+	systools:make_script(Name1,[{path, P},silent]),
+    ?line {ok, _ , []} = systools:make_script(Name2,[{path, P},silent]),
+    ?line {ok,Boot1} = file:read_file(Name1 ++ ".boot"),
+    ?line {ok,Boot2} = file:read_file(Name2 ++ ".boot"),
+
+    ?line BasePaths = {"testkernelpath","teststdlibpath","testsaslpath"},
+    ?line {error,{app_not_replaced,sasl}} =
+	systools_make:make_hybrid_boot("tmp_vsn",Boot1,Boot2,
+				       BasePaths,[dummy,args]),
+
+    ?line ok = file:set_cwd(OldDir),
+    ok.
+
+
+%% Check that systools_make:make_hybrid_boot fails with a meaningful
+%% error message if the ToBoot does not include the sasl
+%% application.
+hybrid_no_new_sasl(Config) ->
+    ?line {ok, OldDir} = file:get_cwd(),
+    ?line {Dir1,Name1} = create_script(latest1,Config),
+    ?line {_Dir2,Name2} = create_script(current_all_no_sasl,Config),
+
+    ?line DataDir = filename:absname(?copydir),
+    ?line LibDir = [fname([DataDir, d_normal, lib])],
+    ?line P = [fname([LibDir, '*', ebin]),
+	       fname([DataDir, lib, kernel, ebin]),
+	       fname([DataDir, lib, stdlib, ebin]),
+	       fname([DataDir, lib, sasl, ebin])],
+
+    ?line ok = file:set_cwd(Dir1),
+
+    ?line {ok, _ , []} = systools:make_script(Name1,[{path, P},silent]),
+    ?line {ok, _ , [{warning,missing_sasl}]} =
+	systools:make_script(Name2,[{path, P},silent]),
+    ?line {ok,Boot1} = file:read_file(Name1 ++ ".boot"),
+    ?line {ok,Boot2} = file:read_file(Name2 ++ ".boot"),
+
+    ?line BasePaths = {"testkernelpath","teststdlibpath","testsaslpath"},
+    ?line {error,{app_not_found,sasl}} =
+	systools_make:make_hybrid_boot("tmp_vsn",Boot1,Boot2,
+				       BasePaths,[dummy,args]),
+
+    ?line ok = file:set_cwd(OldDir),
+    ok.
+
 
 
 otp_6226(suite) ->
@@ -1388,7 +1777,8 @@ otp_6226(Config) when is_list(Config) ->
 	       fname([LibDir, 'db-1.0', ebin]),
 	       fname([LibDir, 'fe-3.1', ebin]),
 	       fname([DataDir, lib, kernel, ebin]),
-	       fname([DataDir, lib, stdlib, ebin])],
+	       fname([DataDir, lib, stdlib, ebin]),
+	       fname([DataDir, lib, sasl, ebin])],
 
     ?line ok = file:set_cwd(LatestDir),
 
@@ -1656,164 +2046,94 @@ tar_name(Name) ->
     Name ++ ".tar.gz".
 
 create_script(latest,Config) ->
-    ?line PrivDir = ?privdir,
-    ?line Name = fname(PrivDir, latest),
-    ?line Apps = application_controller:which_applications(),
-    ?line {value,{_,_,KernelVer}} = lists:keysearch(kernel,1,Apps),
-    ?line {value,{_,_,StdlibVer}} = lists:keysearch(stdlib,1,Apps),
-    ?line {ok,Fd} = file:open(Name++".rel",write),
-    ?line io:format(Fd,
-		    "{release, {\"Test release 3\", \"LATEST\"}, \n"
-		    " {erts, \"4.4\"}, \n"
-		    " [{kernel, \"~s\"}, {stdlib, \"~s\"}, \n"
-		    "  {db, \"2.1\"}, {fe, \"3.1\"}]}.\n",
-		    [KernelVer,StdlibVer]),
-    ?line ok = file:close(Fd),
-    {filename:dirname(Name), filename:basename(Name)};
+    Apps = core_apps(current) ++ [{db,"2.1"},{fe,"3.1"}],
+    do_create_script(latest,Config,"4.4",Apps);
 create_script(latest_no_mod_vsn,Config) ->
-    ?line PrivDir = ?privdir,
-    ?line Name = fname(PrivDir, latest),
-    ?line Apps = application_controller:which_applications(),
-    ?line {value,{_,_,KernelVer}} = lists:keysearch(kernel,1,Apps),
-    ?line {value,{_,_,StdlibVer}} = lists:keysearch(stdlib,1,Apps),
-    ?line {ok,Fd} = file:open(Name++".rel",write),
-    ?line io:format(Fd,
-		    "{release, {\"Test release 3\", \"LATESTNOMOD\"}, \n"
-		    " {erts, \"4.4\"}, \n"
-		    " [{kernel, \"~s\"}, {stdlib, \"~s\"}, \n"
-		    "  {db, \"3.1\"}, {fe, \"3.1\"}]}.\n",
-		    [KernelVer,StdlibVer]),
-    ?line ok = file:close(Fd),
-    {filename:dirname(Name), filename:basename(Name)};
+    Apps = core_apps(current) ++ [{db,"3.1"},{fe,"3.1"}],
+    do_create_script(latest_no_mod_vsn,Config,"4.4",Apps);
 create_script(latest0,Config) ->
-    ?line PrivDir = ?privdir,
-    ?line Name = fname(PrivDir, 'latest-1'),
-    ?line {ok,Fd} = file:open(Name++".rel",write),
-    ?line io:format(Fd,
-		    "{release, {\"Test release 2\", \"LATEST0\"}, \n"
-		    " {erts, \"4.4\"}, \n"
-		    " [{kernel, \"1.0\"}, {stdlib, \"1.0\"}, \n"
-		    "  {db, \"2.1\"}, {fe, \"3.1\"}]}.\n",
-		    []),
-    ?line ok = file:close(Fd),
-    {filename:dirname(Name), filename:basename(Name)};
+    Apps = core_apps("1.0") ++ [{db,"2.1"},{fe,"3.1"}],
+    do_create_script(latest0,Config,"4.4",Apps);
+create_script(latest0_current_erts,Config) ->
+    Apps = core_apps("1.0") ++ [{db,"2.1"},{fe,"3.1"}],
+    do_create_script(latest0_current_erts,Config,current,Apps);
 create_script(latest1,Config) ->
-    ?line PrivDir = ?privdir,
-    ?line Name = fname(PrivDir, latest),
-    ?line {ok,Fd} = file:open(Name++".rel",write),
-    ?line io:format(Fd,
-		    "{release, {\"Test release 2\", \"LATEST1\"}, \n"
-		    " {erts, \"4.4\"}, \n"
-		    " [{kernel, \"1.0\"}, {stdlib, \"1.0\"}, \n"
-		    "  {db, \"1.0\"}, {fe, \"3.1\"}]}.\n",
-		    []),
-    ?line ok = file:close(Fd),
-    {filename:dirname(Name), filename:basename(Name)};
+    Apps = core_apps("1.0") ++ [{db,"1.0"},{fe,"3.1"}],
+    do_create_script(latest1,Config,"4.4",Apps);
+create_script(latest1_no_sasl,Config) ->
+    Apps = [{kernel,"1.0"},{stdlib,"1.0"},{db,"1.0"},{fe,"3.1"}],
+    do_create_script(latest1_no_sasl,Config,"4.4",Apps);
 create_script(latest2,Config) ->
-    ?line PrivDir = ?privdir,
-    ?line Name = fname(PrivDir, 'latest-2'),
-    ?line {ok,Fd} = file:open(Name++".rel",write),
-    ?line io:format(Fd,
-		    "{release, {\"Test release 1\", \"LATEST2\"}, \n"
-		    " {erts, \"4.3\"}, \n"
-		    " [{kernel, \"1.0\"}, {stdlib, \"1.0\"}, \n"
-		    "  {db, \"1.0\"}, {fe, \"2.1\"}]}.\n",
-		    []),
-    ?line ok = file:close(Fd),
-    {filename:dirname(Name), filename:basename(Name)};
+    Apps = core_apps("1.0") ++ [{db,"1.0"},{fe,"2.1"}],
+    do_create_script(latest2,Config,"4.3",Apps);
 create_script(latest_small,Config) ->
-    ?line PrivDir = ?privdir,
-    ?line Name = fname(PrivDir, 'latest-small'),
-    ?line {ok,Fd} = file:open(Name++".rel",write),
-    ?line io:format(Fd,
-		    "{release, {\"Test release 2\", \"LATEST_SMALL\"}, \n"
-		    " {erts, \"4.4\"}, \n"
-		    " [{kernel, \"1.0\"}, {stdlib, \"1.0\"}, \n"
-		    "  {fe, \"3.1\"}]}.\n",
-		    []),
-    ?line ok = file:close(Fd),
-    {filename:dirname(Name), filename:basename(Name)};
+    Apps = core_apps("1.0") ++ [{fe,"3.1"}],
+    do_create_script(latest_small,Config,"4.4",Apps);
 create_script(latest_small0,Config) ->		%Differs in fe vsn
-    ?line PrivDir = ?privdir,
-    ?line Name = fname(PrivDir, 'latest-small0'),
-    ?line {ok,Fd} = file:open(Name++".rel",write),
-    ?line io:format(Fd,
-		    "{release, {\"Test release 2\", \"LATEST_SMALL0\"}, \n"
-		    " {erts, \"4.4\"}, \n"
-		    " [{kernel, \"1.0\"}, {stdlib, \"1.0\"}, \n"
-		    "  {fe, \"2.1\"}]}.\n",
-		    []),
-    ?line ok = file:close(Fd),
-    {filename:dirname(Name), filename:basename(Name)};
+    Apps = core_apps("1.0") ++ [{fe,"2.1"}],
+    do_create_script(latest_small0,Config,"4.4",Apps);
 create_script(latest_small1,Config) ->
-    ?line PrivDir = ?privdir,
-    ?line Name = fname(PrivDir, 'latest-small1'),
-    ?line {ok,Fd} = file:open(Name++".rel",write),
-    ?line io:format(Fd,
-		    "{release, {\"Test release 2\", \"LATEST_SMALL1\"}, \n"
-		    " {erts, \"4.4\"}, \n"
-		    " [{kernel, \"1.0\"}, {stdlib, \"1.0\"}, \n"
-		    "  {fe, \"500.18.7\"}]}.\n",
-		    []),
-    ?line ok = file:close(Fd),
-    {filename:dirname(Name), filename:basename(Name)};
+    Apps = core_apps("1.0") ++ [{fe,"500.18.7"}],
+    do_create_script(latest_small1,Config,"4.4",Apps);
+create_script(latest_small2,Config) ->
+    Apps = core_apps("1.0") ++ [{fe,"2.1.1"}],
+    do_create_script(latest_small2,Config,"4.4",Apps);
 create_script(latest_nokernel,Config) ->
-    ?line PrivDir = ?privdir,
-    ?line Name = fname(PrivDir, 'latest-nokernel'),
-    ?line {ok,Fd} = file:open(Name++".rel",write),
-    ?line io:format(Fd,
-		    "{release, {\"Test release 3\", \"LATEST_NOKERNEL\"}, \n"
-		    " {erts, \"4.4\"}, \n"
-		    " [{db, \"2.1\"}, {fe, \"3.1\"}]}.\n",
-		    []),
-    ?line ok = file:close(Fd),
-    {filename:dirname(Name), filename:basename(Name)};
+    Apps = [{db,"2.1"},{fe,"3.1"}],
+    do_create_script(latest_nokernel,Config,"4.4",Apps);
 create_script(latest_app_start_type1,Config) ->
-    ?line PrivDir = ?privdir,
-    ?line Name = fname(PrivDir, latest_app_start_type1),
-    ?line ErtsVer = erlang:system_info(version),
-    ?line Apps = application_controller:which_applications(),
-    ?line {value,{_,_,KernelVer}} = lists:keysearch(kernel,1,Apps),
-    ?line {value,{_,_,StdlibVer}} = lists:keysearch(stdlib,1,Apps),
-    ?line {ok,Fd} = file:open(Name++".rel",write),
-    ?line RelfileContent = 
-	{release,{"Test release", "1"},
-	 {erts,ErtsVer},
-	 [{kernel,KernelVer},
-	  {stdlib,StdlibVer}]},
-    ?line io:format(Fd,"~p.~n",[RelfileContent]),
-    ?line ok = file:close(Fd),
-    {filename:dirname(Name), filename:basename(Name)};
+    Apps = core_apps(current),
+    do_create_script(latest_app_start_type1,Config,current,Apps);
 create_script(latest_app_start_type2,Config) ->
+    OtherApps = [{mnesia,current,permanent},
+		 {runtime_tools,current,transient},
+		 {webtool,current,temporary},
+		 {snmp,current,load},
+		 {xmerl,current,none}],
+    Apps = core_apps(current) ++ OtherApps,
+    do_create_script(latest_app_start_type2,Config,current,Apps);
+create_script(current_all_no_sasl,Config) ->
+    Apps = [{kernel,current},{stdlib,current},{db,"2.1"},{fe,"3.1"}],
+    do_create_script(current_all_no_sasl,Config,current,Apps);
+create_script(current_all,Config) ->
+    Apps = core_apps(current) ++ [{db,"2.1"}],
+    do_create_script(current_all,Config,current,Apps);
+create_script(current_all_future_erts,Config) ->
+    Apps = core_apps(current) ++ [{db,"2.1"},{fe,"3.1"}],
+    do_create_script(current_all_future_erts,Config,"99.99",Apps);
+create_script(current_all_future_sasl,Config) ->
+    Apps = [{kernel,current},{stdlib,current},{sasl,"9.9"},{db,"2.1"},{fe,"3.1"}],
+    do_create_script(current_all_future_sasl,Config,current,Apps).
+
+
+do_create_script(Id,Config,ErtsVsn,AppVsns) ->
     ?line PrivDir = ?privdir,
-    ?line Name = fname(PrivDir, latest_app_start_type2),
-    ?line ErtsVer = erlang:system_info(version),
-    ?line Apps = application_controller:which_applications(),
-    ?line {value,{_,_,KernelVer}} = lists:keysearch(kernel,1,Apps),
-    ?line {value,{_,_,StdlibVer}} = lists:keysearch(stdlib,1,Apps),
-    ?line OtherApps = [{mnesia,permanent},
-		       {sasl,transient},
-		       {webtool,temporary},
-		       {snmp,load},
-		       {xmerl,none}],
-    ?line lists:foreach(fun({App,_}) -> application:load(App) end,
-			OtherApps),
-    ?line Loaded = application:loaded_applications(),
-    ?line OtherAppsRel = 
-	lists:map(fun({App,StartType}) -> 
-			  {_,_,Ver} = lists:keyfind(App,1,Loaded),
-			  {App,Ver,StartType}
-		  end,
-		  OtherApps),
+    ?line Name = fname(PrivDir, Id),
     ?line {ok,Fd} = file:open(Name++".rel",write),
-    ?line RelfileContent = 
-	{release,{"Test release", "2"},
-	 {erts,ErtsVer},
-	 [{kernel,KernelVer},
-	  {stdlib,StdlibVer} | OtherAppsRel]},
+    ?line RelfileContent =
+	{release,{"Test release", string:to_upper(atom_to_list(Id))},
+	 {erts,erts_vsn(ErtsVsn)},
+	 app_vsns(AppVsns)},
     ?line io:format(Fd,"~p.~n",[RelfileContent]),
     ?line ok = file:close(Fd),
     {filename:dirname(Name), filename:basename(Name)}.
+
+core_apps(Vsn) ->
+    [{App,Vsn} || App <- [kernel,stdlib,sasl]].
+
+app_vsns(AppVsns) ->
+    [{App,app_vsn(App,Vsn)} || {App,Vsn} <- AppVsns] ++
+	[{App,app_vsn(App,Vsn),Type} || {App,Vsn,Type} <- AppVsns].
+app_vsn(App,current) ->
+    application:load(App),
+    {ok,Vsn} = application:get_key(App,vsn),
+    Vsn;
+app_vsn(_App,Vsn) ->
+    Vsn.
+
+erts_vsn(current) -> erlang:system_info(version);
+erts_vsn(Vsn) -> Vsn.
+
 
 create_include_files(inc1, Config) ->
     ?line PrivDir = ?privdir,

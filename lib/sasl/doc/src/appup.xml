@@ -319,12 +319,37 @@ point_of_no_return
     <pre>
 restart_new_emulator
     </pre>
-    <p>Shuts down the current emulator and starts a ne one. All
-      processes are terminated gracefully. The new release must still
-      be made permanent when the new emulator is up and running.
-      Otherwise, the old emulator is started in case of a emulator
-      restart. This instruction should be used when a new emulator is
-      introduced, or if a complete reboot of the system should be done.</p>
+    <p>This instruction is used when erts, kernel, stdlib or sasl is
+      upgraded. It shuts down the current emulator and starts a new
+      one. All processes are terminated gracefully, and the new
+      version of erts, kernel, stdlib and sasl are used when the
+      emulator restarts. Only one <c>restart_new_emulator</c>
+      instruction is allowed in the relup, and it shall be placed
+      first. <seealso marker="systools#make_relup/3">systools:make_relup3,4</seealso>
+      will ensure this when the relup is generated. The rest of the
+      relup script is executed after the restart as a part of the boot
+      script.</p>
+    <p>An info report will be written when the upgrade is
+      completed. To programatically find out if the upgrade is
+      complete,
+      call <seealso marker="release_handler#which_release/0">
+      release_handler:which_releases</seealso> and check if the
+      expected release has status <c>current</c>.</p>
+    <p>The new release must still be made permanent after the upgrade
+      is completed. Otherwise, the old emulator is started in case of
+      an emulator restart.</p>
+    <pre>
+restart_emulator
+    </pre>
+    <p>This instruction is similar to <c>restart_new_emulator</c>,
+      except it shall be placed at the end of the relup script. It is
+      not related to an upgrade of the emulator or the core
+      applications, but can be used by any application when a complete
+      reboot of the system is reqiured.  When generating the
+      relup, <seealso marker="systools#make_relup/3">systools:make_relup/3,4</seealso>
+      ensures that there is only one <c>restart_emulator</c>
+      instruction and that it is the last instruction of the
+      relup.</p>
   </section>
 
   <section>

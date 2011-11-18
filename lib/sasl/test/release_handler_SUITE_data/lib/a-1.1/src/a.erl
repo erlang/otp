@@ -51,4 +51,6 @@ terminate(_Reason, _State) ->
     ok.
 
 code_change(1, Extra, State) ->
-    {ok, {state, bval}}.
+    {ok, {state, bval}};
+code_change({down,1},Extra,State) ->
+    {ok, state}.

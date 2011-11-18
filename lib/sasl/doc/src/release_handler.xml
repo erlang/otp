@@ -238,7 +238,7 @@ old        reboot_old            permanent
     </func>
     <func>
       <name>install_release(Vsn) -> {ok, OtherVsn, Descr} | {error, Reason}</name>
-      <name>install_release(Vsn, [Opt]) -> {ok, OtherVsn, Descr} | {error, Reason}</name>
+      <name>install_release(Vsn, [Opt]) -> {ok, OtherVsn, Descr} | {continue_after_restart, OtherVsn, Descr} | {error, Reason}</name>
       <fsummary>Install a release in the system.</fsummary>
       <type>
         <v>Vsn = OtherVsn = string()</v>
@@ -248,7 +248,8 @@ old        reboot_old            permanent
         <v>&nbsp;Timeout = default | infinity | int()>0</v>
         <v>&nbsp;Bool = boolean()</v>
         <v>Descr = term()</v>
-        <v>Reason = {illegal_option, Opt} | {already_installed, Vsn} | {change_appl_data, term()} | term()</v>
+        <v>Reason = {illegal_option, Opt} | {already_installed, Vsn} | {change_appl_data, term()} | {missing_base_app, OtherVsn, App} | {could_not_create_hybrid_boot, term()} | term()</v>
+	<v>App = atom()</v>
       </type>
       <desc>
         <p>Installs the specified version <c>Vsn</c> of the release.
@@ -268,6 +269,15 @@ old        reboot_old            permanent
           <c>OtherVsn</c> and <c>Descr</c> are the version
           (<c>UpFromVsn</c> or <c>Vsn</c>) and description
           (<c>Descr1</c> or <c>Descr2</c>) as specified in the script.</p>
+	  <p>If <c>{continue_after_restart,OtherVsn,Descr}</c> is
+	  returned, it means that the emulator will be restarted
+	  before the upgrade instructions are executed. This will
+	  happen if the emulator or any of the applications kernel,
+	  stdlib or sasl are updated. The new version of the emulator
+	  and these core applications will execute after the restart,
+	  but for all other applications the old versions will be
+	  started and the upgrade will be performed as normal by
+	  executing the upgrade instructions.</p>
         <p>If a recoverable error occurs, the function returns
           <c>{error,Reason}</c> and the original application
           specifications are restored. If a non-recoverable error
@@ -324,6 +334,18 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
 	  <p>Obviously, this will not reduce the overall time for the
 	  upgrade, but it will allow checks and purge to be executed
 	  in the background before the real upgrade is started.</p>
+	</note>
+	<note>
+	  <p>When upgrading the emulator from a version older than OTP
+	  R15, there will be an attempt to load new application beam
+	  code into the old emulator. In some cases, the new beam
+	  format can not be read by the old emulator, and so the code
+	  loading will fail and terminate the complete upgrade. To
+	  overcome this problem, the new application code should be
+	  compiled with the old emulator. See <seealso
+	  marker="doc/design_principles:appup_cookbook">Design
+	  Principles</seealso> for more information about emulator
+	  upgrade from pre OTP R15 versions.</p>
 	</note>
       </desc>
     </func>
@@ -454,7 +476,7 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
       and evaluated exactly in the same way as <c>release_handler</c>
       does.</p>
     <warning>
-      <p>These function is primarily intended for simplified testing of
+      <p>These functions are primarily intended for simplified testing
         of <c>.appup</c> files. They are not run within the context of
         the <c>release_handler</c> process. They must therefore
         <em>not</em> be used together with calls to

@@ -31,6 +31,8 @@
 
 -export([read_application/4]).
 
+-export([make_hybrid_boot/5]).
+
 -import(lists, [filter/2, keysort/2, keysearch/3, map/2, reverse/1,
 		append/1, foldl/3,  member/2, foreach/2]).
 
@@ -162,6 +164,118 @@ return({error,Mod,Error},_,Flags) ->
 	    error
     end.
 
+
+%%-----------------------------------------------------------------
+%% Make hybrid boot file for upgrading emulator. The resulting boot
+%% file is a combination of the two input files, where kernel, stdlib
+%% and sasl versions are taken from the second file (the boot file of
+%% the new release), and all other application versions from the first
+%% file (the boot file of the old release).
+%%
+%% The most important thing that can fail here is that the input boot
+%% files do not contain all three base applications - kernel, stdlib
+%% and sasl.
+%%
+%% TmpVsn = string(),
+%% Paths = {KernelPath,StdlibPath,SaslPath}
+%% Returns {ok,Boot} | {error,Reason}
+%% Boot1 = Boot2 = Boot = binary()
+%% Reason = {app_not_found,App} | {app_not_replaced,App}
+%% App = kernel | stdlib | sasl
+make_hybrid_boot(TmpVsn, Boot1, Boot2, Paths, Args) ->
+    catch do_make_hybrid_boot(TmpVsn, Boot1, Boot2, Paths, Args).
+do_make_hybrid_boot(TmpVsn, Boot1, Boot2, Paths, Args) ->
+    {script,{_RelName1,_RelVsn1},Script1} = binary_to_term(Boot1),
+    {script,{RelName2,_RelVsn2},Script2} = binary_to_term(Boot2),
+    MatchPaths = get_regexp_path(Paths),
+    NewScript1 = replace_paths(Script1,MatchPaths),
+    {Kernel,Stdlib,Sasl} = get_apps(Script2,undefined,undefined,undefined),
+    NewScript2 = replace_apps(NewScript1,Kernel,Stdlib,Sasl),
+    NewScript3 = add_apply_upgrade(NewScript2,Args),
+    Boot = term_to_binary({script,{RelName2,TmpVsn},NewScript3}),
+    {ok,Boot}.
+
+%% For each app, compile a regexp that can be used for finding its path
+get_regexp_path({KernelPath,StdlibPath,SaslPath}) ->
+    {ok,KernelMP} = re:compile("kernel-[0-9\.]+",[unicode]),
+    {ok,StdlibMP} = re:compile("stdlib-[0-9\.]+",[unicode]),
+    {ok,SaslMP} = re:compile("sasl-[0-9\.]+",[unicode]),
+    [{KernelMP,KernelPath},{StdlibMP,StdlibPath},{SaslMP,SaslPath}].
+
+%% For each path in the script, check if it matches any of the MPs
+%% found above, and if so replace it with the correct new path.
+replace_paths([{path,Path}|Script],MatchPaths) ->
+    [{path,replace_path(Path,MatchPaths)}|replace_paths(Script,MatchPaths)];
+replace_paths([Stuff|Script],MatchPaths) ->
+    [Stuff|replace_paths(Script,MatchPaths)];
+replace_paths([],_) ->
+    [].
+
+replace_path([Path|Paths],MatchPaths) ->
+    [do_replace_path(Path,MatchPaths)|replace_path(Paths,MatchPaths)];
+replace_path([],_) ->
+    [].
+
+do_replace_path(Path,[{MP,ReplacePath}|MatchPaths]) ->
+    case re:run(Path,MP,[{capture,none}]) of
+	nomatch -> do_replace_path(Path,MatchPaths);
+	match -> ReplacePath
+    end;
+do_replace_path(Path,[]) ->
+    Path.
+
+%% Return the entries for loading the three base applications
+get_apps([{kernelProcess,application_controller,
+	   {application_controller,start,[{application,kernel,_}]}}=Kernel|
+	  Script],_,Stdlib,Sasl) ->
+    get_apps(Script,Kernel,Stdlib,Sasl);
+get_apps([{apply,{application,load,[{application,stdlib,_}]}}=Stdlib|Script],
+	 Kernel,_,Sasl) ->
+    get_apps(Script,Kernel,Stdlib,Sasl);
+get_apps([{apply,{application,load,[{application,sasl,_}]}}=Sasl|_Script],
+	 Kernel,Stdlib,_) ->
+    {Kernel,Stdlib,Sasl};
+get_apps([_|Script],Kernel,Stdlib,Sasl) ->
+    get_apps(Script,Kernel,Stdlib,Sasl);
+get_apps([],undefined,_,_) ->
+    throw({error,{app_not_found,kernel}});
+get_apps([],_,undefined,_) ->
+    throw({error,{app_not_found,stdlib}});
+get_apps([],_,_,undefined) ->
+    throw({error,{app_not_found,sasl}}).
+
+
+%% Replace the entries for loading the base applications
+replace_apps([{kernelProcess,application_controller,
+	       {application_controller,start,[{application,kernel,_}]}}|
+	      Script],Kernel,Stdlib,Sasl) ->
+    [Kernel|replace_apps(Script,undefined,Stdlib,Sasl)];
+replace_apps([{apply,{application,load,[{application,stdlib,_}]}}|Script],
+	     Kernel,Stdlib,Sasl) ->
+    [Stdlib|replace_apps(Script,Kernel,undefined,Sasl)];
+replace_apps([{apply,{application,load,[{application,sasl,_}]}}|Script],
+	     _Kernel,_Stdlib,Sasl) ->
+    [Sasl|Script];
+replace_apps([Stuff|Script],Kernel,Stdlib,Sasl) ->
+    [Stuff|replace_apps(Script,Kernel,Stdlib,Sasl)];
+replace_apps([],undefined,undefined,_) ->
+    throw({error,{app_not_replaced,sasl}});
+replace_apps([],undefined,_,_) ->
+    throw({error,{app_not_replaced,stdlib}});
+replace_apps([],_,_,_) ->
+    throw({error,{app_not_replaced,kernel}}).
+
+
+%% Finally add an apply of release_handler:new_emulator_upgrade - which will
+%% complete the execution of the upgrade script (relup).
+add_apply_upgrade(Script,Args) ->
+    [{progress, started} | RevScript] = lists:reverse(Script),
+    lists:reverse([{progress,started},
+		   {apply,{release_handler,new_emulator_upgrade,Args}} |
+		   RevScript]).
+
+
+
 %%-----------------------------------------------------------------
 %% Create a release package from a release file.
 %% Options is a list of {path, Path} | silent |
@@ -250,13 +364,13 @@ get_release(File, Path, ModTestP, Machine) ->
     end.
 	
 get_release1(File, Path, ModTestP, Machine) ->
-    {ok, Release} = read_release(File, Path),
+    {ok, Release, Warnings1} = read_release(File, Path),
     {ok, Appls0} = collect_applications(Release, Path),
     {ok, Appls1} = check_applications(Appls0),
     {ok, Appls2} = sort_included_applications(Appls1, Release), % OTP-4121
-    {ok, Warnings} = check_modules(Appls2, Path, ModTestP, Machine),
+    {ok, Warnings2} = check_modules(Appls2, Path, ModTestP, Machine),
     {ok, Appls} = sort_appls(Appls2),
-    {ok, Release, Appls, Warnings}.
+    {ok, Release, Appls, Warnings1 ++ Warnings2}.
 
 %%______________________________________________________________________
 %% read_release(File, Path) -> {ok, #release} | throw({error, What})
@@ -271,11 +385,12 @@ read_release(File, Path) ->
 
 check_rel(Release) ->
     case catch check_rel1(Release) of
-	{ok, {Name,Vsn,Evsn,Appl,Incl}} ->
+	{ok, {Name,Vsn,Evsn,Appl,Incl}, Ws} ->
 	    {ok, #release{name=Name, vsn=Vsn,
 			  erts_vsn=Evsn,
 			  applications=Appl,
-			  incl_apps=Incl}};
+			  incl_apps=Incl},
+	    Ws};
 	{error, Error} ->
 	    throw({error,?MODULE,Error});
 	Error ->
@@ -286,8 +401,8 @@ check_rel1({release,{Name,Vsn},{erts,EVsn},Appl}) when is_list(Appl) ->
     check_name(Name),
     check_vsn(Vsn),
     check_evsn(EVsn),
-    {Appls,Incls} = check_appl(Appl),
-    {ok, {Name,Vsn,EVsn,Appls,Incls}};
+    {{Appls,Incls},Ws} = check_appl(Appl),
+    {ok, {Name,Vsn,EVsn,Appls,Incls},Ws};
 check_rel1(_) ->
     {error, badly_formatted_release}.
 
@@ -340,8 +455,8 @@ check_appl(Appl) ->
 		end,
 		Appl) of
 	[] ->
-	    mandatory_applications(Appl),
-	    split_app_incl(Appl);
+	    {ok,Ws} = mandatory_applications(Appl),
+	    {split_app_incl(Appl),Ws};
 	Illegal ->
 	    throw({error, {illegal_applications,Illegal}})
     end.
@@ -352,7 +467,12 @@ mandatory_applications(Appl) ->
     Mand = mandatory_applications(),
     case filter(fun(X) -> member(X, AppNames) end, Mand) of
 	Mand ->
-	    ok;
+	    case member(sasl,AppNames) of
+		true ->
+		    {ok,[]};
+		_ ->
+		    {ok, [{warning,missing_sasl}]}
+	    end;
 	_ ->
 	    throw({error, {missing_mandatory_app, Mand}})
     end.
@@ -2198,5 +2318,9 @@ form_warn(Prefix, {exref_undef, Undef}) ->
 			      [Prefix,M,F,A])
 	end,
     map(F, Undef);
+form_warn(Prefix, missing_sasl) ->
+    io_lib:format("~s: Missing application sasl. "
+		  "Can not upgrade with this release~n",
+		  [Prefix]);
 form_warn(Prefix, What) ->
     io_lib:format("~s ~p~n", [Prefix,What]).
