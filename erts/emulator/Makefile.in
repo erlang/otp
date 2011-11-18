@@ -971,7 +971,8 @@ HIPE_SRC=
 endif
 
 BEAM_SRC=$(wildcard beam/*.c)
-DRV_SRC=$(wildcard drivers/common/*.c) $(wildcard drivers/$(ERLANG_OSTYPE)/*.c)
+DRV_COMMON_SRC=$(wildcard drivers/common/*.c)
+DRV_OSTYPE_SRC=$(wildcard drivers/$(ERLANG_OSTYPE)/*.c)
 ALL_SYS_SRC=$(wildcard sys/$(ERLANG_OSTYPE)/*.c) $(wildcard sys/common/*.c)
 TARGET_SRC=$(wildcard $(TARGET)/*.c) $(wildcard $(TTF_DIR)/*.c)
 
@@ -982,7 +983,7 @@ ifeq ($(TARGET),win32)
 
 #DEP_CC=$(EMU_CC)
 DEP_CC=$(CC)
-DEP_FLAGS=-MM  $(subst -O2,,$(CFLAGS)) $(INCLUDES) -I../etc/win32 -Idrivers/common
+DEP_FLAGS=-MM  $(subst -O2,,$(CFLAGS)) $(INCLUDES) -I../etc/win32 -Idrivers/common -Idrivers/$(ERLANG_OSTYPE)
 # ifeq (@MIXED_CYGWIN_VC@,yes)
 # VC++ used for compiling. If __GNUC__ is defined we will include
 # other headers then when compiling which will result in faulty
@@ -1002,14 +1003,16 @@ MG_FLAG=-MG
 endif
 
 DEP_CC=$(CC)
-DEP_FLAGS=-MM $(MG_FLAG) $(CFLAGS) $(INCLUDES) -Idrivers/common
+DEP_FLAGS=-MM $(MG_FLAG) $(CFLAGS) $(INCLUDES) -Idrivers/common -Idrivers/$(ERLANG_OSTYPE)
 SYS_SRC=$(ALL_SYS_SRC)
 endif
 
 depend:
 	$(DEP_CC) $(DEP_FLAGS) $(BEAM_SRC) \
 		| $(SED_DEPEND) > $(TARGET)/depend.mk
-	$(DEP_CC) $(DEP_FLAGS) $(DRV_SRC) \
+	$(DEP_CC) $(DEP_FLAGS) -DLIBSCTP=$(LIBSCTP) $(DRV_COMMON_SRC) \
+		| $(SED_DEPEND) >> $(TARGET)/depend.mk
+	$(DEP_CC) $(DEP_FLAGS) -I../etc/$(ERLANG_OSTYPE) $(DRV_OSTYPE_SRC) \
 		| $(SED_DEPEND) >> $(TARGET)/depend.mk
 	$(DEP_CC) $(DEP_FLAGS) $(SYS_SRC) \
 		| $(SED_DEPEND) >> $(TARGET)/depend.mk
