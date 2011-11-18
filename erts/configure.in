@@ -490,7 +490,19 @@ CFLAG_RUNTIME_LIBRARY_PATH="-Wl,-R"
 case $host_os in
   darwin*)
 	CFLAG_RUNTIME_LIBRARY_PATH=
-	CFLAGS="$CFLAGS -no-cpp-precomp"
+	AC_TRY_COMPILE([],[
+		#if __GNUC__ >= 4 
+		;
+		#else
+		#error old or no gcc
+		#endif
+		],
+		gcc_need_no_cpp_precomp=no,
+		gcc_need_no_cpp_precomp=yes)
+
+	if test x$gcc_need_no_cpp_precomp = xyes; then
+	   CFLAGS="$CFLAGS -no-cpp-precomp"
+	fi		   
 	;;
   win32)
 	CFLAG_RUNTIME_LIBRARY_PATH=
