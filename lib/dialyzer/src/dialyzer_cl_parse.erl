@@ -491,6 +491,12 @@ warning_options_msg() ->
      Suppress warnings for patterns that are unused or cannot match.
   -Wno_opaque
      Suppress warnings for violations of opaqueness of data types.
+  -Wno_behaviours
+     Suppress warnings about behaviour callbacks which drift from the published
+     recommended interfaces.
+  -Wno_undefined_callbacks
+     Suppress warnings about behaviours that have no -callback attributes for
+     their callbacks.
   -Wunmatched_returns ***
      Include warnings for function calls which ignore a structured return
      value or do not match against one of many possible return value(s).
@@ -498,9 +504,6 @@ warning_options_msg() ->
      Include warnings for functions that only return by means of an exception.
   -Wrace_conditions ***
      Include warnings for possible race conditions.
-  -Wbehaviours ***
-     Include warnings about behaviour callbacks which drift from the published
-     recommended interfaces.
   -Wunderspecs ***
      Warn about underspecified functions
      (those whose -spec is strictly more allowing than the success typing).

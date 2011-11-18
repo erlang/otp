@@ -49,7 +49,9 @@ build(Opts) ->
 		  ?WARN_CALLGRAPH,
 		  ?WARN_CONTRACT_RANGE,
 		  ?WARN_CONTRACT_TYPES,
-		  ?WARN_CONTRACT_SYNTAX],
+		  ?WARN_CONTRACT_SYNTAX,
+		  ?WARN_BEHAVIOUR,
+		  ?WARN_UNDEFINED_CALLBACK],
   DefaultWarns1 = ordsets:from_list(DefaultWarns),
   InitPlt = dialyzer_plt:get_default_plt(),
   DefaultOpts = #options{},
@@ -275,14 +277,16 @@ build_warnings([Opt|Opts], Warnings) ->
       no_contracts ->
 	Warnings1 = ordsets:del_element(?WARN_CONTRACT_SYNTAX, Warnings),
 	ordsets:del_element(?WARN_CONTRACT_TYPES, Warnings1);
+      no_behaviours ->
+	ordsets:del_element(?WARN_BEHAVIOUR, Warnings);
+      no_undefined_callbacks ->
+	ordsets:del_element(?WARN_UNDEFINED_CALLBACK, Warnings);
       unmatched_returns ->
 	ordsets:add_element(?WARN_UNMATCHED_RETURN, Warnings);
       error_handling ->
 	ordsets:add_element(?WARN_RETURN_ONLY_EXIT, Warnings);
       race_conditions ->
 	ordsets:add_element(?WARN_RACE_CONDITION, Warnings);
-      behaviours ->
-	ordsets:add_element(?WARN_BEHAVIOUR, Warnings);
       specdiffs ->
 	S = ordsets:from_list([?WARN_CONTRACT_SUBTYPE, 
 			       ?WARN_CONTRACT_SUPERTYPE,

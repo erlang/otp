@@ -141,7 +141,8 @@ sequence([H|T], Delimiter) -> H ++ Delimiter ++ sequence(T, Delimiter).
 	  dialyzer_codeserver:codeserver().
 
 process_contract_remote_types(CodeServer) ->
-  TmpContractDict = dialyzer_codeserver:get_temp_contracts(CodeServer),
+  {TmpContractDict, TmpCallbackDict} =
+    dialyzer_codeserver:get_temp_contracts(CodeServer),
   ExpTypes = dialyzer_codeserver:get_exported_types(CodeServer),
   RecordDict = dialyzer_codeserver:get_records(CodeServer),
   ContractFun =
@@ -155,7 +156,9 @@ process_contract_remote_types(CodeServer) ->
 	dict:map(ContractFun, ContractDict)
     end,
   NewContractDict = dict:map(ModuleFun, TmpContractDict),
-  dialyzer_codeserver:finalize_contracts(NewContractDict, CodeServer).
+  NewCallbackDict = dict:map(ModuleFun, TmpCallbackDict),
+  dialyzer_codeserver:finalize_contracts(NewContractDict, NewCallbackDict,
+					 CodeServer).
 
 -spec check_contracts([{mfa(), file_contract()}],
 		      dialyzer_callgraph:callgraph(), dict()) -> plt_contracts().

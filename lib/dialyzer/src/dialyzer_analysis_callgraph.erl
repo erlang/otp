@@ -43,8 +43,7 @@
 	  parent                        :: pid(),
 	  plt                           :: dialyzer_plt:plt(),
 	  start_from     = byte_code    :: start_from(),
-	  use_contracts  = true         :: boolean(),
-	  behaviours     = {false,[]}   :: {boolean(),[atom()]}
+	  use_contracts  = true         :: boolean()
 	 }).
 
 -record(server_state, {parent :: pid(), legal_warnings :: [dial_warn_tag()]}).
@@ -57,9 +56,7 @@
 
 start(Parent, LegalWarnings, Analysis) ->
   RacesOn = ordsets:is_element(?WARN_RACE_CONDITION, LegalWarnings),
-  BehavOn = ordsets:is_element(?WARN_BEHAVIOUR, LegalWarnings),
-  Analysis0 = Analysis#analysis{race_detection = RacesOn,
-				behaviours_chk = BehavOn},
+  Analysis0 = Analysis#analysis{race_detection = RacesOn},
   Analysis1 = expand_files(Analysis0),
   Analysis2 = run_analysis(Analysis1),
   State = #server_state{parent = Parent, legal_warnings = LegalWarnings},
@@ -125,8 +122,7 @@ analysis_start(Parent, Analysis) ->
 			  plt = Plt,
 			  parent = Parent,
 			  start_from = Analysis#analysis.start_from,
-			  use_contracts = Analysis#analysis.use_contracts,
-			  behaviours = {Analysis#analysis.behaviours_chk, []}
+			  use_contracts = Analysis#analysis.use_contracts
 			 },
   Files = ordsets:from_list(Analysis#analysis.files),
   {Callgraph, NoWarn, TmpCServer0} = compile_and_store(Files, State),
@@ -180,8 +176,8 @@ analysis_start(Parent, Analysis) ->
   send_analysis_done(Parent, Plt4, State3#analysis_state.doc_plt).
 
 analyze_callgraph(Callgraph, State) ->
-  Plt = State#analysis_state.plt,
   Codeserver = State#analysis_state.codeserver,
+  Plt = dialyzer_plt:insert_callbacks(State#analysis_state.plt, Codeserver),
   Parent = State#analysis_state.parent,
   case State#analysis_state.analysis_type of
     plt_build ->
@@ -192,13 +188,11 @@ analyze_callgraph(Callgraph, State) ->
       State#analysis_state{plt = NewPlt};
     succ_typings ->
       NoWarn = State#analysis_state.no_warn_unused,
-      {BehavioursChk, _Known} = State#analysis_state.behaviours,
       DocPlt = State#analysis_state.doc_plt,
       Callgraph1 = dialyzer_callgraph:finalize(Callgraph),
       {Warnings, NewPlt, NewDocPlt} = 
 	dialyzer_succ_typings:get_warnings(Callgraph1, Plt, DocPlt,
-					   Codeserver, NoWarn, Parent,
-					   BehavioursChk),
+					   Codeserver, NoWarn, Parent),
       dialyzer_callgraph:delete(Callgraph1),
       send_warnings(State#analysis_state.parent, Warnings),
       State#analysis_state{plt = NewPlt, doc_plt = NewDocPlt}
@@ -213,8 +207,7 @@ compile_and_store(Files, #analysis_state{codeserver = CServer,
 					 include_dirs = Dirs,
 					 parent = Parent,
 					 use_contracts = UseContracts,
-					 start_from = StartFrom,
-					 behaviours = {BehChk, _}
+					 start_from = StartFrom
 					} = State) ->
   send_log(Parent, "Reading files and computing callgraph... "),
   {T1, _} = statistics(runtime),
@@ -263,37 +256,26 @@ compile_and_store(Files, #analysis_state{codeserver = CServer,
   {T2, _} = statistics(runtime),
   Msg1 = io_lib:format("done in ~.2f secs\nRemoving edges... ", [(T2-T1)/1000]),
   send_log(Parent, Msg1),
-  {KnownBehaviours, UnknownBehaviours} =
-    dialyzer_behaviours:get_behaviours(Modules, NewCServer),
-  if UnknownBehaviours =:= [] -> ok;
-     true -> send_unknown_behaviours(Parent, UnknownBehaviours)
-  end,
-  State1 = State#analysis_state{behaviours = {BehChk, KnownBehaviours}},
-  NewCallgraph2 = cleanup_callgraph(State1, NewCServer, NewCallgraph1, Modules),
+  NewCallgraph2 = cleanup_callgraph(State, NewCServer, NewCallgraph1, Modules),
   {T3, _} = statistics(runtime),
   Msg2 = io_lib:format("done in ~.2f secs\n", [(T3-T2)/1000]),
   send_log(Parent, Msg2),
   {NewCallgraph2, sets:from_list(NoWarn), NewCServer}.
 
 cleanup_callgraph(#analysis_state{plt = InitPlt, parent = Parent,
-				  codeserver = CodeServer,
-				  behaviours = {BehChk, KnownBehaviours}
+				  codeserver = CodeServer
 				 },
 		  CServer, Callgraph, Modules) ->
   ModuleDeps = dialyzer_callgraph:module_deps(Callgraph),
   send_mod_deps(Parent, ModuleDeps),
   {Callgraph1, ExtCalls} = dialyzer_callgraph:remove_external(Callgraph),
-  if BehChk ->
-      RelevantAPICalls =
-	dialyzer_behaviours:get_behaviour_apis(KnownBehaviours),
-      BehaviourAPICalls = [Call || {_From, To} = Call <- ExtCalls,
-				   lists:member(To, RelevantAPICalls)],
-      Callgraph2 =
-	dialyzer_callgraph:put_behaviour_api_calls(BehaviourAPICalls,
-						   Callgraph1);
-     true ->
-      Callgraph2 = Callgraph1
-  end,
+  RelevantAPICalls =
+    dialyzer_behaviours:get_behaviour_apis([gen_server]),
+  BehaviourAPICalls = [Call || {_From, To} = Call <- ExtCalls,
+			       lists:member(To, RelevantAPICalls)],
+  Callgraph2 =
+    dialyzer_callgraph:put_behaviour_api_calls(BehaviourAPICalls,
+					       Callgraph1),
   ExtCalls1 = [Call || Call = {_From, To} <- ExtCalls,
 		       not dialyzer_plt:contains_mfa(InitPlt, To)],
   {BadCalls1, RealExtCalls} =
@@ -325,63 +307,42 @@ compile_src(File, Includes, Defines, Callgraph, CServer, UseContracts) ->
   case dialyzer_utils:get_abstract_code_from_src(File, CompOpts) of
     {error, _Msg} = Error -> Error;
     {ok, AbstrCode} ->
-      case dialyzer_utils:get_core_from_abstract_code(AbstrCode, CompOpts) of
-	error -> {error, "  Could not find abstract code for: " ++ File};
-	{ok, Core} ->
-          Mod = cerl:concrete(cerl:module_name(Core)),
-	  NoWarn = abs_get_nowarn(AbstrCode, Mod),
-	  case dialyzer_utils:get_record_and_type_info(AbstrCode) of
-	    {error, _} = Error -> Error;
-	    {ok, RecInfo} ->
-	      CServer2 =
-		dialyzer_codeserver:store_temp_records(Mod, RecInfo, CServer),
-	      case UseContracts of
-		true ->
-		  case dialyzer_utils:get_spec_info(Mod, AbstrCode, RecInfo) of
-		    {error, _} = Error -> Error;
-		    {ok, SpecInfo} ->
-		      CServer3 =
-			dialyzer_codeserver:store_temp_contracts(Mod,
-								 SpecInfo,
-								 CServer2),
-		      store_core(Mod, Core, NoWarn, Callgraph, CServer3)
-		  end;
-		false ->
-		  store_core(Mod, Core, NoWarn, Callgraph, CServer2)
-	      end
-	  end
-      end
+      compile_common(File, AbstrCode, CompOpts, Callgraph, CServer, UseContracts)
   end.
 
 compile_byte(File, Callgraph, CServer, UseContracts) ->
   case dialyzer_utils:get_abstract_code_from_beam(File) of
     error ->
       {error, "  Could not get abstract code for: " ++ File ++ "\n" ++
-       "  Recompile with +debug_info or analyze starting from source code"};
+	 "  Recompile with +debug_info or analyze starting from source code"};
     {ok, AbstrCode} ->
-      case dialyzer_utils:get_core_from_abstract_code(AbstrCode) of
-	error -> {error, "  Could not get core for: "++File};
-	{ok, Core} ->
-          Mod = cerl:concrete(cerl:module_name(Core)),
-          NoWarn = abs_get_nowarn(AbstrCode, Mod),
-	  case dialyzer_utils:get_record_and_type_info(AbstrCode) of
-	    {error, _} = Error -> Error;
-	    {ok, RecInfo} ->
-	      CServer1 =
-		dialyzer_codeserver:store_temp_records(Mod, RecInfo, CServer),
-	      case UseContracts of
-		true ->
-		  case dialyzer_utils:get_spec_info(Mod, AbstrCode, RecInfo) of
-		    {error, _} = Error -> Error;
-		    {ok, SpecInfo} ->
-		      CServer2 =
-			dialyzer_codeserver:store_temp_contracts(Mod, SpecInfo,
-								 CServer1),
-		      store_core(Mod, Core, NoWarn, Callgraph, CServer2)
-		  end;
-		false ->
-		  store_core(Mod, Core, NoWarn, Callgraph, CServer1)
-	      end
+      compile_common(File, AbstrCode, [], Callgraph, CServer, UseContracts)
+  end.
+
+compile_common(File, AbstrCode, CompOpts, Callgraph, CServer, UseContracts) ->
+  case dialyzer_utils:get_core_from_abstract_code(AbstrCode, CompOpts) of
+    error -> {error, "  Could not get core Erlang code for: " ++ File};
+    {ok, Core} ->
+      Mod = cerl:concrete(cerl:module_name(Core)),
+      NoWarn = abs_get_nowarn(AbstrCode, Mod),
+      case dialyzer_utils:get_record_and_type_info(AbstrCode) of
+	{error, _} = Error -> Error;
+	{ok, RecInfo} ->
+	  CServer1 =
+	    dialyzer_codeserver:store_temp_records(Mod, RecInfo, CServer),
+	  case UseContracts of
+	    true ->
+	      case dialyzer_utils:get_spec_info(Mod, AbstrCode, RecInfo) of
+		{error, _} = Error -> Error;
+		{ok, SpecInfo, CallbackInfo} ->
+		  CServer2 =
+		    dialyzer_codeserver:store_temp_contracts(Mod, SpecInfo,
+							     CallbackInfo,
+							     CServer1),
+		  store_core(Mod, Core, NoWarn, Callgraph, CServer2)
+	      end;
+	    false ->
+	      store_core(Mod, Core, NoWarn, Callgraph, CServer1)
 	  end
       end
   end.
