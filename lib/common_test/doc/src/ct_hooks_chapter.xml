@@ -32,11 +32,6 @@
   <marker id="general"></marker>
   <section>
     <title>General</title>
-    <warning><p>This feature is in alpha release right now. This means that the 
-	interface may change in the future and that there may be bugs. We 
-	encourage you to use this feature, but be prepared 
-	that there might be bugs and that the interface might change
-	inbetween releases.</p></warning>
     <p>
       The <em>Common Test Hook</em> (henceforth called CTH) framework allows 
       extensions of the default behaviour of Common Test by means of hooks 
