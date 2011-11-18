@@ -254,6 +254,7 @@ typedef struct LoaderState {
     char* file_name;		/* Name of file we are reading (usually chunk name). */
     byte* file_p;		/* Current pointer within file. */
     unsigned file_left;		/* Number of bytes left in file. */
+    ErlDrvBinary* bin;		/* Binary holding BEAM file (or NULL) */
 
     /*
      * The following are used mainly for diagnostics.
@@ -499,6 +500,7 @@ static void free_state(LoaderState* stp);
 static Eterm insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
 			     Eterm group_leader, Eterm module,
 			     BeamInstr* code, Uint size);
+static int init_iff_file(LoaderState* stp, byte* code, Uint size);
 static int scan_iff_file(LoaderState* stp, Uint* chunk_types,
 			 Uint num_types, Uint num_mandatory);
 static int verify_chunks(LoaderState* stp);
@@ -631,40 +633,22 @@ erts_prepare_loading(LoaderState* stp, Process *c_p, Eterm group_leader,
 		     Eterm* modp, byte* code, Uint unloaded_size)
 {
     Eterm retval = am_badfile;
-    ErlDrvBinary* bin = NULL;
 
     stp->module = *modp;
     stp->group_leader = group_leader;
-
-    /*
-     * Check if the module is compressed (or possibly invalid/corrupted).
-     */
-    if ( !(unloaded_size >= 4 &&
-	   code[0] == 'F' && code[1] == 'O' &&
-	   code[2] == 'R' && code[3] == '1') ) {
-	bin = (ErlDrvBinary *)
-	    erts_gzinflate_buffer((char*)code, unloaded_size);
-	if (bin == NULL) {
-	    goto load_error;
-	}
-	code = (byte*)bin->orig_bytes;
-	unloaded_size = bin->orig_size;
-    }
-
-    /*
-     * Scan the IFF file.
-     */
 
 #if defined(LOAD_MEMORY_HARD_DEBUG) && defined(DEBUG)
     erts_fprintf(stderr,"Loading a module\n");
 #endif
 
+    /*
+     * Scan the IFF file.
+     */
+
     CHKALLOC();
     CHKBLK(ERTS_ALC_T_CODE,stp->code);
-    stp->file_name = "IFF header for Beam file";
-    stp->file_p = code;
-    stp->file_left = unloaded_size;
-    if (!scan_iff_file(stp, chunk_types, NUM_CHUNK_TYPES, NUM_MANDATORY) ||
+    if (!init_iff_file(stp, code, unloaded_size) ||
+	!scan_iff_file(stp, chunk_types, NUM_CHUNK_TYPES, NUM_MANDATORY) ||
 	!verify_chunks(stp)) {
 	goto load_error;
     }
@@ -789,9 +773,6 @@ erts_prepare_loading(LoaderState* stp, Process *c_p, Eterm group_leader,
     retval = NIL;
 
  load_error:
-    if (bin) {
-	driver_free_binary(bin);
-    }
     if (retval != NIL) {
 	free_state(stp);
     }
@@ -866,6 +847,7 @@ erts_alloc_loader_state(void)
     LoaderState* stp;
 
     stp = erts_alloc(ERTS_ALC_T_LOADER_TMP, sizeof(LoaderState));
+    stp->bin = NULL;
     stp->function = THE_NON_VALUE; /* Function not known yet */
     stp->arity = 0;
     stp->specific_op = -1;
@@ -899,6 +881,9 @@ erts_alloc_loader_state(void)
 static void
 free_state(LoaderState* stp)
 {
+    if (stp->bin != 0) {
+	driver_free_binary(stp->bin);
+    }
     if (stp->code != 0) {
 	erts_free(ERTS_ALC_T_CODE, stp->code);
     }
@@ -958,6 +943,7 @@ free_state(LoaderState* stp)
     if (stp->fname != 0) {
 	erts_free(ERTS_ALC_T_LOADER_TMP, stp->fname);
     }
+
     erts_free(ERTS_ALC_T_LOADER_TMP, stp);
 }
 
@@ -1013,20 +999,45 @@ insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
 }
 
 static int
-scan_iff_file(LoaderState* stp, Uint* chunk_types, Uint num_types, Uint num_mandatory)
+init_iff_file(LoaderState* stp, byte* code, Uint size)
 {
+    Uint form_id = MakeIffId('F', 'O', 'R', '1');
     Uint id;
     Uint count;
-    int i;
+
+    if (size < 4) {
+	goto load_error;
+    }
+
+    /*
+     * Check if the module is compressed (or possibly invalid/corrupted).
+     */
+    if (MakeIffId(code[0], code[1], code[2], code[3]) != form_id) {
+	stp->bin = (ErlDrvBinary *) erts_gzinflate_buffer((char*)code, size);
+	if (stp->bin == NULL) {
+	    goto load_error;
+	}
+	code = (byte*)stp->bin->orig_bytes;
+	size = stp->bin->orig_size;
+	if (size < 4) {
+	    goto load_error;
+	}
+    }
 
     /*
      * The binary must start with an IFF 'FOR1' chunk.
      */
-
-    GetInt(stp, 4, id);
-    if (id != MakeIffId('F', 'O', 'R', '1')) {
+    if (MakeIffId(code[0], code[1], code[2], code[3]) != form_id) {
 	LoadError0(stp, "not a BEAM file: no IFF 'FOR1' chunk");
     }
+
+    /*
+     * Initialize our "virtual file system".
+     */
+
+    stp->file_name = "IFF header for Beam file";
+    stp->file_p = code + 4;
+    stp->file_left = size - 4;
 
     /*
      * Retrieve the chunk size and verify it.  If the size is equal to
@@ -1049,6 +1060,21 @@ scan_iff_file(LoaderState* stp, Uint* chunk_types, Uint num_types, Uint num_mand
     if (id != MakeIffId('B', 'E', 'A', 'M')) {
 	LoadError0(stp, "not a BEAM file: IFF form type is not 'BEAM'");
     }
+    return 1;
+
+ load_error:
+    return 0;
+}
+
+/*
+ * Scan the IFF file. The header should have been verified by init_iff_file().
+ */
+static int
+scan_iff_file(LoaderState* stp, Uint* chunk_types, Uint num_types, Uint num_mandatory)
+{
+    Uint count;
+    Uint id;
+    int i;
 
     /*
      * Initialize the chunks[] array in the state.
@@ -5446,9 +5472,6 @@ code_get_chunk_2(BIF_ALIST_2)
 	BIF_ERROR(p, BADARG);
     }
     stp->module = THE_NON_VALUE; /* Suppress diagnostics */
-    stp->file_name = "IFF header for Beam file";
-    stp->file_p = start;
-    stp->file_left = binary_size(Bin);
     for (i = 0; i < 4; i++) {
 	Eterm* chunkp;
 	Eterm num;
@@ -5466,7 +5489,8 @@ code_get_chunk_2(BIF_ALIST_2)
     if (is_not_nil(Chunk)) {
 	goto error;
     }
-    if (!scan_iff_file(stp, &chunk, 1, 1) ||
+    if (!init_iff_file(stp, start, binary_size(Bin)) ||
+	!scan_iff_file(stp, &chunk, 1, 1) ||
 	stp->chunks[0].start == NULL) {
 	res = am_undefined;
 	goto done;
@@ -5502,18 +5526,18 @@ code_module_md5_1(BIF_ALIST_1)
     Process* p = BIF_P;
     Eterm Bin = BIF_ARG_1;
     LoaderState* stp;
+    byte* bytes;
     byte* temp_alloc = NULL;
     Eterm res;
 
     stp = erts_alloc_loader_state();
-    if ((stp->file_p = erts_get_aligned_binary_bytes(Bin, &temp_alloc)) == NULL) {
+    if ((bytes = erts_get_aligned_binary_bytes(Bin, &temp_alloc)) == NULL) {
 	free_state(stp);
 	BIF_ERROR(p, BADARG);
     }
     stp->module = THE_NON_VALUE; /* Suppress diagnostiscs */
-    stp->file_name = "IFF header for Beam file";
-    stp->file_left = binary_size(Bin);
-    if (!scan_iff_file(stp, chunk_types, NUM_CHUNK_TYPES, NUM_MANDATORY) ||
+    if (!init_iff_file(stp, bytes, binary_size(Bin)) ||
+	!scan_iff_file(stp, chunk_types, NUM_CHUNK_TYPES, NUM_MANDATORY) ||
 	!verify_chunks(stp)) {
 	res = am_undefined;
 	goto done;
@@ -5809,7 +5833,6 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
     int code_size;
     int rval;
     int i;
-    ErlDrvBinary* bin = NULL;
     byte* temp_alloc = NULL;
     byte* bytes;
     Uint size;
@@ -5842,28 +5865,15 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
     size = binary_size(Beam);
 
     /*
-     * Uncompressed if needed.
-     */
-    if (!(size >= 4 && bytes[0] == 'F' && bytes[1] == 'O' &&
-	  bytes[2] == 'R' && bytes[3] == '1')) {
-	bin = (ErlDrvBinary *) erts_gzinflate_buffer((char*)bytes, size);
-	if (bin == NULL) {
-	    goto error;
-	}
-	bytes = (byte*)bin->orig_bytes;
-	size = bin->orig_size;
-    }
-    
-    /*
      * Scan the Beam binary and read the interesting sections.
      */
 
-    stp->file_name = "IFF header for Beam file";
-    stp->file_p = bytes;
-    stp->file_left = size;
     stp->module = Mod;
     stp->group_leader = p->group_leader;
     stp->num_functions = n;
+    if (!init_iff_file(stp, bytes, size)) {
+	goto error;
+    }
     if (!scan_iff_file(stp, chunk_types, NUM_CHUNK_TYPES, NUM_MANDATORY) ||
 	!verify_chunks(stp)) {
 	goto error;
@@ -6020,17 +6030,11 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
     if (patch_funentries(Patchlist)) {
 	erts_free_aligned_binary_bytes(temp_alloc);
 	free_state(stp);
-	if (bin != NULL) {
-	    driver_free_binary(bin);
-	}
 	return Mod;
     }
 
  error:
     erts_free_aligned_binary_bytes(temp_alloc);
-    if (bin) {
-	driver_free_binary(bin);
-    }
     free_state(stp);
     BIF_ERROR(p, BADARG);
 }
