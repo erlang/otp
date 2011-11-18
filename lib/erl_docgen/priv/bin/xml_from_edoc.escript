@@ -27,7 +27,7 @@
 %% Records 
 %%======================================================================
 -record(args, {suffix=".xml",
-	       layout=docb_edoc_xml_cb,
+	       layout=docgen_edoc_xml_cb,
 	       def=[],
 	       includes=[],
 	       preprocess=false,
@@ -126,7 +126,7 @@ users_guide(File, Args) ->
 parse(["-xml" |RawOpts], Type, Args) ->
     parse(RawOpts, Type, Args); % default, no update of record necessary
 parse(["-sgml" |RawOpts], Type, Args) ->
-    parse(RawOpts, Type, Args#args{suffix=".sgml", layout=docb_edoc_sgml_cb});
+    parse(RawOpts, Type, Args#args{suffix=".sgml", layout=docgen_edoc_sgml_cb});
 parse(["-chapter" |RawOpts], _Type, Args) ->
     parse(RawOpts, chapter, Args);
 parse(["-def", Key, Val |RawOpts], Type, Args) ->

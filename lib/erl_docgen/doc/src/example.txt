@@ -1,0 +1,17 @@
+This example code is used in block_tags.xml.
+
+%% Erlang example
+-module(example).
+
+start() ->
+    {error,"Pid required!"}.
+
+start(Pid) ->
+    spawn(smalltalk,main,[]).
+%% Erlang example
+
+// A little C example
+int main() {
+  for(;;);
+}
+// A little C example

@@ -19,7 +19,7 @@
 
 %%% <script> [-I<dir>]... [-o<dir>] [-module Module] [File]
 %%%
-%%% Use EDoc and the layout module 'otp_specs' to create an XML file
+%%% Use EDoc and the layout module 'docgen_otp_specs' to create an XML file
 %%% containing Dialyzer types and specifications (-type, -spec).
 %%%
 %%% Options:
@@ -69,7 +69,7 @@ usage() ->
 call_edoc(FileSpec, InclFs, Dir) ->
     ReadOpts = [{includes, InclFs}, {preprocess, true}],
     ExtractOpts = [{report_missing_type, false}],
-    LayoutOpts = [{pretty_printer, erl_pp}, {layout, otp_specs}],
+    LayoutOpts = [{pretty_printer, erl_pp}, {layout, docgen_otp_specs}],
     File = case FileSpec of
                {file, File0} -> File0;
                {module, Module0} -> Module0

@@ -48,7 +48,7 @@ else
           diameter \
           cosTransactions cosEvent cosTime cosNotification cosProperty \
           cosFileTransfer cosEventDomain et megaco webtool \
-	  xmerl edoc eunit ssh inviso typer docbuilder erl_docgen \
+	  xmerl edoc eunit ssh inviso typer erl_docgen \
 	  common_test percept dialyzer
 # dialyzer
         OTHER_SUB_DIRECTORIES += hipe
@@ -60,7 +60,7 @@ else
           diameter \
           cosTransactions cosEvent cosTime cosNotification \
           cosProperty cosFileTransfer cosEventDomain et megaco webtool \
-	  xmerl edoc eunit ssh inviso typer docbuilder erl_docgen \
+	  xmerl edoc eunit ssh inviso typer erl_docgen \
 	  common_test percept dialyzer
 # dialyzer
         OTHER_SUB_DIRECTORIES += hipe $(TSP_APP)
