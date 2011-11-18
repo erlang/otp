@@ -293,6 +293,11 @@ static const struct literal {
     { "P_NRA", offsetof(struct process, hipe.nra) },
 #endif
     { "P_NARITY", offsetof(struct process, hipe.narity) },
+    { "P_FLOAT_RESULT",
+# ifdef NO_FPE_SIGNALS
+	offsetof(struct process, hipe.float_result)
+# endif
+    },
 # if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
     { "P_BIF_CALLEE", offsetof(struct process, hipe.bif_callee) },
 # endif
@@ -491,7 +496,7 @@ static const struct rts_param {
 #endif
     },
     { 14, "P_FP_EXCEPTION",
-#if !defined(NO_FPE_SIGNALS)
+#if !defined(NO_FPE_SIGNALS) || defined(HIPE)
       1, offsetof(struct process, fp_exception)
 #endif
     },
@@ -499,6 +504,15 @@ static const struct rts_param {
     { 15, "ERTS_IS_SMP",
       1,
 #if defined(ERTS_SMP)
+      1
+#else
+      0
+#endif
+    },
+    /* This flag is always defined, but its value is configuration-dependent. */
+    { 16, "ERTS_NO_FPE_SIGNALS",
+      1,
+#if defined(NO_FPE_SIGNALS)
       1
 #else
       0

@@ -486,7 +486,7 @@ lcm_precalc(CFG, Options) ->
   ?option_time(NodeInfo2 = calc_down_exp(CFG, ExprMap, NodeInfo1, Labels), 
 	       "RTL LCM calc_down_exp", Options),
   ?option_time(NodeInfo3 = calc_killed_expr(CFG, NodeInfo2, UseMap, AllExpr, 
-					   Labels), 
+					    IdMap, Labels), 
 	       "RTL LCM calc_killed_exp", Options),
   ?option_time(NodeInfo4 = calc_avail(CFG, NodeInfo3), 
 	       "RTL LCM calc_avail", Options),
@@ -815,19 +815,19 @@ exp_kill_expr(Instr, [CheckedExpr|Exprs]) ->
 
 %%=============================================================================
 %% Calculates the killed expression sets for all given labels.
-calc_killed_expr(_, NodeInfo, _, _, []) ->
+calc_killed_expr(_, NodeInfo, _, _, _, []) ->
   NodeInfo;
-calc_killed_expr(CFG, NodeInfo, UseMap, AllExpr, [Label|Labels]) ->
+calc_killed_expr(CFG, NodeInfo, UseMap, AllExpr, IdMap, [Label|Labels]) ->
   Code = hipe_bb:code(hipe_rtl_cfg:bb(CFG, Label)),
-  KilledExprs = calc_killed_expr_bb(Code, UseMap, AllExpr, ?SETS:new()),
+  KilledExprs = calc_killed_expr_bb(Code, UseMap, AllExpr, IdMap, ?SETS:new()),
   NewNodeInfo = set_killed_expr(NodeInfo, Label, KilledExprs),
-  calc_killed_expr(CFG, NewNodeInfo, UseMap, AllExpr, Labels).
+  calc_killed_expr(CFG, NewNodeInfo, UseMap, AllExpr, IdMap, Labels).
 
 %%=============================================================================
 %% Calculates the killed expressions set for one basic block.
-calc_killed_expr_bb([], _UseMap, _AllExpr, KilledExprs) ->
+calc_killed_expr_bb([], _UseMap, _AllExpr, _IdMap, KilledExprs) ->
   KilledExprs;
-calc_killed_expr_bb([Instr|Instrs], UseMap, AllExpr, KilledExprs) ->
+calc_killed_expr_bb([Instr|Instrs], UseMap, AllExpr, IdMap, KilledExprs) ->
   %% Calls, gctests and stores potentially clobber everything
   case Instr of
     #call{} -> AllExpr;
@@ -837,7 +837,8 @@ calc_killed_expr_bb([Instr|Instrs], UseMap, AllExpr, KilledExprs) ->
       %% Kill all float expressions
       %% FIXME: Make separate function is_fp_expr
       ?SETS:from_list
-	(lists:foldl(fun(Expr, Fexprs) ->
+	(lists:foldl(fun(ExprId, Fexprs) ->
+			     Expr = expr_id_map_get_expr(IdMap, ExprId),
 			 [Define|_] = hipe_rtl:defines(Expr),
 			 case hipe_rtl:is_fpreg(Define) of
 			   true ->
@@ -849,10 +850,10 @@ calc_killed_expr_bb([Instr|Instrs], UseMap, AllExpr, KilledExprs) ->
     _ ->
       case hipe_rtl:defines(Instr) of
 	[] ->
-	  calc_killed_expr_bb(Instrs, UseMap, AllExpr, KilledExprs);
+	  calc_killed_expr_bb(Instrs, UseMap, AllExpr, IdMap, KilledExprs);
 	[Define|_] ->
 	  NewKilledExprs = use_map_get_expr_uses(UseMap, Define),
-	  calc_killed_expr_bb(Instrs, UseMap, AllExpr,
+	  calc_killed_expr_bb(Instrs, UseMap, AllExpr, IdMap,
 			      ?SETS:union(NewKilledExprs, KilledExprs))
       end
   end.

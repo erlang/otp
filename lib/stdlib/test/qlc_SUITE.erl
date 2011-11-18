@@ -6118,6 +6118,7 @@ otp_6964(Config) when is_list(Config) ->
                       qlc:e(Q, [{max_list_size,64*1024},{tmpdir_usage,Use}])
               end,
           D = erlang:system_flag(backtrace_depth, 0),
+      try
           20000 = length(F(allowed)),
           ErrReply = F(not_allowed),
           {error, qlc, {tmpdir_usage,joining}} = ErrReply,
@@ -6129,8 +6130,10 @@ otp_6964(Config) when is_list(Config) ->
           20000 = length(F(info_msg)),
           {info, joining} = qlc_SUITE:read_error_logger(),
           20000 = length(F(error_msg)),
-          {error, joining} = qlc_SUITE:read_error_logger(),
-          _ = erlang:system_flag(backtrace_depth, D),
+          {error, joining} = qlc_SUITE:read_error_logger()
+      after
+          _ = erlang:system_flag(backtrace_depth, D)
+      end,
           qlc_SUITE:uninstall_error_logger()">>],
     ?line run(Config, T1),
 

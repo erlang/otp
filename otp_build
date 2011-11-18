@@ -174,9 +174,9 @@ set_config_flags ()
 	#   the cross configuration have been moved here). 
 
 	if target_contains linux; then 
-	        XX=`echo $* | grep -v able-hipe`
+	        XX=`echo $* | grep -v able-fp-exceptions`
 		if [ "$*" = "$XX" ]; then 
-		    CONFIG_FLAGS="$CONFIG_FLAGS --disable-hipe" 
+		    CONFIG_FLAGS="$CONFIG_FLAGS --disable-fp-exceptions"
 		fi
 	fi
 	if target_contains "univel-sysv4"; then

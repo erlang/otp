@@ -549,7 +549,9 @@ ASYM($1):
 /*
  * AMD64-specific primops.
  */
+#ifndef NO_FPE_SIGNALS
 noproc_primop_interface_0(nbif_handle_fp_exception, erts_restore_fpu)
+#endif /* NO_FPE_SIGNALS */
 
 /*
  * Implement gc_bif_interface_0 as nofail_primop_interface_0.

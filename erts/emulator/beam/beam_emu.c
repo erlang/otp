@@ -4747,7 +4747,12 @@ void process_main(void)
      OpCase(fclearerror):
      OpCase(i_fcheckerror):
 	 erl_exit(1, "fclearerror/i_fcheckerror without fpe signals (beam_emu)");
+#  define ERTS_NO_FPE_CHECK_INIT ERTS_FP_CHECK_INIT
+#  define ERTS_NO_FPE_ERROR ERTS_FP_ERROR
 #else
+#  define ERTS_NO_FPE_CHECK_INIT(p)
+#  define ERTS_NO_FPE_ERROR(p, a, b)
+
      OpCase(fclearerror): {
 	 BeamInstr *next;
 
@@ -4763,10 +4768,6 @@ void process_main(void)
 	 ERTS_FP_ERROR(c_p, freg[0].fd, goto fbadarith);
 	 NextPF(0, next);
      }
-#  undef ERTS_FP_CHECK_INIT
-#  undef ERTS_FP_ERROR
-#  define ERTS_FP_CHECK_INIT(p)
-#  define ERTS_FP_ERROR(p, a, b)
 #endif
 
 
@@ -4774,45 +4775,45 @@ void process_main(void)
      BeamInstr *next;
 
      PreFetch(3, next);
-     ERTS_FP_CHECK_INIT(c_p);
+     ERTS_NO_FPE_CHECK_INIT(c_p);
      fb(Arg(2)) = fb(Arg(0)) + fb(Arg(1));
-     ERTS_FP_ERROR(c_p, fb(Arg(2)), goto fbadarith);
+     ERTS_NO_FPE_ERROR(c_p, fb(Arg(2)), goto fbadarith);
      NextPF(3, next);
  }
  OpCase(i_fsub_lll): {
      BeamInstr *next;
 
      PreFetch(3, next);
-     ERTS_FP_CHECK_INIT(c_p);
+     ERTS_NO_FPE_CHECK_INIT(c_p);
      fb(Arg(2)) = fb(Arg(0)) - fb(Arg(1));
-     ERTS_FP_ERROR(c_p, fb(Arg(2)), goto fbadarith);
+     ERTS_NO_FPE_ERROR(c_p, fb(Arg(2)), goto fbadarith);
      NextPF(3, next);
  }
  OpCase(i_fmul_lll): {
      BeamInstr *next;
 
      PreFetch(3, next);
-     ERTS_FP_CHECK_INIT(c_p);
+     ERTS_NO_FPE_CHECK_INIT(c_p);
      fb(Arg(2)) = fb(Arg(0)) * fb(Arg(1));
-     ERTS_FP_ERROR(c_p, fb(Arg(2)), goto fbadarith);
+     ERTS_NO_FPE_ERROR(c_p, fb(Arg(2)), goto fbadarith);
      NextPF(3, next);
  }
  OpCase(i_fdiv_lll): {
      BeamInstr *next;
 
      PreFetch(3, next);
-     ERTS_FP_CHECK_INIT(c_p);
+     ERTS_NO_FPE_CHECK_INIT(c_p);
      fb(Arg(2)) = fb(Arg(0)) / fb(Arg(1));
-     ERTS_FP_ERROR(c_p, fb(Arg(2)), goto fbadarith);
+     ERTS_NO_FPE_ERROR(c_p, fb(Arg(2)), goto fbadarith);
      NextPF(3, next);
  }
  OpCase(i_fnegate_ll): {
      BeamInstr *next;
 
      PreFetch(2, next);
-     ERTS_FP_CHECK_INIT(c_p);
+     ERTS_NO_FPE_CHECK_INIT(c_p);
      fb(Arg(1)) = -fb(Arg(0));
-     ERTS_FP_ERROR(c_p, fb(Arg(1)), goto fbadarith);
+     ERTS_NO_FPE_ERROR(c_p, fb(Arg(1)), goto fbadarith);
      NextPF(2, next);
 
  fbadarith:

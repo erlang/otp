@@ -781,8 +781,11 @@ fstore_src_update(F, NewSrc) -> F#fstore{src=NewSrc}.
 %% fp
 %%
 
+    
 mk_fp(Dst, Src1, Op, Src2) -> 
-  #fp{dst=Dst, src1=Src1, op=Op, src2=Src2}.
+    [#fp{dst=Dst, src1=Src1, op=Op, src2=Src2}
+     | hipe_rtl_arch:mk_fp_check_result(Dst)].
+
 fp_dst(#fp{dst=Dst}) -> Dst.
 fp_dst_update(Fp, NewDst) -> Fp#fp{dst=NewDst}.
 fp_src1(#fp{src1=Src1}) -> Src1.

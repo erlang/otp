@@ -27,6 +27,7 @@
 	 fpe/1,fp_drv/1,fp_drv_thread/1,denormalized/1,match/1,
 	 bad_float_unpack/1,cmp_zero/1, cmp_integer/1, cmp_bignum/1]).
 -export([otp_7178/1]).
+-export([hidden_inf/1]).
 
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
@@ -41,7 +42,9 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [fpe, fp_drv, fp_drv_thread, otp_7178, denormalized,
-     match, bad_float_unpack, {group, comparison}].
+     match, bad_float_unpack, {group, comparison}
+     ,hidden_inf
+    ].
 
 groups() -> 
     [{comparison, [parallel], [cmp_zero, cmp_integer, cmp_bignum]}].
@@ -300,3 +303,25 @@ start_node(Config) when is_list(Config) ->
 
 stop_node(Node) ->
     ?t:stop_node(Node).
+
+
+%% Test that operations that might hide infinite intermediate results
+%% do not supress the badarith.
+hidden_inf(Config) when is_list(Config) ->
+    ZeroP = 0.0,
+    ZeroN = id(ZeroP) * (-1),
+    [hidden_inf_1(A, B, Z, 9.23e307)
+     || A <- [1.0, -1.0, 3.1415, -0.00001000131, 3.57e257, ZeroP, ZeroN],
+	B <- [1.0, -1.0, 3.1415, -0.00001000131, 3.57e257, ZeroP, ZeroN],
+	Z <- [ZeroP, ZeroN]],
+    ok.
+
+hidden_inf_1(A, B, Zero, Huge) ->
+    {'EXIT',{badarith,_}} = (catch (B / (A / Zero))),
+    {'EXIT',{badarith,_}} = (catch (B * (A / Zero))),
+    {'EXIT',{badarith,_}} = (catch (B / (Huge * Huge))),
+    {'EXIT',{badarith,_}} = (catch (B * (Huge * Huge))),
+    {'EXIT',{badarith,_}} = (catch (B / (Huge + Huge))),
+    {'EXIT',{badarith,_}} = (catch (B * (Huge + Huge))),
+    {'EXIT',{badarith,_}} = (catch (B / (-Huge - Huge))),
+    {'EXIT',{badarith,_}} = (catch (B * (-Huge - Huge))).

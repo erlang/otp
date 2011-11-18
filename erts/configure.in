@@ -3076,8 +3076,6 @@ dnl done up where floating point is checked, need to descide there already...
 if test X${enable_hipe} = Xyes; then
   if test X$ac_cv_sizeof_void_p != X4 -a X$ARCH != Xamd64 -a X$ARCH != Xppc64; then
 	AC_MSG_WARN([HiPE is not supported in 64-bit builds])
-  elif test X$FPE != Xreliable -a X$ARCH != Xarm; then
-	AC_MSG_WARN([HiPE is not supported on $ARCH without reliable floating-point exceptions])
   else
      HIPE_ENABLED=yes
      AC_DEFINE(HIPE,[1],[Define to enable HiPE])

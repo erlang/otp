@@ -985,6 +985,26 @@ BIF_RETTYPE hipe_conv_big_to_float(BIF_ALIST_1)
     BIF_RET(res);
 }
 
+#ifdef NO_FPE_SIGNALS
+
+/* 
+   This is the current solution to make hipe run without FPE.
+   The native code is the same except that a call to this primop
+   is made after _every_ float operation to check the result.
+   The native fcheckerror still done later will detect if an
+   "emulated" FPE has occured.
+   We use p->hipe.float_result to avoid passing a 'double' argument,
+   which has its own calling convention (on amd64 at least).
+   Simple and slow...
+*/
+void hipe_emulate_fpe(Process* p)
+{
+    if (!finite(p->hipe.float_result)) {
+	p->fp_exception = 1;
+    }
+}
+#endif
+
 #if 0 /* XXX: unused */
 /*
  * At least parts of this should be inlined in native code.
