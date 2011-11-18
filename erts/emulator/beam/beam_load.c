@@ -501,6 +501,7 @@ static Eterm insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
 			     BeamInstr* code, Uint size);
 static int scan_iff_file(LoaderState* stp, Uint* chunk_types,
 			 Uint num_types, Uint num_mandatory);
+static int verify_chunks(LoaderState* stp);
 static int load_atom_table(LoaderState* stp);
 static int load_import_table(LoaderState* stp);
 static int read_export_table(LoaderState* stp);
@@ -663,7 +664,8 @@ erts_prepare_loading(LoaderState* stp, Process *c_p, Eterm group_leader,
     stp->file_name = "IFF header for Beam file";
     stp->file_p = code;
     stp->file_left = unloaded_size;
-    if (!scan_iff_file(stp, chunk_types, NUM_CHUNK_TYPES, NUM_MANDATORY)) {
+    if (!scan_iff_file(stp, chunk_types, NUM_CHUNK_TYPES, NUM_MANDATORY) ||
+	!verify_chunks(stp)) {
 	goto load_error;
     }
 
@@ -1013,7 +1015,6 @@ insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
 static int
 scan_iff_file(LoaderState* stp, Uint* chunk_types, Uint num_types, Uint num_mandatory)
 {
-    MD5_CTX context;
     Uint id;
     Uint count;
     int i;
@@ -1104,17 +1105,25 @@ scan_iff_file(LoaderState* stp, Uint* chunk_types, Uint num_types, Uint num_mand
 	stp->file_p += count;
 	stp->file_left -= count;
     }
+    return 1;
 
-    /*
-     * At this point, we have read the entire IFF file, and we
-     * know that it is syntactically correct.
-     *
-     * Now check that it contains all mandatory chunks. At the
-     * same time calculate the MD5 for the module.
-     */
+ load_error:
+    return 0;
+}
+
+/*
+ * Verify that all mandatory chunks are present and calculate
+ * MD5 for the module.
+ */
+
+static int
+verify_chunks(LoaderState* stp)
+{
+    int i;
+    MD5_CTX context;
 
     MD5Init(&context);
-    for (i = 0; i < num_mandatory; i++) {
+    for (i = 0; i < NUM_MANDATORY; i++) {
 	if (stp->chunks[i].start != NULL) {
 	    MD5Update(&context, stp->chunks[i].start, stp->chunks[i].size);
 	} else {
@@ -1124,41 +1133,49 @@ scan_iff_file(LoaderState* stp, Uint* chunk_types, Uint num_types, Uint num_mand
 	    LoadError1(stp, "mandatory chunk of type '%s' not found\n", sbuf);
 	}
     }
-    if (LITERAL_CHUNK < num_types) {
-	if (stp->chunks[LAMBDA_CHUNK].start != 0) {
-	    byte* start = stp->chunks[LAMBDA_CHUNK].start;
-	    Uint left = stp->chunks[LAMBDA_CHUNK].size;
 
-	    /*
-	     * The idea here is to ignore the OldUniq field for the fun; it is
-	     * based on the old broken hash function, which can be different
-	     * on little endian and big endian machines.
-	     */
-	    if (left >= 4) {
-		static byte zero[4];
-		MD5Update(&context, start, 4);
-		start += 4;
-		left -= 4;
+    /*
+     * If there is a lambda chunk, include parts of it in the MD5.
+     */
+    if (stp->chunks[LAMBDA_CHUNK].start != 0) {
+	byte* start = stp->chunks[LAMBDA_CHUNK].start;
+	Uint left = stp->chunks[LAMBDA_CHUNK].size;
+
+	/*
+	 * The idea here is to ignore the OldUniq field for the fun; it is
+	 * based on the old broken hash function, which can be different
+	 * on little endian and big endian machines.
+	 */
+	if (left >= 4) {
+	    static byte zero[4];
+	    MD5Update(&context, start, 4);
+	    start += 4;
+	    left -= 4;
 		
-		while (left >= 24) {
-		    /* Include: Function Arity Index NumFree */
-		    MD5Update(&context, start, 20);
-		    /* Set to zero: OldUniq */
-		    MD5Update(&context, zero, 4);
-		    start += 24;
-		    left -= 24;
-		}
-	    }
-	    /* Can't happen for a correct 'FunT' chunk */
-	    if (left > 0) {
-		MD5Update(&context, start, left);
+	    while (left >= 24) {
+		/* Include: Function Arity Index NumFree */
+		MD5Update(&context, start, 20);
+		/* Set to zero: OldUniq */
+		MD5Update(&context, zero, 4);
+		start += 24;
+		left -= 24;
 	    }
 	}
-	if (stp->chunks[LITERAL_CHUNK].start != 0) {
-	    MD5Update(&context, stp->chunks[LITERAL_CHUNK].start,
-		      stp->chunks[LITERAL_CHUNK].size);
+	/* Can't happen for a correct 'FunT' chunk */
+	if (left > 0) {
+	    MD5Update(&context, start, left);
 	}
     }
+
+
+    /*
+     * If there is a literal chunk, include it in the MD5.
+     */
+    if (stp->chunks[LITERAL_CHUNK].start != 0) {
+	MD5Update(&context, stp->chunks[LITERAL_CHUNK].start,
+		  stp->chunks[LITERAL_CHUNK].size);
+    }
+
     MD5Final(stp->mod_md5, &context);
     return 1;
 
@@ -5445,7 +5462,8 @@ code_get_chunk_2(BIF_ALIST_2)
     if (is_not_nil(Chunk)) {
 	goto error;
     }
-    if (!scan_iff_file(&state, &chunk, 1, 1)) {
+    if (!scan_iff_file(&state, &chunk, 1, 1) ||
+	state.chunks[0].start == NULL) {
 	erts_free_aligned_binary_bytes(temp_alloc);
 	return am_undefined;
     }
@@ -5485,8 +5503,8 @@ code_module_md5_1(BIF_ALIST_1)
     state.module = THE_NON_VALUE; /* Suppress diagnostiscs */
     state.file_name = "IFF header for Beam file";
     state.file_left = binary_size(Bin);
-
-    if (!scan_iff_file(&state, chunk_types, NUM_CHUNK_TYPES, NUM_MANDATORY)) {
+    if (!scan_iff_file(&state, chunk_types, NUM_CHUNK_TYPES, NUM_MANDATORY) ||
+	!verify_chunks(&state)) {
 	return am_undefined;
     }
     erts_free_aligned_binary_bytes(temp_alloc);
@@ -5831,7 +5849,8 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
     stp->module = Mod;
     stp->group_leader = p->group_leader;
     stp->num_functions = n;
-    if (!scan_iff_file(stp, chunk_types, NUM_CHUNK_TYPES, NUM_MANDATORY)) {
+    if (!scan_iff_file(stp, chunk_types, NUM_CHUNK_TYPES, NUM_MANDATORY) ||
+	!verify_chunks(stp)) {
 	goto error;
     }
     define_file(stp, "code chunk header", CODE_CHUNK);
