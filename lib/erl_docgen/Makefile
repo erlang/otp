@@ -24,7 +24,6 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 #
 
 SUB_DIRECTORIES = src priv doc/src
-#doc/src
 
 include vsn.mk
 VSN = $(ERL_DOCGEN_VSN)
