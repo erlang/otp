@@ -123,10 +123,10 @@ erts_init_proc_lock(int cpus)
     erts_smp_spinlock_init(&qs_lock, "proc_lck_qs_alloc");
     for (i = 0; i < ERTS_NO_OF_PIX_LOCKS; i++) {
 #ifdef ERTS_ENABLE_LOCK_COUNT
-	erts_smp_spinlock_init_x(&erts_pix_locks[i].u.spnlck,
-				 "pix_lock", make_small(i));
+	erts_mtx_init_x(&erts_pix_locks[i].u.mtx,
+			"pix_lock", make_small(i));
 #else
-	erts_smp_spinlock_init(&erts_pix_locks[i].u.spnlck, "pix_lock");
+	erts_mtx_init(&erts_pix_locks[i].u.mtx, "pix_lock");
 #endif
     }
     queue_free_list = NULL;

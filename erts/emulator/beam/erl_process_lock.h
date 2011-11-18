@@ -255,8 +255,8 @@ void erts_proc_lc_unrequire_lock(Process *p, ErtsProcLocks locks);
 
 typedef struct {
     union {
-	erts_smp_spinlock_t spnlck;
-	char buf[64]; /* Try to get locks in different cache lines */
+	erts_mtx_t mtx;
+	char buf[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(erts_mtx_t))];
     } u;
 } erts_pix_lock_t;
 
@@ -380,18 +380,18 @@ ERTS_GLB_INLINE void erts_proc_lock_op_debug(Process *, ErtsProcLocks, int);
 ERTS_GLB_INLINE void erts_pix_lock(erts_pix_lock_t *pixlck)
 {
     ERTS_LC_ASSERT(pixlck);
-    erts_smp_spin_lock(&pixlck->u.spnlck);
+    erts_mtx_lock(&pixlck->u.mtx);
 }
 
 ERTS_GLB_INLINE void erts_pix_unlock(erts_pix_lock_t *pixlck)
 {
     ERTS_LC_ASSERT(pixlck);
-    erts_smp_spin_unlock(&pixlck->u.spnlck);
+    erts_mtx_unlock(&pixlck->u.mtx);
 }
 
 ERTS_GLB_INLINE int erts_lc_pix_lock_is_locked(erts_pix_lock_t *pixlck)
 {
-    return erts_smp_lc_spinlock_is_locked(&pixlck->u.spnlck);
+    return erts_lc_mtx_is_locked(&pixlck->u.mtx);
 }
 
 /*
