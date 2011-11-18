@@ -86,9 +86,6 @@ lib/os_mon/priv/obj/win32/
 lib/runtime_tools/c_src/win32/
 lib/runtime_tools/priv/lib/
 lib/runtime_tools/priv/obj/
-lib/ssl/c_src/win32/
-lib/ssl/priv/bin/win32/
-lib/ssl/priv/obj/win32/
 lib/tools/bin/win32/
 lib/tools/c_src/win32/
 lib/tools/obj/win32/
@@ -287,13 +284,6 @@ JAVADOC-GENERATED
 /lib/os_mon/mibs/v1/OTP*.mib.v1
 /lib/os_mon/priv/mibs/OTP*.bin
 
-# public_key
-
-/lib/public_key/asn1/*.asn1db
-/lib/public_key/asn1/*.erl
-/lib/public_key/asn1/*.hrl
-/lib/public_key/include/OTP-PUB-KEY.hrl
-
 # ssh
 
 /lib/ssh/src/*.asn1db
@@ -301,14 +291,6 @@ JAVADOC-GENERATED
 /lib/ssh/src/DSS.hrl
 /lib/ssh/src/PKCS-1.erl
 /lib/ssh/src/PKCS-1.hrl
-
-# ssl
-
-/lib/ssl/pkix/*.asn1db
-/lib/ssl/include/OTP-PKIX.hrl
-/lib/ssl/pkix/OTP-PKIX.erl
-/lib/ssl/pkix/OTP-PKIX.hrl
-/lib/ssl/pkix/ssl_pkix_oid.erl
 
 # stdlib
 
