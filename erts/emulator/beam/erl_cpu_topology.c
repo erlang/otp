@@ -1729,16 +1729,8 @@ erts_init_cpu_topology(void)
 	scheduler2cpu_map[ix].bound_id = -1;
     }
 
-    if (cpu_bind_order == ERTS_CPU_BIND_UNDEFINED) {
-	int ncpus = erts_get_cpu_configured(cpuinfo);
-	if (ncpus < 1 || erts_no_schedulers < ncpus)
-	    cpu_bind_order = ERTS_CPU_BIND_NONE;
-	else
-	    cpu_bind_order = ((system_cpudata || user_cpudata)
-			      && (erts_bind_to_cpu(cpuinfo, -1) != -ENOTSUP)
-			      ? ERTS_CPU_BIND_DEFAULT_BIND
-			      : ERTS_CPU_BIND_NONE);
-    }
+    if (cpu_bind_order == ERTS_CPU_BIND_UNDEFINED)
+	cpu_bind_order = ERTS_CPU_BIND_NONE;
 
     reader_groups_map = add_cpu_groups(reader_groups,
 				       reader_groups_callback,
