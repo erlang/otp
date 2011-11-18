@@ -137,6 +137,9 @@ setup(#state{frame = Frame} = State) ->
     TracePanel = observer_trace_wx:start_link(Notebook, self()),
     wxNotebook:addPage(Notebook, TracePanel, ?TRACE_STR, []),
 
+    %% Force redraw (window needs it)
+    wxWindow:refresh(Panel),
+
     SysPid = wx_object:get_pid(SysPanel),
     SysPid ! {active, node()},
     UpdState = State#state{main_panel = Panel,

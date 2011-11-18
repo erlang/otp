@@ -191,36 +191,46 @@ function_selector(Parent, Node, Module) ->
     Choices = lists:sort([{Name, Arity} || {Name, Arity} <- Functions,
 					   not(erl_internal:guard_bif(Name, Arity))]),
     ParsedChoices = parse_function_names(Choices),
-    filter_listbox_data("", ParsedChoices, ListBox),
+    filter_listbox_data("", ParsedChoices, ListBox, false),
     %% Setup Event handling
     wxTextCtrl:connect(TxtCtrl, command_text_updated,
-		       [{callback, fun(#wx{event=#wxCommand{cmdString=Input}}, _) ->
-					   filter_listbox_data(Input, ParsedChoices, ListBox)
-				   end}]),
+    		       [{callback, 
+			 fun(#wx{event=#wxCommand{cmdString=Input}}, _) ->
+				 filter_listbox_data(Input, ParsedChoices, ListBox, false)
+			 end}]),
     Self = self(),
+
+    %% Sigh clientdata in checklistbox crashes on windows, wx-bug I presume.
+    %% Don't have time to investigate now, workaround file bug report later
+    GetClientData = fun(LB, N) ->
+			    String = wxListBox:getString(LB, N),
+			    {_, Data} = lists:keyfind(String, 1, ParsedChoices),
+			    Data
+		    end,
     wxCheckListBox:connect(ListBox, command_checklistbox_toggled,
-			   [{callback, fun(#wx{event=#wxCommand{commandInt=N}}, _) ->
-					       Self ! {ListBox, wxCheckListBox:isChecked(ListBox, N),
-						       wxListBox:getClientData(ListBox, N)}
-				       end}]),
+    			   [{callback, 
+			     fun(#wx{event=#wxCommand{commandInt=N}}, _) ->
+				     Self ! {ListBox, wxCheckListBox:isChecked(ListBox, N),
+					     GetClientData(ListBox, N)}
+			     end}]),
     Check = fun(Id, Bool) ->
-		    wxCheckListBox:check(ListBox, Id, [{check, Bool}]),
-		    Self ! {ListBox, Bool, wxListBox:getClientData(ListBox, Id)}
-	    end,
+    		    wxCheckListBox:check(ListBox, Id, [{check, Bool}]),
+    		    Self ! {ListBox, Bool, GetClientData(ListBox, Id)}
+    	    end,
     wxButton:connect(SelAllBtn, command_button_clicked,
-		     [{callback, fun(#wx{}, _) ->
-					 Count = wxListBox:getCount(ListBox),
-					 [Check(SelId, true) ||
-					     SelId <- lists:seq(0, Count-1),
-					     not wxCheckListBox:isChecked(ListBox, SelId)]
-				 end}]),
+    		     [{callback, fun(#wx{}, _) ->
+    					 Count = wxListBox:getCount(ListBox),
+    					 [Check(SelId, true) ||
+    					     SelId <- lists:seq(0, Count-1),
+    					     not wxCheckListBox:isChecked(ListBox, SelId)]
+    				 end}]),
     wxButton:connect(DeSelAllBtn, command_button_clicked,
-		     [{callback, fun(#wx{}, _) ->
-					 Count = wxListBox:getCount(ListBox),
-					 [Check(SelId, false) ||
-					     SelId <- lists:seq(0, Count-1),
-					     wxCheckListBox:isChecked(ListBox, SelId)]
-				 end}]),
+    		     [{callback, fun(#wx{}, _) ->
+    					 Count = wxListBox:getCount(ListBox),
+    					 [Check(SelId, false) ||
+    					     SelId <- lists:seq(0, Count-1),
+    					     wxCheckListBox:isChecked(ListBox, SelId)]
+    				 end}]),
     case wxDialog:showModal(Dialog) of
 	?wxID_OK ->
 	    wxDialog:destroy(Dialog),
@@ -426,15 +436,18 @@ add_and_select(Id, MS0, ListBox) ->
 	  end,
     wxListBox:setSelection(ListBox, Sel).
 
-
 filter_listbox_data(Input, Data, ListBox) ->
+    filter_listbox_data(Input, Data, ListBox, true).
+
+filter_listbox_data(Input, Data, ListBox, AddClientData) ->
     FilteredData = [X || X = {Str, _} <- Data, re:run(Str, Input) =/= nomatch],
     wxListBox:clear(ListBox),
     wxListBox:appendStrings(ListBox, [Str || {Str,_} <- FilteredData]),
-    wx:foldl(fun({_, Term}, N) ->
-		     wxListBox:setClientData(ListBox, N, Term),
-		     N+1
-	     end, 0, FilteredData),
+    AddClientData andalso 
+	wx:foldl(fun({_, Term}, N) ->
+			 wxListBox:setClientData(ListBox, N, Term),
+			 N+1
+		 end, 0, FilteredData),    
     FilteredData.
 
 get_modules(Node) ->
