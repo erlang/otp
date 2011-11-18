@@ -75,29 +75,41 @@ do_tracer(Nodes0,PI,Client,Traci) ->
     do_tracer(Clients,PI,Traci).
 
 do_tracer(Clients,PI,Traci) ->
-    ShellOutput = proplists:get_value(shell, Traci, false),
-    {ClientSucc,Succ} = 
+    Shell = proplists:get_value(shell, Traci, false),
+    DefShell = fun(Trace) -> dbg:dhandler(Trace, standard_io) end,
+    {ClientSucc,Succ} =
 	lists:foldl(
-	  fun({N,{local,File},TF},{CS,S}) -> 
-                  TF2 = case ShellOutput of
-                            only -> none;
-                            _    -> TF
-                        end,
-		  [_Sname,Host] = string:tokens(atom_to_list(N),"@"),
+	  fun({N,{local,File},TF},{CS,S}) ->
+                  {TF2, FileInfo, ShellOutput} =
+		      case Shell of
+			  only  -> {none, shell_only, DefShell};
+			  true  -> {TF, {file,File}, DefShell};
+			  {only,Fun} -> {none, shell_only, Fun};
+			  Fun when is_function(Fun) -> {TF, {file,File}, Fun};
+			  _    -> {TF, {file,File}, false}
+		      end,
+		  Host = case N of
+			     nonode@nohost ->
+				 {ok, H} = inet:gethostname(),
+				 H;
+			     _ ->
+				 [_,H] = string:tokens(atom_to_list(N),"@"),
+				 H
+			 end,
 		  case catch dbg:tracer(N,port,dbg:trace_port(ip,0)) of
 		      {ok,N} ->
 			  {ok,Port} = dbg:trace_port_control(N,get_listen_port),
 			  {ok,T} = dbg:get_tracer(N),
 			  rpc:call(N,seq_trace,set_system_tracer,[T]),
 			  dbg:trace_client(ip,{Host,Port},
-					   {fun ip_to_file/2,{{file,File}, ShellOutput}}),
+					   {fun ip_to_file/2,{FileInfo, ShellOutput}}),
 			  {[{N,{local,File,Port},TF2}|CS], [N|S]};
 		      Other ->
 			  display_warning(N,{cannot_open_ip_trace_port,
 					     Host,
 					     Other}),
 			  {CS, S}
-		     end;
+		  end;
 	     ({N,C,_}=Client,{CS,S}) -> 
 		  case catch dbg:tracer(N,port,dbg:trace_port(file,C)) of
 		      {ok,N} -> 
@@ -620,7 +632,7 @@ stop_opts(Opts) ->
     case {FormatData, lists:member(return_fetch_dir, Opts)} of
 	{false, true} ->
 	    {fetch, FetchDir}; % if we specify return_fetch_dir, the data should be fetched
-    {false, false} ->
+	{false, false} ->
 	    case lists:member(nofetch,Opts) of
 		    false -> {fetch, FetchDir};
 		    true -> nofetch
@@ -1275,10 +1287,10 @@ display_warning(Item,Warning) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Trace client which reads an IP port and puts data directly to a file.
 %%% This is used when tracing remote nodes with no file system.
-ip_to_file({metadata,_,_},{_, only} = State) ->
+ip_to_file({metadata,_,_},{shell_only, _} = State) ->
     State;
-ip_to_file(Trace, {_, only} = State) ->
-    dbg:dhandler(Trace, standard_io),
+ip_to_file(Trace, {shell_only, Fun} = State) ->
+    Fun(Trace),
     State;
 ip_to_file(Trace,{{file,File}, ShellOutput}) ->
     Fun = dbg:trace_port(file,File), %File can be a filename or a wrap spec
@@ -1302,8 +1314,8 @@ ip_to_file(Trace,{Port, ShellOutput}) ->
     erlang:port_command(Port,B),
     {Port, ShellOutput}.
 
-show_trace(Trace, true) ->
-    dbg:dhandler(Trace, standard_io);
+show_trace(Trace, Fun) when is_function(Fun) ->
+    Fun(Trace);
 show_trace(_, _) ->
     ok.
 

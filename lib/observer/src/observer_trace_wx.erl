@@ -39,6 +39,7 @@
 -define(PROCESSES, 350).
 -define(MODULES, 351).
 -define(FUNCTIONS, 352).
+-define(TRACERWIN, 353).
 
 -record(state,
 	{parent,
@@ -91,6 +92,7 @@ create_window(Notebook, ParentPid) ->
     wxWindow:setSizer(Panel, Sizer),
     {Panel, #state{parent=ParentPid, panel=Panel,
 		   p_view=ProcessView, m_view=ModView, f_view=FuncView,
+		   toggle_button = ToggleButton,
 		   match_specs=default_matchspecs()}}.
 
 default_matchspecs() ->
@@ -204,6 +206,46 @@ handle_event(#wx{id=?MODULES, event=#wxList{type=command_list_item_selected, ite
     update_functions_view(dict:fetch(Module, TPs), Fview),
     {noreply, State};
 
+
+handle_event(#wx{event = #wxCommand{type = command_togglebutton_clicked, commandInt = 1}},
+	     #state{panel = Panel,
+		    nodes = Nodes,
+		    tpids = TProcs,
+		    tpatterns = TPs,
+		    toggle_button = ToggleBtn} = State) ->
+    LogWin = wxFrame:new(Panel, ?TRACERWIN, "Trace Log", [{size, {750, 800}}]),
+    Text   = wxTextCtrl:new(LogWin, ?wxID_ANY,
+			    [{style, ?wxTE_MULTILINE bor ?wxTE_RICH2 bor
+				  ?wxTE_DONTWRAP bor ?wxTE_READONLY}]),
+    Font = observer_wx:get_attrib({font, fixed}),
+    Attr = wxTextAttr:new(?wxBLACK, [{font, Font}]),
+    true = wxTextCtrl:setDefaultStyle(Text, Attr),
+    Env = wx:get_env(),
+    Write = fun(Trace) ->
+		    wx:set_env(Env),
+		    wxTextCtrl:appendText(Text, textformat(Trace))
+	    end,
+    {ok, _} = ttb:tracer(Nodes, [{file, {local,"/tmp/foo"}}, {shell, {only, Write}}]),
+    setup_ttb(dict:to_list(TPs), TProcs),
+    wxFrame:connect(LogWin, close_window, [{skip, true}]),
+    wxFrame:show(LogWin),
+    wxToggleButton:setLabel(ToggleBtn, "Stop Trace"),
+    {noreply, State};
+
+handle_event(#wx{event = #wxCommand{type = command_togglebutton_clicked, commandInt = 0}},
+	     #state{toggle_button = ToggleBtn} = State) ->
+    %%Stop tracing
+    ttb:stop(nofetch),
+    wxToggleButton:setLabel(ToggleBtn, "Start Trace"),
+    {noreply, State};
+
+handle_event(#wx{id=?TRACERWIN, event=#wxClose{}},
+	     #state{toggle_button = ToggleBtn} = State) ->
+    %%Stop tracing
+    ttb:stop(nofetch),
+    wxToggleButton:setLabel(ToggleBtn, "Start Trace"),
+    {noreply, State};
+
 %% handle_event(#wx{id = ?CLEAR, event = #wxCommand{type = command_menu_selected}},
 %% 	     #state{text_ctrl = TxtCtrl} = State) ->
 %%     wxTextCtrl:clear(TxtCtrl),
@@ -261,28 +303,6 @@ handle_event(#wx{id = ?LOAD_TRACEOPTS,
     wxDialog:destroy(Dialog),
     {noreply, State2};
 
-
-%% handle_event(#wx{event = #wxCommand{type = command_togglebutton_clicked, commandInt = 1}},
-%% 	     #state{node = Node,
-%% 		    traced_procs = TracedProcs,
-%% 		    traced_funcs = TracedDict,
-%% 		    trace_options = TraceOpts,
-%% 		    text_ctrl = TextCtrl,
-%% 		    toggle_button = ToggleBtn} = State) ->
-
-%%     start_trace(Node, TracedProcs, TracedDict, TraceOpts),
-%%     wxTextCtrl:appendText(TextCtrl, "Start Trace:\n"),
-%%     wxToggleButton:setLabel(ToggleBtn, "Stop Trace"),
-%%     {noreply, State};
-
-%% handle_event(#wx{event = #wxCommand{type = command_togglebutton_clicked, commandInt = 0}}, %%Stop tracing
-%% 	     #state{text_ctrl = TxtCtrl,
-%% 		    toggle_button = ToggleBtn} = State) ->
-%%     dbg:stop_clear(),
-%%     wxTextCtrl:appendText(TxtCtrl, "Stop Trace.\n"),
-%%     wxToggleButton:setLabel(ToggleBtn, "Start Trace"),
-%%     {noreply, State};
-
 handle_event(#wx{id=ID, event = What}, State) ->
     io:format("~p:~p: Unhandled event: ~p, ~p ~n", [?MODULE, self(), ID, What]),
     {noreply, State}.
@@ -321,7 +341,7 @@ handle_info(Any, State) ->
     io:format("~p~p: received unexpected message: ~p\n", [?MODULE, self(), Any]),
     {noreply, State}.
 
-terminate(Reason, #state{nodes=Nodes}) ->
+terminate(_Reason, #state{nodes=_Nodes}) ->
     %% case observer_wx:try_rpc(Node, erlang, whereis, [dbg]) of
     %% 	undefined -> fine;
     %% 	Pid -> exit(Pid, kill)
@@ -337,7 +357,7 @@ do_add_processes(POpts, S0=#state{p_view=LCtrl, tpids=OldPids, nodes=Ns0}) ->
     case merge_pids(POpts, OldPids) of
 	{OldPids, [], []} ->
 	    S0;
-	{Pids, New, Changed} ->
+	{Pids, New, _Changed} ->
 	    update_process_view(Pids, LCtrl),
 	    Ns1 = lists:usort([node(Pid) || #tpid{pid=Pid} <- New, is_pid(Pid)]),
 	    Nodes = case ordsets:subtract(Ns1, Ns0) of
@@ -369,7 +389,7 @@ do_add_patterns({Module, NewPs}, State=#state{tpatterns=TPs0, m_view=Mview, f_vi
     case merge_patterns(NewPs, Old) of
 	{Old, [], []} ->
 	    State;
-	{MPatterns, New, Changed} ->
+	{MPatterns, _New, _Changed} ->
 	    TPs = dict:store(Module, MPatterns, TPs0),
 	    update_modules_view(lists:sort(dict:fetch_keys(TPs)), Module, Mview),
 	    update_functions_view(dict:fetch(Module, TPs), Fview),
@@ -437,111 +457,115 @@ merge(Ns, [], _El, New, Ch, All) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-start_trace(Node, TracedProcs, TracedDict,
-	    #trace_options{send = Send, treceive = Receive, functions = Functions,
-			   events = Events, on_1st_spawn = On1Spawn,
-			   on_all_spawn = AllSpawn, on_1st_link = On1Link,
-			   on_all_link = AllLink}) ->
-    dbg:stop_clear(),
-    MyPid = self(),
-    HandlerFun = fun(NewMsg, _) ->
-			 MyPid ! NewMsg
-		 end,
-    dbg:tracer(process, {HandlerFun, []}),
+setup_ttb(TPs, TPids) ->
+    _R1 = [setup_tps(FTP, []) || {_, FTP} <- TPs],
+    _R2 = [ttb:p(Pid, dbg_flags(Flags)) || #tpid{pid=Pid, opts=Flags} <- TPids],
+    [#tpid{pid=_Pid, opts=_Flags}|_] = TPids,
+    %% io:format("ttb:p(pid(\"~w\", ~w).", [Pid, Flags]),
+    %% io:format("TTB ~w ~w~n",[R2, R1]),
+    ok.
 
-    case Node =:= node() of
-	true ->
-	    ok;
-	false ->
-	    dbg:n(Node)
-    end,
+%% Sigh order is important
+setup_tps([First=#tpattern{fa={_,'_'}}|Rest], Prev) ->
+    setup_tp(First),
+    [setup_tp(TP) || TP <- lists:reverse(Prev)],
+    setup_tps(Rest, []);
+setup_tps([First=#tpattern{fa={F,_}}|Rest], Prev = [#tpattern{fa={F,_}}|_]) ->
+    setup_tps(Rest, [First|Prev]);
+setup_tps([First|Rest], Prev) ->
+    [setup_tp(TP) || TP <- lists:reverse(Prev)],
+    setup_tps(Rest, [First]);
+setup_tps([], Prev) ->
+    [setup_tp(TP) || TP <- lists:reverse(Prev)].
 
-    Recs = [{Send, send},
-	    {Receive, 'receive'},
-	    {Functions, call},
-	    {Events, procs},
-	    {On1Spawn, set_on_first_spawn},
-	    {AllSpawn, set_on_spawn},
-	    {On1Link, set_on_first_link},
-	    {AllLink, set_on_link}],
-    Flags = [Assoc || {true, Assoc} <- Recs],
+setup_tp(#tpattern{m=M,fa={F,A}, ms=#match_spec{term=Ms}}) ->
+    ttb:tpl(M,F,A,Ms).
 
-    case TracedProcs of
-	all ->
-	    dbg:p(all, Flags);
-	new ->
-	    dbg:p(new, Flags);
-	_Pids ->
-	    lists:foreach(fun(Pid) -> dbg:p(Pid, Flags) end, TracedProcs)
-    end,
+dbg_flags(Flags) ->
+    [dbg_flag(Flag) || Flag <- Flags].
 
-    case Functions of
-	true ->
-	    trace_functions(TracedDict);
-	false ->
-	    ok
+dbg_flag(send) -> s;
+dbg_flag('receive') -> r;
+dbg_flag(functions) -> c;
+dbg_flag(on_spawn) -> sos;
+dbg_flag(on_link) -> sol;
+dbg_flag(on_first_spawn) -> sofs;
+dbg_flag(on_first_link) -> sofl;
+dbg_flag(events) -> p.
+
+textformat(Trace) when element(1, Trace) == trace_ts, tuple_size(Trace) >= 4 ->
+    format_trace(Trace, tuple_size(Trace)-1, element(tuple_size(Trace),Trace));
+textformat(Trace) when element(1, Trace) == drop, tuple_size(Trace) =:= 2 ->
+    io_lib:format("*** Dropped ~p messages.~n", [element(2,Trace)]);
+textformat(Trace) when element(1, Trace) == seq_trace, tuple_size(Trace) >= 3 ->
+    io_lib:format("*** Seq trace not implmented.~n", []);
+textformat(_) ->
+    "".
+
+format_trace(Trace, Size, TS0={_,_,MS}) ->
+    {_,{H,M,S}} = calendar:now_to_local_time(TS0),
+    TS = io_lib:format("~.2.0w:~.2.0w:~.2.0w:~.6.0w", [H,M,S,MS]),
+    From = element(2, Trace),
+    case element(3, Trace) of
+	'receive' ->
+	    case element(4, Trace) of
+		{dbg,ok} -> "";
+		Message ->
+		    io_lib:format("~s (~100p) << ~100p ~n", [TS,From,Message])
+	    end;
+	'send' ->
+	    Message = element(4, Trace),
+	    To = element(5, Trace),
+	    io_lib:format("~s (~100p) ~100p ! ~100p ~n", [TS,From,To,Message]);
+	call ->
+	    case element(4, Trace) of
+		MFA when Size == 5 ->
+		    Message = element(5, Trace),
+		    io_lib:format("~s (~100p) call ~s (~100p) ~n", [TS,From,ffunc(MFA),Message]);
+		MFA ->
+		    io_lib:format("~s (~100p) call ~s ~n", [TS,From,ffunc(MFA)])
+	    end;
+	return_from ->
+	    MFA = element(4, Trace),
+	    Ret = element(5, Trace),
+	    io_lib:format("~s (~100p) returned from ~s -> ~100p ~n", [TS,From,ffunc(MFA),Ret]);
+	return_to ->
+	    MFA = element(4, Trace),
+	    io_lib:format("~s (~100p) returning to ~s ~n", [TS,From,ffunc(MFA)]);
+	spawn when Size == 5 ->
+	    Pid = element(4, Trace),
+	    MFA = element(5, Trace),
+	    io_lib:format("~s (~100p) spawn ~100p as ~s ~n", [TS,From,Pid,ffunc(MFA)]);
+	Op ->
+	    io_lib:format("~s (~100p) ~100p ~s ~n", [TS,From,Op,ftup(Trace,4,Size)])
     end.
 
-textformat({died, Pid}) ->
-    io_lib:format("~w Process died.~n",[Pid]);
-textformat({shell_died, Old, New}) ->
-    io_lib:format("~w Shell Process died. Restarted as ~w~n~n",[Old,New]);
-textformat({trace, From, 'receive', Msg}) ->
-    io_lib:format("~w: rec   ~s~n", [From,
-				     tuple_space(Msg)]);
-textformat({trace, From, send, Msg, To}) ->
-    io_lib:format("~w:  !    To: ~w Msg: ~s~n", [From,
-						 To,
-						 tuple_space(Msg)]);
-textformat({trace, From, call, Func}) ->
-    io_lib:format("~w: call  ~s~n",[From, ffunc(Func)]);
-textformat({trace, From, spawn, Data}) ->
-    io_lib:format("~w: spawn ~p~n", [From, Data]);
-textformat({trace, From, link, Data}) ->
-    io_lib:format("~w: link  ~p~n", [From,  Data]);
-textformat({trace, From, unlink, Data}) ->
-    io_lib:format("~w: U-lnk ~p~n", [From,  Data]);
+%%% These f* functions returns non-flat strings
 
-textformat({trace, From, Op, Data}) ->
-    io_lib:format("~w: ~w   ~p~n", [From, Op, Data]);
+%% {M,F,[A1, A2, ..., AN]} -> "M:F(A1, A2, ..., AN)"
+%% {M,F,A}                 -> "M:F/A"
+ffunc({M,F,Argl}) when is_list(Argl) ->
+    io_lib:format("~100p:~100p(~s)", [M, F, fargs(Argl)]);
+ffunc({M,F,Arity}) ->
+    io_lib:format("~100p:~100p/~100p", [M,F,Arity]);
+ffunc(X) -> io_lib:format("~100p", [X]).
 
-textformat({print, Format, Args}) ->
-    io_lib:format(Format, Args);
-textformat(Other) ->
-    io_lib:format("~p~n",[Other]).
-
-
-tuple_space(X) when is_tuple(X) -> print(tuple_size(X), X, "}");
-tuple_space(X)                  -> io_lib:format("~p",[X]).
-
-
-ffunc({M,F, Argl}) ->
-    io_lib:format("~w:~w(~s)", [M, F, fargs(Argl)]);
-ffunc(X) -> tuple_space(X).
-
+%% Integer           -> "Integer"
+%% [A1, A2, ..., AN] -> "A1, A2, ..., AN"
+fargs(Arity) when is_integer(Arity) -> integer_to_list(Arity);
 fargs([]) -> [];
-fargs([A]) -> tuple_space(A);  %% last arg
-fargs([A|Args]) -> [tuple_space(A),", "|fargs(Args)].
+fargs([A]) -> io_lib:format("~100p", [A]);  %% last arg
+fargs([A|Args]) -> [io_lib:format("~100p,", [A]) | fargs(Args)];
+fargs(A) -> io_lib:format("~100p", [A]). % last or only arg
 
-print(0 , _X, Buff) -> ["{"|Buff];
-print(1 , X, Buff) ->
-    Str =  tuple_space(element(1, X)),
-    ["{",Str|Buff];
-print(Num, X, Buff) ->
-    Str =  tuple_space(element(Num, X)),
-    print(Num-1, X, [", ",Str|Buff]).
+%% {A_1, A_2, ..., A_N} -> "A_Index A_Index+1 ... A_Size"
+ftup(Trace, Index, Index) ->
+    io_lib:format("~100p", [element(Index, Trace)]);
+ftup(Trace, Index, Size) ->
+    [io_lib:format("~100p ", [element(Index, Trace)])
+     | ftup(Trace, Index+1, Size)].
 
-trace_functions(TracedDict) ->
-    Trace = fun(KeyAtom, RecordList, acc_in) ->
-		    lists:foreach(fun(#traced_func{func_name = Function,
-						   arity = Arity,
-						   match_spec = #match_spec{term = MS}}) ->
-					  dbg:tpl({KeyAtom, Function, Arity}, MS)
-				  end,
-				  RecordList),
-		    acc_in
-	    end,
-    dict:fold(Trace, acc_in, TracedDict).
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 write_file(Frame, Filename, TraceOps, MatchSpecs, TPs) ->
     FormatMS = fun(#match_spec{name=Id, term=T, func=F}) ->

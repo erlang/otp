@@ -137,7 +137,7 @@ init_process_page(Panel, Pid) ->
 init_text_page(Parent) ->
     Style = ?wxTE_MULTILINE bor ?wxTE_RICH2 bor ?wxTE_READONLY,
     Text = wxTextCtrl:new(Parent, ?wxID_ANY, [{style, Style}]),
-    Font = observer_wx:get_attrib({font, modern}),
+    Font = observer_wx:get_attrib({font, fixed}),
     Attr = wxTextAttr:new(?wxBLACK, [{font, Font}]),
     true = wxTextCtrl:setDefaultStyle(Text, Attr),
     wxTextAttr:destroy(Attr),
