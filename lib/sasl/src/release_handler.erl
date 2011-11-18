@@ -27,7 +27,8 @@
 	 unpack_release/1,
 	 check_install_release/1, check_install_release/2,
 	 install_release/1, install_release/2, remove_release/1,
-	 which_releases/0, make_permanent/1, reboot_old_release/1,
+	 which_releases/0, which_releases/1, make_permanent/1,
+	 reboot_old_release/1,
 	 set_unpacked/2, set_removed/1, install_file/2]).
 -export([upgrade_app/2, downgrade_app/2, downgrade_app/3,
 	 upgrade_script/2, downgrade_script/3,
@@ -303,6 +304,14 @@ install_file(Vsn, File) when is_list(File) ->
 %%-----------------------------------------------------------------
 which_releases() ->
     call(which_releases).
+
+%%-----------------------------------------------------------------
+%% Returns: [{Name, Vsn, [LibName], Status}]
+%%          Status = unpacked | current | permanent | old
+%%-----------------------------------------------------------------
+which_releases(Status) ->
+    Releases = which_releases(),
+    get_releases_with_status(Releases, Status, []).
 
 %%-----------------------------------------------------------------
 %% check_script(Script, LibDirs) -> ok | {error, Reason}
@@ -2010,3 +2019,14 @@ get_new_libs([{App,Vsn,_LibDir}|CurrentLibs], NewLibs) ->
     end;
 get_new_libs([],_) ->
     [].
+
+%%-----------------------------------------------------------------
+%% Return a list of releases witch a specific status
+%%-----------------------------------------------------------------
+get_releases_with_status([], _, Acc) ->
+    Acc;
+get_releases_with_status([ {_, _, _, ReleaseStatus } = Head | Tail],
+                         Status, Acc) when ReleaseStatus == Status ->
+    get_releases_with_status(Tail, Status, [Head | Acc]);
+get_releases_with_status([_ | Tail], Status, Acc) ->
+    get_releases_with_status(Tail, Status, Acc).
