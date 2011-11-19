@@ -1,19 +1,19 @@
 #
 # %CopyrightBegin%
-# 
+#
 # Copyright Ericsson AB 2002-2011. All Rights Reserved.
-# 
+#
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
 # compliance with the License. You should have received a copy of the
 # Erlang Public License along with this software. If not, it can be
 # retrieved online at http://www.erlang.org/.
-# 
+#
 # Software distributed under the License is distributed on an "AS IS"
 # basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 # the License for the specific language governing rights and limitations
 # under the License.
-# 
+#
 # %CopyrightEnd%
 #
 include $(ERL_TOP)/make/target.mk
@@ -41,8 +41,19 @@ MODULES= \
 	etop_gui \
 	etop_tr \
 	etop_txt \
+	observer \
+	observer_lib \
+	observer_wx \
+	observer_pro_wx \
+	observer_procinfo \
+	observer_sys_wx \
+	observer_trace_wx \
+	observer_traceoptions_wx \
+	observer_tv_table \
+	observer_tv_wx \
 	ttb \
 	ttb_et
+
 HRL_FILES= \
 	../include/etop.hrl
 INTERNAL_HRL_FILES= \
@@ -54,7 +65,7 @@ EXAMPLE_FILES= multitrace.erl
 TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR)) $(APP_TARGET) $(APPUP_TARGET)
 
 PRIVDIR= ../priv
-WEBTOOLFILES= $(PRIVDIR)/crashdump_viewer.tool
+WEBTOOLFILES= $(PRIVDIR)/crashdump_viewer.tool $(PRIVDIR)/erlang_observer.png
 BINDIR= $(PRIVDIR)/bin
 ifeq ($(findstring win32,$(TARGET)),win32)
 WIN32_EXECUTABLES= $(BINDIR)/etop.bat $(BINDIR)/getop.bat $(BINDIR)/cdv.bat
@@ -109,7 +120,7 @@ docs:
 
 # ----------------------------------------------------
 # Release Target
-# ---------------------------------------------------- 
+# ----------------------------------------------------
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
