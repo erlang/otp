@@ -162,7 +162,14 @@ continue_init(Manager, ConfigDB, SocketType, Socket, TimeOut) ->
 %%                                      {stop, Reason, State}
 %% Description: Handling call messages
 %%--------------------------------------------------------------------
-handle_call(Request, From, State) ->
+handle_call(Request, From, #state{mod = ModData} = State) ->
+    Error = 
+	lists:flatten(
+	  io_lib:format("Unexpected request: "
+			"~n~p"
+			"~nto request handler (~p) from ~p"
+			"~n", [Request, self(), From])),
+    error_log(Error, ModData),
     {stop, {call_api_violation, Request, From}, State}.
 
 %%--------------------------------------------------------------------
@@ -171,8 +178,15 @@ handle_call(Request, From, State) ->
 %%                                      {stop, Reason, State}
 %% Description: Handling cast messages
 %%--------------------------------------------------------------------
-handle_cast(Msg, State) ->
-    {reply, {cast_api_violation, Msg}, State}.
+handle_cast(Msg, #state{mod = ModData} = State) ->
+    Error = 
+	lists:flatten(
+	  io_lib:format("Unexpected message: "
+			"~n~p"
+			"~nto request handler (~p)"
+			"~n", [Msg, self()])),
+    error_log(Error, ModData),
+    {noreply, State}.
 
 %%--------------------------------------------------------------------
 %% handle_info(Info, State) -> {noreply, State} |
@@ -253,7 +267,10 @@ handle_info(timeout, #state{mod = ModData} = State) ->
 %% Default case
 handle_info(Info, #state{mod = ModData} = State) ->
     Error = lists:flatten(
-	      io_lib:format("Unexpected message received: ~n~p~n", [Info])),
+	      io_lib:format("Unexpected info: "
+			    "~n~p"
+			    "~nto request handler (~p)"
+			    "~n", [Info, self()])),
     error_log(Error, ModData),
     {noreply, State}.
 
