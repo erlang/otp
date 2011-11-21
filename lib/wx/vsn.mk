@@ -1,1 +1,1 @@
-WX_VSN = 0.99
+WX_VSN = 0.99.pre

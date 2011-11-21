@@ -1,2 +1,2 @@
-TEST_SERVER_VSN = 3.4.5
+TEST_SERVER_VSN = 3.4.5.pre
 

@@ -17,7 +17,7 @@
 # %CopyrightEnd%
 # 
 
-VSN = 5.9
+VSN = 5.9.pre
 SYSTEM_VSN = R15A
 
 # Port number 4365 in 4.2

@@ -1,2 +1,2 @@
-ERL_DOCGEN_VSN = 0.3
+ERL_DOCGEN_VSN = 0.3.pre
 
