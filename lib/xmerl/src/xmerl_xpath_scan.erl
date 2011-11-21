@@ -287,6 +287,7 @@ strip_ws(T) ->
 
 special_token('@') -> true;
 special_token('::') -> true;
+special_token(',') -> true;
 special_token('(') -> true;
 special_token('[') -> true;
 special_token('/') -> true;
