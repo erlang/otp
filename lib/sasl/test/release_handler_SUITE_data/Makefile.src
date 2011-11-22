@@ -50,7 +50,13 @@ APP= \
      app1_app2/lib2/app1-2.0/ebin/app1.@EMULATOR@ \
      app1_app2/lib2/app2-1.0/ebin/app2_sup.@EMULATOR@ \
      app1_app2/lib2/app2-1.0/ebin/app2_server.@EMULATOR@ \
-     app1_app2/lib2/app2-1.0/ebin/app2.@EMULATOR@
+     app1_app2/lib2/app2-1.0/ebin/app2.@EMULATOR@ \
+     app1_app2/lib3/app1-3.0/ebin/app1_sup.@EMULATOR@ \
+     app1_app2/lib3/app1-3.0/ebin/app1_server.@EMULATOR@ \
+     app1_app2/lib3/app1-3.0/ebin/app1.@EMULATOR@ \
+     app1_app2/lib4/app1-4.0/ebin/app1_sup.@EMULATOR@ \
+     app1_app2/lib4/app1-4.0/ebin/app1_server.@EMULATOR@ \
+     app1_app2/lib4/app1-4.0/ebin/app1.@EMULATOR@
 
 OTP2740=  \
      otp_2740/vsn_atom.@EMULATOR@ \
@@ -181,6 +187,22 @@ app1_app2/lib2/app2-1.0/ebin/app2_server.@EMULATOR@: app1_app2/lib2/app2-1.0/src
 	erlc $(EFLAGS) -oapp1_app2/lib2/app2-1.0/ebin app1_app2/lib2/app2-1.0/src/app2_server.erl
 app1_app2/lib2/app2-1.0/ebin/app2.@EMULATOR@: app1_app2/lib2/app2-1.0/src/app2.erl
 	erlc $(EFLAGS) -oapp1_app2/lib2/app2-1.0/ebin app1_app2/lib2/app2-1.0/src/app2.erl
+
+
+app1_app2/lib3/app1-3.0/ebin/app1_sup.@EMULATOR@: app1_app2/lib3/app1-3.0/src/app1_sup.erl
+	erlc $(EFLAGS) -oapp1_app2/lib3/app1-3.0/ebin app1_app2/lib3/app1-3.0/src/app1_sup.erl
+app1_app2/lib3/app1-3.0/ebin/app1_server.@EMULATOR@: app1_app2/lib3/app1-3.0/src/app1_server.erl
+	erlc $(EFLAGS) -oapp1_app2/lib3/app1-3.0/ebin app1_app2/lib3/app1-3.0/src/app1_server.erl
+app1_app2/lib3/app1-3.0/ebin/app1.@EMULATOR@: app1_app2/lib3/app1-3.0/src/app1.erl
+	erlc $(EFLAGS) -oapp1_app2/lib3/app1-3.0/ebin app1_app2/lib3/app1-3.0/src/app1.erl
+
+
+app1_app2/lib4/app1-4.0/ebin/app1_sup.@EMULATOR@: app1_app2/lib4/app1-4.0/src/app1_sup.erl
+	erlc $(EFLAGS) -oapp1_app2/lib4/app1-4.0/ebin app1_app2/lib4/app1-4.0/src/app1_sup.erl
+app1_app2/lib4/app1-4.0/ebin/app1_server.@EMULATOR@: app1_app2/lib4/app1-4.0/src/app1_server.erl
+	erlc $(EFLAGS) -oapp1_app2/lib4/app1-4.0/ebin app1_app2/lib4/app1-4.0/src/app1_server.erl
+app1_app2/lib4/app1-4.0/ebin/app1.@EMULATOR@: app1_app2/lib4/app1-4.0/src/app1.erl
+	erlc $(EFLAGS) -oapp1_app2/lib4/app1-4.0/ebin app1_app2/lib4/app1-4.0/src/app1.erl
 
 
 otp_2740/vsn_atom.@EMULATOR@: otp_2740/vsn_atom.erl

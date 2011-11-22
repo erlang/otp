@@ -60,7 +60,8 @@ cases() ->
     [otp_2740, otp_2760, otp_5761, otp_9402, otp_9417,
      otp_9395_check_old_code, otp_9395_check_and_purge,
      otp_9395_update_many_mods, otp_9395_rm_many_mods,
-     instructions, eval_appup, supervisor_which_children_timeout,
+     instructions, eval_appup, eval_appup_with_restart,
+     supervisor_which_children_timeout,
      release_handler_which_releases, install_release_syntax_check].
 
 groups() ->
@@ -1226,6 +1227,12 @@ eval_appup(Conf) when is_list(Conf) ->
     App11Dir = code:lib_dir(app1),
     ok = gen_server:call(harry, error),
 
+    %% Read appup script
+    {ok,"2.0",UpScript} = release_handler:upgrade_script(app1,App12Dir),
+    [{load_object_code,_},
+     point_of_no_return,
+     {load,_}] = UpScript,
+
     %% Upgrade to app1-2.0
     {ok, []} = release_handler:upgrade_app(app1, App12Dir),
     App12Dir = code:lib_dir(app1),
@@ -1235,6 +1242,12 @@ eval_appup(Conf) when is_list(Conf) ->
     %% Value of config parameter 'var' should now be 'val2'
     %% (see myrel/lib2/app1-2.0/ebin/app1.app)
     [{var,val2}] = ets:lookup(otp_6162, var),
+
+    %% Read appup script
+    {ok,DnScript} = release_handler:downgrade_script(app1,"1.0",App11Dir),
+    [{load_object_code,_},
+     point_of_no_return,
+     {load,_}] = DnScript,
 
     %% Downgrade to app1-1.0
     {ok, []} = release_handler:downgrade_app(app1,"1.0",App11Dir),
@@ -1250,6 +1263,85 @@ eval_appup(Conf) when is_list(Conf) ->
     ok = application:unload(app1),
 
     true = code:del_path(EbinDir),
+    ok.
+
+
+%% Test upgrade and downgrade of applications when appup contains
+%% restart_emulator and restart_new_emulator instructions
+eval_appup_with_restart(Conf) when is_list(Conf) ->
+
+    %% Set some paths
+    RelDir = filename:join(?config(data_dir, Conf), "app1_app2"),
+    App11Dir = filename:join([RelDir, "lib1", "app1-1.0"]),
+    App13Dir = filename:join([RelDir, "lib3", "app1-3.0"]), %restart_emulator
+    App14Dir = filename:join([RelDir, "lib4", "app1-4.0"]), %restart_new_emulator
+    EbinDir1 = filename:join(App11Dir, "ebin"),
+    EbinDir3 = filename:join(App13Dir, "ebin"),
+    EbinDir4 = filename:join(App14Dir, "ebin"),
+
+    %% Start app1-1.0
+    code:add_patha(EbinDir1),
+    ok = application:start(app1),
+    App11Dir = code:lib_dir(app1),
+
+    %% Read appup script
+    {ok,"3.0",UpScript3} = release_handler:upgrade_script(app1,App13Dir),
+    [{load_object_code,_},
+     point_of_no_return,
+     {load,_},
+     restart_emulator] = UpScript3,
+
+    %% Upgrade to app1-3.0 - restart_emulator
+    restart_emulator = release_handler:upgrade_app(app1, App13Dir),
+    App13Dir = code:lib_dir(app1),
+
+    %% Fake full upgrade to 3.0
+    {ok,AppSpec} = file:consult(filename:join([App13Dir,"ebin","app1.app"])),
+    application_controller:change_application_data(AppSpec,[]),
+
+    %% Read appup script
+    {ok,"4.0",UpScript4} = release_handler:upgrade_script(app1,App14Dir),
+    [restart_new_emulator,point_of_no_return] = UpScript4,
+
+    %% Try pgrade to app1-4.0 - restart_new_emulator
+    {error,restart_new_emulator} = release_handler:upgrade_app(app1, App14Dir),
+    App13Dir = code:lib_dir(app1),
+
+    %% Read appup script
+    {ok,DnScript1} = release_handler:downgrade_script(app1,"1.0",App11Dir),
+    [{load_object_code,_},
+     point_of_no_return,
+     {load,_},
+     restart_emulator] = DnScript1,
+
+    %% Still running 3.0 - downgrade to app1-1.0 - restart_emulator
+    restart_emulator = release_handler:downgrade_app(app1,"1.0",App11Dir),
+    App11Dir = code:lib_dir(app1),
+
+    ok = application:stop(app1),
+    ok = application:unload(app1),
+    true = code:del_path(EbinDir1),
+
+    %% Start again as version 4.0
+    code:add_patha(EbinDir4),
+    ok = application:start(app1),
+    App14Dir = code:lib_dir(app1),
+
+    %% Read appup script
+    {ok,DnScript3} = release_handler:downgrade_script(app1,"3.0",App13Dir),
+    [point_of_no_return,restart_emulator] = DnScript3,
+
+    %% Downgrade to app1-3.0 - restart_new_emulator
+    restart_emulator = release_handler:downgrade_app(app1,"3.0",App13Dir),
+    App13Dir = code:lib_dir(app1),
+
+    ok = application:stop(app1),
+    ok = application:unload(app1),
+
+    true = code:del_path(EbinDir3),
+    false = code:del_path(EbinDir1),
+    false = code:del_path(EbinDir4),
+
     ok.
 
 

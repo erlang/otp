@@ -459,7 +459,9 @@ eval({apply, {M, F, A}}, EvalState) ->
     apply(M, F, A),
     EvalState;
 eval(restart_emulator, _EvalState) ->
-    throw(restart_emulator).
+    throw(restart_emulator);
+eval(restart_new_emulator, _EvalState) ->
+    throw(restart_new_emulator).
 
 get_opt(Tag, EvalState, Default) ->
     case lists:keysearch(Tag, 1, EvalState#eval_state.opts) of
