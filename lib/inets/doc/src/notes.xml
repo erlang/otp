@@ -67,6 +67,15 @@
         </item>
 
         <item>
+          <p>[httpd] Sometimes entries in the transfer log was written 
+	  with the message size as list of numbers. This list was actually 
+	  the size as a string, e.g. "123", written with the control 
+	  sequence ~w. This has now been corrected so that any string is 
+	  converted to an integer (if possible). </p>
+	  <p>Own Id: OTP-9733</p>
+        </item>
+
+        <item>
           <p>Fixed various problems detected by Dialyzer. </p>
 	  <p>Own Id: OTP-9736</p>
         </item>
