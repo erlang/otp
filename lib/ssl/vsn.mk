@@ -1,1 +1,1 @@
-SSL_VSN = 5.0.pre
+SSL_VSN = 5.0

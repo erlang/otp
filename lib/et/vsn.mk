@@ -1,1 +1,1 @@
-ET_VSN  = 1.4.4.pre
+ET_VSN  = 1.4.4

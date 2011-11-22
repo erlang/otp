@@ -1,1 +1,1 @@
-STDLIB_VSN = 1.18.pre
+STDLIB_VSN = 1.18

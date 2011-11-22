@@ -1,1 +1,1 @@
-COMPILER_VSN = 4.7.5.pre
+COMPILER_VSN = 4.7.5

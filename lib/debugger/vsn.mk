@@ -1,1 +1,1 @@
-DEBUGGER_VSN = 3.2.6.pre
+DEBUGGER_VSN = 3.2.6

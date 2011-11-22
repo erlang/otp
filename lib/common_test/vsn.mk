@@ -1,3 +1,3 @@
-COMMON_TEST_VSN = 1.5.5.pre
+COMMON_TEST_VSN = 1.5.5
 
 

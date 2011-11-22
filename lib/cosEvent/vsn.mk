@@ -1,3 +1,3 @@
 
-COSEVENT_VSN = 2.1.11.pre
+COSEVENT_VSN = 2.1.11
 

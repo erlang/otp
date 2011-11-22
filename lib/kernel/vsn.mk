@@ -1,1 +1,1 @@
-KERNEL_VSN = 2.15.pre
+KERNEL_VSN = 2.15

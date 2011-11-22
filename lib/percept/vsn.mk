@@ -1,1 +1,1 @@
-PERCEPT_VSN = 0.8.6.pre
+PERCEPT_VSN = 0.8.6

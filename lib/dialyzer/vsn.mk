@@ -1,1 +1,1 @@
-DIALYZER_VSN = 2.4.4.pre
+DIALYZER_VSN = 2.4.4

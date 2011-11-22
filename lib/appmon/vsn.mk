@@ -1,1 +1,1 @@
-APPMON_VSN = 2.1.13.pre
+APPMON_VSN = 2.1.13

@@ -1,1 +1,1 @@
-RELTOOL_VSN = 0.5.7.pre
+RELTOOL_VSN = 0.5.7
