@@ -37,7 +37,7 @@
 	 delete_session/2, 
 	 set_options/2, 
 	 store_cookies/3,
-	 which_cookies/1, which_cookies/2, 
+	 which_cookies/1, which_cookies/2, which_cookies/3, 
 	 reset_cookies/1, 
 	 session_type/1,
 	 info/1

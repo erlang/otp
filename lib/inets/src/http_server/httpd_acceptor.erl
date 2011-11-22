@@ -152,6 +152,9 @@ handle_connection(Manager, ConfigDb, AcceptTimeout, SocketType, Socket) ->
     http_transport:controlling_process(SocketType, Socket, Pid),
     httpd_request_handler:socket_ownership_transfered(Pid, SocketType, Socket).
 
+
+-spec handle_error(Error::timeout|emfile|closed|econnreset|econnaborted|esslaccept|{enfile, _}|{'EXIT', Reason::any()}|any(), ConfigDB::any()) -> ok | no_return(). 
+
 handle_error(timeout, _) ->
     ok;
 
@@ -196,6 +199,7 @@ handle_error({'EXIT', Reason}, ConfigDb) ->
 handle_error(Reason, ConfigDb) ->
     String = lists:flatten(io_lib:format("Accept error: ~p", [Reason])),
     accept_failed(ConfigDb, String).
+
 
 -spec accept_failed(_, string()) -> no_return(). 
 
