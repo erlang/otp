@@ -66,6 +66,11 @@
 	  <p>Own Id: OTP-9715</p>
         </item>
 
+        <item>
+          <p>Fixed various problems detected by Dialyzer. </p>
+	  <p>Own Id: OTP-9736</p>
+        </item>
+
       </list>
 
     </section>
