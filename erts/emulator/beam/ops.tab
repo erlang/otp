@@ -829,16 +829,20 @@ call_ext_only Ar=u==2 Bif=u$bif:erlang:load_nif/2 => allocate u Ar | i_call_ext 
 
 
 #
-# The apply/2 and apply/3 BIFs are instructions.
+# apply/2 is an instruction, not a BIF.
 #
 
 call_ext u==2 u$func:erlang:apply/2 => i_apply_fun
 call_ext_last u==2 u$func:erlang:apply/2 D => i_apply_fun_last D
 call_ext_only u==2 u$func:erlang:apply/2 => i_apply_fun_only
 
-call_ext u==3 u$func:erlang:apply/3 => i_apply
-call_ext_last u==3 u$func:erlang:apply/3 D => i_apply_last D
-call_ext_only u==3 u$func:erlang:apply/3 => i_apply_only
+#
+# The apply/3 BIF is an instruction.
+#
+
+call_ext u==3 u$bif:erlang:apply/3 => i_apply
+call_ext_last u==3 u$bif:erlang:apply/3 D => i_apply_last D
+call_ext_only u==3 u$bif:erlang:apply/3 => i_apply_only
 
 #
 # The exit/1 and throw/1 BIFs never execute the instruction following them;

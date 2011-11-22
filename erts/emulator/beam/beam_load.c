@@ -1315,15 +1315,6 @@ load_import_table(LoaderState* stp)
 static int
 read_export_table(LoaderState* stp)
 {
-    static struct {
-	Eterm mod;
-	Eterm func;
-	int arity;
-    } allow_redef[] = {
-	/* The BIFs that are allowed to be redefined by Erlang code */
-	{am_erlang,am_apply,2},
-	{am_erlang,am_apply,3},
-    };
     int i;
 
     GetInt(stp, 4, stp->num_exps);
@@ -1361,21 +1352,13 @@ read_export_table(LoaderState* stp)
 	stp->export[i].address = stp->code + value;
 
 	/*
-	 * Check that we are not redefining a BIF (except the ones allowed to
-	 * redefine).
+	 * Check that we are not redefining a BIF (except erlang:apply/3).
 	 */
 	if ((e = erts_find_export_entry(stp->module, func, arity)) != NULL) {
 	    if (e->code[3] == (BeamInstr) em_apply_bif) {
-		int j;
-
-		for (j = 0; j < sizeof(allow_redef)/sizeof(allow_redef[0]); j++) {
-		    if (stp->module == allow_redef[j].mod &&
-			func == allow_redef[j].func &&
-			arity == allow_redef[j].arity) {
-			break;
-		    }
-		}
-		if (j == sizeof(allow_redef)/sizeof(allow_redef[0])) {
+		if (stp->module != am_erlang ||
+		    func != am_apply ||
+		    arity != 3) {
 		    LoadError2(stp, "exported function %T/%d redefines BIF",
 			       func, arity);
 		}
