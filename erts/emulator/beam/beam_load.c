@@ -666,7 +666,7 @@ erts_prepare_loading(LoaderState* stp, Process *c_p, Eterm group_leader,
     /*
      * Initialize code area.
      */
-    stp->code_buffer_size = erts_next_heap_size(2048 + stp->num_functions, 0);
+    stp->code_buffer_size = 2048 + stp->num_functions;
     stp->code = (BeamInstr *) erts_alloc(ERTS_ALC_T_CODE,
 				    sizeof(BeamInstr) * stp->code_buffer_size);
 
@@ -1218,8 +1218,7 @@ load_atom_table(LoaderState* stp)
     GetInt(stp, 4, stp->num_atoms);
     stp->num_atoms++;
     stp->atom = erts_alloc(ERTS_ALC_T_LOADER_TMP,
-			   erts_next_heap_size((stp->num_atoms*sizeof(Eterm)),
-					       0));
+			   stp->num_atoms*sizeof(Eterm));
 
     /*
      * Read all atoms.
@@ -1264,9 +1263,7 @@ load_import_table(LoaderState* stp)
 
     GetInt(stp, 4, stp->num_imports);
     stp->import = erts_alloc(ERTS_ALC_T_LOADER_TMP,
-			     erts_next_heap_size((stp->num_imports *
-						  sizeof(ImportEntry)),
-						 0));
+			     stp->num_imports * sizeof(ImportEntry));
     for (i = 0; i < stp->num_imports; i++) {
 	int n;
 	Eterm mod;
@@ -1686,9 +1683,9 @@ read_code_header(LoaderState* stp)
 #define CodeNeed(w) do {						\
     ASSERT(ci <= code_buffer_size);					\
     if (code_buffer_size < ci+(w)) {					\
-        code_buffer_size = erts_next_heap_size(ci+(w), 0);		\
-	stp->code = code						\
-	    = (BeamInstr *) erts_realloc(ERTS_ALC_T_CODE,			\
+        code_buffer_size = 2*ci+(w);					\
+	stp->code = code =						\
+	    (BeamInstr *) erts_realloc(ERTS_ALC_T_CODE,			\
 				     (void *) code,			\
 				     code_buffer_size * sizeof(BeamInstr));	\
     } 									\
