@@ -24,68 +24,110 @@
 -export([access_entry/8, error_entry/5, error_report_entry/5, 
 	 security_entry/5]).
 
+
 %%%=========================================================================
 %%%  Internal Application API 
 %%%=========================================================================
-access_entry(Log, NoLog, Info, RFC931, AuthUser, Date, StatusCode, Bytes) ->
-    ConfigDB = Info#mod.config_db,
-    case httpd_util:lookup(ConfigDB, Log) of
-	undefined ->
-	    NoLog;
-	LogRef ->
-	    {_, RemoteHost}
-		= (Info#mod.init_data)#init_data.peername,
-	    RequestLine = Info#mod.request_line,
-	    Headers =  Info#mod.parsed_header,
-	    Entry = do_access_entry(ConfigDB, Headers, RequestLine, 
-				    RemoteHost, RFC931, AuthUser,
-				    Date, StatusCode, Bytes),
-	    {LogRef, Entry}
-    end.
 
-error_entry(Log, NoLog, Info, Date, Reason) ->
-    ConfigDB = Info#mod.config_db,
-    case httpd_util:lookup(ConfigDB, Log) of
-	undefined ->
-	    NoLog;
-	LogRef ->
-	    {_, RemoteHost} =
-		(Info#mod.init_data)#init_data.peername,
-	    URI = Info#mod.request_uri,
-	    Entry = do_error_entry(ConfigDB, RemoteHost, URI, Date, Reason), 
-	    {LogRef, Entry}
-    end.
+-spec access_entry(Log        :: term(), % Id of the log
+		   NoLog      :: term(), % What to return when no log is found
+		   Info       :: #mod{},
+		   RFC931     :: string(),
+		   AuthUser   :: string(), 
+		   Date       :: string(), 
+		   StatusCode :: pos_integer(),
+		   Size       :: pos_integer() | string()) ->
+    {Log :: atom() | pid(), Entry :: string()}.
+
+access_entry(Log, NoLog, Info, RFC931, AuthUser, Date, StatusCode, SizeStr) 
+  when is_list(SizeStr) ->
+    Size = 
+	case (catch list_to_integer(SizeStr)) of
+	    I when is_integer(I) ->
+		I;
+	    _ ->
+		SizeStr % This is better then nothing
+	end,
+    access_entry(Log, NoLog, Info, RFC931, AuthUser, Date, StatusCode, Size);
+access_entry(Log, NoLog, 
+	     #mod{config_db     = ConfigDB, 
+		  init_data     = #init_data{peername = {_, RemoteHost}}, 
+		  request_line  = RequestLine,
+		  parsed_header = Headers}, 
+	     RFC931, AuthUser, Date, StatusCode, Size) ->
+    MakeEntry = 
+	fun() ->
+		do_access_entry(ConfigDB, Headers, RequestLine, 
+				RemoteHost, RFC931, AuthUser,
+				Date, StatusCode, Size)
+	end,
+    log_entry(Log, NoLog, ConfigDB, MakeEntry).
+
+
+-spec error_entry(Log    :: term(), % Id of the log
+		  NoLog  :: term(), % What to return when no log is found
+		  Info   :: #mod{},
+		  Date   :: string(), 
+		  Reason :: term()) ->
+    {Log :: atom() | pid(), Entry :: string()}.
+
+error_entry(Log, NoLog, 
+	    #mod{config_db   = ConfigDB,
+		 init_data   = #init_data{peername = {_, RemoteHost}}, 
+		 request_uri = URI}, Date, Reason) ->
+    MakeEntry = 
+	fun() ->
+		do_error_entry(ConfigDB, RemoteHost, URI, Date, Reason)	
+	end,
+    log_entry(Log, NoLog, ConfigDB, MakeEntry).
+
+
+-spec error_report_entry(Log      :: term(), 
+			 NoLog    :: term(), 
+			 ConfigDB :: term(),
+			 Date     :: string(), 
+			 ErrroStr :: string()) ->
+    {Log :: atom() | pid(), Entry :: string()}.
 
 error_report_entry(Log, NoLog, ConfigDb, Date, ErrorStr) ->
-    case httpd_util:lookup(ConfigDb, Log) of
-	undefined ->
-	    NoLog;
-	LogRef ->
-	     Entry = io_lib:format("[~s], ~s~n", [Date, ErrorStr]),
-	     {LogRef, Entry}
-     end.
+    MakeEntry = fun() -> io_lib:format("[~s], ~s~n", [Date, ErrorStr]) end,
+    log_entry(Log, NoLog, ConfigDb, MakeEntry).
 
-security_entry(Log, NoLog, #mod{config_db = ConfigDb}, Date, Reason) ->
+
+-spec security_entry(Log      :: term(), 
+		     NoLog    :: term(), 
+		     ConfigDB :: term(),
+		     Date     :: string(), 
+		     Reason   :: term()) ->
+    {Log :: atom() | pid(), Entry :: string()}.
+
+security_entry(Log, NoLog, #mod{config_db = ConfigDB}, Date, Reason) ->
+    MakeEntry = fun() -> io_lib:format("[~s] ~s~n", [Date, Reason]) end,
+    log_entry(Log, NoLog, ConfigDB, MakeEntry).
+
+
+log_entry(Log, NoLog, ConfigDb, MakeEntry) when is_function(MakeEntry) ->
     case httpd_util:lookup(ConfigDb, Log) of
 	undefined ->
 	    NoLog;
 	LogRef ->
-	    Entry = io_lib:format("[~s] ~s~n", [Date, Reason]),
-	    {LogRef, Entry}
+	    {LogRef, MakeEntry()}
     end.
-
+   
+    
 %%%========================================================================
 %%% Internal functions
 %%%========================================================================
+
 do_access_entry(ConfigDB, Headers, RequestLine,
-	     RemoteHost, RFC931, AuthUser, Date, StatusCode,
-	     Bytes) ->
+		RemoteHost, RFC931, AuthUser, Date, StatusCode,
+		Size) ->
     case httpd_util:lookup(ConfigDB, log_format, common) of
 	common ->
 	    lists:flatten(io_lib:format("~s ~s ~s [~s] \"~s\" ~w ~w~n",
 			  [RemoteHost, RFC931, AuthUser, Date,
 			   RequestLine, 
-			   StatusCode, Bytes]));
+			   StatusCode, Size]));
 	combined ->
 	    Referer = 
 		proplists:get_value("referer", Headers, "-"),
@@ -94,7 +136,7 @@ do_access_entry(ConfigDB, Headers, RequestLine,
 				    Headers, "-"),
 	    io_lib:format("~s ~s ~s [~s] \"~s\" ~w ~w ~s ~s~n",
 			  [RemoteHost, RFC931, AuthUser, Date,
-			   RequestLine, StatusCode, Bytes, 
+			   RequestLine, StatusCode, Size, 
 			   Referer, UserAgent])
     end.
 
