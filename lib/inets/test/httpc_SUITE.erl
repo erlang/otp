@@ -370,7 +370,7 @@ init_per_testcase(Case, Timeout, Config) ->
     
     %% This will fail for the ipv6_ - cases (but that is ok)
     ProxyExceptions = ["localhost", ?IPV6_LOCAL_HOST], 
-    http:set_options([{proxy, {{?PROXY, ?PROXY_PORT}, ProxyExceptions}}]),
+    httpc:set_options([{proxy, {{?PROXY, ?PROXY_PORT}, ProxyExceptions}}]),
     inets:enable_trace(max, io, httpc),
     %% inets:enable_trace(max, io, all),
     %% snmp:set_trace([gen_tcp]),
