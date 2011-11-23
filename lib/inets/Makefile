@@ -31,12 +31,17 @@ VSN = $(INETS_VSN)
 
 SPECIAL_TARGETS = 
 
+INETS_DIA_PLT     = ./priv/inets.plt
+INETS_DIA_PLT_LOG = $(basename $(INETS_DIA_PLT)).dialyzer_plt_log
+INETS_DIA_LOG     = $(basename $(INETS_DIA_PLT)).dialyzer_log
+
+
 # ----------------------------------------------------
 # Default Subdir Targets
 # ----------------------------------------------------
 include $(ERL_TOP)/make/otp_subdir.mk
 
-.PHONY: info gclean
+.PHONY: info gclean dialyzer dialyzer_plt dclean
 
 info:
 	@echo "OS:        $(OS)"
@@ -45,6 +50,30 @@ info:
 	@echo "INETS_VSN: $(INETS_VSN)"
 	@echo "APP_VSN:   $(APP_VSN)"
 	@echo ""
+	@echo "INETS_DIA_PLT: $(INETS_DIA_PLT)"
+	@echo "INETS_DIA_LOG: $(INETS_DIA_LOG)"
+	@echo ""
 
 gclean: 
 	git clean -fXd
+
+dclean:
+	rm -f $(INETS_DIA_PLT)
+	rm -f $(INETS_DIA_PLT_LOG)
+	rm -f $(INETS_DIA_LOG)
+
+dialyzer_plt: $(INETS_DIA_PLT)
+
+$(INETS_DIA_PLT): 
+	@echo "Building inets plt file"
+	@dialyzer --build_plt \
+                  --output_plt $@ \
+                  -r ../inets/ebin \
+                  -o $(INETS_DIA_PLT_LOG) \
+                  --verbose
+
+dialyzer: $(INETS_DIA_PLT)
+	@echo "Running dialyzer on inets"
+	@dialyzer --plt $< \
+                  ../inets/ebin \
+                  --verbose
