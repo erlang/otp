@@ -755,37 +755,12 @@ handle_event(_Event, StateName, State) ->
 %% gen_fsm:sync_send_all_state_event/2,3, this function is called to handle
 %% the event.
 %%--------------------------------------------------------------------
-handle_sync_event({application_data, Data0}, From, connection, 
-		  #state{socket = Socket,
-			 negotiated_version = Version,
-			 transport_cb = Transport,
-			 connection_states = ConnectionStates0,
-			 send_queue = SendQueue,
-			 socket_options = SockOpts,
-			 ssl_options = #ssl_options{renegotiate_at = RenegotiateAt}} 
-		  = State) ->
+handle_sync_event({application_data, Data}, From, connection, State) ->
     %% We should look into having a worker process to do this to 
     %% parallize send and receive decoding and not block the receiver
     %% if sending is overloading the socket.
     try
-	Data = encode_packet(Data0, SockOpts),
-	case encode_data(Data, Version, ConnectionStates0, RenegotiateAt) of
-	    {Msgs, [], ConnectionStates} ->
-		Result = Transport:send(Socket, Msgs),
-		{reply, Result,
-		 connection, State#state{connection_states = ConnectionStates},
-                 get_timeout(State)};
-	    {Msgs, RestData, ConnectionStates} ->
-		if 
-		    Msgs =/= [] ->
-			Transport:send(Socket, Msgs);
-		    true ->
-			ok
-		end,
-		renegotiate(State#state{connection_states = ConnectionStates,
-					send_queue = queue:in_r({From, RestData}, SendQueue),
-					renegotiation = {true, internal}})
-	end
+	write_application_data(Data, From, State)
     catch throw:Error ->
 	    {reply, Error, connection, State, get_timeout(State)}
     end;
@@ -897,7 +872,7 @@ handle_sync_event({set_opts, Opts0}, _From, StateName,
             %% Active once already set 
 	    {reply, Reply, StateName, State1, get_timeout(State1)};
 	true ->
-	    case application_data(<<>>, State1) of
+	    case read_application_data(<<>>, State1) of
 		Stop = {stop,_,_} ->
 		    Stop;
 		{Record, State2} ->
@@ -1692,14 +1667,11 @@ encode_packet(Data, #socket_options{packet=Packet}) ->
     end.
 
 encode_size_packet(Bin, Size, Max) ->
-    Len = byte_size(Bin),
+    Len = erlang:byte_size(Bin),
     case Len > Max of
 	true  -> throw({error, {badarg, {packet_to_large, Len, Max}}});
 	false -> <<Len:Size, Bin/binary>>
     end.
-
-encode_data(Data, Version, ConnectionStates, RenegotiateAt) ->
-    ssl_record:encode_data(Data, Version, ConnectionStates, RenegotiateAt).
 
 decode_alerts(Bin) ->
     decode_alerts(Bin, []).
@@ -1716,7 +1688,7 @@ passive_receive(State0 = #state{user_data_buffer = Buffer}, StateName) ->
 	    {Record, State} = next_record(State0),
 	    next_state(StateName, Record, State);
 	_ ->
-	    case application_data(<<>>, State0) of
+	    case read_application_data(<<>>, State0) of
 		Stop = {stop, _, _} ->
 		    Stop;
 		{Record, State} ->
@@ -1724,7 +1696,7 @@ passive_receive(State0 = #state{user_data_buffer = Buffer}, StateName) ->
 	    end
     end.
 
-application_data(Data, #state{user_application = {_Mon, Pid},
+read_application_data(Data, #state{user_application = {_Mon, Pid},
                               socket_options = SOpts,
                               bytes_to_read = BytesToRead,
                               from = From,
@@ -1748,7 +1720,7 @@ application_data(Data, #state{user_application = {_Mon, Pid},
 		    %% Active and empty, get more data
 		    next_record_if_active(State);
 	 	true -> %% We have more data
- 		    application_data(<<>>, State)
+ 		    read_application_data(<<>>, State)
 	    end;
 	{more, Buffer} -> % no reply, we need more data
 	    next_record(State0#state{user_data_buffer = Buffer});
@@ -1756,6 +1728,39 @@ application_data(Data, #state{user_application = {_Mon, Pid},
 	    deliver_packet_error(SOpts, Buffer1, Pid, From),
 	    {stop, normal, State0}
     end.
+
+write_application_data(Data0, From, #state{socket = Socket,
+					   negotiated_version = Version,
+					   transport_cb = Transport,
+					   connection_states = ConnectionStates0,
+					   send_queue = SendQueue,
+					   socket_options = SockOpts,
+					   ssl_options = #ssl_options{renegotiate_at = RenegotiateAt}} = State) ->
+    Data = encode_packet(Data0, SockOpts),
+    
+    case time_to_renegotiate(Data, ConnectionStates0, RenegotiateAt) of
+	true ->
+	    renegotiate(State#state{send_queue = queue:in_r({From, Data}, SendQueue),
+				    renegotiation = {true, internal}});
+	false ->
+	    {Msgs, ConnectionStates} = ssl_record:encode_data(Data, Version, ConnectionStates0),
+	    Result = Transport:send(Socket, Msgs),
+	    {reply, Result,
+	     connection, State#state{connection_states = ConnectionStates}, get_timeout(State)}
+    end.
+
+time_to_renegotiate(_Data, #connection_states{current_write = 
+						    #connection_state{sequence_number = Num}}, RenegotiateAt) ->
+    
+    %% We could do test:
+    %% is_time_to_renegotiate((erlang:byte_size(_Data) div ?MAX_PLAIN_TEXT_LENGTH) + 1, RenegotiateAt),
+    %% but we chose to have a some what lower renegotiateAt and a much cheaper test 
+    is_time_to_renegotiate(Num, RenegotiateAt).
+
+is_time_to_renegotiate(N, M) when N < M->
+    false;
+is_time_to_renegotiate(_,_) ->
+    true.
 
 %% Picks ClientData 
 get_data(_, _, <<>>) ->
@@ -1926,7 +1931,7 @@ next_state(StateName, #ssl_tls{type = ?HANDSHAKE, fragment = Data},
     end;
 
 next_state(StateName, #ssl_tls{type = ?APPLICATION_DATA, fragment = Data}, State0) ->
-    case application_data(Data, State0) of
+    case read_application_data(Data, State0) of
 	Stop = {stop,_,_} ->
    	    Stop;
 	{Record, State} ->
@@ -1981,32 +1986,18 @@ next_state_connection(StateName, #state{send_queue = Queue0,
 					negotiated_version = Version,
 					socket = Socket,
 					transport_cb = Transport,
-					connection_states = ConnectionStates0,
-					ssl_options = #ssl_options{renegotiate_at = RenegotiateAt}
+					connection_states = ConnectionStates0
 				       } = State) ->     
-    %% Send queued up data
+    %% Send queued up data that was queued while renegotiating
     case queue:out(Queue0) of
 	{{value, {From, Data}}, Queue} ->
-	    case encode_data(Data, Version, ConnectionStates0, RenegotiateAt) of
-		{Msgs, [], ConnectionStates} ->
-		    Result = Transport:send(Socket, Msgs),
-		    gen_fsm:reply(From, Result),
-		    next_state_connection(StateName,
-					  State#state{connection_states = ConnectionStates,
-						      send_queue = Queue});
-		%% This is unlikely to happen. User configuration of the 
-		%% undocumented test option renegotiation_at can make it more likely.
-		{Msgs, RestData, ConnectionStates} ->
-		    if 
-			Msgs =/= [] -> 
-			    Transport:send(Socket, Msgs);
-			true ->
-			    ok
-		    end,
-		    renegotiate(State#state{connection_states = ConnectionStates,
-					    send_queue = queue:in_r({From, RestData}, Queue),
-					    renegotiation = {true, internal}})
-	    end;
+	    {Msgs, ConnectionStates} = 
+		ssl_record:encode_data(Data, Version, ConnectionStates0),
+	    Result = Transport:send(Socket, Msgs),
+	    gen_fsm:reply(From, Result),
+	    next_state_connection(StateName,
+				  State#state{connection_states = ConnectionStates,
+						      send_queue = Queue});		
 	{empty, Queue0} ->
 	    next_state_is_connection(State)
     end.
@@ -2282,7 +2273,7 @@ make_premaster_secret(_, _) ->
     undefined.
 
 mpint_binary(Binary)  ->
-    Size = byte_size(Binary),
+    Size = erlang:byte_size(Binary),
     <<?UINT32(Size), Binary/binary>>.
 
 

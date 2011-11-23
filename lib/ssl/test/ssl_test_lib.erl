@@ -662,6 +662,9 @@ cipher_result(Socket, Result) ->
     %% to properly test "cipher state" handling
     ssl:send(Socket, "Hello\n"),
     receive 
+	{ssl, Socket, "H"} ->
+	    ssl:send(Socket, " world\n"),
+	    receive_rizzo_duong_beast();
 	{ssl, Socket, "Hello\n"} ->
 	    ssl:send(Socket, " world\n"),
 	    receive
@@ -687,3 +690,16 @@ public_key(#'PrivateKeyInfo'{privateKeyAlgorithm =
     public_key:der_decode('DSAPrivateKey', iolist_to_binary(Key));
 public_key(Key) ->
     Key.
+
+
+receive_rizzo_duong_beast() ->
+    receive 
+	{ssl, _, "ello\n"} ->
+	    receive 
+		{ssl, _, " "} ->
+		    receive
+			{ssl, _, "world\n"} ->
+			    ok
+		    end
+	    end
+    end.

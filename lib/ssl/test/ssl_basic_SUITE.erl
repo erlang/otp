@@ -394,8 +394,8 @@ controlling_process(Config) when is_list(Config) ->
     ClientOpts = ?config(client_opts, Config),
     ServerOpts = ?config(server_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    ClientMsg = "Hello server",
-    ServerMsg = "Hello client",
+    ClientMsg = "Server hello",
+    ServerMsg = "Client hello",
    
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
 					{from, self()}, 
@@ -416,11 +416,15 @@ controlling_process(Config) when is_list(Config) ->
 		       [self(), Client, Server]),
     
     receive 
+	{ssl, _, "S"} ->
+	    receive_s_rizzo_duong_beast();
 	{ssl, _, ServerMsg} ->
 	    receive 
 		{ssl, _, ClientMsg} ->
 		    ok
 	    end;
+	{ssl, _, "C"} ->
+	    receive_c_rizzo_duong_beast();
 	{ssl, _, ClientMsg} ->
 	      receive 
 		  {ssl, _, ServerMsg} ->
@@ -441,6 +445,28 @@ controlling_process_result(Socket, Pid, Msg) ->
     ssl:send(Socket, Msg),
     no_result_msg.
 
+receive_s_rizzo_duong_beast() ->
+    receive 
+	{ssl, _, "erver hello"} ->
+	    receive 
+		{ssl, _, "C"} ->
+		    receive
+			{ssl, _, "lient hello"} ->
+			    ok
+		    end
+	    end
+    end.
+receive_c_rizzo_duong_beast() ->
+    receive 
+	{ssl, _, "lient hello"} ->
+	    receive
+		{ssl, _, "S"} ->
+		    receive
+			{ssl, _, "erver hello"} ->
+			    ok
+		    end
+	    end
+    end.
 %%--------------------------------------------------------------------
 controller_dies(doc) -> 
     ["Test that the socket is closed after controlling process dies"];
@@ -1232,6 +1258,11 @@ upgrade_result(Socket) ->
     %% Make sure binary is inherited from tcp socket and that we do
     %% not get the list default!
     receive 
+	{ssl, _, <<"H">>} ->
+	    receive 
+		{ssl, _, <<"ello world">>} ->
+		    ok
+	    end;
 	{ssl, _, <<"Hello world">>}  ->
 	    ok
     end.
@@ -2341,7 +2372,7 @@ server_verify_client_once_active(Config) when is_list(Config) ->
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
 					{from, self()}, 
 					{mfa, {?MODULE, send_recv_result_active, []}},
-					{options, [{active, once}, {verify, verify_peer},
+					{options, [{active, true}, {verify, verify_peer},
 						   {verify_client_once, true}
 						   | ServerOpts]}]),
     Port  = ssl_test_lib:inet_port(Server),
@@ -2725,17 +2756,28 @@ client_no_wrap_sequence_number(Config) when is_list(Config) ->
 				   {options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
  
+    Version = ssl_record:highest_protocol_version(ssl_record:supported_protocol_versions()),
+
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
 					{host, Hostname},
 					{from, self()}, 
 					{mfa, {ssl_test_lib, 
-					       trigger_renegotiate, [[ErlData, N+2]]}},
+					       trigger_renegotiate, [[ErlData, treashold(N, Version)]]}},
 					{options, [{reuse_sessions, false},
 						   {renegotiate_at, N} | ClientOpts]}]),
     
     ssl_test_lib:check_result(Client, ok), 
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+ %% First two clauses handles 1/n-1 splitting countermeasure Rizzo/Duong-Beast
+treashold(N, {3,0}) ->
+    (N div 2) + 1;
+treashold(N, {3,1}) ->
+    (N div 2) + 1;
+treashold(N, _) ->
+    N + 1.
+    
 %%--------------------------------------------------------------------
 server_no_wrap_sequence_number(doc) -> 
     ["Test that erlang server will renegotiate session when",  
@@ -3693,6 +3735,11 @@ send_recv_result(Socket) ->
 send_recv_result_active(Socket) ->
     ssl:send(Socket, "Hello world"),
     receive 
+	{ssl, Socket, "H"} ->
+	    receive 
+		{ssl, Socket, "ello world"} ->
+		    ok
+	    end;
 	{ssl, Socket, "Hello world"} ->
 	    ok
     end.
@@ -3700,6 +3747,12 @@ send_recv_result_active(Socket) ->
 send_recv_result_active_once(Socket) ->
     ssl:send(Socket, "Hello world"),
     receive 
+	{ssl, Socket, "H"} ->
+	    ssl:setopts(Socket, [{active, once}]),
+	    receive 
+		{ssl, Socket, "ello world"} ->
+		    ok
+	    end;
 	{ssl, Socket, "Hello world"} ->
 	    ok
     end.
@@ -3727,7 +3780,13 @@ renegotiate_reuse_session(Socket, Data) ->
 renegotiate_immediately(Socket) ->
     receive 
 	{ssl, Socket, "Hello world"} ->
-	    ok
+	    ok;
+	%% Handle 1/n-1 splitting countermeasure Rizzo/Duong-Beast
+	{ssl, Socket, "H"} ->
+	    receive 
+		{ssl, Socket, "ello world"} ->
+		    ok
+	    end
     end,
     ok = ssl:renegotiate(Socket),  
     {error, renegotiation_rejected} = ssl:renegotiate(Socket),
@@ -3910,6 +3969,9 @@ erlang_ssl_receive(Socket, Data) ->
 	{ssl, Socket, Data} ->
 	    io:format("Received ~p~n",[Data]),
 	    ok;
+	{ssl, Socket, Byte} when length(Byte) == 1 ->  %% Handle 1/n-1 splitting countermeasure Rizzo/Duong-Beast
+	    io:format("Received ~p~n",[Byte]),
+	    erlang_ssl_receive(Socket, tl(Data));
 	Other ->
 	    test_server:fail({unexpected_message, Other})
     after ?SLEEP * 3 ->

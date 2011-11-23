@@ -849,7 +849,9 @@ ssl3_erlang_server_erlang_client_client_cert(Config) when is_list(Config) ->
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
 					{from, self()}, 
 					{mfa, {?MODULE, 
-					       erlang_ssl_receive, [Data]}},
+					       erlang_ssl_receive, 
+					       %% Due to 1/n-1 splitting countermeasure Rizzo/Duong-Beast
+					       [Data]}},
 					{options, 
 					 [{verify , verify_peer} 
 					  | ServerOpts]}]),
@@ -858,6 +860,7 @@ ssl3_erlang_server_erlang_client_client_cert(Config) when is_list(Config) ->
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
 					{host, Hostname},
 					{from, self()}, 
+					%% Due to 1/n-1 splitting countermeasure Rizzo/Duong-Beast
 					{mfa, {ssl, send, [Data]}},
 					{options, 
 					 [{versions, [sslv3]} | ClientOpts]}]),
@@ -868,6 +871,7 @@ ssl3_erlang_server_erlang_client_client_cert(Config) when is_list(Config) ->
     ssl_test_lib:close(Client),
     process_flag(trap_exit, false),
     ok.
+
 
 %%--------------------------------------------------------------------
 
@@ -1350,6 +1354,8 @@ erlang_ssl_receive(Socket, Data) ->
 	    %% open_ssl server sometimes hangs waiting in blocking read
 	    ssl:send(Socket, "Got it"), 
 	    ok;
+	{ssl, Socket, Byte} when length(Byte) == 1 ->
+	    erlang_ssl_receive(Socket, tl(Data));
 	{Port, {data,Debug}} when is_port(Port) ->
 	    io:format("openssl ~s~n",[Debug]),
 	    erlang_ssl_receive(Socket,Data);
