@@ -31,9 +31,8 @@ VSN = $(INETS_VSN)
 
 SPECIAL_TARGETS = 
 
-INETS_DIA_PLT     = ./priv/inets.plt
-INETS_DIA_PLT_LOG = $(basename $(INETS_DIA_PLT)).dialyzer_plt_log
-INETS_DIA_LOG     = $(basename $(INETS_DIA_PLT)).dialyzer_log
+INETS_DIA_PLT      = ./priv/plt/inets.plt
+INETS_DIA_ANALYSIS = $(basename $(INETS_DIA_PLT)).dialyzer_analysis
 
 
 # ----------------------------------------------------
@@ -50,8 +49,8 @@ info:
 	@echo "INETS_VSN: $(INETS_VSN)"
 	@echo "APP_VSN:   $(APP_VSN)"
 	@echo ""
-	@echo "INETS_DIA_PLT: $(INETS_DIA_PLT)"
-	@echo "INETS_DIA_LOG: $(INETS_DIA_LOG)"
+	@echo "INETS_DIA_PLT:      $(INETS_DIA_PLT)"
+	@echo "INETS_DIA_ANALYSIS: $(INETS_DIA_ANALYSIS)"
 	@echo ""
 
 gclean: 
@@ -59,8 +58,7 @@ gclean:
 
 dclean:
 	rm -f $(INETS_DIA_PLT)
-	rm -f $(INETS_DIA_PLT_LOG)
-	rm -f $(INETS_DIA_LOG)
+	rm -f $(INETS_DIA_ANALYSIS)
 
 dialyzer_plt: $(INETS_DIA_PLT)
 
@@ -69,7 +67,7 @@ $(INETS_DIA_PLT):
 	@dialyzer --build_plt \
                   --output_plt $@ \
                   -r ../inets/ebin \
-                  -o $(INETS_DIA_PLT_LOG) \
+                  --output $(INETS_DIA_ANALYSIS) \
                   --verbose
 
 dialyzer: $(INETS_DIA_PLT)
