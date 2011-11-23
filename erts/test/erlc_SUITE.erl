@@ -154,7 +154,8 @@ compile_mib(Config) when is_list(Config) ->
 
     ?line BadFile = filename:join(SrcDir, "BAD-MIB.mib"),
     ?line run(Config, Cmd, BadFile, "",
-	      ["Error: syntax error before: mibs\$", "compilation_failed_ERROR_"]),
+	      ["BAD-MIB.mib: 1: syntax error before: mibs\$",
+	       "compilation_failed_ERROR_"]),
 
     %% Make sure that no -I option works.
 
