@@ -97,8 +97,12 @@ t_gethostbyaddr() ->
     required(v4).
 t_gethostbyaddr(doc) -> "Test the inet:gethostbyaddr/1 function.";
 t_gethostbyaddr(Config) when is_list(Config) ->
-    ?line {Name,FullName,IPStr,IP,Aliases,_,_} =
+    ?line {Name,FullName,IPStr,{A,B,C,D}=IP,Aliases,_,_} =
 	ct:get_config(test_host_ipv4_only),
+    ?line Rname = integer_to_list(D) ++ "." ++
+	integer_to_list(C) ++ "." ++
+	integer_to_list(B) ++ "." ++
+	integer_to_list(A) ++ ".in-addr.arpa",
     ?line {ok,HEnt} = inet:gethostbyaddr(IPStr),
     ?line {ok,HEnt} = inet:gethostbyaddr(IP),
     ?line {error,Error} = inet:gethostbyaddr(Name),
@@ -116,7 +120,7 @@ t_gethostbyaddr(Config) when is_list(Config) ->
 	    ok;
 	_ ->
 	    ?line check_elems([{HEnt#hostent.h_name,[Name,FullName]},
-			       {HEnt#hostent.h_aliases,[[],Aliases]}])
+			       {HEnt#hostent.h_aliases,[[],Aliases,[Rname]]}])
     end,
 
     ?line {_DName, _DFullName, DIPStr, DIP, _, _, _} =
