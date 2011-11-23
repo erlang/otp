@@ -98,12 +98,9 @@ setup(Notebook, Parent, Holder) ->
 
     wxWindow:setSizer(ProPanel, Sizer),
 
-    Popup = create_popup_menu(ProPanel),
-
     State = #state{parent=Parent,
 		   grid=Grid,
 		   panel=ProPanel,
-		   popup_menu=Popup,
 		   parent_notebook=Notebook,
 		   holder=Holder,
 		   timer={false, 10}
@@ -130,27 +127,6 @@ create_pro_menu(Parent, Holder) ->
 		    ]}
 		  ],
     observer_wx:create_menus(Parent, MenuEntries).
-
-create_popup_menu(ParentFrame) ->
-    MiniFrame = wxMiniFrame:new(ParentFrame, ?wxID_ANY, "Options", [{style, ?wxFRAME_FLOAT_ON_PARENT}]),
-    Panel = wxPanel:new(MiniFrame),
-    Sizer = wxBoxSizer:new(?wxVERTICAL),
-    TraceBtn = wxButton:new(Panel, ?ID_TRACEMENU, [{label, "Trace selected"},
-						   {style, ?wxNO_BORDER}]),
-    ProcBtn = wxButton:new(Panel, ?ID_PROC, [{label, "Process info"},
-					     {style, ?wxNO_BORDER}]),
-    KillBtn = wxButton:new(Panel, ?ID_KILL, [{label, "Kill process"},
-					     {style, ?wxNO_BORDER}]),
-
-    wxButton:connect(TraceBtn, command_button_clicked),
-    wxButton:connect(ProcBtn, command_button_clicked),
-    wxButton:connect(KillBtn, command_button_clicked),
-    wxSizer:add(Sizer, TraceBtn, [{flag, ?wxEXPAND}, {proportion, 1}]),
-    wxSizer:add(Sizer, ProcBtn, [{flag, ?wxEXPAND}, {proportion, 1}]),
-    wxSizer:add(Sizer, KillBtn, [{flag, ?wxEXPAND}, {proportion, 1}]),
-    wxPanel:setSizer(Panel, Sizer),
-    wxSizer:setSizeHints(Sizer, MiniFrame),
-    MiniFrame.
 
 create_list_box(Panel, Holder) ->
     Style = ?wxLC_REPORT bor ?wxLC_VIRTUAL bor ?wxLC_HRULES,
@@ -314,25 +290,17 @@ handle_event(#wx{id=?ID_REFRESH_INTERVAL},
     Timer = observer_lib:interval_dialog(Panel, Timer0, 1, 5*60),
     {noreply, State#state{timer=Timer}};
 
-handle_event(#wx{id=?ID_KILL},
-	     #state{popup_menu=Pop,sel={[_|Ids], [ToKill|Pids]}}=State) ->
-    wxWindow:show(Pop, [{show, false}]),
+handle_event(#wx{id=?ID_KILL}, #state{sel={[_|Ids], [ToKill|Pids]}}=State) ->
     exit(ToKill, kill),
     {noreply, State#state{sel={Ids,Pids}}};
 
 
-handle_event(#wx{id = ?ID_PROC},
-	     #state{panel=Panel,
-		    popup_menu=Pop,
-		    sel={_, [Pid|_]},
-		    procinfo_menu_pids=Opened}=State) ->
-    wxWindow:show(Pop, [{show, false}]),
+handle_event(#wx{id=?ID_PROC},
+	     #state{panel=Panel, sel={_, [Pid|_]},procinfo_menu_pids=Opened}=State) ->
     Opened2 = start_procinfo(Pid, Panel, Opened),
     {noreply, State#state{procinfo_menu_pids=Opened2}};
 
-handle_event(#wx{id = ?ID_TRACEMENU},
-	     #state{popup_menu=Pop, sel={_, Pids}, panel=Panel}=State)  ->
-    wxWindow:show(Pop, [{show, false}]),
+handle_event(#wx{id=?ID_TRACEMENU}, #state{sel={_, Pids}, panel=Panel}=State)  ->
     case Pids of
 	[] ->
 	    observer_wx:create_txt_dialog(Panel, "No selected processes", "Tracer", ?wxICON_EXCLAMATION),
@@ -354,38 +322,36 @@ handle_event(#wx{event=#wxSize{size={W,_}}},
 						Last - wxListCtrl:getColumnWidth(Grid, I)
 					end, W-Cols*3-?LCTRL_WDECR, lists:seq(0, Cols - 2)),
 		     Size = max(200, Last),
-		     %% io:format("Width ~p ~p => ~p~n",[W, Last, Size]),
 		     wxListCtrl:setColumnWidth(Grid, Cols-1, Size)
 	     end),
     {noreply, State};
 
 handle_event(#wx{event=#wxList{type=command_list_item_right_click,
 			       itemIndex=Row}},
-	     #state{popup_menu=Popup,
-		    holder=Holder}=State) ->
+	     #state{panel=Panel, holder=Holder}=State) ->
 
     case call(Holder, {get_row, self(), Row, pid}) of
 	{error, undefined} ->
-	    wxWindow:show(Popup, [{show, false}]),
 	    undefined;
 	{ok, _} ->
-	    wxWindow:move(Popup, wx_misc:getMousePosition()),
-	    wxWindow:show(Popup)
+	    Menu = wxMenu:new(),
+	    wxMenu:append(Menu, ?ID_PROC, "Process info"),
+	    wxMenu:append(Menu, ?ID_TRACEMENU, "Trace selected"),
+	    wxMenu:append(Menu, ?ID_TRACEMENU, "Kill Process"),
+	    wxWindow:popupMenu(Panel, Menu),
+	    wxMenu:destroy(Menu)
     end,
     {noreply, State};
 
 handle_event(#wx{event=#wxList{type=command_list_item_focused,
 			       itemIndex=Row}},
-	     #state{grid=Grid,popup_menu=Pop,holder=Holder} = State) ->
+	     #state{grid=Grid,holder=Holder} = State) ->
     case Row >= 0 of
 	true ->
-	    wxWindow:show(Pop, [{show, false}]),
 	    SelIds = [Row|lists:delete(Row, get_selected_items(Grid))],
 	    Pids = call(Holder, {get_pids, self(), SelIds}),
-	    %% io:format("Focused ~p -> ~p~n",[State#state.sel, {SelIds, Pids}]),
 	    {noreply, State#state{sel={SelIds, Pids}}};
 	false ->
-	    %% io:format("Focused -1~n",[]),
 	    {noreply, State}
     end;
 
