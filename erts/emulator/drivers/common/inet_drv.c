@@ -10269,6 +10269,7 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 	    int code;
 	    void * extra = NULL;
 	    char * ptr;
+	    int nsz;
 
 	    inet_input_count(desc, n);
 	    udesc->i_ptr += n;
@@ -10282,17 +10283,19 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 	    ptr = udesc->i_buf->orig_bytes + sizeof(other) - len;
 	    sys_memcpy(ptr, abuf, len);
 
+	    nsz = udesc->i_ptr - ptr;
+
 	    /* Check if we need to reallocate binary */
-	    if ((desc->mode == INET_MODE_BINARY) &&
-		(desc->hsz < (udesc->i_ptr - ptr)) &&
-		((udesc->i_ptr - ptr) + BIN_REALLOC_MARGIN(desc->bufsz) >=
-		 udesc->i_bufsz)) {
+	    if ((desc->mode == INET_MODE_BINARY)
+		&& (desc->hsz < (nsz - len))
+		&& (nsz + BIN_REALLOC_MARGIN(desc->bufsz) < udesc->i_bufsz)) {
 		ErlDrvBinary* tmp;
 		int bufsz;
 		bufsz = udesc->i_ptr - udesc->i_buf->orig_bytes;
 		if ((tmp = realloc_buffer(udesc->i_buf, bufsz)) != NULL) {
 		    udesc->i_buf = tmp;
 		    udesc->i_bufsz = bufsz;
+		    udesc->i_ptr = NULL;  /* not used from here */
 		}
 	    }
 #ifdef HAVE_SCTP
@@ -10300,8 +10303,8 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 #endif
 	    /* Actual parsing and return of the data received, occur here: */
 	    code = packet_reply_binary_data(desc, len, udesc->i_buf,
-					    ptr - udesc->i_buf->orig_bytes,
-					    udesc->i_ptr - ptr,
+					    (sizeof(other) - len),
+					    nsz,
 					    extra);
 	    free_buffer(udesc->i_buf);
 	    udesc->i_buf = NULL;
