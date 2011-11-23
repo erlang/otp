@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2010. All Rights Reserved.
+# Copyright Ericsson AB 1997-2011. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -74,7 +74,7 @@ $(SS_ROOT)/start_clean.script \
 $(SS_ROOT)/start_clean.boot:	$(SS_ROOT)/start_clean.rel
 	$(INSTALL_DIR) $(SS_TMP)
 	( cd $(SS_TMP) && \
-	$(ERLC) $(SASL_FLAGS) $(SCRIPT_PATH) -o $(SS_ROOT) $< )
+	$(ERLC) $(SASL_FLAGS) $(SCRIPT_PATH) +no_warn_sasl -o $(SS_ROOT) $< )
 
 $(SS_ROOT)/start_sasl.script \
 $(SS_ROOT)/start_sasl.boot:	$(SS_ROOT)/start_sasl.rel
@@ -128,7 +128,7 @@ $(SS_ROOT)/start_all_example.rel:	$(SS_ROOT)/start_all_example.rel.src \
 $(ERL_TOP)/bin/start.script:
 	$(INSTALL_DIR) $(SS_TMP)
 	( cd $(SS_TMP) && \
-	  $(ERLC) $(SCRIPT_PATH) +otp_build -o $@ $(SS_ROOT)/start_clean.rel )
+	  $(ERLC) $(SCRIPT_PATH) +no_warn_sasl +otp_build -o $@ $(SS_ROOT)/start_clean.rel )
 
 $(ERL_TOP)/bin/start_sasl.script:
 	$(INSTALL_DIR) $(SS_TMP)
@@ -138,18 +138,20 @@ $(ERL_TOP)/bin/start_sasl.script:
 $(ERL_TOP)/bin/start_clean.script:
 	$(INSTALL_DIR) $(SS_TMP)
 	( cd $(SS_TMP) && \
-	  $(ERLC) $(SCRIPT_PATH) +otp_build -o $@ $(SS_ROOT)/start_clean.rel )
+	  $(ERLC) $(SCRIPT_PATH) +no_warn_sasl +otp_build -o $@ $(SS_ROOT)/start_clean.rel )
 
 ## Special target used from system/build/Makefile for source code release bootstrap.
 bootstrap_scripts: $(SS_ROOT)/start_clean.rel
 	$(INSTALL_DIR) $(TESTROOT)/bin
 	$(INSTALL_DIR) $(SS_TMP)
 	( cd $(SS_TMP) && \
-	  $(ERLC) $(BOOTSTRAP_SCRIPT_PATH) +otp_build +no_module_tests \
-	    -o $(TESTROOT)/bin/start.script $(SS_ROOT)/start_clean.rel )
+	  $(ERLC) $(BOOTSTRAP_SCRIPT_PATH) +no_warn_sasl +otp_build \
+	    +no_module_tests -o $(TESTROOT)/bin/start.script \
+	    $(SS_ROOT)/start_clean.rel )
 	( cd $(SS_TMP) && \
-	  $(ERLC) $(BOOTSTRAP_SCRIPT_PATH) +otp_build +no_module_tests \
-	    -o $(TESTROOT)/bin/start_clean.script $(SS_ROOT)/start_clean.rel )
+	  $(ERLC) $(BOOTSTRAP_SCRIPT_PATH) +no_warn_sasl +otp_build \
+	    +no_module_tests -o $(TESTROOT)/bin/start_clean.script \
+	    $(SS_ROOT)/start_clean.rel )
 
 clean:
 	$(RM) $(REL_SCRIPTS) $(INSTALL_SCRIPTS)
