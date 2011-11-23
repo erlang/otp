@@ -31,8 +31,8 @@ VSN = $(INETS_VSN)
 
 SPECIAL_TARGETS = 
 
-INETS_DIA_PLT      = ./priv/plt/inets.plt
-INETS_DIA_ANALYSIS = $(basename $(INETS_DIA_PLT)).dialyzer_analysis
+DIA_PLT      = ./priv/plt/$(APPLICATION).plt
+DIA_ANALYSIS = $(basename $(DIA_PLT)).dialyzer_analysis
 
 
 # ----------------------------------------------------
@@ -49,29 +49,29 @@ info:
 	@echo "INETS_VSN: $(INETS_VSN)"
 	@echo "APP_VSN:   $(APP_VSN)"
 	@echo ""
-	@echo "INETS_DIA_PLT:      $(INETS_DIA_PLT)"
-	@echo "INETS_DIA_ANALYSIS: $(INETS_DIA_ANALYSIS)"
+	@echo "DIA_PLT:      $(DIA_PLT)"
+	@echo "DIA_ANALYSIS: $(DIA_ANALYSIS)"
 	@echo ""
 
 gclean: 
 	git clean -fXd
 
 dclean:
-	rm -f $(INETS_DIA_PLT)
-	rm -f $(INETS_DIA_ANALYSIS)
+	rm -f $(DIA_PLT)
+	rm -f $(DIA_ANALYSIS)
 
-dialyzer_plt: $(INETS_DIA_PLT)
+dialyzer_plt: $(DIA_PLT)
 
 $(INETS_DIA_PLT): 
-	@echo "Building inets plt file"
+	@echo "Building $(APPLICATION) plt file"
 	@dialyzer --build_plt \
                   --output_plt $@ \
-                  -r ../inets/ebin \
-                  --output $(INETS_DIA_ANALYSIS) \
+                  -r ../$(APPLICATION)/ebin \
+                  --output $(DIA_ANALYSIS) \
                   --verbose
 
-dialyzer: $(INETS_DIA_PLT)
-	@echo "Running dialyzer on inets"
+dialyzer: $(DIA_PLT)
+	@echo "Running dialyzer on $(APPLICATION)"
 	@dialyzer --plt $< \
-                  ../inets/ebin \
+                  ../$(APPLICATION)/ebin \
                   --verbose
