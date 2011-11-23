@@ -62,7 +62,7 @@ dclean:
 
 dialyzer_plt: $(DIA_PLT)
 
-$(INETS_DIA_PLT): 
+$(DIA_PLT): 
 	@echo "Building $(APPLICATION) plt file"
 	@dialyzer --build_plt \
                   --output_plt $@ \
