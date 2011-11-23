@@ -411,6 +411,9 @@ no_sasl_script(Config) when is_list(Config) ->
     ?line {ok, _ , [{warning,missing_sasl}]} =
 	systools:make_script(LatestName,[{path, P},silent]),
 
+    ?line {ok, _ , []} =
+	systools:make_script(LatestName,[{path, P},silent, no_warn_sasl]),
+
     ?line ok = file:set_cwd(OldDir),
     ok.
 
