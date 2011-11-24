@@ -119,9 +119,9 @@ extract(#analysis{macros = Macros,
 	      {ok, RecDict} ->
 		Mod = list_to_atom(filename:basename(File, ".erl")),
 		case dialyzer_utils:get_spec_info(Mod, AbstractCode, RecDict) of
-		  {ok, SpecDict} ->
+		  {ok, SpecDict, CbDict} ->
 		    CS1 = dialyzer_codeserver:store_temp_records(Mod, RecDict, CS),
-		    dialyzer_codeserver:store_temp_contracts(Mod, SpecDict, CS1);
+		    dialyzer_codeserver:store_temp_contracts(Mod, SpecDict, CbDict, CS1);
 		  {error, Reason} -> compile_error([Reason])
 		end;
 	      {error, Reason} -> compile_error([Reason])
@@ -873,16 +873,16 @@ collect_one_file_info(File, Analysis) ->
 	      Mod = cerl:concrete(cerl:module_name(Core)),
 	      case dialyzer_utils:get_spec_info(Mod, AbstractCode, Records) of
 		{error, Reason} -> compile_error([Reason]);
-		{ok, SpecInfo} ->
+		{ok, SpecInfo, CbInfo} ->
                   ExpTypes = get_exported_types_from_core(Core),
-		  analyze_core_tree(Core, Records, SpecInfo, ExpTypes,
-                                    Analysis, File)
+		  analyze_core_tree(Core, Records, SpecInfo, CbInfo,
+				    ExpTypes, Analysis, File)
 	      end
 	  end
       end
   end.
 
-analyze_core_tree(Core, Records, SpecInfo, ExpTypes, Analysis, File) ->
+analyze_core_tree(Core, Records, SpecInfo, CbInfo, ExpTypes, Analysis, File) ->
   Module = cerl:concrete(cerl:module_name(Core)),
   TmpTree = cerl:from_records(Core),
   CS1 = Analysis#analysis.codeserver,
@@ -894,7 +894,8 @@ analyze_core_tree(Core, Records, SpecInfo, ExpTypes, Analysis, File) ->
   CS5 =
     case Analysis#analysis.no_spec of
       true -> CS4;
-      false -> dialyzer_codeserver:store_temp_contracts(Module, SpecInfo, CS4)
+      false ->
+	dialyzer_codeserver:store_temp_contracts(Module, SpecInfo, CbInfo, CS4)
     end,
   OldExpTypes = dialyzer_codeserver:get_temp_exported_types(CS5),
   MergedExpTypes = sets:union(ExpTypes, OldExpTypes),
