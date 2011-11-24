@@ -260,14 +260,7 @@ handle_event(#wx{event=#wxList{type=command_list_col_click, col=Col}},
     {noreply, State};
 
 handle_event(#wx{event=#wxSize{size={W,_}}},  State=#state{grid=Grid}) ->
-    wx:batch(fun() ->
-		     Cols = wxListCtrl:getColumnCount(Grid),
-		     Last = lists:foldl(fun(I, Last) ->
-						Last - wxListCtrl:getColumnWidth(Grid, I)
-					end, W-?LCTRL_WDECR, lists:seq(0, Cols - 2)),
-		     Size = max(?DEFAULT_COL_WIDTH, Last),
-		     wxListCtrl:setColumnWidth(Grid, Cols-1, Size)
-	     end),
+    observer_lib:set_listctrl_col_size(Grid, W),
     {noreply, State};
 
 handle_event(#wx{event=#wxList{type=command_list_item_selected, itemIndex=Index}},

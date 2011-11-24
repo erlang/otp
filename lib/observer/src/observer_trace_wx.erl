@@ -94,7 +94,7 @@ create_window(Notebook, ParentPid) ->
     %% Buttons
     Buttons = wxBoxSizer:new(?wxHORIZONTAL),
     ToggleButton = wxToggleButton:new(Panel, ?TOGGLE_TRACE, "Start Trace", []),
-    wxSizer:add(Buttons, ToggleButton),
+    wxSizer:add(Buttons, ToggleButton, [{flag, ?wxALIGN_CENTER_VERTICAL}]),
     wxSizer:addSpacer(Buttons, 15),
     wxSizer:add(Buttons, wxButton:new(Panel, ?ADD_NODES, [{label, "Add Nodes"}])),
     wxSizer:add(Buttons, wxButton:new(Panel, ?ADD_NEW, [{label, "Add 'new' Process"}])),
@@ -141,7 +141,7 @@ create_process_view(Parent) ->
 
     wxSplitterWindow:setSashGravity(Splitter, 0.0),
     wxSplitterWindow:setMinimumPaneSize(Splitter,50),
-    wxSplitterWindow:splitVertically(Splitter, Nodes, Procs, [{sashPosition, 150}]),
+    wxSplitterWindow:splitVertically(Splitter, Nodes, Procs, [{sashPosition, 155}]),
     wxSizer:add(MainSz, Splitter, [{flag, ?wxEXPAND}, {proportion, 1}]),
 
     wxListCtrl:connect(Procs, command_list_item_right_click),
@@ -174,7 +174,7 @@ create_matchspec_view(Parent) ->
 
     wxSplitterWindow:setSashGravity(Splitter, 0.0),
     wxSplitterWindow:setMinimumPaneSize(Splitter,50),
-    wxSplitterWindow:splitVertically(Splitter, Modules, Funcs, [{sashPosition, 150}]),
+    wxSplitterWindow:splitVertically(Splitter, Modules, Funcs, [{sashPosition, 155}]),
     wxSizer:add(MainSz, Splitter,   [{flag, ?wxEXPAND}, {proportion, 1}]),
 
     wxListCtrl:connect(Modules, size, [{skip, true}]),
@@ -199,17 +199,8 @@ create_menues(Parent) ->
 %%Main window
 handle_event(#wx{obj=Obj, event=#wxSize{size={W,_}}}, State) ->
     case wx:getObjectType(Obj) =:= wxListCtrl of
-	true ->
-	    wx:batch(fun() ->
-			     Cols = wxListCtrl:getColumnCount(Obj),
-			     Last = lists:foldl(fun(I, Last) ->
-							Last - wxListCtrl:getColumnWidth(Obj, I)
-						end, W-?LCTRL_WDECR, lists:seq(0, Cols - 2)),
-			     Size = max(150, Last),
-			     wxListCtrl:setColumnWidth(Obj, Cols-1, Size)
-		     end);
-	false ->
-	    ok
+	true ->  observer_lib:set_listctrl_col_size(Obj, W);
+	false -> ok
     end,
     {noreply, State};
 
@@ -290,7 +281,7 @@ handle_event(#wx{id=Id, obj=LogWin, event=Ev},
 	    {noreply, State}
     end;
 
-handle_event(Ev = #wx{id=?LOG_CLEAR, userData=TCtrl}, State) ->
+handle_event(#wx{id=?LOG_CLEAR, userData=TCtrl}, State) ->
     wxTextCtrl:clear(TCtrl),
     {noreply, State};
 

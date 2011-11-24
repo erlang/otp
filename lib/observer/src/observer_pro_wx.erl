@@ -335,14 +335,7 @@ handle_event(#wx{id=?ID_TRACE_NEW, event=#wxCommand{type=command_menu_selected}}
 
 handle_event(#wx{event=#wxSize{size={W,_}}},
 	     #state{grid=Grid}=State) ->
-    wx:batch(fun() ->
-		     Cols = wxListCtrl:getColumnCount(Grid),
-		     Last = lists:foldl(fun(I, Last) ->
-						Last - wxListCtrl:getColumnWidth(Grid, I)
-					end, W-Cols*3-?LCTRL_WDECR, lists:seq(0, Cols - 2)),
-		     Size = max(200, Last),
-		     wxListCtrl:setColumnWidth(Grid, Cols-1, Size)
-	     end),
+    observer_lib:set_listctrl_col_size(Grid, W),
     {noreply, State};
 
 handle_event(#wx{event=#wxList{type=command_list_item_right_click,
@@ -434,7 +427,6 @@ set_focus([Old|_], [], Grid) ->
 set_focus([Old|_], [New|_], Grid) ->
     wxListCtrl:setItemState(Grid, Old, 0, ?wxLIST_STATE_FOCUSED),
     wxListCtrl:setItemState(Grid, New, 16#FFFF, ?wxLIST_STATE_FOCUSED).
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%TABLE HOLDER%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

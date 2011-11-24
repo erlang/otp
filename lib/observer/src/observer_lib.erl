@@ -23,7 +23,8 @@
 	 interval_dialog/4, start_timer/1, stop_timer/1,
 	 display_info/2, fill_info/2, update_info/2, to_str/1,
 	 create_menus/3, create_menu_item/3,
-	 create_attrs/0
+	 create_attrs/0,
+	 set_listctrl_col_size/2
 	]).
 
 -include_lib("wx/include/wx.hrl").
@@ -301,3 +302,31 @@ create_box(Panel, Data) ->
     wxSizer:add(Box, Right),
     wxSizer:addSpacer(Box, 30),
     {Box, InfoFields}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+set_listctrl_col_size(LCtrl, Total) ->
+    wx:batch(fun() -> calc_last(LCtrl, Total) end).
+
+calc_last(LCtrl, _Total) ->
+    Cols = wxListCtrl:getColumnCount(LCtrl),
+    {Total, _} = wxWindow:getClientSize(LCtrl),
+    SBSize = scroll_size(LCtrl),
+    Last = lists:foldl(fun(I, Last) ->
+			       Last - wxListCtrl:getColumnWidth(LCtrl, I)
+		       end, Total-SBSize, lists:seq(0, Cols - 2)),
+    Size = max(150, Last),
+    wxListCtrl:setColumnWidth(LCtrl, Cols-1, Size).
+
+scroll_size(LCtrl) ->
+    case os:type() of
+	{win32, nt} -> 0;
+	{unix, darwin} ->
+	    %% I can't figure out is there is a visible scrollbar
+	    %% Always make room for it
+	    wxSystemSettings:getMetric(?wxSYS_VSCROLL_X);
+	_ ->
+	    case wxWindow:hasScrollbar(LCtrl, ?wxVERTICAL) of
+		true -> wxSystemSettings:getMetric(?wxSYS_VSCROLL_X);
+		false -> 0
+	    end
+    end.
