@@ -48,7 +48,9 @@ init_per_suite(_Config) ->
 	{ok,Socket} ->
 	    gen_sctp:close(Socket),
 	    [];
-	{error,eprotonosupport} ->
+	{error,Error}
+	  when Error =:= eprotonosupport;
+	       Error =:= esocktnosupport ->
 	    {skip,"SCTP not supported on this machine"}
     end.
 
