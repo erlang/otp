@@ -32,12 +32,12 @@
 
 %% Defines
 -define(COL_PID,  0).
--define(COL_NAME, 1).
--define(COL_TIME, 2).
--define(COL_REDS, 3).
--define(COL_MEM,  4).
--define(COL_MSG,  5).
--define(COL_FUN,  6).
+-define(COL_NAME, ?COL_PID+1).
+%%-define(COL_TIME, 2).
+-define(COL_REDS, ?COL_NAME+1).
+-define(COL_MEM,  ?COL_REDS+1).
+-define(COL_MSG,  ?COL_MEM+1).
+-define(COL_FUN,  ?COL_MSG+1).
 
 -define(ID_KILL, 201).
 -define(ID_PROC, 202).
@@ -158,7 +158,7 @@ create_list_box(Panel, Holder) ->
 		   end,
     ListItems = [{"Pid", ?wxLIST_FORMAT_CENTRE,  120},
 		 {"Name or Initial Func", ?wxLIST_FORMAT_LEFT, 200},
-		 {"Time", ?wxLIST_FORMAT_CENTRE, 50},
+%%		 {"Time", ?wxLIST_FORMAT_CENTRE, 50},
 		 {"Reds", ?wxLIST_FORMAT_RIGHT, 100},
 		 {"Memory", ?wxLIST_FORMAT_RIGHT, 100},
 		 {"MsgQ",  ?wxLIST_FORMAT_RIGHT, 50},
@@ -544,7 +544,7 @@ get_procinfo_data(Col, Info) ->
 col_to_element(?COL_PID)  -> #etop_proc_info.pid;
 col_to_element(?COL_NAME) -> #etop_proc_info.name;
 col_to_element(?COL_MEM)  -> #etop_proc_info.mem;
-col_to_element(?COL_TIME) -> #etop_proc_info.runtime;
+%%col_to_element(?COL_TIME) -> #etop_proc_info.runtime;
 col_to_element(?COL_REDS) -> #etop_proc_info.reds;
 col_to_element(?COL_FUN)  -> #etop_proc_info.cf;
 col_to_element(?COL_MSG)  -> #etop_proc_info.mq.

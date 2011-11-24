@@ -121,10 +121,15 @@ handle_event(#wx{id=Id}, State = #state{node=Node, grid=Grid, opt=Opt0})
 	      ?ID_UNREADABLE -> Opt0#opt{unread_hidden= not Opt0#opt.unread_hidden};
 	      ?ID_SYSTEM_TABLES -> Opt0#opt{sys_hidden= not Opt0#opt.sys_hidden}
 	  end,
-    Tables = get_tables(Node, Opt),
-    Tabs = update_grid(Grid, Opt, Tables),
-    wxWindow:setFocus(Grid),
-    {noreply, State#state{opt=Opt, tabs=Tabs}};
+    case get_tables2(Node, Opt) of
+	Error = {error, _} ->
+	    self() ! Error,
+	    {noreply, State};
+	Tables ->
+	    Tabs = update_grid(Grid, Opt, Tables),
+	    wxWindow:setFocus(Grid),
+	    {noreply, State#state{opt=Opt, tabs=Tabs}}
+    end;
 
 handle_event(#wx{event=#wxSize{size={W,_}}},  State=#state{grid=Grid}) ->
     observer_lib:set_listctrl_col_size(Grid, W),
@@ -162,18 +167,17 @@ handle_event(#wx{id=?ID_REFRESH_INTERVAL},
     Timer = observer_lib:interval_dialog(Grid, Timer0, 10, 5*60),
     {noreply, State#state{timer=Timer}};
 
-handle_event(Event, State) ->
-    io:format("~p:~p, handle event ~p\n", [?MODULE, ?LINE, Event]),
-    {noreply, State}.
+handle_event(Event, _State) ->
+    error({unhandled_event, Event}).
 
 handle_sync_event(_Event, _Obj, _State) ->
     ok.
 
-handle_call(_Event, _From, State) ->
-    {noreply, State}.
+handle_call(Event, From, _State) ->
+    error({unhandled_call, Event, From}).
 
-handle_cast(_Event, State) ->
-    {noreply, State}.
+handle_cast(Event, _State) ->
+    error({unhandled_cast, Event}).
 
 handle_info(refresh_interval, State = #state{node=Node, grid=Grid, opt=Opt}) ->
     Tables = get_tables(Node, Opt),
@@ -233,14 +237,18 @@ create_menus(Parent, #opt{sys_hidden=Sys, unread_hidden=UnR, type=Type}) ->
 		    ]}],
     observer_wx:create_menus(Parent, MenuEntries).
 
-get_tables(Node, Opt) ->
+get_tables(Node, Opts) ->
+    case get_tables2(Node, Opts) of
+	Error = {error, _} ->
+	    self() ! Error,
+	    [];
+	Res ->
+	    Res
+    end.
+get_tables2(Node, Opt) ->
     case rpc:call(Node, ?MODULE, get_table_list, [Opt]) of
 	{badrpc, Error} ->
-	    self() ! {error, Error},
-	    [];
-	{error, Error} ->
-	    self() ! {error, Error},
-	    [];
+	    {error, Error};
 	Result ->
 	    Result
     end.

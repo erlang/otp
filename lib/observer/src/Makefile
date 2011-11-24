@@ -105,10 +105,7 @@ ERL_COMPILE_FLAGS += \
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
-
-$(TARGET_FILES): $(INTERNAL_HRL_FILES)
-
-debug opt: $(TARGET_FILES)
+opt debug: $(TARGET_FILES)
 
 clean:
 	rm -f $(TARGET_FILES)
@@ -119,6 +116,8 @@ $(APP_TARGET): $(APP_SRC) ../vsn.mk
 
 $(APPUP_TARGET): $(APPUP_SRC) ../vsn.mk
 	sed -e 's;%VSN%;$(VSN);' $< > $@
+
+$(TARGET_FILES): $(INTERNAL_HRL_FILES)
 
 docs:
 
