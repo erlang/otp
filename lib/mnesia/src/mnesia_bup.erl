@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -65,6 +65,8 @@
                         default_op = keep_tables                       
                        }).
 
+-type fallback_args() :: #fallback_args{}.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Backup iterator
 
@@ -108,6 +110,7 @@ iter(R, Header, Schema, Fun, Acc, BupItems) ->
     Acc2 = Fun(BupItems, Header, Schema, Acc),
     iter(R, Header, Schema, Fun, Acc2, []).
 
+-spec safe_apply(#restore{}, atom(), list()) -> tuple().
 safe_apply(R, write, [_, Items]) when Items =:= [] ->
     R;
 safe_apply(R, What, Args) ->
@@ -369,7 +372,9 @@ mk_str() ->
     lists:concat([node()] ++ Now ++ ".TMP").
 
 make_initial_backup(Ns, Opaque, Mod) ->
-    Schema = [{schema, schema, mnesia_schema:get_initial_schema(disc_copies, Ns)}],
+    Orig = mnesia_schema:get_initial_schema(disc_copies, Ns),
+    Modded = proplists:delete(storage_properties, proplists:delete(majority, Orig)),
+    Schema = [{schema, schema, Modded}],
     O2 = do_apply(Mod, open_write, [Opaque], Opaque),
     O3 = do_apply(Mod, write, [O2, [mnesia_log:backup_log_header()]], O2),
     O4 = do_apply(Mod, write, [O3, Schema], O3),
@@ -570,6 +575,7 @@ fallback_bup() -> mnesia_lib:dir(fallback_name()).
 fallback_tmp_name() -> "FALLBACK.TMP".
 %% fallback_full_tmp_name() -> mnesia_lib:dir(fallback_tmp_name()).
 
+-spec fallback_receiver(pid(), fallback_args()) -> no_return().
 fallback_receiver(Master, FA) ->
     process_flag(trap_exit, true),
     
@@ -981,6 +987,7 @@ do_uninstall_fallback(FA) ->
             {error, Reason}
     end.
 
+-spec uninstall_fallback_master(pid(), fallback_args()) -> no_return().
 uninstall_fallback_master(ClientPid, FA) ->
     process_flag(trap_exit, true),
 

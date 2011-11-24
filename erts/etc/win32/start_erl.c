@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2009. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -44,6 +44,8 @@ char *progname;
 #endif
 
 #define RELEASE_SUBDIR "\\releases"
+#define ERTS_SUBDIR_PREFIX "\\erts-"
+#define BIN_SUBDIR "\\bin"
 #define REGISTRY_BASE "Software\\Ericsson\\Erlang\\"
 #define DEFAULT_DATAFILE "start_erl.data"
 
@@ -101,7 +103,8 @@ void exit_help(char *err)
     printf("Usage:\n%s\n"
 	   "      [<erlang options>] ++\n"
 	   "      [-data <datafile>]\n"
-	   "      [-reldir <releasedir>]\n"
+	   "      {-rootdir <erlang root directory> | \n"
+	   "       -reldir <releasedir>}\n"
 	   "      [-bootflags <bootflagsfile>]\n"
 	   "      [-noconfig]\n", progname);
 
@@ -177,8 +180,9 @@ void split_commandline(void)
  */
 char * unquote_optionarg(char *str, char **strp)
 {
-    char	*newstr = (char *)malloc(strlen(str)+1);  /* This one is realloc:ed later */
-    int		i=0, inquote=0;
+    char	*newstr = (char *)malloc(strlen(str)+1);  /* This one is 
+							     realloc:ed later */
+    int		i = 0, inquote = 0;
 
     assert(newstr);
     assert(str);
@@ -223,8 +227,8 @@ char * unquote_optionarg(char *str, char **strp)
 
 
 /*
- *	Parses MyCommandLine and tries to fill in all the required option variables
- *	(one way or another).
+ * Parses MyCommandLine and tries to fill in all the required option 
+ * variables (in one way or another).
  */
 void parse_commandline(void)
 {
@@ -237,6 +241,11 @@ void parse_commandline(void)
 	    *cmdline++;
 	    if( strnicmp(cmdline, "data", 4) == 0) {
 		DataFileName = unquote_optionarg(cmdline+4, &cmdline);
+	    } else if( strnicmp(cmdline, "rootdir", 7) == 0) {
+		RootDir = unquote_optionarg(cmdline+7, &cmdline);
+#ifdef _DEBUG
+		fprintf(stderr, "RootDir: '%s'\n", RootDir);
+#endif
 	    } else if( strnicmp(cmdline, "reldir", 6) == 0) {
 		RelDir = unquote_optionarg(cmdline+6, &cmdline);
 #ifdef _DEBUG
@@ -266,8 +275,8 @@ void parse_commandline(void)
  * Read the data file specified and get the version and release number
  * from it.
  *
- * This function also construct the correct RegistryKey from the version information
- * retrieved.
+ * This function also construct the correct RegistryKey from the version 
+ * information retrieved.
  */
 void read_datafile(void)
 {
@@ -325,88 +334,6 @@ void read_datafile(void)
 
 
 /*
- * Read the registry keys we need
- */
-void read_registry_keys(void)
-{
-    HKEY	hReg;
-    ULONG	lLen;
-
-    /* Create the RegistryKey name */
-    RegistryKey = (char *) malloc(strlen(REGISTRY_BASE) + 
-				  strlen(Version) + 1);
-    assert(RegistryKey);
-    sprintf(RegistryKey, REGISTRY_BASE "%s", Version);
-
-    /* We always need to find BinDir */
-    if( (RegOpenKeyEx(HKEY_LOCAL_MACHINE, 
-		      RegistryKey, 
-		      0, 
-		      KEY_READ, 
-		      &hReg)) != ERROR_SUCCESS ) {
-	exit_help("Could not open registry key.");
-    }
-
-    /* First query size of data */
-    if( (RegQueryValueEx(hReg, 
-			 "Bindir", 
-			 NULL, 
-			 NULL, 
-			 NULL, 
-			 &lLen)) != ERROR_SUCCESS) {
-	exit_help("Failed to query BinDir of release.\n");
-    }
-
-    /* Allocate enough space */
-    BinDir = (char *)malloc(lLen+1);
-    assert(BinDir);
-    /* Retrieve the value */
-    if( (RegQueryValueEx(hReg, 
-			 "Bindir", 
-			 NULL, 
-			 NULL, 
-			 (unsigned char *) BinDir, 
-			 &lLen)) != ERROR_SUCCESS) {
-	exit_help("Failed to query BinDir of release (2).\n");
-    }
-
-#ifdef _DEBUG
-    fprintf(stderr, "Bindir: '%s'\n", BinDir);
-#endif
-
-    /* We also need the rootdir, in case we need to build RelDir later */
-	
-    /* First query size of data */
-    if( (RegQueryValueEx(hReg, 
-			 "Rootdir", 
-			 NULL, 
-			 NULL, 
-			 NULL, 
-			 &lLen)) != ERROR_SUCCESS) {
-	exit_help("Failed to query RootDir of release.\n");
-    }
-
-    /* Allocate enough space */
-    RootDir = (char *) malloc(lLen+1);
-    assert(RootDir);
-    /* Retrieve the value */
-    if( (RegQueryValueEx(hReg, 
-			 "Rootdir", 
-			 NULL, 
-			 NULL, 
-			 (unsigned char *) RootDir, 
-			 &lLen)) != ERROR_SUCCESS) {
-	exit_help("Failed to query RootDir of release (2).\n");
-    }
-
-#ifdef _DEBUG
-    fprintf(stderr, "Rootdir: '%s'\n", RootDir);
-#endif
-
-    RegCloseKey(hReg);
-}
-
-/*
  * Read the bootflags. This file contains extra command line options to erl.exe
  */
 void read_bootflags(void)
@@ -424,7 +351,8 @@ void read_bootflags(void)
 		exit_help("Need -reldir when -bootflags "
 			  "filename has relative path.");
 	    } else {
-		newname = (char *)malloc(strlen(BootFlagsFile)+strlen(RelDir)+strlen(Release)+3);
+		newname = (char *)malloc(strlen(BootFlagsFile)+
+					 strlen(RelDir)+strlen(Release)+3);
 		assert(newname);
 		sprintf(newname, "%s\\%s\\%s", RelDir, Release, BootFlagsFile);
 		free(BootFlagsFile);
@@ -435,8 +363,6 @@ void read_bootflags(void)
 #ifdef _DEBUG
 	fprintf(stderr, "BootFlagsFile: '%s'\n", BootFlagsFile);
 #endif
-	
-	
 	
 	if( (fp=fopen(BootFlagsFile, "rb")) == NULL) {
 	    exit_help("Could not open BootFlags file.");
@@ -605,32 +531,49 @@ void complete_options(void)
 		sz = nsz;
 	}
 	if (RelDir == NULL) {
-	    if(DataFileName){
-		/* Needs to be absolute for this to work, but we
-		   can try... */
-		read_datafile();
-		read_registry_keys();
-	    } else {
-		/* Impossible to find all data... */
-		exit_help("Need either Release directory or an absolute "
-			  "datafile name.");
-	    }
-	    /* Ok, construct our own RelDir from RootDir */
-	    RelDir = (char *) malloc(strlen(RootDir)+strlen(RELEASE_SUBDIR)+1);
-	    assert(RelDir);
-	    sprintf(RelDir, "%s" RELEASE_SUBDIR, RootDir);
+	  if (!RootDir) {
+	    /* Impossible to find all data... */
+	    exit_help("Need either Root directory nor Release directory.");
+	  }
+	  /* Ok, construct our own RelDir from RootDir */
+	  RelDir = (char *) malloc(strlen(RootDir)+strlen(RELEASE_SUBDIR)+1);
+	  assert(RelDir);
+	  sprintf(RelDir, "%s" RELEASE_SUBDIR, RootDir);
+	  read_datafile();
 	} else {
 	    read_datafile();
-	    read_registry_keys();
 	}
     } else {
 	read_datafile();
-	read_registry_keys();
     }
+    if( !RootDir ) {
+	/* Try to construct RootDir from RelDir */
+	char *p;
+	RootDir = malloc(strlen(RelDir)+1);
+	strcpy(RootDir,RelDir);
+	p = RootDir+strlen(RootDir)-1;
+	if (p >= RootDir && (*p == '/' || *p == '\\'))
+	    --p;
+	while (p >= RootDir && *p != '/' &&  *p != '\\')
+	    --p;
+	if (p <= RootDir) { /* Empty RootDir is also an error */
+	    exit_help("Cannot determine Root directory from "
+		      "Release directory.");
+	}
+	*p = '\0';
+    }
+	    
+    
+    BinDir = (char *) malloc(strlen(RootDir)+strlen(ERTS_SUBDIR_PREFIX)+
+			     strlen(Version)+strlen(BIN_SUBDIR)+1);
+    assert(BinDir);
+    sprintf(BinDir, "%s" ERTS_SUBDIR_PREFIX "%s" BIN_SUBDIR, RootDir, Version);
+
     read_bootflags();
     
 #ifdef _DEBUG
     fprintf(stderr, "RelDir: '%s'\n", RelDir);
+    fprintf(stderr, "BinDir: '%s'\n", BinDir);
 #endif
 }
 

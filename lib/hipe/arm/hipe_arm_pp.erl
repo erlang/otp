@@ -1,20 +1,20 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2005-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -246,6 +246,11 @@ stop_suffix(StOp) ->
     'strb' -> "b"
   end.
 
+imm8m_decode(Value, 0) ->
+  Value;
+imm8m_decode(Value, Rot) ->
+  (Value bsr (2 * Rot)) bor (Value bsl (2 * (16 - Rot))).
+
 pp_temp(Dev, Temp=#arm_temp{reg=Reg, type=Type}) ->
   case hipe_arm:temp_is_precoloured(Temp) of
     true ->
@@ -292,7 +297,7 @@ pp_am1(Dev, Am1) ->
 	  io:format(Dev, "#~w", [Imm5])
       end;
     {Imm8,Imm4} ->
-      io:format(Dev, "#~w, 2*~w", [Imm8,Imm4])
+      io:format(Dev, "#~s", [to_hex(imm8m_decode(Imm8, Imm4))])
   end.
 
 pp_am2(Dev, #am2{src=Src,sign=Sign,offset=Am2Offset}) ->

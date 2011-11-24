@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2010</year>
+      <year>2003</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -217,12 +217,16 @@ lists:keysearch(Name, 1, List)</code>
     <p>In the second form of function calls,
       <c>ExprF(Expr1,...,ExprN)</c>, <c>ExprF</c> must be an atom or
       evaluate to a fun.</p>
+
     <p>If <c>ExprF</c> is an atom the function is said to be called by
-      using the <em>implicitly qualified function name</em>. If
-      <c>ExprF/N</c> is the name of a function explicitly or
-      automatically imported from module <c>M</c>, then the call is
-      short for <c>M:ExprF(Expr1,...,ExprN)</c>. Otherwise,
-      <c>ExprF/N</c> must be a locally defined function. Examples:</p>
+      using the <em>implicitly qualified function name</em>.  If the
+      function <c>ExprF</c> is locally defined, it is called.
+      Alternatively if <c>ExprF</c> is explicitly imported from module
+      <c>M</c>, <c>M:ExprF(Expr1,...,ExprN)</c> is called. If
+      <c>ExprF</c> is neither declared locally nor explicitly
+      imported, <c>ExprF</c> must be the name of an automatically
+      imported BIF. Examples:</p>
+
     <code type="none">
 handle(Msg, State)
 spawn(m, init, [])</code>
@@ -238,16 +242,85 @@ Fun2([1,2], [3,4])
 
 fun lists:append/2([1,2], [3,4])
 => [1,2,3,4]</code>
-    <p>To avoid possible ambiguities, the fully qualified function
-      name must be used when calling a function with the same name as
-      a BIF, and the compiler does not allow defining a function with
-      the same name as an explicitly imported function.</p>
+
     <p>Note that when calling a local function, there is a difference
-      between using the implicitly or fully qualified function name, as
-      the latter always refers to the latest version of the module. See
-      <seealso marker="code_loading">Compilation and Code Loading</seealso>.</p>
+    between using the implicitly or fully qualified function name, as
+    the latter always refers to the latest version of the module. See
+    <seealso marker="code_loading">Compilation and Code Loading</seealso>.</p>
+
     <p>See also the chapter about
       <seealso marker="functions#eval">Function Evaluation</seealso>.</p>
+
+    <section>
+      <title>Local Function Names Clashing With  Auto-imported BIFs</title>
+    <p>If a local function has the same name as an auto-imported BIF,
+    the semantics is that implicitly qualified function calls are
+    directed to the locally defined function, not to the BIF. To avoid
+    confusion, there is a compiler directive available,
+    <c>-compile({no_auto_import,[F/A]})</c>, that makes a BIF not
+    being auto-imported. In certain situations, such a compile-directive
+    is mandatory.</p>
+
+    <warning><p>Before OTP R14A (ERTS version 5.8), an implicitly
+    qualified function call to a function having the same name as an
+    auto-imported BIF always resulted in the BIF being called. In
+    newer versions of the compiler the local function is instead
+    called. The change is there to avoid that future additions to the
+    set of auto-imported BIFs does not silently change the behavior
+    of old code.</p>
+
+    <p>However, to avoid that old (pre R14) code changed its
+    behavior when compiled with OTP version R14A or later, the
+    following restriction applies: If you override the name of a BIF
+    that was auto-imported in OTP versions prior to R14A (ERTS version
+    5.8) and have an implicitly qualified call to that function in
+    your code, you either need to explicitly remove the auto-import
+    using a compiler directive, or replace the call with a fully
+    qualified function call, otherwise you will get a compilation
+    error. See example below:</p> </warning>
+
+    <code type="none">
+-export([length/1,f/1]).
+
+-compile({no_auto_import,[length/1]}). % erlang:length/1 no longer autoimported
+
+length([]) ->
+    0;
+length([H|T]) ->
+    1 + length(T). %% Calls the local funtion length/1
+
+f(X) when erlang:length(X) > 3 -> %% Calls erlang:length/1,
+                                  %% which is allowed in guards
+    long.</code>
+
+    <p>The same logic applies to explicitly imported functions from
+    other modules as to locally defined functions. To both import a
+    function from another module and have the function declared in the
+    module at the same time is not allowed.</p>
+
+    <code type="none">
+-export([f/1]).
+
+-compile({no_auto_import,[length/1]}). % erlang:length/1 no longer autoimported
+
+-import(mod,[length/1]).
+
+f(X) when erlang:length(X) > 33 -> %% Calls erlang:lenght/1,
+                                   %% which is allowed in guards
+
+    erlang:length(X);              %% Explicit call to erlang:length in body
+
+f(X) ->
+    length(X).                     %% mod:length/1 is called</code>
+
+
+    <p>For auto-imported BIFs added to Erlang in release R14A and thereafter,
+    overriding the name with a local function or explicit import is always
+    allowed. However, if the <c>-compile({no_auto_import,[F/A])</c>
+    directive is not used, the compiler will issue a warning whenever
+    the function is called in the module using the implicitly qualified
+    function name.</p>
+    </section>
   </section>
 
   <section>
@@ -488,11 +561,15 @@ number &lt; atom &lt; reference &lt; fun &lt; port &lt; pid &lt; tuple &lt; list
     <p>Lists are compared element by element. Tuples are ordered by
       size, two tuples with the same size are compared element by
       element.</p>
-    <p>If one of the compared terms is an integer and the other a
-      float, the integer is first converted into a float, unless the
-      operator is one of =:= and =/=. If the integer is too big to fit
-      in a float no conversion is done, but the order is determined by
-      inspecting the sign of the numbers.</p>
+      <p>When comparing an integer to a float, the term with the lesser
+      precision will be converted into the other term's type, unless the
+      operator is one of =:= and =/=. A float is more precise than
+      an integer until all significant figures of the float are to the left of
+      the decimal point. This happens when the float is larger/smaller then
+      +/-9007199254740992.0. The conversion strategy is changed
+      depending on the size of the float because otherwise comparison of large
+      floats and integers would loose their transitivity.</p>
+
     <p>Returns the Boolean value of the expression, <c>true</c> or
       <c>false</c>.</p>
     <p>Examples:</p>
@@ -806,9 +883,8 @@ Ei = Value |
     and UTF-32, respectively.</p>
 
     <p>When constructing a segment of a <c>utf</c> type, <c>Value</c>
-    must be an integer in one of the ranges 0..16#D7FF,
-    16#E000..16#FFFD, or 16#10000..16#10FFFF
-    (i.e. a valid Unicode code point). Construction
+    must be an integer in the range 0..16#D7FF or
+    16#E000....16#10FFFF. Construction
     will fail with a <c>badarg</c> exception if <c>Value</c> is
     outside the allowed ranges. The size of the resulting binary
     segment depends on the type and/or <c>Value</c>. For <c>utf8</c>,
@@ -823,14 +899,13 @@ Ei = Value |
     <c><![CDATA[<<$a/utf8,$b/utf8,$c/utf8>>]]></c>.</p>
 
     <p>A successful match of a segment of a <c>utf</c> type results
-    in an integer in one of the ranges 0..16#D7FF, 16#E000..16#FFFD,
-    or 16#10000..16#10FFFF
-    (i.e. a valid Unicode code point). The match will fail if returned value
+    in an integer in the range 0..16#D7FF or  16#E000..16#10FFFF.
+    The match will fail if returned value
     would fall outside those ranges.</p>
 
     <p>A segment of type <c>utf8</c> will match 1 to 4 bytes in the binary,
     if the binary at the match position contains a valid UTF-8 sequence.
-    (See RFC-2279 or the Unicode standard.)</p>
+    (See RFC-3629 or the Unicode standard.)</p>
 
     <p>A segment of type <c>utf16</c> may match 2 or 4 bytes in the binary.
     The match will fail if the binary at the match position does not contain
@@ -918,15 +993,19 @@ fun Module:Name/Arity</pre>
     <pre>
 fun (Arg1,...,ArgN) -> Name(Arg1,...,ArgN) end</pre>
     <p>In <c>Module:Name/Arity</c>, <c>Module</c> and <c>Name</c> are atoms
-      and <c>Arity</c> is an integer.
+      and <c>Arity</c> is an integer. Starting from the R15 release,
+      <c>Module</c>, <c>Name</c>, and <c>Arity</c> may also be variables.
       A fun defined in this way will refer to the function <c>Name</c>
-      with arity <c>Arity</c> in the <em>latest</em> version of module <c>Module</c>.
+      with arity <c>Arity</c> in the <em>latest</em> version of module
+      <c>Module</c>. A fun defined in this way will not be dependent on
+      the code for module in which it is defined.
       </p>
     <p>When applied to a number N of arguments, a tuple
       <c>{Module,FunctionName}</c> is interpreted as a fun, referring
       to the function <c>FunctionName</c> with arity N in the module
       <c>Module</c>. The function must be exported.
-      <em>This usage is deprecated.</em> 
+      <em>This usage is deprecated.</em> Use <c>fun Module:Name/Arity</c>
+      instead.
       See <seealso marker="#calls">Function Calls</seealso> for an example.</p>
     <p>More examples can be found in <em>Programming Examples</em>.</p>
   </section>

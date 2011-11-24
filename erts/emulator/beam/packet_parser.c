@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2008-2009. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2010. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -46,11 +46,6 @@
                              (((unsigned char*) (s))[2] << 16)  | \
                              (((unsigned char*) (s))[1] << 8) | \
                              (((unsigned char*) (s))[0]))
-
-#define put_int24(s, x) ((((unsigned char*)(s))[0] = ((x) >> 16) & 0xff), \
-                         (((unsigned char*)(s))[1] = ((x) >> 8) & 0xff), \
-                         (((unsigned char*)(s))[2] = (x) & 0xff))
-
 
 #if !defined(__WIN32__) && !defined(HAVE_STRNCASECMP)
 #define STRNCASECMP my_strncasecmp
@@ -679,7 +674,7 @@ int packet_parse_http(const char* buf, int len, int* statep,
             while (n && SP(ptr)) {
                 ptr++; n--;
             }
-            if (ptr==p0) return -1;
+            if (ptr==p0 && n>0) return -1;
             
             /* NOTE: the syntax allows empty reason phrases */
             (*statep) = !0;
@@ -833,7 +828,7 @@ int packet_parse_ssl(const char* buf, int len,
         char prefix[4];
         /* <<1:8,Length:24,Data/binary>> */
         prefix[0] = 1;
-        put_int24(&prefix[1],len-3);
+        put_int24(len-3,&prefix[1]);
         return pcb->ssl_tls(arg, 22, major, minor, buf+3, len-3, prefix, sizeof(prefix));
     } 
     else {

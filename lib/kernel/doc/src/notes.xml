@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2010</year>
+      <year>2004</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -29,6 +29,477 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
+
+<section><title>Kernel 2.14.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix type of Packet arg of gen_tcp:send/2 and
+	    gen_udp:send/4</p>
+          <p>
+	    The type is marked as a binary() or a string() but in
+	    practice it can be an iodata(). The test suite was
+	    updated to confirm the gen_tcp/2 and gen_udp:send/4
+	    functions accept iodata() (iolists) packets. (Thanks to
+	    Filipe David Manana)</p>
+          <p>
+	    Own Id: OTP-9514</p>
+        </item>
+        <item>
+	    <p> XML files have been corrected. </p>
+          <p>
+	    Own Id: OTP-9550 Aux Id: OTP-9541 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> The types and specifications of the inet modules have
+	    been improved. </p>
+          <p>
+	    Own Id: OTP-9260</p>
+        </item>
+        <item>
+	    <p> Types and specifications have been added. </p>
+          <p>
+	    Own Id: OTP-9356</p>
+        </item>
+        <item>
+	    <p> Contracts in STDLIB and Kernel have been improved and
+	    type errors have been corrected. </p>
+          <p>
+	    Own Id: OTP-9485</p>
+        </item>
+        <item>
+	    <p> Update documentation and specifications of some of
+	    the zlib functions. </p>
+          <p>
+	    Own Id: OTP-9506</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Kernel 2.14.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The send_timeout option in gen_tcp did not work properly
+	    in active mode or with {active,once} options. This is now
+	    corrected.</p>
+          <p>
+	    Own Id: OTP-9145</p>
+        </item>
+        <item>
+          <p>
+	    Fixed various typos across the documentation (Thanks to
+	    Tuncer Ayaz)</p>
+          <p>
+	    Own Id: OTP-9154</p>
+        </item>
+        <item>
+          <p>
+	    Fix typo in doc of rpc:pmap/3 (Thanks to Ricardo
+	    Catalinas Jiménez)</p>
+          <p>
+	    Own Id: OTP-9168</p>
+        </item>
+        <item>
+          <p>
+	    A bug in inet_res, the specialized DNS resolver, has been
+	    corrected. A late answer with unfortunate timing could
+	    cause a runtime exception. Some code cleanup and
+	    improvements also tagged along. Thanks to Evegeniy
+	    Khramtsov for a pinpointing bug report and bug fix
+	    testing.</p>
+          <p>
+	    Own Id: OTP-9221 Aux Id: OTP-8712 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Types and specifications have been added. </p>
+          <p>
+	    Own Id: OTP-9268</p>
+        </item>
+        <item>
+	    <p> Erlang types and specifications are used for
+	    documentation. </p>
+          <p>
+	    Own Id: OTP-9272</p>
+        </item>
+        <item>
+	    <p> Two opaque types that could cause warnings when
+	    running Dialyzer have been modified. </p>
+          <p>
+	    Own Id: OTP-9337</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Kernel 2.14.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    <c>os:find_executable/{1,2}</c> will no longer return the
+	    path of a directory that happens to be in the PATH.</p>
+          <p>
+	    Own Id: OTP-8983 Aux Id: seq11749 </p>
+        </item>
+        <item>
+          <p>
+	    Fix -spec for file:write_file/3</p>
+          <p>
+	    Change type for second parameter from binary() to
+	    iodata(), since the function explicitly takes steps to
+	    accept lists as well as binaries. (thanks to Magnus
+	    Henoch).</p>
+          <p>
+	    Own Id: OTP-9067</p>
+        </item>
+        <item>
+          <p>
+	    Sanitize the specs of the code module</p>
+          <p>
+	    After the addition of unicode_binary() to the
+	    file:filename() type, dialyzer started complaining about
+	    erroneous or incomplete specs in some functions of the
+	    'code' module. The culprit was hard-coded information in
+	    erl_bif_types for functions of this module, which were
+	    not updated. Since these functions have proper specs
+	    these days and code duplication (pun intended) is never a
+	    good idea, their type information was removed from
+	    erl_bif_types.</p>
+          <p>
+	    While doing this, some erroneous comments were fixed in
+	    the code module and also made sure that the code now runs
+	    without dialyzer warnings even when the
+	    -Wunmatched_returns option is used.</p>
+          <p>
+	    Some cleanups were applied to erl_bif_types too.</p>
+          <p>
+	    Own Id: OTP-9100</p>
+        </item>
+        <item>
+          <p>
+	    - Add spec for function that does not return - Strenghen
+	    spec - Introduce types to avoid duplication in specs -
+	    Add specs for functions that do not return - Add specs
+	    for behaviour callbacks - Simplify two specs</p>
+          <p>
+	    Own Id: OTP-9127</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Kernel 2.14.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The Erlang VM now supports Unicode filenames. The feature
+	    is turned on by default on systems where Unicode
+	    filenames are mandatory (Windows and MacOSX), but can be
+	    enabled on other systems with the '+fnu' emulator option.
+	    Enabling the Unicode filename feature on systems where it
+	    is not default is however considered experimental and not
+	    to be used for production. Together with the Unicode file
+	    name support, the concept of "raw filenames" is
+	    introduced, which means filenames provided without
+	    implicit unicode encoding translation. Raw filenames are
+	    provided as binaries, not lists. For further information,
+	    see stdlib users guide and the chapter about using
+	    Unicode in Erlang. Also see the file module manual page.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-8887</p>
+        </item>
+        <item>
+          <p>
+	    There is now a new function inet:getifaddrs/0 modeled
+	    after C library function getifaddrs() on BSD and LInux
+	    that reports existing interfaces and their addresses on
+	    the host. This replaces the undocumented and unsupported
+	    inet:getiflist/0 and inet:ifget/2.</p>
+          <p>
+	    Own Id: OTP-8926</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Kernel 2.14.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>In embedded mode, on_load handlers that called
+	    <c>code:priv_dir/1</c> or other functions in <c>code</c>
+	    would hang the system. Since the <c>crypto</c>
+	    application now contains an on_loader handler that calls
+	    <c>code:priv_dir/1</c>, including the <c>crypto</c>
+	    application in the boot file would prevent the system
+	    from starting.</p>
+	    <p>Also extended the <c>-init_debug</c> option to print
+	    information about on_load handlers being run to
+	    facilitate debugging.</p>
+          <p>
+	    Own Id: OTP-8902 Aux Id: seq11703 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Kernel 2.14.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed: inet:setopts(S, [{linger,{true,2}}]) returned
+	    {error,einval} for SCTP sockets. The inet_drv had a bug
+	    when checking the option size.</p>
+          <p>
+	    Own Id: OTP-8726 Aux Id: seq11617 </p>
+        </item>
+        <item>
+          <p>
+	    gen_udp:connect/3 was broken for SCTP enabled builds. It
+	    did not detect remote end errors as it should.</p>
+          <p>
+	    Own Id: OTP-8729</p>
+        </item>
+        <item>
+	    <p>reference() has been substituted for ref() in the
+	    documentation.</p>
+          <p>
+	    Own Id: OTP-8733</p>
+        </item>
+        <item>
+	    <p>A bug introduced in kernel-2.13.5.3 has been fixed. If
+	    running <c>net_kernel:set_net_ticktime/1</c> twice within
+	    the <c>TransitionPerod</c> the second call caused the
+	    net_kernel process to crash with a <c>badmatch</c>.</p>
+          <p>
+	    Own Id: OTP-8787 Aux Id: seq11657, OTP-8643 </p>
+        </item>
+        <item>
+          <p>
+	    inet:getsockopt for SCTP sctp_default_send_param had a
+	    bug to not initialize required feilds causing random
+	    answers. It is now corrected.</p>
+          <p>
+	    Own Id: OTP-8795 Aux Id: seq11655 </p>
+        </item>
+        <item>
+	    <p>For a socket in the HTTP packet mode, the return value
+	    from <c>gen_tcp:recv/2,3</c> if there is an error in the
+	    header will be <c>{ok,{http_error,String}}</c> instead of
+	    <c>{error,{http_error,String}}</c> to be consistent with
+	    <c>ssl:recv/2,3</c>.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-8831</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Even when configuring erlang with --enable-native-libs,
+	    the native code for modules loaded very early (such as
+	    lists) would not get loaded. This has been corrected.
+	    (Thanks to Paul Guyot.)</p>
+          <p>
+	    Own Id: OTP-8750</p>
+        </item>
+        <item>
+          <p>
+	    The undocumented function inet:ifget/2 has been improved
+	    to return interface hardware address (MAC) on platforms
+	    supporting getaddrinfo() (such as BSD unixes). Note it
+	    still does not work on all platforms for example not
+	    Windows nor Solaris, so the function is still
+	    undocumented.</p>
+          <p>
+	    Buffer overflow and field init bugs for inet:ifget/2 and
+	    inet:getservbyname/2 has also been fixed.</p>
+          <p>
+	    Thanks to Michael Santos.</p>
+          <p>
+	    Own Id: OTP-8816</p>
+        </item>
+        <item>
+          <p>
+	    As a usability improvement the 'inet6' option to
+	    functions gen_tcp:listen/2, gen_tcp:connect/3-4,
+	    gen_udp:open/2 and gen_sctp:open/1-2 is now implicit if
+	    the address argument or the 'ip' option contain an IPv6
+	    address (8-tuple).</p>
+          <p>
+	    Own Id: OTP-8822</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Kernel 2.14</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    os:find_executable can now be fed with the complete name
+	    of the executable on Windows and still find it. I.e
+	    os:find_executable("werl.exe") will work as
+	    os:find_executable("werl").</p>
+          <p>
+	    Own Id: OTP-3626</p>
+        </item>
+        <item>
+          <p>
+	    The shell's line editing has been improved to more
+	    resemble the behaviour of readline and other shells.
+	    (Thanks to Dave Peticolas)</p>
+          <p>
+	    Own Id: OTP-8635</p>
+        </item>
+        <item>
+	    <p>Under certain circumstances the net kernel could hang.
+	    (Thanks to Scott Lystig Fritchie.)</p>
+          <p>
+	    Own Id: OTP-8643 Aux Id: seq11584 </p>
+        </item>
+        <item>
+          <p>
+	    The kernel DNS resolver was leaking one or two ports if
+	    the DNS reply could not be parsed or if the resolver(s)
+	    caused noconnection type errors. Bug now fixed. A DNS
+	    specification borderline truncated reply triggering the
+	    port leakage bug has also been fixed.</p>
+          <p>
+	    Own Id: OTP-8652</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>As of this version, the global name server no longer
+	    supports nodes running Erlang/OTP R11B.</p>
+          <p>
+	    Own Id: OTP-8527</p>
+        </item>
+        <item>
+          <p>
+	    The file module's functions write,read and read_line now
+	    handles named io_servers like 'standard_io' and
+	    'standard_error' correctly.</p>
+          <p>
+	    Own Id: OTP-8611</p>
+        </item>
+        <item>
+          <p>
+	    The functions file:advise/4 and file:datasync/1 have been
+	    added. (Thanks to Filipe David Manana.)</p>
+          <p>
+	    Own Id: OTP-8637</p>
+        </item>
+        <item>
+	    <p>When exchanging groups between nodes <c>pg2</c> did
+	    not remove duplicated members. This bug was introduced in
+	    R13B03 (kernel-2.13.4).</p>
+          <p>
+	    Own Id: OTP-8653</p>
+        </item>
+        <item>
+          <p>
+	    There is a new option 'exclusive' to file:open/2 that
+	    uses the OS O_EXCL flag where supported to open the file
+	    in exclusive mode.</p>
+          <p>
+	    Own Id: OTP-8670</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Kernel 2.13.5.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            A bug introduced in Kernel 2.13.5.2 has been fixed.</p>
+          <p>
+	    Own Id: OTP-8686 Aux Id: OTP-8643</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Kernel 2.13.5.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            Under certain circumstances the net kernel could hang.
+            (Thanks to Scott Lystig Fritchie.)</p>
+          <p>
+	    Own Id: OTP-8643 Aux Id: seq11584</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Kernel 2.13.5.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A race condition in <c>os:cmd/1</c> could cause the
+	    caller to get stuck in <c>os:cmd/1</c> forever.</p>
+          <p>
+	    Own Id: OTP-8502</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Kernel 2.13.5</title>
 
@@ -2120,7 +2591,7 @@
             <c>badarg</c> if a process is already registered. As it
             turns out there is no check in <c>global</c> if a process is
             registered under more than one name. If some process is
-            accidentaly or by design given several names, it is
+            accidentally or by design given several names, it is
             possible that the name registry becomes inconsistent due
             to the way the resolve function is called when name
             clashes are discovered (see <c>register_name/3</c> in

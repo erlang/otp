@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -98,7 +98,8 @@ open_help_default(Parent, File) ->
                                _Else -> "netscape -remote \"openURL(file:" ++ File ++ ")\""
 			  end;
 		      {win32,_AnyType} ->
-			  "netscape.exe -h " ++ regexp:gsub(File,"\\\\","/");
+			  "netscape.exe -h " ++
+			      re:replace(File,"\\\\","/",[global,{return,list}]);
 		      _Other ->
 			  unknown
 		  end;
@@ -224,11 +225,11 @@ help_win(Type, Parent, Strings) ->
     {Wbtn0,Hbtn0} = gs:read(Lbl, {font_wh,{Font,"Cancel"}}),
     
     %% Compute size of the objects and adjust the graphics accordingly
-    Wbtn = max(Wbtn0+10, ?Wbtn),
-    Hbtn = max(Hbtn0+10, ?Hbtn),
-    Hent = max(Hent0+10, ?Hent),
-    Wlbl = max(Wlbl0, max(Nbtn*Wbtn+(Nbtn-1)*?PAD, ?Wlbl)),
-    Hlbl = max(Hlbl0, ?Hlbl),
+    Wbtn = erlang:max(Wbtn0+10, ?Wbtn),
+    Hbtn = erlang:max(Hbtn0+10, ?Hbtn),
+    Hent = erlang:max(Hent0+10, ?Hent),
+    Wlbl = erlang:max(Wlbl0, erlang:max(Nbtn*Wbtn+(Nbtn-1)*?PAD, ?Wlbl)),
+    Hlbl = erlang:max(Hlbl0, ?Hlbl),
 
     Wwin = ?PAD+Wlbl+?PAD,
 
@@ -296,9 +297,6 @@ data("Ok") ->     {helpwin,ok};
 data("Yes") ->    {helpwin,yes};
 data("No") ->     {helpwin,no};
 data("Cancel") -> {helpwin,cancel}.
-
-max(X, Y) when X>Y -> X;
-max(_X, Y) -> Y.
 
 get_coords(Parent, W, H) ->
     case gs:read(Parent, x) of

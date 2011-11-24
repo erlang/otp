@@ -14,11 +14,9 @@
 %% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
 %% USA
 %%
-%% $Id$
-%%
 %% @private
 %% @copyright 2001-2003 Richard Carlsson
-%% @author Richard Carlsson <richardc@it.uu.se>
+%% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @see edoc
 %% @end
 %% =====================================================================
@@ -70,7 +68,7 @@
 -export([parse_xml/2, expand_text/2]).
 
 -include("edoc.hrl").
--include("xmerl.hrl").
+-include_lib("xmerl/include/xmerl.hrl").
 
 -define(BASE_HEADING, 3).
 
@@ -82,7 +80,8 @@ parse_xml(Data, Line) ->
 
 parse_xml_1(Text, Line) ->
     Text1 = "<doc>" ++ Text ++ "</doc>",
-    case catch {ok, xmerl_scan:string(Text1, [{line, Line}])} of
+    Opts = [{line, Line}, {encoding, 'iso-8859-1'}],
+    case catch {ok, xmerl_scan:string(Text1, Opts)} of
 	{ok, {E, _}} ->
 	    E#xmlElement.content;
 	{'EXIT', {fatal, {Reason, L, _C}}} ->
@@ -250,10 +249,20 @@ expand_triple([], L, _, L0) ->
 
 expand_uri("http:/" ++ Cs, L, As) ->
     expand_uri(Cs, L, "/:ptth", As);
+expand_uri("https:/" ++ Cs, L, As) ->
+    expand_uri(Cs, L, "/:sptth", As);
 expand_uri("ftp:/" ++ Cs, L, As) ->
     expand_uri(Cs, L, "/:ptf", As);
 expand_uri("file:/" ++ Cs, L, As) ->
     expand_uri(Cs, L, "/:elif", As);
+expand_uri("mailto:/" ++ Cs, L, As) ->
+    expand_uri(Cs, L, "/:otliam", As);
+expand_uri("nfs:/" ++ Cs, L, As) ->
+    expand_uri(Cs, L, "/:sfn", As);
+expand_uri("shttp:/" ++ Cs, L, As) ->
+    expand_uri(Cs, L, "/:ptths", As);
+expand_uri("xmpp:/" ++ Cs, L, As) ->
+    expand_uri(Cs, L, "/:ppmx", As);
 expand_uri(Cs, L, As) ->
     expand(Cs, L, [$[ | As]).
 
@@ -295,6 +304,8 @@ push_uri(Us, Ss, As) ->
 strip_empty_lines(Cs) ->
     strip_empty_lines(Cs, 0).
 
+strip_empty_lines([], N) ->
+    {[], N};					% reached the end of input
 strip_empty_lines(Cs, N) ->
     {Cs1, Cs2} = edoc_lib:split_at(Cs, $\n),
     case edoc_lib:is_space(Cs1) of
@@ -357,10 +368,7 @@ par_text(Cs, As, Bs, E, Es) ->
 		      [] -> Bs;
 		      _ -> [#xmlElement{name = p, content = Es1} | Bs]
 		  end,
-	    Bs1 = case Ss of
-		      [] -> Bs0;
-		      _ -> [#xmlText{value = Ss} | Bs0]
-		  end,
+	    Bs1 = [#xmlText{value = Ss} | Bs0],
 	    case Cs2 of
 		[] ->
 		    par(Es, [], Bs1);

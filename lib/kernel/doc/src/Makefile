@@ -1,19 +1,20 @@
-# ``The contents of this file are subject to the Erlang Public License,
+#
+# %CopyrightBegin%
+#
+# Copyright Ericsson AB 1997-2011. All Rights Reserved.
+#
+# The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
 # compliance with the License. You should have received a copy of the
 # Erlang Public License along with this software. If not, it can be
-# retrieved via the world wide web at http://www.erlang.org/.
-# 
+# retrieved online at http://www.erlang.org/.
+#
 # Software distributed under the License is distributed on an "AS IS"
 # basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 # the License for the specific language governing rights and limitations
 # under the License.
-# 
-# The Initial Developer of the Original Code is Ericsson Utvecklings AB.
-# Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
-# AB. All Rights Reserved.''
-# 
-#     $Id$
+#
+# %CopyrightEnd%
 #
 include $(ERL_TOP)/make/target.mk
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
@@ -94,11 +95,18 @@ HTML_REF_MAN_FILE = $(HTMLDIR)/index.html
 
 TOP_PDF_FILE = $(PDFDIR)/$(APPLICATION)-$(VSN).pdf
 
+SPECS_FILES = $(XML_REF3_FILES:%.xml=$(SPECDIR)/specs_%.xml)
+
+TOP_SPECS_FILE = specs.xml
 
 # ----------------------------------------------------
 # FLAGS 
 # ----------------------------------------------------
 XML_FLAGS += 
+
+SPECS_ESRC = ../../src
+
+SPECS_FLAGS = -I../../include
 
 # ----------------------------------------------------
 # Targets
@@ -106,7 +114,7 @@ XML_FLAGS +=
 $(HTMLDIR)/%.gif: %.gif
 	$(INSTALL_DATA) $< $@
 
-docs: pdf html man
+docs: man pdf html
 
 $(TOP_PDF_FILE): $(XML_FILES)
 
@@ -125,7 +133,21 @@ clean clean_docs:
 	rm -f $(MAN4DIR)/*
 	rm -f $(MAN6DIR)/*
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
+	rm -f $(SPECDIR)/*
 	rm -f errs core *~ 
+
+$(SPECDIR)/specs_erl_prim_loader_stub.xml:
+	escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) \
+                -o$(dir $@) -module erl_prim_loader_stub
+$(SPECDIR)/specs_erlang_stub.xml:
+	escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) \
+                -o$(dir $@) -module erlang_stub
+$(SPECDIR)/specs_init_stub.xml:
+	escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) \
+                -o$(dir $@) -module init_stub
+$(SPECDIR)/specs_zlib_stub.xml:
+	escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) \
+                -o$(dir $@) -module zlib_stub
 
 # ----------------------------------------------------
 # Release Target

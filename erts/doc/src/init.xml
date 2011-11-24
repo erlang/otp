@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2009</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -47,15 +47,12 @@
   </description>
   <funcs>
     <func>
-      <name>boot(BootArgs) -> void()</name>
+      <name name="boot" arity="1"/>
       <fsummary>Start the Erlang runtime system</fsummary>
-      <type>
-        <v>BootArgs = [binary()]</v>
-      </type>
       <desc>
         <p>Starts the Erlang runtime system. This function is called
           when the emulator is started and coordinates system start-up.</p>
-        <p><c>BootArgs</c> are all command line arguments except
+        <p><c><anno>BootArgs</anno></c> are all command line arguments except
           the emulator flags, that is, flags and plain arguments. See
           <seealso marker="erts:erl">erl(1)</seealso>.</p>
         <p><c>init</c> itself interprets some of the flags, see
@@ -67,30 +64,12 @@
       </desc>
     </func>
     <func>
-      <name>get_args() -> [Arg]</name>
-      <fsummary>Get all non-flag command line arguments</fsummary>
-      <type>
-        <v>Arg = atom()</v>
-      </type>
-      <desc>
-        <p>Returns any plain command line arguments as a list of atoms
-          (possibly empty). It is recommended that
-          <c>get_plain_arguments/1</c> is used instead, because of
-          the limited length of atoms.</p>
-      </desc>
-    </func>
-    <func>
-      <name>get_argument(Flag) -> {ok, Arg} | error</name>
+      <name name="get_argument" arity="1"/>
       <fsummary>Get the values associated with a command line user flag</fsummary>
-      <type>
-        <v>Flag = atom()</v>
-        <v>Arg = [Values]</v>
-        <v>&nbsp;Values = [string()]</v>
-      </type>
       <desc>
         <p>Returns all values associated with the command line user flag
-          <c>Flag</c>. If <c>Flag</c> is provided several times, each
-          <c>Values</c> is returned in preserved order.</p>
+          <c><anno>Flag</anno></c>. If <c><anno>Flag</anno></c> is provided several times, each
+          <c><anno>Values</anno></c> is returned in preserved order.</p>
         <pre>
 % <input>erl -a b c -a d</input>
 ...
@@ -126,48 +105,37 @@
       </desc>
     </func>
     <func>
-      <name>get_arguments() -> Flags</name>
+      <name name="get_arguments" arity="0"/>
       <fsummary>Get all command line user flags</fsummary>
-      <type>
-        <v>Flags = [{Flag, Values}]</v>
-        <v>&nbsp;Flag = atom()</v>
-        <v>&nbsp;Values = [string()]</v>
-      </type>
       <desc>
         <p>Returns all command line flags, as well as the system
           defined flags, see <c>get_argument/1</c>.</p>
       </desc>
     </func>
     <func>
-      <name>get_plain_arguments() -> [Arg]</name>
+      <name name="get_plain_arguments" arity="0"/>
       <fsummary>Get all non-flag command line arguments</fsummary>
-      <type>
-        <v>Arg = string()</v>
-      </type>
       <desc>
         <p>Returns any plain command line arguments as a list of strings
           (possibly empty).</p>
       </desc>
     </func>
     <func>
-      <name>get_status() -> {InternalStatus, ProvidedStatus}</name>
+      <name name="get_status" arity="0"/>
       <fsummary>Get system status information</fsummary>
-      <type>
-        <v>InternalStatus = starting | started | stopping</v>
-        <v>ProvidedStatus = term()</v>
-      </type>
+      <type name="internal_status"/>
       <desc>
         <p>The current status of the <c>init</c> process can be
           inspected. During system startup (initialization),
-          <c>InternalStatus</c> is <c>starting</c>, and
-          <c>ProvidedStatus</c> indicates how far the boot script has
+          <c><anno>InternalStatus</anno></c> is <c>starting</c>, and
+          <c><anno>ProvidedStatus</anno></c> indicates how far the boot script has
           been interpreted. Each <c>{progress, Info}</c> term
-          interpreted in the boot script affects <c>ProvidedStatus</c>,
-          that is, <c>ProvidedStatus</c> gets the value of <c>Info</c>.</p>
+          interpreted in the boot script affects <c><anno>ProvidedStatus</anno></c>,
+          that is, <c><anno>ProvidedStatus</anno></c> gets the value of <c>Info</c>.</p>
       </desc>
     </func>
     <func>
-      <name>reboot() -> void()</name>
+      <name name="reboot" arity="0"/>
       <fsummary>Take down and restart an Erlang node smoothly</fsummary>
       <desc>
         <p>All applications are taken down smoothly, all code is
@@ -181,7 +149,7 @@
       </desc>
     </func>
     <func>
-      <name>restart() -> void()</name>
+      <name name="restart" arity="0"/>
       <fsummary>Restart the running Erlang node</fsummary>
       <desc>
         <p>The system is restarted <em>inside</em> the running Erlang
@@ -196,20 +164,17 @@
       </desc>
     </func>
     <func>
-      <name>script_id() -> Id</name>
+      <name name="script_id" arity="0"/>
       <fsummary>Get the identity of the used boot script</fsummary>
-      <type>
-        <v>Id = term()</v>
-      </type>
       <desc>
         <p>Get the identity of the boot script used to boot the system.
-          <c>Id</c> can be any Erlang term. In the delivered boot
-          scripts, <c>Id</c> is <c>{Name, Vsn}</c>. <c>Name</c> and
+          <c><anno>Id</anno></c> can be any Erlang term. In the delivered boot
+          scripts, <c><anno>Id</anno></c> is <c>{Name, Vsn}</c>. <c>Name</c> and
           <c>Vsn</c> are strings.</p>
       </desc>
     </func>
     <func>
-      <name>stop() -> void()</name>
+      <name name="stop" arity="0"/>
       <fsummary>Take down an Erlang node smoothly</fsummary>
       <desc>
         <p>All applications are taken down smoothly, all code is
@@ -223,15 +188,12 @@
       </desc>
     </func>
     <func>
-      <name>stop(Status) -> void()</name>
+      <name name="stop" arity="1"/>
       <fsummary>Take down an Erlang node smoothly</fsummary>
-      <type>
-        <v>Status = int()>=0 | string()</v>
-      </type>
       <desc>
         <p>All applications are taken down smoothly, all code is
           unloaded, and all ports are closed before the system
-          terminates by calling <c>halt(Status)</c>. If the
+          terminates by calling <c>halt(<anno>Status</anno>)</c>. If the
           <c>-heart</c> command line flag was given, the <c>heart</c>
           program is terminated before the Erlang node
           terminates. Refer to <c>heart(3)</c> for more

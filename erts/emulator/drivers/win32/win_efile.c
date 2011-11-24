@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1997-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 1997-2011. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 /*
@@ -23,20 +23,20 @@
 #include <windows.h>
 #include "sys.h"
 #include <ctype.h>
-
+#include <wchar.h>
 #include "erl_efile.h"
 
 /*
  * Microsoft-specific function to map a WIN32 error code to a Posix errno.
  */
 
-#define ISSLASH(a)  ((a) == '\\' || (a) == '/')
+#define ISSLASH(a)  ((a) == L'\\' || (a) == L'/')
 
 #define ISDIR(st) (((st).st_mode&S_IFMT) == S_IFDIR)
 #define ISREG(st) (((st).st_mode&S_IFMT) == S_IFREG)
 
 #define IS_DOT_OR_DOTDOT(s) \
-    (s[0] == '.' && (s[1] == '\0' || (s[1] == '.' && s[2] == '\0')))
+    ((s)[0] == L'.' && ((s)[1] == L'\0' || ((s)[1] == L'.' && (s)[2] == L'\0')))
 
 #ifndef INVALID_FILE_ATTRIBUTES
 #define INVALID_FILE_ATTRIBUTES ((DWORD) 0xFFFFFFFF)
@@ -44,9 +44,9 @@
 
 static int check_error(int result, Efile_error* errInfo);
 static int set_error(Efile_error* errInfo);
-static int IsRootUNCName(const char* path);
-static int extract_root(char* name);
-static unsigned short dos_to_posix_mode(int attr, const char *name);
+static int is_root_unc_name(const WCHAR *path);
+static int extract_root(WCHAR *name);
+static unsigned short dos_to_posix_mode(int attr, const WCHAR *name);
 
 static int errno_map(DWORD last_error) {
 
@@ -127,6 +127,8 @@ static int errno_map(DWORD last_error) {
 	return EBUSY;
     case ERROR_NO_PROC_SLOTS:
 	return EAGAIN;
+    case ERROR_CANT_RESOLVE_FILENAME:
+	return EMLINK;
     case ERROR_ARENA_TRASHED:
     case ERROR_INVALID_BLOCK:
     case ERROR_BAD_ENVIRONMENT:
@@ -196,27 +198,26 @@ win_writev(Efile_error* errInfo,
 
 
 int
-efile_mkdir(errInfo, name)
-Efile_error* errInfo;		/* Where to return error codes. */
-char* name;			/* Name of directory to create. */
+efile_mkdir(Efile_error* errInfo,	/* Where to return error codes. */
+	    char* name)			/* Name of directory to create. */
 {
-    return check_error(mkdir(name), errInfo);
+    return check_error(_wmkdir((WCHAR *) name), errInfo);
 }
 
 int
-efile_rmdir(errInfo, name)
-Efile_error* errInfo;		/* Where to return error codes. */
-char* name;			/* Name of directory to delete. */
+efile_rmdir(Efile_error* errInfo,	/* Where to return error codes. */
+	    char* name)			/* Name of directory to delete. */
 {
     OSVERSIONINFO os;
     DWORD attr;
+    WCHAR *wname = (WCHAR *) name;
 
-    if (RemoveDirectory(name) != FALSE) {
+    if (RemoveDirectoryW(wname) != FALSE) {
 	return 1;
     }
     errno = errno_map(GetLastError());
     if (errno == EACCES) {
-	attr = GetFileAttributes(name);
+	attr = GetFileAttributesW(wname);
 	if (attr != (DWORD) -1) {
 	    if ((attr & FILE_ATTRIBUTE_DIRECTORY) == 0) {
 		/* 
@@ -238,21 +239,21 @@ char* name;			/* Name of directory to delete. */
 	    GetVersionEx(&os);
 	    if (os.dwPlatformId == VER_PLATFORM_WIN32_WINDOWS) {
 		HANDLE handle;
-		WIN32_FIND_DATA data;
-		char buffer[2*MAX_PATH];
+		WIN32_FIND_DATAW data;
+		WCHAR buffer[2*MAX_PATH];
 		int len;
 
-		len = strlen(name);
-		strcpy(buffer, name);
-		if (buffer[0] && buffer[len-1] != '\\' && buffer[len-1] != '/') {
-		    strcat(buffer, "\\");
+		len = wcslen(wname);
+		wcscpy(buffer, wname);
+		if (buffer[0] && buffer[len-1] != L'\\' && buffer[len-1] != L'/') {
+		    wcscat(buffer, L"\\");
 		}
-		strcat(buffer, "*.*");
-		handle = FindFirstFile(buffer, &data);
+		wcscat(buffer, L"*.*");
+		handle = FindFirstFileW(buffer, &data);
 		if (handle != INVALID_HANDLE_VALUE) {
 		    while (1) {
-			if ((strcmp(data.cFileName, ".") != 0)
-				&& (strcmp(data.cFileName, "..") != 0)) {
+			if ((wcscmp(data.cFileName, L".") != 0)
+				&& (wcscmp(data.cFileName, L"..") != 0)) {
 			    /*
 			     * Found something in this directory.
 			     */
@@ -260,7 +261,7 @@ char* name;			/* Name of directory to delete. */
 			    errno = EEXIST;
 			    break;
 			}
-			if (FindNextFile(handle, &data) == FALSE) {
+			if (FindNextFileW(handle, &data) == FALSE) {
 			    break;
 			}
 		    }
@@ -284,19 +285,19 @@ char* name;			/* Name of directory to delete. */
 }
 
 int
-efile_delete_file(errInfo, name)
-Efile_error* errInfo;		/* Where to return error codes. */
-char* name;			/* Name of file to delete. */
+efile_delete_file(Efile_error* errInfo,		/* Where to return error codes. */
+		  char* name)			/* Name of file to delete. */
 {
     DWORD attr;
+    WCHAR *wname = (WCHAR *) name;
 
-    if (DeleteFile(name) != FALSE) {
+    if (DeleteFileW(wname) != FALSE) {
 	return 1;
     }
 
     errno = errno_map(GetLastError());
     if (errno == EACCES) {
-        attr = GetFileAttributes(name);
+        attr = GetFileAttributesW(wname);
 	if (attr != (DWORD) -1) {
 	    if (attr & FILE_ATTRIBUTE_DIRECTORY) {
 		/*
@@ -308,7 +309,7 @@ char* name;			/* Name of file to delete. */
 	    }
 	}
     } else if (errno == ENOENT) {
-        attr = GetFileAttributes(name);
+        attr = GetFileAttributesW(wname);
 	if (attr != (DWORD) -1) {
 	    if (attr & FILE_ATTRIBUTE_DIRECTORY) {
 	    	/*
@@ -362,20 +363,21 @@ char* name;			/* Name of file to delete. */
  */
 
 int
-efile_rename(errInfo, src, dst)
-Efile_error* errInfo;		/* Where to return error codes. */
-char* src;			/* Original name. */
-char* dst;			/* New name. */
+efile_rename(Efile_error* errInfo,	/* Where to return error codes. */
+	     char* src,			/* Original name. */
+	     char* dst)			/* New name. */
 {
     DWORD srcAttr, dstAttr;
+    WCHAR *wsrc = (WCHAR *) src;
+    WCHAR *wdst = (WCHAR *) dst;
     
-    if (MoveFile(src, dst) != FALSE) {
+    if (MoveFileW(wsrc, wdst) != FALSE) {
 	return 1;
     }
 
     errno = errno_map(GetLastError());
-    srcAttr = GetFileAttributes(src);
-    dstAttr = GetFileAttributes(dst);
+    srcAttr = GetFileAttributesW(wsrc);
+    dstAttr = GetFileAttributesW(wdst);
     if (srcAttr == (DWORD) -1) {
 	srcAttr = 0;
     }
@@ -390,22 +392,22 @@ char* dst;			/* New name. */
     if (errno == EACCES) {
 	decode:
 	if (srcAttr & FILE_ATTRIBUTE_DIRECTORY) {
-	    char srcPath[MAX_PATH], dstPath[MAX_PATH];
-	    char *srcRest, *dstRest;
+	    WCHAR srcPath[MAX_PATH], dstPath[MAX_PATH];
+	    WCHAR *srcRest, *dstRest;
 	    int size;
 
-	    size = GetFullPathName(src, sizeof(srcPath), srcPath, &srcRest);
-	    if ((size == 0) || (size > sizeof(srcPath))) {
+	    size = GetFullPathNameW(wsrc, MAX_PATH, srcPath, &srcRest);
+	    if ((size == 0) || (size > MAX_PATH)) {
 		return check_error(-1, errInfo);
 	    }
-	    size = GetFullPathName(dst, sizeof(dstPath), dstPath, &dstRest);
-	    if ((size == 0) || (size > sizeof(dstPath))) {
+	    size = GetFullPathNameW(wdst, MAX_PATH, dstPath, &dstRest);
+	    if ((size == 0) || (size > MAX_PATH)) {
 		return check_error(-1, errInfo);
 	    }
 	    if (srcRest == NULL) {
-		srcRest = srcPath + strlen(srcPath);
+		srcRest = srcPath + wcslen(srcPath);
 	    }
-	    if (strnicmp(srcPath, dstPath, srcRest - srcPath) == 0) {
+	    if (_wcsnicmp(srcPath, dstPath, srcRest - srcPath) == 0) {
 		/*
 		 * Trying to move a directory into itself.
 		 */
@@ -420,14 +422,14 @@ char* dst;			/* New name. */
 	    }
 
 	    (void) extract_root(dstPath);
-	    if (dstPath[0] == '\0') {
+	    if (dstPath[0] == L'\0') {
 		/*
 		 * The filename was invalid.  (Don't know why,
 		 * but play it safe.)
 		 */
 		errno = EINVAL;
 	    }
-	    if (stricmp(srcPath, dstPath) != 0) {
+	    if (_wcsicmp(srcPath, dstPath) != 0) {
 		/*
 		 * If src is a directory and dst filesystem != src
 		 * filesystem, errno should be EXDEV.  It is very
@@ -463,14 +465,14 @@ char* dst;			/* New name. */
 		 * fails, it's because it wasn't empty.
 		 */
 
-		if (RemoveDirectory(dst)) {
+		if (RemoveDirectoryW(wdst)) {
 		    /*
 		     * Now that that empty directory is gone, we can try
 		     * renaming again.  If that fails, we'll put this empty
 		     * directory back, for completeness.
 		     */
 
-		    if (MoveFile(src, dst) != FALSE) {
+		    if (MoveFileW(wsrc, wdst) != FALSE) {
 			return 1;
 		    }
 
@@ -480,8 +482,8 @@ char* dst;			/* New name. */
 		     */
 
 		    errno = errno_map(GetLastError());
-		    CreateDirectory(dst, NULL);
-		    SetFileAttributes(dst, dstAttr);
+		    CreateDirectoryW(wdst, NULL);
+		    SetFileAttributesW(wdst, dstAttr);
 		    if (errno == EACCES) {
 			/*
 			 * Decode the EACCES to a more meaningful error.
@@ -506,17 +508,17 @@ char* dst;			/* New name. */
 		 *    put temp file back to old name.
 		 */
 
-		char tempName[MAX_PATH];
+		WCHAR tempName[MAX_PATH];
 		int result, size;
-		char *rest;
+		WCHAR *rest;
 		
-		size = GetFullPathName(dst, sizeof(tempName), tempName, &rest);
-		if ((size == 0) || (size > sizeof(tempName)) || (rest == NULL)) {
+		size = GetFullPathNameW(wdst, MAX_PATH, tempName, &rest);
+		if ((size == 0) || (size > MAX_PATH) || (rest == NULL)) {
 		    return check_error(-1, errInfo);
 		}
-		*rest = '\0';
+		*rest = L'\0';
 		result = -1;
-		if (GetTempFileName(tempName, "erlr", 0, tempName) != 0) {
+		if (GetTempFileNameW(tempName, L"erlr", 0, tempName) != 0) {
 		    /*
 		     * Strictly speaking, need the following DeleteFile and
 		     * MoveFile to be joined as an atomic operation so no
@@ -524,15 +526,15 @@ char* dst;			/* New name. */
 		     * same temp file.
 		     */
 		     
-		    DeleteFile(tempName);
-		    if (MoveFile(dst, tempName) != FALSE) {
-			if (MoveFile(src, dst) != FALSE) {
-			    SetFileAttributes(tempName, FILE_ATTRIBUTE_NORMAL);
-			    DeleteFile(tempName);
+		    DeleteFileW(tempName);
+		    if (MoveFileW(wdst, tempName) != FALSE) {
+			if (MoveFileW(wsrc, wdst) != FALSE) {
+			    SetFileAttributesW(tempName, FILE_ATTRIBUTE_NORMAL);
+			    DeleteFileW(tempName);
 			    return 1;
 			} else {
-			    DeleteFile(dst);
-			    MoveFile(tempName, dst);
+			    DeleteFileW(wdst);
+			    MoveFileW(tempName, wdst);
 			}
 		    } 
 
@@ -558,11 +560,10 @@ char* dst;			/* New name. */
 }
 
 int
-efile_chdir(errInfo, name)
-Efile_error* errInfo;		/* Where to return error codes. */
-char* name;			/* Name of directory to make current. */
+efile_chdir(Efile_error* errInfo,	/* Where to return error codes. */
+	    char* name)			/* Name of directory to make current. */
 {
-    int success = check_error(chdir(name), errInfo);
+    int success = check_error(_wchdir((WCHAR *) name), errInfo);
     if (!success && errInfo->posix_errno == EINVAL)
 	/* POSIXification of errno */
 	errInfo->posix_errno = ENOENT;
@@ -570,59 +571,65 @@ char* name;			/* Name of directory to make current. */
 }
 
 int
-efile_getdcwd(errInfo, drive, buffer, size)
-Efile_error* errInfo;		/* Where to return error codes. */
-int drive;			/* 0 - current, 1 - A, 2 - B etc. */
-char* buffer;			/* Where to return the current directory. */
-size_t size;			/* Size of buffer. */
+efile_getdcwd(Efile_error* errInfo,		/* Where to return error codes. */
+	      int drive,			/* 0 - current, 1 - A, 2 - B etc. */
+	      char* buffer,			/* Where to return the current directory. */
+	      size_t size)			/* Size of buffer. */
 {
-    if (_getdcwd(drive, buffer, size) == NULL)
+    WCHAR *wbuffer = (WCHAR *) buffer;
+    size_t wbuffer_size = size / 2; 
+    if (_wgetdcwd(drive, wbuffer, wbuffer_size) == NULL)
 	return check_error(-1, errInfo);
-    for ( ; *buffer; buffer++) 
-	if (*buffer == '\\')
-	    *buffer = '/';
+    for ( ; *wbuffer; wbuffer++) 
+	if (*wbuffer == L'\\')
+	    *wbuffer = L'/';
     return 1;
 }
 
 int
-efile_readdir(errInfo, name, dir_handle, buffer, size)
-Efile_error* errInfo;		/* Where to return error codes. */
-char* name;			/* Name of directory to open. */
-EFILE_DIR_HANDLE* dir_handle;	/* Directory handle of open directory. */
-char* buffer;			/* Pointer to buffer for one filename. */
-size_t size;			/* Size of buffer. */
+efile_readdir(Efile_error* errInfo, /* Where to return error codes. */
+	      char* name,           /* Name of directory to list */
+	      EFILE_DIR_HANDLE* dir_handle, /* Handle of opened directory or NULL */
+	      char* buffer,                 /* Buffer to put one filename in */ 
+	      size_t *size)                 /* in-out size of buffer/size of filename excluding zero
+					       termination in bytes*/
 {
     HANDLE dir;			/* Handle to directory. */
-    char wildcard[MAX_PATH];	/* Wildcard to search for. */
-    WIN32_FIND_DATA findData;	/* Data found by FindFirstFile() or FindNext(). */
+    WCHAR wildcard[MAX_PATH];	/* Wildcard to search for. */
+    WIN32_FIND_DATAW findData;	/* Data found by FindFirstFile() or FindNext(). */
+    /* Alignment is not honored, this works on x86 because of alignment fixup by processor.
+       Not perfect, but faster than alinging by hand (really) */
+    WCHAR *wname = (WCHAR *) name;
+    WCHAR *wbuffer = (WCHAR *) buffer;
 
     /*
      * First time we must setup everything.
      */
 
     if (*dir_handle == NULL) {
-	int length = strlen(name);
-	char* s;
+	int length = wcslen(wname);
+	WCHAR* s;
 
 	if (length+3 >= MAX_PATH) {
 	    errno = ENAMETOOLONG;
 	    return check_error(-1, errInfo);
 	}
 
-	strcpy(wildcard, name);
+	wcscpy(wildcard, wname);
 	s = wildcard+length-1;
-	if (*s != '/' && *s != '\\')
-	    *++s = '\\';
-	*++s = '*';
-	*++s = '\0';
-	DEBUGF(("Reading %s\n", wildcard));
-	dir = FindFirstFile(wildcard, &findData);
+	if (*s != L'/' && *s != L'\\')
+	    *++s = L'\\';
+	*++s = L'*';
+	*++s = L'\0';
+	DEBUGF(("Reading %ws\n", wildcard));
+	dir = FindFirstFileW(wildcard, &findData);
 	if (dir == INVALID_HANDLE_VALUE)
 	    return set_error(errInfo);
 	*dir_handle = (EFILE_DIR_HANDLE) dir;
 
 	if (!IS_DOT_OR_DOTDOT(findData.cFileName)) {
-	    strcpy(buffer, findData.cFileName);
+	    wcscpy(wbuffer, findData.cFileName);
+	    *size = wcslen(wbuffer)*2;
 	    return 1;
 	}
     }
@@ -635,10 +642,11 @@ size_t size;			/* Size of buffer. */
     dir = (HANDLE) *dir_handle;
 
     for (;;) {
-	if (FindNextFile(dir, &findData)) {
+	if (FindNextFileW(dir, &findData)) {
 	    if (IS_DOT_OR_DOTDOT(findData.cFileName))
 		continue;
-	    strcpy(buffer, findData.cFileName);
+	    wcscpy(wbuffer, findData.cFileName);
+	    *size = wcslen(wbuffer)*2;
 	    return 1;
 	}
 
@@ -655,17 +663,17 @@ size_t size;			/* Size of buffer. */
 }
 
 int
-efile_openfile(errInfo, name, flags, pfd, pSize)
-Efile_error* errInfo;		/* Where to return error codes. */
-char* name;			/* Name of directory to open. */
-int flags;			/* Flags to use for opening. */
-int* pfd;			/* Where to store the file descriptor. */
-Sint64* pSize;			/* Where to store the size of the file. */
+efile_openfile(Efile_error* errInfo,		/* Where to return error codes. */
+	       char* name,			/* Name of directory to open. */
+	       int flags,			/* Flags to use for opening. */
+	       int* pfd,			/* Where to store the file descriptor. */
+	       Sint64* pSize)			/* Where to store the size of the file. */
 {
     BY_HANDLE_FILE_INFORMATION fileInfo; /* File information from a handle. */
     HANDLE fd;			/* Handle to open file. */
     DWORD access;		/* Access mode: GENERIC_READ, GENERIC_WRITE. */
     DWORD crFlags;
+    WCHAR *wname = (WCHAR *) name;
 
     switch (flags & (EFILE_MODE_READ|EFILE_MODE_WRITE)) {
     case EFILE_MODE_READ:
@@ -689,7 +697,11 @@ Sint64* pSize;			/* Where to store the size of the file. */
     if (flags & EFILE_MODE_APPEND) {
 	crFlags = OPEN_ALWAYS;
     }
-    fd = CreateFile(name, access, FILE_SHARE_READ | FILE_SHARE_WRITE,
+    if (flags & EFILE_MODE_EXCL) {
+	crFlags = CREATE_NEW;
+    }
+    fd = CreateFileW(wname, access,
+		    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
 		    NULL, crFlags, FILE_ATTRIBUTE_NORMAL, NULL);
 
     /*
@@ -707,7 +719,7 @@ Sint64* pSize;			/* Where to store the size of the file. */
 	 * to EISDIR.
 	 */
 	if (errInfo->posix_errno && 
-	    (attr = GetFileAttributes(name)) != INVALID_FILE_ATTRIBUTES && 
+	    (attr = GetFileAttributesW(wname)) != INVALID_FILE_ATTRIBUTES && 
 	    (attr & FILE_ATTRIBUTE_DIRECTORY)) {
 	    errInfo->posix_errno = EISDIR;
 	}
@@ -731,9 +743,10 @@ Sint64* pSize;			/* Where to store the size of the file. */
 
 int 
 efile_may_openfile(Efile_error* errInfo, char *name) {
+    WCHAR *wname = (WCHAR *) name;
     DWORD attr;
 
-    if ((attr = GetFileAttributes(name)) == INVALID_FILE_ATTRIBUTES) {
+    if ((attr = GetFileAttributesW(wname)) == INVALID_FILE_ATTRIBUTES) {
 	return check_error(-1, errInfo);
     }
 
@@ -742,18 +755,6 @@ efile_may_openfile(Efile_error* errInfo, char *name) {
 	return check_error(-1, errInfo);
     }
     return 1;
-#if 0
-    struct stat statbuf;
-    
-    if (stat(name, &statbuf)) {
-	return check_error(-1, errInfo);
-    }
-    if (ISDIR(statbuf)) {
-	errno = EISDIR;
-	return check_error(-1, errInfo);
-    }
-    return 1;
-#endif
 }
 
 void
@@ -761,6 +762,15 @@ efile_closefile(fd)
 int fd;				/* File descriptor for file to close. */
 {
     CloseHandle((HANDLE) fd);
+}
+
+int
+efile_fdatasync(errInfo, fd)
+Efile_error* errInfo;		/* Where to return error codes. */
+int fd;				/* File descriptor for file to sync. */
+{
+    /* Not available in Windows, just call regular fsync */
+    return efile_fsync(errInfo, fd);
 }
 
 int
@@ -779,16 +789,17 @@ efile_fileinfo(Efile_error* errInfo, Efile_info* pInfo,
 	       char* orig_name, int info_for_link)
 {
     HANDLE findhandle;		/* Handle returned by FindFirstFile(). */
-    WIN32_FIND_DATA findbuf;	/* Data return by FindFirstFile(). */
-    char name[_MAX_PATH];
+    WIN32_FIND_DATAW findbuf;	/* Data return by FindFirstFile(). */
+    WCHAR name[_MAX_PATH];
     int name_len;
-    char* path;
-    char pathbuf[_MAX_PATH];
+    WCHAR *path;
+    WCHAR pathbuf[_MAX_PATH];
     int drive;			/* Drive for filename (1 = A:, 2 = B: etc). */
+    WCHAR *worig_name = (WCHAR *) orig_name; 
 
     /* Don't allow wildcards to be interpreted by system */
 
-    if (strpbrk(orig_name, "?*")) {
+    if (wcspbrk(worig_name, L"?*")) {
     enoent:
 	errInfo->posix_errno = ENOENT;
 	errInfo->os_errno = ERROR_FILE_NOT_FOUND;
@@ -800,25 +811,25 @@ efile_fileinfo(Efile_error* errInfo, Efile_info* pInfo,
      * slash, because it causes FindFirstFile() to fail on Win95.
      */
 
-    if ((name_len = strlen(orig_name)) >= _MAX_PATH) {
+    if ((name_len = wcslen(worig_name)) >= _MAX_PATH) {
 	goto enoent;
     } else {
-	strcpy(name, orig_name);
+	wcscpy(name, worig_name);
 	if (name_len > 2 && ISSLASH(name[name_len-1]) &&
-	    name[name_len-2] != ':') {
-	    name[name_len-1] = '\0';
+	    name[name_len-2] != L':') {
+	    name[name_len-1] = L'\0';
 	}
     }
     
     /* Try to get disk from name.  If none, get current disk.  */
 
-    if (name[1] != ':') {
+    if (name[1] != L':') {
         drive = 0;
-        if (GetCurrentDirectory(sizeof(pathbuf), pathbuf) &&
-	    pathbuf[1] == ':') {
-	    drive = tolower(pathbuf[0]) - 'a' + 1;
+        if (GetCurrentDirectoryW(_MAX_PATH, pathbuf) &&
+	    pathbuf[1] == L':') {
+	    drive = towlower(pathbuf[0]) - L'a' + 1;
 	}
-    } else if (*name && name[2] == '\0') {
+    } else if (*name && name[2] == L'\0') {
 	/*
 	 * X: and nothing more is an error.
 	 */
@@ -826,15 +837,15 @@ efile_fileinfo(Efile_error* errInfo, Efile_info* pInfo,
 	errInfo->os_errno = ERROR_FILE_NOT_FOUND;
 	return 0;
     } else
-        drive = tolower(*name) - 'a' + 1;
+        drive = towlower(*name) - L'a' + 1;
 
-    findhandle = FindFirstFile(name, &findbuf);
+    findhandle = FindFirstFileW(name, &findbuf);
     if (findhandle == INVALID_HANDLE_VALUE) {
-        if (!(strpbrk(name, "./\\") &&
-	      (path = _fullpath(pathbuf, name, _MAX_PATH)) &&
+        if (!(wcspbrk(name, L"./\\") &&
+	      (path = _wfullpath(pathbuf, name, _MAX_PATH)) &&
 	      /* root dir. ('C:\') or UNC root dir. ('\\server\share\') */
-	      ((strlen(path) == 3) || IsRootUNCName(path)) &&
-	      (GetDriveType(path) > 1)   ) ) {
+	      ((wcslen(path) == 3) || is_root_unc_name(path)) &&
+	      (GetDriveTypeW(path) > 1)   ) ) {
 	    errInfo->posix_errno = ENOENT;
 	    errInfo->os_errno = ERROR_FILE_NOT_FOUND;
 	    return 0;
@@ -847,8 +858,9 @@ efile_fileinfo(Efile_error* errInfo, Efile_info* pInfo,
         findbuf.dwFileAttributes = FILE_ATTRIBUTE_DIRECTORY;
         findbuf.nFileSizeHigh = 0;
         findbuf.nFileSizeLow = 0;
-        findbuf.cFileName[0] = '\0';
+        findbuf.cFileName[0] = L'\0';
 
+	pInfo->links = 1;
 	pInfo->modifyTime.year = 1980;
 	pInfo->modifyTime.month = 1;
 	pInfo->modifyTime.day = 1;
@@ -860,6 +872,35 @@ efile_fileinfo(Efile_error* errInfo, Efile_info* pInfo,
     } else {
 	SYSTEMTIME SystemTime;
         FILETIME LocalFTime;
+
+	/*first check if we are a symlink */
+	if (!info_for_link && (findbuf.dwFileAttributes &
+			       FILE_ATTRIBUTE_REPARSE_POINT)){
+	    /*
+	     * given that we know this is a symlink,
+	     we should be able to find its target */
+	    WCHAR target_name[_MAX_PATH];
+	    if (efile_readlink(errInfo, (char *) name, 
+			       (char *) target_name,256) == 1) {
+		FindClose(findhandle);
+		return efile_fileinfo(errInfo, pInfo,
+				      (char *) target_name, info_for_link);
+	    }
+	}
+
+	/* number of links: */
+	{
+	    HANDLE handle;	/* Handle returned by CreateFile() */
+	    BY_HANDLE_FILE_INFORMATION fileInfo; /* from  CreateFile() */
+	    if (handle = CreateFileW(name, GENERIC_READ, 0,NULL,
+				    OPEN_EXISTING, 0, NULL)) {
+		GetFileInformationByHandle(handle, &fileInfo);
+		pInfo->links = fileInfo.nNumberOfLinks;
+		CloseHandle(handle);
+	    } else {
+		pInfo->links = 1;
+	    }	
+	}
 
 #define GET_TIME(dst, src) \
 if (!FileTimeToLocalFileTime(&findbuf.src, &LocalFTime) || \
@@ -895,7 +936,10 @@ if (!FileTimeToLocalFileTime(&findbuf.src, &LocalFTime) || \
     pInfo->size_low = findbuf.nFileSizeLow;
     pInfo->size_high = findbuf.nFileSizeHigh;
 	
-    if (findbuf.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+    if (info_for_link && (findbuf.dwFileAttributes &
+			  FILE_ATTRIBUTE_REPARSE_POINT))
+	pInfo->type = FT_SYMLINK;
+    else if (findbuf.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
 	pInfo->type = FT_DIRECTORY;
     else
 	pInfo->type = FT_REGULAR;
@@ -906,7 +950,6 @@ if (!FileTimeToLocalFileTime(&findbuf.src, &LocalFTime) || \
 	pInfo->access = FA_READ|FA_WRITE;
 
     pInfo->mode = dos_to_posix_mode(findbuf.dwFileAttributes, name);
-    pInfo->links = 1;
     pInfo->major_device = drive;
     pInfo->minor_device = 0;
     pInfo->inode = 0;
@@ -917,10 +960,9 @@ if (!FileTimeToLocalFileTime(&findbuf.src, &LocalFTime) || \
 }
 
 int
-efile_write_info(errInfo, pInfo, name)
-Efile_error* errInfo;
-Efile_info* pInfo;
-char* name;
+efile_write_info(Efile_error* errInfo,
+		 Efile_info* pInfo,
+		 char* name)
 {
     SYSTEMTIME timebuf;
     FILETIME LocalFileTime;
@@ -934,12 +976,13 @@ char* name;
     DWORD attr;
     DWORD tempAttr;
     BOOL modifyTime = FALSE;
+    WCHAR *wname = (WCHAR *) name;
 
     /*
      * Get the attributes for the file.
      */
 
-    tempAttr = attr = GetFileAttributes((LPTSTR)name);
+    tempAttr = attr = GetFileAttributesW(wname);
     if (attr == 0xffffffff) {
 	return set_error(errInfo);
     }
@@ -975,8 +1018,8 @@ char* name;
      } \
     }
 
-    MKTIME(ModifyFileTime, pInfo->accessTime, mtime);
-    MKTIME(AccessFileTime, pInfo->modifyTime, atime);
+    MKTIME(ModifyFileTime, pInfo->modifyTime, mtime);
+    MKTIME(AccessFileTime, pInfo->accessTime, atime);
     MKTIME(CreationFileTime, pInfo->cTime, ctime);
 #undef MKTIME
 
@@ -993,12 +1036,12 @@ char* name;
 
 	if (tempAttr & FILE_ATTRIBUTE_READONLY) {
 	    tempAttr &= ~FILE_ATTRIBUTE_READONLY;
-	    if (!SetFileAttributes((LPTSTR) name, tempAttr)) {
+	    if (!SetFileAttributesW(wname, tempAttr)) {
 		return set_error(errInfo);
 	    }
 	}
 
-	fd = CreateFile(name, GENERIC_READ|GENERIC_WRITE,
+	fd = CreateFileW(wname, GENERIC_READ|GENERIC_WRITE,
 			FILE_SHARE_READ | FILE_SHARE_WRITE,
 			NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 	if (fd != INVALID_HANDLE_VALUE) {
@@ -1016,7 +1059,7 @@ char* name;
      */
 
     if (tempAttr != attr) {
-	if (!SetFileAttributes((LPTSTR) name, attr)) {
+	if (!SetFileAttributesW(wname, attr)) {
 	    return set_error(errInfo);
 	}
     }
@@ -1069,12 +1112,17 @@ char* buf;			/* Buffer to write. */
 size_t count;			/* Number of bytes to write. */
 {
     DWORD written;		/* Bytes written in last operation. */
+    OVERLAPPED overlapped;
+    OVERLAPPED* pOverlapped = NULL;
 
     if (flags & EFILE_MODE_APPEND) {
-	(void) SetFilePointer((HANDLE) fd, 0, NULL, FILE_END);
+	memset(&overlapped, 0, sizeof(overlapped));
+	overlapped.Offset = 0xffffffff;
+	overlapped.OffsetHigh = 0xffffffff;
+	pOverlapped = &overlapped;
     }
     while (count > 0) {
-	if (!WriteFile((HANDLE) fd, buf, count, &written, NULL))
+	if (!WriteFile((HANDLE) fd, buf, count, &written, pOverlapped))
 	    return set_error(errInfo);
 	buf += written;
 	count -= written;
@@ -1094,11 +1142,16 @@ efile_writev(Efile_error* errInfo,   /* Where to return error codes */
 	     size_t size)            /* Number of bytes to write */
 {
     int cnt;                         /* Buffers so far written */
+    OVERLAPPED overlapped;
+    OVERLAPPED* pOverlapped = NULL;
 
     ASSERT(iovcnt >= 0);
     
     if (flags & EFILE_MODE_APPEND) {
-	(void) SetFilePointer((HANDLE) fd, 0, NULL, FILE_END);
+	memset(&overlapped, 0, sizeof(overlapped));
+	overlapped.Offset = 0xffffffff;
+	overlapped.OffsetHigh = 0xffffffff;
+	pOverlapped = &overlapped;
     }
     for (cnt = 0; cnt < iovcnt; cnt++) {
 	if (iov[cnt].iov_base && iov[cnt].iov_len > 0) {
@@ -1110,7 +1163,7 @@ efile_writev(Efile_error* errInfo,   /* Where to return error codes */
 			       iov[cnt].iov_base + p, 
 			       iov[cnt].iov_len - p, 
 			       &w, 
-			       NULL))
+			       pOverlapped))
 		    return set_error(errInfo);
 	    }
 	}
@@ -1182,7 +1235,7 @@ int flags;
 
 
 /*
- * IsRootUNCName - returns TRUE if the argument is a UNC name specifying
+ * is_root_unc_name - returns TRUE if the argument is a UNC name specifying
  *      a root share.  That is, if it is of the form \\server\share\.
  *      This routine will also return true if the argument is of the
  *      form \\server\share (no trailing slash) but Win32 currently
@@ -1192,16 +1245,16 @@ int flags;
  */
 
 static int
-IsRootUNCName(const char* path)
+is_root_unc_name(const WCHAR *path)
 {
     /*
      * If a root UNC name, path will start with 2 (but not 3) slashes
      */
 
-    if ((strlen(path) >= 5) /* minimum string is "//x/y" */
+    if ((wcslen(path) >= 5) /* minimum string is "//x/y" */
 	&& ISSLASH(path[0]) && ISSLASH(path[1]))
     {
-        const char * p = path + 2 ;
+        const WCHAR *p = path + 2;
 
         /*
          * find the slash between the server name and share name
@@ -1244,19 +1297,19 @@ IsRootUNCName(const char* path)
  */
 
 static int
-extract_root(char* name)
+extract_root(WCHAR* name)
 {
-    int len = strlen(name);
+    int len = wcslen(name);
 
-    if (isalpha(name[0]) && name[1] == ':' && ISSLASH(name[2])) {
-	int c = name[3];
-	name[3] = '\0';
-	return c == '\0';
+    if (iswalpha(name[0]) && name[1] == L':' && ISSLASH(name[2])) {
+	WCHAR c = name[3];
+	name[3] = L'\0';
+	return c == L'\0';
     } else if (len < 5 || !ISSLASH(name[0]) || !ISSLASH(name[1])) {
 	goto error;
     } else {			/* Try to find the end of the UNC name. */
-	char* p;
-	int c;
+	WCHAR* p;
+	WCHAR c;
 
         /*
          * Find the slash between the server name and share name.
@@ -1265,7 +1318,7 @@ extract_root(char* name)
 	for (p = name + 2; *p; p++)
             if (ISSLASH(*p))
                 break;
-	if (*p == '\0')
+	if (*p == L'\0')
 	    goto error;
 
 	/*
@@ -1276,24 +1329,24 @@ extract_root(char* name)
             if (ISSLASH(*p))
                 break;
 	c = *p;
-	*p = '\0';
-	return c == '\0' || p[1] == '\0';
+	*p = L'\0';
+	return c == L'\0' || p[1] == L'\0';
     }
 
  error:
-    *name = '\0';
+    *name = L'\0';
     return 1;
 }
 
 static unsigned short
-dos_to_posix_mode(int attr, const char *name)
+dos_to_posix_mode(int attr, const WCHAR *name)
 {
     register unsigned short uxmode;
     unsigned dosmode;
-    register const char *p;
+    register const WCHAR *p;
 
     dosmode = attr & 0xff;
-    if ((p = name)[1] == ':')
+    if ((p = name)[1] == L':')
 	p += 2;
 
     /* check to see if this is a directory - note we must make a special
@@ -1302,7 +1355,7 @@ dos_to_posix_mode(int attr, const char *name)
 
     uxmode = (unsigned short)
 	(((ISSLASH(*p) && !p[1]) || (dosmode & FILE_ATTRIBUTE_DIRECTORY) ||
-	       *p == '\0') ? _S_IFDIR|_S_IEXEC : _S_IFREG);
+	       *p == L'\0') ? _S_IFDIR|_S_IEXEC : _S_IFREG);
 
     /* If attribute byte does not have read-only bit, it is read-write */
 
@@ -1311,11 +1364,11 @@ dos_to_posix_mode(int attr, const char *name)
 
     /* see if file appears to be executable - check extension of name */
 
-    if (p = strrchr(name, '.')) {
-        if (!stricmp(p, ".exe") ||
-	    !stricmp(p, ".cmd") ||
-	    !stricmp(p, ".bat") ||
-	    !stricmp(p, ".com"))
+    if (p = wcsrchr(name, L'.')) {
+        if (!_wcsicmp(p, L".exe") ||
+	    !_wcsicmp(p, L".cmd") ||
+	    !_wcsicmp(p, L".bat") ||
+	    !_wcsicmp(p, L".com"))
             uxmode |= _S_IEXEC;
     }
 
@@ -1330,6 +1383,60 @@ dos_to_posix_mode(int attr, const char *name)
 int
 efile_readlink(Efile_error* errInfo, char* name, char* buffer, size_t size)
 {
+    /*
+     * load dll and see if we have CreateSymbolicLink at runtime:
+     * (Vista only)
+     */
+    HINSTANCE hModule = NULL;
+    WCHAR *wname = (WCHAR *) name;
+    WCHAR *wbuffer = (WCHAR *) buffer;
+    if ((hModule = LoadLibrary("kernel32.dll")) != NULL) {
+	typedef DWORD (WINAPI * GETFINALPATHNAMEBYHANDLEPTR)(
+							     HANDLE hFile,
+							     LPCWSTR lpFilePath,
+							     DWORD cchFilePath,
+							     DWORD dwFlags);
+
+	GETFINALPATHNAMEBYHANDLEPTR pGetFinalPathNameByHandle =
+	    (GETFINALPATHNAMEBYHANDLEPTR)GetProcAddress(hModule, "GetFinalPathNameByHandleW");
+
+	if (pGetFinalPathNameByHandle == NULL) {
+	    FreeLibrary(hModule);
+	} else {
+	    /* first check if file is a symlink; {error, einval} otherwise */
+	    DWORD fileAttributes =  GetFileAttributesW(wname);
+	    if ((fileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)) {
+		BOOLEAN success = 0;
+		HANDLE h = CreateFileW(wname, GENERIC_READ, 0,NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
+		int len;
+		if(h != INVALID_HANDLE_VALUE) {
+		    success = pGetFinalPathNameByHandle(h, wbuffer, size,0);
+		    /* GetFinalPathNameByHandle prepends path with "\\?\": */
+		    len = wcslen(wbuffer);
+		    wmemmove(wbuffer,wbuffer+4,len-3);
+		    if (len - 4 >= 2 && wbuffer[1] == L':' && wbuffer[0] >= L'A' &&
+			wbuffer[0] <= L'Z') {
+			wbuffer[0] = wbuffer[0] + L'a' - L'A';
+		    }
+			
+		    for ( ; *wbuffer; wbuffer++) 
+			if (*wbuffer == L'\\')
+			    *wbuffer = L'/';
+		    CloseHandle(h);
+		} 
+		FreeLibrary(hModule);
+		if (success) {
+		    return 1;
+		} else {
+		    return set_error(errInfo);
+		}
+	    } else {
+		FreeLibrary(hModule);
+		errno = EINVAL;
+		return check_error(-1, errInfo);
+	    }
+	}
+    }
     errno = ENOTSUP;
     return check_error(-1, errInfo);
 }
@@ -1338,17 +1445,20 @@ efile_readlink(Efile_error* errInfo, char* name, char* buffer, size_t size)
 int
 efile_altname(Efile_error* errInfo, char* orig_name, char* buffer, size_t size)
 {
-    WIN32_FIND_DATA wfd;
+    WIN32_FIND_DATAW wfd;
     HANDLE fh;
-    char name[_MAX_PATH];
+    WCHAR name[_MAX_PATH+1];
     int name_len;
-    char* path;
-    char pathbuf[_MAX_PATH];
+    WCHAR* path;
+    WCHAR pathbuf[_MAX_PATH+1]; /* Unclear weather GetCurrentDirectory will access one char after
+				   _MAX_PATH */
+    WCHAR *worig_name = (WCHAR *) orig_name;
+    WCHAR *wbuffer = (WCHAR *) buffer;
     int drive;			/* Drive for filename (1 = A:, 2 = B: etc). */
 
     /* Don't allow wildcards to be interpreted by system */
 
-    if (strpbrk(orig_name, "?*")) {
+    if (wcspbrk(worig_name, L"?*")) {
     enoent:
 	errInfo->posix_errno = ENOENT;
 	errInfo->os_errno = ERROR_FILE_NOT_FOUND;
@@ -1360,67 +1470,114 @@ efile_altname(Efile_error* errInfo, char* orig_name, char* buffer, size_t size)
      * slash, because it causes FindFirstFile() to fail on Win95.
      */
 
-    if ((name_len = strlen(orig_name)) >= _MAX_PATH) {
+    if ((name_len = wcslen(worig_name)) >= _MAX_PATH) {
 	goto enoent;
     } else {
-	strcpy(name, orig_name);
+	wcscpy(name, worig_name);
 	if (name_len > 2 && ISSLASH(name[name_len-1]) &&
-	    name[name_len-2] != ':') {
-	    name[name_len-1] = '\0';
+	    name[name_len-2] != L':') {
+	    name[name_len-1] = L'\0';
 	}
     }
     
     /* Try to get disk from name.  If none, get current disk.  */
 
-    if (name[1] != ':') {
+    if (name[1] != L':') {
         drive = 0;
-        if (GetCurrentDirectory(sizeof(pathbuf), pathbuf) &&
-	    pathbuf[1] == ':') {
-	    drive = tolower(pathbuf[0]) - 'a' + 1;
+        if (GetCurrentDirectoryW(_MAX_PATH, pathbuf) &&
+	    pathbuf[1] == L':') {
+	    drive = towlower(pathbuf[0]) - L'a' + 1;
 	}
-    } else if (*name && name[2] == '\0') {
+    } else if (*name && name[2] == L'\0') {
 	/*
 	 * X: and nothing more is an error.
 	 */
 	goto enoent;
     } else {
-        drive = tolower(*name) - 'a' + 1;
+        drive = towlower(*name) - L'a' + 1;
     }
-    fh = FindFirstFile(name,&wfd);
+    fh = FindFirstFileW(name,&wfd);
     if (fh == INVALID_HANDLE_VALUE) {
-        if (!(strpbrk(name, "./\\") &&
-	      (path = _fullpath(pathbuf, name, _MAX_PATH)) &&
+        if (!(wcspbrk(name, L"./\\") &&
+	      (path = _wfullpath(pathbuf, name, _MAX_PATH)) &&
 	      /* root dir. ('C:\') or UNC root dir. ('\\server\share\') */
-	      ((strlen(path) == 3) || IsRootUNCName(path)) &&
-	      (GetDriveType(path) > 1)   ) ) {
+	      ((wcslen(path) == 3) || is_root_unc_name(path)) &&
+	      (GetDriveTypeW(path) > 1)   ) ) {
 	    errno = errno_map(GetLastError());
 	    return check_error(-1, errInfo);
 	}
         /*
          * Root directories (such as C:\ or \\server\share\ are fabricated.
          */
-	strcpy(buffer,name);
+	wcscpy(wbuffer,name);
 	return 1;
     }
 	
-    strcpy(buffer,wfd.cAlternateFileName);
-    if (!*buffer) {
-	strcpy(buffer,wfd.cFileName);
+    wcscpy(wbuffer,wfd.cAlternateFileName);
+    if (!*wbuffer) {
+	wcscpy(wbuffer,wfd.cFileName);
     }
-
+    FindClose(fh);
     return 1;
 }
+
 
 int
 efile_link(Efile_error* errInfo, char* old, char* new)
 {
-    errno = ENOTSUP;
-    return check_error(-1, errInfo);
+    WCHAR *wold = (WCHAR *) old;
+    WCHAR *wnew = (WCHAR *) new;
+    if(!CreateHardLinkW(wnew, wold, NULL)) {
+	return set_error(errInfo);
+    }
+    return 1;
 }
 
 int
 efile_symlink(Efile_error* errInfo, char* old, char* new)
 {
+    /*
+     * Load dll and see if we have CreateSymbolicLink at runtime:
+     * (Vista only)
+     */
+    HINSTANCE hModule = NULL;
+    WCHAR *wold = (WCHAR *) old;
+    WCHAR *wnew = (WCHAR *) new;
+    if ((hModule = LoadLibrary("kernel32.dll")) != NULL) {
+	typedef BOOLEAN (WINAPI  * CREATESYMBOLICLINKFUNCPTR) (
+	     LPCWSTR lpSymlinkFileName,
+	     LPCWSTR lpTargetFileName,
+	     DWORD dwFlags);
+
+	CREATESYMBOLICLINKFUNCPTR pCreateSymbolicLink =
+	    (CREATESYMBOLICLINKFUNCPTR) GetProcAddress(hModule,
+						       "CreateSymbolicLinkW");
+	/* A for MBCS, W for UNICODE... char* above implies 'W'! */
+	if (pCreateSymbolicLink != NULL) {
+	    DWORD attr = GetFileAttributesW(wold);
+	    int flag = (attr != INVALID_FILE_ATTRIBUTES &&
+			attr & FILE_ATTRIBUTE_DIRECTORY) ? 1 : 0;
+	    /*  SYMBOLIC_LINK_FLAG_DIRECTORY = 1 */
+	    BOOLEAN success = pCreateSymbolicLink(wnew, wold, flag);
+	    FreeLibrary(hModule);
+
+	    if (success) {
+		return 1;
+	    } else {
+		return set_error(errInfo);
+	    }
+	} else
+	    FreeLibrary(hModule);
+    }
     errno = ENOTSUP;
     return check_error(-1, errInfo);
+}
+
+int
+efile_fadvise(Efile_error* errInfo, int fd, Sint64 offset,
+	    Sint64 length, int advise)
+{
+    /* posix_fadvise is not available on Windows, do nothing */
+    errno = ERROR_SUCCESS;
+    return check_error(0, errInfo);
 }

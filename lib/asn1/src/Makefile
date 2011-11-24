@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 1997-2009. All Rights Reserved.
+# Copyright Ericsson AB 1997-2011. All Rights Reserved.
 # 
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -68,7 +68,7 @@ RT_MODULES= \
 	asn1rt_per_bin_rt2ct \
 	asn1rt_uper_bin \
 	asn1rt_check \
-	asn1rt_driver_handler
+	asn1rt_nif
 #	asn1_sup \
 #	asn1_app \
 #	asn1_server

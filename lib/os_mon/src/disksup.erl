@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -103,6 +103,7 @@ init([]) ->
 				    Flavor==darwin;
 				    Flavor==linux;
 				    Flavor==openbsd;
+				    Flavor==netbsd;
 				    Flavor==irix64;
 				    Flavor==irix ->
 		   start_portprogram();
@@ -265,6 +266,9 @@ check_disk_space({unix, freebsd}, Port, Threshold) ->
     Result = my_cmd("/bin/df -k -t ufs", Port),
     check_disks_solaris(skip_to_eol(Result), Threshold);
 check_disk_space({unix, openbsd}, Port, Threshold) ->
+    Result = my_cmd("/bin/df -k -t ffs", Port),
+    check_disks_solaris(skip_to_eol(Result), Threshold);
+check_disk_space({unix, netbsd}, Port, Threshold) ->
     Result = my_cmd("/bin/df -k -t ffs", Port),
     check_disks_solaris(skip_to_eol(Result), Threshold);
 check_disk_space({unix, sunos4}, Port, Threshold) ->

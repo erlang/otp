@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2005-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2005-2011. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -26,6 +26,7 @@
 #include "bif.h"
 #include "error.h"
 #include "big.h"
+#include "erl_thr_progress.h"
 
 /****************************************************************************
 ** BIF Timer support
@@ -155,7 +156,7 @@ create_ref(Uint *hp, Uint32 *ref_numbers, Uint32 len)
 	erl_exit(1, "%s:%d: Internal error\n", __FILE__, __LINE__);
     }
 
-#ifdef ARCH_64
+#if defined(ARCH_64) && !HALFWORD_HEAP
     hp[0] = make_ref_thing_header(len/2 + 1);
     datap = (Uint32 *) &hp[1];
     *(datap++) = len;
@@ -173,13 +174,13 @@ create_ref(Uint *hp, Uint32 *ref_numbers, Uint32 len)
 static int
 eq_non_standard_ref_numbers(Uint32 *rn1, Uint32 len1, Uint32 *rn2, Uint32 len2)
 {
-#ifdef ARCH_64
+#if defined(ARCH_64) && !HALFWORD_HEAP
 #define MAX_REF_HEAP_SZ (1+(ERTS_MAX_REF_NUMBERS/2+1))
 #else
 #define MAX_REF_HEAP_SZ (1+ERTS_MAX_REF_NUMBERS)
 #endif
-    Uint r1_hp[MAX_REF_HEAP_SZ];
-    Uint r2_hp[MAX_REF_HEAP_SZ];
+    DeclareTmpHeapNoproc(r1_hp,(MAX_REF_HEAP_SZ * 2));
+    Eterm *r2_hp = r1_hp +MAX_REF_HEAP_SZ;
 
     return eq(create_ref(r1_hp, rn1, len1), create_ref(r2_hp, rn2, len2));
 #undef MAX_REF_HEAP_SZ
@@ -357,7 +358,7 @@ bif_timer_timeout(ErtsBifTimer* btm)
 						 rp,
 						 &rp_locks);
 		} else {
-		    Eterm old_size = bp->size;
+		    Eterm old_size = bp->used_size;
 		    bp = erts_resize_message_buffer(bp, old_size + wrap_size,
 						    &message, 1);
 		    hp = &bp->mem[0] + old_size;
@@ -398,7 +399,7 @@ setup_bif_timer(Uint32 xflags,
     
     if (!term_to_Uint(time, &timeout))
 	return THE_NON_VALUE;
-#ifdef ARCH_64
+#if defined(ARCH_64) && !HALFWORD_HEAP
     if ((timeout >> 32) != 0)
 	return THE_NON_VALUE;
 #endif
@@ -478,7 +479,7 @@ setup_bif_timer(Uint32 xflags,
     tab_insert(btm);
     ASSERT(btm == tab_find(ref));
     btm->tm.active = 0; /* MUST be initalized */
-    erl_set_timer(&btm->tm,
+    erts_set_timer(&btm->tm,
 		  (ErlTimeoutProc) bif_timer_timeout,
 		  (ErlCancelProc) bif_timer_cleanup,
 		  (void *) btm,
@@ -550,7 +551,7 @@ BIF_RETTYPE cancel_timer_1(BIF_ALIST_1)
 	res = am_false;
     }
     else {
-	Uint left = time_left(&btm->tm);
+	Uint left = erts_time_left(&btm->tm);
 	if (!(btm->flags & BTM_FLG_BYNAME)) {
 	    erts_smp_proc_lock(btm->receiver.proc.ess, ERTS_PROC_LOCK_MSGQ);
 	    unlink_proc(btm);
@@ -558,7 +559,7 @@ BIF_RETTYPE cancel_timer_1(BIF_ALIST_1)
 	}
 	tab_remove(btm);
 	ASSERT(!tab_find(BIF_ARG_1));
-	erl_cancel_timer(&btm->tm);
+	erts_cancel_timer(&btm->tm);
 	erts_smp_btm_rwunlock();
 	res = erts_make_integer(left, BIF_P);
     }
@@ -587,7 +588,7 @@ BIF_RETTYPE read_timer_1(BIF_ALIST_1)
 	res = am_false;
     }
     else {
-	Uint left = time_left(&btm->tm);
+	Uint left = erts_time_left(&btm->tm);
 	res = erts_make_integer(left, BIF_P);
     }
 
@@ -613,7 +614,8 @@ erts_print_bif_timer_info(int to, void *to_arg)
 			      : btm->receiver.proc.ess->id);
 	    erts_print(to, to_arg, "=timer:%T\n", receiver);
 	    erts_print(to, to_arg, "Message: %T\n", btm->message);
-	    erts_print(to, to_arg, "Time left: %d ms\n", time_left(&btm->tm));
+	    erts_print(to, to_arg, "Time left: %u ms\n",
+		       erts_time_left(&btm->tm));
 	}
     }
 
@@ -640,7 +642,7 @@ erts_cancel_bif_timers(Process *p, ErtsProcLocks plocks)
 	tab_remove(btm);
 	tmp_btm = btm;
 	btm = btm->receiver.proc.next;
-	erl_cancel_timer(&tmp_btm->tm);
+	erts_cancel_timer(&tmp_btm->tm);
     }
 
     p->bif_timers = NULL;
@@ -685,7 +687,7 @@ erts_bif_timer_foreach(void (*func)(Eterm, Eterm, ErlHeapFragment *, void *),
 {
     int i;
 
-    ERTS_SMP_LC_ASSERT(erts_smp_is_system_blocked(0));
+    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
 
     for (i = 0; i < TIMER_HASH_VEC_SZ; i++) {
 	ErtsBifTimer *btm;

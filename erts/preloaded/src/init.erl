@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -28,10 +28,10 @@
 %%                       : $Var in the boot script is expanded to
 %%                         Value.
 %%        -loader LoaderMethod
-%%                       : efile, inet, ose_inet
+%%                       : efile, inet
 %%                         (Optional - default efile)
 %%        -hosts [Node]  : List of hosts from which we can boot.
-%%                         (Mandatory if -loader inet or ose_inet)
+%%                         (Mandatory if -loader inet)
 %%        -mode embedded : Load all modules at startup, no automatic loading
 %%        -mode interactive : Auto load modules (default system behaviour).
 %%        -path          : Override path in bootfile.
@@ -51,6 +51,9 @@
 	 get_status/0,boot/1,get_arguments/0,get_plain_arguments/0,
 	 get_argument/1,script_id/0]).
 
+%% for the on_load functionality; not for general use
+-export([run_on_load_handlers/0]).
+
 %% internal exports
 -export([fetch_loaded/0,ensure_loaded/1,make_permanent/2,
 	 notify_when_started/1,wait_until_started/0, 
@@ -69,25 +72,31 @@
 		script_id = [],
 		loaded = [],
 		subscribed = []}).
+-type state() :: #state{}.
 
 -define(ON_LOAD_HANDLER, init__boot__on_load_handler).
 
 debug(false, _) -> ok;
 debug(_, T)     -> erlang:display(T).
 
--spec get_arguments() -> [{atom(), [string()]}].
+-spec get_arguments() -> Flags when
+      Flags :: [{Flag :: atom(), Values :: [string()]}].
 get_arguments() ->
     request(get_arguments).
 
--spec get_plain_arguments() -> [string()].
+-spec get_plain_arguments() -> [Arg] when
+      Arg :: string().
 get_plain_arguments() ->
     bs2ss(request(get_plain_arguments)).
 
--spec get_argument(atom()) -> 'error' | {'ok', [[string()]]}.
+-spec get_argument(Flag) -> {'ok', Arg} | 'error' when
+      Flag :: atom(),
+      Arg :: [Values :: [string()]].
 get_argument(Arg) ->
     request({get_argument, Arg}).
 
--spec script_id() -> term().
+-spec script_id() -> Id when
+      Id :: term().
 script_id() ->
     request(script_id).
 
@@ -101,7 +110,9 @@ bs2ss(L0) when is_list(L0) ->
 bs2ss(L) ->
     L.
 
--spec get_status() -> {internal_status(), term()}.
+-spec get_status() -> {InternalStatus, ProvidedStatus} when
+      InternalStatus :: internal_status(),
+      ProvidedStatus :: term().
 get_status() ->
     request(get_status).
 
@@ -143,13 +154,15 @@ restart() -> init ! {stop,restart}, ok.
 -spec reboot() -> 'ok'.
 reboot() -> init ! {stop,reboot}, ok.
 
--spec stop() -> no_return().
+-spec stop() -> 'ok'.
 stop() -> init ! {stop,stop}, ok.
 
--spec stop(non_neg_integer() | string()) -> no_return().
+-spec stop(Status) -> 'ok' when
+      Status :: non_neg_integer() | string().
 stop(Status) -> init ! {stop,{stop,Status}}, ok.
 
--spec boot([binary()]) -> no_return().
+-spec boot(BootArgs) -> no_return() when
+      BootArgs :: [binary()].
 boot(BootArgs) ->
     register(init, self()),
     process_flag(trap_exit, true),
@@ -275,7 +288,7 @@ crash(String, List) ->
     halt(halt_string(String, List)).
 
 %% Status is {InternalStatus,ProvidedStatus}
--spec boot_loop(pid(), #state{}) -> no_return().
+-spec boot_loop(pid(), state()) -> no_return().
 boot_loop(BootPid, State) ->
     receive
 	{BootPid,loaded,ModLoaded} ->
@@ -308,24 +321,6 @@ boot_loop(BootPid, State) ->
 	{stop,Reason} ->
 	    stop(Reason,State);
 	{From,fetch_loaded} ->   %% Fetch and reset initially loaded modules.
-	    case whereis(?ON_LOAD_HANDLER) of
-		undefined ->
-		    %% There is no on_load handler process,
-		    %% probably because init:restart/0 has been
-		    %% called and it is not the first time we
-		    %% pass through here.
-		    ok;
-		Pid when is_pid(Pid) ->
-		    Pid ! run_on_load,
-		    receive
-			{'EXIT',Pid,on_load_done} ->
-			    ok;
-			{'EXIT',Pid,Res} ->
-			    %% Failure to run an on_load handler.
-			    %% This is fatal during start-up.
-			    exit(Res)
-		    end
-	    end,
 	    From ! {init,State#state.loaded},
 	    garb_boot_loop(BootPid,State#state{loaded = []});
 	{From,{ensure_loaded,Module}} ->
@@ -350,7 +345,7 @@ notify(Pids) ->
     lists:foreach(fun(Pid) -> Pid ! {init,started} end, Pids).
 
 %% Garbage collect all info about initially loaded modules.
-%% This information is temporary stored until the code_server
+%% This information is temporarily stored until the code_server
 %% is started.
 %% We force the garbage collection as the init process holds
 %% this information during the initialisation of the system and
@@ -736,6 +731,7 @@ do_boot(Init,Flags,Start) ->
     BootList = get_boot(BootFile,Root),
     LoadMode = b2a(get_flag('-mode',Flags,false)),
     Deb = b2a(get_flag('-init_debug',Flags,false)),
+    catch ?ON_LOAD_HANDLER ! {init_debug_flag,Deb},
     BootVars = get_flag_args('-boot_var',Flags),
     ParallelLoad = 
 	(Pgm =:= "efile") and (erlang:system_info(thread_pool_size) > 0),
@@ -1037,7 +1033,7 @@ start_it({eval,Bin}) ->
 	      TsR -> reverse([{dot,1} | TsR])
 	  end,
     {ok,Expr} = erl_parse:parse_exprs(Ts1),
-    erl_eval:exprs(Expr, []),
+    erl_eval:exprs(Expr, erl_eval:new_bindings()),
     ok;
 start_it([_|_]=MFA) ->
     Ref = make_ref(),
@@ -1335,23 +1331,44 @@ archive_extension() ->
 %%% Support for handling of on_load functions.
 %%%
 
+run_on_load_handlers() ->
+    Ref = monitor(process, ?ON_LOAD_HANDLER),
+    catch ?ON_LOAD_HANDLER ! run_on_load,
+    receive
+	{'DOWN',Ref,process,_,noproc} ->
+	    %% There is no on_load handler process,
+	    %% probably because init:restart/0 has been
+	    %% called and it is not the first time we
+	    %% pass through here.
+	    ok;
+	{'DOWN',Ref,process,_,on_load_done} ->
+	    ok;
+	{'DOWN',Ref,process,_,Res} ->
+	    %% Failure to run an on_load handler.
+	    %% This is fatal during start-up.
+	    exit(Res)
+    end.
+
 start_on_load_handler_process() ->
     register(?ON_LOAD_HANDLER,
-	     spawn_link(fun on_load_handler_init/0)).
+	     spawn(fun on_load_handler_init/0)).
 
 on_load_handler_init() ->
-    on_load_loop([]).
+    on_load_loop([], false).
 
-on_load_loop(Mods) ->
+on_load_loop(Mods, Debug0) ->
     receive
+	{init_debug_flag,Debug} ->
+	    on_load_loop(Mods, Debug);
 	{loaded,Mod} ->
-	    on_load_loop([Mod|Mods]);
+	    on_load_loop([Mod|Mods], Debug0);
 	run_on_load ->
-	    run_on_load_handlers(Mods),
+	    run_on_load_handlers(Mods, Debug0),
 	    exit(on_load_done)
     end.
 
-run_on_load_handlers([M|Ms]) ->
+run_on_load_handlers([M|Ms], Debug) ->
+    debug(Debug, {running_on_load_handler,M}),
     Fun = fun() ->
 		  Res = erlang:call_on_load_function(M),
 		  exit(Res)
@@ -1363,9 +1380,12 @@ run_on_load_handlers([M|Ms]) ->
 	    erlang:finish_after_on_load(M, Keep),
 	    case Keep of
 		false ->
-		    exit({on_load_function_failed,M});
+		    Error = {on_load_function_failed,M},
+		    debug(Debug, Error),
+		    exit(Error);
 		true ->
-		    run_on_load_handlers(Ms)
+		    debug(Debug, {on_load_handler_returned_ok,M}),
+		    run_on_load_handlers(Ms, Debug)
 	    end
     end;
-run_on_load_handlers([]) -> ok.
+run_on_load_handlers([], _) -> ok.

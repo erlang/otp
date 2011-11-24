@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(filename).
@@ -41,6 +41,9 @@
 
 -include_lib("kernel/include/file.hrl").
 
+-define(IS_DRIVELETTER(Letter),(((Letter >= $A) andalso (Letter =< $Z)) orelse
+				((Letter >= $a) andalso (Letter =< $z)))). 
+
 %% Converts a relative filename to an absolute filename
 %% or the filename itself if it already is an absolute filename
 %% Note that no attempt is made to create the most beatiful
@@ -57,12 +60,21 @@
 %% (for Unix) : absname("/") -> "/"
 %% (for WIN32): absname("/") -> "D:/"
 
--spec absname(name()) -> string().
+
+-spec absname(Filename) -> file:filename() when
+      Filename :: file:name().
 absname(Name) ->
     {ok, Cwd} = file:get_cwd(),
     absname(Name, Cwd).
 
--spec absname(name(), string()) -> string().
+-spec absname(Filename, Dir) -> file:filename() when
+      Filename :: file:name(),
+      Dir :: file:filename().
+absname(Name, AbsBase) when is_binary(Name), is_list(AbsBase) ->
+    absname(Name,filename_string_to_binary(AbsBase));
+absname(Name, AbsBase) when is_list(Name), is_binary(AbsBase) ->
+    absname(filename_string_to_binary(Name),AbsBase);
+
 absname(Name, AbsBase) ->
     case pathtype(Name) of
 	relative ->
@@ -77,6 +89,20 @@ absname(Name, AbsBase) ->
 
 %% Handles volumerelative names (on Windows only).
 
+absname_vr([<<"/">>|Rest1], [Volume|_], _AbsBase) ->
+    %% Absolute path on current drive.
+    join([Volume|Rest1]);
+absname_vr([<<X, $:>>|Rest1], [<<X,_/binary>>|_], AbsBase) ->
+    %% Relative to current directory on current drive.
+    absname(join(Rest1), AbsBase);
+absname_vr([<<X, $:>>|Name], _, _AbsBase) ->
+    %% Relative to current directory on another drive.
+    Dcwd =
+	case file:get_cwd([X, $:]) of
+	    {ok, Dir}  -> filename_string_to_binary(Dir);
+	    {error, _} -> <<X, $:, $/>>
+    end,
+    absname(join(Name), Dcwd);
 absname_vr(["/"|Rest1], [Volume|_], _AbsBase) ->
     %% Absolute path on current drive.
     join([Volume|Rest1]);
@@ -92,41 +118,15 @@ absname_vr([[X, $:]|Name], _, _AbsBase) ->
     end,
     absname(join(Name), Dcwd).
 
-%% Joins a relative filename to an absolute base. For VxWorks the 
-%% resulting name is  fixed to minimize the length by collapsing 
-%% ".." directories.
-%% For other systems this is just a join/2, but assumes that 
+%% Joins a relative filename to an absolute base. 
+%% This is just a join/2, but assumes that 
 %% AbsBase must be absolute and Name must be relative.
 
--spec absname_join(string(), name()) -> string().
+-spec absname_join(Dir, Filename) -> file:filename() when
+      Dir :: file:filename(),
+      Filename :: file:name().
 absname_join(AbsBase, Name) ->
-    case major_os_type() of
-	vxworks -> 
-	    absname_pretty(AbsBase, split(Name), lists:reverse(split(AbsBase)));
-	_Else ->
-	    join(AbsBase, flatten(Name))
-    end.
-
-%% Handles absolute filenames for VxWorks - these are 'pretty-printed',
-%% since a C function call chdir("/erlang/lib/../bin") really sets
-%% cwd to '/erlang/lib/../bin' which also works, but the long term
-%% effect is potentially not so good ...
-%%
-%% absname_pretty("../bin", "/erlang/lib") -> "/erlang/bin"
-%% absname_pretty("../../../..", "/erlang") -> "/erlang"
-
-absname_pretty(Abspath, Relpath, []) ->
-    %% AbsBase _must_ begin with a vxworks device name
-    {device, _Rest, Dev} = vxworks_first(Abspath),
-    absname_pretty(Abspath, Relpath, [lists:reverse(Dev)]);
-absname_pretty(_Abspath, [], AbsBase) ->
-    join(lists:reverse(AbsBase));
-absname_pretty(Abspath, [[$.]|Rest], AbsBase) ->
-    absname_pretty(Abspath, Rest, AbsBase);
-absname_pretty(Abspath, [[$.,$.]|Rest], [_|AbsRest]) ->
-    absname_pretty(Abspath, Rest, AbsRest);
-absname_pretty(Abspath, [First|Rest], AbsBase) ->
-    absname_pretty(Abspath, Rest, [First|AbsBase]).
+    join(AbsBase, flatten(Name)).
 
 %% Returns the part of the filename after the last directory separator,
 %% or the filename itself if it has no separators.
@@ -136,45 +136,56 @@ absname_pretty(Abspath, [First|Rest], AbsBase) ->
 %%           basename("/usr/foo/") -> "foo"  (trailing slashes ignored)
 %%           basename("/") -> []
 
--spec basename(name()) -> string().
+-spec basename(Filename) -> file:filename() when
+      Filename :: file:name().
+basename(Name) when is_binary(Name) ->
+    case os:type() of
+	{win32,_} ->
+	    win_basenameb(Name);
+	_ ->
+	    basenameb(Name,[<<"/">>])
+    end;
+    
 basename(Name0) ->
-    Name = flatten(Name0),
+    Name1 = flatten(Name0),
     {DirSep2, DrvSep} = separators(),
-    basename1(skip_prefix(Name, DrvSep), [], DirSep2).
+    Name = skip_prefix(Name1, DrvSep),
+    basename1(Name, Name, DirSep2).
 
-basename1([$/|[]], Tail, DirSep2) ->
-    basename1([], Tail, DirSep2);
+win_basenameb(<<Letter,$:,Rest/binary>>) when ?IS_DRIVELETTER(Letter) ->
+    basenameb(Rest,[<<"/">>,<<"\\">>]);
+win_basenameb(O) ->
+    basenameb(O,[<<"/">>,<<"\\">>]).
+basenameb(Bin,Sep) ->
+    Parts = [ X || X <- binary:split(Bin,Sep,[global]),
+		   X =/= <<>> ],
+    if
+	Parts =:= [] ->
+	    <<>>;
+	true ->
+	    lists:last(Parts)
+    end.
+    
+
+
+basename1([$/], Tail0, _DirSep2) ->
+    %% End of filename -- must get rid of trailing directory separator.
+    [_|Tail] = lists:reverse(Tail0),
+    lists:reverse(Tail);
 basename1([$/|Rest], _Tail, DirSep2) ->
-    basename1(Rest, [], DirSep2);
-basename1([[_|_]=List|Rest], Tail, DirSep2) ->
-    basename1(List++Rest, Tail, DirSep2);
+    basename1(Rest, Rest, DirSep2);
 basename1([DirSep2|Rest], Tail, DirSep2) when is_integer(DirSep2) ->
     basename1([$/|Rest], Tail, DirSep2);
 basename1([Char|Rest], Tail, DirSep2) when is_integer(Char) ->
-    basename1(Rest, [Char|Tail], DirSep2);
+    basename1(Rest, Tail, DirSep2);
 basename1([], Tail, _DirSep2) ->
-    lists:reverse(Tail).
+    Tail.
 
-skip_prefix(Name, false) ->	% No prefix for unix, but for VxWorks.
-    case major_os_type() of
-	vxworks -> 
-	    case vxworks_first(Name) of
-		{device, Rest, _Device} ->
-		    Rest;
-		{not_device, _Rest, _First} ->
-		    Name
-	    end;
-	_Else ->
-	    Name
-    end;
-skip_prefix(Name, DrvSep) ->
-    skip_prefix1(Name, DrvSep).
-
-skip_prefix1([L, DrvSep|Name], DrvSep) when is_integer(L) ->
+skip_prefix(Name, false) ->
     Name;
-skip_prefix1([L], _) when is_integer(L) ->
-    [L];
-skip_prefix1(Name, _) ->
+skip_prefix([L, DrvSep|Name], DrvSep) when ?IS_DRIVELETTER(L) ->
+    Name;
+skip_prefix(Name, _) ->
     Name.
 
 %% Returns the last component of the filename, with the given
@@ -190,7 +201,31 @@ skip_prefix1(Name, _) ->
 %%	    rootname(basename("xxx.jam")) -> "xxx"
 %%	    rootname(basename("xxx.erl")) -> "xxx"
 
--spec basename(name(), name()) -> string().
+-spec basename(Filename, Ext) -> file:filename() when
+      Filename :: file:name(),
+      Ext :: file:name().
+basename(Name, Ext) when is_binary(Name), is_list(Ext) ->
+    basename(Name,filename_string_to_binary(Ext));
+basename(Name, Ext) when is_list(Name), is_binary(Ext) ->
+    basename(filename_string_to_binary(Name),Ext);
+basename(Name, Ext) when is_binary(Name), is_binary(Ext) ->
+    BName = basename(Name),
+    LAll = byte_size(Name),
+    LN = byte_size(BName),
+    LE = byte_size(Ext),
+    case LN - LE of
+	Neg when Neg < 0 ->
+	    BName;
+	Pos ->
+	    StartLen = LAll - Pos - LE,
+	    case Name of
+		<<_:StartLen/binary,Part:Pos/binary,Ext/binary>> ->
+		    Part;
+		_Other ->
+		    BName
+	    end
+    end;
+
 basename(Name0, Ext0) ->
     Name = flatten(Name0),
     Ext = flatten(Ext0),
@@ -204,7 +239,7 @@ basename([$/|[]], Ext, Tail, DrvSep2) ->
     basename([], Ext, Tail, DrvSep2);
 basename([$/|Rest], Ext, _Tail, DrvSep2) ->
     basename(Rest, Ext, [], DrvSep2);
-basename([$\\|Rest], Ext, Tail, DirSep2) when is_integer(DirSep2) ->
+basename([DirSep2|Rest], Ext, Tail, DirSep2) when is_integer(DirSep2) ->
     basename([$/|Rest], Ext, Tail, DirSep2);
 basename([Char|Rest], Ext, Tail, DrvSep2) when is_integer(Char) ->
     basename(Rest, Ext, [Char|Tail], DrvSep2);
@@ -216,24 +251,45 @@ basename([], _Ext, Tail, _DrvSep2) ->
 %% Example: dirname("/usr/src/kalle.erl") -> "/usr/src",
 %%	    dirname("kalle.erl") -> "."
 
--spec dirname(name()) -> string().
+-spec dirname(Filename) -> file:filename() when
+      Filename :: file:name().
+dirname(Name) when is_binary(Name) ->
+    {Dsep,Drivesep} = separators(),
+    SList = case Dsep of
+		Sep when is_integer(Sep) -> 
+		    [ <<Sep>> ];
+		_ ->
+		    []
+	    end,
+    {XPart0,Dirs} = case Drivesep of
+		       X when is_integer(X) ->
+			   case Name of
+			       <<DL,X,Rest/binary>> when ?IS_DRIVELETTER(DL) ->
+				   {<<DL,X>>,Rest};
+			       _ ->
+				   {<<>>,Name}
+			   end;
+		       _ ->
+			   {<<>>,Name} 
+		   end,
+    Parts0 = binary:split(Dirs,[<<"/">>|SList],[global]),
+    %% Fairly short lists of parts, OK to reverse twice...
+    Parts = case Parts0 of
+		[] -> [];
+		_ -> lists:reverse(fstrip(tl(lists:reverse(Parts0))))
+	    end,
+    XPart = case {Parts,XPart0} of
+		{[],<<>>} ->
+		    <<".">>;
+		_ ->
+		    XPart0
+	    end,
+    dirjoin(Parts,XPart,<<"/">>);
+
 dirname(Name0) ->
     Name = flatten(Name0),
-    case os:type() of
-	vxworks ->
-	    {Devicep, Restname, FirstComp} = vxworks_first(Name),
-	    case Devicep of
-		device ->
-		    dirname(Restname, FirstComp, [], separators());
-		_ -> 
-		    dirname(Name, [], [], separators())
-	    end;
-	_ ->
-	    dirname(Name, [], [], separators())
-    end.
+    dirname(Name, [], [], separators()).
 
-dirname([[_|_]=List|Rest], Dir, File, Seps) ->
-    dirname(List++Rest, Dir, File, Seps);
 dirname([$/|Rest], Dir, File, Seps) ->
     dirname(Rest, File++Dir, [$/], Seps);
 dirname([DirSep|Rest], Dir, File, {DirSep,_}=Seps) when is_integer(DirSep) ->
@@ -258,6 +314,26 @@ dirname([], [DrvSep,Dl], File, {_,DrvSep}) ->
     end;
 dirname([], Dir, _, _) ->
     lists:reverse(Dir).
+
+%% Compatibility with lists variant, remove trailing slashes
+fstrip([<<>>,X|Y]) ->
+    fstrip([X|Y]);
+fstrip(A) ->
+    A.
+			   
+
+dirjoin([<<>>|T],Acc,Sep) ->
+    dirjoin1(T,<<Acc/binary,"/">>,Sep);
+dirjoin(A,B,C) ->
+    dirjoin1(A,B,C).
+
+dirjoin1([],Acc,_) ->
+    Acc;
+dirjoin1([One],Acc,_) ->
+    <<Acc/binary,One/binary>>;
+dirjoin1([H|T],Acc,Sep) ->
+    dirjoin(T,<<Acc/binary,H/binary,Sep/binary>>,Sep).
+
     
 %% Given a filename string, returns the file extension,
 %% including the period.  Returns an empty list if there
@@ -268,45 +344,82 @@ dirname([], Dir, _, _) ->
 %%
 %% On Windows:  fn:dirname("\\usr\\src/kalle.erl") -> "/usr/src"
 
--spec extension(name()) -> string().
+-spec extension(Filename) -> file:filename() when
+      Filename :: file:name().
+extension(Name) when is_binary(Name) ->
+    {Dsep,_} = separators(),
+    SList = case Dsep of
+		Sep when is_integer(Sep) -> 
+		    [ <<Sep>> ];
+		_ ->
+		    []
+	    end,
+    case binary:matches(Name,[<<".">>]) of
+	[] ->
+	    <<>>;
+	List ->
+	    {Pos,_} = lists:last(List),
+	    <<_:Pos/binary,Part/binary>> = Name,
+	    case binary:match(Part,[<<"/">>|SList]) of
+		nomatch ->
+		    Part;
+		_ ->
+		    <<>>
+	    end
+    end;
+
 extension(Name0) ->
     Name = flatten(Name0),
     extension(Name, [], major_os_type()).
 
-extension([$.|Rest], _Result, OsType) ->
-    extension(Rest, [$.], OsType);
+extension([$.|Rest]=Result, _Result, OsType) ->
+    extension(Rest, Result, OsType);
 extension([Char|Rest], [], OsType) when is_integer(Char) ->
     extension(Rest, [], OsType);
 extension([$/|Rest], _Result, OsType) ->
     extension(Rest, [], OsType);
 extension([$\\|Rest], _Result, win32) ->
     extension(Rest, [], win32);
-extension([$\\|Rest], _Result, vxworks) ->
-    extension(Rest, [], vxworks);
 extension([Char|Rest], Result, OsType) when is_integer(Char) ->
-    extension(Rest, [Char|Result], OsType);
+    extension(Rest, Result, OsType);
 extension([], Result, _OsType) ->
-    lists:reverse(Result).
+    Result.
 
 %% Joins a list of filenames with directory separators.
 
--spec join([string()]) -> string().
+-spec join(Components) -> file:filename() when
+      Components :: [file:filename()].
 join([Name1, Name2|Rest]) ->
     join([join(Name1, Name2)|Rest]);
 join([Name]) when is_list(Name) ->
     join1(Name, [], [], major_os_type());
+join([Name]) when is_binary(Name) ->
+    join1b(Name, <<>>, [], major_os_type());
 join([Name]) when is_atom(Name) ->
     join([atom_to_list(Name)]).
 
 %% Joins two filenames with directory separators.
 
--spec join(string(), string()) -> string().
+-spec join(Name1, Name2) -> file:filename() when
+      Name1 :: file:filename(),
+      Name2 :: file:filename().
 join(Name1, Name2) when is_list(Name1), is_list(Name2) ->
     OsType = major_os_type(),
     case pathtype(Name2) of
 	relative -> join1(Name1, Name2, [], OsType);
 	_Other -> join1(Name2, [], [], OsType)
     end;
+join(Name1, Name2) when is_binary(Name1), is_list(Name2) ->
+    join(Name1,filename_string_to_binary(Name2));
+join(Name1, Name2) when is_list(Name1), is_binary(Name2) ->
+    join(filename_string_to_binary(Name1),Name2);
+join(Name1, Name2) when is_binary(Name1), is_binary(Name2) ->
+    OsType = major_os_type(),
+    case pathtype(Name2) of
+	relative -> join1b(Name1, Name2, [], OsType);
+	_Other -> join1b(Name2, <<>>, [], OsType)
+    end;
+    
 join(Name1, Name2) when is_atom(Name1) ->
     join(atom_to_list(Name1), Name2);
 join(Name1, Name2) when is_atom(Name2) ->
@@ -321,8 +434,6 @@ when is_integer(UcLetter), UcLetter >= $A, UcLetter =< $Z ->
     join1(Rest, RelativeName, [$:, UcLetter+$a-$A], win32);
 join1([$\\|Rest], RelativeName, Result, win32) ->
     join1([$/|Rest], RelativeName, Result, win32);
-join1([$\\|Rest], RelativeName, Result, vxworks) ->
-    join1([$/|Rest], RelativeName, Result, vxworks);
 join1([$/|Rest], RelativeName, [$., $/|Result], OsType) ->
     join1(Rest, RelativeName, [$/|Result], OsType);
 join1([$/|Rest], RelativeName, [$/|Result], OsType) ->
@@ -344,6 +455,26 @@ join1([Char|Rest], RelativeName, Result, OsType) when is_integer(Char) ->
 join1([Atom|Rest], RelativeName, Result, OsType) when is_atom(Atom) ->
     join1(atom_to_list(Atom)++Rest, RelativeName, Result, OsType).
 
+join1b(<<UcLetter, $:, Rest/binary>>, RelativeName, [], win32)
+when is_integer(UcLetter), UcLetter >= $A, UcLetter =< $Z ->
+    join1b(Rest, RelativeName, [$:, UcLetter+$a-$A], win32);
+join1b(<<$\\,Rest/binary>>, RelativeName, Result, win32) ->
+    join1b(<<$/,Rest/binary>>, RelativeName, Result, win32);
+join1b(<<$/,Rest/binary>>, RelativeName, [$., $/|Result], OsType) ->
+    join1b(Rest, RelativeName, [$/|Result], OsType);
+join1b(<<$/,Rest/binary>>, RelativeName, [$/|Result], OsType) ->
+    join1b(Rest, RelativeName, [$/|Result], OsType);
+join1b(<<>>, <<>>, Result, OsType) ->
+    list_to_binary(maybe_remove_dirsep(Result, OsType));
+join1b(<<>>, RelativeName, [$:|Rest], win32) ->
+    join1b(RelativeName, <<>>, [$:|Rest], win32);
+join1b(<<>>, RelativeName, [$/|Result], OsType) ->
+    join1b(RelativeName, <<>>, [$/|Result], OsType);
+join1b(<<>>, RelativeName, Result, OsType) ->
+    join1b(RelativeName, <<>>, [$/|Result], OsType);
+join1b(<<Char,Rest/binary>>, RelativeName, Result, OsType) when is_integer(Char) ->
+    join1b(Rest, RelativeName, [Char|Result], OsType).
+
 maybe_remove_dirsep([$/, $:, Letter], win32) ->
     [Letter, $:, $/];
 maybe_remove_dirsep([$/], _) ->
@@ -357,7 +488,13 @@ maybe_remove_dirsep(Name, _) ->
 %% a given base directory, which is is assumed to be normalised
 %% by a previous call to join/{1,2}.
 
--spec append(string(), name()) -> string().
+-spec append(file:filename(), file:name()) -> file:filename().
+append(Dir, Name) when is_binary(Dir), is_binary(Name) ->
+    <<Dir/binary,$/:8,Name/binary>>;
+append(Dir, Name) when is_binary(Dir) ->
+    append(Dir,filename_string_to_binary(Name));
+append(Dir, Name) when is_binary(Name) ->
+    append(filename_string_to_binary(Dir),Name);
 append(Dir, Name) ->
     Dir ++ [$/|Name].
 
@@ -373,22 +510,18 @@ append(Dir, Name) ->
 %%		current working volume.  (Windows only)
 %%		Example: a:bar.erl, /temp/foo.erl
 
--spec pathtype(name()) -> 'absolute' | 'relative' | 'volumerelative'.
+-spec pathtype(Path) -> 'absolute' | 'relative' | 'volumerelative' when
+      Path :: file:name().
 pathtype(Atom) when is_atom(Atom) ->
     pathtype(atom_to_list(Atom));
-pathtype(Name) when is_list(Name) ->
+pathtype(Name) when is_list(Name) or is_binary(Name) ->
     case os:type() of
 	{unix, _}  -> unix_pathtype(Name);
-	{win32, _} -> win32_pathtype(Name);
-	vxworks ->  case vxworks_first(Name) of
-			{device, _Rest, _Dev} ->
-			    absolute;
-			_ ->
-			    relative
-		    end;
-	{ose,_} -> unix_pathtype(Name)
+	{win32, _} -> win32_pathtype(Name)
     end.
 
+unix_pathtype(<<$/,_/binary>>) ->
+    absolute;
 unix_pathtype([$/|_]) ->
     absolute;
 unix_pathtype([List|Rest]) when is_list(List) ->
@@ -404,6 +537,15 @@ win32_pathtype([Atom|Rest]) when is_atom(Atom) ->
     win32_pathtype(atom_to_list(Atom)++Rest);
 win32_pathtype([Char, List|Rest]) when is_list(List) ->
     win32_pathtype([Char|List++Rest]);
+win32_pathtype(<<$/, $/, _/binary>>) -> absolute;
+win32_pathtype(<<$\\, $/, _/binary>>) -> absolute;
+win32_pathtype(<<$/, $\\, _/binary>>) -> absolute;
+win32_pathtype(<<$\\, $\\, _/binary>>) -> absolute;
+win32_pathtype(<<$/, _/binary>>) -> volumerelative;
+win32_pathtype(<<$\\, _/binary>>) -> volumerelative;
+win32_pathtype(<<_Letter, $:, $/, _/binary>>) -> absolute;
+win32_pathtype(<<_Letter, $:, $\\, _/binary>>) -> absolute;
+win32_pathtype(<<_Letter, $:, _/binary>>) -> volumerelative;
 win32_pathtype([$/, $/|_]) -> absolute;
 win32_pathtype([$\\, $/|_]) -> absolute;
 win32_pathtype([$/, $\\|_]) -> absolute;
@@ -422,7 +564,10 @@ win32_pathtype(_) 		  -> relative.
 %% Examples: rootname("/jam.src/kalle") -> "/jam.src/kalle"
 %%           rootname("/jam.src/foo.erl") -> "/jam.src/foo"
 
--spec rootname(name()) -> string().
+-spec rootname(Filename) -> file:filename() when
+      Filename :: file:name().
+rootname(Name) when is_binary(Name) ->
+    list_to_binary(rootname(binary_to_list(Name))); % No need to handle unicode, . is < 128
 rootname(Name0) ->
     Name = flatten(Name0),
     rootname(Name, [], [], major_os_type()).
@@ -431,8 +576,6 @@ rootname([$/|Rest], Root, Ext, OsType) ->
     rootname(Rest, [$/]++Ext++Root, [], OsType);
 rootname([$\\|Rest], Root, Ext, win32) ->
     rootname(Rest, [$/]++Ext++Root, [], win32);
-rootname([$\\|Rest], Root, Ext, vxworks) ->
-    rootname(Rest, [$/]++Ext++Root, [], vxworks);
 rootname([$.|Rest], Root, [], OsType) ->
     rootname(Rest, Root, ".", OsType);
 rootname([$.|Rest], Root, Ext, OsType) ->
@@ -451,7 +594,15 @@ rootname([], Root, _Ext, _OsType) ->
 %% Examples: rootname("/jam.src/kalle.jam", ".erl") -> "/jam.src/kalle.jam"
 %%           rootname("/jam.src/foo.erl", ".erl") -> "/jam.src/foo"
 
--spec rootname(name(), name()) -> string().
+-spec rootname(Filename, Ext) -> file:filename() when
+      Filename :: file:name(),
+      Ext :: file:name().
+rootname(Name, Ext) when is_binary(Name), is_binary(Ext) ->
+    list_to_binary(rootname(binary_to_list(Name),binary_to_list(Ext)));
+rootname(Name, Ext) when is_binary(Name) ->
+    rootname(Name,filename_string_to_binary(Ext));
+rootname(Name, Ext) when is_binary(Ext) ->
+    rootname(filename_string_to_binary(Name),Ext);
 rootname(Name0, Ext0) ->
     Name = flatten(Name0),
     Ext = flatten(Ext0),
@@ -471,27 +622,57 @@ rootname2([Char|Rest], Ext, Result) when is_integer(Char) ->
 %% split("foo/bar") -> ["foo", "bar"]
 %% split("a:\\msdev\\include") -> ["a:/", "msdev", "include"]
 
--spec split(name()) -> [string()].
+-spec split(Filename) -> Components when
+      Filename :: file:name(),
+      Components :: [file:filename()].
+split(Name) when is_binary(Name) ->
+    case os:type() of
+	{win32, _} -> win32_splitb(Name);
+	_  -> unix_splitb(Name)
+    end;
+
 split(Name0) ->
     Name = flatten(Name0),
     case os:type() of
-	{unix, _}  -> unix_split(Name);
 	{win32, _} -> win32_split(Name);
-	vxworks -> vxworks_split(Name);
-	{ose,_} -> unix_split(Name)
+	_  -> unix_split(Name)
     end.
 
-%% If a VxWorks filename starts with '[/\].*[^/\]' '[/\].*:' or '.*:' 
-%% that part of the filename is considered a device.  
-%% The rest of the name is interpreted exactly as for win32.
 
-%% XXX - dirty solution to make filename:split([]) return the same thing on
-%%       VxWorks as on unix and win32.
-vxworks_split([]) ->
-    [];
-vxworks_split(L) -> 
-    {_Devicep, Rest, FirstComp} = vxworks_first(L),
-    split(Rest, [], [lists:reverse(FirstComp)], win32).
+unix_splitb(Name) ->
+    L = binary:split(Name,[<<"/">>],[global]),
+    LL = case L of
+	     [<<>>|Rest] ->
+		 [<<"/">>|Rest];
+	     _ ->
+		 L
+	 end,
+    [ X || X <- LL, X =/= <<>>].
+
+
+fix_driveletter(Letter0) ->
+    if
+	Letter0 >= $A, Letter0 =< $Z ->  
+	    Letter0+$a-$A;
+	true ->
+	    Letter0
+    end.
+win32_splitb(<<Letter0,$:, Slash, Rest/binary>>) when (((Slash =:= $\\) orelse (Slash =:= $/)) andalso
+							 ?IS_DRIVELETTER(Letter0)) ->
+    Letter = fix_driveletter(Letter0),
+    L = binary:split(Rest,[<<"/">>,<<"\\">>],[global]),
+    [<<Letter,$:,$/>> | [ X || X <- L, X =/= <<>> ]]; 
+win32_splitb(<<Letter0,$:,Rest/binary>>) when ?IS_DRIVELETTER(Letter0) ->
+    Letter = fix_driveletter(Letter0),
+    L = binary:split(Rest,[<<"/">>,<<"\\">>],[global]),
+    [<<Letter,$:>> | [ X || X <- L, X =/= <<>> ]];
+win32_splitb(<<Slash,Rest/binary>>) when ((Slash =:= $\\) orelse (Slash =:= $/)) ->
+    L = binary:split(Rest,[<<"/">>,<<"\\">>],[global]),
+    [<<$/>> | [ X || X <- L, X =/= <<>> ]];
+win32_splitb(Name) ->
+    L = binary:split(Name,[<<"/">>,<<"\\">>],[global]),
+    [ X || X <- L, X =/= <<>> ].
+    
 
 unix_split(Name) ->
     split(Name, [], unix).
@@ -502,8 +683,6 @@ win32_split([X, $\\|Rest]) when is_integer(X) ->
     win32_split([X, $/|Rest]);
 win32_split([X, Y, $\\|Rest]) when is_integer(X), is_integer(Y) ->
     win32_split([X, Y, $/|Rest]);
-win32_split([$/, $/|Rest]) ->
-    split(Rest, [], [[$/, $/]]);
 win32_split([UcLetter, $:|Rest]) when UcLetter >= $A, UcLetter =< $Z ->
     win32_split([UcLetter+$a-$A, $:|Rest]);
 win32_split([Letter, $:, $/|Rest]) ->
@@ -528,8 +707,6 @@ split([$/|Rest], Comp, Components, OsType) ->
     split(Rest, [], [lists:reverse(Comp)|Components], OsType);
 split([Char|Rest], Comp, Components, OsType) when is_integer(Char) ->
     split(Rest, [Char|Comp], Components, OsType);
-split([List|Rest], Comp, Components, OsType) when is_list(List) ->
-    split(List++Rest, Comp, Components, OsType);
 split([], [], Components, _OsType) ->
     lists:reverse(Components);
 split([], Comp, Components, OsType) ->
@@ -540,7 +717,8 @@ split([], Comp, Components, OsType) ->
 %% will be converted to backslashes.  On all platforms, the
 %% name will be normalized as done by join/1.
 
--spec nativename(string()) -> string().
+-spec nativename(Path) -> file:filename() when
+      Path :: file:filename().
 nativename(Name0) ->
     Name = join([Name0]),			%Normalize.
     case os:type() of
@@ -557,11 +735,10 @@ win32_nativename([]) ->
 
 separators() ->
     case os:type() of
-	{unix, _}  -> {false, false};
 	{win32, _} -> {$\\, $:};
-	vxworks -> {$\\, false};
-	{ose,_} -> {false, false}
+	_ -> {false, false}
     end.
+
 
 
 %% find_src(Module) --
@@ -593,12 +770,17 @@ separators() ->
 %% The paths in the {outdir, Path} and {i, Path} options are guaranteed
 %% to be absolute.
 
--type rule()   :: {string(), string()}.
--type ecode()  :: 'non_existing' | 'preloaded' | 'interpreted'.
--type option() :: {'i', string()} | {'outdir', string()} | {'d', atom()}.
-
--spec find_src(atom() | string()) ->
-	     {string(), [option()]} | {'error', {ecode(), atom()}}.
+-spec find_src(Beam) -> {SourceFile, Options}
+                      | {error, {ErrorReason, Module}} when
+      Beam :: Module | Filename,
+      Filename :: atom() | string(),
+      Module :: module(),
+      SourceFile :: string(),
+      Options :: [Option],
+      Option :: {'i', Path :: string()}
+              | {'outdir', Path :: string()}
+              | {'d', atom()},
+      ErrorReason :: 'non_existing' | 'preloaded' | 'interpreted'.
 find_src(Mod) ->
     Default = [{"", ""}, {"ebin", "src"}, {"ebin", "esrc"}],
     Rules = 
@@ -609,8 +791,18 @@ find_src(Mod) ->
 	end,
     find_src(Mod, Rules).
 
--spec find_src(atom() | string(), [rule()]) ->
-	     {string(), [option()]} | {'error', {ecode(), atom()}}.
+-spec find_src(Beam, Rules) -> {SourceFile, Options}
+                             | {error, {ErrorReason, Module}} when
+      Beam :: Module | Filename,
+      Filename :: atom() | string(),
+      Rules :: [{BinSuffix :: string(), SourceSuffix :: string()}],
+      Module :: module(),
+      SourceFile :: string(),
+      Options :: [Option],
+      Option :: {'i', Path :: string()}
+              | {'outdir', Path :: string()}
+              | {'d', atom()},
+      ErrorReason :: 'non_existing' | 'preloaded' | 'interpreted'.
 find_src(Mod, Rules) when is_atom(Mod) ->
     find_src(atom_to_list(Mod), Rules);
 find_src(File0, Rules) when is_list(File0) ->
@@ -733,45 +925,13 @@ major_os_type() ->
 	OsT -> OsT
     end.
 
-%% Need to take care of the first pathname component separately
-%% due to VxWorks less than good device naming rules.
-%% (i.e. this is VxWorks specific ...)
-%% The following four all starts with device names
-%% elrond:/foo -> elrond:
-%% elrond:\\foo.bar -> elrond:
-%% /DISK1:foo -> /DISK1:
-%% /usr/include -> /usr
-%% This one doesn't:
-%% foo/bar
-
-vxworks_first([]) ->
-    {not_device, [], []};
-vxworks_first([$/|T]) ->
-    vxworks_first2(device, T, [$/]);
-vxworks_first([$\\|T]) ->
-    vxworks_first2(device, T, [$/]);
-vxworks_first([H|T]) when is_list(H) ->
-    vxworks_first(H++T);
-vxworks_first([H|T]) ->
-    vxworks_first2(not_device, T, [H]).
-
-vxworks_first2(Devicep, [], FirstComp) ->
-    {Devicep, [], FirstComp};
-vxworks_first2(Devicep, [$/|T], FirstComp) ->
-    {Devicep, [$/|T], FirstComp};
-vxworks_first2(Devicep, [$\\|T], FirstComp) ->
-    {Devicep, [$/|T], FirstComp};
-vxworks_first2(_Devicep, [$:|T], FirstComp)->
-    {device, T, [$:|FirstComp]};
-vxworks_first2(Devicep, [H|T], FirstComp) when is_list(H) ->
-    vxworks_first2(Devicep, H++T, FirstComp);
-vxworks_first2(Devicep, [H|T], FirstComp) ->
-    vxworks_first2(Devicep, T, [H|FirstComp]).
-    
 %% flatten(List)
 %%  Flatten a list, also accepting atoms.
 
--spec flatten(name()) -> string().
+-spec flatten(Filename) -> file:filename() when
+      Filename :: file:name().
+flatten(Bin) when is_binary(Bin) ->
+    Bin;
 flatten(List) ->
     do_flatten(List, []).
 
@@ -785,3 +945,12 @@ do_flatten([], Tail) ->
     Tail;
 do_flatten(Atom, Tail) when is_atom(Atom) ->
     atom_to_list(Atom) ++ flatten(Tail).
+
+filename_string_to_binary(List) ->
+    case unicode:characters_to_binary(flatten(List),unicode,file:native_name_encoding()) of
+	{error,_,_} ->
+	    erlang:error(badarg);
+	Bin when is_binary(Bin) ->
+	    Bin
+    end.
+

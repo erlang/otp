@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>1996</year>
-      <year>2007</year>
+      <year>2011</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -48,8 +48,8 @@
       <name>parse_transform(Forms, Options) -> Forms</name>
       <fsummary>Transform Erlang forms</fsummary>
       <type>
-        <v>Forms = [erlang_form()]</v>
-        <v>Options = [compiler_options()]</v>
+        <v>Forms = [<seealso marker="erl_parse#type-abstract_form">erl_parse:abstract_form()</seealso>]</v>
+        <v>Options = [<seealso marker="compile#type-option">compile:option()</seealso>]</v>
       </type>
       <desc>
         <p>Performs an identity transformation on Erlang forms, as an example.</p>
@@ -70,7 +70,8 @@
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="erl_parse">erl_parse(3)</seealso>, compile(3).</p>
+    <p><seealso marker="erl_parse">erl_parse(3)</seealso>,
+    <seealso marker="compiler:compile">compile(3)</seealso>.</p>
   </section>
 </erlref>
 

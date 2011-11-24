@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1999</year><year>2009</year>
+      <year>1999</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -38,7 +38,10 @@
       SNMP-VIEW-BASED-ACM-MIB, and functions for configuring the database.
       </p>
     <p>The configuration files are described in the SNMP User's Manual.</p>
+
+    <marker id="configure"></marker>
   </description>
+
   <funcs>
     <func>
       <name>configure(ConfDir) -> void()</name>
@@ -48,27 +51,24 @@
       </type>
       <desc>
         <p>This function is called from the supervisor at system
-          start-up.
-          </p>
+	start-up. </p>
         <p>Inserts all data in the configuration files into the
-          database and destroys all old rows with StorageType
-          <c>volatile</c>.  The rows created from the configuration file
-          will have StorageType <c>nonVolatile</c>.
-          </p>
-        <p>All <c>snmp</c> counters are set to zero.
-          </p>
+	database and destroys all old rows with StorageType
+	<c>volatile</c>.  The rows created from the configuration file
+	will have StorageType <c>nonVolatile</c>. </p>
+        <p>All <c>snmp</c> counters are set to zero. </p>
         <p>If an error is found in the configuration file, it is
-          reported using the function <c>config_err/2</c> of the error
-          report module, and the function fails with the reason 
-          <c>configuration_error</c>.
-          </p>
+	reported using the function <c>config_err/2</c> of the error
+	report module, and the function fails with the reason 
+	<c>configuration_error</c>. </p>
         <p><c>ConfDir</c> is a string which points to the directory
-          where the configuration files are found.
-          </p>
-        <p>The configuration file read is: <c>vacm.conf</c>.
-          </p>
+	where the configuration files are found. </p>
+        <p>The configuration file read is: <c>vacm.conf</c>. </p>
+
+	<marker id="reconfigure"></marker>
       </desc>
     </func>
+
     <func>
       <name>reconfigure(ConfDir) -> void()</name>
       <fsummary>Configure the SNMP-VIEW-BASED-ACM-MIB</fsummary>
@@ -88,18 +88,20 @@
         <p>All <c>snmp</c> counters are set to zero.
           </p>
         <p>If an error is found in the configuration file, it is
-          reported using the function <c>config_err/2</c> of the error
-          report module, and the function fails with the reason 
+          reported using the function 
+	  <seealso marker="snmpa_error#config_err">config_err/2</seealso> 
+	  of the error report module, and the function fails with the reason 
           <c>configuration_error</c>.
           </p>
         <p><c>ConfDir</c> is a string which points to the directory
           where the configuration files are found.
           </p>
-        <p>The configuration file read is: <c>vacm.conf</c>.
-                    <marker id="add_sec2group"></marker>
-</p>
+        <p>The configuration file read is: <c>vacm.conf</c>. </p>
+
+	<marker id="add_sec2group"></marker>
       </desc>
     </func>
+
     <func>
       <name>add_sec2group(SecModel, SecName, GroupName) -> Ret</name>
       <fsummary>Add one security to group definition</fsummary>
@@ -113,10 +115,13 @@
       </type>
       <desc>
         <p>Adds a security to group definition to the agent config. 
-          Equivalent to one vacmSecurityToGroup-line in the <c>vacm.conf</c> file.</p>
+	Equivalent to one vacmSecurityToGroup-line in the 
+	<c>vacm.conf</c> file.</p>
+
         <marker id="delete_sec2group"></marker>
       </desc>
     </func>
+
     <func>
       <name>delete_sec2group(Key) -> Ret</name>
       <fsummary>Delete one security to group definition</fsummary>
@@ -127,9 +132,11 @@
       </type>
       <desc>
         <p>Delete a security to group definition from the agent config.</p>
+
         <marker id="add_access"></marker>
       </desc>
     </func>
+
     <func>
       <name>add_access(GroupName, Prefix, SecModel, SecLevel, Match, RV, WV, NV) -> Ret</name>
       <fsummary>Add one access definition</fsummary>
@@ -148,10 +155,12 @@
       </type>
       <desc>
         <p>Adds a access definition to the agent config. 
-          Equivalent to one vacmAccess-line in the <c>vacm.conf</c> file.</p>
-        <marker id="delete_access"></marker>
+	Equivalent to one vacmAccess-line in the <c>vacm.conf</c> file.</p>
+        
+	<marker id="delete_access"></marker>
       </desc>
     </func>
+
     <func>
       <name>delete_access(Key) -> Ret</name>
       <fsummary>Delete one access definition</fsummary>
@@ -161,10 +170,12 @@
         <v>Reason = term()</v>
       </type>
       <desc>
-        <p>Delete a access definition from the agent config.</p>
-        <marker id="add_view_tree_fam"></marker>
+	<p>Delete a access definition from the agent config.</p>
+
+	<marker id="add_view_tree_fam"></marker>
       </desc>
     </func>
+
     <func>
       <name>add_view_tree_fam(ViewIndex, SubTree, Status, Mask) -> Ret</name>
       <fsummary>Add one view tree family definition</fsummary>
@@ -178,11 +189,14 @@
         <v>Reason = term()</v>
       </type>
       <desc>
-        <p>Adds a view tree family definition to the agent config. 
-          Equivalent to one vacmViewTreeFamily-line in the <c>vacm.conf</c> file.</p>
-        <marker id="delete_view_tree_fam"></marker>
+	<p>Adds a view tree family definition to the agent config. 
+	Equivalent to one vacmViewTreeFamily-line in the 
+	<c>vacm.conf</c> file.</p>
+	  
+	  <marker id="delete_view_tree_fam"></marker>
       </desc>
     </func>
+
     <func>
       <name>delete_view_tree_fam(Key) -> Ret</name>
       <fsummary>Delete one view tree family definition</fsummary>

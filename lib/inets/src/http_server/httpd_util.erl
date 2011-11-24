@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
@@ -21,7 +21,7 @@
 -export([ip_address/2, lookup/2, lookup/3, multi_lookup/2,
 	 lookup_mime/2, lookup_mime/3, lookup_mime_default/2,
 	 lookup_mime_default/3, reason_phrase/1, message/3, rfc1123_date/0,
-	 rfc1123_date/1, day/1, month/1, decode_hex/1,
+	 rfc1123_date/1, day/1, month/1,
 	 flatlength/1, split_path/1, split_script_path/1, 
 	 suffix/1, split/3, uniq/1,
 	 make_name/2,make_name/3,make_name/4,strip/1,
@@ -32,7 +32,7 @@
 	 dir_validate/2, file_validate/2, mime_type_validate/1, 
 	 mime_types_validate/1, custom_date/0]).
 
--export([encode_hex/1]).
+-export([encode_hex/1, decode_hex/1]).
 -include_lib("kernel/include/file.hrl").
 
 ip_address({_,_,_,_} = Address, _IpFamily) ->
@@ -175,14 +175,15 @@ reason_phrase(_) -> "Internal Server Error".
 %% message
 
 message(301,URL,_) ->
-    "The document has moved <A HREF=\""++URL++"\">here</A>.";
+    "The document has moved <A HREF=\""++ maybe_encode(URL) ++"\">here</A>.";
 message(304, _URL,_) ->
     "The document has not been changed.";
-message(400,none,_) ->
-    "Your browser sent a query that this server could not understand.";
-message(400,Msg,_) ->
-    "Your browser sent a query that this server could not understand. "++Msg;
-message(401,none,_) ->
+message(400, none, _) ->
+    "Your browser sent a query that this server could not understand. ";
+message(400, Msg, _) ->
+    "Your browser sent a query that this server could not understand. " ++ 
+	html_encode(Msg);
+message(401, none, _) ->
     "This server could not verify that you
 are authorized to access the document you
 	requested.  Either you supplied the wrong
@@ -190,40 +191,66 @@ credentials (e.g., bad password), or your
 browser doesn't understand how to supply
 the credentials required.";
 message(403,RequestURI,_) ->
-    "You don't have permission to access "++RequestURI++" on this server.";
+    "You don't have permission to access " ++ 
+	html_encode(RequestURI) ++ 
+	" on this server.";
 message(404,RequestURI,_) ->
-    "The requested URL "++RequestURI++" was not found on this server.";
+    "The requested URL " ++ 
+	html_encode(RequestURI) ++ 
+	" was not found on this server.";
 message(408, Timeout, _) ->
     Timeout;
 message(412,none,_) ->
-    "The requested preconditions where false";
+    "The requested preconditions were false";
 message(413, Reason,_) ->
-    "Entity: " ++ Reason;
+    "Entity: " ++ html_encode(Reason);
 message(414,ReasonPhrase,_) ->
-    "Message "++ReasonPhrase++".";
+    "Message " ++ html_encode(ReasonPhrase) ++ ".";
 message(416,ReasonPhrase,_) ->
-    ReasonPhrase;
+    html_encode(ReasonPhrase);
 
 message(500,_,ConfigDB) ->
     ServerAdmin=lookup(ConfigDB,server_admin,"unknown@unknown"),
     "The server encountered an internal error or "
 	"misconfiguration and was unable to complete "
 	"your request.<P>Please contact the server administrator "
-	++ ServerAdmin ++ ", and inform them of the time the error occurred "
+	++ html_encode(ServerAdmin) ++ 
+	", and inform them of the time the error occurred "
 	"and anything you might have done that may have caused the error.";
 
 message(501,{Method, RequestURI, HTTPVersion}, _ConfigDB) ->
     if
 	is_atom(Method) ->
-	    atom_to_list(Method)++
-		" to "++RequestURI++" ("++HTTPVersion++") not supported.";
+	    atom_to_list(Method) ++
+		" to " ++ 
+		html_encode(RequestURI) ++ 
+		" (" ++ HTTPVersion ++ ") not supported.";
 	is_list(Method) ->
-	    Method++
-		" to "++RequestURI++" ("++HTTPVersion++") not supported."
+	    Method ++
+		" to " ++ 
+		html_encode(RequestURI) ++ 
+		" (" ++ HTTPVersion ++ ") not supported."
     end;
 
 message(503, String, _ConfigDB) ->
-    "This service in unavailable due to: "++String.
+    "This service in unavailable due to: " ++ html_encode(String).
+
+maybe_encode(URI) ->
+    Decoded = try http_uri:decode(URI) of
+	N -> N
+    catch
+	error:_ -> URI
+    end,
+    http_uri:encode(Decoded).
+
+html_encode(String) ->
+    try http_uri:decode(String) of
+	Decoded when is_list(Decoded) ->
+	    http_util:html_encode(Decoded)
+    catch 
+	_:_ ->
+	    http_util:html_encode(String)
+    end.
 
 %%convert_rfc_date(Date)->{{YYYY,MM,DD},{HH,MIN,SEC}}
 
@@ -237,7 +264,7 @@ convert_request_date([D,A,Y,DateType| Rest])->
 		 fun convert_rfc850_date/1
 	 end,
     case catch Func([D,A,Y,DateType| Rest]) of
-	{ok,Date} ->
+	{ok, Date} ->
 	    Date;
 	_Error->
 	    bad_date
@@ -381,16 +408,11 @@ month(12) -> "Dec".
 
 %% decode_hex
 
-decode_hex([$%,Hex1,Hex2|Rest]) ->
-    [hex2dec(Hex1)*16+hex2dec(Hex2)|decode_hex(Rest)];
-decode_hex([First|Rest]) ->
-    [First|decode_hex(Rest)];
-decode_hex([]) ->
-    [].
+decode_hex(URI) ->
+    http_uri:decode(URI).
 
-hex2dec(X) when (X>=$0) andalso (X=<$9) -> X-$0;
-hex2dec(X) when (X>=$A) andalso (X=<$F) -> X-$A+10;
-hex2dec(X) when (X>=$a) andalso (X=<$f) -> X-$a+10.
+encode_hex(URI) ->
+    http_uri:encode(URI).
 
 %% flatlength
 flatlength(List) ->
@@ -411,7 +433,7 @@ split_path(Path) ->
     case inets_regexp:match(Path,"[\?].*\$") of
 	%% A QUERY_STRING exists!
 	{match,Start,Length} ->
-	    {httpd_util:decode_hex(string:substr(Path,1,Start-1)),
+	    {http_uri:decode(string:substr(Path,1,Start-1)),
 	     string:substr(Path,Start,Length)};
 	%% A possible PATH_INFO exists!
 	nomatch ->
@@ -419,9 +441,9 @@ split_path(Path) ->
     end.
 
 split_path([],SoFar) ->
-    {httpd_util:decode_hex(lists:reverse(SoFar)),[]};
+    {http_uri:decode(lists:reverse(SoFar)),[]};
 split_path([$/|Rest],SoFar) ->
-    Path=httpd_util:decode_hex(lists:reverse(SoFar)),
+    Path=http_uri:decode(lists:reverse(SoFar)),
     case file:read_file_info(Path) of
 	{ok,FileInfo} when FileInfo#file_info.type =:= regular ->
 	    {Path,[$/|Rest]};
@@ -454,7 +476,7 @@ pathinfo_querystring([C|Rest], SoFar) ->
     pathinfo_querystring(Rest, [C|SoFar]).
 
 split_script_path([$?|QueryString], SoFar) ->
-    Path = httpd_util:decode_hex(lists:reverse(SoFar)),
+    Path = http_uri:decode(lists:reverse(SoFar)),
     case file:read_file_info(Path) of
 	{ok,FileInfo} when FileInfo#file_info.type =:= regular ->
 	    {Path, [$?|QueryString]};
@@ -464,7 +486,7 @@ split_script_path([$?|QueryString], SoFar) ->
 	    not_a_script
     end;
 split_script_path([], SoFar) ->
-    Path = httpd_util:decode_hex(lists:reverse(SoFar)),
+    Path = http_uri:decode(lists:reverse(SoFar)),
     case file:read_file_info(Path) of
 	{ok,FileInfo} when FileInfo#file_info.type =:= regular ->
 	    {Path, []};
@@ -474,7 +496,7 @@ split_script_path([], SoFar) ->
 	    not_a_script
     end;
 split_script_path([$/|Rest], SoFar) ->
-    Path = httpd_util:decode_hex(lists:reverse(SoFar)),
+    Path = http_uri:decode(lists:reverse(SoFar)),
     case file:read_file_info(Path) of
 	{ok, FileInfo} when FileInfo#file_info.type =:= regular ->
 	    {Path, [$/|Rest]};
@@ -608,9 +630,6 @@ hexlist_to_integer(List)->
 %%----------------------------------------------------------------------
 %%Converts an integer to an hexlist
 %%----------------------------------------------------------------------
-encode_hex(Num)->
-    integer_to_hexlist(Num).
-
 integer_to_hexlist(Num) when is_integer(Num) ->
     http_util:integer_to_hexlist(Num).
 	    	      
@@ -735,7 +754,6 @@ valid_accept_timeout(A) ->
 valid_config(_) ->
     ok.
 
-
 %%----------------------------------------------------------------------
 %% Enable debugging, 
 %%----------------------------------------------------------------------
@@ -755,23 +773,18 @@ do_enable_debug([{Level,Modules}|Rest])
   when is_atom(Level) andalso is_list(Modules) ->
     case Level of
 	all_functions ->
-	    io:format("Tracing on all functions set on modules: ~p~n",
-		      [Modules]),
 	    lists:foreach(
-	      fun(X)-> 
+	      fun(X) -> 
 		      dbg:tpl(X, [{'_', [], [{return_trace}]}]) 
 	      end, Modules);
 	exported_functions -> 
-	    io:format("Tracing on exported functions set on "
-		      "modules: ~p~n",[Modules]),
 	    lists:foreach(
-	      fun(X)->
+	      fun(X) ->
 		      dbg:tp(X, [{'_', [], [{return_trace}]}]) 
 	      end, Modules);
 	disable ->
-	    io:format("Tracing disabled on modules: ~p~n", [Modules]),
 	    lists:foreach(
-	      fun(X)-> 
+	      fun(X) -> 
 		      dbg:ctp(X) 
 	      end, Modules);
 	_ ->

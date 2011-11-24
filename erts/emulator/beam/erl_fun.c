@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2000-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2000-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -37,8 +37,6 @@ static erts_smp_rwmtx_t erts_fun_table_lock;
 #define erts_fun_read_unlock()	erts_smp_rwmtx_runlock(&erts_fun_table_lock)
 #define erts_fun_write_lock()	erts_smp_rwmtx_rwlock(&erts_fun_table_lock)
 #define erts_fun_write_unlock()	erts_smp_rwmtx_rwunlock(&erts_fun_table_lock)
-#define erts_fun_init_lock()	erts_smp_rwmtx_init(&erts_fun_table_lock, \
-						    "fun_tab")
 
 static HashValue fun_hash(ErlFunEntry* obj);
 static int fun_cmp(ErlFunEntry* obj1, ErlFunEntry* obj2);
@@ -50,15 +48,19 @@ static void fun_free(ErlFunEntry* obj);
  * to unloaded_fun[]. The -1 in unloaded_fun[0] will be interpreted
  * as an illegal arity when attempting to call a fun.
  */
-static Eterm unloaded_fun_code[3] = {NIL, -1, 0};
-static Eterm* unloaded_fun = unloaded_fun_code + 2;
+static BeamInstr unloaded_fun_code[3] = {NIL, -1, 0};
+static BeamInstr* unloaded_fun = unloaded_fun_code + 2;
 
 void
 erts_init_fun_table(void)
 {
     HashFunctions f;
+    erts_smp_rwmtx_opt_t rwmtx_opt = ERTS_SMP_RWMTX_OPT_DEFAULT_INITER;
+    rwmtx_opt.type = ERTS_SMP_RWMTX_TYPE_FREQUENT_READ;
+    rwmtx_opt.lived = ERTS_SMP_RWMTX_LONG_LIVED;
 
-    erts_fun_init_lock();
+    erts_smp_rwmtx_init_opt(&erts_fun_table_lock, &rwmtx_opt, "fun_tab");
+
     f.hash = (H_FUN) fun_hash;
     f.cmp  = (HCMP_FUN) fun_cmp;
     f.alloc = (HALLOC_FUN) fun_alloc;
@@ -95,7 +97,7 @@ erts_put_fun_entry(Eterm mod, int uniq, int index)
 {
     ErlFunEntry template;
     ErlFunEntry* fe;
-    long refc;
+    erts_aint_t refc;
     ASSERT(is_atom(mod));
     template.old_uniq = uniq;
     template.old_index = index;
@@ -117,7 +119,7 @@ erts_put_fun_entry2(Eterm mod, int old_uniq, int old_index,
 {
     ErlFunEntry template;
     ErlFunEntry* fe;
-    long refc;
+    erts_aint_t refc;
 
     ASSERT(is_atom(mod));
     template.old_uniq = old_uniq;
@@ -155,7 +157,7 @@ erts_get_fun_entry(Eterm mod, int uniq, int index)
     erts_fun_read_lock();
     ret = (ErlFunEntry *) hash_get(&erts_fun_table, (void*) &template);
     if (ret) {
-	long refc = erts_refc_inctest(&ret->refc, 1);
+	erts_aint_t refc = erts_refc_inctest(&ret->refc, 1);
 	if (refc < 2) /* Pending delete */
 	    erts_refc_inc(&ret->refc, 1);
     }
@@ -192,22 +194,8 @@ erts_erase_fun_entry(ErlFunEntry* fe)
     erts_fun_write_unlock();
 }
 
-#ifndef HYBRID /* FIND ME! */
 void
-erts_cleanup_funs(ErlFunThing* funp)
-{
-    while (funp) {
-	ErlFunEntry* fe = funp->fe;
-	if (erts_refc_dectest(&fe->refc, 0) == 0) {
-	    erts_erase_fun_entry(fe);
-	}
-	funp = funp->next;
-    }
-}
-#endif
-
-void
-erts_cleanup_funs_on_purge(Eterm* start, Eterm* end)
+erts_cleanup_funs_on_purge(BeamInstr* start, BeamInstr* end)
 {
     int limit;
     HashBucket** bucket;
@@ -222,7 +210,7 @@ erts_cleanup_funs_on_purge(Eterm* start, Eterm* end)
 
 	while (b) {
 	    ErlFunEntry* fe = (ErlFunEntry *) b;
-	    Eterm* addr = fe->address;
+	    BeamInstr* addr = fe->address;
 
 	    if (start <= addr && addr < end) {
 		fe->address = unloaded_fun;
@@ -269,7 +257,7 @@ erts_dump_fun_entries(int to, void *to_arg)
 #ifdef HIPE
 	    erts_print(to, to_arg, "Native_address: %p\n", fe->native_address);
 #endif
-	    erts_print(to, to_arg, "Refc: %d\n", erts_refc_read(&fe->refc, 1));
+	    erts_print(to, to_arg, "Refc: %ld\n", erts_refc_read(&fe->refc, 1));
 	    b = b->next;
 	}
     }

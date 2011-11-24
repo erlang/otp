@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -21,6 +21,7 @@
 #define __ERL_BINARY_H
 
 #include "erl_threads.h"
+#include "bif.h"
 
 /*
  * Maximum number of bytes to place in a heap binary.
@@ -70,6 +71,7 @@ typedef struct erl_heap_bin {
  */
 
 #define binary_size(Bin) (binary_val(Bin)[1])
+#define binary_size_rel(Bin,BasePtr) (binary_val_rel(Bin,BasePtr)[1])
 
 #define binary_bitsize(Bin)			\
   ((*binary_val(Bin) == HEADER_SUB_BIN) ?	\
@@ -92,9 +94,12 @@ typedef struct erl_heap_bin {
  * Bitsize: output variable (Uint)
  */
 
-#define ERTS_GET_BINARY_BYTES(Bin,Bytep,Bitoffs,Bitsize)		\
+#define ERTS_GET_BINARY_BYTES(Bin,Bytep,Bitoffs,Bitsize) \
+     ERTS_GET_BINARY_BYTES_REL(Bin,Bytep,Bitoffs,Bitsize,NULL)
+
+#define ERTS_GET_BINARY_BYTES_REL(Bin,Bytep,Bitoffs,Bitsize,BasePtr)    \
 do {									\
-    Eterm* _real_bin = binary_val(Bin);					\
+    Eterm* _real_bin = binary_val_rel(Bin,BasePtr);			\
     Uint _offs = 0;							\
     Bitoffs = Bitsize = 0;						\
     if (*_real_bin == HEADER_SUB_BIN) {					\
@@ -102,7 +107,7 @@ do {									\
 	_offs = _sb->offs;						\
         Bitoffs = _sb->bitoffs;						\
         Bitsize = _sb->bitsize;						\
-	_real_bin = binary_val(_sb->orig);				\
+	_real_bin = binary_val_rel(_sb->orig,BasePtr);			\
     }									\
     if (*_real_bin == HEADER_PROC_BIN) {				\
 	Bytep = ((ProcBin *) _real_bin)->bytes + _offs;			\
@@ -124,9 +129,12 @@ do {									\
  * BitSize: Extra bit size (Uint)
  */
 
-#define ERTS_GET_REAL_BIN(Bin, RealBin, ByteOffset, BitOffset, BitSize)	\
+#define ERTS_GET_REAL_BIN(Bin, RealBin, ByteOffset, BitOffset, BitSize) \
+     ERTS_GET_REAL_BIN_REL(Bin, RealBin, ByteOffset, BitOffset, BitSize, NULL)
+
+#define ERTS_GET_REAL_BIN_REL(Bin, RealBin, ByteOffset, BitOffset, BitSize, BasePtr) \
   do {									\
-    ErlSubBin* _sb = (ErlSubBin *) binary_val(Bin);			\
+    ErlSubBin* _sb = (ErlSubBin *) binary_val_rel(Bin,BasePtr);	        \
     if (_sb->thing_word == HEADER_SUB_BIN) {				\
       RealBin = _sb->orig;						\
       ByteOffset = _sb->offs;						\
@@ -150,7 +158,18 @@ do {									\
 
 void erts_init_binary(void);
 
-byte* erts_get_aligned_binary_bytes_extra(Eterm, byte**, unsigned extra);
+byte* erts_get_aligned_binary_bytes_extra(Eterm, byte**, ErtsAlcType_t, unsigned extra);
+/* Used by unicode module */
+Eterm erts_bin_bytes_to_list(Eterm previous, Eterm* hp, byte* bytes, Uint size, Uint bitoffs);
+
+/*
+ * Common implementation for erlang:list_to_binary/1 and binary:list_to_bin/1
+ */
+
+BIF_RETTYPE erts_list_to_binary_bif(Process *p, Eterm arg);
+BIF_RETTYPE erts_gc_binary_part(Process *p, Eterm *reg, Eterm live, int range_is_tuple);
+BIF_RETTYPE erts_binary_part(Process *p, Eterm binary, Eterm epos, Eterm elen);
+
 
 #if defined(__i386__) || !defined(__GNUC__)
 /*
@@ -164,10 +183,11 @@ byte* erts_get_aligned_binary_bytes_extra(Eterm, byte**, unsigned extra);
 #endif
 
 #define ERTS_CHK_BIN_ALIGNMENT(B) \
-  do { ASSERT(!(B) || (((Uint) &((Binary *)(B))->orig_bytes[0]) & ERTS_BIN_ALIGNMENT_MASK) == ((Uint) 0)) } while(0)
+  do { ASSERT(!(B) || (((UWord) &((Binary *)(B))->orig_bytes[0]) & ERTS_BIN_ALIGNMENT_MASK) == ((UWord) 0)) } while(0)
 
 ERTS_GLB_INLINE byte* erts_get_aligned_binary_bytes(Eterm bin, byte** base_ptr);
 ERTS_GLB_INLINE void erts_free_aligned_binary_bytes(byte* buf);
+ERTS_GLB_INLINE void erts_free_aligned_binary_bytes_extra(byte* buf, ErtsAlcType_t);
 ERTS_GLB_INLINE Binary *erts_bin_drv_alloc_fnf(Uint size);
 ERTS_GLB_INLINE Binary *erts_bin_drv_alloc(Uint size);
 ERTS_GLB_INLINE Binary *erts_bin_nrml_alloc(Uint size);
@@ -184,15 +204,21 @@ ERTS_GLB_INLINE Binary *erts_create_magic_binary(Uint size,
 ERTS_GLB_INLINE byte*
 erts_get_aligned_binary_bytes(Eterm bin, byte** base_ptr)
 {
-    return erts_get_aligned_binary_bytes_extra(bin, base_ptr, 0);
+    return erts_get_aligned_binary_bytes_extra(bin, base_ptr, ERTS_ALC_T_TMP, 0);
+}
+
+ERTS_GLB_INLINE void
+erts_free_aligned_binary_bytes_extra(byte* buf, ErtsAlcType_t allocator)
+{
+    if (buf) {
+	erts_free(allocator, (void *) buf);
+    }
 }
 
 ERTS_GLB_INLINE void
 erts_free_aligned_binary_bytes(byte* buf)
 {
-    if (buf) {
-	erts_free(ERTS_ALC_T_TMP, (void *) buf);
-    }
+    erts_free_aligned_binary_bytes_extra(buf,ERTS_ALC_T_TMP);
 }
 
 /* Explicit extra bytes allocated to counter buggy drivers.

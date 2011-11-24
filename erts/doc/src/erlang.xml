@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2010</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -48,22 +48,24 @@
       "Allowed in guard tests".</p>
   </description>
 
-  <section>
-    <title>DATA TYPES</title>
-    <marker id="iolist_definition"></marker>
-    <code type="none">
-ext_binary()
-  a binary data object,
-  structured according to the Erlang external term format
+  <datatypes>
+    <datatype>
+      <name><marker id="type-ext_binary">ext_binary()</marker></name>
+      <desc>
+        <p>A binary data object, structured according to
+           the Erlang external term format.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="timestamp"></name>
+      <desc><p>See <seealso marker="#now/0">now/0</seealso>.</p>
+      </desc>
+    </datatype>
+  </datatypes>
 
-iodata() = iolist() | binary()
-
-iolist() = [char() | binary() | iolist()]
-  a binary is allowed as the tail of the list</code>
-  </section>
   <funcs>
     <func>
-      <name>abs(Number) ->  int() | float()</name>
+      <name>abs(Number) -> integer() | float()</name>
       <fsummary>Arithmetical absolute value</fsummary>
       <type>
         <v>Number = number()</v>
@@ -80,7 +82,7 @@ iolist() = [char() | binary() | iolist()]
       </desc>
     </func>
     <func>
-      <name>adler32(Data) -> int()</name>
+      <name>erlang:adler32(Data) -> integer()</name>
       <fsummary>Compute adler32 checksum</fsummary>
       <type>
         <v>Data = iodata()</v>
@@ -90,10 +92,10 @@ iolist() = [char() | binary() | iolist()]
       </desc>
     </func>
     <func>
-      <name>adler32(OldAdler, Data) -> int()</name>
+      <name>erlang:adler32(OldAdler, Data) -> integer()</name>
       <fsummary>Compute adler32 checksum</fsummary>
       <type>
-        <v>OldAdler = int()</v>
+        <v>OldAdler = integer()</v>
         <v>Data = iodata()</v>
       </type>
       <desc>
@@ -102,21 +104,21 @@ iolist() = [char() | binary() | iolist()]
 	<c>Data</c>.</p>
 	<p>The following code:</p>
 	<code>
-	X = adler32(Data1),
-	Y = adler32(X,Data2).
+	X = erlang:adler32(Data1),
+	Y = erlang:adler32(X,Data2).
 	</code>
 	<p>- would assign the same value to <c>Y</c> as this would:</p>
 	<code>
-	Y = adler32([Data1,Data2]).
+	Y = erlang:adler32([Data1,Data2]).
 	</code>
       </desc>
     </func>
     <func>
-      <name>adler32_combine(FirstAdler, SecondAdler, SecondSize) -> int()</name>
+      <name>erlang:adler32_combine(FirstAdler, SecondAdler, SecondSize) -> integer()</name>
       <fsummary>Combine two adler32 checksums</fsummary>
       <type>
-        <v>FirstAdler = SecondAdler = int()</v>
-        <v>SecondSize = int()</v>
+        <v>FirstAdler = SecondAdler = integer()</v>
+        <v>SecondSize = integer()</v>
       </type>
       <desc>
         <p>Combines two previously computed adler32 checksums. 
@@ -124,14 +126,14 @@ iolist() = [char() | binary() | iolist()]
 	the second checksum to be known.</p>
 	<p>The following code:</p>
 	<code>
-	Y = adler32(Data1),
-	Z = adler32(Y,Data2).
+	Y = erlang:adler32(Data1),
+	Z = erlang:adler32(Y,Data2).
 	</code>
 	<p>- would assign the same value to <c>Z</c> as this would:</p>
 	<code>
-	X = adler32(Data1),
-	Y = adler32(Data2),
-	Z = adler32_combine(X,Y,iolist_size(Data2)).
+	X = erlang:adler32(Data1),
+	Y = erlang:adler32(Data2),
+	Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).
 	</code>
       </desc>
     </func>
@@ -147,7 +149,7 @@ iolist() = [char() | binary() | iolist()]
           <c>Tuple1</c>, and contains the elements in <c>Tuple1</c>
           followed by <c>Term</c> as the last element. Semantically
           equivalent to
-          <c>list_to_tuple(tuple_to_list(Tuple ++ [Term])</c>, but much
+          <c>list_to_tuple(tuple_to_list(Tuple) ++ [Term])</c>, but much
           faster.</p>
         <pre>
 > <input>erlang:append_element({one, two}, three).</input>
@@ -155,20 +157,16 @@ iolist() = [char() | binary() | iolist()]
       </desc>
     </func>
     <func>
-      <name>apply(Fun, Args) -> term() | empty()</name>
+      <name name="apply" arity="2"/>
       <fsummary>Apply a function to an argument list</fsummary>
-      <type>
-        <v>Fun = fun()</v>
-        <v>Args = [term()]</v>
-      </type>
       <desc>
-        <p>Call a fun, passing the elements in <c>Args</c> as
+        <p>Call a fun, passing the elements in <c><anno>Args</anno></c> as
           arguments.</p>
         <p>Note: If the number of elements in the arguments are known at
           compile-time, the call is better written as
-          <c>Fun(Arg1, Arg2, ... ArgN)</c>.</p>
+          <c><anno>Fun</anno>(Arg1, Arg2, ... ArgN)</c>.</p>
         <warning>
-          <p>Earlier, <c>Fun</c> could also be given as
+          <p>Earlier, <c><anno>Fun</anno></c> could also be given as
             <c>{Module, Function}</c>, equivalent to
             <c>apply(Module, Function, Args)</c>. This usage is
             deprecated and will stop working in a future release of
@@ -177,15 +175,11 @@ iolist() = [char() | binary() | iolist()]
       </desc>
     </func>
     <func>
-      <name>apply(Module, Function, Args) -> term() | empty()</name>
+      <name name="apply" arity="3"/>
       <fsummary>Apply a function to an argument list</fsummary>
-      <type>
-        <v>Module = Function = atom()</v>
-        <v>Args = [term()]</v>
-      </type>
       <desc>
         <p>Returns the result of applying <c>Function</c> in
-          <c>Module</c> to <c>Args</c>. The applied function must
+          <c><anno>Module</anno></c> to <c><anno>Args</anno></c>. The applied function must
           be exported from <c>Module</c>. The arity of the function is
           the length of <c>Args</c>.</p>
         <pre>
@@ -198,7 +192,7 @@ iolist() = [char() | binary() | iolist()]
 "Erlang"</pre>
         <p>Note: If the number of arguments are known at compile-time,
           the call is better written as
-          <c>Module:Function(Arg1, Arg2, ..., ArgN)</c>.</p>
+          <c><anno>Module</anno>:<anno>Function</anno>(Arg1, Arg2, ..., ArgN)</c>.</p>
         <p>Failure: <c>error_handler:undefined_function/3</c> is called
           if the applied function is not exported. The error handler
           can be redefined (see
@@ -250,6 +244,54 @@ iolist() = [char() | binary() | iolist()]
         <pre>
 > <input>atom_to_list('Erlang').</input>
 "Erlang"</pre>
+      </desc>
+    </func>
+    <func>
+      <name>binary_part(Subject, PosLen) -> binary()</name>
+      <fsummary>Extracts a part of a binary</fsummary>
+      <type>
+        <v>Subject = binary()</v>
+	<v>PosLen = {Start,Length}</v>
+	<v>Start = integer() >= 0</v>
+	<v>Length = integer() >= 0</v>
+      </type>
+      <desc>
+      <p>Extracts the part of the binary described by <c>PosLen</c>.</p>
+
+      <p>Negative length can be used to extract bytes at the end of a binary:</p>
+
+<code>
+1> Bin = &lt;&lt;1,2,3,4,5,6,7,8,9,10&gt;&gt;.
+2> binary_part(Bin,{byte_size(Bin), -5)).
+&lt;&lt;6,7,8,9,10&gt;&gt;
+</code>
+
+      <p>If <c>PosLen</c> in any way references outside the binary, a <c>badarg</c> exception is raised.</p>
+
+      <p><c>Start</c> is zero-based, i.e:</p>
+<code>
+1> Bin = &lt;&lt;1,2,3&gt;&gt;
+2> binary_part(Bin,{0,2}).
+&lt;&lt;1,2&gt;&gt;
+</code>
+
+      <p>See the STDLIB module <c>binary</c> for details about the <c>PosLen</c> semantics.</p>
+
+      <p>Allowed in guard tests.</p>
+      </desc>
+    </func>
+    <func>
+      <name>binary_part(Subject, Start, Length) -> binary()</name>
+      <fsummary>Extracts a part of a binary</fsummary>
+      <type>
+        <v>Subject = binary()</v>
+	<v>Start = integer() >= 0</v>
+	<v>Length = integer() >= 0</v>
+      </type>
+      <desc>
+      <p>The same as <c>binary_part(Subject, {Pos, Len})</c>.</p>
+
+      <p>Allowed in guard tests.</p>
       </desc>
     </func>
     <func>
@@ -318,6 +360,11 @@ iolist() = [char() | binary() | iolist()]
           corresponding to the bytes from position <c>Start</c> to
           position <c>Stop</c> in <c>Binary</c>. Positions in the
           binary are numbered starting from 1.</p>
+
+	  <note><p>This function's indexing style of using one-based indices for
+	  binaries is deprecated. New code should use the functions in
+	  the STDLIB module <c>binary</c> instead. They consequently
+	  use the same (zero-based) style of indexing.</p></note>
       </desc>
     </func>
     <func>
@@ -337,7 +384,7 @@ iolist() = [char() | binary() | iolist()]
       <name>binary_to_term(Binary) -> term()</name>
       <fsummary>Decode an Erlang external term format binary</fsummary>
       <type>
-        <v>Binary = ext_binary()</v>
+        <v>Binary = <seealso marker="#type-ext_binary">ext_binary()</seealso></v>
       </type>
       <desc>
         <p>Returns an Erlang term which is the result of decoding
@@ -354,11 +401,11 @@ iolist() = [char() | binary() | iolist()]
       </desc>
     </func>
     <func>
-      <name>erlang:binary_to_term(Binary, Opts) -> term()</name>
+      <name>binary_to_term(Binary, Opts) -> term()</name>
       <fsummary>Decode an Erlang external term format binary</fsummary>
       <type>
         <v>Opts = [safe]</v>
-        <v>Binary = ext_binary()</v>
+        <v>Binary = <seealso marker="#type-ext_binary">ext_binary()</seealso></v>
       </type>
       <desc>
         <p>As <c>binary_to_term/1</c>, but takes options that affect decoding
@@ -389,7 +436,7 @@ iolist() = [char() | binary() | iolist()]
       </desc>
     </func>
     <func>
-      <name>bit_size(Bitstring) -> int()</name>
+      <name>bit_size(Bitstring) -> integer() >= 0</name>
       <fsummary>Return the size of a bitstring</fsummary>
       <type>
         <v>Bitstring = bitstring()</v>
@@ -408,7 +455,7 @@ iolist() = [char() | binary() | iolist()]
       <name>erlang:bump_reductions(Reductions) -> void()</name>
       <fsummary>Increment the reduction counter</fsummary>
       <type>
-        <v>Reductions = int()</v>
+        <v>Reductions = integer() >= 0</v>
       </type>
       <desc>
         <p>This implementation-dependent function increments
@@ -425,7 +472,7 @@ iolist() = [char() | binary() | iolist()]
       </desc>
     </func>
     <func>
-      <name>byte_size(Bitstring) -> int()</name>
+      <name>byte_size(Bitstring) -> integer() >= 0</name>
       <fsummary>Return the size of a bitstring (or binary)</fsummary>
       <type>
         <v>Bitstring = bitstring()</v>
@@ -446,8 +493,8 @@ iolist() = [char() | binary() | iolist()]
       <name>erlang:cancel_timer(TimerRef) -> Time | false</name>
       <fsummary>Cancel a timer</fsummary>
       <type>
-        <v>TimerRef = ref()</v>
-        <v>Time = int()</v>
+        <v>TimerRef = reference()</v>
+        <v>Time = integer() >= 0</v>
       </type>
       <desc>
         <p>Cancels a timer, where <c>TimerRef</c> was returned by
@@ -471,7 +518,19 @@ iolist() = [char() | binary() | iolist()]
     </func>
 
     <func>
-      <name>check_process_code(Pid, Module) -> bool()</name>
+      <name>check_old_code(Module) -> boolean()</name>
+      <fsummary>Check if a module has old code</fsummary>
+      <type>
+        <v>Module = atom()</v>
+      </type>
+      <desc>
+        <p>Returns <c>true</c> if the <c>Module</c> has old code,
+	and <c>false</c> otherwise.</p>
+        <p>See also <seealso marker="kernel:code">code(3)</seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>check_process_code(Pid, Module) -> boolean()</name>
       <fsummary>Check if a process is executing old code for a module</fsummary>
       <type>
         <v>Pid = pid()</v>
@@ -491,16 +550,7 @@ false</pre>
       </desc>
     </func>
     <func>
-      <name>concat_binary(ListOfBinaries)</name>
-      <fsummary>Concatenate a list of binaries (deprecated)</fsummary>
-      <desc>
-        <p>Do not use; use
-          <seealso marker="#list_to_binary/1">list_to_binary/1</seealso>
-          instead.</p>
-      </desc>
-    </func>
-    <func>
-      <name>crc32(Data) -> int()</name>
+      <name>erlang:crc32(Data) -> integer() >= 0</name>
       <fsummary>Compute crc32 (IEEE 802.3) checksum</fsummary>
       <type>
         <v>Data = iodata()</v>
@@ -510,10 +560,10 @@ false</pre>
       </desc>
     </func>
     <func>
-      <name>crc32(OldCrc, Data) -> int()</name>
+      <name>erlang:crc32(OldCrc, Data) -> integer() >= 0</name>
       <fsummary>Compute crc32 (IEEE 802.3) checksum</fsummary>
       <type>
-        <v>OldCrc = int()</v>
+        <v>OldCrc = integer() >= 0</v>
         <v>Data = iodata()</v>
       </type>
       <desc>
@@ -522,21 +572,21 @@ false</pre>
 	<c>Data</c>.</p>
 	<p>The following code:</p>
 	<code>
-	X = crc32(Data1),
-	Y = crc32(X,Data2).
+	X = erlang:crc32(Data1),
+	Y = erlang:crc32(X,Data2).
 	</code>
 	<p>- would assign the same value to <c>Y</c> as this would:</p>
 	<code>
-	Y = crc32([Data1,Data2]).
+	Y = erlang:crc32([Data1,Data2]).
 	</code>
       </desc>
     </func>
     <func>
-      <name>crc32_combine(FirstCrc, SecondCrc, SecondSize) -> int()</name>
+      <name>erlang:crc32_combine(FirstCrc, SecondCrc, SecondSize) -> integer() >= 0</name>
       <fsummary>Combine two crc32 (IEEE 802.3) checksums</fsummary>
       <type>
-        <v>FirstCrc = SecondCrc = int()</v>
-        <v>SecondSize = int()</v>
+        <v>FirstCrc = SecondCrc = integer() >= 0</v>
+        <v>SecondSize = integer() >= 0</v>
       </type>
       <desc>
         <p>Combines two previously computed crc32 checksums. 
@@ -544,22 +594,22 @@ false</pre>
 	the second checksum to be known.</p>
 	<p>The following code:</p>
 	<code>
-	Y = crc32(Data1),
-	Z = crc32(Y,Data2).
+	Y = erlang:crc32(Data1),
+	Z = erlang:crc32(Y,Data2).
 	</code>
 	<p>- would assign the same value to <c>Z</c> as this would:</p>
 	<code>
-	X = crc32(Data1),
-	Y = crc32(Data2),
-	Z = crc32_combine(X,Y,iolist_size(Data2)).
+	X = erlang:crc32(Data1),
+	Y = erlang:crc32(Data2),
+	Z = erlang:crc32_combine(X,Y,iolist_size(Data2)).
 	</code>
       </desc>
     </func>
     <func>
-      <name>date() -> {Year, Month, Day}</name>
+      <name>date() -> Date</name>
       <fsummary>Current date</fsummary>
       <type>
-        <v>Year = Month = Day = int()</v>
+        <v>Date = <seealso marker="calendar#type-date">calendar:date()</seealso></v>
       </type>
       <desc>
         <p>Returns the current date as <c>{Year, Month, Day}</c>.</p>
@@ -571,27 +621,27 @@ false</pre>
       </desc>
     </func>
     <func>
-      <name>decode_packet(Type,Bin,Options) -> {ok,Packet,Rest} | {more,Length} | {error,Reason}</name>
+      <name>erlang:decode_packet(Type,Bin,Options) -> {ok,Packet,Rest} | {more,Length} | {error,Reason}</name>
       <fsummary>Extracts a protocol packet from a binary</fsummary>
       <type>
         <v>Bin = binary()</v>
         <v>Options = [Opt]</v>
         <v>Packet = binary() | HttpPacket</v>
         <v>Rest = binary()</v>
-        <v>Length = int() | undefined</v>
+        <v>Length = integer() > 0 | undefined</v>
         <v>Reason = term()</v>
         <v>&nbsp;Type, Opt -- see below</v>
         <v></v>
         <v>HttpPacket = HttpRequest | HttpResponse | HttpHeader | http_eoh | HttpError</v>
         <v>HttpRequest = {http_request, HttpMethod, HttpUri, HttpVersion}</v>
         <v>HttpResponse = {http_response, HttpVersion, integer(), HttpString}</v>
-        <v>HttpHeader = {http_header, int(), HttpField, Reserved=term(), Value=HttpString}</v>
+        <v>HttpHeader = {http_header, integer(), HttpField, Reserved=term(), Value=HttpString}</v>
         <v>HttpError = {http_error, HttpString}</v>
         <v>HttpMethod = HttpMethodAtom | HttpString</v>
         <v>HttpMethodAtom = 'OPTIONS' | 'GET' | 'HEAD' | 'POST' | 'PUT' | 'DELETE' | 'TRACE'</v>
-        <v>HttpUri = '*' | {absoluteURI, http|https, Host=HttpString, Port=int()|undefined, Path=HttpString} | 
+        <v>HttpUri = '*' | {absoluteURI, http|https, Host=HttpString, Port=integer()|undefined, Path=HttpString} |
                      {scheme, Scheme=HttpString, HttpString} | {abs_path, HttpString} | HttpString</v>
-        <v>HttpVersion = {Major=int(), Minor=int()}</v>
+        <v>HttpVersion = {Major=integer(), Minor=integer()}</v>
         <v>HttpString = string() | binary()</v>
         <v>HttpField = HttpFieldAtom | HttpString</v>
         <v>HttpFieldAtom = 'Cache-Control' | 'Connection' | 'Date' | 'Pragma' | 'Transfer-Encoding' | 'Upgrade' | 'Via' | 'Accept' | 'Accept-Charset' | 'Accept-Encoding' | 'Accept-Language' | 'Authorization' | 'From' | 'Host' | 'If-Modified-Since' | 'If-Match' | 'If-None-Match' | 'If-Range' | 'If-Unmodified-Since' | 'Max-Forwards' | 'Proxy-Authorization' | 'Range' | 'Referer' | 'User-Agent' | 'Age' | 'Location' | 'Proxy-Authenticate' | 'Public' | 'Retry-After' | 'Server' | 'Vary' | 'Warning' | 'Www-Authenticate' | 'Allow' | 'Content-Base' | 'Content-Encoding' | 'Content-Language' | 'Content-Length' | 'Content-Location' | 'Content-Md5' | 'Content-Range' | 'Content-Type' | 'Etag' | 'Expires' | 'Last-Modified' | 'Accept-Ranges' | 'Set-Cookie' | 'Set-Cookie2' | 'X-Forwarded-For' | 'Cookie' | 'Keep-Alive' | 'Proxy-Connection'</v>
@@ -666,14 +716,14 @@ false</pre>
         </taglist>
         <p>The following options are available:</p>
             <taglist>
-              <tag><c>{packet_size, int()}</c></tag>
+              <tag><c>{packet_size, integer()}</c></tag>
               <item><p>Sets the max allowed size of the packet body. If
                 the packet header indicates that the length of the
                 packet is longer than the max allowed length, the packet
                 is considered invalid. Default is 0 which means no
                 size limit.</p>
               </item>
-              <tag><c>{line_length, int()}</c></tag>
+              <tag><c>{line_length, integer()}</c></tag>
               <item><p>Applies only to line oriented protocols
                 (<c>line</c>, <c>http</c>). Lines longer than this
                 will be truncated.</p>
@@ -707,18 +757,18 @@ false</pre>
       </desc>
     </func>
     <func>
-      <name>erlang:demonitor(MonitorRef) -> true</name>
+      <name>demonitor(MonitorRef) -> true</name>
       <fsummary>Stop monitoring</fsummary>
       <type>
-        <v>MonitorRef = ref()</v>
+        <v>MonitorRef = reference()</v>
       </type>
       <desc>
         <p>If <c>MonitorRef</c> is a reference which the calling process
           obtained by calling
-          <seealso marker="#monitor/2">erlang:monitor/2</seealso>,
+          <seealso marker="#monitor/2">monitor/2</seealso>,
           this monitoring is turned off. If the monitoring is already
           turned off, nothing happens.</p>
-        <p>Once <c>erlang:demonitor(MonitorRef)</c> has returned it is
+        <p>Once <c>demonitor(MonitorRef)</c> has returned it is
           guaranteed that no <c>{'DOWN', MonitorRef, _, _, _}</c> message
           due to the monitor will be placed in the callers message queue
           in the future. A <c>{'DOWN', MonitorRef, _, _, _}</c> message
@@ -726,10 +776,10 @@ false</pre>
           the call, though. Therefore, in most cases, it is advisable
           to remove such a <c>'DOWN'</c> message from the message queue
           after monitoring has been stopped. 
-          <seealso marker="#demonitor/2">erlang:demonitor(MonitorRef, [flush])</seealso> can be used instead of
-          <c>erlang:demonitor(MonitorRef)</c> if this cleanup is wanted.</p>
+          <seealso marker="#demonitor/2">demonitor(MonitorRef, [flush])</seealso> can be used instead of
+          <c>demonitor(MonitorRef)</c> if this cleanup is wanted.</p>
         <note>
-          <p>Prior to OTP release R11B (erts version 5.5) <c>erlang:demonitor/1</c>
+          <p>Prior to OTP release R11B (erts version 5.5) <c>demonitor/1</c>
             behaved completely asynchronous, i.e., the monitor was active
             until the "demonitor signal" reached the monitored entity. This
             had one undesirable effect, though. You could never know when
@@ -747,20 +797,19 @@ false</pre>
       </desc>
     </func>
     <func>
-      <name>erlang:demonitor(MonitorRef, OptionList) -> true|false</name>
+      <name>demonitor(MonitorRef, OptionList) -> boolean()</name>
       <fsummary>Stop monitoring</fsummary>
       <type>
-        <v>MonitorRef = ref()</v>
+        <v>MonitorRef = reference()</v>
         <v>OptionList = [Option]</v>
-        <v>Option = flush</v>
-        <v>Option = info</v>
+        <v>&nbsp;Option = flush | info</v>
       </type>
       <desc>
         <p>The returned value is <c>true</c> unless <c>info</c> is part
 	   of <c>OptionList</c>.
 	</p>
-        <p><c>erlang:demonitor(MonitorRef, [])</c> is equivalent to
-          <seealso marker="#demonitor/1">erlang:demonitor(MonitorRef)</seealso>.</p>
+        <p><c>demonitor(MonitorRef, [])</c> is equivalent to
+          <seealso marker="#demonitor/1">demonitor(MonitorRef)</seealso>.</p>
         <p>Currently the following <c>Option</c>s are valid:</p>
         <taglist>
           <tag><c>flush</c></tag>
@@ -768,11 +817,11 @@ false</pre>
             <p>Remove (one) <c>{_, MonitorRef, _, _, _}</c> message,
               if there is one, from the callers message queue after
               monitoring has been stopped.</p>
-            <p>Calling <c>erlang:demonitor(MonitorRef, [flush])</c>
+            <p>Calling <c>demonitor(MonitorRef, [flush])</c>
               is equivalent to the following, but more efficient:</p>
             <code type="none">
 
-    erlang:demonitor(MonitorRef),
+    demonitor(MonitorRef),
     receive
         {_, MonitorRef, _, _, _} ->
             true
@@ -810,18 +859,15 @@ false</pre>
         </note>
         <p>Failure: <c>badarg</c> if <c>OptionList</c> is not a list, or
           if <c>Option</c> is not a valid option, or the same failure as for
-          <seealso marker="#demonitor/1">erlang:demonitor/1</seealso></p>
+          <seealso marker="#demonitor/1">demonitor/1</seealso></p>
       </desc>
     </func>
     <func>
-      <name>disconnect_node(Node) -> bool() | ignored</name>
+      <name name="disconnect_node" arity="1"/>
       <fsummary>Force the disconnection of a node</fsummary>
-      <type>
-        <v>Node = atom()</v>
-      </type>
       <desc>
         <p>Forces the disconnection of a node. This will appear to
-          the node <c>Node</c> as if the local node has crashed. This
+          the node <c><anno>Node</anno></c> as if the local node has crashed. This
           BIF is mainly used in the Erlang network authentication
           protocols. Returns <c>true</c> if disconnection succeeds,
           otherwise <c>false</c>. If the local node is not alive,
@@ -891,7 +937,7 @@ b</pre>
       </desc>
     </func>
     <func>
-      <name>erlang:error(Reason)</name>
+      <name>error(Reason)</name>
       <fsummary>Stop execution with a given reason</fsummary>
       <type>
         <v>Reason = term()</v>
@@ -904,7 +950,7 @@ b</pre>
           function first). Since evaluating this function causes
           the process to terminate, it has no return value.</p>
         <pre>
-> <input>catch erlang:error(foobar).</input>
+> <input>catch error(foobar).</input>
 {'EXIT',{foobar,[{erl_eval,do_apply,5},
                  {erl_eval,expr,5},
                  {shell,exprs,6},
@@ -913,7 +959,7 @@ b</pre>
       </desc>
     </func>
     <func>
-      <name>erlang:error(Reason, Args)</name>
+      <name>error(Reason, Args)</name>
       <fsummary>Stop execution with a given reason</fsummary>
       <type>
         <v>Reason = term()</v>
@@ -979,6 +1025,56 @@ b</pre>
       </desc>
     </func>
     <func>
+      <name>erlang:external_size(Term) -> integer() >= 0</name>
+      <fsummary>Calculate the maximum size for a term encoded in the Erlang
+        external term format</fsummary>
+      <type>
+        <v>Term = term()</v>
+      </type>
+      <desc>
+        <p>Calculates, without doing the encoding, the maximum byte size for
+          a term encoded in the Erlang external term format. The following
+          condition applies always:</p>
+        <p>
+          <pre>
+> <input>Size1 = byte_size(term_to_binary(Term)),</input>
+> <input>Size2 = erlang:external_size(Term),</input>
+> <input>true = Size1 =&lt; Size2.</input>
+true
+          </pre>
+        </p>
+        <p>This is equivalent to a call to: <code>erlang:external_size(Term, [])
+          </code></p>
+      </desc>
+    </func>
+    <func>
+      <name>erlang:external_size(Term, [Option]) -> integer() >= 0</name>
+      <fsummary>Calculate the maximum size for a term encoded in the Erlang
+        external term format</fsummary>
+      <type>
+        <v>Term = term()</v>
+        <v>Option = {minor_version, Version}</v>
+      </type>
+      <desc>
+        <p>Calculates, without doing the encoding, the maximum byte size for
+          a term encoded in the Erlang external term format. The following
+          condition applies always:</p>
+        <p>
+          <pre>
+> <input>Size1 = byte_size(term_to_binary(Term, Options)),</input>
+> <input>Size2 = erlang:external_size(Term, Options),</input>
+> <input>true = Size1 =&lt; Size2.</input>
+true
+          </pre>
+        </p>
+        <p>The option <c>{minor_version, Version}</c> specifies how floats
+          are encoded. See
+          <seealso marker="#term_to_binary/2">term_to_binary/2</seealso> for
+          a more detailed description.
+        </p>
+      </desc>
+    </func>
+    <func>
       <name>float(Number) -> float()</name>
       <fsummary>Convert a number to a float</fsummary>
       <type>
@@ -1016,15 +1112,11 @@ b</pre>
       </desc>
     </func>
     <func>
-      <name>erlang:fun_info(Fun) -> [{Item, Info}]</name>
+      <name name="fun_info" arity="1"/>
       <fsummary>Information about a fun</fsummary>
-      <type>
-        <v>Fun = fun()</v>
-        <v>Item, Info -- see below</v>
-      </type>
       <desc>
         <p>Returns a list containing information about the fun
-          <c>Fun</c>. Each element of the list is a tuple. The order of
+          <c><anno>Fun</anno></c>. Each element of the list is a tuple. The order of
           the tuples is not defined, and more tuples may be added in a
           future release.</p>
         <warning>
@@ -1103,11 +1195,16 @@ b</pre>
           </item>
           <tag><c>{new_uniq, Uniq}</c></tag>
           <item>
-            <p><c>Uniq</c> (a binary) is a unique value for this fun.</p>
+            <p><c>Uniq</c> (a binary) is a unique value for this fun.
+	    It is calculated from the compiled code for the entire module.</p>
           </item>
           <tag><c>{uniq, Uniq}</c></tag>
           <item>
-            <p><c>Uniq</c> (an integer) is a unique value for this fun.</p>
+            <p><c>Uniq</c> (an integer) is a unique value for this fun.
+	    Starting in the R15 release, this integer is calculated from
+	    the compiled code for the entire module. Before R15, this
+	    integer was based on only the body of the fun.
+	    </p>
           </item>
         </taglist>
       </desc>
@@ -1123,7 +1220,7 @@ b</pre>
         <p>Returns information about <c>Fun</c> as specified by
           <c>Item</c>, in the form <c>{Item,Info}</c>.</p>
         <p>For any fun, <c>Item</c> can be any of the atoms
-          <c>module</c>, <c>name</c>, <c>arity</c>, or <c>env</c>.</p>
+          <c>module</c>, <c>name</c>, <c>arity</c>, <c>env</c>, or <c>type</c>.</p>
         <p>For a local fun, <c>Item</c> can also be any of the atoms
           <c>index</c>, <c>new_index</c>, <c>new_uniq</c>,
           <c>uniq</c>, and <c>pid</c>. For an external fun, the value
@@ -1144,11 +1241,11 @@ b</pre>
       </desc>
     </func>
     <func>
-      <name>erlang:function_exported(Module, Function, Arity) -> bool()</name>
+      <name>erlang:function_exported(Module, Function, Arity) -> boolean()</name>
       <fsummary>Check if a function is exported and loaded</fsummary>
       <type>
         <v>Module = Function = atom()</v>
-        <v>Arity = int()</v>
+        <v>Arity = arity()</v>
       </type>
       <desc>
         <p>Returns <c>true</c> if the module <c>Module</c> is loaded
@@ -1176,7 +1273,7 @@ b</pre>
       </desc>
     </func>
     <func>
-      <name>garbage_collect(Pid) -> bool()</name>
+      <name>garbage_collect(Pid) -> boolean()</name>
       <fsummary>Force an immediate garbage collection of a process</fsummary>
       <type>
         <v>Pid = pid()</v>
@@ -1223,11 +1320,8 @@ b</pre>
       </desc>
     </func>
     <func>
-      <name>erlang:get_cookie() -> Cookie | nocookie</name>
+      <name name="get_cookie" arity="0"/>
       <fsummary>Get the magic cookie of the local node</fsummary>
-      <type>
-        <v>Cookie = atom()</v>
-      </type>
       <desc>
         <p>Returns the magic cookie of the local node, if the node is
           alive; otherwise the atom <c>nocookie</c>.</p>
@@ -1254,17 +1348,18 @@ b</pre>
       </desc>
     </func>
     <func>
-      <name>erlang:get_stacktrace() -> [{Module, Function, Arity | Args}]</name>
+      <name>erlang:get_stacktrace() -> [{Module, Function, Arity | Args, Location}]</name>
       <fsummary>Get the call stack back-trace of the last exception</fsummary>
       <type>
         <v>Module = Function = atom()</v>
-        <v>Arity = int()</v>
+        <v>Arity = arity()</v>
         <v>Args = [term()]</v>
+	<v>Location = [{atom(),term()}]</v>
       </type>
       <desc>
         <p>Get the call stack back-trace (<em>stacktrace</em>) of the last
           exception in the calling process as a list of 
-          <c>{Module,Function,Arity}</c> tuples.
+          <c>{Module,Function,Arity,Location}</c> tuples.
           The <c>Arity</c> field in the first tuple may be the argument
           list of that function call instead of an arity integer,
           depending on the exception.</p>
@@ -1274,6 +1369,25 @@ b</pre>
         <p>The stacktrace is the same data as the <c>catch</c> operator
           returns, for example:</p>
         <p><c>{'EXIT',{badarg,Stacktrace}} = catch abs(x)</c></p>
+	<p><c>Location</c> is a (possibly empty) list of two-tuples that
+	  may indicate the location in the source code of the function.
+	  The first element is an atom that describes the type of
+	  information in the second element. Currently the following
+	  items may occur:</p>
+	<taglist>
+	  <tag><c>file</c></tag>
+	  <item>
+	    <p>The second element of the tuple is a string (list of
+	      characters) representing the filename of the source file
+	      of the function.</p>
+	  </item>
+	  <tag><c>line</c></tag>
+	  <item>
+	    <p>The second element of the tuple is the line number
+	      (an integer greater than zero) in the source file
+	      where the exception occurred or the function was called.</p>
+	  </item>
+	</taglist>
         <p>See also
           <seealso marker="#error/1">erlang:error/1</seealso> and
           <seealso marker="#error/2">erlang:error/2</seealso>.</p>
@@ -1326,7 +1440,7 @@ os_prompt%</pre>
       <name>halt(Status)</name>
       <fsummary>Halt the Erlang runtime system</fsummary>
       <type>
-        <v>Status = int()>=0 | string()</v>
+        <v>Status = integer() >= 0 | string()</v>
       </type>
       <desc>
         <p><c>Status</c> must be a non-negative integer, or a string.
@@ -1419,7 +1533,7 @@ os_prompt%</pre>
       <name>integer_to_list(Integer) -> string()</name>
       <fsummary>Text representation of an integer</fsummary>
       <type>
-        <v>Integer = int()</v>
+        <v>Integer = integer()</v>
       </type>
       <desc>
         <p>Returns a string which corresponds to the text
@@ -1430,17 +1544,13 @@ os_prompt%</pre>
       </desc>
     </func>
     <func>
-      <name>erlang:integer_to_list(Integer, Base) -> string()</name>
+      <name name="integer_to_list" arity="2"/>
       <fsummary>Text representation of an integer</fsummary>
-      <type>
-        <v>Integer = int()</v>
-        <v>Base = 2..36</v>
-      </type>
       <desc>
         <p>Returns a string which corresponds to the text
-          representation of <c>Integer</c> in base <c>Base</c>.</p>
+          representation of <c><anno>Integer</anno></c> in base <c><anno>Base</anno></c>.</p>
         <pre>
-> <input>erlang:integer_to_list(1023, 16).</input>
+> <input>integer_to_list(1023, 16).</input>
 "3FF"</pre>
       </desc>
     </func>
@@ -1465,7 +1575,7 @@ os_prompt%</pre>
       </desc>
     </func>
     <func>
-      <name>iolist_size(Item) -> int()</name>
+      <name>iolist_size(Item) -> integer() >= 0</name>
       <fsummary>Size of an iolist</fsummary>
       <type>
         <v>Item = iolist() | binary()</v>
@@ -1480,7 +1590,7 @@ os_prompt%</pre>
       </desc>
     </func>
     <func>
-      <name>is_alive() -> bool()</name>
+      <name>is_alive() -> boolean()</name>
       <fsummary>Check whether the local node is alive</fsummary>
       <desc>
         <p>Returns <c>true</c> if the local node is alive; that is, if
@@ -1489,7 +1599,7 @@ os_prompt%</pre>
       </desc>
     </func>
     <func>
-      <name>is_atom(Term) -> bool()</name>
+      <name>is_atom(Term) -> boolean()</name>
       <fsummary>Check whether a term is an atom</fsummary>
       <type>
         <v>Term = term()</v>
@@ -1501,7 +1611,7 @@ os_prompt%</pre>
       </desc>
     </func>
     <func>
-      <name>is_binary(Term) -> bool()</name>
+      <name>is_binary(Term) -> boolean()</name>
       <fsummary>Check whether a term is a binary</fsummary>
       <type>
         <v>Term = term()</v>
@@ -1516,7 +1626,7 @@ os_prompt%</pre>
       </desc>
     </func>
     <func>
-      <name>is_bitstring(Term) -> bool()</name>
+      <name>is_bitstring(Term) -> boolean()</name>
       <fsummary>Check whether a term is a bitstring</fsummary>
       <type>
         <v>Term = term()</v>
@@ -1529,7 +1639,7 @@ os_prompt%</pre>
       </desc>
     </func>
     <func>
-      <name>is_boolean(Term) -> bool()</name>
+      <name>is_boolean(Term) -> boolean()</name>
       <fsummary>Check whether a term is a boolean</fsummary>
       <type>
         <v>Term = term()</v>
@@ -1542,11 +1652,11 @@ os_prompt%</pre>
       </desc>
     </func>
     <func>
-      <name>erlang:is_builtin(Module, Function, Arity) -> bool()</name>
+      <name>erlang:is_builtin(Module, Function, Arity) -> boolean()</name>
       <fsummary>Check if a function is a BIF implemented in C</fsummary>
       <type>
         <v>Module = Function = atom()</v>
-        <v>Arity = int()</v>
+        <v>Arity = arity()</v>
       </type>
       <desc>
         <p>Returns <c>true</c> if <c>Module:Function/Arity</c> is
@@ -1555,7 +1665,7 @@ os_prompt%</pre>
       </desc>
     </func>
     <func>
-      <name>is_float(Term) -> bool()</name>
+      <name>is_float(Term) -> boolean()</name>
       <fsummary>Check whether a term is a float</fsummary>
       <type>
         <v>Term = term()</v>
@@ -1567,7 +1677,7 @@ os_prompt%</pre>
       </desc>
     </func>
     <func>
-      <name>is_function(Term) -> bool()</name>
+      <name>is_function(Term) -> boolean()</name>
       <fsummary>Check whether a term is a fun</fsummary>
       <type>
         <v>Term = term()</v>
@@ -1579,11 +1689,11 @@ os_prompt%</pre>
       </desc>
     </func>
     <func>
-      <name>is_function(Term, Arity) -> bool()</name>
+      <name>is_function(Term, Arity) -> boolean()</name>
       <fsummary>Check whether a term is a fun with a given arity</fsummary>
       <type>
         <v>Term = term()</v>
-        <v>Arity = int()</v>
+        <v>Arity = arity()</v>
       </type>
       <desc>
         <p>Returns <c>true</c> if <c>Term</c> is a fun that can be
@@ -1600,7 +1710,7 @@ os_prompt%</pre>
       </desc>
     </func>
     <func>
-      <name>is_integer(Term) -> bool()</name>
+      <name>is_integer(Term) -> boolean()</name>
       <fsummary>Check whether a term is an integer</fsummary>
       <type>
         <v>Term = term()</v>
@@ -1612,7 +1722,7 @@ os_prompt%</pre>
       </desc>
     </func>
     <func>
-      <name>is_list(Term) -> bool()</name>
+      <name>is_list(Term) -> boolean()</name>
       <fsummary>Check whether a term is a list</fsummary>
       <type>
         <v>Term = term()</v>
@@ -1624,7 +1734,7 @@ os_prompt%</pre>
       </desc>
     </func>
     <func>
-      <name>is_number(Term) -> bool()</name>
+      <name>is_number(Term) -> boolean()</name>
       <fsummary>Check whether a term is a number</fsummary>
       <type>
         <v>Term = term()</v>
@@ -1636,7 +1746,7 @@ os_prompt%</pre>
       </desc>
     </func>
     <func>
-      <name>is_pid(Term) -> bool()</name>
+      <name>is_pid(Term) -> boolean()</name>
       <fsummary>Check whether a term is a pid</fsummary>
       <type>
         <v>Term = term()</v>
@@ -1648,7 +1758,7 @@ os_prompt%</pre>
       </desc>
     </func>
     <func>
-      <name>is_port(Term) -> bool()</name>
+      <name>is_port(Term) -> boolean()</name>
       <fsummary>Check whether a term is a port</fsummary>
       <type>
         <v>Term = term()</v>
@@ -1660,7 +1770,7 @@ os_prompt%</pre>
       </desc>
     </func>
     <func>
-      <name>is_process_alive(Pid) -> bool()</name>
+      <name>is_process_alive(Pid) -> boolean()</name>
       <fsummary>Check whether a process is alive</fsummary>
       <type>
         <v>Pid = pid()</v>
@@ -1675,7 +1785,7 @@ os_prompt%</pre>
       </desc>
     </func>
     <func>
-      <name>is_record(Term, RecordTag) -> bool()</name>
+      <name>is_record(Term, RecordTag) -> boolean()</name>
       <fsummary>Check whether a term appears to be a record</fsummary>
       <type>
         <v>Term = term()</v>
@@ -1698,12 +1808,12 @@ os_prompt%</pre>
       </desc>
     </func>
     <func>
-      <name>is_record(Term, RecordTag, Size) -> bool()</name>
+      <name>is_record(Term, RecordTag, Size) -> boolean()</name>
       <fsummary>Check whether a term appears to be a record</fsummary>
       <type>
         <v>Term = term()</v>
         <v>RecordTag = atom()</v>
-        <v>Size = int()</v>
+        <v>Size = integer()</v>
       </type>
       <desc>
         <p><c>RecordTag</c> must be an atom. Returns <c>true</c> if
@@ -1718,7 +1828,7 @@ os_prompt%</pre>
       </desc>
     </func>
     <func>
-      <name>is_reference(Term) -> bool()</name>
+      <name>is_reference(Term) -> boolean()</name>
       <fsummary>Check whether a term is a reference</fsummary>
       <type>
         <v>Term = term()</v>
@@ -1730,7 +1840,7 @@ os_prompt%</pre>
       </desc>
     </func>
     <func>
-      <name>is_tuple(Term) -> bool()</name>
+      <name>is_tuple(Term) -> boolean()</name>
       <fsummary>Check whether a term is a tuple</fsummary>
       <type>
         <v>Term = term()</v>
@@ -1742,7 +1852,7 @@ os_prompt%</pre>
       </desc>
     </func>
     <func>
-      <name>length(List) -> int()</name>
+      <name>length(List) -> integer() >= 0</name>
       <fsummary>Length of a list</fsummary>
       <type>
         <v>List = [term()]</v>
@@ -1863,7 +1973,7 @@ os_prompt%</pre>
       </desc>
     </func>
     <func>
-      <name>list_to_integer(String) -> int()</name>
+      <name>list_to_integer(String) -> integer()</name>
       <fsummary>Convert from text representation to an integer</fsummary>
       <type>
         <v>String = string()</v>
@@ -1879,19 +1989,15 @@ os_prompt%</pre>
       </desc>
     </func>
     <func>
-      <name>erlang:list_to_integer(String, Base) -> int()</name>
+      <name name="list_to_integer" arity="2"/>
       <fsummary>Convert from text representation to an integer</fsummary>
-      <type>
-        <v>String = string()</v>
-        <v>Base = 2..36</v>
-      </type>
       <desc>
         <p>Returns an integer whose text representation in base
-          <c>Base</c> is <c>String</c>.</p>
+          <c><anno>Base</anno></c> is <c><anno>String</anno></c>.</p>
         <pre>
-> <input>erlang:list_to_integer("3FF", 16).</input>
+> <input>list_to_integer("3FF", 16).</input>
 1023</pre>
-        <p>Failure: <c>badarg</c> if <c>String</c> contains a bad
+        <p>Failure: <c>badarg</c> if <c><anno>String</anno></c> contains a bad
           representation of an integer.</p>
       </desc>
     </func>
@@ -1981,16 +2087,18 @@ os_prompt%</pre>
         <v>Text = string()</v>
       </type>
       <desc>
-        <warning>
-          <p>This BIF is still an experimental feature. The interface
-          may be changed in any way in future releases.</p><p>In
-          R13B03 the return value on failure was
+        <note>
+          <p>In releases older than OTP R14B, NIFs were an
+          experimental feature. Versions of OTP older than R14B might
+          have different and possibly incompatible NIF semantics and
+          interfaces. For example, in R13B03 the return value on
+          failure was
           <c>{error,Reason,Text}</c>.</p>
-        </warning>
+        </note>
         <p>Loads and links a dynamic library containing native
         implemented functions (NIFs) for a module. <c>Path</c> is a
         file path to the sharable object/dynamic library file minus
-        the OS-dependant file extension (.so for Unix and .ddl for
+        the OS-dependent file extension (.so for Unix and .dll for
         Windows). See <seealso marker="erl_nif">erl_nif</seealso>
         on how to implement a NIF library.</p> 
         <p><c>LoadInfo</c> can be any term. It will be passed on to
@@ -2040,12 +2148,10 @@ os_prompt%</pre>
       </desc>
     </func>
     <func>
-      <name>erlang:localtime() -> {Date, Time}</name>
+      <name>erlang:localtime() -> DateTime</name>
       <fsummary>Current local date and time</fsummary>
       <type>
-        <v>Date = {Year, Month, Day}</v>
-        <v>Time = {Hour, Minute, Second}</v>
-        <v>&nbsp;Year = Month = Day = Hour = Minute = Second = int()</v>
+        <v>DateTime = <seealso marker="calendar#type-datetime">calendar:datetime()</seealso></v>
       </type>
       <desc>
         <p>Returns the current local date and time
@@ -2058,17 +2164,12 @@ os_prompt%</pre>
       </desc>
     </func>
     <func>
-      <name>erlang:localtime_to_universaltime({Date1, Time1}) -> {Date2, Time2}</name>
+      <name name="localtime_to_universaltime" arity="1"/>
       <fsummary>Convert from local to Universal Time Coordinated (UTC) date and time</fsummary>
-      <type>
-        <v>Date1 = Date2 = {Year, Month, Day}</v>
-        <v>Time1 = Time2 = {Hour, Minute, Second}</v>
-        <v>&nbsp;Year = Month = Day = Hour = Minute = Second = int()</v>
-      </type>
       <desc>
         <p>Converts local date and time to Universal Time Coordinated
           (UTC), if this is supported by the underlying OS. Otherwise,
-          no conversion is done and <c>{Date1, Time1}</c> is returned.</p>
+          no conversion is done and <c>{<anno>Date1</anno>, <anno>Time1</anno>}</c> is returned.</p>
         <pre>
 > <input>erlang:localtime_to_universaltime({{1996,11,6},{14,45,17}}).</input>
 {{1996,11,6},{13,45,17}}</pre>
@@ -2080,9 +2181,8 @@ os_prompt%</pre>
       <name>erlang:localtime_to_universaltime({Date1, Time1}, IsDst) -> {Date2, Time2}</name>
       <fsummary>Convert from local to Universal Time Coordinated (UTC) date and time</fsummary>
       <type>
-        <v>Date1 = Date2 = {Year, Month, Day}</v>
-        <v>Time1 = Time2 = {Hour, Minute, Second}</v>
-        <v>&nbsp;Year = Month = Day = Hour = Minute = Second = int()</v>
+        <v>Date1 = Date2 = <seealso marker="calendar#type-date">calendar:date()</seealso></v>
+        <v>Time1 = Time2 = <seealso marker="calendar#type-time">calendar:time()</seealso></v>
         <v>IsDst = true | false | undefined</v>
       </type>
       <desc>
@@ -2107,7 +2207,7 @@ os_prompt%</pre>
       </desc>
     </func>
     <func>
-      <name>make_ref() -> ref()</name>
+      <name>make_ref() -> reference()</name>
       <fsummary>Return an almost unique reference</fsummary>
       <desc>
         <p>Returns an almost unique reference.</p>
@@ -2122,7 +2222,7 @@ os_prompt%</pre>
       <name>erlang:make_tuple(Arity, InitialValue) -> tuple()</name>
       <fsummary>Create a new tuple of a given arity</fsummary>
       <type>
-        <v>Arity = int()</v>
+        <v>Arity = arity()</v>
         <v>InitialValue = term()</v>
       </type>
       <desc>
@@ -2137,7 +2237,7 @@ os_prompt%</pre>
       <name>erlang:make_tuple(Arity, Default, InitList) -> tuple()</name>
       <fsummary>Create a new tuple with given arity and contents</fsummary>
       <type>
-        <v>Arity = int()</v>
+        <v>Arity = arity()</v>
         <v>Default = term()</v>
         <v>InitList = [{Position,term()}]</v>
         <v>Position = integer()</v>
@@ -2156,14 +2256,11 @@ os_prompt%</pre>
       </desc>
     </func>
     <func>
-      <name>erlang:max(Term1, Term2) -> Maximum</name>
+      <name name="max" arity="2"/>
       <fsummary>Return the largest of two term</fsummary>
-      <type>
-        <v>Term1 = Term2 = Maximum = term()</v>
-      </type>
       <desc>
-        <p>Return the largest of <c>Term1</c> and <c>Term2</c>;
-	if the terms compares equal, <c>Term1</c> will be returned.</p>
+        <p>Return the largest of <c><anno>Term1</anno></c> and <c><anno>Term2</anno></c>;
+	if the terms compare equal, <c><anno>Term1</anno></c> will be returned.</p>
       </desc>
     </func>
     <func>
@@ -2301,6 +2398,14 @@ os_prompt%</pre>
               <seealso marker="tools:instrument">instrument(3)</seealso>
               and/or <seealso marker="erts:erl">erl(1)</seealso>.</p>
           </item>
+          <tag><c>low</c></tag>
+          <item>
+            <p>Only on 64-bit halfword emulator.</p>
+            <p>The total amount of memory allocated in low memory areas
+	      that are restricted to less than 4 Gb even though
+	      the system may have more physical memory.</p>
+	    <p>May be removed in future releases of halfword emulator.</p>
+          </item>
         </taglist>
         <note>
           <p>The <c>system</c> value is not complete. Some allocated
@@ -2405,18 +2510,15 @@ os_prompt%</pre>
       </desc>
     </func>
     <func>
-      <name>erlang:min(Term1, Term2) -> Minimum</name>
+      <name name="min" arity="2"/>
       <fsummary>Return the smallest of two term</fsummary>
-      <type>
-        <v>Term1 = Term2 = Minimum = term()</v>
-      </type>
       <desc>
-        <p>Return the smallest of <c>Term1</c> and <c>Term2</c>;
-	if the terms compare equal, <c>Term1</c> will be returned.</p>
+        <p>Return the smallest of <c><anno>Term1</anno></c> and <c><anno>Term2</anno></c>;
+	if the terms compare equal, <c><anno>Term1</anno></c> will be returned.</p>
       </desc>
     </func>
     <func>
-      <name>module_loaded(Module) -> bool()</name>
+      <name>module_loaded(Module) -> boolean()</name>
       <fsummary>Check if a module is loaded</fsummary>
       <type>
         <v>Module = atom()</v>
@@ -2433,7 +2535,7 @@ os_prompt%</pre>
       </desc>
     </func>
     <func>
-      <name>erlang:monitor(Type, Item) -> MonitorRef</name>
+      <name>monitor(Type, Item) -> MonitorRef</name>
       <fsummary>Start monitoring</fsummary>
       <type>
         <v>Type = process</v>
@@ -2469,7 +2571,7 @@ os_prompt%</pre>
         <note>
           <p>When a process is monitored by registered name, the process
             that has the registered name at the time when
-            <c>erlang:monitor/2</c> is called will be monitored.
+            <c>monitor/2</c> is called will be monitored.
             The monitor will not be effected, if the registered name is
             unregistered.</p>
         </note>
@@ -2503,20 +2605,20 @@ os_prompt%</pre>
           </item>
         </taglist>
         <note>
-          <p>If/when <c>erlang:monitor/2</c> is extended (e.g. to
+          <p>If/when <c>monitor/2</c> is extended (e.g. to
             handle other item types than <c>process</c>), other
             possible values for <c>Object</c>, and <c>Info</c> in the
             <c>'DOWN'</c> message will be introduced.</p>
         </note>
         <p>The monitoring is turned off either when the <c>'DOWN'</c>
           message is sent, or when
-          <seealso marker="#demonitor/1">erlang:demonitor/1</seealso>
+          <seealso marker="#demonitor/1">demonitor/1</seealso>
           is called.</p>
         <p>If an attempt is made to monitor a process on an older node
           (where remote process monitoring is not implemented or one
           where remote process monitoring by registered name is not
           implemented), the call fails with <c>badarg</c>.</p>
-        <p>Making several calls to <c>erlang:monitor/2</c> for the same
+        <p>Making several calls to <c>monitor/2</c> for the same
           <c>Item</c> is not an error; it results in as many, completely
           independent, monitorings.</p>
         <note>
@@ -2539,7 +2641,7 @@ os_prompt%</pre>
       <fsummary>Monitor the status of a node</fsummary>
       <type>
         <v>Node = node()</v>
-        <v>Flag = bool()</v>
+        <v>Flag = boolean()</v>
       </type>
       <desc>
         <p>Monitors the status of the node <c>Node</c>. If <c>Flag</c>
@@ -2565,7 +2667,7 @@ os_prompt%</pre>
       <fsummary>Monitor the status of a node</fsummary>
       <type>
         <v>Node = node()</v>
-        <v>Flag = bool()</v>
+        <v>Flag = boolean()</v>
         <v>Options = [Option]</v>
         <v>Option = allow_passive_connect</v>
       </type>
@@ -2591,6 +2693,37 @@ os_prompt%</pre>
       </desc>
     </func>
     <func>
+      <name>erlang:nif_error(Reason)</name>
+      <fsummary>Stop execution with a given reason</fsummary>
+      <type>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Works exactly like
+	 <seealso marker="#error/1">erlang:error/1</seealso>,
+	 but Dialyzer thinks that this BIF will return an arbitrary term.
+	 When used in a stub function for a NIF to generate an
+	 exception when the NIF library is not loaded, Dialyzer
+	 will not generate false warnings.</p>
+      </desc>
+    </func>
+    <func>
+      <name>erlang:nif_error(Reason, Args)</name>
+      <fsummary>Stop execution with a given reason</fsummary>
+      <type>
+        <v>Reason = term()</v>
+        <v>Args = [term()]</v>
+      </type>
+      <desc>
+        <p>Works exactly like
+	 <seealso marker="#error/2">erlang:error/2</seealso>,
+	 but Dialyzer thinks that this BIF will return an arbitrary term.
+	 When used in a stub function for a NIF to generate an
+	 exception when the NIF library is not loaded, Dialyzer
+	 will not generate false warnings.</p>
+      </desc>
+    </func>
+    <func>
       <name>node() -> Node</name>
       <fsummary>Name of the local node</fsummary>
       <type>
@@ -2606,7 +2739,7 @@ os_prompt%</pre>
       <name>node(Arg) -> Node</name>
       <fsummary>At which node is a pid, port or reference located</fsummary>
       <type>
-        <v>Arg = pid() | port() | ref()</v>
+        <v>Arg = pid() | port() | reference()</v>
         <v>Node = node()</v>
       </type>
       <desc>
@@ -2617,11 +2750,8 @@ os_prompt%</pre>
       </desc>
     </func>
     <func>
-      <name>nodes() -> Nodes</name>
+      <name name="nodes" arity="0"/>
       <fsummary>All visible nodes in the system</fsummary>
-      <type>
-        <v>Nodes = [node()]</v>
-      </type>
       <desc>
         <p>Returns a list of all visible nodes in the system, excluding
           the local node. Same as <c>nodes(visible)</c>.</p>
@@ -2671,11 +2801,12 @@ os_prompt%</pre>
       </desc>
     </func>
     <func>
-      <name>now() -> {MegaSecs, Secs, MicroSecs}</name>
-      <fsummary>Elapsed time since 00:00 GMT</fsummary>
+      <name>now() -> timestamp()</name>
       <type>
-        <v>MegaSecs = Secs = MicroSecs = int()</v>
+        <v>timestamp() = {MegaSecs, Secs, MicroSecs}</v>
+        <v>MegaSecs = Secs = MicroSecs = integer() >= 0</v>
       </type>
+      <fsummary>Elapsed time since 00:00 GMT</fsummary>
       <desc>
         <p>Returns the tuple <c>{MegaSecs, Secs, MicroSecs}</c> which is
           the elapsed time since 00:00 GMT, January 1, 1970 (zero hour)
@@ -2683,8 +2814,10 @@ os_prompt%</pre>
           Otherwise, some other point in time is chosen. It is also
           guaranteed that subsequent calls to this BIF returns
           continuously increasing values. Hence, the return value from
-          <c>now()</c> can be used to generate unique time-stamps. It
-          can only be used to check the local time of day if
+          <c>now()</c> can be used to generate unique time-stamps,
+          and if it is called in a tight loop on a fast machine
+          the time of the node can become skewed.</p>
+        <p>It can only be used to check the local time of day if
           the time-zone info of the underlying operating system is
           properly configured.</p>
       </desc>
@@ -2693,14 +2826,17 @@ os_prompt%</pre>
       <name>open_port(PortName, PortSettings) -> port()</name>
       <fsummary>Open a port</fsummary>
       <type>
-        <v>PortName = {spawn, Command} | {spawn_driver, Command} | {spawn_executable, Command} | {fd, In, Out}</v>
+        <v>PortName = {spawn, Command} | {spawn_driver, Command} | {spawn_executable, FileName} | {fd, In, Out}</v>
         <v>&nbsp;Command = string()</v>
-        <v>&nbsp;In = Out = int()</v>
+	<v>&nbsp;FileName = [ FileNameChar ] | binary()</v>
+	<v>&nbsp;FileNameChar = integer() (1..255 or any Unicode codepoint, see description)</v>
+        <v>&nbsp;In = Out = integer()</v>
         <v>PortSettings = [Opt]</v>
-        <v>&nbsp;Opt = {packet, N} | stream | {line, L} | {cd, Dir} | {env, Env} | {args, [ string() ]} | {arg0, string()} | exit_status | use_stdio | nouse_stdio | stderr_to_stdout | in | out | binary | eof</v>
+        <v>&nbsp;Opt = {packet, N} | stream | {line, L} | {cd, Dir} | {env, Env} | {args, [ ArgString ]} | {arg0, ArgString} | exit_status | use_stdio | nouse_stdio | stderr_to_stdout | in | out | binary | eof</v>
         <v>&nbsp;&nbsp;N = 1 | 2 | 4</v>
-        <v>&nbsp;&nbsp;L = int()</v>
+        <v>&nbsp;&nbsp;L = integer()</v>
         <v>&nbsp;&nbsp;Dir = string()</v>
+	<v>&nbsp;&nbsp;ArgString = [ FileNameChar ] | binary()</v>
         <v>&nbsp;&nbsp;Env = [{Name, Val}]</v>
         <v>&nbsp;&nbsp;&nbsp;Name = string()</v>
         <v>&nbsp;&nbsp;&nbsp;Val = string() | false</v>
@@ -2749,7 +2885,7 @@ os_prompt%</pre>
           <item>
 
 	      <p>Works like <c>{spawn, Command}</c>, but only runs
-	      external executables. The <c>Command</c> in it's whole
+	      external executables. The <c>Command</c> in its whole
 	      is used as the name of the executable, including any
 	      spaces. If arguments are to be passed, the
 	      <c>args</c> and <c>arg0</c> <c>PortSettings</c> can be used.</p>
@@ -2763,7 +2899,26 @@ os_prompt%</pre>
 	      executed, the appropriate command interpreter will
 	      implicitly be invoked, but there will still be no
 	      command argument expansion or implicit PATH search.</p>
-	      
+
+	      <p>The name of the executable as well as the arguments
+	      given in <c>args</c> and <c>arg0</c> is subject to
+	      Unicode file name translation if the system is running
+	      in Unicode file name mode. To avoid
+	      translation or force i.e. UTF-8, supply the executable
+	      and/or arguments as a binary in the correct
+	      encoding. See the <seealso
+	      marker="kernel:file">file</seealso> module, the
+	      <seealso marker="kernel:file#native_name_encoding/0">
+	      file:native_name_encoding/0</seealso> function and the 
+	      <seealso marker="stdlib:unicode_usage">stdlib users guide
+	      </seealso> for details.</p>
+
+	      <note><p>The characters in the name (if given as a list)
+	      can only be &gt; 255 if the Erlang VM is started in
+	      Unicode file name translation mode, otherwise the name
+	      of the executable is limited to the ISO-latin-1
+	      character set.</p></note>
+  
 	      <p>If the <c>Command</c> cannot be run, an error
 	      exception, with the posix error code as the reason, is
 	      raised. The error reason may differ between operating
@@ -2866,6 +3021,21 @@ os_prompt%</pre>
 	    should not be given in this list. The proper executable name will
 	    automatically be used as argv[0] where applicable.</p>
 
+	    <p>When the Erlang VM is running in Unicode file name
+	    mode, the arguments can contain any Unicode characters and
+	    will be translated into whatever is appropriate on the
+	    underlying OS, which means UTF-8 for all platforms except
+	    Windows, which has other (more transparent) ways of
+	    dealing with Unicode arguments to programs. To avoid
+	    Unicode translation of arguments, they can be supplied as
+	    binaries in whatever encoding is deemed appropriate.</p>
+
+	      <note><p>The characters in the arguments (if given as a
+	      list of characters) can only be &gt; 255 if the Erlang
+	      VM is started in Unicode file name mode,
+	      otherwise the arguments are limited to the
+	      ISO-latin-1 character set.</p></note>
+
 	    <p>If one, for any reason, wants to explicitly set the
 	    program name in the argument vector, the <c>arg0</c>
 	    option can be used.</p>
@@ -2880,6 +3050,9 @@ os_prompt%</pre>
 	    on some operating systems, be desirable. How the program
 	    responds to this is highly system dependent and no specific 
 	    effect is guaranteed.</p>
+
+	    <p>The unicode file name translation rules of the
+	    <c>args</c> option apply to this option as well.</p>
 
 	  </item> 
 
@@ -2926,7 +3099,7 @@ os_prompt%</pre>
 	    The standard input and standard output handles of the port program
 	    will, if this option is supplied, be opened with the flag
 	    FILE_FLAG_OVERLAPPED, so that the port program can (and has to) do
-	    overlapped I/O on it's standard handles. This is not normally
+	    overlapped I/O on its standard handles. This is not normally
 	    the case for simple port programs, but an option of value for the
 	    experienced Windows programmer. <em>On all other platforms, this 
 	    option is silently discarded</em>.</p> 
@@ -3147,7 +3320,7 @@ os_prompt%</pre>
       </desc>
     </func>
     <func>
-      <name>erlang:port_command(Port, Data, OptionList) -> true|false</name>
+      <name>port_command(Port, Data, OptionList) -> boolean()</name>
       <fsummary>Send data to a port</fsummary>
       <type>
         <v>Port = port() | atom()</v>
@@ -3182,10 +3355,6 @@ os_prompt%</pre>
         </taglist>
         <note>
           <p>More options may be added in the future.</p>
-        </note>
-        <note>
-          <p><c>erlang:port_command/3</c> is currently not auto imported, but
-	     it is planned to be auto imported in OTP R14.</p>
         </note>
         <p>Failures:</p>
         <taglist>
@@ -3267,7 +3436,7 @@ os_prompt%</pre>
       <fsummary>Perform a synchronous control operation on a port</fsummary>
       <type>
         <v>Port = port() | atom()</v>
-        <v>Operation = int()</v>
+        <v>Operation = integer()</v>
         <v>Data = Res = iodata()</v>
       </type>
       <desc>
@@ -3291,7 +3460,7 @@ os_prompt%</pre>
       <fsummary>Synchronous call to a port with term data</fsummary>
       <type>
         <v>Port = port() | atom()</v>
-        <v>Operation = int()</v>
+        <v>Operation = integer()</v>
         <v>Data = term()</v>
       </type>
       <desc>
@@ -3550,12 +3719,6 @@ os_prompt%</pre>
 
           <tag><c>process_flag(save_calls, N)</c></tag>
           <item>
-	    <p>When there are runnable processes on priority <c>max</c>
-	      no processes on priority <c>low</c>, <c>normal</c>, or
-	      <c>high</c> will be selected for execution. As with the
-	      <c>high</c> priority, processes on lower priorities might
-	      execute in parallel with processes on priority <c>max</c>.
-	    </p>
             <p><c>N</c> must be an integer in the interval 0..10000.
               If <c>N</c> &gt; 0, call saving is made active for the
               process, which means that information about the <c>N</c>
@@ -3726,10 +3889,25 @@ os_prompt%</pre>
 	    catches in this process. This <c>InfoTuple</c> may be
 	    changed or removed without prior notice.</p>
           </item>
-          <tag><c>{current_function, {Module, Function, Args}}</c></tag>
+          <tag><c>{current_function, {Module, Function, Arity}}</c></tag>
           <item>
-            <p><c>Module</c>, <c>Function</c>, <c>Args</c> is
+            <p><c>Module</c>, <c>Function</c>, <c>Arity</c> is
               the current function call of the process.</p>
+          </item>
+          <tag><c>{current_location, {Module, Function, Arity, Location}}</c></tag>
+          <item>
+            <p><c>Module</c>, <c>Function</c>, <c>Arity</c> is
+              the current function call of the process.
+	      <c>Location</c> is a list of two-tuples that describes the
+	      location in the source code.
+	    </p>
+          </item>
+          <tag><c>{current_stacktrace, Stack}</c></tag>
+          <item>
+            <p>Return the current call stack back-trace (<em>stacktrace</em>)
+              of the process. The stack has the same format as returned by
+	      <seealso marker="#get_stacktrace/1">erlang:get_stacktrace/0</seealso>.
+	    </p>
           </item>
           <tag><c>{dictionary, Dictionary}</c></tag>
           <item>
@@ -3815,11 +3993,11 @@ os_prompt%</pre>
           <tag><c>{monitored_by, Pids}</c></tag>
           <item>
             <p>A list of pids that are monitoring the process (with
-              <c>erlang:monitor/2</c>).</p>
+              <c>monitor/2</c>).</p>
           </item>
           <tag><c>{monitors, Monitors}</c></tag>
           <item>
-            <p>A list of monitors (started by <c>erlang:monitor/2</c>)
+            <p>A list of monitors (started by <c>monitor/2</c>)
               that are active for the process. For a local process
               monitor or a remote process monitor by pid, the list item
               is <c>{process, Pid}</c>, and for a remote process
@@ -3856,7 +4034,8 @@ os_prompt%</pre>
           <tag><c>{status, Status}</c></tag>
           <item>
             <p><c>Status</c> is the status of the process. <c>Status</c>
-              is <c>waiting</c> (waiting for a message), <c>running</c>,
+              is <c>exiting</c>, <c>garbage_collecting</c>,
+              <c>waiting</c> (for a message), <c>running</c>,
               <c>runnable</c> (ready to run, but another process is
               running), or <c>suspended</c> (suspended on a "busy" port
               or by the <c>erlang:suspend_process/[1,2]</c> BIF).</p>
@@ -3976,7 +4155,7 @@ os_prompt%</pre>
         <v>Reason = term()</v>
         <v>Stacktrace = [{Module, Function, Arity | Args} | {Fun, Args}]</v>
         <v>&nbsp;Module = Function = atom()</v>
-        <v>&nbsp;Arity = int()</v>
+        <v>&nbsp;Arity = arity()</v>
         <v>&nbsp;Args = [term()]</v>
         <v>&nbsp;Fun = [fun()]</v>
       </type>
@@ -3996,11 +4175,14 @@ os_prompt%</pre>
           equivalent to <c>erlang:Class(Reason)</c>.
           <c>Reason</c> is any term and <c>Stacktrace</c> is a list as
           returned from <c>get_stacktrace()</c>, that is a list of
-          3-tuples <c>{Module, Function, Arity | Args}</c> where
-          <c>Module</c> and <c>Function</c> are atoms and the third
-          element is an integer arity or an argument list. The
-          stacktrace may also contain <c>{Fun, Args}</c> tuples where
+          4-tuples <c>{Module, Function, Arity | Args,
+          Location}</c> where <c>Module</c> and <c>Function</c>
+          are atoms and the third element is an integer arity or an
+          argument list. The stacktrace may also contain <c>{Fun,
+          Args, Location}</c> tuples where
           <c>Fun</c> is a local fun and <c>Args</c> is an argument list.</p>
+	<p>The <c>Location</c> element at the end is optional.
+	  Omitting it is equivalent to specifying an empty list.</p>
         <p>The stacktrace is used as the exception stacktrace for the
           calling process; it will be truncated to the current
           maximum stacktrace depth.</p>
@@ -4008,15 +4190,15 @@ os_prompt%</pre>
           terminate, it has no return value - unless the arguments are
           invalid, in which case the function <em>returns the error reason</em>, that is <c>badarg</c>. If you want to be
           really sure not to return you can call
-          <c>erlang:error(erlang:raise(Class, Reason, Stacktrace))</c>
+          <c>error(erlang:raise(Class, Reason, Stacktrace))</c>
           and hope to distinguish exceptions later.</p>
       </desc>
     </func>
     <func>
-      <name>erlang:read_timer(TimerRef) -> int() | false</name>
+      <name>erlang:read_timer(TimerRef) -> integer() >= 0 | false</name>
       <fsummary>Number of milliseconds remaining for a timer</fsummary>
       <type>
-        <v>TimerRef = ref()</v>
+        <v>TimerRef = reference()</v>
       </type>
       <desc>
         <p><c>TimerRef</c> is a timer reference returned by
@@ -4039,7 +4221,7 @@ os_prompt%</pre>
       <name>erlang:ref_to_list(Ref) -> string()</name>
       <fsummary>Text representation of a reference</fsummary>
       <type>
-        <v>Ref = ref()</v>
+        <v>Ref = reference()</v>
       </type>
       <desc>
         <p>Returns a string which corresponds to the text
@@ -4129,7 +4311,7 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name>round(Number) -> int()</name>
+      <name>round(Number) -> integer()</name>
       <fsummary>Return an integer by rounding a number</fsummary>
       <type>
         <v>Number = number()</v>
@@ -4213,12 +4395,12 @@ true</pre>
       <name>erlang:send_after(Time, Dest, Msg) -> TimerRef</name>
       <fsummary>Start a timer</fsummary>
       <type>
-        <v>Time = int()</v>
+        <v>Time = integer() >= 0</v>
         <v>&nbsp;0 &lt;= Time &lt;= 4294967295</v>
         <v>Dest = pid() | RegName </v>
         <v>&nbsp;LocalPid = pid() (of a process, alive or dead, on the local node)</v>
         <v>Msg = term()</v>
-        <v>TimerRef = ref()</v>
+        <v>TimerRef = reference()</v>
       </type>
       <desc>
         <p>Starts a timer which will send the message <c>Msg</c>
@@ -4242,17 +4424,12 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name>erlang:send_nosuspend(Dest, Msg) -> bool()</name>
+      <name name="send_nosuspend" arity="2"/>
       <fsummary>Try to send a message without ever blocking</fsummary>
-      <type>
-        <v>Dest = pid() | port() | RegName | {RegName, Node}</v>
-        <v>&nbsp;RegName = atom()</v>
-        <v>&nbsp;Node = node()</v>
-        <v>Msg = term()</v>
-      </type>
+      <type name="dst"/>
       <desc>
         <p>The same as
-          <seealso marker="#send/3">erlang:send(Dest, Msg, [nosuspend])</seealso>, but returns <c>true</c> if
+          <seealso marker="#send/3">erlang:send(<anno>Dest</anno>, <anno>Msg</anno>, [nosuspend])</seealso>, but returns <c>true</c> if
           the message was sent and <c>false</c> if the message was not
           sent because the sender would have had to be suspended.</p>
         <p>This function is intended for send operations towards an
@@ -4260,7 +4437,7 @@ true</pre>
           (Erlang) process. If the connection to the remote node
           (usually not a real Erlang node, but a node written in C or
           Java) is overloaded, this function <em>will not send the message</em> but return <c>false</c> instead.</p>
-        <p>The same happens, if <c>Dest</c> refers to a local port that
+        <p>The same happens, if <c><anno>Dest</anno></c> refers to a local port that
           is busy. For all other destinations (allowed for the ordinary
           send operator <c>'!'</c>) this function sends the message and
           returns <c>true</c>.</p>
@@ -4293,18 +4470,12 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name>erlang:send_nosuspend(Dest, Msg, Options) -> bool()</name>
+      <name name="send_nosuspend" arity="3"/>
       <fsummary>Try to send a message without ever blocking</fsummary>
-      <type>
-        <v>Dest = pid() | port() | RegName | {RegName, Node}</v>
-        <v>&nbsp;RegName = atom()</v>
-        <v>&nbsp;Node = node()</v>
-        <v>Msg = term()</v>
-        <v>Option = noconnect</v>
-      </type>
+      <type name="dst"/>
       <desc>
         <p>The same as
-          <seealso marker="#send/3">erlang:send(Dest, Msg, [nosuspend | Options])</seealso>,
+          <seealso marker="#send/3">erlang:send(<anno>Dest</anno>, <anno>Msg</anno>, [nosuspend | <anno>Options</anno>])</seealso>,
           but with boolean return value.</p>
         <p>This function behaves like
           <seealso marker="#send_nosuspend/2">erlang:send_nosuspend/2)</seealso>,
@@ -4329,17 +4500,13 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name>erlang:set_cookie(Node, Cookie) -> true</name>
+      <name name="set_cookie" arity="2"/>
       <fsummary>Set the magic cookie of a node</fsummary>
-      <type>
-        <v>Node = node()</v>
-        <v>Cookie = atom()</v>
-      </type>
       <desc>
-        <p>Sets the magic cookie of <c>Node</c> to the atom
-          <c>Cookie</c>. If <c>Node</c> is the local node, the function
+        <p>Sets the magic cookie of <c><anno>Node</anno></c> to the atom
+          <c><anno>Cookie</anno></c>. If <c><anno>Node</anno></c> is the local node, the function
           also sets the cookie of all other unknown nodes to
-          <c>Cookie</c> (see
+          <c><anno>Cookie</anno></c> (see
           <seealso marker="doc/reference_manual:distributed">Distributed Erlang</seealso> in the Erlang Reference Manual).</p>
         <p>Failure: <c>function_clause</c> if the local node is not
           alive.</p>
@@ -4364,7 +4531,7 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name>size(Item) -> int()</name>
+      <name>size(Item) -> integer() >= 0</name>
       <fsummary>Size of a tuple or binary</fsummary>
       <type>
         <v>Item = tuple() | binary()</v>
@@ -4379,28 +4546,21 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name>spawn(Fun) -> pid()</name>
+      <name name="spawn" arity="1"/>
       <fsummary>Create a new process with a fun as entry point</fsummary>
-      <type>
-        <v>Fun = fun()</v>
-      </type>
       <desc>
         <p>Returns the pid of a new process started by the application
-          of <c>Fun</c> to the empty list <c>[]</c>. Otherwise works
+          of <c><anno>Fun</anno></c> to the empty list <c>[]</c>. Otherwise works
           like <seealso marker="#spawn/3">spawn/3</seealso>.</p>
       </desc>
     </func>
     <func>
-      <name>spawn(Node, Fun) -> pid()</name>
+      <name name="spawn" arity="2"/>
       <fsummary>Create a new process with a fun as entry point on a given node</fsummary>
-      <type>
-        <v>Node = node()</v>
-        <v>Fun = fun()</v>
-      </type>
       <desc>
         <p>Returns the pid of a new process started by the application
-          of <c>Fun</c> to the empty list <c>[]</c> on <c>Node</c>. If
-          <c>Node</c> does not exist, a useless pid is returned.
+          of <c><anno>Fun</anno></c> to the empty list <c>[]</c> on <c><anno>Node</anno></c>. If
+          <c><anno>Node</anno></c> does not exist, a useless pid is returned.
           Otherwise works like
           <seealso marker="#spawn/3">spawn/3</seealso>.</p>
       </desc>
@@ -4431,47 +4591,35 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name>spawn(Node, Module, Function, ArgumentList) -> pid()</name>
+      <name name="spawn" arity="4"/>
       <fsummary>Create a new process with a function as entry point on a given node</fsummary>
-      <type>
-        <v>Node = node()</v>
-        <v>Module = Function = atom()</v>
-        <v>Args = [term()]</v>
-      </type>
       <desc>
         <p>Returns the pid of a new process started by the application
-          of <c>Module:Function</c> to <c>Args</c> on <c>Node</c>. If
-          <c>Node</c> does not exists, a useless pid is returned.
+          of <c><anno>Module</anno>:<anno>Function</anno></c> to <c><anno>Args</anno></c> on <c>Node</c>. If
+          <c><anno>Node</anno></c> does not exists, a useless pid is returned.
           Otherwise works like
           <seealso marker="#spawn/3">spawn/3</seealso>.</p>
       </desc>
     </func>
     <func>
-      <name>spawn_link(Fun) -> pid()</name>
+      <name name="spawn_link" arity="1"/>
       <fsummary>Create and link to a new process with a fun as entry point</fsummary>
-      <type>
-        <v>Fun = fun()</v>
-      </type>
       <desc>
         <p>Returns the pid of a new process started by the application
-          of <c>Fun</c> to the empty list []. A link is created between
+          of <c><anno>Fun</anno></c> to the empty list []. A link is created between
           the calling process and the new process, atomically.
           Otherwise works like
           <seealso marker="#spawn/3">spawn/3</seealso>.</p>
       </desc>
     </func>
     <func>
-      <name>spawn_link(Node, Fun) -> pid()</name>
+      <name name="spawn_link" arity="2"/>
       <fsummary>Create and link to a new process with a fun as entry point on a specified node</fsummary>
-      <type>
-        <v>Node = node()</v>
-        <v>Fun = fun()</v>
-      </type>
       <desc>
         <p>Returns the pid of a new process started by the application
-          of <c>Fun</c> to the empty list [] on <c>Node</c>. A link is
+          of <c><anno>Fun</anno></c> to the empty list [] on <c><anno>Node</anno></c>. A link is
           created between the calling process and the new process,
-          atomically. If <c>Node</c> does not exist, a useless pid is
+          atomically. If <c><anno>Node</anno></c> does not exist, a useless pid is
           returned (and due to the link, an exit signal with exit
           reason <c>noconnection</c> will be received). Otherwise works
           like <seealso marker="#spawn/3">spawn/3</seealso>.</p>
@@ -4493,47 +4641,35 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name>spawn_link(Node, Module, Function, Args) -> pid()</name>
+      <name name="spawn_link" arity="4"/>
       <fsummary>Create and link to a new process with a function as entry point on a given node</fsummary>
-      <type>
-        <v>Node = node()</v>
-        <v>Module = Function = atom()</v>
-        <v>Args = [term()]</v>
-      </type>
       <desc>
         <p>Returns the pid of a new process started by the application
-          of <c>Module:Function</c> to <c>Args</c> on <c>Node</c>. A
+          of <c><anno>Module</anno>:<anno>Function</anno></c> to <c><anno>Args</anno></c> on <c>Node</c>. A
           link is created between the calling process and the new
-          process, atomically. If <c>Node</c> does not exist, a useless
+          process, atomically. If <c><anno>Node</anno></c> does not exist, a useless
           pid is returned (and due to the link, an exit signal with exit
           reason <c>noconnection</c> will be received). Otherwise works
           like <seealso marker="#spawn/3">spawn/3</seealso>.</p>
       </desc>
     </func>
     <func>
-      <name>spawn_monitor(Fun) -> {pid(),reference()}</name>
+      <name name="spawn_monitor" arity="1"/>
       <fsummary>Create and monitor a new process with a fun as entry point</fsummary>
-      <type>
-        <v>Fun = fun()</v>
-      </type>
       <desc>
         <p>Returns the pid of a new process started by the application
-          of <c>Fun</c> to the empty list [] and reference for a monitor
+          of <c><anno>Fun</anno></c> to the empty list [] and reference for a monitor
           created to the new process.
           Otherwise works like
           <seealso marker="#spawn/3">spawn/3</seealso>.</p>
       </desc>
     </func>
     <func>
-      <name>spawn_monitor(Module, Function, Args) -> {pid(),reference()}</name>
+      <name name="spawn_monitor" arity="3"/>
       <fsummary>Create and monitor a new process with a function as entry point</fsummary>
-      <type>
-        <v>Module = Function = atom()</v>
-        <v>Args = [term()]</v>
-      </type>
       <desc>
         <p>A new process is started by the application
-          of <c>Module:Function</c> to <c>Args</c>, and the process is
+          of <c><anno>Module</anno>:<anno>Function</anno></c> to <c><anno>Args</anno></c>, and the process is
           monitored at the same time. Returns the pid and a reference
           for the monitor.
           Otherwise works like
@@ -4541,19 +4677,11 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name>spawn_opt(Fun, [Option]) -> pid() | {pid(),reference()}</name>
+      <name name="spawn_opt" arity="2"/>
       <fsummary>Create a new process with a fun as entry point</fsummary>
-      <type>
-        <v>Fun = fun()</v>
-        <v>Option = link | monitor | {priority, Level} | {fullsweep_after, Number} | {min_heap_size, Size} | {min_bin_vheap_size, VSize}</v>
-        <v>&nbsp;Level = low | normal | high</v>
-        <v>&nbsp;Number = int()</v>
-        <v>&nbsp;Size = int()</v>
-        <v>&nbsp;VSize = int()</v>
-      </type>
       <desc>
         <p>Returns the pid of a new process started by the application
-          of <c>Fun</c> to the empty list <c>[]</c>. Otherwise
+          of <c><anno>Fun</anno></c> to the empty list <c>[]</c>. Otherwise
           works like
           <seealso marker="#spawn_opt/4">spawn_opt/4</seealso>.</p>
         <p>If the option <c>monitor</c> is given, the newly created
@@ -4562,37 +4690,19 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name>spawn_opt(Node, Fun, [Option]) -> pid()</name>
+      <name name="spawn_opt" arity="3"/>
       <fsummary>Create a new process with a fun as entry point on a given node</fsummary>
-      <type>
-        <v>Node = node()</v>
-        <v>Fun = fun()</v>
-        <v>Option = link | {priority, Level} | {fullsweep_after, Number} | {min_heap_size, Size} | {min_bin_vheap_size, VSize}</v>
-        <v>&nbsp;Level = low | normal | high</v>
-        <v>&nbsp;Number = int()</v>
-        <v>&nbsp;Size = int()</v>
-        <v>&nbsp;VSize = int()</v>
-      </type>
       <desc>
         <p>Returns the pid of a new process started by the application
-          of <c>Fun</c> to the empty list <c>[]</c> on <c>Node</c>. If
-          <c>Node</c> does not exist, a useless pid is returned.
+          of <c><anno>Fun</anno></c> to the empty list <c>[]</c> on <c><anno>Node</anno></c>. If
+          <c><anno>Node</anno></c> does not exist, a useless pid is returned.
           Otherwise works like
           <seealso marker="#spawn_opt/4">spawn_opt/4</seealso>.</p>
       </desc>
     </func>
     <func>
-      <name>spawn_opt(Module, Function, Args, [Option]) -> pid() | {pid(),reference()}</name>
+      <name name="spawn_opt" arity="4"/>
       <fsummary>Create a new process with a function as entry point</fsummary>
-      <type>
-        <v>Module = Function = atom()</v>
-        <v>Args = [term()]</v>
-        <v>Option = link | monitor | {priority, Level} | {fullsweep_after, Number} | {min_heap_size, Size} | {min_bin_vheap_size, VSize}</v>
-        <v>&nbsp;Level = low | normal | high</v>
-        <v>&nbsp;Number = int()</v>
-        <v>&nbsp;Size = int()</v>
-        <v>&nbsp;VSize = int()</v>
-      </type>
       <desc>
         <p>Works exactly like
           <seealso marker="#spawn/3">spawn/3</seealso>, except that an
@@ -4609,19 +4719,19 @@ true</pre>
           <tag><c>monitor</c></tag>
           <item>
             <p>Monitor the new process (just like
-              <seealso marker="#monitor/2">erlang:monitor/2</seealso> does).</p>
+              <seealso marker="#monitor/2">monitor/2</seealso> does).</p>
           </item>
-          <tag><c>{priority, Level}</c></tag>
+          <tag><c>{priority, <anno>Level</anno>}</c></tag>
           <item>
             <p>Sets the priority of the new process. Equivalent to
               executing
-              <seealso marker="#process_flag_priority">process_flag(priority, Level)</seealso> in the start function of the new process,
+              <seealso marker="#process_flag_priority">process_flag(priority, <anno>Level</anno>)</seealso> in the start function of the new process,
               except that the priority will be set before the process is
               selected for execution for the first time. For more information
               on priorities see
               <seealso marker="#process_flag_priority">process_flag(priority, Level)</seealso>.</p>
           </item>
-          <tag><c>{fullsweep_after, Number}</c></tag>
+          <tag><c>{fullsweep_after, <anno>Number</anno>}</c></tag>
           <item>
             <p>This option is only useful for performance tuning.
               In general, you should not use this option unless you
@@ -4643,18 +4753,18 @@ true</pre>
             <p>Here are a few cases when it could be useful to change
               <c>fullsweep_after</c>. Firstly, if binaries that are no
               longer used should be thrown away as soon as possible.
-              (Set <c>Number</c> to zero.) Secondly, a process that
+              (Set <c><anno>Number</anno></c> to zero.) Secondly, a process that
               mostly have short-lived data will be fullsweeped seldom
               or never, meaning that the old heap will contain mostly
               garbage. To ensure a fullsweep once in a while, set
-              <c>Number</c> to a suitable value such as 10 or 20.
+              <c><anno>Number</anno></c> to a suitable value such as 10 or 20.
               Thirdly, in embedded systems with limited amount of RAM
               and no virtual memory, one might want to preserve memory
-              by setting <c>Number</c> to zero. (The value may be set
+              by setting <c><anno>Number</anno></c> to zero. (The value may be set
               globally, see
               <seealso marker="#system_flag/2">erlang:system_flag/2</seealso>.)</p>
           </item>
-          <tag><c>{min_heap_size, Size}</c></tag>
+          <tag><c>{min_heap_size, <anno>Size</anno>}</c></tag>
           <item>
             <p>This option is only useful for performance tuning.
               In general, you should not use this option unless you
@@ -4669,9 +4779,9 @@ true</pre>
               slow down the system due to worse data locality.
               Therefore, it is recommended to use this option only for
               fine-tuning an application and to measure the execution
-              time with various <c>Size</c> values.</p>
+              time with various <c><anno>Size</anno></c> values.</p>
           </item>
-          <tag><c>{min_bin_vheap_size, VSize}</c></tag>
+          <tag><c>{min_bin_vheap_size, <anno>VSize</anno>}</c></tag>
           <item>
             <p>This option is only useful for performance tuning.
               In general, you should not use this option unless you
@@ -4685,29 +4795,19 @@ true</pre>
               Setting too high value, however, might waste memory.
               Therefore, it is recommended to use this option only for
               fine-tuning an application and to measure the execution
-              time with various <c>VSize</c> values.</p>
+              time with various <c><anno>VSize</anno></c> values.</p>
           </item>
 
         </taglist>
       </desc>
     </func>
     <func>
-      <name>spawn_opt(Node, Module, Function, Args, [Option]) -> pid()</name>
+      <name name="spawn_opt" arity="5"/>
       <fsummary>Create a new process with a function as entry point on a given node</fsummary>
-      <type>
-        <v>Node = node()</v>
-        <v>Module = Function = atom()</v>
-        <v>Args = [term()]</v>
-        <v>Option = link | {priority, Level} | {fullsweep_after, Number} | {min_heap_size, Size} | {min_bin_vheap_size, VSize}</v>
-        <v>&nbsp;Level = low | normal | high</v>
-        <v>&nbsp;Number = int()</v>
-        <v>&nbsp;Size = int()</v>
-        <v>&nbsp;VSize = int()</v>
-      </type>
       <desc>
         <p>Returns the pid of a new process started by the application
-          of <c>Module:Function</c> to <c>Args</c> on <c>Node</c>. If
-          <c>Node</c> does not exist, a useless pid is returned.
+          of <c><anno>Module</anno>:<anno>Function</anno></c> to <c><anno>Args</anno></c> on <c>Node</c>. If
+          <c><anno>Node</anno></c> does not exist, a useless pid is returned.
           Otherwise works like
           <seealso marker="#spawn_opt/4">spawn_opt/4</seealso>.</p>
       </desc>
@@ -4741,13 +4841,13 @@ true</pre>
       <name>erlang:start_timer(Time, Dest, Msg) -> TimerRef</name>
       <fsummary>Start a timer</fsummary>
       <type>
-        <v>Time = int()</v>
+        <v>Time = integer() >= 0</v>
         <v>&nbsp;0 &lt;= Time &lt;= 4294967295</v>
         <v>Dest = LocalPid | RegName </v>
         <v>&nbsp;LocalPid = pid() (of a process, alive or dead, on the local node)</v>
         <v>&nbsp;RegName = atom()</v>
         <v>Msg = term()</v>
-        <v>TimerRef = ref()</v>
+        <v>TimerRef = reference()</v>
       </type>
       <desc>
         <p>Starts a timer which will send the message
@@ -4850,7 +4950,7 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name>erlang:suspend_process(Suspendee, OptList) -> true | false</name>
+      <name>erlang:suspend_process(Suspendee, OptList) -> boolean()</name>
       <fsummary>Suspend a process</fsummary>
       <type>
         <v>Suspendee = pid()</v>
@@ -4950,15 +5050,12 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name>erlang:suspend_process(Suspendee) -> true</name>
+      <name name="suspend_process" arity="1"/>
       <fsummary>Suspend a process</fsummary>
-      <type>
-        <v>Suspendee = pid()</v>
-      </type>
       <desc>
-        <p>Suspends the process identified by <c>Suspendee</c>. The
+        <p>Suspends the process identified by <c><anno>Suspendee</anno></c>. The
 	same as calling
-	<seealso marker="#suspend_process/2">erlang:suspend_process(Suspendee, [])</seealso>. For more information see the documentation of <seealso marker="#suspend_process/2">erlang:suspend_process/2</seealso>.
+	<seealso marker="#suspend_process/2">erlang:suspend_process(<anno>Suspendee</anno>, [])</seealso>. For more information see the documentation of <seealso marker="#suspend_process/2">erlang:suspend_process/2</seealso>.
 	</p>
         <warning>
           <p>This BIF is intended for debugging only.</p>
@@ -5093,9 +5190,9 @@ true</pre>
 	       schedulers actually have bound as requested, call
 	       <seealso marker="#system_info_scheduler_bindings">erlang:system_info(scheduler_bindings)</seealso>.
 	    </p>
-            <p>Schedulers can currently only be bound on newer Linux
-	       and Solaris systems, but more systems will be supported
-	       in the future.
+            <p>Schedulers can currently only be bound on newer Linux,
+	       Solaris, FreeBSD, and Windows systems, but more systems will be
+	       supported in the future.
 	    </p>
             <p>In order for the runtime system to be able to bind schedulers,
 	       the CPU topology needs to be known. If the runtime system fails
@@ -5103,10 +5200,21 @@ true</pre>
 	       For more information on how to define the CPU topology, see 
 	       <seealso marker="#system_flag_cpu_topology">erlang:system_flag(cpu_topology, CpuTopology)</seealso>.
 	    </p>
-	    <p><em>NOTE:</em> If other programs on the system have bound
-	       to processors, e.g. another Erlang runtime system, you
-	       may loose performance when binding schedulers. Therefore,
-	       schedulers are by default not bound.</p>
+            <p>The runtime system will by default bind schedulers to logical
+	       processors using the <c>default_bind</c> bind type if the amount
+	       of schedulers are at least equal to the amount of logical
+	       processors configured, binding of schedulers is supported,
+	       and a CPU topology is available at startup.
+	    </p>
+	    <p><em>NOTE:</em> If the Erlang runtime system is the only
+	       operating system process that binds threads to logical processors,
+	       this improves the performance of the runtime system. However,
+	       if other operating system processes (as for example another Erlang
+	       runtime system) also bind threads to logical processors, there
+	       might be a performance penalty instead. If this is the case you,
+	       are are advised to unbind the schedulers using the
+	       <seealso marker="erl#+sbt">+sbtu</seealso> command line argument,
+	       or <c>erlang:system_flag(scheduler_bind_type, unbound)</c>.</p>
 	    <p>Schedulers can be bound in different ways. The <c>How</c>
 	       argument determines how schedulers are bound. <c>How</c> can
 	       currently be one of:</p>
@@ -5271,8 +5379,8 @@ true</pre>
             <p>Returns <c>{Allocator, Version, Features, Settings}.</c></p>
             <p>Types:</p>
             <list type="bulleted">
-              <item><c>Allocator = undefined | elib_malloc | glibc</c></item>
-              <item><c>Version = [int()]</c></item>
+              <item><c>Allocator = undefined | glibc</c></item>
+              <item><c>Version = [integer()]</c></item>
               <item><c>Features = [atom()]</c></item>
               <item><c>Settings = [{Subsystem, [{Parameter, Value}]}]</c></item>
               <item><c>Subsystem = atom()</c></item>
@@ -5286,7 +5394,7 @@ true</pre>
                   implementation used. If <c>Allocator</c> equals
                   <c>undefined</c>, the <c>malloc()</c> implementation
                   used could not be identified. Currently
-                  <c>elib_malloc</c> and <c>glibc</c> can be identified.</p>
+                  <c>glibc</c> can be identified.</p>
               </item>
               <item>
                 <p><c>Version</c> is a list of integers (but not a
@@ -5362,6 +5470,16 @@ true</pre>
 	    information returned by
 	    <seealso marker="#system_info_allocator_tuple">erlang:system_info({allocator, Alloc})</seealso>.
 	    </p>
+          </item>
+          <tag><c>build_type</c></tag>
+          <item>
+            <p>Returns an atom describing the build type of the runtime
+	       system. This is normally the atom <c>opt</c> for optimized.
+               Other possible return values are <c>debug</c>, <c>purify</c>,
+	       <c>quantify</c>, <c>purecov</c>, <c>gcov</c>, <c>valgrind</c>,
+	       <c>gprof</c>, and <c>lcnt</c>. Possible return values
+	       may be added and/or removed at any time without prior notice.
+	     </p>
           </item>
           <tag><c>c_compiler_used</c></tag>
           <item>
@@ -5440,7 +5558,7 @@ true</pre>
 	       <c>CpuTopology</c> type to change.
 	    </p>
           </item>
-          <tag><c>{cpu_topology, defined}</c></tag>
+          <tag><marker id="system_info_cpu_topology_defined"><c>{cpu_topology, defined}</c></marker></tag>
           <item>
             <p>Returns the user defined <c>CpuTopology</c>. For more
 	       information see the documentation of
@@ -5450,12 +5568,14 @@ true</pre>
 	       argument.
 	    </p>
           </item>
-          <tag><c>{cpu_topology, detected}</c></tag>
+          <tag><marker id="system_info_cpu_topology_detected"><c>{cpu_topology, detected}</c></marker></tag>
           <item>
             <p>Returns the automatically detected <c>CpuTopology</c>. The
 	       emulator currently only detects the CPU topology on some newer
-	       linux and solaris systems. For more information see the 
-               documentation of the
+	       Linux, Solaris, FreeBSD, and Windows systems. On Windows system with
+	       more than 32 logical processors the CPU topology is not detected.
+	    </p>
+            <p>For more information see the documentation of the
 	       <seealso marker="#system_info_cpu_topology">cpu_topology</seealso>
 	       argument.
 	    </p>
@@ -5513,56 +5633,20 @@ true</pre>
           </item>
           <tag><c>elib_malloc</c></tag>
           <item>
-            <p>If the emulator uses the <c>elib_malloc</c> memory
-              allocator, a list of two-element tuples containing status
-              information is returned; otherwise, <c>false</c> is
-              returned. The list currently contains the following
-              two-element tuples (all sizes are presented in bytes):</p>
-            <taglist>
-              <tag><c>{heap_size, Size}</c></tag>
-              <item>
-                <p>Where <c>Size</c> is the current heap size.</p>
-              </item>
-              <tag><c>{max_alloced_size, Size}</c></tag>
-              <item>
-                <p>Where <c>Size</c> is the maximum amount of memory
-                  allocated on the heap since the emulator started.</p>
-              </item>
-              <tag><c>{alloced_size, Size}</c></tag>
-              <item>
-                <p>Where <c>Size</c> is the current amount of memory
-                  allocated on the heap.</p>
-              </item>
-              <tag><c>{free_size, Size}</c></tag>
-              <item>
-                <p>Where <c>Size</c> is the current amount of free
-                  memory on the heap.</p>
-              </item>
-              <tag><c>{no_alloced_blocks, No}</c></tag>
-              <item>
-                <p>Where <c>No</c> is the current number of allocated
-                  blocks on the heap.</p>
-              </item>
-              <tag><c>{no_free_blocks, No}</c></tag>
-              <item>
-                <p>Where <c>No</c> is the current number of free blocks
-                  on the heap.</p>
-              </item>
-              <tag><c>{smallest_alloced_block, Size}</c></tag>
-              <item>
-                <p>Where <c>Size</c> is the size of the smallest
-                  allocated block on the heap.</p>
-              </item>
-              <tag><c>{largest_free_block, Size}</c></tag>
-              <item>
-                <p>Where <c>Size</c> is the size of the largest free
-                  block on the heap.</p>
-              </item>
-            </taglist>
+            <p>This option will be removed in a future release.
+	      The return value will always be <c>false</c> since
+	      the elib_malloc allocator has been removed.</p>
+          </item>
+          <tag><marker id="system_info_dist_buf_busy_limit"><c>dist_buf_busy_limit</c></marker></tag>
+          <item>
+            <p>Returns the value of the distribution buffer busy limit
+	    in bytes. This limit can be set on startup by passing the
+	    <seealso marker="erl#+zdbbl">+zdbbl</seealso> command line
+	    flag to <c>erl</c>.</p>
           </item>
           <tag><c>fullsweep_after</c></tag>
           <item>
-            <p>Returns <c>{fullsweep_after, int()}</c> which is the
+            <p>Returns <c>{fullsweep_after, integer()}</c> which is the
               <c>fullsweep_after</c> garbage collection setting used
               by default. For more information see
               <c>garbage_collection</c> described below.</p>
@@ -5634,11 +5718,34 @@ true</pre>
               information see the <seealso marker="erts:crash_dump">"How to interpret the Erlang crash dumps"</seealso> chapter
               in the ERTS User's Guide.</p>
           </item>
-	  <tag><c>logical_processors</c></tag>
+	  <tag><marker id="logical_processors"><c>logical_processors</c></marker></tag>
           <item>
-            <p>Returns the number of logical processors detected on the
-	       system as an integer or the atom <c>unknown</c> if the
-	       emulator wasn't able to detect any.
+            <p>Returns the detected number of logical processors configured
+	       on the system. The return value is either an integer, or
+	       the atom <c>unknown</c> if the emulator wasn't able to
+	       detect logical processors configured.
+	    </p>
+          </item>
+	  <tag><marker id="logical_processors_available"><c>logical_processors_available</c></marker></tag>
+          <item>
+            <p>Returns the detected number of logical processors available to
+	       the Erlang runtime system. The return value is either an
+	       integer, or the atom <c>unknown</c> if the emulator wasn't
+	       able to detect logical processors available. The number
+	       of logical processors available is less than or equal to
+	       the number of <seealso marker="#logical_processors_online">logical
+	       processors online</seealso>.
+	    </p>
+          </item>
+	  <tag><marker id="logical_processors_online"><c>logical_processors_online</c></marker></tag>
+          <item>
+            <p>Returns the detected number of logical processors online on
+	       the system. The return value is either an integer,
+	       or the atom <c>unknown</c> if the emulator wasn't able to
+	       detect logical processors online. The number of logical
+	       processors online is less than or equal to the number of
+	       <seealso marker="#logical_processors">logical processors
+	       configured</seealso>.
 	    </p>
           </item>
           <tag><c>machine</c></tag>
@@ -5843,6 +5950,26 @@ true</pre>
               <c>get_tcw</c> in "Match Specifications in Erlang",
               <seealso marker="erts:match_spec#get_tcw">ERTS User's Guide</seealso>.</p>
           </item>
+          <tag><marker id="update_cpu_info"><c>update_cpu_info</c></marker></tag>
+          <item>
+            <p>The runtime system rereads the CPU information available and
+	       updates its internally stored information about the
+	       <seealso marker="#system_info_cpu_topology_detected">detected CPU
+	       topology</seealso> and the amount of logical processors
+	       <seealso marker="#logical_processors">configured</seealso>,
+	       <seealso marker="#logical_processors_online">online</seealso>, and
+	       <seealso marker="#logical_processors_available">available</seealso>.
+	       If the CPU information has changed since the last time it was read,
+	       the atom <c>changed</c> is returned; otherwise, the atom
+	       <c>unchanged</c> is returned. If the CPU information has changed
+	       you probably want to
+	       <seealso marker="#system_flag_schedulers_online">adjust the amount
+	       of schedulers online</seealso>. You typically want to have as
+	       many schedulers online as
+	       <seealso marker="#logical_processors_available">logical processors
+	       available</seealso>.
+	    </p>
+          </item>
           <tag><marker id="system_info_version"><c>version</c></marker></tag>
           <item>
             <p>Returns a string containing the version number of the
@@ -5850,9 +5977,23 @@ true</pre>
           </item>
           <tag><c>wordsize</c></tag>
           <item>
-            <p>Returns the word size in bytes as an integer, i.e. on a
-              32-bit architecture 4 is returned, and on a 64-bit
-              architecture 8 is returned.</p>
+            <p>Same as <c>{wordsize, internal}.</c></p>
+          </item>
+          <tag><c>{wordsize, internal}</c></tag>
+          <item>
+            <p>Returns the size of Erlang term words in bytes as an
+              integer, i.e. on a 32-bit architecture 4 is returned,
+              and on a pure 64-bit architecture 8 is returned. On a
+              halfword 64-bit emulator, 4 is returned, as the Erlang
+              terms are stored using a virtual wordsize of half the
+              system's wordsize.</p>
+          </item>
+          <tag><c>{wordsize, external}</c></tag>
+          <item>
+	    <p>Returns the true wordsize of the emulator, i.e. the size
+	       of a pointer, in bytes as an integer. On a pure 32-bit
+	       architecture 4 is returned, on both a halfword and pure
+	       64-bit architecture, 8 is returned.</p>
           </item>
         </taglist>
         <note>
@@ -5873,7 +6014,7 @@ true</pre>
         <v>&nbsp;MonitorPid = pid()</v>
         <v>&nbsp;Options = [Option]</v>
         <v>&nbsp;&nbsp;Option = {long_gc, Time} | {large_heap, Size} | busy_port | busy_dist_port</v>
-        <v>&nbsp;&nbsp;&nbsp;Time = Size = int()</v>
+        <v>&nbsp;&nbsp;&nbsp;Time = Size = integer()</v>
       </type>
       <desc>
         <p>Returns the current system monitoring settings set by
@@ -5907,7 +6048,7 @@ true</pre>
       <type>
         <v>MonitorPid = pid()</v>
         <v>Option = {long_gc, Time} | {large_heap, Size} | busy_port | busy_dist_port</v>
-        <v>&nbsp;Time = Size = int()</v>
+        <v>&nbsp;Time = Size = integer()</v>
         <v>MonSettings = {OldMonitorPid, [Option]}</v>
         <v>&nbsp;OldMonitorPid = pid()</v>
       </type>
@@ -6137,7 +6278,7 @@ true</pre>
       <name>time() -> {Hour, Minute, Second}</name>
       <fsummary>Current time</fsummary>
       <type>
-        <v>Hour = Minute = Second = int()</v>
+        <v>Hour = Minute = Second = integer() >= 0</v>
       </type>
       <desc>
         <p>Returns the current time as <c>{Hour, Minute, Second}</c>.</p>
@@ -6165,11 +6306,11 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name>erlang:trace(PidSpec, How, FlagList) -> int()</name>
+      <name>erlang:trace(PidSpec, How, FlagList) -> integer() >= 0</name>
       <fsummary>Set trace flags for a process or processes</fsummary>
       <type>
         <v>PidSpec = pid() | existing | new | all</v>
-        <v>How = bool()</v>
+        <v>How = boolean()</v>
         <v>FlagList = [Flag]</v>
         <v>&nbsp;Flag -- see below</v>
       </type>
@@ -6570,7 +6711,7 @@ true</pre>
       <type>
         <v>PidOrFunc = pid() | new | {Module, Function, Arity} | on_load</v>
         <v>&nbsp;Module = Function = atom()</v>
-        <v>&nbsp;Arity = int()</v>
+        <v>&nbsp;Arity = arity()</v>
         <v>Item, Res -- see below</v>
       </type>
       <desc>
@@ -6645,6 +6786,17 @@ true</pre>
               See also
               <seealso marker="#trace_pattern/3">erlang:trace_pattern/3</seealso>.</p>
           </item>
+          <tag><c>call_time</c></tag>
+          <item>
+	      <p>Return the call time values for this function or
+              <c>true</c> for the pseudo function <c>on_load</c> if call
+	      time tracing is active. Returns <c>false</c> otherwise.
+	      The call time values returned, <c>[{Pid, Count, S, Us}]</c>,
+	      is a list of each process that has executed the function and its specific counters.
+              See also
+              <seealso marker="#trace_pattern/3">erlang:trace_pattern/3</seealso>.</p>
+          </item>
+
           <tag><c>all</c></tag>
           <item>
             <p>Return a list containing the <c>{Item, Value}</c> tuples
@@ -6662,7 +6814,7 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name>erlang:trace_pattern(MFA, MatchSpec) -> int()</name>
+      <name>erlang:trace_pattern(MFA, MatchSpec) -> integer() >= 0</name>
       <fsummary>Set trace patterns for global call tracing</fsummary>
       <desc>
         <p>The same as
@@ -6671,7 +6823,7 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name>erlang:trace_pattern(MFA, MatchSpec, FlagList) -> int()</name>
+      <name>erlang:trace_pattern(MFA, MatchSpec, FlagList) -> integer() >= 0</name>
       <fsummary>Set trace patterns for tracing of function calls</fsummary>
       <type>
         <v>MFA, MatchSpec, FlagList -- see below</v>
@@ -6747,13 +6899,13 @@ true</pre>
           </item>
           <tag><c>restart</c></tag>
           <item>
-            <p>For the <c>FlagList</c> option <c>call_count</c>:
+	      <p>For the <c>FlagList</c> option <c>call_count</c> and <c>call_time</c>:
               restart the existing counters. The behaviour is undefined
               for other <c>FlagList</c> options.</p>
           </item>
           <tag><c>pause</c></tag>
           <item>
-            <p>For the <c>FlagList</c> option <c>call_count</c>: pause
+	      <p>For the <c>FlagList</c> option <c>call_count</c> and <c>call_time</c>: pause
               the existing counters. The behaviour is undefined for
               other <c>FlagList</c> options.</p>
           </item>
@@ -6808,6 +6960,23 @@ true</pre>
             <p>The counter value can be read with
               <seealso marker="#trace_info/2">erlang:trace_info/2</seealso>.</p>
           </item>
+          <tag><c>call_time</c></tag>
+          <item>
+            <p>Starts (<c>MatchSpec == true</c>) or stops
+              (<c>MatchSpec == false</c>) call time tracing for all
+              types of function calls. For every function a counter is
+	      incremented when the function is called. Time spent in the function
+	      is accumulated in two other counters, seconds and micro-seconds.
+	      The counters are stored for each call traced process.</p>
+            <p>If call time tracing is started while already running,
+              the count and time is restarted from zero. Running counters can be
+              paused with <c>MatchSpec == pause</c>. Paused and running
+              counters can be restarted from zero with
+              <c>MatchSpec == restart</c>.</p>
+            <p>The counter value can be read with
+              <seealso marker="#trace_info/2">erlang:trace_info/2</seealso>.</p>
+          </item>
+
         </taglist>
         <p>The <c>global</c> and <c>local</c> options are mutually
           exclusive and <c>global</c> is the default (if no options are
@@ -6815,7 +6984,7 @@ true</pre>
           perform a kind of local tracing, and can also not be combined
           with <c>global</c>. A function can be either globally or
           locally traced. If global tracing is specified for a
-          specified set of functions; local, meta and call count
+          specified set of functions; local, meta, call time and call count
           tracing for the matching set of local functions will be
           disabled, and vice versa.</p>
         <p>When disabling trace, the option must match the type of trace
@@ -6834,7 +7003,7 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name>trunc(Number) -> int()</name>
+      <name>trunc(Number) -> integer()</name>
       <fsummary>Return an integer by the truncating a number</fsummary>
       <type>
         <v>Number = number()</v>
@@ -6848,7 +7017,7 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name>tuple_size(Tuple) -> int()</name>
+      <name>tuple_size(Tuple) -> integer() >= 0</name>
       <fsummary>Return the size of a tuple</fsummary>
       <type>
         <v>Tuple = tuple()</v>
@@ -6876,12 +7045,10 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name>erlang:universaltime() -> {Date, Time}</name>
+      <name>erlang:universaltime() -> DateTime</name>
       <fsummary>Current date and time according to Universal Time Coordinated (UTC)</fsummary>
       <type>
-        <v>Date = {Year, Month, Day}</v>
-        <v>Time = {Hour, Minute, Second}</v>
-        <v>&nbsp;Year = Month = Day = Hour = Minute = Second = int()</v>
+        <v>DateTime = <seealso marker="calendar#type-datetime">calendar:datetime()</seealso></v>
       </type>
       <desc>
         <p>Returns the current date and time according to Universal
@@ -6899,9 +7066,8 @@ true</pre>
       <name>erlang:universaltime_to_localtime({Date1, Time1}) -> {Date2, Time2}</name>
       <fsummary>Convert from Universal Time Coordinated (UTC) to local date and time</fsummary>
       <type>
-        <v>Date1 = Date2 = {Year, Month, Day}</v>
-        <v>Time1 = Time2 = {Hour, Minute, Second}</v>
-        <v>&nbsp;Year = Month = Day = Hour = Minute = Second = int()</v>
+        <v>Date1 = Date2 = <seealso marker="calendar#type-date">calendar:date()</seealso></v>
+        <v>Time1 = Time2 = <seealso marker="calendar#type-time">calendar:time()</seealso></v>
       </type>
       <desc>
         <p>Converts Universal Time Coordinated (UTC) date and time to
@@ -6988,7 +7154,7 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name>erlang:yield() -> true</name>
+      <name name="yield" arity="0"/>
       <fsummary>Let other processes get a chance to execute</fsummary>
       <desc>
         <p>Voluntarily let other processes (if any) get a chance to

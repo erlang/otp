@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -20,7 +20,7 @@
 -module(beam_bsm).
 -export([module/2,format_error/1]).
 
--import(lists, [member/2,foldl/3,reverse/1,sort/1,all/2]).
+-import(lists, [member/2,foldl/3,reverse/1,sort/1,all/2,dropwhile/2]).
 
 %%%
 %%% We optimize bit syntax matching where the tail end of a binary is
@@ -376,6 +376,8 @@ btb_reaches_match_2([{func_info,_,_,Arity}=I|_], Regs0, D) ->
 	[] -> D;
 	_ -> {binary_used_in,I}
     end;
+btb_reaches_match_2([{line,_}|Is], Regs, D) ->
+    btb_reaches_match_1(Is, Regs, D);
 btb_reaches_match_2([I|_], Regs, _) ->
     btb_error({btb_context_regs(Regs),I,not_handled}).
 
@@ -580,7 +582,10 @@ btb_index(Fs) ->
     btb_index_1(Fs, []).
 
 btb_index_1([{function,_,_,Entry,Is0}|Fs], Acc0) ->
-    [{label,_},{func_info,_,_,_},{label,Entry}|Is] = Is0,
+    [{label,Entry}|Is] =
+	dropwhile(fun({label,L}) when L =:= Entry -> false;
+		     (_) -> true
+		  end, Is0),
     Acc = btb_index_2(Is, Entry, false, Acc0),
     btb_index_1(Fs, Acc);
 btb_index_1([], Acc) -> gb_trees:from_orddict(sort(Acc)).
@@ -651,10 +656,8 @@ add_warning(Term, Anno, Ws) ->
 warning_translate_label(Term, D) when is_tuple(Term) ->
     case element(1, Term) of
 	{label,F} ->
-	    case gb_trees:lookup(F, D) of
-		none -> Term;
-		{value,FA} -> setelement(1, Term, FA)
-	    end;
+	    FA = gb_trees:get(F, D),
+	    setelement(1, Term, FA);
 	_ -> Term
     end;
 warning_translate_label(Term, _) -> Term.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,13 +18,16 @@
 %%
 -module(cover_SUITE).
 
--export([all/1]).
+-export([all/0, init_per_testcase/2, end_per_testcase/2,
+	 suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
+
 -export([start/1, compile/1, analyse/1, misc/1, stop/1, 
 	 distribution/1, export_import/1,
 	 otp_5031/1, eif/1, otp_5305/1, otp_5418/1, otp_6115/1, otp_7095/1,
          otp_8188/1, otp_8270/1, otp_8273/1, otp_8340/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 %%----------------------------------------------------------------------
 %% The following directory structure is assumed:
@@ -37,17 +40,54 @@
 %%                                             y
 %%----------------------------------------------------------------------
 
-all(suite) -> 
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
     case whereis(cover_server) of
 	undefined ->
 	    [start, compile, analyse, misc, stop, distribution,
-	     export_import,
-	     otp_5031, eif, otp_5305, otp_5418, otp_6115, otp_7095,
-             otp_8188, otp_8270, otp_8273, otp_8340];
+	     export_import, otp_5031, eif, otp_5305, otp_5418,
+	     otp_6115, otp_7095, otp_8188, otp_8270, otp_8273,
+	     otp_8340];
 	_pid ->
-	    {skip,"It looks like the test server is running cover. "
-	          "Can't run cover test."}
+	    {skip,
+	     "It looks like the test server is running "
+	     "cover. Can't run cover test."}
     end.
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
+init_per_testcase(TC, Config) when TC =:= misc; 
+				   TC =:= compile; 
+				   TC =:= analyse;
+				   TC =:= distribution;
+				   TC =:= otp_5031;
+				   TC =:= stop ->
+    case code:which(crypto) of
+	Path when is_list(Path) ->
+	    init_per_testcase(dummy_tc, Config);
+	_Else ->
+	    {skip, "No crypto file to test with"}
+    end;
+init_per_testcase(_TestCase, Config) ->
+    Config.
+
+end_per_testcase(_TestCase, _Config) ->
+    %cover:stop(),
+    ok.
 
 start(suite) -> [];
 start(Config) when is_list(Config) ->
@@ -331,6 +371,7 @@ distribution(Config) when is_list(Config) ->
 
     %% Check that stop() unloads on all nodes
     ?line ok = cover:stop(),
+    ?line timer:sleep(100), %% Give nodes time to unload on slow machines.
     ?line LocalBeam = code:which(f),
     ?line N2Beam = rpc:call(N2,code,which,[f]),
     ?line true = is_unloaded(LocalBeam),
@@ -354,6 +395,7 @@ export_import(suite) -> [];
 export_import(Config) when is_list(Config) ->
     ?line DataDir = ?config(data_dir, Config),
     ?line ok = file:set_cwd(DataDir),
+    ?line PortCount = length(erlang:ports()),
 
     %% Export one module
     ?line {ok,f} = cover:compile(f),
@@ -381,8 +423,8 @@ export_import(Config) when is_list(Config) ->
     ?line {ok,a} = cover:compile(a),
     ?line ?t:capture_start(),
     ?line ok = cover:export("all_exported"),
-    ?line [Text2] = ?t:capture_get(),
-    ?line "Export includes data from imported files"++_ = lists:flatten(Text2),
+    ?line [] = ?t:capture_get(),
+%    ?line "Export includes data from imported files"++_ = lists:flatten(Text2),
     ?line ?t:capture_stop(),
     ?line ok = cover:stop(),
     ?line ok = cover:import("all_exported"),
@@ -442,6 +484,9 @@ export_import(Config) when is_list(Config) ->
     ?line [] = ?t:capture_get(), % no warnings
     ?line ?t:capture_stop(),
     ?line check_f_calls(1,0),
+
+    %% Check no raw files are left open
+    ?line PortCount = length(erlang:ports()),
 
     %% Cleanup
     ?line ok = cover:stop(),
@@ -538,21 +583,14 @@ otp_6115_1(Config) ->
     %% called -- running cover compiled code when there is no cover
     %% server and thus no ets tables to bump counters in, makes no
     %% sense.
-    ?line Pid1 = f1:start_fail(),
-
-    %% If f1 is cover compiled, a process P is started with a
-    %% reference to the fun created in start_ok/0, and
-    %% cover:stop() is called, then P should survive.
-    %% This is because (the fun held by) P always references the current
-    %% version of the module, and is thus not affected by the cover
-    %% compiled version being unloaded.
-    ?line Pid2 = f1:start_ok(),
+    Pid1 = f1:start_a(),
+    Pid2 = f1:start_b(),
 
     %% Now stop cover
     ?line cover:stop(),
     
-    %% Ensure that f1 is loaded (and not cover compiled), that Pid1
-    %% is dead and Pid2 is alive, but with no reference to old code
+    %% Ensure that f1 is loaded (and not cover compiled), and that
+    %% both Pid1 and Pid2 are dead.
     case code:which(f1) of
 	Beam when is_list(Beam) ->
 	    ok;
@@ -563,19 +601,15 @@ otp_6115_1(Config) ->
 	undefined ->
 	    ok;
 	_PI1 ->
-	    RefToOldP = erlang:check_process_code(Pid1, f1),
-	    ?line ?t:fail({"Pid1 still alive", RefToOldP})
+	    RefToOldP1 = erlang:check_process_code(Pid1, f1),
+	    ?t:fail({"Pid1 still alive", RefToOldP1})
     end,
     case process_info(Pid2) of
-	PI2 when is_list(PI2) ->
-	    case erlang:check_process_code(Pid2, f2) of
-		false ->
-		    ok;
-		true ->
-		    ?line ?t:fail("Pid2 has ref to old code")
-	    end;
 	undefined ->
-	    ?line ?t:fail("Pid2 has died")
+	    ok;
+	_PI2 ->
+	    RefToOldP2 = erlang:check_process_code(Pid1, f2),
+	    ?t:fail({"Pid2 still alive", RefToOldP2})
     end,
 
     ?line file:set_cwd(CWD),

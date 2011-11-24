@@ -45,7 +45,8 @@ MODULES = \
 	http_transport\
 	http_util \
 	http_request \
-	http_response
+	http_response \
+	http_uri
 
 HRL_FILES = http_internal.hrl
 
@@ -55,24 +56,16 @@ TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
 
 # ----------------------------------------------------
-# INETS FLAGS
-# ----------------------------------------------------
-INETS_FLAGS = -D'SERVER_SOFTWARE="$(APPLICATION)/$(VSN)"'
-
-
-# ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-INETS_ERL_FLAGS +=  -I ../inets_app
 
-ifeq ($(WARN_UNUSED_WARS),true)
-ERL_COMPILE_FLAGS += +warn_unused_vars
-endif
+include ../inets_app/inets.mk
 
-ERL_COMPILE_FLAGS += $(INETS_ERL_FLAGS) \
-		     $(INETS_FLAGS) \
-                     +'{parse_transform,sys_pre_attributes}' \
-                     +'{attribute,insert,app_vsn,$(APP_VSN)}'
+ERL_COMPILE_FLAGS += \
+	$(INETS_FLAGS) \
+	$(INETS_ERL_COMPILE_FLAGS) \
+	-I../../include \
+	-I../inets_app
 
 
 # ----------------------------------------------------
@@ -94,9 +87,10 @@ docs:
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)/src
-	$(INSTALL_DATA) $(HRL_FILES) $(ERL_FILES) $(RELSYSDIR)/src
-	$(INSTALL_DIR) $(RELSYSDIR)/ebin
+	$(INSTALL_DIR)  $(RELSYSDIR)/src
+	$(INSTALL_DIR)  $(RELSYSDIR)/src/http_lib
+	$(INSTALL_DATA) $(HRL_FILES) $(ERL_FILES) $(RELSYSDIR)/src/http_lib
+	$(INSTALL_DIR)  $(RELSYSDIR)/ebin
 	$(INSTALL_DATA) $(TARGET_FILES) $(RELSYSDIR)/ebin
 
 release_docs_spec:

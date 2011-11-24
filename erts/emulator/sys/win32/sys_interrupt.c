@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1997-2009. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -21,6 +21,7 @@
  */
 #include "sys.h"
 #include "erl_alloc.h"
+#include "erl_thr_progress.h"
 #include "erl_driver.h"
 #include "../../drivers/win32/win_con.h"
 
@@ -31,11 +32,11 @@
 #endif
 
 #ifdef ERTS_SMP
-erts_smp_atomic_t erts_break_requested;
+erts_smp_atomic32_t erts_break_requested;
 #define ERTS_SET_BREAK_REQUESTED \
-  erts_smp_atomic_set(&erts_break_requested, (long) 1)
+  erts_smp_atomic32_set_nob(&erts_break_requested, (erts_aint32_t) 1)
 #define ERTS_UNSET_BREAK_REQUESTED \
-  erts_smp_atomic_set(&erts_break_requested, (long) 0)
+  erts_smp_atomic32_set_nob(&erts_break_requested, (erts_aint32_t) 0)
 #else
 volatile int erts_break_requested = 0;
 #define ERTS_SET_BREAK_REQUESTED (erts_break_requested = 1)
@@ -52,14 +53,14 @@ void erts_do_break_handling(void)
      * therefore, make sure that all threads but this one are blocked before
      * proceeding!
      */
-    erts_smp_block_system(0);
+    erts_smp_thr_progress_block();
     /* call the break handling function, reset the flag */
     do_break();
 
     ResetEvent(erts_sys_break_event);
     ERTS_UNSET_BREAK_REQUESTED;
 
-    erts_smp_release_system();
+    erts_smp_thr_progress_unblock();
 }
 
 

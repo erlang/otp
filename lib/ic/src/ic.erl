@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -320,7 +320,7 @@ pragma(G, File, T) ->
 		 time,
 		 time("pragma registration  ", ic_pragma, pragma_reg, [G,T]),
 		 ic_pragma:pragma_reg(G,T)) of
-	%% All pragmas were succesfully applied
+	%% All pragmas were successfully applied
 	{ok,Clean} ->
 	    typing(G, File, Clean);
        

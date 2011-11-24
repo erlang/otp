@@ -18,6 +18,10 @@
 
 -module(beam_validator).
 
+-compile({no_auto_import,[min/2]}).
+
+%% Avoid warning for local function error/1 clashing with autoimported BIF.
+-compile({no_auto_import,[error/1]}).
 -export([file/1, files/1]).
 
 %% Interface for compiler.
@@ -162,12 +166,17 @@ validate(Module, Fs) ->
     Ft = index_bs_start_match(Fs, []),
     validate_0(Module, Fs, Ft).
 
-index_bs_start_match([{function,_,_,Entry,Code}|Fs], Acc0) ->
+index_bs_start_match([{function,_,_,Entry,Code0}|Fs], Acc0) ->
+    Code = dropwhile(fun({label,L}) when L =:= Entry -> false;
+			(_) -> true
+		     end, Code0),
     case Code of
-	[_,_,{label,Entry}|Is] ->
+	[{label,Entry}|Is] ->
 	    Acc = index_bs_start_match_1(Is, Entry, Acc0),
 	    index_bs_start_match(Fs, Acc);
 	_ ->
+	    %% Something serious is wrong. Ignore it for now.
+	    %% It will be detected and diagnosed later.
 	    index_bs_start_match(Fs, Acc0)
     end;
 index_bs_start_match([], Acc) ->
@@ -288,6 +297,8 @@ labels(Is) ->
 
 labels_1([{label,L}|Is], R) ->
     labels_1(Is, [L|R]);
+labels_1([{line,_}|Is], R) ->
+    labels_1(Is, R);
 labels_1(Is, R) ->
     {lists:reverse(R),Is}.
 
@@ -416,6 +427,11 @@ valfun_1({put,Src}, Vst) ->
 valfun_1({put_string,Sz,_,Dst}, Vst0) when is_integer(Sz) ->
     Vst = eat_heap(2*Sz, Vst0),
     set_type_reg(cons, Dst, Vst);
+%% Instructions for optimization of selective receives.
+valfun_1({recv_mark,{f,Fail}}, Vst) when is_integer(Fail) ->
+    Vst;
+valfun_1({recv_set,{f,Fail}}, Vst) when is_integer(Fail) ->
+    Vst;
 %% Misc.
 valfun_1({'%live',Live}, Vst) ->
     verify_live(Live, Vst),
@@ -423,6 +439,8 @@ valfun_1({'%live',Live}, Vst) ->
 valfun_1(remove_message, Vst) ->
     Vst;
 valfun_1({'%',_}, Vst) ->
+    Vst;
+valfun_1({line,_}, Vst) ->
     Vst;
 %% Exception generating calls
 valfun_1({call_ext,Live,Func}=I, Vst) ->
@@ -752,9 +770,6 @@ valfun_4({bs_utf8_size,{f,Fail},A,Dst}, Vst) ->
 valfun_4({bs_utf16_size,{f,Fail},A,Dst}, Vst) ->
     assert_term(A, Vst),
     set_type_reg({integer,[]}, Dst, branch_state(Fail, Vst));
-valfun_4({bs_bits_to_bytes2,Src,Dst}, Vst) ->
-    assert_term(Src, Vst),
-    set_type_reg({integer,[]}, Dst, Vst);
 valfun_4({bs_bits_to_bytes,{f,Fail},Src,Dst}, Vst) ->
     assert_term(Src, Vst),
     set_type_reg({integer,[]}, Dst, branch_state(Fail, Vst));
@@ -863,6 +878,8 @@ val_dsetel({call_ext,3,{extfunc,erlang,setelement,3}}, #vst{current=St}=Vst) ->
 val_dsetel({set_tuple_element,_,_,_}, #vst{current=#st{setelem=false}}) ->
     error(illegal_context_for_set_tuple_element);
 val_dsetel({set_tuple_element,_,_,_}, #vst{current=#st{setelem=true}}=Vst) ->
+    Vst;
+val_dsetel({line,_}, Vst) ->
     Vst;
 val_dsetel(_, #vst{current=#st{setelem=true}=St}=Vst) ->
     Vst#vst{current=St#st{setelem=false}};

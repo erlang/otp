@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -115,11 +115,11 @@ interpret_all(Dir, [File0|Files], Mode, Window, Errors) ->
 interpret_all(_Dir, [], _Mode, _Window, []) ->
     true;
 interpret_all(Dir, [], _Mode, Window, Errors) ->
-    Msg = lists:map(fun(Name) ->		      
-			    File = filename:join(Dir, Name),
-			    Error = format_error(int:interpretable(File)),
-			    ["\n   ",Name,": ",Error]
-		    end, Errors),
+    Msg = [begin
+	       File = filename:join(Dir, Name),
+	       Error = format_error(int:interpretable(File)),
+	       ["\n   ",Name,": ",Error]
+	   end || Name <- Errors],
     All = ["Error when interpreting: ", Msg],
     dbg_wx_win:confirm(Window, lists:flatten(All)),
     true.

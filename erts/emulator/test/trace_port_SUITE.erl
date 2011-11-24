@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -20,7 +20,9 @@
 
 -module(trace_port_SUITE).
 
--export([all/1,init_per_testcase/2,fin_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
+	 init_per_testcase/2,end_per_testcase/2,
 	 call_trace/1,
 	 return_trace/1,
 	 send/1,
@@ -34,29 +36,42 @@
 	 gc/1,
 	 default_tracer/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
-test_cases() ->
-    [call_trace,
-     return_trace,
-     send,
-     receive_trace,
-     process_events,
-     schedule,
-     fake_schedule,
+test_cases() -> 
+    [call_trace, return_trace, send, receive_trace,
+     process_events, schedule, fake_schedule,
      fake_schedule_after_register,
      fake_schedule_after_getting_linked,
-     fake_schedule_after_getting_unlinked,
-     gc,
+     fake_schedule_after_getting_unlinked, gc,
      default_tracer].
 
-all(suite) -> test_cases().
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    test_cases().
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog = ?t:timetrap(?t:seconds(30)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog).
 

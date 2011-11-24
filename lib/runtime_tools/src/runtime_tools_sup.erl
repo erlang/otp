@@ -38,6 +38,8 @@
 init(AutoModArgs) ->
     Flags = {one_for_one, 0, 3600},
     Children = [{inviso_rt, {inviso_rt, start_link_auto, [AutoModArgs]}, 
-		 temporary, 3000, worker, [inviso_rt]}],
+		 temporary, 3000, worker, [inviso_rt]},
+                {ttb_autostart, {ttb_autostart, start_link, []},
+                 temporary, 3000, worker, [ttb_autostart]}],
     {ok, {Flags, Children}}.
 %% -----------------------------------------------------------------------------

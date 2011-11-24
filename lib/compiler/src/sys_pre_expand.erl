@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -31,8 +31,6 @@
 -import(ordsets, [from_list/1,add_element/2,union/2]).
 -import(lists,   [member/2,foldl/3,foldr/3]).
 
--compile({nowarn_deprecated_function, {erlang,hash,2}}).
-
 -include("../include/erl_bits.hrl").
 
 -record(expand, {module=[],                     %Module name
@@ -43,12 +41,12 @@
                  mod_imports,                   %Module Imports
                  compile=[],                    %Compile flags
                  attributes=[],                 %Attributes
+                 callbacks=[],                  %Callbacks
                  defined=[],                    %Defined functions
                  vcount=0,                      %Variable counter
                  func=[],                       %Current function
                  arity=[],                      %Arity for current function
                  fcount=0,                      %Local fun count
-                 fun_index=0,                   %Global index for funs
                  bitdefault,
                  bittypes
                 }).
@@ -172,10 +170,41 @@ define_functions(Forms, #expand{defined=Predef}=St) ->
                end, Predef, Forms),
     St#expand{defined=ordsets:from_list(Fs)}.
 
-module_attrs(St) ->
-    {[{attribute,Line,Name,Val} || {Name,Line,Val} <- St#expand.attributes],St}.
+module_attrs(#expand{attributes=Attributes}=St) ->
+    Attrs = [{attribute,Line,Name,Val} || {Name,Line,Val} <- Attributes],
+    Callbacks = [Callback || {_,_,callback,_}=Callback <- Attrs],
+    {Attrs,St#expand{callbacks=Callbacks}}.
 
 module_predef_funcs(St) ->
+    {Mpf1,St1}=module_predef_func_beh_info(St),
+    {Mpf2,St2}=module_predef_funcs_mod_info(St1),
+    {Mpf1++Mpf2,St2}.
+
+module_predef_func_beh_info(#expand{callbacks=[]}=St) ->
+    {[], St};
+module_predef_func_beh_info(#expand{callbacks=Callbacks,defined=Defined,
+				    exports=Exports}=St) ->
+    PreDef=[{behaviour_info,1}],
+    PreExp=PreDef,
+    {[gen_beh_info(Callbacks)],
+     St#expand{defined=union(from_list(PreDef), Defined),
+	       exports=union(from_list(PreExp), Exports)}}.
+
+gen_beh_info(Callbacks) ->
+    List = make_list(Callbacks),
+    {function,0,behaviour_info,1,
+     [{clause,0,[{atom,0,callbacks}],[],
+       [List]}]}.
+
+make_list([]) -> {nil,0};
+make_list([{_,_,_,[{{Name,Arity},_}]}|Rest]) ->
+    {cons,0,
+     {tuple,0,
+      [{atom,0,Name},
+       {integer,0,Arity}]},
+     make_list(Rest)}.
+
+module_predef_funcs_mod_info(St) ->
     PreDef = [{module_info,0},{module_info,1}],
     PreExp = PreDef,
     {[{function,0,module_info,0,
@@ -223,10 +252,8 @@ attribute(export, Es, _L, St) ->
     St#expand{exports=union(from_list(Es), St#expand.exports)};
 attribute(import, Is, _L, St) ->
     import(Is, St);
-attribute(compile, C, _L, St) when is_list(C) ->
-    St#expand{compile=St#expand.compile ++ C};
-attribute(compile, C, _L, St) ->
-    St#expand{compile=St#expand.compile ++ [C]};
+attribute(compile, _C, _L, St) ->
+    St;
 attribute(Name, Val, Line, St) when is_list(Val) ->
     St#expand{attributes=St#expand.attributes ++ [{Name,Line,Val}]};
 attribute(Name, Val, Line, St) ->
@@ -403,16 +430,21 @@ expr({'fun',Line,Body}, St) ->
 expr({call,Line,{atom,La,N}=Atom,As0}, St0) ->
     {As,St1} = expr_list(As0, St0),
     Ar = length(As),
-    case erl_internal:bif(N, Ar) of
-        true ->
-            {{call,Line,{remote,La,{atom,La,erlang},Atom},As},St1};
-        false ->
-            case imported(N, Ar, St1) of
-                {yes,Mod} ->
-                    {{call,Line,{remote,La,{atom,La,Mod},Atom},As},St1};
-                no ->
-                    {{call,Line,Atom,As},St1}
-            end
+    case defined(N,Ar,St1) of
+	true ->
+	    {{call,Line,Atom,As},St1};
+	_ ->
+	    case imported(N, Ar, St1) of
+		{yes,Mod} ->
+		    {{call,Line,{remote,La,{atom,La,Mod},Atom},As},St1};
+		no ->
+		    case erl_internal:bif(N, Ar) of
+			true ->
+			    {{call,Line,{remote,La,{atom,La,erlang},Atom},As},St1};
+			false -> %% This should have been handled by erl_lint
+			    {{call,Line,Atom,As},St1}
+		    end
+	    end
     end;
 expr({call,Line,{record_field,_,_,_}=M,As0}, St0) ->
     expr({call,Line,expand_package(M, St0),As0}, St0);
@@ -503,32 +535,34 @@ lc_tq(_Line, [], St0) ->
 %% Transform an "explicit" fun {'fun', Line, {clauses, Cs}} into an
 %% extended form {'fun', Line, {clauses, Cs}, Info}, unless it is the
 %% name of a BIF (erl_lint has checked that it is not an import).
-%% Process the body sequence directly to get the new and used variables.
 %% "Implicit" funs {'fun', Line, {function, F, A}} are not changed.
 
 fun_tq(Lf, {function,F,A}=Function, St0) ->
-    {As,St1} = new_vars(A, Lf, St0),
-    Cs = [{clause,Lf,As,[],[{call,Lf,{atom,Lf,F},As}]}],
     case erl_internal:bif(F, A) of
         true ->
+	    {As,St1} = new_vars(A, Lf, St0),
+	    Cs = [{clause,Lf,As,[],[{call,Lf,{atom,Lf,F},As}]}],
             fun_tq(Lf, {clauses,Cs}, St1);
         false ->
-            Index = St0#expand.fun_index,
-            Uniq = erlang:hash(Cs, (1 bsl 27)-1),
-            {Fname,St2} = new_fun_name(St1),
-            {{'fun',Lf,Function,{Index,Uniq,Fname}},
-             St2#expand{fun_index=Index+1}}
+            {Fname,St1} = new_fun_name(St0),
+            Index = Uniq = 0,
+            {{'fun',Lf,Function,{Index,Uniq,Fname}},St1}
     end;
-fun_tq(L, {function,M,F,A}, St) ->
-    {{call,L,{remote,L,{atom,L,erlang},{atom,L,make_fun}},
-      [{atom,L,M},{atom,L,F},{integer,L,A}]},St};
+fun_tq(L, {function,M,F,A}, St) when is_atom(M), is_atom(F), is_integer(A) ->
+    %% This is the old format for external funs, generated by a pre-R15
+    %% compiler. That means that a tool, such as the debugger or xref,
+    %% directly invoked this module with the abstract code from a
+    %% pre-R15 BEAM file. Be helpful, and translate it to the new format.
+    fun_tq(L, {function,{atom,L,M},{atom,L,F},{integer,L,A}}, St);
+fun_tq(Lf, {function,_,_,_}=ExtFun, St) ->
+    {{'fun',Lf,ExtFun},St};
 fun_tq(Lf, {clauses,Cs0}, St0) ->
-    Uniq = erlang:hash(Cs0, (1 bsl 27)-1),
     {Cs1,St1} = fun_clauses(Cs0, St0),
-    Index = St1#expand.fun_index,
     {Fname,St2} = new_fun_name(St1),
-    {{'fun',Lf,{clauses,Cs1},{Index,Uniq,Fname}},
-     St2#expand{fun_index=Index+1}}.
+    %% Set dummy values for Index and Uniq -- the real values will
+    %% be assigned by beam_asm.
+    Index = Uniq = 0,
+    {{'fun',Lf,{clauses,Cs1},{Index,Uniq,Fname}},St2}.
 
 fun_clauses([{clause,L,H0,G0,B0}|Cs0], St0) ->
     {H,St1} = head(H0, St0),
@@ -685,3 +719,6 @@ imported(F, A, St) ->
         {ok,Mod} -> {yes,Mod};
         error -> no
     end.
+
+defined(F, A, St) ->
+    ordsets:is_element({F,A}, St#expand.defined).

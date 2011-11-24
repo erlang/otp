@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(io_lib_fread).
@@ -24,23 +24,9 @@
 
 -import(lists, [reverse/1,reverse/2]).
 
-%%-----------------------------------------------------------------------
-%% Local types
-%%-----------------------------------------------------------------------
-
--type done_arg2() :: {'ok', io_lib:chars()} | 'eof' | {'error', term()}.
-
-%%-----------------------------------------------------------------------
-%% Types also used in other files
-%%-----------------------------------------------------------------------
-
--type continuation() :: [] | {_, _, _, _}.  % XXX: refine
-
--type fread_2_ret()  :: {'ok', io_lib:chars(), string()}
-	              | {'more', string(), non_neg_integer(), io_lib:chars()}
-                      | {'error', term()}.
--type fread_3_ret()  :: {'more', continuation()}
-                      | {'done', done_arg2(), string()}.
+-define(is_whitespace(C),
+	((C) =:= $\s orelse (C) =:= $\t
+	 orelse (C) =:= $\r orelse (C) =:= $\n)).
 
 %%-----------------------------------------------------------------------
 
@@ -49,7 +35,15 @@
 %%  repeatedly collects lines and calls fread/2 to format the input until
 %%  all the format string has been used. And it counts the characters.
 
--spec fread(io_lib_fread:continuation(), string(), string()) -> fread_3_ret().
+-spec fread(Continuation, String, Format) -> Return when
+      Continuation :: io_lib:continuation() |  [],
+      String :: string(),
+      Format :: string(),
+      Return :: {'more', Continuation1 :: io_lib:continuation()}
+              | {'done', Result, LeftOverChars :: string()},
+      Result :: {'ok', InputList :: io_lib:chars()}
+              | 'eof'
+              | {'error', What :: term()}.
 
 fread([], Chars, Format) ->
     %%io:format("FREAD: ~w `~s'~n", [Format,Chars]),
@@ -104,36 +98,39 @@ fread_line(Format0, Line, N0, Results0, More, Newline) ->
 %%   WHITE      Skip white space
 %%   X          Literal X
 
--spec fread(string(), string()) -> fread_2_ret().
+-spec fread(Format, String) -> Result when
+      Format :: string(),
+      String :: string(),
+      Result :: {'ok', InputList :: io_lib:chars(), LeftOverChars :: string()}
+              | {'more', RestFormat :: string(),
+                 Nchars :: non_neg_integer(),
+                 InputStack :: io_lib:chars()}
+              | {'error', What :: term()}.
 
 fread(Format, Line) ->
     fread(Format, Line, 0, []).
 
-fread([$~|Format0], Line, N, Results) ->
+fread([$~|Format0]=AllFormat, Line, N, Results) ->
     {Format,F,Sup,Unicode} = fread_field(Format0),
-    fread1(Format, F, Sup, Unicode, Line, N, Results, Format0);
-fread([$\s|Format], Line, N, Results) ->
-    fread_skip_white(Format, Line, N, Results);
-fread([$\t|Format], Line, N, Results) ->
-    fread_skip_white(Format, Line, N, Results);
-fread([$\r|Format], Line, N, Results) ->
-    fread_skip_white(Format, Line, N, Results);
-fread([$\n|Format], Line, N, Results) ->
+    fread1(Format, F, Sup, Unicode, Line, N, Results, AllFormat);
+fread([C|Format], Line, N, Results) when ?is_whitespace(C) ->
     fread_skip_white(Format, Line, N, Results);
 fread([C|Format], [C|Line], N, Results) ->
     fread(Format, Line, N+1, Results);
 fread([_F|_Format], [_C|_Line], _N, _Results) ->
     fread_error(input);
+fread([_|_]=Format, [], N, Results) ->
+    {more,Format,N,Results};
+fread([_|_], eof, 0, []) ->
+    %% This is at start of input so no error.
+    eof;
+fread([_|_], eof, _N, _Results) ->
+    %% This is an error as there is no more input.
+    fread_error(input);
 fread([], Line, _N, Results) ->
     {ok,reverse(Results),Line}.
 
-fread_skip_white(Format, [$\s|Line], N, Results) ->
-    fread_skip_white(Format, Line, N+1, Results);
-fread_skip_white(Format, [$\t|Line], N, Results) ->
-    fread_skip_white(Format, Line, N+1, Results);
-fread_skip_white(Format, [$\r|Line], N, Results) ->
-    fread_skip_white(Format, Line, N+1, Results);
-fread_skip_white(Format, [$\n|Line], N, Results) ->
+fread_skip_white(Format, [C|Line], N, Results) when ?is_whitespace(C) ->
     fread_skip_white(Format, Line, N+1, Results);
 fread_skip_white(Format, Line, N, Results) ->
     fread(Format, Line, N, Results).
@@ -169,9 +166,9 @@ fread1([$l|Format], _F, Sup, _U, Line, N, Res, _AllFormat) ->
     fread(Format, Line, N, fread_result(Sup, N, Res));
 fread1(_Format, _F, _Sup, _U, [], N, Res, AllFormat) ->
     %% Need more input here.
-    {more,[$~|AllFormat],N,Res};
-fread1(_Format, _F, _Sup, _U, eof, _N, [], _AllFormat) ->
-    %% This is at start of format string so no error.
+    {more,AllFormat,N,Res};
+fread1(_Format, _F, _Sup, _U, eof, 0, [], _AllFormat) ->
+    %% This is at start of input so no error.
     eof;
 fread1(_Format, _F, _Sup, _U, eof, _N, _Res, _AllFormat) ->
     %% This is an error as there is no more input.
@@ -389,26 +386,16 @@ fread_string_cs(Line0, N0, true) ->
 %% fread_digits(Line, N, Base, Characters)
 %%  Read segments of things, return "thing" characters in reverse order.
 
-fread_skip_white([$\s|Line]) -> fread_skip_white(Line);
-fread_skip_white([$\t|Line]) -> fread_skip_white(Line);
-fread_skip_white([$\r|Line]) -> fread_skip_white(Line);
-fread_skip_white([$\n|Line]) -> fread_skip_white(Line);
+fread_skip_white([C|Line]) when ?is_whitespace(C) ->
+    fread_skip_white(Line);
 fread_skip_white(Line) -> Line.
 
-fread_skip_white([$\s|Line], N) ->
-    fread_skip_white(Line, N+1);
-fread_skip_white([$\t|Line], N) ->
-    fread_skip_white(Line, N+1);
-fread_skip_white([$\r|Line], N) ->
-    fread_skip_white(Line, N+1);
-fread_skip_white([$\n|Line], N) ->
+fread_skip_white([C|Line], N) when ?is_whitespace(C) ->
     fread_skip_white(Line, N+1);
 fread_skip_white(Line, N) -> {Line,N}.
 
-fread_skip_latin1_nonwhite([$\s|Line], N, Cs) -> {[$\s|Line],N,Cs};
-fread_skip_latin1_nonwhite([$\t|Line], N, Cs) -> {[$\t|Line],N,Cs};
-fread_skip_latin1_nonwhite([$\r|Line], N, Cs) -> {[$\r|Line],N,Cs};
-fread_skip_latin1_nonwhite([$\n|Line], N, Cs) -> {[$\n|Line],N,Cs};
+fread_skip_latin1_nonwhite([C|Line], N, Cs) when ?is_whitespace(C) ->
+    {[C|Line],N,Cs};
 fread_skip_latin1_nonwhite([C|Line], N, []) when C > 255 ->
     {[C|Line],N,error};
 fread_skip_latin1_nonwhite([C|Line], N, Cs) when C > 255 ->
@@ -417,10 +404,8 @@ fread_skip_latin1_nonwhite([C|Line], N, Cs) ->
     fread_skip_latin1_nonwhite(Line, N+1, [C|Cs]);
 fread_skip_latin1_nonwhite([], N, Cs) -> {[],N,Cs}.
 
-fread_skip_nonwhite([$\s|Line], N, Cs) -> {[$\s|Line],N,Cs};
-fread_skip_nonwhite([$\t|Line], N, Cs) -> {[$\t|Line],N,Cs};
-fread_skip_nonwhite([$\r|Line], N, Cs) -> {[$\r|Line],N,Cs};
-fread_skip_nonwhite([$\n|Line], N, Cs) -> {[$\n|Line],N,Cs};
+fread_skip_nonwhite([C|Line], N, Cs) when ?is_whitespace(C) ->
+    {[C|Line],N,Cs};
 fread_skip_nonwhite([C|Line], N, Cs) ->
     fread_skip_nonwhite(Line, N+1, [C|Cs]);
 fread_skip_nonwhite([], N, Cs) -> {[],N,Cs}.

@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(overload). 
@@ -71,7 +71,7 @@ init([]) ->
 %%          establish a call.
 %% Returns: accept | reject
 %%-----------------------------------------------------------------
-request() -> gen_server:call(overload, request).
+request() -> call(request).
   
 %%-----------------------------------------------------------------
 %% Func: set_config_data/2
@@ -82,13 +82,19 @@ request() -> gen_server:call(overload, request).
 %% documented at all.
 %%-----------------------------------------------------------------
 set_config_data(MaxIntensity, Weight) ->
-    gen_server:call(overload, {set_config_data, MaxIntensity, Weight}).
+    call({set_config_data, MaxIntensity, Weight}).
 %%-----------------------------------------------------------------
 %% Func: get_overload_info/0
 %% Returns: A list of tagged items: TotalIntensity, AcceptIntensity,
 %%          MaxIntensity, Weight, TotalRequests, AcceptedRequests.
 %%-----------------------------------------------------------------
-get_overload_info() -> gen_server:call(overload, get_overload_info).
+get_overload_info() -> call(get_overload_info).
+
+%%-----------------------------------------------------------------
+%% call(Request) -> Term
+%%-----------------------------------------------------------------
+call(Req) ->
+    gen_server:call(overload, Req, infinity).
 
 %%%-----------------------------------------------------------------
 %%% Callback functions from gen_server

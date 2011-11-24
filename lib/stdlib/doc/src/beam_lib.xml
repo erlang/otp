@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2000</year><year>2010</year>
+      <year>2000</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -88,7 +88,6 @@
         it is recommended that it contains at least 32 characters and
         that both upper and lower case letters as well as digits and
         special characters are used.</p>
-      <p></p>
       <p>The default type -- and currently the only type -- of crypto
         algorithm is <c>des3_cbc</c>, three rounds of DES. The key string
         will be scrambled using <c>erlang:md5/1</c> to generate
@@ -154,70 +153,78 @@
     </section>
   </section>
 
-  <section>
-    <title>DATA TYPES</title>
-    <code type="none">
-beam() -> Module | Filename | binary()
-  Module = atom()
-  Filename = string() | atom()</code>
-    <p>Each of the functions described below accept either the module
-      name, the filename, or a binary containing the beam module.</p>
-    <code type="none">
-chunkdata() = {ChunkId, DataB} | {ChunkName, DataT}
-  ChunkId = chunkid()
-  DataB = binary()
-  {ChunkName, DataT} =
-        {abstract_code, AbstractCode}
-      | {attributes, [{Attribute, [AttributeValue]}]}
-      | {compile_info, [{InfoKey, [InfoValue]}]}
-      | {exports, [{Function, Arity}]}
-      | {labeled_exports, [{Function, Arity, Label}]}
-      | {imports, [{Module, Function, Arity}]}
-      | {indexed_imports, [{Index, Module, Function, Arity}]}
-      | {locals, [{Function, Arity}]}]}
-      | {labeled_locals, [{Function, Arity, Label}]}]}
-      | {atoms, [{integer(), atom()}]}
-  AbstractCode = {AbstVersion, Forms} | no_abstract_code
-    AbstVersion = atom()
-  Attribute = atom()
-  AttributeValue = term()
-  Module = Function = atom()
-  Arity = int()
-  Label = int()</code>
-    <p>It is not checked that the forms conform to the abstract format
-      indicated by <c>AbstVersion</c>. <c>no_abstract_code</c> means
-      that the <c>"Abst"</c> chunk is present, but empty.</p>
-    <p>The list of attributes is sorted on <c>Attribute</c>, and each
-      attribute name occurs once in the list. The attribute values
-      occur in the same order as in the file. The lists of functions
-      are also sorted.</p>
-    <code type="none">
-chunkid() = "Abst" | "Attr" | "CInf"
-            | "ExpT" | "ImpT" | "LocT"
-            | "Atom"
+  <datatypes>
+    <datatype>
+      <name name="beam"/>
+      <desc>
+        <p>Each of the functions described below accept either the
+          module name, the filename, or a binary containing the beam
+          module.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="chunkdata"/>
+      <desc>
+        <p>The list of attributes is sorted on <c>Attribute</c>
+          (in attrib_entry()), and each
+          attribute name occurs once in the list. The attribute values
+          occur in the same order as in the file. The lists of functions
+          are also sorted.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="chunkid"/>
+      <desc>
+        <p>"Abst" | "Attr" | "CInf" | "ExpT" | "ImpT" | "LocT" | "Atom"</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="dataB"/>
+    </datatype>
+    <datatype>
+      <name name="abst_code"/>
+      <desc>
+        <p>It is not checked that the forms conform to the abstract format
+          indicated by <c><anno>AbstVersion</anno></c>. <c>no_abstract_code</c> means
+          that the <c>"Abst"</c> chunk is present, but empty.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="forms"/>
+    </datatype>
+    <datatype>
+      <name name="compinfo_entry"/>
+    </datatype>
+    <datatype>
+      <name name="attrib_entry"/>
+    </datatype>
+    <datatype>
+      <name name="labeled_entry"/>
+    </datatype>
+    <datatype>
+      <name name="index"/>
+    </datatype>
+    <datatype>
+      <name name="label"/>
+    </datatype>
+    <datatype>
+      <name name="chunkref"/>
+    </datatype>
+    <datatype>
+      <name name="chunkname"/>
+    </datatype>
+    <datatype>
+      <name name="chnk_rsn"/>
+    </datatype>
+    <datatype>
+      <name name="info_rsn"/>
+    </datatype>
+  </datatypes>
 
-chunkname() = abstract_code | attributes | compile_info
-            | exports | labeled_exports
-            | imports | indexed_imports
-            | locals | labeled_locals
-            | atoms
-      
-chunkref() = chunkname() | chunkid()</code>
-  </section>
   <funcs>
     <func>
-      <name>chunks(Beam, [ChunkRef]) ->  {ok, {Module, [ChunkData]}} | {error, beam_lib, Reason}</name>
+      <name name="chunks" arity="2"/>
       <fsummary>Read selected chunks from a BEAM file or binary</fsummary>
-      <type>
-        <v>Beam = beam()</v>
-        <v>ChunkRef = chunkref()</v>
-        <v>Module = atom()</v>
-        <v>ChunkData = chunkdata()</v>
-        <v>Reason = {unknown_chunk, Filename, atom()}</v>
-        <v>&nbsp;&nbsp;| {key_missing_or_invalid, Filename, abstract_code}</v>
-        <v>&nbsp;&nbsp;| Reason1 -- see info/1</v>
-        <v>&nbsp;Filename = string()</v>
-      </type>
       <desc>
         <p>Reads chunk data for selected chunks refs. The order of
           the returned list of chunk data is determined by the order
@@ -225,43 +232,26 @@ chunkref() = chunkname() | chunkid()</code>
       </desc>
     </func>
     <func>
-      <name>chunks(Beam, [ChunkRef], [Option]) ->  {ok, {Module, [ChunkResult]}} | {error, beam_lib, Reason}</name>
+      <name name="chunks" arity="3"/>
       <fsummary>Read selected chunks from a BEAM file or binary</fsummary>
-      <type>
-        <v>Beam = beam()</v>
-        <v>ChunkRef = chunkref()</v>
-        <v>Module = atom()</v>
-        <v>Option = allow_missing_chunks</v>
-        <v>ChunkResult = {chunkref(), ChunkContents} | {chunkref(), missing_chunk}</v>
-        <v>Reason = {missing_chunk, Filename, atom()}</v>
-        <v>&nbsp;&nbsp;| {key_missing_or_invalid, Filename, abstract_code}</v>
-        <v>&nbsp;&nbsp;| Reason1 -- see info/1</v>
-        <v>&nbsp;Filename = string()</v>
-      </type>
       <desc>
         <p>Reads chunk data for selected chunks refs. The order of
           the returned list of chunk data is determined by the order
           of the list of chunks references.</p>
-        <p>By default, if any requested chunk is missing in <c>Beam</c>,
+        <p>By default, if any requested chunk is missing in <c><anno>Beam</anno></c>,
           an <c>error</c> tuple is returned.
           However, if the option <c>allow_missing_chunks</c> has been given,
           a result will be returned even if chunks are missing.
           In the result list, any missing chunks will be represented as
-          <c>{ChunkRef,missing_chunk}</c>.
+          <c>{<anno>ChunkRef</anno>,missing_chunk}</c>.
           Note, however, that if the <c>"Atom"</c> chunk if missing, that is
           considered a fatal error and the return value will be an <c>error</c>
           tuple.</p>
       </desc>
     </func>
     <func>
-      <name>version(Beam) -> {ok, {Module, [Version]}} | {error, beam_lib, Reason}</name>
+      <name name="version" arity="1"/>
       <fsummary>Read the BEAM file's module version</fsummary>
-      <type>
-        <v>Beam = beam()</v>
-        <v>Module = atom()</v>
-        <v>Version = term()</v>
-        <v>Reason -- see chunks/2</v>
-      </type>
       <desc>
         <p>Returns the module version(s). A version is defined by
           the module attribute <c>-vsn(Vsn)</c>. If this attribute is
@@ -282,51 +272,30 @@ chunkref() = chunkname() | chunkid()</code>
       </desc>
     </func>
     <func>
-      <name>md5(Beam) -> {ok, {Module, MD5}} | {error, beam_lib, Reason}</name>
+      <name name="md5" arity="1"/>
       <fsummary>Read the BEAM file's module version</fsummary>
-      <type>
-        <v>Beam = beam()</v>
-        <v>Module = atom()</v>
-        <v>MD5 = binary()</v>
-        <v>Reason -- see chunks/2</v>
-      </type>
       <desc>
         <p>Calculates an MD5 redundancy check for the code of the module
           (compilation date and other attributes are not included).</p>
       </desc>
     </func>
     <func>
-      <name>info(Beam) -> [{Item, Info}] | {error, beam_lib, Reason1}</name>
+      <name name="info" arity="1"/>
       <fsummary>Information about a BEAM file</fsummary>
-      <type>
-        <v>Beam = beam()</v>
-        <v>Item, Info -- see below</v>
-        <v>Reason1 = {chunk_too_big, Filename, ChunkId, ChunkSize, FileSize}</v>
-        <v>&nbsp;&nbsp;| {invalid_beam_file, Filename, Pos}</v>
-        <v>&nbsp;&nbsp;| {invalid_chunk, Filename, ChunkId}</v>
-        <v>&nbsp;&nbsp;| {missing_chunk, Filename, ChunkId}</v>
-        <v>&nbsp;&nbsp;| {not_a_beam_file, Filename}</v>
-        <v>&nbsp;&nbsp;| {file_error, Filename, Posix}</v>
-        <v>&nbsp;Filename = string()</v>
-        <v>&nbsp;ChunkId = chunkid()</v>
-        <v>&nbsp;ChunkSize = FileSize = int()</v>
-        <v>&nbsp;Pos = int()</v>
-        <v>&nbsp;Posix = posix() -- see file(3)</v>
-      </type>
       <desc>
         <p>Returns a list containing some information about a BEAM file
           as tuples <c>{Item, Info}</c>:</p>
         <taglist>
-          <tag><c>{file, Filename} | {binary, Binary}</c></tag>
+          <tag><c>{file, <anno>Filename</anno>} | {binary, <anno>Binary</anno>}</c></tag>
           <item>
             <p>The name (string) of the BEAM file, or the binary from
               which the information was extracted.</p>
           </item>
-          <tag><c>{module, Module}</c></tag>
+          <tag><c>{module, <anno>Module</anno>}</c></tag>
           <item>
             <p>The name (atom) of the module.</p>
           </item>
-          <tag><c>{chunks, [{ChunkId, Pos, Size}]}</c></tag>
+          <tag><c>{chunks, [{<anno>ChunkId</anno>, <anno>Pos</anno>, <anno>Size</anno>}]}</c></tag>
           <item>
             <p>For each chunk, the identifier (string) and the position
               and size of the chunk data, in bytes.</p>
@@ -335,53 +304,36 @@ chunkref() = chunkname() | chunkid()</code>
       </desc>
     </func>
     <func>
-      <name>cmp(Beam1, Beam2) -> ok | {error, beam_lib, Reason}</name>
+      <name name="cmp" arity="2"/>
       <fsummary>Compare two BEAM files</fsummary>
-      <type>
-        <v>Beam1 = Beam2 = beam()</v>
-        <v>Reason = {modules_different, Module1, Module2}</v>
-        <v>&nbsp;&nbsp;| {chunks_different, ChunkId}</v>
-        <v>&nbsp;&nbsp;| Reason1 -- see info/1</v>
-        <v>&nbsp;Module1 = Module2 = atom()</v>
-        <v>&nbsp;ChunkId = chunkid()</v>
-      </type>
+      <type name="cmp_rsn"/>
       <desc>
         <p>Compares the contents of two BEAM files. If the module names
-          are the same, and the chunks with the identifiers
-          <c>"Code"</c>, <c>"ExpT"</c>, <c>"ImpT"</c>, <c>"StrT"</c>,
-          and <c>"Atom"</c> have the same contents in both files,
+          are the same, and all chunks except for the <c>"CInf"</c> chunk
+	  (the chunk containing the compilation information which is
+	  returned by <c>Module:module_info(compile)</c>)
+	  have the same contents in both files,
           <c>ok</c> is returned. Otherwise an error message is returned.</p>
       </desc>
     </func>
     <func>
-      <name>cmp_dirs(Dir1, Dir2) ->  {Only1, Only2, Different} | {error, beam_lib, Reason1}</name>
+      <name name="cmp_dirs" arity="2"/>
       <fsummary>Compare the BEAM files in two directories</fsummary>
-      <type>
-        <v>Dir1 = Dir2 = string() | atom()</v>
-        <v>Different = [{Filename1, Filename2}]</v>
-        <v>Only1 = Only2 = [Filename]</v>
-        <v>Filename = Filename1 = Filename2 = string()</v>
-        <v>Reason1 = {not_a_directory, term()} | -- see info/1</v>
-      </type>
       <desc>
         <p>The <c>cmp_dirs/2</c> function compares the BEAM files in
           two directories. Only files with extension <c>".beam"</c> are
-          compared. BEAM files that exist in directory <c>Dir1</c>
-          (<c>Dir2</c>) only are returned in <c>Only1</c>
-          (<c>Only2</c>). BEAM files that exist on both directories but
+          compared. BEAM files that exist in directory <c><anno>Dir1</anno></c>
+          (<c><anno>Dir2</anno></c>) only are returned in <c><anno>Only1</anno></c>
+          (<c><anno>Only2</anno></c>). BEAM files that exist on both directories but
           are considered different by <c>cmp/2</c> are returned as
-          pairs {<c>Filename1</c>, <c>Filename2</c>} where
-          <c>Filename1</c> (<c>Filename2</c>) exists in directory
-          <c>Dir1</c> (<c>Dir2</c>).</p>
+          pairs {<c><anno>Filename1</anno></c>, <c><anno>Filename2</anno></c>} where
+          <c><anno>Filename1</anno></c> (<c><anno>Filename2</anno></c>) exists in directory
+          <c><anno>Dir1</anno></c> (<c><anno>Dir2</anno></c>).</p>
       </desc>
     </func>
     <func>
-      <name>diff_dirs(Dir1, Dir2) -> ok | {error, beam_lib, Reason1}</name>
+      <name name="diff_dirs" arity="2"/>
       <fsummary>Compare the BEAM files in two directories</fsummary>
-      <type>
-        <v>Dir1 = Dir2 = string() | atom()</v>
-        <v>Reason1 = {not_a_directory, term()} | -- see info/1</v>
-      </type>
       <desc>
         <p>The <c>diff_dirs/2</c> function compares the BEAM files in
           two directories the way <c>cmp_dirs/2</c> does, but names of
@@ -390,13 +342,8 @@ chunkref() = chunkname() | chunkid()</code>
       </desc>
     </func>
     <func>
-      <name>strip(Beam1) -> {ok, {Module, Beam2}} | {error, beam_lib, Reason1}</name>
+      <name name="strip" arity="1"/>
       <fsummary>Removes chunks not needed by the loader from a BEAM file</fsummary>
-      <type>
-        <v>Beam1 = Beam2 = beam()</v>
-        <v>Module = atom()</v>
-        <v>Reason1 -- see info/1</v>
-      </type>
       <desc>
         <p>The <c>strip/1</c> function removes all chunks from a BEAM
           file except those needed by the loader. In particular,
@@ -404,15 +351,8 @@ chunkref() = chunkname() | chunkid()</code>
       </desc>
     </func>
     <func>
-      <name>strip_files(Files) ->  {ok, [{Module, Beam2}]} | {error, beam_lib, Reason1}</name>
+      <name name="strip_files" arity="1"/>
       <fsummary>Removes chunks not needed by the loader from BEAM files</fsummary>
-      <type>
-        <v>Files = [Beam1]</v>
-        <v>&nbsp;Beam1 = beam()</v>
-        <v>Module = atom()</v>
-        <v>Beam2 = beam()</v>
-        <v>Reason1 -- see info/1</v>
-      </type>
       <desc>
         <p>The <c>strip_files/1</c> function removes all chunks except
           those needed by the loader from BEAM files. In particular,
@@ -422,30 +362,20 @@ chunkref() = chunkname() | chunkid()</code>
       </desc>
     </func>
     <func>
-      <name>strip_release(Dir) ->  {ok, [{Module, Filename]}} | {error, beam_lib, Reason1}</name>
+      <name name="strip_release" arity="1"/>
       <fsummary>Removes chunks not needed by the loader from all BEAM files of a release</fsummary>
-      <type>
-        <v>Dir = string() | atom()</v>
-        <v>Module = atom()</v>
-        <v>Filename = string()</v>
-        <v>Reason1 = {not_a_directory, term()} | -- see info/1</v>
-      </type>
       <desc>
         <p>The <c>strip_release/1</c> function removes all chunks
           except those needed by the loader from the BEAM files of a
-          release. <c>Dir</c> should be the installation root
+          release. <c><anno>Dir</anno></c> should be the installation root
           directory. For example, the current OTP release can be
           stripped with the call
           <c>beam_lib:strip_release(code:root_dir())</c>.</p>
       </desc>
     </func>
     <func>
-      <name>format_error(Reason) -> Chars</name>
+      <name name="format_error" arity="1"/>
       <fsummary>Return an English description of a BEAM read error reply</fsummary>
-      <type>
-        <v>Reason -- see other functions</v>
-        <v>Chars = [char() | Chars]</v>
-      </type>
       <desc>
         <p>Given the error returned by any function in this module, 
           the function <c>format_error</c> returns a descriptive string
@@ -454,12 +384,11 @@ chunkref() = chunkname() | chunkid()</code>
       </desc>
     </func>
     <func>
-      <name>crypto_key_fun(CryptoKeyFun) -> ok | {error, Reason}</name>
+      <name name="crypto_key_fun" arity="1"/>
       <fsummary>Register a fun that provides a crypto key</fsummary>
-      <type>
-        <v>CryptoKeyFun = fun() -- see below</v>
-        <v>Reason = badfun | exists | term()</v>
-      </type>
+      <type name="crypto_fun"/>
+      <type name="crypto_fun_arg"/>
+      <type name="mode"/>
       <desc>
         <p>The <c>crypto_key_fun/1</c> function registers a unary fun
           that will be called if <c>beam_lib</c> needs to read an
@@ -493,11 +422,8 @@ chunkref() = chunkname() | chunkid()</code>
       </desc>
     </func>
     <func>
-      <name>clear_crypto_key_fun() -> {ok, Result}</name>
+      <name name="clear_crypto_key_fun" arity="0"/>
       <fsummary>Unregister the current crypto key fun</fsummary>
-      <type>
-        <v>Result = undefined | term()</v>
-      </type>
       <desc>
         <p>Unregisters the crypto key fun and terminates the process
           holding it, started by <c>crypto_key_fun/1</c>.</p>

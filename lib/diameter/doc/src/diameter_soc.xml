@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+
+<header>
+<copyright>
+<year>2011</year>
+<holder>Ericsson AB. All Rights Reserved.</holder>
+</copyright>
+
+<legalnotice>
+The contents of this file are subject to the Erlang Public License,
+Version 1.1, (the "License"); you may not use this file except in
+compliance with the License. You should have received a copy of the
+Erlang Public License along with this software. If not, it can be
+retrieved online at http://www.erlang.org/.
+
+Software distributed under the License is distributed on an "AS IS"
+basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+the License for the specific language governing rights and limitations
+under the License.
+
+</legalnotice>
+
+<title>Standards Compliance</title>
+<prepared></prepared>
+<responsible></responsible>
+<docno></docno>
+<approved></approved>
+<checked></checked>
+<date></date>
+<rev></rev>
+<file>diameter_soc.xml</file>
+
+</header>
+
+<p>
+Known points of questionable or non-compliance.</p>
+
+<!-- ===================================================================== -->
+
+<section>
+<title>RFC 3588</title>
+
+<list>
+
+<item>
+<p>
+The End-to-End Security framework (section 2.9) isn't implemented
+since it is largely unspecified.
+The document that was to describe it
+(reference [AAACMS]) was abandoned in an uncompleted state several
+years ago and the current draft RFC deprecates the framework,
+including the P Flag in the AVP header.</p>
+</item>
+
+<item>
+<p>
+There is no TLS support over SCTP.
+RFC 3588 requires that a Diameter server support TLS but in
+practise this seems to mean TLS over SCTP since there are limitations
+with running over SCTP: see RFC 6083 (DTLS over SCTP), which is a
+response to RFC 3436 (TLS over SCTP).
+The current RFC 3588 draft acknowledges this by equating
+TLS with TLS/TCP and DTLS/SCTP but we do not yet support DTLS.</p>
+</item>
+
+<item>
+<p>
+There is no explicit support for peer discovery (section 5.2).
+It can possibly be implemented on top of diameter as is but this is
+probably something that diameter should do.
+The current draft deprecates portions of the original RFC's mechanisms
+however.</p>
+</item>
+
+<item>
+<p>
+The peer state machine's election process (section 5.6.4) isn't
+implemented as specified since it assumes knowledge of a
+peer's Origin-Host before sending it a CER. (The identity becoming known
+upon reception of CEA.)
+The possibility of configuring
+the peer's Origin-Host could be added, along with handling of the case
+that it sends something else, but for many applications this will
+just be unnecessary configuration of a value that it has no control over.</p>
+</item>
+<!-- Transport protocol plus address/port, which we do know when
+     sending and receiving CER, is enough to definitely identify
+     the peer. However, there's nothing stopping a peer from using
+     different identities on different transport protocols, even
+     if it's maybe a bit far-fetched. -->
+
+</list>
+
+</section>
+
+<!-- ===================================================================== -->
+
+<section>
+<title>RFC 3539</title>
+
+<p>
+RFC 3539 is more difficult to comply to since it discusses
+problems as much as it requires functionality but all the MUST's are
+covered, the watchdog state machine being the primary one.
+Of the optional functionality, load balancing is left to the
+diameter user (since it's the one deciding who to send to) and
+there is no Congestion Manager.</p>
+
+</section>
+
+</chapter>

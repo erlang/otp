@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2007-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -26,9 +26,16 @@
 -ifndef(ssl_handshake).
 -define(ssl_handshake, true).
 
+-include_lib("public_key/include/public_key.hrl").
+
+-type algo_oid()          :: ?'rsaEncryption' | ?'id-dsa'.
+-type public_key_params() :: #'Dss-Parms'{} | term().
+-type public_key_info()   :: {algo_oid(), #'RSAPublicKey'{} | integer() , public_key_params()}.
+
 -record(session, {
 	  session_id,
 	  peer_certificate,
+	  own_certificate,
 	  compression_method,
 	  cipher_suite,
 	  master_secret,
@@ -38,7 +45,8 @@
 
 -define(NUM_OF_SESSION_ID_BYTES, 32).  % TSL 1.1 & SSL 3
 -define(NUM_OF_PREMASTERSECRET_BYTES, 48).
-
+-define(DEFAULT_DIFFIE_HELLMAN_GENERATOR, 2).
+-define(DEFAULT_DIFFIE_HELLMAN_PRIME,  16#FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE65381FFFFFFFFFFFFFFFF).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Handsake protocol - RFC 4346 section 7.4
@@ -80,7 +88,8 @@
 	  random,             
 	  session_id,         % opaque SessionID<0..32>
 	  cipher_suites,      % cipher_suites<2..2^16-1>
-	  compression_methods % compression_methods<1..2^8-1>
+	  compression_methods, % compression_methods<1..2^8-1>,
+	  renegotiation_info
 	 }).
 
 -record(server_hello, {
@@ -88,7 +97,8 @@
 	  random,             
 	  session_id,         % opaque SessionID<0..32>
 	  cipher_suite,       % cipher_suites
-	  compression_method  % compression_method
+	  compression_method, % compression_method
+	  renegotiation_info
 	 }).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -192,6 +202,15 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -record(finished, {
 	  verify_data %opaque verify_data[12]
+	 }).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Renegotiation info  RFC 5746 section 3.2
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+-define(RENEGOTIATION_EXT, 16#ff01).
+
+-record(renegotiation_info,{
+	  renegotiated_connection
 	 }).
 
 -endif. % -ifdef(ssl_handshake).

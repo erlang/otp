@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -792,7 +792,7 @@ target_FTS_operation(State, _SrcFile, DestFile, Op, Offset) ->
             %% Delete the temporary local copy.
 	    delete_tmp_file(TempName, 
 			    "Transfer completed but failed to remove temporary local copy."),
-            %% Completed the transfer succesfully.
+            %% Completed the transfer successfully.
 	    {reply, ok, State};
 	{error, epath} ->
 	    delete_tmp_file(TempName,

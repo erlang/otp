@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2009</year>
+      <year>1997</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -80,7 +80,7 @@
         <marker id="delete_user"></marker>
         <p><c>delete_user/2, delete_user/3</c> and <c>delete_user/4</c> 
           deletes a user 
-          from the user database. If the operation is succesfull, this 
+          from the user database. If the operation is successful, this
           function returns <c>true</c>. If an error occurs, 
           <c>{error,Reason}</c> is returned. When <c>delete_user/2</c> is
           called the Port and Dir options are mandatory.</p>
@@ -111,7 +111,8 @@
       </desc>
     </func>
     <func>
-      <name>list_users(Options) -> {ok, Users} | {error, Reason} &lt;name>list_users(Port, Dir) -> {ok, Users} | {error, Reason}</name>
+      <name>list_users(Options) -> {ok, Users} | {error, Reason}</name>
+      <name>list_users(Port, Dir) -> {ok, Users} | {error, Reason}</name>
       <name>list_users(Address, Port, Dir) -> {ok, Users} | {error, Reason}</name>
       <fsummary>List users in the user database.</fsummary>
       <type>

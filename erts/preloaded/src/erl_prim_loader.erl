@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -102,8 +102,14 @@ debug(#prim_state{debug = Deb}, Term) ->
 %%% Interface Functions. 
 %%% --------------------------------------------------------
 
--spec start(term(), atom() | string(), host() | [host()]) ->
-	    {'ok', pid()} | {'error', term()}.
+-spec start(Id, Loader, Hosts) ->
+	    {'ok', Pid} | {'error', What} when
+      Id :: term(),
+      Loader :: atom() | string(),
+      Hosts :: Host | [Host],
+      Host :: host(),
+      Pid :: pid(),
+      What :: term().
 start(Id, Pgm, Hosts) when is_atom(Hosts) ->
     start(Id, Pgm, [Hosts]);
 start(Id, Pgm0, Hosts) ->
@@ -122,18 +128,6 @@ start(Id, Pgm0, Hosts) ->
         {'EXIT',Pid,Reason} ->
             {error,Reason}
     end.
-
-start_it("ose_inet"=Cmd, Id, Pid, Hosts) ->
-    %% Setup reserved port for ose_inet driver (only OSE)
-    case catch erlang:open_port({spawn,Cmd}, [binary]) of
-        {'EXIT',Why} ->
-            ?dbg(ose_inet_port_open_fail, Why),
-            Why;
-        OseInetPort ->
-            ?dbg(ose_inet_port, OseInetPort),
-            OseInetPort
-    end,
-    start_it("inet", Id, Pid, Hosts);
 
 %% Hosts must be a list on form ['1.2.3.4' ...]
 start_it("inet", Id, Pid, Hosts) ->
@@ -174,15 +168,20 @@ init_ack(Pid) ->
     Pid ! {self(),ok},
     ok.
 
--spec set_path([string()]) -> 'ok'.
+-spec set_path(Path) -> 'ok' when
+      Path :: [Dir :: string()].
 set_path(Paths) when is_list(Paths) ->
     request({set_path,Paths}).
 
--spec get_path() -> {'ok', [string()]}.
+-spec get_path() -> {'ok', Path} when
+      Path :: [Dir :: string()].
 get_path() ->
     request({get_path,[]}).
 
--spec get_file(atom() | string()) -> {'ok', binary(), string()} | 'error'.
+-spec get_file(Filename) -> {'ok', Bin, FullName} | 'error' when
+      Filename :: atom() | string(),
+      Bin :: binary(),
+      FullName :: string().
 get_file(File) when is_atom(File) ->
     get_file(atom_to_list(File));
 get_file(File) ->
@@ -202,13 +201,15 @@ get_files(ModFiles, Fun) ->
             ok
     end.
 
--spec list_dir(string()) -> {'ok', [string()]} | 'error'.
+-spec list_dir(Dir) -> {'ok', Filenames} | 'error' when
+      Dir :: string(),
+      Filenames :: [Filename :: string()].
 list_dir(Dir) ->
     check_file_result(list_dir, Dir, request({list_dir,Dir})).
 
-%% -> {ok,Info} | error
--spec read_file_info(string()) -> {'ok', tuple()} | 'error'.
-
+-spec read_file_info(Filename) -> {'ok', FileInfo} | 'error' when
+      Filename :: string(),
+      FileInfo :: file:file_info().
 read_file_info(File) ->
     check_file_result(read_file_info, File, request({read_file_info,File})).
 
@@ -395,7 +396,7 @@ handle_timeout(State = #state{loader = inet}, Parent) ->
     inet_timeout_handler(State, Parent).
 
 %%% --------------------------------------------------------
-%%% Functions which handles efile as prim_loader (default).
+%%% Functions which handle efile as prim_loader (default).
 %%% --------------------------------------------------------
 
 %%% Reading many files in parallel is an optimization. 
@@ -405,7 +406,7 @@ handle_timeout(State = #state{loader = inet}, Parent) ->
 efile_multi_get_file_from_port(State, ModFiles, Paths, Fun) ->
     Ref = make_ref(),
     %% More than 200 processes is no gain.
-    Max = min(200, erlang:system_info(thread_pool_size)),
+    Max = erlang:min(200, erlang:system_info(thread_pool_size)),
     efile_multi_get_file_from_port2(ModFiles, 0, Max, State, Paths, Fun, Ref, ok).
 
 efile_multi_get_file_from_port2([MF | MFs], Out, Max, State, Paths, Fun, Ref, Ret) when Out < Max ->
@@ -469,7 +470,7 @@ efile_get_file_from_port2(#state{prim_state = PS} = State, File) ->
     end.
 
 efile_get_file_from_port3(State, File, [P | Paths]) ->
-    case efile_get_file_from_port2(State, concat([P,"/",File])) of
+    case efile_get_file_from_port2(State, join(P, File)) of
         {{error,Reason},State1} when Reason =/= emfile ->
             case Paths of
                 [] ->                           % return last error
@@ -522,7 +523,7 @@ efile_timeout_handler(#state{n_timeouts = N} = State, _Parent) ->
     end.
 
 %%% --------------------------------------------------------
-%%% Functions which handles inet prim_loader
+%%% Functions which handle inet prim_loader
 %%% --------------------------------------------------------
 
 %%
@@ -643,7 +644,7 @@ inet_get_file_from_port(State, File, Paths) ->
     end.
 
 inet_get_file_from_port1(File, [P | Paths], State) ->
-    File1 = concat([P,"/",File]),
+    File1 = join(P, File),
     case inet_send_and_rcv({get,File1}, File1, State) of
         {{error,Reason},State1} ->
             case Paths of
@@ -728,7 +729,7 @@ udp_options() ->
 %% INET version IPv4 addresses
 %%
 ll_tcp_connect(LocalPort, IP, RemotePort) ->
-    case ll_open_set_bind(tcp, ?INET_FAMILY, tcp_options(),
+    case ll_open_set_bind(tcp, ?INET_FAMILY, stream, tcp_options(),
                           ?INET_ADDRESS, LocalPort) of
         {ok,S} ->
             case prim_inet:connect(S, IP, RemotePort, tcp_timeout()) of
@@ -742,11 +743,11 @@ ll_tcp_connect(LocalPort, IP, RemotePort) ->
 %% Open and initialize an udp port for broadcast
 %%
 ll_udp_open(P) ->
-    ll_open_set_bind(udp, ?INET_FAMILY, udp_options(), ?INET_ADDRESS, P).
+    ll_open_set_bind(udp, ?INET_FAMILY, dgram, udp_options(), ?INET_ADDRESS, P).
 
 
-ll_open_set_bind(Protocol, Family, SOpts, IP, Port) ->
-    case prim_inet:open(Protocol, Family) of
+ll_open_set_bind(Protocol, Family, Type, SOpts, IP, Port) ->
+    case prim_inet:open(Protocol, Family, Type) of
         {ok, S} ->
             case prim_inet:setopts(S, SOpts) of
                 ok ->
@@ -1151,14 +1152,8 @@ send_all(U, [IP | AL], Cmd) ->
     send_all(U, AL, Cmd);
 send_all(_U, [], _) -> ok.
 
-%%concat([A|T]) when is_atom(A) ->              %Atom
-%%    atom_to_list(A) ++ concat(T);
-concat([C|T]) when C >= 0, C =< 255 ->
-    [C|concat(T)];
-concat([S|T]) ->                                %String
-    S ++ concat(T);
-concat([]) ->
-    [].
+join(P, F) ->
+    P ++ "/" ++ F.
 
 member(X, [X|_]) -> true;
 member(X, [_|Y]) -> member(X, Y);
@@ -1188,9 +1183,6 @@ keysort(_I, [], Ls) -> Ls.
 keyins(X, I, [Y | T]) when X < element(I,Y) -> [X,Y|T];
 keyins(X, I, [Y | T]) -> [Y | keyins(X, I, T)];
 keyins(X, _I, []) -> [X].
-
-min(X, Y) when X < Y -> X;
-min(_X, Y) -> Y.
 
 to_strs([P|Paths]) when is_atom(P) ->
     [atom_to_list(P)|to_strs(Paths)];
@@ -1363,9 +1355,7 @@ pathtype(Name) when is_list(Name) ->
 		    absolute;
 		_ ->
 		    relative
-	    end;
-	{ose,_} ->
-	    unix_pathtype(Name)
+	    end
     end.
 
 unix_pathtype(Name) ->

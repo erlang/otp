@@ -82,6 +82,8 @@ DVIPS_FLAGS +=
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
+_create_dirs := $(shell mkdir -p $(HTMLDIR))
+
 docs: html
 
 local_docs: PDFDIR=../../pdf

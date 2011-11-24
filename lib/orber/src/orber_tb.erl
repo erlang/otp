@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -35,6 +35,8 @@
 %%----------------------------------------------------------------------
 %% External exports
 %%----------------------------------------------------------------------
+%% Avoid warning for local function error/2 clashing with autoimported BIF.
+-compile({no_auto_import,[error/2]}).
 -export([wait_for_tables/1, wait_for_tables/2, wait_for_tables/3,
 	 is_loaded/0, is_loaded/1, is_running/0, is_running/1, 
 	 info/2, error/2, unique/1, keysearch/2, keysearch/3]).

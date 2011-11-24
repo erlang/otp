@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -28,7 +28,8 @@
 	 start_link/2, 
 	 stop/1, 
 	 send_pdu/6, % Backward compatibillity
-	 send_pdu/7,
+	 send_pdu/7, % Backward compatibillity
+	 send_pdu/8,
 
 	 inform_response/4, 
 
@@ -99,18 +100,23 @@ stop(Pid) ->
     call(Pid, stop).
 
 send_pdu(Pid, Pdu, Vsn, MsgData, Addr, Port) ->
-    send_pdu(Pid, Pdu, Vsn, MsgData, Addr, Port, undefined).
+    send_pdu(Pid, Pdu, Vsn, MsgData, Addr, Port, ?DEFAULT_EXTRA_INFO).
 
-send_pdu(Pid, Pdu, Vsn, MsgData, Addr, Port, ExtraInfo) 
+send_pdu(Pid, Pdu, Vsn, MsgData, Addr, Port, ExtraInfo) ->
+    Domain = snmpm_config:default_transport_domain(), 
+    send_pdu(Pid, Pdu, Vsn, MsgData, Domain, Addr, Port, ExtraInfo).
+
+send_pdu(Pid, Pdu, Vsn, MsgData, Domain, Addr, Port, ExtraInfo) 
   when is_record(Pdu, pdu) ->
     ?d("send_pdu -> entry with"
        "~n   Pid:     ~p"
        "~n   Pdu:     ~p"
        "~n   Vsn:     ~p"
        "~n   MsgData: ~p"
+       "~n   Domain:  ~p"
        "~n   Addr:    ~p"
-       "~n   Port:    ~p", [Pid, Pdu, Vsn, MsgData, Addr, Port]),
-    cast(Pid, {send_pdu, Pdu, Vsn, MsgData, Addr, Port, ExtraInfo}).
+       "~n   Port:    ~p", [Pid, Pdu, Vsn, MsgData, Domain, Addr, Port]),
+    cast(Pid, {send_pdu, Pdu, Vsn, MsgData, Domain, Addr, Port, ExtraInfo}).
 
 note_store(Pid, NoteStore) ->
     call(Pid, {note_store, NoteStore}).
@@ -380,14 +386,17 @@ handle_call(Req, From, State) ->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %%--------------------------------------------------------------------
-handle_cast({send_pdu, Pdu, Vsn, MsgData, Addr, Port, _ExtraInfo}, State) ->
+handle_cast({send_pdu, Pdu, Vsn, MsgData, Domain, Addr, Port, ExtraInfo}, 
+	    State) ->
     ?vlog("received send_pdu message with"
 	  "~n   Pdu:     ~p"
 	  "~n   Vsn:     ~p"
 	  "~n   MsgData: ~p"
+	  "~n   Domain:  ~p"
 	  "~n   Addr:    ~p"
-	  "~n   Port:    ~p", [Pdu, Vsn, MsgData, Addr, Port]),
-    maybe_handle_send_pdu(Pdu, Vsn, MsgData, Addr, Port, State), 
+	  "~n   Port:    ~p", [Pdu, Vsn, MsgData, Domain, Addr, Port]),
+    maybe_process_extra_info(ExtraInfo), 
+    maybe_handle_send_pdu(Pdu, Vsn, MsgData, Domain, Addr, Port, State), 
     {noreply, State};
 
 handle_cast({inform_response, Ref, Addr, Port}, State) ->
@@ -441,7 +450,7 @@ handle_info(Info, State) ->
 %% Returns: any (ignored by gen_server)
 %%--------------------------------------------------------------------
 terminate(Reason, #state{log = Log, irgc = IrGcRef}) ->
-    ?vdebug("terminate: ~p",[Reason]),
+    ?vdebug("terminate: ~p", [Reason]),
     irgc_stop(IrGcRef),
     %% Close logs
     do_close_log(Log),
@@ -462,22 +471,59 @@ do_close_log(_) ->
 %% Returns: {ok, NewState}
 %%----------------------------------------------------------------------
  
+code_change({down, _Vsn}, OldState, downgrade_to_pre_4_14) ->
+    ?d("code_change(down, downgrade_to_pre_4_14) -> entry with"
+       "~n   OldState: ~p", [OldState]),
+    #state{server     = Server,
+	   note_store = NoteStore,
+	   sock       = Sock,
+	   mpd_state  = MpdState,
+	   log        = {OldLog, Type}, 
+	   irb        = IRB,
+	   irgc       = IRGC} = OldState, 
+    NewLog = snmp_log:downgrade(OldLog), 
+    State = 
+	{state, Server, NoteStore, Sock, MpdState, {NewLog, Type}, IRB, IRGC},
+    {ok, State};
+
 code_change({down, _Vsn}, OldState, downgrade_to_pre_4_16) ->
-    ?d("code_change(down) -> entry", []),
+    ?d("code_change(down, downgrade_to_pre_4_16) -> entry with"
+       "~n   OldState: ~p", [OldState]),
     {OldLog, Type} = OldState#state.log, 
     NewLog = snmp_log:downgrade(OldLog), 
     State  = OldState#state{log = {NewLog, Type}}, 
     {ok, State};
 
 % upgrade
+code_change(_Vsn, OldState, upgrade_from_pre_4_14) ->
+    ?d("code_change(up, upgrade_from_pre_4_14) -> entry with"
+       "~n   OldState: ~p", [OldState]), 
+    {state, Server, NoteStore, Sock, MpdState, {OldLog, Type}, IRB, IRGC} = 
+	OldState,
+    NewLog = snmp_log:upgrade(OldLog), 
+    State = #state{server     = Server,
+		   note_store = NoteStore,
+		   sock       = Sock,
+		   mpd_state  = MpdState,
+		   log        = {NewLog, Type}, 
+		   irb        = IRB,
+		   irgc       = IRGC,
+		   filter     = ?DEFAULT_FILTER_MODULE},
+    {ok, State};
+
 code_change(_Vsn, OldState, upgrade_from_pre_4_16) ->
-    ?d("code_change(up) -> entry", []),
+    ?d("code_change(up, upgrade_from_pre_4_16) -> entry with"
+       "~n   OldState: ~p", [OldState]),
     {OldLog, Type} = OldState#state.log,
     NewLog = snmp_log:upgrade(OldLog), 
     State  = OldState#state{log = {NewLog, Type}}, 
     {ok, State};
 
 code_change(_Vsn, State, _Extra) ->
+    ?d("code_change -> entry with"
+       "~n   Vsn:   ~p"
+       "~n   State: ~p"
+       "~n   Extra: ~p", [_Vsn, State, _Extra]),
     {ok, State}.
 
  
@@ -507,8 +553,9 @@ handle_recv_msg(Addr, Port, Bytes,
 		       mpd_state  = MpdState, 
 		       sock       = Sock,
 		       log        = Log} = State) ->
+    Domain = snmp_conf:which_domain(Addr), % What the ****...
     Logger = logger(Log, read, Addr, Port),
-    case (catch snmpm_mpd:process_msg(Bytes, snmpUDPDomain, Addr, Port, 
+    case (catch snmpm_mpd:process_msg(Bytes, Domain, Addr, Port, 
 				      MpdState, NoteStore, Logger)) of
 
 	{ok, Vsn, Pdu, MS, ACM} ->
@@ -696,17 +743,17 @@ irgc_stop(Ref) ->
     (catch erlang:cancel_timer(Ref)).
 
 
-maybe_handle_send_pdu(Pdu, Vsn, MsgData, Addr, Port, 
+maybe_handle_send_pdu(Pdu, Vsn, MsgData, Domain, Addr, Port, 
 		      #state{filter = FilterMod} = State) ->
     case (catch FilterMod:accept_send_pdu(Addr, Port, pdu_type_of(Pdu))) of
 	false ->
 	    inc(netIfPduOutDrops),
 	    ok;
 	_ ->
-	    handle_send_pdu(Pdu, Vsn, MsgData, Addr, Port, State)
+	    handle_send_pdu(Pdu, Vsn, MsgData, Domain, Addr, Port, State)
     end.
 
-handle_send_pdu(Pdu, Vsn, MsgData, Addr, Port, 
+handle_send_pdu(Pdu, Vsn, MsgData, _Domain, Addr, Port, 
 		#state{server     = Pid, 
 		       note_store = NoteStore, 
 		       sock       = Sock, 
@@ -959,6 +1006,19 @@ pdu_type_of(#pdu{type = Type}) ->
 pdu_type_of(TrapPdu) when is_record(TrapPdu, trappdu) ->
     trap.
 
+
+%% -------------------------------------------------------------------
+
+%% At this point this function is used during testing
+maybe_process_extra_info(?DEFAULT_EXTRA_INFO) ->
+    ok;
+maybe_process_extra_info({?SNMPM_EXTRA_INFO_TAG, Fun}) 
+  when is_function(Fun, 0) ->
+    (catch Fun()),
+    ok;
+maybe_process_extra_info(_ExtraInfo) ->
+    ok.
+    
 
 %% -------------------------------------------------------------------
 

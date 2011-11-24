@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -126,7 +126,7 @@ loop(S,Window) ->
 				    show_info(Window,Info),
 				    move_focus(Window,file);
 				
-				%% Erronous version number -- Notify user
+				%% Erroneous version number -- Notify user
 				{error,version} ->
 				    Win = Window#tfwindow.window,
 				    tool_utils:notify(Win,[FileName,
@@ -136,7 +136,7 @@ loop(S,Window) ->
 				_Error ->
 				    Win = Window#tfwindow.window,
 				    tool_utils:notify(Win,[FileName,
-				       "File is on erronous format"])
+				       "File is in erroneous format"])
 			    end;
 				
 			%% The file can not be read, show default values

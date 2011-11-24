@@ -31,15 +31,19 @@ override TYPE=opt
 endif
 
 SO_EXT    = @SO_EXT@
+OBJC_CC=@OBJC_CC@
+OBJC_CFLAGS=@OBJC_CFLAGS@
 
-GENERAL     = wxe_driver wxe_ps_init wxe_impl wxePrintout wxe_return
+GENERAL     = wxe_driver wxe_ps_init wxe_impl wxePrintout wxe_return wxe_gl
 GENERAL_H   = wxe_driver.h wxe_impl.h wxe_return.h
 
 GENERATED_F = wxe_funcs wxe_events wxe_init
-GENERATED_H = gen/wxe_macros.h gen/glu_finit.h gen/gl_finit.h gen/gl_fdefs.h 
+GENERATED_H = gen/wxe_macros.h 
+
+GL_H = egl_impl.h gen/glu_finit.h gen/gl_finit.h gen/gl_fdefs.h 
 
 HAVE_OPENGL = true
-OPENGL_F = gl_funcs wxe_gl
+OPENGL_F = gl_funcs egl_impl
 
 ifneq ($(INSIDE_ERLSRC),true)
 
@@ -60,9 +64,9 @@ SYS_TYPE    = @WXERL_SYS_TYPE@
 GENERAL_O   = $(GENERAL:%=$(SYS_TYPE)/%.o) 
 GENERATED_O = $(GENERATED_F:%=$(SYS_TYPE)/%.o)
 ifeq ($(HAVE_OPENGL), true)
-	OPENGL_O = $(OPENGL_F:%=$(SYS_TYPE)/%.o)
+	GL_OBJECTS = $(OPENGL_F:%=$(SYS_TYPE)/%.o)
 else
-	OPENGL_O = 
+	GL_OBJECTS = 
 endif
 
 RC_FILE_EXT = @RC_FILE_TYPE@
@@ -72,10 +76,12 @@ else
 RC_FILE     = 
 endif
 
-OBJECTS     = $(GENERAL_O) $(GENERATED_O) $(OPENGL_O) $(RC_FILE)
+WX_OBJECTS  = $(GENERAL_O) $(GENERATED_O) $(RC_FILE)
 
-TARGET_API = wxe_driver
-TARGET_DIR = ../priv/$(SYS_TYPE)
+OBJECTS = $(WX_OBJECTS) $(GL_OBJECTS)
+
+TARGET_APIS = wxe_driver erl_gl
+TARGET_DIR = ../priv
 
 # -O2 -funroll-loops  -ffast-math -fomit-frame-pointer 
 
@@ -87,31 +93,37 @@ LD		= $(CPP)
 LDFLAGS		= @LDFLAGS@
 RESCOMP		= @WX_RESCOMP@
 
-
 ifeq (@WX_HAVE_STATIC_LIBS@,true) 
-WX_LIBS	         =  @WX_LIBS_STATIC@
+OPT_WX_LIBS      =  @WX_LIBS_STATIC@
 DEBUG_WX_LIBS    =  @DEBUG_WX_LIBS_STATIC@
 else
-WX_LIBS	         =  @WX_LIBS@
+OPT_WX_LIBS      =  @WX_LIBS@
 DEBUG_WX_LIBS    =  @DEBUG_WX_LIBS@
 endif
 
 ifeq ($(TYPE),debug)
-CFLAGS		= @DEBUG_WX_CFLAGS@ @DEBUG_CFLAGS@
-CPP_FLAGS	= @DEBUG_WX_CXXFLAGS@ @DEBUG_CXXFLAGS@
-LIBS		= $(DEBUG_WX_LIBS)
+WX_CFLAGS	= @DEBUG_WX_CFLAGS@
+CFLAGS          = @DEBUG_CFLAGS@
+WX_CXX_FLAGS	= @DEBUG_WX_CXXFLAGS@ 
+CXX_FLAGS       = @DEBUG_CXXFLAGS@
+WX_LIBS		= $(DEBUG_WX_LIBS)
 else
-CFLAGS		= @WX_CFLAGS@ @CFLAGS@
-CPP_FLAGS	= @WX_CXXFLAGS@ @CXXFLAGS@
-LIBS		= $(WX_LIBS)
+WX_CFLAGS	= @WX_CFLAGS@
+CFLAGS          = @CFLAGS@
+WX_CXX_FLAGS	= @WX_CXXFLAGS@ 
+CXX_FLAGS       = @CXXFLAGS@
+WX_LIBS		= $(OPT_WX_LIBS)
 endif
 
-CC_O		= $(CC) -c $(CFLAGS) $(COMMON_CFLAGS)
-CPP_O		= $(CPP) -c $(CPP_FLAGS) $(COMMON_CFLAGS) 
+GL_LIBS         = @GL_LIBS@
+
+CC_O		= $(CC) -c $(CFLAGS) $(WX_CFLAGS) $(COMMON_CFLAGS)
+OBJC_CC_O	= $(OBJC_CC) -c $(CFLAGS) $(OBJC_CFLAGS) $(WX_CFLAGS) $(COMMON_CFLAGS)
+CPP_O		= $(CPP) -c $(CXX_FLAGS) $(WX_CXX_FLAGS)  $(COMMON_CFLAGS) 
 
 # Targets
 
-opt:     $(TARGET_DIR)/$(TARGET_API)$(SO_EXT) 
+opt:     $(TARGET_DIR)/wxe_driver$(SO_EXT) $(TARGET_DIR)/erl_gl$(SO_EXT)
 
 debug:   
 	@${MAKE} TYPE=debug
@@ -132,20 +144,26 @@ complete_clean:
 
 docs:	
 
+$(GL_OBJECTS): $(GL_H)
+$(WX_OBJECTS): $(GENERATED_H) $(GENERAL_H) 
 
-$(SYS_TYPE)/%.o: %.cpp $(GENERATED_H) $(GENERAL_H) 
+$(SYS_TYPE)/%.o: %.cpp 
 	mkdir -p $(SYS_TYPE)
 	$(CPP_O) $< -o $@
 
-$(SYS_TYPE)/%.o: %.c $(GENERATED_H) $(GENERAL_H)
+$(SYS_TYPE)/%.o: %.c 
 	mkdir -p $(SYS_TYPE)
 	$(CC_O) $< -o $@
 
-$(SYS_TYPE)/%.o: gen/%.cpp $(GENERATED_H) $(GENERAL_H)
+$(SYS_TYPE)/wxe_ps_init.o: wxe_ps_init.c 
+	mkdir -p $(SYS_TYPE)
+	$(OBJC_CC_O) $< -o $@
+
+$(SYS_TYPE)/%.o: gen/%.cpp 
 	mkdir -p $(SYS_TYPE)
 	$(CPP_O) $< -o $@
 
-$(SYS_TYPE)/%.o: gen/%.c $(GENERATED_H) $(GENERAL_H)
+$(SYS_TYPE)/%.o: gen/%.c 
 	mkdir -p $(SYS_TYPE)
 	$(CC_O) $< -o $@
 
@@ -153,9 +171,13 @@ $(SYS_TYPE)/wxe_win32.$(RC_FILE_EXT): wxe_win32.rc
 	mkdir -p $(SYS_TYPE)
 	$(RESCOMP) -o $@ $< 
 
-$(TARGET_DIR)/$(TARGET_API)$(SO_EXT): $(OBJECTS)
+$(TARGET_DIR)/wxe_driver$(SO_EXT): $(WX_OBJECTS)
 	mkdir -p $(TARGET_DIR)
-	$(LD) $(LDFLAGS)  $(OBJECTS) $(LIBS) -o $@
+	$(LD) $(LDFLAGS) $(WX_OBJECTS) $(WX_LIBS) -o $@
+
+$(TARGET_DIR)/erl_gl$(SO_EXT): $(GL_OBJECTS)
+	mkdir -p $(TARGET_DIR)
+	$(CC) $(LDFLAGS) $(GL_OBJECTS) $(GL_LIBS) -o $@
 
 
 # ----------------------------------------------------
@@ -164,10 +186,11 @@ $(TARGET_DIR)/$(TARGET_API)$(SO_EXT): $(OBJECTS)
 ifeq ($(INSIDE_ERLSRC),true)
 include $(ERL_TOP)/make/otp_release_targets.mk
 release_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)/priv/$(SYS_TYPE)
+	$(INSTALL_DIR) $(RELSYSDIR)/priv
 	$(INSTALL_DATA) ../priv/erlang-logo32.png $(RELSYSDIR)/priv/
 	$(INSTALL_DATA) ../priv/erlang-logo64.png $(RELSYSDIR)/priv/
-	$(INSTALL_DATA) $(TARGET_DIR)/$(TARGET_API)$(SO_EXT) $(RELSYSDIR)/priv/$(SYS_TYPE)
+	$(INSTALL_PROGRAM) $(TARGET_DIR)/wxe_driver$(SO_EXT) $(RELSYSDIR)/priv/
+	$(INSTALL_PROGRAM) $(TARGET_DIR)/erl_gl$(SO_EXT) $(RELSYSDIR)/priv/
 
 release_docs_spec:
 

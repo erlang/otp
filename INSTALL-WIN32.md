@@ -1,18 +1,6 @@
 How to Build Erlang/OTP on Windows
 ==================================
 
-Table of Contents
------------------
-
-1. Introduction
-2. Frequently Asked Questions
-3. Tools you Need and Their Environment
-4. The Shell Environment
-5. Building and Installing
-6. Development
-7. Final Words
-8. Copyright and License
-
 Introduction
 ------------
 
@@ -27,7 +15,7 @@ sure of, but it certainly will...
 The procedure described uses Cygwin as a build environment, you run
 the bash shell in Cygwin and uses gnu make/configure/autoconf etc to
 do the build. The emulator C-source code is, however, mostly compiled
-with Microsoft Visual C++(tm), producing a native Windows binary. This
+with Microsoft Visual C++™, producing a native Windows binary. This
 is the same procedure as we use to build the pre-built binaries. The
 fact that we use VC++ and not gcc is explained further in the FAQ
 section.
@@ -67,7 +55,7 @@ needed at all. Now we've used this build procedure for a couple of
 releases, and it has worked fine for us. Still, there might be all
 sorts of troubles on different machines and with different
 setups. I'll try to give hints wherever I've encountered difficulties,
-but please share your experiences by using the [`erlang-questions`] [1]
+but please share your experiences by using the [erlang-questions] [1]
 mailing list. I cannot of course help everyone with all
 their problems, please try to solve the problems and submit
 solutions/workarounds. Remember, it's all about sharing, not about
@@ -87,7 +75,7 @@ Frequently Asked Questions
     from within the Cygwin environment. All other tools needed to build
     Erlang are free-ware/open source, but not the C compiler.
 
-*   Q: Why haven't you got rid of VC++ then, you `******`?
+*   Q: Why haven't you got rid of VC++ then, you \*\*\*\*\*\*?
 
     A: Well, partly because it's a good compiler - really! Actually it's
     been possible in late R11-releases to build using mingw instead of
@@ -104,7 +92,9 @@ Frequently Asked Questions
 
     A: The SMP version of Erlang needs features in the Visual Studio 2005.
     Can't live without them. Besides the new compiler gives the Erlang
-    emulator a ~40% performance boost(!)
+    emulator a ~40% performance boost(!). Alternatively you can build Erlang
+    successfully using the free (proprietary) Visual Studio 2008 Express
+    edition C++ compiler.
 
 *   Q: Can/will I build a Cygwin binary with the procedure you describe?
 
@@ -115,7 +105,7 @@ Frequently Asked Questions
     emulation in Cygwin, which, I'm sure of, will improve, but still has
     some problems. Fixing those problems might be easy or might be hard.
     I suggest you try yourself and share your experience. No one would be
-    happier if a simple ./configure && make would produce a fully fledged
+    happier if a simple `./configure && make` would produce a fully fledged
     Cygwin binary. Ericsson does however not pay me to do a Cygwin port, so
     such a port would have to happen in spare time, which is a limited
     resource...
@@ -194,7 +184,7 @@ Frequently Asked Questions
     include workarounds for the bugs I've found in different Cygwin
     releases, please help me to add workarounds for new Cygwin-related
     bugs as soon as you encounter them. Also please do submit bug reports
-    to the appropriate Cygwin developers. The Cygwin GCC we used for R13B
+    to the appropriate Cygwin developers. The Cygwin GCC we used for %OTP-REL%
     was version 3.4.4. We used VC++ 8.0 (i.e. Visual studio 2005 SP1),
     Sun's JDK 1.5.0\_17, NSIS 2.37, and Win32 OpenSSL 0.9.8e. Please read
     the next section for details on what you need.
@@ -220,20 +210,15 @@ Frequently Asked Questions
 
     *   (Buy and) Install Microsoft Visual studio 2005 and SP1 (or higher)
 
+    *   Alternatively install the free MS Visual Studio 2008 Express [msvc++]
+    and the Windows SDK [32bit-SDK] or [64bit-SDK] depending on the Windows
+    platform you are running.
+
     *   Get and install Sun's JDK 1.4.2
 
-    *   Get and install NSIS 2.01 or higher (up to 2.30 tried and working)
+    *   Get and install NSIS 2.01 or higher (up to 2.46 tried and working)
 
-    *   Get and install OpenSSL 0.9.7c or higher
-
-    *   Get and unpack wxWidgets-2.8.9 or higher to `/opt/local/pgm` inside
-        cygwin.
-        *   Open `/cygwin/opt/local/pgm/wxWidgets-2.8.9/build/msw/wx.dsw`
-        *   Enable `wxUSE_GLCANVAS`, `wxUSE_POSTSCRIPT` and
-            `wxUSE_GRAPHICS_CONTEXT` in `include/wx/msw/setup.h`
-        *   Build all unicode release (and unicode debug) packages
-        *   Open `/cygwin/opt/local/pgm/wxWidgets-2.8.9/contrib/build/stc/stc.dsw`
-        *   Build the unicode release (and unicode debug) packages
+    *   Get and install OpenSSL 0.9.7c or higher (up to 1.0.0a tried & working)
 
     *   Get the Erlang source distribution (from
         <http://www.erlang.org/download.html>) and unpack with Cygwin's `tar`.
@@ -256,9 +241,9 @@ Frequently Asked Questions
             $ ./otp_build boot -a
             $ ./otp_build release -a
             $ ./otp_build installer_win32
-            $ release/win32/otp_win32_<OTP version> /S
+            $ release/win32/otp_win32_%OTP-REL% /S
 
-    Voila! `Start->Programs->Erlang OTP <OTP version>->Erlang` starts the Erlang
+    Voila! `Start->Programs->Erlang OTP %OTP-REL%->Erlang` starts the Erlang
     Windows shell.
 
 
@@ -375,6 +360,15 @@ Well' here's the list:
     your `PATH` to allow the environment to find mc.exe. The next Visual Studio
     (2010) is expected to include this tool.
 
+    Alternatively install the free MS Visual Studio 2008 Express [msvc++] and
+    the Windows SDK [32bit-SDK] or [64bit-SDK] depending on the Windows
+    platform you are running, which includes the missing mc.exe message
+    compiler.
+
+[msvc++]:	http://download.microsoft.com/download/E/8/E/E8EEB394-7F42-4963-A2D8-29559B738298/VS2008ExpressWithSP1ENUX1504728.iso
+[32bit-SDK]:	http://download.microsoft.com/download/2/E/9/2E911956-F90F-4BFB-8231-E292A7B6F287/GRMSDK_EN_DVD.iso
+[64bit-SDK]:	http://download.microsoft.com/download/2/E/9/2E911956-F90F-4BFB-8231-E292A7B6F287/GRMSDKX_EN_DVD.iso
+
 *   Sun's Java JDK 1.5.0 or higher. Our Java code (jinterface, ic) is
     written for JDK 1.5.0. Get it for Windows and install it, the JRE is
     not enough. If you don't care about Java, you can skip this step, the
@@ -413,9 +407,10 @@ Well' here's the list:
     on the `Related` link and then on the `Binaries` link (upper right
     corner of the page last time I looked), you can then reach the
     "Shining Lights Productions" Web site for Windows binaries
-    distributions. Get the latest or 0.9.7c if you get trouble with the
-    latest. It's a nifty installer. The rest should be handled by
-    `configure`, you needn't put anything in the path or anything.
+    distributions. Get the latest 32-bit installer, or use 0.9.7c if you get
+    trouble with the latest, and install to C:\OpenSSL which is where the
+    Makefiles are expecting to find it. It's a nifty installer. The rest should
+    be handled by `configure`, you needn't put anything in the path or anything.
 
     If you want to build openssl for windows yourself (which might be
     possible, as you wouldn't be reading this if you weren't a
@@ -431,30 +426,63 @@ Well' here's the list:
     archives (`.a`, not `.lib`).
 
 *   Building with wxWidgets. Download wxWidgets-2.8.9 or higher patch
-    release (2.9.*  is a developer release which currently does not work
+    release (2.9.\*  is a developer release which currently does not work
     with wxErlang).
 
-    Install or unpack it to `DRIVE:/PATH/cygwin/opt/local/pgm`
+    Install or unpack it to `DRIVE:/PATH/cygwin/opt/local/pgm`.
     Open from explorer (i.e. by double clicking the file)
-    `C:\cygwin\opt\local\pgm\wxMSW-2.8.10\build\msw\wx.dsw`
+    `C:\cygwin\opt\local\pgm\wxMSW-2.8.11\build\msw\wx.dsw`
     In Microsoft Visual Studio, click File/Open/File, locate and
-    open:  `C:\cygwin\opt\local\pgm\wxMSW-2.8.10\include\wx\msw\setup.h`
+    open:  `C:\cygwin\opt\local\pgm\wxMSW-2.8.11\include\wx\msw\setup.h`
     enable `wxUSE_GLCANVAS`, `wxUSE_POSTSCRIPT` and `wxUSE_GRAPHICS_CONTEXT`
     Build it by clicking Build/Batch Build and select all unicode release
     (and unicode debug) packages.
 
-    Open `C:\cygwin\opt\local\pgm\wxMSW-2.8.10\contrib/build/stc/stc.dsw`
+    Open `C:\cygwin\opt\local\pgm\wxMSW-2.8.11\contrib/build/stc/stc.dsw`
     and batch build all unicode packages.
+
+    If you are using Visual C++ 9.0 or higher (Visual Studio 2008 onwards) you
+    will also need to convert and re-create the project dependencies in the new
+    .sln "Solution" format.
+
+    * Open VSC++ & the project  `wxMSW-2.8.11\build\msw\wx.dsw`, accepting the
+    automatic conversion to the newer VC++ format and save as
+    `\wxMSW-2.8.11\build\msw\wx.sln`
+
+    * right-click on the project, and set up the project dependencies for
+    `wx.dsw` to achieve the below build order
+
+            jpeg, png, tiff, zlib, regex, expat, base, net, odbc, core,
+            gl, html, media, qa, adv, dbgrid, xrc, aui, richtext, xml
+
+    Build all unicode release (and unicode debug) packages either from the
+    GUI or alternatively launch a new prompt from somewhere like Start ->
+    Programs -> Microsoft Visual C++ -> Visual Studio Tools -> VS2008 Cmd Prompt
+    and cd to where you unpacked wxMSW
+
+            pushd c:\wxMSW*\build\msw
+            vcbuild /useenv /platform:Win32 /M4 wx.sln "Unicode Release|Win32"
+            vcbuild /useenv /platform:Win32 /M4 wx.sln "Unicode Debug|Win32"
+
+    Open VSC++ & convert `C:\wxMSW-2.8.11\contrib\build\stc\stc.dsw` to
+    `C:\wxMSW-2.8.11\contrib\build\stc\stc.sln`
+
+    * build the unicode release (and unicode debug) packages from the GUI or
+    alternatively open a VS2008 Cmd Prompt and cd to where you unpacked wxMSW
+
+            pushd c:\wxMSW*\contrib\build\stc
+            vcbuild /useenv /platform:Win32 /M4 stc.sln "Unicode Release|Win32"
+            vcbuild /useenv /platform:Win32 /M4 stc.sln "Unicode Debug|Win32"
 
 *   The Erlang source distribution (from <http://www.erlang.org/download.html>).
     The same as for Unix platforms. Preferably use tar from within Cygwin to
-    unpack the source tar.gz (`tar zxf otp_src_R13B04.tar.gz`).
+    unpack the source tar.gz (`tar zxf otp_src_%OTP-REL%.tar.gz`).
 
-    set the environment ERL_TOP to point to the root directory of the
+    set the environment `ERL_TOP` to point to the root directory of the
     source distribution. Let's say I stood in `$HOME/src` and unpacked
-    `otp_src_R13B04.tar.gz`, I then add the following to `.profile`:
+    `otp_src_%OTP-REL%.tar.gz`, I then add the following to `.profile`:
 
-        ERL_TOP=$HOME/src/otp_src_R13B04
+        ERL_TOP=$HOME/src/otp_src_%OTP-REL%
         export $ERL_TOP
 
 *   The TCL/TK binaries. You could compile Tcl/Tk for windows yourself,
@@ -546,94 +574,94 @@ Now you will have a file called `otp_win32_R12B.exe` in the
 
 Lets get into more detail:
 
-`$ ./otp_build autoconf` - This step rebuilds the configure scripts to
-work correctly in the cygwin environment. In an ideal world, this
-would not be needed, but alas, we have encountered several
-incompatibilities between our distributed configure scripts (generated
-on a Linux platform) and the cygwin environment over the
-years. Running autoconf on cygwin ensures that the configure scripts
-are generated in a cygwin-compatible way and that they will work well
-in the next step.
+1.  `$ ./otp_build autoconf` - This step rebuilds the configure scripts
+    to work correctly in the cygwin environment. In an ideal world, this
+    would not be needed, but alas, we have encountered several
+    incompatibilities between our distributed configure scripts (generated
+    on a Linux platform) and the cygwin environment over the
+    years. Running autoconf on cygwin ensures that the configure scripts
+    are generated in a cygwin-compatible way and that they will work well
+    in the next step.
 
-`$ ./otp_build configure` - This runs the newly generated configure scripts
-with options making configure behave nicely. The target machine type is
-plainly `win32`, so a lot of the configure-scripts recognize this
-awkward target name and behave accordingly. The CC variable also makes
-the compiler be cc.sh, which wraps MSVC++, so all configure tests
-regarding the C compiler gets to run the right compiler. A lot of the
-tests are not needed on Windows, but I thought it best to run the
-whole configure anyway. The only configure option you might want to
-supply is `--with-ssl`, which might be needed if you have built your own
-openssl distribution. The Shining Lights distribution should be found
-automatically by configure, if that fails, add a `--with-ssl=<dir>` that
-specifies the root directory of your OpenSSL installation.
+2.  `$ ./otp_build configure` - This runs the newly generated configure
+    scripts with options making configure behave nicely. The target machine
+    type is plainly `win32`, so a lot of the configure-scripts recognize
+    this awkward target name and behave accordingly. The CC variable also
+    makes the compiler be `cc.sh`, which wraps MSVC++, so all configure
+    tests regarding the C compiler gets to run the right compiler. A lot of
+    the tests are not needed on Windows, but I thought it best to run the
+    whole configure anyway. The only configure option you might want to
+    supply is `--with-ssl`, which might be needed if you have built your
+    own OpenSSL distribution. The Shining Lights distribution should be
+    found automatically by `configure`, if that fails, add a
+    `--with-ssl=<dir>` that specifies the root directory of your OpenSSL
+    installation.
 
-`$ ./otp_build boot -a` - This uses the bootstrap directory (shipped
-with the source, `$ERL_TOP/bootstrap`) to build a complete OTP
-system. It first builds an emulator and sets up a minimal OTP system
-under `$ERL_TOP/bootstrap`, then starts to compile the different OTP
-compilers to make the `$ERL_TOP/bootstrap` system potent enough to be
-able to compile all Erlang code in OTP. Then, all Erlang and C code
-under `$ERL_TOP/lib` is built using the bootstrap system, giving a
-complete OTP system (although not installed). When this is done, one
-can run Erlang from within the source tree, just type `$ERL_TOP/bin/erl`
-and you should have a prompt. If you omit the -a flag, you'll get a
-smaller system, that might be useful during development. Now
-exit from Erlang and start making a release of the thing:
+3.  `$ ./otp_build boot -a` - This uses the bootstrap directory (shipped
+    with the source, `$ERL_TOP/bootstrap`) to build a complete OTP
+    system. It first builds an emulator and sets up a minimal OTP system
+    under `$ERL_TOP/bootstrap`, then starts to compile the different OTP
+    compilers to make the `$ERL_TOP/bootstrap` system potent enough to be
+    able to compile all Erlang code in OTP. Then, all Erlang and C code
+    under `$ERL_TOP/lib` is built using the bootstrap system, giving a
+    complete OTP system (although not installed). When this is done, one
+    can run Erlang from within the source tree, just type `$ERL_TOP/bin/erl`
+    and you should have a prompt. If you omit the -a flag, you'll get a
+    smaller system, that might be useful during development. Now
+    exit from Erlang and start making a release of the thing:
 
-`$ ./otp_build release -a` - Builds a commercial release tree from the
-source tree, default is to put it in `$ERL_TOP/release/win32`, you can
-give any directory as parameter (Cygwin style), but it doesn't really matter
-if you're going to build a self extracting installer too. You could of
-course build release to the final directory and then run `./Install.exe`
-standing in the directory where the release was put, that will create
-a fully functional OTP installation. But let's make the nifty
-installer:
+4.  `$ ./otp_build release -a` - Builds a commercial release tree from the
+    source tree, default is to put it in `$ERL_TOP/release/win32`, you can
+    give any directory as parameter (Cygwin style), but it doesn't really
+    matter if you're going to build a self extracting installer too. You
+    could of course build release to the final directory and then run
+    `./Install.exe` standing in the directory where the release was put,
+    that will create a fully functional OTP installation. But let's make
+    the nifty installer:
 
-`$ ./otp_build installer_win32` - Create the self extracting installer
-executable. The executable `otp_win32_<OTP version>.exe` will be placed
-in the top directory of the release created in the previous step. If
-no release directory is specified, the release is expected to have
-been built to `$ERL_TOP/release/win32`, which also will be the place
-where the installer executable will be placed. If you specified some
-other directory for the release (i.e.
-`./otp_build release -a /tmp/erl_release`), you're expected to give the
-same parameter here, (i.e. `./otp_build installer_win32 /tmp/erl_release`).
-You need to have a full NSIS installation and `makensis.exe` in your
-path for this to work of course. Once you have created the installer,
-you can run it to install Erlang/OTP in the regular way, just run the
-executable and follow the steps in the installation wizard. To get all
-default settings in the installation without any questions asked, you
-run the executable with the parameter `/S` (capital S). like in:
+5.  `$ ./otp_build installer_win32` - Create the self extracting installer
+    executable. The executable `otp_win32_%OTP-REL%.exe` will be placed
+    in the top directory of the release created in the previous step. If
+    no release directory is specified, the release is expected to have
+    been built to `$ERL_TOP/release/win32`, which also will be the place
+    where the installer executable will be placed. If you specified some
+    other directory for the release (i.e. `./otp_build release -a
+    /tmp/erl_release`), you're expected to give the same parameter here,
+    (i.e. `./otp_build installer_win32 /tmp/erl_release`). You need to have
+    a full NSIS installation and `makensis.exe` in your path for this to
+    work of course. Once you have created the installer, you can run it to
+    install Erlang/OTP in the regular way, just run the executable and
+    follow the steps in the installation wizard. To get all default settings
+    in the installation without any questions asked, you run the executable
+    with the parameter `/S` (capital S) like in:
 
-    $ cd $ERL_TOP
-    $ release/win32/otp_win32_R13B04 /S
-    ...
+        $ cd $ERL_TOP
+        $ release/win32/otp_win32_%OTP-REL% /S
+        ...
 
-and after a while Erlang will have been installed in
-`C:\Program Files\erl5.7.5`, with shortcuts in the menu etc.
+    and after a while Erlang/OTP-%OTP-REL% will have been installed in
+    `C:\Program Files\erl%ERTS-VSN%\`, with shortcuts in the menu etc.
 
-*NOTE* Beginning with R9C, the Windows installer does *not* add Erlang
-to the system wide path. If one wants to have Erlang in the path, one
-has to add it by hand.
+    The necessary setup of an Erlang installation is actually done by the
+    program `Install.exe`, which resides in the release top. That program
+    creates `.ini`-files and copies the correct boot scripts. If one has
+    the correct directory tree (like after a `./otp_build release -a`), only
+    the running of `Install.exe` is necessary to get a fully functional
+    OTP. What the self extracting installer adds is (of course) the
+    possibility to distribute the binary easily, together with adding
+    shortcuts to the Windows start menu. There is also some adding of
+    entries in the registry, to associate `.erl` and `.beam` files with
+    Erlang and get nifty icons, but that's not something you'll really need
+    to run Erlang. The registry is also used to store uninstall information,
+    but if one has not used the self extracting installer, one cannot
+    (need not) do any uninstall, one just scratches the release directory
+    and everything is gone. Erlang/OTP does not *need* to put anything
+    in the Windows registry at all, and does not if you don't use the self
+    extracting installer. In other words the installer is pure cosmetics.
 
-The necessary setup of an Erlang installation is actually done by the
-program `Install.exe`, which resides in the release top. That program
-creates `.ini`-files and copies the correct boot scripts. If one has
-the correct directory tree (like after a `./otp_build release -a`), only
-the running of Install.exe is necessary to get a fully functional
-OTP. What the self extracting installer adds is (of course) the
-possibility to distribute the binary easily, together with adding
-shortcuts to the Windows start menu. There is also some adding of
-entries in the registry, to associate `.erl` and `.beam` files with Erlang
-and get nifty icons, but that's not something you'll really need to
-run Erlang. The registry is also used to store uninstall information,
-but if one has not used the self extracting installer, one cannot
-(need not) do any uninstall, one just scratches the release directory
-and everything is gone. Erlang/OTP does not *need* to put anything
-in the Windows registry at all, and does not if you don't use the self
-extracting installer. In other words the installer is pure cosmetics.
-
+> *NOTE*: Beginning with R9C, the Windows installer does *not* add Erlang
+> to the system wide path. If one wants to have Erlang in the path, one
+> has to add it by hand.
 
 Development
 -----------
@@ -694,7 +722,7 @@ or even in the source directory...
     $ make opt
 
 Note that you're expected o have a fresh Erlang in your path when
-doing this, preferably the plain R13B04 you have built in the previous
+doing this, preferably the plain %OTP-REL% you have built in the previous
 steps. You could also add `$ERL_TOP/bootstrap/bin` to your `PATH` before
 rebuilding specific libraries, that would give you a good enough
 Erlang system to compile any OTP erlang code.  Setting up the path
@@ -704,7 +732,8 @@ correctly is a little bit tricky, you still need to have
 in the path. A typical setting of the path for using the bootstrap
 compiler would be:
 
-    $ export PATH=$ERL_TOP/erts/etc/win32/cygwin_tools/vc:$ERL_TOP/erts/etc/win32/cygwin_tools:$ERL_TOP/bootstrap/bin:$PATH
+    $ export PATH=$ERL_TOP/erts/etc/win32/cygwin_tools/vc\
+    :$ERL_TOP/erts/etc/win32/cygwin_tools:$ERL_TOP/bootstrap/bin:$PATH
 
 That should make it possible to rebuild any library without hassle...
 
@@ -760,22 +789,31 @@ Patrik, OTP
 Copyright and License
 ---------------------
 
-> %CopyrightBegin%
->
-> Copyright Ericsson AB 2003-2010. All Rights Reserved.
->
-> The contents of this file are subject to the Erlang Public License,
-> Version 1.1, (the "License"); you may not use this file except in
-> compliance with the License. You should have received a copy of the
-> Erlang Public License along with this software. If not, it can be
-> retrieved online at http://www.erlang.org/.
->
-> Software distributed under the License is distributed on an "AS IS"
-> basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-> the License for the specific language governing rights and limitations
-> under the License.
->
-> %CopyrightEnd%
+%CopyrightBegin%
+
+Copyright Ericsson AB 2003-2010. All Rights Reserved.
+
+The contents of this file are subject to the Erlang Public License,
+Version 1.1, (the "License"); you may not use this file except in
+compliance with the License. You should have received a copy of the
+Erlang Public License along with this software. If not, it can be
+retrieved online at http://www.erlang.org/.
+
+Software distributed under the License is distributed on an "AS IS"
+basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+the License for the specific language governing rights and limitations
+under the License.
+
+%CopyrightEnd%
+
+Modifying This Document
+-----------------------
+
+Before modifying this document you need to have a look at the
+`$ERL_TOP/README.md.txt` document.
+
 
 
    [1]: http://www.erlang.org/faq.html "mailing lists"
+
+   [?TOC]: true

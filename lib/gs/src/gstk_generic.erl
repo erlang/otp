@@ -414,7 +414,7 @@ gen_font(_Opt,Gstkid,_TkW,DB,_ExtraArg) ->
 gen_label({text,Text},Opts,Gstkid,TkW,DB,ExtraArg,S,P,C) ->
     out_opts(Opts,Gstkid,TkW,DB,ExtraArg,[" -text ", gstk:to_ascii(Text), " -bi {}"|S],P,C);
 gen_label({image,Img},Opts,Gstkid,TkW,DB,ExtraArg,S,P,C) ->
-    {ok, I2,_} = regexp:gsub(Img, [92,92], "/"),
+    I2 = re:replace(Img, [92,92], "/", [global,{return,list}]),
     out_opts(Opts,Gstkid,TkW,DB,ExtraArg,[" -bi \"@", I2, "\" -text {}"|S],P,C).
 gen_label(_Opt,_Gstkid,TkW,_DB,_ExtraArg) ->
     case gstk:call([TkW, " cg -bit"]) of

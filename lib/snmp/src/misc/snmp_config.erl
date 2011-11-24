@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -22,6 +22,8 @@
 -include_lib("kernel/include/file.hrl").
 -include("snmp_types.hrl").
 
+%% Avoid warning for local function error/1 clashing with autoimported BIF.
+-compile({no_auto_import,[error/1]}).
 -export([config/0]).
 
 -export([write_config_file/4, append_config_file/4, read_config_file/3]).
@@ -335,7 +337,7 @@ config_agent_sys() ->
 						{dir,    ATLDir},
 						{size,   ATLSize},
 						{repair, ATLRepair},
-						{seqno, ATLSeqNo}]}];
+						{seqno,  ATLSeqNo}]}];
 			no ->
 			    []
 		    end,
@@ -489,6 +491,9 @@ config_agent_snmp(Dir, Vsns) ->
     Host       = host(),
     AgentIP    = ask("5. IP address for the agent (only used as id ~n"
 		     "   when sending traps)", Host, fun verify_address/1),
+    %% We intentionally skip TDomain...
+    %% If the user wish to use IPv6, the user must create an dummy entry here
+    %% and then manually edit these entries later.
     ManagerIP  = ask("6. IP address for the manager (only this manager ~n"
 		     "   will have access to the agent, traps are sent ~n"
 		     "   to this one)", Host, fun verify_address/1),
@@ -563,7 +568,7 @@ config_agent_snmp(Dir, Vsns) ->
 	       false ->
 		   ok
 	   end,
-	   i("The following agent files were written: agent.conf, "
+	   i("The following agent files where written: agent.conf, "
 	     "community.conf,~n"
 	     "standard.conf, target_addr.conf, "
 	     "target_params.conf, ~n"
@@ -771,7 +776,7 @@ config_manager_snmp(Dir, Vsns) ->
 					 Users, Agents, Usms)) of
 	ok ->
 	   i("~n- - - - - - - - - - - - -"),
-	   i("The following manager files were written: "
+	   i("The following manager files where written: "
 	     "manager.conf, agents.conf " ++ 
 	     case lists:member(v3, Vsns) of
 		 true ->
@@ -1060,9 +1065,19 @@ verify_sec_type(ST)         -> {error, "invalid security type: " ++ ST}.
 
     
 verify_address(A) ->
-    case (catch snmp_misc:ip(A)) of
+    verify_address(A, snmpUDPDomain).
+
+verify_address(A, snmpUDPDomain = _Domain) ->
+    do_verify_address(A, inet);
+verify_address(A, transportDomainUdpIpv4 = _Domain) ->
+    do_verify_address(A, inet);
+verify_address(A, transportDomainUdpIpv6 = _Domain) ->
+    do_verify_address(A, inet6).
+
+do_verify_address(A, Family) ->
+    case (catch snmp_misc:ip(A, Family)) of
 	{ok, IP} ->
-	     {ok, tuple_to_list(IP)};
+	    {ok, tuple_to_list(IP)};
 	{error, _} ->
 	    {error, "invalid address: " ++ A};
 	_E ->
@@ -1719,10 +1734,12 @@ write_agent_snmp_target_addr_conf(Dir, ManagerIp, UDP,
     Hdr = header() ++ Comment,
     F = fun(v1 = Vsn, Acc) ->
 		[{mk_ip(ManagerIp, Vsn), 
+		  snmp_target_mib:default_domain(), 
 		  ManagerIp, UDP, Timeout, RetryCount, 
 		  "std_trap", mk_param(Vsn), "", [], 2048}| Acc];
 	   (v2 = Vsn, Acc) ->
 		[{mk_ip(ManagerIp, Vsn), 
+		  snmp_target_mib:default_domain(), 
 		  ManagerIp, UDP, Timeout, RetryCount, 
 		  "std_trap", mk_param(Vsn), "", [], 2048},
 		 {lists:flatten(io_lib:format("~s.2",[mk_ip(ManagerIp, Vsn)])),
@@ -1730,6 +1747,7 @@ write_agent_snmp_target_addr_conf(Dir, ManagerIp, UDP,
 		  "std_inform", mk_param(Vsn), "", [], 2048}| Acc];
 	   (v3 = Vsn, Acc) ->
 		[{mk_ip(ManagerIp, Vsn), 
+		  snmp_target_mib:default_domain(), 
 		  ManagerIp, UDP, Timeout, RetryCount, 
 		  "std_trap", mk_param(Vsn), "", [], 2048},
 		 {lists:flatten(io_lib:format("~s.3",[mk_ip(ManagerIp, Vsn)])),
@@ -2332,7 +2350,9 @@ write_sys_config_file_manager_atl_opt(Fid, {type, Type}) ->
 write_sys_config_file_manager_atl_opt(Fid, {size, Size}) ->
     ok = io:format(Fid, "{size, ~w}", [Size]);
 write_sys_config_file_manager_atl_opt(Fid, {repair, Rep}) ->
-    ok = io:format(Fid, "{repair, ~w}", [Rep]).
+    ok = io:format(Fid, "{repair, ~w}", [Rep]);
+write_sys_config_file_manager_atl_opt(Fid, {seqno, SeqNo}) ->
+    ok = io:format(Fid, "{seqno, ~w}", [SeqNo]).
 
 
 header() ->

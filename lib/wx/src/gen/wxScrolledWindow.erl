@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -91,7 +91,7 @@ new(Parent)
   new(Parent, []).
 
 %% @spec (Parent::wxWindow:wxWindow(), [Option]) -> wxScrolledWindow()
-%% Option = {winid, integer()} | {pos, {X::integer(),Y::integer()}} | {size, {W::integer(),H::integer()}} | {style, integer()}
+%% Option = {winid, integer()} | {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxscrolledwindow.html#wxscrolledwindowwxscrolledwindow">external documentation</a>.
 new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->
@@ -105,7 +105,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
   wxe_util:construct(?wxScrolledWindow_new_2,
   <<ParentRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxScrolledWindow(), Pt::{X::integer(),Y::integer()}) -> {X::integer(),Y::integer()}
+%% @spec (This::wxScrolledWindow(), Pt::{X::integer(), Y::integer()}) -> {X::integer(), Y::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxscrolledwindow.html#wxscrolledwindowcalcscrolledposition">external documentation</a>.
 calcScrolledPosition(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY})
  when is_integer(PtX),is_integer(PtY) ->
@@ -113,7 +113,7 @@ calcScrolledPosition(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY})
   wxe_util:call(?wxScrolledWindow_CalcScrolledPosition_1,
   <<ThisRef:32/?UI,PtX:32/?UI,PtY:32/?UI>>).
 
-%% @spec (This::wxScrolledWindow(), X::integer(), Y::integer()) -> {Xx::integer(),Yy::integer()}
+%% @spec (This::wxScrolledWindow(), X::integer(), Y::integer()) -> {Xx::integer(), Yy::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxscrolledwindow.html#wxscrolledwindowcalcscrolledposition">external documentation</a>.
 calcScrolledPosition(#wx_ref{type=ThisT,ref=ThisRef},X,Y)
  when is_integer(X),is_integer(Y) ->
@@ -121,7 +121,7 @@ calcScrolledPosition(#wx_ref{type=ThisT,ref=ThisRef},X,Y)
   wxe_util:call(?wxScrolledWindow_CalcScrolledPosition_4,
   <<ThisRef:32/?UI,X:32/?UI,Y:32/?UI>>).
 
-%% @spec (This::wxScrolledWindow(), Pt::{X::integer(),Y::integer()}) -> {X::integer(),Y::integer()}
+%% @spec (This::wxScrolledWindow(), Pt::{X::integer(), Y::integer()}) -> {X::integer(), Y::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxscrolledwindow.html#wxscrolledwindowcalcunscrolledposition">external documentation</a>.
 calcUnscrolledPosition(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY})
  when is_integer(PtX),is_integer(PtY) ->
@@ -129,7 +129,7 @@ calcUnscrolledPosition(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY})
   wxe_util:call(?wxScrolledWindow_CalcUnscrolledPosition_1,
   <<ThisRef:32/?UI,PtX:32/?UI,PtY:32/?UI>>).
 
-%% @spec (This::wxScrolledWindow(), X::integer(), Y::integer()) -> {Xx::integer(),Yy::integer()}
+%% @spec (This::wxScrolledWindow(), X::integer(), Y::integer()) -> {Xx::integer(), Yy::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxscrolledwindow.html#wxscrolledwindowcalcunscrolledposition">external documentation</a>.
 calcUnscrolledPosition(#wx_ref{type=ThisT,ref=ThisRef},X,Y)
  when is_integer(X),is_integer(Y) ->
@@ -145,14 +145,14 @@ enableScrolling(#wx_ref{type=ThisT,ref=ThisRef},X_scrolling,Y_scrolling)
   wxe_util:cast(?wxScrolledWindow_EnableScrolling,
   <<ThisRef:32/?UI,(wxe_util:from_bool(X_scrolling)):32/?UI,(wxe_util:from_bool(Y_scrolling)):32/?UI>>).
 
-%% @spec (This::wxScrolledWindow()) -> {PixelsPerUnitX::integer(),PixelsPerUnitY::integer()}
+%% @spec (This::wxScrolledWindow()) -> {PixelsPerUnitX::integer(), PixelsPerUnitY::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxscrolledwindow.html#wxscrolledwindowgetscrollpixelsperunit">external documentation</a>.
 getScrollPixelsPerUnit(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxScrolledWindow),
   wxe_util:call(?wxScrolledWindow_GetScrollPixelsPerUnit,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxScrolledWindow()) -> {X::integer(),Y::integer()}
+%% @spec (This::wxScrolledWindow()) -> {X::integer(), Y::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxscrolledwindow.html#wxscrolledwindowgetviewstart">external documentation</a>.
 getViewStart(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxScrolledWindow),

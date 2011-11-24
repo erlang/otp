@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1997-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 1997-2011. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -41,21 +41,43 @@
 #define STRINGIFY_1(b) IDENTITY(#b)
 #define STRINGIFY(a) STRINGIFY_1(a)
 
-#ifndef _OSE_
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
 #ifdef HAVE_SYS_UIO_H
 #include <sys/uio.h>
 #endif
-#endif
 
+#ifdef HAVE_NET_IF_DL_H
+#include <net/if_dl.h>
+#endif
+#ifdef HAVE_IFADDRS_H
+#include <ifaddrs.h>
+#endif
+#ifdef HAVE_NETPACKET_PACKET_H
+#include <netpacket/packet.h>
+#endif
 
 /* All platforms fail on malloc errors. */
 #define FATAL_MALLOC
 
 
 #include "erl_driver.h"
+
+/* The IS_SOCKET_ERROR macro below is used for portability reasons. While
+   POSIX specifies that errors from socket-related system calls should be
+   indicated with a -1 return value, some users have experienced non-Windows
+   OS kernels that return negative values other than -1. While one can argue
+   that such kernels are technically broken, comparing against values less
+   than 0 covers their out-of-spec return values without imposing incorrect
+   semantics on systems that manage to correctly return -1 for errors, thus
+   increasing Erlang's portability.
+*/
+#ifdef __WIN32__
+#define IS_SOCKET_ERROR(val) ((val) == SOCKET_ERROR)
+#else
+#define IS_SOCKET_ERROR(val) ((val) < 0)
+#endif
 
 #ifdef __WIN32__
 #define  STRNCASECMP strncasecmp
@@ -66,8 +88,21 @@
 #include <winsock2.h>
 #endif
 #include <windows.h>
+#include <Ws2tcpip.h>   /* NEED VC 6.0 or higher */
 
-#include <Ws2tcpip.h>   /* NEED VC 6.0 !!! */
+/* Visual studio 2008+: NTDDI_VERSION needs to be set for iphlpapi.h
+   to define the right structures. It needs to be set to WINXP (or LONGHORN)
+   for IPV6 to work and it's set lower by default, so we need to change it. */
+#ifdef HAVE_SDKDDKVER_H
+#  include <sdkddkver.h>
+#  ifdef NTDDI_VERSION 
+#    undef NTDDI_VERSION
+#  endif
+#  define NTDDI_VERSION NTDDI_WINXP
+#endif
+
+#include <iphlpapi.h>
+
 
 #undef WANT_NONBLOCKING
 #include "sys.h"
@@ -186,18 +221,8 @@ static unsigned long one_value = 1;
 #include <netdb.h>
 #endif
 
-#ifndef _OSE_
 #include <sys/socket.h>
 #include <netinet/in.h>
-#else
-/* datatypes and macros from Solaris socket.h */
-struct  linger {
-        int     l_onoff;                /* option on/off */
-        int     l_linger;               /* linger time */
-};
-#define SO_OOBINLINE    0x0100          /* leave received OOB data in line */
-#define SO_LINGER       0x0080          /* linger on close if data present */
-#endif
 
 #ifdef VXWORKS
 #include <rpc/rpctypes.h>
@@ -206,12 +231,10 @@ struct  linger {
 #include <rpc/types.h>
 #endif
 
-#ifndef _OSE_
 #include <netinet/tcp.h>
 #include <arpa/inet.h>
-#endif
 
-#if (!defined(VXWORKS) && !defined(_OSE_))
+#if (!defined(VXWORKS))
 #include <sys/param.h>
 #ifdef HAVE_ARPA_NAMESER_H
 #include <arpa/nameser.h>
@@ -226,33 +249,11 @@ struct  linger {
 #include <sys/ioctl.h>
 #endif
 
-#ifndef _OSE_
 #include <net/if.h>
-#else
-#define IFF_MULTICAST 0x00000800
-#endif
-
-#ifdef _OSE_
-#include "inet.h"
-#include "ineterr.h"
-#include "ose_inet_drv.h"
-#include "nameser.h" 
-#include "resolv.h"
-#define SET_ASYNC(s) setsockopt((s), SOL_SOCKET, SO_OSEEVENT, (&(s)), sizeof(int))
-
-extern void select_release(void);
-
-#endif /* _OSE_ */
-
-/* Solaris headers, only to be used with SFK */
-#ifdef _OSE_SFK_
-#include <ctype.h>
-#include <string.h>
-#endif
 
 /* SCTP support -- currently for UNIX platforms only: */
 #undef HAVE_SCTP
-#if (!defined(VXWORKS) && !defined(_OSE_) && !defined(__WIN32__) && defined(HAVE_SCTP_H))
+#if (!defined(VXWORKS) && !defined(__WIN32__) && defined(HAVE_SCTP_H))
 
 #include <netinet/sctp.h>
 
@@ -279,6 +280,57 @@ extern void select_release(void);
 #     define    SCTP_EOF        MSG_EOF
 #endif
 
+/* More Solaris 10 fixes: */
+#if ! HAVE_DECL_SCTP_CLOSED && HAVE_DECL_SCTPS_IDLE
+#    define SCTP_CLOSED SCTPS_IDLE
+#    undef HAVE_DECL_SCTP_CLOSED
+#    define HAVE_DECL_SCTP_CLOSED 1
+#endif
+#if ! HAVE_DECL_SCTP_BOUND && HAVE_DECL_SCTPS_BOUND
+#    define SCTP_BOUND SCTPS_BOUND
+#    undef HAVE_DECL_SCTP_BOUND
+#    define HAVE_DECL_SCTP_BOUND 1
+#endif
+#if ! HAVE_DECL_SCTP_LISTEN && HAVE_DECL_SCTPS_LISTEN
+#    define SCTP_LISTEN SCTPS_LISTEN
+#    undef HAVE_DECL_SCTP_LISTEN
+#    define HAVE_DECL_SCTP_LISTEN 1
+#endif
+#if ! HAVE_DECL_SCTP_COOKIE_WAIT && HAVE_DECL_SCTPS_COOKIE_WAIT
+#    define SCTP_COOKIE_WAIT SCTPS_COOKIE_WAIT
+#    undef HAVE_DECL_SCTP_COOKIE_WAIT
+#    define HAVE_DECL_SCTP_COOKIE_WAIT 1
+#endif
+#if ! HAVE_DECL_SCTP_COOKIE_ECHOED && HAVE_DECL_SCTPS_COOKIE_ECHOED
+#    define SCTP_COOKIE_ECHOED SCTPS_COOKIE_ECHOED
+#    undef HAVE_DECL_SCTP_COOKIE_ECHOED
+#    define HAVE_DECL_SCTP_COOKIE_ECHOED 1
+#endif
+#if ! HAVE_DECL_SCTP_ESTABLISHED && HAVE_DECL_SCTPS_ESTABLISHED
+#    define SCTP_ESTABLISHED SCTPS_ESTABLISHED
+#    undef HAVE_DECL_SCTP_ESTABLISHED
+#    define HAVE_DECL_SCTP_ESTABLISHED 1
+#endif
+#if ! HAVE_DECL_SCTP_SHUTDOWN_PENDING && HAVE_DECL_SCTPS_SHUTDOWN_PENDING
+#    define SCTP_SHUTDOWN_PENDING SCTPS_SHUTDOWN_PENDING
+#    undef HAVE_DECL_SCTP_SHUTDOWN_PENDING
+#    define HAVE_DECL_SCTP_SHUTDOWN_PENDING 1
+#endif
+#if ! HAVE_DECL_SCTP_SHUTDOWN_SENT && HAVE_DECL_SCTPS_SHUTDOWN_SENT
+#    define SCTP_SHUTDOWN_SENT SCTPS_SHUTDOWN_SENT
+#    undef HAVE_DECL_SCTP_SHUTDOWN_SENT
+#    define HAVE_DECL_SCTP_SHUTDOWN_SENT 1
+#endif
+#if ! HAVE_DECL_SCTP_SHUTDOWN_RECEIVED && HAVE_DECL_SCTPS_SHUTDOWN_RECEIVED
+#    define SCTP_SHUTDOWN_RECEIVED SCTPS_SHUTDOWN_RECEIVED
+#    undef HAVE_DECL_SCTP_SHUTDOWN_RECEIVED
+#    define HAVE_DECL_SCTP_SHUTDOWN_RECEIVED 1
+#endif
+#if ! HAVE_DECL_SCTP_SHUTDOWN_ACK_SENT && HAVE_DECL_SCTPS_SHUTDOWN_ACK_SENT
+#    define SCTP_SHUTDOWN_ACK_SENT SCTPS_SHUTDOWN_ACK_SENT
+#    undef HAVE_DECL_SCTP_SHUTDOWN_ACK_SENT
+#    define HAVE_DECL_SCTP_SHUTDOWN_ACK_SENT 1
+#endif
 /* New spelling in lksctp 2.6.22 or maybe even earlier:
  *  adaption -> adaptation
  */
@@ -293,12 +345,13 @@ extern void select_release(void);
 #     define sctp_adaptation_layer_event sctp_adaption_layer_event
 #endif
 
-static void *h_libsctp = NULL;
 #ifdef __GNUC__
 static typeof(sctp_bindx) *p_sctp_bindx = NULL;
+static typeof(sctp_peeloff) *p_sctp_peeloff = NULL;
 #else
 static int (*p_sctp_bindx)(int sd, struct sockaddr *addrs,
 			   int addrcnt, int flags) = NULL;
+static int (*p_sctp_peeloff)(int sd, sctp_assoc_t assoc_id) = NULL;
 #endif
 
 #endif /* SCTP supported */
@@ -315,7 +368,7 @@ static int (*p_sctp_bindx)(int sd, struct sockaddr *addrs,
 #define DEBUGF(X) printf X
 #endif
 
-#if !defined(__WIN32__) && !defined(HAVE_STRNCASECMP)
+#if !defined(HAVE_STRNCASECMP)
 #define STRNCASECMP my_strncasecmp
 
 static int my_strncasecmp(const char *s1, const char *s2, size_t n)
@@ -335,6 +388,7 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 #define INVALID_SOCKET -1
 #define INVALID_EVENT  -1
 #define SOCKET_ERROR   -1
+
 #define SOCKET int
 #define HANDLE long int
 #define FD_READ    ERL_DRV_READ
@@ -362,20 +416,6 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 #define sock_htons(x)               htons((x))
 #define sock_htonl(x)               htonl((x))
 
-#ifdef _OSE_
-#define sock_accept(s, addr, len)   ose_inet_accept((s), (addr), (len))
-#define sock_send(s,buf,len,flag)   ose_inet_send((s),(buf),(len),(flag))
-#define sock_sendto(s,buf,blen,flag,addr,alen) \
-                ose_inet_sendto((s),(buf),(blen),(flag),(addr),(alen))
-#define sock_sendv(s, vec, size, np, flag) \
-		(*(np) = ose_inet_sendv((s), (SysIOVec*)(vec), (size)))
-#define sock_open(af, type, proto)  ose_inet_socket((af), (type), (proto))
-#define sock_close(s)               ose_inet_close((s))
-#define sock_hostname(buf, len)     ose_gethostname((buf), (len))
-#define sock_getservbyname(name,proto) ose_getservbyname((name), (proto))
-#define sock_getservbyport(port,proto) ose_getservbyport((port), (proto))
-
-#else
 #define sock_accept(s, addr, len)   accept((s), (addr), (len))
 #define sock_send(s,buf,len,flag)   send((s),(buf),(len),(flag))
 #define sock_sendto(s,buf,blen,flag,addr,alen) \
@@ -391,7 +431,6 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 #define sock_hostname(buf, len)     gethostname((buf), (len))
 #define sock_getservbyname(name,proto) getservbyname((name), (proto))
 #define sock_getservbyport(port,proto) getservbyport((port), (proto))
-#endif /* _OSE_ */
 
 #define sock_recv(s,buf,len,flag)   recv((s),(buf),(len),(flag))
 #define sock_recvfrom(s,buf,blen,flag,addr,alen) \
@@ -402,13 +441,8 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 #define sock_create_event(d)        ((d)->s) /* return file descriptor */
 #define sock_close_event(e)                  /* do nothing */
 
-#ifdef _OSE_
-#define inet_driver_select(port, e, mode, on) \
-                                    ose_inet_select(port, e, mode, on)
-#else
 #define inet_driver_select(port, e, mode, on) \
                                     driver_select(port, e, mode | (on?ERL_DRV_USE:0), on)
-#endif /* _OSE_ */
 
 #define sock_select(d, flags, onoff) do { \
         (d)->event_mask = (onoff) ? \
@@ -445,7 +479,7 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 #define INET_AF_ANY         3 /* INADDR_ANY or IN6ADDR_ANY_INIT */
 #define INET_AF_LOOPBACK    4 /* INADDR_LOOPBACK or IN6ADDR_LOOPBACK_INIT */
 
-/* INET_REQ_GETTYPE enumeration */
+/* open and INET_REQ_GETTYPE enumeration */
 #define INET_TYPE_STREAM    1
 #define INET_TYPE_DGRAM     2
 #define INET_TYPE_SEQPACKET 3
@@ -501,17 +535,20 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 #define INET_REQ_IFGET         22
 #define INET_REQ_IFSET         23
 #define INET_REQ_SUBSCRIBE     24
+#define INET_REQ_GETIFADDRS    25
+#define INET_REQ_ACCEPT        26
+#define INET_REQ_LISTEN        27
 /* TCP requests */
-#define TCP_REQ_ACCEPT         40
-#define TCP_REQ_LISTEN         41
+/* #define TCP_REQ_ACCEPT         40 MOVED */
+/* #define TCP_REQ_LISTEN         41 MERGED */
 #define TCP_REQ_RECV           42
 #define TCP_REQ_UNRECV         43
 #define TCP_REQ_SHUTDOWN       44
-#define TCP_REQ_MULTI_OP       45
 /* UDP and SCTP requests */
 #define PACKET_REQ_RECV        60 /* Common for UDP and SCTP         */
-#define SCTP_REQ_LISTEN	       61 /* Different from TCP; not for UDP */
+/* #define SCTP_REQ_LISTEN       61 MERGED Different from TCP; not for UDP */
 #define SCTP_REQ_BINDX	       62 /* Multi-home SCTP bind            */
+#define SCTP_REQ_PEELOFF       63
 
 /* INET_REQ_SUBSCRIBE sub-requests */
 #define INET_SUBS_EMPTY_OUT_Q  1
@@ -525,7 +562,7 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 /* *_REQ_* replies */
 #define INET_REP_ERROR       0
 #define INET_REP_OK          1
-#define INET_REP_SCTP        2
+#define INET_REP             2
 
 /* INET_REQ_SETOPTS and INET_REQ_GETOPTS options */
 #define INET_OPT_REUSEADDR  0   /* enable/disable local address reuse */
@@ -646,10 +683,14 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 ** End of interface constants.
 **--------------------------------------------------------------------------*/
 
-#define INET_STATE_CLOSED    0
-#define INET_STATE_OPEN      (INET_F_OPEN)
-#define INET_STATE_BOUND     (INET_STATE_OPEN | INET_F_BOUND)
-#define INET_STATE_CONNECTED (INET_STATE_BOUND | INET_F_ACTIVE)
+#define INET_STATE_CLOSED          (0)
+#define INET_STATE_OPEN            (INET_F_OPEN)
+#define INET_STATE_BOUND           (INET_STATE_OPEN | INET_F_BOUND)
+#define INET_STATE_CONNECTED       (INET_STATE_BOUND | INET_F_ACTIVE)
+#define INET_STATE_LISTENING       (INET_STATE_BOUND | INET_F_LISTEN)
+#define INET_STATE_CONNECTING      (INET_STATE_BOUND | INET_F_CON)
+#define INET_STATE_ACCEPTING       (INET_STATE_LISTENING | INET_F_ACC)
+#define INET_STATE_MULTI_ACCEPTING (INET_STATE_ACCEPTING | INET_F_MULTI_CLIENT)
 
 #define IS_OPEN(d) \
  (((d)->state & INET_F_OPEN) == INET_F_OPEN)
@@ -666,15 +707,12 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 #define IS_BUSY(d) \
   (((d)->state & INET_F_BUSY) == INET_F_BUSY)
 
+#define INET_MAX_OPT_BUFFER (64*1024)
+
 #define INET_DEF_BUFFER     1460        /* default buffer size */
 #define INET_MIN_BUFFER     1           /* internal min buffer */
-#define INET_MAX_BUFFER     (1024*64)   /* internal max buffer */
 
-/* Note: INET_HIGH_WATERMARK MUST be less than 2*INET_MAX_BUFFER */
 #define INET_HIGH_WATERMARK (1024*8) /* 8k pending high => busy  */
-/* Note: INET_LOW_WATERMARK MUST be less than INET_MAX_BUFFER and
-** less than INET_HIGH_WATERMARK
-*/
 #define INET_LOW_WATERMARK  (1024*4) /* 4k pending => allow more */
 
 #define INET_INFINITY  0xffffffff  /* infinity value */
@@ -695,7 +733,7 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 #endif
 
 
-#define BIN_REALLOC_LIMIT(x)  (((x)*3)/4)  /* 75% */
+#define BIN_REALLOC_MARGIN(x)  ((x)/4)  /* 25% */
 
 /* The general purpose sockaddr */
 typedef union {
@@ -830,16 +868,6 @@ typedef struct {
 
 
 
-#define TCP_STATE_CLOSED     INET_STATE_CLOSED
-#define TCP_STATE_OPEN       (INET_F_OPEN)
-#define TCP_STATE_BOUND      (TCP_STATE_OPEN | INET_F_BOUND)
-#define TCP_STATE_CONNECTED  (TCP_STATE_BOUND | INET_F_ACTIVE)
-#define TCP_STATE_LISTEN     (TCP_STATE_BOUND | INET_F_LISTEN)
-#define TCP_STATE_CONNECTING (TCP_STATE_BOUND | INET_F_CON)
-#define TCP_STATE_ACCEPTING  (TCP_STATE_LISTEN | INET_F_ACC)
-#define TCP_STATE_MULTI_ACCEPTING (TCP_STATE_ACCEPTING | INET_F_MULTI_CLIENT)
-
-
 #define TCP_MAX_PACKET_SIZE 0x4000000  /* 64 M */
 
 #define MAX_VSIZE 16		/* Max number of entries allowed in an I/O
@@ -895,12 +923,6 @@ static struct erl_drv_entry tcp_inet_driver_entry =
     inet_stop_select
 };
 
-#define PACKET_STATE_CLOSED     INET_STATE_CLOSED
-#define PACKET_STATE_OPEN       (INET_F_OPEN)
-#define PACKET_STATE_BOUND      (PACKET_STATE_OPEN  | INET_F_BOUND)
-#define SCTP_STATE_LISTEN	(PACKET_STATE_BOUND | INET_F_LISTEN)
-#define SCTP_STATE_CONNECTING   (PACKET_STATE_BOUND | INET_F_CON)
-#define PACKET_STATE_CONNECTED  (PACKET_STATE_BOUND | INET_F_ACTIVE)
 
 
 static int        packet_inet_init(void);
@@ -1018,6 +1040,9 @@ static int tcp_inet_input(tcp_descriptor* desc, HANDLE event);
 typedef struct {
     inet_descriptor inet;   /* common data structure (DON'T MOVE) */
     int read_packets;       /* Number of packets to read per invocation */
+    int i_bufsz;            /* current input buffer size */
+    ErlDrvBinary* i_buf;    /* current binary buffer */
+    char* i_ptr;            /* current pos in buf */
 } udp_descriptor;
 
 
@@ -1085,7 +1110,7 @@ struct erl_drv_entry inet_driver_entry =
 };
 
 /* XXX: is this a driver interface function ??? */
-extern void erl_exit(int n, char*, _DOTS_);
+void erl_exit(int n, char*, ...);
 
 /*
  * Malloc wrapper,
@@ -1285,139 +1310,136 @@ static int load_ip_and_port
 	LOAD_ATOM((spec), (i), (flag) ? am_true : am_false);
 #endif /* HAVE_SCTP */
 
+/* Assume a cache line size of 64 bytes */
+#define INET_DRV_CACHE_LINE_SIZE ((ErlDrvUInt) 64)
+#define INET_DRV_CACHE_LINE_MASK (INET_DRV_CACHE_LINE_SIZE - 1)
+
 /*
 ** Binary Buffer Managment
 ** We keep a stack of usable buffers 
 */
-#define BUFFER_STACK_SIZE 16
+#define BUFFER_STACK_SIZE 14
+#define BUFFER_STACK_MAX_MEM_SIZE (1024*1024)
 
-static erts_smp_spinlock_t inet_buffer_stack_lock;
-static ErlDrvBinary* buffer_stack[BUFFER_STACK_SIZE];
-static int buffer_stack_pos = 0;
+ErlDrvTSDKey buffer_stack_key;
 
+typedef struct {
+    int mem_size;
+    int pos;
+    ErlDrvBinary* stk[BUFFER_STACK_SIZE];
+} InetDrvBufStkBase;
 
-/*
- * XXX
- * The erts_smp_spin_* functions should not be used by drivers (but this
- * driver is special). Replace when driver locking api has been implemented.
- * /rickard
- */
-#define BUFSTK_LOCK	erts_smp_spin_lock(&inet_buffer_stack_lock);
-#define BUFSTK_UNLOCK	erts_smp_spin_unlock(&inet_buffer_stack_lock);
+typedef struct {
+    InetDrvBufStkBase buf;
+    char align[(((sizeof(InetDrvBufStkBase) - 1) / INET_DRV_CACHE_LINE_SIZE) + 1)
+	       * INET_DRV_CACHE_LINE_SIZE];
+} InetDrvBufStk;
 
-#ifdef DEBUG
-static int tot_buf_allocated = 0;  /* memory in use for i_buf */
-static int tot_buf_stacked = 0;   /* memory on stack */
-static int max_buf_allocated = 0; /* max allocated */
+static InetDrvBufStk *get_bufstk(void)
+{
+    InetDrvBufStk *bs = erl_drv_tsd_get(buffer_stack_key);
+    if (bs)
+	return bs;
+    bs = driver_alloc(sizeof(InetDrvBufStk)
+		      + INET_DRV_CACHE_LINE_SIZE - 1);
+    if (!bs)
+	return NULL;
+    if ((((ErlDrvUInt) bs) & INET_DRV_CACHE_LINE_MASK) != 0)
+	bs = ((InetDrvBufStk *)
+	      ((((ErlDrvUInt) bs) & ~INET_DRV_CACHE_LINE_MASK)
+	       + INET_DRV_CACHE_LINE_SIZE));
+    erl_drv_tsd_set(buffer_stack_key, bs);
+    bs->buf.pos = 0;
+    bs->buf.mem_size = 0;
 
-#define COUNT_BUF_ALLOC(sz) do { \
-  BUFSTK_LOCK; \
-  tot_buf_allocated += (sz); \
-  if (tot_buf_allocated > max_buf_allocated) \
-    max_buf_allocated = tot_buf_allocated; \
-  BUFSTK_UNLOCK; \
-} while(0)
+    ASSERT(bs == erl_drv_tsd_get(buffer_stack_key));
 
-#define COUNT_BUF_FREE(sz) do { \
- BUFSTK_LOCK; \
- tot_buf_allocated -= (sz); \
- BUFSTK_UNLOCK; \
- } while(0)
-
-#define COUNT_BUF_STACK(sz) do { \
- BUFSTK_LOCK; \
- tot_buf_stacked += (sz); \
- BUFSTK_UNLOCK; \
- } while(0)
-
-#else
-
-#define COUNT_BUF_ALLOC(sz)
-#define COUNT_BUF_FREE(sz)
-#define COUNT_BUF_STACK(sz)
-
-#endif
+    return bs;
+}
 
 static ErlDrvBinary* alloc_buffer(long minsz)
 {
-    ErlDrvBinary* buf = NULL;
+    InetDrvBufStk *bs = get_bufstk();
 
-    BUFSTK_LOCK;
+    DEBUGF(("alloc_buffer: %ld\r\n", minsz));
 
-    DEBUGF(("alloc_buffer: sz = %ld, tot = %d, max = %d\r\n", 
-	    minsz, tot_buf_allocated, max_buf_allocated));
+    if (bs && bs->buf.pos > 0) {
+	long size;
+	ErlDrvBinary* buf = bs->buf.stk[--bs->buf.pos];
+	size = buf->orig_size;
+	bs->buf.mem_size -= size;
+	ASSERT(0 <= bs->buf.mem_size
+	       && bs->buf.mem_size <= BUFFER_STACK_MAX_MEM_SIZE);
+	if (size >= minsz)
+	    return buf;
 
-    if (buffer_stack_pos > 0) {
-	int origsz;
-
-	buf = buffer_stack[--buffer_stack_pos];
-	origsz = buf->orig_size;
-	BUFSTK_UNLOCK;
-	COUNT_BUF_STACK(-origsz);
-	if (origsz < minsz) {
-	    if ((buf = driver_realloc_binary(buf, minsz)) == NULL)
-		return NULL;
-	    COUNT_BUF_ALLOC(buf->orig_size - origsz);
-	}
+	driver_free_binary(buf);
     }
-    else {
-	BUFSTK_UNLOCK;
-	if ((buf = driver_alloc_binary(minsz)) == NULL)
-	    return NULL;
-	COUNT_BUF_ALLOC(buf->orig_size);
-    }
-    return buf;
+
+    ASSERT(!bs || bs->buf.pos != 0 || bs->buf.mem_size == 0);
+
+    return driver_alloc_binary(minsz);
 }
 
-/*
-** Max buffer memory "cached" BUFFER_STACK_SIZE * INET_MAX_BUFFER
-** (16 * 64k ~ 1M)
-*/
 /*#define CHECK_DOUBLE_RELEASE 1*/
+#ifdef CHECK_DOUBLE_RELEASE
+static void
+check_double_release(InetDrvBufStk *bs, ErlDrvBinary* buf)
+{
+#ifdef __GNUC__
+#warning CHECK_DOUBLE_RELEASE is enabled, this is a custom build emulator
+#endif
+    int i;
+    for (i = 0; i < bs->buf.pos; ++i) {
+	if (bs->buf.stk[i] == buf) {
+	    erl_exit(ERTS_ABORT_EXIT,
+		     "Multiple buffer release in inet_drv, this "
+		     "is a bug, save the core and send it to "
+		     "support@erlang.ericsson.se!");
+	}
+    }
+}
+#endif
+
 static void release_buffer(ErlDrvBinary* buf)
 {
+    InetDrvBufStk *bs;
+    long size;
+
     DEBUGF(("release_buffer: %ld\r\n", (buf==NULL) ? 0 : buf->orig_size));
-    if (buf == NULL)
+
+    if (!buf)
 	return;
-    BUFSTK_LOCK;
-    if ((buf->orig_size > INET_MAX_BUFFER) || 
-	(buffer_stack_pos >= BUFFER_STACK_SIZE)) {
-	BUFSTK_UNLOCK;
-	COUNT_BUF_FREE(buf->orig_size);
+
+    size = buf->orig_size;
+
+    if (size > BUFFER_STACK_MAX_MEM_SIZE)
+	goto free_binary;
+
+    bs = get_bufstk();
+    if (!bs
+	|| (bs->buf.mem_size + size > BUFFER_STACK_MAX_MEM_SIZE)
+	|| (bs->buf.pos >= BUFFER_STACK_SIZE)) {
+    free_binary:
 	driver_free_binary(buf);
     }
     else {
 #ifdef CHECK_DOUBLE_RELEASE
-#ifdef __GNUC__
-#warning CHECK_DOUBLE_RELEASE is enabled, this is a custom build emulator
+	check_double_release(bs, buf);
 #endif
-	int i;
-	for (i = 0; i < buffer_stack_pos; ++i) {
-	    if (buffer_stack[i] == buf) {
-		erl_exit(1,"Multiple buffer release in inet_drv, this is a "
-			 "bug, save the core and send it to "
-			 "support@erlang.ericsson.se!");
-	    }
-	}
-#endif
-	buffer_stack[buffer_stack_pos++] = buf;
-	BUFSTK_UNLOCK;
-	COUNT_BUF_STACK(buf->orig_size);
+	ASSERT(bs->buf.pos != 0 || bs->buf.mem_size == 0);
+
+	bs->buf.mem_size += size;
+	bs->buf.stk[bs->buf.pos++] = buf;
+
+	ASSERT(0 <= bs->buf.mem_size
+	       && bs->buf.mem_size <= BUFFER_STACK_MAX_MEM_SIZE);
     }
 }
 
 static ErlDrvBinary* realloc_buffer(ErlDrvBinary* buf, long newsz)
 {
-    ErlDrvBinary* bin;
-#ifdef DEBUG
-    long orig_size =  buf->orig_size;
-#endif
-
-    if ((bin = driver_realloc_binary(buf,newsz)) != NULL) {
-	COUNT_BUF_ALLOC(newsz - orig_size);
-	;
-    }
-    return bin;
+    return driver_realloc_binary(buf, newsz);
 }
 
 /* use a TRICK, access the refc field to see if any one else has
@@ -1431,10 +1453,8 @@ static void free_buffer(ErlDrvBinary* buf)
     if (buf != NULL) {
 	if (driver_binary_get_refc(buf) == 1)
 	    release_buffer(buf);
-	else {
-	    COUNT_BUF_FREE(buf->orig_size);
+	else
 	    driver_free_binary(buf);
-	}
     }
 }
 
@@ -1788,7 +1808,6 @@ send_async_error(ErlDrvPort port, ErlDrvTermData Port, int Ref,
 			LOAD_INT_CNT + 2*LOAD_TUPLE_CNT];
     int i = 0;
     
-    i = 0;
     i = LOAD_ATOM(spec, i, am_inet_async);
     i = LOAD_PORT(spec, i, Port);
     i = LOAD_INT(spec, i, Ref);
@@ -1877,6 +1896,26 @@ static int inet_reply_ok(inet_descriptor* desc)
     desc->caller = 0;
     return driver_send_term(desc->port, caller, spec, i);    
 }
+
+#ifdef HAVE_SCTP
+static int inet_reply_ok_port(inet_descriptor* desc, ErlDrvTermData dport)
+{
+    ErlDrvTermData spec[2*LOAD_ATOM_CNT + 2*LOAD_PORT_CNT + 2*LOAD_TUPLE_CNT];
+    ErlDrvTermData caller = desc->caller;
+    int i = 0;
+
+    i = LOAD_ATOM(spec, i, am_inet_reply);
+    i = LOAD_PORT(spec, i, desc->dport);
+    i = LOAD_ATOM(spec, i, am_ok);
+    i = LOAD_PORT(spec, i, dport);
+    i = LOAD_TUPLE(spec, i, 2);
+    i = LOAD_TUPLE(spec, i, 3);
+    ASSERT(i == sizeof(spec)/sizeof(*spec));
+
+    desc->caller = 0;
+    return driver_send_term(desc->port, caller, spec, i);
+}
+#endif
 
 /* send:
 **   {inet_reply, S, {error, Reason}} 
@@ -1975,7 +2014,7 @@ static int http_response_inetdrv(void *arg, int major, int minor,
     tcp_descriptor* desc = (tcp_descriptor*) arg;
     int i = 0;
     ErlDrvTermData spec[27];
-    ErlDrvTermData caller;
+    ErlDrvTermData caller = ERL_DRV_NIL;
     
     if (desc->inet.active == INET_PASSIVE) {
         /* {inet_async,S,Ref,{ok,{http_response,Version,Status,Phrase}}} */
@@ -2068,7 +2107,7 @@ http_request_inetdrv(void* arg, const http_atom_t* meth, const char* meth_ptr,
     tcp_descriptor* desc = (tcp_descriptor*) arg;
     int i = 0;
     ErlDrvTermData spec[43];
-    ErlDrvTermData caller;
+    ErlDrvTermData caller = ERL_DRV_NIL;
     
     if (desc->inet.active == INET_PASSIVE) {
         /* {inet_async, S, Ref, {ok,{http_request,Meth,Uri,Version}}} */
@@ -2119,7 +2158,7 @@ http_header_inetdrv(void* arg, const http_atom_t* name, const char* name_ptr,
     tcp_descriptor* desc = (tcp_descriptor*) arg;
     int i = 0;
     ErlDrvTermData spec[26];
-    ErlDrvTermData caller;
+    ErlDrvTermData caller = ERL_DRV_NIL;
     
     if (desc->inet.active == INET_PASSIVE) {
         /* {inet_async,S,Ref,{ok,{http_header,Bit,Name,IValue,Value}} */
@@ -2208,7 +2247,7 @@ static int http_error_inetdrv(void* arg, const char* buf, int len)
   ErlDrvTermData spec[19];
 
   if (desc->inet.active == INET_PASSIVE) {
-    /* {inet_async,S,Ref,{error,{http_error,Line}}} */
+    /* {inet_async,S,Ref,{ok,{http_error,Line}}} */
     int req;
     int aid;
     ErlDrvTermData caller;
@@ -2218,7 +2257,7 @@ static int http_error_inetdrv(void* arg, const char* buf, int len)
     i = LOAD_ATOM(spec, i,  am_inet_async);
     i = LOAD_PORT(spec, i,  desc->inet.dport);
     i = LOAD_INT(spec, i,   aid);
-    i = LOAD_ATOM(spec, i,  am_error);
+    i = LOAD_ATOM(spec, i,  am_ok);
     i = LOAD_ATOM(spec, i,  am_http_error);
     i = http_load_string(desc, spec, i, buf, len);
     i = LOAD_TUPLE(spec, i, 2);
@@ -2248,7 +2287,7 @@ int ssl_tls_inetdrv(void* arg, unsigned type, unsigned major, unsigned minor,
     tcp_descriptor* desc = (tcp_descriptor*) arg;
     int i = 0;
     ErlDrvTermData spec[28];
-    ErlDrvTermData caller;
+    ErlDrvTermData caller = ERL_DRV_NIL;
     ErlDrvBinary* bin;
     int ret;
 
@@ -2416,14 +2455,19 @@ static ErlDrvTermData   am_sctp_rtoinfo, /* Option names */
     am_active,                         am_inactive,
     
     /* For #sctp_status{}: */
-    am_empty,                          am_closed,
+#    if HAVE_DECL_SCTP_EMPTY
+    am_empty,
+#    endif
+#    if HAVE_DECL_SCTP_BOUND
+    am_bound,
+#    endif
+#    if HAVE_DECL_SCTP_LISTEN
+    am_listen,
+#    endif
     am_cookie_wait,                    am_cookie_echoed,
     am_established,                    am_shutdown_pending,
     am_shutdown_sent,                  am_shutdown_received,
     am_shutdown_ack_sent;
-    /* Not yet implemented in the Linux kernel:
-    ** am_bound,                          am_listen;
-    */
 
 /*
 ** Parsing of "sctp_sndrcvinfo": ancillary data coming with received msgs.
@@ -2692,7 +2736,8 @@ static int sctp_parse_async_event
 #	    ifdef HAVE_STRUCT_SCTP_REMOTE_ERROR_SRE_DATA
 	    chunk = (char*) (&(sptr->sre_data));
 #	    else
-	    chunk = ((char*)sptr) + sizeof(*sptr);
+	    chunk = ((char*) &(sptr->sre_assoc_id))
+		+ sizeof(sptr->sre_assoc_id);
 #	    endif
 	    chlen = sptr->sre_length  - (chunk - (char *)sptr);
 	    i = sctp_parse_error_chunk(spec, i, chunk, chlen);
@@ -2743,7 +2788,8 @@ static int sctp_parse_async_event
 #	    ifdef HAVE_STRUCT_SCTP_SEND_FAILED_SSF_DATA
 	    chunk = (char*) (&(sptr->ssf_data));
 #	    else
-	    chunk = ((char*)sptr) + sizeof(*sptr);
+	    chunk = ((char*) &(sptr->ssf_assoc_id))
+		+ sizeof(sptr->ssf_assoc_id);
 #	    endif
 	    chlen = sptr->ssf_length - (chunk - (char*) sptr);
 	    choff = chunk - bin->orig_bytes;
@@ -3417,8 +3463,15 @@ static void inet_init_sctp(void) {
     INIT_ATOM(inactive);
     
     /* For #sctp_status{}: */
+#    if HAVE_DECL_SCTP_EMPTY
     INIT_ATOM(empty);
-    INIT_ATOM(closed);
+#    endif
+#    if HAVE_DECL_SCTP_BOUND
+    INIT_ATOM(bound);
+#    endif
+#    if HAVE_DECL_SCTP_LISTEN
+    INIT_ATOM(listen);
+#    endif
     INIT_ATOM(cookie_wait);
     INIT_ATOM(cookie_echoed);
     INIT_ATOM(established);
@@ -3426,10 +3479,6 @@ static void inet_init_sctp(void) {
     INIT_ATOM(shutdown_sent);
     INIT_ATOM(shutdown_received);
     INIT_ATOM(shutdown_ack_sent);
-    /* Not yet implemented in the Linux kernel:
-    ** INIT_ATOM(bound);
-    ** INIT_ATOM(listen);
-    */
 }
 #endif /* HAVE_SCTP */
 
@@ -3438,20 +3487,14 @@ static int inet_init()
     if (!sock_init())
 	goto error;
 
-    buffer_stack_pos = 0;
-
-    erts_smp_spinlock_init(&inet_buffer_stack_lock, "inet_buffer_stack_lock");
+    if (0 != erl_drv_tsd_key_create("inet_buffer_stack_key", &buffer_stack_key))
+	goto error;
 
     ASSERT(sizeof(struct in_addr) == 4);
 #   if defined(HAVE_IN6) && defined(AF_INET6)
     ASSERT(sizeof(struct in6_addr) == 16);
 #   endif
 
-#ifdef DEBUG
-    tot_buf_allocated = 0;
-    max_buf_allocated = 0;
-    tot_buf_stacked = 0;
-#endif
     INIT_ATOM(ok);
     INIT_ATOM(tcp);
     INIT_ATOM(udp);
@@ -3480,29 +3523,40 @@ static int inet_init()
     INIT_ATOM(scheme);
 
     /* add TCP, UDP and SCTP drivers */
-#ifdef _OSE_
-    add_ose_tcp_drv_entry(&tcp_inet_driver_entry);
-    add_ose_udp_drv_entry(&udp_inet_driver_entry);
-#else
     add_driver_entry(&tcp_inet_driver_entry);
     add_driver_entry(&udp_inet_driver_entry);
-#  ifdef HAVE_SCTP
+#ifdef HAVE_SCTP
     /* Check the size of SCTP AssocID -- currently both this driver and the
        Erlang part require 32 bit: */
     ASSERT(sizeof(sctp_assoc_t)==ASSOC_ID_LEN);
-#   ifndef LIBSCTP
-#     error LIBSCTP not defined
-#   endif
-    if (erts_sys_ddll_open_noext(STRINGIFY(LIBSCTP), &h_libsctp, NULL) == 0) {
-	void *ptr;
-	if (erts_sys_ddll_sym(h_libsctp, "sctp_bindx", &ptr) == 0) {
-	    p_sctp_bindx = ptr;
-	    inet_init_sctp();
-	    add_driver_entry(&sctp_inet_driver_entry);
+#   if defined(HAVE_SCTP_BINDX) && defined (HAVE_SCTP_PEELOFF)
+    p_sctp_bindx = sctp_bindx;
+    p_sctp_peeloff = sctp_peeloff;
+    inet_init_sctp();
+    add_driver_entry(&sctp_inet_driver_entry);
+#   else
+#       ifndef LIBSCTP
+#           error LIBSCTP not defined
+#       endif
+    {
+	static void *h_libsctp = NULL;
+
+	if (erts_sys_ddll_open_noext(STRINGIFY(LIBSCTP), &h_libsctp, NULL)
+	    == 0) {
+	    void *ptr;
+	    if (erts_sys_ddll_sym(h_libsctp, "sctp_bindx", &ptr) == 0) {
+		p_sctp_bindx = ptr;
+		inet_init_sctp();
+		add_driver_entry(&sctp_inet_driver_entry);
+		if (erts_sys_ddll_sym(h_libsctp, "sctp_peeloff", &ptr) == 0) {
+		    p_sctp_peeloff = ptr;
+		}
+	    }
 	}
     }
-#  endif
-#endif /* _OSE_ */
+#   endif
+#endif
+
     /* remove the dummy inet driver */
     remove_driver_entry(&inet_driver_entry);
     return 0;
@@ -3744,8 +3798,10 @@ static int inet_ctl_fdopen(inet_descriptor* desc, int domain, int type,
     unsigned int sz = sizeof(name);
 
     /* check that it is a socket and that the socket is bound */
-    if (sock_name(s, (struct sockaddr*) &name, &sz) == SOCKET_ERROR)
+    if (IS_SOCKET_ERROR(sock_name(s, (struct sockaddr*) &name, &sz)))
 	return ctl_error(sock_errno(), rbuf, rsize);
+    if (name.sa.sa_family != domain)
+	return ctl_error(EINVAL, rbuf, rsize);
     desc->s = s;
     if ((desc->event = sock_create_event(desc)) == INVALID_EVENT)
 	return ctl_error(sock_errno(), rbuf, rsize);
@@ -3756,7 +3812,7 @@ static int inet_ctl_fdopen(inet_descriptor* desc, int domain, int type,
     desc->state = INET_STATE_BOUND; /* assume bound */
     if (type == SOCK_STREAM) { /* check if connected */
 	sz = sizeof(name);
-	if (sock_peer(s, (struct sockaddr*) &name, &sz) != SOCKET_ERROR)
+	if (!IS_SOCKET_ERROR(sock_peer(s, (struct sockaddr*) &name, &sz)))
 	    desc->state = INET_STATE_CONNECTED;
     }
 
@@ -3862,39 +3918,81 @@ do { if ((end)-(ptr) < (n)) goto error; } while(0)
 static char* sockaddr_to_buf(struct sockaddr* addr, char* ptr, char* end)
 {
     if (addr->sa_family == AF_INET || addr->sa_family == 0) {
-	struct in_addr a;
-	buf_check(ptr,end,sizeof(struct in_addr));
-	a = ((struct sockaddr_in*) addr)->sin_addr;
-	sys_memcpy(ptr, (char*)&a, sizeof(struct in_addr));
-	return ptr + sizeof(struct in_addr);
+	struct in_addr *p = &(((struct sockaddr_in*) addr)->sin_addr);
+	buf_check(ptr, end, 1 + sizeof(struct in_addr));
+	*ptr = INET_AF_INET;
+	sys_memcpy(ptr+1, (char*)p, sizeof(struct in_addr));
+	return ptr + 1 + sizeof(struct in_addr);
     }
 #if defined(HAVE_IN6) && defined(AF_INET6)
     else if (addr->sa_family == AF_INET6) {
-	struct in6_addr a;
-	buf_check(ptr,end,sizeof(struct in6_addr));
-	a = ((struct sockaddr_in6*) addr)->sin6_addr;
-	sys_memcpy(ptr, (char*)&a, sizeof(struct in6_addr));
-	return ptr + sizeof(struct in6_addr);
+	struct in6_addr *p = &(((struct sockaddr_in6*) addr)->sin6_addr);
+	buf_check(ptr, end, 1 + sizeof(struct in6_addr));
+	*ptr = INET_AF_INET6;
+	sys_memcpy(ptr+1, (char*)p, sizeof(struct in6_addr));
+	return ptr + 1 + sizeof(struct in6_addr);
     }
 #endif
+#if defined(AF_LINK)
+    else if (addr->sa_family == AF_LINK) {
+	struct sockaddr_dl *sdl_p = (struct sockaddr_dl*) addr;
+	buf_check(ptr, end, 2 + sdl_p->sdl_alen);
+	put_int16(sdl_p->sdl_alen, ptr); ptr += 2;
+	sys_memcpy(ptr, sdl_p->sdl_data + sdl_p->sdl_nlen, sdl_p->sdl_alen);
+	return ptr + sdl_p->sdl_alen;
+    }
+#endif
+#if defined(AF_PACKET) && defined(HAVE_NETPACKET_PACKET_H)
+    else if(addr->sa_family == AF_PACKET) {
+	struct sockaddr_ll *sll_p = (struct sockaddr_ll*) addr;
+	buf_check(ptr, end, 2 + sll_p->sll_halen);
+	put_int16(sll_p->sll_halen, ptr); ptr += 2;
+	sys_memcpy(ptr, sll_p->sll_addr, sll_p->sll_halen);
+	return ptr + sll_p->sll_halen;
+    }
+#endif
+    return ptr;
  error:
     return NULL;
-
 }
 
 static char* buf_to_sockaddr(char* ptr, char* end, struct sockaddr* addr)
 {
-    buf_check(ptr,end,sizeof(struct in_addr));
-    sys_memcpy((char*) &((struct sockaddr_in*)addr)->sin_addr, ptr,
-	       sizeof(struct in_addr));
-    addr->sa_family = AF_INET;
-    return ptr +  sizeof(struct in_addr);
-
+    buf_check(ptr,end,1);
+    switch (*ptr++) {
+    case INET_AF_INET: {
+	struct in_addr *p = &((struct sockaddr_in*)addr)->sin_addr;
+	buf_check(ptr,end,sizeof(struct in_addr));
+	sys_memcpy((char*) p, ptr, sizeof(struct in_addr));
+	addr->sa_family = AF_INET;
+	return ptr + sizeof(struct in_addr);
+    }
+    case INET_AF_INET6: {
+	struct in6_addr *p = &((struct sockaddr_in6*)addr)->sin6_addr;
+	buf_check(ptr,end,sizeof(struct in6_addr));
+	sys_memcpy((char*) p, ptr, sizeof(struct in6_addr));
+	addr->sa_family = AF_INET6;
+	return ptr + sizeof(struct in6_addr);
+    }
+    }
  error:
     return NULL;
 }
 
 
+#if defined (IFF_POINTOPOINT)
+#define IFGET_FLAGS(cflags) IFGET_FLAGS_P2P(cflags, IFF_POINTOPOINT)
+#elif defined IFF_POINTTOPOINT
+#define IFGET_FLAGS(cflags) IFGET_FLAGS_P2P(cflags, IFF_POINTTOPOINT)
+#endif
+
+#define IFGET_FLAGS_P2P(cflags, iff_ptp)				\
+    ((((cflags) & IFF_UP) ? INET_IFF_UP : 0) |				\
+     (((cflags) & IFF_BROADCAST) ? INET_IFF_BROADCAST : 0) |		\
+     (((cflags) & IFF_LOOPBACK) ? INET_IFF_LOOPBACK : 0) |		\
+     (((cflags) & iff_ptp) ? INET_IFF_POINTTOPOINT : 0) |		\
+     (((cflags) & IFF_UP) ? INET_IFF_RUNNING : 0) |  /* emulate running ? */ \
+     (((cflags) & IFF_MULTICAST) ? INET_IFF_MULTICAST : 0))
 
 #if defined(__WIN32__) && defined(SIO_GET_INTERFACE_LIST)
 
@@ -3932,7 +4030,6 @@ static int inet_ctl_getiflist(inet_descriptor* desc, char** rbuf, int rsize)
     return ctl_reply(INET_REP_OK, sbuf, sptr - sbuf, rbuf, rsize);
 }
 
-
 /* input is an ip-address in string format i.e A.B.C.D 
 ** scan the INTERFACE_LIST to get the options 
 */
@@ -3949,7 +4046,7 @@ static int inet_ctl_ifget(inet_descriptor* desc, char* buf, int len,
     INTERFACE_INFO* ifp;
     long namaddr;
 
-    if ((len == 0) || ((namlen = buf[0]) > len))
+    if ((len == 0) || ((namlen = get_int8(buf)) > len))
 	goto error;
     if (parse_addr(buf+1, namlen, &namaddr) < 0)
 	goto error;
@@ -4018,27 +4115,12 @@ static int inet_ctl_ifget(inet_descriptor* desc, char* buf, int len,
 	    break;
 
 	case INET_IFOPT_FLAGS: {
-	    long eflags = 0;
 	    int flags = ifp->iiFlags;
 	    /* just enumerate the interfaces (no names) */
 
-	    /* translate flags */
-	    if (flags & IFF_UP)
-		eflags |= INET_IFF_UP;
-	    if (flags & IFF_BROADCAST)
-		eflags |= INET_IFF_BROADCAST;
-	    if (flags & IFF_LOOPBACK)
-		eflags |= INET_IFF_LOOPBACK;
-	    if (flags & IFF_POINTTOPOINT)
-		eflags |= INET_IFF_POINTTOPOINT;
-	    if (flags & IFF_UP) /* emulate runnign ? */
-		eflags |= INET_IFF_RUNNING;
-	    if (flags & IFF_MULTICAST)
-		eflags |= INET_IFF_MULTICAST;
-
 	    buf_check(sptr, s_end, 5);
 	    *sptr++ = INET_IFOPT_FLAGS;
-	    put_int32(eflags, sptr);
+	    put_int32(IFGET_FLAGS(flags), sptr);
 	    sptr += 4;
 	    break;
 	}
@@ -4059,7 +4141,6 @@ static int inet_ctl_ifset(inet_descriptor* desc, char* buf, int len,
     return ctl_reply(INET_REP_OK, NULL, 0, rbuf, rsize);
 }
 
-
 #elif defined(SIOCGIFCONF) && defined(SIOCSIFFLAGS)
 /* cygwin has SIOCGIFCONF but not SIOCSIFFLAGS (Nov 2002) */
 
@@ -4070,69 +4151,81 @@ static int inet_ctl_ifset(inet_descriptor* desc, char* buf, int len,
 #define SIZEA(p) (sizeof (p))
 #endif
 
-
-static int inet_ctl_getiflist(inet_descriptor* desc, char** rbuf, int rsize)
-{
-    struct ifconf ifc;
-    struct ifreq *ifr;
-    char *buf;
-    int buflen, ifc_len, i;
-    char *sbuf, *sp;
-    
-    /* Courtesy of Per Bergqvist and W. Richard Stevens */
-    
-    ifc_len = 0;
-    buflen = 100 * sizeof(struct ifreq);
-    buf = ALLOC(buflen);
+static int get_ifconf(SOCKET s, struct ifconf *ifcp) {
+    int ifc_len = 0;
+    int buflen = 100 * sizeof(struct ifreq);
+    char *buf = ALLOC(buflen);
 
     for (;;) {
-	ifc.ifc_len = buflen;
-	ifc.ifc_buf = buf;
-	if (ioctl(desc->s, SIOCGIFCONF, (char *)&ifc) < 0) {
+	ifcp->ifc_len = buflen;
+	ifcp->ifc_buf = buf;
+	if (ioctl(s, SIOCGIFCONF, (char *)ifcp) < 0) {
 	    int res = sock_errno();
 	    if (res != EINVAL || ifc_len) {
 		FREE(buf);
-		return ctl_error(res, rbuf, rsize);
+		return -1;
 	    }
 	} else {
-	    if (ifc.ifc_len == ifc_len) break; /* buf large enough */
-	    ifc_len = ifc.ifc_len;
+	    if (ifcp->ifc_len == ifc_len) break; /* buf large enough */
+	    ifc_len = ifcp->ifc_len;
 	}
 	buflen += 10 * sizeof(struct ifreq);
 	buf = (char *)REALLOC(buf, buflen);
     }
-    
-    sp = sbuf = ALLOC(ifc_len+1);
+    return 0;
+}
+
+static void free_ifconf(struct ifconf *ifcp) {
+    FREE(ifcp->ifc_buf);
+}
+
+static int inet_ctl_getiflist(inet_descriptor* desc, char** rbuf, int rsize)
+{
+    struct ifconf ifc;
+    struct ifreq *ifrp;
+    char *sbuf, *sp;
+    int i;
+
+    /* Courtesy of Per Bergqvist and W. Richard Stevens */
+
+    if (get_ifconf(desc->s, &ifc) < 0) {
+	return ctl_error(sock_errno(), rbuf, rsize);
+    }
+
+    sp = sbuf = ALLOC(ifc.ifc_len+1);
     *sp++ = INET_REP_OK;
     i = 0;
     for (;;) {
 	int n;
-	
-	ifr = (struct ifreq *) VOIDP(buf + i);
-	n = sizeof(ifr->ifr_name) + SIZEA(ifr->ifr_addr);
-	if (n < sizeof(*ifr)) n = sizeof(*ifr);
-	if (i+n > ifc_len) break;
+
+	ifrp = (struct ifreq *) VOIDP(ifc.ifc_buf + i);
+	n = sizeof(ifrp->ifr_name) + SIZEA(ifrp->ifr_addr);
+	if (n < sizeof(*ifrp)) n = sizeof(*ifrp);
+	if (i+n > ifc.ifc_len) break;
 	i += n;
-	
-	switch (ifr->ifr_addr.sa_family) {
+
+	switch (ifrp->ifr_addr.sa_family) {
 #if defined(HAVE_IN6) && defined(AF_INET6)
 	case AF_INET6:
 #endif
 	case AF_INET:
-	    ASSERT(sp+IFNAMSIZ+1 < sbuf+buflen+1)
-	    strncpy(sp, ifr->ifr_name, IFNAMSIZ);
+	    ASSERT(sp+IFNAMSIZ+1 < sbuf+ifc.ifc_len+1)
+	    strncpy(sp, ifrp->ifr_name, IFNAMSIZ);
 	    sp[IFNAMSIZ] = '\0';
 	    sp += strlen(sp), ++sp;
 	}
-	
-	if (i >= ifc_len) break;
+
+	if (i >= ifc.ifc_len) break;
     }
-    FREE(buf);
+    free_ifconf(&ifc);
     *rbuf = sbuf;
     return sp - sbuf;
 }
 
-
+/* FIXME: temporary hack */
+#ifndef IFHWADDRLEN
+#define IFHWADDRLEN 6
+#endif
 
 static int inet_ctl_ifget(inet_descriptor* desc, char* buf, int len,
 			  char** rbuf, int rsize)
@@ -4143,11 +4236,11 @@ static int inet_ctl_ifget(inet_descriptor* desc, char* buf, int len,
     struct ifreq ifreq;
     int namlen;
 
-    if ((len == 0) || ((namlen = buf[0]) > len))
+    if ((len == 0) || ((namlen = get_int8(buf)) > len))
 	goto error;
     sys_memset(ifreq.ifr_name, '\0', IFNAMSIZ);
     sys_memcpy(ifreq.ifr_name, buf+1, 
-	       (namlen > IFNAMSIZ) ? IFNAMSIZ : namlen);
+	       (namlen >= IFNAMSIZ) ? IFNAMSIZ-1 : namlen);
     buf += (namlen+1);
     len -= (namlen+1);
     sptr = sbuf;
@@ -4167,11 +4260,52 @@ static int inet_ctl_ifget(inet_descriptor* desc, char* buf, int len,
 #ifdef SIOCGIFHWADDR
 	    if (ioctl(desc->s, SIOCGIFHWADDR, (char *)&ifreq) < 0)
 		break;
-	    buf_check(sptr, s_end, 1+IFHWADDRLEN);
+	    buf_check(sptr, s_end, 1+2+IFHWADDRLEN);
 	    *sptr++ = INET_IFOPT_HWADDR;
+	    put_int16(IFHWADDRLEN, sptr); sptr += 2;
 	    /* raw memcpy (fix include autoconf later) */
 	    sys_memcpy(sptr, (char*)(&ifreq.ifr_hwaddr.sa_data), IFHWADDRLEN);
 	    sptr += IFHWADDRLEN;
+#elif defined(SIOCGENADDR)
+	    if (ioctl(desc->s, SIOCGENADDR, (char *)&ifreq) < 0)
+		break;
+	    buf_check(sptr, s_end, 1+2+sizeof(ifreq.ifr_enaddr));
+	    *sptr++ = INET_IFOPT_HWADDR;
+	    put_int16(sizeof(ifreq.ifr_enaddr), sptr); sptr += 2;
+	    /* raw memcpy (fix include autoconf later) */
+	    sys_memcpy(sptr, (char*)(&ifreq.ifr_enaddr),
+		       sizeof(ifreq.ifr_enaddr));
+	    sptr += sizeof(ifreq.ifr_enaddr);
+#elif defined(HAVE_GETIFADDRS) && defined(AF_LINK)
+	    struct ifaddrs *ifa, *ifp;
+	    struct sockaddr_dl *sdlp;
+	    int found = 0;
+
+	    if (getifaddrs(&ifa) == -1)
+		goto error;
+
+	    for (ifp = ifa; ifp; ifp = ifp->ifa_next) {
+		if ((ifp->ifa_addr->sa_family == AF_LINK) &&
+		    (sys_strcmp(ifp->ifa_name, ifreq.ifr_name) == 0)) {
+		    found = 1;
+		    break;
+		}
+	    }
+
+	    if (found == 0) {
+		freeifaddrs(ifa);
+		break;
+	    }
+	    sdlp = (struct sockaddr_dl *)ifp->ifa_addr;
+
+	    buf_check(sptr, s_end, 1+2+sdlp->sdl_alen);
+	    *sptr++ = INET_IFOPT_HWADDR;
+	    put_int16(sdlp->sdl_alen, sptr); sptr += 2;
+	    sys_memcpy(sptr,
+		       sdlp->sdl_data + sdlp->sdl_nlen,
+		       sdlp->sdl_alen);
+	    freeifaddrs(ifa);
+	    sptr += sdlp->sdl_alen;
 #endif
 	    break;
 	}
@@ -4248,29 +4382,15 @@ static int inet_ctl_ifget(inet_descriptor* desc, char* buf, int len,
 
 	case INET_IFOPT_FLAGS: {
 	    int flags;
-	    int eflags = 0;
 
 	    if (ioctl(desc->s, SIOCGIFFLAGS, (char*)&ifreq) < 0)
 		flags = 0;
 	    else
 		flags = ifreq.ifr_flags;
-	    /* translate flags */
-	    if (flags & IFF_UP)
-		eflags |= INET_IFF_UP;
-	    if (flags & IFF_BROADCAST)
-		eflags |= INET_IFF_BROADCAST;
-	    if (flags & IFF_LOOPBACK)
-		eflags |= INET_IFF_LOOPBACK;	
-	    if (flags & IFF_POINTOPOINT)
-		eflags |= INET_IFF_POINTTOPOINT;
-	    if (flags & IFF_RUNNING)
-		eflags |= INET_IFF_RUNNING;
-	    if (flags & IFF_MULTICAST)
-		eflags |= INET_IFF_MULTICAST;
 
 	    buf_check(sptr, s_end, 5);
 	    *sptr++ = INET_IFOPT_FLAGS;
-	    put_int32(eflags, sptr);
+	    put_int32(IFGET_FLAGS(flags), sptr);
 	    sptr += 4;
 	    break;
 	}
@@ -4284,10 +4404,6 @@ static int inet_ctl_ifget(inet_descriptor* desc, char* buf, int len,
     return ctl_error(EINVAL, rbuf, rsize);
 }
 
-/* FIXME: temporary hack */
-#ifndef IFHWADDRLEN
-#define IFHWADDRLEN 6
-#endif
 
 static int inet_ctl_ifset(inet_descriptor* desc, char* buf, int len,
 			  char** rbuf, int rsize)
@@ -4296,11 +4412,11 @@ static int inet_ctl_ifset(inet_descriptor* desc, char* buf, int len,
     int namlen;
     char* b_end = buf + len;
 
-    if ((len == 0) || ((namlen = buf[0]) > len))
+    if ((len == 0) || ((namlen = get_int8(buf)) > len))
 	goto error;
     sys_memset(ifreq.ifr_name, '\0', IFNAMSIZ);
     sys_memcpy(ifreq.ifr_name, buf+1, 
-	       (namlen > IFNAMSIZ) ? IFNAMSIZ : namlen);
+	       (namlen >= IFNAMSIZ) ? IFNAMSIZ-1 : namlen);
     buf += (namlen+1);
     len -= (namlen+1);
 
@@ -4312,17 +4428,22 @@ static int inet_ctl_ifset(inet_descriptor* desc, char* buf, int len,
 	    (void) ioctl(desc->s, SIOCSIFADDR, (char*)&ifreq);
 	    break;
 
-	case INET_IFOPT_HWADDR: 
-	    buf_check(buf, b_end, IFHWADDRLEN);
+	case INET_IFOPT_HWADDR: {
+	    unsigned int len;
+	    buf_check(buf, b_end, 2);
+	    len = get_int16(buf); buf += 2;
+	    buf_check(buf, b_end, len);
 #ifdef SIOCSIFHWADDR
 	    /* raw memcpy (fix include autoconf later) */
-	    sys_memcpy((char*)(&ifreq.ifr_hwaddr.sa_data), buf, IFHWADDRLEN);
+	    sys_memset((char*)(&ifreq.ifr_hwaddr.sa_data),
+		       '\0', sizeof(ifreq.ifr_hwaddr.sa_data));
+	    sys_memcpy((char*)(&ifreq.ifr_hwaddr.sa_data), buf, len);
 
 	    (void) ioctl(desc->s, SIOCSIFHWADDR, (char *)&ifreq);
 #endif
-	    buf += IFHWADDRLEN;
+	    buf += len;
 	    break;
-
+	}
 
 	case INET_IFOPT_BROADADDR:
 #ifdef SIOCSIFBRDADDR
@@ -4427,6 +4548,559 @@ static int inet_ctl_ifset(inet_descriptor* desc, char* buf, int len,
 
 #endif
 
+
+
+#if defined(__WIN32__) || defined(HAVE_GETIFADDRS)
+/* Latin-1 to utf8 */
+
+static int utf8_len(const char *c, int m) {
+    int l;
+    for (l = 0;  m;  c++, l++, m--) {
+	if (*c == '\0') break;
+	if ((*c & 0x7f) != *c) l++;
+    }
+    return l;
+}
+
+static void utf8_encode(const char *c, int m, char *p) {
+    for (;  m;  c++, m--) {
+	if (*c == '\0') break;
+	if ((*c & 0x7f) != *c) {
+	    *p++ = (char) (0xC0 | (0x03 & (*c >> 6)));
+	    *p++ = (char) (0x80 | (0x3F & *c));
+	} else {
+	    *p++ = (char) *c;
+	}
+    }
+}
+#endif
+
+#if defined(__WIN32__)
+
+static void set_netmask_bytes(char *c, int len, int pref_len) {
+    int i, m;
+    for (i = 0, m = pref_len >> 3;  i < m && i < len;  i++) c[i] = '\xFF';
+    if (i < len) c[i++] = 0xFF << (8 - (pref_len & 7));
+    for (;  i < len;  i++) c[i] = '\0';
+}
+
+
+int eq_masked_bytes(char *a, char *b, int pref_len) {
+    int i, m;
+    for (i = 0, m = pref_len >> 3;  i < m;  i++) {
+	if (a[i] != b[i]) return 0;
+    }
+    m = pref_len & 7;
+    if (m) {
+	m = 0xFF & (0xFF << (8 - m));
+	if ((a[i] & m) != (b[i] & m)) return 0;
+    }
+    return !0;
+}
+
+static int inet_ctl_getifaddrs(inet_descriptor* desc_p,
+			       char **rbuf_pp, int rsize)
+{
+    int i;
+    DWORD ret, n;
+    IP_INTERFACE_INFO *info_p;
+    MIB_IPADDRTABLE *ip_addrs_p;
+    IP_ADAPTER_ADDRESSES *ip_adaddrs_p, *ia_p;
+
+    char *buf_p;
+    char *buf_alloc_p;
+    int buf_size =512;
+#   define BUF_ENSURE(Size)						\
+    do {								\
+	int NEED_, GOT_ = buf_p - buf_alloc_p;				\
+	NEED_ = GOT_ + (Size);						\
+	if (NEED_ > buf_size) {						\
+	    buf_size = NEED_ + 512;					\
+	    buf_alloc_p = REALLOC(buf_alloc_p, buf_size);		\
+	    buf_p = buf_alloc_p + GOT_;					\
+	}								\
+    } while(0)
+#   define SOCKADDR_TO_BUF(opt, sa)					\
+    do {								\
+	if (sa) {							\
+	    char *P_;							\
+	    *buf_p++ = (opt);						\
+	    while (! (P_ = sockaddr_to_buf((sa), buf_p,			\
+					   buf_alloc_p+buf_size))) {    \
+		int GOT_ = buf_p - buf_alloc_p;				\
+		buf_size += 512;					\
+		buf_alloc_p = REALLOC(buf_alloc_p, buf_size);		\
+		buf_p = buf_alloc_p + GOT_;				\
+	    }								\
+	    if (P_ == buf_p) {						\
+		buf_p--;						\
+	    } else {							\
+		buf_p = P_;						\
+	    }								\
+	}								\
+    } while (0)
+
+    {
+	/* Try GetAdaptersAddresses, if it is available */
+	unsigned long ip_adaddrs_size = 16 * 1024;
+	ULONG family = AF_UNSPEC;
+	ULONG flags =
+	    GAA_FLAG_INCLUDE_PREFIX | GAA_FLAG_SKIP_ANYCAST |
+	    GAA_FLAG_SKIP_DNS_SERVER | GAA_FLAG_SKIP_FRIENDLY_NAME |
+	    GAA_FLAG_SKIP_MULTICAST;
+	ULONG (WINAPI *fpGetAdaptersAddresses)
+	    (ULONG, ULONG, PVOID, PIP_ADAPTER_ADDRESSES, PULONG);
+	HMODULE iphlpapi = GetModuleHandle("iphlpapi");
+	fpGetAdaptersAddresses = (void *)
+	    (iphlpapi ?
+		GetProcAddress(iphlpapi, "GetAdaptersAddresses") :
+		NULL);
+	if (fpGetAdaptersAddresses) {
+	    ip_adaddrs_p = ALLOC(ip_adaddrs_size);
+	    for (i = 17;  i;  i--) {
+		ret = fpGetAdaptersAddresses(
+		    family, flags, NULL, ip_adaddrs_p, &ip_adaddrs_size);
+		ip_adaddrs_p = REALLOC(ip_adaddrs_p, ip_adaddrs_size);
+		if (ret == NO_ERROR) break;
+		if (ret == ERROR_BUFFER_OVERFLOW) continue;
+		i = 0;
+	    }
+	    if (! i) {
+		FREE(ip_adaddrs_p);
+		ip_adaddrs_p = NULL;
+	    }
+	} else ip_adaddrs_p = NULL;
+    }
+
+    {
+	/* Load the IP_INTERFACE_INFO table (only IPv4 interfaces),
+	 * reliable source of interface names on XP
+	 */
+	unsigned long info_size = 4 * 1024;
+	info_p = ALLOC(info_size);
+	for (i = 17;  i;  i--) {
+	    ret = GetInterfaceInfo(info_p, &info_size);
+	    info_p = REALLOC(info_p, info_size);
+	    if (ret == NO_ERROR) break;
+	    if (ret == ERROR_INSUFFICIENT_BUFFER) continue;
+	    i = 0;
+	}
+	if (! i) {
+	    FREE(info_p);
+	    info_p = NULL;
+	}
+    }
+
+    if (! ip_adaddrs_p) {
+	/* If GetAdaptersAddresses gave nothing we fall back to
+	 * MIB_IPADDRTABLE (only IPv4 interfaces)
+	 */
+	unsigned long ip_addrs_size = 16 * sizeof(*ip_addrs_p);
+	ip_addrs_p = ALLOC(ip_addrs_size);
+	for (i = 17;  i;  i--) {
+	    ret = GetIpAddrTable(ip_addrs_p, &ip_addrs_size, FALSE);
+	    ip_addrs_p = REALLOC(ip_addrs_p, ip_addrs_size);
+	    if (ret == NO_ERROR) break;
+	    if (ret == ERROR_INSUFFICIENT_BUFFER) continue;
+	    i = 0;
+	}
+	if (! i) {
+	    if (info_p) FREE(info_p);
+	    FREE(ip_addrs_p);
+	    return ctl_reply(INET_REP_OK, NULL, 0, rbuf_pp, rsize);
+	}
+    } else ip_addrs_p = NULL;
+
+    buf_p = buf_alloc_p = ALLOC(buf_size);
+    *buf_p++ = INET_REP_OK;
+
+    /* Iterate over MIB_IPADDRTABLE or IP_ADAPTER_ADDRESSES */
+    for (ia_p = NULL, ip_addrs_p ? ((void *)(i = 0)) : (ia_p = ip_adaddrs_p);
+	 ip_addrs_p ? (i < ip_addrs_p->dwNumEntries) : (ia_p != NULL);
+	 ip_addrs_p ? ((void *)(i++)) : (ia_p = ia_p->Next)) {
+	MIB_IPADDRROW *ipaddrrow_p = NULL;
+	DWORD flags = INET_IFF_MULTICAST;
+	DWORD index = 0;
+	WCHAR *wname_p = NULL;
+	MIB_IFROW ifrow;
+
+	if (ip_addrs_p) {
+	    ipaddrrow_p = ip_addrs_p->table + i;
+	    index = ipaddrrow_p->dwIndex;
+	} else {
+	    index = ia_p->IfIndex;
+	    if (ia_p->Flags & IP_ADAPTER_NO_MULTICAST) {
+		flags &= ~INET_IFF_MULTICAST;
+	    }
+	}
+index:
+	if (! index) goto done;
+	sys_memzero(&ifrow, sizeof(ifrow));
+	ifrow.dwIndex = index;
+	if (GetIfEntry(&ifrow) != NO_ERROR) break;
+	/* Find the interface name - first try MIB_IFROW.wzname */
+	if (ifrow.wszName[0] != 0) {
+	    wname_p = ifrow.wszName;
+	} else {
+	    /* Then try IP_ADAPTER_INDEX_MAP.Name (only IPv4 adapters) */
+	    int j;
+	    for (j = 0;  j < info_p->NumAdapters;  j++) {
+		if (info_p->Adapter[j].Index == (ULONG) ifrow.dwIndex) {
+		    if (info_p->Adapter[j].Name[0] != 0) {
+			wname_p = info_p->Adapter[j].Name;
+		    }
+		    break;
+		}
+	    }
+	}
+	if (wname_p) {
+	    int len;
+	    /* Convert interface name to UTF-8 */
+	    len =
+		WideCharToMultiByte(
+		    CP_UTF8, 0, wname_p, -1, NULL, 0, NULL, NULL);
+	    if (! len) break;
+	    BUF_ENSURE(len);
+	    WideCharToMultiByte(
+		CP_UTF8, 0, wname_p, -1, buf_p, len, NULL, NULL);
+	    buf_p += len;
+	} else {
+	    /* Found no name -
+	    * use "MIB_IFROW.dwIndex: MIB_IFROW.bDescr" as name instead */
+	    int l;
+	    l = utf8_len(ifrow.bDescr, ifrow.dwDescrLen);
+	    BUF_ENSURE(9 + l+1);
+	    buf_p +=
+		erts_sprintf(
+		    buf_p, "%lu: ", (unsigned long) ifrow.dwIndex);
+	    utf8_encode(ifrow.bDescr, ifrow.dwDescrLen, buf_p);
+	    buf_p += l;
+	    *buf_p++ = '\0';
+	}
+	/* Interface flags, often make up broadcast and multicast flags */
+	switch (ifrow.dwType) {
+	case IF_TYPE_ETHERNET_CSMACD:
+	    flags |= INET_IFF_BROADCAST;
+	    break;
+	case IF_TYPE_SOFTWARE_LOOPBACK:
+	    flags |= INET_IFF_LOOPBACK;
+	    flags &= ~INET_IFF_MULTICAST;
+	    break;
+	default:
+	    flags &= ~INET_IFF_MULTICAST;
+	    break;
+	}
+	if (ifrow.dwAdminStatus) {
+	    flags |= INET_IFF_UP;
+	    switch (ifrow.dwOperStatus) {
+	    case IF_OPER_STATUS_CONNECTING:
+		flags |= INET_IFF_POINTTOPOINT;
+		break;
+	    case IF_OPER_STATUS_CONNECTED:
+		flags |= INET_IFF_RUNNING | INET_IFF_POINTTOPOINT;
+		break;
+	    case IF_OPER_STATUS_OPERATIONAL:
+		flags |= INET_IFF_RUNNING;
+		break;
+	    }
+	}
+	BUF_ENSURE(1 + 4);
+	*buf_p++ = INET_IFOPT_FLAGS;
+	put_int32(flags, buf_p); buf_p += 4;
+	if (ipaddrrow_p) {
+	    /* Legacy implementation through GetIpAddrTable */
+	    struct sockaddr_in sin;
+	    /* IP Address */
+	    sys_memzero(&sin, sizeof(sin));
+	    sin.sin_family = AF_INET;
+	    sin.sin_addr.s_addr = ipaddrrow_p->dwAddr;
+	    BUF_ENSURE(1);
+	    /* Netmask */
+	    SOCKADDR_TO_BUF(INET_IFOPT_ADDR, (struct sockaddr *) &sin);
+	    sin.sin_addr.s_addr = ipaddrrow_p->dwMask;
+	    BUF_ENSURE(1);
+	    SOCKADDR_TO_BUF(INET_IFOPT_NETMASK, (struct sockaddr *) &sin);
+	    if (flags & INET_IFF_BROADCAST) {
+		/* Broadcast address - fake it*/
+		sin.sin_addr.s_addr = ipaddrrow_p->dwAddr;
+		sin.sin_addr.s_addr |= ~ipaddrrow_p->dwMask;
+		BUF_ENSURE(1);
+		SOCKADDR_TO_BUF(
+		    INET_IFOPT_BROADADDR, (struct sockaddr *) &sin);
+	    }
+	} else {
+	    IP_ADAPTER_UNICAST_ADDRESS *p;
+	    /* IP Address(es) */
+	    for (p = ia_p->FirstUnicastAddress;
+		p;
+		p = p->Next)
+	    {
+		IP_ADAPTER_PREFIX *q;
+		ULONG shortest_length;
+		struct sockaddr *shortest_p, *sa_p = p->Address.lpSockaddr;
+		BUF_ENSURE(1);
+		SOCKADDR_TO_BUF(INET_IFOPT_ADDR, sa_p);
+		shortest_p = NULL;
+		shortest_length = 0;
+		for (q = ia_p->FirstPrefix;
+		     q;
+		     q = q->Next) {
+		    struct sockaddr *sp_p = q->Address.lpSockaddr;
+		    if (sa_p->sa_family != sp_p->sa_family) continue;
+		    switch (sa_p->sa_family) {
+		    case AF_INET: {
+			struct sockaddr_in sin;
+			DWORD sa, sp, mask;
+			sa = ntohl((DWORD)
+				   ((struct sockaddr_in *)
+				    sa_p)->sin_addr.s_addr);
+			sp = ntohl((DWORD)
+				   ((struct sockaddr_in *)
+				    sp_p)->sin_addr.s_addr);
+			mask = 0xFFFFFFFF << (32 - q->PrefixLength);
+			if ((sa & mask) != (sp & mask)) continue;
+			if ((! shortest_p)
+			    || q->PrefixLength < shortest_length) {
+			    shortest_p = sp_p;
+			    shortest_length = q->PrefixLength;
+			}
+		    }   break;
+		    case AF_INET6: {
+			struct sockaddr_in6 sin6;
+			if (!eq_masked_bytes((char *)
+					     &((struct sockaddr_in6 *)
+					       sa_p)->sin6_addr,
+					     (char *)
+					     &((struct sockaddr_in6 *)
+					       sp_p)->sin6_addr,
+					     q->PrefixLength)) {
+			    continue;
+			}
+			if ((! shortest_p)
+			    || q->PrefixLength < shortest_length) {
+			    shortest_p = sp_p;
+			    shortest_length = q->PrefixLength;
+			}
+		    }   break;
+		    }
+		}
+		if (! shortest_p) {
+		    /* Found no shortest prefix */
+		    shortest_p = sa_p;
+		    switch (shortest_p->sa_family) {
+		    case AF_INET: {
+			/* Fall back to old classfull network addresses */
+			DWORD addr = ntohl(((struct sockaddr_in *)shortest_p)
+					   ->sin_addr.s_addr);
+			if (! (addr & 0x800000)) {
+			    /* Class A */
+			    shortest_length = 8;
+			} else if (! (addr & 0x400000)) {
+			    /* Class B */
+			    shortest_length = 16;
+			} else if (! (addr & 0x200000)) {
+			    /* Class C */
+			    shortest_length = 24;
+			} else {
+			    shortest_length = 32;
+			}
+		    }   break;
+		    case AF_INET6: {
+			/* Just play it safe */
+			shortest_length = 128;
+		    }   break;
+		    }
+		}
+		switch (shortest_p->sa_family) {
+		case AF_INET: {
+		    struct sockaddr_in sin;
+		    DWORD mask = 0xFFFFFFFF << (32 - shortest_length);
+		    sys_memzero(&sin, sizeof(sin));
+		    sin.sin_family = shortest_p->sa_family;
+		    sin.sin_addr.s_addr = htonl(mask);
+		    BUF_ENSURE(1);
+		    SOCKADDR_TO_BUF(INET_IFOPT_NETMASK,
+				    (struct sockaddr *) &sin);
+		    if (flags & INET_IFF_BROADCAST) {
+			DWORD sp =
+			    ntohl((DWORD)
+				  ((struct sockaddr_in *)shortest_p)
+				  -> sin_addr.s_addr);
+			sin.sin_addr.s_addr = htonl(sp | ~mask);
+			BUF_ENSURE(1);
+			SOCKADDR_TO_BUF(INET_IFOPT_BROADADDR,
+					(struct sockaddr *) &sin);
+		    }
+		}   break;
+		case AF_INET6: {
+		    struct sockaddr_in6 sin6;
+		    sys_memzero(&sin6, sizeof(sin6));
+		    sin6.sin6_family = shortest_p->sa_family;
+		    set_netmask_bytes((char *) &sin6.sin6_addr,
+				      16,
+				      shortest_length);
+		    BUF_ENSURE(1);
+		    SOCKADDR_TO_BUF(INET_IFOPT_NETMASK,
+				    (struct sockaddr *) &sin6);
+		}   break;
+		}
+	    }
+	}
+	if (ifrow.dwPhysAddrLen) {
+	    /* Hardware Address */
+	    BUF_ENSURE(1 + 2 + ifrow.dwPhysAddrLen);
+	    *buf_p++ = INET_IFOPT_HWADDR;
+	    put_int16(ifrow.dwPhysAddrLen, buf_p); buf_p += 2;
+	    sys_memcpy(buf_p, ifrow.bPhysAddr, ifrow.dwPhysAddrLen);
+	    buf_p += ifrow.dwPhysAddrLen;
+	}
+
+done:
+	/* That is all for this interface */
+	BUF_ENSURE(1);
+	*buf_p++ = '\0';
+	if (ia_p &&
+	    ia_p->Ipv6IfIndex &&
+	    ia_p->Ipv6IfIndex != index)
+	{
+	    /* Oops, there was an other interface for IPv6. Possible? XXX */
+	    index = ia_p->Ipv6IfIndex;
+	    goto index;
+	}
+    }
+
+    if (ip_adaddrs_p) FREE(ip_adaddrs_p);
+    if (info_p) FREE(info_p);
+    if (ip_addrs_p) FREE(ip_addrs_p);
+
+    buf_size = buf_p - buf_alloc_p;
+    buf_alloc_p = REALLOC(buf_alloc_p, buf_size);
+    /* buf_p is now unreliable */
+    *rbuf_pp = buf_alloc_p;
+    return buf_size;
+#   undef BUF_ENSURE
+}
+
+#elif defined(HAVE_GETIFADDRS)
+
+static int inet_ctl_getifaddrs(inet_descriptor* desc_p,
+			       char **rbuf_pp, int rsize)
+{
+    struct ifaddrs *ifa_p, *ifa_free_p;
+
+    int buf_size;
+    char *buf_p;
+    char *buf_alloc_p;
+
+    buf_size = 512;
+    buf_alloc_p = ALLOC(buf_size);
+    buf_p = buf_alloc_p;
+#   define BUF_ENSURE(Size)						\
+    do {								\
+	int NEED_, GOT_ = buf_p - buf_alloc_p;				\
+	NEED_ = GOT_ + (Size);						\
+	if (NEED_ > buf_size) {						\
+	    buf_size = NEED_ + 512;					\
+	    buf_alloc_p = REALLOC(buf_alloc_p, buf_size);		\
+	    buf_p = buf_alloc_p + GOT_;					\
+	}								\
+    } while (0)
+#   define SOCKADDR_TO_BUF(opt, sa)				        \
+    do {    						                \
+	if (sa) {                                                       \
+	    char *P_;							\
+	    *buf_p++ = (opt);						\
+	    while (! (P_ = sockaddr_to_buf((sa), buf_p,			\
+					   buf_alloc_p+buf_size))) {	\
+		int GOT_ = buf_p - buf_alloc_p;				\
+		buf_size += 512;					\
+		buf_alloc_p = REALLOC(buf_alloc_p, buf_size);		\
+		buf_p = buf_alloc_p + GOT_;				\
+	    }								\
+	    if (P_ == buf_p) {						\
+		buf_p--;						\
+	    } else {							\
+		buf_p = P_;						\
+	    }								\
+	}                                                               \
+    } while (0)
+
+    if (getifaddrs(&ifa_p) < 0) {
+	return ctl_error(sock_errno(), rbuf_pp, rsize);
+    }
+    ifa_free_p = ifa_p;
+    *buf_p++ = INET_REP_OK;
+    for (;  ifa_p;  ifa_p = ifa_p->ifa_next) {
+	int len = utf8_len(ifa_p->ifa_name, -1);
+	BUF_ENSURE(len+1 + 1+4 + 1);
+	utf8_encode(ifa_p->ifa_name, -1, buf_p);
+	buf_p += len;
+	*buf_p++ = '\0';
+	*buf_p++ = INET_IFOPT_FLAGS;
+	put_int32(IFGET_FLAGS(ifa_p->ifa_flags), buf_p); buf_p += 4;
+	if (ifa_p->ifa_addr) {
+	    if (ifa_p->ifa_addr->sa_family == AF_INET
+#if defined(AF_INET6)
+		|| ifa_p->ifa_addr->sa_family == AF_INET6
+#endif
+		) {
+		SOCKADDR_TO_BUF(INET_IFOPT_ADDR, ifa_p->ifa_addr);
+		if (ifa_p->ifa_netmask) {
+		    BUF_ENSURE(1);
+		    SOCKADDR_TO_BUF(INET_IFOPT_NETMASK, ifa_p->ifa_netmask);
+		}
+		if (ifa_p->ifa_dstaddr &&
+		    (ifa_p->ifa_flags & IFF_POINTOPOINT)) {
+		    BUF_ENSURE(1);
+		    SOCKADDR_TO_BUF(INET_IFOPT_DSTADDR, ifa_p->ifa_dstaddr);
+		} else if (ifa_p->ifa_broadaddr &&
+			   (ifa_p->ifa_flags & IFF_BROADCAST)) {
+		    BUF_ENSURE(1);
+		    SOCKADDR_TO_BUF(INET_IFOPT_BROADADDR, ifa_p->ifa_broadaddr);
+		}
+	    }
+#if defined(AF_LINK) || defined(AF_PACKET)
+	    else if (
+#if defined(AF_LINK)
+		     ifa_p->ifa_addr->sa_family == AF_LINK
+#else
+		     0
+#endif
+#if defined(AF_PACKET)
+		     || ifa_p->ifa_addr->sa_family == AF_PACKET
+#endif
+		     ) {
+		char *bp = buf_p;
+		BUF_ENSURE(1);
+		SOCKADDR_TO_BUF(INET_IFOPT_HWADDR, ifa_p->ifa_addr);
+		if (buf_p - bp < 4) buf_p = bp; /* Empty hwaddr */
+	    }
+#endif
+	}
+	BUF_ENSURE(1);
+	*buf_p++ = '\0';
+    }
+    buf_size = buf_p - buf_alloc_p;
+    buf_alloc_p = REALLOC(buf_alloc_p, buf_size);
+    /* buf_p is now unreliable */
+    freeifaddrs(ifa_free_p);
+    *rbuf_pp = buf_alloc_p;
+    return buf_size;
+#   undef BUF_ENSURE
+}
+
+#else
+
+static int inet_ctl_getifaddrs(inet_descriptor* desc_p,
+			       char **rbuf_pp, int rsize)
+{
+    return ctl_error(ENOTSUP, rbuf_pp, rsize);
+}
+
+#endif
+
+
+
 #ifdef VXWORKS
 /*
 ** THIS is a terrible creature, a bug in the TCP part
@@ -4469,9 +5143,17 @@ static STATUS wrap_sockopt(STATUS (*function)() /* Yep, no parameter
 }
 #endif
 
+/* Per H @ Tail-f: The original code here had problems that possibly
+   only occur if you abuse it for non-INET sockets, but anyway:
+   a) If the getsockopt for SO_PRIORITY or IP_TOS failed, the actual
+      requested setsockopt was never even attempted.
+   b) If {get,set}sockopt for one of IP_TOS and SO_PRIORITY failed,
+      but ditto for the other worked and that was actually the requested
+      option, failure was still reported to erlang.                  */
+
 #if  defined(IP_TOS) && defined(SOL_IP) && defined(SO_PRIORITY)
 static int setopt_prio_tos_trick
-	   (int fd, int proto, int type, char* arg_ptr, int arg_sz)
+	(int fd, int proto, int type, char* arg_ptr, int arg_sz, int propagate)
 {
     /* The relations between SO_PRIORITY, TOS and other options
        is not what you (or at least I) would expect...:
@@ -4484,6 +5166,8 @@ static int setopt_prio_tos_trick
     int          tmp_ival_prio;
     int          tmp_ival_tos;
     int          res;
+    int          res_prio;
+    int          res_tos;
 #ifdef HAVE_SOCKLEN_T
 	    socklen_t
 #else
@@ -4492,28 +5176,35 @@ static int setopt_prio_tos_trick
 		tmp_arg_sz_prio = sizeof(tmp_ival_prio),
 		tmp_arg_sz_tos  = sizeof(tmp_ival_tos);
 
-    res = sock_getopt(fd, SOL_SOCKET, SO_PRIORITY,
+    res_prio = sock_getopt(fd, SOL_SOCKET, SO_PRIORITY,
 		      (char *) &tmp_ival_prio, &tmp_arg_sz_prio);
-    if (res == 0) {
-	res = sock_getopt(fd, SOL_IP, IP_TOS, 
+    res_tos = sock_getopt(fd, SOL_IP, IP_TOS, 
 		      (char *) &tmp_ival_tos, &tmp_arg_sz_tos);
-	if (res == 0) {
 	    res = sock_setopt(fd, proto, type, arg_ptr, arg_sz);
 	    if (res == 0) {
 		if (type != SO_PRIORITY) {
-		    if (type != IP_TOS) {
-			res = sock_setopt(fd, 
+	    if (type != IP_TOS && res_tos == 0) {
+		res_tos = sock_setopt(fd, 
 					  SOL_IP, 
 					  IP_TOS,
 					  (char *) &tmp_ival_tos, 
 					  tmp_arg_sz_tos);
+		if (propagate)
+		    res = res_tos;
 		    }
-		    if (res == 0) {
-			res =  sock_setopt(fd, 
+	    if (res == 0 && res_prio == 0) {
+		res_prio = sock_setopt(fd, 
 					   SOL_SOCKET, 
 					   SO_PRIORITY,
 					   (char *) &tmp_ival_prio, 
 					   tmp_arg_sz_prio);
+		if (propagate) {		
+		    /* Some kernels set a SO_PRIORITY by default that you are not permitted to reset,
+		       silently ignore this error condition */
+		    if (res_prio != 0 && sock_errno() == EPERM) {
+			res = 0;
+		    } else {
+			res = res_prio;
 		    }
 		}
 	    }
@@ -4588,8 +5279,7 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 	case INET_LOPT_BUFFER:
 	    DEBUGF(("inet_set_opts(%ld): s=%d, BUFFER=%d\r\n",
 		    (long)desc->port, desc->s, ival));
-	    if (ival > INET_MAX_BUFFER)  ival = INET_MAX_BUFFER;
-	    else if (ival < INET_MIN_BUFFER) ival = INET_MIN_BUFFER;
+	    if (ival < INET_MIN_BUFFER) ival = INET_MIN_BUFFER;
 	    desc->bufsz = ival;
 	    continue;
 
@@ -4654,7 +5344,6 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    if (desc->stype == SOCK_STREAM) {
 		tcp_descriptor* tdesc = (tcp_descriptor*) desc;
 		if (ival < 0) ival = 0;
-		else if (ival > INET_MAX_BUFFER*2) ival = INET_MAX_BUFFER*2;
 		if (tdesc->low > ival)
 		    tdesc->low = ival;
 		tdesc->high = ival;
@@ -4665,7 +5354,6 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    if (desc->stype == SOCK_STREAM) {
 		tcp_descriptor* tdesc = (tcp_descriptor*) desc;
 		if (ival < 0) ival = 0;
-		else if (ival > INET_MAX_BUFFER) ival = INET_MAX_BUFFER;
 		if (tdesc->high < ival)
 		    tdesc->high = ival;
 		tdesc->low = ival;
@@ -4862,7 +5550,7 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    return -1;
 	}
 #if  defined(IP_TOS) && defined(SOL_IP) && defined(SO_PRIORITY)
-	res = setopt_prio_tos_trick (desc->s, proto, type, arg_ptr, arg_sz);
+	res = setopt_prio_tos_trick (desc->s, proto, type, arg_ptr, arg_sz, propagate);
 #else
 	res = sock_setopt	    (desc->s, proto, type, arg_ptr, arg_sz);
 #endif
@@ -5011,9 +5699,6 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	case INET_LOPT_BUFFER:
 	    desc->bufsz  = get_int32(curr);		curr += 4;
 
-            if (desc->bufsz > INET_MAX_BUFFER)
-		desc->bufsz = INET_MAX_BUFFER;
-            else
 	    if (desc->bufsz < INET_MIN_BUFFER)
 		desc->bufsz = INET_MIN_BUFFER;
 	    res = 0;	  /* This does not affect the kernel buffer size */
@@ -5076,8 +5761,8 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	}
 	case INET_OPT_LINGER:
 	{
-	    CHKLEN(curr, ASSOC_ID_LEN + 2 + 4);
-	    arg.lin.l_onoff  = get_int16 (curr);  curr += 2;
+	    CHKLEN(curr, 2*4);
+	    arg.lin.l_onoff  = get_int32 (curr);  curr += 4;
 	    arg.lin.l_linger = get_int32 (curr);  curr += 4;
 
 	    proto   = SOL_SOCKET;
@@ -5254,8 +5939,11 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    char *after;
 #	    ifdef HAVE_STRUCT_SCTP_PADDRPARAMS_SPP_FLAGS
 	    int eflags, cflags, hb_enable, hb_disable,
-		pmtud_enable, pmtud_disable,
+		pmtud_enable, pmtud_disable;
+#	    ifdef HAVE_STRUCT_SCTP_PADDRPARAMS_SPP_SACKDELAY
+	    int
 		sackdelay_enable, sackdelay_disable;
+#           endif
 #           endif
 	    
 	    CHKLEN(curr, ASSOC_ID_LEN);
@@ -5305,12 +5993,15 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    if (pmtud_enable)			cflags |= SPP_PMTUD_ENABLE;
 	    if (pmtud_disable)			cflags |= SPP_PMTUD_DISABLE;
 
+#	    ifdef HAVE_STRUCT_SCTP_PADDRPARAMS_SPP_SACKDELAY
+	    /* The followings are missing in FreeBSD 7.1 */
 	    sackdelay_enable =eflags& SCTP_FLAG_SACDELAY_ENABLE;
 	    sackdelay_disable=eflags& SCTP_FLAG_SACDELAY_DISABLE;
 	    if (sackdelay_enable && sackdelay_disable)
 		return -1;
 	    if (sackdelay_enable)		cflags |= SPP_SACKDELAY_ENABLE;
 	    if (sackdelay_disable)		cflags |= SPP_SACKDELAY_DISABLE;
+#           endif
 
 	    arg.pap.spp_flags  = cflags;
 #	    endif
@@ -5389,7 +6080,7 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    return -1;
 	}
 #if  defined(IP_TOS) && defined(SOL_IP) && defined(SO_PRIORITY)
-	res = setopt_prio_tos_trick (desc->s, proto, type, arg_ptr, arg_sz);
+	res = setopt_prio_tos_trick (desc->s, proto, type, arg_ptr, arg_sz, 1);
 #else
 	res = sock_setopt	    (desc->s, proto, type, arg_ptr, arg_sz);
 #endif
@@ -5448,7 +6139,7 @@ static int inet_fill_opts(inet_descriptor* desc,
 #define PLACE_FOR(Size,Ptr)						   \
     do {								   \
 	int need = dest_used + (Size);					   \
-	if (need > INET_MAX_BUFFER) {					   \
+	if (need > INET_MAX_OPT_BUFFER) {				   \
 	    RETURN_ERROR();						   \
 	}								   \
 	if (need > dest_allocated) {					   \
@@ -5672,7 +6363,7 @@ static int inet_fill_opts(inet_descriptor* desc,
 		buf += 4;
 		data_provided = (int) *buf++;
 		arg_sz = get_int32(buf);
-		if (arg_sz > INET_MAX_BUFFER) {	
+		if (arg_sz > INET_MAX_OPT_BUFFER) {
 		    RETURN_ERROR();
 		}
 		buf += 4;
@@ -5687,8 +6378,8 @@ static int inet_fill_opts(inet_descriptor* desc,
 		    buf += arg_sz;
 		    len -= arg_sz;
 		}
-		if (sock_getopt(desc->s,proto,type,arg_ptr,&arg_sz) == 
-		    SOCKET_ERROR) {
+		if (IS_SOCKET_ERROR(sock_getopt(desc->s,proto,type,
+						arg_ptr,&arg_sz))) {
 		    TRUNCATE_TO(0,ptr); 
 		    continue;
 		}
@@ -5705,7 +6396,7 @@ static int inet_fill_opts(inet_descriptor* desc,
 	    RETURN_ERROR();
 	}
 	/* We have 5 bytes allocated to ptr */
-	if (sock_getopt(desc->s,proto,type,arg_ptr,&arg_sz) == SOCKET_ERROR) {
+	if (IS_SOCKET_ERROR(sock_getopt(desc->s,proto,type,arg_ptr,&arg_sz))) {
 	    TRUNCATE_TO(0,ptr);
 	    continue;
 	}
@@ -5786,7 +6477,7 @@ static int sctp_fill_opts(inet_descriptor* desc, char* buf, int buflen,
 		     "miscalculated buffer size");              \
 	}                                                       \
 	need = (Index) + (N);                                   \
-	if (need > INET_MAX_BUFFER/sizeof(ErlDrvTermData)) {    \
+	if (need > INET_MAX_OPT_BUFFER/sizeof(ErlDrvTermData)) {\
 	    RETURN_ERROR((Spec), -ENOMEM);                      \
 	}                                                       \
 	if (need > spec_allocated) {                            \
@@ -5941,7 +6632,7 @@ static int sctp_fill_opts(inet_descriptor* desc, char* buf, int buflen,
 	    struct linger lg;
 	    unsigned int  sz = sizeof(lg);
 	    
-	    if (sock_getopt(desc->s, IPPROTO_SCTP, SO_LINGER,
+	    if (sock_getopt(desc->s, SOL_SOCKET, SO_LINGER,
 			    &lg, &sz) < 0) continue;
 	    /* Fill in the response: */
 	    PLACE_FOR(spec, i, 
@@ -5977,7 +6668,7 @@ static int sctp_fill_opts(inet_descriptor* desc, char* buf, int buflen,
 	    {
 	    case INET_OPT_RCVBUF   :
 	    {
-		proto  = IPPROTO_SCTP;
+		proto  = SOL_SOCKET;
 		type   = SO_RCVBUF;
 		is_int = 1;
 		tag    = am_recbuf;
@@ -5985,7 +6676,7 @@ static int sctp_fill_opts(inet_descriptor* desc, char* buf, int buflen,
 	    }
 	    case INET_OPT_SNDBUF   :
 	    {
-		proto  = IPPROTO_SCTP;
+		proto  = SOL_SOCKET;
 		type   = SO_SNDBUF;
 		is_int = 1;
 		tag    = am_sndbuf;
@@ -6138,7 +6829,7 @@ static int sctp_fill_opts(inet_descriptor* desc, char* buf, int buflen,
 		      2*LOAD_ATOM_CNT + LOAD_INT_CNT + 2*LOAD_TUPLE_CNT);
 	    i = LOAD_ATOM	(spec, i, am_sctp_adaptation_layer);
 	    i = LOAD_ATOM	(spec, i, am_sctp_setadaptation);
-	    i = LOAD_INT	(spec, i, ad.ssb_adaptation_ind);
+	    i = LOAD_INT	(spec, i, sock_ntohl(ad.ssb_adaptation_ind));
 	    i = LOAD_TUPLE	(spec, i, 2);
 	    i = LOAD_TUPLE	(spec, i, 2);
 	    break;
@@ -6211,12 +6902,14 @@ static int sctp_fill_opts(inet_descriptor* desc, char* buf, int buflen,
 	    
 	    if (ap.spp_flags & SPP_PMTUD_DISABLE)
 		{ i = LOAD_ATOM (spec, i, am_pmtud_disable);         n++; }
-	    
+#	    ifdef HAVE_STRUCT_SCTP_PADDRPARAMS_SPP_SACKDELAY
+	    /* SPP_SACKDELAY_* not in FreeBSD 7.1 */
 	    if (ap.spp_flags & SPP_SACKDELAY_ENABLE)
 		{ i = LOAD_ATOM (spec, i, am_sackdelay_enable);      n++; }
 	    
 	    if (ap.spp_flags & SPP_SACKDELAY_DISABLE)
 		{ i = LOAD_ATOM (spec, i, am_sackdelay_disable);     n++; }
+#	    endif
 #	    endif
 	    
 	    PLACE_FOR(spec, i,
@@ -6237,6 +6930,10 @@ static int sctp_fill_opts(inet_descriptor* desc, char* buf, int buflen,
 	    struct       sctp_sndrcvinfo sri;
 	    unsigned int sz  = sizeof(sri);
 	    
+	    if (buflen < ASSOC_ID_LEN) RETURN_ERROR(spec, -EINVAL);
+	    sri.sinfo_assoc_id = GET_ASSOC_ID(buf);
+	    buf += ASSOC_ID_LEN;
+	    buflen -= ASSOC_ID_LEN;
 	    if (sock_getopt(desc->s, IPPROTO_SCTP, SCTP_DEFAULT_SEND_PARAM,
 			    &sri, &sz) < 0) continue;
 	    /* Fill in the response: */
@@ -6275,7 +6972,7 @@ static int sctp_fill_opts(inet_descriptor* desc, char* buf, int buflen,
 	    break;
 	}
 	/* The following option is not available in Solaris 10: */
-#	ifdef SCTP_DELAYED_ACK_TIME
+#	if HAVE_DECL_SCTP_DELAYED_ACK_TIME
 	case SCTP_OPT_DELAYED_ACK_TIME:
 	{
 	    struct       sctp_assoc_value av;
@@ -6322,7 +7019,7 @@ static int sctp_fill_opts(inet_descriptor* desc, char* buf, int buflen,
 	    switch(st.sstat_state)
 	    {
             /*  SCTP_EMPTY is not supported on SOLARIS10: */
-#	    ifdef SCTP_EMPTY
+#	    if HAVE_DECL_SCTP_EMPTY
 	    case SCTP_EMPTY:
 		i = LOAD_ATOM	(spec, i, am_empty);
 		break;
@@ -6330,14 +7027,16 @@ static int sctp_fill_opts(inet_descriptor* desc, char* buf, int buflen,
 	    case SCTP_CLOSED:
 		i = LOAD_ATOM   (spec, i, am_closed);
 		break;
-	    /* The following states are not supported by Linux Kernel SCTP yet:
+#           if HAVE_DECL_SCTP_BOUND
 	    case SCTP_BOUND:
 		i = LOAD_ATOM	(spec, i, am_bound);
 		break;
+#           endif
+#           if HAVE_DECL_SCTP_LISTEN
 	    case SCTP_LISTEN:
 		i = LOAD_ATOM	(spec, i, am_listen);
 		break;
-	    */
+#           endif
 	    case SCTP_COOKIE_WAIT:
 		i = LOAD_ATOM	(spec, i, am_cookie_wait);
 		break;
@@ -6408,7 +7107,7 @@ static int sctp_fill_opts(inet_descriptor* desc, char* buf, int buflen,
 	default:
 	    RETURN_ERROR(spec, -EINVAL); /* No more valid options */
 	}
-	/* If we get here one result has been succesfully loaded */
+	/* If we get here one result has been successfully loaded */
 	length ++;
     }
     if (buflen != 0) RETURN_ERROR(spec, -EINVAL); /* Optparam mismatch */
@@ -6425,11 +7124,10 @@ static int sctp_fill_opts(inet_descriptor* desc, char* buf, int buflen,
     i = LOAD_TUPLE(spec, i, 3);
 
     /* Now, convert "spec" into the returnable term: */
-    /* desc->caller = 0;	  What does it mean? */
-    driver_output_term(desc->port, spec, i);
+    driver_send_term(desc->port, driver_caller(desc->port), spec, i);
     FREE(spec);
 
-    (*dest)[0] = INET_REP_SCTP;
+    (*dest)[0] = INET_REP;
     return 1;   /* Response length */
 #   undef PLACE_FOR
 #   undef RETURN_ERROR
@@ -6633,7 +7331,7 @@ static int inet_ctl(inet_descriptor* desc, int cmd, char* buf, int len,
 	      }
 	  }
 	  DEBUGF(("inet_ctl(%ld): GETSTAT\r\n", (long) desc->port)); 
-	  if (dstlen > INET_MAX_BUFFER) /* sanity check */
+	  if (dstlen > INET_MAX_OPT_BUFFER) /* sanity check */
 	      return 0;
 	  if (dstlen > rsize) {
 	      if ((dst = (char*) ALLOC(dstlen)) == NULL)
@@ -6649,7 +7347,7 @@ static int inet_ctl(inet_descriptor* desc, int cmd, char* buf, int len,
 	  char* dst;
 	  int dstlen = 1 /* Reply code */ + len*5;
 	  DEBUGF(("inet_ctl(%ld): INET_REQ_SUBSCRIBE\r\n", (long) desc->port)); 
-	  if (dstlen > INET_MAX_BUFFER) /* sanity check */
+	  if (dstlen > INET_MAX_OPT_BUFFER) /* sanity check */
 	      return 0;
 	  if (dstlen > rsize) {
 	      if ((dst = (char*) ALLOC(dstlen)) == NULL)
@@ -6682,6 +7380,13 @@ static int inet_ctl(inet_descriptor* desc, int cmd, char* buf, int len,
 	if (!IS_OPEN(desc))
 	    return ctl_xerror(EXBADPORT, rbuf, rsize);
 	return inet_ctl_getiflist(desc, rbuf, rsize);
+    }
+
+    case INET_REQ_GETIFADDRS: {
+	DEBUGF(("inet_ctl(%ld): GETIFADDRS\r\n", (long)desc->port));
+	if (!IS_OPEN(desc))
+	    return ctl_xerror(EXBADPORT, rbuf, rsize);
+	return inet_ctl_getifaddrs(desc, rbuf, rsize);
     }
 
     case INET_REQ_IFGET: {
@@ -6771,7 +7476,7 @@ static int inet_ctl(inet_descriptor* desc, int cmd, char* buf, int len,
 	if (len != 0)
 	    return ctl_error(EINVAL, rbuf, rsize);
 
-	if (sock_hostname(tbuf, MAXHOSTNAMELEN) == SOCKET_ERROR)
+	if (IS_SOCKET_ERROR(sock_hostname(tbuf, MAXHOSTNAMELEN)))
 	    return ctl_error(sock_errno(), rbuf, rsize);
 	return ctl_reply(INET_REP_OK, tbuf, strlen(tbuf), rbuf, rsize);
     }
@@ -6788,7 +7493,7 @@ static int inet_ctl(inet_descriptor* desc, int cmd, char* buf, int len,
 	    return ctl_error(ENOTCONN, rbuf, rsize);
 	if ((ptr = desc->peer_ptr) == NULL) {
 	    ptr = &peer;
-	    if (sock_peer(desc->s, (struct sockaddr*)ptr,&sz) == SOCKET_ERROR)
+	    if (IS_SOCKET_ERROR(sock_peer(desc->s, (struct sockaddr*)ptr,&sz)))
 		return ctl_error(sock_errno(), rbuf, rsize);
 	}
 	if (inet_get_address(desc->sfamily, tbuf, ptr, &sz) < 0)
@@ -6825,7 +7530,7 @@ static int inet_ctl(inet_descriptor* desc, int cmd, char* buf, int len,
 
 	if ((ptr = desc->name_ptr) == NULL) {
 	    ptr = &name;
-	    if (sock_name(desc->s, (struct sockaddr*)ptr, &sz) == SOCKET_ERROR)
+	    if (IS_SOCKET_ERROR(sock_name(desc->s, (struct sockaddr*)ptr, &sz)))
 		return ctl_error(sock_errno(), rbuf, rsize);
 	}
 	if (inet_get_address(desc->sfamily, tbuf, ptr, &sz) < 0)
@@ -6864,7 +7569,7 @@ static int inet_ctl(inet_descriptor* desc, int cmd, char* buf, int len,
 	if (inet_set_address(desc->sfamily, &local, buf, &len) == NULL)
 	    return ctl_error(EINVAL, rbuf, rsize);
 
-	if (sock_bind(desc->s,(struct sockaddr*) &local, len) == SOCKET_ERROR)
+	if (IS_SOCKET_ERROR(sock_bind(desc->s,(struct sockaddr*) &local, len)))
 	    return ctl_error(sock_errno(), rbuf, rsize);
 
 	desc->state = INET_STATE_BOUND;
@@ -6891,13 +7596,13 @@ static int inet_ctl(inet_descriptor* desc, int cmd, char* buf, int len,
 
 	if (len < 2)
 	    return ctl_error(EINVAL, rbuf, rsize);
-	n = buf[0]; buf++; len--;
+	n = get_int8(buf); buf++; len--;
 	if (n >= len) /* the = sign makes the test inklude next length byte */
 	    return ctl_error(EINVAL, rbuf, rsize);
 	memcpy(namebuf, buf, n);
 	namebuf[n] = '\0';
 	len -= n; buf += n;
-	n = buf[0]; buf++; len--;
+	n = get_int8(buf); buf++; len--;
 	if (n > len)
 	    return ctl_error(EINVAL, rbuf, rsize);
 	memcpy(protobuf, buf, n);
@@ -6920,7 +7625,7 @@ static int inet_ctl(inet_descriptor* desc, int cmd, char* buf, int len,
 	port = get_int16(buf);
 	port = sock_htons(port);
 	buf += 2;
-	n = buf[0]; buf++; len -= 3;
+	n = get_int8(buf); buf++; len -= 3;
 	if (n > len)
 	    return ctl_error(EINVAL, rbuf, rsize);
 	memcpy(protobuf, buf, n);
@@ -7197,22 +7902,22 @@ static tcp_descriptor* tcp_inet_copy(tcp_descriptor* desc,SOCKET s,
 static void tcp_close_check(tcp_descriptor* desc)
 {
     /* XXX:PaN - multiple clients to handle! */
-    if (desc->inet.state == TCP_STATE_ACCEPTING) {
+    if (desc->inet.state == INET_STATE_ACCEPTING) {
 	inet_async_op *this_op = desc->inet.opt;
 	sock_select(INETP(desc), FD_ACCEPT, 0);
-	desc->inet.state = TCP_STATE_LISTEN;
+	desc->inet.state = INET_STATE_LISTENING;
 	if (this_op != NULL) {
 	    driver_demonitor_process(desc->inet.port, &(this_op->monitor));
 	}
 	async_error_am(INETP(desc), am_closed);
     } 
-    else if (desc->inet.state == TCP_STATE_MULTI_ACCEPTING) {
+    else if (desc->inet.state == INET_STATE_MULTI_ACCEPTING) {
 	int id,req;
 	ErlDrvTermData caller;
 	ErlDrvMonitor monitor;
 
 	sock_select(INETP(desc), FD_ACCEPT, 0);
-	desc->inet.state = TCP_STATE_LISTEN;
+	desc->inet.state = INET_STATE_LISTENING;
 	while (deq_multi_op(desc,&id,&req,&caller,NULL,&monitor) == 0) {
 	    driver_demonitor_process(desc->inet.port, &monitor);
 	    send_async_error(desc->inet.port, desc->inet.dport, id, caller, am_closed);
@@ -7220,10 +7925,10 @@ static void tcp_close_check(tcp_descriptor* desc)
 	clean_multi_timers(&(desc->mtd), desc->inet.port);
     }
 
-    else if (desc->inet.state == TCP_STATE_CONNECTING) {
+    else if (desc->inet.state == INET_STATE_CONNECTING) {
 	async_error_am(INETP(desc), am_closed);
     }
-    else if (desc->inet.state == TCP_STATE_CONNECTED) {
+    else if (desc->inet.state == INET_STATE_CONNECTED) {
 	async_error_am_all(INETP(desc), am_closed);
     }
 }
@@ -7255,40 +7960,62 @@ static int tcp_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 {
     tcp_descriptor* desc = (tcp_descriptor*)e;
     switch(cmd) {
-    case INET_REQ_OPEN:   /* open socket and return internal index */
+    case INET_REQ_OPEN: { /* open socket and return internal index */
+	int domain;
 	DEBUGF(("tcp_inet_ctl(%ld): OPEN\r\n", (long)desc->inet.port));
-	if ((len == 1) && (buf[0] == INET_AF_INET))
-	    return
-		inet_ctl_open(INETP(desc), AF_INET, SOCK_STREAM, rbuf, rsize);
+	if (len != 2) return ctl_error(EINVAL, rbuf, rsize);
+	switch(buf[0]) {
+	case INET_AF_INET:
+	    domain = AF_INET;
+	    break;
 #if defined(HAVE_IN6) && defined(AF_INET6)
-        else if ((len == 1) && (buf[0] == INET_AF_INET6))
-	    return
-		inet_ctl_open(INETP(desc), AF_INET6, SOCK_STREAM, rbuf, rsize);
+	case INET_AF_INET6:
+	    domain = AF_INET6;
+	    break;
 #else
-	else if ((len == 1) && (buf[0] == INET_AF_INET6))
-	    return ctl_xerror("eafnosupport",rbuf,rsize);
+	case INET_AF_INET6:
+	    return ctl_xerror("eafnosupport", rbuf, rsize);
+	    break;
 #endif
-	else
+	default:
 	    return ctl_error(EINVAL, rbuf, rsize);
+	}
+	if (buf[1] != INET_TYPE_STREAM) return ctl_error(EINVAL, rbuf, rsize);
+	return inet_ctl_open(INETP(desc), domain, SOCK_STREAM, rbuf, rsize);
+	break;
+    }
 
-    case INET_REQ_FDOPEN:   /* pass in an open socket */
-	DEBUGF(("tcp_inet_ctl(%ld): FDOPEN\r\n", (long)desc->inet.port)); 
-	if ((len == 5) && (buf[0] == INET_AF_INET))
-	    return inet_ctl_fdopen(INETP(desc), AF_INET, SOCK_STREAM,
-				   (SOCKET) get_int32(buf+1), rbuf, rsize);
+    case INET_REQ_FDOPEN: {  /* pass in an open socket */
+	int domain;
+	DEBUGF(("tcp_inet_ctl(%ld): FDOPEN\r\n", (long)desc->inet.port));
+	if (len != 6) return ctl_error(EINVAL, rbuf, rsize);
+	switch(buf[0]) {
+	case INET_AF_INET:
+	    domain = AF_INET;
+	    break;
 #if defined(HAVE_IN6) && defined(AF_INET6)
-        else if ((len == 5) && (buf[0] == INET_AF_INET6))
-	    return inet_ctl_fdopen(INETP(desc), AF_INET6, SOCK_STREAM,
-				   (SOCKET) get_int32(buf+1), rbuf, rsize);
+	case INET_AF_INET6:
+	    domain = AF_INET6;
+	    break;
+#else
+	case INET_AF_INET6:
+	    return ctl_xerror("eafnosupport", rbuf, rsize);
+	    break;
 #endif
-	else
+	default:
 	    return ctl_error(EINVAL, rbuf, rsize);
+	}
+	if (buf[1] != INET_TYPE_STREAM) return ctl_error(EINVAL, rbuf, rsize);
+	return inet_ctl_fdopen(INETP(desc), domain, SOCK_STREAM,
+			       (SOCKET) get_int32(buf+2), rbuf, rsize);
+	break;
+    }
 
-    case TCP_REQ_LISTEN: { /* argument backlog */
+    case INET_REQ_LISTEN: { /* argument backlog */
 
 	int backlog;
 	DEBUGF(("tcp_inet_ctl(%ld): LISTEN\r\n", (long)desc->inet.port)); 
-	if (desc->inet.state == TCP_STATE_CLOSED)
+	if (desc->inet.state == INET_STATE_CLOSED)
 	    return ctl_xerror(EXBADPORT, rbuf, rsize);
 	if (!IS_OPEN(INETP(desc)))
 	    return ctl_xerror(EXBADPORT, rbuf, rsize);
@@ -7297,9 +8024,9 @@ static int tcp_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 	if (len != 2)
 	    return ctl_error(EINVAL, rbuf, rsize);
 	backlog = get_int16(buf);
-	if (sock_listen(desc->inet.s, backlog) == SOCKET_ERROR)
+	if (IS_SOCKET_ERROR(sock_listen(desc->inet.s, backlog)))
 	    return ctl_error(sock_errno(), rbuf, rsize);
-	desc->inet.state = TCP_STATE_LISTEN;
+	desc->inet.state = INET_STATE_LISTENING;
 	return ctl_reply(INET_REP_OK, NULL, 0, rbuf, rsize);
     }
 
@@ -7331,17 +8058,17 @@ static int tcp_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 	
 	code = sock_connect(desc->inet.s, 
 			    (struct sockaddr*) &desc->inet.remote, len);
-	if ((code == SOCKET_ERROR) && 
+	if (IS_SOCKET_ERROR(code) &&
 		((sock_errno() == ERRNO_BLOCK) ||  /* Winsock2 */
 		 (sock_errno() == EINPROGRESS))) {	/* Unix & OSE!! */
           sock_select(INETP(desc), FD_CONNECT, 1);
-	    desc->inet.state = TCP_STATE_CONNECTING;
+	    desc->inet.state = INET_STATE_CONNECTING;
 	    if (timeout != INET_INFINITY)
 		driver_set_timer(desc->inet.port, timeout);
 	    enq_async(INETP(desc), tbuf, INET_REQ_CONNECT);
 	}
 	else if (code == 0) { /* ok we are connected */
-	    desc->inet.state = TCP_STATE_CONNECTED;
+	    desc->inet.state = INET_STATE_CONNECTED;
 	    if (desc->inet.active)
 		sock_select(INETP(desc), (FD_READ|FD_CLOSE), 1);
 	    enq_async(INETP(desc), tbuf, INET_REQ_CONNECT);
@@ -7353,7 +8080,7 @@ static int tcp_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 	return ctl_reply(INET_REP_OK, tbuf, 2, rbuf, rsize);
     }
 
-    case TCP_REQ_ACCEPT: {  /* do async accept */
+    case INET_REQ_ACCEPT: {  /* do async accept */
 	char tbuf[2];
 	unsigned timeout;
 	inet_address remote;
@@ -7363,19 +8090,19 @@ static int tcp_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 	DEBUGF(("tcp_inet_ctl(%ld): ACCEPT\r\n", (long)desc->inet.port)); 
 	/* INPUT: Timeout(4) */
 
-	if ((desc->inet.state != TCP_STATE_LISTEN && desc->inet.state != TCP_STATE_ACCEPTING &&
-	     desc->inet.state != TCP_STATE_MULTI_ACCEPTING) || len != 4) {
+	if ((desc->inet.state != INET_STATE_LISTENING && desc->inet.state != INET_STATE_ACCEPTING &&
+	     desc->inet.state != INET_STATE_MULTI_ACCEPTING) || len != 4) {
 	    return ctl_error(EINVAL, rbuf, rsize);
 	}
 
 	timeout = get_int32(buf);
 
-	if (desc->inet.state == TCP_STATE_ACCEPTING) {
-	    unsigned long time_left;
-	    int oid;
-	    ErlDrvTermData ocaller;
-	    int oreq;
-	    unsigned otimeout;
+	if (desc->inet.state == INET_STATE_ACCEPTING) {
+	    unsigned long time_left = 0;
+	    int oid = 0;
+	    ErlDrvTermData ocaller = ERL_DRV_NIL;
+	    int oreq = 0;
+	    unsigned otimeout = 0;
 	    ErlDrvTermData caller = driver_caller(desc->inet.port);
 	    MultiTimerData *mtd = NULL,*omtd = NULL;
 	    ErlDrvMonitor monitor, omonitor;
@@ -7399,10 +8126,10 @@ static int tcp_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 		mtd = add_multi_timer(&(desc->mtd), desc->inet.port, caller, 
 				      timeout, &tcp_inet_multi_timeout);
 	    }
-	    enq_multi_op(desc, tbuf, TCP_REQ_ACCEPT, caller, mtd, &monitor);
-	    desc->inet.state = TCP_STATE_MULTI_ACCEPTING;
+	    enq_multi_op(desc, tbuf, INET_REQ_ACCEPT, caller, mtd, &monitor);
+	    desc->inet.state = INET_STATE_MULTI_ACCEPTING;
 	    return ctl_reply(INET_REP_OK, tbuf, 2, rbuf, rsize);
-	} else if (desc->inet.state == TCP_STATE_MULTI_ACCEPTING) {
+	} else if (desc->inet.state == INET_STATE_MULTI_ACCEPTING) {
 	    ErlDrvTermData caller = driver_caller(desc->inet.port);
 	    MultiTimerData *mtd = NULL;
 	    ErlDrvMonitor monitor;
@@ -7414,7 +8141,7 @@ static int tcp_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 		mtd = add_multi_timer(&(desc->mtd), desc->inet.port, caller, 
 				      timeout, &tcp_inet_multi_timeout);
 	    }
-	    enq_multi_op(desc, tbuf, TCP_REQ_ACCEPT, caller, mtd, &monitor);
+	    enq_multi_op(desc, tbuf, INET_REQ_ACCEPT, caller, mtd, &monitor);
 	    return ctl_reply(INET_REP_OK, tbuf, 2, rbuf, rsize);
  	} else {
 	    n = sizeof(desc->inet.remote);
@@ -7426,8 +8153,8 @@ static int tcp_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 					       &monitor) != 0) { 
 			return ctl_xerror("noproc", rbuf, rsize);
 		    }
-		    enq_async_w_tmo(INETP(desc), tbuf, TCP_REQ_ACCEPT, timeout, &monitor);
-		    desc->inet.state = TCP_STATE_ACCEPTING;
+		    enq_async_w_tmo(INETP(desc), tbuf, INET_REQ_ACCEPT, timeout, &monitor);
+		    desc->inet.state = INET_STATE_ACCEPTING;
 		    sock_select(INETP(desc),FD_ACCEPT,1);
 		    if (timeout != INET_INFINITY) {
 			driver_set_timer(desc->inet.port, timeout);
@@ -7454,8 +8181,8 @@ static int tcp_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 		driver_select(accept_desc->inet.port, accept_desc->inet.event, 
 			      ERL_DRV_READ, 1);
 #endif
-		accept_desc->inet.state = TCP_STATE_CONNECTED;
-		enq_async(INETP(desc), tbuf, TCP_REQ_ACCEPT);
+		accept_desc->inet.state = INET_STATE_CONNECTED;
+		enq_async(INETP(desc), tbuf, INET_REQ_ACCEPT);
 		async_ok_port(INETP(desc), accept_desc->inet.dport);
 	    }
 	    return ctl_reply(INET_REP_OK, tbuf, 2, rbuf, rsize);
@@ -7518,7 +8245,6 @@ static int tcp_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 	    tcp_deliver(desc, 0);
 	return ctl_reply(INET_REP_OK, NULL, 0, rbuf, rsize);
     }
-#ifndef _OSE_
     case TCP_REQ_SHUTDOWN: {
 	int how;
 	DEBUGF(("tcp_inet_ctl(%ld): FDOPEN\r\n", (long)desc->inet.port)); 
@@ -7535,7 +8261,6 @@ static int tcp_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 	    return ctl_error(sock_errno(), rbuf, rsize);
 	}
     }
-#endif
     default:
 	DEBUGF(("tcp_inet_ctl(%ld): %u\r\n", (long)desc->inet.port, cmd)); 
 	return inet_ctl(INETP(desc), cmd, buf, len, rbuf, rsize);
@@ -7563,7 +8288,7 @@ static void tcp_inet_timeout(ErlDrvData e)
 	    (long)desc->inet.port, desc->inet.s)); 
     if ((state & INET_F_MULTI_CLIENT)) { /* Multi-client always means multi-timers */
 	fire_multi_timers(&(desc->mtd), desc->inet.port, e);
-    } else if ((state & TCP_STATE_CONNECTED) == TCP_STATE_CONNECTED) {
+    } else if ((state & INET_STATE_CONNECTED) == INET_STATE_CONNECTED) {
 	if (desc->busy_on_send) {
 	    ASSERT(IS_BUSY(INETP(desc)));
 	    desc->inet.caller = desc->inet.busy_caller;
@@ -7583,20 +8308,20 @@ static void tcp_inet_timeout(ErlDrvData e)
 	    async_error_am(INETP(desc), am_timeout);
 	}
     }
-    else if ((state & TCP_STATE_CONNECTING) == TCP_STATE_CONNECTING) {
+    else if ((state & INET_STATE_CONNECTING) == INET_STATE_CONNECTING) {
 	/* assume connect timeout */
 	/* close the socket since it's not usable (see man pages) */
 	erl_inet_close(INETP(desc));
 	async_error_am(INETP(desc), am_timeout);
     }
-    else if ((state & TCP_STATE_ACCEPTING) == TCP_STATE_ACCEPTING) {
+    else if ((state & INET_STATE_ACCEPTING) == INET_STATE_ACCEPTING) {
 	inet_async_op *this_op = desc->inet.opt;
 	/* timer is set on accept */
 	sock_select(INETP(desc), FD_ACCEPT, 0);
 	if (this_op != NULL) {
 	    driver_demonitor_process(desc->inet.port, &(this_op->monitor));
 	}
-	desc->inet.state = TCP_STATE_LISTEN;
+	desc->inet.state = INET_STATE_LISTENING;
 	async_error_am(INETP(desc), am_timeout);
     }
     DEBUGF(("tcp_inet_timeout(%ld) }\r\n", (long)desc->inet.port)); 
@@ -7614,7 +8339,7 @@ static void tcp_inet_multi_timeout(ErlDrvData e, ErlDrvTermData caller)
     driver_demonitor_process(desc->inet.port, &monitor);
     if (desc->multi_first == NULL) {
 	sock_select(INETP(desc),FD_ACCEPT,0);
-	desc->inet.state = TCP_STATE_LISTEN; /* restore state */
+	desc->inet.state = INET_STATE_LISTENING; /* restore state */
     }
     send_async_error(desc->inet.port, desc->inet.dport, id, caller, am_timeout);
 }
@@ -7680,7 +8405,7 @@ static void tcp_inet_process_exit(ErlDrvData e, ErlDrvMonitor *monitorp)
     ErlDrvTermData who = driver_get_monitored_process(desc->inet.port,monitorp);
     int state = desc->inet.state;
 
-    if ((state & TCP_STATE_MULTI_ACCEPTING) == TCP_STATE_MULTI_ACCEPTING) {
+    if ((state & INET_STATE_MULTI_ACCEPTING) == INET_STATE_MULTI_ACCEPTING) {
 	int id,req;
 	MultiTimerData *timeout;
 	if (remove_multi_op(desc, &id, &req, who, &timeout, NULL) != 0) {
@@ -7691,15 +8416,15 @@ static void tcp_inet_process_exit(ErlDrvData e, ErlDrvMonitor *monitorp)
 	}
 	if (desc->multi_first == NULL) {
 	    sock_select(INETP(desc),FD_ACCEPT,0);
-	    desc->inet.state = TCP_STATE_LISTEN; /* restore state */
+	    desc->inet.state = INET_STATE_LISTENING; /* restore state */
 	}
-    } else if ((state & TCP_STATE_ACCEPTING) == TCP_STATE_ACCEPTING) {
+    } else if ((state & INET_STATE_ACCEPTING) == INET_STATE_ACCEPTING) {
 	int did,drid; 
 	ErlDrvTermData dcaller;
 	deq_async(INETP(desc), &did, &dcaller, &drid);
 	driver_cancel_timer(desc->inet.port);
 	sock_select(INETP(desc),FD_ACCEPT,0);
-	desc->inet.state = TCP_STATE_LISTEN; /* restore state */
+	desc->inet.state = INET_STATE_LISTENING; /* restore state */
     }
 } 
 
@@ -7889,32 +8614,29 @@ static int tcp_deliver(tcp_descriptor* desc, int len)
     }
 
     while (len > 0) {
-	int code = 0;
+	int code;
 
 	inet_input_count(INETP(desc), len);
 
 	/* deliver binary? */
 	if (len*4 >= desc->i_buf->orig_size*3) { /* >=75% */
+	    code = tcp_reply_binary_data(desc, desc->i_buf,
+					 (desc->i_ptr_start -
+					  desc->i_buf->orig_bytes),
+					 len);
+	    if (code < 0)
+		return code;
+
 	    /* something after? */
 	    if (desc->i_ptr_start + len == desc->i_ptr) { /* no */
-		code = tcp_reply_binary_data(desc, desc->i_buf,
-					     (desc->i_ptr_start -
-					      desc->i_buf->orig_bytes),
-					     len);
 		tcp_clear_input(desc);
 	    }
 	    else { /* move trail to beginning of a new buffer */
-		ErlDrvBinary* bin;
+		ErlDrvBinary* bin = alloc_buffer(desc->i_bufsz);
 		char* ptr_end = desc->i_ptr_start + len;
 		int sz = desc->i_ptr - ptr_end;
 
-		bin = alloc_buffer(desc->i_bufsz);
 		memcpy(bin->orig_bytes, ptr_end, sz);
-
-		code = tcp_reply_binary_data(desc, desc->i_buf,
-					     (desc->i_ptr_start-
-					      desc->i_buf->orig_bytes),
-					     len);
 		free_buffer(desc->i_buf);
 		desc->i_buf = bin;
 		desc->i_ptr_start = desc->i_buf->orig_bytes;
@@ -7926,22 +8648,22 @@ static int tcp_deliver(tcp_descriptor* desc, int len)
 	    code = tcp_reply_data(desc, desc->i_ptr_start, len);
 	    /* XXX The buffer gets thrown away on error  (code < 0)    */
 	    /* Windows needs workaround for this in tcp_inet_event...  */
+	    if (code < 0)
+		return code;
 	    desc->i_ptr_start += len;
 	    if (desc->i_ptr_start == desc->i_ptr)
 		tcp_clear_input(desc);
 	    else
 		desc->i_remain = 0;
-
 	}
-
-	if (code < 0)
-	    return code;
 
 	count++;
 	len = 0;
 
 	if (!desc->inet.active) {
-	    driver_cancel_timer(desc->inet.port);
+	    if (!desc->busy_on_send) {
+		driver_cancel_timer(desc->inet.port);
+	    }
 	    sock_select(INETP(desc),(FD_READ|FD_CLOSE),0);
 	    if (desc->i_buf != NULL)
 		tcp_restart_input(desc);
@@ -8009,7 +8731,7 @@ static int tcp_recv(tcp_descriptor* desc, int request_len)
 
     n = sock_recv(desc->inet.s, desc->i_ptr, nread, 0);
 
-    if (n == SOCKET_ERROR) {
+    if (IS_SOCKET_ERROR(n)) {
 	int err = sock_errno();
 	if (err == ECONNRESET) {
 	    DEBUGF((" => detected close (connreset)\r\n"));
@@ -8239,8 +8961,8 @@ static void tcp_inet_event(ErlDrvData e, ErlDrvEvent event)
 
 
 /* socket has input:
-** 1. TCP_STATE_ACCEPTING  => non block accept ? 
-** 2. TCP_STATE_CONNECTED => read input
+** 1. INET_STATE_ACCEPTING  => non block accept ?
+** 2. INET_STATE_CONNECTED => read input
 */
 static int tcp_inet_input(tcp_descriptor* desc, HANDLE event)
 {
@@ -8249,7 +8971,7 @@ static int tcp_inet_input(tcp_descriptor* desc, HANDLE event)
     long port = (long) desc->inet.port;  /* Used after driver_exit() */
 #endif
     DEBUGF(("tcp_inet_input(%ld) {s=%d\r\n", port, desc->inet.s));
-    if (desc->inet.state == TCP_STATE_ACCEPTING) {
+    if (desc->inet.state == INET_STATE_ACCEPTING) {
 	SOCKET s;
 	unsigned int len;
 	inet_address remote;
@@ -8264,7 +8986,7 @@ static int tcp_inet_input(tcp_descriptor* desc, HANDLE event)
 	}
 
 	sock_select(INETP(desc),FD_ACCEPT,0);
-	desc->inet.state = TCP_STATE_LISTEN; /* restore state */
+	desc->inet.state = INET_STATE_LISTENING; /* restore state */
 
 	if (this_op != NULL) {
 	    driver_demonitor_process(desc->inet.port, &(this_op->monitor));
@@ -8304,11 +9026,11 @@ static int tcp_inet_input(tcp_descriptor* desc, HANDLE event)
 	    driver_select(accept_desc->inet.port, accept_desc->inet.event, 
 			  ERL_DRV_READ, 1);
 #endif
-	    accept_desc->inet.state = TCP_STATE_CONNECTED;
+	    accept_desc->inet.state = INET_STATE_CONNECTED;
 	    ret =  async_ok_port(INETP(desc), accept_desc->inet.dport);
 	    goto done;
 	}
-    } else if (desc->inet.state == TCP_STATE_MULTI_ACCEPTING) {
+    } else if (desc->inet.state == INET_STATE_MULTI_ACCEPTING) {
 	SOCKET s;
 	unsigned int len;
 	inet_address remote;
@@ -8320,7 +9042,7 @@ static int tcp_inet_input(tcp_descriptor* desc, HANDLE event)
 	int times = 0;
 #endif
 
-	while (desc->inet.state == TCP_STATE_MULTI_ACCEPTING) {
+	while (desc->inet.state == INET_STATE_MULTI_ACCEPTING) {
 	    len = sizeof(desc->inet.remote);
 	    s = sock_accept(desc->inet.s, (struct sockaddr*) &remote, &len);
 	    
@@ -8340,7 +9062,7 @@ static int tcp_inet_input(tcp_descriptor* desc, HANDLE event)
 	    
 	    if (desc->multi_first == NULL) {
 		sock_select(INETP(desc),FD_ACCEPT,0);
-		desc->inet.state = TCP_STATE_LISTEN; /* restore state */
+		desc->inet.state = INET_STATE_LISTENING; /* restore state */
 	    }
 	    
 	    if (timeout != NULL) {
@@ -8371,7 +9093,7 @@ static int tcp_inet_input(tcp_descriptor* desc, HANDLE event)
 		driver_select(accept_desc->inet.port, accept_desc->inet.event, 
 			      ERL_DRV_READ, 1);
 #endif
-		accept_desc->inet.state = TCP_STATE_CONNECTED;
+		accept_desc->inet.state = INET_STATE_CONNECTED;
 		ret =  send_async_ok_port(desc->inet.port, desc->inet.dport, 
 					  id, caller, accept_desc->inet.dport);
 	    }
@@ -8511,8 +9233,8 @@ static int tcp_sendv(tcp_descriptor* desc, ErlIOVec* ev)
 		(long)desc->inet.port, desc->inet.s, h_len, len));
 	if (desc->tcp_add_flags & TCP_ADDF_DELAY_SEND) {
 	    n = 0;
-	} else if (sock_sendv(desc->inet.s, ev->iov, vsize, &n, 0) 
-		   == SOCKET_ERROR) {
+	} else if (IS_SOCKET_ERROR(sock_sendv(desc->inet.s, ev->iov,
+					      vsize, &n, 0))) {
 	    if ((sock_errno() != ERRNO_BLOCK) && (sock_errno() != EINTR)) {
 		int err = sock_errno();
 		DEBUGF(("tcp_sendv(%ld): s=%d, "
@@ -8605,7 +9327,7 @@ static int tcp_send(tcp_descriptor* desc, char* ptr, int len)
 	if (desc->tcp_add_flags & TCP_ADDF_DELAY_SEND) {
 	    sock_send(desc->inet.s, buf, 0, 0);
 	    n = 0;
-	} else 	if (sock_sendv(desc->inet.s,iov,2,&n,0) == SOCKET_ERROR) {
+	} else 	if (IS_SOCKET_ERROR(sock_sendv(desc->inet.s,iov,2,&n,0))) {
 	    if ((sock_errno() != ERRNO_BLOCK) && (sock_errno() != EINTR)) {
 		int err = sock_errno();
 		DEBUGF(("tcp_send(%ld): s=%d,sock_sendv(size=2) errno = %d\r\n",
@@ -8649,8 +9371,8 @@ static void tcp_inet_drv_input(ErlDrvData data, ErlDrvEvent event)
 }
 
 /* socket ready for ouput:
-** 1. TCP_STATE_CONNECTING => non block connect ?
-** 2. TCP_STATE_CONNECTED  => write output
+** 1. INET_STATE_CONNECTING => non block connect ?
+** 2. INET_STATE_CONNECTED  => write output
 */
 static int tcp_inet_output(tcp_descriptor* desc, HANDLE event)
 {
@@ -8659,7 +9381,7 @@ static int tcp_inet_output(tcp_descriptor* desc, HANDLE event)
 
     DEBUGF(("tcp_inet_output(%ld) {s=%d\r\n", 
 	    (long)desc->inet.port, desc->inet.s));
-    if (desc->inet.state == TCP_STATE_CONNECTING) {
+    if (desc->inet.state == INET_STATE_CONNECTING) {
 	sock_select(INETP(desc),FD_CONNECT,0);
 
 	driver_cancel_timer(ix);  /* posssibly cancel a timer */
@@ -8678,8 +9400,8 @@ static int tcp_inet_output(tcp_descriptor* desc, HANDLE event)
 	    int code = sock_peer(desc->inet.s,
 				 (struct sockaddr*) &desc->inet.remote, &sz);
 
-	    if (code == SOCKET_ERROR) {
-		desc->inet.state = TCP_STATE_BOUND;  /* restore state */
+	    if (IS_SOCKET_ERROR(code)) {
+		desc->inet.state = INET_STATE_BOUND;  /* restore state */
 		ret =  async_error(INETP(desc), sock_errno());
 		goto done;
 	    }
@@ -8692,15 +9414,15 @@ static int tcp_inet_output(tcp_descriptor* desc, HANDLE event)
 				   (void *)&error, &sz);
 
 	    if ((code < 0) || error) {
-		desc->inet.state = TCP_STATE_BOUND;  /* restore state */
+		desc->inet.state = INET_STATE_BOUND;  /* restore state */
 		ret = async_error(INETP(desc), error);
 		goto done;
 	    }
 	}
-#endif /* SOCKOPT_CONNECT_STAT */
+#endif /* SO_ERROR */
 #endif /* !__WIN32__ */
 
-	desc->inet.state = TCP_STATE_CONNECTED;
+	desc->inet.state = INET_STATE_CONNECTED;
 	if (desc->inet.active)
 	    sock_select(INETP(desc),(FD_READ|FD_CLOSE),1);
 	async_ok(INETP(desc));
@@ -8719,7 +9441,7 @@ static int tcp_inet_output(tcp_descriptor* desc, HANDLE event)
 	    vsize = vsize > MAX_VSIZE ? MAX_VSIZE : vsize;
 	    DEBUGF(("tcp_inet_output(%ld): s=%d, About to send %d items\r\n", 
 		    (long)desc->inet.port, desc->inet.s, vsize));
-	    if (sock_sendv(desc->inet.s, iov, vsize, &n, 0)==SOCKET_ERROR) {
+	    if (IS_SOCKET_ERROR(sock_sendv(desc->inet.s, iov, vsize, &n, 0))) {
 		if ((sock_errno() != ERRNO_BLOCK) && (sock_errno() != EINTR)) {
 		    DEBUGF(("tcp_inet_output(%ld): sock_sendv(%d) errno = %d\r\n",
 			    (long)desc->inet.port, vsize, sock_errno()));
@@ -8800,6 +9522,59 @@ static int should_use_so_bsdcompat(void)
 #endif	/* __linux__ */
 #endif	/* HAVE_SO_BSDCOMPAT */
 
+
+
+#ifdef HAVE_SCTP
+/* Copy a descriptor, by creating a new port with same settings
+ * as the descriptor desc.
+ * return NULL on error (ENFILE no ports avail)
+ */
+static udp_descriptor* sctp_inet_copy(udp_descriptor* desc, SOCKET s, int* err)
+{
+    ErlDrvPort port = desc->inet.port;
+    udp_descriptor* copy_desc;
+
+    copy_desc = (udp_descriptor*) sctp_inet_start(port, NULL);
+
+    /* Setup event if needed */
+    if ((copy_desc->inet.s = s) != INVALID_SOCKET) {
+	if ((copy_desc->inet.event = sock_create_event(INETP(copy_desc))) ==
+	    INVALID_EVENT) {
+	    *err = sock_errno();
+	    FREE(copy_desc);
+	    return NULL;
+	}
+    }
+
+    /* Some flags must be inherited at this point */
+    copy_desc->inet.mode     = desc->inet.mode;
+    copy_desc->inet.exitf    = desc->inet.exitf;
+    copy_desc->inet.bit8f    = desc->inet.bit8f;
+    copy_desc->inet.deliver  = desc->inet.deliver;
+    copy_desc->inet.htype    = desc->inet.htype;
+    copy_desc->inet.psize    = desc->inet.psize;
+    copy_desc->inet.stype    = desc->inet.stype;
+    copy_desc->inet.sfamily  = desc->inet.sfamily;
+    copy_desc->inet.hsz      = desc->inet.hsz;
+    copy_desc->inet.bufsz    = desc->inet.bufsz;
+
+    /* The new port will be linked and connected to the caller */
+    port = driver_create_port(port, desc->inet.caller, "sctp_inet",
+			      (ErlDrvData) copy_desc);
+    if ((long)port == -1) {
+	*err = ENFILE;
+	FREE(copy_desc);
+	return NULL;
+    }
+    copy_desc->inet.port = port;
+    copy_desc->inet.dport = driver_mk_port(port);
+    *err = 0;
+    return copy_desc;
+}
+#endif
+
+
+
 static int packet_inet_init()
 {
     return 0;
@@ -8818,6 +9593,9 @@ static ErlDrvData packet_inet_start(ErlDrvPort port, char* args, int protocol)
 	return ERL_DRV_ERROR_ERRNO;
 
     desc->read_packets = INET_PACKET_POLL;
+    desc->i_bufsz = 0;
+    desc->i_buf = NULL;
+    desc->i_ptr = NULL;
     return drvd;
 }
 
@@ -8842,6 +9620,10 @@ static void packet_inet_stop(ErlDrvData e)
     */
     udp_descriptor * udesc = (udp_descriptor*) e;
     inet_descriptor* descr = INETP(udesc);
+    if (udesc->i_buf != NULL) {
+	release_buffer(udesc->i_buf);
+	udesc->i_buf = NULL;
+    }
 
     ASSERT(NO_SUBSCRIBERS(&(descr->empty_out_q_subs)));
     inet_stop(descr);
@@ -8866,21 +9648,31 @@ static int packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
     udp_descriptor * udesc = (udp_descriptor *) e;
     inet_descriptor* desc  = INETP(udesc);
     int type = SOCK_DGRAM;
-    int af;
-#ifdef HAVE_SCTP
-    if (IS_SCTP(desc)) type = SOCK_SEQPACKET;
-#endif
+    int af = AF_INET;
 
     switch(cmd) {
     case INET_REQ_OPEN:   /* open socket and return internal index */
 	DEBUGF(("packet_inet_ctl(%ld): OPEN\r\n", (long)desc->port)); 
-	if (len != 1) {
+	if (len != 2) {
 	    return ctl_error(EINVAL, rbuf, rsize);
 	}
 	switch (buf[0]) {
 	case INET_AF_INET:  af = AF_INET; break;
 #if defined(HAVE_IN6) && defined(AF_INET6)
-	case INET_AF_INET6: af = AF_INET6; break; 
+	case INET_AF_INET6: af = AF_INET6; break;
+#else
+	case INET_AF_INET6:
+	    return ctl_xerror("eafnosupport", rbuf, rsize);
+	    break;
+#endif
+	default:
+	    return ctl_error(EINVAL, rbuf, rsize);
+	}
+	switch (buf[1]) {
+	case INET_TYPE_STREAM: type = SOCK_STREAM; break;
+	case INET_TYPE_DGRAM: type = SOCK_DGRAM; break;
+#ifdef HAVE_SCTP
+	case INET_TYPE_SEQPACKET: type = SOCK_SEQPACKET; break;
 #endif
 	default:
 	    return ctl_error(EINVAL, rbuf, rsize);
@@ -8907,18 +9699,35 @@ static int packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 	return replen;
 
 
-    case INET_REQ_FDOPEN:   /* pass in an open (and bound) socket */
+    case INET_REQ_FDOPEN: {  /* pass in an open (and bound) socket */
+	SOCKET s;
 	DEBUGF(("packet inet_ctl(%ld): FDOPEN\r\n", (long)desc->port));
-	if ((len == 5) && (buf[0] == INET_AF_INET))
-	    replen = inet_ctl_fdopen(desc, AF_INET, SOCK_DGRAM,
-				     (SOCKET)get_int32(buf+1),rbuf,rsize);
-#if defined(HAVE_IN6) && defined(AF_INET6)
-	else if ((len == 5) && (buf[0] == INET_AF_INET6))
-	    replen = inet_ctl_fdopen(desc, AF_INET6, SOCK_DGRAM,
-				     (SOCKET)get_int32(buf+1),rbuf,rsize);
-#endif
-	else
+	if (len != 6) {
 	    return ctl_error(EINVAL, rbuf, rsize);
+	}
+	switch (buf[0]) {
+	case INET_AF_INET:  af = AF_INET; break;
+#if defined(HAVE_IN6) && defined(AF_INET6)
+	case INET_AF_INET6: af = AF_INET6; break;
+#else
+	case INET_AF_INET6:
+	    return ctl_xerror("eafnosupport", rbuf, rsize);
+	    break;
+#endif
+	default:
+	    return ctl_error(EINVAL, rbuf, rsize);
+	}
+	switch (buf[1]) {
+	case INET_TYPE_STREAM: type = SOCK_STREAM; break;
+	case INET_TYPE_DGRAM: type = SOCK_DGRAM; break;
+#ifdef HAVE_SCTP
+	case INET_TYPE_SEQPACKET: type = SOCK_SEQPACKET; break;
+#endif
+	default:
+	    return ctl_error(EINVAL, rbuf, rsize);
+	}
+	s = (SOCKET)get_int32(buf+2);
+	replen = inet_ctl_fdopen(desc, af, type, s, rbuf, rsize);
 
 	if ((*rbuf)[0] != INET_REP_ERROR) {
 	    if (desc->active)
@@ -8938,6 +9747,7 @@ static int packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 #endif
 	}
 	return replen;
+    }
 
 
     case INET_REQ_CLOSE:
@@ -8957,8 +9767,9 @@ static int packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 	*/
 	int code;
 	char tbuf[2];
+#ifdef HAVE_SCTP
 	unsigned timeout;
-
+#endif
 	DEBUGF(("packet_inet_ctl(%ld): CONNECT\r\n", (long)desc->port)); 
 	
 	/* INPUT: [ Timeout(4), Port(2), Address(N) ] */
@@ -8988,16 +9799,16 @@ static int packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 	    sock_select(desc, FD_CONNECT, 1);
 	    code = sock_connect(desc->s, &remote.sa, len);
 
-	    if ((code == SOCKET_ERROR) && (sock_errno() == EINPROGRESS)) {
+	    if (IS_SOCKET_ERROR(code) && (sock_errno() == EINPROGRESS)) {
 		/* XXX: Unix only -- WinSock would have a different cond! */
-		desc->state = SCTP_STATE_CONNECTING;
+		desc->state = INET_STATE_CONNECTING;
 		if (timeout != INET_INFINITY)
 		    driver_set_timer(desc->port, timeout);
 		enq_async(desc, tbuf, INET_REQ_CONNECT);
 	    }
 	    else if (code == 0) { /* OK we are connected */
 		sock_select(desc, FD_CONNECT, 0);
-		desc->state = PACKET_STATE_CONNECTED;
+		desc->state = INET_STATE_CONNECTED;
 		enq_async(desc, tbuf, INET_REQ_CONNECT);
 		async_ok(desc);
 	    }
@@ -9019,7 +9830,7 @@ static int packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 	else if (len < 6)
 	    return ctl_error(EINVAL, rbuf, rsize);
 	else {
-	    timeout = get_int32(buf); /* IGNORED */
+	    /* Ignore timeout */
 	    buf += 4;
 	    len -= 4;
 	    if (inet_set_address(desc->sfamily, 
@@ -9028,7 +9839,7 @@ static int packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 	    
 	    code = sock_connect(desc->s,
 				(struct sockaddr*) &desc->remote, len);
-	    if (code == SOCKET_ERROR) {
+	    if (IS_SOCKET_ERROR(code)) {
 		sock_connect(desc->s, (struct sockaddr*) NULL, 0);
 		desc->state &= ~INET_F_ACTIVE;
 		return ctl_error(sock_errno(), rbuf, rsize);
@@ -9043,11 +9854,11 @@ static int packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
     }
 
 #ifdef HAVE_SCTP
-    case SCTP_REQ_LISTEN:
+    case INET_REQ_LISTEN:
 	{	/* LISTEN is only for SCTP sockets, not UDP. This code is borrowed
 		   from the TCP section. Returns: {ok,[]} on success.
 		*/
-	    int flag;
+	    int backlog;
 	    
 	    DEBUGF(("packet_inet_ctl(%ld): LISTEN\r\n", (long)desc->port)); 
 	    if (!IS_SCTP(desc))
@@ -9057,15 +9868,14 @@ static int packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 	    if (!IS_BOUND(desc))
 		return ctl_xerror(EXBADSEQ, rbuf, rsize);
 
-	    /* The arg is a binary value: 1:enable, 0:disable */
-	    if (len != 1)
+	    if (len != 2)
 		return ctl_error(EINVAL, rbuf, rsize);
-	    flag = get_int8(buf);
+	    backlog = get_int16(buf);
 
-	    if (sock_listen(desc->s, flag) == SOCKET_ERROR)
+	    if (IS_SOCKET_ERROR(sock_listen(desc->s, backlog)))
 		return ctl_error(sock_errno(), rbuf, rsize);
 
-	    desc->state = SCTP_STATE_LISTEN;   /* XXX: not used? */
+	    desc->state = INET_STATE_LISTENING;   /* XXX: not used? */
 	    return ctl_reply(INET_REP_OK, NULL, 0, rbuf, rsize);
 	}
 
@@ -9111,6 +9921,46 @@ static int packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 
 	    return ctl_reply(INET_REP_OK, NULL, 0, rbuf, rsize);
 	}
+
+    case SCTP_REQ_PEELOFF:
+	{
+	    Uint32 assoc_id;
+	    udp_descriptor* new_udesc;
+	    int err;
+	    SOCKET new_socket;
+
+	    DEBUGF(("packet_inet_ctl(%ld): PEELOFF\r\n", (long)desc->port));
+	    if (!IS_SCTP(desc))
+		return ctl_xerror(EXBADPORT, rbuf, rsize);
+	    if (!IS_OPEN(desc))
+		return ctl_xerror(EXBADPORT, rbuf, rsize);
+	    if (!IS_BOUND(desc))
+		return ctl_xerror(EXBADSEQ, rbuf, rsize);
+	    if (! p_sctp_peeloff)
+		return ctl_error(ENOTSUP, rbuf, rsize);
+
+	    if (len != 4)
+		return ctl_error(EINVAL, rbuf, rsize);
+	    assoc_id = get_int32(buf);
+
+	    new_socket = p_sctp_peeloff(desc->s, assoc_id);
+	    if (IS_SOCKET_ERROR(new_socket)) {
+		return ctl_error(sock_errno(), rbuf, rsize);
+	    }
+
+	    desc->caller = driver_caller(desc->port);
+	    if ((new_udesc = sctp_inet_copy(udesc, new_socket, &err)) == NULL) {
+		sock_close(new_socket);
+		desc->caller = 0;
+		return ctl_error(err, rbuf, rsize);
+	    }
+	    new_udesc->inet.state = INET_STATE_CONNECTED;
+	    new_udesc->inet.stype = SOCK_STREAM;
+
+	    inet_reply_ok_port(desc, new_udesc->inet.dport);
+	    (*rbuf)[0] = INET_REP;
+	    return 1;
+	}
 #endif  /* HAVE_SCTP */
 
     case PACKET_REQ_RECV:
@@ -9130,7 +9980,7 @@ static int packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 	    if (desc->active || (len != 8))
 		return ctl_error(EINVAL, rbuf, rsize);
 	    timeout = get_int32(buf);
-	    /* The 2nd arg, Length(4), is ignored for both UDP ans SCTP protocols,
+	    /* The 2nd arg, Length(4), is ignored for both UDP and SCTP protocols,
 	       since they are msg-oriented. */
 
 	    if (enq_async(desc, tbuf, PACKET_REQ_RECV) < 0)
@@ -9267,7 +10117,7 @@ static void packet_inet_command(ErlDrvData e, char* buf, int len)
  check_result_code:
     /* "code" analysis is the same for both SCTP and UDP cases above: */
 #endif
-    if (code == SOCKET_ERROR) {
+    if (IS_SOCKET_ERROR(code)) {
 	int err = sock_errno();
 	inet_reply_error(desc, err);
     }
@@ -9309,12 +10159,8 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 {
     inet_descriptor* desc = INETP(udesc);
     int n;
-    unsigned int len;
     inet_address other;
     char abuf[sizeof(inet_address)];  /* buffer address; enough??? */
-    int  sz;
-    char* ptr;
-    ErlDrvBinary* buf; /* binary */
     int packet_count = udesc->read_packets;
     int count = 0;     /* number of packets delivered to owner */
 #ifdef HAVE_SCTP
@@ -9325,23 +10171,39 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 #endif
 
     while(packet_count--) {
-	len = sizeof(other);
-	sz = desc->bufsz;
-	/* Allocate space for message and address. NB: "bufsz" is in "desc",
-	   but the "buf" itself is allocated separately:
-	*/
-	if ((buf = alloc_buffer(sz+len)) == NULL)
-	    return packet_error(udesc, ENOMEM);
-	ptr = buf->orig_bytes + len;  /* pointer to message part */
+	unsigned int len = sizeof(other);
+
+	/* udesc->i_buf is only kept between SCTP fragments */
+	if (udesc->i_buf == NULL) {
+	    udesc->i_bufsz = desc->bufsz + len;
+	    if ((udesc->i_buf = alloc_buffer(udesc->i_bufsz)) == NULL)
+		return packet_error(udesc, ENOMEM);
+	    /* pointer to message start */
+	    udesc->i_ptr = udesc->i_buf->orig_bytes + len;
+	} else {
+	    ErlDrvBinary* tmp;
+	    int bufsz;
+	    bufsz = desc->bufsz + (udesc->i_ptr - udesc->i_buf->orig_bytes);
+	    if ((tmp = realloc_buffer(udesc->i_buf, bufsz)) == NULL) {
+		release_buffer(udesc->i_buf);
+		udesc->i_buf = NULL;
+		return packet_error(udesc, ENOMEM);
+	    } else {
+		udesc->i_ptr =
+		    tmp->orig_bytes + (udesc->i_ptr - udesc->i_buf->orig_bytes);
+		udesc->i_buf = tmp;
+		udesc->i_bufsz = bufsz;
+	    }
+	}
 
 	/* Note: On Windows NT, recvfrom() fails if the socket is connected. */
 #ifdef HAVE_SCTP
 	/* For SCTP we must use recvmsg() */
 	if (IS_SCTP(desc)) {
-	    iov->iov_base = ptr; /* Data will come here    */
-	    iov->iov_len  = sz;	 /* Remaining buffer space */
+	    iov->iov_base = udesc->i_ptr; /* Data will come here    */
+	    iov->iov_len = desc->bufsz; /* Remaining buffer space */
 	    
-	    mhdr.msg_name	= &other;  /* Peer addr comes into "other" */
+	    mhdr.msg_name	= &other; /* Peer addr comes into "other" */
 	    mhdr.msg_namelen	= len;
 	    mhdr.msg_iov	= iov;
 	    mhdr.msg_iovlen	= 1;
@@ -9351,40 +10213,28 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 	    
 	    /* Do the actual SCTP receive: */
 	    n = sock_recvmsg(desc->s, &mhdr, 0);
+	    len = mhdr.msg_namelen;
 	    goto check_result;
 	}
 #endif
 	/* Use recv() instead on connected sockets. */
 	if ((desc->state & INET_F_ACTIVE)) {
-	    n = sock_recv(desc->s, ptr, sz, 0);
+	    n = sock_recv(desc->s, udesc->i_ptr, desc->bufsz, 0);
 	    other = desc->remote;
+	    goto check_result;
 	}
-	else
-	    n = sock_recvfrom(desc->s, ptr, sz, 0, &other.sa, &len);
-
-#ifdef HAVE_SCTP
+	n = sock_recvfrom(desc->s, udesc->i_ptr, desc->bufsz,
+			  0, &other.sa, &len);
     check_result:
-#endif
 	/* Analyse the result: */
-	if (n == SOCKET_ERROR
-#ifdef HAVE_SCTP
-	    || (short_recv = (IS_SCTP(desc) && !(mhdr.msg_flags & MSG_EOR)))
-	    /* NB: here we check for EOR not being set -- this is an error as
-	       well, we don't support partial msgs:
-	    */
-#endif
-	    ) {
+	if (IS_SOCKET_ERROR(n)) {
 	    int err = sock_errno();
-	    release_buffer(buf);
 	    if (err != ERRNO_BLOCK) {
+		/* real error */
+		release_buffer(udesc->i_buf);
+		udesc->i_buf = NULL;
 		if (!desc->active) {
-#ifdef HAVE_SCTP
-		    if (short_recv)
-			async_error_am(desc, am_short_recv);
-		    else
-#else
-			async_error(desc, err);
-#endif
+		    async_error(desc, err);
 		    driver_cancel_timer(desc->port);
 		    sock_select(desc,FD_READ,0);
 		}
@@ -9392,46 +10242,69 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 		    /* This is for an active desc only: */
 		    packet_error_message(udesc, err);
 		}
+		return count;
 	    }
-	    else if (!desc->active)
+	    /* would block error - try again */
+	    if (!desc->active
+#ifdef HAVE_SCTP
+		|| short_recv
+#endif
+		) {
 		sock_select(desc,FD_READ,1);
+	    }
 	    return count;		/* strange, not ready */
 	}
-	else {
-	    int offs;
-	    int nsz;
+
+#ifdef HAVE_SCTP
+	if (IS_SCTP(desc) && (short_recv = !(mhdr.msg_flags & MSG_EOR))) {
+	    /* SCTP non-final message fragment */
+	    inet_input_count(desc, n);
+	    udesc->i_ptr += n;
+	    continue; /* wait for more fragments */
+	}
+#endif
+
+	{
+	    /* message received */
 	    int code;
-	    unsigned int alen = len;
 	    void * extra = NULL;
+	    char * ptr;
 
 	    inet_input_count(desc, n);
-	    inet_get_address(desc->sfamily, abuf, &other, &alen);
-	    /* Copy formatted address to the buffer allocated; "alen" is the
-	       actual length which must be <= than the original reserved "len".
+	    udesc->i_ptr += n;
+	    inet_get_address(desc->sfamily, abuf, &other, &len);
+	    /* Copy formatted address to the buffer allocated; "len" is the
+	       actual length which must be <= than the original reserved.
 	       This means that the addr + data in the buffer are contiguous,
-	       but they may start not at the "orig_bytes", but with some "offs"
-	       from them:
+	       but they may start not at the "orig_bytes", instead at "ptr":
 	    */
-	    ASSERT (alen <= len);
-	    sys_memcpy(ptr - alen, abuf, alen); 
-	    ptr -= alen;
-	    nsz  = n + alen;              /* nsz = data + address */
-	    offs = ptr - buf->orig_bytes; /* initial pointer offset */
+	    ASSERT (len <= sizeof(other));
+	    ptr = udesc->i_buf->orig_bytes + sizeof(other) - len;
+	    sys_memcpy(ptr, abuf, len);
 
 	    /* Check if we need to reallocate binary */
 	    if ((desc->mode == INET_MODE_BINARY) &&
-		(desc->hsz < n) && (nsz < BIN_REALLOC_LIMIT(sz))) {
+		(desc->hsz < (udesc->i_ptr - ptr)) &&
+		((udesc->i_ptr - ptr) + BIN_REALLOC_MARGIN(desc->bufsz) >=
+		 udesc->i_bufsz)) {
 		ErlDrvBinary* tmp;
-		if ((tmp = realloc_buffer(buf,nsz+offs)) != NULL)
-		    buf = tmp;
+		int bufsz;
+		bufsz = udesc->i_ptr - udesc->i_buf->orig_bytes;
+		if ((tmp = realloc_buffer(udesc->i_buf, bufsz)) != NULL) {
+		    udesc->i_buf = tmp;
+		    udesc->i_bufsz = bufsz;
+		}
 	    }
 #ifdef HAVE_SCTP
 	    if (IS_SCTP(desc)) extra = &mhdr;
 #endif
 	    /* Actual parsing and return of the data received, occur here: */
-	    code = packet_reply_binary_data(desc, (unsigned int)alen,
-					    buf, offs, nsz, extra);
-	    free_buffer(buf);
+	    code = packet_reply_binary_data(desc, len, udesc->i_buf,
+					    ptr - udesc->i_buf->orig_bytes,
+					    udesc->i_ptr - ptr,
+					    extra);
+	    free_buffer(udesc->i_buf);
+	    udesc->i_buf = NULL;
 	    if (code < 0)
 		return count;
 	    count++;
@@ -9441,7 +10314,17 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 		return count;  /* passive mode (read one packet only) */
 	    }
 	}
+    } /*  while(packet_count--) { */
+
+    /* we ran out of tries (packet_count) either on an active socket
+     * that got that many messages or an SCTP socket that got that
+     * many message fragments but still not the final
+     */
+#ifdef HAVE_SCTP
+    if (short_recv) {
+	sock_select(desc, FD_READ, 1);
     }
+#endif
     return count;
 }
 
@@ -9451,7 +10334,7 @@ static void packet_inet_drv_output(ErlDrvData e, ErlDrvEvent event)
 }
 
 /* UDP/SCTP socket ready for output:
-**	This is a Back-End for Non-Block SCTP Connect (SCTP_STATE_CONNECTING)
+**	This is a Back-End for Non-Block SCTP Connect (INET_STATE_CONNECTING)
 */
 static int packet_inet_output(udp_descriptor* udesc, HANDLE event)
 {
@@ -9462,7 +10345,7 @@ static int packet_inet_output(udp_descriptor* udesc, HANDLE event)
     DEBUGF(("packet_inet_output(%ld) {s=%d\r\n", 
 	    (long)desc->port, desc->s));
 
-    if (desc->state == SCTP_STATE_CONNECTING) {
+    if (desc->state == INET_STATE_CONNECTING) {
 	sock_select(desc, FD_CONNECT, 0);
 
 	driver_cancel_timer(ix);  /* posssibly cancel a timer */
@@ -9481,8 +10364,8 @@ static int packet_inet_output(udp_descriptor* udesc, HANDLE event)
 	    int code = sock_peer(desc->s,
 				 (struct sockaddr*) &desc->remote, &sz);
 
-	    if (code == SOCKET_ERROR) {
-		desc->state = PACKET_STATE_BOUND;  /* restore state */
+	    if (IS_SOCKET_ERROR(code)) {
+		desc->state = INET_STATE_BOUND;  /* restore state */
 		ret =  async_error(desc, sock_errno());
 		goto done;
 	    }
@@ -9495,15 +10378,15 @@ static int packet_inet_output(udp_descriptor* udesc, HANDLE event)
 				   (void *)&error, &sz);
 
 	    if ((code < 0) || error) {
-		desc->state = PACKET_STATE_BOUND;  /* restore state */
+		desc->state = INET_STATE_BOUND;  /* restore state */
 		ret = async_error(desc, error);
 		goto done;
 	    }
 	}
-#endif /* SOCKOPT_CONNECT_STAT */
+#endif /* SO_ERROR */
 #endif /* !__WIN32__ */
 
-	desc->state = PACKET_STATE_CONNECTED;
+	desc->state = INET_STATE_CONNECTED;
 	async_ok(desc);
     }
     else {
@@ -9922,23 +10805,26 @@ int erts_sock_connect(erts_sock_t socket, byte *ip_addr, int len, Uint16 port)
     if (!inet_set_address(AF_INET, &addr, buf, &blen))
 	return 0;
 
-    if (SOCKET_ERROR == sock_connect(s,
+    if (IS_SOCKET_ERROR(sock_connect(s,
 				     (struct sockaddr *) &addr,
-				     sizeof(struct sockaddr_in)))
+				     sizeof(struct sockaddr_in))))
 	return 0;
     return 1;
 }
 
 Sint erts_sock_send(erts_sock_t socket, const void *buf, Sint len)
 {
-    return (Sint) sock_send((SOCKET) socket, buf, (size_t) len, 0);
+    Sint result = (Sint) sock_send((SOCKET) socket, buf, (size_t) len, 0);
+    if (IS_SOCKET_ERROR(result))
+	return SOCKET_ERROR;
+    return result;
 }
 
 
 int erts_sock_gethostname(char *buf, int bufsz)
 {
-    if (sock_hostname(buf, bufsz) == SOCKET_ERROR)
-	return -1;
+    if (IS_SOCKET_ERROR(sock_hostname(buf, bufsz)))
+	return SOCKET_ERROR;
     return 0;
 }
 

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1996-2009. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -180,9 +180,7 @@ int erl_xconnect(Erl_IpAddr addr, char *alivename)
  *
  *  Close a connection. FIXME call ei_close_connection() later. 
  *
- *  Returns valid file descriptor on success and < 0 on failure.
- *  Set erl_errno to EHOSTUNREACH, ENOMEM, EIO or errno from socket(2)
- *  or connect(2).
+ *  Returns 0 on success and -1 on failure.
  *
  ***************************************************************************/
 
@@ -250,7 +248,8 @@ int erl_send(int fd, ETERM *to ,ETERM *msg)
 	return -1;
     }
     
-    strcpy(topid.node, (char *)ERL_PID_NODE(to));
+    strncpy(topid.node, (char *)ERL_PID_NODE(to), sizeof(topid.node));
+    topid.node[sizeof(topid.node)-1] = '\0';
     topid.num = ERL_PID_NUMBER(to);
     topid.serial = ERL_PID_SERIAL(to);
     topid.creation = ERL_PID_CREATION(to);
@@ -294,8 +293,13 @@ static int erl_do_receive_msg(int fd, ei_x_buff* x, ErlMessage* emsg)
 	emsg->msg = NULL;
     if (msg.from.node[0] != '\0')
 	emsg->from = erl_mk_pid(msg.from.node, msg.from.num, msg.from.serial, msg.from.creation);
+    else
+	emsg->from = NULL;
     if (msg.to.node[0] != '\0')
 	emsg->to = erl_mk_pid(msg.to.node, msg.to.num, msg.to.serial, msg.to.creation);
+    else
+	emsg->to = NULL;
+    memcpy(emsg->to_name, msg.toname, MAXATOMLEN+1);
     return r;
 }
 

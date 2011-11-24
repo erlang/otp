@@ -2,7 +2,7 @@
 %%------------------------------------------------------------------------
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -88,8 +88,8 @@
 
 -spec start(#options{}) -> ?RET_NOTHING_SUSPICIOUS.
 
-start(DialyzerOptions = #options{from = From, init_plt = InitPltFile,
-				 legal_warnings = LegalWarnings}) ->
+start(#options{from = From, init_plts = InitPltFiles,
+               legal_warnings = LegalWarnings} = DialyzerOptions) ->
   process_flag(trap_exit, true),
 
   GS = gs:start(),
@@ -336,9 +336,13 @@ start(DialyzerOptions = #options{from = From, init_plt = InitPltFile,
   gs:config(Packer, WH),
   {ok, CWD} = file:get_cwd(),
   
-  InitPlt = try dialyzer_plt:from_file(InitPltFile)
-	    catch throw:{dialyzer_error, _} -> dialyzer_plt:new()
-	    end,
+  InitPlt =
+    case InitPltFiles of
+      [] -> dialyzer_plt:new();
+      _ ->
+        Plts = [dialyzer_plt:from_file(F) || F <- InitPltFiles],
+        dialyzer_plt:merge_plts_or_report_conflicts(InitPltFiles, Plts)
+    end,
 
   State = #gui_state{add_all = AddAll,
 		     add_file = AddFile,

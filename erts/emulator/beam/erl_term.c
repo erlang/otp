@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2000-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2000-2011. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -58,9 +58,9 @@ do { \
 #endif
 
 #if ET_DEBUG
-unsigned tag_val_def_debug(Eterm x, const char *file, unsigned line)
+unsigned tag_val_def_debug(Wterm x, const char *file, unsigned line)
 #else
-unsigned tag_val_def(Eterm x)
+unsigned tag_val_def(Wterm x)
 #define file __FILE__
 #define line __LINE__
 #endif
@@ -68,7 +68,9 @@ unsigned tag_val_def(Eterm x)
     static char msg[32];
 
     switch (x & _TAG_PRIMARY_MASK) {
-      case TAG_PRIMARY_LIST:					return LIST_DEF;
+    case TAG_PRIMARY_LIST:
+	ET_ASSERT(_list_precond(x),file,line);
+	return LIST_DEF;
       case TAG_PRIMARY_BOXED: {
 	  Eterm hdr = *boxed_val(x);
 	  ET_ASSERT(is_header(hdr),file,line);
@@ -103,7 +105,7 @@ unsigned tag_val_def(Eterm x)
 	  break;
       }
     }
-    sprintf(msg, "tag_val_def: %#lx", x);
+    sprintf(msg, "tag_val_def: %#lx", (unsigned long) x);
     et_abort(msg, file, line);
 #undef file
 #undef line
@@ -121,12 +123,12 @@ FUNTY checked_##FUN(ARGTY x, const char *file, unsigned line) \
     return _unchecked_##FUN(x); \
 }
 
-ET_DEFINE_CHECKED(Eterm,make_boxed,Eterm*,_is_aligned);
+ET_DEFINE_CHECKED(Eterm,make_boxed,Eterm*,_is_taggable_pointer);
 ET_DEFINE_CHECKED(int,is_boxed,Eterm,!is_header);
-ET_DEFINE_CHECKED(Eterm*,boxed_val,Eterm,is_boxed);
-ET_DEFINE_CHECKED(Eterm,make_list,Eterm*,_is_aligned);
+ET_DEFINE_CHECKED(Eterm*,boxed_val,Wterm,_boxed_precond);
+ET_DEFINE_CHECKED(Eterm,make_list,Eterm*,_is_taggable_pointer);
 ET_DEFINE_CHECKED(int,is_not_list,Eterm,!is_header);
-ET_DEFINE_CHECKED(Eterm*,list_val,Eterm,is_list);
+ET_DEFINE_CHECKED(Eterm*,list_val,Wterm,_list_precond);
 ET_DEFINE_CHECKED(Uint,unsigned_val,Eterm,is_small);
 ET_DEFINE_CHECKED(Sint,signed_val,Eterm,is_small);
 ET_DEFINE_CHECKED(Uint,atom_val,Eterm,is_atom);
@@ -134,37 +136,38 @@ ET_DEFINE_CHECKED(Uint,header_arity,Eterm,is_header);
 ET_DEFINE_CHECKED(Uint,arityval,Eterm,is_arity_value);
 ET_DEFINE_CHECKED(Uint,thing_arityval,Eterm,is_thing);
 ET_DEFINE_CHECKED(Uint,thing_subtag,Eterm,is_thing);
-ET_DEFINE_CHECKED(Eterm*,binary_val,Eterm,is_binary);
-ET_DEFINE_CHECKED(Eterm*,fun_val,Eterm,is_fun);
+ET_DEFINE_CHECKED(Eterm*,binary_val,Wterm,is_binary);
+ET_DEFINE_CHECKED(Eterm*,fun_val,Wterm,is_fun);
 ET_DEFINE_CHECKED(int,bignum_header_is_neg,Eterm,_is_bignum_header);
 ET_DEFINE_CHECKED(Eterm,bignum_header_neg,Eterm,_is_bignum_header);
 ET_DEFINE_CHECKED(Uint,bignum_header_arity,Eterm,_is_bignum_header);
-ET_DEFINE_CHECKED(Eterm*,big_val,Eterm,is_big);
-ET_DEFINE_CHECKED(Eterm*,float_val,Eterm,is_float);
-ET_DEFINE_CHECKED(Eterm*,tuple_val,Eterm,is_tuple);
+ET_DEFINE_CHECKED(Eterm*,big_val,Wterm,is_big);
+ET_DEFINE_CHECKED(Eterm*,float_val,Wterm,is_float);
+ET_DEFINE_CHECKED(Eterm*,tuple_val,Wterm,is_tuple);
 ET_DEFINE_CHECKED(Uint,internal_pid_data,Eterm,is_internal_pid);
 ET_DEFINE_CHECKED(struct erl_node_*,internal_pid_node,Eterm,is_internal_pid);
 ET_DEFINE_CHECKED(Uint,internal_port_data,Eterm,is_internal_port);
 ET_DEFINE_CHECKED(struct erl_node_*,internal_port_node,Eterm,is_internal_port);
-ET_DEFINE_CHECKED(Eterm*,internal_ref_val,Eterm,is_internal_ref);
-ET_DEFINE_CHECKED(Uint,internal_ref_data_words,Eterm,is_internal_ref);
-ET_DEFINE_CHECKED(Uint32*,internal_ref_data,Eterm,is_internal_ref);
+ET_DEFINE_CHECKED(Eterm*,internal_ref_val,Wterm,is_internal_ref);
+ET_DEFINE_CHECKED(Uint,internal_ref_data_words,Wterm,is_internal_ref);
+ET_DEFINE_CHECKED(Uint32*,internal_ref_data,Wterm,is_internal_ref);
 ET_DEFINE_CHECKED(struct erl_node_*,internal_ref_node,Eterm,is_internal_ref);
-ET_DEFINE_CHECKED(Eterm*,external_val,Eterm,is_external);
-ET_DEFINE_CHECKED(Uint,external_data_words,Eterm,is_external);
-ET_DEFINE_CHECKED(Uint,external_pid_data_words,Eterm,is_external_pid);
-ET_DEFINE_CHECKED(Uint,external_pid_data,Eterm,is_external_pid);
-ET_DEFINE_CHECKED(struct erl_node_*,external_pid_node,Eterm,is_external_pid);
-ET_DEFINE_CHECKED(Uint,external_port_data_words,Eterm,is_external_port);
-ET_DEFINE_CHECKED(Uint,external_port_data,Eterm,is_external_port);
-ET_DEFINE_CHECKED(struct erl_node_*,external_port_node,Eterm,is_external_port);
-ET_DEFINE_CHECKED(Uint,external_ref_data_words,Eterm,is_external_ref);
-ET_DEFINE_CHECKED(Uint32*,external_ref_data,Eterm,is_external_ref);
+ET_DEFINE_CHECKED(Eterm*,external_val,Wterm,is_external);
+ET_DEFINE_CHECKED(Uint,external_data_words,Wterm,is_external);
+ET_DEFINE_CHECKED(Uint,external_pid_data_words,Wterm,is_external_pid);
+ET_DEFINE_CHECKED(Uint,external_pid_data,Wterm,is_external_pid);
+ET_DEFINE_CHECKED(struct erl_node_*,external_pid_node,Wterm,is_external_pid);
+ET_DEFINE_CHECKED(Uint,external_port_data_words,Wterm,is_external_port);
+ET_DEFINE_CHECKED(Uint,external_port_data,Wterm,is_external_port);
+ET_DEFINE_CHECKED(struct erl_node_*,external_port_node,Wterm,is_external_port);
+ET_DEFINE_CHECKED(Uint,external_ref_data_words,Wterm,is_external_ref);
+ET_DEFINE_CHECKED(Uint32*,external_ref_data,Wterm,is_external_ref);
 ET_DEFINE_CHECKED(struct erl_node_*,external_ref_node,Eterm,is_external_ref);
-ET_DEFINE_CHECKED(Eterm*,export_val,Eterm,is_export);
+ET_DEFINE_CHECKED(Eterm*,export_val,Wterm,is_export);
+ET_DEFINE_CHECKED(Uint,external_thing_data_words,ExternalThing*,is_thing_ptr);
 
-ET_DEFINE_CHECKED(Eterm,make_cp,Uint*,_is_aligned);
-ET_DEFINE_CHECKED(Uint*,cp_val,Eterm,is_CP);
+ET_DEFINE_CHECKED(Eterm,make_cp,UWord *,_is_taggable_pointer);
+ET_DEFINE_CHECKED(UWord *,cp_val,Eterm,is_CP);
 ET_DEFINE_CHECKED(Uint,catch_val,Eterm,is_catch);
 ET_DEFINE_CHECKED(Uint,x_reg_offset,Uint,_is_xreg);
 ET_DEFINE_CHECKED(Uint,y_reg_offset,Uint,_is_yreg);

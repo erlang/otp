@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -41,11 +41,11 @@ init_per_testcase(Case, Config) ->
     megaco:enable_trace(max, io),
     megaco_test_lib:init_per_testcase(Case, Config).
 
-fin_per_testcase(Case, Config) ->
+end_per_testcase(Case, Config) ->
     purge_examples(),
     erase(dbg),
     megaco:disable_trace(),
-    megaco_test_lib:fin_per_testcase(Case, Config).
+    megaco_test_lib:end_per_testcase(Case, Config).
 
 example_modules() ->
     [megaco_simple_mg, megaco_simple_mgc].
@@ -70,13 +70,18 @@ purge_examples() ->
 %% Top test case
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-all(doc) ->
-    ["Run all examples mentioned in the documentation",
-     "Are really all examples covered?"];
-all(suite) ->
-    [
-     simple
-    ].
+all() -> 
+    [simple].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 simple(suite) ->
     [];

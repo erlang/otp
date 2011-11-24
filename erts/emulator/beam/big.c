@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1996-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -310,12 +310,12 @@
 #define DREM(a1,a0,b,r) do {				\
 	ErtsDigit __a1 = (a1);				\
 	ErtsDigit __b = (b);				\
-	ErtsDigit __q0;					\
+	ERTS_DECLARE_DUMMY(ErtsDigit __q0);		\
 	DDIVREM((__a1 % __b), (a0), __b, __q0, r);	\
     } while(0)
 
 #define DDIV(a1,a0,b,q)	do {			\
-	ErtsDigit _tmp;				\
+	ERTS_DECLARE_DUMMY(ErtsDigit _tmp);	\
 	DDIVREM(a1,a0,b,q,_tmp);		\
     } while(0)
 
@@ -413,8 +413,8 @@
     } while(0)
 
 #define DDIV2(a1,a0,b1,b0,q) do {		\
-	ErtsDigit _tmp_r1;			\
-	ErtsDigit _tmp_r0;			\
+	ERTS_DECLARE_DUMMY(ErtsDigit _tmp_r1);	\
+	ERTS_DECLARE_DUMMY(ErtsDigit _tmp_r0);	 \
 	D2DIVREM(a1,a0,b1,b0,q,_tmp_r1,_tmp_r0); \
     } while(0)
 
@@ -810,7 +810,9 @@ static dsize_t D_div(ErtsDigit* x, dsize_t xl, ErtsDigit d, ErtsDigit* q, ErtsDi
     }
 
     do {
-	ErtsDigit q0, a0, b1, b0, b;
+	ErtsDigit q0, a0, b0;
+	ERTS_DECLARE_DUMMY(ErtsDigit b);
+	ERTS_DECLARE_DUMMY(ErtsDigit b1);
 
 	if (d > a1) {
 	    a0 = *xp; 
@@ -1459,7 +1461,31 @@ Eterm uint_to_big(Uint x, Eterm *y)
     BIG_DIGIT(y, 0) = x;
     return make_big(y);
 }
+/*
+** convert UWord to bigint
+** (must only be used if x is to big to be stored as a small)
+** Allocation is tricky, the heap need has to be calculated
+** with the macro BIG_UWORD_HEAP_SIZE(x)
+*/
 
+Eterm uword_to_big(UWord x, Eterm *y)
+{
+#if HALFWORD_HEAP
+    Uint upper = x >> 32;
+    Uint lower = x & 0xFFFFFFFFUL;
+    if (upper == 0) {
+	*y = make_pos_bignum_header(1);
+    } else {
+	*y = make_pos_bignum_header(2);
+	BIG_DIGIT(y, 1) = upper;
+    }
+    BIG_DIGIT(y, 0) = lower;
+#else
+    *y = make_pos_bignum_header(1);
+    BIG_DIGIT(y, 0) = x;
+#endif
+    return make_big(y);
+}
 
 /*
 ** convert signed int to bigint
@@ -1480,19 +1506,19 @@ Eterm small_to_big(Sint x, Eterm *y)
 Eterm erts_uint64_to_big(Uint64 x, Eterm **hpp)
 {
     Eterm *hp = *hpp;
-#ifdef ARCH_32
+#if defined(ARCH_32) || HALFWORD_HEAP
     if (x >= (((Uint64) 1) << 32)) {
 	*hp = make_pos_bignum_header(2);
 	BIG_DIGIT(hp, 0) = (Uint) (x & ((Uint) 0xffffffff));
 	BIG_DIGIT(hp, 1) = (Uint) ((x >> 32) & ((Uint) 0xffffffff));
-	*hpp += 2;
+	*hpp += 3;
     }
     else
 #endif
     {
 	*hp = make_pos_bignum_header(1);
 	BIG_DIGIT(hp, 0) = (Uint) x;
-	*hpp += 1;
+	*hpp += 2;
     }
     return make_big(hp);
 }
@@ -1507,7 +1533,7 @@ Eterm erts_sint64_to_big(Sint64 x, Eterm **hpp)
 	neg = 1;
 	x = -x;
     }
-#ifdef ARCH_32
+#if defined(ARCH_32) || HALFWORD_HEAP
     if (x >= (((Uint64) 1) << 32)) {
 	if (neg)
 	    *hp = make_neg_bignum_header(2);
@@ -1515,7 +1541,7 @@ Eterm erts_sint64_to_big(Sint64 x, Eterm **hpp)
 	    *hp = make_pos_bignum_header(2);
 	BIG_DIGIT(hp, 0) = (Uint) (x & ((Uint) 0xffffffff));
 	BIG_DIGIT(hp, 1) = (Uint) ((x >> 32) & ((Uint) 0xffffffff));
-	*hpp += 2;
+	*hpp += 3;
     }
     else
 #endif
@@ -1525,7 +1551,7 @@ Eterm erts_sint64_to_big(Sint64 x, Eterm **hpp)
 	else
 	    *hp = make_pos_bignum_header(1);
 	BIG_DIGIT(hp, 0) = (Uint) x;
-	*hpp += 1;
+	*hpp += 2;
     }
     return make_big(hp);
 }
@@ -1534,7 +1560,7 @@ Eterm erts_sint64_to_big(Sint64 x, Eterm **hpp)
 ** Convert a bignum to a double float
 */
 int
-big_to_double(Eterm x, double* resp)
+big_to_double(Wterm x, double* resp)
 {
     double d = 0.0;
     Eterm* xp = big_val(x);
@@ -1560,11 +1586,67 @@ big_to_double(Eterm x, double* resp)
     return 0;
 }
 
+/*
+ * Logic has been copied from erl_bif_guard.c and slightly
+ * modified to use a static instead of dynamic heap
+ */
+Eterm
+double_to_big(double x, Eterm *heap)
+{
+    int is_negative;
+    int ds;
+    ErtsDigit* xp;
+    Eterm res;
+    int i;
+    size_t sz;
+    Eterm* hp;
+    double dbase;
+
+    if (x >= 0) {
+	is_negative = 0;
+    } else {
+	is_negative = 1;
+	x = -x;
+    }
+
+    /* Unscale & (calculate exponent) */
+    ds = 0;
+    dbase = ((double) (D_MASK) + 1);
+    while (x >= 1.0) {
+	x /= dbase; /* "shift" right */
+	ds++;
+    }
+    sz = BIG_NEED_SIZE(ds); /* number of words including arity */
+
+    hp = heap;
+    res = make_big(hp);
+    xp = (ErtsDigit*) (hp + 1);
+
+    for (i = ds - 1; i >= 0; i--) {
+	ErtsDigit d;
+
+	x *= dbase; /* "shift" left */
+	d = x; /* trunc */
+	xp[i] = d; /* store digit */
+	x -= d; /* remove integer part */
+    }
+    while ((ds & (BIG_DIGITS_PER_WORD - 1)) != 0) {
+	xp[ds++] = 0;
+    }
+
+    if (is_negative) {
+	*hp = make_neg_bignum_header(sz-1);
+    } else {
+	*hp = make_pos_bignum_header(sz-1);
+    }
+    return res;
+}
+
 
 /*
  ** Estimate the number of decimal digits (include sign)
  */
-int big_decimal_estimate(Eterm x)
+int big_decimal_estimate(Wterm x)
 {
     Eterm* xp = big_val(x);
     int lg = I_lg(BIG_V(xp), BIG_SIZE(xp));
@@ -1578,7 +1660,7 @@ int big_decimal_estimate(Eterm x)
 ** Convert a bignum into a string of decimal numbers
 */
 
-static void write_big(Eterm x, void (*write_func)(void *, char), void *arg)
+static void write_big(Wterm x, void (*write_func)(void *, char), void *arg)
 {
     Eterm* xp = big_val(x);
     ErtsDigit* dx = BIG_V(xp);
@@ -1657,7 +1739,7 @@ write_string(void *arg, char c)
     *(--(*((char **) arg))) = c;
 }
 
-char *erts_big_to_string(Eterm x, char *buf, Uint buf_sz)
+char *erts_big_to_string(Wterm x, char *buf, Uint buf_sz)
 {
     char *big_str = buf + buf_sz - 1;
     *big_str = '\0';
@@ -1701,7 +1783,7 @@ static Eterm big_norm(Eterm *x, dsize_t xl, short sign)
 /*
 ** Compare bignums
 */
-int big_comp(Eterm x, Eterm y)
+int big_comp(Wterm x, Wterm y)
 {
     Eterm* xp = big_val(x);
     Eterm* yp = big_val(y);
@@ -1854,6 +1936,87 @@ term_to_Uint(Eterm term, Uint *up)
     }
 }
 
+int
+term_to_UWord(Eterm term, UWord *up)
+{
+#if SIZEOF_VOID_P == ERTS_SIZEOF_ETERM
+    return term_to_Uint(term,up);
+#else
+    if (is_small(term)) {
+	Sint i = signed_val(term);
+	if (i < 0) {
+	    *up = BADARG;
+	    return 0;
+	}
+	*up = (UWord) i;
+	return 1;
+    } else if (is_big(term)) {
+	ErtsDigit* xr = big_v(term);
+	dsize_t  xl = big_size(term);
+	UWord uval = 0;
+	int n = 0;
+
+	if (big_sign(term)) {
+	    *up = BADARG;
+	    return 0;
+	} else if (xl*D_EXP > sizeof(UWord)*8) {
+	    *up = SYSTEM_LIMIT;
+	    return 0;
+	}
+	while (xl-- > 0) {
+	    uval |= ((UWord)(*xr++)) << n;
+	    n += D_EXP;
+	}
+	*up = uval;
+	return 1;
+    } else {
+	*up = BADARG;
+	return 0;
+    }
+#endif
+}
+
+int
+term_to_Uint64(Eterm term, Uint64 *up)
+{
+#if SIZEOF_VOID_P == 8
+    return term_to_UWord(term,up);
+#else
+    if (is_small(term)) {
+	Sint i = signed_val(term);
+	if (i < 0) {
+	    *up = BADARG;
+	    return 0;
+	}
+	*up = (Uint64) i;
+	return 1;
+    } else if (is_big(term)) {
+	ErtsDigit* xr = big_v(term);
+	dsize_t  xl = big_size(term);
+	Uint64 uval = 0;
+	int n = 0;
+
+	if (big_sign(term)) {
+	    *up = BADARG;
+	    return 0;
+	} else if (xl*D_EXP > sizeof(Uint64)*8) {
+	    *up = SYSTEM_LIMIT;
+	    return 0;
+	}
+	while (xl-- > 0) {
+	    uval |= ((Uint64)(*xr++)) << n;
+	    n += D_EXP;
+	}
+	*up = uval;
+	return 1;
+    } else {
+	*up = BADARG;
+	return 0;
+    }
+#endif
+}
+
+
 int term_to_Sint(Eterm term, Sint *sp)
 {
     if (is_small(term)) {
@@ -1888,6 +2051,47 @@ int term_to_Sint(Eterm term, Sint *sp)
     }
 }
 
+#if HAVE_INT64
+int term_to_Sint64(Eterm term, Sint64 *sp)
+{
+#if ERTS_SIZEOF_ETERM == 8
+    return term_to_Sint(term, sp);
+#else
+    if (is_small(term)) {
+	*sp = signed_val(term);
+	return 1;
+    } else if (is_big(term)) {
+	ErtsDigit* xr = big_v(term);
+	dsize_t xl = big_size(term);
+	int sign = big_sign(term);
+	Uint64 uval = 0;
+	int n = 0;
+
+	if (xl*D_EXP > sizeof(Uint64)*8) {
+	    return 0;
+	}
+	while (xl-- > 0) {
+	    uval |= ((Uint64)(*xr++)) << n;
+	    n += D_EXP;
+	}
+	if (sign) {
+	    uval = -uval;
+	    if ((Sint64)uval > 0)
+		return 0;
+	} else {
+	    if ((Sint64)uval < 0)
+		return 0;
+	}
+	*sp = uval;
+	return 1;
+    } else {
+	return 0;
+    }
+#endif
+}
+#endif /* HAVE_INT64 */
+
+
 /*
 ** Add and subtract
 */
@@ -1914,7 +2118,7 @@ static Eterm B_plus_minus(ErtsDigit *x, dsize_t xl, short xsgn,
 /*
 ** Add bignums
 */
-Eterm big_plus(Eterm x, Eterm y, Eterm *r)
+Eterm big_plus(Wterm x, Wterm y, Eterm *r)
 {
     Eterm* xp = big_val(x);
     Eterm* yp = big_val(y);

@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -26,7 +26,7 @@
 %%----------------------------------------------------------------------
 %% Include files
 %%----------------------------------------------------------------------
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include("snmp_test_lib.hrl").
 -include_lib("snmp/include/snmp_types.hrl").
 -include_lib("snmp/include/SNMP-COMMUNITY-MIB.hrl").
@@ -39,12 +39,12 @@
 %% External exports
 %%----------------------------------------------------------------------
 -export([
-	 all/1, 
-         init_per_testcase/2, fin_per_testcase/2,
-	 init_all/1, finish_all/1, 
+	all/0,groups/0,init_per_group/2,end_per_group/2, 
+         init_per_testcase/2, end_per_testcase/2,
+	 init_per_suite/1, end_per_suite/1, 
 
 	 start_and_stop/1,
-	 size_check/1,
+	
 	 size_check_ets/1,
 	 size_check_dets/1,
 	 size_check_mnesia/1,
@@ -58,8 +58,6 @@
 %%----------------------------------------------------------------------
 %% Internal exports
 %%----------------------------------------------------------------------
--export([
-        ]).
 
 %%----------------------------------------------------------------------
 %% Macros
@@ -100,20 +98,20 @@ init_per_testcase(cache_test, Config) when is_list(Config) ->
 init_per_testcase(_Case, Config) when is_list(Config) ->
     Config.
 
-fin_per_testcase(size_check_dets, Config) when is_list(Config) ->
+end_per_testcase(size_check_dets, Config) when is_list(Config) ->
     Dir = ?config(dets_dir, Config),
     ?line ok = ?DEL_DIR(Dir),
     lists:keydelete(dets_dir, 1, Config);
-fin_per_testcase(size_check_mnesia, Config) when is_list(Config) ->
+end_per_testcase(size_check_mnesia, Config) when is_list(Config) ->
     mnesia_stop(),
     Dir = ?config(mnesia_dir, Config),
     ?line ok = ?DEL_DIR(Dir),
     lists:keydelete(mnesia_dir, 1, Config);
-fin_per_testcase(cache_test, Config) when is_list(Config) ->
+end_per_testcase(cache_test, Config) when is_list(Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     Config;
-fin_per_testcase(_Case, Config) when is_list(Config) ->
+end_per_testcase(_Case, Config) when is_list(Config) ->
     Config.
 
 
@@ -121,20 +119,25 @@ fin_per_testcase(_Case, Config) when is_list(Config) ->
 %% Test case definitions
 %%======================================================================
 
-all(suite) ->
-    {conf, init_all, cases(), finish_all}.
+all() -> 
+cases().
 
-cases() ->
-    [
-     start_and_stop,
-     load_unload,
-     size_check,
-     me_lookup,
-     which_mib,
-     cache_test
-    ].
+groups() -> 
+    [{size_check, [],
+  [size_check_ets, size_check_dets, size_check_mnesia]}].
 
-init_all(Config) when is_list(Config) ->
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
+
+cases() -> 
+[start_and_stop, load_unload, {group, size_check},
+ me_lookup, which_mib, cache_test].
+
+init_per_suite(Config) when is_list(Config) ->
     %% Data dir points wrong
     DataDir0     = ?config(data_dir, Config),
     DataDir1     = filename:split(filename:absname(DataDir0)),
@@ -142,7 +145,7 @@ init_all(Config) when is_list(Config) ->
     DataDir      = filename:join(lists:reverse(DataDir2) ++ [?snmp_test_data]),
     [{snmp_data_dir, DataDir ++ "/"}|Config].
 
-finish_all(Config) when is_list(Config) ->
+end_per_suite(Config) when is_list(Config) ->
     lists:keydelete(snmp_data_dir, 1, Config).
 
 
@@ -217,12 +220,6 @@ load_unload(Config) when is_list(Config) ->
 
 %% ---------------------------------------------------------------------
 
-size_check(suite) ->
-    [
-     size_check_ets,
-     size_check_dets,
-     size_check_mnesia
-    ].
 
 size_check_ets(suite) ->
     [];

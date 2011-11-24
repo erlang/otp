@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -23,7 +23,7 @@
 %% the server started by webtool and the API for the crashdump viewer tool.
 %% 
 %% All functions in the API except configData/0 and start_link/0 are 
-%% called from HTML pages via erl_scheme.
+%% called from HTML pages via erl_scheme (mod_esi).
 %% 
 %% Tables
 %% ------
@@ -34,18 +34,21 @@
 %% 
 %% cdv_dump_index_table: This table holds all tags read from the crashdump.
 %% Each tag indicates where the information about a specific item starts.
-%% The table entry for a tag includes the start and end positions for
-%% this item-information. All tags start with a "=" at the beginning of
+%% The table entry for a tag includes the start position for this
+%% item-information. All tags start with a "=" at the beginning of
 %% a line.
 %%
 %% Process state
 %% -------------
 %% file: The name of the crashdump currently viewed.
 %% procs_summary: Process summary represented by a list of 
-%% #proc records. This is used for efficiency reasons when sorting
-%% the process summary table instead of reading all processes from
-%% the dump again.
-%% sorted: atom(), indicated what item was last sorted in process summary.
+%% #proc records. This is used for efficiency reasons when sorting the
+%% process summary table instead of reading all processes from the
+%% dump again. Note that if the dump contains more than
+%% ?max_sort_process_num processes, the sort functionality is not
+%% available, and the procs_summary field in the state will have the
+%% value 'too_many'.
+%% sorted: string(), indicated what item was last sorted in process summary.
 %% This is needed so reverse sorting can be done.
 %% shared_heap: 'true' if crashdump comes from a system running shared heap,
 %% else 'false'.
@@ -54,7 +57,7 @@
 %%
 
 %% User API
--export([start/0,stop/0]).
+-export([start/0,stop/0,script_start/0,script_start/1]).
 
 %% Webtool API
 -export([configData/0,
@@ -68,26 +71,27 @@
 	 initial_info_frame/2,
 	 toggle/2,
 	 general_info/2,
-	 processes/2,
+	 processes/3,
 	 proc_details/2,
-	 ports/2,
-	 ets_tables/2,
-	 timers/2,
-	 fun_table/2,
-	 atoms/2,
+	 port/2,
+	 ports/3,
+	 ets_tables/3,
+	 internal_ets_tables/2,
+	 timers/3,
+	 fun_table/3,
+	 atoms/3,
 	 dist_info/2,
-	 loaded_modules/2,
+	 loaded_modules/3,
 	 loaded_mod_details/2,
 	 memory/2,
 	 allocated_areas/2,
 	 allocator_info/2,
 	 hash_tables/2,
 	 index_tables/2,
-	 sort_procs/2,
+	 sort_procs/3,
 	 expand/2,
 	 expand_binary/2,
-	 expand_memory/2,
-	 next/2]).
+	 expand_memory/2]).
 
 
 %% gen_server callbacks
@@ -113,24 +117,49 @@
 				% this, it must be explicitly expanded.
 -define(max_display_binary_size,50). % max size of a binary that will be
 				      % directly displayed.
+-define(max_sort_process_num,10000). % Max number of processes that allows
+				    % sorting. If more than this number of 
+				    % processes exist, they will be displayed
+				    % in the order they are found in the log.
+-define(items_chunk_size,?max_sort_process_num). % Number of items per chunk 
+						 % when page of many items
+						 % is displayed, e.g. processes,
+						 % timers, funs...
+						 % Must be equal to 
+						 % ?max_sort_process_num!
 
--define(initial_proc_record(Pid),
-	#proc{pid=Pid,
-	      %% msg_q_len, reds and stack_heap are integers because it must 
-	      %% be possible to sort on them. All other fields are strings
-	      msg_q_len=0,reds=0,stack_heap=0,
-	      %% for old dumps start_time, parent and number of heap frament
-	      %% does not exist
-	      start_time="unknown",
-	      parent="unknown",
-	      num_heap_frag="unknown", 
-	      %% current_func can be both "current function" and
-	      %% "last scheduled in for"
-	      current_func={"Current Function",?space},
-	      %% stack_dump, message queue and dictionaries should only be 
-	      %% displayed as a link to "Expand" (if dump is from OTP R9B 
-	      %% or newer)
-	      _=?space}).
+%% All possible tags - use macros in order to avoid misspelling in the code
+-define(allocated_areas,allocated_areas).
+-define(allocator,allocator).
+-define(atoms,atoms).
+-define(binary,binary).
+-define(debug_proc_dictionary,debug_proc_dictionary).
+-define(ende,ende).
+-define(erl_crash_dump,erl_crash_dump).
+-define(ets,ets).
+-define(fu,fu).
+-define(hash_table,hash_table).
+-define(hidden_node,hidden_node).
+-define(index_table,index_table).
+-define(instr_data,instr_data).
+-define(internal_ets,internal_ets).
+-define(loaded_modules,loaded_modules).
+-define(memory,memory).
+-define(mod,mod).
+-define(no_distribution,no_distribution).
+-define(node,node).
+-define(not_connected,not_connected).
+-define(num_atoms,num_atoms).
+-define(old_instr_data,old_instr_data).
+-define(port,port).
+-define(proc,proc).
+-define(proc_dictionary,proc_dictionary).
+-define(proc_heap,proc_heap).
+-define(proc_messages,proc_messages).
+-define(proc_stack,proc_stack).
+-define(timer,timer).
+-define(visible_node,visible_node).
+
 
 -record(state,{file,procs_summary,sorted,shared_heap=false,
 	       wordsize=4,num_atoms="unknown",binaries,bg_status}).
@@ -175,6 +204,85 @@ start() ->
 stop() ->
     webtool:stop_tools([],"app=crashdump_viewer"),
     webtool:stop().
+
+%%%-----------------------------------------------------------------
+%%% Start crashdump_viewer via the cdv script located in
+%%% $OBSERVER_PRIV_DIR/bin
+script_start() ->
+    usage().
+script_start([File]) ->
+    DefaultBrowser =
+	case os:type() of
+	    {win32,_} -> iexplore;
+	    _ -> firefox
+	end,
+    script_start([File,DefaultBrowser]);
+script_start([FileAtom,Browser]) ->
+    File = atom_to_list(FileAtom),
+    case filelib:is_regular(File) of
+	true ->
+	    io:format("Starting crashdump_viewer...\n"),
+	    start(),
+	    io:format("Reading crashdump..."),
+	    read_file(File),
+	    redirect([],[]),
+	    io:format("done\n"),
+	    start_browser(Browser);
+	false ->
+	    io:format("cdv error: the given file does not exist\n"),
+	    usage()
+    end.
+
+start_browser(Browser) ->
+    PortStr = integer_to_list(gen_server:call(web_tool,get_port)),
+    Url = "http://localhost:" ++ PortStr ++ ?START_PAGE,
+    {OSType,_} = os:type(),
+    case Browser of
+	none ->
+	    ok;
+	iexplore when OSType == win32->
+	    io:format("Starting internet explorer...\n"),
+	    {ok,R} = win32reg:open(""),
+	    Key="\\local_machine\\SOFTWARE\\Microsoft\\IE Setup\\Setup",
+	    win32reg:change_key(R,Key),
+	    {ok,Val} = win32reg:value(R,"Path"),
+	    IExplore=filename:join(win32reg:expand(Val),"iexplore.exe"),
+	    os:cmd("\"" ++ IExplore ++ "\" " ++ Url);
+	_ when OSType == win32 ->
+	    io:format("Starting ~w...\n",[Browser]),
+	    os:cmd("\"" ++ atom_to_list(Browser) ++ "\" " ++ Url);
+	B when B==firefox; B==mozilla ->
+	    io:format("Sending URL to ~w...",[Browser]),
+	    BStr = atom_to_list(Browser),
+	    SendCmd = BStr ++ " -raise -remote \'openUrl(" ++ Url ++ ")\'",
+	    Port = open_port({spawn,SendCmd},[exit_status]),
+	    receive
+		{Port,{exit_status,0}} ->
+		    io:format("done\n");
+		{Port,{exit_status,_Error}} ->
+		    io:format(" not running, starting ~w...\n",[Browser]),
+		    os:cmd(BStr ++ " " ++ Url)
+	    after 5000 ->
+		    io:format(" failed, starting ~w...\n",[Browser]),
+		    erlang:port_close(Port),
+		    os:cmd(BStr ++ " " ++ Url)
+	    end;
+	_ ->
+	    io:format("Starting ~w...\n",[Browser]),
+	    os:cmd(atom_to_list(Browser) ++ " " ++ Url)
+    end,
+    ok.
+
+usage() ->
+    io:format(
+      "\nusage: cdv file [ browser ]\n"
+      "\tThe \'file\' must be an existing erlang crash dump.\n"
+      "\tDefault browser is \'iexplore\' (Internet Explorer) on Windows\n"
+      "\tor else \'firefox\'.\n",
+      []).
+
+
+
 
 %%%-----------------------------------------------------------------
 %%% Return config data used by webtool
@@ -266,22 +374,24 @@ toggle(_Env,Input) ->
 %%% The following functions are called when menu items are clicked.
 general_info(_Env,_Input) ->
     call(general_info).
-processes(_Env,_Input) ->
-    call(procs_summary).
-ports(_Env,Input) -> % this is also called when a link to a port is clicked
-    call({ports,Input}).
-ets_tables(_Env,Input) ->
-    call({ets_tables,Input}).
-timers(_Env,Input) ->
-    call({timers,Input}).
-fun_table(_Env,_Input) ->
-    call(funs).
-atoms(_Env,_Input) ->
-    call(atoms).
+processes(SessionId,_Env,_Input) ->
+    call({procs_summary,SessionId}).
+ports(SessionId,_Env,_Input) ->
+    call({ports,SessionId}).
+ets_tables(SessionId,_Env,Input) ->
+    call({ets_tables,SessionId,Input}).
+internal_ets_tables(_Env,_Input) ->
+    call(internal_ets_tables).
+timers(SessionId,_Env,Input) ->
+    call({timers,SessionId,Input}).
+fun_table(SessionId,_Env,_Input) ->
+    call({funs,SessionId}).
+atoms(SessionId,_Env,_Input) ->
+    call({atoms,SessionId}).
 dist_info(_Env,_Input) ->
     call(dist_info).
-loaded_modules(_Env,_Input) ->
-    call(loaded_mods).
+loaded_modules(SessionId,_Env,_Input) ->
+    call({loaded_mods,SessionId}).
 loaded_mod_details(_Env,Input) ->
     call({loaded_mod_details,Input}).
 memory(_Env,_Input) ->
@@ -303,8 +413,13 @@ proc_details(_Env,Input) ->
 %%%-----------------------------------------------------------------
 %%% Called when one of the headings in the process summary table are
 %%% clicked. It sorts the processes by the clicked heading.
-sort_procs(_Env,Input) ->
-    call({sort_procs,Input}).
+sort_procs(SessionId,_Env,Input) ->
+    call({sort_procs,SessionId,Input}).
+
+%%%-----------------------------------------------------------------
+%%% Called when a link to a port is clicked.
+port(_Env,Input) ->
+    call({port,Input}).
 
 %%%-----------------------------------------------------------------
 %%% Called when the "Expand" link in a call stack (Last Calls) is
@@ -325,11 +440,6 @@ expand_binary(_Env,Input) ->
     call({expand_binary,Input}).
 
 %%%-----------------------------------------------------------------
-%%% Called when the "Next" link under atoms is clicked.
-next(_Env,Input) ->
-    call({next,Input}).
-
-%%%-----------------------------------------------------------------
 %%% Called on regular intervals while waiting for a dump to be read
 redirect(_Env,_Input) ->
     call(redirect).
@@ -348,7 +458,7 @@ redirect(_Env,_Input) ->
 %%--------------------------------------------------------------------
 init([]) ->
     ets:new(cdv_menu_table,[set,named_table,{keypos,#menu_item.index},public]),
-    ets:new(cdv_dump_index_table,[bag,named_table,public]),
+    ets:new(cdv_dump_index_table,[ordered_set,named_table,public]),
     {ok, #state{}}.
 
 %%--------------------------------------------------------------------
@@ -373,16 +483,7 @@ handle_call(start_page, _From, State) ->
     Reply = crashdump_viewer_html:start_page(),
     {reply,Reply,State};
 handle_call({read_file,Input}, _From, _State) ->
-    {ok,File0} = get_value("path",httpd:parse_query(Input)),
-    File = 
-	case File0 of
-	    [$"|FileAndSome] ->
-		%% Opera adds \"\" around the filename!
-		[$"|Elif] = lists:reverse(FileAndSome),
-		lists:reverse(Elif);
-	    _ ->
-		File0
-	end,
+    {ok,File} = get_value("path",httpd:parse_query(Input)),
     spawn_link(fun() -> read_file(File) end),
     Status = background_status(reading,File),
     Reply = crashdump_viewer_html:redirect(Status),
@@ -399,8 +500,17 @@ handle_call(initial_info_frame,_From,State=#state{file=File}) ->
     GenInfo = general_info(File),
     NumAtoms = GenInfo#general_info.num_atoms,
     {WS,SH} = parse_vsn_str(GenInfo#general_info.system_vsn,4,false),
+    NumProcs = list_to_integer(GenInfo#general_info.num_procs),
+    ProcsSummary = 
+	if NumProcs > ?max_sort_process_num -> too_many;
+	   true -> State#state.procs_summary
+	end,
+    NewState = State#state{shared_heap=SH,
+			   wordsize=WS,
+			   num_atoms=NumAtoms,
+			   procs_summary=ProcsSummary},
     Reply = crashdump_viewer_html:general_info(GenInfo),
-    {reply,Reply,State#state{shared_heap=SH,wordsize=WS,num_atoms=NumAtoms}};
+    {reply,Reply,NewState};
 handle_call({toggle,Input},_From,State) ->
     {ok,Index} = get_value("index",httpd:parse_query(Input)),
     do_toggle(list_to_integer(Index)),
@@ -429,7 +539,7 @@ handle_call({expand,Input},_From,State=#state{file=File}) ->
 handle_call({expand_memory,Input},_From,State=#state{file=File,binaries=B}) ->
     [{"pid",Pid},{"what",What}] = httpd:parse_query(Input),
     Reply = 
-	case truncated_warning([{"=proc",Pid}]) of
+	case truncated_warning([{?proc,Pid}]) of
 	    [] ->
 		Expanded = expand_memory(File,What,Pid,B),
 		crashdump_viewer_html:expanded_memory(What,Expanded);
@@ -450,149 +560,129 @@ handle_call({expand_binary,Input},_From,State=#state{file=File}) ->
     close(Fd),
     Reply=crashdump_viewer_html:expanded_binary(io_lib:format("~p",[Bin])),
     {reply,Reply,State};
-handle_call({next,Input},_From,State=#state{file=File}) ->
-    [{"pos",Pos},{"num",N},{"start",Start},{"what",What}] =
-	httpd:parse_query(Input),
-    Tags = related_tags(What),
-    TW = truncated_warning(Tags),
-    Next = get_next(File,list_to_integer(Pos),list_to_integer(N),
-		    list_to_integer(Start),What),
-    Reply = crashdump_viewer_html:next(Next,TW),
-    {reply,Reply,State};
 handle_call(general_info,_From,State=#state{file=File}) ->
     GenInfo=general_info(File),
     Reply = crashdump_viewer_html:general_info(GenInfo),
     {reply,Reply,State};
-handle_call(procs_summary,_From,State=#state{file=File,shared_heap=SH}) ->
-    ProcsSummary =
-	case State#state.procs_summary of
-	    undefined -> procs_summary(File);
-	    PS -> PS
-	end,
-    TW = truncated_warning(["=proc"]),
-    Reply = crashdump_viewer_html:procs_summary("pid",ProcsSummary,TW,SH),
-    {reply,Reply,State#state{procs_summary=ProcsSummary,sorted="pid"}};
-handle_call({sort_procs,Input}, _From, State=#state{shared_heap=SH}) ->
+handle_call({procs_summary,SessionId},_From,State) ->
+    TW = truncated_warning([?proc]),
+    NewState = procs_summary(SessionId,TW,"pid",State#state{sorted=undefined}),
+    {reply,ok,NewState};
+handle_call({sort_procs,SessionId,Input}, _From, State) ->
     {ok,Sort} = get_value("sort",httpd:parse_query(Input)),
-    {ProcsSummary,Sorted} = do_sort_procs(Sort,
-					  State#state.procs_summary,
-					  State#state.sorted),
-    TW = truncated_warning(["=proc"]),
-    Reply = crashdump_viewer_html:procs_summary(Sort,ProcsSummary,TW,SH),
-    {reply,Reply,State#state{sorted=Sorted}};
+    TW = truncated_warning([?proc]),
+    NewState = procs_summary(SessionId,TW,Sort,State),
+    {reply,ok,NewState};
 handle_call({proc_details,Input},_From,State=#state{file=File,shared_heap=SH}) ->
     {ok,Pid} = get_value("pid",httpd:parse_query(Input)),
     Reply = 
 	case get_proc_details(File,Pid) of
 	    {ok,Proc} -> 
-		TW = truncated_warning([{"=proc",Pid}]),
+		TW = truncated_warning([{?proc,Pid}]),
 		crashdump_viewer_html:proc_details(Pid,Proc,TW,SH);
 	    {other_node,Node} -> 
-		TW = truncated_warning(["=visible_node",
-					"=hidden_node",
-					"=not_connected"]),
+		TW = truncated_warning([?visible_node,
+					?hidden_node,
+					?not_connected]),
 		crashdump_viewer_html:nods(Node,TW);
 	    not_found -> 
 		crashdump_viewer_html:info_page(["Could not find process: ",
 						 Pid],?space)
 	end,
     {reply, Reply, State};
-handle_call({ports,Input},_From,State=#state{file=File}) ->
+handle_call({port,Input},_From,State=#state{file=File}) ->
+    {ok,P} = get_value("port",httpd:parse_query(Input)),
+    Id = [$#|P],
     Reply = 
-	case get_value("port",httpd:parse_query(Input)) of
-	    {ok,P} -> 
-		Id = [$#|P],
-		case get_port(File,Id) of
-		    {ok,PortInfo} ->
-			TW = truncated_warning([{"=port",Id}]),
-			crashdump_viewer_html:ports(Id,[PortInfo],TW);
-		    {other_node,Node} ->
-			TW = truncated_warning(["=visible_node",
-						"=hidden_node",
-						"=not_connected"]),
-			crashdump_viewer_html:nods(Node,TW);
-		    not_found -> 
-			crashdump_viewer_html:info_page(
-			  ["Could not find port: ",Id],?space)
-		end;
-	    error -> % no port identity in Input - get all ports
-		Ports=get_ports(File),
-		TW = truncated_warning(["=port"]),
-		crashdump_viewer_html:ports("Port Information",Ports,TW)
+	case get_port(File,Id) of
+	    {ok,PortInfo} ->
+		TW = truncated_warning([{?port,Id}]),
+		crashdump_viewer_html:port(Id,PortInfo,TW);
+	    {other_node,Node} ->
+		TW = truncated_warning([?visible_node,
+					?hidden_node,
+					?not_connected]),
+		crashdump_viewer_html:nods(Node,TW);
+	    not_found -> 
+		crashdump_viewer_html:info_page(
+		  ["Could not find port: ",Id],?space)
 	end,
     {reply,Reply,State};
-handle_call({ets_tables,Input},_From,State=#state{file=File,wordsize=WS}) ->
-    {Pid,Heading,InternalEts} = 
+handle_call({ports,SessionId},_From,State=#state{file=File}) ->
+    TW = truncated_warning([?port]),
+    get_ports(SessionId,File,TW),
+    {reply,ok,State};
+handle_call({ets_tables,SessionId,Input},_From,State=#state{file=File,wordsize=WS}) ->
+    {Pid,Heading} = 
 	case get_value("pid",httpd:parse_query(Input)) of
 	    {ok,P} -> 
-		{P,["ETS Tables for Process ",P],[]};
+		{P,["ETS Tables for Process ",P]};
 	    error -> 
-		I = get_internal_ets_tables(File,WS),
-		{'_',"ETS Table Information",I}
+		{'$2',"ETS Table Information"}
 	end,
-    EtsTables = get_ets_tables(File,Pid,WS),
-    TW = truncated_warning(["=ets"]),
-    Reply = crashdump_viewer_html:ets_tables(Heading,EtsTables,InternalEts,TW),
+    TW = truncated_warning([?ets]),
+    get_ets_tables(SessionId,File,Heading,TW,Pid,WS),
+    {reply,ok,State};
+handle_call(internal_ets_tables,_From,State=#state{file=File,wordsize=WS}) ->
+    InternalEts = get_internal_ets_tables(File,WS),
+    TW = truncated_warning([?internal_ets]),
+    Reply = crashdump_viewer_html:internal_ets_tables(InternalEts,TW),
     {reply,Reply,State};
-handle_call({timers,Input},_From,State=#state{file=File}) ->
+handle_call({timers,SessionId,Input},_From,State=#state{file=File}) ->
     {Pid,Heading} = 
 	case get_value("pid",httpd:parse_query(Input)) of
 	    {ok,P} -> {P,["Timers for Process ",P]};
-	    error -> {'_',"Timer Information"}
+	    error -> {'$2',"Timer Information"}
 	end,
-    Timers=get_timers(File,Pid),
-    TW = truncated_warning(["=timer"]),
-    Reply = crashdump_viewer_html:timers(Heading,Timers,TW),
-    {reply,Reply,State};
+    TW = truncated_warning([?timer]),
+    get_timers(SessionId,File,Heading,TW,Pid),
+    {reply,ok,State};
 handle_call(dist_info,_From,State=#state{file=File}) ->
     Nods=nods(File),
-    TW = truncated_warning(["=visible_node","=hidden_node","=not_connected"]),
+    TW = truncated_warning([?visible_node,?hidden_node,?not_connected]),
     Reply = crashdump_viewer_html:nods(Nods,TW),
     {reply,Reply,State};
-handle_call(loaded_mods,_From,State=#state{file=File}) ->
-    LoadedMods=loaded_mods(File),
-    TW = truncated_warning(["=mod"]),
-    Reply = crashdump_viewer_html:loaded_mods(LoadedMods,TW),
-    {reply,Reply,State};
+handle_call({loaded_mods,SessionId},_From,State=#state{file=File}) ->
+    TW = truncated_warning([?mod]),
+    loaded_mods(SessionId,File,TW),
+    {reply,ok,State};
 handle_call({loaded_mod_details,Input},_From,State=#state{file=File}) ->
     {ok,Mod} = get_value("mod",httpd:parse_query(Input)),
     ModInfo = get_loaded_mod_details(File,Mod),
-    TW = truncated_warning([{"=mod",Mod}]),
+    TW = truncated_warning([{?mod,Mod}]),
     Reply = crashdump_viewer_html:loaded_mod_details(ModInfo,TW),
     {reply,Reply,State};
-handle_call(funs,_From,State=#state{file=File}) ->
-    Funs=funs(File),
-    TW = truncated_warning(["=fun"]),
-    Reply = crashdump_viewer_html:funs(Funs,TW),
-    {reply,Reply,State};
-handle_call(atoms,_From,State=#state{file=File,num_atoms=Num}) ->
-    Atoms=atoms(File),
-    TW = truncated_warning(["=atoms","=num_atoms"]),
-    Reply = crashdump_viewer_html:atoms(Atoms,Num,TW),
-    {reply,Reply,State};
+handle_call({funs,SessionId},_From,State=#state{file=File}) ->
+    TW = truncated_warning([?fu]),
+    funs(SessionId,File,TW),
+    {reply,ok,State};
+handle_call({atoms,SessionId},_From,State=#state{file=File,num_atoms=Num}) ->
+    TW = truncated_warning([?atoms,?num_atoms]),
+    atoms(SessionId,File,TW,Num),
+    {reply,ok,State};
 handle_call(memory,_From,State=#state{file=File}) ->
     Memory=memory(File),
-    TW = truncated_warning(["=memory"]),
+    TW = truncated_warning([?memory]),
     Reply = crashdump_viewer_html:memory(Memory,TW),
     {reply,Reply,State};
 handle_call(allocated_areas,_From,State=#state{file=File}) ->
     AllocatedAreas=allocated_areas(File),
-    TW = truncated_warning(["=allocated_areas"]),
+    TW = truncated_warning([?allocated_areas]),
     Reply = crashdump_viewer_html:allocated_areas(AllocatedAreas,TW),
     {reply,Reply,State};
 handle_call(allocator_info,_From,State=#state{file=File}) ->
     SlAlloc=allocator_info(File),
-    TW = truncated_warning(["=allocator"]),
+    TW = truncated_warning([?allocator]),
     Reply = crashdump_viewer_html:allocator_info(SlAlloc,TW),
     {reply,Reply,State};
 handle_call(hash_tables,_From,State=#state{file=File}) ->
     HashTables=hash_tables(File),
-    TW = truncated_warning(["=hash_table","=index_table"]),
+    TW = truncated_warning([?hash_table,?index_table]),
     Reply = crashdump_viewer_html:hash_tables(HashTables,TW),
     {reply,Reply,State};
 handle_call(index_tables,_From,State=#state{file=File}) ->
     IndexTables=index_tables(File),
-    TW = truncated_warning(["=hash_table","=index_table"]),
+    TW = truncated_warning([?hash_table,?index_table]),
     Reply = crashdump_viewer_html:index_tables(IndexTables,TW),
     {reply,Reply,State}.
 
@@ -682,9 +772,9 @@ truncated_here(Tag) ->
 		    
 
 %% Check if the dump was truncated with the same tag, but earlier id.
-%% Eg if this is {"=proc","<0.30.0>"}, we should warn if the dump was
-%% truncated in {"=proc","<0.29.0>"} or earlier
-truncated_earlier({"=proc",Pid}) ->
+%% Eg if this is {?proc,"<0.30.0>"}, we should warn if the dump was
+%% truncated in {?proc,"<0.29.0>"} or earlier
+truncated_earlier({?proc,Pid}) ->
     compare_pid(Pid,get(truncated_proc));
 truncated_earlier(_Tag) ->
     false.
@@ -718,9 +808,37 @@ open(File) ->
 close(Fd) ->
     erase(chunk),
     file:close(Fd).
+
+%% Set position relative to beginning of file
+%% If position is within the already read Chunk, then adjust 'chunk'
+%% and 'pos' in process dictionary. Else set position in file.
 pos_bof(Fd,Pos) ->
+    case get(pos) of
+	undefined ->
+	    hard_pos_bof(Fd,Pos);
+	OldPos when Pos>=OldPos ->
+	    case get(chunk) of
+		undefined ->
+		    hard_pos_bof(Fd,Pos);
+		Chunk ->
+		    ChunkSize = byte_size(Chunk),
+		    ChunkEnd = OldPos+ChunkSize,
+		    if Pos=<ChunkEnd ->
+			    Diff = Pos-OldPos,
+			    put(pos,Pos),
+			    put(chunk,binary:part(Chunk,Diff,ChunkEnd-Pos));
+		       true ->
+			    hard_pos_bof(Fd,Pos)
+		    end
+	    end;
+	_ ->
+	    hard_pos_bof(Fd,Pos)
+    end.
+
+hard_pos_bof(Fd,Pos) ->
     reset_chunk(),
-    file:position(Fd,{bof,Pos}). 
+    file:position(Fd,{bof,Pos}).
+
 
 get_chunk(Fd) ->
     case erase(chunk) of
@@ -979,7 +1097,9 @@ initial_menu() ->
       [menu_item(0, {"./general_info","General information"},0),
        menu_item(0, {"./processes","Processes"}, 0),
        menu_item(0, {"./ports","Ports"}, 0),
-       menu_item(0, {"./ets_tables","ETS tables"}, 0),
+       menu_item(2, "ETS tables", 0),
+       menu_item(0, {"./ets_tables","ETS tables"}, 1),
+       menu_item(0, {"./internal_ets_tables","Internal ETS tables"}, 1),
        menu_item(0, {"./timers","Timers"}, 0),
        menu_item(0, {"./fun_table","Fun table"}, 0),
        menu_item(0, {"./atoms","Atoms"}, 0),
@@ -1066,9 +1186,9 @@ read_file(File) ->
 		{ok,<<$=:8,TagAndRest/binary>>} ->
 		    {Tag,Id,Rest,N1} = tag(Fd,TagAndRest,1),
 		    case Tag of
-			"=erl_crash_dump" ->
-			    ets:delete_all_objects(cdv_dump_index_table),
-			    ets:insert(cdv_dump_index_table,{Tag,Id,N1+1}),
+			?erl_crash_dump ->
+			    reset_index_table(),
+			    insert_index(Tag,Id,N1+1),
 			    put(last_tag,{Tag,""}),
 			    Status = background_status(processing,File),
 			    background_status(Status),
@@ -1107,34 +1227,35 @@ read_file(File) ->
 	    background_done({R,undefined,undefined})
     end.
 
-indexify(Fd,<<"\n=",TagAndRest/binary>>,N) ->
-    {Tag,Id,Rest,N1} = tag(Fd,TagAndRest,N+2),
-    ets:insert(cdv_dump_index_table,{Tag,Id,N1+1}), % +1 to get past newline
-    put(last_tag,{Tag,Id}),
-    indexify(Fd,Rest,N1);
-indexify(Fd,<<>>,N) ->
-    case read(Fd) of
-	{ok,Chunk} when is_binary(Chunk) ->
-	    indexify(Fd,Chunk,N);
-        eof ->
-	    eof
-    end;
-indexify(Fd,<<$\n>>,N) ->
-    %% This clause is needed in case the chunk ends with a newline and
-    %% the next chunk starts with a tag (i.e. "\n=....")
-    case read(Fd) of
-	{ok,Chunk} when is_binary(Chunk) ->
-	    indexify(Fd,<<$\n,Chunk/binary>>,N);
-        eof ->
-	    eof
-    end;
-indexify(Fd,<<_Char:8,Rest/binary>>,N) ->
-    indexify(Fd,Rest,N+1).
+indexify(Fd,Bin,N) ->
+    case binary:match(Bin,<<"\n=">>) of
+	{Start,Len} ->
+	    Pos = Start+Len,
+	    <<_:Pos/binary,TagAndRest/binary>> = Bin,
+	    {Tag,Id,Rest,N1} = tag(Fd,TagAndRest,N+Pos),
+	    insert_index(Tag,Id,N1+1), % +1 to get past newline
+	    put(last_tag,{Tag,Id}),
+	    indexify(Fd,Rest,N1);
+	nomatch ->
+	    case read(Fd) of
+		{ok,Chunk0} when is_binary(Chunk0) ->
+		    {Chunk,N1} =
+			case binary:last(Bin) of
+			    $\n ->
+				{<<$\n,Chunk0/binary>>,N+byte_size(Bin)-1};
+			    _ ->
+				{Chunk0,N+byte_size(Bin)}
+			end,
+		    indexify(Fd,Chunk,N1);
+		eof ->
+		    eof
+	    end
+    end.
 
 tag(Fd,Bin,N) ->
     tag(Fd,Bin,N,[],[],tag).
 tag(_Fd,<<$\n:8,_/binary>>=Rest,N,Gat,Di,_Now) ->
-    {[$=|lists:reverse(Gat)],lists:reverse(Di),Rest,N};
+    {tag_to_atom(lists:reverse(Gat)),lists:reverse(Di),Rest,N};
 tag(Fd,<<$\r:8,Rest/binary>>,N,Gat,Di,Now) ->
     tag(Fd,Rest,N+1,Gat,Di,Now);
 tag(Fd,<<$::8,IdAndRest/binary>>,N,Gat,Di,tag) ->
@@ -1148,12 +1269,12 @@ tag(Fd,<<>>,N,Gat,Di,Now) ->
 	{ok,Chunk} when is_binary(Chunk) ->
 	    tag(Fd,Chunk,N,Gat,Di,Now);
         eof ->
-	    {[$=|lists:reverse(Gat)],lists:reverse(Di),<<>>,N}
+	    {tag_to_atom(lists:reverse(Gat)),lists:reverse(Di),<<>>,N}
     end.
 
 check_if_truncated() ->
     case get(last_tag) of
-	{"=end",_} ->
+	{?ende,_} ->
 	    put(truncated,false),
 	    put(truncated_proc,false);
 	TruncatedTag ->
@@ -1161,31 +1282,28 @@ check_if_truncated() ->
 	    find_truncated_proc(TruncatedTag)
     end.
 	    
-find_truncated_proc({"=atom",_Id}) ->
+find_truncated_proc({?atoms,_Id}) ->
     put(truncated_proc,false);
 find_truncated_proc({Tag,Pid}) ->
     case is_proc_tag(Tag) of
 	true -> 
 	    put(truncated_proc,Pid);
 	false -> 
-	    %% This means that the dump is truncated between "=proc" and
-	    %% "=proc_heap" => memory info is missing for all procs.
+	    %% This means that the dump is truncated between ?proc and
+	    %% ?proc_heap => memory info is missing for all procs.
 	    put(truncated_proc,"<0.0.0>")
     end.
 
-is_proc_tag(Tag)  when Tag=="=proc";
-		       Tag=="=proc_dictionary";
-		       Tag=="=proc_messages";
-		       Tag=="=proc_dictionary";
-		       Tag=="=debug_proc_dictionary";
-		       Tag=="=proc_stack";
-		       Tag=="=proc_heap" ->
+is_proc_tag(Tag)  when Tag==?proc;
+		       Tag==?proc_dictionary;
+		       Tag==?proc_messages;
+		       Tag==?proc_dictionary;
+		       Tag==?debug_proc_dictionary;
+		       Tag==?proc_stack;
+		       Tag==?proc_heap ->
     true;
 is_proc_tag(_) ->
     false.
-
-related_tags("Atoms") ->
-    ["=atoms","=num_atoms"].
 
 %%% Inform the crashdump_viewer_server that a background job is completed.
 background_done(Result) ->
@@ -1198,8 +1316,7 @@ background_status(Status) ->
 %%%-----------------------------------------------------------------
 %%% Functions for reading information from the dump
 general_info(File) ->
-    [{"=erl_crash_dump",_Id,Start}] = 
-	ets:lookup(cdv_dump_index_table,"=erl_crash_dump"),
+    [{_Id,Start}] = lookup_index(?erl_crash_dump),
     Fd = open(File),
     pos_bof(Fd,Start),
     Created = case get_rest_of_line(Fd) of
@@ -1207,15 +1324,15 @@ general_info(File) ->
 		  WholeLine -> WholeLine
 	      end,
 
-    GI0 = get_general_info(Fd,#general_info{created=Created,_=?space}),
+    GI0 = get_general_info(Fd,#general_info{created=Created}),
     GI = case GI0#general_info.num_atoms of
 	    ?space -> GI0#general_info{num_atoms=get_num_atoms(Fd)};
 	    _ -> GI0
 	end,
 
     {MemTot,MemMax} = 
-	case ets:lookup(cdv_dump_index_table,"=memory") of
-	    [{"=memory",_,MemStart}] ->
+	case lookup_index(?memory) of
+	    [{_,MemStart}] ->
 		pos_bof(Fd,MemStart),
 		Memory = get_meminfo(Fd,[]),
 		Tot = case lists:keysearch("total",1,Memory) of
@@ -1232,33 +1349,34 @@ general_info(File) ->
 	end,
 
     close(Fd),
-    {NumProcs,NumEts,NumFuns} = count(),
+    {NumProcs,NumEts,NumFuns,NumTimers} = count(),
     NodeName = 
-	case ets:lookup(cdv_dump_index_table,"=node") of
-	    [{"=node",N,_Start}] ->
+	case lookup_index(?node) of
+	    [{N,_Start}] ->
 		N;
 	    [] ->
-		case ets:lookup(cdv_dump_index_table,"=no_distribution") of
+		case lookup_index(?no_distribution) of
 		    [_] -> "nonode@nohost";
 		    [] -> "unknown"
 		end
 	end,
 
     InstrInfo =
-	case ets:member(cdv_dump_index_table,"=old_instr_data") of
-	    true ->
-		old_instr_data;
-	    false ->
-		case ets:member(cdv_dump_index_table,"=instr_data") of
-		    true ->
-			instr_data;
-		    false ->
-			false
-		end
+	case lookup_index(?old_instr_data) of
+	    [] ->
+		case lookup_index(?instr_data) of
+		    [] ->
+			false;
+		    _ ->
+			instr_data
+		end;
+	    _ ->
+		old_instr_data
 	end,
     GI#general_info{node_name=NodeName,
 		    num_procs=integer_to_list(NumProcs),
 		    num_ets=integer_to_list(NumEts),
+		    num_timers=integer_to_list(NumTimers),
 		    num_fun=integer_to_list(NumFuns),
 		    mem_tot=MemTot,
 		    mem_max=MemMax,
@@ -1285,8 +1403,8 @@ get_general_info(Fd,GenInfo) ->
     end.
 
 get_num_atoms(Fd) ->
-    case ets:match(cdv_dump_index_table,{"=hash_table","atom_tab",'$1'}) of
-	[[Pos]] -> 
+    case lookup_index(?hash_table,"atom_tab") of
+	[{_,Pos}] -> 
 	    pos_bof(Fd,Pos),
 	    skip_rest_of_line(Fd), % size
 	    skip_rest_of_line(Fd), % used
@@ -1300,10 +1418,10 @@ get_num_atoms(Fd) ->
 	    get_num_atoms2()
     end.
 get_num_atoms2() ->
-    case ets:lookup(cdv_dump_index_table,"=num_atoms") of
+    case lookup_index(?num_atoms) of
 	[] -> 
 	    ?space;
-	[{"=num_atoms",NA,_Pos}] -> 
+	[{NA,_Pos}] -> 
 	    %% If dump is translated this will exist
 	    case get(truncated) of
 		true ->
@@ -1314,43 +1432,70 @@ get_num_atoms2() ->
     end.
 
 count() ->
-    {ets:select_count(cdv_dump_index_table,count_ms("=proc")),
-     ets:select_count(cdv_dump_index_table,count_ms("=ets")),
-     ets:select_count(cdv_dump_index_table,count_ms("=fun"))}.
-
-count_ms(Tag) ->
-    [{{Tag,'_','_'},[],[true]}].
+    {count_index(?proc),count_index(?ets),count_index(?fu),count_index(?timer)}.
 
 
-procs_summary(File) ->
-    AllProcs = ets:lookup(cdv_dump_index_table,"=proc"),
-    Fd = open(File),
-    R = lists:map(fun({"=proc",Pid,Start}) -> 
-			  pos_bof(Fd,Start),
-			  get_procinfo(Fd,fun main_procinfo/4,
-				       ?initial_proc_record(Pid))
-		  end, 
-		  AllProcs),
-    close(Fd),
-    R.
+%%-----------------------------------------------------------------
+%% Page with all processes
+%%
+%% If there are less than ?max_sort_process_num processes in the dump,
+%% we will store the list of processes in the server state in order to
+%% allow sorting according to the different columns of the
+%% table. Since ?max_sort_process_num=:=?items_chunk_size, there will
+%% never be more than one chunk in this case.
+%% 
+%% If there are more than ?max_sort_process_num processes in the dump,
+%% no sorting will be allowed, and the processes must be read (chunk
+%% by chunk) from the file each time the page is opened. This is to
+%% avoid really big data in the server state.
+procs_summary(SessionId,TW,_,State=#state{procs_summary=too_many}) ->
+    chunk_page(SessionId,State#state.file,TW,?proc,processes,
+	       {no_sort,State#state.shared_heap},procs_summary_parsefun()),
+    State;
+procs_summary(SessionId,TW,SortOn,State) ->
+    ProcsSummary = 
+	case State#state.procs_summary of
+	    undefined -> % first time - read from file
+		Fd = open(State#state.file),
+		{PS,_}=lookup_and_parse_index_chunk(first_chunk_pointer(?proc),
+						    Fd,procs_summary_parsefun()),
+		close(Fd),
+		PS;
+	    PS ->
+		PS
+	end,
+    {SortedPS,NewSorted} = do_sort_procs(SortOn,ProcsSummary,State#state.sorted),
+    HtmlInfo = 
+	crashdump_viewer_html:chunk_page(processes,SessionId,TW,
+					 {SortOn,State#state.shared_heap},
+					 SortedPS),
+    crashdump_viewer_html:chunk(SessionId,done,HtmlInfo),
+    State#state{procs_summary=ProcsSummary,sorted=NewSorted}.
 
+procs_summary_parsefun() ->
+    fun(Fd,Pid) -> 
+	    get_procinfo(Fd,fun main_procinfo/4,#proc{pid=Pid}) 
+    end.
+
+%%-----------------------------------------------------------------
+%% Page with one process
 get_proc_details(File,Pid) ->
-    DumpVsn = ets:lookup_element(cdv_dump_index_table,"=erl_crash_dump",2),
-    case ets:match(cdv_dump_index_table,{"=proc",Pid,'$1'}) of
-	[[Start]] ->
+    [{DumpVsn,_}] = lookup_index(?erl_crash_dump),
+    case lookup_index(?proc,Pid) of
+	[{_,Start}] ->
 	    Fd = open(File),
 	    pos_bof(Fd,Start),
 	    Proc0 = 
 		case DumpVsn of
 		    "0.0" -> 
 			%% Old version (translated)
-			?initial_proc_record(Pid);
+			#proc{pid=Pid};
 		    _ ->
-			(?initial_proc_record(Pid))#proc{
-			  stack_dump=if_exist("=proc_stack",Pid),
-			  msg_q=if_exist("=proc_messages",Pid),
-			  dict=if_exist("=proc_dictionary",Pid),
-			  debug_dict=if_exist("=debug_proc_dictionary",Pid)}
+			#proc{pid=Pid,
+			      stack_dump=if_exist(?proc_stack,Pid),
+			      msg_q=if_exist(?proc_messages,Pid),
+			      dict=if_exist(?proc_dictionary,Pid),
+			      debug_dict=if_exist(?debug_proc_dictionary,Pid)}
 		end,
 	    Proc = get_procinfo(Fd,fun all_procinfo/4,Proc0),
 	    close(Fd),
@@ -1368,11 +1513,11 @@ get_proc_details(File,Pid) ->
     end.
 
 if_exist(Tag,Key) ->
-    case ets:select_count(cdv_dump_index_table,[{{Tag,Key,'_'},[],[true]}]) of
+    case count_index(Tag,Key) of
 	0 -> 
 	    Tag1 = 
 		case is_proc_tag(Tag) of
-		    true -> "=proc";
+		    true -> ?proc;
 		    false -> Tag
 		end,
 	    case truncated_here({Tag1,Key}) of
@@ -1523,13 +1668,14 @@ maybe_other_node(File,Id) ->
 		N
 	end,
     Ms = ets:fun2ms(
-	   fun({Tag,Id,Start}) when Tag=:="=visible_node", Id=:=Channel -> 
+	   fun({{Tag,Start},Ch}) when Tag=:=?visible_node, Ch=:=Channel -> 
 		   {"Visible Node",Start};
-	      ({Tag,Id,Start}) when Tag=:="=hidden_node", Id=:=Channel ->
+	      ({{Tag,Start},Ch}) when Tag=:=?hidden_node, Ch=:=Channel ->
 		   {"Hidden Node",Start};
-	      ({Tag,Id,Start}) when Tag=:="=not_connected", Id=:=Channel -> 
+	      ({{Tag,Start},Ch}) when Tag=:=?not_connected, Ch=:=Channel -> 
 		   {"Not Connected Node",Start}
 	   end),
+    
     case ets:select(cdv_dump_index_table,Ms) of
 	[] -> 
 	    not_found;
@@ -1540,6 +1686,7 @@ maybe_other_node(File,Id) ->
 	    {other_node,Type,NodeInfo}
     end.
 
+
 expand_memory(File,What,Pid,Binaries) ->
     Fd = open(File),
     put(fd,Fd),
@@ -1548,8 +1695,8 @@ expand_memory(File,What,Pid,Binaries) ->
 	case What of
 	    "StackDump" -> read_stack_dump(Fd,Pid,Dict);
 	    "MsgQueue" -> read_messages(Fd,Pid,Dict);
-	    "Dictionary" -> read_dictionary(Fd,"=proc_dictionary",Pid,Dict);
-	    "DebugDictionary" -> read_dictionary(Fd,"=debug_proc_dictionary",Pid,Dict)
+	    "Dictionary" -> read_dictionary(Fd,?proc_dictionary,Pid,Dict);
+	    "DebugDictionary" -> read_dictionary(Fd,?debug_proc_dictionary,Pid,Dict)
 	end,
     erase(fd),
     close(Fd),
@@ -1559,10 +1706,10 @@ expand_memory(File,What,Pid,Binaries) ->
 %%% Read binaries.
 %%%
 read_binaries(Fd) ->
-    AllBinaries = ets:match(cdv_dump_index_table,{"=binary",'$1','$2'}),
+    AllBinaries = lookup_index(?binary),
     read_binaries(Fd,AllBinaries, gb_trees:empty()).
 
-read_binaries(Fd,[[Addr0,Pos]|Bins],Dict0) ->
+read_binaries(Fd,[{Addr0,Pos}|Bins],Dict0) ->
     pos_bof(Fd,Pos),
     {Addr,_} = get_hex(Addr0),
     Dict = 
@@ -1603,15 +1750,15 @@ parse_binary(Addr, Line0, Dict) ->
 %%%
 
 read_stack_dump(Fd,Pid,Dict) ->
-    case ets:match(cdv_dump_index_table,{"=proc_stack",Pid,'$1'}) of
-	[[Start]] ->
+    case lookup_index(?proc_stack,Pid) of
+	[{_,Start}] ->
 	    pos_bof(Fd,Start),
 	    read_stack_dump1(Fd,Dict,[]);
 	[] ->
 	    []
     end.
 read_stack_dump1(Fd,Dict,Acc) ->
-    %% This function is never called if the dump is truncated in "=proc_heap:Pid"
+    %% This function is never called if the dump is truncated in {?proc_heap,Pid}
     case val(Fd) of
 	"=" ++ _next_tag ->
 	    lists:reverse(Acc);
@@ -1631,15 +1778,15 @@ parse_top(Line0, D) ->
 %%%
 
 read_messages(Fd,Pid,Dict) ->
-    case ets:match(cdv_dump_index_table,{"=proc_messages",Pid,'$1'}) of
-	[[Start]] ->
+    case lookup_index(?proc_messages,Pid) of
+	[{_,Start}] ->
 	    pos_bof(Fd,Start),
 	    read_messages1(Fd,Dict,[]);
 	[] ->
 	    []
     end.
 read_messages1(Fd,Dict,Acc) ->
-    %% This function is never called if the dump is truncated in "=proc_heap:Pid"
+    %% This function is never called if the dump is truncated in {?proc_heap,Pid}
     case val(Fd) of
 	"=" ++ _next_tag ->
 	    lists:reverse(Acc);
@@ -1659,15 +1806,15 @@ parse_message(Line0, D) ->
 %%%
 
 read_dictionary(Fd,Tag,Pid,Dict) ->
-    case ets:match(cdv_dump_index_table,{Tag,Pid,'$1'}) of
-	[[Start]] ->
+    case lookup_index(Tag,Pid) of
+	[{_,Start}] ->
 	    pos_bof(Fd,Start),
 	    read_dictionary1(Fd,Dict,[]);
 	[] ->
 	    []
     end.
 read_dictionary1(Fd,Dict,Acc) ->
-    %% This function is never called if the dump is truncated in "=proc_heap:Pid"
+    %% This function is never called if the dump is truncated in {?proc_heap,Pid}
     case val(Fd) of
 	"=" ++ _next_tag ->
 	    lists:reverse(Acc);
@@ -1686,8 +1833,8 @@ parse_dictionary(Line0, D) ->
 %%%
 
 read_heap(Fd,Pid,Dict0) ->
-    case ets:match(cdv_dump_index_table,{"=proc_heap",Pid,'$2'}) of
-	[[Pos]] ->
+    case lookup_index(?proc_heap,Pid) of
+	[{_,Pos}] ->
 	    pos_bof(Fd,Pos),
 	    read_heap(Dict0);
 	[] ->
@@ -1695,7 +1842,7 @@ read_heap(Fd,Pid,Dict0) ->
     end.
 
 read_heap(Dict0) ->
-    %% This function is never called if the dump is truncated in "=proc_heap:Pid"
+    %% This function is never called if the dump is truncated in {?proc_heap,Pid}
     case get(fd) of
 	end_of_heap ->
 	    Dict0;
@@ -1761,12 +1908,14 @@ do_sort_procs("name",Procs,Sorted) ->
 	_ -> {Result,"name"}
     end.
     
-
+%%-----------------------------------------------------------------
+%% Page with one port
 get_port(File,Port) ->
-    case ets:match(cdv_dump_index_table,{"=port",Port,'$1'}) of
-	[[Start]] ->
+    case lookup_index(?port,Port) of
+	[{_,Start}] ->
 	    Fd = open(File),
-	    R = get_portinfo(Fd,Port,Start),
+	    pos_bof(Fd,Start),
+	    R = get_portinfo(Fd,#port{id=Port}),
 	    close(Fd),
 	    {ok,R};
 	[] ->
@@ -1781,18 +1930,11 @@ get_port(File,Port) ->
 	    end
     end.
 
-get_ports(File) ->
-    Ports = ets:lookup(cdv_dump_index_table,"=port"),
-    Fd = open(File),
-    R = lists:map(fun({"=port",Id,Start}) -> get_portinfo(Fd,Id,Start) end, 
-		  Ports),
-    close(Fd),
-    R.
-
-
-get_portinfo(Fd,Id,Start) ->
-    pos_bof(Fd,Start),
-    get_portinfo(Fd,#port{id=Id,_=?space}).
+%%-----------------------------------------------------------------
+%% Page with all ports
+get_ports(SessionId,File,TW) ->
+    ParseFun = fun(Fd,Id) -> get_portinfo(Fd,#port{id=Id}) end,
+    chunk_page(SessionId,File,TW,?port,ports,[],ParseFun).
 
 get_portinfo(Fd,Port) ->
     case line_head(Fd) of
@@ -1802,6 +1944,10 @@ get_portinfo(Fd,Port) ->
 	    get_portinfo(Fd,Port#port{connected=val(Fd)});
 	"Links" ->
 	    get_portinfo(Fd,Port#port{links=val(Fd)});
+	"Registered as" ->
+	    get_portinfo(Fd,Port#port{name=val(Fd)});
+	"Monitors" ->
+	    get_portinfo(Fd,Port#port{monitors=val(Fd)});
 	"Port controls linked-in driver" ->
 	    get_portinfo(Fd,Port#port{controls=["Linked in driver: " |
 						val(Fd)]});
@@ -1820,30 +1966,12 @@ get_portinfo(Fd,Port) ->
 	    Port
     end.
 
-get_ets_tables(File,Pid,WS) ->
-    EtsTables = ets:match_object(cdv_dump_index_table,{"=ets",Pid,'_'}),
-    Fd = open(File),
-    R = lists:map(fun({"=ets",P,Start}) -> 
-			  get_etsinfo(Fd,P,Start,WS) 
-		  end, 
-		  EtsTables),
-    close(Fd),
-    R.
 
-get_internal_ets_tables(File,WS) ->
-    InternalEts = ets:match_object(cdv_dump_index_table,
-				   {"=internal_ets",'_','_'}),
-    Fd = open(File),
-    R = lists:map(fun({"=internal_ets",Descr,Start}) ->
-			  {Descr,get_etsinfo(Fd,undefined,Start,WS)}
-		  end,
-		  InternalEts),
-    close(Fd),
-    R.
-    
-get_etsinfo(Fd,Pid,Start,WS) ->
-    pos_bof(Fd,Start),
-    get_etsinfo(Fd,#ets_table{pid=Pid,type="hash",_=?space},WS).
+%%-----------------------------------------------------------------
+%% Page with external ets tables
+get_ets_tables(SessionId,File,Heading,TW,Pid,WS) ->
+    ParseFun = fun(Fd,Id) -> get_etsinfo(Fd,#ets_table{pid=Id},WS) end,
+    chunk_page(SessionId,File,TW,{?ets,Pid},ets_tables,Heading,ParseFun).
 
 get_etsinfo(Fd,EtsTable,WS) ->
     case line_head(Fd) of
@@ -1875,26 +2003,32 @@ get_etsinfo(Fd,EtsTable,WS) ->
 	    EtsTable
     end.
 
-get_timers(File,Pid) ->
-    Timers = ets:match_object(cdv_dump_index_table,{"=timer",Pid,'$1'}),
+
+%% Internal ets table page
+get_internal_ets_tables(File,WS) ->
+    InternalEts = lookup_index(?internal_ets),
     Fd = open(File),
-    R = lists:map(fun({"=timer",P,Start}) -> 
-			  get_timerinfo(Fd,P,Start) 
-		  end, 
-		  Timers),
+    R = lists:map(
+	  fun({Descr,Start}) ->
+		  pos_bof(Fd,Start),
+		  {Descr,get_etsinfo(Fd,#ets_table{},WS)}
+	  end,
+	  InternalEts),
     close(Fd),
     R.
 
-get_timerinfo(Fd,Pid,Start) ->
-    pos_bof(Fd,Start),
-    get_timerinfo(Fd,#timer{pid=Pid,_=?space}).
+%%-----------------------------------------------------------------
+%% Page with list of all timers 
+get_timers(SessionId,File,Heading,TW,Pid) ->
+    ParseFun = fun(Fd,Id) -> get_timerinfo_1(Fd,#timer{pid=Id}) end,
+    chunk_page(SessionId,File,TW,{?timer,Pid},timers,Heading,ParseFun).
 
-get_timerinfo(Fd,Timer) ->
+get_timerinfo_1(Fd,Timer) ->
     case line_head(Fd) of
 	"Message" ->
-	    get_timerinfo(Fd,Timer#timer{msg=val(Fd)});
+	    get_timerinfo_1(Fd,Timer#timer{msg=val(Fd)});
 	"Time left" ->
-	    get_timerinfo(Fd,Timer#timer{time=val(Fd)});
+	    get_timerinfo_1(Fd,Timer#timer{time=val(Fd)});
 	"=" ++ _next_tag ->
 	    Timer;
 	Other ->
@@ -1902,25 +2036,27 @@ get_timerinfo(Fd,Timer) ->
 	    Timer
     end.
 
+%%-----------------------------------------------------------------
+%% Page with information about the erlang distribution
 nods(File) ->
-    case ets:lookup(cdv_dump_index_table,"=no_distribution") of
+    case lookup_index(?no_distribution) of
 	[] ->
-	    V = ets:lookup(cdv_dump_index_table,"=visible_node"),
-	    H = ets:lookup(cdv_dump_index_table,"=hidden_node"),
-	    N = ets:lookup(cdv_dump_index_table,"=not_connected"),
+	    V = lookup_index(?visible_node),
+	    H = lookup_index(?hidden_node),
+	    N = lookup_index(?not_connected),
 	    Fd = open(File),
 	    Visible = lists:map(
-			fun({"=visible_node",Channel,Start}) -> 
+			fun({Channel,Start}) -> 
 				get_nodeinfo(Fd,Channel,Start)
 			end, 
 			V),
 	    Hidden = lists:map(
-		       fun({"=hidden_node",Channel,Start}) -> 
+		       fun({Channel,Start}) -> 
 			       get_nodeinfo(Fd,Channel,Start)
 		       end, 
 		       H),
 	    NotConnected = lists:map(
-			     fun({"=not_connected",Channel,Start}) -> 
+			     fun({Channel,Start}) -> 
 				     get_nodeinfo(Fd,Channel,Start)
 			     end, 
 			     N),
@@ -1932,7 +2068,7 @@ nods(File) ->
 
 get_nodeinfo(Fd,Channel,Start) ->
     pos_bof(Fd,Start),
-    get_nodeinfo(Fd,#nod{channel=Channel,_=?space}).
+    get_nodeinfo(Fd,#nod{channel=Channel}).
 
 get_nodeinfo(Fd,Nod) ->
     case line_head(Fd) of
@@ -1963,26 +2099,37 @@ get_nodeinfo(Fd,Nod) ->
 	    Nod
     end.
 
-loaded_mods(File) ->
-    case ets:lookup(cdv_dump_index_table,"=loaded_modules") of
-	[{"=loaded_modules",_,StartTotal}] ->
-	    Fd = open(File),
-	    pos_bof(Fd,StartTotal),
-	    {CC,OC} = get_loaded_mod_totals(Fd,{"unknown","unknown"}),
-	    
-	    Mods = ets:lookup(cdv_dump_index_table,"=mod"),
-	    LM = lists:map(fun({"=mod",M,Start}) -> 
-				   pos_bof(Fd,Start),
-				   InitLM = #loaded_mod{mod=M,_=?space},
-				   get_loaded_mod_info(Fd,InitLM,
-						       fun main_modinfo/3)
-			   end, 
-			   Mods),
-	    close(Fd),
-	    {CC,OC,LM};
-	[] ->
-	    {"unknown","unknown",[]}
-    end.
+%%-----------------------------------------------------------------
+%% Page with details about one loaded modules
+get_loaded_mod_details(File,Mod) ->
+    [{_,Start}] = lookup_index(?mod,Mod),
+    Fd = open(File),
+    pos_bof(Fd,Start),
+    InitLM = #loaded_mod{mod=Mod,old_size="No old code exists"},
+    ModInfo = get_loaded_mod_info(Fd,InitLM,fun all_modinfo/3),
+    close(Fd),
+    ModInfo.
+
+%%-----------------------------------------------------------------
+%% Page with list of all loaded modules
+loaded_mods(SessionId,File,TW) ->
+    ParseFun = 
+	fun(Fd,Id) -> 
+		get_loaded_mod_info(Fd,#loaded_mod{mod=Id},
+				    fun main_modinfo/3) 
+	end,
+    {CC,OC} = 
+	case lookup_index(?loaded_modules) of
+	    [{_,StartTotal}] ->
+		Fd = open(File),
+		pos_bof(Fd,StartTotal),
+		R = get_loaded_mod_totals(Fd,{"unknown","unknown"}),
+		close(Fd),
+		R;
+	    [] ->
+		{"unknown","unknown"}
+    end,
+    chunk_page(SessionId,File,TW,?mod,loaded_mods,{CC,OC},ParseFun).
 
 get_loaded_mod_totals(Fd,{CC,OC}) ->
     case line_head(Fd) of
@@ -1996,16 +2143,6 @@ get_loaded_mod_totals(Fd,{CC,OC}) ->
 	    unexpected(Fd,Other,"loaded modules info"),
 	    {CC,OC} % truncated file
     end.
-
-get_loaded_mod_details(File,Mod) ->
-    [[Start]] = ets:match(cdv_dump_index_table,{"=mod",Mod,'$1'}),
-    Fd = open(File),
-    pos_bof(Fd,Start),
-    InitLM = #loaded_mod{mod=Mod,old_size="No old code exists",
-			 _="No information available"},
-    ModInfo = get_loaded_mod_info(Fd,InitLM,fun all_modinfo/3),
-    close(Fd),
-    ModInfo.
 
 get_loaded_mod_info(Fd,LM,Fun) ->
     case line_head(Fd) of
@@ -2073,39 +2210,26 @@ hex_to_dec("A") -> 10;
 hex_to_dec(N) -> list_to_integer(N).
     
 
+%%-----------------------------------------------------------------
+%% Page with list of all funs
+funs(SessionId,File,TW) ->
+    ParseFun = fun(Fd,_Id) -> get_funinfo(Fd,#fu{}) end,
+    chunk_page(SessionId,File,TW,?fu,funs,[],ParseFun).
 
-funs(File) ->
-    case ets:lookup(cdv_dump_index_table,"=fun") of
-	[] ->
-	    [];
-	AllFuns ->
-	    Fd = open(File),
-	    R = lists:map(fun({"=fun",_,Start}) -> 
-				  get_funinfo(Fd,Start) 
-			  end, 
-			  AllFuns),
-	    close(Fd),
-	    R
-    end.
-
-get_funinfo(Fd,Start) ->
-    pos_bof(Fd,Start),
-    get_funinfo1(Fd,#fu{_=?space}).
-
-get_funinfo1(Fd,Fu) ->
+get_funinfo(Fd,Fu) ->
     case line_head(Fd) of
 	"Module" ->
-	    get_funinfo1(Fd,Fu#fu{module=val(Fd)});
+	    get_funinfo(Fd,Fu#fu{module=val(Fd)});
 	"Uniq" ->
-	    get_funinfo1(Fd,Fu#fu{uniq=val(Fd)});
+	    get_funinfo(Fd,Fu#fu{uniq=val(Fd)});
 	"Index" ->
-	    get_funinfo1(Fd,Fu#fu{index=val(Fd)});
+	    get_funinfo(Fd,Fu#fu{index=val(Fd)});
 	"Address" ->
-	    get_funinfo1(Fd,Fu#fu{address=val(Fd)});
+	    get_funinfo(Fd,Fu#fu{address=val(Fd)});
 	"Native_address" ->
-	    get_funinfo1(Fd,Fu#fu{native_address=val(Fd)});
+	    get_funinfo(Fd,Fu#fu{native_address=val(Fd)});
 	"Refc" ->
-	    get_funinfo1(Fd,Fu#fu{refc=val(Fd)});
+	    get_funinfo(Fd,Fu#fu{refc=val(Fd)});
 	"=" ++ _next_tag ->
 	    Fu;
 	Other ->
@@ -2113,28 +2237,53 @@ get_funinfo1(Fd,Fu) ->
 	    Fu
     end.
 
-atoms(File) ->
-    case ets:lookup(cdv_dump_index_table,"=atoms") of
-	[{_atoms,_Id,Start}] ->
+%%-----------------------------------------------------------------
+%% Page with list of all atoms
+atoms(SessionId,File,TW,Num) ->
+    case lookup_index(?atoms) of
+	[{_Id,Start}] ->
 	    Fd = open(File),
 	    pos_bof(Fd,Start),
-	    R = case get_n_lines_of_tag(Fd,100) of
-		    {all,N,Lines} ->
-			{n_lines,1,N,"Atoms",Lines};
-		    {part,100,Lines} ->
-			{n_lines,1,100,"Atoms",Lines,get(pos)};
-		    empty ->
-			[]
-		end,
-	    close(Fd),
-	    R;
+	    case get_atoms(Fd,?items_chunk_size) of
+		{Atoms,Cont} ->
+		    crashdump_viewer_html:atoms(SessionId,TW,Num,Atoms),
+		    atoms_chunks(Fd,SessionId,Cont);
+		done ->
+		    crashdump_viewer_html:atoms(SessionId,TW,Num,done)
+	    end;
 	_ ->
-	    []
+	    crashdump_viewer_html:atoms(SessionId,TW,Num,done)
     end.
 
+get_atoms(Fd,Number) ->
+    case get_n_lines_of_tag(Fd,Number) of
+	{all,_,Lines} ->
+	    close(Fd),
+	    {Lines,done};
+	{part,_,Lines} ->
+	    {Lines,Number};
+	empty ->
+	    close(Fd),
+	    done
+    end.
+
+atoms_chunks(_Fd,SessionId,done) ->
+    crashdump_viewer_html:atoms_chunk(SessionId,done);
+atoms_chunks(Fd,SessionId,Number) ->
+    case get_atoms(Fd,Number) of
+	{Atoms,Cont} ->
+	    crashdump_viewer_html:atoms_chunk(SessionId,Atoms),
+	    atoms_chunks(Fd,SessionId,Cont);
+	done ->
+	    atoms_chunks(Fd,SessionId,done)
+    end.
+
+
+%%-----------------------------------------------------------------
+%% Page with memory information
 memory(File) ->
-    case ets:lookup(cdv_dump_index_table,"=memory") of
-	[{"=memory",_,Start}] ->
+    case lookup_index(?memory) of
+	[{_,Start}] ->
 	    Fd = open(File),
 	    pos_bof(Fd,Start),
 	    R = get_meminfo(Fd,[]),
@@ -2153,10 +2302,12 @@ get_meminfo(Fd,Acc) ->
 	Key ->
 	    get_meminfo(Fd,[{Key,val(Fd)}|Acc])
     end.
-	    
+
+%%-----------------------------------------------------------------
+%% Page with information about allocated areas
 allocated_areas(File) ->
-    case ets:lookup(cdv_dump_index_table,"=allocated_areas") of
-	[{"=allocated_areas",_,Start}] ->
+    case lookup_index(?allocated_areas) of
+	[{_,Start}] ->
 	    Fd = open(File),
 	    pos_bof(Fd,Start),
 	    R = get_allocareainfo(Fd,[]),
@@ -2183,14 +2334,16 @@ get_allocareainfo(Fd,Acc) ->
 		end,
 	    get_allocareainfo(Fd,[AllocInfo|Acc])
     end.
-	    
+
+%%-----------------------------------------------------------------
+%% Page with information about allocators
 allocator_info(File) ->
-    case ets:lookup(cdv_dump_index_table,"=allocator") of
+    case lookup_index(?allocator) of
 	[] ->
 	    [];
 	AllAllocators ->
 	    Fd = open(File),
-	    R = lists:map(fun({"=allocator",Heading,Start}) -> 
+	    R = lists:map(fun({Heading,Start}) ->
 				  {Heading,get_allocatorinfo(Fd,Start)} 
 			  end, 
 			  AllAllocators),
@@ -2220,14 +2373,15 @@ get_all_vals([],Acc) ->
 get_all_vals([Char|Rest],Acc) ->
     get_all_vals(Rest,[Char|Acc]).
 
-
+%%-----------------------------------------------------------------
+%% Page with hash table information
 hash_tables(File) ->
-    case ets:lookup(cdv_dump_index_table,"=hash_table") of
+    case lookup_index(?hash_table) of
 	[] ->
 	    [];
 	AllHashTables ->
 	    Fd = open(File),
-	    R = lists:map(fun({"=hash_table",Name,Start}) -> 
+	    R = lists:map(fun({Name,Start}) ->
 				  get_hashtableinfo(Fd,Name,Start) 
 			  end, 
 			  AllHashTables),
@@ -2237,7 +2391,7 @@ hash_tables(File) ->
 
 get_hashtableinfo(Fd,Name,Start) ->
     pos_bof(Fd,Start),
-    get_hashtableinfo1(Fd,#hash_table{name=Name,_=?space}).
+    get_hashtableinfo1(Fd,#hash_table{name=Name}).
 
 get_hashtableinfo1(Fd,HashTable) ->
     case line_head(Fd) of
@@ -2256,13 +2410,15 @@ get_hashtableinfo1(Fd,HashTable) ->
 	    HashTable
     end.
 
+%%-----------------------------------------------------------------
+%% Page with index table information
 index_tables(File) ->
-    case ets:lookup(cdv_dump_index_table,"=index_table") of
+    case lookup_index(?index_table) of
 	[] ->
 	    [];
 	AllIndexTables ->
 	    Fd = open(File),
-	    R = lists:map(fun({"=index_table",Name,Start}) -> 
+	    R = lists:map(fun({Name,Start}) ->
 				  get_indextableinfo(Fd,Name,Start) 
 			  end, 
 			  AllIndexTables),
@@ -2272,7 +2428,7 @@ index_tables(File) ->
 
 get_indextableinfo(Fd,Name,Start) ->
     pos_bof(Fd,Start),
-    get_indextableinfo1(Fd,#index_table{name=Name,_=?space}).
+    get_indextableinfo1(Fd,#index_table{name=Name}).
 
 get_indextableinfo1(Fd,IndexTable) ->
     case line_head(Fd) of
@@ -2284,6 +2440,8 @@ get_indextableinfo1(Fd,IndexTable) ->
 	    get_indextableinfo1(Fd,IndexTable#index_table{limit=val(Fd)});
 	"rate" ->
 	    get_indextableinfo1(Fd,IndexTable#index_table{rate=val(Fd)});
+	"entries" ->
+	    get_indextableinfo1(Fd,IndexTable#index_table{entries=val(Fd)});
     	"=" ++ _next_tag ->
 	    IndexTable;
 	Other ->
@@ -2295,6 +2453,8 @@ get_indextableinfo1(Fd,IndexTable) ->
 
 
 
+%%-----------------------------------------------------------------
+%% Expand a set of data which was shown in a truncated form on
 get_expanded(File,Pos,Size) ->
     Fd = open(File),
     R = case file:pread(Fd,Pos,Size) of
@@ -2305,20 +2465,6 @@ get_expanded(File,Pos,Size) ->
 	end,
     close(Fd),
     R.
-
-
-get_next(File,Pos,N0,Start,What) ->
-    Fd = open(File),
-    pos_bof(Fd,Pos),
-    R = case get_n_lines_of_tag(Fd,N0) of
-	    {all,N,Lines} ->
-		{n_lines,Start,N,What,Lines};
-	    {part,N,Lines} ->
-		{n_lines,Start,N,What,Lines,get(pos)}
-	end,
-    close(Fd),
-    R.
-
 
 
 replace_all(From,To,[From|Rest],Acc) ->
@@ -2567,3 +2713,110 @@ get_binary(_N, [], _Acc) ->
 
 cdvbin(Sz,Pos) ->
     "#CDVBin<"++integer_to_list(Sz)++","++integer_to_list(Pos)++">".
+
+
+%%-----------------------------------------------------------------
+%% Functions for accessing the cdv_dump_index_table
+reset_index_table() ->
+    ets:delete_all_objects(cdv_dump_index_table).
+
+insert_index(Tag,Id,Pos) ->
+    ets:insert(cdv_dump_index_table,{{Tag,Pos},Id}).
+
+lookup_index(Tag) ->
+    lookup_index(Tag,'$2').
+lookup_index(Tag,Id) ->
+    ets:select(cdv_dump_index_table,[{{{Tag,'$1'},Id},[],[{{Id,'$1'}}]}]).
+
+lookup_index_chunk({'#CDVFirstChunk',Tag,Id}) ->
+    ets:select(cdv_dump_index_table,
+	       [{{{Tag,'$1'},Id},[],[{{Id,'$1'}}]}],
+	       ?items_chunk_size);
+lookup_index_chunk(Cont) ->
+    ets:select(Cont).
+
+%% Create a tag which can be used instead of an ets Continuation for
+%% the first call to lookup_index_chunk.
+first_chunk_pointer({Tag,Id}) ->
+    {'#CDVFirstChunk',Tag,Id};
+first_chunk_pointer(Tag) ->
+    first_chunk_pointer({Tag,'$2'}).
+
+count_index(Tag) ->
+    ets:select_count(cdv_dump_index_table,[{{{Tag,'_'},'_'},[],[true]}]).
+count_index(Tag,Id) ->
+    ets:select_count(cdv_dump_index_table,[{{{Tag,'_'},Id},[],[true]}]).
+
+
+%%-----------------------------------------------------------------
+%% Convert tags read from crashdump to atoms used as first part of key
+%% in cdv_dump_index_table
+tag_to_atom("allocated_areas") -> ?allocated_areas;
+tag_to_atom("allocator") -> ?allocator;
+tag_to_atom("atoms") -> ?atoms;
+tag_to_atom("binary") -> ?binary;
+tag_to_atom("debug_proc_dictionary") -> ?debug_proc_dictionary;
+tag_to_atom("end") -> ?ende;
+tag_to_atom("erl_crash_dump") -> ?erl_crash_dump;
+tag_to_atom("ets") -> ?ets;
+tag_to_atom("fun") -> ?fu;
+tag_to_atom("hash_table") -> ?hash_table;
+tag_to_atom("hidden_node") -> ?hidden_node;
+tag_to_atom("index_table") -> ?index_table;
+tag_to_atom("instr_data") -> ?instr_data;
+tag_to_atom("internal_ets") -> ?internal_ets;
+tag_to_atom("loaded_modules") -> ?loaded_modules;
+tag_to_atom("memory") -> ?memory;
+tag_to_atom("mod") -> ?mod;
+tag_to_atom("no_distribution") -> ?no_distribution;
+tag_to_atom("node") -> ?node;
+tag_to_atom("not_connected") -> ?not_connected;
+tag_to_atom("num_atoms") -> ?num_atoms;
+tag_to_atom("old_instr_data") -> ?old_instr_data;
+tag_to_atom("port") -> ?port;
+tag_to_atom("proc") -> ?proc;
+tag_to_atom("proc_dictionary") -> ?proc_dictionary;
+tag_to_atom("proc_heap") -> ?proc_heap;
+tag_to_atom("proc_messages") -> ?proc_messages;
+tag_to_atom("proc_stack") -> ?proc_stack;
+tag_to_atom("timer") -> ?timer;
+tag_to_atom("visible_node") -> ?visible_node;
+tag_to_atom(UnknownTag) ->
+    io:format("WARNING: Found unexpected tag:~s~n",[UnknownTag]),
+    list_to_atom(UnknownTag).
+
+%%%-----------------------------------------------------------------
+%%% Create a page by sending chunk by chunk to crashdump_viewer_html
+chunk_page(SessionId,File,TW,What,HtmlCB,HtmlExtra,ParseFun) ->
+    Fd = open(File),
+    case lookup_and_parse_index_chunk(first_chunk_pointer(What),Fd,ParseFun) of
+	done ->
+	    crashdump_viewer_html:chunk_page(HtmlCB,SessionId,TW,HtmlExtra,done);
+	{Chunk,Cont} ->
+	    HtmlInfo = crashdump_viewer_html:chunk_page(
+			     HtmlCB,
+			     SessionId,TW,HtmlExtra,Chunk),
+	    chunk_page_1(Fd,HtmlInfo,SessionId,ParseFun,
+			 lookup_and_parse_index_chunk(Cont,Fd,ParseFun))
+    end.
+
+chunk_page_1(_Fd,HtmlInfo,SessionId,_ParseFun,done) ->
+    crashdump_viewer_html:chunk(SessionId,done,HtmlInfo);
+chunk_page_1(Fd,HtmlInfo,SessionId,ParseFun,{Chunk,Cont}) ->
+    crashdump_viewer_html:chunk(SessionId,Chunk,HtmlInfo),
+    chunk_page_1(Fd,HtmlInfo,SessionId,ParseFun,
+		 lookup_and_parse_index_chunk(Cont,Fd,ParseFun)).
+
+lookup_and_parse_index_chunk(Pointer,Fd,ParseFun) ->
+    case lookup_index_chunk(Pointer) of
+	'$end_of_table' ->
+	    close(Fd),
+	    done;
+	{Chunk,Cont} ->
+	    R = lists:map(fun({Id,Start}) ->
+				  pos_bof(Fd,Start),
+				  ParseFun(Fd,Id)
+			  end,
+			  Chunk),
+	    {R,Cont}
+    end.

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2009</year>
+      <year>1997</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -445,7 +445,19 @@ void op(in myEnum a);</cell>
     <section>
       <title>Struct Data Type</title>
       <p>A <c>struct</c> may have Basic, Template, Scoped Names and Constructed 
-        types as members.</p>
+        types as members. By using forward declaration we can define a recursive struct:</p>
+      <code type="none"><![CDATA[
+struct myStruct; // Forward declaration
+typedef sequence<myStruct> myStructSeq;
+struct myStruct {
+    myStructSeq chain;
+};
+
+// Deprecated definition (anonymous) not supported by IC
+struct myStruct {
+    sequence<myStruct> chain;
+};
+      ]]></code>
     </section>
 
     <section>
@@ -510,6 +522,25 @@ union LongUnion2 switch(long) {
   default: boolean DefaultValue; 
 };
       </code>
+      <p>In the same way as structs, unions can be recursive if forward
+         declaration is used (anonymous types is deprecated and not supported):</p>
+      <code type="none"><![CDATA[
+// Forward declaration
+union myUnion;
+typedef sequence<myUnion>myUnionSeq;
+union myUnion switch (long) {
+    case 1 : myUnionSeq chain;
+    default: boolean DefaultValue;
+};
+      ]]></code>
+
+    <note>
+      <p>Recursive types (union and struct) require Light IFR. I.e. the
+         IC option {light_ifr, true} is used and that Orber is configured in such a way that
+         Light IFR is activated. Recursive TypeCode is currently not supported, which is
+         why these cannot be encapsulated in an any data type.</p>
+    </note>
+
     </section>
     <warning>
       <p>Every field in, for example, a struct must be initiated. Otherwise
@@ -890,7 +921,7 @@ attribute long RWAttribute;
       object internal state with its object reference. The object internal state is
       an Erlang term which has a format defined by the user.</p>
     <note>
-      <p>It is is not always the case that the internal state will be the first parameter, as stubs can use their own object reference as the first parameter (see the IC documentation).</p>
+      <p>It is not always the case that the internal state will be the first parameter, as stubs can use their own object reference as the first parameter (see the IC documentation).</p>
     </note>
     <p>A function call will invoke an operation. The first
       parameter of the function should be the object reference and then

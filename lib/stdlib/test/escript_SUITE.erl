@@ -1,55 +1,71 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2007-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 
 -module(escript_SUITE).
 -export([
-	 all/1,
+	all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,
-	 fin_per_testcase/2,
+	 end_per_testcase/2,
 	 basic/1,
-	 errors/1, 
+	 errors/1,
 	 strange_name/1,
 	 emulator_flags/1,
 	 module_script/1,
 	 beam_script/1,
 	 archive_script/1,
-	 epp/1
+	 epp/1,
+	 create_and_extract/1,
+	 foldl/1,
+	 overflow/1,
+	 verify_sections/3
 	]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
+-include_lib("kernel/include/file.hrl").
 
-all(suite) ->
-    [
-     basic,
-     errors,
-     strange_name,
-     emulator_flags,
-     module_script,
-     beam_script,
-     archive_script,
-     epp
-    ].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [basic, errors, strange_name, emulator_flags,
+     module_script, beam_script, archive_script, epp,
+     create_and_extract, foldl, overflow].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
 
 init_per_testcase(_Case, Config) ->
     ?line Dog = ?t:timetrap(?t:minutes(1)),
     [{watchdog,Dog}|Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
@@ -68,11 +84,11 @@ basic(Config) when is_list(Config) ->
     ?line run(Dir, "factorial_warning 20",
 	      [data_dir,<<"factorial_warning:12: Warning: function bar/0 is unused\n"
 			 "factorial 20 = 2432902008176640000\nExitCode:0">>]),
-    ?line run(Dir, "-s", "factorial_warning",
+    ?line run_with_opts(Dir, "-s", "factorial_warning",
 	      [data_dir,<<"factorial_warning:12: Warning: function bar/0 is unused\nExitCode:0">>]),
-    ?line run(Dir, "-s -i", "factorial_warning",
+    ?line run_with_opts(Dir, "-s -i", "factorial_warning",
 	      [data_dir,<<"factorial_warning:12: Warning: function bar/0 is unused\nExitCode:0">>]),
-    ?line run(Dir, "-c -s", "factorial_warning",
+    ?line run_with_opts(Dir, "-c -s", "factorial_warning",
 	      [data_dir,<<"factorial_warning:12: Warning: function bar/0 is unused\nExitCode:0">>]),
     ?line run(Dir, "filesize "++filename:join(?config(data_dir, Config),"filesize"),
 	      [data_dir,<<"filesize:11: Warning: function id/1 is unused\n324\nExitCode:0">>]),
@@ -100,7 +116,7 @@ errors(Config) when is_list(Config) ->
 	      [data_dir,<<"lint_error:6: function main/1 already defined\n">>,
 	       data_dir,"lint_error:8: variable 'ExitCode' is unbound\n",
 	       <<"escript: There were compilation errors.\nExitCode:127">>]),
-    ?line run(Dir, "-s", "lint_error",
+    ?line run_with_opts(Dir, "-s", "lint_error",
 	      [data_dir,<<"lint_error:6: function main/1 already defined\n">>,
 	       data_dir,"lint_error:8: variable 'ExitCode' is unbound\n",
 	       <<"escript: There were compilation errors.\nExitCode:127">>]),
@@ -140,31 +156,31 @@ module_script(Config) when is_list(Config) ->
     OrigFile = filename:join([Data,"emulator_flags"]),
     {ok, OrigBin} = file:read_file(OrigFile),
     ?line [Shebang, Mode, Flags | Source] = string:tokens(binary_to_list(OrigBin), "\n"),
-    ?line {ok, OrigFI} = file:read_file_info(OrigFile),    
+    ?line {ok, OrigFI} = file:read_file_info(OrigFile),
 
     %% Write source file
     Priv = ?config(priv_dir, Config),
     Dir = filename:absname(Priv), % Get rid of trailing slash.
     Base = "module_script",
     ErlFile = filename:join([Priv, Base ++ ".erl"]),
-    ErlCode = ["-module(", Base, ").\n",
+    ErlCode = ["\n-module(", Base, ").\n",
 	       "-export([main/1]).\n\n",
 	       string:join(Source, "\n"),
 	       "\n"],
     ?line ok = file:write_file(ErlFile, ErlCode),
-    
+
     %%%%%%%
     %% Create and run scripts without emulator flags
 
     %% With shebang
     NoArgsBase = Base ++ "_no_args_with_shebang",
     NoArgsFile = filename:join([Priv, NoArgsBase]),
-    ?line ok = file:write_file(NoArgsFile, 
+    ?line ok = file:write_file(NoArgsFile,
 			       [Shebang, "\n",
 				ErlCode]),
     ?line ok = file:write_file_info(NoArgsFile, OrigFI),
-    
-    ?line run(Dir, NoArgsBase ++  " -arg1 arg2 arg3",
+
+    ?line run(Dir, NoArgsBase ++ " -arg1 arg2 arg3",
 	      [<<"main:[\"-arg1\",\"arg2\",\"arg3\"]\n"
 		"nostick:[]\n"
 		"mnesia:[]\n"
@@ -172,7 +188,7 @@ module_script(Config) when is_list(Config) ->
 		"unknown:[]\n"
 		"ExitCode:0">>]),
 
-    ?line run(Dir, "", NoArgsBase ++  " -arg1 arg2 arg3",
+    ?line run_with_opts(Dir, "", NoArgsBase ++  " -arg1 arg2 arg3",
 	      [<<"main:[\"-arg1\",\"arg2\",\"arg3\"]\n"
 		"nostick:[]\n"
 		"mnesia:[]\n"
@@ -183,33 +199,33 @@ module_script(Config) when is_list(Config) ->
     %% Without shebang
     NoArgsBase2 = Base ++ "_no_args_without_shebang",
     NoArgsFile2 = filename:join([Priv, NoArgsBase2]),
-    ?line ok = file:write_file(NoArgsFile2, 
+    ?line ok = file:write_file(NoArgsFile2,
 			       ["Something else than shebang!!!", "\n",
 				ErlCode]),
     ?line ok = file:write_file_info(NoArgsFile2, OrigFI),
-   
-    ?line run(Dir, "", NoArgsBase2 ++  " -arg1 arg2 arg3",
+
+    ?line run_with_opts(Dir, "", NoArgsBase2 ++  " -arg1 arg2 arg3",
 	      [<<"main:[\"-arg1\",\"arg2\",\"arg3\"]\n"
 		"nostick:[]\n"
 		"mnesia:[]\n"
 		"ERL_FLAGS=false\n"
 		"unknown:[]\n"
 		"ExitCode:0">>]),
-    
+
     %% Plain module without header
     NoArgsBase3 = Base ++ "_no_args_without_header",
     NoArgsFile3 = filename:join([Priv, NoArgsBase3]),
     ?line ok = file:write_file(NoArgsFile3, [ErlCode]),
     ?line ok = file:write_file_info(NoArgsFile3, OrigFI),
-    
-    ?line run(Dir, "", NoArgsBase3 ++  " -arg1 arg2 arg3",
+
+    ?line run_with_opts(Dir, "", NoArgsBase3 ++  " -arg1 arg2 arg3",
 	      [<<"main:[\"-arg1\",\"arg2\",\"arg3\"]\n"
 		"nostick:[]\n"
 		"mnesia:[]\n"
 		"ERL_FLAGS=false\n"
 		"unknown:[]\n"
 		"ExitCode:0">>]),
-    
+
     %%%%%%%
     %% Create and run scripts with emulator flags
 
@@ -217,12 +233,12 @@ module_script(Config) when is_list(Config) ->
     ArgsBase = Base ++ "_args_with_shebang",
     ArgsFile = filename:join([Priv, ArgsBase]),
     ?line ok = file:write_file(ArgsFile,
-			       [Shebang, "\n", 
+			       [Shebang, "\n",
 				Mode, "\n",
 				Flags, "\n",
 				ErlCode]),
-    ?line ok = file:write_file_info(ArgsFile, OrigFI),    
-    
+    ?line ok = file:write_file_info(ArgsFile, OrigFI),
+
     ?line run(Dir, ArgsBase ++  " -arg1 arg2 arg3",
 	      [<<"main:[\"-arg1\",\"arg2\",\"arg3\"]\n"
 		"nostick:[{nostick,[]}]\n"
@@ -242,32 +258,32 @@ beam_script(Config) when is_list(Config) ->
     OrigFile = filename:join([Data,"emulator_flags"]),
     {ok, OrigBin} = file:read_file(OrigFile),
     ?line [Shebang, Mode, Flags | Source] = string:tokens(binary_to_list(OrigBin), "\n"),
-    ?line {ok, OrigFI} = file:read_file_info(OrigFile),    
+    ?line {ok, OrigFI} = file:read_file_info(OrigFile),
 
     %% Write source file
     Priv = ?config(priv_dir, Config),
     Dir = filename:absname(Priv), % Get rid of trailing slash.
     Base = "beam_script",
     ErlFile = filename:join([Priv, Base ++ ".erl"]),
-    ?line ok = file:write_file(ErlFile, 
-			       ["-module(", Base, ").\n",
+    ?line ok = file:write_file(ErlFile,
+			       ["\n-module(", Base, ").\n",
 				"-export([main/1]).\n\n",
 				string:join(Source, "\n"),
 				"\n"]),
 
     %% Compile the code
     ?line {ok, _Mod, BeamCode} = compile:file(ErlFile, [binary]),
-    
+
     %%%%%%%
     %% Create and run scripts without emulator flags
 
     %% With shebang
     NoArgsBase = Base ++ "_no_args_with_shebang",
     NoArgsFile = filename:join([Priv, NoArgsBase]),
-    ?line ok = file:write_file(NoArgsFile, 
+    ?line ok = file:write_file(NoArgsFile,
 			       [Shebang, "\n",
 				BeamCode]),
-    ?line ok = file:write_file_info(NoArgsFile, OrigFI),    
+    ?line ok = file:write_file_info(NoArgsFile, OrigFI),
 
     ?line run(Dir, NoArgsBase ++  " -arg1 arg2 arg3",
 	      [<<"main:[\"-arg1\",\"arg2\",\"arg3\"]\n"
@@ -277,7 +293,7 @@ beam_script(Config) when is_list(Config) ->
 		"unknown:[]\n"
 		"ExitCode:0">>]),
 
-    ?line run(Dir, "", NoArgsBase ++  " -arg1 arg2 arg3",
+    ?line run_with_opts(Dir, "", NoArgsBase ++  " -arg1 arg2 arg3",
 	      [<<"main:[\"-arg1\",\"arg2\",\"arg3\"]\n"
 		"nostick:[]\n"
 		"mnesia:[]\n"
@@ -288,12 +304,12 @@ beam_script(Config) when is_list(Config) ->
     %% Without shebang
     NoArgsBase2 = Base ++ "_no_args_without_shebang",
     NoArgsFile2 = filename:join([Priv, NoArgsBase2]),
-    ?line ok = file:write_file(NoArgsFile2, 
+    ?line ok = file:write_file(NoArgsFile2,
 			       ["Something else than shebang!!!", "\n",
 				BeamCode]),
-    ?line ok = file:write_file_info(NoArgsFile2, OrigFI),    
+    ?line ok = file:write_file_info(NoArgsFile2, OrigFI),
 
-    ?line run(Dir, "", NoArgsBase2 ++  " -arg1 arg2 arg3",
+    ?line run_with_opts(Dir, "", NoArgsBase2 ++  " -arg1 arg2 arg3",
 	      [<<"main:[\"-arg1\",\"arg2\",\"arg3\"]\n"
 		"nostick:[]\n"
 		"mnesia:[]\n"
@@ -305,9 +321,9 @@ beam_script(Config) when is_list(Config) ->
     NoArgsBase3 = Base ++ "_no_args_without_header",
     NoArgsFile3 = filename:join([Priv, NoArgsBase3]),
     ?line ok = file:write_file(NoArgsFile3, [BeamCode]),
-    ?line ok = file:write_file_info(NoArgsFile3, OrigFI),    
+    ?line ok = file:write_file_info(NoArgsFile3, OrigFI),
 
-    ?line run(Dir, "", NoArgsBase3 ++  " -arg1 arg2 arg3",
+    ?line run_with_opts(Dir, "", NoArgsBase3 ++  " -arg1 arg2 arg3",
 	      [<<"main:[\"-arg1\",\"arg2\",\"arg3\"]\n"
 		"nostick:[]\n"
 		"mnesia:[]\n"
@@ -322,12 +338,12 @@ beam_script(Config) when is_list(Config) ->
     ArgsBase = Base ++ "_args",
     ArgsFile = filename:join([Priv, ArgsBase]),
     ?line ok = file:write_file(ArgsFile,
-			       [Shebang, "\n", 
+			       [Shebang, "\n",
 				Mode, "\n",
 				Flags, "\n",
 				BeamCode]),
-    ?line ok = file:write_file_info(ArgsFile, OrigFI),    
-    
+    ?line ok = file:write_file_info(ArgsFile, OrigFI),
+
     ?line run(Dir, ArgsBase ++  " -arg1 arg2 arg3",
 	      [<<"main:[\"-arg1\",\"arg2\",\"arg3\"]\n"
 		"nostick:[{nostick,[]}]\n"
@@ -356,13 +372,13 @@ archive_script(Config) when is_list(Config) ->
     ?line ok = compile_app(TopDir, "archive_script_dict"),
     ?line ok = compile_app(TopDir, "archive_script_dummy"),
     ?line {ok, MainFiles} = file:list_dir(TopDir),
-    ?line ok = compile_files(MainFiles, TopDir, TopDir),    
-    
+    ?line ok = compile_files(MainFiles, TopDir, TopDir),
+
     %% Create the archive
     {ok, TopFiles} = file:list_dir(TopDir),
     ?line {ok, {_, ArchiveBin}} = zip:create(Archive, TopFiles,
 					     [memory, {compress, []}, {cwd, TopDir}]),
-    
+
     %% Read the source script
     OrigFile = filename:join([DataDir, "emulator_flags"]),
     {ok, OrigBin} = file:read_file(OrigFile),
@@ -371,73 +387,73 @@ archive_script(Config) when is_list(Config) ->
     Flags = "%%! -archive_script_dict foo bar"
 	" -archive_script_dict foo"
 	" -archive_script_dummy bar",
-    ?line {ok, OrigFI} = file:read_file_info(OrigFile),    
-    
+    ?line {ok, OrigFI} = file:read_file_info(OrigFile),
+
     %%%%%%%
     %% Create and run scripts without emulator flags
-    MainBase = "archive_script_main", 
-    MainScript = filename:join([PrivDir, MainBase]), 
+    MainBase = "archive_script_main",
+    MainScript = filename:join([PrivDir, MainBase]),
 
     %% With shebang
-    ?line ok = file:write_file(MainScript, 
+    ?line ok = file:write_file(MainScript,
 			       [Shebang, "\n",
 				Flags, "\n",
 				ArchiveBin]),
-    ?line ok = file:write_file_info(MainScript, OrigFI),    
-   
+    ?line ok = file:write_file_info(MainScript, OrigFI),
+
     ?line run(PrivDir, MainBase ++  " -arg1 arg2 arg3",
-	      [<<"main:[\"-arg1\",\"arg2\",\"arg3\"]\n" 
+	      [<<"main:[\"-arg1\",\"arg2\",\"arg3\"]\n"
 		"dict:[{archive_script_dict,[\"foo\",\"bar\"]},{archive_script_dict,[\"foo\"]}]\n"
 		"dummy:[{archive_script_dummy,[\"bar\"]}]\n"
 		"priv:{ok,<<\"Some private data...\\n\">>}\n"
 		"ExitCode:0">>]),
 
-    ?line run(PrivDir, "", MainBase ++  " -arg1 arg2 arg3",
-	      [<<"main:[\"-arg1\",\"arg2\",\"arg3\"]\n" 
+    ?line run_with_opts(PrivDir, "", MainBase ++  " -arg1 arg2 arg3",
+	      [<<"main:[\"-arg1\",\"arg2\",\"arg3\"]\n"
 		"dict:[{archive_script_dict,[\"foo\",\"bar\"]},{archive_script_dict,[\"foo\"]}]\n"
 		"dummy:[{archive_script_dummy,[\"bar\"]}]\n"
 		"priv:{ok,<<\"Some private data...\\n\">>}\n"
 		"ExitCode:0">>]),
-    
+
     ?line ok = file:rename(MainScript, MainScript ++ "_with_shebang"),
 
     %% Without shebang (no flags)
-    ?line ok = file:write_file(MainScript, 
+    ?line ok = file:write_file(MainScript,
 			       ["Something else than shebang!!!", "\n",
 				ArchiveBin]),
-    ?line ok = file:write_file_info(MainScript, OrigFI),    
-   
-    ?line run(PrivDir, "", MainBase ++  " -arg1 arg2 arg3",
-	      [<<"main:[\"-arg1\",\"arg2\",\"arg3\"]\n" 
+    ?line ok = file:write_file_info(MainScript, OrigFI),
+
+    ?line run_with_opts(PrivDir, "", MainBase ++  " -arg1 arg2 arg3",
+	      [<<"main:[\"-arg1\",\"arg2\",\"arg3\"]\n"
 		"dict:[]\n"
 		"dummy:[]\n"
 		"priv:{ok,<<\"Some private data...\\n\">>}\n"
 		"ExitCode:0">>]),
     ?line ok = file:rename(MainScript, MainScript ++ "_without_shebang"),
-    
+
     %% Plain archive without header (no flags)
-    
+
     ?line ok = file:write_file(MainScript, [ArchiveBin]),
-    ?line ok = file:write_file_info(MainScript, OrigFI),    
-   
-    ?line run(PrivDir, "", MainBase ++  " -arg1 arg2 arg3",
-	      [<<"main:[\"-arg1\",\"arg2\",\"arg3\"]\n" 
+    ?line ok = file:write_file_info(MainScript, OrigFI),
+
+    ?line run_with_opts(PrivDir, "", MainBase ++  " -arg1 arg2 arg3",
+	      [<<"main:[\"-arg1\",\"arg2\",\"arg3\"]\n"
 		"dict:[]\n"
 		"dummy:[]\n"
 		"priv:{ok,<<\"Some private data...\\n\">>}\n"
 		"ExitCode:0">>]),
     ?line ok = file:rename(MainScript, MainScript ++ "_without_header"),
-    
+
     %%%%%%%
     %% Create and run scripts with emulator flags
     AltBase = "archive_script_alternate_main",
     AltScript = filename:join([PrivDir, AltBase]),
-    ?line ok = file:write_file(AltScript, 
+    ?line ok = file:write_file(AltScript,
 			       [Shebang, "\n",
 				Mode, "\n",
 				Flags, " -escript main archive_script_main2\n",
 				ArchiveBin]),
-    ?line ok = file:write_file_info(AltScript, OrigFI),    
+    ?line ok = file:write_file_info(AltScript, OrigFI),
 
     ?line run(PrivDir, AltBase ++  " -arg1 arg2 arg3",
 	      [<<"main2:[\"-arg1\",\"arg2\",\"arg3\"]\n"
@@ -445,7 +461,7 @@ archive_script(Config) when is_list(Config) ->
 		"dummy:[{archive_script_dummy,[\"bar\"]}]\n"
 		"priv:{ok,<<\"Some private data...\\n\">>}\n"
 		"ExitCode:0">>]),
-    
+
     ok.
 
 compile_app(TopDir, AppName) ->
@@ -482,6 +498,265 @@ epp(Config) when is_list(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+create_and_extract(Config) when is_list(Config) ->
+    {NewFile, FileInfo,
+     EmuArg, Source,
+     _ErlBase, ErlCode,
+     _BeamBase, BeamCode,
+     ArchiveBin} =
+	prepare_creation("create_and_extract", Config),
+
+    Bodies =
+	[[{source, ErlCode}],
+	 [{beam, BeamCode}],
+	 [{archive, ArchiveBin}]],
+
+    %% Verify all combinations of scripts with shebangs
+    [verify_sections(NewFile, FileInfo, S ++ C ++ E ++ B) ||
+	S <- [[{shebang, default}],
+	      [{shebang, "/usr/bin/env     escript"}]],
+	C <- [[],
+	      [{comment, undefined}],
+	      [{comment, default}],
+	      [{comment, "This is a nonsense comment"}]],
+	E <- [[],
+	      [{emu_args, undefined}],
+	      [{emu_args, EmuArg}]],
+	B <- [[{source, Source}] | Bodies]],
+
+    %% Verify all combinations of scripts without shebangs
+    [verify_sections(NewFile, FileInfo, S ++ C ++ E ++ B) ||
+	S <- [[], [{shebang, undefined}]],
+	C <- [[], [{comment, undefined}]],
+	E <- [[], [{emu_args, undefined}]],
+	B <- Bodies],
+
+    %% Verify the compile_source option
+    file:delete(NewFile),
+    ?line ok = escript:create(NewFile, [{source, Source}]),
+    ?line {ok, [_, _, _, {source, Source}]} = escript:extract(NewFile, []),
+    ?line {ok, [_, _, _, {source, BeamCode2}]} =
+	escript:extract(NewFile, [compile_source]),
+    verify_sections(NewFile, FileInfo,
+		    [{shebang, default},
+		     {comment, default},
+		     {beam, BeamCode2}]),
+
+    file:delete(NewFile),
+    ok.
+
+prepare_creation(Base, Config) ->
+    %% Read the source
+    PrivDir = ?config(priv_dir, Config),
+    DataDir = ?config(data_dir, Config),
+    OrigFile = filename:join([DataDir,"emulator_flags"]),
+    ?line {ok, FileInfo} = file:read_file_info(OrigFile),
+    NewFile = filename:join([PrivDir, Base]),
+    ?line {ok, [{shebang, default},
+		{comment, _},
+		{emu_args, EmuArg},
+		{source, Source}]} =
+	escript:extract(OrigFile, []),
+
+    %% Compile the code
+    ErlFile = NewFile ++ ".erl",
+    ErlCode = list_to_binary(["\n-module(", Base, ").\n",
+			      "-export([main/1]).\n\n",
+			      Source, "\n\n"]),
+    ?line ok = file:write_file(ErlFile, ErlCode),
+
+    %% Compile the code
+    ?line {ok, _Mod, BeamCode} =
+	compile:file(ErlFile, [binary, debug_info]),
+
+    %% Create an archive
+    ?line {ok, {_, ArchiveBin}} =
+	zip:create("dummy_archive_name",
+		   [{Base ++ ".erl", ErlCode},
+		    {Base ++ ".beam", BeamCode}],
+		   [{compress, []}, memory]),
+    {NewFile, FileInfo,
+     EmuArg, Source,
+     Base ++ ".erl", ErlCode,
+     Base ++ ".beam", BeamCode,
+     ArchiveBin}.
+
+verify_sections(File, FileInfo, Sections) ->
+    io:format("~p:verify_sections(\n\t~p,\n\t~p,\n\t~p).\n",
+	      [?MODULE, File, FileInfo, Sections]),
+
+    %% Create
+    file:delete(File),
+    ?line ok = escript:create(File, Sections),
+    ?line ok = file:write_file_info(File, FileInfo),
+
+    %% Run
+    Dir = filename:absname(filename:dirname(File)),
+    Base = filename:basename(File),
+
+    HasArg = fun(Tag) ->
+		     case lists:keysearch(Tag, 1, Sections) of
+			 false -> false;
+			 {value, {_, undefined}} -> false;
+			 {value, _} -> true
+		     end
+	     end,
+    ExpectedMain = <<"main:[\"-arg1\",\"arg2\",\"arg3\"]\n">>,
+    ExpectedOutput =
+	case HasArg(emu_args) of
+	    true ->
+		<<"nostick:[{nostick,[]}]\n"
+		  "mnesia:[{mnesia,[\"dir\",\"a/directory\"]},{mnesia,[\"debug\",\"verbose\"]}]\n"
+		  "ERL_FLAGS=false\n"
+		  "unknown:[]\n"
+		  "ExitCode:0">>;
+	    false ->
+		<<"nostick:[]\nmnesia:[]\nERL_FLAGS=false\nunknown:[]\nExitCode:0">>
+	end,
+
+    InputArgs = Base ++ " -arg1 arg2 arg3",
+    Expected = <<ExpectedMain/binary, ExpectedOutput/binary>>,
+    case HasArg(shebang) of
+	true ->
+	    ?line run(Dir, InputArgs, [Expected]);
+	false ->
+	    ?line run_with_opts(Dir, [], InputArgs, [Expected])
+    end,
+
+    %% Verify
+    ?line {ok, Bin} = escript:create(binary, Sections),
+    ?line {ok, Read} = file:read_file(File),
+    ?line Bin = Read, % Assert
+
+    Normalized = normalize_sections(Sections),
+    ?line {ok, Extracted} = escript:extract(File, []),
+    io:format("Normalized; ~p\n", [Normalized]),
+    io:format("Extracted ; ~p\n", [Extracted]),
+    ?line Normalized = Extracted, % Assert
+    ok.
+
+normalize_sections(Sections) ->
+    AtomToTuple =
+	fun(Val) ->
+		if
+		    is_atom(Val) -> {Val, default};
+		    true -> Val
+		end
+	end,
+    case lists:map(AtomToTuple, [{K, V} || {K, V} <- Sections, V =/= undefined]) of
+	    [{shebang, Shebang} | Rest] ->
+		[{shebang, Shebang} |
+		 case Rest of
+		     [{comment, Comment} | Rest2] ->
+			 [{comment, Comment} |
+			  case Rest2 of
+			      [{emu_args, EmuArgs}, Body] ->
+				  [{emu_args, EmuArgs}, Body];
+			      [Body] ->
+				  [{emu_args, undefined}, Body]
+			  end
+			 ];
+		     [{emu_args, EmuArgs}, Body] ->
+			 [{comment, undefined}, {emu_args, EmuArgs}, Body];
+		     [Body] ->
+			 [{comment, undefined}, {emu_args, undefined}, Body]
+		 end
+		];
+	    [Body] ->
+		[{shebang, undefined}, {comment, undefined}, {emu_args, undefined}, Body]
+	end.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+foldl(Config) when is_list(Config) ->
+    {NewFile, _FileInfo,
+     _EmuArg, _Source,
+     ErlBase, ErlCode,
+     BeamBase, _BeamCode,
+     ArchiveBin} =
+	prepare_creation("foldl", Config),
+
+    Collect = fun(Name, GetInfo, GetBin, Acc) ->
+		      [{Name, GetInfo(), GetBin()} | Acc]
+	      end,
+
+    %% Get line numbers and the file attribute right
+    SourceFile = NewFile ++ ".erl",
+    <<_:1/binary, ErlCode2/binary>> = ErlCode,
+    ?line ok = file:write_file(SourceFile, ErlCode2),
+    ?line {ok, _Mod, BeamCode} =
+	compile:file(SourceFile, [binary, debug_info]),
+
+    %% Verify source script
+    ?line ok = escript:create(SourceFile, [{source, ErlCode}]),
+    ?line {ok, [{".", _, BeamCode2}]}
+	= escript_foldl(Collect, [], SourceFile),
+
+    ?line {ok, Abstr} = beam_lib:chunks(BeamCode, [abstract_code]),
+    ?line {ok, Abstr2} = beam_lib:chunks(BeamCode2, [abstract_code]),
+    %% io:format("abstr1=~p\n", [Abstr]),
+    %% io:format("abstr2=~p\n", [Abstr2]),
+    ?line Abstr = Abstr2, % Assert
+
+    %% Verify beam script
+    ?line ok = escript:create(NewFile, [{beam, BeamCode}]),
+    ?line {ok, [{".", _, BeamCode}]}
+	= escript_foldl(Collect, [], NewFile),
+
+    %% Verify archive scripts
+    ?line ok = escript:create(NewFile, [{archive, ArchiveBin}]),
+    ?line {ok, [{BeamBase, #file_info{}, _},
+		{ErlBase, #file_info{}, _}]}
+	= escript_foldl(Collect, [], NewFile),
+
+    ArchiveFiles = [{ErlBase, ErlCode}, {BeamBase, BeamCode}],
+    ?line ok = escript:create(NewFile, [{archive, ArchiveFiles, []}]),
+    ?line {ok, [{BeamBase, _, _},
+	      {ErlBase, _, _}]}
+	= escript_foldl(Collect, [], NewFile),
+
+    ok.
+
+escript_foldl(Fun, Acc, File) ->
+    code:ensure_loaded(zip),
+    case erlang:function_exported(zip, foldl, 3) of
+	true ->
+	    emulate_escript_foldl(Fun, Acc, File);
+	false ->
+	    escript:foldl(Fun, Acc, File)
+    end.
+
+emulate_escript_foldl(Fun, Acc, File) ->
+    case escript:extract(File, [compile_source]) of
+	{ok, [_Shebang, _Comment, _EmuArgs, Body]} ->
+	    case Body of
+		{source, BeamCode} ->
+		    GetInfo = fun() -> file:read_file_info(File) end,
+		    GetBin = fun() -> BeamCode end,
+		    {ok, Fun(".", GetInfo, GetBin, Acc)};
+		{beam, BeamCode} ->
+		    GetInfo = fun() -> file:read_file_info(File) end,
+		    GetBin = fun() -> BeamCode end,
+		    {ok, Fun(".", GetInfo, GetBin, Acc)};
+		{archive, ArchiveBin} ->
+		    zip:foldl(Fun, Acc, {File, ArchiveBin})
+	    end;
+	{error, Reason} ->
+	    {error, Reason}
+    end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+overflow(Config) when is_list(Config) ->
+    Data = ?config(data_dir, Config),
+    Dir = filename:absname(Data),		%Get rid of trailing slash.
+    ?line run(Dir, "arg_overflow",
+	      [<<"ExitCode:0">>]),
+    ?line run(Dir, "linebuf_overflow",
+	      [<<"ExitCode:0">>]),
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 run(Dir, Cmd0, Expected0) ->
     Expected = iolist_to_binary(expected_output(Expected0, Dir)),
     Cmd = case os:type() of
@@ -490,7 +765,7 @@ run(Dir, Cmd0, Expected0) ->
 	  end,
     do_run(Dir, Cmd, Expected).
 
-run(Dir, Opts, Cmd0, Expected) ->
+run_with_opts(Dir, Opts, Cmd0, Expected) ->
     Cmd = case os:type() of
 	      {win32,_} -> "escript " ++ Opts ++ " " ++ filename:nativename(Dir) ++ "\\" ++ Cmd0;
 	      _ -> "escript " ++ Opts ++ " " ++ Dir ++ "/" ++ Cmd0
@@ -533,8 +808,8 @@ expected_output([data_dir|T], Data) ->
     [filename:nativename(Data)++Slash|expected_output(T, Data)];
 expected_output([H|T], Data) ->
     [H|expected_output(T, Data)];
-expected_output([], _) -> 
+expected_output([], _) ->
     [];
-expected_output(Bin, _) when is_binary(Bin) -> 
+expected_output(Bin, _) when is_binary(Bin) ->
     Bin.
 

@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2003-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2003-2011. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 /*
@@ -45,8 +45,8 @@ int main(int argc, char **argv)
     InitSection *ini_section;
     HANDLE module = GetModuleHandle(NULL);
     char *binaries[] = { "erl.exe", "werl.exe", "erlc.exe",
-			     "dialyzer.exe", "typer.exe",
-			     "escript.exe", NULL };
+			 "dialyzer.exe", "typer.exe",
+			 "escript.exe", "ct_run.exe", NULL };
     char *scripts[] = { "start_clean.boot", "start_sasl.boot", NULL };
     char fromname[MAX_PATH];
     char toname[MAX_PATH];
@@ -172,6 +172,20 @@ int main(int argc, char **argv)
 	}
     }
 
+    // Remove in R16B
+    sprintf(fromname,"%s\\%s",bin_dir,"ct_run.exe");
+    sprintf(toname,"%s\\%s",bin_dir,"run_test.exe");
+    if (GetFileAttributes(fromname) == 0xFFFFFFFF) {
+      fprintf(stderr,"Could not find file %s\n",
+	      fromname);
+      exit(1);
+    }
+    if (!CopyFile(fromname,toname,FALSE)) {
+      fprintf(stderr,"Could not copy file %s to %s\n",
+	      fromname,toname);
+      fprintf(stderr,"Continuing installation anyway...\n");
+    }
+    
     for (i = 0; scripts[i] != NULL; ++i) {
 	sprintf(fromname,"%s\\%s",release_dir,scripts[i]);
 	sprintf(toname,"%s\\%s",bin_dir,scripts[i]);
@@ -199,6 +213,9 @@ int main(int argc, char **argv)
 	fprintf(stderr,"Cannot continue installation, bailing out.\n");
 	exit(1);
     }
+
+    /* OBS!!! If the format of the init file is changed, do not forget
+       to update release_handler:write_ini_file(...) */
     ini_file = create_init_file();
     ini_section = create_init_section("erlang");
     add_init_section(ini_file,ini_section);

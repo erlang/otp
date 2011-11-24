@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -26,13 +26,14 @@
 -define(config(X,Y), foo).
 -define(t, test_server).
 -else.
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -define(format(S, A), ok).
 -endif.
 
--export([all/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 
--export([sofs/1, from_term_1/1, set_1/1, from_sets_1/1, relation_1/1,
+-export([ from_term_1/1, set_1/1, from_sets_1/1, relation_1/1,
 	 a_function_1/1, family_1/1, projection/1,
 	 relation_to_family_1/1, domain_1/1, range_1/1, image/1,
 	 inverse_image/1, inverse_1/1, converse_1/1, no_elements_1/1,
@@ -47,7 +48,7 @@
 	 multiple_relative_product/1, digraph/1, constant_function/1,
 	 misc/1]).
 
--export([sofs_family/1, family_specification/1,
+-export([ family_specification/1,
          family_domain_1/1, family_range_1/1,
 	 family_to_relation_1/1, 
          union_of_family_1/1, intersection_of_family_1/1,
@@ -81,18 +82,56 @@
 	 union/1, union/2, family_to_digraph/1, family_to_digraph/2,
 	 digraph_to_family/1, digraph_to_family/2]).
 
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 -compile({inline,[{eval,2}]}).
 
-all(suite) ->
-    [sofs, sofs_family].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [{group, sofs}, {group, sofs_family}].
+
+groups() -> 
+    [{sofs, [],
+      [from_term_1, set_1, from_sets_1, relation_1,
+       a_function_1, family_1, relation_to_family_1, domain_1,
+       range_1, image, inverse_image, inverse_1, converse_1,
+       no_elements_1, substitution, restriction, drestriction,
+       projection, strict_relation_1, extension,
+       weak_relation_1, to_sets_1, specification, union_1,
+       intersection_1, difference, symdiff,
+       symmetric_partition, is_sofs_set_1, is_set_1, is_equal,
+       is_subset, is_a_function_1, is_disjoint, join,
+       canonical, composite_1, relative_product_1,
+       relative_product_2, product_1, partition_1, partition_3,
+       multiple_relative_product, digraph, constant_function,
+       misc]},
+     {sofs_family, [],
+      [family_specification, family_domain_1, family_range_1,
+       family_to_relation_1, union_of_family_1,
+       intersection_of_family_1, family_projection,
+       family_difference, family_intersection_1,
+       family_intersection_2, family_union_1, family_union_2,
+       partition_family]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 init_per_testcase(_Case, Config) ->
     Dog=?t:timetrap(?t:minutes(2)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
@@ -100,18 +139,6 @@ fin_per_testcase(_Case, Config) ->
 %% [{2,b},{1,a,b}] == lists:sort([{2,b},{1,a,b}])
 %% [{1,a,b},{2,b}] == lists:keysort(1,[{2,b},{1,a,b}])
 
-sofs(suite) ->
-    [from_term_1, set_1, from_sets_1, relation_1, a_function_1,
-     family_1, relation_to_family_1, domain_1, range_1, image,
-     inverse_image, inverse_1, converse_1, no_elements_1,
-     substitution, restriction, drestriction, projection,
-     strict_relation_1, extension, weak_relation_1, to_sets_1,
-     specification, union_1, intersection_1, difference, symdiff,
-     symmetric_partition, is_sofs_set_1, is_set_1, is_equal,
-     is_subset, is_a_function_1, is_disjoint, join, canonical,
-     composite_1, relative_product_1, relative_product_2, product_1,
-     partition_1, partition_3, multiple_relative_product, digraph,
-     constant_function, misc].
 
 from_term_1(suite) -> [];
 from_term_1(doc) -> [""];
@@ -1575,25 +1602,26 @@ relative_product_2(Conf) when is_list(Conf) ->
 				 from_term([{{a},b}])}, ER)),
 
     ?line {'EXIT', {badarg, _}} = (catch relative_product({}, ER)),
-    ?line eval(relative_product({relation([{a,b}])}, 
-				from_term([],[{{atom},atom}])), 
-               ER),
-    ?line eval(relative_product({relation([{a,b}]),relation([{a,1}])}, 
-				from_term([{{b,1},{tjo,hej,sa}}])),
-               from_term([{a,{tjo,hej,sa}}])),
-    ?line eval(relative_product({relation([{a,b}]), ER}, 
-				from_term([{{a,b},b}])), 
-               ER),
-    ?line eval(relative_product({relation([{a,b},{c,a}]), 
-				 relation([{a,1},{a,2}])},
-				from_term([{{b,1},b1},{{b,2},b2}])),
-               relation([{a,b1},{a,b2}])),
+    ?line relprod2({relation([{a,b}])}, from_term([],[{{atom},atom}]), ER),
+    ?line relprod2({relation([{a,b}]),relation([{a,1}])},
+                   from_term([{{b,1},{tjo,hej,sa}}]),
+                   from_term([{a,{tjo,hej,sa}}])),
+    ?line relprod2({relation([{a,b}]), ER}, from_term([{{a,b},b}]), ER),
+    ?line relprod2({relation([{a,b},{c,a}]),
+                    relation([{a,1},{a,2}])},
+                   from_term([{{b,1},b1},{{b,2},b2}]),
+                   relation([{a,b1},{a,b2}])),
     ?line eval(relative_product({relation([{a,b}]), ER}), 
                from_term([],[{atom,{atom,atom}}])),
     ?line eval(relative_product({from_term([{{a,[a,b]},[a]}]),
 				 from_term([{{a,[a,b]},[[a,b]]}])}),
                from_term([{{a,[a,b]},{[a],[[a,b]]}}])),
     ok.
+
+relprod2(A1T, A2, R) ->
+    %% A tuple as first argument is the old interface:
+    eval(relative_product(A1T, A2), R),
+    eval(relative_product(tuple_to_list(A1T), A2), R).
 
 product_1(suite) -> [];
 product_1(doc) -> [""];
@@ -1851,11 +1879,11 @@ digraph(Conf) when is_list(Conf) ->
 
     ?line {'EXIT', {badarg, _}} = 
         (catch family_to_digraph(set([a]))),
-    ?line {'EXIT', {badarg, [{sofs,family_to_digraph,[_,_]}|_]}} =
+    ?line {'EXIT', {badarg, [{sofs,family_to_digraph,[_,_],_}|_]}} =
         (catch family_to_digraph(set([a]), [foo])),
-    ?line {'EXIT', {badarg, [{sofs,family_to_digraph,[_,_]}|_]}} =
+    ?line {'EXIT', {badarg, [{sofs,family_to_digraph,[_,_],_}|_]}} =
         (catch family_to_digraph(F, [foo])),
-    ?line {'EXIT', {cyclic, [{sofs,family_to_digraph,[_,_]}|_]}} =
+    ?line {'EXIT', {cyclic, [{sofs,family_to_digraph,[_,_],_}|_]}} =
         (catch family_to_digraph(family([{a,[a]}]),[acyclic])),
 
     ?line G1 = family_to_digraph(E),
@@ -1934,12 +1962,6 @@ relational_restriction(R) ->
     Fun = fun(S) -> no_elements(S) > 1 end,
     family_to_relation(family_specification(Fun, relation_to_family(R))).
 
-sofs_family(suite) ->
-    [family_specification, family_domain_1, family_range_1, 
-     family_to_relation_1, union_of_family_1, intersection_of_family_1, 
-     family_projection, family_difference, 
-     family_intersection_1, family_intersection_2, 
-     family_union_1, family_union_2, partition_family].
 
 family_specification(suite) -> [];
 family_specification(doc) -> [""];

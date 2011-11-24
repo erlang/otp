@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2009. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -30,17 +30,19 @@
 -define(privdir, "leex_SUITE_priv").
 -define(t, test_server).
 -else.
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -define(datadir, ?config(data_dir, Config)).
 -define(privdir, ?config(priv_dir, Config)).
 -endif.
 
--export([all/1, init_per_testcase/2, fin_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 init_per_testcase/2, end_per_testcase/2]).
 
--export([checks/1,
-             file/1, compile/1, syntax/1,
-         examples/1,
-             pt/1, man/1, ex/1, ex2/1, not_yet/1]).
+-export([
+	 file/1, compile/1, syntax/1,
+	 
+	 pt/1, man/1, ex/1, ex2/1, not_yet/1]).
 
 % Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(1)).
@@ -49,15 +51,33 @@ init_per_testcase(_Case, Config) ->
     ?line Dog = ?t:timetrap(?default_timeout),
     [{watchdog, Dog} | Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
-all(suite) -> [checks, examples].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-checks(suite) ->
-    [file, compile, syntax].
+all() -> 
+    [{group, checks}, {group, examples}].
+
+groups() -> 
+    [{checks, [], [file, compile, syntax]},
+     {examples, [], [pt, man, ex, ex2, not_yet]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
+
 
 file(doc) ->
     "Bad files and options.";
@@ -131,6 +151,24 @@ file(Config) when is_list(Config) ->
         leex:file(Filename, [dfa_graph | Ret2]),
     ?line writable(Dotfile),
     file:delete(Dotfile),
+
+    ok = file:delete(Scannerfile),
+    Warn = <<"Definitions.1998\n"
+             "D  = [0-9]\n"
+             "Rules.\n"
+             "{L}+  : {token,{word,TokenLine,TokenChars}}.\n"
+             "Erlang code.\n">>,
+    ok = file:write_file(Filename, Warn),
+    error = leex:file(Filename, [warnings_as_errors]),
+    false = filelib:is_regular(Scannerfile),
+    error = leex:file(Filename, [return_warnings,warnings_as_errors]),
+    false = filelib:is_regular(Scannerfile),
+    {error,_,[{Filename,[{1,leex,ignored_characters}]}]} =
+        leex:file(Filename, [return_errors,warnings_as_errors]),
+    false = filelib:is_regular(Scannerfile),
+    {ok,Scannerfile,[{Filename,[{1,leex,ignored_characters}]}]} =
+        leex:file(Filename, [return_warnings]),
+    true = filelib:is_regular(Scannerfile),
 
     file:delete(Filename),
     ok.
@@ -330,8 +368,6 @@ syntax(Config) when is_list(Config) ->
         leex:file(Filename, Ret),
     ok.
 
-examples(suite) ->
-    [pt,man,ex,ex2,not_yet].
 
 pt(doc) ->
     "Pushing back characters.";
@@ -533,7 +569,7 @@ ex2(Config) when is_list(Config) ->
      <<"
 %%% File : erlang_scan.xrl
 %%% Author : Robert Virding
-%%% Purpose : Tkoen definitions for Erlang.
+%%% Purpose : Token definitions for Erlang.
  
 Definitions.
 O  = [0-7]

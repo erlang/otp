@@ -3,7 +3,7 @@
      #
      # %CopyrightBegin%
      #
-     # Copyright Ericsson AB 2009-2010. All Rights Reserved.
+     # Copyright Ericsson AB 2009-2011. All Rights Reserved.
      #
      # The contents of this file are subject to the Erlang Public License,
      # Version 1.1, (the "License"); you may not use this file except in
@@ -29,7 +29,7 @@
 
  <!-- Fixed strings -->
  <xsl:variable name="companyname"><xsl:value-of select="/book/header/copyright/holder"/></xsl:variable>
-  <xsl:variable name="copyright">Copyright &#169; <xsl:value-of select="/book/header/copyright/year[1]"/><xsl:text>-</xsl:text><xsl:value-of select="substring-after(substring-after($gendate, ' '), ' ')"/></xsl:variable>
+  <xsl:variable name="copyright">Copyright &#169; <xsl:value-of select="/book/header/copyright/year[1]"/><xsl:text>-</xsl:text><xsl:value-of select="substring-after(normalize-space(substring-after($gendate, ' ')), ' ')"/></xsl:variable>
 
   <!-- FIXME: remove when appendix creation has been fixed -->
   <!-- xsl:variable name="appendix_title"-->
@@ -316,8 +316,8 @@
     <xsl:attribute name="font-family">monospace</xsl:attribute>
     <!-- xsl:attribute name="font-size">0.8em</xsl:attribute -->
     <xsl:attribute name="keep-with-next.within-page">always</xsl:attribute>
-    <xsl:attribute name="space-after">0.3em</xsl:attribute>
-    <xsl:attribute name="space-before">1.5em</xsl:attribute>
+    <xsl:attribute name="space-after">0.25em</xsl:attribute>
+    <!-- xsl:attribute name="space-before">1.5em</xsl:attribute -->
   </xsl:attribute-set> 
 
   <xsl:attribute-set name="type-listblock">

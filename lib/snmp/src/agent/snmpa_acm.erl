@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -62,11 +62,13 @@
 %%       {error, Reason} |
 %%       {discarded, Variable, Reason}
 %% Types: Pdu = #pdu
-%%        ACMData = acm_data() = {community, Community, Address} |
-%%                               {v3, MsgID, SecModel, SecName, SecLevel,
-%%                                    ContextEngineID, ContextName, SecData}
+%%        ACMData = acm_data() = 
+%%             {community, SecModel, Community, TDomain, TAddress} |
+%%             {v3, MsgID, SecModel, SecName, SecLevel,
+%%                  ContextEngineID, ContextName, SecData}
 %%        Community       = string()
-%%        Address         = ip() ++ udp() (list)
+%%        TDomain         = ?transportDomainUdpIpv4 | ?transportDomainUdpIpv6
+%%        TAddress        = ip() ++ udp() (list)
 %%        MsgID           = integer() <not used>
 %%        SecModel        = ?SEC_*  (see snmp_types.hrl)
 %%        SecName         = string()
@@ -114,7 +116,10 @@ error2status(_) -> genErr.
 %% discarded: no error response is sent
 %% authentication_failure: no error response is sent, a trap is generated
 %%-----------------------------------------------------------------
-init_ca(Pdu, {community, SecModel, Community, TAddr}) ->
+init_ca(Pdu, {community, SecModel, Community, TAddress}) ->
+    TDomain = snmp_conf:mk_tdomain(snmp_target_mib:default_domain()),
+    init_ca(Pdu, {community, SecModel, Community, TDomain, TAddress});
+init_ca(Pdu, {community, SecModel, Community, TDomain, TAddress}) ->
     %% This is a v1 or v2c request.   Use SNMP-COMMUNITY-MIB to
     %% map the community to vacm parameters.
     ?vtrace("check access for ~n"
@@ -126,18 +131,18 @@ init_ca(Pdu, {community, SecModel, Community, TAddr}) ->
 		   _ -> read
 	       end,
     ?vtrace("View type: ~p", [ViewType]),
-    CaCacheKey = {Community, SecModel, TAddr, ViewType},
+    CaCacheKey = {Community, SecModel, TDomain, TAddress, ViewType},
     case check_ca_cache(CaCacheKey) of
         false ->
-            case snmp_community_mib:community2vacm(Community,
-                                                   {?snmpUDPDomain,TAddr}) of
+            case snmp_community_mib:community2vacm(Community, 
+						   {TDomain, TAddress}) of
                 {SecName, _ContextEngineId, ContextName} ->
                     %% Maybe we should check that the contextEngineID 
 		    %% matches the local engineID?  
 		    %% It better, since we don't impl. proxy.
                     ?vtrace("get mib view"
                             "~n   Security name: ~p"
-                            "~n   Context name:  ~p",[SecName,ContextName]),
+                            "~n   Context name:  ~p",[SecName, ContextName]),
                     case snmpa_vacm:get_mib_view(ViewType, SecModel, SecName,
                                                  ?'SnmpSecurityLevel_noAuthNoPriv',
                                                  ContextName) of
@@ -153,7 +158,7 @@ init_ca(Pdu, {community, SecModel, Community, TAddr}) ->
                     end;
                 undefined ->
                     {authentication_failure, snmpInBadCommunityNames,
-                     {bad_community_name, TAddr, Community}}
+                     {bad_community_name, TDomain, TAddress, Community}}
             end;
         Res ->
             Res
@@ -218,6 +223,7 @@ upd_ca_cache(KeyVal) ->
 
 invalidate_ca_cache() ->
     erase(ca_cache).
+
 
 %%-----------------------------------------------------------------
 %% Func: check(Res) -> {ok, MibView} | {discarded, Variable, Reason}

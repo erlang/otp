@@ -90,7 +90,7 @@ clean:
 # Special Build Targets
 # ----------------------------------------------------
 
-gstk_generic.hrl: gs_make.erl
+gstk_generic.hrl: gs_make.erl ../ebin/gs_make.$(EMULATOR) ../ebin/gs.$(EMULATOR)
 	$(ERL) -pa $(EBIN) -s gs_make -s erlang halt -noshell
 
 $(APP_TARGET): $(APP_SRC) ../vsn.mk
@@ -98,6 +98,8 @@ $(APP_TARGET): $(APP_SRC) ../vsn.mk
 
 $(APPUP_TARGET): $(APPUP_SRC) ../vsn.mk
 	sed -e 's;%VSN%;$(VSN);' $< > $@
+
+$(GSTK_GENERIC_TARGET): gstk_generic.hrl
 
 # ----------------------------------------------------
 # Release Target

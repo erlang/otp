@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -21,7 +21,8 @@
 -module(timer_simple_SUITE).
 
 %% external
--export([all/1, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
 	 init_per_testcase/2,
 	 apply_after/1,
 	 send_after1/1,
@@ -49,31 +50,35 @@
 	 timer/4,
 	 timer/5]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -define(MAXREF, (1 bsl 18)).
 -define(REFMARG, 30).
 
-all(doc) -> "Test of the timer module.";
-all(suite) -> 
-    [apply_after,
-     send_after1,
-     send_after2,
-     send_after3,
-     exit_after1,
-     exit_after2,
-     kill_after1,
-     kill_after2,
-     apply_interval,
-     send_interval1,
-     send_interval2,
-     send_interval3,
-     send_interval4,
-     cancel1,
-     cancel2,
-     tc,
-     unique_refs,
-     timer_perf].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [apply_after, send_after1, send_after2, send_after3,
+     exit_after1, exit_after2, kill_after1, kill_after2,
+     apply_interval, send_interval1, send_interval2,
+     send_interval3, send_interval4, cancel1, cancel2, tc,
+     unique_refs, timer_perf].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 init_per_testcase(_, Config) when is_list(Config) ->
     timer:start(),
@@ -224,13 +229,48 @@ cancel2(Config) when is_list(Config) ->
 tc(doc) -> "Test sleep/1 and tc/3.";
 tc(suite) -> [];
 tc(Config) when is_list(Config) ->
-    % This should both sleep and tc 
-    ?line {Res, ok} = timer:tc(timer, sleep, [500]),  
-    ?line ok = 	if 
-		    Res < 500*1000 -> {too_early, Res};  % Too early
-		    Res > 800*1000 -> {too_late, Res};  % Too much time
+    %% This should test both sleep and tc/3
+    ?line {Res1, ok} = timer:tc(timer, sleep, [500]),
+    ?line ok = 	if
+		    Res1 < 500*1000 -> {too_early, Res1}; % Too early
+		    Res1 > 800*1000 -> {too_late, Res1};  % Too much time
 		    true -> ok
 		end,
+
+    %% tc/2
+    ?line {Res2, ok} = timer:tc(fun(T) -> timer:sleep(T) end, [500]),
+    ?line ok = 	if
+		    Res2 < 500*1000 -> {too_early, Res2}; % Too early
+		    Res2 > 800*1000 -> {too_late, Res2};  % Too much time
+		    true -> ok
+		end,
+    
+    %% tc/1
+    ?line {Res3, ok} = timer:tc(fun() -> timer:sleep(500) end),
+    ?line ok = 	if
+    		    Res3 < 500*1000 -> {too_early, Res3}; % Too early
+    		    Res3 > 800*1000 -> {too_late, Res3};  % Too much time
+    		    true -> ok
+    		end,
+
+    %% Check that timer:tc don't catch errors
+    ?line ok = try timer:tc(erlang, exit, [foo]) 
+	       catch exit:foo -> ok
+	       end,
+    
+    ?line ok = try timer:tc(fun(Reason) -> 1 = Reason end, [foo]) 
+	       catch error:{badmatch,_} -> ok
+	       end,
+    
+    ?line ok = try timer:tc(fun() -> throw(foo) end) 
+	       catch foo -> ok
+	       end,
+    
+    %% Check that return values are propageted
+    Self = self(),
+    ?line {_, Self} = timer:tc(erlang, self, []),
+    ?line {_, Self} = timer:tc(fun(P) -> P end, [self()]),
+    ?line {_, Self} = timer:tc(fun() -> self() end),
 
     ?line Sec = timer:seconds(4),
     ?line Min = timer:minutes(4),

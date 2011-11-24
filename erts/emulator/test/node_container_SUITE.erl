@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -29,10 +29,12 @@
 
 %-define(line_trace, 1).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 %-compile(export_all).
--export([all/1, init_per_testcase/2, fin_per_testcase/2, end_per_suite/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, init_per_testcase/2, 
+	 end_per_testcase/2,
 	 node_container_refc_check/1]).
 
 -export([term_to_binary_to_term_eq/1,
@@ -55,25 +57,30 @@
 
 -define(DEFAULT_TIMEOUT, ?t:minutes(10)).
 
-all(doc) -> [];
-all(suite) ->
-    [term_to_binary_to_term_eq,
-     round_trip_eq,
-     cmp,
-     ref_eq,
-     node_table_gc,
-     dist_link_refc,
-     dist_monitor_refc,
-     node_controller_refc,
-     ets_refc,
-     match_spec_refc,
-     timer_refc,
-     otp_4715,
-     pid_wrap,
-     port_wrap,
-     bad_nc,
-     unique_pid,
-     iter_max_procs].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [term_to_binary_to_term_eq, round_trip_eq, cmp, ref_eq,
+     node_table_gc, dist_link_refc, dist_monitor_refc,
+     node_controller_refc, ets_refc, match_spec_refc,
+     timer_refc, otp_4715, pid_wrap, port_wrap, bad_nc,
+     unique_pid, iter_max_procs].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    available_internal_state(false).
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 available_internal_state(Bool) when Bool == true; Bool == false ->
     case {Bool,
@@ -95,13 +102,10 @@ init_per_testcase(_Case, Config) when is_list(Config) ->
     available_internal_state(true),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Case, Config) when is_list(Config) ->
+end_per_testcase(_Case, Config) when is_list(Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),
     ok.
-
-end_per_suite(_Config) ->
-    available_internal_state(false).
 
 %%%
 %%% The test cases -------------------------------------------------------------

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,23 +18,35 @@
 %%
 -module(kernel_config_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
--export([all/1, sync/1]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, sync/1]).
 
--export([init/1, fini/1]).
+-export([init_per_suite/1, end_per_suite/1]).
 
-all(suite) ->
-    [{conf, init, [sync], fini}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-init(doc) -> [];
-init(suite) -> [];
-init(Config) when is_list(Config) ->
+all() -> 
+    [sync].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
     Config.
 
-fini(doc) -> [];
-fini(suite) -> [];
-fini(Config) when is_list(Config) ->
+end_per_group(_GroupName, Config) ->
+    Config.
+
+
+init_per_suite(doc) -> [];
+init_per_suite(suite) -> [];
+init_per_suite(Config) when is_list(Config) ->
+    Config.
+
+end_per_suite(doc) -> [];
+end_per_suite(suite) -> [];
+end_per_suite(Config) when is_list(Config) ->
     stop_node(init_test),
     Config.
 

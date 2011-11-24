@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,13 +17,33 @@
 %% %CopyrightEnd%
 %%
 -module(ets_tough_SUITE).
--export([all/1,ex1/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,ex1/1]).
 -export([init/1,terminate/2,handle_call/3,handle_info/2]).
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 -compile([export_all]).
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
-all(suite) -> [ex1].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [ex1].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 
 -define(DEBUG(X),debug_disabled).
@@ -34,7 +54,7 @@ init_per_testcase(_Func, Config) ->
     Dog=test_server:timetrap(test_server:seconds(300)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ets:delete(?GLOBAL_PARAMS).

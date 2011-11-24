@@ -1,22 +1,22 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2001-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2001-2011. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
-/* $Id$
+/*
  * hipe_debug.c
  *
  * TODO:
@@ -51,7 +51,7 @@ static const char stars[2*sizeof(long)+5] = {
 
 extern Uint beam_apply[];
 
-static void print_beam_pc(Uint *pc)
+static void print_beam_pc(BeamInstr *pc)
 {
     if (pc == hipe_beam_pc_return) {
 	printf("return-to-native");
@@ -60,7 +60,7 @@ static void print_beam_pc(Uint *pc)
     } else if (pc == &beam_apply[1]) {
 	printf("normal-process-exit");
     } else {
-	Eterm *mfa = find_function_from_pc(pc);
+	BeamInstr *mfa = find_function_from_pc(pc);
 	if (mfa)
 	    erts_printf("%T:%T/%bpu + 0x%bpx",
 			mfa[0], mfa[1], mfa[2], pc - &mfa[3]);
@@ -71,7 +71,7 @@ static void print_beam_pc(Uint *pc)
 
 static void catch_slot(Eterm *pos, Eterm val)
 {
-    Uint *pc = catch_pc(val);
+    BeamInstr *pc = catch_pc(val);
     printf(" | 0x%0*lx | 0x%0*lx | CATCH 0x%0*lx (BEAM ",
 	   2*(int)sizeof(long), (unsigned long)pos,
 	   2*(int)sizeof(long), (unsigned long)val,

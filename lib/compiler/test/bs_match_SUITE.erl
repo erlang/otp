@@ -1,26 +1,28 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2005-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
 -module(bs_match_SUITE).
 -compile(nowarn_shadow_vars).
 
--export([all/1,init_per_testcase/2,fin_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
+	 init_per_testcase/2,end_per_testcase/2,
 	 fun_shadow/1,int_float/1,otp_5269/1,null_fields/1,wiger/1,
 	 bin_tail/1,save_restore/1,shadowed_size_var/1,
 	 partitioned_bs_match/1,function_clause/1,
@@ -30,28 +32,50 @@
 	 multiple_uses/1,zero_label/1,followed_by_catch/1,
 	 matching_meets_construction/1,simon/1,matching_and_andalso/1,
 	 otp_7188/1,otp_7233/1,otp_7240/1,otp_7498/1,
-	 match_string/1,zero_width/1,bad_size/1,haystack/1]).
+	 match_string/1,zero_width/1,bad_size/1,haystack/1,
+	 cover_beam_bool/1]).
 
--export([coverage_id/1]).
+-export([coverage_id/1,coverage_external_ignore/2]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 
-all(suite) ->
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
     test_lib:recompile(?MODULE),
-    [fun_shadow,int_float,otp_5269,null_fields,wiger,bin_tail,save_restore,
-     shadowed_size_var,partitioned_bs_match,function_clause,unit,
-     shared_sub_bins,bin_and_float,dec_subidentifiers,skip_optional_tag,
-     wfbm,degenerated_match,bs_sum,coverage,multiple_uses,zero_label,
-     followed_by_catch,matching_meets_construction,simon,matching_and_andalso,
-     otp_7188,otp_7233,otp_7240,otp_7498,match_string,zero_width,bad_size,
-     haystack].
+    [fun_shadow, int_float, otp_5269, null_fields, wiger,
+     bin_tail, save_restore, shadowed_size_var,
+     partitioned_bs_match, function_clause, unit,
+     shared_sub_bins, bin_and_float, dec_subidentifiers,
+     skip_optional_tag, wfbm, degenerated_match, bs_sum,
+     coverage, multiple_uses, zero_label, followed_by_catch,
+     matching_meets_construction, simon,
+     matching_and_andalso, otp_7188, otp_7233, otp_7240,
+     otp_7498, match_string, zero_width, bad_size, haystack,
+     cover_beam_bool].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     Dog = test_server:timetrap(?t:minutes(1)),
     [{watchdog,Dog}|Config].
 
-fin_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
+end_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),
     ok.
@@ -118,7 +142,14 @@ otp_5269(Config) when is_list(Config) ->
                          [X || <<X:X>> <- [<<1:32>>,<<2:32>>,<<3:8>>]] end,
     %% "binsize variable"          ^
                 [1,2]),
-
+    ?line check(fun() ->
+		(fun (<<A:1/binary, B:8/integer, _C:B/binary>>) ->
+			    case A of
+				B -> wrong;
+				_ -> ok
+			    end
+		 end)(<<1,2,3,4>>) end,
+		ok),
     ok.
 
 null_fields(Config) when is_list(Config) ->
@@ -302,15 +333,15 @@ partitioned_bs_match(Config) when is_list(Config) ->
     ?line error = partitioned_bs_match(10, <<7,8,15,13>>),
     ?line error = partitioned_bs_match(100, {a,tuple,is,'not',a,binary}),
     ?line ok = partitioned_bs_match(0, <<>>),
-    ?line {'EXIT',{function_clause,[{?MODULE,partitioned_bs_match,[-1,blurf]}|_]}} =
-	(catch partitioned_bs_match(-1, blurf)),
-    ?line {'EXIT',{function_clause,[{?MODULE,partitioned_bs_match,[-1,<<1,2,3>>]}|_]}} =
-	(catch partitioned_bs_match(-1, <<1,2,3>>)),
-
+    ?line fc(partitioned_bs_match, [-1,blurf],
+	     catch partitioned_bs_match(-1, blurf)),
+    ?line fc(partitioned_bs_match, [-1,<<1,2,3>>],
+	     catch partitioned_bs_match(-1, <<1,2,3>>)),
     ?line {17,<<1,2,3>>} = partitioned_bs_match_2(1, <<17,1,2,3>>),
     ?line {7,<<1,2,3>>} = partitioned_bs_match_2(7, <<17,1,2,3>>),
-    ?line {'EXIT',{function_clause,[{?MODULE,partitioned_bs_match_2,[4,<<0:17>>]}|_]}} =
-	(catch partitioned_bs_match_2(4, <<0:17>>)),
+
+    ?line fc(partitioned_bs_match_2, [4,<<0:17>>],
+	     catch partitioned_bs_match_2(4, <<0:17>>)),
     ok.
 
 partitioned_bs_match(_, <<42:8,T/binary>>) ->
@@ -327,12 +358,10 @@ partitioned_bs_match_2(Len, <<_:8,T/binary>>) ->
 
 function_clause(Config) when is_list(Config)  ->
     ?line ok = function_clause_1(<<0,7,0,7,42>>),
-    ?line {'EXIT',{function_clause,
-		   [{?MODULE,function_clause_1,[<<0,1,2,3>>]}|_]}} =
-	(catch function_clause_1(<<0,1,2,3>>)),
-    ?line {'EXIT',{function_clause,
-		   [{?MODULE,function_clause_1,[<<0,1,2,3>>]}|_]}} =
-	(catch function_clause_1(<<0,7,0,1,2,3>>)),
+    ?line fc(function_clause_1, [<<0,1,2,3>>],
+	     catch function_clause_1(<<0,1,2,3>>)),
+    ?line fc(function_clause_1, [<<0,1,2,3>>],
+	     catch function_clause_1(<<0,7,0,1,2,3>>)),
     ok.
 
 function_clause_1(<<0:8,7:8,T/binary>>) ->
@@ -349,22 +378,17 @@ unit(Config) when is_list(Config) ->
 
     ?line 99 = peek8(<<99>>),
     ?line 100 = peek8(<<100,101>>),
-    ?line {'EXIT',{function_clause,[{?MODULE,peek8,[<<100,101,0:1>>]}|_]}} =
-	(catch peek8(<<100,101,0:1>>)),
+    ?line fc(peek8, [<<100,101,0:1>>], catch peek8(<<100,101,0:1>>)),
 
     ?line 37484 = peek16(<<37484:16>>),
     ?line 37489 = peek16(<<37489:16,5566:16>>),
-    ?line {'EXIT',{function_clause,[{?MODULE,peek16,[<<8>>]}|_]}} =
-	(catch peek16(<<8>>)),
-    ?line {'EXIT',{function_clause,[{?MODULE,peek16,[<<42:15>>]}|_]}} =
-	(catch peek16(<<42:15>>)),
-    ?line {'EXIT',{function_clause,[{?MODULE,peek16,[<<1,2,3,4,5>>]}|_]}} =
-	(catch peek16(<<1,2,3,4,5>>)),
+    ?line fc(peek16, [<<8>>], catch peek16(<<8>>)),
+    ?line fc(peek16, [<<42:15>>], catch peek16(<<42:15>>)),
+    ?line fc(peek16, [<<1,2,3,4,5>>], catch peek16(<<1,2,3,4,5>>)),
 
     ?line 127 = peek7(<<127:7>>),
     ?line 100 = peek7(<<100:7,19:7>>),
-    ?line {'EXIT',{function_clause,[{?MODULE,peek7,[<<1,2>>]}|_]}} =
-	(catch peek7(<<1,2>>)),
+    ?line fc(peek7, [<<1,2>>], catch peek7(<<1,2>>)),
     ok.
 
 peek1(<<B:8,_/bitstring>>) -> B.
@@ -533,15 +557,13 @@ bs_sum(Config) when is_list(Config) ->
     ?line 6 = bs_sum_1([1,2,3|0]),
     ?line 7 = bs_sum_1([1,2,3|one]),
 
-    ?line {'EXIT',{function_clause,_}} = (catch bs_sum_1({too,big,tuple})),
-    ?line {'EXIT',{function_clause,_}} = (catch bs_sum_1([1,2,3|{too,big,tuple}])),
+    ?line fc(catch bs_sum_1({too,big,tuple})),
+    ?line fc(catch bs_sum_1([1,2,3|{too,big,tuple}])),
 
     ?line [] = sneaky_alias(<<>>),
     ?line [559,387655] = sneaky_alias(id(<<559:32,387655:32>>)),
-    ?line {'EXIT',{function_clause,[{?MODULE,sneaky_alias,[<<1>>]}|_]}} =
-          (catch sneaky_alias(id(<<1>>))),
-    ?line {'EXIT',{function_clause,[{?MODULE,sneaky_alias,[[1,2,3,4]]}|_]}} =
-          (catch sneaky_alias(lists:seq(1, 4))),
+    ?line fc(sneaky_alias, [<<1>>], catch sneaky_alias(id(<<1>>))),
+    ?line fc(sneaky_alias, [[1,2,3,4]], catch sneaky_alias(lists:seq(1, 4))),
     ok.
 
 bs_sum_1(<<H,T/binary>>) -> H+bs_sum_1(T);
@@ -559,23 +581,26 @@ sneaky_alias(<<From:32,L/binary>>) -> [From|sneaky_alias(L)].
 coverage(Config) when is_list(Config) ->
     ?line 0 = coverage_fold(fun(B, A) -> A+B end, 0, <<>>),
     ?line 6 = coverage_fold(fun(B, A) -> A+B end, 0, <<1,2,3>>),
-    ?line {'EXIT',{function_clause,_}} = (catch coverage_fold(fun(B, A) ->
-								      A+B
-							      end, 0, [a,b,c])),
+    ?line fc(catch coverage_fold(fun(B, A) ->
+					 A+B
+				 end, 0, [a,b,c])),
 
+    ?line {<<42.0:64/float>>,float} = coverage_build(<<>>, <<42>>, float),
     ?line {<<>>,not_a_tuple} = coverage_build(<<>>, <<>>, not_a_tuple),
     ?line {<<16#76,"abc",16#A9,"abc">>,{x,42,43}} =
 	coverage_build(<<>>, <<16#7,16#A>>, {x,y,z}),
 
+    ?line [<<2>>,<<1>>] = coverage_bc(<<1,2>>, []),
+
     ?line {x,<<"abc">>,z} = coverage_setelement(<<2,"abc">>, {x,y,z}),
 
     ?line [42] = coverage_apply(<<42>>, [coverage_id]),
+    ?line 42 = coverage_external(<<42>>),
 
     ?line do_coverage_bin_to_term_list([]),
     ?line do_coverage_bin_to_term_list([lists:seq(0, 10),{a,b,c},<<23:42>>]),
-    ?line {'EXIT',{function_clause,
-		   [{?MODULE,coverage_bin_to_term_list,[<<0,0,0,7>>]}|_]}} =
-	(catch do_coverage_bin_to_term_list_1(<<7:32>>)),
+    ?line fc(coverage_bin_to_term_list, [<<0,0,0,7>>],
+	     catch do_coverage_bin_to_term_list_1(<<7:32>>)),
 
     ?line <<>> = coverage_per_key(<<4:32>>),
     ?line <<$a,$b,$c>> = coverage_per_key(<<7:32,"abc">>),
@@ -587,6 +612,10 @@ coverage_fold(Fun, Acc, <<H,T/binary>>) ->
     coverage_fold(Fun, Fun(IdFun(H), IdFun(Acc)), T);
 coverage_fold(Fun, Acc, <<>>) when is_function(Fun, 2) -> Acc.
 
+coverage_build(Acc0, <<H,T/binary>>, float) ->
+    Float = id(<<H:64/float>>),
+    Acc = <<Acc0/binary,Float/binary>>,
+    coverage_build(Acc, T, float);
 coverage_build(Acc0, <<H,T/binary>>, Tuple0) ->
     Str = id(<<H:(id(4)),(H-1):4,"abc">>),
     Acc = id(<<Acc0/bitstring,Str/bitstring>>),
@@ -597,12 +626,24 @@ coverage_build(Acc0, <<H,T/binary>>, Tuple0) ->
     end;
 coverage_build(Acc, <<>>, Tuple) -> {Acc,Tuple}.
 
+coverage_bc(<<H,T/binary>>, Acc) ->
+    B = << <<C:8>> || C <- [H] >>,
+    coverage_bc(T, [B|Acc]);
+coverage_bc(<<>>, Acc) -> Acc.
+
 coverage_setelement(<<H,T1/binary>>, Tuple) when element(1, Tuple) =:= x ->
     setelement(H, Tuple, T1).
 
 coverage_apply(<<H,T/binary>>, [F|Fs]) ->
     [?MODULE:F(H)|coverage_apply(T, Fs)];
 coverage_apply(<<>>, []) -> [].
+
+coverage_external(<<H,T/binary>>) ->
+    ?MODULE:coverage_external_ignore(T, T),
+    H.
+
+coverage_external_ignore(_, _) ->
+    ok.
 
 coverage_id(I) -> id(I).
 
@@ -731,13 +772,12 @@ encode_octet_string(<<OctetString/binary>>, Len) ->
 simon(Config) when is_list(Config) ->
     ?line one = simon(blurf, <<>>),
     ?line two = simon(0, <<42>>),
-    ?line {'EXIT',{function_clause,[{?MODULE,simon,[17,<<1>>]}|_]}}  = (catch simon(17, <<1>>)),
-    ?line {'EXIT',{function_clause,[{?MODULE,simon,[0,<<1,2,3>>]}|_]}} = (catch simon(0, <<1,2,3>>)),
+    ?line fc(simon, [17,<<1>>], catch simon(17, <<1>>)),
+    ?line fc(simon, [0,<<1,2,3>>], catch simon(0, <<1,2,3>>)),
 
     ?line one = simon2(blurf, <<9>>),
     ?line two = simon2(0, <<9,1>>),
-    ?line {'EXIT',{function_clause,[{?MODULE,simon2,[0,<<9,10,11>>]}|_]}} =
-	(catch simon2(0, <<9,10,11>>)),
+    ?line fc(simon2, [0,<<9,10,11>>], catch simon2(0, <<9,10,11>>)),
     ok.
 
 simon(_, <<>>) -> one;
@@ -984,6 +1024,36 @@ haystack_2(Haystack) ->
 	 <<_:X/binary,B:Y/binary,_/binary>> = Haystack,
 	 B
      end || {X,Y} <- Subs ].
+
+fc({'EXIT',{function_clause,_}}) -> ok;
+fc({'EXIT',{{case_clause,_},_}}) when ?MODULE =:= bs_match_inline_SUITE -> ok.
+
+fc(Name, Args, {'EXIT',{function_clause,[{?MODULE,Name,Args,_}|_]}}) -> ok;
+fc(Name, Args, {'EXIT',{function_clause,[{?MODULE,Name,Arity,_}|_]}})
+  when length(Args) =:= Arity ->
+    true = test_server:is_native(?MODULE);
+fc(_, Args, {'EXIT',{{case_clause,ActualArgs},_}})
+  when ?MODULE =:= bs_match_inline_SUITE ->
+    Args = tuple_to_list(ActualArgs).
+
+%% Cover the clause handling bs_context to binary in
+%% beam_block:initialized_regs/2.
+cover_beam_bool(Config) when is_list(Config) ->
+    ?line ok = do_cover_beam_bool(<<>>, 3),
+    ?line <<19>> = do_cover_beam_bool(<<19>>, 2),
+    ?line <<42>> = do_cover_beam_bool(<<42>>, 1),
+    ?line <<17>> = do_cover_beam_bool(<<13,17>>, 0),
+    ok.
+
+do_cover_beam_bool(Bin, X) when X > 0 ->
+    if
+	X =:= 1; X =:= 2 ->
+	    Bin;
+	true ->
+	    ok
+    end;
+do_cover_beam_bool(<<_,Bin/binary>>, X) ->
+    do_cover_beam_bool(Bin, X+1).
 
 check(F, R) ->
     R = F().

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2009</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -54,7 +54,7 @@
           for and tries to load the module.</p>
       </item>
     </list>
-    <p>To prevent accidentaly reloading modules affecting the Erlang
+    <p>To prevent accidentally reloading modules affecting the Erlang
       runtime system itself, the <c>kernel</c>, <c>stdlib</c> and
       <c>compiler</c> directories are considered <em>sticky</em>. This
       means that the system issues a warning and rejects the request if
@@ -177,9 +177,9 @@
      archives. But the functions in <c>erl_prim_loader</c> may also be
      used by other applications to read files from archives. For
      example, the call
-     <c>erl_prim_loader:list_dir("/otp/root/lib/mnesia-4.4.7.ez/mnesia-4.4.7/examples/bench)"</c>
+     <c>erl_prim_loader:list_dir( "/otp/root/lib/mnesia-4.4.7.ez/mnesia-4.4.7/examples/bench)"</c>
      would list the contents of a directory inside an archive.
-     See <seealso marker="erts:erl_prim_loader">erl_prim_loader(3)</seealso></p>
+     See <seealso marker="erts:erl_prim_loader">erl_prim_loader(3)</seealso></p>.
 
     <p>An application archive file and a regular application directory
      may coexist. This may be useful when there is a need of having
@@ -286,192 +286,158 @@
     given to <c>set_path/1</c>.</p>
   </section>
 
+  <datatypes>
+    <datatype>
+      <name name="load_ret"/>
+    </datatype>
+    <datatype>
+      <name name="load_error_rsn"/>
+    </datatype>
+  </datatypes>
+
   <funcs>
     <func>
-      <name>set_path(Path) -> true | {error, What}</name>
+      <name name="set_path" arity="1"/>
       <fsummary>Set the code server search path</fsummary>
-      <type>
-        <v>Path = [Dir]</v>
-        <v>Dir = string()</v>
-        <v>What = bad_directory | bad_path</v>
-      </type>
       <desc>
-        <p>Sets the code path to the list of directories <c>Path</c>.</p>
+        <p>Sets the code path to the list of directories <c><anno>Path</anno></c>.</p>
         <p>Returns <c>true</c> if successful, or
-          <c>{error, bad_directory}</c> if any <c>Dir</c> is not
+          <c>{error, bad_directory}</c> if any <c><anno>Dir</anno></c> is not
           the name of a directory, or <c>{error, bad_path}</c> if
           the argument is invalid.</p>
       </desc>
     </func>
     <func>
-      <name>get_path() -> Path</name>
+      <name name="get_path" arity="0"/>
       <fsummary>Return the code server search path</fsummary>
-      <type>
-        <v>Path = [Dir]</v>
-        <v>Dir = string()</v>
-      </type>
       <desc>
         <p>Returns the code path</p>
       </desc>
     </func>
     <func>
-      <name>add_path(Dir) -> true | {error, What}</name>
-      <name>add_pathz(Dir) -> true | {error, What}</name>
+      <name name="add_path" arity="1"/>
+      <name name="add_pathz" arity="1"/>
       <fsummary>Add a directory to the end of the code path</fsummary>
-      <type>
-        <v>Dir = string()</v>
-        <v>What = bad_directory</v>
-      </type>
+      <type name="add_path_ret"/>
       <desc>
-        <p>Adds <c>Dir</c> to the code path. The directory is added as
-          the last directory in the new path. If <c>Dir</c> already
+        <p>Adds <c><anno>Dir</anno></c> to the code path. The directory is added as
+          the last directory in the new path. If <c><anno>Dir</anno></c> already
           exists in the path, it is not added.</p>
         <p>Returns <c>true</c> if successful, or
-          <c>{error, bad_directory}</c> if <c>Dir</c> is not the name
+          <c>{error, bad_directory}</c> if <c><anno>Dir</anno></c> is not the name
           of a directory.</p>
       </desc>
     </func>
     <func>
-      <name>add_patha(Dir) -> true | {error, What}</name>
+      <name name="add_patha" arity="1"/>
       <fsummary>Add a directory to the beginning of the code path</fsummary>
-      <type>
-        <v>Dir = string()</v>
-        <v>What = bad_directory</v>
-      </type>
+      <type name="add_path_ret"/>
       <desc>
-        <p>Adds <c>Dir</c> to the beginning of the code path. If
-          <c>Dir</c> already exists, it is removed from the old
+        <p>Adds <c><anno>Dir</anno></c> to the beginning of the code path. If
+          <c><anno>Dir</anno></c> already exists, it is removed from the old
           position in the code path.</p>
         <p>Returns <c>true</c> if successful, or
-          <c>{error, bad_directory}</c> if <c>Dir</c> is not the name
+          <c>{error, bad_directory}</c> if <c><anno>Dir</anno></c> is not the name
           of a directory.</p>
       </desc>
     </func>
     <func>
-      <name>add_paths(Dirs) -> ok</name>
-      <name>add_pathsz(Dirs) -> ok</name>
+      <name name="add_paths" arity="1"/>
+      <name name="add_pathsz" arity="1"/>
       <fsummary>Add directories to the end of the code path</fsummary>
-      <type>
-        <v>Dirs = [Dir]</v>
-        <v>Dir = string()</v>
-      </type>
       <desc>
-        <p>Adds the directories in <c>Dirs</c> to the end of the code
-          path. If a <c>Dir</c> already exists, it is not added. This
+        <p>Adds the directories in <c><anno>Dirs</anno></c> to the end of the code
+          path. If a <c><anno>Dir</anno></c> already exists, it is not added. This
           function always returns <c>ok</c>, regardless of the validity
-          of each individual <c>Dir</c>.</p>
+          of each individual <c><anno>Dir</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name>add_pathsa(Dirs) -> ok</name>
+      <name name="add_pathsa" arity="1"/>
       <fsummary>Add directories to the beginning of the code path</fsummary>
-      <type>
-        <v>Dirs = [Dir]</v>
-        <v>Dir = string()</v>
-      </type>
       <desc>
-        <p>Adds the directories in <c>Dirs</c> to the beginning of
-          the code path. If a <c>Dir</c> already exists, it is removed
+        <p>Adds the directories in <c><anno>Dirs</anno></c> to the beginning of
+          the code path. If a <c><anno>Dir</anno></c> already exists, it is removed
           from the old position in the code path. This function always
           returns <c>ok</c>, regardless of the validity of each
-          individual <c>Dir</c>.</p>
+          individual <c><anno>Dir</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name>del_path(Name | Dir) -> true | false | {error, What}</name>
+      <name name="del_path" arity="1"/>
       <fsummary>Delete a directory from the code path</fsummary>
-      <type>
-        <v>Name = atom()</v>
-        <v>Dir = string()</v>
-        <v>What = bad_name</v>
-      </type>
       <desc>
         <p>Deletes a directory from the code path. The argument can be
-          an atom <c>Name</c>, in which case the directory with
-          the name <c>.../Name[-Vsn][/ebin]</c> is deleted from the code
+          an atom <c><anno>Name</anno></c>, in which case the directory with
+          the name <c>.../<anno>Name</anno>[-Vsn][/ebin]</c> is deleted from the code
           path. It is also possible to give the complete directory name
-          <c>Dir</c> as argument.</p>
+          <c><anno>Dir</anno></c> as argument.</p>
         <p>Returns <c>true</c> if successful, or <c>false</c> if
           the directory is not found, or <c>{error, bad_name}</c> if
           the argument is invalid.</p>
       </desc>
     </func>
     <func>
-      <name>replace_path(Name, Dir) -> true | {error, What}</name>
+      <name name="replace_path" arity="2"/>
       <fsummary>Replace a directory with another in the code path</fsummary>
-      <type>
-        <v>Name = atom()</v>
-        <v>Dir = string()</v>
-        <v>What = bad_name | bad_directory | {badarg, term()}</v>
-      </type>
       <desc>
         <p>This function replaces an old occurrence of a directory
-          named <c>.../Name[-Vsn][/ebin]</c>, in the code path, with
-          <c>Dir</c>. If <c>Name</c> does not exist, it adds the new
-          directory <c>Dir</c> last in the code path. The new directory
-          must also be named <c>.../Name[-Vsn][/ebin]</c>. This function
+          named <c>.../<anno>Name</anno>[-Vsn][/ebin]</c>, in the code path, with
+          <c><anno>Dir</anno></c>. If <c><anno>Name</anno></c> does not exist, it adds the new
+          directory <c><anno>Dir</anno></c> last in the code path. The new directory
+          must also be named <c>.../<anno>Name</anno>[-Vsn][/ebin]</c>. This function
           should be used if a new version of the directory (library) is
           added to a running system.</p>
         <p>Returns <c>true</c> if successful, or
-          <c>{error, bad_name}</c> if <c>Name</c> is not found, or
-          <c>{error, bad_directory}</c> if <c>Dir</c> does not exist, or
-          <c>{error, {badarg, [Name, Dir]}}</c> if <c>Name</c> or
-          <c>Dir</c> is invalid.</p>
+          <c>{error, bad_name}</c> if <c><anno>Name</anno></c> is not found, or
+          <c>{error, bad_directory}</c> if <c><anno>Dir</anno></c> does not exist, or
+          <c>{error, {badarg, [<anno>Name</anno>, <anno>Dir</anno>]}}</c> if <c><anno>Name</anno></c> or
+          <c><anno>Dir</anno></c> is invalid.</p>
       </desc>
     </func>
     <func>
-      <name>load_file(Module) -> {module, Module} | {error, What}</name>
+      <name name="load_file" arity="1"/>
       <fsummary>Load a module</fsummary>
-      <type>
-        <v>Module = atom()</v>
-        <v>What = nofile | sticky_directory | badarg | term()</v>
-      </type>
+      <type name="load_ret"/>
       <desc>
-        <p>Tries to load the Erlang module <c>Module</c>, using
+        <p>Tries to load the Erlang module <c><anno>Module</anno></c>, using
           the code path. It looks for the object code file with an
           extension that corresponds to the Erlang machine used, for
-          example <c>Module.beam</c>. The loading fails if the module
+          example <c><anno>Module</anno>.beam</c>. The loading fails if the module
           name found in the object code differs from the name
-          <c>Module</c>.
+          <c><anno>Module</anno></c>.
           <seealso marker="#load_binary/3">load_binary/3</seealso> must
           be used to load object code with a module name that is
           different from the file name.</p>
-        <p>Returns <c>{module, Module}</c> if successful, or
+        <p>Returns <c>{module, <anno>Module</anno>}</c> if successful, or
           <c>{error, nofile}</c> if no object code is found, or
           <c>{error, sticky_directory}</c> if the object code resides in
-          a sticky directory, or <c>{error, badarg}</c> if the argument
-          is invalid. Also if the loading fails, an error tuple is
+          a sticky directory. Also if the loading fails, an error tuple is
           returned. See
           <seealso marker="erts:erlang#load_module/2">erlang:load_module/2</seealso>
-          for possible values of <c>What</c>.</p>
+          for possible values of <c><anno>What</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name>load_abs(Filename) -> {module, Module} | {error, What}</name>
+      <name name="load_abs" arity="1"/>
       <fsummary>Load a module, residing in a given file</fsummary>
-      <type>
-        <v>Filename = string()</v>
-        <v>Module = atom()</v>
-        <v>What = nofile | sticky_directory | badarg | term()</v>
-      </type>
+      <type name="load_ret"/>
+      <type name="loaded_filename"/>
+      <type name="loaded_ret_atoms"/>
       <desc>
-        <p>Does the same as <c>load_file(Module)</c>, but
-          <c>Filename</c> is either an absolute file name, or a
+        <p>Does the same as <c>load_file(<anno>Module</anno>)</c>, but
+          <c><anno>Filename</anno></c> is either an absolute file name, or a
           relative file name. The code path is not searched. It returns
           a value in the same way as
           <seealso marker="#load_file/1">load_file/1</seealso>. Note
-          that <c>Filename</c> should not contain the extension (for
+          that <c><anno>Filename</anno></c> should not contain the extension (for
           example <c>".beam"</c>); <c>load_abs/1</c> adds the correct
           extension itself.</p>
       </desc>
     </func>
     <func>
-      <name>ensure_loaded(Module) -> {module, Module} | {error, What}</name>
+      <name name="ensure_loaded" arity="1"/>
       <fsummary>Ensure that a module is loaded</fsummary>
-      <type>
-        <v>Module = atom()</v>
-        <v>What = nofile | sticky_directory | embedded | badarg | term()</v>
-      </type>
       <desc>
         <p>Tries to to load a module in the same way as
           <seealso marker="#load_file/1">load_file/1</seealso>,
@@ -481,54 +447,45 @@
       </desc>
     </func>
     <func>
-      <name>load_binary(Module, Filename, Binary) -> {module, Module} | {error, What}</name>
+      <name name="load_binary" arity="3"/>
       <fsummary>Load object code for a module</fsummary>
-      <type>
-        <v>Module = atom()</v>
-        <v>Filename = string()</v>
-        <v>What = sticky_directory | badarg | term()</v>
-      </type>
+      <type name="loaded_filename"/>
+      <type name="loaded_ret_atoms"/>
       <desc>
         <p>This function can be used to load object code on remote
-          Erlang nodes. The argument <c>Binary</c> must contain
-	  object code for <c>Module</c>.
-          <c>Filename</c> is only used by the code server to keep a
-          record of from which file the object code for <c>Module</c>
-          comes. Accordingly, <c>Filename</c> is not opened and read by
+          Erlang nodes. The argument <c><anno>Binary</anno></c> must contain
+	  object code for <c><anno>Module</anno></c>.
+          <c><anno>Filename</anno></c> is only used by the code server to keep a
+          record of from which file the object code for <c><anno>Module</anno></c>
+          comes. Accordingly, <c><anno>Filename</anno></c> is not opened and read by
           the code server.</p>
-        <p>Returns <c>{module, Module}</c> if successful, or
+        <p>Returns <c>{module, <anno>Module</anno>}</c> if successful, or
           <c>{error, sticky_directory}</c> if the object code resides in
           a sticky directory, or <c>{error, badarg}</c> if any argument
           is invalid. Also if the loading fails, an error tuple is
           returned. See
           <seealso marker="erts:erlang#load_module/2">erlang:load_module/2</seealso>
-          for possible values of <c>What</c>.</p>
+          for possible values of <c><anno>What</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name>delete(Module) -> true | false</name>
+      <name name="delete" arity="1"/>
       <fsummary>Removes current code for a module</fsummary>
-      <type>
-        <v>Module = atom()</v>
-      </type>
       <desc>
-        <p>Removes the current code for <c>Module</c>, that is,
-          the current code for <c>Module</c> is made old. This means
+        <p>Removes the current code for <c><anno>Module</anno></c>, that is,
+          the current code for <c><anno>Module</anno></c> is made old. This means
           that processes can continue to execute the code in the module,
           but that no external function calls can be made to it.</p>
         <p>Returns <c>true</c> if successful, or <c>false</c> if there
-          is old code for <c>Module</c> which must be purged first, or
-          if <c>Module</c> is not a (loaded) module.</p>
+          is old code for <c><anno>Module</anno></c> which must be purged first, or
+          if <c><anno>Module</anno></c> is not a (loaded) module.</p>
       </desc>
     </func>
     <func>
-      <name>purge(Module) -> true | false</name>
+      <name name="purge" arity="1"/>
       <fsummary>Removes old code for a module</fsummary>
-      <type>
-        <v>Module = atom()</v>
-      </type>
       <desc>
-        <p>Purges the code for <c>Module</c>, that is, removes code
+        <p>Purges the code for <c><anno>Module</anno></c>, that is, removes code
           marked as old. If some processes still linger in the old code,
           these processes are killed before the code is removed.</p>
         <p>Returns <c>true</c> if successful and any process needed to
@@ -536,31 +493,26 @@
       </desc>
     </func>
     <func>
-      <name>soft_purge(Module) -> true | false</name>
+      <name name="soft_purge" arity="1"/>
       <fsummary>Removes old code for a module, unless no process uses it</fsummary>
-      <type>
-        <v>Module = atom()</v>
-      </type>
       <desc>
-        <p>Purges the code for <c>Module</c>, that is, removes code
+        <p>Purges the code for <c><anno>Module</anno></c>, that is, removes code
           marked as old, but only if no processes linger in it.</p>
         <p>Returns <c>false</c> if the module could not be purged due
           to processes lingering in old code, otherwise <c>true</c>.</p>
       </desc>
     </func>
     <func>
-      <name>is_loaded(Module) -> {file, Loaded} | false</name>
+      <name name="is_loaded" arity="1"/>
       <fsummary>Check if a module is loaded</fsummary>
-      <type>
-        <v>Module = atom()</v>
-        <v>Loaded = Absname | preloaded | cover_compiled</v>
-        <v>Absname = string()</v>
-      </type>
+      <type name="loaded_filename"/>
+      <type name="loaded_ret_atoms"/>
+      <type_desc name="loaded_filename"><c><anno>Filename</anno></c> is an absolute filename</type_desc>
       <desc>
-        <p>Checks if <c>Module</c> is loaded. If it is,
-          <c>{file, Loaded}</c> is returned, otherwise <c>false</c>.</p>
-        <p>Normally, <c>Loaded</c> is the absolute file name
-          <c>Absname</c> from which the code was obtained. If the module
+        <p>Checks if <c><anno>Module</anno></c> is loaded. If it is,
+          <c>{file, <anno>Loaded</anno>}</c> is returned, otherwise <c>false</c>.</p>
+        <p>Normally, <c><anno>Loaded</anno></c> is the absolute file name
+          <c>Filename</c> from which the code was obtained. If the module
           is preloaded (see
           <seealso marker="sasl:script">script(4)</seealso>),
           <c>Loaded==preloaded</c>. If the module is Cover compiled (see
@@ -569,32 +521,26 @@
       </desc>
     </func>
     <func>
-      <name>all_loaded() -> [{Module, Loaded}]</name>
+      <name name="all_loaded" arity="0"/>
       <fsummary>Get all loaded modules</fsummary>
-      <type>
-        <v>Module = atom()</v>
-        <v>Loaded = Absname | preloaded | cover_compiled</v>
-        <v>Absname = string()</v>
-      </type>
+      <type name="loaded_filename"/>
+      <type name="loaded_ret_atoms"/>
+      <type_desc name="loaded_filename"><c><anno>Filename</anno></c> is an absolute filename</type_desc>
       <desc>
-        <p>Returns a list of tuples <c>{Module, Loaded}</c> for all
-          loaded modules. <c>Loaded</c> is normally the absolute file
+        <p>Returns a list of tuples <c>{<anno>Module</anno>, <anno>Loaded</anno>}</c> for all
+          loaded modules. <c><anno>Loaded</anno></c> is normally the absolute file
           name, as described for
           <seealso marker="#is_loaded/1">is_loaded/1</seealso>.</p>
       </desc>
     </func>
     <func>
-      <name>which(Module) -> Which</name>
+      <name name="which" arity="1"/>
       <fsummary>The object code file of a module</fsummary>
-      <type>
-        <v>Module = atom()</v>
-        <v>Which = Filename | non_existing | preloaded | cover_compiled</v>
-        <v>Filename = string()</v>
-      </type>
+      <type name="loaded_ret_atoms"/>
       <desc>
         <p>If the module is not loaded, this function searches the code
           path for the first file which contains object code for
-          <c>Module</c> and returns the absolute file name. If
+          <c><anno>Module</anno></c> and returns the absolute file name. If
           the module is loaded, it returns the name of the file which
           contained the loaded object code. If the module is pre-loaded,
           <c>preloaded</c> is returned. If the module is Cover compiled,
@@ -603,21 +549,16 @@
       </desc>
     </func>
     <func>
-      <name>get_object_code(Module) -> {Module, Binary, Filename} | error</name>
+      <name name="get_object_code" arity="1"/>
       <fsummary>Get the object code for a module</fsummary>
-      <type>
-        <v>Module = atom()</v>
-        <v>Binary = binary()</v>
-        <v>Filename = string()</v>
-      </type>
       <desc>
         <p>Searches the code path for the object code of the module
-          <c>Module</c>. It returns <c>{Module, Binary, Filename}</c>
-          if successful, and <c>error</c> if not. <c>Binary</c> is a
+          <c><anno>Module</anno></c>. It returns <c>{<anno>Module</anno>, <anno>Binary</anno>, <anno>Filename</anno>}</c>
+          if successful, and <c>error</c> if not. <c><anno>Binary</anno></c> is a
           binary data object which contains the object code for
           the module. This can be useful if code is to be loaded on a
           remote node in a distributed system. For example, loading
-          module <c>Module</c> on a node <c>Node</c> is done as
+          module <c><anno>Module</anno></c> on a node <c>Node</c> is done as
           follows:</p>
         <code type="none">
 ...
@@ -627,7 +568,7 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
       </desc>
     </func>
     <func>
-      <name>root_dir() -> string()</name>
+      <name name="root_dir" arity="0"/>
       <fsummary>Root directory of Erlang/OTP</fsummary>
       <desc>
         <p>Returns the root directory of Erlang/OTP, which is
@@ -638,7 +579,7 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
       </desc>
     </func>
     <func>
-      <name>lib_dir() -> string()</name>
+      <name name="lib_dir" arity="0"/>
       <fsummary>Library directory of Erlang/OTP</fsummary>
       <desc>
         <p>Returns the library directory, <c>$OTPROOT/lib</c>, where
@@ -649,19 +590,16 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
       </desc>
     </func>
     <func>
-      <name>lib_dir(Name) -> string() | {error, bad_name}</name>
+      <name name="lib_dir" arity="1"/>
       <fsummary>Library directory for an application</fsummary>
-      <type>
-        <v>Name = atom()</v>
-      </type>
       <desc>
         <p>This function is mainly intended for finding out the path
           for the "library directory", the top directory, for an
-          application <c>Name</c> located under <c>$OTPROOT/lib</c> or
+          application <c><anno>Name</anno></c> located under <c>$OTPROOT/lib</c> or
           on a directory referred to via the <c>ERL_LIBS</c>
           environment variable.</p>
-        <p>If there is a regular directory called <c>Name</c> or
-          <c>Name-Vsn</c> in the code path with an <c>ebin</c>
+        <p>If there is a regular directory called <c><anno>Name</anno></c> or
+          <c><anno>Name</anno>-Vsn</c> in the code path with an <c>ebin</c>
           subdirectory, the path to this directory is returned (not
           the <c>ebin</c> directory). If the directory refers to a
           directory in an archive, the archive name is stripped away
@@ -675,23 +613,19 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
         <pre>
 > <input>code:lib_dir(mnesia).</input>
 "/usr/local/otp/lib/mnesia-4.2.2"</pre>
-        <p>Returns <c>{error, bad_name}</c> if <c>Name</c>
+        <p>Returns <c>{error, bad_name}</c> if <c><anno>Name</anno></c>
 	 is not the name of an application under <c>$OTPROOT/lib</c> or
 	 on a directory referred to via the <c>ERL_LIBS</c>
          environment variable. Fails with an exception if <c>Name</c>
          has the wrong type.</p>
 
-	<warning><p>For backward compatibility, <c>Name</c> is also allowed to
+	<warning><p>For backward compatibility, <c><anno>Name</anno></c> is also allowed to
 	be a string. That will probably change in a future release.</p></warning>
       </desc>
     </func>
     <func>
-      <name>lib_dir(Name, SubDir) -> string() | {error, bad_name}</name>
+      <name name="lib_dir" arity="2"/>
       <fsummary>subdirectory for an application</fsummary>
-      <type>
-        <v>Name = atom()</v>
-        <v>SubDir = atom()</v>
-      </type>
       <desc>
         <p>Returns the path to a subdirectory directly under the top
          directory of an application. Normally the subdirectories
@@ -705,12 +639,12 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
 > <input>code:lib_dir(megaco, priv).</input>
 "/usr/local/otp/lib/megaco-3.9.1.1/priv"</pre>
 
-        <p>Fails with an exception if <c>Name</c> or <c>SubDir</c> has
+        <p>Fails with an exception if <c><anno>Name</anno></c> or <c><anno>SubDir</anno></c> has
         the wrong type.</p>
       </desc>
     </func>
     <func>
-      <name>compiler_dir() -> string()</name>
+      <name name="compiler_dir" arity="0"/>
       <fsummary>Library directory for the compiler</fsummary>
       <desc>
         <p>Returns the compiler library directory. Equivalent to
@@ -718,21 +652,18 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
       </desc>
     </func>
     <func>
-      <name>priv_dir(Name) -> string() | {error, bad_name}</name>
+      <name name="priv_dir" arity="1"/>
       <fsummary>Priv directory for an application</fsummary>
-      <type>
-        <v>Name = atom()</v>
-      </type>
       <desc>
         <p>Returns the path to the <c>priv</c> directory in an
-         application. Equivalent to <c>code:lib_dir(Name,priv).</c>.</p>
+         application. Equivalent to <c>code:lib_dir(<anno>Name</anno>, priv).</c>.</p>
 
-	<warning><p>For backward compatibility, <c>Name</c> is also allowed to
+	<warning><p>For backward compatibility, <c><anno>Name</anno></c> is also allowed to
 	be a string. That will probably change in a future release.</p></warning>
       </desc>
     </func>
     <func>
-      <name>objfile_extension() -> ".beam"</name>
+      <name name="objfile_extension" arity="0"/>
       <fsummary>Object code file extension</fsummary>
       <desc>
         <p>Returns the object code file extension that corresponds to
@@ -740,24 +671,16 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
       </desc>
     </func>
     <func>
-      <name>stick_dir(Dir) -> ok | error</name>
+      <name name="stick_dir" arity="1"/>
       <fsummary>Mark a directory as sticky</fsummary>
-      <type>
-        <v>Dir = string()</v>
-        <v>What = term()</v>
-      </type>
       <desc>
-        <p>This function marks <c>Dir</c> as sticky.</p>
+        <p>This function marks <c><anno>Dir</anno></c> as sticky.</p>
         <p>Returns <c>ok</c> if successful or <c>error</c> if not.</p>
       </desc>
     </func>
     <func>
-      <name>unstick_dir(Dir) -> ok | error</name>
+      <name name="unstick_dir" arity="1"/>
       <fsummary>Remove a sticky directory mark</fsummary>
-      <type>
-        <v>Dir = string()</v>
-        <v>What = term()</v>
-      </type>
       <desc>
         <p>This function unsticks a directory which has been marked as
           sticky.</p>
@@ -765,45 +688,39 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
       </desc>
     </func>
     <func>
-      <name>is_sticky(Module) -> true | false</name>
+      <name name="is_sticky" arity="1"/>
       <fsummary>Test whether a module is sticky</fsummary>
-      <type>
-        <v>Module = atom()</v>
-      </type>
       <desc>
-        <p>This function returns <c>true</c> if <c>Module</c> is the
+        <p>This function returns <c>true</c> if <c><anno>Module</anno></c> is the
 	name of a module that has been loaded from a sticky directory
 	(or in other words: an attempt to reload the module will fail),
-	or <c>false</c> if <c>Module</c> is not a loaded module or is
+	or <c>false</c> if <c><anno>Module</anno></c> is not a loaded module or is
 	not sticky.</p>
       </desc>
     </func>
     <func>
-      <name>rehash() -> ok</name>
+      <name name="rehash" arity="0"/>
       <fsummary>Rehash or create code path cache</fsummary>
       <desc>
         <p>This function creates or rehashes the code path cache.</p>
       </desc>
     </func>
     <func>
-      <name>where_is_file(Filename) -> Absname | non_existing</name>
+      <name name="where_is_file" arity="1"/>
       <fsummary>Full name of a file located in the code path</fsummary>
-      <type>
-        <v>Filename = Absname = string()</v>
-      </type>
       <desc>
-        <p>Searches the code path for <c>Filename</c>, a file of
+        <p>Searches the code path for <c><anno>Filename</anno></c>, a file of
           arbitrary type. If found, the full name is returned.
           <c>non_existing</c> is returned if the file cannot be found.
           The function can be useful, for example, to locate
           application resource files. If the code path cache is used,
           the code server will efficiently read the full name from
-          the cache, provided that <c>Filename</c> is an object code
+          the cache, provided that <c><anno>Filename</anno></c> is an object code
           file or an <c>.app</c> file.</p>
       </desc>
     </func>
     <func>
-      <name>clash() -> ok</name>
+      <name name="clash" arity="0"/>
       <fsummary>Search for modules with identical names.</fsummary>
       <desc>
         <p>Searches the entire code space for module names with
@@ -811,10 +728,10 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
       </desc>
     </func>
     <func>
-      <name>is_module_native(Module) -> true | false | undefined</name>
+      <name>is_module_native(Module) -> boolean() | undefined</name>
       <fsummary>Test whether a module has native code</fsummary>
       <type>
-        <v>Module = atom()</v>
+        <v>Module = module()</v>
       </type>
       <desc>
         <p>This function returns <c>true</c> if <c>Module</c> is 

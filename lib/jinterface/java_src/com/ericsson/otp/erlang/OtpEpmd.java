@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2000-2009. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2010. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -71,11 +71,6 @@ public class OtpEpmd {
     // common values
     private static final byte stopReq = (byte) 115;
 
-    // version specific value
-    private static final byte port3req = (byte) 112;
-    private static final byte publish3req = (byte) 97;
-    private static final byte publish3ok = (byte) 89;
-
     private static final byte port4req = (byte) 122;
     private static final byte port4resp = (byte) 119;
     private static final byte publish4req = (byte) 120;
@@ -123,11 +118,7 @@ public class OtpEpmd {
      *                if there was no response from the name server.
      */
     public static int lookupPort(final AbstractNode node) throws IOException {
-	try {
 	    return r4_lookupPort(node);
-	} catch (final IOException e) {
-	    return r3_lookupPort(node);
-	}
     }
 
     /**
@@ -147,11 +138,7 @@ public class OtpEpmd {
 	    throws IOException {
 	Socket s = null;
 
-	try {
-	    s = r4_publish(node);
-	} catch (final IOException e) {
-	    s = r3_publish(node);
-	}
+	s = r4_publish(node);
 
 	node.setEpmd(s);
 
@@ -196,67 +183,6 @@ public class OtpEpmd {
 	}
     }
 
-    private static int r3_lookupPort(final AbstractNode node)
-	    throws IOException {
-	int port = 0;
-	Socket s = null;
-
-	try {
-	    final OtpOutputStream obuf = new OtpOutputStream();
-	    s = new Socket(node.host(), EpmdPort.get());
-
-	    // build and send epmd request
-	    // length[2], tag[1], alivename[n] (length = n+1)
-	    obuf.write2BE(node.alive().length() + 1);
-	    obuf.write1(port3req);
-	    obuf.writeN(node.alive().getBytes());
-
-	    // send request
-	    obuf.writeTo(s.getOutputStream());
-
-	    if (traceLevel >= traceThreshold) {
-		System.out.println("-> LOOKUP (r3) " + node);
-	    }
-
-	    // receive and decode reply
-	    final byte[] tmpbuf = new byte[100];
-
-	    s.getInputStream().read(tmpbuf);
-	    final OtpInputStream ibuf = new OtpInputStream(tmpbuf, 0);
-
-	    port = ibuf.read2BE();
-	} catch (final IOException e) {
-	    if (traceLevel >= traceThreshold) {
-		System.out.println("<- (no response)");
-	    }
-	    throw new IOException("Nameserver not responding on " + node.host()
-		    + " when looking up " + node.alive());
-	} catch (final OtpErlangDecodeException e) {
-	    if (traceLevel >= traceThreshold) {
-		System.out.println("<- (invalid response)");
-	    }
-	    throw new IOException("Nameserver not responding on " + node.host()
-		    + " when looking up " + node.alive());
-	} finally {
-	    try {
-		if (s != null) {
-		    s.close();
-		}
-	    } catch (final IOException e) { /* ignore close errors */
-	    }
-	    s = null;
-	}
-
-	if (traceLevel >= traceThreshold) {
-	    if (port == 0) {
-		System.out.println("<- NOT FOUND");
-	    } else {
-		System.out.println("<- PORT " + port);
-	    }
-	}
-	return port;
-    }
-
     private static int r4_lookupPort(final AbstractNode node)
 	    throws IOException {
 	int port = 0;
@@ -288,8 +214,6 @@ public class OtpEpmd {
 	    final int n = s.getInputStream().read(tmpbuf);
 
 	    if (n < 0) {
-		// this was an r3 node => not a failure (yet)
-
 		s.close();
 		throw new IOException("Nameserver not responding on "
 			+ node.host() + " when looking up " + node.alive());
@@ -342,81 +266,13 @@ public class OtpEpmd {
 	return port;
     }
 
-    private static Socket r3_publish(final OtpLocalNode node)
-	    throws IOException {
-	Socket s = null;
-
-	try {
-	    final OtpOutputStream obuf = new OtpOutputStream();
-	    s = new Socket((String) null, EpmdPort.get());
-
-	    obuf.write2BE(node.alive().length() + 3);
-
-	    obuf.write1(publish3req);
-	    obuf.write2BE(node.port());
-	    obuf.writeN(node.alive().getBytes());
-
-	    // send request
-	    obuf.writeTo(s.getOutputStream());
-	    if (traceLevel >= traceThreshold) {
-		System.out.println("-> PUBLISH (r3) " + node + " port="
-			+ node.port());
-	    }
-
-	    final byte[] tmpbuf = new byte[100];
-
-	    final int n = s.getInputStream().read(tmpbuf);
-
-	    if (n < 0) {
-		s.close();
-		if (traceLevel >= traceThreshold) {
-		    System.out.println("<- (no response)");
-		}
-		return null;
-	    }
-
-	    final OtpInputStream ibuf = new OtpInputStream(tmpbuf, 0);
-
-	    if (ibuf.read1() == publish3ok) {
-		node.creation = ibuf.read2BE();
-		if (traceLevel >= traceThreshold) {
-		    System.out.println("<- OK");
-		}
-		return s; // success - don't close socket
-	    }
-	} catch (final IOException e) {
-	    // epmd closed the connection = fail
-	    if (s != null) {
-		s.close();
-	    }
-	    if (traceLevel >= traceThreshold) {
-		System.out.println("<- (no response)");
-	    }
-	    throw new IOException("Nameserver not responding on " + node.host()
-		    + " when publishing " + node.alive());
-	} catch (final OtpErlangDecodeException e) {
-	    if (s != null) {
-		s.close();
-	    }
-	    if (traceLevel >= traceThreshold) {
-		System.out.println("<- (invalid response)");
-	    }
-	    throw new IOException("Nameserver not responding on " + node.host()
-		    + " when publishing " + node.alive());
-	}
-
-	if (s != null) {
-	    s.close();
-	}
-	return null; // failure
-    }
-
     /*
-     * this function will get an exception if it tries to talk to an r3 epmd, or
-     * if something else happens that it cannot forsee. In both cases we return
-     * an exception (and the caller should try again, using the r3 protocol). If
-     * we manage to successfully communicate with an r4 epmd, we return either
-     * the socket, or null, depending on the result.
+     * this function will get an exception if it tries to talk to a
+     * very old epmd, or if something else happens that it cannot
+     * forsee. In both cases we return an exception. We no longer
+     * support r3, so the exception is fatal. If we manage to
+     * successfully communicate with an r4 epmd, we return either the
+     * socket, or null, depending on the result.
      */
     private static Socket r4_publish(final OtpLocalNode node)
 	    throws IOException {
@@ -454,7 +310,6 @@ public class OtpEpmd {
 	    final int n = s.getInputStream().read(tmpbuf);
 
 	    if (n < 0) {
-		// this was an r3 node => not a failure (yet)
 		if (s != null) {
 		    s.close();
 		}

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -163,17 +163,17 @@
 
 -type array_indx() :: non_neg_integer().
 
--type array_opt()  :: 'fixed' | non_neg_integer()
-                    | {'default', term()} | {'fixed', boolean()}
-                    | {'size', non_neg_integer()}.
+-type array_opt()  :: {'fixed', boolean()} | 'fixed'
+                    | {'default', Value :: term()}
+                    | {'size', N :: non_neg_integer()}
+                    | (N :: non_neg_integer()).
 -type array_opts() :: array_opt() | [array_opt()].
 
--type indx_pair()  :: {array_indx(), term()}.
+-type indx_pair()  :: {Index :: array_indx(), Value :: term()}.
 -type indx_pairs() :: [indx_pair()].
 
 %%--------------------------------------------------------------------------
 
-%% @spec () -> array()
 %% @doc Create a new, extendible array with initial size zero.
 %% @equiv new([])
 %%
@@ -185,7 +185,6 @@
 new() ->
     new([]).
 
-%% @spec (Options::term()) -> array()
 %% @doc Create a new array according to the given options. By default,
 %% the array is extendible and has initial size zero. Array indices
 %% start at 0.
@@ -224,12 +223,11 @@ new() ->
 %% @see from_list/2
 %% @see fix/1
 
--spec new(array_opts()) -> array().
+-spec new(Options :: array_opts()) -> array().
 
 new(Options) ->
     new_0(Options, 0, false).
 
-%% @spec (Size::integer(), Options::term()) -> array()
 %% @doc Create a new array according to the given size and options. If
 %% `Size' is not a nonnegative integer, the call fails with reason
 %% `badarg'. By default, the array has fixed size. Note that any size
@@ -245,7 +243,7 @@ new(Options) ->
 %%
 %% @see new/1
 
--spec new(non_neg_integer(), array_opts()) -> array().
+-spec new(Size :: non_neg_integer(), Options :: array_opts()) -> array().
 
 new(Size, Options) when is_integer(Size), Size >= 0 ->
     new_0(Options, Size, true);
@@ -293,13 +291,12 @@ find_max(_I, M) ->
     M.
 
 
-%% @spec (X::term()) -> boolean()
 %% @doc Returns `true' if `X' appears to be an array, otherwise `false'.
 %% Note that the check is only shallow; there is no guarantee that `X'
 %% is a well-formed array representation even if this function returns
 %% `true'.
 
--spec is_array(term()) -> boolean().
+-spec is_array(X :: term()) -> boolean().
 
 is_array(#array{size = Size, max = Max})
   when is_integer(Size), is_integer(Max) ->
@@ -308,25 +305,23 @@ is_array(_) ->
     false.
 
 
-%% @spec (array()) -> integer()
 %% @doc Get the number of entries in the array. Entries are numbered
 %% from 0 to `size(Array)-1'; hence, this is also the index of the first
 %% entry that is guaranteed to not have been previously set.
 %% @see set/3
 %% @see sparse_size/1
 
--spec size(array()) -> non_neg_integer().
+-spec size(Array :: array()) -> non_neg_integer().
 
 size(#array{size = N}) -> N;
 size(_) -> erlang:error(badarg).
 
 
-%% @spec (array()) -> term()
 %% @doc Get the value used for uninitialized entries.
 %%
 %% @see new/2
 
--spec default(array()) -> term().
+-spec default(Array :: array()) -> term().
 
 default(#array{default = D}) -> D;
 default(_) -> erlang:error(badarg).
@@ -405,23 +400,21 @@ new_test_() ->
 -endif.
 
 
-%% @spec (array()) -> array()
 %% @doc Fix the size of the array. This prevents it from growing
 %% automatically upon insertion; see also {@link set/3}.
 %% @see relax/1
 
--spec fix(array()) -> array().
+-spec fix(Array :: array()) -> array().
 
 fix(#array{}=A) ->
     A#array{max = 0}.
 
 
-%% @spec (array()) -> boolean()
 %% @doc Check if the array has fixed size. 
 %% Returns `true' if the array is fixed, otherwise `false'.
 %% @see fix/1
 
--spec is_fix(array()) -> boolean().
+-spec is_fix(Array :: array()) -> boolean().
 
 is_fix(#array{max = 0}) -> true;
 is_fix(#array{}) -> false.
@@ -455,12 +448,11 @@ fix_test_() ->
 -endif.
 
 
-%% @spec (array()) -> array()
 %% @doc Make the array resizable. (Reverses the effects of {@link
 %% fix/1}.)
 %% @see fix/1
 
--spec relax(array()) -> array().
+-spec relax(Array :: array()) -> array().
 
 relax(#array{size = N}=A) ->
     A#array{max = find_max(N-1, ?LEAFSIZE)}.
@@ -481,12 +473,11 @@ relax_test_() ->
 -endif.
 
 
-%% @spec (integer(), array()) -> array()
 %% @doc Change the size of the array. If `Size' is not a nonnegative
 %% integer, the call fails with reason `badarg'. If the given array has
 %% fixed size, the resulting array will also have fixed size.
 
--spec resize(non_neg_integer(), array()) -> array().
+-spec resize(Size :: non_neg_integer(), Array :: array()) -> array().
 
 resize(Size, #array{size = N, max = M, elements = E}=A)
   when is_integer(Size), Size >= 0 ->
@@ -510,8 +501,6 @@ resize(_Size, _) ->
     erlang:error(badarg).
 
 
-%% @spec (array()) -> array()
-
 %% @doc Change the size of the array to that reported by {@link
 %% sparse_size/1}. If the given array has fixed size, the resulting
 %% array will also have fixed size.
@@ -519,7 +508,7 @@ resize(_Size, _) ->
 %% @see resize/2
 %% @see sparse_size/1
 
--spec resize(array()) -> array().
+-spec resize(Array :: array()) -> array().
 
 resize(Array) ->
     resize(sparse_size(Array), Array).
@@ -559,7 +548,6 @@ resize_test_() ->
 -endif.
 
 
-%% @spec (integer(), term(), array()) -> array()
 %% @doc Set entry `I' of the array to `Value'. If `I' is not a
 %% nonnegative integer, or if the array has fixed size and `I' is larger
 %% than the maximum index, the call fails with reason `badarg'.
@@ -570,7 +558,7 @@ resize_test_() ->
 %% @see get/2
 %% @see reset/2
 
--spec set(array_indx(), term(), array()) -> array().
+-spec set(I :: array_indx(), Value :: term(), Array :: array()) -> array().
 
 set(I, Value, #array{size = N, max = M, default = D, elements = E}=A)
   when is_integer(I), I >= 0 ->
@@ -624,7 +612,6 @@ expand(I, _S, X, D) ->
     setelement(I+1, ?NEW_LEAF(D), X).
 
 
-%% @spec (integer(), array()) -> term()
 %% @doc Get the value of entry `I'. If `I' is not a nonnegative
 %% integer, or if the array has fixed size and `I' is larger than the
 %% maximum index, the call fails with reason `badarg'.
@@ -634,7 +621,7 @@ expand(I, _S, X, D) ->
  
 %% @see set/3
 
--spec get(array_indx(), array()) -> term().
+-spec get(I :: array_indx(), Array :: array()) -> term().
 
 get(I, #array{size = N, max = M, elements = E, default = D})
   when is_integer(I), I >= 0 ->
@@ -660,7 +647,6 @@ get_1(I, E, _D) ->
     element(I+1, E).
 
 
-%% @spec (integer(), array()) -> array()
 %% @doc Reset entry `I' to the default value for the array. 
 %% If the value of entry `I' is the default value the array will be
 %% returned unchanged. Reset will never change size of the array. 
@@ -675,7 +661,7 @@ get_1(I, E, _D) ->
 
 %% TODO: a reset_range function
 
--spec reset(array_indx(), array()) -> array().
+-spec reset(I :: array_indx(), Array :: array()) -> array().
 
 reset(I, #array{size = N, max = M, default = D, elements = E}=A) 
     when is_integer(I), I >= 0 ->
@@ -756,13 +742,12 @@ set_get_test_() ->
 -endif.
 
 
-%% @spec (array()) -> list()
 %% @doc Converts the array to a list.
 %%
 %% @see from_list/2
 %% @see sparse_to_list/1
 
--spec to_list(array()) -> list().
+-spec to_list(Array :: array()) -> list().
 
 to_list(#array{size = 0}) ->
     [];
@@ -831,12 +816,11 @@ to_list_test_() ->
 -endif.
 
 
-%% @spec (array()) -> list()
 %% @doc Converts the array to a list, skipping default-valued entries.
 %%
 %% @see to_list/1
 
--spec sparse_to_list(array()) -> list().
+-spec sparse_to_list(Array :: array()) -> list().
 
 sparse_to_list(#array{size = 0}) ->
     [];
@@ -901,15 +885,13 @@ sparse_to_list_test_() ->
 -endif.
 
 
-%% @spec (list()) -> array()
 %% @equiv from_list(List, undefined)
 
--spec from_list(list()) -> array().
+-spec from_list(List :: list()) -> array().
 
 from_list(List) ->
     from_list(List, undefined).
 
-%% @spec (list(), term()) -> array()
 %% @doc Convert a list to an extendible array. `Default' is used as the value
 %% for uninitialized entries of the array. If `List' is not a proper list,
 %% the call fails with reason `badarg'.
@@ -917,7 +899,7 @@ from_list(List) ->
 %% @see new/2
 %% @see to_list/1
 
--spec from_list(list(), term()) -> array().
+-spec from_list(List :: list(), Default :: term()) -> array().
 
 from_list([], Default) ->
     new({default,Default});
@@ -1011,13 +993,12 @@ from_list_test_() ->
 -endif.
 
 
-%% @spec (array()) -> [{Index::integer(), Value::term()}]
 %% @doc Convert the array to an ordered list of pairs `{Index, Value}'.
 %%
 %% @see from_orddict/2
 %% @see sparse_to_orddict/1
 
--spec to_orddict(array()) -> indx_pairs().
+-spec to_orddict(Array :: array()) -> indx_pairs().
 
 to_orddict(#array{size = 0}) ->
     [];
@@ -1104,13 +1085,12 @@ to_orddict_test_() ->
 -endif.
 
 
-%% @spec (array()) -> [{Index::integer(), Value::term()}]
 %% @doc Convert the array to an ordered list of pairs `{Index, Value}',
 %% skipping default-valued entries.
 %% 
 %% @see to_orddict/1
 
--spec sparse_to_orddict(array()) -> indx_pairs().
+-spec sparse_to_orddict(Array :: array()) -> indx_pairs().
 
 sparse_to_orddict(#array{size = 0}) ->
     [];
@@ -1188,15 +1168,13 @@ sparse_to_orddict_test_() ->
 -endif.
 
 
-%% @spec (list()) -> array()
 %% @equiv from_orddict(Orddict, undefined)
 
--spec from_orddict(indx_pairs()) -> array().
+-spec from_orddict(Orddict :: indx_pairs()) -> array().
 
 from_orddict(Orddict) ->
     from_orddict(Orddict, undefined).
 
-%% @spec (list(), term()) -> array() 
 %% @doc Convert an ordered list of pairs `{Index, Value}' to a
 %% corresponding extendible array. `Default' is used as the value for
 %% uninitialized entries of the array. If `List' is not a proper,
@@ -1206,7 +1184,7 @@ from_orddict(Orddict) ->
 %% @see new/2
 %% @see to_orddict/1
 
--spec from_orddict(indx_pairs(), term()) -> array().
+-spec from_orddict(Orddict :: indx_pairs(), Default :: term()) -> array().
 
 from_orddict([], Default) ->
     new({default,Default});
@@ -1392,7 +1370,6 @@ from_orddict_test_() ->
 -endif.
 
 
-%% @spec (Function, array()) -> array()
 %%    Function = (Index::integer(), Value::term()) -> term()
 %% @doc Map the given function onto each element of the array. The
 %% elements are visited in order from the lowest index to the highest.
@@ -1402,7 +1379,8 @@ from_orddict_test_() ->
 %% @see foldr/3
 %% @see sparse_map/2
 
--spec map(fun((array_indx(), _) -> _), array()) -> array().
+-spec map(Function, Array :: array()) -> array() when
+      Function :: fun((Index :: array_indx(), Value :: _) -> _).
 
 map(Function, Array=#array{size = N, elements = E, default = D})
   when is_function(Function, 2) ->
@@ -1485,7 +1463,6 @@ map_test_() ->
 -endif.
 
 
-%% @spec (Function, array()) -> array()
 %%    Function = (Index::integer(), Value::term()) -> term()
 %% @doc Map the given function onto each element of the array, skipping
 %% default-valued entries. The elements are visited in order from the
@@ -1494,7 +1471,8 @@ map_test_() ->
 %%
 %% @see map/2
 
--spec sparse_map(fun((array_indx(), _) -> _), array()) -> array().
+-spec sparse_map(Function, Array :: array()) -> array() when
+      Function :: fun((Index :: array_indx(), Value :: _) -> _).
 
 sparse_map(Function, Array=#array{size = N, elements = E, default = D})
   when is_function(Function, 2) ->
@@ -1580,9 +1558,6 @@ sparse_map_test_() ->
 -endif.
 
 
-%% @spec (Function, InitialAcc::term(), array()) -> term()
-%%    Function = (Index::integer(), Value::term(), Acc::term()) ->
-%%               term()
 %% @doc Fold the elements of the array using the given function and
 %% initial accumulator value. The elements are visited in order from the
 %% lowest index to the highest. If `Function' is not a function, the
@@ -1592,7 +1567,8 @@ sparse_map_test_() ->
 %% @see map/2
 %% @see sparse_foldl/3
 
--spec foldl(fun((array_indx(), _, A) -> B), A, array()) -> B.
+-spec foldl(Function, InitialAcc :: A, Array :: array()) -> B when
+      Function :: fun((Index :: array_indx(), Value :: _, Acc :: A) -> B).
 
 foldl(Function, A, #array{size = N, elements = E, default = D})
   when is_function(Function, 3) ->
@@ -1656,9 +1632,6 @@ foldl_test_() ->
 -endif.
 
 
-%% @spec (Function, InitialAcc::term(), array()) -> term()
-%%    Function = (Index::integer(), Value::term(), Acc::term()) ->
-%%               term()
 %% @doc Fold the elements of the array using the given function and
 %% initial accumulator value, skipping default-valued entries. The
 %% elements are visited in order from the lowest index to the highest.
@@ -1667,7 +1640,8 @@ foldl_test_() ->
 %% @see foldl/3
 %% @see sparse_foldr/3
 
--spec sparse_foldl(fun((array_indx(), _, A) -> B), A, array()) -> B.
+-spec sparse_foldl(Function, InitialAcc :: A, Array :: array()) -> B when
+      Function :: fun((Index :: array_indx(), Value :: _, Acc :: A) -> B).
 
 sparse_foldl(Function, A, #array{size = N, elements = E, default = D})
   when is_function(Function, 3) ->
@@ -1735,9 +1709,6 @@ sparse_foldl_test_() ->
 -endif.
 
 
-%% @spec (Function, InitialAcc::term(), array()) -> term()
-%%    Function = (Index::integer(), Value::term(), Acc::term()) ->
-%%               term()
 %% @doc Fold the elements of the array right-to-left using the given
 %% function and initial accumulator value. The elements are visited in
 %% order from the highest index to the lowest. If `Function' is not a
@@ -1746,7 +1717,8 @@ sparse_foldl_test_() ->
 %% @see foldl/3
 %% @see map/2
 
--spec foldr(fun((array_indx(), _, A) -> B), A, array()) -> B.
+-spec foldr(Function, InitialAcc :: A, Array :: array()) -> B when
+      Function :: fun((Index :: array_indx(), Value :: _, Acc :: A) -> B).
 
 foldr(Function, A, #array{size = N, elements = E, default = D})
   when is_function(Function, 3) ->
@@ -1815,9 +1787,6 @@ foldr_test_() ->
 -endif.
 
 
-%% @spec (Function, InitialAcc::term(), array()) -> term()
-%%    Function = (Index::integer(), Value::term(), Acc::term()) ->
-%%               term()
 %% @doc Fold the elements of the array right-to-left using the given
 %% function and initial accumulator value, skipping default-valued
 %% entries. The elements are visited in order from the highest index to
@@ -1827,7 +1796,8 @@ foldr_test_() ->
 %% @see foldr/3
 %% @see sparse_foldl/3
 
--spec sparse_foldr(fun((array_indx(), _, A) -> B), A, array()) -> B.
+-spec sparse_foldr(Function, InitialAcc :: A, Array :: array()) -> B when
+      Function :: fun((Index :: array_indx(), Value :: _, Acc :: A) -> B).
 
 sparse_foldr(Function, A, #array{size = N, elements = E, default = D})
   when is_function(Function, 3) ->
@@ -1870,7 +1840,6 @@ sparse_foldr_3(I, T, Ix, A, F, D) ->
     end.
 
 
-%% @spec (array()) -> integer()
 %% @doc Get the number of entries in the array up until the last
 %% non-default valued entry. In other words, returns `I+1' if `I' is the
 %% last non-default valued entry in the array, or zero if no such entry
@@ -1878,7 +1847,7 @@ sparse_foldr_3(I, T, Ix, A, F, D) ->
 %% @see size/1
 %% @see resize/1
 
--spec sparse_size(array()) -> non_neg_integer().
+-spec sparse_size(Array :: array()) -> non_neg_integer().
 
 sparse_size(A) ->
     F = fun (I, _V, _A) -> throw({value, I}) end,

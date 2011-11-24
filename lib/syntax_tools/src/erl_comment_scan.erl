@@ -26,6 +26,7 @@
 
 -export([file/1, join_lines/1, scan_lines/1, string/1]).
 
+-export_type([comment/0]).
 
 %% =====================================================================
 
@@ -273,12 +274,8 @@ join_lines([], Txt, L, Col, Ind) ->
 
 filename([C|T]) when is_integer(C), C > 0, C =< 255 ->
     [C | filename(T)];
-filename([H|T]) ->
-    filename(H) ++ filename(T);
 filename([]) ->
     [];
-filename(N) when is_atom(N) ->
-    atom_to_list(N);
 filename(N) ->
     report_error("bad filename: `~P'.", [N, 25]),
     exit(error).

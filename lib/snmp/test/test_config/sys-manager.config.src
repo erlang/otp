@@ -1,0 +1,35 @@
+%% This is an example sys config file for starting the snmp application
+%% with only a manager running.
+[{snmp, 
+  [
+   {manager,
+    [
+     {priority, normal}, 
+     {versions, [v1,v2,v3]}, 
+     {config, [{dir, "%DIR%/manager/conf"}, 
+               {verbosity, trace}, 
+               {db_dir, "%DIR%/manager/db"}, 
+               {repair, true}, 
+               {auto_save, 5000}]}, 
+     {inform_request_behaviour, user}, 
+     {mibs, []}, 
+     {server, [{timeout,   30000},
+               {verbosity, trace}]}, 
+     {note_store, [{timeout,30000},
+                   {verbosity,silence}]}, 
+     {audit_trail_log, [{type, read}, 
+                        {dir, "%DIR%/manager/log"},
+                        {size, {10240,10}}]},
+     {net_if, [{module,snmpm_net_if},
+               {verbosity, trace},
+               {options, [{bind_to,  true}, 
+                          {no_reuse, false},
+%                          {sndbuf,   32000},
+                          {recbuf,   45000}]}]}, 
+     {def_user_mod,  snmpm_user_default}, 
+     {def_user_data, undefined}
+    ]
+   }
+  ]
+ }
+].

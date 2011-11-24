@@ -3,7 +3,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 1996-2009. All Rights Reserved.
+# Copyright Ericsson AB 1996-2010. All Rights Reserved.
 # 
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -59,33 +59,20 @@ esac
 # Create the 'cat' directories (probably not needed)
 #
 
-cd $ERL_ROOT
+cd $ERL_ROOT/man
 
-if [ ! -d man/cat1 ]
-then
-    mkdir man/cat1
-fi
+for d in 0 1 2 3 4 5 6 7 8 9
+do
+  if [ ! -d cat$d ]
+      then
+      mkdir cat$d
+  fi
 
-if [ ! -d man/cat3 ]
-then
-    mkdir man/cat3
-fi
-
-if [ ! -d man/cat4 ]
-then
-    mkdir man/cat4
-fi
-
-if [ ! -d man/cat6 ]
-then
-    mkdir man/cat6
-fi
+done
 
 #
 # Cleanup old formatting
 #
-
-cd $ERL_ROOT/man
 
 rm -f whatis windex
 

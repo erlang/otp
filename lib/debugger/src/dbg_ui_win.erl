@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2002-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2002-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(dbg_ui_win).
@@ -24,7 +24,6 @@
 	 create_menus/2, select/2, selected/1,
 	 add_break/2, update_break/2, delete_break/1,
 	 motion/2
-	 
 	]).
 
 -record(break, {mb, smi, emi, dimi, demi}).
@@ -49,11 +48,11 @@ init() ->
 font(Style) ->
     GS = init(),
     Style2 = if
-		 Style==normal -> [];
+		 Style =:= normal -> [];
 		 true -> [Style]
 	     end,
     case gs:read(GS, {choose_font, {screen,Style2,12}}) of
-	Font when element(1, Font)==screen ->
+	Font when element(1, Font) =:= screen ->
 	    Font;
 	_ ->
 	    gs:read(GS, {choose_font, {courier,Style2,12}})
@@ -76,12 +75,9 @@ min_size(Font, Strings, MinW, MinH) ->
 
 min_size(GS, Font, [String|Strings], MinW, MinH) ->
     {W, H} = gs:read(GS, {font_wh, {Font, String}}),
-    min_size(GS, Font, Strings, max(MinW, W), max(MinH, H));
+    min_size(GS, Font, Strings, erlang:max(MinW, W), erlang:max(MinH, H));
 min_size(_GS, _Font, [], W, H) ->
     {W, H}.
-
-max(X, Y) when X>Y -> X;
-max(_X, Y) -> Y.
 
 %%--------------------------------------------------------------------
 %% create_menus(MenuBar, [Menu])
@@ -171,8 +167,7 @@ select(MenuItem, Bool) ->
 %%--------------------------------------------------------------------
 selected(Menu) ->
     Children = gs:read(Menu, children),
-    Selected = lists:filter(fun(Child) -> gs:read(Child, select) end,
-			    Children),
+    Selected = [gs:read(Child, select) || Child <- Children],
     lists:map(fun(Child) ->
 		      {text, Name} = gs:read(Child, label),
 		      list_to_atom(Name)

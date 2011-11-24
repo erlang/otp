@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>1999</year>
-      <year>2009</year>
+      <year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -52,7 +52,7 @@
 <tag>UCS-4</tag>
 <item>Basically the same as UTF-32, but without some Unicode semantics, defined by IEEE and has little use as a separate encoding standard. For all normal (and possibly abnormal) usages, UTF-32 and UCS-4 are interchangeable.</item>
 </taglist>
-<p>Certain ranges of characters are left unused and certain ranges are even deemed invalid. The most notable invalid range is 16#D800 - 16#DFFF, as the UTF-16 encoding does not allow for encoding of these numbers. It can be speculated that the UTF-16 encoding standard was, from the beginning, expected to be able to hold all Unicode characters in one 16-bit entity, but then had to be extended, leaving a whole in the Unicode range to cope with backward compatibility.</p>
+<p>Certain ranges of characters are left unused and certain ranges are even deemed invalid. The most notable invalid range is 16#D800 - 16#DFFF, as the UTF-16 encoding does not allow for encoding of these numbers. It can be speculated that the UTF-16 encoding standard was, from the beginning, expected to be able to hold all Unicode characters in one 16-bit entity, but then had to be extended, leaving a hole in the Unicode range to cope with backward compatibility.</p>
 <p>Additionally, the codepoint 16#FEFF is used for byte order marks (BOM's) and use of that character is not encouraged in other contexts than that. It actually is valid though, as the character "ZWNBS" (Zero Width Non Breaking Space). BOM's are used to identify encodings and byte order for programs where such parameters are not known in advance. Byte order marks are more seldom used than one could expect, put their use is becoming more widely spread as they provide the means for programs to make educated guesses about the Unicode format of a certain file.</p>
 </section>
 <section>
@@ -143,7 +143,7 @@ en_US.UTF-8</pre>
 <pre>
 $ echo <input>$LC_CTYPE</input>
 en_US.UTF-8</pre>
-<p>The LANG or LC_CTYPE setting should be consistent with what the terminal is capable of, there is no portable way for Erlang to ask the actual terminal about it's UTF-8 capacity, we have to rely on the language and character type settings.</p>
+<p>The LANG or LC_CTYPE setting should be consistent with what the terminal is capable of, there is no portable way for Erlang to ask the actual terminal about its UTF-8 capacity, we have to rely on the language and character type settings.</p>
 <p>To investigate what Erlang thinks about the terminal, the <c>io:getopts()</c> call can be used when the shell is started:</p>
 <pre>
 $ <input>LC_CTYPE=en_US.ISO-8859-1 erl</input>
@@ -168,6 +168,48 @@ Eshell V5.7  (abort with ^G)
 <image file="ushell2.gif"><icaption>Unicode characters in allowed and disallowed context</icaption></image>
 </section> 
 <section>
+<title>Unicode file names</title>
+<p>Most modern operating systems support Unicode file names in some way or another. There are several different ways to do this and Erlang by default treats the different approaches differently:</p>
+<taglist>
+<tag>Mandatory Unicode file naming</tag>
+<item>
+<p>Windows and, for most common uses, MacOSX enforces Unicode support for file names. All files created in the filesystem have names that can consistently be interpreted. In MacOSX, all file names are retrieved in UTF-8 encoding, while Windows has selected an approach where each system call handling file names has a special Unicode aware variant, giving much the same effect. There are no file names on these systems that are not Unicode file names, why the default behavior of the Erlang VM is to work in &quot;Unicode file name translation mode&quot;, meaning that a file name can be given as a Unicode list and that will be automatically translated to the proper name encoding for the underlying operating and file system.</p>
+<p>Doing i.e. a <c>file:list_dir/1</c> on one of these systems may return Unicode lists with codepoints beyond 255, depending on the content of the actual filesystem.</p>
+<p>As the feature is fairly new, you may still stumble upon non core applications that cannot handle being provided with file names containing characters with codepoints larger than 255, but the core Erlang system should have no problems with Unicode file names.</p>
+</item>
+<tag>Transparent file naming</tag>
+<item>
+<p>Most Unix operating systems have adopted a simpler approach, namely that Unicode file naming is not enforced, but by convention. Those systems usually use UTF-8 encoding for Unicode file names, but do not enforce it. On such a system, a file name containing characters having codepoints between 128 and 255 may be named either as plain ISO-latin-1 or using UTF-8 encoding. As no consistency is enforced, the Erlang VM can do no consistent translation of all file names. If the VM would automatically select encoding based on heuristics, one could get unexpected behavior on these systems, therefore file names not being encoded in UTF-8 are returned as &quot;raw file names&quot; if Unicode file naming support is turned on.</p>
+<p>A raw file name is not a list, but a binary. Many non core applications still do not handle file names given as binaries, why such raw names are avoided by default. This means that systems having implemented Unicode file naming through transparent file systems and an UTF-8 convention, do not by default have Unicode file naming turned on. Explicitly turning Unicode file name handling on for these types of systems is considered experimental.</p>
+</item>
+</taglist>
+<p>The Unicode file naming support was introduced with OTP release R14B01. A VM operating in Unicode file mode can work with files having names in any language or character set (as long as it's supported by the underlying OS and file system). The Unicode character list is used to denote file or directory names and if the file system content is listed, you will also be able to get Unicode lists as return value. The support lies in the kernel and stdlib modules, why most applications (that does not explicitly require the file names to be in the ISO-latin-1 range) will benefit from the Unicode support without change.</p>
+
+<p>On Operating systems with mandatory Unicode file names, this means that you more easily conform to the file names of other (non Erlang) applications, and you can also process file names that, at least on Windows, were completely inaccessible (due to having names that could not be represented in ISO-latin-1). Also you will avoid creating incomprehensible file names on MacOSX as the vfs layer of the OS will accept all your file names as UTF-8 and will not rewrite them.</p>
+
+<p>For most systems, turning on Unicode file name translation is no problem even if it uses transparent file naming. Very few systems have mixed file name encodings. A consistent UTF-8 named system will work perfectly in Unicode file name mode. It is still however considered experimental in R14B01. Unicode file name translation is turned on with the <c>+fnu</c> switch to the <c>erl</c> program. If the VM is started in Unicode file name translation mode, <c>file:native_name_encoding/0</c> will return the atom <c>utf8</c>.</p>
+
+<p>In Unicode file name mode, file names given to the BIF <c>open_port/2</c> with the option <c>{spawn_executable,...}</c> are also interpreted as Unicode. So is the parameter list given in the <c>args</c> option available when using <c>spawn_executable</c>. The UTF-8 translation of arguments can be avoided using binaries, see the discussion about raw file names below.</p>
+
+<p>It is worth noting that the file <c>encoding</c> options given when opening a file has nothing to do with the file <em>name</em> encoding convention. You can very well open files containing UTF-8 but having file names in ISO-latin-1 or vice versa.</p>
+
+<note>Erlang drivers and NIF shared objects still can not be named with names containing codepoints beyond 127. This is a known limitation to be removed in a future release. Erlang modules however can, but it is definitely not a good idea and is still considered experimental.</note> 
+
+<section>
+<title>Notes about raw file names and automatic file name conversion</title>
+<p>Raw file names is introduced together with Unicode file name support in erts-5.8.2 (OTP R14B01). The reason &quot;raw file names&quot; is introduced in the system is to be able to consistently represent file names given in different encodings on the same system. Having the VM automatically translate a file name that is not in UTF-8 to a list of Unicode characters might seem practical, but this would open up for both duplicate file names and other inconsistent behavior. Consider a directory containing a file named &quot;björn&quot; in ISO-latin-1, while the Erlang VM is operating in Unicode file name mode (and therefore expecting UTF-8 file naming). The ISO-latin-1 name is not valid UTF-8 and one could be tempted to think that automatic conversion in for example <c>file:list_dir/1</c> is a good idea. But what would happen if we later tried to open the file and have the name as a Unicode list (magically converted from the ISO-latin-1 file name)? The VM will convert the file name given to UTF-8, as this is the encoding expected. Effectively this means trying to open the file named &lt;&lt;&quot;björn&quot;/utf8&gt;&gt;. This file does not exist, and even if it existed it would not be the same file as the one that was listed. We could even create two files named &quot;björn&quot;, one named in the UTF-8 encoding and one not. If <c>file:list_dir/1</c> would automatically convert the ISO-latin-1 file name to a list, we would get two identical file names as the result. To avoid this, we need to differentiate between file names being properly encoded according to the Unicode file naming convention (i.e. UTF-8) and file names being invalid under the encoding. This is done by representing invalid encoding as &quot;raw&quot; file names, i.e. as binaries.</p>
+<p>The core system of Erlang (kernel and stdlib) accepts raw file names except for loadable drivers and executables invoked using <c>open_port({spawn, ...} ...)</c>. <c>open_port({spawn_executable, ...} ...)</c> however does accept them. As mentioned earlier, the arguments given in the option list to <c>open_port({spawn_executable, ...} ...)</c> undergo the same conversion as the file names, meaning that the executable will be provided with arguments in UTF-8 as well. This translation is avoided consistently with how the file names are treated, by giving the argument as a binary.</p>
+<p>To force Unicode file name translation mode on systems where this is not the default is considered experimental in OTP R14B01 due to the raw file names possibly being a new experience to the programmer and that the non core applications of OTP are not tested for compliance with raw file names yet. Unicode file name translation is expected to be default in future releases.</p>
+<p>If working with raw file names, one can still conform to the encoding convention of the Erlang VM by using the <c>file:native_name_encoding/0</c> function, which returns either the atom <c>latin1</c> or the atom <c>utf8</c> depending on the file name translation mode. On Linux, a VM started without explicitly stating the file name translation mode will default to <c>latin1</c> as the native file name encoding, why file names on the disk encoded as UTF-8 will be returned as a list of the names interpreted as ISO-latin-1. The &quot;UTF-8 list&quot; is not a practical type for displaying or operating on in Erlang, but it is backward compatible and usable in all functions requiring a file name. On Windows and MacOSX, the default behavior is that of file name translation, why the <c>file:native_name_encoding/0</c> by default returns <c>utf8</c> on those systems (the fact that Windows actually does not use UTF-8 on the file system level can safely be ignored by the Erlang programmer). The default behavior can be changed using the <c>+fnu</c> or <c>+fnl</c> options to the VM, see the <c>erl</c> command manual page.</p> 
+<p>Even if you are operating without Unicode file naming translation automatically done by the VM, you can access and create files with names in UTF-8 encoding by using raw file names encoded as UTF-8. Enforcing the UTF-8 encoding regardless of the mode the Erlang VM is started in might, in some circumstances be a good idea, as the convention of using UTF-8 file names is spreading.</p>  
+</section>
+<section>
+<title>Notes about MacOSX</title>
+<p>MacOSXs vfs layer enforces UTF-8 file names in a quite aggressive way. Older versions did this by simply refusing to create non UTF-8 conforming file names, while newer versions replace offending bytes with the sequence &quot;%HH&quot;, where HH is the original character in hexadecimal notation. As Unicode translation is enabled by default on MacOSX, the only way to come up against this is to either start the VM with the <c>+fnl</c> flag or to use a raw file name in <c>latin1</c> encoding. In that case, the file can not be opened with the same name as the one used to create this. The problem is by design in newer versions of MacOSX.</p>
+<p>MacOSX also reorganizes the names of files so that the representation of accents etc is denormalized, i.e. the character <c>ö</c> is represented as the codepoints [111,776], where 111 is the character <c>o</c> and 776 is a special accent character. This type of denormalized Unicode is otherwise very seldom used and Erlang normalizes those file names on retrieval, so that denormalized file names is not passed up to the Erlang application. In Erlang the file name &quot;björn&quot; is retrieved as [98,106,246,114,110], not as [98,106,117,776,114,110], even though the file system might think differently.</p>
+</section>
+</section>
+<section>
 <title>Unicode-aware modules</title>
 <p>Most of the modules in Erlang/OTP are of course Unicode-unaware in the sense that they have no notion of Unicode and really shouldn't have. Typically they handle non-textual or byte-oriented data (like <c>gen_tcp</c> etc).</p>
 <p>Modules that actually handle textual data (like <c>io_lib</c>, <c>string</c> etc) are sometimes subject to conversion or extension to be able to handle Unicode characters.</p>
@@ -185,7 +227,7 @@ Eshell V5.7  (abort with ^G)
 <tag><c>file</c>, <c>group</c> and <c>user</c></tag>
 <item>
 <p>I/O-servers throughout the system are able both to handle Unicode data and has options for converting data upon actual output or input to/from the device. As shown earlier, the <seealso marker="stdlib:shell">shell</seealso> has support for Unicode terminals and the  <seealso marker="kernel:file">file</seealso> module allows for translation to and from various Unicode formats on disk.</p>
-<p>The actual reading and writing of files with Unicode data is however not best done with the <c>file</c> module as it's interface is byte oriented. A file opened with a Unicode encoding (like UTF-8), is then best read or written using the <seealso marker="stdlib:io">io</seealso> module.</p>
+<p>The actual reading and writing of files with Unicode data is however not best done with the <c>file</c> module as its interface is byte oriented. A file opened with a Unicode encoding (like UTF-8), is then best read or written using the <seealso marker="stdlib:io">io</seealso> module.</p>
 </item>
 <tag><c>re</c></tag>
 <item>

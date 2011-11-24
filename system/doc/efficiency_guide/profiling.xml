@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2001</year><year>2009</year>
+      <year>2001</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -40,9 +40,13 @@
 
     <p>Erlang/OTP contains several tools to help finding bottlenecks.</p>
 
-    <p><c>fprof</c> and <c>eprof</c> provide the most detailed information
-    about where the time is spent, but they significantly slow downs the
-    programs they profile.</p>
+    <p><c>fprof</c> provide the most detailed information
+    about where the time is spent, but it significantly slows down the
+    program it profiles.</p>
+
+	<p><c>eprof</c> provides time information of each function used
+		in the program. No callgraph is produced but <c>eprof</c> has 
+		considerable less impact on the program profiled.</p>
 
     <p>If the program is too big to be profiled by <c>fprof</c> or <c>eprof</c>,
     <c>cover</c> and <c>cprof</c> could be used to locate parts of the
@@ -50,7 +54,7 @@
     <c>eprof</c>.</p>
 
     <p><c>cover</c> provides execution counts per line per process,
-    with less overhead than <c>fprof/eprof</c>. Execution counts can
+    with less overhead than <c>fprof</c>. Execution counts can
     with some caution be used to locate potential performance bottlenecks.
     The most lightweight tool is <c>cprof</c>, but it only provides execution
     counts on a function basis (for all processes, not per process).</p>
@@ -74,7 +78,7 @@
     <title>What to look for</title>
     <p>When analyzing the result file from the profiling activity
       you should look for functions that are called many
-      times and have a long "own" execution time (time excluded calls
+      times and have a long "own" execution time (time excluding calls
       to other functions). Functions that just are called very
       many times can also be interesting, as even small things can add
       up to quite a bit if they are repeated often. Then you need to
@@ -87,7 +91,7 @@
       <item>Are there redundant tests that can be removed? </item>
       <item>Is there some expression calculated giving the same result
        each time? </item>
-      <item>Is there other ways of doing this that are equivalent and
+      <item>Are there other ways of doing this that are equivalent and
        more efficient?</item>
       <item>Can I use another internal data representation to make
        things more efficient? </item>
@@ -102,35 +106,45 @@
 
     <section>
       <title>fprof</title>
-      <p><c>fprof</c> measures the execution time for each function,
+	  <p>
+		 <c>fprof</c> measures the execution time for each function,
         both own time i.e how much time a function has used for its
         own execution, and accumulated time i.e. including called
         functions. The values are displayed per process. You also get
         to know how many times each function has been
         called. <c>fprof</c> is based on trace to file in order to
         minimize runtime performance impact. Using fprof is just a
-        matter of calling a few library functions, see fprof manual
-        page under the application tools.</p>
-      <p><c>fprof</c> was introduced in version R8 of Erlang/OTP. Its
-        predecessor <c>eprof</c> that is based on the Erlang trace BIFs,
-        is still available, see eprof manual page under the
-        application tools. Eprof shows how much time has been used by
-        each process, and in which function calls this time has been
-        spent.  Time is shown as percentage of total time, not as
-        absolute time.</p>
+		matter of calling a few library functions, see 
+		<seealso marker="tools:fprof">fprof</seealso> 
+		manual page under the application tools.<c>fprof</c> was introduced in 
+		version R8 of Erlang/OTP.
+	</p>
     </section>
+
+	<section>
+		<title>eprof</title>
+		<p>
+			<c>eprof</c> is based on the Erlang trace_info BIFs. Eprof shows how much time has been used by
+			each process, and in which function calls this time has been
+			spent. Time is shown as percentage of total time and absolute time.
+			See <seealso marker="tools:eprof">eprof</seealso> for
+			additional information.
+		</p>
+	</section>
 
     <section>
       <title>cover</title>
-      <p><c>cover</c>'s primary use is coverage analysis to verify
+			<p>
+				<c>cover</c>'s primary use is coverage analysis to verify
         test cases, making sure all relevant code is covered.
         <c>cover</c> counts how many times each executable line of
         code is executed when a program is run. This is done on a per
         module basis. Of course this information can be used to
         determine what code is run very frequently and could therefore
         be subject for optimization. Using cover is just a matter of
-        calling a few library functions, see cover manual
-        page under the application tools.</p>
+		calling a few library functions, see 
+		<seealso marker="tools:cover">cover</seealso> 
+		manual page under the application tools.</p>
     </section>
 
     <section>
@@ -138,9 +152,12 @@
       <p><c>cprof</c> is something in between <c>fprof</c> and
         <c>cover</c> regarding features. It counts how many times each
         function is called when the program is run, on a per module
-        basis. <c>cprof</c> has a low performance degradation (versus
-        <c>fprof</c> and <c>eprof</c>) and does not need to recompile
-        any modules to profile (versus <c>cover</c>).</p>
+        basis. <c>cprof</c> has a low performance degradation effect (versus
+        <c>fprof</c>) and does not need to recompile
+		any modules to profile (versus <c>cover</c>).
+		See <seealso marker="tools:cprof">cprof</seealso> manual page for additional
+		information.
+	</p>
     </section>
 
     <section>
@@ -170,7 +187,7 @@
           <cell align="left" valign="middle"><c>eprof </c></cell>
           <cell align="left" valign="middle">per process/function to screen/file </cell>
           <cell align="left" valign="middle">medium </cell>
-          <cell align="left" valign="middle">significant slowdown </cell>
+          <cell align="left" valign="middle">small slowdown </cell>
           <cell align="left" valign="middle">yes </cell>
           <cell align="left" valign="middle">only total </cell>
           <cell align="left" valign="middle">no </cell>
@@ -231,7 +248,7 @@
     consistent from run to run. The disadvantage is that the time
     spent in the operating system kernel (such as swapping and I/O)
     are not included. Therefore, measuring CPU time is misleading if
-    any I/O (file or sockets) are involved.</p>
+    any I/O (file or socket) is involved.</p>
 
     <p>It is probably a good idea to do both wall-clock measurements and
     CPU time measurements.</p>
@@ -239,18 +256,18 @@
     <p>Some additional advice:</p>
 
     <list type="bulleted">
-    <item>The granularity of both types measurement could be quite
+    <item>The granularity of both types of measurement could be quite
     high so you should make sure that each individual measurement
     lasts for at least several seconds.</item>
 
     <item>To make the test fair, each new test run should run in its own,
-    newly created Erlang process. Otherwise, if all tests runs in the
+    newly created Erlang process. Otherwise, if all tests run in the
     same process, the later tests would start out with larger heap sizes
-    and therefore probably does less garbage collections. You could
+    and therefore probably do less garbage collections. You could
     also consider restarting the Erlang emulator between each test.</item>
 
     <item>Do not assume that the fastest implementation of a given algorithm
-    on computer architecture X also is the fast on computer architecture Y.</item>
+    on computer architecture X also is the fastest on computer architecture Y.</item>
 
     </list>
   </section>

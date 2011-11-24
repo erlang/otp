@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%%
-%% Copyright Ericsson AB 2002-2010. All Rights Reserved.
-%%
+%% 
+%% Copyright Ericsson AB 2002-2011. All Rights Reserved.
+%% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%%
+%% 
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%%
+%% 
 %% %CopyrightEnd%
 %%
 %%
@@ -21,15 +21,16 @@
 
 -behaviour(gen_server).
 
+-include_lib("inets/src/http_lib/http_internal.hrl").
 -include("httpc_internal.hrl").
--include("http_internal.hrl").
 
 %% Internal Application API
 -export([
 	 start_link/3, 
 	 request/2, 
 	 cancel_request/2,
-	 request_canceled/2, 
+	 request_canceled/3,
+	 request_done/2, 
 	 retry_request/2, 
 	 redirect_request/2,
 	 insert_session/2, 
@@ -51,7 +52,7 @@
 	  cancel = [],	 % [{RequestId, HandlerPid, ClientPid}]  
 	  handler_db,    % ets() - Entry: #handler_info{}
 	  cookie_db,     % cookie_db()
-	  session_db,    % ets() - Entry:  #tcp_session{}
+	  session_db,    % ets() - Entry:  #session{}
 	  profile_name,  % atom()
 	  options = #options{}
 	 }).
@@ -65,15 +66,7 @@
 	  state    % State of the handler: initiating | started | operational | canceled
 	 }).
 
-%% Entries in the handler / request cross-ref table
-%% -record(request_info, 
-%% 	{
-%% 	  id,      % Id of the request
-%% 	  handler, % Pid of the handler process
-%% 	  from,    % The From value for the caller
-%% 	  mref     % Monitor ref for the caller
-%% 	 }).
-
+-define(DELAY, 500).
 
 %%====================================================================
 %% Internal Application API
@@ -166,13 +159,26 @@ cancel_request(RequestId, ProfileName) ->
 %% be called by the httpc handler process.
 %%--------------------------------------------------------------------
 
-request_canceled(RequestId, ProfileName) ->
+request_canceled(RequestId, ProfileName, From) ->
+    gen_server:reply(From, ok),
     cast(ProfileName, {request_canceled, RequestId}).
 
 
 %%--------------------------------------------------------------------
+%% Function: request_done(RequestId, ProfileName) -> ok
+%%	RequestId - ref()
+%%      ProfileName = atom()
+%%
+%% Description: Inform tha manager that a request has been completed.
+%%--------------------------------------------------------------------
+
+request_done(RequestId, ProfileName) ->
+    cast(ProfileName, {request_done, RequestId}).
+
+
+%%--------------------------------------------------------------------
 %% Function: insert_session(Session, ProfileName) -> _
-%%	Session - #tcp_session{}
+%%	Session - #session{}
 %%      ProfileName - atom()
 %%
 %% Description: Inserts session information into the httpc manager
@@ -250,19 +256,27 @@ reset_cookies(ProfileName) ->
 
 
 %%--------------------------------------------------------------------
-%% Function: which_cookies(Url, ProfileName) -> [cookie()]
+%% Function: which_cookies(ProfileName)               -> [cookie()]
+%%           which_cookies(Url, ProfileName)          -> [cookie()]
+%%           which_cookies(Url, Options, ProfileName) -> [cookie()]
 %%
 %%	Url = string()
+%%	Options = [option()]
 %%      ProfileName = atom()
+%%      option() = {ipv6_host_with_brackets, boolean()}
 %%
 %% Description: Retrieves the cookies that would be sent when 
 %% requesting <Url>.
 %%--------------------------------------------------------------------
 
-which_cookies(ProfileName) ->
+which_cookies(ProfileName) when is_atom(ProfileName) ->
     call(ProfileName, which_cookies).
-which_cookies(Url, ProfileName) ->
-    call(ProfileName, {which_cookies, Url}).
+which_cookies(Url, ProfileName) 
+  when is_list(Url) andalso is_atom(ProfileName) ->
+    call(ProfileName, {which_cookies, Url, []}).
+which_cookies(Url, Options, ProfileName) 
+  when is_list(Url) andalso is_list(Options) andalso is_atom(ProfileName) ->
+    call(ProfileName, {which_cookies, Url, Options}).
 
 
 %%--------------------------------------------------------------------
@@ -320,7 +334,7 @@ do_init(ProfileName, CookiesDir) ->
     ?hcrt("create session db", []),
     SessionDbName = session_db_name(ProfileName), 
     ets:new(SessionDbName, 
-	    [public, set, named_table, {keypos, #tcp_session.id}]),
+	    [public, set, named_table, {keypos, #session.id}]),
 
     %% Create handler db
     ?hcrt("create handler/request db", []),
@@ -351,44 +365,32 @@ do_init(ProfileName, CookiesDir) ->
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% Description: Handling call messages
 %%--------------------------------------------------------------------
-handle_call({request, Request}, _From, State) ->
-    ?hcrv("request", [{request, Request}]),
+handle_call({request, Request}, _, State) ->
+    ?hcri("request", [{request, Request}]),
     case (catch handle_request(Request, State)) of
-	{ok, ReqId, NewState} ->
-	    {reply, {ok, ReqId}, NewState};
-	
+	{reply, Msg, NewState} ->
+	    {reply, Msg, NewState};
 	Error ->
-	    NewError = {error, {failed_process_request, Error}}, 
-	    {reply, NewError, State}
+	    {stop, Error, httpc_response:error(Request, Error), State}
     end;
-	
-handle_call({cancel_request, RequestId}, From, 
-	    #state{handler_db = HandlerDb} = State) ->
-    ?hcrv("cancel_request", [{request_id, RequestId}]),
+
+handle_call({cancel_request, RequestId}, From, State) ->
+    ?hcri("cancel_request", [{request_id, RequestId}]),
     case ets:lookup(State#state.handler_db, RequestId) of
 	[] ->
-	    ?hcrd("nothing to cancel", []),
-	    Reply = ok, %% Nothing to cancel
-	    {reply, Reply, State};
-
-	[#handler_info{handler = Pid}] when is_pid(Pid) ->
-	    ?hcrd("found operational handler for this request", 
-		  [{handler, Pid}]),
-	    httpc_handler:cancel(RequestId, Pid),
+	    %% The request has allready compleated make sure
+	    %% it is deliverd to the client process queue so
+	    %% it can be thrown away by httpc:cancel_request
+	    %% This delay is hopfully a temporary workaround.
+	    %% Note that it will not not delay the manager,
+	    %% only the client that called httpc:cancel_request
+	    timer:apply_after(?DELAY, gen_server, reply, [From, ok]),
+	    {noreply, State};
+	[{_, Pid, _}] ->
+	    httpc_handler:cancel(RequestId, Pid, From),
 	    {noreply, State#state{cancel = 
-				  [{RequestId, Pid, From} | 
-				   State#state.cancel]}};
-
-	[#handler_info{starter = Pid, state = HandlerState}] 
-	when is_pid(Pid) ->
-	    ?hcri("found *initiating* handler for this request", 
-		  [{starter, Pid}, {state, HandlerState}]),
-	    ets:update_element(HandlerDb, RequestId, 
-			       {#handler_info.state, canceled}),
-	    {noreply, State#state{cancel = 
-				  [{RequestId, Pid, From} | 
+				  [{RequestId, Pid, From} |
 				   State#state.cancel]}}
-
     end;
 
 handle_call(reset_cookies, _, #state{cookie_db = CookieDb} = State) ->
@@ -401,15 +403,16 @@ handle_call(which_cookies, _, #state{cookie_db = CookieDb} = State) ->
     CookieHeaders = httpc_cookie:which_cookies(CookieDb),
     {reply, CookieHeaders, State};
 
-handle_call({which_cookies, Url}, _, #state{cookie_db = CookieDb} = State) ->
-    ?hcrv("which cookies", [{url, Url}]),
-    case http_uri:parse(Url) of
-	{Scheme, _, Host, Port, Path, _} ->
+handle_call({which_cookies, Url, Options}, _, 
+	    #state{cookie_db = CookieDb} = State) ->
+    ?hcrv("which cookies", [{url, Url}, {options, Options}]),
+    case http_uri:parse(Url, Options) of
+	{ok, {Scheme, _, Host, Port, Path, _}} ->
 	    CookieHeaders = 
 		httpc_cookie:header(CookieDb, Scheme, {Host, Port}, Path),
 	    {reply, CookieHeaders, State};
-	Msg ->
-	    {reply, Msg, State}
+	{error, _} = ERROR ->
+	    {reply, ERROR, State}
     end;
 
 handle_call(info, _, State) ->
@@ -433,43 +436,16 @@ handle_call(Req, From, #state{profile_name = ProfileName} = State) ->
 %%--------------------------------------------------------------------
 handle_cast({retry_or_redirect_request, {Time, Request}}, 
 	    #state{profile_name = ProfileName} = State) ->
-    ?hcrv("retry or redirect request", [{time, Time}, {request, Request}]),
-    case timer:apply_after(Time, ?MODULE, retry_request, 
-			   [Request, ProfileName]) of
-	{ok, _} ->
-	    {noreply, State};
-	{error, Reason} ->
-	    error_report(ProfileName, 
-			 "failed scheduling retry/redirect request"
-			 "~n   Time:    ~p"
-			 "~n   Request: ~p"
-			 "~n   Reason:  ~p", [Time, Request, Reason]),
-	    {noreply, State}
-    end;
+    {ok, _} = timer:apply_after(Time, ?MODULE, retry_request, [Request, ProfileName]),
+    {noreply, State};
 
-handle_cast({retry_or_redirect_request, Request}, 
-	    #state{profile_name = Profile, 
-		   handler_db   = HandlerDb} = State) ->
-    ?hcrv("retry or redirect request", [{request, Request}]),
+handle_cast({retry_or_redirect_request, Request}, State) ->
     case (catch handle_request(Request, State)) of
-	{ok, _, NewState} ->
+	{reply, {ok, _}, NewState} ->
 	    {noreply, NewState};
-
 	Error  ->
-	    ReqId = Request#request.id, 
-	    error_report(Profile, 
-			 "failed to retry or redirect request ~p"
-			 "~n   Error: ~p", [ReqId, Error]),
-	    case ets:lookup(HandlerDb, ReqId) of
-		[#handler_info{from = From}] ->	
-		    Error2 = httpc_response:error(Request, Error), 
-		    httpc_response:send(From, Error2),
-		    ok;
-		
-		_ ->
-		    ok
-	    end,
-	    {noreply, State}
+	    httpc_response:error(Request, Error),
+	    {stop, Error, State}
     end;
 
 handle_cast({request_canceled, RequestId}, State) ->
@@ -478,13 +454,17 @@ handle_cast({request_canceled, RequestId}, State) ->
     case lists:keysearch(RequestId, 1, State#state.cancel) of
 	{value, Entry = {RequestId, _, From}} ->
 	    ?hcrt("found in cancel", [{from, From}]),
-	    gen_server:reply(From, ok),
 	    {noreply, 
 	     State#state{cancel = lists:delete(Entry, State#state.cancel)}};
 	Else ->
 	    ?hcrt("not found in cancel", [{else, Else}]),
 	   {noreply, State}
     end;
+
+handle_cast({request_done, RequestId}, State) ->
+    ?hcrv("request done", [{request_id, RequestId}]),
+    ets:delete(State#state.handler_db, RequestId),
+    {noreply, State};
 
 handle_cast({set_options, Options}, State = #state{options = OldOptions}) ->
     ?hcrv("set options", [{options, Options}, {old_options, OldOptions}]),
@@ -530,8 +510,6 @@ handle_cast(Msg, #state{profile_name = ProfileName} = State) ->
 		 "recived unknown message"
 		 "~n   Msg: ~p", [Msg]),
     {noreply, State}.
-
-
 	    
 %%--------------------------------------------------------------------
 %% Function: handle_info(Info, State) -> {noreply, State} |
@@ -539,37 +517,17 @@ handle_cast(Msg, #state{profile_name = ProfileName} = State) ->
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% Description: Handling all non call/cast messages
 %%---------------------------------------------------------
-
-handle_info({started, StarterPid, ReqId, HandlerPid}, State) ->
-    handle_started(StarterPid, ReqId, HandlerPid, State),
+handle_info({'EXIT', _, _}, State) ->
+    %% Handled in DOWN
     {noreply, State};
-
-handle_info({connect_and_send, StarterPid, ReqId, HandlerPid, Res}, State) ->
-    handle_connect_and_send(StarterPid, ReqId, HandlerPid, Res, State),
-    {noreply, State};
-
-handle_info({failed_starting_handler, StarterPid, ReqId, Res}, State) ->
-    handle_failed_starting_handler(StarterPid, ReqId, Res, State),
-    {noreply, State};
-
-handle_info({'EXIT', Pid, Reason}, #state{handler_db = HandlerDb} = State) ->
-    maybe_handle_terminating_starter(Pid, Reason, HandlerDb), 
-    {noreply, State};
-
 handle_info({'DOWN', _, _, Pid, _}, State) ->
-    
-    %% 
-    %% Check what happens to waiting requests! Chall we not send a reply?
-    %% 
-
-    Pattern = #handler_info{handler = Pid, _ = '_'}, 
-    ets:match_delete(State#state.handler_db, Pattern),
+    ets:match_delete(State#state.handler_db, {'_', Pid, '_'}),
 
     %% If there where any canceled request, handled by the
     %% the process that now has terminated, the
     %% cancelation can be viewed as sucessfull!
-    NewCanceledList = 
-	lists:foldl(fun({_, HandlerPid, From} = Entry, Acc)  ->
+    NewCanceldList =
+	lists:foldl(fun(Entry = {_, HandlerPid, From}, Acc)  ->
 			    case HandlerPid of
 				Pid ->
 				    gen_server:reply(From, ok),
@@ -578,14 +536,12 @@ handle_info({'DOWN', _, _, Pid, _}, State) ->
 				    Acc
 			    end 
 		    end, State#state.cancel, State#state.cancel),
-    {noreply, State#state{cancel = NewCanceledList}};    
-
-handle_info(Info, #state{profile_name = ProfileName} = State) ->
-    error_report(ProfileName, 
-		 "received unknown info"
-		 "~n   Info: ~p", [Info]),
+    {noreply, State#state{cancel = NewCanceldList}};
+handle_info(Info, State) ->
+    Report = io_lib:format("Unknown message in "
+			   "httpc_manager:handle_info ~p~n", [Info]),
+    error_logger:error_report(Report),
     {noreply, State}. 
-
 
 %%--------------------------------------------------------------------
 %% Function: terminate(Reason, State) -> _  (ignored by gen_server)
@@ -631,239 +587,108 @@ get_handler_info(Tab) ->
 		Acc
 	end,
     Handlers2 = lists:foldl(F, [], Handlers1),
-    Handlers3 = [{Pid, State, httpc_handler:info(Pid)} || 
+    Handlers3 = [{Pid, State, 
+		  case (catch httpc_handler:info(Pid)) of
+		      {'EXIT', _} -> 
+			  %% Why would this crash? 
+			  %% Only if the process has died, but we don't 
+			  %% know about it?
+			  [];
+		      Else ->
+			  Else
+		  end} || 
 		    {Pid, State} <- Handlers2],
     Handlers3.
 
-
-%% 
-%% The request handler process is started asynchronously by a 
-%% "starter process". When the handler has sucessfully been started,
-%% this message (started) is sent.
-%% 
-
-handle_started(StarterPid, ReqId, HandlerPid, 
-			#state{profile_name = Profile, 
-			       handler_db   = HandlerDb}) ->
-    case ets:lookup(HandlerDb, ReqId) of
-	[#handler_info{state = initiating} = HandlerInfo] ->
-	    ?hcri("received started ack for initiating handler", []),
-	    HandlerInfo2 = HandlerInfo#handler_info{handler = HandlerPid,
-						    state   = started}, 
-	    ets:insert(HandlerDb, HandlerInfo2),
-	    ok;
-
-	[#handler_info{state = State}] ->
-	    error_report(Profile, 
-			 "unexpected (started) message for handler (~p) in state "
-			 "~p regarding request ~p - ignoring", [HandlerPid, State, ReqId]),
-	    ?hcri("received unexpected started message", [{state, State}]),
-	    ok;
-
-	[] ->
-	    error_report(Profile, 
-			 "unknown handler ~p (~p) started for request ~w - canceling",
-			 [HandlerPid, StarterPid, ReqId]),
-	    httpc_handler:cancel(ReqId, HandlerPid)
-    end.
-
-
-%% 
-%% The request handler process is started asynchronously by a 
-%% "starter process". When that process terminates it sends 
-%% one of two messages. These ara handled by the two functions
-%% below.
-%% 
-
-handle_connect_and_send(_StarterPid, ReqId, HandlerPid, Result, 
-			#state{profile_name = Profile, 
-			       handler_db   = HandlerDb}) ->
-    case ets:lookup(HandlerDb, ReqId) of
-	[#handler_info{state = started} = HandlerInfo] when Result =:= ok ->
-	    ?hcri("received connect-and-send ack for started handler", []),
-	    HandlerInfo2 = HandlerInfo#handler_info{starter = undefined, 
-						    handler = HandlerPid,
-						    state   = operational}, 
-	    ets:insert(HandlerDb, HandlerInfo2),
-	    ok;
-
-	[#handler_info{state = canceled} = HandlerInfo] when Result =:= ok ->
-	    ?hcri("received connect-and-send ack for canceled handler", []),
-	    httpc_handler:cancel(ReqId, HandlerPid),
-	    HandlerInfo2 = HandlerInfo#handler_info{starter = undefined, 
-						    handler = HandlerPid}, 
-	    ets:insert(HandlerDb, HandlerInfo2),
-	    ok;
-
-	[#handler_info{state = State}] when Result =/= ok ->
-	    error_report(Profile, 
-			 "handler (~p, ~w) failed to connect and/or "
-			 "send request ~p"
-			 "~n   Result: ~p", 
-			 [HandlerPid, State, ReqId, Result]),
-	    ?hcri("received connect-and-send error", 
-		  [{result, Result}, {state, State}]),
-	    %% We don't need to send a response to the original caller
-	    %% because the handler already sent one in its terminate
-	    %% function.
-	    ets:delete(HandlerDb, ReqId), 
-	    ok;
-
-	[] ->
-	    error_report(Profile, 
-			 "handler (~p) successfully started "
-			 "for unknown request ~p => canceling",
-			 [HandlerPid, ReqId]),
-	    httpc_handler:cancel(ReqId, HandlerPid)
-    end.
-
-
-handle_failed_starting_handler(_StarterPid, ReqId, Error, 
-			       #state{profile_name = Profile, 
-				      handler_db = HandlerDb}) ->
-    case ets:lookup(HandlerDb, ReqId) of
-	[#handler_info{state = canceled}] ->
-	    error_report(Profile, 
-			 "failed starting handler for request ~p"
-			 "~n   Error: ~p", [ReqId, Error]),
-	    request_canceled(Profile, ReqId), % Fake signal from handler
-	    ets:delete(HandlerDb, ReqId), 
-	    ok;
-
-	[#handler_info{from = From}] ->
-	    error_report(Profile, 
-			 "failed starting handler for request ~p"
-			 "~n   Error: ~p", [ReqId, Error]),
-	    Reason2 = 
-		case Error of
-		    {error, Reason} ->
-			{failed_connecting, Reason};
-		    _ ->
-			{failed_connecting, Error}
-		end,
-	    DummyReq = #request{id = ReqId}, 
-	    httpc_response:send(From, httpc_response:error(DummyReq, Reason2)),
-	    ets:delete(HandlerDb, ReqId), 
-	    ok;
-
-	[] ->
-	    error_report(Profile, 
-			 "failed starting handler for unknown request ~p"
-			 "~n   Error: ~p", [ReqId, Error]),
-	    ok
-    end.
-
-
-maybe_handle_terminating_starter(MeybeStarterPid, Reason, HandlerDb) ->
-    Pattern = #handler_info{starter = MeybeStarterPid, _ = '_'}, 
-    case ets:match_object(HandlerDb, Pattern) of
-	[#handler_info{id = ReqId, from = From, state = initiating}] ->
-	    %% The starter process crashed before it could start the 
-	    %% the handler process, therefor we need to answer the 
-	    %% original caller.
-	    ?hcri("starter process crashed bfore starting handler", 
-		  [{starter, MeybeStarterPid}, {reason, Reason}]),
-	    Reason2 = 
-		case Reason of
-		    {error, Error} ->
-			{failed_connecting, Error};
-		    _ ->
-			{failed_connecting, Reason}
-		end,
-	    DummyReq = #request{id = ReqId}, 
-	    httpc_response:send(From, httpc_response:error(DummyReq, Reason2)),
-	    ets:delete(HandlerDb, ReqId),
-	    ok;
-
-	[#handler_info{state = State} = HandlerInfo] ->
-	    %% The starter process crashed after the handler was started. 
-	    %% The handler will answer to the original caller.
-	    ?hcri("starter process crashed after starting handler", 
-		  [{starter, MeybeStarterPid}, {reason, Reason}, {state, State}]),
-	    HandlerInfo2 = HandlerInfo#handler_info{starter = undefined}, 
-	    ets:insert(HandlerDb, HandlerInfo2),
-	    ok;
-
-	_ ->
-	    ok
-    end.
-
-
-%% -----
-%% Act as an HTTP/0.9 client that does not know anything
-%% about persistent connections
 handle_request(#request{settings = 
-			#http_options{version = "HTTP/0.9"}} = Request0, 
+			#http_options{version = "HTTP/0.9"}} = Request,
 	       State) ->
-    Request1 = handle_cookies(generate_request_id(Request0), State),
-    Hdrs0    = Request1#request.headers, 
-    Hdrs1    = Hdrs0#http_request_h{connection = undefined},
-    Request2 = Request1#request{headers = Hdrs1}, 
-    create_handler_starter(Request2, State),
-    {ok, Request2#request.id, State};
+    %% Act as an HTTP/0.9 client that does not know anything
+    %% about persistent connections
 
-%% -----
-%% Act as an HTTP/1.0 client that does not 
-%% use persistent connections
+    NewRequest = handle_cookies(generate_request_id(Request), State),
+    NewHeaders =
+	(NewRequest#request.headers)#http_request_h{connection
+						    = undefined},
+    start_handler(NewRequest#request{headers = NewHeaders}, State),
+    {reply, {ok, NewRequest#request.id}, State};
+
 handle_request(#request{settings = 
-			#http_options{version = "HTTP/1.0"}} = Request0, 
+			#http_options{version = "HTTP/1.0"}} = Request,
 	       State) ->
-    Request1 = handle_cookies(generate_request_id(Request0), State),
-    Hdrs0    = Request1#request.headers, 
-    Hdrs1    = Hdrs0#http_request_h{connection = "close"},
-    Request2 = Request1#request{headers = Hdrs1}, 
-    create_handler_starter(Request2, State),
-    {ok, Request2#request.id, State};
+    %% Act as an HTTP/1.0 client that does not
+    %% use persistent connections
 
+    NewRequest = handle_cookies(generate_request_id(Request), State),
+    NewHeaders =
+	(NewRequest#request.headers)#http_request_h{connection
+						    = "close"},
+    start_handler(NewRequest#request{headers = NewHeaders}, State),
+    {reply, {ok, NewRequest#request.id}, State};
 
-%% -----
-handle_request(#request{method  = Method,
-			address = Address,
-			scheme  = Scheme} = Request0, 
-	       #state{options = Opts} = State) ->
-    Request1    = handle_cookies(generate_request_id(Request0), State),
-    SessionType = session_type(Opts),
-    case select_session(Method, Address, Scheme, SessionType, State) of
+handle_request(Request, State = #state{options = Options}) ->
+
+    NewRequest = handle_cookies(generate_request_id(Request), State),
+    SessionType = session_type(Options),
+    case select_session(Request#request.method,
+			Request#request.address,
+			Request#request.scheme, SessionType, State) of
 	{ok, HandlerPid} ->
-	    pipeline_or_keep_alive(Request1, HandlerPid, State);
+	    pipeline_or_keep_alive(NewRequest, HandlerPid, State);
 	no_connection ->
-	    create_handler_starter(Request1, State);
-	{no_session, OpenSessions} 
-	when OpenSessions < Opts#options.max_sessions ->
-	    create_handler_starter(Request1, State);
+	    start_handler(NewRequest, State);
+	{no_session,  OpenSessions} when OpenSessions
+	< Options#options.max_sessions ->
+	    start_handler(NewRequest, State);
 	{no_session, _} ->
 	    %% Do not start any more persistent connections
 	    %% towards this server.
-	    Hdrs0    = Request1#request.headers, 
-	    Hdrs1    = Hdrs0#http_request_h{connection = "close"},
-	    Request2 = Request1#request{headers = Hdrs1}, 
-	    create_handler_starter(Request2, State)
+	    NewHeaders =
+		(NewRequest#request.headers)#http_request_h{connection
+							    = "close"},
+	    start_handler(NewRequest#request{headers = NewHeaders}, State)
     end,
-    {ok, Request1#request.id, State}.
+    {reply, {ok, NewRequest#request.id}, State}.
+
+
+start_handler(Request, State) ->
+    {ok, Pid} =
+	case is_inets_manager() of
+	    true ->
+		httpc_handler_sup:start_child([whereis(httpc_handler_sup),
+					       Request, State#state.options,
+					       State#state.profile_name]);
+	    false ->
+		httpc_handler:start_link(self(), Request, State#state.options,
+					 State#state.profile_name)
+	end,
+    ets:insert(State#state.handler_db, {Request#request.id,
+					Pid, Request#request.from}),
+    erlang:monitor(process, Pid).
 
 
 select_session(Method, HostPort, Scheme, SessionType, 
 	       #state{options = #options{max_pipeline_length   = MaxPipe,
 					 max_keep_alive_length = MaxKeepAlive},
 		      session_db = SessionDb}) ->
-    ?hcrd("select session", [{session_type,          SessionType}, 
-			     {max_pipeline_length,   MaxPipe}, 
+    ?hcrd("select session", [{session_type,          SessionType},
+			     {max_pipeline_length,   MaxPipe},
 			     {max_keep_alive_length, MaxKeepAlive}]),
     case httpc_request:is_idempotent(Method) orelse 
 	(SessionType =:= keep_alive) of
 	true ->
 	    %% Look for handlers connecting to this host (HostPort)
-	    %% tcp_session with record name field (tcp_session) and 
+	    %% session with record name field (session) and 
 	    %% socket fields ignored. The fields id (part of: HostPort), 
 	    %% client_close, scheme and type specified. 
 	    %% The fields id (part of: HandlerPid) and queue_length
 	    %% specified.
-	    Pattern = #tcp_session{id           = {HostPort, '$1'},
-				   client_close = false,
-				   scheme       = Scheme,
-				   socket       = '_',
-				   queue_length = '$2',
-				   type         = SessionType},
+	    Pattern = #session{id           = {HostPort, '$1'},
+			       client_close = false,
+			       scheme       = Scheme,
+			       queue_length = '$2',
+			       type         = SessionType,
+			       _            = '_'},
 	    %% {'_', {HostPort, '$1'}, false, Scheme, '_', '$2', SessionTyp}, 
 	    Candidates = ets:match(SessionDb, Pattern), 
 	    ?hcrd("select session", [{host_port,  HostPort}, 
@@ -893,92 +718,17 @@ select_session(Candidates, Max) ->
 	    ?hcrd("select session - found one", [{handler, HandlerPid}]),
 	    {ok, HandlerPid}
     end.
-	    
-pipeline_or_keep_alive(#request{id = Id} = Request, HandlerPid, State) ->
-    ?hcrd("pipeline of keep-alive", [{id, Id}, {handler, HandlerPid}]),
+
+pipeline_or_keep_alive(Request, HandlerPid, State) ->
     case (catch httpc_handler:send(Request, HandlerPid)) of
 	ok ->
-	    ?hcrd("pipeline or keep-alive - successfully sent", []),
-	    Entry = #handler_info{id      = Id,
-				  handler = HandlerPid,
-				  state   = operational},
-	    ets:insert(State#state.handler_db, Entry); 
-		
-	_  -> %% timeout pipelining failed 
-	    ?hcrd("pipeline or keep-alive - failed sending -> "
-		  "start a new handler", []),
-	    create_handler_starter(Request, State)
+	    ets:insert(State#state.handler_db, {Request#request.id,
+						HandlerPid,
+						Request#request.from});
+	_  -> %timeout pipelining failed
+	    start_handler(Request, State)
     end.
 
-
-create_handler_starter(#request{socket_opts = SocketOpts} = Request, 
-		       #state{options = Options} = State) 
-  when is_list(SocketOpts) ->
-    %% The user provided us with (override) socket options
-    ?hcrt("create handler starter", [{socket_opts, SocketOpts}, {options, Options}]),
-    Options2 = Options#options{socket_opts = SocketOpts}, 
-    create_handler_starter(Request#request{socket_opts = undefined}, 
-			   State#state{options = Options2});
-
-create_handler_starter(#request{id          = Id, 
-				from        = From} = Request, 
-		       #state{profile_name = ProfileName,
-			      options      = Options,
-			      handler_db   = HandlerDb} = _State) ->
-    ?hcrv("create handler starter", [{id, Id}, {profile, ProfileName}]),
-    IsInetsManager = is_inets_manager(), 
-    ManagerPid = self(), 
-    StarterFun = 
-	fun() ->
-		?hcrd("handler starter - start", 
-		      [{id,            Id}, 
-		       {profile,       ProfileName}, 
-		       {inets_manager, IsInetsManager}]),
-		Result1 = 
-		    case IsInetsManager of
-			true ->
-			    httpc_handler_sup:start_child(Options, 
-							  ProfileName);
-			false ->
-			    httpc_handler:start_link(Options, 
-						     ProfileName)
-		    end,
-		?hcrd("handler starter - maybe connect and send", 
-		      [{id, Id}, {profile, ProfileName}, {result, Result1}]),
-		case Result1 of
-		    {ok, HandlerPid} ->
-			StartedMessage = 
-			    {started, self(), Id, HandlerPid}, 
-			ManagerPid ! StartedMessage, 
-			Result2 = httpc_handler:connect_and_send(Request, 
-								 HandlerPid),
-			?hcrd("handler starter - connected and sent", 
-			      [{id, Id}, {profile, ProfileName}, 
-			       {handler, HandlerPid}, {result, Result2}]),
-			ConnAndSendMessage = 
-			    {connect_and_send, 
-			     self(), Id, HandlerPid, Result2}, 
-			ManagerPid ! ConnAndSendMessage;
-		     {error, Reason} ->
-			StartFailureMessage = 
-			    {failed_starting_handler, self(), Id, Reason}, 
-			ManagerPid ! StartFailureMessage;
-		     _ ->
-			StartFailureMessage = 
-			    {failed_starting_handler, self(), Id, Result1}, 
-			ManagerPid ! StartFailureMessage
-		end
-	end,
-    Starter = erlang:spawn_link(StarterFun),
-    ?hcrd("create handler starter - started", [{id, Id}, {starter, Starter}]),
-    Entry = #handler_info{id      = Id,
-			  starter = Starter, 
-			  from    = From, 
-			  state   = initiating},
-    ets:insert(HandlerDb, Entry),
-    ok.
-		
-	
 is_inets_manager() ->
     case get('$ancestors') of
 	[httpc_profile_sup | _] ->
@@ -1020,8 +770,6 @@ do_store_cookies([Cookie | Cookies], #state{cookie_db = CookieDb} = State) ->
     ok = httpc_cookie:insert(CookieDb, Cookie),
     do_store_cookies(Cookies, State).
 
-
-
 session_db_name(ProfileName) ->
     make_db_name(ProfileName, "__session_db").
 
@@ -1047,7 +795,6 @@ call(ProfileName, Msg, Timeout) ->
 
 cast(ProfileName, Msg) ->
    gen_server:cast(ProfileName, Msg).
-
 
 
 get_proxy(Opts, #options{proxy = Default}) ->
@@ -1108,20 +855,6 @@ handle_verbose(trace) ->
 handle_verbose(_) ->
     ok.  
 
-
 error_report(Profile, F, A) ->
     Report = io_lib:format("HTTPC-MANAGER<~p> " ++ F ++ "~n", [Profile | A]), 
     error_logger:error_report(Report).
-
-
-%% d(F) ->
-%%    d(F, []).
-
-%% d(F, A) -> 
-%%     d(get(dbg), F, A).
-
-%% d(true, F, A) ->
-%%     io:format(user, "~w:~w:" ++ F ++ "~n", [self(), ?MODULE | A]);
-%% d(_, _, _) ->
-%%     ok.
-

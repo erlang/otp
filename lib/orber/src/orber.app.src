@@ -101,7 +101,7 @@
 	        orber_iiop_insup, orber_init, orber_reqno,
 	        orber_objkeyserver, orber_iiop_socketsup, 
                 orber_iiop_pm, orber_env]},
-  {applications, [stdlib, kernel]},
+  {applications, [stdlib, kernel, mnesia]},
   {env, []},
   {mod, {orber, []}}
 ]}.

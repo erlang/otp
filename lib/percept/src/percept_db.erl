@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -33,7 +33,7 @@
 	]).
 
 -include("percept.hrl").
-
+-define(STOP_TIMEOUT, 1000).
 %%==========================================================================
 %%
 %% 		Type definitions 
@@ -77,16 +77,31 @@
 start() ->
     case erlang:whereis(percept_db) of
     	undefined ->
-	    Pid = spawn( fun() -> init_percept_db() end),
-	    erlang:register(percept_db, Pid),
-	    {started, Pid};
+	    {started, do_start()};
 	PerceptDB ->
-	    erlang:unregister(percept_db),
-	    PerceptDB ! {action, stop},
-	    Pid = spawn( fun() -> init_percept_db() end),
-	    erlang:register(percept_db, Pid),
-	    {restarted, Pid}
+	    {restarted, restart(PerceptDB)}
     end.
+
+%% @spec restart(pid()) -> pid()
+%% @private
+%% @doc restarts the percept database.
+
+-spec restart(pid())-> pid().
+
+restart(PerceptDB)->
+        stop_sync(PerceptDB),
+        do_start().
+
+%% @spec do_start() -> pid()
+%% @private
+%% @doc starts the percept database.
+
+-spec do_start()-> pid().
+
+do_start()->
+    Pid = spawn( fun() -> init_percept_db() end),
+    erlang:register(percept_db, Pid),
+    Pid.
 
 %% @spec stop() -> not_started | {stopped, Pid}
 %%	Pid = pid()
@@ -101,6 +116,23 @@ stop() ->
 	Pid -> 
 	    Pid ! {action, stop},
 	    {stopped, Pid}
+    end.
+
+%% @spec stop_sync(pid()) -> true
+%% @private
+%% @doc Stops the percept database, with a synchronous call.
+
+-spec stop_sync(pid())-> true.
+
+stop_sync(Pid)->
+    MonitorRef = erlang:monitor(process, Pid),
+    stop(),
+    receive
+        {'DOWN', MonitorRef, _Type, Pid, _Info}->
+            true
+    after ?STOP_TIMEOUT->
+            erlang:demonitor(MonitorRef, [flush]),
+            exit(Pid, kill)
     end.
 
 %% @spec insert(tuple()) -> ok
@@ -135,14 +167,14 @@ insert(Trace) ->
 
 select(Query) -> 
     percept_db ! {select, self(), Query},
-    receive Match -> Match end.
+    receive {result, Match} -> Match end.
 
 %% @spec select(atom(), list()) -> Result
 %% @equiv select({Table,Options}) 
 
 select(Table, Options) -> 
     percept_db ! {select, self(), {Table, Options}},
-    receive Match -> Match end.
+    receive {result, Match} -> Match end.
 
 %% @spec consolidate() -> Result
 %% @doc Checks timestamp and state-flow inconsistencies in the
@@ -182,7 +214,7 @@ loop_percept_db() ->
 	    insert_trace(clean_trace(Trace)),
 	    loop_percept_db();
 	{select, Pid, Query} ->
-	    Pid ! select_query(Query),
+	    Pid ! {result, select_query(Query)},
 	    loop_percept_db();
 	{action, stop} -> 
 	    stopped;
@@ -191,7 +223,7 @@ loop_percept_db() ->
 	    loop_percept_db();
         {operate, Pid, {Table, {Fun, Start}}} ->
 	    Result = ets:foldl(Fun, Start, Table),
-	    Pid ! Result,
+	    Pid ! {result, Result},
 	    loop_percept_db();
 	Unhandled -> 
 	    io:format("loop_percept_db, unhandled query: ~p~n", [Unhandled]),

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -21,12 +21,12 @@
 %%% Purpose: Test server support functions.
 %%%-------------------------------------------------------------------
 -module(test_server_sup).
--export([timetrap/2, timetrap_cancel/1, capture_get/1, messages_get/1,
+-export([timetrap/2, timetrap/3, timetrap_cancel/1, capture_get/1, messages_get/1,
 	 timecall/3, call_crash/5, app_test/2, check_new_crash_dumps/0,
 	 cleanup_crash_dumps/0, crash_dump_dir/0, tar_crash_dumps/0,
 	 get_username/0, get_os_family/0, 
 	 hostatom/0, hostatom/1, hoststr/0, hoststr/1,
-	 framework_call/2,framework_call/3,
+	 framework_call/2,framework_call/3,framework_call/4,
 	 format_loc/1, package_str/1, package_atom/1,
 	 call_trace/1]).
 -include("test_server_internal.hrl").
@@ -34,28 +34,36 @@
 -define(src_listing_ext, ".src.html").
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% timetrap(Timeout,Pid) -> Handle
+%% timetrap(Timeout,Scale,Pid) -> Handle
 %% Handle = term()
 %%
 %% Creates a time trap, that will kill the given process if the 
 %% trap is not cancelled with timetrap_cancel/1, within Timeout
 %% milliseconds.
+%% Scale says if the time should be scaled up to compensate for
+%% delays during the test (e.g. if cover is running).
 
 timetrap(Timeout0, Pid) ->
+    timetrap(Timeout0, true, Pid).
+
+timetrap(Timeout0, Scale, Pid) ->
     process_flag(priority, max),
-    Timeout = test_server:timetrap_scale_factor() * Timeout0,
+    Timeout = if not Scale -> Timeout0;
+		 true -> test_server:timetrap_scale_factor() * Timeout0
+	      end,
+    TruncTO = trunc(Timeout),
     receive
-    after trunc(Timeout) ->
-	    Line = test_server:get_loc(Pid),
+    after TruncTO ->
+	    MFLs = test_server:get_loc(Pid),
 	    Mon = erlang:monitor(process, Pid),
 	    Trap = 
 		case get(test_server_init_or_end_conf) of
 		    undefined ->
-			{timetrap_timeout,trunc(Timeout),Line};
+			{timetrap_timeout,TruncTO,MFLs};
 		    InitOrEnd ->
-			{timetrap_timeout,trunc(Timeout),Line,InitOrEnd}
+			{timetrap_timeout,TruncTO,MFLs,InitOrEnd}
 		end,
-	    exit(Pid,Trap),
+	    exit(Pid, Trap),
 	    receive
 		{'DOWN', Mon, process, Pid, _} ->
 		    ok
@@ -76,12 +84,12 @@ timetrap(Timeout0, Pid) ->
 %% Handle = term()
 %%
 %% Cancels a time trap.
-
 timetrap_cancel(Handle) ->
     unlink(Handle),
     MonRef = erlang:monitor(process, Handle),
     exit(Handle, kill),
     receive {'DOWN',MonRef,_,_,_} -> ok after 2000 -> ok end.
+
 
 capture_get(Msgs) ->
     receive
@@ -487,7 +495,8 @@ framework_call(Func,Args) ->
 framework_call(Func,Args,DefaultReturn) ->
     CB = os:getenv("TEST_SERVER_FRAMEWORK"),
     framework_call(CB,Func,Args,DefaultReturn).
-framework_call(false,_Func,_Args,DefaultReturn) ->
+framework_call(FW,_Func,_Args,DefaultReturn)  
+  when FW =:= false; FW =:= "undefined" ->
     DefaultReturn;
 framework_call(Callback,Func,Args,DefaultReturn) ->
     Mod = list_to_atom(Callback),
@@ -497,6 +506,7 @@ framework_call(Callback,Func,Args,DefaultReturn) ->
     end,
     case erlang:function_exported(Mod,Func,length(Args)) of
 	true ->
+	    put(test_server_loc, {Mod,Func,framework}),
 	    EH = fun(Reason) -> exit({fw_error,{Mod,Func,Reason}}) end,
 	    try apply(Mod,Func,Args) of
 		Result ->
@@ -531,8 +541,9 @@ format_loc({Mod,Func}) when is_atom(Func) ->
 format_loc({Mod,Line}) when is_integer(Line) -> 
     %% ?line macro is used
     ModStr = package_str(Mod),
-    case lists:reverse(ModStr) of
-	[$E,$T,$I,$U,$S,$_|_]  ->
+    case {lists:member(no_src, get(test_server_logopts)),
+	  lists:reverse(ModStr)} of
+	{false,[$E,$T,$I,$U,$S,$_|_]}  ->
 	    io_lib:format("{~s,<a href=\"~s~s#~w\">~w</a>}",
 			  [ModStr,downcase(ModStr),?src_listing_ext,
 			   round_to_10(Line),Line]);
@@ -548,8 +559,9 @@ format_loc1([{Mod,Func,Line}|Rest]) ->
     ["              ",format_loc1({Mod,Func,Line}),",\n"|format_loc1(Rest)];
 format_loc1({Mod,Func,Line}) ->
     ModStr = package_str(Mod),
-    case lists:reverse(ModStr) of
-	[$E,$T,$I,$U,$S,$_|_]  ->
+    case {lists:member(no_src, get(test_server_logopts)),
+	  lists:reverse(ModStr)} of
+	{false,[$E,$T,$I,$U,$S,$_|_]}  ->
 	    io_lib:format("{~s,~w,<a href=\"~s~s#~w\">~w</a>}",
 			  [ModStr,Func,downcase(ModStr),?src_listing_ext,
 			   round_to_10(Line),Line]);

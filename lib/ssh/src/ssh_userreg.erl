@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -25,11 +25,18 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/0, register_user/2, lookup_user/1]).
+-export([start_link/0,
+	 register_user/2,
+	 lookup_user/1,
+	 delete_user/1]).
 
 %% gen_server callbacks
--export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-	 terminate/2, code_change/3]).
+-export([init/1,
+	 handle_call/3,
+	 handle_cast/2,
+	 handle_info/2,
+	 terminate/2,
+	 code_change/3]).
 
 -record(state, {user_db = []}).
 
@@ -45,6 +52,9 @@ start_link() ->
 
 register_user(User, Cm) ->
     gen_server:cast(?MODULE, {register, {User, Cm}}).
+
+delete_user(Cm) ->
+    gen_server:cast(?MODULE, {delete, Cm}).
 
 lookup_user(Cm) ->
     gen_server:call(?MODULE, {get_user, Cm}, infinity).
@@ -82,9 +92,10 @@ handle_call({get_user, Cm}, _From, #state{user_db = Db} = State) ->
 %%                                      {stop, Reason, State}
 %% Description: Handling cast messages
 %%--------------------------------------------------------------------
-handle_cast({register, UserCm}, State0) ->
-    State = insert(UserCm, State0),
-    {noreply, State}.
+handle_cast({register, UserCm}, State) ->
+    {noreply, insert(UserCm, State)};
+handle_cast({delete, UserCm}, State) ->
+    {noreply, delete(UserCm, State)}.
 
 %%--------------------------------------------------------------------
 %% Function: handle_info(Info, State) -> {noreply, State} |
@@ -117,6 +128,9 @@ code_change(_OldVsn, State, _Extra) ->
 %%--------------------------------------------------------------------
 insert({User, Cm}, #state{user_db = Db} = State) ->
     State#state{user_db = [{User, Cm} | Db]}.
+
+delete(Cm, #state{user_db = Db} = State) ->
+    State#state{user_db = lists:keydelete(Cm, 2, Db)}.
 
 lookup(_, []) ->
     undefined;

@@ -111,6 +111,10 @@ GLOSSARY  = $(HTMLDIR)/glossary.html
 GLOSSARY_SRC = $(ERL_TOP)/system/internal_tools/doctools/src/glossary.erl
 GLOSSARY_SCRIPT = $(EBIN)/glossary.$(EMULATOR)
 
+TEMPLATES = \
+	templates/index.html.src \
+	templates/applications.html.src
+
 #--------------------------------------------------------------------------
 
 $(INDEX_SCRIPT): $(INDEX_SRC)
@@ -119,8 +123,14 @@ $(INDEX_SCRIPT): $(INDEX_SRC)
 # We don't list toc_*.html as targets because we don't know
 $(HTMLDIR)/index.html + $(HTMLDIR)/applications.html: $(INDEX_SCRIPT)
 	echo "Generating index $@"
-	$(ERL) -noshell -pa $(EBIN) -s erl_html_tools top_index $(ERL_TOP) \
-	$(HTMLDIR) $(SYSTEM_VSN) -s erlang halt
+# Check if we are building the index from source or an installed release
+	if test "$$RELEASE_ROOT" = "" ; then \
+		$(ERL) -noshell -pa $(EBIN) -s erl_html_tools top_index src $(ERL_TOP) \
+		$(HTMLDIR) $(SYSTEM_VSN) -s erlang halt ;\
+	else \
+		$(ERL) -noshell -pa $(EBIN) -s erl_html_tools top_index rel $(RELEASE_ROOT) \
+		$(HTMLDIR) $(SYSTEM_VSN) -s erlang halt ;\
+	fi
 
 
 #--------------------------------------------------------------------------
@@ -139,8 +149,15 @@ $(MAN_INDEX_SCRIPT): $(MAN_INDEX_SRC)
 	$(ERLC) -o$(EBIN) +warn_unused_vars $<
 
 $(MAN_INDEX): $(MAN_INDEX_SCRIPT)
-	$(ERL) -noshell -pa $(EBIN) -s otp_man_index gen $(ERL_TOP) $@  \
-		-s erlang halt
+# Check if we are building the index from source or an installed release
+	if test "$$RELEASE_ROOT" = "" ; then \
+		$(ERL) -noshell -pa $(EBIN) -s otp_man_index gen src $(ERL_TOP) $@  \
+			-s erlang halt ;\
+	else \
+		$(ERL) -noshell -pa $(EBIN) -s otp_man_index gen rel $(RELEASE_ROOT) $@  \
+			-s erlang halt ;\
+	fi
+
 
 #--------------------------------------------------------------------------
 
@@ -226,7 +243,11 @@ release_docs_spec: docs
 	$(INSTALL_DIR)  $(RELSYSDIR)/js
 	$(INSTALL_DATA)  \
 		$(JAVASCRIPT) $(RELSYSDIR)/js
-	$(INSTALL_DATA) $(INDEX_FILES) $(MAN_INDEX) $(TOP_HTML_FILES) $(RELSYSDIR) 
+	$(INSTALL_DATA) $(INDEX_FILES) $(MAN_INDEX) $(TOP_HTML_FILES) $(RELSYSDIR)
+	$(INSTALL_DIR)  $(RELSYSDIR)/docbuild
+	$(INSTALL_DATA) $(INDEX_SCRIPT) $(MAN_INDEX_SCRIPT) $(JAVASCRIPT_BUILD_SCRIPT) \
+		$(INDEX_SRC) $(MAN_INDEX_SRC) $(JAVASCRIPT_BUILD_SCRIPT_SRC) \
+		$(TEMPLATES) $(RELSYSDIR)/docbuild
 
 
 release_spec:

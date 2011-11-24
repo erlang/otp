@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -50,6 +50,8 @@
 -define(WXE_CB_START,   8).  %% Used for event-callback start
 -define(WXE_DEBUG_DRIVER,  9).    %% Set debug
 %%-define(WXE_DEBUG_PING,  10).    %% debug ping (when using debugger it's needed)
--define(WXE_BIN_INCR,   5001). %% Binary refc incr 
--define(WXE_BIN_DECR,   5002). %% Binary refc decr
+-define(WXE_BIN_INCR,    11). %% Binary refc incr 
+-define(WXE_BIN_DECR,    12). %% Binary refc decr
+-define(WXE_INIT_OPENGL, 13). %% Binary refc decr
+
 -include("gen/wxe_funcs.hrl").

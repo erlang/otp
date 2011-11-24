@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -20,29 +20,73 @@
 -module(nif_SUITE).
 
 %%-define(line_trace,true).
-%%-define(CHECK(Exp,Got), ?line check(Exp,Got,?LINE)).
--define(CHECK(Exp,Got), ?line Exp = Got).
+-define(CHECK(Exp,Got), check(Exp,Got,?LINE)).
+%%-define(CHECK(Exp,Got), ?line Exp = Got).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
--export([all/1, fin_per_testcase/2, basic/1, reload/1, upgrade/1, heap_frag/1,
-	 types/1, many_args/1, binaries/1, get_string/1, get_atom/1, api_macros/1,
-	 from_array/1, iolist_as_binary/1, resource/1, resource_takeover/1,
-	 threading/1, neg/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 init_per_testcase/2, 
+	 end_per_testcase/2, basic/1, reload/1, upgrade/1, heap_frag/1,
+	 types/1, many_args/1, binaries/1, get_string/1, get_atom/1, 
+	 api_macros/1,
+	 from_array/1, iolist_as_binary/1, resource/1, resource_binary/1, 
+	 resource_takeover/1,
+	 threading/1, send/1, send2/1, send3/1, send_threaded/1, neg/1, 
+	 is_checks/1,
+	 get_length/1, make_atom/1, make_string/1, reverse_list_test/1,
+	 otp_9668/1
+	]).
 
 -export([many_args_100/100]).
+
+
+%% -export([lib_version/0,call_history/0,hold_nif_mod_priv_data/1,nif_mod_call_history/0,
+%% 	 list_seq/1,type_test/0,tuple_2_list/1,is_identical/2,compare/2,
+%% 	 clone_bin/1,make_sub_bin/3,string_to_bin/2,atom_to_bin/2,macros/1,
+%% 	 tuple_2_list_and_tuple/1,iolist_2_bin/1,get_resource_type/1,alloc_resource/2,
+%% 	 make_resource/1,get_resource/2,release_resource/1,last_resource_dtor_call/0, suite/0,
+%% 	 make_new_resource/2,make_new_resource_binary/1,send_list_seq/2,send_new_blob/2,
+%% 	 alloc_msgenv/0,clear_msgenv/1,grow_blob/2,send_blob/2,send_blob_thread/3,
+%% 	 join_send_thread/1]).
+
+
 -define(nif_stub,nif_stub_error(?LINE)).
 
-all(suite) ->
-    [basic, reload, upgrade, heap_frag, types, many_args, binaries, get_string,
-     get_atom, api_macros, from_array, iolist_as_binary, resource,
-     resource_takeover, threading, neg].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-%%init_per_testcase(_Case, Config) ->
-%%    ?line Dog = ?t:timetrap(?t:seconds(60*60*24)),
-%%    [{watchdog, Dog}|Config].
+all() -> 
+    [basic, reload, upgrade, heap_frag, types, many_args,
+     binaries, get_string, get_atom, api_macros, from_array,
+     iolist_as_binary, resource, resource_binary,
+     resource_takeover, threading, send, send2, send3,
+     send_threaded, neg, is_checks, get_length, make_atom,
+     make_string,reverse_list_test,
+     otp_9668
+    ].
 
-fin_per_testcase(_Func, _Config) ->
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
+
+init_per_testcase(_Case, Config) ->
+%    ?line Dog = ?t:timetrap(?t:seconds(60*60*24)),
+    Config.
+
+end_per_testcase(_Func, _Config) ->
     %%Dog = ?config(watchdog, Config),
     %%?t:timetrap_cancel(Dog),
     P1 = code:purge(nif_mod),
@@ -57,7 +101,7 @@ basic(Config) when is_list(Config) ->
     ?line true = (lib_version() =/= undefined),
     ?line [{load,1,1,101},{lib_version,1,2,102}] = call_history(),
     ?line [] = call_history(),
-    ?line [?MODULE] = erlang:system_info(taints),
+    ?line true = lists:member(?MODULE, erlang:system_info(taints)),
     ok.
 
 reload(doc) -> ["Test reload callback in nif lib"];
@@ -91,7 +135,8 @@ reload(Config) when is_list(Config) ->
     ?line true = erlang:purge_module(nif_mod),
     ?line [{unload,1,3,103}] = nif_mod_call_history(),    
 
-    ?line [?MODULE, nif_mod] = erlang:system_info(taints),
+    ?line true = lists:member(?MODULE, erlang:system_info(taints)),
+    ?line true = lists:member(nif_mod, erlang:system_info(taints)),
     ?line verify_tmpmem(TmpMem),
     ok.
 
@@ -181,7 +226,8 @@ upgrade(Config) when is_list(Config) ->
     ?line true = erlang:purge_module(nif_mod),
     ?line [{unload,2,4,204}] = nif_mod_call_history(),    
 
-    ?line [?MODULE, nif_mod] = erlang:system_info(taints),    
+    ?line true = lists:member(?MODULE, erlang:system_info(taints)),
+    ?line true = lists:member(nif_mod, erlang:system_info(taints)),
     ?line verify_tmpmem(TmpMem),
     ok.
 
@@ -215,9 +261,53 @@ types(Config) when is_list(Config) ->
                   end,
                   [{},{ok},{{}},{[],{}},{1,2,3,4,5}]),
     Stuff = [[],{},0,0.0,(1 bsl 100),(fun()-> ok end),make_ref(),self()],
-    [eq_cmp(A,clone(B)) || A<-Stuff, B<-Stuff],                   
+    [eq_cmp(A,clone(B)) || A<-Stuff, B<-Stuff],
+
+    {IntSz, LongSz} = type_sizes(),
+    UintMax = (1 bsl (IntSz*8)) - 1,
+    IntMax = UintMax bsr 1,
+    IntMin = -(IntMax+1),
+    UlongMax = (1 bsl (LongSz*8)) - 1,
+    LongMax = UlongMax bsr 1,
+    LongMin = -(LongMax+1),
+    Uint64Max = (1 bsl 64) - 1,
+    Int64Max = Uint64Max bsr 1,
+    Int64Min = -(Int64Max+1),
+    Limits = [{IntMin,IntMax},{0,UintMax},{LongMin,LongMax},{0,UlongMax},{Int64Min,Int64Max},{0,Uint64Max}],
+    io:format("Limits = ~p\n", [Limits]),
+    lists:foreach(fun(I) ->
+			  R1 = echo_int(I),
+			  %%io:format("echo_int(~p) -> ~p\n", [I, R1]),
+			  R2 = my_echo_int(I, Limits),
+			  ?line R1 = R2,
+			  ?line true = (R1 =:= R2),
+			  ?line true = (R1 == R2)
+		  end, int_list()),
+
     ?line verify_tmpmem(TmpMem),
+    ?line true = (compare(-1294536544000, -1178704800000) < 0),
+    ?line true = (compare(-1178704800000, -1294536544000) > 0),
+    ?line true = (compare(-295147905179352825856, -36893488147419103232) < 0),
+    ?line true = (compare(-36893488147419103232, -295147905179352825856) > 0),
+    ?line true = (compare(-29514790517935282585612345678, -36893488147419103232) < 0),
+    ?line true = (compare(-36893488147419103232, -29514790517935282585612345678) > 0),
     ok.
+
+int_list() ->
+    Start = 1 bsl 200,
+    int_list([Start], -Start).
+int_list([N | _]=List, End) when N<End ->
+    List;
+int_list([N | _]=List, End) ->
+    int_list([N - (1 + (abs(N) div 3)) | List], End).
+    
+my_echo_int(I, Limits) ->
+    lists:map(fun({Min,Max}) ->
+		      if I < Min -> false;
+			 I > Max -> false;
+			 true -> I
+		      end
+	      end, Limits).
 
 clone(X) ->
     binary_to_term(term_to_binary(X)).
@@ -473,12 +563,51 @@ resource_new_do2(Type) ->
     {{PtrA,BinA}, {ResB,PtrB,BinB}}.
 
 resource_neg(TypeA) ->
-    TypeB = get_resource_type(1),
-    Aptr = alloc_resource(TypeA, <<"Arnold">>),
-    Bptr = alloc_resource(TypeB, <<"Bobo">>),
-    ?line {'EXIT',{badarg,_}} = (catch get_resource(TypeA, Bptr)),
-    ?line {'EXIT',{badarg,_}} = (catch get_resource(TypeB, Aptr)),
+    resource_neg_do(TypeA),
+
+    catch exit(42), % dummy exception to purge saved stacktraces from earlier exception
+    erlang:garbage_collect(),
+    ?line {_,_,2} = last_resource_dtor_call(),
     ok.
+
+resource_neg_do(TypeA) ->
+    TypeB = get_resource_type(1),
+    ResA = make_new_resource(TypeA, <<"Arnold">>),
+    ResB= make_new_resource(TypeB, <<"Bobo">>),
+    ?line {'EXIT',{badarg,_}} = (catch get_resource(TypeA, ResB)),
+    ?line {'EXIT',{badarg,_}} = (catch get_resource(TypeB, ResA)),
+    ok.
+
+resource_binary(doc) -> ["Test enif_make_resource_binary"];
+resource_binary(suite) -> [];
+resource_binary(Config) when is_list(Config) ->
+    ?line ensure_lib_loaded(Config, 1),
+    ?line {Ptr,Bin} = resource_binary_do(),
+    erlang:garbage_collect(),
+    Last = last_resource_dtor_call(),
+    ?CHECK({Ptr,Bin,1}, Last),
+    ok.
+
+resource_binary_do() ->
+    Bin = <<"Hej Hopp i lingonskogen">>,
+    ?line {Ptr,ResBin1} = make_new_resource_binary(Bin),
+    ?line ResBin1 = Bin,          
+    ?line ResInfo = {Ptr,_} = get_resource(binary_resource_type,ResBin1),
+
+    Papa = self(),
+    Forwarder = spawn_link(fun() -> forwarder(Papa) end),
+    io:format("sending to forwarder pid=~p\n",[Forwarder]),  
+    Forwarder ! ResBin1,
+    ResBin2 = receive_any(),
+    ?line ResBin2 = ResBin1,
+    ?line ResInfo = get_resource(binary_resource_type,ResBin2),
+    Forwarder ! terminate,
+    ?line {Forwarder, 1} = receive_any(),
+    erlang:garbage_collect(),
+    ?line ResInfo = get_resource(binary_resource_type,ResBin1),
+    ?line ResInfo = get_resource(binary_resource_type,ResBin2),
+    ResInfo.
+
     
 -define(RT_CREATE,1).
 -define(RT_TAKEOVER,2).
@@ -672,7 +801,8 @@ resource_takeover(Config) when is_list(Config) ->
     ?line ok = forget_resource(AN4),
     ?line [] = nif_mod_call_history(),
 
-    ?line [?MODULE, nif_mod] = erlang:system_info(taints),
+    ?line true = lists:member(?MODULE, erlang:system_info(taints)),
+    ?line true = lists:member(nif_mod, erlang:system_info(taints)),
     ?line verify_tmpmem(TmpMem),    
     ok.
 
@@ -743,7 +873,282 @@ threading(Config) when is_list(Config) ->
 
     ?line ok = tester:load_nif_lib(Config, "tsd"),
     ?line ok = tester:run().
+
+send(doc) -> ["Test NIF message sending"];
+send(Config) when is_list(Config) ->    
+    ensure_lib_loaded(Config),
+
+    N = 1500,
+    List = lists:seq(1,N),
+    ?line {ok,1} = send_list_seq(N, self),
+    ?line {ok,1} = send_list_seq(N, self()),
+    ?line List = receive_any(),
+    ?line List = receive_any(),
+    Papa = self(),
+    spawn_link(fun() -> ?line {ok,1} = send_list_seq(N, Papa) end),
+    ?line List = receive_any(),
+
+    ?line {ok, 1, BlobS} = send_new_blob(self(), other_term()),
+    ?line BlobR = receive_any(),
+    io:format("Sent ~p\nGot ~p\n", [BlobS, BlobR]),
+    ?line BlobR = BlobS,
+
+    %% send to dead pid
+    {DeadPid, DeadMon} = spawn_monitor(fun() -> void end),
+    ?line {'DOWN', DeadMon, process, DeadPid, normal} = receive_any(),
+    {ok,0} = send_list_seq(7, DeadPid),
+    ok.
+
+send2(doc) -> ["More NIF message sending"];
+send2(Config) when is_list(Config) ->
+    ensure_lib_loaded(Config),
+
+    send2_do1(fun send_blob_dbg/2),
+    ok.
+
+send_threaded(doc) -> ["Send msg from user thread"];
+send_threaded(Config) when is_list(Config) ->
+    case erlang:system_info(smp_support) of
+	true ->
+	    send2_do1(fun(ME,To) -> send_blob_thread_dbg(ME,To,join) end),
+	    send2_do1(fun(ME,To) -> send_blob_thread_and_join(ME,To) end),
+	    ok;
+	false ->
+	    {skipped,"No threaded send on non-SMP"}
+    end.
+
+
+send2_do1(SendBlobF) ->
+    io:format("sending to self=~p\n",[self()]),
+    send2_do2(SendBlobF, self()),
+
+    Papa = self(),
+    Forwarder = spawn_link(fun() -> forwarder(Papa) end),
+    io:format("sending to forwarder pid=~p\n",[Forwarder]),
+    send2_do2(SendBlobF, Forwarder),
+    Forwarder ! terminate,
+    ?line {Forwarder, 4} = receive_any(),
+    ok.
+
+send2_do2(SendBlobF, To) ->   
+    MsgEnv = alloc_msgenv(),
+    repeat(50, fun(_) -> grow_blob(MsgEnv,other_term()) end, []),
+    ?line {ok,1,Blob0} = SendBlobF(MsgEnv, To),
+    ?line Blob1 = receive_any(),
+    ?line Blob1 = Blob0,
     
+    clear_msgenv(MsgEnv),
+    repeat(50, fun(_) -> grow_blob(MsgEnv,other_term()) end, []),
+    ?line {ok,1,Blob2} = SendBlobF(MsgEnv, To),
+    ?line Blob3 = receive_any(),
+    ?line Blob3 = Blob2,
+
+    clear_msgenv(MsgEnv),
+    repeat(50, fun(_) -> grow_blob(MsgEnv,other_term()) end, []),
+
+    clear_msgenv(MsgEnv),
+    repeat(50, fun(_) -> grow_blob(MsgEnv,other_term()) end, []),
+    ?line {ok,1,Blob4} = SendBlobF(MsgEnv, To),
+    ?line Blob5 = receive_any(),
+    ?line Blob5 = Blob4,
+
+    clear_msgenv(MsgEnv),
+    clear_msgenv(MsgEnv),
+    repeat(50, fun(_) -> grow_blob(MsgEnv,other_term()) end, []),
+    ?line {ok,1,Blob6} = SendBlobF(MsgEnv, To),
+    ?line Blob7 = receive_any(),
+    ?line Blob7 = Blob6,
+
+    ok.
+
+
+send_blob_thread_and_join(MsgEnv, To) ->
+    ?line {ok,Blob} = send_blob_thread_dbg(MsgEnv, To, no_join),
+    ?line {ok,SendRes} = join_send_thread(MsgEnv),
+    {ok,SendRes,Blob}.
+
+send_blob_dbg(MsgEnv, To) ->
+    Ret = send_blob(MsgEnv, To),
+    %%io:format("send_blob to ~p returned ~p\n",[To,Ret]),
+    Ret.
+
+send_blob_thread_dbg(MsgEnv, To, Join) ->
+    Ret = send_blob_thread(MsgEnv, To, Join),
+    %%io:format("send_blob_thread to ~p Join=~p returned ~p\n",[To,Join,Ret]),
+    Ret.
+
+
+forwarder(To) ->
+    forwarder(To, 0).
+forwarder(To, N) ->
+    case receive_any() of
+	terminate ->
+	    To ! {self(), N};
+	Msg ->	    
+	    To ! Msg,	   
+	    forwarder(To, N+1)
+    end.
+
+other_term() ->
+    {fun(X,Y) -> X*Y end, make_ref()}.
+
+send3(doc) -> ["Message sending stress test"];
+send3(Config) when is_list(Config) ->
+    %% Let a number of processes send random message blobs between each other
+    %% using enif_send. Kill and spawn new ones randomly to keep a ~constant
+    %% number of workers running.
+    Seed = now(),
+    io:format("seed: ~p\n",[Seed]), 
+    random:seed(Seed),    
+    ets:new(nif_SUITE,[named_table,public]),
+    ?line true = ets:insert(nif_SUITE,{send3,0,0,0,0}),
+    timer:send_after(10000, timeout), % Run for 10 seconds
+    SpawnCnt = send3_controller(0, [], [], 20),
+    ?line [{_,Rcv,SndOk,SndFail,Balance}] = ets:lookup(nif_SUITE,send3),
+    io:format("spawns=~p received=~p, sent=~p send-failure=~p balance=~p\n",
+              [SpawnCnt,Rcv,SndOk,SndFail,Balance]),
+    ets:delete(nif_SUITE).
+
+send3_controller(SpawnCnt, [], _, infinity) ->
+    SpawnCnt;
+send3_controller(SpawnCnt0, Mons0, Pids0, Tick) ->
+    receive 
+        timeout ->
+            io:format("Timeout. Sending 'halt' to ~p\n",[Pids0]),            
+            lists:foreach(fun(P) -> P ! {halt,self()} end, Pids0),
+            lists:foreach(fun(P) -> receive {halted,P} -> ok end end, Pids0),
+            QTot = lists:foldl(fun(P,QSum) ->
+                                 {message_queue_len,QLen} = 
+                                    erlang:process_info(P,message_queue_len),
+                                 QSum + QLen
+                               end, 0, Pids0),
+            io:format("Total queue length ~p\n",[QTot]),            
+            lists:foreach(fun(P) -> P ! die end, Pids0),
+            send3_controller(SpawnCnt0, Mons0, [], infinity);
+        {'DOWN', MonRef, process, _Pid, _} ->
+            Mons1 = lists:delete(MonRef, Mons0),
+            %%io:format("Got DOWN from ~p. Monitors left: ~p\n",[Pid,Mons1]),            
+            send3_controller(SpawnCnt0, Mons1, Pids0, Tick)
+    after Tick -> 
+        Max = 20,
+        N = length(Pids0),
+        PidN = random:uniform(Max),
+        %%io:format("N=~p PidN=~p Pids0=~p\n", [N,PidN,Pids0]), 
+        case PidN > N of
+            true ->
+                {NewPid,Mon} = spawn_opt(fun send3_proc/0, [link,monitor]),                
+                lists:foreach(fun(P) -> P ! {is_born,NewPid} end, Pids0),
+                ?line Balance = ets:lookup_element(nif_SUITE,send3,5),
+                Inject = (Balance =< 0),
+                case Inject of
+                    true ->  ok;
+                    false -> ets:update_element(nif_SUITE,send3,{5,-1})
+                end,
+                NewPid ! {pids,Pids0,Inject},
+                send3_controller(SpawnCnt0+1, [Mon|Mons0], [NewPid|Pids0], Tick);
+            false ->
+                KillPid = lists:nth(PidN,Pids0),
+                KillPid ! die,
+                Pids1 = lists:delete(KillPid, Pids0),
+                lists:foreach(fun(P) -> P ! {is_dead,KillPid} end, Pids1),
+                send3_controller(SpawnCnt0, Mons0, Pids1, Tick)
+        end        
+   end.
+
+send3_proc() ->
+    %%io:format("Process ~p spawned\n",[self()]),
+    send3_proc([self()], {0,0,0}, {1,2,3,4,5}).
+send3_proc(Pids0, Counters={Rcv,SndOk,SndFail}, State0) ->
+    %%io:format("~p: Pids0=~p", [self(), Pids0]),
+    %%timer:sleep(10),
+    receive 
+        {pids, Pids1, Inject} ->
+            %%io:format("~p: got ~p Inject=~p\n", [self(), Pids1, Inject]), 
+            ?line Pids0 = [self()],
+            Pids2 = [self() | Pids1],
+            case Inject of
+                true -> send3_proc_send(Pids2, Counters, State0);
+                false -> send3_proc(Pids2, Counters, State0)
+            end;
+        {is_born, Pid} ->
+            %%io:format("~p: is_born ~p, got ~p\n", [self(), Pid, Pids0]), 
+            send3_proc([Pid | Pids0], Counters, State0);
+        {is_dead, Pid} ->            
+            Pids1 = lists:delete(Pid,Pids0),
+            %%io:format("~p: is_dead ~p, got ~p\n", [self(), Pid, Pids1]),
+            send3_proc(Pids1, Counters, State0);
+        {blob, Blob0} ->
+            %%io:format("~p: blob ~p\n", [self(), Blob0]),
+            State1 = send3_new_state(State0, Blob0),
+            send3_proc_send(Pids0, {Rcv+1,SndOk,SndFail}, State1);
+        die ->
+            %%io:format("Process ~p terminating, stats = ~p\n",[self(),Counters]),
+            {message_queue_len,Dropped} = erlang:process_info(self(),message_queue_len),
+            _R = ets:update_counter(nif_SUITE,send3,
+                               [{2,Rcv},{3,SndOk},{4,SndFail},{5,1-Dropped}]),
+            %%io:format("~p: dies R=~p\n", [self(), R]),
+            ok;
+        {halt,Papa} ->
+            Papa ! {halted,self()},
+            io:format("~p halted\n",[self()]),
+            receive die -> ok end,
+            io:format("~p dying\n",[self()])
+    end.
+
+send3_proc_send(Pids, {Rcv,SndOk,SndFail}, State0) ->
+    To = lists:nth(random:uniform(length(Pids)),Pids),
+    Blob = send3_make_blob(),
+    State1 = send3_new_state(State0,Blob), 
+    case send3_send(To, Blob) of
+        true ->
+            send3_proc(Pids, {Rcv,SndOk+1,SndFail}, State1);
+        false ->
+            send3_proc(Pids, {Rcv,SndOk,SndFail+1}, State1)
+    end.
+
+
+send3_make_blob() ->    
+    case random:uniform(20)-1 of
+        0 -> {term,[]};
+        N ->
+            MsgEnv = alloc_msgenv(), 
+            repeat(N bsr 1,
+                   fun(_) -> grow_blob(MsgEnv,other_term(),random:uniform(1 bsl 20))
+                   end, void),
+            case (N band 1) of
+                0 -> {term,copy_blob(MsgEnv)};
+                1 -> {msgenv,MsgEnv}
+            end
+    end.
+
+send3_send(Pid, Msg) ->
+    %% 90% enif_send and 10% normal bang
+    case random:uniform(10) of
+        1 -> send3_send_bang(Pid,Msg);
+        _ -> send3_send_nif(Pid,Msg)
+    end.
+send3_send_nif(Pid, {term,Blob}) ->
+    %%io:format("~p send term nif\n",[self()]),
+    send_term(Pid, {blob, Blob}) =:= 1;
+send3_send_nif(Pid, {msgenv,MsgEnv}) ->
+    %%io:format("~p send blob nif\n",[self()]),   
+    send3_blob(MsgEnv, Pid, blob) =:= 1.
+
+send3_send_bang(Pid, {term,Blob}) ->
+    %%io:format("~p send term bang\n",[self()]),   
+    Pid ! {blob, Blob},
+    true;
+send3_send_bang(Pid, {msgenv,MsgEnv}) ->
+    %%io:format("~p send blob bang\n",[self()]),   
+    Pid ! {blob, copy_blob(MsgEnv)},
+    true.
+
+send3_new_state(State, Blob) ->
+    case random:uniform(5+2) of
+        N when N =< 5-> setelement(N, State, Blob);
+        _ -> State  % Don't store blob
+    end.
+
 neg(doc) -> ["Negative testing of load_nif"];
 neg(Config) when is_list(Config) ->
     TmpMem = tmpmem(),
@@ -759,7 +1164,45 @@ neg(Config) when is_list(Config) ->
     ?line verify_tmpmem(TmpMem),
     ?line ok.
 
+is_checks(doc) -> ["Test all enif_is functions"];
+is_checks(Config) when is_list(Config) ->
+    ?line ensure_lib_loaded(Config, 1),
+    ?line ok = check_is(hejsan, <<19,98>>, make_ref(), ok, fun() -> ok end,
+			self(), hd(erlang:ports()), [], [1,9,9,8],
+			{hejsan, "hejsan", [$h,"ejs",<<"an">>]}, 12),
+    ?line ok = check_is(hejsan, <<19,98>>, make_ref(), ok, fun() -> ok end,
+			self(), hd(erlang:ports()), [], [1,9,9,8],
+			{hejsan, "hejsan", [$h,"ejs",<<"an">>]}, -12),
+    ?line ok = check_is(hejsan, <<19,98>>, make_ref(), ok, fun() -> ok end,
+			self(), hd(erlang:ports()), [], [1,9,9,8],
+			{hejsan, "hejsan", [$h,"ejs",<<"an">>]}, 18446744073709551617),
+    ?line ok = check_is(hejsan, <<19,98>>, make_ref(), ok, fun() -> ok end,
+			self(), hd(erlang:ports()), [], [1,9,9,8],
+			{hejsan, "hejsan", [$h,"ejs",<<"an">>]}, -18446744073709551617),
+    ?line ok = check_is(hejsan, <<19,98>>, make_ref(), ok, fun() -> ok end,
+			self(), hd(erlang:ports()), [], [1,9,9,8],
+			{hejsan, "hejsan", [$h,"ejs",<<"an">>]}, 99.146),
+    ?line ok = check_is(hejsan, <<19,98>>, make_ref(), ok, fun() -> ok end,
+			self(), hd(erlang:ports()), [], [1,9,9,8],
+			{hejsan, "hejsan", [$h,"ejs",<<"an">>]}, -99.146),
+    ?line ok = check_is(hejsan, <<19,98>>, make_ref(), ok, fun() -> ok end,
+			self(), hd(erlang:ports()), [], [1,9,9,8],
+			{hejsan, "hejsan", [$h,"ejs",<<"an">>]}, 18446744073709551616.2e2),
+    ?line ok = check_is(hejsan, <<19,98>>, make_ref(), ok, fun() -> ok end,
+			self(), hd(erlang:ports()), [], [1,9,9,8],
+			{hejsan, "hejsan", [$h,"ejs",<<"an">>]}, -18446744073709551616.2e2),
+    try
+        ?line error = check_is_exception(),
+        ?line throw(expected_badarg)
+    catch
+        error:badarg ->
+            ?line ok
+    end.
 
+get_length(doc) -> ["Test all enif_get_length functions"];
+get_length(Config) when is_list(Config) ->
+    ?line ensure_lib_loaded(Config, 1),
+    ?line ok = length_test(hejsan, "hejsan", [], [], not_a_list).
 
 ensure_lib_loaded(Config) ->
     ensure_lib_loaded(Config, 1).
@@ -773,15 +1216,54 @@ ensure_lib_loaded(Config, Ver) ->
 		  ok
 	  end.
 
+make_atom(Config) when is_list(Config) ->
+    ?line ensure_lib_loaded(Config, 1),
+    An0Atom = an0atom,
+    An0Atom0 = 'an\000atom\000',
+    ?line Atoms = make_atoms(),
+    ?line 7 = size(Atoms),
+    ?line Atoms = {An0Atom,An0Atom,An0Atom,An0Atom0,An0Atom,An0Atom,An0Atom0}.
+
+make_string(Config) when is_list(Config) ->
+    ?line ensure_lib_loaded(Config, 1),
+    ?line Strings = make_strings(),
+    ?line 5 = size(Strings),
+    A0String = "a0string",
+    A0String0 = [$a,0,$s,$t,$r,$i,$n,$g,0],
+    AStringWithAccents = [$E,$r,$l,$a,$n,$g,$ ,16#e4,$r,$ ,$e,$t,$t,$ ,$g,$e,$n,$e,$r,$e,$l,$l,$t,$ ,$p,$r,$o,$g,$r,$a,$m,$s,$p,$r,16#e5,$k],
+    ?line Strings = {A0String,A0String,A0String,A0String0, AStringWithAccents}.
+
+reverse_list_test(Config) ->
+    ?line ensure_lib_loaded(Config, 1),
+    List = lists:seq(1,100),
+    RevList = lists:reverse(List),
+    ?line RevList = reverse_list(List),
+    ?line badarg = reverse_list(foo).
+
+otp_9668(doc) -> ["Memory leak of tmp-buffer when inspecting iolist or unaligned binary in unbound environment"];
+otp_9668(Config) ->
+    ensure_lib_loaded(Config, 1),
+    TmpMem = tmpmem(),
+    IOList = ["This",' ',<<"is">>,' ',[<<"an iolist">>,'.']],    
+    otp_9668_nif(IOList),
+
+    <<_:5/bitstring,UnalignedBin:10/binary,_/bitstring>> = <<"Abuse me as unaligned">>,
+    otp_9668_nif(UnalignedBin),
+
+    ?line verify_tmpmem(TmpMem),
+    ok.
+
+
 tmpmem() ->
     case erlang:system_info({allocator,temp_alloc}) of
 	false -> undefined;
 	MemInfo ->
 	    MSBCS = lists:foldl(
 		      fun ({instance, _, L}, Acc) ->
+			      {value,{_,SBMBCS}} = lists:keysearch(sbmbcs, 1, L),
 			      {value,{_,MBCS}} = lists:keysearch(mbcs, 1, L),
 			      {value,{_,SBCS}} = lists:keysearch(sbcs, 1, L),
-			      [MBCS,SBCS | Acc]
+			      [SBMBCS,MBCS,SBCS | Acc]
 		      end,
 		      [],
 		      MemInfo),
@@ -821,13 +1303,18 @@ call(Pid,Cmd) ->
 receive_any() ->
     receive M -> M end.	     
 
-%% check(Exp,Got,Line) ->
-%%     case Got of
-%% 	Exp -> Exp;	    
-%% 	_ ->
-%% 	    io:format("CHECK at ~p: Expected ~p but got ~p\n",[Line,Exp,Got]),
-%% 	    Got
-%%     end.
+repeat(0, _, Arg) ->
+    Arg;
+repeat(N, Fun, Arg0) ->
+    repeat(N-1, Fun, Fun(Arg0)).
+
+check(Exp,Got,Line) ->
+    case Got of
+ 	Exp -> Exp;	    
+  	_ ->
+  	    io:format("CHECK at ~p: Expected ~p but got ~p\n",[Line,Exp,Got]),
+ 	    Got
+    end.
 	    
 
 %% The NIFs:
@@ -855,6 +1342,28 @@ get_resource(_,_) -> ?nif_stub.
 release_resource(_) -> ?nif_stub.
 last_resource_dtor_call() -> ?nif_stub.
 make_new_resource(_,_) -> ?nif_stub.
+check_is(_,_,_,_,_,_,_,_,_,_,_) -> ?nif_stub.
+check_is_exception() -> ?nif_stub.
+length_test(_,_,_,_,_) -> ?nif_stub.
+make_atoms() -> ?nif_stub.
+make_strings() -> ?nif_stub.
+make_new_resource_binary(_) -> ?nif_stub.
+send_list_seq(_,_) -> ?nif_stub.     
+send_new_blob(_,_) -> ?nif_stub.     
+alloc_msgenv() -> ?nif_stub.
+clear_msgenv(_) -> ?nif_stub.
+grow_blob(_,_) -> ?nif_stub.
+grow_blob(_,_,_) -> ?nif_stub.
+send_blob(_,_) -> ?nif_stub.
+send3_blob(_,_,_) -> ?nif_stub.
+send_blob_thread(_,_,_) -> ?nif_stub.
+join_send_thread(_) -> ?nif_stub.
+copy_blob(_) -> ?nif_stub.
+send_term(_,_) -> ?nif_stub.
+reverse_list(_) -> ?nif_stub.
+echo_int(_) -> ?nif_stub.
+type_sizes() -> ?nif_stub.
+otp_9668_nif(_) -> ?nif_stub.
 
 nif_stub_error(Line) ->
     exit({nif_not_loaded,module,?MODULE,line,Line}).

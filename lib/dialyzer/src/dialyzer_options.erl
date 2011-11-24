@@ -2,7 +2,7 @@
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -47,19 +47,29 @@ build(Opts) ->
 		  ?WARN_FAILING_CALL,
 		  ?WARN_BIN_CONSTRUCTION,
 		  ?WARN_CALLGRAPH,
+		  ?WARN_CONTRACT_RANGE,
 		  ?WARN_CONTRACT_TYPES,
-		  ?WARN_CONTRACT_SYNTAX],
+		  ?WARN_CONTRACT_SYNTAX,
+		  ?WARN_BEHAVIOUR,
+		  ?WARN_UNDEFINED_CALLBACK],
   DefaultWarns1 = ordsets:from_list(DefaultWarns),
   InitPlt = dialyzer_plt:get_default_plt(),
   DefaultOpts = #options{},
   DefaultOpts1 = DefaultOpts#options{legal_warnings = DefaultWarns1,
-				      init_plt = InitPlt},
-  try 
-    NewOpts = build_options(Opts, DefaultOpts1),
+                                     init_plts = [InitPlt]},
+  try
+    Opts1 = preprocess_opts(Opts),
+    NewOpts = build_options(Opts1, DefaultOpts1),
     postprocess_opts(NewOpts)
   catch
     throw:{dialyzer_options_error, Msg} -> {error, Msg}
   end.
+
+preprocess_opts([]) -> [];
+preprocess_opts([{init_plt, File}|Opts]) ->
+  [{plts, [File]}|preprocess_opts(Opts)];
+preprocess_opts([Opt|Opts]) ->
+  [Opt|preprocess_opts(Opts)].
 
 postprocess_opts(Opts = #options{}) ->
   Opts1 = check_output_plt(Opts),
@@ -113,12 +123,18 @@ build_options([{OptName, undefined}|Rest], Options) when is_atom(OptName) ->
   build_options(Rest, Options);
 build_options([{OptionName, Value} = Term|Rest], Options) ->
   case OptionName of
+    apps ->
+      OldValues = Options#options.files_rec,
+      AppDirs = get_app_dirs(Value),
+      assert_filenames(Term, AppDirs),
+      build_options(Rest, Options#options{files_rec = AppDirs ++ OldValues});
     files ->
       assert_filenames(Term, Value),
       build_options(Rest, Options#options{files = Value});
     files_rec ->
+      OldValues = Options#options.files_rec,
       assert_filenames(Term, Value),
-      build_options(Rest, Options#options{files_rec = Value});
+      build_options(Rest, Options#options{files_rec = Value ++ OldValues});
     analysis_type ->
       NewOptions =
 	case Value of
@@ -144,9 +160,9 @@ build_options([{OptionName, Value} = Term|Rest], Options) ->
       build_options(Rest, Options#options{from = Value});
     get_warnings ->
       build_options(Rest, Options#options{get_warnings = Value});
-    init_plt ->
-      assert_filenames([Term], [Value]),
-      build_options(Rest, Options#options{init_plt = Value});
+    plts ->
+      assert_filenames(Term, Value),
+      build_options(Rest, Options#options{init_plts = Value});
     include_dirs ->
       assert_filenames(Term, Value),
       OldVal = Options#options.include_dirs,
@@ -162,6 +178,9 @@ build_options([{OptionName, Value} = Term|Rest], Options) ->
     output_format ->
       assert_output_format(Value),
       build_options(Rest, Options#options{output_format = Value});
+    filename_opt ->
+      assert_filename_opt(Value),
+      build_options(Rest, Options#options{filename_opt = Value});
     output_plt ->
       assert_filename(Value),
       build_options(Rest, Options#options{output_plt = Value});
@@ -181,10 +200,15 @@ build_options([{OptionName, Value} = Term|Rest], Options) ->
 build_options([], Options) ->
   Options.
 
+get_app_dirs(Apps) when is_list(Apps) ->
+  dialyzer_cl_parse:get_lib_dir([atom_to_list(A) || A <- Apps]);
+get_app_dirs(Apps) ->
+  bad_option("Use a list of otp applications", Apps).
+
 assert_filenames(Term, [FileName|Left]) when length(FileName) >= 0 ->
   case filelib:is_file(FileName) orelse filelib:is_dir(FileName) of
     true -> ok;
-    false -> bad_option("No such file or directory", FileName)
+    false -> bad_option("No such file, directory or application", FileName)
   end,
   assert_filenames(Term, Left);
 assert_filenames(_Term, []) ->
@@ -210,6 +234,13 @@ assert_output_format(formatted) ->
   ok;
 assert_output_format(Term) ->
   bad_option("Illegal value for output_format", Term).
+
+assert_filename_opt(basename) ->
+  ok;
+assert_filename_opt(fullpath) ->
+  ok;
+assert_filename_opt(Term) ->
+  bad_option("Illegal value for filename_opt", Term).
 
 assert_plt_op(#options{analysis_type = OldVal}, 
 	      #options{analysis_type = NewVal}) ->
@@ -246,14 +277,16 @@ build_warnings([Opt|Opts], Warnings) ->
       no_contracts ->
 	Warnings1 = ordsets:del_element(?WARN_CONTRACT_SYNTAX, Warnings),
 	ordsets:del_element(?WARN_CONTRACT_TYPES, Warnings1);
+      no_behaviours ->
+	ordsets:del_element(?WARN_BEHAVIOUR, Warnings);
+      no_undefined_callbacks ->
+	ordsets:del_element(?WARN_UNDEFINED_CALLBACK, Warnings);
       unmatched_returns ->
 	ordsets:add_element(?WARN_UNMATCHED_RETURN, Warnings);
       error_handling ->
 	ordsets:add_element(?WARN_RETURN_ONLY_EXIT, Warnings);
       race_conditions ->
 	ordsets:add_element(?WARN_RACE_CONDITION, Warnings);
-      behaviours ->
-	ordsets:add_element(?WARN_BEHAVIOUR, Warnings);
       specdiffs ->
 	S = ordsets:from_list([?WARN_CONTRACT_SUBTYPE, 
 			       ?WARN_CONTRACT_SUPERTYPE,

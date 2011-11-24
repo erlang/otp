@@ -1,2 +1,1 @@
-{topcase, {dir, "../et_test"}}.
-
+{suites,"../et_test",all}.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -48,7 +48,7 @@ new() ->
 %% new(Bmp::wxBitmap:wxBitmap()) -> wxRegion() </c>
 %% </p>
 %% <p><c>
-%% new(Rect::{X::integer(),Y::integer(),W::integer(),H::integer()}) -> wxRegion() </c>
+%% new(Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}) -> wxRegion() </c>
 %% </p>
 new(#wx_ref{type=BmpT,ref=BmpRef}) ->
   ?CLASS(BmpT,wxBitmap),
@@ -59,7 +59,7 @@ new({RectX,RectY,RectW,RectH})
   wxe_util:construct(?wxRegion_new_1_1,
   <<RectX:32/?UI,RectY:32/?UI,RectW:32/?UI,RectH:32/?UI>>).
 
-%% @spec (TopLeft::{X::integer(),Y::integer()}, BottomRight::{X::integer(),Y::integer()}) -> wxRegion()
+%% @spec (TopLeft::{X::integer(), Y::integer()}, BottomRight::{X::integer(), Y::integer()}) -> wxRegion()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxregion.html#wxregionwxregion">external documentation</a>.
 new({TopLeftX,TopLeftY},{BottomRightX,BottomRightY})
  when is_integer(TopLeftX),is_integer(TopLeftY),is_integer(BottomRightX),is_integer(BottomRightY) ->
@@ -84,12 +84,12 @@ clear(#wx_ref{type=ThisT,ref=ThisRef}) ->
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxregion.html#wxregioncontains">external documentation</a>.
 %% <br /> Alternatives:
 %% <p><c>
-%% contains(This::wxRegion(), Pt::{X::integer(),Y::integer()}) -> WxRegionContain </c>
+%% contains(This::wxRegion(), Pt::{X::integer(), Y::integer()}) -> WxRegionContain </c>
 %%<br /> WxRegionContain = integer()
 %%<br /> WxRegionContain is one of ?wxOutRegion | ?wxPartRegion | ?wxInRegion
 %% </p>
 %% <p><c>
-%% contains(This::wxRegion(), Rect::{X::integer(),Y::integer(),W::integer(),H::integer()}) -> WxRegionContain </c>
+%% contains(This::wxRegion(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}) -> WxRegionContain </c>
 %%<br /> WxRegionContain = integer()
 %%<br /> WxRegionContain is one of ?wxOutRegion | ?wxPartRegion | ?wxInRegion
 %% </p>
@@ -131,7 +131,7 @@ convertToBitmap(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxRegion_ConvertToBitmap,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxRegion()) -> {X::integer(),Y::integer(),W::integer(),H::integer()}
+%% @spec (This::wxRegion()) -> {X::integer(), Y::integer(), W::integer(), H::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxregion.html#wxregiongetbox">external documentation</a>.
 getBox(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxRegion),
@@ -145,7 +145,7 @@ getBox(#wx_ref{type=ThisT,ref=ThisRef}) ->
 %% intersect(This::wxRegion(), Region::wxRegion()) -> bool() </c>
 %% </p>
 %% <p><c>
-%% intersect(This::wxRegion(), Rect::{X::integer(),Y::integer(),W::integer(),H::integer()}) -> bool() </c>
+%% intersect(This::wxRegion(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}) -> bool() </c>
 %% </p>
 intersect(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=RegionT,ref=RegionRef}) ->
   ?CLASS(ThisT,wxRegion),
@@ -180,7 +180,7 @@ isEmpty(#wx_ref{type=ThisT,ref=ThisRef}) ->
 %% subtract(This::wxRegion(), Region::wxRegion()) -> bool() </c>
 %% </p>
 %% <p><c>
-%% subtract(This::wxRegion(), Rect::{X::integer(),Y::integer(),W::integer(),H::integer()}) -> bool() </c>
+%% subtract(This::wxRegion(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}) -> bool() </c>
 %% </p>
 subtract(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=RegionT,ref=RegionRef}) ->
   ?CLASS(ThisT,wxRegion),
@@ -201,7 +201,7 @@ subtract(#wx_ref{type=ThisT,ref=ThisRef},X,Y,W,H)
   wxe_util:call(?wxRegion_Subtract_4,
   <<ThisRef:32/?UI,X:32/?UI,Y:32/?UI,W:32/?UI,H:32/?UI>>).
 
-%% @spec (This::wxRegion(), Pt::{X::integer(),Y::integer()}) -> bool()
+%% @spec (This::wxRegion(), Pt::{X::integer(), Y::integer()}) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxregion.html#wxregionoffset">external documentation</a>.
 offset(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY})
  when is_integer(PtX),is_integer(PtY) ->
@@ -224,7 +224,7 @@ offset(#wx_ref{type=ThisT,ref=ThisRef},X,Y)
 %% union(This::wxRegion(), Region::wxRegion() | wxBitmap:wxBitmap()) -> bool() </c>
 %% </p>
 %% <p><c>
-%% union(This::wxRegion(), Rect::{X::integer(),Y::integer(),W::integer(),H::integer()}) -> bool() </c>
+%% union(This::wxRegion(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}) -> bool() </c>
 %% </p>
 union(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=RegionT,ref=RegionRef}) ->
   ?CLASS(ThisT,wxRegion),
@@ -276,7 +276,7 @@ union(#wx_ref{type=ThisT,ref=ThisRef},X,Y,W,H)
 %% 'Xor'(This::wxRegion(), Region::wxRegion()) -> bool() </c>
 %% </p>
 %% <p><c>
-%% 'Xor'(This::wxRegion(), Rect::{X::integer(),Y::integer(),W::integer(),H::integer()}) -> bool() </c>
+%% 'Xor'(This::wxRegion(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}) -> bool() </c>
 %% </p>
 'Xor'(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=RegionT,ref=RegionRef}) ->
   ?CLASS(ThisT,wxRegion),

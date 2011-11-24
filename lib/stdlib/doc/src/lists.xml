@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2010</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -48,7 +48,7 @@
       <item><p>if x <c>F</c> y and y <c>F</c> x then x = y (<c>F</c>
         is antisymmetric);</p>
       </item>
-      <item><p>if x <c>F</c> y and and y <c>F</c> z then x <c>F</c> z
+      <item><p>if x <c>F</c> y and y <c>F</c> z then x <c>F</c> z
         (<c>F</c> is transitive);</p>
       </item>
       <item><p>x <c>F</c> y or y <c>F</c> x (<c>F</c> is total).</p>
@@ -60,58 +60,41 @@
   </description>
   <funcs>
     <func>
-      <name>all(Pred, List) -> bool()</name>
+      <name name="all" arity="2"/>
       <fsummary>Return true if all elements in the list satisfy<c>Pred</c></fsummary>
-      <type>
-        <v>Pred = fun(Elem) -> bool()</v>
-        <v>&nbsp;Elem = term()</v>
-        <v>List = [term()]</v>
-      </type>
       <desc>
-        <p>Returns <c>true</c> if <c>Pred(Elem)</c> returns
-          <c>true</c> for all elements <c>Elem</c> in <c>List</c>,
+        <p>Returns <c>true</c> if <c><anno>Pred</anno>(<anno>Elem</anno>)</c> returns
+          <c>true</c> for all elements <c><anno>Elem</anno></c> in <c><anno>List</anno></c>,
           otherwise <c>false</c>.</p>
       </desc>
     </func>
     <func>
-      <name>any(Pred, List) -> bool()</name>
+      <name name="any" arity="2"/>
       <fsummary>Return true if any of the elements in the list satisfies<c>Pred</c></fsummary>
-      <type>
-        <v>Pred = fun(Elem) -> bool()</v>
-        <v>&nbsp;Elem = term()</v>
-        <v>List = [term()]</v>
-      </type>
       <desc>
-        <p>Returns <c>true</c> if <c>Pred(Elem)</c> returns
-          <c>true</c> for at least one element <c>Elem</c> in
-          <c>List</c>.</p>
+        <p>Returns <c>true</c> if <c><anno>Pred</anno>(<anno>Elem</anno>)</c> returns
+          <c>true</c> for at least one element <c><anno>Elem</anno></c> in
+          <c><anno>List</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name>append(ListOfLists) -> List1</name>
+      <name name="append" arity="1"/>
       <fsummary>Append a list of lists</fsummary>
-      <type>
-        <v>ListOfLists = [List]</v>
-        <v>List = List1 = [term()]</v>
-      </type>
       <desc>
         <p>Returns a list in which all the sub-lists of
-          <c>ListOfLists</c> have been appended. For example:</p>
+          <c><anno>ListOfLists</anno></c> have been appended. For example:</p>
         <pre>
 > <input>lists:append([[1, 2, 3], [a, b], [4, 5, 6]]).</input>
 [1,2,3,a,b,4,5,6]</pre>
       </desc>
     </func>
     <func>
-      <name>append(List1, List2) -> List3</name>
+      <name name="append" arity="2"/>
       <fsummary>Append two lists</fsummary>
-      <type>
-        <v>List1 = List2 = List3 = [term()]</v>
-      </type>
       <desc>
-        <p>Returns a new list <c>List3</c> which is made from
-          the elements of <c>List1</c> followed by the elements of
-          <c>List2</c>. For example:</p>
+        <p>Returns a new list <c><anno>List3</anno></c> which is made from
+          the elements of <c><anno>List1</anno></c> followed by the elements of
+          <c><anno>List2</anno></c>. For example:</p>
         <pre>
 > <input>lists:append("abc", "def").</input>
 "abcdef"</pre>
@@ -119,15 +102,11 @@
       </desc>
     </func>
     <func>
-      <name>concat(Things) -> string()</name>
+      <name name="concat" arity="1"/>
       <fsummary>Concatenate a list of atoms</fsummary>
-      <type>
-        <v>Things = [Thing]</v>
-        <v>&nbsp;Thing = atom() | integer() | float() | string()</v>
-      </type>
       <desc>
         <p>Concatenates the text representation of the elements
-          of <c>Things</c>. The elements of <c>Things</c> can be atoms,
+          of <c><anno>Things</anno></c>. The elements of <c><anno>Things</anno></c> can be atoms,
           integers, floats or strings.</p>
         <pre>
 > <input>lists:concat([doc, '/', file, '.', 3]).</input>
@@ -135,92 +114,64 @@
       </desc>
     </func>
     <func>
-      <name>delete(Elem, List1) -> List2</name>
+      <name name="delete" arity="2"/>
       <fsummary>Delete an element from a list</fsummary>
-      <type>
-        <v>Elem = term()</v>
-        <v>List1 = List2 = [term()]</v>
-      </type>
       <desc>
-        <p>Returns a copy of <c>List1</c> where the first element
-          matching <c>Elem</c> is deleted, if there is such an
+        <p>Returns a copy of <c><anno>List1</anno></c> where the first element
+          matching <c><anno>Elem</anno></c> is deleted, if there is such an
           element.</p>
       </desc>
     </func>
     <func>
-      <name>dropwhile(Pred, List1) -> List2</name>
+      <name name="dropwhile" arity="2"/>
       <fsummary>Drop elements from a list while a predicate is true</fsummary>
-      <type>
-        <v>Pred = fun(Elem) -> bool()</v>
-        <v>&nbsp;Elem = term()</v>
-        <v>List1 = List2 = [term()]</v>
-      </type>
       <desc>
-        <p>Drops elements <c>Elem</c> from <c>List1</c> while
-          <c>Pred(Elem)</c> returns <c>true</c> and returns
+        <p>Drops elements <c><anno>Elem</anno></c> from <c><anno>List1</anno></c> while
+          <c><anno>Pred</anno>(<anno>Elem</anno>)</c> returns <c>true</c> and returns
           the remaining list.</p>
       </desc>
     </func>
     <func>
-      <name>duplicate(N, Elem) -> List</name>
+      <name name="duplicate" arity="2"/>
       <fsummary>Make N copies of element</fsummary>
-      <type>
-        <v>N = int()</v>
-        <v>Elem = term()</v>
-        <v>List = [term()]</v>
-      </type>
       <desc>
-        <p>Returns a list which contains N copies of the term
-          <c>Elem</c>. For example:</p>
+        <p>Returns a list which contains <c><anno>N</anno></c> copies of the term
+          <c><anno>Elem</anno></c>. For example:</p>
         <pre>
 > <input>lists:duplicate(5, xx).</input>
 [xx,xx,xx,xx,xx]</pre>
       </desc>
     </func>
     <func>
-      <name>filter(Pred, List1) -> List2</name>
+      <name name="filter" arity="2"/>
       <fsummary>Choose elements which satisfy a predicate</fsummary>
-      <type>
-        <v>Pred = fun(Elem) -> bool()</v>
-        <v>&nbsp;Elem = term()</v>
-        <v>List1 = List2 = [term()]</v>
-      </type>
       <desc>
-        <p><c>List2</c> is a list of all elements <c>Elem</c> in
-          <c>List1</c> for which <c>Pred(Elem)</c> returns
+        <p><c><anno>List2</anno></c> is a list of all elements <c><anno>Elem</anno></c> in
+          <c><anno>List1</anno></c> for which <c><anno>Pred</anno>(<anno>Elem</anno>)</c> returns
           <c>true</c>.</p>
       </desc>
     </func>
     <func>
-      <name>flatlength(DeepList) -> int()</name>
+      <name name="flatlength" arity="1"/>
       <fsummary>Length of flattened deep list</fsummary>
-      <type>
-        <v>DeepList = [term() | DeepList]</v>
-      </type>
       <desc>
-        <p>Equivalent to <c>length(flatten(DeepList))</c>, but more
+        <p>Equivalent to <c>length(flatten(<anno>DeepList</anno>))</c>, but more
           efficient.</p>
       </desc>
     </func>
     <func>
-      <name>flatmap(Fun, List1) -> List2</name>
+      <name name="flatmap" arity="2"/>
       <fsummary>Map and flatten in one pass</fsummary>
-      <type>
-        <v>Fun = fun(A) -> [B]</v>
-        <v>List1 = [A]</v>
-        <v>List2 = [B]</v>
-        <v>&nbsp;A = B = term()</v>
-      </type>
       <desc>
-        <p>Takes a function from <c>A</c>s to lists of <c>B</c>s, and a
-          list of <c>A</c>s (<c>List1</c>) and produces a list of
-          <c>B</c>s by applying the function to every element in
-          <c>List1</c> and appending the resulting lists.</p>
+        <p>Takes a function from <c><anno>A</anno></c>s to lists of <c><anno>B</anno></c>s, and a
+          list of <c><anno>A</anno></c>s (<c><anno>List1</anno></c>) and produces a list of
+          <c><anno>B</anno></c>s by applying the function to every element in
+          <c><anno>List1</anno></c> and appending the resulting lists.</p>
         <p>That is, <c>flatmap</c> behaves as if it had been defined as
           follows:</p>
         <code type="none">
 flatmap(Fun, List1) ->
-    append(map(Fun, List1))</code>
+    append(map(Fun, List1)).</code>
         <p>Example:</p>
         <pre>
 > <input>lists:flatmap(fun(X)->[X,X] end, [a,b,c]).</input>
@@ -228,43 +179,29 @@ flatmap(Fun, List1) ->
       </desc>
     </func>
     <func>
-      <name>flatten(DeepList) -> List</name>
+      <name name="flatten" arity="1"/>
       <fsummary>Flatten a deep list</fsummary>
-      <type>
-        <v>DeepList = [term() | DeepList]</v>
-        <v>List = [term()]</v>
-      </type>
       <desc>
-        <p>Returns a flattened version of <c>DeepList</c>.</p>
+        <p>Returns a flattened version of <c><anno>DeepList</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name>flatten(DeepList, Tail) -> List</name>
+      <name name="flatten" arity="2"/>
       <fsummary>Flatten a deep list</fsummary>
-      <type>
-        <v>DeepList = [term() | DeepList]</v>
-        <v>Tail = List = [term()]</v>
-      </type>
       <desc>
-        <p>Returns a flattened version of <c>DeepList</c> with the tail
-          <c>Tail</c> appended.</p>
+        <p>Returns a flattened version of <c><anno>DeepList</anno></c> with the tail
+          <c><anno>Tail</anno></c> appended.</p>
       </desc>
     </func>
     <func>
-      <name>foldl(Fun, Acc0, List) -> Acc1</name>
+      <name name="foldl" arity="3"/>
       <fsummary>Fold a function over a list</fsummary>
-      <type>
-        <v>Fun = fun(Elem, AccIn) -> AccOut</v>
-        <v>&nbsp;Elem = term()</v>
-        <v>Acc0 = Acc1 = AccIn = AccOut = term()</v>
-        <v>List = [term()]</v>
-      </type>
       <desc>
-        <p>Calls <c>Fun(Elem, AccIn)</c> on successive elements <c>A</c>
-          of <c>List</c>, starting with <c>AccIn == Acc0</c>.
-          <c>Fun/2</c> must return a new accumulator which is passed to
+        <p>Calls <c><anno>Fun</anno>(<anno>Elem</anno>, <anno>AccIn</anno>)</c> on successive elements <c>A</c>
+          of <c><anno>List</anno></c>, starting with <c><anno>AccIn</anno> == <anno>Acc0</anno></c>.
+          <c><anno>Fun</anno>/2</c> must return a new accumulator which is passed to
           the next call. The function returns the final value of
-          the accumulator. <c>Acc0</c> is returned if the list is empty.
+          the accumulator. <c><anno>Acc0</anno></c> is returned if the list is empty.
           For example:</p>
         <pre>
 > <input>lists:foldl(fun(X, Sum) -> X + Sum end, 0, [1,2,3,4,5]).</input>
@@ -274,14 +211,8 @@ flatmap(Fun, List1) ->
       </desc>
     </func>
     <func>
-      <name>foldr(Fun, Acc0, List) -> Acc1</name>
+      <name name="foldr" arity="3"/>
       <fsummary>Fold a function over a list</fsummary>
-      <type>
-        <v>Fun = fun(Elem, AccIn) -> AccOut</v>
-        <v>&nbsp;Elem = term()</v>
-        <v>Acc0 = Acc1 = AccIn = AccOut = term()</v>
-        <v>List = [term()]</v>
-      </type>
       <desc>
         <p>Like <c>foldl/3</c>, but the list is traversed from right to
           left. For example:</p>
@@ -297,33 +228,23 @@ flatmap(Fun, List1) ->
       </desc>
     </func>
     <func>
-      <name>foreach(Fun, List) -> void()</name>
+      <name name="foreach" arity="2"/>
       <fsummary>Apply a function to each element of a list</fsummary>
-      <type>
-        <v>Fun = fun(Elem) -> void()</v>
-        <v>&nbsp;Elem = term()</v>
-        <v>List = [term()]</v>
-      </type>
       <desc>
-        <p>Calls <c>Fun(Elem)</c> for each element <c>Elem</c> in
-          <c>List</c>. This function is used for its side effects and
+        <p>Calls <c><anno>Fun</anno>(<anno>Elem</anno>)</c> for each element <c><anno>Elem</anno></c> in
+          <c><anno>List</anno></c>. This function is used for its side effects and
           the evaluation order is defined to be the same as the order
           of the elements in the list.</p>
       </desc>
     </func>
     <func>
-      <name>keydelete(Key, N, TupleList1) -> TupleList2</name>
+      <name name="keydelete" arity="3"/>
       <fsummary>Delete an element from a list of tuples</fsummary>
-      <type>
-        <v>Key = term()</v>
-        <v>N = 1..tuple_size(Tuple)</v>
-        <v>TupleList1 = TupleList2 = [Tuple]</v>
-        <v>&nbsp;Tuple = tuple()</v>
-      </type>
+      <type_desc variable="N">1..tuple_size(<anno>Tuple</anno>)</type_desc>
       <desc>
-        <p>Returns a copy of <c>TupleList1</c> where the first
-          occurrence of a tuple whose <c>N</c>th element compares equal to
-          <c>Key</c> is deleted, if there is such a tuple.</p>
+        <p>Returns a copy of <c><anno>TupleList1</anno></c> where the first
+          occurrence of a tuple whose <c><anno>N</anno></c>th element compares equal to
+          <c><anno>Key</anno></c> is deleted, if there is such a tuple.</p>
       </desc>
     </func>
     <func>
@@ -343,19 +264,14 @@ flatmap(Fun, List1) ->
       </desc>
     </func>
     <func>
-      <name>keymap(Fun, N, TupleList1) -> TupleList2</name>
+      <name name="keymap" arity="3"/>
       <fsummary>Map a function over a list of tuples</fsummary>
-      <type>
-        <v>Fun = fun(Term1) -> Term2</v>
-        <v>&nbsp;Term1 = Term2 = term()</v>
-        <v>N = 1..tuple_size(Tuple)</v>
-        <v>TupleList1 = TupleList2 = [tuple()]</v>
-      </type>
+      <type_desc variable="N">1..tuple_size(<anno>Tuple</anno>)</type_desc>
       <desc>
         <p>Returns a list of tuples where, for each tuple in
-          <c>TupleList1</c>, the <c>N</c>th element <c>Term1</c> of the tuple
+          <c><anno>TupleList1</anno></c>, the <c><anno>N</anno></c>th element <c><anno>Term1</anno></c> of the tuple
           has been replaced with the result of calling
-          <c>Fun(Term1)</c>.</p>
+          <c><anno>Fun</anno>(<anno>Term1</anno>)</c>.</p>
         <p>Examples:</p>
         <pre>
 > <input>Fun = fun(Atom) -> atom_to_list(Atom) end.</input>
@@ -365,7 +281,7 @@ flatmap(Fun, List1) ->
       </desc>
     </func>
     <func>
-      <name>keymember(Key, N, TupleList) -> bool()</name>
+      <name>keymember(Key, N, TupleList) -> boolean()</name>
       <fsummary>Test for membership of a list of tuples</fsummary>
       <type>
         <v>Key = term()</v>
@@ -380,37 +296,28 @@ flatmap(Fun, List1) ->
       </desc>
     </func>
     <func>
-      <name>keymerge(N, TupleList1, TupleList2) -> TupleList3</name>
+      <name name="keymerge" arity="3"/>
       <fsummary>Merge two key-sorted lists of tuples</fsummary>
-      <type>
-        <v>N = 1..tuple_size(Tuple)</v>
-        <v>TupleList1 = TupleList2 = TupleList3 = [Tuple]</v>
-        <v>&nbsp;Tuple = tuple()</v>
-      </type>
+      <type_desc variable="N">1..tuple_size(<anno>Tuple</anno>)</type_desc>
       <desc>
-        <p>Returns the sorted list formed by merging <c>TupleList1</c>
-          and <c>TupleList2</c>. The merge is performed on
-          the <c>N</c>th element of each tuple. Both <c>TupleList1</c> and
-          <c>TupleList2</c> must be key-sorted prior to evaluating this
+        <p>Returns the sorted list formed by merging <c><anno>TupleList1</anno></c>
+          and <c><anno>TupleList2</anno></c>. The merge is performed on
+          the <c><anno>N</anno></c>th element of each tuple. Both <c><anno>TupleList1</anno></c> and
+          <c><anno>TupleList2</anno></c> must be key-sorted prior to evaluating this
           function. When two tuples compare equal, the tuple from
-          <c>TupleList1</c> is picked before the tuple from
-          <c>TupleList2</c>.</p>
+          <c><anno>TupleList1</anno></c> is picked before the tuple from
+          <c><anno>TupleList2</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name>keyreplace(Key, N, TupleList1, NewTuple) -> TupleList2</name>
+      <name name="keyreplace" arity="4"/>
       <fsummary>Replace an element in a list of tuples</fsummary>
-      <type>
-        <v>Key = term()</v>
-        <v>N = 1..tuple_size(Tuple)</v>
-        <v>TupleList1 = TupleList2 = [Tuple]</v>
-        <v>NewTuple = Tuple = tuple()</v>
-      </type>
+      <type_desc variable="N">1..tuple_size(<anno>Tuple</anno>)</type_desc>
       <desc>
-        <p>Returns a copy of <c>TupleList1</c> where the first
-          occurrence of a <c>T</c> tuple whose <c>N</c>th element
-          compares equal to <c>Key</c> is replaced with
-          <c>NewTuple</c>, if there is such a tuple <c>T</c>.</p>
+        <p>Returns a copy of <c><anno>TupleList1</anno></c> where the first
+          occurrence of a <c>T</c> tuple whose <c><anno>N</anno></c>th element
+          compares equal to <c><anno>Key</anno></c> is replaced with
+          <c><anno>NewTuple</anno></c>, if there is such a tuple <c>T</c>.</p>
       </desc>
     </func>
     <func>
@@ -433,97 +340,65 @@ flatmap(Fun, List1) ->
       </desc>
     </func>
     <func>
-      <name>keysort(N, TupleList1) -> TupleList2</name>
+      <name name="keysort" arity="2"/>
       <fsummary>Sort a list of tuples</fsummary>
-      <type>
-        <v>N = 1..tuple_size(Tuple)</v>
-        <v>TupleList1 = TupleList2 = [Tuple]</v>
-        <v>&nbsp;Tuple = tuple()</v>
-      </type>
+      <type_desc variable="N">1..tuple_size(<anno>Tuple</anno>)</type_desc>
       <desc>
         <p>Returns a list containing the sorted elements of the list
-          <c>TupleList1</c>. Sorting is performed on the <c>N</c>th
-          element of the tuples.</p>
+          <c><anno>TupleList1</anno></c>. Sorting is performed on the <c><anno>N</anno></c>th
+          element of the tuples. The sort is stable.</p>
       </desc>
     </func>
     <func>
-      <name>keystore(Key, N, TupleList1, NewTuple) -> TupleList2</name>
+      <name name="keystore" arity="4"/>
       <fsummary>Store an element in a list of tuples</fsummary>
-      <type>
-        <v>Key = term()</v>
-        <v>N = 1..tuple_size(Tuple)</v>
-        <v>TupleList1 = TupleList2 = [Tuple]</v>
-        <v>NewTuple = Tuple = tuple()</v>
-      </type>
+      <type_desc variable="N">1..tuple_size(<anno>Tuple</anno>)</type_desc>
       <desc>
-        <p>Returns a copy of <c>TupleList1</c> where the first
-          occurrence of a tuple <c>T</c> whose <c>N</c>th element
-          compares equal to <c>Key</c> is replaced with
-          <c>NewTuple</c>, if there is such a tuple <c>T</c>. If there
-          is no such tuple <c>T</c> a copy of <c>TupleList1</c> where
-          [<c>NewTuple</c>] has been appended to the end is
+        <p>Returns a copy of <c><anno>TupleList1</anno></c> where the first
+          occurrence of a tuple <c>T</c> whose <c><anno>N</anno></c>th element
+          compares equal to <c><anno>Key</anno></c> is replaced with
+          <c><anno>NewTuple</anno></c>, if there is such a tuple <c>T</c>. If there
+          is no such tuple <c>T</c> a copy of <c><anno>TupleList1</anno></c> where
+          [<c><anno>NewTuple</anno></c>] has been appended to the end is
           returned.</p>
       </desc>
     </func>
     <func>
-      <name>keytake(Key, N, TupleList1) -> {value, Tuple, TupleList2} 
-             | false</name>
+      <name name="keytake" arity="3"/>
       <fsummary>Extract an element from a list of tuples</fsummary>
-      <type>
-        <v>Key = term()</v>
-        <v>N = 1..tuple_size(Tuple)</v>
-        <v>TupleList1 = TupleList2 = [Tuple]</v>
-        <v>Tuple = tuple()</v>
-      </type>
+      <type_desc variable="N">1..tuple_size(<anno>Tuple</anno>)</type_desc>
       <desc>
-        <p>Searches the list of tuples <c>TupleList1</c> for a tuple
-          whose <c>N</c>th element compares equal to <c>Key</c>.
-          Returns <c>{value, Tuple, TupleList2}</c> if such a tuple is
-          found, otherwise <c>false</c>. <c>TupleList2</c> is a copy
-          of <c>TupleList1</c> where the first occurrence of
-          <c>Tuple</c> has been removed.</p>
+        <p>Searches the list of tuples <c><anno>TupleList1</anno></c> for a tuple
+          whose <c><anno>N</anno></c>th element compares equal to <c><anno>Key</anno></c>.
+          Returns <c>{value, <anno>Tuple</anno>, <anno>TupleList2</anno>}</c> if such a tuple is
+          found, otherwise <c>false</c>. <c><anno>TupleList2</anno></c> is a copy
+          of <c><anno>TupleList1</anno></c> where the first occurrence of
+          <c><anno>Tuple</anno></c> has been removed.</p>
       </desc>
     </func>
     <func>
-      <name>last(List) -> Last</name>
+      <name name="last" arity="1"/>
       <fsummary>Return last element in a list</fsummary>
-      <type>
-        <v>List = [term()], length(List) > 0</v>
-        <v>Last = term()</v>
-      </type>
       <desc>
-        <p>Returns the last element in <c>List</c>.</p>
+        <p>Returns the last element in <c><anno>List</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name>map(Fun, List1) -> List2</name>
+      <name name="map" arity="2"/>
       <fsummary>Map a function over a list</fsummary>
-      <type>
-        <v>Fun = fun(A) -> B</v>
-        <v>List1 = [A]</v>
-        <v>List2 = [B]</v>
-        <v>&nbsp;A = B = term()</v>
-      </type>
       <desc>
-        <p>Takes a function from <c>A</c>s to <c>B</c>s, and a list of
-          <c>A</c>s and produces a list of <c>B</c>s by applying
+        <p>Takes a function from <c><anno>A</anno></c>s to <c><anno>B</anno></c>s, and a list of
+          <c><anno>A</anno></c>s and produces a list of <c><anno>B</anno></c>s by applying
           the function to every element in the list. This function is
           used to obtain the return values. The evaluation order is
           implementation dependent.</p>
       </desc>
     </func>
     <func>
-      <name>mapfoldl(Fun, Acc0, List1) -> {List2, Acc1}</name>
+      <name name="mapfoldl" arity="3"/>
       <fsummary>Map and fold in one pass</fsummary>
-      <type>
-        <v>Fun = fun(A, AccIn) -> {B, AccOut}</v>
-        <v>Acc0 = Acc1 = AccIn = AccOut = term()</v>
-        <v>List1 = [A]</v>
-        <v>List2 = [B]</v>
-        <v>&nbsp;A = B = term()</v>
-      </type>
       <desc>
-        <p><c>mapfold</c> combines the operations of <c>map/2</c> and
+        <p><c>mapfoldl</c> combines the operations of <c>map/2</c> and
           <c>foldl/3</c> into one pass. An example, summing
           the elements in a list and double them at the same time:</p>
         <pre>
@@ -533,35 +408,24 @@ flatmap(Fun, List1) ->
       </desc>
     </func>
     <func>
-      <name>mapfoldr(Fun, Acc0, List1) -> {List2, Acc1}</name>
+      <name name="mapfoldr" arity="3"/>
       <fsummary>Map and fold in one pass</fsummary>
-      <type>
-        <v>Fun = fun(A, AccIn) -> {B, AccOut}</v>
-        <v>Acc0 = Acc1 = AccIn = AccOut = term()</v>
-        <v>List1 = [A]</v>
-        <v>List2 = [B]</v>
-        <v>&nbsp;A = B = term()</v>
-      </type>
       <desc>
-        <p><c>mapfold</c> combines the operations of <c>map/2</c> and
+        <p><c>mapfoldr</c> combines the operations of <c>map/2</c> and
           <c>foldr/3</c> into one pass.</p>
       </desc>
     </func>
     <func>
-      <name>max(List) -> Max</name>
+      <name name="max" arity="1"/>
       <fsummary>Return maximum element of a list</fsummary>
-      <type>
-        <v>List = [term()], length(List) > 0</v>
-        <v>Max = term()</v>
-      </type>
       <desc>
-        <p>Returns the first element of <c>List</c> that compares
+        <p>Returns the first element of <c><anno>List</anno></c> that compares
           greater than or equal to all other elements of
-          <c>List</c>.</p>
+          <c><anno>List</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name>member(Elem, List) -> bool()</name>
+      <name>member(Elem, List) -> boolean()</name>
       <fsummary>Test for membership of a list</fsummary>
       <type>
         <v>Elem = term()</v>
@@ -573,112 +437,84 @@ flatmap(Fun, List1) ->
       </desc>
     </func>
     <func>
-      <name>merge(ListOfLists) -> List1</name>
+      <name name="merge" arity="1"/>
       <fsummary>Merge a list of sorted lists</fsummary>
-      <type>
-        <v>ListOfLists = [List]</v>
-        <v>List = List1 = [term()]</v>
-      </type>
       <desc>
         <p>Returns the sorted list formed by merging all the sub-lists
-          of <c>ListOfLists</c>. All sub-lists must be sorted prior to
+          of <c><anno>ListOfLists</anno></c>. All sub-lists must be sorted prior to
           evaluating this function. When two elements compare equal,
           the element from the sub-list with the lowest position in
-          <c>ListOfLists</c> is picked before the other element.</p>
+          <c><anno>ListOfLists</anno></c> is picked before the other element.</p>
       </desc>
     </func>
     <func>
-      <name>merge(List1, List2) -> List3</name>
+      <name name="merge" arity="2"/>
       <fsummary>Merge two sorted lists</fsummary>
-      <type>
-        <v>List1 = List2 = List3 = [term()]</v>
-      </type>
       <desc>
-        <p>Returns the sorted list formed by merging <c>List1</c> and
-          <c>List2</c>. Both <c>List1</c> and <c>List2</c> must be
+        <p>Returns the sorted list formed by merging <c><anno>List1</anno></c> and
+          <c><anno>List2</anno></c>. Both <c><anno>List1</anno></c> and <c><anno>List2</anno></c> must be
           sorted prior to evaluating this function. When two elements
-          compare equal, the element from <c>List1</c> is picked
-          before the element from <c>List2</c>.</p>
+          compare equal, the element from <c><anno>List1</anno></c> is picked
+          before the element from <c><anno>List2</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name>merge(Fun, List1, List2) -> List3</name>
+      <name name="merge" arity="3"/>
       <fsummary>Merge two sorted list</fsummary>
-      <type>
-        <v>Fun = fun(A, B) -> bool()</v>
-        <v>List1 = [A]</v>
-        <v>List2 = [B]</v>
-        <v>List3 = [A | B]</v>
-        <v>&nbsp;A = B = term()</v>
-      </type>
       <desc>
-        <p>Returns the sorted list formed by merging <c>List1</c> and
-          <c>List2</c>. Both <c>List1</c> and <c>List2</c> must be
+        <p>Returns the sorted list formed by merging <c><anno>List1</anno></c> and
+          <c><anno>List2</anno></c>. Both <c><anno>List1</anno></c> and <c><anno>List2</anno></c> must be
           sorted according to the <seealso
           marker="#ordering_function">ordering function</seealso>
-          <c>Fun</c> prior to evaluating this function. <c>Fun(A,
-          B)</c> should return <c>true</c> if <c>A</c> compares less
-          than or equal to <c>B</c> in the ordering, <c>false</c>
+          <c><anno>Fun</anno></c> prior to evaluating this function. <c><anno>Fun</anno>(<anno>A</anno>,
+          <anno>B</anno>)</c> should return <c>true</c> if <c><anno>A</anno></c> compares less
+          than or equal to <c><anno>B</anno></c> in the ordering, <c>false</c>
           otherwise. When two elements compare equal, the element from
-          <c>List1</c> is picked before the element from
-          <c>List2</c>.</p>
+          <c><anno>List1</anno></c> is picked before the element from
+          <c><anno>List2</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name>merge3(List1, List2, List3) -> List4</name>
+      <name name="merge3" arity="3"/>
       <fsummary>Merge three sorted lists</fsummary>
-      <type>
-        <v>List1 = List2 = List3 = List4 = [term()]</v>
-      </type>
       <desc>
-        <p>Returns the sorted list formed by merging <c>List1</c>,
-          <c>List2</c> and <c>List3</c>. All of <c>List1</c>,
-          <c>List2</c> and <c>List3</c> must be sorted prior to
+        <p>Returns the sorted list formed by merging <c><anno>List1</anno></c>,
+          <c><anno>List2</anno></c> and <c><anno>List3</anno></c>. All of <c><anno>List1</anno></c>,
+          <c><anno>List2</anno></c> and <c><anno>List3</anno></c> must be sorted prior to
           evaluating this function. When two elements compare equal,
-          the element from <c>List1</c>, if there is such an element,
+          the element from <c><anno>List1</anno></c>, if there is such an element,
           is picked before the other element, otherwise the element
-          from <c>List2</c> is picked before the element from
-          <c>List3</c>.</p>
+          from <c><anno>List2</anno></c> is picked before the element from
+          <c><anno>List3</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name>min(List) -> Min</name>
+      <name name="min" arity="1"/>
       <fsummary>Return minimum element of a list</fsummary>
-      <type>
-        <v>List = [term()], length(List) > 0</v>
-        <v>Min = term()</v>
-      </type>
       <desc>
-        <p>Returns the first element of <c>List</c> that compares
+        <p>Returns the first element of <c><anno>List</anno></c> that compares
           less than or equal to all other elements of
-          <c>List</c>.</p>
+          <c><anno>List</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name>nth(N, List) -> Elem</name>
+      <name name="nth" arity="2"/>
       <fsummary>Return the Nth element of a list</fsummary>
-      <type>
-        <v>N = 1..length(List)</v>
-        <v>List = [term()]</v>
-        <v>Elem = term()</v>
-      </type>
+      <type_desc variable="N">1..length(<anno>List</anno>)</type_desc>
       <desc>
-        <p>Returns the <c>N</c>th element of <c>List</c>. For example:</p>
+        <p>Returns the <c><anno>N</anno></c>th element of <c><anno>List</anno></c>. For example:</p>
         <pre>
 > <input>lists:nth(3, [a, b, c, d, e]).</input>
 c</pre>
       </desc>
     </func>
     <func>
-      <name>nthtail(N, List1) -> Tail</name>
+      <name name="nthtail" arity="2"/>
       <fsummary>Return the Nth tail of a list</fsummary>
-      <type>
-        <v>N = 0..length(List1)</v>
-        <v>List1 = Tail = [term()]</v>
-      </type>
+      <type_desc variable="N">0..length(<anno>List</anno>)</type_desc>
       <desc>
-        <p>Returns the <c>N</c>th tail of <c>List</c>, that is, the sublist of
-          <c>List</c> starting at <c>N+1</c> and continuing up to
+        <p>Returns the <c><anno>N</anno></c>th tail of <c><anno>List</anno></c>, that is, the sublist of
+          <c><anno>List</anno></c> starting at <c><anno>N</anno>+1</c> and continuing up to
           the end of the list. For example:</p>
         <pre>
 > <input>lists:nthtail(3, [a, b, c, d, e]).</input>
@@ -692,18 +528,13 @@ c</pre>
       </desc>
     </func>
     <func>
-      <name>partition(Pred, List) -> {Satisfying, NonSatisfying}</name>
+      <name name="partition" arity="2"/>
       <fsummary>Partition a list into two lists based on a predicate</fsummary>
-      <type>
-        <v>Pred = fun(Elem) -> bool()</v>
-        <v>&nbsp;Elem = term()</v>
-        <v>List = Satisfying = NonSatisfying = [term()]</v>
-      </type>
       <desc>
-        <p>Partitions <c>List</c> into two lists, where the first list
-          contains all elements for which <c>Pred(Elem)</c> returns
+        <p>Partitions <c><anno>List</anno></c> into two lists, where the first list
+          contains all elements for which <c><anno>Pred</anno>(<anno>Elem</anno>)</c> returns
           <c>true</c>, and the second list contains all elements for
-          which <c>Pred(Elem)</c> returns <c>false</c>.</p>
+          which <c><anno>Pred</anno>(<anno>Elem</anno>)</c> returns <c>false</c>.</p>
         <p>Examples:</p>
         <pre>
 > <input>lists:partition(fun(A) -> A rem 2 == 1 end, [1,2,3,4,5,6,7]).</input>
@@ -715,24 +546,18 @@ c</pre>
       </desc>
     </func>
     <func>
-      <name>prefix(List1, List2) -> bool()</name>
+      <name name="prefix" arity="2"/>
       <fsummary>Test for list prefix</fsummary>
-      <type>
-        <v>List1 = List2 = [term()]</v>
-      </type>
       <desc>
-        <p>Returns <c>true</c> if <c>List1</c> is a prefix of
-          <c>List2</c>, otherwise <c>false</c>.</p>
+        <p>Returns <c>true</c> if <c><anno>List1</anno></c> is a prefix of
+          <c><anno>List2</anno></c>, otherwise <c>false</c>.</p>
       </desc>
     </func>
     <func>
-      <name>reverse(List1) -> List2</name>
+      <name name="reverse" arity="1"/>
       <fsummary>Reverse a list</fsummary>
-      <type>
-        <v>List1 = List2 = [term()]</v>
-      </type>
       <desc>
-        <p>Returns a list with the top level elements in <c>List1</c>
+        <p>Returns a list with the elements in <c><anno>List1</anno></c>
           in reverse order.</p>
       </desc>
     </func>
@@ -743,7 +568,7 @@ c</pre>
         <v>List1 = Tail = List2 = [term()]</v>
       </type>
       <desc>
-        <p>Returns a list with the top level elements in <c>List1</c>
+        <p>Returns a list with the elements in <c>List1</c>
           in reverse order, with the tail <c>Tail</c> appended. For
           example:</p>
         <pre>
@@ -752,22 +577,18 @@ c</pre>
       </desc>
     </func>
     <func>
-      <name>seq(From, To) -> Seq</name>
-      <name>seq(From, To, Incr) -> Seq</name>
+      <name name="seq" arity="2"/>
+      <name name="seq" arity="3"/>
       <fsummary>Generate a sequence of integers</fsummary>
-      <type>
-        <v>From = To = Incr = int()</v>
-        <v>Seq = [int()]</v>
-      </type>
       <desc>
-        <p>Returns a sequence of integers which starts with <c>From</c>
-          and contains the successive results of adding <c>Incr</c> to
-          the previous element, until <c>To</c> has been reached or
-          passed (in the latter case, <c>To</c> is not an element of
-          the sequence). <c>Incr</c> defaults to 1.</p>
-        <p>Failure: If <c><![CDATA[To<From-Incr]]></c> and <c>Incr</c>
-          is positive, or if <c>To>From-Incr</c> and <c>Incr</c> is
-          negative, or if <c>Incr==0</c> and <c>From/=To</c>.</p>
+        <p>Returns a sequence of integers which starts with <c><anno>From</anno></c>
+          and contains the successive results of adding <c><anno>Incr</anno></c> to
+          the previous element, until <c><anno>To</anno></c> has been reached or
+          passed (in the latter case, <c><anno>To</anno></c> is not an element of
+          the sequence). <c><anno>Incr</anno></c> defaults to 1.</p>
+        <p>Failure: If <c><anno>To</anno>&lt;<anno>From</anno>-<anno>Incr</anno></c> and <c><anno>Incr</anno></c>
+          is positive, or if <c><anno>To</anno>><anno>From</anno>-<anno>Incr</anno></c> and <c><anno>Incr</anno></c> is
+          negative, or if <c><anno>Incr</anno>==0</c> and <c><anno>From</anno>/=<anno>To</anno></c>.</p>
         <p>The following equalities hold for all sequences:</p>
         <code type="none">
 length(lists:seq(From, To)) == To-From+1
@@ -787,60 +608,44 @@ length(lists:seq(From, To, Incr)) == (To-From+Incr) div Incr</code>
       </desc>
     </func>
     <func>
-      <name>sort(List1) -> List2</name>
+      <name name="sort" arity="1"/>
       <fsummary>Sort a list</fsummary>
-      <type>
-        <v>List1 = List2 = [term()]</v>
-      </type>
       <desc>
         <p>Returns a list containing the sorted elements of
-          <c>List1</c>.</p>
+          <c><anno>List1</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name>sort(Fun, List1) -> List2</name>
+      <name name="sort" arity="2"/>
       <fsummary>Sort a list</fsummary>
-      <type>
-        <v>Fun = fun(Elem1, Elem2) -> bool()</v>
-        <v>&nbsp;Elem1 = Elem2 = term()</v>
-        <v>List1 = List2 = [term()]</v>
-      </type>
       <desc>
         <p>Returns a list containing the sorted elements of
-          <c>List1</c>, according to the <seealso
+          <c><anno>List1</anno></c>, according to the <seealso
           marker="#ordering_function">ordering function</seealso>
-          <c>Fun</c>. <c>Fun(A, B)</c> should return <c>true</c> if
-          <c>A</c> compares less than or equal to <c>B</c> in the
+          <c><anno>Fun</anno></c>. <c><anno>Fun</anno>(<anno>A</anno>, <anno>B</anno>)</c> should return <c>true</c> if
+          <c><anno>A</anno></c> compares less than or equal to <c><anno>B</anno></c> in the
           ordering, <c>false</c> otherwise.</p>
       </desc>
     </func>
     <func>
-      <name>split(N, List1) -> {List2, List3}</name>
+      <name name="split" arity="2"/>
       <fsummary>Split a list into two lists</fsummary>
-      <type>
-        <v>N = 0..length(List1)</v>
-        <v>List1 = List2 = List3 = [term()]</v>
-      </type>
+      <type_desc variable="N">0..length(<anno>List1</anno>)</type_desc>
       <desc>
-        <p>Splits <c>List1</c> into <c>List2</c> and <c>List3</c>.
-          <c>List2</c> contains the first <c>N</c> elements and
-          <c>List3</c> the rest of the elements (the <c>N</c>th tail).</p>
+        <p>Splits <c><anno>List1</anno></c> into <c><anno>List2</anno></c> and <c><anno>List3</anno></c>.
+          <c><anno>List2</anno></c> contains the first <c><anno>N</anno></c> elements and
+          <c><anno>List3</anno></c> the rest of the elements (the <c><anno>N</anno></c>th tail).</p>
       </desc>
     </func>
     <func>
-      <name>splitwith(Pred, List) -> {List1, List2}</name>
+      <name name="splitwith" arity="2"/>
       <fsummary>Split a list into two lists based on a predicate</fsummary>
-      <type>
-        <v>Pred = fun(Elem) -> bool()</v>
-        <v>&nbsp;Elem = term()</v>
-        <v>List = List1 = List2 = [term()]</v>
-      </type>
       <desc>
-        <p>Partitions <c>List</c> into two lists according to
-          <c>Pred</c>. <c>splitwith/2</c> behaves as if it is defined
+        <p>Partitions <c><anno>List</anno></c> into two lists according to
+          <c><anno>Pred</anno></c>. <c>splitwith/2</c> behaves as if it is defined
           as follows:</p>
         <code type="none">
-splitwith(Pred, List) -> 
+splitwith(Pred, List) ->
     {takewhile(Pred, List), dropwhile(Pred, List)}.</code>
         <p>Examples:</p>
         <pre>
@@ -853,31 +658,23 @@ splitwith(Pred, List) ->
       </desc>
     </func>
     <func>
-      <name>sublist(List1, Len) -> List2</name>
+      <name name="sublist" arity="2"/>
       <fsummary>Return a sub-list of a certain length, starting at the first position</fsummary>
-      <type>
-        <v>List1 = List2 = [term()]</v>
-        <v>Len = int()</v>
-      </type>
       <desc>
-        <p>Returns the sub-list of <c>List1</c> starting at position 1
-          and with (max) <c>Len</c> elements. It is not an error for
-          <c>Len</c> to exceed the length of the list -- in that case
+        <p>Returns the sub-list of <c><anno>List1</anno></c> starting at position 1
+          and with (max) <c><anno>Len</anno></c> elements. It is not an error for
+          <c><anno>Len</anno></c> to exceed the length of the list -- in that case
           the whole list is returned.</p>
       </desc>
     </func>
     <func>
-      <name>sublist(List1, Start, Len) -> List2</name>
+      <name name="sublist" arity="3"/>
       <fsummary>Return a sub-list starting at a given position and with a given number of elements</fsummary>
-      <type>
-        <v>List1 = List2 = [term()]</v>
-        <v>Start = 1..(length(List1)+1)</v>
-        <v>Len = int()</v>
-      </type>
+      <type_desc variable="Start">1..(length(<anno>List1</anno>)+1)</type_desc>
       <desc>
-        <p>Returns the sub-list of <c>List1</c> starting at <c>Start</c>
-          and with (max) <c>Len</c> elements. It is not an error for
-          <c>Start+Len</c> to exceed the length of the list.</p>
+        <p>Returns the sub-list of <c><anno>List1</anno></c> starting at <c><anno>Start</anno></c>
+          and with (max) <c><anno>Len</anno></c> elements. It is not an error for
+          <c><anno>Start</anno>+<anno>Len</anno></c> to exceed the length of the list.</p>
         <pre>
 > <input>lists:sublist([1,2,3,4], 2, 2).</input>
 [2,3]
@@ -888,15 +685,12 @@ splitwith(Pred, List) ->
       </desc>
     </func>
     <func>
-      <name>subtract(List1, List2) -> List3</name>
+      <name name="subtract" arity="2"/>
       <fsummary>Subtract the element in one list from another list</fsummary>
-      <type>
-        <v>List1 = List2 = List3 = [term()]</v>
-      </type>
       <desc>
-        <p>Returns a new list <c>List3</c> which is a copy of
-          <c>List1</c>, subjected to the following procedure: for each
-          element in <c>List2</c>, its first occurrence in <c>List1</c>
+        <p>Returns a new list <c><anno>List3</anno></c> which is a copy of
+          <c><anno>List1</anno></c>, subjected to the following procedure: for each
+          element in <c><anno>List2</anno></c>, its first occurrence in <c><anno>List1</anno></c>
           is deleted. For example:</p>
         <pre>
 > <input>lists:subtract("123212", "212").</input>
@@ -911,151 +705,112 @@ splitwith(Pred, List) ->
       </desc>
     </func>
     <func>
-      <name>suffix(List1, List2) -> bool()</name>
+      <name name="suffix" arity="2"/>
       <fsummary>Test for list suffix</fsummary>
       <desc>
-        <p>Returns <c>true</c> if <c>List1</c> is a suffix of
-          <c>List2</c>, otherwise <c>false</c>.</p>
+        <p>Returns <c>true</c> if <c><anno>List1</anno></c> is a suffix of
+          <c><anno>List2</anno></c>, otherwise <c>false</c>.</p>
       </desc>
     </func>
     <func>
-      <name>sum(List) -> number()</name>
+      <name name="sum" arity="1"/>
       <fsummary>Return sum of elements in a list</fsummary>
-      <type>
-        <v>List = [number()]</v>
-      </type>
       <desc>
-        <p>Returns the sum of the elements in <c>List</c>.</p>
+        <p>Returns the sum of the elements in <c><anno>List</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name>takewhile(Pred, List1) -> List2</name>
+      <name name="takewhile" arity="2"/>
       <fsummary>Take elements from a list while a predicate is true</fsummary>
-      <type>
-        <v>Pred = fun(Elem) -> bool()</v>
-        <v>&nbsp;Elem = term()</v>
-        <v>List1 = List2 = [term()]</v>
-      </type>
       <desc>
-        <p>Takes elements <c>Elem</c> from <c>List1</c> while
-          <c>Pred(Elem)</c> returns <c>true</c>, that is,
+        <p>Takes elements <c><anno>Elem</anno></c> from <c><anno>List1</anno></c> while
+          <c><anno>Pred</anno>(<anno>Elem</anno>)</c> returns <c>true</c>, that is,
           the function returns the longest prefix of the list for which
           all elements satisfy the predicate.</p>
       </desc>
     </func>
     <func>
-      <name>ukeymerge(N, TupleList1, TupleList2) -> TupleList3</name>
+      <name name="ukeymerge" arity="3"/>
       <fsummary>Merge two key-sorted lists of tuples, removing duplicates</fsummary>
-      <type>
-        <v>N = 1..tuple_size(Tuple)</v>
-        <v>TupleList1 = TupleList2 = TupleList3 = [Tuple]</v>
-        <v>&nbsp;Tuple = tuple()</v>
-      </type>
+      <type_desc variable="N">1..tuple_size(<anno>Tuple</anno>)</type_desc>
       <desc>
-        <p>Returns the sorted list formed by merging <c>TupleList1</c>
-          and <c>TupleList2</c>. The merge is performed on the
-          <c>N</c>th element of each tuple. Both <c>TupleList1</c> and
-          <c>TupleList2</c> must be key-sorted without duplicates
+        <p>Returns the sorted list formed by merging <c><anno>TupleList1</anno></c>
+          and <c><anno>TupleList2</anno></c>. The merge is performed on the
+          <c><anno>N</anno></c>th element of each tuple. Both <c><anno>TupleList1</anno></c> and
+          <c><anno>TupleList2</anno></c> must be key-sorted without duplicates
           prior to evaluating this function. When two tuples compare
-          equal, the tuple from <c>TupleList1</c> is picked and the
-          one from <c>TupleList2</c> deleted.</p>
+          equal, the tuple from <c><anno>TupleList1</anno></c> is picked and the
+          one from <c><anno>TupleList2</anno></c> deleted.</p>
       </desc>
     </func>
     <func>
-      <name>ukeysort(N, TupleList1) -> TupleList2</name>
+      <name name="ukeysort" arity="2"/>
       <fsummary>Sort a list of tuples, removing duplicates</fsummary>
-      <type>
-        <v>N = 1..tuple_size(Tuple)</v>
-        <v>TupleList1 = TupleList2 = [Tuple]</v>
-        <v>&nbsp;Tuple = tuple()</v>
-      </type>
+      <type_desc variable="N">1..tuple_size(<anno>Tuple</anno>)</type_desc>
       <desc>
         <p>Returns a list containing the sorted elements of the list
-          <c>TupleList1</c> where all but the first tuple of the
+          <c><anno>TupleList1</anno></c> where all but the first tuple of the
           tuples comparing equal have been deleted. Sorting is
-          performed on the <c>N</c>th element of the tuples.</p>
+          performed on the <c><anno>N</anno></c>th element of the tuples.</p>
       </desc>
     </func>
     <func>
-      <name>umerge(ListOfLists) -> List1</name>
+      <name name="umerge" arity="1"/>
       <fsummary>Merge a list of sorted lists, removing duplicates</fsummary>
-      <type>
-        <v>ListOfLists = [List]</v>
-        <v>List = List1 = [term()]</v>
-      </type>
       <desc>
         <p>Returns the sorted list formed by merging all the sub-lists
-          of <c>ListOfLists</c>. All sub-lists must be sorted and
+          of <c><anno>ListOfLists</anno></c>. All sub-lists must be sorted and
           contain no duplicates prior to evaluating this function.
           When two elements compare equal, the element from the
-          sub-list with the lowest position in <c>ListOfLists</c> is
+          sub-list with the lowest position in <c><anno>ListOfLists</anno></c> is
           picked and the other one deleted.</p>
       </desc>
     </func>
     <func>
-      <name>umerge(List1, List2) -> List3</name>
+      <name name="umerge" arity="2"/>
       <fsummary>Merge two sorted lists, removing duplicates</fsummary>
-      <type>
-        <v>List1 = List2 = List3 = [term()]</v>
-      </type>
       <desc>
-        <p>Returns the sorted list formed by merging <c>List1</c> and
-          <c>List2</c>. Both <c>List1</c> and <c>List2</c> must be
+        <p>Returns the sorted list formed by merging <c><anno>List1</anno></c> and
+          <c><anno>List2</anno></c>. Both <c><anno>List1</anno></c> and <c><anno>List2</anno></c> must be
           sorted and contain no duplicates prior to evaluating this
           function. When two elements compare equal, the element from
-          <c>List1</c> is picked and the one from <c>List2</c>
+          <c><anno>List1</anno></c> is picked and the one from <c><anno>List2</anno></c>
           deleted.</p>
       </desc>
     </func>
     <func>
-      <name>umerge(Fun, List1, List2) -> List3</name>
+      <name name="umerge" arity="3"/>
       <fsummary>Merge two sorted lists, removing duplicates</fsummary>
-      <type>
-        <v>Fun = fun(A, B) -> bool()</v>
-        <v>List1 = [A]</v>
-        <v>List2 = [B]</v>
-        <v>List3 = [A | B]</v>
-        <v>&nbsp;A = B = term()</v>
-      </type>
       <desc>
-        <p>Returns the sorted list formed by merging <c>List1</c> and
-          <c>List2</c>. Both <c>List1</c> and <c>List2</c> must be
+        <p>Returns the sorted list formed by merging <c><anno>List1</anno></c> and
+          <c><anno>List2</anno></c>. Both <c><anno>List1</anno></c> and <c><anno>List2</anno></c> must be
           sorted according to the <seealso
           marker="#ordering_function">ordering function</seealso>
           <c>Fun</c> and contain no duplicates prior to evaluating
-          this function. <c>Fun(A, B)</c> should return <c>true</c> if
-          <c>A</c> compares less than or equal to <c>B</c> in the
+          this function. <c><anno>Fun</anno>(<anno>A</anno>, <anno>B</anno>)</c> should return <c>true</c> if
+          <c><anno>A</anno></c> compares less than or equal to <c><anno>B</anno></c> in the
           ordering, <c>false</c> otherwise. When two elements compare
           equal, the element from
-          <c>List1</c> is picked and the one from <c>List2</c>
+          <c><anno>List1</anno></c> is picked and the one from <c><anno>List2</anno></c>
           deleted.</p>
       </desc>
     </func>
     <func>
-      <name>umerge3(List1, List2, List3) -> List4</name>
+      <name name="umerge3" arity="3"/>
       <fsummary>Merge three sorted lists, removing duplicates</fsummary>
-      <type>
-        <v>List1 = List2 = List3 = List4 = [term()]</v>
-      </type>
       <desc>
-        <p>Returns the sorted list formed by merging <c>List1</c>,
-          <c>List2</c> and <c>List3</c>. All of <c>List1</c>,
-          <c>List2</c> and <c>List3</c> must be sorted and contain no
+        <p>Returns the sorted list formed by merging <c><anno>List1</anno></c>,
+          <c><anno>List2</anno></c> and <c><anno>List3</anno></c>. All of <c><anno>List1</anno></c>,
+          <c><anno>List2</anno></c> and <c><anno>List3</anno></c> must be sorted and contain no
           duplicates prior to evaluating this function. When two
-          elements compare equal, the element from <c>List1</c> is
+          elements compare equal, the element from <c><anno>List1</anno></c> is
           picked if there is such an element, otherwise the element
-          from <c>List2</c> is picked, and the other one deleted.</p>
+          from <c><anno>List2</anno></c> is picked, and the other one deleted.</p>
       </desc>
     </func>
     <func>
-      <name>unzip(List1) -> {List2, List3}</name>
+      <name name="unzip" arity="1"/>
       <fsummary>Unzip a list of two-tuples into two lists</fsummary>
-      <type>
-        <v>List1 = [{X, Y}]</v>
-        <v>List2 = [X]</v>
-        <v>List3 = [Y]</v>
-        <v>&nbsp;X = Y = term()</v>
-      </type>
       <desc>
         <p>"Unzips" a list of two-tuples into two lists, where the first
           list contains the first element of each tuple, and the second
@@ -1063,15 +818,8 @@ splitwith(Pred, List) ->
       </desc>
     </func>
     <func>
-      <name>unzip3(List1) -> {List2, List3, List4}</name>
+      <name name="unzip3" arity="1"/>
       <fsummary>Unzip a list of three-tuples into three lists</fsummary>
-      <type>
-        <v>List1 = [{X, Y, Z}]</v>
-        <v>List2 = [X]</v>
-        <v>List3 = [Y]</v>
-        <v>List4 = [Z]</v>
-        <v>&nbsp;X = Y = Z = term()</v>
-      </type>
       <desc>
         <p>"Unzips" a list of three-tuples into three lists, where
           the first list contains the first element of each tuple,
@@ -1080,44 +828,30 @@ splitwith(Pred, List) ->
       </desc>
     </func>
     <func>
-      <name>usort(List1) -> List2</name>
+      <name name="usort" arity="1"/>
       <fsummary>Sort a list, removing duplicates</fsummary>
-      <type>
-        <v>List1 = List2 = [term()]</v>
-      </type>
       <desc>
         <p>Returns a list containing the sorted elements of
-          <c>List1</c> where all but the first element of the elements
+          <c><anno>List1</anno></c> where all but the first element of the elements
           comparing equal have been deleted.</p>
       </desc>
     </func>
     <func>
-      <name>usort(Fun, List1) -> List2</name>
+      <name name="usort" arity="2"/>
       <fsummary>Sort a list, removing duplicates</fsummary>
-      <type>
-        <v>Fun = fun(Elem1, Elem2) -> bool()</v>
-        <v>&nbsp;Elem1 = Elem2 = term()</v>
-        <v>List1 = List2 = [term()]</v>
-      </type>
       <desc>
         <p>Returns a list which contains the sorted elements of
-          <c>List1</c> where all but the first element of the elements
+          <c><anno>List1</anno></c> where all but the first element of the elements
           comparing equal according to the <seealso
           marker="#ordering_function">ordering function</seealso>
-          <c>Fun</c> have been deleted. <c>Fun(A, B)</c> should return
+          <c><anno>Fun</anno></c> have been deleted. <c><anno>Fun</anno>(A, B)</c> should return
           <c>true</c> if <c>A</c> compares less than or equal to
           <c>B</c> in the ordering, <c>false</c> otherwise.</p>
       </desc>
     </func>
     <func>
-      <name>zip(List1, List2) -> List3</name>
+      <name name="zip" arity="2"/>
       <fsummary>Zip two lists into a list of two-tuples</fsummary>
-      <type>
-        <v>List1 = [X]</v>
-        <v>List2 = [Y]</v>
-        <v>List3 = [{X, Y}]</v>
-        <v>&nbsp;X = Y = term()</v>
-      </type>
       <desc>
         <p>"Zips" two lists of equal length into one list of two-tuples,
           where the first element of each tuple is taken from the first
@@ -1126,15 +860,8 @@ splitwith(Pred, List) ->
       </desc>
     </func>
     <func>
-      <name>zip3(List1, List2, List3) -> List4</name>
+      <name name="zip3" arity="3"/>
       <fsummary>Zip three lists into a list of three-tuples</fsummary>
-      <type>
-        <v>List1 = [X]</v>
-        <v>List2 = [Y]</v>
-        <v>List3 = [Z]</v>
-        <v>List3 = [{X, Y, Z}]</v>
-        <v>&nbsp;X = Y = Z = term()</v>
-      </type>
       <desc>
         <p>"Zips" three lists of equal length into one list of
           three-tuples, where the first element of each tuple is taken
@@ -1145,20 +872,13 @@ splitwith(Pred, List) ->
       </desc>
     </func>
     <func>
-      <name>zipwith(Combine, List1, List2) -> List3</name>
+      <name name="zipwith" arity="3"/>
       <fsummary>Zip two lists into one list according to a fun</fsummary>
-      <type>
-        <v>Combine = fun(X, Y) -> T</v>
-        <v>List1 = [X]</v>
-        <v>List2 = [Y]</v>
-        <v>List3 = [T]</v>
-        <v>&nbsp;X = Y = T = term()</v>
-      </type>
       <desc>
         <p>Combine the elements of two lists of equal length into one
-          list. For each pair <c>X, Y</c> of list elements from the two
+          list. For each pair <c><anno>X</anno>, <anno>Y</anno></c> of list elements from the two
           lists, the element in the result list will be
-          <c>Combine(X, Y)</c>.</p>
+          <c><anno>Combine</anno>(<anno>X</anno>, <anno>Y</anno>)</c>.</p>
         <p><c>zipwith(fun(X, Y) -> {X,Y} end, List1, List2)</c> is
           equivalent to <c>zip(List1, List2)</c>.</p>
         <p>Example:</p>
@@ -1168,21 +888,13 @@ splitwith(Pred, List) ->
       </desc>
     </func>
     <func>
-      <name>zipwith3(Combine, List1, List2, List3) -> List4</name>
+      <name name="zipwith3" arity="4"/>
       <fsummary>Zip three lists into one list according to a fun</fsummary>
-      <type>
-        <v>Combine = fun(X, Y, Z) -> T</v>
-        <v>List1 = [X]</v>
-        <v>List2 = [Y]</v>
-        <v>List3 = [Z]</v>
-        <v>List4 = [T]</v>
-        <v>&nbsp;X = Y = Z = T = term()</v>
-      </type>
       <desc>
         <p>Combine the elements of three lists of equal length into one
-          list. For each triple <c>X, Y, Z</c> of list elements from
+          list. For each triple <c><anno>X</anno>, <anno>Y</anno>, <anno>Z</anno></c> of list elements from
           the three lists, the element in the result list will be
-          <c>Combine(X, Y, Z)</c>.</p>
+          <c><anno>Combine</anno>(<anno>X</anno>, <anno>Y</anno>, <anno>Z</anno>)</c>.</p>
         <p><c>zipwith3(fun(X, Y, Z) -> {X,Y,Z} end, List1, List2, List3)</c> is equivalent to <c>zip3(List1, List2, List3)</c>.</p>
         <p>Examples:</p>
         <pre>

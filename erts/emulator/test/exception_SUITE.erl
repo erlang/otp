@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,19 +19,40 @@
 
 -module(exception_SUITE).
 
--export([all/1, badmatch/1, pending_errors/1, nil_arith/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 badmatch/1, pending_errors/1, nil_arith/1,
          stacktrace/1, nested_stacktrace/1, raise/1, gunilla/1, per/1,
-	 exception_with_heap_frag/1]).
+	 exception_with_heap_frag/1, line_numbers/1]).
 
 -export([bad_guy/2]).
+-export([crash/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -import(lists, [foreach/2]).
 
-all(suite) ->
-    [badmatch, pending_errors, nil_arith, 
-     stacktrace, nested_stacktrace, raise, gunilla, per,
-     exception_with_heap_frag].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [badmatch, pending_errors, nil_arith, stacktrace,
+     nested_stacktrace, raise, gunilla, per,
+     exception_with_heap_frag, line_numbers].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 -define(try_match(E),
 	catch ?MODULE:bar(),
@@ -121,14 +142,20 @@ pending_exit_message(Args, Expected) ->
     end,
     process_flag(trap_exit, false).
 
-pending({badarg, [{erlang,Bif,BifArgs},{?MODULE,Func,Arity}|_]}, Func, Args, _Code)
-  when is_atom(Bif), is_list(BifArgs), length(Args) == Arity ->
+pending({badarg,[{erlang,Bif,BifArgs,Loc1},
+		 {?MODULE,Func,Arity,Loc2}|_]},
+	Func, Args, _Code)
+  when is_atom(Bif), is_list(BifArgs), length(Args) =:= Arity,
+       is_list(Loc1), is_list(Loc2) ->
     ok;
-pending({undef,[{non_existing_module,foo,[]}|_]}, _, _, _) ->
+pending({undef,[{non_existing_module,foo,[],Loc}|_]}, _, _, _)
+  when is_list(Loc) ->
     ok;
-pending({function_clause,[{?MODULE,Func,Args}|_]}, Func, Args, _Code) ->
+pending({function_clause,[{?MODULE,Func,Args,Loc}|_]}, Func, Args, _Code)
+  when is_list(Loc) ->
     ok;
-pending({Code,[{?MODULE,Func,Arity}|_]}, Func, Args, Code) when length(Args) == Arity ->
+pending({Code,[{?MODULE,Func,Arity,Loc}|_]}, Func, Args, Code)
+  when length(Args) =:= Arity, is_list(Loc) ->
     ok;
 pending(Reason, _Function, _Args, _Code) ->
     test_server:fail({bad_exit_reason,Reason}).
@@ -235,27 +262,36 @@ stacktrace(Conf) when is_list(Conf) ->
     ?line {_,Mref} = spawn_monitor(fun() -> exit({Tag,erlang:get_stacktrace()}) end),
     ?line {Tag,[]} = receive {'DOWN',Mref,_,_,Info} -> Info end,
     V = [make_ref()|self()],
-    ?line {value2,{caught1,badarg,[{erlang,abs,[V]}|_]=St1}} =
+    ?line {value2,{caught1,badarg,[{erlang,abs,[V],_}|_]=St1}} =
 	stacktrace_1({'abs',V}, error, {value,V}),
     ?line St1 = erase(stacktrace1),
     ?line St1 = erase(stacktrace2),
     ?line St1 = erlang:get_stacktrace(),
-    ?line {caught2,{error,badarith},[{?MODULE,my_add,2}|_]=St2} =
+    ?line {caught2,{error,badarith},[{?MODULE,my_add,2,_}|_]=St2} =
 	stacktrace_1({'div',{1,0}}, error, {'add',{0,a}}),
-    ?line [{?MODULE,my_div,2}|_] = erase(stacktrace1),
+    ?line [{?MODULE,my_div,2,_}|_] = erase(stacktrace1),
     ?line St2 = erase(stacktrace2),
     ?line St2 = erlang:get_stacktrace(),
-    ?line {caught2,{error,{try_clause,V}},[{?MODULE,stacktrace_1,3}|_]=St3} =
+    ?line {caught2,{error,{try_clause,V}},[{?MODULE,stacktrace_1,3,_}|_]=St3} =
 	stacktrace_1({value,V}, error, {value,V}),
     ?line St3 = erase(stacktrace1),
     ?line St3 = erase(stacktrace2),
     ?line St3 = erlang:get_stacktrace(),
-    ?line {caught2,{throw,V},[{?MODULE,foo,1}|_]=St4} =
+    ?line {caught2,{throw,V},[{?MODULE,foo,1,_}|_]=St4} =
 	stacktrace_1({value,V}, error, {throw,V}),
-    ?line [{?MODULE,stacktrace_1,3}|_] = erase(stacktrace1),
+    ?line [{?MODULE,stacktrace_1,3,_}|_] = erase(stacktrace1),
     ?line St4 = erase(stacktrace2),
     ?line St4 = erlang:get_stacktrace(),
-    ok.
+
+    try
+	?line stacktrace_2()
+    catch
+	error:{badmatch,_} ->
+	    [{?MODULE,stacktrace_2,0,_},
+	     {?MODULE,stacktrace,1,_}|_] =
+		erlang:get_stacktrace(),
+	    ok
+    end.
 
 stacktrace_1(X, C1, Y) ->
     erase(stacktrace1),
@@ -275,6 +311,9 @@ stacktrace_1(X, C1, Y) ->
         put(stacktrace2, erlang:get_stacktrace())
     end.
 
+stacktrace_2() ->
+    ok = erlang:process_info(self(), current_function),
+    ok.
 
 
 nested_stacktrace(Conf) when is_list(Conf) ->
@@ -283,15 +322,15 @@ nested_stacktrace(Conf) when is_list(Conf) ->
 	nested_stacktrace_1({{value,{V,x1}},void,{V,x1}},
 			    {void,void,void}),
     ?line {caught1,
-	   [{?MODULE,my_add,2}|_],
+	   [{?MODULE,my_add,2,_}|_],
 	   value2,
-	   [{?MODULE,my_add,2}|_]} =
+	   [{?MODULE,my_add,2,_}|_]} =
 	nested_stacktrace_1({{'add',{V,x1}},error,badarith},
 			    {{value,{V,x2}},void,{V,x2}}),
     ?line {caught1,
-	   [{?MODULE,my_add,2}|_],
-	   {caught2,[{erlang,abs,[V]}|_]},
-	   [{erlang,abs,[V]}|_]} =
+	   [{?MODULE,my_add,2,_}|_],
+	   {caught2,[{erlang,abs,[V],_}|_]},
+	   [{erlang,abs,[V],_}|_]} =
 	nested_stacktrace_1({{'add',{V,x1}},error,badarith},
 			    {{'abs',V},error,badarg}),
     ok.
@@ -330,14 +369,14 @@ raise(Conf) when is_list(Conf) ->
 	end,
     ?line A = erlang:get_stacktrace(),
     ?line A = get(raise),
-    ?line [{?MODULE,my_div,2}|_] = A,
+    ?line [{?MODULE,my_div,2,_}|_] = A,
     %%
     N = 8, % Must be even
     ?line N = erlang:system_flag(backtrace_depth, N),
+    ?line B = odd_even(N, []),
     ?line try even(N) 
 	  catch error:function_clause -> ok
 	  end,
-    ?line B = odd_even(N, []),
     ?line B = erlang:get_stacktrace(),
     %%
     ?line C0 = odd_even(N+1, []),
@@ -355,19 +394,12 @@ raise(Conf) when is_list(Conf) ->
 odd_even(N, R) when is_integer(N), N > 1 ->
     odd_even(N-1, 
 	     [if (N rem 2) == 0 ->
-		      {?MODULE,even,1};
+		      {?MODULE,even,1,[{file,"odd_even.erl"},{line,3}]};
 		 true ->
-		      {?MODULE,odd,1}
+		      {?MODULE,odd,1,[{file,"odd_even.erl"},{line,6}]}
 	      end|R]);
 odd_even(1, R) ->
-    [{?MODULE,odd,[1]}|R].
-
-even(N) when is_integer(N), N > 1, (N rem 2) == 0 ->
-    odd(N-1)++[N].
-
-odd(N) when is_integer(N), N > 1, (N rem 2) == 1 ->
-    even(N-1)++[N].
-    
+    [{?MODULE,odd,[1],[{file,"odd_even.erl"},{line,5}]}|R].
 
 foo({value,Value}) -> Value;
 foo({'div',{A,B}}) ->
@@ -494,4 +526,186 @@ do_exception_with_heap_frag(Bin, [Sz|Sizes]) ->
     do_exception_with_heap_frag(Bin, Sizes);
 do_exception_with_heap_frag(_, []) -> ok.
 
+line_numbers(Config) when is_list(Config) ->
+    {'EXIT',{{case_clause,bad_tag},
+	     [{?MODULE,line1,2,
+	       [{file,"fake_file.erl"},{line,3}]},
+	      {?MODULE,line_numbers,1,_}|_]}} =
+	(catch line1(bad_tag, 0)),
+    {'EXIT',{badarith,
+	     [{?MODULE,line1,2,
+	       [{file,"fake_file.erl"},{line,5}]},
+	      {?MODULE,line_numbers,1,_}|_]}} =
+	(catch line1(a, not_an_integer)),
+    {'EXIT',{{badmatch,{ok,1}},
+	     [{?MODULE,line1,2,
+	       [{file,"fake_file.erl"},{line,7}]},
+	      {?MODULE,line_numbers,1,_}|_]}} =
+	(catch line1(a, 0)),
+    {'EXIT',{crash,
+	     [{?MODULE,crash,1,
+	       [{file,"fake_file.erl"},{line,14}]},
+	      {?MODULE,line_numbers,1,_}|_]}} =
+	(catch line1(a, 41)),
+
+    ModFile = ?MODULE_STRING++".erl",
+    [{?MODULE,maybe_crash,1,[{file,"call.erl"},{line,28}]},
+     {?MODULE,call1,0,[{file,"call.erl"},{line,14}]},
+     {?MODULE,close_calls,1,[{file,"call.erl"},{line,5}]},
+     {?MODULE,line_numbers,1,[{file,ModFile},{line,_}]}|_] =
+	close_calls(call1),
+    [{?MODULE,maybe_crash,1,[{file,"call.erl"},{line,28}]},
+     {?MODULE,call2,0,[{file,"call.erl"},{line,18}]},
+     {?MODULE,close_calls,1,[{file,"call.erl"},{line,6}]},
+     {?MODULE,line_numbers,1,[{file,ModFile},{line,_}]}|_] =
+	close_calls(call2),
+    [{?MODULE,maybe_crash,1,[{file,"call.erl"},{line,28}]},
+     {?MODULE,call3,0,[{file,"call.erl"},{line,22}]},
+     {?MODULE,close_calls,1,[{file,"call.erl"},{line,7}]},
+     {?MODULE,line_numbers,1,[{file,ModFile},{line,_}]}|_] =
+	close_calls(call3),
+    no_crash = close_calls(other),
+
+    <<0,0>> = build_binary1(16),
+    {'EXIT',{badarg,
+	     [{?MODULE,build_binary1,1,
+	       [{file,"bit_syntax.erl"},{line,72503}]},
+	      {?MODULE,line_numbers,1,
+	       [{file,ModFile},{line,_}]}|_]}} =
+	(catch build_binary1(bad_size)),
+
+    <<7,1,2,3>> = build_binary2(8, <<1,2,3>>),
+    {'EXIT',{badarg,
+	     [{?MODULE,build_binary2,2,
+	       [{file,"bit_syntax.erl"},{line,72507}]},
+	      {?MODULE,line_numbers,1,
+	       [{file,ModFile},{line,_}]}|_]}} =
+	(catch build_binary2(bad_size, <<>>)),
+    {'EXIT',{badarg,
+	     [{erlang,bit_size,[bad_binary],[]},
+	      {?MODULE,build_binary2,2,
+	       [{file,"bit_syntax.erl"},{line,72507}]},
+	      {?MODULE,line_numbers,1,
+	       [{file,ModFile},{line,_}]}|_]}} =
+	(catch build_binary2(8, bad_binary)),
+
+    {'EXIT',{function_clause,
+	     [{?MODULE,do_call_abs,[y,y],
+	       [{file,"gc_bif.erl"},{line,18}]},
+	      {?MODULE,line_numbers,1,_}|_]}} =
+	(catch do_call_abs(y, y)),
+    {'EXIT',{badarg,
+	     [{erlang,abs,[[]],[]},
+	      {?MODULE,do_call_abs,2,
+	       [{file,"gc_bif.erl"},{line,19}]},
+	      {?MODULE,line_numbers,1,_}|_]}} =
+	(catch do_call_abs(x, [])),
+
+    {'EXIT',{{badmatch,"42"},
+	     [{MODULE,applied_bif_1,1,[{file,"applied_bif.erl"},{line,5}]},
+	      {?MODULE,line_numbers,1,_}|_]}} =
+	(catch applied_bif_1(42)),
+
+    {'EXIT',{{badmatch,{current_location,
+			{?MODULE,applied_bif_2,0,
+			 [{file,"applied_bif.erl"},{line,9}]}}},
+	     [{MODULE,applied_bif_2,0,[{file,"applied_bif.erl"},{line,10}]},
+	      {?MODULE,line_numbers,1,_}|_]}} =
+	(catch applied_bif_2()),
+
+    ok.
+
 id(I) -> I.
+
+-file("odd_even.erl", 1).			%Line 1
+even(N) when is_integer(N), N > 1, (N rem 2) == 0 ->
+    odd(N-1)++[N].				%Line 3
+
+odd(N) when is_integer(N), N > 1, (N rem 2) == 1 ->
+    even(N-1)++[N].				%Line 6
+
+%%
+%% If the compiler removes redundant line instructions (any
+%% line instruction with the same location as the previous),
+%% and the loader also removes line instructions before
+%% tail-recursive calls to external functions, then the
+%% badmatch exception in line 7 below will be reported as
+%% occurring in line 6.
+%%
+%% That means that any removal of redundant line instructions
+%% must all be done in the compiler OR in the loader.
+%%
+-file("fake_file.erl", 1).			%Line 1
+line1(Tag, X) ->				%Line 2
+    case Tag of					%Line 3
+	a ->
+	    Y = X + 1,				%Line 5
+	    Res = id({ok,Y}),			%Line 6
+	    ?MODULE:crash({ok,42} = Res);	%Line 7
+	b ->
+	    x = id(x),				%Line 9
+	    ok					%Line 10
+    end.					%Line 11
+
+crash(_) ->					%Line 13
+    erlang:error(crash).			%Line 14
+
+-file("call.erl", 1).				%Line 1
+close_calls(Where) ->				%Line 2
+    put(where_to_crash, Where),			%Line 3
+    try
+	call1(),				%Line 5
+	call2(),				%Line 6
+	call3(),				%Line 7
+	no_crash				%Line 8
+    catch error:crash ->
+	    erlang:get_stacktrace()		%Line 10
+    end.					%Line 11
+
+call1() ->					%Line 13
+    maybe_crash(call1),				%Line 14
+    ok.						%Line 15
+
+call2() ->					%Line 17
+    maybe_crash(call2),				%Line 18
+    ok.						%Line 19
+
+call3() ->					%Line 21
+    maybe_crash(call3),				%Line 22
+    ok.						%Line 23
+
+maybe_crash(Name) ->				%Line 25
+    case get(where_to_crash) of			%Line 26
+	Name ->
+	    erlang:error(crash);		%Line 28
+	_ ->
+	    ok					%Line 30
+    end.
+
+-file("bit_syntax.erl", 72500).			%Line 72500
+build_binary1(Size) ->				%Line 72501
+    id(42),					%Line 72502
+    <<0:Size>>.					%Line 72503
+
+build_binary2(Size, Bin) ->			%Line 72505
+    id(0),					%Line 72506
+    <<7:Size,Bin/binary>>.			%Line 72507
+
+-file("gc_bif.erl", 17).
+do_call_abs(x, Arg) ->				%Line 18
+    abs(Arg).					%Line 19
+
+%% Make sure a BIF that is applied does not leave the p->cp
+%% set (and thus generating an extra entry on the stack).
+
+-file("applied_bif.erl", 1).
+%% Explicit apply.
+applied_bif_1(I) ->				%Line 3
+    L = apply(erlang, integer_to_list, [I]),	%Line 4
+    fail = L,					%Line 5
+    ok.						%Line 6
+%% Implicit apply.
+applied_bif_2() ->				%Line 8
+    R = process_info(self(), current_location),	%Line 9
+    fail = R,					%Line 10
+    ok.						%Line 11

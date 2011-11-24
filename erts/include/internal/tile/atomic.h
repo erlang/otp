@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -24,102 +24,116 @@
 #ifndef ETHREAD_TILE_ATOMIC_H
 #define ETHREAD_TILE_ATOMIC_H
 
+#define ETHR_HAVE_NATIVE_ATOMIC32 1
+#define ETHR_NATIVE_ATOMIC32_IMPL "tilera"
+
 #include <atomic.h>
 
 /* An atomic is an aligned int accessed via locked operations.
  */
 typedef struct {
-    volatile long counter;
-} ethr_native_atomic_t;
+    volatile ethr_sint32_t counter;
+} ethr_native_atomic32_t;
 
-#ifdef ETHR_TRY_INLINE_FUNCS
+#if defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_ATOMIC_IMPL__)
+
+#define ETHR_HAVE_ETHR_NATIVE_ATOMIC32_ADDR 1
+
+static ETHR_INLINE ethr_sint32_t *
+ethr_native_atomic32_addr(ethr_native_atomic32_t *var)
+{
+    return (ethr_sint32_t *) &var->counter;
+}
+
+#define ETHR_HAVE_ETHR_NATIVE_ATOMIC32_INIT 1
 
 static ETHR_INLINE void
-ethr_native_atomic_init(ethr_native_atomic_t *var, long i)
+ethr_native_atomic32_init(ethr_native_atomic32_t *var, ethr_sint32_t i)
 {
     var->counter = i;
 }
 
-static ETHR_INLINE void
-ethr_native_atomic_set(ethr_native_atomic_t *var, long i)
-{
-    __insn_mf();
-    atomic_exchange_acq(&var->counter, i);
-}
+#define ETHR_HAVE_ETHR_NATIVE_ATOMIC32_READ 1
 
-static ETHR_INLINE long
-ethr_native_atomic_read(ethr_native_atomic_t *var)
+static ETHR_INLINE ethr_sint32_t
+ethr_native_atomic32_read(ethr_native_atomic32_t *var)
 {
     return var->counter;
 }
 
-static ETHR_INLINE void
-ethr_native_atomic_add(ethr_native_atomic_t *var, long incr)
+#define ETHR_HAVE_ETHR_NATIVE_ATOMIC32_READ_ACQB 1
+
+static ETHR_INLINE ethr_sint32_t
+ethr_native_atomic32_read_acqb(ethr_native_atomic32_t *var)
 {
-    __insn_mf();
+    return atomic_compare_and_exchange_val_acq(&var->counter,
+					       0x81818181,
+					       0x81818181);
+}
+
+#define ETHR_HAVE_ETHR_NATIVE_ATOMIC32_ADD 1
+
+static ETHR_INLINE void
+ethr_native_atomic32_add(ethr_native_atomic32_t *var, ethr_sint32_t incr)
+{
     atomic_add(&var->counter, incr);
-}      
-       
+}
+
+#define ETHR_HAVE_ETHR_NATIVE_ATOMIC32_INC 1
+
 static ETHR_INLINE void
-ethr_native_atomic_inc(ethr_native_atomic_t *var)
+ethr_native_atomic32_inc(ethr_native_atomic32_t *var)
 {
-    __insn_mf();
     atomic_increment(&var->counter);
 }
 
+#define ETHR_HAVE_ETHR_NATIVE_ATOMIC32_DEC 1
+
 static ETHR_INLINE void
-ethr_native_atomic_dec(ethr_native_atomic_t *var)
+ethr_native_atomic32_dec(ethr_native_atomic32_t *var)
 {
-    __insn_mf();
     atomic_decrement(&var->counter);
 }
 
-static ETHR_INLINE long
-ethr_native_atomic_add_return(ethr_native_atomic_t *var, long incr)
+#define ETHR_HAVE_ETHR_NATIVE_ATOMIC32_ADD_RETURN 1
+
+static ETHR_INLINE ethr_sint32_t
+ethr_native_atomic32_add_return(ethr_native_atomic32_t *var, ethr_sint32_t incr)
 {
-    __insn_mf();
     return atomic_exchange_and_add(&var->counter, incr) + incr;
 }
 
-static ETHR_INLINE long
-ethr_native_atomic_inc_return(ethr_native_atomic_t *var)
-{
-    return ethr_native_atomic_add_return(var, 1);
-}
+#define ETHR_HAVE_ETHR_NATIVE_ATOMIC32_AND_RETOLD 1
 
-static ETHR_INLINE long
-ethr_native_atomic_dec_return(ethr_native_atomic_t *var)
+static ETHR_INLINE ethr_sint32_t
+ethr_native_atomic32_and_retold(ethr_native_atomic32_t *var, ethr_sint32_t mask)
 {
-    return ethr_native_atomic_add_return(var, -1);
-}
-
-static ETHR_INLINE long
-ethr_native_atomic_and_retold(ethr_native_atomic_t *var, long mask)
-{
-    /* Implement a barrier suitable for a mutex unlock. */
-    __insn_mf();
     return atomic_and_val(&var->counter, mask);
 }
 
-static ETHR_INLINE long
-ethr_native_atomic_or_retold(ethr_native_atomic_t *var, long mask)
+#define ETHR_HAVE_ETHR_NATIVE_ATOMIC32_OR_RETOLD 1
+
+static ETHR_INLINE ethr_sint32_t
+ethr_native_atomic32_or_retold(ethr_native_atomic32_t *var, ethr_sint32_t mask)
 {
-    __insn_mf();
     return atomic_or_val(&var->counter, mask);
 }
 
-static ETHR_INLINE long
-ethr_native_atomic_xchg(ethr_native_atomic_t *var, long val)
+#define ETHR_HAVE_ETHR_NATIVE_ATOMIC32_XCHG_ACQB 1
+
+static ETHR_INLINE ethr_sint32_t
+ethr_native_atomic32_xchg_acqb(ethr_native_atomic32_t *var, ethr_sint32_t val)
 {   
-    __insn_mf();
     return atomic_exchange_acq(&var->counter, val);
 } 
 
-static ETHR_INLINE long
-ethr_native_atomic_cmpxchg(ethr_native_atomic_t *var, long new, long expected)
+#define ETHR_HAVE_ETHR_NATIVE_ATOMIC32_CMPXCHG_ACQB 1
+
+static ETHR_INLINE ethr_sint32_t
+ethr_native_atomic32_cmpxchg_acqb(ethr_native_atomic32_t *var,
+				  ethr_sint32_t new,
+				  ethr_sint32_t expected)
 {
-    /* Implement a barrier suitable for a mutex unlock. */
-    __insn_mf();
     return atomic_compare_and_exchange_val_acq(&var->counter, new, expected);
 }
 

@@ -1,19 +1,19 @@
 #
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 1997-2009. All Rights Reserved.
-# 
+#
+# Copyright Ericsson AB 1997-2011. All Rights Reserved.
+#
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
 # compliance with the License. You should have received a copy of the
 # Erlang Public License along with this software. If not, it can be
 # retrieved online at http://www.erlang.org/.
-# 
+#
 # Software distributed under the License is distributed on an "AS IS"
 # basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 # the License for the specific language governing rights and limitations
 # under the License.
-# 
+#
 # %CopyrightEnd%
 #
 
@@ -25,30 +25,12 @@
 # instruction transformations; thus, they never occur in BEAM files.
 #
 
-# Special instruction used to generate an error message when
-# trying to load a module compiled by the V1 compiler (R5 & R6).
-# (Specially treated in beam_load.c.)
+# The too_old_compiler/0 instruction is specially handled in beam_load.c
+# to produce a user-friendly message informing the user that the module
+# needs to be re-compiled with a modern compiler.
 
 too_old_compiler/0
-too_old_compiler
-
-#
-# Obsolete instruction usage follow. (Nowdays we use f with
-# a zero label instead of p.)
-#
-
-is_list p S => too_old_compiler
-is_nonempty_list p R => too_old_compiler
-is_nil p R => too_old_compiler
-
-is_tuple p S => too_old_compiler
-test_arity p S Arity => too_old_compiler
-
-is_integer p R => too_old_compiler
-is_float p R => too_old_compiler
-is_atom p R => too_old_compiler
-
-is_eq_exact p S1 S2 => too_old_compiler
+too_old_compiler | never() =>
 
 # In R9C and earlier, the loader used to insert special instructions inside
 # the module_info/0,1 functions. (In R10B and later, the compiler inserts
@@ -60,12 +42,17 @@ func_info M=a a==am_module_info A=u==0 | label L | move n r => too_old_compiler
 func_info M=a a==am_module_info A=u==1 | label L | move n r => too_old_compiler
 
 # The undocumented and unsupported guard BIF is_constant/1 was removed
-# in R13. The is_constant/2 operation is marked as obosolete in genop.tab,
+# in R13. The is_constant/2 operation is marked as obsolete in genop.tab,
 # so the loader will automatically generate a too_old_compiler message
 # it is used, but we need to handle the is_constant/1 BIF specially here.
 
 bif1 Fail u$func:erlang:is_constant/1 Src Dst => too_old_compiler
 
+# Since the constant pool was introduced in R12B, empty tuples ({})
+# are literals. Therefore we no longer need to allow put_tuple/2
+# with a tuple size of zero.
+
+put_tuple u==0 d => too_old_compiler
 
 #
 # All the other instructions.
@@ -79,13 +66,45 @@ i_trace_breakpoint
 i_mtrace_breakpoint
 i_debug_breakpoint
 i_count_breakpoint
+i_time_breakpoint
+i_return_time_trace
 i_return_to_trace
 i_yield
-i_global_cons
-i_global_tuple
-i_global_copy
 
 return
+
+#
+# To ensure that a "move Src x(0)" instruction can be combined
+# with the following call instruction, we need to make sure that
+# there is no line/1 instruction between the move and the call.
+#
+
+move S r | line Loc | call_ext Ar Func => \
+     line Loc | move S r | call_ext Ar Func
+move S r | line Loc | call_ext_last Ar Func=u$is_bif D => \
+     line Loc | move S r | call_ext_last Ar Func D
+move S r | line Loc | call_ext_only Ar Func=u$is_bif => \
+     line Loc | move S r | call_ext_only Ar Func
+move S r | line Loc | call Ar Func => \
+     line Loc | move S r | call Ar Func
+
+#
+# A tail-recursive call to an external function (non-BIF) will
+# never be saved on the stack, so there is no reason to keep
+# the line instruction. (The compiler did not remove the line
+# instruction because it cannot tell the difference between
+# BIFs and ordinary Erlang functions.)
+#
+
+line Loc | call_ext_last Ar Func=u$is_not_bif D => \
+     call_ext_last Ar Func D
+line Loc | call_ext_only Ar Func=u$is_not_bif => \
+     call_ext_only Ar Func
+
+line Loc | func_info M F A => func_info M F A | line Loc
+
+line I
+
 
 %macro: allocate Allocate -pack
 %macro: allocate_zero AllocateZero -pack
@@ -94,16 +113,16 @@ return
 %macro: test_heap TestHeap -pack
 
 allocate t t
-allocate_heap I I I
+allocate_heap t I t
 deallocate I
 init y
 allocate_zero t t
-allocate_heap_zero I I I
+allocate_heap_zero t I t
 
 trim N Remaining => i_trim N
 i_trim I
 
-test_heap I I
+test_heap I t
 
 allocate_heap S u==0 R => allocate S R
 allocate_heap_zero S u==0 R => allocate_zero S R
@@ -115,15 +134,9 @@ init Y1 | init Y2 => init2 Y1 Y2
 %macro: init2 Init2 -pack
 %macro: init3 Init3 -pack
 
-#
-# Warning: The put_string instruction is specially treated in the loader.
-# Don't change the instruction format unless you change the loader too.
-#
-put_string I I d
-
 # Selecting values
 
-select_val S=q Fail=f Size=u Rest=* => const_select_val(S, Fail, Size, Rest)
+select_val S=aiq Fail=f Size=u Rest=* => const_select_val(S, Fail, Size, Rest)
 
 select_val S=s Fail=f Size=u Rest=* | use_jump_tab(Size, Rest) => \
   gen_jump_tab(S, Fail, Size, Rest)
@@ -131,34 +144,59 @@ select_val S=s Fail=f Size=u Rest=* | use_jump_tab(Size, Rest) => \
 is_integer Fail=f S | select_val S=s Fail=f Size=u Rest=* | use_jump_tab(Size, Rest) => \
   gen_jump_tab(S, Fail, Size, Rest)
 
+is_integer TypeFail=f S | select_val S=s Fail=f Size=u Rest=* | \
+	   mixed_types(Size, Rest) => \
+  gen_split_values(S, TypeFail, Fail, Size, Rest)
+
 select_val S=s Fail=f Size=u Rest=* | mixed_types(Size, Rest) => \
-  gen_split_values(S, Fail, Size, Rest)
+  gen_split_values(S, Fail, Fail, Size, Rest)
 
-is_integer Fail=f S | select_val S=s Fail=f Size=u Rest=* | \
+is_integer Fail=f S | select_val S=d Fail=f Size=u Rest=* | \
   fixed_size_values(Size, Rest) => gen_select_val(S, Fail, Size, Rest)
 
-is_atom Fail=f S | select_val S=s Fail=f Size=u Rest=* | \
+is_atom Fail=f S | select_val S=d Fail=f Size=u Rest=* | \
   fixed_size_values(Size, Rest) => gen_select_val(S, Fail, Size, Rest)
 
-select_val S=s Fail=f Size=u Rest=* | fixed_size_values(Size, Rest) => \
+select_val S=s Fail=f Size=u Rest=* | floats_or_bignums(Size, Rest) => \
+  gen_select_literals(S, Fail, Size, Rest)
+
+select_val S=d Fail=f Size=u Rest=* | fixed_size_values(Size, Rest) => \
   gen_select_val(S, Fail, Size, Rest)
 
-select_val S=s Fail=f Size=u Rest=* | all_values_are_big(Size, Rest) => \
-  gen_select_big(S, Fail, Size, Rest)
-
-is_tuple Fail=f S | select_tuple_arity S=s Fail=f Size=u Rest=* => \
+is_tuple Fail=f S | select_tuple_arity S=d Fail=f Size=u Rest=* => \
   gen_select_tuple_arity(S, Fail, Size, Rest)
 
-select_tuple_arity S=s Fail=f Size=u Rest=* => \
+select_tuple_arity S=d Fail=f Size=u Rest=* => \
   gen_select_tuple_arity(S, Fail, Size, Rest)
 
-i_select_val s f I
-i_select_tuple_arity s f I
-i_select_big s f
-i_select_float s f I
+i_select_val r f I
+i_select_val x f I
+i_select_val y f I
 
-i_jump_on_val_zero s f I
-i_jump_on_val s f I I
+i_select_val2 r f c f c f
+i_select_val2 x f c f c f
+i_select_val2 y f c f c f
+
+i_select_tuple_arity2 r f A f A f
+i_select_tuple_arity2 x f A f A f
+i_select_tuple_arity2 y f A f A f
+
+i_select_tuple_arity r f I
+i_select_tuple_arity x f I
+i_select_tuple_arity y f I
+
+i_jump_on_val_zero r f I
+i_jump_on_val_zero x f I
+i_jump_on_val_zero y f I
+
+i_jump_on_val r f I I
+i_jump_on_val x f I I
+i_jump_on_val y f I I
+
+jump Target | label Lbl | same_label(Target, Lbl) => label Lbl
+
+is_ne_exact L1 S1 S2 | jump Fail | label L2 | same_label(L1, L2) => \
+  is_eq_exact Fail S1 S2 | label L2
 
 %macro: get_list GetList -pack
 get_list x x x
@@ -233,11 +271,17 @@ is_number Fail Literal=q => move Literal x | is_number Fail x
 
 jump f
 
-case_end Literal=q => move Literal x | case_end x
-badmatch Literal=q => move Literal x | badmatch x
+case_end Literal=cq => move Literal x | case_end x
+badmatch Literal=cq => move Literal x | badmatch x
 
-case_end s
-badmatch s
+case_end r
+case_end x
+case_end y
+
+badmatch r
+badmatch x
+badmatch y
+
 if_end
 raise s s
 
@@ -245,14 +289,33 @@ raise s s
 badarg j
 system_limit j
 
-move R R =>
+move C=cxy r | jump Lbl => move_jump Lbl C
+
+%macro: move_jump MoveJump -nonext
+move_jump f n
+move_jump f c
+move_jump f x
+move_jump f y
 
 move X1=x Y1=y | move X2=x Y2=y => move2 X1 Y1 X2 Y2
 move Y1=y X1=x | move Y2=y X2=x => move2 Y1 X1 Y2 X2
+move X1=x X2=x | move X3=x X4=x => move2 X1 X2 X3 X4
+
+move C=aiq X=x==1 => move_x1 C
+move C=aiq X=x==2 => move_x2 C
+
+move_x1 c
+move_x2 c
 
 %macro: move2 Move2 -pack
 move2 x y x y
 move2 y x y x
+move2 x x x x
+
+# The compiler almost never generates a "move Literal y(Y)" instruction,
+# so let's cheat if we encounter one.
+move S=n D=y => init D
+move S=c D=y => move S x | move x D
 
 %macro:move Move -pack -gen_dest
 move x x
@@ -264,14 +327,9 @@ move r x
 move r y
 move c r
 move c x
-move c y
 move n x
 move n r
 move y y
-
-%cold
-move s d
-%hot
 
 # Receive operations.
 
@@ -305,58 +363,78 @@ i_wait_error_locked
 send
 
 #
-# Comparisions.
+# Optimized comparisons with one immediate/literal operand.
 #
 
-is_eq_exact Lbl=f R=rxy C=ian => i_is_eq_immed Lbl R C
-is_eq Lbl=f R=rxy C=an => i_is_eq_immed Lbl R C
+is_eq_exact Lbl R=rxy C=ian => i_is_eq_exact_immed Lbl R C
+is_eq_exact Lbl R=rxy C=q => i_is_eq_exact_literal R Lbl C
+
+is_ne_exact Lbl R=rxy C=ian => i_is_ne_exact_immed Lbl R C
+is_ne_exact Lbl R=rxy C=q => i_is_ne_exact_literal R Lbl C
+
+%macro: i_is_eq_exact_immed EqualImmed -fail_action
+i_is_eq_exact_immed f r c
+i_is_eq_exact_immed f x c
+i_is_eq_exact_immed f y c
+
+i_is_eq_exact_literal r f c
+i_is_eq_exact_literal x f c
+i_is_eq_exact_literal y f c
+
+%macro: i_is_ne_exact_immed NotEqualImmed -fail_action
+i_is_ne_exact_immed f r c
+i_is_ne_exact_immed f x c
+i_is_ne_exact_immed f y c
+
+i_is_ne_exact_literal r f c
+i_is_ne_exact_literal x f c
+i_is_ne_exact_literal y f c
+
+#
+# All other comparisons.
+#
+
+is_eq_exact Lbl S1 S2 => i_fetch S1 S2 | i_is_eq_exact Lbl
+is_ne_exact Lbl S1 S2 => i_fetch S1 S2 | i_is_ne_exact Lbl
 
 is_ge Lbl S1 S2 => i_fetch S1 S2 | i_is_ge Lbl
 is_lt Lbl S1 S2 => i_fetch S1 S2 | i_is_lt Lbl
 is_eq Lbl S1 S2 => i_fetch S1 S2 | i_is_eq Lbl
 is_ne Lbl S1 S2 => i_fetch S1 S2 | i_is_ne Lbl
 
-is_eq_exact Lbl=f S1 S2 => i_fetch S1 S2 | i_is_eq_exact Lbl
-is_ne_exact Lbl S1 S2 => i_fetch S1 S2 | i_is_ne_exact Lbl
-
+i_is_eq_exact f
+i_is_ne_exact f
 i_is_lt f
 i_is_ge f
 i_is_eq f
 i_is_ne f
-i_is_eq_exact f
-i_is_ne_exact f
-
-%macro: i_is_eq_immed EqualImmed -fail_action
-i_is_eq_immed f r c
-i_is_eq_immed f x c
-i_is_eq_immed f y c
 
 #
 # Putting things.
 #
 
-put_tuple u==0 Dst => i_put_tuple_only u Dst
-put_tuple Arity Dst | put V => i_put_tuple Arity V Dst
+put_tuple Arity Dst => i_put_tuple Dst u
 
-i_put_tuple_only A d
+i_put_tuple Dst Arity Puts=* | put S1 | put S2 | \
+  put S3 | put S4 | put S5 => \
+	    tuple_append_put5(Arity, Dst, Puts, S1, S2, S3, S4, S5)
 
-%macro: i_put_tuple PutTuple -pack
-i_put_tuple A x x
-i_put_tuple A y x
-i_put_tuple A r x
-i_put_tuple A n x
-i_put_tuple A c x
-i_put_tuple A x y
-i_put_tuple A x r
-i_put_tuple A y r
-i_put_tuple A n r
-i_put_tuple A c r
+i_put_tuple Dst Arity Puts=* | put S => \
+	    tuple_append_put(Arity, Dst, Puts, S)
 
-%cold
-i_put_tuple A r y
-i_put_tuple A y y
-i_put_tuple A c y
-%hot
+i_put_tuple/2
+
+%macro:i_put_tuple PutTuple -pack -goto:do_put_tuple
+i_put_tuple r I
+i_put_tuple x I
+i_put_tuple y I
+
+#
+# The instruction "put_list Const [] Dst" will not be generated by
+# the current BEAM compiler. But until R15A, play it safe by handling
+# that instruction with the following transformation.
+#
+put_list Const=c n Dst => move Const x | put_list x n Dst
 
 %macro:put_list PutList -pack -gen_dest
 
@@ -364,10 +442,8 @@ put_list x n x
 put_list y n x
 put_list x x x
 put_list y x x
-put_list c n x
 put_list x x r
 put_list y r r
-put_list c n r
 
 put_list y y x
 put_list x y x
@@ -377,6 +453,13 @@ put_list r x r
 put_list y y r
 put_list y r x
 put_list r n x
+
+put_list x r x
+put_list x y r
+put_list y x r
+put_list y x x
+
+put_list x r r
 
 # put_list SrcReg Constant Dst
 put_list r c r
@@ -405,16 +488,8 @@ put_list c y x
 put_list c y y
 
 %cold
-put_list x r r
 put_list s s d
 %hot
-
-%macro: put Put
-put x
-put r
-put y
-put c
-put n
 
 %macro: i_fetch FetchArgs -pack
 i_fetch c c
@@ -466,19 +541,20 @@ move_return n r
 
 move S r | deallocate D | return => move_deallocate_return S r D
 
-%macro: move_deallocate_return MoveDeallocateReturn -nonext
-move_deallocate_return x r P
-move_deallocate_return y r P
-move_deallocate_return c r P
-move_deallocate_return n r P
+%macro: move_deallocate_return MoveDeallocateReturn -pack -nonext
+move_deallocate_return x r Q
+move_deallocate_return y r Q
+move_deallocate_return c r Q
+move_deallocate_return n r Q
 
 deallocate D | return => deallocate_return D
 
 %macro: deallocate_return DeallocateReturn -nonext
-deallocate_return P
+deallocate_return Q
 
 test_heap Need u==1 | put_list Y=y r r => test_heap_1_put_list Need Y
 
+%macro: test_heap_1_put_list TestHeapPutList -pack
 test_heap_1_put_list I y
 
 # Test tuple & arity (head)
@@ -518,8 +594,6 @@ original_reg Reg P1 | get_tuple_element Reg P2 Dst=xy | succ(P1, P2) => \
 get_tuple_element Reg P Dst => i_get_tuple_element Reg P Dst | original_reg Reg P
 
 original_reg Reg Pos =>
-
-get_tuple_element Reg P Dst => i_get_tuple_element Reg P Dst
 
 original_reg/2
 
@@ -578,14 +652,14 @@ is_list f y
 
 is_nonempty_list Fail=f S=rx | allocate Need Rs => is_nonempty_list_allocate Fail S Need Rs
 
-%macro:is_nonempty_list_allocate IsNonemptyListAllocate -fail_action
-is_nonempty_list_allocate f x I I
-is_nonempty_list_allocate f r I I
+%macro:is_nonempty_list_allocate IsNonemptyListAllocate -fail_action -pack
+is_nonempty_list_allocate f x I t
+is_nonempty_list_allocate f r I t
 
 is_nonempty_list F=f r | test_heap I1 I2 => is_non_empty_list_test_heap F r I1 I2
 
-%macro: is_non_empty_list_test_heap IsNonemptyListTestHeap -fail_action
-is_non_empty_list_test_heap f r I I
+%macro: is_non_empty_list_test_heap IsNonemptyListTestHeap -fail_action -pack
+is_non_empty_list_test_heap f r I t
 
 %macro: is_nonempty_list IsNonemptyList -fail_action
 is_nonempty_list f x
@@ -771,11 +845,11 @@ call_ext_only u==3 u$func:erlang:apply/3 => i_apply_only
 # thus there is no need to generate any return instruction.
 #
 
-call_ext_last u==1 Bif=u$bif:erlang:exit/1 D => call_bif1 Bif
-call_ext_last u==1 Bif=u$bif:erlang:throw/1 D => call_bif1 Bif
+call_ext_last u==1 Bif=u$bif:erlang:exit/1 D => call_bif Bif
+call_ext_last u==1 Bif=u$bif:erlang:throw/1 D => call_bif Bif
 
-call_ext_only u==1 Bif=u$bif:erlang:exit/1 => call_bif1 Bif
-call_ext_only u==1 Bif=u$bif:erlang:throw/1 => call_bif1 Bif
+call_ext_only u==1 Bif=u$bif:erlang:exit/1 => call_bif Bif
+call_ext_only u==1 Bif=u$bif:erlang:throw/1 => call_bif Bif
 
 #
 # The error/1 and error/2 BIFs never execute the instruction following them;
@@ -785,13 +859,13 @@ call_ext_only u==1 Bif=u$bif:erlang:throw/1 => call_bif1 Bif
 # the continuation pointer on the stack.
 #
 
-call_ext_last u==1 Bif=u$bif:erlang:error/1 D => call_bif1 Bif
-call_ext_last u==2 Bif=u$bif:erlang:error/2 D => call_bif2 Bif
+call_ext_last u==1 Bif=u$bif:erlang:error/1 D => call_bif Bif
+call_ext_last u==2 Bif=u$bif:erlang:error/2 D => call_bif Bif
 
 call_ext_only Ar=u==1 Bif=u$bif:erlang:error/1 => \
-  allocate u Ar | call_bif1 Bif
+  allocate u Ar | call_bif Bif
 call_ext_only Ar=u==2 Bif=u$bif:erlang:error/2 => \
-  allocate u Ar | call_bif2 Bif
+  allocate u Ar | call_bif Bif
 
 #
 # The yield/0 BIF is an instruction
@@ -809,47 +883,18 @@ call_ext_last u==3 u$func:erlang:hibernate/3 D => i_hibernate
 call_ext_only u==3 u$func:erlang:hibernate/3 => i_hibernate
 
 #
-# Hybrid memory architecture need special cons and tuple instructions
-# that allocate on the message area. These looks like BIFs in the BEAM code.
-#
-
-call_ext u==2 u$func:hybrid:cons/2 => i_global_cons
-call_ext_last u==2 u$func:hybrid:cons/2 D => i_global_cons | deallocate_return D
-call_ext_only Ar=u==2 u$func:hybrid:cons/2 => i_global_cons | return
-
-call_ext u==1 u$func:hybrid:tuple/1 => i_global_tuple
-call_ext_last u==1 u$func:hybrid:tuple/1 D => i_global_tuple | deallocate_return D
-call_ext_only Ar=u==1 u$func:hybrid:tuple/1 => i_global_tuple | return
-
-call_ext u==1 u$func:hybrid:copy/1 => i_global_copy
-call_ext_last u==1 u$func:hybrid:copy/1 D => i_global_copy | deallocate_return D
-call_ext_only u==1 Ar=u$func:hybrid:copy/1 => i_global_copy | return
-
-#
 # The general case for BIFs that have no special instructions.
 # A BIF used in the tail must be followed by a return instruction.
 #
 # To make trapping and stack backtraces work correctly, we make sure that
 # the continuation pointer is always stored on the stack.
 
-call_ext u==0 Bif=u$is_bif => call_bif0 Bif
-call_ext u==1 Bif=u$is_bif => call_bif1 Bif
-call_ext u==2 Bif=u$is_bif => call_bif2 Bif
-call_ext u==3 Bif=$is_bif => call_bif3 Bif
+call_ext u Bif=u$is_bif => call_bif Bif
 
-call_ext_last u==0 Bif=u$is_bif D => call_bif0 Bif | deallocate_return D
-call_ext_last u==1 Bif=u$is_bif D => call_bif1 Bif | deallocate_return D
-call_ext_last u==2 Bif=u$is_bif D => call_bif2 Bif | deallocate_return D
-call_ext_last u==3 Bif=u$is_bif D => call_bif3 Bif | deallocate_return D
+call_ext_last u Bif=u$is_bif D => call_bif Bif | deallocate_return D
 
-call_ext_only Ar=u==0 Bif=u$is_bif => \
-  allocate u Ar | call_bif0 Bif | deallocate_return u
-call_ext_only Ar=u==1 Bif=u$is_bif => \
-  allocate u Ar | call_bif1 Bif | deallocate_return u
-call_ext_only Ar=u==2 Bif=u$is_bif => \
-  allocate u Ar | call_bif2 Bif | deallocate_return u
-call_ext_only Ar=u==3 Bif=u$is_bif => \
-  allocate u Ar | call_bif3 Bif | deallocate_return u
+call_ext_only Ar=u Bif=u$is_bif => \
+  allocate u Ar | call_bif Bif | deallocate_return u
 
 #
 # Any remaining calls are calls to Erlang functions, not BIFs.
@@ -862,9 +907,9 @@ move S=c r | call_ext Ar=u Func=u$is_not_bif => i_move_call_ext S r Func
 move S=c r | call_ext_last Ar=u Func=u$is_not_bif D => i_move_call_ext_last Func D S r
 move S=c r | call_ext_only Ar=u Func=u$is_not_bif => i_move_call_ext_only Func S r 
 
-call_ext Ar=u Func        => i_call_ext Func
-call_ext_last Ar=u Func D => i_call_ext_last Func D
-call_ext_only Ar=u Func   => i_call_ext_only Func
+call_ext Ar Func        => i_call_ext Func
+call_ext_last Ar Func D => i_call_ext_last Func D
+call_ext_only Ar Func   => i_call_ext_only Func
 
 i_apply
 i_apply_last P
@@ -876,10 +921,7 @@ i_apply_fun_only
 
 i_hibernate
 
-call_bif0 e
-call_bif1 e
-call_bif2 e
-call_bif3 e
+call_bif e
 
 #
 # Calls to non-building and guard BIFs.
@@ -898,7 +940,7 @@ bif1 p Bif S1 Dst => bif1_body Bif S1 Dst
 bif1_body Bif Literal=q Dst => move Literal x | bif1_body Bif x Dst
 
 bif2 p Bif S1 S2 Dst => i_fetch S1 S2 | i_bif2_body Bif Dst
-bif2 Fail=f Bif S1 S2 Dst => i_fetch S1 S2 | i_bif2 Fail Bif Dst
+bif2 Fail Bif S1 S2 Dst => i_fetch S1 S2 | i_bif2 Fail Bif Dst
 
 i_get s d
 
@@ -914,8 +956,13 @@ node x
 node y
 %hot
 
-i_fast_element j I s d
-i_element j s s d
+i_fast_element r j I d
+i_fast_element x j I d
+i_fast_element y j I d
+
+i_element r j s d
+i_element x j s d
+i_element y j s d
 
 bif1 f b s d
 bif1_body b s d
@@ -942,11 +989,11 @@ move S r | call_last Ar P=f D => move_call_last S r P D
 
 i_move_call_last f P c r
 
-%macro:move_call_last MoveCallLast -arg_f -nonext
+%macro:move_call_last MoveCallLast -arg_f -nonext -pack
 
 move_call_last/4
-move_call_last x r f P
-move_call_last y r f P
+move_call_last x r f Q
+move_call_last y r f Q
 
 move S=c r | call_only Ar P=f => i_move_call_only P S r
 move S=x r | call_only Ar P=f => move_call_only S r P
@@ -976,8 +1023,8 @@ i_move_call_ext_only e c r
 
 # Fun calls.
 
-call_fun Arity=u | deallocate D | return => i_call_fun_last Arity D
-call_fun Arity=u => i_call_fun Arity
+call_fun Arity | deallocate D | return => i_call_fun_last Arity D
+call_fun Arity => i_call_fun Arity
 
 i_call_fun I
 i_call_fun_last I P
@@ -995,7 +1042,7 @@ is_function f y
 is_function f r
 is_function Fail=f c => jump Fail
 
-func_info M=a F=a A=u | label L => gen_func_info(M, F, A, L)
+func_info M F A => i_func_info u M F A
 
 # ================================================================
 # New bit syntax matching (R11B).
@@ -1165,7 +1212,7 @@ i_bs_init_heap I I I d
 i_bs_init_heap_bin_heap I I I d
 
 
-bs_init_bits Fail Sz Words Regs Flags Dst | binary_too_big_bits(Sz) => system_limit Fail
+bs_init_bits Fail Sz=o Words Regs Flags Dst => system_limit Fail
 
 bs_init_bits Fail Sz=u Words=u==0 Regs Flags Dst => i_bs_init_bits Sz Regs Dst
 bs_init_bits Fail Sz=u Words Regs Flags Dst =>  i_bs_init_bits_heap Sz Words Regs Dst
@@ -1183,12 +1230,6 @@ i_bs_init_bits_fail_heap I j I d
 
 i_bs_init_bits I I d
 i_bs_init_bits_heap I I I d
-
-bs_bits_to_bytes Fail Src Dst => i_bs_bits_to_bytes Src Fail Dst
-
-i_bs_bits_to_bytes r j d
-i_bs_bits_to_bytes x j d
-i_bs_bits_to_bytes y j d
 
 bs_add Fail S1=i==0 S2 Unit=u==1 D => move S2 D
 bs_add Fail S1 S2 Unit D => i_fetch S1 S2 | i_bs_add Fail Unit D
@@ -1239,13 +1280,13 @@ i_bs_utf16_size s d
 
 bs_put_utf8 Fail=j Flags=u Literal=q => \
 	move Literal x | bs_put_utf8 Fail Flags x
-bs_put_utf8 Fail=j u Src=s => i_bs_put_utf8 Fail Src
+bs_put_utf8 Fail u Src=s => i_bs_put_utf8 Fail Src
 
 i_bs_put_utf8 j s
 
 bs_put_utf16 Fail=j Flags=u Literal=q => \
 	move Literal x | bs_put_utf16 Fail Flags x
-bs_put_utf16 Fail=j Flags=u Src=s => i_bs_put_utf16 Fail Flags Src
+bs_put_utf16 Fail Flags=u Src=s => i_bs_put_utf16 Fail Flags Src
 
 i_bs_put_utf16 j I s
 
@@ -1311,10 +1352,12 @@ fmul p FR1 FR2 FR3 => i_fmul FR1 FR2 FR3
 fdiv p FR1 FR2 FR3 => i_fdiv FR1 FR2 FR3
 fnegate p FR1 FR2 => i_fnegate FR1 FR2
 
-fconv Int=iq Dst=l => move Int x | fconv x Dst
+fconv Arg=iqan Dst=l => move Arg x | fconv x Dst
 
 fmove q l
 fmove d l
+fmove l d
+
 fconv d l
 
 i_fadd l l l
@@ -1330,12 +1373,6 @@ fcheckerror p => i_fcheckerror
 i_fcheckerror
 fclearerror
 
-fmove FR=l Dst=d | new_float_allocation() => fmove_new FR Dst
- 
-# The new instruction for moving a float out of a floating point register.
-# (No allocation.)
-fmove_new l d
-
 #
 # New apply instructions in R10B.
 #
@@ -1344,7 +1381,21 @@ apply I
 apply_last I P
 
 #
-# New GCing arithmetic instructions.
+# Optimize addition and subtraction of small literals using
+# the i_increment/4 instruction (in bodies, not in guards).
+#
+
+gc_bif2 p Live u$bif:erlang:splus/2 Int=i Reg=d Dst => \
+	gen_increment(Reg, Int, Live, Dst)
+gc_bif2 p Live u$bif:erlang:splus/2 Reg=d Int=i Dst => \
+	gen_increment(Reg, Int, Live, Dst)
+
+gc_bif2 p Live u$bif:erlang:sminus/2 Reg=d Int=i Dst | \
+	negation_is_small(Int) => \
+	gen_increment_from_minus(Reg, Int, Live, Dst)
+
+#
+# GCing arithmetic instructions.
 #
 
 gc_bif2 Fail I u$bif:erlang:splus/2 S1 S2 Dst=d => i_fetch S1 S2 | i_plus Fail I Dst
@@ -1366,6 +1417,10 @@ gc_bif1 Fail I u$bif:erlang:bnot/1 Src Dst=d => i_int_bnot Fail Src I Dst
 
 gc_bif1 Fail I u$bif:erlang:sminus/1 Src Dst=d => i_fetch i Src | i_minus Fail I Dst
 gc_bif1 Fail I u$bif:erlang:splus/1 Src Dst=d => i_fetch i Src | i_plus Fail I Dst
+
+i_increment r I I d
+i_increment x I I d
+i_increment y I I d
 
 i_plus j I d
 i_minus j I d
@@ -1396,35 +1451,49 @@ bif1 Fail u$bif:erlang:trunc/1 s d => too_old_compiler
 #
 # Guard BIFs.
 #
-gc_bif1 Fail I Bif=u$bif:erlang:length/1 Src Dst=d => \
-	gen_guard_bif(Fail, I, Bif, Src, Dst)
+gc_bif1 Fail I Bif Src Dst => \
+	gen_guard_bif1(Fail, I, Bif, Src, Dst)
 
-gc_bif1 Fail I Bif=u$bif:erlang:size/1 Src Dst=d => \
-	gen_guard_bif(Fail, I, Bif, Src, Dst)
+gc_bif2 Fail I Bif S1 S2 Dst => \
+	gen_guard_bif2(Fail, I, Bif, S1, S2, Dst)
 
-gc_bif1 Fail I Bif=u$bif:erlang:bit_size/1 Src Dst=d => \
-	gen_guard_bif(Fail, I, Bif, Src, Dst)
-
-gc_bif1 Fail I Bif=u$bif:erlang:byte_size/1 Src Dst=d => \
-	gen_guard_bif(Fail, I, Bif, Src, Dst)
-
-gc_bif1 Fail I Bif=u$bif:erlang:abs/1 Src Dst=d => \
-	gen_guard_bif(Fail, I, Bif, Src, Dst)
-
-gc_bif1 Fail I Bif=u$bif:erlang:float/1 Src Dst=d => \
-	gen_guard_bif(Fail, I, Bif, Src, Dst)
-
-gc_bif1 Fail I Bif=u$bif:erlang:round/1 Src Dst=d => \
-	gen_guard_bif(Fail, I, Bif, Src, Dst)
-
-gc_bif1 Fail I Bif=u$bif:erlang:trunc/1 Src Dst=d => \
-	gen_guard_bif(Fail, I, Bif, Src, Dst)
+gc_bif3 Fail I Bif S1 S2 S3 Dst => \
+	gen_guard_bif3(Fail, I, Bif, S1, S2, S3, Dst)
 
 i_gc_bif1 Fail Bif V=q Live D => move V x | i_gc_bif1 Fail Bif x Live D
 
 i_gc_bif1 j I s I d
 
+ii_gc_bif2/6
+
+ii_gc_bif2 Fail Bif S1 S2 Live D => i_fetch S1 S2 | i_gc_bif2 Fail Bif Live D
+
+i_gc_bif2 j I I d
+
+ii_gc_bif3/7
+
+ii_gc_bif3 Fail Bif S1 S2 S3 Live D => move S1 x | i_fetch S2 S3 | i_gc_bif3 Fail Bif x Live D
+
+i_gc_bif3 j I s I d
+
+#
+# The following instruction is specially handled in beam_load.c
+# to produce a user-friendly message if an unsupported guard BIF is
+# encountered.
+#
+unsupported_guard_bif/3
+unsupported_guard_bif A B C | never() =>
+
 #
 # R13B03
 #
 on_load
+
+#
+# R14A.
+#
+recv_mark f
+
+recv_set Fail | label Lbl | loop_rec Lf Reg => \
+   i_recv_set | label Lbl | loop_rec Lf Reg
+i_recv_set

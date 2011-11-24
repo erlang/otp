@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2009. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -135,7 +135,12 @@ void print_last_error(void){
     fprintf(stderr,"Error: %s",mes);
     LocalFree(mes);
 }
-    
+
+static int get_last_error(void)
+{
+  return (last_error) ? last_error : GetLastError();
+}
+
 static BOOL install_service(void){
   SC_HANDLE scm;
   SC_HANDLE service;
@@ -508,7 +513,7 @@ int do_usage(char *arg0){
 	 "\t[{-sn[ame] | -n[ame]} [<nodename>]]\n"
 	 "\t[-d[ebugtype] [{new|reuse|console}]]\n"
 	 "\t[-ar[gs] [<limited erl arguments>]]\n\n"
-	 "%s {start | stop | disable | enable} <servicename>\n\n"
+	 "%s {start | start_disabled | stop | disable | enable} <servicename>\n\n"
 	 "%s remove <servicename>\n\n"
 	 "%s rename <servicename> <servicename>\n\n"
 	 "%s list [<servicename>]\n\n"
@@ -560,6 +565,45 @@ int do_manage(int argc,char **argv){
 	     argv[0],service_name);
       return 0;
     }
+  }
+  if(!_stricmp(action,"start_disabled")){
+    if(!enable_service()){
+      fprintf(stderr,"%s: Failed to enable service %s.\n",
+	      argv[0],service_name);
+      print_last_error();
+      return 1;
+    } 
+    if(!start_service() && get_last_error() != ERROR_SERVICE_ALREADY_RUNNING){
+      fprintf(stderr,"%s: Failed to start service %s.\n",
+	      argv[0],service_name);
+      print_last_error();
+      goto failure_starting;
+    }
+    
+    if(!wait_service_trans(SERVICE_STOPPED, SERVICE_START_PENDING,
+			   SERVICE_RUNNING, 60)){
+      fprintf(stderr,"%s: Failed to start service %s.\n",
+	      argv[0],service_name);
+      print_last_error();
+      goto failure_starting;
+    }
+
+    if(!disable_service()){
+      fprintf(stderr,"%s: Failed to disable service %s.\n",
+	      argv[0],service_name);
+      print_last_error();
+      return 1;
+    } 
+    printf("%s: Service %s started.\n",
+	   argv[0],service_name);
+    return 0;
+  failure_starting:
+    if(!disable_service()){
+      fprintf(stderr,"%s: Failed to disable service %s.\n",
+	      argv[0],service_name);
+      print_last_error();
+    } 
+    return 1;
   }
   if(!_stricmp(action,"stop")){
     if(!stop_service()){
@@ -841,6 +885,7 @@ int do_add_or_set(int argc, char **argv){
 	   argv[0], service_name);
   return 0;
 }
+
 int do_rename(int argc, char **argv){
   RegEntry *current = empty_reg_tab();
   RegEntry *dummy = empty_reg_tab();
@@ -1129,35 +1174,131 @@ void read_arguments(int *pargc, char ***pargv){
     *pargc = argc;
     *pargv = argv;
 }
+
+/* Create a free-for-all ACL to set on the semaphore */
+PACL get_acl(PSECURITY_DESCRIPTOR secdescp)  
+{
+  DWORD acl_length = 0;  
+  PSID auth_users_sidp = NULL;  
+  PACL aclp = NULL;  
+  SID_IDENTIFIER_AUTHORITY ntauth = SECURITY_NT_AUTHORITY;  
+  
+  if(!InitializeSecurityDescriptor(secdescp, SECURITY_DESCRIPTOR_REVISION)) {
+    return NULL;
+  }
+  
+  if(!AllocateAndInitializeSid(&ntauth, 
+			       1, 
+			       SECURITY_AUTHENTICATED_USER_RID, 
+			       0, 0, 0, 0, 0, 0, 0, 
+			       &auth_users_sidp)) {
+    return NULL;
+  }
+  
+  acl_length =   sizeof(ACL) +  
+    sizeof(ACCESS_ALLOWED_ACE) - sizeof(DWORD) +  
+    GetLengthSid(auth_users_sidp);  
+  
+  if((aclp = (PACL) HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, acl_length)) == NULL) {
+    FreeSid(auth_users_sidp);  
+    return NULL;
+  }
+  
+  if(!InitializeAcl(aclp, acl_length, ACL_REVISION)) {
+    FreeSid(auth_users_sidp);  
+    HeapFree(GetProcessHeap(), 0, aclp);
+    return NULL;
+  }
+  
+  if(!AddAccessAllowedAce(aclp, ACL_REVISION, SEMAPHORE_ALL_ACCESS, auth_users_sidp)) {
+    FreeSid(auth_users_sidp);  
+    HeapFree(GetProcessHeap(), 0, aclp);
+    return NULL;
+  }
+  
+  if(!SetSecurityDescriptorDacl(secdescp, TRUE, aclp, FALSE)) {
+    FreeSid(auth_users_sidp);  
+    HeapFree(GetProcessHeap(), 0, aclp);
+    return NULL;
+  }
+  return aclp;  
+} 
+
+static HANDLE lock_semaphore = NULL;
+
+int take_lock(void) {
+  SECURITY_ATTRIBUTES attr;  
+  PACL aclp;  
+  SECURITY_DESCRIPTOR secdesc;  
+  
+  if ((aclp = get_acl(&secdesc)) == NULL) {
+    return -1;
+  }
+  
+  memset(&attr,0,sizeof(attr));
+  attr.nLength = sizeof(attr);  
+  attr.lpSecurityDescriptor = &secdesc;  
+  attr.bInheritHandle = FALSE;  
+  
+  if ((lock_semaphore = CreateSemaphore(&attr, 1, 1, ERLSRV_INTERACTIVE_GLOBAL_SEMAPHORE)) == NULL) {
+    return -1;
+  }
+  
+  if (WaitForSingleObject(lock_semaphore,INFINITE) != WAIT_OBJECT_0) {
+    return -1;
+  }
+  
+  HeapFree(GetProcessHeap(), 0, aclp);
+  return 0;
+}
+
+void release_lock(void) {
+  ReleaseSemaphore(lock_semaphore,1,NULL);
+}
     
+
 
 int interactive_main(int argc, char **argv){
   char *action = argv[1];
-
+  int res;
+  
+  if (take_lock() != 0) {
+    fprintf(stderr,"%s: unable to acquire global lock (%s).\n",argv[0],
+	    ERLSRV_INTERACTIVE_GLOBAL_SEMAPHORE);
+    return 1;
+  }
+  
   if(!_stricmp(action,"readargs")){
-      read_arguments(&argc,&argv);
-      action = argv[1];
+    read_arguments(&argc,&argv);
+    action = argv[1];
   }
   if(!_stricmp(action,"set") || !_stricmp(action,"add"))
-    return do_add_or_set(argc,argv);
-  if(!_stricmp(action,"rename"))
-    return do_rename(argc,argv);
-  if(!_stricmp(action,"remove"))
-    return do_remove(argc,argv);
-  if(!_stricmp(action,"list"))
-    return do_list(argc,argv);
-  if(!_stricmp(action,"start") ||
-     !_stricmp(action,"stop") ||
-     !_stricmp(action,"enable") ||
-     !_stricmp(action,"disable"))
-    return do_manage(argc,argv);
-  if(_stricmp(action,"?") &&
-     _stricmp(action,"/?") &&
-     _stricmp(action,"-?") &&
-     *action != 'h' &&
-     *action != 'H')
+    res = do_add_or_set(argc,argv);
+  else if(!_stricmp(action,"rename"))
+    res = do_rename(argc,argv);
+  else if(!_stricmp(action,"remove"))
+    res = do_remove(argc,argv);
+  else if(!_stricmp(action,"list"))
+    res = do_list(argc,argv);
+  else if(!_stricmp(action,"start") ||
+	  !_stricmp(action,"start_disabled") ||
+	  !_stricmp(action,"stop") ||
+	  !_stricmp(action,"enable") ||
+	  !_stricmp(action,"disable"))
+    res =  do_manage(argc,argv);
+  else if(_stricmp(action,"?") &&
+	  _stricmp(action,"/?") &&
+	  _stricmp(action,"-?") &&
+	  *action != 'h' &&
+	  *action != 'H') {
     fprintf(stderr,"%s: action %s not implemented.\n",argv[0],action);
-  do_usage(argv[0]);
-  return 1;
+    do_usage(argv[0]);
+    res = 1;
+  } else {
+    do_usage(argv[0]);
+    res = 0;
+  }
+  release_lock();
+  return res;
 }
 

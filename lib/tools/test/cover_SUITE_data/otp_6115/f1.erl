@@ -1,12 +1,13 @@
 -module(f1).
--export([start_fail/0, start_ok/0]).
+-export([start_a/0, start_b/0]).
 
-start_fail() ->
+start_a() ->
     f2:start(fun() -> 
-		     io:format("this does not work\n",[]) 
+		     ok
 	     end).
 
-start_ok() ->
+start_b() ->
     f2:start(fun fun1/0).
+
 fun1() ->
-    io:format("this works\n",[]).
+    ok.

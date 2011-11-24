@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -20,23 +20,44 @@
 -module(ftp_format_SUITE).
 -author('ingela@erix.ericsson.se').
 
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include("test_server_line.hrl").
 -include("ftp_internal.hrl").
 
 %% Test server specific exports
--export([all/1, init_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 init_per_testcase/2, end_per_testcase/2]).
 
 %% Test cases must be exported.
--export([ftp_response/1, ftp_150/1, 
-	 ftp_200/1,  ftp_220/1, ftp_226/1, ftp_257/1, ftp_331/1, ftp_425/1, 
-	 ftp_other_status_codes/1, ftp_multiple_lines/1, 
-	 ftp_multipel_ctrl_messages/1, format_error/1]).
+-export([ ftp_150/1, 
+	  ftp_200/1,  ftp_220/1, ftp_226/1, ftp_257/1, ftp_331/1, ftp_425/1, 
+	  ftp_other_status_codes/1, ftp_multiple_lines/1, 
+	  ftp_multipel_ctrl_messages/1, format_error/1]).
 
-all(doc) ->
-    ["Test library functions for the ftp client."];
-all(suite) ->
-    [ftp_response, format_error].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [{group, ftp_response}, format_error].
+
+groups() -> 
+    [{ftp_response, [],
+      [ftp_150, ftp_200, ftp_220, ftp_226, ftp_257, ftp_331,
+       ftp_425, ftp_other_status_codes, ftp_multiple_lines,
+       ftp_multipel_ctrl_messages]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 init_per_testcase(_, Config) ->
     Dog = test_server:timetrap(?t:minutes(1)),
@@ -51,14 +72,6 @@ end_per_testcase(_, Config) ->
 %%-------------------------------------------------------------------------
 %% Test cases starts here.
 %%-------------------------------------------------------------------------
-ftp_response(doc) ->
-    ["Test ftp_response:parse_lines/3 and ftp_response:interpret/1."
-     " This test case will simulate that the "
-     "message will be recived a little at the time on a socket and the "
-     "package may be broken up into smaller parts at arbitrary point."];
-ftp_response(suite) ->
-    [ftp_150, ftp_200,  ftp_220, ftp_226, ftp_257, ftp_331, ftp_425, 
-     ftp_other_status_codes, ftp_multiple_lines, ftp_multipel_ctrl_messages].
 
 ftp_150(doc) ->
     ["Especially check that respons can be devided in a random place."];

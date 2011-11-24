@@ -14,10 +14,8 @@
 %% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
 %% USA
 %%
-%% $Id$
-%%
 %% @copyright 2003 Richard Carlsson
-%% @author Richard Carlsson <richardc@it.uu.se>
+%% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @see edoc
 %% @end 
 %% =====================================================================
@@ -41,6 +39,8 @@
 -module(edoc_run).
 
 -export([file/1, application/1, packages/1, files/1, toc/1]).
+
+-compile({no_auto_import,[error/1]}).
 
 -import(edoc_report, [report/2, error/1]).
 

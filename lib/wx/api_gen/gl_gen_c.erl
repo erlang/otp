@@ -47,34 +47,29 @@ gen(GLFuncs, GLUFuncs) ->
     w("/***** This file is generated do not edit ****/~n~n", []),
     w("#include <stdio.h>~n", []),
     w("#include <string.h>~n", []),    
-    w("#include \"../wxe_impl.h\"~n", []),
-    w("#include \"../wxe_gl.h\"~n", []),
-    w("#include \"gl_fdefs.h\"~n", []),
+    w("#include \"../egl_impl.h\"~n", []),
+    w("#include \"gl_fdefs.h\"~n~n", []),
+    w("extern gl_fns_t gl_fns[];~n~n", []),
 
-    w("~nint gl_error_op;~n", []),
-    w("void gl_dispatch(int op, char *bp,ErlDrvTermData caller,WXEBinRef *bins[]){~n",
+    w("void egl_dispatch(int op, char *bp, ErlDrvPort port, "
+      "ErlDrvTermData caller, char *bins[], int bins_sz[]){~n",
       []),
-    w(" gl_error_op = op;~n", []),
-    w(" if(caller != gl_active) {~n", []),
-    w("   wxGLCanvas * current = glc[caller];~n", []),
-    w("   if(current) { gl_active = caller; current->SetCurrent();}~n", []),
-    w("   else {~n "
-      "      ErlDrvTermData rt[] = // Error msg~n"
-      "      {ERL_DRV_ATOM, driver_mk_atom((char *) \"_wxe_error_\"),~n"
-      "       ERL_DRV_INT,  op,~n" 
-      "       ERL_DRV_ATOM, driver_mk_atom((char *) \"no_gl_context\"),~n"
-      "       ERL_DRV_TUPLE,3};~n"
-      "      driver_send_term(WXE_DRV_PORT,caller,rt,8);~n"
-      "      return ;~n   }~n };~n~n", []),
-
+    w(" try {~n",[]),
     w(" switch(op)~n{~n",[]),
-    w(" case 5000:~n   wxe_tess_impl(bp, caller);~n   break;~n", []),
-    w(" case WXE_BIN_INCR:~n   driver_binary_inc_refc(bins[0]->bin);~n   break;~n",[]),
-    w(" case WXE_BIN_DECR:~n   driver_binary_dec_refc(bins[0]->bin);~n   break;~n",[]),
+    w(" case 5000:~n   erl_tess_impl(bp, port, caller);~n   break;~n", []),
 
     [funcs(F) || F <- GLUFuncs],
     [funcs(F) || F <- GLFuncs],
     
+    w("}} catch (char *err_msg) {\n"
+      "int AP = 0; ErlDrvTermData rt[12];\n"
+      "rt[AP++] = ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) \"_egl_error_\");\n"
+      "rt[AP++] = ERL_DRV_INT; rt[AP++] = (int) op;\n"
+      "rt[AP++] = ERL_DRV_ATOM; rt[AP++] = driver_mk_atom((char *) err_msg);\n"
+      "// rt[AP++] = ERL_DRV_ATOM; rt[AP++] = driver_mk_atom((char *) gl_fns[op-GLE_GL_FUNC_START].name);\n"
+      "// rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;\n"
+      "rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 3;\n"
+      "driver_send_term(port,caller,rt,AP);\n", []),
     w("}} /* The End */~n~n",[]),
     
     close().
@@ -123,26 +118,53 @@ declare_var(A=#arg{name=N,in=false,type=#type{name=T,base=B,single={tuple,Sz}}})
     true = is_number(Sz), %% Assert
     w(" ~s ~s[~p] = {~s};~n", [T,N,Sz,args(fun zero/1,",",lists:duplicate(Sz,B))]),
     A;
-declare_var(A=#arg{name=N,in=false,type=#type{name=T,base=B,single={list,Sz}}}) when is_number(Sz) -> 
+declare_var(A=#arg{name=N,in=false,type=#type{name=T,base=B,single={list,Sz}}}) 
+  when is_number(Sz) -> 
     w(" ~s ~s[~p] = {~s};~n", [T,N,Sz,args(fun zero/1,",",lists:duplicate(Sz,B))]),
+    A;
+declare_var(A=#arg{name=N,in=false,type=#type{name=T,base=string,size={Max,_}, single=Single}}) -> 
+    case is_integer(Max) of
+	true -> 
+	    w(" ~s ~s[~p];~n", [T,N,Max]);
+	false ->
+	    %% w(" ~s ~s[*~s];~n", [T,N,Max]),
+	    w(" ~s *~s;~n", [T,N]), 
+	    w(" ~s = (~s *) driver_alloc(sizeof(~s) * *~s);~n", [N,T,T,Max]),
+	    store_free(N)		
+	    %% case Single of
+	    %% 	{list, _, _} -> 
+	    %% 	    w(" ~s *~s_p = ~s;~n", [T,N,N]);
+	    %% 	_ -> ok
+	    %% end	    
+    end,
+    A;
+declare_var(A=#arg{name=N,in=false,type=#type{base=binary,size={MaxSz, _}}}) -> 
+    MaxSz == undefined andalso error({assert, A}),
+    case is_integer(MaxSz) of
+	true -> 
+	    w(" ErlDrvBinary *~s = driver_alloc_binary(~p);~n", [N,MaxSz]);
+	false ->
+	    w(" ErlDrvBinary *~s = driver_alloc_binary(*~s);~n", [N,MaxSz])
+    end,
     A;
 declare_var(A=#arg{name=N,in=false,type=#type{name=T,single={list,ASz,_USz},mod=[]}}) -> 
     true = is_list(ASz), %% Assert
     w(" ~s *~s;~n", [T,N]), 
     w(" ~s = (~s *) driver_alloc(sizeof(~s) * *~s);~n", [N,T,T,ASz]),
     store_free(N),
+    %% w(" ~s ~s[*~s];~n", [T,N,ASz]),
     A;
-declare_var(A=#arg{name=N,in=false,type=#type{name=T,base=binary,size=Sz}}) -> 
-    true = is_number(Sz), %% Assert
-    w(" ~s ~s[~p];~n", [T,N,Sz]),
+declare_var(A=#arg{in=false, type=#type{name="GLUquadric",by_val=false,single=true}}) ->
     A;
-declare_var(A=#arg{name=N,in=false,
-		   type=#type{name=T="GLUquadric",base=B,by_val=false,single=true}}) -> 
+declare_var(A=#arg{in=false, type=#type{base=string,by_val=false,single=true}}) ->
     A;
 declare_var(A=#arg{name=N,in=false,
 		   type=#type{name=T,base=B,by_val=false,single=true}}) -> 
     w(" ~s ~s[1] = {~s};~n", [T,N,zero(B)]),
     A;
+declare_var(A=#arg{where=c, type=#type{name=T}, alt={size,Var}}) -> 
+    w(" ~s ~s_size = bins_sz[~p];~n", [T, Var, get(bin_count)]),
+    A;    
 declare_var(A=#arg{where=_}) -> 
     A.
 
@@ -172,10 +194,10 @@ decode_arg(P=#arg{where=c},A)   -> {P,A};
 decode_arg(P=#arg{in=false},A)  -> {P,A};
 
 decode_arg(P=#arg{name=Name,type=#type{name=Type,base=binary}},A0) ->
-    w(" ~s *~s = (~s *) bins[~p]->base;~n", [Type,Name,Type,next_id(bin_count)]),
+    w(" ~s *~s = (~s *) bins[~p];~n", [Type,Name,Type,next_id(bin_count)]),
     {P, A0};
 decode_arg(P=#arg{name=Name,type=#type{name=Type,base=memory}},A0) ->
-    w(" ~s *~s = (~s *) bins[~p]->base;~n", [Type,Name,Type,next_id(bin_count)]),
+    w(" ~s *~s = (~s *) bins[~p];~n", [Type,Name,Type,next_id(bin_count)]),
     {P, A0};
 decode_arg(P=#arg{name=Name,type=#type{name=T,base=string,single=list}},A0) ->
     A = align(4,A0),
@@ -220,7 +242,7 @@ decode_arg(P=#arg{name=Name,type=#type{name=Type,base=guard_int}},A0) ->
     {P, A};
 decode_arg(P=#arg{name=Name,type=#type{name=Type,base=string,single=true}},A0) ->
     w(" ~s *~s = (~s *) bp;~n", [Type,Name,Type]),
-    w(" int ~sLen = strlen((char *)~s); bp += ~sLen+1+((8-((1+~sLen+~p)%8))%8);~n",
+    w(" int ~sLen[1] = {strlen((char *)~s)}; bp += ~sLen[0]+1+((8-((1+~sLen[0]+~p)%8))%8);~n",
       [Name,Name,Name,Name,A0]),
     {P, 0};
 decode_arg(P=#arg{name=Name,
@@ -289,6 +311,8 @@ result_type(#type{name=T, ref=undefined}) ->    T;
 result_type(#type{name=T, ref={pointer,1}, mod=Mods}) ->  
     mod(Mods) ++ T ++ " * ".
 
+call_arg(#arg{alt={size,Alt},type=#type{}}) ->
+    Alt ++ "_size";
 call_arg(#arg{alt={length,Alt},type=#type{}}) ->
     "*" ++ Alt ++ "Len";
 call_arg(#arg{alt={constant,Alt},type=#type{}}) ->
@@ -299,6 +323,8 @@ call_arg(#arg{name=Name,type=#type{single={list, _}}}) ->
     Name;
 call_arg(#arg{name=Name,type=#type{size=8,base=int,ref=undefined}}) ->
     Name;
+call_arg(#arg{name=Name,in=false,type=#type{name=T, base=binary}}) ->
+    "(" ++ T ++ "*) " ++ Name ++ "->orig_bytes";
 call_arg(#arg{name=Name,type=#type{ref=undefined}}) ->
     "*" ++ Name;
 call_arg(#arg{name=Name,type=#type{base=guard_int}}) ->
@@ -319,27 +345,27 @@ build_return_vals(Type,As) ->
 		true ->
 		    w(" int AP = 0; ErlDrvTermData rt[6];~n",[]),
 		    w(" rt[AP++]=ERL_DRV_ATOM;"
-		      " rt[AP++]=driver_mk_atom((char *) \"_wxe_result_\");~n",[]),
+		      " rt[AP++]=driver_mk_atom((char *) \"_egl_result_\");~n",[]),
 		    w(" rt[AP++]=ERL_DRV_ATOM;"
 		      " rt[AP++]=driver_mk_atom((char *) \"ok\");~n",[]),
 		    w(" rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;~n",[]),
-		    w(" driver_send_term(WXE_DRV_PORT,caller,rt,AP);~n",[]),
+		    w(" driver_send_term(port,caller,rt,AP);~n",[]),
 		    ok
 	    end;
 	{Val,Vars,Cnt} ->
 	    ExtraTuple = if Cnt > 1 -> 2; true -> 0 end,
-	    CSize = if Vars =:= none -> 
-			    Sz = integer_to_list(Val+4+ExtraTuple),
-			    w(" int AP = 0; ErlDrvTermData rt[~s];~n",[Sz]),
-			    Sz;
-		       true -> 
-			    Sz = integer_to_list(Val+4+ExtraTuple) ++ " + " ++ Vars,
-			    w(" int AP = 0; ErlDrvTermData *rt;~n",[]),
-			    w(" rt = (ErlDrvTermData *) "
-			      "driver_alloc(sizeof(ErlDrvTermData)*(~s));~n", [Sz]),
-			    Sz
-		    end,
-	    w(" rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) \"_wxe_result_\");~n",[]),
+	    if Vars =:= none -> 
+		    Sz = integer_to_list(Val+4+ExtraTuple),
+		    w(" int AP = 0; ErlDrvTermData rt[~s];~n",[Sz]),
+		    Sz;
+	       true -> 
+		    Sz = integer_to_list(Val+4+ExtraTuple) ++ " + " ++ Vars,
+		    w(" int AP = 0; ErlDrvTermData *rt;~n",[]),
+		    w(" rt = (ErlDrvTermData *) "
+		      "driver_alloc(sizeof(ErlDrvTermData)*(~s));~n", [Sz]),
+		    Sz
+	    end,
+	    w(" rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) \"_egl_result_\");~n",[]),
 	    FreeList = build_ret_types(Type,As),
 	    case Cnt of
 		1 -> ok;
@@ -347,9 +373,9 @@ build_return_vals(Type,As) ->
 		    w(" rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = ~p;~n",[Cnt])
 	    end,
 	    w(" rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;~n",[]),
-	    w(" if (AP != ~s )  fprintf(stderr, \"%d: ERROR AP mismatch %d %d\\r\\n\",__LINE__,AP,~s);~n",
-	      [CSize,CSize]),
-	    w(" driver_send_term(WXE_DRV_PORT,caller,rt,AP);~n",[]),
+	    %%w(" if (AP != ~s )  fprintf(stderr, \"%d: ERROR AP mismatch %d %d\\r\\n\",__LINE__,AP,~s);~n",
+	    %%  [CSize,CSize]),
+	    w(" driver_send_term(port,caller,rt,AP);~n",[]),
 	    case Vars of 
 		none -> ignore;
 		_ -> 		    
@@ -372,7 +398,7 @@ calc_sizes(Type,As) ->
 		       {Val, none} -> {Sz+Val, Vars, Cnt+1};
 		       {Val, Var} when Vars =:= none -> 			   
 			   {Sz+Val, Var,Cnt+1};
-		       {Val, Var} when Vars =:= none -> 
+		       {Val, Var}  -> 
 			   {Sz+Val, Var ++ " + " ++ Vars,Cnt+1}
 		   end;
 	      (_,Acc) -> Acc
@@ -380,13 +406,16 @@ calc_sizes(Type,As) ->
     foldl(Calc, TSz, As).
  
 return_size(_N,void) -> {0, none};
-return_size(_N,#type{base=binary}) ->                      {4, none};
-return_size(_N,#type{single=true}) ->                      {2,none};
 return_size(_N,#type{single={tuple,Sz}}) ->                {Sz*2+2, none};
-return_size(_N,#type{name="GLubyte",single={list,null}}) ->{3, none};
 return_size(_N,#type{single={list,Sz}})  ->                {Sz*2+3, none};
-return_size(_N,#type{base=string,single={list,_,_}}) ->    {3, none};
-return_size(_N,#type{single={list,_,Sz}}) ->               {3, "(*" ++Sz++")*2"}.
+return_size(_N,#type{base=string,single=true}) ->          {3, none};
+return_size(_N,#type{base=string,single=undefined}) ->     {3, none};
+return_size(_N,#type{base=string,single={list,_,"result"}}) ->   {3, "result*3"};
+return_size(_N,#type{base=string,single={list,_,Sz}}) ->   {3, "(*" ++Sz++")*3"};
+return_size(_N,#type{single={list,_,"result"}}) ->         {3, "result*2"};
+return_size(_N,#type{single={list,_,Sz}}) ->               {3, "(*" ++Sz++")*2"};
+return_size(_N,#type{base=binary}) ->                      {4, none};
+return_size(_N,#type{single=true}) ->                      {2, none}.
 
 
 build_ret_types(void,Ps) -> 
@@ -445,17 +474,27 @@ build_ret(Name,_Q,#type{name=T,base=_,single={tuple,Sz}}) ->
     [w(" rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *~s++;~n", [Temp]) 
      || _ <- lists:seq(1,Sz)],
     w(" rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = ~p;~n",[Sz]);
-build_ret(Name,_Q,#type{name="GLubyte",single={list,null}}) ->
+build_ret(Name,_Q,#type{base=string,size=1,single=true}) ->
     w(" rt[AP++] = ERL_DRV_STRING; rt[AP++] = (ErlDrvTermData) ~s;"
       " rt[AP++] = strlen((char *) ~s);\n", [Name, Name]);
-build_ret(Name,_Q,#type{base=string,single={list,_,Sz}}) ->
+build_ret(Name,_Q,#type{base=string, size={_Max,Sz}, single=S}) 
+  when S == true; S == undefined ->
     w(" rt[AP++] = ERL_DRV_STRING; rt[AP++] = (ErlDrvTermData) ~s;"
       " rt[AP++] = *~s;\n", [Name, Sz]);
+build_ret(Name,_Q,#type{name=_T,base=string,size={_, SSz}, single={list,_,Sz}}) ->
+    P = if Sz == "result" -> ["(int) "]; true -> "*" end,
+    w(" for(int i=0; i < ~s~s; i++) {\n", [P,Sz]),
+    w("    rt[AP++] = ERL_DRV_STRING; rt[AP++] = (ErlDrvTermData) ~s;"
+      " rt[AP++] = ~s[i]-1;\n", [Name, SSz]),
+    w("    ~s += ~s[i]; }~n", [Name, SSz]),
+    w(" rt[AP++] = ERL_DRV_NIL;", []),
+    w(" rt[AP++] = ERL_DRV_LIST; rt[AP++] = (~s~s)+1;~n",[P,Sz]);
 build_ret(Name,_Q,#type{name=_T,base=B,single={list,_,Sz}}) when B =/= float ->
-    w(" for(int i=0; i < *~s; i++) {\n", [Sz]),
+    P = if Sz == "result" -> ["(int) "]; true -> "*" end,
+    w(" for(int i=0; i < ~s~s; i++) {\n", [P,Sz]),
     w("    rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) ~s[i];}~n", [Name]),    
     w(" rt[AP++] = ERL_DRV_NIL;", []),
-    w(" rt[AP++] = ERL_DRV_LIST; rt[AP++] = (*~s)+1;~n",[Sz]);
+    w(" rt[AP++] = ERL_DRV_LIST; rt[AP++] = (~s~s)+1;~n",[P,Sz]);
 build_ret(Name,_Q,#type{name=_T,size=FSz,base=float,single={list,Sz}}) ->
     Temp = Name ++ "Tmp",
     case FSz of
@@ -476,12 +515,14 @@ build_ret(Name,_Q,#type{name=T,base=_,single={list,Sz}}) ->
      || _ <- lists:seq(1,Sz)],
     w(" rt[AP++] = ERL_DRV_NIL;", []),
     w(" rt[AP++] = ERL_DRV_LIST; rt[AP++] = ~p+1;~n",[Sz]);
-build_ret(Name,_Q,#type{name="GLubyte",base=binary,size=Sz}) ->
-    w(" ErlDrvBinary * BinCopy = driver_alloc_binary(~p);~n", [Sz]), 
-    w(" memcpy(BinCopy->orig_bytes, ~s, ~p);~n",  [Name,Sz]),
-    w(" rt[AP++] = ERL_DRV_BINARY; rt[AP++] = (ErlDrvTermData) BinCopy;", []),
-    w(" rt[AP++] = ~p; rt[AP++] = 0;~n", [Sz]),
-    "driver_free_binary(BinCopy);";
+build_ret(Name,_Q,#type{base=binary,size={_,Sz}}) ->
+    w(" rt[AP++] = ERL_DRV_BINARY; rt[AP++] = (ErlDrvTermData) ~s;", [Name]),
+    if is_integer(Sz) ->
+	    w(" rt[AP++] = ~p; rt[AP++] = 0;~n", [Sz]);
+       is_list(Sz) ->
+	    w(" rt[AP++] = *~s; rt[AP++] = 0;~n", [Sz])
+    end,
+    "driver_free_binary(" ++ Name ++ ");";
 build_ret(Name,_Q,T=#type{}) ->
     io:format("{~p, {~p, {single,{tuple,X}}}}.~n", [get(current_func),Name]),
     io:format(" ~p~n",[T]).
@@ -497,6 +538,19 @@ gen_defines(GLFuncs,GLUFuncs) ->
     w("# define WXE_EXTERN~n", []),
     w("#else~n# define WXE_EXTERN extern~n", []),
     w("#endif~n~n", []),
+
+    w("typedef struct {\n"      
+      "   const char * name;\n"      
+      "   const char * alt;\n"
+      "   void * func;\n"
+      "} gl_fns_t;\n\n", []),
+
+    GLFirst = case hd(GLFuncs) of 
+		  [First|_] when is_list(First) -> get(First);
+		  First -> get(First)
+	      end,
+    w("#define GLE_GL_FUNC_START ~p~n", [GLFirst#func.id]),
+
     [fdefs(F) || F <- GLFuncs],
     [fdefs(F) || F <- GLUFuncs],
     close().
@@ -544,11 +598,7 @@ gl_gen_init(Funcs) ->
     open_write("../c_src/gen/gl_finit.h"),
     c_copyright(),
     w("/***** This file is generated do not edit ****/~n~n", []),
-    w("static struct {\n"      
-      "   const char * name;\n"      
-      "   const char * alt;\n"
-      "   void * func;\n"
-      "} gl_fns[] = \n"
+    w("gl_fns_t gl_fns[] = \n"
       "{\n", []),
     [finits(F) || F <- Funcs],
     w(" { NULL, NULL, NULL}};\n",[]),

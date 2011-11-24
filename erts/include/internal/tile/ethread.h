@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2008-2009. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -23,8 +23,7 @@
 #ifndef ETHREAD_TILE_ETHREAD_H
 #define ETHREAD_TILE_ETHREAD_H
 
+#include "ethr_membar.h"
 #include "atomic.h"
-
-#define ETHR_HAVE_NATIVE_ATOMICS 1
 
 #endif /* ETHREAD_TILE_ETHREAD_H */

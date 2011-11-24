@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -620,6 +620,8 @@ get_pid(Objkey) ->
 %% Returns    : Throws the exception.
 %% Description: 
 %%----------------------------------------------------------------------
+%% To avoid dialyzer warnings due to the use of exit/throw.
+-spec raise(term()) -> no_return().
 raise(E) ->
     throw({'EXCEPTION', E}).
 
@@ -629,6 +631,8 @@ raise(E) ->
 %% Returns    : Throws the exception.
 %% Description: 
 %%----------------------------------------------------------------------
+%% To avoid dialyzer warnings due to the use of exit/throw.
+-spec raise_with_state(term(), term()) -> no_return().
 raise_with_state(E, State) ->
     throw({reply, {'EXCEPTION', E}, State}).
 
@@ -943,7 +947,7 @@ handle_cast2(M, F, A, InternalState, State, Ctx) ->
 	    {noreply, {InternalState, NewState}}
     end.
 
-handle_exit(InternalState, State, {undef, [{M, F, _}|_]} = Reason, 
+handle_exit(InternalState, State, {undef, [{M, F, _, _}|_]} = Reason, 
 	    OnewayOp, {M, F}, A) ->
     case catch check_exports(M:module_info(exports), F) of
 	{'EXIT',{undef,_}} ->
@@ -975,7 +979,7 @@ handle_exit(InternalState, State, {undef, [{M, F, _}|_]} = Reason,
 			     #'OBJ_ADAPTER'{minor=(?ORBER_VMCID bor 4),
 					    completion_status=?COMPLETED_MAYBE})
     end;
-handle_exit(InternalState, State, {undef, [{M2, F2, A2}|_]} = Reason, 
+handle_exit(InternalState, State, {undef, [{M2, F2, A2, _}|_]} = Reason, 
 	    OnewayOp, {M, F}, A) ->
     case catch check_exports(M2:module_info(exports), F2) of
 	{'EXIT',{undef,_}} ->

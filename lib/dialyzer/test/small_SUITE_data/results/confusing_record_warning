@@ -1,0 +1,3 @@
+
+confusing_record_warning.erl:18: Function test/1 has no local return
+confusing_record_warning.erl:18: Matching of pattern {'r', [_]} tagged with a record name violates the declared type of #r{field::'binary' | 'undefined'}

@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+  3GPP TS 32.435 Performance Measurement XML file format definition
+  data file XML schema
+  measCollec.xsd
+-->
+
+<schema
+  targetNamespace=
+"http://www.3gpp.org/ftp/specs/archive/32_series/32.435#measCollec"
+  elementFormDefault="qualified"
+  xmlns="http://www.w3.org/2001/XMLSchema"
+  xmlns:mc=
+"http://www.3gpp.org/ftp/specs/archive/32_series/32.435#measCollec"
+>
+
+  <!-- Measurement collection data file root XML element -->
+
+  <element name="measCollecFile">
+    <complexType>
+      <sequence>
+        <element name="fileHeader">
+          <complexType>
+            <sequence>
+              <element name="fileSender">
+                <complexType>
+                  <attribute name="localDn" type="string" use="optional"/>
+                  <attribute name="elementType" type="string" use="optional"/>
+                </complexType>
+              </element>
+              <element name="measCollec">
+                <complexType>
+                  <attribute name="beginTime" type="dateTime" use="required"/>
+                </complexType>
+              </element>
+            </sequence>
+            <attribute name="fileFormatVersion" type="string" use="required"/>
+            <attribute name="vendorName" type="string" use="optional"/>
+            <attribute name="dnPrefix" type="string" use="optional"/>
+          </complexType>
+        </element>
+        <element name="measData" minOccurs="0" maxOccurs="unbounded">
+          <complexType>
+            <sequence>
+              <element name="managedElement">
+                <complexType>
+                  <attribute name="localDn" type="string" use="optional"/>
+                  <attribute name="userLabel" type="string" use="optional"/>
+                  <attribute name="swVersion" type="string" use="optional"/>
+                </complexType>
+              </element>
+              <element name="measInfo" minOccurs="0" maxOccurs="unbounded">
+                <complexType>
+                  <sequence>
+                    <element name="job" minOccurs="0">
+                      <complexType>
+                        <attribute name="jobId" type="string" use="required"/>
+                      </complexType>
+                    </element>
+                    <element name="granPeriod">
+                      <complexType>
+                        <attribute
+                          name="duration"
+                          type="duration"
+                          use="required"
+                        />
+                        <attribute
+                          name="endTime"
+                          type="dateTime"
+                          use="required"
+                        />
+                      </complexType>
+                    </element>
+                    <element name="repPeriod" minOccurs="0">
+                      <complexType>
+                        <attribute name="duration"
+                                   type="duration" use="required"/>
+                      </complexType>
+                    </element>
+                    <choice>
+                      <element name="measTypes">
+                        <simpleType>
+                          <list itemType="Name"/>
+                        </simpleType>
+                      </element>
+                      <element name="measType"
+                               minOccurs="0" maxOccurs="unbounded">
+                        <complexType>
+                          <simpleContent>
+                            <extension base="Name">
+                              <attribute name="p"
+                                         type="positiveInteger" use="required"/>
+                            </extension>
+                          </simpleContent>
+                        </complexType>
+                      </element>
+                    </choice>
+                    <element name="measValue"
+                             minOccurs="0" maxOccurs="unbounded">
+                      <complexType>
+                        <sequence>
+                          <choice>
+                            <element name="measResults">
+                              <simpleType>
+                                <list itemType="mc:measResultType"/>
+                              </simpleType>
+                            </element>
+                            <element name="r"
+                                     minOccurs="0" maxOccurs="unbounded">
+                              <complexType>
+                                <simpleContent>
+                                  <extension base="mc:measResultType">
+                                    <attribute name="p" type="positiveInteger"
+                                                                use="required"/>
+                                  </extension>
+                                </simpleContent>
+                              </complexType>
+                            </element>
+                          </choice>
+                          <element name="suspect" type="boolean" minOccurs="0"/>
+                        </sequence>
+                        <attribute name="measObjLdn"
+                                   type="string" use="required"/>
+                      </complexType>
+                    </element>
+                  </sequence>
+		  <attribute name="measInfoId"
+                                   type="string" use="required"/>
+                </complexType>
+              </element>
+            </sequence>
+          </complexType>
+        </element>
+        <element name="fileFooter">
+          <complexType>
+            <sequence>
+              <element name="measCollec">
+                <complexType>
+                  <attribute name="endTime" type="dateTime" use="required"/>
+                </complexType>
+              </element>
+            </sequence>
+          </complexType>
+        </element>
+      </sequence>
+    </complexType>
+  </element>
+
+  <simpleType name="measResultType">
+    <union memberTypes="float">
+      <simpleType>
+        <restriction base="string">
+          <enumeration value="NIL"/>
+        </restriction>
+      </simpleType>
+    </union>
+  </simpleType>
+
+</schema>

@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(gen_server).
@@ -94,8 +94,6 @@
 	 multi_call/2, multi_call/3, multi_call/4,
 	 enter_loop/3, enter_loop/4, enter_loop/5, wake_hib/5]).
 
--export([behaviour_info/1]).
-
 %% System exports
 -export([system_continue/3,
 	 system_terminate/4,
@@ -103,7 +101,7 @@
 	 format_status/2]).
 
 %% Internal exports
--export([init_it/6, print_event/3]).
+-export([init_it/6]).
 
 -import(error_logger, [format/2]).
 
@@ -111,13 +109,32 @@
 %%%  API
 %%%=========================================================================
 
--spec behaviour_info(atom()) -> 'undefined' | [{atom(), arity()}].
-
-behaviour_info(callbacks) ->
-    [{init,1},{handle_call,3},{handle_cast,2},{handle_info,2},
-     {terminate,2},{code_change,3}];
-behaviour_info(_Other) ->
-    undefined.
+-callback init(Args :: term()) ->
+    {ok, State :: term()} | {ok, State :: term(), timeout() | hibernate} |
+    {stop, Reason :: term()} | ignore.
+-callback handle_call(Request :: term(), From :: {pid(), Tag :: term()},
+                      State :: term()) ->
+    {reply, Reply :: term(), NewState :: term()} |
+    {reply, Reply :: term(), NewState :: term(), timeout() | hibernate} |
+    {noreply, NewState :: term()} |
+    {noreply, NewState :: term(), timeout() | hibernate} |
+    {stop, Reason :: term(), Reply :: term(), NewState :: term()} |
+    {stop, Reason :: term(), NewState :: term()}.
+-callback handle_cast(Request :: term(), State :: term()) ->
+    {noreply, NewState :: term()} |
+    {noreply, NewState :: term(), timeout() | hibernate} |
+    {stop, Reason :: term(), NewState :: term()}.
+-callback handle_info(Info :: timeout() | term(), State :: term()) ->
+    {noreply, NewState :: term()} |
+    {noreply, NewState :: term(), timeout() | hibernate} |
+    {stop, Reason :: term(), NewState :: term()}.
+-callback terminate(Reason :: (normal | shutdown | {shutdown, term()} |
+                               term()),
+                    State :: term()) ->
+    term().
+-callback code_change(OldVsn :: (term() | {down, term()}), State :: term(),
+                      Extra :: term()) ->
+    {ok, NewState :: term()}.
 
 %%%  -----------------------------------------------------------------
 %%% Starts a generic server.
@@ -353,7 +370,7 @@ decode_msg(Msg, Parent, Name, State, Mod, Time, Debug, Hib) ->
 	_Msg when Debug =:= [] ->
 	    handle_msg(Msg, Parent, Name, State, Mod);
 	_Msg ->
-	    Debug1 = sys:handle_debug(Debug, {?MODULE, print_event}, 
+	    Debug1 = sys:handle_debug(Debug, fun print_event/3,
 				      Name, {in, Msg}),
 	    handle_msg(Msg, Parent, Name, State, Mod, Debug1)
     end.
@@ -589,11 +606,11 @@ handle_msg({'$gen_call', From, Msg}, Parent, Name, State, Mod, Debug) ->
 	    Debug1 = reply(Name, From, Reply, NState, Debug),
 	    loop(Parent, Name, NState, Mod, Time1, Debug1);
 	{noreply, NState} ->
-	    Debug1 = sys:handle_debug(Debug, {?MODULE, print_event}, Name,
+	    Debug1 = sys:handle_debug(Debug, fun print_event/3, Name,
 				      {noreply, NState}),
 	    loop(Parent, Name, NState, Mod, infinity, Debug1);
 	{noreply, NState, Time1} ->
-	    Debug1 = sys:handle_debug(Debug, {?MODULE, print_event}, Name,
+	    Debug1 = sys:handle_debug(Debug, fun print_event/3, Name,
 				      {noreply, NState}),
 	    loop(Parent, Name, NState, Mod, Time1, Debug1);
 	{stop, Reason, Reply, NState} ->
@@ -625,11 +642,11 @@ handle_common_reply(Reply, Parent, Name, Msg, Mod, State) ->
 handle_common_reply(Reply, Parent, Name, Msg, Mod, State, Debug) ->
     case Reply of
 	{noreply, NState} ->
-	    Debug1 = sys:handle_debug(Debug, {?MODULE, print_event}, Name,
+	    Debug1 = sys:handle_debug(Debug, fun print_event/3, Name,
 				      {noreply, NState}),
 	    loop(Parent, Name, NState, Mod, infinity, Debug1);
 	{noreply, NState, Time1} ->
-	    Debug1 = sys:handle_debug(Debug, {?MODULE, print_event}, Name,
+	    Debug1 = sys:handle_debug(Debug, fun print_event/3, Name,
 				      {noreply, NState}),
 	    loop(Parent, Name, NState, Mod, Time1, Debug1);
 	{stop, Reason, NState} ->
@@ -642,7 +659,7 @@ handle_common_reply(Reply, Parent, Name, Msg, Mod, State, Debug) ->
 
 reply(Name, {To, Tag}, Reply, State, Debug) ->
     reply({To, Tag}, Reply),
-    sys:handle_debug(Debug, {?MODULE, print_event}, Name, 
+    sys:handle_debug(Debug, fun print_event/3, Name,
 		     {out, Reply, To, State} ).
 
 
@@ -705,7 +722,18 @@ terminate(Reason, Name, Msg, Mod, State, Debug) ->
 		{shutdown,_}=Shutdown ->
 		    exit(Shutdown);
 		_ ->
-		    error_info(Reason, Name, Msg, State, Debug),
+		    FmtState =
+			case erlang:function_exported(Mod, format_status, 2) of
+			    true ->
+				Args = [get(), State],
+				case catch Mod:format_status(terminate, Args) of
+				    {'EXIT', _} -> State;
+				    Else -> Else
+				end;
+			    _ ->
+				State
+			end,
+		    error_info(Reason, Name, Msg, FmtState, Debug),
 		    exit(Reason)
 	    end
     end.
@@ -718,16 +746,16 @@ error_info(_Reason, application_controller, _Msg, _State, _Debug) ->
 error_info(Reason, Name, Msg, State, Debug) ->
     Reason1 = 
 	case Reason of
-	    {undef,[{M,F,A}|MFAs]} ->
+	    {undef,[{M,F,A,L}|MFAs]} ->
 		case code:is_loaded(M) of
 		    false ->
-			{'module could not be loaded',[{M,F,A}|MFAs]};
+			{'module could not be loaded',[{M,F,A,L}|MFAs]};
 		    _ ->
 			case erlang:function_exported(M, F, length(A)) of
 			    true ->
 				Reason;
 			    false ->
-				{'function not exported',[{M,F,A}|MFAs]}
+				{'function not exported',[{M,F,A,L}|MFAs]}
 			end
 		end;
 	    _ ->
@@ -792,7 +820,7 @@ get_proc_name({local, Name}) ->
 	    exit(process_not_registered)
     end;    
 get_proc_name({global, Name}) ->
-    case global:safe_whereis_name(Name) of
+    case global:whereis_name(Name) of
 	undefined ->
 	    exit(process_not_registered_globally);
 	Pid when Pid =:= self() ->
@@ -814,7 +842,7 @@ get_parent() ->
 name_to_pid(Name) ->
     case whereis(Name) of
 	undefined ->
-	    case global:safe_whereis_name(Name) of
+	    case global:whereis_name(Name) of
 		undefined ->
 		    exit(could_not_find_registerd_name);
 		Pid ->
@@ -829,22 +857,20 @@ name_to_pid(Name) ->
 %%-----------------------------------------------------------------
 format_status(Opt, StatusData) ->
     [PDict, SysState, Parent, Debug, [Name, State, Mod, _Time]] = StatusData,
-    NameTag = if is_pid(Name) ->
-		      pid_to_list(Name);
-		 is_atom(Name) ->
-		      Name
-	      end,
-    Header = lists:concat(["Status for generic server ", NameTag]),
+    Header = gen:format_status_header("Status for generic server",
+                                      Name),
     Log = sys:get_debug(log, Debug, []),
-    Specfic = 
+    DefaultStatus = [{data, [{"State", State}]}],
+    Specfic =
 	case erlang:function_exported(Mod, format_status, 2) of
 	    true ->
 		case catch Mod:format_status(Opt, [PDict, State]) of
-		    {'EXIT', _} -> [{data, [{"State", State}]}];
-		    Else -> Else
+		    {'EXIT', _} -> DefaultStatus;
+                    StatusList when is_list(StatusList) -> StatusList;
+		    Else -> [Else]
 		end;
 	    _ ->
-		[{data, [{"State", State}]}]
+		DefaultStatus
 	end,
     [{header, Header},
      {data, [{"Status", SysState},

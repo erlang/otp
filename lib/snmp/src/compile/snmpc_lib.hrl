@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2009. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -20,8 +20,17 @@
 -ifndef(snmpc_lib).
 -define(snmpc_lib, true).
 
--define(vwarning(F, A),           ?verbosity(warning, F, A, ignore)).
--define(vwarning2(F, A, MibLine), ?verbosity(warning, F, A, MibLine)).
+-define(vwarning(F, A),
+	case get(warnings_as_errors) of
+	    true -> snmpc_lib:error(F, A);
+	    _ -> ?verbosity(warning, F, A, ignore)
+	end).
+
+-define(vwarning2(F, A, MibLine),
+	 case get(warnings_as_errors) of
+	     true -> snmpc_lib:error(F, A, MibLine);
+	     _ -> ?verbosity(warning, F, A, MibLine)
+	 end).
 -define(vinfo(F, A),              ?verbosity(info,    F, A, ignore)).
 -define(vinfo2(F, A, MibLine),    ?verbosity(info,    F, A, MibLine)).
 -define(vlog(F, A),               ?verbosity(log,     F, A, ignore)).

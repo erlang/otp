@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1996-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -34,7 +34,7 @@
 
 typedef Uint     ErtsDigit;
 
-#if (SIZEOF_VOID_P == 4) && defined(SIZEOF_LONG_LONG) && (SIZEOF_LONG_LONG == 8)
+#if ((SIZEOF_VOID_P == 4) || HALFWORD_HEAP) && defined(SIZEOF_LONG_LONG) && (SIZEOF_LONG_LONG == 8)
 /* Assume 32-bit machine with long long support */
 typedef Uint64   ErtsDoubleDigit;
 typedef Uint16   ErtsHalfDigit;
@@ -58,7 +58,7 @@ typedef Uint32   ErtsHalfDigit;
 
 typedef Uint  dsize_t;	 /* Vector size type */
 
-#define D_EXP (SIZEOF_VOID_P*8)
+#define D_EXP (ERTS_SIZEOF_ETERM*8)
 #define D_MASK     ((ErtsDigit)(-1))      /* D_BASE-1 */
 
 /* macros for bignum objects */
@@ -88,7 +88,13 @@ typedef Uint  dsize_t;	 /* Vector size type */
 
 #define BIG_UINT_HEAP_SIZE (1 + 1)	/* always, since sizeof(Uint) <= sizeof(Eterm) */
 
-#ifdef ARCH_32
+#if HALFWORD_HEAP
+#define BIG_UWORD_HEAP_SIZE(UW) (((UW) >> (sizeof(Uint) * 8)) ? 3 : 2)
+#else
+#define BIG_UWORD_HEAP_SIZE(UW) BIG_UINT_HEAP_SIZE
+#endif
+
+#if defined(ARCH_32) || HALFWORD_HEAP
 
 #define ERTS_UINT64_BIG_HEAP_SIZE__(X) \
   ((X) >= (((Uint64) 1) << 32) ? (1 + 2) : (1 + 1))
@@ -108,13 +114,13 @@ typedef Uint  dsize_t;	 /* Vector size type */
 
 #endif
 
-int big_decimal_estimate(Eterm);
+int big_decimal_estimate(Wterm);
 Eterm erts_big_to_list(Eterm, Eterm**);
-char *erts_big_to_string(Eterm x, char *buf, Uint buf_sz);
+char *erts_big_to_string(Wterm x, char *buf, Uint buf_sz);
 
 Eterm small_times(Sint, Sint, Eterm*);
 
-Eterm big_plus(Eterm, Eterm, Eterm*);
+Eterm big_plus(Wterm, Wterm, Eterm*);
 Eterm big_minus(Eterm, Eterm, Eterm*);
 Eterm big_times(Eterm, Eterm, Eterm*);
 Eterm big_div(Eterm, Eterm, Eterm*);
@@ -131,11 +137,13 @@ Eterm big_bxor(Eterm, Eterm, Eterm*);
 Eterm big_bnot(Eterm, Eterm*);
 
 Eterm big_lshift(Eterm, Sint, Eterm*);
-int big_comp (Eterm, Eterm);
+int big_comp (Wterm, Wterm);
 int big_ucomp (Eterm, Eterm);
-int big_to_double(Eterm x, double* resp);
+int big_to_double(Wterm x, double* resp);
+Eterm double_to_big(double, Eterm*);
 Eterm small_to_big(Sint, Eterm*);
 Eterm uint_to_big(Uint, Eterm*);
+Eterm uword_to_big(UWord, Eterm*);
 Eterm erts_make_integer(Uint, Process *);
 
 dsize_t big_bytes(Eterm);
@@ -143,7 +151,12 @@ Eterm bytes_to_big(byte*, dsize_t, int, Eterm*);
 byte* big_to_bytes(Eterm, byte*);
 
 int term_to_Uint(Eterm, Uint*);
+int term_to_UWord(Eterm, UWord*);
 int term_to_Sint(Eterm, Sint*);
+#if HAVE_INT64
+int term_to_Uint64(Eterm, Uint64*);
+int term_to_Sint64(Eterm, Sint64*);
+#endif
 
 Uint32 big_to_uint32(Eterm b);
 int term_equals_2pow32(Eterm);

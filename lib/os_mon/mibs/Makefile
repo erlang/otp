@@ -78,6 +78,9 @@ $(SNMP_BIN_TARGET_DIR)/OTP-MIB.bin:     $(ERL_TOP)/lib/$(OTP_MIBDIR)/mibs/OTP-MI
 v1/%.mib.v1: %.mib
 	$(ERL_TOP)/lib/snmp/bin/snmp-v2tov1 -o $@ $<
 
+$(SNMP_BIN_TARGET_DIR)/OTP-OS-MON-MIB.bin: \
+	$(SNMP_BIN_TARGET_DIR)/OTP-REG.bin \
+	$(SNMP_BIN_TARGET_DIR)/OTP-MIB.bin \
 
 # ----------------------------------------------------
 # Release Target

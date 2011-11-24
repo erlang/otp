@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2009</year>
+      <year>1997</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -178,11 +178,12 @@
       <c>community.conf</c>.  It must be present if the agent is
       configured for SNMPv1 or SNMPv2c.
       </p>
+    <p>An SNMP <em>community</em> is a relationship between an SNMP
+    agent and a set of SNMP managers that defines authentication, access 
+    control and proxy characteristics. </p>
     <p>The corresponding table is <c>snmpCommunityTable</c> in the
-      SNMP-COMMUNITY-MIB.
-      </p>
-    <p>Each entry is a term:
-      </p>
+      SNMP-COMMUNITY-MIB. </p>
+    <p>Each entry is a term: </p>
     <p><c>{CommunityIndex, CommunityName, SecurityName, ContextName, TransportTag}.</c></p>
     <list type="bulleted">
       <item><c>CommunityIndex</c> is a non-empty string.
@@ -366,56 +367,50 @@
     <marker id="target_addr"></marker>
     <title>Target Address Definitions</title>
     <p>The information about Target Address Definitions should be 
-      stored in a file called
-      <c>target_addr.conf</c>.
-      </p>
+      stored in a file called <c>target_addr.conf</c>. </p>
     <p>The corresponding tables are <c>snmpTargetAddrTable</c> in the
-      SNMP-TARGET-MIB and <c>snmpTargetAddrExtTable</c> in the SNMP-COMMUNITY-MIB.
-      </p>
-    <p>Each entry is a term:
-      </p>
-    <p><c>{TargetName, Ip, Udp, Timeout, RetryCount, TagList, ParamsName, EngineId}.</c> or      <br></br>
-<c>{TargetName, Ip, Udp, Timeout, RetryCount, TagList, ParamsName, EngineId, TMask, MaxMessageSize}.</c></p>
+      SNMP-TARGET-MIB and <c>snmpTargetAddrExtTable</c> in the 
+      SNMP-COMMUNITY-MIB. </p>
+    <p>Each entry is a term: </p>
+    <p><c>{TargetName, Ip, Udp, Timeout, RetryCount, TagList, ParamsName, EngineId}.</c> <br></br> or <br></br> 
+<c>{TargetName, Ip, Udp, Timeout, RetryCount, TagList, ParamsName, EngineId, TMask, MaxMessageSize}.</c> <br></br> or  <br></br>
+<c>{TargetName, Domain, Ip, Udp, Timeout, RetryCount, TagList, ParamsName, EngineId, TMask, MaxMessageSize}.</c></p>
     <list type="bulleted">
       <item>
         <p><c>TargetName</c> is a unique non-empty string.
           </p>
       </item>
       <item>
-        <p><c>Ip</c> is a list of four integers.     
-          </p>
+        <p><c>Domain</c> is one of the atoms: 
+	<c>transportDomainUdpIpv4</c> | <c>transportDomainUdpIpv6</c>. </p>
       </item>
       <item>
-        <p><c>Udp</c> is an integer.
-          </p>
+        <p><c>Ip</c> is a list of four or eight integers. </p>
       </item>
       <item>
-        <p><c>Timeout</c> is an integer.
-          </p>
+        <p><c>Udp</c> is an integer. </p>
       </item>
       <item>
-        <p><c>RetryCount</c> is an integer.
-          </p>
+        <p><c>Timeout</c> is an integer. </p>
       </item>
       <item>
-        <p><c>TagList</c> is a string.
-          </p>
+        <p><c>RetryCount</c> is an integer. </p>
       </item>
       <item>
-        <p><c>ParamsName</c> is a string.
-          </p>
+        <p><c>TagList</c> is a string. </p>
       </item>
       <item>
-        <p><c>EngineId</c> is a string or the atom <c>discovery</c>.
-          </p>
+        <p><c>ParamsName</c> is a string. </p>
       </item>
       <item>
-        <p><c>TMask</c> is a string of size 0, or size 6 (default: []).
-          </p>
+        <p><c>EngineId</c> is a string or the atom <c>discovery</c>. </p>
       </item>
       <item>
-        <p><c>MaxMessageSize</c> is an integer (default: 2048).
-          </p>
+        <p><c>TMask</c> is a list of integer() of size 0, 
+	size 6 or size 10 (default: []). </p>
+      </item>
+      <item>
+        <p><c>MaxMessageSize</c> is an integer (default: 2048). </p>
       </item>
     </list>
     <p>Note that if <c>EngineId</c> has the value <c>discovery</c>, 
@@ -428,14 +423,10 @@
     <marker id="target_params"></marker>
     <title>Target Parameters Definitions</title>
     <p>The information about Target Parameters Definitions should be
-      stored in a file called
-      <c>target_params.conf</c>.
-      </p>
+      stored in a file called <c>target_params.conf</c>. </p>
     <p>The corresponding table is <c>snmpTargetParamsTable</c> in the
-      SNMP-TARGET-MIB.
-      </p>
-    <p>Each entry is a term:
-      </p>
+      SNMP-TARGET-MIB. </p>
+    <p>Each entry is a term: </p>
     <p><c>{ParamsName, MPModel, SecurityModel, SecurityName, SecurityLevel}.</c></p>
     <list type="bulleted">
       <item>

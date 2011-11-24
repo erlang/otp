@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2000-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(file_io_server).
@@ -44,11 +44,11 @@ format_error(ErrorId) ->
     erl_posix_msg:message(ErrorId).
 
 start(Owner, FileName, ModeList) 
-  when is_pid(Owner), is_list(FileName), is_list(ModeList) ->
+  when is_pid(Owner), (is_list(FileName) orelse is_binary(FileName)), is_list(ModeList) ->
     do_start(spawn, Owner, FileName, ModeList).
 
 start_link(Owner, FileName, ModeList) 
-  when is_pid(Owner), is_list(FileName), is_list(ModeList) ->
+  when is_pid(Owner), (is_list(FileName) orelse is_binary(FileName)), is_list(ModeList) ->
     do_start(spawn_link, Owner, FileName, ModeList).
 
 %%%-----------------------------------------------------------------
@@ -106,21 +106,21 @@ do_start(Spawn, Owner, FileName, ModeList) ->
 parse_options(List) ->
     parse_options(expand_encoding(List), list, latin1, []).
 
-parse_options([],list,Uni,Acc) ->
+parse_options([], list, Uni, Acc) ->
     {list,Uni,[binary|lists:reverse(Acc)]};
-parse_options([],binary,Uni,Acc) ->
+parse_options([], binary, Uni, Acc) ->
     {binary,Uni,lists:reverse(Acc)};
-parse_options([{encoding, Encoding}|T],RMode,_,Acc) ->
+parse_options([{encoding, Encoding}|T], RMode, _, Acc) ->
     case valid_enc(Encoding) of 
 	{ok, ExpandedEnc} ->
-	    parse_options(T,RMode,ExpandedEnc,Acc);
-	{error,Reason} ->
-	    {error,Reason}
+	    parse_options(T, RMode, ExpandedEnc, Acc);
+	{error,_Reason} = Error ->
+	    Error
     end;
-parse_options([binary|T],_,Uni,Acc) ->
-    parse_options(T,binary,Uni,[binary|Acc]);
-parse_options([H|T],R,U,Acc) ->
-    parse_options(T,R,U,[H|Acc]).
+parse_options([binary|T], _, Uni, Acc) ->
+    parse_options(T, binary, Uni, [binary|Acc]);
+parse_options([H|T], R, U, Acc) ->
+    parse_options(T, R, U, [H|Acc]).
 
 expand_encoding([]) ->
     [];
@@ -151,7 +151,6 @@ valid_enc({utf32,little}) ->
     {ok,{utf32,little}};
 valid_enc(_Other) ->
     {error,badarg}.
-
 
 
 server_loop(#state{mref = Mref} = State) ->
@@ -199,6 +198,14 @@ io_reply(From, ReplyAs, Reply) ->
 %%%-----------------------------------------------------------------
 %%% file requests
 
+file_request({advise,Offset,Length,Advise},
+         #state{handle=Handle}=State) ->
+    case ?PRIM_FILE:advise(Handle, Offset, Length, Advise) of
+    {error,_}=Reply ->
+        {stop,normal,Reply,State};
+    Reply ->
+        {reply,Reply,State}
+    end;
 file_request({pread,At,Sz}, 
 	     #state{handle=Handle,buf=Buf,read_mode=ReadMode}=State) ->
     case position(Handle, At, Buf) of
@@ -219,6 +226,14 @@ file_request({pwrite,At,Data},
 	    std_reply(?PRIM_FILE:write(Handle, Data), State);
 	Reply ->
 	    std_reply(Reply, State)
+    end;
+file_request(datasync,
+	     #state{handle=Handle}=State) ->
+    case ?PRIM_FILE:datasync(Handle) of
+	{error,_}=Reply ->
+	    {stop,normal,Reply,State};
+	Reply ->
+	    {reply,Reply,State}
     end;
 file_request(sync, 
 	     #state{handle=Handle}=State) ->
@@ -326,7 +341,6 @@ io_request(Unknown,
     {error,{error,Reason},State}.
 
 
-
 %% Process a list of requests as long as the results are ok.
 
 io_request_loop([], Result) ->
@@ -340,7 +354,6 @@ io_request_loop([_Request|_Tail],
 io_request_loop([Request|Tail], 
 		{reply,_Reply,State}) ->
     io_request_loop(Tail, io_request(Request, State)).
-
 
 
 %% I/O request put_chars
@@ -653,20 +666,14 @@ do_setopts(Opts, State) ->
     end.
 
 getopts(#state{read_mode=RM, unic=Unic} = State) ->
-    Bin = {binary, case RM of
-		       binary ->
-			   true;
-		       _ ->
-			   false
-		   end},
+    Bin = {binary, RM =:= binary},
     Uni = {encoding, Unic},
     {reply,[Bin,Uni],State}.
-    
 
 %% Concatenate two binaries and convert the result to list or binary
-cat(B1, B2, binary,latin1,latin1) ->
+cat(B1, B2, binary, latin1, latin1) ->
     list_to_binary([B1,B2]);
-cat(B1, B2, binary,InEncoding,OutEncoding) ->
+cat(B1, B2, binary, InEncoding, OutEncoding) ->
     case unicode:characters_to_binary([B1,B2],InEncoding,OutEncoding) of
 	Good when is_binary(Good) ->
 	    Good;

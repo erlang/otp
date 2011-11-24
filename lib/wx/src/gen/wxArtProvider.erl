@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -39,7 +39,7 @@ getBitmap(Id)
   getBitmap(Id, []).
 
 %% @spec (Id::string(), [Option]) -> wxBitmap:wxBitmap()
-%% Option = {client, string()} | {size, {W::integer(),H::integer()}}
+%% Option = {client, string()} | {size, {W::integer(), H::integer()}}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxartprovider.html#wxartprovidergetbitmap">external documentation</a>.
 getBitmap(Id, Options)
  when is_list(Id),is_list(Options) ->
@@ -58,7 +58,7 @@ getIcon(Id)
   getIcon(Id, []).
 
 %% @spec (Id::string(), [Option]) -> wxIcon:wxIcon()
-%% Option = {client, string()} | {size, {W::integer(),H::integer()}}
+%% Option = {client, string()} | {size, {W::integer(), H::integer()}}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxartprovider.html#wxartprovidergeticon">external documentation</a>.
 getIcon(Id, Options)
  when is_list(Id),is_list(Options) ->

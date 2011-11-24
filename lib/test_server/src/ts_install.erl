@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(ts_install).
@@ -22,6 +22,7 @@
 -export([install/2, platform_id/1]).
 
 -include("ts.hrl").
+-include_lib("kernel/include/file.hrl").
 
 install(install_local, Options) ->
     install(os:type(), Options);
@@ -150,11 +151,17 @@ add_vars(Vars0, Opts0) ->
 	end,
     {PlatformId, PlatformLabel, PlatformFilename, Version} =
 	platform([{longnames, LongNames}|Vars0]),
+    NetDir = lists:concat(["/net", hostname()]),
+    Mounted = case file:read_file_info(NetDir) of
+		  {ok, #file_info{type = directory}} -> NetDir;
+		  _ -> ""
+	      end,
     {Opts, [{longnames, LongNames},
 	    {platform_id, PlatformId},
 	    {platform_filename, PlatformFilename},
 	    {rsh_name, get_rsh_name()},
 	    {platform_label, PlatformLabel},
+	    {ts_net_dir, Mounted},
 	    {erl_flags, []},
 	    {erl_release, Version},
 	    {ts_testcase_callback, get_testcase_callback()} | Vars0]}.
@@ -175,15 +182,8 @@ get_testcase_callback() ->
 
 get_rsh_name() ->
     case os:getenv("ERL_RSH") of
-	false ->
-	    case ts_lib:erlang_type() of
-		{clearcase, _} ->
-		    "ctrsh";
-		{_, _} ->
-		    "rsh"
-	    end;
-	Str ->
-	    Str
+	false -> "rsh";
+	Str -> Str
     end.
 
 platform_id(Vars) ->
@@ -233,9 +233,11 @@ to_upper(String) ->
 	      String).
 
 word_size() ->
-    case erlang:system_info(wordsize) of
-	4 -> "";
-	8 -> "/64"
+    case {erlang:system_info({wordsize,external}),
+	  erlang:system_info({wordsize,internal})} of
+	{4,4} -> "";
+	{8,8} -> "/64";
+	{8,4} -> "/Halfword"
     end.
 
 linux_dist() ->

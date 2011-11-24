@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,13 +19,14 @@
 -module(erl_distribution_SUITE).
 
 %-define(line_trace, 1).
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
--export([all/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 
 -export([tick/1, tick_change/1, illegal_nodenames/1, hidden_node/1,
 	 table_waste/1, net_setuptime/1,
-	 monitor_nodes/1,
+	
 	 monitor_nodes_nodedown_reason/1,
 	 monitor_nodes_complex_nodedown_reason/1,
 	 monitor_nodes_node_type/1,
@@ -41,7 +42,7 @@
 	 tick_serv_test/2, tick_serv_test1/1,
 	 keep_conn/1, time_ping/1]).
 
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 -export([start_node/2]).
 
@@ -57,16 +58,39 @@
 %% erl -sname master -rsh ctrsh
 %%-----------------------------------------------------------------
 
-all(suite) -> 
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
     [tick, tick_change, illegal_nodenames, hidden_node,
-     table_waste, net_setuptime,
-     monitor_nodes].
+     table_waste, net_setuptime, {group, monitor_nodes}].
+
+groups() -> 
+    [{monitor_nodes, [],
+      [monitor_nodes_nodedown_reason,
+       monitor_nodes_complex_nodedown_reason,
+       monitor_nodes_node_type, monitor_nodes_misc,
+       monitor_nodes_otp_6481, monitor_nodes_errors,
+       monitor_nodes_combinations, monitor_nodes_cleanup,
+       monitor_nodes_many]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog=?t:timetrap(?t:minutes(4)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     Dog=?config(watchdog, Config),
     ?t:timetrap_cancel(Dog).
 
@@ -273,6 +297,7 @@ tick_change(Config) when is_list(Config) ->
     ?line PaDir = filename:dirname(code:which(?MODULE)),
     ?line [BN, CN] = get_nodenames(2, tick_change),
     ?line DefaultTT = net_kernel:get_net_ticktime(),
+    ?line unchanged = net_kernel:set_net_ticktime(DefaultTT, 60),
     ?line case DefaultTT of
 	      I when is_integer(I) -> ?line ok;
 	      _                 -> ?line ?t:fail(DefaultTT)
@@ -377,6 +402,7 @@ run_tick_change_test(B, C, PrevTT, TT, PaDir) ->
     end,
 
     ?line change_initiated = net_kernel:set_net_ticktime(TT,20),
+    ?line {ongoing_change_to,_} = net_kernel:set_net_ticktime(TT,20),
     ?line sleep(3),
     ?line change_initiated = rpc:call(B,net_kernel,set_net_ticktime,[TT,15]),
     ?line sleep(7),
@@ -528,18 +554,6 @@ check_monitor_nodes_res(Pid, Node) ->
     end.
 
 
-monitor_nodes(doc) ->
-    [];
-monitor_nodes(suite) ->
-    [monitor_nodes_nodedown_reason,
-     monitor_nodes_complex_nodedown_reason,
-     monitor_nodes_node_type,
-     monitor_nodes_misc,
-     monitor_nodes_otp_6481,
-     monitor_nodes_errors,
-     monitor_nodes_combinations,
-     monitor_nodes_cleanup,
-     monitor_nodes_many].
 	    
 %%
 %% Testcase:
@@ -843,13 +857,16 @@ monitor_nodes_otp_6481_test(Config, TestType) when is_list(Config) ->
     ?line {ok, Node} = start_node(Name, "", this),
     ?line receive {nodeup, Node} -> ok end,
 
-    ?line spawn(Node,
+    ?line RemotePid = spawn(Node,
 		fun () ->
-			receive after 1000 -> ok end,
-			lists:foreach(fun (No) ->
-					      Me ! {NodeMsg, No}
-				      end,
-				      Seq),
+			receive after 1500 -> ok end,
+			% infinit loop of msgs
+			% we want an endless stream of messages and the kill
+			% the node mercilessly.
+			% We then want to ensure that the nodedown message arrives
+			% last ... without garbage after it.
+			_ = spawn(fun() -> node_loop_send(Me, NodeMsg, 1) end),
+			receive {Me, kill_it} -> ok end, 
 			halt()
 		end),
 
@@ -858,9 +875,11 @@ monitor_nodes_otp_6481_test(Config, TestType) when is_list(Config) ->
 
     %% Verify that '{nodeup, Node}' comes before '{NodeMsg, 1}' (the message
     %% bringing up the connection).
-    %%?line no_msgs(500), % Why wait? It fails test sometimes  /sverker
+    ?line no_msgs(500),
     ?line {nodeup, Node} = receive Msg1 -> Msg1 end,
-    ?line {NodeMsg, 1} = receive Msg2 -> Msg2 end,
+    ?line {NodeMsg, 1}   = receive Msg2 -> Msg2 end,
+    % msg stream has begun, kill the node
+    ?line RemotePid ! {self(), kill_it},
 
     %% Verify that '{nodedown, Node}' comes after the last '{NodeMsg, N}'
     %% message.
@@ -880,6 +899,10 @@ flush_node_msgs(NodeMsg, No) ->
 	{NodeMsg, No} -> flush_node_msgs(NodeMsg, No+1);
 	OtherMsg -> OtherMsg
     end.
+
+node_loop_send(Pid, Msg, No) ->
+    Pid ! {Msg, No},
+    node_loop_send(Pid, Msg, No + 1).
 
 monitor_nodes_errors(doc) ->
     [];

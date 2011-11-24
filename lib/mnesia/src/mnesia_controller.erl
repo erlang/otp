@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -52,11 +52,13 @@
 	 async_dump_log/1,
 	 sync_dump_log/1,
 	 connect_nodes/1,
+         connect_nodes/2,
 	 wait_for_schema_commit_lock/0,
 	 release_schema_commit_lock/0,
 	 create_table/1,
 	 get_disc_copy/1,
-	 get_cstructs/0,
+	 get_remote_cstructs/0,  % new function
+	 get_cstructs/0,         % old function
 	 sync_and_block_table_whereabouts/4,
 	 sync_del_table_copy_whereabouts/2,
 	 block_table/1,
@@ -71,6 +73,7 @@
 	 add_active_replica/4,
 	 update/1,
 	 change_table_access_mode/1,
+	 change_table_majority/1,
 	 del_active_replica/2,
 	 wait_for_tables/2,
 	 get_network_copy/2,
@@ -94,8 +97,10 @@
 	 load_and_reply/2,
 	 send_and_reply/2,
 	 wait_for_tables_init/2,
-	 connect_nodes2/2
+	 connect_nodes2/3
 	]).
+
+-compile({no_auto_import,[error/2]}).
 
 -import(mnesia_lib, [set/2, add/2]).
 -import(mnesia_lib, [fatal/2, error/2, verbose/2, dbg_out/2]).
@@ -274,8 +279,17 @@ rec_tabs([], _, _, Init) ->
     unlink(Init),
     ok.
 
-get_cstructs() ->
+%% New function that does exactly what get_cstructs() used to do.
+%% When this function is called, we know that the calling node knows
+%% how to convert cstructs on the receiving end (should they differ).
+get_remote_cstructs() ->
     call(get_cstructs).
+
+%% Old function kept for backwards compatibility; converts cstructs before sending.
+get_cstructs() ->
+    {cstructs, Cstructs, Running} = call(get_cstructs),
+    Node = node(group_leader()),
+    {cstructs, mnesia_schema:normalize_cs(Cstructs, Node), Running}.
 
 update(Fun) ->
     call({update,Fun}).
@@ -420,12 +434,15 @@ try_schedule_late_disc_load(Tabs, Reason, MsgTag) ->
 		  [[Tabs, Reason, MsgTag], AbortReason])
     end.
 
-connect_nodes(Ns) ->    
+connect_nodes(Ns) ->
+    connect_nodes(Ns, fun default_merge/1).
+
+connect_nodes(Ns, UserFun) ->
     case mnesia:system_info(is_running) of 
 	no ->
 	    {error, {node_not_running, node()}};
 	yes ->	  	   
-	    Pid = spawn_link(?MODULE,connect_nodes2,[self(),Ns]),
+	    Pid = spawn_link(?MODULE,connect_nodes2,[self(),Ns, UserFun]),
 	    receive 
 		{?MODULE, Pid, Res, New} -> 
 		    case Res of
@@ -443,7 +460,7 @@ connect_nodes(Ns) ->
 	    end
     end.
 
-connect_nodes2(Father, Ns) ->
+connect_nodes2(Father, Ns, UserFun) ->
     Current = val({current, db_nodes}),
     abcast([node()|Ns], {merging_schema, node()}),
     {NewC, OldC} = mnesia_recover:connect_nodes(Ns),
@@ -451,7 +468,7 @@ connect_nodes2(Father, Ns) ->
     New1 = mnesia_lib:intersect(Ns, Connected),
     New = New1 -- Current,    
     process_flag(trap_exit, true),
-    Res = try_merge_schema(New),
+    Res = try_merge_schema(New, [], UserFun),
     Msg = {schema_is_merged, [], late_merge, []},
     multicall([node()|Ns], Msg),
     After = val({current, db_nodes}),    
@@ -465,7 +482,7 @@ connect_nodes2(Father, Ns) ->
 
 merge_schema() ->
     AllNodes = mnesia_lib:all_nodes(),
-    case try_merge_schema(AllNodes) of
+    case try_merge_schema(AllNodes, [node()], fun default_merge/1) of
 	ok -> 
 	    schema_is_merged();
 	{aborted, {throw, Str}} when is_list(Str) ->
@@ -474,11 +491,20 @@ merge_schema() ->
 	    fatal("Failed to merge schema: ~p~n", [Else])
     end.
 
-try_merge_schema(Nodes) ->
-    case mnesia_schema:merge_schema() of
+default_merge(F) ->
+    F([]).
+
+try_merge_schema(Nodes, Told0, UserFun) ->
+    case mnesia_schema:merge_schema(UserFun) of
 	{atomic, not_merged} ->
 	    %% No more nodes that we need to merge the schema with
-	    ok;
+	    %% Ensure we have told everybody that we are running
+	    case val({current,db_nodes}) -- mnesia_lib:uniq(Told0) of
+		[] ->  ok;
+		Tell ->
+		    im_running(Tell, [node()]),
+		    ok
+	    end;
 	{atomic, {merged, OldFriends, NewFriends}} ->
 	    %% Check if new nodes has been added to the schema
 	    Diff = mnesia_lib:all_nodes() -- [node() | Nodes],
@@ -487,12 +513,18 @@ try_merge_schema(Nodes) ->
 	    %% Tell everybody to adopt orphan tables
 	    im_running(OldFriends, NewFriends),
 	    im_running(NewFriends, OldFriends),
-	    
-	    try_merge_schema(Nodes);
+	    Told = case lists:member(node(), NewFriends) of
+		       true -> Told0 ++ OldFriends;
+		       false -> Told0 ++ NewFriends
+		   end,
+	    try_merge_schema(Nodes, Told, UserFun);
 	{atomic, {"Cannot get cstructs", Node, Reason}} ->
 	    dbg_out("Cannot get cstructs, Node ~p ~p~n", [Node, Reason]),
-	    timer:sleep(1000), % Avoid a endless loop look alike	    
-	    try_merge_schema(Nodes);
+	    timer:sleep(300), % Avoid a endless loop look alike
+	    try_merge_schema(Nodes, Told0, UserFun);
+	{aborted, {shutdown, _}} ->  %% One of the nodes is going down
+	    timer:sleep(300), % Avoid a endless loop look alike
+	    try_merge_schema(Nodes, Told0, UserFun);
 	Other ->
 	    Other
     end.
@@ -669,7 +701,8 @@ handle_call({update_where_to_write, [add, Tab, AddNode], _From}, _Dummy, State) 
 	case lists:member(AddNode, Current) and 
 	    (State#state.schema_is_merged == true) of
 	    true ->
-		mnesia_lib:add_lsort({Tab, where_to_write}, AddNode);
+		mnesia_lib:add_lsort({Tab, where_to_write}, AddNode),
+		update_where_to_wlock(Tab);
 	    false ->
 		ignore
 	end,
@@ -906,6 +939,7 @@ handle_cast(unblock_controller, State) ->
 handle_cast({mnesia_down, Node}, State) ->
     maybe_log_mnesia_down(Node),
     mnesia_lib:del({current, db_nodes}, Node),
+    mnesia_lib:unset({node_up, Node}),
     mnesia_checkpoint:tm_mnesia_down(Node),
     Alltabs = val({schema, tables}),
     reconfigure_tables(Node, Alltabs),
@@ -968,11 +1002,12 @@ handle_cast(Msg, State) when State#state.schema_is_merged /= true ->
 %% This must be done after schema_is_merged otherwise adopt_orphan
 %% might trigger a table load from wrong nodes as a result of that we don't 
 %% know which tables we can load safly first.
-handle_cast({im_running, _Node, NewFriends}, State) ->
+handle_cast({im_running, Node, NewFriends}, State) ->
     LocalTabs = mnesia_lib:local_active_tables() -- [schema],
     RemoveLocalOnly = fun(Tab) -> not val({Tab, local_content}) end,
     Tabs = lists:filter(RemoveLocalOnly, LocalTabs),
-    Ns = mnesia_lib:intersect(NewFriends, val({current, db_nodes})),
+    Nodes = mnesia_lib:union([Node],val({current, db_nodes})),
+    Ns = mnesia_lib:intersect(NewFriends, Nodes),
     abcast(Ns, {adopt_orphans, node(), Tabs}),
     noreply(State);
 
@@ -1033,30 +1068,33 @@ handle_cast({master_nodes_updated, Tab, Masters}, State) ->
     end;
     
 handle_cast({adopt_orphans, Node, Tabs}, State) ->
-
     State2 = node_has_tabs(Tabs, Node, State),
     
-    %% Register the other node as up and running
-    mnesia_recover:log_mnesia_up(Node),
-    verbose("Logging mnesia_up ~w~n",[Node]),
-    mnesia_lib:report_system_event({mnesia_up, Node}),
-    
-    %% Load orphan tables
-    LocalTabs = val({schema, local_tables}) -- [schema],
-    Nodes = val({current, db_nodes}),
-    {LocalOrphans, RemoteMasters} =
-	orphan_tables(LocalTabs, Node, Nodes, [], []),
-    Reason = {adopt_orphan, node()},
-    mnesia_late_loader:async_late_disc_load(node(), LocalOrphans, Reason),
-    
-    Fun =
-	fun(N) ->
-		RemoteOrphans =
-		    [Tab || {Tab, Ns} <- RemoteMasters,
-			    lists:member(N, Ns)],
-		mnesia_late_loader:maybe_async_late_disc_load(N, RemoteOrphans, Reason)
-	end,
-    lists:foreach(Fun, Nodes),
+    case ?catch_val({node_up,Node}) of
+	true -> ignore;
+	_ ->
+	    %% Register the other node as up and running
+	    set({node_up, Node}, true),
+	    mnesia_recover:log_mnesia_up(Node),
+	    verbose("Logging mnesia_up ~w~n",[Node]),
+	    mnesia_lib:report_system_event({mnesia_up, Node}),
+	    %% Load orphan tables
+	    LocalTabs = val({schema, local_tables}) -- [schema],
+	    Nodes = val({current, db_nodes}),
+	    {LocalOrphans, RemoteMasters} =
+		orphan_tables(LocalTabs, Node, Nodes, [], []),
+	    Reason = {adopt_orphan, node()},
+	    mnesia_late_loader:async_late_disc_load(node(), LocalOrphans, Reason),
+
+	    Fun =
+		fun(N) ->
+			RemoteOrphans =
+			    [Tab || {Tab, Ns} <- RemoteMasters,
+				    lists:member(N, Ns)],
+			mnesia_late_loader:maybe_async_late_disc_load(N, RemoteOrphans, Reason)
+		end,
+	    lists:foreach(Fun, Nodes)
+    end,
     noreply(State2);
 
 handle_cast(Msg, State) ->
@@ -1664,6 +1702,8 @@ add_active_replica(Tab, Node, Storage, AccessMode) ->
 	    set(Var, mark_blocked_tab(Blocked, Del)),
 	    mnesia_lib:del({Tab, where_to_write}, Node)
     end,
+
+    update_where_to_wlock(Tab),
     add({Tab, active_replicas}, Node).
 
 del_active_replica(Tab, Node) ->
@@ -1673,7 +1713,8 @@ del_active_replica(Tab, Node) ->
     New = lists:sort(Del),
     set(Var, mark_blocked_tab(Blocked, New)),      % where_to_commit
     mnesia_lib:del({Tab, active_replicas}, Node),
-    mnesia_lib:del({Tab, where_to_write}, Node).
+    mnesia_lib:del({Tab, where_to_write}, Node),
+    update_where_to_wlock(Tab).
 
 change_table_access_mode(Cs) ->
     W = fun() -> 
@@ -1682,7 +1723,22 @@ change_table_access_mode(Cs) ->
 			      val({Tab, active_replicas}))
 	end,
     update(W).
-	    
+
+change_table_majority(Cs) ->
+    W = fun() ->
+		Tab = Cs#cstruct.name,
+		set({Tab, majority}, Cs#cstruct.majority),
+		update_where_to_wlock(Tab)
+	end,
+    update(W).
+
+update_where_to_wlock(Tab) ->
+    WNodes = val({Tab, where_to_write}),
+    Majority = case catch val({Tab, majority}) of
+		   true -> true;
+		   _    -> false
+	       end,
+    set({Tab, where_to_wlock}, {WNodes, Majority}).
 
 %% node To now has tab loaded, but this must be undone
 %% This code is rpc:call'ed from the tab_copier process
@@ -1842,17 +1898,20 @@ reply(ReplyTo, Reply) ->
 add_worker(Worker = #dump_log{}, State) ->
     InitBy = Worker#dump_log.initiated_by,
     Queue = State#state.dumper_queue,
-    case lists:keymember(InitBy, #dump_log.initiated_by, Queue) of
-	true when Worker#dump_log.opt_reply_to == undefined ->
-	    %% The same threshold has been exceeded again,
-	    %% before we have had the possibility to
-	    %% process the older one.
-	    DetectedBy = {dump_log, InitBy},
-	    Event = {mnesia_overload, DetectedBy},
-	    mnesia_lib:report_system_event(Event);
-	_ ->
-	    ignore
-    end,
+    Status =
+        case lists:keymember(InitBy, #dump_log.initiated_by, Queue) of
+            true when Worker#dump_log.opt_reply_to == undefined ->
+                %% The same threshold has been exceeded again,
+                %% before we have had the possibility to
+                %% process the older one.
+                DetectedBy = {dump_log, InitBy},
+                Event = {mnesia_overload, DetectedBy},
+                mnesia_lib:report_system_event(Event),
+                true;
+            _ ->
+                false
+        end,
+    mnesia_recover:log_dump_overload(Status),
     Queue2 = Queue ++ [Worker],
     State2 = State#state{dumper_queue = Queue2},
     opt_start_worker(State2);

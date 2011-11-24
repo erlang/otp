@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2010</year>
+      <year>2004</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -29,6 +29,266 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the Tools application.</p>
+
+<section><title>Tools 2.6.6.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Teach the emacs mode to compile yecc and leex files</p>
+          <p>
+	    If visiting a .yrl or .xrl file in emacs with
+	    erlang-mode, then the `erlang-compile' function (normally
+	    bound to C-c C-k), now knows how to compile yecc and leex
+	    files, and then, if that compilation succeeds, also
+	    compiles the resulting .erl files.</p>
+          <p>
+	    Also introduce a `erlang-compile-command-function-alist'
+	    to make it possible to hook in other functions for
+	    computing compilation commands/expressions, depending on
+	    file name. (Thanks to Tomas Abrahamsson )</p>
+          <p>
+	    Own Id: OTP-9503</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Bugs in xref(3) have been fixed. (Thanks to Matthias
+	    Lang.) </p>
+          <p>
+	    Own Id: OTP-9416</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Tools 2.6.6.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Change make:files to behave more like erlc</p>
+          <p>
+	    This change removes the unnecessary checks on the files
+	    when make:files is called and allows the error checking
+	    to be done in compile:file, where the error messages are
+	    produced. It does not affect the return value.</p>
+          <p>
+	    (Thanks to Sam bobroff)</p>
+          <p>
+	    Own Id: OTP-9179</p>
+        </item>
+        <item>
+          <p>
+	    add user specified compiler options on form reloading</p>
+          <p>
+	    In order to be able to test non-exported functions from
+	    another (test) module it is necessary to compile the
+	    specific module (at least during the test phase) with the
+	    export_all compiler option. This allows complete
+	    separation of testing and productive code. At the moment
+	    it is not possible to combine this with a test code
+	    coverage using the cover module. The problem is that when
+	    cover compiling a module using cover:compile_* the code
+	    is reloaded into the emulator omitting/filtering the
+	    passed user options. In my example above the export_all
+	    option would be removed and the non-exported functions
+	    cannot be called any more. (Thanks to Tobias Schlager)</p>
+          <p>
+	    Own Id: OTP-9204</p>
+        </item>
+        <item>
+          <p>
+	    Inhibit electric newline after "-&gt;" when inside a type
+	    spec</p>
+          <p>
+	    The Erlang mode for Emacs inserts a newline after every
+	    "-&gt;", which saves you one keystroke when writing a
+	    function, but that is inappropriate when writing a type
+	    spec, as you'd normally keep the spec on one line. This
+	    change inhibits the automatic insertion when the current
+	    line starts with "-spec" or "-type".(Thanks to Magnus
+	    Henoch)</p>
+          <p>
+	    Own Id: OTP-9255</p>
+        </item>
+        <item>
+          <p>
+	    Add a check logic to prevent file descriptor leak</p>
+          <p>
+	    cover module handle files as raw in export and import.
+	    Assert counts of ports are the same at the beginning and
+	    at the end of the test case.(Thanks to Shunichi
+	    Shinohara)</p>
+          <p>
+	    Own Id: OTP-9300</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Tools 2.6.6.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Declare indentation options as "safe" in erlang-mode for
+	    Emacs</p>
+          <p>
+	    Emacs has a facility for setting options on a per-file
+	    basis based on comments in the source file. By default,
+	    all options are considered "unsafe", and the user is
+	    queried before the variable is set. This patch declares
+	    the variables erlang-indent-level, erlang-indent-guard
+	    and erlang-argument-indent to be safe, if the value
+	    specified in the source file is valid.</p>
+          <p>
+	    Such declarations usually look like this:</p>
+          <p>
+	    %% -*- erlang-indent-level: 2 -*-</p>
+          <p>
+	    and appear on the first line of the file. (thanks to
+	    Magnus Henoch)</p>
+          <p>
+	    Own Id: OTP-9122</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Cover has been improved to take less memory and allow
+	    parallel analysis of cover data. Data collection from
+	    nodes is now done in parallel and it is now possible to
+	    issue multiple analyse and analyse_to_file requests at
+	    the same time. A new function call async_analyse_to_file
+	    has also been introduced, see the documentation for more
+	    details.</p>
+          <p>
+	    Own Id: OTP-9043 Aux Id: seq11771 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Tools 2.6.6.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>eprof: API sort mismatch has now been fixed. </p>
+          <p>
+	    Own Id: OTP-8853</p>
+        </item>
+        <item>
+          <p>
+	    eprof: fix division by zero in statistics</p>
+          <p>
+	    Own Id: OTP-8963</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Tools 2.6.6.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    <c>cover</c> will now show ampersand characters in the
+	    source code correctly. (Thanks to Tom Moertel.)</p>
+          <p>
+	    Own Id: OTP-8776</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Tools 2.6.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>A race condition affecting Cover has been removed.</p>
+          <p>
+	    Own Id: OTP-8469</p>
+        </item>
+        <item>
+          <p>
+	    Emacs improvements:</p>
+          <p>
+	    Fixed emacs-mode installation problems.</p>
+          <p>
+	    Fixed a couple of -spec and -type indentation and
+	    font-lock problems.</p>
+          <p>
+	    Fixed error messages on emacs-21.</p>
+          <p>
+	    Magnus Henoch fixed several issues.</p>
+          <p>
+	    Ralf Doering, Klas Johansson and Chris Bernard
+	    contributed various emacs-eunit improvements.</p>
+          <p>
+	    Klas Johansson and Dave Peticolas added emacs-flymake
+	    support.</p>
+          <p>
+	    Own Id: OTP-8530</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Xref has been updated to use the <c>re</c> module
+	    instead of the deprecated <c>regexp</c> module.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-8472</p>
+        </item>
+        <item>
+	    <p>When given the option <c>{builtins,true}</c> Xref now
+	    adds calls to operators.</p>
+          <p>
+	    Own Id: OTP-8647</p>
+        </item>
+        <item>
+	    <p><c>eprof</c> has been reimplemented with support in
+	    the Erlang virtual machine and is now both faster (i.e.
+	    slows down the code being measured less) and scales much
+	    better. In measurements we saw speed-ups compared to the
+	    old eprof ranging from 6 times (for sequential code that
+	    only uses one scheduler/core) up to 84 times (for
+	    parallel code that uses 8 cores).</p>
+	    <p>Note: The API for the <c>eprof</c> has been cleaned up
+	    and extended. See the documentation.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-8706</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Tools 2.6.5.1</title>
 

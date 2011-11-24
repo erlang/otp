@@ -44,6 +44,7 @@ MODULES= \
 	dbg_ieval \
 	dbg_iload \
 	dbg_iserver \
+	dbg_istk \
 	dbg_ui_break \
 	dbg_ui_break_win \
 	dbg_ui_edit \

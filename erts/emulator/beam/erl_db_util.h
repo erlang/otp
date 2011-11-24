@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1998-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 1998-2011. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -52,21 +52,26 @@
 				     is broken.*/
 #define DB_ERROR_UNSPEC   -10    /* Unspecified error */
 
+/*#define DEBUG_CLONE*/
 
 /*
  * A datatype for a database entry stored out of a process heap
  */
 typedef struct db_term {
-    ErlOffHeap off_heap;   /* Off heap data for term. */
-    Uint size;		   /* Size of term in "words" */
-    Eterm tpl[1];          /* Untagged "constant pointer" to top tuple */
-                           /* (assumed to be first in buffer) */
-} DbTerm;
+    struct erl_off_heap_header* first_oh; /* Off heap data for term. */
+    Uint size;		   /* Heap size of term in "words" */
+#ifdef DEBUG_CLONE
+    Eterm* debug_clone;    /* An uncompressed copy */
+#endif
+    Eterm tpl[1];          /* Term data. Top tuple always first */
 
-/* "Assign" a value to DbTerm.tpl */
-#define DBTERM_SET_TPL(dbtermPtr,tplPtr) ASSERT((tplPtr)==(dbtermPtr->tpl))
-/* Get start of term buffer */
-#define DBTERM_BUF(dbtermPtr) ((dbtermPtr)->tpl)
+    /* Compression: is_immed and key element are uncompressed.
+       Compressed elements are stored in external format after each other
+       last in dbterm. The top tuple elements contains byte offsets, to
+       the start of the data, tagged as headers.
+       The allocated size of the dbterm in bytes is stored at tpl[arity+1].
+     */
+} DbTerm;
 
 union db_table;
 typedef union db_table DbTable;
@@ -81,6 +86,9 @@ typedef struct {
     Uint new_size;
     int mustResize;
     void* lck;
+#if HALFWORD_HEAP
+    unsigned char* abs_vec;  /* [i] true if dbterm->tpl[i] is absolute Eterm */
+#endif
 } DbUpdateHandle;
 
 
@@ -186,6 +194,12 @@ typedef struct db_table_method
 
 } DbTableMethod;
 
+typedef struct db_fixation {
+    Eterm pid;
+    Uint counter;
+    struct db_fixation *next;
+} DbFixation;
+
 /*
  * This structure contains data for all different types of database
  * tables. Note that these fields must match the same fields
@@ -194,16 +208,8 @@ typedef struct db_table_method
  * operations may be the same on different types of tables.
  */
 
-typedef struct db_fixation {
-    Eterm pid;
-    Uint counter;
-    struct db_fixation *next;
-} DbFixation;
-
-
 typedef struct db_table_common {
-    erts_refc_t ref;
-    erts_refc_t fixref;       /* fixation counter */
+    erts_refc_t ref;          /* fixation counter and delete counter */
 #ifdef ERTS_SMP
     erts_smp_rwmtx_t rwlock;  /* rw lock on table */
     erts_smp_mtx_t fixlock;   /* Protects fixations,megasec,sec,microsec */
@@ -212,7 +218,7 @@ typedef struct db_table_common {
 #endif
     Eterm owner;              /* Pid of the creator */
     Eterm heir;               /* Pid of the heir */
-    Eterm heir_data;          /* To send in ETS-TRANSFER (is_immed or (DbTerm*) */
+    UWord heir_data;          /* To send in ETS-TRANSFER (is_immed or (DbTerm*) */
     SysTimeval heir_started;  /* To further identify the heir */
     Eterm the_name;           /* an atom */
     Eterm id;                 /* atom | integer */
@@ -226,6 +232,7 @@ typedef struct db_table_common {
     Uint32 status;            /* bit masks defined  below */
     int slot;                 /* slot index in meta_main_tab */
     int keypos;               /* defaults to 1 */
+    int compress;
 } DbTableCommon;
 
 /* These are status bit patterns */
@@ -240,29 +247,77 @@ typedef struct db_table_common {
 #define DB_DUPLICATE_BAG (1 << 8)
 #define DB_ORDERED_SET   (1 << 9)
 #define DB_DELETE        (1 << 10) /* table is being deleted */
+#define DB_FREQ_READ     (1 << 11)
 
-#define ERTS_ETS_TABLE_TYPES (DB_BAG|DB_SET|DB_DUPLICATE_BAG|DB_ORDERED_SET|DB_FINE_LOCKED)
+#define ERTS_ETS_TABLE_TYPES (DB_BAG|DB_SET|DB_DUPLICATE_BAG|DB_ORDERED_SET|DB_FINE_LOCKED|DB_FREQ_READ)
 
 #define IS_HASH_TABLE(Status) (!!((Status) & \
 				  (DB_BAG | DB_SET | DB_DUPLICATE_BAG)))
 #define IS_TREE_TABLE(Status) (!!((Status) & \
 				  DB_ORDERED_SET))
-#define NFIXED(T) (erts_refc_read(&(T)->common.fixref,0))
+#define NFIXED(T) (erts_refc_read(&(T)->common.ref,0))
 #define IS_FIXED(T) (NFIXED(T) != 0) 
 
-Eterm erts_ets_copy_object(Eterm, Process*);
+/*
+ * tplp is an untagged pointer to a tuple we know is large enough
+ * and dth is a pointer to a DbTableHash.
+ */
+#define GETKEY(dth, tplp)   (*((tplp) + ((DbTableCommon*)(dth))->keypos))
 
-/* optimised version of copy_object (normal case? atomic object) */
-#define COPY_OBJECT(obj, p, objp) \
-   if (IS_CONST(obj)) { *(objp) = (obj); } \
-   else { *objp = erts_ets_copy_object(obj, p); }
+
+ERTS_GLB_INLINE Eterm db_copy_key(Process* p, DbTable* tb, DbTerm* obj);
+Eterm db_copy_from_comp(DbTableCommon* tb, DbTerm* bp, Eterm** hpp,
+			ErlOffHeap* off_heap);
+int db_eq_comp(DbTableCommon* tb, Eterm a, DbTerm* b);
+DbTerm* db_alloc_tmp_uncompressed(DbTableCommon* tb, DbTerm* org);
+
+ERTS_GLB_INLINE Eterm db_copy_object_from_ets(DbTableCommon* tb, DbTerm* bp,
+					      Eterm** hpp, ErlOffHeap* off_heap);
+ERTS_GLB_INLINE int db_eq(DbTableCommon* tb, Eterm a, DbTerm* b);
+Wterm db_do_read_element(DbUpdateHandle* handle, Sint position);
+
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+ERTS_GLB_INLINE Eterm db_copy_key(Process* p, DbTable* tb, DbTerm* obj)
+{
+    Eterm key = GETKEY(tb, obj->tpl);
+    if IS_CONST(key) return key;
+    else {
+	Uint size = size_object_rel(key, obj->tpl);
+	Eterm* hp = HAlloc(p, size);
+	Eterm res = copy_struct_rel(key, size, &hp, &MSO(p), obj->tpl, NULL);
+	ASSERT(eq_rel(res,NULL,key,obj->tpl));
+	return res;
+    }
+}
+
+ERTS_GLB_INLINE Eterm db_copy_object_from_ets(DbTableCommon* tb, DbTerm* bp,
+					      Eterm** hpp, ErlOffHeap* off_heap)
+{
+    if (tb->compress) {
+	return db_copy_from_comp(tb, bp, hpp, off_heap);
+    }
+    else {
+	return copy_shallow_rel(bp->tpl, bp->size, hpp, off_heap, bp->tpl);
+    }
+}
+
+ERTS_GLB_INLINE int db_eq(DbTableCommon* tb, Eterm a, DbTerm* b)
+{
+    if (!tb->compress) {
+	return eq_rel(a, NULL, make_tuple_rel(b->tpl,b->tpl), b->tpl);
+    }
+    else {
+	return db_eq_comp(tb, a, b);
+    }
+}
+
+#endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
+
 
 #define DB_READ  (DB_PROTECTED|DB_PUBLIC)
 #define DB_WRITE DB_PUBLIC
 #define DB_INFO  (DB_PROTECTED|DB_PUBLIC|DB_PRIVATE)
-
-/* tb is an DbTableCommon and obj is an Eterm (tagged) */
-#define TERM_GETKEY(tb, obj) db_getkey((tb)->common.keypos, (obj)) 
 
 #define ONLY_WRITER(P,T) (((T)->common.status & (DB_PRIVATE|DB_PROTECTED)) \
 			  && (T)->common.owner == (P)->id)
@@ -271,20 +326,26 @@ Eterm erts_ets_copy_object(Eterm, Process*);
 (T)->common.owner == (P)->id)
 
 /* Function prototypes */
-Eterm db_get_trace_control_word_0(Process *p);
-Eterm db_set_trace_control_word_1(Process *p, Eterm val);
+BIF_RETTYPE db_get_trace_control_word(Process* p);
+BIF_RETTYPE db_set_trace_control_word(Process* p, Eterm tcw);
+BIF_RETTYPE db_get_trace_control_word_0(BIF_ALIST_0);
+BIF_RETTYPE db_set_trace_control_word_1(BIF_ALIST_1);
 
 void db_initialize_util(void);
 Eterm db_getkey(int keypos, Eterm obj);
-void db_free_term_data(DbTerm* p);
-void* db_get_term(DbTableCommon *tb, DbTerm* old, Uint offset, Eterm obj);
+void db_cleanup_offheap_comp(DbTerm* p);
+void db_free_term(DbTable *tb, void* basep, Uint offset);
+void* db_store_term(DbTableCommon *tb, DbTerm* old, Uint offset, Eterm obj);
+void* db_store_term_comp(DbTableCommon *tb, DbTerm* old, Uint offset, Eterm obj);
+Eterm db_copy_element_from_ets(DbTableCommon* tb, Process* p, DbTerm* obj,
+			       Uint pos, Eterm** hpp, Uint extra);
 int db_has_variable(Eterm obj);
 int db_is_variable(Eterm obj);
 void db_do_update_element(DbUpdateHandle* handle,
 			  Sint position,
 			  Eterm newval);
-void db_finalize_update_element(DbUpdateHandle* handle);
-Eterm db_add_counter(Eterm** hpp, Eterm counter, Eterm incr);
+void db_finalize_resize(DbUpdateHandle* handle, Uint offset);
+Eterm db_add_counter(Eterm** hpp, Wterm counter, Eterm incr);
 Eterm db_match_set_lint(Process *p, Eterm matchexpr, Uint flags);
 Binary *db_match_set_compile(Process *p, Eterm matchexpr, 
 			     Uint flags);
@@ -301,12 +362,11 @@ typedef struct match_prog {
     struct erl_heap_fragment *saved_program_buf;
     Eterm saved_program;
     Uint heap_size;          /* size of: heap + eheap + stack */
-    Uint eheap_offset;
     Uint stack_offset;
 #ifdef DMC_DEBUG
-    Uint* prog_end;		/* End of program */
+    UWord* prog_end;		/* End of program */
 #endif
-    Uint text[1];		/* Beginning of program */
+    UWord text[1];		/* Beginning of program */
 } MatchProg;
 
 /*
@@ -366,8 +426,15 @@ Binary *db_match_compile(Eterm *matchexpr, Eterm *guards,
 			 Uint flags, 
 			 DMCErrInfo *err_info);
 /* Returns newly allocated MatchProg binary with refc == 0*/
-Eterm db_prog_match(Process *p, Binary *prog, Eterm term, int arity, 
+
+Eterm db_match_dbterm(DbTableCommon* tb, Process* c_p, Binary* bprog,
+		      int all, DbTerm* obj, Eterm** hpp, Uint extra);
+
+Eterm db_prog_match(Process *p, Binary *prog, Eterm term, Eterm* base,
+		    Eterm *termp, int arity,
+		    enum erts_pam_run_flags in_flags,
 		    Uint32 *return_flags /* Zeroed on enter */);
+
 /* returns DB_ERROR_NONE if matches, 1 if not matches and some db error on 
    error. */
 DMCErrInfo *db_new_dmc_err_info(void);

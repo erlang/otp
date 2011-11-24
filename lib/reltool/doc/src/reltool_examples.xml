@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2009</year>
-      <year>2009</year>
+      <year>2011</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -249,11 +249,11 @@ Eshell V5.7.3  (abort with ^G)
     <pre>
 5&gt; {ok, Server} = reltool:start_server([{config, {sys, [{boot_rel, "NAME"},
                                                         {rel, "NAME", "VSN",
-                                                        [kernel, stdlib, sasl]}]}}]).
+                                                        [sasl]}]}}]).
 {ok,&lt;0.1288.0&gt;}
 6&gt;  reltool:get_config(Server).
 {ok,{sys,[{boot_rel,"NAME"},
-          {rel,"NAME","VSN",[kernel,stdlib,sasl]}]}}
+          {rel,"NAME","VSN",[sasl]}]}}
 7&gt;  reltool:get_rel(Server, "NAME").
 {ok,{release,{"NAME","VSN"},
              {erts,"5.7"},

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -90,8 +90,10 @@ enduser(Root, OpenSSLCmd, CA, User) ->
     KeyFile = filename:join([UsrRoot, "key.pem"]), 
     ReqFile =  filename:join([UsrRoot, "req.pem"]), 
     create_req(Root, OpenSSLCmd, CnfFile, KeyFile, ReqFile),
-    CertFile =  filename:join([UsrRoot, "cert.pem"]), 
-    sign_req(Root, OpenSSLCmd, CA, "user_cert", ReqFile, CertFile).
+    CertFileAllUsage =  filename:join([UsrRoot, "cert.pem"]),
+    sign_req(Root, OpenSSLCmd, CA, "user_cert", ReqFile, CertFileAllUsage),
+    CertFileDigitalSigOnly =  filename:join([UsrRoot, "digital_signature_only_cert.pem"]),
+    sign_req(Root, OpenSSLCmd, CA, "user_cert_digital_signature_only", ReqFile, CertFileDigitalSigOnly).
 
 collect_certs(Root, CAs, Users) ->
     Bins = lists:foldr(
@@ -255,6 +257,7 @@ ca_cnf(CA) ->
      "RANDFILE	        = $dir/private/RAND\n"
      "\n"
      "x509_extensions   = user_cert\n"
+     "unique_subject  = no\n"
      "default_days	= 3600\n"
      "default_md	= sha1\n"
      "preserve	        = no\n"
@@ -273,6 +276,15 @@ ca_cnf(CA) ->
      "[user_cert]\n"
      "basicConstraints	= CA:false\n"
      "keyUsage 		= nonRepudiation, digitalSignature, keyEncipherment\n"
+     "subjectKeyIdentifier = hash\n"
+     "authorityKeyIdentifier = keyid,issuer:always\n"
+     "subjectAltName	= email:copy\n"
+     "issuerAltName	= issuer:copy\n"
+     "\n"
+
+     "[user_cert_digital_signature_only]\n"
+     "basicConstraints	= CA:false\n"
+     "keyUsage 		= digitalSignature\n"
      "subjectKeyIdentifier = hash\n"
      "authorityKeyIdentifier = keyid,issuer:always\n"
      "subjectAltName	= email:copy\n"

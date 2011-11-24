@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,17 +17,44 @@
 %% %CopyrightEnd%
 %%
 -module(filename_SUITE).
--export([all/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 -export([absname/1, absname_2/1, 
 	 basename_1/1, basename_2/1,
 	 dirname/1, extension/1, join/1, t_nativename/1]).
 -export([pathtype/1,rootname/1,split/1,find_src/1]).
--include("test_server.hrl").
+-export([absname_bin/1, absname_bin_2/1, 
+	 basename_bin_1/1, basename_bin_2/1,
+	 dirname_bin/1, extension_bin/1, join_bin/1]).
+-export([pathtype_bin/1,rootname_bin/1,split_bin/1]).
 
-all(suite) ->
+-include_lib("test_server/include/test_server.hrl").
+
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
     [absname, absname_2, basename_1, basename_2, dirname,
      extension,
-     join, pathtype, rootname, split, t_nativename, find_src].
+     join, pathtype, rootname, split, t_nativename, find_src,
+     absname_bin, absname_bin_2, basename_bin_1, basename_bin_2, dirname_bin,
+     extension_bin,
+     join_bin, pathtype_bin, rootname_bin, split_bin].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -457,3 +484,307 @@ find_src(Config) when is_list(Config) ->
     %% Try to find the source for a preloaded module.
     ?line {error,{preloaded,init}} = filename:find_src(init),
     ok.
+
+%%
+%%
+%% With binaries
+%%
+%%
+
+absname_bin(Config) when is_list(Config) ->
+    case os:type() of
+	{win32, _} -> 
+	    ?line [Drive|_] = ?config(priv_dir, Config),
+	    ?line Temp = filename:join([Drive|":/"], "temp"),
+	    ?line case file:make_dir(Temp) of
+		      ok -> ok;
+		      {error,eexist} -> ok
+		  end,
+	    ?line {ok,Cwd} = file:get_cwd(),
+	    ?line ok = file:set_cwd(Temp),
+	    ?line <<Drive:8,":/temp/foo">> = filename:absname(<<"foo">>),
+	    ?line <<Drive:8,":/temp/../ebin">> = filename:absname(<<"../ebin">>),
+	    ?line <<Drive:8,":/erlang">> = filename:absname(<<"/erlang">>),
+	    ?line <<Drive:8,":/erlang/src">> = filename:absname(<<"/erlang/src">>),
+	    ?line <<Drive:8,":/erlang/src">> = filename:absname(<<"\\erlang\\src">>),
+	    ?line <<Drive:8,":/temp/erlang">> = filename:absname(<<Drive:8,":erlang">>),
+	    ?line <<Drive:8,":/temp/erlang/src">> =
+		filename:absname(<<Drive:8,":erlang/src">>),
+	    ?line <<Drive:8,":/temp/erlang/src">> =
+		filename:absname(<<Drive:8,":erlang\\src\\">>),
+	    ?line <<"a:/erlang">> = filename:absname(<<"a:erlang">>),
+	    
+	    ?line file:set_cwd(<<Drive:8,":/">>),
+	    ?line <<Drive:8,":/foo">> = filename:absname(<<"foo">>),
+	    ?line <<Drive:8,":/../ebin">> = filename:absname(<<"../ebin">>),
+	    ?line <<Drive:8,":/erlang">> = filename:absname(<<"/erlang">>),
+	    ?line <<Drive:8,":/erlang/src">> = filename:absname(<<"/erlang/src">>),
+	    ?line <<Drive:8,":/erlang/src">> = filename:absname(<<"\\erlang\\\\src">>),
+	    ?line <<Drive:8,":/erlang">> = filename:absname(<<Drive:8,":erlang">>),
+	    ?line <<Drive:8,":/erlang/src">> = filename:absname(<<Drive:8,":erlang/src">>),
+	    ?line <<"a:/erlang">> = filename:absname(<<"a:erlang">>),
+	    
+	    ?line file:set_cwd(Cwd),
+	    ok;
+	{unix, _} ->  
+	    ?line ok = file:set_cwd(<<"/usr">>),
+	    ?line <<"/usr/foo">> = filename:absname(<<"foo">>),
+	    ?line <<"/usr/../ebin">> = filename:absname(<<"../ebin">>),
+	    
+	    ?line file:set_cwd(<<"/">>),
+	    ?line <<"/foo">> = filename:absname(<<"foo">>),
+	    ?line <<"/../ebin">> = filename:absname(<<"../ebin">>),
+	    ?line <<"/erlang">> = filename:absname(<<"/erlang">>),
+	    ?line <<"/erlang/src">> = filename:absname(<<"/erlang/src">>),
+	    ?line <<"/erlang/src">> = filename:absname(<<"/erlang///src">>),
+	    ok
+    end.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+absname_bin_2(Config) when is_list(Config) ->
+    case os:type() of
+	{win32, _} ->
+	    ?line [Drive|_] = ?config(priv_dir, Config),
+	    ?line <<Drive:8,":/temp/foo">> = filename:absname(<<"foo">>, <<Drive:8,":/temp">>),
+	    ?line <<Drive:8,":/temp/../ebin">> = filename:absname(<<"../ebin">>,
+							      <<Drive:8,":/temp">>),
+	    ?line <<Drive:8,":/erlang">> = filename:absname(<<"/erlang">>, <<Drive:8,":/temp">>),
+	    ?line <<Drive:8,":/erlang/src">> = filename:absname(<<"/erlang/src">>,
+							    <<Drive:8,":/temp">>),
+	    ?line <<Drive:8,":/erlang/src">> = filename:absname(<<"\\erlang\\src">>,
+							    <<Drive:8,":/temp">>),
+	    ?line <<Drive:8,":/temp/erlang">> = filename:absname(<<Drive:8,":erlang">>,
+							     <<Drive:8,":/temp">>),
+	    ?line <<Drive:8,":/temp/erlang/src">> = filename:absname(<<Drive:8,":erlang/src">>,
+								 <<Drive:8,":/temp">>),
+	    ?line <<Drive:8,":/temp/erlang/src">> =
+		filename:absname(<<Drive:8,":erlang\\src\\">>, <<Drive:8,":/temp">>),
+	    ?line <<"a:/erlang">> = filename:absname(<<"a:erlang">>, <<Drive:8,":/temp">>),
+	    
+	    ?line file:set_cwd(<<Drive:8,":/">>),
+	    ?line <<Drive:8,":/foo">> = filename:absname(foo, <<Drive:8,":/">>),
+	    ?line <<Drive:8,":/foo">> = filename:absname(<<"foo">>, <<Drive:8,":/">>),
+	    ?line <<Drive:8,":/../ebin">> = filename:absname(<<"../ebin">>, <<Drive:8,":/">>),
+	    ?line <<Drive:8,":/erlang">> = filename:absname(<<"/erlang">>, <<Drive:8,":/">>),
+	    ?line <<Drive:8,":/erlang/src">> = filename:absname(<<"/erlang/src">>,
+							    <<Drive:8,":/">>),
+	    ?line <<Drive:8,":/erlang/src">> = filename:absname(<<"\\erlang\\\\src">>,
+							    <<Drive:8,":/">>),
+	    ?line <<Drive:8,":/erlang">> = filename:absname(<<Drive:8,":erlang">>,
+							<<Drive:8,":/">>),
+	    ?line <<Drive:8,":/erlang/src">> = filename:absname(<<Drive:8,":erlang/src">>,
+							    <<Drive:8,":/">>),
+	    ?line <<"a:/erlang">> = filename:absname(<<"a:erlang">>, <<Drive:8,":/">>),
+	    
+	    ok;
+	{unix, _} ->
+	    ?line <<"/usr/foo">> = filename:absname(<<"foo">>, <<"/usr">>),
+	    ?line <<"/usr/../ebin">> = filename:absname(<<"../ebin">>, <<"/usr">>),
+	    
+	    ?line <<"/foo">> = filename:absname(<<"foo">>, <<"/">>),
+	    ?line <<"/../ebin">> = filename:absname(<<"../ebin">>, <<"/">>),
+	    ?line <<"/erlang">> = filename:absname(<<"/erlang">>, <<"/">>),
+	    ?line <<"/erlang/src">> = filename:absname(<<"/erlang/src">>, <<"/">>),
+	    ?line <<"/erlang/src">> = filename:absname(<<"/erlang///src">>, <<"/">>),
+	    ok
+    end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+basename_bin_1(Config) when is_list(Config) ->
+    ?line Dog = test_server:timetrap(test_server:seconds(10)),
+    ?line <<".">> = filename:basename(<<".">>),
+    ?line <<"foo">> = filename:basename(<<"foo">>),
+    ?line <<"foo">> = filename:basename(<<"/usr/foo">>),
+    ?line <<"foo.erl">> = filename:basename(<<"A:usr/foo.erl">>),
+    ?line case os:type() of
+	      {win32, _} ->
+		  ?line <<"foo">> = filename:basename(<<"A:\\usr\\foo">>),
+		  ?line <<"foo">> = filename:basename(<<"A:foo">>);
+	      {unix, _} ->
+		  ?line <<"strange\\but\\true">> =
+		      filename:basename(<<"strange\\but\\true">>)
+	  end,
+    ?line test_server:timetrap_cancel(Dog),
+    ok.
+
+basename_bin_2(Config) when is_list(Config) ->
+    ?line Dog = test_server:timetrap(test_server:seconds(10)),
+    ?line <<".">> = filename:basename(<<".">>, <<".erl">>),
+    ?line <<"foo">> = filename:basename(<<"foo.erl">>, <<".erl">>),
+    ?line <<"foo.erl">> = filename:basename(<<"/usr/foo.erl">>, <<".hrl">>),
+    ?line <<"foo.erl">> = filename:basename(<<"/usr.hrl/foo.erl">>, <<".hrl">>),
+    ?line <<"foo">> = filename:basename(<<"/usr.hrl/foo">>, <<".hrl">>),
+    ?line <<"foo">> = filename:basename(<<"usr/foo/">>, <<".erl">>),
+    ?line <<"foo.erl">> = filename:basename(<<"usr/foo.erl/">>, <<".erl">>),
+    ?line case os:type() of
+	      {win32, _} ->
+		  ?line <<"foo">> = filename:basename(<<"A:foo">>, <<".erl">>),
+		  ?line <<"foo.erl">> = filename:basename(<<"a:\\usr\\foo.erl">>,
+						      <<".hrl">>),
+		  ?line <<"foo.erl">> = filename:basename(<<"c:\\usr.hrl\\foo.erl">>,
+						      <<".hrl">>),
+		  ?line <<"foo">> = filename:basename(<<"A:\\usr\\foo">>, <<".hrl">>);
+	      {unix, _} ->
+		  ?line <<"strange\\but\\true">> =
+		      filename:basename(<<"strange\\but\\true.erl">>, <<".erl">>),
+		  ?line <<"strange\\but\\true">> =
+		      filename:basename(<<"strange\\but\\true">>, <<".erl">>)
+	  end,
+    ?line test_server:timetrap_cancel(Dog),
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+dirname_bin(Config) when is_list(Config) ->
+    case os:type() of
+       {win32,_} ->
+	    ?line <<"A:/usr">> = filename:dirname(<<"A:/usr/foo.erl">>),
+	    ?line <<"A:usr">> = filename:dirname(<<"A:usr/foo.erl">>),
+	    ?line <<"/usr">> = filename:dirname(<<"\\usr\\foo.erl">>),
+	    ?line <<"/">> = filename:dirname(<<"\\usr">>),
+	    ?line <<"A:">> = filename:dirname(<<"A:">>);
+       vxworks ->
+	    ?line <<"net:/usr">> = filename:dirname(<<"net:/usr/foo.erl">>),
+	    ?line <<"/disk0:/usr">> = filename:dirname(<<"/disk0:/usr/foo.erl">>),
+	    ?line <<"/usr">> = filename:dirname(<<"\\usr\\foo.erl">>),
+	    ?line <<"/usr">> = filename:dirname(<<"\\usr">>),
+	    ?line <<"net:">> = filename:dirname(<<"net:">>);
+	_ -> true
+    end,
+    ?line <<"usr">> = filename:dirname(<<"usr///foo.erl">>),
+    ?line <<".">> = filename:dirname(<<"foo.erl">>),
+    ?line <<".">> = filename:dirname(<<".">>),
+    case os:type() of
+	vxworks -> 
+	    ?line <<"/">> = filename:dirname(<<"/">>),
+	    ?line <<"/usr">> = filename:dirname(<<"/usr">>);
+	_ ->
+	    ?line <<"/">> = filename:dirname(<<"/">>),
+	    ?line <<"/">> = filename:dirname(<<"/usr">>)
+    end,
+    ok.
+    
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+extension_bin(Config) when is_list(Config) ->
+    ?line <<".erl">> = filename:extension(<<"A:/usr/foo.erl">>),
+    ?line <<".erl">> = filename:extension(<<"A:/usr/foo.nisse.erl">>),
+    ?line <<".erl">> = filename:extension(<<"A:/usr.bar/foo.nisse.erl">>),
+    ?line <<"">> = filename:extension(<<"A:/usr.bar/foo">>),
+    ?line <<"">> = filename:extension(<<"A:/usr/foo">>),
+    ?line case os:type() of
+	      {win32, _} ->
+		  ?line <<"">> = filename:extension(<<"A:\\usr\\foo">>),
+		  ?line <<".erl">> =
+		      filename:extension(<<"A:/usr.bar/foo.nisse.erl">>),
+		  ?line <<"">> = filename:extension(<<"A:/usr.bar/foo">>),
+		  ok;
+	      vxworks ->
+		  ?line <<"">> = filename:extension(<<"/disk0:\\usr\\foo">>),
+		  ?line <<".erl">> =
+		      filename:extension(<<"net:/usr.bar/foo.nisse.erl">>),
+		  ?line <<"">> = filename:extension(<<"net:/usr.bar/foo">>),
+		  ok;
+	      _ -> ok
+	  end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    
+join_bin(Config) when is_list(Config) ->
+    ?line <<"/">> = filename:join([<<"/">>]),
+    ?line <<"/">> = filename:join([<<"//">>]),
+    ?line <<"usr/foo.erl">> = filename:join(<<"usr">>,<<"foo.erl">>),
+    ?line <<"/src/foo.erl">> = filename:join(usr, <<"/src/foo.erl">>),
+    ?line <<"/src/foo.erl">> = filename:join([<<"/src/">>,'foo.erl']),
+    ?line <<"/src/foo.erl">> = filename:join(<<"usr">>, ["/sr", 'c/foo.erl']),
+    ?line <<"/src/foo.erl">> = filename:join(<<"usr">>, <<"/src/foo.erl">>),
+
+    %% Make sure that redundant slashes work too.
+    ?line <<"a/b/c/d/e/f/g">> = filename:join([<<"a//b/c/////d//e/f/g">>]),
+    ?line <<"a/b/c/d/e/f/g">> = filename:join([<<"a//b/c/">>, <<"d//e/f/g">>]),
+    ?line <<"a/b/c/d/e/f/g">> = filename:join([<<"a//b/c">>, <<"d//e/f/g">>]),
+    ?line <<"/d/e/f/g">> = filename:join([<<"a//b/c">>, <<"/d//e/f/g">>]),
+    ?line <<"/d/e/f/g">> = filename:join([<<"a//b/c">>, <<"//d//e/f/g">>]),
+
+    ?line <<"foo/bar">> = filename:join([$f,$o,$o,$/,[]], <<"bar">>),
+
+    ?line case os:type() of
+	      {win32, _} ->
+		  ?line <<"d:/">> = filename:join([<<"D:/">>]),
+		  ?line <<"d:/">> = filename:join([<<"D:\\">>]),
+		  ?line <<"d:/abc">> = filename:join([<<"D:/">>, <<"abc">>]),
+		  ?line <<"d:abc">> = filename:join([<<"D:">>, <<"abc">>]),
+		  ?line <<"a/b/c/d/e/f/g">> =
+		      filename:join([<<"a//b\\c//\\/\\d/\\e/f\\g">>]),
+		  ?line <<"a:usr/foo.erl">> =
+		      filename:join([<<"A:">>,<<"usr">>,<<"foo.erl">>]),
+		  ?line <<"/usr/foo.erl">> =
+		      filename:join([<<"A:">>,<<"/usr">>,<<"foo.erl">>]),
+		  ?line <<"c:usr">> = filename:join(<<"A:">>,<<"C:usr">>),
+		  ?line <<"a:usr">> = filename:join(<<"A:">>,<<"usr">>),
+		  ?line <<"c:/usr">> = filename:join(<<"A:">>, <<"C:/usr">>),
+		  ?line <<"c:/usr/foo.erl">> =
+		      filename:join([<<"A:">>,<<"C:/usr">>,<<"foo.erl">>]),
+		  ?line <<"c:usr/foo.erl">> =
+		      filename:join([<<"A:">>,<<"C:usr">>,<<"foo.erl">>]),
+		  ?line <<"d:/foo">> = filename:join([$D, $:, $/, []], <<"foo">>),
+		  ok;
+	      {unix, _} ->
+		  ok
+	  end.
+
+pathtype_bin(Config) when is_list(Config) ->
+    ?line relative = filename:pathtype(<<"..">>),
+    ?line relative = filename:pathtype(<<"foo">>),
+    ?line relative = filename:pathtype(<<"foo/bar">>),
+    ?line relative = filename:pathtype('foo/bar'),
+    case os:type() of
+	{win32, _} ->
+	    ?line volumerelative = filename:pathtype(<<"/usr/local/bin">>),
+	    ?line volumerelative = filename:pathtype(<<"A:usr/local/bin">>),
+	    ok;
+	{unix, _} ->
+	    ?line absolute = filename:pathtype(<<"/">>),
+	    ?line absolute = filename:pathtype(<<"/usr/local/bin">>),
+	    ok
+    end.
+
+rootname_bin(Config) when is_list(Config) ->
+    ?line <<"/jam.src/kalle">> = filename:rootname(<<"/jam.src/kalle">>),
+    ?line <<"/jam.src/foo">> = filename:rootname(<<"/jam.src/foo.erl">>),
+    ?line <<"/jam.src/foo">> = filename:rootname(<<"/jam.src/foo.erl">>, <<".erl">>),
+    ?line <<"/jam.src/foo.jam">> = filename:rootname(<<"/jam.src/foo.jam">>, <<".erl">>),
+    ?line <<"/jam.src/foo.jam">> = filename:rootname(["/jam.sr",'c/foo.j',"am"],<<".erl">>),
+    ?line <<"/jam.src/foo.jam">> = filename:rootname(["/jam.sr",'c/foo.j'|am],<<".erl">>),
+    ok.
+
+split_bin(Config) when is_list(Config) ->
+    case os:type() of 
+	vxworks ->
+	    ?line [<<"/usr">>,<<"local">>,<<"bin">>] = filename:split(<<"/usr/local/bin">>);
+	_ ->
+	    ?line [<<"/">>,<<"usr">>,<<"local">>,<<"bin">>] = filename:split(<<"/usr/local/bin">>)
+    end,
+    ?line [<<"foo">>,<<"bar">>]= filename:split(<<"foo/bar">>),
+    ?line [<<"foo">>, <<"bar">>, <<"hello">>]= filename:split(<<"foo////bar//hello">>),
+    case os:type() of
+       {win32,_} ->
+	    ?line [<<"a:/">>,<<"msdev">>,<<"include">>] =
+		filename:split(<<"a:/msdev/include">>),
+	    ?line [<<"a:/">>,<<"msdev">>,<<"include">>] =
+		filename:split(<<"A:/msdev/include">>),
+	    ?line [<<"msdev">>,<<"include">>] =
+		filename:split(<<"msdev\\include">>),
+	    ?line [<<"a:/">>,<<"msdev">>,<<"include">>] =
+		filename:split(<<"a:\\msdev\\include">>),
+	    ?line [<<"a:">>,<<"msdev">>,<<"include">>] =
+		filename:split(<<"a:msdev\\include">>),
+	    ok;
+       _ ->
+	    ok
+    end.
+

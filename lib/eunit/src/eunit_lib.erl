@@ -13,13 +13,10 @@
 %% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
 %% USA
 %%
-%% $Id: eunit_lib.erl 339 2009-04-05 14:10:47Z rcarlsson $
-%%
 %% @copyright 2004-2007 Mickaël Rémond, Richard Carlsson
 %% @author Mickaël Rémond <mickael.remond@process-one.net>
 %%   [http://www.process-one.net/]
-%% @author Richard Carlsson <richardc@it.uu.se>
-%%   [http://user.it.uu.se/~richardc/]
+%% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @private
 %% @see eunit
 %% @doc Utility functions for eunit
@@ -33,7 +30,7 @@
 -export([dlist_next/1, uniq/1, fun_parent/1, is_string/1, command/1,
 	 command/2, command/3, trie_new/0, trie_store/2, trie_match/2,
 	 split_node/1, consult_file/1, list_dir/1, format_exit_term/1,
-	 format_exception/1, format_error/1]).
+	 format_exception/1, format_exception/2, format_error/1]).
 
 
 %% Type definitions for describing exceptions
@@ -55,21 +52,23 @@
 
 %% ---------------------------------------------------------------------
 %% Formatting of error descriptors
+format_exception(Exception) ->
+    format_exception(Exception, 20).
 
-format_exception({Class,Term,Trace})
+format_exception({Class,Term,Trace}, Depth)
   when is_atom(Class), is_list(Trace) ->
     case is_stacktrace(Trace) of
 	true ->
 	    io_lib:format("~w:~P\n~s",
-			  [Class, Term, 20, format_stacktrace(Trace)]);
+			  [Class, Term, Depth, format_stacktrace(Trace)]);
 	false ->
-	    format_term(Term)
+	    format_term(Term, Depth)
     end;
-format_exception(Term) ->
-    format_term(Term).
+format_exception(Term, Depth) ->
+    format_term(Term, Depth).
 
-format_term(Term) ->
-    io_lib:format("~P\n", [Term, 15]).
+format_term(Term, Depth) ->
+    io_lib:format("~P\n", [Term, Depth]).
 
 format_exit_term(Term) ->
     {Reason, Trace} = analyze_exit_term(Term),

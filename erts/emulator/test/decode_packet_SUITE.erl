@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -21,13 +21,33 @@
 
 -module(decode_packet_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
--export([all/1,init_per_testcase/2,fin_per_testcase/2,
-	 basic/1, packet_size/1, neg/1, http/1, line/1, ssl/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
+	 init_per_testcase/2,end_per_testcase/2,
+	 basic/1, packet_size/1, neg/1, http/1, line/1, ssl/1, otp_8536/1]).
 
-all(suite) ->
-    [basic, packet_size, neg, http, line, ssl].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [basic, packet_size, neg, http, line, ssl, otp_8536].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Seed = {S1,S2,S3} = now(),
@@ -36,7 +56,7 @@ init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog=?t:timetrap(?t:minutes(1)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     Dog=?config(watchdog, Config),
     ?t:timetrap_cancel(Dog).
 
@@ -304,6 +324,10 @@ http(Config) when is_list(Config) ->
 		   {ok, {http_request, 'GET', ResB, {1,1}}, Rest} = decode_pkt(http_bin,Bin) 
 	   end,
     lists:foreach(UriF, http_uri_variants()),
+
+    %% Response with empty phrase
+    ?line {ok,{http_response,{1,1},200,[]},<<>>} = decode_pkt(http, <<"HTTP/1.1 200\r\n">>, []),
+    ?line {ok,{http_response,{1,1},200,<<>>},<<>>} = decode_pkt(http_bin, <<"HTTP/1.1 200\r\n">>, []),
     ok.
 	     
 http_with_bin(http) ->
@@ -503,6 +527,27 @@ ssl(Config) when is_list(Config) ->
     F(25),
     F(v2hello),
     ok.
+
+otp_8536(doc) -> ["Corrupt sub-binary-strings from httph_bin"];
+otp_8536(Config) when is_list(Config) ->
+    lists:foreach(fun otp_8536_do/1, lists:seq(1,50)),
+    ok.
+
+otp_8536_do(N) ->
+    Data = <<"some data 123">>,
+    Letters = <<"bcdefghijklmnopqrstuvwxyzyxwvutsrqponmlkjihgfedcba">>,
+    <<HdrTail:N/binary,_/binary>> = Letters,
+    Hdr = <<$A, HdrTail/binary>>,
+    Bin = <<Hdr/binary, ": ", Data/binary, "\r\n\r\n">>,
+
+    io:format("Bin='~p'\n",[Bin]),
+    ?line {ok,{http_header,0,Hdr2,undefined,Data2},<<"\r\n">>} = decode_pkt(httph_bin, Bin,  []),
+
+    %% Do something to trash the C-stack, how about another decode_packet:
+    decode_pkt(httph_bin,<<Letters/binary, ": ", Data/binary, "\r\n\r\n">>, []),
+
+    %% Now check that we got the expected binaries
+    {Hdr, Data} = {Hdr2, Data2}.
 
 decode_pkt(Type,Bin) ->
     decode_pkt(Type,Bin,[]).		       

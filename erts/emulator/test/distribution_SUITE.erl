@@ -1,65 +1,92 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
 -module(distribution_SUITE).
+-compile(r12).
 
 %% Tests distribution and the tcp driver.
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
--export([all/1,
-	 ping/1, bulk_send/1, bulk_send_small/1,
-	 bulk_send_big/1,
-	 local_send/1, local_send_small/1, local_send_big/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
+	 ping/1, bulk_send_small/1,
+	 bulk_send_big/1, bulk_send_bigbig/1,
+	 local_send_small/1, local_send_big/1,
 	 local_send_legal/1, link_to_busy/1, exit_to_busy/1,
 	 lost_exit/1, link_to_dead/1, link_to_dead_new_node/1,
 	 applied_monitor_node/1, ref_port_roundtrip/1, nil_roundtrip/1,
-	 trap_bif/1, trap_bif_1/1, trap_bif_2/1, trap_bif_3/1,
-	 stop_dist/1, dist_auto_connect/1, 
+	 trap_bif_1/1, trap_bif_2/1, trap_bif_3/1,
+	 stop_dist/1, 
 	 dist_auto_connect_never/1, dist_auto_connect_once/1,
 	 dist_parallel_send/1,
 	 atom_roundtrip/1,
 	 atom_roundtrip_r12b/1,
 	 contended_atom_cache_entry/1,
-	 bad_dist_ext/1,
+	 bad_dist_structure/1,
 	 bad_dist_ext_receive/1,
 	 bad_dist_ext_process_info/1,
 	 bad_dist_ext_control/1,
 	 bad_dist_ext_connection_id/1]).
 
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 %% Internal exports.
 -export([sender/3, receiver2/2, dummy_waiter/0, dead_process/0,
 	 roundtrip/1, bounce/1, do_dist_auto_connect/1, inet_rpc_server/1,
 	 dist_parallel_sender/3, dist_parallel_receiver/0,
-	 dist_evil_parallel_receiver/0]).
+	 dist_evil_parallel_receiver/0,
+         sendersender/4, sendersender2/4]).
 
-all(suite) -> [
-	       ping, bulk_send, local_send, link_to_busy, exit_to_busy,
-	       lost_exit, link_to_dead, link_to_dead_new_node,
-	       applied_monitor_node, ref_port_roundtrip, nil_roundtrip,
-	       stop_dist, trap_bif, dist_auto_connect, dist_parallel_send,
-	       atom_roundtrip, atom_roundtrip_r12b,
-	       contended_atom_cache_entry,
-	       bad_dist_ext
-	      ].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [ping, {group, bulk_send}, {group, local_send},
+     link_to_busy, exit_to_busy, lost_exit, link_to_dead,
+     link_to_dead_new_node, applied_monitor_node,
+     ref_port_roundtrip, nil_roundtrip, stop_dist,
+     {group, trap_bif}, {group, dist_auto_connect},
+     dist_parallel_send, atom_roundtrip, atom_roundtrip_r12b,
+     contended_atom_cache_entry, bad_dist_structure, {group, bad_dist_ext}].
+
+groups() -> 
+    [{bulk_send, [], [bulk_send_small, bulk_send_big, bulk_send_bigbig]},
+     {local_send, [],
+      [local_send_small, local_send_big, local_send_legal]},
+     {trap_bif, [], [trap_bif_1, trap_bif_2, trap_bif_3]},
+     {dist_auto_connect, [],
+      [dist_auto_connect_never, dist_auto_connect_once]},
+     {bad_dist_ext, [],
+      [bad_dist_ext_receive, bad_dist_ext_process_info,
+       bad_dist_ext_control, bad_dist_ext_connection_id]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
 
 -define(DEFAULT_TIMETRAP, 4*60*1000).
 
@@ -67,7 +94,7 @@ init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog=?t:timetrap(?DEFAULT_TIMETRAP),
     [{watchdog, Dog},{testcase, Func}|Config].
 
-fin_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
+end_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog=?config(watchdog, Config),
     ?t:timetrap_cancel(Dog).
 
@@ -115,18 +142,14 @@ ping(Config) when is_list(Config) ->
 
     ok.
 
-bulk_send(doc) ->
- ["Tests sending large amount of data to another node and measure",
-  "the time. This tests that a process that is suspended on a ",
-  "busy port will eventually be resumed."];
-bulk_send(suite) ->
-    [bulk_send_small, bulk_send_big].
-
 bulk_send_small(Config) when is_list(Config) ->
     ?line bulk_send(64, 32).
 
 bulk_send_big(Config) when is_list(Config) ->
     ?line bulk_send(32, 64).
+
+bulk_send_bigbig(Config) when is_list(Config) ->
+    ?line bulk_sendsend(32*5, 4).
 
 bulk_send(Terms, BinSize) ->
     ?line Dog = test_server:timetrap(test_server:seconds(30)),
@@ -144,6 +167,58 @@ bulk_send(Terms, BinSize) ->
     ?line test_server:timetrap_cancel(Dog),
     {comment, integer_to_list(trunc(Size/1024/Elapsed+0.5)) ++ " K/s"}.
 
+bulk_sendsend(Terms, BinSize) ->
+    {Rate1, MonitorCount1} = bulk_sendsend2(Terms, BinSize,   5),
+    {Rate2, MonitorCount2} = bulk_sendsend2(Terms, BinSize, 995),
+    Ratio = if MonitorCount2 == 0 -> MonitorCount1 / 1.0;
+               true               -> MonitorCount1 / MonitorCount2
+            end,
+    Comment = integer_to_list(Rate1) ++ " K/s, " ++
+	integer_to_list(Rate2) ++ " K/s, " ++
+	integer_to_list(MonitorCount1) ++ " monitor msgs, " ++
+	integer_to_list(MonitorCount2) ++ " monitor msgs, " ++
+	float_to_list(Ratio) ++ " monitor ratio",
+    if
+	%% A somewhat arbitrary ratio, but hopefully one that will
+	%% accommodate a wide range of CPU speeds.
+	Ratio > 8.0 ->
+	    {comment,Comment};
+	true ->
+	    io:put_chars(Comment),
+	    ?line ?t:fail(ratio_too_low)
+    end.
+
+bulk_sendsend2(Terms, BinSize, BusyBufSize) ->
+    ?line Dog = test_server:timetrap(test_server:seconds(30)),
+
+    ?line io:format("Sending ~w binaries, each of size ~w K",
+		    [Terms, BinSize]),
+    ?line {ok, NodeRecv} = start_node(bulk_receiver),
+    ?line Recv = spawn(NodeRecv, erlang, apply, [fun receiver/2, [0, 0]]),
+    ?line Bin = list_to_binary(lists:duplicate(BinSize*1024, 253)),
+    %%?line Size = Terms*size(Bin),
+
+    %% SLF LEFT OFF HERE.
+    %% When the caller uses small hunks, like 4k via
+    %% bulk_sendsend(32*5, 4), then (on my laptop at least), we get
+    %% zero monitor messages.  But if we use "+zdbbl 5", then we
+    %% get a lot of monitor messages.  So, if we can count up the
+    %% total number of monitor messages that we get when running both
+    %% default busy size and "+zdbbl 5", and if the 5 case gets
+    %% "many many more" monitor messages, then we know we're working.
+
+    ?line {ok, NodeSend} = start_node(bulk_sender, "+zdbbl " ++ integer_to_list(BusyBufSize)),
+    ?line _Send = spawn(NodeSend, erlang, apply, [fun sendersender/4, [self(), Recv, Bin, Terms]]),
+    ?line {Elapsed, {_TermsN, SizeN}, MonitorCount} =
+        receive {sendersender, BigRes} ->
+                BigRes
+        end,
+    ?line stop_node(NodeRecv),
+    ?line stop_node(NodeSend),
+
+    ?line test_server:timetrap_cancel(Dog),
+    {trunc(SizeN/1024/Elapsed+0.5), MonitorCount}.
+
 sender(To, _Bin, 0) ->
     To ! {done, self()},
     receive
@@ -153,6 +228,43 @@ sender(To, _Bin, 0) ->
 sender(To, Bin, Left) ->
     To ! {term, Bin},
     sender(To, Bin, Left-1).
+
+%% Sender process to be run on a slave node
+
+sendersender(Parent, To, Bin, Left) ->
+    erlang:system_monitor(self(), [busy_dist_port]),
+    [spawn(fun() -> sendersender2(To, Bin, Left, false) end) ||
+        _ <- lists:seq(1,1)],
+    {USec, {Res, MonitorCount}} =
+        timer:tc(?MODULE, sendersender2, [To, Bin, Left, true]),
+    Parent ! {sendersender, {USec/1000000, Res, MonitorCount}}.
+
+sendersender2(To, Bin, Left, SendDone) ->
+    sendersender3(To, Bin, Left, SendDone, 0).
+
+sendersender3(To, _Bin, 0, SendDone, MonitorCount) ->
+    if SendDone ->
+            To ! {done, self()};
+       true ->
+            ok
+    end,
+    receive
+        {monitor, _Pid, _Type, _Info} ->
+            sendersender3(To, _Bin, 0, SendDone, MonitorCount + 1)
+    after 0 ->
+            if SendDone ->
+                    receive
+                        Any when is_tuple(Any), size(Any) == 2 ->
+                            {Any, MonitorCount}
+                    end;
+               true ->
+                    exit(normal)
+            end
+    end;
+sendersender3(To, Bin, Left, SendDone, MonitorCount) ->
+    To ! {term, Bin},
+    %%timer:sleep(50),
+    sendersender3(To, Bin, Left-1, SendDone, MonitorCount).
 
 %% Receiver process to be run on a slave node.
 
@@ -165,17 +277,14 @@ receiver(Terms, Size) ->
     end.
 
 
-local_send(suite) ->
-    [local_send_small, local_send_big, local_send_legal];
-local_send(doc) ->
-    ["Tests sending small and big messages to a non-existing ",
-     "local registered process."].
 
 local_send_big(doc) ->
     ["Sends several big message to an non-registered process on ",
      "the local node."];
 local_send_big(Config) when is_list(Config) ->
-    Data0=local_send_big(doc)++local_send(doc),
+    Data0=local_send_big(doc)++
+	["Tests sending small and big messages to a non-existing ",
+        "local registered process."],
     Data1=[Data0,[Data0, Data0, [Data0], Data0],Data0],
     Data2=Data0++lists:flatten(Data1)++
 	list_to_binary(lists:flatten(Data1)),
@@ -227,7 +336,7 @@ receiver2(Num, TotSize) ->
 
 link_to_busy(doc) -> "Test that link/1 to a busy distribution port works.";
 link_to_busy(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(30)),
+    ?line Dog = test_server:timetrap(test_server:seconds(60)),
     ?line {ok, Node} = start_node(link_to_busy),
     ?line Recv = spawn(Node, erlang, apply, [fun sink/1, [link_to_busy_sink]]),
 
@@ -274,7 +383,7 @@ tail_applied_linker(Pid) ->
     
 exit_to_busy(doc) -> "Test that exit/2 to a busy distribution port works.";
 exit_to_busy(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(30)),
+    ?line Dog = test_server:timetrap(test_server:seconds(60)),
     ?line {ok, Node} = start_node(exit_to_busy),
 
     Tracer = case os:getenv("TRACE_BUSY_DIST_PORT") of
@@ -432,7 +541,7 @@ sink1() ->
 
 lost_exit(doc) ->
     "Test that EXIT and DOWN messages send to another node are not lost if "
-	"if the distribution port is busy.";
+	"the distribution port is busy.";
 lost_exit(Config) when is_list(Config) ->
     ?line {ok, Node} = start_node(lost_exit),
 
@@ -661,9 +770,6 @@ stop_dist(Config) when is_list(Config) ->
 
     ok.
 
-trap_bif(doc) ->
-    ["Verifies that BIFs which are traps to Erlang work (OTP-2680)."];
-trap_bif(suite) -> [trap_bif_1, trap_bif_2, trap_bif_3].
 
 trap_bif_1(doc) ->
     [""];
@@ -700,10 +806,6 @@ tr3() ->
 
 
 
-dist_auto_connect(doc) ->
-    ["Tests the kernel parameter 'dist_auto_connect'."];
-dist_auto_connect(suite) ->
-    [dist_auto_connect_never, dist_auto_connect_once].
 
 % This has to be done by nodes with differrent cookies, otherwise global
 % will connect nodes, which is correct, but makes it hard to test.
@@ -1053,8 +1155,7 @@ contended_atom_cache_entry(Config) when is_list(Config) ->
     ?line {ok, SNode} = start_node(Config),
     ?line {ok, RNode} = start_node(Config),
     ?line Success = make_ref(),
-    ?line Mstr
-	= spawn_link(
+    ?line spawn_link(
 	    SNode,
 	    fun () ->
 		    erts_debug:set_internal_state(available_internal_state,
@@ -1111,13 +1212,13 @@ contended_atom_cache_entry(Config) when is_list(Config) ->
     ?line stop_node(RNode),
     ?line ok.
 
-send_ref_atom(To, Ref, Atom, 0) ->
+send_ref_atom(_To, _Ref, _Atom, 0) ->
     ok;
 send_ref_atom(To, Ref, Atom, N) ->
     To ! {Ref, Atom},
     send_ref_atom(To, Ref, Atom, N-1).
 
-receive_ref_atom(Ref, Atom, 0) ->
+receive_ref_atom(_Ref, _Atom, 0) ->
     ok;
 receive_ref_atom(Ref, Atom, N) ->
     receive
@@ -1152,7 +1253,7 @@ unwanted_cixs() ->
 	      nodes()).
     
     
-get_conflicting_atoms(CIX, 0) ->
+get_conflicting_atoms(_CIX, 0) ->
     [];
 get_conflicting_atoms(CIX, N) ->
     {A, B, C} = now(),
@@ -1166,13 +1267,187 @@ get_conflicting_atoms(CIX, N) ->
 	    get_conflicting_atoms(CIX, N)
     end.
 
+-define(COOKIE, '').
+-define(DOP_LINK,		1).
+-define(DOP_SEND,		2).
+-define(DOP_EXIT,		3).
+-define(DOP_UNLINK,		4).
+-define(DOP_REG_SEND,		6).
+-define(DOP_GROUP_LEADER,	7).
+-define(DOP_EXIT2,		8).
 
-bad_dist_ext(doc) -> [];
-bad_dist_ext(suite) ->
-    [bad_dist_ext_receive,
-     bad_dist_ext_process_info,
-     bad_dist_ext_control,
-     bad_dist_ext_connection_id].
+-define(DOP_SEND_TT,		12).
+-define(DOP_EXIT_TT,		13).
+-define(DOP_REG_SEND_TT,	16).
+-define(DOP_EXIT2_TT,		18).
+
+-define(DOP_MONITOR_P,		19).
+-define(DOP_DEMONITOR_P,	20).
+-define(DOP_MONITOR_P_EXIT,	21).
+
+start_monitor(Offender,P) ->
+    ?line Parent = self(),
+    ?line Q = spawn(Offender,
+		    fun () -> 
+			    Ref = erlang:monitor(process,P),
+			    Parent ! {self(),ref,Ref},
+			    receive
+				just_stay_alive -> ok
+			    end
+		    end),
+    ?line Ref = receive
+		    {Q,ref,R} ->
+			R
+		after  5000 ->
+			error
+		end,
+    io:format("Ref is ~p~n",[Ref]),
+    ok.
+start_link(Offender,P) ->
+    ?line Parent = self(),
+    ?line Q = spawn(Offender,
+		    fun () ->
+			    process_flag(trap_exit,true),
+			    link(P),
+			    Parent ! {self(),ref,P},
+			    receive
+				just_stay_alive -> ok
+			    end
+		    end),
+    ?line Ref = receive
+		    {Q,ref,R} ->
+			R
+		after  5000 ->
+			error
+		end,
+    io:format("Ref is ~p~n",[Ref]),
+    ok.
+
+bad_dist_structure(suite) ->
+    [];
+bad_dist_structure(doc) ->
+    ["Test dist messages with valid structure (binary to term ok) but malformed"
+     "control content"];
+bad_dist_structure(Config) when is_list(Config) ->
+    %process_flag(trap_exit,true),
+    ODog = ?config(watchdog, Config),
+    ?t:timetrap_cancel(ODog),
+    Dog = ?t:timetrap(?t:seconds(15)),
+
+    ?line {ok, Offender} = start_node(bad_dist_structure_offender),
+    ?line {ok, Victim} = start_node(bad_dist_structure_victim),
+    ?line start_node_monitors([Offender,Victim]),
+    ?line Parent = self(),
+    ?line P = spawn(Victim,
+		    fun () ->
+			    process_flag(trap_exit,true),
+			    Parent ! {self(), started},
+			    receive check_msgs -> ok end,
+			    bad_dist_struct_check_msgs([one,
+							two]),
+			    Parent ! {self(), messages_checked},
+			    receive done -> ok end
+		    end),
+    ?line receive {P, started} -> ok end,
+    ?line pong = rpc:call(Victim, net_adm, ping, [Offender]),
+    ?line verify_up(Offender, Victim),
+    ?line true = lists:member(Offender, rpc:call(Victim, erlang, nodes, [])),
+    ?line start_monitor(Offender,P),
+    ?line P ! one,
+    ?line send_bad_structure(Offender, P,{?DOP_MONITOR_P_EXIT,'replace',P,normal},2),
+    ?line pong = rpc:call(Victim, net_adm, ping, [Offender]),
+    ?line start_monitor(Offender,P),
+    ?line send_bad_structure(Offender, P,{?DOP_MONITOR_P_EXIT,'replace',P,normal,normal},2),
+    ?line pong = rpc:call(Victim, net_adm, ping, [Offender]),
+    ?line start_link(Offender,P),
+    ?line send_bad_structure(Offender, P,{?DOP_LINK},0),
+    ?line pong = rpc:call(Victim, net_adm, ping, [Offender]),
+    ?line start_link(Offender,P),
+    ?line send_bad_structure(Offender, P,{?DOP_UNLINK,'replace'},2),
+    ?line pong = rpc:call(Victim, net_adm, ping, [Offender]),
+    ?line start_link(Offender,P),
+    ?line send_bad_structure(Offender, P,{?DOP_UNLINK,'replace',make_ref()},2),
+    ?line pong = rpc:call(Victim, net_adm, ping, [Offender]),
+    ?line start_link(Offender,P),
+    ?line send_bad_structure(Offender, P,{?DOP_UNLINK,make_ref(),P},0),
+    ?line pong = rpc:call(Victim, net_adm, ping, [Offender]),
+    ?line start_link(Offender,P),
+    ?line send_bad_structure(Offender, P,{?DOP_UNLINK,normal,normal},0),
+    ?line pong = rpc:call(Victim, net_adm, ping, [Offender]),
+    ?line start_monitor(Offender,P),
+    ?line send_bad_structure(Offender, P,{?DOP_MONITOR_P,'replace',P},2),
+    ?line pong = rpc:call(Victim, net_adm, ping, [Offender]),
+    ?line start_monitor(Offender,P),
+    ?line send_bad_structure(Offender, P,{?DOP_MONITOR_P,'replace',P,normal},2),
+    ?line pong = rpc:call(Victim, net_adm, ping, [Offender]),
+    ?line start_monitor(Offender,P),
+    ?line send_bad_structure(Offender, P,{?DOP_DEMONITOR_P,'replace',P},2),
+    ?line pong = rpc:call(Victim, net_adm, ping, [Offender]),
+    ?line start_monitor(Offender,P),
+    ?line send_bad_structure(Offender, P,{?DOP_DEMONITOR_P,'replace',P,normal},2),
+    ?line pong = rpc:call(Victim, net_adm, ping, [Offender]),
+    ?line send_bad_structure(Offender, P,{?DOP_EXIT,'replace',P},2),
+    ?line pong = rpc:call(Victim, net_adm, ping, [Offender]),
+    ?line send_bad_structure(Offender, P,{?DOP_EXIT,make_ref(),normal,normal},0),
+    ?line pong = rpc:call(Victim, net_adm, ping, [Offender]),
+    ?line send_bad_structure(Offender, P,{?DOP_EXIT_TT,'replace',token,P},2),
+    ?line pong = rpc:call(Victim, net_adm, ping, [Offender]),
+    ?line send_bad_structure(Offender, P,{?DOP_EXIT_TT,make_ref(),token,normal,normal},0),
+    ?line pong = rpc:call(Victim, net_adm, ping, [Offender]),
+    ?line send_bad_structure(Offender, P,{?DOP_EXIT2,'replace',P},2),
+    ?line pong = rpc:call(Victim, net_adm, ping, [Offender]),
+    ?line send_bad_structure(Offender, P,{?DOP_EXIT2,make_ref(),normal,normal},0),
+    ?line pong = rpc:call(Victim, net_adm, ping, [Offender]),
+    ?line send_bad_structure(Offender, P,{?DOP_EXIT2_TT,'replace',token,P},2),
+    ?line pong = rpc:call(Victim, net_adm, ping, [Offender]),
+    ?line send_bad_structure(Offender, P,{?DOP_EXIT2_TT,make_ref(),token,normal,normal},0),
+    ?line pong = rpc:call(Victim, net_adm, ping, [Offender]),
+    ?line send_bad_structure(Offender, P,{?DOP_GROUP_LEADER,'replace'},2),
+    ?line pong = rpc:call(Victim, net_adm, ping, [Offender]),
+    ?line send_bad_structure(Offender, P,{?DOP_GROUP_LEADER,'replace','atomic'},2),
+    ?line pong = rpc:call(Victim, net_adm, ping, [Offender]),
+    ?line send_bad_structure(Offender, P,{?DOP_GROUP_LEADER,'replace',P},0),
+    ?line pong = rpc:call(Victim, net_adm, ping, [Offender]),
+    ?line send_bad_structure(Offender, P,{?DOP_REG_SEND_TT,'replace','',name},2,{message}),
+    ?line pong = rpc:call(Victim, net_adm, ping, [Offender]),
+    ?line send_bad_structure(Offender, P,{?DOP_REG_SEND_TT,'replace','',name,token},0,{message}),
+    ?line pong = rpc:call(Victim, net_adm, ping, [Offender]),
+    ?line send_bad_structure(Offender, P,{?DOP_REG_SEND,'replace',''},2,{message}),
+    ?line pong = rpc:call(Victim, net_adm, ping, [Offender]),
+    ?line send_bad_structure(Offender, P,{?DOP_REG_SEND,'replace','',P},0,{message}),
+    ?line pong = rpc:call(Victim, net_adm, ping, [Offender]),
+    ?line send_bad_structure(Offender, P,{?DOP_REG_SEND,'replace','',name},0,{message}),
+    ?line pong = rpc:call(Victim, net_adm, ping, [Offender]),
+    ?line send_bad_structure(Offender, P,{?DOP_REG_SEND,'replace','',name,{token}},2,{message}),
+    ?line pong = rpc:call(Victim, net_adm, ping, [Offender]),
+    ?line send_bad_structure(Offender, P,{?DOP_SEND_TT,'',P},0,{message}),
+    ?line pong = rpc:call(Victim, net_adm, ping, [Offender]),
+    ?line send_bad_structure(Offender, P,{?DOP_SEND_TT,'',name,token},0,{message}),
+    ?line pong = rpc:call(Victim, net_adm, ping, [Offender]),
+    ?line send_bad_structure(Offender, P,{?DOP_SEND,''},0,{message}),
+    ?line pong = rpc:call(Victim, net_adm, ping, [Offender]),
+    ?line send_bad_structure(Offender, P,{?DOP_SEND,'',name},0,{message}),
+    ?line pong = rpc:call(Victim, net_adm, ping, [Offender]),
+    ?line send_bad_structure(Offender, P,{?DOP_SEND,'',P,{token}},0,{message}),
+    ?line pong = rpc:call(Victim, net_adm, ping, [Offender]),
+    ?line P ! two,
+    ?line P ! check_msgs,
+    ?line receive 
+	      {P, messages_checked} -> ok 
+	  after 5000 ->
+		  exit(victim_is_dead)
+	  end,
+
+    ?line {message_queue_len, 0}
+	= rpc:call(Victim, erlang, process_info, [P, message_queue_len]),
+    
+    ?line unlink(P),
+    ?line P ! done,
+    ?line stop_node(Offender),
+    ?line stop_node(Victim),
+    ?t:timetrap_cancel(Dog),
+    ok.
+
 
 
 bad_dist_ext_receive(Config) when is_list(Config) ->
@@ -1327,8 +1602,8 @@ bad_dist_ext_control(Config) when is_list(Config) ->
     ?line stop_node(Victim).
 
 bad_dist_ext_connection_id(Config) when is_list(Config) ->
-    ?line {ok, Offender} = start_node(bad_dist_ext_receive_offender),
-    ?line {ok, Victim} = start_node(bad_dist_ext_receive_victim),
+    ?line {ok, Offender} = start_node(bad_dist_ext_connection_id_offender),
+    ?line {ok, Victim} = start_node(bad_dist_ext_connection_id_victim),
     ?line start_node_monitors([Offender,Victim]),
 
     ?line Parent = self(),
@@ -1393,6 +1668,22 @@ bad_dist_ext_connection_id(Config) when is_list(Config) ->
     ?line stop_node(Victim).
 
 
+bad_dist_struct_check_msgs([]) ->
+    receive
+	Msg ->
+	    exit({unexpected_message, Msg})
+    after 0 ->
+	    ok
+    end;
+bad_dist_struct_check_msgs([M|Ms]) ->
+    receive
+	{'EXIT',_,_} = EM ->
+	    io:format("Ignoring exit message: ~p~n",[EM]),
+	    bad_dist_struct_check_msgs([M|Ms]);
+	Msg ->
+	    M = Msg,
+	    bad_dist_struct_check_msgs(Ms)
+    end.
 bad_dist_ext_check_msgs([]) ->
     receive
 	Msg ->
@@ -1407,24 +1698,6 @@ bad_dist_ext_check_msgs([M|Ms]) ->
 	    bad_dist_ext_check_msgs(Ms)
     end.
     
--define(COOKIE, '').
--define(DOP_LINK,		1).
--define(DOP_SEND,		2).
--define(DOP_EXIT,		3).
--define(DOP_UNLINK,		4).
--define(DOP_NODE_LINK,		5).
--define(DOP_REG_SEND,		6).
--define(DOP_GROUP_LEADER,	7).
--define(DOP_EXIT2,		8).
-
--define(DOP_SEND_TT,		12).
--define(DOP_EXIT_TT,		13).
--define(DOP_REG_SEND_TT,	16).
--define(DOP_EXIT2_TT,		18).
-
--define(DOP_MONITOR_P,		19).
--define(DOP_DEMONITOR_P,	20).
--define(DOP_MONITOR_P_EXIT,	21).
 
 dport_reg_send(Node, Name, Msg) ->
     DPrt = case dport(Node) of
@@ -1456,6 +1729,39 @@ dport_send(To, Msg) ->
 				  ?COOKIE,
 				  To}),
 			dmsg_ext(Msg)]).
+send_bad_structure(Offender,Victim,Bad,WhereToPutSelf) ->
+    send_bad_structure(Offender,Victim,Bad,WhereToPutSelf,[]).
+send_bad_structure(Offender,Victim,Bad,WhereToPutSelf,PayLoad) ->
+    Parent = self(),
+    Done = make_ref(),
+    spawn(Offender,
+	  fun () ->
+		  Node = node(Victim),
+		  pong = net_adm:ping(Node),
+		  DPrt = dport(Node),
+		  Bad1 = case WhereToPutSelf of
+			     0 -> 
+				 Bad;
+			     N when N > 0 ->
+				 setelement(N,Bad,self())
+			 end,
+		  DData = [dmsg_hdr(),
+			   dmsg_ext(Bad1)] ++
+		      case PayLoad of
+			  [] -> [];
+			  _Other -> [dmsg_ext(PayLoad)]
+		      end,
+		  port_command(DPrt, DData),
+		  Parent ! {DData,Done}
+	  end),
+    receive 
+	{WhatSent,Done} -> 
+	    io:format("Offender sent ~p~n",[WhatSent]),
+	    ok
+    after 5000 ->
+	    exit(unable_to_send)
+    end.
+   
 
 %% send_bad_msgs():
 %% Send a valid distribution header and control message
@@ -1539,10 +1845,10 @@ dmsg_bad_hdr() ->
      255].  % 255 atom references
     
 
-dmsg_fake_hdr1() ->
-    A = <<"fake header atom 1">>,
-    [131, % Version Magic
-     $D, 1, 16#8, 0, size(A), A]. % Fake header
+%% dmsg_fake_hdr1() ->
+%%     A = <<"fake header atom 1">>,
+%%     [131, % Version Magic
+%%      $D, 1, 16#8, 0, size(A), A]. % Fake header
 
 dmsg_fake_hdr2() ->
     A1 = <<"fake header atom 1">>,
@@ -1727,7 +2033,7 @@ flush_node_changes() ->
 
 node_monitor_loop(Master) ->
     receive
-	{nodeup, Node, InfoList} = Msg ->
+	{nodeup, Node, _InfoList} = Msg ->
 	    Master ! {nodeup, node(), Node},
 	    ?t:format("~p ~p: ~p~n", [node(), erlang:now(), Msg]),
 	    node_monitor_loop(Master);
@@ -1764,9 +2070,9 @@ verify_no_down(A, B) ->
 	    ok
     end.
 
-verify_down(A, B) ->
-    receive {nodedown, A, B, _} -> ok end,
-    receive {nodedown, B, A, _} -> ok end.
+%% verify_down(A, B) ->
+%%     receive {nodedown, A, B, _} -> ok end,
+%%     receive {nodedown, B, A, _} -> ok end.
 
 verify_down(A, ReasonA, B, ReasonB) ->
     receive
@@ -1786,11 +2092,11 @@ from(H, [H | T]) -> T;
 from(H, [_ | T]) -> from(H, T);
 from(_, []) -> [].
 
-fun_spawn(Fun) ->
-    fun_spawn(Fun, []).
+%% fun_spawn(Fun) ->
+%%     fun_spawn(Fun, []).
 
-fun_spawn(Fun, Args) ->
-    spawn_link(erlang, apply, [Fun, Args]).
+%% fun_spawn(Fun, Args) ->
+%%     spawn_link(erlang, apply, [Fun, Args]).
 
 
 long_or_short() -> 

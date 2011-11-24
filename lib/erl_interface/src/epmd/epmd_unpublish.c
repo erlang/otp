@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2009. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -58,6 +58,11 @@ int ei_unpublish_tmo(const char *alive, unsigned ms)
     char *s = (char*)buf;
     int len = 1 + strlen(alive);
     int fd, res;
+
+    if (len > sizeof(buf)-3) {
+	erl_errno = ERANGE;
+	return -1;
+    }
 
     put16be(s,len);
     put8(s,EI_EPMD_STOP_REQ);

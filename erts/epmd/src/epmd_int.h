@@ -1,7 +1,8 @@
+/* -*- c-indent-level: 2; c-continued-statement-offset: 2 -*- */
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -35,19 +36,6 @@
 #define NO_DAEMON
 #define NO_FCNTL
 #define DONT_USE_MAIN
-#endif
-
-#ifdef _OSE_
-#define NO_SYSLOG
-#define NO_SYSCONF
-#define NO_DAEMON
-#define DONT_USE_MAIN
-#ifndef HAVE_SYS_TIME_H
-#define HAVE_SYS_TIME_H
-#endif
-#ifndef HAVE_UNISTD_H
-#define HAVE_UNISTD_H
-#endif
 #endif
 
 /* ************************************************************************ */
@@ -92,7 +80,7 @@
 #endif
 #endif /* ! VXWORKS */
 
-#if (!defined(__WIN32__) && !defined(_OSE_))
+#if !defined(__WIN32__)
 #  include <netinet/in.h>
 #  include <sys/socket.h>
 #  include <sys/stat.h>
@@ -105,10 +93,8 @@
 #  include <netinet/tcp.h>
 #endif /* ! WIN32 */
 
-#ifndef _OSE_
 #include <ctype.h>
 #include <signal.h>
-#endif
 
 #include <errno.h>
 
@@ -126,13 +112,6 @@
 
 #include <stdarg.h>
 
-#ifdef _OSE_
-#  include "ose.h"
-#  include "inet.h"
-#  include "sys/stat.h"
-#endif
-
-
 /* ************************************************************************ */
 /* Replace some functions by others by making the function name a macro */
 
@@ -148,10 +127,6 @@
 #define sleep(n) taskDelay((n) * sysClkRateGet())
 #endif /* VXWORKS */
 
-#ifdef _OSE_
-#define sleep(n) delay((n))
-#endif
-
 #ifdef USE_BCOPY
 #  define memcpy(a, b, c) bcopy((b), (a), (c))
 #  define memcmp(a, b, c) bcmp((a), (b), (c))
@@ -165,6 +140,10 @@
 
 #if defined(__WIN32__) && !defined(EADDRINUSE)
 #  define EADDRINUSE WSAEADDRINUSE
+#endif
+
+#if defined(__WIN32__) && !defined(ECONNABORTED)
+#  define ECONNABORTED WSAECONNABORTED
 #endif
 
 #ifndef SOMAXCONN
@@ -189,50 +168,40 @@
 #if defined(HAVE_IN6) && defined(AF_INET6) && defined(EPMD6)
 
 #define EPMD_SOCKADDR_IN sockaddr_in6
-#define FAMILY      AF_INET6
+#define EPMD_IN_ADDR in6_addr
+#define EPMD_S_ADDR s6_addr
+#define EPMD_ADDR_LOOPBACK in6addr_loopback.s6_addr
+#define EPMD_ADDR_ANY in6addr_any.s6_addr
+#define FAMILY AF_INET6
 
-#define SET_ADDR_LOOPBACK(addr, af, port) do { \
-    static u_int32_t __addr[4] = IN6ADDR_LOOPBACK_INIT; \
-    memset((char*)&(addr), 0, sizeof(addr)); \
-    (addr).sin6_family = (af); \
-    (addr).sin6_flowinfo = 0; \
-    (addr).sin6_addr.s6_addr32[0] = __addr[0]; \
-    (addr).sin6_addr.s6_addr32[1] = __addr[1]; \
-    (addr).sin6_addr.s6_addr32[2] = __addr[2]; \
-    (addr).sin6_addr.s6_addr32[3] = __addr[3]; \
-    (addr).sin6_port = htons(port); \
+#define SET_ADDR(dst, addr, port) do { \
+    memset((char*)&(dst), 0, sizeof(dst)); \
+    memcpy((char*)&(dst).sin6_addr.s6_addr, (char*)&(addr), 16); \
+    (dst).sin6_family = AF_INET6; \
+    (dst).sin6_flowinfo = 0; \
+    (dst).sin6_port = htons(port); \
  } while(0)
 
-#define SET_ADDR_ANY(addr, af, port) do { \
-    static u_int32_t __addr[4] = IN6ADDR_ANY_INIT; \
-    memset((char*)&(addr), 0, sizeof(addr)); \
-    (addr).sin6_family = (af); \
-    (addr).sin6_flowinfo = 0; \
-    (addr).sin6_addr.s6_addr32[0] = __addr[0]; \
-    (addr).sin6_addr.s6_addr32[1] = __addr[1]; \
-    (addr).sin6_addr.s6_addr32[2] = __addr[2]; \
-    (addr).sin6_addr.s6_addr32[3] = __addr[3]; \
-    (addr).sin6_port = htons(port); \
- } while(0)
+#define IS_ADDR_LOOPBACK(addr) \
+    (memcmp((addr).s6_addr, in6addr_loopback.s6_addr, 16) == 0)
 
 #else /* Not IP v6 */
 
 #define EPMD_SOCKADDR_IN sockaddr_in
-#define FAMILY      AF_INET
+#define EPMD_IN_ADDR in_addr
+#define EPMD_S_ADDR s_addr
+#define EPMD_ADDR_LOOPBACK htonl(INADDR_LOOPBACK)
+#define EPMD_ADDR_ANY htonl(INADDR_ANY)
+#define FAMILY AF_INET
 
-#define SET_ADDR_LOOPBACK(addr, af, port) do { \
-    memset((char*)&(addr), 0, sizeof(addr)); \
-    (addr).sin_family = (af); \
-    (addr).sin_addr.s_addr = htonl(INADDR_LOOPBACK); \
-    (addr).sin_port = htons(port); \
+#define SET_ADDR(dst, addr, port) do { \
+    memset((char*)&(dst), 0, sizeof(dst)); \
+    (dst).sin_family = AF_INET; \
+    (dst).sin_addr.s_addr = (addr); \
+    (dst).sin_port = htons(port); \
  } while(0)
 
-#define SET_ADDR_ANY(addr, af, port) do { \
-    memset((char*)&(addr), 0, sizeof(addr)); \
-    (addr).sin_family = (af); \
-    (addr).sin_addr.s_addr = htonl(INADDR_ANY); \
-    (addr).sin_port = htons(port); \
- } while(0)
+#define IS_ADDR_LOOPBACK(addr) ((addr).s_addr == htonl(INADDR_LOOPBACK))
 
 #endif /* Not IP v6 */
 
@@ -260,6 +229,8 @@
 /* Maximum length of a node name == atom name */
 #define MAXSYMLEN 255
 
+#define MAX_LISTEN_SOCKETS 16
+
 #define INBUF_SIZE 1024
 #define OUTBUF_SIZE 1024
 
@@ -269,14 +240,24 @@
 #define put_int16(i, s) {((unsigned char*)(s))[0] = ((i) >> 8) & 0xff; \
                         ((unsigned char*)(s))[1] = (i)         & 0xff;}
 
+#if defined(__GNUC__)
+#  define EPMD_INLINE __inline__
+#elif defined(__WIN32__)
+#  define EPMD_INLINE __inline
+#else
+#  define EPMD_INLINE
+#endif
+
 /* ************************************************************************ */
 
 /* Stuctures used by server */
 
 typedef struct {
   int fd;			/* File descriptor */
-  unsigned open:1;		/* TRUE if open */
-  unsigned keep:1;		/* Don't close when sent reply */
+  unsigned char open;		/* TRUE if open */
+  unsigned char keep;		/* Don't close when sent reply */
+  unsigned char local_peer;     /* The peer of this connection is via
+                                   loopback interface */
   unsigned got;			/* # of bytes we have got */
   unsigned want;		/* Number of bytes we want */
   char *buf;			/* The remaining buffer */
@@ -316,16 +297,19 @@ typedef struct {
   int debug;
   int silent; 
   int is_daemon;
+  int brutal_kill;
   unsigned packet_timeout;
   unsigned delay_accept;
   unsigned delay_write;
   int max_conn;
   int active_conn;
+  int select_fd_top;
   char *progname;
   Connection *conn;
   Nodes nodes;
   fd_set orig_read_mask;
-  int listenfd;
+  int listenfd[MAX_LISTEN_SOCKETS];
+  char *addresses;
   char **argv;
 } EpmdVars;
 
@@ -337,6 +321,7 @@ void epmd_call(EpmdVars*,int);
 void run(EpmdVars*);
 void epmd_cleanup_exit(EpmdVars*, int);
 int epmd_conn_close(EpmdVars*,Connection*);
+void stop_cli(EpmdVars *g, char *name);
 
 #ifdef DONT_USE_MAIN
 int  start_epmd(char *,char *,char *,char *,char *,char *,char *,char *,char *,char *);

@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2007</year>
-      <year>2007</year>
+      <year>2011</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -31,6 +31,47 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the Percept application.</p>
+
+<section><title>Percept 0.8.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix message handling in select requests</p>
+          <p>
+	    percept_db used to send results in untagged messages, and
+	    use a non selective receive to extract them. When percept
+	    is used from the shell process, this can confuse other
+	    messages with the actual result.</p>
+          <p>
+	    Add a tag to the message to be {result, Result}. Add
+	    demonitor to avoid keeping DOWN message in the queue fix
+	    one spec in do_start/0</p>
+          <p>
+	    (Thanks to Ahmed Omar)</p>
+          <p>
+	    Own Id: OTP-9490</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Percept 0.8.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fixes a race condition found in percept_db start/1
+	    function. (Thanks to Ahmed Omar) </p>
+          <p>
+	    Own Id: OTP-9012</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Percept 0.8.4</title>
 

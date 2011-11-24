@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -21,7 +21,7 @@
 %%%-----------------------------------------------------------------
 
 -module(lists_SUITE).
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 
 % Default timetrap timeout (set in init_per_testcase).
@@ -30,36 +30,37 @@
 -define(default_timeout, ?t:minutes(4)).
 
 % Test server specific exports
--export([all/1]).
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 % Test cases must be exported.
 -export([member/1, reverse/1,
 	 keymember/1, keysearch_keyfind/1,
          keystore/1, keytake/1,
-	 append/1, append_1/1, append_2/1,
-	 seq/1, seq_loop/1, seq_2/1, seq_3/1, seq_2_e/1, seq_3_e/1,
-	 sublist/1, flatten/1,
+	 append_1/1, append_2/1,
+	 seq_loop/1, seq_2/1, seq_3/1, seq_2_e/1, seq_3_e/1,
+	
 	 sublist_2/1, sublist_3/1, sublist_2_e/1, sublist_3_e/1,
 	 flatten_1/1, flatten_2/1, flatten_1_e/1, flatten_2_e/1,
 	 dropwhile/1,
-	 sort/1, sort_1/1, sort_stable/1, merge/1, rmerge/1, sort_rand/1,
-         usort/1, usort_1/1, usort_stable/1, umerge/1, rumerge/1,usort_rand/1,
+	 sort_1/1, sort_stable/1, merge/1, rmerge/1, sort_rand/1,
+	 usort_1/1, usort_stable/1, umerge/1, rumerge/1,usort_rand/1,
 	 keymerge/1, rkeymerge/1,
-	 keysort/1, keysort_1/1, keysort_i/1, keysort_stable/1,
+	 keysort_1/1, keysort_i/1, keysort_stable/1,
 	 keysort_rand/1, keysort_error/1,
 	 ukeymerge/1, rukeymerge/1,
-	 ukeysort/1, ukeysort_1/1, ukeysort_i/1, ukeysort_stable/1,
+	 ukeysort_1/1, ukeysort_i/1, ukeysort_stable/1,
 	 ukeysort_rand/1, ukeysort_error/1,
 	 funmerge/1, rfunmerge/1,
-	 funsort/1, funsort_1/1, funsort_stable/1, funsort_rand/1,
+	 funsort_1/1, funsort_stable/1, funsort_rand/1,
 	 funsort_error/1,
 	 ufunmerge/1, rufunmerge/1,
-	 ufunsort/1, ufunsort_1/1, ufunsort_stable/1, ufunsort_rand/1,
+	 ufunsort_1/1, ufunsort_stable/1, ufunsort_rand/1,
 	 ufunsort_error/1,
 	 zip_unzip/1, zip_unzip3/1, zipwith/1, zipwith3/1,
 	 filter_partition/1, 
-         tickets/1, otp_5939/1, otp_6023/1, otp_6606/1, otp_7230/1,
+	 otp_5939/1, otp_6023/1, otp_6606/1, otp_7230/1,
 	 suffix/1, subtract/1]).
 
 %% Sort randomized lists until stopped.
@@ -76,21 +77,59 @@
 %%
 %% all/1
 %%
-all(doc) ->
-    [];
-all(suite) ->
-    [append, reverse, member, keymember, keysearch_keyfind, keystore, keytake,
-     dropwhile,
-     sort, usort, keysort, ukeysort, 
-     funsort, ufunsort, sublist, flatten, seq,
-     zip_unzip, zip_unzip3, zipwith, zipwith3,
-     filter_partition, tickets, suffix, subtract].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [{group, append}, reverse, member, keymember,
+     keysearch_keyfind, keystore, keytake, dropwhile, {group,sort},
+     {group, usort}, {group, keysort}, {group, ukeysort},
+     {group, funsort}, {group, ufunsort}, {group, sublist},
+     {group, flatten}, {group, seq}, zip_unzip, zip_unzip3,
+     zipwith, zipwith3, filter_partition, {group, tickets},
+     suffix, subtract].
+
+groups() -> 
+    [{append, [], [append_1, append_2]},
+     {usort, [],
+      [umerge, rumerge, usort_1, usort_rand, usort_stable]},
+     {keysort, [],
+      [keymerge, rkeymerge, keysort_1, keysort_rand,
+       keysort_i, keysort_stable, keysort_error]},
+     {sort,[],[merge, rmerge, sort_1, sort_rand]},
+     {ukeysort, [],
+      [ukeymerge, rukeymerge, ukeysort_1, ukeysort_rand,
+       ukeysort_i, ukeysort_stable, ukeysort_error]},
+     {funsort, [],
+      [funmerge, rfunmerge, funsort_1, funsort_stable,
+       funsort_error, funsort_rand]},
+     {ufunsort, [],
+      [ufunmerge, rufunmerge, ufunsort_1, ufunsort_stable,
+       ufunsort_error, ufunsort_rand]},
+     {seq, [], [seq_loop, seq_2, seq_3, seq_2_e, seq_3_e]},
+     {sublist, [],
+      [sublist_2, sublist_3, sublist_2_e, sublist_3_e]},
+     {flatten, [],
+      [flatten_1, flatten_2, flatten_1_e, flatten_2_e]},
+     {tickets, [], [otp_5939, otp_6023, otp_6606, otp_7230]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 init_per_testcase(_Case, Config) ->
     ?line Dog=test_server:timetrap(?default_timeout),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
@@ -98,10 +137,6 @@ fin_per_testcase(_Case, Config) ->
 %
 % Test cases starts here.
 %
-append(doc) ->
-    ["Tests lists:append/1 & lists:append/2"];
-append(suite) ->
-    [append_1, append_2].
 
 append_1(doc) ->   [];
 append_1(suite) -> [];
@@ -346,12 +381,6 @@ keytake(Config) when is_list(Config) ->
     ?line false = lists:keytake(4, 2, L),
     ok.
 
-sort(doc) ->
-    ["Tests merge functions and lists:sort/1"];
-sort(suite) ->
-    %% [merge, rmerge, sort_1, sort_rand, sort_stable].
-    [merge, rmerge, sort_1, sort_rand].
-
 merge(doc) ->   ["merge functions"];
 merge(suite) -> [];
 merge(Config) when is_list(Config) ->
@@ -536,10 +565,6 @@ expl_pid([{I,F} | T], L) when is_function(F) ->
 expl_pid([], L) ->
     L.
 
-usort(doc) ->
-    ["Tests unique merge functions and lists:usort/1"];
-usort(suite) ->
-    [umerge, rumerge, usort_1, usort_rand, usort_stable].
 
 usort_1(suite) -> [];
 usort_1(doc) -> [""];
@@ -750,11 +775,6 @@ ucheck_stability(L) ->
     U = lists:usort(L),
     check_stab(L, U, S, "usort/1", "ukeysort/2").
 
-keysort(doc) ->
-    ["Tests lists:keysort/2"];
-keysort(suite) ->
-    [keymerge, rkeymerge,
-     keysort_1, keysort_rand, keysort_i, keysort_stable, keysort_error].
 
 keymerge(doc) -> ["Key merge two lists."];
 keymerge(suite) -> [];
@@ -946,11 +966,6 @@ keycompare(I, J, A, B) when element(I, A) == element(I, B),
 			    element(J, A) =< element(J, B) ->
     ok.
 
-ukeysort(doc) ->
-    ["Tests lists:ukeysort/2"];
-ukeysort(suite) ->
-    [ukeymerge, rukeymerge,
-     ukeysort_1, ukeysort_rand, ukeysort_i, ukeysort_stable, ukeysort_error].
 
 ukeymerge(suite) -> [];
 ukeymerge(doc) -> ["Merge two lists while removing duplicates."];
@@ -1240,11 +1255,6 @@ ukeycompare(I, J, A, B) when A =/= B,
     ok.
 
 
-funsort(doc) ->
-    ["Tests lists:sort/2"];
-funsort(suite) ->
-    [funmerge, rfunmerge, 
-     funsort_1, funsort_stable, funsort_error, funsort_rand].
 
 funmerge(doc) -> ["Merge two lists using a fun."];
 funmerge(suite) -> [];
@@ -1377,11 +1387,6 @@ funsort_check(I, Input, Expected) ->
     ?line Expected = funsort(I, Input),
     check_sorted(I, Input, Expected).
 
-ufunsort(doc) ->
-    ["Tests lists:usort/2"];
-ufunsort(suite) ->
-    [ufunmerge, rufunmerge, 
-     ufunsort_1, ufunsort_stable, ufunsort_error, ufunsort_rand].
 
 ufunmerge(suite) -> [];
 ufunmerge(doc) -> ["Merge two lists while removing duplicates using a fun."];
@@ -2076,12 +2081,6 @@ rkeymerge2_2(_I, T1, _E1, [], M, H1) ->
 
 %%%------------------------------------------------------------
 
-seq(doc) ->
-    ["Tests lists:seq/3"];
-seq(suite) ->
-    [
-     seq_loop,
-     seq_2, seq_3, seq_2_e, seq_3_e].
 
 seq_loop(doc) ->
     ["Test for infinite loop (OTP-2404)."];
@@ -2229,10 +2228,6 @@ property(From, To, Step) ->
 
 %%%------------------------------------------------------------
 
-sublist(doc) ->
-    ["Tests lists:sublist/[2,3]"];
-sublist(suite) ->
-    [sublist_2, sublist_3, sublist_2_e, sublist_3_e].
 
 -define(sublist_error2(X,Y), ?line {'EXIT', _} = (catch lists:sublist(X,Y))).
 -define(sublist_error3(X,Y,Z), ?line {'EXIT', _} = (catch lists:sublist(X,Y,Z))).
@@ -2326,10 +2321,6 @@ sublist_3_e(Config) when is_list(Config) ->
 
 %%%------------------------------------------------------------
 
-flatten(doc) ->
-    ["Tests lists:flatten/[1,2]"];
-flatten(suite) ->
-    [flatten_1, flatten_2, flatten_1_e, flatten_2_e].
 
 -define(flatten_error1(X), ?line {'EXIT', _} = (catch lists:flatten(X))).
 -define(flatten_error2(X,Y), ?line {'EXIT', _} = (catch lists:flatten(X,Y))).
@@ -2489,10 +2480,6 @@ filpart(F, All, Exp) ->
     Other = lists:filter(fun(E) -> not F(E) end, All),
     {Exp,Other} = lists:partition(F, All).
 
-tickets(doc) ->
-    ["Ticktes."];
-tickets(suite) ->
-    [otp_5939, otp_6023, otp_6606, otp_7230].
 
 otp_5939(doc) ->   ["OTP-5939. Guard tests added."];
 otp_5939(suite) -> [];

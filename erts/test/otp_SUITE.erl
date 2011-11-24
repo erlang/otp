@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,7 +19,8 @@
 
 -module(otp_SUITE).
 
--export([all/1,init_per_suite/1,end_per_suite/1]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
+	 init_per_suite/1,end_per_suite/1]).
 -export([undefined_functions/1,deprecated_not_in_obsolete/1,
 	 obsolete_but_not_deprecated/1,call_to_deprecated/1,
          call_to_size_1/1,strong_components/1]).
@@ -28,10 +29,22 @@
 
 -import(lists, [filter/2,foldl/3,foreach/2]).
 
-all(suite) ->
-    [undefined_functions,deprecated_not_in_obsolete,
-     obsolete_but_not_deprecated,call_to_deprecated,
-     call_to_size_1,strong_components].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [undefined_functions, deprecated_not_in_obsolete,
+     obsolete_but_not_deprecated, call_to_deprecated,
+     call_to_size_1, strong_components].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 init_per_suite(Config) ->
     Dog = test_server:timetrap(?t:minutes(10)),

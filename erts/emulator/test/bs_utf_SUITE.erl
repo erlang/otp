@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,13 +19,15 @@
 
 -module(bs_utf_SUITE).
 
--export([all/1,init_per_testcase/2,fin_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
+	 init_per_testcase/2,end_per_testcase/2,
 	 utf8_roundtrip/1,utf16_roundtrip/1,utf32_roundtrip/1,
 	 utf8_illegal_sequences/1,utf16_illegal_sequences/1,
 	 utf32_illegal_sequences/1,
 	 bad_construction/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -define(FAIL(Expr), ?line fail_check(catch Expr, ??Expr, [])).
 
@@ -33,19 +35,36 @@ init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog = ?t:timetrap(?t:minutes(6)),
     [{watchdog,Dog}|Config].
 
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog).
 
-all(suite) ->
-    [utf8_roundtrip,utf16_roundtrip,utf32_roundtrip,
-     utf8_illegal_sequences,utf16_illegal_sequences,
-     utf32_illegal_sequences,bad_construction].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [utf8_roundtrip, utf16_roundtrip, utf32_roundtrip,
+     utf8_illegal_sequences, utf16_illegal_sequences,
+     utf32_illegal_sequences, bad_construction].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 utf8_roundtrip(Config) when is_list(Config) ->
     ?line utf8_roundtrip(0, 16#D7FF),
-    ?line utf8_roundtrip(16#E000, 16#FFFD),
-    ?line utf8_roundtrip(16#10000, 16#10FFFF),
+    ?line utf8_roundtrip(16#E000, 16#10FFFF),
     ok.
 
 utf8_roundtrip(First, Last) when First =< Last ->
@@ -71,8 +90,7 @@ utf16_roundtrip(Config) when is_list(Config) ->
 
 do_utf16_roundtrip(Fun) ->
     do_utf16_roundtrip(0, 16#D7FF, Fun),
-    do_utf16_roundtrip(16#E000, 16#FFFD, Fun),
-    do_utf16_roundtrip(16#10000, 16#10FFFF, Fun).
+    do_utf16_roundtrip(16#E000, 16#10FFFF, Fun).
 
 do_utf16_roundtrip(First, Last, Fun) when First =< Last ->
     Fun(First),
@@ -109,8 +127,7 @@ utf32_roundtrip(Config) when is_list(Config) ->
 
 do_utf32_roundtrip(Fun) ->
     do_utf32_roundtrip(0, 16#D7FF, Fun),
-    do_utf32_roundtrip(16#E000, 16#FFFD, Fun),
-    do_utf32_roundtrip(16#10000, 16#10FFFF, Fun).
+    do_utf32_roundtrip(16#E000, 16#10FFFF, Fun).
 
 do_utf32_roundtrip(First, Last, Fun) when First =< Last ->
     Fun(First),
@@ -138,7 +155,6 @@ utf32_little_roundtrip(Char) ->
 utf8_illegal_sequences(Config) when is_list(Config) ->
     ?line fail_range(16#10FFFF+1, 16#10FFFF+512), %Too large.
     ?line fail_range(16#D800, 16#DFFF),		%Reserved for UTF-16.
-    ?line fail_range(16#FFFE, 16#FFFF),		%Non-characters.
 
     %% Illegal first character.
     ?line [fail(<<I,16#8F,16#8F,16#8F>>) || I <- lists:seq(16#80, 16#BF)],
@@ -231,7 +247,6 @@ fail_1(_) -> ok.
 utf16_illegal_sequences(Config) when is_list(Config) ->
     ?line utf16_fail_range(16#10FFFF+1, 16#10FFFF+512), %Too large.
     ?line utf16_fail_range(16#D800, 16#DFFF),		%Reserved for UTF-16.
-    ?line utf16_fail_range(16#FFFE, 16#FFFF),		%Non-characters.
 
     ?line lonely_hi_surrogate(16#D800, 16#DFFF),
     ?line leading_lo_surrogate(16#DC00, 16#DFFF),
@@ -280,7 +295,6 @@ leading_lo_surrogate(_, _, _) -> ok.
 utf32_illegal_sequences(Config) when is_list(Config) ->
     ?line utf32_fail_range(16#10FFFF+1, 16#10FFFF+512), %Too large.
     ?line utf32_fail_range(16#D800, 16#DFFF),		%Reserved for UTF-16.
-    ?line utf32_fail_range(16#FFFE, 16#FFFF),		%Non-characters.
     ?line utf32_fail_range(-100, -1),
     ok.
 

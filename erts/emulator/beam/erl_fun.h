@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2000-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2000-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -33,10 +33,10 @@ typedef struct erl_fun_entry {
     int index;			/* New style index. */
     int old_uniq;		/* Unique number (old_style) */
     int old_index;		/* Old style index */
-    Eterm* address;		/* Pointer to code for fun */
+    BeamInstr* address;		/* Pointer to code for fun */
 
 #ifdef HIPE
-    Eterm* native_address;	/* Native entry code for fun. */
+    UWord* native_address;	/* Native entry code for fun. */
 #endif
 
     Uint arity;			/* The arity of the fun. */
@@ -53,12 +53,12 @@ typedef struct erl_fun_entry {
 
 typedef struct erl_fun_thing {
     Eterm thing_word;		/* Subtag FUN_SUBTAG. */
-#ifndef HYBRID /* FIND ME! */
-    struct erl_fun_thing* next;	/* Next fun in mso list. */
-#endif
     ErlFunEntry* fe;		/* Pointer to fun entry. */
+#ifndef HYBRID /* FIND ME! */
+    struct erl_off_heap_header* next;
+#endif
 #ifdef HIPE
-    Eterm* native_address;	/* Native code for the fun. */
+    UWord* native_address;	/* Native code for the fun. */
 #endif
     Uint arity;			/* The arity of the fun. */
     Uint num_free;		/* Number of free variables (in env). */
@@ -86,7 +86,7 @@ void erts_erase_fun_entry(ErlFunEntry* fe);
 #ifndef HYBRID /* FIND ME! */
 void erts_cleanup_funs(ErlFunThing* funp);
 #endif
-void erts_cleanup_funs_on_purge(Eterm* start, Eterm* end);
+void erts_cleanup_funs_on_purge(BeamInstr* start, BeamInstr* end);
 void erts_dump_fun_entries(int, void *);
 
 #endif

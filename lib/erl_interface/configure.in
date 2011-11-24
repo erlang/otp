@@ -288,13 +288,7 @@ case "$threads_disabled" in
 	        ;;
 	    win32_threads)
 		EI_THREADS="true"	
-		AC_MSG_CHECKING([for __declspec(thread) usability])
-		if test "X$GCC" = "Xyes"; then
-		    AC_MSG_RESULT([no])
-		else
-		    THR_DEFS="$THR_DEFS -DUSE_DECLSPEC_THREAD"
-		    AC_MSG_RESULT([yes])
-		fi
+		THR_DEFS="$THR_DEFS -D_WIN32_WINNT=0x0500 -DWINVER=0x0500"
 		;;
 	    pthread)	
 		EI_THREADS="true"

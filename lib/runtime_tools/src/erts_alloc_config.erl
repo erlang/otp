@@ -1,6 +1,7 @@
+%%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -16,6 +17,7 @@
 %% The Initial Developer of the Original Code is Ericsson AB.
 %% 
 %% %CopyrightEnd%
+%%
 
 %%%-------------------------------------------------------------------
 %%% File    : erts_alloc_config.erl
@@ -71,6 +73,7 @@
 	A == binary_alloc;
 	A == std_alloc;
 	A == ets_alloc;
+	A == fix_alloc;
 	A == eheap_alloc;
 	A == ll_alloc;
 	A == sl_alloc;
@@ -94,6 +97,7 @@
 	[{binary_alloc, 131072},
 	 {std_alloc, 131072},
 	 {ets_alloc, 131072},
+	 {fix_alloc, 131072},
 	 {eheap_alloc, 524288},
 	 {ll_alloc, 2097152},
 	 {sl_alloc, 131072},
@@ -104,6 +108,7 @@
 	[{binary_alloc, 10},
 	 {std_alloc, 10},
 	 {ets_alloc, 10},
+	 {fix_alloc, 10},
 	 {eheap_alloc, 10},
 	 {ll_alloc, 0},
 	 {sl_alloc, 10},
@@ -437,9 +442,6 @@ conf_alloc(#conf{format_to = FTO} = Conf, #alloc{name = A} = Alc) ->
     fcl(FTO, A),
     chk_xnote(Conf, Alc).
 
-chk_xnote(#conf{format_to = FTO},
-	  #alloc{name = fix_alloc}) ->
-    fcp(FTO, "Cannot be configured.");
 chk_xnote(#conf{format_to = FTO},
 	  #alloc{name = sys_alloc}) ->
     fcp(FTO, "Cannot be configured. Default malloc implementation used.");

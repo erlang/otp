@@ -1,0 +1,3 @@
+
+t1.erl:16: Call to missing or unexported function t2:t2/1
+t2.erl:13: Call to missing or unexported function t1:t3/1

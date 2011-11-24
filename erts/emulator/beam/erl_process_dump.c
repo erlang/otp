@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2003-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2003-2011. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -45,16 +45,16 @@ static void dump_dist_ext(int to, void *to_arg, ErtsDistExternal *edep);
 static void dump_element_nl(int to, void *to_arg, Eterm x);
 static int stack_element_dump(int to, void *to_arg, Process* p, Eterm* sp,
 			      int yreg);
-static void print_function_from_pc(int to, void *to_arg, Eterm* x);
+static void print_function_from_pc(int to, void *to_arg, BeamInstr* x);
 static void heap_dump(int to, void *to_arg, Eterm x);
 static void dump_binaries(int to, void *to_arg, Binary* root);
 static void dump_externally(int to, void *to_arg, Eterm term);
 
 static Binary* all_binaries;
 
-extern Eterm beam_apply[];
-extern Eterm beam_exit[];
-extern Eterm beam_continue_exit[];
+extern BeamInstr beam_apply[];
+extern BeamInstr beam_exit[];
+extern BeamInstr beam_continue_exit[];
 
 
 void
@@ -194,7 +194,7 @@ dump_element(int to, void *to_arg, Eterm x)
 	} else if (is_pid(x)) {
 	    erts_print(to, to_arg, "P%T", x);
 	} else if (is_port(x)) {
-	    erts_print(to, to_arg, "p<%bpu.%bpu>",
+	    erts_print(to, to_arg, "p<%beu.%beu>",
 		       port_channel_no(x), port_number(x));
 	} else if (is_nil(x)) {
 	    erts_putc(to, to_arg, 'N');
@@ -223,7 +223,7 @@ stack_element_dump(int to, void *to_arg, Process* p, Eterm* sp, int yreg)
     }
 
     if (is_CP(x)) {
-        erts_print(to, to_arg, "SReturn addr 0x%X (", (Eterm *) x);
+        erts_print(to, to_arg, "SReturn addr 0x%X (", cp_val(x));
         print_function_from_pc(to, to_arg, cp_val(x));
         erts_print(to, to_arg, ")\n");
         yreg = 0;
@@ -239,9 +239,9 @@ stack_element_dump(int to, void *to_arg, Process* p, Eterm* sp, int yreg)
 }
 
 static void
-print_function_from_pc(int to, void *to_arg, Eterm* x)
+print_function_from_pc(int to, void *to_arg, BeamInstr* x)
 {
-    Eterm* addr = find_function_from_pc(x);
+    BeamInstr* addr = find_function_from_pc(x);
     if (addr == NULL) {
         if (x == beam_exit) {
             erts_print(to, to_arg, "<terminate process>");
@@ -261,139 +261,139 @@ print_function_from_pc(int to, void *to_arg, Eterm* x)
 static void
 heap_dump(int to, void *to_arg, Eterm x)
 {
+    DeclareTmpHeapNoproc(last,1);
+    Eterm* next = last;
     Eterm* ptr;
-    Eterm last = OUR_NIL;
-    Eterm* next = &last;
 
     if (is_immed(x) || is_CP(x)) {
 	return;
     }
+    UseTmpHeapNoproc(1);
+    *last = OUR_NIL;
 
- again:
-    if (x == OUR_NIL) {	/* We are done. */
-	return;
-    } if (is_CP(x)) {
-	next = (Eterm *) x;
-    } else if (is_list(x)) {
-	ptr = list_val(x);
-	if (ptr[0] != OUR_NIL) {
-	    erts_print(to, to_arg, ADDR_FMT ":l", ptr);
-	    dump_element(to, to_arg, ptr[0]);
-	    erts_putc(to, to_arg, '|');
-	    dump_element(to, to_arg, ptr[1]);
-	    erts_putc(to, to_arg, '\n');
-	    if (is_immed(ptr[1])) {
-		ptr[1] = make_small(0);
-	    }
-	    x = ptr[0];
-	    ptr[0] = (Eterm) next;
-	    next = ptr + 1;
-	    goto again;
-	}
-    } else if (is_boxed(x)) {
-	Eterm hdr;
-	
-	ptr = boxed_val(x);
-	hdr = *ptr;
-	if (hdr != OUR_NIL) {	/* If not visited */
-	    erts_print(to, to_arg, ADDR_FMT ":", ptr);
-	    if (is_arity_value(hdr)) {
-		Uint i;
-		Uint arity = arityval(hdr);
-
-		erts_print(to, to_arg, "t" WORD_FMT ":", arity);
-		for (i = 1; i <= arity; i++) {
-		    dump_element(to, to_arg, ptr[i]);
-		    if (is_immed(ptr[i])) {
-			ptr[i] = make_small(0);
-		    }
-		    if (i < arity) {
-			erts_putc(to, to_arg, ',');
-		    }
-		}
+    while (x != OUR_NIL) {
+	if (is_CP(x)) {
+	    next = (Eterm *) EXPAND_POINTER(x);
+	} else if (is_list(x)) {
+	    ptr = list_val(x);
+	    if (ptr[0] != OUR_NIL) {
+		erts_print(to, to_arg, ADDR_FMT ":l", ptr);
+		dump_element(to, to_arg, ptr[0]);
+		erts_putc(to, to_arg, '|');
+		dump_element(to, to_arg, ptr[1]);
 		erts_putc(to, to_arg, '\n');
-		if (arity == 0) {
-		    ptr[0] = OUR_NIL;
+		if (is_immed(ptr[1])) {
+		    ptr[1] = make_small(0);
+		}
+		x = ptr[0];
+		ptr[0] = (Eterm) COMPRESS_POINTER(next);
+		next = ptr + 1;
+		continue;
+	    }
+	} else if (is_boxed(x)) {
+	    Eterm hdr;
+
+	    ptr = boxed_val(x);
+	    hdr = *ptr;
+	    if (hdr != OUR_NIL) {	/* If not visited */
+		erts_print(to, to_arg, ADDR_FMT ":", ptr);
+	        if (is_arity_value(hdr)) {
+		    Uint i;
+		    Uint arity = arityval(hdr);
+
+		    erts_print(to, to_arg, "t" WORD_FMT ":", arity);
+		    for (i = 1; i <= arity; i++) {
+			dump_element(to, to_arg, ptr[i]);
+			if (is_immed(ptr[i])) {
+			    ptr[i] = make_small(0);
+			}
+			if (i < arity) {
+			    erts_putc(to, to_arg, ',');
+			}
+		    }
+		    erts_putc(to, to_arg, '\n');
+		    if (arity == 0) {
+			ptr[0] = OUR_NIL;
+		    } else {
+			x = ptr[arity];
+			ptr[0] = (Eterm) COMPRESS_POINTER(next);
+			next = ptr + arity - 1;
+			continue;
+		    }
+		} else if (hdr == HEADER_FLONUM) {
+		    FloatDef f;
+		    char sbuf[31];
+		    int i;
+
+		    GET_DOUBLE_DATA((ptr+1), f);
+		    i = sys_double_to_chars(f.fd, (char*) sbuf);
+		    sys_memset(sbuf+i, 0, 31-i);
+		    erts_print(to, to_arg, "F%X:%s\n", i, sbuf);
+		    *ptr = OUR_NIL;
+		} else if (_is_bignum_header(hdr)) {
+		    erts_print(to, to_arg, "B%T\n", x);
+		    *ptr = OUR_NIL;
+		} else if (is_binary_header(hdr)) {
+		    Uint tag = thing_subtag(hdr);
+		    Uint size = binary_size(x);
+		    Uint i;
+
+		    if (tag == HEAP_BINARY_SUBTAG) {
+			byte* p;
+
+			erts_print(to, to_arg, "Yh%X:", size);
+			p = binary_bytes(x);
+			for (i = 0; i < size; i++) {
+			    erts_print(to, to_arg, "%02X", p[i]);
+			}
+		    } else if (tag == REFC_BINARY_SUBTAG) {
+			ProcBin* pb = (ProcBin *) binary_val(x);
+			Binary* val = pb->val;
+
+			if (erts_smp_atomic_xchg_nob(&val->refc, 0) != 0) {
+			    val->flags = (UWord) all_binaries;
+			    all_binaries = val;
+			}
+			erts_print(to, to_arg, "Yc%X:%X:%X", val,
+				   pb->bytes - (byte *)val->orig_bytes,
+				   size);
+		    } else if (tag == SUB_BINARY_SUBTAG) {
+			ErlSubBin* Sb = (ErlSubBin *) binary_val(x);
+			Eterm* real_bin = binary_val(Sb->orig);
+			void* val;
+
+			if (thing_subtag(*real_bin) == REFC_BINARY_SUBTAG) {
+			    ProcBin* pb = (ProcBin *) real_bin;
+			    val = pb->val;
+			} else {	/* Heap binary */
+			    val = real_bin;
+			}
+			erts_print(to, to_arg, "Ys%X:%X:%X", val, Sb->offs, size);
+		    }
+		    erts_putc(to, to_arg, '\n');
+		    *ptr = OUR_NIL;
+		} else if (is_external_pid_header(hdr)) {
+		    erts_print(to, to_arg, "P%T\n", x);
+		    *ptr = OUR_NIL;
+		} else if (is_external_port_header(hdr)) {
+		    erts_print(to, to_arg, "p<%beu.%beu>\n",
+			       port_channel_no(x), port_number(x));
+		    *ptr = OUR_NIL;
 		} else {
-		    x = ptr[arity];
-		    ptr[0] = (Eterm) next;
-		    next = ptr + arity - 1;
-		    goto again;
+		    /*
+		     * All other we dump in the external term format.
+		     */
+			dump_externally(to, to_arg, x);
+		    erts_putc(to, to_arg, '\n');
+		    *ptr = OUR_NIL;
 		}
-	    } else if (hdr == HEADER_FLONUM) {
-		FloatDef f;
-		char sbuf[31];
-		int i;
-
-		GET_DOUBLE_DATA((ptr+1), f);
-		i = sys_double_to_chars(f.fd, (char*) sbuf);
-		sys_memset(sbuf+i, 0, 31-i);
-		erts_print(to, to_arg, "F%X:%s\n", i, sbuf);
-		*ptr = OUR_NIL;
-	    } else if (_is_bignum_header(hdr)) {
-		erts_print(to, to_arg, "B%T\n", x);
-		*ptr = OUR_NIL;
-	    } else if (is_binary_header(hdr)) {
-		Uint tag = thing_subtag(hdr);
-		Uint size = binary_size(x);
-		Uint i;
-
-		if (tag == HEAP_BINARY_SUBTAG) {
-		    byte* p;
-
-		    erts_print(to, to_arg, "Yh%X:", size);
-		    p = binary_bytes(x);
-		    for (i = 0; i < size; i++) {
-			erts_print(to, to_arg, "%02X", p[i]);
-		    }
-		} else if (tag == REFC_BINARY_SUBTAG) {
-		    ProcBin* pb = (ProcBin *) binary_val(x);
-		    Binary* val = pb->val;
-
-		    if (erts_smp_atomic_xchg(&val->refc, 0) != 0) {
-			val->flags = (Uint) all_binaries;
-			all_binaries = val;
-		    }
-		    erts_print(to, to_arg, "Yc%X:%X:%X", val,
-			       pb->bytes - (byte *)val->orig_bytes,
-			       size);
-		} else if (tag == SUB_BINARY_SUBTAG) {
-		    ErlSubBin* Sb = (ErlSubBin *) binary_val(x);
-		    Eterm* real_bin = binary_val(Sb->orig);
-		    void* val;
-
-		    if (thing_subtag(*real_bin) == REFC_BINARY_SUBTAG) {
-			ProcBin* pb = (ProcBin *) real_bin;
-			val = pb->val;
-		    } else {	/* Heap binary */
-			val = real_bin;
-		    }
-		    erts_print(to, to_arg, "Ys%X:%X:%X", val, Sb->offs, size);
-		}
-		erts_putc(to, to_arg, '\n');
-		*ptr = OUR_NIL;
-	    } else if (is_external_pid_header(hdr)) {
-		erts_print(to, to_arg, "P%T\n", x);
-		*ptr = OUR_NIL;
-	    } else if (is_external_port_header(hdr)) {
-		erts_print(to, to_arg, "p<%bpu.%bpu>\n",
-			   port_channel_no(x), port_number(x));
-		*ptr = OUR_NIL;
-	    } else {
-		/*
-		 * All other we dump in the external term format.
-		 */
-		dump_externally(to, to_arg, x);
-		erts_putc(to, to_arg, '\n');
-		*ptr = OUR_NIL;
 	    }
 	}
+	x = *next;
+	*next = OUR_NIL;
+	next--;
     }
-
-    x = *next;
-    *next = OUR_NIL;
-    next--;
-    goto again;
+    UnUseTmpHeapNoproc(1);
 }
 
 static void

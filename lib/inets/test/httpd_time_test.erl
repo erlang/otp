@@ -1,25 +1,25 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
 -module(httpd_time_test).
 
--export([t/3, t1/2, t2/2]).
+-export([t/3, t1/2, t2/2, t4/2]).
 
 -export([do/1, do/2, do/3, do/4, do/5]).
 
@@ -28,6 +28,9 @@
 -include("inets_test_lib.hrl").
 
 -record(stat, {pid, time = undefined, count = undefined, res}).
+
+%% -define(NUM_POLLERS, 10).
+-define(NUM_POLLERS, 1).
 
 
 %%% -----------------------------------------------------------------
@@ -42,9 +45,13 @@ t2(Host, Port) ->
     t(ssl, Host, Port).
 
 
+t4(Host, Port) ->
+    t(essl, Host, Port).
+
+
 t(SocketType, Host, Port) ->
     %% put(dbg,true),
-    main(1, SocketType, Host, Port, 60000).
+    main(?NUM_POLLERS, SocketType, Host, Port, 60000).
 	    
 
 
@@ -111,28 +118,40 @@ loop(Pollers, Timeout) ->
       "~n   Timeout: ~p", [Timeout]),
     Start = t(), 
     receive 
-	{'EXIT', Pid, {poller_stat_failure, Time, Reason}} ->
+	{'EXIT', Pid, {poller_stat_failure, SocketType, Host, Port, Time, Reason}} ->
 	    case is_poller(Pid, Pollers) of
 		true ->
 		    error_msg("received unexpected exit from poller ~p~n"
 			      "befor completion of test "
-			      "(after ~p micro sec):~n"
-			      "~p~n", [Pid,Time,Reason]),
-		    exit({fail, {poller_exit, Pid, Reason}});
+			      "after ~p micro sec"
+			      "~n   SocketType: ~p"
+			      "~n   Host:       ~p"
+			      "~n   Port:       ~p"
+			      "~n~p~n", 
+			      [Pid, SocketType, Host, Port, Time, Reason]),
+		    exit({fail, {poller_exit, Pid, Time, Reason}});
 		false ->
 		    error_msg("received unexpected ~p from ~p"
 			      "befor completion of test", [Reason, Pid]),
 		    loop(Pollers, to(Timeout, Start))
 	    end;
 
-	{poller_stat_failure, Pid, {Time, Reason}} ->
+	{poller_stat_failure, Pid, {SocketType, Host, Port, Time, Reason}} ->
 	    error_msg("received stat failure ~p from poller ~p after ~p "
-		      "befor completion of test", [Reason, Pid, Time]),
-	    exit({fail, {poller_failure, Pid, Reason}});
+		      "befor completion of test" 
+		      "~n   SocketType: ~p"
+		      "~n   Host:       ~p"
+		      "~n   Port:       ~p", 
+		      [Reason, Pid, Time, SocketType, Host, Port]),
+	    exit({fail, {poller_failure, Pid, Time, Reason}});
 
-	{poller_stat_failure, Pid, Reason} ->
+	{poller_stat_failure, Pid, SocketType, Host, Port, Reason} ->
 	    error_msg("received stat failure ~p from poller ~p "
-		      "befor completion of test", [Reason, Pid]),
+		      "befor completion of test" 
+		      "~n   SocketType: ~p"
+		      "~n   Host:       ~p"
+		      "~n   Port:       ~p", 
+		      [Reason, Pid, SocketType, Host, Port]),
 	    exit({fail, {poller_failure, Pid, Reason}});
 
 	Any ->
@@ -250,16 +269,16 @@ is_poller(Pid, [_|Rest]) ->
 
 poller_main(Parent, SocketType, Host, Port) ->
     process_flag(trap_exit,true),
-    put(sname,poller),
+    put(sname, poller),
     case timer:tc(?MODULE, poller_loop, [SocketType, Host, Port, uris()]) of
 	{Time, Count} when is_integer(Time) andalso is_integer(Count) ->
 	    Parent ! {poller_statistics, self(), {Time, Count}};
 	{Time, {'EXIT', Reason}} when is_integer(Time) ->
-	    exit({poller_stat_failure, Time, Reason});
+	    exit({poller_stat_failure, SocketType, Host, Port, Time, Reason});
 	{Time, Other} when is_integer(Time) ->
-	    Parent ! {poller_stat_failure, self(), {Time, Other}};
+	    Parent ! {poller_stat_failure, self(), {SocketType, Host, Port, Time, Other}};
 	Else ->
-	    Parent ! {poller_stat_failure, self(), Else}
+	    Parent ! {poller_stat_failure, self(), SocketType, Host, Port, Else}
     end.
 
 	    

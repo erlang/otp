@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2007-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2007-2011. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -23,6 +23,10 @@
 
 #include "global.h"
 #include <string.h>
+
+#if defined(__APPLE__) && defined(__MACH__) && !defined(__DARWIN__)
+#define __DARWIN__ 1
+#endif
 
 #define ERL_DRV_THR_OPTS_SIZE(LAST_FIELD) \
   (((size_t) &((ErlDrvThreadOpts *) 0)->LAST_FIELD) \
@@ -154,7 +158,9 @@ erl_drv_mutex_create(char *name)
 				       (sizeof(ErlDrvMutex)
 					+ (name ? sys_strlen(name) + 1 : 0)));
     if (dmtx) {
-	if (ethr_mutex_init(&dmtx->mtx) != 0) {
+	ethr_mutex_opt opt = ETHR_MUTEX_OPT_DEFAULT_INITER;
+	opt.posix_compliant = 1;
+	if (ethr_mutex_init_opt(&dmtx->mtx, &opt) != 0) {
 	    erts_free(ERTS_ALC_T_DRV_MTX, (void *) dmtx);
 	    dmtx = NULL;
 	}
@@ -186,10 +192,9 @@ int
 erl_drv_mutex_trylock(ErlDrvMutex *dmtx)
 {
 #ifdef USE_THREADS
-    int res = dmtx ? ethr_mutex_trylock(&dmtx->mtx) : EINVAL;
-    if (res != 0 && res != EBUSY)
-	fatal_error(res, "erl_drv_mutex_trylock()");
-    return res;
+    if (!dmtx)
+	fatal_error(EINVAL, "erl_drv_mutex_trylock()");
+    return ethr_mutex_trylock(&dmtx->mtx);
 #else
     return 0;
 #endif
@@ -199,9 +204,9 @@ void
 erl_drv_mutex_lock(ErlDrvMutex *dmtx)
 {
 #ifdef USE_THREADS
-    int res = dmtx ? ethr_mutex_lock(&dmtx->mtx) : EINVAL;
-    if (res != 0)
-	fatal_error(res, "erl_drv_mutex_lock()");
+    if (!dmtx)
+	fatal_error(EINVAL, "erl_drv_mutex_lock()");
+    ethr_mutex_lock(&dmtx->mtx);
 #endif
 }
 
@@ -209,9 +214,9 @@ void
 erl_drv_mutex_unlock(ErlDrvMutex *dmtx)
 {
 #ifdef USE_THREADS
-    int res = dmtx ? ethr_mutex_unlock(&dmtx->mtx) : EINVAL;
-    if (res != 0)
-	fatal_error(res, "erl_drv_mutex_unlock()");
+    if (!dmtx)
+	fatal_error(EINVAL, "erl_drv_mutex_unlock()");
+    ethr_mutex_unlock(&dmtx->mtx);
 #endif
 }
 
@@ -223,7 +228,9 @@ erl_drv_cond_create(char *name)
 				      (sizeof(ErlDrvCond)
 				       + (name ? sys_strlen(name) + 1 : 0)));
     if (dcnd) {
-	if (ethr_cond_init(&dcnd->cnd) != 0) {
+	ethr_cond_opt opt = ETHR_COND_OPT_DEFAULT_INITER;
+	opt.posix_compliant = 1;
+	if (ethr_cond_init_opt(&dcnd->cnd, &opt) != 0) {
 	    erts_free(ERTS_ALC_T_DRV_CND, (void *) dcnd);
 	    dcnd = NULL;
 	}
@@ -256,9 +263,9 @@ void
 erl_drv_cond_signal(ErlDrvCond *dcnd)
 {
 #ifdef USE_THREADS
-    int res = dcnd ? ethr_cond_signal(&dcnd->cnd) : EINVAL;
-    if (res != 0)
-	fatal_error(res, "erl_drv_cond_signal()");
+    if (!dcnd)
+	fatal_error(EINVAL, "erl_drv_cond_signal()");
+    ethr_cond_signal(&dcnd->cnd);
 #endif
 }
 
@@ -266,9 +273,9 @@ void
 erl_drv_cond_broadcast(ErlDrvCond *dcnd)
 {
 #ifdef USE_THREADS
-    int res = dcnd ? ethr_cond_broadcast(&dcnd->cnd) : EINVAL;
-    if (res != 0)
-	fatal_error(res, "erl_drv_cond_broadcast()");
+    if (!dcnd)
+	fatal_error(EINVAL, "erl_drv_cond_broadcast()");
+    ethr_cond_broadcast(&dcnd->cnd);
 #endif
 }
 
@@ -277,18 +284,13 @@ void
 erl_drv_cond_wait(ErlDrvCond *dcnd, ErlDrvMutex *dmtx)
 {
 #ifdef USE_THREADS
-    int res;
     if (!dcnd || !dmtx) {
-	res = EINVAL;
-    error:
-	fatal_error(res, "erl_drv_cond_wait()");
+	fatal_error(EINVAL, "erl_drv_cond_wait()");
     }
     while (1) {
-	res = ethr_cond_wait(&dcnd->cnd, &dmtx->mtx);
+	int res = ethr_cond_wait(&dcnd->cnd, &dmtx->mtx);
 	if (res == 0)
 	    break;
-	if (res != EINTR)
-	    goto error;
     }
 #endif
 }
@@ -333,10 +335,9 @@ int
 erl_drv_rwlock_tryrlock(ErlDrvRWLock *drwlck)
 {
 #ifdef USE_THREADS
-    int res = drwlck ? ethr_rwmutex_tryrlock(&drwlck->rwmtx) : EINVAL;
-    if (res != 0 && res != EBUSY)
-	fatal_error(res, "erl_drv_rwlock_tryrlock()");
-    return res;
+    if (!drwlck)
+	fatal_error(EINVAL, "erl_drv_rwlock_tryrlock()");
+    return ethr_rwmutex_tryrlock(&drwlck->rwmtx);
 #else
     return 0;
 #endif
@@ -346,9 +347,9 @@ void
 erl_drv_rwlock_rlock(ErlDrvRWLock *drwlck)
 {
 #ifdef USE_THREADS
-    int res = drwlck ? ethr_rwmutex_rlock(&drwlck->rwmtx) : EINVAL;
-    if (res != 0)
-	fatal_error(res, "erl_drv_rwlock_rlock()");
+    if (!drwlck)
+	fatal_error(EINVAL, "erl_drv_rwlock_rlock()");
+    ethr_rwmutex_rlock(&drwlck->rwmtx);
 #endif
 }
 
@@ -356,9 +357,9 @@ void
 erl_drv_rwlock_runlock(ErlDrvRWLock *drwlck)
 {
 #ifdef USE_THREADS
-    int res = drwlck ? ethr_rwmutex_runlock(&drwlck->rwmtx) : EINVAL;
-    if (res != 0)
-	fatal_error(res, "erl_drv_rwlock_runlock()");
+    if (!drwlck)
+	fatal_error(EINVAL, "erl_drv_rwlock_runlock()");
+    ethr_rwmutex_runlock(&drwlck->rwmtx);
 #endif
 }
 
@@ -366,10 +367,9 @@ int
 erl_drv_rwlock_tryrwlock(ErlDrvRWLock *drwlck)
 {
 #ifdef USE_THREADS
-    int res = drwlck ? ethr_rwmutex_tryrwlock(&drwlck->rwmtx) : EINVAL;
-    if (res != 0 && res != EBUSY)
-	fatal_error(res, "erl_drv_rwlock_tryrwlock()");
-    return res;
+    if (!drwlck)
+	fatal_error(EINVAL, "erl_drv_rwlock_tryrwlock()");
+    return ethr_rwmutex_tryrwlock(&drwlck->rwmtx);
 #else
     return 0;
 #endif
@@ -379,9 +379,9 @@ void
 erl_drv_rwlock_rwlock(ErlDrvRWLock *drwlck)
 {
 #ifdef USE_THREADS
-    int res = drwlck ? ethr_rwmutex_rwlock(&drwlck->rwmtx) : EINVAL;
-    if (res != 0)
-	fatal_error(res, "erl_drv_rwlock_rwlock()");
+    if (!drwlck)
+	fatal_error(EINVAL, "erl_drv_rwlock_rwlock()");
+    ethr_rwmutex_rwlock(&drwlck->rwmtx);
 #endif
 }
 
@@ -389,9 +389,9 @@ void
 erl_drv_rwlock_rwunlock(ErlDrvRWLock *drwlck)
 {
 #ifdef USE_THREADS
-    int res = drwlck ? ethr_rwmutex_rwunlock(&drwlck->rwmtx) : EINVAL;
-    if (res != 0)
-	fatal_error(res, "erl_drv_rwlock_rwunlock()");
+    if (!drwlck)
+	fatal_error(EINVAL, "erl_drv_rwlock_rwunlock()");
+    ethr_rwmutex_rwunlock(&drwlck->rwmtx);
 #endif
 }
 
@@ -536,7 +536,7 @@ erl_drv_tsd_get(ErlDrvTSDKey key)
     if (!dtid)
 	return NULL;
 #endif
-    if (ERL_DRV_TSD_LEN__ < key)
+    if (ERL_DRV_TSD_LEN__ <= key)
 	return NULL;
     return ERL_DRV_TSD__[key];
 }
@@ -603,11 +603,7 @@ erl_drv_thread_create(char *name,
 	dtid->name = ((char *) dtid) + sizeof(struct ErlDrvTid_);
 	sys_strcpy(dtid->name, name);
     }
-#ifdef ERTS_ENABLE_LOCK_COUNT
-    res = erts_lcnt_thr_create(&dtid->tid, erl_drv_thread_wrapper, dtid, use_opts);
-#else
     res = ethr_thr_create(&dtid->tid, erl_drv_thread_wrapper, dtid, use_opts);
-#endif
 
     if (res != 0) {
 	erts_free(ERTS_ALC_T_DRV_TID, dtid);
@@ -704,3 +700,64 @@ erl_drv_thread_join(ErlDrvTid tid, void **respp)
 #endif
 }
 
+#if defined(__DARWIN__) && defined(USE_THREADS) && defined(ERTS_SMP)
+extern int erts_darwin_main_thread_pipe[2];
+extern int erts_darwin_main_thread_result_pipe[2];
+
+int erl_drv_stolen_main_thread_join(ErlDrvTid tid, void **respp);
+int erl_drv_steal_main_thread(char *name,
+			      ErlDrvTid *dtid,
+			      void* (*func)(void*),
+			      void* arg,
+			      ErlDrvThreadOpts *opts);
+
+
+int
+erl_drv_stolen_main_thread_join(ErlDrvTid tid, void **respp)
+{
+    void *dummy;
+    void **x;
+    if (respp == NULL)
+	x = &dummy;
+    else
+	x = respp;
+    read(erts_darwin_main_thread_result_pipe[0],x,sizeof(void *));
+    return 0;
+}
+
+int
+erl_drv_steal_main_thread(char *name,
+			  ErlDrvTid *tid,
+			  void* (*func)(void*),
+			  void* arg,
+			  ErlDrvThreadOpts *opts)
+{
+    char buff[sizeof(void* (*)(void*)) + sizeof(void *)];
+    int buff_sz = sizeof(void* (*)(void*)) + sizeof(void *);
+    /*struct ErlDrvTid_ *dtid;
+
+    dtid = erts_alloc_fnf(ERTS_ALC_T_DRV_TID,
+			  (sizeof(struct ErlDrvTid_)
+			   + (name ? sys_strlen(name) + 1 : 0)));
+    if (!dtid)
+	return ENOMEM;
+    memset(dtid,0,sizeof(ErlDrvTid_));
+    dtid->tid = (void * ) -1;
+    dtid->drv_thr = 1;
+    dtid->func = func;
+    dtid->arg = arg;
+    dtid->tsd = NULL;
+    dtid->tsd_len = 0;
+    dtid->name = no_name;
+    *tid = (ErlDrvTid) dtid;
+    */
+    *tid = NULL;
+    /* Ignore options and name... */
+    
+    memcpy(buff,&func,sizeof(void* (*)(void*)));
+    memcpy(buff + sizeof(void* (*)(void*)),&arg,sizeof(void *));
+    write(erts_darwin_main_thread_pipe[1],buff,buff_sz);
+    return 0;
+}
+
+#endif

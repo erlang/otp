@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
@@ -46,43 +46,78 @@ gen_encode_constructed(Erule,Typename,D) when is_record(D,type) ->
     asn1ct_name:start(),
     asn1ct_name:new(term),
     asn1ct_name:new(bytes),
-    {CompList,TableConsInfo} = 
+    {ExtAddGroup,TmpCompList,TableConsInfo} =
 	case D#type.def of
-	    #'SEQUENCE'{tablecinf=TCI,components=CL} ->
-		{CL,TCI};
+	    #'SEQUENCE'{tablecinf=TCI,components=CL,extaddgroup=ExtAddGroup0} ->
+		{ExtAddGroup0,CL,TCI};
 	    #'SET'{tablecinf=TCI,components=CL} ->
-		{CL,TCI}
+		{undefined,CL,TCI}
 	end,
+
+    CompList = case ExtAddGroup of
+		   undefined ->
+		       TmpCompList;
+		   _ when is_integer(ExtAddGroup) ->
+		       %% This is a fake SEQUENCE representing an ExtensionAdditionGroup
+		       %% Reset the textual order so we get the right
+		       %% index of the components
+		       [Comp#'ComponentType'{textual_order=undefined}||
+			   Comp<-TmpCompList]
+	       end,
     case Typename of
 	['EXTERNAL'] ->
-	    emit({{var,asn1ct_name:next(val)},
+	    emit({{next,val},
 		  " = asn1rt_check:transform_to_EXTERNAL1990(",
-		  {var,asn1ct_name:curr(val)},"),",nl}),
+		  {curr,val},"),",nl}),
 	    asn1ct_name:new(val);
 	_ ->
 	    ok
     end,
-    case {Optionals = optionals(to_textual_order(CompList)),CompList} of
-	{[],EmptyCL} when EmptyCL == {[],[],[]};EmptyCL == {[],[]};EmptyCL == [] -> 
+    case {Optionals = optionals(to_textual_order(CompList)),CompList,
+	  is_optimized(Erule)} of
+	{[],EmptyCL,_} when EmptyCL == {[],[],[]};EmptyCL == {[],[]};EmptyCL == [] -> 
 	    emit(["%%Variable setting just to eliminate ",
 		  "compiler warning for unused vars!",nl,
-		  "_Val = ",{var,asn1ct_name:curr(val)},",",nl]);
-	{[],_} ->
-	    emit([{var,asn1ct_name:next(val)}," = ?RT_PER:list_to_record("]),
+		  "_Val = ",{curr,val},",",nl]);
+	{[],_,_} ->
+	    emit([{next,val}," = ?RT_PER:list_to_record("]),
 	    emit(["'",asn1ct_gen:list2rname(Typename),"'"]),
-	    emit([", ",{var,asn1ct_name:curr(val)},"),",nl]);
-	_ ->
+	    emit([", ",{curr,val},"),",nl]);
+	{_,_,true} ->
+	    gen_fixoptionals(Optionals),
+	    FixOpts = param_map(fun(Var) ->
+					{var,Var}
+				end,asn1ct_name:all(fixopt)),
+	    emit({"{",{next,val},",Opt} = {",{curr,val},",[",FixOpts,"]},",nl});
+	{_,_,false} ->
 	    Fixoptcall = ",Opt} = ?RT_PER:fixoptionals(",
-	    emit({"{",{var,asn1ct_name:next(val)},Fixoptcall,
+	    emit({"{",{next,val},Fixoptcall,
 		  {asis,Optionals},",",length(Optionals),
-		  ",",{var,asn1ct_name:curr(val)},"),",nl})
+		  ",",{curr,val},"),",nl})
     end,
     asn1ct_name:new(val),
-    Ext = extensible(CompList),
+    Ext = extensible_enc(CompList),
     case Ext of
 	{ext,_,NumExt} when NumExt > 0 ->
-	    emit(["Extensions = ?RT_PER:fixextensions(",{asis,Ext},
-		  ", ",{curr,val},"),",nl]);
+	    case extgroup_pos_and_length(CompList) of
+		{extgrouppos,ExtGroupPos,ExtGroupLen} ->
+		    Elements = make_elements(ExtGroupPos+1,
+					     "Val1",lists:seq(1,ExtGroupLen)),
+		    emit([
+			  {next,val}," = case [X || X <- [",Elements,
+			  "],X =/= asn1_NOVALUE] of",nl,
+			  "[] -> ",{curr,val},";",nl,
+			  "_ -> setelement(",{asis,ExtGroupPos+1},",",
+			  {curr,val},",",
+			  "{extaddgroup,", Elements,"})",nl,
+			  "end,",nl]),
+		    asn1ct_name:new(val);
+		_ -> % no extensionAdditionGroup
+		    ok
+	    end,
+	    asn1ct_name:new(tmpval),
+	    emit(["Extensions = ?RT_PER:fixextensions(",{asis,Ext},",",
+		  {curr,val},"),",nl]);
 	_ -> true
     end,
     EncObj =
@@ -188,9 +223,10 @@ gen_decode_constructed(Erules,Typename,D) when is_record(D,type) ->
 	    #'SEQUENCE'{tablecinf=TCI,components=CL} ->
 		{add_textual_order(CL),TCI};
 	    #'SET'{tablecinf=TCI,components=CL} ->
-		{add_textual_order(CL),TCI}
+%%		{add_textual_order(CL),TCI}
+		{CL,TCI} % the textual order is already taken care of
 	end,
-    Ext = extensible(CompList),
+    Ext = extensible_dec(CompList),
     MaybeComma1 = case Ext of
 		      {ext,_Pos,_NumExt} -> 
 			  gen_dec_extension_value("Bytes"),
@@ -226,7 +262,7 @@ gen_decode_constructed(Erules,Typename,D) when is_record(D,type) ->
 				_ -> false
 			    end
 		    end,
-		case lists:any(F,CompList) of
+		case lists:any(F,flat_complist(CompList)) of
 		    true -> % when component relation constraint establish
 			%% relation from a component to another components
 			%% subtype component
@@ -243,8 +279,9 @@ gen_decode_constructed(Erules,Typename,D) when is_record(D,type) ->
 			{false,false,false}
 		end
 	end,
+    NewCompList = wrap_compList(CompList),
     {AccTerm,AccBytes} =
-	gen_dec_components_call(Erules,Typename,CompList,MaybeComma2,DecObjInf,Ext,length(Optionals)),
+	gen_dec_components_call(Erules,Typename,NewCompList,MaybeComma2,DecObjInf,Ext,length(Optionals)),
     case asn1ct_name:all(term) of
 	[] -> emit(MaybeComma2); % no components at all
 	_ -> emit({com,nl})
@@ -284,30 +321,26 @@ gen_decode_constructed(Erules,Typename,D) when is_record(D,type) ->
 	    emit("   {ASN11994Format,");
 	_ ->
 	    emit(["{{'",RecordName,"'"]),
-	    mkvlist(textual_order(CompList,asn1ct_name:all(term))),
+	    %% CompList is used here because we don't want
+	    %% ExtensionAdditionGroups to be wrapped in SEQUENCES when
+	    %% we are ordering the fields according to textual order
+	    mkvlist(textual_order(to_encoding_order(CompList),asn1ct_name:all(term))),
 	    emit("},")
     end,
-    emit({{var,asn1ct_name:curr(bytes)},"}"}),
+    emit({{curr,bytes},"}"}),
     emit({".",nl,nl}).
 
 textual_order([#'ComponentType'{textual_order=undefined}|_],TermList) ->
     TermList;
 textual_order(CompList,TermList) when is_list(CompList) ->
-    TermTuple = list_to_tuple(TermList), %% ['Term1','Term2',...'TermN']
-    %% OrderList is ordered by canonical order of tags
-    TmpTuple = TermTuple,
-    OrderList = [Ix||#'ComponentType'{textual_order=Ix} <- CompList], 
-    Fun = fun(X,{Tpl,Ix}) ->
-		  
-		  {setelement(X,Tpl,element(Ix,TermTuple)),Ix+1}
-	  end,
-    {Ret,_} = lists:foldl(Fun,{TmpTuple,1},OrderList),
-%%    io:format("TermTuple: ~p~nOrderList: ~p~nRet: ~p~n",[TermTuple,OrderList,tuple_to_list(Ret)]),
-    tuple_to_list(Ret);
+    OrderList = [Ix||#'ComponentType'{textual_order=Ix} <- CompList],
+    [Term||{_,Term}<-
+	       lists:sort(lists:zip(OrderList,
+				    lists:sublist(TermList,length(OrderList))))];
+	       %% sublist is just because Termlist can sometimes be longer than
+	       %% OrderList, which it really shouldn't
 textual_order({Root,Ext},TermList) ->
-    textual_order(Root ++ Ext,TermList);
-textual_order({Root1,Ext,Root2},TermList) ->
-    textual_order(Root1 ++ Ext ++ Root2, TermList).
+    textual_order(Root ++ Ext,TermList).
 
 to_textual_order({Root,Ext}) ->
     {to_textual_order(Root),Ext};
@@ -379,7 +412,7 @@ emit_opt_or_mand_check(Val,Term) ->
 gen_encode_choice(Erule,Typename,D) when is_record(D,type) ->
     {'CHOICE',CompList} = D#type.def,
     emit({"[",nl}),
-    Ext = extensible(CompList),
+    Ext = extensible_enc(CompList),
     gen_enc_choice(Erule,Typename,CompList,Ext),
     emit({nl,"].",nl}).
 
@@ -388,7 +421,7 @@ gen_decode_choice(Erules,Typename,D) when is_record(D,type) ->
     asn1ct_name:clear(),
     asn1ct_name:new(bytes),
     {'CHOICE',CompList} = D#type.def,
-    Ext = extensible(CompList),
+    Ext = extensible_enc(CompList),
     gen_dec_choice(Erules,Typename,CompList,Ext),
     emit({".",nl}).
 
@@ -413,9 +446,7 @@ gen_encode_sof(Erule,Typename,SeqOrSetOf,D) when is_record(D,type) ->
 	    _->
 		""
 	end,
-    emit({nl,indent(3),"?RT_PER:encode_length(",
-	  {asis,SizeConstraint},
-	  ",length(Val)),",nl}),
+    gen_encode_length(SizeConstraint, is_optimized(Erule)),
     emit({indent(3),"'enc_",asn1ct_gen:list2name(Typename),
 	      "_components'(Val",ObjFun,", [])"}),
     emit({nl,"].",nl}),
@@ -426,6 +457,42 @@ gen_encode_sof(Erule,Typename,SeqOrSetOf,D) when is_record(D,type) ->
 	    _ -> ComponentType
 	end,
     gen_encode_sof_components(Erule,Typename,SeqOrSetOf,NewComponentType).
+
+
+%% Logic copied from asn1_per_bin_rt2ct:encode_constrained_number
+gen_encode_length({Lb,Ub},true) when Ub =< 65535, Lb >= 0 ->
+    Range = Ub - Lb + 1,
+    V2 = ["(length(Val) - ",Lb,")"],
+    Encode = if
+		 Range  == 1 ->
+		     "[]";
+		 Range  == 2 ->
+		     {"[",V2,"]"};
+		 Range  =< 4 ->
+		     {"[10,2,",V2,"]"};
+		 Range  =< 8 ->
+		     {"[10,3,",V2,"]"};
+		 Range  =< 16 ->
+		     {"[10,4,",V2,"]"};
+		 Range  =< 32 ->
+		     {"[10,5,",V2,"]"};
+		 Range  =< 64 ->
+		     {"[10,6,",V2,"]"};
+		 Range  =< 128 ->
+		     {"[10,7,",V2,"]"};
+		 Range  =< 255 ->
+		     {"[10,8,",V2,"]"};
+		 Range  =< 256 ->
+		     {"[20,1,",V2,"]"};
+		 Range  =< 65536 ->
+		     {"[20,2,<<",V2,":16>>]"};
+		 true ->
+		     {"?RT_PER:encode_length(",{asis,{Lb,Ub}},",length(Val))"}
+	     end,
+    emit({nl,Encode,",",nl});
+gen_encode_length(SizeConstraint,_) ->
+    emit({nl,indent(3),"?RT_PER:encode_length(",
+	  {asis,SizeConstraint},",length(Val)),",nl}).
 
 gen_decode_sof(Erules,Typename,SeqOrSetOf,D) when is_record(D,type) ->
     asn1ct_name:start(),
@@ -443,7 +510,8 @@ gen_decode_sof(Erules,Typename,SeqOrSetOf,D) when is_record(D,type) ->
 	    _ ->
 		""
 	end,
-    emit({nl,"{Num,Bytes1} = ?RT_PER:decode_length(Bytes,",{asis,SizeConstraint},"),",nl}),
+    gen_decode_length(SizeConstraint,
+		      is_optimized(Erules)),
     emit({"'dec_",asn1ct_gen:list2name(Typename),
 	      "_components'(Num, Bytes1, telltype",ObjFun,", []).",nl}),
     NewComponentType =
@@ -453,6 +521,41 @@ gen_decode_sof(Erules,Typename,SeqOrSetOf,D) when is_record(D,type) ->
 	    _ -> ComponentType
 	end,
     gen_decode_sof_components(Erules,Typename,SeqOrSetOf,NewComponentType).
+
+%% Logic copied from asn1_per_bin_rt2ct:decode_constrained_number
+gen_decode_length({Lb,Ub},true) when Ub =< 65535, Lb >= 0 ->
+    Range = Ub - Lb + 1,
+    Call = if
+	       Range  == 1 ->
+		   "{0,Bytes}";
+	       Range  == 2 ->
+		   "?RT_PER:getbits(Bytes,1)";
+	       Range  =< 4 ->
+		   "?RT_PER:getbits(Bytes,2)";
+	       Range  =< 8 ->
+		   "?RT_PER:getbits(Bytes,3)";
+	       Range  =< 16 ->
+		   "?RT_PER:getbits(Bytes,4)";
+	       Range  =< 32 ->
+		   "?RT_PER:getbits(Bytes,5)";
+	       Range  =< 64 ->
+		   "?RT_PER:getbits(Bytes,6)";
+	       Range  =< 128 ->
+		   "?RT_PER:getbits(Bytes,7)";
+	       Range  =< 255 ->
+		   "?RT_PER:getbits(Bytes,8)";
+	       Range  =< 256 ->
+		   "?RT_PER:getoctets(Bytes,1)";
+	       Range  =< 65536 ->
+		   "?RT_PER:getoctets(Bytes,2)";
+	       true ->
+		   ["exit({not_supported,{integer_range,",Range,"}}"]
+	   end,
+    emit({nl,"{Val,Remain} = ",Call,",",nl}),
+    emit({nl,"{Num,Bytes1} = {Val+",Lb,",Remain},",nl});
+gen_decode_length(SizeConstraint,_) ->
+    emit({nl,"{Num,Bytes1} = ?RT_PER:decode_length(Bytes,",
+	  {asis,SizeConstraint},"),",nl}).
 
 gen_encode_sof_components(Erule,Typename,SeqOrSetOf,Cont) ->
     {ObjFun,ObjFun_Var} =
@@ -558,23 +661,89 @@ mkvlist2([H|T]) ->
 mkvlist2([]) ->
     true.
 
-extensible(CompList) when is_list(CompList) ->
+
+extensible_dec(CompList) when is_list(CompList) ->
     noext;
-extensible({RootList,ExtList}) ->
-    {ext,length(RootList)+1,length(ExtList)};
-extensible({Rl1,Ext,_Rl2}) ->
-     {ext,length(Rl1)+1,length(Ext)}.
+extensible_dec({RootList,ExtList}) ->
+    {ext,length(RootList)+1,ext_length(ExtList)};
+extensible_dec({Rl1,Ext,Rl2}) ->
+     {ext,length(Rl1)+length(Rl2)+1,ext_length(Ext)}.
+
+extensible_enc(CompList) when is_list(CompList) ->
+    noext;
+extensible_enc({RootList,ExtList}) ->
+    {ext,length(RootList)+1,ext_length(ExtList)};
+extensible_enc({Rl1,Ext,_Rl2}) ->
+     {ext,length(Rl1)+1,ext_length(Ext)}.
+
+ext_length(ExtList) -> ext_length(ExtList,normal,0).
+ext_length([{'ExtensionAdditionGroup',_Num}|T],_,Acc)->
+    ext_length(T,group,Acc);
+ext_length(['ExtensionAdditionGroupEnd'|T],group,Acc) ->
+    ext_length(T,normal,Acc+1);
+ext_length([#'ComponentType'{}|T],State=group,Acc) ->
+    ext_length(T,State,Acc);
+ext_length([#'ComponentType'{}|T],State=normal,Acc) ->
+    ext_length(T,State,Acc+1);
+ext_length([],_,Acc) ->
+    Acc.
+
+extgroup_pos_and_length(CompList) when is_list(CompList) ->
+    noextgroup;
+extgroup_pos_and_length({RootList,ExtList}) ->
+    extgrouppos(ExtList,length(RootList)+1);
+extgroup_pos_and_length({Rl1,Ext,_Rl2}) ->
+    extgrouppos(Ext,length(Rl1)+1).
+
+extgrouppos([{'ExtensionAdditionGroup',_Num}|T],Pos) ->
+    extgrouppos(T,Pos,0);
+extgrouppos([_|T],Pos) ->
+    extgrouppos(T,Pos+1);
+extgrouppos([],_) ->
+    noextgroup.
+
+extgrouppos(['ExtensionAdditionGroupEnd'|_T],Pos,Len) ->
+    {extgrouppos,Pos,Len};
+extgrouppos([_|T],Pos,Len) ->
+    extgrouppos(T,Pos,Len+1).
+    
+
 
 gen_dec_extension_value(_) ->
     emit({"{Ext,",{next,bytes},"} = ?RT_PER:getext(",{curr,bytes},")"}),
     asn1ct_name:new(bytes).
+
+gen_fixoptionals([{Pos,Def}|R]) ->
+    asn1ct_name:new(fixopt),
+    emit({{curr,fixopt}," = case element(",{asis,Pos},",",{curr,val},") of",nl,
+	  "asn1_DEFAULT -> 0;",nl,
+	  {asis,Def}," -> 0;",nl,
+	  "_ -> 1",nl,
+	  "end,",nl}),
+    gen_fixoptionals(R);
+gen_fixoptionals([Pos|R]) ->
+    gen_fixoptionals([{Pos,asn1_NOVALUE}|R]);
+gen_fixoptionals([]) ->
+    ok.
+
+    
+param_map(Fun, [H]) ->
+    [Fun(H)];
+param_map(Fun, [H|T]) ->
+    [Fun(H),","|param_map(Fun,T)].
+
+    
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Produce a list with positions (in the Value record) where
 %% there are optional components, start with 2 because first element
 %% is the record name
 
-optionals({L1,_Ext,L2}) -> optionals(L1++L2,[],2); 
+optionals({L1,Ext,L2}) ->
+    Opt1 = optionals(L1,[],2),
+    ExtComps = length([C||C = #'ComponentType'{}<-Ext]),
+    Opt2 = optionals(L2,[],2+length(L1)+ExtComps),
+    Opt1 ++ Opt2;
 optionals({L,_Ext}) -> optionals(L,[],2); 
 optionals(L) -> optionals(L,[],2).
 
@@ -617,6 +786,13 @@ get_optionality_pos(TextPos,OptTable) ->
 	    no_num
     end.
 
+to_encoding_order(Cs) when is_list(Cs) ->
+    Cs;
+to_encoding_order(Cs = {_Root,_Ext}) ->
+    Cs;
+to_encoding_order({R1,Ext,R2}) ->
+    {R1++R2,Ext}.
+
 add_textual_order(Cs) when is_list(Cs) ->
     {NewCs,_} = add_textual_order1(Cs,1),
     NewCs;
@@ -629,26 +805,20 @@ add_textual_order({R1,Ext,R2}) ->
     {NewExt,Num2} = add_textual_order1(Ext,Num1),
     {NewR2,_} = add_textual_order1(R2,Num2),
     {NewR1,NewExt,NewR2}.
-add_textual_order1(Cs=[#'ComponentType'{textual_order=Int}|_],I)
-  when is_integer(Int) ->
-    {Cs,I};
+%%add_textual_order1(Cs=[#'ComponentType'{textual_order=Int}|_],I)
+%%  when is_integer(Int) ->
+%%    {Cs,I};
 add_textual_order1(Cs,NumIn) ->
-    lists:mapfoldl(fun(C,Num) ->
+    lists:mapfoldl(fun(C=#'ComponentType'{},Num) ->
 			   {C#'ComponentType'{textual_order=Num},
-			    Num+1}
+			    Num+1};
+		      (OtherMarker,Num) ->
+			   {OtherMarker,Num}
 		   end,
 		   NumIn,Cs).
 
 gen_enc_components_call(Erule,TopType,{Root1,ExtList,Root2},MaybeComma,DynamicEnc,Ext) ->
-    Rpos = gen_enc_components_call1(Erule,TopType,Root1,1,MaybeComma,DynamicEnc,noext),
-    case Ext of
-	{ext,_,ExtNum} when ExtNum > 0 ->
-	    emit([nl,
-		  ",Extensions",nl]);
-	_ -> true
-    end,
-    Rpos2 = gen_enc_components_call1(Erule,TopType,ExtList,Rpos,MaybeComma,DynamicEnc,Ext),
-    gen_enc_components_call1(Erule,TopType,Root2,Rpos2,MaybeComma,DynamicEnc,noext);
+    gen_enc_components_call(Erule,TopType,{Root1++Root2,ExtList},MaybeComma,DynamicEnc,Ext);
 gen_enc_components_call(Erule,TopType,{CompList,ExtList},MaybeComma,DynamicEnc,Ext) ->
     %% The type has extensionmarker
     Rpos = gen_enc_components_call1(Erule,TopType,CompList,1,MaybeComma,DynamicEnc,noext),
@@ -659,7 +829,8 @@ gen_enc_components_call(Erule,TopType,{CompList,ExtList},MaybeComma,DynamicEnc,E
 	_ -> true
     end,
     %handle extensions
-    gen_enc_components_call1(Erule,TopType,ExtList,Rpos,MaybeComma,DynamicEnc,Ext);
+    NewExtList = wrap_extensionAdditionGroups(ExtList),
+    gen_enc_components_call1(Erule,TopType,NewExtList,Rpos,MaybeComma,DynamicEnc,Ext);
 gen_enc_components_call(Erule,TopType, CompList, MaybeComma, DynamicEnc, Ext) ->
     %% The type has no extensionmarker
     gen_enc_components_call1(Erule,TopType,CompList,1,MaybeComma,DynamicEnc,Ext).
@@ -706,7 +877,7 @@ gen_enc_components_call1(_Erule,_TopType,[],Pos,_,_,_) ->
 	Pos.
 
 gen_enc_component_default(Erule,TopType,Cname,Type,Pos,DynamicEnc,Ext,DefaultVal) ->
-    Element = make_element(Pos+1,"Val1",Cname),
+    Element = make_element(Pos+1,asn1ct_gen:mk_var(asn1ct_name:curr(val)),Cname),
     emit({"case ",Element," of",nl}),
 %    emit({"asn1_DEFAULT -> [];",nl}),
     emit({"DFLT when DFLT == asn1_DEFAULT; DFLT == ",{asis,DefaultVal}," -> [];",nl}),
@@ -719,8 +890,27 @@ gen_enc_component_default(Erule,TopType,Cname,Type,Pos,DynamicEnc,Ext,DefaultVal
     NextElement = asn1ct_gen:mk_var(asn1ct_name:curr(tmpval)),
     gen_enc_line(Erule,TopType,Cname,Type,NextElement, Pos,DynamicEnc,Ext),
     emit({nl,"end"}).
+
+gen_enc_component_optional(Erule,TopType,Cname,
+			   Type=#type{def=#'SEQUENCE'{
+					extaddgroup=Number,
+					components=_ExtGroupCompList}},
+			   Pos,DynamicEnc,Ext) when is_integer(Number) ->
+
+    Element = make_element(Pos+1,asn1ct_gen:mk_var(asn1ct_name:curr(val)),Cname),
+    emit({"case ",Element," of",nl}),
+
+    emit({"asn1_NOVALUE -> [];",nl}),
+    asn1ct_name:new(tmpval),
+    emit({{curr,tmpval}," ->",nl}),
+    InnerType = asn1ct_gen:get_inner(Type#type.def),
+    emit({nl,"%% attribute number ",Pos," with type ",
+	      InnerType,nl}),
+    NextElement = asn1ct_gen:mk_var(asn1ct_name:curr(tmpval)),
+    gen_enc_line(Erule,TopType,Cname,Type,NextElement, Pos,DynamicEnc,Ext),
+    emit({nl,"end"});
 gen_enc_component_optional(Erule,TopType,Cname,Type,Pos,DynamicEnc,Ext) ->
-    Element = make_element(Pos+1,"Val1",Cname),
+    Element = make_element(Pos+1,asn1ct_gen:mk_var(asn1ct_name:curr(val)),Cname),
     emit({"case ",Element," of",nl}),
 
     emit({"asn1_NOVALUE -> [];",nl}),
@@ -830,33 +1020,11 @@ gen_enc_line(Erule,TopType,Cname,Type,Element, _Pos,DynamicEnc,Ext) ->
     end,
     case Ext of 
 	{ext,_Ep2,_} ->
-	    emit(["))"]);
+	    emit("))");
 	_ -> true
     end.
 gen_dec_components_call(Erule,TopType,{Root1,ExtList,Root2},MaybeComma,DecInfObj,Ext,NumberOfOptionals) ->
-     %% The type has extensionmarker
-     OptTable = create_optionality_table(Root1 ++ Root2),
-     {Rpos,AccTerm,AccBytes} = 
- 	gen_dec_components_call1(Erule,TopType, Root1, 1, OptTable,
- 				 MaybeComma,DecInfObj, noext,[],[],
- 				 NumberOfOptionals),
-     emit([",",nl,"{Extensions,",{next,bytes},"} = "]),
-     emit(["?RT_PER:getextension(Ext,",{curr,bytes},"),",nl]),
-     asn1ct_name:new(bytes),
-     {Epos,AccTermE,AccBytesE} = 
- 	gen_dec_components_call1(Erule,TopType,ExtList,Rpos, OptTable, "",
- 				 DecInfObj,Ext,[],[],NumberOfOptionals),
-     case ExtList of
- 	[] -> true;
- 	_ -> emit([",",nl])
-     end,
-     emit([{next,bytes},"= ?RT_PER:skipextensions(",{curr,bytes},",",
- 	  length(ExtList)+1,",Extensions),",nl]),
-     asn1ct_name:new(bytes),
-     {_RPos2,AccTerm2,AccBytes2} =
- 	gen_dec_components_call1(Erule,TopType,Root2,Epos,OptTable,
- 				 "",DecInfObj,noext,[],[],NumberOfOptionals),
-     {AccTerm++AccTermE++AccTerm2,AccBytes++AccBytesE++AccBytes2};
+    gen_dec_components_call(Erule,TopType,{Root1++Root2,ExtList},MaybeComma,DecInfObj,Ext,NumberOfOptionals);
 gen_dec_components_call(Erule,TopType,{CompList,ExtList},MaybeComma,
 			DecInfObj,Ext,NumberOfOptionals) ->
     %% The type has extensionmarker
@@ -868,8 +1036,9 @@ gen_dec_components_call(Erule,TopType,{CompList,ExtList},MaybeComma,
     emit([",",nl,"{Extensions,",{next,bytes},"} = "]),
     emit(["?RT_PER:getextension(Ext,",{curr,bytes},"),",nl]),
     asn1ct_name:new(bytes),
+    NewExtList = wrap_extensionAdditionGroups(ExtList),
     {_Epos,AccTermE,AccBytesE} = 
-	gen_dec_components_call1(Erule,TopType,ExtList,Rpos, OptTable,
+	gen_dec_components_call1(Erule,TopType,NewExtList,Rpos, OptTable,
 				 "",DecInfObj,Ext,[],[],NumberOfOptionals),
     case ExtList of
 	[] -> true;
@@ -942,8 +1111,18 @@ gen_dec_components_call1(Erule,TopType,
 	    asn1ct_name:new(tmpterm),
 	    emit({"{",{curr,tmpterm},", ",{next,bytes},"} = "});
 	_ ->
-	    asn1ct_name:new(term),
-	    emit({"{",{curr,term},",",{next,bytes},"} = "})
+	    case Type of
+		#type{def=#'SEQUENCE'{
+			extaddgroup=Number1,
+			components=ExtGroupCompList1}} when is_integer(Number1)->
+		    emit({"{{_,"}),
+		    emit_extaddgroupTerms(term,ExtGroupCompList1),
+		    emit({"}"});
+		_ ->
+		    asn1ct_name:new(term),
+		    emit({"{",{curr,term}})
+	    end,
+	    emit({",",{next,bytes},"} = "})
     end,
 
     case {Ext,Prop,is_optimized(Erule)} of
@@ -967,11 +1146,24 @@ gen_dec_components_call1(Erule,TopType,
 	{noext,mandatory} -> true; % generate nothing
 	{noext,_} ->
 	    emit([";",nl,"0 ->"]),
-	    gen_dec_component_no_val(TopType,Cname,Type,Prop,Tpos,Ext),
+	    emit(["{"]),
+	    gen_dec_component_no_val(Ext,Prop),
+	    emit({",",{curr,bytes},"}",nl}),
 	    emit([nl,"end"]);
 	_ ->
 	    emit([";",nl,"_  ->",nl]),
-	    gen_dec_component_no_val(TopType,Cname,Type,Prop,Tpos,Ext),
+	    emit(["{"]),
+	    case Type of
+		#type{def=#'SEQUENCE'{
+			extaddgroup=Number2,
+			components=ExtGroupCompList2}} when is_integer(Number2)->
+		    emit({"{extAddGroup,"}),
+		    gen_dec_extaddGroup_no_val(Ext,ExtGroupCompList2),
+		    emit({"}"});
+		_ ->
+		    gen_dec_component_no_val(Ext,Prop)
+	    end,
+	    emit({",",{curr,bytes},"}",nl}),
 	    emit([nl,"end"])
     end,    
     asn1ct_name:new(bytes),
@@ -988,13 +1180,22 @@ gen_dec_components_call1(Erule,TopType,
 gen_dec_components_call1(_,_TopType,[],Pos,_OptTable,_,_,_,AccTerm,AccBytes,_NumberOfOptionals) ->
     {Pos,AccTerm,AccBytes}.
 
+gen_dec_extaddGroup_no_val(Ext,[#'ComponentType'{prop=Prop}])->
+    gen_dec_component_no_val(Ext,Prop),
+    ok;
+gen_dec_extaddGroup_no_val(Ext,[#'ComponentType'{prop=Prop}|Rest])->
+    gen_dec_component_no_val(Ext,Prop),
+    emit({","}),
+    gen_dec_extaddGroup_no_val(Ext,Rest);
+gen_dec_extaddGroup_no_val(_, []) ->
+    ok.
 
-gen_dec_component_no_val(_,_,_,{'DEFAULT',DefVal},_,_) ->
-    emit(["{",{asis,DefVal},",",{curr,bytes},"}",nl]);
-gen_dec_component_no_val(_,_,_,'OPTIONAL',_,_) ->
-    emit({"{asn1_NOVALUE,",{curr,bytes},"}",nl});
-gen_dec_component_no_val(_,_,_,mandatory,_,{ext,_,_}) ->
-    emit({"{asn1_NOVALUE,",{curr,bytes},"}",nl}).
+gen_dec_component_no_val(_,{'DEFAULT',DefVal}) ->
+    emit([{asis,DefVal}]);
+gen_dec_component_no_val(_,'OPTIONAL') ->
+    emit({"asn1_NOVALUE"});
+gen_dec_component_no_val({ext,_,_},mandatory) ->
+    emit({"asn1_NOVALUE"}).
     
 
 gen_dec_line(Erule,TopType,Cname,Type,Pos,DecInfObj,Ext,Prop)  ->
@@ -1192,6 +1393,14 @@ gen_enc_choice_tag({C1,C2},_,_) ->
     N2 = get_name_list(C2),
     emit(["?RT_PER:set_choice(element(1,Val),",
 	  {asis,{N1,N2}},", ",{asis,{length(N1),length(N2)}},")"]);
+
+gen_enc_choice_tag({C1,C2,C3},_,_) ->
+    N1 = get_name_list(C1),
+    N2 = get_name_list(C2),
+    N3 = get_name_list(C3),
+    Root = N1 ++ N3,
+    emit(["?RT_PER:set_choice(element(1,Val),",
+	  {asis,{Root,N2}},", ",{asis,{length(Root),length(N2)}},")"]);
 gen_enc_choice_tag(C,_,_) ->
     N = get_name_list(C),
     emit(["?RT_PER:set_choice(element(1,Val),",
@@ -1208,6 +1417,8 @@ get_name_list([], Acc) ->
 
 gen_enc_choice2(Erule,TopType, {L1,L2}, Ext) ->
     gen_enc_choice2(Erule,TopType, L1 ++ L2, 0, Ext);
+gen_enc_choice2(Erule,TopType, {L1,L2,L3}, Ext) ->
+    gen_enc_choice2(Erule,TopType, L1 ++ L3 ++ L2, 0, Ext);
 gen_enc_choice2(Erule,TopType, L, Ext) ->
     gen_enc_choice2(Erule,TopType, L, 0, Ext).
 
@@ -1279,6 +1490,9 @@ gen_dec_choice1(Erule,TopType,CompList,noext) ->
 gen_dec_choice1(Erule,TopType,{RootList,ExtList},Ext) ->
     NewList = RootList ++ ExtList,
     gen_dec_choice1(Erule,TopType, NewList, Ext);
+gen_dec_choice1(Erule,TopType,{RootList,ExtList,RootList2},Ext) ->
+    NewList = RootList ++ RootList2 ++ ExtList,
+    gen_dec_choice1(Erule,TopType, NewList, Ext);
 gen_dec_choice1(Erule,TopType,CompList,{ext,ExtPos,ExtNum}) ->
     emit({"{Choice,",{curr,bytes},
 	  "} = ?RT_PER:getchoice(",{prev,bytes},",",
@@ -1347,6 +1561,18 @@ gen_encode_prim_wrapper(CtgenMod,Erule,Cont,DoTag,Value) ->
     CtgenMod:gen_encode_prim(Erule,Cont,DoTag,Value).
 %    erase(component_type).
 
+make_elements(I,Val,ExtCnames) ->
+    make_elements(I,Val,ExtCnames,[]).
+
+make_elements(I,Val,[ExtCname],Acc)-> % the last one, no comma needed
+    Element = make_element(I,Val,ExtCname),
+    make_elements(I+1,Val,[],[Element|Acc]);
+make_elements(I,Val,[ExtCname|Rest],Acc)->
+    Element = make_element(I,Val,ExtCname),
+    make_elements(I+1,Val,Rest,[", ",Element|Acc]);
+make_elements(_I,_,[],Acc) ->
+    lists:reverse(Acc).
+
 make_element(I,Val,Cname) ->
     case tuple_notation_allowed() of
 	true ->
@@ -1354,6 +1580,60 @@ make_element(I,Val,Cname) ->
 	_ ->
 	    io_lib:format("element(~w,~s)",[I,Val])
     end.
+
+emit_extaddgroupTerms(VarSeries,[_]) ->
+    asn1ct_name:new(VarSeries),
+    emit({curr,VarSeries}),
+    ok;
+emit_extaddgroupTerms(VarSeries,[_|Rest]) ->
+    asn1ct_name:new(VarSeries),
+    emit({{curr,VarSeries},","}),
+    emit_extaddgroupTerms(VarSeries,Rest);
+emit_extaddgroupTerms(_,[]) ->
+    ok.
+
+flat_complist({Rl1,El,Rl2}) -> Rl1 ++ El ++ Rl2;
+flat_complist({Rl,El}) -> Rl ++ El;
+flat_complist(CompList) -> CompList.
+
+wrap_compList({Root1,Ext,Root2}) ->
+    {Root1,wrap_extensionAdditionGroups(Ext),Root2};
+wrap_compList({Root1,Ext}) ->
+    {Root1,wrap_extensionAdditionGroups(Ext)};
+wrap_compList(CompList) ->
+    CompList.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%  Will convert all componentTypes following 'ExtensionAdditionGroup'
+%%  up to the matching 'ExtensionAdditionGroupEnd' into one componentType
+%% of type SEQUENCE with the componentTypes as components
+%%
+wrap_extensionAdditionGroups(ExtCompList) ->
+    wrap_extensionAdditionGroups(ExtCompList,[],0).
+
+wrap_extensionAdditionGroups([{'ExtensionAdditionGroup',_Number}|Rest],Acc,0) ->
+    {ExtGroupCompList=
+     [#'ComponentType'{textual_order=TextPos}|_],
+     ['ExtensionAdditionGroupEnd'|Rest2]} =
+	lists:splitwith(fun(#'ComponentType'{}) -> true;
+			   (_) -> false
+			end,
+			Rest),
+    wrap_extensionAdditionGroups(Rest2,
+				 [#'ComponentType'{
+                                  name='ExtAddGroup', % FIXME: handles ony one ExtAddGroup
+                                  typespec=#type{def=#'SEQUENCE'{
+						   extaddgroup=1,% FIXME: handles only one
+						   components=ExtGroupCompList}},
+                                  textual_order = TextPos,
+				  prop='OPTIONAL'}|Acc],length(ExtGroupCompList)-1);
+wrap_extensionAdditionGroups([H=#'ComponentType'{textual_order=Tord}|T],Acc,ExtAddGroupDiff) when is_integer(Tord) ->
+    wrap_extensionAdditionGroups(T,[H#'ComponentType'{
+				      textual_order=Tord - ExtAddGroupDiff}|Acc],ExtAddGroupDiff);
+wrap_extensionAdditionGroups([H|T],Acc,ExtAddGroupDiff) ->
+    wrap_extensionAdditionGroups(T,[H|Acc],ExtAddGroupDiff);
+wrap_extensionAdditionGroups([],Acc,_) ->
+    lists:reverse(Acc).
+
 
 tuple_notation_allowed() ->
     Options = get(encoding_options),

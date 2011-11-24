@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2007</year>
-      <year>2008</year>
+      <year>2011</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -376,6 +376,31 @@ Optional, if not given the test server controller node
       </desc>
     </func>
     <func>
+      <name>scale_timetraps(Bool) -> ok</name>
+      <fsummary>.</fsummary>
+      <type>
+        <v>Bool = true | false</v>
+      </type>
+      <desc>
+        <p>This function should be called before a test is started.
+	  The parameter specifies if test_server should attempt
+	  to automatically scale the timetrap value in order to compensate
+	  for delays caused by e.g. the cover tool.</p>
+      </desc>
+    </func>
+    <func>
+      <name>get_timetrap_parameters() -> {N,Bool} </name>
+      <fsummary>Read the parameter values that affect timetraps.</fsummary>
+      <type>
+        <v>N = integer() | infinity</v>
+        <v>Bool = true | false</v>
+      </type>
+      <desc>
+        <p>This function may be called to read the values set by
+	<c>multiply_timetraps/1</c> and <c>scale_timetraps/1</c>.</p>
+      </desc>
+    </func>
+    <func>
       <name>cover(Application,Analyse) -> ok</name>
       <name>cover(CoverFile,Analyse) -> ok</name>
       <name>cover(App,CoverFile,Analyse) -> ok</name>
@@ -538,9 +563,6 @@ Optional, if not given the test server controller node
           test server controller node. The log must be formatted using
           <c>ttb:format/1/2</c>.
           </p>
-        <p>This is valid for all targets except the OSE/Delta target
-          for which all nodes will be logged and automatically formatted
-          in one single text file called <c>allnodes-test_server</c>.</p>
       </desc>
     </func>
     <func>
@@ -610,7 +632,7 @@ Optional, if not given the test server controller node
           <tag><c>NAME name</c></tag>
           <item>Names the test suite to something else than the
            default name. This does not apply to <c>SPEC</c> which keeps
-           it's names.
+           its names.
           </item>
           <tag><c>PARAMETERS parameterfile</c></tag>
           <item>Specifies the parameter file to use when starting

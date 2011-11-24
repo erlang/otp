@@ -2,7 +2,7 @@
 # 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2007-2009. All Rights Reserved.
+# Copyright Ericsson AB 2007-2011. All Rights Reserved.
 # 
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -107,16 +107,81 @@ for x in cl bin vc; do
     fi
     BPATH="$NBPATH"
 done
-#echo $BPATH
-for x in sdk v2.0 bootstrapper packages vcredist_x86 vcredist_x86.exe; do
-    #echo "x=$x"
-    #echo "BPATH=$BPATH"
-    NBPATH=`add_path_element $x "$BPATH"`
-    if [ "$NBPATH" = "$BPATH" ]; then
-	echo "Failed to locate vcredist_x86.exe because directory structure was unexpected" >&2
-	exit 3
+BPATH_LIST=$BPATH
+
+# rc.exe is in the Microsoft SDK directory of VS2008
+RCPATH=`lookup_prog_in_path rc`
+fail=false
+if [ '!' -z "$RCPATH" ]; then 
+    BPATH=$RCPATH
+    allow_fail=false
+    for x in rc bin @ANY v6.0A v7.0A v7.1; do
+	if [ $x = @ANY ]; then
+	    allow_fail=true
+	else
+	    NBPATH=`remove_path_element $x "$BPATH"`
+	    if [ $allow_fail = false -a "$NBPATH" = "$BPATH" ]; then
+		fail=true
+		break;
+	    fi
+	    BPATH="$NBPATH"
+	fi
+    done
+    if [ $fail = false ]; then
+	BPATH_LIST="$BPATH_LIST $BPATH"
     fi
-    BPATH="$NBPATH"
+fi
+
+# Frantic search through two roots with different 
+# version directories. We want to be very specific about the
+# directory structures as we wouldnt want to find the wrong 
+# redistributables...
+
+#echo $BPATH_LIST
+for BP in $BPATH_LIST; do
+    for verdir in "sdk v2.0" "sdk v3.5" "v6.0A" "v7.0"  "v7.0A" "v7.1"; do
+	BPATH=$BP
+	fail=false
+	allow_fail=false
+	for x in $verdir @ANY bootstrapper packages vcredist_x86 Redist VC @ALL vcredist_x86.exe; do
+	    #echo "x=$x"
+	    #echo "BPATH=$BPATH"
+	    #echo "allow_fail=$allow_fail"
+	    if [ $x = @ANY ]; then
+		allow_fail=true
+	    elif [ $x = @ALL ]; then
+		allow_fail=false
+	    else
+		NBPATH=`add_path_element $x "$BPATH"`
+		if [ $allow_fail = false -a "$NBPATH" = "$BPATH" ]; then
+		    fail=true
+		    break;
+		fi
+		BPATH="$NBPATH"
+	    fi
+	done
+	if [ $fail = false ]; then
+	    break;
+	fi
+    done
+    if [ $fail = false ]; then
+	echo $BPATH
+	exit 0
+    fi
 done
-echo $BPATH
-exit 0
+
+# shortcut for locating vcredist_x86.exe is to put it into $ERL_TOP
+if [ -f $ERL_TOP/vcredist_x86.exe ]; then
+    echo $ERL_TOP/vcredist_x86.exe
+    exit 0
+fi
+
+# or $ERL_TOP/.. to share across multiple builds
+if [ -f $ERL_TOP/../vcredist_x86.exe ]; then
+    echo $ERL_TOP/../vcredist_x86.exe
+    exit 0
+fi
+
+echo "Failed to locate vcredist_x86.exe because directory structure was unexpected" >&2
+exit 3
+

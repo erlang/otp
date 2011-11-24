@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -22,29 +22,52 @@
 %% are not tested here, because they are tested indirectly in this and
 %% and other test suites.
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("kernel/include/inet.hrl").
 
--export([all/1, init_per_testcase/2, fin_per_testcase/2,
-	 t_accept/1, t_connect_timeout/1, t_accept_timeout/1,
-	 t_connect/1, t_connect_bad/1,
-	 t_recv/1, t_recv_timeout/1, t_recv_eof/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 init_per_testcase/2, end_per_testcase/2,
+	 t_connect_timeout/1, t_accept_timeout/1,
+	 t_connect_bad/1,
+	 t_recv_timeout/1, t_recv_eof/1,
 	 t_shutdown_write/1, t_shutdown_both/1, t_shutdown_error/1,
-	 t_fdopen/1]).
+	 t_fdopen/1, t_implicit_inet6/1]).
 
-all(suite) -> [t_accept, t_connect, t_recv, t_shutdown_write,
-	      t_shutdown_both, t_shutdown_error, t_fdopen].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [{group, t_accept}, {group, t_connect}, {group, t_recv},
+     t_shutdown_write, t_shutdown_both, t_shutdown_error,
+     t_fdopen, t_implicit_inet6].
+
+groups() -> 
+    [{t_accept, [], [t_accept_timeout]},
+     {t_connect, [], [t_connect_timeout, t_connect_bad]},
+     {t_recv, [], [t_recv_timeout, t_recv_eof]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 init_per_testcase(_Func, Config) ->
     Dog = test_server:timetrap(test_server:seconds(60)),
     [{watchdog, Dog}|Config].
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog).
 
 %%% gen_tcp:accept/1,2
 
-t_accept(suite) -> [t_accept_timeout].
 
 t_accept_timeout(doc) -> "Test that gen_tcp:accept/2 (with timeout) works.";
 t_accept_timeout(suite) -> [];
@@ -54,7 +77,6 @@ t_accept_timeout(Config) when is_list(Config) ->
 
 %%% gen_tcp:connect/X
 
-t_connect(suite) -> [t_connect_timeout, t_connect_bad].
 
 t_connect_timeout(doc) -> "Test that gen_tcp:connect/4 (with timeout) works.";
 t_connect_timeout(Config) when is_list(Config) ->
@@ -83,7 +105,6 @@ t_connect_bad(Config) when is_list(Config) ->
 
 %%% gen_tcp:recv/X
 
-t_recv(suite) -> [t_recv_timeout, t_recv_eof].
 
 t_recv_timeout(doc) -> "Test that gen_tcp:recv/3 (with timeout works).";
 t_recv_timeout(suite) -> [];
@@ -137,6 +158,10 @@ t_shutdown_error(Config) when is_list(Config) ->
 
 t_fdopen(Config) when is_list(Config) ->
     ?line Question = "Aaaa... Long time ago in a small town in Germany,",
+    ?line Question1 = list_to_binary(Question),
+    ?line Question2 = [<<"Aaaa">>, "... ", $L, <<>>, $o, "ng time ago ",
+                       ["in ", [], <<"a small town">>, [" in Germany,", <<>>]]],
+    ?line Question1 = iolist_to_binary(Question2),
     ?line Answer = "there was a shoemaker, Schumacher was his name.",
     ?line {ok, L} = gen_tcp:listen(0, [{active, false}]),
     ?line {ok, Port} = inet:port(L),
@@ -146,6 +171,10 @@ t_fdopen(Config) when is_list(Config) ->
     ?line {ok, Server} = gen_tcp:fdopen(FD, []),
     ?line ok = gen_tcp:send(Client, Question),
     ?line {ok, Question} = gen_tcp:recv(Server, length(Question), 2000),
+    ?line ok = gen_tcp:send(Client, Question1),
+    ?line {ok, Question} = gen_tcp:recv(Server, length(Question), 2000),
+    ?line ok = gen_tcp:send(Client, Question2),
+    ?line {ok, Question} = gen_tcp:recv(Server, length(Question), 2000),
     ?line ok = gen_tcp:send(Server, Answer),
     ?line {ok, Answer} = gen_tcp:recv(Client, length(Answer), 2000),
     ?line ok = gen_tcp:close(Client),
@@ -154,6 +183,58 @@ t_fdopen(Config) when is_list(Config) ->
     ?line ok = gen_tcp:close(A),
     ?line ok = gen_tcp:close(L),
     ok.
+
+
+%%% implicit inet6 option to api functions
+
+t_implicit_inet6(Config) when is_list(Config) ->
+    ?line Host = ok(inet:gethostname()),
+    ?line
+	case inet:getaddr(Host, inet6) of
+	    {ok,Addr} ->
+		?line t_implicit_inet6(Host, Addr);
+	    {error,Reason} ->
+		{skip,
+		 "Can not look up IPv6 address: "
+		 ++atom_to_list(Reason)}
+	end.
+
+t_implicit_inet6(Host, Addr) ->
+    ?line
+	case gen_tcp:listen(0, [inet6]) of
+	    {ok,S1} ->
+		?line Loopback = {0,0,0,0,0,0,0,1},
+		?line io:format("~s ~p~n", ["::1",Loopback]),
+		?line implicit_inet6(S1, Loopback),
+		?line ok = gen_tcp:close(S1),
+		%%
+		?line Localhost = "localhost",
+		?line Localaddr = ok(inet:getaddr(Localhost, inet6)),
+		?line io:format("~s ~p~n", [Localhost,Localaddr]),
+		?line S2 = ok(gen_tcp:listen(0, [{ip,Localaddr}])),
+		?line implicit_inet6(S2, Localaddr),
+		?line ok = gen_tcp:close(S2),
+		%%
+		?line io:format("~s ~p~n", [Host,Addr]),
+		?line S3 = ok(gen_tcp:listen(0, [{ifaddr,Addr}])),
+		?line implicit_inet6(S3, Addr),
+		?line ok = gen_tcp:close(S3);
+	    {error,_} ->
+		{skip,"IPv6 not supported"}
+	end.
+
+implicit_inet6(S, Addr) ->
+    ?line P = ok(inet:port(S)),
+    ?line S2 = ok(gen_tcp:connect(Addr, P, [])),
+    ?line P2 = ok(inet:port(S2)),
+    ?line S1 = ok(gen_tcp:accept(S)),
+    ?line P1 = P = ok(inet:port(S1)),
+    ?line {Addr,P2} = ok(inet:peername(S1)),
+    ?line {Addr,P1} = ok(inet:peername(S2)),
+    ?line {Addr,P1} = ok(inet:sockname(S1)),
+    ?line {Addr,P2} = ok(inet:sockname(S2)),
+    ?line ok = gen_tcp:close(S2),
+    ?line ok = gen_tcp:close(S1).
 
 
 
@@ -217,3 +298,5 @@ unused_ip(A, B, C, D) ->
 	{ok, _} -> unused_ip(A, B, C, D+1);
 	{error, _} -> {ok, {A, B, C, D}}
     end.
+
+ok({ok,V}) -> V.

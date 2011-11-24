@@ -1,0 +1,117 @@
+<?xml version="1.0"?>
+<root>
+  <state>
+    <code>AL</code>
+    <vehicle plateNumber="1123" state="AL"/>
+    <vehicle plateNumber="1125" state="AK"/>
+    <vehicle plateNumber="1124" state="AL"/>
+    <vehicle plateNumber="1223" state="AL"/>
+    <vehicle plateNumber="1323" state="AL"/>
+    <vehicle plateNumber="1225" state="AS"/>
+    <vehicle plateNumber="1126" state="AZ"/>
+    <vehicle plateNumber="1127" state="AR"/>
+    <vehicle plateNumber="1128" state="FL"/>
+    <vehicle plateNumber="2341" state="FL"/>
+    <vehicle plateNumber="1129" state="FL"/>
+    <vehicle plateNumber="1133" state="FL"/>
+    <vehicle plateNumber="22123" state="MO"/>
+    <vehicle plateNumber="22124" state="MI"/>
+    <person>
+      <car regState="AL" regPlate="1123"/>
+    </person>
+    <person>
+      <car regState="AK" regPlate="1125"/>
+    </person>
+    <person>
+      <car regState="AL" regPlate="1124"/>
+      <car regState="AL" regPlate="1223"/>
+    </person>
+    <person>
+      <car regState="AL" regPlate="1323"/>
+    </person>
+    <person>
+      <car regState="AS" regPlate="1225"/>
+    </person>
+    <person>
+      <car regState="AZ" regPlate="1126"/>
+    </person>
+    <person>
+      <car regState="AR" regPlate="1127"/>
+    </person>
+    <person>
+      <car regState="FL" regPlate="2341"/>
+    </person>
+    <person>
+      <car regState="FL" regPlate="1128"/>
+    </person>
+    <person>
+      <car regState="FL" regPlate="1133"/>
+    </person>
+    <person>
+      <car regState="FL" regPlate="1129"/>
+    </person>
+    <person>
+      <car regState="MO" regPlate="22123"/>
+    </person>
+    <person>
+      <car regState="MI" regPlate="22124"/>
+    </person>
+  </state>
+  <state>
+    <code>CO</code>
+    <vehicle plateNumber="1123" state="CO"/>
+    <vehicle plateNumber="1120" state="AK"/>
+    <vehicle plateNumber="1124" state="CO"/>
+    <vehicle plateNumber="1221" state="AL"/>
+    <vehicle plateNumber="1323" state="CO"/>
+    <vehicle plateNumber="1223" state="AS"/>
+    <vehicle plateNumber="1126" state="CO"/>
+    <vehicle plateNumber="1127" state="CA"/>
+    <vehicle plateNumber="1128" state="DE"/>
+    <vehicle plateNumber="2341" state="DC"/>
+    <vehicle plateNumber="1125" state="FL"/>
+    <vehicle plateNumber="1133" state="GA"/>
+    <vehicle plateNumber="22123" state="GU"/>
+    <vehicle plateNumber="22124" state="HI"/>
+    <person>
+      <car regState="CO" regPlate="1123"/>
+    </person>
+    <person>
+      <car regState="AK" regPlate="1120"/>
+    </person>
+    <person>
+      <car regState="CO" regPlate="1124"/>
+    </person>
+    <person>
+      <car regState="AL" regPlate="1221"/>
+    </person>
+    <person>
+      <car regState="CO" regPlate="1323"/>
+    </person>
+    <person>
+      <car regState="AS" regPlate="1223"/>
+    </person>
+    <person>
+      <car regState="CO" regPlate="1126"/>
+    </person>
+    <person>
+      <car regState="CA" regPlate="1127"/>
+    </person>
+    <person>
+      <car regState="DC" regPlate="2341"/>
+    </person>
+    <person>
+      <car regState="DE" regPlate="1128"/>
+    </person>
+    <person>
+      <car regState="GA" regPlate="1133"/>
+      <car regState="FL" regPlate="1125"/>
+    </person>
+    <person>
+      <car regState="GU" regPlate="22123"/>
+    </person>
+    <person>
+      <car regState="HI" regPlate="22124"/>
+    </person>
+  </state>
+</root>

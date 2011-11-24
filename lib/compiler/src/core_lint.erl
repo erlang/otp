@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -65,7 +65,8 @@
                   | {'return_mismatch', fa()} | {'undefined_function', fa()}
                   | {'duplicate_var', cerl:var_name(), fa()}
                   | {'unbound_var', cerl:var_name(), fa()}
-                  | {'undefined_function', fa(), fa()}.
+                  | {'undefined_function', fa(), fa()}
+                  | {'tail_segment_not_at_end', fa()}.
 
 -type error()    :: {module(), err_desc()}.
 -type warning()  :: {module(), term()}.
@@ -116,7 +117,9 @@ format_error({duplicate_var,N,{F,A}}) ->
 format_error({unbound_var,N,{F,A}}) ->
     io_lib:format("unbound variable ~s in ~w/~w", [N,F,A]);
 format_error({undefined_function,{F1,A1},{F2,A2}}) ->
-    io_lib:format("undefined function ~w/~w in ~w/~w", [F1,A1,F2,A2]).
+    io_lib:format("undefined function ~w/~w in ~w/~w", [F1,A1,F2,A2]);
+format_error({tail_segment_not_at_end,{F,A}}) ->
+    io_lib:format("binary tail segment not at end in ~w/~w", [F,A]).
 
 -type ret() :: {'ok', [{module(), [warning(),...]}]}
              | {'error', [{module(), [error(),...]}],
@@ -450,7 +453,8 @@ pattern(#c_cons{hd=H,tl=T}, Def, Ps, St) ->
     pattern_list([H,T], Def, Ps, St);
 pattern(#c_tuple{es=Es}, Def, Ps, St) ->
     pattern_list(Es, Def, Ps, St);
-pattern(#c_binary{segments=Ss}, Def, Ps, St) ->
+pattern(#c_binary{segments=Ss}, Def, Ps, St0) ->
+    St = pat_bin_tail_check(Ss, St0),
     pat_bin(Ss, Def, Ps, St);
 pattern(#c_alias{var=V,pat=P}, Def, Ps, St0) ->
     {Vvs,St1} = variable(V, Ps, St0),
@@ -481,6 +485,19 @@ pat_segment(#c_bitstr{val=V,size=S,type=T}, Def0, Ps0, St0) ->
     {Ps,Def,St2};
 pat_segment(_, Def, Ps, St) ->
     {Ps,Def,add_error({not_bs_pattern,St#lint.func}, St)}.
+
+%% pat_bin_tail_check([Elem], State) -> State.
+%%  There must be at most one tail segment (a size-less segment of
+%%  type binary) and it must occur at the end.
+
+pat_bin_tail_check([#c_bitstr{size=#c_literal{val=all}}], St) ->
+    %% Size-less field is OK at the end of the list of segments.
+    St;
+pat_bin_tail_check([#c_bitstr{size=#c_literal{val=all}}|_], St) ->
+    add_error({tail_segment_not_at_end,St#lint.func}, St);
+pat_bin_tail_check([_|Ss], St) ->
+    pat_bin_tail_check(Ss, St);
+pat_bin_tail_check([], St) -> St.
 
 %% pat_bit_expr(SizePat, Type, Defined, State) -> State.
 %%  Check the Size pattern, this is an input!  Because of optimizations,

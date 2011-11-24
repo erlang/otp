@@ -4,7 +4,7 @@
 <book xmlns:xi="http://www.w3.org/2001/XInclude">
   <header titlestyle="normal">
     <copyright>
-      <year>1999</year><year>2009</year>
+      <year>1999</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -28,9 +28,6 @@
     <rev>A</rev>
     <file>book.sgml</file>
   </header>
-  <insidecover>
-    <include file="insidecover"></include>
-  </insidecover>
   <pagetext>SSL Application</pagetext>
   <preamble>
     <contents level="2"></contents>

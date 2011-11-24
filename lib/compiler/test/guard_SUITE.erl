@@ -1,26 +1,27 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(guard_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
--export([all/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
 	 misc/1,const_cond/1,basic_not/1,complex_not/1,nested_nots/1,
 	 semicolon/1,complex_semicolon/1,comma/1,
 	 or_guard/1,more_or_guards/1,
@@ -31,19 +32,37 @@
 	 t_is_boolean/1,is_function_2/1,
 	 tricky/1,rel_ops/1,literal_type_tests/1,
 	 basic_andalso_orelse/1,traverse_dcd/1,
-	 check_qlc_hrl/1,andalso_semi/1,tuple_size/1]).
+	 check_qlc_hrl/1,andalso_semi/1,t_tuple_size/1,binary_part/1,
+	 bad_constants/1]).
 
-all(suite) ->
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
     test_lib:recompile(?MODULE),
-    [misc,const_cond,basic_not,complex_not,nested_nots,
-     semicolon,complex_semicolon,
-     comma,or_guard,more_or_guards,
-     complex_or_guards,and_guard,
-     xor_guard,more_xor_guards,
-     build_in_guard,old_guard_tests,gbif,
-     t_is_boolean,is_function_2,tricky,rel_ops,literal_type_tests,
-     basic_andalso_orelse,traverse_dcd,check_qlc_hrl,andalso_semi,
-     tuple_size].
+    [misc, const_cond, basic_not, complex_not, nested_nots,
+     semicolon, complex_semicolon, comma, or_guard,
+     more_or_guards, complex_or_guards, and_guard, xor_guard,
+     more_xor_guards, build_in_guard, old_guard_tests, gbif,
+     t_is_boolean, is_function_2, tricky, rel_ops,
+     literal_type_tests, basic_andalso_orelse, traverse_dcd,
+     check_qlc_hrl, andalso_semi, t_tuple_size, binary_part,
+     bad_constants].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 misc(Config) when is_list(Config) ->
     ?line 42 = case id(42) of
@@ -94,8 +113,8 @@ const_cond(Config) when is_list(Config) ->
 const_cond(T, Sz) ->
     case T of
 	_X when false -> never;
-	_X when tuple(T), eq == eq, tuple_size(T) == Sz -> ok;
-	_X when tuple(T), eq == leq, tuple_size(T) =< Sz -> ok;
+	_X when is_tuple(T), eq == eq, tuple_size(T) == Sz -> ok;
+	_X when is_tuple(T), eq == leq, tuple_size(T) =< Sz -> ok;
 	_X -> error
     end.
 
@@ -1137,7 +1156,7 @@ make_test([{T,L}|Ts]) ->
 make_test([]) -> [].
 
 test(T, L) ->
-    S0 = io_lib:format("begin io:format(\"~~p~~n\", [{~p,~p}]), if ~w(~w) -> true; true -> false end end. ", [T,L,T,L]),
+    S0 = io_lib:format("begin io:format(\"~~p~n\", [{~p,~p}]), if ~w(~w) -> true; true -> false end end. ", [T,L,T,L]),
     S = lists:flatten(S0),
     {ok,Toks,_Line} = erl_scan:string(S),
     {ok,E} = erl_parse:parse_exprs(Toks),
@@ -1145,7 +1164,7 @@ test(T, L) ->
     {match,0,{atom,0,Val},hd(E)}.
 
 test(T, L1, L2) ->
-    S0 = io_lib:format("begin io:format(\"~~p~~n\", [{~p,~p,~p}]), if ~w(~w, ~w) -> true; true -> false end end. ", [T,L1,L2,T,L1,L2]),
+    S0 = io_lib:format("begin io:format(\"~~p~n\", [{~p,~p,~p}]), if ~w(~w, ~w) -> true; true -> false end end. ", [T,L1,L2,T,L1,L2]),
     S = lists:flatten(S0),
     {ok,Toks,_Line} = erl_scan:string(S),
     {ok,E} = erl_parse:parse_exprs(Toks),
@@ -1316,11 +1335,11 @@ cqlc(M, F, As, St) ->
 andalso_semi(Config) when is_list(Config) ->
     ?line ok = andalso_semi_foo(0),
     ?line ok = andalso_semi_foo(1),
-    ?line {'EXIT',{function_clause,_}} = (catch andalso_semi_foo(2)),
+    ?line fc(catch andalso_semi_foo(2)),
 
     ?line ok = andalso_semi_bar([a,b,c]),
     ?line ok = andalso_semi_bar(1),
-    ?line {'EXIT',{function_clause,_}} = (catch andalso_semi_bar([a,b])),
+    ?line fc(catch andalso_semi_bar([a,b])),
     ok.
 
 andalso_semi_foo(Bar) when is_integer(Bar) andalso Bar =:= 0; Bar =:= 1 ->
@@ -1330,10 +1349,10 @@ andalso_semi_bar(Bar) when is_list(Bar) andalso length(Bar) =:= 3; Bar =:= 1 ->
    ok.
 
 
-tuple_size(Config) when is_list(Config) ->
+t_tuple_size(Config) when is_list(Config) ->
     ?line 10 = do_tuple_size({1,2,3,4}),
-    ?line {'EXIT',{function_clause,_}} = (catch do_tuple_size({1,2,3})),
-    ?line {'EXIT',{function_clause,_}} = (catch do_tuple_size(42)),
+    ?line fc(catch do_tuple_size({1,2,3})),
+    ?line fc(catch do_tuple_size(42)),
 
     ?line error = ludicrous_tuple_size({a,b,c}),
     ?line error = ludicrous_tuple_size([a,b,c]),
@@ -1362,6 +1381,165 @@ ludicrous_tuple_size(T)
   when tuple_size(T) =:= 16#FFFFFFFFFFFFFFFF -> ok;
 ludicrous_tuple_size(_) -> error.
 
+%%
+%% The binary_part/2,3 guard BIFs
+%%
+-define(MASK_ERROR(EXPR),mask_error((catch (EXPR)))).
+mask_error({'EXIT',{Err,_}}) ->
+    Err;
+mask_error(Else) ->
+    Else.
+
+binary_part(doc) ->
+    ["Tests the binary_part/2,3 guard (GC) bif's"];
+binary_part(Config) when is_list(Config) ->
+    %% This is more or less a copy of what the guard_SUITE in emulator
+    %% does to cover the guard bif's
+    ?line 1 = bptest(<<1,2,3>>),
+    ?line 2 = bptest(<<2,1,3>>),
+    ?line error = bptest(<<1>>),
+    ?line error = bptest(<<>>),
+    ?line error = bptest(apa),
+    ?line 3 = bptest(<<2,3,3>>),
+    % With one variable (pos)
+    ?line 1 = bptest(<<1,2,3>>,1),
+    ?line 2 = bptest(<<2,1,3>>,1),
+    ?line error = bptest(<<1>>,1),
+    ?line error = bptest(<<>>,1),
+    ?line error = bptest(apa,1),
+    ?line 3 = bptest(<<2,3,3>>,1),
+    % With one variable (length)
+    ?line 1 = bptesty(<<1,2,3>>,1),
+    ?line 2 = bptesty(<<2,1,3>>,1),
+    ?line error = bptesty(<<1>>,1),
+    ?line error = bptesty(<<>>,1),
+    ?line error = bptesty(apa,1),
+    ?line 3 = bptesty(<<2,3,3>>,2),
+    % With one variable (whole tuple)
+    ?line 1 = bptestx(<<1,2,3>>,{1,1}),
+    ?line 2 = bptestx(<<2,1,3>>,{1,1}),
+    ?line error = bptestx(<<1>>,{1,1}),
+    ?line error = bptestx(<<>>,{1,1}),
+    ?line error = bptestx(apa,{1,1}),
+    ?line 3 = bptestx(<<2,3,3>>,{1,2}),
+    % With two variables
+    ?line 1 = bptest(<<1,2,3>>,1,1),
+    ?line 2 = bptest(<<2,1,3>>,1,1),
+    ?line error = bptest(<<1>>,1,1),
+    ?line error = bptest(<<>>,1,1),
+    ?line error = bptest(apa,1,1),
+    ?line 3 = bptest(<<2,3,3>>,1,2),
+    % Direct (autoimported) call, these will be evaluated by the compiler...
+    ?line <<2>> = binary_part(<<1,2,3>>,1,1),
+    ?line <<1>> = binary_part(<<2,1,3>>,1,1),
+    % Compiler warnings due to constant evaluation expected (3)
+    ?line badarg = ?MASK_ERROR(binary_part(<<1>>,1,1)),
+    ?line badarg = ?MASK_ERROR(binary_part(<<>>,1,1)),
+    ?line badarg = ?MASK_ERROR(binary_part(apa,1,1)),
+    ?line <<3,3>> = binary_part(<<2,3,3>>,1,2),
+    % Direct call through apply
+    ?line <<2>> = apply(erlang,binary_part,[<<1,2,3>>,1,1]),
+    ?line <<1>> = apply(erlang,binary_part,[<<2,1,3>>,1,1]),
+    % Compiler warnings due to constant evaluation expected (3)
+    ?line badarg = ?MASK_ERROR(apply(erlang,binary_part,[<<1>>,1,1])),
+    ?line badarg = ?MASK_ERROR(apply(erlang,binary_part,[<<>>,1,1])),
+    ?line badarg = ?MASK_ERROR(apply(erlang,binary_part,[apa,1,1])),
+    ?line <<3,3>> = apply(erlang,binary_part,[<<2,3,3>>,1,2]),
+    % Constant propagation
+    ?line  Bin = <<1,2,3>>,
+    ?line  ok = if
+		    binary_part(Bin,1,1) =:= <<2>> ->
+			ok;
+		    %% Compiler warning, clause cannot match (expected)
+		    true ->
+			error
+		end,
+    ?line  ok = if
+		    binary_part(Bin,{1,1}) =:= <<2>> ->
+			ok;
+		    %% Compiler warning, clause cannot match (expected)
+		    true ->
+			error
+		end,
+    ok.
+
+
+bptest(B) when length(B) =:= 1337 ->
+    1;
+bptest(B) when binary_part(B,{1,1}) =:= <<2>> ->
+    1;
+bptest(B) when erlang:binary_part(B,1,1) =:= <<1>> ->
+    2;
+bptest(B)  when erlang:binary_part(B,{1,2}) =:= <<3,3>> ->
+    3;
+bptest(_) ->
+    error.
+
+bptest(B,A) when length(B) =:= A ->
+    1;
+bptest(B,A) when binary_part(B,{A,1}) =:= <<2>> ->
+    1;
+bptest(B,A) when erlang:binary_part(B,A,1) =:= <<1>> ->
+    2;
+bptest(B,A)  when erlang:binary_part(B,{A,2}) =:= <<3,3>> ->
+    3;
+bptest(_,_) ->
+    error.
+
+bptestx(B,A) when length(B) =:= A ->
+    1;
+bptestx(B,A) when binary_part(B,A) =:= <<2>> ->
+    1;
+bptestx(B,A) when erlang:binary_part(B,A) =:= <<1>> ->
+    2;
+bptestx(B,A)  when erlang:binary_part(B,A) =:= <<3,3>> ->
+    3;
+bptestx(_,_) ->
+    error.
+
+bptesty(B,A) when length(B) =:= A ->
+    1;
+bptesty(B,A) when binary_part(B,{1,A}) =:= <<2>> ->
+    1;
+bptesty(B,A) when erlang:binary_part(B,1,A) =:= <<1>> ->
+    2;
+bptesty(B,A)  when erlang:binary_part(B,{1,A}) =:= <<3,3>> ->
+    3;
+bptesty(_,_) ->
+    error.
+
+bptest(B,A,_C) when length(B) =:= A ->
+    1;
+bptest(B,A,C) when binary_part(B,{A,C}) =:= <<2>> ->
+    1;
+bptest(B,A,C) when erlang:binary_part(B,A,C) =:= <<1>> ->
+    2;
+bptest(B,A,C)  when erlang:binary_part(B,{A,C}) =:= <<3,3>> ->
+    3;
+bptest(_,_,_) ->
+    error.
+
+-define(FAILING(C),
+	if
+	    C -> ?t:fail(should_fail);
+	    true -> ok
+	end,
+	if
+	    true, C -> ?t:fail(should_fail);
+	    true -> ok
+	end).
+
+bad_constants(Config) when is_list(Config) ->
+    ?line ?FAILING(false),
+    ?line ?FAILING([]),
+    ?line ?FAILING([a]),
+    ?line ?FAILING([Config]),
+    ?line ?FAILING({a,b}),
+    ?line ?FAILING({a,Config}),
+    ?line ?FAILING(<<1>>),
+    ?line ?FAILING(42),
+    ?line ?FAILING(3.14),
+    ok.
 
 %% Call this function to turn off constant propagation.
 id(I) -> I.
@@ -1374,3 +1552,6 @@ check(F, Result) ->
 	    io:format("     Got: ~p\n", [Other]),
 	    test_server:fail()
     end.
+
+fc({'EXIT',{function_clause,_}}) -> ok;
+fc({'EXIT',{{case_clause,_},_}}) when ?MODULE =:= guard_inline_SUITE -> ok.

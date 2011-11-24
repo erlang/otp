@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(disk_log_1).
@@ -581,11 +581,13 @@ done_scan(In, Out, OutName, FName, RecoveredTerms, BadChars) ->
             file:delete(OutName),
             throw(Error)
     end.
-   
+
+-spec repair_err(file:io_device(), #cache{}, file:filename(),
+		 file:filename(), {'error', file:posix()}) -> no_return().
 repair_err(In, Out, OutName, ErrFileName, Error) ->
     file:close(In),
     catch fclose(Out, OutName),
-    % OutName is often the culprit, try to remove it anyway...
+    %% OutName is often the culprit, try to remove it anyway...
     file:delete(OutName), 
     file_error(ErrFileName, Error).
 
@@ -1529,7 +1531,7 @@ write_cache(Fd, FileName, C) ->
         Error -> {catch file_error(FileName, Error), #cache{fd = Fd}}
     end.
 
--spec write_cache_close(fd(), file:filename(), iodata()) -> #cache{}. % | throw(Error)
+-spec write_cache_close(file:fd(), file:filename(), iodata()) -> #cache{}. % | throw(Error)
 
 write_cache_close(Fd, _FileName, []) ->
     #cache{fd = Fd};
@@ -1539,12 +1541,12 @@ write_cache_close(Fd, FileName, C) ->
         Error -> file_error_close(Fd, FileName, Error)
     end.
 
--spec file_error(file:filename(), {'error', atom()}) -> no_return().
+-spec file_error(file:filename(), {'error', file:posix()}) -> no_return().
 
 file_error(FileName, {error, Error}) ->
     throw({error, {file_error, FileName, Error}}).
 
--spec file_error_close(fd(), file:filename(), {'error', atom()}) -> no_return().
+-spec file_error_close(file:fd(), file:filename(), {'error', file:posix()}) -> no_return().
 
 file_error_close(Fd, FileName, {error, Error}) ->
     file:close(Fd),

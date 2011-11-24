@@ -1,0 +1,631 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+
+<!--
+
+Copyright (C) Ericsson AB 2006-2007 All rights reserved.
+
+The information in this document is the property of Ericsson.
+
+Except as specifically authorized in writing by Ericsson, the
+receiver of this document shall keep the information contained
+herein confidential and shall protext the same in whole or in part
+from disclosure and dissemination to third parties.
+
+Disclosure and disseminations to the receivers employees shall
+only be made on a strict need to know basis.
+
+-->
+
+
+<mim xmlns="http://www.ericsson.com/is/isco/mim/2.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.ericsson.com/is/isco/mim/2.0 /vobs/isac/sis/OAM_CRA1190047_1/CCS_CNA113082/doc/15519/mim.xsd ">
+  
+  <!-- 
+       DataType Definitions
+  -->
+  
+  <dataType name="HwmSlotState">
+    <description>
+      Information of how the slot is used.
+    </description>
+    <string>
+      <validValues>
+	<value name="unusedEmpty"/>
+	<value name="usedEmpty"/>
+	<value name="unusedOccupied"/>
+	<value name="usedOccupied"/>
+      </validValues>
+    </string>
+  </dataType>
+  
+  
+  <!-- 
+       Class Definitions
+  -->
+  
+  <exception name="dummyException">
+    <exceptionParameter name="dummyExcPar1">
+      <dataType><integer/></dataType>
+    </exceptionParameter>
+    <exceptionParameter name="dummyExcPar2">
+      <dataType><integer/></dataType>
+    </exceptionParameter>
+  </exception>
+
+
+  <class name="Hardware">
+    <description>
+     The purpose of the Hardware Management function is to make it possible to maintain 
+     the Hardware Inventory (HWI) for the Integrated Site and to present its content via ISM
+     or to a management system. And also to maintain the subracks usage.
+    </description>
+    <singleton/>
+    <systemCreated/>
+
+    <attribute name="activeSis">
+       <description>
+          The subrack,slot of the active om SIS. The format is "subrack.slot".
+       </description>
+       <dataType><string/></dataType>
+       <readOnly/>
+    </attribute>
+
+    <action name="actComplexParams">
+      <returnType>
+	<void/>
+      </returnType>
+      <parameter name="structParameter">
+	<dataType>
+	  <struct>
+	    <structMember name="a">
+	      <dataType><integer/></dataType>
+	    </structMember>
+	    <structMember name="b">
+	      <dataType><integer/></dataType>
+	    </structMember>
+	  </struct>
+	</dataType>
+      </parameter>
+    </action>
+
+    <action name="actComplexReturn">
+      <returnType>
+	<dataType>
+	  <struct>
+	    <structMember name="a">
+	      <dataType><integer/></dataType>
+	    </structMember>
+	    <structMember name="b">
+	      <dataType><integer/></dataType>
+	    </structMember>
+	  </struct>
+	</dataType>
+      </returnType>
+    </action>
+
+    <action name="actException">
+      <returnType>
+	<void/>
+      </returnType>
+      <raisesException name="dummyException"/>
+    </action>
+
+    <action name="createInfraStructure">
+     <description>
+         Creates the base IS infrastructure.
+         This is noramlly done at factory.
+     </description>
+     <returnType>
+         <void/>
+     </returnType>
+    </action>
+
+    <action name="exportInventory">
+       <description>
+           Exports the Hardware Inventory via FTP.
+           This is an asyncrounous operation. The file exported
+           will have the following name format:
+            &lt;node&gt;.&lt;timestamp&gt;.HWI.xml.tar.gz
+       </description>
+       <returnType>
+         <void/>
+     </returnType>
+     <parameter name="host">
+         <description>
+            The host to which the data should be sent to
+         </description>
+         <dataType><string/></dataType>
+     </parameter>
+      <parameter name="user">
+       <description>
+           The username on the host to be used during the FTP transfer.
+       </description>
+         <dataType><string/></dataType>
+     </parameter>
+      <parameter name="password">
+       <description>
+            The pasword of the user
+       </description>
+         <dataType><string/></dataType>
+     </parameter>
+      <parameter name="path">
+       <description>
+           The path were to put the file
+       </description>
+         <dataType><string/></dataType>
+     </parameter>
+   </action>
+
+  </class>
+  
+  <class name="BladeType">
+    <description>
+      This class describes a Blade type.
+    </description>
+    <systemCreated/>
+    
+    <attribute name="type">
+      <description>The blade type number like CNA12801</description>
+      <dataType><string/></dataType>
+      <key/>
+    </attribute>
+
+    <attribute name="swgId">
+      <description>The blade software group index link CSX10138</description>
+      <dataType><string/></dataType>
+      <key/>
+    </attribute>
+
+    <attribute name="swgRev">
+      <description>The blade software group revision</description>
+      <dataType><string/></dataType>
+      <key/>
+    </attribute>
+
+    <attribute name="name">
+      <description>The name of the Blade Type.</description>
+      <dataType><string/></dataType>
+      <readOnly/>
+    </attribute>
+    
+    <attribute name="width">
+      <description>The width of the blade in number of slots.</description>
+      <dataType>	
+	<integer/>
+      </dataType>
+      <readOnly/>
+    </attribute>
+    
+    <attribute name="oneGLinks">
+      <description>
+	The 1G links used by the blade type , like 0,1, counted from
+	the leftmost backplane position.
+      </description>
+      <dataType><string/></dataType>
+      <readOnly/>
+    </attribute>
+    
+    <attribute name="linkAggregates">
+      <description>
+	The 1G links used for link aggregation by the blade type , like 0-1,
+	counted from the leftmost backplane position.
+      </description>
+      <dataType><string/></dataType>
+      <readOnly/>
+    </attribute>
+    
+    <attribute name="hasHwData">
+      <description>
+	True if possible to read product info via the maintenance bus.
+      </description>
+      <dataType><boolean/></dataType>
+      <readOnly/>
+    </attribute>
+    
+    <attribute name="isMxb">
+      <description>True if this is a Main Switch blade type.</description>
+      <dataType><boolean/></dataType>
+      <readOnly/>
+    </attribute>
+    
+    <attribute name="availOneGSlots">
+      <description>
+	Only valid for main switch blades. A list of slots that have 1G link. 
+	Could be a single slot or a range or a combination thereof. 
+	E.g. 1-24, or 1,3-13,15-24.
+      </description>
+      <dataType><string/></dataType>
+      <readOnly/>
+    </attribute>
+    
+    <attribute name="aggregateRanges">
+      <description>
+	Only valid for main switch blades. Specifies which slots can be used 
+	for link aggregation. Ranges are specified in the form 1-12,13-24.
+      </description>
+      <dataType><string/></dataType>
+      <readOnly/>
+    </attribute>
+    
+  </class>
+
+
+  <class name="BladeSystemDomain">
+    <description>
+      This class describes a Blade system domain.
+    </description>
+    <systemCreated/>
+    
+    <attribute name="name">
+      <description>The blade system domain name.</description>
+      <dataType><string/></dataType>
+      <key/>
+    </attribute>
+
+    <attribute name="description">
+      <description>The description of the blade system domain.</description>
+      <dataType><string/></dataType>
+<!--      <key/> -->
+    </attribute>
+
+  </class>
+  
+    
+  <class name="Subrack">
+    <description>
+      This class describes the subrack.
+    </description>
+    <extension>
+      <callpoint id="Is_Hardware_Subrack" type="external"/>
+<!--      <validate id="Is_Hardware_Subrack" type="external" callOnce="true"/>-->
+    </extension>
+    
+    <attribute name="id">
+      <description>Identifies a certain subrack.</description>
+      <dataType>	
+	<integer><range><min>0</min><max>31</max></range></integer>
+      </dataType>
+      <key/>
+    </attribute>
+    
+    <attribute name="type">
+      <description>The type of subrack.</description>
+      <dataType><string/></dataType>
+    </attribute>
+    
+    <attribute name="userLabel">
+      <description>A user friendly Subrack name.</description>
+      <dataType><string/></dataType>
+    </attribute>
+    
+    <attribute name="position">
+      <description>The subrack position in the cabinet.</description>
+      <dataType><string/></dataType>
+    </attribute>
+    
+    <attribute name="cabinetPosition">
+      <description>The cabinet position in the site.</description>
+      <dataType><string/></dataType>
+    </attribute>
+    
+    <attribute name="location">
+      <description>The site location, e.g. the visiting address.</description>
+      <dataType><string/></dataType>
+    </attribute>
+    
+    <attribute name="availableOneGSlots">
+      <description>
+	Available slots for 1G switch links. Information taken from the type 
+	of main switch blade that is created in the subrack.
+      </description>
+      <dataType><string/></dataType>
+      <readOnly/>
+    </attribute>
+    
+    <attribute name="availableTenGSlots">
+      <description>
+	Available slots for 10G switch links. Information taken from the type 
+	of main switch blade that is created in the subrack.
+      </description>
+      <dataType><string/></dataType>
+      <readOnly/>	
+    </attribute>
+      
+    <attribute name="aggregateSlots">
+      <description>
+	Links ranges for (1G) link aggregation. Information taken from the
+	type of main switch blade that is created in the subrack.
+      </description>
+      <dataType><string/></dataType>
+      <readOnly/>	
+    </attribute>
+
+    <attribute name="physicalAddrPlug0">
+      <description>
+         The value of the physical plug 0.
+      </description>
+      <dataType><integer/></dataType>
+      <mandatory/>
+    </attribute>
+
+    <attribute name="physicalAddrPlug1">
+      <description>
+         The value of the physical plug 1.
+      </description>
+      <dataType><integer/></dataType>
+      <mandatory/>
+    </attribute>
+
+    <attribute name="physicalAddrPlug3">
+      <description>
+         The value of the physical plug 3.
+      </description>
+      <dataType><integer/></dataType>
+      <mandatory/>
+    </attribute>
+
+    <attribute name="leftMxbBsSwgId">
+     <description>
+        The BS SWG Id of the left MXB in the subrack.
+        If not given the system will use the same as the
+        MXB in subrack 0. This might not be corect however.
+     </description>
+     <dataType><string/></dataType>
+     <restricted/>
+    </attribute>
+
+    <attribute name="leftMxbBsSwgRev">
+     <description>
+        The BS SWG Revision of the left MXB in the subrack.
+        If not given the system will use the same as the
+        MXB in subrack 0. This might not be corect however.
+     </description>
+     <dataType><string/></dataType>
+     <restricted/>
+    </attribute>
+
+    <attribute name="leftMxbBsCxrId">
+     <description>
+        The BS CXR Id (if any) of the left MXB in the subrack.
+        If not given the system will use the same as the
+        MXB in subrack 0. This might not be corect however.
+     </description>
+     <dataType><string/></dataType>
+     <restricted/>
+    </attribute>
+
+    <attribute name="leftMxbBsCxrRev">
+     <description>
+        The BS CXR Revision (if any) of the left MXB in the subrack.
+        If not given the system will use the same as the
+        MXB in subrack 0. This might not be corect however.
+     </description>
+     <dataType><string/></dataType>
+     <restricted/>
+    </attribute>
+
+    <attribute name="leftMxbBlSwgId">
+     <description>
+        The BL SWG Id of the left MXB in the subrack.
+        If not given the system will use the same as the
+        MXB in subrack 0. This might not be corect however.
+     </description>
+     <dataType><string/></dataType>
+     <restricted/>
+    </attribute>
+
+    <attribute name="leftMxbBlSwgRev">
+     <description>
+        The BL SWG Revision of the left MXB in the subrack.
+        If not given the system will use the same as the
+        MXB in subrack 0. This might not be corect however.
+     </description>
+     <dataType><string/></dataType>
+     <restricted/>
+    </attribute>
+
+    <attribute name="leftMxbBlCxrId">
+     <description>
+        The BL CXR Id (if any) of the left MXB in the subrack.
+        If not given the system will use the same as the
+        MXB in subrack 0. This might not be corect however.
+     </description>
+     <dataType><string/></dataType>
+     <restricted/>
+    </attribute>
+
+    <attribute name="leftMxbBlCxrRev">
+     <description>
+        The BL CXR Revision (if any) of the left MXB in the subrack.
+        If not given the system will use the same as the
+        MXB in subrack 0. This might not be corect however.
+     </description>
+     <dataType><string/></dataType>
+     <restricted/>
+    </attribute>
+
+    <attribute name="rightMxbBsSwgId">
+     <description>
+        The BS SWG Id of the right MXB in the subrack.
+        If not given the system will use the same as the
+        MXB in subrack 0. This might not be corect however.
+     </description>
+     <dataType><string/></dataType>
+     <restricted/>
+    </attribute>
+
+    <attribute name="rightMxbBsSwgRev">
+     <description>
+        The BS SWG Revision of the right MXB in the subrack.
+        If not given the system will use the same as the
+        MXB in subrack 0. This might not be corect however.
+     </description>
+     <dataType><string/></dataType>
+     <restricted/>
+    </attribute>
+
+    <attribute name="rightMxbBsCxrId">
+     <description>
+        The BS CXR Id (if any) of the right MXB in the subrack.
+        If not given the system will use the same as the
+        MXB in subrack 0. This might not be corect however.
+     </description>
+     <dataType><string/></dataType>
+     <restricted/>
+    </attribute>
+
+    <attribute name="rightMxbBsCxrRev">
+     <description>
+        The BS CXR Revision (if any) of the right MXB in the subrack.
+        If not given the system will use the same as the
+        MXB in subrack 0. This might not be corect however.
+     </description>
+     <dataType><string/></dataType>
+     <restricted/>
+    </attribute>
+
+    <attribute name="rightMxbBlSwgId">
+     <description>
+        The BL SWG Id of the right MXB in the subrack.
+        If not given the system will use the same as the
+        MXB in subrack 0. This might not be corect however.
+     </description>
+     <dataType><string/></dataType>
+     <restricted/>
+    </attribute>
+
+    <attribute name="rightMxbBlSwgRev">
+     <description>
+        The BL SWG Revision of the right MXB in the subrack.
+        If not given the system will use the same as the
+        MXB in subrack 0. This might not be corect however.
+     </description>
+     <dataType><string/></dataType>
+     <restricted/>
+    </attribute>
+
+    <attribute name="rightMxbBlCxrId">
+     <description>
+        The BL CXR Id (if any) of the right MXB in the subrack.
+        If not given the system will use the same as the
+        MXB in subrack 0. This might not be corect however.
+     </description>
+     <dataType><string/></dataType>
+     <restricted/>
+    </attribute>
+
+    <attribute name="rightMxbBlCxrRev">
+     <description>
+        The BL CXR Revision (if any) of the right MXB in the subrack.
+        If not given the system will use the same as the
+        MXB in subrack 0. This might not be corect however.
+     </description>
+     <dataType><string/></dataType>
+     <restricted/>
+    </attribute>
+  </class>
+  
+  <class name="Slot">
+    <description>
+      This class corresponds to slots, there is one instance 
+      for each slot. The slots are grouped per subrack. A slot is
+      identified by subrack Id and slot number). The subrack Id for a slot
+      identifies in the subrackTable the subrack that the slot belongs
+      to.
+    </description>
+    <systemCreated/>
+      
+    <attribute name="number">
+      <description>
+	The value of this object identifies the
+	slot position within the subrack.
+      </description>
+      <dataType>	
+	<integer><range><min>0</min><max>25</max></range></integer>
+      </dataType>
+      <key/>
+    </attribute>
+    
+    <attribute name="state">
+      <description>
+	See HwmSlotState description.
+      </description>
+      <dataType name.ref="HwmSlotState"/>
+      <readOnly/>	
+    </attribute>
+    
+    <attribute name="bladeSystem">
+      <description>
+	The value of this object identifies the Blade System that uses this 
+	slot.  An instances of this object will only have meaning in a 
+	conceptual row if the value of hwmSlotState instance is either
+	usedOccupied  or usedEmpty in the same conceptual row,
+	i.e. there is an Blade System created using this slot. (If
+	no Blade System is using the slot, the value will be "-".)
+      </description>
+      <dataType><string/></dataType>
+      <readOnly/>	
+    </attribute>
+    
+  </class>
+  
+  
+  <!-- 
+       Relatonship Definitions
+  -->
+  
+  <relationship name="HwmTop">
+    <containment>
+      <parent>
+	<hasClass name="top_mim:Is"/>
+      </parent>
+      <child>
+	<hasClass name="Hardware"/>
+      </child>
+    </containment>
+  </relationship>
+  
+  <relationship name="BladeTypes">
+    <containment>
+      <parent>
+	<hasClass name="Hardware"/>
+      </parent>
+      <child>
+	<hasClass name="BladeType"/>
+      </child>
+    </containment>
+  </relationship>
+  
+  <relationship name="BladeSystemDomains">
+    <containment>
+      <parent>
+	<hasClass name="Hardware"/>
+      </parent>
+      <child>
+	<hasClass name="BladeSystemDomain"/>
+      </child>
+    </containment>
+  </relationship>
+  
+  <relationship name="Subracks">
+    <containment>
+      <parent>
+	<hasClass name="Hardware"/>
+      </parent>
+      <child>
+	<hasClass name="Subrack"/>
+      </child>
+    </containment>
+  </relationship>
+  
+  <relationship name="Slots">
+    <containment>
+      <parent>
+	<hasClass name="Subrack"/>
+      </parent>
+      <child>
+	<hasClass name="Slot"/>
+      </child>
+    </containment>
+  </relationship>  
+</mim>
+

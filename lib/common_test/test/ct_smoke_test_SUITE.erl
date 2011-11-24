@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -29,7 +29,7 @@
 
 -compile(export_all).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("common_test/include/ct_event.hrl").
 
 -define(eh, ct_test_support_eh).
@@ -112,13 +112,21 @@ end_per_testcase(TestCase, Config) ->
 %% Description: Returns a description of the test suite (doc) and a
 %%              list of all test cases in the suite (suite).
 %%--------------------------------------------------------------------
-all(doc) -> 
-    ["Run smoke tests of Common Test."];
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all(suite) -> 
-    [dir1, dir2, dir1_2,
-     suite11, suite21, suite11_21,
+all() -> 
+    [dir1, dir2, dir1_2, suite11, suite21, suite11_21,
      tc111, tc211, tc111_112].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 
 %%--------------------------------------------------------------------
@@ -162,15 +170,16 @@ dir1(Config) when is_list(Config) ->
 
     ERPid = ct_test_support:start_event_receiver(Config),
 
-    ok = ct_test_support:run(ct, run_test, [Opts], Config),
+    ok = ct_test_support:run(Opts, Config),
 
     Events = ct_test_support:get_events(ERPid, Config),
 
     ct_test_support:log_events(dir1, 
-			       ct_test_support:reformat(Events, ?eh), 
-			       ?config(priv_dir, Config)),
+			       ct_test_support:reformat(Events, ?eh),
+			       ?config(priv_dir, Config),
+			       Opts),
 
-    TestEvents = test_events(dir1),    
+    TestEvents = events_to_check(dir1),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
 
 %%%-----------------------------------------------------------------
@@ -191,15 +200,16 @@ dir2(Config) when is_list(Config) ->
 
     ERPid = ct_test_support:start_event_receiver(Config),
 
-    ok = ct_test_support:run(ct, run_test, [Opts], Config),
+    ok = ct_test_support:run(Opts, Config),
 
     Events = ct_test_support:get_events(ERPid, Config),
     
     ct_test_support:log_events(dir2, 
-			       ct_test_support:reformat(Events, ?eh), 
-			       ?config(priv_dir, Config)),
+			       ct_test_support:reformat(Events, ?eh),
+			       ?config(priv_dir, Config),
+			       Opts),
 
-    TestEvents = test_events(dir2),    
+    TestEvents = events_to_check(dir2),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
 
 %%%-----------------------------------------------------------------
@@ -221,15 +231,16 @@ dir1_2(Config) when is_list(Config) ->
 
     ERPid = ct_test_support:start_event_receiver(Config),
 
-    ok = ct_test_support:run(ct, run_test, [Opts], Config),
+    ok = ct_test_support:run(Opts, Config),
 
     Events = ct_test_support:get_events(ERPid, Config),
     
     ct_test_support:log_events(dir1_2, 
-			       ct_test_support:reformat(Events, ?eh), 
-			       ?config(priv_dir, Config)),
+			       ct_test_support:reformat(Events, ?eh),
+			       ?config(priv_dir, Config),
+			       Opts),
 
-    TestEvents = test_events(dir1_2),    
+    TestEvents = events_to_check(dir1_2),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
 
 %%%-----------------------------------------------------------------
@@ -251,15 +262,15 @@ suite11(Config) when is_list(Config) ->
 
     ERPid = ct_test_support:start_event_receiver(Config),
 
-    ok = ct_test_support:run(ct, run_test, [Opts], Config),
+    ok = ct_test_support:run(Opts, Config),
 
     Events = ct_test_support:get_events(ERPid, Config),
     
     ct_test_support:log_events(suite11, 
-			       ct_test_support:reformat(Events, ?eh), 
-			       ?config(priv_dir, Config)),
+			       ct_test_support:reformat(Events, ?eh),
+			       ?config(priv_dir, Config), Opts),
 
-    TestEvents = test_events(suite11),    
+    TestEvents = events_to_check(suite11),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
 
 %%%-----------------------------------------------------------------
@@ -280,15 +291,15 @@ suite21(Config) when is_list(Config) ->
 
     ERPid = ct_test_support:start_event_receiver(Config),
 
-    ok = ct_test_support:run(ct, run_test, [Opts], Config),
+    ok = ct_test_support:run(Opts, Config),
 
     Events = ct_test_support:get_events(ERPid, Config),
     
     ct_test_support:log_events(suite21, 
-			       ct_test_support:reformat(Events, ?eh), 
-			       ?config(priv_dir, Config)),
+			       ct_test_support:reformat(Events, ?eh),
+			       ?config(priv_dir, Config), Opts),
 
-    TestEvents = test_events(suite21),    
+    TestEvents = events_to_check(suite21),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
 
 %%%-----------------------------------------------------------------
@@ -311,15 +322,15 @@ suite11_21(Config) when is_list(Config) ->
 
     ERPid = ct_test_support:start_event_receiver(Config),
 
-    ok = ct_test_support:run(ct, run_test, [Opts], Config),
+    ok = ct_test_support:run(Opts, Config),
 
     Events = ct_test_support:get_events(ERPid, Config),
     
     ct_test_support:log_events(suite11_21, 
-			       ct_test_support:reformat(Events, ?eh), 
-			       ?config(priv_dir, Config)),
+			       ct_test_support:reformat(Events, ?eh),
+			       ?config(priv_dir, Config), Opts),
 
-    TestEvents = test_events(suite11_21),    
+    TestEvents = events_to_check(suite11_21),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
 
 %%%-----------------------------------------------------------------
@@ -342,15 +353,15 @@ tc111(Config) when is_list(Config) ->
 
     ERPid = ct_test_support:start_event_receiver(Config),
 
-    ok = ct_test_support:run(ct, run_test, [Opts], Config),
+    ok = ct_test_support:run(Opts, Config),
 
     Events = ct_test_support:get_events(ERPid, Config),
     
     ct_test_support:log_events(tc111, 
-			       ct_test_support:reformat(Events, ?eh), 
-			       ?config(priv_dir, Config)),
+			       ct_test_support:reformat(Events, ?eh),
+			       ?config(priv_dir, Config), Opts),
 
-    TestEvents = test_events(tc111),    
+    TestEvents = events_to_check(tc111),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
 
 %%%-----------------------------------------------------------------
@@ -372,15 +383,15 @@ tc211(Config) when is_list(Config) ->
 
     ERPid = ct_test_support:start_event_receiver(Config),
 
-    ok = ct_test_support:run(ct, run_test, [Opts], Config),
+    ok = ct_test_support:run(Opts, Config),
 
     Events = ct_test_support:get_events(ERPid, Config),
     
     ct_test_support:log_events(tc211, 
-			       ct_test_support:reformat(Events, ?eh), 
-			       ?config(priv_dir, Config)),
+			       ct_test_support:reformat(Events, ?eh),
+			       ?config(priv_dir, Config), Opts),
 
-    TestEvents = test_events(tc211),    
+    TestEvents = events_to_check(tc211),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
 
 %%%-----------------------------------------------------------------
@@ -403,15 +414,15 @@ tc111_112(Config) when is_list(Config) ->
 
     ERPid = ct_test_support:start_event_receiver(Config),
 
-    ok = ct_test_support:run(ct, run_test, [Opts], Config),
+    ok = ct_test_support:run(Opts, Config),
     
     Events = ct_test_support:get_events(ERPid, Config),
     
     ct_test_support:log_events(tc111_112, 
-			       ct_test_support:reformat(Events, ?eh), 
-			       ?config(priv_dir, Config)),
+			       ct_test_support:reformat(Events, ?eh),
+			       ?config(priv_dir, Config), Opts),
 
-    TestEvents = test_events(tc111_112),    
+    TestEvents = events_to_check(tc111_112),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
 
 
@@ -423,8 +434,16 @@ eh_opts(Config) ->
     Level = ?config(trace_level, Config),
     [{event_handler,{?eh,[{cbm,ct_test_support},{trace_level,Level}]}}].
 
+events_to_check(Test) ->
+    %% 2 tests (ct:run_test + script_start) is default
+    events_to_check(Test, 2).
 
-test_events(Test) when Test == dir1 ; Test == dir2 ;
+events_to_check(_, 0) ->
+    [];
+events_to_check(Test, N) ->
+    events(Test) ++ events_to_check(Test, N-1).
+
+events(Test) when Test == dir1 ; Test == dir2 ;
 		       Test == suite11 ; Test == suite21 ->
     Suite = if Test == dir1 ; Test == suite11 -> happy_11_SUITE;
 	       true -> happy_21_SUITE
@@ -465,7 +484,7 @@ test_events(Test) when Test == dir1 ; Test == dir2 ;
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
     ];
-test_events(Test) when Test == dir1_2 ; Test == suite11_21 ->
+events(Test) when Test == dir1_2 ; Test == suite11_21 ->
     [
      {?eh,start_logging,{'DEF','RUNDIR'}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
@@ -532,7 +551,7 @@ test_events(Test) when Test == dir1_2 ; Test == suite11_21 ->
      {?eh,stop_logging,[]}
     ];
 
-test_events(Test) when Test == tc111 ; Test == tc211 ->
+events(Test) when Test == tc111 ; Test == tc211 ->
     Suite = if Test == tc111 -> happy_11_SUITE; true -> happy_21_SUITE end,
     [
      {?eh,start_logging,{'DEF','RUNDIR'}},
@@ -549,7 +568,7 @@ test_events(Test) when Test == tc111 ; Test == tc211 ->
      {?eh,stop_logging,[]}
     ];
 
-test_events(tc111_112) ->    
+events(tc111_112) ->
     [
      {?eh,start_logging,{'DEF','RUNDIR'}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},

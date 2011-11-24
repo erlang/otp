@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2009</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -56,22 +56,16 @@
   </description>
   <funcs>
     <func>
-      <name>start(Host) -></name>
-      <name>start(Host, Name) -></name>
-      <name>start(Host, Name, Args) -> {ok, Node} | {error, Reason}</name>
+      <name name="start" arity="1"/>
+      <name name="start" arity="2"/>
+      <name name="start" arity="3"/>
       <fsummary>Start a slave node on a host</fsummary>
-      <type>
-        <v>Host = Name = atom()</v>
-        <v>Args = string()</v>
-        <v>Node = node()</v>
-        <v>Reason = timeout | no_rsh | {already_running, Node}</v>
-      </type>
       <desc>
-        <p>Starts a slave node on the host <c>Host</c>. Host names need
+        <p>Starts a slave node on the host <c><anno>Host</anno></c>. Host names need
           not necessarily be specified as fully qualified names; short
           names can also be used. This is the same condition that
           applies to names of distributed Erlang nodes.</p>
-        <p>The name of the started node will be <c>Name@Host</c>. If no
+        <p>The name of the started node will be <c><anno>Name</anno>@<anno>Host</anno></c>. If no
           name is provided, the name will be the same as the node which
           executes the call (with the exception of the host name part of
           the node name).</p>
@@ -79,7 +73,7 @@
           terminal I/O which is produced at the slave is automatically 
           relayed to the master. Also, the file process will be relayed
           to the master.</p>
-        <p>The <c>Args</c> argument is used to set <c>erl</c> command
+        <p>The <c><anno>Args</anno></c> argument is used to set <c>erl</c> command
           line arguments. If provided, it is passed to the new node and
           can be used for a variety of purposes. See
           <seealso marker="erts:erl#erl">erl(1)</seealso></p>
@@ -103,9 +97,9 @@
 E = " -env DISPLAY " ++ net_adm:localhost() ++ ":0 ",
 Arg = "-mnesia_dir " ++ M ++ " -pa " ++ Dir ++ E,
 slave:start(H, Name, Arg).</code>
-        <p>If successful, the function returns <c>{ok, Node}</c>,
-          where <c>Node</c> is the name of the new node. Otherwise it
-          returns <c>{error, Reason}</c>, where <c>Reason</c> can be
+        <p>If successful, the function returns <c>{ok, <anno>Node</anno>}</c>,
+          where <c><anno>Node</anno></c> is the name of the new node. Otherwise it
+          returns <c>{error, <anno>Reason</anno>}</c>, where <c><anno>Reason</anno></c> can be
           one of:</p>
         <taglist>
           <tag><c>timeout</c></tag>
@@ -123,24 +117,18 @@ slave:start(H, Name, Arg).</code>
           <item>
             <p>There is no <c>rsh</c> program on the computer.</p>
           </item>
-          <tag><c>{already_running, Node}</c></tag>
+          <tag><c>{already_running, <anno>Node</anno>}</c></tag>
           <item>
-            <p>A node with the name <c>Name@Host</c> already exists.</p>
+            <p>A node with the name <c><anno>Name</anno>@<anno>Host</anno></c> already exists.</p>
           </item>
         </taglist>
       </desc>
     </func>
     <func>
-      <name>start_link(Host) -></name>
-      <name>start_link(Host, Name) -></name>
-      <name>start_link(Host, Name, Args) -> {ok, Node} | {error, Reason}</name>
+      <name name="start_link" arity="1"/>
+      <name name="start_link" arity="2"/>
+      <name name="start_link" arity="3"/>
       <fsummary>Start and link to a slave node on a host</fsummary>
-      <type>
-        <v>Host = Name = atom()</v>
-        <v>Args = string()</v>
-        <v>Node = node()</v>
-        <v>Reason = timeout | no_rsh | {already_running, Node}</v>
-      </type>
       <desc>
         <p>Starts a slave node in the same way as <c>start/1,2,3</c>,
           except that the slave node is linked to the currently
@@ -151,11 +139,8 @@ slave:start(H, Name, Arg).</code>
       </desc>
     </func>
     <func>
-      <name>stop(Node) -> ok</name>
+      <name name="stop" arity="1"/>
       <fsummary>Stop (kill) a node</fsummary>
-      <type>
-        <v>Node = node()</v>
-      </type>
       <desc>
         <p>Stops (kills) a node.</p>
       </desc>
@@ -177,12 +162,8 @@ slave:start(H, Name, Arg).</code>
       </desc>
     </func>
     <func>
-      <name>pseudo(Master, ServerList) -> ok</name>
+      <name name="pseudo" arity="2"/>
       <fsummary>Start a number of pseudo servers</fsummary>
-      <type>
-        <v>Master = node()</v>
-        <v>ServerList = [atom()]</v>
-      </type>
       <desc>
         <p>Starts a number of pseudo servers. A pseudo server is a
           server with a registered name which does absolutely nothing
@@ -198,16 +179,13 @@ rpc:call(N, slave, pseudo, [node(), [pxw_server]]).</code>
       </desc>
     </func>
     <func>
-      <name>relay(Pid)</name>
+      <name name="relay" arity="1"/>
       <fsummary>Run a pseudo server</fsummary>
-      <type>
-        <v>Pid = pid()</v>
-      </type>
       <desc>
         <p>Runs a pseudo server. This function never returns any value
           and the process which executes the function will receive
           messages. All messages received will simply be passed on to
-          <c>Pid</c>.</p>
+          <c><anno>Pid</anno></c>.</p>
       </desc>
     </func>
   </funcs>

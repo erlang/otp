@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
   <header>
     <copyright>
-      <year>1999</year><year>2010</year>
+      <year>1999</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -28,8 +28,473 @@
     <rev>G</rev>
     <file>notes.xml</file>
   </header>
-  <p>This document describes the changes made to the SSL application.
-    </p>
+  <p>This document describes the changes made to the SSL application.</p>
+  
+  <section><title>SSL 4.1.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    replace "a ssl" with "an ssl" reindent
+	    pkix_path_validation/3 Trivial documentation fixes
+	    (Thanks to Christian von Roques )</p>
+          <p>
+	    Own Id: OTP-9464</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Adds function clause to avoid denial of service attack.
+	    Thanks to Vinod for reporting this vulnerability.</p>
+          <p>
+	    Own Id: OTP-9364</p>
+        </item>
+        <item>
+          <p>
+	    Error handling code now takes care of inet:getopts/2 and
+	    inets:setopts/2 crashes. Thanks to Richard Jones for
+	    reporting this.</p>
+          <p>
+	    Own Id: OTP-9382</p>
+        </item>
+        <item>
+          <p>
+	    Support explicit use of packet option httph and httph_bin</p>
+          <p>
+	    Own Id: OTP-9461</p>
+        </item>
+        <item>
+          <p>
+	    Decoding of hello extensions could fail to come to the
+	    correct conclusion due to an error in a binary match
+	    pattern. Thanks to Ben Murphy.</p>
+          <p>
+	    Own Id: OTP-9589</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section>
+    <title>SSL 4.1.5</title>
+    
+    <section><title>Improvements and New Features</title>
+    <list>
+      <item>
+	<p>Calling gen_tcp:connect with option {ip, {127,0,0,1}} results in 
+	an exit with reason badarg. Neither SSL nor INETS This was not 
+	catched, resulting in crashes with incomprehensible reasons.</p>
+	<p>Own Id: OTP-9289 Aux Id: seq11845</p>
+      </item>
+    </list>
+    </section>
+    
+  </section>
+  
+  <section>
+    <title>SSL 4.1.3</title>
+  
+    <section><title>Fixed Bugs and Malfunctions</title>
+    <list>
+      <item>
+	<p>
+	Fixed error in cache-handling fix from ssl-4.1.2</p>
+	<p>
+	Own Id: OTP-9018 Aux Id: seq11739 </p>
+      </item>
+      <item>
+	<p>Verification of a critical extended_key_usage-extension
+	corrected</p>
+	<p>Own Id: OTP-9029 Aux Id: seq11541 </p>
+      </item>
+    </list>
+    </section>
+
+  </section>
+
+  <section>
+    <title>SSL 4.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The ssl application caches certificate files, it will now
+	    invalidate cache entries if the diskfile is changed.</p>
+          <p>
+	    Own Id: OTP-8965 Aux Id: seq11739 </p>
+        </item>
+        <item>
+          <p>
+	    Now runs the terminate function before returning from the
+	    call made by ssl:close/1, as before the caller of
+	    ssl:close/1 could get problems with the reuseaddr option.</p>
+          <p>
+	    Own Id: OTP-8992</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 4.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct handling of client certificate verify message
+	    When checking the client certificate verify message the
+	    server used the wrong algorithm identifier to determine
+	    the signing algorithm, causing a function clause error in
+	    the public_key application when the key-exchange
+	    algorithm and the public key algorithm of the client
+	    certificate happen to differ.</p>
+          <p>
+	    Own Id: OTP-8897</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    For testing purposes ssl now also support some anonymous
+	    cipher suites when explicitly configured to do so.</p>
+          <p>
+	    Own Id: OTP-8870</p>
+        </item>
+        <item>
+          <p>
+	    Sends an error alert instead of crashing if a crypto
+	    function for the selected cipher suite fails.</p>
+          <p>
+	    Own Id: OTP-8930 Aux Id: seq11720 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 4.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Updated ssl to ignore CA certs that violate the asn1-spec
+	    for a certificate, and updated public key asn1 spec to
+	    handle inherited DSS-params.</p>
+          <p>
+	    Own Id: OTP-7884</p>
+        </item>
+        <item>
+          <p>
+	    Changed ssl implementation to retain backwards
+	    compatibility for old option {verify, 0} that shall be
+	    equivalent to {verify, verify_none}, also separate the
+	    cases unknown ca and selfsigned peer cert, and restored
+	    return value of deprecated function
+	    public_key:pem_to_der/1.</p>
+          <p>
+	    Own Id: OTP-8858</p>
+        </item>
+        <item>
+          <p>
+	    Changed the verify fun so that it differentiate between
+	    the peer certificate and CA certificates by using
+	    valid_peer or valid as the second argument to the verify
+	    fun. It may not always be trivial or even possible to
+	    know when the peer certificate is reached otherwise.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-8873</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 4.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The server now verifies the client certificate verify
+	    message correctly, instead of causing a case-clause.</p>
+          <p>
+	    Own Id: OTP-8721</p>
+        </item>
+        <item>
+          <p>
+	    The client hello message now always include ALL available
+	    cipher suites (or those specified by the ciphers option).
+	    Previous implementation would filter them based on the
+	    client certificate key usage extension (such filtering
+	    only makes sense for the server certificate).</p>
+          <p>
+	    Own Id: OTP-8772</p>
+        </item>
+        <item>
+          <p>
+	    Fixed handling of the option {mode, list} that was broken
+	    for some packet types for instance line.</p>
+          <p>
+	    Own Id: OTP-8785</p>
+        </item>
+        <item>
+          <p>
+	    Empty packets were not delivered to the client.</p>
+          <p>
+	    Own Id: OTP-8790</p>
+        </item>
+        <item>
+	    <p> Building in a source tree without prebuilt platform
+	    independent build results failed on the SSL examples
+	    when: </p> <list><item> cross building. This has been
+	    solved by not building the SSL examples during a cross
+	    build. </item><item> building on Windows. </item></list>
+          <p>
+	    Own Id: OTP-8791</p>
+        </item>
+        <item>
+          <p>
+	    Fixed a handshake error which occurred on some ssl
+	    implementations.</p>
+          <p>
+	    Own Id: OTP-8793</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Revise the public_key API - Cleaned up and documented the
+	    public_key API to make it useful for general use, also
+	    changed ssl to use the new API.</p>
+          <p>
+	    Own Id: OTP-8722</p>
+        </item>
+        <item>
+          <p>
+	    Added support for inputing certificates and keys directly
+	    in DER format these options will override the pem-file
+	    options if specified.</p>
+          <p>
+	    Own Id: OTP-8723</p>
+        </item>
+        <item>
+          <p>
+	    To gain interoperability ssl will not check for padding
+	    errors when using TLS 1.0. It is first in TLS 1.1 that
+	    checking the padding is an requirement.</p>
+          <p>
+	    Own Id: OTP-8740</p>
+        </item>
+        <item>
+          <p>
+	    Changed the semantics of the verify_fun option in the
+	    ssl-application so that it takes care of both application
+	    handling of path validation errors and verification of
+	    application specific extensions. This means that it is
+	    now possible for the server application in verify_peer
+	    mode to handle path validation errors. This change moved
+	    some functionality earlier in ssl to the public_key
+	    application.</p>
+          <p>
+	    Own Id: OTP-8770</p>
+        </item>
+        <item>
+          <p>
+	    Added the functionality so that the verification fun will
+	    be called when a certificate is considered valid by the
+	    path validation to allow access to each certificate in
+	    the path to the user application. Also try to verify
+	    subject-AltName, if unable to verify it let the
+	    application verify it.</p>
+          <p>
+	    Own Id: OTP-8825</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 4.0</title>
+    
+    <section><title>Improvements and New Features</title>
+    <list>
+      <item>
+	<p>
+	  New ssl now support client/server-certificates signed by
+	dsa keys.</p>
+	<p>
+	Own Id: OTP-8587</p>
+      </item>
+      <item>
+	<p>
+	  Ssl has now switched default implementation and removed
+	  deprecated certificate handling. All certificate handling
+	is done by the public_key application.</p>
+	<p>
+	Own Id: OTP-8695</p>
+      </item>
+    </list>
+    </section>
+    
+    </section>
+
+    
+    <section><title>SSL 3.11.1</title>
+    
+    <section><title>Fixed Bugs and Malfunctions</title>
+    <list>
+      <item>
+          <p>
+            Fixed handling of several ssl/tls packets arriving at the
+	    same time. This was broken during a refactoring of the
+            code.</p>
+	    <p>
+	    Own Id: OTP-8679</p>
+      </item>
+      </list>
+    </section>
+    
+
+    <section><title>Improvements and New Features</title>
+    <list>
+        <item>
+          <p>
+            Added missing checks for padding and Mac value. Removed
+            code for export ciphers and DH certificates as we decided
+            not to support them.</p>
+          <p>
+            Own Id: OTP-7047</p>
+        </item>
+        <item>
+          <p>
+            New ssl will no longer return esslerrssl to be backwards
+            compatible with old ssl as this hids infomation from the
+            user. format_error/1 has been updated to support new ssl.</p>
+          <p>
+            *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+            Own Id: OTP-7049</p>
+        </item>
+        <item>
+          <p>
+            New ssl now supports secure renegotiation as described by
+            RFC 5746.</p>
+          <p>
+            Own Id: OTP-8568</p>
+        </item>
+        <item>
+          <p>
+            Alert handling has been improved to better handle
+            unexpected but valid messages and the implementation is
+            also changed to avoid timing related issues that could
+            cause different error messages depending on network
+            latency. Packet handling was sort of broken but would
+            mostly work as expected when socket was in binary mode.
+            This has now been fixed.</p>
+          <p>
+            Own Id: OTP-8588</p>
+        </item>
+      </list>
+    </section>
+    
+</section>
+    
+<section><title>SSL 3.11</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            Fixes handling of the option fail_if_no_peer_cert and
+            some undocumented options. Thanks to Rory Byrne.</p>
+          <p>
+            Own Id: OTP-8557</p>
+        </item>
+      </list>
+    </section>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            Support for Diffie-Hellman. ssl-3.11 requires
+            public_key-0.6.</p>
+          <p>
+            Own Id: OTP-7046</p>
+        </item>
+        <item>
+          <p>
+            New ssl now properly handles ssl renegotiation, and
+            initiates a renegotiation if ssl/ltls-sequence numbers
+            comes close to the max value. However RFC-5746 is not yet
+            supported, but will be in an upcoming release.</p>
+          <p>
+            Own Id: OTP-8517</p>
+        </item>
+        <item>
+          <p>
+            When gen_tcp is configured with the {packet,http} option,
+            it automatically switches to expect HTTP Headers after a
+            HTTP Request/Response line has been received. This update
+            fixes ssl to behave in the same way. Thanks to Rory
+            Byrne.</p>
+          <p>
+            Own Id: OTP-8545</p>
+        </item>
+        <item>
+          <p>
+            Ssl now correctly verifies the extended_key_usage
+            extension and also allows the user to verify application
+            specific extensions by supplying an appropriate fun.</p>
+          <p>
+            Own Id: OTP-8554 Aux Id: OTP-8553 </p>
+        </item>
+        <item>
+          <p>
+            Fixed ssl:transport_accept/2 to return properly when
+            socket is closed. Thanks to Rory Byrne.</p>
+          <p>
+            Own Id: OTP-8560</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 3.10.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            Fixed a crash in the certificate certification part.</p>
+          <p>
+            Own Id: OTP-8510 Aux Id: seq11525 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>SSL 3.10.8</title>
 
@@ -141,7 +606,7 @@
             Own Id: OTP-8224</p>
         </item>
         <item>
-            <p>A ssl:ssl_accept/3 could crash a connection if the
+            <p>An ssl:ssl_accept/3 could crash a connection if the
             timing was wrong.</p> <p>Removed info message if the
             socket closed without a proper disconnect from the ssl
             layer. </p> <p>ssl:send/2 is now blocking until the
@@ -357,7 +822,7 @@
         <item>
           <p>
             The new ssl implementation released as a alfa in this
-            version supports upgrading of a tcp connection to a ssl
+            version supports upgrading of a tcp connection to an ssl
             connection so that http client and servers may implement
             RFC 2817.</p>
           <p>
@@ -376,7 +841,7 @@
             very crippled as the control of the ssl-socket was deep
             down in openssl making it hard if not impossible to
             support all inet options, ipv6 and upgrade of a tcp
-            connection to a ssl connection. The alfa version has a
+            connection to an ssl connection. The alfa version has a
             few limitations that will be removed before the ssl-4.0
             release. Main differences and limitations in the alfa are
             listed below.</p>
@@ -657,7 +1122,7 @@
       <title>Fixed Bugs and Malfunctions</title>
       <list type="bulleted">
         <item>
-          <p>When a file descriptor was marked for closing, and and
+          <p>When a file descriptor was marked for closing, and
             end-of-file condition had already been detected, the file
             descriptor was never closed.</p>
           <p>Own Id: OTP-5093 Aux Id: seq8806 </p>

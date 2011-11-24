@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2009</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -42,7 +42,7 @@
       system.</p>
     <p>An Erlang runtime system to be monitored by a heart program,
       should be started with the command line flag <c>-heart</c> (see
-      also <seealso marker="erts:erl">erl(1)</seealso>. The <c>heart</c>
+      also <seealso marker="erts:erl">erl(1)</seealso>). The <c>heart</c>
       process is then started automatically:</p>
     <pre>
 % <input>erl -heart ...</input></pre>
@@ -76,11 +76,8 @@
   </description>
   <funcs>
     <func>
-      <name>set_cmd(Cmd) -> ok | {error, {bad_cmd, Cmd}}</name>
+      <name name="set_cmd" arity="1"/>
       <fsummary>Set a temporary reboot command</fsummary>
-      <type>
-        <v>Cmd = string()</v>
-      </type>
       <desc>
         <p>Sets a temporary reboot command. This command is used if 
           a <c>HEART_COMMAND</c> other than the one specified with
@@ -88,12 +85,12 @@
           the system. The new Erlang runtime system will (if it
           misbehaves) use the environment variable
           <c>HEART_COMMAND</c> to reboot.</p>
-        <p>Limitations: The length of the <c>Cmd</c> command string
+        <p>Limitations: The length of the <c><anno>Cmd</anno></c> command string
           must be less than 2047 characters.</p>
       </desc>
     </func>
     <func>
-      <name>clear_cmd() -> ok</name>
+      <name name="clear_cmd" arity="0"/>
       <fsummary>Clear the temporary boot command</fsummary>
       <desc>
         <p>Clears the temporary boot command. If the system terminates,
@@ -101,11 +98,8 @@
       </desc>
     </func>
     <func>
-      <name>get_cmd() -> {ok, Cmd}</name>
+      <name name="get_cmd" arity="0"/>
       <fsummary>Get the temporary reboot command</fsummary>
-      <type>
-        <v>Cmd = string()</v>
-      </type>
       <desc>
         <p>Get the temporary reboot command. If the command is cleared,
           the empty string will be returned.</p>

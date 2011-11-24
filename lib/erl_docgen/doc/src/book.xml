@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE book SYSTEM "book.dtd">
 
 <book xmlns:xi="http://www.w3.org/2001/XInclude">
   <header titlestyle="normal">
     <copyright>
-      <year>2004</year><year>2009</year>
+      <year>2004</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -21,27 +21,26 @@
     
     </legalnotice>
 
-    <title>erl_docgen</title>
+    <title>Erl_Docgen</title>
     <prepared>Lars Thorsen</prepared>
     <docno></docno>
-    <date>2009-11-10</date>
-    <rev>0.1</rev>
+    <date>2011-11-10</date>
+    <rev>0.3</rev>
     <file>book.xml</file>
   </header>
-  <insidecover>
-  </insidecover>
   <pagetext>erl_docgen</pagetext>
   <preamble>
     <contents level="2"></contents>
   </preamble>
   <parts lift="no">
+    <xi:include href="part.xml"/>
   </parts>
   <applications>
+    <xi:include href="ref_man.xml"/>
   </applications>
   <releasenotes>
     <xi:include href="notes.xml"/>
   </releasenotes>
-  <listofterms></listofterms>
   <index></index>
 </book>
 

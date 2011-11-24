@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -25,8 +25,8 @@
 
 %% Primitive inet_drv interface
 
--export([open/1, open/2, fdopen/2, fdopen/3, close/1]).
--export([bind/3, listen/1, listen/2]). 
+-export([open/3, fdopen/4, close/1]).
+-export([bind/3, listen/1, listen/2, peeloff/2]).
 -export([connect/3, connect/4, async_connect/4]).
 -export([accept/1, accept/2, async_accept/2]).
 -export([shutdown/2]).
@@ -37,7 +37,7 @@
 -export([setopt/3, setopts/2, getopt/2, getopts/2, is_sockopt_val/2]).
 -export([chgopt/3, chgopts/2]).
 -export([getstat/2, getfd/1, getindex/1, getstatus/1, gettype/1, 
-	 getiflist/1, ifget/3, ifset/3,
+	 getifaddrs/1, getiflist/1, ifget/3, ifset/3,
 	 gethostname/1]).
 -export([getservbyname/3, getservbyport/3]).
 -export([peername/1, setpeername/2]).
@@ -56,58 +56,46 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
-%% OPEN(tcp | udp | sctp, inet | inet6)  ->
+%% OPEN(tcp | udp | sctp, inet | inet6, stream | dgram | seqpacket)  ->
 %%       {ok, insock()} |
 %%       {error, Reason}
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-open(Protocol)          -> open1(Protocol, ?INET_AF_INET).
+open(Protocol, Family, Type) ->
+    open(Protocol, Family, Type, ?INET_REQ_OPEN, []).
 
-open(Protocol,   inet)  -> open1(Protocol, ?INET_AF_INET);
-open(Protocol,  inet6)  -> open1(Protocol, ?INET_AF_INET6);
-open(_, _)              -> {error, einval}.
+fdopen(Protocol, Family, Type, Fd) when is_integer(Fd) ->
+    open(Protocol, Family, Type, ?INET_REQ_FDOPEN, ?int32(Fd)).
 
-fdopen(Protocol, Fd)        -> fdopen1(Protocol, ?INET_AF_INET, Fd).
-
-fdopen(Protocol, Fd, inet)  -> fdopen1(Protocol, ?INET_AF_INET, Fd);
-fdopen(Protocol, Fd, inet6) -> fdopen1(Protocol, ?INET_AF_INET6, Fd);
-fdopen(_, _, _)             -> {error, einval}.
-
-open1(Protocol, Family) ->
-    case open0(Protocol) of
-	{ok, S} ->
-	    case ctl_cmd(S, ?INET_REQ_OPEN, [Family]) of
-		{ok, _} ->
-		    {ok,S};
-		Error ->
-		    close(S), Error
-	    end;
-	Error -> Error
-    end.
-
-fdopen1(Protocol, Family, Fd) when is_integer(Fd) ->
-    case open0(Protocol) of
-	{ok, S} ->
-	    case ctl_cmd(S,?INET_REQ_FDOPEN,[Family,?int32(Fd)]) of
-		{ok, _} -> {ok,S};
-		Error -> close(S), Error
-	    end;
-	Error -> Error
-    end.
-
-open0(Protocol) ->
-    try	erlang:open_port({spawn_driver,protocol2drv(Protocol)}, [binary]) of
-	Port -> {ok,Port}
+open(Protocol, Family, Type, Req, Data) ->
+    Drv = protocol2drv(Protocol),
+    AF = enc_family(Family),
+    T = enc_type(Type),
+    try erlang:open_port({spawn_driver,Drv}, [binary]) of
+	S ->
+	    case ctl_cmd(S, Req, [AF,T,Data]) of
+		{ok,_} -> {ok,S};
+		{error,_}=Error ->
+		    close(S),
+		    Error
+	    end
     catch
-	error:Reason -> {error,Reason}
+	%% The only (?) way to get here is to try to open
+	%% the sctp driver when it does not exist
+	error:badarg -> {error,eprotonosupport}
     end.
+
+enc_family(inet) -> ?INET_AF_INET;
+enc_family(inet6) -> ?INET_AF_INET6.
+
+enc_type(stream) -> ?INET_TYPE_STREAM;
+enc_type(dgram) -> ?INET_TYPE_DGRAM;
+enc_type(seqpacket) -> ?INET_TYPE_SEQPACKET.
 
 protocol2drv(tcp)  -> "tcp_inet";
 protocol2drv(udp)  -> "udp_inet";
-protocol2drv(sctp) -> "sctp_inet";
-protocol2drv(_) ->
-    erlang:error(eprotonosupport).
+protocol2drv(sctp) -> "sctp_inet".
 
 drv2protocol("tcp_inet")  -> tcp;
 drv2protocol("udp_inet")  -> udp;
@@ -139,7 +127,7 @@ shutdown_1(S, How) ->
 shutdown_2(S, How) ->
     case ctl_cmd(S, ?TCP_REQ_SHUTDOWN, [How]) of
 	{ok, []} -> ok;
-	Error -> Error
+	{error,_}=Error -> Error
     end.
 
 shutdown_pend_loop(S, N0) ->
@@ -195,7 +183,7 @@ close_pend_loop(S, N) ->
 bind(S,IP,Port) when is_port(S), is_integer(Port), Port >= 0, Port =< 65535 ->
     case ctl_cmd(S,?INET_REQ_BIND,[?int16(Port),ip_to_bytes(IP)]) of
 	{ok, [P1,P0]} -> {ok, ?u16(P1, P0)};
-	Error -> Error
+	{error,_}=Error -> Error
     end;
 
 %% Multi-homed "bind": sctp_bindx(). The Op is 'add' or 'remove'.
@@ -216,12 +204,13 @@ bindx(S, AddFlag, Addrs) ->
 	sctp ->
 	    %% Really multi-homed "bindx". Stringified args:
 	    %% [AddFlag, (Port, IP)+]:
-	    Args = ?int8(AddFlag) ++
-		lists:concat([?int16(Port)++ip_to_bytes(IP) ||
-				 {IP, Port} <- Addrs]),
+	    Args =
+		[?int8(AddFlag)|
+		 [[?int16(Port)|ip_to_bytes(IP)] ||
+		     {IP, Port} <- Addrs]],
 	    case ctl_cmd(S, ?SCTP_REQ_BINDX, Args) of
 		{ok,_} -> {ok, S};
-		Error  -> Error
+		{error,_}=Error  -> Error
 	    end;
 	_ -> {error, einval}
     end.
@@ -264,7 +253,7 @@ async_connect(S, IP, Port, Time) ->
     case ctl_cmd(S, ?INET_REQ_CONNECT,
 		 [enc_time(Time),?int16(Port),ip_to_bytes(IP)]) of
 	{ok, [R1,R0]} -> {ok, S, ?u16(R1,R0)};
-	Error -> Error
+	{error,_}=Error -> Error
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -317,9 +306,9 @@ accept_opts(L, S) ->
     end.
 
 async_accept(L, Time) ->
-    case ctl_cmd(L,?TCP_REQ_ACCEPT, [enc_time(Time)]) of
+    case ctl_cmd(L,?INET_REQ_ACCEPT, [enc_time(Time)]) of
 	{ok, [R1,R0]} -> {ok, ?u16(R1,R0)};
-	Error -> Error
+	{error,_}=Error -> Error
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -333,16 +322,30 @@ async_accept(L, Time) ->
 %% listening) is also accepted:
 
 listen(S) -> listen(S, ?LISTEN_BACKLOG).
-    
+
+listen(S, true) -> listen(S, ?LISTEN_BACKLOG);
+listen(S, false) -> listen(S, 0);
 listen(S, BackLog) when is_port(S), is_integer(BackLog) ->
-    case ctl_cmd(S, ?TCP_REQ_LISTEN, [?int16(BackLog)]) of
+    case ctl_cmd(S, ?INET_REQ_LISTEN, [?int16(BackLog)]) of
 	{ok, _} -> ok;
-	Error   -> Error
-    end;
-listen(S, Flag)   when is_port(S), is_boolean(Flag) ->
-    case ctl_cmd(S, ?SCTP_REQ_LISTEN, enc_value(set, bool8, Flag)) of
-	{ok,_} -> ok;
-	Error -> Error
+	{error,_}=Error   -> Error
+    end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%
+%% PEELOFF(insock(), AssocId) -> {ok,outsock()} | {error, Reason}
+%%
+%% SCTP: Peel off one association into a type stream socket
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+peeloff(S, AssocId) ->
+    case ctl_cmd(S, ?SCTP_REQ_PEELOFF, [?int32(AssocId)]) of
+	inet_reply ->
+	    receive
+		{inet_reply,S,Res} -> Res
+	    end;
+	{error,_}=Error -> Error
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -394,12 +397,12 @@ sendto(S, IP, Port, Data) when is_port(S), Port >= 0, Port =< 65535 ->
 	true -> 
 	    receive
 		{inet_reply,S,Reply} ->
-		    ?DBG_FORMAT("prim_inet:send() -> ~p~n", [Reply]),
+		    ?DBG_FORMAT("prim_inet:sendto() -> ~p~n", [Reply]),
 		     Reply
 	    end
     catch
 	error:_ ->
-	    ?DBG_FORMAT("prim_inet:send() -> {error,einval}~n", []),
+	    ?DBG_FORMAT("prim_inet:sendto() -> {error,einval}~n", []),
 	     {error,einval}
     end.
 
@@ -454,7 +457,7 @@ recv0(S, Length, Time) when is_port(S), is_integer(Length), Length >= 0 ->
 async_recv(S, Length, Time) ->
     case ctl_cmd(S, ?TCP_REQ_RECV, [enc_time(Time), ?int32(Length)]) of
 	{ok,[R1,R0]} -> {ok, ?u16(R1,R0)};
-	Error -> Error
+	{error,_}=Error -> Error
     end.	    
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -500,7 +503,7 @@ recvfrom0(S, Length, Time)
 		{inet_async, S, Ref, Error={error, _}} ->
 		    Error
 	    end;
-	Error ->
+	{error,_}=Error ->
 	    Error % Front-end error
     end;
 recvfrom0(_, _, _) -> {error,einval}.
@@ -516,18 +519,18 @@ peername(S) when is_port(S) ->
 	{ok, [F, P1,P0 | Addr]} ->
 	    {IP, _} = get_ip(F, Addr),
 	    {ok, { IP, ?u16(P1, P0) }};
-	Error -> Error
+	{error,_}=Error -> Error
     end.
 
 setpeername(S, {IP,Port}) when is_port(S) ->
     case ctl_cmd(S, ?INET_REQ_SETPEER, [?int16(Port),ip_to_bytes(IP)]) of
 	{ok,[]} -> ok;
-	Error -> Error
+	{error,_}=Error -> Error
     end;
 setpeername(S, undefined) when is_port(S) ->
     case ctl_cmd(S, ?INET_REQ_SETPEER, []) of
 	{ok,[]} -> ok;
-	Error -> Error
+	{error,_}=Error -> Error
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -541,18 +544,18 @@ sockname(S) when is_port(S) ->
 	{ok, [F, P1, P0 | Addr]} ->
 	    {IP, _} = get_ip(F, Addr),
 	    {ok, { IP, ?u16(P1, P0) }};
-	Error -> Error
+	{error,_}=Error -> Error
     end.
 
 setsockname(S, {IP,Port}) when is_port(S) ->
     case ctl_cmd(S, ?INET_REQ_SETNAME, [?int16(Port),ip_to_bytes(IP)]) of
 	{ok,[]} -> ok;
-	Error -> Error
+	{error,_}=Error -> Error
     end;
 setsockname(S, undefined) when is_port(S) ->
     case ctl_cmd(S, ?INET_REQ_SETNAME, []) of
 	{ok,[]} -> ok;
-	Error -> Error
+	{error,_}=Error -> Error
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -572,7 +575,7 @@ setopts(S, Opts) when is_port(S) ->
 	{ok, Buf} ->
 	    case ctl_cmd(S, ?INET_REQ_SETOPTS, Buf) of
 		{ok, _} -> ok;
-		Error -> Error
+		{error,_}=Error -> Error
 	    end;
 	Error  -> Error
     end.	    
@@ -598,12 +601,12 @@ getopts(S, Opts) when is_port(S), is_list(Opts) ->
 		{ok,Rep} ->
 		    %% Non-SCTP: "Rep" contains the encoded option vals:
 		    decode_opt_val(Rep);
-		{error,sctp_reply} ->
+		inet_reply ->
 		    %% SCTP: Need to receive the full value:
 		    receive
 			{inet_reply,S,Res} -> Res
 		    end;
-		Error -> Error
+		{error,_}=Error -> Error
 	    end;
 	Error -> Error
     end.
@@ -623,7 +626,7 @@ chgopt(S, Opt, Value) when is_port(S) ->
     chgopts(S, [{Opt,Value}]).
 
 chgopts(S, Opts) when is_port(S), is_list(Opts) ->
-    case inet:getopts(S, need_template(Opts)) of
+    case getopts(S, need_template(Opts)) of
 	{ok,Templates} ->
 	    try merge_options(Opts, Templates) of
 		NewOpts ->
@@ -636,7 +639,94 @@ chgopts(S, Opts) when is_port(S), is_list(Opts) ->
     
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
-%% IFLIST(insock()) -> {ok,IfNameList} | {error, Reason}
+%% getifaddrs(insock()) -> {ok,IfAddrsList} | {error, Reason}
+%%
+%%   IfAddrsList = [{Name,[Opts]}]
+%%   Name = string()
+%%   Opts = {flags,[Flag]} | {addr,Addr} | {netmask,Addr} | {broadaddr,Addr}
+%%        | {dstaddr,Addr} | {hwaddr,HwAddr} | {mtu,integer()}
+%%   Flag = up | broadcast | loopback | running | multicast
+%%   Addr = ipv4addr() | ipv6addr()
+%%   HwAddr = ethernet_addr()
+%%
+%% get interface name and addresses list
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+getifaddrs(S) when is_port(S) ->
+    case ctl_cmd(S, ?INET_REQ_GETIFADDRS, []) of
+	{ok, Data} ->
+	    {ok, comp_ifaddrs(build_ifaddrs(Data), ktree_empty())};
+	{error,enotsup} ->
+	    case getiflist(S) of
+		{ok, IFs} ->
+		    {ok, getifaddrs_ifget(S, IFs)};
+		Err1 -> Err1
+	    end;
+	Err2 -> Err2
+    end.
+
+%% Restructure interface properties per interface and remove duplicates
+
+comp_ifaddrs([{If,Opts}|IfOpts], T) ->
+    case ktree_is_defined(If, T) of
+	true ->
+	    OptSet = comp_ifaddrs_add(ktree_get(If, T), Opts),
+	    comp_ifaddrs(IfOpts, ktree_update(If, OptSet, T));
+	false ->
+	    OptSet = comp_ifaddrs_add(ktree_empty(), Opts),
+	    comp_ifaddrs(IfOpts, ktree_insert(If, OptSet, T))
+     end;
+comp_ifaddrs([], T) ->
+    [{If,ktree_keys(ktree_get(If, T))} || If <- ktree_keys(T)].
+
+comp_ifaddrs_add(OptSet, [Opt|Opts]) ->
+    case ktree_is_defined(Opt, OptSet) of
+	true
+	  when element(1, Opt) =:= flags;
+	       element(1, Opt) =:= hwaddr ->
+	    comp_ifaddrs_add(OptSet, Opts);
+	_ ->
+	    comp_ifaddrs_add(ktree_insert(Opt, undefined, OptSet), Opts)
+    end;
+comp_ifaddrs_add(OptSet, []) -> OptSet.
+
+%% Legacy emulation of getifaddrs
+
+getifaddrs_ifget(_, []) -> [];
+getifaddrs_ifget(S, [IF|IFs]) ->
+    case ifget(S, IF, [flags]) of
+	{ok,[{flags,Flags}]=FlagsVals} ->
+	    BroadOpts =
+		case member(broadcast, Flags) of
+		    true ->
+			[broadaddr,hwaddr];
+		    false ->
+			[hwaddr]
+		end,
+	    P2POpts =
+		case member(pointtopoint, Flags) of
+		    true ->
+			[dstaddr|BroadOpts];
+		    false ->
+			BroadOpts
+		end,
+	    getifaddrs_ifget(S, IFs, IF, FlagsVals, [addr,netmask|P2POpts]);
+	_ ->
+	    getifaddrs_ifget(S, IFs, IF, [], [addr,netmask,hwaddr])
+    end.
+
+getifaddrs_ifget(S, IFs, IF, FlagsVals, Opts) ->
+    OptVals =
+	case ifget(S, IF, Opts) of
+	    {ok,OVs} -> OVs;
+	    _ -> []
+	end,
+    [{IF,FlagsVals++OptVals}|getifaddrs_ifget(S, IFs)].
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%
+%% getiflist(insock()) -> {ok,IfNameList} | {error, Reason}
 %%
 %% get interface name list
 %%
@@ -645,7 +735,7 @@ chgopts(S, Opts) when is_port(S), is_list(Opts) ->
 getiflist(S) when is_port(S) ->
     case ctl_cmd(S, ?INET_REQ_GETIFLIST, []) of
 	{ok, Data} -> {ok, build_iflist(Data)};
-	Error -> Error
+	{error,_}=Error -> Error
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -663,7 +753,7 @@ ifget(S, Name, Opts) ->
 		{ok, Buf2} ->
 		    case ctl_cmd(S, ?INET_REQ_IFGET, [Buf1,Buf2]) of
 			{ok, Data} -> decode_ifopts(Data,[]);
-			Error -> Error
+			{error,_}=Error -> Error
 		    end;
 		Error -> Error
 	    end;
@@ -685,7 +775,7 @@ ifset(S, Name, Opts) ->
 		{ok, Buf2} ->
 		    case ctl_cmd(S, ?INET_REQ_IFSET, [Buf1,Buf2]) of
 			{ok, _} -> ok;
-			Error -> Error
+			{error,_}=Error -> Error
 		    end;
 		Error -> Error
 	    end;
@@ -713,7 +803,7 @@ subscribe(S, Sub) when is_port(S), is_list(Sub) ->
 	{ok, Bytes} ->
 	    case ctl_cmd(S, ?INET_REQ_SUBSCRIBE, Bytes) of
 		{ok, Data} -> decode_subs(Data);
-		Error -> Error
+		{error,_}=Error -> Error
 	    end;
 	Error -> Error
     end.
@@ -731,7 +821,7 @@ getstat(S, Stats) when is_port(S), is_list(Stats) ->
 	{ok, Bytes} ->
 	    case ctl_cmd(S, ?INET_REQ_GETSTAT, Bytes) of
 		{ok, Data} -> decode_stats(Data);
-		Error -> Error
+		{error,_}=Error -> Error
 	    end;
 	Error -> Error
     end.
@@ -747,7 +837,7 @@ getstat(S, Stats) when is_port(S), is_list(Stats) ->
 getfd(S) when is_port(S) ->
     case ctl_cmd(S, ?INET_REQ_GETFD, []) of
 	{ok, [S3,S2,S1,S0]} -> {ok, ?u32(S3,S2,S1,S0)};
-	Error -> Error
+	{error,_}=Error -> Error
     end.        
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -785,7 +875,7 @@ gettype(S) when is_port(S) ->
 			_		     -> undefined
 		   end,
 	    {ok, {Family, Type}};
-	Error -> Error
+	{error,_}=Error -> Error
     end.
 
 getprotocol(S) when is_port(S) ->
@@ -813,7 +903,7 @@ getstatus(S) when is_port(S) ->
     case ctl_cmd(S, ?INET_REQ_GETSTATUS, []) of
 	{ok, [S3,S2,S1,S0]} ->	
 	    {ok, dec_status(?u32(S3,S2,S1,S0))};
-	Error -> Error
+	{error,_}=Error -> Error
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -855,7 +945,7 @@ getservbyname1(S,Name,Proto) ->
 	    case ctl_cmd(S, ?INET_REQ_GETSERVBYNAME, [L1,Name,L2,Proto]) of
 		{ok, [P1,P0]} ->
 		    {ok, ?u16(P1,P0)};
-		Error -> 
+		{error,_}=Error ->
 		    Error
 	    end
     end.
@@ -883,7 +973,7 @@ getservbyport1(S,Port,Proto) ->
        true ->
 	    case ctl_cmd(S, ?INET_REQ_GETSERVBYPORT, [?int16(Port),L,Proto]) of
 		{ok, Name} -> {ok, Name};
-		Error -> Error
+		{error,_}=Error -> Error
 	    end
     end.
 
@@ -897,7 +987,7 @@ getservbyport1(S,Port,Proto) ->
 unrecv(S, Data) ->
     case ctl_cmd(S, ?TCP_REQ_UNRECV, Data) of
 	{ok, _} -> ok;
-	Error  -> Error
+	{error,_}=Error  -> Error
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1206,7 +1296,7 @@ type_opt_1(sctp_default_send_param) ->
 	timetolive        = [uint32,0],
 	tsn               = [],
 	cumtsn            = [],
-	assoc_id          = [sctp_assoc_id,0]}}];
+	assoc_id          = [[sctp_assoc_id,0]]}}];
 %% for SCTP_OPT_EVENTS
 type_opt_1(sctp_events) ->
     [{record,#sctp_event_subscribe{
@@ -1325,6 +1415,19 @@ type_value_2({enum,List}, Enum) ->
 	{value,_} 				    -> true;
 	false                                       -> false
     end;
+type_value_2(sockaddr, Addr) ->
+    case Addr of
+	any                                         -> true;
+	loopback                                    -> true;
+	{A,B,C,D} when ?ip(A,B,C,D)                 -> true;
+	{A,B,C,D,E,F,G,H} when ?ip6(A,B,C,D,E,F,G,H) -> true;
+	_                                           -> false
+    end;
+type_value_2(linkaddr, Addr) when is_list(Addr) ->
+    case len(Addr, 32768) of
+	undefined                                   -> false;
+	_                                           -> true
+    end;
 type_value_2({bitenumlist,List}, EnumList) -> 
     case enum_vals(EnumList, List) of
 	Ls when is_list(Ls)                         -> true;
@@ -1413,14 +1516,21 @@ enc_value_2(addr, {any,Port}) ->
     [?INET_AF_ANY|?int16(Port)];
 enc_value_2(addr, {loopback,Port}) ->
     [?INET_AF_LOOPBACK|?int16(Port)];
-enc_value_2(addr, {IP,Port}) ->
-    case tuple_size(IP) of
-	4 ->
-	    [?INET_AF_INET,?int16(Port)|ip4_to_bytes(IP)];
-	8 ->
-	    [?INET_AF_INET6,?int16(Port)|ip6_to_bytes(IP)]
-    end;
-enc_value_2(ether, [X1,X2,X3,X4,X5,X6]) -> [X1,X2,X3,X4,X5,X6];
+enc_value_2(addr, {IP,Port}) when tuple_size(IP) =:= 4 ->
+    [?INET_AF_INET,?int16(Port)|ip4_to_bytes(IP)];
+enc_value_2(addr, {IP,Port}) when tuple_size(IP) =:= 8 ->
+    [?INET_AF_INET6,?int16(Port)|ip6_to_bytes(IP)];
+enc_value_2(ether, [_,_,_,_,_,_]=Xs) -> Xs;
+enc_value_2(sockaddr, any) ->
+    [?INET_AF_ANY];
+enc_value_2(sockaddr, loopback) ->
+    [?INET_AF_LOOPBACK];
+enc_value_2(sockaddr, IP) when tuple_size(IP) =:= 4 ->
+    [?INET_AF_INET|ip4_to_bytes(IP)];
+enc_value_2(sockaddr, IP) when tuple_size(IP) =:= 8 ->
+    [?INET_AF_INET6|ip6_to_bytes(IP)];
+enc_value_2(linkaddr, Linkaddr) ->
+    [?int16(length(Linkaddr)),Linkaddr];
 enc_value_2(sctp_assoc_id, Val) -> ?int32(Val);
 %% enc_value_2(sctp_assoc_id, Bin) -> [byte_size(Bin),Bin];
 enc_value_2({enum,List}, Enum) ->
@@ -1464,7 +1574,11 @@ dec_value(time, [X3,X2,X1,X0|T]) ->
 	Val -> {Val, T}
     end;
 dec_value(ip, [A,B,C,D|T])             -> {{A,B,C,D}, T};
-dec_value(ether,[X1,X2,X3,X4,X5,X6|T]) -> {[X1,X2,X3,X4,X5,X6],T};
+%% dec_value(ether, [X1,X2,X3,X4,X5,X6|T]) -> {[X1,X2,X3,X4,X5,X6],T};
+dec_value(sockaddr, [X|T]) ->
+    get_ip(X, T);
+dec_value(linkaddr, [X1,X0|T]) ->
+    split(?i16(X1,X0), T);
 dec_value({enum,List}, [X3,X2,X1,X0|T]) ->
     Val = ?i32(X3,X2,X1,X0),
     case enum_name(Val, List) of
@@ -1480,7 +1594,7 @@ dec_value({bitenumlist,List}, [X3,X2,X1,X0|T]) ->
 %%     {enum_names(Val, List), T};
 dec_value(binary,[L0,L1,L2,L3|List]) ->
     Len = ?i32(L0,L1,L2,L3),
-    {X,T}=lists:split(Len,List),
+    {X,T}=split(Len,List),
     {list_to_binary(X),T};
 dec_value(Types, List) when is_tuple(Types) ->
     {L,T} = dec_value_tuple(Types, List, 1, []),
@@ -1495,7 +1609,7 @@ dec_value_tuple(Types, List, N, Acc)
     {Term,Tail} = dec_value(element(N, Types), List),
     dec_value_tuple(Types, Tail, N+1, [Term|Acc]);
 dec_value_tuple(_, List, _, Acc) ->
-    {lists:reverse(Acc),List}.
+    {rev(Acc),List}.
 
 borlist([V|Vs], Value) ->
     borlist(Vs, V bor Value);
@@ -1702,11 +1816,11 @@ merge_fields(_, _, _) -> [].
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-type_ifopt(addr)      -> ip;
-type_ifopt(broadaddr) -> ip;
-type_ifopt(dstaddr)   -> ip;
+type_ifopt(addr)      -> sockaddr;
+type_ifopt(broadaddr) -> sockaddr;
+type_ifopt(dstaddr)   -> sockaddr;
 type_ifopt(mtu)       -> int;
-type_ifopt(netmask)   -> ip;
+type_ifopt(netmask)   -> sockaddr;
 type_ifopt(flags)     ->
     {bitenumlist,
      [{up, ?INET_IFF_UP},
@@ -1718,7 +1832,7 @@ type_ifopt(flags)     ->
       {no_pointtopoint, ?INET_IFF_NPOINTTOPOINT},
       {running, ?INET_IFF_RUNNING},
       {multicast, ?INET_IFF_MULTICAST}]};
-type_ifopt(hwaddr)    -> ether;
+type_ifopt(hwaddr)    -> linkaddr;
 type_ifopt(Opt) when is_atom(Opt) -> undefined.
 
 enc_ifopt(addr)      -> ?INET_IFOPT_ADDR;
@@ -1903,6 +2017,30 @@ encode_ifname(Name) ->
     if N > 255 -> {error, einval};
        true -> {ok,[N | Name]}
     end.
+
+build_ifaddrs(Cs) ->
+    build_ifaddrs(Cs, []).
+%%
+build_ifaddrs([], []) ->
+    [];
+build_ifaddrs([0|Cs], Acc) ->
+    Name = utf8_to_characters(rev(Acc)),
+    {Opts,Rest} = build_ifaddrs_opts(Cs, []),
+    [{Name,Opts}|build_ifaddrs(Rest)];
+build_ifaddrs([C|Cs], Acc) ->
+    build_ifaddrs(Cs, [C|Acc]).
+
+build_ifaddrs_opts([0|Cs], Acc) ->
+    {rev(Acc),Cs};
+build_ifaddrs_opts([C|Cs]=CCs, Acc) ->
+    case dec_ifopt(C) of
+	undefined ->
+	    erlang:error(badarg, [CCs,Acc]);
+	Opt ->
+	    Type = type_ifopt(Opt),
+	    {Val,Rest} = dec_value(Type, Cs),
+	    build_ifaddrs_opts(Rest, [{Opt,Val}|Acc])
+    end.
     
 build_iflist(Cs) ->
     build_iflist(Cs, [], []).
@@ -1926,6 +2064,80 @@ build_iflist([], Acc, List) ->
 rev(L) -> rev(L,[]).
 rev([C|L],Acc) -> rev(L,[C|Acc]);
 rev([],Acc) -> Acc.
+
+split(N, L) -> split(N, L, []).
+split(0, L, R) when is_list(L) -> {rev(R),L};
+split(N, [H|T], R) when is_integer(N), N > 0 -> split(N-1, T, [H|R]).
+
+len(L, N) -> len(L, N, 0).
+len([], N, C) when is_integer(N), N >= 0 -> C;
+len(L, 0, _) when is_list(L) -> undefined;
+len([_|L], N, C) when is_integer(N), N >= 0 -> len(L, N-1, C+1).
+
+member(X, [X|_]) -> true;
+member(X, [_|Xs]) -> member(X, Xs);
+member(_, []) -> false.
+
+
+
+%% Lookup tree that keeps key insert order
+
+ktree_empty() -> {[],tree()}.
+ktree_is_defined(Key, {_,T}) -> tree(T, Key, is_defined).
+ktree_get(Key, {_,T}) -> tree(T, Key, get).
+ktree_insert(Key, V, {Keys,T}) -> {[Key|Keys],tree(T, Key, {insert,V})}.
+ktree_update(Key, V, {Keys,T}) -> {Keys,tree(T, Key, {update,V})}.
+ktree_keys({Keys,_}) -> rev(Keys).
+
+%% Simple lookup tree. Hash the key to get statistical balance.
+%% Key is matched equal, not compared equal.
+
+tree() -> nil.
+tree(T, Key, Op) -> tree(T, Key, Op, erlang:phash2(Key)).
+
+tree(nil, _, is_defined, _) -> false;
+tree(nil, K, {insert,V}, _) -> {K,V,nil,nil};
+tree({K,_,_,_}, K, is_defined, _) -> true;
+tree({K,V,_,_}, K, get, _) -> V;
+tree({K,_,L,R}, K, {update,V}, _) -> {K,V,L,R};
+tree({K0,V0,L,R}, K, Op, H) ->
+    H0 = erlang:phash2(K0),
+    if  H0 < H;  H0 =:= H, K0 < K ->
+	    if  is_tuple(Op) ->
+		    {K0,V0,tree(L, K, Op, H),R};
+		true ->
+		    tree(L, K, Op, H)
+	    end;
+	true ->
+	    if  is_tuple(Op) ->
+		    {K0,V0,L,tree(R, K, Op, H)};
+		true ->
+		    tree(R, K, Op, H)
+	    end
+    end.
+
+
+
+utf8_to_characters([]) -> [];
+utf8_to_characters([B|Bs]=Arg) when (B band 16#FF) =:= B ->
+    if  16#F8 =< B ->
+	    erlang:error(badarg, [Arg]);
+	16#F0 =< B ->
+	    utf8_to_characters(Bs, B band 16#07, 3);
+	16#E0 =< B ->
+	    utf8_to_characters(Bs, B band 16#0F, 2);
+	16#C0 =< B ->
+	    utf8_to_characters(Bs, B band 16#1F, 1);
+	16#80 =< B ->
+	    erlang:error(badarg, [Arg]);
+	true ->
+	    [B|utf8_to_characters(Bs)]
+    end.
+%%
+utf8_to_characters(Bs, U, 0) ->
+    [U|utf8_to_characters(Bs)];
+utf8_to_characters([B|Bs], U, N) when ((B band 16#3F) bor 16#80) =:= B ->
+    utf8_to_characters(Bs, (U bsl 6) bor (B band 16#3F), N-1).
 
 ip_to_bytes(IP) when tuple_size(IP) =:= 4 -> ip4_to_bytes(IP);
 ip_to_bytes(IP) when tuple_size(IP) =:= 8 -> ip6_to_bytes(IP).
@@ -1953,7 +2165,7 @@ ctl_cmd(Port, Cmd, Args) ->
     Result =
 	try erlang:port_control(Port, Cmd, Args) of
 	    [?INET_REP_OK|Reply]  -> {ok,Reply};
-	    [?INET_REP_SCTP]  -> {error,sctp_reply};
+	    [?INET_REP]  -> inet_reply;
 	    [?INET_REP_ERROR|Err] -> {error,list_to_atom(Err)}
 	catch
 	    error:_               -> {error,einval}

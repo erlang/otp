@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2001-2009. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -47,10 +47,12 @@
  * array of unions.
  */
 union arg {
+  char c;
   char* s;
   long l;
   unsigned long u;
   double d;
+  erlang_pid* pid;
 };
 
 static int eiformat(const char** s, union arg** args, ei_x_buff* x);
@@ -106,6 +108,8 @@ static int eiformat(const char** fmt, union arg** args, ei_x_buff* x)
     default:
 	if (isdigit((int)*p))
 	    res = pdigit(&p, x);
+	else if ((*p == '-' || *p == '+') && isdigit((int)*(p+1)))
+	    res = pdigit(&p, x);
 	else if (islower((int)*p))
 	    res = patom(&p, x);
 	else
@@ -149,6 +153,8 @@ static int pdigit(const char** fmt, ei_x_buff* x)
     double d;
     long l;
 
+    if (**fmt == '-' || **fmt == '+')
+	(*fmt)++;
     for (;;) {
 	c = *(*fmt)++;
 	if (isdigit((int)c))
@@ -220,12 +226,14 @@ static int pquotedatom(const char** fmt, ei_x_buff* x)
  /* 
   * The format letters are:
   *   a  -  An atom
+  *   c  -  A character
   *   s  -  A string
   *   i  -  An integer
   *   l  -  A long integer
   *   u  -  An unsigned long integer
   *   f  -  A float 
   *   d  -  A double float 
+  *   p  -  An Erlang PID
   */
 static int pformat(const char** fmt, union arg** args, ei_x_buff* x)
 {
@@ -234,6 +242,10 @@ static int pformat(const char** fmt, union arg** args, ei_x_buff* x)
     switch (*(*fmt)++) {
     case 'a': 
 	res = ei_x_encode_atom(x, (*args)->s);
+	(*args)++;
+	break;
+    case 'c':
+	res = ei_x_encode_char(x, (*args)->c);
 	(*args)++;
 	break;
     case 's':
@@ -257,6 +269,10 @@ static int pformat(const char** fmt, union arg** args, ei_x_buff* x)
 	res = ei_x_encode_double(x, (*args)->d);
 	(*args)++;
 	break;	
+    case 'p':
+	res = ei_x_encode_pid(x, (*args)->pid);
+	(*args)++;
+	break;
     default:
 	res = -1;
 	break;
@@ -392,6 +408,9 @@ static int read_args(const char* fmt, va_list ap, union arg **argp)
 	  return -1;	/* Error, string not complete */
 	}
 	switch (*p++) {
+	case 'c':
+	  args[i++].c = (char) va_arg(ap, int);
+	  break;
 	case 'a': 
 	case 's':
 	  args[i++].s = va_arg(ap, char*);
@@ -411,6 +430,9 @@ static int read_args(const char* fmt, va_list ap, union arg **argp)
 	case 'd':
 	  args[i++].d = va_arg(ap, double);
 	  break;	
+	case 'p':
+	  args[i++].pid = va_arg(ap, erlang_pid*);
+	  break;
 	default:
 	  ei_free(args);	/* Invalid specifier */
 	  return -1;

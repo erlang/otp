@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -26,6 +26,10 @@
 -export([seed/0, seed/1, seed/3, uniform/0, uniform/1,
 	 uniform_s/1, uniform_s/2, seed0/0]).
 
+-define(PRIME1, 30269).
+-define(PRIME2, 30307).
+-define(PRIME3, 30323).
+
 %%-----------------------------------------------------------------------
 %% The type of the state
 
@@ -44,12 +48,19 @@ seed0() ->
 -spec seed() -> ran().
 
 seed() ->
-    reseed(seed0()).
+    case seed_put(seed0()) of
+	undefined -> seed0();
+	{_,_,_} = Tuple -> Tuple
+    end.	
+
 
 %% seed({A1, A2, A3}) 
 %%  Seed random number generation 
 
--spec seed({integer(), integer(), integer()}) -> 'undefined' | ran().
+-spec seed({A1, A2, A3}) -> 'undefined' | ran() when
+      A1 :: integer(),
+      A2 :: integer(),
+      A3 :: integer().
 
 seed({A1, A2, A3}) ->
     seed(A1, A2, A3).
@@ -57,20 +68,21 @@ seed({A1, A2, A3}) ->
 %% seed(A1, A2, A3) 
 %%  Seed random number generation 
 
--spec seed(integer(), integer(), integer()) -> 'undefined' | ran().
+-spec seed(A1, A2, A3) -> 'undefined' | ran() when
+      A1 :: integer(),
+      A2 :: integer(),
+      A3 :: integer().
 
 seed(A1, A2, A3) ->
-    put(random_seed, 
-	{abs(A1) rem 30269, abs(A2) rem 30307, abs(A3) rem 30323}).
+    seed_put({(abs(A1) rem (?PRIME1-1)) + 1,   % Avoid seed numbers that are
+	      (abs(A2) rem (?PRIME2-1)) + 1,   % even divisors of the
+	      (abs(A3) rem (?PRIME3-1)) + 1}). % corresponding primes.
 
 
--spec reseed(ran()) -> ran().
-
-reseed({A1, A2, A3}) ->
-    case seed(A1, A2, A3) of
-	undefined -> seed0();
-	{_,_,_} = Tuple -> Tuple
-    end.	
+-spec seed_put(ran()) -> 'undefined' | ran().
+     
+seed_put(Seed) ->
+    put(random_seed, Seed).
 
 %% uniform()
 %%  Returns a random float between 0 and 1.
@@ -82,18 +94,19 @@ uniform() ->
 		       undefined -> seed0();
 		       Tuple -> Tuple
 		   end,
-    B1 = (A1*171) rem 30269,
-    B2 = (A2*172) rem 30307,
-    B3 = (A3*170) rem 30323,
+    B1 = (A1*171) rem ?PRIME1,
+    B2 = (A2*172) rem ?PRIME2,
+    B3 = (A3*170) rem ?PRIME3,
     put(random_seed, {B1,B2,B3}),
-    R = A1/30269 + A2/30307 + A3/30323,
+    R = B1/?PRIME1 + B2/?PRIME2 + B3/?PRIME3,
     R - trunc(R).
 
 %% uniform(N) -> I
 %%  Given an integer N >= 1, uniform(N) returns a random integer
 %%  between 1 and N.
 
--spec uniform(pos_integer()) -> pos_integer().
+-spec uniform(N) -> pos_integer() when
+      N :: pos_integer().
 
 uniform(N) when is_integer(N), N >= 1 ->
     trunc(uniform() * N) + 1.
@@ -104,20 +117,25 @@ uniform(N) when is_integer(N), N >= 1 ->
 %% uniform_s(State) -> {F, NewState}
 %%  Returns a random float between 0 and 1.
 
--spec uniform_s(ran()) -> {float(), ran()}.
+-spec uniform_s(State0) -> {float(), State1} when
+      State0 :: ran(),
+      State1 :: ran().
 
 uniform_s({A1, A2, A3}) ->
-    B1 = (A1*171) rem 30269,
-    B2 = (A2*172) rem 30307,
-    B3 = (A3*170) rem 30323,
-    R = A1/30269 + A2/30307 + A3/30323,
+    B1 = (A1*171) rem ?PRIME1,
+    B2 = (A2*172) rem ?PRIME2,
+    B3 = (A3*170) rem ?PRIME3,
+    R = B1/?PRIME1 + B2/?PRIME2 + B3/?PRIME3,
     {R - trunc(R), {B1,B2,B3}}.
 
 %% uniform_s(N, State) -> {I, NewState}
 %%  Given an integer N >= 1, uniform(N) returns a random integer
 %%  between 1 and N.
 
--spec uniform_s(pos_integer(), ran()) -> {integer(), ran()}.
+-spec uniform_s(N, State0) -> {integer(), State1} when
+      N :: pos_integer(),
+      State0 :: ran(),
+      State1 :: ran().
 
 uniform_s(N, State0) when is_integer(N), N >= 1 ->
     {F, State1} = uniform_s(State0),

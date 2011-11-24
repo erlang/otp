@@ -1,39 +1,72 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
 -module(busy_port_SUITE).
 
--export([all/1, io_to_busy/1, message_order/1, send_3/1, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,end_per_testcase/2,
+	 io_to_busy/1, message_order/1, send_3/1, 
 	 system_monitor/1, no_trap_exit/1,
 	 no_trap_exit_unlinked/1, trap_exit/1, multiple_writers/1,
 	 hard_busy_driver/1, soft_busy_driver/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 %% Internal exports.
 -export([init/2]).
 
-all(suite) -> {req, [dynamic_loading],
-	       [io_to_busy, message_order, send_3, 
-		system_monitor, no_trap_exit,
-		no_trap_exit_unlinked, trap_exit, multiple_writers,
-		hard_busy_driver, soft_busy_driver]}.
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [io_to_busy, message_order, send_3, system_monitor,
+     no_trap_exit, no_trap_exit_unlinked, trap_exit,
+     multiple_writers, hard_busy_driver, soft_busy_driver].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_testcase(_Case, Config) when is_list(Config) ->
+    case whereis(busy_drv_server) of
+	undefined ->
+	    ok;
+	Pid when is_pid(Pid) ->
+	    Ref = monitor(process, Pid),
+	    unlink(Pid),
+	    exit(Pid, kill),
+	    receive
+		{'DOWN',Ref,process,Pid,_} ->
+		    ok
+	    end
+    end,
+    Config.
 
 %% Tests I/O operations to a busy port, to make sure a suspended send
 %% operation is correctly restarted.  This used to crash Beam.
@@ -182,7 +215,7 @@ system_monitor(Config) when is_list(Config) ->
     ?line Master ! {Owner, {command, "u"}},
     ?line {Busy,beta} = rec(Void),
     ?line Void = rec(Void),
-    ?line NewMonitor = erlang:system_monitor(OldMonitor),
+    ?line _NewMonitor = erlang:system_monitor(OldMonitor),
     ?line OldMonitor = erlang:system_monitor(),
     ?line OldMonitor = erlang:system_monitor(OldMonitor),
     %%
@@ -361,7 +394,6 @@ soft_busy_driver(Config) when is_list(Config) ->
     hs_test(Config, false).
 
 hs_test(Config, HardBusy) when is_list(Config) ->
-    ?line Me = self(),
     ?line DrvName = case HardBusy of
 			true -> 'hard_busy_drv';
 			false -> 'soft_busy_drv'
@@ -477,12 +509,12 @@ hs_busy_pcmd(Prt, Opts, StartFun, EndFun) ->
     P = spawn_link(fun () ->
 			   erlang:yield(),
 			   Tester ! {self(), doing_port_command},
-			   Start = os:timestamp(),
+			   Start = now(),
 			   Res = try {return,
-				      erlang:port_command(Prt, [], Opts)}
+				      port_command(Prt, [], Opts)}
 				 catch Exception:Error -> {Exception, Error}
 				 end,
-			   End = os:timestamp(),
+			   End = now(),
 			   Time = round(timer:now_diff(End, Start)/1000),
 			   Tester ! {self(), port_command_result, Res, Time}
 		   end),

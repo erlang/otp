@@ -243,14 +243,14 @@ option(Option, Gstkid, _MainW, DB, Editor) ->
 		 Editor, " ins ",AI," ", gstk:to_ascii(Text)]};
 	clear       -> {c, [Editor, " delete 1.0 end"]};
 	{load,        File} ->
-	    {ok, F2,_} = regexp:gsub(File, [92,92], "/"),
+	    F2 = re:replace(File, [92,92], "/", [global,{return,list}]),
 	    case gstk:call(["ed_load ", Editor, " ", gstk:to_ascii(F2)]) of
 		{result,    _} -> none;
 		{bad_result,Re} -> 
 		    {error,{no_such_file,editor,load,F2,Re}}
 	    end;
 	{save, File} ->
-	    {ok, F2,_} = regexp:gsub(File, [92,92], "/"),
+	    F2 = re:replace(File, [92,92], "/", [global,{return,list}]),
 	    case gstk:call(["ed_save ",Editor," ",gstk:to_ascii(F2)]) of
 		{result,    _} -> none;
 		{bad_result,Re} -> 

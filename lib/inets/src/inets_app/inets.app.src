@@ -34,8 +34,7 @@
             ftp_sup,
             
             %% HTTP client:
-            http,    %% Old client API module
-            httpc,   %% New client API module
+            httpc, 
             httpc_handler,
 	    httpc_handler_sup,	
             httpc_manager,
@@ -107,5 +106,6 @@
             tftp_sup
         ]},
   {registered,[inets_sup, httpc_manager]},
+  %% If the "new" ssl is used then 'crypto' must be started before inets.
   {applications,[kernel,stdlib]},
   {mod,{inets_app,[]}}]}.

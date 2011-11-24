@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1997-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 1997-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 /*
@@ -33,17 +33,6 @@
 #include <sys/types.h>
 #include <sys/uio.h>
 #endif
-
-#ifdef _OSE_
-#include "efs.h"
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>
-
-#ifdef _OSE_SFK_
-#include <string.h>
-#endif
-#endif /* _OSE_ */
 
 #if defined(__APPLE__) && defined(__MACH__) && !defined(__DARWIN__)
 #define DARWIN 1
@@ -88,23 +77,6 @@ extern STATUS copy(char *, char *);
  * Macros for testing file types.
  */
 
-#ifdef _OSE_
-
-#define ISDIR(st) S_ISDIR(((st).st_mode))
-#define ISREG(st) S_ISREG(((st).st_mode))
-#define ISDEV(st) (S_ISCHR(((st).st_mode)) || S_ISBLK(((st).st_mode)))
-#define ISLNK(st) S_ISLNK(((st).st_mode))
-#ifdef NO_UMASK
-#define FILE_MODE (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)
-#define DIR_MODE  (S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH)
-#else
-#define FILE_MODE (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
-#define DIR_MODE  (S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | S_IXGRP | S_IROTH | \
-                   S_IWOTH | S_IXOTH)
-#endif 
-
-#else  /* !_OSE_ */
-
 #define ISDIR(st) (((st).st_mode & S_IFMT) == S_IFDIR)
 #define ISREG(st) (((st).st_mode & S_IFMT) == S_IFREG)
 #define ISDEV(st) \
@@ -118,8 +90,6 @@ extern STATUS copy(char *, char *);
 #define DIR_MODE  0777
 #endif
 
-#endif /* _OSE_ */
-
 #ifdef VXWORKS /* Currently only used on vxworks */
 
 #define EF_ALLOC(S)		driver_alloc((S))
@@ -128,7 +98,7 @@ extern STATUS copy(char *, char *);
 #define EF_SAFE_REALLOC(P, S)	ef_safe_realloc((P), (S))
 #define EF_FREE(P)		do { if((P)) driver_free((P)); } while(0)
 
-extern void erl_exit(int n, char *fmt, _DOTS_);
+void erl_exit(int n, char *fmt, ...);
 
 static void *ef_safe_alloc(Uint s)
 {
@@ -157,7 +127,7 @@ static void *ef_safe_realloc(void *op, Uint s)
     (s[0] == '.' && (s[1] == '\0' || (s[1] == '.' && s[2] == '\0')))
 
 #ifdef VXWORKS
-static FUNCTION(int, vxworks_to_posix, (int vx_errno));
+static int vxworks_to_posix(int vx_errno);
 #endif
 
 /*
@@ -176,7 +146,7 @@ static FUNCTION(int, vxworks_to_posix, (int vx_errno));
 #define CHECK_PATHLEN(X,Y) /* Nothing */
 #endif
 
-static FUNCTION(int, check_error, (int result, Efile_error* errInfo));
+static int check_error(int result, Efile_error* errInfo);
 
 static int
 check_error(int result, Efile_error *errInfo)
@@ -361,15 +331,6 @@ path_size(char *pathname)
     
 #endif /* VXWORKS */
 
-#ifdef _OSE_
-static int 
-ose_enotsup(Efile_error *errInfo) 
-{
-    errInfo->posix_errno = errInfo->os_errno = ENOTSUP;
-    return 0;
-}
-#endif /* _OSE_ */
-
 int
 efile_mkdir(Efile_error* errInfo,	/* Where to return error codes. */
 	    char* name)			/* Name of directory to create. */
@@ -446,18 +407,12 @@ efile_delete_file(Efile_error* errInfo,	/* Where to return error codes. */
 		  char* name)		/* Name of file to delete. */
 {
     CHECK_PATHLEN(name,errInfo);
-#ifdef _OSE_
-    if (remove(name) == 0) {
-	return 1;
-    }
-#else
     if (unlink(name) == 0) {
 	return 1;
     }
     if (errno == EISDIR) {	/* Linux sets the wrong error code. */
 	errno = EPERM;
     }
-#endif
     return check_error(-1, errInfo);
 }
 
@@ -524,7 +479,7 @@ efile_rename(Efile_error* errInfo,	/* Where to return error codes. */
     if (errno == ENOTEMPTY) {
 	errno = EEXIST;
     }
-#if defined (sparc) && !defined(VXWORKS) && !defined(_OSE_)
+#if defined (sparc) && !defined(VXWORKS)
     /*
      * SunOS 4.1.4 reports overwriting a non-empty directory with a
      * directory as EINVAL instead of EEXIST (first rule out the correct
@@ -632,7 +587,8 @@ efile_readdir(Efile_error* errInfo,	/* Where to return error codes. */
 						   open directory.*/
 	      char* buffer,		/* Pointer to buffer for 
 					   one filename. */
-	      size_t size)		/* Size of buffer. */
+	      size_t *size)		/* in-out Size of buffer, length
+					   of name. */
 {
     DIR *dp;			/* Pointer to directory structure. */
     struct dirent* dirp;	/* Pointer to directory entry. */
@@ -664,7 +620,8 @@ efile_readdir(Efile_error* errInfo,	/* Where to return error codes. */
 	if (IS_DOT_OR_DOTDOT(dirp->d_name))
 	    continue;
 	buffer[0] = '\0';
-	strncat(buffer, dirp->d_name, size-1);
+	strncat(buffer, dirp->d_name, (*size)-1);
+	*size = strlen(dirp->d_name);
 	return 1;
     }
 }
@@ -751,6 +708,9 @@ efile_openfile(Efile_error* errInfo,	/* Where to return error codes. */
 #endif
     }
 
+    if (flags & EFILE_MODE_EXCL) {
+	mode |= O_EXCL;
+    }
 
 #ifdef VXWORKS
     if (*name != '/') {
@@ -819,6 +779,17 @@ efile_closefile(int fd)
 }
 
 int
+efile_fdatasync(Efile_error *errInfo, /* Where to return error codes. */
+	    int fd)               /* File descriptor for file to sync data. */
+{
+#ifdef HAVE_FDATASYNC
+    return check_error(fdatasync(fd), errInfo);
+#else
+    return efile_fsync(errInfo, fd);
+#endif
+}
+
+int
 efile_fsync(Efile_error *errInfo, /* Where to return error codes. */
 	    int fd)               /* File descriptor for file to sync. */
 {
@@ -855,7 +826,7 @@ efile_fileinfo(Efile_error* errInfo, Efile_info* pInfo,
     CHECK_PATHLEN(name, errInfo);
 
     if (info_for_link) {
-#if (defined(VXWORKS) || defined(_OSE_))
+#if (defined(VXWORKS))
 	result = stat(name, &statbuf);
 #else
 	result = lstat(name, &statbuf);
@@ -939,11 +910,7 @@ efile_fileinfo(Efile_error* errInfo, Efile_info* pInfo,
     pInfo->mode = statbuf.st_mode;
     pInfo->links = statbuf.st_nlink;
     pInfo->major_device = statbuf.st_dev;
-#ifdef _OSE_
-    pInfo->minor_device = 0;
-#else
     pInfo->minor_device = statbuf.st_rdev;
-#endif
     pInfo->inode = statbuf.st_ino;
     pInfo->uid = statbuf.st_uid;
     pInfo->gid = statbuf.st_gid;
@@ -989,11 +956,9 @@ efile_write_info(Efile_error *errInfo, Efile_info *pInfo, char *name)
      * you don't try to chown a file to someone besides youself.
      */
 
-#ifndef _OSE_    
     if (chown(name, pInfo->uid, pInfo->gid) && errno != EPERM) {
 	return check_error(-1, errInfo);
     }
-#endif
 
     if (pInfo->mode != -1) {
 	mode_t newMode = pInfo->mode & (S_ISUID | S_ISGID |
@@ -1007,8 +972,6 @@ efile_write_info(Efile_error *errInfo, Efile_info *pInfo, char *name)
     }
 
 #endif /* !VXWORKS */
-
-#ifndef _OSE_
 
     if (pInfo->accessTime.year != -1 && pInfo->modifyTime.year != -1) {
 	struct utimbuf tval;
@@ -1041,7 +1004,6 @@ efile_write_info(Efile_error *errInfo, Efile_info *pInfo, char *name)
 	return check_error(utime(name, &tval), errInfo);
 #endif
     }
-#endif /* !_OSE_ */
     return 1;
 }
 
@@ -1451,9 +1413,6 @@ efile_truncate_file(Efile_error* errInfo, int *fd, int flags)
 int
 efile_readlink(Efile_error* errInfo, char* name, char* buffer, size_t size)
 {
-#ifdef _OSE_
-    return ose_enotsup(errInfo);
-#else
 #ifdef VXWORKS
     return vxworks_enotsup(errInfo);
 #else
@@ -1465,7 +1424,6 @@ efile_readlink(Efile_error* errInfo, char* name, char* buffer, size_t size)
     }
     buffer[len] = '\0';
     return 1;
-#endif
 #endif
 }
 
@@ -1479,27 +1437,30 @@ efile_altname(Efile_error* errInfo, char* name, char* buffer, size_t size)
 int
 efile_link(Efile_error* errInfo, char* old, char* new)
 {
-#ifdef _OSE_
-    return ose_enotsup(errInfo);
-#else
 #ifdef VXWORKS
     return vxworks_enotsup(errInfo);
 #else
     return check_error(link(old, new), errInfo);
-#endif
 #endif
 }
 
 int
 efile_symlink(Efile_error* errInfo, char* old, char* new)
 {
-#ifdef _OSE_
-    return ose_enotsup(errInfo);
-#else
 #ifdef VXWORKS
     return vxworks_enotsup(errInfo);
 #else
     return check_error(symlink(old, new), errInfo);
 #endif
+}
+
+int
+efile_fadvise(Efile_error* errInfo, int fd, Sint64 offset,
+		  Sint64 length, int advise)
+{
+#ifdef HAVE_POSIX_FADVISE
+    return check_error(posix_fadvise(fd, offset, length, advise), errInfo);
+#else
+    return check_error(0, errInfo);
 #endif
 }

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2009</year>
+      <year>2003</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -41,9 +41,9 @@
       <c>erl</c>, you will see something like this.</p>
     <pre>
 % <input>erl</input>
-Erlang (BEAM) emulator version 5.2 [source] [hipe]
+Erlang R15B (erts-5.9.1) [source] [smp:8:8] [rq:8] [async-threads:0] [hipe] [kernel-poll:false]
 
-Eshell V5.2  (abort with ^G)
+Eshell V5.9.1  (abort with ^G)
 1></pre>
     <p>Now type in "2 + 5." as shown below.</p>
     <pre>
@@ -245,7 +245,7 @@ convert(N, centimeter) ->
       inch in the convert function:</p>
     <pre>
 12> <input>tut2:convert(3, miles).</input>
-** exception error: no function clause matching tut2:convert(3,miles)</pre>
+** exception error: no function clause matching tut2:convert(3,miles) (tut2.erl, line 4)</pre>
     <p>The two parts of the <c>convert</c> function are called its
       clauses. Here we see that "miles" is not part of either of
       the clauses. The Erlang system can't <em>match</em> either of
@@ -255,11 +255,13 @@ convert(N, centimeter) ->
       command <c>v/1</c>:</p>
     <pre>
 13> <input>v(12).</input>
-{'EXIT',{function_clause,[{tut2,convert,[3,miles]},
-                          {erl_eval,do_apply,5},
-                          {shell,exprs,6},
-                          {shell,eval_exprs,6},
-                          {shell,eval_loop,3}]}}</pre>
+{'EXIT',{function_clause,[{tut2,convert,
+                                [3,miles],
+                                [{file,"tut2.erl"},{line,4}]},
+                          {erl_eval,do_apply,5,[{file,"erl_eval.erl"},{line,482}]},
+                          {shell,exprs,7,[{file,"shell.erl"},{line,666}]},
+                          {shell,eval_exprs,7,[{file,"shell.erl"},{line,621}]},
+                          {shell,eval_loop,3,[{file,"shell.erl"},{line,606}]}]}}</pre>
 
   </section>
 
@@ -943,7 +945,7 @@ A == 1 ; B == 7
 a_equals_1_or_b_equals_7
 66> <input>tut9:test_if(33, 33).</input>
 ** exception error: no true branch found when evaluating an if expression
-     in function  tut9:test_if/2</pre>
+     in function  tut9:test_if/2 (tut9.erl, line 5)</pre>
     <p>Notice that <c>tut9:test_if(33,33)</c> did not cause any
       condition to succeed so we got the run time error
       <c>if_clause</c>, here nicely formatted by the shell. See the chapter

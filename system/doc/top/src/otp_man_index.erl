@@ -27,14 +27,20 @@
 
 -module(otp_man_index). 
 
--export([gen/1]).
+-export([gen/1, gen/2]).
 -include_lib("kernel/include/file.hrl").
 
 
-gen([RootDir, OutFile])  when is_atom(RootDir),  is_atom(OutFile)->
+gen([Source, RootDir, OutFile])  when is_atom(RootDir),  is_atom(OutFile)->
+    gen(Source, RootDir, OutFile).
+
+gen(RootDir, OutFile) ->
+    gen(rel, RootDir, OutFile).
+
+gen(Source, RootDir, OutFile) ->
     Bases = [{"../lib/", filename:join(RootDir, "lib")},
 	     {"../", RootDir}],
-    Apps = find_application_paths(Bases),
+    Apps = find_application_paths(Source, Bases),
     RefPages = find_ref_files(Apps),
     gen_html(RefPages, atom_to_list(OutFile)).
     
@@ -81,43 +87,52 @@ find_ref_files([{App, Vsn, AppPath, RelPath} |Apps], Acc) ->
 	    find_ref_files(Apps, Refs2 ++ Acc)
     end.
 
-find_application_paths([]) ->
+find_application_paths(_, []) ->
     [];
-find_application_paths([{URL, Dir} | Paths]) ->
-    Sub1 = "doc/html",
+find_application_paths(Source, [{URL, Dir} | Paths]) ->
 
     AppDirs = get_app_dirs(Dir),
-    
-    AppPaths =
-	lists:map(
-	  fun({App, AppPath}) -> 
-		  VsnFile = filename:join(AppPath, "vsn.mk"),
-		  VsnStr = 
-		      case file:read_file(VsnFile) of
-			  {ok, Bin} ->
-			      case re:run(Bin, ".*VSN\s*=\s*([0-9\.]+).*",[{capture,[1],list}]) of
-				  {match, [V]} ->
-				      V;
-				  nomatch ->
-				      exit(io_lib:format("No VSN variable found in ~s\n",
-							 [VsnFile]))
-			      end;
-			  {error, Reason} ->
-			      exit(io_lib:format("~p : ~s\n", [Reason, VsnFile]))
-		      end,
-		  AppURL = URL ++ App ++ "-" ++ VsnStr,
-		  {App, VsnStr, AppPath ++ "/" ++ Sub1, AppURL ++ "/" ++ Sub1}
-	  end, AppDirs),
-    AppPaths ++ find_application_paths(Paths).
-    
+    AppPaths = get_app_paths(Source, AppDirs, URL),
+    AppPaths ++ find_application_paths(Source, Paths).
 
+get_app_paths(src, AppDirs, URL) ->
+    Sub1 = "doc/html",
+    lists:map(
+      fun({App, AppPath}) -> 
+	      VsnFile = filename:join(AppPath, "vsn.mk"),
+	      VsnStr = 
+		  case file:read_file(VsnFile) of
+		      {ok, Bin} ->
+			  case re:run(Bin, ".*VSN\s*=\s*([0-9\.]+).*",[{capture,[1],list}]) of
+			      {match, [V]} ->
+				  V;
+			      nomatch ->
+				  exit(io_lib:format("No VSN variable found in ~s\n",
+						     [VsnFile]))
+			  end;
+		      {error, Reason} ->
+			  exit(io_lib:format("~p : ~s\n", [Reason, VsnFile]))
+		  end,
+	      AppURL = URL ++ App ++ "-" ++ VsnStr,
+	      {App, VsnStr, AppPath ++ "/" ++ Sub1, AppURL ++ "/" ++ Sub1}
+      end, AppDirs);
+get_app_paths(rel, AppDirs, URL) ->
+    Sub1 = "doc/html",
+    lists:map(
+      fun({App, AppPath}) -> 
+	      [AppName, VsnStr] = string:tokens(App, "-"),
+	      AppURL = URL ++ App,
+	      {AppName, VsnStr, AppPath ++ "/" ++ Sub1, AppURL ++ "/" ++ Sub1}
+      end, AppDirs).
+
+    
 get_app_dirs(Dir) ->
     {ok, Files} = file:list_dir(Dir),
     AFiles = 
 	lists:map(fun(File) -> {File, filename:join([Dir, File])} end, Files),
     lists:zf(fun is_app_with_doc/1, AFiles).
 
-is_app_with_doc({"." ++ ADir, _APath}) ->
+is_app_with_doc({"." ++ _ADir, _APath}) ->
     false;
 is_app_with_doc({ADir, APath}) ->
     case file:read_file_info(filename:join([APath, "info"])) of

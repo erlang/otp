@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -558,27 +558,29 @@ iolist_to_chars(B) when is_binary(B) ->
 
 string(S, none, _Adj, none, _Pad) -> S;
 string(S, F, Adj, none, Pad) ->
-    N = lists:flatlength(S),
-    if N > F  -> flat_trunc(S, F);
-       N =:= F -> S;
-       true   -> adjust(S, chars(Pad, F-N), Adj)
-    end;
+    string_field(S, F, Adj, lists:flatlength(S), Pad);
 string(S, none, _Adj, P, Pad) ->
+    string_field(S, P, left, lists:flatlength(S), Pad);
+string(S, F, Adj, P, Pad) when F >= P ->
     N = lists:flatlength(S),
-    if N > P  -> flat_trunc(S, P);
-       N =:= P -> S;
-       true   -> [S|chars(Pad, P-N)]
-    end;
-string(S, F, Adj, F, Pad) ->
-    string(S, none, Adj, F, Pad);
-string(S, F, Adj, P, Pad) when F > P ->
-    N = lists:flatlength(S),
-    if N > F  -> flat_trunc(S, F);
-       N =:= F -> S;
-       N > P   -> adjust(flat_trunc(S, P), chars(Pad, F-P), Adj);
-       N =:= P -> adjust(S, chars(Pad, F-P), Adj);
-       true    -> adjust([S|chars(Pad, P-N)], chars(Pad, F-P), Adj)
+    if F > P ->
+	    if N > P ->
+		    adjust(flat_trunc(S, P), chars(Pad, F-P), Adj);
+	       N < P ->
+		    adjust([S|chars(Pad, P-N)], chars(Pad, F-P), Adj);
+	       true -> % N == P
+		    adjust(S, chars(Pad, F-P), Adj)
+	    end;
+       true -> % F == P
+	    string_field(S, F, Adj, N, Pad)
     end.
+
+string_field(S, F, _Adj, N, _Pad) when N > F ->
+    flat_trunc(S, F);
+string_field(S, F, Adj, N, Pad) when N < F ->
+    adjust(S, chars(Pad, F-N), Adj);
+string_field(S, _, _, _, _) -> % N == F
+    S.
 
 %% unprefixed_integer(Int, Field, Adjust, Base, PadChar, Lowercase)
 %% -> [Char].
@@ -624,8 +626,8 @@ newline(F, right, _P, _Pad) -> chars($\n, F).
 %%
 
 adjust(Data, [], _) -> Data;
-adjust(Data, Pad, left) -> [Data,Pad];
-adjust(Data, Pad, right) -> [Pad,Data].
+adjust(Data, Pad, left) -> [Data|Pad];
+adjust(Data, Pad, right) -> [Pad|Data].
 
 %% Flatten and truncate a deep list to at most N elements.
 

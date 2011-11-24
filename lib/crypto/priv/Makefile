@@ -18,21 +18,21 @@
 
 # ----------------------------------------------------
 #        THIS MAKEFILE SERVES AS AN EXAMPLE OF
-#        HOW TO RELINK THE CRYPTO DRIVER
+#        HOW TO RELINK THE CRYPTO NIF LIBRARY
 # ----------------------------------------------------
 
 # ----------------------------------------------------
-# Variables for linking a .so driver on unix.
+# Variables for linking a .so library on unix.
 # Note: These may differ between systems.
 # ----------------------------------------------------
 
 SO_LD = gcc
 SO_LDFLAGS = -G 
 SO_SSL_LIBDIR = /usr/local/lib
-SO_DRIVER = $(LIBDIR)/$(DRIVER_NAME).so
+SO_NIFLIB = $(LIBDIR)/$(LIB_NAME).so
 
 # ----------------------------------------------------
-# Variables for linking a win32 .dll driver.
+# Variables for linking a win32 .dll library.
 # Note: These may differ between systems.
 # ----------------------------------------------------
 
@@ -42,9 +42,9 @@ DLL_LIBDIR = "c:\\OpenSSL\\lib\\VC"
 DLL_LIBS = libeay32.lib MSVCRT.LIB kernel32.lib \
 	   advapi32.lib gdi32.lib user32.lib \
 	   comctl32.lib comdlg32.lib shell32.lib
-DLL_DRIVER = $(LIBDIR)/$(DRIVER_NAME).dll
-DLL_EXP = $(LIBDIR)/$(DRIVER_NAME).exp
-DLL_LIB = $(LIBDIR)/$(DRIVER_NAME).lib
+DLL_NIFLIB = $(LIBDIR)/$(LIB_NAME).dll
+DLL_EXP = $(LIBDIR)/$(LIB_NAME).exp
+DLL_LIB = $(LIBDIR)/$(LIB_NAME).lib
 
 # ----------------------------------------------------
 # Common variables
@@ -52,27 +52,27 @@ DLL_LIB = $(LIBDIR)/$(DRIVER_NAME).lib
 
 OBJDIR = ./
 LIBDIR = ../lib
-DRIVER_NAME = crypto_drv
-OBJS = $(OBJDIR)/crypto_drv.o
+LIB_NAME = crypto
+OBJS = $(OBJDIR)/crypto.o
 
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
 
-$(SO_DRIVER): $(OBJS)
+$(SO_NIFLIB): $(OBJS)
 	$(SO_LD) $(SO_LDFLAGS) -L$(SO_SSL_LIBDIR) -Wl,-R$(SO_SSL_LIBDIR) \
 	-o $@ $^ -lcrypto
 
-$(DLL_DRIVER): $(OBJS)
+$(DLL_NIFLIB): $(OBJS)
 	$(DLL_LD) $(DLL_LDFLAGS) -out:$@ -libpath:$(DLL_LIBDIR) $(OBJS) \
 	$(DLL_LIBS)
 
-so:	$(SO_DRIVER)
+so:	$(SO_NIFLIB)
 
-dll:	$(DLL_DRIVER)
+dll:	$(DLL_NIFLIB)
 
 clean:
-	rm -f $(SO_DRIVER) $(DLL_DRIVER) 
+	rm -f $(SO_NIFLIB) $(DLL_NIFLIB) 
 	rm -f $(DLL_EXP) $(DLL_LIB)
 	rm -f core *~
 

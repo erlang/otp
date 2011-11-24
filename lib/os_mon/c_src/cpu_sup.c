@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1997-2009. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -191,7 +191,10 @@ int main(int argc, char** argv) {
 static cpu_t *read_procstat(FILE *fp, cpu_t *cpu) {
     char buffer[BUFFERSIZE];
 
-    fgets(buffer, BUFFERSIZE, fp);
+    if (fgets(buffer, BUFFERSIZE, fp) == NULL) {
+	memset(cpu, 0, sizeof(cpu_t));
+	return cpu;
+    }
     sscanf(buffer, "cpu%u %Lu %Lu %Lu %Lu %Lu %Lu %Lu %Lu",
 	&(cpu->id),
 	&(cpu->user),
@@ -223,7 +226,11 @@ static void util_measure(unsigned int **result_vec, int *result_sz) {
 	return;
     }
 
-    fgets(buffer, BUFFERSIZE, fp); /*ignore read*/
+	/*ignore read*/
+    if (fgets(buffer, BUFFERSIZE, fp) == NULL) {
+	*result_sz = 0;
+	return;
+    }
     rv = *result_vec; 
     rv[0] = no_of_cpus;
     rv[1] = CU_VALUES;
@@ -447,8 +454,12 @@ static void sendv(unsigned int data[], int ints) {
 }
 
 static void error(char* err_msg) {
-  write(FD_ERR, err_msg, strlen(err_msg));
-  write(FD_ERR, "\n", 1);
+  /* 
+   * if we get error here we have trouble,
+   * silence unnecessary warnings
+   */
+  if(write(FD_ERR, err_msg, strlen(err_msg)));
+  if(write(FD_ERR, "\n", 1));
   exit(-1);
 }
 

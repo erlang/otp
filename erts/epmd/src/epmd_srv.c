@@ -2,7 +2,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -24,6 +24,10 @@
 #include "epmd.h"     /* Renamed from 'epmd_r4.h' */
 #include "epmd_int.h"
 
+#ifndef INADDR_NONE
+#  define INADDR_NONE 0xffffffff
+#endif
+
 /*
  *  
  *  This server is a local name server for Erlang nodes. Erlang nodes can
@@ -39,45 +43,15 @@
  *  server keeps the socket open where the request for registration was
  *  made.
  *
- *  The protocol is briefly documented in "erl_ext_dist.txt". All requests
- *  to this server are done with a packet
+ *  The protocol is briefly documented in the ERTS User's Guide, see
+ *  http://www.erlang.org/doc/apps/erts/erl_dist_protocol.html
+ *
+ *  All requests to this server are done with a packet
  *
  *      2        n
  *  +--------+---------+
  *  | Length | Request |
  *  +--------+---------+
- *
- *  In all but one case there is only one request for each connection made
- *  to this server so we can safely close the socket after sending the
- *  reply.  The exception is ALIVE_REQ where we keep the connection
- *  open without sending any data. When we receive a "close" this is
- *  an indication that the Erlang node was terminated. The termination
- *  may have been "normal" or caused by a crash. The operating system
- *  ensure that the connection is closed either way.
- *  
- *  Reading is done non-blocking, i.e. we call a "read" only if we are
- *  told by the "select" function that there are data to read.
- *  
- *  Two databases are used: One node database where the registered names
- *  of the nodes are stored, and one connection database where the state
- *  of sockets and the data buffers is stored.
- *  
- *  Incomplete packets are thrown away after a timout. The Erlang node
- *  doing the request is responsible for completing in it in a reasonable time.
- *
- *  Note that if the server gets busy it may not have time to
- *  process all requests for connection. The "accept()" function
- *  will on most operating systems silently refuse to accept more
- *  than 5 outstanding requests. It is the client's responsibility
- *  to retry the request a number of times with random time interval.
- *  The "-debug" flag will insert a delay so you can test this 
- *  behaviour.
- *
- *  FIXME: In this code we assume that the packets we send on each
- *  socket is so small that a "write()" never block
- *
- *  FIXME: We never restarts a read or write that was terminated
- *  by an interrupt. Do we need to?
  *
  */
 
@@ -98,7 +72,6 @@ static int conn_open(EpmdVars*,int);
 static int conn_close_fd(EpmdVars*,int);
 
 static void node_init(EpmdVars*);
-static Node *node_reg(EpmdVars*,char*,int,int);
 static Node *node_reg2(EpmdVars*,char*, int, int, unsigned char, unsigned char, int, int, int, char*);
 static int node_unreg(EpmdVars*,char*);
 static int node_unreg_sock(EpmdVars*,int);
@@ -107,115 +80,175 @@ static int reply(EpmdVars*,int,char *,int);
 static void dbg_print_buf(EpmdVars*,char *,int);
 static void print_names(EpmdVars*);
 
+static EPMD_INLINE void select_fd_set(EpmdVars* g, int fd)
+{
+    FD_SET(fd, &g->orig_read_mask);
+    if (fd >= g->select_fd_top) {
+	g->select_fd_top = fd + 1;
+    }
+}
 
 void run(EpmdVars *g)
 {
-  int listensock;
+  struct EPMD_SOCKADDR_IN iserv_addr[MAX_LISTEN_SOCKETS];
+  int listensock[MAX_LISTEN_SOCKETS];
+  int num_sockets;
   int i;
   int opt;
-  struct EPMD_SOCKADDR_IN iserv_addr;
+  unsigned short sport = g->port;
 
   node_init(g);
   g->conn = conn_init(g);
 
   dbg_printf(g,2,"try to initiate listening port %d", g->port);
-  
-  if ((listensock = socket(FAMILY,SOCK_STREAM,0)) < 0) {
-    dbg_perror(g,"error opening stream socket");
-    epmd_cleanup_exit(g,1);
-  }
-  g->listenfd = listensock;
+
+  if (g->addresses != NULL && /* String contains non-separator characters if: */
+      g->addresses[strspn(g->addresses," ,")] != '\000')
+    {
+      char *tmp;
+      char *token;
+      int loopback_ok = 0;
+
+      if ((tmp = (char *)malloc(strlen(g->addresses) + 1)) == NULL)
+	{
+	  dbg_perror(g,"cannot allocate memory");
+	  epmd_cleanup_exit(g,1);
+	}
+      strcpy(tmp,g->addresses);
+
+      for(token = strtok(tmp,", "), num_sockets = 0;
+	  token != NULL;
+	  token = strtok(NULL,", "), num_sockets++)
+	{
+	  struct EPMD_IN_ADDR addr;
+#ifdef HAVE_INET_PTON
+	  int ret;
+
+	  if ((ret = inet_pton(FAMILY,token,&addr)) == -1)
+	    {
+	      dbg_perror(g,"cannot convert IP address to network format");
+	      epmd_cleanup_exit(g,1);
+	    }
+	  else if (ret == 0)
+#elif !defined(EPMD6)
+	  if ((addr.EPMD_S_ADDR = inet_addr(token)) == INADDR_NONE)
+#endif
+	    {
+	      dbg_tty_printf(g,0,"cannot parse IP address \"%s\"",token);
+	      epmd_cleanup_exit(g,1);
+	    }
+
+	  if (IS_ADDR_LOOPBACK(addr))
+	    loopback_ok = 1;
+
+	  if (num_sockets - loopback_ok == MAX_LISTEN_SOCKETS - 1)
+	    {
+	      dbg_tty_printf(g,0,"cannot listen on more than %d IP addresses",
+			     MAX_LISTEN_SOCKETS);
+	      epmd_cleanup_exit(g,1);
+	    }
+
+	  SET_ADDR(iserv_addr[num_sockets],addr.EPMD_S_ADDR,sport);
+	}
+
+      free(tmp);
+
+      if (!loopback_ok)
+	{
+	  SET_ADDR(iserv_addr[num_sockets],EPMD_ADDR_LOOPBACK,sport);
+	  num_sockets++;
+	}
+    }
+  else
+    {
+      SET_ADDR(iserv_addr[0],EPMD_ADDR_ANY,sport);
+      num_sockets = 1;
+    }
+
+#if !defined(__WIN32__)
+  /* We ignore the SIGPIPE signal that is raised when we call write
+     twice on a socket closed by the other end. */
+  signal(SIGPIPE, SIG_IGN);
+#endif
 
   /*
    * Initialize number of active file descriptors.
    * Stdin, stdout, and stderr are still open.
-   * One for the listen socket.
    */
-  g->active_conn = 3+1;
-  
-  /*
-   * Note that we must not enable the SO_REUSEADDR on Windows,
-   * because addresses will be reused even if they are still in use.
-   */
-  
-#if (!defined(__WIN32__) && !defined(_OSE_))
-  /* We ignore the SIGPIPE signal that is raised when we call write
-     twice on a socket closed by the other end. */
-  signal(SIGPIPE, SIG_IGN);
-
-  opt = 1;			/* Set this option */
-  if (setsockopt(listensock,SOL_SOCKET,SO_REUSEADDR,(char* ) &opt,
-		 sizeof(opt)) <0) {
-    dbg_perror(g,"can't set sockopt");
-    epmd_cleanup_exit(g,1);
-  }
-#endif
-  
-  /* In rare cases select returns because there is someone
-     to accept but the request is withdrawn before the
-     accept function is called. We set the listen socket
-     to be non blocking to prevent us from being hanging
-     in accept() waiting for the next request. */
-#ifdef _OSE_  
-  opt = 1;
-  if (ioctl(listensock, FIONBIO, (char*)&opt) != 0)
-#else
-#if (defined(__WIN32__) || defined(NO_FCNTL))
-  opt = 1;
-  if (ioctl(listensock, FIONBIO, &opt) != 0) /* Gives warning in VxWorks */
-#else
-  opt = fcntl(listensock, F_GETFL, 0);
-  if (fcntl(listensock, F_SETFL, opt | O_NONBLOCK) == -1)
-#endif /* __WIN32__ || VXWORKS */
-#endif /* _OSE_ */
-    dbg_perror(g,"failed to set non-blocking mode of listening socket %d",
-	       listensock);
-
-  { /* store port number in unsigned short */
-    unsigned short sport = g->port;
-    SET_ADDR_ANY(iserv_addr, FAMILY, sport);
-  }
-  
-#ifdef _OSE_
-  {
-    int optlen = sizeof(opt);
-    opt = 1;
-    if(getsockopt(listensock, SOL_SOCKET, SO_REUSEADDR,
-		  (void*)&opt, &optlen) < 0)
-      fprintf(stderr, "\n\nGETSOCKOPT FAILS! %d\n\n", errno);
-    else if(opt == 1)
-      fprintf(stderr, "SO_REUSEADDR is set!\n");
-  }
-#endif
-
-  if(bind(listensock,(struct sockaddr*) &iserv_addr, sizeof(iserv_addr)) < 0 )
-    {
-      if (errno == EADDRINUSE)
-	{
-	  dbg_tty_printf(g,1,"there is already a epmd running at port %d",
-			 g->port);
-	  epmd_cleanup_exit(g,0);
-	}
-      else
-	{
-	  dbg_perror(g,"failed to bind socket");
-	  epmd_cleanup_exit(g,1);
-	}
-    }
-
-  dbg_printf(g,2,"starting");
-
-  listen(listensock, SOMAXCONN);
-
+  g->active_conn = 3 + num_sockets;
+  g->max_conn -= num_sockets;
 
   FD_ZERO(&g->orig_read_mask);
-  FD_SET(listensock,&g->orig_read_mask);
+  g->select_fd_top = 0;
+
+  for (i = 0; i < num_sockets; i++)
+    {
+      if ((listensock[i] = socket(FAMILY,SOCK_STREAM,0)) < 0)
+	{
+	  dbg_perror(g,"error opening stream socket");
+	  epmd_cleanup_exit(g,1);
+	}
+      g->listenfd[i] = listensock[i];
+  
+      /*
+       * Note that we must not enable the SO_REUSEADDR on Windows,
+       * because addresses will be reused even if they are still in use.
+       */
+  
+#if !defined(__WIN32__)
+      opt = 1;
+      if (setsockopt(listensock[i],SOL_SOCKET,SO_REUSEADDR,(char* ) &opt,
+		     sizeof(opt)) <0)
+	{
+	  dbg_perror(g,"can't set sockopt");
+	  epmd_cleanup_exit(g,1);
+	}
+#endif
+  
+      /* In rare cases select returns because there is someone
+	 to accept but the request is withdrawn before the
+	 accept function is called. We set the listen socket
+	 to be non blocking to prevent us from being hanging
+	 in accept() waiting for the next request. */
+#if (defined(__WIN32__) || defined(NO_FCNTL))
+      opt = 1;
+      /* Gives warning in VxWorks */
+      if (ioctl(listensock[i], FIONBIO, &opt) != 0)
+#else
+      opt = fcntl(listensock[i], F_GETFL, 0);
+      if (fcntl(listensock[i], F_SETFL, opt | O_NONBLOCK) == -1)
+#endif /* __WIN32__ || VXWORKS */
+	dbg_perror(g,"failed to set non-blocking mode of listening socket %d",
+		   listensock[i]);
+
+      if (bind(listensock[i], (struct sockaddr*) &iserv_addr[i],
+	  sizeof(iserv_addr[i])) < 0)
+	{
+	  if (errno == EADDRINUSE)
+	    {
+	      dbg_tty_printf(g,1,"there is already a epmd running at port %d",
+			     g->port);
+	      epmd_cleanup_exit(g,0);
+	    }
+	  else
+	    {
+	      dbg_perror(g,"failed to bind socket");
+	      epmd_cleanup_exit(g,1);
+	    }
+	}
+
+      if(listen(listensock[i], SOMAXCONN) < 0) {
+          dbg_perror(g,"failed to listen on socket");
+          epmd_cleanup_exit(g,1);
+      }
+      select_fd_set(g, listensock[i]);
+    }
 
   dbg_tty_printf(g,2,"entering the main select() loop");
 
  select_again:
   while(1)
-    {	
+    {
       fd_set read_mask = g->orig_read_mask;
       struct timeval timeout;
       int ret;
@@ -227,8 +260,17 @@ void run(EpmdVars *g)
       timeout.tv_sec = (g->packet_timeout < IDLE_TIMEOUT) ? 1 : IDLE_TIMEOUT;
       timeout.tv_usec = 0;
 
-      if ((ret = select(g->max_conn,&read_mask,(fd_set *)0,(fd_set *)0,&timeout)) < 0)
+      if ((ret = select(g->select_fd_top,
+			&read_mask, (fd_set *)0,(fd_set *)0,&timeout)) < 0) {
 	dbg_perror(g,"error in select ");
+        switch (errno) {
+          case EAGAIN:
+          case EINTR:
+            break;
+          default:
+            epmd_cleanup_exit(g,1);
+        }
+      }
       else {
 	time_t now;
 	if (ret == 0) {
@@ -238,17 +280,18 @@ void run(EpmdVars *g)
 	  sleep(g->delay_accept);
 	}
 
-	if (FD_ISSET(listensock,&read_mask)) {
-	  if (do_accept(g, listensock) && g->active_conn < g->max_conn) {
-	    /*
-	     * The accept() succeeded, and we have at least one file
-	     * descriptor still free, which means that another accept()
-	     * could succeed. Go do do another select(), in case there
-	     * are more incoming connections waiting to be accepted.
-	     */
-	    goto select_again;
+	for (i = 0; i < num_sockets; i++)
+	  if (FD_ISSET(listensock[i],&read_mask)) {
+	    if (do_accept(g, listensock[i]) && g->active_conn < g->max_conn) {
+	      /*
+	       * The accept() succeeded, and we have at least one file
+	       * descriptor still free, which means that another accept()
+	       * could succeed. Go do do another select(), in case there
+	       * are more incoming connections waiting to be accepted.
+	       */
+	      goto select_again;
+	    }
 	  }
-	}
 	  
 	/* Check all open streams marked by select for data or a
 	   close.  We also close all open sockets except ALIVE
@@ -312,11 +355,9 @@ static void do_read(EpmdVars *g,Connection *s)
 		 s->fd,val);
 	  dbg_print_buf(g,s->buf,val);
 
-	  /* FIXME: Shouldn't be needed to close down.... */
 	  node_unreg_sock(g,s->fd);
 	  epmd_conn_close(g,s);
 	}
-      /* FIXME: We always close, probably the right thing to do */
       return;
     }
 
@@ -401,12 +442,21 @@ static int do_accept(EpmdVars *g,int listensock)
 
     if (msgsock < 0) {
         dbg_perror(g,"error in accept");
-	return EPMD_FALSE;
+        switch (errno) {
+            case EAGAIN:
+            case ECONNABORTED:
+            case EINTR:
+	            return EPMD_FALSE;
+            default:
+	            epmd_cleanup_exit(g,1);
+        }
     }
 
     return conn_open(g,msgsock);
 }
 
+/* buf is actually one byte larger than bsize,
+   giving place for null termination */
 static void do_request(g, fd, s, buf, bsize)
      EpmdVars *g;
      int fd;
@@ -417,117 +467,23 @@ static void do_request(g, fd, s, buf, bsize)
   char wbuf[OUTBUF_SIZE];	/* Buffer for writing */
   int i;
 
-  /*
-   * Terminate packet as a C string.  Needed for requests received from Erlang
-   * nodes with lower version than R3A.
-   */
-
-  buf[bsize] = '\0';
+  buf[bsize] = '\0'; /* Needed for strcmp in PORT2 and STOP requests
+			buf is always large enough */
 
   switch (*buf)
     {
-    case EPMD_ALIVE_REQ:
-      dbg_printf(g,1,"** got ALIVE_REQ");
-
-      /* The packet has the format "axxyyyyyy" where xx is port, given
-	 in network byte order, and yyyyyy is symname, possibly null
-	 terminated. */
-
-      if (buf[bsize - 1] == '\000') /* Skip null termination */
-	bsize--;
-	
-      if (bsize <= 3)
-	{
-	  dbg_printf(g,0,"packet to small for request ALIVE_REQ (%d)", bsize);
-	  return;
-	}
-
-      for (i = 3; i < bsize; i++)
-	if (buf[i] == '\000')
-	  {
-	    dbg_printf(g,0,"node name contains ascii 0 in ALIVE_REQ");
-	    return;
-	  }
-
-      {
-	Node *node;
-	int eport;
-	char *name  = &buf[3];	/* points to node name */
-
-	eport = get_int16(&buf[1]);
-
-	if ((node = node_reg(g, name, fd, eport)) == NULL)
-	  return;
-
-	wbuf[0] = EPMD_ALIVE_OK_RESP;
-	put_int16(node->creation, wbuf+1);
-  
-	if (g->delay_write)		/* Test of busy server */
-	  sleep(g->delay_write);
-
-	if (reply(g, fd, wbuf, 3) != 3)
-	  {
-	    dbg_tty_printf(g,1,"failed to send ALIVE_OK_RESP for \"%s\"",name);
-	    return;
-	  }
-
-	dbg_tty_printf(g,1,"** sent ALIVE_OK_RESP for \"%s\"",name);
-	s->keep = EPMD_TRUE;		/* Don't close on inactivity */
-      }
-      break;
-
-    case EPMD_PORT_REQ:
-      dbg_printf(g,1,"** got PORT_REQ");
-
-      if (buf[bsize - 1] == '\000') /* Skip null termination */
-	bsize--;
-	
-      if (bsize <= 1)
-	{
-	  dbg_printf(g,0,"packet to small for request PORT_REQ (%d)", bsize);
-	  return;
-	}
-
-      for (i = 1; i < bsize; i++)
-	if (buf[i] == '\000')
-	  {
-	    dbg_printf(g,0,"node name contains ascii 0 in PORT_REQ");
-	    return;
-	  }
-
-      {
-	char *name = &buf[1]; /* Points to node name */
-	Node *node;
-
-	for (node = g->nodes.reg; node; node = node->next)
-	  {
-	    if (strcmp(node->symname, name) == 0)
-	      {
-		put_int16(node->port,wbuf);
-		if (reply(g, fd, wbuf, 2) != 2)
-		  {
-		    dbg_tty_printf(g,1,"failed to send PORT_RESP for %s: %d",
-				   name,node->port);
-		    return;
-		  }
-		dbg_tty_printf(g,1,"** sent PORT_RESP for %s: %d",
-			       name,node->port);
-		return;
-	      }
-	  }
-	dbg_tty_printf(g,1,"Closed on PORT_REQ for %s",name);
-      }
-      /* FIXME: How about an answer if no port? Is a close enough? */
-      break;
-
     case EPMD_ALIVE2_REQ:
       dbg_printf(g,1,"** got ALIVE2_REQ");
+      if (!s->local_peer) {
+	   dbg_printf(g,0,"ALIVE2_REQ from non local address");
+	   return;
+      }
 
       /* The packet has the format "axxyyyyyy" where xx is port, given
 	 in network byte order, and yyyyyy is symname, possibly null
 	 terminated. */
 
-      if (bsize <= 13)
+      if (bsize <= 13) /* at least one character for the node name */
 	{
 	  dbg_printf(g,0,"packet to small for request ALIVE2_REQ (%d)",bsize);
 	  return;
@@ -550,7 +506,17 @@ static void do_request(g, fd, s, buf, bsize)
 	highvsn = get_int16(&buf[5]);
 	lowvsn = get_int16(&buf[7]);
 	namelen = get_int16(&buf[9]);
+	if (namelen + 13 > bsize) {
+	    dbg_printf(g,0,"Node name size error in ALIVE2_REQ");
+	    return;
+	}
 	extralen = get_int16(&buf[11+namelen]);
+
+	if (extralen + namelen + 13 > bsize) {
+	    dbg_printf(g,0,"Extra info size error in ALIVE2_REQ");
+	    return;
+	}
+
 	for (i = 11 ; i < 11 + namelen; i ++)
 	    if (buf[i] == '\000')  {
 		dbg_printf(g,0,"node name contains ascii 0 in ALIVE2_REQ");
@@ -593,7 +559,7 @@ static void do_request(g, fd, s, buf, bsize)
 	
       if (bsize <= 1)
 	{
-	  dbg_printf(g,0,"packet to small for request PORT2_REQ (%d)", bsize);
+	  dbg_printf(g,0,"packet too small for request PORT2_REQ (%d)", bsize);
 	  return;
 	}
 
@@ -681,6 +647,10 @@ static void do_request(g, fd, s, buf, bsize)
 
     case EPMD_DUMP_REQ:
       dbg_printf(g,1,"** got DUMP_REQ");
+      if (!s->local_peer) {
+	   dbg_printf(g,0,"DUMP_REQ from non local address");
+	   return;
+      }
       {
 	Node *node;
 
@@ -730,7 +700,19 @@ static void do_request(g, fd, s, buf, bsize)
       break;
 
     case EPMD_KILL_REQ:
+      if (!s->local_peer) {
+	   dbg_printf(g,0,"KILL_REQ from non local address");
+	   return;
+      }
       dbg_printf(g,1,"** got KILL_REQ");
+
+      if (!g->brutal_kill && (g->nodes.reg != NULL)) {
+	  dbg_printf(g,0,"Disallowed KILL_REQ, live nodes");
+	  if (reply(g, fd,"NO",2) != 2)
+	      dbg_printf(g,0,"failed to send reply to KILL_REQ");
+	  return;
+      }
+
       if (reply(g, fd,"OK",2) != 2)
 	dbg_printf(g,0,"failed to send reply to KILL_REQ");
       dbg_tty_printf(g,1,"epmd killed");
@@ -740,9 +722,18 @@ static void do_request(g, fd, s, buf, bsize)
 
     case EPMD_STOP_REQ:
       dbg_printf(g,1,"** got STOP_REQ");
+      if (!s->local_peer) {
+	   dbg_printf(g,0,"STOP_REQ from non local address");
+	   return;
+      }
+      if (!g->brutal_kill) {
+	  dbg_printf(g,0,"Disallowed STOP_REQ, no relaxed_command_check");
+	  return;
+      }
+
       if (bsize <= 1 )
 	{
-	  dbg_printf(g,0,"packet to small for request STOP_REQ (%d)",bsize);
+	  dbg_printf(g,0,"packet too small for request STOP_REQ (%d)",bsize);
 	  return;
 	}
 
@@ -827,15 +818,42 @@ static int conn_open(EpmdVars *g,int fd)
 
   for (i = 0; i < g->max_conn; i++) {
     if (g->conn[i].open == EPMD_FALSE) {
+      struct sockaddr_in si;
+      struct sockaddr_in di;
+#ifdef HAVE_SOCKLEN_T
+      socklen_t st;
+#else
+      int st;
+#endif
+      st = sizeof(si);
+
       g->active_conn++;
       s = &g->conn[i];
      
       /* From now on we want to know if there are data to be read */
-      FD_SET(fd, &g->orig_read_mask);
+      select_fd_set(g, fd);
 
       s->fd   = fd;
       s->open = EPMD_TRUE;
       s->keep = EPMD_FALSE;
+
+      /* Determine if connection is from localhost */
+      if (getpeername(s->fd,(struct sockaddr*) &si,&st) ||
+	  st < sizeof(si)) {
+	  /* Failure to get peername is regarded as non local host */
+	  s->local_peer = EPMD_FALSE;
+      } else {
+	  /* Only 127.x.x.x and connections from the host's IP address
+	     allowed, no false positives */
+	  s->local_peer =
+	      (((((unsigned) ntohl(si.sin_addr.s_addr)) & 0xFF000000U) ==
+	       0x7F000000U) ||
+	       (getsockname(s->fd,(struct sockaddr*) &di,&st) ?
+	       EPMD_FALSE : si.sin_addr.s_addr == di.sin_addr.s_addr));
+      }
+      dbg_tty_printf(g,2,(s->local_peer) ? "Local peer connected" :
+		     "Non-local peer connected");
+
       s->want = 0;		/* Currently unknown */
       s->got  = 0;
       s->mod_time = current_time(g); /* Note activity */
@@ -878,6 +896,7 @@ int epmd_conn_close(EpmdVars *g,Connection *s)
   dbg_tty_printf(g,2,"closing connection on file descriptor %d",s->fd);
 
   FD_CLR(s->fd,&g->orig_read_mask);
+  /* we don't bother lowering g->select_fd_top */
   close(s->fd);			/* Sometimes already closed but close anyway */
   s->open = EPMD_FALSE;
   if (s->buf != NULL) {		/* Should never be NULL but test anyway */
@@ -904,7 +923,7 @@ static void node_init(EpmdVars *g)
 
 
 /* We have got a close on a connection and it may be a
-   EPMD_ALIVE_CLOSE_REQ. Note that this call shouild be called
+   EPMD_ALIVE_CLOSE_REQ. Note that this call should be called
    *before* calling conn_close() */
 
 static int node_unreg(EpmdVars *g,char *name)
@@ -992,11 +1011,6 @@ static int node_unreg_sock(EpmdVars *g,int fd)
  *     Perhaps use the oldest or something.
  */
 
-static Node *node_reg(EpmdVars *g,char *name,int fd, int port)
-{
-    return node_reg2(g, name, fd, port, 0, 0, 0, 0, 0, NULL);
-}
-
 static Node *node_reg2(EpmdVars *g,
 		       char* name,
 		       int fd,
@@ -1020,6 +1034,11 @@ static Node *node_reg2(EpmdVars *g,
   if (strlen(name) > MAXSYMLEN)
     {
       dbg_printf(g,0,"node name is too long (%d) %s", strlen(name), name);
+      return NULL;
+    }
+  if (extralen > MAXSYMLEN)
+    {
+      dbg_printf(g,0,"extra data is too long (%d) %s", strlen(name), name);
       return NULL;
     }
 
@@ -1107,7 +1126,7 @@ static Node *node_reg2(EpmdVars *g,
   node->extralen = extralen;
   memcpy(node->extra,extra,extralen);
   strcpy(node->symname,name);
-  FD_SET(fd,&g->orig_read_mask);
+  select_fd_set(g, fd);
 
   if (highvsn == 0) {
     dbg_tty_printf(g,1,"registering '%s:%d', port %d",

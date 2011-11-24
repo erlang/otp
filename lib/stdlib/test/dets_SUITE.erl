@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -28,13 +28,17 @@
 -define(privdir(_), "./dets_SUITE_priv").
 -define(datadir(_), "./dets_SUITE_data").
 -else.
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -define(format(S, A), ok).
 -define(privdir(Conf), ?config(priv_dir, Conf)).
 -define(datadir(Conf), ?config(data_dir, Conf)).
 -endif.
 
--export([all/1, not_run/1, newly_started/1, basic_v8/1, basic_v9/1,
+-compile(r13). % OTP-9607
+
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 not_run/1, newly_started/1, basic_v8/1, basic_v9/1,
 	 open_v8/1, open_v9/1, sets_v8/1, sets_v9/1, bags_v8/1,
 	 bags_v9/1, duplicate_bags_v8/1, duplicate_bags_v9/1,
 	 access_v8/1, access_v9/1, dirty_mark/1, dirty_mark2/1,
@@ -50,13 +54,14 @@
 	 otp_4208/1, otp_4989/1, many_clients/1, otp_4906/1, otp_5402/1,
          simultaneous_open/1, insert_new/1, repair_continuation/1,
          otp_5487/1, otp_6206/1, otp_6359/1, otp_4738/1, otp_7146/1,
-         otp_8070/1]).
+         otp_8070/1, otp_8856/1, otp_8898/1, otp_8899/1, otp_8903/1,
+         otp_8923/1, otp_9282/1, otp_9607/1]).
 
 -export([dets_dirty_loop/0]).
 
 -export([histogram/1, sum_histogram/1, ave_histogram/1]).
 
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 %% Internal export.
 -export([client/2]).
@@ -82,34 +87,50 @@ init_per_testcase(_Case, Config) ->
     Dog=?t:timetrap(?t:minutes(15)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Case, _Config) ->
+end_per_testcase(_Case, _Config) ->
     Dog=?config(watchdog, _Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
-all(suite) ->
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
     case os:type() of
-	vxworks ->
-	    [not_run];
+	vxworks -> [not_run];
 	_ ->
-	    {req,[stdlib],
-	     [basic_v8, basic_v9, open_v8, open_v9, sets_v8, sets_v9,
-	      bags_v8, bags_v9, duplicate_bags_v8, duplicate_bags_v9,
-	      newly_started, open_file_v8, open_file_v9,
-	      init_table_v8, init_table_v9, repair_v8, repair_v9,
-	      access_v8, access_v9, oldbugs_v8, oldbugs_v9,
-	      unsafe_assumptions, truncated_segment_array_v8,
-	      truncated_segment_array_v9, dirty_mark, dirty_mark2,
-	      bag_next_v8, bag_next_v9, hash_v8b_v8c, phash, fold_v8,
-	      fold_v9, fixtable_v8, fixtable_v9, match_v8, match_v9,
-	      select_v8, select_v9, update_counter, badarg,
-	      cache_sets_v8, cache_sets_v9, cache_bags_v8,
-	      cache_bags_v9, cache_duplicate_bags_v8,
-	      cache_duplicate_bags_v9, otp_4208, otp_4989, many_clients,
-              otp_4906, otp_5402, simultaneous_open, insert_new, 
-              repair_continuation, otp_5487, otp_6206, otp_6359, otp_4738,
-              otp_7146, otp_8070]} 
+	    [basic_v8, basic_v9, open_v8, open_v9, sets_v8, sets_v9,
+	     bags_v8, bags_v9, duplicate_bags_v8, duplicate_bags_v9,
+	     newly_started, open_file_v8, open_file_v9,
+	     init_table_v8, init_table_v9, repair_v8, repair_v9,
+	     access_v8, access_v9, oldbugs_v8, oldbugs_v9,
+	     unsafe_assumptions, truncated_segment_array_v8,
+	     truncated_segment_array_v9, dirty_mark, dirty_mark2,
+	     bag_next_v8, bag_next_v9, hash_v8b_v8c, phash, fold_v8,
+	     fold_v9, fixtable_v8, fixtable_v9, match_v8, match_v9,
+	     select_v8, select_v9, update_counter, badarg,
+	     cache_sets_v8, cache_sets_v9, cache_bags_v8,
+	     cache_bags_v9, cache_duplicate_bags_v8,
+	     cache_duplicate_bags_v9, otp_4208, otp_4989,
+	     many_clients, otp_4906, otp_5402, simultaneous_open,
+	     insert_new, repair_continuation, otp_5487, otp_6206,
+	     otp_6359, otp_4738, otp_7146, otp_8070, otp_8856, otp_8898,
+	     otp_8899, otp_8903, otp_8923, otp_9282, otp_9607]
     end.
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
 
 not_run(suite) -> [];
 not_run(Conf) when is_list(Conf) ->
@@ -535,7 +556,11 @@ dets_dirty_loop() ->
 	{From, [write, Name, Value]} ->
 	    Ret = dets:insert(Name, Value),
 	    From ! {self(), Ret},
-	    dets_dirty_loop()
+	    dets_dirty_loop();
+        {From, [close, Name]} ->
+            Ret = dets:close(Name),
+            From ! {self(), Ret},
+            dets_dirty_loop()
     end.
 
 
@@ -1497,7 +1522,7 @@ repair(Config, V) ->
     if 
         V =:= 8 ->
             %% first estimated number of objects is wrong, repair once more
-            ?line {ok, Fd} = file:open(Fname, read_write),
+            ?line {ok, Fd} = file:open(Fname, [read,write]),
             NoPos = HeadSize - 8,  % no_objects
             ?line file:pwrite(Fd, NoPos, <<0:32>>), % NoItems
             ok = file:close(Fd),
@@ -1549,8 +1574,10 @@ repair(Config, V) ->
     ?line FileSize = dets:info(TabRef, memory),
     ?line ok = dets:close(TabRef),
     crash(Fname, FileSize+20),
-    ?line {error, {bad_freelists, Fname}} = 
+    %% Used to return bad_freelists, but that changed in OTP-9622
+    ?line {ok, TabRef} =
 	dets:open_file(TabRef, [{file,Fname},{version,V}]),
+    ?line ok = dets:close(TabRef),
     ?line file:delete(Fname),
 
     %% File not closed, opening with read and read_write access tried.
@@ -1838,10 +1865,10 @@ fixtable(Config, Version) when is_list(Config) ->
     ?line {ok, _} = dets:open_file(T, Args),
 
     %% badarg
-    ?line {'EXIT', {badarg, [{dets,safe_fixtable,[no_table,true]}|_]}} =
-	(catch dets:safe_fixtable(no_table,true)),
-    ?line {'EXIT', {badarg, [{dets,safe_fixtable,[T,undefined]}|_]}} =
-	(catch dets:safe_fixtable(T,undefined)),
+    ?line check_badarg(catch dets:safe_fixtable(no_table,true),
+		       dets, safe_fixtable, [no_table,true]),
+    ?line check_badarg(catch dets:safe_fixtable(T,undefined),
+		       dets, safe_fixtable, [T,undefined]),
 
     %% The table is not allowed to grow while the elements are inserted:
 
@@ -1921,22 +1948,22 @@ match(Config, Version) ->
 
     %% match, badarg
     MSpec = [{'_',[],['$_']}],
-    ?line {'EXIT', {badarg, [{dets,safe_fixtable,[no_table,true]}|_]}} = 
-	(catch dets:match(no_table, '_')),
-    ?line {'EXIT', {badarg, [{dets,match,[T,'_',not_a_number]}|_]}} = 
-	(catch dets:match(T, '_', not_a_number)),
+    ?line check_badarg(catch dets:match(no_table, '_'),
+		       dets, safe_fixtable, [no_table,true]),
+    ?line check_badarg(catch dets:match(T, '_', not_a_number),
+		       dets, match, [T,'_',not_a_number]),
     ?line {EC1, _} = dets:select(T, MSpec, 1),
-    ?line {'EXIT', {badarg, [{dets,match,[EC1]}|_]}} = 
-	(catch dets:match(EC1)),
+    ?line check_badarg(catch dets:match(EC1),
+		       dets, match, [EC1]),
 
     %% match_object, badarg
-    ?line {'EXIT', {badarg, [{dets,safe_fixtable,[no_table,true]}|_]}} = 
-	(catch dets:match_object(no_table, '_')),
-    ?line {'EXIT', {badarg, [{dets,match_object,[T,'_',not_a_number]}|_]}} = 
-	(catch dets:match_object(T, '_', not_a_number)),
+    ?line check_badarg(catch dets:match_object(no_table, '_'),
+		       dets, safe_fixtable, [no_table,true]),
+    ?line check_badarg(catch dets:match_object(T, '_', not_a_number),
+		       dets, match_object, [T,'_',not_a_number]),
     ?line {EC2, _} = dets:select(T, MSpec, 1),
-    ?line {'EXIT', {badarg, [{dets,match_object,[EC2]}|_]}} = 
-	(catch dets:match_object(EC2)),
+    ?line check_badarg(catch dets:match_object(EC2),
+		       dets, match_object, [EC2]),
 
     dets:safe_fixtable(T, true),
     ?line {[_, _], C1} = dets:match_object(T, '_', 2),
@@ -2099,17 +2126,17 @@ select(Config, Version) ->
 
     %% badarg
     MSpec = [{'_',[],['$_']}],
-    ?line {'EXIT', {badarg, [{dets,safe_fixtable,[no_table,true]}|_]}} = 
-	(catch dets:select(no_table, MSpec)),
-    ?line {'EXIT', {badarg, [{dets,select,[T,<<17>>]}|_]}} = 
-	(catch dets:select(T, <<17>>)),
-    ?line {'EXIT', {badarg, [{dets,select,[T,[]]}|_]}} = 
-	(catch dets:select(T, [])),
-    ?line {'EXIT', {badarg, [{dets,select,[T,MSpec,not_a_number]}|_]}} = 
-	(catch dets:select(T, MSpec, not_a_number)),
+    ?line check_badarg(catch dets:select(no_table, MSpec),
+		       dets, safe_fixtable, [no_table,true]),
+    ?line check_badarg(catch dets:select(T, <<17>>),
+		       dets, select, [T,<<17>>]),
+    ?line check_badarg(catch dets:select(T, []),
+		       dets, select, [T,[]]),
+    ?line check_badarg(catch dets:select(T, MSpec, not_a_number),
+		       dets, select, [T,MSpec,not_a_number]),
     ?line {EC, _} = dets:match(T, '_', 1),
-    ?line {'EXIT', {badarg, [{dets,select,[EC]}|_]}} = 
-	(catch dets:select(EC)),
+    ?line check_badarg(catch dets:select(EC),
+		       dets, select, [EC]),
 
     AllSpec = [{'_',[],['$_']}],
 
@@ -2191,8 +2218,8 @@ update_counter(Config) when is_list(Config) ->
     ?line file:delete(Fname),
     P0 = pps(),
 
-    ?line {'EXIT', {badarg, [{dets,update_counter,[no_table,1,1]}|_]}} = 
-	(catch dets:update_counter(no_table, 1, 1)),
+    ?line check_badarg(catch dets:update_counter(no_table, 1, 1),
+		       dets, update_counter, [no_table,1,1]),
 
     Args = [{file,Fname},{keypos,2}],
     ?line {ok, _} = dets:open_file(T, [{type,set} | Args]),
@@ -2235,66 +2262,66 @@ badarg(Config) when is_list(Config) ->
     %% badargs are tested in match, select and fixtable too.
 
     %% open
-    ?line {'EXIT', {badarg, [{dets,open_file,[{a,tuple},[]]}|_]}} = 
-	(catch dets:open_file({a,tuple},[])),
-    ?line {'EXIT', {badarg, [{dets,open_file,[{a,tuple}]}|_]}} = 
-	(catch dets:open_file({a,tuple})),
-    ?line {'EXIT', {badarg, [{dets,open_file,[file,[foo]]}|_]}} = 
-	(catch dets:open_file(file,[foo])),
-    ?line {'EXIT', {badarg,[{dets,open_file,[{hej,san},[{type,set}|3]]}|_]}} =
-	(catch dets:open_file({hej,san},[{type,set}|3])),
+    ?line check_badarg(catch dets:open_file({a,tuple},[]),
+		       dets, open_file, [{a,tuple},[]]),
+    ?line check_badarg(catch dets:open_file({a,tuple}),
+		       dets, open_file,[{a,tuple}]),
+    ?line check_badarg(catch dets:open_file(file,[foo]),
+		       dets, open_file, [file,[foo]]),
+    ?line check_badarg(catch dets:open_file({hej,san},[{type,set}|3]),
+		       dets, open_file, [{hej,san},[{type,set}|3]]),
 
     %% insert
-    ?line {'EXIT', {badarg, [{dets,insert,[no_table,{1,2}]}|_]}} = 
-	(catch dets:insert(no_table, {1,2})),
-    ?line {'EXIT', {badarg, [{dets,insert,[no_table,[{1,2}]]}|_]}} = 
-	(catch dets:insert(no_table, [{1,2}])),
-    ?line {'EXIT', {badarg, [{dets,insert,[T,{1,2}]}|_]}} = 
-	(catch dets:insert(T, {1,2})),
-    ?line {'EXIT', {badarg, [{dets,insert,[T,[{1,2}]]}|_]}} = 
-	(catch dets:insert(T, [{1,2}])),
-    ?line {'EXIT', {badarg, [{dets,insert,[T,[{1,2,3}|3]]}|_]}} = 
-	      (catch dets:insert(T, [{1,2,3} | 3])),
+    ?line check_badarg(catch dets:insert(no_table, {1,2}),
+		       dets, insert, [no_table,{1,2}]),
+    ?line check_badarg(catch dets:insert(no_table, [{1,2}]),
+		       dets, insert, [no_table,[{1,2}]]),
+    ?line check_badarg(catch dets:insert(T, {1,2}),
+		       dets, insert, [T,{1,2}]),
+    ?line check_badarg(catch dets:insert(T, [{1,2}]),
+		       dets, insert, [T,[{1,2}]]),
+    ?line check_badarg(catch dets:insert(T, [{1,2,3} | 3]),
+		       dets, insert, [T,[{1,2,3}|3]]),
 
     %% lookup{_keys}
-    ?line {'EXIT', {badarg, [{dets,lookup_keys,[badarg,[]]}|_]}} = 
-	(catch dets:lookup_keys(T, [])),
-    ?line {'EXIT', {badarg, [{dets,lookup,[no_table,1]}|_]}} = 
-	(catch dets:lookup(no_table, 1)),
-    ?line {'EXIT', {badarg, [{dets,lookup_keys,[T,[1|2]]}|_]}} = 
-	(catch dets:lookup_keys(T, [1 | 2])),
+    ?line check_badarg(catch dets:lookup_keys(T, []),
+		       dets, lookup_keys, [badarg,[]]),
+    ?line check_badarg(catch dets:lookup(no_table, 1),
+		       dets, lookup, [no_table,1]),
+    ?line check_badarg(catch dets:lookup_keys(T, [1 | 2]),
+		       dets, lookup_keys, [T,[1|2]]),
 
     %% member
-    ?line {'EXIT', {badarg, [{dets,member,[no_table,1]}|_]}} = 
-	(catch dets:member(no_table, 1)),
+    ?line check_badarg(catch dets:member(no_table, 1),
+		       dets, member, [no_table,1]),
 
     %% sync
-    ?line {'EXIT', {badarg, [{dets,sync,[no_table]}|_]}} = 
-	(catch dets:sync(no_table)),
+    ?line check_badarg(catch dets:sync(no_table),
+		       dets, sync, [no_table]),
 
     %% delete{_keys}
-    ?line {'EXIT', {badarg, [{dets,delete,[no_table,1]}|_]}} = 
-	(catch dets:delete(no_table, 1)),
+    ?line check_badarg(catch dets:delete(no_table, 1),
+		       dets, delete, [no_table,1]),
 
     %% delete_object
-    ?line {'EXIT', {badarg, [{dets,delete_object,[no_table,{1,2,3}]}|_]}} = 
-	(catch dets:delete_object(no_table, {1,2,3})),
-    ?line {'EXIT', {badarg, [{dets,delete_object,[T,{1,2}]}|_]}} = 
-	(catch dets:delete_object(T, {1,2})),
-    ?line {'EXIT', {badarg, [{dets,delete_object,[no_table,[{1,2,3}]]}|_]}} = 
-	(catch dets:delete_object(no_table, [{1,2,3}])),
-    ?line {'EXIT', {badarg, [{dets,delete_object,[T,[{1,2}]]}|_]}} = 
-	(catch dets:delete_object(T, [{1,2}])),
-    ?line {'EXIT', {badarg, [{dets,delete_object,[T,[{1,2,3}|3]]}|_]}} = 
-	(catch dets:delete_object(T, [{1,2,3} | 3])),
+    ?line check_badarg(catch dets:delete_object(no_table, {1,2,3}),
+		       dets, delete_object, [no_table,{1,2,3}]),
+    ?line check_badarg(catch dets:delete_object(T, {1,2}),
+		       dets, delete_object, [T,{1,2}]),
+    ?line check_badarg(catch dets:delete_object(no_table, [{1,2,3}]),
+		       dets, delete_object, [no_table,[{1,2,3}]]),
+    ?line check_badarg(catch dets:delete_object(T, [{1,2}]),
+		       dets, delete_object, [T,[{1,2}]]),
+    ?line check_badarg(catch dets:delete_object(T, [{1,2,3} | 3]),
+		       dets, delete_object, [T,[{1,2,3}|3]]),
 
     %% first,next,slot
-    ?line {'EXIT', {badarg, [{dets,first,[no_table]}|_]}} =
-	(catch dets:first(no_table)),
-    ?line {'EXIT', {badarg, [{dets,next,[no_table,1]}|_]}} =
-	(catch dets:next(no_table, 1)),
-    ?line {'EXIT', {badarg, [{dets,slot,[no_table,0]}|_]}} =
-	(catch dets:slot(no_table, 0)),
+    ?line check_badarg(catch dets:first(no_table),
+		       dets, first, [no_table]),
+    ?line check_badarg(catch dets:next(no_table, 1),
+		       dets, next, [no_table,1]),
+    ?line check_badarg(catch dets:slot(no_table, 0),
+		       dets, slot, [no_table,0]),
 
     %% info
     ?line undefined = dets:info(no_table),
@@ -2302,27 +2329,27 @@ badarg(Config) when is_list(Config) ->
     ?line undefined = dets:info(T, foo),
 
     %% match_delete
-    ?line {'EXIT', {badarg, [{dets,safe_fixtable,[no_table,true]}|_]}} = 
-	(catch dets:match_delete(no_table, '_')),
+    ?line check_badarg(catch dets:match_delete(no_table, '_'),
+		       dets, safe_fixtable, [no_table,true]),
 
     %% delete_all_objects
-    ?line {'EXIT', {badarg, [{dets,delete_all_objects,[no_table]}|_]}} = 
-	(catch dets:delete_all_objects(no_table)),
+    ?line check_badarg(catch dets:delete_all_objects(no_table),
+		       dets, delete_all_objects, [no_table]),
 
     %% select_delete
     MSpec = [{'_',[],['$_']}],
-    ?line {'EXIT', {badarg, [{dets,safe_fixtable,[no_table,true]}|_]}} = 
-	(catch dets:select_delete(no_table, MSpec)),
-    ?line {'EXIT', {badarg, [{dets,select_delete,[T, <<17>>]}|_]}} = 
-	(catch dets:select_delete(T, <<17>>)),
+    ?line check_badarg(catch dets:select_delete(no_table, MSpec),
+		       dets, safe_fixtable, [no_table,true]),
+    ?line check_badarg(catch dets:select_delete(T, <<17>>),
+		       dets, select_delete, [T, <<17>>]),
 
     %% traverse, fold
-    ?line {'EXIT', {badarg, [{dets,safe_fixtable,[no_table,true]}|_]}} = 
-	(catch dets:traverse(no_table, fun(_) -> continue end)),
-    ?line {'EXIT', {badarg, [{dets,safe_fixtable,[no_table,true]}|_]}} = 
-	(catch dets:foldl(fun(_, A) -> A end, [], no_table)),
-    ?line {'EXIT', {badarg, [{dets,safe_fixtable,[no_table,true]}|_]}} = 
-	(catch dets:foldr(fun(_, A) -> A end, [], no_table)),
+    ?line check_badarg(catch dets:traverse(no_table, fun(_) -> continue end),
+		       dets, safe_fixtable, [no_table,true]),
+    ?line check_badarg(catch dets:foldl(fun(_, A) -> A end, [], no_table),
+		       dets, safe_fixtable, [no_table,true]),
+    ?line check_badarg(catch dets:foldr(fun(_, A) -> A end, [], no_table),
+		       dets, safe_fixtable, [no_table,true]),
 
     %% close
     ?line ok = dets:close(T),
@@ -2330,15 +2357,16 @@ badarg(Config) when is_list(Config) ->
     ?line {error, not_owner} = dets:close(T),
 
     %% init_table
-    ?line {'EXIT', {badarg,[{dets,init_table,[no_table,_,[]]}|_]}} =
-	(catch dets:init_table(no_table, fun(X) -> X end)),
-    ?line {'EXIT', {badarg,[{dets,init_table,[no_table,_,[]]}|_]}} =
-	(catch dets:init_table(no_table, fun(X) -> X end, [])),
+    IF = fun(X) -> X end,
+    ?line check_badarg(catch dets:init_table(no_table, IF),
+		       dets, init_table, [no_table,IF,[]]),
+    ?line check_badarg(catch dets:init_table(no_table, IF, []),
+		       dets, init_table, [no_table,IF,[]]),
 
     %% from_ets
     Ets = ets:new(ets,[]),
-    ?line {'EXIT', {badarg,[{dets,from_ets,[no_table,_]}|_]}} =
-	(catch dets:from_ets(no_table, Ets)),
+    ?line check_badarg(catch dets:from_ets(no_table, Ets),
+		       dets, from_ets, [no_table,Ets]),
     ets:delete(Ets),
 
     ?line {ok, T} = dets:open_file(T, Args),
@@ -2935,6 +2963,57 @@ ets_init(Tab, N) ->
     ets:insert(Tab, {N,N}),
     ets_init(Tab, N - 1).
 
+otp_8898(doc) ->
+    ["OTP-8898. Truncated Dets file."];
+otp_8898(suite) ->
+    [];
+otp_8898(Config) when is_list(Config) ->
+    Tab = otp_8898,
+    ?line FName = filename(Tab, Config),
+
+    Server = self(),
+
+    ?line file:delete(FName),
+    ?line {ok, _} = dets:open_file(Tab,[{file, FName}]),
+    ?line [P1,P2,P3] = new_clients(3, Tab),
+
+    Seq = [{P1,[sync]},{P2,[{lookup,1,[]}]},{P3,[{insert,{1,b}}]}],
+    ?line atomic_requests(Server, Tab, [[]], Seq),
+    ?line true = get_replies([{P1,ok},{P2,ok},{P3,ok}]),
+    ?line ok = dets:close(Tab),
+    ?line {ok, _} = dets:open_file(Tab,[{file, FName}]),
+    ?line file:delete(FName),
+
+    ok.
+
+otp_8899(doc) ->
+    ["OTP-8899. Several clients. Updated Head was ignored."];
+otp_8899(suite) ->
+    [];
+otp_8899(Config) when is_list(Config) ->
+    Tab = many_clients,
+    ?line FName = filename(Tab, Config),
+
+    Server = self(),
+
+    ?line file:delete(FName),
+    ?line {ok, _} = dets:open_file(Tab,[{file, FName},{version,9}]),
+    ?line [P1,P2,P3,P4] = new_clients(4, Tab),
+
+    MC = [Tab],
+    Seq6a = [{P1,[{insert,[{used_to_be_skipped_by,match}]},
+                  {lookup,1,[{1,a}]}]},
+             {P2,[{verbose,true,MC}]},
+             {P3,[{lookup,1,[{1,a}]}]}, {P4,[{verbose,true,MC}]}],
+    ?line atomic_requests(Server, Tab, [[{1,a},{2,b},{3,c}]], Seq6a),
+    ?line true = get_replies([{P1,ok}, {P2,ok}, {P3,ok}, {P4,ok}]),
+    ?line [{1,a},{2,b},{3,c},{used_to_be_skipped_by,match}] =
+        lists:sort(dets:match_object(Tab, '_')),
+    ?line _ = dets:close(Tab),
+    ?line file:delete(FName),
+
+    ok.
+
 many_clients(doc) ->
     ["Several clients accessing a table simultaneously."];
 many_clients(suite) ->
@@ -3071,6 +3150,11 @@ client(S, Tab) ->
 
 eval([], _Tab) ->
     ok;
+eval([{verbose,Bool,Expected} | L], Tab) ->
+    ?line case dets:verbose(Bool) of
+	      Expected -> eval(L, Tab);
+	      Error -> {error, {verbose,Error}}
+	  end;
 eval([sync | L], Tab) ->
     ?line case dets:sync(Tab) of
 	      ok -> eval(L, Tab);
@@ -3172,7 +3256,7 @@ otp_5402(suite) ->
     [];
 otp_5402(Config) when is_list(Config) ->
     Tab = otp_5402,
-    ?line File = filename:join([cannot, write, this, file]),
+    ?line File = filename:join(["cannot", "write", "this", "file"]),
 
     %% close
     ?line{ok, T} = dets:open_file(Tab, [{ram_file,true},
@@ -3701,15 +3785,199 @@ otp_8070(Config) when is_list(Config) ->
     file:delete(File),
     ok.
 
+otp_8856(doc) ->
+    ["OTP-8856. insert_new() bug."];
+otp_8856(suite) ->
+    [];
+otp_8856(Config) when is_list(Config) ->
+    Tab = otp_8856,
+    File = filename(Tab, Config),
+    file:delete(File),
+    Me = self(),
+    ?line {ok, _} = dets:open_file(Tab, [{type, bag}, {file, File}]),
+    spawn(fun()-> Me ! {1, dets:insert(Tab, [])} end),
+    spawn(fun()-> Me ! {2, dets:insert_new(Tab, [])} end),
+    ?line ok = dets:close(Tab),
+    ?line receive {1, ok} -> ok end,
+    ?line receive {2, true} -> ok end,
+    file:delete(File),
+
+    ?line {ok, _} = dets:open_file(Tab, [{type, set}, {file, File}]),
+    spawn(fun() -> dets:delete(Tab, 0) end),
+    spawn(fun() -> Me ! {3, dets:insert_new(Tab, {0,0})} end),
+    ?line ok = dets:close(Tab),
+    ?line receive {3, true} -> ok end,
+    file:delete(File),
+    ok.
+
+otp_8903(doc) ->
+    ["OTP-8903. bchunk/match/select bug."];
+otp_8903(suite) ->
+    [];
+otp_8903(Config) when is_list(Config) ->
+    Tab = otp_8903,
+    File = filename(Tab, Config),
+    ?line {ok,T} = dets:open_file(bug, [{file,File}]),
+    ?line ok = dets:insert(T, [{1,a},{2,b},{3,c}]),
+    ?line dets:safe_fixtable(T, true),
+    ?line {[_],C1} = dets:match_object(T, '_', 1),
+    ?line {BC1,_D} = dets:bchunk(T, start),
+    ?line ok = dets:close(T),
+    ?line {'EXIT', {badarg, _}} = (catch {foo,dets:match_object(C1)}),
+    ?line {'EXIT', {badarg, _}} = (catch {foo,dets:bchunk(T, BC1)}),
+    ?line {ok,T} = dets:open_file(bug, [{file,File}]),
+    ?line false = dets:info(T, safe_fixed),
+    ?line {'EXIT', {badarg, _}} = (catch {foo,dets:match_object(C1)}),
+    ?line {'EXIT', {badarg, _}} = (catch {foo,dets:bchunk(T, BC1)}),
+    ?line ok = dets:close(T),
+    file:delete(File),
+    ok.
+
+otp_8923(doc) ->
+    ["OTP-8923. rehash due to lookup after initialization."];
+otp_8923(suite) ->
+    [];
+otp_8923(Config) when is_list(Config) ->
+    Tab = otp_8923,
+    File = filename(Tab, Config),
+    %% Create a file with more than 256 keys:
+    file:delete(File),
+    Bin = list_to_binary([ 0 || _ <- lists:seq(1, 400) ]),
+    BigBin = list_to_binary([ 0 ||_ <- lists:seq(1, 4000)]),
+    Ets = ets:new(temp, [{keypos,1}]),
+    ?line [ true = ets:insert(Ets, {C,Bin}) || C <- lists:seq(1, 700) ],
+    ?line true = ets:insert(Ets, {helper_data,BigBin}),
+    ?line true = ets:insert(Ets, {prim_btree,BigBin}),
+    ?line true = ets:insert(Ets, {sec_btree,BigBin}),
+    %% Note: too few slots; re-hash will take place
+    ?line {ok, Tab} = dets:open_file(Tab, [{file,File}]),
+    ?line Tab = ets:to_dets(Ets, Tab),
+    ?line ok = dets:close(Tab),
+    ?line true = ets:delete(Ets),
+    
+    ?line {ok,Ref} = dets:open_file(File),
+    ?line [{1,_}] = dets:lookup(Ref, 1),
+    ?line ok = dets:close(Ref),
+
+    ?line {ok,Ref2} = dets:open_file(File),
+    ?line [{helper_data,_}] = dets:lookup(Ref2, helper_data),
+    ?line ok = dets:close(Ref2),
+
+    file:delete(File),
+    ok.
+
+otp_9282(doc) ->
+    ["OTP-9282. The name of a table can be an arbitrary term"];
+otp_9282(suite) ->
+    [];
+otp_9282(Config) when is_list(Config) ->
+    some_calls(make_ref(), Config),
+    some_calls({a,typical,name}, Config),
+    some_calls(fun() -> a_funny_name end, Config),
+    ok.
+
+some_calls(Tab, Config) ->
+    File = filename(ref, Config),
+    ?line {ok,T} = dets:open_file(Tab, [{file,File}]),
+    ?line T = Tab,
+    ?line false = dets:info(T, safe_fixed),
+    ?line File = dets:info(T, filename),
+    ?line ok = dets:insert(Tab, [{3,0}]),
+    ?line [{3,0}] = dets:lookup(Tab, 3),
+    ?line [{3,0}] = dets:traverse(Tab, fun(X) -> {continue, X} end),
+    ?line ok = dets:close(T),
+    file:delete(File).
+
+otp_9607(doc) ->
+    ["OTP-9607. Test downgrading the slightly changed format."];
+otp_9607(suite) ->
+    [];
+otp_9607(Config) when is_list(Config) ->
+    %% Note: the bug is about almost full tables. The fix of that
+    %% problem is *not* tested here.
+    Version = r13b,
+    case ?t:is_release_available(atom_to_list(Version)) of
+        true ->
+            T = otp_9607,
+            File = filename(T, Config),
+            Key = a,
+            Value = 1,
+            Args = [{file,File}],
+            ?line {ok, T} = dets:open_file(T, Args),
+            ?line ok = dets:insert(T, {Key, Value}),
+            ?line ok = dets:close(T),
+
+            ?line Call = fun(P, A) ->
+                                 P ! {self(), A},
+                                 receive
+                                     {P, Ans} ->
+                                         Ans
+                                 after 5000 ->
+                                         exit(other_process_dead)
+                                 end
+                         end,
+            %% Create a file on the modified format, read the file
+            %% with an emulator that doesn't know about the modified
+            %% format.
+            ?line {ok, Node} = start_node_rel(Version, Version, slave),
+            ?line Pid = rpc:call(Node, erlang, spawn,
+                                 [?MODULE, dets_dirty_loop, []]),
+            ?line {error,{needs_repair, File}} =
+                Call(Pid, [open, T, Args++[{repair,false}]]),
+            io:format("Expect repair:~n"),
+            ?line {ok, T} = Call(Pid, [open, T, Args]),
+            ?line [{Key,Value}] = Call(Pid, [read, T, Key]),
+            ?line ok = Call(Pid, [close, T]),
+            file:delete(File),
+
+            %% Create a file on the unmodified format. Modify the file
+            %% using an emulator that must not turn the file into the
+            %% modified format. Read the file and make sure it is not
+            %% repaired.
+            ?line {ok, T} = Call(Pid, [open, T, Args]),
+            ?line ok = Call(Pid, [write, T, {Key,Value}]),
+            ?line [{Key,Value}] = Call(Pid, [read, T, Key]),
+            ?line ok = Call(Pid, [close, T]),
+
+            Key2 = b,
+            Value2 = 2,
+
+            ?line {ok, T} = dets:open_file(T, Args),
+            ?line [{Key,Value}] = dets:lookup(T, Key),
+            ?line ok = dets:insert(T, {Key2,Value2}),
+            ?line ok = dets:close(T),
+
+            ?line {ok, T} = Call(Pid, [open, T, Args++[{repair,false}]]),
+            ?line [{Key2,Value2}] = Call(Pid, [read, T, Key2]),
+            ?line ok = Call(Pid, [close, T]),
+
+            ?t:stop_node(Node),
+            file:delete(File),
+            ok;
+        false ->
+	    {skipped, "No support for old node"}
+    end.
+
+
+
 %%
 %% Parts common to several test cases
 %% 
+
+start_node_rel(Name, Rel, How) ->
+    Release = [{release, atom_to_list(Rel)}],
+    ?line Pa = filename:dirname(code:which(?MODULE)),
+    ?line test_server:start_node(Name, How,
+                                 [{args,
+                                   " -kernel net_setuptime 100 "
+                                   " -pa " ++ Pa},
+                                  {erl, Release}]).
 
 crash(File, Where) ->
     crash(File, Where, 10).
 
 crash(File, Where, What) when is_integer(What) ->
-    ?line {ok, Fd} = file:open(File, read_write),
+    ?line {ok, Fd} = file:open(File, [read,write]),
     ?line file:position(Fd, Where),
     ?line ok = file:write(Fd, [What]),
     ?line ok = file:close(Fd).
@@ -3853,7 +4121,7 @@ writable(Fname) ->
     ?line file:write_file_info(Fname, Info#file_info{mode = Mode}).
 
 truncate(File, Where) ->
-    ?line {ok, Fd} = file:open(File, read_write),
+    ?line {ok, Fd} = file:open(File, [read,write]),
     ?line file:position(Fd, Where),
     ?line ok = file:truncate(Fd),
     ?line ok = file:close(Fd).
@@ -4089,6 +4357,11 @@ bad_object({error,{{bad_object,_}, FileName}}, FileName) ->
     ok; % No debug.
 bad_object({error,{{{bad_object,_,_},_,_,_}, FileName}}, FileName) ->
     ok. % Debug.
+
+check_badarg({'EXIT', {badarg, [{M,F,Args,_} | _]}}, M, F, Args) ->
+    true;
+check_badarg({'EXIT', {badarg, [{M,F,A,_} | _]}}, M, F, Args)  ->
+    true = test_server:is_native(M) andalso length(Args) =:= A.
 
 check_pps(P0) ->
     case pps() of

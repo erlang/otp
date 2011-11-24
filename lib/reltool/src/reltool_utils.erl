@@ -1,25 +1,48 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2009-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 
 -module(reltool_utils).
 
 %% Public
--compile([export_all]).
+-export([root_dir/0, erl_libs/0, lib_dirs/1,
+	 split_app_name/1, prim_consult/1,
+	 default_rels/0, choose_default/3,
+
+	 assign_image_list/1, get_latest_resize/1,
+	 mod_conds/0, list_to_mod_cond/1, mod_cond_to_index/1,
+	 incl_conds/0, list_to_incl_cond/1, incl_cond_to_index/1, elem_to_index/2,
+	 app_dir_test/2, split_app_dir/1,
+	 get_item/1, get_items/1, get_selected_items/3,
+	 select_items/3, select_item/2,
+
+	 safe_keysearch/5, print/4, return_first_error/2, add_warning/2,
+
+	 create_dir/1, list_dir/1, read_file_info/1,
+	 write_file_info/2, read_file/1, write_file/2,
+	 recursive_delete/1, delete/2, recursive_copy_file/2, copy_file/2,
+
+	 throw_error/2,
+
+	 decode_regexps/3,
+	 default_val/2,
+	 escript_foldl/3,
+
+	 call/2, cast/2, reply/3]).
 
 -include_lib("kernel/include/file.hrl").
 -include_lib("wx/include/wx.hrl").
@@ -30,11 +53,11 @@ root_dir() ->
 
 erl_libs() ->
     case os:getenv("ERL_LIBS") of
-	false -> 
+	false ->
 	    [];
 	LibStr ->
 	    string:tokens(LibStr, ":;")
-    end.    
+    end.
 
 lib_dirs(Dir) ->
     case erl_prim_loader:list_dir(Dir) of
@@ -42,7 +65,7 @@ lib_dirs(Dir) ->
 	    [F || F <- Files,
 		  filelib:is_dir(filename:join([Dir, F]),
 				 erl_prim_loader)];
-	error -> 
+	error ->
 	    []
     end.
 
@@ -55,7 +78,7 @@ split_app_name(Name) ->
                     Elem >= $0, Elem =< $9 -> true;
                     true -> false
                 end
-        end, 
+        end,
     case lists:splitwith(Pred, lists:reverse(Name)) of
 	{Vsn, [$- | App]} ->
 	    {list_to_atom(lists:reverse(App)), lists:reverse(Vsn)};
@@ -103,23 +126,51 @@ prim_parse(Tokens, Acc) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 default_rels() ->
-    Kernel = #rel_app{name = kernel, incl_apps = []},
-    Stdlib = #rel_app{name = stdlib, incl_apps = []},
-    Sasl   = #rel_app{name = sasl,   incl_apps = []},
+    %%Kernel = #rel_app{name = kernel, incl_apps = []},
+    %%Stdlib = #rel_app{name = stdlib, incl_apps = []},
+    Sasl = #rel_app{name = sasl,   incl_apps = []},
     [
      #rel{name = ?DEFAULT_REL_NAME,
 	  vsn = "1.0",
-	  rel_apps = [Kernel, Stdlib]},
+	  rel_apps = []},
+	  %%rel_apps = [Kernel, Stdlib]},
      #rel{name = "start_sasl",
 	  vsn = "1.0",
-	  rel_apps = [Kernel, Sasl, Stdlib]}
+	  rel_apps = [Sasl]}
+	  %%rel_apps = [Kernel, Sasl, Stdlib]}
     ].
+
+choose_default(Tag, Profile, InclDefs)
+  when Profile =:= ?DEFAULT_PROFILE; InclDefs ->
+    case Tag of
+	incl_sys_filters  -> ?DEFAULT_INCL_SYS_FILTERS;
+	excl_sys_filters  -> ?DEFAULT_EXCL_SYS_FILTERS;
+	incl_app_filters  -> ?DEFAULT_INCL_APP_FILTERS;
+	excl_app_filters  -> ?DEFAULT_EXCL_APP_FILTERS;
+	embedded_app_type -> ?DEFAULT_EMBEDDED_APP_TYPE
+    end;
+choose_default(Tag, standalone, _InclDefs) ->
+    case Tag of
+	incl_sys_filters  -> ?STANDALONE_INCL_SYS_FILTERS;
+	excl_sys_filters  -> ?STANDALONE_EXCL_SYS_FILTERS;
+	incl_app_filters  -> ?STANDALONE_INCL_APP_FILTERS;
+	excl_app_filters  -> ?STANDALONE_EXCL_APP_FILTERS;
+	embedded_app_type -> ?DEFAULT_EMBEDDED_APP_TYPE
+    end;
+choose_default(Tag, embedded, _InclDefs) ->
+    case Tag of
+	incl_sys_filters  -> ?EMBEDDED_INCL_SYS_FILTERS;
+	excl_sys_filters  -> ?EMBEDDED_EXCL_SYS_FILTERS;
+	incl_app_filters  -> ?EMBEDDED_INCL_APP_FILTERS;
+	excl_app_filters  -> ?EMBEDDED_EXCL_APP_FILTERS;
+	embedded_app_type -> ?EMBEDDED_APP_TYPE
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 assign_image_list(ListCtrl) ->
     Art = wxImageList:new(16,16),
-    [wxImageList:add(Art, wxArtProvider:getBitmap(Image, [{size, {16,16}}])) 
+    [wxImageList:add(Art, wxArtProvider:getBitmap(Image, [{size, {16,16}}]))
      || Image <- ["wxART_ERROR",
 		  "wxART_WARNING",
                   "wxART_QUESTION",
@@ -206,7 +257,7 @@ split_app_dir(Dir) ->
     ParentDir = filename:dirname(Dir),
     Base = filename:basename(Dir),
     {Name, Vsn} = split_app_name(Base),
-    Vsn2 = 
+    Vsn2 =
 	try
 	    [list_to_integer(N) || N <- string:tokens(Vsn, ".")]
 	catch
@@ -276,7 +327,9 @@ get_selected_items(ListCtrl, PrevItem, Acc) ->
         ItemNo ->
 	    case wxListCtrl:getItemText(ListCtrl, ItemNo) of
 		Text when Text =/= ?MISSING_APP_TEXT ->
-		    get_selected_items(ListCtrl, ItemNo, [{ItemNo, Text} | Acc]);
+		    get_selected_items(ListCtrl,
+				       ItemNo,
+				       [{ItemNo, Text} | Acc]);
 		_Text ->
 		    get_selected_items(ListCtrl, ItemNo, Acc)
 	    end
@@ -306,7 +359,8 @@ select_items(ListCtrl, OldItems, NewItems) ->
 	    select_item(ListCtrl, NewItems);
 	ValidItems ->
 	    %% Some old selections are still valid. Select them again.
-	    lists:foreach(fun(Item) -> select_item(ListCtrl, [Item]) end, ValidItems)
+	    lists:foreach(fun(Item) -> select_item(ListCtrl, [Item]) end,
+			  ValidItems)
     end.
 
 select_item(ListCtrl, [{ItemNo, Text} | Items]) ->
@@ -339,7 +393,7 @@ print(_, _, _, _) ->
     ok.
 
 %% -define(SAFE(M,F,A), safe(M, F, A, ?MODULE, ?LINE)).
-%% 
+%%
 %% safe(M, F, A, Mod, Line) ->
 %%     case catch apply(M, F, A) of
 %%      {'EXIT', Reason} ->
@@ -356,7 +410,7 @@ return_first_error(Status, NewError) when is_list(NewError) ->
 	{error, OldError} ->
 	    {error, OldError}
     end.
-    
+
 add_warning(Status, Warning) ->
     case Status of
 	{ok, Warnings} ->
@@ -376,7 +430,7 @@ create_dir(Dir) ->
             ok;
         {error, Reason} ->
             Text = file:format_error(Reason),
-            throw_error("create dir ~s: ~s\n", [Dir, Text])
+            throw_error("create dir ~s: ~s", [Dir, Text])
     end.
 
 list_dir(Dir) ->
@@ -385,7 +439,7 @@ list_dir(Dir) ->
 	    Files;
         error ->
             Text = file:format_error(enoent),
-            throw_error("list dir ~s: ~s\n", [Dir, Text])
+            throw_error("list dir ~s: ~s", [Dir, Text])
     end.
 
 read_file_info(File) ->
@@ -394,7 +448,7 @@ read_file_info(File) ->
 	    Info;
         {error, Reason} ->
             Text = file:format_error(Reason),
-            throw_error("read file info ~s: ~s\n", [File, Text])
+            throw_error("read file info ~s: ~s", [File, Text])
     end.
 
 write_file_info(File, Info) ->
@@ -403,7 +457,7 @@ write_file_info(File, Info) ->
 	    ok;
         {error, Reason} ->
             Text = file:format_error(Reason),
-            throw_error("write file info ~s: ~s\n", [File, Text])
+            throw_error("write file info ~s: ~s", [File, Text])
     end.
 
 read_file(File) ->
@@ -412,7 +466,7 @@ read_file(File) ->
 	    Bin;
         {error, Reason} ->
             Text = file:format_error(Reason),
-            throw_error("read file ~s: ~s\n", [File, Text])
+            throw_error("read file ~s: ~s", [File, Text])
     end.
 
 write_file(File, IoList) ->
@@ -421,7 +475,7 @@ write_file(File, IoList) ->
 	    ok;
         {error, Reason} ->
             Text = file:format_error(Reason),
-            throw_error("write file ~s: ~s\n", [File, Text])
+            throw_error("write file ~s: ~s", [File, Text])
     end.
 
 recursive_delete(Dir) ->
@@ -429,7 +483,8 @@ recursive_delete(Dir) ->
 	true ->
 	    case file:list_dir(Dir) of
 		{ok, Files} ->
-		    Fun = fun(F) -> recursive_delete(filename:join([Dir, F])) end,
+		    Fun =
+			fun(F) -> recursive_delete(filename:join([Dir, F])) end,
 		    lists:foreach(Fun, Files),
 		    delete(Dir, directory);
 		{error, enoent} ->
@@ -514,7 +569,9 @@ decode_regexps(Key, Regexps, _Old) when is_list(Regexps) ->
 do_decode_regexps(Key, [Regexp | Regexps], Acc) ->
     case catch re:compile(Regexp, []) of
         {ok, MP} ->
-            do_decode_regexps(Key, Regexps, [#regexp{source = Regexp, compiled = MP} | Acc]);
+            do_decode_regexps(Key,
+			      Regexps,
+			      [#regexp{source = Regexp, compiled = MP} | Acc]);
         _ ->
             Text = lists:flatten(io_lib:format("~p", [{Key, Regexp}])),
             throw({error, "Illegal option: " ++ Text})
@@ -532,8 +589,34 @@ default_val(Val, Default) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+escript_foldl(Fun, Acc, File) ->
+    case escript:extract(File, [compile_source]) of
+	{ok, [_Shebang, _Comment, _EmuArgs, Body]} ->
+	    case Body of
+		{source, BeamCode} ->
+		    GetInfo = fun() -> file:read_file_info(File) end,
+		    GetBin = fun() -> BeamCode end,
+		    {ok, Fun(".", GetInfo, GetBin, Acc)};
+		{beam, BeamCode} ->
+		    GetInfo = fun() -> file:read_file_info(File) end,
+		    GetBin = fun() -> BeamCode end,
+		    {ok, Fun(".", GetInfo, GetBin, Acc)};
+		{archive, ArchiveBin} ->
+		    zip:foldl(Fun, Acc, {File, ArchiveBin})
+	    end;
+	{error, Reason} ->
+	    {error, Reason}
+    end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 call(Name, Msg) when is_atom(Name) ->
-    call(whereis(Name), Msg);
+    case whereis(Name) of
+	undefined ->
+	    {error, {noproc, Name}};
+	Pid ->
+	    call(Pid, Msg)
+    end;
 call(Pid, Msg) when is_pid(Pid) ->
     Ref = erlang:monitor(process, Pid),
     Pid ! {call, self(), Ref, Msg},

@@ -1,0 +1,40 @@
+
+
+// %CopyrightBegin%
+// 
+// Copyright Ericsson AB 1998-2010. All Rights Reserved.
+// 
+// The contents of this file are subject to the Erlang Public License,
+// Version 1.1, (the "License"); you may not use this file except in
+// compliance with the License. You should have received a copy of the
+// Erlang Public License along with this software. If not, it can be
+// retrieved online at http://www.erlang.org/.
+// 
+// Software distributed under the License is distributed on an "AS IS"
+// basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+// the License for the specific language governing rights and limitations
+// under the License.
+// 
+// %CopyrightEnd%
+//
+// IDL for testing register/unregister in the IFR when using included specs
+// Special case with multiple inheritence.
+//
+#include "reg_m10.idl"
+#include "reg_m11.idl"
+
+module m4 {
+
+  interface i4 : m2::i2
+    {
+      short op5( in long a, inout char b, out long c );
+    };
+
+  interface i5 : m3::i3
+    {
+      short op6( in long a, inout char b, out long c );
+    };
+
+
+};
+

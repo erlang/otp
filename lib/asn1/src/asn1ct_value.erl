@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -435,15 +435,15 @@ get_encoding_rule(M) ->
 open_type_value(ber) ->
     [4,9,111,112,101,110,95,116,121,112,101];
 open_type_value(ber_bin) ->
-    [4,9,111,112,101,110,95,116,121,112,101];
-%    <<4,9,111,112,101,110,95,116,121,112,101>>;
+%    [4,9,111,112,101,110,95,116,121,112,101];
+    <<4,9,111,112,101,110,95,116,121,112,101>>;
 open_type_value(ber_bin_v2) ->
-    [4,9,111,112,101,110,95,116,121,112,101];
-%    <<4,9,111,112,101,110,95,116,121,112,101>>;
+%    [4,9,111,112,101,110,95,116,121,112,101];
+    <<4,9,111,112,101,110,95,116,121,112,101>>;
 open_type_value(per) ->
     "\n\topen_type"; %octet string value "open_type"
 open_type_value(per_bin) ->
-    "\n\topen_type";
+    <<"\n\topen_type">>;
 %    <<10,9,111,112,101,110,95,116,121,112,101>>;
 open_type_value(_) ->
     [4,9,111,112,101,110,95,116,121,112,101].

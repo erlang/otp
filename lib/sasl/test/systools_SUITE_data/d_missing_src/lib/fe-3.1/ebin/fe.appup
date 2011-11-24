@@ -1,0 +1,27 @@
+%%
+%% Release upgrade script for fe (front end)
+%%
+
+{
+ "3.1",
+%%% Upgrade from:
+ [
+  {"2.1.1", [{update, fe1, soft, soft_purge, soft_purge, []},
+	     {update, fe2, soft, soft_purge, soft_purge, [fe1]},
+	     {update, fe3, {{advanced, extra}, soft_purge, soft_purge,
+	      [fe1, fe2]}
+	    ]},
+
+  {"2.1", [{update, fe1, soft, soft_purge, soft_purge, []},
+	   {update, fe2, soft, soft_purge, soft_purge, [fe1]},
+	   {update, fe3, {advanced, extra}, soft_purge, soft_purge, [fe1, fe2]}
+	  ]}
+ ],
+
+%%% Downgrade to:
+ [
+  {"2.1", [{update, fe2, soft, soft_purge, soft_purge, []},
+	   {update, fe3, {advanced, extra}, soft_purge, soft_purge, [fe2]}
+	  ]}
+ ]
+}.

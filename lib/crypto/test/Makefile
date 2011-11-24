@@ -76,8 +76,8 @@ release_spec:
 
 release_tests_spec: $(TEST_TARGET)
 	$(INSTALL_DIR) $(RELSYSDIR)
-	$(INSTALL_DATA) crypto.spec $(RELTEST_FILES) $(RELSYSDIR)
-	chmod -f -R u+w $(RELSYSDIR)
+	$(INSTALL_DATA) crypto.spec crypto.cover $(RELTEST_FILES) $(RELSYSDIR)
+	chmod -R u+w $(RELSYSDIR)
 
 release_docs_spec:
 

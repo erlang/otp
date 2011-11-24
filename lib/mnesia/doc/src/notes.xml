@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1996</year><year>2010</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -37,6 +37,233 @@
     bugfixes for every release of Mnesia. Each release of Mnesia
     thus constitutes one section in this document. The title of each
     section is the version number of Mnesia.</p>
+
+  <section><title>Mnesia 4.5.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix deadlock in mnesia:del_table_copy/2.</p>
+          <p>
+	    Own Id: OTP-9689 Aux Id: seq11927 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Allow schema operations when using different mnesia
+	    versions.</p>
+          <p>
+	    Own Id: OTP-9657 Aux Id: seq11926 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix protocol issues. Mnesia-4.4.19 could not communicate
+	    with to older nodes.</p>
+          <p>
+	    Own Id: OTP-9473</p>
+        </item>
+        <item>
+	    <p> XML files have been corrected. </p>
+          <p>
+	    Own Id: OTP-9550 Aux Id: OTP-9541 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Dump the log even if no transactions have been invoked on
+	    local node, otherwise the log will grow forever with
+	    decisions from the other nodes who have tables on disk.
+	    Thanks Marek Majkowski.</p>
+          <p>
+	    Own Id: OTP-9551</p>
+        </item>
+        <item>
+          <p>
+	    Use dedicated api for clear_table, i.e. instead of
+	    match_delete use delete_all_objects. Thanks KukHyun Lee.</p>
+          <p>
+	    Own Id: OTP-9558</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.4.19</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Mnesia could crash if mnesia:add_table_index/2 was
+	    invoked before the table was loaded on all nodes.</p>
+          <p>
+	    Own Id: OTP-9285 Aux Id: seq11844 </p>
+        </item>
+        <item>
+          <p>
+	    Add {majority, boolean()} per-table option.</p>
+          <p>
+	    With {majority, true} set for a table, write transactions
+	    will abort if they cannot commit to a majority of the
+	    nodes that have a copy of the table. Currently, the
+	    implementation hooks into the prepare_commit, and forces
+	    an asymmetric transaction if the commit set affects any
+	    table with the majority flag set. In the commit itself,
+	    the transaction will abort if it cannot satisfy the
+	    majority requirement for all tables involved in the
+	    transaction.(Thanks to Ulf Wiger)</p>
+          <p>
+	    Own Id: OTP-9304</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.4.18</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Call chmod without the "-f" flag</p>
+          <p>
+	    "-f" is a non-standard chmod option which at least SGI
+	    IRIX and HP UX do not support. As the only effect of the
+	    "-f" flag is to suppress warning messages, it can be
+	    safely omitted. (Thanks to Holger Weiﬂ)</p>
+          <p>
+	    Own Id: OTP-9170</p>
+        </item>
+        <item>
+          <p>
+	    Mnesia sometimes failed to update meta-information in
+	    large systems, which could cause table content to be
+	    inconsistent between nodes.</p>
+          <p>
+	    Own Id: OTP-9186 Aux Id: seq11728 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.4.17</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Calling mnesia:first/1 on empty fragmented table works.
+	    Thanks Magnus Henoch.</p>
+          <p>
+	    Own Id: OTP-9108</p>
+        </item>
+        <item>
+          <p>
+	    If Mnesia detects that the network is not fully connected
+	    during start, Mnesia will not start until all nodes are
+	    reachable.</p>
+          <p>
+	    Own Id: OTP-9115 Aux Id: seq-11728 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fix issues reported by dialyzer.</p>
+          <p>
+	    Own Id: OTP-9107</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.4.16</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Sometimes a 'log_header' record was added to tables when
+	    invoking mnesia:restore/2 with the option
+	    'recreate_tables'. Thanks Vance Shipley.</p>
+          <p>
+	    Own Id: OTP-8960</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Compiler warnings were eliminated.</p>
+          <p>
+	    Own Id: OTP-8855</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.4.15</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Eliminated warnings for auto-imported BIF clashes.</p>
+          <p>
+	    Own Id: OTP-8840</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.4.14</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            Added mnesia:subscribe(activity) contributed by Bernard
+            Duggan.</p>
+          <p>
+            Own Id: OTP-8519</p>
+        </item>
+      </list>
+    </section>
+    
+  </section>  
   
   <section><title>Mnesia 4.4.13</title>
 

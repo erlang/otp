@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%%
+%% 
 %% Copyright Ericsson AB 2006-2010. All Rights Reserved.
-%%
+%% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%%
+%% 
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%%
+%% 
 %% %CopyrightEnd%
 %%
 %%
@@ -57,7 +57,7 @@ start(Type) ->
 %% Function: start(Service, ServiceConfig [, How]) -> {ok, Pid} | 
 %%                                                {error, Reason}
 %%
-%% Service = - ftpc | tftpd | httpc | httpd
+%% Service = - ftpc | tftpd | tftpc | tftp | httpc | httpd
 %% ServiceConfig = ConfPropList | ConfFile
 %% ConfPropList = [{Property, Value}] according to service 
 %% ConfFile = Path - when service is httpd
@@ -100,7 +100,7 @@ stop() ->
 %%--------------------------------------------------------------------
 %% Function: stop(Service, Pid) -> ok
 %%
-%% Service - ftp | tftpd | http | httpd | stand_alone
+%% Service - ftpc | ftp | tftpd | tftpc | tftp | httpc | httpd | stand_alone
 %%
 %% Description: Stops a started service of the inets application or takes
 %% down a stand alone "service" gracefully.
@@ -382,7 +382,7 @@ key1search(Key, Vals, Def) ->
 %% Description: Returns a list of supported services
 %%-------------------------------------------------------------------
 service_names() ->
-    [ftpc, tftpd, httpc, httpd].
+    [ftpc, tftp, httpc, httpd].
 
 
 %%-----------------------------------------------------------------
@@ -533,7 +533,7 @@ error_to_exit(Where, {error, Reason}) ->
 
 
 %%-----------------------------------------------------------------
-%% report_event(Serverity, Label, Service, Content)
+%% report_event(Severity, Label, Service, Content)
 %%
 %% Parameters:
 %% Severity -> 0 =< integer() =< 100
@@ -725,8 +725,8 @@ call_service(Service, Call, Args) ->
 	
 service_module(tftpd) ->
     tftp;
-service_module(httpc) ->
-    httpc;
+service_module(tftpc) ->
+    tftp;
 service_module(ftpc) ->
     ftp;
 service_module(Service) ->

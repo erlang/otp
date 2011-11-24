@@ -809,6 +809,8 @@ tokens_to_string([{atom,_,A} | Ts]) ->
     io_lib:write_atom(A) ++ " " ++ tokens_to_string(Ts);
 tokens_to_string([{string, _, S} | Ts]) ->
     io_lib:write_string(S) ++ " " ++ tokens_to_string(Ts);
+tokens_to_string([{char, _, C} | Ts]) ->
+    io_lib:write_char(C) ++ " " ++ tokens_to_string(Ts);
 tokens_to_string([{float, _, F} | Ts]) ->
     float_to_list(F) ++ " " ++ tokens_to_string(Ts);
 tokens_to_string([{integer, _, N} | Ts]) ->

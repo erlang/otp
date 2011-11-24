@@ -100,7 +100,7 @@ YRL_FLAGS =
 debug opt: $(TARGET_FILES) 
 
 clean:
-	rm -f $(TARGET_FILES) $(GEN_ERL_MODULES:%=%.erl) $(GEN_HRL_FILES) $(CLASS_FILES)
+	rm -f $(TARGET_FILES) $(GEN_ERL_MODULES:%=%.erl) $(GEN_HRL_FILES) $(CLASS_FILES) IDL-GENERATED
 	rm -f errs core *~
 
 docs:
@@ -108,9 +108,14 @@ docs:
 test: $(TEST_TARGET_FILES)
 
 
-$(GEN_ERL_MODULES:%=%.erl) $(GEN_HRL_FILES): ex.idl
+IDL-GENERATED: ex.idl
 	erlc $(ERL_LOCAL_FLAGS) +'{precond,{tracer,pre}}' \
 		+'{{postcond,"m::i::f"},{tracer,post}}' ex.idl
+	>IDL-GENERATED
+
+$(GEN_ERL_MODULES:%=%.erl) $(GEN_HRL_FILES): IDL-GENERATED
+
+$(TARGET_FILES): IDL-GENERATED
 
 # ----------------------------------------------------
 # Release Target

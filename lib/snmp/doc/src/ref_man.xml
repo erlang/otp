@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE application SYSTEM "application.dtd">
 
 <application xmlns:xi="http://www.w3.org/2001/XInclude">
   <header>
     <copyright>
-      <year>1996</year><year>2009</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -61,6 +61,7 @@
   <xi:include href="snmp_user_based_sm_mib.xml"/>
   <xi:include href="snmp_view_based_acm_mib.xml"/>
   <xi:include href="snmpc.xml"/>
+  <xi:include href="snmpc_cmd.xml"/>
   <xi:include href="snmpm.xml"/>
   <xi:include href="snmpm_conf.xml"/>
   <xi:include href="snmpm_mpd.xml"/>

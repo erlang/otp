@@ -1,0 +1,2 @@
+
+mnesia_dirty_read_two_write_one.erl:20: The call mnesia:dirty_write(New::#employee{salary::number()}) might have an unintended effect due to a possible race condition caused by its combination with the mnesia:dirty_read('employee',Eno::any()) call in mnesia_dirty_read_two_write_one.erl on line 17

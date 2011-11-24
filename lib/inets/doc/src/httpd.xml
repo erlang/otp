@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2010</year>
+      <year>1997</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -148,8 +148,11 @@
 	in the apache like configuration file.
       </item>
 
-      <tag>{socket_type, ip_comm | ssl}</tag>
+      <tag>{socket_type, ip_comm | ssl | essl}</tag>
       <item>
+	<p>When using ssl, there are currently only one alternative. 
+	<c>essl</c> specifically uses the Erlang based SSL. 
+	<c>ssl</c> defaults to <c>essl</c>. </p>
 	<p>Defaults to <c>ip_comm</c>. </p> 
       </item>
 
@@ -157,7 +160,7 @@
       <item>
 	<p>Defaults to <c>inet6fb4. </c> </p>
         <p>Note that this option is only used when the option 
-          <c>socket_type</c> has the value <c>ip_comm</c>. </p>
+	<c>socket_type</c> has the value <c>ip_comm</c>. </p>
       </item>
 
     </taglist>
@@ -267,18 +270,22 @@ text/plain	asc txt
 	The <c>common</c> format is one line that looks like this:
         <c>remotehost rfc931 authuser [date] "request" status bytes</c></p> 
 
-	<pre>remotehost
+	<pre>
+remotehost
 	Remote
 rfc931
 	The client's remote username (RFC 931). 
 authuser
-	The username with which the user authenticated himself. 
+	The username with which the user authenticated 
+        himself. 
 [date]
 	Date and time of the request (RFC 1123). 
 "request"
-	The request line exactly as it came from the client(RFC 1945). 
+	The request line exactly as it came from the client
+        (RFC 1945). 
 status
-	The HTTP status code returned to the client (RFC 1945). 
+	The HTTP status code returned to the client 
+        (RFC 1945). 
 bytes
 	The content-length of the document transferred. 
         </pre>
@@ -286,10 +293,11 @@ bytes
 	<p>The <c>combined</c> format is on line that look like this:
 	<c>remotehost rfc931 authuser [date] "request" status bytes "referer" "user_agent" </c></p>
 	
-	<pre>"referer"
+	<pre>
+"referer"
 	The url the client was on before
-	requesting your url. (If it could not be determined a minus
-	sign will be placed in this field)
+	requesting your url. (If it could not be determined 
+	a minus sign will be placed in this field)
 "user_agent"
 	The software the client claims to be using. (If it
 	could not be determined a minus sign will be placed in
@@ -389,6 +397,31 @@ bytes
 	and an access to http://your.server.org/image/foo.gif would refer to
 	the file /ftp/pub/image/foo.gif.</item>
 
+      <tag>{re_write, {Re, Replacement}}</tag>
+      
+      <item> Where Re = string() and Replacement = string(). 
+	The ReWrite property allows documents to be stored in the local file
+	system instead of the document_root location. URLs are rewritten
+        by re:replace/3 to produce a path in the local filesystem.
+        For example:
+	
+	<code>{re_write, {"^/[~]([^/]+)(.*)$", "/home/\\1/public\\2"}</code>
+	
+	and an access to http://your.server.org/~bob/foo.gif would refer to
+	the file /home/bob/public/foo.gif.
+
+        In an Apache like configuration file the Re is separated
+        from Replacement with one single space, and as expected
+        backslashes do not need to be backslash escaped so the
+        same example would become:
+
+        <code>ReWrite ^/[~]([^/]+)(.*)$ /home/\1/public\2</code>
+
+        Beware of trailing space in Replacement that will be used.
+        If you must have a space in Re use e.g the character encoding
+        <code>\040</code> see <seealso marker="stdlib:re">re(3)</seealso>.
+      </item>
+
       <tag>{directory_index, [string()]}</tag>
       
       <item> 
@@ -408,7 +441,7 @@ bytes
     </taglist>
 
     <marker id="cgi_prop"></marker>
-    <p><em>CGI  properties - requires mod_cgi</em></p>
+    <p><em>CGI properties - requires mod_cgi</em></p>
     <taglist> 
       <tag>{script_alias, {Alias, RealName}}</tag>
       <item> Where Alias = string() and RealName = string().
@@ -421,6 +454,19 @@ bytes
 	
 	and an access to http://your.server.org/cgi-bin/foo would cause
 	the server to run the script /web/cgi-bin/foo.
+      </item>
+      
+      <tag>{script_re_write, {Re, Replacement}}</tag>
+      <item> Where Re = string() and Replacement = string().
+	Has the same behavior as the ReWrite property, except that
+	it also marks the target directory as containing CGI
+	scripts. URLs with a path beginning with url-path are mapped to
+	scripts beginning with directory-filename, for example:
+	
+	<code> {script_re_write, {"^/cgi-bin/(\\d+)/", "/web/\\1/cgi-bin/"}</code>
+	
+	and an access to http://your.server.org/cgi-bin/17/foo would cause
+	the server to run the script /web/17/cgi-bin/foo.
       </item>
       
       <tag>{script_nocache, boolean()}</tag>
@@ -477,12 +523,13 @@ bytes
 	scheme scripts. A matching URL is mapped into a specific module
 	and function. For example:
 	
-	<code>{erl_script_alias, {"/cgi-bin/example" [httpd_example]}
+	<code>{erl_script_alias, {"/cgi-bin/example", [httpd_example]}
 	</code>
 	
 	and a request to
 	http://your.server.org/cgi-bin/example/httpd_example:yahoo
-	would refer to httpd_example:yahoo/2 and
+	would refer to httpd_example:yahoo/3 or, if that did not exist,
+	httpd_example:yahoo/2 and
 	http://your.server.org/cgi-bin/example/other:yahoo would
 	not be allowed to execute.
       </item>
@@ -745,14 +792,14 @@ bytes
     <marker id="sdir_prop"></marker>
     <p> Here follows the valid properties for security directories</p>
     <taglist>
-      <tag>{security_data_file, path()}</tag>
+      <tag>{data_file, path()}</tag>
       
       <item>
 	Name of the security data file.  The filename can either
 	absolute or relative to the server_root. This file is used to
 	store persistent data for the mod_security module. </item>
 	  
-      <tag>{security_max_retries, integer()}</tag>
+      <tag>{max_retries, integer()}</tag>
 	  
       <item> Specifies the maximum number of tries to authenticate a
 	user has before the user is blocked out. If a user
@@ -762,13 +809,13 @@ bytes
 	server will return 401 (Unauthorized), for security
 	reasons. Defaults to 3 may also be set to infinity.</item>
 	
-      <tag>{security_block_time, integer()}</tag>
+      <tag>{block_time, integer()}</tag>
       
       <item> Specifies the number of minutes a user is blocked. After
 	this amount of time, he automatically regains access.
 	Defaults to 60</item>
       
-      <tag>{security_fail_expire_time, integer()}</tag>
+      <tag>{fail_expire_time, integer()}</tag>
       
       <item>
 	Specifies the number of minutes a failed user authentication
@@ -776,7 +823,7 @@ bytes
 	time, his previous failed authentications are
 	forgotten. Defaults to 30</item>
       
-      <tag>{security_auth_timeout, integer()}</tag>
+      <tag>{auth_timeout, integer()}</tag>
 
       <item>
 	Specifies the number of seconds a successful user
@@ -883,6 +930,10 @@ bytes
 		connection
 	}).
     </code>
+
+    <p>To acess the record in your callback-module use </p>
+    <code> -include_lib("inets/include/httpd.hrl"). </code>
+
     <p>The fields of the <c>mod</c> record has the following meaning:
       </p>
     <taglist>
@@ -930,10 +981,10 @@ bytes
       <c>parsed_header</c> contains all HTTP header fields from the
       HTTP-request stored in a list as key-value tuples. See RFC 2616
       for a listing of all header fields. For example the date field
-      would be stored as: <c>{"date","Wed, 15 Oct 1997 14:35:17 GMT"}.
+      would be stored as: <c>{"date","Wed, 15 Oct 1997 14:35:17 GMT"} </c>.
       RFC 2616 defines that HTTP is a case insensitive protocol and
       the header fields may be in lower case or upper case. Httpd will
-      ensure that all header field names are in lower case.  </c>.
+      ensure that all header field names are in lower case.
       </item>
       <tag><c>entity_body</c></tag>
       <item>The <c>Entity-Body</c> as defined

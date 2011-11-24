@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2010</year>
+      <year>2004</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -123,7 +123,7 @@
 	  re-receive of acknowledgments. If multiple copies of the
 	  same acknowledgments is received the spurious ones are
 	  silently ignored. This fix was intended for inets-4.7.14
-	  but accidentaly it was not included in that release.</p>
+	  but accidentally it was not included in that release.</p>
 	<p>Own Id: OTP-6706 Aux Id: OTP-6691 </p>
       </item>
     </list>

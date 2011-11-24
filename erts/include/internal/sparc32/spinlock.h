@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2005-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2005-2011. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -24,12 +24,15 @@
 #ifndef ETHR_SPARC32_SPINLOCK_H
 #define ETHR_SPARC32_SPINLOCK_H
 
+#define ETHR_HAVE_NATIVE_SPINLOCKS 1
+#define ETHR_NATIVE_SPINLOCK_IMPL "ethread"
+
 /* Locked with ldstub, so unlocked when 0 and locked when non-zero. */
 typedef struct {
     volatile unsigned char lock;
 } ethr_native_spinlock_t;
 
-#ifdef ETHR_TRY_INLINE_FUNCS
+#if defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_AUX_IMPL__)
 
 static ETHR_INLINE void
 ethr_native_spinlock_init(ethr_native_spinlock_t *lock)
@@ -40,7 +43,7 @@ ethr_native_spinlock_init(ethr_native_spinlock_t *lock)
 static ETHR_INLINE void
 ethr_native_spin_unlock(ethr_native_spinlock_t *lock)
 {
-    __asm__ __volatile__("membar #LoadStore|#StoreStore");
+    ETHR_MEMBAR(ETHR_LoadStore|ETHR_StoreStore);
     lock->lock = 0;
 }
 
@@ -51,10 +54,10 @@ ethr_native_spin_trylock(ethr_native_spinlock_t *lock)
 
     __asm__ __volatile__(
 	"ldstub [%1], %0\n\t"
-	"membar #StoreLoad|#StoreStore"
 	: "=r"(prev)
 	: "r"(&lock->lock)
 	: "memory");
+    ETHR_MEMBAR(ETHR_StoreLoad|ETHR_StoreStore);
     return prev == 0;
 }
 
@@ -71,7 +74,7 @@ ethr_native_spin_lock(ethr_native_spinlock_t *lock)
 	if (__builtin_expect(ethr_native_spin_trylock(lock) != 0, 1))
 	    break;
 	do {
-	    __asm__ __volatile__("membar #LoadLoad");
+	    ETHR_MEMBAR(ETHR_LoadLoad);
 	} while (ethr_native_spin_is_locked(lock));
     }
 }

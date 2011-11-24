@@ -14,9 +14,6 @@
 # Portions created by Ericsson are Copyright 1999-2000, Ericsson 
 # Utvecklings AB. All Rights Reserved.''
 # 
-#     $Id$
-#
-#
 
 #EDOC_DIR=/clearcase/otp/internal_tools/edoc
 EDOC_DIR=/home/otp/sgml/edoc-%EDOC_VSN%

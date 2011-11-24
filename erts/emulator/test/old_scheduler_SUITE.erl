@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,23 +19,43 @@
 
 -module(old_scheduler_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
--export([all/1, init_per_testcase/2, fin_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 init_per_testcase/2, end_per_testcase/2]).
 -export([equal/1, many_low/1, few_low/1, max/1, high/1]).
 
 -define(default_timeout, ?t:minutes(11)).
 
-all(suite) ->
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
     case catch erlang:system_info(modified_timing_level) of
 	Level when is_integer(Level) ->
 	    {skipped,
-	     "Modified timing (level " ++ integer_to_list(Level)
-	     ++ ") is enabled. Testcases gets messed up by modfied "
-	     "timing."};
-	_ ->
-	    [equal, many_low, few_low, max, high]
+	     "Modified timing (level " ++
+		 integer_to_list(Level) ++
+		 ") is enabled. Testcases gets messed "
+	     "up by modfied timing."};
+	_ -> [equal, many_low, few_low, max, high]
     end.
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 %%-----------------------------------------------------------------------------------
 %% TEST SUITE DESCRIPTION
@@ -63,7 +83,7 @@ init_per_testcase(_Case, Config) ->
     ?line MS = erlang:system_flag(multi_scheduling, block),
     [{prio,Prio},{watchdog,Dog},{multi_scheduling, MS}|Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     erlang:system_flag(multi_scheduling, unblock),
     Dog=?config(watchdog, Config),
     Prio=?config(prio, Config),

@@ -18,7 +18,11 @@
 %%
 %%
 
--include("inets_internal.hrl").
+-ifndef(httpc_internal_hrl).
+-define(httpc_internal_hrl, true).
+
+-include_lib("inets/src/inets_app/inets_internal.hrl").
+
 -define(SERVICE, httpc).
 -define(hcri(Label, Data), ?report_important(Label, ?SERVICE, Data)).
 -define(hcrv(Label, Data), ?report_verbose(Label,   ?SERVICE, Data)).
@@ -56,7 +60,11 @@
 	  relaxed = false, 
 
 	  %% integer() - ms before a connect times out
-	  connect_timeout = ?HTTP_REQUEST_CTIMEOUT  
+	  connect_timeout = ?HTTP_REQUEST_CTIMEOUT,
+
+	  %% bool() - Use %-encoding rfc 2396
+	  url_encode
+
 	 }
        ).
 
@@ -82,35 +90,39 @@
 %%% All data associated to a specific HTTP request
 -record(request,
 	{
-	 id,            % ref() - Request Id
-	 from,          % pid() - Caller
-	 redircount = 0,% Number of redirects made for this request
-	 scheme,        % http | https 
-	 address,       % ({Host,Port}) Destination Host and Port
-	 path,          % string() - Path of parsed URL
-	 pquery,        % string() - Rest of parsed URL
-	 method,        % atom() - HTTP request Method
-	 headers,       % #http_request_h{}
-	 content,       % {ContentType, Body} - Current HTTP request
-	 settings,      % #http_options{} - User defined settings
-	 abs_uri,       % string() ex: "http://www.erlang.org"
-	 userinfo,      % string() - optinal "<userinfo>@<host>:<port>"
-	 stream,	% Boolean() - stream async reply?
-	 headers_as_is, % Boolean() - workaround for servers that does
-			% not honor the http standard, can also be used for testing purposes.
-	 started,       % integer() > 0 - When we started processing the request
-	 timer,         % undefined | ref()
-	 socket_opts    % undefined | [socket_option()]
+	  id,            % ref() - Request Id
+	  from,          % pid() - Caller
+	  redircount = 0,% Number of redirects made for this request
+	  scheme,        % http | https 
+	  address,       % ({Host,Port}) Destination Host and Port
+	  path,          % string() - Path of parsed URL
+	  pquery,        % string() - Rest of parsed URL
+	  method,        % atom() - HTTP request Method
+	  headers,       % #http_request_h{}
+	  content,       % {ContentType, Body} - Current HTTP request
+	  settings,      % #http_options{} - User defined settings
+	  abs_uri,       % string() ex: "http://www.erlang.org"
+	  userinfo,      % string() - optinal "<userinfo>@<host>:<port>"
+	  stream,	 % boolean() - stream async reply?
+	  headers_as_is, % boolean() - workaround for servers that does
+			 % not honor the http standard, can also be used 
+			 % for testing purposes.
+	  started,       % integer() > 0 - When we started processing the 
+			 % request
+	  timer,         % undefined | ref()
+	  socket_opts,   % undefined | [socket_option()]
+	  ipv6_host_with_brackets % boolean()
 	}
        ).               
 
--record(tcp_session,
+-record(session,
 	{
 	  id,           % {{Host, Port}, HandlerPid}
 	  client_close, % true | false
 	  scheme,       % http (HTTP/TCP) | https (HTTP/SSL/TCP)
 	  socket,       % Open socket, used by connection
-	  queue_length = 1, % Current length of pipeline or keep alive queue  
+	  socket_type,  % socket-type, used by connection
+	  queue_length = 1, % Current length of pipeline or keep-alive queue  
 	  type          % pipeline | keep_alive (wait for response before sending new request) 
 	 }).
 
@@ -138,3 +150,6 @@
 %% 	  path,   % string()
 %% 	  q       % query: string()
 %% 	 }).
+
+
+-endif. % -ifdef(httpc_internal_hrl).

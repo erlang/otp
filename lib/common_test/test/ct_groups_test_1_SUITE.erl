@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -29,7 +29,7 @@
 
 -compile(export_all).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("common_test/include/ct_event.hrl").
 
 -define(eh, ct_test_support_eh).
@@ -56,12 +56,21 @@ init_per_testcase(TestCase, Config) ->
 end_per_testcase(TestCase, Config) ->
     ct_test_support:end_per_testcase(TestCase, Config).
 
-all(doc) -> 
-    ["Run smoke tests of Common Test."];
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all(suite) -> 
-    [groups_suite_1, groups_suite_2,
-     groups_suites_1, groups_dir_1, groups_dirs_1].
+all() -> 
+    [groups_suite_1, groups_suite_2, groups_suites_1,
+     groups_dir_1, groups_dirs_1].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 %%--------------------------------------------------------------------
 %% TEST CASES
@@ -76,14 +85,15 @@ groups_suite_1(Config) when is_list(Config) ->
     Suite = filename:join(DataDir, "groups_1/test/groups_11_SUITE"),
 
     {Opts,ERPid} = setup({suite,Suite}, Config),
-    ok = ct_test_support:run(ct, run_test, [Opts], Config),    
+    ok = ct_test_support:run(Opts, Config),
     Events = ct_test_support:get_events(ERPid, Config),
 
     ct_test_support:log_events(groups_suite_1, 
-			       reformat(Events, ?eh), 
-			       ?config(priv_dir, Config)),
+			       reformat(Events, ?eh),
+			       ?config(priv_dir, Config),
+			       Opts),
 
-    TestEvents = test_events(groups_suite_1),
+    TestEvents = events_to_check(groups_suite_1),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
     
 
@@ -96,14 +106,15 @@ groups_suite_2(Config) when is_list(Config) ->
     Suite = filename:join(DataDir, "groups_1/test/groups_12_SUITE"),
 
     {Opts,ERPid} = setup({suite,Suite}, Config),
-    ok = ct_test_support:run(ct, run_test, [Opts], Config),    
+    ok = ct_test_support:run(Opts, Config),
     Events = ct_test_support:get_events(ERPid, Config),
 
     ct_test_support:log_events(groups_suite_2, 
-			       reformat(Events, ?eh), 
-			       ?config(priv_dir, Config)),
+			       reformat(Events, ?eh),
+			       ?config(priv_dir, Config),
+			       Opts),
 
-    TestEvents = test_events(groups_suite_2),
+    TestEvents = events_to_check(groups_suite_2),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).  
     
 
@@ -117,14 +128,15 @@ groups_suites_1(Config) when is_list(Config) ->
 	      filename:join(DataDir, "groups_1/test/groups_12_SUITE")],
 
     {Opts,ERPid} = setup({suite,Suites}, Config),
-    ok = ct_test_support:run(ct, run_test, [Opts], Config),    
+    ok = ct_test_support:run(Opts, Config),
     Events = ct_test_support:get_events(ERPid, Config),
 
     ct_test_support:log_events(groups_suites_1, 
-			       reformat(Events, ?eh), 
-			       ?config(priv_dir, Config)),
+			       reformat(Events, ?eh),
+			       ?config(priv_dir, Config),
+			       Opts),
 
-    TestEvents = test_events(groups_suites_1),
+    TestEvents = events_to_check(groups_suites_1),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).  
 
 
@@ -137,14 +149,15 @@ groups_dir_1(Config) when is_list(Config) ->
     Dir = filename:join(DataDir, "groups_1"),
 
     {Opts,ERPid} = setup({dir,Dir}, Config),
-    ok = ct_test_support:run(ct, run_test, [Opts], Config),    
+    ok = ct_test_support:run(Opts, Config),
     Events = ct_test_support:get_events(ERPid, Config),
 
     ct_test_support:log_events(groups_dir_1, 
-			       reformat(Events, ?eh), 
-			       ?config(priv_dir, Config)),
+			       reformat(Events, ?eh),
+			       ?config(priv_dir, Config),
+			       Opts),
 
-    TestEvents = test_events(groups_dir_1),
+    TestEvents = events_to_check(groups_dir_1),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).  
 
 %%%-----------------------------------------------------------------
@@ -157,14 +170,15 @@ groups_dirs_1(Config) when is_list(Config) ->
 	    filename:join(DataDir, "groups_2")],
 
     {Opts,ERPid} = setup({dir,Dirs}, Config),
-    ok = ct_test_support:run(ct, run_test, [Opts], Config),    
+    ok = ct_test_support:run(Opts, Config),
     Events = ct_test_support:get_events(ERPid, Config),
 
     ct_test_support:log_events(groups_dirs_1, 
-			       reformat(Events, ?eh), 
-			       ?config(priv_dir, Config)),
+			       reformat(Events, ?eh),
+			       ?config(priv_dir, Config),
+			       Opts),
 
-    TestEvents = test_events(groups_dirs_1),
+    TestEvents = events_to_check(groups_dirs_1),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).  
 
 
@@ -188,6 +202,14 @@ reformat(Events, EH) ->
 %%%-----------------------------------------------------------------
 %%% TEST EVENTS
 %%%-----------------------------------------------------------------
+events_to_check(Test) ->
+    %% 2 tests (ct:run_test + script_start) is default
+    events_to_check(Test, 2).
+
+events_to_check(_, 0) ->
+    [];
+events_to_check(Test, N) ->
+    test_events(Test) ++ events_to_check(Test, N-1).
 
 test_events(groups_suite_1) ->
     [{?eh,start_logging,{'DEF','RUNDIR'}},
@@ -327,14 +349,14 @@ test_events(groups_suite_2) ->
  		 {?eh,tc_start,{groups_12_SUITE,testcase_2a}},
 		 {?eh,tc_done,{groups_12_SUITE,testcase_2a,ok}},
 
-		 [{?eh,tc_start,{groups_12_SUITE,{init_per_group,test_group_3,[{repeat,1}]}}},
-		  {?eh,tc_done,{groups_12_SUITE,{init_per_group,test_group_3,[{repeat,1}]},ok}},		 
+		 [{?eh,tc_start,{groups_12_SUITE,{init_per_group,test_group_3,[{repeat,2}]}}},
+		  {?eh,tc_done,{groups_12_SUITE,{init_per_group,test_group_3,[{repeat,2}]},ok}},
 		   {?eh,tc_start,{groups_12_SUITE,testcase_3a}},
 		   {?eh,tc_done,{groups_12_SUITE,testcase_3a,ok}},
 		   {?eh,tc_start,{groups_12_SUITE,testcase_3b}},
 		   {?eh,tc_done,{groups_12_SUITE,testcase_3b,ok}},
-		  {?eh,tc_start,{groups_12_SUITE,{end_per_group,test_group_3,[{repeat,1}]}}},
-		  {?eh,tc_done,{groups_12_SUITE,{end_per_group,test_group_3,[{repeat,1}]},ok}}],
+		  {?eh,tc_start,{groups_12_SUITE,{end_per_group,test_group_3,[{repeat,2}]}}},
+		  {?eh,tc_done,{groups_12_SUITE,{end_per_group,test_group_3,[{repeat,2}]},ok}}],
 
 		 [{?eh,tc_start,{groups_12_SUITE,{init_per_group,test_group_3,[]}}},
 		  {?eh,tc_done,{groups_12_SUITE,{init_per_group,test_group_3,[]},ok}},
@@ -361,12 +383,8 @@ test_events(groups_suite_2) ->
       
       {parallel,[{?eh,tc_start,{groups_12_SUITE,{init_per_group,test_group_5,[parallel]}}},
 		 {?eh,tc_done,{groups_12_SUITE,{init_per_group,test_group_5,[parallel]},ok}},
-
-		 %% the done event could come in during the parallel subgroup
-		 %% and we can't test that, yet...
-		 %% {?eh,tc_start,{groups_12_SUITE,testcase_5a}},
-		 %% {?eh,tc_done,{groups_12_SUITE,testcase_5a,ok}},
-
+		 {?eh,tc_start,{groups_12_SUITE,testcase_5a}},
+		 {?eh,tc_done,{groups_12_SUITE,testcase_5a,ok}},
 		 {parallel,[{?eh,tc_start,{groups_12_SUITE,{init_per_group,test_group_6,[parallel]}}},
 			    {?eh,tc_done,{groups_12_SUITE,{init_per_group,test_group_6,[parallel]},ok}},
 		  
@@ -525,14 +543,14 @@ test_events(groups_suites_1) ->
 		{?eh,tc_done,{groups_12_SUITE,{init_per_group,test_group_2,[parallel]},ok}},
 		{?eh,tc_start,{groups_12_SUITE,testcase_2a}},
 		{?eh,tc_done,{groups_12_SUITE,testcase_2a,ok}},
-		[{?eh,tc_start,{groups_12_SUITE,{init_per_group,test_group_3,[{repeat,1}]}}},
-		 {?eh,tc_done,{groups_12_SUITE,{init_per_group,test_group_3,[{repeat,1}]},ok}},
+		[{?eh,tc_start,{groups_12_SUITE,{init_per_group,test_group_3,[{repeat,2}]}}},
+		 {?eh,tc_done,{groups_12_SUITE,{init_per_group,test_group_3,[{repeat,2}]},ok}},
 		 {?eh,tc_start,{groups_12_SUITE,testcase_3a}},
 		 {?eh,tc_done,{groups_12_SUITE,testcase_3a,ok}},
 		 {?eh,tc_start,{groups_12_SUITE,testcase_3b}},
 		 {?eh,tc_done,{groups_12_SUITE,testcase_3b,ok}},
-		 {?eh,tc_start,{groups_12_SUITE,{end_per_group,test_group_3,[{repeat,1}]}}},
-		 {?eh,tc_done,{groups_12_SUITE,{end_per_group,test_group_3,[{repeat,1}]},ok}}],
+		 {?eh,tc_start,{groups_12_SUITE,{end_per_group,test_group_3,[{repeat,2}]}}},
+		 {?eh,tc_done,{groups_12_SUITE,{end_per_group,test_group_3,[{repeat,2}]},ok}}],
 		[{?eh,tc_start,{groups_12_SUITE,{init_per_group,test_group_3,[]}}},
 		 {?eh,tc_done,{groups_12_SUITE,{init_per_group,test_group_3,[]},ok}},
 		 {?eh,tc_start,{groups_12_SUITE,testcase_3a}},
@@ -555,12 +573,8 @@ test_events(groups_suites_1) ->
       {?eh,tc_done,{groups_12_SUITE,{init_per_group,test_group_4,[]},ok}},
        {parallel,[{?eh,tc_start,{groups_12_SUITE,{init_per_group,test_group_5,[parallel]}}},
 		  {?eh,tc_done,{groups_12_SUITE,{init_per_group,test_group_5,[parallel]},ok}},
-
-		  %% the done event could come in during the parallel subgroup
-		  %% and we can't test that, yet...
-		  %% {?eh,tc_start,{groups_12_SUITE,testcase_5a}},
-		  %% {?eh,tc_done,{groups_12_SUITE,testcase_5a,ok}},
-		  
+		  {?eh,tc_start,{groups_12_SUITE,testcase_5a}},
+		  {?eh,tc_done,{groups_12_SUITE,testcase_5a,ok}},
 		   {parallel,[{?eh,tc_start,{groups_12_SUITE,{init_per_group,test_group_6,[parallel]}}},
 			      {?eh,tc_done,{groups_12_SUITE,{init_per_group,test_group_6,[parallel]},ok}},
 			       [{?eh,tc_start,{groups_12_SUITE,{init_per_group,test_group_7,[sequence]}}},
@@ -715,14 +729,14 @@ test_events(groups_dir_1) ->
 		{?eh,tc_done,{groups_12_SUITE,{init_per_group,test_group_2,[parallel]},ok}},
 		{?eh,tc_start,{groups_12_SUITE,testcase_2a}},
 		{?eh,tc_done,{groups_12_SUITE,testcase_2a,ok}},
-		[{?eh,tc_start,{groups_12_SUITE,{init_per_group,test_group_3,[{repeat,1}]}}},
-		 {?eh,tc_done,{groups_12_SUITE,{init_per_group,test_group_3,[{repeat,1}]},ok}},
+		[{?eh,tc_start,{groups_12_SUITE,{init_per_group,test_group_3,[{repeat,2}]}}},
+		 {?eh,tc_done,{groups_12_SUITE,{init_per_group,test_group_3,[{repeat,2}]},ok}},
 		 {?eh,tc_start,{groups_12_SUITE,testcase_3a}},
 		 {?eh,tc_done,{groups_12_SUITE,testcase_3a,ok}},
 		 {?eh,tc_start,{groups_12_SUITE,testcase_3b}},
 		 {?eh,tc_done,{groups_12_SUITE,testcase_3b,ok}},
-		 {?eh,tc_start,{groups_12_SUITE,{end_per_group,test_group_3,[{repeat,1}]}}},
-		 {?eh,tc_done,{groups_12_SUITE,{end_per_group,test_group_3,[{repeat,1}]},ok}}],
+		 {?eh,tc_start,{groups_12_SUITE,{end_per_group,test_group_3,[{repeat,2}]}}},
+		 {?eh,tc_done,{groups_12_SUITE,{end_per_group,test_group_3,[{repeat,2}]},ok}}],
 		[{?eh,tc_start,{groups_12_SUITE,{init_per_group,test_group_3,[]}}},
 		 {?eh,tc_done,{groups_12_SUITE,{init_per_group,test_group_3,[]},ok}},
 		 {?eh,tc_start,{groups_12_SUITE,testcase_3a}},
@@ -745,12 +759,8 @@ test_events(groups_dir_1) ->
       {?eh,tc_done,{groups_12_SUITE,{init_per_group,test_group_4,[]},ok}},
       {parallel,[{?eh,tc_start,{groups_12_SUITE,{init_per_group,test_group_5,[parallel]}}},
 		 {?eh,tc_done,{groups_12_SUITE,{init_per_group,test_group_5,[parallel]},ok}},
-
-		 %% the done event could come in during the parallel subgroup
-		 %% and we can't test that, yet...
-		 %% {?eh,tc_start,{groups_12_SUITE,testcase_5a}},
-		 %% {?eh,tc_done,{groups_12_SUITE,testcase_5a,ok}},
-		 
+		 {?eh,tc_start,{groups_12_SUITE,testcase_5a}},
+		 {?eh,tc_done,{groups_12_SUITE,testcase_5a,ok}},
 		 {parallel,[{?eh,tc_start,{groups_12_SUITE,{init_per_group,test_group_6,[parallel]}}},
 			    {?eh,tc_done,{groups_12_SUITE,{init_per_group,test_group_6,[parallel]},ok}},
 			    [{?eh,tc_start,{groups_12_SUITE,{init_per_group,test_group_7,[sequence]}}},
@@ -906,14 +916,14 @@ test_events(groups_dirs_1) ->
 		{?eh,tc_done,{groups_12_SUITE,{init_per_group,test_group_2,[parallel]},ok}},
 		{?eh,tc_start,{groups_12_SUITE,testcase_2a}},
 		{?eh,tc_done,{groups_12_SUITE,testcase_2a,ok}},
-		[{?eh,tc_start,{groups_12_SUITE,{init_per_group,test_group_3,[{repeat,1}]}}},
-		 {?eh,tc_done,{groups_12_SUITE,{init_per_group,test_group_3,[{repeat,1}]},ok}},
+		[{?eh,tc_start,{groups_12_SUITE,{init_per_group,test_group_3,[{repeat,2}]}}},
+		 {?eh,tc_done,{groups_12_SUITE,{init_per_group,test_group_3,[{repeat,2}]},ok}},
 		 {?eh,tc_start,{groups_12_SUITE,testcase_3a}},
 		 {?eh,tc_done,{groups_12_SUITE,testcase_3a,ok}},
 		 {?eh,tc_start,{groups_12_SUITE,testcase_3b}},
 		 {?eh,tc_done,{groups_12_SUITE,testcase_3b,ok}},
-		 {?eh,tc_start,{groups_12_SUITE,{end_per_group,test_group_3,[{repeat,1}]}}},
-		 {?eh,tc_done,{groups_12_SUITE,{end_per_group,test_group_3,[{repeat,1}]},ok}}],
+		 {?eh,tc_start,{groups_12_SUITE,{end_per_group,test_group_3,[{repeat,2}]}}},
+		 {?eh,tc_done,{groups_12_SUITE,{end_per_group,test_group_3,[{repeat,2}]},ok}}],
 		[{?eh,tc_start,{groups_12_SUITE,{init_per_group,test_group_3,[]}}},
 		 {?eh,tc_done,{groups_12_SUITE,{init_per_group,test_group_3,[]},ok}},
 		 {?eh,tc_start,{groups_12_SUITE,testcase_3a}},
@@ -936,12 +946,8 @@ test_events(groups_dirs_1) ->
       {?eh,tc_done,{groups_12_SUITE,{init_per_group,test_group_4,[]},ok}},
       {parallel,[{?eh,tc_start,{groups_12_SUITE,{init_per_group,test_group_5,[parallel]}}},
 		 {?eh,tc_done,{groups_12_SUITE,{init_per_group,test_group_5,[parallel]},ok}},
-		 
-		 %% the done event could come in during the parallel subgroup
-		 %% and we can't test that, yet...
-		 %% {?eh,tc_start,{groups_12_SUITE,testcase_5a}},		 
-		 %% {?eh,tc_done,{groups_12_SUITE,testcase_5a,ok}},
-
+		 {?eh,tc_start,{groups_12_SUITE,testcase_5a}},
+		 {?eh,tc_done,{groups_12_SUITE,testcase_5a,ok}},
 		 {parallel,[{?eh,tc_start,{groups_12_SUITE,{init_per_group,test_group_6,[parallel]}}},
 			    {?eh,tc_done,{groups_12_SUITE,{init_per_group,test_group_6,[parallel]},ok}},
 			    [{?eh,tc_start,{groups_12_SUITE,{init_per_group,test_group_7,[sequence]}}},
@@ -1138,17 +1144,17 @@ test_events(groups_dirs_1) ->
        {?eh,tc_start,{groups_22_SUITE,testcase_2a}},
        {?eh,tc_done,{groups_22_SUITE,testcase_2a,ok}},
        [{?eh,tc_start,
-         {groups_22_SUITE,{init_per_group,test_group_3,[{repeat,1}]}}},
+         {groups_22_SUITE,{init_per_group,test_group_3,[{repeat,2}]}}},
 	{?eh,tc_done,
-         {groups_22_SUITE,{init_per_group,test_group_3,[{repeat,1}]},ok}},
+         {groups_22_SUITE,{init_per_group,test_group_3,[{repeat,2}]},ok}},
 	{?eh,tc_start,{groups_22_SUITE,testcase_3a}},
 	{?eh,tc_done,{groups_22_SUITE,testcase_3a,ok}},
 	{?eh,tc_start,{groups_22_SUITE,testcase_3b}},
 	{?eh,tc_done,{groups_22_SUITE,testcase_3b,ok}},
 	{?eh,tc_start,
-         {groups_22_SUITE,{end_per_group,test_group_3,[{repeat,1}]}}},
+         {groups_22_SUITE,{end_per_group,test_group_3,[{repeat,2}]}}},
 	{?eh,tc_done,
-         {groups_22_SUITE,{end_per_group,test_group_3,[{repeat,1}]},ok}}],
+         {groups_22_SUITE,{end_per_group,test_group_3,[{repeat,2}]},ok}}],
        [{?eh,tc_start,
 	 {groups_22_SUITE,{init_per_group,test_group_3,[]}}},
 	{?eh,tc_done,
@@ -1181,12 +1187,8 @@ test_events(groups_dirs_1) ->
          {groups_22_SUITE,{init_per_group,test_group_5,[parallel]}}},
 	{?eh,tc_done,
          {groups_22_SUITE,{init_per_group,test_group_5,[parallel]},ok}},
-
-	%% the done event could come in during the parallel subgroup
-	%% and we can't test that, yet...
-	%% {?eh,tc_start,{groups_22_SUITE,testcase_5a}},
-	%% {?eh,tc_done,{groups_22_SUITE,testcase_5a,ok}},
-
+	{?eh,tc_start,{groups_22_SUITE,testcase_5a}},
+	{?eh,tc_done,{groups_22_SUITE,testcase_5a,ok}},
 	{parallel,
 	 [{?eh,tc_start,
 	   {groups_22_SUITE,{init_per_group,test_group_6,[parallel]}}},

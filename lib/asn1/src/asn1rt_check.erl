@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,8 +18,6 @@
 %%
 %%
 -module(asn1rt_check).
-
--include("asn1_records.hrl").
 
 -export([check_bool/2,
 	 check_int/3,
@@ -311,7 +309,7 @@ transform_to_EXTERNAL1990([Data_val_desc,Data_value],Acc) when is_list(Data_valu
 				 Data_val_desc|Acc]));
 transform_to_EXTERNAL1990([Data_val_desc,Data_value],Acc)
   when is_binary(Data_value)->
-    list_to_tuple(lists:reverse([{'octet-aligned',binary_to_list(Data_value)},
+    list_to_tuple(lists:reverse([{'single-ASN1-type',Data_value},
 				 Data_val_desc|Acc]));
 transform_to_EXTERNAL1990([Data_value],Acc) when is_list(Data_value)->
     list_to_tuple(lists:reverse([{'octet-aligned',Data_value}|Acc])).

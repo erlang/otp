@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -20,25 +20,47 @@
 -module(port_bif_SUITE).
 
 
--export([all/1, command/1, command_e/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, command/1,
 	 command_e_1/1, command_e_2/1, command_e_3/1, command_e_4/1,
-	 port_info/1, port_info1/1, port_info2/1,
+	 port_info1/1, port_info2/1,
 	 connect/1, control/1, echo_to_busy/1]).
 
 -export([do_command_e_1/1, do_command_e_2/1, do_command_e_4/1]).
 
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
-all(suite) ->
-    [command, port_info, connect, control, echo_to_busy].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [command, {group, port_info}, connect, control,
+     echo_to_busy].
+
+groups() -> 
+    [{command_e, [],
+      [command_e_1, command_e_2, command_e_3, command_e_4]},
+     {port_info, [], [port_info1, port_info2]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 
 init_per_testcase(_Func, Config) when is_list(Config) ->
     Dog=test_server:timetrap(test_server:minutes(10)),
     [{watchdog, Dog}|Config].
-fin_per_testcase(_Func, Config) when is_list(Config) ->
+end_per_testcase(_Func, Config) when is_list(Config) ->
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog).
 
@@ -69,11 +91,6 @@ do_command(P, Data) ->
     end.
 
 
-command_e(suite) -> [command_e_1,
-		     command_e_2,
-		     command_e_3,
-		     command_e_4];
-command_e(doc) -> "Tests port_command/2 with errors".
 
 %% port_command/2: badarg 1st arg
 command_e_1(Config) when is_list(Config) ->
@@ -161,7 +178,6 @@ do_command_e_4(Program) ->
     ?line erlang:port_command(P, Data),
     exit(survived).
 
-port_info(suite) -> [port_info1, port_info2].
 
 %% Tests the port_info/1 BIF
 port_info1(Config) when is_list(Config) ->

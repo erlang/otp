@@ -41,7 +41,6 @@ RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 # Target Specs
 # ----------------------------------------------------
 MODULES = \
-	http \
 	httpc \
 	httpc_cookie \
 	httpc_handler \
@@ -51,7 +50,6 @@ MODULES = \
 	httpc_profile_sup \
 	httpc_response \
 	httpc_request \
-	http_uri \
 
 HRL_FILES = httpc_internal.hrl
 
@@ -61,20 +59,17 @@ TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
 
 # ----------------------------------------------------
-# INETS FLAGS
-# ----------------------------------------------------
-INETS_FLAGS = -D'SERVER_SOFTWARE="$(APPLICATION)/$(VSN)"'
-
-
-# ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-INETS_ERL_FLAGS += -I ../http_lib -I ../inets_app -pa ../../ebin
 
-ERL_COMPILE_FLAGS += $(INETS_ERL_FLAGS) \
-		     $(INETS_FLAGS) \
-                     +'{parse_transform,sys_pre_attributes}' \
-                     +'{attribute,insert,app_vsn,$(APP_VSN)}'
+include ../inets_app/inets.mk
+
+ERL_COMPILE_FLAGS += \
+	$(INETS_FLAGS) \
+	$(INETS_ERL_COMPILE_FLAGS) \
+	-I../../include \
+	-I../inets_app \
+	-I../http_lib
 
 
 # ----------------------------------------------------
@@ -94,9 +89,10 @@ docs:
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)/src
-	$(INSTALL_DATA) $(HRL_FILES) $(ERL_FILES) $(RELSYSDIR)/src
-	$(INSTALL_DIR) $(RELSYSDIR)/ebin
+	$(INSTALL_DIR)  $(RELSYSDIR)/src
+	$(INSTALL_DIR)  $(RELSYSDIR)/src/http_client
+	$(INSTALL_DATA) $(HRL_FILES) $(ERL_FILES) $(RELSYSDIR)/src/http_client
+	$(INSTALL_DIR)  $(RELSYSDIR)/ebin
 	$(INSTALL_DATA) $(TARGET_FILES) $(RELSYSDIR)/ebin
 
 release_docs_spec:

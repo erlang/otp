@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2009</year>
+      <year>1997</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -37,7 +37,7 @@
       binary and closing the connection:</p>
     <code type="none">
 client() ->
-    SomeHostInNet = "localhost" % to make it runnable on one machine
+    SomeHostInNet = "localhost", % to make it runnable on one machine
     {ok, Sock} = gen_tcp:connect(SomeHostInNet, 5678, 
                                  [binary, {packet, 0}]),
     ok = gen_tcp:send(Sock, "Some Data"),
@@ -63,35 +63,36 @@ do_recv(Sock, Bs) ->
     <p>For more examples, see the <seealso marker="#examples">examples</seealso> section.</p>
   </description>
 
-  <section>
-    <title>DATA TYPES</title>
-    <code type="none">
-ip_address()
-  see inet(3)
+  <datatypes>
+    <datatype>
+      <name name="option"/>
+    </datatype>
+    <datatype>
+      <name name="option_name"/>
+    </datatype>
+    <datatype>
+      <name name="connect_option"/>
+    </datatype>
+    <datatype>
+      <name name="listen_option"/>
+    </datatype>
+    <datatype>
+      <name><marker id="type-socket">socket()</marker></name>
+      <desc>
+        <p>As returned by accept/1,2 and connect/3,4.</p>
+        <marker id="connect"></marker>
+      </desc>
+    </datatype>
+  </datatypes>
 
-posix()
-  see inet(3)
-
-socket()
-  as returned by accept/1,2 and connect/3,4</code>
-  </section>
   <funcs>
     <func>
-      <name>connect(Address, Port, Options) -> {ok, Socket} | {error, Reason}</name>
-      <name>connect(Address, Port, Options, Timeout) -> {ok, Socket} | {error, Reason}</name>
+      <name name="connect" arity="3"/>
+      <name name="connect" arity="4"/>
       <fsummary>Connect to a TCP port</fsummary>
-      <type>
-        <v>Address = string() | atom() | ip_address()</v>
-        <v>Port = 0..65535</v>
-        <v>Options = [Opt]</v>
-        <v>&nbsp;Opt -- see below</v>
-        <v>Timeout = int() | infinity</v>
-        <v>Socket = socket()</v>
-        <v>Reason = posix()</v>
-      </type>
       <desc>
-        <p>Connects to a server on TCP port <c>Port</c> on the host
-          with IP address <c>Address</c>. The <c>Address</c> argument
+        <p>Connects to a server on TCP port <c><anno>Port</anno></c> on the host
+          with IP address <c><anno>Address</anno></c>. The <c><anno>Address</anno></c> argument
           can be either a hostname, or an IP address.</p>
         <p>The available options are:</p>
         <taglist>
@@ -112,7 +113,7 @@ socket()
           <item>
             <p>Specify which local port number to use.</p>
           </item>
-          <tag><c>{fd, int()}</c></tag>
+          <tag><c>{fd, integer() >= 0}</c></tag>
           <item>
             <p>If a socket has somehow been connected without using
               <c>gen_tcp</c>, use this option to pass the file
@@ -126,13 +127,13 @@ socket()
           <item>
             <p>Set up the socket for IPv4.</p>
           </item>
-          <tag>Opt</tag>
+          <tag><c>Opt</c></tag>
           <item>
             <p>See
               <seealso marker="inet#setopts/2">inet:setopts/2</seealso>.</p>
           </item>
         </taglist>
-        <p>Packets can be sent to the returned socket <c>Socket</c>
+        <p>Packets can be sent to the returned socket <c><anno>Socket</anno></c>
           using <c>send/2</c>. Packets sent from the peer are delivered
           as messages:</p>
         <code type="none">
@@ -147,7 +148,7 @@ socket()
         <p>unless <c>{active, false}</c> is specified in the option list
           for the socket, in which case packets are retrieved by
           calling <c>recv/2</c>.</p>
-        <p>The optional <c>Timeout</c> parameter specifies a timeout in
+        <p>The optional <c><anno>Timeout</anno></c> parameter specifies a timeout in
           milliseconds. The default value is <c>infinity</c>.</p>
         <note>
           <p>The default values for options given to <c>connect</c> can
@@ -158,19 +159,12 @@ socket()
       </desc>
     </func>
     <func>
-      <name>listen(Port, Options) -> {ok, ListenSocket} | {error, Reason}</name>
+      <name name="listen" arity="2"/>
       <fsummary>Set up a socket to listen on a port</fsummary>
-      <type>
-        <v>Port = 0..65535</v>
-        <v>Options = [Opt]</v>
-        <v>&nbsp;Opt -- see below</v>
-        <v>ListenSocket -- see below</v>
-        <v>Reason = posix()</v>
-      </type>
       <desc>
-        <p>Sets up a socket to listen on the port <c>Port</c> on
+        <p>Sets up a socket to listen on the port <c><anno>Port</anno></c> on
           the local host.</p>
-        <p>If <c>Port == 0</c>, the underlying OS assigns an available
+        <p>If <c><anno>Port</anno> == 0</c>, the underlying OS assigns an available
           port number, use <c>inet:port/1</c> to retrieve it.</p>
         <p>The available options are:</p>
         <taglist>
@@ -193,6 +187,10 @@ socket()
             <p>If the host has several network interfaces, this option
               specifies which one to listen on.</p>
           </item>
+          <tag><c>{port, Port}</c></tag>
+          <item>
+            <p>Specify which local port number to use.</p>
+          </item>
           <tag><c>{fd, Fd}</c></tag>
           <item>
             <p>If a socket has somehow been connected without using
@@ -213,7 +211,7 @@ socket()
               <seealso marker="inet#setopts/2">inet:setopts/2</seealso>.</p>
           </item>
         </taglist>
-        <p>The returned socket <c>ListenSocket</c> can only be used in
+        <p>The returned socket <c><anno>ListenSocket</anno></c> can only be used in
           calls to <c>accept/1,2</c>.</p>
         <note>
           <p>The default values for options given to <c>listen</c> can
@@ -224,27 +222,23 @@ socket()
       </desc>
     </func>
     <func>
-      <name>accept(ListenSocket) -> {ok, Socket} | {error, Reason}</name>
-      <name>accept(ListenSocket, Timeout) -> {ok, Socket} | {error, Reason}</name>
+      <name name="accept" arity="1"/>
+      <name name="accept" arity="2"/>
       <fsummary>Accept an incoming connection request on a listen socket</fsummary>
-      <type>
-        <v>ListenSocket -- see listen/2</v>
-        <v>Timeout = int() | infinity</v>
-        <v>Socket = socket()</v>
-        <v>Reason = closed | timeout | posix()</v>
-      </type>
+      <type_desc variable="ListenSocket">Returned by <c>listen/2</c>.
+      </type_desc>
       <desc>
         <p>Accepts an incoming connection request on a listen socket.
-          <c>Socket</c> must be a socket returned from <c>listen/2</c>.
-          <c>Timeout</c> specifies a timeout value in ms, defaults to
+          <c><anno>Socket</anno></c> must be a socket returned from <c>listen/2</c>.
+          <c><anno>Timeout</anno></c> specifies a timeout value in ms, defaults to
           <c>infinity</c>.</p>
-        <p>Returns <c>{ok, Socket}</c> if a connection is established,
-          or <c>{error, closed}</c> if <c>ListenSocket</c> is closed,
+        <p>Returns <c>{ok, <anno>Socket</anno>}</c> if a connection is established,
+          or <c>{error, closed}</c> if <c><anno>ListenSocket</anno></c> is closed,
           or <c>{error, timeout}</c> if no connection is established
           within the specified time. May also return a POSIX error
           value if something else goes wrong, see inet(3) for possible
           error values.</p>
-        <p>Packets can be sent to the returned socket <c>Socket</c>
+        <p>Packets can be sent to the returned socket <c><anno>Socket</anno></c>
           using <c>send/2</c>. Packets sent from the peer are delivered
           as messages:</p>
         <code type="none">
@@ -263,13 +257,8 @@ socket()
       </desc>
     </func>
     <func>
-      <name>send(Socket, Packet) -> ok | {error, Reason}</name>
+      <name name="send" arity="2"/>
       <fsummary>Send a packet</fsummary>
-      <type>
-        <v>Socket = socket()</v>
-        <v>Packet = [char()] | binary()</v>
-        <v>Reason = posix()</v>
-      </type>
       <desc>
         <p>Sends a packet on a socket. </p>
         <p>There is no <c>send</c> call with timeout option, you use the
@@ -278,69 +267,52 @@ socket()
       </desc>
     </func>
     <func>
-      <name>recv(Socket, Length) -> {ok, Packet} | {error, Reason}</name>
-      <name>recv(Socket, Length, Timeout) -> {ok, Packet} | {error, Reason}</name>
+      <name name="recv" arity="2"/>
+      <name name="recv" arity="3"/>
       <fsummary>Receive a packet from a passive socket</fsummary>
-      <type>
-        <v>Socket = socket()</v>
-        <v>Length  = int()</v>
-        <v>Packet = [char()] | binary()</v>
-        <v>Timeout = int() | infinity</v>
-        <v>Reason = closed | posix()</v>
-      </type>
+      <type_desc variable="HttpPacket">See the description of
+         <c>HttpPacket</c> in <seealso marker="erts:erlang#decode_packet/3">
+         erlang:decode_packet/3</seealso>.
+      </type_desc>
       <desc>
         <p>This function receives a packet from a socket in passive
           mode. A closed socket is indicated by a return value
           <c>{error, closed}</c>.</p>
-        <p>The <c>Length</c> argument is only meaningful when
+        <p>The <c><anno>Length</anno></c> argument is only meaningful when
           the socket is in <c>raw</c> mode and denotes the number of
-          bytes to read. If <c>Length</c> = 0, all available bytes are
-          returned. If <c>Length</c> &gt; 0, exactly <c>Length</c>
+          bytes to read. If <c><anno>Length</anno></c> = 0, all available bytes are
+          returned. If <c><anno>Length</anno></c> &gt; 0, exactly <c><anno>Length</anno></c>
           bytes are returned, or an error; possibly discarding less
-          than <c>Length</c> bytes of data when the socket gets closed
+          than <c><anno>Length</anno></c> bytes of data when the socket gets closed
           from the other side.</p>
-        <p>The optional <c>Timeout</c> parameter specifies a timeout in
+        <p>The optional <c><anno>Timeout</anno></c> parameter specifies a timeout in
           milliseconds. The default value is <c>infinity</c>.</p>
       </desc>
     </func>
     <func>
-      <name>controlling_process(Socket, Pid) -> ok | {error, Reason}</name>
+      <name name="controlling_process" arity="2"/>
       <fsummary>Change controlling process of a socket</fsummary>
-      <type>
-        <v>Socket = socket()</v>
-        <v>Pid = pid()</v>
-        <v>Reason = closed | not_owner | posix()</v>
-      </type>
       <desc>
-        <p>Assigns a new controlling process <c>Pid</c> to
-          <c>Socket</c>. The controlling process is the process which
+        <p>Assigns a new controlling process <c><anno>Pid</anno></c> to
+          <c><anno>Socket</anno></c>. The controlling process is the process which
           receives messages from the socket. If called by any other
           process than the current controlling process,
           <c>{error, eperm}</c> is returned.</p>
       </desc>
     </func>
     <func>
-      <name>close(Socket) -> ok | {error, Reason}</name>
+      <name name="close" arity="1"/>
       <fsummary>Close a TCP socket</fsummary>
-      <type>
-        <v>Socket = socket()</v>
-        <v>Reason = posix()</v>
-      </type>
       <desc>
         <p>Closes a TCP socket.</p>
       </desc>
     </func>
     <func>
-      <name>shutdown(Socket, How) -> ok | {error, Reason}</name>
+      <name name="shutdown" arity="2"/>
       <fsummary>Immediately close a socket</fsummary>
-      <type>
-        <v>Socket = socket()</v>
-        <v>How = read | write | read_write</v>
-        <v>Reason = posix()</v>
-      </type>
       <desc>
         <p>Immediately close a socket in one or two directions.</p>
-        <p><c>How == write</c> means closing the socket for writing,
+        <p><c><anno>How</anno> == write</c> means closing the socket for writing,
           reading from it is still possible.</p>
         <p>To be able to handle that the peer has done a shutdown on
           the write side, the <c>{exit_on_close, false}</c> option

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -80,7 +80,9 @@ new() ->
     Empty = mk_seg(?seg_size),
     #dict{empty=Empty,segs={Empty}}.
 
--spec is_key(term(), dict()) -> boolean().
+-spec is_key(Key, Dict) -> boolean() when
+      Key :: term(),
+      Dict :: dict().
 
 is_key(Key, D) ->
     Slot = get_slot(D, Key),
@@ -91,21 +93,29 @@ find_key(K, [?kv(K,_Val)|_]) -> true;
 find_key(K, [_|Bkt]) -> find_key(K, Bkt);
 find_key(_, []) -> false.
 
--spec to_list(dict()) -> [{term(), term()}].
+-spec to_list(Dict) -> List when
+      Dict :: dict(),
+      List :: [{Key :: term(), Value :: term()}].
 
 to_list(D) ->
     fold(fun (Key, Val, List) -> [{Key,Val}|List] end, [], D).
 
--spec from_list([{term(), term()}]) -> dict().
+-spec from_list(List) -> Dict when
+      List :: [{Key :: term(), Value :: term()}],
+      Dict :: dict().
 
 from_list(L) ->
     lists:foldl(fun ({K,V}, D) -> store(K, V, D) end, new(), L).
 
--spec size(dict()) -> non_neg_integer().
+-spec size(Dict) -> non_neg_integer() when
+      Dict :: dict().
 
 size(#dict{size=N}) when is_integer(N), N >= 0 -> N. 
 
--spec fetch(term(), dict()) -> term().
+-spec fetch(Key, Dict) -> Value when
+      Key :: term(),
+      Dict :: dict(),
+      Value :: term().
 
 fetch(Key, D) ->
     Slot = get_slot(D, Key),
@@ -119,7 +129,10 @@ fetch_val(K, [?kv(K,Val)|_]) -> Val;
 fetch_val(K, [_|Bkt]) -> fetch_val(K, Bkt);
 fetch_val(_, []) -> throw(badarg).
 
--spec find(term(), dict()) -> {'ok', term()} | 'error'.
+-spec find(Key, Dict) -> {'ok', Value} | 'error' when
+      Key :: term(),
+      Dict :: dict(),
+      Value :: term().
 
 find(Key, D) ->
     Slot = get_slot(D, Key),
@@ -130,12 +143,17 @@ find_val(K, [?kv(K,Val)|_]) -> {ok,Val};
 find_val(K, [_|Bkt]) -> find_val(K, Bkt);
 find_val(_, []) -> error.
 
--spec fetch_keys(dict()) -> [term()].
+-spec fetch_keys(Dict) -> Keys when
+      Dict :: dict(),
+      Keys :: [term()].
 
 fetch_keys(D) ->
     fold(fun (Key, _Val, Keys) -> [Key|Keys] end, [], D).
 
--spec erase(term(), dict()) -> dict().
+-spec erase(Key, Dict1) -> Dict2 when
+      Key :: term(),
+      Dict1 :: dict(),
+      Dict2 :: dict().
 %%  Erase all elements with key Key.
 
 erase(Key, D0) -> 
@@ -150,7 +168,11 @@ erase_key(Key, [E|Bkt0]) ->
     {[E|Bkt1],Dc};
 erase_key(_, []) -> {[],0}.
 
--spec store(term(), term(), dict()) -> dict().
+-spec store(Key, Value, Dict1) -> Dict2 when
+      Key :: term(),
+      Value :: term(),
+      Dict1 :: dict(),
+      Dict2 :: dict().
 
 store(Key, Val, D0) ->
     Slot = get_slot(D0, Key),
@@ -166,7 +188,11 @@ store_bkt_val(Key, New, [Other|Bkt0]) ->
     {[Other|Bkt1],Ic};
 store_bkt_val(Key, New, []) -> {[?kv(Key,New)],1}.
 
--spec append(term(), term(), dict()) -> dict().
+-spec append(Key, Value, Dict1) -> Dict2 when
+      Key :: term(),
+      Value :: term(),
+      Dict1 :: dict(),
+      Dict2 :: dict().
 
 append(Key, Val, D0) ->
     Slot = get_slot(D0, Key),
@@ -182,7 +208,11 @@ append_bkt(Key, Val, [Other|Bkt0]) ->
     {[Other|Bkt1],Ic};
 append_bkt(Key, Val, []) -> {[?kv(Key,[Val])],1}.
 
--spec append_list(term(), [term()], dict()) -> dict().
+-spec append_list(Key, ValList, Dict1) -> Dict2 when
+      Key :: term(),
+      ValList :: [Value :: term()],
+      Dict1 :: dict(),
+      Dict2 :: dict().
 
 append_list(Key, L, D0) ->
     Slot = get_slot(D0, Key),
@@ -252,7 +282,11 @@ app_list_bkt(Key, L, []) -> {[?kv(Key,L)],1}.
 %%     {Bkt1,Dc} = on_key_bkt(Key, F, Bkt0),
 %%     {[Other|Bkt1],Dc}.
 
--spec update(term(), fun((term()) -> term()), dict()) -> dict().
+-spec update(Key, Fun, Dict1) -> Dict2 when
+      Key :: term(),
+      Fun :: fun((Value1 :: term()) -> Value2 :: term()),
+      Dict1 :: dict(),
+      Dict2 :: dict().
 
 update(Key, F, D0) ->
     Slot = get_slot(D0, Key),
@@ -271,7 +305,12 @@ update_bkt(Key, F, [Other|Bkt0]) ->
 update_bkt(_Key, _F, []) ->
     throw(badarg).
 
--spec update(term(), fun((term()) -> term()), term(), dict()) -> dict().
+-spec update(Key, Fun, Initial, Dict1) -> Dict2 when
+      Key :: term(),
+      Initial :: term(),
+      Fun :: fun((Value1 :: term()) -> Value2 :: term()),
+      Dict1 :: dict(),
+      Dict2 :: dict().
 
 update(Key, F, Init, D0) ->
     Slot = get_slot(D0, Key),
@@ -286,7 +325,11 @@ update_bkt(Key, F, I, [Other|Bkt0]) ->
     {[Other|Bkt1],Ic};
 update_bkt(Key, F, I, []) when is_function(F, 1) -> {[?kv(Key,I)],1}.
 
--spec update_counter(term(), number(), dict()) -> dict().
+-spec update_counter(Key, Increment, Dict1) -> Dict2 when
+      Key :: term(),
+      Increment :: number(),
+      Dict1 :: dict(),
+      Dict2 :: dict().
 
 update_counter(Key, Incr, D0) when is_number(Incr) ->
     Slot = get_slot(D0, Key),
@@ -301,20 +344,38 @@ counter_bkt(Key, I, [Other|Bkt0]) ->
     {[Other|Bkt1],Ic};
 counter_bkt(Key, I, []) -> {[?kv(Key,I)],1}.
 
--spec fold(fun((term(), term(), term()) -> term()), term(), dict()) -> term().
+-spec fold(Fun, Acc0, Dict) -> Acc1 when
+      Fun :: fun((Key, Value, AccIn) -> AccOut),
+      Key :: term(),
+      Value :: term(),
+      Acc0 :: term(),
+      Acc1 :: term(),
+      AccIn :: term(),
+      AccOut :: term(),
+      Dict :: dict().
 %%  Fold function Fun over all "bags" in Table and return Accumulator.
 
 fold(F, Acc, D) -> fold_dict(F, Acc, D).
 
--spec map(fun((term(), term()) -> term()), dict()) -> dict().
+-spec map(Fun, Dict1) -> Dict2 when
+      Fun :: fun((Key :: term(), Value1 :: term()) -> Value2 :: term()),
+      Dict1 :: dict(),
+      Dict2 :: dict().
 
 map(F, D) -> map_dict(F, D).
 
--spec filter(fun((term(), term()) -> boolean()), dict()) -> dict().
+-spec filter(Pred, Dict1) -> Dict2 when
+      Pred :: fun((Key :: term(), Value :: term()) -> boolean()),
+      Dict1 :: dict(),
+      Dict2 :: dict().
 
 filter(F, D) -> filter_dict(F, D).
 
--spec merge(fun((term(), term(), term()) -> term()), dict(), dict()) -> dict().
+-spec merge(Fun, Dict1, Dict2) -> Dict3 when
+      Fun :: fun((Key :: term(), Value1 :: term(), Value2 :: term()) -> Value :: term()),
+      Dict1 :: dict(),
+      Dict2 :: dict(),
+      Dict3 :: dict().
 
 merge(F, D1, D2) when D1#dict.size < D2#dict.size ->
     fold_dict(fun (K, V1, D) ->

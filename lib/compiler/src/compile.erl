@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -29,6 +29,8 @@
 %% Erlc interface.
 -export([compile/3,compile_beam/3,compile_asm/3,compile_core/3]).
 
+-export_type([option/0]).
+
 -include("erl_compile.hrl").
 -include("core_parse.hrl").
 
@@ -39,8 +41,7 @@
 
 -type option() :: atom() | {atom(), term()} | {'d', atom(), term()}.
 
--type line()     :: integer().
--type err_info() :: {line(), module(), term()}. %% ErrorDescriptor
+-type err_info() :: {erl_scan:line(), module(), term()}. %% ErrorDescriptor
 -type errors()   :: [{file:filename(), [err_info()]}].
 -type warnings() :: [{file:filename(), [err_info()]}].
 -type mod_ret()  :: {'ok', module()}
@@ -68,7 +69,7 @@
 
 file(File) -> file(File, ?DEFAULT_OPTIONS).
 
--spec file(module() | file:filename(), [option()]) -> comp_ret().
+-spec file(module() | file:filename(), [option()] | option()) -> comp_ret().
 
 file(File, Opts) when is_list(Opts) ->
     do_compile({file,File}, Opts++env_default_opts());
@@ -86,6 +87,8 @@ forms(Forms, Opt) when is_atom(Opt) ->
 %% would have generated a Beam file, false otherwise (if only a binary or a
 %% listing file would have been generated).
 
+-spec output_generated([option()]) -> boolean().
+
 output_generated(Opts) ->
     noenv_output_generated(Opts++env_default_opts()).
 
@@ -93,6 +96,8 @@ output_generated(Opts) ->
 %% Variants of the same function that don't consult ERL_COMPILER_OPTIONS
 %% for default options.
 %%
+
+-spec noenv_file(module() | file:filename(), [option()] | option()) -> comp_ret().
 
 noenv_file(File, Opts) when is_list(Opts) ->
     do_compile({file,File}, Opts);
@@ -104,16 +109,20 @@ noenv_forms(Forms, Opts) when is_list(Opts) ->
 noenv_forms(Forms, Opt) when is_atom(Opt) ->
     noenv_forms(Forms, [Opt|?DEFAULT_OPTIONS]).
 
+-spec noenv_output_generated([option()]) -> boolean().
+
 noenv_output_generated(Opts) ->
-    any(fun ({save_binary,_F}) -> true;
+    {_,Passes} = passes(file, expand_opts(Opts)),
+    any(fun ({save_binary,_T,_F}) -> true;
 	    (_Other) -> false
-	end, passes(file, expand_opts(Opts))).
+	end, Passes).
 
 %%
 %%  Local functions
 %%
 
 -define(pass(P), {P,fun P/1}).
+-define(pass(P,T), {P,fun T/1,fun P/1}).
 
 env_default_opts() ->
     Key = "ERL_COMPILER_OPTIONS",
@@ -162,13 +171,12 @@ expand_opt(report, Os) ->
     [report_errors,report_warnings|Os];
 expand_opt(return, Os) ->
     [return_errors,return_warnings|Os];
-expand_opt(r11, Os) ->
-    [no_stack_trimming,no_binaries,no_constant_pool|Os];
+expand_opt(r12, Os) ->
+    [no_recv_opt,no_line_info|Os];
+expand_opt(r13, Os) ->
+    [no_recv_opt,no_line_info|Os];
 expand_opt({debug_info_key,_}=O, Os) ->
     [encrypt_debug_info,O|Os];
-expand_opt(no_binaries=O, Os) ->
-    %%Turn off the entire type optimization pass.
-    [no_topt,O|Os];
 expand_opt(no_float_opt, Os) ->
     %%Turn off the entire type optimization pass.
     [no_topt|Os];
@@ -199,6 +207,9 @@ format_error(write_error) ->
 format_error({rename,From,To,Error}) ->
     io_lib:format("failed to rename ~s to ~s: ~s",
 		  [From,To,file:format_error(Error)]);
+format_error({delete,File,Error}) ->
+    io_lib:format("failed to delete file ~s: ~s",
+		  [File,file:format_error(Error)]);
 format_error({delete_temp,File,Error}) ->
     io_lib:format("failed to delete temporary file ~s: ~s",
 		  [File,file:format_error(Error)]);
@@ -215,16 +226,16 @@ format_error({module_name,Mod,Filename}) ->
 		  [Mod,Filename]).
 
 %% The compile state record.
--record(compile, {filename="",
-		  dir="",
-		  base="",
-		  ifile="",
-		  ofile="",
+-record(compile, {filename="" :: file:filename(),
+		  dir=""      :: file:filename(),
+		  base=""     :: file:filename(),
+		  ifile=""    :: file:filename(),
+		  ofile=""    :: file:filename(),
 		  module=[],
 		  code=[],
 		  core_code=[],
 		  abstract_code=[],		%Abstract code for debugger.
-		  options=[],
+		  options=[]  :: [option()],
 		  errors=[],
 		  warnings=[]}).
 
@@ -234,26 +245,12 @@ internal(Master, Input, Opts) ->
 		      end}.
 
 internal({forms,Forms}, Opts) ->
-    Ps = passes(forms, Opts),
+    {_,Ps} = passes(forms, Opts),
     internal_comp(Ps, "", "", #compile{code=Forms,options=Opts});
 internal({file,File}, Opts) ->
-    Ps = passes(file, Opts),
+    {Ext,Ps} = passes(file, Opts),
     Compile = #compile{options=Opts},
-    case member(from_core, Opts) of
-	true -> internal_comp(Ps, File, ".core", Compile);
-	false ->
-	    case member(from_beam, Opts) of
-		true ->
-		    internal_comp(Ps, File, ".beam", Compile);
-		false ->
-		    case member(from_asm, Opts) orelse member(asm, Opts) of
-			true ->
-			    internal_comp(Ps, File, ".S", Compile);
-			false ->
-			    internal_comp(Ps, File, ".erl", Compile)
-		    end
-	    end
-    end.
+    internal_comp(Ps, File, Ext, Compile).
 
 internal_comp(Passes, File, Suffix, St0) ->
     Dir = filename:dirname(File),
@@ -295,15 +292,6 @@ fold_comp([{Name,Pass}|Ps], Run, St0) ->
     end;
 fold_comp([], _Run, St) -> {ok,St}.
 
-os_process_size() ->
-    case os:type() of
-	{unix, sunos} ->
-	    Size = os:cmd("ps -o vsz -p " ++ os:getpid() ++ " | tail -1"),
-	    list_to_integer(lib:nonl(Size));
-	_ ->
-	    0
-    end.
-
 run_tc({Name,Fun}, St) ->
     Before0 = statistics(runtime),
     Val = (catch Fun(St)),
@@ -312,13 +300,12 @@ run_tc({Name,Fun}, St) ->
     {After_c, _} = After0,
     Mem0 = erts_debug:flat_size(Val)*erlang:system_info(wordsize),
     Mem = lists:flatten(io_lib:format("~.1f kB", [Mem0/1024])),
-    Sz = lists:flatten(io_lib:format("~.1f MB", [os_process_size()/1024])),
-    io:format(" ~-30s: ~10.2f s ~12s ~10s\n",
-	      [Name,(After_c-Before_c) / 1000,Mem,Sz]),
+    io:format(" ~-30s: ~10.2f s ~12s\n",
+	      [Name,(After_c-Before_c) / 1000,Mem]),
     Val.
 
 comp_ret_ok(#compile{code=Code,warnings=Warn0,module=Mod,options=Opts}=St) ->
-    case member(warnings_as_errors, Opts) andalso length(Warn0) > 0 of
+    case werror(St) of
         true ->
             case member(report_warnings, Opts) of
                 true ->
@@ -353,6 +340,11 @@ comp_ret_err(#compile{warnings=Warn0,errors=Err0,options=Opts}=St) ->
 	false -> error
     end.
 
+not_werror(St) -> not werror(St).
+
+werror(#compile{options=Opts,warnings=Ws}) ->
+    Ws =/= [] andalso member(warnings_as_errors, Opts).
+
 %% messages_per_file([{File,[Message]}]) -> [{File,[Message]}]
 messages_per_file(Ms) ->
     T = lists:sort([{File,M} || {File,Messages} <- Ms, M <- Messages]),
@@ -371,42 +363,52 @@ mpf(Ms) ->
     [{File,[M || {F,M} <- Ms, F =:= File]} ||
 	File <- lists:usort([F || {F,_} <- Ms])].
 
-%% passes(form|file, [Option]) -> [{Name,PassFun}]
-%%  Figure out which passes that need to be run.
+%% passes(forms|file, [Option]) -> {Extension,[{Name,PassFun}]}
+%%  Figure out the extension of the input file and which passes
+%%  that need to be run.
 
-passes(forms, Opts) ->
-    case member(from_core, Opts) of
-	true ->
-	    select_passes(core_passes(), Opts);
-	false ->
-	    select_passes(standard_passes(), Opts)
+passes(Type, Opts) ->
+    {Ext,Passes0} = passes_1(Opts),
+    Passes1 = case Type of
+		  file -> Passes0;
+		  forms -> tl(Passes0)
+	      end,
+    Passes = select_passes(Passes1, Opts),
+
+    %% If the last pass saves the resulting binary to a file,
+    %% insert a first pass to remove the file (unless the
+    %% source file is a BEAM file).
+    {Ext,case last(Passes) of
+	     {save_binary,_TestFun,_Fun} ->
+		 case Passes of
+		     [{read_beam_file,_}|_] ->
+			 %% The BEAM is both input and output.
+			 %% Don't remove it.
+			 Passes;
+		     _ ->
+			 [?pass(remove_file)|Passes]
+		 end;
+	     _ ->
+		 Passes
+	 end}.
+
+passes_1([Opt|Opts]) ->
+    case pass(Opt) of
+	{_,_}=Res -> Res;
+	none -> passes_1(Opts)
     end;
-passes(file, Opts) ->
-    case member(from_beam, Opts) of
-	true ->
-	    Ps = [?pass(read_beam_file)|binary_passes()],
-	    select_passes(Ps, Opts);
-	false ->
-	    Ps = case member(from_asm, Opts) orelse member(asm, Opts) of
-		     true ->
-			 [?pass(beam_consult_asm)|asm_passes()];
-		     false ->
-			 case member(from_core, Opts) of
-			     true ->
-				 [?pass(parse_core)|core_passes()];
-			     false ->
-				 [?pass(parse_module)|standard_passes()]
-			 end
-		 end,
-	    Fs = select_passes(Ps, Opts),
+passes_1([]) ->
+    {".erl",[?pass(parse_module)|standard_passes()]}.
 
-	    %% If the last pass saves the resulting binary to a file,
-	    %% insert a first pass to remove the file.
-	    case last(Fs)  of
-		{save_binary,_Fun} -> [?pass(remove_file)|Fs];
-		_Other -> Fs
-	    end
-    end.
+pass(from_core) ->
+    {".core",[?pass(parse_core)|core_passes()]};
+pass(from_asm) ->
+    {".S",[?pass(beam_consult_asm)|asm_passes()]};
+pass(asm) ->
+    pass(from_asm);
+pass(from_beam) ->
+    {".beam",[?pass(read_beam_file)|binary_passes()]};
+pass(_) -> none.
 
 %% select_passes([Command], Opts) -> [{Name,Function}]
 %%  Interpret the lists of commands to return a pure list of passes.
@@ -438,6 +440,8 @@ passes(file, Opts) ->
 %%			representation.  The extension of the listing
 %%			file will be Ext.  (Ext should not contain
 %%			a period.)   No more passes will be run.
+%%
+%%    done              End compilation at this point.
 %%
 %%    {done,Ext}        End compilation at this point. Produce a listing
 %%                      as with {listing,Ext}, unless 'binary' is
@@ -472,6 +476,8 @@ select_passes([{src_listing,Ext}|_], _Opts) ->
     [{listing,fun (St) -> src_listing(Ext, St) end}];
 select_passes([{listing,Ext}|_], _Opts) ->
     [{listing,fun (St) -> listing(Ext, St) end}];
+select_passes([done|_], _Opts) ->
+    [];
 select_passes([{done,Ext}|_], Opts) ->
     select_passes([{unless,binary,{listing,Ext}}], Opts);
 select_passes([{iff,Flag,Pass}|Ps], Opts) ->
@@ -554,6 +560,13 @@ select_list_passes_1([], _, Acc) ->
 
 standard_passes() ->
     [?pass(transform_module),
+
+     {iff,makedep,[
+	 ?pass(makedep),
+	 {unless,binary,?pass(makedep_output)}
+       ]},
+     {iff,makedep,done},
+
      {iff,'dpp',{listing,"pp"}},
      ?pass(lint_module),
      {iff,'P',{src_listing,"P"}},
@@ -590,7 +603,7 @@ core_passes() ->
 
 kernel_passes() ->
     %% Destructive setelement/3 optimization and core lint.
-    [{unless,no_constant_pool,?pass(core_dsetel_module)}, %Not safe without constant pool.
+    [?pass(core_dsetel_module),
      {iff,dsetel,{listing,"dsetel"}},
 
      {iff,clint,?pass(core_lint_module)},
@@ -626,6 +639,8 @@ asm_passes() ->
 	 {iff,dclean,{listing,"clean"}},
 	 {unless,no_bsm_opt,{pass,beam_bsm}},
 	 {iff,dbsm,{listing,"bsm"}},
+	 {unless,no_recv_opt,{pass,beam_receive}},
+	 {iff,drecv,{listing,"recv"}},
 	 {unless,no_stack_trimming,{pass,beam_trim}},
 	 {iff,dtrim,{listing,"trim"}},
 	 {pass,beam_flatten}]},
@@ -646,7 +661,7 @@ asm_passes() ->
 
 binary_passes() ->
     [{native_compile,fun test_native/1,fun native_compile/1},
-     {unless,binary,?pass(save_binary)}].
+     {unless,binary,?pass(save_binary,not_werror)}].
 
 %%%
 %%% Compiler passes.
@@ -826,6 +841,10 @@ foldl_transform(St, [T|Ts]) ->
 	{'EXIT',R} ->
 	    Es = [{St#compile.ifile,[{none,compile,{parse_transform,T,R}}]}],
 	    {error,St#compile{errors=St#compile.errors ++ Es}};
+	{warning, Forms, Ws} ->
+	    foldl_transform(
+	      St#compile{code=Forms,
+			 warnings=St#compile.warnings ++ Ws}, Ts);
 	Forms ->
 	    foldl_transform(St#compile{code=Forms}, Ts)
     end;
@@ -835,7 +854,6 @@ get_core_transforms(Opts) -> [M || {core_transform,M} <- Opts].
 
 core_transforms(St) ->
     %% The options field holds the complete list of options at this
-
     Ts = get_core_transforms(St#compile.options),
     foldl_core_transforms(St, Ts).
 
@@ -900,6 +918,184 @@ core_lint_module(St) ->
 			      errors=St#compile.errors ++ Es}}
     end.
 
+makedep(#compile{code=Code,options=Opts}=St) ->
+    Ifile = St#compile.ifile,
+    Ofile = St#compile.ofile,
+
+    %% Get the target of the Makefile rule.
+    Target0 =
+	case proplists:get_value(makedep_target, Opts) of
+	    undefined ->
+		%% The target is derived from the output filename: possibly
+		%% remove the current working directory to obtain a relative
+		%% path.
+		shorten_filename(Ofile);
+	    T ->
+		%% The caller specified one.
+		T
+	end,
+
+    %% Quote the target is the called asked for this.
+    Target1 = case proplists:get_value(makedep_quote_target, Opts) of
+		  true ->
+		      %% For now, only "$" is replaced by "$$".
+		      Fun = fun
+				($$) -> "$$";
+				(C)  -> C
+			    end,
+		      map(Fun, Target0);
+		  _ ->
+		      Target0
+	      end,
+    Target = Target1 ++ ":",
+
+    %% List the dependencies (includes) for this target.
+    {MainRule,PhonyRules} = makedep_add_headers(
+      Ifile,          % The input file name.
+      Code,           % The parsed source.
+      [],             % The list of dependencies already added.
+      length(Target), % The current line length.
+      Target,         % The target.
+      "",             % Phony targets.
+      Opts),
+
+    %% Prepare the content of the Makefile. For instance:
+    %%   hello.erl: hello.hrl common.hrl
+    %%
+    %% Or if phony targets are enabled:
+    %%   hello.erl: hello.hrl common.hrl
+    %%
+    %%   hello.hrl:
+    %%
+    %%   common.hrl:
+    Makefile = case proplists:get_value(makedep_phony, Opts) of
+		   true -> MainRule ++ PhonyRules;
+		   _ -> MainRule
+	       end,
+    {ok,St#compile{code=iolist_to_binary([Makefile,"\n"])}}.
+
+makedep_add_headers(Ifile, [{attribute,_,file,{File,_}}|Rest],
+		    Included, LineLen, MainTarget, Phony, Opts) ->
+    %% The header "File" exists, add it to the dependencies.
+    {Included1,LineLen1,MainTarget1,Phony1} =
+	makedep_add_header(Ifile, Included, LineLen, MainTarget, Phony, File),
+    makedep_add_headers(Ifile, Rest, Included1, LineLen1,
+			MainTarget1, Phony1, Opts);
+makedep_add_headers(Ifile, [{error,{_,epp,{include,file,File}}}|Rest],
+		    Included, LineLen, MainTarget, Phony, Opts) ->
+    %% The header "File" doesn't exist, do we add it to the dependencies?
+    case proplists:get_value(makedep_add_missing, Opts) of
+        true ->
+            {Included1,LineLen1,MainTarget1,Phony1} =
+		makedep_add_header(Ifile, Included, LineLen, MainTarget,
+				   Phony, File),
+            makedep_add_headers(Ifile, Rest, Included1, LineLen1,
+				MainTarget1, Phony1, Opts);
+        _ ->
+            makedep_add_headers(Ifile, Rest, Included, LineLen,
+				MainTarget, Phony, Opts)
+    end;
+makedep_add_headers(Ifile, [_|Rest], Included, LineLen,
+		    MainTarget, Phony, Opts) ->
+    makedep_add_headers(Ifile, Rest, Included,
+			LineLen, MainTarget, Phony, Opts);
+makedep_add_headers(_Ifile, [], _Included, _LineLen,
+		    MainTarget, Phony, _Opts) ->
+    {MainTarget,Phony}.
+
+makedep_add_header(Ifile, Included, LineLen, MainTarget, Phony, File) ->
+    case member(File, Included) of
+	true ->
+	    %% This file was already listed in the dependencies, skip it.
+            {Included,LineLen,MainTarget,Phony};
+	false ->
+            Included1 = [File|Included],
+
+	    %% Remove "./" in front of the dependency filename.
+	    File1 = case File of
+			"./" ++ File0 -> File0;
+			_ -> File
+	    end,
+
+	    %% Prepare the phony target name.
+	    Phony1 = case File of
+			 Ifile -> Phony;
+			 _     -> Phony ++ "\n\n" ++ File1 ++ ":"
+	    end,
+
+	    %% Add the file to the dependencies. Lines longer than 76 columns
+	    %% are splitted.
+	    if
+		LineLen + 1 + length(File1) > 76 ->
+                    LineLen1 = 2 + length(File1),
+                    MainTarget1 = MainTarget ++ " \\\n  " ++ File1,
+                    {Included1,LineLen1,MainTarget1,Phony1};
+		true ->
+                    LineLen1 = LineLen + 1 + length(File1),
+                    MainTarget1 = MainTarget ++ " " ++ File1,
+                    {Included1,LineLen1,MainTarget1,Phony1}
+	    end
+    end.
+
+makedep_output(#compile{code=Code,options=Opts,ofile=Ofile}=St) ->
+    %% Write this Makefile (Code) to the selected output.
+    %% If no output is specified, the default is to write to a file named after
+    %% the output file.
+    Output0 = case proplists:get_value(makedep_output, Opts) of
+		  undefined ->
+		      %% Prepare the default filename.
+		      outfile(filename:basename(Ofile, ".beam"), "Pbeam", Opts);
+		  O ->
+		      O
+	      end,
+
+    %% If the caller specified an io_device(), there's nothing to do. If he
+    %% specified a filename, we must create it. Furthermore, this created file
+    %% must be closed before returning.
+    Ret = case Output0 of
+	      _ when is_list(Output0) ->
+		  case file:delete(Output0) of
+		      Ret2 when Ret2 =:= ok; Ret2 =:= {error,enoent} ->
+			  case file:open(Output0, [write]) of
+			      {ok,IODev} ->
+				  {ok,IODev,true};
+			      {error,Reason2} ->
+				  {error,open,Reason2}
+			  end;
+		      {error,Reason1} ->
+			  {error,delete,Reason1}
+		  end;
+	      _ ->
+		  {ok,Output0,false}
+	  end,
+
+    case Ret of
+	{ok,Output1,CloseOutput} ->
+	    try
+		%% Write the Makefile.
+		io:fwrite(Output1, "~s", [Code]),
+		%% Close the file if relevant.
+		if
+		    CloseOutput -> file:close(Output1);
+		    true -> ok
+		end,
+		{ok,St}
+	    catch
+		exit:_ ->
+		    %% Couldn't write to output Makefile.
+		    Err = {St#compile.ifile,[{none,?MODULE,write_error}]},
+		    {error,St#compile{errors=St#compile.errors++[Err]}}
+	    end;
+	{error,open,Reason} ->
+	    %% Couldn't open output Makefile.
+	    Err = {St#compile.ifile,[{none,?MODULE,{open,Reason}}]},
+	    {error,St#compile{errors=St#compile.errors++[Err]}};
+	{error,delete,Reason} ->
+	    %% Couldn't open output Makefile.
+	    Err = {St#compile.ifile,[{none,?MODULE,{delete,Output0,Reason}}]},
+	    {error,St#compile{errors=St#compile.errors++[Err]}}
+    end.
+
 %% expand_module(State) -> State'
 %%  Do the common preprocessing of the input forms.
 
@@ -909,13 +1105,8 @@ expand_module(#compile{code=Code,options=Opts0}=St0) ->
     {ok,St0#compile{module=Mod,options=Opts,code={Mod,Exp,Forms}}}.
 
 core_module(#compile{code=Code0,options=Opts}=St) ->
-    case v3_core:module(Code0, Opts) of
-	{ok,Code,Ws} ->
-	    {ok,St#compile{code=Code,warnings=St#compile.warnings ++ Ws}};
-	{error,Es,Ws} ->
-	    {error,St#compile{warnings=St#compile.warnings ++ Ws,
-			      errors=St#compile.errors ++ Es}}
-    end.
+    {ok,Code,Ws} = v3_core:module(Code0, Opts),
+    {ok,St#compile{code=Code,warnings=St#compile.warnings ++ Ws}}.
 
 core_fold_module(#compile{code=Code0,options=Opts,warnings=Warns}=St) ->
     {ok,Code,Ws} = sys_core_fold:module(Code0, Opts),
@@ -1184,38 +1375,44 @@ write_binary(Name, Bin, St) ->
 %% report_errors(State) -> ok
 %% report_warnings(State) -> ok
 
-report_errors(St) ->
-    case member(report_errors, St#compile.options) of
+report_errors(#compile{options=Opts,errors=Errors}) ->
+    case member(report_errors, Opts) of
 	true ->
 	    foreach(fun ({{F,_L},Eds}) -> list_errors(F, Eds);
 			({F,Eds}) -> list_errors(F, Eds) end,
-		    St#compile.errors);
+		    Errors);
 	false -> ok
     end.
 
 report_warnings(#compile{options=Opts,warnings=Ws0}) ->
-    case member(report_warnings, Opts) of
+    Werror = member(warnings_as_errors, Opts),
+    P = case Werror of
+	    true -> "";
+	    false -> "Warning: "
+	end,
+    ReportWerror = Werror andalso member(report_errors, Opts),
+    case member(report_warnings, Opts) orelse ReportWerror of
 	true ->
-	    Ws1 = flatmap(fun({{F,_L},Eds}) -> format_message(F, Eds);
-			     ({F,Eds}) -> format_message(F, Eds) end,
+	    Ws1 = flatmap(fun({{F,_L},Eds}) -> format_message(F, P, Eds);
+			     ({F,Eds}) -> format_message(F, P, Eds) end,
 			  Ws0),
 	    Ws = lists:sort(Ws1),
 	    foreach(fun({_,Str}) -> io:put_chars(Str) end, Ws);
 	false -> ok
     end.
 
-format_message(F, [{{Line,Column}=Loc,Mod,E}|Es]) ->
-    M = {{F,Loc},io_lib:format("~s:~w:~w Warning: ~s\n",
-                                [F,Line,Column,Mod:format_error(E)])},
-    [M|format_message(F, Es)];
-format_message(F, [{Line,Mod,E}|Es]) ->
-    M = {{F,{Line,0}},io_lib:format("~s:~w: Warning: ~s\n",
-                                [F,Line,Mod:format_error(E)])},
-    [M|format_message(F, Es)];
-format_message(F, [{Mod,E}|Es]) ->
-    M = {none,io_lib:format("~s: Warning: ~s\n", [F,Mod:format_error(E)])},
-    [M|format_message(F, Es)];
-format_message(_, []) -> [].
+format_message(F, P, [{{Line,Column}=Loc,Mod,E}|Es]) ->
+    M = {{F,Loc},io_lib:format("~s:~w:~w ~s~s\n",
+                                [F,Line,Column,P,Mod:format_error(E)])},
+    [M|format_message(F, P, Es)];
+format_message(F, P, [{Line,Mod,E}|Es]) ->
+    M = {{F,{Line,0}},io_lib:format("~s:~w: ~s~s\n",
+                                [F,Line,P,Mod:format_error(E)])},
+    [M|format_message(F, P, Es)];
+format_message(F, P, [{Mod,E}|Es]) ->
+    M = {none,io_lib:format("~s: ~s~s\n", [F,P,Mod:format_error(E)])},
+    [M|format_message(F, P, Es)];
+format_message(_, _, []) -> [].
 
 %% list_errors(File, ErrorDescriptors) -> ok
 
@@ -1241,6 +1438,8 @@ iofile(File) when is_atom(File) ->
 iofile(File) ->
     {filename:dirname(File), filename:basename(File, ".erl")}.
 
+erlfile(".", Base, Suffix) ->
+    Base ++ Suffix;
 erlfile(Dir, Base, Suffix) ->
     filename:join(Dir, Base ++ Suffix).
 
@@ -1313,6 +1512,8 @@ restore_expand_module([{attribute,Line,opaque,[Type]}|Fs]) ->
     [{attribute,Line,opaque,Type}|restore_expand_module(Fs)];
 restore_expand_module([{attribute,Line,spec,[Arg]}|Fs]) ->
     [{attribute,Line,spec,Arg}|restore_expand_module(Fs)];
+restore_expand_module([{attribute,Line,callback,[Arg]}|Fs]) ->
+    [{attribute,Line,callback,Arg}|restore_expand_module(Fs)];
 restore_expand_module([F|Fs]) ->
     [F|restore_expand_module(Fs)];
 restore_expand_module([]) -> [].

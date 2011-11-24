@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -29,13 +29,23 @@
 
 -record(testspec, {spec_dir,
 	           nodes=[],
+		   init=[],
+		   label=[],
+		   profile=[],
 		   logdir=["."],
+		   logopts=[],
 		   cover=[],
 		   config=[],
+		   userconfig=[],
 		   event_handler=[],
+		   ct_hooks=[],
+		   enable_builtin_hooks=true,
 		   include=[],
+		   multiply_timetraps=[],
+		   scale_timetraps=[],
 		   alias=[],
-		   tests=[]}).
+		   tests=[],
+		   merge_tests = true }).
 
 -record(cover, {app=none,
 		level=details,
@@ -50,3 +60,6 @@
 -define(CT_MEVMGR_REF, ct_master_event).
 
 -define(missing_suites_info, "missing_suites.info").
+-define(ct_config_txt, ct_config_plain).
+
+-define(ct_profile_file, ".common_test").

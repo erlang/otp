@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -36,6 +36,7 @@
 #include "beam_bp.h"
 #include "erl_db_util.h"
 #include "register.h"
+#include "erl_thr_progress.h"
 
 static Export* flush_monitor_message_trap = NULL;
 static Export* set_cpu_topology_trap = NULL;
@@ -368,7 +369,6 @@ static int demonitor(Process *c_p, Eterm ref)
    ErtsMonitor *mon = NULL;  /* The monitor entry to delete */
    Process  *rp;    /* Local target process */
    Eterm     to = NIL;    /* Monitor link traget */
-   Eterm     ref_p; /* Pid of this end */
    DistEntry *dep = NULL;  /* Target's distribution entry */
    int deref_de = 0;
    int res;
@@ -381,7 +381,6 @@ static int demonitor(Process *c_p, Eterm ref)
        res = ERTS_DEMONITOR_BADARG;
        goto done; /* Cannot be this monitor's ref */
    }
-   ref_p = c_p->id;
 
    mon = erts_lookup_monitor(c_p->monitors, ref);
    if (!mon) {
@@ -616,13 +615,15 @@ local_name_monitor(Process *p, Eterm target_name)
     rp = erts_whereis_process(p, p_locks, target_name, ERTS_PROC_LOCK_LINK,
 			      ERTS_P2P_FLG_ALLOW_OTHER_X);
     if (!rp) {
-	Eterm lhp[3];
+	DeclareTmpHeap(lhp,3,p);
 	Eterm item;
+	UseTmpHeap(3,p);
 	erts_smp_proc_unlock(p, ERTS_PROC_LOCK_LINK);
 	p_locks &= ~ERTS_PROC_LOCK_LINK;
 	item = TUPLE2(lhp, target_name, erts_this_dist_entry->sysname);
 	erts_queue_monitor_message(p, &p_locks,
 				   mon_ref, am_process, item, am_noproc);
+	UnUseTmpHeap(3,p);
     }
     else if (rp != p) {
 	erts_add_monitor(&(p->monitors), MON_ORIGIN, mon_ref, rp->id,
@@ -811,7 +812,7 @@ BIF_RETTYPE spawn_opt_1(BIF_ALIST_1)
     so.min_heap_size  = H_MIN_SIZE;
     so.min_vheap_size = BIN_VH_MIN_SIZE;
     so.priority       = PRIORITY_NORMAL;
-    so.max_gen_gcs    = (Uint16) erts_smp_atomic_read(&erts_max_gen_gcs);
+    so.max_gen_gcs    = (Uint16) erts_smp_atomic32_read_nob(&erts_max_gen_gcs);
     so.scheduler      = 0;
 
     /*
@@ -1089,17 +1090,27 @@ BIF_RETTYPE unlink_1(BIF_ALIST_1)
 BIF_RETTYPE hibernate_3(BIF_ALIST_3)
 {
     /*
-     * hibernate/3 is implemented as an instruction; therefore
-     * this function will never be called.
+     * hibernate/3 is usually translated to an instruction; therefore
+     * this function is only called from HiPE or when the call could not
+     * be translated.
      */
-    BIF_ERROR(BIF_P, BADARG);
+    Eterm reg[3];
+
+    if (erts_hibernate(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, reg)) {
+        /*
+         * If hibernate succeeded, TRAP. The process will be suspended
+         * if status is P_WAITING or continue (if any message was in the queue).
+         */
+        BIF_TRAP_CODE_PTR_(BIF_P, BIF_P->i);
+    }
+    return THE_NON_VALUE;
 }
 
 /**********************************************************************/
 
-BIF_RETTYPE get_stacktrace_0(Process* p)
+BIF_RETTYPE get_stacktrace_0(BIF_ALIST_0)
 {
-    Eterm t = build_stacktrace(p, p->ftrace);
+    Eterm t = build_stacktrace(BIF_P, BIF_P->ftrace);
     BIF_RET(t);
 }
 
@@ -1109,10 +1120,10 @@ BIF_RETTYPE get_stacktrace_0(Process* p)
  * the process, and the final error value will be {Term,StackTrace}.
  */
 
-BIF_RETTYPE error_1(Process* p, Eterm term)
+BIF_RETTYPE error_1(BIF_ALIST_1)
 {
-    p->fvalue = term;
-    BIF_ERROR(p, EXC_ERROR);
+    BIF_P->fvalue = BIF_ARG_1;
+    BIF_ERROR(BIF_P, EXC_ERROR);
 }
 
 /**********************************************************************/
@@ -1121,12 +1132,40 @@ BIF_RETTYPE error_1(Process* p, Eterm term)
  * in the stacktrace.
  */
 
-BIF_RETTYPE error_2(Process* p, Eterm value, Eterm args)
+BIF_RETTYPE error_2(BIF_ALIST_2)
 {
-    Eterm* hp = HAlloc(p, 3);
+    Eterm* hp = HAlloc(BIF_P, 3);
 
-    p->fvalue = TUPLE2(hp, value, args);
-    BIF_ERROR(p, EXC_ERROR_2);
+    BIF_P->fvalue = TUPLE2(hp, BIF_ARG_1, BIF_ARG_2);
+    BIF_ERROR(BIF_P, EXC_ERROR_2);
+}
+
+/**********************************************************************/
+/*
+ * This is like exactly like error/1. The only difference is
+ * that Dialyzer thinks that it it will return an arbitrary term.
+ * It is useful in stub functions for NIFs.
+ */
+
+BIF_RETTYPE nif_error_1(BIF_ALIST_1)
+{
+    BIF_P->fvalue = BIF_ARG_1;
+    BIF_ERROR(BIF_P, EXC_ERROR);
+}
+
+/**********************************************************************/
+/*
+ * This is like exactly like error/2. The only difference is
+ * that Dialyzer thinks that it it will return an arbitrary term.
+ * It is useful in stub functions for NIFs.
+ */
+
+BIF_RETTYPE nif_error_2(BIF_ALIST_2)
+{
+    Eterm* hp = HAlloc(BIF_P, 3);
+
+    BIF_P->fvalue = TUPLE2(hp, BIF_ARG_1, BIF_ARG_2);
+    BIF_ERROR(BIF_P, EXC_ERROR_2);
 }
 
 /**********************************************************************/
@@ -1145,14 +1184,19 @@ BIF_RETTYPE exit_1(BIF_ALIST_1)
  * If there is an error in the argument format, 
  * return the atom 'badarg' instead.
  */
-Eterm 
-raise_3(Process *c_p, Eterm class, Eterm value, Eterm stacktrace) {
+BIF_RETTYPE raise_3(BIF_ALIST_3)
+{
+    Process *c_p = BIF_P;
+    Eterm class = BIF_ARG_1;
+    Eterm value = BIF_ARG_2;
+    Eterm stacktrace = BIF_ARG_3;
     Eterm reason;
     Eterm l, *hp, *hp_end, *tp;
     int depth, cnt;
     size_t sz;
+    int must_copy = 0;
     struct StackTrace *s;
-    
+
     if (class == am_error) {
 	c_p->fvalue = value;
 	reason = EXC_ERROR;
@@ -1168,35 +1212,74 @@ raise_3(Process *c_p, Eterm class, Eterm value, Eterm stacktrace) {
     /* Check syntax of stacktrace, and count depth.
      * Accept anything that can be returned from erlang:get_stacktrace/0,
      * as well as a 2-tuple with a fun as first element that the
-     * error_handler may need to give us.
+     * error_handler may need to give us. Also allow old-style
+     * MFA three-tuples.
      */
     for (l = stacktrace, depth = 0;  
 	 is_list(l);  
 	 l = CDR(list_val(l)), depth++) {
 	Eterm t = CAR(list_val(l));
-	int arity;
+	Eterm location = NIL;
+
 	if (is_not_tuple(t)) goto error;
 	tp = tuple_val(t);
-	arity = arityval(tp[0]);
-	if ((arity == 3) && is_atom(tp[1]) && is_atom(tp[2])) continue;
-	if ((arity == 2) && is_fun(tp[1])) continue;
-	goto error;
+	switch (arityval(tp[0])) {
+	case 2:
+	    /* {Fun,Args} */
+	    if (is_fun(tp[1])) {
+		must_copy = 1;
+	    } else {
+		goto error;
+	    }
+	    break;
+	case 3:
+	    /*
+	     * One of:
+	     * {Fun,Args,Location}
+	     * {M,F,A}
+	     */
+	    if (is_fun(tp[1])) {
+		location = tp[3];
+	    } else if (is_atom(tp[1]) && is_atom(tp[2])) {
+		must_copy = 1;
+	    } else {
+		goto error;
+	    }
+	    break;
+	case 4:
+	    if (!(is_atom(tp[1]) && is_atom(tp[2]))) {
+		goto error;
+	    }
+	    location = tp[4];
+	    break;
+	default:
+	    goto error;
+	}
+	if (is_not_list(location) && is_not_nil(location)) {
+	    goto error;
+	}
     }
     if (is_not_nil(l)) goto error;
     
     /* Create stacktrace and store */
-    if (depth <= erts_backtrace_depth) {
+    if (erts_backtrace_depth < depth) {
+	depth = erts_backtrace_depth;
+	must_copy = 1;
+    }
+    if (must_copy) {
+	cnt = depth;
+	c_p->ftrace = NIL;
+    } else {
+	/* No need to copy the stacktrace */
 	cnt = 0;
 	c_p->ftrace = stacktrace;
-    } else {
-	cnt = depth = erts_backtrace_depth;
-	c_p->ftrace = NIL;
     }
+
     tp = &c_p->ftrace;
     sz = (offsetof(struct StackTrace, trace) + sizeof(Eterm) - 1) 
 	/ sizeof(Eterm);
-    hp = HAlloc(c_p, sz + 2*(cnt + 1));
-    hp_end = hp + sz + 2*(cnt + 1);
+    hp = HAlloc(c_p, sz + (2+6)*(cnt + 1));
+    hp_end = hp + sz + (2+6)*(cnt + 1);
     s = (struct StackTrace *) hp;
     s->header = make_neg_bignum_header(sz - 1);
     s->freason = reason;
@@ -1204,13 +1287,29 @@ raise_3(Process *c_p, Eterm class, Eterm value, Eterm stacktrace) {
     s->current = NULL;
     s->depth = 0;
     hp += sz;
-    if (cnt > 0) {
+    if (must_copy) {
+	int cnt;
+
 	/* Copy list up to depth */
 	for (cnt = 0, l = stacktrace;
 	     cnt < depth;
 	     cnt++, l = CDR(list_val(l))) {
+	    Eterm t;
+	    Eterm *tpp;
+	    int arity;
+
 	    ASSERT(*tp == NIL);
-	    *tp = CONS(hp, CAR(list_val(l)), *tp);
+	    t = CAR(list_val(l));
+	    tpp = tuple_val(t);
+	    arity = arityval(tpp[0]);
+	    if (arity == 2) {
+		t = TUPLE3(hp, tpp[1], tpp[2], NIL);
+		hp += 4;
+	    } else if (arity == 3 && is_atom(tpp[1])) {
+		t = TUPLE4(hp, tpp[1], tpp[2], tpp[3], NIL);
+		hp += 5;
+	    }
+	    *tp = CONS(hp, t, *tp);
 	    tp = &CDR(list_val(*tp));
 	    hp += 2;
 	}
@@ -1218,7 +1317,7 @@ raise_3(Process *c_p, Eterm class, Eterm value, Eterm stacktrace) {
     c_p->ftrace = CONS(hp, c_p->ftrace, make_big((Eterm *) s));
     hp += 2;
     ASSERT(hp <= hp_end);
-    
+    HRelease(c_p, hp_end, hp);
     BIF_ERROR(c_p, reason);
     
  error:
@@ -1321,9 +1420,10 @@ BIF_RETTYPE exit_2(BIF_ALIST_2)
 #ifdef ERTS_SMP
 	 if (rp == BIF_P)
 	     rp_locks &= ~ERTS_PROC_LOCK_MAIN;
-	 else
+	 if (rp_locks)
+	     erts_smp_proc_unlock(rp, rp_locks);
+	 if (rp != BIF_P)
 	     erts_smp_proc_dec_refc(rp);
-	 erts_smp_proc_unlock(rp, rp_locks);
 #endif
 	 /*
 	  * We may have exited ourselves and may have to take action.
@@ -1635,10 +1735,10 @@ BIF_RETTYPE whereis_1(BIF_ALIST_1)
  * erlang:'!'/2
  */
 
-Eterm
-ebif_bang_2(Process* p, Eterm To, Eterm Message)
+BIF_RETTYPE
+ebif_bang_2(BIF_ALIST_2)
 {
-    return send_2(p, To, Message);
+    return erl_send(BIF_P, BIF_ARG_1, BIF_ARG_2);
 }
 
 
@@ -1975,8 +2075,13 @@ do_send(Process *p, Eterm to, Eterm msg, int suspend) {
 }
 
 
-Eterm
-send_3(Process *p, Eterm to, Eterm msg, Eterm opts) {
+BIF_RETTYPE send_3(BIF_ALIST_3)
+{
+    Process *p = BIF_P;
+    Eterm to = BIF_ARG_1;
+    Eterm msg = BIF_ARG_2;
+    Eterm opts = BIF_ARG_3;
+
     int connect = !0;
     int suspend = !0;
     Eterm l = opts;
@@ -2040,8 +2145,13 @@ send_3(Process *p, Eterm to, Eterm msg, Eterm opts) {
     BIF_ERROR(p, BADARG);
 }
 
-Eterm
-send_2(Process *p, Eterm to, Eterm msg) {
+BIF_RETTYPE send_2(BIF_ALIST_2)
+{
+    return erl_send(BIF_P, BIF_ARG_1, BIF_ARG_2);
+}
+
+Eterm erl_send(Process *p, Eterm to, Eterm msg)
+{
     Sint result = do_send(p, to, msg, !0);
     
     if (result > 0) {
@@ -2129,20 +2239,146 @@ BIF_RETTYPE tl_1(BIF_ALIST_1)
 /**********************************************************************/
 /* return the size of an I/O list */
 
-BIF_RETTYPE iolist_size_1(BIF_ALIST_1)
+static Eterm
+accumulate(Eterm acc, Uint size)
 {
-    Sint size = io_list_len(BIF_ARG_1);
-
-    if (size == -1) {
-	BIF_ERROR(BIF_P, BADARG);
-    } else if (IS_USMALL(0, (Uint) size)) {
-	BIF_RET(make_small(size));
+    if (is_non_value(acc)) {
+	/*
+	 * There is no pre-existing accumulator. Allocate a
+	 * bignum buffer with one extra word to be used if
+	 * the bignum grows in the future.
+	 */
+	Eterm* hp = (Eterm *) erts_alloc(ERTS_ALC_T_TEMP_TERM,
+					 (BIG_UINT_HEAP_SIZE+1) *
+					 sizeof(Eterm));
+	return uint_to_big(size, hp);
     } else {
-	Eterm* hp = HAlloc(BIF_P, BIG_UINT_HEAP_SIZE);
-	BIF_RET(uint_to_big(size, hp));
+	Eterm* big;
+	int need_heap;
+
+	/*
+	 * Add 'size' to 'acc' in place. There is always one
+	 * extra word allocated in case the bignum grows by one word.
+	 */
+	big = big_val(acc);
+	need_heap = BIG_NEED_SIZE(BIG_SIZE(big));
+	acc = big_plus_small(acc, size, big);
+	if (BIG_NEED_SIZE(big_size(acc)) > need_heap) {
+	    /*
+	     * The extra word has been consumed. Grow the
+	     * allocation by one word.
+	     */
+	    big = (Eterm *) erts_realloc(ERTS_ALC_T_TEMP_TERM,
+					 big_val(acc),
+					 (need_heap+1) * sizeof(Eterm));
+	    acc = make_big(big);
+	}
+	return acc;
     }
 }
 
+static Eterm
+consolidate(Process* p, Eterm acc, Uint size)
+{
+    Eterm* hp;
+
+    if (is_non_value(acc)) {
+	return erts_make_integer(size, p);
+    } else {
+	Eterm* big;
+	Uint sz;
+	Eterm res;
+	
+	acc = accumulate(acc, size);
+	big = big_val(acc);
+	sz = BIG_NEED_SIZE(BIG_SIZE(big));
+	hp = HAlloc(p, sz);
+	res = make_big(hp);
+	while (sz--) {
+	    *hp++ = *big++;
+	}
+	erts_free(ERTS_ALC_T_TEMP_TERM, (void *) big_val(acc));
+	return res;
+    }
+}
+
+BIF_RETTYPE iolist_size_1(BIF_ALIST_1)
+{
+    Eterm obj, hd;
+    Eterm* objp;
+    Uint size = 0;
+    Uint cur_size;
+    Uint new_size;
+    Eterm acc = THE_NON_VALUE;
+    DECLARE_ESTACK(s);
+
+    obj = BIF_ARG_1;
+    goto L_again;
+
+    while (!ESTACK_ISEMPTY(s)) {
+	obj = ESTACK_POP(s);
+    L_again:
+	if (is_list(obj)) {
+	L_iter_list:
+	    objp = list_val(obj);
+	    hd = CAR(objp);
+	    obj = CDR(objp);
+	    /* Head */
+	    if (is_byte(hd)) {
+		size++;
+		if (size == 0) {
+		    acc = accumulate(acc, (Uint) -1);
+		    size = 1;
+		}
+	    } else if (is_binary(hd) && binary_bitsize(hd) == 0) {
+		cur_size = binary_size(hd);
+		if ((new_size = size + cur_size) >= size) {
+		    size = new_size;
+		} else {
+		    acc = accumulate(acc, size);
+		    size = cur_size;
+		}
+	    } else if (is_list(hd)) {
+		ESTACK_PUSH(s, obj);
+		obj = hd;
+		goto L_iter_list;
+	    } else if (is_not_nil(hd)) {
+		goto L_type_error;
+	    }
+	    /* Tail */
+	    if (is_list(obj)) {
+		goto L_iter_list;
+	    } else if (is_binary(obj) && binary_bitsize(obj) == 0) {
+		cur_size = binary_size(obj);
+		if ((new_size = size + cur_size) >= size) {
+		    size = new_size;
+		} else {
+		    acc = accumulate(acc, size);
+		    size = cur_size;
+		}
+	    } else if (is_not_nil(obj)) {
+		goto L_type_error;
+	    }
+	} else if (is_binary(obj) && binary_bitsize(obj) == 0) {
+	    cur_size = binary_size(obj);
+	    if ((new_size = size + cur_size) >= size) {
+		size = new_size;
+	    } else {
+		acc = accumulate(acc, size);
+		size = cur_size;
+	    }
+	} else if (is_not_nil(obj)) {
+	    goto L_type_error;
+	}
+    }
+
+    DESTROY_ESTACK(s);
+    BIF_RET(consolidate(BIF_P, acc, size));
+
+ L_type_error:
+    DESTROY_ESTACK(s);
+    BIF_ERROR(BIF_P, BADARG);
+}
 
 /**********************************************************************/
 
@@ -3091,8 +3327,11 @@ time_to_parts(Eterm date, Sint* year, Sint* month, Sint* day,
 /* return the universal time */
 
 BIF_RETTYPE 
-localtime_to_universaltime_2(Process *p, Eterm localtime, Eterm dst)
+localtime_to_universaltime_2(BIF_ALIST_2)
 {
+    Process *p = BIF_P;
+    Eterm localtime = BIF_ARG_1;
+    Eterm dst = BIF_ARG_2;
     Sint year, month, day;
     Sint hour, minute, second;
     int isdst;
@@ -3176,20 +3415,32 @@ BIF_RETTYPE garbage_collect_1(BIF_ALIST_1)
 	BIF_ERROR(BIF_P, BADARG);
     }
 
-    rp = erts_pid2proc_not_running(BIF_P, ERTS_PROC_LOCK_MAIN,
+    if (BIF_P->id == BIF_ARG_1)
+	rp = BIF_P;
+    else {
+#ifdef ERTS_SMP
+	rp = erts_pid2proc_suspend(BIF_P, ERTS_PROC_LOCK_MAIN,
 				   BIF_ARG_1, ERTS_PROC_LOCK_MAIN);
-    if (!rp)
-	BIF_RET(am_false);
-    if (rp == ERTS_PROC_LOCK_BUSY)
-	ERTS_BIF_YIELD1(bif_export[BIF_garbage_collect_1], BIF_P, BIF_ARG_1);
+	if (rp == ERTS_PROC_LOCK_BUSY)
+	    ERTS_BIF_YIELD1(bif_export[BIF_garbage_collect_1], BIF_P, BIF_ARG_1);
+#else
+	rp = erts_pid2proc(BIF_P, 0, BIF_ARG_1, 0);
+#endif
+	if (!rp)
+	    BIF_RET(am_false);
+    }
 
     /* The GC cost is taken for the process executing this BIF. */
 
     FLAGS(rp) |= F_NEED_FULLSWEEP;
     reds = erts_garbage_collect(rp, 0, rp->arg_reg, rp->arity);
 
-    if (BIF_P != rp)
+#ifdef ERTS_SMP
+    if (BIF_P != rp) {
+	erts_resume(rp, ERTS_PROC_LOCK_MAIN);
 	erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_MAIN);
+    }
+#endif
 
     BIF_RET2(am_true, reds);
 }
@@ -3231,6 +3482,7 @@ BIF_RETTYPE ports_0(BIF_ALIST_0)
     Eterm* dead_ports;
     int alive, dead;
     Uint32 next_ss;
+    int i;
 
     /* To get a consistent snapshot... 
      * We add alive ports from start of the buffer
@@ -3239,27 +3491,25 @@ BIF_RETTYPE ports_0(BIF_ALIST_0)
 
     erts_smp_mtx_lock(&ports_snapshot_mtx); /* One snapshot at a time */
 
-    erts_smp_atomic_set(&erts_dead_ports_ptr, (long) (port_buf + erts_max_ports));
+    erts_smp_atomic_set_nob(&erts_dead_ports_ptr,
+			    (erts_aint_t) (port_buf + erts_max_ports));
 
-    next_ss = erts_smp_atomic_inctest(&erts_ports_snapshot);
+    next_ss = erts_smp_atomic32_inc_read_relb(&erts_ports_snapshot);
 
-    if (erts_smp_atomic_read(&erts_ports_alive) > 0) {
-	long i;
-	for (i = erts_max_ports-1; i >= 0; i--) {
-	    Port* prt = &erts_port[i];
-	    erts_smp_port_state_lock(prt);
-	    if (!(prt->status & ERTS_PORT_SFLGS_DEAD)
-		&& prt->snapshot != next_ss) {
-		ASSERT(prt->snapshot == next_ss - 1);
-		*pp++ = prt->id;		
-		prt->snapshot = next_ss; /* Consumed by this snapshot */
-	    }
-	    erts_smp_port_state_unlock(prt);
+    for (i = erts_max_ports-1; i >= 0; i--) {
+	Port* prt = &erts_port[i];
+	erts_smp_port_state_lock(prt);
+	if (!(prt->status & ERTS_PORT_SFLGS_DEAD)
+	    && prt->snapshot != next_ss) {
+	    ASSERT(prt->snapshot == next_ss - 1);
+	    *pp++ = prt->id;		
+	    prt->snapshot = next_ss; /* Consumed by this snapshot */
 	}
+	erts_smp_port_state_unlock(prt);
     }
 
-    dead_ports = (Eterm*)erts_smp_atomic_xchg(&erts_dead_ports_ptr,
-					      (long)NULL);
+    dead_ports = (Eterm*)erts_smp_atomic_xchg_nob(&erts_dead_ports_ptr,
+						  (erts_aint_t) NULL);
     erts_smp_mtx_unlock(&ports_snapshot_mtx);
 
     ASSERT(pp <= dead_ports);
@@ -3270,7 +3520,7 @@ BIF_RETTYPE ports_0(BIF_ALIST_0)
     ASSERT((alive+dead) <= erts_max_ports);
 
     if (alive+dead > 0) {
-	long i;
+	erts_aint_t i;
 	Eterm *hp = HAlloc(BIF_P, (alive+dead)*2);
 
 	for (i = 0; i < alive; i++) {
@@ -3320,7 +3570,7 @@ BIF_RETTYPE erts_debug_display_1(BIF_ALIST_1)
     erts_dsprintf_buf_t *dsbufp = erts_create_tmp_dsbuf(64);       
     pres = erts_dsprintf(dsbufp, "%.*T\n", INT_MAX, BIF_ARG_1);
     if (pres < 0)
-	erl_exit(1, "Failed to convert term to string: %d (s)\n",
+	erl_exit(1, "Failed to convert term to string: %d (%s)\n",
 		 -pres, erl_errno_id(-pres));
     hp = HAlloc(BIF_P, 2*dsbufp->str_len); /* we need length * 2 heap words */
     res = buf_to_intlist(&hp, dsbufp->str, dsbufp->str_len, NIL);
@@ -3330,9 +3580,10 @@ BIF_RETTYPE erts_debug_display_1(BIF_ALIST_1)
 }
 
 
-Eterm
-display_string_1(Process* p, Eterm string)
+BIF_RETTYPE display_string_1(BIF_ALIST_1)
 {
+    Process* p = BIF_P;
+    Eterm string = BIF_ARG_1;
     int len = is_string(string);
     char *str;
 
@@ -3348,8 +3599,7 @@ display_string_1(Process* p, Eterm string)
     BIF_RET(am_true);
 }
 
-Eterm
-display_nl_0(Process* p)
+BIF_RETTYPE display_nl_0(BIF_ALIST_0)
 {
     erts_fprintf(stderr, "\n");
     BIF_RET(am_true);
@@ -3413,8 +3663,13 @@ BIF_RETTYPE function_exported_3(BIF_ALIST_3)
 
 /**********************************************************************/    
 
-BIF_RETTYPE is_builtin_3(Process* p, Eterm Mod, Eterm Name, Eterm Arity)
+BIF_RETTYPE is_builtin_3(BIF_ALIST_3)
 {
+    Process* p = BIF_P;
+    Eterm Mod = BIF_ARG_1;
+    Eterm Name = BIF_ARG_2;
+    Eterm Arity = BIF_ARG_3;
+
     if (is_not_atom(Mod) || is_not_atom(Name) || is_not_small(Arity)) {
 	BIF_ERROR(p, BADARG);
     }
@@ -3438,7 +3693,7 @@ term2list_dsprintf(Process *p, Eterm term)
     erts_dsprintf_buf_t *dsbufp = erts_create_tmp_dsbuf(64);       
     pres = erts_dsprintf(dsbufp, "%T", term);
     if (pres < 0)
-	erl_exit(1, "Failed to convert term to list: %d (s)\n",
+	erl_exit(1, "Failed to convert term to list: %d (%s)\n",
 		 -pres, erl_errno_id(-pres));
     hp = HAlloc(p, 2*dsbufp->str_len); /* we need length * 2 heap words */
     res = buf_to_intlist(&hp, dsbufp->str, dsbufp->str_len, NIL);
@@ -3466,15 +3721,24 @@ BIF_RETTYPE make_fun_3(BIF_ALIST_3)
     if (arity < 0) {
 	goto error;
     }
+#if HALFWORD_HEAP
+    hp = HAlloc(BIF_P, 3);
+    hp[0] = HEADER_EXPORT;
+    /* Yes, May be misaligned, but X86_64 will fix it... */
+    *((Export **) (hp+1)) = erts_export_get_or_make_stub(BIF_ARG_1, BIF_ARG_2, (Uint) arity);
+#else
     hp = HAlloc(BIF_P, 2);
     hp[0] = HEADER_EXPORT;
     hp[1] = (Eterm) erts_export_get_or_make_stub(BIF_ARG_1, BIF_ARG_2, (Uint) arity);
+#endif
     BIF_RET(make_export(hp));
 }
 
-Eterm
-fun_to_list_1(Process* p, Eterm fun)
+BIF_RETTYPE fun_to_list_1(BIF_ALIST_1)
 {
+    Process* p = BIF_P;
+    Eterm fun = BIF_ARG_1;
+
     if (is_not_any_fun(fun))
 	BIF_ERROR(p, BADARG);
     BIF_RET(term2list_dsprintf(p, fun));
@@ -3574,11 +3838,11 @@ BIF_RETTYPE list_to_pid_1(BIF_ALIST_1)
 
       etp = (ExternalThing *) HAlloc(BIF_P, EXTERNAL_THING_HEAD_SIZE + 1);
       etp->header = make_external_pid_header(1);
-      etp->next = MSO(BIF_P).externals;
+      etp->next = MSO(BIF_P).first;
       etp->node = enp;
       etp->data.ui[0] = make_pid_data(c, b);
 
-      MSO(BIF_P).externals = etp;
+      MSO(BIF_P).first = (struct erl_off_heap_header*) etp;
       erts_deref_dist_entry(dep);
       BIF_RET(make_external_pid(etp));
     }
@@ -3759,7 +4023,8 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 	    goto error;
 	}
 	nval = (n > (Sint) ((Uint16) -1)) ? ((Uint16) -1) : ((Uint16) n);
-	oval = (Uint) erts_smp_atomic_xchg(&erts_max_gen_gcs, (long) nval);
+	oval = (Uint) erts_smp_atomic32_xchg_nob(&erts_max_gen_gcs,
+						 (erts_aint32_t) nval);
 	BIF_RET(make_small(oval));
     } else if (BIF_ARG_1 == am_min_heap_size) {
 	int oval = H_MIN_SIZE;
@@ -3769,11 +4034,11 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 	}
 
 	erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-	erts_smp_block_system(0);
+	erts_smp_thr_progress_block();
 
 	H_MIN_SIZE = erts_next_heap_size(n, 0);
 
-	erts_smp_release_system();
+	erts_smp_thr_progress_unblock();
 	erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 
 	BIF_RET(make_small(oval));
@@ -3785,11 +4050,11 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 	}
 
 	erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-	erts_smp_block_system(0);
+	erts_smp_thr_progress_block();
 
 	BIN_VH_MIN_SIZE = erts_next_heap_size(n, 0);
 
-	erts_smp_release_system();
+	erts_smp_thr_progress_unblock();
 	erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 
 	BIF_RET(make_small(oval));
@@ -3811,7 +4076,7 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 	erts_backtrace_depth = n;
 	BIF_RET(make_small(oval));
     } else if (BIF_ARG_1 == am_trace_control_word) {
-	BIF_RET(db_set_trace_control_word_1(BIF_P, BIF_ARG_2));
+	BIF_RET(db_set_trace_control_word(BIF_P, BIF_ARG_2));
     } else if (BIF_ARG_1 == am_sequential_tracer) {
         Eterm old_value = erts_set_system_seq_tracer(BIF_P,
 						     ERTS_PROC_LOCK_MAIN,
@@ -3823,7 +4088,7 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 	Uint i;
 	ErlMessage* mp;
 	erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-	erts_smp_block_system(0);
+	erts_smp_thr_progress_block();
 
 	for (i = 0; i < erts_max_processes; i++) {
 	    if (process_tab[i] != (Process*) 0) {
@@ -3840,7 +4105,7 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 	    }
 	}
 
-	erts_smp_release_system();
+	erts_smp_thr_progress_unblock();
 	erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 
 	BIF_RET(am_true);
@@ -3884,7 +4149,7 @@ BIF_RETTYPE hash_2(BIF_ALIST_2)
     if ((range = signed_val(BIF_ARG_2)) <= 0) {  /* [1..MAX_SMALL] */
 	BIF_ERROR(BIF_P, BADARG);
     }
-#ifdef ARCH_64
+#if defined(ARCH_64) && !HALFWORD_HEAP
     if (range > ((1L << 27) - 1))
 	BIF_ERROR(BIF_P, BADARG);
 #endif
@@ -3956,7 +4221,7 @@ BIF_RETTYPE phash2_2(BIF_ALIST_2)
     /*
      * Return either a small or a big. Use the heap for bigs if there is room.
      */
-#ifdef ARCH_64
+#if defined(ARCH_64) && !HALFWORD_HEAP
     BIF_RET(make_small(final_hash));
 #else
     if (IS_USMALL(0, final_hash)) {
@@ -4051,8 +4316,7 @@ void
 erts_bif_prep_await_proc_exit_data_trap(Process *c_p, Eterm pid, Eterm ret)
 {
     if (skip_current_msgq(c_p)) {
-	Eterm unused;
-	ERTS_BIF_PREP_TRAP3(unused, await_proc_exit_trap, c_p, pid, am_data, ret);
+	ERTS_BIF_PREP_TRAP3_NO_RET(await_proc_exit_trap, c_p, pid, am_data, ret);
     }
 }
 
@@ -4060,8 +4324,7 @@ void
 erts_bif_prep_await_proc_exit_reason_trap(Process *c_p, Eterm pid)
 {
     if (skip_current_msgq(c_p)) {
-	Eterm unused;
-	ERTS_BIF_PREP_TRAP3(unused, await_proc_exit_trap, c_p,
+	ERTS_BIF_PREP_TRAP3_NO_RET(await_proc_exit_trap, c_p,
 			    pid, am_reason, am_undefined);
     }
 }
@@ -4076,7 +4339,6 @@ erts_bif_prep_await_proc_exit_apply_trap(Process *c_p,
 {
     ASSERT(is_atom(module) && is_atom(function));
     if (skip_current_msgq(c_p)) {
-	Eterm unused;
 	Eterm term;
 	Eterm *hp;
 	int i;
@@ -4088,7 +4350,7 @@ erts_bif_prep_await_proc_exit_apply_trap(Process *c_p,
 	    hp += 2;
 	}
 	term = TUPLE3(hp, module, function, term);
-	ERTS_BIF_PREP_TRAP3(unused, await_proc_exit_trap, c_p, pid, am_apply, term);
+	ERTS_BIF_PREP_TRAP3_NO_RET(await_proc_exit_trap, c_p, pid, am_apply, term);
     }
 }
 
@@ -4102,7 +4364,7 @@ void erts_init_bif(void)
 
     erts_smp_spinlock_init(&make_ref_lock, "make_ref");
     erts_smp_mtx_init(&ports_snapshot_mtx, "ports_snapshot");
-    erts_smp_atomic_init(&erts_dead_ports_ptr, (long)NULL);
+    erts_smp_atomic_init_nob(&erts_dead_ports_ptr, (erts_aint_t) NULL);
 
     /*
      * bif_return_trap/1 is a hidden BIF that bifs that need to
@@ -4118,8 +4380,8 @@ void erts_init_bif(void)
 #else
     bif_return_trap_export.code[2] = 1;
 #endif
-    bif_return_trap_export.code[3] = (Eterm) em_apply_bif;
-    bif_return_trap_export.code[4] = (Eterm) &bif_return_trap;
+    bif_return_trap_export.code[3] = (BeamInstr) em_apply_bif;
+    bif_return_trap_export.code[4] = (BeamInstr) &bif_return_trap;
 
     flush_monitor_message_trap = erts_export_put(am_erlang,
 						 am_flush_monitor_message,
@@ -4134,54 +4396,6 @@ void erts_init_bif(void)
     await_proc_exit_trap = erts_export_put(am_erlang,am_await_proc_exit,3);
 }
 
-BIF_RETTYPE blocking_read_file_1(BIF_ALIST_1)
-{
-    Eterm bin;
-    Eterm* hp;
-    byte *buff;
-    int i, buff_size;
-    FILE *file;
-    struct stat file_info;
-    char *filename = NULL;
-    size_t size;
- 
-    i = list_length(BIF_ARG_1);
-    if (i < 0) {
-	BIF_ERROR(BIF_P, BADARG);
-    }
-    filename = erts_alloc(ERTS_ALC_T_TMP, i + 1);
-    if (intlist_to_buf(BIF_ARG_1, filename, i) != i)
-	erl_exit(1, "%s:%d: Internal error\n", __FILE__, __LINE__);
-    filename[i] = '\0';
- 
-    hp = HAlloc(BIF_P, 3);
- 
-    file = fopen(filename, "r");
-    if(file == NULL){
-	erts_free(ERTS_ALC_T_TMP, (void *) filename);
-	BIF_RET(TUPLE2(hp, am_error, am_nofile));
-    }
- 
-    stat(filename, &file_info);
-    erts_free(ERTS_ALC_T_TMP, (void *) filename);
-
-    buff_size = file_info.st_size;
-    buff = (byte *) erts_alloc_fnf(ERTS_ALC_T_TMP, buff_size);
-    if (!buff) {
-	fclose(file);
-	BIF_RET(TUPLE2(hp, am_error, am_allocator));
-    }
-    size = fread(buff, 1, buff_size, file);
-    fclose(file);
-    if (size < 0)
-	size = 0;
-    else if (size > buff_size)
-	size = (size_t) buff_size;
-    bin = new_binary(BIF_P, buff, (int) size);
-    erts_free(ERTS_ALC_T_TMP, (void *) buff);
- 
-    BIF_RET(TUPLE2(hp, am_ok, bin));
-}
 #ifdef HARDDEBUG
 /*
 You'll need this line in bif.tab to be able to use this debug bif

@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
   <header>
     <copyright>
-      <year>1999</year><year>2009</year>
+      <year>1999</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -35,11 +35,13 @@
   <modulesummary>Instrumentation Functions for SNMP-COMMUNITY-MIB</modulesummary>
   <description>
     <p>The module <c>snmp_community_mib</c> implements the instrumentation
-      functions for the
-      SNMP-COMMUNITY-MIB, and functions for configuring the database.
-      </p>
+    functions for the SNMP-COMMUNITY-MIB, and functions for configuring the 
+    database. </p>
     <p>The configuration files are described in the SNMP User's Manual.</p>
+
+    <marker id="configure"></marker>
   </description>
+
   <funcs>
     <func>
       <name>configure(ConfDir) -> void()</name>
@@ -68,8 +70,11 @@
           </p>
         <p>The configuration file read is: <c>community.conf</c>.
           </p>
+
+        <marker id="reconfigure"></marker>
       </desc>
     </func>
+
     <func>
       <name>reconfigure(ConfDir) -> void()</name>
       <fsummary>Configure the SNMP-COMMUNITY-MIB</fsummary>
@@ -96,28 +101,35 @@
           where the configuration files are found.
           </p>
         <p>The configuration file read is: <c>community.conf</c>.</p>
+
         <marker id="add_community"></marker>
       </desc>
     </func>
+
     <func>
       <name>add_community(Idx, CommName, SecName, CtxName, TransportTag) -> Ret</name>
+      <name>add_community(Idx, CommName, SecName, EngineId, CtxName, TransportTag) -> Ret</name>
       <fsummary>Added one community</fsummary>
       <type>
         <v>Idx = string()</v>
         <v>CommName = string()</v>
         <v>SecName = string()</v>
+	<v>EngineId = string()</v>
         <v>CtxName = string()</v>
         <v>TransportTag = string()</v>
         <v>Ret = {ok, Key} | {error, Reason}</v>
         <v>Key = term()</v>
-        <v>Reason = term()</v>
+	<v>Reason = term()</v>
       </type>
       <desc>
         <p>Adds a community to the agent config. 
-          Equivalent to one line in the <c>community.conf</c> file.</p>
+	Equivalent to one line in the <c>community.conf</c> file.</p>
+	<p>With the <c>EngineId</c> argument it is possible to 
+	override the configured engine-id (SNMP-FRAMEWORK-MIB).</p>
         <marker id="delete_community"></marker>
       </desc>
     </func>
+
     <func>
       <name>delete_community(Key) -> Ret</name>
       <fsummary>Delete one community</fsummary>

@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2002-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2002-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -144,9 +144,9 @@ function({function,Name,Arity,CLabel,Is0}, Lc0) ->
 	%% Initialize label information with the code
 	%% for the func_info label. Without it, a register
 	%% may seem to be live when it is not.
-	[{label,L},{func_info,_,_,_}=FI|_] = Is1,
+	[{label,L}|FiIs] = Is1,
 	D0 = beam_utils:empty_label_index(),
-	D = beam_utils:index_label(L, [FI], D0),
+	D = beam_utils:index_label(L, FiIs, D0),
 
 	%% Optimize away dead code.
 	{Is2,Lc} = forward(Is1, Lc0),
@@ -162,14 +162,11 @@ function({function,Name,Arity,CLabel,Is0}, Lc0) ->
 
 %% We must split the basic block when we encounter instructions with labels,
 %% such as catches and BIFs. All labels must be visible outside the blocks.
-%% Also remove empty blocks.
 
 split_blocks({function,Name,Arity,CLabel,Is0}) ->
     Is = split_blocks(Is0, []),
     {function,Name,Arity,CLabel,Is}.
 
-split_blocks([{block,[]}|Is], Acc) ->
-    split_blocks(Is, Acc);
 split_blocks([{block,Bl}|Is], Acc0) ->
     Acc = split_block(Bl, [], Acc0),
     split_blocks(Is, Acc);
@@ -188,6 +185,8 @@ split_block([{set,[R],As,{alloc,Live,{gc_bif,N,{f,Lbl}=Fail}}}|Is], Bl, Acc)
     split_block(Is, [], [{gc_bif,N,Fail,Live,As,R}|make_block(Bl, Acc)]);
 split_block([{set,[R],[],{'catch',L}}|Is], Bl, Acc) ->
     split_block(Is, [], [{'catch',R,L}|make_block(Bl, Acc)]);
+split_block([{set,[],[],{line,_}=Line}|Is], Bl, Acc) ->
+    split_block(Is, [], [Line|make_block(Bl, Acc)]);
 split_block([I|Is], Bl, Acc) ->
     split_block(Is, [I|Bl], Acc);
 split_block([], Bl, Acc) -> make_block(Bl, Acc).
@@ -246,30 +245,24 @@ forward([{select_val,Reg,_,{list,List}}=I|Is], D0, Lc, Acc) ->
     D = update_value_dict(List, Reg, D0),
     forward(Is, D, Lc, [I|Acc]);
 forward([{label,Lbl}=LblI,{block,[{set,[Dst],[Lit],move}|BlkIs]}=Blk|Is], D, Lc, Acc) ->
+    %% Assumption: The target labels in a select_val/3 instruction
+    %% cannot be reached in any other way than through the select_val/3
+    %% instruction (i.e. there can be no fallthrough to such label and
+    %% it cannot be referenced by, for example, a jump/1 instruction).
     Block = case gb_trees:lookup({Lbl,Dst}, D) of
-		{value,Lit} ->
-		    %% The move instruction seems to be redundant, but also make
-		    %% sure that the instruction preceeding the label
-		    %% cannot fall through to the move instruction.
-		    case is_unreachable_after(Acc) of
-			false -> Blk;	  %Must keep move instruction.
-			true ->  {block,BlkIs}	%Safe to remove move instruction.
-		    end;
-		_ -> Blk		       %Keep move instruction.
+		{value,Lit} -> {block,BlkIs}; %Safe to remove move instruction.
+		_ -> Blk		      %Must keep move instruction.
 	    end,
     forward([Block|Is], D, Lc, [LblI|Acc]);
 forward([{label,Lbl}=LblI|[{move,Lit,Dst}|Is1]=Is0], D, Lc, Acc) ->
+    %% Assumption: The target labels in a select_val/3 instruction
+    %% cannot be reached in any other way than through the select_val/3
+    %% instruction (i.e. there can be no fallthrough to such label and
+    %% it cannot be referenced by, for example, a jump/1 instruction).
     Is = case gb_trees:lookup({Lbl,Dst}, D) of
-	     {value,Lit} ->
-		 %% The move instruction seems to be redundant, but also make
-		 %% sure that the instruction preceeding the label
-		 %% cannot fall through to the move instruction.
-		 case is_unreachable_after(Acc) of
-		     false -> Is0;	  %Must keep move instruction.
-		     true -> Is1     %Safe to remove move instruction.
-		  end;
-	     _ -> Is0		       %Keep move instruction.
-	  end,
+	     {value,Lit} -> Is1;     %Safe to remove move instruction.
+	     _ -> Is0		     %Keep move instruction.
+	 end,
     forward(Is, D, Lc, [LblI|Acc]);
 forward([{test,is_eq_exact,_,[Dst,Src]}=I,
 	 {block,[{set,[Dst],[Src],move}|Bl]}|Is], D, Lc, Acc) ->
@@ -281,12 +274,12 @@ forward([{test,is_eq_exact,_,[Dst,Src]}=I,{move,Src,Dst}|Is], D, Lc, Acc) ->
     forward([I|Is], D, Lc, Acc);
 forward([{test,is_nil,_,[Dst]}=I,{move,nil,Dst}|Is], D, Lc, Acc) ->
     forward([I|Is], D, Lc, Acc);
-forward([{test,is_eq_exact,_,[_,{atom,_}]}=I|Is], D, Lc, [{label,_}|_]=Acc) ->
+forward([{test,is_eq_exact,_,_}=I|Is], D, Lc, Acc) ->
     case Is of
 	[{label,_}|_] -> forward(Is, D, Lc, [I|Acc]);
 	_ -> forward(Is, D, Lc+1, [{label,Lc},I|Acc])
     end;
-forward([{test,is_ne_exact,_,[_,{atom,_}]}=I|Is], D, Lc, [{label,_}|_]=Acc) ->
+forward([{test,is_ne_exact,_,_}=I|Is], D, Lc, Acc) ->
     case Is of
 	[{label,_}|_] -> forward(Is, D, Lc, [I|Acc]);
 	_ -> forward(Is, D, Lc+1, [{label,Lc},I|Acc])
@@ -299,15 +292,11 @@ update_value_dict([Lit,{f,Lbl}|T], Reg, D0) ->
     Key = {Lbl,Reg},
     D = case gb_trees:lookup(Key, D0) of
 	    none -> gb_trees:insert(Key, Lit, D0); %New.
-	    {value,Lit} -> D0;			%Already correct.
 	    {value,inconsistent} -> D0;		%Inconsistent.
 	    {value,_} -> gb_trees:update(Key, inconsistent, D0)
 	end,
     update_value_dict(T, Reg, D);
 update_value_dict([], _, D) -> D.
-
-is_unreachable_after([I|_]) ->
-    beam_jump:is_unreachable_after(I).
 
 %%%
 %%% Scan instructions in reverse execution order and remove dead code.
@@ -371,10 +360,10 @@ backward([{test,bs_start_match2,{f,To0},Live,[Src|_]=Info,Dst}|Is], D, Acc) ->
     To = shortcut_bs_start_match(To0, Src, D),
     I = {test,bs_start_match2,{f,To},Live,Info,Dst},
     backward(Is, D, [I|Acc]);
-backward([{test,is_eq_exact=Op,{f,To0},[Reg,{atom,Val}]=Ops}|Is], D, Acc) ->
+backward([{test,is_eq_exact,{f,To0},[Reg,{atom,Val}]=Ops}|Is], D, Acc) ->
     To1 = shortcut_bs_test(To0, Is, D),
     To = shortcut_fail_label(To1, Reg, Val, D),
-    I = {test,Op,{f,To},Ops},
+    I = combine_eqs(To, Ops, D, Acc),
     backward(Is, D, [I|Acc]);
 backward([{test,Op,{f,To0},Ops0}|Is], D, Acc) ->
     To1 = shortcut_bs_test(To0, Is, D),
@@ -394,7 +383,10 @@ backward([{test,Op,{f,To0},Ops0}|Is], D, Acc) ->
 	     _Code ->
 		 To2
 	 end,
-    I = {test,Op,{f,To},Ops0},
+    I = case Op of
+	    is_eq_exact -> combine_eqs(To, Ops0, D, Acc);
+	    _ -> {test,Op,{f,To},Ops0}
+	end,
     backward(Is, D, [I|Acc]);
 backward([{test,Op,{f,To0},Live,Ops0,Dst}|Is], D, Acc) ->
     To1 = shortcut_bs_test(To0, Is, D),
@@ -416,7 +408,7 @@ backward([{test,Op,{f,To0},Live,Ops0,Dst}|Is], D, Acc) ->
 	 end,
     I = {test,Op,{f,To},Live,Ops0,Dst},
     backward(Is, D, [I|Acc]);
-backward([{kill,_}=I|Is], D, [Exit|_]=Acc) ->
+backward([{kill,_}=I|Is], D, [{line,_},Exit|_]=Acc) ->
     case beam_jump:is_exit_instruction(Exit) of
 	false -> backward(Is, D, [I|Acc]);
 	true -> backward(Is, D, Acc)
@@ -481,7 +473,7 @@ shortcut_fail_label(To0, Reg, Val, D) ->
 
 shortcut_boolean_label(To0, Reg, Bool0, D) when is_boolean(Bool0) ->
     case beam_utils:code_at(To0, D) of
-	[{bif,'not',_,[Reg],Reg},{jump,{f,To}}|_] ->
+	[{line,_},{bif,'not',_,[Reg],Reg},{jump,{f,To}}|_] ->
 	    Bool = not Bool0,
 	    {shortcut_select_label(To, Reg, Bool, D),Bool};
 	_ ->
@@ -519,6 +511,41 @@ bif_to_test(Name, Args, Fail) ->
 
 not_possible() -> throw(not_possible).
 
+%% combine_eqs(To, Operands, Acc) -> Instruction.
+%%  Combine two is_eq_exact instructions or (an is_eq_exact
+%%  instruction and a select_val instruction) to a select_val
+%%  instruction if possible.
+%%
+%%  Example:
+%%
+%%      is_eq_exact F1 Reg Lit1		    select_val Reg F2 [ Lit1 L1
+%%   L1:                .                                       Lit2 L2 ]
+%%              	.
+%%                	.	     ==>
+%%                	.
+%%   F1:  is_eq_exact F2 Reg Lit2          F1: is_eq_exact F2 Reg Lit2
+%%   L2:  ....				   L2:
+%%
+combine_eqs(To, [Reg,{Type,_}=Lit1]=Ops, D, [{label,L1}|_])
+  when Type =:= atom; Type =:= integer ->
+    case beam_utils:code_at(To, D) of
+	[{test,is_eq_exact,{f,F2},[Reg,{Type,_}=Lit2]},
+	 {label,L2}|_] when Lit1 =/= Lit2 ->
+	    {select_val,Reg,{f,F2},{list,[Lit1,{f,L1},Lit2,{f,L2}]}};
+	[{select_val,Reg,{f,F2},{list,[{Type,_}|_]=List0}}|_] ->
+	    List = remove_from_list(Lit1, List0),
+	    {select_val,Reg,{f,F2},{list,[Lit1,{f,L1}|List]}};
+	_Is ->
+	    {test,is_eq_exact,{f,To},Ops}
+	end;
+combine_eqs(To, Ops, _D, _Acc) ->
+    {test,is_eq_exact,{f,To},Ops}.
+
+remove_from_list(Lit, [Lit,{f,_}|T]) ->
+    T;
+remove_from_list(Lit, [Val,{f,_}=Fail|T]) ->
+    [Val,Fail|remove_from_list(Lit, T)];
+remove_from_list(_, []) -> [].
 
 %% shortcut_bs_test(TargetLabel, [Instruction], D) -> TargetLabel'
 %%  Try to shortcut the failure label for a bit syntax matching.
@@ -564,16 +591,11 @@ count_bits_matched([{test,_,_,_}|Is], SavePoint, Bits) ->
 count_bits_matched([{bs_save2,Reg,SavePoint}|_], {Reg,SavePoint}, Bits) ->
     %% The save point we are looking for - we are done.
     Bits;
-count_bits_matched([{bs_save2,_,_}|Is], SavePoint, Bits) ->
-    %% Another save point - keep counting.
-    count_bits_matched(Is, SavePoint, Bits);
 count_bits_matched([_|_], _, Bits) -> Bits.
 
 shortcut_bs_pos_used(To, Reg, D) ->
     shortcut_bs_pos_used_1(beam_utils:code_at(To, D), Reg, D).
 
-shortcut_bs_pos_used_1([{bs_restore2,Reg,_}|_], Reg, _) ->
-    false;
 shortcut_bs_pos_used_1([{bs_context_to_binary,Reg}|_], Reg, _) ->
     false;
 shortcut_bs_pos_used_1(Is, Reg, D) ->

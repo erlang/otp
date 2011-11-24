@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -34,6 +34,37 @@
 
 -import(lists, [reverse/1,foldl/3,member/2]).
 
+-export_type([binding_struct/0]).
+
+-type(expression() :: erl_parse:abstract_expr()).
+-type(expressions() :: [erl_parse:abstract_expr()]).
+-type(expression_list() :: [expression()]).
+-type(clauses() :: [erl_parse:abstract_clause()]).
+-type(name() :: term()).
+-type(value() :: term()).
+-type(bindings() :: [{name(), value()}]).
+-type(binding_struct() :: orddict:orddict()).
+
+-type(lfun_value_handler() :: fun((Name :: atom(),
+                                   Arguments :: [term()]) ->
+                                         Value :: value())).
+-type(lfun_eval_handler() :: fun((Name :: atom(),
+                                  Arguments :: expression_list(),
+                                  Bindings :: binding_struct()) ->
+                                        {value,
+                                         Value :: value(),
+                                         NewBindings :: binding_struct()})).
+-type(local_function_handler() :: {value, lfun_value_handler()}
+                                | {eval, lfun_eval_handler()}
+                                | none).
+
+-type(func_spec() :: {Module :: module(), Function :: atom()} | function()).
+-type(nlfun_handler() :: fun((FuncSpec :: func_spec(),
+                              Arguments :: [term()]) ->
+                                    term())).
+-type(non_local_function_handler() :: {value, nlfun_handler()}
+                                    | none).
+
 %% exprs(ExpressionSeq, Bindings)
 %% exprs(ExpressionSeq, Bindings, LocalFuncHandler)
 %% exprs(ExpressionSeq, Bindings, LocalFuncHandler, ExternalFuncHandler)
@@ -45,6 +76,11 @@
 %% that there are valid constructs in Expression to be taken care of
 %% by a function handler but considerad errors by erl_lint.
 
+-spec(exprs(Expressions, Bindings) -> {value, Value, NewBindings} when
+      Expressions :: expressions(),
+      Bindings :: binding_struct(),
+      Value :: value(),
+      NewBindings :: binding_struct()).
 exprs(Exprs, Bs) ->
     case check_command(Exprs, Bs) of
         ok -> 
@@ -53,9 +89,25 @@ exprs(Exprs, Bs) ->
 	    erlang:raise(error, Error, [{?MODULE,exprs,2}])
     end.
 
+-spec(exprs(Expressions, Bindings, LocalFunctionHandler) ->
+             {value, Value, NewBindings} when
+      Expressions :: expressions(),
+      Bindings :: binding_struct(),
+      LocalFunctionHandler :: local_function_handler(),
+      Value :: value(),
+      NewBindings :: binding_struct()).
 exprs(Exprs, Bs, Lf) ->
     exprs(Exprs, Bs, Lf, none, none).
 
+-spec(exprs(Expressions, Bindings, LocalFunctionHandler,
+            NonLocalFunctionHandler) ->
+             {value, Value, NewBindings} when
+      Expressions :: expressions(),
+      Bindings :: binding_struct(),
+      LocalFunctionHandler :: local_function_handler(),
+      NonLocalFunctionHandler :: non_local_function_handler(),
+      Value :: value(),
+      NewBindings :: binding_struct()).
 exprs(Exprs, Bs, Lf, Ef) ->
     exprs(Exprs, Bs, Lf, Ef, none).
 
@@ -75,6 +127,11 @@ exprs([E|Es], Bs0, Lf, Ef, RBs) ->
 %%
 %% Only expr/2 checks the command by calling erl_lint. See exprs/2.
 
+-spec(expr(Expression, Bindings) -> {value, Value, NewBindings} when
+      Expression :: expression(),
+      Bindings :: binding_struct(),
+      Value :: value(),
+      NewBindings :: binding_struct()).
 expr(E, Bs) ->
     case check_command([E], Bs) of
         ok -> 
@@ -83,9 +140,25 @@ expr(E, Bs) ->
 	    erlang:raise(error, Error, [{?MODULE,expr,2}])
     end.
 
+-spec(expr(Expression, Bindings, LocalFunctionHandler) ->
+             {value, Value, NewBindings} when
+      Expression :: expression(),
+      Bindings :: binding_struct(),
+      LocalFunctionHandler :: local_function_handler(),
+      Value :: value(),
+      NewBindings :: binding_struct()).
 expr(E, Bs, Lf) ->
     expr(E, Bs, Lf, none, none).
 
+-spec(expr(Expression, Bindings, LocalFunctionHandler,
+           NonLocalFunctionHandler) ->
+             {value, Value, NewBindings} when
+      Expression :: expression(),
+      Bindings :: binding_struct(),
+      LocalFunctionHandler :: local_function_handler(),
+      NonLocalFunctionHandler :: non_local_function_handler(),
+      Value :: value(),
+      NewBindings :: binding_struct()).
 expr(E, Bs, Lf, Ef) ->
     expr(E, Bs, Lf, Ef, none).
 
@@ -114,6 +187,16 @@ fun_data(F) when is_function(F) ->
 fun_data(_T) ->
     false.
 
+-spec(expr(Expression, Bindings, LocalFunctionHandler,
+           NonLocalFunctionHandler, ReturnFormat) ->
+             {value, Value, NewBindings} | Value when
+      Expression :: expression(),
+      Bindings :: binding_struct(),
+      LocalFunctionHandler :: local_function_handler(),
+      NonLocalFunctionHandler :: non_local_function_handler(),
+      ReturnFormat :: none | value,
+      Value :: value(),
+      NewBindings :: binding_struct()).
 expr({var,_,V}, Bs, _Lf, _Ef, RBs) ->
     case binding(V, Bs) of
 	{value,Val} ->
@@ -173,7 +256,8 @@ expr({'receive',_,Cs}, Bs, Lf, Ef, RBs) ->
 expr({'receive',_, Cs, E, TB}, Bs0, Lf, Ef, RBs) ->
     {value,T,Bs} = expr(E, Bs0, Lf, Ef, none),
     receive_clauses(T, Cs, {TB,Bs}, Bs0, Lf, Ef, [], RBs);
-expr({'fun',_Line,{function,Mod,Name,Arity}}, Bs, _Lf, _Ef, RBs) ->
+expr({'fun',_Line,{function,Mod0,Name0,Arity0}}, Bs0, Lf, Ef, RBs) ->
+    {[Mod,Name,Arity],Bs} = expr_list([Mod0,Name0,Arity0], Bs0, Lf, Ef),
     F = erlang:make_fun(Mod, Name, Arity),
     ret_expr(F, Bs, RBs);    
 expr({'fun',_Line,{function,Name,Arity}}, _Bs0, _Lf, _Ef, _RBs) -> % R8
@@ -384,12 +468,9 @@ local_func(Func, As0, Bs0, {value,F}, value) ->
 local_func(Func, As0, Bs0, {value,F}, RBs) ->
     {As1,Bs1} = expr_list(As0, Bs0, {value,F}),
     ret_expr(F(Func, As1), Bs1, RBs);
-local_func(Func, As0, Bs0, {value,F,Eas}, value) ->
-    {As1,_Bs1} = expr_list(As0, Bs0, {value,F,Eas}),
-    apply(F, [Func,As1|Eas]);
 local_func(Func, As0, Bs0, {value,F,Eas}, RBs) ->
-    {As1,Bs1} = expr_list(As0, Bs0, {value,F,Eas}),
-    ret_expr(apply(F, [Func,As1|Eas]), Bs1, RBs);
+    Fun = fun(Name, Args) -> apply(F, [Name,Args|Eas]) end,
+    local_func(Func, As0, Bs0, {value, Fun}, RBs);
 local_func(Func, As, Bs, {eval,F}, RBs) ->
     local_func2(F(Func, As, Bs), RBs);
 local_func(Func, As, Bs, {eval,F,Eas}, RBs) ->
@@ -541,7 +622,7 @@ eval_generate(Term, _P, _Bs0, _Lf, _Ef, _CompFun, _Acc) ->
     erlang:raise(error, {bad_generator,Term}, stacktrace()).
 
 eval_b_generate(<<_/bitstring>>=Bin, P, Bs0, Lf, Ef, CompFun, Acc) ->
-    Mfun = fun(L, R, Bs) -> match1(L, R, Bs, Bs0) end,
+    Mfun = match_fun(Bs0),
     Efun = fun(Exp, Bs) -> expr(Exp, Bs, Lf, Ef, none) end,
     case eval_bits:bin_gen(P, Bin, new_bindings(), Bs0, Mfun, Efun) of
 	{match, Rest, Bs1} ->
@@ -613,12 +694,33 @@ eval_fun([], As, _Bs, _Lf, _Ef, _RBs) ->
 %% expr_list(ExpressionList, Bindings, LocalFuncHandler, ExternalFuncHandler)
 %%  Evaluate a list of expressions "in parallel" at the same level.
 
+-spec(expr_list(ExpressionList, Bindings) -> {ValueList, NewBindings} when
+      ExpressionList :: expression_list(),
+      Bindings :: binding_struct(),
+      ValueList :: [value()],
+      NewBindings :: binding_struct()).
 expr_list(Es, Bs) ->
     expr_list(Es, Bs, none, none).
 
+-spec(expr_list(ExpressionList, Bindings, LocalFunctionHandler) ->
+             {ValueList, NewBindings} when
+      ExpressionList :: expression_list(),
+      Bindings :: binding_struct(),
+      LocalFunctionHandler :: local_function_handler(),
+      ValueList :: [value()],
+      NewBindings :: binding_struct()).
 expr_list(Es, Bs, Lf) ->
     expr_list(Es, Bs, Lf, none).
 
+-spec(expr_list(ExpressionList, Bindings, LocalFunctionHandler,
+                NonLocalFunctionHandler) ->
+             {ValueList, NewBindings} when
+      ExpressionList :: expression_list(),
+      Bindings :: binding_struct(),
+      LocalFunctionHandler :: local_function_handler(),
+      NonLocalFunctionHandler :: non_local_function_handler(),
+      ValueList :: [value()],
+      NewBindings :: binding_struct()).
 expr_list(Es, Bs, Lf, Ef) ->
     expr_list(Es, [], Bs, Bs, Lf, Ef).    
 
@@ -756,6 +858,15 @@ send_all([], _) -> true.
 
 
 %% match_clause -> {Body, Bindings} or nomatch
+
+-spec(match_clause(Clauses, ValueList, Bindings, LocalFunctionHandler) ->
+             {Body, NewBindings} | nomatch when
+      Clauses :: clauses(),
+      ValueList :: [value()],
+      Bindings :: binding_struct(),
+      LocalFunctionHandler :: local_function_handler(),
+      Body :: expression_list(),
+      NewBindings :: binding_struct()).
 
 match_clause(Cs, Vs, Bs, Lf) ->
     match_clause(Cs, Vs, Bs, Lf, none).
@@ -914,7 +1025,7 @@ match1({tuple,_,_}, _, _Bs, _BBs) ->
     throw(nomatch);
 match1({bin, _, Fs}, <<_/bitstring>>=B, Bs0, BBs) ->
     eval_bits:match_bits(Fs, B, Bs0, BBs,
-			 fun(L, R, Bs) -> match1(L, R, Bs, BBs) end,
+			 match_fun(BBs),
 			 fun(E, Bs) -> expr(E, Bs, none, none, none) end);
 match1({bin,_,_}, _, _Bs, _BBs) ->
     throw(nomatch);
@@ -942,6 +1053,12 @@ match1({op,Line,Op,L,R}, Term, Bs, BBs) ->
     end;
 match1(_, _, _Bs, _BBs) ->
     throw(invalid).
+
+match_fun(BBs) ->
+    fun(match, {L,R,Bs}) -> match1(L, R, Bs, BBs);
+       (binding, {Name,Bs}) -> binding(Name, Bs);
+       (add_binding, {Name,Val,Bs}) -> add_binding(Name, Val, Bs)
+    end.
 
 match_tuple([E|Es], Tuple, I, Bs0, BBs) ->
     {match,Bs} = match1(E, element(I, Tuple), Bs0, BBs),
@@ -973,18 +1090,30 @@ match_list(_, _, _Bs, _BBs) ->
 %% add_binding(Name, Value, Bindings)
 %% del_binding(Name, Bindings)
 
+-spec(new_bindings() -> binding_struct()).
 new_bindings() -> orddict:new().
 
+-spec(bindings(BindingStruct :: binding_struct()) -> bindings()).
 bindings(Bs) -> orddict:to_list(Bs).
 
+-spec(binding(Name, BindingStruct) -> {value, value()} | unbound when
+      Name :: name(),
+      BindingStruct :: binding_struct()).
 binding(Name, Bs) ->
     case orddict:find(Name, Bs) of
 	{ok,Val} -> {value,Val};
 	error -> unbound
     end.
 
+-spec(add_binding(Name, Value, BindingStruct) -> binding_struct() when
+      Name :: name(),
+      Value :: value(),
+      BindingStruct :: binding_struct()).
 add_binding(Name, Val, Bs) -> orddict:store(Name, Val, Bs).
 
+-spec(del_binding(Name, BindingStruct) -> binding_struct() when
+      Name :: name(),
+      BindingStruct :: binding_struct()).
 del_binding(Name, Bs) -> orddict:erase(Name, Bs).
 
 add_bindings(Bs1, Bs2) ->

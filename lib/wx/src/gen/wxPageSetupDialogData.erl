@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -146,28 +146,28 @@ getDefaultInfo(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxPageSetupDialogData_GetDefaultInfo,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxPageSetupDialogData()) -> {X::integer(),Y::integer()}
+%% @spec (This::wxPageSetupDialogData()) -> {X::integer(), Y::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpagesetupdialogdata.html#wxpagesetupdialogdatagetmargintopleft">external documentation</a>.
 getMarginTopLeft(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxPageSetupDialogData),
   wxe_util:call(?wxPageSetupDialogData_GetMarginTopLeft,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxPageSetupDialogData()) -> {X::integer(),Y::integer()}
+%% @spec (This::wxPageSetupDialogData()) -> {X::integer(), Y::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpagesetupdialogdata.html#wxpagesetupdialogdatagetmarginbottomright">external documentation</a>.
 getMarginBottomRight(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxPageSetupDialogData),
   wxe_util:call(?wxPageSetupDialogData_GetMarginBottomRight,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxPageSetupDialogData()) -> {X::integer(),Y::integer()}
+%% @spec (This::wxPageSetupDialogData()) -> {X::integer(), Y::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpagesetupdialogdata.html#wxpagesetupdialogdatagetminmargintopleft">external documentation</a>.
 getMinMarginTopLeft(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxPageSetupDialogData),
   wxe_util:call(?wxPageSetupDialogData_GetMinMarginTopLeft,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxPageSetupDialogData()) -> {X::integer(),Y::integer()}
+%% @spec (This::wxPageSetupDialogData()) -> {X::integer(), Y::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpagesetupdialogdata.html#wxpagesetupdialogdatagetminmarginbottomright">external documentation</a>.
 getMinMarginBottomRight(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxPageSetupDialogData),
@@ -181,7 +181,7 @@ getPaperId(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxPageSetupDialogData_GetPaperId,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxPageSetupDialogData()) -> {W::integer(),H::integer()}
+%% @spec (This::wxPageSetupDialogData()) -> {W::integer(), H::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpagesetupdialogdata.html#wxpagesetupdialogdatagetpapersize">external documentation</a>.
 getPaperSize(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxPageSetupDialogData),
@@ -218,7 +218,7 @@ setDefaultMinMargins(#wx_ref{type=ThisT,ref=ThisRef},Flag)
   wxe_util:cast(?wxPageSetupDialogData_SetDefaultMinMargins,
   <<ThisRef:32/?UI,(wxe_util:from_bool(Flag)):32/?UI>>).
 
-%% @spec (This::wxPageSetupDialogData(), Pt::{X::integer(),Y::integer()}) -> ok
+%% @spec (This::wxPageSetupDialogData(), Pt::{X::integer(), Y::integer()}) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpagesetupdialogdata.html#wxpagesetupdialogdatasetmargintopleft">external documentation</a>.
 setMarginTopLeft(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY})
  when is_integer(PtX),is_integer(PtY) ->
@@ -226,7 +226,7 @@ setMarginTopLeft(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY})
   wxe_util:cast(?wxPageSetupDialogData_SetMarginTopLeft,
   <<ThisRef:32/?UI,PtX:32/?UI,PtY:32/?UI>>).
 
-%% @spec (This::wxPageSetupDialogData(), Pt::{X::integer(),Y::integer()}) -> ok
+%% @spec (This::wxPageSetupDialogData(), Pt::{X::integer(), Y::integer()}) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpagesetupdialogdata.html#wxpagesetupdialogdatasetmarginbottomright">external documentation</a>.
 setMarginBottomRight(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY})
  when is_integer(PtX),is_integer(PtY) ->
@@ -234,7 +234,7 @@ setMarginBottomRight(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY})
   wxe_util:cast(?wxPageSetupDialogData_SetMarginBottomRight,
   <<ThisRef:32/?UI,PtX:32/?UI,PtY:32/?UI>>).
 
-%% @spec (This::wxPageSetupDialogData(), Pt::{X::integer(),Y::integer()}) -> ok
+%% @spec (This::wxPageSetupDialogData(), Pt::{X::integer(), Y::integer()}) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpagesetupdialogdata.html#wxpagesetupdialogdatasetminmargintopleft">external documentation</a>.
 setMinMarginTopLeft(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY})
  when is_integer(PtX),is_integer(PtY) ->
@@ -242,7 +242,7 @@ setMinMarginTopLeft(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY})
   wxe_util:cast(?wxPageSetupDialogData_SetMinMarginTopLeft,
   <<ThisRef:32/?UI,PtX:32/?UI,PtY:32/?UI>>).
 
-%% @spec (This::wxPageSetupDialogData(), Pt::{X::integer(),Y::integer()}) -> ok
+%% @spec (This::wxPageSetupDialogData(), Pt::{X::integer(), Y::integer()}) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpagesetupdialogdata.html#wxpagesetupdialogdatasetminmarginbottomright">external documentation</a>.
 setMinMarginBottomRight(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY})
  when is_integer(PtX),is_integer(PtY) ->
@@ -265,7 +265,7 @@ setPaperId(#wx_ref{type=ThisT,ref=ThisRef},Id)
 %% setPaperSize(This::wxPageSetupDialogData(), Id::integer()) -> ok </c>
 %% </p>
 %% <p><c>
-%% setPaperSize(This::wxPageSetupDialogData(), Sz::{W::integer(),H::integer()}) -> ok </c>
+%% setPaperSize(This::wxPageSetupDialogData(), Sz::{W::integer(), H::integer()}) -> ok </c>
 %% </p>
 setPaperSize(#wx_ref{type=ThisT,ref=ThisRef},Id)
  when is_integer(Id) ->

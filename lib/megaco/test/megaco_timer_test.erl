@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -23,22 +23,17 @@
 %%----------------------------------------------------------------------
 -module(megaco_timer_test).
 
+-compile({no_auto_import,[error/1]}).
+
 -export([
 	 t/0, t/1,
-	 init_per_testcase/2, fin_per_testcase/2,
-	 
-	 all/1,
-
-	 simple/1,
+	 init_per_testcase/2, end_per_testcase/2,
+	 all/0,groups/0,init_per_group/2,end_per_group/2,
 	 simple_init/1,
 	 simple_usage/1,
-
-	 integer_timer/1,
 	 integer_timer_start_and_expire/1, 
 	 integer_timer_start_and_stop/1%% ,
-
 %%	 incr_timer/1
-	 
 	]).
 
 -export([
@@ -71,49 +66,39 @@ do_init_per_testcase(Case, Config) ->
     {ok, _Pid} = megaco_monitor:start_link(),
     megaco_test_lib:init_per_testcase(Case, [{monitor_running, true}|Config]).
     
-fin_per_testcase(Case, Config) ->
-    io:format("fin_per_testcase -> entry with"
+end_per_testcase(Case, Config) ->
+    io:format("end_per_testcase -> entry with"
 	       "~n   Case:   ~p"
 	       "~n   Config: ~p"
 	       "~n", [Case, Config]),
     process_flag(trap_exit, false),
     case lists:keydelete(monitor_running, 1, Config) of
 	Config ->
-	    megaco_test_lib:fin_per_testcase(Case, Config);
+	    megaco_test_lib:end_per_testcase(Case, Config);
 	Config2 ->
 	    megaco_monitor:stop(),
-	    megaco_test_lib:fin_per_testcase(Case, Config2)
+	    megaco_test_lib:end_per_testcase(Case, Config2)
     end.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-all(suite) ->
-    Cases = 
-	[
-	 simple,
- 	 integer_timer%% ,
-%% 	 incr_timer
-	],
-    Cases.
+all() -> 
+    [{group, simple}, {group, integer_timer}].
 
+groups() -> 
+    [{simple, [],
+      [simple_init, simple_usage]},
+%, incr_timer
+     {integer_timer, [],
+      [integer_timer_start_and_expire,
+       integer_timer_start_and_stop]}].
 
-simple(suite) ->
-    Cases = 
-	[
-	 simple_init,
-	 simple_usage
-	],
-    Cases.
+init_per_group(_GroupName, Config) ->
+    Config.
 
-
-integer_timer(suite) ->
-    Cases = 
-	[
-	 integer_timer_start_and_expire,
-	 integer_timer_start_and_stop
-	],
-    Cases.
+end_per_group(_GroupName, Config) ->
+    Config.
 
 
 %% incr_timer(suite) ->

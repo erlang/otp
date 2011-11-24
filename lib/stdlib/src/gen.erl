@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(gen).
@@ -28,6 +28,8 @@
 	 call/3, call/4, reply/2]).
 
 -export([init_it/6, init_it/7]).
+
+-export([format_status_header/2]).
 
 -define(default_timeout, 5000).
 
@@ -212,7 +214,22 @@ do_call(Process, Label, Request, Timeout) ->
 
 	    catch erlang:send(Process, {Label, {self(), Mref}, Request},
 		  [noconnect]),
-	    wait_resp_mon(Node, Mref, Timeout)
+	    receive
+		{Mref, Reply} ->
+		    erlang:demonitor(Mref, [flush]),
+		    {ok, Reply};
+		{'DOWN', Mref, _, _, noconnection} ->
+		    exit({nodedown, Node});
+		{'DOWN', Mref, _, _, Reason} ->
+		    exit(Reason)
+	    after Timeout ->
+		    erlang:demonitor(Mref),
+		    receive
+			{'DOWN', Mref, _, _, _} -> true
+		    after 0 -> true
+		    end,
+		    exit(timeout)
+	    end
     catch
 	error:_ ->
 	    %% Node (C/Java?) is not supporting the monitor.
@@ -231,24 +248,6 @@ do_call(Process, Label, Request, Timeout) ->
 		    Process ! {Label, {self(), Tag}, Request},
 		    wait_resp(Node, Tag, Timeout)
 	    end
-    end.
-
-wait_resp_mon(Node, Mref, Timeout) ->
-    receive
-	{Mref, Reply} ->
-	    erlang:demonitor(Mref, [flush]),
-	    {ok, Reply};
-	{'DOWN', Mref, _, _, noconnection} ->
-	    exit({nodedown, Node});
-	{'DOWN', Mref, _, _, Reason} ->
-	    exit(Reason)
-    after Timeout ->
-	    erlang:demonitor(Mref),
-	    receive
-		{'DOWN', Mref, _, _, _} -> true 
-	    after 0 -> true
-	    end,
-	    exit(timeout)
     end.
 
 wait_resp(Node, Tag, Timeout) ->
@@ -274,7 +273,7 @@ reply({To, Tag}, Reply) ->
 %%%-----------------------------------------------------------------
 %%%  Misc. functions.
 %%%-----------------------------------------------------------------
-where({global, Name}) -> global:safe_whereis_name(Name);
+where({global, Name}) -> global:whereis_name(Name);
 where({local, Name})  -> whereis(Name).
 
 name_register({local, Name} = LN) ->
@@ -318,3 +317,10 @@ debug_options(Opts) ->
 	{ok, Options} -> sys:debug_options(Options);
 	_ -> []
     end.
+
+format_status_header(TagLine, Pid) when is_pid(Pid) ->
+    lists:concat([TagLine, " ", pid_to_list(Pid)]);
+format_status_header(TagLine, RegName) when is_atom(RegName) ->
+    lists:concat([TagLine, " ", RegName]);
+format_status_header(TagLine, Name) ->
+    {TagLine, Name}.

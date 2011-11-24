@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -536,8 +536,15 @@ lookup(_, _Ctx) ->
 receive_msg(Socket, Acc, Timeout) ->
     receive 
 	{tcp_closed, Socket} ->
-	    [_Header, Body] = re:split(Acc,"\r\n\r\n",[{return,list}]),
-	    Body;
+	    case re:split(Acc,"\r\n\r\n",[{return,list}]) of
+		[_Header, Body] ->
+		    Body;
+		What ->
+		    orber:dbg("[~p] orber_cosnaming_utils:receive_msg();~n"
+			      "HTTP server closed the connection before sending a complete reply: ~p.", 
+			      [?LINE, What], ?DEBUG_LEVEL),
+		    corba:raise(#'COMM_FAILURE'{completion_status=?COMPLETED_NO})
+	    end;
 	{tcp, Socket, Response} ->
 	    receive_msg(Socket, Acc ++ Response, Timeout);
 	{tcp_error, Socket, Reason} ->

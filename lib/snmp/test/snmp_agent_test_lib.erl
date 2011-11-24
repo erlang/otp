@@ -1,19 +1,19 @@
 %% 
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2005-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %% 
 
@@ -421,7 +421,7 @@ start_agent(Config, Vsns, Opts) ->
     ?LOG("start_agent -> entry (~p) with"
 	"~n   Config: ~p"
 	"~n   Vsns:   ~p"
-	"~n   Opts:   ~p",[node(), Config, Vsns, Opts]),
+	"~n   Opts:   ~p", [node(), Config, Vsns, Opts]),
     
     ?line AgentDir = ?config(agent_dir, Config),
     ?line SaNode   = ?config(snmp_sa,   Config),
@@ -1311,10 +1311,12 @@ rewrite_target_addr_conf(Dir, NewPort) ->
 	 "~n   NewPort: ~p", [NewPort]),
     TAFile = filename:join(Dir, "target_addr.conf"),
     case file:read_file_info(TAFile) of
-	{ok, _} -> ok;
-	{error, R} -> ?ERR("failure reading file info of "
-			   "target address config file: ~p",[R]),
-		      ok  
+	{ok, _} -> 
+	    ok;
+	{error, R} -> 
+	    ?ERR("failure reading file info of "
+		 "target address config file: ~p",[R]),
+	    ok  
     end,
 
     ?line [TrapAddr|Addrs] = 
@@ -1335,8 +1337,9 @@ rewrite_target_addr_conf(Dir, NewPort) ->
 rewrite_target_addr_conf_check(O) -> 
     {ok,O}.
 
-rewrite_target_addr_conf2(NewPort,{Name,Ip,_Port,Timeout,Retry,
-				   "std_trap",EngineId}) -> 
+rewrite_target_addr_conf2(NewPort,
+			  {Name, Ip, _Port, Timeout, Retry,
+			   "std_trap", EngineId}) -> 
     ?LOG("rewrite_target_addr_conf2 -> entry with std_trap",[]),
     {Name,Ip,NewPort,Timeout,Retry,"std_trap",EngineId};
 rewrite_target_addr_conf2(_NewPort,O) -> 

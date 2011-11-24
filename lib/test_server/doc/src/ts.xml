@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2007</year>
-      <year>2008</year>
+      <year>2011</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -77,7 +77,7 @@
         </p>
     <p><c>ts:install/0</c> is used if the target platform is the
         same as the controller host, i.e. if you run on "local target"
-        and no options are needed. Then running <c>ts:install/0</c><c>ts</c> 
+        and no options are needed. Then running <c>ts:install/0</c> <c>ts</c>
 	will run an autoconf script for your current
         environment and set up the necessary variables needed by the
         test suites.
@@ -250,7 +250,7 @@
           running test suites. If a remote host is to be used, the
           <c>TargetSystem</c> argument must be given so that "cross
           installation" can be done. This should be used for testing on
-          VxWorks or OSE/Delta. Installation is required for any of the
+          VxWorks. Installation is required for any of the
           functions in <c>ts</c> to work.
           </p>
         <p>Opts may be one or more of
@@ -275,7 +275,7 @@
            strings.
           </item>
           <item><c>{slavetargets, SlaveTarges}</c><br></br>
-          For VxWorks and OSE/Delta only. This is a list of
+          For VxWorks only. This is a list of
            available hosts where slave nodes can be started. This is
            necessary because only one node can run per host in the
            VxWorks environment. This is not the same as

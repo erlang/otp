@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2009</year>
-      <year>2009</year>
+      <year>2011</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -37,6 +37,149 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Reltool.</p>
 
+  <section><title>Reltool 0.5.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    If a module was duplicated in the library directories
+	    visible to reltool, and the configuration did not point
+	    out which file to use, then reltool:start would always
+	    fail. A pop-up is added which asks if you want to
+	    continue with a safe and minimal configuration.</p>
+          <p>
+	    Own Id: OTP-9383</p>
+        </item>
+        <item>
+          <p>
+	    wx would sometimes crash due to an empty radiobox on the
+	    'releases' tab of the system window. This radiobox is
+	    removed, and replaced by a listbox which will always
+	    contain at least kernel and stdlib applications.</p>
+          <p>
+	    Own Id: OTP-9384</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Reltool 0.5.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The system level option <c>app_files</c> is documented to
+	    allow the values <c>keep | strip | all</c>, but it only
+	    allowed <c>keep</c>. This is corrected.</p>
+          <p>
+	    Own Id: OTP-9135</p>
+        </item>
+        <item>
+          <p>
+	    Allow the same module name in multiple applications
+	    visible to reltool, as long as all but one of the
+	    applications/modules are explicitely excluded. (Thanks to
+	    Andrew Gopienko and Jay Nelson)</p>
+          <p>
+	    Own Id: OTP-9229</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Reltool 0.5.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The reltool module contained two seriously erroneous
+	    specs which caused bogus warnings when dialyzing reltool
+	    and some correct code of users. These were fixed (specs
+	    for start_link/1 and eval_server/3)</p>
+          <p>
+	    - Code cleanups and simplifications - Fix a bug in the
+	    calculation of circular dependencies - Eliminate two
+	    dialyzer warnings - Put files alphabetically</p>
+          <p>
+	    Own Id: OTP-9120</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Reltool 0.5.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            Added function <c>zip:foldl/3</c> to iterate over zip
+            archives.</p>
+          <p>
+            Added functions to create and extract escripts. See
+            <c>escript:create/2</c> and <c>escript:extract/2</c>.</p>
+          <p>
+            The undocumented function <c>escript:foldl/3</c> has been
+            removed. The same functionality can be achieved with the
+            more flexible functions <c>escript:extract/2</c> and
+            <c>zip:foldl/3</c>.</p>
+          <p>
+            Record fields has been annotated with type info. Source
+            files as been adapted to fit within 80 chars and trailing
+            whitespace has been removed.</p>
+          <p>
+            Own Id: OTP-8521</p>
+        </item>
+        <item>
+            <p>A new escript, called <c>reltool</c>, has been
+            introduced in order to simplify the usage of the reltool
+            application from makefiles.</p>
+            <p>The handling of applications included in releases has
+            been improved. Applications that are required to be
+            started before other applications in a release are now
+            automatically included in the release. The <c>kernel</c>
+            and <c>stdlib</c> applications are always included as
+            they are mandatory.</p>
+            <p>Applications that are (explicitly or implicitly)
+            included in a release are now automatically included as
+            if they were explicitly included with the incl_cond
+            flag.</p>
+            <p>A new <c>embedded_app_type</c> option has been
+            introduced. It is intended to be used for embedded
+            systems where all included applications must be loaded
+            from the boot script, as these systems does not utilize
+            dynamic code loading. If <c>embedded_app_type </c> is set
+            to something else than <c>undefined</c>, all included
+            applications will be included in both the release as well
+            as in the boot script. If the <c>profile</c> is
+            <c>embedded</c> the <c>embedded_app_type</c> option
+            defaults to <c>load</c>.</p>
+            <p>A new function called <c>reltool:get_status/1</c> has
+            been introduced. It returns status about the
+            configuration in the server.</p>
+            <p>The API functions that may take <c>PidOrOptions</c> as
+            input and actually gets <c>Options</c> does now print out
+            warnings.</p>
+            <p>The internal error handling has been improved. For
+            example <c>{error,Reason}</c> is always returned in case
+            of errors even when the server dies.</p>
+            <p><c>app</c> and <c>appup</c> files has been added as
+            well as a corresponding test suite.</p>
+            <p>Various cleanups has been made in the code and in the
+            documentation.</p>
+          <p>
+            Own Id: OTP-8590</p>
+        </item>
+      </list>
+    </section>
+
+  </section>
 
     <section><title>Reltool 0.5.3</title>
 

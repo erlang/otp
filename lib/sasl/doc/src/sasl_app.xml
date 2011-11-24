@@ -4,7 +4,7 @@
 <appref>
   <header>
     <copyright>
-      <year>1996</year><year>2009</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -67,6 +67,11 @@
         <p>This error logger writes <em>all</em> events sent to
           the error logger to disk. It installs the <c>log_mf_h</c>
           event handler in the <c>error_logger</c> process.</p>
+        <p>To activate this event handler, the following three sasl
+          configuration parameters must be set:
+          <c>error_logger_mf_dir</c>, <c>error_logger_mf_maxbytes</c>
+          and <c>error_logger_mf_maxfiles</c>. See below for more
+          information about the configuration parameters.</p>
       </item>
     </taglist>
   </section>

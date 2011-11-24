@@ -1,0 +1,45 @@
+OTP8595-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE, snmpModules, mib-2 
+        FROM SNMPv2-SMI
+    DisplayString, TestAndIncr, TimeStamp, RowStatus, TruthValue,
+    TEXTUAL-CONVENTION
+        FROM SNMPv2-TC
+    MODULE-COMPLIANCE, OBJECT-GROUP, NOTIFICATION-GROUP
+        FROM SNMPv2-CONF
+    sysLocation, sysContact
+	FROM SNMPv2-MIB
+    ;
+
+otp8595MIB MODULE-IDENTITY
+    LAST-UPDATED "1004210000Z"
+    ORGANIZATION ""
+    CONTACT-INFO
+	""
+    DESCRIPTION
+            "Test mib for OTP-8595"
+    ::= { snmpModules 1 }
+
+
+test   OBJECT IDENTIFIER ::= { mib-2 15 }
+
+bits1 OBJECT-TYPE
+    SYNTAX      BITS { 
+      b0(0), 
+      b1(1), 
+      b2(2),
+      -- The following are extensions to the original set of
+      -- labels.  The extensions start at an octet boundary.
+      -- So for bits 3 - 7, one MUST set them to zero on send
+      -- and one MUST ignore them on receipt.
+      b8(8),
+      b9(9)
+    }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+	""
+    ::= { test 1 }
+
+END

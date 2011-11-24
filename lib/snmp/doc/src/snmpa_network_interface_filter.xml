@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2007</year><year>2009</year>
+      <year>2007</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>snmpa_network_interface_filter</title>
@@ -153,7 +153,7 @@ pdu_type() = 'get-request' | 'get-next-request' | 'get-response' | 'set-request'
         <p>For the message to be discarded all together, the function 
           <em>must</em> return <em>false</em>. </p>
         <p>Note that it is possible for this function to filter out targets
-          (but <em>not</em> add it's own) by returning an updated 
+          (but <em>not</em> add its own) by returning an updated
           <c>Targets</c> list (<c>NewTargets</c>). </p>
       </desc>
     </func>

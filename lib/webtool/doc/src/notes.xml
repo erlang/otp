@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2010</year>
+      <year>2004</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -30,6 +30,55 @@
   </header>
   <p>This document describes the changes made to the Webtool
     application.</p>
+
+<section><title>WebTool 0.8.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Do not install *.bat files on non-win32 machines (Thanks
+	    to Hans Ulrich Niedermann)</p>
+          <p>
+	    Own Id: OTP-9515</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>WebTool 0.8.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Various small documentation fixes (Thanks to Bernard
+	    Duggan)</p>
+          <p>
+	    Own Id: OTP-9172</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>WebTool 0.8.7</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Up until now Netscape has been the default web browser on
+	    Unix/Linux. Webtool has now been updated to start Firefox
+	    as default browser instead.</p>
+          <p>
+	    Own Id: OTP-8651 Aux Id: OTP-8650 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>WebTool 0.8.6</title>
 

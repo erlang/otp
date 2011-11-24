@@ -1,0 +1,2 @@
+
+ets_insert_diff_atoms_race5.erl:22: The call ets:insert(Table::'foo',[{'counter',number()} | {'index',number()},...]) might have an unintended effect due to a possible race condition caused by its combination with the ets:lookup(Tab::'foo',Counter::'counter') call in ets_insert_diff_atoms_race5.erl on line 13

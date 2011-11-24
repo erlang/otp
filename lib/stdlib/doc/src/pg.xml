@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>1996</year>
-      <year>2007</year>
+      <year>2011</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -51,77 +51,56 @@
   </description>
   <funcs>
     <func>
-      <name>create(PgName) -> ok | {error, Reason}</name>
+      <name name="create" arity="1"/>
       <fsummary>Create an empty group</fsummary>
-      <type>
-        <v>PgName = term()</v>
-        <v>Reason = already_created | term()</v>
-      </type>
       <desc>
-        <p>Creates an empty group named <c>PgName</c> on the current
+        <p>Creates an empty group named <c><anno>PgName</anno></c> on the current
           node.</p>
       </desc>
     </func>
     <func>
-      <name>create(PgName, Node) -> ok | {error, Reason}</name>
+      <name name="create" arity="2"/>
       <fsummary>Create an empty group on another node</fsummary>
-      <type>
-        <v>PgName = term()</v>
-        <v>Node = node()</v>
-        <v>Reason = already_created | term()</v>
-      </type>
       <desc>
-        <p>Creates an empty group named <c>PgName</c> on the node
-          <c>Node</c>.</p>
+        <p>Creates an empty group named <c><anno>PgName</anno></c> on the node
+          <c><anno>Node</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name>join(PgName, Pid) -> Members</name>
+      <name name="join" arity="2"/>
       <fsummary>Join a pid to a process group</fsummary>
-      <type>
-        <v>PgName = term()</v>
-        <v>Pid = pid()</v>
-        <v>Members = [pid()]</v>
-      </type>
       <desc>
-        <p>Joins the pid <c>Pid</c> to the process group <c>PgName</c>.
+        <p>Joins the pid <c><anno>Pid</anno></c> to the process group
+          <c><anno>PgName</anno></c>.
           Returns a list of all old members of the group.</p>
       </desc>
     </func>
     <func>
-      <name>send(PgName, Msg) -> void()</name>
+      <name name="send" arity="2"/>
       <fsummary>Send a message to all members of a process group</fsummary>
-      <type>
-        <v>PgName = Msg = term()</v>
-      </type>
       <desc>
         <p>Sends the tuple <c>{pg_message, From, PgName, Msg}</c> to
-          all members of the process group <c>PgName</c>.</p>
-        <p>Failure: <c>{badarg, {PgName, Msg}}</c> if <c>PgName</c> is
+          all members of the process group <c><anno>PgName</anno></c>.</p>
+        <p>Failure: <c>{badarg, {<anno>PgName</anno>, <anno>Msg</anno>}}</c>
+          if <c><anno>PgName</anno></c> is
           not a process group (a globally registered name).</p>
       </desc>
     </func>
     <func>
-      <name>esend(PgName, Msg) -> void()</name>
+      <name name="esend" arity="2"/>
       <fsummary>Send a message to all members of a process group, except ourselves</fsummary>
-      <type>
-        <v>PgName = Msg = term()</v>
-      </type>
       <desc>
         <p>Sends the tuple <c>{pg_message, From, PgName, Msg}</c> to
-          all members of the process group <c>PgName</c>, except
+          all members of the process group <c><anno>PgName</anno></c>, except
           ourselves.</p>
-        <p>Failure: <c>{badarg, {PgName, Msg}}</c> if <c>PgName</c> is
+        <p>Failure: <c>{badarg, {<anno>PgName</anno>, <anno>Msg</anno>}}</c>
+          if <c><anno>PgName</anno></c> is
           not a process group (a globally registered name).</p>
       </desc>
     </func>
     <func>
-      <name>members(PgName) -> Members</name>
+      <name name="members" arity="1"/>
       <fsummary>Return a list of all members of a process group</fsummary>
-      <type>
-        <v>PgName = term()</v>
-        <v>Members = [pid()]</v>
-      </type>
       <desc>
         <p>Returns a list of all members of the process group
           <c>PgName</c>.</p>

@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -25,7 +25,7 @@
 %%----------------------------------------------------------------------
 %% Include files
 %%----------------------------------------------------------------------
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include("snmp_test_lib.hrl").
 
 
@@ -33,8 +33,8 @@
 %% External exports
 %%----------------------------------------------------------------------
 -export([
-         init_per_testcase/2, fin_per_testcase/2,
-	 all/1, 
+         init_per_testcase/2, end_per_testcase/2,
+	all/0,groups/0,init_per_group/2,end_per_group/2, 
 	 start_and_stop/1,
 	 notes/1,
 	 info/1,
@@ -63,20 +63,24 @@
 init_per_testcase(_Case, Config) when is_list(Config) ->
     Config.
 
-fin_per_testcase(_Case, Config) when is_list(Config) ->
+end_per_testcase(_Case, Config) when is_list(Config) ->
     Config.
 
 %%======================================================================
 %% Test case definitions
 %%======================================================================
-all(suite) ->
-    [
-     start_and_stop,
-     notes,
-     info,
-     garbage_in
-     
-    ].
+all() -> 
+[start_and_stop, notes, info, garbage_in].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 
 %%======================================================================

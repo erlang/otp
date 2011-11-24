@@ -45,13 +45,11 @@ preloaded files are to be updated, the source code is built using a
 special Makefile in the $ERL_TOP/preloaded/src directory, which
 creates beam files in the same directory. When they seem to compile
 successfully, they can be used in an emulator build by being copied
-to the ebin directory (although, in Clearcase that requires checking
-out the files in the ebin directory first). For developers using the
-main Clearcase branch, otp_build {prepare,update,commit}_preloaded can
-be used to ease the process (there are also similar targets in the
+to the ebin directory. otp_build update_preloaded can be used to
+ease the process (there are also similar targets in the
 $ERL_TOP/preloaded/src/Makefile).
 
-In prebuilt open source distributions, these .beam files are also
+In prebuilt open source distributions, these beam files are also
 present, but to update them one might need to change permission on the
 $ERL_TOP/preloaded/ebin directory, then build and then manually copy
 the beam files from the source directory to ../ebin. If patches are

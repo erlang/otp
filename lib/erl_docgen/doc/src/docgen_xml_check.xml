@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2007</year>
+      <year>2011</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  The contents of this file are subject to the Erlang Public License,
+  Version 1.1, (the "License"); you may not use this file except in
+  compliance with the License. You should have received a copy of the
+  Erlang Public License along with this software. If not, it can be
+  retrieved online at http://www.erlang.org/.
+
+  Software distributed under the License is distributed on an "AS IS"
+  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+  the License for the specific language governing rights and limitations
+  under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>docgen_xml_check</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module>docgen_xml_check</module>
+  <modulesummary>Validate XML documentation source code</modulesummary>
+  <description>
+    <p><c>docgen_xml_check</c> contains functions for validating XML
+      documentation source code.</p>
+  </description>
+
+  <funcs>
+    <func>
+      <name>validate(File) -> ok | error | {error, badfile}</name>
+      <fsummary>Validate XML source code.</fsummary>
+      <type>
+	<v>File = string()</v>
+      </type>
+      <desc>
+        <p>Validates the XML documentation source code in <c>File</c>.
+	  The <c>.xml</c> extension can be omitted.</p>
+
+	<p>Returns <c>ok</c> if successful, otherwise error information
+	  is printed and the function returns <c>error</c>.
+	  If <c>File</c> does not exist, <c>{error, badfile}</c> is
+	  returned.</p>
+      </desc>
+    </func>
+  </funcs>
+
+</erlref>
+

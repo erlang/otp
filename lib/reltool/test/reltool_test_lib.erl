@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2009-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 
 -module(reltool_test_lib).
@@ -24,9 +24,11 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 init_per_suite(Config) when is_list(Config)->
+    global:register_name(reltool_global_logger, group_leader()),
     incr_timetrap(Config, 5).
 
 end_per_suite(Config) when is_list(Config)->
+    global:unregister_name(reltool_global_logger),
     ok.
 
 incr_timetrap(Config, Times) ->
@@ -95,7 +97,7 @@ wx_init_per_suite(Config) ->
 					  exit({skipped, "Can not test on MacOSX"});
 				      {unix, _} ->
 					  io:format("DISPLAY ~s~n", [os:getenv("DISPLAY")]),
-					  case proplists:get_value(xserver, Config, none) of
+					  case ct:get_config(xserver, none) of
 					      none   -> ignore;
 					      Server -> os:putenv("DISPLAY", Server)
 					  end;
@@ -130,11 +132,9 @@ wx_end_per_suite(Config) ->
 
 init_per_testcase(_Func, Config) when is_list(Config) ->
     set_kill_timer(Config),
-    global:register_name(reltool_global_logger, group_leader()),
     Config.
 
 end_per_testcase(_Func, Config) when is_list(Config) ->
-    global:unregister_name(reltool_global_logger),
     reset_kill_timer(Config),
     Config.
 
@@ -295,7 +295,7 @@ eval_test_case(Mod, Fun, Config) ->
 test_case_evaluator(Mod, Fun, [Config]) ->
     NewConfig = Mod:init_per_testcase(Fun, Config),
     R = apply(Mod, Fun, [NewConfig]),
-    Mod:fin_per_testcase(Fun, NewConfig),
+    Mod:end_per_testcase(Fun, NewConfig),
     exit({test_case_ok, R}).
 
 wait_for_evaluator(Pid, Mod, Fun, Config) ->
@@ -311,12 +311,12 @@ wait_for_evaluator(Pid, Mod, Fun, Config) ->
 	{'EXIT', Pid, {skipped, Reason}} ->
 	    log("<WARNING> Test case ~w skipped, because ~p~n",
 		[{Mod, Fun}, Reason]),
-	    Mod:fin_per_testcase(Fun, Config),
+	    Mod:end_per_testcase(Fun, Config),
 	    {skip, {Mod, Fun}, Reason};
 	{'EXIT', Pid, Reason} ->
 	    log("<ERROR> Eval process ~w exited, because\n\t~p~n",
 		[{Mod, Fun}, Reason]),
-	    Mod:fin_per_testcase(Fun, Config),
+	    Mod:end_per_testcase(Fun, Config),
 	    {crash, {Mod, Fun}, Reason}
     end.
 

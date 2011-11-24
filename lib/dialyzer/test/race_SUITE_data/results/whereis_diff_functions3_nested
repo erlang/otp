@@ -1,0 +1,2 @@
+
+whereis_diff_functions3_nested.erl:21: The call erlang:unregister(Atom::atom()) might fail due to a possible race condition caused by its combination with the erlang:whereis(AnAtom::any()) call in whereis_diff_functions3_nested.erl on line 11

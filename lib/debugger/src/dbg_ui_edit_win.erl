@@ -64,13 +64,13 @@ create_win(GS, {X, Y}, Title, Prompt, {Type, Value}) ->
 			 {text, Value},
 			 {keypress, true}]),
 
-    %% Ok and Cancel buttons
+    %% OK and Cancel buttons
     W = Pad + Wlbl + Went + Pad,
     {Wbtn, Hbtn} = dbg_ui_win:min_size(["Cancel"], 70, 30),
     Ybtn = Pad + Hlbl + Pad,
     Btn = gs:button(Win, [{x, Pad}, {y, Ybtn},
 			  {width, Wbtn}, {height, Hbtn},
-			  {label, {text,"Ok"}}, {font, Font}]),
+			  {label, {text,"OK"}}, {font, Font}]),
     gs:button(Win, [{x, W-Pad-Wbtn}, {y, Ybtn},
 		    {width, Wbtn}, {height, Hbtn},
 		    {label, {text,"Cancel"}}, {font, Font}]),
@@ -100,8 +100,8 @@ handle_event({gs, _Id, destroy, _Data, _Arg}, _WinInfo) ->
     stopped;
 handle_event({gs, Id, keypress, Data, ['Return'|_]}, WinInfo) ->
     gs:config(WinInfo#winInfo.button, flash),
-    handle_event({gs, Id, click, Data, ["Ok"]}, WinInfo);
-handle_event({gs, _Id, click, _Data, ["Ok"|_]}, WinInfo) ->
+    handle_event({gs, Id, click, Data, ["OK"]}, WinInfo);
+handle_event({gs, _Id, click, _Data, ["OK"|_]}, WinInfo) ->
     Ent = WinInfo#winInfo.entry,
     Str = gs:read(Ent, text),
     Type = WinInfo#winInfo.type,

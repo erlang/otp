@@ -1,20 +1,20 @@
 %% -*- erlang -*-
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2009-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 
 %%%-------------------------------------------------------------------
@@ -93,11 +93,27 @@
 -type t13() :: maybe_improper_list(integer(), t11()). 
 -type t14() :: [erl_scan:foo() | 
         %% Should be highlighted
-	non_neg_integer() | nonempty_list() | 
+	term() |
+	bool() |
+	byte() |
+	char() |
+	non_neg_integer() | nonempty_list() |
+	pos_integer() |
+	neg_integer() |
+	number() |
+	list() |
 	nonempty_improper_list() | nonempty_maybe_improper_list() |
+	maybe_improper_list() | string() | iolist() | byte() |
+	module() |
+	mfa() 	|
+	node() 	|
+	timeout() |
+	no_return() |
 	%% Should not be highlighted
 	nonempty_() | nonlist() | 
-erl_scan:bar(34, 92) | t13() | m:f(integer() | <<_:_*16>>)]. 
+ erl_scan:bar(34, 92) | t13() | m:f(integer() | <<_:_*16>>)].
+
+
 -type t15() :: {binary(),<<>>,<<_:34>>,<<_:_*42>>,
 		<<_:3,_:_*14>>,<<>>} | [<<>>|<<_:34>>|<<_:16>>|
 <<_:3,_:_*1472>>|<<_:19,_:_*14>>| <<_:34>>|
@@ -146,6 +162,8 @@ t15(),t20(),t21(), t22(),t25()}.
  | {'del_member', name(), pid()},
    #state{}) -> {'noreply', #state{}}.
 
+-spec all(fun((T) -> boolean()), List :: [T]) ->
+ boolean() when is_subtype(T, term()). % (*)
 
 -spec get_closest_pid(term()) -> 
        Return :: pid()
@@ -170,6 +188,9 @@ f18 :: 1 | 2 | 'undefined',
 f19 = 3 :: integer()|undefined,
 f5 = 3 :: undefined|integer()}). 
 
+-record(state, {
+  sequence_number = 1          :: integer()
+  }).
 
 
 highlighting(X)			  % Function definitions should be highlighted
@@ -349,6 +370,14 @@ indent_basics(X, Y, Z)				% AD added clause
  foo.
 
 
+
+indent_nested() ->
+ [
+ {foo, 2, "string"},
+ {bar, 3, "another string"}
+  ].
+
+
 indent_icr(Z) -> 				% icr = if case receive
  %% If
  if Z >= 0 ->
@@ -483,7 +512,9 @@ indent_try_catch() ->
   file:close(Xfile)
  end;
 indent_try_catch() ->
- try foo(bar) of
+ try
+   foo(bar)
+ of
  X when true andalso
  kalle ->
   io:format(stdout, "Parsing file ~s, ",
@@ -541,14 +572,57 @@ indent_catch() ->
   C = catch B + 
      float(43.1),
  
-  case catch (X) of 
+  case catch foo(X) of
   A ->
  B
  end,
+
+ case
+  catch foo(X)
+ of
+ A ->
+   B
+  end,
+
+  case
+  foo(X)
+   of
+ A ->
+	  catch B,
+	  X
+   end,
+
  try sune of
-   _ -> foo
- catch _:_ -> baf
- end.
+ _ -> foo
+   catch _:_ -> baf
+   end,
+
+    try
+sune
+   of
+ _ ->
+   X = 5,
+   (catch foo(X)),
+   X + 10
+   catch _:_ -> baf
+   end,
+
+   try
+ (catch sune)
+   of
+ _ ->
+   catch foo()  %% BUGBUG can't handle catch inside try without parentheses
+   catch _:_ ->
+    baf
+   end,
+
+   try
+(catch exit())
+   catch
+_ ->
+    catch baf()
+   end,
+ ok.
 
 indent_binary() ->
   X = lists:foldr(fun(M) ->
@@ -578,3 +652,8 @@ Binary2 = << <<X:8>> || <<X:32,_:32>> <= <<0:512>>,
   true = (X rem 2)
       >>,
 ok.
+
+%% This causes an error in earlier erlang-mode versions.
+foo() ->
+[#foo{
+foo = foo}].

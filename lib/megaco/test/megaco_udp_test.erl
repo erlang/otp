@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -34,22 +34,14 @@
 %% External exports
 %%----------------------------------------------------------------------
 -export([
-	 all/1,
-	 
-	 start/1,
+	 all/0,groups/0,init_per_group/2,end_per_group/2,
 	 start_normal/1,
 	 start_invalid_opt/1,
          start_and_stop/1,
-
-	 sending/1,
 	 sendreceive/1,
          block_unblock/1,
-
-	 errors/1,
 	 socket_failure/1,
-
-         init_per_testcase/2, fin_per_testcase/2,
- 
+         init_per_testcase/2, end_per_testcase/2,
          t/0, t/1
          ]).
 
@@ -104,42 +96,31 @@ init_per_testcase(Case, Config) ->
 
 
 %%----------------------------------------------------------------------
-%% Function: fin_per_testcase/2
+%% Function: end_per_testcase/2
 %% Description: 
 %%----------------------------------------------------------------------
-fin_per_testcase(Case, Config) ->
-    megaco_test_lib:fin_per_testcase(Case, Config).
+end_per_testcase(Case, Config) ->
+    megaco_test_lib:end_per_testcase(Case, Config).
 
 
 %%======================================================================
 %% Test case definitions
 %%======================================================================
 
-all(suite) ->
-    [
-     start,
-     sending,
-     errors
-    ].
+all() -> 
+    [{group, start}, {group, sending}, {group, errors}].
 
-start(suite) ->
-    [
-     start_normal,
-     start_invalid_opt,
-     start_and_stop
-    ].
+groups() -> 
+    [{start, [],
+      [start_normal, start_invalid_opt, start_and_stop]},
+     {sending, [], [sendreceive, block_unblock]},
+     {errors, [], [socket_failure]}].
 
-sending(suite) ->
-    [
-     sendreceive,
-     block_unblock
+init_per_group(_GroupName, Config) ->
+    Config.
 
-    ].
-
-errors(suite) ->
-    [
-     socket_failure
-    ].
+end_per_group(_GroupName, Config) ->
+    Config.
 
 
 %% =================================================

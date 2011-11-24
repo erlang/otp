@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2009. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -88,8 +88,7 @@ int ei_send_exit_tmo(int fd, const erlang_pid *from, const erlang_pid *to,
   put32be(s, index - 4);                                /*   4 */
   put8(s, ERL_PASS_THROUGH);                                /*   1 */
                                           /*** sum: len + 1080 */
-  /* FIXME incorrect level */
-  if (ei_tracelevel > 1)
+  if (ei_tracelevel >= 4)
       ei_show_sendmsg(stderr,msgbuf,NULL);
 
   ei_write_fill_t(fd,msgbuf,index,ms); 

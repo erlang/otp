@@ -1,24 +1,24 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(num_bif_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 %% Tests optimization of the BIFs:
 %% 	abs/1
@@ -30,17 +30,37 @@
 %%	round/1
 %%	trunc/1
 
--export([all/1, t_abs/1, t_float/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, t_abs/1, t_float/1,
 	 t_float_to_list/1, t_integer_to_list/1,
 	 t_list_to_integer/1,
-	 t_list_to_float/1, t_list_to_float_safe/1, t_list_to_float_risky/1,
+	 t_list_to_float_safe/1, t_list_to_float_risky/1,
 	 t_round/1, t_trunc/1]).
 
-all(suite) ->
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
     test_lib:recompile(?MODULE),
     [t_abs, t_float, t_float_to_list, t_integer_to_list,
-     t_list_to_float, t_list_to_integer,
-     t_round, t_trunc].
+     {group, t_list_to_float}, t_list_to_integer, t_round,
+     t_trunc].
+
+groups() -> 
+    [{t_list_to_float, [],
+      [t_list_to_float_safe, t_list_to_float_risky]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 t_abs(Config) when is_list(Config) ->
     %% Floats.
@@ -142,7 +162,6 @@ t_integer_to_list(Config) when is_list(Config) ->
 
 %% Tests list_to_float/1.
 
-t_list_to_float(suite) -> [t_list_to_float_safe, t_list_to_float_risky].
 
 t_list_to_float_safe(Config) when is_list(Config) ->
     ?line 0.0 = list_to_float("0.0"),
@@ -166,7 +185,7 @@ t_list_to_float_safe(Config) when is_list(Config) ->
 
 t_list_to_float_risky(Config) when is_list(Config) ->
     ?line Many_Ones = lists:duplicate(25000, $1),
-    ?line list_to_float("2."++Many_Ones),
+    ?line _ = list_to_float("2."++Many_Ones),
     ?line {'EXIT', {badarg, _}} = (catch list_to_float("2"++Many_Ones)),
     ok.
 
@@ -186,7 +205,7 @@ t_list_to_integer(Config) when is_list(Config) ->
 
     %% Bignums.
     ?line 123456932798748738738 = list_to_integer("123456932798748738738"),
-    ?line list_to_integer(lists:duplicate(2000, $1)),
+    ?line _ = list_to_integer(lists:duplicate(2000, $1)),
     ok.
 
 %% Tests round/1.

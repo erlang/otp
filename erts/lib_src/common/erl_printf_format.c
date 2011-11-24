@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2005-2009. All Rights Reserved.
+ * Copyright Ericsson AB 2005-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -25,9 +25,9 @@
  *  width:      [0-9]+ | '*' 
  *  precision:  [0-9]+ | '*' 
  *  length: hh | h | l | ll | L | j | t | b<sz>
- *  conversion: d,i | o,u,x,X | e,E | f,F | g,G | a,A | c | s | T |
+ *  conversion: d,i | o,u,x,X | e,E | f,F | g,G | a,A | c | s | T | R |
  *              p | n | %
- *  sz: 8 | 16 | 32 | 64 | p
+ *  sz: 8 | 16 | 32 | 64 | p | e
  */
 
 /* Without this, variable argument lists break on VxWorks */
@@ -76,6 +76,18 @@
 #endif
 #endif
 
+#ifndef ERTS_SIZEOF_ETERM
+#  ifdef HALFWORD_HEAP_EMULATOR
+#    if SIZEOF_VOID_P == 8
+#      define ERTS_SIZEOF_ETERM 4
+#    else
+#      error "HALFWORD_HEAP_EMULATOR only allowed on 64-bit architecture"
+#    endif
+#  else
+#    define ERTS_SIZEOF_ETERM SIZEOF_VOID_P
+#  endif
+#endif
+
 #if defined(__GNUC__)
 #  undef inline
 #  define inline __inline__
@@ -89,7 +101,7 @@
 #endif
 
 #define FMTC_d    0x0000
-#define FMTC_i    0x0001
+#define FMTC_R    0x0001
 #define FMTC_o    0x0002
 #define FMTC_u    0x0003
 #define FMTC_x    0x0004
@@ -153,7 +165,7 @@ static char heX[] = "0123456789ABCDEF";
 #define SIGN(X) ((X) > 0 ? 1 : ((X) < 0 ? -1 : 0)) 
 #define USIGN(X) ((X) == 0 ? 0 : 1)
 
-int (*erts_printf_eterm_func)(fmtfn_t, void*, unsigned long, long) = NULL;
+int (*erts_printf_eterm_func)(fmtfn_t, void*, unsigned long, long, unsigned long*) = NULL;
 
 static int
 noop_fn(void *vfp, char* buf, size_t len)
@@ -171,8 +183,8 @@ static int fmt_fld(fmtfn_t fn,void* arg,
     int len;
 
     /* format the prefix */
-    if ((sign || (fmt & (FMTF_sgn|FMTF_blk))) &&
-	(((fmt & FMTC_MASK) == FMTC_d) || ((fmt & FMTC_MASK) == FMTC_i))) {
+    if ((sign || (fmt & (FMTF_sgn|FMTF_blk)))
+	&& (fmt & FMTC_MASK) == FMTC_d) {
 	if (sign < 0)
 	    *pp++ = '-';
 	else if ((fmt & FMTF_sgn))
@@ -233,7 +245,6 @@ static int fmt_long(fmtfn_t fn,void* arg,int sign,unsigned long uval,
 
     switch(fmt & FMTC_MASK) {
     case FMTC_d:
-    case FMTC_i:
     case FMTC_u:
 	break;
     case FMTC_o: 
@@ -286,7 +297,6 @@ static int fmt_long_long(fmtfn_t fn,void* arg,int sign,
 
     switch(fmt & FMTC_MASK) {
     case FMTC_d:
-    case FMTC_i:
     case FMTC_u:
 	break;
     case FMTC_o: 
@@ -378,7 +388,7 @@ static int fmt_double(fmtfn_t fn,void*arg,double val,
 	max_size++;
 	if (precision)
 	    max_size += precision;
-	else if (fmt && FMTF_alt)
+	else if (fmt & FMTF_alt)
 	    max_size++;
 	break;
     case FMTC_E:
@@ -392,7 +402,7 @@ static int fmt_double(fmtfn_t fn,void*arg,double val,
 	max_size += 4;
 	if (precision)
 	    max_size += precision;
-	else if (fmt && FMTF_alt)
+	else if (fmt & FMTF_alt)
 	    max_size++;
 	aexp = exp >= 0 ? exp : -exp;
 	if (aexp < 100)
@@ -520,6 +530,17 @@ int erts_printf_format(fmtfn_t fn, void* arg, char* fmt, va_list ap)
 #error No integer datatype with the same size as 'void *' found
 #endif
 		}
+		else if (*ptr == 'e') {
+		    ptr++;
+#if SIZEOF_INT == ERTS_SIZEOF_ETERM
+#elif SIZEOF_LONG == ERTS_SIZEOF_ETERM
+		    fmt |= FMTL_l;
+#elif SIZEOF_LONG_LONG == ERTS_SIZEOF_ETERM
+		    fmt |= FMTL_ll;
+#else
+#error No integer datatype with the same size as Eterm found
+#endif
+		}
 		else {
 		    int bits = 0;
 		    while(isdigit((int) *ptr))
@@ -599,7 +620,7 @@ int erts_printf_format(fmtfn_t fn, void* arg, char* fmt, va_list ap)
 	    /* specifier */
 	    switch(*ptr) {
 	    case 'd': ptr++; fmt |= FMTC_d; break;
-	    case 'i': ptr++; fmt |= FMTC_i; break;
+	    case 'i': ptr++; fmt |= FMTC_d; break;
 	    case 'o': ptr++; fmt |= FMTC_o; break;
 	    case 'u': ptr++; fmt |= FMTC_u; break;
 	    case 'x': ptr++; fmt |= FMTC_x; break;
@@ -614,6 +635,7 @@ int erts_printf_format(fmtfn_t fn, void* arg, char* fmt, va_list ap)
 	    case 'p': ptr++; fmt |= FMTC_p; break;
 	    case 'n': ptr++; fmt |= FMTC_n; break;
 	    case 'T': ptr++; fmt |= FMTC_T; break;
+	    case 'R': ptr++; fmt |= FMTC_R; break;
 	    case '%':
 		FMT(fn,arg,ptr,1,count);
 		ptr++;
@@ -627,7 +649,6 @@ int erts_printf_format(fmtfn_t fn, void* arg, char* fmt, va_list ap)
 
 	    switch(fmt & FMTC_MASK) {
 	    case FMTC_d:
-	    case FMTC_i:
 		switch(fmt & FMTL_MASK) {
 		case FMTL_hh: {
 		    signed char tval = (signed char) va_arg(ap,int);
@@ -791,9 +812,12 @@ int erts_printf_format(fmtfn_t fn, void* arg, char* fmt, va_list ap)
 		default: *va_arg(ap,int*) = count; break;
 		}
 		break;
-	    case FMTC_T: {
+	    case FMTC_T:    /* Eterm */
+	    case FMTC_R: {  /* Eterm, Eterm* base  (base ignored if !HALFWORD_HEAP) */
 		long prec;
 		unsigned long eterm;
+		unsigned long* eterm_base;
+		
 		if (!erts_printf_eterm_func)
 		    return -EINVAL;
 		if (precision < 0)
@@ -803,14 +827,16 @@ int erts_printf_format(fmtfn_t fn, void* arg, char* fmt, va_list ap)
 		else
 		    prec = (long) precision;
 		eterm = va_arg(ap, unsigned long);
+		eterm_base = ((fmt & FMTC_MASK) == FMTC_R) ?
+		    va_arg(ap, unsigned long*) : NULL;
 		if (width > 0 && !(fmt & FMTF_adj)) {
-		    res = (*erts_printf_eterm_func)(noop_fn, NULL, eterm, prec);
+		    res = (*erts_printf_eterm_func)(noop_fn, NULL, eterm, prec, eterm_base);
 		    if (res < 0)
 			return res;
 		    if (width > res)
 			BLANKS(fn, arg, width - res, count);
 		}
-		res = (*erts_printf_eterm_func)(fn, arg, eterm, prec);
+		res = (*erts_printf_eterm_func)(fn, arg, eterm, prec, eterm_base);
 		if (res < 0)
 		    return res;
 		count += res;
@@ -901,7 +927,7 @@ erts_printf_slong(fmtfn_t fn, void *arg, char conv, int pad, int width,
     unsigned long ul_val;
     switch (conv) {
     case 'd': fmt |= FMTC_d; break;
-    case 'i': fmt |= FMTC_i; break;
+    case 'i': fmt |= FMTC_d; break;
     case 'o': fmt |= FMTC_o; break;
     case 'x': fmt |= FMTC_x; break;
     case 'X': fmt |= FMTC_X; break;

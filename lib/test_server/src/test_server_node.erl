@@ -1,30 +1,28 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2002-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2002-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(test_server_node).
--compile(r11).
+-compile(r12).
 
 %%%
 %%% The same compiled code for this module must be possible to load
-%%% in R11B, R12B and later. To make that possible no bit syntax
-%%% must be used.
+%%% in R12B and later.
 %%%
-
 
 %% Test Controller interface
 -export([is_release_available/1]).
@@ -86,7 +84,7 @@ start_remote_main_target(Parameters) ->
 					 MasterNode,MasterCookie),
     Cmd = 
 	case os:getenv("TEST_SERVER_FRAMEWORK") of
-	    false -> Cmd0;
+	    FW when FW =:= false; FW =:= "undefined" -> Cmd0;
 	    FW -> Cmd0 ++ " -env TEST_SERVER_FRAMEWORK " ++ FW
 	end,
 	

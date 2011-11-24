@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,16 +17,21 @@
 %% %CopyrightEnd%
 %%
 -module(io_proto_SUITE).
+-compile(r12).
 
--export([all/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
--export([setopts_getopts/1,unicode_options/1,unicode_options_gen/1, binary_options/1, bc_with_r12/1,
-	 bc_with_r12_gl/1, read_modes_gl/1,bc_with_r12_ogl/1, read_modes_ogl/1, broken_unicode/1,eof_on_pipe/1,unicode_prompt/1]).
+-export([setopts_getopts/1,unicode_options/1,unicode_options_gen/1, 
+	 binary_options/1, bc_with_r12/1,
+	 bc_with_r12_gl/1, read_modes_gl/1,bc_with_r12_ogl/1, 
+	 read_modes_ogl/1, broken_unicode/1,eof_on_pipe/1,unicode_prompt/1]).
 
 
--export([io_server_proxy/1,start_io_server_proxy/0, proxy_getall/1, proxy_setnext/2, proxy_quit/1]).
+-export([io_server_proxy/1,start_io_server_proxy/0, proxy_getall/1, 
+	 proxy_setnext/2, proxy_quit/1]).
 %% For spawn
 -export([toerl_server/3,hold_the_line/3,answering_machine1/3,
 	 answering_machine2/3]).
@@ -41,7 +46,7 @@
 -define(t, test_server).
 -define(privdir(_), "./io_SUITE_priv").
 -else.
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -define(privdir(Conf), ?config(priv_dir, Conf)).
 -endif.
 
@@ -72,19 +77,36 @@ init_per_testcase(_Case, Config) ->
 	   end,
     os:putenv("TERM","vt100"),
     [{watchdog, Dog}, {term, Term} | Config].
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     Term = ?config(term,Config),
     os:putenv("TERM",Term),
     test_server:timetrap_cancel(Dog),
     ok.
 
-all(doc) ->
-    ["Test cases for the io_protocol."];
-all(suite) ->
-    [setopts_getopts, unicode_options, unicode_options_gen, binary_options, bc_with_r12, 
-     bc_with_r12_gl,bc_with_r12_ogl, read_modes_gl, read_modes_ogl, 
-     broken_unicode,eof_on_pipe,unicode_prompt].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [setopts_getopts, unicode_options, unicode_options_gen,
+     binary_options, bc_with_r12, bc_with_r12_gl,
+     bc_with_r12_ogl, read_modes_gl, read_modes_ogl,
+     broken_unicode, eof_on_pipe, unicode_prompt].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 
 -record(state, {

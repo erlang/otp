@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1998-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %% ----------------------------------------------------------------------
@@ -42,8 +42,8 @@ start([], _Type, _Apps) ->
     ok;
 start([{Phase,_PhaseArgs}|Phases], Type, Apps) ->
     case start_apps(Phase, Type, Apps) of
-	{error, Error} ->
-	    {error, Error};
+	{error, _} = Error ->
+	    Error;
 	_ ->
 	    start(Phases, Type, Apps)
     end.
@@ -56,8 +56,8 @@ start_apps(_Phase, _Type, []) ->
     ok;
 start_apps(Phase, Type, [App | Apps]) ->
     case catch run_start_phase(Phase, Type, App) of
-	{error, Error} ->
-	    {error, Error};
+	{error, _} = Error ->
+	    Error;
 	_ ->
 	    start_apps(Phase, Type, Apps)
     end.
@@ -91,10 +91,10 @@ run_the_phase(Phase, Type, App, Mod) ->
 		       {ok, Sp} ->
 			   Sp
 		   end,
-    case lists:keysearch(Phase, 1, Start_phases) of
+    case lists:keyfind(Phase, 1, Start_phases) of
 	false ->
 	    ok;
-	{value, {Phase, PhaseArgs}} -> 
+	{Phase, PhaseArgs} ->
 	    case catch Mod:start_phase(Phase, Type, PhaseArgs) of
 		ok ->
 		    ok;

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -22,15 +22,14 @@
 
 %% External exports
 -export([start_link/2, start_link/3]).
--export([behaviour_info/1]).
 %% Internal exports
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2]).
 -export([code_change/3]).
 
-behaviour_info(callbacks) ->
-    [{init,1},{terminate,2}];
-behaviour_info(_Other) ->
-    undefined.
+-callback init(Args :: term()) ->
+    {ok, Pid :: pid(), State :: term()} | ignore | {error, Error :: term()}.
+-callback terminate(Reason :: (shutdown | term()), State :: term()) ->
+    Ignored :: term().
 
 %%%-----------------------------------------------------------------
 %%% This is a rewrite of supervisor_bridge from BS.3.
@@ -49,8 +48,24 @@ behaviour_info(_Other) ->
 %%%-----------------------------------------------------------------
 -record(state, {mod, pid, child_state, name}).
 
+-spec start_link(Module, Args) -> Result when
+      Module :: module(),
+      Args :: term(),
+      Result :: {ok, Pid} | ignore | {error, Error},
+      Error :: {already_started, Pid} | term(),
+      Pid :: pid().
+
 start_link(Mod, StartArgs) ->
     gen_server:start_link(supervisor_bridge, [Mod, StartArgs, self], []).
+
+-spec start_link(SupBridgeName, Module, Args) -> Result when
+      SupBridgeName :: {local, Name} | {global, Name},
+      Name :: atom(),
+      Module :: module(),
+      Args :: term(),
+      Result :: {ok, Pid} | ignore | {error, Error},
+      Error :: {already_started, Pid} | term(),
+      Pid :: pid().
 
 start_link(Name, Mod, StartArgs) ->
     gen_server:start_link(Name, supervisor_bridge, [Mod, StartArgs, Name], []).

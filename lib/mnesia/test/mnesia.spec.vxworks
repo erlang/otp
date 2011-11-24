@@ -1,0 +1,362 @@
+{topcase, {dir, "../mnesia_test"}}.
+{require_nodenames, 3}.
+{diskless, true}.
+{skip, {mnesia_measure_test, all, "Too heavy"}}.
+%{mnesia_install_test, silly_durability} 'IMPL'
+%{mnesia_install_test, silly_move} 'IMPL'
+{skip, {mnesia_install_test, silly_upgrade, "Uses disk"}}.
+%{mnesia_install_test, conflict} 'IMPL'
+%{mnesia_install_test, dist} 'IMPL'
+{skip, {mnesia_examples_test, all, "Uses disk"}}.
+{skip, {mnesia_nice_coverage_test, all, "Uses disk"}}.
+
+%{mnesia_evil_coverage_test, system_info} 'IMPL'
+%{mnesia_evil_coverage_test, table_info} 'IMPL'
+%{mnesia_evil_coverage_test, error_description} 'IMPL'
+{skip, {mnesia_evil_coverage_test, db_node_lifecycle, "Uses disk"}}.
+{skip, {mnesia_evil_coverage_test, local_content, "Uses disk"}}.
+%{mnesia_evil_coverage_test, start_and_stop} 'IMPL'
+%{mnesia_evil_coverage_test, transaction} 'IMPL'
+{skip, {mnesia_evil_coverage_test, checkpoint, "Uses disk"}}.
+{skip, {mnesia_evil_backup, backup, "Uses disk"}}.
+{skip, {mnesia_evil_backup, global_backup_checkpoint, "Uses disk"}}.
+{skip, {mnesia_evil_backup, incremental_backup_checkpoint, "Uses disk"}}.
+{skip, {mnesia_evil_backup, local_backup_checkpoint, "Uses disk"}}.
+{skip, {mnesia_evil_backup, selective_backup_checkpoint, "Uses disk"}}.
+{skip, {mnesia_evil_backup, restore_errors, "Uses disk"}}.
+{skip, {mnesia_evil_backup, restore_clear, "Uses disk"}}.
+{skip, {mnesia_evil_backup, restore_keep, "Uses disk"}}.
+{skip, {mnesia_evil_backup, restore_recreate, "Uses disk"}}.
+{skip, {mnesia_evil_backup, traverse_backup, "Uses disk"}}.
+{skip, {mnesia_evil_backup, install_fallback, "Uses disk"}}.
+{skip, {mnesia_evil_backup, uninstall_fallback, "Uses disk"}}.
+{skip, {mnesia_evil_backup, local_fallback, "Uses disk"}}.
+%{mnesia_evil_coverage_test, table_lifecycle} 'IMPL'
+{skip, {mnesia_evil_coverage_test, replica_management, "Uses disk"}}.
+%{mnesia_evil_coverage_test, change_table_access_mode} 'IMPL'
+%{mnesia_evil_coverage_test, change_table_load_order} 'IMPL'
+{skip, {mnesia_evil_coverage_test, set_master_nodes, "Uses disk"}}.
+{skip, {mnesia_evil_coverage_test, offline_set_master_nodes, "Uses disk"}}.
+{skip, {mnesia_evil_coverage_test, replica_location, "Uses disk"}}.
+%{mnesia_evil_coverage_test, add_table_index_ram} 'IMPL'
+{skip, {mnesia_trans_access_test, add_table_index_disc, "Uses disc"}}.
+{skip, {mnesia_trans_access_test, add_table_index_disc_only, "Uses disc"}}.
+%{mnesia_evil_coverage_test, create_live_table_index_ram} 'IMPL'
+{skip, {mnesia_trans_access_test, create_live_table_index_disc, "Uses disc"}}.
+{skip, {mnesia_trans_access_test, create_live_table_index_disc_only, "Uses disc"}}.
+%{mnesia_evil_coverage_test, del_table_index_ram} 'IMPL'
+{skip, {mnesia_trans_access_test, del_table_index_disc, "Uses disc"}}.
+{skip, {mnesia_trans_access_test, del_table_index_disc_only, "Uses disc"}}.
+{skip, {mnesia_trans_access_test, idx_schema_changes_ram, "Uses disk"}}.
+{skip, {mnesia_trans_access_test, idx_schema_changes_disc, "Uses disc"}}.
+{skip, {mnesia_trans_access_test, idx_schema_changes_disc_only, "Uses disc"}}.
+%{mnesia_dirty_access_test, dirty_write_ram} 'IMPL'
+
+{skip, {mnesia_dirty_access_test, dirty_write_disc, "Uses disc"}}.
+{skip, {mnesia_dirty_access_test, dirty_write_disc_only, "Uses disc"}}.
+%{mnesia_dirty_access_test, dirty_read_ram} 'IMPL'
+{skip, {mnesia_dirty_access_test, dirty_read_disc, "Uses disc"}}.
+{skip, {mnesia_dirty_access_test, dirty_read_disc_only, "Uses disc"}}.
+%{mnesia_dirty_access_test, dirty_update_counter_ram} 'IMPL'
+{skip, {mnesia_dirty_access_test, dirty_update_counter_disc, "Uses disc"}}.
+{skip, {mnesia_dirty_access_test, dirty_update_counter_disc_only, "Uses disc"}}.
+%{mnesia_dirty_access_test, dirty_delete_ram} 'IMPL'
+{skip, {mnesia_dirty_access_test, dirty_delete_disc, "Uses disc"}}.
+{skip, {mnesia_dirty_access_test, dirty_delete_disc_only, "Uses disc"}}.
+%{mnesia_dirty_access_test, dirty_delete_object_ram} 'IMPL'
+{skip, {mnesia_dirty_access_test, dirty_delete_object_disc, "Uses disc"}}.
+{skip, {mnesia_dirty_access_test, dirty_delete_object_disc_only, "Uses disc"}}.
+%{mnesia_dirty_access_test, dirty_match_object_ram} 'IMPL'
+{skip, {mnesia_dirty_access_test, dirty_match_object_disc, "Uses disc"}}.
+{skip, {mnesia_dirty_access_test, dirty_match_object_disc_only, "Uses disc"}}.
+%{mnesia_dirty_access_test, dirty_index_match_object_ram} 'IMPL'
+{skip, {mnesia_dirty_access_test, dirty_index_match_object_disc, "Uses disc"}}.
+{skip, {mnesia_dirty_access_test, dirty_index_match_object_disc_only, "Uses disc"}}.
+%{mnesia_dirty_access_test, dirty_index_read_ram} 'IMPL'
+{skip, {mnesia_dirty_access_test, dirty_index_read_disc, "Uses disc"}}.
+{skip, {mnesia_dirty_access_test, dirty_index_read_disc_only, "Uses disc"}}.
+%{mnesia_dirty_access_test, dirty_index_update_set_ram} 'IMPL'
+{skip, {mnesia_dirty_access_test, dirty_index_update_set_disc, "Uses disc"}}.
+{skip, {mnesia_dirty_access_test, dirty_index_update_set_disc_only, "Uses disc"}}.
+%{mnesia_dirty_access_test, dirty_index_update_bag_ram} 'IMPL'
+{skip, {mnesia_dirty_access_test, dirty_index_update_bag_disc, "Uses disc"}}.
+{skip, {mnesia_dirty_access_test, dirty_index_update_bag_disc_only, "Uses disc"}}.
+%{mnesia_dirty_access_test, dirty_iter_ram} 'IMPL'
+{skip, {mnesia_dirty_access_test, dirty_iter_disc, "Uses disc"}}.
+{skip, {mnesia_dirty_access_test, dirty_iter_disc_only, "Uses disc"}}.
+{skip, {mnesia_dirty_access_test, admin_tests, "Uses disk"}}.
+
+%{mnesia_trans_access_test, write} 'IMPL'
+%{mnesia_trans_access_test, read} 'IMPL'
+%{mnesia_trans_access_test, wread} 'IMPL'
+%{mnesia_trans_access_test, delete} 'IMPL'
+%{mnesia_trans_access_test, delete_object} 'IMPL'
+%{mnesia_trans_access_test, match_object} 'IMPL'
+%{mnesia_trans_access_test, all_keys} 'IMPL'
+%{mnesia_trans_access_test, index_match_object} 'IMPL'
+%{mnesia_trans_access_test, index_read} 'IMPL'
+%{mnesia_trans_access_test, index_update_set} 'IMPL'
+%{mnesia_trans_access_test, index_update_bag} 'IMPL'
+{skip, {mnesia_evil_coverage_test, dump_tables, "Uses disk"}}.
+{skip, {mnesia_evil_coverage_test, dump_log, "Uses disk"}}.
+%{mnesia_evil_coverage_test, wait_for_tables} 'IMPL'
+{skip, {mnesia_evil_coverage_test, force_load_table, "Uses disk"}}.
+%{mnesia_evil_coverage_test, user_properties} 'IMPL'
+%{mnesia_evil_coverage_test, record_name_dirty_access_ram} 'IMPL'
+{skip, {mnesia_evil_coverage_test, record_name_dirty_access_disc, "Uses disc"}}.
+{skip, {mnesia_evil_coverage_test, record_name_dirty_access_disc_only, "Uses disc"}}.
+%{mnesia_evil_coverage_test, snmp_open_table} 'IMPL'
+%{mnesia_evil_coverage_test, snmp_close_table} 'IMPL'
+%{mnesia_evil_coverage_test, snmp_get_next_index} 'IMPL'
+%{mnesia_evil_coverage_test, snmp_get_row} 'IMPL'
+%{mnesia_evil_coverage_test, snmp_get_mnesia_key} 'IMPL'
+%{mnesia_evil_coverage_test, snmp_update_counter} 'IMPL'
+%{mnesia_evil_coverage_test, info} 'IMPL'
+%{mnesia_evil_coverage_test, schema_0} 'IMPL'
+%{mnesia_evil_coverage_test, schema_1} 'IMPL'
+%{mnesia_evil_coverage_test, view_0} 'IMPL'
+{skip, {mnesia_evil_coverage_test, view_1, "Uses disk"}}.
+{skip, {mnesia_evil_coverage_test, view_2, "Uses disk"}}.
+%{mnesia_evil_coverage_test, lkill} 'IMPL'
+%{mnesia_evil_coverage_test, kill} 'IMPL'
+
+%{mnesia_config_test, access_module} 'IMPL'
+%{mnesia_config_test, auto_repair} 'IMPL'
+{skip, {mnesia_config_test, backup_module, "Uses disk"}}.
+{skip, {mnesia_config_test, dynamic_connect, "Uses disk"}}.
+%{mnesia_config_test, debug} 'IMPL'
+%{mnesia_config_test, dir} 'IMPL'
+{skip, {mnesia_config_test, dump_log_load_regulation, "Uses disk"}}.
+{skip, {mnesia_config_test, dump_log_time_threshold, "Uses disk"}}.
+{skip, {mnesia_config_test, dump_log_write_threshold, "Uses disk"}}.
+{skip, {mnesia_config_test, dump_log_update_in_place, "Uses disk"}}.
+{skip, {mnesia_config_test, embedded_mnemosyne, "Uses Mnemosyne"}}.
+%{mnesia_config_test, event_module} 'IMPL'
+{skip, {mnesia_config_test, ignore_fallback_at_startup, "Not Yet impl"}}.
+%{mnesia_config_test, inconsistent_database} 'IMPL'
+{skip, {mnesia_config_test, max_wait_for_decision, "Not Yet impl"}}.
+{skip, {mnesia_config_test, start_one_disc_full_then_one_disc_less, "Uses disc"}}.
+{skip, {mnesia_config_test, start_first_one_disc_less_then_one_disc_full, "Uses disc"}}.
+%%{skip, {mnesia_config_test, start_first_one_disc_less_then_two_more_disc_less, "Uses disc"}}.
+{skip, {mnesia_config_test, schema_location_and_extra_db_nodes_combinations, "Uses disk"}}.
+{skip, {mnesia_config_test, table_load_to_disc_less_nodes, "Uses disc"}}.
+{skip, {mnesia_config_test, schema_merge, "Uses Disc"}}.
+%{mnesia_config_test, unknown_config} 'IMPL'
+%{mnesia_registry_test, good_dump} 'IMPL'
+%{mnesia_registry_test, bad_dump} 'IMPL'
+
+%{mnesia_atomicity_test, explicit_abort_in_middle_of_trans} 'IMPL'
+%{mnesia_atomicity_test, runtime_error_in_middle_of_trans} 'IMPL'
+%{mnesia_atomicity_test, kill_self_in_middle_of_trans} 'IMPL'
+%{mnesia_atomicity_test, throw_in_middle_of_trans} 'IMPL'
+%{mnesia_atomicity_test, mnesia_down_during_infinite_trans} 'IMPL'
+%{mnesia_atomicity_test, lock_waiter_sw_rt} 'IMPL' 
+%{mnesia_atomicity_test, lock_waiter_sw_wt} 'IMPL'
+%{mnesia_atomicity_test, lock_waiter_wr_r} 'IMPL'
+%{mnesia_atomicity_test, lock_waiter_sw_sw} 'IMPL'
+%{mnesia_atomicity_test, lock_waiter_sw_w} 'IMPL'
+%{mnesia_atomicity_test, lock_waiter_sw_wr} 'IMPL'
+%{mnesia_atomicity_test, lock_waiter_wr_wt} 'IMPL'
+%{mnesia_atomicity_test, lock_waiter_wr_sw} 'IMPL'
+%{mnesia_atomicity_test, lock_waiter_wr_w} 'IMPL'
+%{mnesia_atomicity_test, lock_waiter_r_sw} 'IMPL'
+%{mnesia_atomicity_test, lock_waiter_r_w} 'IMPL'
+%{mnesia_atomicity_test, lock_waiter_r_wt} 'IMPL'
+%{mnesia_atomicity_test, lock_waiter_rt_sw} 'IMPL'
+%{mnesia_atomicity_test, lock_waiter_rt_w} 'IMPL'
+%{mnesia_atomicity_test, lock_waiter_rt_wt} 'IMPL'
+%{mnesia_atomicity_test, lock_waiter_wt_r} 'IMPL'
+%{mnesia_atomicity_test, lock_waiter_wt_w} 'IMPL'
+%{mnesia_atomicity_test, lock_waiter_wt_rt} 'IMPL'
+%{mnesia_atomicity_test, lock_waiter_wt_wt} 'IMPL'
+%{mnesia_atomicity_test, lock_waiter_wt_wr} 'IMPL'
+%{mnesia_atomicity_test, lock_waiter_wt_sw} 'IMPL'
+%{mnesia_atomicity_test, lock_waiter_w_wr} 'IMPL'
+%{mnesia_atomicity_test, lock_waiter_w_sw} 'IMPL'
+%{mnesia_atomicity_test, lock_waiter_w_r} 'IMPL'
+%{mnesia_atomicity_test, lock_waiter_w_w} 'IMPL'
+%{mnesia_atomicity_test, lock_waiter_w_rt} 'IMPL'
+%{mnesia_atomicity_test, lock_waiter_w_wt} 'IMPL'
+%{mnesia_atomicity_test, restart_r_one} 'IMPL'
+%{mnesia_atomicity_test, restart_w_one} 'IMPL'
+%{mnesia_atomicity_test, restart_rt_one} 'IMPL'
+%{mnesia_atomicity_test, restart_wt_one} 'IMPL'
+%{mnesia_atomicity_test, restart_wr_one} 'IMPL'
+%{mnesia_atomicity_test, restart_sw_one} 'IMPL'
+%{mnesia_atomicity_test, restart_r_two} 'IMPL'
+%{mnesia_atomicity_test, restart_w_two} 'IMPL'
+%{mnesia_atomicity_test, restart_rt_two} 'IMPL'
+%{mnesia_atomicity_test, restart_wt_two} 'IMPL'
+%{mnesia_atomicity_test, restart_wr_two} 'IMPL'
+%{mnesia_atomicity_test, restart_sw_two} 'IMPL'
+
+%{mnesia_isolation_test, no_conflict} 'IMPL'
+%{mnesia_isolation_test, simple_queue_conflict} 'IMPL'
+%{mnesia_isolation_test, advanced_queue_conflict} 'IMPL'
+%{mnesia_isolation_test, simple_deadlock_conflict} 'IMPL'
+%{mnesia_isolation_test, advanced_deadlock_conflict} 'IMPL'
+%{mnesia_isolation_test, lock_burst} 'IMPL'
+%{mnesia_isolation_test, basic_sticky_functionality} 'IMPL'
+%{mnesia_isolation_test, create_table} 'IMPL'
+%{mnesia_isolation_test, delete_table} 'IMPL'
+%{mnesia_isolation_test, move_table_copy} 'IMPL'
+%{mnesia_isolation_test, add_table_index} 'IMPL'
+%{mnesia_isolation_test, del_table_index} 'IMPL'
+%{mnesia_isolation_test, transform_table} 'IMPL'
+%{mnesia_isolation_test, snmp_open_table} 'IMPL'
+%{mnesia_isolation_test, snmp_close_table} 'IMPL'
+{skip, {mnesia_isolation_test, change_table_copy_type, "Uses disk"}}.
+%{mnesia_isolation_test, change_table_access} 'IMPL'
+%{mnesia_isolation_test, add_table_copy} 'IMPL'
+%{mnesia_isolation_test, del_table_copy} 'IMPL'
+{skip, {mnesia_isolation_test, dump_tables, "Uses disk"}}.
+{skip, {mnesia_isolation_test, extra_admin_tests, "Uses disk"}}.
+%{mnesia_isolation_test, del_table_copy_1} 'IMPL'
+%{mnesia_isolation_test, del_table_copy_2} 'IMPL'
+%{mnesia_isolation_test, del_table_copy_3} 'IMPL'
+%{mnesia_isolation_test, add_table_copy_1} 'IMPL'
+%{mnesia_isolation_test, add_table_copy_2} 'IMPL'
+%{mnesia_isolation_test, add_table_copy_3} 'IMPL'
+%{mnesia_isolation_test, add_table_copy_4} 'IMPL'
+%{mnesia_isolation_test, move_table_copy_1} 'IMPL'
+%{mnesia_isolation_test, move_table_copy_2} 'IMPL'
+%{mnesia_isolation_test, move_table_copy_3} 'IMPL'
+%{mnesia_isolation_test, move_table_copy_4} 'IMPL'
+%{mnesia_isolation_test, dirty_updates_visible_direct} 'IMPL'
+%{mnesia_isolation_test, dirty_reads_regardless_of_trans} 'IMPL'
+%{mnesia_isolation_test, trans_update_invisibible_outside_trans} 'IMPL'
+%{mnesia_isolation_test, trans_update_visible_inside_trans} 'IMPL'
+%{mnesia_isolation_test, write_shadows} 'IMPL'
+%{mnesia_isolation_test, delete_shadows} 'IMPL'
+%{mnesia_isolation_test, write_delete_shadows_bag} 'IMPL'
+
+{skip, {mnesia_durability_test, all, "Uses disk "}}.
+%{mnesia_durability_test, load_local_contents_directly} 'IMPL'
+%{mnesia_durability_test, load_directly_when_all_are_ram_copiesA} 'IMPL'
+%{mnesia_durability_test, load_directly_when_all_are_ram_copiesB} 'IMPL'
+%{skip, {mnesia_durability_test, late_load_when_all_are_ram_copies_on_ram_nodes1, "Uses disk schema"}}.
+%{skip, {mnesia_durability_test, late_load_when_all_are_ram_copies_on_ram_nodes2, "Uses disk schema"}}.
+%{skip, {mnesia_durability_test, load_when_last_replica_becomes_available, "Uses disk"}}.
+%{skip, {mnesia_durability_test, load_when_we_have_down_from_all_other_replica_nodes, "Uses disk"}}.
+%{skip, {mnesia_durability_test, late_load_transforms_into_disc_load, "Uses disc"}}.
+%{mnesia_durability_test, late_load_leads_to_hanging} 'IMPL'
+%{mnesia_durability_test, force_load_when_nobody_intents_to_load} 'IMPL'
+%{mnesia_durability_test, force_load_when_someone_has_decided_to_load} 'IMPL'
+%{mnesia_durability_test, force_load_when_someone_else_already_has_loaded} 'IMPL'
+%{mnesia_durability_test, force_load_when_we_has_loaded} 'IMPL'
+%{mnesia_durability_test, force_load_on_a_non_local_table} 'IMPL'
+%{mnesia_durability_test, force_load_when_the_table_does_not_exist} 'IMPL'
+%{mnesia_durability_test, master_nodes} 'IMPL'
+%{mnesia_durability_test, master_on_non_local_tables} 'IMPL'
+%{mnesia_durability_test, remote_force_load_with_local_master_node} 'IMPL'
+%{mnesia_durability_test, dump_ram_copies} 'IMPL'
+%{skip, {mnesia_durability_test, dump_disc_copies, "Uses disc"}}.
+%{skip, {mnesia_durability_test, dump_disc_only, "Uses disc"}}.
+%{skip, {mnesia_durability_test, durability_of_disc_copies, "Uses disc"}}.
+%{skip, {mnesia_durability_test, durability_of_disc_only_copies, "Uses disc"}}.
+
+{skip, {mnesia_recovery_test, mnesia_down, "Uses Disk"}}.
+%{mnesia_recovery_test, no_master_2} 'IMPL'
+%{mnesia_recovery_test, no_master_3} 'IMPL'
+%{mnesia_recovery_test, one_master_2} 'IMPL'
+%{mnesia_recovery_test, one_master_3} 'IMPL'
+%{mnesia_recovery_test, two_master_2} 'IMPL'
+%{mnesia_recovery_test, two_master_3} 'IMPL'
+%{mnesia_recovery_test, all_master_2} 'IMPL'
+%{mnesia_recovery_test, all_master_3} 'IMPL'
+{skip, {mnesia_recovery_test, mnesia_down_during_startup_disk_ram, "Uses disk"}}.
+%{mnesia_recovery_test, mnesia_down_during_startup_init_ram} 'IMPL'
+{skip, {mnesia_recovery_test, mnesia_down_during_startup_init_disc, "Uses disc"}}.
+{skip, {mnesia_recovery_test, mnesia_down_during_startup_init_disc_only, "Uses disc"}}.
+%{mnesia_recovery_test, mnesia_down_during_startup_tm_ram} 'IMPL'
+{skip, {mnesia_recovery_test, mnesia_down_during_startup_tm_disc, "Uses disc"}}.
+{skip, {mnesia_recovery_test, mnesia_down_during_startup_tm_disc_only, "Uses disc"}}.
+%{mnesia_recovery_test, explicit_stop_during_snmp} 'IMPL'
+
+{skip, {mnesia_recovery_test, schema_trans, "Uses Disk, needs disk log"}}.
+{skip, {mnesia_recovery_test, async_dirty, "Uses disc"}}.
+{skip, {mnesia_recovery_test, sync_dirty, "Uses disc"}}.
+{skip, {mnesia_recovery_test, sym_trans, "Uses disc"}}.
+{skip, {mnesia_recovery_test, asym_trans, "Uses disc"}}.
+
+{skip, {mnesia_recovery_test, after_full_disc_partition, "Not Yet impl"}}.
+{skip, {mnesia_recovery_test, after_corrupt_files, "Uses disk"}}.
+
+%{mnesia_evil_coverage_test, subscriptions} 'IMPL'
+%{mnesia_evil_coverage_test, nested_trans_both_ok} 'IMPL'
+%{mnesia_evil_coverage_test, nested_trans_child_dies} 'IMPL'
+%{mnesia_evil_coverage_test, nested_trans_parent_dies} 'IMPL'
+%{mnesia_evil_coverage_test, nested_trans_both_dies} 'IMPL'
+%{mnesia_evil_coverage_test, mix_of_trans_sync_dirty} 'IMPL'
+%{mnesia_evil_coverage_test, mix_of_trans_async_dirty} 'IMPL'
+%{mnesia_evil_coverage_test, mix_of_trans_ets} 'IMPL'
+
+{skip, {mnesia_recovery_test, disc_less, "Uses disc (on the other nodes)"}}.
+{skip, {mnesia_recovery_test, system_upgrade, "Not Yet impl"}}.
+%{mnesia_consistency_test, consistency_after_restart_1_ram} 'IMPL'
+{skip, {mnesia_consistency_test, consistency_after_restart_1_disc, "Uses disc"}}.
+{skip, {mnesia_consistency_test, consistency_after_restart_1_disc_only, "Uses disc"}}.
+%{mnesia_consistency_test, consistency_after_restart_2_ram} 'IMPL'
+{skip, {mnesia_consistency_test, consistency_after_restart_2_disc, "Uses disc"}}.
+{skip, {mnesia_consistency_test, consistency_after_restart_2_disc_only, "Uses disc"}}.
+{skip, {mnesia_consistency_test, consistency_after_dump_tables_1_ram, "Uses disk"}}.
+{skip, {mnesia_consistency_test, consistency_after_dump_tables_2_ram, "Uses disk"}}.
+%{mnesia_consistency_test, consistency_after_add_replica_2_ram} 'IMPL'
+{skip, {mnesia_consistency_test, consistency_after_add_replica_2_disc, "Uses disc"}}.
+{skip, {mnesia_consistency_test, consistency_after_add_replica_2_disc_only, "Uses disc"}}.
+%{mnesia_consistency_test, consistency_after_add_replica_3_ram} 'IMPL'
+{skip, {mnesia_consistency_test, consistency_after_add_replica_3_disc, "Uses disc"}}.
+{skip, {mnesia_consistency_test, consistency_after_add_replica_3_disc_only, "Uses disc"}}.
+%{mnesia_consistency_test, consistency_after_del_replica_2_ram} 'IMPL'
+{skip, {mnesia_consistency_test, consistency_after_del_replica_2_disc, "Uses disc"}}.
+{skip, {mnesia_consistency_test, consistency_after_del_replica_2_disc_only, "Uses disc"}}.
+%{mnesia_consistency_test, consistency_after_del_replica_3_ram} 'IMPL'
+{skip, {mnesia_consistency_test, consistency_after_del_replica_3_disc, "Uses disc"}}.
+{skip, {mnesia_consistency_test, consistency_after_del_replica_3_disc_only, "Uses disc"}}.
+%{mnesia_consistency_test, consistency_after_move_replica_2_ram} 'IMPL'
+{skip, {mnesia_consistency_test, consistency_after_move_replica_2_disc, "Uses disc"}}.
+{skip, {mnesia_consistency_test, consistency_after_move_replica_2_disc_only, "Uses disc"}}.
+%{mnesia_consistency_test, consistency_after_move_replica_3_ram} 'IMPL'
+{skip, {mnesia_consistency_test, consistency_after_move_replica_3_disc, "Uses disc"}}.
+{skip, {mnesia_consistency_test, consistency_after_move_replica_3_disc_only, "Uses disc"}}.
+{skip, {mnesia_consistency_test, consistency_after_transform_table, "Not yet implemented"}}.
+{skip, {mnesia_consistency_test, consistency_after_change_table_copy_type, "Not yet implemented"}}.
+{skip, {mnesia_consistency_test, consistency_after_fallback_2_ram, "Uses disk"}}.
+{skip, {mnesia_consistency_test, consistency_after_fallback_2_disc, "Uses disc"}}.
+{skip, {mnesia_consistency_test, consistency_after_fallback_2_disc_only, "Uses disc"}}.
+{skip, {mnesia_consistency_test, consistency_after_fallback_3_ram, "Uses disk"}}.
+{skip, {mnesia_consistency_test, consistency_after_fallback_3_disc, "Uses disc"}}.
+{skip, {mnesia_consistency_test, consistency_after_fallback_3_disc_only, "Uses disc"}}.
+{skip, {mnesia_consistency_test, consistency_after_restore_clear_ram, "Uses disk"}}.
+{skip, {mnesia_consistency_test, consistency_after_restore_clear_disc, "Uses disc"}}.
+{skip, {mnesia_consistency_test, consistency_after_restore_clear_disc_only, "Uses disc"}}.
+{skip, {mnesia_consistency_test, consistency_after_restore_recreate_ram, "Uses disk"}}.
+{skip, {mnesia_consistency_test, consistency_after_restore_recreate_disc, "Uses disc"}}.
+{skip, {mnesia_consistency_test, consistency_after_restore_recreate_disc_only, "Uses disc"}}.
+{skip, {mnesia_consistency_test, consistency_after_rename_of_node, "Not yet implemented"}}.
+{skip, {mnesia_consistency_test, updates_during_checkpoint_activation, "Uses disk"}}.
+%{skip, {mnesia_consistency_test, updates_during_checkpoint_activation_2_disc, "Uses disc"}}.
+%{skip, {mnesia_consistency_test, updates_during_checkpoint_activation_2_disc_only, "Uses disc"}}.
+%%{mnesia_consistency_test, updates_during_checkpoint_activation_3_ram} 'IMPL'
+%{skip, {mnesia_consistency_test, updates_during_checkpoint_activation_3_disc, "Uses disc"}}.
+%{skip, {mnesia_consistency_test, updates_during_checkpoint_activation_3_disc_only, "Uses disc"}}.
+{skip, {mnesia_consistency_test, updates_during_checkpoint_iteration, "Uses disk"}}.
+%{skip, {mnesia_consistency_test, updates_during_checkpoint_iteration_2_disc, "Uses disc"}}.
+%{skip, {mnesia_consistency_test, updates_during_checkpoint_iteration_2_disc_only, "Uses disc"}}.
+{skip, {mnesia_consistency_test, load_table_with_activated_checkpoint_ram, "Uses disk"}}.
+{skip, {mnesia_consistency_test, load_table_with_activated_checkpoint_disc, "Uses disc"}}.
+{skip, {mnesia_consistency_test, load_table_with_activated_checkpoint_disc_only, "Uses disc"}}.
+{skip, {mnesia_consistency_test, add_table_copy_to_table_with_activated_checkpoint_ram, "Uses disk"}}.
+{skip, {mnesia_consistency_test, add_table_copy_to_table_with_activated_checkpoint_disc, "Uses disc"}}.
+{skip, {mnesia_consistency_test, add_table_copy_to_table_with_activated_checkpoint_disc_only, "Uses disc"}}.
+{skip, {mnesia_consistency_test, inst_fallback_process_dies, "Uses disk"}}.
+{skip, {mnesia_consistency_test, fatal_when_inconsistency, "Uses disk"}}.
+{skip, {mnesia_consistency_test, after_delete, "Uses disk"}}.
+{skip, {mnesia_consistency_test, mnesia_down_during_backup_causes_switch, "Uses disk"}}.
+{skip, {mnesia_consistency_test, mnesia_down_during_backup_causes_abort, "Uses disk"}}.
+%{mnesia_consistency_test, cause_switch_after} 'IMPL'
+%{mnesia_consistency_test, cause_abort_before} 'IMPL'
+%{mnesia_consistency_test, cause_abort_after} 'IMPL'
+%{mnesia_consistency_test, change_schema_before} 'IMPL'
+%{mnesia_consistency_test, change_schema_after} 'IMPL'
+

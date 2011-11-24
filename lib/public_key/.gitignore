@@ -1,0 +1,7 @@
+# public_key
+
+/lib/public_key/asn1/*.asn1db
+/lib/public_key/asn1/*.erl
+/lib/public_key/asn1/*.hrl
+/lib/public_key/include/OTP-PUB-KEY.hrl
+/lib/public_key/include/PKCS-FRAME.hrl

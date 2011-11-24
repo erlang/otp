@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2009</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -94,6 +94,10 @@
           <tag><c>{report, bool()}</c>.</tag>
           <item>This is a short form for both <c>report_errors</c> and
           <c>report_warnings</c>.
+          </item>
+          <tag><c>warnings_as_errors</c></tag>
+          <item>
+            <p>Causes warnings to be treated as errors.</p>
           </item>
           <tag><c>{return_errors, bool()}</c>.</tag>
           <item>If this flag is set, <c>{error, Errors, Warnings}</c>
@@ -332,7 +336,7 @@ element -> list : '$1'.    </code>
     <code type="none">
 {cons, {atom, 1, a,} {cons, {atom, 1, b},
                             {cons, {atom, 1, c}, nil}}}    </code>
-    <p>The associated code contains <c>pseudo variables</c><c>'$1'</c>, <c>'$2'</c>, <c>'$3'</c>, etc. which refer to (are
+    <p>The associated code contains <c>pseudo variables</c> <c>'$1'</c>, <c>'$2'</c>, <c>'$3'</c>, etc. which refer to (are
       bound to) the values associated previously by the parser with
       the symbols of the right hand side of the rule. When these
       symbols are terminal categories, the values are token tuples of
@@ -421,9 +425,9 @@ myparser:parse_and_scan({Mod, Tokenizer, Args})    </code>
 Nonterminals E T F.
 Terminals '+' '*' '(' ')' number.
 Rootsymbol E.
-E -> E '+' T: ['$1', '$2', '$3'].
+E -> E '+' T: ['$2', '$1', '$3'].
 E -> T : '$1'.
-T -> T '*' F: ['$1', '$2', '$3'].
+T -> T '*' F: ['$2', '$1', '$3'].
 T -> F : '$1'.
 F -> '(' E ')' : '$2'.
 F -> number : '$1'.    </code>
@@ -434,8 +438,8 @@ Terminals '+' '*' '(' ')' number.
 Rootsymbol E.
 Left 100 '+'.
 Left 200 '*'.
-E -> E '+' E : ['$1', '$2', '$3'].
-E -> E '*' E : ['$1', '$2', '$3'].
+E -> E '+' E : ['$2', '$1', '$3'].
+E -> E '*' E : ['$2', '$1', '$3'].
 E -> '(' E ')' : '$2'.
 E -> number : '$1'.    </code>
     <p>3. An overloaded minus operator:</p>

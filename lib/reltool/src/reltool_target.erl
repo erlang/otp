@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -22,7 +22,7 @@
 -export([
          gen_config/2,
          gen_app/1,
-         gen_rel/2, 
+         gen_rel/2,
          gen_rel_files/2,
          gen_boot/1,
          gen_script/4,
@@ -31,7 +31,7 @@
          gen_target/2,
          install/2
         ]).
--compile(export_all).
+
 -include("reltool.hrl").
 -include_lib("kernel/include/file.hrl").
 
@@ -55,147 +55,186 @@ kernel_processes(KernelApp) ->
     [
      {kernelProcess, heart, {heart, start, []}},
      {kernelProcess, error_logger , {error_logger, start_link, []}},
-     {kernelProcess, application_controller, {application_controller, start, [KernelApp]}}
+     {kernelProcess,
+      application_controller,
+      {application_controller, start, [KernelApp]}}
     ].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Generate the contents of a config file
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-gen_config(#sys{root_dir          = RootDir,
-                lib_dirs          = LibDirs,
-                mod_cond          = ModCond,
-                incl_cond         = AppCond,
-                apps              = Apps,
-                boot_rel          = BootRel,
-                rels              = Rels,
-                emu_name          = EmuName,
-                profile           = Profile,
-                incl_sys_filters    = InclSysFiles,
-                excl_sys_filters    = ExclSysFiles,
-                incl_app_filters    = InclAppFiles,
-                excl_app_filters    = ExclAppFiles,
-                incl_archive_filters = InclArchiveDirs,
-                excl_archive_filters = ExclArchiveDirs,
-                archive_opts      = ArchiveOpts,
-                relocatable       = Relocatable,
-                app_type          = AppType,
-                app_file          = AppFile,
-                debug_info        = DebugInfo},
-           InclDefaults) ->
-    ErtsItems = 
-        case lists:keysearch(erts, #app.name, Apps) of
-            {value, Erts} ->
-                [{erts, gen_config(Erts, InclDefaults)}];
-            false ->
-                []
+gen_config(Sys, InclDefs) ->
+    {ok, do_gen_config(Sys, InclDefs)}.
+
+do_gen_config(#sys{root_dir          	= RootDir,
+		   lib_dirs          	= LibDirs,
+		   mod_cond          	= ModCond,
+		   incl_cond         	= AppCond,
+		   apps              	= Apps,
+		   boot_rel          	= BootRel,
+		   rels              	= Rels,
+		   emu_name          	= EmuName,
+		   profile           	= Profile,
+		   incl_sys_filters  	= InclSysFiles,
+		   excl_sys_filters  	= ExclSysFiles,
+		   incl_app_filters  	= InclAppFiles,
+		   excl_app_filters  	= ExclAppFiles,
+		   incl_archive_filters = InclArchiveDirs,
+		   excl_archive_filters = ExclArchiveDirs,
+		   archive_opts      	= ArchiveOpts,
+		   relocatable       	= Relocatable,
+		   rel_app_type        	= RelAppType,
+		   embedded_app_type   	= InclAppType,
+		   app_file          	= AppFile,
+		   debug_info        	= DebugInfo},
+	      InclDefs) ->
+    ErtsItems =
+        case lists:keyfind(erts, #app.name, Apps) of
+	    false ->
+		[];
+            Erts ->
+                [{erts, do_gen_config(Erts, InclDefs)}]
         end,
     AppsItems =
-        [{app, A#app.name, gen_config(A, InclDefaults)}
-	 || A <- Apps, 
-	    A#app.name =/= ?MISSING_APP,
+        [do_gen_config(A, InclDefs)
+	 || A <- Apps,
+	    A#app.name =/= ?MISSING_APP_NAME,
 	    A#app.name =/= erts,
-	    A#app.is_included =:= true,
-	    A#app.is_escript =/= true],
-    EscriptItems = [{escript, A#app.active_dir, emit(incl_cond, A#app.incl_cond, undefined, InclDefaults)}
-	|| A <- Apps, A#app.is_escript],
+	    not A#app.is_escript],
+    EscriptItems = [{escript,
+		     A#app.active_dir,
+		     emit(incl_cond, A#app.incl_cond, undefined, InclDefs)}
+		    || A <- Apps, A#app.is_escript],
     DefaultRels = reltool_utils:default_rels(),
     RelsItems =
-        case {[{rel, R#rel.name, R#rel.vsn, gen_config(R, InclDefaults)} || R <- Rels], 
-              [{rel, R#rel.name, R#rel.vsn, gen_config(R, InclDefaults)} || R <- DefaultRels]} of
-            {RI, RI} -> [];
-            {RI, _}  -> RI
-        end,
+	[{rel, R#rel.name, R#rel.vsn, do_gen_config(R, InclDefs)} ||
+	    R <- Rels],
+    DefaultRelsItems =
+	[{rel, R#rel.name, R#rel.vsn, do_gen_config(R, InclDefs)} ||
+	    R <- DefaultRels],
+    RelsItems2 =
+	case InclDefs of
+	    true  -> RelsItems;
+	    false -> RelsItems -- DefaultRelsItems
+	end,
     X = fun(List) -> [Re || #regexp{source = Re} <- List] end,
     {sys,
-     emit(root_dir,          RootDir,            code:root_dir(),            InclDefaults) ++
-     emit(lib_dirs,          LibDirs,            ?DEFAULT_LIBS,              InclDefaults) ++
+     emit(root_dir, RootDir, code:root_dir(), InclDefs) ++
+     emit(lib_dirs, LibDirs, ?DEFAULT_LIBS, InclDefs) ++
      EscriptItems ++
-     emit(mod_cond,          ModCond,            ?DEFAULT_MOD_COND,          InclDefaults) ++
-     emit(incl_cond,         AppCond,            ?DEFAULT_INCL_COND,         InclDefaults) ++
+     emit(mod_cond, ModCond, ?DEFAULT_MOD_COND, InclDefs) ++
+     emit(incl_cond, AppCond, ?DEFAULT_INCL_COND, InclDefs) ++
      ErtsItems ++
-     AppsItems ++
-     emit(boot_rel,          BootRel,            ?DEFAULT_REL_NAME,          InclDefaults) ++
-     RelsItems ++
-     emit(emu_name,          EmuName,            ?DEFAULT_EMU_NAME,          InclDefaults) ++
-     emit(relocatable,       Relocatable,          ?DEFAULT_RELOCATABLE,       InclDefaults) ++
-     emit(profile,           Profile,            ?DEFAULT_PROFILE,           InclDefaults) ++
-     emit(incl_sys_filters,    X(InclSysFiles),    ?DEFAULT_INCL_SYS_FILTERS,    InclDefaults) ++
-     emit(excl_sys_filters,    X(ExclSysFiles),    ?DEFAULT_EXCL_SYS_FILTERS,    InclDefaults) ++
-     emit(incl_app_filters,    X(InclAppFiles),    ?DEFAULT_INCL_APP_FILTERS,    InclDefaults) ++
-     emit(excl_app_filters,    X(ExclAppFiles),    ?DEFAULT_EXCL_APP_FILTERS,    InclDefaults) ++
-     emit(incl_archive_filters, X(InclArchiveDirs), ?DEFAULT_INCL_ARCHIVE_FILTERS, InclDefaults) ++
-     emit(excl_archive_filters, X(ExclArchiveDirs), ?DEFAULT_EXCL_ARCHIVE_FILTERS, InclDefaults) ++
-     emit(archive_opts,      ArchiveOpts,        ?DEFAULT_ARCHIVE_OPTS,      InclDefaults) ++
-     emit(app_type,          AppType,            ?DEFAULT_APP_TYPE,          InclDefaults) ++
-     emit(app_file,          AppFile,            ?DEFAULT_APP_FILE,          InclDefaults) ++
-     emit(debug_info,        DebugInfo,          ?DEFAULT_DEBUG_INFO,        InclDefaults)};
-gen_config(#app{name              = _Name,
-                mod_cond          = ModCond,
-                incl_cond         = AppCond,
-                debug_info        = DebugInfo,
-                app_file          = AppFile,
-                incl_app_filters    = InclAppFiles,
-                excl_app_filters    = ExclAppFiles,
-                incl_archive_filters = InclArchiveDirs,
-                excl_archive_filters = ExclArchiveDirs,
-                archive_opts      = ArchiveOpts,
-                use_selected_vsn  = UseSelected,
-                vsn = Vsn,
-                mods = Mods},
-           InclDefaults) ->
-    emit(mod_cond,          ModCond,         undefined,  InclDefaults) ++
-    emit(incl_cond,         AppCond,         undefined,  InclDefaults) ++
-    emit(debug_info,        DebugInfo,       undefined,  InclDefaults) ++
-    emit(app_file,          AppFile,         undefined,  InclDefaults) ++
-    emit(incl_app_filters,    InclAppFiles,    undefined,  InclDefaults) ++
-    emit(excl_app_filters,    ExclAppFiles,    undefined,  InclDefaults) ++
-    emit(incl_archive_filters, InclArchiveDirs, undefined,  InclDefaults) ++
-    emit(excl_archive_filters, ExclArchiveDirs, undefined,  InclDefaults) ++
-    emit(archive_opts,      ArchiveOpts,     undefined,  InclDefaults) ++
-    emit(vsn,               Vsn,             undefined,  InclDefaults orelse UseSelected =/= true) ++
-    [{mod, M#mod.name, gen_config(M, InclDefaults)} || M <- Mods, M#mod.is_included =:= true];
-gen_config(#mod{name = _Name,
-                incl_cond = AppCond,
-                debug_info = DebugInfo},
-           InclDefaults) ->
-    emit(incl_cond,  AppCond,   undefined, InclDefaults) ++
-    emit(debug_info, DebugInfo, undefined, InclDefaults);
-gen_config(#rel{name = _Name,
-                vsn = _Vsn,
-                rel_apps = RelApps},
-           InclDefaults) ->
-    [gen_config(RA, InclDefaults) || RA <- RelApps];
-gen_config(#rel_app{name = Name,
-                    app_type = Type,
-                    incl_apps = InclApps},
-           _InclDefaults) ->
+     lists:flatten(AppsItems) ++
+     emit(boot_rel, BootRel, ?DEFAULT_REL_NAME, InclDefs) ++
+     RelsItems2 ++
+     emit(emu_name, EmuName, ?DEFAULT_EMU_NAME, InclDefs) ++
+     emit(relocatable, Relocatable, ?DEFAULT_RELOCATABLE, InclDefs) ++
+     emit(profile, Profile, ?DEFAULT_PROFILE, InclDefs) ++
+     emit(incl_sys_filters, X(InclSysFiles), reltool_utils:choose_default(incl_sys_filters, Profile, InclDefs), InclDefs) ++
+     emit(excl_sys_filters, X(ExclSysFiles), reltool_utils:choose_default(excl_sys_filters, Profile, InclDefs), InclDefs) ++
+     emit(incl_app_filters, X(InclAppFiles), reltool_utils:choose_default(incl_app_filters, Profile, InclDefs), InclDefs) ++
+     emit(excl_app_filters, X(ExclAppFiles), reltool_utils:choose_default(excl_app_filters, Profile, InclDefs), InclDefs) ++
+     emit(incl_archive_filters, X(InclArchiveDirs), ?DEFAULT_INCL_ARCHIVE_FILTERS, InclDefs) ++
+     emit(excl_archive_filters, X(ExclArchiveDirs), ?DEFAULT_EXCL_ARCHIVE_FILTERS, InclDefs) ++
+     emit(archive_opts, ArchiveOpts, ?DEFAULT_ARCHIVE_OPTS, InclDefs) ++
+     emit(rel_app_type, RelAppType, ?DEFAULT_REL_APP_TYPE, InclDefs) ++
+     emit(embedded_app_type, InclAppType, reltool_utils:choose_default(embedded_app_type, Profile, InclDefs), InclDefs) ++
+     emit(app_file, AppFile, ?DEFAULT_APP_FILE, InclDefs) ++
+     emit(debug_info, DebugInfo, ?DEFAULT_DEBUG_INFO, InclDefs)};
+do_gen_config(#app{name = Name,
+		   mod_cond = ModCond,
+		   incl_cond  = AppCond,
+		   debug_info = DebugInfo,
+		   app_file = AppFile,
+		   incl_app_filters = InclAppFiles,
+		   excl_app_filters = ExclAppFiles,
+		   incl_archive_filters = InclArchiveDirs,
+		   excl_archive_filters = ExclArchiveDirs,
+		   archive_opts = ArchiveOpts,
+		   use_selected_vsn  = UseSelected,
+		   vsn = Vsn,
+		   mods = Mods,
+		   is_included = IsIncl},
+	      InclDefs) ->
+    AppConfig =
+	[
+	 emit(mod_cond, ModCond, undefined, InclDefs),
+	 emit(incl_cond, AppCond, undefined, InclDefs),
+	 emit(debug_info, DebugInfo, undefined, InclDefs),
+	 emit(app_file, AppFile, undefined, InclDefs),
+	 emit(incl_app_filters, InclAppFiles, undefined, InclDefs),
+	 emit(excl_app_filters, ExclAppFiles, undefined, InclDefs),
+	 emit(incl_archive_filters, InclArchiveDirs, undefined, InclDefs),
+	 emit(excl_archive_filters, ExclArchiveDirs, undefined, InclDefs),
+	 emit(archive_opts, ArchiveOpts, undefined, InclDefs),
+	 if
+	     IsIncl, InclDefs -> [{vsn, Vsn}];
+	     UseSelected      -> [{vsn, Vsn}];
+	     true             -> []
+	 end,
+	 [do_gen_config(M, InclDefs) || M <- Mods]
+	],
+    case lists:flatten(AppConfig) of
+	FlatAppConfig when FlatAppConfig =/= []; IsIncl ->
+	    [{app, Name, FlatAppConfig}];
+	[] ->
+	    []
+    end;
+do_gen_config(#mod{name = Name,
+		   incl_cond = AppCond,
+		   debug_info = DebugInfo,
+		   is_included = IsIncl},
+	      InclDefs) ->
+    ModConfig =
+	[
+	 emit(incl_cond,  AppCond, undefined, InclDefs),
+	 emit(debug_info, DebugInfo, undefined, InclDefs)
+	],
+    case lists:flatten(ModConfig) of
+	FlatModConfig when FlatModConfig =/= []; IsIncl ->
+	    [{mod, Name, FlatModConfig}];
+	_ ->
+	    []
+    end;
+do_gen_config(#rel{name = _Name,
+		   vsn = _Vsn,
+		   rel_apps = RelApps},
+	      InclDefs) ->
+    [do_gen_config(RA, InclDefs) || RA <- RelApps];
+do_gen_config(#rel_app{name = Name,
+		       app_type = Type,
+		       incl_apps = InclApps},
+	      _InclDefs) ->
     case {Type, InclApps} of
         {undefined, []} -> Name;
         {undefined, _}  -> {Name, InclApps};
         {_, []}         -> {Name, Type};
         {_, _}          -> {Name, Type, InclApps}
     end;
-gen_config({Tag, Val}, InclDefaults) ->
-    emit(Tag, Val, undefined, InclDefaults);
-gen_config([], _InclDefaults) ->
+do_gen_config({Tag, Val}, InclDefs) ->
+    emit(Tag, Val, undefined, InclDefs);
+do_gen_config([], _InclDefs) ->
     [];
-gen_config([H | T], InclDefaults) ->
-    lists:flatten([gen_config(H, InclDefaults), gen_config(T, InclDefaults)]).
+do_gen_config([H | T], InclDefs) ->
+    lists:flatten([do_gen_config(H, InclDefs), do_gen_config(T, InclDefs)]).
 
-emit(Tag, Val, Default, InclDefaults) ->
+emit(Tag, Val, Default, InclDefs) ->
+    %% io:format("~p(~p):\n\t~p\n\t~p\n",
+    %%           [Tag, Val =/= Default, Val, Default]),
     if
         Val == undefined -> [];
-        InclDefaults     -> [{Tag, Val}];
+        InclDefs         -> [{Tag, Val}];
         Val =/= Default  -> [{Tag, Val}];
         true             -> []
-    end.    
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Generate the contents of an app file
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-gen_app(#app{name = Name, 
+gen_app(#app{name = Name,
              info = #app_info{description = Desc,
                               id = Id,
                               vsn = Vsn,
@@ -231,22 +270,126 @@ gen_app(#app{name = Name,
 %% Generate the contents of a rel file
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-gen_rel(#rel{name = RelName, vsn = RelVsn, rel_apps = RelApps},
-        #sys{apps = Apps}) ->
-    {value, Erts} = lists:keysearch(erts, #app.name, Apps),
-    {release, 
-      {RelName, RelVsn},
-      {erts, Erts#app.vsn},
-      [app_to_rel(RA, Apps ) || RA <- RelApps]}.
+gen_rel(Rel, Sys) ->
+    try
+	MergedApps = merge_apps(Rel, Sys),
+	{ok, do_gen_rel(Rel, Sys, MergedApps)}
+    catch
+        throw:{error, Text} ->
+            {error, Text}
+    end.
 
-app_to_rel(#rel_app{name = Name, app_type = Type, incl_apps = InclApps}, Apps) ->
-    {value, #app{vsn = Vsn}} = lists:keysearch(Name, #app.name, Apps),
+do_gen_rel(#rel{name = RelName, vsn = RelVsn},
+	   #sys{apps = Apps},
+	   MergedApps) ->
+    ErtsName = erts,
+    case lists:keysearch(ErtsName, #app.name, Apps) of
+	{value, Erts} ->
+	    {release,
+	     {RelName, RelVsn},
+	     {ErtsName, Erts#app.vsn},
+	     [strip_rel_info(App) || App <- MergedApps]};
+	false ->
+	    reltool_utils:throw_error("Mandatory application ~p is "
+				      "not included",
+                                      [ErtsName])
+    end.
+
+strip_rel_info(#app{name = Name,
+		    vsn = Vsn,
+		    app_type = Type,
+		    info = #app_info{incl_apps = InclApps}})
+  when Type =/= undefined ->
     case {Type, InclApps} of
-        {undefined, []} -> {Name, Vsn};
-        {undefined, _}  -> {Name, Vsn, InclApps};
+        {permanent, []} -> {Name, Vsn};
+        {permanent, _}  -> {Name, Vsn, InclApps};
         {_, []}         -> {Name, Vsn, Type};
         {_, _}          -> {Name, Vsn, Type, InclApps}
-    end.    
+    end.
+
+merge_apps(#rel{name = RelName,
+		rel_apps = RelApps},
+	   #sys{apps = Apps,
+		rel_app_type = RelAppType,
+		embedded_app_type = EmbAppType}) ->
+    Mandatory = [kernel, stdlib],
+    MergedApps = do_merge_apps(RelName, Mandatory, Apps, permanent, []),
+    MergedApps2 = do_merge_apps(RelName, RelApps, Apps, RelAppType, MergedApps),
+    Embedded =
+	[A#app.name || A <- Apps,
+		       EmbAppType =/= undefined,
+		       A#app.is_included,
+		       A#app.name =/= erts,
+		       A#app.name =/= ?MISSING_APP_NAME,
+		       not lists:keymember(A#app.name, #app.name, MergedApps2)],
+    MergedApps3 = do_merge_apps(RelName, Embedded, Apps, EmbAppType, MergedApps2),
+    sort_apps(MergedApps3).
+
+do_merge_apps(RelName, [#rel_app{name = Name} = RA | RelApps], Apps, RelAppType, Acc) ->
+    case is_already_merged(Name, RelApps, Acc) of
+	true ->
+	    do_merge_apps(RelName, RelApps, Apps, RelAppType, Acc);
+	false ->
+	    {value, App} = lists:keysearch(Name, #app.name, Apps),
+	    MergedApp = merge_app(RelName, RA, RelAppType, App),
+	    MoreNames = (MergedApp#app.info)#app_info.applications,
+	    Acc2 = [MergedApp | Acc],
+	    do_merge_apps(RelName, MoreNames ++ RelApps, Apps, RelAppType, Acc2)
+    end;
+do_merge_apps(RelName, [Name | RelApps], Apps, RelAppType, Acc) ->
+  case is_already_merged(Name, RelApps, Acc) of
+	true ->
+	  do_merge_apps(RelName, RelApps, Apps, RelAppType, Acc);
+	false ->
+	  RelApp = init_rel_app(Name, Apps),
+	  do_merge_apps(RelName, [RelApp | RelApps], Apps, RelAppType, Acc)
+  end;
+do_merge_apps(_RelName, [], _Apps, _RelAppType, Acc) ->
+    lists:reverse(Acc).
+
+init_rel_app(Name, Apps) ->
+    {value, App} = lists:keysearch(Name, #app.name, Apps),
+    Info = App#app.info,
+    #rel_app{name = Name,
+	     app_type = undefined,
+	     incl_apps = Info#app_info.incl_apps}.
+
+merge_app(RelName,
+	      #rel_app{name = Name,
+		       app_type = Type,
+		       incl_apps = InclApps},
+	      RelAppType,
+	      App) ->
+    Type2 =
+        case {Type, App#app.app_type} of
+            {undefined, undefined} -> RelAppType;
+            {undefined, AppAppType} -> AppAppType;
+            {_, _} -> Type
+        end,
+    Info = App#app.info,
+    case InclApps -- Info#app_info.incl_apps of
+        [] ->
+	    App#app{app_type = Type2, info = Info#app_info{incl_apps = InclApps}};
+        BadIncl ->
+            reltool_utils:throw_error("~p: These applications are "
+				      "used by release ~s but are "
+				      "missing as included_applications "
+				      "in the app file: ~p",
+                                      [Name, RelName, BadIncl])
+    end.
+
+is_already_merged(Name, [Name | _], _MergedApps) ->
+    true;
+is_already_merged(Name, [#rel_app{name = Name} | _], _MergedApps) ->
+    true;
+is_already_merged(Name, [_ | RelApps], MergedApps) ->
+    is_already_merged(Name, RelApps, MergedApps);
+is_already_merged(Name, [], [#app{name = Name} | _MergedApps]) ->
+    true;
+is_already_merged(Name, [] = RelApps, [_ | MergedApps]) ->
+    is_already_merged(Name, RelApps, MergedApps);
+is_already_merged(_Name, [], []) ->
+    false.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Generate the contents of a boot file
@@ -261,25 +404,24 @@ gen_boot({script, {_, _}, _} = Script) ->
 
 gen_script(Rel, Sys, PathFlag, Variables) ->
     try
-        do_gen_script(Rel, Sys, PathFlag, Variables)
-    catch 
+	MergedApps = merge_apps(Rel, Sys),
+        do_gen_script(Rel, Sys, MergedApps, PathFlag, Variables)
+    catch
         throw:{error, Text} ->
             {error, Text}
     end.
 
-do_gen_script(#rel{name = RelName, vsn = RelVsn, rel_apps = RelApps},
-              #sys{apps = Apps, app_type = DefaultType},
+do_gen_script(#rel{name = RelName, vsn = RelVsn},
+              #sys{apps = Apps},
+	      MergedApps,
               PathFlag,
               Variables) ->
     {value, Erts} = lists:keysearch(erts, #app.name, Apps),
     Preloaded = [Mod#mod.name || Mod <- Erts#app.mods],
     Mandatory = mandatory_modules(),
     Early = Mandatory ++ Preloaded,
-    MergedApps = [merge_app(RA, Apps, DefaultType) || RA <- RelApps],
-    SortedApps = sort_apps(MergedApps),
-    {value, KernelApp} = lists:keysearch(kernel, #app.name, SortedApps),
-
-    InclApps = lists:append([I || #app{info = #app_info{incl_apps = I}} <- SortedApps]),
+    {value, KernelApp} = lists:keysearch(kernel, #app.name, MergedApps),
+    InclApps = [I || #app{info = #app_info{incl_apps = I}} <- MergedApps],
 
     %% Create the script
     DeepList =
@@ -289,32 +431,32 @@ do_gen_script(#rel{name = RelName, vsn = RelVsn, rel_apps = RelApps},
          {progress, preloaded},
 
          %% Load mandatory modules
-         {path, create_mandatory_path(SortedApps, PathFlag, Variables)},
+         {path, create_mandatory_path(MergedApps, PathFlag, Variables)},
          {primLoad, lists:sort(Mandatory)},
          {kernel_load_completed},
          {progress, kernel_load_completed},
 
          %% Load remaining modules
-         [load_app_mods(A, Early, PathFlag, Variables) || A <- SortedApps],
+         [load_app_mods(A, Early, PathFlag, Variables) || A <- MergedApps],
          {progress, modules_loaded},
 
          %% Start kernel processes
-         {path, create_path(SortedApps, PathFlag, Variables)},
+         {path, create_path(MergedApps, PathFlag, Variables)},
          kernel_processes(gen_app(KernelApp)),
          {progress, init_kernel_started},
 
          %% Load applications
          [{apply, {application, load, [gen_app(A)]}} ||
-             A = #app{name = Name, app_type = Type} <- SortedApps,
+             A = #app{name = Name, app_type = Type} <- MergedApps,
              Name =/= kernel,
              Type =/= none],
          {progress, applications_loaded},
 
          %% Start applications
          [{apply, {application, start_boot, [Name, Type]}} ||
-             #app{name = Name, app_type = Type} <- SortedApps, 
-             Type =/= none, 
-             Type =/= load, 
+             #app{name = Name, app_type = Type} <- MergedApps,
+             Type =/= none,
+             Type =/= load,
              not lists:member(Name, InclApps)],
 
          %% Apply user specific customizations
@@ -322,24 +464,6 @@ do_gen_script(#rel{name = RelName, vsn = RelVsn, rel_apps = RelApps},
          {progress, started}
         ],
     {ok, {script, {RelName, RelVsn}, lists:flatten(DeepList)}}.
-
-merge_app(#rel_app{name = Name, app_type = Type, incl_apps = RelIncl}, Apps, DefaultType) ->
-    {value, App} = lists:keysearch(Name, #app.name, Apps),
-    Type2 =
-        case {Type, App#app.app_type} of
-            {undefined, undefined} -> DefaultType;
-            {undefined, AppType} -> AppType;
-            {_, _} -> Type
-        end,
-    Info = App#app.info,
-    case RelIncl -- Info#app_info.incl_apps of
-        [] ->
-            App#app{app_type = Type2, info = Info#app_info{incl_apps = RelIncl}};
-        BadIncl ->
-            reltool_utils:throw_error("~p: These applications are missing as "
-                                      "included_applications in the app file: ~p\n",
-                                      [Name, BadIncl])
-    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -359,7 +483,7 @@ load_app_mods(#app{mods = Mods} = App, Mand, PathFlag, Variables) ->
                       Subs ->
                           [{Subs, [M]}|[{Last,Acc}|Rest]]
                   end
-          end, 
+          end,
           [{[],
             []}],
           PartNames),
@@ -381,17 +505,25 @@ load_app_mods(#app{mods = Mods} = App, Mand, PathFlag, Variables) ->
 %% Mod. by mbj
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-sort_apps(Apps) -> 
+sort_apps(Apps) ->
     sort_apps(Apps, [], [], []).
 
-sort_apps([#app{name = Name, info = Info} = App | Apps], Missing, Circular, Visited) ->
-    {Uses, Apps1, NotFnd1} = find_all(Name, Info#app_info.applications, Apps, Visited, [], []),
-    {Incs, Apps2, NotFnd2} = find_all(Name, lists:reverse(Info#app_info.incl_apps),
-                                      Apps1, Visited, [], []),
-    
+sort_apps([#app{name = Name, info = Info} = App | Apps],
+	  Missing,
+	  Circular,
+	  Visited) ->
+    {Uses, Apps1, NotFnd1} =
+	find_all(Name, Info#app_info.applications, Apps, Visited, [], []),
+    {Incs, Apps2, NotFnd2} =
+	find_all(Name,
+		 lists:reverse(Info#app_info.incl_apps),
+		 Apps1,
+		 Visited,
+		 [],
+		 []),
     Missing1 = NotFnd1 ++ NotFnd2 ++ Missing,
     case Uses ++ Incs of
-        [] -> 
+        [] ->
             %% No more app that must be started before this one is
             %% found; they are all already taken care of (and present
             %% in Visited list)
@@ -400,9 +532,9 @@ sort_apps([#app{name = Name, info = Info} = App | Apps], Missing, Circular, Visi
             %% The apps in L must be started before the app.
             %% Check if we have already taken care of some app in L,
             %% in that case we have a circular dependency.
-            NewCircular = [N1 || N1 <- L, N2 <- Visited, N1 =:= N2],
-            Circular1 = case NewCircular of 
-                            [] -> Circular; 
+            NewCircular = [N || #app{name = N} <- L, N2 <- Visited, N =:= N2],
+            Circular1 = case NewCircular of
+                            [] -> Circular;
                             _ -> [Name | NewCircular] ++ Circular
                         end,
             %% L must be started before N, try again, with all apps
@@ -414,41 +546,68 @@ sort_apps([], [], [], _) ->
     [];
 sort_apps([], Missing, [], _) ->
     %% this has already been checked before, but as we have the info...
-    reltool_utils:throw_error("Undefined applications: ~p\n", [make_set(Missing)]);
+    reltool_utils:throw_error("Undefined applications: ~p",
+			      [make_set(Missing)]);
 sort_apps([], [], Circular, _) ->
-    reltool_utils:throw_error("Circular dependencies: ~p\n", [make_set(Circular)]);
+    reltool_utils:throw_error("Circular dependencies: ~p",
+			      [make_set(Circular)]);
 sort_apps([], Missing, Circular, _) ->
-    reltool_utils:throw_error("Circular dependencies: ~p\n"
+    reltool_utils:throw_error("Circular dependencies: ~p"
                               "Undefined applications: ~p\n",
                               [make_set(Circular), make_set(Missing)]).
 
 find_all(CheckingApp, [Name | Names], Apps, Visited, Found, NotFound) ->
-    case lists:keysearch(Name, #app.name, Apps) of
-        {value, #app{info = Info} = App} ->
-            %% It is OK to have a dependecy like
+    case lists:keyfind(Name, #app.name, Apps) of
+        #app{info = Info} = App ->
+            %% It is OK to have a dependency like
             %% X includes Y, Y uses X.
             case lists:member(CheckingApp, Info#app_info.incl_apps) of
                 true ->
                     case lists:member(Name, Visited) of
                         true ->
-                            find_all(CheckingApp, Names, Apps, Visited, Found, NotFound);
+                            find_all(CheckingApp,
+				     Names,
+				     Apps,
+				     Visited,
+				     Found,
+				     NotFound);
                         false ->
-                            find_all(CheckingApp, Names, Apps, Visited, Found, [Name | NotFound])
+                            find_all(CheckingApp,
+				     Names,
+				     Apps,
+				     Visited,
+				     Found,
+				     [Name | NotFound])
                     end;
                 false ->
-                    find_all(CheckingApp, Names, Apps -- [App], Visited, [App|Found], NotFound)
+                    find_all(CheckingApp,
+			     Names,
+			     Apps -- [App],
+			     Visited,
+			     [App|Found],
+			     NotFound)
             end;
         false ->
             case lists:member(Name, Visited) of
                 true ->
-                    find_all(CheckingApp, Names, Apps, Visited, Found, NotFound);
+                    find_all(CheckingApp,
+			     Names,
+			     Apps,
+			     Visited,
+			     Found,
+			     NotFound);
                 false ->
-                    find_all(CheckingApp, Names, Apps, Visited, Found, [Name|NotFound])
+                    find_all(CheckingApp,
+			     Names,
+			     Apps,
+			     Visited,
+			     Found,
+			     [Name|NotFound])
             end
     end;
 find_all(_CheckingApp, [], Apps, _Visited, Found, NotFound) ->
     {Found, Apps, NotFound}.
-            
+
 del_apps([Name | Names], Apps) ->
     del_apps(Names, lists:keydelete(Name, #app.name, Apps));
 del_apps([], Apps) ->
@@ -470,7 +629,9 @@ create_path(Apps, PathFlag, Variables) ->
 %% (The otp_build flag is only used for OTP internal system make)
 cr_path(#app{label = Label}, true, []) ->
     filename:join(["$ROOT", "lib", Label, "ebin"]);
-cr_path(#app{name = Name, vsn = Vsn, label = Label, active_dir = Dir}, true, Variables) ->
+cr_path(#app{name = Name, vsn = Vsn, label = Label, active_dir = Dir},
+	true,
+	Variables) ->
     Tail = [Label, "ebin"],
     case variable_dir(Dir, atom_to_list(Name), Vsn, Variables) of
         {ok, VarDir} ->
@@ -542,7 +703,7 @@ gen_rel_files(Sys, TargetDir) ->
     try
         Spec = spec_rel_files(Sys),
         eval_spec(Spec, Sys#sys.root_dir, TargetDir)
-    catch 
+    catch
         throw:{error, Text} ->
             {error, Text}
     end.
@@ -550,14 +711,15 @@ gen_rel_files(Sys, TargetDir) ->
 spec_rel_files(#sys{rels = Rels} = Sys) ->
     lists:append([do_spec_rel_files(R, Sys) || R <- Rels]).
 
-do_spec_rel_files(#rel{name = Name} = Rel,  Sys) ->
-    RelFile = Name ++ ".rel",
-    ScriptFile = Name ++ ".script",
-    BootFile = Name ++ ".boot",
-    GenRel = gen_rel(Rel, Sys),
+do_spec_rel_files(#rel{name = RelName} = Rel,  Sys) ->
+    RelFile = RelName ++ ".rel",
+    ScriptFile = RelName ++ ".script",
+    BootFile = RelName ++ ".boot",
+    MergedApps = merge_apps(Rel, Sys),
+    GenRel = do_gen_rel(Rel, Sys, MergedApps),
     PathFlag = true,
     Variables = [],
-    {ok, Script} = do_gen_script(Rel, Sys, PathFlag, Variables),
+    {ok, Script} = do_gen_script(Rel, Sys, MergedApps, PathFlag, Variables),
     {ok, BootBin} = gen_boot(Script),
     Date = date(),
     Time = time(),
@@ -579,15 +741,15 @@ gen_target(Sys, TargetDir) ->
     try
         Spec = do_gen_spec(Sys),
         eval_spec(Spec, Sys#sys.root_dir, TargetDir)
-    catch 
+    catch
         throw:{error, Text} ->
             {error, Text}
     end.
-                                            
+
 gen_spec(Sys) ->
     try
         {ok, do_gen_spec(Sys)}
-    catch 
+    catch
         throw:{error, Text} ->
             {error, Text}
     end.
@@ -598,20 +760,20 @@ do_gen_spec(#sys{root_dir = RootDir,
                  relocatable = Relocatable,
                  apps = Apps} = Sys) ->
     {create_dir, _, SysFiles} = spec_dir(RootDir),
-    {ExclRegexps2, SysFiles2} = strip_sys_files(Relocatable, SysFiles, Apps, ExclRegexps),
+    {ExclRegexps2, SysFiles2} =
+	strip_sys_files(Relocatable, SysFiles, Apps, ExclRegexps),
     RelFiles = spec_rel_files(Sys),
-    {InclRegexps2, BinFiles} = spec_bin_files(Sys, SysFiles, SysFiles2, RelFiles, InclRegexps),    
+    {InclRegexps2, BinFiles} =
+	spec_bin_files(Sys, SysFiles, SysFiles2, RelFiles, InclRegexps),
     LibFiles = spec_lib_files(Sys),
     {BootVsn, StartFile} = spec_start_file(Sys),
     SysFiles3 =
         [
-         {create_dir, "releases", 
+         {create_dir, "releases",
 	  [StartFile,
 	   {create_dir,BootVsn, RelFiles}]},
 	 {create_dir, "bin", BinFiles}
         ] ++ SysFiles2,
-    %% io:format("InclRegexps2: ~p\n", [InclRegexps2]),
-    %% io:format("ExclRegexps2: ~p\n", [ExclRegexps2]),
     SysFiles4 = filter_spec(SysFiles3, InclRegexps2, ExclRegexps2),
     SysFiles5 = SysFiles4 ++ [{create_dir, "lib", LibFiles}],
     check_sys(["bin", "erts", "lib"], SysFiles5),
@@ -621,24 +783,27 @@ strip_sys_files(Relocatable, SysFiles, Apps, ExclRegexps) ->
     ExclRegexps2 =
 	case Relocatable of
 	    true ->
-		ExtraExcl = ["^erts.*/bin/.*src$"],
-		reltool_utils:decode_regexps(excl_sys_filters, {add, ExtraExcl}, ExclRegexps);
+		ExtraExcl = ["^erts.*/bin/.*src\$"],
+		reltool_utils:decode_regexps(excl_sys_filters,
+					     {add, ExtraExcl},
+					     ExclRegexps);
 	    false ->
 		ExclRegexps
 	end,
     {value, Erts} = lists:keysearch(erts, #app.name, Apps),
     FilterErts =
-        fun(Spec) -> 
-                File = element(2, Spec),
-                case lists:prefix("erts", File) of
-                    true ->
-                        if
-                            File =:= Erts#app.label ->
-                                replace_dyn_erl(Relocatable, Spec);
-                            true ->
-                                false 
-                        end;
-                    false ->
+        fun(Spec) ->
+		File = element(2, Spec),
+		case File of
+		    "erts" ->
+			reltool_utils:throw_error("This system is not installed. "
+						  "The directory ~s is missing.",
+				    [Erts#app.label]);
+		    _ when File =:= Erts#app.label ->
+			replace_dyn_erl(Relocatable, Spec);
+                    "erts-" ++ _ ->
+			false;
+                    _ ->
                         true
                 end
         end,
@@ -651,7 +816,8 @@ strip_sys_files(Relocatable, SysFiles, Apps, ExclRegexps) ->
 replace_dyn_erl(false, _ErtsSpec) ->
     true;
 replace_dyn_erl(true, {create_dir, ErtsDir, ErtsFiles}) ->
-    [{create_dir, _, BinFiles}] = safe_lookup_spec("bin", ErtsFiles),
+    [{create_dir, _, BinFiles}] =
+	safe_lookup_spec("bin", ErtsFiles),
     case lookup_spec("dyn_erl", BinFiles) of
         [] ->
             case lookup_spec("erl.ini", BinFiles) of
@@ -660,7 +826,11 @@ replace_dyn_erl(true, {create_dir, ErtsDir, ErtsFiles}) ->
                 [{copy_file, ErlIni}] ->
                     %% Remove Windows .ini file
                     BinFiles2 = lists:keydelete(ErlIni, 2, BinFiles),
-                    ErtsFiles2 = lists:keyreplace("bin", 2, ErtsFiles, {create_dir, "bin", BinFiles2}),
+                    ErtsFiles2 =
+			lists:keyreplace("bin",
+					 2,
+					 ErtsFiles,
+					 {create_dir, "bin", BinFiles2}),
                     {true, {create_dir, ErtsDir, ErtsFiles2}}
             end;
         [{copy_file, DynErlExe}] ->
@@ -668,42 +838,62 @@ replace_dyn_erl(true, {create_dir, ErtsDir, ErtsFiles}) ->
             ErlExe = "erl" ++ filename:extension(DynErlExe),
             BinFiles2 = lists:keydelete(DynErlExe, 2, BinFiles),
             DynErlExe2 = filename:join([ErtsDir, "bin", DynErlExe]),
-            BinFiles3 = lists:keyreplace(ErlExe, 2, BinFiles2, {copy_file, ErlExe, DynErlExe2}),
-            ErtsFiles2 = lists:keyreplace("bin", 2, ErtsFiles, {create_dir, "bin", BinFiles3}),
+            BinFiles3 = lists:keyreplace(ErlExe,
+					 2,
+					 BinFiles2,
+					 {copy_file, ErlExe, DynErlExe2}),
+            ErtsFiles2 = lists:keyreplace("bin",
+					  2,
+					  ErtsFiles,
+					  {create_dir, "bin", BinFiles3}),
             {true, {create_dir, ErtsDir, ErtsFiles2}}
     end.
 
 spec_bin_files(Sys, AllSysFiles, StrippedSysFiles, RelFiles, InclRegexps) ->
-    [{create_dir, ErtsLabel, ErtsFiles}] = safe_lookup_spec("erts", StrippedSysFiles),
+    [{create_dir, ErtsLabel, ErtsFiles}] =
+	safe_lookup_spec("erts", StrippedSysFiles),
     [{create_dir, _, BinFiles}] = safe_lookup_spec("bin", ErtsFiles),
     ErtsBin = filename:join([ErtsLabel, "bin"]),
     Escripts = spec_escripts(Sys, ErtsBin, BinFiles),
     Map = fun({copy_file, File}) ->
                   {copy_file, File, filename:join([ErtsBin, File])};
              ({copy_file, NewFile, OldFile}) ->
-                  {_, OldFile2} = abs_to_rel_path(ErtsBin, filename:join([ErtsBin, OldFile])),
+                  {_, OldFile2} =
+		      abs_to_rel_path(ErtsBin,
+				      filename:join([ErtsBin, OldFile])),
                   {copy_file, NewFile, OldFile2}
           end,
 
     %% Do only copy those bin files from erts/bin that also exists in bin
     [{create_dir, _, OldBinFiles}] = safe_lookup_spec("bin", AllSysFiles),
     GoodNames = [F || {copy_file, F} <- OldBinFiles,
-		      not lists:suffix(".boot", F), 
+		      not lists:suffix(".boot", F),
 		      not lists:suffix(".script", F)],
-    BinFiles2 = [Map(S) || S <- BinFiles, lists:member(element(2, S), GoodNames)],
+    BinFiles2 = [Map(S) || S <- BinFiles,
+			   lists:member(element(2, S), GoodNames)],
     BootFiles = [F || F <- RelFiles, lists:suffix(".boot", element(2, F))],
-    [{write_file, _, BootRel}] = safe_lookup_spec(Sys#sys.boot_rel ++ ".boot", BootFiles),
-    BootFiles2 = lists:keystore("start.boot", 2, BootFiles, {write_file, "start.boot", BootRel}),
-    MakeRegexp = fun(File) -> "^bin/" ++ element(2, File) ++ "(|.escript)$" end,
+    [{write_file, _, BootRel}] =
+	safe_lookup_spec(Sys#sys.boot_rel ++ ".boot", BootFiles),
+    BootFiles2 = lists:keystore("start.boot",
+				2,
+				BootFiles,
+				{write_file, "start.boot", BootRel}),
+    MakeRegexp =
+	fun(File) -> "^bin/" ++ element(2, File) ++ "(|.escript)\$" end,
     ExtraIncl = lists:map(MakeRegexp, Escripts),
-    InclRegexps2 = reltool_utils:decode_regexps(incl_sys_filters, {add, ExtraIncl}, InclRegexps),
+    InclRegexps2 = reltool_utils:decode_regexps(incl_sys_filters,
+						{add, ExtraIncl},
+						InclRegexps),
     {InclRegexps2, Escripts ++ BinFiles2 ++ BootFiles2}.
 
 spec_escripts(#sys{apps = Apps}, ErtsBin, BinFiles) ->
-    Filter = fun(#app{is_escript = IsEscript, is_included = IsIncl,
-                      is_pre_included = IsPre, name = Name, active_dir = File}) ->
+    Filter = fun(#app{is_escript = IsEscript,
+		      is_included = IsIncl,
+                      is_pre_included = IsPre,
+		      name = Name,
+		      active_dir = File}) ->
                      if
-                         Name =:= ?MISSING_APP ->
+                         Name =:= ?MISSING_APP_NAME ->
                              false;
                          not IsEscript ->
                              false;
@@ -722,15 +912,15 @@ do_spec_escript(File, ErtsBin, BinFiles) ->
     ExeExt = filename:extension(EscriptExe),
     [{copy_file, Base ++ EscriptExt, File},
      {copy_file, Base ++ ExeExt, filename:join([ErtsBin, EscriptExe])}].
-    
+
 check_sys(Mandatory, SysFiles) ->
     lists:foreach(fun(M) -> do_check_sys(M, SysFiles) end, Mandatory).
 
 do_check_sys(Prefix, Specs) ->
-    %%io:format("Prefix: ~p\n", [Prefix]),
     case lookup_spec(Prefix, Specs) of
         [] ->
-            reltool_utils:throw_error("Mandatory system directory ~s is not included", 
+            reltool_utils:throw_error("Mandatory system directory ~s "
+				      "is not included",
                                       [Prefix]);
         _ ->
             ok
@@ -750,7 +940,9 @@ lookup_spec(Prefix, Specs) ->
 safe_lookup_spec(Prefix, Specs) ->
     case lookup_spec(Prefix, Specs) of
         [] ->
-            reltool_utils:throw_error("Mandatory system file ~s is not included", [Prefix]);
+	    %% io:format("lookup fail ~s:\n\t~p\n", [Prefix, Specs]),
+            reltool_utils:throw_error("Mandatory system file ~s is "
+				      "not included", [Prefix]);
         Match ->
             Match
     end.
@@ -763,7 +955,7 @@ spec_lib_files(#sys{apps = Apps} = Sys) ->
     Filter = fun(#app{is_escript = IsEscript, is_included = IsIncl,
                       is_pre_included = IsPre, name = Name}) ->
                      if
-                         Name =:= ?MISSING_APP ->
+                         Name =:= ?MISSING_APP_NAME ->
                              false;
                          IsEscript ->
                              false;
@@ -780,7 +972,8 @@ spec_lib_files(#sys{apps = Apps} = Sys) ->
 check_apps([Mandatory | Names], Apps) ->
     case lists:keymember(Mandatory, #app.name, Apps) of
         false ->
-            reltool_utils:throw_error("Mandatory application ~p is not included in ~p", 
+            reltool_utils:throw_error("Mandatory application ~p is "
+				      "not included in ~p",
                                       [Mandatory, Apps]);
         true ->
             check_apps(Names, Apps)
@@ -791,10 +984,10 @@ check_apps([], _) ->
 spec_app(#app{name              = Name,
               mods              = Mods,
               active_dir        = SourceDir,
-              incl_app_filters    = AppInclRegexps,
-              excl_app_filters    = AppExclRegexps} = App,
-         #sys{incl_app_filters    = SysInclRegexps,
-              excl_app_filters    = SysExclRegexps,
+              incl_app_filters  = AppInclRegexps,
+              excl_app_filters  = AppExclRegexps} = App,
+         #sys{incl_app_filters  = SysInclRegexps,
+              excl_app_filters  = SysExclRegexps,
               debug_info        = SysDebugInfo} = Sys) ->
     %% List files recursively
     {create_dir, _, AppFiles} = spec_dir(SourceDir),
@@ -804,8 +997,12 @@ spec_app(#app{name              = Name,
     EbinDir = filename:join([SourceDir, "ebin"]),
     OptAppUpFileSpec = spec_opt_copy_file(EbinDir, AppUpFilename),
     OptAppFileSpec = spec_app_file(App, Sys, EbinDir),
-    ModSpecs = [spec_mod(M, SysDebugInfo) || M <- Mods, M#mod.is_included, M#mod.exists],
-    NewEbin = {create_dir, "ebin", OptAppUpFileSpec ++ OptAppFileSpec ++ ModSpecs},
+    ModSpecs = [spec_mod(M, SysDebugInfo) || M <- Mods,
+					     M#mod.is_included,
+					     M#mod.exists],
+    NewEbin = {create_dir,
+	       "ebin",
+	       OptAppUpFileSpec ++ OptAppFileSpec ++ ModSpecs},
     AppFiles2 = lists:keystore("ebin", 2, AppFiles, NewEbin),
 
     %% Apply file filter
@@ -826,24 +1023,32 @@ spec_archive(#app{label               = Label,
                   excl_archive_filters = SysExclArchiveDirs,
                   archive_opts        = SysArchiveOpts},
              Files) ->
-    InclArchiveDirs = reltool_utils:default_val(AppInclArchiveDirs, SysInclArchiveDirs),
-    ExclArchiveDirs = reltool_utils:default_val(AppExclArchiveDirs, SysExclArchiveDirs),
-    ArchiveOpts = reltool_utils:default_val(AppArchiveOpts, SysArchiveOpts),
+    InclArchiveDirs =
+	reltool_utils:default_val(AppInclArchiveDirs, SysInclArchiveDirs),
+    ExclArchiveDirs =
+	reltool_utils:default_val(AppExclArchiveDirs, SysExclArchiveDirs),
+    ArchiveOpts =
+	reltool_utils:default_val(AppArchiveOpts, SysArchiveOpts),
     Match = fun(F) -> match(element(2, F), InclArchiveDirs, ExclArchiveDirs) end,
     case lists:filter(Match, Files) of
         [] ->
             %% Nothing to archive
             [spec_create_dir(RootDir, SourceDir, Label, Files)];
         ArchiveFiles ->
-            OptDir = 
+            OptDir =
                 case Files -- ArchiveFiles of
                     [] ->
                         [];
                     ExternalFiles ->
-                        [spec_create_dir(RootDir, SourceDir, Label, ExternalFiles)]
+                        [spec_create_dir(RootDir,
+					 SourceDir,
+					 Label,
+					 ExternalFiles)]
                 end,
-            ArchiveOpts = reltool_utils:default_val(AppArchiveOpts, SysArchiveOpts),
-            ArchiveDir = spec_create_dir(RootDir, SourceDir, Label, ArchiveFiles),    
+            ArchiveOpts =
+		reltool_utils:default_val(AppArchiveOpts, SysArchiveOpts),
+            ArchiveDir =
+		spec_create_dir(RootDir, SourceDir, Label, ArchiveFiles),
             [{archive, Label ++ ".ez", ArchiveOpts, [ArchiveDir]} | OptDir]
     end.
 
@@ -854,15 +1059,17 @@ spec_dir(Dir) ->
             case erl_prim_loader:list_dir(Dir) of
                 {ok, Files} ->
                     %% Directory
-                    {create_dir, Base, [spec_dir(filename:join([Dir, F])) || F <- Files]};
+                    {create_dir,
+		     Base,
+		     [spec_dir(filename:join([Dir, F])) || F <- Files]};
                 error ->
-                    reltool_utils:throw_error("list dir ~s failed\n", [Dir])
+                    reltool_utils:throw_error("list dir ~s failed", [Dir])
             end;
         {ok, #file_info{type = regular}} ->
             %% Plain file
             {copy_file, Base};
         _ ->
-            reltool_utils:throw_error("read file info ~s failed\n", [Dir])
+            reltool_utils:throw_error("read file info ~s failed", [Dir])
     end.
 
 spec_mod(Mod, DebugInfo) ->
@@ -895,7 +1102,7 @@ spec_app_file(#app{name = Name,
             App2 = App#app{info = Info#app_info{modules = ModNames}},
             Contents = gen_app(App2),
             AppIoList = io_lib:format("%% app generated at ~w ~w\n~p.\n\n",
-                                      [date(), time(), Contents]),          
+                                      [date(), time(), Contents]),
             [{write_file, AppFilename, AppIoList}];
         all ->
             %% Include all included modules
@@ -904,13 +1111,14 @@ spec_app_file(#app{name = Name,
             App2 = App#app{info = Info#app_info{modules = ModNames}},
             Contents = gen_app(App2),
             AppIoList = io_lib:format("%% app generated at ~w ~w\n~p.\n\n",
-                                      [date(), time(), Contents]),          
+                                      [date(), time(), Contents]),
             [{write_file, AppFilename, AppIoList}]
-            
+
     end.
 
 spec_opt_copy_file(DirName, BaseName) ->
-    case filelib:is_regular(filename:join([DirName, BaseName]), erl_prim_loader) of
+    case filelib:is_regular(filename:join([DirName, BaseName]),
+			    erl_prim_loader) of
         true -> [{copy_file, BaseName}];
         false -> []
     end.
@@ -949,14 +1157,17 @@ eval_spec(Spec, SourceDir, TargetDir) ->
             false ->
                 {error, TargetDir2 ++ ": " ++ file:format_error(enoent)}
         end
-    catch 
+    catch
         throw:{error, Text} ->
             cleanup_spec(Spec, TargetDir2),
             {error, Text}
     end.
 
 do_eval_spec(List, OrigSourceDir, SourceDir, TargetDir) when is_list(List) ->
-    lists:foreach(fun(F) -> do_eval_spec(F, OrigSourceDir, SourceDir, TargetDir) end, List);
+    lists:foreach(fun(F) ->
+			  do_eval_spec(F, OrigSourceDir, SourceDir, TargetDir)
+		  end,
+		  List);
 %% do_eval_spec({source_dir, SourceDir2, Spec}, OrigSourceDir, _SourceDir, TargetDir) ->
 %%     %% Source dir is absolute or relative the original source dir
 %%     SourceDir3 = filename:join([OrigSourceDir, SourceDir2]),
@@ -966,12 +1177,18 @@ do_eval_spec({create_dir, Dir, Files}, OrigSourceDir, SourceDir, TargetDir) ->
     TargetDir2 = filename:join([TargetDir, Dir]),
     reltool_utils:create_dir(TargetDir2),
     do_eval_spec(Files, OrigSourceDir, SourceDir2, TargetDir2);
-do_eval_spec({create_dir, Dir, OldDir, Files}, OrigSourceDir, _SourceDir, TargetDir) ->
+do_eval_spec({create_dir, Dir, OldDir, Files},
+	     OrigSourceDir,
+	     _SourceDir,
+	     TargetDir) ->
     SourceDir2 = filename:join([OrigSourceDir, OldDir]),
     TargetDir2 = filename:join([TargetDir, Dir]),
     reltool_utils:create_dir(TargetDir2),
     do_eval_spec(Files, SourceDir2, SourceDir2, TargetDir2);
-do_eval_spec({archive, Archive, Options, Files}, OrigSourceDir, SourceDir, TargetDir) ->
+do_eval_spec({archive, Archive, Options, Files},
+	     OrigSourceDir,
+	     SourceDir,
+	     TargetDir) ->
     TmpSpec = {create_dir, "tmp", Files},
     TmpDir = filename:join([TargetDir, "tmp"]),
     reltool_utils:create_dir(TmpDir),
@@ -986,17 +1203,24 @@ do_eval_spec({archive, Archive, Options, Files}, OrigSourceDir, SourceDir, Targe
         {ok, _} ->
             ok;
         {error, Reason} ->
-            reltool_utils:throw_error("create archive ~s: ~p\n", [ArchiveFile, Reason])
+            reltool_utils:throw_error("create archive ~s failed: ~p",
+				      [ArchiveFile, Reason])
     end;
 do_eval_spec({copy_file, File}, _OrigSourceDir, SourceDir, TargetDir) ->
     SourceFile = filename:join([SourceDir, File]),
     TargetFile = filename:join([TargetDir, File]),
     reltool_utils:copy_file(SourceFile, TargetFile);
-do_eval_spec({copy_file, File, OldFile}, OrigSourceDir, _SourceDir, TargetDir) ->
+do_eval_spec({copy_file, File, OldFile},
+	     OrigSourceDir,
+	     _SourceDir,
+	     TargetDir) ->
     SourceFile = filename:join([OrigSourceDir, OldFile]),
     TargetFile = filename:join([TargetDir, File]),
     reltool_utils:copy_file(SourceFile, TargetFile);
-do_eval_spec({write_file, File, IoList}, _OrigSourceDir, _SourceDir, TargetDir) ->
+do_eval_spec({write_file, File, IoList},
+	     _OrigSourceDir,
+	     _SourceDir,
+	     TargetDir) ->
     TargetFile = filename:join([TargetDir, File]),
     reltool_utils:write_file(TargetFile, IoList);
 do_eval_spec({strip_beam, File}, _OrigSourceDir, SourceDir, TargetDir) ->
@@ -1007,7 +1231,7 @@ do_eval_spec({strip_beam, File}, _OrigSourceDir, SourceDir, TargetDir) ->
     reltool_utils:write_file(TargetFile, BeamBin2).
 
 cleanup_spec(List, TargetDir) when is_list(List) ->
-    lists:foreach(fun(F)-> cleanup_spec(F, TargetDir) end, List);
+    lists:foreach(fun(F) -> cleanup_spec(F, TargetDir) end, List);
 %% cleanup_spec({source_dir, _SourceDir, Spec}, TargetDir) ->
 %%     cleanup_spec(Spec, TargetDir);
 cleanup_spec({create_dir, Dir, Files}, TargetDir) ->
@@ -1039,9 +1263,12 @@ cleanup_spec({strip_beam, File}, TargetDir) ->
 
 filter_spec(List, InclRegexps, ExclRegexps) ->
     do_filter_spec("", List, InclRegexps, ExclRegexps).
-    
+
 do_filter_spec(Path, List, InclRegexps, ExclRegexps) when is_list(List) ->
-    lists:zf(fun(File) -> do_filter_spec(Path, File, InclRegexps, ExclRegexps) end, List);
+    lists:zf(fun(File) ->
+		     do_filter_spec(Path, File, InclRegexps, ExclRegexps)
+	     end,
+	     List);
 %% do_filter_spec(Path, {source_dir, _SourceDir, Spec}, InclRegexps, ExclRegexps) ->
 %%     do_filter_spec(Path, Spec, InclRegexps, ExclRegexps);
 do_filter_spec(Path, {create_dir, Dir, Files}, InclRegexps, ExclRegexps) ->
@@ -1057,7 +1284,10 @@ do_filter_spec(Path, {create_dir, Dir, Files}, InclRegexps, ExclRegexps) ->
         Files2 when is_list(Files2) ->
             {true, {create_dir, Dir, Files2}}
     end;
-do_filter_spec(Path, {create_dir, NewDir, OldDir, Files}, InclRegexps, ExclRegexps) ->
+do_filter_spec(Path,
+	       {create_dir, NewDir, OldDir, Files},
+	       InclRegexps,
+	       ExclRegexps) ->
     Path2 = opt_join(Path, NewDir),
     case do_filter_spec(Path2, Files, InclRegexps, ExclRegexps) of
         [] ->
@@ -1070,7 +1300,10 @@ do_filter_spec(Path, {create_dir, NewDir, OldDir, Files}, InclRegexps, ExclRegex
         Files2 when is_list(Files2) ->
             {true, {create_dir, NewDir, OldDir, Files2}}
     end;
-do_filter_spec(Path, {archive, Archive, Options, Files}, InclRegexps, ExclRegexps) ->
+do_filter_spec(Path,
+	       {archive, Archive, Options, Files},
+	       InclRegexps,
+	       ExclRegexps) ->
     case do_filter_spec(Path, Files, InclRegexps, ExclRegexps) of
         [] ->
             case match(Path, InclRegexps, ExclRegexps) of
@@ -1085,7 +1318,10 @@ do_filter_spec(Path, {archive, Archive, Options, Files}, InclRegexps, ExclRegexp
 do_filter_spec(Path, {copy_file, File}, InclRegexps, ExclRegexps) ->
     Path2 = opt_join(Path, File),
     match(Path2, InclRegexps, ExclRegexps);
-do_filter_spec(Path, {copy_file, NewFile, _OldFile}, InclRegexps, ExclRegexps) ->
+do_filter_spec(Path,
+	       {copy_file, NewFile, _OldFile},
+	       InclRegexps,
+	       ExclRegexps) ->
     Path2 = opt_join(Path, NewFile),
     match(Path2, InclRegexps, ExclRegexps);
 do_filter_spec(Path, {write_file, File, _IoList}, InclRegexps, ExclRegexps) ->
@@ -1101,18 +1337,7 @@ opt_join(Path, File) ->
     filename:join([Path, File]).
 
 match(String, InclRegexps, ExclRegexps) ->
-    %%case 
-        match(String, InclRegexps) andalso not match(String, ExclRegexps).
-%%      of
-%%      true ->
-%%           true;
-%%      false ->
-%%          io:format("no match: ~p\n"
-%%                    "    incl: ~p\n"
-%%                    "    excl: ~p\n", 
-%%                    [String, InclRegexps, ExclRegexps]),
-%%          false
-%%    end.
+    match(String, InclRegexps) andalso not match(String, ExclRegexps).
 
 %% Match at least one regexp
 match(_String, []) ->
@@ -1131,7 +1356,7 @@ match(String, [#regexp{source = _, compiled = MP} | Regexps]) ->
 install(RelName, TargetDir) ->
     try
         do_install(RelName, TargetDir)
-    catch 
+    catch
         throw:{error, Text} ->
             {error, Text}
     end.
@@ -1148,7 +1373,8 @@ do_install(RelName, TargetDir) ->
 	    case os:type() of
 		{win32, _} ->
 		    NativeRootDir = filename:nativename(TargetDir2),
-		    %% NativeBinDir = filename:nativename(filename:join([BinDir, "win32"])),
+		    %% NativeBinDir =
+		    %% filename:nativename(filename:join([BinDir, "win32"])),
 		    NativeBinDir = filename:nativename(BinDir),
 		    IniData = ["[erlang]\r\n",
 			       "Bindir=", NativeBinDir, "\r\n",
@@ -1157,25 +1383,30 @@ do_install(RelName, TargetDir) ->
 		    IniFile = filename:join([BinDir, "erl.ini"]),
                     ok = file:write_file(IniFile, IniData);
 		_ ->
-		    subst_src_scripts(start_scripts(), ErtsBinDir, BinDir, 
-				      [{"FINAL_ROOTDIR", TargetDir2}, {"EMU", "beam"}],
+		    subst_src_scripts(start_scripts(),
+				      ErtsBinDir,
+				      BinDir,
+				      [{"FINAL_ROOTDIR", TargetDir2},
+				       {"EMU", "beam"}],
 				      [preserve])
 	    end,
             RelFile = filename:join([RelDir, RelVsn, RelName ++ ".rel"]),
             ok = release_handler:create_RELEASES(TargetDir2, RelFile),
             ok;
         _ ->
-            reltool_utils:throw_error("~s: Illegal syntax.\n", [DataFile])
+            reltool_utils:throw_error("~s: Illegal data file syntax", [DataFile])
     end.
 
 subst_src_scripts(Scripts, SrcDir, DestDir, Vars, Opts) ->
-    Fun = fun(Script) -> subst_src_script(Script, SrcDir, DestDir, Vars, Opts) end,
+    Fun = fun(Script) ->
+		  subst_src_script(Script, SrcDir, DestDir, Vars, Opts)
+	  end,
     lists:foreach(Fun, Scripts).
 
-subst_src_script(Script, SrcDir, DestDir, Vars, Opts) -> 
+subst_src_script(Script, SrcDir, DestDir, Vars, Opts) ->
     subst_file(filename:join([SrcDir, Script ++ ".src"]),
                filename:join([DestDir, Script]),
-               Vars, 
+               Vars,
                Opts).
 
 subst_file(Src, Dest, Vars, Opts) ->
@@ -1212,8 +1443,8 @@ subst([], _Vars, Result) ->
 
 subst_var([$%| Rest], Vars, Result, VarAcc) ->
     Key = lists:reverse(VarAcc),
-    case lists:keysearch(Key, 1, Vars) of
-        {value, {Key, Value}} ->
+    case lists:keyfind(Key, 1, Vars) of
+        {Key, Value} ->
             subst(Rest, Vars, lists:reverse(Value, Result));
         false ->
             subst(Rest, Vars, [$% | VarAcc ++ [$% | Result]])

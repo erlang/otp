@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
   <header>
     <copyright>
-      <year>2006</year><year>2010</year>
+      <year>2006</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -38,8 +38,21 @@
       used for manipulating (write/append/read) the config files of the
       SNMP agent. </p>
 
-    <marker id="agent_entry"></marker>
+    <marker id="types"></marker>
   </description>
+
+  <section>
+    <title>DATA TYPES</title>
+    <code type="none"><![CDATA[
+transportDomain() = transportDomainUdpIpv4 | transportDomainUdpIpv6
+transportAddressIPv4() = [integer()], length 4
+transportAddressIPv6() = [integer()], length 8
+transportAddressMask() = [integer()], length 0 (default), 6 (IPv4) or 10 (IPv6)
+    ]]></code>
+
+    <marker id="agent_entry"></marker>
+  </section>
+
   <funcs>
     <func>
       <name>agent_entry(Tag, Val) -> agent_entry()</name>
@@ -381,17 +394,19 @@
       <name>target_addr_entry(Name, Ip, TagList, ParamsName, EngineId, TMask) -> target_addr_entry()</name>
       <name>target_addr_entry(Name, Ip, Udp, TagList, ParamsName, EngineId, TMask, MaxMessageSize) -> target_addr_entry()</name>
       <name>target_addr_entry(Name, Ip, Udp, Timeout, RetryCount, TagList, ParamsName, EngineId, TMask, MaxMessageSize) -> target_addr_entry()</name>
+      <name>target_addr_entry(Name, Domain, Ip, Udp, Timeout, RetryCount, TagList, ParamsName, EngineId, TMask, MaxMessageSize) -> target_addr_entry()</name>
       <fsummary>Create an target_addr entry</fsummary>
       <type>
         <v>Name = string()</v>
-        <v>Ip = string()</v>
+        <v>Domain = transportDomain()</v>
+        <v>Ip = transportAddressIPv4() | transportAddressIPv6() (depends on Domain)</v>
         <v>Udp = integer()</v>
         <v>Timeout = integer()</v>
         <v>RetryCount = integer()</v>
         <v>TagList = string()</v>
         <v>ParamsName = string()</v>
         <v>EngineId = string()</v>
-        <v>TMask = string()</v>
+        <v>TMask = transportAddressMask() (depends on Domain)</v>
         <v>MaxMessageSize = integer()</v>
         <v>target_addr_entry() = term()</v>
       </type>

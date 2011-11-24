@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -93,8 +93,6 @@
 -include("../ssa/hipe_ssa_const_prop.inc").
 
 -type bool_lattice() :: 'true' | 'false' | 'top' | 'bottom'.
--type conditional()  :: 'eq' | 'ne' | 'ge' | 'geu' | 'gt' | 'gtu' | 'le'
-                      | 'leu' | 'lt' | 'ltu' | 'overflow' | 'not_overflow'.
 
 %%-----------------------------------------------------------------------------
 %% Procedure : visit_expression/2
@@ -400,7 +398,7 @@ maybe_top_or_bottom([top | Rest], _) -> maybe_top_or_bottom(Rest, top);
 maybe_top_or_bottom([bottom | _], _) -> bottom;
 maybe_top_or_bottom([_ | Rest],  TB) -> maybe_top_or_bottom(Rest, TB).
 
--spec partial_eval_branch(conditional(), bool_lattice(), bool_lattice(),
+-spec partial_eval_branch(hipe_rtl:alub_cond(), bool_lattice(), bool_lattice(),
 			  bool_lattice() | 0, bool_lattice() | 0) ->
 	 bool_lattice().
 partial_eval_branch(Cond, N0, Z0, V0, C0) ->
@@ -441,14 +439,14 @@ visit_alub(Inst, Env) ->
                  hipe_rtl:alub_false_label(Inst)];
       top    -> [];
       _      ->
-        %if the partial branch cannot be evaluated we must execute the 
-        % instruction at runtime.
+        %% if the partial branch cannot be evaluated we must execute the
+        %% instruction at runtime.
         case partial_eval_branch(hipe_rtl:alub_cond(Inst), N, Z, C, V) of
           bottom -> [hipe_rtl:alub_true_label(Inst), 
                      hipe_rtl:alub_false_label(Inst)];
           top    -> [];
-          true   -> [hipe_rtl:alub_true_label(Inst) ];
-          false  -> [hipe_rtl:alub_false_label(Inst) ]
+          true   -> [hipe_rtl:alub_true_label(Inst)];
+          false  -> [hipe_rtl:alub_false_label(Inst)]
         end
      end,
   {[], NewSSA, NewEnv} = set_to(hipe_rtl:alub_dst(Inst), NewVal,  Env),
@@ -944,8 +942,8 @@ update_branch(Inst, Env) ->
 
 %% some small helpers.
 alub_to_move(Inst, Res, Lab) ->
-  [ hipe_rtl:mk_move(hipe_rtl:alub_dst(Inst), Res),
-    hipe_rtl:mk_goto(Lab) ].
+  [hipe_rtl:mk_move(hipe_rtl:alub_dst(Inst), Res),
+   hipe_rtl:mk_goto(Lab)].
 
 make_alub_subst_list(bottom, _, Tail) ->  Tail;
 make_alub_subst_list(top, Src, _) ->
@@ -970,13 +968,13 @@ update_alub(Inst, Env) ->
       %% move and the branch. We can however replace variable with constants:
       S1 = make_alub_subst_list(Val1, Src1, []),
       S2 = make_alub_subst_list(Val2, Src2, S1),
-      [ hipe_rtl:subst_uses(S2, Inst) ];
-    _ -> % we know where we will be going, let's find out what Dst should be.
-         % knowing where we are going means that at most one of the values is
-         % bottom, hence we can replace the alu-instr with a move. 
-         % remember, a = b + 0 can give us enough info to know what jump to 
-         % do without knowing the value of a. (I wonder if this will ever 
-         % actualy happen ;) 
+      [hipe_rtl:subst_uses(S2, Inst)];
+    _ -> %% we know where we will be going, let's find out what Dst should be.
+         %% knowing where we are going means that at most one of the values is
+         %% bottom, hence we can replace the alu-instr with a move.
+         %% remember, a = b + 0 can give us enough info to know what jump to
+         %% do without knowing the value of a. (I wonder if this will ever
+         %% actualy happen ;)
       Res = case ResVal of 
               bottom ->  % something nonconstant.
                 if (Val1 =:= bottom) -> Src1;
@@ -985,11 +983,12 @@ update_alub(Inst, Env) ->
               _ -> hipe_rtl:mk_imm(ResVal)
             end,
       case CondRes of 
-        top -> io:format("oops. something VERY bad: ~w ~w V1 & 2 ~w ~w\n", 
-	                 [Inst, {ResVal, N, Z, C, V} , Val1, Val2]),
-           [Inst ];
-        true   -> alub_to_move(Inst, Res, hipe_rtl:alub_true_label(Inst));
-        false  -> alub_to_move(Inst, Res, hipe_rtl:alub_false_label(Inst))
+        top ->
+	  io:format("oops. something VERY bad: ~w ~w V1 & 2 ~w ~w\n",
+		    [Inst, {ResVal, N, Z, C, V} , Val1, Val2]),
+	  [Inst];
+        true  -> alub_to_move(Inst, Res, hipe_rtl:alub_true_label(Inst));
+        false -> alub_to_move(Inst, Res, hipe_rtl:alub_false_label(Inst))
       end
   end.
 
@@ -1050,7 +1049,7 @@ update_phi(Instruction, Environment) ->
 
 %%-----------------------------------------------------------------------------
 
-%% make sure that all precoloured rgisters are taken out of the equation.
+%% make sure that all precoloured registers are taken out of the equation.
 lookup_lattice_value(X, Environment) ->
   case hipe_rtl_arch:is_precoloured(X) or hipe_rtl:is_const_label(X) of 
     true ->

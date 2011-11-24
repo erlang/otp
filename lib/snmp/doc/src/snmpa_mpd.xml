@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1999</year><year>2009</year>
+      <year>1999</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>snmpa_mpd</title>
@@ -63,15 +63,19 @@
     </func>
 
     <func>
-      <name>process_packet(Packet, TDomain, TAddress, State) -> {ok, Vsn, Pdu, PduMS, ACMData} | {discarded, Reason} | {discovery, DiscoPacket}</name>
+      <name>process_packet(Packet, TDomain, TAddress, State, NoteStore, Log) -> {ok, Vsn, Pdu, PduMS, ACMData} | {discarded, Reason} | {discovery, DiscoPacket}</name>
+      <name>process_packet(Packet, TDomain, TAddress, LocalEngineID, State, NoteStore, Log) -> {ok, Vsn, Pdu, PduMS, ACMData} | {discarded, Reason} | {discovery, DiscoPacket}</name>
       <fsummary>Process a packet received from the network</fsummary>
       <type>
         <v>Packet = binary()</v>
         <v>TDomain = snmpUDPDomain</v>
         <v>TAddress = {Ip, Udp}</v>
+        <v>LocalEngineID = string()</v>
         <v>Ip = {integer(), integer(), integer(), integer()}</v>
         <v>Udp = integer()</v>
         <v>State = mpd_state()</v>
+        <v>NoteStore = pid()</v>
+        <v>Log = snmp_log()</v>
         <v>Vsn = 'version-1' | 'version-2' | 'version-3'</v>
         <v>Pdu = #pdu</v>
         <v>PduMs = integer()</v>
@@ -84,18 +88,27 @@
           decryption as necessary.  The return values should be passed the
           agent.</p>
 
+        <note>
+          <p>Note that the use of the LocalEngineID argument is only intended 
+            for special cases, if the agent is to "emulate" multiple EngineIDs!
+            By default, the agent uses the value of <c>SnmpEngineID</c> 
+            (see SNMP-FRAMEWORK-MIB). </p>
+	</note>
+
         <marker id="generate_response_msg"></marker>
       </desc>
     </func>
 
     <func>
-      <name>generate_response_msg(Vsn, RePdu, Type, ACMData) -> {ok, Packet} | {discarded, Reason}</name>
+      <name>generate_response_msg(Vsn, RePdu, Type, ACMData, Log) -> {ok, Packet} | {discarded, Reason}</name>
+      <name>generate_response_msg(Vsn, RePdu, Type, ACMData, LocalEngineID, Log) -> {ok, Packet} | {discarded, Reason}</name>
       <fsummary>Generate a response packet to be sent to the network</fsummary>
       <type>
         <v>Vsn = 'version-1' | 'version-2' | 'version-3'</v>
         <v>RePdu = #pdu</v>
         <v>Type = atom()</v>
         <v>ACMData = acm_data()</v>
+        <v>LocalEngineID = string()</v>
         <v>Packet = binary()</v>
       </type>
       <desc>
@@ -103,17 +116,27 @@
           network. <c>Type</c> is the <c>#pdu.type</c> of the original
           request.</p>
 
+        <note>
+          <p>Note that the use of the LocalEngineID argument is only intended 
+            for special cases, if the agent is to "emulate" multiple EngineIDs!
+            By default, the agent uses the value of <c>SnmpEngineID</c> 
+            (see SNMP-FRAMEWORK-MIB). </p>
+	</note>
+
         <marker id="generate_msg"></marker>
       </desc>
     </func>
 
     <func>
-      <name>generate_msg(Vsn, Pdu, MsgData, To) -> {ok, PacketsAndAddresses} | {discarded, Reason}</name>
+      <name>generate_msg(Vsn, NoteStore, Pdu, MsgData, To) -> {ok, PacketsAndAddresses} | {discarded, Reason}</name>
+      <name>generate_msg(Vsn, NoteStore, Pdu, MsgData, LocalEngineID, To) -> {ok, PacketsAndAddresses} | {discarded, Reason}</name>
       <fsummary>Generate a request message to be sent to the network</fsummary>
       <type>
         <v>Vsn = 'version-1' | 'version-2' | 'version-3'</v>
+        <v>NoteStore = pid()</v>
         <v>Pdu = #pdu</v>
         <v>MsgData = msg_data()</v>
+        <v>LocalEngineID = string()</v>
         <v>To = [dest_addrs()]</v>
         <v>PacketsAndAddresses = [{TDomain, TAddress, Packet}]</v>
         <v>TDomain = snmpUDPDomain</v>
@@ -135,6 +158,13 @@
           their corresponding security parameters.  This value is
           also received from the requests mentioned above.
           </p>
+
+        <note>
+          <p>Note that the use of the LocalEngineID argument is only intended 
+            for special cases, if the agent is to "emulate" multiple EngineIDs!
+            By default, the agent uses the value of <c>SnmpEngineID</c> 
+            (see SNMP-FRAMEWORK-MIB). </p>
+	</note>
 
         <marker id="discarded_pdu"></marker>
       </desc>

@@ -113,7 +113,7 @@ debug:
 	@${MAKE} TYPE=debug
 
 clean:
-	rm -f $(TARGET_FILES) $(GEN_FILES)  $(APP_TARGET)
+	rm -f $(TARGET_FILES) $(GEN_FILES)  $(APP_TARGET) IDL-GENERATED
 	rm -f errs core *~
 
 $(APP_TARGET): $(APP_SRC)
@@ -124,13 +124,15 @@ docs:
 # ----------------------------------------------------
 # Special Build Targets
 # ----------------------------------------------------
-$(GEN_FILES): cos_naming_ext.idl cos_naming.idl
+IDL-GENERATED: cos_naming_ext.idl cos_naming.idl
 	erlc $(ERL_IDL_FLAGS) +'{this,"CosNaming::NamingContext"}' \
 	+'{this,"CosNaming::NamingContextExt"}' cos_naming_ext.idl
 	erlc $(ERL_IDL_FLAGS) +'{this,"CosNaming::NamingContext"}' cos_naming.idl
+	>IDL-GENERATED
 
-#	echo "ic:gen(cos_naming, [{this, \"CosNaming::NamingContext\"}]), halt()."| $(ERL) $(ERL_IDL_FLAGS)
+$(GEN_FILES): IDL-GENERATED
 
+$(TARGET_FILES): IDL-GENERATED
 
 # ----------------------------------------------------
 # Release Target

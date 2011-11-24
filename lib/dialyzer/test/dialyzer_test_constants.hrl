@@ -1,0 +1,1 @@
+-define(plt_timeout, {hours, 2}).

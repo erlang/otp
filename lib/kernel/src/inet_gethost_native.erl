@@ -106,8 +106,11 @@
 	  pool_size = 4, % Number of C processes in pool.
 	  statistics % Statistics record (records error causes).
 }).
+-type state() :: #state{}.
 
 %% The supervisor bridge code
+-spec init([]) -> {'ok', pid(), pid()} | {'error', term()}.
+
 init([]) -> % Called by supervisor_bridge:start_link
     Ref = make_ref(),
     SaveTE = process_flag(trap_exit,true),
@@ -151,11 +154,13 @@ run_once() ->
 	{Port, {data, <<1:32, BinReply/binary>>}} ->
 	    Pid ! {R, {ok, BinReply}}
     after Timeout ->
-	    Pid ! {R,{error,timeout}}
+	    Pid ! {R, {error, timeout}}
     end.
 
-terminate(_Reason,Pid) ->
-    (catch exit(Pid,kill)),
+-spec terminate(term(), pid()) -> 'ok'.
+
+terminate(_Reason, Pid) ->
+    (catch exit(Pid, kill)),
     ok.
 
 %%-----------------------------------------------------------------------
@@ -337,14 +342,14 @@ pick_client(State,RID,Clid) ->
 		    {last, SoleClient}; % Note, not removed, the caller 
 					% should cleanup request data
 		CList ->
-		    case lists:keysearch(Clid,1,CList) of
-			{value, Client} ->
+		    case lists:keyfind(Clid,1,CList) of
+			false ->
+			    false;
+			Client ->
 			    NCList = lists:keydelete(Clid,1,CList),
 			    ets:insert(State#state.requests, 
 				       R#request{clients = NCList}),
-			    {more, Client};
-			false ->
-			    false
+			    {more, Client}
 		    end
 	    end
     end.
@@ -382,8 +387,7 @@ restart_port(#state{port = Port, requests = Requests}) ->
 	    end,
 	    Requests),
     NewPort.
-			    
-    
+
 
 do_open_port(Poolsize, ExtraArgs) ->
     try 
@@ -431,6 +435,7 @@ system_continue(_Parent, _, State) ->
 system_terminate(Reason, _Parent, _, _State) ->
     exit(Reason).
 
+-spec system_code_change(state(), module(), term(), term()) -> {'ok', state()}.
 system_code_change(State, _Module, _OldVsn, _Extra) ->
     {ok, State}. %% Nothing to do in this version.
 

@@ -1,31 +1,32 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
 %%
 -module(ei_decode_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include("ei_decode_SUITE_data/ei_decode_test_cases.hrl").
 
 -export(
    [
-    all/1,
+    all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+    init_per_group/2,end_per_group/2,
     test_ei_decode_long/1,
     test_ei_decode_ulong/1,
     test_ei_decode_longlong/1,
@@ -35,16 +36,29 @@
     test_ei_decode_misc/1
    ]).
 
-all(suite) ->
-    [
-     test_ei_decode_long,
-     test_ei_decode_ulong,
-     test_ei_decode_longlong,
-     test_ei_decode_ulonglong,
-     test_ei_decode_char,
-     test_ei_decode_nonoptimal,
-     test_ei_decode_misc
-    ].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [test_ei_decode_long, test_ei_decode_ulong,
+     test_ei_decode_longlong, test_ei_decode_ulonglong,
+     test_ei_decode_char, test_ei_decode_nonoptimal,
+     test_ei_decode_misc].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 %% ---------------------------------------------------------------------------
 
@@ -181,22 +195,9 @@ test_ei_decode_misc(suite) -> [];
 test_ei_decode_misc(Config) when is_list(Config) ->
     ?line P = runner:start(?test_ei_decode_misc),
 
-%    ?line <<131>>  = get_binaries(P),
-
-%    ?line {term,F} = get_term(P),
-%    ?line match_float(F, 0.0),
-%    ?line {term,F} = get_term(P),
-%    ?line match_float(F, 0.0),
-
-%    ?line {term,F} = get_term(P),
-%    ?line true = match_float(F, -1.0),
-%    ?line {term,F} = get_term(P),
-%    ?line true = match_float(F, -1.0),
-
-%    ?line {term,F} = get_term(P),
-%    ?line true = match_float(F, 1.0),
-%    ?line {term,F} = get_term(P),
-%    ?line true = match_float(F, 1.0),
+    ?line send_term_as_binary(P,0.0),
+    ?line send_term_as_binary(P,-1.0),
+    ?line send_term_as_binary(P,1.0),
 
     ?line send_term_as_binary(P,false),
     ?line send_term_as_binary(P,true),
@@ -235,15 +236,17 @@ send_integers(P) ->
     ?line send_term_as_binary(P,256),		% INTEGER_EXT smallest pos (*)
     ?line send_term_as_binary(P,-1),		% INTEGER_EXT largest  neg 
 
-    ?line send_term_as_binary(P, 16#07ffffff),	% INTEGER_EXT largest (28 bits)
-    ?line send_term_as_binary(P,-16#08000000),	% INTEGER_EXT smallest 
-    ?line send_term_as_binary(P, 16#08000000),  % SMALL_BIG_EXT smallest pos(*)
-    ?line send_term_as_binary(P,-16#08000001),	% SMALL_BIG_EXT largest neg (*)
+    ?line send_term_as_binary(P, 16#07ffffff),	% INTEGER_EXT old largest (28 bits)
+    ?line send_term_as_binary(P,-16#08000000),	% INTEGER_EXT old smallest
+    ?line send_term_as_binary(P, 16#08000000),  % SMALL_BIG_EXT old smallest pos(*)
+    ?line send_term_as_binary(P,-16#08000001),	% SMALL_BIG_EXT old largest neg (*)
 
-    ?line send_term_as_binary(P, 16#7fffffff),	% SMALL_BIG_EXT largest  i32
-    ?line send_term_as_binary(P,-16#80000000),	% SMALL_BIG_EXT smallest i32
-
-    case erlang:system_info(wordsize) of
+    ?line send_term_as_binary(P, 16#7fffffff),	% INTEGER_EXT new largest (32 bits)
+    ?line send_term_as_binary(P,-16#80000000),	% INTEGER_EXT new smallest (32 bis)
+    ?line send_term_as_binary(P, 16#80000000),  % SMALL_BIG_EXT new smallest pos(*)
+    ?line send_term_as_binary(P,-16#80000001),	% SMALL_BIG_EXT new largest neg (*)
+ 
+    case erlang:system_info({wordsize,external}) of
 	4 ->	 
           ?line send_term_as_binary(P, 16#80000000),% SMALL_BIG_EXT u32
           ?line send_term_as_binary(P, 16#ffffffff),% SMALL_BIG_EXT largest u32
@@ -279,15 +282,17 @@ send_integers2(P) ->
     ?line send_term_as_binary(P,255),		% SMALL_INTEGER_EXT largest
     ?line send_term_as_binary(P,256),		% INTEGER_EXT smallest pos (*)
     ?line send_term_as_binary(P,-1),		% INTEGER_EXT largest  neg 
+    
+    ?line send_term_as_binary(P, 16#07ffffff),	% INTEGER_EXT old largest (28 bits)
+    ?line send_term_as_binary(P,-16#08000000),	% INTEGER_EXT old smallest 
+    ?line send_term_as_binary(P, 16#08000000),  % SMALL_BIG_EXT old smallest pos(*)
+    ?line send_term_as_binary(P,-16#08000001),	% SMALL_BIG_EXT old largest neg (*)
 
-    ?line send_term_as_binary(P, 16#07ffffff),	% INTEGER_EXT largest (28 bits)
-    ?line send_term_as_binary(P,-16#08000000),	% INTEGER_EXT smallest 
-    ?line send_term_as_binary(P, 16#08000000),  % SMALL_BIG_EXT smallest pos(*)
-    ?line send_term_as_binary(P,-16#08000001),	% SMALL_BIG_EXT largest neg (*)
+    ?line send_term_as_binary(P, 16#7fffffff),	% INTEGER_EXT new largest (32 bits)
+    ?line send_term_as_binary(P,-16#80000000),	% INTEGER_EXT new smallest
+    ?line send_term_as_binary(P, 16#80000000),  % SMALL_BIG_EXT new smallest pos(*)
+    ?line send_term_as_binary(P,-16#80000001),	% SMALL_BIG_EXT new largest neg (*)
 
-    ?line send_term_as_binary(P, 16#7fffffff),	% SMALL_BIG_EXT largest  i32
-    ?line send_term_as_binary(P,-16#80000000),	% SMALL_BIG_EXT smallest i32
-    ?line send_term_as_binary(P, 16#80000000),% SMALL_BIG_EXT u32
     ?line send_term_as_binary(P, 16#ffffffff),% SMALL_BIG_EXT largest u32
 
     ?line send_term_as_binary(P, 16#7fffffffffff), % largest  i48

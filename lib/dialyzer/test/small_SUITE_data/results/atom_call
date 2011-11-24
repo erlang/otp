@@ -1,0 +1,3 @@
+
+atom_call.erl:14: Fun application will fail since F :: 'f' is not a function of arity 0
+atom_call.erl:14: Function g/0 has no local return

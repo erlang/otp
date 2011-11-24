@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -75,14 +75,21 @@ write_all_data(Port,[H|T]) ->
     write_all_data(Port,T).
 
 read_all_data(Port) ->
+	lists:reverse(read_all_data(Port,[],[])).
+read_all_data(Port,Line,Lines) ->
     receive
+	{Port, {data, {noeol,Data}}} ->
+	    read_all_data(Port,Line++Data,Lines);
 	{Port, {data, {eol,Data}}} ->
-	    [ Data | read_all_data(Port)];
-	_ ->
+	    read_all_data(Port,[],[Line++Data|Lines]);
+	{Port,_Other} ->
 	    Port ! {self(), close},
 	    receive
 		{Port, closed} ->
-		    []
+		    case Line of
+			[] -> Lines;
+			_ -> [Line|Lines]
+		    end
 	    end
     end.
 
@@ -208,7 +215,7 @@ store_service(EmulatorVersion,Service) ->
 	false ->
 	    {error, no_servicename};
 	{value, {_,Name}} ->
-	    {Action,Service1} = case get_service(Name) of
+	    {Action,Service1} = case get_service(EmulatorVersion,Name) of
 			 {error, no_such_service} ->
 			     {"add",Service};
 			 _ ->
@@ -377,8 +384,14 @@ pick_argument(_,[],Acc) ->
     {Acc, ""};
 pick_argument(normal,[$ |T],Acc) ->
     {Acc,T};
+pick_argument(normal,[$\\|T],Acc) ->
+    pick_argument(normal_escaped,T,[$\\|Acc]);
 pick_argument(normal,[$"|T],Acc) ->
     pick_argument(quoted,T,[$"|Acc]);
+pick_argument(normal_escaped,[$"|T],Acc) ->
+    pick_argument(bquoted,T,[$"|Acc]);
+pick_argument(normal_escaped,[A|T],Acc) ->
+    pick_argument(normal,T,[A|Acc]);
 pick_argument(quoted_escaped,[H|T],Acc) ->
     pick_argument(quoted,T,[H|Acc]);
 pick_argument(quoted,[$"|T],Acc) ->
@@ -387,6 +400,14 @@ pick_argument(quoted,[$\\|T],Acc) ->
     pick_argument(quoted_escaped,T,[$\\|Acc]);
 pick_argument(quoted,[H|T],Acc) ->
     pick_argument(quoted,T,[H|Acc]);
+pick_argument(bquoted_escaped,[$"|T],Acc) ->
+    pick_argument(normal,T,[$"|Acc]);
+pick_argument(bquoted_escaped,[H|T],Acc) ->
+    pick_argument(bquoted,T,[H|Acc]);
+pick_argument(bquoted,[$\\|T],Acc) ->
+    pick_argument(bquoted_escaped,T,[$\\|Acc]);
+pick_argument(bquoted,[H|T],Acc) ->
+    pick_argument(bquoted,T,[H|Acc]);
 pick_argument(normal,[H|T],Acc) ->
     pick_argument(normal,T,[H|Acc]).
 

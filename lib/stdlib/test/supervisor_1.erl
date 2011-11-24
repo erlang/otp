@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -61,6 +61,12 @@ handle_info(die, State) ->
 
 handle_info(stop, State) ->
     {stop, normal, State};
+
+handle_info({'EXIT',_,shutdown}, State) ->
+    {stop, shutdown, State};
+
+handle_info({'EXIT',_,{shutdown,Term}}, State) ->
+    {stop, {shutdown,Term}, State};
 
 handle_info({sleep, Time}, State) ->
     io:format("FOO: ~p~n", [Time]),

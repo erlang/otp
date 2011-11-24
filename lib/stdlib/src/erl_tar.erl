@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -798,30 +798,10 @@ set_extracted_file_info(Name, #tar_header{mode=Mode, mtime=Mtime}) ->
 
 %% Makes all directories leading up to the file.
 
-make_dirs(Name, Type) ->
-    make_dirs1(filename:split(Name), Type).
-
-make_dirs1([Dir, Next|Rest], Type) ->
-    case file:read_file_info(Dir) of
-	{ok, #file_info{type=directory}} ->
-	    make_dirs1([filename:join(Dir, Next)|Rest], Type);
-	{ok, #file_info{}} ->
-	    throw({error, enotdir});
-	{error, _} ->
-	    case file:make_dir(Dir) of
-		ok ->
-		    make_dirs1([filename:join(Dir, Next)|Rest], Type);
-		{error, Reason} ->
-		    throw({error, Reason})
-	    end
-    end;
-make_dirs1([_], file) -> ok;
-make_dirs1([Dir], dir) ->
-    file:make_dir(Dir);
-make_dirs1([], _) ->
-    %% There must be something wrong here.  The list was not supposed
-    %% to be empty.
-    throw({error, enoent}).
+make_dirs(Name, file) ->
+	filelib:ensure_dir(Name);
+make_dirs(Name, dir) ->
+	filelib:ensure_dir(filename:join(Name,"*")).
 
 %% Prints the message on if the verbose option is given (for reading).
 

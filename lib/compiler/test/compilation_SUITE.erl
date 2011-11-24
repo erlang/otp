@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -20,34 +20,46 @@
 
 -module(compilation_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -compile(export_all).
 
-all(suite) ->
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
     test_lib:recompile(?MODULE),
-    [self_compile_old_inliner,self_compile,
-     compiler_1,compiler_3,compiler_5,
-     beam_compiler_1, beam_compiler_2, beam_compiler_3,
-     beam_compiler_4, beam_compiler_5, beam_compiler_6,
-     beam_compiler_7, beam_compiler_8, beam_compiler_9,
-     beam_compiler_10, beam_compiler_11, beam_compiler_12,
-     nested_tuples_in_case_expr,
-     otp_2330, guards, vsn,
-     otp_2380, otp_2141, otp_2173, otp_4790,
-     const_list_256,
-     bin_syntax_1, bin_syntax_2, bin_syntax_3,
-     bin_syntax_4, bin_syntax_5, bin_syntax_6,
-     live_var, convopts,
-     bad_functional_value,
-     catch_in_catch, redundant_case, long_string,
-     otp_5076, complex_guard, otp_5092, otp_5151,
-     otp_5235,otp_5244,
-     trycatch_4, opt_crash,
-     otp_5404,otp_5436,otp_5481,otp_5553,otp_5632,
-     otp_5714,otp_5872,otp_6121,otp_6121a,otp_6121b,
-     otp_7202,otp_7345,on_load
-    ].
+    [self_compile_old_inliner, self_compile, compiler_1,
+     compiler_3, compiler_5, beam_compiler_1,
+     beam_compiler_2, beam_compiler_3, beam_compiler_4,
+     beam_compiler_5, beam_compiler_6, beam_compiler_7,
+     beam_compiler_8, beam_compiler_9, beam_compiler_10,
+     beam_compiler_11, beam_compiler_12,
+     nested_tuples_in_case_expr, otp_2330, guards,
+     {group, vsn}, otp_2380, otp_2141, otp_2173, otp_4790,
+     const_list_256, bin_syntax_1, bin_syntax_2,
+     bin_syntax_3, bin_syntax_4, bin_syntax_5, bin_syntax_6,
+     live_var, convopts, bad_functional_value,
+     catch_in_catch, redundant_case, long_string, otp_5076,
+     complex_guard, otp_5092, otp_5151, otp_5235, otp_5244,
+     trycatch_4, opt_crash, otp_5404, otp_5436, otp_5481,
+     otp_5553, otp_5632, otp_5714, otp_5872, otp_6121,
+     otp_6121a, otp_6121b, otp_7202, otp_7345, on_load,
+     string_table,otp_8949_a,otp_8949_a].
+
+groups() -> 
+    [{vsn, [], [vsn_1, vsn_2, vsn_3]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
 
 -define(comp(N),
 	N(Config) when is_list(Config) -> try_it(N, Config)).
@@ -151,7 +163,7 @@ split({int, N}, <<N:16,B:N/binary,T/binary>>) ->
 beam_compiler_7(doc) ->
     "Code snippet submitted from Ulf Wiger which fails in R3 Beam.";
 beam_compiler_7(suite) -> [];
-beam_compiler_7(Config) when list(Config) ->
+beam_compiler_7(Config) when is_list(Config) ->
     ?line done = empty(2, false).
 
 empty(N, Toggle) when N > 0 ->
@@ -311,12 +323,11 @@ from(H, [H | T]) -> T;
 from(H, [_ | T]) -> from(H, T);
 from(_, []) -> [].
 
-vsn(suite) -> [vsn_1, vsn_2, vsn_3].
 
 vsn_1(doc) ->
     "Test generation of 'vsn' attribute";
 vsn_1(suite) -> [];
-vsn_1(Conf) when list(Conf) ->
+vsn_1(Conf) when is_list(Conf) ->
     ?line M = vsn_1,
 
     ?line compile_load(M, ?config(data_dir, Conf), Conf),
@@ -340,7 +351,7 @@ vsn_1(Conf) when list(Conf) ->
 vsn_2(doc) ->
     "Test overriding of generation of 'vsn' attribute";
 vsn_2(suite) -> [];
-vsn_2(Conf) when list(Conf) ->
+vsn_2(Conf) when is_list(Conf) ->
     ?line M = vsn_2,
 
     ?line compile_load(M, ?config(data_dir, Conf), Conf),
@@ -356,7 +367,7 @@ vsn_2(Conf) when list(Conf) ->
 vsn_3(doc) ->
     "Test that different code yields different generated 'vsn'";
 vsn_3(suite) -> [];
-vsn_3(Conf) when list(Conf) ->
+vsn_3(Conf) when is_list(Conf) ->
     ?line M = vsn_3,
 
     ?line compile_load(M, ?config(data_dir, Conf), Conf),
@@ -595,5 +606,56 @@ otp_7345(ObjRef, _RdEnv, Args) ->
 		       div
 		       10},
     id(LlUnitdataReq).
+
+%% Check the generation of the string table.
+
+string_table(Config) when is_list(Config) ->
+    ?line DataDir = ?config(data_dir, Config),
+    ?line File = filename:join(DataDir, "string_table.erl"),
+    ?line {ok,string_table,Beam,[]} = compile:file(File, [return, binary]),
+    ?line {ok,{string_table,[StringTableChunk]}} = beam_lib:chunks(Beam, ["StrT"]),
+    ?line {"StrT", <<"stringabletringtable">>} = StringTableChunk,
+    ok.
+
+otp_8949_a(Config) when is_list(Config) ->
+    value = otp_8949_a(),
+    ok.
+
+-record(cs, {exs,keys = [],flags = 1}).
+-record(exs, {children = []}).
+
+otp_8949_a() ->
+    case id([#cs{}]) of
+        [#cs{}=Cs] ->
+            SomeVar = id(value),
+	    if
+		Cs#cs.flags band 1 =/= 0 ->
+		    id(SomeVar);
+		(((Cs#cs.exs)#exs.children /= [])
+                 and
+		   (Cs#cs.flags band (1 bsl 0 bor (1 bsl 22)) == 0));
+		Cs#cs.flags band (1 bsl 22) =/= 0 ->
+		    ok
+	    end
+    end.
+    
+otp_8949_b(Config) when is_list(Config) ->
+    self() ! something,
+    ?line value = otp_8949_b([], false),
+    ?line {'EXIT',_} = (catch otp_8949_b([], true)),
+    ok.
+
+%% Would cause an endless loop in beam_utils.
+otp_8949_b(A, B) ->
+    Var = id(value),
+    if
+	A == [], B == false ->
+	    ok
+    end,
+    receive
+        something ->
+	    id(Var)
+    end.
+    
 
 id(I) -> I.

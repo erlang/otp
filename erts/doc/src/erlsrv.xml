@@ -4,7 +4,7 @@
 <comref>
   <header>
     <copyright>
-      <year>1998</year><year>2010</year>
+      <year>1998</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -273,7 +273,7 @@
       </desc>
     </func>
     <func>
-      <name>erlsrv {start | stop | disable | enable} &lt;service-name></name>
+      <name>erlsrv {start | start_disabled | stop | disable | enable} &lt;service-name></name>
       <fsummary>Manipulate the current service status.</fsummary>
       <desc>
         <p>These commands are only added for convenience, the normal
@@ -287,6 +287,21 @@
           service actually is stopped. Enabling a service sets it in
           automatic mode, that is started at boot. This command cannot
           set the service to manual.  </p>
+
+	<p>The <c>start_disabled</c> command operates on a service
+	regardless of if it's enabled/disabled or started/stopped.  It
+	does this by first enabling it (regardless of if it's enabled
+	or not), then starting it (if it's not already started) and
+	then disabling it. The result will be a disabled but started
+	service, regardless of its earlier state. This is useful for
+	starting services temporarily during a release upgrade. The
+	difference between using <c>start_disabled</c> and the
+	sequence <c>enable</c>, <c>start</c> and <c>disable</c> is
+	that all other <c>erlsrv</c> commands are locked out during
+	the sequence of operations in <c>start_disable</c>, making the
+	operation atomic from an <c>erlsrv</c> user's point of
+	view.</p>
+
       </desc>
     </func>
     <func>

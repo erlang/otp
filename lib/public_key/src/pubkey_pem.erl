@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -40,35 +40,104 @@
 
 -module(pubkey_pem).
 
--export([read_file/1, read_file/2, write_file/2, decode/2]).
--export([decode_key/2]).
+-include("public_key.hrl").
+
+-export([encode/1, decode/1, decipher/2, cipher/3]).
 
 -define(ENCODED_LINE_LENGTH, 64).
 
 %%====================================================================
 %% Internal application API
 %%====================================================================
-read_file(File) ->
-    read_file(File, no_passwd).
 
-read_file(File, Passwd) ->
-    {ok, Bin} = file:read_file(File),
-    decode(Bin, Passwd).
+%%--------------------------------------------------------------------
+-spec decode(binary()) -> [pem_entry()].
+%%
+%% Description: Decodes a PEM binary.
+%%--------------------------------------------------------------------		    
+decode(Bin) ->
+    decode_pem_entries(split_bin(Bin), []).
 
-write_file(File, Ds) ->
-    file:write_file(File, encode_file(Ds)).
+%%--------------------------------------------------------------------
+-spec encode([pem_entry()]) -> iolist().
+%%
+%% Description: Encodes a list of PEM entries.
+%%--------------------------------------------------------------------		    
+encode(PemEntries) ->
+    encode_pem_entries(PemEntries).
 
-decode_key({_Type, Bin, not_encrypted}, _) ->
-    Bin;
-decode_key({_Type, Bin, {Chipher,Salt}}, Password) ->
-    decode_key(Bin, Password, Chipher, Salt).
+%%--------------------------------------------------------------------
+-spec decipher({pki_asn1_type(), DerEncrypted::binary(),
+		{Cipher :: string(), Salt :: iodata() | #'PBES2-params'{}}},
+	       string()) -> Der::binary().
+%%
+%% Description: Deciphers a decrypted pem entry.
+%%--------------------------------------------------------------------
+decipher({_, DecryptDer, {Cipher, KeyDevParams}}, Password) ->
+    pubkey_pbe:decode(DecryptDer, Password, Cipher, KeyDevParams).
 
-decode(Bin, Passwd) ->
-    decode_file(split_bin(Bin), Passwd).
+%%--------------------------------------------------------------------
+-spec cipher(Der::binary(), {Cipher :: string(), Salt :: iodata() | #'PBES2-params'{}} ,
+	     string()) -> binary().
+%%
+%% Description: Ciphers a PEM entry
+%%--------------------------------------------------------------------
+cipher(Der, {Cipher, KeyDevParams}, Password)->
+    pubkey_pbe:encode(Der, Password, Cipher, KeyDevParams).
 
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+encode_pem_entries(Entries) ->
+    [encode_pem_entry(Entry) || Entry <- Entries].
+
+encode_pem_entry({Type, Der, not_encrypted}) ->
+    StartStr = pem_start(Type),
+    [StartStr, "\n", b64encode_and_split(Der), "\n", pem_end(StartStr) ,"\n\n"];
+encode_pem_entry({Type, Der, {Cipher, Salt}}) ->
+    StartStr = pem_start(Type),
+    [StartStr,"\n", pem_decrypt(),"\n", pem_decrypt_info(Cipher, Salt),"\n",
+     b64encode_and_split(Der), "\n", pem_end(StartStr) ,"\n\n"].
+
+decode_pem_entries([], Entries) ->
+    lists:reverse(Entries);
+decode_pem_entries([<<>>], Entries) ->
+   lists:reverse(Entries);
+decode_pem_entries([<<>> | Lines], Entries) ->
+    decode_pem_entries(Lines, Entries);
+decode_pem_entries([Start| Lines], Entries) ->
+    case pem_end(Start) of
+	undefined ->
+	    decode_pem_entries(Lines, Entries);
+	_End ->
+	    {Entry, RestLines} = join_entry(Lines, []),
+	    decode_pem_entries(RestLines, [decode_pem_entry(Start, Entry) | Entries])
+    end.
+
+decode_pem_entry(Start, [<<"Proc-Type: 4,ENCRYPTED", _/binary>>, Line | Lines]) ->
+    Type = asn1_type(Start),
+    Cs = erlang:iolist_to_binary(Lines),
+    Decoded = base64:mime_decode(Cs),
+    [_, DekInfo0] = string:tokens(binary_to_list(Line), ": "),
+    [Cipher, Salt] = string:tokens(DekInfo0, ","), 
+    {Type, Decoded, {Cipher, unhex(Salt)}};
+decode_pem_entry(Start, Lines) ->
+    Type = asn1_type(Start),
+    Cs = erlang:iolist_to_binary(Lines),
+    Decoded = base64:mime_decode(Cs),
+    case Type of
+	'EncryptedPrivateKeyInfo'->
+	    decode_encrypted_private_keyinfo(Decoded);
+	_ ->
+	    {Type, Decoded, not_encrypted}
+    end.
+
+decode_encrypted_private_keyinfo(Der) ->
+    #'EncryptedPrivateKeyInfo'{encryptionAlgorithm = AlgorithmInfo,				  
+			       encryptedData = Data} = 
+	public_key:der_decode('EncryptedPrivateKeyInfo', Der),
+    DecryptParams = pubkey_pbe:decrypt_parameters(AlgorithmInfo), 
+    {'PrivateKeyInfo', iolist_to_binary(Data), DecryptParams}.
 
 split_bin(Bin) ->
     split_bin(0, Bin).
@@ -85,108 +154,85 @@ split_bin(N, Bin) ->
 	    split_bin(N+1, Bin)
     end.
 
-decode_file(Bin, Passwd) ->
-    decode_file(Bin, [], [Passwd]).
+b64encode_and_split(Bin) ->
+    split_lines(base64:encode(Bin)).
 
-decode_file([<<"-----BEGIN CERTIFICATE REQUEST-----", _/binary>>|Rest], Ens, Info) ->
-    decode_file2(Rest, [], Ens, cert_req, Info);
-decode_file([<<"-----BEGIN CERTIFICATE-----", _/binary>>|Rest], Ens, Info) ->
-    decode_file2(Rest, [], Ens, cert, Info);
-decode_file([<<"-----BEGIN RSA PRIVATE KEY-----", _/binary>>|Rest], Ens, Info) ->
-    decode_file2(Rest, [], Ens, rsa_private_key, Info);
-decode_file([<<"-----BEGIN DSA PRIVATE KEY-----", _/binary>>|Rest], Ens, Info) ->
-    decode_file2(Rest, [], Ens, dsa_private_key, Info);
-decode_file([<<"-----BEGIN DH PARAMETERS-----", _/binary>>|Rest], Ens, Info) ->
-    decode_file2(Rest, [], Ens, dh_params, Info);
-decode_file([_|Rest], Ens, Info) ->
-    decode_file(Rest, Ens, Info);
-decode_file([], Ens, _Info) ->
-    {ok, lists:reverse(Ens)}.
+split_lines(<<Text:?ENCODED_LINE_LENGTH/binary>>) ->
+    [Text];
+split_lines(<<Text:?ENCODED_LINE_LENGTH/binary, Rest/binary>>) ->
+    [Text, $\n | split_lines(Rest)];
+split_lines(Bin) ->
+    [Bin].
 
-decode_file2([<<"Proc-Type: 4,ENCRYPTED", _/binary>>| Rest0], RLs, Ens, Tag, Info0) ->
-    [InfoLine|Rest] = Rest0,
-    Info = dek_info(InfoLine, Info0),
-    decode_file2(Rest, RLs, Ens, Tag, Info);
-decode_file2([<<"-----END", _/binary>>| Rest], RLs, Ens, Tag, Info0) ->
-    Cs = erlang:iolist_to_binary(lists:reverse(RLs)),
-    Bin = base64:mime_decode(Cs),
-    case Info0 of
-	[Password, Cipher, SaltHex | Info1] ->
-	    Salt = unhex(SaltHex),
-	    Enc = {Cipher, Salt},
-	    Decoded = decode_key(Bin, Password, Cipher, Salt),
-	    decode_file(Rest, [{Tag, Decoded, Enc}| Ens], Info1);
-	_ ->
-	    decode_file(Rest, [{Tag, Bin, not_encrypted}| Ens], Info0)
-    end;
-decode_file2([L|Rest], RLs, Ens, Tag, Info0) ->
-    decode_file2(Rest, [L|RLs], Ens, Tag, Info0);
-decode_file2([], _, Ens, _, _) ->
-    {ok, lists:reverse(Ens)}.
-
-%% TODO Support same as decode_file
-encode_file(Ds) ->
-    lists:map(
-      fun({cert, Bin}) -> 
-	      %% PKIX (X.509)
-	      ["-----BEGIN CERTIFICATE-----\n",
-	       b64encode_and_split(Bin),
-	       "-----END CERTIFICATE-----\n\n"];
-	 ({cert_req, Bin}) -> 
-	      %% PKCS#10
-	      ["-----BEGIN CERTIFICATE REQUEST-----\n",
-	       b64encode_and_split(Bin),
-	       "-----END CERTIFICATE REQUEST-----\n\n"];
-	 ({rsa_private_key, Bin}) -> 
-	      %% PKCS#?
-	      ["XXX Following key assumed not encrypted\n",
-	       "-----BEGIN RSA PRIVATE KEY-----\n",
-	       b64encode_and_split(Bin),
-	       "-----END RSA PRIVATE KEY-----\n\n"]
-      end, Ds).
-
-dek_info(Line0, Info) ->
-    Line = binary_to_list(Line0),
-    [_, DekInfo0] = string:tokens(Line, ": "),
-    DekInfo1 = string:tokens(DekInfo0, ",\n"), 
-    Info ++ DekInfo1.
+%% Ignore white space at end of line
+join_entry([<<"-----END ", _/binary>>| Lines], Entry) ->
+    {lists:reverse(Entry), Lines};
+join_entry([Line | Lines], Entry) ->
+    join_entry(Lines, [Line | Entry]).
 
 unhex(S) ->
     unhex(S, []).
 
 unhex("", Acc) ->
-    lists:reverse(Acc);
+    list_to_binary(lists:reverse(Acc));
 unhex([D1, D2 | Rest], Acc) ->
     unhex(Rest, [erlang:list_to_integer([D1, D2], 16) | Acc]).
 
-decode_key(Data, no_passwd, _Alg, _Salt) ->
-    Data;
-decode_key(Data, Password, "DES-CBC", Salt) ->
-    Key = password_to_key(Password, Salt, 8),
-    IV = Salt,
-    crypto:des_cbc_decrypt(Key, IV, Data);
-decode_key(Data,  Password, "DES-EDE3-CBC", Salt) ->
-    Key = password_to_key(Password, Salt, 24),
-    IV = Salt,
-    <<Key1:8/binary, Key2:8/binary, Key3:8/binary>> = Key,
-    crypto:des_ede3_cbc_decrypt(Key1, Key2, Key3, IV, Data).
+hexify(L) -> [[hex_byte(B)] || B <- binary_to_list(L)].
 
-password_to_key(Data, Salt, KeyLen) ->
-    <<Key:KeyLen/binary, _/binary>> = 
-	password_to_key(<<>>, Data, Salt, KeyLen, <<>>),
-    Key.
+hex_byte(B) when B < 16#10 -> ["0", erlang:integer_to_list(B, 16)];
+hex_byte(B) -> erlang:integer_to_list(B, 16).
 
-password_to_key(_, _, _, Len, Acc) when Len =< 0 ->
-    Acc;
-password_to_key(Prev, Data, Salt, Len, Acc) ->
-    M = crypto:md5([Prev, Data, Salt]),
-    password_to_key(M, Data, Salt, Len - size(M), <<Acc/binary, M/binary>>).
+pem_start('Certificate') ->
+    <<"-----BEGIN CERTIFICATE-----">>;
+pem_start('RSAPrivateKey') ->
+    <<"-----BEGIN RSA PRIVATE KEY-----">>;
+pem_start('RSAPublicKey') ->
+    <<"-----BEGIN RSA PUBLIC KEY-----">>;
+pem_start('SubjectPublicKeyInfo') ->
+    <<"-----BEGIN PUBLIC KEY-----">>;
+pem_start('DSAPrivateKey') ->
+    <<"-----BEGIN DSA PRIVATE KEY-----">>;
+pem_start('DHParameter') ->
+    <<"-----BEGIN DH PARAMETERS-----">>.
+pem_end(<<"-----BEGIN CERTIFICATE-----">>) ->
+    <<"-----END CERTIFICATE-----">>;
+pem_end(<<"-----BEGIN RSA PRIVATE KEY-----">>) ->
+    <<"-----END RSA PRIVATE KEY-----">>;
+pem_end(<<"-----BEGIN RSA PUBLIC KEY-----">>) ->
+    <<"-----END RSA PUBLIC KEY-----">>;
+pem_end(<<"-----BEGIN PUBLIC KEY-----">>) ->
+    <<"-----END PUBLIC KEY-----">>;
+pem_end(<<"-----BEGIN DSA PRIVATE KEY-----">>) ->
+    <<"-----END DSA PRIVATE KEY-----">>;
+pem_end(<<"-----BEGIN DH PARAMETERS-----">>) ->
+    <<"-----END DH PARAMETERS-----">>;
+pem_end(<<"-----BEGIN PRIVATE KEY-----">>) ->
+    <<"-----END PRIVATE KEY-----">>;
+pem_end(<<"-----BEGIN ENCRYPTED PRIVATE KEY-----">>) ->
+    <<"-----END ENCRYPTED PRIVATE KEY-----">>;
+pem_end(_) ->
+    undefined.
 
-b64encode_and_split(Bin) ->
-    split_lines(base64:encode(Bin)).
+asn1_type(<<"-----BEGIN CERTIFICATE-----">>) ->
+    'Certificate';
+asn1_type(<<"-----BEGIN RSA PRIVATE KEY-----">>) ->
+    'RSAPrivateKey';
+asn1_type(<<"-----BEGIN RSA PUBLIC KEY-----">>) ->
+    'RSAPublicKey';
+asn1_type(<<"-----BEGIN PUBLIC KEY-----">>) ->
+    'SubjectPublicKeyInfo';
+asn1_type(<<"-----BEGIN DSA PRIVATE KEY-----">>) ->
+    'DSAPrivateKey';
+asn1_type(<<"-----BEGIN DH PARAMETERS-----">>) ->
+    'DHParameter';
+asn1_type(<<"-----BEGIN PRIVATE KEY-----">>) ->
+    'PrivateKeyInfo';
+asn1_type(<<"-----BEGIN ENCRYPTED PRIVATE KEY-----">>) ->
+    'EncryptedPrivateKeyInfo'.
 
-split_lines(<<Text:?ENCODED_LINE_LENGTH/binary, Rest/binary>>) ->
-    [Text, $\n | split_lines(Rest)];
-split_lines(Bin) ->
-    [Bin, $\n].
+pem_decrypt() ->
+    <<"Proc-Type: 4,ENCRYPTED">>.
 
+pem_decrypt_info(Cipher, Salt) ->
+    io_lib:format("DEK-Info: ~s,~s", [Cipher, lists:flatten(hexify(Salt))]).

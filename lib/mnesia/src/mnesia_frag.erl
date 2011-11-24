@@ -1,7 +1,7 @@
 %%%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -209,7 +209,7 @@ first(ActivityId, Opaque, Tab) ->
 	    end
     end.
 
-search_first(ActivityId, Opaque, Tab, N, FH) when N =< FH#frag_state.n_fragments ->
+search_first(ActivityId, Opaque, Tab, N, FH) when N < FH#frag_state.n_fragments ->
     NextN = N + 1,
     NextFrag = n_to_frag_name(Tab, NextN),
     case mnesia:first(ActivityId, Opaque, NextFrag) of
@@ -448,13 +448,15 @@ do_remote_select(_ReplyTo, _Ref, [], _MatchSpec) ->
 
 local_collect(Ref, Pid, Type, LocalMatch, OldSelectFun) ->
     receive
-	{local_select, Ref, LocalRes} ->
-	    remote_collect(Ref, Type, LocalRes, LocalMatch, OldSelectFun);
+	{local_select, Ref, ok} ->
+	    remote_collect_ok(Ref, Type, LocalMatch, OldSelectFun);
+	{local_select, Ref, {error, Reason}} ->
+	    remote_collect_error(Ref, Type, Reason, OldSelectFun);
 	{'EXIT', Pid, Reason} ->
-	    remote_collect(Ref, Type, {error, Reason}, [], OldSelectFun)
+	    remote_collect_error(Ref, Type, Reason, OldSelectFun)
     end.
     
-remote_collect(Ref, Type, LocalRes = ok, Acc, OldSelectFun) ->
+remote_collect_ok(Ref, Type, Acc, OldSelectFun) ->
     receive
 	{remote_select, Ref, Node, RemoteRes} ->
 	    case RemoteRes of
@@ -463,19 +465,21 @@ remote_collect(Ref, Type, LocalRes = ok, Acc, OldSelectFun) ->
 				  ordered_set -> lists:merge(RemoteMatch, Acc);
 				  _ -> RemoteMatch ++ Acc
 			      end,
-		    remote_collect(Ref, Type, LocalRes, Matches, OldSelectFun);
+		    remote_collect_ok(Ref, Type, Matches, OldSelectFun);
 		_ ->
-		    remote_collect(Ref, Type, {error, {node_not_running, Node}}, [], OldSelectFun)
+		    Reason = {node_not_running, Node},
+		    remote_collect_error(Ref, Type, Reason, OldSelectFun)
 	    end
     after 0 ->
 	    Acc
-    end;
-remote_collect(Ref, Type, LocalRes = {error, Reason}, _Acc, OldSelectFun) ->
+    end.
+
+remote_collect_error(Ref, Type, Reason, OldSelectFun) ->
     receive
 	{remote_select, Ref, _Node, _RemoteRes} ->
-	    remote_collect(Ref, Type, LocalRes, [], OldSelectFun)
+	    remote_collect_error(Ref, Type, Reason, OldSelectFun)
     after 0 ->
-	    mnesia:abort(Reason)
+	    mnesia:abort({error, Reason})
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -754,7 +758,7 @@ make_activate(Tab, Props) ->
 	[] ->
 	    Cs2 = Cs#cstruct{frag_properties = Props},
 	    [Cs3] = expand_cstruct(Cs2, activate),
-	    TabDef = mnesia_schema:cs2list(Cs3),
+	    TabDef = mnesia_schema:vsn_cs2list(Cs3),
 	    Op = {op, change_table_frag, activate, TabDef},
 	    [[Op]];
 	BadProps ->
@@ -779,7 +783,7 @@ make_deactivate(Tab) ->
 	    mnesia:abort({combine_error, Tab, "Too many fragments"});
 	true ->
 	    Cs2 = Cs#cstruct{frag_properties = []},
-	    TabDef = mnesia_schema:cs2list(Cs2),
+	    TabDef = mnesia_schema:vsn_cs2list(Cs2),
 	    Op = {op, change_table_frag, deactivate, TabDef},
 	    [[Op]]
     end.
@@ -846,7 +850,7 @@ make_add_frag(Tab, SortedNs) ->
     SplitOps = split(Tab, FH2, FromIndecies, FragNames, []),
 
     Cs2 = replace_frag_hash(Cs, FH2),
-    TabDef = mnesia_schema:cs2list(Cs2),
+    TabDef = mnesia_schema:vsn_cs2list(Cs2),
     BaseOp = {op, change_table_frag, {add_frag, SortedNs}, TabDef},
 
     [BaseOp, NewOp | SplitOps].
@@ -958,7 +962,7 @@ make_del_frag(Tab) ->
 	    LastFrag = element(N, FragNames),
 	    [LastOp] = mnesia_schema:make_delete_table(LastFrag, single_frag),
 	    Cs2 = replace_frag_hash(Cs, FH2),
-	    TabDef = mnesia_schema:cs2list(Cs2),
+	    TabDef = mnesia_schema:vsn_cs2list(Cs2),
 	    BaseOp = {op, change_table_frag, del_frag, TabDef},
 	    [BaseOp, LastOp | MergeOps];
 	_ ->
@@ -1071,7 +1075,7 @@ make_add_node(Tab, Node) when is_atom(Node)  ->
 	    Props = Cs#cstruct.frag_properties,
 	    Props2 = lists:keyreplace(node_pool, 1, Props, {node_pool, Pool2}),
 	    Cs2 = Cs#cstruct{frag_properties = Props2},
-	    TabDef = mnesia_schema:cs2list(Cs2),
+	    TabDef = mnesia_schema:vsn_cs2list(Cs2),
 	    Op = {op, change_table_frag, {add_node, Node}, TabDef},
 	    [Op];
 	true ->
@@ -1100,7 +1104,7 @@ make_del_node(Tab, Node) when is_atom(Node) ->
 	    Pool2 = Pool -- [Node],
 	    Props = lists:keyreplace(node_pool, 1, Cs#cstruct.frag_properties, {node_pool, Pool2}),
 	    Cs2 = Cs#cstruct{frag_properties = Props},
-	    TabDef = mnesia_schema:cs2list(Cs2),
+	    TabDef = mnesia_schema:vsn_cs2list(Cs2),
 	    Op = {op, change_table_frag, {del_node, Node}, TabDef},
 	    [Op];
 	false ->

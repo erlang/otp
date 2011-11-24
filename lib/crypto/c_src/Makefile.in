@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1999-2010. All Rights Reserved.
+# Copyright Ericsson AB 1999-2011. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -40,7 +40,8 @@ CFLAGS = $(DED_CFLAGS)
 # From erts/configure
 SSL_LIBDIR = @SSL_LIBDIR@
 SSL_INCLUDE = @SSL_INCLUDE@
-
+SSL_CRYPTO_LIBNAME = @SSL_CRYPTO_LIBNAME@
+SSL_SSL_LIBNAME = @SSL_SSL_LIBNAME@
 
 
 INCLUDES = $(SSL_INCLUDE) $(DED_INCLUDES)
@@ -68,13 +69,13 @@ RELSYSDIR = $(RELEASE_PATH)/lib/crypto-$(VSN)
 # ----------------------------------------------------
 # Misc Macros
 # ----------------------------------------------------
-OBJS = $(OBJDIR)/crypto_drv.o
-DRV_MAKEFILE = $(PRIVDIR)/Makefile
+OBJS = $(OBJDIR)/crypto$(TYPEMARKER).o
+NIF_MAKEFILE = $(PRIVDIR)/Makefile
 
 ifeq ($(findstring win32,$(TARGET)), win32)
-DYN_DRIVER = $(LIBDIR)/crypto_drv.dll
+NIF_LIB = $(LIBDIR)/crypto$(TYPEMARKER).dll
 else
-DYN_DRIVER = $(LIBDIR)/crypto_drv.so
+NIF_LIB = $(LIBDIR)/crypto$(TYPEMARKER).so
 endif
 
 ifeq ($(HOST_OS),)
@@ -84,38 +85,44 @@ DYNAMIC_CRYPTO_LIB=@SSL_DYNAMIC_ONLY@
 
 ifeq ($(DYNAMIC_CRYPTO_LIB),yes)
 SSL_DED_LD_RUNTIME_LIBRARY_PATH = @SSL_DED_LD_RUNTIME_LIBRARY_PATH@
-CRYPTO_LINK_LIB=$(SSL_DED_LD_RUNTIME_LIBRARY_PATH) -L$(SSL_LIBDIR) -lcrypto
+CRYPTO_LINK_LIB=$(SSL_DED_LD_RUNTIME_LIBRARY_PATH) -L$(SSL_LIBDIR) -l$(SSL_CRYPTO_LIBNAME) -l$(SSL_SSL_LIBNAME)
 else
 SSL_DED_LD_RUNTIME_LIBRARY_PATH=
-CRYPTO_LINK_LIB=$(SSL_LIBDIR)/libcrypto.a 
+CRYPTO_LINK_LIB=$(SSL_LIBDIR)/lib$(SSL_CRYPTO_LIBNAME).a 
 endif
 
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
 
-debug opt valgrind: $(OBJDIR) $(LIBDIR) $(DYN_DRIVER)
+_create_dirs := $(shell mkdir -p $(OBJDIR) $(LIBDIR))
 
-$(OBJDIR):
-	-@mkdir -p $(OBJDIR)
+debug opt valgrind: $(NIF_LIB)
 
-$(LIBDIR):
-	-@mkdir -p $(LIBDIR)
-
-$(OBJDIR)/%.o: %.c
+$(OBJDIR)/%$(TYPEMARKER).o: %.c
 	$(INSTALL_DIR) $(OBJDIR)
 	$(CC) -c -o $@ $(ALL_CFLAGS) $<
 
-$(LIBDIR)/crypto_drv.so: $(OBJS)
+$(LIBDIR)/crypto$(TYPEMARKER).so: $(OBJS)
 	$(INSTALL_DIR) $(LIBDIR) 
 	$(LD) $(LDFLAGS) -o $@ $^ $(LDLIBS) $(CRYPTO_LINK_LIB)
 
-$(LIBDIR)/crypto_drv.dll: $(OBJS)
+$(LIBDIR)/crypto$(TYPEMARKER).dll: $(OBJS)
 	$(INSTALL_DIR) $(LIBDIR)
-	$(LD) $(LDFLAGS) -o $@  $(SSL_DED_LD_RUNTIME_LIBRARY_PATH) -L$(SSL_LIBDIR) $(OBJS) -llibeay32
+	$(LD) $(LDFLAGS) -o $@  $(SSL_DED_LD_RUNTIME_LIBRARY_PATH) -L$(SSL_LIBDIR) $(OBJS) -l$(SSL_CRYPTO_LIBNAME) -l$(SSL_SSL_LIBNAME)
 
 clean:
-	rm -f $(DYN_DRIVER) $(OBJS)
+ifeq ($(findstring win32,$(TARGET)), win32)
+	rm -f $(LIBDIR)/crypto.dll
+	rm -f $(LIBDIR)/crypto.debug.dll
+else
+	rm -f $(LIBDIR)/crypto.so
+	rm -f $(LIBDIR)/crypto.debug.so
+	rm -f $(LIBDIR)/crypto.valgrind.so
+endif
+	rm -f $(OBJDIR)/crypto.o
+	rm -f $(OBJDIR)/crypto.debug.o
+	rm -f $(OBJDIR)/crypto.valgrind.o
 	rm -f core *~
 
 docs:
@@ -128,9 +135,9 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 release_spec: opt
 	$(INSTALL_DIR) $(RELSYSDIR)/priv/obj
 	$(INSTALL_DIR) $(RELSYSDIR)/priv/lib
-	$(INSTALL_DATA) $(DRV_MAKEFILE) $(RELSYSDIR)/priv/obj
+	$(INSTALL_DATA) $(NIF_MAKEFILE) $(RELSYSDIR)/priv/obj
 	$(INSTALL_PROGRAM) $(OBJS) $(RELSYSDIR)/priv/obj
-	$(INSTALL_PROGRAM) $(DYN_DRIVER) $(RELSYSDIR)/priv/lib
+	$(INSTALL_PROGRAM) $(NIF_LIB) $(RELSYSDIR)/priv/lib
 
 release_docs_spec:
 

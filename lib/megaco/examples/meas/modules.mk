@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2002-2009. All Rights Reserved.
+# Copyright Ericsson AB 2002-2011. All Rights Reserved.
 # 
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -17,9 +17,9 @@
 # 
 # %CopyrightEnd%
 
-SCRIPT_SKELETONS = \
-	meas.sh.skel \
-	mstone1.sh.skel
+SCRIPT_SKELETON_SRC = \
+	meas.sh.skel.src \
+	mstone1.sh.skel.src
 
 MESSAGE_PACKAGES = \
 	time_test.msgs

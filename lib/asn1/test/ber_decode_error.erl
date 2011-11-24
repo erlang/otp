@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
@@ -21,7 +21,7 @@
 
 -export([run/1, compile/3]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 compile(Config,Rules,Options) ->
 
@@ -43,6 +43,10 @@ run([]) ->
     ?line {ok,{'S3ext',17}} = asn1_wrapper:decode('Constructed','S3ext',Bytes),
     ok; 
 run([driver]) ->
+    %% test of OTP-4797, bad indata to driver does not cause an EXIT
+    ?line {error,_Reason} = asn1rt:decode('Constructed','S3',[3,5]),
+    ok;
+run([nif]) ->
     %% test of OTP-4797, bad indata to driver does not cause an EXIT
     ?line {error,_Reason} = asn1rt:decode('Constructed','S3',[3,5]),
     ok.

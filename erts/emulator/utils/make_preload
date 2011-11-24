@@ -88,6 +88,7 @@ foreach $file (@ARGV) {
 	print "unsigned char preloaded_$module", "[] = {\n";
 	for ($i = 0; $i < length($_); $i++) {
 	    if ($i % 8 == 0 && $comment ne '') {
+		$comment =~ s@/\*@..@g; # Comment start -- avoid warning.
 		$comment =~ s@\*/@..@g; # Comment terminator.
 		print " /* $comment */\n  ";
 		$comment = '';

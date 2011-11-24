@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2010. All Rights Reserved.
+# Copyright Ericsson AB 1996-2011. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -87,6 +87,8 @@ bif erlang:exit/2
 bif 'erl.lang.proc':signal/2		ebif_signal_2 exit_2
 bif erlang:external_size/1
 bif 'erl.lang.term':external_size/1	ebif_external_size_1
+bif erlang:external_size/2
+bif 'erl.lang.term':external_size/2	ebif_external_size_2
 ubif erlang:float/1
 ubif 'erl.lang.number':to_float/1	ebif_to_float_1 float_1
 bif erlang:float_to_list/1
@@ -158,10 +160,6 @@ bif erlang:md5_update/2
 bif 'erl.util.crypt.md5':update/2	ebif_md5_update_2
 bif erlang:md5_final/1
 bif 'erl.util.crypt.md5':final/1	ebif_md5_final_1
-bif erlang:memory/0
-bif 'erl.lang':memory/0			ebif_memory_0
-bif erlang:memory/1
-bif 'erl.lang':memory/1			ebif_memory_1
 bif erlang:module_loaded/1
 bif 'erl.system.code':is_loaded/1	ebif_is_loaded_1 module_loaded_1
 bif erlang:function_exported/3
@@ -660,6 +658,7 @@ bif erts_debug:display/1
 bif 'erl.system.debug':display/1 ebif_erts_debug_display_1
 bif erts_debug:dist_ext_to_term/2
 bif 'erl.system.debug':dist_ext_to_term/2 ebif_erts_debug_dist_ext_to_term_2
+bif erts_debug:instructions/0
 
 #
 # Monitor testing bif's...
@@ -685,8 +684,6 @@ bif code:make_stub_module/3
 bif 'erl.system.code':make_stub_module/3	ebif_code_make_stub_module_3
 bif code:is_module_native/1
 bif 'erl.system.code':is_native/1	ebif_code_is_native_1 code_is_module_native_1
-
-bif erlang:blocking_read_file/1
 
 #
 # New Bifs in R9C.
@@ -758,6 +755,56 @@ bif erlang:finish_after_on_load/2
 # New Bifs in R13B4
 #
 bif erlang:binary_to_term/2
+
+#
+# The binary match bifs (New in R14A - EEP9)
+#
+
+#
+# The searching/splitting/substituting thingies
+#
+ubif erlang:binary_part/2
+ubif erlang:binary_part/3
+
+bif binary:compile_pattern/1
+bif binary:match/2
+bif binary:match/3
+bif binary:matches/2
+bif binary:matches/3
+bif binary:longest_common_prefix/1
+bif binary:longest_common_suffix/1
+bif binary:first/1
+bif binary:last/1
+bif binary:at/2
+bif binary:part/2 binary_binary_part_2
+bif binary:part/3 binary_binary_part_3
+bif binary:bin_to_list/1
+bif binary:bin_to_list/2
+bif binary:bin_to_list/3
+bif binary:list_to_bin/1
+bif binary:copy/1
+bif binary:copy/2
+bif binary:referenced_byte_size/1
+bif binary:encode_unsigned/1
+bif binary:encode_unsigned/2
+bif binary:decode_unsigned/1
+bif binary:decode_unsigned/2
+
+bif erlang:nif_error/1
+bif erlang:nif_error/2
+
+#
+# Helpers for unicode filenames
+#
+bif prim_file:internal_name2native/1
+bif prim_file:internal_native2name/1
+bif prim_file:internal_normalize_utf8/1
+bif file:native_name_encoding/0
+
+#
+# New in R14B04.
+#
+bif erlang:check_old_code/1
 
 #
 # Obsolete

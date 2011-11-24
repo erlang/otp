@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,117 +17,136 @@
 %% %CopyrightEnd%
 %%
 -define(space, "&nbsp;").
+-define(unknown, "unknown").
 
 
 -record(menu_item,{index,picture,text,depth,children,state,target}).
 
 -record(general_info,
 	{created,
-	 slogan,
-	 system_vsn,
-	 compile_time,
-	 taints,
-	 node_name,
-	 num_atoms,
-	 num_procs,
-	 num_ets,
-	 num_fun,
-	 mem_tot,
-	 mem_max,
-	 instr_info}).
+	 slogan=?space,
+	 system_vsn=?space,
+	 compile_time=?space,
+	 taints=?space,
+	 node_name=?space,
+	 num_atoms=?space,
+	 num_procs=?space,
+	 num_ets=?space,
+	 num_timers=?space,
+	 num_fun=?space,
+	 mem_tot=?space,
+	 mem_max=?space,
+	 instr_info=?space}).
 
 -record(proc,
+	%% Initial data according to the follwoing:
+	%% 
+	%% msg_q_len, reds and stack_heap are integers because it must 
+	%% be possible to sort on them. All other fields are strings
+	%%
+	%% for old dumps start_time, parent and number of heap frament
+	%% does not exist
+	%%
+	%% current_func can be both "current function" and
+	%% "last scheduled in for"
+	%%
+	%% stack_dump, message queue and dictionaries should only be 
+	%% displayed as a link to "Expand" (if dump is from OTP R9B 
+	%% or newer)
 	{pid,
-	 name,
-	 init_func,
-	 parent,
-	 start_time,
-	 state,
-	 current_func,
-	 msg_q_len,
-	 msg_q,
-	 last_calls,
-	 links,
-	 prog_count,
-	 cp,
-	 arity,
-	 dict,
-	 debug_dict,
-	 reds,
-	 num_heap_frag,
-	 heap_frag_data,
-	 stack_heap,
-	 old_heap,
-	 heap_unused,
-	 old_heap_unused,
-	 new_heap_start,
-	 new_heap_top,
-	 stack_top,
-	 stack_end,
-	 old_heap_start,
-	 old_heap_top,
-	 old_heap_end,
-	 stack_dump}).
+	 name=?space,
+	 init_func=?space,
+	 parent=?unknown,
+	 start_time=?unknown,
+	 state=?space,
+	 current_func={"Current Function",?space},
+	 msg_q_len=0,
+	 msg_q=?space,
+	 last_calls=?space,
+	 links=?space,
+	 prog_count=?space,
+	 cp=?space,
+	 arity=?space,
+	 dict=?space,
+	 debug_dict=?space,
+	 reds=0,
+	 num_heap_frag=?unknown,
+	 heap_frag_data=?space,
+	 stack_heap=0,
+	 old_heap=?space,
+	 heap_unused=?space,
+	 old_heap_unused=?space,
+	 new_heap_start=?space,
+	 new_heap_top=?space,
+	 stack_top=?space,
+	 stack_end=?space,
+	 old_heap_start=?space,
+	 old_heap_top=?space,
+	 old_heap_end=?space,
+	 stack_dump=?space}).
 
 -record(port,
 	{id,
-	 slot,
-	 connected,
-	 links,
-	 controls}).
+	 slot=?space,
+	 connected=?space,
+	 links=?space,
+	 name=?space,
+	 monitors=?space,
+	 controls=?space}).
 
 -record(ets_table,
 	{pid,
-	 slot,
-	 id,
-	 name,
-	 type,
-	 buckets,
-	 size,
-	 memory}).
+	 slot=?space,
+	 id=?space,
+	 name=?space,
+	 type="hash",
+	 buckets=?space,
+	 size=?space,
+	 memory=?space}).
 
 -record(timer,
 	{pid,
-	 msg,
-	 time}).
+	 msg=?space,
+	 time=?space}).
 
 -record(fu,
-	{module,
-	 uniq,
-	 index,
-	 address,
-	 native_address,
-	 refc}).
+	{module=?space,
+	 uniq=?space,
+	 index=?space,
+	 address=?space,
+	 native_address=?space,
+	 refc=?space}).
 
 -record(nod,
-	{name,
+	{name=?space,
 	 channel,
-	 controller,
-	 creation,
-	 remote_links,
-	 remote_mon,
-	 remote_mon_by,
-	 error}).
+	 controller=?space,
+	 creation=?space,
+	 remote_links=?space,
+	 remote_mon=?space,
+	 remote_mon_by=?space,
+	 error=?space}).
 
 -record(loaded_mod,
 	{mod,
-	 current_size,
-	 current_attrib,
-	 current_comp_info,
-	 old_size,
-	 old_attrib,
-	 old_comp_info}).
+	 current_size=?space,
+	 current_attrib=?space,
+	 current_comp_info=?space,
+	 old_size=?space,
+	 old_attrib=?space,
+	 old_comp_info=?space}).
 
 -record(hash_table,
 	{name,
-	 size,
-	 used,
-	 objs,
-	 depth}).
+	 size=?space,
+	 used=?space,
+	 objs=?space,
+	 depth=?space}).
 
 -record(index_table,
 	{name,
-	 size,
-	 used,
-	 limit,
-	 rate}).
+	 size=?space,
+	 used=?space,
+	 limit=?space,
+	 rate=?space,
+	 entries=?space}).

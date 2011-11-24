@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -36,54 +36,39 @@ t(Case) -> megaco_test_lib:t({?MODULE, Case}).
 init_per_testcase(Case, Config) ->
     megaco_test_lib:init_per_testcase(Case, Config).
 
-fin_per_testcase(Case, Config) ->
-    megaco_test_lib:fin_per_testcase(Case, Config).
+end_per_testcase(Case, Config) ->
+    megaco_test_lib:end_per_testcase(Case, Config).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-all(suite) ->
-    Cases = 
-	[
-	 tickets
-	],
-    Cases.
+all() -> 
+    [{group, tickets}].
+
+groups() -> 
+    [{tickets, [],
+      [{group, otp_5750}, {group, otp_5799},
+       {group, otp_5826}, {group, otp_7449}]},
+     {otp_5750, [], [otp_5750_01, otp_5750_02]},
+     {otp_5799, [], [otp_5799_01]},
+     {otp_5826, [], [otp_5826_01, otp_5826_02, otp_5826_03]},
+     {otp_7449, [], [otp_7449_1, otp_7449_2]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-tickets(suite) ->
-    [
-     otp_5750,
-     otp_5799,
-     otp_5826,
-     otp_7449
-    ].
 
 
-otp_5750(suite) ->
-    [
-     otp_5750_01,
-     otp_5750_02
-    ].
 
-otp_5799(suite) ->
-    [
-     otp_5799_01
-    ].
 
-otp_5826(suite) ->
-    [
-     otp_5826_01,
-     otp_5826_02,
-     otp_5826_03
-    ].
 
-otp_7449(suite) ->
-    [
-     otp_7449_1,
-     otp_7449_2
-    ].
 
 
 

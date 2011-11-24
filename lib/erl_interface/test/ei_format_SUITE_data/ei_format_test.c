@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2001-2009. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -176,7 +176,7 @@ TESTCASE(format_wo_ver) {
     ei_x_buff x;
     
     ei_x_new (&x);
-    ei_x_format(&x, "[{~a,~s},{~a,~i}]", "a", "b", "c", 10);
+    ei_x_format(&x, "[-1, +2, ~c, {~a,~s},{~a,~i}]", 'c', "a", "b", "c", 10);
     send_bin_term(&x);
 
     free(x.buff);

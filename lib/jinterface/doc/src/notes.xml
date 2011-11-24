@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2000</year><year>2010</year>
+      <year>2000</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -29,6 +29,54 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the Jinterface application.</p>
+
+<section><title>Jinterface 1.5.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Some malformed distribution messages could cause VM to
+	    crash, this is now corrected.</p>
+          <p>
+	    Own Id: OTP-8993</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Jinterface 1.5.3.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The OtpMbox class did not have a hash() method, which it
+	    should have because it overrides equals().</p>
+          <p>
+	    Own Id: OTP-8854</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Jinterface 1.5.3.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    An pom.xml file is now generated. (Thanks to Gabor
+	    Liptak.)</p>
+          <p>
+	    Own Id: OTP-8841</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Jinterface 1.5.3</title>
 

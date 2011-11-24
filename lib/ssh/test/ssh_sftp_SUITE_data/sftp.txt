@@ -1,0 +1,252 @@
+There are 5 KeySyms per KeyCode; KeyCodes range from 8 to 254.
+
+    KeyCode	Keysym (Keysym)	...
+    Value  	Value   (Name) 	...
+
+      8
+      9
+     10
+     11    	0x0041 (A)
+     12    	0x0042 (B)
+     13    	0x0043 (C)
+     14    	0x0044 (D)
+     15    	0x0065 (e)	0x0045 (E)	0x20ac (EuroSign)
+     16    	0x0046 (F)
+     17    	0x0047 (G)
+     18    	0x0048 (H)
+     19    	0x0049 (I)
+     20    	0x004a (J)
+     21    	0x004b (K)
+     22    	0x004c (L)
+     23    	0x004d (M)
+     24    	0x004e (N)
+     25    	0x004f (O)
+     26    	0x0050 (P)
+     27    	0x0051 (Q)
+     28    	0x0052 (R)
+     29    	0x0053 (S)
+     30    	0x0054 (T)
+     31    	0x0055 (U)
+     32    	0x0056 (V)
+     33    	0x0057 (W)
+     34    	0x0058 (X)
+     35    	0x0059 (Y)
+     36    	0x005a (Z)
+     37    	0x0031 (1)	0x0021 (exclam)
+     38    	0x0032 (2)	0x0022 (quotedbl)	0x0040 (at)
+     39    	0x0033 (3)	0x0023 (numbersign)	0x00a3 (sterling)
+     40    	0x0034 (4)	0x00a4 (currency)	0x0024 (dollar)
+     41    	0x0035 (5)	0x0025 (percent)
+     42    	0x0036 (6)	0x0026 (ampersand)
+     43    	0x0037 (7)	0x002f (slash)	0x007b (braceleft)
+     44    	0x0038 (8)	0x0028 (parenleft)	0x005b (bracketleft)
+     45    	0x0039 (9)	0x0029 (parenright)	0x005d (bracketright)
+     46    	0x0030 (0)	0x003d (equal)	0x007d (braceright)
+     47    	0xff0d (Return)
+     48    	0xff1b (Escape)
+     49    	0xff08 (BackSpace)
+     50    	0xff09 (Tab)
+     51    	0x0020 (space)
+     52    	0x002b (plus)	0x003f (question)	0x005c (backslash)
+     53    	0x1005ff03 (SunFA_Acute)	0x1005ff00 (SunFA_Grave)
+     54    	0x00c5 (Aring)
+     55    	0x1005ff04 (SunFA_Diaeresis)	0x005e (asciicircum)	0x007e (asciitilde)
+     56
+     57    	0x0027 (apostrophe)	0x002a (asterisk)	0x0060 (grave)
+     58    	0x00d6 (Odiaeresis)
+     59    	0x00c4 (Adiaeresis)
+     60    	0x00a7 (section)	0x00bd (onehalf)
+     61    	0x002c (comma)	0x003b (semicolon)
+     62    	0x002e (period)	0x003a (colon)
+     63    	0x002d (minus)	0x005f (underscore)
+     64    	0xffe5 (Caps_Lock)
+     65    	0xffbe (F1)
+     66    	0xffbf (F2)
+     67    	0xffc0 (F3)
+     68    	0xffc1 (F4)
+     69    	0xffc2 (F5)
+     70    	0xffc3 (F6)
+     71    	0xffc4 (F7)
+     72    	0xffc5 (F8)
+     73    	0xffc6 (F9)
+     74    	0xffc7 (F10)
+     75    	0x1005ff10 (SunF36)
+     76    	0x1005ff11 (SunF37)
+     77    	0xffd3 (F22)	0xffd3 (F22)	0xff61 (Print)	0x1005ff60 (SunSys_Req)
+     78    	0xffd4 (F23)	0xffd4 (F23)	0xff14 (Scroll_Lock)
+     79    	0xffd2 (F21)	0xffd2 (F21)	0xff13 (Pause)	0xff6b (Break)
+     80    	0xff63 (Insert)
+     81    	0xff50 (Home)
+     82    	0xff55 (Prior)
+     83    	0xffff (Delete)
+     84    	0xff57 (End)
+     85    	0xff56 (Next)
+     86    	0xff53 (Right)
+     87    	0xff51 (Left)
+     88    	0xff54 (Down)
+     89    	0xff52 (Up)
+     90    	0xff7f (Num_Lock)
+     91    	0xffd6 (F25)	0xffd6 (F25)	0xffaf (KP_Divide)
+     92    	0xffd7 (F26)	0xffd7 (F26)	0xffaa (KP_Multiply)
+     93    	0xffd5 (F24)	0xffd5 (F24)	0xffad (KP_Subtract)
+     94    	0xffab (KP_Add)
+     95    	0xff8d (KP_Enter)
+     96    	0xffde (F33)	0xffde (F33)	0xffb1 (KP_1)	0xff57 (End)
+     97    	0xff54 (Down)	0xffdf (F34)	0xffb2 (KP_2)
+     98    	0xffe0 (F35)	0xffe0 (F35)	0xffb3 (KP_3)	0xff56 (Next)
+     99    	0xff51 (Left)	0xffdb (F30)	0xffb4 (KP_4)
+    100    	0xffdc (F31)	0xffdc (F31)	0xffb5 (KP_5)
+    101    	0xff53 (Right)	0xffdd (F32)	0xffb6 (KP_6)
+    102    	0xffd8 (F27)	0xffd8 (F27)	0xffb7 (KP_7)	0xff50 (Home)
+    103    	0xff52 (Up)	0xffd9 (F28)	0xffb8 (KP_8)
+    104    	0xffda (F29)	0xffda (F29)	0xffb9 (KP_9)	0xff55 (Prior)
+    105    	0xff9e (KP_Insert)	0xff9e (KP_Insert)	0xffb0 (KP_0)
+    106    	0xffff (Delete)	0xffff (Delete)	0xffac (KP_Separator)
+    107    	0x003c (less)	0x003e (greater)	0x007c (bar)
+    108    	0xff20 (Multi_key)
+    109    	0x1005ff76 (SunPowerSwitch)	0x1005ff7d (SunPowerSwitchShift)
+    110
+    111
+    112
+    113
+    114
+    115
+    116
+    117
+    118
+    119
+    120
+    121
+    122
+    123    	0xffce (F17)	0xffce (F17)	0x1005ff73 (SunOpen)
+    124    	0xff6a (Help)
+    125    	0xffca (F13)	0xffca (F13)	0x1005ff70 (SunProps)
+    126    	0xffcc (F15)	0xffcc (F15)	0x1005ff71 (SunFront)
+    127    	0xffc8 (F11)	0xffc8 (F11)	0xff69 (Cancel)
+    128    	0xffc9 (F12)	0xffc9 (F12)	0xff66 (Redo)
+    129    	0xffcb (F14)	0xffcb (F14)	0xff65 (Undo)
+    130    	0xffd1 (F20)	0xffd1 (F20)	0x1005ff75 (SunCut)
+    131    	0xffcd (F16)	0xffcd (F16)	0x1005ff72 (SunCopy)
+    132    	0xffcf (F18)	0xffcf (F18)	0x1005ff74 (SunPaste)
+    133    	0xffd0 (F19)	0xffd0 (F19)	0xff68 (Find)
+    134    	0x1005ff78 (SunAudioMute)	0x1005ff7a (SunVideoDegauss)
+    135    	0x1005ff79 (SunAudioRaiseVolume)	0x1005ff7c (SunVideoRaiseBrightness)
+    136    	0x1005ff77 (SunAudioLowerVolume)	0x1005ff7b (SunVideoLowerBrightness)
+    137
+    138
+    139
+    140
+    141
+    142
+    143
+    144
+    145
+    146
+    147
+    148
+    149
+    150
+    151
+    152
+    153
+    154
+    155
+    156
+    157
+    158
+    159
+    160
+    161
+    162
+    163
+    164
+    165
+    166
+    167
+    168
+    169
+    170
+    171
+    172
+    173
+    174
+    175
+    176
+    177
+    178
+    179
+    180
+    181
+    182
+    183
+    184
+    185
+    186
+    187
+    188
+    189
+    190
+    191
+    192
+    193
+    194
+    195
+    196
+    197
+    198
+    199
+    200
+    201
+    202
+    203
+    204
+    205
+    206
+    207
+    208
+    209
+    210
+    211
+    212
+    213
+    214
+    215
+    216
+    217
+    218
+    219
+    220
+    221
+    222
+    223
+    224
+    225
+    226
+    227
+    228
+    229
+    230
+    231    	0xffe3 (Control_L)
+    232    	0xffe1 (Shift_L)
+    233    	0xffe9 (Alt_L)
+    234    	0xffe7 (Meta_L)
+    235
+    236    	0xffe2 (Shift_R)
+    237    	0xff7e (Mode_switch)
+    238    	0xffe8 (Meta_R)
+    239
+    240
+    241
+    242
+    243
+    244
+    245
+    246
+    247
+    248
+    249
+    250
+    251
+    252
+    253
+    254

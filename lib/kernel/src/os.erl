@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(os).
@@ -24,7 +24,10 @@
 
 -include("file.hrl").
 
--spec type() -> 'vxworks' | {'unix',atom()} | {'win32',atom()} | {'ose',atom()}.
+-spec type() -> vxworks | {Osfamily, Osname} when
+      Osfamily :: unix | win32,
+      Osname :: atom().
+
 type() ->
     case erlang:system_info(os_type) of
 	{vxworks, _} ->
@@ -32,25 +35,34 @@ type() ->
 	Else -> Else
     end.
 
--spec version() -> string() | {non_neg_integer(),non_neg_integer(),non_neg_integer()}.
+-spec version() -> VersionString | {Major, Minor, Release} when
+      VersionString :: string(),
+      Major :: non_neg_integer(),
+      Minor :: non_neg_integer(),
+      Release :: non_neg_integer().
 version() ->
     erlang:system_info(os_version).
 
--spec find_executable(string()) -> string() | 'false'.
+-spec find_executable(Name) -> Filename | 'false' when
+      Name :: string(),
+      Filename :: string().
 find_executable(Name) ->
     case os:getenv("PATH") of
 	false -> find_executable(Name, []);
 	Path  -> find_executable(Name, Path)
     end.
 
--spec find_executable(string(), string()) -> string() | 'false'.
+-spec find_executable(Name, Path) -> Filename | 'false' when
+      Name :: string(),
+      Path :: string(),
+      Filename :: string().
 find_executable(Name, Path) ->
     Extensions = extensions(),
     case filename:pathtype(Name) of
 	relative ->
 	    find_executable1(Name, split_path(Path), Extensions);
 	_ ->
-	    case verify_executable(Name, Extensions) of
+	    case verify_executable(Name, Extensions, Extensions) of
 		{ok, Complete} ->
 		    Complete;
 		error ->
@@ -60,7 +72,7 @@ find_executable(Name, Path) ->
 
 find_executable1(Name, [Base|Rest], Extensions) ->
     Complete0 = filename:join(Base, Name),
-    case verify_executable(Complete0, Extensions) of
+    case verify_executable(Complete0, Extensions, Extensions) of
 	{ok, Complete} ->
 	    Complete;
 	error ->
@@ -69,7 +81,7 @@ find_executable1(Name, [Base|Rest], Extensions) ->
 find_executable1(_Name, [], _Extensions) ->
     false.
 
-verify_executable(Name0, [Ext|Rest]) ->
+verify_executable(Name0, [Ext|Rest], OrigExtensions) ->
     Name1 = Name0 ++ Ext,
     case os:type() of
 	vxworks ->
@@ -78,20 +90,39 @@ verify_executable(Name0, [Ext|Rest]) ->
 		{ok, _} ->
 		    {ok, Name1};
 		_ ->
-		    verify_executable(Name0, Rest)
+		    verify_executable(Name0, Rest, OrigExtensions)
 	    end;
 	_ ->
 	    case file:read_file_info(Name1) of
-		{ok, #file_info{mode=Mode}} when Mode band 8#111 =/= 0 ->
-		    %% XXX This test for execution permission is not full-proof
+		{ok, #file_info{type=regular,mode=Mode}}
+		when Mode band 8#111 =/= 0 ->
+		    %% XXX This test for execution permission is not fool-proof
 		    %% on Unix, since we test if any execution bit is set.
 		    {ok, Name1};
 		_ ->
-		    verify_executable(Name0, Rest)
+		    verify_executable(Name0, Rest, OrigExtensions)
 	    end
     end;
-verify_executable(_, []) ->
+verify_executable(Name, [], OrigExtensions) when OrigExtensions =/= [""] -> %% Windows
+    %% Will only happen on windows, hence case insensitivity
+    case can_be_full_name(string:to_lower(Name),OrigExtensions) of 
+	true ->
+	    verify_executable(Name,[""],[""]);
+	_ ->
+	    error
+    end;
+verify_executable(_, [], _) ->
     error.
+
+can_be_full_name(_Name,[]) ->
+    false;
+can_be_full_name(Name,[H|T]) ->
+    case lists:suffix(H,Name) of %% Name is in lowercase, cause this is a windows thing
+	true ->
+	    true;
+	_ ->
+	    can_be_full_name(Name,T)
+    end.
 
 split_path(Path) ->
     case type() of
@@ -118,7 +149,8 @@ reverse_element([$"|T]) ->	%"
 reverse_element(List) ->
     lists:reverse(List).
 
--spec extensions() -> [string()].
+-spec extensions() -> [string(),...].
+%% Extensions in lower case
 extensions() ->
     case type() of
 	{win32, _} -> [".exe",".com",".cmd",".bat"];
@@ -127,7 +159,8 @@ extensions() ->
     end.
 
 %% Executes the given command in the default shell for the operating system.
--spec cmd(atom() | string() | [string()]) -> string().
+-spec cmd(Command) -> string() when
+      Command :: atom() | io_lib:chars().
 cmd(Cmd) ->
     validate(Cmd),
     case type() of
@@ -169,6 +202,7 @@ unix_cmd(Cmd) ->
 %% $1 parameter for easy identification of the resident shell.
 %%
 -define(SHELL, "/bin/sh -s unix:cmd 2>&1").
+-define(PORT_CREATOR_NAME, os_cmd_port_creator).
 
 %%
 %% Serializing open_port through a process to avoid smp lock contention
@@ -176,38 +210,68 @@ unix_cmd(Cmd) ->
 %%
 -spec start_port() -> port().
 start_port() ->
-    {Ref,Client} = {make_ref(),self()},
-    try (os_cmd_port_creator ! {Ref,Client})
-    catch
-	error:_ -> spawn(fun() -> start_port_srv({Ref,Client}) end)
-    end,
+    Ref = make_ref(),
+    Request = {Ref,self()},    
+    {Pid, Mon} = case whereis(?PORT_CREATOR_NAME) of
+		     undefined ->
+			 spawn_monitor(fun() ->
+					       start_port_srv(Request)
+				       end);
+		     P ->
+			 P ! Request,
+			 M = erlang:monitor(process, P),
+			 {P, M}
+		 end,
     receive
-	{Ref,Port} when is_port(Port) -> Port;
-	{Ref,Error} -> exit(Error)
+	{Ref, Port} when is_port(Port) ->
+	    erlang:demonitor(Mon, [flush]),
+	    Port;
+	{Ref, Error} ->
+	    erlang:demonitor(Mon, [flush]),
+	    exit(Error);
+	{'DOWN', Mon, process, Pid, _Reason} ->
+	    start_port()
     end.
 
 start_port_srv(Request) ->
-    StayAlive = try register(os_cmd_port_creator, self())
+    %% We don't want a group leader of some random application. Use
+    %% kernel_sup's group leader.
+    {group_leader, GL} = process_info(whereis(kernel_sup),
+				      group_leader),
+    true = group_leader(GL, self()),
+    process_flag(trap_exit, true),
+    StayAlive = try register(?PORT_CREATOR_NAME, self())
 		catch
 		    error:_ -> false
 		end,
-    start_port_srv_loop(Request, StayAlive).
+    start_port_srv_handle(Request),
+    case StayAlive of
+	true -> start_port_srv_loop();
+	false -> exiting
+    end.
 
-start_port_srv_loop({Ref,Client}, StayAlive) ->
+start_port_srv_handle({Ref,Client}) ->
     Reply = try open_port({spawn, ?SHELL},[stream]) of
 		Port when is_port(Port) ->
-		    port_connect(Port, Client),
+		    (catch port_connect(Port, Client)),
 		    unlink(Port),
 		    Port
 	    catch
 		error:Reason ->
 		    {Reason,erlang:get_stacktrace()}	    
 	    end,
-    Client ! {Ref,Reply},
-    case StayAlive of
-	true -> start_port_srv_loop(receive Msg -> Msg end, true);
-	false -> exiting
-    end.
+    Client ! {Ref,Reply}.
+
+
+start_port_srv_loop() ->
+    receive
+	{Ref, Client} = Request when is_reference(Ref),
+				     is_pid(Client) ->
+	    start_port_srv_handle(Request);
+	_Junk ->
+	    ignore
+    end,
+    start_port_srv_loop().
 
 %%
 %%  unix_get_data(Port) -> Result

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -36,22 +36,16 @@
 
 -export([t/0, t/1]).
 
--export([all/1, 
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, 
 
-	 text/1, 
-
-	 pretty/1, 
 	 pretty_test_msgs/1, 
-
-	 compact/1, 
+	 
 	 compact_test_msgs/1, 
-
-	 flex_pretty/1, 
+	 
 	 flex_pretty_init/1, 
 	 flex_pretty_finish/1, 
 	 flex_pretty_test_msgs/1,
-
-	 flex_compact/1, 
+	 
 	 flex_compact_init/1, 
 	 flex_compact_finish/1, 
 	 flex_compact_test_msgs/1,
@@ -64,32 +58,21 @@
 	 flex_compact_dm_timers6/1, 
 	 flex_compact_dm_timers7/1, 
 	 flex_compact_dm_timers8/1, 
-
-	 binary/1, 
 	 
-	 bin/1, 
 	 bin_test_msgs/1,
-
-	 ber/1, 
+	 
 	 ber_test_msgs/1, 
-
-	 ber_bin/1, 
+	 
 	 ber_bin_test_msgs/1, 
-
-	 per/1,
+	
 	 per_test_msgs/1,
-
-	 per_bin/1,
+	
 	 per_bin_test_msgs/1,
-
-	 erl_dist/1,
-	 erl_dist_m/1,
+	
 	 erl_dist_m_test_msgs/1,
 
 	 tickets/0, 
-	 tickets/1, 
-
-	 compact_tickets/1, 
+	 
 	 compact_otp4011_msg1/1, 
 	 compact_otp4011_msg2/1,
 	 compact_otp4011_msg3/1,
@@ -132,8 +115,7 @@
          compact_otp6017_msg01/1,
          compact_otp6017_msg02/1,
          compact_otp6017_msg03/1,
-
-	 flex_compact_tickets/1, 
+	 
          flex_compact_otp7431_msg01/1,
          flex_compact_otp7431_msg02/1,
          flex_compact_otp7431_msg03/1,
@@ -141,8 +123,7 @@
          flex_compact_otp7431_msg05/1,
          flex_compact_otp7431_msg06/1,
          flex_compact_otp7431_msg07/1,
-
-	 pretty_tickets/1, 
+	 
 	 pretty_otp4632_msg1/1, 
 	 pretty_otp4632_msg2/1, 
 	 pretty_otp4632_msg3/1, 
@@ -185,8 +166,7 @@
          pretty_otp7671_msg04/1,
          pretty_otp7671_msg05/1,
          pretty_otp8114_msg01/1,	 
-
-	 flex_pretty_tickets/1, 
+	 
 	 flex_pretty_otp5042_msg1/1, 
 	 flex_pretty_otp5085_msg1/1, 
 	 flex_pretty_otp5085_msg2/1, 
@@ -208,7 +188,7 @@
          flex_pretty_otp7431_msg06/1,
          flex_pretty_otp7431_msg07/1,
 
-	 init_per_testcase/2, fin_per_testcase/2]).  
+	 init_per_testcase/2, end_per_testcase/2]).  
 
 -export([display_text_messages/0]).
 
@@ -263,30 +243,7 @@ expand([Case|Cases], Acc) ->
 	    expand(Cases, [Case|Acc])
     end.
 
-	    
-%% ----
-
-tickets() ->
-    Flag  = process_flag(trap_exit, true),    
-    Cases = expand(tickets),
-    Fun   = fun(Case) ->
-		    C = init_per_testcase(Case, [{tc_timeout, 
-						  timer:minutes(10)}]),
-		    io:format("Eval ~w~n", [Case]),
-		    Result = 
-			case (catch apply(?MODULE, Case, [C])) of
-			    {'EXIT', Reason} ->
- 				io:format("~n~p exited:~n   ~p~n", 
- 					  [Case, Reason]),
-				{error, {Case, Reason}};
-			    Res ->
-				Res
-			end,
-		    fin_per_testcase(Case, C),
-		    Result
-	    end,
-    process_flag(trap_exit, Flag),
-    lists:map(Fun, Cases).
+	  
 
 
 %% ----
@@ -306,268 +263,166 @@ init_per_testcase(Case, Config) ->
 	end,
     megaco_test_lib:init_per_testcase(Case, C).
 
-fin_per_testcase(Case, Config) ->
+end_per_testcase(Case, Config) ->
     erase(verbosity),
-    megaco_test_lib:fin_per_testcase(Case, Config).
+    megaco_test_lib:end_per_testcase(Case, Config).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Top test case
 
-all(suite) ->
-    [
-     text,
-     binary,
-     erl_dist,
-     tickets
-    ].
+all() -> 
+    [{group, text}, {group, binary}, {group, erl_dist},
+     {group, tickets}].
 
-text(suite) ->
-    [
-     pretty,
-     flex_pretty,
-     compact,
-     flex_compact
-    ].
+groups() -> 
+    [{text, [],
+      [{group, pretty}, {group, flex_pretty},
+       {group, compact}, {group, flex_compact}]},
+     {binary, [],
+      [{group, bin}, {group, ber}, {group, ber_bin},
+       {group, per}, {group, per_bin}]},
+     {erl_dist, [], [{group, erl_dist_m}]},
+     {pretty, [], [pretty_test_msgs]},
+     {compact, [], [compact_test_msgs]},
+     {flex_pretty, [], flex_pretty_cases()},
+     {flex_compact, [], flex_compact_cases()},
+     {bin, [], [bin_test_msgs]}, {ber, [], [ber_test_msgs]},
+     {ber_bin, [], [ber_bin_test_msgs]},
+     {per, [], [per_test_msgs]},
+     {per_bin, [], [per_bin_test_msgs]},
+     {erl_dist_m, [], [erl_dist_m_test_msgs]},
+     {tickets, [],
+      [{group, compact_tickets},
+       {group, flex_compact_tickets}, {group, pretty_tickets},
+       {group, flex_pretty_tickets}]},
+     {compact_tickets, [],
+      [compact_otp4011_msg1, compact_otp4011_msg2,
+       compact_otp4011_msg3, compact_otp4013_msg1,
+       compact_otp4085_msg1, compact_otp4085_msg2,
+       compact_otp4280_msg1, compact_otp4299_msg1,
+       compact_otp4299_msg2, compact_otp4359_msg1,
+       compact_otp4920_msg0, compact_otp4920_msg1,
+       compact_otp4920_msg2, compact_otp4920_msg3,
+       compact_otp4920_msg4, compact_otp4920_msg5,
+       compact_otp4920_msg6, compact_otp4920_msg7,
+       compact_otp4920_msg8, compact_otp4920_msg9,
+       compact_otp4920_msg10, compact_otp4920_msg11,
+       compact_otp4920_msg12, compact_otp4920_msg20,
+       compact_otp4920_msg21, compact_otp4920_msg22,
+       compact_otp4920_msg23, compact_otp4920_msg24,
+       compact_otp4920_msg25, compact_otp5186_msg01,
+       compact_otp5186_msg02, compact_otp5186_msg03,
+       compact_otp5186_msg04, compact_otp5186_msg05,
+       compact_otp5186_msg06, compact_otp5793_msg01,
+       compact_otp5993_msg01, compact_otp5993_msg02,
+       compact_otp5993_msg03, compact_otp6017_msg01,
+       compact_otp6017_msg02, compact_otp6017_msg03]},
+     {flex_compact_tickets, [],
+      flex_compact_tickets_cases()},
+     {pretty_tickets, [],
+      [pretty_otp4632_msg1, pretty_otp4632_msg2,
+       pretty_otp4632_msg3, pretty_otp4632_msg4,
+       pretty_otp4710_msg1, pretty_otp4710_msg2,
+       pretty_otp4945_msg1, pretty_otp4945_msg2,
+       pretty_otp4945_msg3, pretty_otp4945_msg4,
+       pretty_otp4945_msg5, pretty_otp4945_msg6,
+       pretty_otp4949_msg1, pretty_otp4949_msg2,
+       pretty_otp4949_msg3, pretty_otp5042_msg1,
+       pretty_otp5068_msg1, pretty_otp5085_msg1,
+       pretty_otp5085_msg2, pretty_otp5085_msg3,
+       pretty_otp5085_msg4, pretty_otp5085_msg5,
+       pretty_otp5085_msg6, pretty_otp5085_msg7,
+       pretty_otp5085_msg8, pretty_otp5600_msg1,
+       pretty_otp5600_msg2, pretty_otp5601_msg1,
+       pretty_otp5793_msg01, pretty_otp5882_msg01,
+       pretty_otp6490_msg01, pretty_otp6490_msg02,
+       pretty_otp6490_msg03, pretty_otp6490_msg04,
+       pretty_otp6490_msg05, pretty_otp6490_msg06,
+       pretty_otp7671_msg01, pretty_otp7671_msg02,
+       pretty_otp7671_msg03, pretty_otp7671_msg04,
+       pretty_otp7671_msg05, pretty_otp8114_msg01]},
+     {flex_pretty_tickets, [], flex_pretty_tickets_cases()}].
 
-binary(suite) ->
-    [
-     bin,
-     ber,
-     ber_bin,
-     per,
-     per_bin
-    ].
+init_per_group(flex_pretty_tickets, Config) -> 
+    flex_pretty_init(Config);
+init_per_group(flex_compact_tickets, Config) -> 
+    flex_compact_init(Config);
+init_per_group(flex_compact, Config) -> 
+    flex_compact_init(Config);
+init_per_group(flex_pretty, Config) -> 
+    flex_pretty_init(Config);
+init_per_group(_GroupName, Config) ->
+    Config.
 
-erl_dist(suite) ->
-    [
-     erl_dist_m
-    ].
+end_per_group(flex_pretty_tickets, Config) -> 
+    flex_pretty_finish(Config);
+end_per_group(flex_compact_tickets, Config) -> 
+    flex_compact_finish(Config);
+end_per_group(flex_compact, Config) -> 
+    flex_compact_finish(Config);
+end_per_group(flex_pretty, Config) -> 
+    flex_pretty_finish(Config);
+end_per_group(_GroupName, Config) ->
+    Config.
 
-pretty(suite) ->
-    [
-     pretty_test_msgs
-    ].
-
-
-compact(suite) ->
-    [
-     compact_test_msgs
-    ].
-
-
-flex_pretty(suite) ->
-    {req, [], 
-     {conf, flex_pretty_init, flex_pretty_cases(), flex_pretty_finish}}.
-
-flex_pretty_cases() ->
-    [
-     flex_pretty_test_msgs
-    ].
-
-flex_compact(suite) ->
-    {req, [], 
-     {conf, flex_compact_init, flex_compact_cases(), flex_compact_finish}}.
-
-flex_compact_cases() ->
-    [
-     flex_compact_test_msgs,
-     flex_compact_dm_timers1,
-     flex_compact_dm_timers2,
-     flex_compact_dm_timers3,
-     flex_compact_dm_timers4,
-     flex_compact_dm_timers5,
-     flex_compact_dm_timers6,
-     flex_compact_dm_timers7,
-     flex_compact_dm_timers8
-    ].
+flex_pretty_cases() -> 
+    [flex_pretty_test_msgs].
 
 
-bin(suite) ->
-    [
-     bin_test_msgs
-    ].
-
-
-ber(suite) ->
-    [
-     ber_test_msgs
-    ].
-
-
-ber_bin(suite) ->
-    [
-     ber_bin_test_msgs
-    ].
-
-
-per(suite) ->
-    [
-     per_test_msgs
-    ].
-
+flex_compact_cases() -> 
+    [flex_compact_test_msgs, flex_compact_dm_timers1,
+     flex_compact_dm_timers2, flex_compact_dm_timers3,
+     flex_compact_dm_timers4, flex_compact_dm_timers5,
+     flex_compact_dm_timers6, flex_compact_dm_timers7,
+     flex_compact_dm_timers8].
 
 %% Support for per_bin was added to ASN.1 as of version
 %% 1.3.2 (R8). And later merged into 1.3.1.3 (R7). These
 %% releases are identical (as far as I know).
 %% 
-per_bin(suite) ->
-    [
-     per_bin_test_msgs
-    ].
 
+flex_compact_tickets_cases() -> 
+    [flex_compact_otp7431_msg01, flex_compact_otp7431_msg02,
+     flex_compact_otp7431_msg03, flex_compact_otp7431_msg04,
+     flex_compact_otp7431_msg05, flex_compact_otp7431_msg06,
+     flex_compact_otp7431_msg07].
 
-erl_dist_m(suite) ->
-    [
-     erl_dist_m_test_msgs
-    ].
+flex_pretty_tickets_cases() -> 
+    [flex_pretty_otp5042_msg1, flex_pretty_otp5085_msg1,
+     flex_pretty_otp5085_msg2, flex_pretty_otp5085_msg3,
+     flex_pretty_otp5085_msg4, flex_pretty_otp5085_msg5,
+     flex_pretty_otp5085_msg6, flex_pretty_otp5085_msg7,
+     flex_pretty_otp5085_msg8, flex_pretty_otp5600_msg1,
+     flex_pretty_otp5600_msg2, flex_pretty_otp5601_msg1,
+     flex_pretty_otp5793_msg01, flex_pretty_otp7431_msg01,
+     flex_pretty_otp7431_msg02, flex_pretty_otp7431_msg03,
+     flex_pretty_otp7431_msg04, flex_pretty_otp7431_msg05,
+     flex_pretty_otp7431_msg06, flex_pretty_otp7431_msg07].
 
-tickets(suite) ->
-    [
-     compact_tickets,
-     flex_compact_tickets,
-     pretty_tickets,
-     flex_pretty_tickets
-    ].
+%% ----
 
-
-compact_tickets(suite) ->
-    [
-     compact_otp4011_msg1,
-     compact_otp4011_msg2,
-     compact_otp4011_msg3,
-     compact_otp4013_msg1,
-     compact_otp4085_msg1,
-     compact_otp4085_msg2,
-     compact_otp4280_msg1,
-     compact_otp4299_msg1,
-     compact_otp4299_msg2,
-     compact_otp4359_msg1,
-     compact_otp4920_msg0,
-     compact_otp4920_msg1,
-     compact_otp4920_msg2,
-     compact_otp4920_msg3,
-     compact_otp4920_msg4,
-     compact_otp4920_msg5,
-     compact_otp4920_msg6,
-     compact_otp4920_msg7,
-     compact_otp4920_msg8,
-     compact_otp4920_msg9,
-     compact_otp4920_msg10,
-     compact_otp4920_msg11,
-     compact_otp4920_msg12,
-     compact_otp4920_msg20,
-     compact_otp4920_msg21,
-     compact_otp4920_msg22,
-     compact_otp4920_msg23,
-     compact_otp4920_msg24,
-     compact_otp4920_msg25,
-     compact_otp5186_msg01,
-     compact_otp5186_msg02,
-     compact_otp5186_msg03,
-     compact_otp5186_msg04,
-     compact_otp5186_msg05,
-     compact_otp5186_msg06,
-     compact_otp5793_msg01,
-     compact_otp5993_msg01,
-     compact_otp5993_msg02,
-     compact_otp5993_msg03,
-     compact_otp6017_msg01,
-     compact_otp6017_msg02,
-     compact_otp6017_msg03
-    ].
-
-flex_compact_tickets(suite) ->
-    {req, [],
-     {conf, flex_compact_init, flex_compact_tickets_cases(),
-      flex_compact_finish}}.
-
-flex_compact_tickets_cases() ->
-    [
-     flex_compact_otp7431_msg01,
-     flex_compact_otp7431_msg02,
-     flex_compact_otp7431_msg03, 
-     flex_compact_otp7431_msg04,
-     flex_compact_otp7431_msg05,
-     flex_compact_otp7431_msg06,
-     flex_compact_otp7431_msg07
-    ].
-
-
-pretty_tickets(suite) ->
-    [
-     pretty_otp4632_msg1,
-     pretty_otp4632_msg2,
-     pretty_otp4632_msg3,
-     pretty_otp4632_msg4,
-     pretty_otp4710_msg1,
-     pretty_otp4710_msg2,
-     pretty_otp4945_msg1,
-     pretty_otp4945_msg2,
-     pretty_otp4945_msg3,
-     pretty_otp4945_msg4,
-     pretty_otp4945_msg5,
-     pretty_otp4945_msg6,
-     pretty_otp4949_msg1,
-     pretty_otp4949_msg2,
-     pretty_otp4949_msg3,
-     pretty_otp5042_msg1,
-     pretty_otp5068_msg1,
-     pretty_otp5085_msg1,
-     pretty_otp5085_msg2,
-     pretty_otp5085_msg3,
-     pretty_otp5085_msg4,
-     pretty_otp5085_msg5,
-     pretty_otp5085_msg6,
-     pretty_otp5085_msg7,
-     pretty_otp5085_msg8,
-     pretty_otp5600_msg1,
-     pretty_otp5600_msg2,
-     pretty_otp5601_msg1,
-     pretty_otp5793_msg01,
-     pretty_otp5882_msg01,
-     pretty_otp6490_msg01,
-     pretty_otp6490_msg02,
-     pretty_otp6490_msg03,
-     pretty_otp6490_msg04,
-     pretty_otp6490_msg05,
-     pretty_otp6490_msg06,
-     pretty_otp7671_msg01,
-     pretty_otp7671_msg02,
-     pretty_otp7671_msg03,
-     pretty_otp7671_msg04,
-     pretty_otp7671_msg05,
-     pretty_otp8114_msg01
-    ].
-
-flex_pretty_tickets(suite) ->
-    {req, [],
-     {conf, flex_pretty_init, flex_pretty_tickets_cases(),
-      flex_pretty_finish}}.
- 
-flex_pretty_tickets_cases() ->
-    [
-     flex_pretty_otp5042_msg1,
-     flex_pretty_otp5085_msg1,
-     flex_pretty_otp5085_msg2,
-     flex_pretty_otp5085_msg3,
-     flex_pretty_otp5085_msg4,
-     flex_pretty_otp5085_msg5,
-     flex_pretty_otp5085_msg6,
-     flex_pretty_otp5085_msg7,
-     flex_pretty_otp5085_msg8,
-     flex_pretty_otp5600_msg1,
-     flex_pretty_otp5600_msg2,
-     flex_pretty_otp5601_msg1,
-     flex_pretty_otp5793_msg01,
-     flex_pretty_otp7431_msg01,
-     flex_pretty_otp7431_msg02,
-     flex_pretty_otp7431_msg03, 
-     flex_pretty_otp7431_msg04,
-     flex_pretty_otp7431_msg05,
-     flex_pretty_otp7431_msg06,
-     flex_pretty_otp7431_msg07
-    ].
+tickets() ->
+    Flag  = process_flag(trap_exit, true),    
+    Cases = expand(tickets),
+    Fun   = fun(Case) ->
+		    C = init_per_testcase(Case, [{tc_timeout, 
+						  timer:minutes(10)}]),
+		    io:format("Eval ~w~n", [Case]),
+		    Result = 
+			case (catch apply(?MODULE, Case, [C])) of
+			    {'EXIT', Reason} ->
+ 				io:format("~n~p exited:~n   ~p~n", 
+ 					  [Case, Reason]),
+				{error, {Case, Reason}};
+			    Res ->
+				Res
+			end,
+		    end_per_testcase(Case, C),
+		    Result
+	    end,
+    process_flag(trap_exit, Flag),
+    lists:map(Fun, Cases).
 
 		
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -1,0 +1,112 @@
+<schema xmlns="http://www.w3.org/2001/XMLSchema"
+        xmlns:po="http://www.example.com/ComplexTypes"
+        targetNamespace="http://www.example.com/ComplexTypes"
+        elementFormDefault="unqualified"
+        attributeFormDefault="unqualified">
+
+  <element name="purchaseOrder" type="po:PurchaseOrderType"/>
+
+  <element name="purchaseOrder2" type="po:PurchaseOrderType2"/>
+
+  <element name="comment" type="string"/>
+
+
+<complexType name="PurchaseOrderType2">
+  <sequence>
+    <choice>
+      <group   ref="po:shipAndBill"/>
+      <element name="singleUSAddress" type="po:USAddress"/>
+    </choice>
+    <element ref="po:comment" minOccurs="0"/>
+    <element name="items"  type="po:Items"/>
+  </sequence>
+  <attribute name="orderDate" type="date"/>
+</complexType>
+
+<group name="shipAndBill">
+  <sequence>
+    <element name="shipTo" type="po:USAddress"/>
+    <element name="billTo" type="po:USAddress"/>
+  </sequence>
+</group>
+
+
+
+  <complexType name="PurchaseOrderType">
+    <sequence>
+      <element name="shipTo" type="po:USAddress"/>
+      <element name="billTo" type="po:USAddress"/>
+      <element ref="po:comment" minOccurs="0"/>
+      <element name="items"  type="po:Items"/>
+    </sequence>
+    <attribute name="orderDate" type="date"/>
+  </complexType>
+
+  <complexType name="USAddress">
+    <sequence>
+      <element name="name"   type="string"/>
+      <element name="street" type="string"/>
+      <element name="city"   type="string"/>
+      <element name="state"  type="string"/>
+      <element name="zip"    type="decimal"/>
+      <element name="contact" type="po:Contact" minOccurs="0"/>
+    </sequence>
+    <attribute name="country" type="NMTOKEN"
+                   fixed="US"/>
+  </complexType>
+
+  <complexType name="Items">
+    <sequence>
+      <element name="item" minOccurs="0" maxOccurs="unbounded">
+        <complexType>
+          <sequence>
+            <element name="productName" type="string"/>
+            <element name="quantity">
+              <simpleType>
+                <restriction base="positiveInteger">
+                  <maxExclusive value="100"/>
+                </restriction>
+              </simpleType>
+            </element>
+            <element name="USPrice"  type="decimal"/>
+            <element ref="po:comment"   minOccurs="0"/>
+            <element name="shipDate" type="date" minOccurs="0"/>
+          </sequence>
+          <attribute name="partNum" type="po:SKU" use="required"/>
+        </complexType>
+      </element>
+    </sequence>
+  </complexType>
+
+  <complexType name="Contact">
+    <sequence>
+      <element name="phone"    type="decimal"/>
+      <element name="mail"     type="string" minOccurs="0"/>
+      <element name="e-mail"   type="string"/>
+      <element name="cell-phone"  type="decimal" minOccurs="0"/>
+      <element name="other"    type="string" minOccurs="0"/>
+      <element name="prefCont" type="po:PreferredContact" minOccurs="0" maxOccurs="2"/>
+    </sequence>
+  </complexType>
+
+  <complexType name="PreferredContact">
+    <choice>
+      <element name="phone"   type="string"/>
+      <element name="mail" type="string"/>
+      <element name="e-mail"   type="string"/>
+      <element name="cell-phone"  type="string"/>
+      <element name="other"    type="string"/>
+    </choice>
+    <attribute name="priority" type="NMTOKEN"
+                   fixed="medium"/>
+  </complexType>
+
+  <!-- Stock Keeping Unit, a code for identifying products -->
+  <simpleType name="SKU">
+    <restriction base="string">
+      <pattern value="\d{3}-[A-Z]{2}"/>
+    </restriction>
+  </simpleType>
+
+</schema>
+

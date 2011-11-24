@@ -9,6 +9,8 @@ MODULES= \
 	array_SUITE \
 	base64_SUITE \
 	beam_lib_SUITE \
+	binary_module_SUITE \
+	binref \
 	c_SUITE \
 	calendar_SUITE \
 	dets_SUITE \
@@ -63,6 +65,7 @@ MODULES= \
 	stdlib_SUITE \
 	string_SUITE \
 	supervisor_1 \
+	supervisor_2 \
 	naughty_child \
 	shell_SUITE \
 	supervisor_SUITE \
@@ -131,9 +134,9 @@ release_spec: opt
 
 release_tests_spec: make_emakefile
 	$(INSTALL_DIR) $(RELSYSDIR)
-	$(INSTALL_DATA) stdlib.spec stdlib.spec.vxworks $(EMAKEFILE) \
+	$(INSTALL_DATA) stdlib.spec $(EMAKEFILE) \
 		$(ERL_FILES) $(COVERFILE) $(RELSYSDIR)
-	chmod -f -R u+w $(RELSYSDIR)
+	chmod -R u+w $(RELSYSDIR)
 	@tar cf - *_SUITE_data | (cd $(RELSYSDIR); tar xf -)
 
 release_docs_spec:

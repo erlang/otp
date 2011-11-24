@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2009</year>
+      <year>2003</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -21,93 +21,129 @@
     
     </legalnotice>
 
-    <title>Using the SSL application</title>
-    <prepared>Peter H&ouml;gfeldt</prepared>
-    <docno></docno>
-    <date>2003-04-23</date>
-    <rev>PA2</rev>
+    <title>Using the SSL API</title>
     <file>using_ssl.xml</file>
   </header>
-  <p>Here we provide an introduction to using the Erlang/OTP SSL
-    application, which is accessed through the <c>ssl</c> interface
-    module. 
-    </p>
-  <p>We also present example code in the Erlang module
-    <c>client_server</c>, also provided in the directory
-    <c>ssl-X.Y.Z/examples</c>, with source code in <c>src</c> and the
-    compiled module in <c>ebin</c> of that directory.
-    </p>
 
   <section>
-    <title>The ssl Module</title>
-    <p>The <c>ssl</c> module provides the user interface to the Erlang/OTP
-      SSL application. The interface functions provided are very similar
-      to those provided by the <c>gen_tcp</c> and <c>inet</c> modules. 
-      </p>
-    <p>Servers use the interface functions <c>listen</c> and
-      <c>accept</c>. The <c>listen</c> function specifies a TCP port
-      to to listen to, and each call to the <c>accept</c> function
-      establishes an incoming connection.
-      </p>
-    <p>Clients use the <c>connect</c> function which specifies the address 
-      and port of a server to connect to, and  a successful call establishes
-      such a connection. 
-      </p>
-    <p>The <c>listen</c> and <c>connect</c> functions have almost all
-      the options that the corresponding functions in <c>gen_tcp/</c> have, 
-      but there are also additional options specific to the SSL protocol. 
-      </p>
-    <p>The most important SSL specific option is the <c>cacertfile</c>
-      option which specifies a local file containing trusted CA
-      certificates which are and used for peer authentication. This
-      option is used by clients and servers in case they want to
-      authenticate their peers.
-      </p>
-    <p>The <c>certfile</c> option specifies a local path to a file
-      containing the certificate of the holder of the connection
-      endpoint. In case of a server endpoint this option is mandatory
-      since the contents of the sever certificate is needed in the
-      the handshake preceding the establishment of a connection. 
-      </p>
-    <p>Similarly, the <c>keyfile</c> option points to a local file
-      containing the private key of the holder of the endpoint. If the
-      <c>certfile</c> option is present, this option has to be
-      specified as well, unless the private key is provided in the
-      same file as specified by the <c>certfile</c> option (a
-      certificate and a private key can thus coexist in the same file).
-      </p>
-    <p>The <c>verify</c> option specifies how the peer should be verified:
-      </p>
-    <taglist>
-      <tag>0</tag>
-      <item>Do not verify the peer,</item>
-      <tag>1</tag>
-      <item>Verify peer,</item>
-      <tag>2</tag>
-      <item>Verify peer, fail the verification if the peer has no 
-       certificate. </item>
-    </taglist>
-    <p>The <c>depth</c> option specifies the maximum length of the
-      verification certificate chain. Depth = 0 means the peer
-      certificate, depth = 1 the CA certificate, depth = 2 the next CA
-      certificate etc. If the verification process does not find a
-      trusted CA certificate within the maximum length, the verification
-      fails.
-      </p>
-    <p>The <c>ciphers</c> option specifies which ciphers to use (a
-      string of colon separated cipher names). To obtain a list of
-      available ciphers, evaluate the <c>ssl:ciphers/0</c> function
-      (the SSL application has to be running). 
-      </p>
-  </section>
+    <title>General information</title>
+    <p>To see relevant version information for ssl you can
+    call ssl:versions/0</p>
+    
+    <p>To see all supported cipher suites 
+    call ssl:cipher_suites/0. Note that available cipher suites
+    for a connection will depend on your certificate. It is also
+    possible to specify a specific cipher suite(s) that you
+    want your connection to use. Default is to use the  strongest
+    available.</p>
 
+  </section>
+  
   <section>
-    <title>A Client-Server Example</title>
-    <p>Here is a simple client server example. 
-      </p>
-    <codeinclude file="../../examples/src/client_server.erl" tag="" type="erl"></codeinclude>
+    <title>Setting up connections</title>
+    
+    <p>Here follows some small example of how to set up client/server connections
+    using the erlang shell. The returned value of the sslsocket has been abbreviated with
+    <c>[...]</c> as it can be fairly large and is opaque.</p>
+    
+    <section>
+      <title>Minmal example</title>
+      
+      <note><p> The minimal setup is not the  most secure setup of ssl.</p>    
+      </note>
+      
+      <p> Start server side</p>
+      <code type="erl">1 server> ssl:start().
+ok</code>
+      
+      <p>Create an ssl listen socket</p>
+      <code type="erl">2 server> {ok, ListenSocket} =
+ssl:listen(9999, [{certfile, "cert.pem"}, {keyfile, "key.pem"},{reuseaddr, true}]).
+{ok,{sslsocket, [...]}}</code>
+      
+      <p>Do a transport accept on the ssl listen socket</p>
+      <code type="erl">3 server> {ok, Socket} = ssl:transport_accept(ListenSocket).
+{ok,{sslsocket, [...]}}</code>
+
+      <p>Start client side</p>
+      <code type="erl">1 client> ssl:start().
+ok</code>
+      
+      <code type="erl">2 client> {ok, Socket} = ssl:connect("localhost", 9999,  [], infinity).
+{ok,{sslsocket, [...]}}</code>
+      
+      <p>Do the ssl handshake</p>
+      <code type="erl">4 server> ok = ssl:ssl_accept(Socket).
+ok</code>
+      
+      <p>Send a messag over ssl</p>
+      <code type="erl">5 server> ssl:send(Socket, "foo").
+ok</code>
+      
+      <p>Flush the shell message queue to see that we got the message
+      sent on the server side</p>
+      <code type="erl">3 client> flush().
+Shell got {ssl,{sslsocket,[...]},"foo"}
+ok</code>
+    </section>
+    
+    <section>
+      <title>Upgrade example</title>
+      
+      <note><p> To upgrade a TCP/IP connection to an ssl connection the
+      client and server have to aggre to do so. Agreement
+      may be accompliced by using a protocol such the one used by HTTP
+      specified in RFC 2817.</p> </note>
+      
+      <p>Start server side</p>
+      <code type="erl">1 server> ssl:start().
+ok</code>
+      
+      <p>Create a normal tcp listen socket</p>
+      <code type="erl">2 server> {ok, ListenSocket} = gen_tcp:listen(9999, [{reuseaddr, true}]).
+{ok, #Port&lt;0.475&gt;}</code>
+      
+      <p>Accept client connection</p>
+      <code type="erl">3 server> {ok, Socket} = gen_tcp:accept(ListenSocket).
+{ok, #Port&lt;0.476&gt;}</code>
+      
+      <p>Start client side</p>
+      <code type="erl">1 client> ssl:start().
+ok</code>
+      
+      <code type="erl">2 client> {ok, Socket} = gen_tcp:connect("localhost", 9999,  [], infinity).</code>
+      
+      <p>Make sure active is set to false before trying
+      to upgrade a connection to an ssl connection, otherwhise
+      ssl handshake messages may be deliverd to the wrong process.</p>
+      <code type="erl">4 server> inet:setopts(Socket, [{active, false}]).
+ok</code>
+      
+      <p>Do the ssl handshake.</p>
+      <code type="erl">5 server> {ok, SSLSocket} = ssl:ssl_accept(Socket, [{cacertfile, "cacerts.pem"},
+{certfile, "cert.pem"}, {keyfile, "key.pem"}]).
+{ok,{sslsocket,[...]}}</code>
+      
+      <p> Upgrade to an ssl connection. Note that the client and server
+      must agree upon the upgrade and the server must call
+      ssl:accept/2 before the client calls ssl:connect/3.</p>
+      <code type="erl">3 client>{ok, SSLSocket} = ssl:connect(Socket, [{cacertfile, "cacerts.pem"},
+{certfile, "cert.pem"}, {keyfile, "key.pem"}], infinity).
+{ok,{sslsocket,[...]}}</code>
+      
+      <p>Send a messag over ssl</p>
+      <code type="erl">4 client> ssl:send(SSLSocket, "foo").
+ok</code>
+      
+      <p>Set active true on the ssl socket</p>
+      <code type="erl">4 server> ssl:setopts(SSLSocket, [{active, true}]).
+ok</code>
+      
+      <p>Flush the shell message queue to see that we got the message
+      sent on the client side</p>
+      <code type="erl">5 server> flush().
+Shell got {ssl,{sslsocket,[...]},"foo"}
+ok</code>
+    </section>
   </section>
-</chapter>
-
-
-
+ </chapter>

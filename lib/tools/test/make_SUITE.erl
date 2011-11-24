@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,12 +18,13 @@
 %%
 -module(make_SUITE).
 
--export([all/1, make_all/1, make_files/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, make_all/1, make_files/1]).
 -export([otp_6057_init/1,
 	 otp_6057_a/1, otp_6057_b/1, otp_6057_c/1,
 	 otp_6057_end/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -include_lib("kernel/include/file.hrl").
 
@@ -35,9 +36,27 @@
 %% that the file :"test5.erl" shall be compiled with the 'S' option,
 %% i.e. produce "test5.S" instead of "test5.<objext>"
 
-all(suite) -> [make_all, make_files,
-	       {conf, otp_6057_init,
-		[otp_6057_a,otp_6057_b,otp_6057_c], otp_6057_end}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [make_all, make_files, {group, otp_6057}].
+
+groups() -> 
+    [{otp_6057,[],[otp_6057_a, otp_6057_b,
+		   otp_6057_c]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    otp_6057_init(Config).
+
+end_per_group(_GroupName, Config) ->
+    otp_6057_end(Config).
+
 
 test_files() -> ["test1", "test2", "test3", "test4"].
 
@@ -146,7 +165,7 @@ otp_6057_init(Config) when is_list(Config) ->
 otp_6057_a(suite) ->
     [];
 otp_6057_a(doc) ->
-    ["Test that make:all/0 looks for object file in correct place"];
+    ["Test that make:all/0, suite/0 looks for object file in correct place"];
 otp_6057_a(Config) when is_list(Config) ->
     ?line PrivDir = ?config(priv_dir, Config),
 

@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2005-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -45,14 +45,6 @@
 	 rename/4, delete/3, make_dir/3, del_dir/3, send_window/2,
 	 recv_window/1, list_dir/2, read_file/2, write_file/3,
 	 recv_window/2, list_dir/3, read_file/3, write_file/4]).
-
-%% Deprecated
--export([connect/1, connect/2, connect/3, stop/1]).
-
--deprecated({connect, 1, next_major_release}).
--deprecated({connect, 2, next_major_release}).
--deprecated({connect, 3, next_major_release}).
--deprecated({stop, 1, next_major_release}).
 
 %% ssh_channel callbacks
 -export([init/1, handle_call/3, handle_msg/2, handle_ssh_msg/2, terminate/2]).
@@ -138,9 +130,9 @@ start_channel(Host, Port, Opts) ->
     end.
 
 stop_channel(Pid) ->
-    case process_info(Pid, [trap_exit]) of
-	[{trap_exit, Bool}] ->
-	    process_flag(trap_exit, true),
+    case is_process_alive(Pid) of
+	true ->
+	    OldValue = process_flag(trap_exit, true),
 	    link(Pid),
 	    exit(Pid, ssh_sftp_stop_channel),
 	    receive 
@@ -153,9 +145,9 @@ stop_channel(Pid) ->
 			    ok
 		    end
 	    end,
-	    process_flag(trap_exit, Bool),
+	    process_flag(trap_exit, OldValue),
 	    ok;
-	undefined ->
+	false ->
 	    ok
     end.
 
@@ -1115,34 +1107,4 @@ lseek_pos({eof, Offset}, _CurOffset, CurSize)
 lseek_pos(_, _, _) ->
     {error, einval}. 
  
-
-%%%%%% Deprecated %%%%
-connect(Cm) when is_pid(Cm) ->
-    connect(Cm, []);
-connect(Host) when is_list(Host) ->
-    connect(Host, []).					 
-connect(Cm, Opts) when is_pid(Cm) ->
-    Timeout = proplists:get_value(timeout, Opts, infinity),
-    case ssh_xfer:attach(Cm, []) of
-	{ok, ChannelId, Cm} -> 
-	    ssh_channel:start(Cm, ChannelId, ?MODULE, [Cm, ChannelId,
-						       Timeout]);
-	Error ->
-	    Error
-    end;
-connect(Host, Opts) ->
-    connect(Host, 22, Opts).
-connect(Host, Port, Opts) ->
-    Timeout = proplists:get_value(timeout, Opts, infinity),
-    case ssh_xfer:connect(Host, Port, proplists:delete(timeout, Opts)) of
-	{ok, ChannelId, Cm} ->
-	    ssh_channel:start(Cm, ChannelId, ?MODULE, [Cm, 
-						       ChannelId, Timeout]);
-	Error ->
-	    Error	    
-    end.
-
-
-stop(Pid) ->
-    call(Pid, stop, infinity).
 

@@ -1,0 +1,14 @@
+%% This file defines the contexts known to the agent.
+%% The data is inserted into the vacmContextTable defined
+%% in SNMP-VIEW-BASED-ACM-MIB.
+%% Each row is a string:
+%% ContextName.
+%%
+%% The empty string is the default context.
+%% For example
+%% "bridge1".
+%% "bridge2".
+%%
+
+
+"".

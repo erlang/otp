@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2010</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -161,6 +161,14 @@ If a new item is inserted with the same key as
           </p>
       </item>
       <item>
+	<p><c>majority</c> This attribute can be either <c>true</c> or
+	<c>false</c> (default is <c>false</c>). When <c>true</c>, a majority
+	of the table replicas must be available for an update to succeed.
+	Majority checking can be enabled on tables with mission-critical data,
+	where it is vital to avoid inconsistencies due to network splits.
+	</p>
+      </item>
+      <item>
         <p><c>snmp</c> Each (set based) Mnesia table can be
           automatically turned into an SNMP ordered table as well.
           This property specifies the types of the SNMP keys.
@@ -238,7 +246,7 @@ If a new item is inserted with the same key as
               </p>
           </item>
           <item>
-            <p><c>{max,MaxTabs}</c><c>MaxTabs</c> is a list of
+            <p><c>{max,MaxTabs}</c>. <c>MaxTabs</c> is a list of
               tables that should be included in the checkpoint. The
               default is []. For these tables, the redundancy will be
               maximized and checkpoint information will be retained together
@@ -266,7 +274,7 @@ If a new item is inserted with the same key as
               </p>
           </item>
           <item>
-            <p><c>{ram_overrides_dump,Bool} </c> Only applicable
+            <p><c>{ram_overrides_dump,Bool}</c>. Only applicable
               for <c>ram_copies</c>.  <c>Bool</c> allows you to choose
               to backup the table state as it is in RAM, or as it is on
               disc. <c>true</c> means that the latest committed
@@ -650,6 +658,17 @@ mnesia:change_table_copy_type(person, node(), disc_copies)
       </desc>
     </func>
     <func>
+      <name>change_table_majority(Tab, Majority) -> {aborted, R} | {atomic, ok}</name>
+      <fsummary>Change the majority check setting for the table.</fsummary>
+      <desc>
+        <p><c>Majority</c> must be a boolean; the default is <c>false</c>.
+	When <c>true</c>, a majority of the table's replicas must be available
+	for an update to succeed. When used on fragmented tables, <c>Tab</c>
+	must be the name base table. Directly changing the majority setting on
+	individual fragments is not allowed.</p>
+      </desc>
+    </func>
+    <func>
       <name>clear_table(Tab) -> {aborted, R} | {atomic, ok}</name>
       <fsummary>Deletes all entries in a table.</fsummary>
       <desc>
@@ -753,6 +772,14 @@ mnesia:change_table_copy_type(person, node(), disc_copies)
               priority will be loaded first at startup.
               </p>
           </item>
+	  <item>
+	    <p><c>{majority, Flag}</c>, where <c>Flag</c> must be a boolean.
+	    If <c>true</c>, any (non-dirty) update to the table will abort unless
+	    a majority of the table's replicas are available for the commit.
+	    When used on a fragmented table, all fragments will be given
+	    the same majority setting.
+	    </p>
+	  </item>
           <item>
             <p><c>{ram_copies, Nodelist}</c>, where
               <c>Nodelist</c> is a list of the nodes where this table
@@ -799,7 +826,7 @@ mnesia:change_table_copy_type(person, node(), disc_copies)
           </item>
           <item>
             <p><c>{local_content, Bool}</c>, where <c>Bool</c> must be
-              either <c>true</c> or <c>false</c>. The default value is <c>false</c>.\011      </p>
+              either <c>true</c> or <c>false</c>. The default value is <c>false</c>.</p>
           </item>
         </list>
         <p>For example, the following call creates the <c>person</c> table
@@ -1022,7 +1049,7 @@ mnesia:create_table(person,
       <name>dirty_last(Tab) ->  Key | exit({aborted, Reason}) </name>
       <fsummary>Return the key for the last record in a table.</fsummary>
       <desc>
-        <p>This function works exactly 
+        <p>This function works exactly like
           <c>mnesia:dirty_first/1</c> but returns the last object in
           Erlang  term  order for the <c>ordered_set</c> table type. For
           all other table types, <c>mnesia:dirty_first/1</c> and 
@@ -1063,11 +1090,11 @@ mnesia:create_table(person,
       <name>dirty_prev(Tab, Key) -> Key | exit({aborted, Reason}) </name>
       <fsummary>Return the previous key in a table. </fsummary>
       <desc>
-        <p>This function works exactly 
+        <p>This function works exactly like
           <c>mnesia:dirty_next/2</c> but returns the previous object in
           Erlang term  order for the ordered_set table type. For
           all other table types, <c>mnesia:dirty_next/2</c> and 
-          <c>mnesia:dirty_prev/2</c> are synonyms.\011  </p>
+          <c>mnesia:dirty_prev/2</c> are synonyms.</p>
       </desc>
     </func>
     <func>
@@ -1135,7 +1162,7 @@ mnesia:create_table(person,
         </list>
         <p>If two processes perform <c>mnesia:dirty_update_counter/3</c>
           simultaneously, both updates will take effect without the
-          risk of loosing one of the updates. The new value
+          risk of losing one of the updates. The new value
           <c>NewVal</c> of the counter is returned.</p>
         <p>If <c>Key</c> don't exits, a new record is created with the value
           <c>Incr</c> if it is larger than 0, otherwise it is set to 0.</p>
@@ -1334,7 +1361,7 @@ mnesia:create_table(person,
       <name>foldr(Function, Acc, Table) -> NewAcc | transaction abort </name>
       <fsummary>Call Function for each record in Table  </fsummary>
       <desc>
-        <p>This function works exactly as 
+        <p>This function works exactly like
           <c>foldl/3</c> but iterates the table in the opposite order 
           for the <c>ordered_set</c> table type. For
           all other table types, <c>foldr/3</c> and 
@@ -1512,14 +1539,14 @@ mnesia:create_table(person,
       <fsummary>Check if code is running in a transaction.</fsummary>
       <desc>
         <p>When this function is executed inside a transaction context
-	  it returns <c>true</c>, otherwise <c>false</c>.</p>
+          it returns <c>true</c>, otherwise <c>false</c>.</p>
       </desc>
     </func>
     <func>
       <name>last(Tab) ->  Key | transaction abort </name>
       <fsummary>Return the key for the last record in a table.</fsummary>
       <desc>
-        <p>This function works exactly 
+        <p>This function works exactly like
           <c>mnesia:first/1</c> but returns the last object in
           Erlang  term  order for the <c>ordered_set</c> table type. For
           all other table types, <c>mnesia:first/1</c> and 
@@ -1698,11 +1725,11 @@ mnesia:create_table(person,
       <name>prev(Tab, Key) -> Key | transaction abort </name>
       <fsummary>Return the previous key in a table. </fsummary>
       <desc>
-        <p>This function works exactly 
+        <p>This function works exactly like
           <c>mnesia:next/2</c> but returns the previous object in
           Erlang term  order for the ordered_set table type. For
           all other table types, <c>mnesia:next/2</c> and 
-          <c>mnesia:prev/2</c> are synonyms.\011  </p>
+          <c>mnesia:prev/2</c> are synonyms.</p>
       </desc>
     </func>
     <func>
@@ -1737,7 +1764,10 @@ mnesia:create_table(person,
           <c>write</c> and <c>sticky_write</c> are supported.
           </p>
         <p>If the user wants to update the record it is more efficient to 
-          use  <c>write/sticky_write</c> as the LockKind.
+          use  <c>write/sticky_write</c> as the LockKind. If majority checking
+	  is active on the table, it will be checked as soon as a write lock is
+	  attempted. This can be used to quickly abort if the majority condition
+	  isn't met.
           </p>
       </desc>
     </func>
@@ -1891,10 +1921,10 @@ mnesia:create_table(person,
         <p>For example to find the names of all male persons with an age over 30 in table
           Tab do:</p>
         <code type="none">
-\011  MatchHead = #person{name='$1', sex=male, age='$2', _='_'},
-\011  Guard = {'>', '$2', 30},
-\011  Result = '$1',
-\011  mnesia:select(Tab,[{MatchHead, [Guard], [Result]}]),
+MatchHead = #person{name='$1', sex=male, age='$2', _='_'},
+Guard = {'>', '$2', 30},
+Result = '$1',
+mnesia:select(Tab,[{MatchHead, [Guard], [Result]}]),
         </code>
       </desc>
     </func>
@@ -2835,7 +2865,7 @@ raise(Name, Amount) ->
     </func>
     <func>
       <name>write(Tab, Record, LockKind) -> transaction abort | ok </name>
-      <fsummary>Write an record into the database.</fsummary>
+      <fsummary>Write a record into the database.</fsummary>
       <desc>
         <p>Writes the record <c>Record</c> to the table <c>Tab</c>.
           </p>

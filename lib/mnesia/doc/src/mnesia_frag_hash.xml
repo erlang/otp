@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2002</year>
-      <year>2007</year>
+      <year>2011</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -64,7 +64,7 @@
         <p>Note that the <c>add_frag/2</c> function will be invoked
           one time each for the rest of the fragments (all but number 1)
           as a part of the table creation procedure.</p>
-        <p><c>State</c> is the initial value of the <c>hash_state</c><c>frag_property</c>. The <c>NewState</c> will be stored as
+        <p><c>State</c> is the initial value of the <c>hash_state</c> <c>frag_property</c>. The <c>NewState</c> will be stored as
           <c>hash_state</c> among the other <c>frag_properties</c>.
           </p>
       </desc>

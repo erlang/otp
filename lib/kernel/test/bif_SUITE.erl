@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,15 +17,16 @@
 %% %CopyrightEnd%
 %%
 -module(bif_SUITE).
--export([all/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 
--export([spawn_tests/1, 
+-export([ 
 	 spawn1/1, spawn2/1, spawn3/1, spawn4/1,
 
-	 spawn_link_tests/1,
+	
 	 spawn_link1/1, spawn_link2/1, spawn_link3/1, spawn_link4/1,
 
-	 spawn_opt_tests/1,
+	
 	 spawn_opt2/1, spawn_opt3/1, spawn_opt4/1, spawn_opt5/1,
 
 	 spawn_failures/1,
@@ -33,9 +34,9 @@
 	 run_fun/1,
 	 wilderness/1]).
 
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 % Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(1)).
@@ -43,25 +44,36 @@
 init_per_testcase(_Case, Config) ->
     ?line Dog = ?t:timetrap(?default_timeout),
     [{watchdog, Dog} | Config].
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
-all(suite) ->
-    [spawn_tests, spawn_link_tests, spawn_opt_tests, spawn_failures, wilderness].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-spawn_tests(doc) -> ["Test spawn"];
-spawn_tests(suite) ->
-    [spawn1, spawn2, spawn3, spawn4].
+all() -> 
+    [{group, spawn_tests}, {group, spawn_link_tests},
+     {group, spawn_opt_tests}, spawn_failures, wilderness].
 
-spawn_link_tests(doc) -> ["Test spawn_link"];
-spawn_link_tests(suite) ->
-    [spawn_link1, spawn_link2, spawn_link3, spawn_link4].
+groups() -> 
+    [{spawn_tests, [], [spawn1, spawn2, spawn3, spawn4]},
+     {spawn_link_tests, [],
+      [spawn_link1, spawn_link2, spawn_link3, spawn_link4]},
+     {spawn_opt_tests, [],
+      [spawn_opt2, spawn_opt3, spawn_opt4, spawn_opt5]}].
 
-spawn_opt_tests(doc) -> ["Test spawn_opt"];
-spawn_opt_tests(suite) ->
-    [spawn_opt2, spawn_opt3, spawn_opt4, spawn_opt5].
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 spawn1(doc) -> ["Test spawn/1"];
 spawn1(suite) ->

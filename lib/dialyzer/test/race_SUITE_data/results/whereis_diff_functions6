@@ -1,0 +1,2 @@
+
+whereis_diff_functions6.erl:29: The call erlang:register(Atom::atom(),Pid::pid()) might fail due to a possible race condition caused by its combination with the erlang:whereis(AnAtom::any()) call in whereis_diff_functions6.erl on line 10, the erlang:whereis(AnAtom::atom()) call in whereis_diff_functions6.erl on line 14

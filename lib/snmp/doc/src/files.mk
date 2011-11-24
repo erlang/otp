@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2001-2009. All Rights Reserved.
+# Copyright Ericsson AB 2001-2011. All Rights Reserved.
 # 
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -22,6 +22,9 @@ XML_APPLICATION_FILES = \
 
 XML_APP_REF3_FILES = \
         snmp.xml
+
+XML_COMP_REF1_FILES = \
+        snmpc_cmd.xml
 
 XML_COMP_REF3_FILES = \
         snmpc.xml
@@ -62,6 +65,9 @@ XML_MANAGER_REF3_FILES = \
 	snmpm_network_interface_filter.xml \
 	snmpm_user.xml
 
+XML_REF1_FILES = \
+        $(XML_COMP_REF1_FILES)
+
 XML_REF3_FILES = \
         $(XML_APP_REF3_FILES) \
         $(XML_COMP_REF3_FILES) \
@@ -98,12 +104,13 @@ XML_CHAPTER_FILES = \
 
 BOOK_FILES = book.xml
 
-XML_FILES = $(BOOK_FILES)         \
-             $(XML_CHAPTER_FILES) \
-             $(XML_PART_FILES)    \
-             $(XML_REF6_FILES)    \
-             $(XML_REF3_FILES)    \
-             $(XML_APPLICATION_FILES)
+XML_FILES = $(BOOK_FILES)        \
+            $(XML_CHAPTER_FILES) \
+            $(XML_PART_FILES)    \
+            $(XML_REF1_FILES)    \
+            $(XML_REF3_FILES)    \
+            $(XML_REF6_FILES)    \
+            $(XML_APPLICATION_FILES)
 
 GIF_FILES = book.gif \
 	getnext1.gif \
@@ -150,4 +157,5 @@ MIB_FILES = \
 	$(MIBSDIR)/SNMP-VIEW-BASED-ACM-MIB.mib \
 	$(MIBSDIR)/SNMP-USM-AES-MIB.mib \
 	$(MIBSDIR)/INET-ADDRESS-MIB.mib \
+	$(MIBSDIR)/TRANSPORT-ADDRESS-MIB.mib \
 	$(MIBSDIR)/OTP-SNMPEA-MIB.mib

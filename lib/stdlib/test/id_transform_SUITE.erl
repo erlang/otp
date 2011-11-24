@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -21,17 +21,37 @@
 
 -include_lib("kernel/include/file.hrl").
           
--export([all/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
 	 id_transform/1]).
 
 -export([check/2,check2/1,g/0,f/1,t/1,t1/1,t2/1,t3/1,t4/1,
 	 t5/1,t6/1,apa/1,new_fun/0]).
 
-% Serves as test...
+						% Serves as test...
 -hej(hopp).
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
-all(suite) -> [id_transform].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [id_transform].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 id_transform(doc) -> "Test erl_id_trans.";
 id_transform(Config) when is_list(Config) ->

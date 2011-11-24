@@ -1,20 +1,20 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %% @doc	This is the HiPE compiler's main "loop".
@@ -102,7 +102,7 @@ compile_icode(MFA, LinearIcode0, Options, Servers, DebugState) ->
   ?opt_start_timer("Icode"),
   LinearIcode1 = icode_no_comment(LinearIcode0, Options),
   IcodeCfg0 = icode_linear_to_cfg(LinearIcode1, Options),
-  %%hipe_icode_cfg:pp(IcodeCfg1),
+  %% hipe_icode_cfg:pp(IcodeCfg0),
   IcodeCfg1 = icode_handle_exceptions(IcodeCfg0, MFA, Options),
   IcodeCfg3 = icode_inline_bifs(IcodeCfg1, Options),
   pp(IcodeCfg3, MFA, icode, pp_icode, Options, Servers),
@@ -313,7 +313,7 @@ icode_ssa_struct_reuse(IcodeSSA, Options) ->
 
 icode_ssa_type_info(IcodeSSA, MFA, Options, Servers) ->
     ?option_time(hipe_icode_type:cfg(IcodeSSA, MFA, Options, Servers),
-		 "Icode SSA type info", Options).
+		 io_lib:format("Icode SSA type info for ~p", [MFA]), Options).
 
 icode_range_analysis(IcodeSSA, MFA, Options, Servers) ->
   case proplists:get_bool(icode_range, Options) of
@@ -526,6 +526,8 @@ rtl_to_native(MFA, LinearRTL, Options, DebugState) ->
       ultrasparc ->
 	hipe_sparc_main:rtl_to_sparc(MFA, LinearRTL, Options);
       powerpc ->
+	hipe_ppc_main:rtl_to_ppc(MFA, LinearRTL, Options);
+      ppc64 ->
 	hipe_ppc_main:rtl_to_ppc(MFA, LinearRTL, Options);
       arm ->
 	hipe_arm_main:rtl_to_arm(MFA, LinearRTL, Options);

@@ -30,6 +30,7 @@ include ../../vsn.mk
 
 VSN = $(INETS_VSN)
 
+
 # ----------------------------------------------------
 # Release directory specification
 # ----------------------------------------------------
@@ -41,13 +42,15 @@ RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 # ----------------------------------------------------
 
 MODULES = \
-	inets_service \
 	inets \
+	inets_service \
 	inets_app \
 	inets_sup \
 	inets_regexp
 
-HRL_FILES = inets_internal.hrl
+INTERNAL_HRL_FILES = inets_internal.hrl
+EXTERNAL_HRL_FILES = ../../include/httpd.hrl \
+	../../include/mod_auth.hrl
 
 ERL_FILES = $(MODULES:%=%.erl)
 
@@ -67,18 +70,14 @@ APPUP_TARGET = $(EBIN)/$(APPUP_FILE)
 
 
 # ----------------------------------------------------
-# INETS FLAGS
-# ----------------------------------------------------
-INETS_FLAGS = -D'SERVER_SOFTWARE="$(APPLICATION)/$(VSN)"'
-
-
-# ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
 
-ERL_COMPILE_FLAGS += $(INETS_FLAGS) \
-                     +'{parse_transform,sys_pre_attributes}' \
-                     +'{attribute,insert,app_vsn,$(APP_VSN)}'
+include inets.mk
+
+ERL_COMPILE_FLAGS += \
+	$(INETS_FLAGS) \
+	$(INETS_ERL_COMPILE_FLAGS)
 
 
 # ----------------------------------------------------
@@ -112,7 +111,10 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
 	$(INSTALL_DIR)  $(RELSYSDIR)/src
-	$(INSTALL_DATA) $(HRL_FILES) $(ERL_FILES) $(RELSYSDIR)/src
+	$(INSTALL_DIR)  $(RELSYSDIR)/src/inets_app
+	$(INSTALL_DATA) $(INTERNAL_HRL_FILES) $(ERL_FILES) $(RELSYSDIR)/src/inets_app
+	$(INSTALL_DIR)  $(RELSYSDIR)/include
+	$(INSTALL_DATA) $(EXTERNAL_HRL_FILES) $(RELSYSDIR)/include
 	$(INSTALL_DIR)  $(RELSYSDIR)/ebin
 	$(INSTALL_DATA) $(TARGET_FILES) $(RELSYSDIR)/ebin
 

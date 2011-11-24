@@ -1,29 +1,28 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(crypto_SUITE).
 
--include("test_server.hrl").
--include("test_server_line.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
--export([all/1, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, 
 	 init_per_testcase/2,
-	 fin_per_testcase/2,
+	 end_per_testcase/2,
 	 info/1,
 	 link_test/1,
 	 md5/1,
@@ -32,6 +31,11 @@
 	 md4_update/1,
 	 sha/1,
 	 sha_update/1,
+         hmac_update_sha/1,
+         hmac_update_sha_n/1,
+         hmac_update_md5/1,
+         hmac_update_md5_io/1,
+         hmac_update_md5_n/1,
 	 sha256/1,
 	 sha256_update/1,
 	 sha512/1,
@@ -40,11 +44,20 @@
 	 md5_mac_io/1,
 	 des_cbc/1,
 	 des_cbc_iter/1,
+	 des_cfb/1,
+	 des_cfb_iter/1,
+	 des_ecb/1,
+	 des3_cbc/1,
+	 des3_cfb/1,
+	 rc2_cbc/1,
 	 aes_cfb/1,
 	 aes_cbc/1,
 	 aes_cbc_iter/1,
+	 aes_ctr/1,
+	 aes_ctr_stream/1,
 	 mod_exp_test/1,
 	 rand_uniform_test/1,
+	 strong_rand_test/1,
 	 rsa_verify_test/1,
 	 dsa_verify_test/1,
 	 rsa_sign_test/1,
@@ -53,52 +66,52 @@
 	 dh/1,
 	 exor_test/1,
 	 rc4_test/1,
+	 rc4_stream_test/1,
 	 blowfish_cfb64/1,
 	 smp/1,
 	 cleanup/1]).
 
 -export([hexstr2bin/1]).
 
-all(suite) ->
-    [link_test,
-     {conf,info,[md5,
-		 md5_update,
-		 md4,
-		 md4_update,
-		 md5_mac,
-		 md5_mac_io,
-		 sha,
-		 sha_update,
-%% 		 sha256,
-%% 		 sha256_update,
-%% 		 sha512,
-%% 		 sha512_update,
-		 des_cbc,
-		 aes_cfb,
-		 aes_cbc,
-		 aes_cbc_iter,
-		 des_cbc_iter,
-		 rand_uniform_test,
-		 rsa_verify_test,
-		 dsa_verify_test,
-		 rsa_sign_test,
-		 dsa_sign_test,	 
-		 rsa_encrypt_decrypt,
-		 dh, 
-		 exor_test,
-		 rc4_test,
-		 mod_exp_test,
-		 blowfish_cfb64,
-		 smp],
-      cleanup}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [link_test, md5, md5_update, md4, md4_update, md5_mac,
+     md5_mac_io, sha, sha_update, 
+     hmac_update_sha, hmac_update_sha_n, hmac_update_md5_n, hmac_update_md5_io, hmac_update_md5,
+     %% sha256, sha256_update, sha512,sha512_update,
+     des_cbc, des_cfb, des3_cbc, des3_cfb, rc2_cbc, aes_cfb, aes_cbc,
+     aes_cbc_iter, aes_ctr, aes_ctr_stream, des_cbc_iter, des_cfb_iter, des_ecb,
+     des_cbc, rc2_cbc, aes_cfb, aes_cbc,
+     aes_cbc_iter, aes_ctr, aes_ctr_stream, des_cbc_iter, des_ecb,
+     rand_uniform_test, strong_rand_test,
+     rsa_verify_test, dsa_verify_test, rsa_sign_test,
+     dsa_sign_test, rsa_encrypt_decrypt, dh, exor_test,
+     rc4_test, rc4_stream_test, mod_exp_test, blowfish_cfb64,
+     smp].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
 
 init_per_testcase(_Name,Config) ->
     io:format("init_per_testcase\n"),
     ?line crypto:start(),
     Config.
 
-fin_per_testcase(_Name,Config) ->
-    io:format("fin_per_testcase\n"),
+end_per_testcase(_Name,Config) ->
+    io:format("end_per_testcase\n"),
     ?line crypto:stop(),
     Config.
 
@@ -117,7 +130,7 @@ link_test(Config) when is_list(Config) ->
 
 link_test_1() ->    
     ?line CryptoPriv = code:priv_dir(crypto),
-    ?line Wc = filename:join([CryptoPriv,"lib","crypto_drv.*"]),
+    ?line Wc = filename:join([CryptoPriv,"lib","crypto.*"]),
     ?line case filelib:wildcard(Wc) of
 	      [] -> {skip,"Didn't find the crypto driver"};
 	      [Drv] -> link_test_2(Drv)
@@ -132,14 +145,15 @@ link_test_2(Drv) ->
 	    Libs = os:cmd(Cmd),
 	    io:format("~p\n", [Libs]),
 	    case string:str(Libs, "libcrypto") of
-		0 -> ok;
-		_ ->
+		0 -> 
 		    case ?t:is_commercial() of
 			true ->
-			    ?t:fail({libcrypto,not_statically_linked});
+			    ?t:fail({libcrypto,statically_linked});
 			false ->
-			    {comment,"Not statically linked (OK for open-source platform)"}
-		    end
+			    {comment,"Statically linked (OK for open-source platform)"}
+		    end;
+		_ ->
+		    ok
 	    end
     end.
 
@@ -284,6 +298,101 @@ sha(Config) when is_list(Config) ->
 		       "nlmnomnopnopq"), 
 		hexstr2bin("84983E441C3BD26EBAAE4AA1F95129E5E54670F1")).
 
+
+%%
+hmac_update_sha_n(doc) ->
+    ["Request a larger-than-allowed SHA1 HMAC using hmac_init, hmac_update, and hmac_final_n. "
+     "Expected values for examples are generated using crypto:sha_mac." ];
+hmac_update_sha_n(suite) ->
+    [];
+hmac_update_sha_n(Config) when is_list(Config) ->
+    ?line Key = hexstr2bin("00010203101112132021222330313233"
+                           "04050607141516172425262734353637"
+                           "08090a0b18191a1b28292a2b38393a3b"
+                           "0c0d0e0f1c1d1e1f2c2d2e2f3c3d3e3f"),
+    ?line Data = "Sampl",
+    ?line Data2 = "e #1",
+    ?line Ctx = crypto:hmac_init(sha, Key),
+    ?line Ctx2 = crypto:hmac_update(Ctx, Data),
+    ?line Ctx3 = crypto:hmac_update(Ctx2, Data2),
+    ?line Mac = crypto:hmac_final_n(Ctx3, 1024),
+    ?line Exp = crypto:sha_mac(Key, lists:flatten([Data, Data2])),
+    ?line m(Exp, Mac),
+    ?line m(size(Exp), size(Mac)).
+
+
+hmac_update_sha(doc) ->
+    ["Generate an SHA1 HMAC using hmac_init, hmac_update, and hmac_final. "
+     "Expected values for examples are generated using crypto:sha_mac." ];
+hmac_update_sha(suite) ->
+    [];
+hmac_update_sha(Config) when is_list(Config) ->
+    ?line Key = hexstr2bin("00010203101112132021222330313233"
+                           "04050607141516172425262734353637"
+                           "08090a0b18191a1b28292a2b38393a3b"
+                           "0c0d0e0f1c1d1e1f2c2d2e2f3c3d3e3f"),
+    ?line Data = "Sampl",
+    ?line Data2 = "e #1",
+    ?line Ctx = crypto:hmac_init(sha, Key),
+    ?line Ctx2 = crypto:hmac_update(Ctx, Data),
+    ?line Ctx3 = crypto:hmac_update(Ctx2, Data2),
+    ?line Mac = crypto:hmac_final(Ctx3),
+    ?line Exp = crypto:sha_mac(Key, lists:flatten([Data, Data2])), 
+    ?line m(Exp, Mac).
+    
+hmac_update_md5(doc) ->
+    ["Generate an MD5 HMAC using hmac_init, hmac_update, and hmac_final. "
+     "Expected values for examples are generated using crypto:md5_mac." ];
+hmac_update_md5(suite) ->
+    [];
+hmac_update_md5(Config) when is_list(Config) ->
+    % ?line Key2 = ["A fine speach", "by a fine man!"],
+    Key2 = "A fine speach by a fine man!",
+    ?line Long1 = "Four score and seven years ago our fathers brought forth on this continent a new nation, conceived in liberty, and dedicated to the proposition that all men are created equal.",
+    ?line Long2 = "Now we are engaged in a great civil war, testing whether that nation, or any nation, so conceived and so dedicated, can long endure. We are met on a great battle-field of that war. We have come to dedicate a portion of that field, as a final resting place for those who here gave their lives that that nation might live. It is altogether fitting and proper that we should do this.",
+    ?line Long3 = "But, in a larger sense, we can not dedicate, we can not consecrate, we can not hallow this ground. The brave men, living and dead, who struggled here, have consecrated it, far above our poor power to add or detract. The world will little note, nor long remember what we say here, but it can never forget what they did here. It is for us the living, rather, to be dedicated here to the unfinished work which they who fought here have thus far so nobly advanced. It is rather for us to be here dedicated to the great task remaining before us-that from these honored dead we take increased devotion to that cause for which they gave the last full measure of devotion that we here highly resolve that these dead shall not have died in vain-that this nation, under God, shall have a new birth of freedom-and that government of the people, by the people, for the people, shall not perish from the earth.",
+    ?line CtxA = crypto:hmac_init(md5, Key2),
+    ?line CtxB = crypto:hmac_update(CtxA, Long1),
+    ?line CtxC = crypto:hmac_update(CtxB, Long2),
+    ?line CtxD = crypto:hmac_update(CtxC, Long3),
+    ?line Mac2 = crypto:hmac_final(CtxD),
+    ?line Exp2 = crypto:md5_mac(Key2, lists:flatten([Long1, Long2, Long3])), 
+    ?line m(Exp2, Mac2).
+    
+
+hmac_update_md5_io(doc) ->
+    ["Generate an MD5 HMAC using hmac_init, hmac_update, and hmac_final. "
+     "Expected values for examples are generated using crypto:md5_mac." ];
+hmac_update_md5_io(suite) ->
+    [];
+hmac_update_md5_io(Config) when is_list(Config) ->
+    ?line Key = ["A fine speach", "by a fine man!"],
+    ?line Data = "Sampl",
+    ?line Data2 = "e #1",
+    ?line Ctx = crypto:hmac_init(md5, Key),
+    ?line Ctx2 = crypto:hmac_update(Ctx, Data),
+    ?line Ctx3 = crypto:hmac_update(Ctx2, Data2),
+    ?line Mac = crypto:hmac_final(Ctx3),
+    ?line Exp = crypto:md5_mac(Key, lists:flatten([Data, Data2])), 
+    ?line m(Exp, Mac).
+    
+
+hmac_update_md5_n(doc) ->
+    ["Generate a shortened MD5 HMAC using hmac_init, hmac_update, and hmac_final. "
+     "Expected values for examples are generated using crypto:md5_mac." ];
+hmac_update_md5_n(suite) ->
+    [];
+hmac_update_md5_n(Config) when is_list(Config) ->
+    ?line Key = ["A fine speach", "by a fine man!"],
+    ?line Data = "Sampl",
+    ?line Data2 = "e #1",
+    ?line Ctx = crypto:hmac_init(md5, Key),
+    ?line Ctx2 = crypto:hmac_update(Ctx, Data),
+    ?line Ctx3 = crypto:hmac_update(Ctx2, Data2),
+    ?line Mac = crypto:hmac_final_n(Ctx3, 12),
+    ?line Exp = crypto:md5_mac_96(Key, lists:flatten([Data, Data2])), 
+    ?line m(Exp, Mac).
+    
 
 %%
 %%
@@ -439,9 +548,140 @@ des_cbc_iter(Config) when is_list(Config) ->
     ?line Cipher1 = crypto:des_cbc_encrypt(Key, IVec, Plain1),
     ?line IVec2 = crypto:des_cbc_ivec(Cipher1),
     ?line Cipher2 = crypto:des_cbc_encrypt(Key, IVec2, Plain2),
-    ?line Cipher = concat_binary([Cipher1, Cipher2]),
+    ?line Cipher = list_to_binary([Cipher1, Cipher2]),
     ?line m(Cipher, hexstr2bin("e5c7cdde872bf27c43e934008c389c"
 			             "0f683788499a7c05f6")).
+
+%%
+%%
+des_cfb(doc) ->
+    "Encrypt and decrypt according to CFB DES. and check the result. "
+	"Example is from FIPS-81.";
+des_cfb(suite) ->
+    [];
+des_cfb(Config) when is_list(Config) ->
+    ?line Key =  hexstr2bin("0123456789abcdef"),
+    ?line IVec = hexstr2bin("1234567890abcdef"),
+    ?line Plain = "Now is the",
+    ?line Cipher = crypto:des_cfb_encrypt(Key, IVec, Plain),
+    ?line m(Cipher, hexstr2bin("f31fda07011462ee187f")),
+    ?line m(list_to_binary(Plain),
+	    crypto:des_cfb_decrypt(Key, IVec, Cipher)).
+
+%%
+%%
+des_cfb_iter(doc) ->
+        "Encrypt and decrypt according to CFB DES in two steps, and "
+    "check the result. Example is from FIPS-81.";
+des_cfb_iter(suite) ->
+    [];
+des_cfb_iter(Config) when is_list(Config) ->
+    ?line Key =  hexstr2bin("0123456789abcdef"),
+    ?line IVec = hexstr2bin("1234567890abcdef"),
+    ?line Plain1 = "Now i",
+    ?line Plain2 = "s the",
+    ?line Cipher1 = crypto:des_cfb_encrypt(Key, IVec, Plain1),
+    ?line IVec2 = crypto:des_cfb_ivec(IVec, Cipher1),
+    ?line Cipher2 = crypto:des_cfb_encrypt(Key, IVec2, Plain2),
+    ?line Cipher = list_to_binary([Cipher1, Cipher2]),
+    ?line m(Cipher, hexstr2bin("f31fda07011462ee187f")).
+
+%%
+%%
+des_ecb(doc) ->
+    "Encrypt and decrypt according to ECB DES and check the result. "
+    "Example are from FIPS-81.";
+des_ecb(suite) ->
+    [];
+des_ecb(Config) when is_list(Config) ->
+    ?line Key =  hexstr2bin("0123456789abcdef"),
+    ?line Cipher1 = crypto:des_ecb_encrypt(Key, "Now is t"),
+    ?line m(Cipher1, hexstr2bin("3fa40e8a984d4815")),
+    ?line Cipher2 = crypto:des_ecb_encrypt(Key, "he time "),
+    ?line m(Cipher2, hexstr2bin("6a271787ab8883f9")),
+    ?line Cipher3 = crypto:des_ecb_encrypt(Key, "for all "),
+    ?line m(Cipher3, hexstr2bin("893d51ec4b563b53")),
+    ?line Cipher4 = crypto:des_ecb_decrypt(Key, hexstr2bin("3fa40e8a984d4815")),
+    ?line m(Cipher4, <<"Now is t">>),
+    ?line Cipher5 = crypto:des_ecb_decrypt(Key, hexstr2bin("6a271787ab8883f9")),
+    ?line m(Cipher5, <<"he time ">>),
+    ?line Cipher6 = crypto:des_ecb_decrypt(Key, hexstr2bin("893d51ec4b563b53")),
+    ?line m(Cipher6, <<"for all ">>).
+%%
+%%
+rc2_cbc(doc) ->
+    "Encrypt and decrypt according to RC2 CBC and check the result. "
+    "Example stripped out from public_key application test";
+rc2_cbc(Config) when is_list(Config) ->
+   
+    Key = <<146,210,160,124,215,227,153,239,227,17,222,140,3,93,27,191>>,
+    IV = <<72,91,135,182,25,42,35,210>>,
+
+    Cipher = <<36,245,206,158,168,230,58,69,148,137,32,192,250,41,237,181,181,251, 192,2,175,135,177,171,57,30,111,117,159,149,15,28,88,158,28,81,28,115, 85,219,241,82,117,222,91,85,73,117,164,25,182,52,191,64,123,57,26,19, 211,27,253,31,194,219,231,104,247,240,172,130,119,21,225,154,101,247, 32,216,42,216,133,169,78,22,97,27,227,26,196,224,172,168,17,9,148,55, 203,91,252,40,61,226,236,221,215,160,78,63,13,181,68,57,196,241,185, 207, 116,129,152,237,60,139,247,153,27,146,161,246,222,98,185,222,152, 187,135, 236,86,34,7,110,91,230,173,34,160,242,202,222,121,127,181,140, 101,203,195, 190,88,250,86,147,127,87,72,126,171,16,71,47,110,248,88, 14,29,143,161,152, 129,236,148,22,152,186,208,119,70,8,174,193,203,100, 193,203,200,117,102,242, 134,142,96,125,135,200,217,190,76,117,50,70, 209,186,101,241,200,91,40,193,54, 90,195,38,47,59,197,38,234,86,223,16, 51,253,204,129,20,171,66,21,241,26,135,216, 196,114,110,91,15,53,40, 164,201,136,113,95,247,51,181,208,241,68,168,98,151,36, 155,72,24,57, 42,191,14,125,204,10,167,214,233,138,115,125,234,121,134,227,26,247, 77,200,117,110,117,111,168,156,206,67,159,149,189,173,150,193,91,199, 216,153,22, 189,137,185,89,160,13,131,132,58,109,28,110,246,252,251,14, 232,91,38,52,29,101,188,69,123,50,0,130,178,93,73,239,118,7,77,35,59, 253,10,159,45,86,142,37,78,232,48>>,
+    Text = <<48,130,1,85,2,1,0,48,13,6,9,42,134,72,134,247,13,1,1,1,5,0,4,130,1,63,48,130, 1,59,2,1,0,2,65,0,222,187,252,44,9,214,27,173,162,169,70,47,36,34,78,84,204, 107,60,192,117,95,21,206,49,142,245,126,121,223,23,2,107,106,133,204,161,36, 40,2,114,69,4,93,242,5,42,50,154,47,154,211,209,123,120,161,5,114,173,155,34, 191,52,59,2,3,1,0,1,2,64,45,144,169,106,220,236,71,39,67,82,123,192,35,21,61, 143,13,110,150,180,12,142,210,40,39,109,70,125,132,51,6,66,159,134,112,85, 155,243,118,221,65,133,127,99,151,194,252,141,149,224,229,62,214,45,228,32, 184,85,67,14,228,161,184,161,2,33,0,255,202,240,131,130,57,49,224,115,255,83, 79,6,165,212,21,179,212,20,188,97,74,69,68,163,223,247,237,39,24,23,235,2,33, 0,222,234,48,36,33,23,219,45,59,136,55,245,143,29,165,48,255,131,207,146,131, 104,13,163,54,131,236,78,88,54,16,241,2,33,0,230,2,99,129,173,176,166,131, 241,106,143,76,9,107,70,41,121,185,228,39,124,200,159,62,216,169,5,180,111, 169,255,159,2,33,0,151,193,70,212,209,210,179,219,175,83,165,4,255,81,103,76, 92,39,24,0,222,132,208,3,244,241,10,198,171,54,227,129,2,32,43,250,20,31,16, 189,168,116,225,1,125,132,94,130,118,124,28,56,232,39,69,218,244,33,240,200, 205,9,215,101,35,135,7,7,7,7,7,7,7>>,
+    
+    Text = crypto:rc2_cbc_decrypt(Key, IV, Cipher),
+    Cipher = crypto:rc2_cbc_encrypt(Key, IV, Text).
+
+%%
+%%
+des3_cbc(doc) ->
+    "Encrypt and decrypt according to CBC 3DES, and check the result.";
+des3_cbc(suite) ->
+    [];
+des3_cbc(Config) when is_list(Config) ->
+    ?line Key1 = hexstr2bin("0123456789abcdef"),
+    ?line Key2 = hexstr2bin("fedcba9876543210"),
+    ?line Key3 = hexstr2bin("0f2d4b6987a5c3e1"),
+    ?line IVec = hexstr2bin("1234567890abcdef"),
+    ?line Plain = "Now is the time for all ",
+    ?line Cipher = crypto:des3_cbc_encrypt(Key1, Key2, Key3, IVec, Plain),
+    ?line m(Cipher, hexstr2bin("8a2667ee5577267cd9b1af2c5a0480"
+			       "0bac1ae66970fb2b89")),
+    ?line m(list_to_binary(Plain),
+	    crypto:des3_cbc_decrypt(Key1, Key2, Key3, IVec, Cipher)),
+    ?line Plain2 = "7654321 Now is the time for " ++ [0, 0, 0, 0],
+    ?line Cipher2 = crypto:des3_cbc_encrypt(Key1, Key2, Key3, IVec, Plain2),
+    ?line m(Cipher2, hexstr2bin("eb33ec6ede2c8e90f6877e77b95d5"
+				"4c83cee22907f7f0041ca1b7abe202bfafe")),
+    ?line m(list_to_binary(Plain2),
+	    crypto:des3_cbc_decrypt(Key1, Key2, Key3, IVec, Cipher2)),
+
+    ?line Key =  hexstr2bin("0123456789abcdef"),
+    ?line DESCipher = crypto:des3_cbc_encrypt(Key, Key, Key, IVec, Plain),
+    ?line m(DESCipher, hexstr2bin("e5c7cdde872bf27c43e934008c389c"
+			       "0f683788499a7c05f6")),
+    ?line m(list_to_binary(Plain),
+	    crypto:des3_cbc_decrypt(Key, Key, Key, IVec, DESCipher)),
+    ?line DESCipher2 = crypto:des3_cbc_encrypt(Key, Key, Key, IVec, Plain2),
+    ?line m(DESCipher2, hexstr2bin("b9916b8ee4c3da64b4f44e3cbefb9"
+				"9484521388fa59ae67d58d2e77e86062733")),
+    ?line m(list_to_binary(Plain2),
+	    crypto:des3_cbc_decrypt(Key, Key, Key, IVec, DESCipher2)).
+
+%%
+%%
+des3_cfb(doc) ->
+    "Encrypt and decrypt according to CFB 3DES, and check the result.";
+des3_cfb(suite) ->
+    [];
+des3_cfb(Config) when is_list(Config) ->
+    ?line Key1 = hexstr2bin("0123456789abcdef"),
+    ?line Key2 = hexstr2bin("fedcba9876543210"),
+    ?line Key3 = hexstr2bin("0f2d4b6987a5c3e1"),
+    ?line IVec = hexstr2bin("1234567890abcdef"),
+    ?line Plain = "Now is the time for all ",
+    ?line Cipher = crypto:des3_cfb_encrypt(Key1, Key2, Key3, IVec, Plain),
+    ?line m(Cipher, hexstr2bin("fc0ba7a20646ba53cc8bff263f0937"
+			       "1deab42a00666db02c")),
+    ?line m(list_to_binary(Plain),
+	    crypto:des3_cfb_decrypt(Key1, Key2, Key3, IVec, Cipher)),
+    ?line Plain2 = "7654321 Now is the time for " ++ [0, 0, 0, 0],
+    ?line Cipher2 = crypto:des3_cfb_encrypt(Key1, Key2, Key3, IVec, Plain2),
+    ?line m(Cipher2, hexstr2bin("8582c59ac01897422632c0accb66c"
+				"e413f5efab838fce7e41e2ba67705bad5bc")),
+    ?line m(list_to_binary(Plain2),
+	    crypto:des3_cfb_decrypt(Key1, Key2, Key3, IVec, Cipher2)).
 
 %%
 %%
@@ -593,6 +833,136 @@ aes_cbc_decrypt_iter(Key,IVec,Data, Acc) ->
     aes_cbc_decrypt_iter(Key,IVec2,Rest, <<Acc/binary, Plain/binary>>).
 
 
+aes_ctr(doc) -> "CTR";
+aes_ctr(Config) when is_list(Config) ->
+    %% Sample data from NIST Spec.Publ. 800-38A
+    %% F.5.1 CTR-AES128.Encrypt
+    Key128 = hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"),
+    Samples128 = [{"f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff", % Input Block
+                   "6bc1bee22e409f96e93d7e117393172a", % Plaintext
+                   "874d6191b620e3261bef6864990db6ce"},% Ciphertext
+                  {"f0f1f2f3f4f5f6f7f8f9fafbfcfdff00",
+                   "ae2d8a571e03ac9c9eb76fac45af8e51",
+                   "9806f66b7970fdff8617187bb9fffdff"},
+                  {"f0f1f2f3f4f5f6f7f8f9fafbfcfdff01",
+                   "30c81c46a35ce411e5fbc1191a0a52ef",
+                   "5ae4df3edbd5d35e5b4f09020db03eab"},
+                  {"f0f1f2f3f4f5f6f7f8f9fafbfcfdff02",
+                   "f69f2445df4f9b17ad2b417be66c3710",
+                   "1e031dda2fbe03d1792170a0f3009cee"}],
+    lists:foreach(fun(S) -> aes_ctr_do(Key128,S) end, Samples128),
+
+    %% F.5.3  CTR-AES192.Encrypt
+    Key192 =  hexstr2bin("8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b"),
+    Samples192 = [{"f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff", % Input Block
+                   "6bc1bee22e409f96e93d7e117393172a", % Plaintext
+                   "1abc932417521ca24f2b0459fe7e6e0b"},% Ciphertext
+                  {"f0f1f2f3f4f5f6f7f8f9fafbfcfdff00",
+                   "ae2d8a571e03ac9c9eb76fac45af8e51",
+                   "090339ec0aa6faefd5ccc2c6f4ce8e94"},
+                  {"f0f1f2f3f4f5f6f7f8f9fafbfcfdff01",
+                   "30c81c46a35ce411e5fbc1191a0a52ef",
+                   "1e36b26bd1ebc670d1bd1d665620abf7"},
+                  {"f0f1f2f3f4f5f6f7f8f9fafbfcfdff02",
+                   "f69f2445df4f9b17ad2b417be66c3710",
+                   "4f78a7f6d29809585a97daec58c6b050"}],    
+    lists:foreach(fun(S) -> aes_ctr_do(Key192,S) end, Samples192),
+
+    %% F.5.5  CTR-AES256.Encrypt
+    Key256 = hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"),
+    Samples256 = [{"f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff",  % Input Block
+                    "6bc1bee22e409f96e93d7e117393172a", % Plaintext
+                    "601ec313775789a5b7a7f504bbf3d228"},% Ciphertext
+                   {"f0f1f2f3f4f5f6f7f8f9fafbfcfdff00",
+                    "ae2d8a571e03ac9c9eb76fac45af8e51",
+                    "f443e3ca4d62b59aca84e990cacaf5c5"},
+                   {"f0f1f2f3f4f5f6f7f8f9fafbfcfdff01",
+                    "30c81c46a35ce411e5fbc1191a0a52ef",
+                    "2b0930daa23de94ce87017ba2d84988d"},
+                   {"f0f1f2f3f4f5f6f7f8f9fafbfcfdff02",
+                    "f69f2445df4f9b17ad2b417be66c3710",
+                    "dfc9c58db67aada613c2dd08457941a6"}],
+    lists:foreach(fun(S) -> aes_ctr_do(Key256,S) end, Samples256).
+
+
+aes_ctr_do(Key,{IVec, Plain, Cipher}) ->
+    ?line I = hexstr2bin(IVec),
+    ?line P = hexstr2bin(Plain),
+    ?line C = crypto:aes_ctr_encrypt(Key, I, P),
+    ?line m(C, hexstr2bin(Cipher)),
+    ?line m(P, crypto:aes_ctr_decrypt(Key, I, C)).
+
+aes_ctr_stream(doc) -> "CTR Streaming";
+aes_ctr_stream(Config) when is_list(Config) ->
+    %% Sample data from NIST Spec.Publ. 800-38A
+    %% F.5.1 CTR-AES128.Encrypt
+    Key128 = hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"),
+    Samples128 = [{"f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff",       % Input Block
+                   ["6bc1bee22e409f", "96e93d7e117393172a"], % Plaintext
+                   ["874d6191b620e3261bef6864990db6ce"]},    % Ciphertext
+                  {"f0f1f2f3f4f5f6f7f8f9fafbfcfdff00",
+                   ["ae2d8a57", "1e03ac9c", "9eb76fac", "45af8e51"],
+                   ["9806f66b7970fdff","8617187bb9fffdff"]},
+                  {"f0f1f2f3f4f5f6f7f8f9fafbfcfdff01",
+                   ["30c81c46a35c", "e411e5fbc119", "1a0a52ef"],
+                   ["5ae4df3e","dbd5d3","5e5b4f0902","0db03eab"]},
+                  {"f0f1f2f3f4f5f6f7f8f9fafbfcfdff02",
+                   ["f69f2445df4f9b17ad2b417be66c3710"],
+                   ["1e031dda2fbe","03d1792170a0","f3009cee"]}],
+    lists:foreach(fun(S) -> aes_ctr_stream_do(Key128,S) end, Samples128),
+
+    %% F.5.3  CTR-AES192.Encrypt
+    Key192 =  hexstr2bin("8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b"),
+    Samples192 = [{"f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff",   % Input Block
+                   ["6bc1bee22e409f96e93d7e117393172a"], % Plaintext
+                   ["1abc9324","17521c","a24f2b04","59fe7e6e0b"]},  % Ciphertext
+                  {"f0f1f2f3f4f5f6f7f8f9fafbfcfdff00",
+                   ["ae2d8a57", "1e03ac9c9eb76fac", "45af8e51"],
+                   ["090339ec0aa6faefd5ccc2c6f4ce8e94"]},
+                  {"f0f1f2f3f4f5f6f7f8f9fafbfcfdff01",
+                   ["30c81c46a35ce411", "e5fbc1191a0a52ef"],
+                   ["1e36b26bd1","ebc670d1bd1d","665620abf7"]},
+                  {"f0f1f2f3f4f5f6f7f8f9fafbfcfdff02",
+                   ["f69f2445", "df4f9b17ad", "2b417be6", "6c3710"],
+                   ["4f78a7f6d2980958","5a97daec58c6b050"]}],    
+    lists:foreach(fun(S) -> aes_ctr_stream_do(Key192,S) end, Samples192),
+
+    %% F.5.5  CTR-AES256.Encrypt
+    Key256 = hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"),
+    Samples256 = [{"f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff",         % Input Block
+                    ["6bc1bee22e409f96", "e93d7e117393172a"],  % Plaintext
+                    ["601ec313775789", "a5b7a7f504bbf3d228"]}, % Ciphertext
+                   {"f0f1f2f3f4f5f6f7f8f9fafbfcfdff00",
+                    ["ae2d8a571e03ac9c9eb76fac45af8e51"],
+                    ["f443e3ca","4d62b59aca84","e990cacaf5c5"]},
+                   {"f0f1f2f3f4f5f6f7f8f9fafbfcfdff01",
+                    ["30c81c46","a35ce411","e5fbc119","1a0a52ef"],
+                    ["2b0930daa23de94ce87017ba2d84988d"]},
+                   {"f0f1f2f3f4f5f6f7f8f9fafbfcfdff02",
+                    ["f69f2445df4f","9b17ad2b41","7be66c3710"],
+                    ["dfc9c5","8db67aada6","13c2dd08","457941a6"]}],
+    lists:foreach(fun(S) -> aes_ctr_stream_do(Key256,S) end, Samples256).
+
+
+aes_ctr_stream_do(Key,{IVec, PlainList, CipherList}) ->
+    ?line I = hexstr2bin(IVec),
+    ?line S = crypto:aes_ctr_stream_init(Key, I),
+    ?line C = aes_ctr_stream_do_iter(
+                S, PlainList, [], 
+                fun(S2,P) -> crypto:aes_ctr_stream_encrypt(S2, P) end),
+    ?line m(C, hexstr2bin(lists:flatten(CipherList))),
+    ?line P = aes_ctr_stream_do_iter(
+                S, CipherList, [], 
+                fun(S2,C2) -> crypto:aes_ctr_stream_decrypt(S2, C2) end),
+    ?line m(P, hexstr2bin(lists:flatten(PlainList))).
+
+aes_ctr_stream_do_iter(_State, [], Acc, _CipherFun) ->
+    iolist_to_binary(lists:reverse(Acc));
+aes_ctr_stream_do_iter(State, [Plain|Rest], Acc, CipherFun) ->
+    ?line P = hexstr2bin(Plain),
+    ?line {S2, C} = CipherFun(State, P),
+    aes_ctr_stream_do_iter(S2, Rest, [C | Acc], CipherFun).
+
 %%
 %%
 mod_exp_test(doc) ->
@@ -625,10 +995,44 @@ rand_uniform_aux_test(0) ->
 rand_uniform_aux_test(N) ->
     ?line L = N*1000,
     ?line H = N*100000+1,
+    ?line crypto_rand_uniform(L, H),
+    ?line crypto_rand_uniform(-L, L),
+    ?line crypto_rand_uniform(-H, -L),
+    ?line crypto_rand_uniform(-H, L),
+    ?line rand_uniform_aux_test(N-1).
+
+crypto_rand_uniform(L,H) ->
     ?line R1 = crypto:rand_uniform(L, H),
     ?line t(R1 >= L),
-    ?line t(R1 < H),
-    ?line rand_uniform_aux_test(N-1).
+    ?line t(R1 < H).
+
+
+%%
+%%
+strong_rand_test(doc) ->
+    "strong_rand_mpint and strong_random_bytes testing";
+strong_rand_test(suite) ->
+    [];
+strong_rand_test(Config) when is_list(Config) ->
+    strong_rand_aux_test(180),
+    ?line 10 = byte_size(crypto:strong_rand_bytes(10)).
+
+strong_rand_aux_test(0) ->
+    ?line t(crypto:strong_rand_mpint(0,0,0) =:= <<0,0,0,0>>),
+    ok;
+strong_rand_aux_test(1) ->
+    ?line t(crypto:erlint(crypto:strong_rand_mpint(1,0,1)) =:= 1),
+    ?line strong_rand_aux_test(0);
+strong_rand_aux_test(N) ->
+    ?line t(sru_length(crypto:strong_rand_mpint(N,-1,0)) =< N),
+    ?line t(sru_length(crypto:strong_rand_mpint(N,0,0)) =:= N),
+    ?line t(crypto:erlint(crypto:strong_rand_mpint(N,0,1)) band 1 =:= 1),
+    ?line t(crypto:erlint(crypto:strong_rand_mpint(N,1,0)) bsr (N - 2) =:= 2#11),
+    ?line strong_rand_aux_test(N-1).
+
+sru_length(Mpint) ->
+    I = crypto:erlint(Mpint),
+    length(erlang:integer_to_list(I, 2)).
 
 %%
 %%
@@ -746,18 +1150,18 @@ dsa_verify_test(Config) when is_list(Config) ->
 		crypto:mpint(Key)
 	       ],
     
-    ?line m(crypto:dss_verify(sized_binary(Msg), sized_binary(SigBlob),
+    ?line m(my_dss_verify(sized_binary(Msg), sized_binary(SigBlob),
 			      ValidKey), true),
 
     BadMsg  = one_bit_wrong(Msg),
-    ?line m(crypto:dss_verify(sized_binary(BadMsg), sized_binary(SigBlob),
+    ?line m(my_dss_verify(sized_binary(BadMsg), sized_binary(SigBlob),
 			      ValidKey), false),
     BadSig = one_bit_wrong(SigBlob),
-    ?line m(crypto:dss_verify(sized_binary(Msg), sized_binary(BadSig),
+    ?line m(my_dss_verify(sized_binary(Msg), sized_binary(BadSig),
 			      ValidKey), false),
     SizeErr = size(SigBlob) - 13,
     
-    BadArg = (catch crypto:dss_verify(sized_binary(Msg), <<SizeErr:32, SigBlob/binary>>,
+    BadArg = (catch my_dss_verify(sized_binary(Msg), <<SizeErr:32, SigBlob/binary>>,
 				      ValidKey)),
     ?line m(element(1,element(2,BadArg)), badarg),
     
@@ -767,9 +1171,12 @@ dsa_verify_test(Config) when is_list(Config) ->
 		  crypto:mpint(Key+17)
 		 ],
     
-    ?line m(crypto:dss_verify(sized_binary(Msg), sized_binary(SigBlob),
+    ?line m(my_dss_verify(sized_binary(Msg), sized_binary(SigBlob),
 			      InValidKey), false).
 
+
+one_bit_wrong(List) when is_list(List) ->
+    lists:map(fun(Bin) -> one_bit_wrong(Bin) end, List);
 one_bit_wrong(Bin) ->
     Half = size(Bin) div 2,
     <<First:Half/binary, Byte:8, Last/binary>> = Bin,
@@ -819,16 +1226,16 @@ dsa_sign_test(Config) when is_list(Config) ->
     ParamG = 18320614775012672475365915366944922415598782131828709277168615511695849821411624805195787607930033958243224786899641459701930253094446221381818858674389863050420226114787005820357372837321561754462061849169568607689530279303056075793886577588606958623645901271866346406773590024901668622321064384483571751669,
 
     Params = [crypto:mpint(ParamP), crypto:mpint(ParamQ), crypto:mpint(ParamG)],
-    ?line Sig1 = crypto:dss_sign(sized_binary(Msg), [Params, crypto:mpint(PrivKey)]),
+    ?line Sig1 = my_dss_sign(sized_binary(Msg), Params ++ [crypto:mpint(PrivKey)]),
     
-    ?line m(crypto:dss_verify(sized_binary(Msg), sized_binary(Sig1), 
-			      [Params, crypto:mpint(PubKey)]), true),
+    ?line m(my_dss_verify(sized_binary(Msg), Sig1, 
+			      Params ++ [crypto:mpint(PubKey)]), true),
     
-    ?line m(crypto:dss_verify(sized_binary(one_bit_wrong(Msg)), sized_binary(Sig1), 
-			      [Params, crypto:mpint(PubKey)]), false),
+    ?line m(my_dss_verify(sized_binary(one_bit_wrong(Msg)), Sig1, 
+			      Params ++ [crypto:mpint(PubKey)]), false),
     
-    ?line m(crypto:dss_verify(sized_binary(Msg), sized_binary(one_bit_wrong(Sig1)), 
-			      [Params, crypto:mpint(PubKey)]), false),
+    ?line m(my_dss_verify(sized_binary(Msg), one_bit_wrong(Sig1), 
+			      Params ++ [crypto:mpint(PubKey)]), false),
 
     %%?line Bad = crypto:dss_sign(sized_binary(Msg), [Params, crypto:mpint(PubKey)]),
     
@@ -942,14 +1349,29 @@ rc4_test(doc) ->
 rc4_test(suite) ->
     [];
 rc4_test(Config) when is_list(Config) ->
-    CT1 = <<"hej på dig">>,
-    R1 = <<71,112,14,44,140,33,212,144,155,47>>,
+    CT1 = <<"Yo baby yo">>,
+    R1 = <<118,122,68,110,157,166,141,212,139,39>>,
     K = "apaapa",
     R1 = crypto:rc4_encrypt(K, CT1),
     CT1 = crypto:rc4_encrypt(K, R1),
     CT2 = lists:seq(0, 255),
     R2 = crypto:rc4_encrypt(K, CT2),
     CT2 = binary_to_list(crypto:rc4_encrypt(K, R2)),
+    ok.
+
+rc4_stream_test(doc) ->
+    ["Test rc4 stream encryption ."];
+rc4_stream_test(suite) ->
+    [];
+rc4_stream_test(Config) when is_list(Config) ->
+    CT1 = <<"Yo ">>,
+    CT2 = <<"baby yo">>,
+    K = "apaapa",
+    State0 = crypto:rc4_set_key(K),
+    {State1, R1} = crypto:rc4_encrypt_with_state(State0, CT1),
+    {_State2, R2} = crypto:rc4_encrypt_with_state(State1, CT2),
+    R = list_to_binary([R1, R2]),
+    <<118,122,68,110,157,166,141,212,139,39>> = R,
     ok.
 
 blowfish_cfb64(doc) -> ["Test Blowfish encrypt/decrypt."];
@@ -1001,8 +1423,9 @@ worker_loop(0, _) ->
     ok;
 worker_loop(N, Config) ->
     Funcs = { md5, md5_update, md5_mac, md5_mac_io, sha, sha_update, des_cbc,
-	      aes_cfb, aes_cbc, des_cbc_iter, rand_uniform_test, 
-	      rsa_verify_test, exor_test, rc4_test, mod_exp_test },
+	      aes_cfb, aes_cbc, des_cbc_iter, rand_uniform_test, strong_rand_test,
+	      rsa_verify_test, exor_test, rc4_test, rc4_stream_test, mod_exp_test,
+              hmac_update_md5, hmac_update_sha, aes_ctr_stream },
 
     F = element(random:uniform(size(Funcs)),Funcs),
     %%io:format("worker ~p calling ~p\n",[self(),F]),
@@ -1108,3 +1531,24 @@ zero_bin(N) when is_integer(N) ->
     <<0:N8/integer>>;
 zero_bin(B) when is_binary(B) ->
     zero_bin(size(B)).
+
+my_dss_verify(Data,[Sign|Tail],Key) ->
+    Res = my_dss_verify(Data,sized_binary(Sign),Key),
+    case Tail of
+        [] ->  Res;
+        _ -> ?line Res = my_dss_verify(Data,Tail,Key)
+    end;       
+my_dss_verify(Data,Sign,Key) ->
+    ?line Res = crypto:dss_verify(Data, Sign, Key),
+    ?line Res = crypto:dss_verify(sha, Data, Sign, Key),
+    ?line <<_:32,Raw/binary>> = Data,
+    ?line Res = crypto:dss_verify(none, crypto:sha(Raw), Sign, Key),
+    Res.
+
+my_dss_sign(Data,Key) ->
+    ?line S1 = crypto:dss_sign(Data, Key),
+    ?line S2 = crypto:dss_sign(sha, Data, Key),
+    ?line <<_:32,Raw/binary>> = Data,
+    ?line S3 = crypto:dss_sign(none, crypto:sha(Raw), Key),
+    [S1,S2,S3].
+

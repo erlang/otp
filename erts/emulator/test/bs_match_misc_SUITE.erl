@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,18 +18,38 @@
 %%
 -module(bs_match_misc_SUITE).
 
--export([all/1,bound_var/1,bound_tail/1,t_float/1,little_float/1,sean/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
+	 bound_var/1,bound_tail/1,t_float/1,little_float/1,sean/1,
 	 kenneth/1,encode_binary/1,native/1,happi/1,
 	 size_var/1,wiger/1,x0_context/1,huge_float_field/1,
-	 writable_binary_matched/1,otp_7198/1]).
+	 writable_binary_matched/1,otp_7198/1,unordered_bindings/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
-all(suite) ->
-    [bound_var,bound_tail,t_float,little_float,sean,
-     kenneth,encode_binary,native,happi,
-     size_var,wiger,x0_context,huge_float_field,
-     writable_binary_matched,otp_7198].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [bound_var, bound_tail, t_float, little_float, sean,
+     kenneth, encode_binary, native, happi, size_var, wiger,
+     x0_context, huge_float_field, writable_binary_matched,
+     otp_7198, unordered_bindings].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 bound_var(doc) -> "Test matching of bound variables.";
 bound_var(Config) when is_list(Config) ->
@@ -532,6 +552,16 @@ otp_7198_scan(<<C, Rest/binary>>, TokAcc) when
                 _ ->
                         otp_7198_scan(Rest, [{'KEYWORD', C} | TokAcc])
         end.
+
+unordered_bindings(Config) when is_list(Config) ->
+    {<<1,2,3,4>>,<<42,42>>,<<3,3,3>>} =
+	unordered_bindings(4, 2, 3, <<1,2,3,4, 42,42, 3,3,3, 3>>),
+    ok.
+
+unordered_bindings(CompressedLength, HashSize, PadLength, T) ->
+    <<Content:CompressedLength/binary,Mac:HashSize/binary,
+     Padding:PadLength/binary,PadLength>> = T,
+    {Content,Mac,Padding}.
 
 
 id(I) -> I.

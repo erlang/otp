@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -21,7 +21,7 @@
  
 %% encoding / decoding of BER  
 
--export([decode/1, decode/2, match_tags/2, encode/1]). 
+-export([decode/1, decode/2, match_tags/2, encode/1, encode/2]). 
 -export([fixoptionals/2, cindex/3,
 	 list_to_record/2,
 	 encode_tag_val/1,
@@ -49,11 +49,13 @@
 	 decode_tag_and_length/1]).
 
 -export([encode_open_type/1,encode_open_type/2, 
-	 decode_open_type/2,decode_open_type_as_binary/2]).
+	 decode_open_type/2,decode_open_type/3,
+	 decode_open_type_as_binary/2,
+	 decode_open_type_as_binary/3]).
 
 -export([decode_primitive_incomplete/2,decode_selective/2]).
- 
--include("asn1_records.hrl"). 
+
+-export([is_nif_loadable/0]).
  
 % the encoding of class of tag bits 8 and 7 
 -define(UNIVERSAL,   0). 
@@ -125,15 +127,28 @@
 % encode(Tlv) ->
 %     encode_constructed(Tlv).
 
-encode([Tlv]) ->
-    encode(Tlv);
-encode({TlvTag,TlvVal}) when is_list(TlvVal) ->
+encode(Tlv) ->
+    encode(Tlv,erlang).
+
+encode(Tlv,_) when is_binary(Tlv) ->
+    Tlv;
+encode([Tlv],Method) ->
+    encode(Tlv,Method);
+encode(Tlv, nif) ->
+    case is_nif_loadable() of
+	true ->
+	    asn1rt_nif:encode_ber_tlv(Tlv);
+	false ->
+	    encode_erl(Tlv)
+    end;
+encode(Tlv, _) ->
+    encode_erl(Tlv).
+
+encode_erl({TlvTag,TlvVal}) when is_list(TlvVal) ->
     %% constructed form of value
     encode_tlv(TlvTag,TlvVal,?CONSTRUCTED);
-encode({TlvTag,TlvVal}) ->
-    encode_tlv(TlvTag,TlvVal,?PRIMITIVE);
-encode(Bin) when is_binary(Bin) ->
-    Bin.
+encode_erl({TlvTag,TlvVal}) ->
+    encode_tlv(TlvTag,TlvVal,?PRIMITIVE).
 
 encode_tlv(TlvTag,TlvVal,Form) ->
     Tag = encode_tlv_tag(TlvTag,Form),
@@ -152,70 +167,61 @@ encode_tlv_val(Bin) ->
     {Bin,size(Bin)}.
 
 encode_tlv_list([Tlv|Tlvs],Acc) ->
-    EncTlv = encode(Tlv),
+    EncTlv = encode_erl(Tlv),
     encode_tlv_list(Tlvs,[EncTlv|Acc]);
 encode_tlv_list([],Acc) ->
     Bin=list_to_binary(lists:reverse(Acc)),
     {Bin,size(Bin)}.
 
-%% asn1-1.6.8.1
-%% decode(B,driver) ->
-%%     case catch port_control(asn1_driver_port,2,B) of
-%% 	Bin when is_binary(Bin) ->
-%% 	    binary_to_term(Bin);
-%% 	List when is_list(List) -> handle_error(List,B);
-%% 	{'EXIT',{badarg,Reason}} ->
-%% 	    asn1rt_driver_handler:load_driver(),
-%% 	    receive
-%% 		driver_ready ->
-%% 		    case catch port_control(asn1_driver_port,2,B) of
-%% 			Bin2 when is_binary(Bin2) -> binary_to_term(Bin2);
-%% 			List when is_list(List) -> handle_error(List,B);
-%% 			Error -> exit(Error)
-%% 		    end;
-%% 		{error,Error} -> % error when loading driver
-%% 		    %% the driver could not be loaded
-%% 		    exit(Error);
-%% 		Error={port_error,Reason} ->
-%% 		    exit(Error)
-%% 	    end;
-%% 	{'EXIT',Reason} ->
-%% 	    exit(Reason)
-%%     end.
+decode(B) ->
+    decode(B, erlang).
 
-%% asn1-1.6.9
-decode(B,driver) ->
-    case catch control(?TLV_DECODE,B) of
- 	Bin when is_binary(Bin) ->
- 	    binary_to_term(Bin);
- 	List when is_list(List) -> handle_error(List,B);
- 	{'EXIT',{badarg,_Reason}} ->
- 	    case asn1rt:load_driver() of
- 		ok ->
- 		    case control(?TLV_DECODE,B) of
- 			Bin when is_binary(Bin) -> binary_to_term(Bin);
- 			List when is_list(List) -> handle_error(List,B)
- 		    end;
- 		Err ->
- 		    Err
- 	    end
+%% asn1-1.7
+decode(B, nif) ->
+    case is_nif_loadable() of
+	true ->
+	    case asn1rt_nif:decode_ber_tlv(B) of
+		{error, Reason} -> handle_error(Reason, B);
+		Else -> Else
+	    end;
+	false ->
+	    decode(B)
+    end;
+decode(B,erlang) when is_binary(B) ->
+    decode_primitive(B);
+decode(Tlv,erlang) ->
+    {Tlv,<<>>}.
+
+%% Have to check this since asn1 is not guaranteed to be available
+is_nif_loadable() ->
+    case application:get_env(asn1, nif_loadable) of
+	{ok,R} ->
+	    R;
+	undefined ->
+	    case catch code:load_file(asn1rt_nif) of
+		{module, asn1rt_nif} ->
+		    application:set_env(asn1, nif_loadable, true),
+		    true;
+		_Else ->
+		    application:set_env(asn1, nif_loadable, false),
+		    false
+	    end
     end.
-
 
 handle_error([],_)->
     exit({error,{asn1,{"memory allocation problem"}}});
-handle_error([$1|_],L) -> % error in driver
+handle_error({$1,_},L) -> % error in nif
     exit({error,{asn1,L}});
-handle_error([$2|T],L) -> % error in driver due to wrong tag
+handle_error({$2,T},L) -> % error in nif due to wrong tag
     exit({error,{asn1,{"bad tag after byte:",error_pos(T),L}}});
-handle_error([$3|T],L) -> % error in driver due to length error
+handle_error({$3,T},L) -> % error in driver due to length error
     exit({error,{asn1,{"bad length field after byte:",
 			     error_pos(T),L}}});
-handle_error([$4|T],L) -> % error in driver due to indefinite length error
+handle_error({$4,T},L) -> % error in driver due to indefinite length error
     exit({error,{asn1,
 		 {"indefinite length without end bytes after byte:",
 		  error_pos(T),L}}});
-handle_error([$5|T],L) -> % error in driver due to indefinite length error
+handle_error({$5,T},L) -> % error in driver due to indefinite length error
     exit({error,{asn1,{"bad encoded value after byte:",
 			     error_pos(T),L}}});
 handle_error(ErrL,L) ->
@@ -228,16 +234,6 @@ error_pos([B])->
 error_pos([B|Bs]) ->
     BS = 8 * length(Bs),
     B bsl BS + error_pos(Bs).
-%% asn1-1.6.9
-control(Cmd, Data) ->
-    Port = asn1rt_driver_handler:client_port(),
-    erlang:port_control(Port, Cmd, Data).
-
-decode(Bin) when is_binary(Bin) ->
-    decode_primitive(Bin);
-decode(Tlv) -> % assume it is a tlv
-    {Tlv,<<>>}.
-
 
 decode_primitive(Bin) ->
     {Form,TagNo,V,Rest} = decode_tag_and_length(Bin),
@@ -796,20 +792,24 @@ encode_open_type(Val,Tag) ->
 %% Value = binary with decoded data (which must be decoded again as some type)
 %%
 decode_open_type(Tlv, TagIn) ->
+    decode_open_type(Tlv, TagIn, erlang).
+decode_open_type(Tlv, TagIn, Method) ->
     case match_tags(Tlv,TagIn) of
 	Bin when is_binary(Bin) ->
-	    {InnerTlv,_} = decode(Bin),
+	    {InnerTlv,_} = decode(Bin,Method),
 	    InnerTlv;
 	TlvBytes -> TlvBytes
     end.
 
  
-decode_open_type_as_binary(Tlv,TagIn)->
+decode_open_type_as_binary(Tlv, TagIn) ->
+    decode_open_type_as_binary(Tlv, TagIn, erlang).
+decode_open_type_as_binary(Tlv,TagIn, Method)->
     case match_tags(Tlv,TagIn) of
 	V when is_binary(V) ->
 	    V;
-	[Tlv2] -> encode(Tlv2);
-	Tlv2 -> encode(Tlv2)
+	[Tlv2] -> encode(Tlv2, Method);
+	Tlv2 -> encode(Tlv2, Method)
     end.
  
 %%=============================================================================== 
@@ -1056,7 +1056,7 @@ encode_real(C,Val, TagIn) when is_tuple(Val); is_list(Val) ->
 
 
 encode_real(C,Val) ->
-    ?RT_COMMON:encode_real(C,Val). 
+    asn1rt_ber_bin:encode_real(C,Val). 
  
  
 %%============================================================================ 
@@ -1081,7 +1081,7 @@ decode_real_notag(Buffer) ->
 	    {_T,_V} ->
 		exit({error,{asn1,{real_not_in_primitive_form,Buffer}}})
 	end,
-    {Val,_Rest,Len} = ?RT_COMMON:decode_real(Buffer,Len),
+    {Val,_Rest,Len} = asn1rt_ber_bin:decode_real(Buffer,Len),
     Val.
 %%    exit({error,{asn1, {unimplemented,real}}}).
 %%  decode_real2(Buffer, Form, size(Buffer)).
@@ -1577,14 +1577,12 @@ e_object_identifier(V) when is_tuple(V) ->
 e_object_identifier([E1, E2 | Tail]) -> 
     Head = 40*E1 + E2,  % wow! 
     {H,Lh} = mk_object_val(Head),
-    {R,Lr} = enc_obj_id_tail(Tail, [], 0),
+    {R,Lr} = lists:mapfoldl(fun enc_obj_id_tail/2,0,Tail),
     {[H|R], Lh+Lr}.
 
-enc_obj_id_tail([], Ack, Len) ->
-    {lists:reverse(Ack), Len};
-enc_obj_id_tail([H|T], Ack, Len) ->
+enc_obj_id_tail(H, Len) ->
     {B, L} = mk_object_val(H),
-    enc_obj_id_tail(T, [B|Ack], Len+L).
+    {B,Len+L}.
 
 
 %%%%%%%%%%% 

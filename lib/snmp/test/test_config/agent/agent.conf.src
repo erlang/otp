@@ -1,0 +1,19 @@
+%% This file defines the Agent local configuration info
+%% The data is inserted into the snmpEngine* variables defined
+%% in SNMP-FRAMEWORK-MIB, and the intAgent* variables defined
+%% in OTP-SNMPEA-MIB.
+%% Each row is a 2-tuple:
+%% {AgentVariable, Value}.
+%% For example
+%% {intAgentUDPPort, 4000}.
+%% The ip address for the agent is sent as id in traps.
+%% {intAgentIpAddress, [127,42,17,5]}.
+%% {snmpEngineID, "agentEngine"}.
+%% {snmpEngineMaxMessageSize, 484}.
+%%
+
+
+{intAgentUDPPort, 4000}.
+{intAgentIpAddress, %ADDR%}.
+{snmpEngineID, %ENGINE_ID%}.
+{snmpEngineMaxMessageSize, 484}.

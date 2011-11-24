@@ -30,6 +30,104 @@
   </header>
   <p>This document describes the changes made to the Parsetools application.</p>
 
+<section><title>Parsetools 2.0.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Dialyzer warnings have been removed. </p>
+          <p>
+	    Own Id: OTP-8318</p>
+        </item>
+        <item>
+          <p>
+	    yecc: add warnings_as_errors option(Thanks to Tuncer
+	    ayaz)</p>
+          <p>
+	    Own Id: OTP-9376</p>
+        </item>
+        <item>
+          <p>
+	    Fix incorrect order of pseudo variables in yecc example</p>
+          <p>
+	    The example is for converting from infix to prefix. This
+	    change uses to correct ordering of the triplet. (Thanks
+	    to Garret Smith)</p>
+          <p>
+	    Own Id: OTP-9484</p>
+        </item>
+        <item>
+          <p>
+	    Implement or fix -Werror option</p>
+          <p>
+	    If -Werror is enabled and there are warnings no output
+	    file is written. Also make sure that error/warning
+	    reporting is consistent. (Thanks to Tuncer Ayaz)</p>
+          <p>
+	    Own Id: OTP-9536</p>
+        </item>
+        <item>
+	    <p> XML files have been corrected. </p>
+          <p>
+	    Own Id: OTP-9550 Aux Id: OTP-9541 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Parsetools 2.0.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> The formating of Yecc's error messages has been
+	    improved. (Thanks to Joe Armstrong.) </p>
+          <p>
+	    Own Id: OTP-8919</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Parsetools 2.0.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Running HiPE-compiled Yecc parsers no longer results
+	    in a <c>function_clause</c> error.</p>
+          <p>
+	    Own Id: OTP-8771</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Parsetools 2.0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Yecc failed to report reduce/reduce conflicts where
+	    one of the reductions involved the root symbol. This bug
+	    has been fixed. (Thanks to Manolis Papadakis.)</p>
+          <p>
+	    Own Id: OTP-8483</p>
+        </item>
+        <item>
+	    <p>A bug introduced in Parsetools 1.4.4 (R12B-2) has been
+	    fixed. (Thanks to Manolis Papadakis.)</p>
+          <p>
+	    Own Id: OTP-8486</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Parsetools 2.0.2</title>
 
     <section><title>Improvements and New Features</title>

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -35,25 +35,44 @@
 
 -define(DEFAULT_TIMEOUT, ?t:minutes(5)).
 
--export([all/1, init_per_testcase/2, fin_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 init_per_testcase/2, end_per_testcase/2]).
 
 -export([search_for_core_files/1, core_files/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
     
 
 init_per_testcase(Case, Config) ->
     Dog = ?t:timetrap(?DEFAULT_TIMEOUT),
     [{testcase, Case}, {watchdog, Dog} |Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),
     ok.
 
-all(doc) -> [];
-all(suite) ->
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
     [core_files].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 
 core_files(doc) ->
@@ -147,9 +166,12 @@ core_search_conf(RunByTS, DBTop, XDir) ->
 
 file_inspect(#core_search_conf{file = File}, Core) ->
     FRes0 = os:cmd(File ++ " " ++ Core),
-    FRes = case regexp:match(FRes0, Core) of
-	       {match, S, E} ->
+    FRes = case string:str(FRes0, Core) of
+	       0 ->
+		   FRes0;
+	       S ->
 		   L = length(FRes0),
+		   E = length(Core),
 		   case S of
 		       1 ->
 			   lists:sublist(FRes0, E+1, L+1);
@@ -159,19 +181,13 @@ file_inspect(#core_search_conf{file = File}, Core) ->
 			       " "
 			       ++
 			       lists:sublist(FRes0, E+1, L+1)
-		   end;
-	       _ -> FRes0
+		   end
 	   end,
-    case regexp:match(FRes, "[Tt][Ee][Xx][Tt]") of
+    case re:run(FRes, "text|ascii", [caseless,{capture,none}]) of
+	match ->
+	    not_a_core;
 	nomatch ->
-	    case regexp:match(FRes, "[Aa][Ss][Cc][Ii][Ii]") of
-		nomatch ->
-		    probably_a_core;
-		_ ->
-		    not_a_core
-	    end;
-	_ ->
-	    not_a_core
+	    probably_a_core
     end.
 
 mk_readable(F) ->
@@ -253,6 +269,8 @@ core_file_search(#core_search_conf{search_dir = Base,
 				     core_cand(Conf, Core, Cores);
 				 "core." ++ _ ->
 				     core_cand(Conf, Core, Cores);
+				 Bin when is_binary(Bin) -> %Icky filename; ignore
+				     Cores;
 				 BName ->
 				     case lists:suffix(".core", BName) of
 					 true -> core_cand(Conf, Core, Cores);

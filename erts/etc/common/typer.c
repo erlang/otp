@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2006-2009. All Rights Reserved.
+ * Copyright Ericsson AB 2006-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -175,7 +175,7 @@ main(int argc, char** argv)
 static void
 push_words(char* src)
 {
-    char sbuf[1024];
+    char sbuf[MAXPATHLEN];
     char* dst;
 
     dst = sbuf;
@@ -307,7 +307,7 @@ error(char* format, ...)
     va_list ap;
     
     va_start(ap, format);
-    vsprintf(sbuf, format, ap);
+    erts_vsnprintf(sbuf, sizeof(sbuf), format, ap);
     va_end(ap);
     fprintf(stderr, "typer: %s\n", sbuf);
     exit(1);
@@ -335,6 +335,9 @@ get_default_emulator(char* progname)
 {
     char sbuf[MAXPATHLEN];
     char* s;
+
+    if (strlen(progname) >= sizeof(sbuf))
+        return ERL_NAME;
 
     strcpy(sbuf, progname);
     for (s = sbuf+strlen(sbuf); s >= sbuf; s--) {

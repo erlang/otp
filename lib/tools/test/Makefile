@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2010. All Rights Reserved.
+# Copyright Ericsson AB 1997-2011. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -39,7 +39,8 @@ INSTALL_PROGS= $(TARGET_FILES)
 
 EMAKEFILE=Emakefile
 
-SPEC_FILES= tools.spec tools.spec.win
+SPEC_FILES= tools.spec
+COVER_FILE = tools.cover
 
 # ----------------------------------------------------
 # Release directory specification
@@ -84,8 +85,9 @@ release_spec: opt
 
 release_tests_spec: make_emakefile
 	$(INSTALL_DIR) $(RELSYSDIR)
-	$(INSTALL_DATA) $(SPEC_FILES) $(EMAKEFILE) $(ERL_FILES) $(RELSYSDIR)
-	chmod -f -R u+w $(RELSYSDIR)
+	$(INSTALL_DATA) $(SPEC_FILES) $(COVER_FILE) $(EMAKEFILE) \
+		$(ERL_FILES) $(RELSYSDIR)
+	chmod -R u+w $(RELSYSDIR)
 	@tar cf - *_SUITE_data | (cd $(RELSYSDIR); tar xf -)
 
 release_docs_spec:

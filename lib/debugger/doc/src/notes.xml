@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2010</year>
+      <year>2004</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -31,6 +31,75 @@
   
   <p>This document describes the changes made to the Debugger
     application.</p>
+
+<section><title>Debugger 3.2.6</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fix issues reported by dialyzer.</p>
+          <p>
+	    Own Id: OTP-9107</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Debugger 3.2.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Miscellaneous updates</p>
+          <p>
+	    Own Id: OTP-8976</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Debugger 3.2.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Type specs have been added/cleaned up. (Thanks to Kostis
+	    Sagonas.)</p>
+          <p>
+	    Own Id: OTP-8757</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Debugger 3.2.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Warnings due to new autoimported BIFs removed</p>
+          <p>
+	    Own Id: OTP-8674 Aux Id: OTP-8579 </p>
+        </item>
+        <item>
+          <p>
+	    The predefined builtin type tid() has been removed.
+	    Instead, ets:tid() should be used.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-8687</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Debugger 3.2.2</title>
 

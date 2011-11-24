@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1999-2009. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2010. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -53,20 +53,18 @@ BIF_RETTYPE os_timestamp_0(BIF_ALIST_0)
 }
 
 
-Eterm
-os_getpid_0(Process* p)
+BIF_RETTYPE os_getpid_0(BIF_ALIST_0)
 {
      char pid_string[21]; /* enough for a 64 bit number */
      int n;
      Eterm* hp;
      sys_get_pid(pid_string); /* In sys.c */
      n = sys_strlen(pid_string);
-     hp = HAlloc(p, n*2);
+     hp = HAlloc(BIF_P, n*2);
      BIF_RET(buf_to_intlist(&hp, pid_string, n, NIL));
 }
 
-Eterm
-os_getenv_0(Process* p)
+BIF_RETTYPE os_getenv_0(BIF_ALIST_0)
 {
     GETENV_STATE state;
     char *cp;
@@ -80,7 +78,7 @@ os_getenv_0(Process* p)
     ret = NIL;
     while ((cp = getenv_string(&state)) != NULL) {
 	len = strlen(cp);
-	hp = HAlloc(p, len*2+2);
+	hp = HAlloc(BIF_P, len*2+2);
 	str = buf_to_intlist(&hp, cp, len, NIL);
 	ret = CONS(hp, str, ret);
     }
@@ -90,9 +88,11 @@ os_getenv_0(Process* p)
     return ret;
 }
 
-Eterm
-os_getenv_1(Process* p, Eterm key)
+
+BIF_RETTYPE os_getenv_1(BIF_ALIST_1)
 {
+    Process* p = BIF_P;
+    Eterm key = BIF_ARG_1;
     Eterm str;
     int len, res;
     char *key_str, *val;
@@ -145,9 +145,11 @@ os_getenv_1(Process* p, Eterm key)
     BIF_RET(str);
 }
 
-Eterm
-os_putenv_2(Process* p, Eterm key, Eterm value)
+BIF_RETTYPE os_putenv_2(BIF_ALIST_2)
 {
+    Process* p = BIF_P;
+    Eterm key = BIF_ARG_1;
+    Eterm value = BIF_ARG_2;
     char def_buf[1024];
     char *buf = NULL;
     int sep_ix, i, key_len, value_len, tot_len;

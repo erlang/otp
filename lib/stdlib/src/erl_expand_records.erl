@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2005-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %% Purpose : Expand records into tuples.
@@ -35,8 +35,12 @@
 		 trecords=sets:new(), % Typed records
 		 uses_types=false,    % Are there -spec or -type in the module
                  strict_ra=[],        % strict record accesses
-                 checked_ra=[]        % succesfully accessed records
+                 checked_ra=[]        % successfully accessed records
                 }).
+
+-spec(module(AbsForms, CompileOptions) -> AbsForms when
+      AbsForms :: [erl_parse:abstract_form()],
+      CompileOptions :: [compile:option()]).
 
 %% Is is assumed that Fs is a valid list of forms. It should pass
 %% erl_lint without errors.
@@ -95,8 +99,9 @@ forms([F | Fs0], St0) ->
 forms([], St) -> {[],St}.
 
 clauses([{clause,Line,H0,G0,B0} | Cs0], St0) ->
-    {H,St1} = head(H0, St0),
-    {G,St2} = guard(G0, St1),
+    {H1,St1} = head(H0, St0),
+    {G1,St2} = guard(G0, St1),
+    {H,G} = optimize_is_record(H1, G1, St2),
     {B,St3} = exprs(B0, St2),
     {Cs,St4} = clauses(Cs0, St3),
     {[{clause,Line,H,G,B} | Cs],St4};
@@ -191,7 +196,6 @@ guard_test1(Test, St) ->
 
 normalise_test(atom, 1)      -> is_atom;
 normalise_test(binary, 1)    -> is_binary;
-normalise_test(constant, 1)  -> is_constant;
 normalise_test(float, 1)     -> is_float;
 normalise_test(function, 1)  -> is_function;
 normalise_test(integer, 1)   -> is_integer;
@@ -346,9 +350,6 @@ expr({'fun',Line,{clauses,Cs0}}, St0) ->
     {{'fun',Line,{clauses,Cs}},St1};
 expr({call,Line,{atom,_,is_record},[A,{atom,_,Name}]}, St) ->
     record_test(Line, A, Name, St);
-expr({'cond',Line,Cs0}, St0) ->
-    {Cs,St1} = clauses(Cs0, St0),
-    {{'cond',Line,Cs},St1};
 expr({call,Line,{remote,_,{atom,_,erlang},{atom,_,is_record}},
       [A,{atom,_,Name}]}, St) ->
     record_test(Line, A, Name, St);
@@ -803,6 +804,138 @@ imported(F, A, St) ->
         {ok,Mod} -> {yes,Mod};
         error -> no
     end.
+
+%%%
+%%% Replace is_record/3 in guards with matching if possible.
+%%%
+
+optimize_is_record(H0, G0, #exprec{compile=Opts}) ->
+    case opt_rec_vars(G0) of
+	[] ->
+	    {H0,G0};
+	Rs0 ->
+	    case lists:member(no_is_record_optimization, Opts) of
+		true ->
+		    {H0,G0};
+		false ->
+		    {H,Rs} = opt_pattern_list(H0, Rs0),
+		    G = opt_remove(G0, Rs),
+		    {H,G}
+	    end
+    end.
+
+
+%% opt_rec_vars(Guards) -> Vars.
+%%  Search through the guard expression, looking for
+%%  variables referenced in those is_record/3 calls that
+%%  will fail the entire guard if they evaluate to 'false'
+%%
+%%  In the following code
+%%
+%%      f(X, Y, Z) when is_record(X, r1) andalso
+%%                           (is_record(Y, r2) orelse is_record(Z, r3))
+%%
+%%  the entire guard will be false if the record test for
+%%  X fails, and the clause can be rewritten to:
+%%
+%%      f({r1,...}=X, Y, Z) when true andalso
+%%                              (is_record(Y, r2) or is_record(Z, r3))
+%%
+opt_rec_vars([G|Gs]) ->
+    Rs = opt_rec_vars_1(G, orddict:new()),
+    opt_rec_vars(Gs, Rs);
+opt_rec_vars([]) -> orddict:new().
+
+opt_rec_vars([G|Gs], Rs0) ->
+    Rs1 = opt_rec_vars_1(G, orddict:new()),
+    Rs = ordsets:intersection(Rs0, Rs1),
+    opt_rec_vars(Gs, Rs);
+opt_rec_vars([], Rs) -> Rs.
+
+opt_rec_vars_1([T|Ts], Rs0) ->
+    Rs = opt_rec_vars_2(T, Rs0),
+    opt_rec_vars_1(Ts, Rs);
+opt_rec_vars_1([], Rs) -> Rs.
+
+opt_rec_vars_2({op,_,'and',A1,A2}, Rs) ->
+    opt_rec_vars_1([A1,A2], Rs);
+opt_rec_vars_2({op,_,'andalso',A1,A2}, Rs) ->
+    opt_rec_vars_1([A1,A2], Rs);
+opt_rec_vars_2({op,_,'orelse',Arg,{atom,_,fail}}, Rs) ->
+    %% Since the second argument guarantees failure,
+    %% it is safe to inspect the first argument.
+    opt_rec_vars_2(Arg, Rs);
+opt_rec_vars_2({call,_,{remote,_,{atom,_,erlang},{atom,_,is_record}},
+		[{var,_,V},{atom,_,Tag},{integer,_,Sz}]}, Rs) ->
+    orddict:store(V, {Tag,Sz}, Rs);
+opt_rec_vars_2({call,_,{atom,_,is_record},
+		[{var,_,V},{atom,_,Tag},{integer,_,Sz}]}, Rs) ->
+    orddict:store(V, {Tag,Sz}, Rs);
+opt_rec_vars_2(_, Rs) -> Rs.
+
+opt_pattern_list(Ps, Rs) ->
+    opt_pattern_list(Ps, Rs, []).
+
+opt_pattern_list([P0|Ps], Rs0, Acc) ->
+    {P,Rs} = opt_pattern(P0, Rs0),
+    opt_pattern_list(Ps, Rs, [P|Acc]);
+opt_pattern_list([], Rs, Acc) ->
+    {reverse(Acc),Rs}.
+
+opt_pattern({var,_,V}=Var, Rs0) ->
+    case orddict:find(V, Rs0) of
+	{ok,{Tag,Sz}} ->
+	    Rs = orddict:store(V, {remove,Tag,Sz}, Rs0),
+	    {opt_var(Var, Tag, Sz),Rs};
+	_ ->
+	    {Var,Rs0}
+    end;
+opt_pattern({cons,Line,H0,T0}, Rs0) ->
+    {H,Rs1} = opt_pattern(H0, Rs0),
+    {T,Rs} = opt_pattern(T0, Rs1),
+    {{cons,Line,H,T},Rs};
+opt_pattern({tuple,Line,Es0}, Rs0) ->
+    {Es,Rs} = opt_pattern_list(Es0, Rs0),
+    {{tuple,Line,Es},Rs};
+opt_pattern({match,Line,Pa0,Pb0}, Rs0) ->
+    {Pa,Rs1} = opt_pattern(Pa0, Rs0),
+    {Pb,Rs} = opt_pattern(Pb0, Rs1),
+    {{match,Line,Pa,Pb},Rs};
+opt_pattern(P, Rs) -> {P,Rs}.
+
+opt_var({var,Line,_}=Var, Tag, Sz) ->
+    Rp = record_pattern(2, -1, ignore, Sz, Line, [{atom,Line,Tag}]),
+    {match,Line,{tuple,Line,Rp},Var}.
+
+opt_remove(Gs, Rs) ->
+    [opt_remove_1(G, Rs) || G <- Gs].
+
+opt_remove_1(Ts, Rs) ->
+    [opt_remove_2(T, Rs) || T <- Ts].
+
+opt_remove_2({op,L,'and'=Op,A1,A2}, Rs) ->
+    {op,L,Op,opt_remove_2(A1, Rs),opt_remove_2(A2, Rs)};
+opt_remove_2({op,L,'andalso'=Op,A1,A2}, Rs) ->
+    {op,L,Op,opt_remove_2(A1, Rs),opt_remove_2(A2, Rs)};
+opt_remove_2({op,L,'orelse',A1,A2}, Rs) ->
+    {op,L,'orelse',opt_remove_2(A1, Rs),A2};
+opt_remove_2({call,Line,{remote,_,{atom,_,erlang},{atom,_,is_record}},
+	      [{var,_,V},{atom,_,Tag},{integer,_,Sz}]}=A, Rs) ->
+    case orddict:find(V, Rs) of
+	{ok,{remove,Tag,Sz}} ->
+	    {atom,Line,true};
+	_ ->
+	    A
+    end;
+opt_remove_2({call,Line,{atom,_,is_record},
+	      [{var,_,V},{atom,_,Tag},{integer,_,Sz}]}=A, Rs) ->
+    case orddict:find(V, Rs) of
+	{ok,{remove,Tag,Sz}} ->
+	    {atom,Line,true};
+	_ ->
+	    A
+    end;
+opt_remove_2(A, _) -> A.
 
 neg_line(L) ->
     erl_parse:set_line(L, fun(Line) -> -abs(Line) end).

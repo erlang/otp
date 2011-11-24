@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2003</year><year>2009</year>
+      <year>2003</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>Common Test</title>
@@ -131,10 +131,17 @@
 	<type>
 	<v> Info = {timetrap,Time} | {require,Required} | 
 	    {require,Name,Required} | {userdata,UserData} |
-	    {silent_connections,Conns} | {stylesheet,CSSFile}</v>
-	<v> Time = MilliSec | {seconds,integer()} | {minutes,integer()}
-	  | {hours,integer()}</v>
+	    {silent_connections,Conns} | {stylesheet,CSSFile} | 
+	    {ct_hooks, CTHs}</v>
+	<v> Time = TimeVal | TimeFunc</v>
+	<v> TimeVal = MilliSec | {seconds,integer()} | {minutes,integer()} |
+	    {hours,integer()}</v>
+	<v> TimeFunc = {Mod,Func,Args} | Fun</v>
 	<v> MilliSec = integer()</v>
+	<v> Mod = atom()</v>
+	<v> Func = atom()</v>
+	<v> Args = list()</v>
+	<v> Fun = fun()</v>
 	<v> Required = Key | {Key,SubKeys}</v>
 	<v> Key = atom()</v>
 	<v> SubKeys = SubKey | [SubKey]</v>
@@ -143,6 +150,9 @@
 	<v> UserData = term()</v>
 	<v> Conns = [atom()]</v>
 	<v> CSSFile = string()</v>
+	<v> CTHs = [CTHModule | {CTHModule, CTHInitArgs} | {CTHModule, CTHInitArgs, CTHPriority}]</v>
+	<v> CTHModule = atom()</v>
+	<v> CTHInitArgs = term()</v>
 	</type>
 	<desc>	
 	  
@@ -157,7 +167,9 @@
 	  test case is allowed to take (including <c>init_per_testcase/2</c>
 	  and <c>end_per_testcase/2</c>). If the timetrap time is
 	  exceeded, the test case fails with reason
-	  <c>timetrap_timeout</c>.</p>
+	  <c>timetrap_timeout</c>. If a <c>TimeFunc</c> function is specified,
+	  it will be called initially and must return a value on
+	  <c>TimeVal</c> format.</p>
 	
 	<p>The <c>require</c> tag specifies configuration variables
 	  that are required by test cases in the suite. If the required
@@ -170,6 +182,10 @@
 	<p>With <c>userdata</c>, it is possible for the user to
 	  specify arbitrary test suite related information which can be 
 	  read by calling <c>ct:userdata/2</c>.</p>
+
+	  <p>The <c>ct_hooks</c> tag specifies which 
+	  <seealso marker="ct_hooks_chapter">Common Test Hooks</seealso>
+	  are to be run together with this suite.</p>
 	
 	<p>Other tuples than the ones defined will simply be ignored.</p>
 
@@ -240,7 +256,7 @@
 	</type>
 	<desc>	
 	  
-	  <p> MANDATORY (only if one or more groups are defined) </p>
+	  <p> OPTIONAL </p>
 	  
 	  <p>This function is called before execution of a test case group.
 	  It typically contains initialization which is common for
@@ -271,7 +287,7 @@
 	</type>
 	
 	<desc>	
-	  <p> MANDATORY (only if one or more groups are defined) </p>
+	  <p> OPTIONAL </p>
 	  
 	  <p>This function is called after the execution of a test case group is finished.
 	    It is meant to be used for cleaning up after <c>init_per_group/2</c>.
@@ -288,7 +304,7 @@
     </func>
 
       <func>
-	<name>Module:init_per_testcase(TestCase, Config) -> NewConfig | {skip,Reason}</name>
+	<name>Module:init_per_testcase(TestCase, Config) -> NewConfig | {fail,Reason} | {skip,Reason}</name>
 	<fsummary>Test case initialization.</fsummary>
 	<type>
 	  <v> TestCase = atom()</v>
@@ -303,10 +319,12 @@
 	  
 	  <p>This function is called before each test case. The
 	  <c>TestCase</c> argument is the name of the test case, and
-	  <c>Config</c> is the configuration which can be modified
-	  here. Whatever is returned from this function is given as
-	  <c>Config</c> to the test case. If <c>{skip,Reason}</c> is returned, 
-	  the test case will be skipped and <c>Reason</c> printed
+	  <c>Config</c> (list of key-value tuples) is the configuration
+	  data that can be modified here. The <c>NewConfig</c> list returned
+	  from this function is given as <c>Config</c> to the test case.
+	  If <c>{fail,Reason}</c> is returned, the test case is
+	  marked as failed without being executed. If <c>{skip,Reason}</c> is
+	  returned, the test case will be skipped and <c>Reason</c> printed
 	  in the overview log for the suite.</p>
     </desc>
     </func>
@@ -337,15 +355,21 @@
       </func>
       
     <func>
-      <name>Module:testcase() -> [Info] </name>
+      <name>Module:Testcase() -> [Info] </name>
       <fsummary>Test case info function. </fsummary>
       <type>
 	<v> Info = {timetrap,Time} | {require,Required} | 
 	    {require,Name,Required} | {userdata,UserData} |
 	    {silent_connections,Conns}</v>
-	<v> Time = MilliSec | {seconds,integer()} | {minutes,integer()}
-	  | {hours,integer()}</v>
+	<v> Time = TimeVal | TimeFunc</v>
+	<v> TimeVal = MilliSec | {seconds,integer()} | {minutes,integer()} |
+	    {hours,integer()}</v>
+	<v> TimeFunc = {Mod,Func,Args} | Fun</v>
 	<v> MilliSec = integer()</v>
+	<v> Mod = atom()</v>
+	<v> Func = atom()</v>
+	<v> Args = list()</v>
+	<v> Fun = fun()</v>
 	<v> Required = Key | {Key,SubKeys}</v>
 	<v> Key = atom()</v>
 	<v> SubKeys = SubKey | [SubKey]</v>
@@ -368,7 +392,9 @@
 	  exceeded, the test case fails with reason
 	  <c>timetrap_timeout</c>. <c>init_per_testcase/2</c>
 	  and <c>end_per_testcase/2</c> are included in the
-	  timetrap time.</p>
+	  timetrap time. If a <c>TimeFunc</c> function is specified,
+	  it will be called before the test case (or <c>init_per_testcase/2</c>)
+	  and must return a value on <c>TimeVal</c> format.</p>
 	
 	<p>The <c>require</c> tag specifies configuration variables
 	  that are required by the test case. If the required
@@ -396,7 +422,7 @@
       
     
     <func>
-	<name>Module:testcase(Config) ->  void() | {skip,Reason} | {comment,Comment} | {save_config,SaveConfig} | {skip_and_save,Reason,SaveConfig} | exit() </name>
+	<name>Module:Testcase(Config) ->  void() | {skip,Reason} | {comment,Comment} | {save_config,SaveConfig} | {skip_and_save,Reason,SaveConfig} | exit() </name>
       <fsummary>A test case</fsummary>
       <type>
 	<v> Config = SaveConfig = [{Key,Value}]</v>

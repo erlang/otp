@@ -2192,12 +2192,12 @@ decode_tag_and_length(Buffer) ->
 %% Check if valid tag
 %%
 %% check_if_valid_tag(Tag, List_of_valid_tags, OptOrMand) -> name of the tag
-%%===============================================================================
+%%============================================================================
 
 check_if_valid_tag(<<0,0,_/binary>>,_,_) ->
     asn1_EOC;
 check_if_valid_tag(<<>>, _, OptOrMand) ->
-    check_if_valid_tag2(false,[],[],OptOrMand);
+    check_if_valid_tag2_error([], OptOrMand);
 check_if_valid_tag(Bytes, ListOfTags, OptOrMand) when is_binary(Bytes) ->
     {Tag, _, _} = decode_tag(Bytes),
     check_if_valid_tag(Tag, ListOfTags, OptOrMand);
@@ -2217,7 +2217,6 @@ check_if_valid_tag(Tag, ListOfTags, OptOrMand) ->
 
 check_if_valid_tag2(_Class_TagNo, [], Tag, MandOrOpt) ->
     check_if_valid_tag2_error(Tag,MandOrOpt);
-
 check_if_valid_tag2(Class_TagNo, [{TagName,TagList}|T], Tag, OptOrMand) ->
     case check_if_valid_tag_loop(Class_TagNo, TagList) of
 	true ->
@@ -2226,7 +2225,7 @@ check_if_valid_tag2(Class_TagNo, [{TagName,TagList}|T], Tag, OptOrMand) ->
 	    check_if_valid_tag2(Class_TagNo, T, Tag, OptOrMand)
     end.
 
--spec(check_if_valid_tag2_error/2 :: (term(),atom()) -> no_return()).
+-spec check_if_valid_tag2_error(term(), atom()) -> no_return().
 
 check_if_valid_tag2_error(Tag,mandatory) ->
     exit({error,{asn1,{invalid_tag,Tag}}});

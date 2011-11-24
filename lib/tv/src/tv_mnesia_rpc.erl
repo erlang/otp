@@ -87,6 +87,8 @@ chk(Result) ->
 	    throw(mnesia_not_started);
 	{badrpc, _Reason} ->
 	    throw(mnesia_not_started);
+	{'EXIT', {undef, {mnesia,_Fcn,_Args,_}}} ->
+	    throw(mnesia_not_started);
 	{'EXIT', {undef, {mnesia,_Fcn,_Args}}} ->
 	    throw(mnesia_not_started);
 	

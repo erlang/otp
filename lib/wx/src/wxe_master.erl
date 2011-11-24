@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%%-------------------------------------------------------------------
 %%% File    : wxe_server.erl
@@ -28,19 +28,18 @@
 -behaviour(gen_server).
 
 %% API
--export([start/0, init_port/0]).
+-export([start/0, init_port/0, init_opengl/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
 	 terminate/2, code_change/3]).
--compile(export_all).
 
 -record(state, {cb_port,  %% Callback port and to erlang messages goes via it.
 		users,    %% List of wx servers, needed ??
 		driver}). %% Driver name so wx_server can create it's own port
 
+-include("wxe.hrl").
 -include("gen/wxe_debug.hrl").
--include("gen/gl_debug.hrl").
 
 -define(DRIVER, "wxe_driver").
 
@@ -75,6 +74,14 @@ init_port() ->
     receive wx_port_initiated -> ok end,
     {Port, CBport}.
 
+
+%%--------------------------------------------------------------------
+%% Initlizes the opengl library
+%%--------------------------------------------------------------------
+init_opengl() ->
+    GLLib = wxe_util:wxgl_dl(),
+    wxe_util:call(?WXE_INIT_OPENGL, <<(list_to_binary(GLLib))/binary, 0:8>>).
+
 %%====================================================================
 %% gen_server callbacks
 %%====================================================================
@@ -88,7 +95,7 @@ init_port() ->
 %%--------------------------------------------------------------------
 init([]) ->
     DriverName = ?DRIVER,
-    PrivDir = priv_dir(),
+    PrivDir = wxe_util:priv_dir(?DRIVER),
     erlang:group_leader(whereis(init), self()),
     case catch erlang:system_info(smp_support) of
 	true -> ok;
@@ -121,20 +128,19 @@ init([]) ->
     process_flag(trap_exit, true),
     DriverWithArgs = DriverName ++ " " ++ code:priv_dir(wx) ++ [0],
     
-    case catch open_port({spawn, DriverWithArgs},[binary]) of
-	{'EXIT', Err} -> 
-	    erlang:error({open_port,Err});
-	Port ->
-	    wx_debug_info = ets:new(wx_debug_info, [named_table]),
-	    wx_non_consts = ets:new(wx_non_consts, [named_table]),
-	    true = ets:insert(wx_debug_info, wxdebug_table()),
-	    true = ets:insert(wx_debug_info, gldebug_table()),
-	    spawn_link(fun() -> debug_ping(Port) end),
-	    receive 
-		{wx_consts, List} ->
-		    true = ets:insert(wx_non_consts, List)
-	    end,
-	    {ok, #state{cb_port=Port, driver=DriverName, users=gb_sets:empty()}}
+    try
+	Port = open_port({spawn, DriverWithArgs},[binary]),
+	wx_debug_info = ets:new(wx_debug_info, [named_table]),
+	wx_non_consts = ets:new(wx_non_consts, [named_table]),
+	true = ets:insert(wx_debug_info, wxdebug_table()),
+	spawn_link(fun() -> debug_ping(Port) end),
+	receive
+	    {wx_consts, List} ->
+		true = ets:insert(wx_non_consts, List)
+	end,
+	{ok, #state{cb_port=Port, driver=DriverName, users=gb_sets:empty()}}
+    catch _:Err ->
+	    error({Err, "Could not initiate graphics"})
     end.
 
 %%--------------------------------------------------------------------
@@ -206,108 +212,9 @@ code_change(_OldVsn, State, _Extra) ->
 
 %%%%%%%%%%%% INTERNAL %%%%%%%%%%%%%%%%%%%%%%%%
 
-%% If you want anything done, do it yourself. 
-
-priv_dir() ->
-    Type = erlang:system_info(system_architecture),
-    {file, Path} = code:is_loaded(?MODULE),
-    Priv = case filelib:is_regular(Path) of
-	       true ->
-		   Beam = filename:join(["ebin/",atom_to_list(?MODULE) ++ ".beam"]),
-		   filename:join(strip(Path, Beam), "priv");
-	       false ->
-		   code:priv_dir(wx)
-	   end,
-    try 
-	{ok, Dirs0} = file:list_dir(Priv),
-	Dirs1 = split_dirs(Dirs0),
-	Dirs  = lists:reverse(lists:sort(Dirs1)),    
-	
-	Best = best_dir(hd(split_dirs([Type])),Dirs, Priv),
-	filename:join(Priv, Best)
-    catch _:_ ->
-	    error_logger:format("WX ERROR: Could not find suitable \'~s\' for ~s in: ~s~n", 
-				[?DRIVER, Type, Priv]),
-	    erlang:error({load_driver, "No driver found"})
-    end.
-    
-best_dir(Dir, Dirs0, Priv) ->
-    Dirs = [{D,D} || D <- Dirs0],
-    best_dir(Dir, Dirs, [], Priv).
-
-best_dir(Pre, [{[],_}|R], Acc, Priv) -> %% Empty skip'em
-    best_dir(Pre, R, Acc, Priv);
-best_dir(Pre, [{Pre,Dir}|R], Acc, Priv) -> 
-    Real = dir_app(lists:reverse(Dir)),
-    case file:list_dir(filename:join(Priv,Real)) of
-	{ok, Fs} ->
-	    case lists:any(fun(File) -> filename:rootname(File) =:= ?DRIVER end, Fs) of
-		true ->  Real; %% Found dir and it contains a driver
-		false -> best_dir(Pre, R, Acc, Priv)
-	    end;
-	_ ->
-	    best_dir(Pre, R, Acc, Priv)
-    end;
-best_dir(Pre, [{[_|F],Dir}|R], Acc, Priv) ->
-    best_dir(Pre, R, [{F,Dir}|Acc], Priv);
-best_dir(_Pre, [], [],_) -> throw(no_dir);  %% Nothing found
-best_dir([_|Pre], [], Acc, Priv) ->
-    best_dir(Pre, lists:reverse(Acc), [], Priv);
-best_dir([], _, _,_) -> throw(no_dir).  %% Nothing found
-
-split_dirs(Dirs0) ->
-    ToInt = fun(Str) ->
-		    try 
-			list_to_integer(Str)
-		    catch _:_ -> Str
-		    end
-	    end,
-    Split = fun(Dir) ->
-		    Toks = tokens(Dir,".-"),
-		    lists:reverse([ToInt(Str) || Str <- Toks])
-	    end,
-    lists:map(Split,Dirs0).
-
-dir_app([]) -> [];
-dir_app([Dir]) -> Dir;
-dir_app(Dir) ->
-    dir_app2(Dir).
-dir_app2([Int]) when is_integer(Int) ->
-    integer_to_list(Int);
-dir_app2([Str]) when is_list(Str) ->
-    Str;
-dir_app2([Head|Rest]) when is_integer(Head) ->
-    integer_to_list(Head) ++ dir_app2(Rest);
-dir_app2([Head|Rest]) when is_list(Head) ->
-    Head ++ dir_app2(Rest).
-    
-strip(Src, Src) ->
-    [];
-strip([H|R], Src) ->
-    [H| strip(R, Src)].
-
-
 debug_ping(Port) ->
     timer:sleep(1*333),    
     _R = (catch erlang:port_call(Port, 0, [])),
 %%    io:format("Erlang ping ~p ~n", [_R]),
     debug_ping(Port).
 
-tokens(S,Seps) ->
-    tokens1(S, Seps, []).
-
-tokens1([C|S], Seps, Toks) ->
-    case lists:member(C, Seps) of
-        true -> tokens1(S, Seps, [[C]|Toks]);
-        false -> tokens2(S, Seps, Toks, [C])
-    end;
-tokens1([], _Seps, Toks) ->
-    lists:reverse(Toks).
-
-tokens2([C|S], Seps, Toks, Cs) ->
-    case lists:member(C, Seps) of
-        true -> tokens1(S, Seps, [[C], lists:reverse(Cs) |Toks]);
-        false -> tokens2(S, Seps, Toks, [C|Cs])
-    end;
-tokens2([], _Seps, Toks, Cs) ->
-    lists:reverse([lists:reverse(Cs)|Toks]).

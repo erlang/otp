@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,25 +19,61 @@
 
 -module(global_group_SUITE).
 
--export([all/1]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
+	 init_per_suite/1, end_per_suite/1]).
 -export([start_gg_proc/1, no_gg_proc/1, no_gg_proc_sync/1, compatible/1, 
 	 one_grp/1, one_grp_x/1, two_grp/1, hidden_groups/1, test_exit/1]).
 -export([init/1, init/2, init2/2, start_proc/1, start_proc_rereg/1]).
 
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 %-compile(export_all).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -define(NODES, [node()|nodes()]).
 
 -define(UNTIL(Seq), loop_until_true(fun() -> Seq end)).
 
-all(suite) -> 
-    [start_gg_proc, no_gg_proc, no_gg_proc_sync, 
-     compatible, one_grp, one_grp_x, two_grp, test_exit,
-     hidden_groups].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [start_gg_proc, no_gg_proc, no_gg_proc_sync, compatible,
+     one_grp, one_grp_x, two_grp, test_exit, hidden_groups].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
+
+init_per_suite(Config) ->
+
+    %% Copied from test_server_ctrl ln 647, we have to do this here as
+    %% the test_server only does this when run without common_test
+    global:sync(),
+    case global:whereis_name(test_server) of
+	undefined ->
+	    io:format(user, "Registering test_server globally!~n",[]),
+	    global:register_name(test_server, whereis(test_server_ctrl));
+	Pid ->
+	    case node() of
+		N when N == node(Pid) ->
+		    io:format(user, "Warning: test_server already running!\n", []),
+		    global:re_register_name(test_server,self());
+		_ ->
+		    ok
+	    end
+    end,
+    Config.
+
+end_per_suite(_Config) ->
+    global:unregister_name(test_server),
+    ok.
 
 -define(TESTCASE, testcase_name).
 -define(testcase, ?config(?TESTCASE, Config)).
@@ -46,7 +82,7 @@ init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     Dog=?t:timetrap(?t:minutes(5)),
     [{?TESTCASE, Case}, {watchdog, Dog}|Config].
 
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     Dog=?config(watchdog, Config),
     ?t:timetrap_cancel(Dog).
 
@@ -64,7 +100,7 @@ start_gg_proc(Config) when is_list(Config) ->
 
     ?line Dir = ?config(priv_dir, Config),
     ?line File = filename:join(Dir, "global_group.config"),
-    ?line {ok, Fd}=file:open(File, write),
+    ?line {ok, Fd}=file:open(File, [write]),
     [Ncp1,Ncp2,Ncp3] = node_names([cp1, cp2, cp3], Config),
     ?line config(Fd, Ncp1, Ncp2, Ncp3, "cpx", "cpy", "cpz", "cpq"),
 
@@ -99,7 +135,7 @@ no_gg_proc(Config) when is_list(Config) ->
 
     ?line Dir = ?config(priv_dir, Config),
     ?line File = filename:join(Dir, "no_global_group.config"),
-    ?line {ok, Fd} = file:open(File, write),
+    ?line {ok, Fd} = file:open(File, [write]),
     ?line config_no(Fd),
 
     ?line NN = node_name(atom_to_list(node())),
@@ -164,8 +200,8 @@ no_gg_proc(Config) when is_list(Config) ->
     ?line Own_nodes_should = [node(), Cp1nn, Cp2nn, Cp3nn, 
 			      Cpxnn, Cpynn, Cpznn],
     ?line Own_nodes = rpc:call(Cp3, global_group, own_nodes, []), 
-    ?line true = (Own_nodes -- Own_nodes_should) =:= [],
-    ?line true = (Own_nodes_should -- Own_nodes) =:= [],
+    ?line [] = (Own_nodes -- Own_nodes_should),
+    ?line [] = (Own_nodes_should -- Own_nodes),
     
     ?line Pid2 = rpc:call(Cp1, global_group, send, [test2, {ping, self()}]),
     ?line receive
@@ -272,7 +308,7 @@ no_gg_proc_sync(Config) when is_list(Config) ->
 
     ?line Dir = ?config(priv_dir, Config),
     ?line File = filename:join(Dir, "no_global_group_sync.config"),
-    ?line {ok, Fd} = file:open(File, write),
+    ?line {ok, Fd} = file:open(File, [write]),
 
     [Ncp1,Ncp2,Ncp3,Ncpx,Ncpy,Ncpz] = 
         node_names([cp1,cp2,cp3,cpx,cpy,cpz], Config),
@@ -339,8 +375,8 @@ no_gg_proc_sync(Config) when is_list(Config) ->
     ?line Own_nodes_should = [node(), Cp1nn, Cp2nn, Cp3nn, 
 			      Cpxnn, Cpynn, Cpznn],
     ?line Own_nodes = rpc:call(Cp3, global_group, own_nodes, []), 
-    ?line true = (Own_nodes -- Own_nodes_should) =:= [],
-    ?line true = (Own_nodes_should -- Own_nodes) =:= [],
+    ?line [] = (Own_nodes -- Own_nodes_should),
+    ?line [] = (Own_nodes_should -- Own_nodes),
     
     ?line Pid2 = rpc:call(Cp1, global_group, send, [test2, {ping, self()}]),
     ?line receive
@@ -446,7 +482,7 @@ compatible(Config) when is_list(Config) ->
 
     ?line Dir = ?config(priv_dir, Config),
     ?line File = filename:join(Dir, "global_group_comp.config"),
-    ?line {ok, Fd} = file:open(File, write),
+    ?line {ok, Fd} = file:open(File, [write]),
 
     [Ncp1,Ncp2,Ncp3,Ncpx,Ncpy,Ncpz] = 
         node_names([cp1,cp2,cp3,cpx,cpy,cpz], Config),
@@ -513,8 +549,8 @@ compatible(Config) when is_list(Config) ->
     ?line Own_nodes_should = [node(), Cp1nn, Cp2nn, Cp3nn, 
 			      Cpxnn, Cpynn, Cpznn],
     ?line Own_nodes = rpc:call(Cp3, global_group, own_nodes, []), 
-    ?line true = (Own_nodes -- Own_nodes_should) =:= [],
-    ?line true = (Own_nodes_should -- Own_nodes) =:= [],
+    ?line [] = (Own_nodes -- Own_nodes_should),
+    ?line [] = (Own_nodes_should -- Own_nodes),
     
     ?line Pid2 = rpc:call(Cp1, global_group, send, [test2, {ping, self()}]),
     ?line receive
@@ -619,7 +655,7 @@ one_grp(Config) when is_list(Config) ->
 
     ?line Dir = ?config(priv_dir, Config),
     ?line File = filename:join(Dir, "global_group.config"),
-    ?line {ok, Fd} = file:open(File, write),
+    ?line {ok, Fd} = file:open(File, [write]),
     [Ncp1,Ncp2,Ncp3] = node_names([cp1, cp2, cp3], Config),
     ?line config(Fd, Ncp1, Ncp2, Ncp3, "cpx", "cpy", "cpz", "cpq"),
 
@@ -706,7 +742,7 @@ one_grp_x(Config) when is_list(Config) ->
 
     ?line Dir = ?config(priv_dir, Config),
     ?line File = filename:join(Dir, "global_group.config"),
-    ?line {ok, Fd} = file:open(File, write),
+    ?line {ok, Fd} = file:open(File, [write]),
     [Ncp1,Ncp2,Ncp3] = node_names([cp1, cp2, cp3], Config),
     ?line config(Fd, Ncp1, Ncp2, Ncp3, "cpx", "cpy", "cpz", "cpq"),
 
@@ -768,7 +804,7 @@ two_grp(Config) when is_list(Config) ->
 
     ?line Dir = ?config(priv_dir, Config),
     ?line File = filename:join(Dir, "global_group.config"),
-    ?line {ok, Fd} = file:open(File, write),
+    ?line {ok, Fd} = file:open(File, [write]),
 
     [Ncp1,Ncp2,Ncp3,Ncpx,Ncpy,Ncpz,Ncpq] = 
         node_names([cp1,cp2,cp3,cpx,cpy,cpz,cpq], Config),
@@ -1068,7 +1104,7 @@ hidden_groups(Config) when is_list(Config) ->
 
     ?line Dir = ?config(priv_dir, Config),
     ?line File = filename:join(Dir, "global_group.config"),
-    ?line {ok, Fd} = file:open(File, write),
+    ?line {ok, Fd} = file:open(File, [write]),
 
     [Ncp1,Ncp2,Ncp3,Ncpx,Ncpy,Ncpz,Ncpq] = 
         node_names([cp1,cp2,cp3,cpx,cpy,cpz,cpq], Config),

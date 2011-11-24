@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -22,7 +22,7 @@
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -define(TIMEOUT, 600000).
 
@@ -37,11 +37,15 @@
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    crypto:start(),
-    ssl:start(),
-    make_certs:all(?config(data_dir, Config), ?config(priv_dir, Config)),
-    ssl_test_lib:cert_options(Config).
-
+    try crypto:start() of
+	ok ->
+	    application:start(public_key),
+	    ssl:start(),
+	    make_certs:all(?config(data_dir, Config), ?config(priv_dir, Config)),
+	    ssl_test_lib:cert_options(Config)
+    catch _:_  ->
+	    {skip, "Crypto did not start"}
+    end.
 %%--------------------------------------------------------------------
 %% Function: end_per_suite(Config) -> _
 %% Config - [tuple()]
@@ -50,7 +54,7 @@ init_per_suite(Config) ->
 %%--------------------------------------------------------------------
 end_per_suite(_Config) ->
     ssl:stop(),
-    crypto:stop().
+    application:stop(crypto).
 
 %%--------------------------------------------------------------------
 %% Function: init_per_testcase(TestCase, Config) -> Config
@@ -95,24 +99,30 @@ end_per_testcase(_TestCase, Config) ->
 %%   Name of a test case.
 %% Description: Returns a list of all test cases in this test suite
 %%--------------------------------------------------------------------
-all(doc) -> 
-    ["Test payload over ssl in all socket modes, active, active_once,"
-     "and passive mode."];
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all(suite) -> 
-    [server_echos_passive_small, server_echos_active_once_small, 
-     server_echos_active_small,
-     client_echos_passive_small, client_echos_active_once_small, 
-     client_echos_active_small,
-     server_echos_passive_big, server_echos_active_once_big, 
-     server_echos_active_big,
-     client_echos_passive_big, client_echos_active_once_big, 
-     client_echos_active_big,
-     server_echos_passive_huge, server_echos_active_once_huge, 
-     server_echos_active_huge,
-     client_echos_passive_huge, client_echos_active_once_huge, 
-     client_echos_active_huge    
-    ].
+all() -> 
+    [server_echos_passive_small,
+     server_echos_active_once_small,
+     server_echos_active_small, client_echos_passive_small,
+     client_echos_active_once_small,
+     client_echos_active_small, server_echos_passive_big,
+     server_echos_active_once_big, server_echos_active_big,
+     client_echos_passive_big, client_echos_active_once_big,
+     client_echos_active_big, server_echos_passive_huge,
+     server_echos_active_once_huge, server_echos_active_huge,
+     client_echos_passive_huge,
+     client_echos_active_once_huge, client_echos_active_huge].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 %% Test cases starts here.
 %%--------------------------------------------------------------------

@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2002-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2002-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -39,28 +39,36 @@ init_per_testcase(undef_funcs = Case, Config) ->
 init_per_testcase(Case, Config) ->
     megaco_test_lib:init_per_testcase(Case, Config).
 
-fin_per_testcase(Case, Config) ->
-    megaco_test_lib:fin_per_testcase(Case, Config).
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-all(suite) ->
-    Cases = 
-	[
-	 fields,
-	 modules,
-	 exportall,
-	 app_depend,
-         undef_funcs
-	],
-    {req, [], {conf, app_init, Cases, app_fin}}.
+end_per_testcase(Case, Config) ->
+    megaco_test_lib:end_per_testcase(Case, Config).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-app_init(suite) -> [];
-app_init(doc) -> [];
-app_init(Config) when is_list(Config) ->
+all() -> 
+    [
+     fields, 
+     modules, 
+     exportall, 
+     app_depend,
+     undef_funcs
+    ].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+init_per_suite(suite) -> [];
+init_per_suite(doc) -> [];
+init_per_suite(Config) when is_list(Config) ->
     case is_app(megaco) of
 	{ok, AppFile} ->
 	    io:format("AppFile: ~n~p~n", [AppFile]),
@@ -87,14 +95,18 @@ is_app(App) ->
     case file:consult(File) of
 	{ok, [{application, App, AppFile}]} ->
 	    {ok, AppFile};
+	{error, {LineNo, Mod, Code}} ->
+	    IoList = lists:concat([File, ":", LineNo, ": ",
+				   Mod:format_error(Code)]),
+	    {error, list_to_atom(lists:flatten(IoList))};
 	Error ->
 	    {error, {invalid_format, Error}}
     end.
 
 
-app_fin(suite) -> [];
-app_fin(doc) -> [];
-app_fin(Config) when is_list(Config) ->
+end_per_suite(suite) -> [];
+end_per_suite(doc) -> [];
+end_per_suite(Config) when is_list(Config) ->
     Config.
 
 
@@ -106,7 +118,7 @@ fields(doc) ->
     [];
 fields(Config) when is_list(Config) ->
     AppFile = key1search(app_file, Config),
-    Fields = [vsn, description, modules, registered, applications],
+    Fields  = [vsn, description, modules, registered, applications],
     case check_fields(Fields, AppFile, []) of
 	[] ->
 	    ok;

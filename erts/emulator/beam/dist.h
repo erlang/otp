@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1996-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -38,6 +38,7 @@
 #define DFLAG_UNICODE_IO          0x1000
 #define DFLAG_DIST_HDR_ATOM_CACHE 0x2000
 #define DFLAG_SMALL_ATOM_TAGS     0x4000
+#define DFLAGS_INTERNAL_TAGS      0x8000
 
 /* All flags that should be enabled when term_to_binary/1 is used. */
 #define TERM_TO_BINARY_DFLAGS (DFLAG_EXTENDED_REFERENCES	\
@@ -51,7 +52,7 @@
 #define DOP_SEND		2
 #define DOP_EXIT		3
 #define DOP_UNLINK		4
-#define DOP_NODE_LINK		5
+/* Ancient DOP_NODE_LINK (5) was here, can be reused */
 #define DOP_REG_SEND		6
 #define DOP_GROUP_LEADER	7
 #define DOP_EXIT2		8
@@ -68,7 +69,6 @@
 /* distribution trap functions */
 extern Export* dsend2_trap;
 extern Export* dsend3_trap;
-/*extern Export* dsend_nosuspend_trap;*/
 extern Export* dlink_trap;
 extern Export* dunlink_trap;
 extern Export* dmonitor_node_trap;
@@ -99,7 +99,8 @@ typedef struct {
 #define ERTS_DE_IS_CONNECTED(DEP) \
   (!ERTS_DE_IS_NOT_CONNECTED((DEP)))
 
-
+#define ERTS_DE_BUSY_LIMIT (1024*1024)
+extern int erts_dist_buf_busy_limit;
 extern int erts_is_alive;
 
 /*
@@ -153,10 +154,10 @@ erts_dsig_prepare(ErtsDSigData *dsdp,
     }
     if (no_suspend) {
 	failure = ERTS_DSIG_PREP_CONNECTED;
-	erts_smp_spin_lock(&dep->qlock);
+	erts_smp_mtx_lock(&dep->qlock);
 	if (dep->qflgs & ERTS_DE_QFLG_BUSY)
 	    failure = ERTS_DSIG_PREP_WOULD_SUSPEND;
-	erts_smp_spin_unlock(&dep->qlock);
+	erts_smp_mtx_unlock(&dep->qlock);
 	if (failure == ERTS_DSIG_PREP_WOULD_SUSPEND)
 	    goto fail;
     }
@@ -202,7 +203,7 @@ void erts_schedule_dist_command(Port *prt, DistEntry *dist_entry)
 	id = dep->cid;
     }
 
-    if (!erts_smp_atomic_xchg(&dep->dist_cmd_scheduled, 1)) {
+    if (!erts_smp_atomic_xchg_mb(&dep->dist_cmd_scheduled, 1)) {
 	(void) erts_port_task_schedule(id,
 				       &dep->dist_cmd,
 				       ERTS_PORT_TASK_DIST_CMD,
@@ -286,5 +287,6 @@ extern void erts_dist_port_not_busy(Port *prt);
 extern void erts_kill_dist_connection(DistEntry *dep, Uint32);
 
 extern Uint erts_dist_cache_size(void);
+
 
 #endif

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -32,8 +32,9 @@
 	 get_const/1,colour_bin/1,datetime_bin/1,
 	 to_bool/1,from_bool/1]).
 
--include("wxe.hrl").
+-export([wxgl_dl/0, priv_dir/1]).
 
+-include("wxe.hrl").
 
 to_bool(0) -> false;
 to_bool(_) -> true.
@@ -199,3 +200,47 @@ check_previous() ->
 	    erlang:error({Error, MF})    
     after 0 -> ok
     end.
+
+%% Get gl dynamic library
+
+wxgl_dl() ->
+    DynLib0 = "erl_gl",
+    PrivDir = priv_dir(DynLib0),
+    DynLib = case os:type() of
+		 {win32,_} ->
+		     DynLib0 ++ ".dll";
+		 _ ->
+		     DynLib0 ++ ".so"
+	     end,
+    filename:join(PrivDir, DynLib).
+
+priv_dir(Driver0) ->
+    {file, Path} = code:is_loaded(?MODULE),
+    Priv = case filelib:is_regular(Path) of
+	       true ->
+		   Beam = filename:join(["ebin/",atom_to_list(?MODULE) ++ ".beam"]),
+		   filename:join(strip(Path, Beam), "priv");
+	       false ->
+		   code:priv_dir(wx)
+	   end,
+    Driver = case os:type() of
+		 {win32,_} ->
+		     Driver0 ++ ".dll";
+		 _ ->
+		     Driver0 ++ ".so"
+	     end,
+
+    case file:read_file_info(filename:join(Priv, Driver)) of
+	{ok, _} ->
+	    Priv;
+	{error, _} ->
+	    error_logger:format("ERROR: Could not find \'~s\' in: ~s~n",
+				[Driver, Priv]),
+	    erlang:error({load_driver, "No driver found"})
+    end.
+
+strip(Src, Src) ->
+    [];
+strip([H|R], Src) ->
+    [H| strip(R, Src)].
+

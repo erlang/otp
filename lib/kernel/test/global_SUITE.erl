@@ -1,28 +1,27 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(global_SUITE).
 
--compile(r11). % some code is run from r11-nodes
-
 %-define(line_trace, 1).
 
--export([all/1,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
+	 init_per_suite/1, end_per_suite/1,
 	 names/1, names_hidden/1, locks/1, locks_hidden/1,
 	 bad_input/1, names_and_locks/1, lock_die/1, name_die/1,
 	 basic_partition/1, basic_name_partition/1,
@@ -44,14 +43,14 @@
 
 -export([global_load/3, lock_global/2, lock_global2/2]).
 
--export([ttt/1]).
+-export([]).
 -export([mass_spawn/1]).
 
 -export([start_tracer/0, stop_tracer/0, get_trace/0]).
 
 -compile(export_all).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -define(NODES, [node()|nodes()]).
 
@@ -60,40 +59,61 @@
 %% The resource used by the global module.
 -define(GLOBAL_LOCK, global).
 
-ttt(suite) ->
-    [
-%% 5&6: succeeds
-%% 4&5&6: succeeds
-%% 3&4&5&6: succeeds
-%% 1&2&3&6: fails
-%% 1&2&6: succeeds
-%% 3&6: succeeds
-     names, names_hidden, locks, locks_hidden,
-     bad_input,
-     names_and_locks, lock_die, name_die, basic_partition,
-%     advanced_partition, basic_name_partition,
-%     stress_partition, simple_ring, simple_line,
-     ring].
 
-all(suite) -> 
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
     case init:get_argument(ring_line) of
-	{ok, _} ->
-	    [ring_line];
+	{ok, _} -> [ring_line];
 	_ ->
-	    [names, names_hidden, locks, locks_hidden,
-	     bad_input,
+	    [names, names_hidden, locks, locks_hidden, bad_input,
 	     names_and_locks, lock_die, name_die, basic_partition,
 	     advanced_partition, basic_name_partition,
-	     stress_partition, simple_ring, simple_line,
-	     ring, line, global_lost_nodes, otp_1849,
-	     otp_3162, otp_5640, otp_5737, otp_6931,
-             simple_disconnect, simple_resolve, simple_resolve2, 
-             simple_resolve3,
-             leftover_name, re_register_name, name_exit, 
-             external_nodes, many_nodes, sync_0, global_groups_change,
-	     register_1, both_known_1, lost_unregister, 
-             mass_death, garbage_messages]
+	     stress_partition, simple_ring, simple_line, ring, line,
+	     global_lost_nodes, otp_1849, otp_3162, otp_5640,
+	     otp_5737, otp_6931, simple_disconnect, simple_resolve,
+	     simple_resolve2, simple_resolve3, leftover_name,
+	     re_register_name, name_exit, external_nodes, many_nodes,
+	     sync_0, global_groups_change, register_1, both_known_1,
+	     lost_unregister, mass_death, garbage_messages]
     end.
+
+groups() -> 
+    [{ttt, [],
+      [names, names_hidden, locks, locks_hidden, bad_input,
+       names_and_locks, lock_die, name_die, basic_partition,
+       ring]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
+init_per_suite(Config) ->
+
+    %% Copied from test_server_ctrl ln 647, we have to do this here as
+    %% the test_server only does this when run without common_test
+    global:sync(),
+    case global:whereis_name(test_server) of
+	undefined ->
+	    io:format(user, "Registering test_server globally!~n",[]),
+	    global:register_name(test_server, whereis(test_server_ctrl));
+	Pid ->
+	    case node() of
+		N when N == node(Pid) ->
+		    io:format(user, "Warning: test_server already running!\n", []),
+		    global:re_register_name(test_server,self());
+		_ ->
+		    ok
+	    end
+    end,
+    Config.
+
+end_per_suite(_Config) ->
+    global:unregister_name(test_server),
+    ok.
+
 
 -define(TESTCASE, testcase_name).
 -define(testcase, ?config(?TESTCASE, Config)).
@@ -102,9 +122,16 @@ all(suite) ->
 
 init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     ok = gen_server:call(global_name_server, high_level_trace_start,infinity),
+
+    %% Make sure that everything is dead and done. Otherwise there are problems
+    %% on platforms on which it takes a long time to shut down a node.
+    stop_nodes(nodes()),
+    timer:sleep(1000),
+
     [{?TESTCASE, Case}, {registered, registered()} | Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
+    ct:log("Calling end_per_testcase!",[]),
     ?line write_high_level_trace(Config),
     ?line _ = 
         gen_server:call(global_name_server, high_level_trace_stop, infinity),
@@ -116,6 +143,7 @@ fin_per_testcase(_Case, Config) ->
               {What, N} <- [{"Added", Registered -- InitRegistered},
                             {"Removed", InitRegistered -- Registered}],
               N =/= []],
+
     ok.
 
 %%% General comments:
@@ -408,7 +436,7 @@ lock_global2(Id, Parent) ->
 
 %cp1 - cp3 are started, and the name 'test' registered for a process on
 %test_server. Then it is checked that the name is registered on all
-%nodes, using whereis_name and safe_whereis_name. Check that the same
+%nodes, using whereis_name. Check that the same
 %name can't be registered with another value. Exit the registered
 %process and check that the name disappears. Register a new process
 %(Pid2) under the name 'test'. Let another new process (Pid3)
@@ -437,10 +465,6 @@ names(Config) when is_list(Config) ->
     % test that it is registered at all nodes
     ?line 
     ?UNTIL(begin 
-            (Pid =:= global:safe_whereis_name(test)) and
-            (Pid =:= rpc:call(Cp1, global, safe_whereis_name, [test])) and
-            (Pid =:= rpc:call(Cp2, global, safe_whereis_name, [test])) and
-            (Pid =:= rpc:call(Cp3, global, safe_whereis_name, [test])) and
             (Pid =:= global:whereis_name(test)) and
             (Pid =:= rpc:call(Cp1, global, whereis_name, [test])) and
             (Pid =:= rpc:call(Cp2, global, whereis_name, [test])) and
@@ -538,10 +562,7 @@ names_hidden(Config) when is_list(Config) ->
 
     % Check that it didn't get registered on visible nodes
     ?line
-    ?UNTIL((undefined =:= global:safe_whereis_name(test)) and
-           (undefined =:= rpc:call(Cp1, global, safe_whereis_name, [test])) and
-           (undefined =:= rpc:call(Cp2, global, safe_whereis_name, [test])) and
-           (undefined =:= global:whereis_name(test)) and
+    ?UNTIL((undefined =:= global:whereis_name(test)) and
            (undefined =:= rpc:call(Cp1, global, whereis_name, [test])) and
            (undefined =:= rpc:call(Cp2, global, whereis_name, [test]))),
 
@@ -551,11 +572,7 @@ names_hidden(Config) when is_list(Config) ->
 
     % test that it is registered at all nodes
     ?line
-    ?UNTIL((Pid =:= global:safe_whereis_name(test)) and
-           (Pid =:= rpc:call(Cp1, global, safe_whereis_name, [test])) and
-           (Pid =:= rpc:call(Cp2, global, safe_whereis_name, [test])) and
-           (HPid =:= rpc:call(Cp3, global, safe_whereis_name, [test])) and
-           (Pid =:= global:whereis_name(test)) and
+    ?UNTIL((Pid =:= global:whereis_name(test)) and
            (Pid =:= rpc:call(Cp1, global, whereis_name, [test])) and
            (Pid =:= rpc:call(Cp2, global, whereis_name, [test])) and
            (HPid =:= rpc:call(Cp3, global, whereis_name, [test])) and
@@ -2616,19 +2633,6 @@ proc(Parent) ->
 name_exit(suite) -> [];
 name_exit(doc) -> ["OTP-5563. Registered process dies."];
 name_exit(Config) when is_list(Config) ->
-    case ?t:is_release_available("r11b") of
-        true ->
-            StartOldFun = 
-                fun() ->
-                        {ok, N1} = start_node_rel(n_1, r11b, Config),
-                        {ok, N2} = start_node_rel(n_2, this, Config),
-                        [N1, N2]
-                end,
-            ?t:format("Test of r11~n"),
-            do_name_exit(StartOldFun, old, Config);
-        false ->
-            ok
-    end,
     StartFun = fun() ->
                        {ok, N1} = start_node_rel(n_1, this, Config),
                        {ok, N2} = start_node_rel(n_2, this, Config),
@@ -2855,14 +2859,7 @@ many_nodes(Config) when is_list(Config) ->
                 N_nodes = quite_a_few_nodes(32),
                 {node_rel(1, N_nodes, this), N_nodes};
             {unix, _} ->
-                case ?t:is_release_available("r11b") of
-                    true -> 
-                        This = node_rel(1, 16, this),
-                        R11B = node_rel(17, 32, r11b),
-                        {This ++ R11B, 32};
-                    false ->
-                        {node_rel(1, 32, this), 32}
-                end;
+                {node_rel(1, 32, this), 32};
             _ -> 
                 {node_rel(1, 32, this), 32}
         end,
@@ -3864,12 +3861,7 @@ start_node_rel(Name0, Rel, Config) ->
                             RelList ->
 			       {RelList, ""}
 		       end,
-    Env = case Rel of
-              r11b ->
-                  [{env, [{"ERL_R11B_FLAGS", []}]}];
-              _ ->
-                  []
-          end,
+    Env = [],
     Pa = filename:dirname(code:which(?MODULE)),
     Res = test_server:start_node(Name, peer, 
                                  [{args,

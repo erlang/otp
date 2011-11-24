@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2009</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -36,63 +36,108 @@
   <description>
     <p>This module provides an interpreter for Erlang expressions. The
       expressions are in the abstract syntax as returned by
-      <c>erl_parse</c>, the Erlang parser, or a call to
-      <c>io:parse_erl_exprs/2</c>.</p>
+      <seealso marker="erl_parse"><c>erl_parse</c></seealso>,
+      the Erlang parser, or <seealso marker="io">
+      <c>io</c></seealso>.</p>
   </description>
+  <datatypes>
+    <datatype>
+      <name name="bindings"/>
+    </datatype>
+    <datatype>
+      <name name="binding_struct"/>
+      <desc><p>A binding structure.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="expression"/>
+    </datatype>
+    <datatype>
+      <name name="expressions"/>
+      <desc><p>As returned by <seealso marker="erl_parse#parse_exprs/1">
+        <c>erl_parse:parse_exprs/1</c></seealso> or
+        <seealso marker="io#parse_erl_exprs/2">
+        <c>io:parse_erl_exprs/2</c></seealso>.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="expression_list"/>
+    </datatype>
+    <datatype>
+      <name name="func_spec"/>
+    </datatype>
+    <datatype>
+      <name name="lfun_eval_handler"/>
+    </datatype>
+    <datatype>
+      <name name="lfun_value_handler"/>
+    </datatype>
+    <datatype>
+      <name name="local_function_handler"/>
+      <desc><p>Further described
+        <seealso marker="#local_function_handler">below.</seealso></p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="name"/>
+    </datatype>
+    <datatype>
+      <name name="nlfun_handler"/>
+    </datatype>
+    <datatype>
+      <name name="non_local_function_handler"/>
+      <desc><p>Further described
+        <seealso marker="#non_local_function_handler">below.</seealso></p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="value"/>
+    </datatype>
+  </datatypes>
   <funcs>
     <func>
-      <name>exprs(Expressions, Bindings) -> {value, Value, NewBindings}</name>
-      <name>exprs(Expressions, Bindings, LocalFunctionHandler) ->  {value, Value, NewBindings}</name>
-      <name>exprs(Expressions, Bindings, LocalFunctionHandler, NonlocalFunctionHandler) -> {value, Value, NewBindings}</name>
+      <name name="exprs" arity="2"/>
+      <name name="exprs" arity="3"/>
+      <name name="exprs" arity="4"/>
       <fsummary>Evaluate expressions</fsummary>
-      <type>
-        <v>Expressions = as returned by erl_parse or io:parse_erl_exprs/2</v>
-        <v>Bindings = as returned by bindings/1</v>
-        <v>LocalFunctionHandler = {value, Func} | {eval, Func} | none</v>
-        <v>NonlocalFunctionHandler = {value, Func} | none</v>
-      </type>
       <desc>
-        <p>Evaluates <c>Expressions</c> with the set of bindings
-          <c>Bindings</c>, where <c>Expressions</c> is a sequence of
+        <p>Evaluates <c><anno>Expressions</anno></c> with the set of bindings
+          <c><anno>Bindings</anno></c>, where <c><anno>Expressions</anno></c>
+          is a sequence of
           expressions (in abstract syntax) of a type which may be
-          returned by <c>io:parse_erl_exprs/2</c>. See below for an
+          returned by <seealso marker="io#parse_erl_exprs/2">
+        <c>io:parse_erl_exprs/2</c></seealso>. See below for an
           explanation of how and when to use the arguments
-          <c>LocalFunctionHandler</c> and <c>NonlocalFunctionHandler</c>.
+          <c><anno>LocalFunctionHandler</anno></c> and
+          <c><anno>NonLocalFunctionHandler</anno></c>.
           </p>
-        <p>Returns <c>{value, Value, NewBindings}</c></p>
+        <p>Returns <c>{value, <anno>Value</anno>, <anno>NewBindings</anno>}</c>
+        </p>
       </desc>
     </func>
     <func>
-      <name>expr(Expression, Bindings) -> { value, Value, NewBindings }</name>
-      <name>expr(Expression, Bindings, LocalFunctionHandler) -> { value, Value, NewBindings }</name>
-      <name>expr(Expression, Bindings, LocalFunctionHandler, NonlocalFunctionHandler) -> { value, Value, NewBindings }</name>
-      <name>expr(Expression, Bindings, LocalFunctionHandler, NonlocalFunctionHandler, ReturnFormat) -> { value, Value, NewBindings } | Value</name>
+      <name name="expr" arity="2"/>
+      <name name="expr" arity="3"/>
+      <name name="expr" arity="4"/>
+      <name name="expr" arity="5"/>
       <fsummary>Evaluate expression</fsummary>
-      <type>
-        <v>Expression = as returned by io:parse_erl_form/2, for example</v>
-        <v>Bindings = as returned by bindings/1</v>
-        <v>LocalFunctionHandler = {value, Func} | {eval, Func} | none</v>
-        <v>NonlocalFunctionHandler = {value, Func} | none</v>
-        <v>ReturnFormat = value | none</v>
-      </type>
       <desc>
-        <p>Evaluates <c>Expression</c> with the set of bindings
-          <c>Bindings</c>. <c>Expression</c> is an expression (in
-          abstract syntax) of a type which may be returned by
-          <c>io:parse_erl_form/2</c>. See below for an explanation of
+        <p>Evaluates <c><anno>Expression</anno></c> with the set of bindings
+          <c><anno>Bindings</anno></c>. <c><anno>Expression</anno></c>
+          is an expression in
+          abstract syntax. See below for an explanation of
           how and when to use the arguments
-          <c>LocalFunctionHandler</c> and
-          <c>NonlocalFunctionHandler</c>.
+          <c><anno>LocalFunctionHandler</anno></c> and
+          <c><anno>NonLocalFunctionHandler</anno></c>.
           </p>
-        <p>Returns <c>{value, Value, NewBindings}</c> by default. But
-        if the <c>ReturnFormat</c> is <c>value</c> only the <c>Value</c> 
-        is returned.</p>
+        <p>Returns <c>{value, <anno>Value</anno>,
+        <anno>NewBindings</anno>}</c> by default. But if the
+        <c><anno>ReturnFormat</anno></c> is <c>value</c> only
+        the <c><anno>Value</anno></c> is returned.</p>
       </desc>
     </func>
     <func>
-      <name>expr_list(ExpressionList, Bindings) ->  {ValueList, NewBindings}</name>
-      <name>expr_list(ExpressionList, Bindings, LocalFunctionHandler) ->  {ValueList, NewBindings}</name>
-      <name>expr_list(ExpressionList, Bindings, LocalFunctionHandler,  NonlocalFunctionHandler) -> {ValueList, NewBindings}</name>
+      <name name="expr_list" arity="2"/>
+      <name name="expr_list" arity="3"/>
+      <name name="expr_list" arity="4"/>
       <fsummary>Evaluate a list of expressions</fsummary>
       <desc>
         <p>Evaluates a list of expressions in parallel, using the same
@@ -100,18 +145,19 @@
           merge the bindings returned from each evaluation.  This
           function is useful in the <c>LocalFunctionHandler</c>. See below.
           </p>
-        <p>Returns <c>{ValueList, NewBindings}</c>.</p>
+        <p>Returns <c>{<anno>ValueList</anno>, <anno>NewBindings</anno>}</c>.
+        </p>
       </desc>
     </func>
     <func>
-      <name>new_bindings() -> BindingStruct</name>
+      <name name="new_bindings" arity="0"/>
       <fsummary>Return a bindings structure</fsummary>
       <desc>
         <p>Returns an empty binding structure.</p>
       </desc>
     </func>
     <func>
-      <name>bindings(BindingStruct) -> Bindings</name>
+      <name name="bindings" arity="1"/>
       <fsummary>Return bindings</fsummary>
       <desc>
         <p>Returns the list of bindings contained in the binding
@@ -119,25 +165,28 @@
       </desc>
     </func>
     <func>
-      <name>binding(Name, BindingStruct) -> Binding</name>
+      <name name="binding" arity="2"/>
       <fsummary>Return bindings</fsummary>
       <desc>
-        <p>Returns the binding of <c>Name</c> in <c>BindingStruct</c>.</p>
+        <p>Returns the binding of <c><anno>Name</anno></c>
+          in <c><anno>BindingStruct</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name>add_binding(Name, Value, Bindings) -> BindingStruct</name>
+      <name name="add_binding" arity="3"/>
       <fsummary>Add a binding</fsummary>
       <desc>
-        <p>Adds the binding <c>Name = Value</c> to <c>Bindings</c>.
+        <p>Adds the binding <c><anno>Name</anno> = <anno>Value</anno></c>
+          to <c><anno>BindingStruct</anno></c>.
           Returns an updated binding structure.</p>
       </desc>
     </func>
     <func>
-      <name>del_binding(Name, Bindings) -> BindingStruct</name>
+      <name name="del_binding" arity="2"/>
       <fsummary>Delete a binding</fsummary>
       <desc>
-        <p>Removes the binding of <c>Name</c> in <c>Bindings</c>.
+        <p>Removes the binding of <c><anno>Name</anno></c>
+          in <c><anno>BindingStruct</anno></c>.
           Returns an updated binding structure.</p>
       </desc>
     </func>
@@ -145,7 +194,8 @@
 
   <section>
     <title>Local Function Handler</title>
-    <p>During evaluation of a function, no calls can be made to local
+    <p><marker id="local_function_handler"></marker>
+      During evaluation of a function, no calls can be made to local
       functions. An undefined function error would be
       generated. However, the optional argument
       <c>LocalFunctionHandler</c> may be used to define a function
@@ -191,7 +241,8 @@ Func(Name, Arguments, Bindings)        </code>
 
   <section>
     <title>Non-local Function Handler</title>
-    <p>The optional argument <c>NonlocalFunctionHandler</c> may be
+    <p><marker id="non_local_function_handler"></marker>
+      The optional argument <c>NonlocalFunctionHandler</c> may be
       used to define a function which is called in the following
       cases: a functional object (fun) is called; a built-in function
       is called; a function is called using the M:F syntax, where M

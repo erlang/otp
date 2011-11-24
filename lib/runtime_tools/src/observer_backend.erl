@@ -31,6 +31,7 @@
 	 ttb_write_binary/2,
 	 ttb_stop/1,
 	 ttb_fetch/2,
+         ttb_resume_trace/0,
 	 ttb_get_filenames/1]).
 -define(CHUNKSIZE,8191). % 8 kbytes - 1 byte
 
@@ -92,16 +93,22 @@ etop_collect([], Acc) -> Acc.
 %%
 %% ttb backend
 %%
-ttb_init_node(MetaFile,PI,Traci) ->
+ttb_init_node(MetaFile_0,PI,Traci) ->
     if
-	is_list(MetaFile);
-	is_atom(MetaFile) ->
+	is_list(MetaFile_0);
+	is_atom(MetaFile_0) ->
+	    {ok, Cwd} = file:get_cwd(),
+	    MetaFile = filename:join(Cwd, MetaFile_0),
 	    file:delete(MetaFile);
 	true -> 				% {local,_,_}
-	    ok
+	    MetaFile = MetaFile_0
+    end,
+    case proplists:get_value(resume, Traci) of
+        {true, _} -> (autostart_module()):write_config(Traci);
+        _    -> ok
     end,
     Self = self(),
-    MetaPid = spawn(fun() -> ttb_meta_tracer(MetaFile,PI,Self) end),
+    MetaPid = spawn(fun() -> ttb_meta_tracer(MetaFile,PI,Self,Traci) end),
     receive {MetaPid,started} -> ok end,
     MetaPid ! {metadata,Traci},
     case PI of
@@ -111,13 +118,14 @@ ttb_init_node(MetaFile,PI,Traci) ->
 	false ->
 	    ok
     end,
-    {ok,MetaPid}.
+    {ok,MetaFile,MetaPid}.
 
 ttb_write_trace_info(MetaPid,Key,What) ->
     MetaPid ! {metadata,Key,What},
     ok.
 
-ttb_meta_tracer(MetaFile,PI,Parent) ->
+ttb_meta_tracer(MetaFile,PI,Parent,SessionData) ->
+    erlang:monitor(process, proplists:get_value(ttb_control, SessionData)),
     case PI of
 	true ->
 	    ReturnMS = [{'_',[],[{return_trace}]}],
@@ -130,22 +138,29 @@ ttb_meta_tracer(MetaFile,PI,Parent) ->
 	    ok
     end,
     Parent ! {self(),started},
-    ttb_meta_tracer_loop(MetaFile,PI,dict:new()).
+    case proplists:get_value(overload_check, SessionData) of
+        {Ms, M, F} ->
+            catch M:F(init),
+            erlang:send_after(Ms, self(), overload_check);
+        _ ->
+            ok
+    end,
+    ttb_meta_tracer_loop(MetaFile,PI,dict:new(),SessionData).
 
-ttb_meta_tracer_loop(MetaFile,PI,Acc) ->
+ttb_meta_tracer_loop(MetaFile,PI,Acc,State) ->
     receive
 	{trace_ts,_,call,{erlang,register,[Name,Pid]},_} ->
 	    ttb_store_meta({pid,{Pid,Name}},MetaFile),
-	    ttb_meta_tracer_loop(MetaFile,PI,Acc);
+	    ttb_meta_tracer_loop(MetaFile,PI,Acc,State);
 	{trace_ts,_,call,{global,register_name,[Name,Pid]},_} ->
 	    ttb_store_meta({pid,{Pid,{global,Name}}},MetaFile),
-	    ttb_meta_tracer_loop(MetaFile,PI,Acc);
+	    ttb_meta_tracer_loop(MetaFile,PI,Acc,State);
 	{trace_ts,CallingPid,call,{erlang,spawn_opt,[{M,F,Args,_}]},_} ->
 	    MFA = {M,F,length(Args)},
 	    NewAcc = dict:update(CallingPid,
 				 fun(Old) -> [MFA|Old] end, [MFA], 
 				 Acc),
-	    ttb_meta_tracer_loop(MetaFile,PI,NewAcc);
+	    ttb_meta_tracer_loop(MetaFile,PI,NewAcc,State);
 	{trace_ts,CallingPid,return_from,{erlang,spawn_opt,_Arity},Ret,_} ->
 	    case Ret of
 		{NewPid,_Mref} when is_pid(NewPid) -> ok;
@@ -158,14 +173,14 @@ ttb_meta_tracer_loop(MetaFile,PI,Acc) ->
 				    T 
 			    end,
 			    Acc),
-	    ttb_meta_tracer_loop(MetaFile,PI,NewAcc);
+	    ttb_meta_tracer_loop(MetaFile,PI,NewAcc,State);
 	{trace_ts,CallingPid,call,{erlang,Spawn,[M,F,Args]},_} 
 	when Spawn==spawn;Spawn==spawn_link ->
 	    MFA = {M,F,length(Args)},
 	    NewAcc = dict:update(CallingPid,
 				 fun(Old) -> [MFA|Old] end, [MFA], 
 				 Acc),
-	    ttb_meta_tracer_loop(MetaFile,PI,NewAcc);
+	    ttb_meta_tracer_loop(MetaFile,PI,NewAcc,State);
 
 	{trace_ts,CallingPid,return_from,{erlang,Spawn,_Arity},NewPid,_} 
 	when Spawn==spawn;Spawn==spawn_link ->
@@ -176,28 +191,53 @@ ttb_meta_tracer_loop(MetaFile,PI,Acc) ->
 				    T
 			    end,
 			    Acc),
-	    ttb_meta_tracer_loop(MetaFile,PI,NewAcc);
+	    ttb_meta_tracer_loop(MetaFile,PI,NewAcc,State);
 
 	{metadata,Data} when is_list(Data) ->
 	    ttb_store_meta(Data,MetaFile),
-	    ttb_meta_tracer_loop(MetaFile,PI,Acc);
+	    ttb_meta_tracer_loop(MetaFile,PI,Acc,State);
 
 	{metadata,Key,Fun} when is_function(Fun) ->
 	    ttb_store_meta([{Key,Fun()}],MetaFile),
-	    ttb_meta_tracer_loop(MetaFile,PI,Acc);
+	    ttb_meta_tracer_loop(MetaFile,PI,Acc,State);
 
 	{metadata,Key,What} ->
 	    ttb_store_meta([{Key,What}],MetaFile),
-	    ttb_meta_tracer_loop(MetaFile,PI,Acc);
-
-	stop when PI=:=true ->
-	    erlang:trace_pattern({erlang,spawn,3},false,[meta]),
+	    ttb_meta_tracer_loop(MetaFile,PI,Acc,State);
+        overload_check ->
+            {Ms, M, F} = proplists:get_value(overload_check, State),
+            case catch M:F(check) of
+                true ->
+                    erlang:trace(all, false, [all]),
+                    ControlPid = proplists:get_value(ttb_control, State),
+                    ControlPid ! {node_overloaded, node()},
+                    catch M:F(stop),
+                    ttb_meta_tracer_loop(MetaFile,PI,Acc,lists:keydelete(overload_check, 1, State));
+                _ ->
+                    erlang:send_after(Ms, self(), overload_check),
+                    ttb_meta_tracer_loop(MetaFile,PI,Acc, State)
+            end;
+     {'DOWN', _, _, _, _} ->
+            stop_seq_trace(),
+            self() ! stop,
+            ttb_meta_tracer_loop(MetaFile,PI,Acc, State);
+     stop when PI=:=true ->
+            try_stop_resume(State),
+            try_stop_overload_check(State),
+            erlang:trace_pattern({erlang,spawn,3},false,[meta]),
 	    erlang:trace_pattern({erlang,spawn_link,3},false,[meta]),
 	    erlang:trace_pattern({erlang,spawn_opt,1},false,[meta]),
 	    erlang:trace_pattern({erlang,register,2},false,[meta]),
 	    erlang:trace_pattern({global,register_name,2},false,[meta]);
 	stop ->
-	    ok
+            try_stop_resume(State),
+            try_stop_overload_check(State)
+    end.
+
+try_stop_overload_check(State) ->
+    case proplists:get_value(overload, State) of
+        undefined -> ok;
+        {_, M, F} -> catch M:F(stop)
     end.
 
 pnames() ->
@@ -222,6 +262,40 @@ pinfo(P,Globals) ->
 	undefined -> [] % the process has terminated
     end.
 
+autostart_module() ->
+    element(2, application:get_env(runtime_tools, ttb_autostart_module)).
+
+try_stop_resume(State) ->
+    case proplists:get_value(resume, State) of
+        true -> (autostart_module()):delete_config();
+        _    -> ok
+    end.
+
+ttb_resume_trace() ->
+    case (autostart_module()):read_config() of
+        {error, _} ->
+            ok;
+        {ok, Data} ->
+            Pid = proplists:get_value(ttb_control, Data),
+            {_, Timeout} = proplists:get_value(resume, Data),
+            case rpc:call(node(Pid), erlang, whereis, [ttb]) of
+                Pid ->
+                    Pid ! {noderesumed, node(), self()},
+                    wait_for_fetch_ready(Timeout);
+                _ ->
+                    ok
+            end,
+            (autostart_module()):delete_config(),
+            ok
+    end.
+
+wait_for_fetch_ready(Timeout) ->
+    receive
+        trace_resumed ->
+            ok
+    after Timeout ->
+            ok
+    end.
 
 ttb_store_meta(Data,{local,MetaFile,Port}) when is_list(Data) ->
     ttb_send_to_port(Port,MetaFile,Data);
@@ -273,6 +347,9 @@ ttb_stop(MetaPid) ->
     %% returns, and then the Port (in {local,MetaFile,Port})
     %% cannot be accessed any more.
     receive {'DOWN', Ref, process, MetaPid, _Info} -> ok end,
+    stop_seq_trace().
+
+stop_seq_trace() ->
     seq_trace:reset_trace(),
     seq_trace:set_system_tracer(false).
 
@@ -287,7 +364,7 @@ ttb_fetch(MetaFile,{Port,Host}) ->
 
 send_files({Sock,Host},[File|Files]) ->
     {ok,Fd} = file:open(File,[raw,read,binary]),
-    gen_tcp:send(Sock,<<1,(list_to_binary(File))/binary>>),
+    gen_tcp:send(Sock,<<1,(list_to_binary(filename:basename(File)))/binary>>),
     send_chunks(Sock,Fd),
     file:delete(File),
     send_files({Sock,Host},Files);

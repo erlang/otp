@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,12 +18,41 @@
 %%
 -module(re_SUITE).
 
--export([all/1, pcre/1,compile_options/1,run_options/1,combined_options/1,replace_autogen/1,global_capture/1,replace_input_types/1,replace_return/1,split_autogen/1,split_options/1,split_specials/1,error_handling/1,pcre_cve_2008_2371/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, pcre/1,compile_options/1,
+	 run_options/1,combined_options/1,replace_autogen/1,
+	 global_capture/1,replace_input_types/1,replace_return/1,
+	 split_autogen/1,split_options/1,split_specials/1,
+	 error_handling/1,pcre_cve_2008_2371/1,
+	 pcre_compile_workspace_overflow/1,re_infinite_loop/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("kernel/include/file.hrl").
 
-all(suite) -> [pcre,compile_options,run_options,combined_options,replace_autogen,global_capture,replace_input_types,replace_return,split_autogen,split_options,split_specials,error_handling,pcre_cve_2008_2371].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [pcre, compile_options, run_options, combined_options,
+     replace_autogen, global_capture, replace_input_types,
+     replace_return, split_autogen, split_options,
+     split_specials, error_handling, pcre_cve_2008_2371,
+     pcre_compile_workspace_overflow, re_infinite_loop].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 pcre(doc) ->
     ["Run all applicable tests from the PCRE testsuites."];
@@ -425,115 +454,115 @@ error_handling(Config) when is_list(Config) ->
     % The malformed precomiled RE is detected after 
     % the trap to re:grun from grun, in the grun function clause
     % that handles precompiled expressions
-    ?line {'EXIT',{badarg,[{re,run,["apa",{1,2,3,4},[global]]},
-			   {?MODULE, error_handling,1} | _]}} = 
+    ?line {'EXIT',{badarg,[{re,run,["apa",{1,2,3,4},[global]],_},
+			   {?MODULE,error_handling,1,_} | _]}} =
 	(catch re:run("apa",{1,2,3,4},[global])),
     % An invalid capture list will also cause a badarg late, 
     % but with a non pre compiled RE, the exception should be thrown by the
     % grun function clause that handles RE's compiled implicitly by
     % the run/3 BIF before trapping.
-    ?line {'EXIT',{badarg,[{re,run,["apa","p",[{capture,[1,{a}]},global]]},
-			   {?MODULE, error_handling,1} | _]}} = 
+    ?line {'EXIT',{badarg,[{re,run,["apa","p",[{capture,[1,{a}]},global]],_},
+			   {?MODULE,error_handling,1,_} | _]}} =
 	(catch re:run("apa","p",[{capture,[1,{a}]},global])),
     % And so the case of a precompiled expression together with
     % a compile-option (binary and list subject):
     ?line {ok,RE} = re:compile("(p)"),
     ?line {match,[[{1,1},{1,1}]]} = re:run(<<"apa">>,RE,[global]),
     ?line {match,[[{1,1},{1,1}]]} = re:run("apa",RE,[global]),
-    {'EXIT',{badarg,[{re,run,
-                     [<<"apa">>,
-                      {re_pattern,1,0,_},
-                      [global,unicode]]},
-		     {?MODULE, error_handling,1} | _]}} =
+    ?line {'EXIT',{badarg,[{re,run,
+			    [<<"apa">>,
+			     {re_pattern,1,0,_},
+			     [global,unicode]],_},
+			   {?MODULE,error_handling,1,_} | _]}} =
 	(catch re:run(<<"apa">>,RE,[global,unicode])),
-    {'EXIT',{badarg,[{re,run,
-                     ["apa",
-                      {re_pattern,1,0,_},
-                      [global,unicode]]},
-		     {?MODULE, error_handling,1} | _]}} =
+    ?line {'EXIT',{badarg,[{re,run,
+			    ["apa",
+			     {re_pattern,1,0,_},
+			     [global,unicode]],_},
+			   {?MODULE,error_handling,1,_} | _]}} =
 	(catch re:run("apa",RE,[global,unicode])),
     ?line {'EXIT',{badarg,_}} = (catch re:run("apa","(p",[])),
     ?line {'EXIT',{badarg,_}} = (catch re:run("apa","(p",[global])),
     % The replace errors:
-    ?line {'EXIT',{badarg,[{re,replace,["apa",{1,2,3,4},"X",[]]},
-			   {?MODULE, error_handling,1} | _]}} =
+    ?line {'EXIT',{badarg,[{re,replace,["apa",{1,2,3,4},"X",[]],_},
+			   {?MODULE,error_handling,1,_} | _]}} =
 	(catch re:replace("apa",{1,2,3,4},"X",[])),
-    ?line {'EXIT',{badarg,[{re,replace,["apa",{1,2,3,4},"X",[global]]},
-			   {?MODULE, error_handling,1} | _]}} =
+    ?line {'EXIT',{badarg,[{re,replace,["apa",{1,2,3,4},"X",[global]],_},
+			   {?MODULE,error_handling,1,_} | _]}} =
 	(catch re:replace("apa",{1,2,3,4},"X",[global])),
     ?line {'EXIT',{badarg,[{re,replace,
 			    ["apa",
 			     {re_pattern,1,0,_},
 			     "X",
-			     [unicode]]},
-			   {?MODULE, error_handling,1} | _]}} =
+			     [unicode]],_},
+			   {?MODULE,error_handling,1,_} | _]}} =
 	(catch re:replace("apa",RE,"X",[unicode])),
     ?line <<"aXa">> = iolist_to_binary(re:replace("apa","p","X",[])),
     ?line {'EXIT',{badarg,[{re,replace,
-			    ["apa","p","X",[{capture,all,binary}]]},
-			   {?MODULE, error_handling,1} | _]}} =
+			    ["apa","p","X",[{capture,all,binary}]],_},
+			   {?MODULE,error_handling,1,_} | _]}} =
 	(catch iolist_to_binary(re:replace("apa","p","X",
 					  [{capture,all,binary}]))),
     ?line {'EXIT',{badarg,[{re,replace,
-			    ["apa","p","X",[{capture,all}]]},
-			   {?MODULE, error_handling,1} | _]}} =
+			    ["apa","p","X",[{capture,all}]],_},
+			   {?MODULE,error_handling,1,_} | _]}} =
 	(catch iolist_to_binary(re:replace("apa","p","X",
 					  [{capture,all}]))),
     ?line {'EXIT',{badarg,[{re,replace,
-			    ["apa","p","X",[{return,banana}]]},
-			   {?MODULE, error_handling,1} | _]}} =
+			    ["apa","p","X",[{return,banana}]],_},
+			   {?MODULE,error_handling,1,_} | _]}} =
 	(catch iolist_to_binary(re:replace("apa","p","X",
 					  [{return,banana}]))),
     ?line {'EXIT',{badarg,_}} = (catch re:replace("apa","(p","X",[])),
     % Badarg, not compile error.
     ?line {'EXIT',{badarg,[{re,replace,
-			    ["apa","(p","X",[{return,banana}]]},
-			   {?MODULE, error_handling,1} | _]}} =
+			    ["apa","(p","X",[{return,banana}]],_},
+			   {?MODULE,error_handling,1,_} | _]}} =
 	(catch iolist_to_binary(re:replace("apa","(p","X",
 					  [{return,banana}]))),
     % And the split errors:
     ?line [<<"a">>,<<"a">>] = (catch re:split("apa","p",[])),
     ?line [<<"a">>,<<"p">>,<<"a">>] = (catch re:split("apa",RE,[])),
-    ?line {'EXIT',{badarg,[{re,split,["apa","p",[global]]},
-			   {?MODULE, error_handling,1} | _]}} = 
+    ?line {'EXIT',{badarg,[{re,split,["apa","p",[global]],_},
+			   {?MODULE,error_handling,1,_} | _]}} =
 	(catch re:split("apa","p",[global])),
-    ?line {'EXIT',{badarg,[{re,split,["apa","p",[{capture,all}]]},
-			   {?MODULE, error_handling,1} | _]}} = 
+    ?line {'EXIT',{badarg,[{re,split,["apa","p",[{capture,all}]],_},
+			   {?MODULE,error_handling,1,_} | _]}} =
 	(catch re:split("apa","p",[{capture,all}])),
-    ?line {'EXIT',{badarg,[{re,split,["apa","p",[{capture,all,binary}]]},
-			   {?MODULE, error_handling,1} | _]}} = 
+    ?line {'EXIT',{badarg,[{re,split,["apa","p",[{capture,all,binary}]],_},
+			   {?MODULE, error_handling,1,_} | _]}} =
 	(catch re:split("apa","p",[{capture,all,binary}])),
-    ?line {'EXIT',{badarg,[{re,split,["apa",{1,2,3,4},[]]},
-			   {?MODULE, error_handling,1} | _]}} =
+    ?line {'EXIT',{badarg,[{re,split,["apa",{1,2,3,4},[]],_},
+			   {?MODULE,error_handling,1,_} | _]}} =
 	(catch re:split("apa",{1,2,3,4})),
-    ?line {'EXIT',{badarg,[{re,split,["apa",{1,2,3,4},[]]},
-			   {?MODULE, error_handling,1} | _]}} =
+    ?line {'EXIT',{badarg,[{re,split,["apa",{1,2,3,4},[]],_},
+			   {?MODULE,error_handling,1,_} | _]}} =
 	(catch re:split("apa",{1,2,3,4},[])),
     ?line {'EXIT',{badarg,[{re,split,
 			    ["apa",
 			     RE,
-			     [unicode]]},
-			   {?MODULE, error_handling,1} | _]}} =
+			     [unicode]],_},
+			   {?MODULE,error_handling,1,_} | _]}} =
 	(catch re:split("apa",RE,[unicode])),
     ?line {'EXIT',{badarg,[{re,split,
 			    ["apa",
 			     RE,
-			     [{return,banana}]]},
-			   {?MODULE, error_handling,1} | _]}} =
+			     [{return,banana}]],_},
+			   {?MODULE,error_handling,1,_} | _]}} =
 	(catch re:split("apa",RE,[{return,banana}])),
     ?line {'EXIT',{badarg,[{re,split,
 			    ["apa",
 			     RE,
-			     [banana]]},
-			   {?MODULE, error_handling,1} | _]}} =
+			     [banana]],_},
+			   {?MODULE,error_handling,1,_} | _]}} =
 	(catch re:split("apa",RE,[banana])),
     ?line {'EXIT',{badarg,_}} = (catch re:split("apa","(p")),
     %Exception on bad argument, not compilation error
     ?line {'EXIT',{badarg,[{re,split,
 			    ["apa",
 			     "(p",
-			     [banana]]},
-			   {?MODULE, error_handling,1} | _]}} = 
+			     [banana]],_},
+			   {?MODULE,error_handling,1,_} | _]}} =
 	(catch re:split("apa","(p",[banana])),
     ?t:timetrap_cancel(Dog),
     ok.
@@ -543,4 +572,26 @@ pcre_cve_2008_2371(doc) ->
 pcre_cve_2008_2371(Config) when is_list(Config) ->
     %% Make sure it doesn't crash the emulator.
     re:compile(<<"(?i)[\xc3\xa9\xc3\xbd]|[\xc3\xa9\xc3\xbdA]">>, [unicode]),
+    ok.
+
+pcre_compile_workspace_overflow(doc) ->
+    "Patch from http://vcs.pcre.org/viewvc/code/trunk/pcre_compile.c?r1=504&r2=505&view=patch";
+pcre_compile_workspace_overflow(Config) when is_list(Config) ->
+    N = 819,
+    ?line {error,{"internal error: overran compiling workspace",799}} =
+	re:compile([lists:duplicate(N, $(), lists:duplicate(N, $))]),
+    ok.
+re_infinite_loop(doc) ->
+    "Make sure matches that really loop infinitely actually fail";
+re_infinite_loop(Config) when is_list(Config) ->
+    Dog = ?t:timetrap(?t:minutes(1)),
+    ?line Str =
+        "http:/www.flickr.com/slideShow/index.gne?group_id=&user_id=69845378@N0",
+    ?line EMail_regex = "[a-z0-9!#$%&'*+/=?^_`{|}~-]+"
+        ++ "(\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*"
+        ++ "@.*([a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+"
+        ++ "([a-zA-Z]{2}|com|org|net|gov|mil"
+        ++ "|biz|info|mobi|name|aero|jobs|museum)",
+    ?line nomatch = re:run(Str, EMail_regex),
+    ?t:timetrap_cancel(Dog),
     ok.

@@ -170,7 +170,7 @@ init2(CallingPid, Mode, SFile, GS) ->
     CallingPid ! {initialization_complete, self()},
 
     if
-	SFile==default ->
+	SFile =:= default ->
 	    loop(State3);
 	true ->
 	    loop(load_settings(SFile, State3))
@@ -268,7 +268,7 @@ gui_cmd(ignore, State) ->
     State;
 gui_cmd(stopped, State) ->
     if
-	State#state.starter==true -> int:stop();
+	State#state.starter =:= true -> int:stop();
 	true -> int:auto_attach(false)
     end,
     exit(stop);
@@ -420,9 +420,9 @@ gui_cmd({'Trace Window', TraceWin}, State) ->
     State2;
 gui_cmd({'Auto Attach', When}, State) ->
     if
-	When==[] -> int:auto_attach(false);
+	When =:= [] -> int:auto_attach(false);
 	true ->
-	    Flags = lists:map(fun(Name) -> map(Name) end, When),
+	    Flags = [map(Name) || Name <- When],
 	    int:auto_attach(Flags, trace_function(State))
     end,
     State;
@@ -691,12 +691,12 @@ load_settings2(Settings, State) ->
 			      Break,
 			  int:break(Mod, Line),
 			  if
-			      Status==inactive ->
+			      Status =:= inactive ->
 				  int:disable_break(Mod, Line);
 			      true -> ignore
 			  end,
 			  if
-			      Action/=enable ->
+			      Action =/= enable ->
 				  int:action_at_break(Mod,Line,Action);
 			      true -> ignore
 			  end,
@@ -715,10 +715,7 @@ save_settings(SFile, State) ->
 		int:auto_attach(),
 		int:stack_trace(),
 		State#state.backtrace,
-		lists:map(fun(Mod) ->
-				  int:file(Mod)
-			  end,
-			  int:interpreted()),
+		[int:file(Mod) || Mod <- int:interpreted()],
 		int:all_breaks()},
 
     Binary = term_to_binary({debugger_settings, Settings}),
@@ -741,7 +738,7 @@ registered_name(Pid) ->
 
     Node = node(Pid),
     if
-	Node==node() ->
+	Node =:= node() ->
 	    case erlang:process_info(Pid, registered_name) of
 		{registered_name, Name} -> Name;
 		_ -> undefined

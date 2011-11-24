@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -22,7 +22,9 @@
 -include_lib("test_server/include/test_server.hrl").
 -include_lib("kernel/include/file.hrl").
 
--export([all/1,init_per_testcase/2,fin_per_testcase/2,nt/1,handle_eventlog/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,init_per_testcase/2,
+	 end_per_testcase/2,nt/1,handle_eventlog/2,
 	 middleman/1,service_basic/1, service_env/1, user_env/1, synced/1, 
 	 service_prio/1, 
 	 logout/1, debug/1, restart/1, restart_always/1,stopaction/1,
@@ -31,20 +33,38 @@
 
 -define(TEST_SERVICES, [1,2,3,4,5,6,7,8,9,10,11]).
 
-all(suite) ->
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
     case os:type() of
-	{win32,nt} ->
-	    [nt, service_basic, service_env, user_env, synced, service_prio, 
-	     logout, debug,
-	     restart, restart_always, stopaction];
-	_ -> [nt] %%% Just to give a little hint why they are skipped...
+	{win32, nt} ->
+	    [nt, service_basic, service_env, user_env, synced,
+	     service_prio, logout, debug, restart, restart_always,
+	     stopaction];
+	_ -> [nt]
     end.
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 init_per_testcase(_Func, Config) ->
     Dog = test_server:timetrap(?TEST_TIMEOUT),
     [{watchdog, Dog} | Config].
 
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     lists:foreach(fun(X) -> 
 			  catch remove_service("test_service_" ++ 
 					 integer_to_list(X)) end,
@@ -470,12 +490,12 @@ middleman(Waitfor) ->
 match_event(_X, []) ->
     nomatch;
 match_event({Time,Cat,Fac,Sev,Mes},[{Pid,Ref,{Cat,Fac,Sev,MesRE}} | Tail]) ->
-    case regexp:match(Mes,MesRE) of
-	{match,_,_} ->
+    case re:run(Mes,MesRE,[{capture,none}]) of
+	match ->
 	    %%io:format("Match!~n"),
 	    {ok,{Pid,Ref,Time,Mes},Tail};
-	_Z ->
-	    %%io:format("No match (~p)~n",[_Z]),
+	nomatch ->
+	    %%io:format("No match~n"),
 	    case match_event({Time,Cat,Fac,Sev,Mes},Tail) of
 		{ok,X,Rest} ->
 		    {ok,X,[{Pid,Ref,{Cat,Fac,Sev,MesRE}} | Rest]};

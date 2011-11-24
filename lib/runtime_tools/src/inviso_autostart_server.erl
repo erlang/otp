@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -84,7 +84,7 @@ init(ArgsFromConfig) ->
     case get_tracerdata_opts(ArgsFromConfig) of
 	{ok,TracerData} ->                  % Otherwise we can not start a trace!
 	    case inviso_rt:init_tracing(TracerData) of
-		{ok,_} ->                   % Ok, tracing has been initiated.
+		{ok,_Response} ->                   % Ok, tracing has been initiated.
 		    case get_cmdfiles_opts(ArgsFromConfig) of
 			{ok,CmdFiles} ->    % List of cmd-files.
 			    Bindings=get_initialbindings_opts(ArgsFromConfig),
@@ -164,11 +164,11 @@ interpret_cmd_files([{FileName,LocalBindings}|Rest],GlobalBindings,Translations,
     Bindings=join_local_and_global_vars(LocalBindings,GlobalBindings),
     interpret_cmd_files_1(FileName,Bindings,Translations,Dbg),
     interpret_cmd_files(Rest,GlobalBindings,Translations,Dbg);
-interpret_cmd_files([FileName|Rest],GlobalBindings,Translations,Dbg) ->
-    interpret_cmd_files_1(FileName,GlobalBindings,Translations,Dbg),
-    interpret_cmd_files(Rest,GlobalBindings,Translations,Dbg);
 interpret_cmd_files([],_,_,_) ->            % Done, return nothing significant!
-    true.
+    true;
+interpret_cmd_files(FileName,GlobalBindings,Translations,Dbg) ->
+    interpret_cmd_files_1(FileName,GlobalBindings,Translations,Dbg).
+%    interpret_cmd_files(Rest,GlobalBindings,Translations,Dbg).
 
 %% This is "inline" inviso calls.
 interpret_cmd_files_1({inviso,F,Args},Bindings,Translations,Dbg) ->

@@ -1,0 +1,2 @@
+
+whereis_diff_vars_race.erl:16: The call erlang:register(Atom2::any(),Pid::pid()) might fail due to a possible race condition caused by its combination with the erlang:whereis(Atom1::any()) call in whereis_diff_vars_race.erl on line 13

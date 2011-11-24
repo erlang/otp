@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2003-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -59,17 +59,21 @@
 %% Test suite API
 -export([require/1, require/2,
 	 get_config/1, get_config/2, get_config/3,
+	 reload_config/1,
 	 log/1, log/2, log/3,
 	 print/1, print/2, print/3,
 	 pal/1, pal/2, pal/3,
 	 fail/1, comment/1,
-	 testcases/2, userdata/2, userdata/3]).
+	 testcases/2, userdata/2, userdata/3,
+	 timetrap/1, sleep/1]).
+
+%% New API for manipulating with config handlers
+-export([add_config/2, remove_config/2]).
 
 %% Other interface functions
 -export([get_status/0, abort_current_testcase/1,
 	 encrypt_config_file/2, encrypt_config_file/3,
 	 decrypt_config_file/2, decrypt_config_file/3]).
-
 
 -export([get_target_name/1]).
 -export([parse_table/1, listenv/1]).
@@ -93,7 +97,7 @@
 %%% <code>install([{config,["config_node.ctc","config_user.ctc"]}])</code>.</p>
 %%%
 %%% <p>Note that this function is automatically run by the
-%%% <code>run_test</code> script.</p>
+%%% <code>ct_run</code> program.</p>
 install(Opts) ->
     ct_run:install(Opts).
 
@@ -134,22 +138,31 @@ run(TestDirs) ->
 %%%-----------------------------------------------------------------
 %%% @spec run_test(Opts) -> Result
 %%%   Opts = [OptTuples]
-%%%   OptTuples = {config,CfgFiles} | {dir,TestDirs} | {suite,Suites} |
-%%%               {testcase,Cases} | {group,Groups} | {spec,TestSpecs} | 
-%%%               {allow_user_terms,Bool} | {logdir,LogDir} | 
-%%%               {silent_connections,Conns} | {cover,CoverSpecFile} | 
-%%%               {step,StepOpts} | {event_handler,EventHandlers} | {include,InclDirs} | 
-%%%               {auto_compile,Bool} | {repeat,N} | {duration,DurTime} | 
-%%%               {until,StopTime} | {force_stop,Bool} | {decrypt,DecryptKeyOrFile} |
-%%%               {refresh_logs,LogDir} | {basic_html,Bool}
-%%%   CfgFiles = [string()] | string()
+%%%   OptTuples = {dir,TestDirs} | {suite,Suites} | {group,Groups} |
+%%%               {testcase,Cases} | {spec,TestSpecs} | {label,Label} |
+%%%               {config,CfgFiles} | {userconfig, UserConfig} |
+%%%               {allow_user_terms,Bool} | {logdir,LogDir} |
+%%%               {silent_connections,Conns} | {stylesheet,CSSFile} |
+%%%               {cover,CoverSpecFile} | {step,StepOpts} |
+%%%               {event_handler,EventHandlers} | {include,InclDirs} |
+%%%               {auto_compile,Bool} | {multiply_timetraps,M} | {scale_timetraps,Bool} |
+%%%               {repeat,N} | {duration,DurTime} | {until,StopTime} |
+%%%               {force_stop,Bool} | {decrypt,DecryptKeyOrFile} |
+%%%               {refresh_logs,LogDir} | {logopts,LogOpts} | {basic_html,Bool} | 
+%%%               {ct_hooks, CTHs} | {enable_builtin_hooks,Bool}
 %%%   TestDirs = [string()] | string()
-%%%   Suites = [string()] | string()
+%%%   Suites = [string()] | [atom()] | string() | atom()
 %%%   Cases = [atom()] | atom()
 %%%   Groups = [atom()] | atom()
 %%%   TestSpecs = [string()] | string()
+%%%   Label = string() | atom()
+%%%   CfgFiles = [string()] | string()
+%%%   UserConfig = [{CallbackMod,CfgStrings}] | {CallbackMod,CfgStrings}
+%%%   CallbackMod = atom()
+%%%   CfgStrings = [string()] | string()
 %%%   LogDir = string()
 %%%   Conns = all | [atom()]
+%%%   CSSFile = string()
 %%%   CoverSpecFile = string()
 %%%   StepOpts = [StepOpt] | []
 %%%   StepOpt = config | keep_inactive
@@ -157,19 +170,26 @@ run(TestDirs) ->
 %%%   EH = atom() | {atom(),InitArgs} | {[atom()],InitArgs}
 %%%   InitArgs = [term()]
 %%%   InclDirs = [string()] | string()
+%%%   M = integer()
 %%%   N = integer()
 %%%   DurTime = string(HHMMSS)
 %%%   StopTime = string(YYMoMoDDHHMMSS) | string(HHMMSS)
 %%%   DecryptKeyOrFile = {key,DecryptKey} | {file,DecryptFile}
 %%%   DecryptKey = string()
 %%%   DecryptFile = string()
+%%%   LogOpts = [LogOpt]
+%%%   LogOpt = no_nl | no_src
+%%%   CTHs = [CTHModule | {CTHModule, CTHInitArgs}]
+%%%   CTHModule = atom()
+%%%   CTHInitArgs = term()
 %%%   Result = [TestResult] | {error,Reason}
 %%% @doc Run tests as specified by the combination of options in <code>Opts</code>.
-%%% The options are the same as those used with the <code>run_test</code> script.
+%%% The options are the same as those used with the
+%%% <seealso marker="ct_run#ct_run"><code>ct_run</code></seealso> program.
 %%% Note that here a <code>TestDir</code> can be used to point out the path to 
 %%% a <code>Suite</code>. Note also that the option <code>testcase</code>
-%%% corresponds to the <code>-case</code> option in the <code>run_test</code> 
-%%% script. Configuration files specified in <code>Opts</code> will be 
+%%% corresponds to the <code>-case</code> option in the <code>ct_run</code> 
+%%% program. Configuration files specified in <code>Opts</code> will be
 %%% installed automatically at startup.
 run_test(Opts) ->
     ct_run:run_test(Opts).
@@ -211,7 +231,7 @@ step(TestDir,Suite,Case,Opts) ->
 %%%
 %%% <p>From this mode all test case support functions can be executed
 %%% directly from the erlang shell. The interactive mode can also be
-%%% started from the unix command line with <code>run_test -shell
+%%% started from the OS command line with <code>ct_run -shell
 %%% [-config File...]</code>.</p>
 %%%
 %%% <p>If any functions using "required config data" (e.g. telnet or
@@ -269,7 +289,7 @@ stop_interactive() ->
 %%% @see get_config/2
 %%% @see get_config/3
 require(Required) ->
-    ct_util:require(Required).
+    ct_config:require(Required).
 
 %%%-----------------------------------------------------------------
 %%% @spec require(Name,Required) -> ok | {error,Reason}
@@ -304,19 +324,19 @@ require(Required) ->
 %%% @see get_config/2
 %%% @see get_config/3
 require(Name,Required) ->
-    ct_util:require(Name,Required).
+    ct_config:require(Name,Required).
 
 %%%-----------------------------------------------------------------
 %%% @spec get_config(Required) -> Value
 %%% @equiv get_config(Required,undefined,[])
 get_config(Required) ->
-    ct_util:get_config(Required,undefined,[]).
+    ct_config:get_config(Required,undefined,[]).
 
 %%%-----------------------------------------------------------------
 %%% @spec get_config(Required,Default) -> Value
 %%% @equiv get_config(Required,Default,[])
 get_config(Required,Default) ->
-    ct_util:get_config(Required,Default,[]).
+    ct_config:get_config(Required,Default,[]).
 
 %%%-----------------------------------------------------------------
 %%% @spec get_config(Required,Default,Opts) -> ValueOrElement
@@ -375,7 +395,26 @@ get_config(Required,Default) ->
 %%% @see require/1
 %%% @see require/2
 get_config(Required,Default,Opts) ->
-    ct_util:get_config(Required,Default,Opts).
+    ct_config:get_config(Required,Default,Opts).
+
+%%%-----------------------------------------------------------------
+%%% @spec reload_config(Required) -> ValueOrElement
+%%%      Required = KeyOrName | {KeyOrName,SubKey}
+%%%      KeyOrName = atom()
+%%%      SubKey = atom()
+%%%      ValueOrElement = term()
+%%%
+%%% @doc Reload config file which contains specified configuration key.
+%%%
+%%% <p>This function performs updating of the configuration data from which the
+%%% given configuration variable was read, and returns the (possibly) new
+%%% value of this variable.</p>
+%%% <p>Note that if some variables were present in the configuration but are not loaded
+%%% using this function, they will be removed from the configuration table together
+%%% with their aliases.</p>
+%%%
+reload_config(Required)->
+    ct_config:reload_config(Required).
 
 %%%-----------------------------------------------------------------
 %%% @spec log(Format) -> ok
@@ -661,7 +700,7 @@ userdata(TestDir, Suite, Case) ->
 
 
 %%%-----------------------------------------------------------------
-%%% @spec get_status() -> TestStatus | {error,Reason}
+%%% @spec get_status() -> TestStatus | {error,Reason} | no_tests_running
 %%%       TestStatus = [StatusElem]
 %%%       StatusElem = {current,{Suite,TestCase}} | {successful,Successful} |
 %%%                    {failed,Failed} | {skipped,Skipped} | {total,Total}
@@ -734,7 +773,7 @@ abort_current_testcase(Reason) ->
 %%%      <p>See the <code>crypto</code> application for details on DES3
 %%%      encryption/decryption.</p>
 encrypt_config_file(SrcFileName, EncryptFileName) ->
-    ct_util:encrypt_config_file(SrcFileName, EncryptFileName).
+    ct_config:encrypt_config_file(SrcFileName, EncryptFileName).
 
 %%%-----------------------------------------------------------------
 %%% @spec encrypt_config_file(SrcFileName, EncryptFileName, KeyOrFile) -> 
@@ -754,7 +793,7 @@ encrypt_config_file(SrcFileName, EncryptFileName) ->
 %%%      <p>See the <code>crypto</code> application for details on DES3
 %%%      encryption/decryption.</p>
 encrypt_config_file(SrcFileName, EncryptFileName, KeyOrFile) ->
-    ct_util:encrypt_config_file(SrcFileName, EncryptFileName, KeyOrFile).
+    ct_config:encrypt_config_file(SrcFileName, EncryptFileName, KeyOrFile).
 
 %%%-----------------------------------------------------------------
 %%% @spec decrypt_config_file(EncryptFileName, TargetFileName) -> 
@@ -770,7 +809,7 @@ encrypt_config_file(SrcFileName, EncryptFileName, KeyOrFile) ->
 %%%      <code>.ct_config.crypt</code> in the current directory, or the
 %%%      home directory of the user (it is searched for in that order).</p>
 decrypt_config_file(EncryptFileName, TargetFileName) ->
-    ct_util:decrypt_config_file(EncryptFileName, TargetFileName).
+    ct_config:decrypt_config_file(EncryptFileName, TargetFileName).
 
 %%%-----------------------------------------------------------------
 %%% @spec decrypt_config_file(EncryptFileName, TargetFileName, KeyOrFile) -> 
@@ -785,5 +824,66 @@ decrypt_config_file(EncryptFileName, TargetFileName) ->
 %%%      file contents is saved in the target file. The key must have the
 %%%      the same value as that used for encryption.</p>
 decrypt_config_file(EncryptFileName, TargetFileName, KeyOrFile) ->
-    ct_util:decrypt_config_file(EncryptFileName, TargetFileName, KeyOrFile).
+    ct_config:decrypt_config_file(EncryptFileName, TargetFileName, KeyOrFile).
 
+
+%%%-----------------------------------------------------------------
+%%% @spec add_config(Callback, Config) -> ok | {error, Reason}
+%%%       Callback = atom()
+%%%       Config = string()
+%%%       Reason = term()
+%%%
+%%% @doc <p>This function loads configuration variables using the
+%%% 	 given callback module and configuration string. Callback module
+%%%	 should be either loaded or present in the code part. Loaded
+%%%	 configuration variables can later be removed using
+%%%	 <code>remove_config/2</code> function.</p>
+add_config(Callback, Config)->
+    ct_config:add_config(Callback, Config).
+
+%%%-----------------------------------------------------------------
+%%% @spec remove_config(Callback, Config) -> ok
+%%%       Callback = atom()
+%%%       Config = string()
+%%%       Reason = term()
+%%%
+%%% @doc <p>This function removes configuration variables (together with
+%%%	 their aliases) which were loaded with specified callback module and
+%%%	 configuration string.</p>
+remove_config(Callback, Config) ->
+    ct_config:remove_config(Callback, Config).
+
+%%%-----------------------------------------------------------------
+%%% @spec timetrap(Time) -> ok
+%%%       Time = {hours,Hours} | {minutes,Mins} | {seconds,Secs} | Millisecs | infinity
+%%%       Hours = integer()
+%%%       Mins = integer()
+%%%       Secs = integer()
+%%%       Millisecs = integer() | float()
+%%%
+%%% @doc <p>Use this function to set a new timetrap for the running test case.</p>
+timetrap(Time) ->
+    test_server:timetrap_cancel(),
+    test_server:timetrap(Time).
+
+%%%-----------------------------------------------------------------
+%%% @spec sleep(Time) -> ok
+%%%       Time = {hours,Hours} | {minutes,Mins} | {seconds,Secs} | Millisecs | infinity
+%%%       Hours = integer()
+%%%       Mins = integer()
+%%%       Secs = integer()
+%%%       Millisecs = integer() | float()
+%%%
+%%% @doc <p>This function, similar to <c>timer:sleep/1</c>, suspends the test
+%%%      case for specified time. However, this function also multiplies
+%%%      <c>Time</c> with the 'multiply_timetraps' value (if set) and under
+%%%      certain circumstances also scales up the time automatically
+%%%      if 'scale_timetraps' is set to true (default is false).</p>
+sleep({hours,Hs}) ->
+    sleep(trunc(Hs * 1000 * 60 * 60));
+sleep({minutes,Ms}) ->
+    sleep(trunc(Ms * 1000 * 60));
+sleep({seconds,Ss}) ->
+    sleep(trunc(Ss * 1000));
+sleep(Time) ->
+    test_server:adjusted_sleep(Time).

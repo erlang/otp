@@ -1,25 +1,26 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 
 -module(erl_scan_SUITE).
--export([all/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 
--export([error/1, error_1/1, error_2/1, iso88591/1, otp_7810/1]).
+-export([ error_1/1, error_2/1, iso88591/1, otp_7810/1]).
 
 -import(lists, [nth/2,flatten/1]).
 -import(io_lib, [print/1]).
@@ -34,19 +35,19 @@
 -define(line, put(line, ?LINE), ).
 -define(config(A,B),config(A,B)).
 -define(t, test_server).
-%% config(priv_dir, _) ->    
+%% config(priv_dir, _) ->
 %%     ".";
 %% config(data_dir, _) ->
 %%     ".".
 -else.
--include("test_server.hrl").
--export([init_per_testcase/2, fin_per_testcase/2]).
+-include_lib("test_server/include/test_server.hrl").
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 init_per_testcase(_Case, Config) when is_list(Config) ->
     ?line Dog=test_server:timetrap(test_server:seconds(1200)),
     [{watchdog, Dog}|Config].
- 
-fin_per_testcase(_Case, Config) ->
+
+end_per_testcase(_Case, Config) ->
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
@@ -55,15 +56,27 @@ fin_per_testcase(_Case, Config) ->
 % Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(1)).
 
-all(doc) ->
-    ["Test cases for the 'erl_scan' module."];
-all(suite) ->
-    [error,iso88591,otp_7810].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-error(doc) ->
-    ["Error cases"];
-error(suite) ->
-    [error_1, error_2].
+all() -> 
+    [{group, error}, iso88591, otp_7810].
+
+groups() -> 
+    [{error, [], [error_1, error_2]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
+
 
 error_1(doc) ->
     ["(OTP-2347)"];
@@ -97,7 +110,7 @@ assert_type(N, integer) when is_integer(N) ->
     ok;
 assert_type(N, atom) when is_atom(N) ->
     ok.
-    
+
 check(String) ->
     Error = erl_scan:string(String),
     check_error(Error, erl_scan).
@@ -146,7 +159,7 @@ iso88591(Config) when is_list(Config) ->
 	ok -> ok				%Aok
     end.
 
-otp_7810(doc) -> 
+otp_7810(doc) ->
     ["OTP-7810. White spaces, comments, and more.."];
 otp_7810(suite) ->
     [];
@@ -185,7 +198,7 @@ reserved_words() ->
          'andalso', 'orelse', 'end', 'fun', 'if', 'let', 'of',
          'query', 'receive', 'when', 'bnot', 'not', 'div',
          'rem', 'band', 'and', 'bor', 'bxor', 'bsl', 'bsr',
-         'or', 'xor', 'spec'] , % 'spec' shouldn't be there...
+         'or', 'xor'],
     [begin
          ?line {RW, true} = {RW, erl_scan:reserved_word(RW)},
          S = atom_to_list(RW),
@@ -203,7 +216,7 @@ atoms() ->
     ?line test_string("a@2", [{atom,1,a@2}]),
     ?line test_string([39,65,200,39], [{atom,1,'AÈ'}]),
     ?line test_string("ärlig östen", [{atom,1,ärlig},{atom,1,östen}]),
-    ?line {ok,[{atom,_,'$a'}],{1,6}} = 
+    ?line {ok,[{atom,_,'$a'}],{1,6}} =
         erl_scan:string("'$\\a'", {1,1}),
     ?line test("'$\\a'"),
     ok.
@@ -221,8 +234,8 @@ punctuations() ->
     Three = ["/=:=", "<=:=", "==:=", ">=:="], % three tokens...
     No = Three ++ L,
     SL0 = [{S1++S2,{-length(S1),S1,S2}} ||
-              S1 <- L, 
-              S2 <- L, 
+              S1 <- L,
+              S2 <- L,
               not lists:member(S1++S2, No)],
     SL = family_list(SL0),
     %% Two tokens. When there are several answers, the one with
@@ -244,21 +257,24 @@ punctuations() ->
             {'\\',1},{'^',1},{'`',1},{'~',1}],
     ?line test_string("#&*+/:<>?@\\^`~", PTs2),
 
+    ?line test_string(".. ", [{'..',1}]),
+    ?line test("1 .. 2"),
+    ?line test_string("...", [{'...',1}]),
     ok.
 
 comments() ->
     ?line test("a %%\n b"),
     ?line {ok,[],1} = erl_scan:string("%"),
     ?line test("a %%\n b"),
-    ?line {ok,[{atom,_,a},{atom,_,b}],{2,3}} = 
+    ?line {ok,[{atom,_,a},{atom,_,b}],{2,3}} =
         erl_scan:string("a %%\n b",{1,1}),
-    ?line {ok,[{atom,_,a},{comment,_,"%%"},{atom,_,b}],{2,3}} = 
+    ?line {ok,[{atom,_,a},{comment,_,"%%"},{atom,_,b}],{2,3}} =
         erl_scan:string("a %%\n b",{1,1}, [return_comments]),
     ?line {ok,[{atom,_,a},
                {white_space,_," "},
                {white_space,_,"\n "},
                {atom,_,b}],
-           {2,3}} = 
+           {2,3}} =
         erl_scan:string("a %%\n b",{1,1},[return_white_spaces]),
     ?line {ok,[{atom,_,a},
                {white_space,_," "},
@@ -275,14 +291,14 @@ errors() ->
     ?line {error,{1,erl_scan,char},1} = erl_scan:string("$"),
     ?line test_string([34,65,200,34], [{string,1,"AÈ"}]),
     ?line test_string("\\", [{'\\',1}]),
-    ?line {'EXIT',_} = 
+    ?line {'EXIT',_} =
         (catch {foo, erl_scan:string('$\\a', {1,1})}), % type error
-    ?line {'EXIT',_} = 
+    ?line {'EXIT',_} =
         (catch {foo, erl_scan:tokens([], '$\\a', {1,1})}), % type error
 
     ?line "{a,tuple}" = erl_scan:format_error({a,tuple}),
     ok.
-    
+
 integers() ->
     [begin
          I = list_to_integer(S),
@@ -299,14 +315,14 @@ base_integers() ->
          ?line test_string(BS++"#"++S, Ts)
      end || {BS,S} <- [{"2","11"}, {"5","23234"}, {"12","05a"},
                        {"16","abcdef"}, {"16","ABCDEF"}] ],
-    
+
     ?line {error,{1,erl_scan,{base,1}},1} = erl_scan:string("1#000"),
-    
+
     ?line test_string("12#bc", [{integer,1,11},{atom,1,c}]),
-    
+
     [begin
          Str = BS ++ "#" ++ S,
-         ?line {error,{1,erl_scan,{illegal,integer}},1} = 
+         ?line {error,{1,erl_scan,{illegal,integer}},1} =
              erl_scan:string(Str)
      end || {BS,S} <- [{"3","3"},{"15","f"}, {"12","c"}] ],
 
@@ -323,8 +339,8 @@ floats() ->
      end || FS <- ["1.0","001.17","3.31200","1.0e0","1.0E17",
                    "34.21E-18", "17.0E+14"]],
     ?line test_string("1.e2", [{integer,1,1},{'.',1},{atom,1,e2}]),
-    
-    ?line {error,{1,erl_scan,{illegal,float}},1} = 
+
+    ?line {error,{1,erl_scan,{illegal,float}},1} =
         erl_scan:string("1.0e400"),
     [begin
          ?line {error,{1,erl_scan,{illegal,float}},1} = erl_scan:string(S)
@@ -345,16 +361,16 @@ dots() ->
            {".a",   {ok,[{'.',1},{atom,1,a}],1}}
           ],
     ?line [R = erl_scan:string(S) || {S, R} <- Dot],
-    
+
     ?line {ok,[{dot,_}=T1],{1,2}} = erl_scan:string(".", {1,1}, text),
-    ?line [{column,1},{length,1},{line,1},{text,"."}] = 
+    ?line [{column,1},{length,1},{line,1},{text,"."}] =
         erl_scan:token_info(T1, [column, length, line, text]),
     ?line {ok,[{dot,_}=T2],{1,3}} = erl_scan:string(".%", {1,1}, text),
-    ?line [{column,1},{length,1},{line,1},{text,"."}] = 
+    ?line [{column,1},{length,1},{line,1},{text,"."}] =
         erl_scan:token_info(T2, [column, length, line, text]),
     ?line {ok,[{dot,_}=T3],{1,6}} =
         erl_scan:string(".% öh", {1,1}, text),
-    ?line [{column,1},{length,1},{line,1},{text,"."}] = 
+    ?line [{column,1},{length,1},{line,1},{text,"."}] =
         erl_scan:token_info(T3, [column, length, line, text]),
     ?line {error,{{1,2},erl_scan,char},{1,3}} =
         erl_scan:string(".$", {1,1}),
@@ -376,10 +392,10 @@ dots() ->
     ?line {done,{ok,[{comment,_,"%. "},
                      {white_space,_,"\n"},
                      {dot,_}],
-                 {2,3}}, ""} = 
+                 {2,3}}, ""} =
         erl_scan:tokens(C, "\n. ", {1,1}, return), % any loc, any options
 
-    ?line [test_string(S, R) || 
+    ?line [test_string(S, R) ||
               {S, R} <- [{".$\n",   [{'.',1},{char,1,$\n}]},
                          {"$\\\n",  [{char,1,$\n}]},
                          {"'\\\n'", [{atom,1,'\n'}]},
@@ -392,7 +408,7 @@ chars() ->
          Ts = [{char,1,C}],
          ?line test_string(L, Ts)
      end || C <- lists:seq(0, 255)],
-    
+
     %% Leading zeroes...
     [begin
          L = lists:flatten(io_lib:format("$\\~3.8.0b", [C])),
@@ -406,13 +422,13 @@ chars() ->
          Ts = [{char,1,C band 2#11111}],
          ?line test_string(L, Ts)
      end || C <- lists:seq(0, 255)],
-    
+
     [begin
          L = "$\\" ++ [C],
          Ts = [{char,1,V}],
          ?line test_string(L, Ts)
-     end || {C,V} <- [{$n,$\n}, {$r,$\r}, {$t,$\t}, {$v,$\v}, 
-                      {$b,$\b}, {$f,$\f}, {$e,$\e}, {$s,$\s}, 
+     end || {C,V} <- [{$n,$\n}, {$r,$\r}, {$t,$\t}, {$v,$\v},
+                      {$b,$\b}, {$f,$\f}, {$e,$\e}, {$s,$\s},
                       {$d,$\d}]],
 
     EC = [$\n,$\r,$\t,$\v,$\b,$\f,$\e,$\s,$\d],
@@ -445,7 +461,7 @@ chars() ->
      end || C <- lists:seq(0, 255) -- (No ++ [$\\])],
     ?line test_string("$\n", [{char,1,$\n}]),
 
-    ?line {error,{{1,1},erl_scan,char},{1,4}} = 
+    ?line {error,{{1,1},erl_scan,char},{1,4}} =
         erl_scan:string("$\\^",{1,1}),
     ?line test_string("$\\\n", [{char,1,$\n}]),
     %% Robert's scanner returns line 1:
@@ -453,7 +469,7 @@ chars() ->
     ?line test_string("$\n\n", [{char,1,$\n}]),
     ?line test("$\n\n"),
     ok.
-           
+
 
 variables() ->
     ?line test_string("     \237_Aouåeiyäö", [{var,1,'_Aouåeiyäö'}]),
@@ -469,8 +485,8 @@ eof() ->
     ?line {done,{eof,2},eof} = erl_scan:tokens(C1, eof, 1),
     {more, C2} = erl_scan:tokens([], "abra", 1),
     %% An error before R13A.
-    %% ?line {done,Err={error,{1,erl_scan,scan},1},eof} = 
-    ?line {done,{ok,[{atom,1,abra}],1},eof} = 
+    %% ?line {done,Err={error,{1,erl_scan,scan},1},eof} =
+    ?line {done,{ok,[{atom,1,abra}],1},eof} =
         erl_scan:tokens(C2, eof, 1),
 
     %% With column.
@@ -478,7 +494,7 @@ eof() ->
     ?line {done,{eof,{2,1}},eof} = erl_scan:tokens(C3, eof, 1),
     {more, C4} = erl_scan:tokens([], "abra", {1,1}),
     %% An error before R13A.
-    %% ?line {done,{error,{{1,1},erl_scan,scan},{1,5}},eof} = 
+    %% ?line {done,{error,{{1,1},erl_scan,scan},{1,5}},eof} =
     ?line {done,{ok,[{atom,_,abra}],{1,5}},eof} =
         erl_scan:tokens(C4, eof, 1),
 
@@ -486,7 +502,7 @@ eof() ->
     %% the R12B scanner returns eof as LeftoverChars: (eof is correct)
     ?line {more, C5} = erl_scan:tokens([], "a", 1),
     %% An error before R13A.
-    %% ?line {done,{error,{1,erl_scan,scan},1},eof} = 
+    %% ?line {done,{error,{1,erl_scan,scan},1},eof} =
     ?line {done,{ok,[{atom,1,a}],1},eof} =
         erl_scan:tokens(C5,eof,1),
 
@@ -528,7 +544,7 @@ illegal() ->
         erl_scan:tokens([], "foo "++Atom++". ", {1,1}),
     ?line {error,{{1,1},erl_scan,{illegal,atom}},{1,1003}} =
         erl_scan:string(QAtom, {1,1}),
-    ?line {done,{error,{{1,5},erl_scan,{illegal,atom}},{1,1007}},". "} = 
+    ?line {done,{error,{{1,5},erl_scan,{illegal,atom}},{1,1007}},". "} =
         erl_scan:tokens([], "foo "++QAtom++". ", {1,1}),
     ?line {error,{{1,1},erl_scan,{illegal,var}},{1,1001}} =
         erl_scan:string(Var, {1,1}),
@@ -553,7 +569,7 @@ crashes() ->
     ?line {'EXIT',_} = (catch {foo, erl_scan:string("\"\\v"++[-1,$"])}), %$"
     ?line {'EXIT',_} = (catch {foo, erl_scan:string([$",-1,$"])}),
     ?line {'EXIT',_} = (catch {foo, erl_scan:string("% foo"++[-1])}),
-    ?line {'EXIT',_} = 
+    ?line {'EXIT',_} =
          (catch {foo, erl_scan:string("% foo"++[-1],{1,1})}),
 
     ?line {'EXIT',_} = (catch {foo, erl_scan:string([a])}), % type error
@@ -564,7 +580,7 @@ crashes() ->
     ?line {'EXIT',_} = (catch {foo, erl_scan:string("\"\\v"++[a,$"])}), %$"
     ?line {'EXIT',_} = (catch {foo, erl_scan:string([$",a,$"])}),
     ?line {'EXIT',_} = (catch {foo, erl_scan:string("% foo"++[a])}),
-    ?line {'EXIT',_} = 
+    ?line {'EXIT',_} =
          (catch {foo, erl_scan:string("% foo"++[a],{1,1})}),
 
     ?line {'EXIT',_} = (catch {foo, erl_scan:string([3.0])}), % type error
@@ -573,26 +589,26 @@ crashes() ->
 
 options() ->
     %% line and column are not options, but tested here
-    ?line {ok,[{atom,1,foo},{white_space,1," "},{comment,1,"% bar"}], 1} = 
+    ?line {ok,[{atom,1,foo},{white_space,1," "},{comment,1,"% bar"}], 1} =
         erl_scan:string("foo % bar", 1, return),
-    ?line {ok,[{atom,1,foo},{white_space,1," "}],1} = 
+    ?line {ok,[{atom,1,foo},{white_space,1," "}],1} =
         erl_scan:string("foo % bar", 1, return_white_spaces),
-    ?line {ok,[{atom,1,foo},{comment,1,"% bar"}],1} = 
+    ?line {ok,[{atom,1,foo},{comment,1,"% bar"}],1} =
         erl_scan:string("foo % bar", 1, return_comments),
-    ?line {ok,[{atom,17,foo}],17} = 
+    ?line {ok,[{atom,17,foo}],17} =
         erl_scan:string("foo % bar", 17),
-    ?line {'EXIT',{function_clause,_}} = 
-        (catch {foo, 
+    ?line {'EXIT',{function_clause,_}} =
+        (catch {foo,
                 erl_scan:string("foo % bar", {a,1}, [])}), % type error
-    ?line {ok,[{atom,_,foo}],{17,18}} = 
+    ?line {ok,[{atom,_,foo}],{17,18}} =
         erl_scan:string("foo % bar", {17,9}, []),
-    ?line {'EXIT',{function_clause,_}} = 
+    ?line {'EXIT',{function_clause,_}} =
         (catch {foo,
                 erl_scan:string("foo % bar", {1,0}, [])}), % type error
-    ?line {ok,[{foo,1}],1} = 
+    ?line {ok,[{foo,1}],1} =
         erl_scan:string("foo % bar",1, [{reserved_word_fun,
                                          fun(W) -> W =:= foo end}]),
-    ?line {'EXIT',{badarg,_}} = 
+    ?line {'EXIT',{badarg,_}} =
         (catch {foo,
                 erl_scan:string("foo % bar",1, % type error
                                 [{reserved_word_fun,
@@ -618,14 +634,14 @@ more_options() ->
 
 token_info() ->
     ?line {ok,[T1],_} = erl_scan:string("foo", {1,18}, [text]),
-    {'EXIT',{badarg,_}} = 
+    {'EXIT',{badarg,_}} =
         (catch {foo, erl_scan:token_info(T1, foo)}), % type error
     ?line {line,1} = erl_scan:token_info(T1, line),
     ?line {column,18} = erl_scan:token_info(T1, column),
     ?line {length,3} = erl_scan:token_info(T1, length),
     ?line {text,"foo"} = erl_scan:token_info(T1, text),
     ?line [{category,atom},{column,18},{length,3},{line,1},
-           {symbol,foo},{text,"foo"}] = 
+           {symbol,foo},{text,"foo"}] =
         erl_scan:token_info(T1),
     ?line [{length,3},{column,18}] =
         erl_scan:token_info(T1, [length, column]),
@@ -648,9 +664,9 @@ token_info() ->
     ?line {category,'='} = erl_scan:token_info(T3, category),
     ?line [{symbol,'='}] = erl_scan:token_info(T3, [symbol]),
     ok.
-    
+
 attributes_info() ->
-    ?line {'EXIT',_} = 
+    ?line {'EXIT',_} =
         (catch {foo,erl_scan:attributes_info(foo)}), % type error
     ?line [{line,18}] = erl_scan:attributes_info(18),
     ?line {location,19} = erl_scan:attributes_info(19, location),
@@ -717,10 +733,14 @@ set_attribute() ->
     ?line [{line,{17,11}},{text,"foo"}] =
         erl_scan:attributes_info(A7, [line,column,text]),
 
-    ?line {'EXIT',_} = 
+    ?line {'EXIT',_} =
         (catch {foo, erl_scan:set_attribute(line, [], F2)}), % type error
-    ?line {'EXIT',{badarg,_}} = 
+    ?line {'EXIT',{badarg,_}} =
         (catch {foo, erl_scan:set_attribute(column, [], F2)}), % type error
+
+    %% OTP-9412
+    ?line 8 = erl_scan:set_attribute(line, [{line,{nos,'X',8}}],
+                                     fun({nos,_V,VL}) -> VL end),
     ok.
 
 column_errors() ->
@@ -790,14 +810,14 @@ unicode() ->
     ?line {ok,[{char,1,83},{integer,1,45}],1} =
         erl_scan:string("$\\12345"), % not unicode
 
-    ?line {error,{1,erl_scan,{illegal,character}},1} = 
+    ?line {error,{1,erl_scan,{illegal,character}},1} =
         erl_scan:string([1089]),
-    ?line {error,{{1,1},erl_scan,{illegal,character}},{1,2}} = 
+    ?line {error,{{1,1},erl_scan,{illegal,character}},{1,2}} =
         erl_scan:string([1089], {1,1}),
     ?line {error,{1,erl_scan,{illegal,character}},1} =
-    %% ?line {error,{1,erl_scan,{illegal,atom}},1} = 
+    %% ?line {error,{1,erl_scan,{illegal,atom}},1} =
         erl_scan:string("'a"++[1089]++"b'"),
-    ?line {error,{{1,3},erl_scan,{illegal,character}},{1,4}} = 
+    ?line {error,{{1,3},erl_scan,{illegal,character}},{1,4}} =
         erl_scan:string("'a"++[1089]++"b'", {1,1}),
     ?line test("\"a"++[1089]++"b\""),
     ?line {ok,[{char,1,1}],1} = erl_scan:string([$$,$\\,$^,1089]),
@@ -822,7 +842,7 @@ unicode() ->
     ?line {ok,[{integer,1,16#aaa}],1} = erl_scan:string(Qs),
     ?line {ok,[Q2],{1,9}} = erl_scan:string("$\\x{aaa}", {1,1}, text),
     ?line [{category,integer},{column,1},{length,8},
-           {line,1},{symbol,16#aaa},{text,Qs}] = 
+           {line,1},{symbol,16#aaa},{text,Qs}] =
         erl_scan:token_info(Q2),
 
     U1 = "\"\\x{aaa}\"",
@@ -830,11 +850,11 @@ unicode() ->
     ?line [{category,'['},{column,1},{length,1},{line,1},
            {symbol,'['},{text,"\""}] = erl_scan:token_info(T1, Tags),
     ?line [{category,integer},{column,2},{length,7},
-           {line,1},{symbol,16#aaa},{text,"\\x{aaa}"}] = 
+           {line,1},{symbol,16#aaa},{text,"\\x{aaa}"}] =
         erl_scan:token_info(T2, Tags),
     ?line [{category,']'},{column,9},{length,1},{line,1},
            {symbol,']'},{text,"\""}] = erl_scan:token_info(T3, Tags),
-    ?line  {ok,[{'[',1},{integer,1,16#aaa},{']',1}],1} = 
+    ?line  {ok,[{'[',1},{integer,1,16#aaa},{']',1}],1} =
         erl_scan:string(U1, 1),
 
     U2 = "\"\\x41\\x{fff}\\x42\"",
@@ -844,7 +864,7 @@ unicode() ->
     U3 = "\"a\n\\x{fff}\n\"",
     ?line {ok,[{'[',1},{char,1,$a},{',',1},{char,1,$\n},
                {',',2},{integer,2,16#fff},{',',2},{char,2,$\n},
-               {']',3}],3} = 
+               {']',3}],3} =
         erl_scan:string(U3, 1),
 
     U4 = "\"\\^\n\\x{aaa}\\^\n\"",
@@ -867,10 +887,10 @@ unicode() ->
                {char,_,$d},{']',_}],{1,8}} = erl_scan:string(Str1, {1,1}),
     ?line test(Str1),
     Comment = "%% "++[1089],
-    ?line {ok,[{comment,1,[$%,$%,$\s,1089]}],1} = 
+    ?line {ok,[{comment,1,[$%,$%,$\s,1089]}],1} =
         erl_scan:string(Comment, 1, return),
-    ?line {ok,[{comment,_,[$%,$%,$\s,1089]}],{1,5}} = 
-        erl_scan:string(Comment, {1,1}, return),                           
+    ?line {ok,[{comment,_,[$%,$%,$\s,1089]}],{1,5}} =
+        erl_scan:string(Comment, {1,1}, return),
     ok.
 
 more_chars() ->
@@ -885,7 +905,7 @@ more_chars() ->
         erl_scan:tokens(C1, eof, 1),
     ?line {ok,[{char,1,123},{atom,1,a},{'}',1}],1} =
         erl_scan:string("$\\{a}"),
-    
+
     ?line {error,{{1,1},erl_scan,char},{1,4}} =
         erl_scan:string("$\\x", {1,1}),
     ?line {error,{{1,1},erl_scan,char},{1,5}} =
@@ -893,12 +913,12 @@ more_chars() ->
     ?line {more, C3} = erl_scan:tokens([], "$\\x", {1,1}),
     ?line {done,{error,{{1,1},erl_scan,char},{1,4}},eof} =
         erl_scan:tokens(C3, eof, 1),
-    ?line {error,{{1,1},erl_scan,char},{1,5}} = 
+    ?line {error,{{1,1},erl_scan,char},{1,5}} =
         erl_scan:string("$\\x{",{1,1}),
     ?line {more, C2} = erl_scan:tokens([], "$\\x{", {1,1}),
-    ?line {done,{error,{{1,1},erl_scan,char},{1,5}},eof} = 
+    ?line {done,{error,{{1,1},erl_scan,char},{1,5}},eof} =
         erl_scan:tokens(C2, eof, 1),
-    ?line {error,{1,erl_scan,{illegal,character}},1} = 
+    ?line {error,{1,erl_scan,{illegal,character}},1} =
         erl_scan:string("$\\x{g}"),
     ?line {error,{{1,1},erl_scan,{illegal,character}},{1,5}} =
         erl_scan:string("$\\x{g}", {1,1}),
@@ -924,12 +944,12 @@ more_chars() ->
     ?line test("$\\x{10FFFF}"),
     ?line test("$\\x{10ffff}"),
     ?line test("\"$\n \\{1}\""),
-    ?line {error,{1,erl_scan,{illegal,character}},1} = 
+    ?line {error,{1,erl_scan,{illegal,character}},1} =
         erl_scan:string("$\\x{110000}"),
-    ?line {error,{{1,1},erl_scan,{illegal,character}},{1,12}} = 
+    ?line {error,{{1,1},erl_scan,{illegal,character}},{1,12}} =
         erl_scan:string("$\\x{110000}", {1,1}),
 
-    ?line {error,{{1,1},erl_scan,{illegal,character}},{1,4}} = 
+    ?line {error,{{1,1},erl_scan,{illegal,character}},{1,4}} =
         erl_scan:string("$\\xfg", {1,1}),
 
     ?line test("$\\xffg"),
@@ -953,11 +973,11 @@ test(String) ->
      {Wtokens, Wend},
      {Ctokens, Cend},
      {CWtokens, CWend},
-     {CWtokens2, _}] = 
+     {CWtokens2, _}] =
         [scan_string_with_column(String, X) ||
-            X <- [[], 
-                  [return_white_spaces], 
-                  [return_comments], 
+            X <- [[],
+                  [return_white_spaces],
+                  [return_comments],
                   [return],
                   [return]]], % for white space compaction test
 
@@ -969,7 +989,7 @@ test(String) ->
     {none,Tokens} = {none, filter_tokens(CWtokens, [white_space,comment])},
     {comments,Ctokens} =
         {comments,filter_tokens(CWtokens, [white_space])},
-    {white_spaces,Wtokens} = 
+    {white_spaces,Wtokens} =
         {white_spaces,filter_tokens(CWtokens, [comment])},
 
     %% Use token attributes to extract parts from the original string,
@@ -991,9 +1011,9 @@ test(String) ->
     %% Line attribute only:
     [Simple,Wsimple,Csimple,WCsimple] = Simples =
         [element(2, erl_scan:string(String, 1, Opts)) ||
-            Opts <- [[], 
-                     [return_white_spaces], 
-                     [return_comments], 
+            Opts <- [[],
+                     [return_white_spaces],
+                     [return_comments],
                      [return]]],
     {consistent,true} = {consistent,consistent_attributes(Simples)},
     {simple_wc,WCsimple} = {simple_wc,simplify(CWtokens)},
@@ -1004,19 +1024,19 @@ test(String) ->
     %% Line attribute only, with text:
     [SimpleTxt,WsimpleTxt,CsimpleTxt,WCsimpleTxt] = SimplesTxt =
         [element(2, erl_scan:string(String, 1, [text|Opts])) ||
-            Opts <- [[], 
-                     [return_white_spaces], 
-                     [return_comments], 
+            Opts <- [[],
+                     [return_white_spaces],
+                     [return_comments],
                      [return]]],
     TextTxt = get_text(WCsimpleTxt),
     {text_txt,TextTxt,String} = {text_txt,String,TextTxt},
-    {consistent_txt,true} = 
+    {consistent_txt,true} =
         {consistent_txt,consistent_attributes(SimplesTxt)},
-    {simple_txt,SimpleTxt} = 
+    {simple_txt,SimpleTxt} =
         {simple_txt,filter_tokens(WCsimpleTxt, [white_space,comment])},
-    {simple_c_txt,CsimpleTxt} = 
+    {simple_c_txt,CsimpleTxt} =
         {simple_c_txt,filter_tokens(WCsimpleTxt, [white_space])},
-    {simple_w_txt,WsimpleTxt} = 
+    {simple_w_txt,WsimpleTxt} =
         {simple_w_txt,filter_tokens(WCsimpleTxt, [comment])},
 
     ok.
@@ -1024,18 +1044,18 @@ test(String) ->
 test_white_space_compaction(Tokens, Tokens2) when Tokens =:= Tokens2 ->
     [WS, WS2] = [select_tokens(Ts, [white_space]) || Ts <- [Tokens, Tokens2]],
     test_wsc(WS, WS2).
-    
+
 test_wsc([], []) ->
     ok;
 test_wsc([Token|Tokens], [Token2|Tokens2]) ->
-    [Text, Text2] = [Text || 
-                        {text, Text} <- 
+    [Text, Text2] = [Text ||
+                        {text, Text} <-
                             [erl_scan:token_info(T, text) ||
                                 T <- [Token, Token2]]],
     Sz = erts_debug:size(Text),
     Sz2 = erts_debug:size({Text, Text2}),
     IsCompacted = Sz2 < 2*Sz+erts_debug:size({a,a}),
-    ToBeCompacted = is_compacted(Text),    
+    ToBeCompacted = is_compacted(Text),
     if
         IsCompacted =:= ToBeCompacted ->
             test_wsc(Tokens, Tokens2);
@@ -1050,14 +1070,14 @@ is_compacted("\n\r") ->
 is_compacted("\n\f") ->
     true;
 is_compacted([$\n|String]) ->
-      all_spaces(String) 
+      all_spaces(String)
     orelse
       all_tabs(String);
 is_compacted(String) ->
       all_spaces(String)
     orelse
       all_tabs(String).
-  
+
 all_spaces(L) ->
     all_same(L, $\s).
 
@@ -1078,7 +1098,7 @@ newlines_first([Token|Tokens]) ->
              _ ->
                  Nnls =:= 0
          end,
-    if 
+    if
         OK -> newlines_first(Tokens);
         true -> OK
     end.
@@ -1097,7 +1117,7 @@ simplify([]) ->
 
 get_text(Tokens) ->
     lists:flatten(
-      [T || 
+      [T ||
           Token <- Tokens,
           ({text,T} = erl_scan:token_info(Token, text)) =/= []]).
 
@@ -1108,7 +1128,7 @@ test_decorated_tokens(String, Tokens) ->
 token_attrs(Tokens) ->
     [{L,C,Len,T} ||
         Token <- Tokens,
-        ([{line,L},{column,C},{length,Len},{text,T}] = 
+        ([{line,L},{column,C},{length,Len},{text,T}] =
          erl_scan:token_info(Token, [line,column,length,text])) =/= []].
 
 test_strings([], _S, Line, Column) ->
@@ -1150,7 +1170,7 @@ scan_string_with_column(String, Options0) ->
     {ok, Ts1, End1} = erl_scan:string(String, StartLoc, Options),
     TString = String ++ ". ",
     {ok,Ts2,End2} = scan_tokens(TString, Options, [], StartLoc),
-    {ok, Ts3, End3} = 
+    {ok, Ts3, End3} =
         scan_tokens_1({more, []}, TString, Options, [], StartLoc),
     {end_2,End2,End3} = {end_2,End3,End2},
     {EndLine1,EndColumn1} = End1,
@@ -1190,8 +1210,8 @@ consistent_attributes([Ts | TsL]) ->
     L = [T || T <- Ts, is_integer(element(2, T))],
     case L of
         [] ->
-            TagsL = [[Tag || {Tag,_} <- 
-                                 erl_scan:attributes_info(element(2, T))] || 
+            TagsL = [[Tag || {Tag,_} <-
+                                 erl_scan:attributes_info(element(2, T))] ||
                         T <- Ts],
             case lists:usort(TagsL) of
                 [_] ->

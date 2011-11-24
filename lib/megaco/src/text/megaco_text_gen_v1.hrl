@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -2386,10 +2386,6 @@ verify_count(Count, Min, Max) ->
     end.
 
 
-%% -------------------------------------------------------------------
-
-error(Reason) ->
-    erlang:error(Reason).
 
 % d(F) ->
 %     d(F, []).

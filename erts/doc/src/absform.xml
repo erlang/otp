@@ -285,7 +285,8 @@
       <item>If E is <c><![CDATA[fun Name / Arity]]></c>, then
        Rep(E) = <c><![CDATA[{'fun',LINE,{function,Name,Arity}}]]></c>.</item>
       <item>If E is <c><![CDATA[fun Module:Name/Arity]]></c>, then
-       Rep(E) = <c><![CDATA[{'fun',LINE,{function,Module,Name,Arity}}]]></c>.</item>
+       Rep(E) = <c><![CDATA[{'fun',LINE,{function,Rep(Module),Rep(Name),Rep(Arity)}}]]></c>.
+      (Before the R15 release: Rep(E) = <c><![CDATA[{'fun',LINE,{function,Module,Name,Arity}}]]></c>.)</item>
       <item>If E is <c><![CDATA[fun Fc_1 ; ... ; Fc_k end]]></c> 
        where each <c><![CDATA[Fc_i]]></c> is a function clause then Rep(E) =
       <c><![CDATA[{'fun',LINE,{clauses,[Rep(Fc_1), ..., Rep(Fc_k)]}}]]></c>.</item>

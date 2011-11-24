@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,7 +18,7 @@
 %%
 
 -define(DEFAULT_MIN_NO_SLOTS, 256).
--define(DEFAULT_MAX_NO_SLOTS, 2*1024*1024).
+-define(DEFAULT_MAX_NO_SLOTS, 32*1024*1024).
 -define(DEFAULT_AUTOSAVE, 3). % minutes
 -define(DEFAULT_CACHE, {3000, 14000}). % {delay,size} in {milliseconds,bytes}
 
@@ -92,6 +92,7 @@
 %% Info extracted from the file header.
 -record(fileheader, {
 	  freelist,
+          fl_base,
 	  cookie,
 	  closed_properly,
 	  type,

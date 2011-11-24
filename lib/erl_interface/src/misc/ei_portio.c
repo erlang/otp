@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1996-2009. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -166,11 +166,16 @@ int ei_writev_fill_t(int fd,  const  struct  iovec  *iov,  int iovcnt, unsigned 
 	if (done < sum) {
 	    if (iov_base == NULL) {
 		iov_base = malloc(sizeof(struct iovec) * iovcnt);
+		if (iov_base == NULL) {
+		return -1;
+		}
 		memcpy(iov_base, iov, sizeof(struct iovec) * iovcnt);
 		current_iov = iov_base;
 	    }
 	    while (i > 0) {
 		if (i < current_iov[0].iov_len) {
+		    char *p = (char*)current_iov[0].iov_base;
+		    current_iov[0].iov_base = p + i;
 		    current_iov[0].iov_len -= i;
 		    i = 0;
 		} else {

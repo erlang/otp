@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,8 +18,9 @@
 
 -module(estone_SUITE).
 %% Test functions
--export([all/1,estone/1]).
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,estone/1]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 %% Internal exports for EStone tests
 -export([lists/1,
@@ -30,7 +31,7 @@
 	 trav/1,
 	 port_io/1,
 	 large_dataset_work/1,
-	 large_local_dataset_work/1,mk_big_procs/1,big_proc/0,
+	 large_local_dataset_work/1,mk_big_procs/1,big_proc/0, very_big/1,
 	 alloc/1,
 	 bif_dispatch/1,
 	 binary_h/1,echo/1,
@@ -44,7 +45,7 @@
 	 run_micro/3,p1/1,ppp/3,macro/2,micros/0]).
 
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 %% Test suite defines
 -define(default_timeout, ?t:minutes(10)).
@@ -68,12 +69,31 @@
 init_per_testcase(_Case, Config) ->
     ?line Dog=test_server:timetrap(?default_timeout),
     [{watchdog, Dog}|Config].
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog=?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),
     ok.
 
-all(suite) -> [estone].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [estone].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 estone(suite) ->
     [];

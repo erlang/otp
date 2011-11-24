@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1997-2009. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -43,6 +43,7 @@
 # endif
 #endif
 
+#include "erl_interface.h"
 #include "erl_timeout.h"
 
 typedef struct jmp_s {
@@ -74,7 +75,7 @@ jmp_buf *timeout_setup(int ms)
   t.it_value.tv_usec = (ms % 1000) * 1000;
 
   /* get a jump buffer and save it */
-  j = malloc(sizeof(*j));	/* FIXME check result */
+  j = erl_malloc(sizeof(*j));
   j->siginfo = s;
   push(j);
 

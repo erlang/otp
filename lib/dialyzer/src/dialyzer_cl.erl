@@ -2,7 +2,7 @@
 %%-------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -29,6 +29,10 @@
 
 -module(dialyzer_cl).
 
+%% Avoid warning for local function error/1 clashing with autoimported BIF.
+-compile({no_auto_import,[error/1]}).
+%% Avoid warning for local function error/2 clashing with autoimported BIF.
+-compile({no_auto_import,[error/2]}).
 -export([start/1]).
 
 -include("dialyzer.hrl").
@@ -38,16 +42,18 @@
 	{backend_pid                      :: pid(),
 	 erlang_mode     = false          :: boolean(),
 	 external_calls  = []             :: [mfa()],
+         external_types  = []             :: [mfa()],
 	 legal_warnings  = ordsets:new()  :: [dial_warn_tag()],
 	 mod_deps        = dict:new()     :: dict(),
 	 output          = standard_io	  :: io:device(),
-	 output_format   = formatted      :: 'raw' | 'formatted',
+	 output_format   = formatted      :: format(),
+	 filename_opt    = basename       :: fopt(),
 	 output_plt      = none           :: 'none' | file:filename(),
 	 plt_info        = none           :: 'none' | dialyzer_plt:plt_info(),
 	 report_mode     = normal         :: rep_mode(),
 	 return_status= ?RET_NOTHING_SUSPICIOUS	:: dial_ret(),
 	 stored_warnings = []             :: [dial_warning()],
-	 unknown_behaviours = []          :: [atom()]
+	 unknown_behaviours = []          :: [dialyzer_behaviours:behaviour()]
 	}).
 
 %%--------------------------------------------------------------------
@@ -76,11 +82,15 @@ build_plt(Opts) ->
 init_opts_for_build(Opts) ->
   case Opts#options.output_plt =:= none of
     true ->
-      case Opts#options.init_plt of
-	none -> Opts#options{init_plt = none, output_plt = get_default_plt()};
-	Plt  -> Opts#options{init_plt = none, output_plt = Plt}
+      case Opts#options.init_plts of
+	[] -> Opts#options{output_plt = get_default_output_plt()};
+	[Plt] -> Opts#options{init_plts = [], output_plt = Plt};
+        Plts ->
+          Msg = io_lib:format("Could not build multiple PLT files: ~s\n",
+                              [format_plts(Plts)]),
+          error(Msg)
       end;
-    false -> Opts#options{init_plt = none}
+    false -> Opts#options{init_plts = []}
   end.
 
 %%--------------------------------------------------------------------
@@ -93,39 +103,58 @@ add_to_plt(Opts) ->
 init_opts_for_add(Opts) ->
   case Opts#options.output_plt =:= none of
     true ->
-      case Opts#options.init_plt of
-	none -> Opts#options{output_plt = get_default_plt(),
-			     init_plt = get_default_plt()};
-	Plt  -> Opts#options{output_plt = Plt}
+      case Opts#options.init_plts of
+	[] -> Opts#options{output_plt = get_default_output_plt(),
+                           init_plts = get_default_init_plt()};
+	[Plt] -> Opts#options{output_plt = Plt};
+        Plts ->
+          Msg = io_lib:format("Could not add to multiple PLT files: ~s\n",
+                              [format_plts(Plts)]),
+          error(Msg)
       end;
     false ->
-      case Opts#options.init_plt =:= none of
-	true  -> Opts#options{init_plt = get_default_plt()};
+      case Opts#options.init_plts =:= [] of
+	true  -> Opts#options{init_plts = get_default_init_plt()};
 	false -> Opts
       end
   end.
 
 %%--------------------------------------------------------------------
 
-check_plt(Opts) ->
+check_plt(#options{init_plts = []} = Opts) ->
   Opts1 = init_opts_for_check(Opts),
-  report_check(Opts),
-  plt_common(Opts1, [], []).
+  report_check(Opts1),
+  plt_common(Opts1, [], []);
+check_plt(#options{init_plts = Plts} = Opts) ->
+  check_plt_aux(Plts, Opts).
+
+check_plt_aux([_] = Plt, Opts) ->
+  Opts1 = Opts#options{init_plts = Plt},
+  Opts2 = init_opts_for_check(Opts1),
+  report_check(Opts2),
+  plt_common(Opts2, [], []);
+check_plt_aux([Plt|Plts], Opts) ->
+  Opts1 = Opts#options{init_plts = [Plt]},
+  Opts2 = init_opts_for_check(Opts1),
+  report_check(Opts2),
+  plt_common(Opts2, [], []),
+  check_plt_aux(Plts, Opts).
 
 init_opts_for_check(Opts) ->
-  Plt =
-    case Opts#options.init_plt of
-      none -> get_default_plt();
-      Plt0 -> Plt0
+  InitPlt =
+    case Opts#options.init_plts of
+      []-> get_default_init_plt();
+      Plt -> Plt
     end,
+  [OutputPlt] = InitPlt,
   Opts#options{files         = [],
 	       files_rec     = [],
 	       analysis_type = plt_check,
 	       defines       = [],
 	       from          = byte_code,
-	       init_plt      = Plt,
+	       init_plts     = InitPlt,
 	       include_dirs  = [],
-	       output_plt    = Plt,
+	       output_plt    = OutputPlt,
 	       use_contracts = true
 	      }.
 
@@ -139,23 +168,33 @@ remove_from_plt(Opts) ->
 init_opts_for_remove(Opts) ->
   case Opts#options.output_plt =:= none of
     true ->
-      case Opts#options.init_plt of
-	none -> Opts#options{output_plt = get_default_plt(),
-			     init_plt = get_default_plt()};
-	Plt  -> Opts#options{output_plt = Plt}
+      case Opts#options.init_plts of
+	[] -> Opts#options{output_plt = get_default_output_plt(),
+                           init_plts = get_default_init_plt()};
+	[Plt] -> Opts#options{output_plt = Plt};
+        Plts ->
+          Msg = io_lib:format("Could not remove from multiple PLT files: ~s\n",
+                              [format_plts(Plts)]),
+          error(Msg)
       end;
     false ->
-      case Opts#options.init_plt =:= none of
-	true  -> Opts#options{init_plt = get_default_plt()};
+      case Opts#options.init_plts =:= [] of
+	true  -> Opts#options{init_plts = get_default_init_plt()};
 	false -> Opts
       end
   end.
 
 %%--------------------------------------------------------------------
 
-plt_common(Opts, RemoveFiles, AddFiles) ->
+plt_common(#options{init_plts = [InitPlt]} = Opts, RemoveFiles, AddFiles) ->
   case check_plt(Opts, RemoveFiles, AddFiles) of
     ok ->
+      case Opts#options.output_plt of
+	none -> ok;
+	OutPlt ->
+	  {ok, Binary} = file:read_file(InitPlt),
+	  file:write_file(OutPlt, Binary)
+      end,
       case Opts#options.report_mode of
 	quiet -> ok;
 	_ -> io:put_chars(" yes\n")
@@ -169,7 +208,7 @@ plt_common(Opts, RemoveFiles, AddFiles) ->
       report_failed_plt_check(Opts, DiffMd5),
       {AnalFiles, RemovedMods, ModDeps1} = 
 	expand_dependent_modules(Md5, DiffMd5, ModDeps),
-      Plt = clean_plt(Opts#options.init_plt, RemovedMods),
+      Plt = clean_plt(InitPlt, RemovedMods),
       case AnalFiles =:= [] of
 	true ->
 	  %% Only removed stuff. Just write the PLT.
@@ -181,19 +220,19 @@ plt_common(Opts, RemoveFiles, AddFiles) ->
       end;
     {error, no_such_file} ->
       Msg = io_lib:format("Could not find the PLT: ~s\n~s",
-			  [Opts#options.init_plt, default_plt_error_msg()]),
+			  [InitPlt, default_plt_error_msg()]),
       error(Msg);
     {error, not_valid} ->
       Msg = io_lib:format("The file: ~s is not a valid PLT file\n~s",
-			  [Opts#options.init_plt, default_plt_error_msg()]),
+			  [InitPlt, default_plt_error_msg()]),
       error(Msg);
     {error, read_error} ->
       Msg = io_lib:format("Could not read the PLT: ~s\n~s",
-			  [Opts#options.init_plt, default_plt_error_msg()]),
+			  [InitPlt, default_plt_error_msg()]),
       error(Msg);
     {error, {no_file_to_remove, F}} ->
       Msg = io_lib:format("Could not remove the file ~s from the PLT: ~s\n",
-			  [F, Opts#options.init_plt]),
+			  [F, InitPlt]),
       error(Msg)
   end.
 
@@ -213,8 +252,7 @@ default_plt_error_msg() ->
 
 %%--------------------------------------------------------------------
 
-check_plt(Opts, RemoveFiles, AddFiles) ->
-  Plt = Opts#options.init_plt,
+check_plt(#options{init_plts = [Plt]} = Opts, RemoveFiles, AddFiles) ->
   case dialyzer_plt:check_plt(Plt, RemoveFiles, AddFiles) of
     {old_version, _MD5} = OldVersion ->
       report_old_version(Opts),
@@ -229,14 +267,14 @@ check_plt(Opts, RemoveFiles, AddFiles) ->
 
 %%--------------------------------------------------------------------
 
-report_check(#options{report_mode = ReportMode, init_plt = InitPlt}) ->
+report_check(#options{report_mode = ReportMode, init_plts = [InitPlt]}) ->
   case ReportMode of
     quiet -> ok;
     _ ->
       io:format("  Checking whether the PLT ~s is up-to-date...", [InitPlt])
   end.
 
-report_old_version(#options{report_mode = ReportMode, init_plt = InitPlt}) ->
+report_old_version(#options{report_mode = ReportMode, init_plts = [InitPlt]}) ->
   case ReportMode of
     quiet -> ok;
     _ ->
@@ -259,7 +297,7 @@ report_failed_plt_check(#options{analysis_type = AnalType,
 
 report_analysis_start(#options{analysis_type = Type,
 			       report_mode = ReportMode,
-			       init_plt = InitPlt, 
+			       init_plts = InitPlts,
 			       output_plt = OutputPlt}) ->
   case ReportMode of
     quiet -> ok;
@@ -267,6 +305,7 @@ report_analysis_start(#options{analysis_type = Type,
       io:format("  "),
       case Type of
 	plt_add ->
+          [InitPlt] = InitPlts,
 	  case InitPlt =:= OutputPlt of
 	    true -> io:format("Adding information to ~s...", [OutputPlt]);
 	    false -> io:format("Adding information from ~s to ~s...", 
@@ -277,6 +316,7 @@ report_analysis_start(#options{analysis_type = Type,
 	plt_check ->
 	  io:format("Rebuilding the information in ~s...", [OutputPlt]);
 	plt_remove ->
+          [InitPlt] = InitPlts,
 	  case InitPlt =:= OutputPlt of
 	    true -> io:format("Removing information from ~s...", [OutputPlt]);
 	    false -> io:format("Removing information from ~s to ~s...", 
@@ -315,16 +355,28 @@ report_md5_diff(List) ->
 
 %%--------------------------------------------------------------------
 
-get_default_plt() ->
+get_default_init_plt() ->
+  [dialyzer_plt:get_default_plt()].
+
+get_default_output_plt() ->
   dialyzer_plt:get_default_plt().
+
+%%--------------------------------------------------------------------
+
+format_plts([Plt]) -> Plt;
+format_plts([Plt|Plts]) ->
+  Plt ++ ", " ++ format_plts(Plts).
 
 %%--------------------------------------------------------------------
 
 do_analysis(Options) ->
   Files = get_files_from_opts(Options),
-  case Options#options.init_plt of
-    none -> do_analysis(Files, Options, dialyzer_plt:new(), none);
-    File -> do_analysis(Files, Options, dialyzer_plt:from_file(File), none)
+  case Options#options.init_plts of
+    [] -> do_analysis(Files, Options, dialyzer_plt:new(), none);
+    PltFiles ->
+      Plts = [dialyzer_plt:from_file(F) || F <- PltFiles],
+      Plt = dialyzer_plt:merge_plts_or_report_conflicts(PltFiles, Plts),
+      do_analysis(Files, Options, Plt, none)
   end.
   
 do_analysis(Files, Options, Plt, PltInfo) ->
@@ -487,8 +539,10 @@ hc(Mod) ->
 new_state() ->
   #cl_state{}.
 
-init_output(State0, #options{output_file = OutFile, output_format = OutFormat}) ->
-  State = State0#cl_state{output_format = OutFormat},
+init_output(State0, #options{output_file = OutFile,
+			     output_format = OutFormat,
+			     filename_opt = FOpt}) ->
+  State = State0#cl_state{output_format = OutFormat, filename_opt = FOpt},
   case OutFile =:= none of
     true ->
       State;
@@ -538,6 +592,8 @@ cl_loop(State, LogCache) ->
       return_value(State, NewPlt);
     {BackendPid, ext_calls, ExtCalls} ->
       cl_loop(State#cl_state{external_calls = ExtCalls}, LogCache);
+    {BackendPid, ext_types, ExtTypes} ->
+      cl_loop(State#cl_state{external_types = ExtTypes}, LogCache);
     {BackendPid, mod_deps, ModDeps} ->
       NewState = State#cl_state{mod_deps = ModDeps},
       cl_loop(NewState, LogCache);
@@ -552,7 +608,7 @@ cl_loop(State, LogCache) ->
       cl_loop(State, LogCache)
   end.
 
--spec failed_anal_msg(string(), [_]) -> string().
+-spec failed_anal_msg(string(), [_]) -> nonempty_string().
 
 failed_anal_msg(Reason, LogCache) ->
   Msg = "Analysis failed with error: " ++ Reason ++ "\n",
@@ -574,7 +630,7 @@ format_log_cache(LogCache) ->
 store_warnings(#cl_state{stored_warnings = StoredWarnings} = St, Warnings) ->
   St#cl_state{stored_warnings = StoredWarnings ++ Warnings}.
 
--spec store_unknown_behaviours(#cl_state{}, [_]) -> #cl_state{}.
+-spec store_unknown_behaviours(#cl_state{}, [dialyzer_behaviours:behaviour()]) -> #cl_state{}.
 
 store_unknown_behaviours(#cl_state{unknown_behaviours = Behs} = St, Beh) ->
   St#cl_state{unknown_behaviours = Beh ++ Behs}.
@@ -613,6 +669,7 @@ return_value(State = #cl_state{erlang_mode = ErlangMode,
     false ->
       print_warnings(State),
       print_ext_calls(State),
+      print_ext_types(State),
       print_unknown_behaviours(State),
       maybe_close_output_file(State),
       {RetValue, []};
@@ -649,10 +706,41 @@ do_print_ext_calls(Output, [{M,F,A}|T], Before) ->
 do_print_ext_calls(_, [], _) ->
   ok.
 
+print_ext_types(#cl_state{report_mode = quiet}) ->
+  ok;
+print_ext_types(#cl_state{output = Output,
+                          external_calls = Calls,
+                          external_types = Types,
+                          stored_warnings = Warnings,
+                          output_format = Format}) ->
+  case Types =:= [] of
+    true -> ok;
+    false ->
+      case Warnings =:= [] andalso Calls =:= [] of
+        true -> io:nl(Output); %% Need to do a newline first
+        false -> ok
+      end,
+      case Format of
+        formatted ->
+          io:put_chars(Output, "Unknown types:\n"),
+          do_print_ext_types(Output, Types, "  ");
+        raw ->
+          io:put_chars(Output, "%% Unknown types:\n"),
+          do_print_ext_types(Output, Types, "%%  ")
+      end
+  end.
+
+do_print_ext_types(Output, [{M,F,A}|T], Before) ->
+  io:format(Output, "~s~p:~p/~p\n", [Before,M,F,A]),
+  do_print_ext_types(Output, T, Before);
+do_print_ext_types(_, [], _) ->
+  ok.
+
 %%print_unknown_behaviours(#cl_state{report_mode = quiet}) ->
 %%  ok;
 print_unknown_behaviours(#cl_state{output = Output,
 				   external_calls = Calls,
+				   external_types = Types,
 				   stored_warnings = Warnings,
 				   unknown_behaviours = DupBehaviours,
 				   legal_warnings = LegalWarnings,
@@ -662,19 +750,17 @@ print_unknown_behaviours(#cl_state{output = Output,
     false -> ok;
     true ->
       Behaviours = lists:usort(DupBehaviours),
-      case Warnings =:= [] andalso Calls =:= [] of
+      case Warnings =:= [] andalso Calls =:= [] andalso Types =:= [] of
 	true -> io:nl(Output); %% Need to do a newline first
 	false -> ok
       end,
-      case Format of
-	formatted ->
-	  io:put_chars(Output, "Unknown behaviours (behaviour_info(callbacks)"
-		       " does not return any specs):\n"),
-	  do_print_unknown_behaviours(Output, Behaviours, "  ");
-	raw ->
-	  io:put_chars(Output, "%% Unknown behaviours:\n"),
-	  do_print_unknown_behaviours(Output, Behaviours, "%%  ")
-      end
+      {Prompt, Prefix} =
+	case Format of
+	  formatted -> {"Unknown behaviours:\n","  "};
+	  raw -> {"%% Unknown behaviours:\n","%%  "}
+	end,
+      io:put_chars(Output, Prompt),
+      do_print_unknown_behaviours(Output, Behaviours, Prefix)
   end.
 
 do_print_unknown_behaviours(Output, [B|T], Before) ->
@@ -687,6 +773,7 @@ print_warnings(#cl_state{stored_warnings = []}) ->
   ok;
 print_warnings(#cl_state{output = Output,
 			 output_format = Format,
+			 filename_opt = FOpt,
 			 stored_warnings = Warnings}) ->
   PrWarnings = process_warnings(Warnings),
   case PrWarnings of
@@ -694,7 +781,7 @@ print_warnings(#cl_state{output = Output,
     [_|_] ->
       S = case Format of
 	    formatted ->
-	      [dialyzer:format_warning(W) || W <- PrWarnings];
+	      [dialyzer:format_warning(W, FOpt) || W <- PrWarnings];
 	    raw ->
 	      [io_lib:format("~p. \n", [W]) || W <- PrWarnings]
 	  end,

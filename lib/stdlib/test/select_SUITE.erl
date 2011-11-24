@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -37,7 +37,7 @@
 -export([config/2]).
 -define(fmt(A,B),io:format(A,B)).
 -else.
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -define(fmt(A,B),test_server:format(A,B)).
 -endif.
  
@@ -58,23 +58,41 @@ config(priv_dir,_) ->
     ".".
 -else.
 %% When run in test server.
--export([all/1,select_test/1,init_per_testcase/2, fin_per_testcase/2, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,select_test/1,
+	 init_per_testcase/2, end_per_testcase/2, 
 	 return_values/1]).
 
 init_per_testcase(_Case, Config) when is_list(Config) ->
     ?line Dog=test_server:timetrap(test_server:seconds(1200)),
     [{watchdog, Dog}|Config].
- 
-fin_per_testcase(_Case, Config) ->
+
+end_per_testcase(_Case, Config) ->
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
-all(doc) ->
-    ["Test ets:select"];
-all(suite) ->
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
     [return_values, select_test].
- 
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
+
 select_test(suite) ->
     [];
 select_test(doc) ->

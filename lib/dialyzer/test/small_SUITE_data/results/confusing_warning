@@ -1,0 +1,2 @@
+
+confusing_warning.erl:16: The pattern {'a', {_, L}} can never match the type {'b','aaa' | 'bbb'}

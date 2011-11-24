@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2010</year>
+      <year>2004</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -31,6 +31,223 @@
   <p>This document describes the changes made to the Xmerl application.</p>
 
 
+<section><title>Xmerl 1.2.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fixed a schema search bug in xmerl_xsd. </p> <p> A
+	    new flag was needed in the xsd_state record so if the
+	    state is saved there is an incompatibility and a state
+	    conversion is needed. </p>
+          <p>
+	    *** INCOMPATIBILITY with R14B03 ***</p>
+          <p>
+	    Own Id: OTP-9410</p>
+        </item>
+        <item>
+	    <p> Fixed xmerl_scan problems with entities in attribute
+	    values. </p>
+          <p>
+	    Own Id: OTP-9411</p>
+        </item>
+        <item>
+	    <p> Streaming bug in xmerl_scan. </p> <p> If the
+	    continuation_fun runs out of input at the end of an
+	    attribute value then it crashed. (Thanks to Simon
+	    Cornish) </p>
+          <p>
+	    Own Id: OTP-9457</p>
+        </item>
+        <item>
+          <p>
+	    Fixed xmerl_ucs UCS2 little endian en/decoding</p>
+          <p>
+	    Corrected number of shift bytes in
+	    xmerl_ucs:char_to_ucs2le and recursive call from
+	    from_ucs2le to from_ucs4le. (Thanks to Michal Ptaszek)</p>
+          <p>
+	    Own Id: OTP-9548</p>
+        </item>
+        <item>
+          <p>
+	    Add latin9 (iso-8859-15) support in xmerl_ucs (Thanks to
+	    David Julien)</p>
+          <p>
+	    Own Id: OTP-9552</p>
+        </item>
+        <item>
+          <p>
+	    Improve spelling throughout documentation, code comments
+	    and error messages</p>
+          <p>
+	    Own Id: OTP-9555</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Xmerl 1.2.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix minor typos and improve punctuation in the
+	    xmerl_xpath @doc comment (Thanks to Marcus Marinelli)</p>
+          <p>
+	    Own Id: OTP-9187</p>
+        </item>
+        <item>
+          <p>
+	    Prevent xmerl from over-normalizing character references
+	    in attributes</p>
+          <p>
+	    Section 3.3.3 of the XML Recommendation gives the rules
+	    for attribute-value normalization. One of those rules
+	    requires that character references not be re-normalized
+	    after being replaced with the referenced characters.
+	    (Thanks to Tom Moertel)</p>
+          <p>
+	    Own Id: OTP-9274</p>
+        </item>
+        <item>
+	    <p> Fixed the default encoding option in SAX parser. </p>
+          <p>
+	    Own Id: OTP-9288</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Added the xmerl test suites and examples to the open
+	    source distribution. </p>
+          <p>
+	    Own Id: OTP-9228</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Xmerl 1.2.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> The function xmerl_lib:expand_content/1 is mainly for
+	    expanding Simple XML, but can also handle xmerl records.
+	    This patch fixes an omission that caused expand_content/1
+	    to not maintain the parents list when expanding
+	    #xmlElement{} records. (Thanks to Ulf Wiger) </p>
+          <p>
+	    Own Id: OTP-9034</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Removed some dialyzer warnings. </p>
+          <p>
+	    Own Id: OTP-9074</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Xmerl 1.2.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> An empty element declared as simpleContent was not
+	    properly validated. </p>
+          <p>
+	    Own Id: OTP-8599</p>
+        </item>
+        <item>
+	    <p> Fix format_man_pages so it handles all man sections
+	    and remove warnings/errors in various man pages. </p>
+          <p>
+	    Own Id: OTP-8600</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Fix entity checking so there are no fatal errors for
+	    undefined entities when option skip_external_dtd is used.
+	    </p>
+          <p>
+	    Own Id: OTP-8947</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Xmerl 1.2.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fixed problem with hex entities in UTF-8 documents:
+	    When a document was in UTF-8 encoding, xmerl_scan
+	    improperly replaced hex entities by the UTF-8 bytes
+	    instead of returning the character, as it does with
+	    inline UTF-8 text and decimal entities. (Thanks to Paul
+	    Guyot.) </p>
+          <p>
+	    Own Id: OTP-8697</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Xmerl 1.2.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            All Erlang files are now built by the test server instead of the test directory Makefile.
+          </p>
+          <p>
+            Erlang files in data directories are now built by the test suites instead of using 
+            prebuilt versions under version control.
+          </p>
+          <p>
+            Removed a number of obsolete guards.
+          </p>
+          <p>
+            Own Id: OTP-8537
+          </p>
+        </item>
+        <item>
+          <p>
+           An empty element declared as a simpleContent was not properly validated.
+          </p>
+          <p>
+            Own Id: OTP-8599
+          </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Xmerl 1.2.4</title>
 
     <section><title>Improvements and New Features</title>
@@ -54,7 +271,7 @@
         <item>
           <p>
             A continuation clause of <c>parse_reference/3</c> had
-            it's parameters in wrong order.</p>
+            its parameters in wrong order.</p>
           <p>
             Own Id: OTP-8251 Aux Id: seq11429 </p>
         </item>

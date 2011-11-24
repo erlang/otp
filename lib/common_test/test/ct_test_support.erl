@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -23,15 +23,17 @@
 %%%
 -module(ct_test_support).
 
--include("test_server.hrl").
 -include_lib("common_test/include/ct_event.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -export([init_per_suite/1, init_per_suite/2, end_per_suite/1,
-	 init_per_testcase/2, end_per_testcase/2, write_testspec/3, 
-	 run/4, get_opts/1, wait_for_ct_stop/1]).
+	 init_per_testcase/2, end_per_testcase/2,
+	 write_testspec/2, write_testspec/3,
+	 run/2, run/4, get_opts/1, wait_for_ct_stop/1]).
 
 -export([handle_event/2, start_event_receiver/1, get_events/2,
-	 verify_events/3, reformat/2, log_events/3]).
+	 verify_events/3, reformat/2, log_events/4,
+	 join_abs_dirs/2]).
 
 -include_lib("kernel/include/file.hrl").
 
@@ -42,6 +44,15 @@ init_per_suite(Config) ->
     init_per_suite(Config, 50).
 
 init_per_suite(Config, Level) ->
+    case os:type() of
+	{win32, _} ->
+	    %% Extend timeout to 1 hour for windows as starting node
+	    %% can take a long time there
+	    test_server:timetrap( 60*60*1000 * 
+				      test_server:timetrap_scale_factor());
+	_ ->
+	    ok
+    end,
     case delete_old_logs(os:type(), Config) of
 	{'EXIT',DelLogsReason} ->
 	    test_server:format(0, "Failed to delete old log directories: ~p~n", 
@@ -49,23 +60,40 @@ init_per_suite(Config, Level) ->
 	_ ->
 	    ok
     end,
+    
+    start_slave(Config, Level).
+
+start_slave(Config,Level) ->
     [_,Host] = string:tokens(atom_to_list(node()), "@"),
+    test_server:format(0, "Trying to start ~s~n", ["ct@"++Host]),
     case slave:start(Host, ct, []) of
 	{error,Reason} ->
 	    test_server:fail(Reason);
 	{ok,CTNode} ->
 	    test_server:format(0, "Node ~p started~n", [CTNode]),
-	    DataDir = ?config(data_dir, Config),
-	    PrivDir = ?config(priv_dir, Config),
+	    IsCover = test_server:is_cover(),
+	    if IsCover ->
+		    cover:start(CTNode);
+	       true->
+		    ok
+	    end,
+
+	    DataDir = proplists:get_value(data_dir, Config),
+	    PrivDir = proplists:get_value(priv_dir, Config),
 
 	    %% PrivDir as well as directory of Test Server suites
 	    %% have to be in code path on Common Test node.
-	    true = rpc:call(CTNode, code, add_patha, [PrivDir]),
 	    [_ | Parts] = lists:reverse(filename:split(DataDir)),
 	    TSDir = filename:join(lists:reverse(Parts)),
-	    true = rpc:call(CTNode, code, add_patha, [TSDir]),
-	    test_server:format(Level, "Dirs added to code path (on ~w):~n"
-			       "~s~n~s~n", [CTNode,TSDir,PrivDir]),
+	    AddPathDirs = case proplists:get_value(path_dirs, Config) of
+			      undefined -> [];
+			      Ds -> Ds
+			  end,
+	    PathDirs = [PrivDir,TSDir | AddPathDirs],
+	    [true = rpc:call(CTNode, code, add_patha, [D]) || D <- PathDirs],
+	    test_server:format(Level, "Dirs added to code path (on ~w):~n",
+			       [CTNode]),
+	    [io:format("~s~n", [D]) || D <- PathDirs],
 
 	    TraceFile = filename:join(DataDir, "ct.trace"),
 	    case file:read_file_info(TraceFile) of
@@ -84,9 +112,10 @@ init_per_suite(Config, Level) ->
 %%% end_per_suite/1
 
 end_per_suite(Config) ->
-    CTNode = ?config(ct_node, Config),
-    PrivDir = ?config(priv_dir, Config),
+    CTNode = proplists:get_value(ct_node, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     true = rpc:call(CTNode, code, del_path, [filename:join(PrivDir,"")]),
+    cover:stop(CTNode),
     slave:stop(CTNode),
     ok.
 
@@ -94,26 +123,44 @@ end_per_suite(Config) ->
 %%% init_per_testcase/2
 
 init_per_testcase(_TestCase, Config) ->
-    {_,{_,LogDir}} = lists:keysearch(logdir, 1, get_opts(Config)),
-    test_server:format("See Common Test logs here:\n"
-		       "<a href=\"file://~s/all_runs.html\">~s/all_runs.html</a>",
-		       [LogDir,LogDir]),
+    Opts = get_opts(Config),
+    NetDir = proplists:get_value(net_dir, Opts),
+    LogDir = join_abs_dirs(NetDir, proplists:get_value(logdir, Opts)),
+    case lists:keysearch(master, 1, Config) of
+	false->
+	    test_server:format("See Common Test logs here:\n\n"
+			       "<a href=\"file://~s/all_runs.html\">~s/all_runs.html</a>\n"
+			       "<a href=\"file://~s/index.html\">~s/index.html</a>",
+			       [LogDir,LogDir,LogDir,LogDir]);
+	{value, _}->
+	    test_server:format("See CT Master Test logs here:\n\n"
+		       "<a href=\"file://~s/master_runs.html\">~s/master_runs.html</a>",
+		       [LogDir,LogDir])
+    end,
     Config.
 
 %%%-----------------------------------------------------------------
 %%% end_per_testcase/2
 
 end_per_testcase(_TestCase, Config) ->
-    CTNode = ?config(ct_node, Config),
-    wait_for_ct_stop(CTNode),
-    ok.
-
+    CTNode = proplists:get_value(ct_node, Config),
+    case wait_for_ct_stop(CTNode) of
+	%% Common test was not stopped to we restart node.
+	false ->
+	    cover:stop(CTNode),
+	    slave:stop(CTNode),
+	    start_slave(Config,proplists:get_value(trace_level,Config)),
+	    {fail, "Could not stop common_test"};
+	true ->
+	    ok
+    end.
 
 %%%-----------------------------------------------------------------
 %%% 
-
 write_testspec(TestSpec, Dir, Name) ->
-    TSFile = filename:join(Dir, Name),
+    write_testspec(TestSpec, filename:join(Dir, Name)).
+
+write_testspec(TestSpec, TSFile) ->
     {ok,Dev} = file:open(TSFile, [write]),
     [io:format(Dev, "~p.~n", [Entry]) || Entry <- TestSpec],
     file:close(Dev),
@@ -126,7 +173,7 @@ write_testspec(TestSpec, Dir, Name) ->
 %%% 
 
 get_opts(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     TempDir = case os:getenv("TMP") of
 		  false -> 
 		      case os:getenv("TEMP") of
@@ -152,16 +199,66 @@ get_opts(Config) ->
 	    _ ->
 		TempDir
 	end,
-    InitOpts = ?config(ct_opts, Config),
-    [{logdir,LogDir} | InitOpts].
+
+    %% Copy test variables to app environment on new node
+    CtTestVars =
+	case init:get_argument(ct_test_vars) of
+	    {ok,[Vars]} ->
+		[begin {ok,Ts,_} = erl_scan:string(Str++"."),
+		       {ok,Expr} = erl_parse:parse_term(Ts),
+		       Expr
+		 end || Str <- Vars];
+	    _ ->
+		[]
+	end,
+    %% test_server:format("Test variables added to Config: ~p\n\n",
+    %%                    [CtTestVars]),
+    InitOpts =
+	case proplists:get_value(ct_opts, Config) of
+	    undefined -> [];
+	    CtOpts -> CtOpts
+	end,
+    [{logdir,LogDir} | InitOpts ++ CtTestVars].
 
 
 %%%-----------------------------------------------------------------
 %%% 
+run(Opts, Config) ->
+    CTNode = proplists:get_value(ct_node, Config),
+    Level = proplists:get_value(trace_level, Config),
+    %% use ct interface
+    test_server:format(Level, "~n[RUN #1] Calling ct:run_test(~p) on ~p~n",
+		       [Opts, CTNode]),
+    Result1 = rpc:call(CTNode, ct, run_test, [Opts]),
+
+    case rpc:call(CTNode, erlang, whereis, [ct_util_server]) of
+	undefined ->
+	    ok;
+	_ ->
+	    test_server:format(Level,
+			       "ct_util_server not stopped on ~p yet, waiting 5 s...~n",
+			       [CTNode]),
+	    timer:sleep(5000),
+	    undefined = rpc:call(CTNode, erlang, whereis, [ct_util_server])
+    end,
+    %% use run_test interface (simulated)
+    test_server:format(Level, "Saving start opts on ~p: ~p~n", [CTNode,Opts]),
+    rpc:call(CTNode, application, set_env, [common_test, run_test_start_opts, Opts]),
+    test_server:format(Level, "[RUN #2] Calling ct_run:script_start() on ~p~n", [CTNode]),
+    Result2 = rpc:call(CTNode, ct_run, script_start, []),
+    case {Result1,Result2} of
+	{ok,ok} ->
+	    ok;
+	{E,_} when E =/= ok ->
+	    E;
+	{_,E} when E =/= ok ->
+	    E
+    end.
+
 run(M, F, A, Config) ->
-    CTNode = ?config(ct_node, Config),
-    Level = ?config(trace_level, Config),
-    test_server:format(Level, "Calling ~w:~w(~p) on ~p~n", 
+    CTNode = proplists:get_value(ct_node, Config),
+    Level = proplists:get_value(trace_level, Config),
+    test_server:format(Level, "~nCalling ~w:~w(~p) on ~p~n",
 		       [M, F, A, CTNode]),
     rpc:call(CTNode, M, F, A).
 
@@ -175,11 +272,11 @@ wait_for_ct_stop(CTNode) ->
 
 wait_for_ct_stop(0, CTNode) ->
     test_server:format(0, "Giving up! Stopping ~p.", [CTNode]),
-    ok;
+    false;
 wait_for_ct_stop(Retries, CTNode) ->
     case rpc:call(CTNode, erlang, whereis, [ct_util_server]) of
 	undefined ->
-	    ok;
+	    true;
 	Pid ->
 	    test_server:format(0, "Waiting for CT (~p) to finish (~p)...", 
 			       [Pid,Retries]),
@@ -196,11 +293,11 @@ handle_event(EH, Event) ->
     ok.
     
 start_event_receiver(Config) ->
-    CTNode = ?config(ct_node, Config),
+    CTNode = proplists:get_value(ct_node, Config),
     spawn_link(CTNode, fun() -> er() end).
 
 get_events(_, Config) ->
-    CTNode = ?config(ct_node, Config),
+    CTNode = proplists:get_value(ct_node, Config),
     {event_receiver,CTNode} ! {self(),get_events},
     Events = receive {event_receiver,Evs} -> Evs end,
     {event_receiver,CTNode} ! stop,
@@ -223,7 +320,7 @@ er_loop(Evs) ->
     end.
 
 verify_events(TEvs, Evs, Config) ->
-    Node = ?config(ct_node, Config),    
+    Node = proplists:get_value(ct_node, Config),
     case catch verify_events1(TEvs, Evs, Node, Config) of
 	{'EXIT',Reason} ->
 	    Reason;
@@ -231,8 +328,12 @@ verify_events(TEvs, Evs, Config) ->
 	    ok
     end.
 
+verify_events1([TestEv|_], [{TEH,#event{name=stop_logging,node=Node,data=_}}|_], Node, _)
+  when element(1,TestEv) == TEH, element(2,TestEv) =/= stop_logging ->
+    test_server:format("Failed to find ~p in the list of events!~n", [TestEv]),
+    exit({event_not_found,TestEv});
+
 verify_events1(TEvs = [TestEv | TestEvs], Evs = [_|Events], Node, Config) ->
-%%    test_server:format("Next expected event: ~p~n", [TestEv]),
     case catch locate(TestEv, Node, Evs, Config) of
 	nomatch ->
 	    verify_events1(TEvs, Events, Node, Config);
@@ -280,10 +381,15 @@ locate(TEvs, Node, Evs, Config) when is_list(TEvs) ->
 			     data={M,{init_per_group,GroupName,Props}}}},
 		 {TEH,#event{name=tc_done, 
 			     node=Node, 
-			     data={M,{init_per_group,GroupName,Props},R}}} | Evs1] ->
-		    test_server:format("Found ~p!", [InitStart]),
-		    test_server:format("Found ~p!", [InitDone]),
-		    verify_events1(TEvs1, Evs1, Node, Config);
+			     data={M,{init_per_group,GroupName,Props},Res}}} | Evs1] ->
+		    case result_match(R, Res) of
+			false ->
+			    nomatch;
+			true ->
+			    test_server:format("Found ~p!", [InitStart]),
+			    test_server:format("Found ~p!", [InitDone]),
+			    verify_events1(TEvs1, Evs1, Node, Config)
+		    end;
 		_ ->
 		    nomatch
 	    end;
@@ -303,13 +409,35 @@ locate({parallel,TEvs}, Node, Evs, Config) ->
 		case Evs of		
 		    [{TEH,#event{name=tc_start, 
 				 node=Node, 
-				 data={M,{init_per_group,GroupName,Props}}}},
-		     {TEH,#event{name=tc_done, 
-				 node=Node, 
-				 data={M,{init_per_group,GroupName,Props},R}}} | Es] ->
+				 data={M,{init_per_group,
+					  GroupName,Props}}}}|Es] ->
+			%% Use dropwhile here as a tc_done from a
+			%% previous testcase might sneak in here
+			EvsG = lists:dropwhile(
+				fun({EH,#event{name=tc_done, 
+						node=EvNode, 
+						data={EvM,{init_per_group,
+							   EvGroupName,
+							   EvProps},EvR}}})
+				   when TEH == EH, EvNode == Node, EvM == M,
+					EvGroupName == GroupName,
+					EvProps == Props ->
+					case result_match(R, EvR) of
+					    true -> false;
+					    false -> true
+					end;
+				   ({EH,#event{name=stop_logging,
+						node=EvNode,data=_}})
+				   when EH == TEH, EvNode == Node ->
+					exit({group_init_done_not_found,
+					      GroupName,Props});
+				   (_) ->
+					true
+				end, Es),	      
+			
 			test_server:format("Found ~p!", [InitStart]),
 			test_server:format("Found ~p!", [InitDone]),
-			{TEs,Es};
+			{TEs,EvsG};
 		    _ ->
 			nomatch
 		end;
@@ -332,6 +460,10 @@ locate({parallel,TEvs}, Node, Evs, Config) ->
 					     EH == TEH, EvNode == Node, 
 					     Mod == M, Func == F ->
 					   false;
+				      ({EH,#event{name=stop_logging,
+						  node=EvNode,data=_}}) when
+					     EH == TEH, EvNode == Node ->
+					   exit({tc_start_not_found,TEv});
 				      (_) ->
 					   true
 				   end, Evs1),
@@ -345,6 +477,10 @@ locate({parallel,TEvs}, Node, Evs, Config) ->
 					  EH == TEH, EvNode == Node, 
 					  Mod == M, Func == F ->
 					false;
+				   ({EH,#event{name=stop_logging,
+					       node=EvNode,data=_}}) when
+					  EH == TEH, EvNode == Node ->
+					exit({tc_done_not_found,TEv});
 				   (_) ->
 					true
 				end, Evs2),
@@ -369,7 +505,7 @@ locate({parallel,TEvs}, Node, Evs, Config) ->
 						  node=EvNode,
 						  data={Mod,Func,Result}}} <- Done, 
 				     EH == TEH, EvNode == Node, Mod == M, 
-				     Func == F, Result == R] of
+				     Func == F, result_match(R, Result)] of
 			      [TcDone|_] ->
 				  test_server:format("Found ~p!", [TEv]),
 				  {lists:delete(TcDone, Done),RemEvs,RemSize};
@@ -388,6 +524,10 @@ locate({parallel,TEvs}, Node, Evs, Config) ->
 					  EH == TEH, EvNode == Node, Mod == M,
 					  EvGName == GroupName, EvProps == Props ->
 					false;
+				   ({EH,#event{name=stop_logging,
+					       node=EvNode,data=_}}) when
+					  EH == TEH, EvNode == Node ->
+					exit({tc_start_not_found,TEv});
 				   (_) ->
 					true
 				end, RemEvs),
@@ -408,8 +548,17 @@ locate({parallel,TEvs}, Node, Evs, Config) ->
 					       data={Mod,{end_per_group,
 							  EvGName,EvProps},Res}}}) when 
 					  EH == TEH, EvNode == Node, Mod == M,
-					  EvGName == GroupName, EvProps == Props, Res == R ->
-					false;
+					  EvGName == GroupName, EvProps == Props ->
+					case result_match(R, Res) of
+					    true ->
+						false;
+					    false ->
+						true
+					end;
+				   ({EH,#event{name=stop_logging,
+					       node=EvNode,data=_}}) when
+					  EH == TEH, EvNode == Node ->
+					exit({tc_done_not_found,TEv});
 				   (_) ->
 					true
 				end, RemEvs),
@@ -429,6 +578,10 @@ locate({parallel,TEvs}, Node, Evs, Config) ->
 					       data={Mod,end_per_group,Reason}}}) when
 				   EH == TEH, EvNode == Node, Mod == M, Reason == R ->
 					false;
+				   ({EH,#event{name=stop_logging,
+					       node=EvNode,data=_}}) when
+					  EH == TEH, EvNode == Node ->
+					exit({tc_auto_skip_not_found,TEv});
 				   (_) ->
 					true
 				end, RemEvs),
@@ -494,23 +647,29 @@ locate({shuffle,TEvs}, Node, Evs, Config) ->
 				 data={M,{init_per_group,GroupName,EvProps}}}},
 		     {TEH,#event{name=tc_done, 
 				 node=Node, 
-				 data={M,{init_per_group,GroupName,EvProps},R}}} | Es] ->
-			case proplists:get_value(shuffle, Props) of
-			    '_' ->
-				case proplists:get_value(shuffle, EvProps) of
-				    false ->
-					exit({no_shuffle_prop_found,{M,init_per_group,
-								     GroupName,EvProps}});
+				 data={M,{init_per_group,GroupName,EvProps},Res}}} | Es] ->
+			case result_match(R, Res) of
+			    true ->
+				case proplists:get_value(shuffle, Props) of
+				    '_' ->
+					case proplists:get_value(shuffle, EvProps) of
+					    false ->
+						exit({no_shuffle_prop_found,
+						      {M,init_per_group,
+						       GroupName,EvProps}});
+					    _ ->
+						PropsCmp = proplists:delete(shuffle, EvProps),
+						PropsCmp = proplists:delete(shuffle, Props)
+					end;
 				    _ ->
-					PropsCmp = proplists:delete(shuffle, EvProps),
-					PropsCmp = proplists:delete(shuffle, Props)
-				end;
-			    _ ->
-				Props = EvProps
-			end,
-			test_server:format("Found ~p!", [InitStart]),
-			test_server:format("Found ~p!", [InitDone]),
-			{TEs,Es};
+					Props = EvProps
+				end,
+				test_server:format("Found ~p!", [InitStart]),
+				test_server:format("Found ~p!", [InitDone]),
+				{TEs,Es};
+			    false ->
+				nomatch
+			end;
 		    _ ->
 			nomatch
 		end;
@@ -533,6 +692,10 @@ locate({shuffle,TEvs}, Node, Evs, Config) ->
 					     EH == TEH, EvNode == Node, 
 					     Mod == M, Func == F ->
 					   false;
+				      ({EH,#event{name=stop_logging,
+						  node=EvNode,data=_}}) when
+					     EH == TEH, EvNode == Node ->
+					   exit({tc_start_not_found,TEv});
 				      (_) ->
 					   true
 				   end, Evs1),
@@ -557,7 +720,7 @@ locate({shuffle,TEvs}, Node, Evs, Config) ->
 						  node=EvNode,
 						  data={Mod,Func,Result}}} <- Done, 
 				     EH == TEH, EvNode == Node, Mod == M, 
-				     Func == F, Result == R] of
+				     Func == F, result_match(R, Result)] of
 			      [TcDone|_] ->
 				  test_server:format("Found ~p!", [TEv]),
 				  {lists:delete(TcDone, Done),RemEvs,RemSize};
@@ -576,6 +739,10 @@ locate({shuffle,TEvs}, Node, Evs, Config) ->
 					  EH == TEH, EvNode == Node, Mod == M,
 					  EvGName == GroupName ->
 					false;
+				   ({EH,#event{name=stop_logging,
+					       node=EvNode,data=_}}) when
+					  EH == TEH, EvNode == Node ->
+					exit({tc_start_not_found,TEv});
 				   (_) ->
 					true
 				end, RemEvs),
@@ -609,8 +776,17 @@ locate({shuffle,TEvs}, Node, Evs, Config) ->
 					       data={Mod,{end_per_group,
 							  EvGName,_},Res}}}) when 
 					  EH == TEH, EvNode == Node, Mod == M,
-					  EvGName == GroupName, Res == R ->
-					false;
+					  EvGName == GroupName ->
+					case result_match(R, Res) of
+					    true ->
+						false;
+					    false ->
+						true
+					end;
+				   ({EH,#event{name=stop_logging,
+					       node=EvNode,data=_}}) when
+					  EH == TEH, EvNode == Node ->
+					exit({tc_done_not_found,TEv});
 				   (_) ->
 					true
 				end, RemEvs),
@@ -643,6 +819,10 @@ locate({shuffle,TEvs}, Node, Evs, Config) ->
 					       data={Mod,end_per_group,Reason}}}) when
 				   EH == TEH, EvNode == Node, Mod == M, Reason == R ->
 					false;
+				   ({EH,#event{name=stop_logging,
+					       node=EvNode,data=_}}) when
+					  EH == TEH, EvNode == Node ->
+					exit({tc_auto_skip_not_found,TEv});
 				   (_) ->
 					true
 				end, RemEvs),
@@ -739,53 +919,103 @@ locate({TEH,Name,{'DEF','STOP_TIME'}}, Node, [Ev|Evs], Config) ->
 	    nomatch
     end;
 
-%% to match variable data as a result of a failed test case
-locate({TEH,tc_done,{Mod,Func,{failed,{error,{Slogan,'_'}}}}}, Node, [Ev|Evs], Config) ->
+%% to match variable data as a result of an aborted test case
+locate({TEH,tc_done,{undefined,undefined,{testcase_aborted,
+					  {abort_current_testcase,Func},'_'}}},
+       Node, [Ev|Evs], Config) ->
     case Ev of
-	{TEH,#event{name=tc_done, node=Node, 
-		    data={Mod,Func,{failed,{error,{Slogan,_}}}}}} ->
+	{TEH,#event{name=tc_done, node=Node,
+		    data={undefined,undefined,
+			  {testcase_aborted,{abort_current_testcase,Func},_}}}} ->
 	    {Config,Evs};
 	_ ->
 	    nomatch
     end;
 
-%% to match variable data as a result of an aborted test case
-locate({TEH,tc_done,{undefined,undefined,{testcase_aborted,
-					  {abort_current_testcase,Func},'_'}}}, 
-       Node, [Ev|Evs], Config) ->
+%% to match variable data as a result of a failed test case
+locate({TEH,tc_done,{Mod,Func,R={SkipOrFail,{_ErrInd,ErrInfo}}}},
+       Node, [Ev|Evs], Config) when ((SkipOrFail == skipped) or
+				     (SkipOrFail == failed)) and
+				    ((size(ErrInfo) == 2) or
+				     (size(ErrInfo) == 3)) ->
     case Ev of
 	{TEH,#event{name=tc_done, node=Node, 
-		    data={undefined,undefined,
-			  {testcase_aborted,{abort_current_testcase,Func},_}}}} -> 
-	    {Config,Evs};
+		    data={Mod,Func,Result}}} ->
+	    case result_match(R, Result) of
+		true ->
+		    {Config,Evs};
+		false ->
+		    nomatch
+	    end;
 	_ ->
 	    nomatch
+    end;
+
+%% Negative matching: Given two events, the first should not be present before
+%% the other is matched. 
+locate({negative,NotMatch, Match} = Neg, Node, Evs, Config) ->
+    case locate(NotMatch, Node, Evs, Config) of
+	nomatch ->
+	    locate(Match, Node, Evs, Config);
+	_ ->
+	    exit({found_negative_event,Neg})
     end;
 
 %% matches any event of type Name
-locate({TEH,Name,Data}, Node, [Ev|Evs], Config) when Data == '_' ->
-    case Ev of
-	{TEH,#event{name=Name, node=Node}} ->
-	    {Config,Evs};
-	_ ->
+locate({TEH,Name,Data}, Node, [{TEH,#event{name=Name,
+					   data = EvData,
+					   node = Node}}|Evs],
+       Config) ->
+    try match_data(Data, EvData) of
+	match ->
+	    {Config,Evs}
+    catch _:_ ->
 	    nomatch
     end;
 
-locate({TEH,Name,Data}, Node, [Ev|Evs], Config) ->
-    case Ev of
-	{TEH,#event{name=Name, node=Node, data=Data}} ->
-	    {Config,Evs};
-	_ ->
-	    nomatch
-    end.
+locate({_TEH,_Name,_Data}, _Node, [_|_Evs], _Config) ->
+    nomatch.
 
-log_events(TC, Events, PrivDir) ->
-    LogFile = filename:join(PrivDir, atom_to_list(TC)++".events"),
+match_data(D,D) ->
+    match;
+match_data('_',_) ->
+    match;
+match_data(Fun,Data) when is_function(Fun) ->
+    Fun(Data);
+match_data('$proplist',Proplist) ->
+    match_data(
+      fun(List) ->
+	      lists:foreach(fun({_,_}) -> ok end,List)
+      end,Proplist);
+match_data([H1|MatchT],[H2|ValT]) ->
+    match_data(H1,H2),
+    match_data(MatchT,ValT);
+match_data(Tuple1,Tuple2) when is_tuple(Tuple1),is_tuple(Tuple2) ->
+    match_data(tuple_to_list(Tuple1),tuple_to_list(Tuple2));
+match_data([],[]) ->
+    match.
+
+result_match({SkipOrFail,{ErrorInd,{Why,'_'}}},
+	    {SkipOrFail,{ErrorInd,{Why,_Stack}}}) ->
+    true;
+result_match({SkipOrFail,{ErrorInd,{EMod,EFunc,{Why,'_'}}}},
+	    {SkipOrFail,{ErrorInd,{EMod,EFunc,{Why,_Stack}}}}) ->
+    true;
+result_match(Result, Result) ->
+    true;
+result_match(_, _) ->
+    false.
+
+log_events(TC, Events, EvLogDir, Opts) ->
+    LogFile = filename:join(EvLogDir, atom_to_list(TC)++".events"),
     {ok,Dev} = file:open(LogFile, [write]),
     io:format(Dev, "[~n", []),
     log_events1(Events, Dev, " "),
     file:close(Dev),
-    io:format("Events written to logfile: ~p~n", [LogFile]),
+    FullLogFile = join_abs_dirs(proplists:get_value(net_dir, Opts),
+				LogFile),
+    io:format("Events written to logfile: <a href=\"file://~s\">~s</a>~n",
+	      [FullLogFile,FullLogFile]),
     io:format(user, "Events written to logfile: ~p~n", [LogFile]).
 
 log_events1(Evs, Dev, "") ->
@@ -871,13 +1101,25 @@ reformat([], _EH) ->
 %%%-----------------------------------------------------------------
 %%% MISC HELP FUNCTIONS
 
+join_abs_dirs(undefined, Dir2) ->
+    Dir2;
+join_abs_dirs(Dir1, Dir2) ->
+    case filename:pathtype(Dir2) of
+	relative ->
+	    filename:join(Dir1, Dir2);
+	_ ->
+	    [_Abs|Parts] = filename:split(Dir2),
+	    filename:join(Dir1, filename:join(Parts))
+    end.
+
 create_tmp_logdir(Tmp) ->
     LogDir = filename:join(Tmp,"ct"),
     file:make_dir(LogDir),
     LogDir.
 
 delete_old_logs({win32,_}, Config) ->
-    case {?config(priv_dir, Config),?config(logdir, get_opts(Config))} of
+    case {proplists:get_value(priv_dir, Config),
+	  proplists:get_value(logdir, get_opts(Config))} of
 	{LogDir,LogDir} ->
 	    ignore;
 	{_,LogDir} ->				% using tmp for logs
@@ -889,7 +1131,8 @@ delete_old_logs(_, Config) ->
 	false ->
 	    ignore;
 	_ ->
-	    catch delete_dirs(?config(logdir, get_opts(Config)))
+	    catch delete_dirs(proplists:get_value(logdir,
+						  get_opts(Config)))
     end.
 
 delete_dirs(LogDir) ->

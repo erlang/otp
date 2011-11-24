@@ -1,0 +1,19 @@
+EFLAGS=+debug_info
+
+OTP9229= \
+     otp_9229/x-1.0/ebin/x.@EMULATOR@ \
+     otp_9229/x-1.0/ebin/mylib.@EMULATOR@ \
+     otp_9229/y-1.0/ebin/y.@EMULATOR@ \
+     otp_9229/y-1.0/ebin/mylib.@EMULATOR@
+
+
+all: $(OTP9229)
+
+otp_9229/x-1.0/ebin/x.@EMULATOR@: otp_9229/x-1.0/src/x.erl
+	erlc $(EFLAGS) -ootp_9229/x-1.0/ebin otp_9229/x-1.0/src/x.erl
+otp_9229/x-1.0/ebin/mylib.@EMULATOR@: otp_9229/x-1.0/src/mylib.erl
+	erlc $(EFLAGS) -ootp_9229/x-1.0/ebin otp_9229/x-1.0/src/mylib.erl
+otp_9229/y-1.0/ebin/y.@EMULATOR@: otp_9229/y-1.0/src/y.erl
+	erlc $(EFLAGS) -ootp_9229/y-1.0/ebin otp_9229/y-1.0/src/y.erl
+otp_9229/y-1.0/ebin/mylib.@EMULATOR@: otp_9229/y-1.0/src/mylib.erl
+	erlc $(EFLAGS) -ootp_9229/y-1.0/ebin otp_9229/y-1.0/src/mylib.erl

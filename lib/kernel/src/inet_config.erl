@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -23,6 +23,8 @@
 
 -import(lists, [foreach/2, member/2, reverse/1]).
 
+%% Avoid warning for local function error/2 clashing with autoimported BIF.
+-compile({no_auto_import,[error/2]}).
 -export([init/0]).
 
 -export([do_load_resolv/2]).
@@ -42,26 +44,6 @@
 %%
 -spec init() -> 'ok'.
 init() ->
-    OsType = os:type(),
-    case OsType of
-	{ose,_} ->
-	    case init:get_argument(loader) of
-		{ok,[["ose_inet"]]} ->			
-		    %% port already started by prim_loader
-		    ok;
-		_Other ->
-		    %% Setup reserved port for ose_inet driver (only OSE)
-		    case catch erlang:open_port({spawn,"ose_inet"}, [binary]) of
-			{'EXIT',Why} ->
-			    error("can't open port for ose_inet: ~p", [Why]);
-			OseInetPort ->
-			    erlang:display({ose_inet_port,OseInetPort})
-		    end
-	    end;
-	_ ->
-	    ok
-    end,
-
     set_hostname(),
 
     %% Note: In shortnames (or non-distributed) mode we don't need to know
@@ -69,6 +51,7 @@ init() ->
     %% the user to provide it (by means of inetrc), so we need to look 
     %% for it ourselves.
 
+    OsType = os:type(),
     do_load_resolv(OsType, erl_dist_mode()),
 
     case OsType of
@@ -222,35 +205,6 @@ do_load_resolv(vxworks, _) ->
 	    no_ERLRESCONF;
 	Resolv ->
 	    load_resolv(Resolv, resolv)
-    end;
-
-do_load_resolv({ose,_Type}, _) ->
-    inet_db:set_lookup([file, dns]),
-    case os:getenv("NAMESERVER") of
-	false ->
-	    case os:getenv("RESOLVFILE") of
-		false ->
-		    erlang:display('Warning: No NAMESERVER or RESOLVFILE specified!'),
-		    no_resolv;
-		Resolv ->
-		    load_resolv(Resolv, resolv)
-	    end;
-	Ns ->
-	    {ok,IP} = inet_parse:address(Ns),
-	    inet_db:add_rc_list([{nameserver,IP}])
-    end,
-    case os:getenv("DOMAIN") of
-	false ->
-	    no_domain;
-	D ->
-	    ok = inet_db:add_rc_list([{domain,D}])
-    end,
-    case os:getenv("HOSTSFILE") of
-	false ->
-	    erlang:display('Warning: No HOSTSFILE specified!'),
-	    no_hosts_file;
-	File ->
-	    load_hosts(File, ose)
     end;
 
 do_load_resolv(_, _) ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,7 +18,9 @@
 %%
 -module(seq_trace_SUITE).
 
--export([all/1,init_per_testcase/2,fin_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
+	 init_per_testcase/2,end_per_testcase/2]).
 -export([token_set_get/1, tracer_set_get/1, print/1,
 	 send/1, distributed_send/1, recv/1, distributed_recv/1,
 	 trace_exit/1, distributed_exit/1, call/1, port/1,
@@ -29,21 +31,40 @@
 	 start_tracer/0, stop_tracer/1, 
 	 do_match_set_seq_token/1, do_gc_seq_token/1, countdown_start/2]).
 
-%-define(line_trace, 1).
--include("test_server.hrl").
+						%-define(line_trace, 1).
+-include_lib("test_server/include/test_server.hrl").
 
 -define(default_timeout, ?t:minutes(1)).
 
-all(suite) -> [token_set_get, tracer_set_get, print, 
-	       send, distributed_send, recv, distributed_recv, 
-	       trace_exit, distributed_exit, call, port,
-	       match_set_seq_token, gc_seq_token].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [token_set_get, tracer_set_get, print, send,
+     distributed_send, recv, distributed_recv, trace_exit,
+     distributed_exit, call, port, match_set_seq_token,
+     gc_seq_token].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 init_per_testcase(_Case, Config) ->
     ?line Dog = test_server:timetrap(?default_timeout),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.

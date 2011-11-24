@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,15 +18,34 @@
 %%
 -module(os_SUITE).
 
--export([all/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 -export([space_in_cwd/1, quoting/1, space_in_name/1, bad_command/1,
-	 find_executable/1, unix_comment_in_command/1]).
+	 find_executable/1, unix_comment_in_command/1, evil/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
-all(suite) ->
-    [space_in_cwd, quoting, space_in_name, bad_command, find_executable,
-     unix_comment_in_command].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [space_in_cwd, quoting, space_in_name, bad_command,
+     find_executable, unix_comment_in_command, evil].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 space_in_cwd(doc) ->
     "Test that executing a command in a current working directory "
@@ -137,6 +156,13 @@ find_executable(Config) when is_list(Config) ->
 	    ?line find_exe(Abin, "my_ar", ".exe", Path),
 	    ?line find_exe(Abin, "my_ascii", ".com", Path),
 	    ?line find_exe(Abin, "my_adb", ".bat", Path),
+	    %% OTP-3626 find names of executables given with extension
+	    ?line find_exe(Abin, "my_ar.exe", "", Path),
+	    ?line find_exe(Abin, "my_ascii.com", "", Path),
+	    ?line find_exe(Abin, "my_adb.bat", "", Path),
+	    ?line find_exe(Abin, "my_ar.EXE", "", Path),
+	    ?line find_exe(Abin, "my_ascii.COM", "", Path),
+	    ?line find_exe(Abin, "MY_ADB.BAT", "", Path),
 	    
 	    %% Search for programs in Abin (second element in PATH).
 	    ?line find_exe(Abin, "my_ar", ".exe", Path),
@@ -149,6 +175,21 @@ find_executable(Config) when is_list(Config) ->
 	    ?line find_exe(Current, "my_batch", ".bat", Path),
 	    ok;
 	{unix, _}  -> 
+	    DataDir = ?config(data_dir, Config),
+
+	    %% Smoke test.
+	    case lib:progname() of
+		erl ->
+		    ?line ErlPath = os:find_executable("erl"),
+		    ?line true = is_list(ErlPath),
+		    ?line true = filelib:is_regular(ErlPath);
+		_ ->
+		    %% Don't bother -- the progname could include options.
+		    ok
+	    end,
+
+	    %% Never return a directory name.
+	    ?line false = os:find_executable("unix", [DataDir]),
 	    ok;
 	vxworks -> 
 	    ok
@@ -186,6 +227,49 @@ unix_comment_in_command(Config) when is_list(Config) ->
     ?line test_server:timetrap_cancel(Dog),
     ok.
 
+-define(EVIL_PROCS, 100).
+-define(EVIL_LOOPS, 100).
+-define(PORT_CREATOR, os_cmd_port_creator).
+evil(Config) when is_list(Config) ->
+    Dog = test_server:timetrap(test_server:minutes(5)),
+    Parent = self(),
+    Ps = lists:map(fun (N) ->
+			   spawn_link(fun () ->
+					      evil_loop(Parent, ?EVIL_LOOPS,N)
+				      end)
+		   end, lists:seq(1, ?EVIL_PROCS)),
+    Devil = spawn_link(fun () -> devil(hd(Ps), hd(lists:reverse(Ps))) end),
+    lists:foreach(fun (P) -> receive {P, done} -> ok end end, Ps),
+    unlink(Devil),
+    exit(Devil, kill),
+    test_server:timetrap_cancel(Dog),
+    ok.
+
+devil(P1, P2) ->
+    erlang:display({?PORT_CREATOR, whereis(?PORT_CREATOR)}),
+    (catch ?PORT_CREATOR ! lists:seq(1,1000000)),
+    (catch ?PORT_CREATOR ! lists:seq(1,666)),
+    (catch ?PORT_CREATOR ! grrrrrrrrrrrrrrrr),
+    (catch ?PORT_CREATOR ! {'EXIT', P1, buhuuu}),
+    (catch ?PORT_CREATOR ! {'EXIT', hd(erlang:ports()), buhuuu}),
+    (catch ?PORT_CREATOR ! {'EXIT', P2, arggggggg}),
+    receive after 500 -> ok end,
+    (catch exit(whereis(?PORT_CREATOR), kill)),
+    (catch ?PORT_CREATOR ! ">8|"),
+    receive after 500 -> ok end,
+    (catch exit(whereis(?PORT_CREATOR), diiiiiiiiiiiiiiiiiiiie)),
+    receive after 100 -> ok end,
+    devil(P1, P2).
+
+evil_loop(Parent, Loops, N) ->
+    Res = integer_to_list(N),
+    evil_loop(Parent, Loops, Res, "echo " ++ Res).
+
+evil_loop(Parent, 0, _Res, _Cmd) ->
+    Parent ! {self(), done};
+evil_loop(Parent, Loops, Res, Cmd) ->
+    comp(Res, os:cmd(Cmd)),
+    evil_loop(Parent, Loops-1, Res, Cmd).
 
 comp(Expected, Got) ->
     case strip_nl(Got) of

@@ -4,7 +4,7 @@
 <fileref>
   <header>
     <copyright>
-      <year>1997</year><year>2009</year>
+      <year>1997</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -170,7 +170,6 @@ Phases       [{Phase,PhaseArgs}]  undefined
           start phase defined by the <c>start_phases</c> key, and only
           after this extended start procedure will
           <c>application:start(Application)</c> return.</p>
-        <p></p>
         <p>Start phases may be used to synchronize startup of an
           application and its included applications. In this case,
           the <c>mod</c> key must be specified as:</p>
@@ -182,7 +181,6 @@ Phases       [{Phase,PhaseArgs}]  undefined
           for the primary application) both for the primary application
           and for each of its included application, for which the start
           phase is defined.</p>
-        <p></p>
         <p>This implies that for an included application, the set of
           start phases must be a subset of the set of phases defined
           for the primary application. Refer to <em>OTP Design Principles</em> for more information.</p>

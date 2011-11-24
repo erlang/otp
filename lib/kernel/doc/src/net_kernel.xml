@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2009</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -37,13 +37,10 @@
       monitoring of the network.</p>
     <p>An Erlang node is started using the command line flag
       <c>-name</c> or <c>-sname</c>:</p>
-    <pre>
-$ <input>erl -sname foobar</input></pre>
+<pre>$ <input>erl -sname foobar</input></pre>
     <p>It is also possible to call <c>net_kernel:start([foobar])</c>
       directly from the normal Erlang shell prompt:</p>
-    <p></p>
-    <pre>
-1> <input>net_kernel:start([foobar, shortnames]).</input>
+<pre>1> <input>net_kernel:start([foobar, shortnames]).</input>
 {ok,&lt;0.64.0>}
 (foobar@gringotts)2></pre>
     <p>If the node is started with the command line flag <c>-sname</c>,
@@ -64,50 +61,38 @@ $ <input>erl -sname foobar</input></pre>
   </description>
   <funcs>
     <func>
-      <name>allow(Nodes) -> ok | error</name>
+      <name name="allow" arity="1"/>
       <fsummary>Limit access to a specified set of nodes</fsummary>
-      <type>
-        <v>Nodes = [node()]</v>
-      </type>
       <desc>
         <p>Limits access to the specified set of nodes. Any access
-          attempts made from (or to) nodes not in <c>Nodes</c> will be
+          attempts made from (or to) nodes not in <c><anno>Nodes</anno></c> will be
           rejected.</p>
-        <p>Returns <c>error</c> if any element in <c>Nodes</c> is not
+        <p>Returns <c>error</c> if any element in <c><anno>Nodes</anno></c> is not
           an atom.</p>
       </desc>
     </func>
     <func>
-      <name>connect_node(Node) -> true | false | ignored</name>
+      <name name="connect_node" arity="1"/>
       <fsummary>Establish a connection to a node</fsummary>
-      <type>
-        <v>Node = node()</v>
-      </type>
       <desc>
-        <p>Establishes a connection to <c>Node</c>. Returns <c>true</c>
+        <p>Establishes a connection to <c><anno>Node</anno></c>. Returns <c>true</c>
           if successful, <c>false</c> if not, and <c>ignored</c> if
           the local node is not alive.</p>
       </desc>
     </func>
     <func>
-      <name>monitor_nodes(Flag) -> ok | Error</name>
-      <name>monitor_nodes(Flag, Options) -> ok | Error</name>
+      <name name="monitor_nodes" arity="1"/>
+      <name name="monitor_nodes" arity="2"/>
       <fsummary>Subscribe to node status change messages</fsummary>
-      <type>
-        <v>Flag = true | false</v>
-        <v>Options = [Option]</v>
-        <v>&nbsp;Option -- see below</v>
-        <v>Error = error | {error, term()}</v>
-      </type>
       <desc>
         <p>The calling process subscribes or unsubscribes to node
           status change messages. A <c>nodeup</c> message is delivered
           to all subscribing process when a new node is connected, and
           a <c>nodedown</c> message is delivered when a node is
           disconnected.</p>
-        <p>If <c>Flag</c> is <c>true</c>, a new subscription is started.
-          If <c>Flag</c> is <c>false</c>, all previous subscriptions --
-          started with the same <c>Options</c> -- are stopped. Two
+        <p>If <c><anno>Flag</anno></c> is <c>true</c>, a new subscription is started.
+          If <c><anno>Flag</anno></c> is <c>false</c>, all previous subscriptions --
+          started with the same <c><anno>Options</anno></c> -- are stopped. Two
           option lists are considered the same if they contain the same
           set of options.</p>
         <p>As of <c>kernel</c> version 2.11.4, and <c>erts</c> version
@@ -139,23 +124,23 @@ $ <input>erl -sname foobar</input></pre>
         <p>Note, that this is <em>not</em> guaranteed for <c>kernel</c>
           versions before 2.13.</p>
         <p>The format of the node status change messages depends on
-          <c>Options</c>. If <c>Options</c> is [], which is the default,
+          <c><anno>Options</anno></c>. If <c><anno>Options</anno></c> is [], which is the default,
           the format is:</p>
         <code type="none">
 {nodeup, Node} | {nodedown, Node}
   Node = node()</code>
-        <p>If <c>Options /= []</c>, the format is:</p>
+        <p>If <c><anno>Options</anno> /= []</c>, the format is:</p>
         <code type="none">
 {nodeup, Node, InfoList} | {nodedown, Node, InfoList}
   Node = node()
   InfoList = [{Tag, Val}]</code>
         <p><c>InfoList</c> is a list of tuples. Its contents depends on
-          <c>Options</c>, see below.</p>
+          <c><anno>Options</anno></c>, see below.</p>
         <p>Also, when <c>OptionList == []</c> only visible nodes, that
           is, nodes that appear in the result of
           <seealso marker="erts:erlang#nodes/0">nodes/0</seealso>, are
           monitored.</p>
-        <p><c>Option</c> can be any of the following:</p>
+        <p><c><anno>Option</anno></c> can be any of the following:</p>
         <taglist>
           <tag><c>{node_type, NodeType}</c></tag>
           <item>
@@ -209,61 +194,54 @@ $ <input>erl -sname foobar</input></pre>
       </desc>
     </func>
     <func>
-      <name>get_net_ticktime() -> Res</name>
+      <name name="get_net_ticktime" arity="0"/>
       <fsummary>Get <c>net_ticktime</c></fsummary>
-      <type>
-        <v>Res = NetTicktime | {ongoing_change_to, NetTicktime}</v>
-        <v>&nbsp;NetTicktime = int()</v>
-      </type>
       <desc>
         <p>Gets <c>net_ticktime</c> (see
           <seealso marker="kernel_app">kernel(6)</seealso>).</p>
-        <p>Currently defined return values (<c>Res</c>):</p>
+        <p>Currently defined return values (<c><anno>Res</anno></c>):</p>
         <taglist>
-          <tag><c>NetTicktime</c></tag>
+          <tag><c><anno>NetTicktime</anno></c></tag>
           <item>
-            <p><c>net_ticktime</c> is <c>NetTicktime</c> seconds.</p>
+            <p><c>net_ticktime</c> is <c><anno>NetTicktime</anno></c> seconds.</p>
           </item>
-          <tag><c>{ongoing_change_to, NetTicktime}</c></tag>
+          <tag><c>{ongoing_change_to, <anno>NetTicktime</anno>}</c></tag>
           <item>
             <p><c>net_kernel</c> is currently changing
-              <c>net_ticktime</c> to <c>NetTicktime</c> seconds.</p>
+              <c>net_ticktime</c> to <c><anno>NetTicktime</anno></c> seconds.</p>
+          </item>
+          <tag><c>ignored</c></tag>
+          <item>
+            <p>The local node is not alive.</p>
           </item>
         </taglist>
       </desc>
     </func>
     <func>
-      <name>set_net_ticktime(NetTicktime) -> Res</name>
-      <name>set_net_ticktime(NetTicktime, TransitionPeriod) -> Res</name>
+      <name name="set_net_ticktime" arity="1"/>
+      <name name="set_net_ticktime" arity="2"/>
       <fsummary>Set <c>net_ticktime</c></fsummary>
-      <type>
-        <v>NetTicktime = int() > 0</v>
-        <v>TransitionPeriod = int() >= 0</v>
-        <v>Res = unchanged | change_initiated | {ongoing_change_to, NewNetTicktime}</v>
-        <v>&nbsp;NewNetTicktime = int() > 0</v>
-      </type>
       <desc>
         <p>Sets <c>net_ticktime</c> (see
           <seealso marker="kernel_app">kernel(6)</seealso>) to
-          <c>NetTicktime</c> seconds. <c>TransitionPeriod</c> defaults
+          <c><anno>NetTicktime</anno></c> seconds. <c><anno>TransitionPeriod</anno></c> defaults
           to 60.</p>
         <p>Some definitions:</p>
-        <p></p>
         <taglist>
           <tag>The minimum transition traffic interval (<c>MTTI</c>)</tag>
           <item>
-            <p><c>minimum(NetTicktime, PreviousNetTicktime)*1000 div 4</c> milliseconds.</p>
+            <p><c>minimum(<anno>NetTicktime</anno>, PreviousNetTicktime)*1000 div 4</c> milliseconds.</p>
           </item>
           <tag>The transition period</tag>
           <item>
             <p>The time of the least number of consecutive <c>MTTI</c>s
-              to cover <c>TransitionPeriod</c> seconds following
+              to cover <c><anno>TransitionPeriod</anno></c> seconds following
               the call to <c>set_net_ticktime/2</c> (i.e.
-              ((<c>TransitionPeriod*1000 - 1) div MTTI + 1)*MTTI</c>
+              ((<c><anno>TransitionPeriod</anno>*1000 - 1) div MTTI + 1)*MTTI</c>
               milliseconds).</p>
           </item>
         </taglist>
-        <p>If <c><![CDATA[NetTicktime < PreviousNetTicktime]]></c>, the actual
+        <p>If <c><![CDATA[<anno>NetTicktime</anno> < PreviousNetTicktime]]></c>, the actual
           <c>net_ticktime</c> change will be done at the end of
           the transition period; otherwise, at the beginning. During
           the transition period, <c>net_kernel</c> will ensure that
@@ -271,7 +249,7 @@ $ <input>erl -sname foobar</input></pre>
           every <c>MTTI</c> millisecond.</p>
         <note>
           <p>The <c>net_ticktime</c> changes have to be initiated on all
-            nodes in the network (with the same <c>NetTicktime</c>)
+            nodes in the network (with the same <c><anno>NetTicktime</anno></c>)
             before the end of any transition period on any node;
             otherwise, connections may erroneously be disconnected.</p>
         </note>
@@ -280,18 +258,18 @@ $ <input>erl -sname foobar</input></pre>
           <tag><c>unchanged</c></tag>
           <item>
             <p><c>net_ticktime</c> already had the value of
-              <c>NetTicktime</c> and was left unchanged.</p>
+              <c><anno>NetTicktime</anno></c> and was left unchanged.</p>
           </item>
           <tag><c>change_initiated</c></tag>
           <item>
             <p><c>net_kernel</c> has initiated the change of
-              <c>net_ticktime</c> to <c>NetTicktime</c> seconds.</p>
+              <c>net_ticktime</c> to <c><anno>NetTicktime</anno></c> seconds.</p>
           </item>
-          <tag><c>{ongoing_change_to, NewNetTicktime}</c></tag>
+          <tag><c>{ongoing_change_to, <anno>NewNetTicktime</anno>}</c></tag>
           <item>
             <p>The request was <em>ignored</em>; because,
               <c>net_kernel</c> was busy changing <c>net_ticktime</c> to
-              <c>NewTicktime</c> seconds.</p>
+              <c><anno>NewNetTicktime</anno></c> seconds.</p>
           </item>
         </taglist>
       </desc>
@@ -315,7 +293,7 @@ $ <input>erl -sname foobar</input></pre>
       </desc>
     </func>
     <func>
-      <name>stop() -> ok | {error, not_allowed | not_found}</name>
+      <name name="stop" arity="0"/>
       <fsummary>Turn a node into a non-distributed Erlang runtime system</fsummary>
       <desc>
         <p>Turns a distributed node into a non-distributed node. For

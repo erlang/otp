@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2010</year>
+      <year>2004</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -29,6 +29,289 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the Erl_interface application.</p>
+
+<section><title>Erl_Interface 3.7.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Align ei buffer according to size of pointers</p>
+          <p>
+	    Own Id: OTP-9390</p>
+        </item>
+        <item>
+	    <p> XML files have been corrected. </p>
+          <p>
+	    Own Id: OTP-9550 Aux Id: OTP-9541 </p>
+        </item>
+        <item>
+          <p>
+	    Make comment and documentation reflect code in
+	    erl_interface/src/misc/ei_decode_term.c (Thanks to Anneli
+	    Cuss)</p>
+          <p>
+	    Own Id: OTP-9559</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    ei: integer overflow in string/atom encoding</p>
+          <p>
+	    ei_encode_atom() and ei_encode_string() use strlen() to
+	    get the length of the buffer. As strlen() returns an
+	    unsigned long long and both ei functions take a signed
+	    integer, the length fields may overflow.</p>
+          <p>
+	    Check so that the results of strlen can be held in a
+	    signed integer. (Thanks to Michael Santos)</p>
+          <p>
+	    Own Id: OTP-9530</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Interface 3.7.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix using sizeof() for array given as function argument</p>
+          <p>
+	    When using the sizeof() operator for an array given as
+	    function argument it returns the size of the pointer. In
+	    this case, the affected function hex(char digest[16],
+	    char buff[33]) will just print 4 or 8 byte instead of the
+	    full length of 16 bytes, on 32bit and 64bit systems
+	    respectively. (Thanks to Cristian greco)</p>
+          <p>
+	    Own Id: OTP-9151</p>
+        </item>
+        <item>
+          <p>
+	    Initialize <c>to</c> and <c>to_name</c> in
+	    <c>erl_receive_msg</c>. (Thanks to Göran Larsson)</p>
+          <p>
+	    Own Id: OTP-9241</p>
+        </item>
+        <item>
+          <p>
+	    erl_interface: fix compile error(Thanks to Michael
+	    Santos)</p>
+          <p>
+	    Own Id: OTP-9252</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Interface 3.7.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Some malformed distribution messages could cause VM to
+	    crash, this is now corrected.</p>
+          <p>
+	    Own Id: OTP-8993</p>
+        </item>
+        <item>
+          <p>
+	    Strengthen string copy check (Thanks to Michael Santos).</p>
+          <p>
+	    Own Id: OTP-9071</p>
+        </item>
+        <item>
+          <p>
+	    Strengthen atom length check when decoding atoms (Thanks
+	    to Michael Santos).</p>
+          <p>
+	    Own Id: OTP-9072</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Fix global registration. C node needed
+	    DFLAG_DIST_MONITOR_FLAT set when connecting. Fix list
+	    compare in erl_compare_ext to return correct result.
+	    (Thanks to Vitaliy Batichko and Evgeny Khirin)</p>
+          <p>
+	    Own Id: OTP-9015</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Interface 3.7.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    erl_call: remove get_hostent</p>
+          <p>
+	    get_hostent does not properly handle IPv4 addresses on
+	    little endian platforms and fails with hostnames
+	    beginning with a number. Remove get_hostent and use
+	    ei_gethostbyname directly since gethostbyname supports
+	    IPv4 addresses.</p>
+          <p>
+	    (Thanks to Michael Santos)</p>
+          <p>
+	    Own Id: OTP-8890</p>
+        </item>
+        <item>
+	    <p> teach ei_x_format to handle unary - and + (Thanks to
+	    Steve Vinoski)</p>
+          <p>
+	    Own Id: OTP-8891</p>
+        </item>
+        <item>
+	    <p>Fix zero byte allocation in registry. (Thanks to
+	    Michael Santos)</p>
+          <p>
+	    Own Id: OTP-8893</p>
+        </item>
+        <item>
+	    <p> Check the length of the node name to prevent an
+	    overflow. Memory error control of ei_alloc_big. (Thanks
+	    to Michael Santos) </p>
+          <p>
+	    Own Id: OTP-8943</p>
+        </item>
+        <item>
+          <p>
+	    erl_term_len() in erl_interface could returned too large
+	    values for integers (since R14B) and too small values for
+	    refs (since R9B).</p>
+          <p>
+	    Own Id: OTP-8945</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Interface 3.7.1.1</title>
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>
+		The <c>erl_interface</c> tracelevel for erlang messages was incorrect. This has now been fixed.
+	    </p>
+          <p>
+	    Own Id: OTP-8874</p>
+        </item>
+    </list>
+    </section>
+
+</section>
+<section><title>Erl_Interface 3.7.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Removed unused variable in <c>ei_decode_term.c</c>.</p>
+          <p>
+	    Fixed faulty deallocation in <c>erl_call</c>.</p>
+          <p>
+	    Own Id: OTP-8748</p>
+        </item>
+        <item>
+	    <p>ei_connect: correct man page examples (Thanks to
+	    Michael Santos)</p>
+          <p>
+	    Own Id: OTP-8813</p>
+        </item>
+        <item>
+	    <p>ei: prevent overflow in <c>ei_connect_init</c> and
+	    <c>ei_xconnect</c></p> <p>Add length check of the buffer
+	    before copying. (Thanks to Michael Santos)</p>
+          <p>
+	    Own Id: OTP-8814</p>
+        </item>
+        <item>
+	    <p>Remove DECLSPEC feature which fails on Windows Vista
+	    and use the fallback implementation instead.</p>
+          <p>
+	    Own Id: OTP-8826</p>
+        </item>
+        <item>
+	    <p>erl_call: fix multiple buffer overflows (Thanks to
+	    Michael Santos)</p>
+          <p>
+	    Own Id: OTP-8827</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Fix incorrect writev iovec buffer handling in
+	    <c>erl_interface</c> (Thanks to Steve Vinoski)</p>
+          <p>
+	    Own Id: OTP-8837</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Interface 3.7</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>compact IEEE 754 double encoding in external binary
+	    format for ei</p> <list><item><p>Implement the compact
+	    IEEE 754 double encoding in external binary format for
+	    ei. Encoding for ei now always produces the NEW_FLOAT_EXT
+	    format. Decoding and term printing handle both the old
+	    ERL_FLOAT_EXT encoding and the new NEW_FLOAT_EXT
+	    encoding. </p></item> <item><p>Legacy erl_interface code
+	    also handles the new encoding, but still produces the
+	    ERL_FLOAT_EXT encoding by default.</p></item>
+	    <item><p>Also enable the DFLAG_NEW_FLOATS distribution
+	    flag.</p></item> <item><p>ei_get_type() will return
+	    ERL_FLOAT_EXT regardless if the external format is
+	    encoded with ERL_FLOAT_EXT or NEW_FLOAT_EXT for
+	    doubles.</p></item> <item><p>Reduce the number of copies
+	    of the code for encoding and decoding doubles throughout
+	    ei and erl_interface by instead calling the ei encoding
+	    and decoding functions wherever possible.</p></item>
+	    <item><p>Restore commented-out float tests in
+	    ei_decode_SUITE and ei_encode_SUITE in
+	    lib/erl_interface/test. Modify them to make them match
+	    the style of other tests in the same suites.</p></item>
+	    </list> <p>These changes are based on an ei float patch
+	    from Serge Aleynikov originally submitted against R12B-2
+	    in July 2008 and reworked by Steve Vinoski May 2010.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-8684</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Erl_Interface 3.6.5</title>
 

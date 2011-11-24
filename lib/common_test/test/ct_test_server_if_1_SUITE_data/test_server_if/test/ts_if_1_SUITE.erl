@@ -93,6 +93,10 @@ init_per_testcase(_TestCase, Config) ->
 %%--------------------------------------------------------------------
 end_per_testcase(tc2, Config) ->
     timer:sleep(5000);
+end_per_testcase(tc12, Config) ->
+    ct:comment("end_per_testcase(tc12) called!"),
+    ct:pal("end_per_testcase(tc12) called!", []),
+    ok;
 end_per_testcase(_TestCase, _Config) ->
     ok.
 
@@ -139,7 +143,7 @@ tc1(_) ->
     exit(should_have_been_skipped).
 
 tc2(_) ->
-    exit(should_have_been_skipped).
+    timeout_in_end_per_testcase.
 
 tc3(_) ->
    timer:sleep(5000).
@@ -180,9 +184,9 @@ gtc2(_) ->
     exit(should_have_been_skipped).
 
 tc12(_) ->
-    F = fun() -> ct:abort_current_testcase({abort_current_testcase,tc12}) end,
+    F = fun() -> ct:abort_current_testcase('stopping tc12') end,
     spawn(F),
-    timer:sleep(500),
+    timer:sleep(1000),
     exit(should_have_been_aborted).
 
 tc13(_) ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -49,7 +49,7 @@
 -define(config(A,B),config(A,B)).
 -export([config/2]).
 -else.
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -endif.
 
 -ifdef(debug).
@@ -69,22 +69,40 @@ config(priv_dir,_) ->
     ".".
 -else.
 %% When run in test server.
--export([all/1,test_basic/1,test_cmp/1,test_range/1,test_spread/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
+	 test_basic/1,test_cmp/1,test_range/1,test_spread/1,
 	 test_phash2/1,otp_5292/1,bit_level_binaries/1,otp_7127/1,
-	 fin_per_testcase/2,init_per_testcase/2]).
+	 end_per_testcase/2,init_per_testcase/2]).
 init_per_testcase(_Case, Config) ->
     ?line Dog=test_server:timetrap(test_server:minutes(10)),
     [{watchdog, Dog}|Config].
  
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
-all(doc) ->
-    ["Test erlang:phash"];
-all(suite) ->
-    [test_basic, test_cmp, test_range, test_spread, test_phash2, otp_5292,
-     bit_level_binaries, otp_7127].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [test_basic, test_cmp, test_range, test_spread,
+     test_phash2, otp_5292, bit_level_binaries, otp_7127].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 test_basic(suite) ->
     [];
@@ -480,14 +498,14 @@ otp_5292_test() ->
     S2 = md5([md5(hash_int(S, E, PH)) || {Start, N, Sz} <- d(), 
                                          {S, E} <- int(Start, N, Sz)]),
     ?line Comment = case S1 of 
-                        <<43,186,76,102,87,4,110,245,203,177,206,6,130,69,43,99>> ->
+			<<4,248,208,156,200,131,7,1,173,13,239,173,112,81,16,174>> ->
 			    ?line big = erlang:system_info(endian),
                             "Big endian machine";
-                        <<21,206,139,15,149,28,167,81,98,225,132,254,49,125,174,195>> ->
+                        <<180,28,33,231,239,184,71,125,76,47,227,241,78,184,176,233>> ->
 			    ?line little = erlang:system_info(endian),
                             "Little endian machine"
                     end,
-    ?line <<140,37,79,80,26,242,130,22,20,229,123,240,223,244,43,99>> = S2,
+    ?line <<124,81,198,121,174,233,19,137,10,83,33,80,226,111,238,99>> = S2,
     ?line 2 = erlang:hash(1, (1 bsl 27) -1),
     ?line {'EXIT', _} = (catch erlang:hash(1, (1 bsl 27))),
     {comment, Comment}.
@@ -507,7 +525,7 @@ hash_int(Start, End, F) ->
     {Start, End, md5(HL)}.
 
 md5(T) ->
-    erlang:md5(term_to_binary(T)).
+    erlang:md5(term_to_binary(T)).   
 
 bit_level_binaries() ->
     ?line [3511317,7022633,14044578,28087749,56173436,112344123,90467083|_] =

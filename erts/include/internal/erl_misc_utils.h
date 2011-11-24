@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2006-2009. All Rights Reserved.
+ * Copyright Ericsson AB 2006-2010. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -34,7 +34,7 @@ typedef struct {
 
 erts_cpu_info_t *erts_cpu_info_create(void);
 void erts_cpu_info_destroy(erts_cpu_info_t *cpuinfo);
-void erts_cpu_info_update(erts_cpu_info_t *cpuinfo);
+int erts_cpu_info_update(erts_cpu_info_t *cpuinfo);
 int erts_get_cpu_configured(erts_cpu_info_t *cpuinfo);
 int erts_get_cpu_online(erts_cpu_info_t *cpuinfo);
 int erts_get_cpu_available(erts_cpu_info_t *cpuinfo);
@@ -49,5 +49,10 @@ int erts_unbind_from_cpu(erts_cpu_info_t *cpuinfo);
 int erts_unbind_from_cpu_str(char *str);
 
 int erts_milli_sleep(long);
+
+#ifdef __WIN32__
+int erts_map_win_error_to_errno(DWORD win_error);
+int erts_get_last_win_errno(void);
+#endif
 
 #endif /* #ifndef ERL_MISC_UTILS_H_ */

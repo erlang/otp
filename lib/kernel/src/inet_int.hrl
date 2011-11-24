@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -29,7 +29,7 @@
 -define(INET_AF_ANY,          3). % Fake for ANY in any address family
 -define(INET_AF_LOOPBACK,     4). % Fake for LOOPBACK in any address family
 
-%% type codes (gettype, INET_REQ_GETTYPE)
+%% type codes to open and gettype - INET_REQ_GETTYPE
 -define(INET_TYPE_STREAM,     1).
 -define(INET_TYPE_DGRAM,      2).
 -define(INET_TYPE_SEQPACKET,  3).
@@ -82,16 +82,20 @@
 -define(INET_REQ_IFGET,         22).
 -define(INET_REQ_IFSET,         23).
 -define(INET_REQ_SUBSCRIBE,     24).
+-define(INET_REQ_GETIFADDRS,    25).
+-define(INET_REQ_ACCEPT,        26).
+-define(INET_REQ_LISTEN,        27).
 %% TCP requests
--define(TCP_REQ_ACCEPT,         40).
--define(TCP_REQ_LISTEN,         41).
+%%-define(TCP_REQ_ACCEPT,         40). MOVED
+%%-define(TCP_REQ_LISTEN,         41). MERGED
 -define(TCP_REQ_RECV,           42).
 -define(TCP_REQ_UNRECV,         43).
 -define(TCP_REQ_SHUTDOWN,       44).
 %% UDP and SCTP requests
 -define(PACKET_REQ_RECV,        60).
--define(SCTP_REQ_LISTEN,        61).
+%%-define(SCTP_REQ_LISTEN,        61). MERGED
 -define(SCTP_REQ_BINDX,	        62). %% Multi-home SCTP bind
+-define(SCTP_REQ_PEELOFF,       63).
 
 %% subscribe codes, INET_REQ_SUBSCRIBE
 -define(INET_SUBS_EMPTY_OUT_Q,  1).
@@ -99,7 +103,7 @@
 %% reply codes for *_REQ_*
 -define(INET_REP_ERROR,    0).
 -define(INET_REP_OK,       1).
--define(INET_REP_SCTP,     2).
+-define(INET_REP,          2).
 
 %% INET, TCP and UDP options:
 -define(INET_OPT_REUSEADDR,      0).
@@ -398,6 +402,7 @@
 	  ifaddr,
 	  port   = 0,
 	  fd	 = -1,
+	  type   = seqpacket,
 	  opts   = [{mode,	  binary},
 		    {buffer,	  ?SCTP_DEF_BUFSZ},
 		    {sndbuf,	  ?SCTP_DEF_BUFSZ},

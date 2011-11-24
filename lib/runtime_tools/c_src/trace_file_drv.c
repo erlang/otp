@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1999-2009. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -520,7 +520,7 @@ static int do_write(FILETYPE fd, unsigned char *buff, int siz) {
 */
 static int my_write(TraceFileData *data, unsigned char *buff, int siz) 
 {
-    int wrote, w;
+    int wrote;
 
     if (data->buff_siz - data->buff_pos >= siz) {
 	memcpy(data->buff + data->buff_pos, buff, siz);

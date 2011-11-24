@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2005-2009. All Rights Reserved.
+ * Copyright Ericsson AB 2005-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -108,7 +108,7 @@ write_f_add_cr(void *vfp, char* buf, size_t len)
 	if (PUTC(buf[i], (FILE *) vfp) == EOF)
 	    return get_error_result();
     }
-    return 0;
+    return len;
 }
 
 static int
@@ -126,13 +126,14 @@ write_f(void *vfp, char* buf, size_t len)
 #endif
     if (FWRITE((void *) buf, sizeof(char), len, (FILE *) vfp) != len)
 	return get_error_result();
-    return 0;
+    return len;
 }
 
 static int
 write_fd(void *vfdp, char* buf, size_t len)
 {
     ssize_t size;
+    size_t res = len;
     ASSERT(vfdp);
 
     while (len) {
@@ -149,7 +150,7 @@ write_fd(void *vfdp, char* buf, size_t len)
 	len -= size;
     }
 
-    return 0;
+    return res;
 }
 
 static int
@@ -160,7 +161,7 @@ write_s(void *vwbufpp, char* bufp, size_t len)
     ASSERT(len > 0);
     memcpy((void *) *wbufpp, (void *) bufp, len);
     *wbufpp += len;
-    return 0;
+    return len;
 }
 
 
@@ -182,6 +183,7 @@ write_sn(void *vwsnap, char* buf, size_t len)
 	memcpy((void *) wsnap->buf, (void *) buf, sz);
 	wsnap->buf += sz;
 	wsnap->len -= sz;
+	return sz;
     }
     return 0;
 }
@@ -201,7 +203,7 @@ write_ds(void *vdsbufp, char* buf, size_t len)
     }
     memcpy((void *) (dsbufp->str + dsbufp->str_len), (void *) buf, len);
     dsbufp->str_len += len;
-    return 0;
+    return len;
 }
 
 int

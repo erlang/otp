@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -35,7 +35,7 @@
 -include("wxe.hrl").
 -export([addRoot/2,addRoot/3,appendItem/3,appendItem/4,assignImageList/2,assignStateImageList/2,
   collapse/2,collapseAndReset/2,create/2,create/3,delete/2,deleteAllItems/1,
-  deleteChildren/2,destroy/1,ensureVisible/2,expand/2,getBoundingRect/3,
+  deleteChildren/2,destroy/1,editLabel/2,ensureVisible/2,expand/2,getBoundingRect/3,
   getBoundingRect/4,getChildrenCount/2,getChildrenCount/3,getCount/1,
   getEditControl/1,getFirstChild/2,getFirstVisibleItem/1,getImageList/1,
   getIndent/1,getItemBackgroundColour/2,getItemData/2,getItemFont/2,
@@ -108,7 +108,7 @@ new(Parent)
   new(Parent, []).
 
 %% @spec (Parent::wxWindow:wxWindow(), [Option]) -> wxTreeCtrl()
-%% Option = {id, integer()} | {pos, {X::integer(),Y::integer()}} | {size, {W::integer(),H::integer()}} | {style, integer()} | {validator, wx:wx()}
+%% Option = {id, integer()} | {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()} | {validator, wx:wx()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlwxtreectrl">external documentation</a>.
 new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->
@@ -204,7 +204,7 @@ create(This,Parent)
   create(This,Parent, []).
 
 %% @spec (This::wxTreeCtrl(), Parent::wxWindow:wxWindow(), [Option]) -> bool()
-%% Option = {id, integer()} | {pos, {X::integer(),Y::integer()}} | {size, {W::integer(),H::integer()}} | {style, integer()} | {validator, wx:wx()}
+%% Option = {id, integer()} | {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()} | {validator, wx:wx()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlcreate">external documentation</a>.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->
@@ -243,6 +243,14 @@ deleteChildren(#wx_ref{type=ThisT,ref=ThisRef},Item)
   wxe_util:cast(?wxTreeCtrl_DeleteChildren,
   <<ThisRef:32/?UI,0:32,Item:64/?UI>>).
 
+%% @spec (This::wxTreeCtrl(), Item::integer()) -> wxTextCtrl:wxTextCtrl()
+%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrleditlabel">external documentation</a>.
+editLabel(#wx_ref{type=ThisT,ref=ThisRef},Item)
+ when is_integer(Item) ->
+  ?CLASS(ThisT,wxTreeCtrl),
+  wxe_util:call(?wxTreeCtrl_EditLabel,
+  <<ThisRef:32/?UI,0:32,Item:64/?UI>>).
+
 %% @spec (This::wxTreeCtrl(), Item::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlensurevisible">external documentation</a>.
 ensureVisible(#wx_ref{type=ThisT,ref=ThisRef},Item)
@@ -259,13 +267,13 @@ expand(#wx_ref{type=ThisT,ref=ThisRef},Item)
   wxe_util:cast(?wxTreeCtrl_Expand,
   <<ThisRef:32/?UI,0:32,Item:64/?UI>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer(), Rect::{X::integer(),Y::integer(),W::integer(),H::integer()}) -> bool()
+%% @spec (This::wxTreeCtrl(), Item::integer(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}) -> bool()
 %% @equiv getBoundingRect(This,Item,Rect, [])
 getBoundingRect(This,Item,Rect={RectX,RectY,RectW,RectH})
  when is_record(This, wx_ref),is_integer(Item),is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH) ->
   getBoundingRect(This,Item,Rect, []).
 
-%% @spec (This::wxTreeCtrl(), Item::integer(), Rect::{X::integer(),Y::integer(),W::integer(),H::integer()}, [Option]) -> bool()
+%% @spec (This::wxTreeCtrl(), Item::integer(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}, [Option]) -> bool()
 %% Option = {textOnly, bool()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlgetboundingrect">external documentation</a>.
 getBoundingRect(#wx_ref{type=ThisT,ref=ThisRef},Item,{RectX,RectY,RectW,RectH}, Options)
@@ -309,7 +317,7 @@ getEditControl(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxTreeCtrl_GetEditControl,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer()) -> {integer(),Cookie::integer()}
+%% @spec (This::wxTreeCtrl(), Item::integer()) -> {integer(), Cookie::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlgetfirstchild">external documentation</a>.
 getFirstChild(#wx_ref{type=ThisT,ref=ThisRef},Item)
  when is_integer(Item) ->
@@ -317,7 +325,7 @@ getFirstChild(#wx_ref{type=ThisT,ref=ThisRef},Item)
   wxe_util:call(?wxTreeCtrl_GetFirstChild,
   <<ThisRef:32/?UI,0:32,Item:64/?UI>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer(), Cookie::integer()) -> {integer(),Cookie::integer()}
+%% @spec (This::wxTreeCtrl(), Item::integer(), Cookie::integer()) -> {integer(), Cookie::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlgetnextchild">external documentation</a>.
 getNextChild(#wx_ref{type=ThisT,ref=ThisRef},Item,Cookie)
  when is_integer(Item),is_integer(Cookie) ->
@@ -470,7 +478,7 @@ getSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxTreeCtrl_GetSelection,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxTreeCtrl()) -> {integer(),Val::[integer()]}
+%% @spec (This::wxTreeCtrl()) -> {integer(), Val::[integer()]}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlgetselections">external documentation</a>.
 getSelections(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -484,7 +492,7 @@ getStateImageList(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxTreeCtrl_GetStateImageList,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxTreeCtrl(), Point::{X::integer(),Y::integer()}) -> integer()
+%% @spec (This::wxTreeCtrl(), Point::{X::integer(), Y::integer()}) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlhittest">external documentation</a>.
 hitTest(#wx_ref{type=ThisT,ref=ThisRef},{PointX,PointY})
  when is_integer(PointX),is_integer(PointY) ->

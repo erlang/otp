@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2009. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -31,7 +31,7 @@ int erl_global_register(int fd, const char *name, ETERM *pid)
   int index = 0;
   erlang_pid self;
   erlang_msg msg;
-  int needlink, needatom;
+  int needlink, needatom, needmonitor;
   int arity;
   int version;
   int msglen;
@@ -65,7 +65,7 @@ int erl_global_register(int fd, const char *name, ETERM *pid)
   if (ei_send_reg_encoded(fd,&self,"rex",buf,index)) return -1;
 
   /* get the reply: expect link and an atom, or just an atom */
-  needlink = needatom = 1;
+  needlink = needatom = needmonitor = 1;
   while (1) {
     /* get message */
     while (1) {
@@ -78,9 +78,15 @@ int erl_global_register(int fd, const char *name, ETERM *pid)
     case ERL_LINK:
       /* got link */
       if (!needlink) return -1;
-	needlink = 0;
+      needlink = 0;
       break;
       
+    case ERL_MONITOR_P-10:
+      /* got monitor */
+	if (!needmonitor) { return -1;}
+	needmonitor = 0;
+      break;
+
     case ERL_SEND:
       /* got message - does it contain our atom? */
       if (!needatom) return -1;

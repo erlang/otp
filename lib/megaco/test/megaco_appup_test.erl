@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -24,6 +24,7 @@
 -module(megaco_appup_test).
 
 -compile(export_all).
+-compile({no_auto_import,[error/1]}).
 
 -include("megaco_test_lib.hrl").
 
@@ -37,25 +38,31 @@ t(Case) -> megaco_test_lib:t({?MODULE, Case}).
 init_per_testcase(Case, Config) ->
     megaco_test_lib:init_per_testcase(Case, Config).
 
-fin_per_testcase(Case, Config) ->
-    megaco_test_lib:fin_per_testcase(Case, Config).
+end_per_testcase(Case, Config) ->
+    megaco_test_lib:end_per_testcase(Case, Config).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-all(suite) ->
-    Cases = 
-	[
-	 appup
-	],
-    {req, [], {conf, appup_init, Cases, appup_fin}}.
+all() -> 
+    [appup].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-appup_init(suite) -> [];
-appup_init(doc) -> [];
-appup_init(Config) when is_list(Config) ->
+init_per_suite(suite) -> [];
+init_per_suite(doc) -> [];
+init_per_suite(Config) when is_list(Config) ->
     AppFile   = file_name(?APPLICATION, ".app"),
     AppupFile = file_name(?APPLICATION, ".appup"),
     [{app_file, AppFile}, {appup_file, AppupFile}|Config].
@@ -66,9 +73,9 @@ file_name(App, Ext) ->
     filename:join([LibDir, "ebin", atom_to_list(App) ++ Ext]).
 
 
-appup_fin(suite) -> [];
-appup_fin(doc) -> [];
-appup_fin(Config) when is_list(Config) ->
+end_per_suite(suite) -> [];
+end_per_suite(doc) -> [];
+end_per_suite(Config) when is_list(Config) ->
     Config.
 
 

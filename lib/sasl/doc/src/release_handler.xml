@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2009</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -159,9 +159,12 @@ old        reboot_old            permanent
   <funcs>
     <func>
       <name>check_install_release(Vsn) -> {ok, OtherVsn, Descr} | {error, Reason}</name>
+      <name>check_install_release(Vsn,Opts) -> {ok, OtherVsn, Descr} | {error, Reason}</name>
       <fsummary>Check installation of a release in the system.</fsummary>
       <type>
         <v>Vsn = OtherVsn = string()</v>
+	<v>Opts = [Opt]</v>
+	<v>Opt = purge</v>
         <v>Descr = term()</v>
         <v>Reason = term()</v>
       </type>
@@ -179,6 +182,11 @@ old        reboot_old            permanent
           upgrade script.</p>
         <p>Returns the same as <c>install_release/1</c>. <c>Descr</c>
           defaults to "" if no <c>relup</c> file is found.</p>
+	<p>If the option <c>purge</c> is given, all old code that can
+          be soft purged will be purged after all other checks are
+          successfully completed. This can be useful in order to
+          reduce the time needed by <seealso
+          marker="#install_release/1">install_release</seealso>.</p>
       </desc>
     </func>
     <func>
@@ -230,7 +238,7 @@ old        reboot_old            permanent
     </func>
     <func>
       <name>install_release(Vsn) -> {ok, OtherVsn, Descr} | {error, Reason}</name>
-      <name>install_release(Vsn, [Opt]) -> {ok, OtherVsn, Descr} | {error, Reason}</name>
+      <name>install_release(Vsn, [Opt]) -> {ok, OtherVsn, Descr} | {continue_after_restart, OtherVsn, Descr} | {error, Reason}</name>
       <fsummary>Install a release in the system.</fsummary>
       <type>
         <v>Vsn = OtherVsn = string()</v>
@@ -240,7 +248,8 @@ old        reboot_old            permanent
         <v>&nbsp;Timeout = default | infinity | int()>0</v>
         <v>&nbsp;Bool = boolean()</v>
         <v>Descr = term()</v>
-        <v>Reason = {illegal_option, Opt} | {already_installed, Vsn} | {change_appl_data, term()} | term()</v>
+        <v>Reason = {illegal_option, Opt} | {already_installed, Vsn} | {change_appl_data, term()} | {missing_base_app, OtherVsn, App} | {could_not_create_hybrid_boot, term()} | term()</v>
+	<v>App = atom()</v>
       </type>
       <desc>
         <p>Installs the specified version <c>Vsn</c> of the release.
@@ -260,6 +269,15 @@ old        reboot_old            permanent
           <c>OtherVsn</c> and <c>Descr</c> are the version
           (<c>UpFromVsn</c> or <c>Vsn</c>) and description
           (<c>Descr1</c> or <c>Descr2</c>) as specified in the script.</p>
+	  <p>If <c>{continue_after_restart,OtherVsn,Descr}</c> is
+	  returned, it means that the emulator will be restarted
+	  before the upgrade instructions are executed. This will
+	  happen if the emulator or any of the applications kernel,
+	  stdlib or sasl are updated. The new version of the emulator
+	  and these core applications will execute after the restart,
+	  but for all other applications the old versions will be
+	  started and the upgrade will be performed as normal by
+	  executing the upgrade instructions.</p>
         <p>If a recoverable error occurs, the function returns
           <c>{error,Reason}</c> and the original application
           specifications are restored. If a non-recoverable error
@@ -299,6 +317,36 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
           <c>{update_paths,true}</c>, afterwards
           <c>code:lib_dir(myapp)</c> will return
           <c>/home/user/myapp-1.0</c>.</p>
+	<note>
+	  <p>Installing a new release might be quite time consuming if
+	  there are many processes in the system. The reason is that
+	  each process must be checked for references to old code
+	  before a module can be purged. This check might lead to
+	  garbage collections and copying of data.</p>
+	  <p>If you wish to speed up the execution of
+	  <c>install_release</c>, then you may call <seealso
+	  marker="#check_install_release/1">check_install_release</seealso>
+	  first, using the option <c>purge</c>. This will do the same
+	  check for old code, and then purge all modules that can be
+	  soft purged. The purged modules will then no longer have any
+	  old code, and <c>install_release</c> will not need to do the
+	  checks.</p>
+	  <p>Obviously, this will not reduce the overall time for the
+	  upgrade, but it will allow checks and purge to be executed
+	  in the background before the real upgrade is started.</p>
+	</note>
+	<note>
+	  <p>When upgrading the emulator from a version older than OTP
+	  R15, there will be an attempt to load new application beam
+	  code into the old emulator. In some cases, the new beam
+	  format can not be read by the old emulator, and so the code
+	  loading will fail and terminate the complete upgrade. To
+	  overcome this problem, the new application code should be
+	  compiled with the old emulator. See <seealso
+	  marker="doc/design_principles:appup_cookbook">Design
+	  Principles</seealso> for more information about emulator
+	  upgrade from pre OTP R15 versions.</p>
+	</note>
       </desc>
     </func>
     <func>
@@ -405,6 +453,18 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
         <p>Returns all releases known to the release handler.</p>
       </desc>
     </func>
+    <func>
+      <name>which_releases(Status) -> [{Name, Vsn, Apps, Status}]</name>
+      <fsummary>Return all known releases of a specific status</fsummary>
+      <type>
+        <v>Name = Vsn = string()</v>
+        <v>Apps = ["App-Vsn"]</v>
+        <v>Status = unpacked | current | permanent | old</v>
+      </type>
+      <desc>
+        <p>Returns all releases known to the release handler of a specific status.</p>
+      </desc>
+    </func>
   </funcs>
 
   <section>
@@ -416,7 +476,7 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
       and evaluated exactly in the same way as <c>release_handler</c>
       does.</p>
     <warning>
-      <p>These function is primarily intended for simplified testing of
+      <p>These functions are primarily intended for simplified testing
         of <c>.appup</c> files. They are not run within the context of
         the <c>release_handler</c> process. They must therefore
         <em>not</em> be used together with calls to

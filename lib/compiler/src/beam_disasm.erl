@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2000-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%=======================================================================
 %% Notes:
@@ -204,7 +204,7 @@ process_chunks(F) ->
 optional_chunk(F, ChunkTag) ->
     case beam_lib:chunks(F, [ChunkTag]) of
 	{ok,{_Module,[{ChunkTag,Chunk}]}} -> Chunk;
-	{error,beam_lib,{missing_chunk,_,ChunkTag}} -> none
+	{error,beam_lib,{missing_chunk,_,_}} -> none
     end.
 
 %%-----------------------------------------------------------------------
@@ -296,6 +296,8 @@ get_function_chunks(Code) ->
 labels_r([], R) -> {R, []};
 labels_r([{label,_}=I|Is], R) ->
     labels_r(Is, [I|R]);
+labels_r([{line,_}=I|Is], R) ->
+    labels_r(Is, [I|R]);
 labels_r(Is, R) -> {R, Is}.
 
 get_funs({[],[]}) -> [];
@@ -335,20 +337,17 @@ local_labels(Funs) ->
 				   local_labels_1(function__code(F), R)
 			   end, [], Funs)).
 
-%% The first clause below attempts to provide some (limited form of)
-%% backwards compatibility; it is not needed for .beam files generated
-%% by the R8 compiler.  The clause should one fine day be taken out.
-local_labels_1([{label,_}|[{label,_}|_]=Code], R) ->
-    local_labels_1(Code, R);
-local_labels_1([{label,_},{func_info,{atom,M},{atom,F},A}|Code], R)
-  when is_atom(M), is_atom(F) ->
-    local_labels_2(Code, R, M, F, A);
-local_labels_1(Code, _) ->
-    ?exit({'local_labels: no label in code',Code}).
+local_labels_1(Code0, R) ->
+    Code1 = lists:dropwhile(fun({label,_}) -> true;
+			       ({line,_}) -> true;
+			       ({func_info,_,_,_}) -> false
+			    end, Code0),
+    [{func_info,{atom,M},{atom,F},A}|Code] = Code1,
+    local_labels_2(Code, R, {M,F,A}).
 
-local_labels_2([{label,[{u,L}]}|Code], R, M, F, A) ->
-    local_labels_2(Code, [{L,{M,F,A}}|R], M, F, A);
-local_labels_2(_, R, _, _, _) -> R.
+local_labels_2([{label,[{u,L}]}|Code], R, MFA) ->
+    local_labels_2(Code, [{L,MFA}|R], MFA);
+local_labels_2(_, R, _) -> R.
 
 %%-----------------------------------------------------------------------
 %% Disassembles a single BEAM instruction; most instructions are handled
@@ -621,8 +620,7 @@ resolve_names(Fun, Imports, Str, Lbls, Lambdas, Literals, M) ->
 
 %%
 %% New make_fun2/4 instruction added in August 2001 (R8).
-%% New put_literal/2 instruction added in Feb 2006 R11B-4.
-%% We handle them specially here to avoid adding an argument to
+%% We handle it specially here to avoid adding an argument to
 %% the clause for every instruction.
 %%
 
@@ -631,8 +629,6 @@ resolve_inst({make_fun2,Args}, _, _, _, Lambdas, _, M) ->
     {OldIndex,{F,A,_Lbl,_Index,NumFree,OldUniq}} =
 	lists:keyfind(OldIndex, 1, Lambdas),
     {make_fun2,{M,F,A},OldIndex,OldUniq,NumFree};
-resolve_inst({put_literal,[{u,Index},Dst]},_,_,_,_,Literals,_) ->
-    {put_literal,{literal,gb_trees:get(Index, Literals)},Dst};
 resolve_inst(Instr, Imports, Str, Lbls, _Lambdas, _Literals, _M) ->
     %% io:format(?MODULE_STRING":resolve_inst ~p.~n", [Instr]),
     resolve_inst(Instr, Imports, Str, Lbls).
@@ -1004,13 +1000,17 @@ resolve_inst({gc_bif2,Args},Imports,_,_) ->
     [F,Live,Bif,A1,A2,Reg] = resolve_args(Args),
     {extfunc,_Mod,BifName,_Arity} = lookup(Bif+1,Imports),
     {gc_bif,BifName,F,Live,[A1,A2],Reg};
+%%
+%% New instruction in R14, gc_bif with 3 arguments
+%%
+resolve_inst({gc_bif3,Args},Imports,_,_) ->
+    [F,Live,Bif,A1,A2,A3,Reg] = resolve_args(Args),
+    {extfunc,_Mod,BifName,_Arity} = lookup(Bif+1,Imports),
+    {gc_bif,BifName,F,Live,[A1,A2,A3],Reg};
 
 %%
 %% New instructions for creating non-byte aligned binaries.
 %%
-resolve_inst({bs_bits_to_bytes2,[_Arg2,_Arg3]=Args},_,_,_) ->
-    [A2,A3] = resolve_args(Args),
-    {bs_bits_to_bytes2,A2,A3};
 resolve_inst({bs_final2,[X,Y]},_,_,_) ->
     {bs_final2,X,Y};
 
@@ -1094,6 +1094,20 @@ resolve_inst({bs_put_utf32=I,[Lbl,{u,U},Arg3]},_,_,_) ->
 %%
 resolve_inst({on_load,[]},_,_,_) ->
     on_load;
+
+%%
+%% R14A.
+%%
+resolve_inst({recv_mark,[Lbl]},_,_,_) ->
+    {recv_mark,Lbl};
+resolve_inst({recv_set,[Lbl]},_,_,_) ->
+    {recv_set,Lbl};
+
+%%
+%% R15A.
+%%
+resolve_inst({line,[Index]},_,_,_) ->
+    {line,resolve_arg(Index)};
 
 %%
 %% Catches instructions that are not yet handled.

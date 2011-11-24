@@ -4,7 +4,7 @@
 <part xmlns:xi="http://www.w3.org/2001/XInclude">
   <header>
     <copyright>
-      <year>2003</year><year>2009</year>
+      <year>2003</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -75,6 +75,7 @@
   <xi:include href="ct_master_chapter.xml"/>
   <xi:include href="event_handler_chapter.xml"/>
   <xi:include href="dependencies_chapter.xml"/>
+  <xi:include href="ct_hooks_chapter.xml"/>
   <xi:include href="why_test_chapter.xml"/>
 </part>
           

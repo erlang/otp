@@ -1,0 +1,173 @@
+MC-TEST-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    otpExpr
+        FROM OTP-REG
+    MODULE-IDENTITY, OBJECT-TYPE,
+    mib-2, NOTIFICATION-TYPE, OBJECT-IDENTITY
+        FROM SNMPv2-SMI
+    TDomain, TAddress, DisplayString, TEXTUAL-CONVENTION,
+    AutonomousType, RowPointer, TimeStamp, 
+    RowStatus, StorageType
+        FROM SNMPv2-TC
+    MODULE-COMPLIANCE, OBJECT-GROUP, NOTIFICATION-GROUP
+        FROM SNMPv2-CONF;
+
+mcTestModule MODULE-IDENTITY
+    LAST-UPDATED "9605160000Z"
+    ORGANIZATION "MC Test Co."
+    CONTACT-INFO
+            "developer@small.company."
+    DESCRIPTION
+            "MC Test module."
+    ::= { reg 1 }
+
+mcObjects OBJECT IDENTIFIER ::= { mcTestModule 1 }
+
+-- MIB contains one group
+
+mcMisc     OBJECT IDENTIFIER ::= { mcObjects 1 }
+mcGeneral  OBJECT IDENTIFIER ::= { mcObjects 2 }
+
+
+mcTest OBJECT-IDENTITY
+     STATUS current
+     DESCRIPTION
+             "Test area."
+     ::= { otpExpr 4322 }
+
+
+reg OBJECT-IDENTITY
+     STATUS current
+     DESCRIPTION
+             "Registrations."
+     ::= { mcTest 1 }
+
+
+mcTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF McEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+            "This table contains one row per physical entity.  There is
+            always at least one row for an 'overall' physical entity."
+    ::= { mcMisc 1 }
+
+mcEntry       OBJECT-TYPE
+    SYNTAX      McEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+            "Table entry..."
+    INDEX   { mcIndex }
+    ::= { mcTable 1 }
+
+McEntry ::= SEQUENCE {
+      mcIndex         INTEGER, 
+      mcName          DisplayString,
+      mcStorageType   StorageType,
+      mcRowStatus     RowStatus
+}
+
+mcIndex    OBJECT-TYPE
+    SYNTAX      INTEGER
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+            "The index for this entry."
+    ::= { mcEntry 1 }
+
+mcName OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+            "Name of... "
+    ::= { mcEntry 2 }
+
+
+mcStorageType OBJECT-TYPE
+    SYNTAX      StorageType
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+           "The storage type for this conceptual row."
+    DEFVAL { nonVolatile }
+    ::= { mcEntry 3 }
+
+mcRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+           "The status of this conceptual row..."
+       ::= { mcEntry 4 }
+
+
+-- last change time stamp for the whole MIB
+mcTimeStamp OBJECT-TYPE
+    SYNTAX      TimeStamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+            "The sysUpTime value when of the last time *anything* in the 
+	    MIB was changed. "
+    ::= { mcGeneral 1 }
+
+-- Entity MIB Trap Definitions
+mcTraps      OBJECT IDENTIFIER ::= { mcTestModule 2 }
+mcTrapPrefix OBJECT IDENTIFIER ::= { mcTraps 0 }
+
+mcConfigChange NOTIFICATION-TYPE
+    STATUS             current
+    DESCRIPTION
+            "An mcConfigChange trap is sent when the value of
+            entLastChangeTime changes..."
+   ::= { mcTrapPrefix 1 }
+
+-- conformance information
+mcConformance OBJECT IDENTIFIER ::= { mcTestModule 3 }
+
+mcCompliances OBJECT IDENTIFIER ::= { mcConformance 1 }
+mcGroups      OBJECT IDENTIFIER ::= { mcConformance 2 }
+
+-- compliance statements
+
+
+mcCompliance MODULE-COMPLIANCE
+    STATUS  current
+    DESCRIPTION
+            "The compliance statement for SNMP entities which implement
+            the MC Test MIB."
+    MODULE  -- this module
+        MANDATORY-GROUPS { mcGeneralGroup,
+                           mcNotificationsGroup }
+    ::= { mcCompliances 1 }
+
+-- MIB groupings
+
+mcGeneralGroup    OBJECT-GROUP
+    OBJECTS {
+              mcName, 
+              mcStorageType, 
+              mcRowStatus, 
+              mcTimeStamp
+            }
+    STATUS  current
+    DESCRIPTION
+            "The collection of objects which are used to represent
+            general information..."
+    ::= { mcGroups 1 }
+
+mcNotificationsGroup NOTIFICATION-GROUP
+    NOTIFICATIONS { mcConfigChange }
+    STATUS        current
+    DESCRIPTION
+            "The collection of notifications..."
+    ::= { mcGroups 2 }
+
+
+END
+
+
+

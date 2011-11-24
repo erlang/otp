@@ -13,8 +13,6 @@
 # Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
 # AB. All Rights Reserved.''
 # 
-#     $Id$
-#
 include $(ERL_TOP)/make/target.mk
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
@@ -105,7 +103,7 @@ man: $(MAN3_FILES)
 $(XML_REF3_FILES):
 	escript $(DOCGEN)/priv/bin/xml_from_edoc.escript -def vsn $(EDOC_VSN) -i $(ERL_TOP)/lib/edoc/include $(SRC_DIR)/$(@:%.xml=%.erl)
 
-$(XML_CHAPTER_FILES):
+$(XML_CHAPTER_FILES): ../overview.edoc
 	escript $(DOCGEN)/priv/bin/xml_from_edoc.escript -def vsn $(EDOC_VSN) -chapter ../overview.edoc
 
 gifs: $(GIF_FILES:%=$(HTMLDIR)/%)

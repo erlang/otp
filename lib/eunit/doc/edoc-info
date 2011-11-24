@@ -1,3 +1,0 @@
-{application,eunit}.
-{packages,[]}.
-{modules,[eunit,eunit_surefire]}.

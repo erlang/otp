@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,23 +19,44 @@
 
 -module(hibernate_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
--export([all/1,init_per_testcase/2,fin_per_testcase/2,
-	 basic/1,min_heap_size/1,bad_args/1,
-	 messages_in_queue/1,undefined_mfa/1, no_heap/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
+	 init_per_testcase/2,end_per_testcase/2,
+	 basic/1,dynamic_call/1,min_heap_size/1,bad_args/1,
+	 messages_in_queue/1,undefined_mfa/1,no_heap/1,wake_up_and_bif_trap/1]).
 
 %% Used by test cases.
--export([basic_hibernator/1,messages_in_queue_restart/2, no_heap_loop/0]).
+-export([basic_hibernator/1,dynamic_call_hibernator/2,messages_in_queue_restart/2, no_heap_loop/0,characters_to_list_trap/1]).
 
-all(suite) ->
-    [basic,min_heap_size,bad_args,messages_in_queue,undefined_mfa,no_heap].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [basic, dynamic_call, min_heap_size, bad_args, messages_in_queue,
+     undefined_mfa, no_heap, wake_up_and_bif_trap].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog = ?t:timetrap(?t:minutes(3)),
     [{watchdog,Dog}|Config].
 
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     Dog=?config(watchdog, Config),
     ?t:timetrap_cancel(Dog).
 
@@ -138,10 +159,47 @@ whats_up_calc(A1, A2, A3, A4, A5, A6, A7, A8, A9, Acc) ->
     whats_up_calc(A1-1, A2+1, A3+2, A4+3, A5+4, A6+5, A7+6, A8+7, A9+8, [A1,A2|Acc]).
 
 %%%
+%%% Testing a call to erlang:hibernate/3 that the compiler and loader do not
+%%% translate to an instruction.
+%%%
+
+dynamic_call(Config) when is_list(Config) ->
+    Ref = make_ref(),
+    Info = {self(),Ref},
+    ExpectedHeapSz = case erlang:system_info(heap_type) of
+			 private -> erts_debug:size([Info]);
+			 hybrid -> erts_debug:size([a|b])
+		     end,
+    ?line Child = spawn_link(fun() -> ?MODULE:dynamic_call_hibernator(Info, hibernate) end),
+    ?line hibernate_wake_up(100, ExpectedHeapSz, Child),
+    ?line Child ! please_quit_now,
+    ok.
+
+dynamic_call_hibernator(Info, Function) ->
+    {catchlevel,0} = process_info(self(), catchlevel),
+    receive
+	Any ->
+	    dynamic_call_hibernator_msg(Any, Function, Info),
+	    dynamic_call_hibernator(Info, Function)
+    end.
+
+dynamic_call_hibernator_msg({hibernate,_}, Function, Info) ->
+    catch apply(erlang, Function, [?MODULE, basic_hibernator, [Info]]),
+    exit(hibernate_returned);
+dynamic_call_hibernator_msg(Msg, _Function, Info) ->
+    basic_hibernator_msg(Msg, Info).
+
+%%%
 %%% Testing setting the minimum heap size.
 %%%
 
 min_heap_size(Config) when is_list(Config) ->
+    case test_server:is_native(?MODULE) of
+	true -> {skip, "Test case relies on trace which is not available in HiPE"};
+	false -> min_heap_size_1(Config)
+    end.
+
+min_heap_size_1(Config) when is_list(Config) ->
     ?line erlang:trace(new, true, [call]),
     MFA = {?MODULE,min_hibernator,1},
     ?line 1 = erlang:trace_pattern(MFA, true, [local]),
@@ -324,6 +382,31 @@ no_heap_loop() ->
 clean_dict() ->
     {dictionary, Dict} = process_info(self(), dictionary),
     lists:foreach(fun ({Key, _}) -> erase(Key) end, Dict).
+
+%%
+%% Wake up and then immediatly bif trap with a lengthy computation.
+%%
+
+wake_up_and_bif_trap(doc) -> [];
+wake_up_and_bif_trap(suite) -> [];
+wake_up_and_bif_trap(Config) when is_list(Config) ->
+    ?line Self = self(),
+    ?line Pid = spawn_link(fun() -> erlang:hibernate(?MODULE, characters_to_list_trap, [Self]) end),
+    ?line Pid ! wakeup,
+    ?line receive
+        {ok, Pid0} when Pid0 =:= Pid -> ok
+    after 5000 ->
+        ?line ?t:fail(process_blocked)
+    end,
+    ?line unlink(Pid),
+    ?line exit(Pid, bye).
+
+%% Lengthy computation that traps (in characters_to_list_trap_3).
+characters_to_list_trap(Parent) ->
+    Bin0 = <<"abcdefghijklmnopqrstuvwxz0123456789">>,
+    Bin = binary:copy(Bin0, 1500),
+    unicode:characters_to_list(Bin),
+    Parent ! {ok, self()}.
 
 %%
 %% Misc

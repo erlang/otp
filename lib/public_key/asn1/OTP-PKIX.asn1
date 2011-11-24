@@ -302,18 +302,25 @@ SupportedPublicKeyAlgorithms PUBLIC-KEY-ALGORITHM-CLASS ::= {
 
    --   DSA Keys and Signatures
 
+
+      DSAParams  ::=  CHOICE
+       {
+        params     Dss-Parms,
+        null       NULL
+       }
+
    -- SubjectPublicKeyInfo:
 
    dsa PUBLIC-KEY-ALGORITHM-CLASS ::= {
        ID id-dsa
-       TYPE Dss-Parms -- XXX Must be OPTIONAL
+       TYPE DSAParams -- XXX Must be OPTIONAL
        PUBLIC-KEY-TYPE DSAPublicKey }
 
    -- Certificate.signatureAlgorithm
 
    dsa-with-sha1 SIGNATURE-ALGORITHM-CLASS ::= {
-		 ID id-dsa-with-sha1 
-		 TYPE NULL } -- XXX Must be empty and not NULL
+		 ID id-dsa-with-sha1
+		 TYPE  DSAParams }
 
 				  --
    --   RSA Keys and Signatures

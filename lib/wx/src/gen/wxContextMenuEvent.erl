@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -45,14 +45,14 @@ parent_class(wxCommandEvent) -> true;
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec (This::wxContextMenuEvent()) -> {X::integer(),Y::integer()}
+%% @spec (This::wxContextMenuEvent()) -> {X::integer(), Y::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcontextmenuevent.html#wxcontextmenueventgetposition">external documentation</a>.
 getPosition(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxContextMenuEvent),
   wxe_util:call(?wxContextMenuEvent_GetPosition,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxContextMenuEvent(), Pos::{X::integer(),Y::integer()}) -> ok
+%% @spec (This::wxContextMenuEvent(), Pos::{X::integer(), Y::integer()}) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcontextmenuevent.html#wxcontextmenueventsetposition">external documentation</a>.
 setPosition(#wx_ref{type=ThisT,ref=ThisRef},{PosX,PosY})
  when is_integer(PosX),is_integer(PosY) ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,7 +19,8 @@
 -module(snmpa_mib_lib).
 
 -export([table_cre_row/3, table_del_row/2]).
--export([get_table/2, print_table/3, print_table/4, print_tables/1]).
+-export([get_table/2]).
+-export([print_variables/1, print_table/3, print_table/4, print_tables/1]).
 -export([gc_tab/3, gc_tab/5]).
 
 -include("SNMPv2-TC.hrl").
@@ -81,31 +82,69 @@ get_table(NameDb, FOI, Oid, Acc) ->
     end.
     
 
+print_variables(Variables) when is_list(Variables) ->
+    Variables2 = print_variables_prefixify(Variables), 
+    lists:foreach(fun({Variable, ValueResult, Prefix}) ->
+			  print_variable(Variable, ValueResult, Prefix)
+		  end, Variables2),
+    ok.
+
+print_variable(Variable, {value, Val}, Prefix) when is_atom(Variable) ->
+    io:format("~w~s=> ~p~n", [Variable, Prefix, Val]);
+print_variable(Variable, Error, Prefix) when is_atom(Variable) ->
+    io:format("~w~s=> [e] ~p~n", [Variable, Prefix, Error]).
+
+print_variables_prefixify(Variables) ->
+    MaxVarLength = print_variables_maxlength(Variables),
+    print_variables_prefixify(Variables, MaxVarLength, []).
+
+print_variables_prefixify([], _MaxVarLength, Acc) ->
+    lists:reverse(Acc);
+print_variables_prefixify([{Var, Res}|Variables], MaxVarLength, Acc) ->
+    Prefix = make_variable_print_prefix(Var, MaxVarLength),
+    print_variables_prefixify(Variables, MaxVarLength, 
+			      [{Var, Res, Prefix}|Acc]).
+    
+make_variable_print_prefix(Var, MaxVarLength) ->
+    lists:duplicate(MaxVarLength - length(atom_to_list(Var)) + 1, $ ).
+
+print_variables_maxlength(Variables) ->
+    print_variables_maxlength(Variables, 0).
+
+print_variables_maxlength([], MaxLength) ->
+    MaxLength;
+print_variables_maxlength([{Var, _}|Variables], MaxLength) when is_atom(Var) ->
+    VarLen = length(atom_to_list(Var)),
+    if 
+	VarLen > MaxLength ->
+	    print_variables_maxlength(Variables, VarLen);
+	true ->
+	    print_variables_maxlength(Variables, MaxLength)
+    end.
+
+
 print_tables(Tables) when is_list(Tables) ->
     lists:foreach(fun({Table, DB, FOI, PrintRow}) ->
 			  print_table(Table, DB, FOI, PrintRow)
 		  end, Tables),
     ok.
 
-%% print_table(Table, DB, FOI, PrintRow) ->
-%%     TableInfo = get_table(DB(Table), FOI(Table)),
-%%     print_table(Table, TableInfo, PrintRow),
-%%     ok.
-
 print_table(Table, DB, FOI, PrintRow) ->
     TableInfo = get_table(DB, FOI),
     print_table(Table, TableInfo, PrintRow).
 
 print_table(Table, TableInfo, PrintRow) when is_function(PrintRow, 2) ->
-    io:format("~w => ~n", [Table]),
+    io:format("~w =>", [Table]),
     do_print_table(TableInfo, PrintRow).
 
+do_print_table({ok, [] = _TableInfo}, _PrintRow) ->
+    io:format(" -~n", []);
 do_print_table({ok, TableInfo}, PrintRow) when is_function(PrintRow, 2) ->
+    io:format("~n", []),
     lists:foreach(fun({RowIdx, Row}) ->
 			  io:format("   ~w => ~n~s~n", 
 				    [RowIdx, PrintRow("      ", Row)])
-		  end, TableInfo),
-    io:format("~n", []);
+		  end, TableInfo);
 do_print_table({error, {invalid_rowindex, BadRowIndex, []}}, _PrintRow) ->
     io:format("Error: Bad rowindex ~w~n", [BadRowIndex]);
 do_print_table({error, {invalid_rowindex, BadRowIndex, TableInfo}}, PrintRow) ->

@@ -21,6 +21,8 @@
 		module,           % MFA which called the currently
 		function,         %  interpreted function
 		arguments,        %
-		last_call = false % True if current expression is
-	       }).                % the VERY last to be evaluated
-                                  % (ie at all, not only in a clause)
+
+		%% True if the current expression is at the top level
+		%% (i.e. the next call will leave interpreted code).
+		top = false
+	       }).

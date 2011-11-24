@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -75,13 +75,15 @@ gen_encode_sequence(Erules,Typename,D) when is_record(D,type) ->
 	    "Val"
 	end,
 
-    {SeqOrSet,TableConsInfo,CompList} = 
+    {SeqOrSet,TableConsInfo,CompList0} =
 	case D#type.def of
 	    #'SEQUENCE'{tablecinf=TCI,components=CL} -> 
 		{'SEQUENCE',TCI,CL};
 	    #'SET'{tablecinf=TCI,components=CL} -> 
 		{'SET',TCI,CL}
 	end,
+    %% filter away extensionAdditiongroup markers
+    CompList = filter_complist(CompList0),
     Ext = extensible(CompList),
     CompList1 = case CompList of
 		    {Rl1,El,Rl2} -> Rl1 ++ El ++ Rl2;
@@ -183,7 +185,10 @@ gen_decode_sequence(Erules,Typename,D) when is_record(D,type) ->
     asn1ct_name:start(),
     asn1ct_name:clear(),
     asn1ct_name:new(tag),
-    #'SEQUENCE'{tablecinf=TableConsInfo,components=CList} = D#type.def,
+    #'SEQUENCE'{tablecinf=TableConsInfo,components=CList0} = D#type.def,
+
+    %% filter away extensionAdditiongroup markers
+    CList = filter_complist(CList0),
     Ext = extensible(CList),
     {CompList,CompList2} = 
 	case CList of
@@ -345,7 +350,9 @@ gen_decode_set(Erules,Typename,D) when is_record(D,type) ->
     asn1ct_name:clear(),
 %%    asn1ct_name:new(term),
     asn1ct_name:new(tag),
-    #'SET'{tablecinf=TableConsInfo,components=TCompList} = D#type.def,
+    #'SET'{tablecinf=TableConsInfo,components=TCompList0} = D#type.def,
+    %% filter away extensionAdditiongroup markers
+    TCompList = filter_complist(TCompList0),
     Ext = extensible(TCompList),
     ToOptional = fun(mandatory) ->
 			 'OPTIONAL';
@@ -870,12 +877,12 @@ gen_dec_choice(Erules,TopType, _ChTag, CompList, Ext) ->
 	    emit([indent(9),"exit({error,{asn1,{invalid_choice_tag,",
 		  {curr,else},"}}})",nl]);
 	_ ->
-	    emit([indent(9),"{asn1_ExtAlt, ?RT_BER:encode(",{curr,else},")}",nl])
+	    emit([indent(9),"{asn1_ExtAlt, ?RT_BER:encode(",{curr,else},
+		  asn1ct_gen:nif_parameter(),")}",nl])
     end,
     emit([indent(3),"end",nl]),
     asn1ct_name:new(tag),
     asn1ct_name:new(else).
-
 
 gen_dec_choice_cases(_Erules,_TopType, []) ->
     ok;
@@ -1220,7 +1227,7 @@ gen_dec_call({typefield,_},_,_,_Cname,Type,BytesVar,Tag,_,_,false,_) ->
     emit([nl,indent(6),"begin",nl]),
 %    emit([indent(9),{curr,opendec}," = ?RT_BER:decode_open_type(",
     emit([indent(9),{curr,tmptlv}," = ?RT_BER:decode_open_type(",
-	  BytesVar,",",{asis,Tag},"),",nl]),
+	  BytesVar,",",{asis,Tag},asn1ct_gen:nif_parameter(),"),",nl]),
 %     emit([indent(9),"{",{curr,tmptlv},",_} = ?RT_BER:decode(",
 % 	  {curr,opendec},"),",nl]),
 
@@ -1235,7 +1242,8 @@ gen_dec_call({typefield,_},_,_,_Cname,Type,BytesVar,Tag,_,_,false,_) ->
     emit([indent(9),"end",nl,indent(6),"end",nl]),
     [];
 gen_dec_call({typefield,_},_,_,Cname,Type,BytesVar,Tag,_,_,_DecObjInf,OptOrMandComp) ->
-    emit(["?RT_BER:decode_open_type(",BytesVar,",",{asis,Tag},")"]),
+    emit(["?RT_BER:decode_open_type(",BytesVar,",",{asis,Tag},
+	  asn1ct_gen:nif_parameter(),")"]),
     RefedFieldName = 
 % 	asn1ct_gen:get_constraint(Type#type.constraint,
 % 				  tableconstraint_info),
@@ -1243,7 +1251,8 @@ gen_dec_call({typefield,_},_,_,Cname,Type,BytesVar,Tag,_,_,_DecObjInf,OptOrMandC
     [{Cname,RefedFieldName,asn1ct_gen:mk_var(asn1ct_name:curr(term)),
       asn1ct_gen:mk_var(asn1ct_name:curr(tmpterm)),Tag,OptOrMandComp}];
 gen_dec_call({objectfield,PrimFieldName,PFNList},_,_,Cname,_,BytesVar,Tag,_,_,_,OptOrMandComp) ->
-    emit(["?RT_BER:decode_open_type(",BytesVar,",",{asis,Tag},")"]),
+    emit(["?RT_BER:decode_open_type(",BytesVar,",",{asis,Tag},
+	  asn1ct_gen:nif_parameter(),")"]),
     [{Cname,{PrimFieldName,PFNList},asn1ct_gen:mk_var(asn1ct_name:curr(term)),
       asn1ct_gen:mk_var(asn1ct_name:curr(tmpterm)),Tag,OptOrMandComp}];
 gen_dec_call(InnerType,Erules,TopType,Cname,Type,BytesVar,Tag,PrimOptOrMand,
@@ -1426,6 +1435,22 @@ extensible({RootList,ExtList}) ->
     {ext,length(RootList)+1,length(ExtList)};
 extensible({_Rl1,_Ext,_Rl2}) ->
     extensible.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% filter away ExtensionAdditionGroup start and end marks since these
+%% have no significance for the BER encoding
+%%
+filter_complist(CompList) when is_list(CompList) ->
+    lists:filter(fun(#'ExtensionAdditionGroup'{}) ->
+			 false;
+		    ('ExtensionAdditionGroupEnd') ->
+			 false;
+		    (_) ->
+			 true
+		 end, CompList);
+filter_complist({Root,Ext}) ->
+    {Root,filter_complist(Ext)};
+filter_complist({Root1,Ext,Root2}) ->
+    {Root1,filter_complist(Ext),Root2}.
 
 
 print_attribute_comment(InnerType,Pos,Cname,Prop) ->

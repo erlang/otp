@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1998</year><year>2009</year>
+      <year>1998</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -50,18 +50,20 @@
       the called node, it is entirely up to the user to be sure that all items are read.
       </p>
   </description>
+  <datatypes>
+    <datatype>
+      <name name="continuation"/>
+      <desc><p>Continuation returned by
+         <c>open/1,2</c> or <c>chunk/1,2</c>.</p>
+      </desc>
+    </datatype>
+  </datatypes>
   <funcs>
     <func>
-      <name>chunk(Continuation)</name>
-      <name>chunk(Continuation, N) -> {Continuation2, Terms} |  {Continuation2, Terms, Badbytes} | {Continuation2, eof} | {error, Reason}</name>
+      <name name="chunk" arity="1"/>
+      <name name="chunk" arity="2"/>
       <fsummary>Read a chunk of objects written to a wrap log.</fsummary>
-      <type>
-        <v>Continuation = continuation()</v>
-        <v>N = int() > 0 | infinity</v>
-        <v>Continuation2 = continuation()</v>
-        <v>Terms= [term()]</v>
-        <v>Badbytes = integer()</v>
-      </type>
+      <type name="chunk_ret"/>
       <desc>
         <p>This function makes it possible to efficiently read the
           terms which have been appended to a log. It minimises disk
@@ -70,29 +72,29 @@
         <p>The first time <c>chunk</c> is called an initial
           continuation returned from the <c>open/1</c>, <c>open/2</c> must be provided.
           </p>
-        <p>When <c>chunk/3</c> is called, <c>N</c> controls the
+        <p>When <c>chunk/3</c> is called, <c><anno>N</anno></c> controls the
           maximum number of terms that are read from the log in each
           chunk.  Default is <c>infinity</c>, which means that all the
           terms contained in the 8K chunk are read. If less than
-          <c>N</c> terms are returned, this does not necessarily mean
+          <c><anno>N</anno></c> terms are returned, this does not necessarily mean
           that end of file is reached.
           </p>
         <p>The <c>chunk</c> function returns a tuple
-          <c>{Continuation2, Terms}</c>, where <c>Terms</c> is a list
-          of terms found in the log. <c>Continuation2</c> is yet
+          <c>{<anno>Continuation2</anno>, <anno>Terms</anno>}</c>, where <c><anno>Terms</anno></c> is a list
+          of terms found in the log. <c><anno>Continuation2</anno></c> is yet
           another continuation which must be passed on into any
           subsequent calls to <c>chunk</c>. With a series of calls to
           <c>chunk</c> it is then possible to extract all terms from a
           log.
           </p>
         <p>The <c>chunk</c> function returns a tuple
-          <c>{Continuation2, Terms, Badbytes}</c> if the log is opened
-          in read only mode and the read chunk is corrupt. <c>Badbytes</c> 
+          <c>{<anno>Continuation2</anno>, <anno>Terms</anno>, <anno>Badbytes</anno>}</c> if the log is opened
+          in read only mode and the read chunk is corrupt. <c><anno>Badbytes</anno></c>
           indicates the number of non-Erlang terms found in the chunk.
           Note also that the log is not repaired.
           </p>
-        <p><c>chunk</c> returns <c>{Continuation2, eof}</c> when the end of the log is
-          reached, and <c>{error, Reason}</c> if an error occurs.
+        <p><c>chunk</c> returns <c>{<anno>Continuation2</anno>, eof}</c> when the end of the log is
+          reached, and <c>{error, <anno>Reason</anno>}</c> if an error occurs.
           </p>
         <p>The returned continuation may or may not be valid in the next call to
           <c>chunk</c>.  This is because the log may wrap and delete
@@ -103,37 +105,29 @@
       </desc>
     </func>
     <func>
-      <name>close(Continuation) -> ok </name>
+      <name name="close" arity="1"/>
       <fsummary>Close a log</fsummary>
-      <type>
-        <v>Continuation = continuation()</v>
-      </type>
       <desc>
         <p>This function closes a log file properly.
           </p>
       </desc>
     </func>
     <func>
-      <name>open(Filename) -> OpenRet</name>
-      <name>open(Filename, N) -> OpenRet</name>
+      <name name="open" arity="1"/>
+      <name name="open" arity="2"/>
       <fsummary>Open a log file</fsummary>
-      <type>
-        <v>File = string() | atom()</v>
-        <v>N = integer()</v>
-        <v>OpenRet = {ok, Continuation} | {error, Reason} </v>
-        <v>Continuation = continuation()</v>
-      </type>
+      <type name="open_ret"/>
       <desc>
-        <p><c>Filename</c> specifies the name of the file which is to be read. </p>
-        <p><c>N</c> specifies the index of the file which is to be read. 
-          If <c>N</c> is omitted the whole wrap log file will be read; if it
+        <p><c><anno>Filename</anno></c> specifies the name of the file which is to be read. </p>
+        <p><c><anno>N</anno></c> specifies the index of the file which is to be read.
+          If <c><anno>N</anno></c> is omitted the whole wrap log file will be read; if it
           is specified only the specified index file will be read.
           </p>
-        <p>The <c>open</c> function returns <c>{ok, Continuation}</c> if the
-          log/index file was successfully opened. The <c>Continuation</c>
+        <p>The <c>open</c> function returns <c>{ok, <anno>Continuation</anno>}</c> if the
+          log/index file was successfully opened. The <c><anno>Continuation</anno></c>
           is to be used when chunking or closing the file. 
           </p>
-        <p>The function returns <c>{error, Reason}</c> for all errors.
+        <p>The function returns <c>{error, <anno>Reason</anno>}</c> for all errors.
           </p>
       </desc>
     </func>

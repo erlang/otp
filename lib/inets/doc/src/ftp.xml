@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2010</year>
+      <year>1997</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -107,7 +107,7 @@
       <tag>{mode, Mode}</tag>
       <item>
         <marker id="mode"></marker>
-	<p>Mode = <c>active | passive</c> </p>>
+	<p>Mode = <c>active | passive</c> </p>
 	<p>Default is <c>passive</c>. </p> 
       </item>
 
@@ -141,9 +141,19 @@
       <tag>{timeout, Timeout}</tag>
       <item>
         <marker id="timeout"></marker>
-	<p>Timeout = <c>integer() >= 0</c> </p>
+	<p>Timeout = <c>non_neg_integer()</c> </p>
 	<p>Connection timeout. </p>
 	<p>Default is 60000 (milliseconds). </p>
+      </item>
+
+      <tag>{dtimeout, DTimeout}</tag>
+      <item>
+        <marker id="dtimeout"></marker>
+	<p>DTimeout = <c>non_neg_integer() | infinity</c> </p>
+	<p>Data Connect timeout. 
+	The time the client will wait for the server to connect to the 
+	data socket. </p>
+	<p>Default is infinity. </p>
       </item>
 
       <tag>{progress, Progress}</tag>
@@ -542,11 +552,12 @@
 	<v>verbose() = boolean() (defaults to false)</v>
 	<v>debug() = disable | debug | trace (defaults to disable)</v>
 	<!-- <v>open_options() = [open_option()]</v> -->
-	<v>open_option() = {ipfamily, ipfamily()} | {port, port()} | {mode, mode()} | {timeout, timeout()} | {progress, progress()}</v>
+	<v>open_option() = {ipfamily, ipfamily()} | {port, port()} | {mode, mode()} | {timeout, timeout()} | {dtimeout, dtimeout()} | {progress, progress()}</v>
 	<v>ipfamily() = inet | inet6 | inet6fb4 (defaults to inet)</v>
 	<v>port() = integer() > 0 (defaults to 21)</v>
 	<v>mode() = active | passive (defaults to passive)</v>
-	<v>timeout() = integer() >= 0 (defaults to 60000 milliseconds)</v>
+	<v>timeout() = integer() > 0 (defaults to 60000 milliseconds)</v>
+	<v>dtimeout() = integer() > 0 | infinity (defaults to infinity)</v>
 	<v>pogress() = ignore | {module(), function(), initial_data()} (defaults to ignore)</v>
 	<v>module() = atom()</v>
 	<v>function() = atom()</v>

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -23,6 +23,7 @@
 -export([create_env/3]).
 
 -include("httpd.hrl").
+-include("httpd_internal.hrl").
 
 %%%=========================================================================
 %%%  Internal application API 

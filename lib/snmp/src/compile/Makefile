@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 1997-2009. All Rights Reserved.
+# Copyright Ericsson AB 1997-2011. All Rights Reserved.
 # 
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -20,6 +20,7 @@
 include $(ERL_TOP)/make/target.mk
 
 EBIN = ../../ebin
+BIN  = ../../bin
 
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
@@ -44,9 +45,10 @@ RELSYSDIR = $(RELEASE_PATH)/lib/snmp-$(VSN)
 
 include modules.mk
 
-ERL_FILES = $(MODULES:%=%.erl)
-
-TARGET_FILES = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
+ESCRIPT_BIN  = $(ESCRIPT_SRC:%.src=$(BIN)/%)
+ERL_FILES    = $(MODULES:%=%.erl)
+EBIN_FILES   = $(MODULES:%=$(EBIN)/%.$(EMULATOR)) 
+TARGET_FILES = $(EBIN_FILES) $(ESCRIPT_BIN)
 
 GENERATED_PARSER = $(PARSER_MODULE:%=%.erl)
 
@@ -97,7 +99,11 @@ info:
 	@echo ""
 	@echo "EBIN: $(EBIN)"
 	@echo ""
+	@echo "ESCRIPT_SRC:      $(ESCRIPT_SRC)"
+	@echo "ESCRIPT_BIN:      $(ESCRIPT_BIN)"
 	@echo ""
+	@echo ""
+
 
 # ----------------------------------------------------
 # Special Build Targets
@@ -107,6 +113,7 @@ parser: $(PARSER_TARGET)
 
 $(GENERATED_PARSER): $(PARSER_SRC)
 
+
 # ----------------------------------------------------
 # Release Target
 # ---------------------------------------------------- 
@@ -115,9 +122,11 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 release_spec: opt
 	$(INSTALL_DIR) $(RELSYSDIR)/src
 	$(INSTALL_DIR) $(RELSYSDIR)/src/compiler
-	$(INSTALL_DATA) $(PARSER_SRC) $(ERL_FILES) $(INTERNAL_HRL_FILES) $(RELSYSDIR)/src/compiler
+	$(INSTALL_DATA) $(ESCRIPT_SRC) $(PARSER_SRC) $(ERL_FILES) $(INTERNAL_HRL_FILES) $(RELSYSDIR)/src/compiler
 	$(INSTALL_DIR) $(RELSYSDIR)/ebin
-	$(INSTALL_DATA) $(TARGET_FILES) $(RELSYSDIR)/ebin
+	$(INSTALL_DATA) $(EBIN_FILES) $(RELSYSDIR)/ebin
+	$(INSTALL_DIR) $(RELSYSDIR)/bin
+	$(INSTALL_SCRIPT) $(ESCRIPT_BIN) $(RELSYSDIR)/bin
 
 release_docs_spec:
 

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2009</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -49,9 +49,19 @@
       as requested.
       </p>
   </description>
+  <datatypes>
+    <datatype>
+      <name name="time"/>
+      <desc><p>Time in milliseconds.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="tref"/>
+      <desc><p>A timer reference.</p></desc>
+    </datatype>
+  </datatypes>
   <funcs>
     <func>
-      <name>start() -> ok</name>
+      <name name="start" arity="0"/>
       <fsummary>Start a global timer server (named <c>timer_server</c>).</fsummary>
       <desc>
         <p>Starts the timer server. Normally, the server does not need
@@ -62,199 +72,185 @@
       </desc>
     </func>
     <func>
-      <name>apply_after(Time, Module, Function, Arguments) -> {ok, Tref} |  {error, Reason}</name>
+      <name name="apply_after" arity="4"/>
       <fsummary>Apply <c>Module:Function(Arguments)</c>after a  specified <c>Time</c>.</fsummary>
-      <type>
-        <v>Time = integer() in Milliseconds</v>
-        <v>Module = Function = atom()</v>
-        <v>Arguments = [term()]</v>
-      </type>
       <desc>
-        <p>Evaluates <c>apply(M, F, A)</c> after <c>Time</c> amount of time
-          has elapsed. Returns <c>{ok, TRef}</c>, or <c>{error, Reason}</c>.</p>
+        <p>Evaluates <c>apply(<anno>Module</anno>, <anno>Function</anno>, <anno>Arguments</anno>)</c> after <c><anno>Time</anno></c> amount of time
+          has elapsed. Returns <c>{ok, <anno>TRef</anno>}</c>, or <c>{error, <anno>Reason</anno>}</c>.</p>
       </desc>
     </func>
     <func>
-      <name>send_after(Time, Pid, Message) -> {ok, TRef} | {error,Reason}</name>
-      <name>send_after(Time, Message) -> {ok, TRef} | {error,Reason}</name>
+      <name name="send_after" arity="2"/>
+      <name name="send_after" arity="3"/>
       <fsummary>Send <c>Message</c>to <c>Pid</c>after a specified <c>Time</c>.</fsummary>
-      <type>
-        <v>Time = integer() in Milliseconds</v>
-        <v>Pid = pid() | atom()</v>
-        <v>Message = term()</v>
-        <v>Result = {ok, TRef} | {error, Reason}</v>
-      </type>
       <desc>
-        <p></p>
+        <p>
         <taglist>
           <tag><c>send_after/3</c></tag>
           <item>
-            <p>Evaluates <c>Pid ! Message</c> after <c>Time</c> amount
-              of time has elapsed. (<c>Pid</c> can also be an atom of a 
-              registered name.) Returns <c>{ok, TRef}</c>, or 
-              <c>{error, Reason}</c>.</p>
+            <p>Evaluates <c><anno>Pid</anno> ! <anno>Message</anno></c> after <c><anno>Time</anno></c> amount
+              of time has elapsed. (<c><anno>Pid</anno></c> can also be an atom of a
+              registered name.) Returns <c>{ok, <anno>TRef</anno>}</c>, or
+              <c>{error, <anno>Reason</anno>}</c>.</p>
           </item>
           <tag><c>send_after/2</c></tag>
           <item>
-            <p>Same as <c>send_after(Time, self(), Message)</c>.</p>
+            <p>Same as <c>send_after(<anno>Time</anno>, self(), <anno>Message</anno>)</c>.</p>
           </item>
         </taglist>
+        </p>
       </desc>
     </func>
     <func>
-      <name>exit_after(Time, Pid, Reason1) -> {ok, TRef} | {error,Reason2}</name>
-      <name>exit_after(Time, Reason1) -> {ok, TRef} | {error,Reason2}</name>
-      <name>kill_after(Time, Pid)-> {ok, TRef} | {error,Reason2}</name>
-      <name>kill_after(Time) -> {ok, TRef} | {error,Reason2}</name>
+      <name name="kill_after" arity="1"/>
+      <name name="kill_after" arity="2"/>
+      <name name="exit_after" arity="2"/>
+      <name name="exit_after" arity="3"/>
       <fsummary>Send an exit signal with <c>Reason</c>after a specified <c>Time</c>.</fsummary>
-      <type>
-        <v>Time = integer() in milliseconds</v>
-        <v>Pid = pid() | atom()</v>
-        <v>Reason1 = Reason2  = term()</v>
-      </type>
       <desc>
-        <p></p>
+        <p>
         <taglist>
           <tag><c>exit_after/3</c></tag>
           <item>
-            <p>Send an exit signal with reason <c>Reason1</c> to Pid 
-              <c>Pid</c>. Returns <c>{ok, TRef}</c>, or 
-              <c>{error, Reason2}</c>.</p>
+            <p>Send an exit signal with reason <c><anno>Reason1</anno></c> to Pid
+              <c><anno>Pid</anno></c>. Returns <c>{ok, <anno>TRef</anno>}</c>, or
+              <c>{error, <anno>Reason2</anno>}</c>.</p>
           </item>
           <tag><c>exit_after/2</c></tag>
           <item>
-            <p>Same as <c>exit_after(Time, self(), Reason1)</c>.     </p>
+            <p>Same as <c>exit_after(<anno>Time</anno>, self(), <anno>Reason1</anno>)</c>.     </p>
           </item>
           <tag><c>kill_after/2</c></tag>
           <item>
-            <p>Same as <c>exit_after(Time, Pid, kill)</c>.     </p>
+            <p>Same as <c>exit_after(<anno>Time</anno>, <anno>Pid</anno>, kill)</c>.     </p>
           </item>
           <tag><c>kill_after/1</c></tag>
           <item>
-            <p>Same as <c>exit_after(Time, self(), kill)</c>.     </p>
+            <p>Same as <c>exit_after(<anno>Time</anno>, self(), kill)</c>.     </p>
           </item>
         </taglist>
+        </p>
       </desc>
     </func>
     <func>
-      <name>apply_interval(Time, Module, Function, Arguments) -> {ok, TRef} | {error, Reason}</name>
+      <name name="apply_interval" arity="4"/>
       <fsummary>Evaluate <c>Module:Function(Arguments)</c>repeatedly at  intervals of <c>Time</c>.</fsummary>
-      <type>
-        <v>Time = integer() in milliseconds</v>
-        <v>Module = Function = atom()</v>
-        <v>Arguments = [term()]</v>
-      </type>
       <desc>
-        <p>Evaluates <c>apply(Module, Function, Arguments)</c> repeatedly at
-          intervals of  <c>Time</c>. Returns <c>{ok, TRef}</c>, or 
-          <c>{error, Reason}</c>.</p>
+        <p>Evaluates <c>apply(<anno>Module</anno>, <anno>Function</anno>, <anno>Arguments</anno>)</c> repeatedly at
+          intervals of  <c><anno>Time</anno></c>. Returns <c>{ok, <anno>TRef</anno>}</c>, or
+          <c>{error, <anno>Reason</anno>}</c>.</p>
       </desc>
     </func>
     <func>
-      <name>send_interval(Time, Pid, Message) -> {ok, TRef} | {error, Reason}</name>
-      <name>send_interval(Time, Message) -> {ok, TRef} | {error, Reason}</name>
+      <name name="send_interval" arity="2"/>
+      <name name="send_interval" arity="3"/>
       <fsummary>Send <c>Message</c>repeatedly at intervals of <c>Time</c>.</fsummary>
-      <type>
-        <v>Time = integer() in milliseconds</v>
-        <v>Pid = pid() | atom()</v>
-        <v>Message = term()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
-        <p></p>
+        <p>
         <taglist>
           <tag><c>send_interval/3</c></tag>
           <item>
-            <p>Evaluates <c>Pid ! Message</c> repeatedly after <c>Time</c>
-              amount of time has elapsed. (<c>Pid</c> can also be an atom of
-              a registered name.) Returns <c>{ok, TRef}</c> or 
-              <c>{error, Reason}</c>.</p>
+            <p>Evaluates <c><anno>Pid</anno> ! <anno>Message</anno></c> repeatedly after <c><anno>Time</anno></c>
+              amount of time has elapsed. (<c><anno>Pid</anno></c> can also be an atom of
+              a registered name.) Returns <c>{ok, <anno>TRef</anno>}</c> or
+              <c>{error, <anno>Reason</anno>}</c>.</p>
           </item>
           <tag><c>send_interval/2</c></tag>
           <item>
-            <p>Same as <c>send_interval(Time, self(), Message)</c>.</p>
+            <p>Same as <c>send_interval(<anno>Time</anno>, self(), <anno>Message</anno>)</c>.</p>
           </item>
         </taglist>
+        </p>
       </desc>
     </func>
     <func>
-      <name>cancel(TRef) -> {ok, cancel} | {error, Reason}</name>
+      <name name="cancel" arity="1"/>
       <fsummary>Cancel a previously requested timeout identified by <c>TRef</c>.</fsummary>
       <desc>
-        <p>Cancels a previously requested timeout. <c>TRef</c> is a unique 
+        <p>Cancels a previously requested timeout. <c><anno>TRef</anno></c> is a unique
           timer reference returned by the timer function in question. Returns
-          <c>{ok, cancel}</c>, or <c>{error, Reason}</c> when <c>TRef</c>
+          <c>{ok, cancel}</c>, or <c>{error, <anno>Reason</anno>}</c> when <c><anno>TRef</anno></c>
           is not a timer reference.</p>
       </desc>
     </func>
     <func>
-      <name>sleep(Time) -> ok</name>
+      <name name="sleep" arity="1"/>
       <fsummary>Suspend the calling process for <c>Time</c>amount of milliseconds.</fsummary>
-      <type>
-        <v>Time = integer() in milliseconds or the atom infinity</v>
-      </type>
       <desc>
-        <p>Suspends the process calling this function for <c>Time</c> amount
+        <p>Suspends the process calling this function for <c><anno>Time</anno></c> amount
           of milliseconds and then returns <c>ok</c>, or suspend the process
-	  forever if <c>Time</c> is the atom <c>infinity</c>. Naturally, this 
+	  forever if <c><anno>Time</anno></c> is the atom <c>infinity</c>. Naturally, this
           function does <em>not</em> return immediately.</p>
       </desc>
     </func>
     <func>
-      <name>tc(Module, Function, Arguments) -> {Time, Value}</name>
-      <fsummary>Measure the real time it takes to evaluate <c>apply(Module, Function, Arguments)</c></fsummary>
-      <type>
-        <v>Module = Function = atom()</v>
-        <v>Arguments = [term()]</v>
-        <v>Time = integer() in microseconds</v>
-        <v>Value = term()</v>
-      </type>
+      <name name="tc" arity="1"/>
+      <name name="tc" arity="2"/>
+      <name name="tc" arity="3"/>
+      <fsummary>Measure the real time it takes to evaluate <c>apply(Module,
+      Function, Arguments)</c> or <c>apply(Fun, Arguments)</c></fsummary>
+      <type_desc variable="Time">In microseconds</type_desc>
       <desc>
-        <p>Evaluates <c>apply(Module, Function, Arguments)</c> and measures
-          the elapsed real time. Returns <c>{Time, Value}</c>, where 
-          <c>Time</c> is the elapsed real time in <em>microseconds</em>,
-          and <c>Value</c> is what is returned from the apply.</p>
+        <p>
+        <taglist>
+          <tag><c>tc/3</c></tag>
+          <item>
+            <p>Evaluates <c>apply(<anno>Module</anno>, <anno>Function</anno>, <anno>Arguments</anno>)</c> and measures
+              the elapsed real time as reported by <c>os:timestamp/0</c>.
+              Returns <c>{<anno>Time</anno>, <anno>Value</anno>}</c>, where
+              <c><anno>Time</anno></c> is the elapsed real time in <em>microseconds</em>,
+              and <c><anno>Value</anno></c> is what is returned from the apply.</p>
+          </item>
+          <tag><c>tc/2</c></tag>
+          <item>
+            <p>Evaluates <c>apply(<anno>Fun</anno>, <anno>Arguments</anno>)</c>. Otherwise works
+            like <c>tc/3</c>.</p>
+          </item>
+          <tag><c>tc/1</c></tag>
+          <item>
+            <p>Evaluates <c><anno>Fun</anno>()</c>. Otherwise works like <c>tc/2</c>.</p>
+          </item>
+
+        </taglist>
+        </p>
       </desc>
     </func>
     <func>
-      <name>now_diff(T2, T1) -> Tdiff</name>
+      <name name="now_diff" arity="2"/>
       <fsummary>Calculate time difference between <c>now/0</c>timestamps</fsummary>
-      <type>
-        <v>T1 = T2 = {MegaSecs, Secs, MicroSecs}</v>
-        <v>Tdiff = MegaSecs = Secs = MicroSecs = integer()</v>
-      </type>
+      <type_desc variable="Tdiff">In microseconds</type_desc>
       <desc>
-        <p>Calculates the time difference <c>Tdiff = T2 - T1</c> in
-          <em>microseconds</em>, where <c>T1</c> and <c>T2</c> probably
+        <p>Calculates the time difference <c><anno>Tdiff</anno> = <anno>T2</anno> - <anno>T1</anno></c> in
+          <em>microseconds</em>, where <c><anno>T1</anno></c> and <c><anno>T2</anno></c> probably
           are timestamp tuples returned from <c>erlang:now/0</c>.</p>
       </desc>
     </func>
     <func>
-      <name>seconds(Seconds) -> Milliseconds</name>
+      <name name="seconds" arity="1"/>
       <fsummary>Convert <c>Seconds</c>to <c>Milliseconds</c>.</fsummary>
       <desc>
-        <p>Returns the number of milliseconds in <c>Seconds</c>.</p>
+        <p>Returns the number of milliseconds in <c><anno>Seconds</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name>minutes(Minutes) -> Milliseconds</name>
+      <name name="minutes" arity="1"/>
       <fsummary>Converts <c>Minutes</c>to <c>Milliseconds</c>.</fsummary>
       <desc>
-        <p>Return the number of milliseconds in <c>Minutes</c>.</p>
+        <p>Return the number of milliseconds in <c><anno>Minutes</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name>hours(Hours) -> Milliseconds</name>
+      <name name="hours" arity="1"/>
       <fsummary>Convert <c>Hours</c>to <c>Milliseconds</c>.</fsummary>
       <desc>
-        <p>Returns the number of milliseconds in <c>Hours</c>.</p>
+        <p>Returns the number of milliseconds in <c><anno>Hours</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name>hms(Hours, Minutes, Seconds) -> Milliseconds</name>
+      <name name="hms" arity="3"/>
       <fsummary>Convert <c>Hours</c>+<c>Minutes</c>+<c>Seconds</c>to <c>Milliseconds</c>.</fsummary>
       <desc>
-        <p>Returns the number of milliseconds in <c>Hours + Minutes + Seconds</c>.</p>
+        <p>Returns the number of milliseconds in <c><anno>Hours</anno> + <anno>Minutes</anno> + <anno>Seconds</anno></c>.</p>
       </desc>
     </func>
   </funcs>
@@ -262,7 +258,6 @@
   <section>
     <title>Examples</title>
     <p>This example illustrates  how to print out "Hello World!" in 5 seconds:</p>
-    <p></p>
     <pre>
       1> <input>timer:apply_after(5000, io, format, ["~nHello World!~n", []]).</input>
       {ok,TRef}

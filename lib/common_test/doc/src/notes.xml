@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2010</year>
+      <year>2004</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -31,6 +31,596 @@
     <rev>A</rev>
     <file>notes.xml</file>
     </header>
+
+<section><title>Common_Test 1.5.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    An error in how comments are colored in the test suite
+	    overview html log file has been corrected. As result, a
+	    new framework callback function, format_comment/1, has
+	    been introduced.</p>
+          <p>
+	    Own Id: OTP-9237</p>
+        </item>
+        <item>
+          <p>
+	    Automatically generated init- and end-configuration
+	    functions for test case groups caused incorrect execution
+	    order of test cases. This has been corrected.</p>
+          <p>
+	    Own Id: OTP-9369</p>
+        </item>
+        <item>
+          <p>
+	    If multiple directories were specified with the 'logdir'
+	    flag/option, Common Test would crash. This has been fixed
+	    so that an error is properly reported instead.</p>
+          <p>
+	    Own Id: OTP-9370</p>
+        </item>
+        <item>
+          <p>
+	    If ct:log/2 was called with bad arguments, this could
+	    cause the Common Test IO handling process to crash. This
+	    fault has been corrected.</p>
+          <p>
+	    Own Id: OTP-9371 Aux Id: OTP-8933 </p>
+        </item>
+        <item>
+          <p>
+	    A bug has been fixed that made Test Server call the
+	    end_tc/3 framework function with an incorrect module name
+	    as first argument.</p>
+          <p>
+	    Own Id: OTP-9379 Aux Id: seq11863 </p>
+        </item>
+        <item>
+          <p>
+	    If a timetrap timeout occured during execution of of a
+	    function in a lib module (i.e. a function called directly
+	    or indirectly from a test case), the Suite argument in
+	    the end_tc/3 framework callback function would not
+	    correctly contain the name of the test suite, but the lib
+	    module. (This would only happen if the lib module was
+	    compiled with ct.hrl included). This error has been
+	    solved.</p>
+          <p>
+	    Own Id: OTP-9398</p>
+        </item>
+        <item>
+          <p>
+	    Corrections of the vts mode. It will now report errors
+	    (about e.g. incorrect config files) instead of crashing
+	    or hanging. Furthermore, the requirement that the test
+	    directory name must have a "_test" suffix has been
+	    removed. Also, a workaround has been implemented for the
+	    limitation that the file browser (in many web browsers)
+	    will only return the basic file name, not the full
+	    directory path (which made it impossible to have config
+	    files in other directories than the main test directory).</p>
+          <p>
+	    Own Id: OTP-9429</p>
+        </item>
+        <item>
+          <p>
+	    Add a proplist() type</p>
+          <p>
+	    Recently I was adding specs to an API and found that
+	    there is no canonical proplist() type defined. (Thanks to
+	    Ryan Zezeski)</p>
+          <p>
+	    Own Id: OTP-9499</p>
+        </item>
+        <item>
+          <p>
+	    It is now possible to use the 'step' flag/option to run
+	    the debugger for test suites that contain test case
+	    groups. This previously caused Common Test to crash. If
+	    'step config' is specified, breakpoints are now also
+	    automatically set on init_per_group and end_per_group.
+	    Note that breakpoints are always set automatically on
+	    test case functions and this is true also for grouped
+	    cases.</p>
+          <p>
+	    Own Id: OTP-9518 Aux Id: OTP-8933 </p>
+        </item>
+        <item>
+          <p>
+	    The test index page was not refreshed at the start of
+	    each test suite which made it impossible to follow test
+	    execution by means of refreshing the browser window (no
+	    links to follow). This has been fixed.</p>
+          <p>
+	    Own Id: OTP-9520 Aux Id: OTP-8933 </p>
+        </item>
+        <item>
+          <p>
+	    If a test suite would start with a test case group
+	    defined without the init_per_group/2 and end_per_group/2
+	    function, init_per_suite/1 would not execute initially
+	    and logging of the test run would fail. This error has
+	    been fixed.</p>
+          <p>
+	    Own Id: OTP-9584</p>
+        </item>
+        <item>
+          <p>
+	    The "Missing Suites" link from the top level index page
+	    was incorrect and has been fixed.</p>
+          <p>
+	    Own Id: OTP-9592</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Various corrections and updates to improve the handling
+	    and reporting of errors.</p>
+          <p>
+	    Own Id: OTP-8933</p>
+        </item>
+        <item>
+          <p>
+	    The dir and suite start option can now be used in
+	    combination. E.g. executing my_SUITE in directory
+	    my_tests can either be specified as "ct_run -suite
+	    my_tests/my_SUITE" or as "ct_run -dir my_tests -suite
+	    my_SUITE". Furthermore, the specification:
+	    ct:run_test([{suite,["./my_SUITE"]},{testcase,t1}]) is
+	    now interpreted as
+	    ct:run_test([{suite,"./my_SUITE"},{testcase,t1}]), i.e.
+	    only testcase t1 in test suite my_SUITE - not all cases -
+	    will be executed.</p>
+          <p>
+	    Own Id: OTP-9155</p>
+        </item>
+        <item>
+          <p>
+	    A new option, 'logopts', has been introduced, to make it
+	    possible to modify some aspects of the logging behaviour
+	    in Common Test (or Test Server). For example, whenever an
+	    io printout is made, test_server adds newline (\n) to the
+	    end of the output string. This may not always be a
+	    preferred action and can therefore be disabled by means
+	    of "ct_run ... -logopts no_nl" (or ct:run_test([...,
+	    {logopts,[no_nl]}])). A new framework callback function,
+	    get_logopts/0, has been introduced (see the ct_framework
+	    module for details).</p>
+          <p>
+	    Own Id: OTP-9372 Aux Id: OTP-9396 </p>
+        </item>
+        <item>
+          <p>
+	    A new option, 'logopts', has been introduced, to make it
+	    possible to modify some aspects of the logging behaviour
+	    in Common Test (or Test Server). For example, if the html
+	    version of the test suite source code should not be
+	    generated during the test run (and consequently be
+	    unavailable in the log file system), the feature may be
+	    disabled by means of "ct_run ... -logopts no_src" (or
+	    ct:run_test([..., {logopts,[no_src]}])). A new framework
+	    callback function, get_logopts/0, has been introduced
+	    (see the ct_framework module for details).</p>
+          <p>
+	    Own Id: OTP-9396 Aux Id: seq11869, OTP-9372 </p>
+        </item>
+        <item>
+          <p>
+	    CT Hooks can now be assigned a priority. The priority of
+	    a CTH determines when it should execute in relation to
+	    other CTHs. The CTH with the lowest priority will be
+	    executed first, CTHs with equal priority will be executed
+	    in the order which they were installed.</p>
+          <p>
+	    Own Id: OTP-9445</p>
+        </item>
+        <item>
+          <p>
+	    It is now possible to use a tuple {M,F,A}, or a fun, as
+	    timetrap specification in the suite info function or test
+	    case info functions. The function must return a valid
+	    timeout value, as documented in the common_test man page
+	    and in the User's Guide.</p>
+          <p>
+	    Own Id: OTP-9501 Aux Id: seq11894 </p>
+        </item>
+        <item>
+          <p>
+	    A new built-in common test hook has been added which
+	    captures error_logger and SASL event and prints them in
+	    the testcase log. To disable this (and any other built-in
+	    hooks) pass 'enable_builtin_hooks false' to common test.</p>
+          <p>
+	    Own Id: OTP-9543</p>
+        </item>
+        <item>
+          <p>
+	    Common Test now has the possibility to have built-in
+	    hooks which are started by default when any test is run.
+	    To disable built-in hooks pass 'enable_builtin_hooks
+	    false' to common test. See the common test hooks
+	    documentation for more details.</p>
+          <p>
+	    Own Id: OTP-9564</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Common_Test 1.5.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    It was previously not possible to use timetrap value
+	    'infinity' with ct:timetrap/1. This has been fixed.</p>
+          <p>
+	    Own Id: OTP-9159</p>
+        </item>
+        <item>
+          <p>
+	    The Common Test VTS mode has been updated to be able to
+	    report test results of suites that include test case
+	    groups (when it would previously crash).</p>
+          <p>
+	    Own Id: OTP-9195</p>
+        </item>
+        <item>
+          <p>
+	    Common Test now refreshes the very top level index.html
+	    page at the start of each individual test in a test run,
+	    so that progress of the ongoing test can be tracked by
+	    following the link to its overview page.</p>
+          <p>
+	    Own Id: OTP-9210 Aux Id: OTP-9054 </p>
+        </item>
+        <item>
+          <p>
+	    A bug that made it impossible to cancel the previous
+	    timetrap when calling ct:timetrap/1 has been corrected.</p>
+          <p>
+	    Own Id: OTP-9233 Aux Id: OTP-9159 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug which would make cth's to not be removed when out
+	    of scope when adding a cth in suite/0 and crashing in
+	    pre_init_per_suite.</p>
+          <p>
+	    Own Id: OTP-9264</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    It is now possible to return a tuple {fail,Reason} from
+	    init_per_testcase/2. The result is that the associated
+	    test case gets logged as failed without ever executing.</p>
+          <p>
+	    Own Id: OTP-9160 Aux Id: seq11502 </p>
+        </item>
+        <item>
+          <p>
+	    Common Test now accepts, but ignores, empty test case
+	    group specifications.</p>
+          <p>
+	    Own Id: OTP-9161</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Common_Test 1.5.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Added an option to test specs which allow the execution
+	    of tests as is, instead of doing merging of tests on the
+	    same "level". See the merge_tests directive the test
+	    specification documentation.</p>
+          <p>
+	    Own Id: OTP-9026 Aux Id: seq11768 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Alpha release of Common Test Hooks (CTH). CTHs allow the
+	    users of common test to abtract out common behaviours
+	    from test suites in a much more elegant and flexible way
+	    than was possible before. Note that the addition of this
+	    feature may introduce minor changes in the undocumented
+	    behaviour of the interface inbetween common_test and
+	    test_server.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-8851</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Common_Test 1.5.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Updated ct:get_status documentation to describe
+	    no_tests_running return value.</p>
+          <p>
+	    Own Id: OTP-8895 Aux Id: seq11701 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed race condition test failures in the test suites
+	    testing common test's parallel groups feature.</p>
+          <p>
+	    Own Id: OTP-8921</p>
+        </item>
+        <item>
+          <p>
+	    The include directive of testspecs now work when used on
+	    a remote node.</p>
+          <p>
+	    Own Id: OTP-8935 Aux Id: seq11731 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    ct:parse_table can now handle multiline sql rows</p>
+          <p>
+	    Own Id: OTP-8907 Aux Id: seq11702 </p>
+        </item>
+        <item>
+          <p>
+	    The run_test executable has been renamed to the less
+	    generic ct_run to better work with other applications.
+	    run_test will remain until R16B at which point it will be
+	    removed.</p>
+          <p>
+	    Own Id: OTP-8936</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Common_Test 1.5.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Returning {return_group_result,failed} from end_per_group
+	    in a group that is part of a sequence, did not cause the
+	    proceeding cases (or groups) to get skipped. This has
+	    been fixed.</p>
+          <p>
+	    Own Id: OTP-8753 Aux Id: seq11644 </p>
+        </item>
+        <item>
+          <p>
+	    ct:install now works as the documentation describes.</p>
+          <p>
+	    Own Id: OTP-8818 Aux Id: seq-11666 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Common Test has been updated to handle start options and
+	    test specification terms for test case groups (and test
+	    cases in groups). Also, an option named 'label', has been
+	    added that associates the test run with a name that
+	    Common Test prints in the overview HTML logs.</p>
+          <p>
+	    Own Id: OTP-8725 Aux Id: OTP-8727 </p>
+        </item>
+        <item>
+          <p>
+	    Andrey Pampukha has been added to the AUTHORS file. Thank
+	    you Andrey for your work on configuration data handling,
+	    Large Scale Testing improvements, and other useful
+	    updates and fixes.</p>
+          <p>
+	    Own Id: OTP-8803</p>
+        </item>
+        <item>
+          <p>
+	    The Configuration Data chapter in the User's Guide has
+	    been updated.</p>
+          <p>
+	    Own Id: OTP-8804</p>
+        </item>
+        <item>
+          <p>
+	    Milliseconds are now included in timestamps in Common
+	    Test log entries. (Thanks to Tomas Johansson.)</p>
+          <p>
+	    Own Id: OTP-8808</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Common_Test 1.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Process calls using monitors in Common Test would not
+	    clear the inbox of remaining DOWN messages. This has been
+	    fixed.</p>
+          <p>
+	    Own Id: OTP-8621 Aux Id: seq11560 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    It is now possible for the user to provide specific
+	    callback modules that handle test configuration data, so
+	    that data on arbitray form can be accessed (e.g. by
+	    reading files or by communicating with a configuration
+	    server process). Two default callback modules have been
+	    introduced in Common Test: ct_config_plain and
+	    ct_config_xml. The former is used to handle the
+	    traditional Common Test configuration files (with terms
+	    on key-value tuple form) and the latter to handle
+	    configuration data on XML representation.</p>
+          <p>
+	    Own Id: OTP-8485</p>
+        </item>
+        <item>
+          <p>
+	    It is now possible to execute test suites that are not
+	    necessarily available on the local file system, but have
+	    been loaded on the test node in advance (e.g. sent as
+	    binaries from a remote node and loaded by RPC). A
+	    requirement is that the no_auto_compile (or
+	    {auto_compile,false}) parameter has been set.</p>
+          <p>
+	    Own Id: OTP-8490 Aux Id: seq11500 </p>
+        </item>
+        <item>
+          <p>
+	    Test Server will now call the end_per_testcase/2 function
+	    even if the test case has been terminated explicitly
+	    (with abort_current_testcase/1), or after a timetrap
+	    timeout. Under these circumstances the return value of
+	    end_per_testcase is completely ignored. Therefore the
+	    function will not be able to change the reason for test
+	    case termination by returning {fail,Reason}, nor will it
+	    be able to save data with {save_config,Data}.</p>
+          <p>
+	    Own Id: OTP-8500 Aux Id: seq11521 </p>
+        </item>
+        <item>
+          <p>
+	    It is now possible to use the test specification term
+	    'init' to start Common Test nodes automatically, as well
+	    as have initial function calls evaluated on the nodes. A
+	    default callback module for the 'init' term, ct_slave,
+	    has been introduced to enable Common Test Master to
+	    perform host login and node startup operations over ssh.</p>
+          <p>
+	    Own Id: OTP-8570</p>
+        </item>
+        <item>
+          <p>
+	    The run_test script has been replaced by a program (with
+	    the same name) which can be executed without explicit
+	    installation. The start flags are the same as for the
+	    legacy start script.</p>
+          <p>
+	    Own Id: OTP-8650</p>
+        </item>
+        <item>
+          <p>
+	    Previously, a repeat property of a test case group
+	    specified the number of times the group should be
+	    repeated after the main test run. I.e. {repeat,N} would
+	    case the group to execute 1+N times. To be consistent
+	    with the behaviour of the run_test repeat option, this
+	    has been changed. N now specifies the absolute number of
+	    executions instead.</p>
+          <p>
+	    Own Id: OTP-8689 Aux Id: seq11502 </p>
+        </item>
+        <item>
+          <p>
+	    With the run_test -erl_args option, it's possible to
+	    divide the options on the run_test command line into ones
+	    that Common Test should process (those preceding
+	    -erl_args, and ones it should ignore (those succeeding
+	    -erl_args). Options preceding -erl_args that Common Test
+	    doesn't recognize are also ignored (i.e. the same
+	    behaviour as earlier versions of Common Test).</p>
+          <p>
+	    Own Id: OTP-8690 Aux Id: OTP-8650 </p>
+        </item>
+        <item>
+          <p>
+	    Directories added with -pa or -pz in the pre-erl_args
+	    part of the run_test command line will be converted from
+	    relative to absolute, this to avoid problems loading user
+	    modules when Common Test switches working directory
+	    during the test run.</p>
+          <p>
+	    Own Id: OTP-8691 Aux Id: OTP-8650 </p>
+        </item>
+        <item>
+          <p>
+	    The timetrap handling has been made more user
+	    controllable by means of new start options and new ct
+	    interface functions. With the 'multiply_timetraps' start
+	    option, it's possible to specify a value which all
+	    timetrap timeout values get multiplied by. This is useful
+	    e.g. to extend the timetraps temporarily while running
+	    cover or trace. The 'scale_timetraps' start option
+	    switches on or off the Test Server timetrap scaling
+	    feature (which tries to detect if the tests may benefit
+	    from extended timetraps, e.g. due to running certain test
+	    tools, and performs the scaling automatically).
+	    Furthermore, the ct:timetrap/1 function has been
+	    introduced, which makes it possible to set/reset
+	    timetraps during test execution. Also, a ct:sleep/1
+	    function is now available, which takes the timetrap
+	    parameters into account when calculating the time to
+	    suspend the process.</p>
+          <p>
+	    Own Id: OTP-8693</p>
+        </item>
+        <item>
+          <p>
+	    A new run_test start option, event_handler_init, has been
+	    added that takes a start argument which gets passed to
+	    the init function of the event handler.</p>
+          <p>
+	    Own Id: OTP-8694</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Common_Test 1.4.7</title>
 

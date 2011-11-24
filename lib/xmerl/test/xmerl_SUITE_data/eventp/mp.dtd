@@ -1,0 +1,274 @@
+<!-- 15531-APR 90163: rev F       -->
+<!-- Date-            2000-10-16    -->
+<!-- Author-          Johnni Sigeti -->
+<!-- Author-          Niklas Storm  -->
+<!-- Author-          Hui Lin       -->
+
+<!-- Revision History
+   A       Raghunath               Squid version
+   PB1     epkjsig    1999-09-09   Removed uLong, uShort, union
+                                   and inherits.
+   PB2     epkjsig    1999-09-23   Rewritten with new
+                                   requirements
+   PB3     epkjsig    1999-09-26   Updated after team review
+   B       epkjsig    1999-10-06   Updated after inspection
+   PC1     epkjsig    1999-10-28   Added mandatory attribute
+                                   for associations.
+   PC2     epkjsig    1999-11-22   Added MORef as attribute
+   PC3     qpknian    2000-01-03   Added support object class.
+   PC4     qpknian    2000-01-18   Removed illegal characters
+                                   in comments.
+   PC5     qpknian    2000-01-21   Updated model tag. class and
+                                   soClass elements should be in
+                                   separate models.
+   C       qpknian    2000-02-10   Approved after inspection.
+   PD1     qpknian    2000-03-02   Added applicationTag.
+                                   Added notificationTypes.
+                                   Removed controlled.
+                                   Renamed readOnly to advisoryReadOnly.
+   PD2     qpknian    2000-03-21   Added softLink to hoppers.
+   D       qpknian    2000-04-26   Approved after inspection.
+   PE1     qpknian    2000-06-27   Updated for CR41 (use Corba types)
+   E       qpknian    2000-09-01   Approved after inspection.
+   PF1     eiuhlin    2000-08-21   Updated for CR43 (Rename Model to MIM, add INTER-MIM)
+   PF2     eiuhlin    2000-09-20   Support uniDirectionalAssociation and biDirectionalAssociation
+                                   Add static to Attribute
+                                   Add enumRef and sequence to struct
+   PF3     eiuhlin    2000-09-20   Add maxLength to sequence   
+   PF4     eiuhlin    2000-09-21   Define Element static 
+   PF5     eiuhlin    2000-09-27   Remove ATTLIST name from moRef
+   PF6     eiuhlin    2000-10-02   Remove tag <helpRef>, <icon>
+                                   Add associationClass to bi and uni-directional association
+                                   Change tag <target> to <supported>
+                                   Remove ATTLIST name from supporter and supported
+                                   Add ATTLIST name to moRef
+                                   Remove tag <advisoryReadOnly>
+                                   Add tag <readOnly> and <undefined> 
+   PF7     eiuhlin    2000-10-04   Add ATTLIST name to interMim
+   F       eiuhlin    2000-10-16   Approved after inspection.                                                                      
+-->
+
+
+<!-- Common -->
+<!ELEMENT description (#PCDATA)>
+
+
+<!ELEMENT applicationTag (#PCDATA)>
+
+
+<!-- Models definition -->
+<!ELEMENT models (mim|interMim)*>
+
+<!ELEMENT mim (description?, applicationTag?,
+
+                  (struct | enum | exception)*,
+                 class+, relationship*)>
+<!ATTLIST mim name ID #REQUIRED
+		version CDATA #REQUIRED
+		release CDATA #REQUIRED>
+
+<!ELEMENT interMim (description?, applicationTag?,
+
+                  (struct | enum )*,
+                      relationship*)>
+
+<!ATTLIST interMim name CDATA #REQUIRED> 
+
+<!-- MO class definition -->
+<!ELEMENT class (description?, applicationTag?,
+                 systemCreated?, notificationTypes?, (action | attribute)*)>
+<!ATTLIST class name CDATA #REQUIRED>
+
+<!ELEMENT systemCreated EMPTY>
+
+<!ELEMENT notificationTypes (#PCDATA)>
+
+
+<!-- Relations -->
+<!ELEMENT relationship (description?, applicationTag?,
+                        (biDirectionalAssociation |uniDirectionalAssociation | containment|softLink|support))>
+<!ATTLIST relationship name CDATA #REQUIRED>
+
+<!ELEMENT softLink (parent, child+)>
+
+<!ELEMENT support (supporter,supported+)>
+
+<!ELEMENT supporter (description?, applicationTag?,
+                hasClass, cardinality?)>
+
+<!ELEMENT supported (description?, applicationTag?,
+                hasClass, cardinality?)>
+
+<!ELEMENT biDirectionalAssociation (mandatory?, associationEnd, associationEnd+, associationClass?)>
+
+<!ELEMENT uniDirectionalAssociation (mandatory?, hasClass, associationEnd+, associationClass?)>
+
+<!ELEMENT containment (parent, child+)>
+
+<!ELEMENT associationEnd (description?, applicationTag?,
+                hasClass, cardinality?)>
+<!ATTLIST associationEnd name CDATA #REQUIRED>
+
+<!ELEMENT associationClass (attribute+)>
+
+<!ELEMENT parent (description?, applicationTag?,
+                  hasClass)>
+<!ELEMENT child  (description?, applicationTag?,
+                  hasClass, cardinality?)>
+
+<!ELEMENT cardinality (min | max | (min, max))>
+
+<!ELEMENT hasClass EMPTY>
+<!ATTLIST hasClass name CDATA #REQUIRED
+                   inMim CDATA #IMPLIED
+                   ofVersion CDATA #IMPLIED>
+
+
+
+
+<!-- Data types -->
+<!ENTITY % corbaTypes "boolean | octet | char  | double | float | 
+                           long | longlong | short | string | wstring">
+<!ENTITY % availableTypes "%corbaTypes; | enumRef | structRef |
+                           moRef | sequence">
+
+
+<!-- For attributes, parameters and exceptions -->
+<!ELEMENT dataType   (%availableTypes;)>
+
+<!-- For actions                               -->
+<!ELEMENT returnType (void | %availableTypes;)>
+
+
+<!-- Return data types -->
+<!ELEMENT void EMPTY>
+
+
+<!-- Primitive data types -->
+<!ELEMENT boolean (defaultValue?)>
+
+<!ELEMENT octet (range?, defaultValue?)>
+
+<!ELEMENT char (range?, defaultValue?)>
+
+<!ELEMENT double (range?, defaultValue?)>
+
+<!ELEMENT float (range?, defaultValue?)>
+
+<!ELEMENT long (range?, defaultValue?)>
+
+<!ELEMENT longlong (range?, defaultValue?)>
+
+<!ELEMENT short (range?, defaultValue?)>
+
+<!ELEMENT string (lengthRange?, (validValues | alphabet)?, defaultValue?)>
+
+<!ELEMENT wstring (lengthRange?, (validValues | alphabet)?, defaultValue?)>
+
+
+<!ELEMENT alphabet (#PCDATA)>
+<!ELEMENT validValues (#PCDATA)>
+
+<!ELEMENT lengthRange (min?, (min, max)*, max?)>
+<!ELEMENT range       (min?, (min, max)*, max?)>
+
+<!ELEMENT max (#PCDATA)>
+<!ELEMENT min (#PCDATA)>
+
+<!ELEMENT defaultValue (#PCDATA)>
+
+
+<!-- Enum data type -->
+<!ELEMENT enum (description?, applicationTag?,
+                enumMember+, defaultValue?)>
+<!ATTLIST enum name CDATA #REQUIRED>
+
+<!ELEMENT enumMember (description?, applicationTag?,
+                      value?)>
+<!ATTLIST enumMember name CDATA #REQUIRED>
+
+<!ELEMENT enumRef (defaultValue?)>
+<!ATTLIST enumRef name CDATA #REQUIRED>
+
+<!ELEMENT value (#PCDATA)>
+
+
+<!-- Struct data type -->
+<!ELEMENT struct (description?, applicationTag?,
+                  structMember+)>
+<!ATTLIST struct name CDATA #REQUIRED>
+
+<!ELEMENT structMember (description?, applicationTag?,
+                        (%corbaTypes; | sequence | enumRef))>
+<!ATTLIST structMember name CDATA #REQUIRED>
+
+<!ELEMENT structRef EMPTY>
+<!ATTLIST structRef name CDATA #REQUIRED>
+
+
+<!-- Sequence data type -->
+<!ELEMENT sequence ((%corbaTypes; | enumRef | structRef | moRef),
+                    length?, maxLength?, nonUnique?)>
+
+<!ELEMENT length (#PCDATA)>
+
+<!ELEMENT maxLength (#PCDATA)>
+
+<!ELEMENT nonUnique EMPTY>
+
+
+<!-- MoRef data type -->
+<!ELEMENT moRef EMPTY>
+
+<!ATTLIST moRef name CDATA #REQUIRED>
+
+<!-- Attribute -->
+<!ELEMENT attribute (description?, applicationTag?,
+                     local?, mandatory?, noNotification?,
+                     nonPersistent?, readOnly?, restricted?, static?,undefined?, dataType)>
+<!ATTLIST attribute name CDATA #REQUIRED>
+
+
+<!-- Attribute controls                                 -->
+<!-- nonUnique is defined under the sequence data type. -->
+
+<!ELEMENT local EMPTY>
+
+<!ELEMENT mandatory EMPTY>
+
+<!ELEMENT noNotification EMPTY>
+
+<!ELEMENT nonPersistent EMPTY>
+
+<!ELEMENT readOnly EMPTY>
+
+<!ELEMENT restricted EMPTY>
+
+<!ELEMENT static EMPTY>
+
+<!ELEMENT undefined EMPTY>
+
+
+<!-- Action -->
+<!ELEMENT action (description?, applicationTag?,
+                  returnType, parameter*, raisesException*)>
+<!ATTLIST action name CDATA #REQUIRED>
+
+<!ELEMENT parameter (description?, applicationTag?,
+                     (in | out | inout), dataType)>
+<!ATTLIST parameter name CDATA #REQUIRED>
+
+<!ELEMENT in EMPTY>
+<!ELEMENT inout EMPTY>
+<!ELEMENT out EMPTY>
+
+<!ELEMENT exception (description?, applicationTag?,
+                      exceptionParameter*)>
+<!ATTLIST exception name CDATA #REQUIRED>
+
+<!ELEMENT exceptionParameter (description?, applicationTag?,
+                              dataType)>
+<!ATTLIST exceptionParameter name CDATA #REQUIRED>
+
+<!ELEMENT raisesException EMPTY>
+<!ATTLIST raisesException name CDATA #REQUIRED>

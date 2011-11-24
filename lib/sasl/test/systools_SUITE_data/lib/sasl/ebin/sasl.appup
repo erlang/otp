@@ -1,0 +1,12 @@
+%%
+%% Fake release upgrade script for sasl
+%%
+
+{
+ "1.0",
+ [
+ ],
+
+ [
+ ]
+}.

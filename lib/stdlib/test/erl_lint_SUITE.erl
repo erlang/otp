@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -27,34 +27,37 @@
 -define(privdir, "erl_lint_SUITE_priv").
 -define(t, test_server).
 -else.
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -define(datadir, ?config(data_dir, Conf)).
 -define(privdir, ?config(priv_dir, Conf)).
 -endif.
 
--export([all/1, init_per_testcase/2, fin_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 init_per_testcase/2, end_per_testcase/2]).
 
--export([unused_vars_warn/1, 
-             unused_vars_warn_basic/1, 
-             unused_vars_warn_lc/1, 
-             unused_vars_warn_rec/1,
-             unused_vars_warn_fun/1, 
-             unused_vars_OTP_4858/1,
-         export_vars_warn/1,
-	 shadow_vars/1,
-	 unused_import/1,
-	 unused_function/1,
-         unsafe_vars/1,unsafe_vars2/1,
-	 unsafe_vars_try/1,
-         guard/1, otp_4886/1, otp_4988/1, otp_5091/1, otp_5276/1, otp_5338/1,
-         otp_5362/1, otp_5371/1, otp_7227/1, otp_5494/1, otp_5644/1, otp_5878/1,
-         otp_5917/1, otp_6585/1, otp_6885/1, export_all/1,
-	 bif_clash/1,
-	 behaviour_basic/1, behaviour_multiple/1,
-	 otp_7550/1,
-         otp_8051/1,
-	 format_warn/1,
-	 on_load/1, on_load_successful/1, on_load_failing/1
+-export([ 
+	  unused_vars_warn_basic/1, 
+	  unused_vars_warn_lc/1, 
+	  unused_vars_warn_rec/1,
+	  unused_vars_warn_fun/1, 
+	  unused_vars_OTP_4858/1,
+	  export_vars_warn/1,
+	  shadow_vars/1,
+	  unused_import/1,
+	  unused_function/1,
+	  unsafe_vars/1,unsafe_vars2/1,
+	  unsafe_vars_try/1,
+	  guard/1, otp_4886/1, otp_4988/1, otp_5091/1, otp_5276/1, otp_5338/1,
+	  otp_5362/1, otp_5371/1, otp_7227/1, otp_5494/1, otp_5644/1, otp_5878/1,
+	  otp_5917/1, otp_6585/1, otp_6885/1, export_all/1,
+	  bif_clash/1,
+	  behaviour_basic/1, behaviour_multiple/1,
+	  otp_7550/1,
+	  otp_8051/1,
+	  format_warn/1,
+	  on_load_successful/1, on_load_failing/1, 
+	  too_many_arguments/1
         ]).
 
 % Default timetrap timeout (set in init_per_testcase).
@@ -64,24 +67,44 @@ init_per_testcase(_Case, Config) ->
     ?line Dog = ?t:timetrap(?default_timeout),
     [{watchdog, Dog} | Config].
 
-fin_per_testcase(_Case, _Config) ->
+end_per_testcase(_Case, _Config) ->
     Dog = ?config(watchdog, _Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
-all(suite) ->
-    [unused_vars_warn, export_vars_warn, 
-     shadow_vars, unused_import, unused_function,
-     unsafe_vars, unsafe_vars2, unsafe_vars_try,
-     guard, otp_4886, otp_4988, otp_5091, otp_5276, otp_5338, 
-     otp_5362, otp_5371, otp_7227, otp_5494, otp_5644, otp_5878, otp_5917, otp_6585,
-     otp_6885, export_all, bif_clash,
-     behaviour_basic, behaviour_multiple, otp_7550, otp_8051, format_warn,
-     on_load].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-unused_vars_warn(suite) ->
-    [unused_vars_warn_basic, unused_vars_warn_lc, unused_vars_warn_rec, 
-     unused_vars_warn_fun, unused_vars_OTP_4858].
+all() -> 
+    [{group, unused_vars_warn}, export_vars_warn,
+     shadow_vars, unused_import, unused_function,
+     unsafe_vars, unsafe_vars2, unsafe_vars_try, guard,
+     otp_4886, otp_4988, otp_5091, otp_5276, otp_5338,
+     otp_5362, otp_5371, otp_7227, otp_5494, otp_5644,
+     otp_5878, otp_5917, otp_6585, otp_6885, export_all,
+     bif_clash, behaviour_basic, behaviour_multiple,
+     otp_7550, otp_8051, format_warn, {group, on_load},
+     too_many_arguments].
+
+groups() -> 
+    [{unused_vars_warn, [],
+      [unused_vars_warn_basic, unused_vars_warn_lc,
+       unused_vars_warn_rec, unused_vars_warn_fun,
+       unused_vars_OTP_4858]},
+     {on_load, [], [on_load_successful, on_load_failing]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
+
 
 unused_vars_warn_basic(doc) ->
     "Warnings for unused variables in some simple cases.";
@@ -1784,6 +1807,9 @@ otp_5362(Config) when is_list(Config) ->
                       {15,erl_lint,{undefined_field,ok,nix}},
                       {16,erl_lint,{field_name_is_variable,ok,'Var'}}]}},
 
+	  %% Nowarn_bif_clash has changed behaviour as local functions
+	  %% nowdays supersede auto-imported BIFs, why nowarn_bif_clash in itself generates an error
+	  %% (OTP-8579) /PaN
           {otp_5362_4,
            <<"-compile(nowarn_deprecated_function).
               -compile(nowarn_bif_clash).
@@ -1795,9 +1821,8 @@ otp_5362(Config) when is_list(Config) ->
              warn_deprecated_function,
              warn_bif_clash]},
            {error,
-            [{5,erl_lint,{call_to_redefined_bif,{spawn,1}}}],
-	    [{3,erl_lint,{redefine_bif,{spawn,1}}},
-             {4,erl_lint,{deprecated,{erlang,hash,2},{erlang,phash2,2},
+            [{5,erl_lint,{call_to_redefined_old_bif,{spawn,1}}}],
+	    [{4,erl_lint,{deprecated,{erlang,hash,2},{erlang,phash2,2},
 			  "in a future release"}}]}},
 
           {otp_5362_5,
@@ -1808,8 +1833,8 @@ otp_5362(Config) when is_list(Config) ->
                   spawn(A).
            ">>,
            {[nowarn_unused_function]},
-           {warnings,
-            [{3,erl_lint,{redefine_bif,{spawn,1}}}]}},
+	   {errors,
+            [{2,erl_lint,disallowed_nowarn_bif_clash}],[]}},
 
           %% The special nowarn_X are not affected by general warn_X.
           {otp_5362_6,
@@ -1822,8 +1847,8 @@ otp_5362(Config) when is_list(Config) ->
            {[nowarn_unused_function, 
              warn_deprecated_function, 
              warn_bif_clash]},
-           {warnings,
-            [{3,erl_lint,{redefine_bif,{spawn,1}}}]}},
+           {errors,
+            [{2,erl_lint,disallowed_nowarn_bif_clash}],[]}},
 
           {otp_5362_7,
            <<"-export([spawn/1]).
@@ -1838,7 +1863,9 @@ otp_5362(Config) when is_list(Config) ->
                   spawn(A).
            ">>,
            {[nowarn_unused_function]},
-           {error,[{4,erl_lint,{bad_nowarn_bif_clash,{spawn,2}}}],
+           {error,[{3,erl_lint,disallowed_nowarn_bif_clash},
+		   {4,erl_lint,disallowed_nowarn_bif_clash},
+		   {4,erl_lint,{bad_nowarn_bif_clash,{spawn,2}}}],
             [{5,erl_lint,{bad_nowarn_deprecated_function,{3,hash,-1}}},
              {5,erl_lint,{bad_nowarn_deprecated_function,{erlang,hash,-1}}},
              {5,erl_lint,{bad_nowarn_deprecated_function,{{a,b,c},hash,-1}}}]}
@@ -1865,7 +1892,21 @@ otp_5362(Config) when is_list(Config) ->
               t() -> #a{}.
           ">>,
            {[]},
-           []}
+           []},
+
+          {otp_5362_10,
+           <<"-compile({nowarn_deprecated_function,{erlang,hash,2}}).
+              -compile({nowarn_bif_clash,{spawn,1}}).
+              -import(x,[spawn/1]).
+              spin(A) ->
+                  erlang:hash(A, 3000),
+                  spawn(A).
+           ">>,
+           {[nowarn_unused_function,
+             warn_deprecated_function,
+             warn_bif_clash]},
+           {errors,
+            [{2,erl_lint,disallowed_nowarn_bif_clash}],[]}}
 
           ],
 
@@ -2234,7 +2275,7 @@ otp_5878(Config) when is_list(Config) ->
                    {15,erl_lint,{undefined_field,r3,q}},
                    {17,erl_lint,{undefined_field,r,q}},
                    {21,erl_lint,illegal_guard_expr},
-                   {23,erl_lint,illegal_guard_expr}],
+                   {23,erl_lint,{illegal_guard_local_call,{l,0}}}],
            []} = 
         run_test2(Config, Ill1, [warn_unused_record]),
 
@@ -2389,9 +2430,9 @@ bif_clash(Config) when is_list(Config) ->
                 N.
              ">>,
            [],
-	   {errors,[{2,erl_lint,{call_to_redefined_bif,{size,1}}}],[]}},
+	   {errors,[{2,erl_lint,{call_to_redefined_old_bif,{size,1}}}],[]}},
 
-	  %% Verify that (some) warnings can be turned off.
+	  %% Verify that warnings can not be turned off in the old way.
 	  {clash2,
            <<"-export([t/1,size/1]).
               t(X) ->
@@ -2400,17 +2441,198 @@ bif_clash(Config) when is_list(Config) ->
               size({N,_}) ->
                 N.
 
-              %% My own abs/1 function works on lists too.
-              %% Unfortunately, it is not exported, so there will
-              %% be a warning that can't be turned off.
+              %% My own abs/1 function works on lists too. From R14 this really works.
               abs([H|T]) when $a =< H, H =< $z -> [H-($a-$A)|abs(T)];
               abs([H|T]) -> [H|abs(T)];
               abs([]) -> [];
               abs(X) -> erlang:abs(X).
              ">>,
-	   {[nowarn_bif_clash]},
-	   {warnings,[{11,erl_lint,{redefine_bif,{abs,1}}},
-		      {11,erl_lint,{unused_function,{abs,1}}}]}}],
+	   {[nowarn_unused_function,nowarn_bif_clash]},
+	   {errors,[{erl_lint,disallowed_nowarn_bif_clash}],[]}},
+	  %% As long as noone calls an overridden BIF, it's totally OK
+	  {clash3,
+           <<"-export([size/1]).
+              size({N,_}) ->
+                N;
+              size(X) ->
+                erlang:size(X).
+             ">>,
+	   [],
+	   []},
+	  %% But this is totally wrong - meaning of the program changed in R14, so this is an error
+	  {clash4,
+           <<"-export([size/1]).
+              size({N,_}) ->
+                N;
+              size(X) ->
+                size(X).
+             ">>,
+	   [],
+	   {errors,[{5,erl_lint,{call_to_redefined_old_bif,{size,1}}}],[]}},
+	  %% For a post R14 bif, its only a warning
+	  {clash5,
+           <<"-export([binary_part/2]).
+              binary_part({B,_},{X,Y}) ->
+                binary_part(B,{X,Y});
+              binary_part(B,{X,Y}) ->
+                binary:part(B,X,Y).
+             ">>,
+	   [],
+	   {warnings,[{3,erl_lint,{call_to_redefined_bif,{binary_part,2}}}]}},
+	  %% If you really mean to call yourself here, you can "unimport" size/1
+	  {clash6,
+           <<"-export([size/1]).
+              -compile({no_auto_import,[size/1]}).
+              size([]) ->
+                0;
+              size({N,_}) ->
+                N;
+              size([_|T]) ->
+                1+size(T).
+             ">>,
+	   [],
+	   []},
+	  %% Same for the post R14 autoimport warning
+	  {clash7,
+           <<"-export([binary_part/2]).
+              -compile({no_auto_import,[binary_part/2]}).
+              binary_part({B,_},{X,Y}) ->
+                binary_part(B,{X,Y});
+              binary_part(B,{X,Y}) ->
+                binary:part(B,X,Y).
+             ">>,
+	   [],
+	   []},
+          %% but this doesn't mean the local function is allowed in a guard...
+	  {clash8,
+           <<"-export([x/1]).
+              -compile({no_auto_import,[binary_part/2]}).
+              x(X) when binary_part(X,{1,2}) =:= <<1,2>> ->
+                 hej.
+              binary_part({B,_},{X,Y}) ->
+                binary_part(B,{X,Y});
+              binary_part(B,{X,Y}) ->
+                binary:part(B,X,Y).
+             ">>,
+	   [],
+	   {errors,[{3,erl_lint,{illegal_guard_local_call,{binary_part,2}}}],[]}},
+          %% no_auto_import is not like nowarn_bif_clash, it actually removes the autoimport
+	  {clash9,
+           <<"-export([x/1]).
+              -compile({no_auto_import,[binary_part/2]}).
+              x(X) ->
+                 binary_part(X,{1,2}) =:= <<1,2>>.
+             ">>,
+	   [],
+	   {errors,[{4,erl_lint,{undefined_function,{binary_part,2}}}],[]}},
+          %% but we could import it again...
+	  {clash10,
+           <<"-export([x/1]).
+              -compile({no_auto_import,[binary_part/2]}).
+              -import(erlang,[binary_part/2]).
+              x(X) ->
+                 binary_part(X,{1,2}) =:= <<1,2>>.
+             ">>,
+	   [],
+	   []},
+          %% and actually use it in a guard...
+	  {clash11,
+           <<"-export([x/1]).
+              -compile({no_auto_import,[binary_part/2]}).
+              -import(erlang,[binary_part/2]).
+              x(X) when binary_part(X,{0,1}) =:= <<0>> ->
+                 binary_part(X,{1,2}) =:= <<1,2>>.
+             ">>,
+	   [],
+	   []},
+          %% but for non-obvious historical reasons, imported functions cannot be used in
+	  %% fun construction without the module name...
+	  {clash12,
+           <<"-export([x/1]).
+              -compile({no_auto_import,[binary_part/2]}).
+              -import(erlang,[binary_part/2]).
+              x(X) when binary_part(X,{0,1}) =:= <<0>> ->
+                 binary_part(X,{1,2}) =:= fun binary_part/2.
+             ">>,
+	   [],
+	   {errors,[{5,erl_lint,{undefined_function,{binary_part,2}}}],[]}},
+          %% Not from erlang and not from anywhere else
+	  {clash13,
+           <<"-export([x/1]).
+              -compile({no_auto_import,[binary_part/2]}).
+              -import(x,[binary_part/2]).
+              x(X) ->
+                 binary_part(X,{1,2}) =:= fun binary_part/2.
+             ">>,
+	   [],
+	   {errors,[{5,erl_lint,{undefined_function,{binary_part,2}}}],[]}},
+	  %% ...while real auto-import is OK.
+	  {clash14,
+           <<"-export([x/1]).
+              x(X) when binary_part(X,{0,1}) =:= <<0>> ->
+                 binary_part(X,{1,2}) =:= fun binary_part/2.
+             ">>,
+	   [],
+	   []},
+          %% Import directive clashing with old bif is an error, regardless of if it's called or not
+	  {clash15,
+           <<"-export([x/1]).
+              -import(x,[abs/1]).
+              x(X) ->
+                 binary_part(X,{1,2}).
+             ">>,
+	   [],
+	   {errors,[{2,erl_lint,{redefine_old_bif_import,{abs,1}}}],[]}},
+	  %% For a new BIF, it's only a warning
+	  {clash16,
+           <<"-export([x/1]).
+              -import(x,[binary_part/3]).
+              x(X) ->
+                 abs(X).
+             ">>,
+	   [],
+	   {warnings,[{2,erl_lint,{redefine_bif_import,{binary_part,3}}}]}},
+	  %% And, you cannot redefine already imported things that aren't auto-imported
+	  {clash17,
+           <<"-export([x/1]).
+              -import(x,[binary_port/3]).
+              -import(y,[binary_port/3]).
+              x(X) ->
+                 abs(X).
+             ">>,
+	   [],
+	   {errors,[{3,erl_lint,{redefine_import,{{binary_port,3},x}}}],[]}},
+	  %% Not with local functions either
+	  {clash18,
+           <<"-export([x/1]).
+              -import(x,[binary_port/3]).
+              binary_port(A,B,C) ->
+                 binary_part(A,B,C).
+              x(X) ->
+                 abs(X).
+             ">>,
+	   [],
+	   {errors,[{3,erl_lint,{define_import,{binary_port,3}}}],[]}},
+	  %% Like clash8: Dont accept a guard if it's explicitly module-name called either
+	  {clash19,
+           <<"-export([binary_port/3]).
+              -compile({no_auto_import,[binary_part/3]}).
+              -import(x,[binary_part/3]).
+              binary_port(A,B,C) when x:binary_part(A,B,C) ->
+                 binary_part(A,B,C+1).
+             ">>,
+	   [],
+	   {errors,[{4,erl_lint,illegal_guard_expr}],[]}},
+	  %% Not with local functions either
+	  {clash20,
+           <<"-export([binary_port/3]).
+              -import(x,[binary_part/3]).
+              binary_port(A,B,C) ->
+                 binary_part(A,B,C).
+             ">>,
+	   [warn_unused_import],
+	   {warnings,[{2,erl_lint,{redefine_bif_import,{binary_part,3}}}]}}
+	 ],
 
     ?line [] = run(Config, Ts),
     ok.
@@ -2632,8 +2854,6 @@ format_level(Level, Count, Config) ->
 
 %% Test the -on_load(Name/0) directive.
 
-on_load(suite) ->
-    [on_load_successful, on_load_failing].
 
 on_load_successful(Config) when is_list(Config) ->
     Ts = [{on_load_1,
@@ -2714,6 +2934,21 @@ on_load_failing(Config) when is_list(Config) ->
     ?line [] = run(Config, Ts),
     ok.
 
+too_many_arguments(doc) ->
+    "Test that too many arguments is not accepted.";
+too_many_arguments(suite) -> [];
+too_many_arguments(Config) when is_list(Config) ->
+    Ts = [{too_many_1,
+	   <<"f(_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_) -> ok.">>,
+	   [],
+	   {errors,
+	    [{1,erl_lint,{too_many_arguments,256}}],[]}}
+	 ],
+	  
+    ?line [] = run(Config, Ts),
+    ok.
+
+
 run(Config, Tests) ->
     F = fun({N,P,Ws,E}, BadL) ->
                 case catch run_test(Config, P, Ws) of
@@ -2746,7 +2981,7 @@ run_test(Conf, Test0, Warnings0) ->
     run_test2(Conf, Test, Warnings0).
 
 run_test2(Conf, Test, Warnings0) ->
-    Filename = 'lint_test.erl',
+    Filename = "lint_test.erl",
     DataDir = ?privdir,
     File = filename:join(DataDir, Filename),
     Opts = case Warnings0 of

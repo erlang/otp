@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(release_handler).
@@ -25,9 +25,10 @@
 -export([start_link/0,
 	 create_RELEASES/1, create_RELEASES/2, create_RELEASES/4,
 	 unpack_release/1,
-	 check_install_release/1, install_release/1, install_release/2,
-	 remove_release/1, 
-	 which_releases/0, make_permanent/1, reboot_old_release/1,
+	 check_install_release/1, check_install_release/2,
+	 install_release/1, install_release/2, new_emulator_upgrade/2,
+	 remove_release/1, which_releases/0, which_releases/1,
+	 make_permanent/1, reboot_old_release/1,
 	 set_unpacked/2, set_removed/1, install_file/2]).
 -export([upgrade_app/2, downgrade_app/2, downgrade_app/3,
 	 upgrade_script/2, downgrade_script/3,
@@ -40,7 +41,7 @@
 %% Internal exports, a client release_handler may call this functions.
 -export([do_write_release/3, do_copy_file/2, do_copy_files/2,
 	 do_copy_files/1, do_rename_files/1, do_remove_files/1,
-	 do_write_file/2, do_ensure_RELEASES/1]).
+	 remove_file/1, do_write_file/2, do_ensure_RELEASES/1]).
 
 -record(state, {unpurged = [],
 		root,
@@ -61,10 +62,11 @@
 %%             remove                -
 %% current     make_permanent        permanent
 %%             install other         old
+%%             restart node          unpacked
 %%             remove                -
 %% permanent   make other permanent  old
 %%             install               permanent
-%% old         reboot                permanen
+%% old         reboot_old            permanent
 %%             install               current
 %%             remove                -
 %%-----------------------------------------------------------------
@@ -72,6 +74,14 @@
 -record(release, {name, vsn, erts_vsn, libs = [], status}).
 
 -define(timeout, 10000).
+
+%%-----------------------------------------------------------------
+%% The version set on the temporary release that will be used when the
+%% emulator is upgraded.
+-define(tmp_vsn(__BaseVsn__), "__new_emulator__"++__BaseVsn__).
+
+
+
 
 %%-----------------------------------------------------------------
 %% Assumes the following file structure:
@@ -144,44 +154,65 @@ start_link() ->
 %%                   exit_reason()
 %%-----------------------------------------------------------------
 unpack_release(ReleaseName) ->
-    gen_server:call(release_handler, {unpack_release, ReleaseName}, infinity).
+    call({unpack_release, ReleaseName}).
     
 %%-----------------------------------------------------------------
 %% Purpose: Checks the relup script for the specified version.
 %%          The release must be unpacked.
+%%          Options = [purge] - all old code that can be soft purged
+%%          will be purged if all checks succeeds. This can be usefull
+%%          in order to reduce time needed in the following call to
+%%          install_release.
 %% Returns: {ok, FromVsn, Descr} | {error, Reason}
-%%          Reason = {already_installed, Vsn} |
+%%          Reason = {illegal_option, IllegalOpt} |
+%%                   {already_installed, Vsn} |
 %%                   {bad_relup_file, RelFile} |
 %%                   {no_such_release, Vsn} |
 %%                   {no_such_from_vsn, Vsn} |
 %%                   exit_reason()
 %%-----------------------------------------------------------------
 check_install_release(Vsn) ->
-    gen_server:call(release_handler, {check_install_release, Vsn}, infinity).
+    check_install_release(Vsn, []).
+
+check_install_release(Vsn, Opts) ->
+    case check_check_install_options(Opts, false) of
+	{ok,Purge} ->
+	    call({check_install_release, Vsn, Purge});
+	Error ->
+	    Error
+    end.
+
+check_check_install_options([purge|Opts], _) ->
+    check_check_install_options(Opts, true);
+check_check_install_options([Illegal|_],_Purge) ->
+    {error,{illegal_option,Illegal}};
+check_check_install_options([],Purge) ->
+    {ok,Purge}.
 
 
 %%-----------------------------------------------------------------
 %% Purpose: Executes the relup script for the specified version.
 %%          The release must be unpacked.
-%% Returns: {ok, FromVsn, Descr} | {error, Reason}
+%% Returns: {ok, FromVsn, Descr} |
+%%          {continue_after_restart, FromVsn, Descr} |
+%%          {error, Reason}
 %%          Reason = {already_installed, Vsn} |
 %%                   {bad_relup_file, RelFile} |
 %%                   {no_such_release, Vsn} |
 %%                   {no_such_from_vsn, Vsn} |
+%%                   {could_not_create_hybrid_boot,Why} |
+%%                   {missing_base_app,Vsn,App} |
 %%                   {illegal_option, Opt}} |
 %%                   exit_reason()
 %%-----------------------------------------------------------------
 install_release(Vsn) ->
-    gen_server:call(release_handler, 
-		    {install_release, Vsn, restart, []}, 
-		    infinity).
+    call({install_release, Vsn, restart, []}).
+
 
 install_release(Vsn, Opt) ->
     case check_install_options(Opt, restart, []) of
 	{ok, ErrorAction, InstallOpt} ->
-	    gen_server:call(release_handler, 
-			    {install_release, Vsn, ErrorAction, InstallOpt},
-			    infinity);
+	    call({install_release, Vsn, ErrorAction, InstallOpt});
 	Error ->
 	    Error
     end.
@@ -213,6 +244,21 @@ check_timeout(Int) when is_integer(Int), Int > 0 -> true;
 check_timeout(_Else) -> false.
 
 %%-----------------------------------------------------------------
+%% Purpose: Called by boot script after emulator is restarted due to
+%%          new erts version.
+%% Returns: Same as install_release/2
+%%          If this crashes, the emulator restart will fail
+%%          (since the function is called from the boot script)
+%%          and there will be a rollback.
+%%-----------------------------------------------------------------
+new_emulator_upgrade(Vsn, Opts) ->
+    Result = call({install_release, Vsn, reboot, Opts}),
+    error_logger:info_msg(
+      "~p:install_release(~p,~p) completed after node restart "
+      "with new emulator version~nResult: ~p~n",[?MODULE,Vsn,Opts,Result]),
+    Result.
+
+%%-----------------------------------------------------------------
 %% Purpose: Makes the specified release version be the one that is
 %%          used when the system starts (or restarts).
 %%          The release must be installed (not unpacked).
@@ -222,13 +268,13 @@ check_timeout(_Else) -> false.
 %%                   exit_reason()
 %%-----------------------------------------------------------------
 make_permanent(Vsn) ->
-    gen_server:call(release_handler, {make_permanent, Vsn}, infinity).
+    call({make_permanent, Vsn}).
 
 %%-----------------------------------------------------------------
 %% Purpose: Reboots the system from an old release.
 %%-----------------------------------------------------------------
 reboot_old_release(Vsn) ->
-    gen_server:call(release_handler, {reboot_old_release, Vsn}, infinity).
+    call({reboot_old_release, Vsn}).
 
 %%-----------------------------------------------------------------
 %% Purpose: Deletes all files and directories used by the release
@@ -238,7 +284,7 @@ reboot_old_release(Vsn) ->
 %%          Reason = {permanent, Vsn} |
 %%-----------------------------------------------------------------
 remove_release(Vsn) ->
-    gen_server:call(release_handler, {remove_release, Vsn}, infinity).
+    call({remove_release, Vsn}).
 
 %%-----------------------------------------------------------------
 %% Args: RelFile = string()
@@ -257,7 +303,7 @@ remove_release(Vsn) ->
 %% Returns: ok | {error, Reason}
 %%-----------------------------------------------------------------
 set_unpacked(RelFile, LibDirs) ->
-    gen_server:call(release_handler, {set_unpacked, RelFile, LibDirs}).
+    call({set_unpacked, RelFile, LibDirs}).
 
 %%-----------------------------------------------------------------
 %% Args: Vsn = string()
@@ -267,7 +313,7 @@ set_unpacked(RelFile, LibDirs) ->
 %% Returns: ok | {error, Reason}
 %%-----------------------------------------------------------------
 set_removed(Vsn) ->
-    gen_server:call(release_handler, {set_removed, Vsn}).
+    call({set_removed, Vsn}).
 
 %%-----------------------------------------------------------------
 %% Purpose: Makes it possible to install the start.boot,
@@ -278,14 +324,22 @@ set_removed(Vsn) ->
 %% Returns: ok | {error, {no_such_release, Vsn}}
 %%-----------------------------------------------------------------
 install_file(Vsn, File) when is_list(File) ->
-    gen_server:call(release_handler, {install_file, File, Vsn}).
+    call({install_file, File, Vsn}).
 
 %%-----------------------------------------------------------------
 %% Returns: [{Name, Vsn, [LibName], Status}]
 %%          Status = unpacked | current | permanent | old
 %%-----------------------------------------------------------------
 which_releases() ->
-    gen_server:call(release_handler, which_releases).
+    call(which_releases).
+
+%%-----------------------------------------------------------------
+%% Returns: [{Name, Vsn, [LibName], Status}]
+%%          Status = unpacked | current | permanent | old
+%%-----------------------------------------------------------------
+which_releases(Status) ->
+    Releases = which_releases(),
+    get_releases_with_status(Releases, Status, []).
 
 %%-----------------------------------------------------------------
 %% check_script(Script, LibDirs) -> ok | {error, Reason}
@@ -294,17 +348,22 @@ check_script(Script, LibDirs) ->
     release_handler_1:check_script(Script, LibDirs).
 
 %%-----------------------------------------------------------------
-%% eval_script(Script, Apps, LibDirs, Opts) -> {ok, UnPurged} |
-%%                                             restart_new_emulator |
+%% eval_script(Script, Apps, LibDirs, NewLibs, Opts) ->
+%%                                             {ok, UnPurged} |
+%%                                             restart_emulator |
 %%                                             {error, Error}
 %%                                             {'EXIT', Reason}
 %% If sync_nodes is present, the calling process must have called
 %% net_kernel:monitor_nodes(true) before calling this function.
 %% No!  No other process than the release_handler can ever call this
 %% function, if sync_nodes is used.
-%%-----------------------------------------------------------------
-eval_script(Script, Apps, LibDirs, Opts) ->
-    catch release_handler_1:eval_script(Script, Apps, LibDirs, Opts).
+%%
+%% LibDirs is a list of all applications, while NewLibs is a list of
+%% applications that have changed version between the current and the
+%% new release.
+%% -----------------------------------------------------------------
+eval_script(Script, Apps, LibDirs, NewLibs, Opts) ->
+    catch release_handler_1:eval_script(Script, Apps, LibDirs, NewLibs, Opts).
 
 %%-----------------------------------------------------------------
 %% Func: create_RELEASES(Root, RelFile, LibDirs) -> ok | {error, Reason}
@@ -328,7 +387,7 @@ create_RELEASES(Root, RelDir, RelFile, LibDirs) ->
 
 %%-----------------------------------------------------------------
 %% Func: upgrade_app(App, Dir) -> {ok, Unpurged}
-%%                              | restart_new_emulator
+%%                              | restart_emulator
 %%                              | {error, Error}
 %% Types:
 %%   App = atom()
@@ -348,7 +407,7 @@ upgrade_app(App, NewDir) ->
 %%-----------------------------------------------------------------
 %% Func: downgrade_app(App, Dir)
 %%       downgrade_app(App, Vsn, Dir) -> {ok, Unpurged}
-%%                                     | restart_new_emulator
+%%                                     | restart_emulator
 %%                                     | {error, Error}
 %% Types:
 %%   App = atom()
@@ -407,6 +466,7 @@ eval_appup_script(App, ToVsn, ToDir, Script) ->
     AppSpecL = read_appspec(App, ToDir),
     Res = release_handler_1:eval_script(Script,
 					[], % [AppSpec]
+					[{App, ToVsn, ToDir}],
 					[{App, ToVsn, ToDir}],
 					[]), % [Opt]
     case Res of
@@ -468,11 +528,11 @@ read_appspec(App, Dir) ->
 	    throw(Reason)
     end.
 				      
-
-				     
-    
-	    
-    
+%%-----------------------------------------------------------------
+%% call(Request) -> Term
+%%-----------------------------------------------------------------
+call(Req) ->
+    gen_server:call(release_handler, Req, infinity).
 
 
 %%-----------------------------------------------------------------
@@ -538,11 +598,12 @@ handle_call({unpack_release, ReleaseName}, _From, S)
 handle_call({unpack_release, _ReleaseName}, _From, S) ->
     {reply, {error, client_node}, S};
 
-handle_call({check_install_release, Vsn}, _From, S) ->
+handle_call({check_install_release, Vsn, Purge}, _From, S) ->
     case catch do_check_install_release(S#state.rel_dir,
 					Vsn,
 					S#state.releases,
-					S#state.masters) of
+					S#state.masters,
+					Purge) of
 	{ok, CurrentVsn, Descr} -> 
 	    {reply, {ok, CurrentVsn, Descr}, S};
 	{error, Reason}   ->
@@ -554,7 +615,7 @@ handle_call({check_install_release, Vsn}, _From, S) ->
 handle_call({install_release, Vsn, ErrorAction, Opts}, From, S) ->
     NS = resend_sync_nodes(S),
     case catch do_install_release(S, Vsn, Opts) of
-	{ok, NewReleases, CurrentVsn, Descr} -> 
+	{ok, NewReleases, [], CurrentVsn, Descr} ->
 	    {reply, {ok, CurrentVsn, Descr}, NS#state{releases=NewReleases}};
 	{ok, NewReleases, Unpurged, CurrentVsn, Descr} ->
 	    Timer =
@@ -569,8 +630,12 @@ handle_call({install_release, Vsn, ErrorAction, Opts}, From, S) ->
 	    {reply, {ok, CurrentVsn, Descr}, NewS};
 	{error, Reason}   ->
 	    {reply, {error, Reason}, NS}; 
-	{restart_new_emulator, CurrentVsn, Descr} ->
+	{restart_emulator, CurrentVsn, Descr} ->
 	    gen_server:reply(From, {ok, CurrentVsn, Descr}),
+	    init:reboot(),
+	    {noreply, NS};
+	{restart_new_emulator, CurrentVsn, Descr} ->
+	    gen_server:reply(From, {continue_after_restart, CurrentVsn, Descr}),
 	    init:reboot(),
 	    {noreply, NS};
 	{'EXIT', Reason} ->
@@ -794,7 +859,7 @@ check_rel(Root, RelFile, Masters) ->
 check_rel(Root, RelFile, LibDirs, Masters) ->
     case consult(RelFile, Masters) of
 	{ok, [RelData]} ->
-	    check_rel_data(RelData, Root, LibDirs);
+	    check_rel_data(RelData, Root, LibDirs, Masters);
 	{ok, _} ->
 	    throw({error, {bad_rel_file, RelFile}});
 	{error, Reason} when is_tuple(Reason) ->
@@ -803,7 +868,8 @@ check_rel(Root, RelFile, LibDirs, Masters) ->
 	    throw({error, {FileError, RelFile}})
     end.
 
-check_rel_data({release, {Name, Vsn}, {erts, EVsn}, Libs}, Root, LibDirs) ->
+check_rel_data({release, {Name, Vsn}, {erts, EVsn}, Libs}, Root, LibDirs,
+		Masters) ->
     Libs2 =
 	lists:map(fun(LibSpec) ->
 			  Lib = element(1, LibSpec),
@@ -813,7 +879,7 @@ check_rel_data({release, {Name, Vsn}, {erts, EVsn}, Libs}, Root, LibDirs) ->
 			      case lists:keysearch(Lib, 1, LibDirs) of
 				  {value, {_Lib, _Vsn, Dir}} ->
 				      Path = filename:join(Dir,LibName),
-				      check_path(Path),
+				      check_path(Path, Masters),
 				      Path;
 				  _ ->
 				      filename:join([Root, "lib", LibName])
@@ -823,20 +889,35 @@ check_rel_data({release, {Name, Vsn}, {erts, EVsn}, Libs}, Root, LibDirs) ->
 		  Libs),
     #release{name = Name, vsn = Vsn, erts_vsn = EVsn,
 	     libs = Libs2, status = unpacking};
-check_rel_data(RelData, _Root, _LibDirs) ->
+check_rel_data(RelData, _Root, _LibDirs, _Masters) ->
     throw({error, {bad_rel_data, RelData}}).
 
 check_path(Path) ->
-    case file:read_file_info(Path) of
-	{ok, Info} when Info#file_info.type==directory ->
-	    ok;
-	{ok, _Info} ->
-	    throw({error, {not_a_directory, Path}});
-	{error, _Reason} ->
-	    throw({error, {no_such_directory, Path}})
-    end.
-    
-do_check_install_release(RelDir, Vsn, Releases, Masters) ->
+	check_path_response(Path, file:read_file_info(Path)).
+check_path(Path, false)   -> check_path(Path);
+check_path(Path, Masters) -> check_path_master(Masters, Path).
+
+%%-----------------------------------------------------------------
+%% check_path at any master node.
+%% If the path does not exist or is not a directory
+%% at one node it should not exist at any other node either.
+%%-----------------------------------------------------------------
+check_path_master([Master|Ms], Path) ->
+	case rpc:call(Master, file, read_file_info, [Path]) of
+	{badrpc, _} -> consult_master(Ms, Path);
+	Res         -> check_path_response(Path, Res)
+	end;
+check_path_master([], _Path) ->
+	{error, no_master}.
+
+check_path_response(_Path, {ok, Info}) when Info#file_info.type==directory ->
+	ok;
+check_path_response(Path, {ok, _Info}) ->
+	throw({error, {not_a_directory, Path}});
+check_path_response(Path, {error, _Reason}) ->
+	throw({error, {no_such_directory, Path}}).
+
+do_check_install_release(RelDir, Vsn, Releases, Masters, Purge) ->
     case lists:keysearch(Vsn, #release.vsn, Releases) of
 	{value, #release{status = current}} ->
 	    {error, {already_installed, Vsn}};
@@ -861,7 +942,20 @@ do_check_install_release(RelDir, Vsn, Releases, Masters) ->
 		    case get_rh_script(LatestRelease, Release, RelDir, Masters) of
 			{ok, {CurrentVsn, Descr, Script}} ->
 			    case catch check_script(Script, Libs) of
-				ok ->
+				{ok,SoftPurgeMods} when Purge=:=true ->
+				    %% Get modules with brutal_purge
+				    %% instructions, but that can be
+				    %% soft purged
+				    {ok,BrutalPurgeMods} =
+					release_handler_1:check_old_processes(
+					  Script,brutal_purge),
+				    lists:foreach(
+				      fun(Mod) ->
+					      catch erlang:purge_module(Mod)
+				      end,
+				      SoftPurgeMods ++ BrutalPurgeMods),
+				    {ok, CurrentVsn, Descr};
+				{ok,_} ->
 				    {ok, CurrentVsn, Descr};
 				Else ->
 				    Else
@@ -877,6 +971,7 @@ do_check_install_release(RelDir, Vsn, Releases, Masters) ->
     end.
 	    
 do_install_release(#state{start_prg = StartPrg,
+			  root = RootDir,
 			  rel_dir = RelDir, releases = Releases,
 			  masters = Masters,
 			  static_emulator = Static},
@@ -887,37 +982,58 @@ do_install_release(#state{start_prg = StartPrg,
 	{value, Release} ->
 	    LatestRelease = get_latest_release(Releases),
 	    case get_rh_script(LatestRelease, Release, RelDir, Masters) of
+		{ok, {_CurrentVsn, _Descr, [restart_new_emulator|_Script]}}
+		  when Static == true ->
+		    throw(static_emulator);
+		{ok, {CurrentVsn, Descr, [restart_new_emulator|_Script]}} ->
+		    %% This will only happen if the upgrade includes
+		    %% an emulator upgrade (and it is not a downgrade)
+		    %% - then the new emulator must be started before
+		    %% new code can be loaded.
+		    %% Create a temporary release which includes new
+		    %% emulator, kernel, stdlib and sasl - and old
+		    %% versions of other applications.
+		    {TmpVsn,TmpRelease} =
+			new_emulator_make_tmp_release(LatestRelease,Release,
+						      RelDir,Opts,Masters),
+		    NReleases = [TmpRelease|Releases],
+
+		    %% Then uppgrade to the temporary release.
+		    %% The rest of the upgrade will continue after the restart
+		    prepare_restart_new_emulator(StartPrg, RootDir,
+						 RelDir, TmpVsn, TmpRelease,
+						 NReleases, Masters),
+		    {restart_new_emulator, CurrentVsn, Descr};
 		{ok, {CurrentVsn, Descr, Script}} ->
+		    %% In case there has been an emulator upgrade,
+		    %% remove the temporary release
+		    NReleases =
+			new_emulator_rm_tmp_release(
+			  LatestRelease#release.vsn,
+			  LatestRelease#release.erts_vsn,
+			  Vsn,RelDir,Releases,Masters),
+
+		    %% Then execute the relup script
 		    mon_nodes(true),
 		    EnvBefore = application_controller:prep_config_change(),
 		    Apps = change_appl_data(RelDir, Release, Masters),
 		    LibDirs = Release#release.libs,
-		    case eval_script(Script, Apps, LibDirs, Opts) of
-			{ok, []} ->
-			    application_controller:config_change(EnvBefore),
-			    mon_nodes(false),
-			    NewReleases = set_status(Vsn, current, Releases),
-			    {ok, NewReleases, CurrentVsn, Descr};
+		    NewLibs = get_new_libs(LatestRelease#release.libs,
+					   Release#release.libs),
+		    case eval_script(Script, Apps, LibDirs, NewLibs, Opts) of
 			{ok, Unpurged} ->
 			    application_controller:config_change(EnvBefore),
 			    mon_nodes(false),
-			    NewReleases = set_status(Vsn, current, Releases),
-			    {ok, NewReleases, Unpurged, CurrentVsn, Descr};
-			restart_new_emulator when Static == true ->
+			    NReleases1 = set_status(Vsn, current, NReleases),
+			    {ok, NReleases1, Unpurged, CurrentVsn, Descr};
+			restart_emulator when Static == true ->
 			    throw(static_emulator);
-			restart_new_emulator ->
+			restart_emulator ->
 			    mon_nodes(false),
-			    {value, PermanentRelease} = 
-				lists:keysearch(permanent, #release.status,
-						Releases), 
-			    NReleases = set_status(Vsn, current, Releases),
-			    NReleases2 = set_status(Vsn,tmp_current,NReleases),
-			    write_releases(RelDir, NReleases2, Masters),
-			    prepare_restart_new_emulator(StartPrg, RelDir,
-							 Release, 
-							 PermanentRelease, 
-							 Masters),
-			    {restart_new_emulator, CurrentVsn, Descr};
+			    prepare_restart_new_emulator(StartPrg, RootDir,
+							 RelDir, Vsn, Release,
+							 NReleases, Masters),
+			    {restart_emulator, CurrentVsn, Descr};
 			Else ->
 			    application_controller:config_change(EnvBefore),
 			    mon_nodes(false),
@@ -929,6 +1045,145 @@ do_install_release(#state{start_prg = StartPrg,
 	_ ->
 	    {error, {no_such_release, Vsn}}
     end.
+
+new_emulator_make_tmp_release(CurrentRelease,ToRelease,RelDir,Opts,Masters) ->
+    CurrentVsn = CurrentRelease#release.vsn,
+    ToVsn = ToRelease#release.vsn,
+    TmpVsn = ?tmp_vsn(CurrentVsn),
+    BaseApps = [kernel,stdlib,sasl],
+    BaseLibs = [{App,Vsn,Lib} || {App,Vsn,Lib} <- ToRelease#release.libs,
+				 lists:member(App,BaseApps)],
+    check_base_libs(BaseLibs,ToVsn),
+    OldBaseLibs = [{App,Vsn,Lib} || {App,Vsn,Lib} <- CurrentRelease#release.libs,
+				    lists:member(App,BaseApps)],
+    check_base_libs(OldBaseLibs,CurrentVsn),
+    RestLibs = [{App,Vsn,Lib} || {App,Vsn,Lib} <- CurrentRelease#release.libs,
+				 not lists:member(App,BaseApps)],
+    TmpRelease = CurrentRelease#release{vsn=TmpVsn,
+					erts_vsn=ToRelease#release.erts_vsn,
+					libs = BaseLibs ++ RestLibs,
+					status = unpacked},
+    new_emulator_make_hybrid_boot(CurrentVsn,ToVsn,TmpVsn,BaseLibs,
+				  RelDir,Opts,Masters),
+    new_emulator_make_hybrid_config(CurrentVsn,ToVsn,TmpVsn,RelDir,Masters),
+    {TmpVsn,TmpRelease}.
+
+check_base_libs([_,_,_]=BaseLibs,_Vsn) ->
+    [Kernel,Sasl,Stdlib] = lists:keysort(1,BaseLibs),
+    [Kernel,Stdlib,Sasl];
+check_base_libs(SomeMissing,Vsn) ->
+    find_missing(SomeMissing,[kernel,stdlib,sasl],Vsn).
+
+find_missing(SomeMissing,[H|T],Vsn) ->
+    case lists:keymember(H,1,SomeMissing) of
+	true ->
+	    find_missing(SomeMissing,T,Vsn);
+	false ->
+	    throw({error,{missing_base_app,Vsn,H}})
+    end.
+
+new_emulator_make_hybrid_boot(CurrentVsn,ToVsn,TmpVsn,BaseLibs,RelDir,Opts,Masters) ->
+    FromBootFile = filename:join([RelDir,CurrentVsn,"start.boot"]),
+    ToBootFile = filename:join([RelDir,ToVsn,"start.boot"]),
+    TmpBootFile = filename:join([RelDir,TmpVsn,"start.boot"]),
+    ensure_dir(TmpBootFile,Masters),
+    Args = [ToVsn,Opts],
+    {ok,FromBoot} = read_file(FromBootFile,Masters),
+    {ok,ToBoot} = read_file(ToBootFile,Masters),
+    [KernelPath,SaslPath,StdlibPath] =
+	[filename:join(Path,ebin) || {_,_,Path} <- lists:keysort(1,BaseLibs)],
+    Paths = {KernelPath,StdlibPath,SaslPath},
+    case systools_make:make_hybrid_boot(TmpVsn,FromBoot,ToBoot,Paths,Args) of
+	{ok,TmpBoot} ->
+	    write_file(TmpBootFile,TmpBoot,Masters);
+	{error,Reason} ->
+	    throw({error,{could_not_create_hybrid_boot,Reason}})
+    end.
+
+new_emulator_make_hybrid_config(CurrentVsn,ToVsn,TmpVsn,RelDir,Masters) ->
+    FromFile = filename:join([RelDir,CurrentVsn,"sys.config"]),
+    ToFile = filename:join([RelDir,ToVsn,"sys.config"]),
+    TmpFile = filename:join([RelDir,TmpVsn,"sys.config"]),
+
+    FromConfig =
+	case consult(FromFile,Masters) of
+	    {ok,[FC]} ->
+		FC;
+	    {error,Error1} ->
+		io:format("Warning: ~p can not read ~p: ~p~n",
+			  [?MODULE,FromFile,Error1]),
+		[]
+	end,
+
+    [Kernel,Stdlib,Sasl] =
+	case consult(ToFile,Masters) of
+	    {ok,[ToConfig]} ->
+		[lists:keyfind(App,1,ToConfig) || App <- [kernel,stdlib,sasl]];
+	    {error,Error2} ->
+		io:format("Warning: ~p can not read ~p: ~p~n",
+			  [?MODULE,ToFile,Error2]),
+		[false,false,false]
+	end,
+
+    Config1 = replace_config(kernel,FromConfig,Kernel),
+    Config2 = replace_config(stdlib,Config1,Stdlib),
+    Config3 = replace_config(sasl,Config2,Sasl),
+
+    ConfigStr = io_lib:format("~p.~n",[Config3]),
+    write_file(TmpFile,ConfigStr,Masters).
+
+%% Take the configuration for application App from the new config and
+%% insert in the old config.
+%% If no entry exists in the new config, then delete the entry (if it exists)
+%% from the old config.
+%% If entry exists in the new config, but not in the old config, then
+%% add the entry.
+replace_config(App,Config,false) ->
+    lists:keydelete(App,1,Config);
+replace_config(App,Config,AppConfig) ->
+    lists:keystore(App,1,Config,AppConfig).
+
+%% Remove all files related to the temporary release
+new_emulator_rm_tmp_release(?tmp_vsn(_)=TmpVsn,EVsn,NewVsn,
+			    RelDir,Releases,Masters) ->
+    case os:type() of
+	{win32, nt} ->
+	    rename_tmp_service(EVsn,TmpVsn,NewVsn);
+	_ ->
+	    ok
+    end,
+    remove_dir(filename:join(RelDir,TmpVsn),Masters),
+    lists:keydelete(TmpVsn,#release.vsn,Releases);
+new_emulator_rm_tmp_release(_,_,_,_,Releases,_) ->
+    Releases.
+
+%% Rename the tempoarary service (for erts ugprade) to the real ToVsn
+rename_tmp_service(EVsn,TmpVsn,NewVsn) ->
+    FromName = hd(string:tokens(atom_to_list(node()),"@")) ++ "_" ++ TmpVsn,
+    ToName = hd(string:tokens(atom_to_list(node()),"@")) ++ "_" ++ NewVsn,
+    case erlsrv:get_service(EVsn,ToName) of
+	{error, _Error} ->
+	    ok;
+	_Data ->
+	    erlsrv:remove_service(ToName)
+    end,
+    rename_service(EVsn,FromName,ToName).
+
+
+%% Rename a service and check that it succeeded
+rename_service(EVsn,FromName,ToName) ->
+    case erlsrv:rename_service(EVsn,FromName,ToName) of
+	{ok,_} ->
+	    case erlsrv:get_service(EVsn,ToName) of
+		{error,Error1} ->
+		    throw({error,Error1});
+		_Data2 ->
+		    ok
+	    end;
+	Error2 ->
+	    throw({error,{service_rename_failed, Error2}})
+    end.
+
 
 %%% This code chunk updates the services in one of two ways,
 %%% Either the emulator is restarted, in which case the old service
@@ -946,26 +1201,16 @@ do_make_services_permanent(PermanentVsn,Vsn, PermanentEVsn, EVsn) ->
 	    %% rename.
 	    case os:getenv("ERLSRV_SERVICE_NAME") == PermName of
 		true ->
-		    case erlsrv:rename_service(EVsn,PermName,Name) of
-			{ok,_} ->
-			    case erlsrv:get_service(EVsn,Name) of
-				{error,Error2} ->
-				    throw({error,Error2});
-				_Data2 ->
-				    %% The interfaces for doing this are
-				    %% NOT published and may be subject to
-				    %% change. Do NOT do this anywhere else!
+		    rename_service(EVsn,PermName,Name),
+		    %% The interfaces for doing this are
+		    %% NOT published and may be subject to
+		    %% change. Do NOT do this anywhere else!
 
-				    os:putenv("ERLSRV_SERVICE_NAME", Name),
+		    os:putenv("ERLSRV_SERVICE_NAME", Name),
 
-				    %% Restart heart port program, this 
-				    %% function is only to be used here.
-				    heart:cycle(),
-				    ok
-			    end;
-			Error3 ->
-			    throw({error,{service_rename_failed, Error3}})
-		    end;
+		    %% Restart heart port program, this
+		    %% function is only to be used here.
+		    heart:cycle();
 		false ->
 		    throw({error,service_name_missmatch})
 	    end;
@@ -984,7 +1229,7 @@ do_make_services_permanent(PermanentVsn,Vsn, PermanentEVsn, EVsn) ->
 		    throw(Error4)
 	    end
     end.
-	    
+
 do_make_permanent(#state{releases = Releases,
 			 rel_dir = RelDir, unpurged = Unpurged,
 			 masters = Masters,
@@ -1204,21 +1449,31 @@ do_set_removed(RelDir, Vsn, Releases, Masters) ->
 %% corresponding relup instructions, we check if it's possible to
 %% downgrade from CurrentVsn to ToVsn.
 %%-----------------------------------------------------------------
-get_rh_script(#release{vsn = CurrentVsn},
-	      #release{vsn = Vsn},
+get_rh_script(#release{vsn = ?tmp_vsn(CurrentVsn)},
+	      #release{vsn = ToVsn},
 	      RelDir,
 	      Masters) ->
-    Relup = filename:join([RelDir, Vsn, "relup"]),
-    case try_upgrade(Vsn, CurrentVsn, Relup, Masters) of
+    {ok,{Vsn,Descr,[restart_new_emulator|Script]}} =
+	do_get_rh_script(CurrentVsn,ToVsn,RelDir,Masters),
+    {ok,{Vsn,Descr,Script}};
+get_rh_script(#release{vsn = CurrentVsn},
+	      #release{vsn = ToVsn},
+	      RelDir,
+	      Masters) ->
+    do_get_rh_script(CurrentVsn,ToVsn,RelDir,Masters).
+
+do_get_rh_script(CurrentVsn, ToVsn, RelDir, Masters) ->
+    Relup = filename:join([RelDir, ToVsn, "relup"]),
+    case try_upgrade(ToVsn, CurrentVsn, Relup, Masters) of
 	{ok, RhScript} ->
 	    {ok, RhScript};
 	_ ->
 	    Relup2 = filename:join([RelDir, CurrentVsn,"relup"]),
-	    case try_downgrade(Vsn, CurrentVsn, Relup2, Masters) of
+	    case try_downgrade(ToVsn, CurrentVsn, Relup2, Masters) of
 		{ok, RhScript} ->
 		    {ok, RhScript};
 		_ ->
-		    throw({error, {no_matching_relup, Vsn, CurrentVsn}})
+		    throw({error, {no_matching_relup, ToVsn, CurrentVsn}})
 	    end
     end.
 
@@ -1396,8 +1651,8 @@ prepare_restart_nt(#release{erts_vsn = EVsn, vsn = Vsn},
     FutureServiceName = hd(string:tokens(atom_to_list(node()),"@")) 
 	++ "_" ++ Vsn,
     CurrentService = case erlsrv:get_service(PermEVsn,CurrentServiceName) of
-			 {error, Reason} ->
-			     throw({error, Reason});
+			 {error, _} = Error1 ->
+			     throw(Error1);
 			 CS ->
 			     CS
 		     end,
@@ -1412,37 +1667,42 @@ prepare_restart_nt(#release{erts_vsn = EVsn, vsn = Vsn},
 					CurrentServiceName),
     
     case erlsrv:store_service(EVsn, FutureService) of
-	{error, Rison} ->
-	    throw({error,Rison});
-	_ ->
+	{error, _} = Error2 ->
+	    throw(Error2);
+	_X ->
 	    erlsrv:disable_service(EVsn, FutureServiceName),
 	    ErlSrv = filename:nativename(erlsrv:erlsrv(EVsn)),
-	    case heart:set_cmd(ErlSrv ++ " enable " ++ FutureServiceName ++
-			       " & " ++ ErlSrv ++ " start " ++ 
-			       FutureServiceName ++
-			       " & " ++ ErlSrv ++ " disable " ++ 
-			       FutureServiceName) of
+	    StartDisabled = ErlSrv ++ " start_disabled " ++ FutureServiceName,
+	    case heart:set_cmd(StartDisabled) of
 		ok ->
 		    ok;
-		Error ->
-		    throw({error, {'heart:set_cmd() error', Error}})
+		Error3 ->
+		    throw({error, {'heart:set_cmd() error', Error3}})
 	    end
     end.
     
-
 %%-----------------------------------------------------------------
 %% Set things up for restarting the new emulator.  The actual
 %% restart is performed by calling init:reboot() higher up.
 %%-----------------------------------------------------------------
-prepare_restart_new_emulator(StartPrg, RelDir,
-			     Release, PRelease,
-			     Masters) ->
+prepare_restart_new_emulator(StartPrg, RootDir, RelDir,
+			     Vsn, Release, Releases, Masters) ->
+    {value, PRelease} = lists:keysearch(permanent, #release.status,Releases),
+    NReleases1 = set_status(Vsn, current, Releases),
+    NReleases2 = set_status(Vsn,tmp_current,NReleases1),
+    write_releases(RelDir, NReleases2, Masters),
+    prepare_restart_new_emulator(StartPrg, RootDir, RelDir,
+				 Release, PRelease, Masters).
+
+prepare_restart_new_emulator(StartPrg, RootDir, RelDir,
+			     Release, PRelease, Masters) ->
     #release{erts_vsn = EVsn, vsn = Vsn} = Release,
     Data = EVsn ++ " " ++ Vsn,
     DataFile = write_new_start_erl(Data, RelDir, Masters),
     %% Tell heart to use DataFile instead of start_erl.data
     case os:type() of
 	{win32,nt} ->
+	    write_ini_file(RootDir,EVsn,Masters),
 	    prepare_restart_nt(Release,PRelease,DataFile); 
 	{unix,_} ->
 	    StartP = check_start_prg(StartPrg, Masters),
@@ -1460,19 +1720,10 @@ check_start_prg({do_check, StartPrg}, Masters) ->
 check_start_prg({_, StartPrg}, _) ->
     StartPrg.
 
-write_new_start_erl(Data, RelDir, false) ->
-    DataFile = filename:join([RelDir, "new_start_erl.data"]),
-    case do_write_file(DataFile, Data) of
-	ok    -> DataFile;
-	Error -> throw(Error)
-    end;
 write_new_start_erl(Data, RelDir, Masters) ->
     DataFile = filename:join([RelDir, "new_start_erl.data"]),
-    case at_all_masters(Masters, ?MODULE, do_write_file,
-			[DataFile, Data]) of
-	ok    -> DataFile;
-	Error -> throw(Error)
-    end.
+    write_file(DataFile, Data, Masters),
+    DataFile.
 
 %%-----------------------------------------------------------------
 %% When a new emulator shall be restarted, the current release
@@ -1486,26 +1737,40 @@ write_new_start_erl(Data, RelDir, Masters) ->
 %% If the release is made permanent, this is written to disk.
 %%-----------------------------------------------------------------
 transform_release(ReleaseDir, Releases, Masters) ->
-    F = fun(Release) when Release#release.status == tmp_current ->
-		Release#release{status = unpacked};
-	   (Release) -> Release
-	end,
-    case lists:map(F, Releases) of
-	Releases ->
-	    Releases;
-	DReleases ->
+    case init:script_id() of
+	{Name, ?tmp_vsn(_)=TmpVsn} ->
+	    %% This is was a reboot due to a new emulator version. The
+	    %% current release is a temporary internal release, which
+	    %% must be removed. It is the "real new release" that is
+	    %% set to unpacked on disk and current in memory.
+	    DReleases = lists:keydelete(TmpVsn,#release.vsn,Releases),
 	    write_releases(ReleaseDir, DReleases, Masters),
-	    F1 = fun(Release) when Release#release.status == tmp_current ->
-			 case init:script_id() of
-			     {_Name, Vsn} when Release#release.vsn == Vsn ->
-				 Release#release{status = current};
-			     _ ->
-				 Release#release{status = unpacked}
-			 end;
-		    (Release) -> Release
-		 end,
-	    lists:map(F1, Releases)
+	    set_current({Name,TmpVsn},Releases);
+	ScriptId ->
+	    F = fun(Release) when Release#release.status == tmp_current ->
+			Release#release{status = unpacked};
+		   (Release) -> Release
+		end,
+	    case lists:map(F, Releases) of
+		Releases ->
+		    Releases;
+		DReleases ->
+		    write_releases(ReleaseDir, DReleases, Masters),
+		    set_current(ScriptId, Releases)
+	    end
     end.
+
+set_current(ScriptId, Releases) ->
+    F1 = fun(Release) when Release#release.status == tmp_current ->
+		 case ScriptId of
+		     {_Name,Vsn} when Release#release.vsn == Vsn ->
+			 Release#release{status = current};
+		     _ ->
+			 Release#release{status = unpacked}
+		 end;
+	    (Release) -> Release
+	 end,
+    lists:map(F1, Releases).
 
 %%-----------------------------------------------------------------
 %% Functions handling files, RELEASES, start_erl.data etc.
@@ -1565,12 +1830,25 @@ extract_tar(Root, Tar) ->
 	    throw({error, {cannot_extract_file, Name, Reason}})
     end.
 
-write_releases(Dir, NewReleases, false) ->
+write_releases(Dir, Releases, Masters) ->
+    %% We must never write 'current' to disk, since this will confuse
+    %% us after a node restart - since we would then have a permanent
+    %% release running, but state set to current for a non-running
+    %% release.
+    NewReleases = lists:zf(fun(Release) when Release#release.status == current ->
+				   {true, Release#release{status = unpacked}};
+			      (_) ->
+				   true
+			   end, Releases),
+    write_releases_1(Dir, NewReleases, Masters).
+
+
+write_releases_1(Dir, NewReleases, false) ->
     case do_write_release(Dir, "RELEASES", NewReleases) of
 	ok    -> ok;
 	Error -> throw(Error)
     end;
-write_releases(Dir, NewReleases, Masters) ->
+write_releases_1(Dir, NewReleases, Masters) ->
     all_masters(Masters),
     write_releases_m(Dir, NewReleases, Masters).
 
@@ -1792,6 +2070,37 @@ read_file(File, false) ->
 read_file(File, Masters) ->
     read_master(Masters, File).
 
+write_file(File, Data, false) ->
+    case file:write_file(File, Data) of
+	ok    -> ok;
+	Error -> throw(Error)
+    end;
+write_file(File, Data, Masters) ->
+    case at_all_masters(Masters, file, write_file, [File, Data]) of
+	ok    -> ok;
+	Error -> throw(Error)
+    end.
+
+ensure_dir(File, false) ->
+    case filelib:ensure_dir(File) of
+	ok -> ok;
+	Error -> throw(Error)
+    end;
+ensure_dir(File, Masters) ->
+    case at_all_masters(Masters,filelib,ensure_dir,[File]) of
+	ok -> ok;
+	Error -> throw(Error)
+    end.
+
+remove_dir(Dir, false) ->
+    remove_file(Dir);
+remove_dir(Dir, Masters) ->
+    case at_all_masters(Masters,?MODULE,remove_file,[Dir]) of
+	ok -> ok;
+	Error -> throw(Error)
+    end.
+
+
 %% Ignore status of each delete !
 remove_files(Master, Files, Masters) ->
     takewhile(Master, Masters, ?MODULE, do_remove_files, [Files]).
@@ -1819,48 +2128,8 @@ write_start(File, Data, false) ->
     end;
 write_start(File, Data, Masters) ->
     all_masters(Masters),
-    write_start_m(File, Data, Masters).
+    safe_write_file_m(File, Data, Masters).
 
-
-%%-----------------------------------------------------------------
-%% Write the "start_erl.data" file at all master nodes.
-%%   1. Save "start_erl.backup" at all nodes.
-%%   2. Write the "start_erl.change" file at all nodes.
-%%   3. Move "start_erl.change" to "start_erl.data".
-%%   4. Remove "start_erl.backup" at all nodes.
-%%
-%% If one of the steps above fails, all steps is recovered from
-%% (as long as possible), except for 4 which is allowed to fail.
-%%-----------------------------------------------------------------
-write_start_m(File, Data, Masters) ->
-    Dir = filename:dirname(File),
-    Backup = filename:join(Dir, "start_erl.backup"),
-    Change = filename:join(Dir, "start_erl.change"),
-    case at_all_masters(Masters, ?MODULE, do_copy_files,
-			[File, [Backup]]) of
-	ok ->
-	    case at_all_masters(Masters, ?MODULE, do_write_file,
-				[Change, Data]) of
-		ok ->
-		    case at_all_masters(Masters, file, rename,
-					[Change, File]) of
-			ok ->
-			    remove_files(all, [Backup, Change], Masters),
-			    ok;
-			{error, {Master, R}} ->
-			    takewhile(Master, Masters, file, rename,
-				      [Backup, File]),
-			    remove_files(all, [Backup, Change], Masters),
-			    throw({error, {Master, R, move_start_erl}})
-		    end;
-		{error, {Master, R}} ->
-		    remove_files(all, [Backup, Change], Masters),
-		    throw({error, {Master, R, write_start_erl}})
-	    end;
-	{error, {Master, R}} ->
-	    remove_files(Master, [Backup], Masters),
-	    throw({error, {Master, R, backup_start_erl}})
-    end.
 
 %%-----------------------------------------------------------------
 %% Copy the "start.boot" and "sys.config" from SrcDir to DestDir at all
@@ -1904,3 +2173,108 @@ set_static_files(SrcDir, DestDir, Masters) ->
 	    remove_files(Master, [BackupBoot, BackupConf], Masters),
 	    throw({error, {Master, R, backup_start_config}})
     end.
+
+%%-----------------------------------------------------------------
+%% Write erl.ini
+%% Writes the erl.ini file used by erl.exe when (re)starting the erlang node.
+%% At first installation, this is done by Install.exe, which means that if
+%% the format of this file for some reason is changed, then Install.c must
+%% also be updated (and probably some other c-files which read erl.ini)
+%%-----------------------------------------------------------------
+write_ini_file(RootDir,EVsn,Masters) ->
+   BinDir = filename:join([RootDir,"erts-"++EVsn,"bin"]),
+   Str0 = io_lib:format("[erlang]~n"
+                        "Bindir=~s~n"
+                        "Progname=erl~n"
+                        "Rootdir=~s~n",
+		        [filename:nativename(BinDir),
+		         filename:nativename(RootDir)]),
+   Str = re:replace(Str0,"\\\\","\\\\\\\\",[{return,list},global]),
+   IniFile = filename:join(BinDir,"erl.ini"),
+   do_write_ini_file(IniFile,Str,Masters).
+
+do_write_ini_file(File,Data,false) ->
+    case do_write_file(File, Data) of
+	ok    -> ok;
+	Error -> throw(Error)
+    end;
+do_write_ini_file(File,Data,Masters) ->
+    all_masters(Masters),
+    safe_write_file_m(File, Data, Masters).
+
+
+%%-----------------------------------------------------------------
+%% Write the given file at all master nodes.
+%%   1. Save <File>.backup at all nodes.
+%%   2. Write <File>.change at all nodes.
+%%   3. Move <File>.change to <File>
+%%   4. Remove <File>.backup at all nodes.
+%%
+%% If one of the steps above fails, all steps are recovered from
+%% (as long as possible), except for 4 which is allowed to fail.
+%%-----------------------------------------------------------------
+safe_write_file_m(File, Data, Masters) ->
+    Backup = File ++ ".backup",
+    Change = File ++ ".change",
+    case at_all_masters(Masters, ?MODULE, do_copy_files,
+			[File, [Backup]]) of
+	ok ->
+	    case at_all_masters(Masters, ?MODULE, do_write_file,
+				[Change, Data]) of
+		ok ->
+		    case at_all_masters(Masters, file, rename,
+					[Change, File]) of
+			ok ->
+			    remove_files(all, [Backup, Change], Masters),
+			    ok;
+			{error, {Master, R}} ->
+			    takewhile(Master, Masters, file, rename,
+				      [Backup, File]),
+			    remove_files(all, [Backup, Change], Masters),
+			    throw({error, {Master, R, rename,
+					   filename:basename(Change),
+					   filename:basename(File)}})
+		    end;
+		{error, {Master, R}} ->
+		    remove_files(all, [Backup, Change], Masters),
+		    throw({error, {Master, R, write, filename:basename(Change)}})
+	    end;
+	{error, {Master, R}} ->
+	    remove_files(Master, [Backup], Masters),
+	    throw({error, {Master, R, backup,
+			   filename:basename(File),
+			   filename:basename(Backup)}})
+    end.
+
+%%-----------------------------------------------------------------
+%% Figure out which applications that have changed version between the
+%% two releases. The paths for these applications must always be
+%% updated, even if the relup script does not load any modules. See
+%% OTP-9402.
+%%
+%% A different situation is when the same application version is used
+%% in old and new release, but the path has changed. This is not
+%% handled here - instead it must be explicitely indicated by the
+%% 'update_paths' option to release_handler:install_release/2 if the
+%% code path shall be updated then.
+%% -----------------------------------------------------------------
+get_new_libs([{App,Vsn,_LibDir}|CurrentLibs], NewLibs) ->
+    case lists:keyfind(App,1,NewLibs) of
+	{App,NewVsn,_} = LibInfo when NewVsn =/= Vsn ->
+	    [LibInfo | get_new_libs(CurrentLibs,NewLibs)];
+	_ ->
+	    get_new_libs(CurrentLibs,NewLibs)
+    end;
+get_new_libs([],_) ->
+    [].
+
+%%-----------------------------------------------------------------
+%% Return a list of releases witch a specific status
+%%-----------------------------------------------------------------
+get_releases_with_status([], _, Acc) ->
+    Acc;
+get_releases_with_status([ {_, _, _, ReleaseStatus } = Head | Tail],
+                         Status, Acc) when ReleaseStatus == Status ->
+    get_releases_with_status(Tail, Status, [Head | Acc]);
+get_releases_with_status([_ | Tail], Status, Acc) ->
+    get_releases_with_status(Tail, Status, Acc).

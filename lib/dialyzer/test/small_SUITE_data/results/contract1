@@ -1,0 +1,3 @@
+
+contract1.erl:23: Function test/0 has no local return
+contract1.erl:24: The pattern 42 can never match the type 'a' | 'b' | 'c'

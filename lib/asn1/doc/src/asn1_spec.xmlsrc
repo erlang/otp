@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2009</year>
+      <year>2003</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -43,7 +43,7 @@
   <p>So far this functionality is only provided when using the
     optimized BER_BIN version, that is when compiling with the
     options <c>ber_bin</c> and <c>optimize</c>. It does also work
-    using the <c>driver</c> option. We have no intent to make this
+    using the <c>nif</c> option. We have no intent to make this
     available on the default BER version, but maybe in the PER_BIN
     version (<c>per_bin</c>).
     </p>
@@ -661,7 +661,9 @@ ValAction = {'Action',17,{'Button',4711,false}}.
       <p>The ASN.1 specs in the test are compiled with the options
         <c>ber_bin, optimize, driver</c> and <c>asn1config</c>. If the
         <c>driver</c> option had been omitted there should have been
-        higher values for <c>decode</c> and <c>decode_part</c>.
+        higher values for <c>decode</c> and <c>decode_part</c>. These tests have
+	not been re-run using nifs, but are expected to perform about 5% better
+	than the linked-in driver.
         </p>
       <p>The test program runs 10000 decodes on the value, resulting
         in a printout with the elapsed time in microseconds for the

@@ -63,7 +63,7 @@
         <v>Etag = string()</v>
       </type>
       <desc>
-        <p><c>create_etag/1</c> calculates the Etag for a file, from it's 
+        <p><c>create_etag/1</c> calculates the Etag for a file, from its
           size and time for last modification. fileinfo is a record defined 
           in <c>kernel/include/file.hrl</c></p>
 
@@ -78,7 +78,7 @@
         <v>HexValue = DecValue = string()</v>
       </type>
       <desc>
-        <p>Converts the hexadecimal value <c>HexValue</c> into it's
+        <p>Converts the hexadecimal value <c>HexValue</c> into its
           decimal equivalent (<c>DecValue</c>).</p>
 
 	<marker id="day"></marker>

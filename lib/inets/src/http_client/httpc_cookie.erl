@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,12 +18,32 @@
 %%
 %% Description: Cookie handling according to RFC 2109
 
+%% The syntax for the Set-Cookie response header is
+%% 
+%% set-cookie      =       "Set-Cookie:" cookies
+%% cookies         =       1#cookie
+%% cookie          =       NAME "=" VALUE *(";" cookie-av)
+%% NAME            =       attr
+%% VALUE           =       value
+%% cookie-av       =       "Comment" "=" value
+%%                 |       "Domain" "=" value
+%%                 |       "Max-Age" "=" value
+%%                 |       "Path" "=" value
+%%                 |       "Secure"
+%%                 |       "Version" "=" 1*DIGIT
+
+
+%% application:start(inets).
+%% httpc:set_options([{cookies, enabled}, {proxy, {{"www-proxy.ericsson.se",8080}, ["*.ericsson.se"]}}]).
+%% (catch httpc:request("http://www.expedia.com")).
+
 -module(httpc_cookie).
 
 -include("httpc_internal.hrl").
 
 -export([open_db/3, close_db/1, insert/2, header/4, cookies/3]). 
 -export([reset_db/1, which_cookies/1]). 
+-export([image_of/2, print/2]). 
 
 -record(cookie_db, {db, session_db}).
 
@@ -125,7 +145,7 @@ insert(#cookie_db{db = Db} = CookieDb,
 		    name    = Name, 
 		    path    = Path, 
 		    max_age = 0}) ->
-    ?hcrt("insert", [{domain, Key}, {name, Name}, {path, Path}]),
+    ?hcrt("insert cookie", [{domain, Key}, {name, Name}, {path, Path}]),
     Pattern = #http_cookie{domain = Key, name = Name, path = Path, _ = '_'}, 
     case dets:match_object(Db, Pattern) of
 	[] ->
@@ -136,7 +156,7 @@ insert(#cookie_db{db = Db} = CookieDb,
     ok;
 insert(#cookie_db{db = Db} = CookieDb,
        #http_cookie{domain = Key, name = Name, path = Path} = Cookie) ->
-    ?hcrt("insert", [{cookie, Cookie}]),
+    ?hcrt("insert cookie", [{cookie, Cookie}]),
     Pattern = #http_cookie{domain = Key,
 			   name = Name, 
 			   path = Path,
@@ -163,6 +183,7 @@ header(CookieDb, Scheme, {Host, _}, Path) ->
 	[] ->
 	    {"cookie", ""};
 	Cookies ->
+	    %% print_cookies("Header Cookies", Cookies), 
 	    {"cookie", cookies_to_string(Scheme, Cookies)}
     end.
 
@@ -173,11 +194,20 @@ header(CookieDb, Scheme, {Host, _}, Path) ->
 %%--------------------------------------------------------------------
 
 cookies(Headers, RequestPath, RequestHost) ->
+
     ?hcrt("cookies", [{headers,      Headers}, 
 		      {request_path, RequestPath}, 
 		      {request_host, RequestHost}]),
+
     Cookies = parse_set_cookies(Headers, {RequestPath, RequestHost}),
-    accept_cookies(Cookies, RequestPath, RequestHost).
+
+    %% print_cookies("Parsed Cookies", Cookies),
+
+    AcceptedCookies = accept_cookies(Cookies, RequestPath, RequestHost),
+
+    %% print_cookies("Accepted Cookies", AcceptedCookies),
+
+    AcceptedCookies.
 	
 
 %%--------------------------------------------------------------------
@@ -266,7 +296,8 @@ cookies_to_string(_, [], CookieStrs) ->
 	    lists:flatten(lists:reverse(CookieStrs))
     end;
 
-cookies_to_string(https, [#http_cookie{secure = true} = Cookie| Cookies], 
+cookies_to_string(https = Scheme, 
+		  [#http_cookie{secure = true} = Cookie| Cookies], 
 		  CookieStrs) ->
     Str = case Cookies of
 	      [] ->
@@ -274,7 +305,7 @@ cookies_to_string(https, [#http_cookie{secure = true} = Cookie| Cookies],
 	      _ ->
 		  cookie_to_string(Cookie) ++ "; "
 	  end,
-    cookies_to_string(https, Cookies, [Str | CookieStrs]);
+    cookies_to_string(Scheme, Cookies, [Str | CookieStrs]);
 
 cookies_to_string(Scheme, [#http_cookie{secure = true}| Cookies],  
 		  CookieStrs) ->
@@ -303,63 +334,54 @@ add_domain(Str, #http_cookie{domain_default = true}) ->
 add_domain(Str, #http_cookie{domain = Domain}) ->
     Str ++ "; $Domain=" ++  Domain.
 
-parse_set_cookies(OtherHeaders, DefaultPathDomain) ->
-    SetCookieHeaders = 
-	lists:foldl(fun({"set-cookie", Value}, Acc) ->  
-			    [string:tokens(Value, ",")| Acc];
-		       (_, Acc) ->
-			    Acc
-		    end, [], OtherHeaders),
-    
-    lists:flatten(
-      lists:map(fun(CookieHeader) ->
-			NewHeader = fix_netscape_cookie(CookieHeader, []),
-			parse_set_cookie(NewHeader, [], DefaultPathDomain) 
-		end,
-		SetCookieHeaders)).
+parse_set_cookies(CookieHeaders, DefaultPathDomain) ->
+    SetCookieHeaders = [Value || {"set-cookie", Value} <- CookieHeaders], 
+    Cookies = [parse_set_cookie(SetCookieHeader, DefaultPathDomain) || 
+		  SetCookieHeader <- SetCookieHeaders],
+    %% print_cookies("Parsed Cookies", Cookies),
+    Cookies.
 
-parse_set_cookie([], AccCookies, _) ->    
-    AccCookies;
-parse_set_cookie([CookieHeader | CookieHeaders], AccCookies, 
-		 Defaults = {DefaultPath, DefaultDomain}) -> 
-    [CookieStr | Attributes] = case string:tokens(CookieHeader, ";") of
-				   [CStr] ->
-				       [CStr, ""];
-				   [CStr | Attr] ->
-				       [CStr, Attr]
-			       end,
-    Pos = string:chr(CookieStr, $=),
-    Name = string:substr(CookieStr, 1, Pos - 1),
-    Value = string:substr(CookieStr, Pos + 1),
-    Cookie = #http_cookie{name = string:strip(Name), 
-			  value = string:strip(Value)},
-    NewAttributes = parse_set_cookie_attributes(Attributes),
-    TmpCookie = cookie_attributes(NewAttributes, Cookie),
+parse_set_cookie(CookieHeader, {DefaultPath, DefaultDomain}) ->
+    %% io:format("Raw Cookie: ~s~n", [CookieHeader]), 
+    Pos             = string:chr(CookieHeader, $=),
+    Name            = string:substr(CookieHeader, 1, Pos - 1),
+    {Value, Attrs}  = 
+	case string:substr(CookieHeader, Pos + 1) of
+	    [$;|ValueAndAttrs] ->
+		{"", string:tokens(ValueAndAttrs, ";")};
+	    ValueAndAttrs ->
+		[V | A] = string:tokens(ValueAndAttrs, ";"), 
+		{V, A}
+	end,
+    Cookie          = #http_cookie{name  = string:strip(Name), 
+				   value = string:strip(Value)},
+    Attributes      = parse_set_cookie_attributes(Attrs),
+    TmpCookie       = cookie_attributes(Attributes, Cookie),
     %% Add runtime defult values if necessary
-    NewCookie = domain_default(path_default(TmpCookie, DefaultPath), 
-			       DefaultDomain),
-    parse_set_cookie(CookieHeaders, [NewCookie | AccCookies], Defaults).
+    NewCookie       = domain_default(path_default(TmpCookie, DefaultPath), 
+				     DefaultDomain),
+    NewCookie.
+    
+parse_set_cookie_attributes(Attributes) when is_list(Attributes) ->
+    [parse_set_cookie_attribute(A) || A <- Attributes].
 
-parse_set_cookie_attributes([]) ->
-    [];
-parse_set_cookie_attributes([Attributes]) ->
-    lists:map(fun(Attr) -> 
-		      [AttrName, AttrValue] = 
-			  case string:tokens(Attr, "=") of
-			      %% All attributes have the form
-			      %% Name=Value except "secure"!
-			      [Name] -> 
-				  [Name, ""];
-			      [Name, Value] ->
-				  [Name, Value];
-			      %% Anything not expected will be
-			      %% disregarded
-			      _ -> 
-				  ["Dummy",""]
-			  end,
-		      {http_util:to_lower(string:strip(AttrName)), 
-		       string:strip(AttrValue)}
-	      end, Attributes).
+parse_set_cookie_attribute(Attribute) ->
+    {AName, AValue} = 
+	case string:tokens(Attribute, "=") of
+	    %% All attributes have the form
+	    %% Name=Value except "secure"!
+	    [Name] -> 
+		{Name, ""};
+	    [Name, Value] ->
+		{Name, Value};
+	    %% Anything not expected will be
+	    %% disregarded
+	    _ -> 
+		{"Dummy", ""}
+	end,
+    StrippedName  = http_util:to_lower(string:strip(AName)),
+    StrippedValue = string:strip(AValue),
+    {StrippedName, StrippedValue}.
 
 cookie_attributes([], Cookie) ->
     Cookie;
@@ -375,10 +397,15 @@ cookie_attributes([{"max-age", Value}| Attributes], Cookie) ->
 				Cookie#http_cookie{max_age = ExpireTime});
 %% Backwards compatibility with netscape cookies
 cookie_attributes([{"expires", Value}| Attributes], Cookie) ->
-    Time = http_util:convert_netscapecookie_date(Value),
-    ExpireTime = calendar:datetime_to_gregorian_seconds(Time),
-    cookie_attributes(Attributes, 
-		      Cookie#http_cookie{max_age = ExpireTime});
+    try http_util:convert_netscapecookie_date(Value) of
+	Time ->
+	    ExpireTime = calendar:datetime_to_gregorian_seconds(Time),
+	    cookie_attributes(Attributes, 
+			      Cookie#http_cookie{max_age = ExpireTime})
+    catch 
+	_:_ ->
+	    cookie_attributes(Attributes, Cookie)
+    end;
 cookie_attributes([{"path", Value}| Attributes], Cookie) ->
     cookie_attributes(Attributes, 
 		      Cookie#http_cookie{path = Value});
@@ -404,7 +431,7 @@ path_default(#http_cookie{path = undefined} = Cookie, DefaultPath) ->
 path_default(Cookie, _) ->
     Cookie.
 
-%% Note: if the path is only / that / will be keept
+%% Note: if the path is only / that / will be kept
 skip_right_most_slash("/") ->
     "/";
 skip_right_most_slash(Str) ->
@@ -476,20 +503,43 @@ path_sort(Cookies)->
     lists:reverse(lists:keysort(#http_cookie.path, Cookies)).
 
 
-%%  Informally, the Set-Cookie response header comprises the token
-%%  Set-Cookie:, followed by a comma-separated list of one or more
-%%  cookies. Netscape cookies expires attribute may also have a
-%% , in this case the header list will have been incorrectly split
-%% in parse_set_cookies/2 this functions fixs that problem.
-fix_netscape_cookie([Cookie1, Cookie2 | Rest], Acc) ->
-    case inets_regexp:match(Cookie1, "expires=") of
-	{_, _, _} ->
-	    fix_netscape_cookie(Rest, [Cookie1 ++ Cookie2 | Acc]);
-	nomatch ->
-	    fix_netscape_cookie([Cookie2 |Rest], [Cookie1| Acc])
-    end;
-fix_netscape_cookie([Cookie | Rest], Acc) ->
-    fix_netscape_cookie(Rest, [Cookie | Acc]);
+%% print_cookies(Header, Cookies) ->
+%%     io:format("~s:~n", [Header]),
+%%     Prefix = "   ", 
+%%     lists:foreach(fun(Cookie) -> print(Prefix, Cookie) end, Cookies).
 
-fix_netscape_cookie([], Acc) ->
-    Acc.
+image_of(Prefix, 
+	 #http_cookie{domain         = Domain,
+		      domain_default = DomainDef,
+		      name           = Name,
+		      value          = Value,
+		      comment        = Comment,
+		      max_age        = MaxAge,
+		      path           = Path, 
+		      path_default   = PathDef,
+		      secure         = Sec,
+		      version        = Version}) ->
+    lists:flatten(
+      io_lib:format("~sCookie ~s: "
+		    "~n~s   Value:     ~p"
+		    "~n~s   Domain:    ~p"
+		    "~n~s   DomainDef: ~p"
+		    "~n~s   Comment:   ~p"
+		    "~n~s   MaxAge:    ~p"
+		    "~n~s   Path:      ~p"
+		    "~n~s   PathDef:   ~p"
+		    "~n~s   Secure:    ~p"
+		    "~n~s   Version:   ~p", 
+		    [Prefix, Name, 
+		     Prefix, Value, 
+		     Prefix, Domain, 
+		     Prefix, DomainDef, 
+		     Prefix, Comment, 
+		     Prefix, MaxAge, 
+		     Prefix, Path, 
+		     Prefix, PathDef, 
+		     Prefix, Sec, 
+		     Prefix, Version])).
+
+print(Prefix, Cookie) when is_record(Cookie, http_cookie) ->
+    io:format("~s~n", [image_of(Prefix, Cookie)]).

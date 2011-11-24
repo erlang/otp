@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,7 +19,9 @@
 
 -module(timer_bif_SUITE).
 
--export([all/1,init_per_testcase/2,fin_per_testcase/2,end_per_suite/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
+	 init_per_testcase/2,end_per_testcase/2]).
 -export([start_timer_1/1, send_after_1/1, send_after_2/1, send_after_3/1,
 	 cancel_timer_1/1,
 	 start_timer_big/1, send_after_big/1,
@@ -27,7 +29,7 @@
 	 read_timer_trivial/1, read_timer/1,
 	 cleanup/1, evil_timers/1, registered_process/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 init_per_testcase(_Case, Config) ->
     ?line Dog=test_server:timetrap(test_server:seconds(30)),
@@ -37,19 +39,35 @@ init_per_testcase(_Case, Config) ->
     end,
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
+init_per_suite(Config) ->
+    Config.
+
 end_per_suite(_Config) ->
     catch erts_debug:set_internal_state(available_internal_state, false).
 
-all(suite) ->
-    [start_timer_1, send_after_1, send_after_2, cancel_timer_1,
-     start_timer_e, send_after_e, cancel_timer_e,
-     start_timer_big, send_after_big, read_timer_trivial, read_timer,
-     cleanup, evil_timers, registered_process].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [start_timer_1, send_after_1, send_after_2,
+     cancel_timer_1, start_timer_e, send_after_e,
+     cancel_timer_e, start_timer_big, send_after_big,
+     read_timer_trivial, read_timer, cleanup, evil_timers,
+     registered_process].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 start_timer_1(doc) -> ["Basic start_timer/3 functionality"];
 start_timer_1(Config) when is_list(Config) ->

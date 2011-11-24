@@ -1,0 +1,5 @@
+
+inf_loop1.erl:119: The pattern [{_, LNorms}] can never match the type []
+inf_loop1.erl:121: The pattern [{LinksA, LNormA}, {LinksB, LNormB}] can never match the type []
+inf_loop1.erl:129: The pattern [{_, Norm} | _] can never match the type []
+inf_loop1.erl:71: The call gb_trees:get(Edge::any(),Etab::array()) contains an opaque term as 2nd argument when terms of different types are expected in these positions

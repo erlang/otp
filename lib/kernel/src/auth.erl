@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(auth).
@@ -37,10 +37,12 @@
 
 -define(COOKIE_ETS_PROTECTION, protected). 
 
+-type cookie() :: atom().
 -record(state, {
-	  our_cookie,       %% Our own cookie
-	  other_cookies     %% The send-cookies of other nodes
+	  our_cookie    :: cookie(),  %% Our own cookie
+	  other_cookies :: ets:tab()  %% The send-cookies of other nodes
 	 }).
+-type state() :: #state{}.
 
 -include("../include/file.hrl").
 
@@ -48,12 +50,15 @@
 %% Exported functions
 %%----------------------------------------------------------------------
 
+-spec start_link() -> {'ok',pid()} | {'error', term()} | 'ignore'.
+
 start_link() ->
     gen_server:start_link({local, auth}, auth, [], []).
 
 %%--Deprecated interface------------------------------------------------
 
--spec is_auth(Node :: node()) -> 'yes' | 'no'.
+-spec is_auth(Node) -> 'yes' | 'no' when
+      Node :: node().
 
 is_auth(Node) ->
     case net_adm:ping(Node) of
@@ -61,24 +66,29 @@ is_auth(Node) ->
 	pang -> no
     end.
 
--spec cookie() -> atom().
+-spec cookie() -> Cookie when
+      Cookie :: cookie().
 
 cookie() ->
     get_cookie().
 
--spec cookie(Cookies :: [atom(),...] | atom()) -> 'true'.
+-spec cookie(TheCookie) -> 'true' when
+      TheCookie :: Cookie | [Cookie],
+      Cookie :: cookie().
 
 cookie([Cookie]) ->
     set_cookie(Cookie);
 cookie(Cookie) ->
     set_cookie(Cookie).
 
--spec node_cookie(Cookies :: [atom(),...]) -> 'yes' | 'no'.
+-spec node_cookie(Cookies :: [node() | cookie(),...]) -> 'yes' | 'no'.
 
 node_cookie([Node, Cookie]) ->
     node_cookie(Node, Cookie).
 
--spec node_cookie(Node :: node(), Cookie :: atom()) -> 'yes' | 'no'.
+-spec node_cookie(Node, Cookie) -> 'yes' | 'no' when
+      Node :: node(),
+      Cookie :: cookie().
 
 node_cookie(Node, Cookie) ->
     set_cookie(Node, Cookie),
@@ -86,24 +96,24 @@ node_cookie(Node, Cookie) ->
 
 %%--"New" interface-----------------------------------------------------
 
--spec get_cookie() -> atom().
+-spec get_cookie() -> 'nocookie' | cookie().
 
 get_cookie() ->
     get_cookie(node()).
 
--spec get_cookie(Node :: node()) -> atom().
+-spec get_cookie(Node :: node()) -> 'nocookie' | cookie().
 
 get_cookie(_Node) when node() =:= nonode@nohost ->
     nocookie;
 get_cookie(Node) ->
     gen_server:call(auth, {get_cookie, Node}).
 
--spec set_cookie(Cookie :: atom()) -> 'true'.
+-spec set_cookie(Cookie :: cookie()) -> 'true'.
 
 set_cookie(Cookie) ->
     set_cookie(node(), Cookie).
 
--spec set_cookie(Node :: node(), Cookie :: atom()) -> 'true'.
+-spec set_cookie(Node :: node(), Cookie :: cookie()) -> 'true'.
 
 set_cookie(_Node, _Cookie) when node() =:= nonode@nohost ->
     erlang:error(distribution_not_started);
@@ -117,10 +127,12 @@ sync_cookie() ->
 
 -spec print(Node :: node(), Format :: string(), Args :: [_]) -> 'ok'.
 
-print(Node,Format,Args) ->
-    (catch gen_server:cast({auth,Node},{print,Format,Args})).
+print(Node, Format, Args) ->
+    (catch gen_server:cast({auth, Node}, {print, Format, Args})).
 
 %%--gen_server callbacks------------------------------------------------
+
+-spec init([]) -> {'ok', state()}.
 
 init([]) ->
     process_flag(trap_exit, true),
@@ -129,6 +141,13 @@ init([]) ->
 %% Opened is a list of servers we have opened up
 %% The net kernel will let all message to the auth server 
 %% through as is
+
+-type calls() :: 'echo' | 'sync_cookie'
+               | {'get_cookie', node()}
+               | {'set_cookie', node(), term()}.
+
+-spec handle_call(calls(), {pid(), term()}, state()) ->
+        {'reply', 'hello' | 'true' | 'nocookie' | cookie(), state()}.
 
 handle_call({get_cookie, Node}, {_From,_Tag}, State) when Node =:= node() ->
     {reply, State#state.our_cookie, State};
@@ -145,7 +164,7 @@ handle_call({set_cookie, Node, Cookie}, {_From,_Tag}, State)
 
 %%
 %% Happens when the distribution is brought up and 
-%% Someone wight have set up the cookie for our new nodename.
+%% someone might have set up the cookie for our new node name.
 %%
 
 handle_call({set_cookie, Node, Cookie}, {_From,_Tag}, State)  ->
@@ -153,9 +172,9 @@ handle_call({set_cookie, Node, Cookie}, {_From,_Tag}, State)  ->
     {reply, true, State};
     
 handle_call(sync_cookie, _From, State) ->
-    case ets:lookup(State#state.other_cookies,node()) of
+    case ets:lookup(State#state.other_cookies, node()) of
 	[{_N,C}] ->
-	    ets:delete(State#state.other_cookies,node()),
+	    ets:delete(State#state.other_cookies, node()),
 	    {reply, true, State#state{our_cookie = C}};
 	[] ->
 	    {reply, true, State}
@@ -164,12 +183,21 @@ handle_call(sync_cookie, _From, State) ->
 handle_call(echo, _From, O) -> 
     {reply, hello, O}.
 
+%%
+%% handle_cast/2
+%%
+
+-spec handle_cast({'print', string(), [term()]}, state()) ->
+        {'noreply', state()}.
+
 handle_cast({print,What,Args}, O) ->
   %% always allow print outs
-  error_logger:error_msg(What,Args), 
+  error_logger:error_msg(What, Args),
   {noreply, O}.
 
 %% A series of bad messages that may come (from older distribution versions).
+
+-spec handle_info(term(), state()) -> {'noreply', state()}.
 
 handle_info({From,badcookie,net_kernel,{From,spawn,_M,_F,_A,_Gleader}}, O) ->
     auth:print(node(From) ,"~n** Unauthorized spawn attempt to ~w **~n",
@@ -184,14 +212,14 @@ handle_info({From,badcookie,net_kernel,{From,spawn_link,_M,_F,_A,_Gleader}}, O) 
     {noreply, O};
 handle_info({_From,badcookie,ddd_server,_Mess}, O) ->
     %% Ignore bad messages to the ddd server, they will be resent
-    %% If the authentication is succesful
+    %% If the authentication is successful
     {noreply, O};
 handle_info({From,badcookie,rex,_Msg}, O) ->
     auth:print(getnode(From), 
-	       "~n** Unauthorized rpc attempt to ~w **~n",[node()]),
+	       "~n** Unauthorized rpc attempt to ~w **~n", [node()]),
     disconnect_node(node(From)), 
     {noreply, O};
-%% These two messages has to do with the old auth:is_auth() call (net_adm:ping)
+%% These two messages have to do with the old auth:is_auth() call (net_adm:ping)
 handle_info({From,badcookie,net_kernel,{'$gen_call',{From,Tag},{is_auth,_Node}}}, O) -> %% ho ho
     From ! {Tag, no},
     {noreply, O};
@@ -215,11 +243,15 @@ handle_info({From,badcookie,Name,Mess}, Opened) ->
 	    end
     end, 
     {noreply, Opened};
-handle_info(_, O)->   % Ignore anything else especially EXIT signals
+handle_info(_, O) ->   % Ignore anything else especially EXIT signals
     {noreply, O}.
+
+-spec code_change(term(), state(), term()) -> {'ok', state()}.
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
+
+-spec terminate(term(), state()) -> 'ok'.
 
 terminate(_Reason, _State) ->
     ok.
@@ -260,7 +292,7 @@ init_cookie() ->
 	    end;
 	_Other ->
 	    #state{our_cookie = nocookie,
-		   other_cookies = ets:new(cookies,[?COOKIE_ETS_PROTECTION])}
+		   other_cookies = ets:new(cookies, [?COOKIE_ETS_PROTECTION])}
     end.
 
 read_cookie() ->

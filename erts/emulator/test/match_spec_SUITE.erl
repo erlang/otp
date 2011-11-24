@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,43 +19,65 @@
 
 -module(match_spec_SUITE).
 
--export([all/1, not_run/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, not_run/1]).
 -export([test_1/1, test_2/1, test_3/1, bad_match_spec_bin/1,
 	 trace_control_word/1, silent/1, silent_no_ms/1, 
 	 ms_trace2/1, ms_trace3/1, boxed_and_small/1,
 	 destructive_in_test_bif/1, guard_exceptions/1,
 	 unary_plus/1, unary_minus/1, moving_labels/1]).
 -export([fpe/1]).
+-export([otp_9422/1]).
 
--export([runner/2]).
+-export([runner/2, loop_runner/3]).
 -export([f1/1, f2/2, f3/2, fn/1, fn/2, fn/3]).
 -export([do_boxed_and_small/0]).
 
 % This test suite assumes that tracing in general works. What we test is
 % the match spec functionality.
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog=?t:timetrap(?t:seconds(10)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     Dog=?config(watchdog, Config),
     ?t:timetrap_cancel(Dog).
 
 
-all(suite) ->
-    case test_server:is_native(?MODULE) of
-	false -> [test_1, test_2, test_3, bad_match_spec_bin,
-		  trace_control_word, silent, silent_no_ms, 
-		  ms_trace2, ms_trace3, boxed_and_small,
-		  destructive_in_test_bif, guard_exceptions,
-		  unary_plus, unary_minus, fpe, moving_labels];
-	true  -> [not_run]
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    case test_server:is_native(match_spec_SUITE) of
+	false ->
+	    [test_1, test_2, test_3, bad_match_spec_bin,
+	     trace_control_word, silent, silent_no_ms, ms_trace2,
+	     ms_trace3, boxed_and_small, destructive_in_test_bif,
+	     guard_exceptions, unary_plus, unary_minus, fpe,
+	     moving_labels,
+	     otp_9422];
+	true -> [not_run]
     end.
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 not_run(Config) when is_list(Config) ->
     {skipped, "Native Code"}.
@@ -187,6 +209,43 @@ test_3(Config) when is_list(Config) ->
 							     {?MODULE,f3,2}]}]),
     ?line collect(P1, [{trace, P1, call, {?MODULE, f2, [a, b]}, [true]}]),
     ?line ok.
+
+otp_9422(doc) -> [];
+otp_9422(Config) when is_list(Config) ->
+    Laps = 1000,
+    ?line Fun1 = fun() -> otp_9422_tracee() end,
+    ?line P1 = spawn_link(?MODULE, loop_runner, [self(), Fun1, Laps]),
+    io:format("spawned ~p as tracee\n", [P1]),
+
+    ?line erlang:trace(P1, true, [call, silent]),
+
+    ?line Fun2 = fun() -> otp_9422_trace_changer() end,
+    ?line P2 = spawn_link(?MODULE, loop_runner, [self(), Fun2, Laps]),
+    io:format("spawned ~p as trace_changer\n", [P2]),
+
+    start_collect(P1),
+    start_collect(P2),
+
+    %%receive after 10*1000 -> ok end,
+
+    stop_collect(P1),
+    stop_collect(P2),
+    ok.
+    
+otp_9422_tracee() ->
+    ?MODULE:f1(a),
+    ?MODULE:f1(b),
+    ?MODULE:f1(c).
+
+otp_9422_trace_changer() ->
+    Pat1 = [{[a], [], [{enable_trace, arity}]}],
+    ?line erlang:trace_pattern({?MODULE, f1, 1}, Pat1),
+    Pat2 = [{[b], [], [{disable_trace, arity}]}],
+    ?line erlang:trace_pattern({?MODULE, f1, 1}, Pat2).
+
+    
+    
+
 
 bad_match_spec_bin(Config) when is_list(Config) ->
     {'EXIT',{badarg,_}} = (catch ets:match_spec_run([1], <<>>)),
@@ -345,15 +404,15 @@ silent_no_ms(Config) when is_list(Config) ->
 	    fun () -> 
 		    ?MODULE:f1(a),
 		    ?MODULE:f2(b, c),
-		    erlang:integer_to_list(id(1)),
+		    _ = erlang:integer_to_list(id(1)),
 		    ?MODULE:f3(d, e),
 		    ?MODULE:f1(start),
 		    ?MODULE:f2(f, g),
-		    erlang:integer_to_list(id(2)),
+		    _ = erlang:integer_to_list(id(2)),
 		    ?MODULE:f3(h, i),
 		    ?MODULE:f1(stop),
 		    ?MODULE:f2(j, k),
-		    erlang:integer_to_list(id(3)),
+		    _ = erlang:integer_to_list(id(3)),
 		    ?MODULE:f3(l, m)
 	    end,
 	    fun (Tracee) ->
@@ -393,15 +452,15 @@ silent_no_ms(Config) when is_list(Config) ->
 	    fun () -> 
 		    ?MODULE:f1(a),
 		    ?MODULE:f2(b, c),
-		    erlang:integer_to_list(id(1)),
+		    _ = erlang:integer_to_list(id(1)),
 		    ?MODULE:f3(d, e),
 		    ?MODULE:f1(start),
 		    ?MODULE:f2(f, g),
-		    erlang:integer_to_list(id(2)),
+		    _ = erlang:integer_to_list(id(2)),
 		    ?MODULE:f3(h, i),
 		    ?MODULE:f1(stop),
 		    ?MODULE:f2(j, k),
-		    erlang:integer_to_list(id(3)),
+		    _ = erlang:integer_to_list(id(3)),
 		    ?MODULE:f3(l, m)
 	    end,
 	    fun (Tracee) ->
@@ -455,18 +514,18 @@ ms_trace2(Config) when is_list(Config) ->
 	    fun () -> 
 		    ?MODULE:f1(a),
 		    ?MODULE:f2(b, c),
-		    erlang:integer_to_list(id(1)),
+		    _ = erlang:integer_to_list(id(1)),
 		    ?MODULE:f3(d, e),
 		    fn([all], [call,return_to,{tracer,Tracer}]),
 		    ?MODULE:f1(f),
 		    f2(g, h),
 		    f1(i),
-		    erlang:integer_to_list(id(2)),
+		    _ = erlang:integer_to_list(id(2)),
 		    ?MODULE:f3(j, k),
 		    fn([call,return_to], []),
 		    ?MODULE:f1(l),
 		    ?MODULE:f2(m, n),
-		    erlang:integer_to_list(id(3)),
+		    _ = erlang:integer_to_list(id(3)),
 		    ?MODULE:f3(o, p)
 	    end,
 	    fun (Tracee) ->
@@ -551,26 +610,26 @@ ms_trace3(Config) when is_list(Config) ->
 		    register(TraceeName, self()),
 		    ?MODULE:f1(a),
 		    ?MODULE:f2(b, c),
-		    erlang:integer_to_list(id(1)),
+		    _ = erlang:integer_to_list(id(1)),
 		    ?MODULE:f3(d, e),
 		    Controller ! {self(),Tag,start},
 		    receive {Controller,Tag,started} -> ok end,
 		    ?MODULE:f1(f),
 		    f2(g, h),
 		    f1(i),
-		    erlang:integer_to_list(id(2)),
+		    _ = erlang:integer_to_list(id(2)),
 		    ?MODULE:f3(j, k),
 		    Controller ! {self(),Tag,stop_1},
 		    receive {Controller,Tag,stopped_1} -> ok end,
 		    ?MODULE:f1(l),
 		    ?MODULE:f2(m, n),
-		    erlang:integer_to_list(id(3)),
+		    _ = erlang:integer_to_list(id(3)),
 		    ?MODULE:f3(o, p),
 		    Controller ! {self(),Tag,stop_2},
 		    receive {Controller,Tag,stopped_2} -> ok end,
 		    ?MODULE:f1(q),
 		    ?MODULE:f2(r, s),
-		    erlang:integer_to_list(id(4)),
+		    _ = erlang:integer_to_list(id(4)),
 		    ?MODULE:f3(t, u)
 	    end,
 	    
@@ -911,6 +970,24 @@ runner(Collector, Fun) ->
 	{done, Collector} ->
 	    Collector ! {gone, self()}
     end.
+
+loop_runner(Collector, Fun, Laps) ->
+    receive
+	{go, Collector} ->
+	    go
+    end,
+    loop_runner_cont(Collector, Fun, 0, Laps).
+
+loop_runner_cont(_Collector, _Fun, Laps, Laps) ->
+    receive
+	{done, Collector} ->
+	    io:format("loop_runner ~p exit after ~p laps\n", [self(), Laps]),
+	    Collector ! {gone, self()}
+    end;
+loop_runner_cont(Collector, Fun, N, Laps) ->
+    Fun(),
+    loop_runner_cont(Collector, Fun, N+1, Laps).
+
 
 f1(X) ->
     {X}.

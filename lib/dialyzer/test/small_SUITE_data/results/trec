@@ -1,0 +1,7 @@
+
+trec.erl:26: Function test/0 has no local return
+trec.erl:27: The call trec:mk_foo_loc(42,any()) will never return since it differs in the 1st argument from the success typing arguments: ('undefined',atom())
+trec.erl:29: Function mk_foo_loc/2 has no local return
+trec.erl:30: Record construction violates the declared type for #foo{} since variable A cannot be of type atom()
+trec.erl:36: Function mk_foo_exp/2 has no local return
+trec.erl:37: Record construction violates the declared type for #foo{} since variable A cannot be of type atom()

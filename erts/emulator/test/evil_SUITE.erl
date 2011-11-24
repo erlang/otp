@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,7 +18,9 @@
 
 -module(evil_SUITE).
 
--export([all/1,init_per_testcase/2,fin_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
+	 init_per_testcase/2,end_per_testcase/2,
 	 heap_frag/1,
 	 encode_decode_ext/1,
 	 decode_integer_ext/1,
@@ -30,26 +32,37 @@
 	 decode_pos_neg_zero/1
 	]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
-all(suite) ->
-    [
-     heap_frag,
-     encode_decode_ext,
-     decode_integer_ext,
-     decode_small_big_ext,
-     decode_large_big_ext,
-     decode_small_big_ext_neg,
-     decode_large_big_ext_neg,
-     decode_too_small,
-     decode_pos_neg_zero
-    ].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [heap_frag, encode_decode_ext, decode_integer_ext,
+     decode_small_big_ext, decode_large_big_ext,
+     decode_small_big_ext_neg, decode_large_big_ext_neg,
+     decode_too_small, decode_pos_neg_zero].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 init_per_testcase(_Case, Config) ->
     ?line Dog = test_server:timetrap(?t:minutes(0.5)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.

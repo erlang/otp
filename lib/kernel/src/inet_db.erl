@@ -88,6 +88,7 @@
 	 hosts_file_byaddr, %% hosts table from system file
 	 cache_timer        %% timer reference for refresh
 	}).
+-type state() :: #state{}.
 
 -include("inet.hrl").
 -include("inet_int.hrl").
@@ -101,14 +102,14 @@
 
 start() ->
     case gen_server:start({local, inet_db}, inet_db, [], []) of
-	{ok,Pid} -> inet_config:init(), {ok,Pid};
+	{ok, _Pid}=Ok -> inet_config:init(), Ok;
 	Error -> Error
     end.
 
 
 start_link() ->
     case gen_server:start_link({local, inet_db}, inet_db, [], []) of
-	{ok,Pid} -> inet_config:init(), {ok,Pid};
+	{ok, _Pid}=Ok -> inet_config:init(), Ok;
 	Error -> Error
     end.
 	       
@@ -138,7 +139,6 @@ add_hosts(File) ->
 	      Res);
 	Error -> Error
     end.
-
 
 add_host(IP, Names) -> call({add_host, IP, Names}).
 
@@ -481,10 +481,7 @@ res_check_option_absfile(F) ->
 
 res_check_list([], _Fun) -> true;
 res_check_list([H|T], Fun) ->
-    case Fun(H) of
-	true -> res_check_list(T, Fun);
-	false -> false
-    end;
+    Fun(H) andalso res_check_list(T, Fun);
 res_check_list(_, _Fun) -> false.
 
 res_check_ns({{A,B,C,D,E,F,G,H}, Port})
@@ -496,12 +493,12 @@ res_check_ns(_) -> false.
 res_check_search("") -> true;
 res_check_search(Dom) -> inet_parse:visible_string(Dom).
 
-socks_option(server)       -> db_get(socks5_server);
-socks_option(port)         -> db_get(socks5_port);
-socks_option(methods)      -> db_get(socks5_methods);
-socks_option(noproxy)      -> db_get(socks5_noproxy).
+socks_option(server)  -> db_get(socks5_server);
+socks_option(port)    -> db_get(socks5_port);
+socks_option(methods) -> db_get(socks5_methods);
+socks_option(noproxy) -> db_get(socks5_noproxy).
 
-gethostname()              -> db_get(hostname).
+gethostname()         -> db_get(hostname).
 
 res_update_conf() ->
     res_update(res_resolv_conf, res_resolv_conf_tm, res_resolv_conf_info,
@@ -590,13 +587,11 @@ getbyname(Name, Type) ->
 
 getbysearch(Name, Dot, [Dom | Ds], Type, _) ->
     case hostent_by_domain(Name ++ Dot ++ Dom, Type) of
-	{ok, HEnt} -> {ok, HEnt};
-	Error      ->
-	    getbysearch(Name, Dot, Ds, Type, Error)
+	{ok, _HEnt}=Ok -> Ok;
+	Error -> getbysearch(Name, Dot, Ds, Type, Error)
     end;
 getbysearch(_Name, _Dot, [], _Type, Error) ->
     Error.
-
 
 
 %%
@@ -607,7 +602,6 @@ get_searchlist() ->
 	[] -> [res_option(domain)];
 	L -> L
     end.
-
 
 
 make_hostent(Name, Addrs, Aliases, ?S_A) ->
@@ -844,6 +838,9 @@ lookup_socket(Socket) when is_port(Socket) ->
 %% node_auth      Ls              - Default authenication
 %% node_crypt     Ls              - Default encryption
 %%
+
+-spec init([]) -> {'ok', state()}.
+
 init([]) ->
     process_flag(trap_exit, true),
     Db = ets:new(inet_db, [public, named_table]),
@@ -897,6 +894,10 @@ reset_db(Db) ->
 %%          {stop, Reason, Reply, State}   | (terminate/2 is called)
 %%          {stop, Reason, Reply, State}     (terminate/2 is called)
 %%----------------------------------------------------------------------
+
+-spec handle_call(term(), {pid(), term()}, state()) ->
+        {'reply', term(), state()} | {'stop', 'normal', 'ok', state()}.
+
 handle_call(Request, From, #state{db=Db}=State) ->
     case Request of
 	{load_hosts_file,IPNmAs} when is_list(IPNmAs) ->
@@ -1138,13 +1139,15 @@ handle_call(Request, From, #state{db=Db}=State) ->
 	    {reply, error, State}
     end.
 
-
 %%----------------------------------------------------------------------
 %% Func: handle_cast/2
 %% Returns: {noreply, State}          |
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %%----------------------------------------------------------------------
+
+-spec handle_cast(term(), state()) -> {'noreply', state()}.
+
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
@@ -1154,6 +1157,9 @@ handle_cast(_Msg, State) ->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %%----------------------------------------------------------------------
+
+-spec handle_info(term(), state()) -> {'noreply', state()}.
+
 handle_info(refresh_timeout, State) ->
     do_refresh_cache(State#state.cache),
     {noreply, State#state{cache_timer = init_timer()}};
@@ -1166,6 +1172,9 @@ handle_info(_Info, State) ->
 %% Purpose: Shutdown the server
 %% Returns: any (ignored by gen_server)
 %%----------------------------------------------------------------------
+
+-spec terminate(term(), state()) -> 'ok'.
+
 terminate(_Reason, State) ->
     stop_timer(State#state.cache_timer),
     ok.
@@ -1342,16 +1351,15 @@ do_add_rr(RR, Db, State) ->
     TM = times(),
     case alloc_entry(Db, CacheDb, TM) of
 	true ->
-	    cache_rr(Db, CacheDb, RR#dns_rr { tm = TM,
-					      cnt = TM });
+	    cache_rr(Db, CacheDb, RR#dns_rr{tm = TM, cnt = TM});
 	_ ->
 	    false
     end.
 
 cache_rr(_Db, Cache, RR) ->
     %% delete possible old entry
-    ets:match_delete(Cache, RR#dns_rr { cnt = '_', tm = '_', ttl = '_',
-				        bm = '_', func = '_'}),
+    ets:match_delete(Cache, RR#dns_rr{cnt = '_', tm = '_', ttl = '_',
+				      bm = '_', func = '_'}),
     ets:insert(Cache, RR).
 
 times() ->
@@ -1361,9 +1369,9 @@ times() ->
 %% lookup and remove old entries
 
 do_lookup_rr(Domain, Class, Type) ->
-    match_rr(#dns_rr { domain = tolower(Domain), class = Class,type = Type, 
-		      cnt = '_', tm = '_', ttl = '_',
-		      bm = '_', func = '_', data = '_'}).
+    match_rr(#dns_rr{domain = tolower(Domain), class = Class,type = Type,
+		     cnt = '_', tm = '_', ttl = '_',
+		     bm = '_', func = '_', data = '_'}).
 
 match_rr(RR) ->
     filter_rr(ets:match_object(inet_cache, RR), times()).
@@ -1414,7 +1422,7 @@ dn_in_addr_arpa(A,B,C,D) ->
 	integer_to_list(A) ++ ".in-addr.arpa".
 
 dnib(X) ->
-    [ hex(X), $., hex(X bsr 4), $., hex(X bsr 8), $., hex(X bsr 12), $.].
+    [hex(X), $., hex(X bsr 4), $., hex(X bsr 8), $., hex(X bsr 12), $.].
 
 hex(X) ->
     X4 = (X band 16#f),
@@ -1509,12 +1517,7 @@ alloc_entry(CacheDb, OldSize, TM, N) ->
 
 delete_n_oldest(CacheDb, TM, OldestTM, N) ->
     DelTM = trunc((TM - OldestTM) * 0.3) + OldestTM,
-    case delete_older(CacheDb, DelTM, N) of
-	0 ->
-	    false;
-	_ ->
-	    true
-    end.
+    delete_older(CacheDb, DelTM, N) =/= 0.
 
 %% Delete entries with latest access time older than TM.
 %% Delete max N number of entries.

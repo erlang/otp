@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -48,7 +48,7 @@
 -compile(export_all).
 %%-export([Function/Arity, ...]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 %% records used by test-case default
 -record('Def1',{
@@ -60,10 +60,10 @@ bool0, bool1 = asn1_DEFAULT, bool2 = asn1_DEFAULT, bool3 = asn1_DEFAULT}).
 %-record('Def3',{
 %bool30 = asn1_DEFAULT, bool31 = asn1_DEFAULT, bool32 = asn1_DEFAULT, bool33 = asn1_DEFAULT}).
 
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-
-all(suite) -> [compile,parse,default_per,default_ber,default_per_opt,per,
-	       ber,testPrim, 
+all() -> [{group,compile},parse,default_per,default_ber,default_per_opt,per,
+	       {group,ber},testPrim, 
 	       testPrimStrings, testPrimExternal, testChoPrim, 
 	       testChoExtension, testChoExternal, testChoOptional, 
 	       testChoOptionalImplicitTag, testChoRecursive, 
@@ -74,6 +74,7 @@ all(suite) -> [compile,parse,default_per,default_ber,default_per_opt,per,
 	       testSeqTypeRefPrim, testSeqTypeRefSeq, testSeqTypeRefSet, 
 	       testSeqOf, testSeqOfIndefinite, testSeqOfCho, 
 	       testSeqOfExternal, testSetDefault, testSetExtension, 
+	       testExtensionAdditionGroup,
 	       testSetExternal, testSeqOfTag, testSetOptional, testSetPrim, 
 	       testSetTag, testSetTypeRefCho, testSetTypeRefPrim,
 	       testSetTypeRefSeq, testSetTypeRefSet, testSetOf, testSetOfCho,
@@ -95,24 +96,37 @@ all(suite) -> [compile,parse,default_per,default_ber,default_per_opt,per,
 	       testSSLspecs, testNortel,test_undecoded_rest,
 	       test_inline, testTcapsystem, testNBAPsystem,
 	       test_compile_options,testDoubleEllipses, test_modified_x420,
-	       testX420, test_x691,ticket_6143
+	       testX420, test_x691,ticket_6143, testExtensionAdditionGroup
                ] ++ common() ++ particular().
+
+groups() -> 
+    [
+     {compile, [],
+      [c_syntax, c_string_per, c_string_ber,
+       c_implicit_before_choice]},
+     {ber, [],
+      [ber_choiceinseq, ber_optional, ber_optional_keyed_list,
+       ber_other]},
+     {app_test, [], [{asn1_app_test, all}]},
+     {appup_test, [], [{asn1_appup_test, all}]}
+    ].
+
+init_per_suite(Config) ->
+    io:format("code:lib_dir(asn1) = ~p~n",[code:lib_dir(asn1)]),
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 %all(suite) -> [test_inline,testNBAPsystem,test_compile_options,ticket_6143].
 
-option_tests(suite) ->
-    [test_compile_options,ticket_6143].
-
-infobj(suite) ->
-    [testInfObjectClass, testParameterizedInfObj, testMergeCompile, 
-     testobj, testDeepTConstr].
-
-performance(suite) ->
-    [testTimer_ber, testTimer_ber_opt_driver, 
-     testTimer_per, testTimer_per_opt, testTimer_uper_bin].
-
-bugs(suite) ->
-   [test_ParamTypeInfObj, test_WS_ParamClass,test_Defed_ObjectIdentifier].
 
 init_per_testcase(Func,Config) ->
     %%?line test_server:format("Func: ~p~n",[Func]),
@@ -128,7 +142,7 @@ init_per_testcase(Func,Config) ->
 %%    Dog=test_server:timetrap(1800000), % 30 minutes
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Func,Config) ->
+end_per_testcase(_Func,Config) ->
           Dog=?config(watchdog, Config),
           test_server:timetrap_cancel(Dog).
 
@@ -1036,7 +1050,6 @@ testSetExtension_cases(Rules) ->
     ?line testSetExtension:main(Rules).
 
 
-
 testSetExternal(suite) -> [];
 testSetExternal(Config) ->
     ?line true = code:add_patha(?config(priv_dir,Config)),
@@ -1371,22 +1384,6 @@ testSetOfTag_cases(Rules) ->
 
 sequence(suite) -> [{sequence,all}].
 
-compile(suite) -> [c_syntax,c_string_per,c_string_ber,c_implicit_before_choice];
-compile(Config) ->
-    ?line DataDir = ?config(data_dir,Config),
-    ?line TempDir = ?config(priv_dir,Config),
-    ?line True = lists:member(TempDir,code:get_path()),
-    ?line test_server:format("~p~n",[True]),
-    ?line test_server:format("~p~n",[code:get_path()]),
-    ?line true = code:add_patha(?config(priv_dir,Config)),
-    ?line {error,_R1} = asn1ct:compile(filename:join(DataDir,"Syntax")),
-    ?line ok = asn1ct:compile(filename:join(DataDir,"String"),[?PER,{outdir,TempDir}]),
-    test_server:format("first String ok~n"),
-    ?line ok = asn1ct:compile(filename:join(DataDir,"String"),[?BER,{outdir,TempDir}]),
-    ?line {error,_R2} = asn1ct:compile(filename:join(DataDir,"CCSNARG3"),[?BER,{outdir,TempDir}]),
-    ?line {error,_} = asn1ct:compile(filename:join(DataDir,"ImportsFrom"),[?BER,{outdir,TempDir}]),
-    ok.
-
 c_syntax(suite) -> [];
 c_syntax(Config) ->
     ?line DataDir%    ?line testExternal:compile(Config,?PER),     
@@ -1489,8 +1486,6 @@ per1_opt([M|T],DataDir,OutDir) ->
     per1_opt(T,DataDir,OutDir);
 per1_opt([],_,_) ->
     ok.
-
-ber(suite) -> [ber_choiceinseq,ber_optional,ber_optional_keyed_list,ber_other].
 
 ber_choiceinseq(suite) ->[];
 ber_choiceinseq(Config) ->
@@ -2041,11 +2036,7 @@ rtUI(Config) ->
     ?line {ok,_} = asn1rt:info('Prim'),
 
     ?line ok = asn1ct:compile(filename:join(DataDir,"Prim"),[?PER]),
-    ?line {ok,_} = asn1rt:info('Prim'),
-
-    ?line ok = asn1rt:load_driver(),
-    ?line ok = asn1rt:load_driver(),
-    ?line ok = asn1rt:unload_driver().
+    ?line {ok,_} = asn1rt:info('Prim').
 
 testROSE(suite) -> [];
 testROSE(Config) -> 
@@ -2240,8 +2231,11 @@ test_compile_options(Config) ->
     	  ?line ok = test_compile_options:wrong_path(Config),
     	  ?line ok = test_compile_options:path(Config),
     	  ?line ok = test_compile_options:noobj(Config),
-    	  ?line ok = test_compile_options:record_name_prefix(Config)
+	  ?line ok = test_compile_options:record_name_prefix(Config),
+	  ?line ok = test_compile_options:verbose(Config),
+	  ?line ok = test_compile_options:warnings_as_errors(Config)
     end.
+
 testDoubleEllipses(suite) ->  [];
 testDoubleEllipses(Config) ->
     ?line testDoubleEllipses:compile(Config,?BER,[]),
@@ -2291,6 +2285,25 @@ ticket_6143(suite) -> [];
 ticket_6143(Config) ->
     ?line ok = test_compile_options:ticket_6143(Config).
 
+testExtensionAdditionGroup(suite) -> [];
+testExtensionAdditionGroup(Config) ->
+	?line DataDir = ?config(data_dir,Config),
+	?line PrivDir = ?config(priv_dir,Config),
+	?line Path = code:get_path(),
+	?line code:add_patha(PrivDir),
+	DoIt = fun(Erule) ->
+		?line ok = asn1ct:compile(filename:join(DataDir,"Extension-Addition-Group"),Erule ++ [{outdir,PrivDir}]),
+		?line {ok,_M} = compile:file(filename:join(DataDir,"extensionAdditionGroup"),[{i,PrivDir},{outdir,PrivDir},debug_info]),
+		?line ok = extensionAdditionGroup:run(Erule),
+	        ?line ok = extensionAdditionGroup:run2(Erule),
+		?line ok = asn1ct:compile(filename:join(DataDir,"EUTRA-RRC-Definitions"),Erule ++ [{record_name_prefix,"RRC-"},{outdir,PrivDir}]),
+		?line ok = extensionAdditionGroup:run3(Erule)
+	       end,
+	?line [DoIt(Rule)|| Rule <- [[per_bin],[per_bin,optimize],[uper_bin]]],
+	%% FIXME problems with automatic tags [ber_bin],[ber_bin,optimize]
+	?line code:set_path(Path).
+
+
 
 % parse_modules() ->
 %	["ImportsFrom"].
@@ -2307,6 +2320,7 @@ ber_modules() ->
 test_modules() ->
     _Modules = [
 	       "BitStr",
+	       "CAP",
 	       "CommonDataTypes",
 	       "Constraints",
 	       "ContextSwitchingTypes",

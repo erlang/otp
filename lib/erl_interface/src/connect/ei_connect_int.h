@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2001-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2001-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 /*
@@ -101,6 +101,7 @@ extern int h_errno;
 #define DFLAG_FUN_TAGS            16
 #define DFLAG_NEW_FUN_TAGS        0x80
 #define DFLAG_EXTENDED_PIDS_PORTS 0x100
+#define DFLAG_NEW_FLOATS          0x800
 
 ei_cnode   *ei_fd_to_cnode(int fd);
 int         ei_distversion(int fd);

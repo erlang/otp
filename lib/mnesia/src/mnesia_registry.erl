@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -65,6 +65,8 @@
 %%%----------------------------------------------------------------------
 
 %% External exports
+%% Avoid warning for local function max/2 clashing with autoimported BIF.
+-compile({no_auto_import,[max/2]}).
 -export([start_dump/2, start_restore/2]).
 -export([create_table/1, create_table/2]).
 

@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(ets).
@@ -42,28 +42,20 @@
 
 -export([i/0, i/1, i/2, i/3]).
 
-%%------------------------------------------------------------------------------
+-export_type([tab/0, tid/0, match_spec/0]).
+
+%%-----------------------------------------------------------------------------
 
 -type tab()        :: atom() | tid().
 
--type ext_info()   :: 'md5sum' | 'object_count'.
--type protection() :: 'private' | 'protected' | 'public'.
--type type()       :: 'bag' | 'duplicate_bag' | 'ordered_set' | 'set'.
-
--type table_info() :: {'name', atom()}
-		    | {'type', type()}
-		    | {'protection', protection()}
-		    | {'named_table', boolean()}
-		    | {'keypos', non_neg_integer()}
-		    | {'size', non_neg_integer()}
-		    | {'extended_info', [ext_info()]}
-		    | {'version', {non_neg_integer(), non_neg_integer()}}.
+%% a similar definition is also in erl_types
+-opaque tid()      :: integer().
 
 %% these ones are also defined in erl_bif_types
 -type match_pattern() :: atom() | tuple().
--type match_specs()   :: [{match_pattern(), [_], [_]}].
+-type match_spec()    :: [{match_pattern(), [_], [_]}].
 
-%%------------------------------------------------------------------------------
+%%-----------------------------------------------------------------------------
 
 %% The following functions used to be found in this module, but
 %% are now BIFs (i.e. implemented in C).
@@ -81,6 +73,7 @@
 %% insert/2
 %% is_compiled_ms/1
 %% last/1
+%% member/2
 %% next/2
 %% prev/2
 %% rename/2
@@ -96,11 +89,14 @@
 %% select/1
 %% select/2
 %% select/3
+%% select_count/2
 %% select_reverse/1
 %% select_reverse/2
 %% select_reverse/3
 %% select_delete/2
+%% setopts/2
 %% update_counter/3
+%% update_element/3
 %%
 
 -opaque comp_match_spec() :: any().  %% this one is REALLY opaque
@@ -114,7 +110,9 @@ match_spec_run(List, CompiledMS) ->
                       | {tab(),integer(),integer(),binary(),list(),integer()}
                       | {tab(),_,_,integer(),binary(),list(),integer(),integer()}.
 
--spec repair_continuation(continuation(), match_specs()) -> continuation().
+-spec repair_continuation(Continuation, MatchSpec) -> Continuation when
+      Continuation :: continuation(),
+      MatchSpec :: match_spec().
 
 %% $end_of_table is an allowed continuation in ets...
 repair_continuation('$end_of_table', _) ->
@@ -148,7 +146,9 @@ repair_continuation(Untouched = {Table,N1,N2,Bin,L,N3}, MS)
 	    {Table,N1,N2,ets:match_spec_compile(MS),L,N3}
     end.
 
--spec fun2ms(function()) -> match_specs().
+-spec fun2ms(LiteralFun) -> MatchSpec when
+      LiteralFun :: function(),
+      MatchSpec :: match_spec().
 
 fun2ms(ShellFun) when is_function(ShellFun) ->
     %% Check that this is really a shell fun...
@@ -172,7 +172,13 @@ fun2ms(ShellFun) when is_function(ShellFun) ->
                            shell]}})
     end.
 
--spec foldl(fun((_, term()) -> term()), term(), tab()) -> term().
+-spec foldl(Function, Acc0, Tab) -> Acc1 when
+      Function :: fun((Element :: term(), AccIn) -> AccOut),
+      Tab :: tab(),
+      Acc0 :: term(),
+      Acc1 :: term(),
+      AccIn :: term(),
+      AccOut :: term().
 
 foldl(F, Accu, T) ->
     ets:safe_fixtable(T, true),
@@ -193,7 +199,13 @@ do_foldl(F, Accu0, Key, T) ->
 		     ets:next(T, Key), T)
     end.
 
--spec foldr(fun((_, term()) -> term()), term(), tab()) -> term().
+-spec foldr(Function, Acc0, Tab) -> Acc1 when
+      Function :: fun((Element :: term(), AccIn) -> AccOut),
+      Tab :: tab(),
+      Acc0 :: term(),
+      Acc1 :: term(),
+      AccIn :: term(),
+      AccOut :: term().
 
 foldr(F, Accu, T) ->
     ets:safe_fixtable(T, true),
@@ -214,7 +226,9 @@ do_foldr(F, Accu0, Key, T) ->
 		     ets:prev(T, Key), T)
     end.
 
--spec from_dets(tab(), dets:tab_name()) -> 'true'.
+-spec from_dets(Tab, DetsTab) -> 'true' when
+      Tab :: tab(),
+      DetsTab :: dets:tab_name().
 
 from_dets(EtsTable, DetsTable) ->
     case (catch dets:to_ets(DetsTable, EtsTable)) of
@@ -230,7 +244,9 @@ from_dets(EtsTable, DetsTable) ->
 	    erlang:error(Unexpected,[EtsTable,DetsTable])
     end.
 
--spec to_dets(tab(), dets:tab_name()) -> tab().
+-spec to_dets(Tab, DetsTab) -> DetsTab when
+      Tab :: tab(),
+      DetsTab :: dets:tab_name().
 
 to_dets(EtsTable, DetsTable) ->
     case (catch dets:from_ets(DetsTable, EtsTable)) of
@@ -246,8 +262,11 @@ to_dets(EtsTable, DetsTable) ->
 	    erlang:error(Unexpected,[EtsTable,DetsTable])
     end.
 
--spec test_ms(tuple(), match_specs()) ->
-	{'ok', term()} | {'error', [{'warning'|'error', string()}]}.
+-spec test_ms(Tuple, MatchSpec) -> {'ok', Result} | {'error', Errors} when
+      Tuple :: tuple(),
+      MatchSpec :: match_spec(),
+      Result :: term(),
+      Errors :: [{'warning'|'error', string()}].
 
 test_ms(Term, MS) ->
     case erlang:match_spec_test(Term, MS, table) of
@@ -257,7 +276,11 @@ test_ms(Term, MS) ->
 	    Error
     end.
 
--spec init_table(tab(), fun(('read' | 'close') -> term())) -> 'true'.
+-spec init_table(Tab, InitFun) -> 'true' when
+      Tab :: tab(),
+      InitFun :: fun((Arg) -> Res),
+      Arg :: 'read' | 'close',
+      Res :: 'end_of_input' | {Objects :: [term()], InitFun} | term().
 
 init_table(Table, Fun) ->
     ets:delete_all_objects(Table),
@@ -282,7 +305,9 @@ init_table_sub(Table, [H|T]) ->
     ets:insert(Table, H),
     init_table_sub(Table, T).
 
--spec match_delete(tab(), match_pattern()) -> 'true'.
+-spec match_delete(Tab, Pattern) -> 'true' when
+      Tab :: tab(),
+      Pattern :: match_pattern().
 
 match_delete(Table, Pattern) ->
     ets:select_delete(Table, [{Pattern,[],[true]}]),
@@ -290,7 +315,9 @@ match_delete(Table, Pattern) ->
 
 %% Produce a list of tuples from a table
 
--spec tab2list(tab()) -> [tuple()].
+-spec tab2list(Tab) -> [Object] when
+      Tab :: tab(),
+      Object :: tuple().
 
 tab2list(T) ->
     ets:match_object(T, '_').
@@ -329,15 +356,21 @@ do_filter(Tab, Key, F, A, Ack) ->
 	  md5sum       = false :: boolean()     
 	 }).
 
--type fname()      :: string() | atom().
--type t2f_option() :: {'extended_info', [ext_info()]}.
-
--spec tab2file(tab(), fname()) -> 'ok' | {'error', term()}.
+-spec tab2file(Tab, Filename) -> 'ok' | {'error', Reason} when
+      Tab :: tab(),
+      Filename :: file:name(),
+      Reason :: term().
 
 tab2file(Tab, File) ->
     tab2file(Tab, File, []).
 
--spec tab2file(tab(), fname(), [t2f_option()]) -> 'ok' | {'error', term()}.
+-spec tab2file(Tab, Filename, Options) -> 'ok' | {'error', Reason} when
+      Tab :: tab(),
+      Filename :: file:name(),
+      Options :: [Option],
+      Option :: {'extended_info', [ExtInfo]},
+      ExtInfo :: 'md5sum' | 'object_count',
+      Reason :: term().
 
 tab2file(Tab, File, Options) ->
     try
@@ -496,18 +529,24 @@ parse_ft_info_options(_,Malformed) ->
 %% Opt := {verify,boolean()}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--type f2t_option() :: {'verify', boolean()}.
-
--spec file2tab(fname()) -> {'ok', tab()} | {'error', term()}.
+-spec file2tab(Filename) -> {'ok', Tab} | {'error', Reason} when
+      Filename :: file:name(),
+      Tab :: tab(),
+      Reason :: term().
 
 file2tab(File) ->
     file2tab(File, []).
 
--spec file2tab(fname(), [f2t_option()]) -> {'ok', tab()} | {'error', term()}.
+-spec file2tab(Filename, Options) -> {'ok', Tab} | {'error', Reason} when
+      Filename :: file:name(),
+      Tab :: tab(),
+      Options :: [Option],
+      Option :: {'verify', boolean()},
+      Reason :: term().
 
 file2tab(File, Opts) ->
     try
-	{ok,Verify} = parse_f2t_opts(Opts,false),
+	{ok,Verify,TabArg} = parse_f2t_opts(Opts,false,[]),
 	Name = make_ref(),
 	{ok, Major, Minor, FtOptions, MD5State, FullHeader, DLContext} = 
 	    case disk_log:open([{name, Name}, 
@@ -535,7 +574,7 @@ file2tab(File, Opts) ->
 		true ->
 		    ok
 	    end,
-	    {ok, Tab, HeadCount} = create_tab(FullHeader),
+	    {ok, Tab, HeadCount} = create_tab(FullHeader, TabArg),
 	    StrippedOptions = 				   
 	        case Verify of
 		    true ->
@@ -622,14 +661,14 @@ do_read_and_verify(ReadFun,InitState,Tab,FtOptions,HeadCount,Verify) ->
 	    end,
 	    {ok,Tab};
 	{ok,{FinalMD5State,FinalCount,['$end_of_table',LastInfo],_}} ->
-	    ECount = case lists:keysearch(count,1,LastInfo) of
-			 {value,{count,N}} ->
+	    ECount = case lists:keyfind(count,1,LastInfo) of
+			 {count,N} ->
 			     N;
 			 _ ->
 			     false
 		     end,
-	    EMD5 = case lists:keysearch(md5,1,LastInfo) of
-			 {value,{md5,M}} ->
+	    EMD5 = case lists:keyfind(md5,1,LastInfo) of
+			 {md5,M} ->
 			     M;
 			 _ ->
 			     false
@@ -671,15 +710,17 @@ do_read_and_verify(ReadFun,InitState,Tab,FtOptions,HeadCount,Verify) ->
 	    {ok,Tab}
     end.
 
-parse_f2t_opts([],Verify) ->
-    {ok,Verify};
-parse_f2t_opts([{verify, true}|T],_OV) ->
-    parse_f2t_opts(T,true);
-parse_f2t_opts([{verify,false}|T],OV) ->
-    parse_f2t_opts(T,OV);
-parse_f2t_opts([Unexpected|_],_) ->
+parse_f2t_opts([],Verify,Tab) ->
+    {ok,Verify,Tab};
+parse_f2t_opts([{verify, true}|T],_OV,Tab) ->
+    parse_f2t_opts(T,true,Tab);
+parse_f2t_opts([{verify,false}|T],OV,Tab) ->
+    parse_f2t_opts(T,OV,Tab);
+parse_f2t_opts([{table,Tab}|T],OV,[]) ->
+    parse_f2t_opts(T,OV,Tab);
+parse_f2t_opts([Unexpected|_],_,_) ->
     throw({unknown_option,Unexpected});
-parse_f2t_opts(Malformed,_) ->
+parse_f2t_opts(Malformed,_,_) ->
     throw({malformed_option,Malformed}).
 			   
 count_mandatory([]) ->
@@ -742,22 +783,21 @@ get_header_data(Name,true) ->
 			false ->
 			    throw(badfile);
 			true ->
-			    Major = case lists:keysearch(major,1,L) of
-					{value,{major,Maj}} ->
+			    Major = case lists:keyfind(major,1,L) of
+					{major,Maj} ->
 					    Maj;
 					_ ->
 					    0
 				    end,
-			    Minor = case lists:keysearch(minor,1,L) of
-					{value,{minor,Min}} ->
+			    Minor = case lists:keyfind(minor,1,L) of
+					{minor,Min} ->
 					    Min;
 					_ ->
 					    0
 				    end,
 			    FtOptions = 
-				case lists:keysearch(extended_info,1,L) of
-				    {value,{extended_info,I}} 
-				    when is_list(I) ->
+				case lists:keyfind(extended_info,1,L) of
+				    {extended_info,I} when is_list(I) ->
 					#filetab_options
 					    {
 					    object_count = 
@@ -786,29 +826,28 @@ get_header_data(Name,true) ->
     end;
 
 get_header_data(Name, false) ->
-   case wrap_chunk(Name,start,1,false) of 
+   case wrap_chunk(Name, start, 1, false) of
        {C,[Tup]} when is_tuple(Tup) ->
 	   L = tuple_to_list(Tup),
 	   case verify_header_mandatory(L) of
 	       false ->
 		   throw(badfile);
 	       true ->
-		   Major = case lists:keysearch(major_version,1,L) of
-			       {value,{major_version,Maj}} ->
+		   Major = case lists:keyfind(major_version, 1, L) of
+			       {major_version, Maj} ->
 				   Maj;
 			       _ ->
 				   0
 			   end,
-		   Minor = case lists:keysearch(minor_version,1,L) of
-			       {value,{minor_version,Min}} ->
+		   Minor = case lists:keyfind(minor_version, 1, L) of
+			       {minor_version, Min} ->
 				   Min;
 			       _ ->
 				   0
 			   end,
 		   FtOptions = 
-		       case lists:keysearch(extended_info,1,L) of
-			   {value,{extended_info,I}} 
-			   when is_list(I) ->
+		       case lists:keyfind(extended_info, 1, L) of
+			   {extended_info, I} when is_list(I) ->
 			       #filetab_options
 					 {
 					 object_count = 
@@ -825,25 +864,26 @@ get_header_data(Name, false) ->
 	   throw(badfile)
     end.
 
-md5_and_convert([],MD5State,Count) ->
+md5_and_convert([], MD5State, Count) ->
     {[],MD5State,Count,[]};
-md5_and_convert([H|T],MD5State,Count) when is_binary(H) ->
+md5_and_convert([H|T], MD5State, Count) when is_binary(H) ->
     case (catch binary_to_term(H)) of
 	{'EXIT', _} ->
 	    md5_and_convert(T,MD5State,Count);
-	['$end_of_table',Dat] ->
-	   {[],MD5State,Count,['$end_of_table',Dat]}; 
+	['$end_of_table',_Dat] = L ->
+	   {[],MD5State,Count,L};
 	Term ->
-	    X = erlang:md5_update(MD5State,H),
-	    {Rest,NewMD5,NewCount,NewLast} = md5_and_convert(T,X,Count+1),
+	    X = erlang:md5_update(MD5State, H),
+	    {Rest,NewMD5,NewCount,NewLast} = md5_and_convert(T, X, Count+1),
 	    {[Term | Rest],NewMD5,NewCount,NewLast}
     end.
-scan_for_endinfo([],Count) ->
+
+scan_for_endinfo([], Count) ->
     {[],Count,[]};
-scan_for_endinfo([['$end_of_table',Dat]],Count) ->
+scan_for_endinfo([['$end_of_table',Dat]], Count) ->
     {['$end_of_table',Dat],Count,[]};
-scan_for_endinfo([Term|T],Count) ->
-    {NewLast,NCount,Rest} = scan_for_endinfo(T,Count+1),
+scan_for_endinfo([Term|T], Count) ->
+    {NewLast,NCount,Rest} = scan_for_endinfo(T, Count+1),
     {NewLast,NCount,[Term | Rest]}.
 
 load_table(ReadFun, State, Tab) ->
@@ -852,23 +892,32 @@ load_table(ReadFun, State, Tab) ->
 	[] ->
 	    {ok,NewState};
 	List ->
-	    ets:insert(Tab,List),
-	    load_table(ReadFun,NewState,Tab)
+	    ets:insert(Tab, List),
+	    load_table(ReadFun, NewState, Tab)
     end.
 
-create_tab(I) ->
-    {value, {name, Name}} = lists:keysearch(name, 1, I),
-    {value, {type, Type}} = lists:keysearch(type, 1, I),
-    {value, {protection, P}} = lists:keysearch(protection, 1, I),
-    {value, {named_table, Val}} = lists:keysearch(named_table, 1, I),
-    {value, {keypos, Kp}} = lists:keysearch(keypos, 1, I),
-    {value, {size, Sz}} = lists:keysearch(size, 1, I),
-    try
-	Tab = ets:new(Name, [Type, P, {keypos, Kp} | named_table(Val)]),
-	{ok, Tab, Sz}
-    catch
-	_:_ ->
-	    throw(cannot_create_table)
+create_tab(I, TabArg) ->
+    {name, Name} = lists:keyfind(name, 1, I),
+    {type, Type} = lists:keyfind(type, 1, I),
+    {protection, P} = lists:keyfind(protection, 1, I),
+    {named_table, Val} = lists:keyfind(named_table, 1, I),
+    {keypos, _Kp} = Keypos = lists:keyfind(keypos, 1, I),
+    {size, Sz} = lists:keyfind(size, 1, I),
+    Comp = case lists:keyfind(compressed, 1, I) of
+	{compressed, true} -> [compressed];
+	{compressed, false} -> [];
+	false -> []
+    end,
+    case TabArg of
+        [] ->
+	    try
+		Tab = ets:new(Name, [Type, P, Keypos] ++ named_table(Val) ++ Comp),
+		{ok, Tab, Sz}
+	    catch _:_ ->
+		throw(cannot_create_table)
+            end;
+        _ ->
+            {ok, TabArg, Sz}
     end.
 
 named_table(true) -> [named_table];
@@ -880,7 +929,22 @@ named_table(false) -> [].
 %% information
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--spec tabfile_info(fname()) -> {'ok', [table_info()]} | {'error', term()}.
+-spec tabfile_info(Filename) -> {'ok', TableInfo} | {'error', Reason} when
+      Filename :: file:name(),
+      TableInfo :: [InfoItem],
+      InfoItem :: {'name', atom()}
+                | {'type', Type}
+                | {'protection', Protection}
+                | {'named_table', boolean()}
+                | {'keypos', non_neg_integer()}
+                | {'size', non_neg_integer()}
+                | {'extended_info', [ExtInfo]}
+                | {'version', {Major :: non_neg_integer(),
+                               Minor :: non_neg_integer()}},
+      ExtInfo :: 'md5sum' | 'object_count',
+      Type :: 'bag' | 'duplicate_bag' | 'ordered_set' | 'set',
+      Protection :: 'private' | 'protected' | 'public',
+      Reason :: term().
 
 tabfile_info(File) when is_list(File) ; is_atom(File) ->
     try
@@ -905,9 +969,9 @@ tabfile_info(File) when is_list(File) ; is_atom(File) ->
 	{value, Val} = lists:keysearch(named_table, 1, FullHeader),
 	{value, Kp} = lists:keysearch(keypos, 1, FullHeader),
 	{value, Sz} = lists:keysearch(size, 1, FullHeader),
-	Ei = case lists:keysearch(extended_info, 1, FullHeader) of
-		 {value, Ei0} -> Ei0;
-		 _ -> {extended_info, []}
+	Ei = case lists:keyfind(extended_info, 1, FullHeader) of
+		 false -> {extended_info, []};
+		 Ei0 -> Ei0
 	     end,
 	{ok, [N,Type,P,Val,Kp,Sz,Ei,{version,{Major,Minor}}]}
     catch
@@ -917,20 +981,22 @@ tabfile_info(File) when is_list(File) ; is_atom(File) ->
 	    {error,ExReason}
     end.
 
--type qlc__query_handle() :: term().  %% XXX: belongs in 'qlc'
-
--type num_objects()  :: 'default' | pos_integer().
--type trav_method()  :: 'first_next' | 'last_prev'
-                      | 'select' | {'select', match_specs()}.
--type table_option() :: {'n_objects', num_objects()}
-                      | {'traverse', trav_method()}.
-
--spec table(tab()) -> qlc__query_handle().
+-spec table(Tab) -> QueryHandle when
+      Tab :: tab(),
+      QueryHandle :: qlc:query_handle().
 
 table(Tab) ->
     table(Tab, []).
 
--spec table(tab(), table_option() | [table_option()]) -> qlc__query_handle().
+-spec table(Tab, Options) -> QueryHandle when
+      Tab :: tab(),
+      QueryHandle :: qlc:query_handle(),
+      Options :: [Option] | Option,
+      Option :: {'n_objects', NObjects}
+              | {'traverse', TraverseMethod},
+      NObjects :: 'default' | pos_integer(),
+      TraverseMethod :: 'first_next' | 'last_prev'
+                      | 'select' | {'select', MatchSpec :: match_spec()}.
 
 table(Tab, Opts) ->
     case options(Opts, [traverse, n_objects]) of
@@ -1021,21 +1087,20 @@ options(Option, Keys) ->
     options([Option], Keys, []).
 
 options(Options, [Key | Keys], L) when is_list(Options) ->
-    V = case lists:keysearch(Key, 1, Options) of
-            {value, {n_objects, default}} ->
+    V = case lists:keyfind(Key, 1, Options) of
+            {n_objects, default} ->
                 {ok, default_option(Key)};
-            {value, {n_objects, NObjs}} when is_integer(NObjs),
-                                             NObjs >= 1 ->
+            {n_objects, NObjs} when is_integer(NObjs), NObjs >= 1 ->
                 {ok, NObjs};
-            {value, {traverse, select}} ->
+            {traverse, select} ->
                 {ok, select};
-            {value, {traverse, {select, MS}}} ->
-                {ok, {select, MS}};
-            {value, {traverse, first_next}} ->
+            {traverse, {select, _MS} = Select} ->
+                {ok, Select};
+            {traverse, first_next} ->
                 {ok, first_next};
-            {value, {traverse, last_prev}} ->
+            {traverse, last_prev} ->
                 {ok, last_prev};
-	    {value, {Key, _}} ->
+	    {Key, _} ->
 		badarg;
 	    false ->
 		Default = default_option(Key),
@@ -1121,7 +1186,8 @@ to_string(X) ->
     lists:flatten(io_lib:format("~p", [X])).
 
 %% view a specific table
--spec i(tab()) -> 'ok'.
+-spec i(Tab) -> 'ok' when
+      Tab :: tab().
 
 i(Tab) ->
     i(Tab, 40).

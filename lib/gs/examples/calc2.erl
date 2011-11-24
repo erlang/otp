@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -54,7 +54,7 @@ calc() ->
 
 calc_loop(Lbl,M,V,Op) ->
     receive
-	{gs,_,click,D,_} when integer(D) -> 
+	{gs,_,click,D,_} when is_integer(D) -> 
 	    digit_press(Lbl,M,V*10+D,Op);
 	{gs,_,click,'C',_} -> 
 	    c(Lbl,M,V,Op);

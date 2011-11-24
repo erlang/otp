@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2009. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -18,6 +18,8 @@
  */
 #ifndef _ERLSRV_INTERACTIVE_H
 #define _ERLSRV_INTERACTIVE_H
+
+#define ERLSRV_INTERACTIVE_GLOBAL_SEMAPHORE "{468d6954-e355-415f-968f-d257cb0feef4}"
 
 int interactive_main(int argc, char **argv);
 

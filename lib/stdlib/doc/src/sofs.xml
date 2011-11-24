@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2001</year><year>2010</year>
+      <year>2001</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -181,10 +181,11 @@
       the <marker id="canonical_map"></marker><em>canonical map</em> is
       the function that maps every element of X onto its equivalence class.
       </p>
-    <p>Relations as defined above (as sets of ordered pairs) will from
-      now on be referred to as <em>binary relations</em>. We call a
-      set of ordered sets (x[1],&nbsp;...,&nbsp;x[n]) 
-      an <em>(n-ary) relation</em>, and say that the relation is a subset of
+    <p><marker id="binary_relation"></marker>Relations as defined above
+      (as sets of ordered pairs) will from now on be referred to as
+      <em>binary relations</em>. We call a set of ordered sets
+      (x[1],&nbsp;...,&nbsp;x[n]) an <marker id="n_ary_relation"></marker>
+      <em>(n-ary) relation</em>, and say that the relation is a subset of
       the <marker id="Cartesian_product_tuple"></marker>Cartesian product
       X[1]&nbsp;&times;&nbsp;...&nbsp;&times;&nbsp;X[n] where x[i] is
       an element of X[i], 1&nbsp;&lt;=&nbsp;i&nbsp;&lt;=&nbsp;n. 
@@ -210,7 +211,7 @@
       X[i] to Y[i] and S a subset of
       X[1]&nbsp;&times;&nbsp;...&nbsp;&times;&nbsp;X[n]. 
       The <marker id="multiple_relative_product"></marker><em>multiple 
-      relative product</em> of TR and and S is defined to be the 
+      relative product</em> of TR and S is defined to be the
       set {z&nbsp;: z&nbsp;= ((x[1],&nbsp;...,&nbsp;x[n]), (y[1],...,y[n]))
       for some (x[1],&nbsp;...,&nbsp;x[n])&nbsp;in&nbsp;S and for some
       (x[i],&nbsp;y[i]) in R[i],
@@ -293,7 +294,8 @@
       <c>partition_family/2</c>, <c>projection/2</c>,
       <c>restriction/3</c>, <c>substitution/2</c>) accept an Erlang
       function as a means to modify each element of a given unordered
-      set. Such a function, called SetFun in the following, can be
+      set. <marker id="set_fun"></marker>Such a function, called
+      SetFun in the following, can be
       specified as a functional object (fun), a tuple
       <c>{external,&nbsp;Fun}</c>, or an integer. If SetFun is
       specified as a fun, the fun is applied to each element of the
@@ -337,34 +339,73 @@ fun(S) -> sofs:partition(1, S) end
       message when given badly formed arguments or sets the types of
       which are not compatible.</p>
     <p>When comparing external sets the operator <c>==/2</c> is used.</p>
-    <p><em>Types</em></p>
-    <pre>
-anyset() = -&nbsp;an unordered, ordered or atomic set&nbsp;-
-binary_relation() = -&nbsp;a binary relation&nbsp;-
-bool() = true | false
-external_set() = -&nbsp;an external set&nbsp;-
-family() = -&nbsp;a family (of subsets)&nbsp;-
-function() = -&nbsp;a function&nbsp;-
-ordset() = -&nbsp;an ordered set&nbsp;-
-relation() = -&nbsp;an n-ary relation&nbsp;-
-set() = -&nbsp;an unordered set&nbsp;-
-set_of_sets() = -&nbsp;an unordered set of set()&nbsp;-
-set_fun() = integer() >= 1
-          | {external, fun(external_set()) -> external_set()}
-          | fun(anyset()) -> anyset()
-spec_fun() = {external, fun(external_set()) -> bool()}
-           | fun(anyset()) -> bool()
-type() = -&nbsp;a type&nbsp;- </pre>
   </description>
+  <datatypes>
+    <datatype>
+      <name name="anyset"></name>
+      <desc><p>Any kind of set (also included are the atomic sets).</p></desc>
+    </datatype>
+    <datatype>
+      <name name="binary_relation"></name>
+      <desc><p>A <seealso marker="#binary_relation">binary
+        relation</seealso>.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="external_set"></name>
+      <desc><p>An <seealso marker="#external_set">external
+        set</seealso>.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="family"></name>
+      <desc><p>A <seealso marker="#family">family</seealso> (of subsets).</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="a_function"></name>
+      <desc><p>A <seealso marker="#function">function</seealso>.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="ordset"></name>
+      <desc><p>An <seealso marker="#sets_definition">ordered
+        set</seealso>.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="relation"></name>
+      <desc><p>An <seealso marker="#n_ary_relation">n-ary relation</seealso>.
+      </p></desc>
+    </datatype>
+    <datatype>
+      <name name="a_set"></name>
+      <desc><p>An <seealso marker="#sets_definition">unordered
+        set</seealso>.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="set_of_sets"></name>
+      <desc><p>An <seealso marker="#sets_definition">unordered
+        set</seealso> of unordered sets.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="set_fun"></name>
+      <desc><p>A <seealso marker="#set_fun">SetFun</seealso>.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="spec_fun"></name>
+    </datatype>
+    <datatype>
+      <name name="type"></name>
+      <desc><p>A <seealso marker="#type">type</seealso>.</p></desc>
+    </datatype>
+    <datatype>
+      <!-- Parameterized opaque types are NYI: -->
+      <name><marker id="type-tuple_of">tuple_of(T)</marker></name>
+      <desc><p>A tuple where the elements are of type <c>T</c>.</p></desc>
+    </datatype>
+  </datatypes>
   <funcs>
     <func>
-      <name>a_function(Tuples [, Type]) -> Function</name>
+      <name name="a_function" arity="1"/>
+      <name name="a_function" arity="2"/>
       <fsummary>Create a function.</fsummary>
-      <type>
-        <v>Function = function()</v>
-        <v>Tuples = [tuple()]</v>
-        <v>Type = type()</v>
-      </type>
       <desc>
         <p>Creates a <seealso marker="#function">function</seealso>.
           <c>a_function(F,&nbsp;T)</c> is equivalent to
@@ -375,16 +416,12 @@ type() = -&nbsp;a type&nbsp;- </pre>
       </desc>
     </func>
     <func>
-      <name>canonical_relation(SetOfSets) -> BinRel</name>
+      <name name="canonical_relation" arity="1"/>
       <fsummary>Return the canonical map.</fsummary>
-      <type>
-        <v>BinRel = binary_relation()</v>
-        <v>SetOfSets = set_of_sets()</v>
-      </type>
       <desc>
         <p>Returns the binary relation containing the elements
-          (E,&nbsp;Set) such that Set belongs to SetOfSets and E
-          belongs to Set. If SetOfSets is 
+          (E,&nbsp;Set) such that Set belongs to <anno>SetOfSets</anno> and E
+          belongs to Set. If SetOfSets is
 	  a <seealso marker="#partition">partition</seealso> of a set X and
 	  R is the equivalence relation in X induced by SetOfSets, then the
           returned relation is 
@@ -398,14 +435,12 @@ type() = -&nbsp;a type&nbsp;- </pre>
       </desc>
     </func>
     <func>
-      <name>composite(Function1, Function2) -> Function3</name>
+      <name name="composite" arity="2"/>
       <fsummary>Return the composite of two functions.</fsummary>
-      <type>
-        <v>Function1 = Function2 = Function3 = function()</v>
-      </type>
       <desc>
         <p>Returns the <seealso marker="#composite">composite</seealso> of 
-	  the functions Function1 and Function2.</p>
+	  the functions <anno>Function1</anno> and
+	  <anno>Function2</anno>.</p>
         <pre>
 1> <input>F1 = sofs:a_function([{a,1},{b,2},{c,2}]),</input>
 <input>F2 = sofs:a_function([{1,x},{2,y},{3,z}]),</input>
@@ -415,14 +450,9 @@ type() = -&nbsp;a type&nbsp;- </pre>
       </desc>
     </func>
     <func>
-      <name>constant_function(Set, AnySet) -> Function</name>
+      <name name="constant_function" arity="2"/>
       <fsummary>Create the function that maps each element of a 
         set onto another set.</fsummary>
-      <type>
-        <v>AnySet = anyset()</v>
-        <v>Function = function()</v>
-        <v>Set = set()</v>
-      </type>
       <desc>
         <p>Creates the <seealso marker="#function">function</seealso>
           that maps each element of the set Set onto AnySet.</p>
@@ -435,14 +465,11 @@ type() = -&nbsp;a type&nbsp;- </pre>
       </desc>
     </func>
     <func>
-      <name>converse(BinRel1) -> BinRel2</name>
+      <name name="converse" arity="1"/>
       <fsummary>Return the converse of a binary relation.</fsummary>
-      <type>
-        <v>BinRel1 = BinRel2 = binary_relation()</v>
-      </type>
       <desc>
         <p>Returns the <seealso marker="#converse">converse</seealso>
-          of the binary relation BinRel1.</p>
+          of the binary relation <anno>BinRel1</anno>.</p>
         <pre>
 1> <input>R1 = sofs:relation([{1,a},{2,b},{3,a}]),</input>
 <input>R2 = sofs:converse(R1),</input>
@@ -451,31 +478,25 @@ type() = -&nbsp;a type&nbsp;- </pre>
       </desc>
     </func>
     <func>
-      <name>difference(Set1, Set2) -> Set3</name>
+      <name name="difference" arity="2"/>
       <fsummary>Return the difference of two sets.</fsummary>
-      <type>
-        <v>Set1 = Set2 = Set3 = set()</v>
-      </type>
       <desc>
         <p>Returns the <seealso marker="#difference">difference</seealso> of 
-	  the sets Set1 and Set2.</p>
+	  the sets <anno>Set1</anno> and <anno>Set2</anno>.</p>
       </desc>
     </func>
     <func>
-      <name>digraph_to_family(Graph [, Type]) -> Family</name>
+      <name name="digraph_to_family" arity="1"/>
+      <name name="digraph_to_family" arity="2"/>
       <fsummary>Create a family from a directed graph.</fsummary>
-      <type>
-        <v>Graph = digraph() -&nbsp;see digraph(3)&nbsp;-</v>
-        <v>Family = family()</v>
-        <v>Type = type()</v>
-      </type>
       <desc>
         <p>Creates a <seealso marker="#family">family</seealso> from
-          the directed graph Graph. Each vertex a of Graph is
+          the directed graph <anno>Graph</anno>. Each vertex a of
+          <anno>Graph</anno> is
           represented by a pair (a,&nbsp;{b[1],&nbsp;...,&nbsp;b[n]})
           where the b[i]'s are the out-neighbours of a. If no type is
           explicitly given, [{atom,&nbsp;[atom]}] is used as type of
-          the family. It is assumed that Type is 
+          the family. It is assumed that <anno>Type</anno> is
 	  a <seealso marker="#valid_type">valid type</seealso> of the 
 	  external set of the family.</p>
         <p>If G is a directed graph, it holds that the vertices and
@@ -484,15 +505,11 @@ type() = -&nbsp;a type&nbsp;- </pre>
       </desc>
     </func>
     <func>
-      <name>domain(BinRel) -> Set</name>
+      <name name="domain" arity="1"/>
       <fsummary>Return the domain of a binary relation.</fsummary>
-      <type>
-        <v>BinRel = binary_relation()</v>
-        <v>Set = set()</v>
-      </type>
       <desc>
         <p>Returns the <seealso marker="#domain">domain</seealso> of 
-	  the binary relation BinRel.</p>
+	  the binary relation <anno>BinRel</anno>.</p>
         <pre>
 1> <input>R = sofs:relation([{1,a},{1,b},{2,b},{2,c}]),</input>
 <input>S = sofs:domain(R),</input>
@@ -501,16 +518,13 @@ type() = -&nbsp;a type&nbsp;- </pre>
       </desc>
     </func>
     <func>
-      <name>drestriction(BinRel1, Set) -> BinRel2</name>
+      <name name="drestriction" arity="2"/>
       <fsummary>Return a restriction of a binary relation.</fsummary>
-      <type>
-        <v>BinRel1 = BinRel2 = binary_relation()</v>
-        <v>Set = set()</v>
-      </type>
       <desc>
-        <p>Returns the difference between the binary relation BinRel1
+        <p>Returns the difference between the binary relation
+          <anno>BinRel1</anno>
           and the <seealso marker="#restriction">restriction</seealso>
-          of BinRel1 to Set.</p>
+          of <anno>BinRel1</anno> to <anno>Set</anno>.</p>
         <pre>
 1> <input>R1 = sofs:relation([{1,a},{2,b},{3,c}]),</input>
 <input>S = sofs:set([2,4,6]),</input>
@@ -522,16 +536,13 @@ type() = -&nbsp;a type&nbsp;- </pre>
       </desc>
     </func>
     <func>
-      <name>drestriction(SetFun, Set1, Set2) -> Set3</name>
+      <name name="drestriction" arity="3"/>
       <fsummary>Return a restriction of a relation.</fsummary>
-      <type>
-        <v>SetFun = set_fun()</v>
-        <v>Set1 = Set2 = Set3 = set()</v>
-      </type>
       <desc>
-        <p>Returns a subset of Set1 containing those elements that do
-          not yield an element in Set2 as the result of applying
-          SetFun.</p>
+        <p>Returns a subset of <anno>Set1</anno> containing those elements
+          that do
+          not yield an element in <anno>Set2</anno> as the result of applying
+          <anno>SetFun</anno>.</p>
         <pre>
 1> <input>SetFun = {external, fun({_A,B,C}) -> {B,C} end},</input>
 <input>R1 = sofs:relation([{a,aa,1},{b,bb,2},{c,cc,3}]),</input>
@@ -544,11 +555,8 @@ type() = -&nbsp;a type&nbsp;- </pre>
       </desc>
     </func>
     <func>
-      <name>empty_set() -> Set</name>
+      <name name="empty_set" arity="0"/>
       <fsummary>Return the untyped empty set.</fsummary>
-      <type>
-        <v>Set = set()</v>
-      </type>
       <desc>
         <p>Returns the <seealso marker="#sets_definition">untyped empty 
           set</seealso>. <c>empty_set()</c> is equivalent to
@@ -556,19 +564,14 @@ type() = -&nbsp;a type&nbsp;- </pre>
       </desc>
     </func>
     <func>
-      <name>extension(BinRel1, Set, AnySet) -> BinRel2</name>
+      <name name="extension" arity="3"/>
       <fsummary>Extend the domain of a binary relation.</fsummary>
-      <type>
-        <v>AnySet = anyset()</v>
-        <v>BinRel1 = BinRel2 = binary_relation()</v>
-        <v>Set = set()</v>
-      </type>
       <desc>
         <p>Returns the <seealso marker="#extension">extension</seealso> of 
-	  BinRel1 such that
-          for each element E in Set that does not belong to the
-          <seealso marker="#domain">domain</seealso> of BinRel1,
-          BinRel2 contains the pair (E,&nbsp;AnySet).</p>
+	  <anno>BinRel1</anno> such that
+          for each element E in <anno>Set</anno> that does not belong to the
+          <seealso marker="#domain">domain</seealso> of <anno>BinRel1</anno>,
+          <anno>BinRel2</anno> contains the pair (E,&nbsp;AnySet).</p>
         <pre>
 1> <input>S = sofs:set([b,c]),</input>
 <input>A = sofs:empty_set(),</input>
@@ -579,13 +582,9 @@ type() = -&nbsp;a type&nbsp;- </pre>
       </desc>
     </func>
     <func>
-      <name>family(Tuples [, Type]) -> Family</name>
+      <name name="family" arity="1"/>
+      <name name="family" arity="2"/>
       <fsummary>Create a family of subsets.</fsummary>
-      <type>
-        <v>Family = family()</v>
-        <v>Tuples = [tuple()]</v>
-        <v>Type = type()</v>
-      </type>
       <desc>
         <p>Creates a <seealso marker="#family">family of subsets</seealso>. 
 	  <c>family(F,&nbsp;T)</c> is equivalent to
@@ -596,18 +595,17 @@ type() = -&nbsp;a type&nbsp;- </pre>
       </desc>
     </func>
     <func>
-      <name>family_difference(Family1, Family2) -> Family3</name>
+      <name name="family_difference" arity="2"/>
       <fsummary>Return the difference of two families.</fsummary>
-      <type>
-        <v>Family1 = Family2 = Family3 = family()</v>
-      </type>
       <desc>
-        <p>If Family1 and Family2 
+        <p>If <anno>Family1</anno> and <anno>Family2</anno>
 	  are <seealso marker="#family">families</seealso>, then 
-	  Family3 is the family
+	  <anno>Family3</anno> is the family
           such that the index set is equal to the index set of
-          Family1, and Family3[i] is the difference between Family1[i]
-          and Family2[i] if Family2 maps i, Family1[i] otherwise.</p>
+          <anno>Family1</anno>, and <anno>Family3</anno>[i] is the
+          difference between <anno>Family1</anno>[i]
+          and <anno>Family2</anno>[i] if <anno>Family2</anno> maps i,
+          <anno>Family1</anno>[i] otherwise.</p>
         <pre>
 1> <input>F1 = sofs:family([{a,[1,2]},{b,[3,4]}]),</input>
 <input>F2 = sofs:family([{b,[4,5]},{c,[6,7]}]),</input>
@@ -617,17 +615,18 @@ type() = -&nbsp;a type&nbsp;- </pre>
       </desc>
     </func>
     <func>
-      <name>family_domain(Family1) -> Family2</name>
+      <name name="family_domain" arity="1"/>
       <fsummary>Return a family of domains.</fsummary>
-      <type>
-        <v>Family1 = Family2 = family()</v>
-      </type>
       <desc>
-        <p>If Family1 is a <seealso marker="#family">family</seealso>
-          and Family1[i] is a binary relation for every i in the index
-          set of Family1, then Family2 is the family with the same
-          index set as Family1 such that Family2[i] is 
-	  the <seealso marker="#domain">domain</seealso> of Family1[i].</p>
+        <p>If <anno>Family1</anno> is
+          a <seealso marker="#family">family</seealso>
+          and <anno>Family1</anno>[i] is a binary relation for every i
+          in the index set of <anno>Family1</anno>,
+          then <anno>Family2</anno> is the family with the same index
+          set as <anno>Family1</anno> such
+          that <anno>Family2</anno>[i] is
+          the <seealso marker="#domain">domain</seealso> of
+          <anno>Family1</anno>[i].</p>
         <pre>
 1> <input>FR = sofs:from_term([{a,[{1,a},{2,b},{3,c}]},{b,[]},{c,[{4,d},{5,e}]}]),</input>
 <input>F = sofs:family_domain(FR),</input>
@@ -636,17 +635,18 @@ type() = -&nbsp;a type&nbsp;- </pre>
       </desc>
     </func>
     <func>
-      <name>family_field(Family1) -> Family2</name>
+      <name name="family_field" arity="1"/>
       <fsummary>Return a family of fields.</fsummary>
-      <type>
-        <v>Family1 = Family2 = family()</v>
-      </type>
       <desc>
-        <p>If Family1 is a <seealso marker="#family">family</seealso>
-          and Family1[i] is a binary relation for every i in the index
-          set of Family1, then Family2 is the family with the same
-          index set as Family1 such that Family2[i] is 
-	  the <seealso marker="#field">field</seealso> of Family1[i].</p>
+        <p>If <anno>Family1</anno> is
+          a <seealso marker="#family">family</seealso>
+          and <anno>Family1</anno>[i] is a binary relation for every i
+          in the index set of <anno>Family1</anno>,
+          then <anno>Family2</anno> is the family with the same index
+          set as <anno>Family1</anno> such
+          that <anno>Family2</anno>[i] is
+          the <seealso marker="#field">field</seealso> of
+          <anno>Family1</anno>[i].</p>
         <pre>
 1> <input>FR = sofs:from_term([{a,[{1,a},{2,b},{3,c}]},{b,[]},{c,[{4,d},{5,e}]}]),</input>
 <input>F = sofs:family_field(FR),</input>
@@ -657,21 +657,21 @@ type() = -&nbsp;a type&nbsp;- </pre>
       </desc>
     </func>
     <func>
-      <name>family_intersection(Family1) -> Family2</name>
+      <name name="family_intersection" arity="1"/>
       <fsummary>Return the intersection of a family
          of sets of sets.</fsummary>
-      <type>
-        <v>Family1 = Family2 = family()</v>
-      </type>
       <desc>
-        <p>If Family1 is a <seealso marker="#family">family</seealso>
-          and Family1[i] is a set of sets for every i in the index set
-          of Family1, then Family2 is the family with the same index
-          set as Family1 such that Family2[i] is 
-	  the <seealso marker="#intersection_n">intersection</seealso> of
-          Family1[i].</p>
-        <p>If Family1[i] is an empty set for some i, then the process
-          exits with a <c>badarg</c> message.</p>
+        <p>If <anno>Family1</anno> is
+          a <seealso marker="#family">family</seealso>
+          and <anno>Family1</anno>[i] is a set of sets for every i in
+          the index set of <anno>Family1</anno>,
+          then <anno>Family2</anno> is the family with the same index
+          set as <anno>Family1</anno> such
+          that <anno>Family2</anno>[i] is
+          the <seealso marker="#intersection_n">intersection</seealso>
+          of <anno>Family1</anno>[i].</p>
+        <p>If <anno>Family1</anno>[i] is an empty set for some i, then
+          the process exits with a <c>badarg</c> message.</p>
         <pre>
 1> <input>F1 = sofs:from_term([{a,[[1,2,3],[2,3,4]]},{b,[[x,y,z],[x,y]]}]),</input>
 <input>F2 = sofs:family_intersection(F1),</input>
@@ -680,17 +680,16 @@ type() = -&nbsp;a type&nbsp;- </pre>
       </desc>
     </func>
     <func>
-      <name>family_intersection(Family1, Family2) -> Family3</name>
+      <name name="family_intersection" arity="2"/>
       <fsummary>Return the intersection of two families.</fsummary>
-      <type>
-        <v>Family1 = Family2 = Family3 = family()</v>
-      </type>
       <desc>
-        <p>If Family1 and Family2 
-	  are <seealso marker="#family">families</seealso>, then Family3 
-	  is the family such that the index set is the intersection of
-          Family1's and Family2's index sets, and Family3[i] is the
-          intersection of Family1[i] and Family2[i].</p>
+        <p>If <anno>Family1</anno> and <anno>Family2</anno>
+	  are <seealso marker="#family">families</seealso>,
+	  then <anno>Family3</anno> is the family such that the index
+	  set is the intersection of <anno>Family1</anno>'s and
+	  <anno>Family2</anno>'s index sets,
+	  and <anno>Family3</anno>[i] is the intersection of
+	  <anno>Family1</anno>[i] and <anno>Family2</anno>[i].</p>
         <pre>
 1> <input>F1 = sofs:family([{a,[1,2]},{b,[3,4]},{c,[5,6]}]),</input>
 <input>F2 = sofs:family([{b,[4,5]},{c,[7,8]},{d,[9,10]}]),</input>
@@ -700,18 +699,16 @@ type() = -&nbsp;a type&nbsp;- </pre>
       </desc>
     </func>
     <func>
-      <name>family_projection(SetFun, Family1) -> Family2</name>
+      <name name="family_projection" arity="2"/>
       <fsummary>Return a family of modified subsets.</fsummary>
-      <type>
-        <v>SetFun = set_fun()</v>
-        <v>Family1 = Family2 = family()</v>
-        <v>Set = set()</v>
-      </type>
       <desc>
-        <p>If Family1 is a <seealso marker="#family">family</seealso>
-          then Family2 is the family with the same index set as
-          Family1 such that Family2[i] is the result of calling SetFun
-          with Family1[i] as argument.</p>
+        <p>If <anno>Family1</anno> is
+          a <seealso marker="#family">family</seealso>
+          then <anno>Family2</anno> is the family with the same index
+          set as <anno>Family1</anno> such
+          that <anno>Family2</anno>[i] is the result of
+          calling <anno>SetFun</anno> with <anno>Family1</anno>[i] as
+          argument.</p>
         <pre>
 1> <input>F1 = sofs:from_term([{a,[[1,2],[2,3]]},{b,[[]]}]),</input>
 <input>F2 = sofs:family_projection({sofs, union}, F1),</input>
@@ -720,17 +717,18 @@ type() = -&nbsp;a type&nbsp;- </pre>
       </desc>
     </func>
     <func>
-      <name>family_range(Family1) -> Family2</name>
+      <name name="family_range" arity="1"/>
       <fsummary>Return a family of ranges.</fsummary>
-      <type>
-        <v>Family1 = Family2 = family()</v>
-      </type>
       <desc>
-        <p>If Family1 is a <seealso marker="#family">family</seealso>
-          and Family1[i] is a binary relation for every i in the index
-          set of Family1, then Family2 is the family with the same
-          index set as Family1 such that Family2[i] is 
-	  the <seealso marker="#range">range</seealso> of Family1[i].</p>
+        <p>If <anno>Family1</anno> is
+          a <seealso marker="#family">family</seealso>
+          and <anno>Family1</anno>[i] is a binary relation for every i
+          in the index set of <anno>Family1</anno>,
+          then <anno>Family2</anno> is the family with the same index
+          set as <anno>Family1</anno> such
+          that <anno>Family2</anno>[i] is
+          the <seealso marker="#range">range</seealso> of
+          <anno>Family1</anno>[i].</p>
         <pre>
 1> <input>FR = sofs:from_term([{a,[{1,a},{2,b},{3,c}]},{b,[]},{c,[{4,d},{5,e}]}]),</input>
 <input>F = sofs:family_range(FR),</input>
@@ -739,22 +737,21 @@ type() = -&nbsp;a type&nbsp;- </pre>
       </desc>
     </func>
     <func>
-      <name>family_specification(Fun, Family1) -> Family2</name>
+      <name name="family_specification" arity="2"/>
       <fsummary>Select a subset of a family using a predicate.</fsummary>
-      <type>
-        <v>Fun = spec_fun()</v>
-        <v>Family1 = Family2 = family()</v>
-      </type>
       <desc>
-        <p>If Family1 is a <seealso marker="#family">family</seealso>,
-          then Family2 is 
-	  the <seealso marker="#restriction">restriction</seealso> of 
-	  Family1 to those elements i of the
-          index set for which Fun applied to Family1[i] returns
-          <c>true</c>. If Fun is a tuple <c>{external,&nbsp;Fun2}</c>,
-          Fun2 is applied to 
-	  the <seealso marker="#external_set">external set</seealso> of 
-	  Family1[i], otherwise Fun is applied to Family1[i].</p>
+        <p>If <anno>Family1</anno> is
+          a <seealso marker="#family">family</seealso>,
+          then <anno>Family2</anno> is
+          the <seealso marker="#restriction">restriction</seealso> of
+          <anno>Family1</anno> to those elements i of the index set
+          for which <anno>Fun</anno> applied
+          to <anno>Family1</anno>[i] returns
+          <c>true</c>. If <anno>Fun</anno> is a
+          tuple <c>{external,&nbsp;Fun2}</c>, Fun2 is applied to
+          the <seealso marker="#external_set">external set</seealso>
+          of <anno>Family1</anno>[i], otherwise <anno>Fun</anno> is
+          applied to <anno>Family1</anno>[i].</p>
         <pre>
 1> <input>F1 = sofs:family([{a,[1,2,3]},{b,[1,2]},{c,[1]}]),</input>
 <input>SpecFun = fun(S) -> sofs:no_elements(S) =:= 2 end,</input>
@@ -764,24 +761,22 @@ type() = -&nbsp;a type&nbsp;- </pre>
       </desc>
     </func>
     <func>
-      <name>family_to_digraph(Family [, GraphType]) -> Graph</name>
+      <name name="family_to_digraph" arity="1"/>
+      <name name="family_to_digraph" arity="2"/>
       <fsummary>Create a directed graph from a family.</fsummary>
-      <type>
-        <v>Graph = digraph()</v>
-        <v>Family = family()</v>
-        <v>GraphType = -&nbsp;see digraph(3)&nbsp;-</v>
-      </type>
       <desc>
         <p>Creates a directed graph from 
-	  the <seealso marker="#family">family</seealso> Family. For each 
-	  pair (a,&nbsp;{b[1],&nbsp;...,&nbsp;b[n]}) of Family, the vertex
+	  the <seealso marker="#family">family</seealso> <anno>Family</anno>.
+          For each pair (a,&nbsp;{b[1],&nbsp;...,&nbsp;b[n]})
+          of <anno>Family</anno>, the vertex
           a as well the edges (a,&nbsp;b[i]) for
           1&nbsp;&lt;=&nbsp;i&nbsp;&lt;=&nbsp;n are added to a newly
           created directed graph.</p>
-        <p>If no graph type is given, <c>digraph:new/1</c> is used for
-          creating the directed graph, otherwise the GraphType
+        <p>If no graph type is given <seealso marker="digraph#new/0">
+          digraph:new/0</seealso> is used for
+          creating the directed graph, otherwise the <anno>GraphType</anno>
           argument is passed on as second argument to
-          <c>digraph:new/2</c>.</p>
+          <seealso marker="digraph#new/1">digraph:new/1</seealso>.</p>
         <p>It F is a family, it holds that F is a subset of
           <c>digraph_to_family(family_to_digraph(F),&nbsp;type(F))</c>.
           Equality holds if <c>union_of_family(F)</c> is a subset of
@@ -791,17 +786,15 @@ type() = -&nbsp;a type&nbsp;- </pre>
       </desc>
     </func>
     <func>
-      <name>family_to_relation(Family) -> BinRel</name>
+      <name name="family_to_relation" arity="1"/>
       <fsummary>Create a binary relation from a family.</fsummary>
-      <type>
-        <v>Family = family()</v>
-        <v>BinRel = binary_relation()</v>
-      </type>
       <desc>
-        <p>If Family is a <seealso marker="#family">family</seealso>,
-          then BinRel is the binary relation containing all pairs
-          (i,&nbsp;x) such that i belongs to the index set of Family
-          and x belongs to Family[i].</p>
+        <p>If <anno>Family</anno> is
+          a <seealso marker="#family">family</seealso>,
+          then <anno>BinRel</anno> is the binary relation containing
+          all pairs (i,&nbsp;x) such that i belongs to the index set
+          of <anno>Family</anno> and x belongs
+          to <anno>Family</anno>[i].</p>
         <pre>
 1> <input>F = sofs:family([{a,[]}, {b,[1]}, {c,[2,3]}]),</input>
 <input>R = sofs:family_to_relation(F),</input>
@@ -810,17 +803,18 @@ type() = -&nbsp;a type&nbsp;- </pre>
       </desc>
     </func>
     <func>
-      <name>family_union(Family1) -> Family2</name>
+      <name name="family_union" arity="1"/>
       <fsummary>Return the union of a family of sets of sets.</fsummary>
-      <type>
-        <v>Family1 = Family2 = family()</v>
-      </type>
       <desc>
-        <p>If Family1 is a <seealso marker="#family">family</seealso>
-          and Family1[i] is a set of sets for each i in the index set
-          of Family1, then Family2 is the family with the same index
-          set as Family1 such that Family2[i] is 
-	  the <seealso marker="#union_n">union</seealso> of Family1[i].</p>
+        <p>If <anno>Family1</anno> is
+          a <seealso marker="#family">family</seealso>
+          and <anno>Family1</anno>[i] is a set of sets for each i in
+          the index set of <anno>Family1</anno>,
+          then <anno>Family2</anno> is the family with the same index
+          set as <anno>Family1</anno> such
+          that <anno>Family2</anno>[i] is
+          the <seealso marker="#union_n">union</seealso> of
+          <anno>Family1</anno>[i].</p>
         <pre>
 1> <input>F1 = sofs:from_term([{a,[[1,2],[2,3]]},{b,[[]]}]),</input>
 <input>F2 = sofs:family_union(F1),</input>
@@ -831,18 +825,18 @@ type() = -&nbsp;a type&nbsp;- </pre>
       </desc>
     </func>
     <func>
-      <name>family_union(Family1, Family2) -> Family3</name>
+      <name name="family_union" arity="2"/>
       <fsummary>Return the union of two families.</fsummary>
-      <type>
-        <v>Family1 = Family2 = Family3 = family()</v>
-      </type>
       <desc>
-        <p>If Family1 and Family2 
-	  are <seealso marker="#family">families</seealso>, then Family3 
-	  is the family such that the index set is the union of Family1's 
-	  and Family2's index sets, and Family3[i] is the union of
-          Family1[i] and Family2[i] if both maps i, Family1[i] or
-          Family2[i] otherwise.</p>
+        <p>If <anno>Family1</anno> and <anno>Family2</anno>
+	  are <seealso marker="#family">families</seealso>,
+	  then <anno>Family3</anno> is the family such that the index
+	  set is the union of <anno>Family1</anno>'s
+	  and <anno>Family2</anno>'s index sets,
+	  and <anno>Family3</anno>[i] is the union
+	  of <anno>Family1</anno>[i] and <anno>Family2</anno>[i] if
+	  both maps i, <anno>Family1</anno>[i]
+	  or <anno>Family2</anno>[i] otherwise.</p>
         <pre>
 1> <input>F1 = sofs:family([{a,[1,2]},{b,[3,4]},{c,[5,6]}]),</input>
 <input>F2 = sofs:family([{b,[4,5]},{c,[7,8]},{d,[9,10]}]),</input>
@@ -852,15 +846,11 @@ type() = -&nbsp;a type&nbsp;- </pre>
       </desc>
     </func>
     <func>
-      <name>field(BinRel) -> Set</name>
+      <name name="field" arity="1"/>
       <fsummary>Return the field of a binary relation.</fsummary>
-      <type>
-        <v>BinRel = binary_relation()</v>
-        <v>Set = set()</v>
-      </type>
       <desc>
         <p>Returns the <seealso marker="#field">field</seealso> of the
-          binary relation BinRel.</p>
+          binary relation <anno>BinRel</anno>.</p>
         <pre>
 1> <input>R = sofs:relation([{1,a},{1,b},{2,b},{2,c}]),</input>
 <input>S = sofs:field(R),</input>
@@ -871,31 +861,24 @@ type() = -&nbsp;a type&nbsp;- </pre>
       </desc>
     </func>
     <func>
-      <name>from_external(ExternalSet, Type) -> AnySet</name>
+      <name name="from_external" arity="2"/>
       <fsummary>Create a set.</fsummary>
-      <type>
-        <v>ExternalSet = external_set()</v>
-        <v>AnySet = anyset()</v>
-        <v>Type = type()</v>
-      </type>
       <desc>
         <p>Creates a set from the <seealso marker="#external_set">external 
-	  set</seealso> ExternalSet
-          and the <seealso marker="#type">type</seealso> Type. It is
-          assumed that Type is a <seealso marker="#valid_type">valid 
-	  type</seealso> of ExternalSet.</p>
+	  set</seealso> <anno>ExternalSet</anno>
+          and the <seealso marker="#type">type</seealso> <anno>Type</anno>.
+          It is assumed that <anno>Type</anno> is
+          a <seealso marker="#valid_type">valid
+	  type</seealso> of <anno>ExternalSet</anno>.</p>
       </desc>
     </func>
     <func>
-      <name>from_sets(ListOfSets) -> Set</name>
+      <name name="from_sets" arity="1" clause_i="1"/>
       <fsummary>Create a set out of a list of sets.</fsummary>
-      <type>
-        <v>Set = set()</v>
-        <v>ListOfSets = [anyset()]</v>
-      </type>
       <desc>
         <p>Returns the <seealso marker="#sets_definition">unordered 
-	  set</seealso> containing the sets of the list ListOfSets.</p>
+          set</seealso> containing the sets of the list
+          <anno>ListOfSets</anno>.</p>
         <pre>
 1> <input>S1 = sofs:relation([{a,1},{b,2}]),</input>
 <input>S2 = sofs:relation([{x,3},{y,4}]),</input>
@@ -905,38 +888,33 @@ type() = -&nbsp;a type&nbsp;- </pre>
       </desc>
     </func>
     <func>
-      <name>from_sets(TupleOfSets) -> Ordset</name>
+      <name name="from_sets" arity="1" clause_i="2"/>
       <fsummary>Create an ordered set out of a tuple of sets.</fsummary>
-      <type>
-        <v>Ordset = ordset()</v>
-        <v>TupleOfSets = tuple-of(anyset())</v>
-      </type>
       <desc>
         <p>Returns the <seealso marker="#sets_definition">ordered 
 	  set</seealso> containing the sets of the non-empty tuple 
-	  TupleOfSets.</p>
+	  <anno>TupleOfSets</anno>.</p>
       </desc>
     </func>
     <func>
-      <name>from_term(Term [, Type]) -> AnySet</name>
+      <name name="from_term" arity="1"/>
+      <name name="from_term" arity="2"/>
       <fsummary>Create a set.</fsummary>
-      <type>
-        <v>AnySet = anyset()</v>
-        <v>Term = term()</v>
-        <v>Type = type()</v>
-      </type>
       <desc>
         <p><marker id="from_term"></marker>Creates an element 
 	  of <seealso marker="#sets_definition">Sets</seealso> by 
-	  traversing the term Term, sorting lists, removing duplicates and
+	  traversing the term <anno>Term</anno>, sorting lists,
+          removing duplicates and
 	  deriving or verifying a <seealso marker="#valid_type">valid 
 	  type</seealso> for the so obtained external set. An
-          explicitly given <seealso marker="#type">type</seealso> Type
+          explicitly given <seealso marker="#type">type</seealso>
+          <anno>Type</anno>
           can be used to limit the depth of the traversal; an atomic
           type stops the traversal, as demonstrated by this example
           where "foo" and {"foo"} are left unmodified:</p>
         <pre>
-1> <input>S = sofs:from_term([{{"foo"},[1,1]},{"foo",[2,2]}], [{atom,[atom]}]),</input>
+1> <input>S = sofs:from_term([{{"foo"},[1,1]},{"foo",[2,2]}],
+[{atom,[atom]}]),</input>
 <input>sofs:to_external(S).</input>
 [{{"foo"},[1]},{"foo",[2]}]</pre>
         <p><c>from_term</c> can be used for creating atomic or ordered
@@ -963,15 +941,12 @@ type() = -&nbsp;a type&nbsp;- </pre>
       </desc>
     </func>
     <func>
-      <name>image(BinRel, Set1) -> Set2</name>
+      <name name="image" arity="2"/>
       <fsummary>Return the image of a set under a binary relation.</fsummary>
-      <type>
-        <v>BinRel = binary_relation()</v>
-        <v>Set1 = Set2 = set()</v>
-      </type>
       <desc>
         <p>Returns the <seealso marker="#image">image</seealso> of the
-          set Set1 under the binary relation BinRel.</p>
+          set <anno>Set1</anno> under the binary
+          relation <anno>BinRel</anno>.</p>
         <pre>
 1> <input>R = sofs:relation([{1,a},{2,b},{2,c},{3,d}]),</input>
 <input>S1 = sofs:set([1,2]),</input>
@@ -981,42 +956,32 @@ type() = -&nbsp;a type&nbsp;- </pre>
       </desc>
     </func>
     <func>
-      <name>intersection(SetOfSets) -> Set</name>
+      <name name="intersection" arity="1"/>
       <fsummary>Return the intersection of a set of sets.</fsummary>
-      <type>
-        <v>Set = set()</v>
-        <v>SetOfSets = set_of_sets()</v>
-      </type>
       <desc>
         <p>Returns 
 	  the <seealso marker="#intersection_n">intersection</seealso> of 
-	  the set of sets SetOfSets.</p>
+	  the set of sets <anno>SetOfSets</anno>.</p>
         <p>Intersecting an empty set of sets exits the process with a
           <c>badarg</c> message.</p>
       </desc>
     </func>
     <func>
-      <name>intersection(Set1, Set2) -> Set3</name>
+      <name name="intersection" arity="2"/>
       <fsummary>Return the intersection of two sets.</fsummary>
-      <type>
-        <v>Set1 = Set2 = Set3 = set()</v>
-      </type>
       <desc>
         <p>Returns 
 	  the <seealso marker="#intersection">intersection</seealso> of 
-	  Set1 and Set2.</p>
+	  <anno>Set1</anno> and <anno>Set2</anno>.</p>
       </desc>
     </func>
     <func>
-      <name>intersection_of_family(Family) -> Set</name>
+      <name name="intersection_of_family" arity="1"/>
       <fsummary>Return the intersection of a family.</fsummary>
-      <type>
-        <v>Family = family()</v>
-        <v>Set = set()</v>
-      </type>
       <desc>
         <p>Returns the intersection of 
-	  the <seealso marker="#family">family</seealso> Family.</p>
+	  the <seealso marker="#family">family</seealso> <anno>Family</anno>.
+        </p>
         <p>Intersecting an empty family exits the process with a
           <c>badarg</c> message.</p>
         <pre>
@@ -1027,14 +992,11 @@ type() = -&nbsp;a type&nbsp;- </pre>
       </desc>
     </func>
     <func>
-      <name>inverse(Function1) -> Function2</name>
+      <name name="inverse" arity="1"/>
       <fsummary>Return the inverse of a function.</fsummary>
-      <type>
-        <v>Function1 = Function2 = function()</v>
-      </type>
       <desc>
         <p>Returns the <seealso marker="#inverse">inverse</seealso>
-          of the function Function1.</p>
+          of the function <anno>Function1</anno>.</p>
         <pre>
 1> <input>R1 = sofs:relation([{1,a},{2,b},{3,c}]),</input>
 <input>R2 = sofs:inverse(R1),</input>
@@ -1043,16 +1005,13 @@ type() = -&nbsp;a type&nbsp;- </pre>
       </desc>
     </func>
     <func>
-      <name>inverse_image(BinRel, Set1) -> Set2</name>
+      <name name="inverse_image" arity="2"/>
       <fsummary>Return the inverse image of a set under 
         a binary relation.</fsummary>
-      <type>
-        <v>BinRel = binary_relation()</v>
-        <v>Set1 = Set2 = set()</v>
-      </type>
       <desc>
-        <p>Returns the <seealso marker="#inverse_image">inverse 
-	  image</seealso> of Set1 under the binary relation BinRel.</p>
+        <p>Returns the <seealso marker="#inverse_image">inverse
+	  image</seealso> of <anno>Set1</anno> under the binary
+	  relation <anno>BinRel</anno>.</p>
         <pre>
 1> <input>R = sofs:relation([{1,a},{2,b},{2,c},{3,d}]),</input>
 <input>S1 = sofs:set([c,d,e]),</input>
@@ -1062,52 +1021,38 @@ type() = -&nbsp;a type&nbsp;- </pre>
       </desc>
     </func>
     <func>
-      <name>is_a_function(BinRel) -> Bool</name>
+      <name name="is_a_function" arity="1"/>
       <fsummary>Test for a function.</fsummary>
-      <type>
-        <v>Bool = bool()</v>
-        <v>BinRel = binary_relation()</v>
-      </type>
       <desc>
-        <p>Returns <c>true</c> if the binary relation BinRel is a
-          <seealso marker="#function">function</seealso> or the
+        <p>Returns <c>true</c> if the binary relation <anno>BinRel</anno>
+          is a <seealso marker="#function">function</seealso> or the
           untyped empty set, <c>false</c> otherwise.</p>
       </desc>
     </func>
     <func>
-      <name>is_disjoint(Set1, Set2) -> Bool</name>
+      <name name="is_disjoint" arity="2"/>
       <fsummary>Test for disjoint sets.</fsummary>
-      <type>
-        <v>Bool = bool()</v>
-        <v>Set1 = Set2 = set()</v>
-      </type>
       <desc>
-        <p>Returns <c>true</c> if Set1 and Set2 
+        <p>Returns <c>true</c> if <anno>Set1</anno>
+	  and <anno>Set2</anno>
 	  are <seealso marker="#disjoint">disjoint</seealso>, <c>false</c>
           otherwise.</p>
       </desc>
     </func>
     <func>
-      <name>is_empty_set(AnySet) -> Bool</name>
+      <name name="is_empty_set" arity="1"/>
       <fsummary>Test for an empty set.</fsummary>
-      <type>
-        <v>AnySet = anyset()</v>
-        <v>Bool = bool()</v>
-      </type>
       <desc>
-        <p>Returns <c>true</c> if Set is an empty unordered set,
-          <c>false</c> otherwise.</p>
+        <p>Returns <c>true</c> if <anno>AnySet</anno> is an empty
+          unordered set, <c>false</c> otherwise.</p>
       </desc>
     </func>
     <func>
-      <name>is_equal(AnySet1, AnySet2) -> Bool</name>
+      <name name="is_equal" arity="2"/>
       <fsummary>Test two sets for equality.</fsummary>
-      <type>
-        <v>AnySet1 = AnySet2 = anyset()</v>
-        <v>Bool = bool()</v>
-      </type>
       <desc>
-        <p>Returns <c>true</c> if the AnySet1 and AnySet2 
+        <p>Returns <c>true</c> if the <anno>AnySet1</anno>
+	  and <anno>AnySet2</anno>
 	  are <seealso marker="#equal">equal</seealso>, <c>false</c> 
 	  otherwise. This example shows that <c>==/2</c> is used when
           comparing sets for equality:</p>
@@ -1119,67 +1064,49 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name>is_set(AnySet) -> Bool</name>
+      <name name="is_set" arity="1"/>
       <fsummary>Test for an unordered set.</fsummary>
-      <type>
-        <v>AnySet = anyset()</v>
-        <v>Bool = bool()</v>
-      </type>
       <desc>
-        <p>Returns <c>true</c> if AnySet is 
+        <p>Returns <c>true</c> if <anno>AnySet</anno> is
 	  an <seealso marker="#sets_definition">unordered set</seealso>, and
-          <c>false</c> if AnySet is an ordered set or an atomic set.</p>
+          <c>false</c> if <anno>AnySet</anno> is an ordered set or an
+          atomic set.</p>
       </desc>
     </func>
     <func>
-      <name>is_sofs_set(Term) -> Bool</name>
+      <name name="is_sofs_set" arity="1"/>
       <fsummary>Test for an unordered set.</fsummary>
-      <type>
-        <v>Bool = bool()</v>
-        <v>Term = term()</v>
-      </type>
       <desc>
-        <p>Returns <c>true</c> if Term is 
+        <p>Returns <c>true</c> if <anno>Term</anno> is
           an <seealso marker="#sets_definition">unordered set</seealso>, an
           ordered set or an atomic set, <c>false</c> otherwise.</p>
       </desc>
     </func>
     <func>
-      <name>is_subset(Set1, Set2) -> Bool</name>
+      <name name="is_subset" arity="2"/>
       <fsummary>Test two sets for subset.</fsummary>
-      <type>
-        <v>Bool = bool()</v>
-        <v>Set1 = Set2 = set()</v>
-      </type>
       <desc>
-        <p>Returns <c>true</c> if Set1 is 
-	  a <seealso marker="#subset">subset</seealso> of Set2, <c>false</c>
-          otherwise.</p>
+        <p>Returns <c>true</c> if <anno>Set1</anno> is
+	  a <seealso marker="#subset">subset</seealso>
+	  of <anno>Set2</anno>, <c>false</c> otherwise.</p>
       </desc>
     </func>
     <func>
-      <name>is_type(Term) -> Bool</name>
+      <name name="is_type" arity="1"/>
       <fsummary>Test for a type.</fsummary>
-      <type>
-        <v>Bool = bool()</v>
-        <v>Term = term()</v>
-      </type>
       <desc>
-        <p>Returns <c>true</c> if the term Term is 
+        <p>Returns <c>true</c> if the term <anno>Term</anno> is
 	  a <seealso marker="#type">type</seealso>.</p>
       </desc>
     </func>
     <func>
-      <name>join(Relation1, I, Relation2, J) -> Relation3</name>
+      <name name="join" arity="4"/>
       <fsummary>Return the join of two relations.</fsummary>
-      <type>
-        <v>Relation1 = Relation2 = Relation3 = relation()</v>
-        <v>I = J = integer() > 0</v>
-      </type>
       <desc>
         <p>Returns the <seealso marker="#natural_join">natural 
-	  join</seealso> of the relations Relation1 and Relation2 on
-          coordinates I and J.</p>
+	  join</seealso> of the relations <anno>Relation1</anno>
+	  and <anno>Relation2</anno> on coordinates <anno>I</anno> and
+	  <anno>J</anno>.</p>
         <pre>
 1> <input>R1 = sofs:relation([{a,x,1},{b,y,2}]),</input>
 <input>R2 = sofs:relation([{1,f,g},{1,h,i},{2,3,4}]),</input>
@@ -1189,20 +1116,17 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name>multiple_relative_product(TupleOfBinRels, BinRel1) -> BinRel2</name>
+      <name name="multiple_relative_product" arity="2"/>
       <fsummary>Return the multiple relative product of a tuple of binary 
         relations and a relation.</fsummary>
-      <type>
-        <v>TupleOfBinRels = tuple-of(BinRel)</v>
-        <v>BinRel = BinRel1 = BinRel2 = binary_relation()</v>
-      </type>
       <desc>
-        <p>If TupleOfBinRels is a non-empty tuple
-          {R[1],&nbsp;...,&nbsp;R[n]} of binary relations and BinRel1
-          is a binary relation, then BinRel2 is 
+        <p>If <anno>TupleOfBinRels</anno> is a non-empty tuple
+          {R[1],&nbsp;...,&nbsp;R[n]} of binary relations
+          and <anno>BinRel1</anno> is a binary relation,
+          then <anno>BinRel2</anno> is
 	  the <seealso marker="#multiple_relative_product">multiple relative 
 	  product</seealso> of the ordered set
-          (R[i],&nbsp;...,&nbsp;R[n]) and BinRel1.</p>
+          (R[i],&nbsp;...,&nbsp;R[n]) and <anno>BinRel1</anno>.</p>
         <pre>
 1> <input>Ri = sofs:relation([{a,1},{b,2},{c,3}]),</input>
 <input>R = sofs:relation([{a,b},{b,c},{c,a}]),</input>
@@ -1212,29 +1136,21 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name>no_elements(ASet) -> NoElements</name>
+      <name name="no_elements" arity="1"/>
       <fsummary>Return the number of elements of a set.</fsummary>
-      <type>
-        <v>ASet = set() | ordset()</v>
-        <v>NoElements = integer() >= 0 </v>
-      </type>
       <desc>
         <p>Returns the number of elements of the ordered or unordered
-          set ASet.</p>
+          set <anno>ASet</anno>.</p>
       </desc>
     </func>
     <func>
-      <name>partition(SetOfSets) -> Partition</name>
+      <name name="partition" arity="1"/>
       <fsummary>Return the coarsest partition given a set of sets.</fsummary>
-      <type>
-        <v>SetOfSets = set_of_sets()</v>
-        <v>Partition = set()</v>
-      </type>
       <desc>
         <p>Returns the <seealso marker="#partition">partition</seealso> of 
-	  the union of the set of sets SetOfSets such that two
+	  the union of the set of sets <anno>SetOfSets</anno> such that two
 	  elements are considered equal if they belong to the same
-	  elements of SetOfSets.</p>
+	  elements of <anno>SetOfSets</anno>.</p>
         <pre>
 1> <input>Sets1 = sofs:from_term([[a,b,c],[d,e,f],[g,h,i]]),</input>
 <input>Sets2 = sofs:from_term([[b,c,d],[e,f,g],[h,i,j]]),</input>
@@ -1244,17 +1160,12 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name>partition(SetFun, Set) -> Partition</name>
+      <name name="partition" arity="2"/>
       <fsummary>Return a partition of a set.</fsummary>
-      <type>
-        <v>SetFun = set_fun()</v>
-        <v>Partition = set()</v>
-        <v>Set = set()</v>
-      </type>
       <desc>
         <p>Returns the <seealso marker="#partition">partition</seealso> of 
-          Set such that two elements are considered equal if the
-          results of applying SetFun are equal.</p>
+          <anno>Set</anno> such that two elements are considered equal
+          if the results of applying <anno>SetFun</anno> are equal.</p>
         <pre>
 1> <input>Ss = sofs:from_term([[a],[b],[c,d],[e,f]]),</input>
 <input>SetFun = fun(S) -> sofs:from_term(sofs:no_elements(S)) end,</input>
@@ -1264,19 +1175,16 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name>partition(SetFun, Set1, Set2) -> {Set3, Set4}</name>
+      <name name="partition" arity="3"/>
       <fsummary>Return a partition of a set.</fsummary>
-      <type>
-        <v>SetFun = set_fun()</v>
-        <v>Set1 = Set2 = Set3 = Set4 = set()</v>
-      </type>
       <desc>
         <p>Returns a pair of sets that, regarded as constituting a
           set, forms a <seealso marker="#partition">partition</seealso> of 
-	  Set1. If the
-          result of applying SetFun to an element of Set1 yields an
-          element in Set2, the element belongs to Set3, otherwise the
-          element belongs to Set4.</p>
+	  <anno>Set1</anno>. If the
+          result of applying <anno>SetFun</anno> to an element
+          of <anno>Set1</anno> yields an element in <anno>Set2</anno>,
+          the element belongs to <anno>Set3</anno>, otherwise the
+          element belongs to <anno>Set4</anno>.</p>
         <pre>
 1> <input>R1 = sofs:relation([{1,a},{2,b},{3,c}]),</input>
 <input>S = sofs:set([2,4,6]),</input>
@@ -1289,21 +1197,17 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name>partition_family(SetFun, Set) -> Family</name>
+      <name name="partition_family" arity="2"/>
       <fsummary>Return a family indexing a partition.</fsummary>
-      <type>
-        <v>Family = family()</v>
-        <v>SetFun = set_fun()</v>
-        <v>Set = set()</v>
-      </type>
       <desc>
         <p>Returns the <seealso marker="#family">family</seealso>
-          Family where the indexed set is 
-	  a <seealso marker="#partition">partition</seealso> of Set 
-	  such that two elements are considered equal if the results
-          of applying SetFun are the same value i. This i is the index
-          that Family maps onto 
-	  the <seealso marker="#equivalence_class">equivalence 
+          <anno>Family</anno> where the indexed set is
+	  a <seealso marker="#partition">partition</seealso>
+	  of <anno>Set</anno> such that two elements are considered
+	  equal if the results of applying <anno>SetFun</anno> are the
+	  same value i. This i is the index that <anno>Family</anno>
+	  maps onto
+	  the <seealso marker="#equivalence_class">equivalence
 	  class</seealso>.</p>
         <pre>
 1> <input>S = sofs:relation([{a,a,a,a},{a,a,b,b},{a,b,b,b}]),</input>
@@ -1314,18 +1218,15 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name>product(TupleOfSets) -> Relation</name>
+      <name name="product" arity="1"/>
       <fsummary>Return the Cartesian product of a tuple of sets.</fsummary>
-      <type>
-        <v>Relation = relation()</v>
-        <v>TupleOfSets = tuple-of(set())</v>
-      </type>
       <desc>
         <p>Returns the <seealso marker="#Cartesian_product_tuple">Cartesian 
 	  product</seealso> of the non-empty tuple of sets
-          TupleOfSets. If (x[1],&nbsp;...,&nbsp;x[n]) is an element of
-          the n-ary relation Relation, then x[i] is drawn from element
-          i of TupleOfSets.</p>
+          <anno>TupleOfSets</anno>. If (x[1],&nbsp;...,&nbsp;x[n]) is
+          an element of the n-ary relation <anno>Relation</anno>, then
+          x[i] is drawn from element i
+          of <anno>TupleOfSets</anno>.</p>
         <pre>
 1> <input>S1 = sofs:set([a,b]),</input>
 <input>S2 = sofs:set([1,2]),</input>
@@ -1336,15 +1237,12 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name>product(Set1, Set2) -> BinRel</name>
+      <name name="product" arity="2"/>
       <fsummary>Return the Cartesian product of two sets.</fsummary>
-      <type>
-        <v>BinRel = binary_relation()</v>
-        <v>Set1 = Set2 = set()</v>
-      </type>
       <desc>
         <p>Returns the <seealso marker="#Cartesian_product">Cartesian 
-          product</seealso> of Set1 and Set2.</p>
+          product</seealso> of <anno>Set1</anno>
+          and <anno>Set2</anno>.</p>
         <pre>
 1> <input>S1 = sofs:set([1,2]),</input>
 <input>S2 = sofs:set([a,b]),</input>
@@ -1356,19 +1254,16 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name>projection(SetFun, Set1) -> Set2</name>
+      <name name="projection" arity="2"/>
       <fsummary>Return a set of substituted elements.</fsummary>
-      <type>
-        <v>SetFun = set_fun()</v>
-        <v>Set1 = Set2 = set()</v>
-      </type>
       <desc>
         <p>Returns the set created by substituting each element of
-          Set1 by the result of applying SetFun to the element.</p>
-        <p>If SetFun is a number i&nbsp;&gt;=&nbsp;1 and Set1 is a
-          relation, then the returned set is 
-	  the <seealso marker="#projection">projection</seealso> of Set1 
-	  onto coordinate i.</p>
+          <anno>Set1</anno> by the result of
+          applying <anno>SetFun</anno> to the element.</p>
+        <p>If <anno>SetFun</anno> is a number i&nbsp;&gt;=&nbsp;1 and
+          <anno>Set1</anno> is a relation, then the returned set is
+          the <seealso marker="#projection">projection</seealso> of
+          <anno>Set1</anno> onto coordinate i.</p>
         <pre>
 1> <input>S1 = sofs:from_term([{1,a},{2,b},{3,a}]),</input>
 <input>S2 = sofs:projection(2, S1),</input>
@@ -1377,15 +1272,11 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name>range(BinRel) -> Set</name>
+      <name name="range" arity="1"/>
       <fsummary>Return the range of a binary relation.</fsummary>
-      <type>
-        <v>BinRel = binary_relation()</v>
-        <v>Set = set()</v>
-      </type>
       <desc>
         <p>Returns the <seealso marker="#range">range</seealso> of the
-          binary relation BinRel.</p>
+          binary relation <anno>BinRel</anno>.</p>
         <pre>
 1> <input>R = sofs:relation([{1,a},{1,b},{2,b},{2,c}]),</input>
 <input>S = sofs:range(R),</input>
@@ -1394,41 +1285,33 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name>relation(Tuples [, Type]) -> Relation</name>
+      <name name="relation" arity="1"/>
+      <name name="relation" arity="2"/>
       <fsummary>Create a relation.</fsummary>
-      <type>
-        <v>N = integer()</v>
-        <v>Type = N | type()</v>
-        <v>Relation = relation()</v>
-        <v>Tuples = [tuple()]</v>
-      </type>
       <desc>
         <p>Creates a <seealso marker="#relation">relation</seealso>.
           <c>relation(R,&nbsp;T)</c> is equivalent to
           <c>from_term(R,&nbsp;T)</c>, if T is 
 	  a <seealso marker="#type">type</seealso> and the result is a
-	  relation. If Type is an integer N, then
+	  relation. If <anno>Type</anno> is an integer N, then
           <c>[{atom,&nbsp;...,&nbsp;atom}])</c>, where the size of the
           tuple is N, is used as type of the relation. If no type is
-          explicitly given, the size of the first tuple of Tuples is
+          explicitly given, the size of the first tuple of
+          <anno>Tuples</anno> is
           used if there is such a tuple. <c>relation([])</c> is
           equivalent to <c>relation([],&nbsp;2)</c>.</p>
       </desc>
     </func>
     <func>
-      <name>relation_to_family(BinRel) -> Family</name>
+      <name name="relation_to_family" arity="1"/>
       <fsummary>Create a family from a binary relation.</fsummary>
-      <type>
-        <v>Family = family()</v>
-        <v>BinRel = binary_relation()</v>
-      </type>
       <desc>
         <p>Returns the <seealso marker="#family">family</seealso>
-          Family such that the index set is equal to 
+          <anno>Family</anno> such that the index set is equal to
 	  the <seealso marker="#domain">domain</seealso> of the binary
-	  relation BinRel, and Family[i] is 
+	  relation <anno>BinRel</anno>, and <anno>Family</anno>[i] is
 	  the <seealso marker="#image">image</seealso> of the set of i 
-	  under BinRel.</p>
+	  under <anno>BinRel</anno>.</p>
         <pre>
 1> <input>R = sofs:relation([{b,1},{c,2},{c,3}]),</input>
 <input>F = sofs:relation_to_family(R),</input>
@@ -1437,63 +1320,57 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name>relative_product(TupleOfBinRels [, BinRel1]) -> BinRel2</name>
-      <fsummary>Return the relative product of a tuple of binary relations
+      <name name="relative_product" arity="1"/>
+      <name name="relative_product" arity="2" clause_i="1"/>
+      <fsummary>Return the relative product of a list of binary relations
          and a binary relation.</fsummary>
-      <type>
-        <v>TupleOfBinRels = tuple-of(BinRel)</v>
-        <v>BinRel = BinRel1 = BinRel2 = binary_relation()</v>
-      </type>
       <desc>
-        <p>If TupleOfBinRels is a non-empty tuple
-          {R[1],&nbsp;...,&nbsp;R[n]} of binary relations and BinRel1
-          is a binary relation, then BinRel2 is 
-	  the <seealso marker="#tuple_relative_product">relative 
-	  product</seealso> of the ordered set (R[i],&nbsp;...,&nbsp;R[n]) 
-	  and BinRel1.</p>
-        <p>If BinRel1 is omitted, the relation of equality between the
-          elements of 
-	  the <seealso marker="#Cartesian_product_tuple">Cartesian 
-	  product</seealso> of the ranges of R[i],
+        <p>If <anno>ListOfBinRels</anno> is a non-empty list
+          [R[1],&nbsp;...,&nbsp;R[n]] of binary relations and
+          <anno>BinRel1</anno>
+          is a binary relation, then <anno>BinRel2</anno> is the <seealso
+          marker="#tuple_relative_product">relative product</seealso>
+          of the ordered set (R[i],&nbsp;...,&nbsp;R[n]) and
+          <anno>BinRel1</anno>.</p>
+        <p>If <anno>BinRel1</anno> is omitted, the relation of equality
+          between the elements of
+          the <seealso marker="#Cartesian_product_tuple">Cartesian
+          product</seealso> of the ranges of R[i],
           range&nbsp;R[1]&nbsp;&times;&nbsp;...&nbsp;&times;&nbsp;range&nbsp;R[n],
           is used instead (intuitively, nothing is "lost").</p>
         <pre>
 1> <input>TR = sofs:relation([{1,a},{1,aa},{2,b}]),</input>
 <input>R1 = sofs:relation([{1,u},{2,v},{3,c}]),</input>
-<input>R2 = sofs:relative_product({TR, R1}),</input>
+<input>R2 = sofs:relative_product([TR, R1]),</input>
 <input>sofs:to_external(R2).</input>
 [{1,{a,u}},{1,{aa,u}},{2,{b,v}}]</pre>
-        <p>Note that <c>relative_product({R1},&nbsp;R2)</c> is
+        <p>Note that <c>relative_product([R1],&nbsp;R2)</c> is
           different from <c>relative_product(R1,&nbsp;R2)</c>; the
-          tuple of one element is not identified with the element
+          list of one element is not identified with the element
           itself.</p>
       </desc>
     </func>
     <func>
-      <name>relative_product(BinRel1, BinRel2) -> BinRel3</name>
+      <name name="relative_product" arity="2" clause_i="2"/>
       <fsummary>Return the relative product of 
         two binary relations.</fsummary>
-      <type>
-        <v>BinRel1 = BinRel2 = BinRel3 = binary_relation()</v>
-      </type>
       <desc>
         <p><marker id="relprod_impl"></marker>Returns
           the <seealso marker="#relative_product">relative 
-	  product</seealso> of the binary relations BinRel1 and BinRel2.</p>
+	  product</seealso> of the binary relations <anno>BinRel1</anno>
+          and <anno>BinRel2</anno>.</p>
       </desc>
     </func>
     <func>
-      <name>relative_product1(BinRel1, BinRel2) -> BinRel3</name>
+      <name name="relative_product1" arity="2"/>
       <fsummary>Return the relative_product of 
         two binary relations.</fsummary>
-      <type>
-        <v>BinRel1 = BinRel2 = BinRel3 = binary_relation()</v>
-      </type>
       <desc>
         <p>Returns the <seealso marker="#relative_product">relative 
 	  product</seealso> of 
 	  the <seealso marker="#converse">converse</seealso> of the
-	  binary relation BinRel1 and the binary relation BinRel2.</p>
+	  binary relation <anno>BinRel1</anno> and the binary
+	  relation <anno>BinRel2</anno>.</p>
         <pre>
 1> <input>R1 = sofs:relation([{1,a},{1,aa},{2,b}]),</input>
 <input>R2 = sofs:relation([{1,u},{2,v},{3,c}]),</input>
@@ -1505,15 +1382,12 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name>restriction(BinRel1, Set) -> BinRel2</name>
+      <name name="restriction" arity="2"/>
       <fsummary>Return a restriction of a binary relation.</fsummary>
-      <type>
-        <v>BinRel1 = BinRel2 = binary_relation()</v>
-        <v>Set = set()</v>
-      </type>
       <desc>
         <p>Returns the <seealso marker="#restriction">restriction</seealso> of
-          the binary relation BinRel1 to Set.</p>
+          the binary relation <anno>BinRel1</anno>
+          to <anno>Set</anno>.</p>
         <pre>
 1> <input>R1 = sofs:relation([{1,a},{2,b},{3,c}]),</input>
 <input>S = sofs:set([1,2,4]),</input>
@@ -1523,15 +1397,12 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name>restriction(SetFun, Set1, Set2) -> Set3</name>
+      <name name="restriction" arity="3"/>
       <fsummary>Return a restriction of a set.</fsummary>
-      <type>
-        <v>SetFun = set_fun()</v>
-        <v>Set1 = Set2 = Set3 = set()</v>
-      </type>
       <desc>
-        <p>Returns a subset of Set1 containing those elements that
-          yield an element in Set2 as the result of applying SetFun.</p>
+        <p>Returns a subset of <anno>Set1</anno> containing those
+          elements that yield an element in <anno>Set2</anno> as the
+          result of applying <anno>SetFun</anno>.</p>
         <pre>
 1> <input>S1 = sofs:relation([{1,a},{2,b},{3,c}]),</input>
 <input>S2 = sofs:set([b,c,d]),</input>
@@ -1541,13 +1412,9 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name>set(Terms [, Type]) -> Set</name>
+      <name name="set" arity="1"/>
+      <name name="set" arity="2"/>
       <fsummary>Create a set of atoms or any type of sets.</fsummary>
-      <type>
-        <v>Set = set()</v>
-        <v>Terms = [term()]</v>
-        <v>Type = type()</v>
-      </type>
       <desc>
         <p>Creates an <seealso marker="#sets_definition">unordered 
 	  set</seealso>. <c>set(L,&nbsp;T)</c> is equivalent to
@@ -1557,18 +1424,16 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name>specification(Fun, Set1) -> Set2</name>
+      <name name="specification" arity="2"/>
       <fsummary>Select a subset using a predicate.</fsummary>
-      <type>
-        <v>Fun = spec_fun()</v>
-        <v>Set1 = Set2 = set()</v>
-      </type>
       <desc>
-        <p>Returns the set containing every element of Set1 for which
-          Fun returns <c>true</c>. If Fun is a tuple
+        <p>Returns the set containing every element
+          of <anno>Set1</anno> for which <anno>Fun</anno>
+          returns <c>true</c>. If <anno>Fun</anno> is a tuple
           <c>{external,&nbsp;Fun2}</c>, Fun2 is applied to the
           <seealso marker="#external_set">external set</seealso> of
-          each element, otherwise Fun is applied to each element.</p>
+          each element, otherwise <anno>Fun</anno> is applied to each
+          element.</p>
         <pre>
 1> <input>R1 = sofs:relation([{a,1},{b,2}]),</input>
 <input>R2 = sofs:relation([{x,1},{x,2},{y,3}]),</input>
@@ -1579,15 +1444,13 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name>strict_relation(BinRel1) -> BinRel2</name>
+      <name name="strict_relation" arity="1"/>
       <fsummary>Return the strict relation corresponding to 
         a given relation.</fsummary>
-      <type>
-        <v>BinRel1 = BinRel2 = binary_relation()</v>
-      </type>
       <desc>
         <p>Returns the <seealso marker="#strict_relation">strict 
-          relation</seealso> corresponding to the binary relation BinRel1.</p>
+          relation</seealso> corresponding to the binary
+          relation <anno>BinRel1</anno>.</p>
         <pre>
 1> <input>R1 = sofs:relation([{1,1},{1,2},{2,1},{2,2}]),</input>
 <input>R2 = sofs:strict_relation(R1),</input>
@@ -1596,16 +1459,13 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name>substitution(SetFun, Set1) -> Set2</name>
+      <name name="substitution" arity="2"/>
       <fsummary>Return a function with a given set as domain.</fsummary>
-      <type>
-        <v>SetFun = set_fun()</v>
-        <v>Set1 = Set2 = set()</v>
-      </type>
       <desc>
-        <p>Returns a function, the domain of which is Set1. The value
-          of an element of the domain is the result of applying SetFun
-          to the element.</p>
+        <p>Returns a function, the domain of which
+          is <anno>Set1</anno>. The value of an element of the domain
+          is the result of applying <anno>SetFun</anno> to the
+          element.</p>
         <pre>
 1> <input>L = [{a,1},{b,2}].</input>
 [{a,1},{b,2}]
@@ -1647,14 +1507,12 @@ images2(SetOfSets, BinRel) ->
       </desc>
     </func>
     <func>
-      <name>symdiff(Set1, Set2) -> Set3</name>
+      <name name="symdiff" arity="2"/>
       <fsummary>Return the symmetric difference of two sets.</fsummary>
-      <type>
-        <v>Set1 = Set2 = Set3 = set()</v>
-      </type>
       <desc>
         <p>Returns the <seealso marker="#symmetric_difference">symmetric 
-          difference</seealso> (or the Boolean sum) of Set1 and Set2.</p>
+          difference</seealso> (or the Boolean sum)
+          of <anno>Set1</anno> and <anno>Set2</anno>.</p>
         <pre>
 1> <input>S1 = sofs:set([1,2,3]),</input>
 <input>S2 = sofs:set([2,3,4]),</input>
@@ -1664,88 +1522,67 @@ images2(SetOfSets, BinRel) ->
       </desc>
     </func>
     <func>
-      <name>symmetric_partition(Set1, Set2) -> {Set3, Set4, Set5}</name>
+      <name name="symmetric_partition" arity="2"/>
       <fsummary>Return a partition of two sets.</fsummary>
-      <type>
-        <v>Set1 = Set2 = Set3 = Set4 = Set5 = set()</v>
-      </type>
       <desc>
-        <p>Returns a triple of sets: Set3 contains the elements
-          of Set1 that do not belong to Set2; Set4 contains the
-          elements of Set1 that belong to Set2; Set5 contains the
-          elements of Set2 that do not belong to Set1.</p>
+        <p>Returns a triple of sets: <anno>Set3</anno> contains the
+          elements of <anno>Set1</anno> that do not belong
+          to <anno>Set2</anno>; <anno>Set4</anno> contains the
+          elements of <anno>Set1</anno> that belong
+          to <anno>Set2</anno>; <anno>Set5</anno> contains the
+          elements of <anno>Set2</anno> that do not belong
+          to <anno>Set1</anno>.</p>
       </desc>
     </func>
     <func>
-      <name>to_external(AnySet) -> ExternalSet</name>
+      <name name="to_external" arity="1"/>
       <fsummary>Return the elements of a set.</fsummary>
-      <type>
-        <v>ExternalSet = external_set()</v>
-        <v>AnySet = anyset()</v>
-      </type>
       <desc>
         <p>Returns the <seealso marker="#external_set">external 
           set</seealso> of an atomic, ordered or unordered set.</p>
       </desc>
     </func>
     <func>
-      <name>to_sets(ASet) -> Sets</name>
+      <name name="to_sets" arity="1"/>
       <fsummary>Return a list or a tuple of the elements of set.</fsummary>
-      <type>
-        <v>ASet = set() | ordset()</v>
-        <v>Sets = tuple_of(AnySet) | [AnySet]</v>
-      </type>
       <desc>
-        <p>Returns the elements of the ordered set ASet as a tuple of
-          sets, and the elements of the unordered set ASet as a sorted
-          list of sets without duplicates.</p>
+        <p>Returns the elements of the ordered set <anno>ASet</anno>
+          as a tuple of sets, and the elements of the unordered set
+          <anno>ASet</anno> as a sorted list of sets without
+          duplicates.</p>
       </desc>
     </func>
     <func>
-      <name>type(AnySet) -> Type</name>
+      <name name="type" arity="1"/>
       <fsummary>Return the type of a set.</fsummary>
-      <type>
-        <v>AnySet = anyset()</v>
-        <v>Type = type()</v>
-      </type>
       <desc>
         <p>Returns the <seealso marker="#type">type</seealso> of an
           atomic, ordered or unordered set.</p>
       </desc>
     </func>
     <func>
-      <name>union(SetOfSets) -> Set</name>
+      <name name="union" arity="1"/>
       <fsummary>Return the union of a set of sets.</fsummary>
-      <type>
-        <v>Set = set()</v>
-        <v>SetOfSets = set_of_sets()</v>
-      </type>
       <desc>
         <p>Returns the <seealso marker="#union_n">union</seealso> of the
-          set of sets SetOfSets.</p>
+          set of sets <anno>SetOfSets</anno>.</p>
       </desc>
     </func>
     <func>
-      <name>union(Set1, Set2) -> Set3</name>
+      <name name="union" arity="2"/>
       <fsummary>Return the union of two sets.</fsummary>
-      <type>
-        <v>Set1 = Set2 = Set3 = set()</v>
-      </type>
       <desc>
         <p>Returns the <seealso marker="#union">union</seealso> of
-          Set1 and Set2.</p>
+          <anno>Set1</anno> and <anno>Set2</anno>.</p>
       </desc>
     </func>
     <func>
-      <name>union_of_family(Family) -> Set</name>
+      <name name="union_of_family" arity="1"/>
       <fsummary>Return the union of a family.</fsummary>
-      <type>
-        <v>Family = family()</v>
-        <v>Set = set()</v>
-      </type>
       <desc>
         <p>Returns the union of 
-          the <seealso marker="#family">family</seealso> Family.</p>
+          the <seealso marker="#family">family</seealso> <anno>Family</anno>.
+        </p>
         <pre>
 1> <input>F = sofs:family([{a,[0,2,4]},{b,[0,1,2]},{c,[2,3]}]),</input>
 <input>S = sofs:union_of_family(F),</input>
@@ -1754,17 +1591,15 @@ images2(SetOfSets, BinRel) ->
       </desc>
     </func>
     <func>
-      <name>weak_relation(BinRel1) -> BinRel2</name>
+      <name name="weak_relation" arity="1"/>
       <fsummary>Return the weak relation corresponding to 
         a given relation.</fsummary>
-      <type>
-        <v>BinRel1 = BinRel2 = binary_relation()</v>
-      </type>
       <desc>
         <p>Returns a subset S of the <seealso marker="#weak_relation">weak
           relation</seealso> W
-          corresponding to the binary relation BinRel1. Let F be the
-          <seealso marker="#field">field</seealso> of BinRel1. The
+          corresponding to the binary relation <anno>BinRel1</anno>.
+          Let F be the <seealso marker="#field">field</seealso> of
+          <anno>BinRel1</anno>. The
           subset S is defined so that x S y if x W y for some x in F
           and for some y in F.</p>
         <pre>

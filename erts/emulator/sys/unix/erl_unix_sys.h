@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1997-2009. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -129,10 +129,12 @@
 #define HAVE_ERTS_CHECK_IO_DEBUG
 int erts_check_io_debug(void);
 
-
-#ifndef ENABLE_CHILD_WAITER_THREAD
+#ifndef ERTS_SMP
 #  undef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
 #  define ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
+#endif
+
+#ifndef ENABLE_CHILD_WAITER_THREAD
 #  ifdef ERTS_SMP
 #    define ERTS_SMP_SCHEDULERS_NEED_TO_CHECK_CHILDREN
 void erts_check_children(void);
@@ -328,12 +330,5 @@ extern int exit_async(void);
 #endif
 
 #define ERTS_EXIT_AFTER_DUMP _exit
-
-#ifdef ERTS_TIMER_THREAD
-struct erts_iwait; /* opaque for clients */
-extern struct erts_iwait *erts_iwait_init(void);
-extern void erts_iwait_wait(struct erts_iwait *iwait, struct timeval *delay);
-extern void erts_iwait_interrupt(struct erts_iwait *iwait);
-#endif /* ERTS_TIMER_THREAD */
 
 #endif /* #ifndef _ERL_UNIX_SYS_H */

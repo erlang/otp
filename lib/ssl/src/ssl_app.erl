@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -27,14 +27,16 @@
 
 -export([start/2, stop/1]).
 
-%% start/2(Type, StartArgs) -> {ok, Pid} | {ok, Pid, State} | 
-%%                             {error, Reason}
-%%
+%%--------------------------------------------------------------------
+-spec start(normal | {takeover, node()} | {failover, node()}, list()) -> 
+		   ignore | {ok, pid()} | {error, term()}.
+%%--------------------------------------------------------------------
 start(_Type, _StartArgs) ->
     ssl_sup:start_link().
 
-%% stop(State) -> void()
-%%
+%--------------------------------------------------------------------
+-spec stop(term())-> ok.
+%%-------------------------------------------------------------------- 
 stop(_State) ->
     ok.
 

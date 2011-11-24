@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
@@ -31,6 +31,7 @@
 -export([gen_encode/2, gen_encode/3]).
 -export([is_already_generated/2,more_genfields/1,get_class_fields/1,
 	 get_object_field/2]).
+-export([extaddgroup2sequence/1]).
 
 -import(asn1ct_gen, [emit/1,demit/1]).
 
@@ -43,7 +44,7 @@
 %% TypeList = ValueList = [atom()]
 
 pgen(OutFile,Erules,Module,TypeOrVal) ->
-    asn1ct_gen:pgen_module(OutFile,Erules,Module,TypeOrVal,true).
+    asn1ct_gen:pgen_module(OutFile,Erules,Module,TypeOrVal,[],true).
 
 
 %% Generate ENCODING ******************************
@@ -237,7 +238,8 @@ gen_encode_prim(Erules,D,DoTag,Value) when is_record(D,type) ->
 			       "?RT_PER:complete(enc_~s(~s))",[Tname,Value]);
 			   [#type{def=#'Externaltypereference'{type=Tname}}] ->
 			       io_lib:format(
-				 "?RT_PER:complete(enc_~s(~s))",[Tname,Value]);
+				 "?RT_PER:complete(enc_~s(~s))",
+				 [Tname,Value]);
 			 _ -> Value
 		     end,
 	    emit(["?RT_PER:encode_open_type(", {asis,Constraint}, ",", 
@@ -1393,3 +1395,25 @@ get_object_field(Name,ObjectFields) ->
 	false -> false
     end.
 
+
+%% For PER the ExtensionAdditionGroup notation has significance for the encoding and decoding
+%% the components within the ExtensionAdditionGroup is treated in a similar way as if they
+%% have been specified within a SEQUENCE, therefore we construct a fake sequence type here
+%% so that we can generate code for it
+extaddgroup2sequence(ExtList) ->
+    extaddgroup2sequence(ExtList,[]).
+
+extaddgroup2sequence([{'ExtensionAdditionGroup',Number0}|T],Acc) ->
+    Number = case Number0 of undefined -> 1; _ -> Number0 end,
+    {ExtGroupComps,['ExtensionAdditionGroupEnd'|T2]} =
+     lists:splitwith(fun(Elem) -> is_record(Elem,'ComponentType') end,T),
+    extaddgroup2sequence(T2,[#'ComponentType'{
+                                  name='ExtAddGroup',
+                                  typespec=#type{def=#'SEQUENCE'{
+						   extaddgroup=Number,
+						   components=ExtGroupComps}},
+				  prop='OPTIONAL'}|Acc]);
+extaddgroup2sequence([C|T],Acc) ->
+    extaddgroup2sequence(T,[C|Acc]);
+extaddgroup2sequence([],Acc) ->
+    lists:reverse(Acc).

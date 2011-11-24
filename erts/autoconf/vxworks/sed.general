@@ -1,7 +1,7 @@
 # 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 1997-2009. All Rights Reserved.
+# Copyright Ericsson AB 1997-2011. All Rights Reserved.
 # 
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -55,12 +55,16 @@ s|@ETHR_LIBS@||
 s|@ETHR_LIB_NAME@||
 s|@ETHR_DEFS@||
 s|@ETHR_THR_LIB_BASE@||
+s|@ETHR_THR_LIB_BASE_DIR@||
 s|@EMU_THR_DEFS@||
 s|@EMU_THR_LIBS@||
 s|@EMU_THR_LIB_NAME@|ethread|
 s|@ERTS_ENABLE_KERNEL_POLL@|no|
+s|@ERTS_INTERNAL_X_LIBS@||
 s|@cc_root@|/clearcase/otp/|
 # Define VxWorks even though cross-compiling. 
+s|@CROSS_COMPILING|yes|
+
 s|@HCFLAGS@|-DVXWORKS|
 s|@HCLIBS@||
 s|@ENABLE_ALLOC_TYPE_VARS@||

@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -70,18 +70,18 @@ dl_vars(Vars, _) ->
     ShlibRules = ts_lib:subst(ShlibRules0, Vars),
     [{'SHLIB_RULES', ShlibRules}|Vars].
 
-erts_lib_name(multi_threaded, win32) ->
+erts_lib_name(multi_threaded, {win32, V}) ->
     link_library("erts_MD" ++ case is_debug_build() of
 				  true -> "d";
 				  false -> ""
 			      end,
-		 win32);
-erts_lib_name(single_threaded, win32) ->
+		 {win32, V});
+erts_lib_name(single_threaded, {win32, V}) ->
     link_library("erts_ML" ++ case is_debug_build() of
 				  true -> "d";
 				  false -> ""
 			      end,
-		 win32);
+		 {win32, V});
 erts_lib_name(multi_threaded, OsType) ->
     link_library("erts_r", OsType);
 erts_lib_name(single_threaded, OsType) ->
@@ -107,7 +107,7 @@ erts_lib(Vars,OsType) ->
 		   ErtsIncludeInternal,
 		   ErtsLib,
 		   ErtsLibInternal};
-	      {Type, Root, Target} when Type == clearcase; Type == srctree ->
+	      {srctree, Root, Target} ->
 		  Erts = filename:join([Root, "erts"]),
 		  ErtsInclude = filename:join([Erts, "include"]),
 		  ErtsIncludeTarget = filename:join([ErtsInclude, Target]),
@@ -146,7 +146,7 @@ erl_include(Vars) ->
 	case erl_root(Vars) of
 	    {installed, Root} ->
 		filename:join([Root, "usr", "include"]);
-	    {Type, Root, Target} when Type == clearcase; Type == srctree ->
+	    {srctree, Root, Target} ->
 		filename:join([Root, "erts", "emulator", "beam"])
 		    ++ " -I" ++ filename:join([Root, "erts", "emulator"])
 		    ++ system_include(Root, Vars)
@@ -161,7 +161,6 @@ system_include(Root, Vars) ->
 	case ts_lib:var(os, Vars) of
 	    "Windows" ++ _T -> "sys/win32";
 	    "VxWorks" -> "sys.vxworks";
-	    "OSE" -> "sys/ose";
 	    _ -> "sys/unix"
 	end,
     " -I" ++ filename:nativename(filename:join([Root, "erts", "emulator", SysDir])).
@@ -180,7 +179,7 @@ erl_interface(Vars,OsType) ->
 		     {srctree, _Root, _Target} when OsType =:= vxworks ->
 			 {filename:join(Dir, "lib"),
 			  filename:join([Dir, "src"])};
-		     {Type, _Root, Target} when Type == clearcase; Type == srctree ->
+		     {srctree, _Root, Target} ->
 			 {filename:join([Dir, "obj", Target]),
 			  filename:join([Dir, "src", Target])}
 		 end}
@@ -219,11 +218,10 @@ erl_interface(Vars,OsType) ->
 		    {unix,_} ->
 			"-lpthread";
 		    _ -> 
-			"" % VxWorks or OSE
+			"" % VxWorks
 		end,
     CrossCompile = case OsType of
 		       vxworks -> "true";
-		       ose ->     "true";
 		       _ ->       "false"
 		   end,
     [{erl_interface_libpath, filename:nativename(LibPath)},
@@ -247,7 +245,7 @@ ic(Vars, OsType) ->
 		 case erl_root(Vars) of
 		     {installed, _Root} ->
 			 filename:join([Dir, "priv", "lib"]);
-		     {Type, _Root, Target} when Type == clearcase; Type == srctree ->
+		     {srctree, _Root, Target} ->
 			 filename:join([Dir, "priv", "lib", Target])
 		 end,
 		 filename:join(Dir, "include")}
@@ -266,21 +264,6 @@ jinterface(Vars, _OsType) ->
 		filename:join([Dir, "priv", "OtpErlang.jar"])
 	end,
     [{jinterface_classpath, filename:nativename(ClassPath)}|Vars].
-
-%% Unused!
-% ig_vars(Vars) ->
-%     {Lib0, Incl} = 
-% 	case erl_root(Vars) of
-% 	    {installed, Root} ->
-% 		Base = filename:join([Root, "usr"]),
-% 		{filename:join([Base, "lib"]), 
-% 		 filename:join([Base, "include"])};
-% 	    {Type, Root, Target} when Type == clearcase; Type == srctree ->
-% 		{filename:join([Root, "lib", "ig", "obj", Target]),
-% 		 filename:join([Root, "lib", "ig", "include"])}
-% 	end,
-%     [{ig_libdir, filename:nativename(Lib0)},
-%      {ig_include, filename:nativename(Incl)}|Vars].
 
 lib_dir(Vars, Lib) ->
     LibLibDir = case Lib of
@@ -318,9 +301,6 @@ lib_dir(Vars, Lib) ->
 erl_root(Vars) ->
     Root = code:root_dir(),
     case ts_lib:erlang_type() of
-	{clearcase, _Version} ->
-	    Target = get_var(target, Vars),
-	    {clearcase, Root, Target};
 	{srctree, _Version} ->
 	    Target = get_var(target, Vars),
 	    {srctree, Root, Target};
@@ -348,12 +328,7 @@ sock_libraries({win32, _}) ->
 sock_libraries({unix, _}) ->
     "";	% Included in general libraries if needed.
 sock_libraries(vxworks) ->
-    "";
-sock_libraries(ose) ->
-    "";
-sock_libraries(_Other) ->
-    exit({sock_libraries, not_supported}).
-
+    "".
 
 link_library(LibName,{win32, _}) ->
     LibName ++ ".lib";
@@ -361,8 +336,6 @@ link_library(LibName,{unix, _}) ->
     "lib" ++ LibName ++ ".a";
 link_library(LibName,vxworks) ->
     "lib" ++ LibName ++ ".a";
-link_library(_LibName,ose) ->
-    "";
 link_library(_LibName,_Other) ->
     exit({link_library, not_supported}).
 

@@ -1,6 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%%
+%% The contents of this file are subject to the Erlang Public License,
+%% Version 1.1, (the "License"); you may not use this file except in
+%% compliance with the License. You should have received a copy of the
+%% Erlang Public License along with this software. If not, it can be
+%% retrieved online at http://www.erlang.org/.
+%%
+%% Software distributed under the License is distributed on an "AS IS"
+%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+%% the License for the specific language governing rights and limitations
+%% under the License.
+%%
 %% %CopyrightEnd%
 %%
 -module(beam_lib_SUITE).
@@ -14,25 +27,45 @@
 -define(t,test_server).
 -define(privdir, "beam_lib_SUITE_priv").
 -else.
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -define(format(S, A), ok).
 -define(privdir, ?config(priv_dir, Conf)).
 -endif.
 
--export([all/1, normal/1, error/1, cmp/1, cmp_literals/1, strip/1, otp_6711/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 normal/1, error/1, cmp/1, cmp_literals/1, strip/1, otp_6711/1,
          building/1, md5/1, encrypted_abstr/1, encrypted_abstr_file/1]).
 
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
-all(suite) ->
-    [error, normal, cmp, cmp_literals, strip, otp_6711, building, md5,
-     encrypted_abstr, encrypted_abstr_file].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [error, normal, cmp, cmp_literals, strip, otp_6711,
+     building, md5, encrypted_abstr, encrypted_abstr_file].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 init_per_testcase(_Case, Config) ->
     Dog=?t:timetrap(?t:minutes(2)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
@@ -148,7 +181,8 @@ error(Conf) when is_list(Conf) ->
     ?line verify(not_a_beam_file, beam_lib:info(<<"short">>)),
 
     ?line {Binary1, _} = split_binary(Binary, byte_size(Binary)-10),
-    ?line verify(chunk_too_big, beam_lib:chunks(Binary1, ["Abst"])),
+    LastChunk = last_chunk(Binary),
+    ?line verify(chunk_too_big, beam_lib:chunks(Binary1, [LastChunk])),
     ?line Chunks = chunk_info(Binary),
     ?line {value, {_, AbstractStart, _}} = lists:keysearch("Abst", 1, Chunks),
     ?line {Binary2, _} = split_binary(Binary, AbstractStart),
@@ -171,6 +205,12 @@ error(Conf) when is_list(Conf) ->
     ?line file:delete(BeamFile),
     ?line file:delete(ACopy),
     ok.
+
+last_chunk(Bin) ->
+    L = beam_lib:info(Bin),
+    {chunks,Chunks} = lists:keyfind(chunks, 1, L),
+    {Last,_,_} = lists:last(Chunks),
+    Last.
 
 do_error(BeamFile, ACopy) ->
     % evil tests
@@ -209,8 +249,8 @@ cmp(doc) -> ["Compare contents of BEAM files and directories"];
 cmp(Conf) when is_list(Conf) ->
     ?line PrivDir = ?privdir,
 
-    ?line Dir1 = filename:join(PrivDir, dir1),
-    ?line Dir2 = filename:join(PrivDir, dir2),
+    ?line Dir1 = filename:join(PrivDir, "dir1"),
+    ?line Dir2 = filename:join(PrivDir, "dir2"),
 
     ok = file:make_dir(Dir1),
     ok = file:make_dir(Dir2),
@@ -259,8 +299,8 @@ cmp_literals(doc) -> ["Compare contents of BEAM files having literals"];
 cmp_literals(Conf) when is_list(Conf) ->
     ?line PrivDir = ?privdir,
 
-    ?line Dir1 = filename:join(PrivDir, dir1),
-    ?line Dir2 = filename:join(PrivDir, dir2),
+    ?line Dir1 = filename:join(PrivDir, "dir1"),
+    ?line Dir2 = filename:join(PrivDir, "dir2"),
 
     ok = file:make_dir(Dir1),
     ok = file:make_dir(Dir2),
@@ -297,6 +337,7 @@ strip(Conf) when is_list(Conf) ->
     ?line {Source2D1, BeamFile2D1} = make_beam(PrivDir, simple2, concat),
     ?line {Source3D1, BeamFile3D1} = make_beam(PrivDir, make_fun, make_fun),
     ?line {Source4D1, BeamFile4D1} = make_beam(PrivDir, constant, constant),
+    ?line {Source5D1, BeamFile5D1} = make_beam(PrivDir, lines, lines),
 
     ?line NoOfTables = length(ets:all()),
     ?line P0 = pps(),
@@ -327,13 +368,25 @@ strip(Conf) when is_list(Conf) ->
     ?line {module, make_fun} = code:load_abs(filename:rootname(BeamFile3D1)),
     ?line {module, constant} = code:load_abs(filename:rootname(BeamFile4D1)),
 
+    %% check that line number information is still present after stripping
+    ?line {module, lines} = code:load_abs(filename:rootname(BeamFile5D1)),
+    ?line {'EXIT',{badarith,[{lines,t,1,Info}|_]}} =
+	(catch lines:t(atom)),
+    ?line true = code:delete(lines),
+    ?line false = code:purge(lines),
+    ?line {ok, {lines,BeamFile5D1}} = beam_lib:strip(BeamFile5D1),
+    ?line {module, lines} = code:load_abs(filename:rootname(BeamFile5D1)),
+    ?line {'EXIT',{badarith,[{lines,t,1,Info}|_]}} =
+	(catch lines:t(atom)),
+
     ?line true = (P0 == pps()),
     ?line NoOfTables = length(ets:all()),
 
     ?line delete_files([SourceD1, BeamFileD1, 
 			Source2D1, BeamFile2D1, 
 			Source3D1, BeamFile3D1,
-			Source4D1, BeamFile4D1]),
+			Source4D1, BeamFile4D1,
+			Source5D1, BeamFile5D1]),
     ok.
 
 
@@ -348,7 +401,7 @@ otp_6711(Conf) when is_list(Conf) ->
         (catch {a, beam_lib:strip_files([3])}),
 
     ?line PrivDir = ?privdir,
-    ?line Dir = filename:join(PrivDir, dir),
+    ?line Dir = filename:join(PrivDir, "dir"),
     ?line Lib = filename:join(Dir, "lib"),
     ?line App = filename:join(Lib, "app"),
     ?line EBin = filename:join(App, "ebin"),
@@ -384,8 +437,8 @@ building(doc) -> "Testing building of BEAM files.";
 building(Conf) when is_list(Conf) ->
     ?line PrivDir = ?privdir,
 
-    ?line Dir1 = filename:join(PrivDir, b_dir1),
-    ?line Dir2 = filename:join(PrivDir, b_dir2),
+    ?line Dir1 = filename:join(PrivDir, "b_dir1"),
+    ?line Dir2 = filename:join(PrivDir, "b_dir2"),
 
     ok = file:make_dir(Dir1),
     ok = file:make_dir(Dir2),
@@ -538,8 +591,18 @@ do_encrypted_abstr(Beam, Key) ->
     ?line {ok,{simple,[{"Abst",Abst}]}} = beam_lib:chunks(Beam, ["Abst"]),
 
     ?line {ok,cleared} = beam_lib:clear_crypto_key_fun(),
+
+    %% Try to force a stop/start race.
+    ?line start_stop_race(10000),
+
     ok.
 
+start_stop_race(0) ->
+    ok;
+start_stop_race(N) ->
+    {error,_} = beam_lib:crypto_key_fun(bad_fun),
+    undefined = beam_lib:clear_crypto_key_fun(),
+    start_stop_race(N-1).
 
 bad_fun(F) ->
     {error,E} = beam_lib:crypto_key_fun(F),
@@ -655,7 +718,7 @@ chunk_info(File) ->
     Chunks.
     
 make_beam(Dir, Module, F) ->
-    ?line FileBase = filename:join(Dir, Module),
+    ?line FileBase = filename:join(Dir, atom_to_list(Module)),
     ?line Source = FileBase ++ ".erl",
     ?line BeamFile = FileBase ++ ".beam",
     ?line simple_file(Source, Module, F),
@@ -739,6 +802,12 @@ simple_file(File, Module, constant2) ->
 			"-export([t/1]). "
 			"t(A) -> "
 			"    {a,b,[2,3],x,y}. "]),
+    ok = file:write_file(File, B);
+simple_file(File, Module, lines) ->
+    B = list_to_binary(["-module(", atom_to_list(Module), ").\n"
+			"-export([t/1]).\n"
+			"t(A) ->\n"
+			"    A+1.\n"]),
     ok = file:write_file(File, B);
 simple_file(File, Module, F) ->
     B = list_to_binary(["-module(", atom_to_list(Module), "). "

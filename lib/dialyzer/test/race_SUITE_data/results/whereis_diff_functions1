@@ -1,0 +1,3 @@
+
+whereis_diff_functions1.erl:10: The call erlang:register('master',pid()) might fail due to a possible race condition caused by its combination with the erlang:whereis('master') call in whereis_diff_functions1.erl on line 8
+whereis_diff_functions1.erl:18: The call erlang:register(AnAtom::atom(),Pid::pid()) might fail due to a possible race condition caused by its combination with the erlang:whereis(AnAtom::any()) call in whereis_diff_functions1.erl on line 15

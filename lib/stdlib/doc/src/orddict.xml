@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2000</year><year>2009</year>
+      <year>2000</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -46,176 +46,123 @@
       (<c>==</c>).</p>
   </description>
 
-  <section>
-    <title>DATA TYPES</title>
-    <code type="none">
-ordered_dictionary()
-  as returned by new/0</code>
-  </section>
+  <datatypes>
+    <datatype>
+      <name name="orddict"/>
+      <desc><p>As returned by new/0.</p></desc>
+    </datatype>
+  </datatypes>
+
   <funcs>
     <func>
-      <name>append(Key, Value, Orddict1) -> Orddict2</name>
+      <name name="append" arity="3"/>
       <fsummary>Append a value to keys in a dictionary</fsummary>
-      <type>
-        <v>Key = Value = term()</v>
-        <v>Orddict1 = Orddict2 = ordered_dictionary()</v>
-      </type>
       <desc>
-        <p>This function appends a new <c>Value</c> to the current list
-          of values associated with <c>Key</c>.  An exception is
-          generated if the initial value associated with <c>Key</c> is
+        <p>This function appends a new <c><anno>Value</anno></c> to the current list
+          of values associated with <c><anno>Key</anno></c>.  An exception is
+          generated if the initial value associated with <c><anno>Key</anno></c> is
           not a list of values.</p>
       </desc>
     </func>
     <func>
-      <name>append_list(Key, ValList, Orddict1) -> Orddict2</name>
+      <name name="append_list" arity="3"/>
       <fsummary>Append new values to keys in a dictionary</fsummary>
-      <type>
-        <v>ValList = [Value]</v>
-        <v>Key = Value = term()</v>
-        <v>Orddict1 = Orddict2 = ordered_dictionary()</v>
-      </type>
       <desc>
-        <p>This function appends a list of values <c>ValList</c> to
-          the current list of values associated with <c>Key</c>. An
+        <p>This function appends a list of values <c><anno>ValList</anno></c> to
+          the current list of values associated with <c><anno>Key</anno></c>. An
           exception is generated if the initial value associated with
-          <c>Key</c> is not a list of values.</p>
+          <c><anno>Key</anno></c> is not a list of values.</p>
       </desc>
     </func>
     <func>
-      <name>erase(Key, Orddict1) -> Orddict2</name>
+      <name name="erase" arity="2"/>
       <fsummary>Erase a key from a dictionary</fsummary>
-      <type>
-        <v>Key = term()</v>
-        <v>Orddict1 = Orddict2 = ordered_dictionary()</v>
-      </type>
       <desc>
         <p>This function erases all items with a given key from a
           dictionary.</p>
       </desc>
     </func>
     <func>
-      <name>fetch(Key, Orddict) -> Value</name>
+      <name name="fetch" arity="2"/>
       <fsummary>Look-up values in a dictionary</fsummary>
-      <type>
-        <v>Key = Value = term()</v>
-        <v>Orddict = ordered_dictionary()</v>
-      </type>
       <desc>
-        <p>This function returns the value associated with <c>Key</c>
-          in the dictionary <c>Orddict</c>. <c>fetch</c> assumes that
-          the <c>Key</c> is present in the dictionary and an exception
-          is generated if <c>Key</c> is not in the dictionary.</p>
+        <p>This function returns the value associated with <c><anno>Key</anno></c>
+          in the dictionary <c><anno>Orddict</anno></c>. <c>fetch</c> assumes that
+          the <c><anno>Key</anno></c> is present in the dictionary and an exception
+          is generated if <c><anno>Key</anno></c> is not in the dictionary.</p>
       </desc>
     </func>
     <func>
-      <name>fetch_keys(Orddict) -> Keys</name>
+      <name name="fetch_keys" arity="1"/>
       <fsummary>Return all keys in a dictionary</fsummary>
-      <type>
-        <v>Orddict = ordered_dictionary()</v>
-        <v>Keys = [term()]</v>
-      </type>
       <desc>
         <p>This function returns a list of all keys in the dictionary.</p>
       </desc>
     </func>
     <func>
-      <name>filter(Pred, Orddict1) -> Orddict2</name>
+      <name name="filter" arity="2"/>
       <fsummary>Choose elements which satisfy a predicate</fsummary>
-      <type>
-        <v>Pred = fun(Key, Value) -> bool()</v>
-        <v>&nbsp;Key = Value = term()</v>
-        <v>Orddict1 = Orddict2 = ordered_dictionary()</v>
-      </type>
       <desc>
-        <p><c>Orddict2</c> is a dictionary of all keys and values in
-          <c>Orddict1</c> for which <c>Pred(Key, Value)</c> is <c>true</c>.</p>
+        <p><c><anno>Orddict2</anno></c> is a dictionary of all keys and values in
+          <c><anno>Orddict1</anno></c> for which <c><anno>Pred</anno>(<anno>Key</anno>, <anno>Value</anno>)</c> is <c>true</c>.</p>
       </desc>
     </func>
     <func>
-      <name>find(Key, Orddict) -> {ok, Value} | error</name>
+      <name name="find" arity="2"/>
       <fsummary>Search for a key in a dictionary</fsummary>
-      <type>
-        <v>Key = Value = term()</v>
-        <v>Orddict = ordered_dictionary()</v>
-      </type>
       <desc>
         <p>This function searches for a key in a dictionary. Returns
-          <c>{ok, Value}</c> where <c>Value</c> is the value associated
-          with <c>Key</c>, or <c>error</c> if the key is not present in
+          <c>{ok, <anno>Value</anno>}</c> where <c><anno>Value</anno></c> is the value associated
+          with <c><anno>Key</anno></c>, or <c>error</c> if the key is not present in
           the dictionary.</p>
       </desc>
     </func>
     <func>
-      <name>fold(Fun, Acc0, Orddict) -> Acc1</name>
+      <name name="fold" arity="3"/>
       <fsummary>Fold a function over a dictionary</fsummary>
-      <type>
-        <v>Fun = fun(Key, Value, AccIn) -> AccOut</v>
-        <v>Key = Value = term()</v>
-        <v>Acc0 = Acc1 = AccIn = AccOut = term()</v>
-        <v>Orddict = ordered_dictionary()</v>
-      </type>
       <desc>
-        <p>Calls <c>Fun</c> on successive keys and values of
-          <c>Orddict</c> together with an extra argument <c>Acc</c>
-          (short for accumulator). <c>Fun</c> must return a new
-          accumulator which is passed to the next call. <c>Acc0</c> is
+        <p>Calls <c><anno>Fun</anno></c> on successive keys and values of
+          <c><anno>Orddict</anno></c> together with an extra argument <c>Acc</c>
+          (short for accumulator). <c><anno>Fun</anno></c> must return a new
+          accumulator which is passed to the next call. <c><anno>Acc0</anno></c> is
           returned if the list is empty. The evaluation order is
           undefined.</p>
       </desc>
     </func>
     <func>
-      <name>from_list(List) -> Orddict</name>
+      <name name="from_list" arity="1"/>
       <fsummary>Convert a list of pairs to a dictionary</fsummary>
-      <type>
-        <v>List = [{Key, Value}]</v>
-        <v>Orddict = ordered_dictionary()</v>
-      </type>
       <desc>
-        <p>This function converts the key/value list <c>List</c> to a 
-          dictionary.</p>
+        <p>This function converts the <c><anno>Key</anno></c> - <c><anno>Value</anno></c> list
+          <c><anno>List</anno></c> to a dictionary.</p>
       </desc>
     </func>
     <func>
-      <name>is_key(Key, Orddict) -> bool()</name>
+      <name name="is_key" arity="2"/>
       <fsummary>Test if a key is in a dictionary</fsummary>
-      <type>
-        <v>Key = term()</v>
-        <v>Orddict = ordered_dictionary()</v>
-      </type>
       <desc>
-        <p>This function tests if <c>Key</c> is contained in
-          the dictionary <c>Orddict</c>.</p>
+        <p>This function tests if <c><anno>Key</anno></c> is contained in
+          the dictionary <c><anno>Orddict</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name>map(Fun, Orddict1) -> Orddict2</name>
+      <name name="map" arity="2"/>
       <fsummary>Map a function over a dictionary</fsummary>
-      <type>
-        <v>Fun = fun(Key, Value1) -> Value2</v>
-        <v>&nbsp;Key = Value1 = Value2 = term()</v>
-        <v>Orddict1 = Orddict2 = ordered_dictionary()</v>
-      </type>
       <desc>
-        <p><c>map</c> calls <c>Func</c> on successive keys and values
-          of <c>Orddict</c> to return a new value for each key.
+        <p><c>map</c> calls <c><anno>Fun</anno></c> on successive keys and values
+          of <c><anno>Orddict1</anno></c> to return a new value for each key.
           The evaluation order is undefined.</p>
       </desc>
     </func>
     <func>
-      <name>merge(Fun, Orddict1, Orddict2) -> Orddict3</name>
+      <name name="merge" arity="3"/>
       <fsummary>Merge two dictionaries</fsummary>
-      <type>
-        <v>Fun = fun(Key, Value1, Value2) -> Value</v>
-        <v>&nbsp;Key = Value1 = Value2 = Value3 = term()</v>
-        <v>Orddict1 = Orddict2 = Orddict3 = ordered_dictionary()</v>
-      </type>
       <desc>
-        <p><c>merge</c> merges two dictionaries, <c>Orddict1</c> and
-          <c>Orddict2</c>, to create a new dictionary.  All the <c>Key</c>
-          - <c>Value</c> pairs from both dictionaries are included in
+        <p><c>merge</c> merges two dictionaries, <c><anno>Orddict1</anno></c> and
+          <c><anno>Orddict2</anno></c>, to create a new dictionary.  All the <c><anno>Key</anno></c>
+          - <c><anno>Value</anno></c> pairs from both dictionaries are included in
           the new dictionary.  If a key occurs in both dictionaries then
-          <c>Fun</c> is called with the key and both values to return a
+          <c><anno>Fun</anno></c> is called with the key and both values to return a
           new value. <c>merge</c> could be defined as:</p>
         <code type="none">
 merge(Fun, D1, D2) ->
@@ -226,75 +173,52 @@ merge(Fun, D1, D2) ->
       </desc>
     </func>
     <func>
-      <name>new() -> ordered_dictionary()</name>
+      <name name="new" arity="0"/>
       <fsummary>Create a dictionary</fsummary>
       <desc>
         <p>This function creates a new dictionary.</p>
       </desc>
     </func>
     <func>
-      <name>size(Orddict) -> int()</name>
+      <name name="size" arity="1"/>
       <fsummary>Return the number of elements in an ordered dictionary</fsummary>
-      <type>
-        <v>Orddict = ordered_dictionary()</v>
-      </type>
       <desc>
-        <p>Returns the number of elements in an <c>Orddict</c>.</p>
+        <p>Returns the number of elements in an <c><anno>Orddict</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name>store(Key, Value, Orddict1) -> Orddict2</name>
+      <name name="store" arity="3"/>
       <fsummary>Store a value in a dictionary</fsummary>
-      <type>
-        <v>Key = Value = term()</v>
-        <v>Orddict1 = Orddict2 = ordered_dictionary()</v>
-      </type>
       <desc>
-        <p>This function stores a <c>Key</c> - <c>Value</c> pair in a
-          dictionary. If the <c>Key</c> already exists in <c>Orddict1</c>,
-          the associated value is replaced by <c>Value</c>.</p>
+        <p>This function stores a <c><anno>Key</anno></c> - <c><anno>Value</anno></c> pair in a
+          dictionary. If the <c><anno>Key</anno></c> already exists in <c><anno>Orddict1</anno></c>,
+          the associated value is replaced by <c><anno>Value</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name>to_list(Orddict) -> List</name>
+      <name name="to_list" arity="1"/>
       <fsummary>Convert a dictionary to a list of pairs</fsummary>
-      <type>
-        <v>Orddict = ordered_dictionary()</v>
-        <v>List = [{Key, Value}]</v>
-      </type>
       <desc>
         <p>This function converts the dictionary to a list
           representation.</p>
       </desc>
     </func>
     <func>
-      <name>update(Key, Fun, Orddict1) -> Orddict2</name>
+      <name name="update" arity="3"/>
       <fsummary>Update a value in a dictionary</fsummary>
-      <type>
-        <v>Key = term()</v>
-        <v>Fun = fun(Value1) -> Value2</v>
-        <v>&nbsp;Value1 = Value2 = term()</v>
-        <v>Orddict1 = Orddict2 = ordered_dictionary()</v>
-      </type>
       <desc>
-        <p>Update the a value in a dictionary by calling <c>Fun</c> on
+        <p>Update a value in a dictionary by calling <c><anno>Fun</anno></c> on
           the value to get a new value.  An exception is generated if
-          <c>Key</c> is not present in the dictionary.</p>
+          <c><anno>Key</anno></c> is not present in the dictionary.</p>
       </desc>
     </func>
     <func>
-      <name>update(Key, Fun, Initial, Orddict1) -> Orddict2</name>
+      <name name="update" arity="4"/>
       <fsummary>Update a value in a dictionary</fsummary>
-      <type>
-        <v>Key = Initial = term()</v>
-        <v>Fun = fun(Value1) -> Value2</v>
-        <v>&nbsp;Value1 = Value2 = term()</v>
-        <v>Orddict1 = Orddict2 = ordered_dictionary()</v>
-      </type>
       <desc>
-        <p>Update the a value in a dictionary by calling <c>Fun</c> on
-          the value to get a new value.  If <c>Key</c> is not present
-          in the dictionary then <c>Initial</c> will be stored as
+        <p>Update a value in a dictionary by calling <c><anno>Fun</anno></c> on
+          the value to get a new value.  If <c><anno>Key</anno></c> is not present
+          in the dictionary then <c><anno>Initial</anno></c> will be stored as
           the first value. For example <c>append/3</c> could be defined
           as:</p>
         <code type="none">
@@ -303,17 +227,12 @@ append(Key, Val, D) ->
       </desc>
     </func>
     <func>
-      <name>update_counter(Key, Increment, Orddict1) -> Orddict2</name>
+      <name name="update_counter" arity="3"/>
       <fsummary>Increment a value in a dictionary</fsummary>
-      <type>
-        <v>Key = term()</v>
-        <v>Increment = number()</v>
-        <v>Orddict1 = Orddict2 = ordered_dictionary()</v>
-      </type>
       <desc>
-        <p>Add <c>Increment</c> to the value associated with <c>Key</c>
-          and store this value.  If <c>Key</c> is not present in
-          the dictionary then <c>Increment</c> will be stored as
+        <p>Add <c><anno>Increment</anno></c> to the value associated with <c><anno>Key</anno></c>
+          and store this value.  If <c><anno>Key</anno></c> is not present in
+          the dictionary then <c><anno>Increment</anno></c> will be stored as
           the first value.</p>
         <p>This could be defined as:</p>
         <code type="none">

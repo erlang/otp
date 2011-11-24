@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -21,22 +21,39 @@
 
 -module(bs_construct_SUITE).
 
--export([all/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
 	 test1/1, test2/1, test3/1, test4/1, test5/1, testf/1,
 	 not_used/1, in_guard/1,
 	 mem_leak/1, coerce_to_float/1, bjorn/1,
 	 huge_float_field/1, huge_binary/1, system_limit/1, badarg/1,
 	 copy_writable_binary/1, kostis/1, dynamic/1, bs_add/1,
-	 otp_7422/1]).
+	 otp_7422/1, zero_width/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
-all(suite) ->
-    [test1, test2, test3, test4, test5, testf,
-     not_used, in_guard, mem_leak, coerce_to_float, bjorn,
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [test1, test2, test3, test4, test5, testf, not_used,
+     in_guard, mem_leak, coerce_to_float, bjorn,
      huge_float_field, huge_binary, system_limit, badarg,
-     copy_writable_binary, kostis, dynamic, bs_add,
-     otp_7422].
+     copy_writable_binary, kostis, dynamic, bs_add, otp_7422, zero_width].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
 
 big(1) ->
     57285702734876389752897683.
@@ -536,6 +553,11 @@ huge_float_check({'EXIT',{badarg,_}}) -> ok.
 
 huge_binary(Config) when is_list(Config) ->
     ?line 16777216 = size(<<0:(id(1 bsl 26)),(-1):(id(1 bsl 26))>>),
+    ?line garbage_collect(),
+    ?line id(<<0:((1 bsl 32)-1)>>),
+    ?line garbage_collect(),
+    ?line id(<<0:(id((1 bsl 32)-1))>>),
+    ?line garbage_collect(),
     ok.
 
 system_limit(Config) when is_list(Config) ->
@@ -547,6 +569,10 @@ system_limit(Config) when is_list(Config) ->
 	(catch <<42:(id(1 bsl BitsPerWord)),0:(id(0))>>),
     ?line {'EXIT',{system_limit,_}} =
 	(catch <<(id(<<>>))/binary,0:(id(1 bsl 100))>>),
+
+    %% Would fail to load.
+    ?line {'EXIT',{system_limit,_}} = (catch <<0:(1 bsl 67)>>),
+    ?line {'EXIT',{system_limit,_}} = (catch <<0:((1 bsl 64)+1)>>),
 
     case WordSize of
 	4 ->
@@ -564,6 +590,14 @@ system_limit_32() ->
     ?line {'EXIT',{system_limit,_}} = (catch <<0:(id(8)),42:536870912/unit:8>>),
     ?line {'EXIT',{system_limit,_}} =
 	(catch <<0:(id(8)),42:(id(536870912))/unit:8>>),
+
+    %% The size would be silently truncated, resulting in a crash.
+    ?line {'EXIT',{system_limit,_}} = (catch <<0:(1 bsl 35)>>),
+    ?line {'EXIT',{system_limit,_}} = (catch <<0:((1 bsl 32)+1)>>),
+
+    %% Would fail to load.
+    ?line {'EXIT',{system_limit,_}} = (catch <<0:(1 bsl 43)>>),
+    ?line {'EXIT',{system_limit,_}} = (catch <<0:((1 bsl 40)+1)>>),
     ok.
 
 badarg(Config) when is_list(Config) ->
@@ -786,5 +820,20 @@ otp_7422_bin(N) when N < 512 ->
 	       end),
     otp_7422_bin(N+1);
 otp_7422_bin(_) -> ok.
+
+zero_width(Config) when is_list(Config) ->
+    ?line Z = id(0),
+    Small = id(42),
+    Big = id(1 bsl 128),
+    ?line <<>> = <<Small:Z>>,
+    ?line <<>> = <<Small:0>>,
+    ?line <<>> = <<Big:Z>>,
+    ?line <<>> = <<Big:0>>,
+    
+    ?line {'EXIT',{badarg,_}} = (catch <<not_a_number:0>>),
+    ?line {'EXIT',{badarg,_}} = (catch <<(id(not_a_number)):Z>>),
+    ?line {'EXIT',{badarg,_}} = (catch <<(id(not_a_number)):0>>),
+
+    ok.
     
 id(I) -> I.

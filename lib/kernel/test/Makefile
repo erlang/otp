@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2010. All Rights Reserved.
+# Copyright Ericsson AB 1997-2011. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -51,6 +51,7 @@ MODULES= \
 	error_logger_SUITE \
 	error_logger_warn_SUITE \
 	file_SUITE \
+	file_name_SUITE \
 	prim_file_SUITE \
 	ram_file_SUITE \
 	gen_tcp_api_SUITE \
@@ -141,9 +142,9 @@ release_tests_spec: make_emakefile
 	$(INSTALL_DIR) $(RELSYSDIR)
 	$(INSTALL_DATA) $(ERL_FILES) $(RELSYSDIR)
 	$(INSTALL_DATA) $(APP_FILES) $(RELSYSDIR)
-	$(INSTALL_DATA) kernel.dynspec  $(EMAKEFILE)\
+	$(INSTALL_DATA) kernel.spec  $(EMAKEFILE)\
 		$(COVERFILE) $(RELSYSDIR)
-	chmod -f -R u+w $(RELSYSDIR)
+	chmod -R u+w $(RELSYSDIR)
 	@tar cf - *_SUITE_data | (cd $(RELSYSDIR); tar xf -)
 
 release_docs_spec:

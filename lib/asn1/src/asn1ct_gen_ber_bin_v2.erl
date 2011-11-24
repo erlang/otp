@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2002-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2002-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
@@ -33,6 +33,7 @@
 -export([gen_objectset_code/2, gen_obj_code/3]).
 -export([encode_tag_val/3]).
 -export([gen_inc_decode/2,gen_decode_selected/3]).
+-export([extaddgroup2sequence/1]).
 
 -import(asn1ct_gen, [emit/1,demit/1]).
 
@@ -67,7 +68,7 @@
 %% TypeList = ValueList = [atom()]
 
 pgen(OutFile,Erules,Module,TypeOrVal) ->
-    asn1ct_gen:pgen_module(OutFile,Erules,Module,TypeOrVal,true).
+    asn1ct_gen:pgen_module(OutFile,Erules,Module,TypeOrVal,[],true).
 
 
 %%===============================================================================
@@ -415,7 +416,7 @@ gen_decode_selected(Erules,Type,FuncName) ->
 	end,
     emit(["  case ?RT_BER:decode_selective(",{asis,Pattern},",Bin) of",nl,
 	  "    {ok,Bin2} when is_binary(Bin2) ->",nl,
-	  "      {Tlv,_} = ?RT_BER:decode(Bin2),",nl]),
+	  "      {Tlv,_} = ?RT_BER:decode(Bin2",asn1ct_gen:nif_parameter(),"),",nl]),
     emit("{ok,"),
     gen_decode_selected_type(Erules,Type),
     emit(["};",nl,"    Err -> exit({error,{selctive_decode,Err}})",nl,
@@ -707,7 +708,7 @@ gen_dec_prim(Erules,Att,BytesVar,DoTag,TagIn,Form,OptOrMand) ->
 	'ASN1_OPEN_TYPE' ->
 	    emit(["?RT_BER:decode_open_type_as_binary(",
 		  BytesVar,","]),
-	    add_func({decode_open_type_as_binary,2});
+	    add_func({decode_open_type_as_binary,3});
 	#'ObjectClassFieldType'{} ->
 		case asn1ct_gen:get_inner(Att#type.def) of
 		    {fixedtypevaluefield,_,InnerType} -> 
@@ -715,7 +716,7 @@ gen_dec_prim(Erules,Att,BytesVar,DoTag,TagIn,Form,OptOrMand) ->
 		    'ASN1_OPEN_TYPE' ->
 			emit(["?RT_BER:decode_open_type_as_binary(",
 			      BytesVar,","]),
-			add_func({decode_open_type_as_binary,2});
+			add_func({decode_open_type_as_binary,3});
 		    Other ->
 			exit({'can not decode' ,Other})
 		end;
@@ -727,13 +728,13 @@ gen_dec_prim(Erules,Att,BytesVar,DoTag,TagIn,Form,OptOrMand) ->
 	{_,#'ObjectClassFieldType'{}} ->
 	    case asn1ct_gen:get_inner(Att#type.def) of
 		'ASN1_OPEN_TYPE' ->
-		    emit([{asis,DoTag},")"]);
+		    emit([{asis,DoTag},asn1ct_gen:nif_parameter(),")"]);
 		_ -> ok
 	    end;
 	{{string,TagStr},'ASN1_OPEN_TYPE'} ->
-	    emit([TagStr,")"]);
+	    emit([TagStr,asn1ct_gen:nif_parameter(),")"]);
 	{_,'ASN1_OPEN_TYPE'} ->
-	    emit([{asis,DoTag},")"]);
+	    emit([{asis,DoTag},asn1ct_gen:nif_parameter(),")"]);
 	{{string,TagStr},_} ->
 	    emit([TagStr,")"]);
 	_ when is_list(DoTag) ->
@@ -1063,7 +1064,7 @@ emit_tlv_format_function() ->
     end.
 emit_tlv_format_function1() ->
     emit(["tlv_format(Bytes) when is_binary(Bytes) ->",nl,
-	  "  {Tlv,_}=?RT_BER:decode(Bytes),",nl,
+	  "  {Tlv,_}=?RT_BER:decode(Bytes",asn1ct_gen:nif_parameter(),"),",nl,
 	  "  Tlv;",nl,
 	  "tlv_format(Bytes) ->",nl,
 	  "  Bytes.",nl]).
@@ -1501,13 +1502,14 @@ gen_objset_dec(Erules,ObjSetName,_UniqueName,['EXTENSIONMARK'],_ClName,
 	       _ClFields,_NthObj) ->
     emit(["'getdec_",ObjSetName,"'(_, _) ->",nl]),
     emit([indent(2),"fun(_,Bytes, _RestPrimFieldName) ->",nl]),
+    
     case Erules of
 	ber_bin_v2 ->
 	    emit([indent(4),"case Bytes of",nl,
 		  indent(6),"Bin when is_binary(Bin) -> ",nl,
 		  indent(8),"Bin;",nl,
 		  indent(6),"_ ->",nl,
-		  indent(8),"?RT_BER:encode(Bytes)",nl,
+		  indent(8),"?RT_BER:encode(Bytes",driver_parameter(),")",nl,
 		  indent(4),"end",nl]);
 	_ ->
 	    emit([indent(6),"Len = case Bytes of",nl,indent(9),
@@ -1519,6 +1521,14 @@ gen_objset_dec(Erules,ObjSetName,_UniqueName,['EXTENSIONMARK'],_ClName,
     ok;
 gen_objset_dec(_,_,_,[],_,_,_) ->
     ok.
+
+driver_parameter() ->
+    Options = get(encoding_options),
+    case {lists:member(driver,Options),lists:member(nif,Options)} of
+	{true,_} -> ",nif";
+	{_,true} -> ",nif";
+	_ ->  ",erlang"
+    end.
 
 emit_default_getdec(ObjSetName,UniqueName) ->
     emit(["'getdec_",ObjSetName,"'(",{asis,UniqueName},", ErrV) ->",nl]),
@@ -1826,8 +1836,15 @@ mk_object_val(Val, Ack, Len) ->
 add_func(F={_Func,_Arity}) ->
     ets:insert(asn1_functab,{F}).
 
-
-
-
+%% For BER the ExtensionAdditionGroup notation has no impact on the encoding/decoding
+%% and therefore we only filter away the ExtensionAdditionGroup start and end markers
+extaddgroup2sequence(ExtList) when is_list(ExtList) ->
+    lists:filter(fun(#'ExtensionAdditionGroup'{}) ->
+			 false;
+		    ('ExtensionAdditionGroupEnd') ->
+			 false;
+		    (_) ->
+			 true
+		 end, ExtList).
 
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -20,7 +20,7 @@
 
 -module(inline_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -compile(export_all).
 -compile({inline,[badarg/2]}).
@@ -28,10 +28,29 @@
 %% Needed by test case `lists'.
 -compile(inline_list_funcs).
 
-all(suite) ->
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
     test_lib:recompile(?MODULE),
-    [attribute,bsdecode,bsdes,barnes2,decode1,smith,itracer,pseudoknot,lists,
-     really_inlined,otp_7223,coverage].
+    [attribute, bsdecode, bsdes, barnes2, decode1, smith,
+     itracer, pseudoknot, lists, really_inlined, otp_7223,
+     coverage].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 attribute(Config) when is_list(Config) ->
     Name = "attribute",
@@ -49,7 +68,7 @@ attribute(Config) when is_list(Config) ->
     ok.
 
 -define(comp(Name),
-	Name(Config) when list(Config) ->
+	Name(Config) when is_list(Config) ->
 	       try_inline(Name, Config)).
 
 ?comp(bsdecode).
@@ -244,7 +263,8 @@ my_apply(M, F, A, Init) ->
 
 really_inlined(Config) when is_list(Config) ->
     %% Make sure that badarg/2 really gets inlined.
-    {'EXIT',{badarg,[{?MODULE,fail_me_now,[]}|_]}} = (catch fail_me_now()),
+    {'EXIT',{badarg,[{?MODULE,fail_me_now,[],_}|_]}} =
+	(catch fail_me_now()),
     ok.
 
 fail_me_now() ->

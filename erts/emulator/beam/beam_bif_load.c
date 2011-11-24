@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -33,27 +33,29 @@
 #include "beam_catches.h"
 #include "erl_binary.h"
 #include "erl_nif.h"
+#include "erl_thr_progress.h"
 
 static void set_default_trace_pattern(Eterm module);
 static Eterm check_process_code(Process* rp, Module* modp);
 static void delete_code(Process *c_p, ErtsProcLocks c_p_locks, Module* modp);
 static void delete_export_references(Eterm module);
 static int purge_module(int module);
-static int is_native(Eterm* code);
+static void decrement_refc(BeamInstr* code);
+static int is_native(BeamInstr* code);
 static int any_heap_ref_ptrs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size);
 static int any_heap_refs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size);
-static void remove_from_address_table(Eterm* code);
+static void remove_from_address_table(BeamInstr* code);
 
 Eterm
 load_module_2(BIF_ALIST_2)
 {
     Eterm   reason;
     Eterm*  hp;
-    int      i;
     int      sz;
     byte*    code;
     Eterm res;
     byte* temp_alloc = NULL;
+    struct LoaderState* stp;
 
     if (is_not_atom(BIF_ARG_1)) {
     error:
@@ -63,49 +65,37 @@ load_module_2(BIF_ALIST_2)
     if ((code = erts_get_aligned_binary_bytes(BIF_ARG_2, &temp_alloc)) == NULL) {
 	goto error;
     }
-    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-    erts_smp_block_system(0);
-
-    erts_export_consolidate();
-
     hp = HAlloc(BIF_P, 3);
-    sz = binary_size(BIF_ARG_2);
-    if ((i = erts_load_module(BIF_P, 0,
-			      BIF_P->group_leader, &BIF_ARG_1, code, sz)) < 0) { 
-	switch (i) {
-	case -1: reason = am_badfile; break; 
-	case -2: reason = am_nofile; break;
-	case -3: reason = am_not_purged; break;
-	case -4:
-	    reason = am_atom_put("native_code", sizeof("native_code")-1);
-	    break;
-	case -5:
-	    {
-		/*
-		 * The module contains an on_load function. The loader
-		 * has loaded the module as usual, except that the
-		 * export entries does not point into the module, so it
-		 * is not possible to call any code in the module.
-		 */
 
-		ERTS_DECL_AM(on_load);
-		reason = AM_on_load;
-		break;
-	    }
-	default: reason = am_badfile; break;
-	}
+    /*
+     * Read the BEAM file and prepare the module for loading.
+     */
+    stp = erts_alloc_loader_state();
+    sz = binary_size(BIF_ARG_2);
+    reason = erts_prepare_loading(stp, BIF_P, BIF_P->group_leader,
+				  &BIF_ARG_1, code, sz);
+    erts_free_aligned_binary_bytes(temp_alloc);
+    if (reason != NIL) {
 	res = TUPLE2(hp, am_error, reason);
-	goto done;
+	BIF_RET(res);
     }
 
-    set_default_trace_pattern(BIF_ARG_1);
-    res = TUPLE2(hp, am_module, BIF_ARG_1);
+    /*
+     * Stop all other processes and finish the loading of the module.
+     */
+    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+    erts_smp_thr_progress_block();
 
- done:
-    erts_free_aligned_binary_bytes(temp_alloc);
-    erts_smp_release_system();
+    reason = erts_finish_loading(stp, BIF_P, 0, &BIF_ARG_1);
+    if (reason != NIL) {
+	res = TUPLE2(hp, am_error, reason);
+    } else {
+	set_default_trace_pattern(BIF_ARG_1);
+	res = TUPLE2(hp, am_module, BIF_ARG_1);
+    }
+
+    erts_smp_thr_progress_unblock();
     erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
-
     BIF_RET(res);
 }
 
@@ -118,12 +108,12 @@ BIF_RETTYPE purge_module_1(BIF_ALIST_1)
     }
 
     erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-    erts_smp_block_system(0);
+    erts_smp_thr_progress_block();
 
     erts_export_consolidate();
     purge_res = purge_module(atom_val(BIF_ARG_1));
 
-    erts_smp_release_system();
+    erts_smp_thr_progress_unblock();
     erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 
     if (purge_res < 0) {
@@ -142,7 +132,7 @@ BIF_RETTYPE code_is_module_native_1(BIF_ALIST_1)
     if ((modp = erts_get_module(BIF_ARG_1)) == NULL) {
 	return am_undefined;
     }
-    return (is_native(modp->code) ||
+    return ((modp->code && is_native(modp->code)) ||
 	    (modp->old_code != 0 && is_native(modp->old_code))) ?
 		am_true : am_false;
 }
@@ -152,14 +142,31 @@ BIF_RETTYPE code_make_stub_module_3(BIF_ALIST_3)
     Eterm res;
 
     erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-    erts_smp_block_system(0);
+    erts_smp_thr_progress_block();
 
     erts_export_consolidate();
     res = erts_make_stub_module(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
 
-    erts_smp_release_system();
+    erts_smp_thr_progress_unblock();
     erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
     return res;
+}
+
+BIF_RETTYPE
+check_old_code_1(BIF_ALIST_1)
+{
+    Module* modp;
+
+    if (is_not_atom(BIF_ARG_1)) {
+	BIF_ERROR(BIF_P, BADARG);
+    }
+    modp = erts_get_module(BIF_ARG_1);
+    if (modp == NULL) {		/* Doesn't exist. */
+	BIF_RET(am_false);
+    } else if (modp->old_code == NULL) { /* No old code. */
+	BIF_RET(am_false);
+    }
+    BIF_RET(am_true);
 }
 
 Eterm
@@ -175,8 +182,19 @@ check_process_code_2(BIF_ALIST_2)
 	Eterm res;
 	if (internal_pid_index(BIF_ARG_1) >= erts_max_processes)
 	    goto error;
-	rp = erts_pid2proc_not_running(BIF_P, ERTS_PROC_LOCK_MAIN,
-				       BIF_ARG_1, ERTS_PROC_LOCK_MAIN);
+	modp = erts_get_module(BIF_ARG_2);
+	if (modp == NULL) {		/* Doesn't exist. */
+	    return am_false;
+	} else if (modp->old_code == NULL) { /* No old code. */
+	    return am_false;
+	}
+	
+#ifdef ERTS_SMP
+	rp = erts_pid2proc_suspend(BIF_P, ERTS_PROC_LOCK_MAIN,
+				   BIF_ARG_1, ERTS_PROC_LOCK_MAIN);
+#else
+	rp = erts_pid2proc(BIF_P, 0, BIF_ARG_1, 0);
+#endif
 	if (!rp) {
 	    BIF_RET(am_false);
 	}
@@ -184,11 +202,12 @@ check_process_code_2(BIF_ALIST_2)
 	    ERTS_BIF_YIELD2(bif_export[BIF_check_process_code_2], BIF_P,
 			    BIF_ARG_1, BIF_ARG_2);
 	}
-	modp = erts_get_module(BIF_ARG_2);
 	res = check_process_code(rp, modp);
 #ifdef ERTS_SMP
-	if (BIF_P != rp)
+	if (BIF_P != rp) {
+	    erts_resume(rp, ERTS_PROC_LOCK_MAIN);
 	    erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_MAIN);
+	}
 #endif
 	BIF_RET(res);
     }
@@ -210,7 +229,7 @@ BIF_RETTYPE delete_module_1(BIF_ALIST_1)
 	goto badarg;
 
     erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-    erts_smp_block_system(0);
+    erts_smp_thr_progress_block();
 
     {
 	Module *modp = erts_get_module(BIF_ARG_1);
@@ -231,7 +250,7 @@ BIF_RETTYPE delete_module_1(BIF_ALIST_1)
 	}
     }
 
-    erts_smp_release_system();
+    erts_smp_thr_progress_unblock();
     erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 
     if (res == am_badarg) {
@@ -323,7 +342,7 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
     }
 
     erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-    erts_smp_block_system(0);
+    erts_smp_thr_progress_block();
 
     if (BIF_ARG_2 == am_true) {
 	int i;
@@ -337,15 +356,14 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 		ep->code[0] == BIF_ARG_1 &&
 		ep->code[4] != 0) {
 		ep->address = (void *) ep->code[4];
-		ep->code[3] = 0;
 		ep->code[4] = 0;
 	    }
 	}
 	modp->code[MI_ON_LOAD_FUNCTION_PTR] = 0;
 	set_default_trace_pattern(BIF_ARG_1);
     } else if (BIF_ARG_2 == am_false) {
-	Eterm* code;
-	Eterm* end;
+	BeamInstr* code;
+	BeamInstr* end;
 
 	/*
 	 * The on_load function failed. Remove the loaded code.
@@ -354,7 +372,7 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 	 */
 	erts_total_code_size -= modp->code_length;
 	code = modp->code;
-	end = (Eterm *)((char *)code + modp->code_length);
+	end = (BeamInstr *)((char *)code + modp->code_length);
 	erts_cleanup_funs_on_purge(code, end);
 	beam_catches_delmod(modp->catches, code, modp->code_length);
 	erts_free(ERTS_ALC_T_CODE, (void *) code);
@@ -363,12 +381,11 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 	modp->catches = BEAM_CATCHES_NIL;
 	remove_from_address_table(code);
     }
-    erts_smp_release_system();
+    erts_smp_thr_progress_unblock();
     erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
     BIF_RET(am_true);
 }
 
-
 static void
 set_default_trace_pattern(Eterm module)
 {
@@ -397,28 +414,23 @@ set_default_trace_pattern(Eterm module)
 static Eterm
 check_process_code(Process* rp, Module* modp)
 {
-    Eterm* start;
+    BeamInstr* start;
     char* mod_start;
     Uint mod_size;
-    Eterm* end;
+    BeamInstr* end;
     Eterm* sp;
 #ifndef HYBRID /* FIND ME! */
-    ErlFunThing* funp;
+    struct erl_off_heap_header* oh;
     int done_gc = 0;
 #endif
 
 #define INSIDE(a) (start <= (a) && (a) < end)
-    if (modp == NULL) {		/* Doesn't exist. */
-	return am_false;
-    } else if (modp->old_code == NULL) { /* No old code. */
-	return am_false;
-    }
 
     /*
      * Pick up limits for the module.
      */
     start = modp->old_code;
-    end = (Eterm *)((char *)start + modp->old_code_length);
+    end = (BeamInstr *)((char *)start + modp->old_code_length);
     mod_start = (char *) start;
     mod_size = modp->old_code_length;
 
@@ -471,27 +483,27 @@ check_process_code(Process* rp, Module* modp)
 
 #ifndef HYBRID /* FIND ME! */
  rescan:
-    for (funp = MSO(rp).funs; funp; funp = funp->next) {
-	Eterm* fun_code;
+    for (oh = MSO(rp).first; oh; oh = oh->next) {
+	if (thing_subtag(oh->thing_word) == FUN_SUBTAG) {
+	    ErlFunThing* funp = (ErlFunThing*) oh;
 
-	fun_code = funp->fe->address;
-
-	if (INSIDE((Eterm *) funp->fe->address)) {
-	    if (done_gc) {
-		return am_true;
-	    } else {
-		/*
-		 * Try to get rid of this fun by garbage collecting.
-		 * Clear both fvalue and ftrace to make sure they
-		 * don't hold any funs.
-		 */
-		rp->freason = EXC_NULL;
-		rp->fvalue = NIL;
-		rp->ftrace = NIL;
-		done_gc = 1;
-                FLAGS(rp) |= F_NEED_FULLSWEEP;
-		(void) erts_garbage_collect(rp, 0, rp->arg_reg, rp->arity);
-		goto rescan;
+	    if (INSIDE((BeamInstr *) funp->fe->address)) {
+		if (done_gc) {
+		    return am_true;
+		} else {
+		    /*
+		    * Try to get rid of this fun by garbage collecting.
+		    * Clear both fvalue and ftrace to make sure they
+		    * don't hold any funs.
+		    */
+		    rp->freason = EXC_NULL;
+		    rp->fvalue = NIL;
+		    rp->ftrace = NIL;
+		    done_gc = 1;
+		    FLAGS(rp) |= F_NEED_FULLSWEEP;
+		    (void) erts_garbage_collect(rp, 0, rp->arg_reg, rp->arity);
+		    goto rescan;
+		}
 	    }
 	}
     }
@@ -542,6 +554,7 @@ check_process_code(Process* rp, Module* modp)
 	} else {
 	    Eterm* literals;
 	    Uint lit_size;
+	    struct erl_off_heap_header* oh;
 
 	    /*
 	     * Try to get rid of constants by by garbage collecting.
@@ -555,7 +568,9 @@ check_process_code(Process* rp, Module* modp)
 	    (void) erts_garbage_collect(rp, 0, rp->arg_reg, rp->arity);
 	    literals = (Eterm *) modp->old_code[MI_LITERALS_START];
 	    lit_size = (Eterm *) modp->old_code[MI_LITERALS_END] - literals;
-	    erts_garbage_collect_literals(rp, literals, lit_size);
+	    oh = (struct erl_off_heap_header *)
+		modp->old_code[MI_LITERALS_OFF_HEAP];
+	    erts_garbage_collect_literals(rp, literals, lit_size, oh);
 	}
     }
     return am_false;
@@ -576,7 +591,7 @@ any_heap_ref_ptrs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size)
 	switch (primary_tag(val)) {
 	case TAG_PRIMARY_BOXED:
 	case TAG_PRIMARY_LIST:
-	    if (in_area(val, mod_start, mod_size)) {
+	    if (in_area(EXPAND_POINTER(val), mod_start, mod_size)) {
 		return 1;
 	    }
 	    break;
@@ -596,7 +611,7 @@ any_heap_refs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size)
 	switch (primary_tag(val)) {
 	case TAG_PRIMARY_BOXED:
 	case TAG_PRIMARY_LIST:
-	    if (in_area(val, mod_start, mod_size)) {
+	    if (in_area(EXPAND_POINTER(val), mod_start, mod_size)) {
 		return 1;
 	    }
 	    break;
@@ -617,8 +632,8 @@ any_heap_refs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size)
 static int
 purge_module(int module)
 {
-    Eterm* code;
-    Eterm* end;
+    BeamInstr* code;
+    BeamInstr* end;
     Module* modp;
 
     /*
@@ -633,9 +648,6 @@ purge_module(int module)
      * Any code to purge?
      */
     if (modp->old_code == 0) {
-	if (display_loads) {
-	    erts_printf("No code to purge for %T\n", make_atom(module));
-	}
 	return -1;
     }
 
@@ -653,9 +665,10 @@ purge_module(int module)
     ASSERT(erts_total_code_size >= modp->old_code_length);
     erts_total_code_size -= modp->old_code_length;
     code = modp->old_code;
-    end = (Eterm *)((char *)code + modp->old_code_length);
+    end = (BeamInstr *)((char *)code + modp->old_code_length);
     erts_cleanup_funs_on_purge(code, end);
     beam_catches_delmod(modp->old_catches, code, modp->old_code_length);
+    decrement_refc(code);
     erts_free(ERTS_ALC_T_CODE, (void *) code);
     modp->old_code = NULL;
     modp->old_code_length = 0;
@@ -665,7 +678,24 @@ purge_module(int module)
 }
 
 static void
-remove_from_address_table(Eterm* code)
+decrement_refc(BeamInstr* code)
+{
+    struct erl_off_heap_header* oh =
+	(struct erl_off_heap_header *) code[MI_LITERALS_OFF_HEAP];
+
+    while (oh) {
+	Binary* bptr;
+	ASSERT(thing_subtag(oh->thing_word) == REFC_BINARY_SUBTAG);
+	bptr = ((ProcBin*)oh)->val;
+	if (erts_refc_dectest(&bptr->refc, 0) == 0) {
+	    erts_bin_free(bptr);
+	}
+	oh = oh->next;
+    }
+}
+
+static void
+remove_from_address_table(BeamInstr* code)
 {
     int i;
 
@@ -706,10 +736,10 @@ delete_code(Process *c_p, ErtsProcLocks c_p_locks, Module* modp)
     if (modp->code != NULL && modp->code[MI_NUM_BREAKPOINTS] > 0) {
 	if (c_p && c_p_locks)
 	    erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
-	erts_smp_block_system(0);
+	erts_smp_thr_progress_block();
 	erts_clear_module_break(modp);
 	modp->code[MI_NUM_BREAKPOINTS] = 0;
-	erts_smp_release_system();
+	erts_smp_thr_progress_unblock();
 	if (c_p && c_p_locks)
 	    erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
     }
@@ -738,11 +768,11 @@ delete_export_references(Eterm module)
 	Export *ep = export_list(i);
         if (ep != NULL && (ep->code[0] == module)) {
 	    if (ep->address == ep->code+3 &&
-		(ep->code[3] == (Eterm) em_apply_bif)) {
+		(ep->code[3] == (BeamInstr) em_apply_bif)) {
 		continue;
 	    }
 	    ep->address = ep->code+3;
-	    ep->code[3] = (Uint) em_call_error_handler;
+	    ep->code[3] = (BeamInstr) em_call_error_handler;
 	    ep->code[4] = 0;
 	    MatchSetUnref(ep->match_prog_set);
 	    ep->match_prog_set = NULL;
@@ -751,7 +781,7 @@ delete_export_references(Eterm module)
 }
 
 
-int
+Eterm
 beam_make_current_old(Process *c_p, ErtsProcLocks c_p_locks, Eterm module)
 {
     Module* modp = erts_put_module(module);
@@ -762,19 +792,16 @@ beam_make_current_old(Process *c_p, ErtsProcLocks c_p_locks, Eterm module)
      */
 
     if (modp->code != NULL && modp->old_code != NULL)  {
-	return -3;
+	return am_not_purged;
     } else if (modp->old_code == NULL) { /* Make the current version old. */
-	if (display_loads) {
-	    erts_printf("saving old code\n");
-	}
 	delete_code(c_p, c_p_locks, modp);
 	delete_export_references(module);
     }
-    return 0;
+    return NIL;
 }
 
 static int
-is_native(Eterm* code)
+is_native(BeamInstr* code)
 {
     return ((Eterm *)code[MI_FUNCTIONS])[1] != 0;
 }

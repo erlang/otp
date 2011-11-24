@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -65,6 +65,7 @@ get_line(X) when is_record(X, scoped_id) -> X#scoped_id.line;
 get_line(X) when is_record(X, module)      -> get_line(X#module.id);
 get_line(X) when is_record(X, interface)   -> get_line(X#interface.id);
 get_line(X) when is_record(X, forward)     -> get_line(X#forward.id);
+get_line(X) when is_record(X, constr_forward) -> get_line(X#constr_forward.id);
 get_line(X) when is_record(X, const)       -> get_line(X#const.id);
 get_line(X) when is_record(X, typedef)     -> get_line(X#typedef.id);
 get_line(X) when is_record(X, struct)      -> get_line(X#struct.id);
@@ -114,6 +115,7 @@ get_line(_)				-> -1.
 get_id2(X) when is_record(X, module)       -> get_id(X#module.id);
 get_id2(X) when is_record(X, interface)    -> get_id(X#interface.id);
 get_id2(X) when is_record(X, forward)      -> get_id(X#forward.id);
+get_id2(X) when is_record(X, constr_forward) -> get_id(X#constr_forward.id);
 get_id2(X) when is_record(X, const)        -> get_id(X#const.id);
 get_id2(X) when is_record(X, typedef)      -> get_id(hd(X#typedef.id));
 get_id2(X) when is_record(X, struct)       -> get_id(X#struct.id);
@@ -156,6 +158,7 @@ get_type(X) when is_record(X, param)       -> X#param.type.
 %% Temporary place
 get_tk(X) when is_record(X, interface)  -> X#interface.tk;
 get_tk(X) when is_record(X, forward)    -> X#forward.tk;
+get_tk(X) when is_record(X, constr_forward) -> X#constr_forward.tk;
 get_tk(X) when is_record(X, const)      -> X#const.tk;
 get_tk(X) when is_record(X, type_dcl)   -> X#type_dcl.tk;
 get_tk(X) when is_record(X, typedef)    -> X#typedef.tk;
@@ -228,6 +231,7 @@ clean_up_scope([N|Ns],Found) ->
 
 get_type_code2(_, _, X) when is_record(X, interface)  -> X#interface.tk;
 get_type_code2(_, _, X) when is_record(X, forward)    -> X#forward.tk;
+get_type_code2(_, _, X) when is_record(X, constr_forward) -> X#constr_forward.tk;
 get_type_code2(_, _, X) when is_record(X, const)      -> X#const.tk;
 get_type_code2(_, _, X) when is_record(X, type_dcl)   -> X#type_dcl.tk;
 get_type_code2(_, _, X) when is_record(X, typedef)    ->

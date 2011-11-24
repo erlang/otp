@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -108,7 +108,8 @@ erts_put_module(Eterm mod)
     int index;
 
     ASSERT(is_atom(mod));
-    ERTS_SMP_LC_ASSERT(erts_initialized == 0 || erts_smp_is_system_blocked(0));
+    ERTS_SMP_LC_ASSERT(erts_initialized == 0
+		       || erts_smp_thr_progress_is_blocking());
     e.module = atom_val(mod);
     index = index_put(&module_table, (void*) &e);
     return (Module*) erts_index_lookup(&module_table, index);

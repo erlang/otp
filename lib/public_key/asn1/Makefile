@@ -1,19 +1,19 @@
 #
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 2008-2009. All Rights Reserved.
-# 
+#
+# Copyright Ericsson AB 2008-2011. All Rights Reserved.
+#
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
 # compliance with the License. You should have received a copy of the
 # Erlang Public License along with this software. If not, it can be
 # retrieved online at http://www.erlang.org/.
-# 
+#
 # Software distributed under the License is distributed on an "AS IS"
 # basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 # the License for the specific language governing rights and limitations
 # under the License.
-# 
+#
 # %CopyrightEnd%
 #
 
@@ -38,12 +38,12 @@ RELSYSDIR = $(RELEASE_PATH)/lib/public_key-$(VSN)
 .SUFFIXES: .asn1
 .PRECIOUS: %.erl
 
-ASN_TOP = OTP-PUB-KEY
+ASN_TOP = OTP-PUB-KEY PKCS-FRAME
 ASN_MODULES = PKIX1Explicit88 PKIX1Implicit88 PKIX1Algorithms88 \
-	PKIXAttributeCertificate OTP-PKIX 
+	PKIXAttributeCertificate PKCS-1 PKCS-3 PKCS-8 InformationFramework PKCS5v2-0  OTP-PKIX 
 ASN_ASNS = $(ASN_MODULES:%=%.asn1)
-ASN_ERLS = $(ASN_TOP).erl
-ASN_HRLS = $(ASN_TOP).hrl
+ASN_ERLS = $(ASN_TOP:%=%.erl)
+ASN_HRLS = $(ASN_TOP:%=%.hrl)
 ASN_CONFIGS = OTP-PUB-KEY.asn1config
 ASN_DBS = $(ASN_MODULES:%=%.asn1db) OTP-PUB-KEY.asn1db  
 ASN_TABLES = $(ASN_MODULES:%=%.table)
@@ -65,7 +65,7 @@ EBIN = ../ebin
 EXTRA_ERLC_FLAGS = 
 ERL_COMPILE_FLAGS += $(EXTRA_ERLC_FLAGS)
 
-ASN_FLAGS = -bber_bin +der +compact_bit_string +optimize +noobj +asn1config +inline
+ASN_FLAGS = -bber_bin +der +compact_bit_string +optimize +noobj +asn1config +inline +nif
 
 # ----------------------------------------------------
 # Targets
@@ -79,11 +79,11 @@ clean:
 
 docs:
 
-%.erl: %.set.asn
+%.erl %.hrl: %.set.asn
 	erlc $(ASN_FLAGS) $<
 
-$(HRL_FILES):	$(ASN_HRLS)
-	cp -p $(ASN_HRLS) $(INCLUDE)
+$(INCLUDE)/%.hrl: %.hrl
+	cp -p $<  $@
 
 # ----------------------------------------------------
 # Release Target
@@ -110,4 +110,12 @@ OTP-PUB-KEY.asn1db:		PKIX1Algorithms88.asn1 \
 				PKIX1Explicit88.asn1 \
 				PKIX1Implicit88.asn1 \
 				PKIXAttributeCertificate.asn1 \
+				PKCS-1.asn1\
+				PKCS-3.asn1\
 				OTP-PKIX.asn1
+
+$(EBIN)/PKCS-FRAME.beam: 	        PKCS-FRAME.erl PKCS-FRAME.hrl
+PKCS-FRAME.erl PKCS-FRAME.hrl:			PKCS-FRAME.asn1db
+PKCS-FRAME.asn1db:			PKCS-8.asn1\
+					InformationFramework.asn1\
+					PKCS5v2-0.asn1

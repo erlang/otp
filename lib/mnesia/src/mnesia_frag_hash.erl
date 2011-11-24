@@ -101,21 +101,19 @@ del_frag(OldState) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-key_to_frag_number(#hash_state{function = phash, next_n_to_split = SplitN, n_doubles = L}, Key) ->
-    P = SplitN,
-    A = erlang:phash(Key, power2(L)),
+key_to_frag_number(#hash_state{function = phash, n_fragments = N, n_doubles = L}, Key) ->
+    A = erlang:phash(Key, power2(L + 1)),
     if
-	A < P ->
-	    erlang:phash(Key, power2(L + 1));
+	A > N ->
+	    A - power2(L);
 	true ->
 	    A
     end;
-key_to_frag_number(#hash_state{function = phash2, next_n_to_split = SplitN, n_doubles = L}, Key) ->
-    P = SplitN,
-    A = erlang:phash2(Key, power2(L)) + 1,
+key_to_frag_number(#hash_state{function = phash2, n_fragments = N, n_doubles = L}, Key) ->
+    A = erlang:phash2(Key, power2(L + 1)) + 1,
     if
-	A < P ->
-	    erlang:phash2(Key, power2(L + 1)) + 1;
+	A > N ->
+	    A - power2(L);
 	true ->
 	    A
     end;

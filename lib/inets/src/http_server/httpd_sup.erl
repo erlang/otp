@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -37,7 +37,7 @@
 
 -define(TIMEOUT, 15000).
 -include("httpd_internal.hrl").
-
+-include("inets_internal.hrl").
 
 %%%=========================================================================
 %%%  API
@@ -90,7 +90,7 @@ id(Address, Port) ->
 %%%  Supervisor callback
 %%%=========================================================================
 init([HttpdServices]) ->
-    ?hdrd("starting", []),
+    ?hdrd("starting", [{httpd_service, HttpdServices}]),
     RestartStrategy = one_for_one,
     MaxR = 10,
     MaxT = 3600,
@@ -182,24 +182,32 @@ httpd_child_spec(ConfigFile, AcceptTimeout, Debug) ->
 	    Error
     end.
 
-httpd_child_spec(Config, AcceptTimeout, Debug, Addr, 0) ->
-	case start_listen(Addr, 0, Config) of
-	    {Pid, {NewPort, NewConfig, ListenSocket}} ->
-		Name = {httpd_instance_sup, Addr, NewPort},
-		StartFunc = {httpd_instance_sup, start_link,
-			     [NewConfig, AcceptTimeout, 
-			      {Pid, ListenSocket}, Debug]},
-		Restart = permanent, 
-		Shutdown = infinity,
-		Modules = [httpd_instance_sup],
-		Type = supervisor,
-		{Name, StartFunc, Restart, Shutdown, Type, Modules};
-	    {Pid, {error, Reason}}  ->
-		exit(Pid, normal),
-		{error, Reason}
-	end;
-		    
 httpd_child_spec(Config, AcceptTimeout, Debug, Addr, Port) ->
+    case Port == 0 orelse proplists:is_defined(fd, Config) of
+	true ->
+	    httpd_child_spec_listen(Config, AcceptTimeout, Debug, Addr, Port);
+	false ->
+	    httpd_child_spec_nolisten(Config, AcceptTimeout, Debug, Addr, Port)
+    end.
+
+httpd_child_spec_listen(Config, AcceptTimeout, Debug, Addr, Port) ->
+    case start_listen(Addr, Port, Config) of
+	{Pid, {NewPort, NewConfig, ListenSocket}} ->
+	    Name      = {httpd_instance_sup, Addr, NewPort},
+	    StartFunc = {httpd_instance_sup, start_link,
+			 [NewConfig, AcceptTimeout, 
+			  {Pid, ListenSocket}, Debug]},
+	    Restart   = permanent, 
+	    Shutdown  = infinity,
+	    Modules   = [httpd_instance_sup],
+	    Type      = supervisor,
+	    {Name, StartFunc, Restart, Shutdown, Type, Modules};
+	{Pid, {error, Reason}}  ->
+	    exit(Pid, normal),
+	    {error, Reason}
+    end.
+		    
+httpd_child_spec_nolisten(Config, AcceptTimeout, Debug, Addr, Port) ->
     Name = {httpd_instance_sup, Addr, Port},
     StartFunc = {httpd_instance_sup, start_link,
 		 [Config, AcceptTimeout, Debug]},
@@ -224,7 +232,8 @@ listen(Address, Port, Config)  ->
     SocketType = proplists:get_value(socket_type, Config, ip_comm), 
     case http_transport:start(SocketType) of
 	ok ->
-	    case http_transport:listen(SocketType, Address, Port) of
+	    Fd = proplists:get_value(fd, Config), 
+	    case http_transport:listen(SocketType, Address, Port, Fd) of
 		{ok, ListenSocket} ->
 		    NewConfig = proplists:delete(port, Config),
 		    {ok, NewPort} = inet:port(ListenSocket),

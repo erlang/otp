@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -389,23 +389,23 @@ decrement_each([N|Ns], OldLow, IG, Vis, K) ->
 %%  {Spilled_node, Low_degree_neighbors, New_interference_graph}
 
 spill(IG, Vis, Spill, K, SpillLimit, Target) ->
-   Ns = list_ig(IG),
-   Costs = spill_costs(Ns, IG, Vis, Spill, SpillLimit, Target),
-   ?report3("spill costs are ~p~n",[Costs]),
-   ActualCosts = lists:sort(Costs),
-   ?report3("actual costs are ~p~n",[ActualCosts]),
+  Ns = list_ig(IG),
+  Costs = spill_costs(Ns, IG, Vis, Spill, SpillLimit, Target),
+  ?report3("spill costs are ~p~n", [Costs]),
+  ActualCosts = lists:sort(Costs),
+  ?report3("actual costs are ~p~n", [ActualCosts]),
   case ActualCosts of
-     [] ->
-      ?error_msg("There is no node to spill",[]),
+    [] ->
+      ?error_msg("There is no node to spill", []),
       ?EXIT('no node to spill');
     [{_Cost,N}|_] ->
       {Low, NewIG} = decrement_neighbors(N, [], IG, Vis, K),
-      %?report("spilled node ~p at cost ~p (~p now ready)~n",[N,Cost,Low]),
+      %% ?report("spilled node ~p at cost ~p (~p now ready)~n", [N,Cost,Low]),
       {N, Low, NewIG}
   end.
 
 spill_costs([], _IG, _Vis, _Spill, _SpillLimit, _Target) ->
-   [];
+  [];
 spill_costs([{N,Info}|Ns], IG, Vis, Spill, SpillLimit, Target) ->
   case degree(Info) of
     0 -> spill_costs(Ns,IG,Vis,Spill, SpillLimit, Target);
@@ -451,28 +451,28 @@ select_colors([{X,colorable}|Xs], IG, Cols, PhysRegs, K) ->
   {Reg,NewCols} = select_color(X, IG, Cols, PhysRegs),
   ?report("~p~n",[Reg]),
   [{X,{reg,Reg}} | select_colors(Xs, IG, NewCols, PhysRegs, K)];
-%select_colors([{X,{spill,M}}|Xs], IG, Cols, PhysRegs, K) ->
-%  ?report('spilled: ~p~n',[X]),
-%  %% Check if optimistic coloring could have found a color 
-%  case catch select_color(X,IG,Cols,K) of
-%    {'EXIT',_} ->   % no color possible
-%	?report('(no optimistic color)~n',[]),
-%	[{X,{spill,M}}|select_colors(Xs, IG, Cols, PhysRegs, K)];
-%    {Reg,NewCols} ->
-%	?report('(optimistic color: ~p)~n',[Reg]),
-%	[{X,{reg,Reg}}|select_colors(Xs, IG, Cols, PhysRegs, K)]
-%  end.
+%%select_colors([{X,{spill,M}}|Xs], IG, Cols, PhysRegs, K) ->
+%%  ?report('spilled: ~p~n',[X]),
+%%  %% Check if optimistic coloring could have found a color 
+%%  case catch select_color(X,IG,Cols,K) of
+%%    {'EXIT',_} ->   % no color possible
+%%	?report('(no optimistic color)~n',[]),
+%%	[{X,{spill,M}}|select_colors(Xs, IG, Cols, PhysRegs, K)];
+%%    {Reg,NewCols} ->
+%%	?report('(optimistic color: ~p)~n',[Reg]),
+%%	[{X,{reg,Reg}}|select_colors(Xs, IG, Cols, PhysRegs, K)]
+%%  end.
 
 %% Old code / pessimistic coloring:
 select_colors([{X,{spill,M}}|Xs], IG, Cols, PhysRegs, K) ->
   ?report("spilled: ~p~n",[X]),
   %% Check if optimistic coloring could have found a color
-%    case catch select_color(X,IG,Cols,K) of
-%	{'EXIT',_} ->   % no color possible
-%	    ?report('(no optimistic color)~n',[]);
-%	{Reg,NewCols} ->
-%	    ?report('(optimistic color: ~p)~n',[Reg])
-%    end,
+%%    case catch select_color(X,IG,Cols,K) of
+%%	{'EXIT',_} ->   % no color possible
+%%	    ?report('(no optimistic color)~n',[]);
+%%	{Reg,NewCols} ->
+%%	    ?report('(optimistic color: ~p)~n',[Reg])
+%%    end,
   [{X,{spill,M}} | select_colors(Xs, IG, Cols, PhysRegs, K)].
 
 select_color(X, IG, Cols, PhysRegs) ->

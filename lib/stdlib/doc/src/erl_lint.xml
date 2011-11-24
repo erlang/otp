@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2010</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -60,29 +60,30 @@
       functions separately unless you have written your own Erlang
       compiler.</p>
   </description>
+  <datatypes>
+    <datatype>
+      <name name="error_info"/>
+    </datatype>
+    <datatype>
+      <name name="error_description"/>
+    </datatype>
+  </datatypes>
   <funcs>
     <func>
-      <name>module(AbsForms) -> {ok,Warnings}  | {error,Errors,Warnings}</name>
-      <name>module(AbsForms, FileName) -> {ok,Warnings}  | {error,Errors,Warnings}</name>
-      <name>module(AbsForms, FileName, CompileOptions) ->  {ok,Warnings} | {error,Errors,Warnings}</name>
+      <name name="module" arity="1"/>
+      <name name="module" arity="2"/>
+      <name name="module" arity="3"/>
       <fsummary>Check a module for errors</fsummary>
-      <type>
-        <v>AbsForms = [term()]</v>
-        <v>FileName = FileName2 = atom() | string()</v>
-        <v>Warnings = Errors = [{Filename2,[ErrorInfo]}]</v>
-        <v>ErrorInfo = see separate description below.</v>
-        <v>CompileOptions = [term()]</v>
-      </type>
       <desc>
         <p>This function checks all the forms in a module for errors.
           It returns:
           </p>
         <taglist>
-          <tag><c>{ok,Warnings}</c></tag>
+          <tag><c>{ok,<anno>Warnings</anno>}</c></tag>
           <item>
             <p>There were no errors in the module.</p>
           </item>
-          <tag><c>{error,Errors,Warnings}</c></tag>
+          <tag><c>{error,<anno>Errors</anno>,<anno>Warnings</anno>}</c></tag>
           <item>
             <p>There were errors in the module.</p>
           </item>
@@ -93,14 +94,14 @@
           elements of <c>Options</c> that control the warnings are
           only described in <seealso marker="compiler:compile#erl_lint_options">compile(3)</seealso>.
           </p>
-        <p>The <c>AbsForms</c> of a module which comes from a file
+        <p>The <c><anno>AbsForms</anno></c> of a module which comes from a file
           that is read through <c>epp</c>, the Erlang pre-processor,
           can come from many files. This means that any references to
-          errors must include the file name (see <seealso marker="epp">epp(3)</seealso>, or parser <seealso marker="erl_parse">erl_parse(3)</seealso> The warnings and
-          errors returned have the following format:
+          errors must include the file name (see <seealso marker="epp">epp(3)</seealso>, or parser <seealso marker="erl_parse">erl_parse(3)</seealso>).
+          The warnings and errors returned have the following format:
           </p>
         <code type="none">
-    [{FileName2,[ErrorInfo]}]        </code>
+    [{<anno>FileName2</anno>,[<anno>ErrorInfo</anno>]}]        </code>
         <p>The errors and warnings are listed in the order in which
           they are encountered in the forms. This means that the
           errors from one file may be split into different entries in
@@ -108,27 +109,20 @@
       </desc>
     </func>
     <func>
-      <name>is_guard_test(Expr) -> bool()</name>
+      <name name="is_guard_test" arity="1"/>
       <fsummary>Test for a guard test</fsummary>
-      <type>
-        <v>Expr = term()</v>
-      </type>
       <desc>
-        <p>This function tests if <c>Expr</c> is a legal guard test.
-          <c>Expr</c> is an Erlang term representing the abstract form
+        <p>This function tests if <c><anno>Expr</anno></c> is a legal guard test.
+          <c><anno>Expr</anno></c> is an Erlang term representing the abstract form
           for the expression. <c>erl_parse:parse_exprs(Tokens)</c> can
-          be used to generate a list of <c>Expr</c>.</p>
+          be used to generate a list of <c><anno>Expr</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name>format_error(ErrorDescriptor) -> Chars</name>
+      <name name="format_error" arity="1"/>
       <fsummary>Format an error descriptor</fsummary>
-      <type>
-        <v>ErrorDescriptor = errordesc()</v>
-        <v>Chars = [char() | Chars]</v>
-      </type>
       <desc>
-        <p>Takes an <c>ErrorDescriptor</c> and returns a string which
+        <p>Takes an <c><anno>ErrorDescriptor</anno></c> and returns a string which
           describes the error or warning. This function is usually
           called implicitly when processing an <c>ErrorInfo</c>
           structure (see below).</p>

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -257,10 +257,10 @@ parse_opt([H | T], S, CollectorOpt) ->
             Actors = [create_actor(Name) || Name <- ActorNames2],
             parse_opt(T, S#state{actors = Actors}, CollectorOpt);
         {include, ActorNames} when is_list(ActorNames) ->
-            Actors = [opt_create_actor(Name, include, S#state.actors) || Name <- ActorNames],
+            Actors = [opt_create_actor(Name, include, S) || Name <- ActorNames],
             parse_opt(T, S#state{actors = Actors}, CollectorOpt);
         {exclude, ActorNames} when is_list(ActorNames) ->
-            Actors = [opt_create_actor(Name, exclude, S#state.actors) || Name <- ActorNames],
+            Actors = [opt_create_actor(Name, exclude, S) || Name <- ActorNames],
             parse_opt(T, S#state{actors = Actors}, CollectorOpt);
         {first_event, _FirstKey} ->
 	    %% NYI
@@ -846,9 +846,6 @@ handle_info(#wx{event = #wxSize{size = {OldW, OldH}}} = Wx, S) ->
 		refresh_main_window(S4)
 	end,
     noreply(S6);
-handle_info(#wx{event = #wxFocus{}}, S) ->
-    wxWindow:setFocus(S#state.canvas), % Get keyboard focus
-    noreply(S);
 handle_info(#wx{event = #wxMouse{type = enter_window}}, S) ->
     wxWindow:setFocus(S#state.canvas), % Get keyboard focus
     noreply(S);
@@ -1233,7 +1230,7 @@ create_main_window(S) ->
 		[{flag, ?wxEXPAND}]),
 
     CanvasSizer = wxBoxSizer:new(?wxHORIZONTAL),
-    Canvas = wxPanel:new(Panel, []),
+    Canvas = wxPanel:new(Panel, [{style, ?wxFULL_REPAINT_ON_RESIZE}]),
     {CanvasW,CanvasH} = wxPanel:getSize(Canvas),
     ScrollBar = wxScrollBar:new(Panel, ?wxID_ANY, [{style, ?wxSB_VERTICAL}]),
 
@@ -1244,9 +1241,14 @@ create_main_window(S) ->
     wxPanel:connect(Canvas, left_up),
     wxPanel:connect(Canvas, right_up),
     wxPanel:connect(Canvas, size),
-    wxPanel:connect(Canvas, paint),
+    Self = self(),
+    wxPanel:connect(Canvas, paint, [{callback,  %% Needed on windows
+				     fun(Ev, _) -> 
+					     DC = wxPaintDC:new(Canvas),
+					     wxPaintDC:destroy(DC),
+					     Self ! Ev
+				     end}]),
     wxPanel:connect(Canvas, key_down),
-    wxPanel:connect(Canvas, kill_focus),
     wxPanel:connect(Canvas, enter_window, [{skip, true}]), 
     wxFrame:connect(Frame, command_menu_selected),
     wxFrame:connect(Frame, close_window),
@@ -1437,6 +1439,7 @@ create_help_menu(Bar) ->
 
 clear_canvas(S) ->
     DC = wxClientDC:new(S#state.canvas),
+    wxDC:setBackground(DC, ?wxWHITE_BRUSH), %% Needed on mac
     wxDC:clear(DC),
     {CanvasW, CanvasH} = wxPanel:getSize(S#state.canvas),
     wxSizer:recalcSizes(S#state.canvas_sizer),

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -24,10 +24,13 @@
 -module(ssl_manager).
 -behaviour(gen_server).
 
+-include("ssl_internal.hrl").
+
 %% Internal application API
--export([start_link/0, start_link/1, 
-	 connection_init/2, cache_pem_file/1,
-	 lookup_trusted_cert/3, client_session_id/3, server_session_id/3,
+-export([start_link/1, start_link_dist/1,
+	 connection_init/2, cache_pem_file/2,
+	 lookup_trusted_cert/4,
+	 client_session_id/4, server_session_id/4,
 	 register_session/2, register_session/3, invalidate_session/2,
 	 invalidate_session/3]).
 
@@ -40,81 +43,112 @@
 
 -include("ssl_handshake.hrl").
 -include("ssl_internal.hrl").
+-include_lib("kernel/include/file.hrl").
 
 -record(state, {
 	  session_cache,
 	  session_cache_cb,
 	  session_lifetime,
 	  certificate_db,
-	  session_validation_timer
+	  session_validation_timer,
+	  last_delay_timer %% Keep for testing purposes
 	 }).
 
 -define('24H_in_msec', 8640000).
 -define('24H_in_sec', 8640).
 -define(SESSION_VALIDATION_INTERVAL, 60000).
 -define(CERTIFICATE_CACHE_CLEANUP, 30000).
+-define(CLEAN_SESSION_DB, 60000).
 
 %%====================================================================
 %% API
 %%====================================================================
 %%--------------------------------------------------------------------
-%% Function: start_link() -> {ok,Pid} | ignore | {error,Error}
-%% Description: Starts the server
+-spec start_link(list()) -> {ok, pid()} | ignore | {error, term()}.
+%%
+%% Description: Starts the ssl manager that takes care of sessions
+%% and certificate caching.
 %%--------------------------------------------------------------------
-start_link() ->
-    gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 start_link(Opts) ->
-    gen_server:start_link({local, ?MODULE}, ?MODULE, [Opts], []).
+    gen_server:start_link({local, ?MODULE}, ?MODULE, [?MODULE, Opts], []).
 
 %%--------------------------------------------------------------------
-%% Function: 
-%% Description: 
+-spec start_link_dist(list()) -> {ok, pid()} | ignore | {error, term()}.
+%%
+%% Description: Starts a special instance of the ssl manager to
+%% be used by the erlang distribution. Note disables soft upgrade!
 %%--------------------------------------------------------------------
-connection_init(TrustedcertsFile, Role) ->
-    call({connection_init, TrustedcertsFile, Role}).
+start_link_dist(Opts) ->
+    gen_server:start_link({local, ssl_manager_dist}, ?MODULE, [ssl_manager_dist, Opts], []).
 
-cache_pem_file(File) ->   
-    case ssl_certificate_db:lookup_cached_certs(File) of
-	[{_,Content}] ->
-	    {ok, Content};
-	[] ->
-	    call({cache_pem, File})
+%%--------------------------------------------------------------------
+-spec connection_init(string()| {der, list()}, client | server) ->
+			     {ok, certdb_ref(), db_handle(), db_handle()}.
+%%			     
+%% Description: Do necessary initializations for a new connection.
+%%--------------------------------------------------------------------
+connection_init(Trustedcerts, Role) ->
+    call({connection_init, Trustedcerts, Role}).
+%%--------------------------------------------------------------------
+-spec cache_pem_file(string(), term()) -> {ok, term()} | {error, reason()}.
+%%		    
+%% Description: Cach a pem file and return its content.
+%%--------------------------------------------------------------------
+cache_pem_file(File, DbHandle) ->
+    try file:read_file_info(File) of
+	{ok, #file_info{mtime = LastWrite}} ->
+	    cache_pem_file(File, LastWrite, DbHandle)
+    catch
+	_:Reason ->
+	    {error, Reason}
     end.
+%%--------------------------------------------------------------------
+-spec lookup_trusted_cert(term(), reference(), serialnumber(), issuer()) ->
+				 undefined | 
+				 {ok, {der_cert(), #'OTPCertificate'{}}}.
+%%				 
+%% Description: Lookup the trusted cert with Key = {reference(),
+%% serialnumber(), issuer()}.
+%% --------------------------------------------------------------------
+lookup_trusted_cert(DbHandle, Ref, SerialNumber, Issuer) ->
+    ssl_certificate_db:lookup_trusted_cert(DbHandle, Ref, SerialNumber, Issuer).
 
 %%--------------------------------------------------------------------
-%% Function: 
-%% Description: 
+-spec client_session_id(host(), inet:port_number(), #ssl_options{},
+			der_cert() | undefined) -> session_id().
+%%
+%% Description: Select a session id for the client.
 %%--------------------------------------------------------------------
-lookup_trusted_cert(SerialNumber, Issuer, Ref) ->
-    ssl_certificate_db:lookup_trusted_cert(Ref, SerialNumber, Issuer).
+client_session_id(Host, Port, SslOpts, OwnCert) ->
+    call({client_session_id, Host, Port, SslOpts, OwnCert}).
 
 %%--------------------------------------------------------------------
-%% Function: 
-%% Description: 
+-spec server_session_id(host(), inet:port_number(), #ssl_options{},
+			der_cert()) -> session_id().
+%%
+%% Description: Select a session id for the server.
 %%--------------------------------------------------------------------
-client_session_id(Host, Port, SslOpts) ->
-    call({client_session_id, Host, Port, SslOpts}).
-   
-%%--------------------------------------------------------------------
-%% Function: 
-%% Description: 
-%%--------------------------------------------------------------------
-server_session_id(Port, SuggestedSessionId, SslOpts) ->
-    call({server_session_id, Port, SuggestedSessionId, SslOpts}).
+server_session_id(Port, SuggestedSessionId, SslOpts, OwnCert) ->
+    call({server_session_id, Port, SuggestedSessionId, SslOpts, OwnCert}).
 
 %%--------------------------------------------------------------------
-%% Function: 
-%% Description: 
+-spec register_session(inet:port_number(), #session{}) -> ok.
+-spec register_session(host(), inet:port_number(), #session{}) -> ok.
+%%
+%% Description: Make the session available for reuse.
 %%--------------------------------------------------------------------
 register_session(Host, Port, Session) ->
     cast({register_session, Host, Port, Session}).
 
 register_session(Port, Session) ->
     cast({register_session, Port, Session}).
-
 %%--------------------------------------------------------------------
-%% Function: 
-%% Description: 
+-spec invalidate_session(inet:port_number(), #session{}) -> ok.
+-spec invalidate_session(host(), inet:port_number(), #session{}) -> ok.
+%%
+%% Description: Make the session unavailable for reuse. After
+%% a the session has been marked "is_resumable = false" for some while
+%% it will be safe to remove the data from the session database.
 %%--------------------------------------------------------------------
 invalidate_session(Host, Port, Session) ->
     cast({invalidate_session, Host, Port, Session}).
@@ -127,88 +161,95 @@ invalidate_session(Port, Session) ->
 %%====================================================================
 
 %%--------------------------------------------------------------------
-%% Function: init(Args) -> {ok, State} |
-%%                         {ok, State, Timeout} |
-%%                         ignore               |
-%%                         {stop, Reason}
+-spec init(list()) -> {ok, #state{}}.
+%% Possible return values not used now. 
+%% |  {ok, #state{}, timeout()} | ignore | {stop, term()}.		  
+%%
 %% Description: Initiates the server
 %%--------------------------------------------------------------------
-init(Opts) ->
+init([Name, Opts]) ->
+    put(ssl_manager, Name),
     process_flag(trap_exit, true),
-    CacheCb = proplists:get_value(session_cache, Opts, ssl_session_cache),
+    CacheCb = proplists:get_value(session_cb, Opts, ssl_session_cache),
     SessionLifeTime =  
 	proplists:get_value(session_lifetime, Opts, ?'24H_in_sec'),
     CertDb = ssl_certificate_db:create(),
-    SessionCache = CacheCb:init(),
+    SessionCache = CacheCb:init(proplists:get_value(session_cb_init_args, Opts, [])),
     Timer = erlang:send_after(SessionLifeTime * 1000, 
 			      self(), validate_sessions),
     {ok, #state{certificate_db = CertDb,
 		session_cache = SessionCache,
 		session_cache_cb = CacheCb,
-		session_lifetime = SessionLifeTime ,
+		session_lifetime = SessionLifeTime,
 		session_validation_timer = Timer}}.
 
 %%--------------------------------------------------------------------
-%% Function: %% handle_call(Request, From, State) -> {reply, Reply, State} |
-%%                                      {reply, Reply, State, Timeout} |
-%%                                      {noreply, State} |
-%%                                      {noreply, State, Timeout} |
-%%                                      {stop, Reason, Reply, State} |
-%%                                      {stop, Reason, State}
+-spec handle_call(msg(), from(), #state{}) -> {reply, reply(), #state{}}. 
+%% Possible return values not used now.  
+%%					      {reply, reply(), #state{}, timeout()} |
+%%					      {noreply, #state{}} |
+%%					      {noreply, #state{}, timeout()} |
+%%					      {stop, reason(), reply(), #state{}} |
+%%					      {stop, reason(), #state{}}.
+%%
 %% Description: Handling call messages
 %%--------------------------------------------------------------------
 handle_call({{connection_init, "", _Role}, Pid}, _From, 
-	    #state{session_cache = Cache} = State) ->
+	    #state{certificate_db = [CertDb |_],
+		   session_cache = Cache} = State) ->
     erlang:monitor(process, Pid),
-    Result = {ok, make_ref(), Cache},
+    Result = {ok, make_ref(),CertDb, Cache},
     {reply, Result, State};
 
-handle_call({{connection_init, TrustedcertsFile, _Role}, Pid}, _From, 
-	    #state{certificate_db = Db,
+handle_call({{connection_init, Trustedcerts, _Role}, Pid}, _From,
+	    #state{certificate_db = [CertDb|_] =Db,
 		   session_cache = Cache} = State) ->
     erlang:monitor(process, Pid),
     Result = 
 	try
-	    {ok, Ref} = ssl_certificate_db:add_trusted_certs(Pid, TrustedcertsFile, Db),
-	    {ok, Ref, Cache}
+	    {ok, Ref} = ssl_certificate_db:add_trusted_certs(Pid, Trustedcerts, Db),
+	    {ok, Ref, CertDb, Cache}
 	catch
-	    _:{badmatch, Error} ->
-		{error, Error};
-	    _E:_R ->
-		{error, {_R,erlang:get_stacktrace()}}
+	    _:Reason ->
+		{error, Reason}
 	end,
     {reply, Result, State};
 
-handle_call({{client_session_id, Host, Port, SslOpts}, _}, _, 
+handle_call({{client_session_id, Host, Port, SslOpts, OwnCert}, _}, _,
 	    #state{session_cache = Cache,
 		  session_cache_cb = CacheCb} = State) ->
-    Id = ssl_session:id({Host, Port, SslOpts}, Cache, CacheCb),
+    Id = ssl_session:id({Host, Port, SslOpts}, Cache, CacheCb, OwnCert),
     {reply, Id, State};
 
-handle_call({{server_session_id, Port, SuggestedSessionId, SslOpts}, _},
+handle_call({{server_session_id, Port, SuggestedSessionId, SslOpts, OwnCert}, _},
 	    _, #state{session_cache_cb = CacheCb,
 		      session_cache = Cache,
 		      session_lifetime = LifeTime} = State) ->
     Id = ssl_session:id(Port, SuggestedSessionId, SslOpts,
-			Cache, CacheCb, LifeTime),
+			Cache, CacheCb, LifeTime, OwnCert),
     {reply, Id, State};
 
-handle_call({{cache_pem, File},Pid}, _, State = #state{certificate_db = Db}) ->
-    try ssl_certificate_db:cache_pem_file(Pid,File,Db) of
+handle_call({{cache_pem, File, LastWrite}, Pid}, _, 
+	    #state{certificate_db = Db} = State) ->
+    try ssl_certificate_db:cache_pem_file(Pid, File, LastWrite, Db) of
 	Result ->
 	    {reply, Result, State}
-    catch _:{badmatch, Reason} ->
-	    {reply, Reason, State};
-	  _:Reason ->
+    catch 
+	_:Reason ->
 	    {reply, {error, Reason}, State}
     end;
-	       
-handle_call(_,_, State) ->
-    {reply, ok, State}.
+handle_call({{recache_pem, File, LastWrite}, Pid}, From,
+	    #state{certificate_db = Db} = State) ->
+    ssl_certificate_db:uncache_pem_file(File, Db),
+    cast({recache_pem, File, LastWrite, Pid, From}),
+    {noreply, State}.
+
 %%--------------------------------------------------------------------
-%% Function: handle_cast(Msg, State) -> {noreply, State} |
-%%                                      {noreply, State, Timeout} |
-%%                                      {stop, Reason, State}
+-spec  handle_cast(msg(), #state{}) -> {noreply, #state{}}.
+%% Possible return values not used now.  
+%%				      | {noreply, #state{}, timeout()} |
+%%				       {stop, reason(), #state{}}.
+%%
 %% Description: Handling cast messages
 %%--------------------------------------------------------------------
 handle_cast({register_session, Host, Port, Session}, 
@@ -228,25 +269,40 @@ handle_cast({register_session, Port, Session},
     CacheCb:update(Cache, {Port, NewSession#session.session_id}, NewSession),
     {noreply, State};
 
-handle_cast({invalidate_session, Host, Port, 
-	     #session{session_id = ID}}, 
+handle_cast({invalidate_session, Host, Port,
+	     #session{session_id = ID} = Session},
 	    #state{session_cache = Cache,
 		   session_cache_cb = CacheCb} = State) ->
-    CacheCb:delete(Cache, {{Host, Port}, ID}),
-    {noreply, State};
+    invalidate_session(Cache, CacheCb, {{Host, Port}, ID}, Session, State);
 
-handle_cast({invalidate_session, Port, #session{session_id = ID}}, 
+handle_cast({invalidate_session, Port, #session{session_id = ID} = Session},
 	    #state{session_cache = Cache,
 		   session_cache_cb = CacheCb} = State) ->
-    CacheCb:delete(Cache, {Port, ID}),
-    {noreply, State}.
+    invalidate_session(Cache, CacheCb, {Port, ID}, Session, State);
+
+handle_cast({recache_pem, File, LastWrite, Pid, From},
+	    #state{certificate_db = [_, FileToRefDb, _]} = State0) ->
+    case ssl_certificate_db:lookup(File, FileToRefDb) of
+	undefined ->
+	    {reply, Msg, State} =
+		handle_call({{cache_pem, File, LastWrite}, Pid}, From, State0),
+	    gen_server:reply(From, Msg),
+	    {noreply, State};
+	_ -> %% Send message to self letting cleanup messages be handled
+	     %% first so that no reference to the old version of file
+             %% exists when we cache the new one.
+	    cast({recache_pem, File, LastWrite, Pid, From}),
+	    {noreply, State0}
+    end.
 
 %%--------------------------------------------------------------------
-%% Function: handle_info(Info, State) -> {noreply, State} |
-%%                                       {noreply, State, Timeout} |
-%%                                       {stop, Reason, State}
+-spec handle_info(msg(), #state{}) -> {noreply, #state{}}.
+%% Possible return values not used now.
+%%				      |{noreply, #state{}, timeout()} |
+%%				      {stop, reason(), #state{}}.
+%%
 %% Description: Handling all non call/cast messages
-%%-------------------------------------------------------------------- 
+%%-------------------------------------------------------------------
 handle_info(validate_sessions, #state{session_cache_cb = CacheCb,
 				      session_cache = Cache,
 				      session_lifetime = LifeTime
@@ -256,6 +312,12 @@ handle_info(validate_sessions, #state{session_cache_cb = CacheCb,
     start_session_validator(Cache, CacheCb, LifeTime),
     {noreply, State#state{session_validation_timer = Timer}};
 
+handle_info({delayed_clean_session, Key}, #state{session_cache = Cache,
+                   session_cache_cb = CacheCb
+                   } = State) ->
+    CacheCb:delete(Cache, Key),
+    {noreply, State};
+
 handle_info({'EXIT', _, _}, State) ->
     %% Session validator died!! Do we need to take any action?
     %% maybe error log
@@ -264,12 +326,14 @@ handle_info({'EXIT', _, _}, State) ->
 handle_info({'DOWN', _Ref, _Type, _Pid, ecacertfile}, State) ->
     {noreply, State};
 
+handle_info({'DOWN', _Ref, _Type, Pid, shutdown}, State) ->
+    handle_info({remove_trusted_certs, Pid}, State);
 handle_info({'DOWN', _Ref, _Type, Pid, _Reason}, State) ->
     erlang:send_after(?CERTIFICATE_CACHE_CLEANUP, self(), 
 		      {remove_trusted_certs, Pid}),
     {noreply, State};
 handle_info({remove_trusted_certs, Pid}, 
-	    State = #state{certificate_db = Db}) ->
+	    #state{certificate_db = Db} = State) ->
     ssl_certificate_db:remove_trusted_certs(Pid, Db),
     {noreply, State};
 
@@ -277,7 +341,8 @@ handle_info(_Info, State) ->
     {noreply, State}.
 
 %%--------------------------------------------------------------------
-%% Function: terminate(Reason, State) -> void()
+-spec terminate(reason(), #state{}) -> term().
+%%		       
 %% Description: This function is called by a gen_server when it is about to
 %% terminate. It should be the opposite of Module:init/1 and do any necessary
 %% cleaning up. When it returns, the gen_server terminates with Reason.
@@ -293,7 +358,8 @@ terminate(_Reason, #state{certificate_db = Db,
     ok.
 
 %%--------------------------------------------------------------------
-%% Func: code_change(OldVsn, State, Extra) -> {ok, NewState}
+-spec code_change(term(), #state{}, list()) -> {ok, #state{}}.			 
+%%
 %% Description: Convert process state when code is changed
 %%--------------------------------------------------------------------
 code_change(_OldVsn, State, _Extra) ->
@@ -303,10 +369,10 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %%--------------------------------------------------------------------
 call(Msg) ->
-    gen_server:call(?MODULE, {Msg, self()}, infinity).
+    gen_server:call(get(ssl_manager), {Msg, self()}, infinity).
 
 cast(Msg) ->
-    gen_server:cast(?MODULE, Msg).
+    gen_server:cast(get(ssl_manager), Msg).
  
 validate_session(Host, Port, Session, LifeTime) ->
     case ssl_session:valid_session(Session, LifeTime) of
@@ -326,16 +392,54 @@ validate_session(Port, Session, LifeTime) ->
 		    
 start_session_validator(Cache, CacheCb, LifeTime) ->
     spawn_link(?MODULE, init_session_validator, 
-	       [[Cache, CacheCb, LifeTime]]).
+	       [[get(ssl_manager), Cache, CacheCb, LifeTime]]).
 
-init_session_validator([Cache, CacheCb, LifeTime]) ->
+init_session_validator([SslManagerName, Cache, CacheCb, LifeTime]) ->
+    put(ssl_manager, SslManagerName),
     CacheCb:foldl(fun session_validation/2,
 		  LifeTime, Cache).
 
-session_validation({{Host, Port, _}, Session}, LifeTime) ->
+session_validation({{{Host, Port}, _}, Session}, LifeTime) ->
     validate_session(Host, Port, Session, LifeTime),
     LifeTime;
 session_validation({{Port, _}, Session}, LifeTime) ->
     validate_session(Port, Session, LifeTime),
     LifeTime.
-    
+
+cache_pem_file(File, LastWrite, DbHandle) ->
+    case ssl_certificate_db:lookup_cached_certs(DbHandle,File) of
+	[{_, {Mtime, Content}}] ->
+	    case LastWrite of
+		Mtime ->
+		    {ok, Content};
+		_ ->
+		    call({recache_pem, File, LastWrite})
+	    end;
+	[] ->
+	    call({cache_pem, File, LastWrite})
+    end.
+
+delay_time() ->
+    case application:get_env(ssl, session_delay_cleanup_time) of
+	{ok, Time} when is_integer(Time) ->
+	    Time;
+	_ ->
+	   ?CLEAN_SESSION_DB
+    end.
+
+invalidate_session(Cache, CacheCb, Key, Session, State) ->
+    case CacheCb:lookup(Cache, Key) of
+	undefined -> %% Session is already invalidated
+	    {noreply, State};
+	#session{is_resumable = new} ->
+	    CacheCb:delete(Cache, Key),
+	    {noreply, State};
+	_ ->
+	    %% When a registered session is invalidated we need to wait a while before deleting
+	    %% it as there might be pending connections that rightfully needs to look
+	    %% up the session data but new connections should not get to use this session.
+	    CacheCb:update(Cache, Key, Session#session{is_resumable = false}),
+	    TRef =
+		erlang:send_after(delay_time(), self(), {delayed_clean_session, Key}),
+	    {noreply, State#state{last_delay_timer = TRef}}
+    end.

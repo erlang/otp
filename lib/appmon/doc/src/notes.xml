@@ -30,6 +30,37 @@
   </header>
   <p>This document describes the changes made to the Appmon application.</p>
 
+<section><title>Appmon 2.1.13</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    An obsolete compiler directive for native code generation
+	    was removed from a source file.</p>
+          <p>
+	    Own Id: OTP-8839</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Appmon 2.1.12</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Warnings due to new autoimported BIFs removed</p>
+          <p>
+	    Own Id: OTP-8674 Aux Id: OTP-8579 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Appmon 2.1.11</title>
 
     <section><title>Improvements and New Features</title>

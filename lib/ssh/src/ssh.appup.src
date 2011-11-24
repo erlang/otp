@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,21 +19,21 @@
 
 {"%VSN%",	
  [
-  {"1.1.7", [{load_module, ssh_connection_handler, soft_purge, soft_purge, []}]},
-  {"1.1.6", [{restart_application, ssh}]},
-  {"1.1.5", [{restart_application, ssh}]},
-  {"1.1.4", [{restart_application, ssh}]},
-  {"1.1.3", [{restart_application, ssh}]},
-  {"1.1.2", [{restart_application, ssh}]}
+  {"2.0.7", [{load_module, ssh_sftp, soft_purge, soft_purge, []}]},
+  {"2.0.6", [{load_module, ssh_userreg, soft_purge, soft_purge, []},
+             {load_module, ssh_sftp, soft_purge, soft_purge, []}]},
+  {"2.0.5", [{load_module, ssh_userreg, soft_purge, soft_purge, []},
+             {load_module, ssh_sftp, soft_purge, soft_purge, []},
+             {load_module, ssh_connection_handler, soft_purge, soft_purge, [ssh_userreg]}]}
  ],
  [
-  {"1.1.7", [{load_module, ssh_connection_handler, soft_purge, soft_purge, []}]},
-  {"1.1.6", [{restart_application, ssh}]},
-  {"1.1.5", [{restart_application, ssh}]},
-  {"1.1.4", [{restart_application, ssh}]},
-  {"1.1.3", [{restart_application, ssh}]},
-  {"1.1.2", [{restart_application, ssh}]}
- ] 
+  {"2.0.7", [{load_module, ssh_sftp, soft_purge, soft_purge, []}]},
+  {"2.0.6", [{load_module, ssh_userreg, soft_purge, soft_purge, []},
+             {load_module, ssh_sftp, soft_purge, soft_purge, []}]},
+  {"2.0.5", [{load_module, ssh_userreg, soft_purge, soft_purge, []},
+             {load_module, ssh_sftp, soft_purge, soft_purge, []},
+             {load_module, ssh_connection_handler, soft_purge, soft_purge, [ssh_userreg]}]}
+ ]
 }.
 
 

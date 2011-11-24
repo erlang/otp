@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1998-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(erl_epmd).
@@ -40,6 +40,7 @@
 -import(lists, [reverse/1]).
 
 -record(state, {socket, port_no = -1, name = ""}).
+-type state() :: #state{}.
 
 -include("inet_int.hrl").
 -include("erl_epmd.hrl").
@@ -111,10 +112,17 @@ register_node(Name, PortNo) ->
 %%% Callback functions from gen_server
 %%%----------------------------------------------------------------------
 
+-spec init(_) -> {'ok', state()}.
+
 init(_) ->
     {ok, #state{socket = -1}}.
 	    
 %%----------------------------------------------------------------------
+
+-type calls() :: 'client_info_req' | 'stop' | {'register', term(), term()}.
+
+-spec handle_call(calls(), term(), state()) ->
+        {'reply', term(), state()} | {'stop', 'shutdown', 'ok', state()}.
 
 handle_call({register, Name, PortNo}, _From, State) ->
     case State#state.socket of
@@ -133,18 +141,22 @@ handle_call({register, Name, PortNo}, _From, State) ->
     end;
 
 handle_call(client_info_req, _From, State) ->
-  Reply = {ok,{r4,State#state.name,State#state.port_no}},
-  {reply,Reply,State};
+    Reply = {ok,{r4,State#state.name,State#state.port_no}},
+    {reply, Reply, State};
   
 handle_call(stop, _From, State) ->
     {stop, shutdown, ok, State}.
 
 %%----------------------------------------------------------------------
 
+-spec handle_cast(term(), state()) -> {'noreply', state()}.
+
 handle_cast(_, State) ->
     {noreply, State}.
 
 %%----------------------------------------------------------------------
+
+-spec handle_info(term(), state()) -> {'noreply', state()}.
 
 handle_info({tcp_closed, Socket}, State) when State#state.socket =:= Socket ->
     {noreply, State#state{socket = -1}};
@@ -153,6 +165,8 @@ handle_info(_, State) ->
 
 %%----------------------------------------------------------------------
 
+-spec terminate(term(), state()) -> 'ok'.
+
 terminate(_, #state{socket = Socket}) when Socket > 0 ->
     close(Socket),
     ok;
@@ -160,6 +174,8 @@ terminate(_, _) ->
     ok.
 
 %%----------------------------------------------------------------------
+
+-spec code_change(term(), state(), term()) -> {'ok', state()}.
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
@@ -194,19 +210,6 @@ open({A,B,C,D,E,F,G,H}=EpmdAddr, Timeout) when ?ip6(A,B,C,D,E,F,G,H) ->
 close(Socket) ->
     gen_tcp:close(Socket).
 
-
-do_register_node_v0(NodeName, TcpPort) ->
-    case open() of
-	{ok, Socket} ->
-	    Name = cstring(NodeName),
-	    Len = 1+2+length(Name),
-	    gen_tcp:send(Socket, [?int16(Len), ?EPMD_ALIVE,
-				  ?int16(TcpPort), Name]),
-	    wait_for_reg_reply_v0(Socket, []);
-	Error ->
-	    Error
-    end.
-
 do_register_node(NodeName, TcpPort) ->
     case open() of
 	{ok, Socket} ->
@@ -224,14 +227,7 @@ do_register_node(NodeName, TcpPort) ->
 				   Name,
 				   ?int16(Elen),
 				   Extra]),
-	    case wait_for_reg_reply(Socket, []) of
-		{error, epmd_close} ->
-		    %% could be old epmd; try old protocol
-%		    erlang:display('trying old'),
-		    do_register_node_v0(NodeName, TcpPort);
-		Other ->
-		    Other
-	    end;
+	    wait_for_reg_reply(Socket, []);
 	Error ->
 	    Error
     end.
@@ -289,41 +285,9 @@ wait_for_reg_reply(Socket, SoFar) ->
 	    {error, no_reg_reply_from_epmd}
     end.
     
-wait_for_reg_reply_v0(Socket, SoFar) ->
-    receive
-	{tcp, Socket, Data0} ->
-	    case SoFar ++ Data0 of
-		[$Y, A, B] ->
-		    {alive, Socket, ?u16(A, B)};
-		Data when length(Data) < 3 ->
-		    wait_for_reg_reply(Socket, Data);
-		Garbage ->
-		    {error, {garbage_from_epmd, Garbage}}
-	    end;
-	{tcp_closed, Socket} ->
-	    {error, duplicate_name}		% A guess -- the most likely reason.
-    after 10000 ->
-	    gen_tcp:close(Socket),
-	    {error, no_reg_reply_from_epmd}
-    end.
 %%
 %% Lookup a node "Name" at Host
 %%
-get_port_v0(Node, EpmdAddress) ->
-    case open(EpmdAddress) of
-	{ok, Socket} ->
-	    Name = cstring(Node),
-	    Len = 1+length(Name),
-	    gen_tcp:send(Socket, [?int16(Len),?EPMD_PORT_PLEASE, Name]),
-	    wait_for_port_reply_v0(Socket, []);
-	_Error -> 
-	    ?port_please_failure(),
-	    noport
-    end.
-
-%%% Not used anymore
-%%% get_port(Node, EpmdAddress) ->
-%%%     get_port(Node, EpmdAddress, infinity).
 
 get_port(Node, EpmdAddress, Timeout) ->
     case open(EpmdAddress, Timeout) of
@@ -331,40 +295,12 @@ get_port(Node, EpmdAddress, Timeout) ->
 	    Name = to_string(Node),
 	    Len = 1+length(Name),
 	    gen_tcp:send(Socket, [?int16(Len),?EPMD_PORT_PLEASE2_REQ, Name]),
-	    Reply = wait_for_port_reply(Socket, []),
-	    case Reply of
-		closed ->
-		    get_port_v0(Node, EpmdAddress);
-		Other ->
-		    Other
-	    end;
+	    wait_for_port_reply(Socket, []);
 	_Error -> 
 	    ?port_please_failure2(_Error),
 	    noport
     end.
 
-wait_for_port_reply_v0(Socket, SoFar) ->
-    receive
-	{tcp, Socket, Data0} ->
-%	    io:format("got ~p~n", [Data0]),
-	    case SoFar ++ Data0 of
-		[A, B] ->
-		    wait_for_close(Socket, {port, ?u16(A, B), 0});
-%		    wait_for_close(Socket, {port, ?u16(A, B)});
-		Data when length(Data) < 2 ->
-		    wait_for_port_reply_v0(Socket, Data);
-		Garbage ->
-		    ?port_please_failure(),
-		    {error, {garbage_from_epmd, Garbage}}
-	    end;
-	{tcp_closed, Socket} ->
-	    ?port_please_failure(),
-	    noport
-    after 10000 ->
-	    ?port_please_failure(),
-	    gen_tcp:close(Socket),
-	    noport
-    end.
 
 wait_for_port_reply(Socket, SoFar) ->
     receive
@@ -471,8 +407,6 @@ wait_for_close(Socket, Reply) ->
 %%
 %% Creates a (flat) null terminated string from atom or list.
 %%
-cstring(S) when is_atom(S) -> cstring(atom_to_list(S));
-cstring(S) when is_list(S) -> S ++ [0].
 
 to_string(S) when is_atom(S) -> atom_to_list(S);
 to_string(S) when is_list(S) -> S.

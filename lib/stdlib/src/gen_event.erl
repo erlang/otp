@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(gen_event).
@@ -36,14 +36,14 @@
 	 add_handler/3, add_sup_handler/3, delete_handler/3, swap_handler/3,
 	 swap_sup_handler/3, which_handlers/1, call/3, call/4, wake_hib/4]).
 
--export([behaviour_info/1]).
-
 -export([init_it/6,
 	 system_continue/3,
 	 system_terminate/4,
 	 system_code_change/4,
-	 print_event/3,
 	 format_status/2]).
+
+-export_type([handler/0, handler_args/0, add_handler_ret/0,
+              del_handler_ret/0]).
 
 -import(error_logger, [error_msg/2]).
 
@@ -58,14 +58,6 @@
 %%%  API
 %%%=========================================================================
 
--spec behaviour_info(atom()) -> 'undefined' | [{atom(), arity()}].
-
-behaviour_info(callbacks) ->
-    [{init,1},{handle_event,2},{handle_call,2},{handle_info,2},
-     {terminate,2},{code_change,3}];
-behaviour_info(_Other) ->
-    undefined.
-
 %% gen_event:start(Handler) -> {ok, Pid} | {error, What}
 %%   gen_event:add_handler(Handler, Mod, Args) -> ok | Other
 %%      gen_event:notify(Handler, Event) -> ok
@@ -76,45 +68,44 @@ behaviour_info(_Other) ->
 %%   gen_event:which_handler(Handler) -> [Mod]
 %% gen_event:stop(Handler) -> ok 
 
-
-%% handlers must export
-%% Mod:init(Args) -> {ok, State} | Other
-%% Mod:handle_event(Event, State) -> 
-%%    {ok, State'} | remove_handler | {swap_handler,Args1,State1,Mod2,Args2}
-%% Mod:handle_info(Info, State) ->
-%%    {ok, State'} | remove_handler | {swap_handler,Args1,State1,Mod2,Args2}
-%% Mod:handle_call(Query, State) -> 
-%%    {ok, Reply, State'} | {remove_handler, Reply} | 
-%%    {swap_handler, Reply, Args1,State1,Mod2,Args2}
-%% Mod:terminate(Args, State) -> Val
-
-
-%% add_handler(H, Mod, Args) -> ok | Other
-%%    Mod:init(Args) -> {ok, State} | Other
-
-%% delete_handler(H, Mod, Args) -> Val
-%%    Mod:terminate(Args, State) -> Val
-
-%% notify(H, Event) 
-%%    Mod:handle_event(Event, State) ->
-%%         {ok, State1}
-%%         remove_handler
-%%               Mod:terminate(remove_handler, State) is called
-%%               the return value is ignored
-%%         {swap_handler, Args1, State1, Mod2, Args2}
-%%               State2 = Mod:terminate(Args1, State1) is called
-%%               the return value is chained into the new module and
-%%               Mod2:init({Args2, State2}) is called
-%%         Other
-%%               Mod:terminate({error, Other}, State) is called
-%%               The return value is ignored
-%% call(H, Mod, Query) -> Val
-%% call(H, Mod, Query, Timeout) -> Val
-%%      Mod:handle_call(Query, State) -> as above
+-callback init(InitArgs :: term()) ->
+    {ok, State :: term()} |
+    {ok, State :: term(), hibernate}.
+-callback handle_event(Event :: term(), State :: term()) ->
+    {ok, NewState :: term()} |
+    {ok, NewState :: term(), hibernate} |
+    {swap_handler, Args1 :: term(), NewState :: term(),
+     Handler2 :: (atom() | {atom(), Id :: term()}), Args2 :: term()} |
+    remove_handler.
+-callback handle_call(Request :: term(), State :: term()) ->
+    {ok, Reply :: term(), NewState :: term()} |
+    {ok, Reply :: term(), NewState :: term(), hibernate} |
+    {swap_handler, Reply :: term(), Args1 :: term(), NewState :: term(),
+     Handler2 :: (atom() | {atom(), Id :: term()}), Args2 :: term()} |
+    {remove_handler, Reply :: term()}.
+-callback handle_info(Info :: term(), State :: term()) ->
+    {ok, NewState :: term()} |
+    {ok, NewState :: term(), hibernate} |
+    {swap_handler, Args1 :: term(), NewState :: term(),
+     Handler2 :: (atom() | {atom(), Id :: term()}), Args2 :: term()} |
+    remove_handler.
+-callback terminate(Args :: (term() | {stop, Reason :: term()} |
+                             stop | remove_handler |
+                             {error, {'EXIT', Reason :: term()}} |
+                             {error, term()}),
+                    State :: term()) ->
+    term().
+-callback code_change(OldVsn :: (term() | {down, term()}),
+                      State :: term(), Extra :: term()) ->
+    {ok, NewState :: term()}.
 
 %%---------------------------------------------------------------------------
 
--type handler()   :: atom() | {atom(), term()}.
+-type handler()          :: atom() | {atom(), term()}.
+-type handler_args()     :: term().
+-type add_handler_ret()  :: ok | term() | {'EXIT',term()}.
+-type del_handler_ret()  :: ok | term() | {'EXIT',term()}.
+
 -type emgr_name() :: {'local', atom()} | {'global', atom()}.
 -type emgr_ref()  :: atom() | {atom(), atom()} |  {'global', atom()} | pid().
 -type start_ret() :: {'ok', pid()} | {'error', term()}.
@@ -239,7 +230,7 @@ fetch_msg(Parent, ServerName, MSL, Debug, Hib) ->
 	Msg when Debug =:= [] ->
 	    handle_msg(Msg, Parent, ServerName, MSL, []);
 	Msg ->
-	    Debug1 = sys:handle_debug(Debug, {?MODULE, print_event}, 
+	    Debug1 = sys:handle_debug(Debug, fun print_event/3,
 				      ServerName, {in, Msg}),
 	    handle_msg(Msg, Parent, ServerName, MSL, Debug1)
     end.
@@ -661,16 +652,16 @@ report_error(_Handler, {swapped,_,_}, _, _, _)      -> ok;
 report_error(Handler, Reason, State, LastIn, SName) ->
     Reason1 = 
 	case Reason of
-	    {'EXIT',{undef,[{M,F,A}|MFAs]}} ->
+	    {'EXIT',{undef,[{M,F,A,L}|MFAs]}} ->
 		case code:is_loaded(M) of
 		    false ->
-			{'module could not be loaded',[{M,F,A}|MFAs]};
+			{'module could not be loaded',[{M,F,A,L}|MFAs]};
 		    _ ->
 			case erlang:function_exported(M, F, length(A)) of
 			    true ->
-				{undef,[{M,F,A}|MFAs]};
+				{undef,[{M,F,A,L}|MFAs]};
 			    false ->
-				{'function not exported',[{M,F,A}|MFAs]}
+				{'function not exported',[{M,F,A,L}|MFAs]}
 			end
 		end;
 	    {'EXIT',Why} ->
@@ -678,12 +669,23 @@ report_error(Handler, Reason, State, LastIn, SName) ->
 	    _ ->
 		Reason
 	end,
+    Mod = Handler#handler.module,
+    FmtState = case erlang:function_exported(Mod, format_status, 2) of
+		   true ->
+		       Args = [get(), State],
+		       case catch Mod:format_status(terminate, Args) of
+			   {'EXIT', _} -> State;
+			   Else -> Else
+		       end;
+		   _ ->
+		       State
+	       end,
     error_msg("** gen_event handler ~p crashed.~n"
 	      "** Was installed in ~p~n"
 	      "** Last event was: ~p~n"
 	      "** When handler state == ~p~n"
 	      "** Reason == ~p~n",
-	      [handler(Handler),SName,LastIn,State,Reason1]).
+	      [handler(Handler),SName,LastIn,FmtState,Reason1]).
 
 handler(Handler) when not Handler#handler.id ->
     Handler#handler.module;
@@ -712,10 +714,21 @@ get_modules(MSL) ->
 %%-----------------------------------------------------------------
 %% Status information
 %%-----------------------------------------------------------------
-format_status(_Opt, StatusData) ->
-    [_PDict, SysState, Parent, _Debug, [ServerName, MSL, _Hib]] = StatusData,
-    Header = lists:concat(["Status for event handler ", ServerName]),
+format_status(Opt, StatusData) ->
+    [PDict, SysState, Parent, _Debug, [ServerName, MSL, _Hib]] = StatusData,
+    Header = gen:format_status_header("Status for event handler",
+                                      ServerName),
+    FmtMSL = [case erlang:function_exported(Mod, format_status, 2) of
+		  true ->
+		      Args = [PDict, State],
+		      case catch Mod:format_status(Opt, Args) of
+			  {'EXIT', _} -> MSL;
+			  Else -> MS#handler{state = Else}
+		      end;
+		  _ ->
+		      MS
+	      end || #handler{module = Mod, state = State} = MS <- MSL],
     [{header, Header},
      {data, [{"Status", SysState},
 	     {"Parent", Parent}]},
-     {items, {"Installed handlers", MSL}}].
+     {items, {"Installed handlers", FmtMSL}}].

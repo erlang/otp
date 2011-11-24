@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %% Purpose : Constant folding optimisation for Core
@@ -460,7 +460,8 @@ eval_binary(#c_binary{anno=Anno,segments=Ss}=Bin) ->
 	    Bin;
 	  throw:{badarg,Warning} ->
 	    add_warning(Bin, Warning),
-	    #c_call{module=#c_literal{val=erlang},
+	    #c_call{anno=Anno,
+		    module=#c_literal{val=erlang},
 		    name=#c_literal{val=error},
 		    args=[#c_literal{val=badarg}]}
     end.
@@ -602,15 +603,23 @@ count_bits_1(Int, Bits) -> count_bits_1(Int bsr 64, Bits+64).
 %%  a rewritten expression consisting of a sequence of
 %%  the arguments only is returned.
 
-useless_call(effect, #c_call{module=#c_literal{val=Mod},
+useless_call(effect, #c_call{anno=Anno,
+			     module=#c_literal{val=Mod},
 			     name=#c_literal{val=Name},
 			     args=Args}=Call) ->
     A = length(Args),
     case erl_bifs:is_safe(Mod, Name, A) of
 	false ->
 	    case erl_bifs:is_pure(Mod, Name, A) of
-		true -> add_warning(Call, result_ignored);
-		false -> ok
+		true ->
+		    case member(result_not_wanted, Anno) of
+			false ->
+			    add_warning(Call, result_ignored);
+			true ->
+			    ok
+		    end;
+		false ->
+		    ok
 	    end,
 	    no;
 	true ->
@@ -650,36 +659,34 @@ call_0(Call, M, N, As0, Sub) ->
 %% We inline some very common higher order list operations.
 %% We use the same evaluation order as the library function.
 
-call_1(_Call, lists, all, [Arg1,Arg2], Sub) ->
+call_1(#c_call{anno=Anno}, lists, all, [Arg1,Arg2], Sub) ->
     Loop = #c_var{name={'lists^all',1}},
     F = #c_var{name='F'},
     Xs = #c_var{name='Xs'},
     X = #c_var{name='X'},
     Err1 = #c_tuple{es=[#c_literal{val='case_clause'}, X]},
     CC1 = #c_clause{pats=[#c_literal{val=true}], guard=#c_literal{val=true},
-		    body=#c_apply{op=Loop, args=[Xs]}},
+		    body=#c_apply{anno=Anno, op=Loop, args=[Xs]}},
     CC2 = #c_clause{pats=[#c_literal{val=false}], guard=#c_literal{val=true},
 		    body=#c_literal{val=false}},
     CC3 = #c_clause{pats=[X], guard=#c_literal{val=true},
-		    body=#c_primop{name=#c_literal{val='match_fail'},
-				   args=[Err1]}},
+		    body=match_fail(Anno, Err1)},
     C1 = #c_clause{pats=[#c_cons{hd=X, tl=Xs}], guard=#c_literal{val=true},
-		   body=#c_case{arg=#c_apply{op=F, args=[X]},
+		   body=#c_case{arg=#c_apply{anno=Anno, op=F, args=[X]},
 				clauses = [CC1, CC2, CC3]}},
     C2 = #c_clause{pats=[#c_literal{val=[]}], guard=#c_literal{val=true},
 		   body=#c_literal{val=true}},
     Err2 = #c_tuple{es=[#c_literal{val='function_clause'}, Xs]},
     C3 = #c_clause{pats=[Xs], guard=#c_literal{val=true},
-		   body=#c_primop{name=#c_literal{val='match_fail'},
-				  args=[Err2]}},
+		   body=match_fail(Anno, Err2)},
     Fun = #c_fun{vars=[Xs],
 		 body=#c_case{arg=Xs, clauses=[C1, C2, C3]}},
     L = #c_var{name='L'},
     expr(#c_let{vars=[F, L], arg=#c_values{es=[Arg1, Arg2]},
 		body=#c_letrec{defs=[{Loop,Fun}],
-			       body=#c_apply{op=Loop, args=[L]}}},
+			       body=#c_apply{anno=Anno, op=Loop, args=[L]}}},
 	 Sub);
-call_1(_Call, lists, any, [Arg1,Arg2], Sub) ->
+call_1(#c_call{anno=Anno}, lists, any, [Arg1,Arg2], Sub) ->
     Loop = #c_var{name={'lists^any',1}},
     F = #c_var{name='F'},
     Xs = #c_var{name='Xs'},
@@ -688,72 +695,71 @@ call_1(_Call, lists, any, [Arg1,Arg2], Sub) ->
     CC1 = #c_clause{pats=[#c_literal{val=true}], guard=#c_literal{val=true},
 		    body=#c_literal{val=true}},
     CC2 = #c_clause{pats=[#c_literal{val=false}], guard=#c_literal{val=true},
-		    body=#c_apply{op=Loop, args=[Xs]}},
+		    body=#c_apply{anno=Anno, op=Loop, args=[Xs]}},
     CC3 = #c_clause{pats=[X], guard=#c_literal{val=true},
-		    body=#c_primop{name=#c_literal{val='match_fail'},
-				   args=[Err1]}},
+		    body=match_fail(Anno, Err1)},
     C1 = #c_clause{pats=[#c_cons{hd=X, tl=Xs}], guard=#c_literal{val=true},
-		   body=#c_case{arg=#c_apply{op=F, args=[X]},
+		   body=#c_case{arg=#c_apply{anno=Anno, op=F, args=[X]},
 				clauses = [CC1, CC2, CC3]}},
     C2 = #c_clause{pats=[#c_literal{val=[]}], guard=#c_literal{val=true},
 		   body=#c_literal{val=false}},
     Err2 = #c_tuple{es=[#c_literal{val='function_clause'}, Xs]},
     C3 = #c_clause{pats=[Xs], guard=#c_literal{val=true},
-		   body=#c_primop{name=#c_literal{val='match_fail'},
-				  args=[Err2]}},
+		   body=match_fail(Anno, Err2)},
     Fun = #c_fun{vars=[Xs],
 		 body=#c_case{arg=Xs, clauses=[C1, C2, C3]}},
     L = #c_var{name='L'},
     expr(#c_let{vars=[F, L], arg=#c_values{es=[Arg1, Arg2]},
 		body=#c_letrec{defs=[{Loop,Fun}],
-			       body=#c_apply{op=Loop, args=[L]}}},
+			       body=#c_apply{anno=Anno, op=Loop, args=[L]}}},
 	 Sub);
-call_1(_Call, lists, foreach, [Arg1,Arg2], Sub) ->
+call_1(#c_call{anno=Anno}, lists, foreach, [Arg1,Arg2], Sub) ->
     Loop = #c_var{name={'lists^foreach',1}},
     F = #c_var{name='F'},
     Xs = #c_var{name='Xs'},
     X = #c_var{name='X'},
     C1 = #c_clause{pats=[#c_cons{hd=X, tl=Xs}], guard=#c_literal{val=true},
-		   body=#c_seq{arg=#c_apply{op=F, args=[X]},
-			       body=#c_apply{op=Loop, args=[Xs]}}},
+		   body=#c_seq{arg=#c_apply{anno=Anno, op=F, args=[X]},
+			       body=#c_apply{anno=Anno, op=Loop, args=[Xs]}}},
     C2 = #c_clause{pats=[#c_literal{val=[]}], guard=#c_literal{val=true},
 		   body=#c_literal{val=ok}},
     Err = #c_tuple{es=[#c_literal{val='function_clause'}, Xs]},
     C3 = #c_clause{pats=[Xs], guard=#c_literal{val=true},
-		   body=#c_primop{name=#c_literal{val='match_fail'},
-				  args=[Err]}},
+		   body=match_fail(Anno, Err)},
     Fun = #c_fun{vars=[Xs],
 		 body=#c_case{arg=Xs, clauses=[C1, C2, C3]}},
     L = #c_var{name='L'},
     expr(#c_let{vars=[F, L], arg=#c_values{es=[Arg1, Arg2]},
 		body=#c_letrec{defs=[{Loop,Fun}],
-			       body=#c_apply{op=Loop, args=[L]}}},
+			       body=#c_apply{anno=Anno, op=Loop, args=[L]}}},
 	 Sub);
-call_1(_Call, lists, map, [Arg1,Arg2], Sub) ->
+call_1(#c_call{anno=Anno}, lists, map, [Arg1,Arg2], Sub) ->
     Loop = #c_var{name={'lists^map',1}},
     F = #c_var{name='F'},
     Xs = #c_var{name='Xs'},
     X = #c_var{name='X'},
     H = #c_var{name='H'},
     C1 = #c_clause{pats=[#c_cons{hd=X, tl=Xs}], guard=#c_literal{val=true},
-		   body=#c_let{vars=[H], arg=#c_apply{op=F, args=[X]},
+		   body=#c_let{vars=[H], arg=#c_apply{anno=Anno,
+						      op=F,
+						      args=[X]},
 			       body=#c_cons{hd=H,
-					    tl=#c_apply{op=Loop,
+					    tl=#c_apply{anno=Anno,
+							op=Loop,
 							args=[Xs]}}}},
     C2 = #c_clause{pats=[#c_literal{val=[]}], guard=#c_literal{val=true},
 		   body=#c_literal{val=[]}},
     Err = #c_tuple{es=[#c_literal{val='function_clause'}, Xs]},
     C3 = #c_clause{pats=[Xs], guard=#c_literal{val=true},
-		   body=#c_primop{name=#c_literal{val='match_fail'},
-				  args=[Err]}},
+		   body=match_fail(Anno, Err)},
     Fun = #c_fun{vars=[Xs],
 		 body=#c_case{arg=Xs, clauses=[C1, C2, C3]}},
     L = #c_var{name='L'},
     expr(#c_let{vars=[F, L], arg=#c_values{es=[Arg1, Arg2]},
 		body=#c_letrec{defs=[{Loop,Fun}],
-			       body=#c_apply{op=Loop, args=[L]}}},
+			       body=#c_apply{anno=Anno, op=Loop, args=[L]}}},
 	 Sub);
-call_1(_Call, lists, flatmap, [Arg1,Arg2], Sub) ->
+call_1(#c_call{anno=Anno}, lists, flatmap, [Arg1,Arg2], Sub) ->
     Loop = #c_var{name={'lists^flatmap',1}},
     F = #c_var{name='F'},
     Xs = #c_var{name='Xs'},
@@ -761,26 +767,27 @@ call_1(_Call, lists, flatmap, [Arg1,Arg2], Sub) ->
     H = #c_var{name='H'},
     C1 = #c_clause{pats=[#c_cons{hd=X, tl=Xs}], guard=#c_literal{val=true},
 		   body=#c_let{vars=[H],
-			       arg=#c_apply{op=F, args=[X]},
-			       body=#c_call{module=#c_literal{val=erlang},
+			       arg=#c_apply{anno=Anno, op=F, args=[X]},
+			       body=#c_call{anno=Anno,
+					    module=#c_literal{val=erlang},
 					    name=#c_literal{val='++'},
 					    args=[H,
-						  #c_apply{op=Loop,
+						  #c_apply{anno=Anno,
+							   op=Loop,
 							   args=[Xs]}]}}},
     C2 = #c_clause{pats=[#c_literal{val=[]}], guard=#c_literal{val=true},
 		   body=#c_literal{val=[]}},
     Err = #c_tuple{es=[#c_literal{val='function_clause'}, Xs]},
     C3 = #c_clause{pats=[Xs], guard=#c_literal{val=true},
-		   body=#c_primop{name=#c_literal{val='match_fail'},
-				  args=[Err]}},
+		   body=match_fail(Anno, Err)},
     Fun = #c_fun{vars=[Xs],
 		 body=#c_case{arg=Xs, clauses=[C1, C2, C3]}},
     L = #c_var{name='L'},
     expr(#c_let{vars=[F, L], arg=#c_values{es=[Arg1, Arg2]},
 		body=#c_letrec{defs=[{Loop,Fun}],
-			       body=#c_apply{op=Loop, args=[L]}}},
+			       body=#c_apply{anno=Anno, op=Loop, args=[L]}}},
 	 Sub);
-call_1(_Call, lists, filter, [Arg1,Arg2], Sub) ->
+call_1(#c_call{anno=Anno}, lists, filter, [Arg1,Arg2], Sub) ->
     Loop = #c_var{name={'lists^filter',1}},
     F = #c_var{name='F'},
     Xs = #c_var{name='Xs'},
@@ -792,72 +799,75 @@ call_1(_Call, lists, filter, [Arg1,Arg2], Sub) ->
     CC2 = #c_clause{pats=[#c_literal{val=false}], guard=#c_literal{val=true},
 		    body=Xs},
     CC3 = #c_clause{pats=[X], guard=#c_literal{val=true},
-		    body=#c_primop{name=#c_literal{val='match_fail'},
-				   args=[Err1]}},
+		    body=match_fail(Anno, Err1)},
     Case = #c_case{arg=B, clauses = [CC1, CC2, CC3]},
     C1 = #c_clause{pats=[#c_cons{hd=X, tl=Xs}], guard=#c_literal{val=true},
 		   body=#c_let{vars=[B],
-			       arg=#c_apply{op=F, args=[X]},
+			       arg=#c_apply{anno=Anno, op=F, args=[X]},
 			       body=#c_let{vars=[Xs],
-					   arg=#c_apply{op=Loop,
+					   arg=#c_apply{anno=Anno,
+							op=Loop,
 							args=[Xs]},
 					   body=Case}}},
     C2 = #c_clause{pats=[#c_literal{val=[]}], guard=#c_literal{val=true},
 		   body=#c_literal{val=[]}},
     Err2 = #c_tuple{es=[#c_literal{val='function_clause'}, Xs]},
     C3 = #c_clause{pats=[Xs], guard=#c_literal{val=true},
-		   body=#c_primop{name=#c_literal{val='match_fail'},
-				  args=[Err2]}},
+		   body=match_fail(Anno, Err2)},
     Fun = #c_fun{vars=[Xs],
 		 body=#c_case{arg=Xs, clauses=[C1, C2, C3]}},
     L = #c_var{name='L'},
     expr(#c_let{vars=[F, L], arg=#c_values{es=[Arg1, Arg2]},
 		body=#c_letrec{defs=[{Loop,Fun}],
-			       body=#c_apply{op=Loop, args=[L]}}},
+			       body=#c_apply{anno=Anno, op=Loop, args=[L]}}},
     Sub);
-call_1(_Call, lists, foldl, [Arg1,Arg2,Arg3], Sub) ->
+call_1(#c_call{anno=Anno}, lists, foldl, [Arg1,Arg2,Arg3], Sub) ->
     Loop = #c_var{name={'lists^foldl',2}},
     F = #c_var{name='F'},
     Xs = #c_var{name='Xs'},
     X = #c_var{name='X'},
     A = #c_var{name='A'},
     C1 = #c_clause{pats=[#c_cons{hd=X, tl=Xs}], guard=#c_literal{val=true},
-		   body=#c_apply{op=Loop,
-				 args=[Xs, #c_apply{op=F, args=[X, A]}]}},
+		   body=#c_apply{anno=Anno,
+				 op=Loop,
+				 args=[Xs, #c_apply{anno=Anno,
+						    op=F,
+						    args=[X, A]}]}},
     C2 = #c_clause{pats=[#c_literal{val=[]}], guard=#c_literal{val=true}, body=A},
     Err = #c_tuple{es=[#c_literal{val='function_clause'}, Xs]},
     C3 = #c_clause{pats=[Xs], guard=#c_literal{val=true},
-		   body=#c_primop{name=#c_literal{val='match_fail'},
-				  args=[Err]}},
+		   body=match_fail(Anno, Err)},
     Fun = #c_fun{vars=[Xs, A],
 		 body=#c_case{arg=Xs, clauses=[C1, C2, C3]}},
     L = #c_var{name='L'},
     expr(#c_let{vars=[F, A, L], arg=#c_values{es=[Arg1, Arg2, Arg3]},
 		body=#c_letrec{defs=[{Loop,Fun}],
-			       body=#c_apply{op=Loop, args=[L, A]}}},
+			       body=#c_apply{anno=Anno, op=Loop, args=[L, A]}}},
 	 Sub);
-call_1(_Call, lists, foldr, [Arg1,Arg2,Arg3], Sub) ->
+call_1(#c_call{anno=Anno}, lists, foldr, [Arg1,Arg2,Arg3], Sub) ->
     Loop = #c_var{name={'lists^foldr',2}},
     F = #c_var{name='F'},
     Xs = #c_var{name='Xs'},
     X = #c_var{name='X'},
     A = #c_var{name='A'},
     C1 = #c_clause{pats=[#c_cons{hd=X, tl=Xs}], guard=#c_literal{val=true},
-		   body=#c_apply{op=F, args=[X, #c_apply{op=Loop,
-							 args=[Xs, A]}]}},
+		   body=#c_apply{anno=Anno,
+				 op=F,
+				 args=[X, #c_apply{anno=Anno,
+						   op=Loop,
+						   args=[Xs, A]}]}},
     C2 = #c_clause{pats=[#c_literal{val=[]}], guard=#c_literal{val=true}, body=A},
     Err = #c_tuple{es=[#c_literal{val='function_clause'}, Xs]},
     C3 = #c_clause{pats=[Xs], guard=#c_literal{val=true},
-		   body=#c_primop{name=#c_literal{val='match_fail'},
-				  args=[Err]}},
+		   body=match_fail(Anno, Err)},
     Fun = #c_fun{vars=[Xs, A],
 		 body=#c_case{arg=Xs, clauses=[C1, C2, C3]}},
     L = #c_var{name='L'},
     expr(#c_let{vars=[F, A, L], arg=#c_values{es=[Arg1, Arg2, Arg3]},
 		body=#c_letrec{defs=[{Loop,Fun}],
-			       body=#c_apply{op=Loop, args=[L, A]}}},
+			       body=#c_apply{anno=Anno, op=Loop, args=[L, A]}}},
 	 Sub);
-call_1(_Call, lists, mapfoldl, [Arg1,Arg2,Arg3], Sub) ->
+call_1(#c_call{anno=Anno}, lists, mapfoldl, [Arg1,Arg2,Arg3], Sub) ->
     Loop = #c_var{name={'lists^mapfoldl',2}},
     F = #c_var{name='F'},
     Xs = #c_var{name='Xs'},
@@ -868,15 +878,16 @@ call_1(_Call, lists, mapfoldl, [Arg1,Arg2,Arg3], Sub) ->
 		C1 = #c_clause{pats=[P], guard=#c_literal{val=true}, body=E},
 		Err = #c_tuple{es=[#c_literal{val='badmatch'}, X]},
 		C2 = #c_clause{pats=[X], guard=#c_literal{val=true},
-			       body=#c_primop{name=#c_literal{val='match_fail'},
-					      args=[Err]}},
+			       body=match_fail(Anno, Err)},
 		#c_case{arg=A, clauses=[C1, C2]}
 	end,
     C1 = #c_clause{pats=[#c_cons{hd=X, tl=Xs}], guard=#c_literal{val=true},
-		   body=Match(#c_apply{op=F, args=[X, Avar]},
+		   body=Match(#c_apply{anno=Anno, op=F, args=[X, Avar]},
 			      #c_tuple{es=[X, Avar]},
 %%% Tuple passing version
-			      Match(#c_apply{op=Loop, args=[Xs, Avar]},
+			      Match(#c_apply{anno=Anno,
+					     op=Loop,
+					     args=[Xs, Avar]},
 				    #c_tuple{es=[Xs, Avar]},
 				    #c_tuple{es=[#c_cons{hd=X, tl=Xs}, Avar]})
 %%% Multiple-value version
@@ -894,22 +905,23 @@ call_1(_Call, lists, mapfoldl, [Arg1,Arg2,Arg3], Sub) ->
 %%% 		   body=#c_values{es=[#c_literal{val=[]}, A]}},
     Err = #c_tuple{es=[#c_literal{val='function_clause'}, Xs]},
     C3 = #c_clause{pats=[Xs], guard=#c_literal{val=true},
-		   body=#c_primop{name=#c_literal{val='match_fail'},
-				  args=[Err]}},
+		   body=match_fail(Anno, Err)},
     Fun = #c_fun{vars=[Xs, Avar],
 		 body=#c_case{arg=Xs, clauses=[C1, C2, C3]}},
     L = #c_var{name='L'},
     expr(#c_let{vars=[F, Avar, L], arg=#c_values{es=[Arg1, Arg2, Arg3]},
 		body=#c_letrec{defs=[{Loop,Fun}],
 %%% Tuple passing version
-			       body=#c_apply{op=Loop, args=[L, Avar]}}},
+			       body=#c_apply{anno=Anno,
+					     op=Loop,
+					     args=[L, Avar]}}},
 %%% Multiple-value version
 %%% 			       body=#c_let{vars=[Xs, A],
 %%% 					   arg=#c_apply{op=Loop,
 %%% 							args=[L, A]},
 %%% 					   body=#c_tuple{es=[Xs, A]}}}},
 	 Sub);
-call_1(_Call, lists, mapfoldr, [Arg1,Arg2,Arg3], Sub) ->
+call_1(#c_call{anno=Anno}, lists, mapfoldr, [Arg1,Arg2,Arg3], Sub) ->
     Loop = #c_var{name={'lists^mapfoldr',2}},
     F = #c_var{name='F'},
     Xs = #c_var{name='Xs'},
@@ -920,15 +932,16 @@ call_1(_Call, lists, mapfoldr, [Arg1,Arg2,Arg3], Sub) ->
 		C1 = #c_clause{pats=[P], guard=#c_literal{val=true}, body=E},
 		Err = #c_tuple{es=[#c_literal{val='badmatch'}, X]},
 		C2 = #c_clause{pats=[X], guard=#c_literal{val=true},
-			       body=#c_primop{name=#c_literal{val='match_fail'},
-					      args=[Err]}},
+			       body=match_fail(Anno, Err)},
 		#c_case{arg=A, clauses=[C1, C2]}
 	end,
     C1 = #c_clause{pats=[#c_cons{hd=X, tl=Xs}], guard=#c_literal{val=true},
 %%% Tuple passing version
-		   body=Match(#c_apply{op=Loop, args=[Xs, Avar]},
+		   body=Match(#c_apply{anno=Anno,
+				       op=Loop,
+				       args=[Xs, Avar]},
 			      #c_tuple{es=[Xs, Avar]},
-			      Match(#c_apply{op=F, args=[X, Avar]},
+			      Match(#c_apply{anno=Anno, op=F, args=[X, Avar]},
 				    #c_tuple{es=[X, Avar]},
 				    #c_tuple{es=[#c_cons{hd=X, tl=Xs}, Avar]}))
 %%% Multiple-value version
@@ -947,15 +960,16 @@ call_1(_Call, lists, mapfoldr, [Arg1,Arg2,Arg3], Sub) ->
 %%% 		   body=#c_values{es=[#c_literal{val=[]}, A]}},
     Err = #c_tuple{es=[#c_literal{val='function_clause'}, Xs]},
     C3 = #c_clause{pats=[Xs], guard=#c_literal{val=true},
-		   body=#c_primop{name=#c_literal{val='match_fail'},
-				  args=[Err]}},
+		   body=match_fail(Anno, Err)},
     Fun = #c_fun{vars=[Xs, Avar],
 		 body=#c_case{arg=Xs, clauses=[C1, C2, C3]}},
     L = #c_var{name='L'},
     expr(#c_let{vars=[F, Avar, L], arg=#c_values{es=[Arg1, Arg2, Arg3]},
 		body=#c_letrec{defs=[{Loop,Fun}],
 %%% Tuple passing version
- 			       body=#c_apply{op=Loop, args=[L, Avar]}}},
+			       body=#c_apply{anno=Anno,
+					     op=Loop,
+					     args=[L, Avar]}}},
 %%% Multiple-value version
 %%% 			       body=#c_let{vars=[Xs, A],
 %%% 					   arg=#c_apply{op=Loop,
@@ -964,6 +978,11 @@ call_1(_Call, lists, mapfoldr, [Arg1,Arg2,Arg3], Sub) ->
 	 Sub);
 call_1(#c_call{module=M, name=N}=Call, _, _, As, Sub) ->
     call_0(Call, M, N, As, Sub).
+
+match_fail(Anno, Arg) ->
+    #c_primop{anno=Anno,
+	      name=#c_literal{val='match_fail'},
+	      args=[Arg]}.
 
 %% fold_call(Call, Mod, Name, Args, Sub) -> Expr.
 %%  Try to safely evaluate the call.  Just try to evaluate arguments,
@@ -1030,6 +1049,8 @@ fold_non_lit_args(Call, lists, append, [Arg1,Arg2], _) ->
     eval_append(Call, Arg1, Arg2);
 fold_non_lit_args(Call, erlang, setelement, [Arg1,Arg2,Arg3], _) ->
     eval_setelement(Call, Arg1, Arg2, Arg3);
+fold_non_lit_args(Call, erlang, is_record, [Arg1,Arg2,Arg3], Sub) ->
+    eval_is_record(Call, Arg1, Arg2, Arg3, Sub);
 fold_non_lit_args(Call, erlang, N, Args, Sub) ->
     NumArgs = length(Args),
     case erl_internal:comp_op(N, NumArgs) of
@@ -1186,19 +1207,22 @@ eval_element(Call, #c_literal{val=Pos}, #c_tuple{es=Es}, _Types) when is_integer
 	true ->
 	    eval_failure(Call, badarg)
     end;
-%% eval_element(Call, #c_literal{val=Pos}, #c_var{name=V}, Types)
-%%   when is_integer(Pos) ->
-%%     case orddict:find(V, Types#sub.t) of
-%% 	{ok,#c_tuple{es=Elements}} ->
-%% 	    if
-%% 		1 =< Pos, Pos =< length(Elements) ->
-%% 		    lists:nth(Pos, Elements);
-%% 		true ->
-%% 		    eval_failure(Call, badarg)
-%% 	    end;
-%% 	error ->
-%% 	    Call
-%%     end;
+eval_element(Call, #c_literal{val=Pos}, #c_var{name=V}, Types)
+  when is_integer(Pos) ->
+    case orddict:find(V, Types#sub.t) of
+	{ok,#c_tuple{es=Elements}} ->
+	    if
+		1 =< Pos, Pos =< length(Elements) ->
+		    case lists:nth(Pos, Elements) of
+			#c_alias{var=Alias} -> Alias;
+			Res -> Res
+		    end;
+		true ->
+		    eval_failure(Call, badarg)
+	    end;
+	error ->
+	    Call
+    end;
 eval_element(Call, Pos, Tuple, _Types) ->
     case is_not_integer(Pos) orelse is_not_tuple(Tuple) of
 	true ->
@@ -1206,6 +1230,20 @@ eval_element(Call, Pos, Tuple, _Types) ->
 	false ->
 	    Call
     end.
+
+%% eval_is_record(Call, Var, Tag, Size, Types) -> Val.
+%%  Evaluates is_record/3 using type information.
+%%
+eval_is_record(Call, #c_var{name=V}, #c_literal{val=NeededTag}=Lit,
+	       #c_literal{val=Size}, Types) ->
+    case orddict:find(V, Types#sub.t) of
+	{ok,#c_tuple{es=[#c_literal{val=Tag}|_]=Es}} ->
+	    Lit#c_literal{val=Tag =:= NeededTag andalso
+			  length(Es) =:= Size};
+	_ ->
+	    Call
+    end;
+eval_is_record(Call, _, _, _, _) -> Call.
 
 %% is_not_integer(Core) -> true | false.
 %%  Returns true if Core is definitely not an integer.
@@ -1253,9 +1291,9 @@ eval_setelement_2(Pos, [H|T], NewVal) when Pos > 1 ->
 %%
 eval_failure(Call, Reason) ->
     add_warning(Call, {eval_failure,Reason}),
-    #c_call{module=#c_literal{val=erlang},
-	    name=#c_literal{val=error},
-	    args=[#c_literal{val=Reason}]}.
+    Call#c_call{module=#c_literal{val=erlang},
+		name=#c_literal{val=error},
+		args=[#c_literal{val=Reason}]}.
 
 %% simplify_apply(Call0, Mod, Func, Args) -> Call
 %%  Simplify an apply/3 to a call if the number of arguments
@@ -1715,23 +1753,24 @@ opt_bool_clauses([_|_], _, _) ->
 
 opt_bool_not(#c_case{arg=Arg,clauses=Cs0}=Case0) ->
     case Arg of
-	#c_call{module=#c_literal{val=erlang},
+	#c_call{anno=Anno,module=#c_literal{val=erlang},
  		name=#c_literal{val='not'},
  		args=[Expr]} ->
-	    Cs = opt_bool_not(Expr, Cs0),
+	    Cs = opt_bool_not(Anno, Expr, Cs0),
 	    Case = Case0#c_case{arg=Expr,clauses=Cs},
 	    opt_bool_not(Case);
 	_ ->
 	    opt_bool_case_redundant(Case0)
     end.
 
-opt_bool_not(Expr, Cs) ->
+opt_bool_not(Anno, Expr, Cs) ->
     Tail = case is_bool_expr(Expr) of
 	       false ->
 		   [#c_clause{anno=[compiler_generated],
 			      pats=[#c_var{name=cor_variable}],
 			      guard=#c_literal{val=true},
-			      body=#c_call{module=#c_literal{val=erlang},
+			      body=#c_call{anno=Anno,
+					   module=#c_literal{val=erlang},
 					   name=#c_literal{val=error},
 					   args=[#c_literal{val=badarg}]}}];
 	       true -> []
@@ -1930,13 +1969,25 @@ case_tuple_pat([#c_tuple{es=Ps}], Arity) when length(Ps) =:= Arity ->
 case_tuple_pat([#c_literal{val=T}], Arity) when tuple_size(T) =:= Arity ->
     Ps = [#c_literal{val=E} || E <- tuple_to_list(T)],
     {ok,Ps,[]};
-case_tuple_pat([#c_var{anno=A}=V], Arity) ->
-    Vars = make_vars(A, 1, Arity),
-    {ok,Vars,[{V,#c_tuple{es=Vars}}]};
+case_tuple_pat([#c_var{anno=Anno0}=V], Arity) ->
+    Vars = make_vars(Anno0, 1, Arity),
+
+    %% If the entire case statement is evaluated in an effect
+    %% context (e.g. "case {A,B} of ... end, ok"), there will
+    %% be a warning that a term is constructed but never used.
+    %% To avoid that warning, we must annotate the tuple as
+    %% compiler generated.
+
+    Anno = [compiler_generated|Anno0],
+    {ok,Vars,[{V,#c_tuple{anno=Anno,es=Vars}}]};
 case_tuple_pat([#c_alias{var=V,pat=P}], Arity) ->
     case case_tuple_pat([P], Arity) of
-	{ok,Ps,Avs} -> {ok,Ps,[{V,#c_tuple{es=unalias_pat_list(Ps)}}|Avs]};
-	error -> error
+	{ok,Ps,Avs} ->
+	    Anno0 = core_lib:get_anno(P),
+	    Anno = [compiler_generated|Anno0],
+	    {ok,Ps,[{V,#c_tuple{anno=Anno,es=unalias_pat_list(Ps)}}|Avs]};
+	error ->
+	    error
     end;
 case_tuple_pat(_, _) -> error.
 
@@ -2806,7 +2857,8 @@ format_error({no_effect,{erlang,F,A}}) ->
 		 end,
     flatten(io_lib:format(Fmt, Args));
 format_error(result_ignored) ->
-    "the result of the expression is ignored";
+    "the result of the expression is ignored "
+	"(suppress the warning by assigning the expression to the _ variable)";
 format_error(useless_building) ->
     "a term is constructed, but never used";
 format_error(bin_opt_alias) ->

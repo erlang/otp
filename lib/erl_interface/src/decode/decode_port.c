@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2009. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -33,6 +33,8 @@ int ei_decode_port(const char *buf, int *index, erlang_port *p)
   if (get8(s) != ERL_ATOM_EXT) return -1;
 
   len = get16be(s);
+
+  if (len > MAXATOMLEN) return -1;
 
   if (p) {
     memmove(p->node, s, len);

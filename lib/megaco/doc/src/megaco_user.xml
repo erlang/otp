@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2000</year><year>2009</year>
+      <year>2000</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>megaco_user</title>
@@ -471,7 +471,7 @@ protocol_version() = integer()    ]]></code>
         <v>transaction_result() = action_reps()</v>
         <v>segment_result() = {segment_no(), last_segment(), action_reps()}</v>
         <v>action_reps()   = [action_reply()]</v>
-        <v>failure()       = {error, reason()}</v>
+        <v>failure()       = {error, reason()} | {error, ReplyNo, reason()}</v>
         <v>reason()  = transaction_reason() | segment_reason() | user_cancel_reason() | send_reason() | other_reason()</v>
         <v>transaction_reason() = error_desc()</v>
         <v>segment_reason() = {segment_no(), last_segment(), error_desc()}</v>
@@ -486,6 +486,7 @@ protocol_version() = integer()    ]]></code>
         <v>send_failed_reason() = {send_message_failed, reason_for_send_failure()}</v>
         <v>reason_for_send_failure() = term()</v>
         <v>ReplyData       = reply_data()</v>
+        <v>ReplyNo         = integer() > 0</v>
         <v>reply_data()    = term()</v>
         <v>Extra           = term()</v>
       </type>
@@ -503,7 +504,7 @@ protocol_version() = integer()    ]]></code>
           not, is also included in the <c><![CDATA[UserReply]]></c>. </p>
         <p>The <c><![CDATA[ReplyData]]></c> defaults to 
           <c><![CDATA[megaco:lookup(ConnHandle, reply_data)]]></c>, 
-          but may be explicitely overridden by a
+          but may be explicitly overridden by a
           <c><![CDATA[megaco:cast/3]]></c> option in order to forward info about the
           calling context of the originating process.</p>
         <p>At <c><![CDATA[success()]]></c>, the <c><![CDATA[UserReply]]></c> either contains:</p>
@@ -669,7 +670,7 @@ protocol_version() = integer()    ]]></code>
         <p>Invoked when a unexpected message is received</p>
         <p>If a reply to a request is not received in time, the
           megaco stack removes all info about the request from
-          it's tables. If a reply should arrive after this has been
+          its tables. If a reply should arrive after this has been
           done the app has no way of knowing where to send this message.
           The message is delivered to the "user" by calling this
           function on the local node (the node which has the link).</p>

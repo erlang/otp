@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -21,12 +21,12 @@
 
 %% Runtime functions for ASN.1 (i.e encode, decode)
 
--include("asn1_records.hrl").
-
 -export([encode/2,encode/3,decode/3,load_driver/0,unload_driver/0,info/1]).
 
 -export([utf8_binary_to_list/1,utf8_list_to_binary/1]).
     
+-deprecated([load_driver/0,unload_driver/0]).
+
 encode(Module,{Type,Term}) ->
     encode(Module,Type,Term).
 
@@ -46,38 +46,12 @@ decode(Module,Type,Bytes) ->
 	    Result
     end.
 
-%% asn1-1.6.8.1	
-%% load_driver() ->
-%%     asn1rt_driver_handler:load_driver(),
-%%     receive
-%% 	driver_ready ->
-%% 	    ok;
-%% 	Err={error,_Reason} ->
-%% 	    Err;
-%% 	Error ->
-%% 	    {error,Error}
-%%     end.
-
-%% asn1-1.6.9
- load_driver() ->
-     case catch asn1rt_driver_handler:load_driver() of
- 	ok ->
- 	    ok;
- 	{error,{already_started,asn1}} ->
- 	    ok;
- 	Err ->
- 	    {error,Err}
-     end.
-
+%% Remove in R16A
+load_driver() ->
+    ok.
 
 unload_driver() ->
-    case catch asn1rt_driver_handler:unload_driver() of
-	ok ->
-	    ok;
-	Error ->
-	    {error,Error}
-    end.
-
+    ok.
 
 info(Module) ->
     case catch apply(Module,info,[]) of

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -21,6 +21,7 @@
 %%----------------------------------------------------------------------
 %% Purpose : Megaco/H.248 customization of the Event Tracer tool
 %%----------------------------------------------------------------------
+%%
 
 -module(megaco_filter).
 
@@ -33,6 +34,7 @@
 -include_lib("megaco/src/app/megaco_internal.hrl").
 -include_lib("et/include/et.hrl").
 
+
 %%----------------------------------------------------------------------
 %% BUGBUG: There are some opportunities for improvements:
 %%
@@ -43,7 +45,8 @@
 %%   records that already are defined in megaco_message_{v1,v2,v3}.hrl.
 %% * The records megaco_udp and megaco_tcp are copied from the files
 %%   megaco_udp.hrl and megaco_tcp.hrl respectively, as we cannot include
-%%   both header files. They both defines the macros HEAP_SIZE and GC_MSG_LIMIT.
+%%   both header files. 
+%%   They both defines the macros HEAP_SIZE and GC_MSG_LIMIT.
 
 %%-include("megaco_message_internal.hrl").
 -record('megaco_transaction_reply',
@@ -76,6 +79,8 @@
 	 module    = megaco,
 	 serialize = false  % false: Spawn a new process for each message
 	}).
+
+
 %%----------------------------------------------------------------------
 
 start() ->
@@ -360,28 +365,24 @@ pretty(_ConnData, MegaMsg) when is_record(MegaMsg, 'MegacoMessage') ->
     {ok, Bin} = megaco_pretty_text_encoder:encode_message([], MegaMsg),
     term_to_string(Bin);
 pretty(_ConnData, CmdReq) when is_record(CmdReq, 'CommandRequest') ->
-    {ok, IoList} = megaco_pretty_text_encoder:encode_command_request(CmdReq),
-    term_to_string(lists:flatten(IoList));
+    {ok, Bin} = megaco_pretty_text_encoder:encode_command_request(CmdReq),
+    term_to_string(Bin);
 pretty(_ConnData, {complete_success, ContextId, RepList}) ->
     ActRep = #'ActionReply'{contextId    = ContextId, 
 			    commandReply = RepList},
-    {ok, IoList} = megaco_pretty_text_encoder:encode_action_reply(ActRep),
-    term_to_string(lists:flatten(IoList));
+    {ok, Bin} = megaco_pretty_text_encoder:encode_action_reply(ActRep),
+    term_to_string(Bin);
 pretty(_ConnData, AR) when is_record(AR, 'ActionReply') ->
-    {ok, IoList} = megaco_pretty_text_encoder:encode_action_reply(AR),
-    term_to_string(lists:flatten(IoList));
+    {ok, Bin} = megaco_pretty_text_encoder:encode_action_reply(AR),
+    term_to_string(Bin);
 pretty(_ConnData, {partial_failure, ContextId, RepList}) ->
     ActRep = #'ActionReply'{contextId    = ContextId, 
 			    commandReply = RepList},
-    {ok, IoList} = megaco_pretty_text_encoder:encode_action_reply(ActRep),
-    term_to_string(lists:flatten(IoList));
+    {ok, Bin} = megaco_pretty_text_encoder:encode_action_reply(ActRep),
+    term_to_string(Bin);
 pretty(_ConnData, {trans, Trans}) ->
-    case megaco_pretty_text_encoder:encode_transaction(Trans) of
-	{ok, Bin} when is_binary(Bin) ->
-	    term_to_string(binary_to_list(Bin));
-	{ok, IoList} ->
-	    term_to_string(lists:flatten(IoList))
-    end;
+    {ok, Bin} = megaco_pretty_text_encoder:encode_transaction(Trans),
+    term_to_string(Bin);
 pretty(__ConnData, Other) ->
     term_to_string(Other).
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -23,10 +23,12 @@
 %%
 %%-define(STANDALONE,1).
 
--export([all/1, crash/1, sync_start/1, sync_start_nolink/1, sync_start_link/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 crash/1, sync_start_nolink/1, sync_start_link/1,
          spawn_opt/1, sp1/0, sp2/0, sp3/1, sp4/2, sp5/1,
 	 hibernate/1]).
--export([tickets/1, otp_6345/1]).
+-export([ otp_6345/1]).
 
 -export([hib_loop/1, awaken/1]).
 
@@ -40,12 +42,32 @@
 -ifdef(STANDALONE).
 -define(line, noop, ).
 -else.
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -endif.
 
-all(suite) -> [crash, sync_start, spawn_opt, hibernate, tickets].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-tickets(suite) -> [otp_6345].
+all() -> 
+    [crash, {group, sync_start}, spawn_opt, hibernate,
+     {group, tickets}].
+
+groups() -> 
+    [{tickets, [], [otp_6345]},
+     {sync_start, [], [sync_start_nolink, sync_start_link]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
+
 
 %%-----------------------------------------------------------------
 %% We don't have to test that spwn and spawn_link actually spawns
@@ -127,7 +149,6 @@ crash(Config) when is_list(Config) ->
 		ok
 	end.
 
-sync_start(suite) -> [sync_start_nolink, sync_start_link].
 
 sync_start_nolink(Config) when is_list(Config) ->
     _Pid = spawn_link(?MODULE, sp5, [self()]),
@@ -307,7 +328,7 @@ otp_6345(doc) ->
     ["'monitor' spawn_opt option"];
 otp_6345(Config) when is_list(Config) ->
     Opts = [link,monitor],
-    {'EXIT', {badarg,[{proc_lib,check_for_monitor,_}|_Stack]}} =
+    {'EXIT', {badarg,[{proc_lib,check_for_monitor,_,_}|_Stack]}} =
 	(catch proc_lib:start(?MODULE, otp_6345_init, [self()],
 			      1000, Opts)),
     ok.

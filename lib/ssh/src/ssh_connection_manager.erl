@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -146,6 +146,8 @@ adjust_window(ConnectionManager, Channel, Bytes) ->
 close(ConnectionManager, ChannelId) ->
     try   call(ConnectionManager, {close, ChannelId}) of
 	  ok ->
+	    ok;
+	  {error, channel_closed} ->
 	    ok
     catch
 	exit:{noproc, _} ->
@@ -155,6 +157,8 @@ close(ConnectionManager, ChannelId) ->
 stop(ConnectionManager) ->
     try call(ConnectionManager, stop) of
 	ok ->
+	    ok;
+	{error, channel_closed} ->
 	    ok
     catch
 	exit:{noproc, _} ->
@@ -178,7 +182,7 @@ send_eof(ConnectionManager, ChannelId) ->
 %%                         {stop, Reason}
 %% Description: Initiates the server
 %%--------------------------------------------------------------------
-init([server, _Socket, Opts]) ->  
+init([server, _Socket, Opts, SubSysSup]) ->  
     process_flag(trap_exit, true),
     ssh_bits:install_messages(ssh_connection:messages()),
     Cache = ssh_channel:cache_create(), 
@@ -187,7 +191,8 @@ init([server, _Socket, Opts]) ->
 					       channel_id_seed = 0,
 					       port_bindings = [],
 					       requests = [],
-					       channel_pids = []},
+					       channel_pids = [],
+					       sub_system_supervisor = SubSysSup},
 		opts = Opts,
 		connected = false}};
 
@@ -272,18 +277,18 @@ handle_call({ssh_msg, Pid, Msg}, From,
 	    {stop, normal, State#state{connection_state = Connection}}
 	catch
 	exit:{noproc, Reason} ->
-	    Report = io_lib:format("Connection probably terminated:~n~p~n~p~n",
-				   [ConnectionMsg, Reason]),
+	    Report = io_lib:format("Connection probably terminated:~n~p~n~p~n~p~n",
+				   [ConnectionMsg, Reason, erlang:get_stacktrace()]),
 	    error_logger:info_report(Report),
             {noreply, State};
 	error:Error ->
-	    Report = io_lib:format("Connection message returned:~n~p~n~p~n",
-				   [ConnectionMsg, Error]),
+	    Report = io_lib:format("Connection message returned:~n~p~n~p~n~p~n",
+				   [ConnectionMsg, Error, erlang:get_stacktrace()]),
 	    error_logger:info_report(Report),
 	    {noreply, State};
 	exit:Exit ->
-	    Report = io_lib:format("Connection message returned:~n~p~n~p~n",
-				   [ConnectionMsg, Exit]),
+	    Report = io_lib:format("Connection message returned:~n~p~n~p~n~p~n",
+				   [ConnectionMsg, Exit, erlang:get_stacktrace()]),
 	    error_logger:info_report(Report),
 	    {noreply, State}
     end;
@@ -400,7 +405,7 @@ handle_call({close, ChannelId}, _,
     end;
 
 handle_call(stop, _, #state{role = _client, 
-			    client = ChannelPid,
+			    client = _ChannelPid,
 			    connection = Pid} = State) ->
     DisconnectMsg = 
 	#ssh_msg_disconnect{code = ?SSH_DISCONNECT_BY_APPLICATION,
@@ -555,13 +560,18 @@ handle_info({'EXIT', _, _}, State) ->
 %% The return value is ignored.
 %%--------------------------------------------------------------------
 terminate(Reason, #state{connection_state =  
-			 #connection{requests = Requests},
+			 #connection{requests = Requests,
+			            sub_system_supervisor = SubSysSup},
 			 opts = Opts}) ->
     SSHOpts = proplists:get_value(ssh_opts, Opts),
     disconnect_fun(Reason, SSHOpts),
     (catch lists:foreach(fun({_, From}) -> 
 				 gen_server:reply(From, {error, connection_closed})
 			 end, Requests)),
+    Address =  proplists:get_value(address, Opts),
+    Port = proplists:get_value(port, Opts),
+    SystemSup = ssh_system_sup:system_supervisor(Address, Port),
+    ssh_system_sup:stop_subsystem(SystemSup, SubSysSup),
     ok.
 
 %%--------------------------------------------------------------------
@@ -592,7 +602,9 @@ call(Pid, Msg, Timeout) ->
 	    Result
     catch
 	exit:{timeout, _} ->
-	    {error, timeout}
+	    {error, timeout};
+	exit:{normal, _} ->
+	    {error, channel_closed}
     end.
 
 cast(Pid, Msg) ->

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2006</year><year>2009</year>
+      <year>2006</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>Event Handling</title>
@@ -61,36 +61,35 @@
     itself.</p>
   </section>
   <section>
+    <marker id="usage"></marker>
     <title>Usage</title>
     <p>Event handlers may be installed by means of an <c>event_handler</c>
-    start flag (<c>run_test</c>) or option (<c>ct:run_test/1</c>), where the
+    start flag (<c>ct_run</c>) or option (<c>ct:run_test/1</c>), where the
     argument specifies the names of one or more event handler modules.
     Example:</p>
-    <p><c>$ run_test -suite test/my_SUITE -event_handler handlers/my_evh1 
+    <p><c>$ ct_run -suite test/my_SUITE -event_handler handlers/my_evh1 
     handlers/my_evh2 -pa $PWD/handlers</c></p>
+    <p>Use the <c><![CDATA[ct_run -event_handler_init]]></c> option instead of
+      <c><![CDATA[-event_handler]]></c> to pass start arguments to the event handler
+      init function.</p>
     <p>All event handler modules must have gen_event behaviour. Note also that 
     these modules must be precompiled, and that their locations must be
     added explicitly to the Erlang code server search path (like in the
     example).</p>
 
-    <p>It is not possible to specify start arguments to the event handlers when
-    using the <c>run_test</c> script. You may however pass along start arguments
-    if you use the <c>ct:run_test/1</c> function. An event_handler tuple in the argument 
-    <c>Opts</c> has the following definition (see also <c>ct:run_test/1</c> in the 
-    reference manual):</p>
+    <p>An event_handler tuple in the argument <c>Opts</c> has the following
+      definition (see also <c>ct:run_test/1</c> in the reference manual):</p>
 
     <pre>
     {event_handler,EventHandlers}
 
     EventHandlers = EH | [EH]
     EH = atom() | {atom(),InitArgs} | {[atom()],InitArgs}
-    InitArgs = [term()] 
-    </pre>
+    InitArgs = [term()]</pre>
 
     <p>Example:</p>
     <pre>
-    1> ct:run_test([{suite,"test/my_SUITE"},{event_handler,[my_evh1,{my_evh2,[node()]}]}]).
-    </pre>
+    1> ct:run_test([{suite,"test/my_SUITE"},{event_handler,[my_evh1,{my_evh2,[node()]}]}]).</pre>
     <p>This will install two event handlers for the <c>my_SUITE</c> test. Event handler
     <c>my_evh1</c> is started with <c>[]</c> as argument to the init function. Event handler
     <c>my_evh2</c> is started with the name of the current node in the init argument list.</p>
@@ -122,6 +121,7 @@
     node the event has originated from (only relevant for CT Master event handlers).
     <c>data</c> is specific for the particular event.</p>
 
+    <marker id="events"></marker>
     <p><em>General events:</em></p>
 
     <list>
@@ -174,6 +174,7 @@
 	are also given.
 	</p></item>
 
+      <marker id="tc_done"/>
       <item><c>#event{name = tc_done, data = {Suite,FuncOrGroup,Result}}</c>
         <p><c>Suite = atom()</c>, name of the suite.</p>
         <p><c>FuncOrGroup = Func | {Conf,GroupName,GroupProperties}</c></p>
@@ -183,12 +184,14 @@
 	      (unknown if init- or end function times out).</p>
         <p><c>GroupProperties = list()</c>, list of execution properties for the group.</p>
         <p><c>Result = ok | {skipped,SkipReason} | {failed,FailReason}</c>, the result.</p>
+	<marker id="skipreason"/>
         <p><c>SkipReason = {require_failed,RequireInfo} | 
 	                   {require_failed_in_suite0,RequireInfo} | 
 	                   {failed,{Suite,init_per_testcase,FailInfo}} | 
                            UserTerm</c>, 
 	      the reason why the case has been skipped.</p>
-	<p><c>FailReason = {error,FailInfo} | 
+	<marker id="failreason"/>
+        <p><c>FailReason = {error,FailInfo} | 
 	                   {error,{RunTimeError,StackTrace}} | 
                            {timetrap_timeout,integer()} | 
 			   {failed,{Suite,end_per_testcase,FailInfo}}</c>, reason for failure.</p>	
@@ -211,6 +214,7 @@
 	<c>end_per_testcase</c> for the case failed.
 	</p></item>
 
+	<marker id="tc_auto_skip"></marker>
       <item><c>#event{name = tc_auto_skip, data = {Suite,Func,Reason}}</c>
         <p><c>Suite = atom()</c>, the name of the suite.</p>
         <p><c>Func = atom()</c>, the name of the test case or configuration function.</p>
@@ -236,7 +240,8 @@
 	skipped because of <c>init_per_testcase</c> failing, since that information is carried with
 	the <c>tc_done</c> event.
 	</p></item>
-
+	
+	<marker id="tc_user_skip"></marker>
       <item><c>#event{name = tc_user_skip, data = {Suite,TestCase,Comment}}</c>
         <p><c>Suite = atom()</c>, name of the suite.</p>
         <p><c>TestCase = atom()</c>, name of the test case.</p>

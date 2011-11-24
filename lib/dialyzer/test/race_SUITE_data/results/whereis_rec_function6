@@ -1,0 +1,2 @@
+
+whereis_rec_function6.erl:10: The call erlang:register(AnAtom::any(),Id::any()) might fail due to a possible race condition caused by its combination with the erlang:whereis(NextAtom::any()) call in whereis_rec_function6.erl on line 12

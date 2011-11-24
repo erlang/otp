@@ -1,23 +1,23 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2004-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2004-2011. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
-/* $Id$
- */
+
+
 #ifndef HIPE_PPC_H
 #define HIPE_PPC_H
 
@@ -44,12 +44,20 @@ static __inline__ int hipe_word32_address_ok(void *address)
     return ((unsigned long)address & 0x3) == 0;
 }
 
+#if defined(__powerpc64__)
+/* for hipe_bifs_{read,write}_{s,u}64 */
+static __inline__ int hipe_word64_address_ok(void *address)
+{
+    return ((unsigned long)address & 0x7) == 0;
+}
+#endif
+
 /* Native stack growth direction. */
 #define HIPE_NSTACK_GROWS_DOWN
 
 #if defined(__powerpc64__)
 #define hipe_arch_name	am_ppc64
-#define AEXTERN(RET,NAME,PROTO)	extern const int NAME
+#define AEXTERN(RET,NAME,PROTO)	extern const int NAME[]
 AEXTERN(void,hipe_ppc_inc_stack,(void));
 #else
 #define hipe_arch_name	am_powerpc

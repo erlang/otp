@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -84,30 +84,38 @@ new() ->
 
 %% is_set(Set) -> boolean().
 %%  Return 'true' if Set is a set of elements, else 'false'.
--spec is_set(term()) -> boolean().
+-spec is_set(Set) -> boolean() when
+      Set :: term().
 is_set(#set{}) -> true;
 is_set(_) -> false.
 
 %% size(Set) -> int().
 %%  Return the number of elements in Set.
--spec size(set()) -> non_neg_integer().
+-spec size(Set) -> non_neg_integer() when
+      Set :: set().
 size(S) -> S#set.size. 
 
 %% to_list(Set) -> [Elem].
 %%  Return the elements in Set as a list.
--spec to_list(set()) -> [term()].
+-spec to_list(Set) -> List when
+      Set :: set(),
+      List :: [term()].
 to_list(S) ->
     fold(fun (Elem, List) -> [Elem|List] end, [], S).
 
 %% from_list([Elem]) -> Set.
 %%  Build a set from the elements in List.
--spec from_list([term()]) -> set().
+-spec from_list(List) -> Set when
+      List :: [term()],
+      Set :: set().
 from_list(L) ->
     lists:foldl(fun (E, S) -> add_element(E, S) end, new(), L).
 
 %% is_element(Element, Set) -> boolean().
 %%  Return 'true' if Element is an element of Set, else 'false'.
--spec is_element(term(), set()) -> boolean().
+-spec is_element(Element, Set) -> boolean() when
+      Element :: term(),
+      Set :: set().
 is_element(E, S) ->
     Slot = get_slot(S, E),
     Bkt = get_bucket(S, Slot),
@@ -115,7 +123,10 @@ is_element(E, S) ->
 
 %% add_element(Element, Set) -> Set.
 %%  Return Set with Element inserted in it.
--spec add_element(term(), set()) -> set().
+-spec add_element(Element, Set1) -> Set2 when
+      Element :: term(),
+      Set1 :: set(),
+      Set2 :: set().
 add_element(E, S0) ->
     Slot = get_slot(S0, E),
     {S1,Ic} = on_bucket(fun (B0) -> add_bkt_el(E, B0, B0) end, S0, Slot),
@@ -129,7 +140,10 @@ add_bkt_el(E, [], Bkt) -> {[E|Bkt],1}.
 
 %% del_element(Element, Set) -> Set.
 %%  Return Set but with Element removed.
--spec del_element(term(), set()) -> set().
+-spec del_element(Element, Set1) -> Set2 when
+      Element :: term(),
+      Set1 :: set(),
+      Set2 :: set().
 del_element(E, S0) ->
     Slot = get_slot(S0, E),
     {S1,Dc} = on_bucket(fun (B0) -> del_bkt_el(E, B0) end, S0, Slot),
@@ -144,7 +158,10 @@ del_bkt_el(_, []) -> {[],0}.
 
 %% union(Set1, Set2) -> Set
 %%  Return the union of Set1 and Set2.
--spec union(set(), set()) -> set().
+-spec union(Set1, Set2) -> Set3 when
+      Set1 :: set(),
+      Set2 :: set(),
+      Set3 :: set().
 union(S1, S2) when S1#set.size < S2#set.size ->
     fold(fun (E, S) -> add_element(E, S) end, S2, S1);
 union(S1, S2) ->
@@ -152,7 +169,9 @@ union(S1, S2) ->
 
 %% union([Set]) -> Set
 %%  Return the union of the list of sets.
--spec union([set()]) -> set().
+-spec union(SetList) -> Set when
+      SetList :: [set()],
+      Set :: set().
 union([S1,S2|Ss]) ->
     union1(union(S1, S2), Ss);
 union([S]) -> S;
@@ -165,7 +184,10 @@ union1(S1, []) -> S1.
 
 %% intersection(Set1, Set2) -> Set.
 %%  Return the intersection of Set1 and Set2.
--spec intersection(set(), set()) -> set().
+-spec intersection(Set1, Set2) -> Set3 when
+      Set1 :: set(),
+      Set2 :: set(),
+      Set3 :: set().
 intersection(S1, S2) when S1#set.size < S2#set.size ->
     filter(fun (E) -> is_element(E, S2) end, S1);
 intersection(S1, S2) ->
@@ -173,7 +195,9 @@ intersection(S1, S2) ->
 
 %% intersection([Set]) -> Set.
 %%  Return the intersection of the list of sets.
--spec intersection([set(),...]) -> set().
+-spec intersection(SetList) -> Set when
+      SetList :: [set(),...],
+      Set :: set().
 intersection([S1,S2|Ss]) ->
     intersection1(intersection(S1, S2), Ss);
 intersection([S]) -> S.
@@ -185,7 +209,9 @@ intersection1(S1, []) -> S1.
 
 %% is_disjoint(Set1, Set2) -> boolean().
 %%  Check whether Set1 and Set2 are disjoint.
--spec is_disjoint(set(), set()) -> boolean().
+-spec is_disjoint(Set1, Set2) -> boolean() when
+      Set1 :: set(),
+      Set2 :: set().
 is_disjoint(S1, S2) when S1#set.size < S2#set.size ->
     fold(fun (_, false) -> false;
 	     (E, true) -> not is_element(E, S2)
@@ -198,25 +224,39 @@ is_disjoint(S1, S2) ->
 %% subtract(Set1, Set2) -> Set.
 %%  Return all and only the elements of Set1 which are not also in
 %%  Set2.
--spec subtract(set(), set()) -> set().
+-spec subtract(Set1, Set2) -> Set3 when
+      Set1 :: set(),
+      Set2 :: set(),
+      Set3 :: set().
 subtract(S1, S2) ->
     filter(fun (E) -> not is_element(E, S2) end, S1).
 
 %% is_subset(Set1, Set2) -> boolean().
 %%  Return 'true' when every element of Set1 is also a member of
 %%  Set2, else 'false'.
--spec is_subset(set(), set()) -> boolean().
+-spec is_subset(Set1, Set2) -> boolean() when
+      Set1 :: set(),
+      Set2 :: set().
 is_subset(S1, S2) ->
     fold(fun (E, Sub) -> Sub andalso is_element(E, S2) end, true, S1).
 
 %% fold(Fun, Accumulator, Set) -> Accumulator.
 %%  Fold function Fun over all elements in Set and return Accumulator.
--spec fold(fun((_,_) -> _), T, set()) -> T.
+-spec fold(Function, Acc0, Set) -> Acc1 when
+      Function :: fun((E :: term(),AccIn) -> AccOut),
+      Set :: set(),
+      Acc0 :: T,
+      Acc1 :: T,
+      AccIn :: T,
+      AccOut :: T.
 fold(F, Acc, D) -> fold_set(F, Acc, D).
 
 %% filter(Fun, Set) -> Set.
 %%  Filter Set with Fun.
--spec filter(fun((_) -> boolean()), set()) -> set().
+-spec filter(Pred, Set1) -> Set2 when
+      Pred :: fun((E :: term()) -> boolean()),
+      Set1 :: set(),
+      Set2 :: set().
 filter(F, D) -> filter_set(F, D).
 
 %% get_slot(Hashdb, Key) -> Slot.

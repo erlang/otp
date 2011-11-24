@@ -4,7 +4,7 @@
 <cref>
   <header>
     <copyright>
-      <year>2001</year><year>2009</year>
+      <year>2001</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>ei</title>
@@ -333,7 +333,7 @@ ei_encode_tuple_header(buf, &amp;i, 0);
       <desc>
         <p>This function encodes a list header, with a specified
           arity. The next <c><![CDATA[arity+1]]></c> terms are the elements
-          (actually it's <c><![CDATA[arity]]></c> cons cells) and the tail of the
+          (actually its <c><![CDATA[arity]]></c> cons cells) and the tail of the
           list. Lists and tuples are encoded recursively, so that a
           list may contain another list or tuple.</p>
         <p>E.g. to encode the list <c><![CDATA[[c, d, [e | f]]]]></c>:</p>
@@ -581,9 +581,9 @@ ei_x_encode_empty_list(&amp;x);
           <c><![CDATA[term]]></c> union, it is decoded, and the appropriate field
           in <c><![CDATA[term->value]]></c> is set, and <c><![CDATA[*index]]></c> is
           incremented by the term size.</p>
-        <p>The function returns 0 on successful encoding, -1 on error,
-          and 1 if the term seems alright, but does not fit in the
-          <c><![CDATA[term]]></c> structure. If it returns 0, the <c><![CDATA[index]]></c>
+        <p>The function returns 1 on successful decoding, -1 on error,
+          and 0 if the term seems alright, but does not fit in the
+          <c><![CDATA[term]]></c> structure. If it returns 1, the <c><![CDATA[index]]></c>
           will be incremented, and the <c><![CDATA[term]]></c> contains the
           decoded term.</p>
         <p>The <c><![CDATA[term]]></c> structure will contain the arity for a tuple
@@ -641,12 +641,14 @@ ei_x_encode_empty_list(&amp;x);
         <p></p>
         <pre>
 ~a - an atom, char*
+~c - a character, char
 ~s - a string, char*
 ~i - an integer, int
 ~l - a long integer, long int
 ~u - a unsigned long integer, unsigned long int
 ~f - a float, float
 ~d - a double float, double float
+~p - an Erlang PID, erlang_pid*
         </pre>
         <p>For instance, to encode a tuple with some stuff:</p>
         <pre>

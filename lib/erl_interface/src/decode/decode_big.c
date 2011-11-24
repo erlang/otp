@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2002-2009. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -74,7 +74,7 @@ erlang_big *ei_alloc_big(unsigned int digit_bytes) {
     memset(b,(char)0,sizeof(erlang_big));
     if ( (b->digits = malloc(2*n)) == NULL) {
         free(b);
-        return 0;
+        return NULL;
     }
    
     b->arity = digit_bytes;

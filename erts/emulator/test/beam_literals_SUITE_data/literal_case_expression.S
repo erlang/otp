@@ -1,10 +1,11 @@
 {module, literal_case_expression}.  %% version = 0
 
-{exports, [{module_info,0},{module_info,1},{x,0},{y,0}]}.
+{exports, [{module_info,0},{module_info,1},{x,0},{y,0},
+	   {zi1,0},{zi2,0},{za1,0},{za2,0}]}.
 
 {attributes, []}.
 
-{labels, 15}.
+{labels, 32}.
 
 
 {function, x, 0, 2}.
@@ -52,6 +53,81 @@
   {label,10}.
     {case_end,{float,34.0000}}.
 
+{function, zi1, 0, 16}.
+  {label,15}.
+    {func_info,{atom,literal_case_expression},{atom,zi1},0}.
+  {label,16}.
+    {test,is_integer,{f,19},[{integer,42}]}.
+    {select_val,{integer,42},
+                {f,18},
+                {list,[{integer,42},
+                       {f,17},
+                       {integer,1000},
+                       {f,18}]}}.
+  {label,17}.
+    {move,{atom,ok},{x,0}}.
+    return.
+  {label,18}.
+    {move,{atom,error},{x,0}}.
+    return.
+  {label,19}.
+    {case_end,{integer,42}}.
+
+{function, zi2, 0, 16}.
+  {label,20}.
+    {func_info,{atom,literal_case_expression},{atom,zi2},0}.
+  {label,21}.
+    {test,is_integer,{f,23},[{integer,42}]}.
+    {select_val,{integer,42},
+                {f,23},
+                {list,[{integer,42},
+                       {f,22},
+                       {integer,1000},
+                       {f,23}]}}.
+  {label,22}.
+    {move,{atom,ok},{x,0}}.
+    return.
+  {label,23}.
+    {move,{atom,error},{x,0}}.
+    return.
+
+{function, za1, 0, 25}.
+  {label,24}.
+    {func_info,{atom,literal_case_expression},{atom,za1},0}.
+  {label,25}.
+    {test,is_atom,{f,28},[{atom,x}]}.
+    {select_val,{atom,x},
+                {f,27},
+                {list,[{atom,a},
+                       {f,27},
+                       {atom,x},
+                       {f,26}]}}.
+  {label,26}.
+    {move,{atom,ok},{x,0}}.
+    return.
+  {label,27}.
+    {move,{atom,error},{x,0}}.
+    return.
+  {label,28}.
+    {case_end,{atom,x}}.
+
+{function, za2, 0, 30}.
+  {label,29}.
+    {func_info,{atom,literal_case_expression},{atom,za2},0}.
+  {label,30}.
+    {test,is_atom,{f,32},[{atom,x}]}.
+    {select_val,{atom,x},
+                {f,32},
+                {list,[{atom,a},
+                       {f,32},
+                       {atom,x},
+                       {f,31}]}}.
+  {label,31}.
+    {move,{atom,ok},{x,0}}.
+    return.
+  {label,32}.
+    {move,{atom,error},{x,0}}.
+    return.
 
 {function, module_info, 0, 12}.
   {label,11}.

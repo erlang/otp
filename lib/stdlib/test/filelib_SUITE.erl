@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,27 +19,47 @@
 
 -module(filelib_SUITE).
 
--export([all/1,init_per_testcase/2,fin_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
+	 init_per_testcase/2,end_per_testcase/2,
 	 wildcard_one/1,wildcard_two/1,wildcard_errors/1,
 	 fold_files/1,otp_5960/1,ensure_dir_eexist/1]).
 
 -import(lists, [foreach/2]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("kernel/include/file.hrl").
 
 init_per_testcase(_Case, Config) ->
     ?line Dog = ?t:timetrap(?t:minutes(5)),
     [{watchdog,Dog}|Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
-all(suite) ->
-    [wildcard_one,wildcard_two,wildcard_errors,fold_files,otp_5960,
-     ensure_dir_eexist].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [wildcard_one, wildcard_two, wildcard_errors,
+     fold_files, otp_5960, ensure_dir_eexist].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 wildcard_one(Config) when is_list(Config) ->
     ?line {ok,OldCwd} = file:get_cwd(),
@@ -53,8 +73,11 @@ wildcard_one(Config) when is_list(Config) ->
 
 wildcard_two(Config) when is_list(Config) ->
     ?line Dir = filename:join(?config(priv_dir, Config), "wildcard_two"),
+    ?line DirB = unicode:characters_to_binary(Dir, file:native_name_encoding()),
     ?line ok = file:make_dir(Dir),
-    ?line do_wildcard_1(Dir, fun(Wc) -> filelib:wildcard(Wc, Dir) end),
+    ?line do_wildcard_1(Dir, fun(Wc) -> io:format("~p~n",[{Wc,Dir, X = filelib:wildcard(Wc, Dir)}]),X  end),
+    ?line do_wildcard_1(Dir, fun(Wc) -> io:format("~p~n",[{Wc,DirB, X = filelib:wildcard(Wc, DirB)}]),
+					[unicode:characters_to_list(Y,file:native_name_encoding()) || Y <- X] end),
     ?line do_wildcard_1(Dir, fun(Wc) -> filelib:wildcard(Wc, Dir++"/") end),
     case os:type() of
 	{win32,_} ->
@@ -74,11 +97,12 @@ wildcard_errors(Config) when is_list(Config) ->
 
 wcc(Wc, Error) ->
     {'EXIT',{{badpattern,Error},
-	     [{filelib,compile_wildcard,1}|_]}} = (catch filelib:compile_wildcard(Wc)),
+	     [{filelib,compile_wildcard,1,_}|_]}} =
+	(catch filelib:compile_wildcard(Wc)),
     {'EXIT',{{badpattern,Error},
-	     [{filelib,wildcard,1}|_]}} = (catch filelib:wildcard(Wc)),
+	     [{filelib,wildcard,1,_}|_]}} = (catch filelib:wildcard(Wc)),
     {'EXIT',{{badpattern,Error},
-	     [{filelib,wildcard,2}|_]}} = (catch filelib:wildcard(Wc, ".")).
+	     [{filelib,wildcard,2,_}|_]}} = (catch filelib:wildcard(Wc, ".")).
 
 do_wildcard_1(Dir, Wcf0) ->
     do_wildcard_2(Dir, Wcf0),
@@ -220,7 +244,7 @@ otp_5960(doc) ->
     ["Test that filelib:ensure_dir/1 returns ok or {error,Reason}"];
 otp_5960(Config) when is_list(Config) ->
     ?line PrivDir = ?config(priv_dir, Config),
-    ?line Dir = filename:join(PrivDir, otp_5960_dir),
+    ?line Dir = filename:join(PrivDir, "otp_5960_dir"),
     ?line Name1 = filename:join(Dir, name1),
     ?line Name2 = filename:join(Dir, name2),
     ?line ok = filelib:ensure_dir(Name1), % parent is created
@@ -245,7 +269,7 @@ otp_5960(Config) when is_list(Config) ->
 
 ensure_dir_eexist(Config) when is_list(Config) ->
     ?line PrivDir = ?config(priv_dir, Config),
-    ?line Dir = filename:join(PrivDir, ensure_dir_eexist),
+    ?line Dir = filename:join(PrivDir, "ensure_dir_eexist"),
     ?line Name = filename:join(Dir, "same_name_as_file_and_dir"),
     ?line ok = filelib:ensure_dir(Name),
     ?line ok = file:write_file(Name, <<"some string\n">>),
@@ -253,5 +277,7 @@ ensure_dir_eexist(Config) when is_list(Config) ->
     %% There already is a file with the name of the directory
     %% we want to create.
     ?line NeedFile = filename:join(Name, "file"),
+    ?line NeedFileB = filename:join(Name, <<"file">>),
     ?line {error, eexist} = filelib:ensure_dir(NeedFile),
+    ?line {error, eexist} = filelib:ensure_dir(NeedFileB),
     ok.

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2009</year>
+      <year>1997</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -60,13 +60,16 @@
         to avoid name clashes.</p>
     </warning>
   </description>
+  <datatypes>
+    <datatype>
+      <name name="name"/>
+      <desc><p>The name of a process group.</p></desc>
+    </datatype>
+  </datatypes>
   <funcs>
     <func>
-      <name>create(Name) -> void()</name>
+      <name name="create" arity="1"/>
       <fsummary>Create a new, empty process group</fsummary>
-      <type>
-        <v>Name = term()</v>
-      </type>
       <desc>
         <p>Creates a new, empty process group. The group is globally
           visible on all nodes. If the group exists, nothing happens.
@@ -74,24 +77,16 @@
       </desc>
     </func>
     <func>
-      <name>delete(Name) -> void()</name>
+      <name name="delete" arity="1"/>
       <fsummary>Delete a process group</fsummary>
-      <type>
-        <v>Name = term()</v>
-      </type>
       <desc>
         <p>Deletes a process group.
           </p>
       </desc>
     </func>
     <func>
-      <name>get_closest_pid(Name) -> Pid | {error, Reason}</name>
+      <name name="get_closest_pid" arity="1"/>
       <fsummary>Common dispatch function</fsummary>
-      <type>
-        <v>Name = term()</v>
-	<v>Pid = pid()</v>
-	<v>Reason = {no_process, Name} | {no_such_group, Name}</v>
-      </type>
       <desc>
         <p>This is a useful dispatch function which can be used from
           client functions. It returns a process on the local node, if
@@ -100,13 +95,8 @@
       </desc>
     </func>
     <func>
-      <name>get_members(Name) -> [Pid] | {error, Reason}</name>
+      <name name="get_members" arity="1"/>
       <fsummary>Return all processes in a group</fsummary>
-      <type>
-        <v>Name = term()</v>
-	<v>Pid = pid()</v>
-	<v>Reason = {no_such_group, Name}</v>
-      </type>
       <desc>
         <p>Returns all processes in the group <c>Name</c>. This
           function should be used from within a client function that
@@ -115,13 +105,8 @@
       </desc>
     </func>
     <func>
-      <name>get_local_members(Name) -> [Pid] | {error, Reason}</name>
+      <name name="get_local_members" arity="1"/>
       <fsummary>Return all local processes in a group</fsummary>
-      <type>
-        <v>Name = term()</v>
-	<v>Pid = pid()</v>
-	<v>Reason = {no_such_group, Name}</v>
-      </type>
       <desc>
         <p>Returns all processes running on the local node in the
           group <c>Name</c>. This function should to be used from
@@ -131,13 +116,8 @@
       </desc>
     </func>
     <func>
-      <name>join(Name, Pid) -> ok | {error, Reason}</name>
+      <name name="join" arity="2"/>
       <fsummary>Join a process to a group</fsummary>
-      <type>
-        <v>Name = term()</v>
-	<v>Pid = pid()</v>
-	<v>Reason = {no_such_group, Name}</v>
-      </type>
       <desc>
         <p>Joins the process <c>Pid</c> to the group <c>Name</c>.
 	  A process can join a group several times; it must then
@@ -146,13 +126,8 @@
       </desc>
     </func>
     <func>
-      <name>leave(Name, Pid) -> ok | {error, Reason}</name>
+      <name name="leave" arity="2"/>
       <fsummary>Make a process leave a group</fsummary>
-      <type>
-        <v>Name = term()</v>
-	<v>Pid = pid()</v>
-	<v>Reason = {no_such_group, Name}</v>
-      </type>
       <desc>
         <p>Makes the process <c>Pid</c> leave the group <c>Name</c>.
 	  If the process is not a member of the group, <c>ok</c> is
@@ -161,24 +136,17 @@
       </desc>
     </func>
     <func>
-      <name>which_groups() -> [Name]</name>
+      <name name="which_groups" arity="0"/>
       <fsummary>Return a list of all known groups</fsummary>
-      <type>
-        <v>Name = term()</v>
-      </type>
       <desc>
         <p>Returns a list of all known groups.
           </p>
       </desc>
     </func>
     <func>
-      <name>start()</name>
-      <name>start_link() -> {ok, Pid} | {error, Reason}</name>
+      <name name="start" arity="0"/>
+      <name name="start_link" arity="0"/>
       <fsummary>Start the pg2 server</fsummary>
-      <type>
-	<v>Pid = pid()</v>
-	<v>Reason = term()</v>
-      </type>
       <desc>
         <p>Starts the pg2 server. Normally, the server does not need
           to be started explicitly, as it is started dynamically if it

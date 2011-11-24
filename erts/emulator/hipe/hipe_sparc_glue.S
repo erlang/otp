@@ -1,23 +1,24 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2001-2009. All Rights Reserved.
- * 
+
+ *
+ * Copyright Ericsson AB 2001-2011. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
-/* $Id$
- */
+
+
 #include "hipe_sparc_asm.h"
 #include "hipe_literals.h"
 #define ASM
@@ -333,6 +334,8 @@ nbif_3_gc_after_bif:
 	st	TEMP_RA, [P+P_NRA]
 	st	NSP, [P+P_NSP]
 	mov	RA, TEMP_RA
+	mov	0, %o3			/* Pass 0 in arity */
+	mov	0, %o2			/* Pass NULL in regs */
 	mov	%o0, %o1
 	call	erts_gc_after_bif_call
 	mov	P, %o0			/* delay slot */

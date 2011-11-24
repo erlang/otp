@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,9 +19,10 @@
 -module(erl_prim_loader_SUITE).
 
 -include_lib("kernel/include/file.hrl").
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
--export([all/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 
 -export([get_path/1, set_path/1, get_file/1,
 	 inet_existing/1, inet_coming_up/1, inet_disconnects/1,
@@ -29,27 +30,41 @@
 	 local_archive/1, remote_archive/1,
 	 primary_archive/1, virtual_dir_in_archive/1]).
 
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 %%-----------------------------------------------------------------
 %% Test suite for erl_prim_loader. (Most code is run during system start/stop.)
 %%-----------------------------------------------------------------
 
-all(suite) ->
-    [
-     get_path, set_path, get_file,
-     inet_existing, inet_coming_up,
-     inet_disconnects, multiple_slaves,
-     file_requests, local_archive, 
-     remote_archive, primary_archive,
-     virtual_dir_in_archive
-    ].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [get_path, set_path, get_file, inet_existing,
+     inet_coming_up, inet_disconnects, multiple_slaves,
+     file_requests, local_archive, remote_archive,
+     primary_archive, virtual_dir_in_archive].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog=?t:timetrap(?t:minutes(3)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     Dog=?config(watchdog, Config),
     ?t:timetrap_cancel(Dog).
 
@@ -291,7 +306,6 @@ wait_and_shutdown([], _) ->
     ok.
 
 
-file_requests(suite) -> {req, [{local_slave_nodes, 1}, {time, 10}]};
 file_requests(doc) -> ["Start a node using the 'inet' loading method, ",
 		       "verify that the boot server responds to file requests."];
 file_requests(Config) when is_list(Config) ->
@@ -300,9 +314,11 @@ file_requests(Config) when is_list(Config) ->
     %% compare with results from file server calls (the
     %% boot server uses the same file sys and cwd)
     {ok,Files} = file:list_dir("."),
+    io:format("Files: ~p~n",[Files]),
     ?line {ok,Files} = rpc:call(Node, erl_prim_loader, list_dir, ["."]),
-    {ok,Info} = file:read_file_info("test_server.beam"),
-    ?line {ok,Info} = rpc:call(Node, erl_prim_loader, read_file_info, ["test_server.beam"]),
+    {ok,Info} = file:read_file_info(code:which(test_server)),
+    ?line {ok,Info} = rpc:call(Node, erl_prim_loader, read_file_info,
+			       [code:which(test_server)]),
     {ok,Cwd} = file:get_cwd(),
     ?line {ok,Cwd} = rpc:call(Node, erl_prim_loader, get_cwd, []),
     case file:get_cwd("C:") of
@@ -531,8 +547,6 @@ host() ->
 stop_node(Node) ->
     test_server:stop_node(Node).
 
-get_loader_flag({ose,_}) ->
-    " -loader ose_inet ";
 get_loader_flag(_) ->
     " -loader inet ".
 

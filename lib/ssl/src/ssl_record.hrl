@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2007-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -60,8 +60,19 @@
 	  compression_state,
 	  cipher_state,
 	  mac_secret,
-	  sequence_number
+	  sequence_number,
+	  %% RFC 5746
+	  secure_renegotiation,
+	  client_verify_data,
+	  server_verify_data
 	 }).
+
+-define(MAX_SEQENCE_NUMBER, 18446744073709552000). %% math:pow(2, 64) - 1 = 1.8446744073709552e19
+%% Sequence numbers can not wrap so when max is about to be reached we should renegotiate.
+%% We will renegotiate a little before so that there will be sequence numbers left
+%% for the rehandshake and a little data. 
+-define(MARGIN, 100).
+-define(DEFAULT_RENEGOTIATE_AT, ?MAX_SEQENCE_NUMBER - ?MARGIN).
 
 %% ConnectionEnd
 -define(SERVER, 0).

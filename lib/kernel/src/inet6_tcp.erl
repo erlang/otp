@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -93,7 +93,7 @@ do_connect(Addr = {A,B,C,D,E,F,G,H}, Port, Opts, Time) when
 			   port=BPort,
 			   opts=SockOpts}}
 	when ?ip6(Ab,Bb,Cb,Db,Eb,Fb,Gb,Hb), ?port(BPort) ->
-	    case inet:open(Fd,BAddr,BPort,SockOpts,tcp,inet6,?MODULE) of
+	    case inet:open(Fd,BAddr,BPort,SockOpts,tcp,inet6,stream,?MODULE) of
 		{ok, S} ->
 		    case prim_inet:connect(S, Addr, Port, Time) of
 			ok    -> {ok,S};
@@ -115,7 +115,7 @@ listen(Port, Opts) ->
 			  port=BPort,
 			  opts=SockOpts}=R}
 	when ?ip6(A,B,C,D,E,F,G,H), ?port(BPort) ->
-	    case inet:open(Fd,BAddr,BPort,SockOpts,tcp,inet6,?MODULE) of
+	    case inet:open(Fd,BAddr,BPort,SockOpts,tcp,inet6,stream,?MODULE) of
 		{ok, S} ->
 		    case prim_inet:listen(S, R#listen_opts.backlog) of
 			ok -> {ok, S};
@@ -149,5 +149,5 @@ accept(L,Timeout) ->
 %% Create a port/socket from a file descriptor 
 %%
 fdopen(Fd, Opts) ->
-    inet:fdopen(Fd, Opts, tcp, inet6, ?MODULE).
+    inet:fdopen(Fd, Opts, tcp, inet6, stream, ?MODULE).
 

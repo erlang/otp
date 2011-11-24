@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2005-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2005-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -96,41 +96,36 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"proc_status",				"pid"			},
     {	"proc_tab",				NULL			},
     {   "ports_snapshot",                       NULL                    },
-    {	"db_tab",				"address"		},    
-    {	"db_tab_fix",				"address"		},
     {	"meta_name_tab",	         	"address"		},
     {	"meta_main_tab_slot",			"address"		},
+    {	"db_tab",				"address"		},
+    {	"db_tab_fix",				"address"		},
     {	"meta_main_tab_main",			NULL 			},
     {	"db_hash_slot",				"address"		},
     {	"node_table",				NULL			},
     {	"dist_table",				NULL			},
     {	"sys_tracers",				NULL			},
-    {	"trace_pattern",			NULL			},
     {	"module_tab",				NULL			},
     {	"export_tab",				NULL			},
     {	"fun_tab",				NULL			},
     {	"environ",				NULL			},
-#endif
-    {	"asyncq",				"address"		},
-#ifndef ERTS_SMP
-    {	"async_ready",				NULL			},
 #endif
     {	"efile_drv",				"address"		},
 #if defined(ENABLE_CHILD_WAITER_THREAD) || defined(ERTS_SMP)
     {	"child_status",				NULL			},
 #endif
 #ifdef __WIN32__
-    {	"sys_driver_data_lock",			NULL 			}, 
+    {	"sys_driver_data_lock",			NULL 			},
 #endif
-    {	"drv_ev_state_grow",			NULL,   		}, 
+    {	"drv_ev_state_grow",			NULL,   		},
     {	"drv_ev_state",				"address"		},
     {	"safe_hash",				"address"		},
     {   "pollset_rm_list",                      NULL                    },
-    {   "removed_fd_pre_alloc_lock",            NULL                    },
+    {   "removed_fd_pre_alloc_lock",            "address"               },
     {   "state_prealloc",                       NULL                    },
     {	"schdlr_sspnd",				NULL			},
-    {	"cpu_bind",				NULL			},
     {	"run_queue",				"address"		},
+    {	"cpu_info",				NULL			},
     {	"pollset",				"address"		},
 #ifdef __WIN32__
     {	"pollwaiter",				"address"		},
@@ -139,6 +134,7 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"alcu_init_atoms",			NULL			},
     {	"mseg_init_atoms",			NULL			},
     {	"drv_tsd",				NULL			},
+    {	"async_enq_mtx",			NULL			},
 #ifdef ERTS_SMP
     {	"sys_msg_q", 				NULL			},
     {	"atom_tab",				NULL			},
@@ -152,9 +148,12 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"mtrace_op",				NULL			},
     {	"instr_x",				NULL			},
     {	"instr",				NULL			},
-    {	"fix_alloc",				"index"			},
     {	"alcu_allocator",			"index"			},
+    {	"sbmbc_alloc",				"index"			},
     {	"mseg",					NULL			},
+#if HALFWORD_HEAP
+    {	"pmmap",				NULL			},
+#endif
 #ifdef ERTS_SMP
     {	"port_task_pre_alloc_lock",		"address"		},
     {	"port_taskq_pre_alloc_lock",		"address"		},
@@ -171,21 +170,22 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"timeofday",				NULL			},
     {	"breakpoints",				NULL			},
     {	"pollsets_lock",			NULL			},
-    {	"async_id",				NULL			},
     {	"pix_lock",				"address"		},
     {	"run_queues_lists",			NULL			},
     {	"sched_stat",				NULL			},
+    {	"run_queue_sleep_list",			"address"		},
 #endif
-    {	"alloc_thr_ix_lock",			NULL			},
+    {	"async_init_mtx",			NULL			},
 #ifdef ERTS_SMP
-    {	"proc_lck_wtr_alloc",			NULL 			},
+    {	"proc_lck_qs_alloc",			NULL 			},
 #endif
 #ifdef __WIN32__
 #ifdef DEBUG
     {   "save_ops_lock",                        NULL                    },
 #endif
 #endif
-    {	"mtrace_buf",				NULL			}
+    {	"mtrace_buf",				NULL			},
+    {	"erts_alloc_hard_debug",		NULL			}
 };
 
 #define ERTS_LOCK_ORDER_SIZE \
@@ -196,6 +196,8 @@ static erts_lc_lock_order_t erts_lock_order[] = {
    && ((LCK_FLG)							\
        & ERTS_LC_FLG_LT_ALL						\
        & ~(ERTS_LC_FLG_LT_SPINLOCK|ERTS_LC_FLG_LT_RWSPINLOCK)))
+
+static __decl_noreturn void  __noreturn lc_abort(void);
 
 static char *
 lock_type(Uint16 flags)
@@ -220,7 +222,7 @@ rw_op_str(Uint16 flags)
 	return " (r)";
     case ERTS_LC_FLG_LO_WRITE:
 	erts_fprintf(stderr, "\nInternal error\n");
-	abort();
+	lc_abort();
     default:
 	break;
     }
@@ -231,7 +233,7 @@ typedef struct erts_lc_locked_lock_t_ erts_lc_locked_lock_t;
 struct erts_lc_locked_lock_t_ {
     erts_lc_locked_lock_t *next;
     erts_lc_locked_lock_t *prev;
-    Eterm extra;
+    UWord extra;
     Sint16 id;
     Uint16 flags;
 };
@@ -269,28 +271,18 @@ static erts_lc_free_block_t *free_blocks;
 #define ERTS_LC_FB_CHUNK_SIZE 10
 #endif
 
-#ifdef ETHR_HAVE_NATIVE_LOCKS
 static ethr_spinlock_t free_blocks_lock;
-#define ERTS_LC_LOCK	ethr_spin_lock
-#define ERTS_LC_UNLOCK	ethr_spin_unlock
-#else
-static ethr_mutex free_blocks_lock;
-#define ERTS_LC_LOCK	ethr_mutex_lock
-#define ERTS_LC_UNLOCK	ethr_mutex_unlock
-#endif
 
 static ERTS_INLINE void
 lc_lock(void)
 {
-    if (ERTS_LC_LOCK(&free_blocks_lock) != 0)
-	abort();
+    ethr_spin_lock(&free_blocks_lock);
 }
 
 static ERTS_INLINE void
 lc_unlock(void)
 {
-    if (ERTS_LC_UNLOCK(&free_blocks_lock) != 0)
-	abort();
+    ethr_spin_unlock(&free_blocks_lock);
 }
 
 static ERTS_INLINE void lc_free(void *p)
@@ -311,7 +303,7 @@ static void *lc_core_alloc(void)
 {
     lc_unlock();
     erts_fprintf(stderr, "Lock checker out of memory!\n");
-    abort();
+    lc_abort();
 }
 
 #else
@@ -325,7 +317,7 @@ static void *lc_core_alloc(void)
 					  * ERTS_LC_FB_CHUNK_SIZE);
     if (!fbs) {
 	erts_fprintf(stderr, "Lock checker failed to allocate memory!\n");
-	abort();
+	lc_abort();
     }
     for (i = 1; i < ERTS_LC_FB_CHUNK_SIZE - 1; i++) {
 #ifdef DEBUG
@@ -365,11 +357,11 @@ create_locked_locks(char *thread_name)
 {
     erts_lc_locked_locks_t *l_lcks = malloc(sizeof(erts_lc_locked_locks_t));
     if (!l_lcks)
-	abort();
+	lc_abort();
 
     l_lcks->thread_name = strdup(thread_name ? thread_name : "unknown");
     if (!l_lcks->thread_name)
-	abort();
+	lc_abort();
 
     l_lcks->tid = erts_thr_self();
     l_lcks->required.first = NULL;
@@ -442,12 +434,12 @@ new_locked_lock(erts_lc_lock_t *lck, Uint16 op_flags)
 }
 
 static void
-print_lock2(char *prefix, Sint16 id, Eterm extra, Uint16 flags, char *suffix)
+print_lock2(char *prefix, Sint16 id, Wterm extra, Uint16 flags, char *suffix)
 {
     char *lname = (0 <= id && id < ERTS_LOCK_ORDER_SIZE
 		   ? erts_lock_order[id].name
 		   : "unknown");
-    if (is_boxed(extra))
+    if (is_not_immed(extra))
 	erts_fprintf(stderr,
 		     "%s'%s:%p%s'%s%s",
 		     prefix,
@@ -511,7 +503,7 @@ uninitialized_lock(void)
 {
     erts_fprintf(stderr, "Performing operations on uninitialized lock!\n");
     print_curr_locks(get_my_locked_locks());
-    abort();
+    lc_abort();
 }
 
 static void
@@ -521,7 +513,7 @@ lock_twice(char *prefix, erts_lc_locked_locks_t *l_lcks, erts_lc_lock_t *lck,
     erts_fprintf(stderr, "%s%s", prefix, rw_op_str(op_flags));
     print_lock(" ", lck, " lock which is already locked by thread!\n");
     print_curr_locks(l_lcks);
-    abort();
+    lc_abort();
 }
 
 static void
@@ -531,7 +523,7 @@ unlock_op_mismatch(erts_lc_locked_locks_t *l_lcks, erts_lc_lock_t *lck,
     erts_fprintf(stderr, "Unlocking%s ", rw_op_str(op_flags));
     print_lock("", lck, " lock which mismatch previous lock operation!\n");
     print_curr_locks(l_lcks);
-    abort();
+    lc_abort();
 }
 
 static void
@@ -539,7 +531,7 @@ unlock_of_not_locked(erts_lc_locked_locks_t *l_lcks, erts_lc_lock_t *lck)
 {
     print_lock("Unlocking ", lck, " lock which is not locked by thread!\n");
     print_curr_locks(l_lcks);
-    abort();
+    lc_abort();
 }
 
 static void
@@ -548,7 +540,7 @@ lock_order_violation(erts_lc_locked_locks_t *l_lcks, erts_lc_lock_t *lck)
     print_lock("Lock order violation occured when locking ", lck, "!\n");
     print_curr_locks(l_lcks);
     print_lock_order();
-    abort();
+    lc_abort();
 }
 
 static void
@@ -559,7 +551,7 @@ type_order_violation(char *op, erts_lc_locked_locks_t *l_lcks,
     print_lock(op, lck, "!\n");
     ASSERT(l_lcks);
     print_curr_locks(l_lcks);
-    abort();
+    lc_abort();
 }
 
 static void
@@ -611,7 +603,7 @@ lock_mismatch(erts_lc_locked_locks_t *l_lcks, int exact,
 	}
     }
     print_curr_locks(l_lcks);
-    abort();
+    lc_abort();
 }
 
 static void
@@ -619,7 +611,7 @@ unlock_of_required_lock(erts_lc_locked_locks_t *l_lcks, erts_lc_lock_t *lck)
 {
     print_lock("Unlocking required ", lck, " lock!\n");
     print_curr_locks(l_lcks);
-    abort();
+    lc_abort();
 }
 
 static void
@@ -627,7 +619,7 @@ unrequire_of_not_required_lock(erts_lc_locked_locks_t *l_lcks, erts_lc_lock_t *l
 {
     print_lock("Unrequire on ", lck, " lock not required!\n");
     print_curr_locks(l_lcks);
-    abort();
+    lc_abort();
 }
 
 static void
@@ -635,7 +627,7 @@ require_twice(erts_lc_locked_locks_t *l_lcks, erts_lc_lock_t *lck)
 {
     print_lock("Require on ", lck, " lock already required!\n");
     print_curr_locks(l_lcks);
-    abort();
+    lc_abort();
 }
 
 static void
@@ -643,7 +635,7 @@ required_not_locked(erts_lc_locked_locks_t *l_lcks, erts_lc_lock_t *lck)
 {
     print_lock("Required ", lck, " lock not locked!\n");
     print_curr_locks(l_lcks);
-    abort();
+    lc_abort();
 }
 
 
@@ -656,11 +648,21 @@ thread_exit_handler(void)
 	    erts_fprintf(stderr,
 			 "Thread exiting while having locked locks!\n");
 	    print_curr_locks(l_lcks);
-	    abort();
+	    lc_abort();
 	}
 	destroy_locked_locks(l_lcks);
 	/* erts_tsd_set(locks_key, NULL); */
     }
+}
+
+static __decl_noreturn void
+lc_abort(void)
+{
+#ifdef __WIN32__
+    DebugBreak();
+#else
+    abort();
+#endif
 }
 
 void
@@ -674,7 +676,7 @@ erts_lc_set_thread_name(char *thread_name)
 	free((void *) l_lcks->thread_name);
 	l_lcks->thread_name = strdup(thread_name ? thread_name : "unknown");
 	if (!l_lcks->thread_name)
-	    abort();
+	    lc_abort();
     }
 }
 
@@ -684,7 +686,7 @@ erts_lc_assert_failed(char *file, int line, char *assertion)
     erts_fprintf(stderr, "%s:%d: Lock check assertion \"%s\" failed!\n",
 		 file, line, assertion);
     print_curr_locks(get_my_locked_locks());
-    abort();
+    lc_abort();
     return 0;
 }
 
@@ -697,7 +699,7 @@ void erts_lc_fail(char *fmt, ...)
     va_end(args);
     erts_fprintf(stderr, "\n");
     print_curr_locks(get_my_locked_locks());
-    abort();
+    lc_abort();
 }
 
 
@@ -717,7 +719,7 @@ erts_lc_get_lock_order_id(char *name)
 		     "(update erl_lock_check.c)\n",
 		     name);
     }
-    abort();
+    lc_abort();
     return (Sint16) -1;
 }
 
@@ -893,6 +895,25 @@ erts_lc_check_exact(erts_lc_lock_t *have, int have_len)
     }
 }
 
+void
+erts_lc_check_no_locked_of_type(Uint16 flags)
+{
+    erts_lc_locked_locks_t *l_lcks = get_my_locked_locks();
+    if (l_lcks) {
+	erts_lc_locked_lock_t *l_lck = l_lcks->locked.first;
+	for (l_lck = l_lcks->locked.first; l_lck; l_lck = l_lck->next) {
+	    if (l_lck->flags & flags) {
+		erts_fprintf(stderr,
+			     "Locked lock of type %s found which isn't "
+			     "allowed here!\n",
+			     lock_type(l_lck->flags));
+		print_curr_locks(l_lcks);
+		lc_abort();
+	    }
+	}
+    }
+}
+
 int
 erts_lc_trylock_force_busy_flg(erts_lc_lock_t *lck, Uint16 op_flags)
 {
@@ -952,10 +973,10 @@ erts_lc_trylock_force_busy_flg(erts_lc_lock_t *lck, Uint16 op_flags)
 	/* We only force busy if a lock order violation would occur
 	   and when on an even millisecond. */
 	{
-	    erts_thr_timeval_t time;
-	    erts_thr_time_now(&time);
+	    SysTimeval tv;
+	    sys_gettimeofday(&tv);
 
-	    if ((time.tv_nsec / 1000000) & 1)
+	    if ((tv.tv_usec / 1000) & 1)
 		return 0;
 	}
 #endif
@@ -1231,7 +1252,9 @@ void
 erts_lc_init_lock(erts_lc_lock_t *lck, char *name, Uint16 flags)
 {
     lck->id = erts_lc_get_lock_order_id(name);
-    lck->extra = make_boxed(&lck->extra);
+
+    lck->extra = &lck->extra;
+    ASSERT(is_not_immed(lck->extra));
     lck->flags = flags;
     lck->inited = ERTS_LC_INITITALIZED;
 }
@@ -1241,6 +1264,7 @@ erts_lc_init_lock_x(erts_lc_lock_t *lck, char *name, Uint16 flags, Eterm extra)
 {
     lck->id = erts_lc_get_lock_order_id(name);
     lck->extra = extra;
+    ASSERT(is_immed(lck->extra));
     lck->flags = flags;
     lck->inited = ERTS_LC_INITITALIZED;
 }
@@ -1279,13 +1303,8 @@ erts_lc_init(void)
     free_blocks = NULL;
 #endif /* #ifdef ERTS_LC_STATIC_ALLOC */
 
-#ifdef ETHR_HAVE_NATIVE_LOCKS
     if (ethr_spinlock_init(&free_blocks_lock) != 0)
-	abort();
-#else
-    if (ethr_mutex_init(&free_blocks_lock) != 0)
-	abort();
-#endif
+	lc_abort();
 
     erts_tsd_key_create(&locks_key);
 }

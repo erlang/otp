@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -115,7 +115,9 @@ whereis_evaluator(Shell) ->
 
 %% Call this function to start a user restricted shell 
 %% from a normal shell session.
--spec start_restricted(module()) -> {'error', code:load_error_rsn()}.
+-spec start_restricted(Module) -> {'error', Reason} when
+      Module :: module(),
+      Reason :: code:load_error_rsn().
 
 start_restricted(RShMod) when is_atom(RShMod) ->
     case code:ensure_loaded(RShMod) of
@@ -465,7 +467,7 @@ getc(N) ->
     {get({command,N}), get({result,N}), N}.
 
 get_cmd(Num, C) ->
-    case catch erl_eval:expr(Num, []) of
+    case catch erl_eval:expr(Num, erl_eval:new_bindings()) of
 	{value,N,_} when N < 0 -> getc(C+N);
 	{value,N,_} -> getc(N);
 	_Other -> {undefined,undefined,undefined}
@@ -1086,7 +1088,7 @@ shell_default(F,As,Bs) ->
     end.
 
 shell_undef(F,A) ->
-    erlang:error({shell_undef,F,A}).
+    erlang:error({shell_undef,F,A,[]}).
 
 local_func_handler(Shell, RT, Ef) ->
     H = fun(Lf) -> 
@@ -1183,6 +1185,8 @@ expr(E, Bs, Lf, Ef) ->
 
 expr_list(Es, Bs, Lf, Ef) ->
     erl_eval:expr_list(Es, strip_bindings(Bs), Lf, Ef).
+
+-spec strip_bindings(erl_eval:binding_struct()) -> erl_eval:binding_struct().
 
 strip_bindings(Bs) ->
     Bs -- [B || {{module,_},_}=B <- Bs].
@@ -1468,23 +1472,26 @@ set_env(App, Name, Val, Default) ->
     application_controller:set_env(App, Name, Val),
     Prev.
 
--spec history(non_neg_integer()) -> non_neg_integer().
+-spec history(N) -> non_neg_integer() when
+      N :: non_neg_integer().
 
 history(L) when is_integer(L), L >= 0 ->
     set_env(stdlib, shell_history_length, L, ?DEF_HISTORY).
 
--spec results(non_neg_integer()) -> non_neg_integer().
+-spec results(N) -> non_neg_integer() when
+      N :: non_neg_integer().
 
 results(L) when is_integer(L), L >= 0 ->
     set_env(stdlib, shell_saved_results, L, ?DEF_RESULTS).
 
--spec catch_exception(boolean()) -> boolean().
+-spec catch_exception(Bool) -> Bool when
+      Bool :: boolean().
 
 catch_exception(Bool) ->
     set_env(stdlib, shell_catch_exception, Bool, ?DEF_CATCH_EXCEPTION).
 
--type prompt_func() :: 'default' | {module(),atom()}.
--spec prompt_func(prompt_func()) -> prompt_func().
+-spec prompt_func(PromptFunc) -> PromptFunc when
+      PromptFunc :: 'default' | {module(),atom()}.
 
 prompt_func(String) ->
     set_env(stdlib, shell_prompt_func, String, ?DEF_PROMPT_FUNC).

@@ -1,0 +1,615 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+<header>
+
+<copyright>
+<year>2011</year>
+<holder>Ericsson AB. All Rights Reserved.</holder>
+</copyright>
+<legalnotice>
+The contents of this file are subject to the Erlang Public License,
+Version 1.1, (the "License"); you may not use this file except in
+compliance with the License. You should have received a copy of the
+Erlang Public License along with this software. If not, it can be
+retrieved online at http://www.erlang.org/.
+
+Software distributed under the License is distributed on an "AS IS"
+basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+the License for the specific language governing rights and limitations
+under the License.
+
+</legalnotice>
+
+<title>diameter_app(3)</title>
+<prepared>Anders Svensson</prepared>
+<responsible></responsible>
+<docno></docno>
+<approved></approved>
+<checked></checked>
+<date></date>
+<rev>%REV%</rev>
+<file>diameter_app.xml</file>
+
+</header>
+
+<module>diameter_app</module>
+<modulesummary>
+Callback module of a Diameter application.</modulesummary>
+
+<description>
+
+<p>
+A diameter service as started by <seealso
+marker="diameter#start_service">diameter:start_service/2</seealso>
+configures one of more Diameter applications, each of whose
+configuration specifies a callback that handles messages specific to
+its application.
+The messages and AVPs of the Diameter application are defined in a
+dictionary file whose format is documented in
+<seealso marker="diameter_dict">diameter_dict(4)</seealso>
+while the callback module is documented here.
+The callback module implements the Diameter application-specific
+functionality of a service.</p>
+
+<p>
+A callback module must export all of the functions documented below.
+The functions themselves are of three distinct flavours:</p>
+
+<list>
+<item>
+<p>
+<seealso marker="#peer_up">peer_up/3</seealso> and
+<seealso marker="#peer_down">peer_down/3</seealso> signal the
+attainment or loss of connectivity with a Diameter peer.</p>
+</item>
+
+<item>
+<p>
+<seealso marker="#pick_peer">pick_peer/4</seealso>,
+<seealso marker="#prepare_request">prepare_request/3</seealso>,
+<seealso marker="#prepare_retransmit">prepare_retransmit/3</seealso>,
+<seealso marker="#handle_answer">handle_answer/4</seealso>
+and <seealso marker="#handle_error">handle_error/4</seealso> are (or may
+be) called as a consequence of a call to <seealso 
+marker="diameter#call">diameter:call/4</seealso> to send an outgoing
+Diameter request message.</p>
+</item>
+
+<item>
+<p>
+<seealso marker="#handle_request">handle_request/3</seealso>
+is called in response to an incoming Diameter request message.</p>
+</item>
+
+</list>
+
+</description>
+
+<note>
+<p>
+The arities given for the the callback functions here assume no extra
+arguments.
+All functions will also be passed any extra arguments configured with
+the callback module itself when calling <seealso
+marker="diameter#start_service">diameter:start_service/2</seealso>
+and, for the call-specific callbacks, any extra arguments passed to
+<seealso marker="diameter#call">diameter:call/4</seealso>.</p>
+</note>
+
+<!-- ===================================================================== -->
+<!-- ===================================================================== -->
+
+<section>
+<title>DATA TYPES</title>
+
+<taglist>
+
+<tag><c>capabilities() = #diameter_caps{}</c></tag>
+<item>
+<p>
+A record containing the identities of
+the local and remote Diameter peers having an established transport
+connection, as well as the capabilities as
+determined by capabilities exchange.
+Each field of the record is a 2-tuple consisting of
+values for the (local) host and (remote) peer.
+Optional or possibly multiple values are encoded as lists of values,
+mandatory values as the bare value.</p>
+</item>
+
+<tag><c>message() = record() | list()</c></tag>
+<item>
+<p>
+The representation of a Diameter message as passed to
+<seealso marker="diameter#call">diameter:call/4</seealso>.
+The record representation is as outlined in
+<seealso
+marker="diameter_dict#MESSAGE_RECORDS">diameter_dict(4)</seealso>:
+a message as defined in a dictionary file is encoded as a record with
+one field for each component AVP.
+Equivalently, a message can also be encoded as a list whose head is
+the atom-valued message name (the record name minus any
+prefix specified in the relevant dictionary file) and whose tail is a
+list of <c>{FieldName, FieldValue}</c> pairs.</p>
+
+<p>
+A third representation allows a message to be specified as a list
+whose head is a <c>diameter_header</c> record and whose tail is a list
+of <c>diameter_avp</c> records.
+This representation is used by diameter itself when relaying requests
+as directed by the return value of a
+<seealso marker="#handle_request">handle_request/3</seealso>
+callback.
+It differs from the other other two in that it bypasses the checks for
+messages that do not agree with their definitions in the dictionary in
+question (since relays agents must handle arbitrary request): messages
+are sent exactly as specified.</p>
+
+</item>
+
+<tag><c>packet() = #diameter_packet{}</c></tag>
+<item>
+<p>
+A container for incoming and outgoing Diameters message that's passed
+through encode/decode and transport.
+Fields of a packet() record should not be set in return values except
+as documented.</p>
+</item>
+
+<tag><c>peer_ref() = term()</c></tag>
+<item>
+<p>
+A term identifying a transport connection with a Diameter peer.
+Should be treated opaquely.</p>
+</item>
+
+<tag><c>peer() = {peer_ref(), capabilities()}</c></tag>
+<item>
+<p>
+A tuple representing a Diameter peer connection.</p>
+</item>
+
+<tag><c>service_name() = term()</c></tag>
+<item>
+<p>
+The service supporting the Diameter application.
+Specified to <seealso
+marker="diameter#start_service">diameter:start_service/2</seealso>
+when starting the service.</p>
+</item>
+
+<tag><c>state() = term()</c></tag>
+<item>
+<p>
+The state maintained by the application callback functions
+<seealso marker="#peer_up">peer_up/3</seealso>,
+<seealso marker="#peer_down">peer_down/3</seealso> and (optionally)
+<seealso marker="#pick_peer">pick_peer/4</seealso>.
+The initial state is configured in the call to
+<seealso
+marker="diameter#start_service">diameter:start_service/2</seealso>
+that configures the application on a service.
+Callback functions returning a state are evaluated in a common
+service-specific process while
+those not returning state are evaluated in a request-specific
+process.</p>
+</item>
+
+</taglist>
+
+<marker id="peer_up"/>
+</section>
+
+<!-- ===================================================================== -->
+<!-- ===================================================================== -->
+
+<funcs>
+
+<func>
+<name>Mod:peer_up(SvcName, Peer, State) -> NewState</name>
+<fsummary>Invoked when a transport connection has been established</fsummary>
+<type>
+<v>SvcName = service_name()</v>
+<v>Peer    = peer()</v>
+<v>State   = NewState = state()</v>
+</type>
+<desc>
+<p>
+Invoked when a transport connection has been established
+and a successful capabilities exchange has indicated that the peer
+supports the Diameter application of the application on which
+the callback module in question has been configured.</p>
+
+<marker id="peer_down"/>
+</desc>
+</func>
+
+<func>
+<name>Mod:peer_down(SvcName, Peer, State) -> NewState</name>
+<fsummary>Invoked when a transport connection has been lost.</fsummary>
+<type>
+<v>SvcName = service_name()</v>
+<v>Peer    = peer()</v>
+<v>State   = NewState = state()</v>
+</type>
+<desc>
+<p>
+Invoked when a transport connection has been lost following a previous
+call to <seealso marker="#peer_up">peer_up/3</seealso>.</p>
+
+<marker id="pick_peer"/>
+</desc>
+</func>
+
+<func>
+<name>Mod:pick_peer(Candidates, Reserved, SvcName, State)
+      -> {ok, Peer} | {Peer, NewState} | false</name>
+<fsummary>Select a target peer for an outgoing request.</fsummary>
+<type>
+<v>Candidates = [peer()]</v>
+<v>Peer = peer() | false</v>
+<v>SvcName = service_name()</v>
+<v>State = NewState = state()</v>
+</type>
+<desc>
+<p>
+Invoked as a consequence of a call to <seealso
+marker="diameter#call">diameter:call/4</seealso> to select a destination
+peer for an outgoing request, the return value indicating the selected peer.
+A new application state can also be returned but only if the Diameter
+application in question was
+configured with the option <c>call_mutates_state</c> set to
+<c>true</c>, as documented for <seealso
+marker="diameter#start_service">diameter:start_service/2</seealso>.</p>
+
+<p>
+The candidate peers list will only include those
+which are selected by any <c>filter</c> option specified in the call to
+<seealso marker="diameter#call">diameter:call/4</seealso>, and only
+those which have indicated support for the Diameter application in
+question.
+The order of the elements is unspecified except that any
+peers whose Origin-Host and Origin-Realm matches that of the
+outgoing request (in the sense of a <c>{filter, {all, [host, realm]}}</c>
+option to <seealso marker="diameter#call">diameter:call/4</seealso>)
+will be placed at the head of the list.</p>
+
+<p>
+The return values <c>false</c> and <c>{false, State}</c> are
+equivalent when callback state is mutable, as are
+<c>{ok, Peer}</c> and <c>{Peer, State}</c>.
+Returning a peer as <c>false</c> causes <c>{error, no_connection}</c>
+to be returned from <seealso marker="diameter#call">diameter:call/4</seealso>.
+Returning a peer() from an initial pick_peer/4 callback will result in a
+<seealso marker="#prepare_request">prepare_request/3</seealso> callback
+followed by either <seealso
+marker="#handle_answer">handle_answer/4</seealso>
+or <seealso marker="#handle_error">handle_error/4</seealso> depending
+on whether or not an answer message is received from the peer.
+If transport with the peer is lost before this then a new <seealso
+marker="#pick_peer">pick_peer/4</seealso> callback takes place to
+select an alternate peer.</p>
+
+<p>
+Note that there is no guarantee that a <seealso
+marker="#pick_peer">pick_peer/4</seealso> callback to select
+an alternate peer will be followed by any additional callbacks, only
+that the initial <seealso
+marker="#pick_peer">pick_peer/4</seealso> will be, since a
+retransmission to an alternate peer is abandoned if an answer is
+received from a previously selected peer.</p>
+
+<marker id="prepare_request"/>
+</desc>
+
+</func>
+
+<func>
+<name>Mod:prepare_request(Packet, SvcName, Peer) -> Action</name>
+<fsummary>Return a request for encoding and transport.</fsummary>
+<type>
+<v>Packet = packet()</v>
+<v>SvcName = service_name()</v>
+<v>Peer = peer()</v>
+<v>Action = {send, packet() | message()} | {discard, Reason} | discard</v>
+</type>
+<desc>
+<p>
+Invoked to return a request for encoding and transport.
+Allows the sender to access the selected peer's capabilities
+in order to set (for example) <c>Destination-Host</c> and/or
+<c>Destination-Realm</c> in the outgoing request, although the
+callback need not be limited to this usage.
+Many implementations may simply want to return <c>{send, Packet}</c></p>
+
+<p>
+A returned packet() should set the request to be encoded in its
+<c>msg</c> field and can set the <c>transport_data</c> field in order
+to pass information to the transport module.
+Extra arguments passed to <seealso
+marker="diameter#call">diameter:call/4</seealso> can be used to
+communicate transport data to the callback.
+A returned packet() can also set the <c>header</c> field to a
+<c>diameter_header</c> record in order to specify values that should
+be preserved in the outgoing request, although this should typically
+not be necessary and allows the callback to set header values
+inappropriately.
+A returned <c>length</c>, <c>cmd_code</c> or <c>application_id</c> is
+ignored.</p>
+
+<p>
+Returning <c>{discard, Reason}</c> causes the request to be aborted
+and the <seealso
+marker="diameter#call">diameter:call/4</seealso> for which the
+callback has taken place to return <c>{error, Reason}</c>.
+Returning <c>discard</c> is equivalent to returning <c>{discard,
+discarded}</c>.</p>
+
+<marker id="prepare_retransmit"/>
+</desc>
+</func>
+
+<func>
+<name>Mod:prepare_retransmit(Packet, SvcName, Peer) -> Result</name>
+<fsummary>Return a request for encoding and retransmission.</fsummary>
+<type>
+<v>Packet  = packet()</v>
+<v>SvcName = service_name()</v>
+<v>Peer    = peer()</v>
+<v>Result  = {send, packet() | message()} | {discard, Reason} | discard</v>
+</type>
+<desc>
+<p>
+Invoked to return a request for encoding and retransmission.
+Has the same role as <seealso
+marker="#prepare_request">prepare_request/3</seealso> in the case that
+a peer connection is lost an an alternate peer selected but the
+argument packet() is as returned by the initial
+<c>prepare_request/3</c>.</p>
+
+<p>
+Returning <c>{discard, Reason}</c> causes the request to be aborted
+and a <seealso
+marker="#handle_error">handle_error/4</seealso> callback to
+take place with <c>Reason</c> as initial argument.
+Returning <c>discard</c> is equivalent to returning <c>{discard,
+discarded}</c>.</p>
+
+<marker id="handle_answer"/>
+</desc>
+</func>
+
+<func>
+<name>Mod:handle_answer(Packet, Request, SvcName, Peer) -> Result</name>
+<fsummary>Receive an answer message from a peer.</fsummary>
+<type>
+<v>Packet  = packet()</v>
+<v>Request = message()</v>
+<v>SvcName = service_name()</v>
+<v>Peer    = peer()</v>
+<v>Result  = term()</v>
+</type>
+<desc>
+<p>
+Invoked when an answer message is received from a peer.
+The return value is returned from the call to <seealso
+marker="diameter#call">diameter:call/4</seealso> for which the
+callback takes place unless the <c>detach</c> option was
+specified.</p>
+
+<p>
+The decoded answer record is in the <c>msg</c> field of the argument
+packet(),
+the undecoded binary in the <c>packet</c> field.
+<c>Request</c> is the outgoing request message as was returned from
+<seealso marker="#prepare_request">prepare_request/3</seealso> or
+<seealso marker="#prepare_retransmit">prepare_retransmit/3</seealso>
+before the request was passed to the transport.</p>
+
+<p>
+For any given call to <seealso
+marker="diameter#call">diameter:call/4</seealso> there is at most one
+call to the handle_answer callback of the application in question: any
+duplicate answer (due to retransmission or otherwise) is discarded.
+Similarly, only one of <c>handle_answer/4</c> or <c>handle_error/4</c> is
+called for any given request.</p>
+
+<p>
+By default, an incoming answer message that cannot be successfully
+decoded causes the request process in question to fail, causing the
+relevant call to <seealso
+marker="diameter#call">diameter:call/4</seealso>
+to return <c>{error, failure} (unless the <c>detach</c> option was
+specified)</c>.
+In particular, there is no <c>handle_error/4</c> callback in this
+case.
+Application configuration may change this behaviour as described for
+<seealso
+marker="diameter#start_service">diameter:start_service/2</seealso>.</p>
+
+<marker id="handle_error"/>
+</desc>
+</func>
+
+<func>
+<name>Mod:handle_error(Reason, Request, SvcName, Peer) -> Result</name>
+<fsummary>Return an error from a outgoing request.</fsummary>
+<type>
+<v>Reason  = timeout | failover | term()</v>
+<v>Request = message()</v>
+<v>SvcName = service_name()</v>
+<v>Peer    = peer()</v>
+<v>Result  = term()</v>
+</type>
+<desc>
+<p>
+Invoked when an error occurs before an answer message is received from
+a peer in response to an outgoing request.
+The return value is returned from the call to <seealso
+marker="diameter#call">diameter:call/4</seealso> for which the
+callback takes place (unless the <c>detach</c> option was
+specified).</p>
+
+<p>
+Reason <c>timeout</c> indicates that an answer message has not been
+received within the required time.
+Reason <c>failover</c> indicates
+that the transport connection to the peer to which the request has
+been sent has been lost but that not alternate node was available,
+possibly because a <seealso marker="#pick_peer">pick_peer/4</seealso>
+callback returned false.</p>
+
+<marker id="handle_request"/>
+</desc>
+</func>
+
+<func>
+<name>Mod:handle_request(Packet, SvcName, Peer) -> Action</name>
+<fsummary>Receive an incoming request.</fsummary>
+<type>
+<v>Packet  = packet()</v>
+<v>SvcName = term()</v>
+<v>Peer    = peer()</v>
+<v>Action  = Reply | {relay, Opts} | discard | {eval, Action, PostF}</v>
+<v>Reply   = {reply, message()}
+           | {protocol_error, 3000..3999}</v>
+<v>Opts    = diameter:call_opts()</v>
+<v>PostF   = diameter:evaluable()</v>
+</type>
+<desc>
+<p>
+Invoked when a request message is received from a peer.
+The application in which the callback takes place (that is, the
+callback module as configured with <seealso
+marker="diameter#start_service">diameter:start_service/2</seealso>)
+is determined by the Application Identifier in the header of the
+incoming request message, the selected module being the one
+whose corresponding <seealso
+marker="diameter_dict#MESSAGE_RECORDS">dictionary</seealso> declares
+itself as defining either the application in question or the Relay
+application.</p>
+
+<p>
+The argument packet() has the following signature.</p>
+
+<code>
+#diameter_packet{header = #diameter_header{},
+                 avps   = [#diameter_avp{}],
+                 msg    = record() | undefined,
+                 errors = ['Unsigned32'() | {'Unsigned32'(), #diameter_avp{}}],
+                 bin    = binary(),
+                 transport_data = term()}
+</code>
+
+<p>
+The <c>msg</c> field will be <c>undefined</c> only in case the request has
+been received in the relay application.
+Otherwise it contains the record representing the request as outlined
+in <seealso
+marker="diameter_dict#MESSAGE_RECORDS">diameter_dict(4)</seealso>.</p>
+
+<p>
+The <c>errors</c> field specifies any Result-Code's identifying errors
+that were encountered in decoding the request.
+In this case diameter will set both Result-Code and
+Failed-AVP AVP's in a returned
+answer message() before sending it to the peer:
+the returned message() need only set any other required AVP's.
+Note that the errors detected by diameter are all of the 5xxx series
+(Permanent Failures).
+The <c>errors</c> list is empty if the request has been received in
+the relay application.</p>
+
+<p>
+The <c>transport_data</c> field contains an arbitrary term passed into
+diameter from the transport module in question, or the atom
+<c>undefined</c> if the transport specified no data.
+The term is preserved in the packet() containing any answer message
+sent back to the transport process unless another value is explicitly
+specified.</p>
+
+<p>
+The semantics of each of the possible return values are as follows.</p>
+
+<taglist>
+
+<tag><c>{reply, message()}</c></tag>
+<item>
+<p>
+Send the specified answer message to the peer.</p>
+</item>
+
+<tag><c>{protocol_error, 3000..3999}</c></tag>
+<item>
+<p>
+Send an answer message to the peer containing the specified
+protocol error.
+Equivalent to</p>
+<code>
+{reply, ['answer-message' | Avps]
+</code>
+<p>
+where <c>Avps</c> sets the Origin-Host, Origin-Realm, the specified
+Result-Code and (if the request sent one) Session-Id AVP's.</p>
+
+<p>
+Note that RFC 3588 mandates that only answers with a 3xxx series
+Result-Code (protocol errors) may set the E bit.
+Returning a non-3xxx value in a <c>protocol_error</c> tuple
+will cause the request process in question to fail.</p>
+</item>
+
+<tag><c>{relay, Opts}</c></tag>
+<item>
+<p>
+Relay a request to another peer in the role of a Diameter relay agent.
+If a routing loop is detected then the request is answered with
+3005 (DIAMETER_LOOP_DETECTED).
+Otherwise a Route-Record AVP (containing the sending peer's Origin-Host) is
+added to the request and <seealso marker="#pick_peer">pick_peer/4</seealso>
+and subsequent callbacks take place just as if <seealso
+marker="diameter#call">diameter:call/4</seealso> had been called
+explicitly.
+The End-to-End Identifier of the incoming request is preserved in the
+header of the relayed request.</p>
+
+<p>
+The returned <c>Opts</c> should not specify <c>detach</c>.
+A subsequent <seealso marker="#handle_answer">handle_answer/4</seealso>
+callback for the relayed request must return its first
+argument, the <c>diameter_packet</c> record containing the answer
+message.
+Note that the <c>extra</c> option can be specified to supply arguments
+that can distinguish the relay case from others if so desired.
+Any other return value (for example, from a
+<seealso marker="#handle_error">handle_error/4</seealso> callback)
+causes the request to be answered with 3002 (DIAMETER_UNABLE_TO_DELIVER).</p>
+</item>
+
+<tag><c>discard</c></tag>
+<item>
+<p>
+Discard the request.</p>
+</item>
+
+<tag><c>{eval, Action, PostF}</c></tag>
+<item>
+<p>
+Handle the request as if <c>Action</c> has been returned and then
+evaluate <c>PostF</c> in the request process.</p>
+</item>
+
+</taglist>
+
+<p>
+Note that protocol errors detected by diameter will result in an
+answer message without <c>handle_request/3</c> being invoked.</p>
+
+</desc>
+</func>
+
+</funcs>
+
+</erlref>

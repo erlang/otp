@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2009-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -961,24 +961,25 @@ init(KeyOrName, {ConnType,Addr,Port}, AllOpts) ->
 		 ssh ->
 		     ssh:connect(Addr, Port, FinalOptions);
 		 sftp ->
-		     ssh_sftp:connect(Addr, Port, FinalOptions)
+		     ssh_sftp:start_channel(Addr, Port, FinalOptions)
 	     end,
     case Result of
-	{ok,SSHRef} ->
+	Error = {error,_} ->
+	    Error;
+	Ok ->
+	    SSHRef = element(2, Ok),
 	    log(heading(init,KeyOrName), 
 		"Opened ~w connection:\nHost: ~p (~p)\nUser: ~p\nPassword: ~p\n",
 		[ConnType,Addr,Port,User,lists:duplicate(length(Password),$*)]),
 	    {ok,SSHRef,#state{ssh_ref=SSHRef, conn_type=ConnType,
-			      target=KeyOrName}};
-	Error ->
-	    Error
+			      target=KeyOrName}}
     end.
 
 %% @hidden
 handle_msg(sftp_connect, State) ->
     #state{ssh_ref=SSHRef, target=Target} = State,
     log(heading(sftp_connect,Target), "SSH Ref: ~p", [SSHRef]),
-    {ssh_sftp:connect(SSHRef),State};
+    {ssh_sftp:start_channel(SSHRef),State};
 
 handle_msg({session_open,TO}, State) ->
     #state{ssh_ref=SSHRef, target=Target} = State,
@@ -1202,7 +1203,7 @@ terminate(SSHRef, State) ->
 	sftp ->
 	    log(heading(disconnect_sftp,State#state.target),
 		"SFTP Ref: ~p",[SSHRef]),
-	    ssh_sftp:stop(SSHRef)
+	    ssh_sftp:stop_channel(SSHRef)
     end.
 
 
@@ -1213,7 +1214,6 @@ terminate(SSHRef, State) ->
 %%% 
 do_recv_response(SSH, Chn, Data, End, Timeout) ->
     receive
-
 	{ssh_cm, SSH, {open,Chn,RemoteChn,{session}}} ->
 	    debug("RECVD open"),
 	    {ok,{open,Chn,RemoteChn,{session}}};

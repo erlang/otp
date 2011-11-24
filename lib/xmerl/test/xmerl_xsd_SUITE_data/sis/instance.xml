@@ -1,0 +1,240 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+
+<!-- Copyright (C) Ericsson AB 2006 All rights reserved. -->
+
+<!-- Integrated Site Managed Object Model. -->
+
+<!--
+    This is a template for the IntegratedSite model version 1,
+    which consists of the following mim files: 
+      /vobs/isac/sis/OAM_CRA1190047_1/CPD_CNA11381/doc/19062/cpd_mim.xml
+      /vobs/isac/sis/OAM_CRA1190047_1/HWM_CNA11309/doc/19062/hwm_mim.xml
+      /vobs/isac/sis/OAM_CRA1190047_1/SCA_CNA113119/doc/19062/bs_mim.xml
+      /vobs/isac/sis/OAM_CRA1190047_1/SWM_CNA11315/doc/19062/swm_mim.xml
+      /vobs/isac/sis/OAM_CRA1190047_1/doc/19062/top_mim.xml
+    
+-->
+<IntegratedSite:model xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:nc="http://www.ericsson.com/is/isco/nc" xmlns:IntegratedSite="http://www.ericsson.com/is/isco/IntegratedSite" xmlns:IsTypes="http://www.ericsson.com/is/isco/IsTypes" xmlns:MainSwitch="http://www.ericsson.com/is/isco/MainSwitch_1" xmlns:MyBsModel="http://www.ericsson.com/is/isco/MyBsModel_1" xsi:schemaLocation="http://www.ericsson.com/is/isco/IntegratedSite IntegratedSite.xsd">
+  
+  <!--
+      The top class - the forefather of all classes.
+      
+      Key attributes: []
+      
+      Possible children:
+      BladeSystems
+      Hardware
+      NetworkConfiguration
+      Software
+  -->
+  <Is>
+
+    
+    <!-- These three are just for verifying that the xml schema allows
+	 the correct order of the child elements of the Is class -->
+<!--
+    <Hardware/>
+    <Software/>
+    <NetworkConfiguration/>
+-->
+    
+    <!--
+        The BladeSystems mountpoint - parent of all blade systems.
+        
+        Key attributes: []
+        
+        Possible children:
+        BladeSystemTemplate
+        Mxb
+        MyBsModel
+        Sis
+    -->
+    <BladeSystems>
+      
+      <!--
+          This class describes a Blade System. It will be cloned for each
+          new blade system type registered in the system.  The new clone
+          will serve as a mountpoint for the blade system specific model.
+          
+          Key attributes: [name]
+          
+          Possible children:
+          Blade
+          BsIpTrafficClass
+          BsLanTrafficClass
+          BsLogicalNetwork
+          BsVlan
+      -->
+      <MyBsModel>
+        <!--
+            A user friendly Blade System name, must be set at creation and can be 
+            changed when BS is locked.
+        -->
+        <name>bs_localhost_101</name>
+        <!--
+            An identifier for the BS. A new integer has to be used every time a new
+            BS is created. ??? Kvar ???
+        -->
+        <!--
+            The model for a blade system. Includes som mim files, which also uses
+            stuff from a sis model.
+        -->
+        
+        <!--
+            This is a template for the MyBsModel model version 1,
+            which consists of the following mim files: 
+              /vobs/isac/sis/OAM_CRA1190047_1/CCS_CNA113082/test/local_test/ccs_parser_SUITE_data/myTest_mim.xml, Version: /main/R2A/10
+              /vobs/isac/sis/OAM_CRA1190047_1/CCS_CNA113082/test/local_test/ccs_parser_SUITE_data/other_mim.xml
+            
+        -->
+        <MyBsModel:model>
+          
+          <!--
+              This is a class which can be assigned as an attribute of ChildClass.
+              Key attribute is 'id'.
+              
+              Key attributes: [id]
+          -->
+	  <Blipp nc:operation="replace">
+	    <id>name1</id>
+	    <truefalse>true</truefalse>
+	    <ipAddress>
+	      10.11.12.13
+	    </ipAddress>
+	    <macAddress>AA:BB:CC:DD:EE:FF</macAddress>
+	    <moAttributeDeep nc:operation="replace">
+	      /IntegratedSite:model/Is/BladeSystems/MyBsModel[name='bs_localhost_101']/MyBsModel:model/MyClass[id1='Obj'][id2='1']/ChildClass[id='Obj2']
+	    </moAttributeDeep>
+	  </Blipp>
+
+	  <Blipp>
+	    <id>name2</id>
+	    <truefalse>false</truefalse>
+	    <ipAddress>20.21.22.23</ipAddress>
+	    <macAddress>01:02:03:04:5:6</macAddress>
+	    <moAttributeDeep>
+	      MyClass[id1='Obj'][id2='1']/ChildClass[id='Obj3']
+	    </moAttributeDeep>
+	  </Blipp>
+
+          <!--
+              My Test Class
+              The class hierarky looks like this:
+              
+                   +==========+
+                   |MountPoint|
+                   +==========+
+                       / \
+                      /   \
+              +=======+   +=======+
+              | Blipp |   |MyClass|
+              +=======+   +=======+
+                              |
+                              |
+              	 +==========+
+              	 |ChildClass|
+              	 +==========+
+              
+              Key attributes: [id1,id2]
+              
+              Possible children:
+              ChildClass:
+                Definition of children under MyClass
+          -->
+	  <MyClass>
+            <!-- Test class identifyer - part1 -->
+	    <id1>Obj</id1>
+            <!-- Test class identifyer - part2 -->
+	    <id2>1</id2>
+	    <date>2006-03-08T03:00:00.9+03:00</date>
+	    <date2>2006-03-15T22:59:58.99-01:00</date2>
+	    <list>
+	      <item>0</item>
+	      <item>1</item>
+	      <item nc:operation="delete">3</item>
+	    </list>
+	    <list2>
+	      <item>
+                <!-- Struct: sis_model:uselessStruct -->
+		<field1>hei</field1>
+		<field2 nc:operation="replace">1</field2>
+	      </item>
+	      <item nc:operation="replace">
+                <!-- Struct: sis_model:uselessStruct -->
+		<field1>
+		  hopp
+		</field1>
+		<field2>2</field2>
+	      </item>
+	    </list2>
+	    <list3>
+	      <item>hei</item>
+	      <item>hopp</item>
+	    </list3>
+	    <yesNo>
+	      yes
+	    </yesNo>
+            <!-- Attribute description. -->
+	    <commonStruct>
+              <!--
+                  Struct: myNamedStruct
+                  Struct description
+              -->
+	      <counter>0</counter>
+	      <state>locked</state>
+	      <dummyStructRef>
+                <!-- Struct: sis_model:uselessStruct -->
+		<field1>hei</field1>
+		<field2>1</field2>
+	      </dummyStructRef>
+	      <dummySequence>
+		<item>
+		  <field1>hopp</field1>
+		  <field2>2</field2>
+		</item>
+		<item>
+		  <field1>sa</field1>
+		  <field2>3</field2>
+		</item>
+		<item>
+		  <field1>sa</field1>
+		  <field2>4</field2>
+		</item>
+	      </dummySequence>
+	      <inlineStruct>
+		<a>1</a>
+		<b>1.0</b>
+		<c>true</c>
+	      </inlineStruct>
+	    </commonStruct>
+	    <dummyInternal>hei</dummyInternal>
+	    <trueOrFalse>false</trueOrFalse>
+            <!--
+                Child of MyClass
+                
+                Key attributes: [id]
+            -->
+	    <ChildClass>
+	      <id>Obj2</id>
+	      <moAttribute>/IntegratedSite:model/Is/BladeSystems/MyBsModel[name='bs_localhost_101']/MyBsModel:model/Blipp[id='name1']</moAttribute>
+	      <moAttributeNamed>
+		/IntegratedSite:model/Is/BladeSystems/MyBsModel[name='bs_localhost_101']/MyBsModel:model/MyClass[id1='Obj'][id2='1']
+	      </moAttributeNamed>
+	    </ChildClass>
+	    <ChildClass>
+	      <id>Obj3</id>
+	      <moAttribute>../../Blipp[id='name2']</moAttribute>
+<!--	      <moAttributeNamed>../MyClass[id1='Obj'][id2='1']</moAttributeNamed> -->
+	      <moAttributeNamed>Dummy/MyClass[id1='Obj'][id2='1']</moAttributeNamed>
+	    </ChildClass>
+	  </MyClass>
+  
+        </MyBsModel:model>
+      </MyBsModel>
+      
+    </BladeSystems>
+<!--
+    <MainSwitch:model/>
+-->
+  </Is>
+</IntegratedSite:model>

@@ -35,17 +35,27 @@ end_per_testcase(Case, Config) ->
     ftp_suite_lib:end_per_testcase(Case, Config).
 
 
-all(suite) ->
-    {conf,init,tickets(),fin}.
+all() -> 
+    tickets().
 
-init(Config) ->
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
+
+init_per_suite(Config) ->
     ?LIB_MOD:ftpd_init(ticket_test, Config).
 
-tickets() ->
+tickets() -> 
     [ticket_6035].
 
 
-fin(Config) ->
+end_per_suite(Config) ->
     ?LIB_MOD:ftpd_fin(Config).
 
 ticket_6035(X) -> ?LIB_MOD:ticket_6035(X).

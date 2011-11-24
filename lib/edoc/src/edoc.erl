@@ -14,10 +14,8 @@
 %% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
 %% USA
 %%
-%% $Id$
-%%
 %% @copyright 2001-2007 Richard Carlsson
-%% @author Richard Carlsson <richardc@it.uu.se>
+%% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @version {@version}
 %% @end
 %% =====================================================================
@@ -58,7 +56,7 @@
 	 read_comments/1, read_comments/2,
 	 read_source/1, read_source/2]).
 
--import(edoc_report, [report/2, report/3, error/1, error/3]).
+-compile({no_auto_import,[error/1]}).
 
 -include("edoc.hrl").
 
@@ -177,8 +175,8 @@ application(App, Options) when is_atom(App) ->
  	Dir when is_list(Dir) ->
  	    application(App, Dir, Options);
  	_ ->
- 	    report("cannot find application directory for '~s'.",
- 		   [App]),
+	    edoc_report:report("cannot find application directory for '~s'.",
+                               [App]),
  	    exit(error)
     end.
 
@@ -256,6 +254,7 @@ opt_defaults() ->
 opt_negations() ->
     [{no_preprocess, preprocess},
      {no_subpackages, subpackages},
+     {no_report_missing_types, report_missing_types},
      {no_packages, packages}].
 
 %% @spec run(Packages::[package()],
@@ -308,13 +307,13 @@ opt_negations() ->
 %%  <dd>Specifies the suffix used for output files. The default value is
 %%      `".html"'. Note that this also affects generated references.
 %%  </dd>
-%%  <dt>{@type {new, bool()@}}
+%%  <dt>{@type {new, boolean()@}}
 %%  </dt>
 %%  <dd>If the value is `true', any existing `edoc-info' file in the
 %%      target directory will be ignored and overwritten. The default
 %%      value is `false'.
 %%  </dd>
-%%  <dt>{@type {packages, bool()@}}
+%%  <dt>{@type {packages, boolean()@}}
 %%  </dt>
 %%  <dd>If the value is `true', it it assumed that packages (module
 %%      namespaces) are being used, and that the source code directory
@@ -340,7 +339,7 @@ opt_negations() ->
 %%  <dd>Specifies the expected suffix of input files. The default
 %%      value is `".erl"'.
 %%  </dd>
-%%  <dt>{@type {subpackages, bool()@}}
+%%  <dt>{@type {subpackages, boolean()@}}
 %%  </dt>
 %%  <dd>If the value is `true', all subpackages of specified packages
 %%      will also be included in the documentation. The default value is
@@ -576,6 +575,12 @@ layout(Doc, Opts) ->
 
 
 %% @spec (File) ->  [comment()]
+%% @type comment() = {Line, Column, Indentation, Text}
+%% where
+%%   Line = integer(),
+%%   Column = integer(),
+%%   Indentation = integer(),
+%%   Text = [string()]
 %% @equiv read_comments(File, [])
 
 read_comments(File) ->
@@ -583,12 +588,6 @@ read_comments(File) ->
 
 %% @spec read_comments(File::filename(), Options::proplist()) ->
 %%           [comment()]
-%% where
-%%   comment() = {Line, Column, Indentation, Text},
-%%   Line = integer(),
-%%   Column = integer(),
-%%   Indentation = integer(),
-%%   Text = [string()]
 %%
 %% @doc Extracts comments from an Erlang source code file. See the
 %% module {@link //syntax_tools/erl_comment_scan} for details on the
@@ -614,7 +613,7 @@ read_source(Name) ->
 %%
 %% Options:
 %% <dl>
-%%  <dt>{@type {preprocess, bool()@}}
+%%  <dt>{@type {preprocess, boolean()@}}
 %%  </dt>
 %%  <dd>If the value is `true', the source file will be read via the
 %%      Erlang preprocessor (`epp'). The default value is `false'.
@@ -640,6 +639,13 @@ read_source(Name) ->
 %%      macro definitions, used if the `preprocess' option is turned on.
 %%      The default value is the empty list.</dd>
 %% </dl>
+%%  <dt>{@type {report_missing_types, boolean()@}}
+%%  </dt>
+%%  <dd>If the value is `true', warnings are issued for missing types.
+%%      The default value is `false'.
+%%      `no_report_missing_types' is an alias for
+%%      `{report_missing_types, false}'.
+%%  </dd>
 %%
 %% @see get_doc/2
 %% @see //syntax_tools/erl_syntax
@@ -653,8 +659,8 @@ read_source(Name, Opts0) ->
 	    check_forms(Forms, Name),
 	    Forms;
 	{error, R} ->
-	    error({"error reading file '~s'.",
-		   [edoc_lib:filename(Name)]}),
+	    edoc_report:error({"error reading file '~s'.",
+                               [edoc_lib:filename(Name)]}),
 	    exit({error, R})
     end.
 
@@ -678,11 +684,10 @@ check_forms(Fs, Name) ->
 		 error_marker ->
 		     case erl_syntax:error_marker_info(F) of
 			 {L, M, D} ->
-			     error(L, Name, {format_error, M, D});
-
+			     edoc_report:error(L, Name, {format_error, M, D});
 			 Other ->
-			     report(Name, "unknown error in "
-				    "source code: ~w.", [Other])
+			     edoc_report:report(Name, "unknown error in "
+                                                "source code: ~w.", [Other])
 		     end,
 		     exit(error);
 		 _ ->
@@ -722,17 +727,17 @@ get_doc(File) ->
 %%    <a href="overview-summary.html#Macro_expansion">Inline macro expansion</a>
 %%    for details.
 %%  </dd>
-%%  <dt>{@type {hidden, bool()@}}
+%%  <dt>{@type {hidden, boolean()@}}
 %%  </dt>
 %%  <dd>If the value is `true', documentation of hidden functions will
 %%      also be included. The default value is `false'.
 %%  </dd>
-%%  <dt>{@type {private, bool()@}}
+%%  <dt>{@type {private, boolean()@}}
 %%  </dt>
 %%  <dd>If the value is `true', documentation of private functions will
 %%      also be included. The default value is `false'.
 %%  </dd>
-%%  <dt>{@type {todo, bool()@}}
+%%  <dt>{@type {todo, boolean()@}}
 %%  </dt>
 %%  <dd>If the value is `true', To-Do notes written using `@todo' or
 %%  `@TODO' tags will be included in the documentation. The default

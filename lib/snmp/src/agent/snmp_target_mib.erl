@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,22 +18,26 @@
 %% 
 -module(snmp_target_mib).
 
+%% Avoid warning for local function error/1 clashing with autoimported BIF.
+-compile({no_auto_import,[error/1]}).
 -export([configure/1, reconfigure/1,
 	 snmpTargetSpinLock/1, snmpTargetSpinLock/2,
 	 snmpTargetAddrTable/1, snmpTargetAddrTable/3,
 	 snmpTargetParamsTable/1, snmpTargetParamsTable/3,
 	 get_target_addrs/0, get_target_engine_id/1, set_target_engine_id/2,
 	 is_valid_tag/3, get/3, table_next/2]).
--export([add_addr/10,  delete_addr/1,
+-export([add_addr/10, add_addr/11, delete_addr/1,
 	 add_params/5, delete_params/1]).
 -export([check_target_addr/1, check_target_params/1]).
+-export([default_domain/0]).
 
--include("snmp_types.hrl").
--include("snmp_tables.hrl").
--include("SNMP-TARGET-MIB.hrl").
--include("SNMPv2-TC.hrl").
--include("SNMPv2-TM.hrl").
--include("SNMP-FRAMEWORK-MIB.hrl").
+-include_lib("snmp/include/snmp_types.hrl").
+-include_lib("snmp/include/snmp_tables.hrl").
+-include_lib("snmp/include/SNMP-TARGET-MIB.hrl").
+-include_lib("snmp/include/SNMPv2-TC.hrl").
+-include_lib("snmp/include/SNMPv2-TM.hrl").
+-include_lib("snmp/include/SNMP-FRAMEWORK-MIB.hrl").
+-include_lib("snmp/include/TRANSPORT-ADDRESS-MIB.hrl").
 
 -define(VMODULE,"TARGET-MIB").
 -include("snmp_verbosity.hrl").
@@ -44,6 +48,12 @@
 %% Extra comlumns for the augmented table snmpTargetAddrExtTable
 -define(snmpTargetAddrTMask, 11).
 -define(snmpTargetAddrMMS, 12).
+
+
+%%-----------------------------------------------------------------
+
+default_domain() ->
+    snmpUDPDomain.
 
 
 %%-----------------------------------------------------------------
@@ -137,39 +147,51 @@ read_target_config_files(Dir) ->
 %%  {Name, Ip, Udp, Timeout, RetryCount, TagList, Params, EngineId,
 %%   TMask, MMS}
 %%-----------------------------------------------------------------
-check_target_addr({Name, Ip, Udp, Timeout, RetryCount, TagList,
-                   Params, EngineId, TMask, MMS}) ->
+
+check_target_addr({Name, Domain, Ip, Udp, Timeout, RetryCount, TagList,
+		   Params, EngineId, TMask, MMS}) ->
     ?vtrace("check target address with:"
-	"~n   Name:       ~s"
-	"~n   Ip:         ~p"
-	"~n   Udp:        ~p"
-	"~n   Timeout:    ~p"
-	"~n   RetryCount: ~p"
-	"~n   TagList:    ~p"
-	"~n   Params:     ~p"
-	"~n   EngineId:   ~p"
-	"~n   TMask:      ~p"
-	"~n   MMS:        ~p",
-    [Name,Ip,Udp,Timeout,RetryCount,
-     TagList,Params,EngineId,TMask,MMS]),
+	    "~n   Name:       ~s"
+	    "~n   Domain:     ~p"
+	    "~n   Ip:         ~p"
+	    "~n   Udp:        ~p"
+	    "~n   Timeout:    ~p"
+	    "~n   RetryCount: ~p"
+	    "~n   TagList:    ~p"
+	    "~n   Params:     ~p"
+	    "~n   EngineId:   ~p"
+	    "~n   TMask:      ~p"
+	    "~n   MMS:        ~p",
+	    [Name, 
+	     Domain, Ip, Udp, 
+	     Timeout, RetryCount,
+	     TagList, Params, EngineId, TMask, MMS]),
     snmp_conf:check_string(Name,{gt,0}),
-    snmp_conf:check_ip(Ip),
+    snmp_conf:check_domain(Domain),
+    snmp_conf:check_ip(Domain, Ip),
     snmp_conf:check_integer(Udp, {gt, 0}),
     snmp_conf:check_integer(Timeout, {gte, 0}),
     snmp_conf:check_integer(RetryCount, {gte,0}),
     snmp_conf:check_string(TagList),
     snmp_conf:check_string(Params),
     check_engine_id(EngineId),
-    TAddr = Ip ++ [Udp div 256, Udp rem 256],
-    check_mask(TMask, TAddr),
+    TAddress = snmp_conf:mk_taddress(Domain, Ip, Udp),
+    TDomain  = snmp_conf:mk_tdomain(Domain), 
+    check_tmask(TDomain, TMask, TAddress),
     snmp_conf:check_packet_size(MMS),
     ?vtrace("check target address done",[]),
-    
-    Addr = {Name, ?snmpUDPDomain, TAddr, Timeout,
+    Addr = {Name, TDomain, TAddress, Timeout,
 	    RetryCount, TagList, Params,
 	    ?'StorageType_nonVolatile', ?'RowStatus_active', EngineId,
             TMask, MMS}, % Values for Augmenting table in SNMP-COMMUNITY-MIB
     {ok, Addr};
+check_target_addr({Name, Ip, Udp, Timeout, RetryCount, TagList,
+                   Params, EngineId, TMask, MMS}) ->
+    Domain = default_domain(), 
+    check_target_addr({Name, 
+		       Domain, Ip, Udp, 
+		       Timeout, RetryCount, TagList,
+		       Params, EngineId, TMask, MMS});
 check_target_addr({Name, Ip, Udp, Timeout, RetryCount, TagList, Params, 
                    EngineId}) ->
     check_target_addr({Name, Ip, Udp, Timeout, RetryCount, TagList,
@@ -192,12 +214,13 @@ check_engine_id(discovery) ->
 check_engine_id(EngineId) ->
     snmp_conf:check_string(EngineId).
 
-check_mask([], _TAddr) ->
+
+check_tmask(_TDomain, [], _TAddress) ->
     ok;
-check_mask(TMask, TAddr) when length(TMask) == length(TAddr) ->
-    snmp_conf:check_taddress(TMask);
-check_mask(TMask, _TAddr) ->
-    throw({error, {invalid_mask, TMask}}).
+check_tmask(TDomain, TMask, TAddress) when length(TMask) =:= length(TAddress) ->
+    snmp_conf:check_taddress(TDomain, TMask);
+check_tmask(_TDomain, TMask, _TAddr) ->
+    throw({error, {invalid_tmask, TMask}}).
 
 
 %%-----------------------------------------------------------------
@@ -259,7 +282,13 @@ table_del_row(Tab, Key) ->
 
 add_addr(Name, Ip, Port, Timeout, Retry, TagList, 
 	 Params, EngineId, TMask, MMS) ->
-    Addr = {Name, Ip, Port, Timeout, Retry, TagList, 
+    Domain = default_domain(), 
+    add_addr(Name, Domain, Ip, Port, Timeout, Retry, TagList, 
+	     Params, EngineId, TMask, MMS).
+
+add_addr(Name, Domain, Ip, Port, Timeout, Retry, TagList, 
+	 Params, EngineId, TMask, MMS) ->
+    Addr = {Name, Domain, Ip, Port, Timeout, Retry, TagList, 
 	    Params, EngineId, TMask, MMS},
     case (catch check_target_addr(Addr)) of
 	{ok, Row} ->
@@ -339,8 +368,11 @@ maybe_create_var(Var) ->
 init_var(Var) -> ets:insert(snmp_agent_table, {Var, 0}).
 
 vars() ->
-    [snmpUnavailableContexts,
-     snmpUnknownContexts].
+    [
+     snmpUnavailableContexts,
+     snmpUnknownContexts
+    ].
+
 
 %%-----------------------------------------------------------------
 %% API functions
@@ -351,10 +383,18 @@ is_valid_tag(Tag, TDomain, TAddress) ->
     is_valid_tag(TDomain, TAddress, Tag, []).
 
 is_valid_tag(TDomain, TAddress, Tag, Key) ->
+    ?vtrace("is_valid_tag -> entry with"
+	    "~n   TDomain:  ~p"
+	    "~n   TAddress: ~p"
+	    "~n   Tag:      ~p"
+	    "~n   Key:      ~p", [TDomain, TAddress, Tag, Key]),
     case table_next(snmpTargetAddrTable, Key) of
 	endOfTable -> 
+	    ?vtrace("is_valid_tag -> endOfTable", []),
 	    false;
 	NextKey -> 
+	    ?vtrace("is_valid_tag -> next key found"
+		    "~n   NextKey: ~p", [NextKey]),
 	    case get(snmpTargetAddrTable, NextKey, [?snmpTargetAddrTDomain,
 						    ?snmpTargetAddrTAddress,
 						    ?snmpTargetAddrTagList,
@@ -363,6 +403,8 @@ is_valid_tag(TDomain, TAddress, Tag, Key) ->
 		 {value, TAddress}, % RFC2576: chapters 5.2.1 & 5.3
 		 {value, TagList}, 
 		 {value, []}] ->
+		    ?vtrace("is_valid_tag -> found with exact match"
+			    "~n   TagList: ~p", [TagList]),
 		    case snmp_misc:is_tag_member(Tag, TagList) of
 			true ->
 			    ?vtrace("is_valid_tag -> exact: "
@@ -378,9 +420,14 @@ is_valid_tag(TDomain, TAddress, Tag, Key) ->
 		 {value, TAddress2},
 		 {value, TagList}, 
 		 {value, TMask}] when TMask =/= [] ->
+		    ?vtrace("is_valid_tag -> found with exact match"
+			    "~n   TagList: ~p"
+			    "~n   TMask:   ~p", [TagList, TMask]),
 		    case snmp_misc:is_tmask_match(TAddress, TAddress2, 
 						  TMask) of
 			true ->
+			    ?vtrace("is_valid_tag -> "
+				    "tmask match - now check tag member", []),
 			    case snmp_misc:is_tag_member(Tag, TagList) of
 				true ->
 				    ?vtrace("is_valid_tag -> masked: "
@@ -393,10 +440,12 @@ is_valid_tag(TDomain, TAddress, Tag, Key) ->
 						 Tag, NextKey)
 			    end;
 			false ->
+			    ?vtrace("is_valid_tag -> tmask NO match", []),
 			    is_valid_tag(TDomain, TAddress,
 					 Tag, NextKey)
 		    end;
 		_ ->
+		    ?vtrace("is_valid_tag -> not found - try next", []),
 		    is_valid_tag(TDomain, TAddress, Tag, NextKey)
 	    end
     end.
@@ -509,6 +558,10 @@ set_target_engine_id(TargetAddrName, EngineId) ->
 %%-----------------------------------------------------------------
 %% Instrumentation Functions
 %%-----------------------------------------------------------------
+snmpTargetSpinLock(print) ->
+    VarAndValue = [{snmpTargetSpinLock, snmpTargetSpinLock(get)}],
+    snmpa_mib_lib:print_variables(VarAndValue);
+    
 snmpTargetSpinLock(new) ->
     snmp_generic:variable_func(new, {snmpTargetSpinLock, volatile}),
     {A1,A2,A3} = erlang:now(),
@@ -555,7 +608,9 @@ snmpTargetAddrTable(print) ->
 				[Prefix, element(?snmpTargetAddrName, Row),
 				 Prefix, element(?snmpTargetAddrTDomain, Row),
 				 case element(?snmpTargetAddrTDomain, Row) of
-				     ?snmpUDPDomain -> udp;
+				     ?snmpUDPDomain -> snmpUDPDomain;
+				     ?transportDomainUdpIpv4 -> transportDomainUdpIpv4;
+				     ?transportDomainUdpIpv6 -> transportDomainUdpIpv6;
 				     _ -> undefined
 				 end,
 				 Prefix, element(?snmpTargetAddrTAddress, Row),
@@ -589,12 +644,9 @@ snmpTargetAddrTable(print) ->
 				     ?'snmpTargetAddrRowStatus_active' -> active;
 				     _ -> undefined
 				 end,
-				 Prefix,
-				 element(?snmpTargetAddrEngineId, Row),
-				 Prefix,
-				 element(?snmpTargetAddrTMask, Row),
-				 Prefix,
-				 element(?snmpTargetAddrMMS, Row)]))
+				 Prefix, element(?snmpTargetAddrEngineId, Row),
+				 Prefix, element(?snmpTargetAddrTMask, Row),
+				 Prefix, element(?snmpTargetAddrMMS, Row)]))
 	end,
     snmpa_mib_lib:print_table(Table, DB, FOI, PrintRow);
 %% Op == new | delete
@@ -607,14 +659,14 @@ snmpTargetAddrTable(get, RowIndex, Cols) ->
 snmpTargetAddrTable(get_next, RowIndex, Cols) ->
     next(snmpTargetAddrTable, RowIndex, Cols);
 snmpTargetAddrTable(set, RowIndex, Cols0) ->
-    %% BMK BMK BMK
-    case (catch verify_targetAddrTable_cols(Cols0, [])) of
+    %% BMK BMK
+    case (catch verify_targetAddrTable_cols(Cols0)) of
 	{ok, Cols} ->
 	    snmp_notification_mib:invalidate_cache(),
 	    %% Add columns for augmenting table snmpTargetAddrExtTable and for
-	    %% target engine ID.  Target engine ID is set to "".  The function
+	    %% target engine ID. Target engine ID is set to "". The function
 	    %% get_target_engine_id will return "" unless a value is set using
-	    %% set_target_engine_id.  If it is "" Informs can't be sent to the
+	    %% set_target_engine_id. If it is "" Informs can't be sent to the
 	    %% target.
 	    NCols = Cols ++ [{?snmpTargetAddrEngineId, ""},
 			     {?snmpTargetAddrTMask, []},
@@ -625,12 +677,12 @@ snmpTargetAddrTable(set, RowIndex, Cols0) ->
 	    Error
     end;
 snmpTargetAddrTable(is_set_ok, RowIndex, Cols0) ->
-    case (catch verify_targetAddrTable_cols(Cols0, [])) of
+    case (catch verify_targetAddrTable_cols(Cols0)) of
 	{ok, Cols} ->
 	    %% Add columns for augmenting table snmpTargetAddrExtTable and for
-	    %% target engine ID.  Target engine ID is set to "".  The function
+	    %% target engine ID. Target engine ID is set to "". The function
 	    %% get_target_engine_id will return "" unless a value is set using
-	    %% set_target_engine_id.  If it is "" Informs can't be sent to the
+	    %% set_target_engine_id. If it is "" Informs can't be sent to the
 	    %% target.
 	    NCols = Cols ++ [{?snmpTargetAddrEngineId, ""},
 			     {?snmpTargetAddrTMask, []},
@@ -644,55 +696,83 @@ snmpTargetAddrTable(Op, Arg1, Arg2) ->
     Db = db(snmpTargetAddrTable), 
     snmp_generic:table_func(Op, Arg1, Arg2, Db).
 
+verify_targetAddrTable_cols(Cols) ->
+    ValidCols0 = verify_targetAddrTable_cols(Cols, []),
+    %% Make a last pass to verify TDomain and TAddress.
+    ValidCols0.
+
 verify_targetAddrTable_cols([], Cols) ->
     {ok, lists:reverse(Cols)};
-verify_targetAddrTable_cols([{Col, Val0}|Cols], Acc) ->
-    Val = verify_targetAddrTable_col(Col, Val0),
-    verify_targetAddrTable_cols(Cols, [{Col, Val}|Acc]).
+verify_targetAddrTable_cols([{Col, Val0}|Cols], ValidCols) ->
+    Val = verify_targetAddrTable_col(Col, Val0, ValidCols),
+    verify_targetAddrTable_cols(Cols, [{Col, Val}|ValidCols]).
 
-verify_targetAddrTable_col(?snmpTargetAddrName, Name) ->
+verify_targetAddrTable_col(?snmpTargetAddrName, Name, _) ->
     case (catch snmp_conf:check_string(Name)) of
 	ok ->
 	    Name;
 	_ ->
 	    wrongValue(?snmpTargetAddrName)
     end;
-verify_targetAddrTable_col(?snmpTargetAddrTAddress, TAddr) ->
-    case (catch snmp_conf:check_taddress(TAddr)) of
+verify_targetAddrTable_col(?snmpTargetAddrTDomain, TDomain, _) ->
+    case (catch snmp_conf:check_tdomain(TDomain)) of
 	ok ->
-	    TAddr;
+	    TDomain;
 	_ ->
-	    wrongValue(?snmpTargetAddrTAddress)
+	    wrongValue(?snmpTargetAddrTDomain)
     end;
-verify_targetAddrTable_col(?snmpTargetAddrTimeout, Timeout) ->
+%% In order to (properly) validate the TAddress, 
+%% the TDomain must already have been validated 
+%% (the format of TAddress depends on TDomain).
+verify_targetAddrTable_col(?snmpTargetAddrTAddress, TAddress, ValidCols) ->
+    case lists:keysearch(?snmpTargetAddrTDomain, 1, ValidCols) of
+	{value, {?snmpTargetAddrTDomain, TDomain}} ->
+	    case (catch snmp_conf:check_taddress(TDomain, TAddress)) of
+		ok ->
+		    TAddress;
+		_ ->
+		    wrongValue(?snmpTargetAddrTAddress)
+	    end;
+	false ->
+	    %% The user did not provide us with a TDomain, which 
+	    %% must mean that he/she intends to use the old domain. 
+	    TDomain = snmp_conf:mk_tdomain(default_domain()),
+	    case (catch snmp_conf:check_taddress(TDomain, TAddress)) of
+		ok ->
+		    TAddress;
+		_ ->
+		    wrongValue(?snmpTargetAddrTAddress)
+	    end	    
+    end;
+verify_targetAddrTable_col(?snmpTargetAddrTimeout, Timeout, _) ->
     case (catch snmp_conf:check_integer(Timeout)) of
 	ok when Timeout >= 0 ->
 	    Timeout;
 	_ ->
 	    wrongValue(?snmpTargetAddrTimeout)
     end;
-verify_targetAddrTable_col(?snmpTargetAddrRetryCount, Retry) ->
+verify_targetAddrTable_col(?snmpTargetAddrRetryCount, Retry, _) ->
     case (catch snmp_conf:check_integer(Retry)) of
 	ok when Retry >= 0 ->
 	    Retry;
 	_ ->
 	    wrongValue(?snmpTargetAddrRetryCount)
     end;
-verify_targetAddrTable_col(?snmpTargetAddrTagList, TagList) ->
+verify_targetAddrTable_col(?snmpTargetAddrTagList, TagList, _) ->
     case (catch snmp_conf:check_string(TagList)) of
 	ok ->
 	    TagList;
 	_ ->
 	    wrongValue(?snmpTargetAddrTagList)
     end;
-verify_targetAddrTable_col(?snmpTargetAddrParams, Params) ->
+verify_targetAddrTable_col(?snmpTargetAddrParams, Params, _) ->
     case (catch snmp_conf:check_string(Params)) of
 	ok ->
 	    Params;	
 	_ ->
 	    wrongValue(?snmpTargetAddrParams)
     end;
-verify_targetAddrTable_col(_, Val) ->
+verify_targetAddrTable_col(_, Val, _) ->
     Val.
     
 

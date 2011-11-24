@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,7 +19,7 @@
 
 -module(nif_mod).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -export([load_nif_lib/2, load_nif_lib/3, start/0, lib_version/0, call_history/0,
 	 get_priv_data_ptr/0, make_new_resource/2, get_resource/2]).

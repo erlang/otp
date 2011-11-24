@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2010</year>
+      <year>2004</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -30,6 +30,262 @@
   </header>
   <p>This document describes the changes made to the Compiler
     application.</p>
+
+<section><title>Compiler 4.7.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Compiler options given in the source code using a
+	    <c>-compile()</c> attribute used to be included twice in
+	    <c>Mod:module_info(compile)</c>. They are now only
+	    included once at the beginning of the list of options.</p>
+          <p>
+	    Own Id: OTP-9534</p>
+        </item>
+        <item>
+          <p>
+	    beam_disasm: Handle stripped BEAM files</p>
+          <p>
+	    beam_disasm:file/1 would crash if asked to disassemble a
+	    stripped BEAM file without an "Attr" chunk. (Thanks to
+	    Haitao Li)</p>
+          <p>
+	    Own Id: OTP-9571</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Compiler 4.7.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    If a variable is matched out in binary matching and used
+	    as the size for a binary element, it would seem to be
+	    unbound if used in a subsequent match operation. (Thanks
+	    to Bernard Duggan.)</p>
+          <p>
+	    Own Id: OTP-9134</p>
+        </item>
+        <item>
+	    <p>Eliminate incorrect warning in
+	    <c>sys_core_fold</c></p>
+          <p>
+	    Own Id: OTP-9152</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Compiler 4.7.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The <c>-export_type()</c> directive is no longer included
+	    among the attributes.</p>
+          <p>
+	    Own Id: OTP-8998</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The maximum number of allowed arguments for an Erlang
+	    function has been lowered from 256 to 255, so that the
+	    number of arguments can now fit in a byte.</p>
+          <p>
+	    Own Id: OTP-9049</p>
+        </item>
+        <item>
+          <p>
+	    Dependency generation for Makefiles has been added to the
+	    compiler and erlc. See the manual pages for
+	    <c>compile</c> and <c>erlc</c>. (Thanks to Jean-Sebastien
+	    Pedron.)</p>
+          <p>
+	    Own Id: OTP-9065</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Compiler 4.7.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Two compiler bugs (that would cause the compiler to
+	    terminate) reported by Christopher Williams have been
+	    fixed.</p>
+          <p>
+	    Own Id: OTP-8949</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The compiler would translate binary comprehensions
+	    containing tail segments in a way that would would
+	    confuse Dialyzer. For instance:</p>
+	    <p><c>[42 || &lt;&lt;_:8/integer, _/bits&gt;&gt; &lt;=
+	    Bits]</c></p>
+          <p>
+	    would produce a Dialyzer warning.</p>
+          <p>
+	    Own Id: OTP-8864</p>
+        </item>
+        <item>
+          <p>
+	    Code such as <c>foo(A) -&gt; &lt;&lt;A:0&gt;&gt;</c>
+	    would crash the compiler.</p>
+          <p>
+	    Own Id: OTP-8865</p>
+        </item>
+        <item>
+          <p>
+	    The compiler could fail with an internal error when
+	    variables were exported from a receive block but the
+	    return value of the receive block were not used. (Thanks
+	    to Jim Engquist for reporting this error.)</p>
+          <p>
+	    Own Id: OTP-8888</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Compiler 4.7.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Eliminated warnings for auto-imported BIF clashes.</p>
+          <p>
+	    Own Id: OTP-8840</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Compiler 4.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Several problems in the inliner have been fixed.</p>
+          <p>
+	    Own Id: OTP-8552</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The module binary from EEP31 (and EEP9) is implemented.</p>
+          <p>
+	    Own Id: OTP-8217</p>
+        </item>
+        <item>
+	    <p>Local and imported functions now override the
+	    auto-imported BIFs when the names clash. The pre R14
+	    behaviour was that auto-imported BIFs would override
+	    local functions. To avoid that old programs change
+	    behaviour, the following will generate an error:</p>
+	    <list><item><p>Doing a call without explicit module name
+	    to a local function having a name clashing with the name
+	    of an auto-imported BIF that was present (and
+	    auto-imported) before OTP R14A</p></item>
+	    <item><p>Explicitly importing a function having a name
+	    clashing with the name of an autoimported BIF that was
+	    present (and autoimported) before OTP R14A</p></item>
+	    <item><p>Using any form of the old compiler directive
+	    <c>nowarn_bif_clash</c></p></item> </list> <p>If the BIF
+	    was added or auto-imported in OTP R14A or later,
+	    overriding it with an import or a local function will
+	    only result in a warning,</p> <p>To resolve clashes, you
+	    can either use the explicit module name <c>erlang</c> to
+	    call the BIF, or you can remove the auto-import of that
+	    specific BIF by using the new compiler directive
+	    <c>-compile({no_auto_import,[F/A]}).</c>, which makes all
+	    calls to the local or imported function without explicit
+	    module name pass without warnings or errors.</p> <p>The
+	    change makes it possible to add auto-imported BIFs
+	    without breaking or silently changing old code in the
+	    future. However some current code ingeniously utilizing
+	    the old behaviour or the <c>nowarn_bif_clash</c> compiler
+	    directive, might need changing to be accepted by the
+	    compiler.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-8579</p>
+        </item>
+        <item>
+	    <p>The undocumented, unsupport, and deprecated function
+	    <c>lists:flat_length/1</c> has been removed.</p>
+          <p>
+	    Own Id: OTP-8584</p>
+        </item>
+        <item>
+	    <p>Nested records can now be accessed without
+	    parenthesis. See the Reference Manual for examples.
+	    (Thanks to YAMASHINA Hio and Tuncer Ayaz.)</p>
+          <p>
+	    Own Id: OTP-8597</p>
+        </item>
+        <item>
+	    <p>It is now possible to suppress the warning in code
+	    such as "<c>list_to_integer(S), ok</c>" by assigning the
+	    ignored value "_" like this: "<c>_ = list_to_integer(S),
+	    ok</c>".</p>
+          <p>
+	    Own Id: OTP-8602</p>
+        </item>
+        <item>
+	    <p><c>receive</c> statements that can only read out a
+	    newly created reference are now specially optimized so
+	    that it will execute in constant time regardless of the
+	    number of messages in the receive queue for the process.
+	    That optimization will benefit calls to
+	    <c>gen_server:call()</c>. (See <c>gen:do_call/4</c> for
+	    an example of a receive statement that will be
+	    optimized.)</p>
+          <p>
+	    Own Id: OTP-8623</p>
+        </item>
+        <item>
+	    <p>The compiler optimizes record operations better.</p>
+          <p>
+	    Own Id: OTP-8668</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Compiler 4.6.5</title>
 

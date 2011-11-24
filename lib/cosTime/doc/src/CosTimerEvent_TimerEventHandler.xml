@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2000</year>
-      <year>2007</year>
+      <year>2011</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -23,10 +23,9 @@
   The Initial Developer of the Original Code is Ericsson AB.
     </legalnotice>
 
-    <title>CosTimerEvent_&shy;TimerEventHandler</title>
-    <shorttitle>..._TimerEventHandler</shorttitle>
-    <prepared>Niclas Eklund</prepared>
-    <responsible>Niclas Eklund</responsible>
+    <title>CosTimerEvent_TimerEventHandler</title>
+    <prepared></prepared>
+    <responsible></responsible>
     <docno></docno>
     <approved>Niclas Eklund</approved>
     <checked></checked>

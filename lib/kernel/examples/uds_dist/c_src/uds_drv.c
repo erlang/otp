@@ -111,7 +111,7 @@ do {									\
 typedef enum { 
     portTypeUnknown,      /* An uninitialized port */
     portTypeListener,     /* A listening port/socket */
-    portTypeAcceptor,     /* An intermidiate stage when accepting 
+    portTypeAcceptor,     /* An intermediate stage when accepting
 			     on a listen port */
     portTypeConnector,    /* An intermediate stage when connecting */
     portTypeCommand,      /* A connected open port in command mode */
@@ -401,7 +401,7 @@ static void uds_finish(void)
 /*
 ** Protocol to control:
 ** 'C': Set port in command mode.
-** 'I': Set port in intermidiate mode
+** 'I': Set port in intermediate mode
 ** 'D': Set port in data mode
 ** 'N': Get identification number for listen port
 ** 'S': Get statistics
@@ -1000,7 +1000,7 @@ static int ensure_dir(char *path)
 
 /*
 ** Try to open a lock file and lock the first byte write-only (advisory)
-** return the file descriptor if succesful, otherwise -1 (<0).
+** return the file descriptor if successful, otherwise -1 (<0).
 */ 
 static int try_lock(char *sockname, Byte *p_creation)
 {

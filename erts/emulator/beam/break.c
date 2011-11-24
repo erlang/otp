@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1996-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 /* This File contains functions which are called if a user hits ^C */
@@ -37,10 +37,7 @@
 #include "beam_load.h"
 #include "erl_instrument.h"
 #include "erl_bif_timer.h"
-
-#ifdef _OSE_
-#include "time.h"
-#endif
+#include "erl_thr_progress.h"
 
 /* Forward declarations -- should really appear somewhere else */
 static void process_killer(void);
@@ -98,11 +95,11 @@ process_killer(void)
 	    erts_printf("(k)ill (n)ext (r)eturn:\n");
 	    while(1) {
 		if ((j = sys_get_key(0)) <= 0)
-		    halt_0(0);
+		    erl_exit(0, "");
 		switch(j) {
 		case 'k':
 		    if (rp->status == P_WAITING) {
-			Uint32 rp_locks = ERTS_PROC_LOCKS_XSIG_SEND;
+			ErtsProcLocks rp_locks = ERTS_PROC_LOCKS_XSIG_SEND;
 			erts_smp_proc_inc_refc(rp);
 			erts_smp_proc_lock(rp, rp_locks);
 			(void) erts_send_exit_signal(NULL,
@@ -262,17 +259,15 @@ print_process_info(int to, void *to_arg, Process *p)
     }
 
     {
-       long s = 0;
        int frags = 0;
        ErlHeapFragment *m = p->mbuf;
        while (m != NULL) {
 	   frags++;
-	   s += m->size;
 	   m = m->next;
        }
        erts_print(to, to_arg, "Number of heap fragments: %d\n", frags);
     }
-    erts_print(to, to_arg, "Heap fragment data: %bpu\n", MBUF_SIZE(p));
+    erts_print(to, to_arg, "Heap fragment data: %beu\n", MBUF_SIZE(p));
 
     scb = ERTS_PROC_GET_SAVED_CALLS_BUF(p);
     if (scb) {
@@ -319,15 +314,14 @@ print_process_info(int to, void *to_arg, Process *p)
     }
     
     /* print the number of reductions etc */
-    erts_print(to, to_arg, "Reductions: %bpu\n", p->reds);
+    erts_print(to, to_arg, "Reductions: %beu\n", p->reds);
 
-    erts_print(to, to_arg, "Stack+heap: %bpu\n", p->heap_sz);
+    erts_print(to, to_arg, "Stack+heap: %beu\n", p->heap_sz);
     erts_print(to, to_arg, "OldHeap: %bpu\n",
-               (OLD_HEAP(p) == NULL) ? 0 :
-               (unsigned)(OLD_HEND(p) - OLD_HEAP(p)) );
+               (OLD_HEAP(p) == NULL) ? 0 : (OLD_HEND(p) - OLD_HEAP(p)) );
     erts_print(to, to_arg, "Heap unused: %bpu\n", (p->hend - p->htop));
     erts_print(to, to_arg, "OldHeap unused: %bpu\n",
-	       (OLD_HEAP(p) == NULL) ? 0 : (OLD_HEND(p) - OLD_HEAP(p)) );
+	       (OLD_HEAP(p) == NULL) ? 0 : (OLD_HEND(p) - OLD_HTOP(p)) );
 
     if (garbing) {
 	print_garb_info(to, to_arg, p);
@@ -381,7 +375,7 @@ loaded(int to, void *to_arg)
     int i;
     int old = 0;
     int cur = 0;
-    Eterm* code;
+    BeamInstr* code;
 
     /*
      * Calculate and print totals.
@@ -564,7 +558,7 @@ do_break(void)
 #endif
 #ifdef DEBUG
 	case 't':
-	    p_slpq();
+	    erts_p_slpq();
 	    return;
 	case 'b':
 	    bin_check();
@@ -617,29 +611,29 @@ static void
 bin_check(void)
 {
     Process  *rp;
-    ProcBin *bp;
-    int i, printed;
+    struct erl_off_heap_header* hdr;
+    int i, printed = 0;
 
     for (i=0; i < erts_max_processes; i++) {
 	if ((rp = process_tab[i]) == NULL)
 	    continue;
-	if (!(bp = rp->off_heap.mso))
-	    continue;
-	printed = 0;
-	while (bp) {
-	    if (printed == 0) {
-		erts_printf("Process %T holding binary data \n", rp->id);
-		printed = 1;
+	for (hdr = rp->off_heap.first; hdr; hdr = hdr->next) {
+	    if (hdr->thing_word == HEADER_PROC_BIN) {
+		ProcBin *bp = (ProcBin*) hdr;
+		if (!printed) {
+		    erts_printf("Process %T holding binary data \n", rp->id);
+		    printed = 1;
+		}
+		erts_printf("%p orig_size: %bpd, norefs = %bpd\n",
+			    bp->val, 
+			    bp->val->orig_size, 
+			    erts_smp_atomic_read_nob(&bp->val->refc));
 	    }
-	    erts_printf("0x%08lx orig_size: %ld, norefs = %ld\n",
-		       (unsigned long)bp->val, 
-		       (long)bp->val->orig_size, 
-		       erts_smp_atomic_read(&bp->val->refc));
-
-	    bp = bp->next;
 	}
-	if (printed == 1)
+	if (printed) {
 	    erts_printf("--------------------------------------\n");
+	    printed = 0;
+	}
     }
     /* db_bin_check() has to be rewritten for the AVL trees... */
     /*db_bin_check();*/ 
@@ -657,24 +651,23 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
     char dumpnamebuf[MAXPATHLEN];
     char* dumpname;
 
-    if (ERTS_IS_CRASH_DUMPING)
+    if (ERTS_SOMEONE_IS_CRASH_DUMPING)
 	return;
 
-    /* Wait for all threads to block. If all threads haven't blocked
+#ifdef ERTS_SMP
+    /*
+     * Wait for all managed threads to block. If all threads haven't blocked
      * after a minute, we go anyway and hope for the best...
      *
      * We do not release system again. We expect an exit() or abort() after
      * dump has been written.
-     *
-     * NOTE: We allow gc therefore it is important not to lock *any*
-     *       process locks.
      */
-    erts_smp_emergency_block_system(60000, ERTS_BS_FLG_ALLOW_GC);
+    erts_thr_progress_fatal_error_block(60000);
     /* Either worked or not... */
 
     /* Allow us to pass certain places without locking... */
-#ifdef ERTS_SMP
-    erts_smp_atomic_inc(&erts_writing_erl_crash_dump);
+    erts_smp_atomic32_set_mb(&erts_writing_erl_crash_dump, 1);
+    erts_smp_tsd_set(erts_is_crash_dumping_key, (void *) 1);
 #else
     erts_writing_erl_crash_dump = 1;
 #endif

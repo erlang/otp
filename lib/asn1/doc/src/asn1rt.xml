@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2009</year>
+      <year>1997</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -40,36 +40,6 @@
   </description>
 
   <funcs>
-
-    <func>
-      <name>start() -> ok |{error,Reason}</name>
-      <fsummary>Starts the asn1 server.</fsummary>
-      <type>
-        <v>Reason = term()</v>
-      </type>
-      <desc>
-	<p>Starts the asn1 server that loads the drivers.</p> 
-	<p>The server schedules a driver that is not blocked by
-	another caller. The driver is used by the asn1 application if
-	specs are compiled with options <c>[per_bin, optimize]</c> or
-	<c>[ber_bin, optimize, driver]</c>. The server will be started
-	automatically at encode/decode if it isn't done explicitly. If
-	encode/decode with driver is used in test or industrial code
-	it is a performance gain to start it explicitly to avoid the
-	one time load in run-time.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>stop() -> ok |{error,Reason}</name>
-      <fsummary>Stops the asn1 server.</fsummary>
-      <type>
-        <v>Reason = term()</v>
-      </type>
-      <desc>
-	<p>Stops the asn1 server and unloads the drivers.</p>
-      </desc>
-    </func>
 
     <func>
       <name>decode(Module,Type,Bytes) -> {ok,Value}|{error,Reason}</name>
@@ -126,35 +96,23 @@
 
     <func>
       <name>load_driver() ->  ok | {error,Reason}</name>
-      <fsummary>Loads the linked-in driver.</fsummary>
+      <fsummary>Loads the linked-in driver. (deprecated)</fsummary>
       <type>
         <v>Reason = term()</v>
       </type>
       <desc>
-        <p>This function loads the linked-in driver before the first call
-          to encode. If this function is not called the driver will be loaded
-          automatically at the first call to encode. If one doesn't want the
-          performance cost of a driver load when the application is running,
-          this function makes it possible to load the driver in an 
-          initialization.</p>
-        <p>The driver is only used when encoding/decoding ASN.1 files that
-          were compiled with the options <c>per_bin</c> and <c>optimize</c>.</p>
+	<p>This function is obsolete and will be removed in R16A</p>
       </desc>
     </func>
 
     <func>
       <name>unload_driver() ->  ok | {error,Reason}</name>
-      <fsummary>Unloads the linked-in driver.</fsummary>
+      <fsummary>Unloads the linked-in driver. (deprecated)</fsummary>
       <type>
         <v>Reason = term()</v>
       </type>
       <desc>
-        <p>This function unloads the linked-in driver.
-          When the driver has been loaded it remains in the environment until
-          it is unloaded. Normally the driver should remain loaded, it is
-          crucial for the performance of ASN.1 encoding. </p>
-        <p>The driver is only used when ASN.1 modules have been compiled
-          with the flags <c>per_bin</c> and <c>optimize</c>.</p>
+	<p>This function is obsolete and will be removed in R16A</p>
       </desc>
     </func>
 
@@ -186,19 +144,6 @@
         <p><c>utf8_list_to_binary/1</c> Transforms a list of integers,
           where each integer represents one character as its unicode
           value, to a UTF8 encoded binary.</p>
-      </desc>
-    </func>
-  
-    <func>
-      <name>validate(Module,Type,Value) ->  ok | {error,Reason}</name>
-      <fsummary>Validate an ASN.1 value.</fsummary>
-      <type>
-        <v>Module = Type = atom()</v>
-        <v>Value = term()</v>
-      </type>
-      <desc>
-        <p>Validates that <c>Value</c> conforms  to <c>Type</c> 
-          from <c>Module</c>. <em>Not implemented in this version of the ASN.1 application.</em></p>
       </desc>
     </func>
 

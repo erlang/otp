@@ -1,26 +1,26 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2003-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
 -module(vts).
 
 -export([start/0,
-	 init_data/4,
+	 init_data/5,
 	 stop/0,
 	 report/2]).
 
@@ -32,6 +32,7 @@
 	 menu_frame/2,
 	 welcome_frame/2,
 	 config_frame/2,
+	 browse_config_file/2,
 	 add_config_file/2,
 	 remove_config_file/2,
 	 run_frame/2,
@@ -56,7 +57,7 @@
 
 -record(state,{tests=[],config=[],event_handler=[],test_runner,
 	       running=0,reload_results=false,start_dir,current_log_dir,
-	       total=0,ok=0,fail=0,skip=0,testruns=[]}).
+	       logopts=[],total=0,ok=0,fail=0,skip=0,testruns=[]}).
 
 
 %%%-----------------------------------------------------------------
@@ -65,8 +66,8 @@ start() ->
     webtool:start(),
     webtool:start_tools([],"app=vts").
 
-init_data(ConfigFiles,EvHandlers,LogDir,Tests) ->
-    call({init_data,ConfigFiles,EvHandlers,LogDir,Tests}).
+init_data(ConfigFiles,EvHandlers,LogDir,LogOpts,Tests) ->
+    call({init_data,ConfigFiles,EvHandlers,LogDir,LogOpts,Tests}).
 
 stop() ->
     webtool:stop_tools([],"app=vts"),
@@ -100,7 +101,7 @@ start_link() ->
 	    MRef = erlang:monitor(process,Pid),
 	    receive
 		{Pid,started} -> 
-		    erlang:demonitor(MRef),
+		    erlang:demonitor(MRef, [flush]),
 		    {ok,Pid};
 		{'DOWN',MRef,process,_,Reason} -> 
 		    {error,{vts,died,Reason}}
@@ -119,6 +120,8 @@ menu_frame(_Env,_Input) ->
     call(menu_frame).
 config_frame(_Env,_Input) ->
     call(config_frame).
+browse_config_file(_Env,Input) ->
+    call({browse_config_file,Input}).
 add_config_file(_Env,Input) ->
     call({add_config_file,Input}).
 remove_config_file(_Env,Input) ->
@@ -160,11 +163,14 @@ init(Parent) ->
 
 loop(State) ->
     receive
-	{{init_data,ConfigFiles,EvHandlers,LogDir,Tests},From} ->
-	    ct_install(State),
+	{{init_data,Config,EvHandlers,LogDir,LogOpts,Tests},From} ->
+	    %% ct:pal("State#state.current_log_dir=~p", [State#state.current_log_dir]),
+	    NewState = State#state{config=Config,event_handler=EvHandlers,
+				   current_log_dir=LogDir,
+				   logopts=LogOpts,tests=Tests},
+	    ct_install(NewState),
 	    return(From,ok),
-	    loop(#state{config=ConfigFiles,event_handler=EvHandlers,
-			current_log_dir=LogDir,tests=Tests});
+	    loop(NewState);
 	{start_page,From} ->
 	    return(From,start_page1()),
 	    loop(State);
@@ -179,6 +185,9 @@ loop(State) ->
 	    loop(State);
 	{config_frame,From} ->
 	    return(From,config_frame1(State)),
+	    loop(State);
+	{{browse_config_file,_Input},From} ->
+	    return(From,ok),
 	    loop(State);
 	{{add_config_file,Input},From} ->
 	    {Return,State1} = add_config_file1(Input,State),
@@ -239,10 +248,12 @@ loop(State) ->
 	    return(From,ok);
 	{'EXIT',Pid,Reason} ->
 	    case State#state.test_runner of
-		Pid -> io:format("ERROR: test runner crashed: ~p\n",[Reason]);
-		_ -> ignore
-	    end,
-	    loop(State);
+		Pid ->
+		    io:format("Test run error: ~p\n",[Reason]),
+		    loop(State);
+		_ ->
+		    loop(State)
+	    end;
 	{{test_info,_Type,_Data},From} ->
 	    return(From,ok),
 	    loop(State)
@@ -257,7 +268,7 @@ call(Msg) ->
 	    Pid ! {Msg,{self(),Ref}},
 	    receive
 		{Ref, Result} -> 
-		    erlang:demonitor(MRef),
+		    erlang:demonitor(MRef, [flush]),
 		    Result;
 		{'DOWN',MRef,process,_,Reason}  -> 
 		    {error,{process_down,Pid,Reason}}
@@ -268,10 +279,11 @@ return({To,Ref},Result) ->
     To ! {Ref, Result}.
 
 
-run_test1(State=#state{tests=Tests,current_log_dir=LogDir}) ->
+run_test1(State=#state{tests=Tests,current_log_dir=LogDir,
+		       logopts=LogOpts}) ->
     Self=self(),
     RunTest = fun() ->
-		      case ct_run:do_run(Tests,[],LogDir) of
+		      case ct_run:do_run(Tests,[],LogDir,LogOpts) of
 			  {error,_Reason} ->
 			      aborted();
 			  _ ->
@@ -279,20 +291,19 @@ run_test1(State=#state{tests=Tests,current_log_dir=LogDir}) ->
 		      end,
 		      unlink(Self)
 	      end,
-
     Pid = spawn_link(RunTest),
-
-    Total =
+    {Total,Tests1} =
 	receive 
 	    {{test_info,start_info,{_,_,Cases}},From} ->
 		return(From,ok),
-		Cases;
+		{Cases,Tests};
 	    EXIT = {'EXIT',_,_} ->
-		self() ! EXIT
+		self() ! EXIT,
+		{0,[]}
 	after 30000 ->
-		0
+		{0,[]}
 	end,
-    State#state{test_runner=Pid,running=length(Tests),
+    State#state{test_runner=Pid,running=length(Tests1),
 		total=Total,ok=0,fail=0,skip=0,testruns=[]}.
 
  
@@ -356,22 +367,32 @@ config_frame1(State) ->
 config_body(State) ->
     Entry = [input("TYPE=file NAME=browse SIZE=40"),
 	     input("TYPE=hidden NAME=file")],
-    AddForm = 
+    BrowseForm =
 	form(
-	  "NAME=read_file_form METHOD=post ACTION=\"./add_config_file\"",
+	  "NAME=read_file_form METHOD=post ACTION=\"./browse_config_file\"",
 	  table(
 	    "BORDER=0",
-	    [tr(
-	       [td(Entry),
+	    [tr(td("1. Locate config file")),
+	     tr(td(Entry))])),
+    AddForm = 
+	form(
+	  "NAME=add_file_form METHOD=post ACTION=\"./add_config_file\"",
+	  table(
+	    "BORDER=0",
+	    [tr(td("2. Paste full config file name here")),
+	     tr(
+	       [td(input("TYPE=text NAME=file SIZE=40")),
 		td("ALIGN=center",
 		   input("TYPE=submit onClick=\"file.value=browse.value;\""
 			 " VALUE=\"Add\""))])])),
+
     {Text,RemoveForm} = 
 	case State#state.config of
 	    [] ->
-		T = "To be able to run any tests, one or more configuration " 
-		    "files must be added. Enter the name of the configuration "
-		    "file below and click the \"Add\" button.",
+		T = "Before running the tests, one or more configuration "
+		    "files may be added. Locate the config file, copy its "
+		    "full name, paste this into the text field below, then "
+		    "click the \"Add\" button.",
 		R = "",
 		{T,R};
 	    Files ->
@@ -394,20 +415,24 @@ config_body(State) ->
 				  input("TYPE=submit VALUE=\"Remove\"")))])),
 		{T,R}
 	end,
-    
+
     [h1("ALIGN=center","Config"),
      table(
-       "WIDTH=600 ALIGN=center CELLPADDING=5",
+       "WIDTH=450 ALIGN=center CELLPADDING=5",
        [tr(td(["BGCOLOR=",?INFO_BG_COLOR],Text)),
-	tr(td("ALIGN=center",AddForm)),
-	tr(td("ALIGN=center",RemoveForm))])].
-
+	tr(td("")),
+	tr(td("")),
+	tr(td("ALIGN=left",BrowseForm)),
+	tr(td("ALIGN=left",AddForm)),
+	tr(td("ALIGN=left",RemoveForm))])].
 
 add_config_file1(Input,State) ->
     State1 = 
 	case get_input_data(Input,"file") of
-	    "" -> State;
-	    File -> State#state{config=[File|State#state.config]}
+	    "" ->
+		State;
+	    File ->
+		State#state{config=[File|State#state.config]}
 	end,
     Return = config_frame1(State1),
     {Return,State1}.
@@ -427,10 +452,17 @@ run_body(#state{running=Running}) when Running>0 ->
     [h1("ALIGN=center","Run Test"),
      p(["Test are ongoing: ",href("./result_frameset","Results")])];
 run_body(State) ->
-    ConfigList = ul([li(File) || File <- State#state.config]),
+    ConfigList =
+	case State#state.config of
+	    [] ->
+		ul(["none"]);
+	    CfgFiles ->
+		ul([li(File) || File <- CfgFiles])
+	end,
     ConfigFiles = [h3("Config Files"),
 		   ConfigList],
-    
+    {ok,CWD} = file:get_cwd(),
+    CurrWD = [h3("Current Working Directory"), ul(CWD)],
     AddDirForm = 
 	form(
 	  "NAME=add_dir_form METHOD=post ACTION=\"./add_test_dir\"",
@@ -442,7 +474,6 @@ run_body(State) ->
 		td("ALIGN=center",
 		   input("TYPE=submit onClick=\"dir.value=browse.value;\""
 			 " VALUE=\"Add Test Dir\""))])])),
-
     {LoadedTestsTable,Submit} = 
 	case create_testdir_entries(State#state.tests,1) of
 	    [] -> {"",""};
@@ -454,22 +485,20 @@ run_body(State) ->
 		{table("CELLPADDING=5",[Heading,TestDirs]),
 		submit_button()} 
 	end,
-
-    %% It should be ok to have no config-file!
     Body = 
-	%% case State#state.config of %% [] -> %% p("ALIGN=center",
-	%% 	       href("./config_frame","Please select one or
-	%% 	       more config files")); %% _ ->
 	table(
-	  "WIDTH=100%",
-	  [tr(td(ConfigFiles)),
+	  "WIDTH=450 ALIGN=center",
+	  [tr(td("")),
+	   tr(td("")),
+	   tr(td(ConfigFiles)),
+	   tr(td("")),
+	   tr(td(CurrWD)),
 	   tr(td("")),
 	   tr(td(AddDirForm)),
 	   tr(td("")),
 	   tr(td(LoadedTestsTable)),
-	   tr(td(Submit))]),
-    %%    end,
-    
+	   tr(td(Submit))
+	  ]),
     [h1("ALIGN=center","Run Test"), Body].
 
 create_testdir_entries([{Dir,Suite,Case}|Tests],N) ->
@@ -478,7 +507,7 @@ create_testdir_entries([],_N) ->
     [].
 
 testdir_entry(Dir,Suite,Case,N) ->
-    NStr = integer_to_list(N),
+    NStr = vts_integer_to_list(N),
     tr([td(delete_button(NStr)),
 	td(Dir),
 	td(suite_select(Dir,Suite,NStr)),
@@ -556,18 +585,17 @@ options([Element|Elements],Selected,N,Func) ->
 options([],_Selected,_N,_Func) ->
     [].
 
-add_test_dir1(Input,State) ->
+add_test_dir1(Input, State) ->
     State1 = 
 	case get_input_data(Input,"dir") of
 	    "" -> State;
 	    Dir0 ->
 		Dir = case ct_util:is_test_dir(Dir0) of
-			  true -> 
-			      Dir0;
-			  false -> filename:join(Dir0,"test")
+			  true  -> Dir0;
+			  false -> ct_util:get_testdir(Dir0, all)
 		      end,
 		case filelib:is_dir(Dir) of
-		    true -> 
+		    true  ->
 			Test = ct_run:tests(Dir),
 			State#state{tests=State#state.tests++Test};
 		    false ->
@@ -576,8 +604,6 @@ add_test_dir1(Input,State) ->
 	end,
     Return = run_frame1(State1),
     {Return,State1}.
-
-
 
 remove_test_dir1(Input,State) ->
     N = list_to_integer(get_input_data(Input,"dir")),
@@ -641,6 +667,9 @@ result_frameset2(State) ->
 		"./redirect_to_result_log_frame";
 	    {_Dir,0} ->
 		filename:join(["/log_dir","index.html"]);
+	    {_Dir,_} when State#state.testruns == [] ->
+		%% crash before first test
+		"./no_result_log_frame";
 	    {_Dir,_} ->
 		{_,CurrentLog} = hd(State#state.testruns),
 		CurrentLog
@@ -689,11 +718,11 @@ result_summary_frame1(State) ->
 result_summary_body(State) ->
     N = State#state.ok + State#state.fail + State#state.skip,
     [h2("Result Summary"),
-     p([b(integer_to_list(N))," cases executed (of ",
-	b(integer_to_list(State#state.total)),")"]),
-     p([green([b(integer_to_list(State#state.ok))," successful"]),br(),
-	red([b(integer_to_list(State#state.fail))," failed"]),br(),
-	orange([b(integer_to_list(State#state.skip))," skipped"])]),
+     p([b(vts_integer_to_list(N))," cases executed (of ",
+	b(vts_integer_to_list(State#state.total)),")"]),
+     p([green([b(vts_integer_to_list(State#state.ok))," successful"]),br(),
+	red([b(vts_integer_to_list(State#state.fail))," failed"]),br(),
+	orange([b(vts_integer_to_list(State#state.skip))," skipped"])]),
     executed_test_list(State)].
 
 executed_test_list(#state{testruns=[]}) ->
@@ -733,6 +762,14 @@ report1(tc_done,{_Suite,init_per_suite,_},State) ->
     State;
 report1(tc_done,{_Suite,end_per_suite,_},State) ->
     State;
+report1(tc_done,{_Suite,init_per_group,_},State) ->
+    State;
+report1(tc_done,{_Suite,end_per_group,_},State) ->
+    State;
+report1(tc_done,{_Suite,ct_init_per_group,_},State) ->
+    State;
+report1(tc_done,{_Suite,ct_end_per_group,_},State) ->
+    State;
 report1(tc_done,{_Suite,_Case,ok},State) ->
     State#state{ok=State#state.ok+1};
 report1(tc_done,{_Suite,_Case,{failed,_Reason}},State) ->
@@ -740,7 +777,11 @@ report1(tc_done,{_Suite,_Case,{failed,_Reason}},State) ->
 report1(tc_done,{_Suite,_Case,{skipped,_Reason}},State) ->
     State#state{skip=State#state.skip+1};
 report1(tc_user_skip,{_Suite,_Case,_Reason},State) ->
-    State#state{skip=State#state.skip+1}.
+    State#state{skip=State#state.skip+1};
+report1(tc_auto_skip,{_Suite,_Case,_Reason},State) ->
+    State#state{skip=State#state.skip+1};
+report1(loginfo,_,State) ->
+    State.
 
 get_test_log(TestName,LogDir) ->
     [Log] = 
@@ -840,6 +881,8 @@ h2(Text) ->
     ["<H2>",Text,"</H2>\n"].
 h3(Text) ->
     ["<H3>",Text,"</H3>\n"].
+%%h4(Text) ->
+%%    ["<H4>",Text,"</H4>\n"].
 font(Args,Text) ->
     ["<FONT ",Args,">\n",Text,"\n</FONT>\n"].
 p(Text) ->    
@@ -880,3 +923,7 @@ get_input_data(Input,Key)->
 parse(Input) ->
     httpd:parse_query(Input).
 
+vts_integer_to_list(X) when is_atom(X) ->
+    atom_to_list(X);
+vts_integer_to_list(X) when is_integer(X) ->
+    integer_to_list(X).

@@ -1,7 +1,0 @@
-Export1  DEFINITIONS ::=
-BEGIN
-EXPORTS T
-
-T ::= Typ	
-
-END

@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>1996</year>
-      <year>2007</year>
+      <year>2011</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -42,112 +42,75 @@
   </description>
   <funcs>
     <func>
-      <name>bif(Name, Arity) -> bool()</name>
+      <name name="bif" arity="2"/>
       <fsummary>Test for an Erlang BIF</fsummary>
-      <type>
-        <v>Name = atom()</v>
-        <v>Arity = integer()</v>
-      </type>
       <desc>
-        <p>Returns <c>true</c> if <c>Name/Arity</c> is an Erlang BIF
+        <p>Returns <c>true</c> if <c><anno>Name</anno>/<anno>Arity</anno></c> is an Erlang BIF
           which is automatically recognized by the compiler, otherwise
           <c>false</c>.</p>
       </desc>
     </func>
     <func>
-      <name>guard_bif(Name, Arity) -> bool()</name>
+      <name name="guard_bif" arity="2"/>
       <fsummary>Test for an Erlang BIF allowed in guards</fsummary>
-      <type>
-        <v>Name = atom()</v>
-        <v>Arity = integer()</v>
-      </type>
       <desc>
-        <p>Returns <c>true</c> if <c>Name/Arity</c> is an Erlang BIF
+        <p>Returns <c>true</c> if <c><anno>Name</anno>/<anno>Arity</anno></c> is an Erlang BIF
           which is allowed in guards, otherwise <c>false</c>.</p>
       </desc>
     </func>
     <func>
-      <name>type_test(Name, Arity) -> bool()</name>
+      <name name="type_test" arity="2"/>
       <fsummary>Test for a valid type test</fsummary>
-      <type>
-        <v>Name = atom()</v>
-        <v>Arity = integer()</v>
-      </type>
       <desc>
-        <p>Returns <c>true</c> if <c>Name/Arity</c> is a valid Erlang
+        <p>Returns <c>true</c> if <c><anno>Name</anno>/<anno>Arity</anno></c> is a valid Erlang
           type test, otherwise <c>false</c>.</p>
       </desc>
     </func>
     <func>
-      <name>arith_op(OpName, Arity) -> bool()</name>
+      <name name="arith_op" arity="2"/>
       <fsummary>Test for an arithmetic operator</fsummary>
-      <type>
-        <v>OpName = atom()</v>
-        <v>Arity = integer()</v>
-      </type>
       <desc>
-        <p>Returns <c>true</c> if <c>OpName/Arity</c> is an arithmetic
+        <p>Returns <c>true</c> if <c><anno>OpName</anno>/<anno>Arity</anno></c> is an arithmetic
           operator, otherwise <c>false</c>.</p>
       </desc>
     </func>
     <func>
-      <name>bool_op(OpName, Arity) -> bool()</name>
+      <name name="bool_op" arity="2"/>
       <fsummary>Test for a Boolean operator</fsummary>
-      <type>
-        <v>OpName = atom()</v>
-        <v>Arity = integer()</v>
-      </type>
       <desc>
-        <p>Returns <c>true</c> if <c>OpName/Arity</c> is a Boolean
+        <p>Returns <c>true</c> if <c><anno>OpName</anno>/<anno>Arity</anno></c> is a Boolean
           operator, otherwise <c>false</c>.</p>
       </desc>
     </func>
     <func>
-      <name>comp_op(OpName, Arity) -> bool()</name>
+      <name name="comp_op" arity="2"/>
       <fsummary>Test for a comparison operator</fsummary>
-      <type>
-        <v>OpName = atom()</v>
-        <v>Arity = integer()</v>
-      </type>
       <desc>
-        <p>Returns <c>true</c> if <c>OpName/Arity</c> is a comparison
+        <p>Returns <c>true</c> if <c><anno>OpName</anno>/<anno>Arity</anno></c> is a comparison
           operator, otherwise <c>false</c>.</p>
       </desc>
     </func>
     <func>
-      <name>list_op(OpName, Arity) -> bool()</name>
+      <name name="list_op" arity="2"/>
       <fsummary>Test for a list operator</fsummary>
-      <type>
-        <v>OpName = atom()</v>
-        <v>Arity = integer()</v>
-      </type>
       <desc>
-        <p>Returns <c>true</c> if <c>OpName/Arity</c> is a list
+        <p>Returns <c>true</c> if <c><anno>OpName</anno>/<anno>Arity</anno></c> is a list
           operator, otherwise <c>false</c>.</p>
       </desc>
     </func>
     <func>
-      <name>send_op(OpName, Arity) -> bool()</name>
+      <name name="send_op" arity="2"/>
       <fsummary>Test for a send operator</fsummary>
-      <type>
-        <v>OpName = atom()</v>
-        <v>Arity = integer()</v>
-      </type>
       <desc>
-        <p>Returns <c>true</c> if <c>OpName/Arity</c> is a send
+        <p>Returns <c>true</c> if <c><anno>OpName</anno>/<anno>Arity</anno></c> is a send
           operator, otherwise <c>false</c>.</p>
       </desc>
     </func>
     <func>
-      <name>op_type(OpName, Arity) -> Type</name>
+      <name name="op_type" arity="2"/>
       <fsummary>Return operator type</fsummary>
-      <type>
-        <v>OpName = atom()</v>
-        <v>Arity = integer()</v>
-        <v>Type = arith | bool | comp | list | send</v>
-      </type>
       <desc>
-        <p>Returns the <c>Type</c> of operator that <c>OpName/Arity</c> 
+        <p>Returns the <c><anno>Type</anno></c> of operator that <c><anno>OpName</anno>/<anno>Arity</anno></c>
           belongs to, 
           or generates a <c>function_clause</c> error if it is not an 
           operator at all.</p>

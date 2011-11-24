@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2001-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -34,11 +34,6 @@ erts_sys_init_float(void)
 # ifdef SIGFPE
     sys_sigset(SIGFPE, SIG_IGN); /* Ignore so we can test for NaN and Inf */
 # endif
-}
-
-static ERTS_INLINE void set_current_fp_exception(unsigned long pc)
-{
-    /* nothing to do */
 }
 
 #else  /* !NO_FPE_SIGNALS */
@@ -476,7 +471,7 @@ static int mask_fpe(void)
 
 #endif
 
-#if (defined(__linux__) && (defined(__i386__) || defined(__x86_64__) || defined(__sparc__) || defined(__powerpc__))) || (defined(__DARWIN__) && (defined(__i386__) || defined(__x86_64__) || defined(__ppc__))) || (defined(__FreeBSD__) && (defined(__x86_64__) || defined(__i386__))) || (defined(__OpenBSD__) && defined(__x86_64__)) || (defined(__sun__) && defined(__x86_64__))
+#if (defined(__linux__) && (defined(__i386__) || defined(__x86_64__) || defined(__sparc__) || defined(__powerpc__))) || (defined(__DARWIN__) && (defined(__i386__) || defined(__x86_64__) || defined(__ppc__))) || (defined(__FreeBSD__) && (defined(__x86_64__) || defined(__i386__))) || ((defined(__NetBSD__) || defined(__OpenBSD__)) && defined(__x86_64__)) || (defined(__sun__) && defined(__x86_64__))
 
 #if defined(__linux__) && defined(__i386__)
 #if !defined(X86_FXSR_MAGIC)
@@ -519,6 +514,10 @@ static int mask_fpe(void)
 #define mc_pc(mc)	((mc)->mc_rip)
 #elif defined(__FreeBSD__) && defined(__i386__)
 #define mc_pc(mc)	((mc)->mc_eip)
+#elif defined(__NetBSD__) && defined(__x86_64__)
+#define mc_pc(mc)	((mc)->__gregs[_REG_RIP])
+#elif defined(__NetBSD__) && defined(__i386__)
+#define mc_pc(mc)	((mc)->__gregs[_REG_EIP])
 #elif defined(__OpenBSD__) && defined(__x86_64__)
 #define mc_pc(mc)	((mc)->sc_rip)
 #elif defined(__sun__) && defined(__x86_64__)
@@ -608,6 +607,23 @@ static void fpe_sig_action(int sig, siginfo_t *si, void *puc)
 	envxmm->en_sw &= ~0xFF;
     } else {
 	struct env87 *env87 = &savefpu->sv_87.sv_env;
+	env87->en_sw &= ~0xFF;
+    }
+#elif defined(__NetBSD__) && defined(__x86_64__)
+    mcontext_t *mc = &uc->uc_mcontext;
+    struct fxsave64 *fxsave = (struct fxsave64 *)&mc->__fpregs;
+    pc = mc_pc(mc);
+    fxsave->fx_mxcsr = 0x1F80;
+    fxsave->fx_fsw &= ~0xFF;
+#elif defined(__NetBSD__) && defined(__i386__)
+    mcontext_t *mc = &uc->uc_mcontext;
+    pc = mc_pc(mc);
+    if (uc->uc_flags & _UC_FXSAVE) {
+	struct envxmm *envxmm = (struct envxmm *)&mc->__fpregs;
+	envxmm->en_mxcsr = 0x1F80;
+	envxmm->en_sw &= ~0xFF;
+    } else {
+	struct env87 *env87 = (struct env87 *)&mc->__fpregs;
 	env87->en_sw &= ~0xFF;
     }
 #elif defined(__OpenBSD__) && defined(__x86_64__)
@@ -799,8 +815,17 @@ sys_chars_to_double(char* buf, double* fp)
     }
 
 #ifdef NO_FPE_SIGNALS
-    if (errno == ERANGE && (*fp == 0.0 || *fp == HUGE_VAL || *fp == -HUGE_VAL)) {
-	return -1;
+    if (errno == ERANGE) {
+	if (*fp == HUGE_VAL || *fp == -HUGE_VAL) {
+	    /* overflow, should give error */
+	    return -1;
+	} else if (t == s && *fp == 0.0) {
+	    /* This should give 0.0 - OTP-7178 */
+	    errno = 0;
+
+	} else if (*fp == 0.0) {
+	    return -1;
+	}
     }
 #endif
     return 0;
@@ -810,7 +835,9 @@ int
 matherr(struct exception *exc)
 {
 #if !defined(NO_FPE_SIGNALS)
-    set_current_fp_exception((unsigned long)__builtin_return_address(0));
+    volatile unsigned long *fpexnp = erts_get_current_fp_exception();
+    if (fpexnp != NULL)
+	*fpexnp = (unsigned long)__builtin_return_address(0);
 #endif
     return 1;
 }

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -20,6 +20,8 @@
 %%
 -module(mnesia_text).
 
+%% Avoid warning for local function error/1 clashing with autoimported BIF.
+-compile({no_auto_import,[error/1]}).
 -export([parse/1, file/1, load_textfile/1, dump_to_textfile/1]).
 
 load_textfile(File) ->
@@ -179,9 +181,6 @@ read_term_from_stream(Stream, File, Line) ->
 		    Str = Mod:format_error(What),
 		    io:format("Error in line:~p of:~p ~s\n",
 			      [NewLine, File, Str]),
-		    error;
-		T ->
-		    io:format("Error2 **~p~n",[T]),
 		    error
 	    end;
 	{eof,_EndLine} ->

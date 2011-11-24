@@ -29,6 +29,7 @@
 
 -include("httpd.hrl").
 -include("httpd_internal.hrl").
+-include("inets_internal.hrl").
 
 -define(VMODULE,"ALIAS").
 
@@ -103,6 +104,19 @@ real_name(ConfigDB, RequestURI, []) ->
 	httpd_util:split_path(default_index(ConfigDB, RealName)),
     {ShortPath, Path, AfterPath};
 
+real_name(ConfigDB, RequestURI, [{MP,Replacement}|Rest])
+  when element(1, MP) =:= re_pattern ->
+    case re:run(RequestURI, MP, [{capture,[]}]) of
+	match ->
+	    NewURI = re:replace(RequestURI, MP, Replacement, [{return,list}]),
+	    {ShortPath,_} = httpd_util:split_path(NewURI),
+	    {Path,AfterPath} =
+		httpd_util:split_path(default_index(ConfigDB, NewURI)),
+	    {ShortPath, Path, AfterPath};
+	nomatch ->
+	    real_name(ConfigDB, RequestURI, Rest)
+    end;
+
 real_name(ConfigDB, RequestURI, [{FakeName,RealName}|Rest]) ->
      case inets_regexp:match(RequestURI, "^" ++ FakeName) of
 	{match, _, _} ->
@@ -120,6 +134,18 @@ real_name(ConfigDB, RequestURI, [{FakeName,RealName}|Rest]) ->
 
 real_script_name(_ConfigDB, _RequestURI, []) ->
     not_a_script;
+
+real_script_name(ConfigDB, RequestURI, [{MP,Replacement} | Rest])
+  when element(1, MP) =:= re_pattern ->
+    case re:run(RequestURI, MP, [{capture,[]}]) of
+	match ->
+	    ActualName =
+		re:replace(RequestURI, MP, Replacement, [{return,list}]),
+	    httpd_util:split_script_path(default_index(ConfigDB, ActualName));
+	nomatch ->
+	    real_script_name(ConfigDB, RequestURI, Rest)
+    end;
+
 real_script_name(ConfigDB, RequestURI, [{FakeName,RealName} | Rest]) ->
     case inets_regexp:match(RequestURI, "^" ++ FakeName) of
 	{match,_,_} ->
@@ -180,6 +206,8 @@ load("Alias " ++ Alias, []) ->
 	{ok, _} ->
 	    {error,?NICE(httpd_conf:clean(Alias)++" is an invalid Alias")}
     end;
+load("ReWrite " ++ Rule, Acc) ->
+    load_re_write(Rule, Acc, "ReWrite", re_write);
 load("ScriptAlias " ++ ScriptAlias, []) ->
     case inets_regexp:split(ScriptAlias, " ") of
 	{ok, [FakeName, RealName]} ->
@@ -189,6 +217,24 @@ load("ScriptAlias " ++ ScriptAlias, []) ->
 	{ok, _} ->
 	    {error, ?NICE(httpd_conf:clean(ScriptAlias)++
 			  " is an invalid ScriptAlias")}
+    end;
+load("ScriptReWrite " ++ Rule, Acc) ->
+    load_re_write(Rule, Acc, "ScriptReWrite", script_re_write).
+
+load_re_write(Rule0, Acc, Type, Tag) ->
+    case lists:dropwhile(
+	   fun ($\s) -> true; ($\t) -> true; (_) -> false end,
+	   Rule0) of
+	"" ->
+	    {error, ?NICE(httpd_conf:clean(Rule0)++" is an invalid "++Type)};
+	Rule ->
+	    case string:chr(Rule, $\s) of
+		0 ->
+		    {ok, Acc, {Tag, {Rule, ""}}};
+		N ->
+		    {Re, [_|Replacement]} = lists:split(N-1, Rule),
+		    {ok, Acc, {Tag, {Re, Replacement}}}
+	    end
     end.
 
 store({directory_index, Value} = Conf, _) when is_list(Value) ->
@@ -200,16 +246,36 @@ store({directory_index, Value} = Conf, _) when is_list(Value) ->
     end;
 store({directory_index, Value}, _) ->
     {error, {wrong_type, {directory_index, Value}}};
-store({alias, {Fake, Real}} = Conf, _) 
-  when is_list(Fake) andalso is_list(Real) ->
+store({alias, {Fake, Real}} = Conf, _)
+  when is_list(Fake), is_list(Real) ->
     {ok, Conf};
 store({alias, Value}, _) ->
     {error, {wrong_type, {alias, Value}}};
+store({re_write, {Re, Replacement}} = Conf, _)
+  when is_list(Re), is_list(Replacement) ->
+    case re:compile(Re) of
+	{ok, MP} ->
+	    {ok, {alias, {MP, Replacement}}};
+	{error,_} ->
+	    {error, {re_compile, Conf}}
+    end;
+store({re_write, _} = Conf, _) ->
+    {error, {wrong_type, Conf}};
 store({script_alias, {Fake, Real}} = Conf, _) 
-  when is_list(Fake) andalso is_list(Real) ->
+  when is_list(Fake), is_list(Real) ->
     {ok, Conf};
 store({script_alias, Value}, _) ->
-    {error, {wrong_type, {script_alias, Value}}}.
+    {error, {wrong_type, {script_alias, Value}}};
+store({script_re_write, {Re, Replacement}} = Conf, _)
+  when is_list(Re), is_list(Replacement) ->
+    case re:compile(Re) of
+	{ok, MP} ->
+	    {ok, {script_alias, {MP, Replacement}}};
+	{error,_} ->
+	    {error, {re_compile, Conf}}
+    end;
+store({script_re_write, _} = Conf, _) ->
+    {error, {wrong_type, Conf}}.
 
 is_directory_index_list([]) ->
     true;

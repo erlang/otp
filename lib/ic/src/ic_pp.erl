@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -92,6 +92,14 @@
 %% 
 %%======================================================================================
 
+%% Multiple Include Optimization
+%%
+%% Algorithm described at:
+%% http://gcc.gnu.org/onlinedocs/cppinternals/Guard-Macros.html
+-record(mio, {valid = true,   %% multiple include valid
+              cmacro,         %% controlling macro of the current conditional directive
+              depth = 0,      %% conditional directive depth
+              included = []}).
 
 
 
@@ -130,7 +138,7 @@ run(FileList, FileName, IncDir, Flags) ->
     %%----------------------------------------------------------
     %% Run the second phase, i.e expand macros
     %%----------------------------------------------------------
-    {Out, Err, War, _Defs, IfCou} = expand(File, FileName, IncDir, Flags),
+    {Out, Err, War, _Defs, _Mio, IfCou} = expand(File, FileName, IncDir, Flags),
 
     %%----------------------------------------------------------
     %% Check if all #if #ifdef #ifndef have a matching #endif
@@ -155,9 +163,9 @@ run(FileList, FileName, IncDir, Flags) ->
 %% The entry for all included files
 %%
 %%
-%% Output   {Out, Defs, Err, War}
+%% Output   {Out, Err, War, Defs, MultipleIncludeValid}
 %%======================================================================================
-run_include(FileName, FileList, _Out, Defs, Err, War, IncLine, IncFile, IncDir) ->
+run_include(FileName, FileList, _Out, Defs, Err, War, IncLine, IncFile, IncDir, Mio) ->
 
     %%----------------------------------------------------------
     %% Run the first phase, i.e tokenise the file
@@ -169,18 +177,21 @@ run_include(FileName, FileList, _Out, Defs, Err, War, IncLine, IncFile, IncDir) 
     %%----------------------------------------------------------
     %% Run the second phase, i.e expand macros
     %%----------------------------------------------------------
+    {Out2, Err2, War2, Defs2, Mio2, IfCou2} =
+        expand([FileInfoStart|File]++FileInfoEnd, Defs, Err, War,
+               [FileName|IncFile], IncDir,
+               #mio{included=Mio#mio.included}),
 
-    %% Try first pass without file info start/end
-    {OutT, ErrT, WarT, DefsT, IfCouT} =
-	expand(File, Defs, Err, War, [FileName|IncFile], IncDir),
+    MergeIncluded = sets:to_list(sets:from_list(Mio#mio.included ++ Mio2#mio.included)),
 
-    {Out2, Err2, War2, Defs2, IfCou2} = 
-	case only_nls(OutT) of
-	    true -> %% The file is defined before
-		{["\n"], ErrT, WarT, DefsT, IfCouT};
-	    false -> %% The file is not defined before, try second pass
-		expand([FileInfoStart|File]++FileInfoEnd, Defs, Err, War, [FileName|IncFile], IncDir)
-	end,
+    Mio3 =
+        case {Mio2#mio.valid, Mio2#mio.cmacro} of
+            {V, Macro} when V == false;
+                            Macro == undefined ->
+                update_mio(Mio#mio{included=MergeIncluded});
+            {true, _} ->
+                update_mio({include, FileName}, Mio#mio{included=MergeIncluded})
+        end,
     
     %%----------------------------------------------------------
     %% Check if all #if #ifdef #ifndef have a matching #endif
@@ -192,26 +203,7 @@ run_include(FileName, FileList, _Out, Defs, Err, War, IncLine, IncFile, IncDir) 
 			   []
 		   end,
 
-    {Out2, Defs2, Err2++IfError, War2}.
-
-
-
-%% Return true if there is no data 
-%% other than new lines
-only_nls([]) ->
-    true;
-only_nls(["\n"|Rem]) ->
-    only_nls(Rem);
-only_nls(["\r","\n"|Rem]) ->
-    only_nls(Rem);
-only_nls([_|_Rem]) ->
-    false.
-
-
-
-
-
-
+    {Out2, Defs2, Err2++IfError, War2, Mio3}.
 
 
 
@@ -647,87 +639,86 @@ expand(List, FileName, IncDir, Flags) ->
     %% Get all definitions from preprocessor commnads
     %% and merge them on top of the file collected.
     CLDefs = get_cmd_line_defs(Flags),
-    expand(List, [], [], CLDefs, [FileName], IncDir, check_all, [], [], 1, FileName).
+    expand(List, [], [], CLDefs, [FileName], IncDir, #mio{}, check_all, [], [], 1, FileName).
 
-expand(List, Defs, Err, War, [FileName|IncFile], IncDir) ->
-    expand(List, [], [], Defs, [FileName|IncFile], IncDir, check_all, Err, War, 1, FileName).
-
+expand(List, Defs, Err, War, [FileName|IncFile], IncDir, Mio) ->
+    expand(List, [], [], Defs, [FileName|IncFile], IncDir, Mio, check_all, Err, War, 1, FileName).
 
 %%=======================================================
 %% Main loop for the expansion
 %%=======================================================
-expand([], Out, _SelfRef, Defs, _IncFile, _IncDir, IfCou, Err, War, _L, _FN) ->
+expand([], Out, _SelfRef, Defs, _IncFile, _IncDir, Mio, IfCou, Err, War, _L, _FN) ->
 %    io:format("~n   ===============~n"),
 %    io:format("   definitions    ~p~n",[lists:reverse(Defs)]),
 %    io:format("   found warnings ~p~n",[lists:reverse(War)]),
 %    io:format("   found errors   ~p~n",[lists:reverse(Err)]),
 %    io:format("   ===============~n~n~n"),
-    {Out, Err, War, Defs, IfCou};
+    {Out, Err, War, Defs, Mio, IfCou};
 
-expand([{file_info, Str} | Rem], Out, SelfRef, Defs, IncFile, IncDir, IfCou, Err, War, L, FN) ->
-    expand(Rem, Str++Out, SelfRef, Defs, IncFile, IncDir, IfCou, Err, War, L, FN);
+expand([{file_info, Str} | Rem], Out, SelfRef, Defs, IncFile, IncDir, Mio, IfCou, Err, War, L, FN) ->
+    expand(Rem, Str++Out, SelfRef, Defs, IncFile, IncDir, Mio, IfCou, Err, War, L, FN);
 
 %%---------------------------------------
 %% Searching for endif, 
 %% i.e skip all source lines until matching
 %% end if is encountered
 %%---------------------------------------
-expand([{command,Command} | Rem], Out, SelfRef, Defs, IncFile, IncDir, {endif, Endif, IfLine}, Err, War, L, FN) 
+expand([{command,Command} | Rem], Out, SelfRef, Defs, IncFile, IncDir, Mio, {endif, Endif, IfLine}, Err, War, L, FN)
   when Command == "ifdef" ->
     {_Removed, Rem2, _Nl} = read_to_nl(Rem),
     IfCou2 = {endif, Endif+1, IfLine},
-    expand(Rem2, Out, SelfRef, Defs, IncFile, IncDir, IfCou2, Err, War, L, FN);
+    expand(Rem2, Out, SelfRef, Defs, IncFile, IncDir, Mio, IfCou2, Err, War, L, FN);
 
 
-expand([{command,Command} | Rem], Out, SelfRef, Defs, IncFile, IncDir, {endif, Endif, IfLine}, Err, War, L, FN)
+expand([{command,Command} | Rem], Out, SelfRef, Defs, IncFile, IncDir, Mio, {endif, Endif, IfLine}, Err, War, L, FN)
   when Command == "ifndef" ->
     {_Removed, Rem2, _Nl} = read_to_nl(Rem),
     IfCou2 = {endif, Endif+1, IfLine},
-    expand(Rem2, Out, SelfRef, Defs, IncFile, IncDir, IfCou2, Err, War, L, FN);
+    expand(Rem2, Out, SelfRef, Defs, IncFile, IncDir, Mio, IfCou2, Err, War, L, FN);
 
 
-expand([{command,Command} | Rem], Out, SelfRef, Defs, IncFile, IncDir, {endif, Endif, IfLine}, Err, War, L, FN)
+expand([{command,Command} | Rem], Out, SelfRef, Defs, IncFile, IncDir, Mio, {endif, Endif, IfLine}, Err, War, L, FN)
   when Command == "if" ->
-    case pp_command(Command, Rem, Defs, IncDir, Err, War, L, FN) of
+    case pp_command(Command, Rem, Defs, IncDir, Mio, Err, War, L, FN) of
         {{'if', true}, Rem2, Err2, War2, Nl} ->
             IfCou2 = {endif, Endif+1, IfLine},
-            expand(Rem2, Out, SelfRef, Defs, IncFile, IncDir, IfCou2, Err2, War2, L+Nl, FN);
+            expand(Rem2, Out, SelfRef, Defs, IncFile, IncDir, Mio, IfCou2, Err2, War2, L+Nl, FN);
 %%        {{'if', false}, Rem2, Err2, War2, Nl} -> Not implemented yet
         {{'if', error}, Rem2, Err2, War2, Nl} ->
             IfCou2 = {endif, Endif, IfLine},
-            expand(Rem2, Out, SelfRef, Defs, IncFile, IncDir, IfCou2, Err2, War2, L+Nl, FN)
+            expand(Rem2, Out, SelfRef, Defs, IncFile, IncDir, Mio, IfCou2, Err2, War2, L+Nl, FN)
     end;
 
-expand([{command,Command} | Rem], Out, SelfRef, Defs, IncFile, IncDir, {endif, Endif, IfLine}, Err, War, L, FN) 
+expand([{command,Command} | Rem], Out, SelfRef, Defs, IncFile, IncDir, Mio, {endif, Endif, IfLine}, Err, War, L, FN)
   when Command == "endif" ->
     {_Removed, Rem2, Nl} = read_to_nl(Rem),
     case Endif of
 	1 ->
-	    Out2 = [lists:duplicate(Nl,$\n)|Out],
-            expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, check_all, Err, War, L+Nl, FN);
+	    Out2 = lists:duplicate(Nl,$\n) ++ Out,
+            expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, Mio, check_all, Err, War, L+Nl, FN);
 	_ ->
             IfCou2 = {endif, Endif-1, IfLine},
-            expand(Rem2, Out, SelfRef, Defs, IncFile, IncDir, IfCou2, Err, War, L+Nl, FN)
+            expand(Rem2, Out, SelfRef, Defs, IncFile, IncDir, Mio, IfCou2, Err, War, L+Nl, FN)
     end;
 
 
-expand([{command,_Command} | Rem], Out, SelfRef, Defs, IncFile, IncDir, {endif, Endif, IfLine}, Err, War, L, FN) ->
+expand([{command,_Command} | Rem], Out, SelfRef, Defs, IncFile, IncDir, Mio, {endif, Endif, IfLine}, Err, War, L, FN) ->
     {_Removed, Rem2, _Nl} = read_to_nl(Rem),
     IfCou2 = {endif, Endif, IfLine},
-    expand(Rem2, Out, SelfRef, Defs, IncFile, IncDir, IfCou2, Err, War, L, FN);
+    expand(Rem2, Out, SelfRef, Defs, IncFile, IncDir, Mio, IfCou2, Err, War, L, FN);
 
 %% Solves a bug when spaces in front of hashmark !
-expand([space | Rem], Out, SelfRef, Defs, IncFile, IncDir, {endif, Endif, IfLine}, Err, War, L, FN) ->
-    expand(Rem, Out, SelfRef, Defs, IncFile, IncDir, {endif, Endif, IfLine}, Err, War, L, FN);
+expand([space | Rem], Out, SelfRef, Defs, IncFile, IncDir, Mio, {endif, Endif, IfLine}, Err, War, L, FN) ->
+    expand(Rem, Out, SelfRef, Defs, IncFile, IncDir, Mio, {endif, Endif, IfLine}, Err, War, L, FN);
 
-expand([{nl,_Nl} | Rem], Out, SelfRef, Defs, IncFile, IncDir, {endif, Endif, IfLine}, Err, War, L, FN) ->
-    expand(Rem, Out, SelfRef, Defs, IncFile, IncDir, {endif, Endif, IfLine}, Err, War, L, FN);
+expand([{nl,_Nl} | Rem], Out, SelfRef, Defs, IncFile, IncDir, Mio, {endif, Endif, IfLine}, Err, War, L, FN) ->
+    expand(Rem, Out, SelfRef, Defs, IncFile, IncDir, Mio, {endif, Endif, IfLine}, Err, War, L, FN);
 
 
-expand([_X | Rem], Out, SelfRef, Defs, IncFile, IncDir, {endif, Endif, IfLine}, Err, War, L, FN) ->
+expand([_X | Rem], Out, SelfRef, Defs, IncFile, IncDir, Mio, {endif, Endif, IfLine}, Err, War, L, FN) ->
     {_Removed, Rem2, Nl} = read_to_nl(Rem),
-    Out2 = [lists:duplicate(Nl,$\n)|Out],
-    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, {endif, Endif, IfLine}, Err, War, L, FN);
+    Out2 = lists:duplicate(Nl,$\n) ++ Out,
+    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, Mio, {endif, Endif, IfLine}, Err, War, L, FN);
 
 
 
@@ -736,121 +727,132 @@ expand([_X | Rem], Out, SelfRef, Defs, IncFile, IncDir, {endif, Endif, IfLine}, 
 %%---------------------------------------
 %% Check all tokens
 %%---------------------------------------
-expand([{nl, _N} | Rem], Out, SelfRef, Defs, IncFile, IncDir, IfCou, Err, War, L, FN) ->
-    expand(Rem, [$\n | Out], SelfRef, Defs, IncFile, IncDir, IfCou, Err, War, L+1, FN);
+expand([{nl, _N} | Rem], Out, SelfRef, Defs, IncFile, IncDir, Mio, IfCou, Err, War, L, FN) ->
+    expand(Rem, [$\n | Out], SelfRef, Defs, IncFile, IncDir, Mio, IfCou, Err, War, L+1, FN);
 
-expand([space | Rem], Out, SelfRef, Defs, IncFile, IncDir, IfCou, Err, War, L, FN) ->
-    expand(Rem, [?space | Out], SelfRef, Defs, IncFile, IncDir, IfCou, Err, War, L, FN);
+expand([space | Rem], Out, SelfRef, Defs, IncFile, IncDir, Mio, IfCou, Err, War, L, FN) ->
+    expand(Rem, [?space | Out], SelfRef, Defs, IncFile, IncDir, Mio, IfCou, Err, War, L, FN);
 
-expand([space_exp | Rem], Out, SelfRef, Defs, IncFile, IncDir, IfCou, Err, War, L, FN) ->
-    expand(Rem, [?space | Out], SelfRef, Defs, IncFile, IncDir, IfCou, Err, War, L, FN);
+expand([space_exp | Rem], Out, SelfRef, Defs, IncFile, IncDir, Mio, IfCou, Err, War, L, FN) ->
+    expand(Rem, [?space | Out], SelfRef, Defs, IncFile, IncDir, Mio, IfCou, Err, War, L, FN);
 
-expand([{command,Command} | Rem], Out, SelfRef, Defs, IncFile, IncDir, check_all, Err, War, L, FN) ->
-    case pp_command(Command, Rem, Defs, IncDir, Err, War, L, FN) of
+expand([{command,Command} | Rem], Out, SelfRef, Defs, IncFile, IncDir, Mio, check_all, Err, War, L, FN) ->
+    case pp_command(Command, Rem, Defs, IncDir, Mio, Err, War, L, FN) of
 	{define, Rem2, Defs2, Err2, War2, Nl} -> 
-	    Out2 = [lists:duplicate(Nl,$\n)|Out],
-	    expand(Rem2, Out2, SelfRef, Defs2, IncFile, IncDir, check_all, Err2, War2, L+Nl, FN);
+	    Out2 = lists:duplicate(Nl,$\n) ++ Out,
+	    expand(Rem2, Out2, SelfRef, Defs2, IncFile, IncDir, update_mio(Mio), check_all, Err2, War2, L+Nl, FN);
 
 	{undef, Rem2, Defs2, Err2, War2, Nl} -> 
-	    Out2 = [lists:duplicate(Nl,$\n)|Out],
-	    expand(Rem2, Out2, SelfRef, Defs2, IncFile, IncDir, check_all, Err2, War2, L+Nl, FN);
+	    Out2 = lists:duplicate(Nl,$\n) ++ Out,
+	    expand(Rem2, Out2, SelfRef, Defs2, IncFile, IncDir, update_mio(Mio), check_all, Err2, War2, L+Nl, FN);
 
 	{{include, ok}, FileName, FileCont, Rem2, Nl, Err2, War2} ->
-	    {Out3, Defs3, Err3, War3} = 
-		run_include(FileName, FileCont, Out, Defs, Err2, War2, L+Nl, IncFile, IncDir),
+	    {Out3, Defs3, Err3, War3, Mio2} =
+		run_include(FileName, FileCont, Out, Defs, Err2, War2, L+Nl, IncFile, IncDir, Mio),
 	    Nls = [],
 	    Out4 = Out3++Nls++Out,
-	    expand(Rem2, Out4, SelfRef, Defs3, IncFile, IncDir, check_all, Err3, War3, L+Nl, FN);
+	    expand(Rem2, Out4, SelfRef, Defs3, IncFile, IncDir, Mio2, check_all, Err3, War3, L+Nl, FN);
 	
 	{{include, error}, Rem2, Nl, Err2, War2} ->
-	    Out2 = [lists:duplicate(Nl,$\n)|Out],
-	    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, check_all, Err2, War2, L+Nl, FN);
+	    Out2 = lists:duplicate(Nl,$\n) ++ Out,
+	    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, update_mio(Mio), check_all, Err2, War2, L+Nl, FN);
+
+	{{include, skip}, Rem2} ->
+	    Out2 = [$\n|Out],
+	    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, update_mio(Mio), check_all, Err, War, L+1, FN);
 
 	{{ifdef, true}, Rem2, Err2, War2, Nl} ->
-	    Out2 = [lists:duplicate(Nl,$\n)|Out],
+	    Out2 = lists:duplicate(Nl,$\n) ++ Out,
 	    IfCou2 = {endif, 1, L},
-	    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, IfCou2, Err2, War2, L+Nl, FN);
+	    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, Mio, IfCou2, Err2, War2, L+Nl, FN);
 	{{ifdef, false}, Rem2, Err2, War2, Nl} ->
-	    Out2 = [lists:duplicate(Nl,$\n)|Out],
-	    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, check_all, Err2, War2, L+Nl, FN);
+	    Out2 = lists:duplicate(Nl,$\n) ++ Out,
+	    Mio2 = update_mio(ifdef, Mio),
+	    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, Mio2, check_all, Err2, War2, L+Nl, FN);
 
 	{{ifndef, true}, Rem2, Err2, War2, Nl} ->
-	    Out2 = [lists:duplicate(Nl,$\n)|Out],
+	    Out2 = lists:duplicate(Nl,$\n) ++ Out,
 	    IfCou2 = {endif, 1, L},
-	    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, IfCou2, Err2, War2, L+Nl, FN);
-	{{ifndef, false}, Rem2, Err2, War2, Nl} ->
-	    Out2 = [lists:duplicate(Nl,$\n)|Out],
-	    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, check_all, Err2, War2, L+Nl, FN);
+	    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, Mio, IfCou2, Err2, War2, L+Nl, FN);
+	{{ifndef, false}, Macro, Rem2, Err2, War2, Nl} ->
+	    Out2 = lists:duplicate(Nl,$\n) ++ Out,
+	    Mio2 = update_mio({ifndef, Macro}, Mio),
+	    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, Mio2, check_all, Err2, War2, L+Nl, FN);
 
 	{endif, Rem2, Err2, War2, Nl} ->
-	    Out2 = [lists:duplicate(Nl,$\n)|Out],
-	    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, check_all, Err2, War2, L+Nl, FN);
+	    Out2 = lists:duplicate(Nl,$\n) ++ Out,
+	    Mio2 = update_mio(endif, Mio),
+	    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, Mio2, check_all, Err2, War2, L+Nl, FN);
 
 	{{'if', true}, Rem2, Err2, War2, Nl} ->
-	    Out2 = [lists:duplicate(Nl,$\n)|Out],
+	    Out2 = lists:duplicate(Nl,$\n) ++ Out,
 	    IfCou2 = {endif, 1, L},
-	    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, IfCou2, Err2, War2, L+Nl, FN);
+	    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, Mio, IfCou2, Err2, War2, L+Nl, FN);
 %%	{{'if', false}, Removed, Rem2, Nl} ->   Not implemented at present
 	{{'if', error}, Rem2, Err2, War2, Nl} ->
-	    Out2 = [lists:duplicate(Nl,$\n)|Out],
-	    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, check_all, Err2, War2, L+Nl, FN);
+	    Out2 = lists:duplicate(Nl,$\n) ++ Out,
+	    Mio2 = update_mio('if', Mio),
+	    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, Mio2, check_all, Err2, War2, L+Nl, FN);
 
 	{'else', {_Removed, Rem2, Nl}} ->
-	    Out2 = [lists:duplicate(Nl,$\n)|Out],
+	    Out2 = lists:duplicate(Nl,$\n) ++ Out,
 	    Err2 = {FN, L, "`else' command is not implemented at present"},
-	    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, check_all, [Err2|Err], War, L+Nl, FN);
+	    Mio2 = update_mio('else', Mio),
+	    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, Mio2, check_all, [Err2|Err], War, L+Nl, FN);
 
 	{'elif', {_Removed, Rem2, Nl}} ->
-	    Out2 = [lists:duplicate(Nl,$\n)|Out],
+	    Out2 = lists:duplicate(Nl,$\n) ++ Out,
 	    Err2 = {FN, L, "`elif' command is not implemented at present"},
-	    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, check_all, [Err2|Err], War, L+Nl, FN);
+	    Mio2 = update_mio('elif', Mio),
+	    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, Mio2, check_all, [Err2|Err], War, L+Nl, FN);
 
 	{warning, {WarningText, Rem2, Nl}} ->
 	    [FileName|_More] = IncFile,
 	    War2 = {FileName, L, "warning: #warning "++detokenise(WarningText)},
-	    Out2 = [lists:duplicate(Nl,$\n)|Out],
-	    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, check_all, Err, [War2|War], L+Nl, FN);
+	    Out2 = lists:duplicate(Nl,$\n) ++ Out,
+	    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, update_mio(Mio), check_all, Err, [War2|War], L+Nl, FN);
 	    
 	{error, {ErrorText, Rem2, Nl}} ->
 	    [FileName|_More] = IncFile,
 	    Err2 = {FileName, L, detokenise(ErrorText)},
-	    Out2 = [lists:duplicate(Nl,$\n)|Out],
-	    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, check_all, [Err2|Err], War, L+Nl, FN);
+	    Out2 = lists:duplicate(Nl,$\n) ++ Out,
+	    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, update_mio(Mio), check_all, [Err2|Err], War, L+Nl, FN);
 	    
 	{{line, ok}, {_Removed, Rem2, Nl}, L2, FN2, LineText} ->
 	    Out2 = lists:duplicate(Nl,$\n)++LineText++Out,
 	    [_X|IF] = IncFile,
 	    IncFile2 = [FN2|IF],
-	    expand(Rem2, Out2, SelfRef, Defs, IncFile2, IncDir, check_all, Err, War, L2, FN2);
+	    expand(Rem2, Out2, SelfRef, Defs, IncFile2, IncDir, update_mio(Mio), check_all, Err, War, L2, FN2);
 	{{line, error}, {_Removed, Rem2, Nl}, Err2} ->
-	    Out2 = [lists:duplicate(Nl,$\n)|Out],
-	    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, check_all, [Err2|Err], War, L+Nl, FN);
+	    Out2 = lists:duplicate(Nl,$\n) ++ Out,
+	    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, update_mio(Mio), check_all, [Err2|Err], War, L+Nl, FN);
 
 	hash_mark ->
-	    expand(Rem, Out, SelfRef, Defs, IncFile, IncDir, check_all, Err, War, L, FN);
+	    expand(Rem, Out, SelfRef, Defs, IncFile, IncDir, Mio, check_all, Err, War, L, FN);
 
 	{pragma, Rem2, Nl, Text} ->
 	    Out2 = lists:duplicate(Nl,$\n)++Text++Out,
-	    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, check_all, Err, War, L+Nl, FN);
+	    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, update_mio(Mio), check_all, Err, War, L+Nl, FN);
 
 	{ident, Rem2, Nl, Text} ->
 	    Out2 = lists:duplicate(Nl,$\n)++Text++Out,
-	    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, check_all, Err, War, L+Nl, FN);
+	    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, update_mio(Mio), check_all, Err, War, L+Nl, FN);
 
 	{not_recognised, {Removed, Rem2, Nl}} ->
 	    Text = lists:reverse([$#|Command]),
 	    RemovedS = lists:reverse([?space|detokenise(Removed)]),
 	    Out2 = [$\n|RemovedS]++Text++Out,
+	    Mio2 = update_mio(Mio),
 	    case Command of
 		[X|_T] when ?is_upper(X) ->
-		    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, check_all, Err, War, L+Nl, FN);
+		    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, Mio2, check_all, Err, War, L+Nl, FN);
 		[X|_T] when ?is_lower(X) ->
-		    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, check_all, Err, War, L+Nl, FN);
+		    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, Mio2, check_all, Err, War, L+Nl, FN);
 		[X|_T] when ?is_underline(X) ->
-		    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, check_all, Err, War, L+Nl, FN);
+		    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, Mio2, check_all, Err, War, L+Nl, FN);
 		_ ->
 		    Err2 = {FN, L, "invalid preprocessing directive name"},
-		    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, check_all, [Err2|Err], War, L+Nl, FN)
+		    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, Mio2, check_all, [Err2|Err], War, L+Nl, FN)
 	    end;
 
 	Else ->
@@ -859,19 +861,19 @@ expand([{command,Command} | Rem], Out, SelfRef, Defs, IncFile, IncDir, check_all
     end;
 
 
-expand([{var, "__LINE__"}|Rem], Out, SelfRef, Defs, IncFile, IncDir, IfCou, Err, War, L, FN) ->
+expand([{var, "__LINE__"}|Rem], Out, SelfRef, Defs, IncFile, IncDir, Mio, IfCou, Err, War, L, FN) ->
     LL = io_lib:format("~p",[L]),
-    expand(Rem, [LL | Out], SelfRef, Defs, IncFile, IncDir, IfCou, Err, War, L, FN);
+    expand(Rem, [LL | Out], SelfRef, Defs, IncFile, IncDir, update_mio(Mio), IfCou, Err, War, L, FN);
 
-expand([{var, "__FILE__"}|Rem], Out, SelfRef, Defs, IncFile, IncDir, IfCou, Err, War, L, FN) ->
-    expand(Rem, [$",FN,$" | Out], SelfRef, Defs, IncFile, IncDir, IfCou, Err, War, L, FN);
+expand([{var, "__FILE__"}|Rem], Out, SelfRef, Defs, IncFile, Mio, IncDir, IfCou, Err, War, L, FN) ->
+    expand(Rem, [$",FN,$" | Out], SelfRef, Defs, IncFile, IncDir, update_mio(Mio), IfCou, Err, War, L, FN);
 
-expand([{var, "__DATE__"}|Rem], Out, SelfRef, Defs, IncFile, IncDir, IfCou, Err, War, L, FN) ->
+expand([{var, "__DATE__"}|Rem], Out, SelfRef, Defs, IncFile, IncDir, Mio, IfCou, Err, War, L, FN) ->
     {{Y,M,D},{_H,_Mi,_S}} = calendar:universal_time(),
     Date = io_lib:format("\"~s ~p ~p\"",[month(M),D,Y]),
-    expand(Rem, [Date | Out], SelfRef, Defs, IncFile, IncDir, IfCou, Err, War, L, FN);
+    expand(Rem, [Date | Out], SelfRef, Defs, IncFile, IncDir, update_mio(Mio), IfCou, Err, War, L, FN);
 
-expand([{var, "__TIME__"}|Rem], Out, SelfRef, Defs, IncFile, IncDir, IfCou, Err, War, L, FN) ->
+expand([{var, "__TIME__"}|Rem], Out, SelfRef, Defs, IncFile, IncDir, Mio, IfCou, Err, War, L, FN) ->
     {{_Y,_M,_D},{H,Mi,S}} = calendar:universal_time(),
     HS = if H < 10 -> "0"++integer_to_list(H);
 	    true -> integer_to_list(H)
@@ -883,40 +885,40 @@ expand([{var, "__TIME__"}|Rem], Out, SelfRef, Defs, IncFile, IncDir, IfCou, Err,
        true -> integer_to_list(S)
     end,
     Time = io_lib:format("\"~s:~s:~s\"",[HS,MiS,SS]),
-    expand(Rem, [Time | Out], SelfRef, Defs, IncFile, IncDir, IfCou, Err, War, L, FN);
+    expand(Rem, [Time | Out], SelfRef, Defs, IncFile, IncDir, update_mio(Mio), IfCou, Err, War, L, FN);
 
-expand([{var, "__INCLUDE_LEVEL__"}|Rem], Out, SelfRef, Defs, IncFile, IncDir, IfCou, Err, War, L, FN) ->
+expand([{var, "__INCLUDE_LEVEL__"}|Rem], Out, SelfRef, Defs, IncFile, IncDir, Mio, IfCou, Err, War, L, FN) ->
     IL = io_lib:format("~p",[length(IncFile)-1]),
-    expand(Rem, [IL | Out], SelfRef, Defs, IncFile, IncDir, IfCou, Err, War, L, FN);
+    expand(Rem, [IL | Out], SelfRef, Defs, IncFile, IncDir, update_mio(Mio), IfCou, Err, War, L, FN);
 
-expand([{var, "__BASE_FILE__"}|Rem], Out, SelfRef, Defs, IncFile, IncDir, IfCou, Err, War, L, FN) ->
+expand([{var, "__BASE_FILE__"}|Rem], Out, SelfRef, Defs, IncFile, IncDir, Mio, IfCou, Err, War, L, FN) ->
     [BF|_T] = lists:reverse(IncFile),
-    expand(Rem, [$",BF,$" | Out], SelfRef, Defs, IncFile, IncDir, IfCou, Err, War, L, FN);
+    expand(Rem, [$",BF,$" | Out], SelfRef, Defs, IncFile, IncDir, update_mio(Mio), IfCou, Err, War, L, FN);
 
-expand([{var, Var} | Rem], Out, SelfRef, Defs, IncFile, IncDir, IfCou, Err, War, L, FN) ->
+expand([{var, Var} | Rem], Out, SelfRef, Defs, IncFile, IncDir, Mio, IfCou, Err, War, L, FN) ->
     {Out2, Err2, War2, Rem2, SelfRef2} = 
 	source_line(Var, Rem, SelfRef, Defs, Err, War, L, FN),
-    expand(Rem2, [Out2 | Out], SelfRef2, Defs, IncFile, IncDir, IfCou, Err2, War2, L, FN);
+    expand(Rem2, [Out2 | Out], SelfRef2, Defs, IncFile, IncDir, update_mio(Mio), IfCou, Err2, War2, L, FN);
 
-expand([{char, Char} | Rem], Out, SelfRef, Defs, IncFile, IncDir, IfCou, Err, War, L, FN) ->
-    expand(Rem, [Char | Out], SelfRef, Defs, IncFile, IncDir, IfCou, Err, War, L, FN);
+expand([{char, Char} | Rem], Out, SelfRef, Defs, IncFile, IncDir, Mio, IfCou, Err, War, L, FN) ->
+    expand(Rem, [Char | Out], SelfRef, Defs, IncFile, IncDir, update_mio(Mio), IfCou, Err, War, L, FN);
 
-expand([{number, Number} | Rem], Out, SelfRef, Defs, IncFile, IncDir, IfCou, Err, War, L, FN) ->
-    expand(Rem, [Number | Out], SelfRef, Defs, IncFile, IncDir, IfCou, Err, War, L, FN);
+expand([{number, Number} | Rem], Out, SelfRef, Defs, IncFile, IncDir, Mio, IfCou, Err, War, L, FN) ->
+    expand(Rem, [Number | Out], SelfRef, Defs, IncFile, IncDir, update_mio(Mio), IfCou, Err, War, L, FN);
 
-expand([{expanded, Str} | Rem], Out, SelfRef, Defs, IncFile, IncDir, IfCou, Err, War, L, FN) ->
-    expand(Rem, [Str | Out], SelfRef, Defs, IncFile, IncDir, IfCou, Err, War, L, FN);
+expand([{expanded, Str} | Rem], Out, SelfRef, Defs, IncFile, IncDir, Mio, IfCou, Err, War, L, FN) ->
+    expand(Rem, [Str | Out], SelfRef, Defs, IncFile, IncDir, update_mio(Mio), IfCou, Err, War, L, FN);
 
-expand([{self_ref, Str} | Rem], Out, SelfRef, Defs, IncFile, IncDir, IfCou, Err, War, L, FN) ->
+expand([{self_ref, Str} | Rem], Out, SelfRef, Defs, IncFile, IncDir, Mio, IfCou, Err, War, L, FN) ->
     SelfRef2 = lists:delete(Str,SelfRef),
-    expand(Rem, Out, SelfRef2, Defs, IncFile, IncDir, IfCou, Err, War, L, FN);
+    expand(Rem, Out, SelfRef2, Defs, IncFile, IncDir, update_mio(Mio), IfCou, Err, War, L, FN);
 
-expand([{string, Str} | Rem], Out, SelfRef, Defs, IncFile, IncDir, IfCou, Err, War, L, FN) ->
-    expand(Rem, [$", Str, $" | Out], SelfRef, Defs, IncFile, IncDir, IfCou, Err, War, L, FN);
+expand([{string, Str} | Rem], Out, SelfRef, Defs, IncFile, IncDir, Mio, IfCou, Err, War, L, FN) ->
+    expand(Rem, [$", Str, $" | Out], SelfRef, Defs, IncFile, IncDir, update_mio(Mio), IfCou, Err, War, L, FN);
 
-expand([{string_part, Str} | Rem], Out, SelfRef, Defs, IncFile, IncDir, IfCou, Err, War, L, FN) ->
+expand([{string_part, Str} | Rem], Out, SelfRef, Defs, IncFile, IncDir, Mio, IfCou, Err, War, L, FN) ->
     {Str2, Rem2, Nl} = expand_string_part([$"|Str], Rem),
-    expand(Rem2, [Str2| Out], SelfRef, Defs, IncFile, IncDir, IfCou, Err, War, L+Nl, FN).
+    expand(Rem2, [Str2| Out], SelfRef, Defs, IncFile, IncDir, update_mio(Mio), IfCou, Err, War, L+Nl, FN).
 
 
 
@@ -954,13 +956,14 @@ expand_string_part([{string_part, Str_part} | Rem], Str, Nl) ->
 get_cmd_line_defs(Flags) ->
     Adjusted = parse_cmd_line(Flags,[]),
 
-    {_Out, _Err, _War, Defs, _IfCou} =
+    {_Out, _Err, _War, Defs, _IfCou, _Mio} =
 	expand(tokenise(Adjusted,""),
 	       [],
 	       [],
 	       [],
 	       [],
 	       [],
+	       #mio{},
 	       check_all,
 	       [],
 	       [],
@@ -1030,10 +1033,10 @@ collect_undefine([C|Rest],Found) ->
 %%======================================================================================
 %%======================================================================================
 
-pp_command(Command, [space|File], Defs, IncDir, Err, War, L, FN) ->
-    pp_command(Command, File, Defs, IncDir, Err, War, L, FN);
+pp_command(Command, [space|File], Defs, IncDir, Mio, Err, War, L, FN) ->
+    pp_command(Command, File, Defs, IncDir, Mio, Err, War, L, FN);
 
-pp_command(Command, File, Defs, IncDir, Err, War, L, FN) ->
+pp_command(Command, File, Defs, IncDir, Mio, Err, War, L, FN) ->
 
     case Command of
 	%%----------------------------------------
@@ -1081,14 +1084,16 @@ pp_command(Command, File, Defs, IncDir, Err, War, L, FN) ->
 	%% #include
 	%%----------------------------------------
 	"include" ->
-	    case include(File, IncDir) of
-		{error, Rem, Nl, Err2} ->
-		    {{include, error}, Rem, Nl, [{FN, L, Err2}|Err], War};
-		{error, Rem, Nl, Err2, NameNl} ->
-		    {{include, error}, Rem, Nl, [{FN, L+ NameNl, Err2}|Err], War};
-		{ok, FileName, FileCont, Rem, Nl} ->
-		    {{include, ok}, FileName, FileCont, Rem, Nl, Err, War}
-	    end;
+             case include(File, IncDir, Mio) of
+                 {error, Rem, Nl, Err2} ->
+                     {{include, error}, Rem, Nl, [{FN, L, Err2}|Err], War};
+                 {error, Rem, Nl, Err2, NameNl} ->
+                     {{include, error}, Rem, Nl, [{FN, L+ NameNl, Err2}|Err], War};
+                 {ok, FileNamePath, FileCont, Rem, Nl} ->
+                     {{include, ok}, FileNamePath, FileCont, Rem, Nl, Err, War};
+                 {skip, Rem} ->
+                     {{include, skip}, Rem}
+             end;
 	
 	%%----------------------------------------
 	%% #ifdef
@@ -1127,14 +1132,14 @@ pp_command(Command, File, Defs, IncDir, Err, War, L, FN) ->
 			yes ->
 			    {{ifndef, true}, Rem, Err2, War2, Nl};
 			no ->
-			    {{ifndef, false}, Rem, Err2, War2, Nl}
+			    {{ifndef, false}, Name, Rem, Err2, War2, Nl}
 		    end;
 		{ok, Rem, Name, No_of_para, _Parameters, _Macro, Err2, War2, Nl} ->
 		    case is_defined_before(Name, No_of_para, Defs) of
 			yes ->
 			    {{ifndef, true}, Rem, Err2, War2, Nl};
 			no ->
-			    {{ifndef, false}, Rem, Err2, War2, Nl}
+			    {{ifndef, false}, Name, Rem, Err2, War2, Nl}
 		    end
 	    end;
 	
@@ -1408,28 +1413,31 @@ undef(_Rem) ->
 %%===============================================================
 %%===============================================================
 
-include(File, IncDir) ->
+include(File, IncDir, Mio) ->
     case include2(File) of
-	{ok, FileName, Rem, Nl, FileType} ->
-	    %% The error handling is lite strange just to make it compatible to gcc
-	    case {read_inc_file(FileName, IncDir), Nl, FileType} of
-		{{ok, FileList, FileNamePath}, _, _} ->
-		    {ok, FileNamePath, FileList, Rem, Nl};
-		{{error, Text}, _, own_file} ->
-		    NameNl = count_nl(FileName,0),
-		    Error = lists:flatten(io_lib:format("~s: ~s",[FileName,Text])),
-		    {error, Rem, Nl, Error,  NameNl};
-		{{error, Text}, 1, sys_file} ->
-		    NameNl = count_nl(FileName,0),
-		    Error = lists:flatten(io_lib:format("~s: ~s",[FileName,Text])),
-		    {error, Rem, Nl, Error,  NameNl};
-		{{error, _Text}, _, sys_file} ->
-		    {error, Rem, Nl, "`#include' expects \"FILENAME\" or <FILENAME>"}
-	    end;
-
-	{error, {_Removed, Rem, Nl}} ->
-	    {error, Rem, Nl, "`#include' expects \"FILENAME\" or <FILENAME>"}
+        {ok, FileName, Rem, Nl, FileType} ->
+            Result = read_inc_file(FileName, IncDir, Mio),
+            case {Result, Nl, FileType} of
+                {{ok, FileNamePath, FileCont}, _, _} ->
+                    {ok, FileNamePath, FileCont, Rem, Nl};
+                {skip, _, _} ->
+                    {skip, Rem};
+                {{error, Text}, _, own_file} ->
+                    NameNl = count_nl(FileName,0),
+                    Error = lists:flatten(io_lib:format("~s: ~s",[FileName,Text])),
+                    {error, Rem, Nl, Error,  NameNl};
+                {{error, Text}, 1, sys_file} ->
+                    NameNl = count_nl(FileName,0),
+                    Error = lists:flatten(io_lib:format("~s: ~s",[FileName,Text])),
+                    {error, Rem, Nl, Error,  NameNl};
+                {{error, _Text}, _, sys_file} ->
+                    {error, Rem, Nl, "`#include' expects \"FILENAME\" or <FILENAME>"}
+            end;
+        {error, {_Removed, Rem, Nl}} ->
+            {error, Rem, Nl, "`#include' expects \#FILENAME\" or <FILENAME>"}
     end.
+
+
 
 count_nl([],Nl) ->
     Nl;
@@ -1909,18 +1917,37 @@ include_dir(Flags,IncDir) ->
 %%  Read a included file. Try current dir first then the IncDir list
 %%===============================================================
 
-read_inc_file(FileName, IncDir) ->
-    case catch file:read_file(FileName) of
-	{ok, Bin} ->
-	    FileList = binary_to_list(Bin),
-	    {ok, FileList, FileName};
-	{error, _} ->
-	    read_inc_file2(FileName, IncDir) 
+read_inc_file(FileName, IncDir, Mio) ->
+    case find_inc_file(FileName, IncDir) of
+        {ok, AbsFile} ->
+            %% is included before?
+            case lists:member(FileName, Mio#mio.included) of
+                false ->
+                    case catch file:read_file(AbsFile) of
+                        {ok, Bin} ->
+                            FileList = binary_to_list(Bin),
+                            {ok, AbsFile, FileList};
+                        {error, Text} ->
+                            {error, Text}
+                    end;
+                true ->
+                    skip
+            end;
+        {error, Text} ->
+            {error, Text}
     end.
 
-read_inc_file2(_FileName, []) ->
+find_inc_file(FileName, IncDir) ->
+    case catch file:read_file_info(FileName) of
+	{ok, _} ->
+	    {ok, FileName};
+	{error, _} ->
+	    find_inc_file2(FileName, IncDir)
+    end.
+
+find_inc_file2(_FileName, []) ->
     {error, "No such file or directory"};
-read_inc_file2(FileName, [D|Rem]) ->
+find_inc_file2(FileName, [D|Rem]) ->
     Dir = case lists:last(D) of
 	      $/ ->
 		  D;
@@ -1928,15 +1955,12 @@ read_inc_file2(FileName, [D|Rem]) ->
 		  D++"/"
 	  end,
 
-    case catch file:read_file(Dir++FileName) of
-	{ok, Bin} ->
-	    FileList = binary_to_list(Bin),
-	    {ok, FileList, Dir++FileName};
+    case catch file:read_file_info(Dir++FileName) of
+	{ok, _} ->
+	    {ok, Dir++FileName};
 	{error, _} ->
-	    read_inc_file2(FileName, Rem) 
+	    find_inc_file2(FileName, Rem)
     end.
-
-
 
 
 %%===============================================================
@@ -2135,5 +2159,73 @@ month(11) -> "Nov";
 month(12) -> "Dec".
 
 
+%% Multiple Include Optimization
+%%
+%% Algorithm described at:
+%% http://gcc.gnu.org/onlinedocs/cppinternals/Guard-Macros.html
+update_mio({include, FileName}, #mio{included=Inc}=Mio) ->
+    Mio#mio{valid=false, included=[FileName|Inc]};
+
+%% valid=false & cmacro=undefined indicates it is already decided this file is
+%% not subject to MIO
+update_mio(_, #mio{valid=false, depth=0, cmacro=undefined}=Mio) ->
+    Mio;
+
+%% if valid=true, there is no non-whitespace tokens before this ifndef
+update_mio({'ifndef', Macro}, #mio{valid=true, depth=0, cmacro=undefined}=Mio) ->
+    Mio#mio{valid=false, cmacro=Macro, depth=1};
+
+%% detect any tokens before top level #ifndef
+update_mio(_, #mio{valid=true, depth=0, cmacro=undefined}=Mio) ->
+    Mio#mio{valid=false};
+
+%% If cmacro is alreay set, this is after the top level #endif
+update_mio({'ifndef', _}, #mio{valid=true, depth=0}=Mio) ->
+    Mio#mio{valid=false, cmacro=undefined};
+
+%% non-top level conditional, just update depth
+update_mio({'ifndef', _}, #mio{depth=D}=Mio) when D > 0 ->
+    Mio#mio{depth=D+1};
+update_mio('ifdef', #mio{depth=D}=Mio) ->
+    Mio#mio{depth=D+1};
+update_mio('if', #mio{depth=D}=Mio) ->
+    Mio#mio{depth=D+1};
+
+%% top level #else #elif invalidates multiple include optimization
+update_mio('else', #mio{depth=1}=Mio) ->
+    Mio#mio{valid=false, cmacro=undefined};
+update_mio('else', Mio) ->
+    Mio;
+update_mio('elif', #mio{depth=1}=Mio) ->
+    Mio#mio{valid=false, cmacro=undefined};
+update_mio('elif', Mio) ->
+    Mio;
+
+%% AT exit to top level, if the controlling macro is not set, this could be the
+%% end of a non-ifndef conditional block, or there were tokens before entering
+%% the #ifndef block. In either way, this invalidates the MIO
+%%
+%% It doesn't matter if `valid` is true at the time of exiting, it is set to
+%% true.  This will be used to detect if more tokens are following the top
+%% level #endif.
+update_mio('endif', #mio{depth=1, cmacro=undefined}=Mio) ->
+    Mio#mio{valid=false, depth=0};
+update_mio('endif', #mio{depth=1}=Mio) ->
+    Mio#mio{valid=true, depth=0};
+update_mio('endif', #mio{depth=D}=Mio) when D > 1 ->
+    Mio#mio{valid=true, depth=D-1};
+
+%%if more tokens are following the top level #endif.
+update_mio('endif', #mio{depth=1, cmacro=undefined}=Mio) ->
+    Mio#mio{valid=false, depth=0};
+update_mio('endif', #mio{depth=D}=Mio) when D > 0 ->
+    Mio#mio{valid=true, depth=D-1};
+update_mio(_, Mio) ->
+    Mio#mio{valid=false}.
+
+%% clear `valid`, this doesn't matter since #endif will restore it if
+%% appropriate
+update_mio(Mio) ->
+    Mio#mio{valid=false}.
 
 

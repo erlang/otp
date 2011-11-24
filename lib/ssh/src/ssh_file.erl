@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2005-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -27,14 +27,16 @@
 -include("PKCS-1.hrl").
 -include("DSS.hrl").
 
+-include_lib("kernel/include/file.hrl").
+
 -export([public_host_dsa_key/2,private_host_dsa_key/2,
 	 public_host_rsa_key/2,private_host_rsa_key/2,
 	 public_host_key/2,private_host_key/2,
 	 lookup_host_key/3, add_host_key/3, % del_host_key/2,
 	 lookup_user_key/3, ssh_dir/2, file_name/3]).
 
--export([private_identity_key/2]).
-%% , public_identity_key/2,
+-export([private_identity_key/2, 
+	 public_identity_key/2]).
 %% 	 identity_keys/2]).
 
 -export([encode_public_key/1, decode_public_key_v2/2]).
@@ -42,6 +44,9 @@
 -import(lists, [reverse/1, append/1]).
 
 -define(DBG_PATHS, true).
+
+-define(PERM_700, 8#700).
+-define(PERM_644, 8#644).
 
 %% API
 public_host_dsa_key(Type, Opts) ->
@@ -113,8 +118,10 @@ do_lookup_host_key(Host, Alg, Opts) ->
 
 add_host_key(Host, Key, Opts) ->
     Host1 = add_ip(replace_localhost(Host)),
-    case file:open(file_name(user, "known_hosts", Opts),[write,append]) of
+    KnownHosts = file_name(user, "known_hosts", Opts),
+    case file:open(KnownHosts, [write,append]) of
    	{ok, Fd} ->
+	    ok = file:change_mode(KnownHosts, ?PERM_644),
    	    Res = add_key_fd(Fd, Host1, Key),
    	    file:close(Fd),
    	    Res;
@@ -139,6 +146,11 @@ identity_key_filename("ssh-rsa") -> "id_rsa".
 private_identity_key(Alg, Opts) ->
     Path = file_name(user, identity_key_filename(Alg), Opts),
     read_private_key_v2(Path, Alg).
+
+public_identity_key(Alg, Opts) ->
+    Path = file_name(user, identity_key_filename(Alg) ++ ".pub", Opts),
+    read_public_key_v2(Path, Alg).
+
 
 read_public_key_v2(File, Type) ->
     case file:read_file(File) of
@@ -198,12 +210,17 @@ read_public_key_v1(File) ->
 %% pem_type("ssh-rsa") -> "RSA".
 
 read_private_key_v2(File, Type) ->
-     case catch (public_key:pem_to_der(File)) of
-	 {ok, [{_, Bin, not_encrypted}]} ->
-	     decode_private_key_v2(Bin, Type);
-	 Error -> %% Note we do not handle password encrypted keys at the moment
-	     {error, Error}
-     end.
+    case file:read_file(File) of
+        {ok, PemBin} ->
+            case catch (public_key:pem_decode(PemBin)) of
+                [{_, Bin, not_encrypted}] ->
+                    decode_private_key_v2(Bin, Type);
+                Error -> %% Note we do not handle password encrypted keys at the moment
+                    {error, Error}
+            end;
+        {error, Reason} ->
+            {error, Reason}
+    end.
 %%  case file:read_file(File) of
 %% 	{ok,Bin} ->
 %% 	    case read_pem(binary_to_list(Bin), pem_type(Type)) of
@@ -527,4 +544,7 @@ file_name(Type, Name, Opts) ->
 
 default_user_dir()->
     {ok,[[Home|_]]} = init:get_argument(home),
-    filename:join(Home, ".ssh").
+    UserDir = filename:join(Home, ".ssh"),
+    ok = filelib:ensure_dir(filename:join(UserDir, "dummy")),
+    ok = file:change_mode(UserDir, ?PERM_700),
+    UserDir.

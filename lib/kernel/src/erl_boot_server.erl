@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %% A simple boot_server at a CP.
@@ -53,12 +53,17 @@
 	  bootp          :: pid(),	%% boot process
 	  prim_state     %% state for efile code loader
 	 }).
+-type state() :: #state{}.
 
 -define(single_addr_mask, {255, 255, 255, 255}).
 
 -type ip4_address() :: {0..255,0..255,0..255,0..255}.
 
--spec start(Slaves :: [atom()]) -> {'ok', pid()} | {'error', any()}.
+-spec start(Slaves) -> {'ok', Pid} | {'error', What} when
+      Slaves :: [Host],
+      Host :: atom(),
+      Pid :: pid(),
+      What :: any().
 
 start(Slaves) ->
     case check_arg(Slaves) of
@@ -68,7 +73,11 @@ start(Slaves) ->
 	    {error, {badarg, Slaves}}
     end.
 
--spec start_link(Slaves :: [atom()]) -> {'ok', pid()} | {'error', any()}.
+-spec start_link(Slaves) -> {'ok', Pid} | {'error', What} when
+      Slaves :: [Host],
+      Host :: atom(),
+      Pid :: pid(),
+      What :: any().
 
 start_link(Slaves) ->
     case check_arg(Slaves) of
@@ -94,7 +103,10 @@ check_arg([], Result) ->
 check_arg(_, _Result) ->
     error.
 
--spec add_slave(Slave :: atom()) -> 'ok' | {'error', any()}.
+-spec add_slave(Slave) -> 'ok' | {'error', What} when
+      Slave :: Host,
+      Host :: atom(),
+      What :: any().
 
 add_slave(Slave) ->
     case inet:getaddr(Slave, inet) of
@@ -104,7 +116,10 @@ add_slave(Slave) ->
 	    {error, {badarg, Slave}}
     end.
 
--spec delete_slave(Slave :: atom()) -> 'ok' | {'error', any()}.
+-spec delete_slave(Slave) -> 'ok' | {'error', What} when
+      Slave :: Host,
+      Host :: atom(),
+      What :: any().
 
 delete_slave(Slave) ->
     case inet:getaddr(Slave, inet) of
@@ -130,7 +145,9 @@ add_subnet(Mask, Addr) when is_tuple(Mask), is_tuple(Addr) ->
 delete_subnet(Mask, Addr) when is_tuple(Mask), is_tuple(Addr) ->
     gen_server:call(boot_server, {delete, {Mask, Addr}}).
 
--spec which_slaves() -> [atom()].
+-spec which_slaves() -> Slaves when
+      Slaves :: [Host],
+      Host :: atom().
 
 which_slaves() ->
     gen_server:call(boot_server, which).
@@ -165,6 +182,8 @@ member_address(_, []) ->
 %% call-back functions.
 %% ------------------------------------------------------------
 
+-spec init([atom()]) -> {'ok', state()}.
+
 init(Slaves) ->
     {ok, U} = gen_udp:open(?EBOOT_PORT, []),
     {ok, L} = gen_tcp:listen(0, [binary,{packet,4}]),
@@ -176,15 +195,18 @@ init(Slaves) ->
     Pid ! {Ref, L},
     %% We trap exit inorder to restart boot_init and udp_port 
     process_flag(trap_exit, true),
-    {ok, #state {priority = 0,
-		 version = erlang:system_info(version),
-		 udp_sock = U, 
-		 udp_port = UPort,
-		 listen_sock = L, 
-		 listen_port = Port,
-		 slaves = ordsets:from_list(Slaves),
-		 bootp = Pid
-		}}.
+    {ok, #state{priority = 0,
+		version = erlang:system_info(version),
+		udp_sock = U,
+		udp_port = UPort,
+		listen_sock = L,
+		listen_port = Port,
+		slaves = ordsets:from_list(Slaves),
+		bootp = Pid
+	       }}.
+
+-spec handle_call('which' | {'add',atom()} | {'delete',atom()}, _, state()) ->
+        {'reply', 'ok' | [atom()], state()}.
 
 handle_call({add,Address}, _, S0) ->
     Slaves = ordsets:add_element(Address, S0#state.slaves),
@@ -197,8 +219,12 @@ handle_call({delete,Address}, _, S0) ->
 handle_call(which, _, S0) ->
     {reply, ordsets:to_list(S0#state.slaves), S0}.
 
+-spec handle_cast(term(), [atom()]) -> {'noreply', [atom()]}.
+
 handle_cast(_, Slaves) ->
     {noreply, Slaves}.
+
+-spec handle_info(term(), state()) -> {'noreply', state()}.
 
 handle_info({udp, U, IP, Port, Data}, S0) ->
     Token = ?EBOOT_REQUEST ++ S0#state.version,
@@ -230,8 +256,12 @@ handle_info({udp, U, IP, Port, Data}, S0) ->
 handle_info(_Info, S0) ->
     {noreply,S0}.
 
+-spec terminate(term(), state()) -> 'ok'.
+
 terminate(_Reason, _S0) ->
     ok.
+
+-spec code_change(term(), state(), term()) -> {'ok', state()}.
 
 code_change(_Vsn, State, _Extra) ->
     {ok, State}.
@@ -241,6 +271,8 @@ code_change(_Vsn, State, _Extra) ->
 %% Boot server 
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+-spec boot_init(reference()) -> no_return().
 
 boot_init(Tag) ->
     receive

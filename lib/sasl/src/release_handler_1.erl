@@ -1,26 +1,27 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(release_handler_1).
 
 %% External exports
--export([eval_script/3, eval_script/4, check_script/2]).
--export([get_vsn/1]). %% exported because used in a test case
+-export([eval_script/1, eval_script/5,
+	 check_script/2, check_old_processes/2]).
+-export([get_current_vsn/1, get_supervised_procs/0]). %% exported because used in a test case
 
 -record(eval_state, {bins = [], stopped = [], suspended = [], apps = [],
 		     libdirs, unpurged = [], vsns = [], newlibs = [],
@@ -33,11 +34,11 @@
 %% libdirs   = [{Lib, LibVsn, LibDir}] - Maps Lib to Vsn and Directory
 %% unpurged  = [{Mod, soft_purge | brutal_purge}]
 %% vsns      = [{Mod, OldVsn, NewVsn}] - remember the old vsn of a mod
-%%                  before it is removed/a new vsn is loaded; the new vsn
+%%                  before a new vsn is loaded; the new vsn
 %%                  is kept in case of a downgrade, where the code_change
 %%                  function receives the vsn of the module to downgrade
 %%                  *to*.
-%% newlibs   = [{Lib, Dir}] - list of all new libs; used to change
+%% newlibs   = [{Lib, LibVsn, LibDir}] - list of all new libs; used to change
 %%                            the code path
 %% opts      = [{Tag, Value}] - list of options
 %%-----------------------------------------------------------------
@@ -46,53 +47,78 @@
 %%%-----------------------------------------------------------------
 %%% This is a low-level release handler.
 %%%-----------------------------------------------------------------
+check_script([restart_new_emulator|Script], LibDirs) ->
+    %% There is no need to check for old processes, since the node
+    %% will be restarted before anything else happens.
+    do_check_script(Script, LibDirs, []);
 check_script(Script, LibDirs) ->
-    case catch check_old_processes(Script) of
-	ok ->
-	    {Before, _After} = split_instructions(Script),
-	    case catch lists:foldl(fun(Instruction, EvalState1) ->
-					   eval(Instruction, EvalState1)
-				   end,
-				   #eval_state{libdirs = LibDirs},
-				   Before) of
-		EvalState2 when is_record(EvalState2, eval_state) -> ok;
-		{error, Error} -> {error, Error};
-		Other -> {error, Other}
-	    end;
+    case catch check_old_processes(Script,soft_purge) of
+	{ok, PurgeMods} ->
+	    do_check_script(Script, LibDirs, PurgeMods);
 	{error, Mod} ->
 	    {error, {old_processes, Mod}}
     end.
 
-eval_script(Script, Apps, LibDirs) ->
-    eval_script(Script, Apps, LibDirs, []).
+do_check_script(Script, LibDirs, PurgeMods) ->
+    {Before, After} = split_instructions(Script),
+    case catch lists:foldl(fun(Instruction, EvalState1) ->
+				   eval(Instruction, EvalState1)
+			   end,
+			   #eval_state{libdirs = LibDirs},
+			   Before) of
+	       EvalState2 when is_record(EvalState2, eval_state) ->
+		 case catch syntax_check_script(After) of
+		     ok ->
+			 {ok,PurgeMods};
+		     Other ->
+			 {error,Other}
+		 end;
+	       {error, Error} ->
+		 {error, Error};
+	       Other ->
+		 {error, Other}
+	 end.
 
-eval_script(Script, Apps, LibDirs, Opts) ->
-    case catch check_old_processes(Script) of
-	ok ->
+%% eval_script/1 - For testing only - no apps added, just testing instructions
+eval_script(Script) ->
+    eval_script(Script, [], [], [], []).
+
+eval_script(Script, Apps, LibDirs, NewLibs, Opts) ->
+    case catch check_old_processes(Script,soft_purge) of
+	{ok,_} ->
 	    {Before, After} = split_instructions(Script),
 	    case catch lists:foldl(fun(Instruction, EvalState1) ->
 					   eval(Instruction, EvalState1)
 				   end,
 				   #eval_state{apps = Apps, 
 					       libdirs = LibDirs,
+					       newlibs = NewLibs,
 					       opts = Opts},
 				   Before) of
-		EvalState2 when is_record(EvalState2, eval_state) ->
-		    case catch lists:foldl(fun(Instruction, EvalState3) ->
-						   eval(Instruction, EvalState3)
-					   end,
-					   EvalState2,
-					   After) of
-			EvalState4 when is_record(EvalState4, eval_state) ->
-			    {ok, EvalState4#eval_state.unpurged};
-			restart_new_emulator ->
-			    restart_new_emulator;
-			Error ->
-			    {'EXIT', Error}
-		    end;
-		{error, Error} -> {error, Error};
-		Other -> {error, Other}
-	    end;
+		       EvalState2 when is_record(EvalState2, eval_state) ->
+			 case catch syntax_check_script(After) of
+			     ok ->
+				 case catch lists:foldl(
+					      fun(Instruction, EvalState3) ->
+						      eval(Instruction,
+							   EvalState3)
+					      end,
+					      EvalState2,
+					      After) of
+				     EvalState4
+				       when is_record(EvalState4, eval_state) ->
+					 {ok, EvalState4#eval_state.unpurged};
+				     restart_emulator ->
+					 restart_emulator;
+				     Error ->
+					 {'EXIT', Error}
+				 end;
+			     Other ->
+				 {error,Other}
+			 end;
+		       {error, Error} -> {error, Error};
+		       Other -> {error, Other}
+		 end;
 	{error, Mod} ->
 	    {error, {old_processes, Mod}}
     end.
@@ -110,32 +136,99 @@ split_instructions([], Before) ->
     {[], lists:reverse(Before)}.
 
 %%-----------------------------------------------------------------
-%% Func: check_old_processes/1
+%% Func: check_old_processes/2
 %% Args: Script = [instruction()]
+%%       PrePurgeMethod = soft_purge | brutal_purge
 %% Purpose: Check if there is any process that runs an old version
-%%          of a module that should be soft_purged, (i.e. not purged
-%%          at all if there is any such process).  Returns {error, Mod}
-%%          if so, ok otherwise.
-%% Returns: ok | {error, Mod}
+%%          of a module that should be purged according to PrePurgeMethod.
+%%          Returns a list of modules that can be soft_purged.
+%%
+%%          If PrePurgeMethod == soft_purge, the function will succeed
+%%          only if there is no process running old code of any of the
+%%          modules. Else it will throw {error,Mod}, where Mod is the
+%%          first module found that can not be soft_purged.
+%%
+%%          If PrePurgeMethod == brutal_purge, the function will
+%%          always succeed and return a list of all modules that are
+%%          specified in the script with PrePurgeMethod brutal_purge,
+%%          but that can be soft_purged.
+%%
+%% Returns: {ok,PurgeMods} | {error, Mod}
+%%          PurgeMods = [Mod]
 %%          Mod = atom()  
 %%-----------------------------------------------------------------
-check_old_processes(Script) ->
-    lists:foreach(fun({load, {Mod, soft_purge, _PostPurgeMethod}}) ->
-			  check_old_code(Mod);
-		     ({remove, {Mod, soft_purge, _PostPurgeMethod}}) ->
-			  check_old_code(Mod);
-		     (_) -> ok
-		  end,
-		  Script).
+check_old_processes(Script,PrePurgeMethod) ->
+    Procs = erlang:processes(),
+    {ok,lists:flatmap(
+	  fun({load, {Mod, PPM, _PostPurgeMethod}}) when PPM==PrePurgeMethod ->
+		  check_old_code(Mod,Procs,PrePurgeMethod);
+	     ({remove, {Mod, PPM, _PostPurgeMethod}}) when PPM==PrePurgeMethod ->
+		  check_old_code(Mod,Procs,PrePurgeMethod);
+	     (_) -> []
+	  end,
+	  Script)}.
 
-check_old_code(Mod) ->
-    lists:foreach(fun(Pid) ->
-			  case erlang:check_process_code(Pid, Mod) of
-			      false -> ok;
-			      true -> throw({error, Mod})
-			  end
-		  end,
-		  erlang:processes()).
+check_old_code(Mod,Procs,PrePurgeMethod) ->
+    case erlang:check_old_code(Mod) of
+	true when PrePurgeMethod==soft_purge ->
+	    do_check_old_code(Mod,Procs);
+	true when PrePurgeMethod==brutal_purge ->
+	    case catch do_check_old_code(Mod,Procs) of
+		{error,Mod} -> [];
+		R -> R
+	    end;
+	false ->
+	    []
+    end.
+
+
+do_check_old_code(Mod,Procs) ->
+    lists:foreach(
+      fun(Pid) ->
+	      case erlang:check_process_code(Pid, Mod) of
+		  false -> ok;
+		  true -> throw({error, Mod})
+	      end
+      end,
+      Procs),
+    [Mod].
+
+
+%% Check the last part of the script, i.e. the part after point_of_no_return.
+%% More or less a syntax check in case the script was handwritten.
+syntax_check_script([point_of_no_return | Script]) ->
+    syntax_check_script(Script);
+syntax_check_script([{load, {_,_,_}} | Script]) ->
+    syntax_check_script(Script);
+syntax_check_script([{remove, {_,_,_}} | Script]) ->
+    syntax_check_script(Script);
+syntax_check_script([{purge, _} | Script]) ->
+    syntax_check_script(Script);
+syntax_check_script([{suspend, _} | Script]) ->
+    syntax_check_script(Script);
+syntax_check_script([{resume, _} | Script]) ->
+    syntax_check_script(Script);
+syntax_check_script([{code_change, _} | Script]) ->
+    syntax_check_script(Script);
+syntax_check_script([{code_change, _, _} | Script]) ->
+    syntax_check_script(Script);
+syntax_check_script([{stop, _} | Script]) ->
+    syntax_check_script(Script);
+syntax_check_script([{start, _} | Script]) ->
+    syntax_check_script(Script);
+syntax_check_script([{sync_nodes, _, {_,_,_}} | Script]) ->
+    syntax_check_script(Script);
+syntax_check_script([{sync_nodes, _, _} | Script]) ->
+    syntax_check_script(Script);
+syntax_check_script([{apply, {_,_,_}} | Script]) ->
+    syntax_check_script(Script);
+syntax_check_script([restart_emulator | Script]) ->
+    syntax_check_script(Script);
+syntax_check_script([Illegal | _Script]) ->
+    throw({illegal_instruction_after_point_of_no_return,Illegal});
+syntax_check_script([]) ->
+    ok.
+
 
 %%-----------------------------------------------------------------
 %% An unpurged module is a module for which there exist an old
@@ -206,7 +299,7 @@ check_old_code(Mod) ->
 %%    must also exectue the same line.  Waits for all these nodes to get
 %%    to this line.
 %% point_of_no_return
-%% restart_new_emulator
+%% restart_emulator
 %% {stop_application, Appl}     - Impl with apply
 %% {unload_application, Appl}   - Impl with {remove..}
 %% {load_application, Appl}     - Impl with {load..}
@@ -214,16 +307,15 @@ check_old_code(Mod) ->
 %%-----------------------------------------------------------------
 eval({load_object_code, {Lib, LibVsn, Modules}}, EvalState) ->
     case lists:keysearch(Lib, 1, EvalState#eval_state.libdirs) of
-	{value, {Lib, LibVsn, LibDir}} ->
-	    Ebin = filename:join(LibDir, "ebin"),
+	{value, {Lib, LibVsn, LibDir} = LibInfo} ->
 	    Ext = code:objfile_extension(),
 	    {NewBins, NewVsns} = 
 		lists:foldl(fun(Mod, {Bins, Vsns}) ->
 				    File = lists:concat([Mod, Ext]),
-				    FName = filename:join(Ebin, File),
+				    FName = filename:join([LibDir, "ebin", File]),
 				    case erl_prim_loader:get_file(FName) of
 					{ok, Bin, FName2} ->
-					    NVsns = add_new_vsn(Mod, FName2, Vsns),
+					    NVsns = add_vsns(Mod, Bin, Vsns),
 					    {[{Mod, Bin, FName2} | Bins],NVsns};
 					error ->
 					    throw({error, {no_such_file,FName}})
@@ -232,7 +324,7 @@ eval({load_object_code, {Lib, LibVsn, Modules}}, EvalState) ->
 			    {EvalState#eval_state.bins,
 			     EvalState#eval_state.vsns},
 			    Modules),
-	    NewLibs = [{Lib, Ebin} | EvalState#eval_state.newlibs],
+	    NewLibs = lists:keystore(Lib,1,EvalState#eval_state.newlibs,LibInfo),
 	    EvalState#eval_state{bins = NewBins,
 				 newlibs = NewLibs,
 				 vsns = NewVsns};
@@ -242,15 +334,14 @@ eval({load_object_code, {Lib, LibVsn, Modules}}, EvalState) ->
 eval(point_of_no_return, EvalState) ->
     Libs = case get_opt(update_paths, EvalState, false) of
 	       false ->
-		   EvalState#eval_state.newlibs; % [{Lib, Path}]
+		   EvalState#eval_state.newlibs;
 	       true ->
-		   lists:map(fun({Lib, _LibVsn, LibDir}) ->
-				     Ebin= filename:join(LibDir,"ebin"),
-				     {Lib, Ebin}
-			     end,
-			     EvalState#eval_state.libdirs)
+		   EvalState#eval_state.libdirs
 	   end,
-    lists:foreach(fun({Lib, Path}) -> code:replace_path(Lib, Path) end,
+    lists:foreach(fun({Lib, _LibVsn, LibDir}) ->
+			  Ebin = filename:join(LibDir,"ebin"),
+			  code:replace_path(Lib, Ebin)
+		  end,
 		  Libs),
     EvalState;
 eval({load, {Mod, _PrePurgeMethod, PostPurgeMethod}}, EvalState) ->
@@ -258,32 +349,21 @@ eval({load, {Mod, _PrePurgeMethod, PostPurgeMethod}}, EvalState) ->
     {value, {_Mod, Bin, File}} = lists:keysearch(Mod, 1, Bins),
     % load_binary kills all procs running old code
     % if soft_purge, we know that there are no such procs now
-    Vsns = EvalState#eval_state.vsns,
-    NewVsns = add_old_vsn(Mod, Vsns),
     code:load_binary(Mod, File, Bin),
     % Now, the prev current is old.  There might be procs
     % running it.  Find them.
     Unpurged = do_soft_purge(Mod,PostPurgeMethod,EvalState#eval_state.unpurged),
     EvalState#eval_state{bins = lists:keydelete(Mod, 1, Bins),
-			 unpurged = Unpurged,
-			 vsns = NewVsns};
+			 unpurged = Unpurged};
 eval({remove, {Mod, _PrePurgeMethod, PostPurgeMethod}}, EvalState) ->
-    % purge kills all procs running old code
-    % if soft_purge, we know that there are no such procs now
-    Vsns = EvalState#eval_state.vsns,
-    NewVsns = add_old_vsn(Mod, Vsns),
+    %% purge kills all procs running old code
+    %% if soft_purge, we know that there are no such procs now
     code:purge(Mod),
     code:delete(Mod),
-    % Now, the prev current is old.  There might be procs
-    % running it.  Find them.
-    Unpurged =
-	case code:soft_purge(Mod) of
-	    true -> EvalState#eval_state.unpurged;
-	    false -> [{Mod, PostPurgeMethod} | EvalState#eval_state.unpurged]
-	end,
-%%    Bins = EvalState#eval_state.bins,
-%%    EvalState#eval_state{bins = lists:keydelete(Mod, 1, Bins),
-    EvalState#eval_state{unpurged = Unpurged, vsns = NewVsns};
+    %% Now, the prev current is old.  There might be procs
+    %% running it.  Find them.
+    Unpurged = do_soft_purge(Mod,PostPurgeMethod,EvalState#eval_state.unpurged),
+    EvalState#eval_state{unpurged = Unpurged};
 eval({purge, Modules}, EvalState) ->
     % Now, if there are any processes still executing old code, OR
     % if some new processes started after suspend but before load,
@@ -378,8 +458,8 @@ eval({sync_nodes, Id, Nodes}, EvalState) ->
 eval({apply, {M, F, A}}, EvalState) ->
     apply(M, F, A),
     EvalState;
-eval(restart_new_emulator, _EvalState) ->
-    throw(restart_new_emulator).
+eval(restart_emulator, _EvalState) ->
+    throw(restart_emulator).
 
 get_opt(Tag, EvalState, Default) ->
     case lists:keysearch(Tag, 1, EvalState#eval_state.opts) of
@@ -469,6 +549,19 @@ start(Procs) ->
 %%       supervisor module, we should load the new version, and then
 %%       delete the old.  Then we should perform the start changes
 %%       manually, by adding/deleting children.
+%%
+%%       Recent changes to this code cause the upgrade error out and
+%%       log the case where a suspended supervisor has which_children
+%%       called against it. This retains the behavior of causing a VM
+%%       restart to the *old* version of a release but has the
+%%       advantage of logging the pid and supervisor that had the
+%%       issue.
+%%
+%%       A second case where this can occur is if a child spec is
+%%       incorrect and get_modules is called against a process that
+%%       can't respond to the gen:call. Again an error is logged,
+%%       an error returned and a VM restart is issued.
+%%
 %% Returns: [{SuperPid, ChildName, ChildPid, Mods}]
 %%-----------------------------------------------------------------
 %% OTP-3452. For each application the first item contains the pid
@@ -478,49 +571,81 @@ start(Procs) ->
 get_supervised_procs() ->
     lists:foldl(
       fun(Application, Procs) ->
-	      case application_controller:get_master(Application) of
-		  Pid when is_pid(Pid) ->
-		      {Root, _AppMod} = application_master:get_child(Pid),
-		      case get_supervisor_module(Root) of
-			  {ok, SupMod} ->
-			      get_procs(supervisor:which_children(Root), 
-					Root) ++
-				  [{undefined, undefined, Root, [SupMod]} | 
-				   Procs];
-			  {error, _} ->
-			      error_logger:error_msg("release_handler: "
-						     "cannot find top "
-						     "supervisor for "
-						    "application ~w~n", 
-						    [Application]),
-			      get_procs(supervisor:which_children(Root), 
-					Root) ++ Procs
-		      end;
-		  _ -> Procs
-	      end
+              get_master_procs(Application,
+                               Procs,
+                               application_controller:get_master(Application))
       end,
       [],
-      lists:map(fun({Application, _Name, _Vsn}) ->
-			Application
-		end,
-		application:which_applications())).
+      get_application_names()).
+
+get_supervised_procs(_, Root, Procs, {ok, SupMod}) ->
+    get_procs(maybe_supervisor_which_children(get_proc_state(Root), SupMod, Root), Root) ++
+        [{undefined, undefined, Root, [SupMod]} |  Procs];
+get_supervised_procs(Application, Root, Procs, {error, _}) ->
+    error_logger:error_msg("release_handler: cannot find top supervisor for "
+                           "application ~w~n", [Application]),
+    get_procs(maybe_supervisor_which_children(get_proc_state(Root), Application, Root), Root) ++ Procs.
+
+get_application_names() ->
+    lists:map(fun({Application, _Name, _Vsn}) ->
+                      Application
+              end,
+              application:which_applications()).
+
+get_master_procs(Application, Procs, Pid) when is_pid(Pid) ->
+    {Root, _AppMod} = application_master:get_child(Pid),
+    get_supervised_procs(Application, Root, Procs, get_supervisor_module(Root));
+get_master_procs(_, Procs, _) ->
+    Procs.
 
 get_procs([{Name, Pid, worker, dynamic} | T], Sup) when is_pid(Pid) ->
-    Mods = get_dynamic_mods(Pid),
+    Mods = maybe_get_dynamic_mods(Name, Pid),
     [{Sup, Name, Pid, Mods} | get_procs(T, Sup)];
 get_procs([{Name, Pid, worker, Mods} | T], Sup) when is_pid(Pid), is_list(Mods) ->
     [{Sup, Name, Pid, Mods} | get_procs(T, Sup)];
 get_procs([{Name, Pid, supervisor, Mods} | T], Sup) when is_pid(Pid) ->
-    [{Sup, Name, Pid, Mods} | get_procs(T, Sup)] ++ 
-	get_procs(supervisor:which_children(Pid), Pid);
+    [{Sup, Name, Pid, Mods} | get_procs(T, Sup)] ++
+        get_procs(maybe_supervisor_which_children(get_proc_state(Pid), Name, Pid), Pid);
 get_procs([_H | T], Sup) ->
     get_procs(T, Sup);
 get_procs(_, _Sup) ->
     [].
 
-get_dynamic_mods(Pid) ->
-    {ok,Res} = gen:call(Pid, self(), get_modules),
-    Res.
+get_proc_state(Proc) ->
+    {status, _, {module, _}, [_, State, _, _, _]} = sys:get_status(Proc),
+    State.
+
+maybe_supervisor_which_children(suspended, Name, Pid) ->
+    error_logger:error_msg("release_handler: a which_children call"
+                           " to ~p (~p) was avoided. This supervisor"
+                           " is suspended and should likely be upgraded"
+                           " differently. Exiting ...~n", [Name, Pid]),
+    error(suspended_supervisor);
+
+maybe_supervisor_which_children(State, Name, Pid) ->
+    case catch supervisor:which_children(Pid) of
+        Res when is_list(Res) ->
+            Res;
+        Other ->
+            error_logger:error_msg("release_handler: ~p~nerror during"
+                                   " a which_children call to ~p (~p)."
+                                   " [State: ~p] Exiting ... ~n",
+                                   [Other, Name, Pid, State]),
+            error(which_children_failed)
+    end.
+
+maybe_get_dynamic_mods(Name, Pid) ->
+    case catch gen:call(Pid, self(), get_modules) of
+        {ok, Res} ->
+            Res;
+        Other ->
+            error_logger:error_msg("release_handler: ~p~nerror during a"
+                                   " get_modules call to ~p (~p),"
+                                   " there may be an error in it's"
+                                   " childspec. Exiting ...~n",
+                                   [Other, Name, Pid]),
+            error(get_modules_failed)
+    end.
 
 %% XXXX
 %% Note: The following is a terrible hack done in order to resolve the
@@ -554,7 +679,13 @@ get_supervisor_module(SupPid) ->
 get_supervisor_module1(SupPid) ->
     {status, _Pid, {module, _Mod}, 
      [_PDict, _SysState, _Parent, _Dbg, Misc]} = sys:get_status(SupPid),
-    [_Name, State, _Type, _Time] = Misc,
+    %% supervisor Misc field changed at R13B04, handle old and new variants here
+    State = case Misc of
+                [_Name, State1, _Type, _Time] ->
+                    State1;
+                [_Header, _Data, {data, [{"State", State2}]}] ->
+                    State2
+            end,
     %% Cannot use #supervisor_state{module = Module} = State.
     {ok, element(#supervisor_state.module, State)}.
 
@@ -600,38 +731,52 @@ sync_nodes(Id, Nodes) ->
 		  end,
 		  NNodes).
 
-add_old_vsn(Mod, Vsns) ->
+add_vsns(Mod, NewBin, Vsns) ->
+    OldVsn = get_current_vsn(Mod),
+    NewVsn = get_vsn(NewBin),
     case lists:keysearch(Mod, 1, Vsns) of
-	{value, {Mod, undefined, NewVsn}} ->
-	    OldVsn = get_vsn(code:which(Mod)),
-	    lists:keyreplace(Mod, 1, Vsns, {Mod, OldVsn, NewVsn});
-	{value, {Mod, _OldVsn, _NewVsn}} ->
-	    Vsns;
+	{value, {Mod, OldVsn0, NewVsn0}} ->
+	    lists:keyreplace(Mod, 1, Vsns, {Mod,
+					    replace_undefined(OldVsn0,OldVsn),
+					    replace_undefined(NewVsn0,NewVsn)});
 	false ->
-	    OldVsn = get_vsn(code:which(Mod)),
-	    [{Mod, OldVsn, undefined} | Vsns]
+	    [{Mod, OldVsn, NewVsn} | Vsns]
     end.
 
-add_new_vsn(Mod, File, Vsns) ->
-    NewVsn = get_vsn(File),
-    case lists:keysearch(Mod, 1, Vsns) of
-	{value, {Mod, OldVsn, undefined}} ->
-	    lists:keyreplace(Mod, 1, Vsns, {Mod, OldVsn, NewVsn});
-	false ->
-	    [{Mod, undefined, NewVsn} | Vsns]
+replace_undefined(undefined,Vsn) -> Vsn;
+replace_undefined(Vsn,_) -> Vsn.
+
+%%-----------------------------------------------------------------
+%% Func: get_current_vsn/1
+%% Args: Mod = atom()
+%% Purpose: This function returns the equivalent of 
+%%   beam_lib:version(code:which(Mod)), but it will also handle the
+%%   case when using erl_prim_loader loader different from 'efile'.
+%%   The reason for not using the Binary from the 'bins' or the
+%%   version directly from the 'vsns' state field is that these are
+%%   updated already by load_object_code, and this function is called
+%%   from load and remove.
+%% Returns: Vsn = term()
+%%-----------------------------------------------------------------
+get_current_vsn(Mod) ->
+    File = code:which(Mod),
+    case erl_prim_loader:get_file(File) of
+	{ok, Bin, _File2} ->
+	    get_vsn(Bin);
+	error ->
+	    %% This is the case when a new module is added, there will
+	    %% be no current version of it at the time of this call.
+	    undefined
     end.
-
-
 
 %%-----------------------------------------------------------------
 %% Func: get_vsn/1
-%% Args: File = string()
+%% Args: Bin = binary()
 %% Purpose: Finds the version attribute of a module.
-%% Returns: Vsn
-%%          Vsn = term()
+%% Returns: Vsn = term()
 %%-----------------------------------------------------------------
-get_vsn(File) ->
-    {ok, {_Mod, Vsn}} = beam_lib:version(File),
+get_vsn(Bin) ->
+    {ok, {_Mod, Vsn}} = beam_lib:version(Bin),
     case misc_supp:is_string(Vsn) of
 	true ->
 	    Vsn;

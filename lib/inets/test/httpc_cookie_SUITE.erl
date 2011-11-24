@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,11 +19,11 @@
 %%
 -module(httpc_cookie_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("stdlib/include/ms_transform.hrl").
 
 %% Test server specific exports
--export([all/1, init_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2]).
 
 %% Test cases must be exported.
 -export([session_cookies_only/1, netscape_cookies/1, 
@@ -55,7 +55,7 @@ init_per_testcase(session_cookies_only = Case, Config0) ->
 	"~n   Config0: ~p", [Case, Config0]),
     Config = init_workdir(Case, Config0), 
     application:start(inets), 
-    http:set_options([{cookies, verify}]),
+    httpc:set_options([{cookies, verify}]),
     watch_dog(Config);
 
 init_per_testcase(Case, Config0) ->
@@ -66,7 +66,7 @@ init_per_testcase(Case, Config0) ->
     application:load(inets),
     application:set_env(inets, services, [{httpc, {default, CaseDir}}]),
     application:start(inets), 
-    http:set_options([{cookies, verify}]),
+    httpc:set_options([{cookies, verify}]),
     watch_dog(Config).
 
 watch_dog(Config) ->
@@ -116,22 +116,37 @@ end_per_testcase(Case, Config) ->
 %%   Name of a test case.
 %% Description: Returns a list of all test cases in this test suite
 %%--------------------------------------------------------------------
-all(doc) -> 
-    ["Describe the main purpose of this suite"];
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all(suite) -> 
+all() -> 
     [
      session_cookies_only, 
      netscape_cookies, 
      cookie_cancel,
      cookie_expires, 
      persistent_cookie, 
-     domain_cookie, 
-     secure_cookie,
+     domain_cookie,
+     secure_cookie, 
      update_cookie, 
-     update_cookie_session, 
+     update_cookie_session,
      cookie_attributes
     ].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 %% Test cases starts here.
 %%--------------------------------------------------------------------
@@ -145,12 +160,12 @@ session_cookies_only(Config) when is_list(Config) ->
 
     SetCookieHeaders = [{"set-cookie", "test_cookie=true; path=/;" 
 			 ";max-age=60000"}],
-    http:verify_cookies(SetCookieHeaders, ?URL),
-     {"cookie","$Version=0; test_cookie=true; $Path=/"}
-	= http:cookie_header(?URL),
+    httpc:store_cookies(SetCookieHeaders, ?URL),
+    {"cookie", "$Version=0; test_cookie=true; $Path=/"} = 
+	httpc:cookie_header(?URL),
     application:stop(inets),
     application:start(inets),
-    {"cookie",""} = http:cookie_header(?URL),
+    {"cookie", ""} = httpc:cookie_header(?URL),
 
     tsp("session_cookies_only -> Cookies 2: ~p", [httpc:which_cookies()]),
     ok.
@@ -165,9 +180,9 @@ netscape_cookies(Config) when is_list(Config) ->
     Expires = future_netscape_date(),
     SetCookieHeaders = [{"set-cookie", "test_cookie=true; path=/; " 
 			 "expires=" ++ Expires}],
-    http:verify_cookies(SetCookieHeaders, ?URL),
-    {"cookie","$Version=0; test_cookie=true; $Path=/"} = 
-	http:cookie_header(?URL),
+    httpc:store_cookies(SetCookieHeaders, ?URL),
+    {"cookie", "$Version=0; test_cookie=true; $Path=/"} = 
+	httpc:cookie_header(?URL),
 
     tsp("netscape_cookies -> Cookies 2: ~p", [httpc:which_cookies()]),
     ok.
@@ -182,13 +197,13 @@ cookie_cancel(Config) when is_list(Config) ->
 
     SetCookieHeaders = [{"set-cookie", "test_cookie=true; path=/;" 
 			 "max-age=60000"}],
-    http:verify_cookies(SetCookieHeaders, ?URL),
-    {"cookie","$Version=0; test_cookie=true; $Path=/"}
-	= http:cookie_header(?URL),
-    NewSetCookieHeaders = [{"set-cookie", "test_cookie=true; path=/;" 
-			    "max-age=0"}],
-    http:verify_cookies(NewSetCookieHeaders, ?URL),
-    {"cookie", ""} = http:cookie_header(?URL),
+    httpc:store_cookies(SetCookieHeaders, ?URL),
+    {"cookie", "$Version=0; test_cookie=true; $Path=/"} = 
+	httpc:cookie_header(?URL),
+    NewSetCookieHeaders = 
+	[{"set-cookie", "test_cookie=true; path=/;max-age=0"}],
+    httpc:store_cookies(NewSetCookieHeaders, ?URL),
+    {"cookie", ""} = httpc:cookie_header(?URL),
 
     tsp("cookie_cancel -> Cookies 2: ~p", [httpc:which_cookies()]),
     ok.
@@ -202,11 +217,11 @@ cookie_expires(Config) when is_list(Config) ->
 
     SetCookieHeaders = [{"set-cookie", "test_cookie=true; path=/;" 
 			 "max-age=5"}],
-    http:verify_cookies(SetCookieHeaders, ?URL),
-    {"cookie","$Version=0; test_cookie=true; $Path=/"}
-	= http:cookie_header(?URL),
+    httpc:store_cookies(SetCookieHeaders, ?URL),
+    {"cookie", "$Version=0; test_cookie=true; $Path=/"} = 
+	httpc:cookie_header(?URL),
     test_server:sleep(10000),
-    {"cookie", ""} = http:cookie_header(?URL),
+    {"cookie", ""} = httpc:cookie_header(?URL),
 
     tsp("cookie_expires -> Cookies 2: ~p", [httpc:which_cookies()]),
     ok.
@@ -220,16 +235,16 @@ persistent_cookie(Config) when is_list(Config)->
 
     SetCookieHeaders = [{"set-cookie", "test_cookie=true; path=/;" 
 			 "max-age=60000"}],
-    http:verify_cookies(SetCookieHeaders, ?URL),
-    {"cookie","$Version=0; test_cookie=true; $Path=/"} = 
-	http:cookie_header(?URL),
+    httpc:store_cookies(SetCookieHeaders, ?URL),
+    {"cookie", "$Version=0; test_cookie=true; $Path=/"} = 
+	httpc:cookie_header(?URL),
     CaseDir = ?config(case_top_dir, Config),
     application:stop(inets),
     application:load(inets),
     application:set_env(inets, services, [{httpc, {default, CaseDir}}]),
     application:start(inets), 
-    http:set_options([{cookies, enabled}]),
-    {"cookie","$Version=0; test_cookie=true; $Path=/"} = http:cookie_header(?URL),
+    httpc:set_options([{cookies, enabled}]),
+    {"cookie","$Version=0; test_cookie=true; $Path=/"} = httpc:cookie_header(?URL),
 
     tsp("persistent_cookie -> Cookies 2: ~p", [httpc:which_cookies()]),
     ok.
@@ -244,10 +259,10 @@ domain_cookie(Config) when is_list(Config) ->
 
     SetCookieHeaders = [{"set-cookie", "test_cookie=true; path=/;" 
 			 "domain=.cookie.test.org"}],
-    http:verify_cookies(SetCookieHeaders, ?URL),
+    httpc:store_cookies(SetCookieHeaders, ?URL),
     {"cookie","$Version=0; test_cookie=true; $Path=/; "
      "$Domain=.cookie.test.org"} = 
-	http:cookie_header(?URL_DOMAIN),
+	httpc:cookie_header(?URL_DOMAIN),
 
     tsp("domain_cookie -> Cookies 2: ~p", [httpc:which_cookies()]),
     ok.
@@ -268,8 +283,8 @@ secure_cookie(Config) when is_list(Config) ->
     tsp("secure_cookie -> Cookies 1: ~p", [httpc:which_cookies()]),
     
     SetCookieHeaders = [{"set-cookie", "test_cookie=true; path=/; secure"}],
-    tsp("secure_cookie -> verify cookies (1)"),
-    ok = http:verify_cookies(SetCookieHeaders, ?URL),
+    tsp("secure_cookie -> store cookies (1)"),
+    ok = httpc:store_cookies(SetCookieHeaders, ?URL),
 
     tsp("secure_cookie -> Cookies 2: ~p", [httpc:which_cookies()]),
 
@@ -279,9 +294,9 @@ secure_cookie(Config) when is_list(Config) ->
     tsp("secure_cookie -> check cookie (plain)"),
     check_cookie("", ?URL),
 
-    tsp("secure_cookie -> verify cookies (2)"),
+    tsp("secure_cookie -> store cookies (2)"),
     SetCookieHeaders1 = [{"set-cookie", "test1_cookie=true; path=/; secure"}],
-    ok = http:verify_cookies(SetCookieHeaders1, ?URL),
+    ok = httpc:store_cookies(SetCookieHeaders1, ?URL),
 
     tsp("secure_cookie -> Cookies 3: ~p", [httpc:which_cookies()]),
 
@@ -290,7 +305,7 @@ secure_cookie(Config) when is_list(Config) ->
 		 "test1_cookie=true; $Path=/",
 		 ?URL_SECURE), 
 %%     {"cookie","$Version=0; test_cookie=true; $Path=/; "
-%%      "test1_cookie=true; $Path=/"} = http:cookie_header(?URL_SECURE),
+%%      "test1_cookie=true; $Path=/"} = httpc:cookie_header(?URL_SECURE),
 
     tsp("secure_cookie -> Cookies 4: ~p", [httpc:which_cookies()]),
 
@@ -298,38 +313,93 @@ secure_cookie(Config) when is_list(Config) ->
     tsp("secure_cookie -> done"),
     ok.
     
+expect_cookie_header(No, ExpectedCookie) ->
+    case httpc:cookie_header(?URL) of
+	{"cookie", ExpectedCookie} ->
+	    ok;
+    	{"cookie", BadCookie} ->
+	    io:format("Bad Cookie ~w: "
+		      "~n   Expected: ~s"
+		      "~n   Received: ~s"
+		      "~n", [No, ExpectedCookie, BadCookie]),
+	    exit({bad_cookie_header, No, ExpectedCookie, BadCookie})
+    end.
+
+print_cookies(Pre) ->
+    io:format("~s: ", [Pre]),
+    print_cookies2(httpc:which_cookies()).
+
+print_cookies2([]) ->
+    ok;
+print_cookies2([{cookies, Cookies}|Rest]) ->
+    print_cookies3("Cookies", Cookies),
+    print_cookies2(Rest);
+print_cookies2([{session_cookies, Cookies}|Rest]) ->
+    print_cookies3("Session Cookies", Cookies),
+    print_cookies2(Rest);
+print_cookies2([_|Rest]) ->
+    print_cookies2(Rest).
+
+print_cookies3(Header, []) ->
+    io:format("   ~s: []", [Header]);
+print_cookies3(Header, Cookies) ->
+    io:format("   ~s: ", [Header]),
+    Prefix      = "      ", 
+    PrintCookie = 
+	fun(Cookie) -> 
+		io:format("~s", [httpc_cookie:image_of(Prefix, Cookie)]) 
+	end, 
+    lists:foreach(PrintCookie, Cookies).
+
 update_cookie(doc)->
-    ["Test that a cookie can be updated."];
+    ["Test that a (plain) cookie can be updated."];
 update_cookie(suite) ->
     [];
-update_cookie(Config) when is_list(Config)->
-    SetCookieHeaders = [{"set-cookie", "test_cookie=true; path=/;"
-			 "max-age=6500"},
-			{"set-cookie", "test_cookie2=true; path=/;"
-			 "max-age=6500"}],
-    http:verify_cookies(SetCookieHeaders, ?URL),
-    {"cookie", "$Version=0; test_cookie2=true; $Path=/; "
-     "test_cookie=true; $Path=/"} = http:cookie_header(?URL),
-    NewSetCookieHeaders = [{"set-cookie", "test_cookie=false; "
-			    "path=/;max-age=6500"}],
-    http:verify_cookies(NewSetCookieHeaders, ?URL),
-    {"cookie", "$Version=0; test_cookie2=true; $Path=/; "
-     "test_cookie=false; $Path=/"} = http:cookie_header(?URL).
-    
+update_cookie(Config) when is_list(Config) ->
+    print_cookies("Cookies before store"),
+
+    SetCookieHeaders = 
+	[{"set-cookie", "test_cookie=true; path=/; max-age=6500"},
+	 {"set-cookie", "test_cookie2=true; path=/; max-age=6500"}],
+    httpc:store_cookies(SetCookieHeaders, ?URL),
+    print_cookies("Cookies after first store"),
+    ExpectCookie1 = 
+	"$Version=0; "
+	"test_cookie=true; $Path=/; "
+	"test_cookie2=true; $Path=/", 
+    expect_cookie_header(1, ExpectCookie1), 
+
+    NewSetCookieHeaders = 
+	[{"set-cookie", "test_cookie=false; path=/; max-age=6500"}],
+    httpc:store_cookies(NewSetCookieHeaders, ?URL),
+    print_cookies("Cookies after second store"),    
+    ExpectCookie2 = 
+	"$Version=0; "
+	"test_cookie2=true; $Path=/; "
+	"test_cookie=false; $Path=/", 
+    expect_cookie_header(2, ExpectCookie2).
+
 update_cookie_session(doc)->
-    ["Test that a cookie can be updated."];
+    ["Test that a session cookie can be updated."];
 update_cookie_session(suite) ->
     [];
 update_cookie_session(Config) when is_list(Config)->
+    print_cookies("Cookies before store"),
+
     SetCookieHeaders = [{"set-cookie", "test_cookie=true; path=/"},
 			{"set-cookie", "test_cookie2=true; path=/"}],
-    http:verify_cookies(SetCookieHeaders, ?URL),
-    {"cookie", "$Version=0; test_cookie2=true; $Path=/; "
-     "test_cookie=true; $Path=/"} = http:cookie_header(?URL),
+    httpc:store_cookies(SetCookieHeaders, ?URL),
+    print_cookies("Cookies after first store"),
+    ExpectedCookie1 = 
+	"$Version=0; test_cookie=true; $Path=/; test_cookie2=true; $Path=/",
+    expect_cookie_header(1, ExpectedCookie1), 
+
     NewSetCookieHeaders = [{"set-cookie", "test_cookie=false; path=/"}],
-    http:verify_cookies(NewSetCookieHeaders, ?URL),
-    {"cookie", "$Version=0; test_cookie2=true; $Path=/; "
-     "test_cookie=false; $Path=/"} = http:cookie_header(?URL).
+    httpc:store_cookies(NewSetCookieHeaders, ?URL),
+    print_cookies("Cookies after second store"),    
+    ExpectedCookie2 = 
+	"$Version=0; test_cookie2=true; $Path=/; test_cookie=false; $Path=/", 
+    expect_cookie_header(2, ExpectedCookie2).
     
 
 cookie_attributes(doc) -> 
@@ -341,8 +411,8 @@ cookie_attributes(Config) when is_list(Config) ->
 			 "comment=foobar; "%% Comment
 			 "foo=bar;" %% Nonsense should be ignored
 			 "max-age=60000"}],
-    http:verify_cookies(SetCookieHeaders, ?URL),
-    {"cookie","$Version=1; test_cookie=true"} = http:cookie_header(?URL),
+    httpc:store_cookies(SetCookieHeaders, ?URL),
+    {"cookie","$Version=1; test_cookie=true"} = httpc:cookie_header(?URL),
     ok.
 
 
@@ -351,7 +421,7 @@ cookie_attributes(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 
 check_cookie(Expect, URL) ->
-    case http:cookie_header(URL) of
+    case httpc:cookie_header(URL) of
 	{"cookie", Expect} ->
 	    ok;
 	{"cookie", Unexpected} ->

@@ -20,3 +20,15 @@ typedef struct
     ErlNifResourceType* rt_arr[RT_MAX];
 }NifModPrivData;
 
+#define NifModPrivData_release(NMPD) \
+    do { \
+	int is_last; \
+	enif_mutex_lock((NMPD)->mtx); \
+	is_last = (--(NMPD)->ref_cnt == 0); \
+        enif_mutex_unlock((NMPD)->mtx); \
+        if (is_last) { \
+	    enif_mutex_destroy((NMPD)->mtx); \
+	    enif_free((NMPD)); \
+        } \
+    }while (0)
+

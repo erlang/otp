@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -261,7 +261,7 @@ del_break_in(Mod, Func, Arity) when is_atom(Mod), is_atom(Func), is_integer(Arit
     end.
 
 first_lines(Clauses) ->
-    lists:map(fun(Clause) -> first_line(Clause) end, Clauses).
+    [first_line(Clause) || Clause <- Clauses].
 
 first_line({clause,_L,_Vars,_,Exprs}) ->
     first_line(Exprs);
@@ -469,10 +469,10 @@ contents(Mod, Pid) ->
 %%   Arity = integer()
 %%--------------------------------------------------------------------
 functions(Mod) ->
-    lists:filter(fun([module_info, _Arity]) -> false;
-		    (_Func) -> true
-		 end,
-		 dbg_iserver:call({functions, Mod})).
+    [F || F <- dbg_iserver:call({functions, Mod}), functions_1(F)].
+
+functions_1([module_info, _Arity]) -> false;
+functions_1(_Func) -> true.
 
 
 %%====================================================================

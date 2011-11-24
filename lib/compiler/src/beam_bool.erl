@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %% Purpose: Optimizes booleans in guards.
@@ -631,10 +631,10 @@ fetch_reg(V, [{I,V}|_]) -> {x,I};
 fetch_reg(V, [_|SRs]) -> fetch_reg(V, SRs).
 
 live_regs(Regs) ->
-    foldl(fun ({I,_}, _) -> I;
-	      ([], Max) -> Max end,
-	  -1, Regs)+1.
-    
+    foldl(fun ({I,_}, _) ->
+		  I
+	  end, -1, Regs)+1.
+
     
 %%%
 %%% Convert a block to Static Single Assignment (SSA) form.
@@ -748,8 +748,7 @@ initialized_regs([{bs_context_to_binary,Src}|Is], Regs) ->
 initialized_regs([{label,_},{func_info,_,_,Arity}|_], Regs) ->
     InitRegs = free_vars_regs(Arity),
     add_init_regs(InitRegs, Regs);
-initialized_regs([_|_], Regs) -> Regs;
-initialized_regs([], Regs) -> Regs.
+initialized_regs([_|_], Regs) -> Regs.
 
 add_init_regs([{x,_}=X|T], Regs) ->
     add_init_regs(T, ordsets:add_element(X, Regs));

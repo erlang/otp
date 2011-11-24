@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,12 +18,20 @@
 %% 
 -module(snmp_user_based_sm_mib).
 
+%% Avoid warning for local function error/1 clashing with autoimported BIF.
+-compile({no_auto_import,[error/1]}).
 -export([configure/1, reconfigure/1,
 	 usmUserSpinLock/1, usmUserSpinLock/2,
 	 usmUserTable/1, usmUserTable/3,
 	 table_next/2,
 	 is_engine_id_known/1, get_user/2, get_user_from_security_name/2,
 	 mk_key_change/3, mk_key_change/5, extract_new_key/3, mk_random/1]).
+-export([usmStatsUnsupportedSecLevels/1,
+	 usmStatsNotInTimeWindows/1,
+	 usmStatsUnknownUserNames/1,
+	 usmStatsUnknownEngineIDs/1,
+	 usmStatsWrongDigests/1,
+	 usmStatsDecryptionErrors/1]).
 -export([add_user/1, add_user/13, delete_user/1]).
 
 %% Internal
@@ -301,6 +309,54 @@ gc_tabs() ->
 %%-----------------------------------------------------------------
 %% Counter functions
 %%-----------------------------------------------------------------
+
+usmStatsUnsupportedSecLevels(print) ->
+    VarAndValue = [{usmStatsUnsupportedSecLevels, 
+		    usmStatsUnsupportedSecLevels(get)}],
+    snmpa_mib_lib:print_variables(VarAndValue);
+usmStatsUnsupportedSecLevels(get) ->
+    get_counter(usmStatsUnsupportedSecLevels).
+
+usmStatsNotInTimeWindows(print) ->
+    VarAndValue = [{usmStatsNotInTimeWindows, usmStatsNotInTimeWindows(get)}],
+    snmpa_mib_lib:print_variables(VarAndValue);
+usmStatsNotInTimeWindows(get) ->
+    get_counter(usmStatsNotInTimeWindows).
+
+usmStatsUnknownUserNames(print) ->
+    VarAndValue = [{usmStatsUnknownUserNames, usmStatsUnknownUserNames(get)}],
+    snmpa_mib_lib:print_variables(VarAndValue);
+usmStatsUnknownUserNames(get) ->
+    get_counter(usmStatsUnknownUserNames).
+
+usmStatsUnknownEngineIDs(print) ->
+    VarAndValue = [{usmStatsUnknownEngineIDs, usmStatsUnknownEngineIDs(get)}],
+    snmpa_mib_lib:print_variables(VarAndValue);
+usmStatsUnknownEngineIDs(get) ->
+    get_counter(usmStatsUnknownEngineIDs).
+
+usmStatsWrongDigests(print) ->
+    VarAndValue = [{usmStatsWrongDigests, usmStatsWrongDigests(get)}],
+    snmpa_mib_lib:print_variables(VarAndValue);
+usmStatsWrongDigests(get) ->
+    get_counter(usmStatsWrongDigests).
+
+usmStatsDecryptionErrors(print) ->
+    VarAndValue = [{usmStatsDecryptionErrors, usmStatsDecryptionErrors(get)}],
+    snmpa_mib_lib:print_variables(VarAndValue);
+usmStatsDecryptionErrors(get) ->
+    get_counter(usmStatsDecryptionErrors).
+
+
+get_counter(Name) ->
+    case (catch ets:lookup(snmp_agent_table, Name)) of
+	[{_, Val}] ->
+	    {value, Val};
+	_ ->
+	    genErr
+    end.
+
+
 init_vars() -> lists:map(fun maybe_create_var/1, vars()).
 
 maybe_create_var(Var) ->
@@ -320,6 +376,7 @@ vars() ->
      usmStatsWrongDigests,
      usmStatsDecryptionErrors
     ].
+
 
 %%-----------------------------------------------------------------
 %% API functions
@@ -372,6 +429,11 @@ get_user_from_security_name(EngineID, SecName) ->
 %%-----------------------------------------------------------------
 %% Instrumentation Functions
 %%-----------------------------------------------------------------
+
+usmUserSpinLock(print) ->
+    VarAndValue = [{usmUserSpinLock, usmUserSpinLock(get)}],
+    snmpa_mib_lib:print_variables(VarAndValue);
+    
 usmUserSpinLock(new) ->
     snmp_generic:variable_func(new, {usmUserSpinLock, volatile}),
     {A1,A2,A3} = erlang:now(),

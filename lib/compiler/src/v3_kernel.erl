@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %% Purpose : Transform Core Erlang to Kernel Erlang
@@ -80,10 +80,9 @@
 
 -export([module/2,format_error/1]).
 
--import(lists, [map/2,foldl/3,foldr/3,mapfoldl/3,splitwith/2,member/2,keymember/3]).
+-import(lists, [map/2,foldl/3,foldr/3,mapfoldl/3,splitwith/2,member/2,
+		keymember/3,keyfind/3]).
 -import(ordsets, [add_element/2,del_element/2,union/2,union/1,subtract/2]).
-
--compile({nowarn_deprecated_function, {erlang,hash,2}}).
 
 -include("core_parse.hrl").
 -include("v3_kernel.hrl").
@@ -126,18 +125,28 @@ copy_anno(Kdst, Ksrc) ->
 -spec module(cerl:c_module(), [compile:option()]) ->
 	{'ok', #k_mdef{}, [warning()]}.
 
-module(#c_module{anno=A,name=M,exports=Es,attrs=As,defs=Fs}, Options) ->
-    Lit = case member(no_constant_pool, Options) of
-	      true -> no;
-	      false -> dict:new()
-	  end,
-    St0 = #kern{lit=Lit},
-    {Kfs,St} = mapfoldl(fun function/2, St0, Fs),
+module(#c_module{anno=A,name=M,exports=Es,attrs=As,defs=Fs}, _Options) ->
+    Kas = attributes(As),
     Kes = map(fun (#c_var{name={_,_}=Fname}) -> Fname end, Es),
-    Kas = map(fun ({#c_literal{val=N},V}) ->
-		      {N,core_lib:literal_value(V)} end, As),
+    St0 = #kern{lit=dict:new()},
+    {Kfs,St} = mapfoldl(fun function/2, St0, Fs),
     {ok,#k_mdef{anno=A,name=M#c_literal.val,exports=Kes,attributes=Kas,
 		body=Kfs ++ St#kern.funs},lists:sort(St#kern.ws)}.
+
+attributes([{#c_literal{val=Name},Val}|As]) ->
+    case include_attribute(Name) of
+	false ->
+	    attributes(As);
+	true ->
+	    [{Name,core_lib:literal_value(Val)}|attributes(As)]
+    end;
+attributes([]) -> [].
+
+include_attribute(type) -> false;
+include_attribute(spec) -> false;
+include_attribute(opaque) -> false;
+include_attribute(export_type) -> false;
+include_attribute(_) -> true.
 
 function({#c_var{name={F,Arity}=FA},Body}, St0) ->
     try
@@ -236,15 +245,10 @@ expr(#c_var{anno=A,name={_Name,Arity}}=Fname, Sub, St) ->
     %% instead of one for each occurrence as done now.
     Vs = [#c_var{name=list_to_atom("V" ++ integer_to_list(V))} ||
 	     V <- integers(1, Arity)],
-    Fun = #c_fun{anno=A,vars=Vs,body=#c_apply{op=Fname,args=Vs}},
+    Fun = #c_fun{anno=A,vars=Vs,body=#c_apply{anno=A,op=Fname,args=Vs}},
     expr(Fun, Sub, St);
 expr(#c_var{anno=A,name=V}, Sub, St) ->
     {#k_var{anno=A,name=get_vsub(V, Sub)},[],St};
-expr(#c_literal{anno=A,val=Lit}, Sub, #kern{lit=no}=St) ->
-    %% No constant pools for compatibility with a previous version.
-    %% Fully expand the literal.
-    Core = expand_literal(Lit, A),
-    expr(Core, Sub, St);
 expr(#c_literal{}=Lit, Sub, St) ->
     Core = handle_literal(Lit),
     expr(Core, Sub, St);
@@ -264,9 +268,6 @@ expr(#k_int{}=V, _Sub, St) ->
 expr(#k_float{}=V, _Sub, St) ->
     {V,[],St};
 expr(#k_atom{}=V, _Sub, St) ->
-    {V,[],St};
-expr(#k_string{}=V, _Sub, St) ->
-    %% Only for compatibility with a previous version.
     {V,[],St};
 expr(#c_cons{anno=A,hd=Ch,tl=Ct}, Sub, St0) ->
     %% Do cons in two steps, first the expressions left to right, then
@@ -288,7 +289,7 @@ expr(#c_binary{anno=A,segments=Cv}, Sub, St0) ->
 	    Erl = #c_literal{val=erlang},
 	    Name = #c_literal{val=error},
 	    Args = [#c_literal{val=badarg}],
-	    Error = #c_call{module=Erl,name=Name,args=Args},
+	    Error = #c_call{anno=A,module=Erl,name=Name,args=Args},
 	    expr(Error, Sub, St0)
     end;
 expr(#c_fun{anno=A,vars=Cvs,body=Cb}, Sub0, #kern{ff=OldFF,func=Func}=St0) ->
@@ -420,7 +421,7 @@ expr(#c_call{anno=A,module=M0,name=F0,args=Cargs}, Sub, St0) ->
 	    {Call,Ap,St}
     end;
 expr(#c_primop{anno=A,name=#c_literal{val=match_fail},args=Cargs0}, Sub, St0) ->
-    Cargs = translate_match_fail(Cargs0, Sub, St0),
+    Cargs = translate_match_fail(Cargs0, Sub, A, St0),
     %% This special case will disappear.
     {Kargs,Ap,St} = atomic_list(Cargs, Sub, St0),
     Ar = length(Cargs),
@@ -447,32 +448,53 @@ expr(#c_catch{anno=A,body=Cb}, Sub, St0) ->
 %% Handle internal expressions.
 expr(#ireceive_accept{anno=A}, _Sub, St) -> {#k_receive_accept{anno=A},[],St}.
 
-%% Translate a function_clause to case_clause if it has been moved into
-%% another function.
-translate_match_fail([#c_tuple{es=[#c_literal{anno=A0,
-					      val=function_clause}|As]}]=Args,
-		     Sub,
-		     #kern{ff=FF}) ->
-    A = case A0 of
-	    [{name,{Func0,Arity0}}] ->
-		[{name,{get_fsub(Func0, Arity0, Sub),Arity0}}];
-	    _ ->
-		A0
-	end,
-    case {A,FF} of
-	{[{name,Same}],Same} ->
+%% Translate a function_clause exception to a case_clause exception if
+%% it has been moved into another function. (A function_clause exception
+%% will not work correctly if it is moved into another function, or
+%% even if it is invoked not from the top level in the correct function.)
+translate_match_fail(Args, Sub, Anno, St) ->
+    case Args of
+	[#c_tuple{es=[#c_literal{val=function_clause}|As]}] ->
+	    translate_match_fail_1(Anno, Args, As, Sub, St);
+	[#c_literal{val=Tuple}] when is_tuple(Tuple) ->
+	    %% The inliner may have created a literal out of
+	    %% the original #c_tuple{}.
+	    case tuple_to_list(Tuple) of
+		[function_clause|As0] ->
+		    As = [#c_literal{val=E} || E <- As0],
+		    translate_match_fail_1(Anno, Args, As, Sub, St);
+		_ ->
+		    Args
+	    end;
+	_ ->
+	    %% Not a function_clause exception.
+	    Args
+    end.
+
+translate_match_fail_1(Anno, Args, As, Sub, #kern{ff=FF}) ->
+    AnnoFunc = case keyfind(function_name, 1, Anno) of
+		   false ->
+		       none;			%Force rewrite.
+		   {function_name,{Name,Arity}} ->
+		       {get_fsub(Name, Arity, Sub),Arity}
+	       end,
+    case {AnnoFunc,FF} of
+	{Same,Same} ->
 	    %% Still in the correct function.
 	    Args;
-	{[{name,{F,_}}],F} ->
+	{{F,_},F} ->
 	    %% Still in the correct function.
 	    Args;
 	_ ->
-	    %% Inlining has probably moved the function_clause into another
-	    %% function (where it will not work correctly).
-	    %% Rewrite to a case_clause.
+	    %% Wrong function or no function_name annotation.
+	    %%
+	    %% The inliner has copied the match_fail(function_clause)
+	    %% primop from another function (or from another instance of
+	    %% the current function). match_fail(function_clause) will
+	    %% only work at the top level of the function it was originally
+	    %% defined in, so we will need to rewrite it to a case_clause.
 	    [#c_tuple{es=[#c_literal{val=case_clause},#c_tuple{es=As}]}]
-    end;
-translate_match_fail(Args, _, _) -> Args.
+    end.
 
 %% call_type(Module, Function, Arity) -> call | bif | apply | error.
 %%  Classify the call.
@@ -980,11 +1002,6 @@ match_var([U|Us], Cs0, Def, St) ->
 %%  according to type, the order is really irrelevant but tries to be
 %%  smart.
 
-match_con(Us, Cs0, Def, #kern{lit=no}=St) ->
-    %% No constant pool (for compatibility with R11B).
-    %% We must expand literals.
-    Cs = [expand_pat_lit_clause(C, true) || C <- Cs0],
-    match_con_1(Us, Cs, Def, St);
 match_con(Us, [C], Def, St) ->
     %% There is only one clause. We can keep literal tuples and
     %% lists, but we must convert []/integer/float/atom literals
@@ -1148,9 +1165,7 @@ select_bin_int_1(_, _, _, _) -> throw(not_possible).
 
 select_assert_match_possible(Sz, Val, Fs) ->
     EmptyBindings = erl_eval:new_bindings(),
-    MatchFun = fun({integer,_,_}, NewV, Bs) when NewV =:= Val ->
-		       {match,Bs}
-	       end,
+    MatchFun = match_fun(Val),
     EvalFun = fun({integer,_,S}, B) -> {value,S,B} end,
     Expr = [{bin_element,0,{integer,0,Val},{integer,0,Sz},[{unit,1}|Fs]}],
     {value,Bin,EmptyBindings} = eval_bits:expr_grp(Expr, EmptyBindings, EvalFun),
@@ -1163,6 +1178,11 @@ select_assert_match_possible(Sz, Val, Fs) ->
     catch
 	throw:nomatch ->
 	    throw(not_possible)
+    end.
+
+match_fun(Val) ->
+    fun(match, {{integer,_,_},NewV,Bs}) when NewV =:= Val ->
+	    {match,Bs}
     end.
 
 select_utf8(Val0) ->
@@ -1636,31 +1656,31 @@ uexpr(#k_catch{anno=A,body=B0}, {break,Rs0}, St0) ->
     {Ns,St3} = new_vars(1 - length(Rs0), St2),
     Rs1 = Rs0 ++ Ns,
     {#k_catch{anno=#k{us=Bu,ns=lit_list_vars(Rs1),a=A},body=B1,ret=Rs1},Bu,St3};
-uexpr(#ifun{anno=A,vars=Vs,body=B0}=IFun, {break,Rs}, St0) ->
+uexpr(#ifun{anno=A,vars=Vs,body=B0}, {break,Rs}, St0) ->
     {B1,Bu,St1} = ubody(B0, return, St0),	%Return out of new function
     Ns = lit_list_vars(Vs),
     Free = subtract(Bu, Ns),			%Free variables in fun
     Fvs = make_vars(Free),
     Arity = length(Vs) + length(Free),
-    {{Index,Uniq,Fname}, St3} =
+    {Fname,St} =
 	case lists:keyfind(id, 1, A) of 
-	    {id,Id} ->
-		{Id, St1};
+	    {id,{_,_,Fname0}} ->
+		{Fname0,St1};
 	    false ->
-		%% No id annotation. Must invent one.
-		I = St1#kern.fcount,
-		U = erlang:hash(IFun, (1 bsl 27)-1),
-		{N, St2} = new_fun_name(St1),
-		{{I,U,N}, St2}
+		%% No id annotation. Must invent a fun name.
+		new_fun_name(St1)
 	end,
     Fun = #k_fdef{anno=#k{us=[],ns=[],a=A},func=Fname,arity=Arity,
 		  vars=Vs ++ Fvs,body=B1},
+    %% Set dummy values for Index and Uniq -- the real values will
+    %% be assigned by beam_asm.
+    Index = Uniq = 0,
     {#k_bif{anno=#k{us=Free,ns=lit_list_vars(Rs),a=A},
  	    op=#k_internal{name=make_fun,arity=length(Free)+3},
  	    args=[#k_atom{val=Fname},#k_int{val=Arity},
  		  #k_int{val=Index},#k_int{val=Uniq}|Fvs],
  	    ret=Rs},
-     Free,add_local_function(Fun, St3)};
+     Free,add_local_function(Fun, St)};
 uexpr(Lit, {break,Rs}, St) ->
     %% Transform literals to puts here.
     %%ok = io:fwrite("uexpr ~w:~p~n", [?LINE,Lit]),
@@ -1783,7 +1803,6 @@ lit_vars(#k_int{}) -> [];
 lit_vars(#k_float{}) -> [];
 lit_vars(#k_atom{}) -> [];
 %%lit_vars(#k_char{}) -> [];
-lit_vars(#k_string{}) -> [];
 lit_vars(#k_nil{}) -> [];
 lit_vars(#k_cons{hd=H,tl=T}) ->
     union(lit_vars(H), lit_vars(T));
@@ -1845,47 +1864,19 @@ handle_literal(#c_literal{anno=A,val=V}) ->
     case V of
 	[_|_] ->
 	    #k_literal{anno=A,val=V};
+	[] ->
+	    #k_nil{anno=A};
 	V when is_tuple(V) ->
 	    #k_literal{anno=A,val=V};
 	V when is_bitstring(V) ->
 	    #k_literal{anno=A,val=V};
-	_ ->
-	    expand_literal(V, A)
+	V when is_integer(V) ->
+	    #k_int{anno=A,val=V};
+	V when is_float(V) ->
+	    #k_float{anno=A,val=V};
+	V when is_atom(V) ->
+	    #k_atom{anno=A,val=V}
     end.
-
-%% expand_literal(Literal, Anno) -> CoreTerm | KernelTerm
-%%  Fully expand the literal. Atomic terms such as integers are directly
-%%  translated to the Kernel Erlang format, while complex terms are kept
-%%  in the Core Erlang format (but the content is recursively processed).
-
-expand_literal([H|T]=V, A) when is_integer(H), 0 =< H, H =< 255 ->
-    case is_print_char_list(T) of
-	false ->
-	    #c_cons{anno=A,hd=#k_int{anno=A,val=H},tl=expand_literal(T, A)};
-	true ->
-	    #k_string{anno=A,val=V}
-    end;
-expand_literal([H|T], A) ->
-    #c_cons{anno=A,hd=expand_literal(H, A),tl=expand_literal(T, A)};
-expand_literal([], A) ->
-    #k_nil{anno=A};
-expand_literal(V, A) when is_tuple(V) ->
-    #c_tuple{anno=A,es=expand_literal_list(tuple_to_list(V), A)};
-expand_literal(V, A) when is_integer(V) ->
-    #k_int{anno=A,val=V};
-expand_literal(V, A) when is_float(V) ->
-    #k_float{anno=A,val=V};
-expand_literal(V, A) when is_atom(V) ->
-    #k_atom{anno=A,val=V}.
-
-expand_literal_list([H|T], A) ->
-    [expand_literal(H, A)|expand_literal_list(T, A)];
-expand_literal_list([], _) -> [].
-
-is_print_char_list([H|T]) when is_integer(H), 0 =< H, H =< 255 ->
-    is_print_char_list(T);
-is_print_char_list([]) -> true;
-is_print_char_list(_) -> false.
 
 make_list(Es) ->
     foldr(fun(E, Acc) ->

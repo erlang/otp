@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -34,7 +34,7 @@
 %% {add_module, Mod, [Mod]}
 %% {remove_module, Mod, PrePurge, PostPurge, [Mod]}
 %% {restart_application, Appl}
-%% {add_application, Appl}
+%% {add_application, Appl, Type}
 %% {remove_application, Appl}
 %%
 %% Low-level
@@ -54,6 +54,7 @@
 %% {sync_nodes, Id, Nodes}
 %% {apply, {M, F, A}}
 %% restart_new_emulator
+%% restart_emulator
 %%-----------------------------------------------------------------
 
 %% High-level instructions that contain dependencies
@@ -109,6 +110,8 @@ expand_script([I|Script]) ->
 	     {delete_module, Mod} ->
 		 [{remove, {Mod, brutal_purge, brutal_purge}},
 		  {purge, [Mod]}];
+	     {add_application, Application} ->
+		 {add_application, Application, permanent};
 	     _ ->
 		 I
 	 end,
@@ -142,7 +145,10 @@ translate_merged_script(Mode, Script, Appls, PreAppls) ->
     {Before2, After2} = translate_dependent_instrs(Mode, Before1, After1, 
 						  Appls),
     Before3 = merge_load_object_code(Before2),
-    NewScript = Before3 ++ [point_of_no_return | After2],
+
+    {Before4,After4} = sort_emulator_restart(Mode,Before3,After2),
+    NewScript = Before4 ++ [point_of_no_return | After4],
+
     check_syntax(NewScript),
     {ok, NewScript}.
 
@@ -317,14 +323,18 @@ translate_independent_instrs(Before, After, Appls, PreAppls) ->
 translate_application_instrs(Script, Appls, PreAppls) ->
     %% io:format("Appls ~n~p~n",[Appls]),
     L = lists:map(
-	  fun({add_application, Appl}) ->
+	  fun({add_application, Appl, Type}) ->
 		  case lists:keysearch(Appl, #application.name, Appls) of
 		      {value, Application} ->
 			  Mods =
 			      remove_vsn(Application#application.modules),
+			  ApplyL = case Type of
+			      none -> [];
+			      load -> [{apply, {application, load, [Appl]}}];
+			      _ -> [{apply, {application, start, [Appl, Type]}}]
+			  end,
 			  [{add_module, M, []} || M <- Mods] ++
-			      [{apply, {application, start,
-					[Appl, permanent]}}];
+			      ApplyL;
 		      false ->
 			  throw({error, {no_such_application, Appl}})
 		  end;
@@ -693,6 +703,39 @@ mlo([{load_object_code, {Lib, LibVsn, Mods}} | T]) ->
 mlo([]) -> [].
 
 %%-----------------------------------------------------------------
+%% RESTART EMULATOR
+%% -----------------------------------------------------------------
+%% -----------------------------------------------------------------
+%% Check if there are any 'restart_new_emulator' instructions (i.e. if
+%% the emulator or core application version is changed). If so, this
+%% must be done first for upgrade and last for downgrade.
+%% Check if there are any 'restart_emulator' instructions, if so
+%% remove all and place one the end.
+%% -----------------------------------------------------------------
+sort_emulator_restart(Mode,Before,After) ->
+    {Before1,After1} =
+	case filter_out(restart_new_emulator, After) of
+	    After ->
+		{Before,After};
+	    A1 when Mode==up ->
+		{[restart_new_emulator|Before],A1};
+	    A1 when Mode==dn ->
+		{Before,A1++[restart_emulator]}
+	end,
+    After2 =
+	case filter_out(restart_emulator, After1) of
+	    After1 ->
+		After1;
+	    A2 ->
+		A2++[restart_emulator]
+	end,
+    {Before1,After2}.
+
+
+filter_out(What,List) ->
+    lists:filter(fun(X) when X=:=What -> false; (_) -> true end, List).
+
+%%-----------------------------------------------------------------
 %% SYNTAX CHECK
 %%-----------------------------------------------------------------
 %%-----------------------------------------------------------------
@@ -750,8 +793,9 @@ check_op({remove_module, Mod, PrePurge, PostPurge, Mods}) ->
     lists:foreach(fun(M) -> check_mod(M) end, Mods);
 check_op({remove_application, Appl}) ->
     check_appl(Appl);
-check_op({add_application, Appl}) ->
-    check_appl(Appl);
+check_op({add_application, Appl, Type}) ->
+    check_appl(Appl),
+    check_start_type(Type);
 check_op({restart_application, Appl}) ->
     check_appl(Appl);
 check_op(restart) -> ok;
@@ -810,6 +854,7 @@ check_op({apply, {M, F, A}}) ->
     check_func(F),
     check_args(A);
 check_op(restart_new_emulator) -> ok;
+check_op(restart_emulator) -> ok;
 check_op(X) -> throw({error, {bad_instruction, X}}).
 
 check_mod(Mod) when is_atom(Mod) -> ok;
@@ -838,6 +883,13 @@ check_node(Node) -> throw({error, {bad_node, Node}}).
 
 check_appl(Appl) when is_atom(Appl) -> ok;
 check_appl(Appl) -> throw({error, {bad_application, Appl}}).
+
+check_start_type(none) -> ok;
+check_start_type(load) -> ok;
+check_start_type(temporary) -> ok;
+check_start_type(transient) -> ok;
+check_start_type(permanent) -> ok;
+check_start_type(T) -> throw({error, {bad_start_type, T}}).
 
 check_func(Func) when is_atom(Func) -> ok;
 check_func(Func) -> throw({error, {bad_func, Func}}).

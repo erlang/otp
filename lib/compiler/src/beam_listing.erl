@@ -61,7 +61,7 @@ print_op(Stream, Label) when element(1, Label) == label ->
 print_op(Stream, Op) ->
     io:format(Stream, "    ~p.\n", [Op]).
 
-function(File, {function,Name,Arity,Args,Body,Vdb}) ->
+function(File, {function,Name,Arity,Args,Body,Vdb,_Anno}) ->
     io:nl(File),
     io:format(File, "function ~p/~p.\n", [Name,Arity]),
     io:format(File, " ~p.\n", [Args]),

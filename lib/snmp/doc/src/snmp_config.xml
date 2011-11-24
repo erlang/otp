@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2010</year>
+      <year>1997</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -343,7 +343,7 @@
         <p>Defines if the mib server shall perform cache gc automatically or 
           leave it to the user (see 
           <seealso marker="snmpa#gc_mibs_cache">gc_mibs_cache/0,1,2,3</seealso>). </p>
-        <p>Default is <c>false</c>.</p>
+        <p>Default is <c>true</c>.</p>
       </item>
 
       <tag><c><![CDATA[mibs_cache_age() = integer() > 0 <optional>]]></c></tag>
@@ -704,7 +704,7 @@
         <p>Specifies if and how the audit trail log shall be repaired
           when opened. Unless this parameter has the value <c>snmp_repair</c>
           it is sent to <c>disk_log</c>. If, on the other hand, the value is
-          <c>snmp_repair</c>, snmp attempts to handle certain faults on it's 
+          <c>snmp_repair</c>, snmp attempts to handle certain faults on its
           own. And even if it cannot repair the file, it does not truncate it 
           directly, but instead <em>moves it aside</em> for later off-line 
           analysis.</p>
@@ -1004,36 +1004,16 @@ ok
     </taglist>
 
     <p>Another usefull way to debug the agent is to pretty-print the content of 
-      some of the (MIB-) tables handled directly by the agent. This can be done 
-      for the following tables: </p>
-    <taglist>
-      <tag><c><![CDATA[snmpCommunityTable]]></c></tag>
-      <item>
-        <p><c><![CDATA[snmp_community_mib:snmpCommunityTable(print).]]></c></p>
-      </item>
-
-      <tag><c><![CDATA[snmpNotifyTable]]></c></tag>
-      <item>
-        <p><c><![CDATA[snmp_notification_mib:snmpNotifyTable(print).]]></c></p>
-      </item>
-
-      <tag><c><![CDATA[snmpTargetAddrTable]]></c></tag>
-      <item>
-        <p><c><![CDATA[snmp_target_mib:snmpTargetAddrTable(print).]]></c></p>
-      </item>
-
-      <tag><c><![CDATA[snmpTargetParamsTable]]></c></tag>
-      <item>
-        <p><c><![CDATA[snmp_target_mib:snmpTargetParamsTable(print).]]></c></p>
-      </item>
-
-      <tag><c><![CDATA[usmUserTable]]></c></tag>
-      <item>
-        <p><c><![CDATA[snmp_user_based_sm_mib:usmUserTable(print).]]></c></p>
-      </item>
-
-    </taglist>
-
+    all the tables and/or variables handled directly by the agent. 
+    This can be done by simply calling: </p>
+    <p><c><![CDATA[snmpa:print_mib_info()]]></c></p>
+    <p>See 
+    <seealso marker="snmpa#print_mib_info">print_mib_info/0</seealso>, 
+    <seealso marker="snmpa#print_mib_tables">print_mib_tables/0</seealso>
+    or
+    <seealso marker="snmpa#print_mib_variables">print_mib_variables/0</seealso> 
+    for more info. </p>
+      
   </section>
 </chapter>
 

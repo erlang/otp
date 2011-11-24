@@ -11,7 +11,10 @@ MISC_DRVS =		outputv_drv@dll@ \
 			caller_drv@dll@ \
 			many_events_drv@dll@ \
 			missing_callback_drv@dll@ \
-			thr_alloc_drv@dll@
+			thr_alloc_drv@dll@ \
+			otp_9302_drv@dll@ \
+			thr_free_drv@dll@ \
+			async_blast_drv@dll@
 
 SYS_INFO_DRVS = 	sys_info_1_0_drv@dll@ \
 			sys_info_1_1_drv@dll@ \

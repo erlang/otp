@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2003-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2003-2011. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -79,7 +79,7 @@ static erts_mtx_t mtrace_buf_mutex;
 #define UI16_SZ					(2)
 #define UI32_SZ					(4)
 #define UI64_SZ					(8)
-#ifdef ARCH_64
+#ifdef ARCH_64 /* XXX:PaN Halfword? (whole file...) */
 #  define UI_SZ					UI64_SZ
 #else
 #  define UI_SZ					UI32_SZ
@@ -188,7 +188,7 @@ check_alloc_entry(byte *sp, byte *ep,
 		  byte tag,
 		  Uint16 ct_no, int ct_no_n,
 		  Uint16 type, int type_n,
-		  Uint res, int res_n,
+		  UWord res, int res_n,
 		  Uint size, int size_n,
 		  Uint32 ti,int ti_n);
 void
@@ -196,8 +196,8 @@ check_realloc_entry(byte *sp, byte *ep,
 		    byte tag,
 		    Uint16 ct_no, int ct_no_n,
 		    Uint16 type, int type_n,
-		    Uint res, int res_n,
-		    Uint ptr, int ptr_n,
+		    UWord res, int res_n,
+		    UWord ptr, int ptr_n,
 		    Uint size, int size_n,
 		    Uint32 ti,int ti_n);
 void
@@ -205,7 +205,7 @@ check_free_entry(byte *sp, byte *ep,
 		 byte tag,
 		 Uint16 ct_no, int ct_no_n,
 		 Uint16 t_no, int t_no_n,
-		 Uint ptr, int ptr_n,
+		 UWord ptr, int ptr_n,
 		 Uint32 ti,int ti_n);
 void
 check_time_inc_entry(byte *sp, byte *ep,
@@ -503,12 +503,6 @@ write_trace_header(char *nodename, char *pid, char *hostname)
 	    case ERTS_ALC_A_SYSTEM:
 		PUT_UI16(tracep, ERTS_MTRACE_SEGMENT_ID);
 		break;
-	    case ERTS_ALC_A_FIXED_SIZE:
-		if (erts_allctrs_info[ERTS_FIX_CORE_ALLOCATOR].enabled)
-		    PUT_UI16(tracep, ERTS_FIX_CORE_ALLOCATOR);
-		else
-		    PUT_UI16(tracep, ERTS_ALC_A_SYSTEM);
-		break;
 	    default:
 		PUT_UI16(tracep, ERTS_MTRACE_SEGMENT_ID);
 		break;
@@ -585,9 +579,7 @@ void erts_mtrace_init(char *receiver, char *nodename)
 	Uint16 port;
 
 	erts_mtx_init(&mtrace_buf_mutex, "mtrace_buf");
-	erts_mtx_set_forksafe(&mtrace_buf_mutex);
 	erts_mtx_init(&mtrace_op_mutex, "mtrace_op");
-	erts_mtx_set_forksafe(&mtrace_op_mutex);
 
 	socket_desc = erts_sock_open();
 	if (socket_desc == ERTS_SOCK_INVALID_SOCKET) {
@@ -785,7 +777,7 @@ write_alloc_entry(byte tag,
 			      tag,
 			      ct_no, ct_no_n,
 			      t_no, t_no_n,
-			      (Uint) res, res_n,
+			      (UWord) res, res_n,
 			      size, size_n,
 			      ti, ti_n);
 #endif
@@ -865,8 +857,8 @@ write_realloc_entry(byte tag,
 				tag,
 				ct_no, ct_no_n,
 				t_no, t_no_n,
-				(Uint) res, res_n,
-				(Uint) ptr, ptr_n,
+				(UWord) res, res_n,
+				(UWord) ptr, ptr_n,
 				size, size_n,
 				ti, ti_n);
 #endif
@@ -934,7 +926,7 @@ write_free_entry(byte tag,
 			     tag,
 			     ct_no, ct_no_n,
 			     t_no, t_no_n,
-			     (Uint) ptr, ptr_n,
+			     (UWord) ptr, ptr_n,
 			     ti, ti_n);
 #endif
 	}
@@ -1135,7 +1127,7 @@ check_alloc_entry(byte *sp, byte *ep,
 		  byte tag,
 		  Uint16 ct_no, int ct_no_n,
 		  Uint16 t_no, int t_no_n,
-		  Uint res, int res_n,
+		  UWord res, int res_n,
 		  Uint size, int size_n,
 		  Uint32 ti,int ti_n)
 {
@@ -1163,8 +1155,8 @@ check_realloc_entry(byte *sp, byte *ep,
 		    byte tag,
 		    Uint16 ct_no, int ct_no_n,
 		    Uint16 t_no, int t_no_n,
-		    Uint res, int res_n,
-		    Uint ptr, int ptr_n,
+		    UWord res, int res_n,
+		    UWord ptr, int ptr_n,
 		    Uint size, int size_n,
 		    Uint32 ti,int ti_n)
 {
@@ -1193,7 +1185,7 @@ check_free_entry(byte *sp, byte *ep,
 		 byte tag,
 		 Uint16 ct_no, int ct_no_n,
 		 Uint16 t_no, int t_no_n,
-		 Uint ptr, int ptr_n,
+		 UWord ptr, int ptr_n,
 		 Uint32 ti,int ti_n)
 {
     byte *p = sp;

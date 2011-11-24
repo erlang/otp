@@ -1,2 +1,1 @@
-{topcase, {dir, "../inets_test"}}.
-{hosts, ["tuor"]}.
+{suites,"../inets_test",all}.

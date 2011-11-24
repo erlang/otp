@@ -43,6 +43,7 @@ MODULES= \
 	array \
 	base64 \
 	beam_lib \
+	binary \
 	c \
 	calendar \
 	dets \
@@ -104,7 +105,6 @@ MODULES= \
 	qlc_pt \
 	queue \
 	random \
-	regexp \
 	sets \
 	shell \
 	shell_default \

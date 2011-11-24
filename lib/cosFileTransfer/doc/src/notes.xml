@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2000</year><year>2010</year>
+      <year>2000</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -29,6 +29,37 @@
     <rev>A</rev>
     <file>notes.xml</file>
   </header>
+
+  <section><title>cosFileTransfer 1.1.12</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> XML files have been corrected. </p>
+          <p>
+	    Own Id: OTP-9550 Aux Id: OTP-9541 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section>
+    <title>cosFileTransfer 1.1.11</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>
+            Removed superfluous usage of shy in the documentation since it can cause problem if
+            a buggy tool is used.</p>
+          <p>
+            Own Id: OTP-9319 Aux Id:</p>
+        </item>
+      </list>
+    </section>
+  </section>
 
   <section>
     <title>cosFileTransfer 1.1.10</title>

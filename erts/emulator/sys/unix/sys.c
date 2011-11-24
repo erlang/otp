@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -52,6 +52,12 @@
 #define ERTS_WANT_GOT_SIGUSR1
 #define WANT_NONBLOCKING    /* must define this to pull in defs from sys.h */
 #include "sys.h"
+#include "erl_thr_progress.h"
+
+#if defined(__APPLE__) && defined(__MACH__) && !defined(__DARWIN__)
+#define __DARWIN__ 1
+#endif
+
 
 #ifdef USE_THREADS
 #include "erl_threads.h"
@@ -75,6 +81,7 @@ static erts_smp_rwmtx_t environ_rwmtx;
 
 #include "erl_sys_driver.h"
 #include "erl_check_io.h"
+#include "erl_cpu_topology.h"
 
 #ifndef DISABLE_VFORK
 #define DISABLE_VFORK 0
@@ -121,10 +128,7 @@ static ErtsSysReportExit *report_exit_list;
 static ErtsSysReportExit *report_exit_transit_list;
 #endif
 
-extern int  check_async_ready(void);
 extern int  driver_interrupt(int, int);
-/*EXTERN_FUNCTION(void, increment_time, (int));*/
-/*EXTERN_FUNCTION(int, next_time, (_VOID_));*/
 extern void do_break(void);
 
 extern void erl_sys_args(int*, char**);
@@ -161,14 +165,14 @@ static int debug_log = 0;
 #endif
 
 #ifdef ERTS_SMP
-erts_smp_atomic_t erts_got_sigusr1;
+erts_smp_atomic32_t erts_got_sigusr1;
 #define ERTS_SET_GOT_SIGUSR1 \
-  erts_smp_atomic_set(&erts_got_sigusr1, 1)
+  erts_smp_atomic32_set_mb(&erts_got_sigusr1, 1)
 #define ERTS_UNSET_GOT_SIGUSR1 \
-  erts_smp_atomic_set(&erts_got_sigusr1, 0)
-static erts_smp_atomic_t have_prepared_crash_dump;
+  erts_smp_atomic32_set_mb(&erts_got_sigusr1, 0)
+static erts_smp_atomic32_t have_prepared_crash_dump;
 #define ERTS_PREPARED_CRASH_DUMP \
-  ((int) erts_smp_atomic_xchg(&have_prepared_crash_dump, 1))
+  ((int) erts_smp_atomic32_xchg_nob(&have_prepared_crash_dump, 1))
 #else
 volatile int erts_got_sigusr1;
 #define ERTS_SET_GOT_SIGUSR1 (erts_got_sigusr1 = 1)
@@ -221,10 +225,10 @@ static struct fd_data {
 } *fd_data;			/* indexed by fd */
 
 /* static FUNCTION(int, write_fill, (int, char*, int)); unused? */
-static FUNCTION(void, note_child_death, (int, int));
+static void note_child_death(int, int);
 
 #if CHLDWTHR
-static FUNCTION(void *, child_waiter, (void *));
+static void* child_waiter(void *);
 #endif
 
 /********************* General functions ****************************/
@@ -236,11 +240,11 @@ static int max_files = -1;
  * a few variables used by the break handler 
  */
 #ifdef ERTS_SMP
-erts_smp_atomic_t erts_break_requested;
+erts_smp_atomic32_t erts_break_requested;
 #define ERTS_SET_BREAK_REQUESTED \
-  erts_smp_atomic_set(&erts_break_requested, (long) 1)
+  erts_smp_atomic32_set_nob(&erts_break_requested, (erts_aint32_t) 1)
 #define ERTS_UNSET_BREAK_REQUESTED \
-  erts_smp_atomic_set(&erts_break_requested, (long) 0)
+  erts_smp_atomic32_set_nob(&erts_break_requested, (erts_aint32_t) 0)
 #else
 volatile int erts_break_requested = 0;
 #define ERTS_SET_BREAK_REQUESTED (erts_break_requested = 1)
@@ -259,6 +263,7 @@ int erts_use_kernel_poll = 0;
 struct {
     int (*select)(ErlDrvPort, ErlDrvEvent, int, int);
     int (*event)(ErlDrvPort, ErlDrvEvent, ErlDrvEventData);
+    void (*check_io_as_interrupt)(void);
     void (*check_io_interrupt)(int);
     void (*check_io_interrupt_tmd)(int, long);
     void (*check_io)(int);
@@ -298,6 +303,9 @@ init_check_io(void)
     if (erts_use_kernel_poll) {
 	io_func.select			= driver_select_kp;
 	io_func.event			= driver_event_kp;
+#ifdef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
+	io_func.check_io_as_interrupt	= erts_check_io_async_sig_interrupt_kp;
+#endif
 	io_func.check_io_interrupt	= erts_check_io_interrupt_kp;
 	io_func.check_io_interrupt_tmd	= erts_check_io_interrupt_timed_kp;
 	io_func.check_io		= erts_check_io_kp;
@@ -310,6 +318,9 @@ init_check_io(void)
     else {
 	io_func.select			= driver_select_nkp;
 	io_func.event			= driver_event_nkp;
+#ifdef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
+	io_func.check_io_as_interrupt	= erts_check_io_async_sig_interrupt_nkp;
+#endif
 	io_func.check_io_interrupt	= erts_check_io_interrupt_nkp;
 	io_func.check_io_interrupt_tmd	= erts_check_io_interrupt_timed_nkp;
 	io_func.check_io		= erts_check_io_nkp;
@@ -321,6 +332,11 @@ init_check_io(void)
     }
 }
 
+#ifdef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
+#define ERTS_CHK_IO_AS_INTR()	(*io_func.check_io_as_interrupt)()
+#else
+#define ERTS_CHK_IO_AS_INTR()	(*io_func.check_io_interrupt)(1)
+#endif
 #define ERTS_CHK_IO_INTR	(*io_func.check_io_interrupt)
 #define ERTS_CHK_IO_INTR_TMD	(*io_func.check_io_interrupt_tmd)
 #define ERTS_CHK_IO		(*io_func.check_io)
@@ -335,6 +351,11 @@ init_check_io(void)
     max_files = erts_check_io_max_files();
 }
 
+#ifdef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
+#define ERTS_CHK_IO_AS_INTR()	erts_check_io_async_sig_interrupt()
+#else
+#define ERTS_CHK_IO_AS_INTR()	erts_check_io_interrupt(1)
+#endif
 #define ERTS_CHK_IO_INTR	erts_check_io_interrupt
 #define ERTS_CHK_IO_INTR_TMD	erts_check_io_interrupt_timed
 #define ERTS_CHK_IO		erts_check_io
@@ -342,13 +363,13 @@ init_check_io(void)
 
 #endif
 
-#ifdef ERTS_SMP
 void
 erts_sys_schedule_interrupt(int set)
 {
     ERTS_CHK_IO_INTR(set);
 }
 
+#ifdef ERTS_SMP
 void
 erts_sys_schedule_interrupt_timed(int set, long msec)
 {
@@ -360,14 +381,14 @@ Uint
 erts_sys_misc_mem_sz(void)
 {
     Uint res = ERTS_CHK_IO_SZ();
-    res += erts_smp_atomic_read(&sys_misc_mem_sz);
+    res += erts_smp_atomic_read_mb(&sys_misc_mem_sz);
     return res;
 }
 
 /*
  * reset the terminal to the original settings on exit
  */
-void sys_tty_reset(void)
+void sys_tty_reset(int exit_code)
 {
   if (using_oldshell && !replace_intr) {
     SET_BLOCKING(0);
@@ -384,18 +405,6 @@ MALLOC_USE_HASH(1);
 #endif
 
 #ifdef USE_THREADS
-static void *ethr_internal_alloc(size_t size)
-{
-    return erts_alloc_fnf(ERTS_ALC_T_ETHR_INTERNAL, (Uint) size);
-}
-static void *ethr_internal_realloc(void *ptr, size_t size)
-{
-    return erts_realloc_fnf(ERTS_ALC_T_ETHR_INTERNAL, ptr, (Uint) size);
-}
-static void ethr_internal_free(void *ptr)
-{
-    erts_free(ERTS_ALC_T_ETHR_INTERNAL, ptr);
-}
 
 #ifdef ERTS_THR_HAVE_SIG_FUNCS
 /*
@@ -413,7 +422,7 @@ typedef struct {
 #ifdef ERTS_THR_HAVE_SIG_FUNCS
     sigset_t saved_sigmask;
 #endif
-    int unbind_child;
+    int sched_bind_data;
 } erts_thr_create_data_t;
 
 /*
@@ -424,15 +433,13 @@ static void *
 thr_create_prepare(void)
 {
     erts_thr_create_data_t *tcdp;
-    ErtsSchedulerData *esdp;
 
     tcdp = erts_alloc(ERTS_ALC_T_TMP, sizeof(erts_thr_create_data_t));
 
 #ifdef ERTS_THR_HAVE_SIG_FUNCS
     erts_thr_sigmask(SIG_BLOCK, &thr_create_sigmask, &tcdp->saved_sigmask);
 #endif
-    esdp = erts_get_scheduler_data();
-    tcdp->unbind_child = esdp && erts_is_scheduler_bound(esdp);
+    tcdp->sched_bind_data = erts_sched_bind_atthrcreate_prepare();
 
     return (void *) tcdp;
 }
@@ -443,6 +450,8 @@ static void
 thr_create_cleanup(void *vtcdp)
 {
     erts_thr_create_data_t *tcdp = (erts_thr_create_data_t *) vtcdp;
+
+    erts_sched_bind_atthrcreate_parent(tcdp->sched_bind_data);
 
 #ifdef ERTS_THR_HAVE_SIG_FUNCS
     /* Restore signalmask... */
@@ -457,6 +466,10 @@ thr_create_prepare_child(void *vtcdp)
 {
     erts_thr_create_data_t *tcdp = (erts_thr_create_data_t *) vtcdp;
 
+#ifdef ERTS_ENABLE_LOCK_COUNT
+    erts_lcnt_thread_setup();
+#endif
+
 #ifndef NO_FPE_SIGNALS
     /*
      * We do not want fp exeptions in other threads than the
@@ -466,12 +479,7 @@ thr_create_prepare_child(void *vtcdp)
     erts_thread_disable_fpe();
 #endif
 
-    if (tcdp->unbind_child) {
-	erts_smp_rwmtx_rlock(&erts_cpu_bind_rwmtx);
-	erts_unbind_from_cpu(erts_cpuinfo);
-	erts_smp_rwmtx_runlock(&erts_cpu_bind_rwmtx);
-    }
-    
+    erts_sched_bind_atthrcreate_child(tcdp->sched_bind_data);
 }
 
 #endif /* #ifdef USE_THREADS */
@@ -484,9 +492,6 @@ erts_sys_pre_init(void)
 #ifdef USE_THREADS
     {
     erts_thr_init_data_t eid = ERTS_THR_INIT_DATA_DEF_INITER;
-    eid.alloc = ethr_internal_alloc;
-    eid.realloc = ethr_internal_realloc;
-    eid.free = ethr_internal_free;
 
     eid.thread_create_child_func = thr_create_prepare_child;
     /* Before creation in parent */
@@ -521,9 +526,9 @@ erts_sys_pre_init(void)
 #endif
     }
 #ifdef ERTS_SMP
-    erts_smp_atomic_init(&erts_break_requested, 0);
-    erts_smp_atomic_init(&erts_got_sigusr1, 0);
-    erts_smp_atomic_init(&have_prepared_crash_dump, 0);
+    erts_smp_atomic32_init_nob(&erts_break_requested, 0);
+    erts_smp_atomic32_init_nob(&erts_got_sigusr1, 0);
+    erts_smp_atomic32_init_nob(&have_prepared_crash_dump, 0);
 #else
     erts_break_requested = 0;
     erts_got_sigusr1 = 0;
@@ -533,14 +538,14 @@ erts_sys_pre_init(void)
     children_died = 0;
 #endif
 #endif /* USE_THREADS */
-    erts_smp_atomic_init(&sys_misc_mem_sz, 0);
-    erts_smp_rwmtx_init(&environ_rwmtx, "environ");
+    erts_smp_atomic_init_nob(&sys_misc_mem_sz, 0);
 }
 
 void
 erl_sys_init(void)
 {
 #if !DISABLE_VFORK
+ {
     int res;
     char bindir[MAXPATHLEN];
     size_t bindirsz = sizeof(bindir);
@@ -564,12 +569,13 @@ erl_sys_init(void)
 		   + sizeof(CHILD_SETUP_PROG_NAME)
 		   + 1);
     child_setup_prog = erts_alloc(ERTS_ALC_T_CS_PROG_PATH, csp_path_sz);
-    erts_smp_atomic_add(&sys_misc_mem_sz, csp_path_sz);
+    erts_smp_atomic_add_nob(&sys_misc_mem_sz, csp_path_sz);
     sprintf(child_setup_prog,
             "%s%c%s",
             bindir,
             DIR_SEPARATOR_CHAR,
             CHILD_SETUP_PROG_NAME);
+ }
 #endif
 
 #ifdef USE_SETLINEBUF
@@ -742,7 +748,7 @@ break_requested(void)
       erl_exit(ERTS_INTR_EXIT, "");
 
   ERTS_SET_BREAK_REQUESTED;
-  ERTS_CHK_IO_INTR(1); /* Make sure we don't sleep in poll */
+  ERTS_CHK_IO_AS_INTR(); /* Make sure we don't sleep in poll */
 }
 
 /* set up signal handlers for break and quit */
@@ -942,18 +948,13 @@ void
 os_flavor(char* namebuf, 	/* Where to return the name. */
 	  unsigned size) 	/* Size of name buffer. */
 {
-    static int called = 0;
-    static struct utsname uts;	/* Information about the system. */
+    struct utsname uts;		/* Information about the system. */
+    char* s;
 
-    if (!called) {
-	char* s;
-
-	(void) uname(&uts);
-	called = 1;
-	for (s = uts.sysname; *s; s++) {
-	    if (isupper((int) *s)) {
-		*s = tolower((int) *s);
-	    }
+    (void) uname(&uts);
+    for (s = uts.sysname; *s; s++) {
+	if (isupper((int) *s)) {
+	    *s = tolower((int) *s);
 	}
     }
     strcpy(namebuf, uts.sysname);
@@ -1118,31 +1119,6 @@ struct erl_drv_entry vanilla_driver_entry = {
     stop_select
 };
 
-#if defined(USE_THREADS) && !defined(ERTS_SMP)
-static int  async_drv_init(void);
-static ErlDrvData async_drv_start(ErlDrvPort, char*, SysDriverOpts*);
-static void async_drv_stop(ErlDrvData);
-static void async_drv_input(ErlDrvData, ErlDrvEvent);
-
-/* INTERNAL use only */
-
-struct erl_drv_entry async_driver_entry = {
-    async_drv_init,
-    async_drv_start,
-    async_drv_stop,
-    NULL,
-    async_drv_input,
-    NULL,
-    "async",
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL
-};
-#endif
-
 /* Handle SIGCHLD signals. */
 #if (defined(SIG_SIGSET) || defined(SIG_SIGNAL))
 static RETSIGTYPE onchld(void)
@@ -1156,7 +1132,7 @@ static RETSIGTYPE onchld(int signum)
     smp_sig_notify('C');
 #else
     children_died = 1;
-    ERTS_CHK_IO_INTR(1); /* Make sure we don't sleep in poll */
+    ERTS_CHK_IO_AS_INTR(); /* Make sure we don't sleep in poll */
 #endif
 }
 
@@ -1226,8 +1202,8 @@ static int spawn_init()
    sys_sigset(SIGPIPE, SIG_IGN); /* Ignore - we'll handle the write failure */
    driver_data = (struct driver_data *)
        erts_alloc(ERTS_ALC_T_DRV_TAB, max_files * sizeof(struct driver_data));
-   erts_smp_atomic_add(&sys_misc_mem_sz,
-		       max_files * sizeof(struct driver_data));
+   erts_smp_atomic_add_nob(&sys_misc_mem_sz,
+			   max_files * sizeof(struct driver_data));
 
    for (i = 0; i < max_files; i++)
       driver_data[i].pid = -1;
@@ -1324,9 +1300,18 @@ static char **build_unix_environment(char *block)
 	}
     }
 
-    for (j = 0; j < i; j++) {
-	if (cpp[j][strlen(cpp[j])-1] == '=') {
+    for (j = 0; j < i; ) {
+        size_t last = strlen(cpp[j])-1;
+	if (cpp[j][last] == '=' && strchr(cpp[j], '=') == cpp[j]+last) {
 	    cpp[j] = cpp[--len];
+	    if (len < i) {
+		i--;
+	    } else {
+		j++;
+	    }
+	}
+	else {
+	    j++;
 	}
     }
 
@@ -1463,9 +1448,7 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name, SysDriverOpts* op
 
     CHLD_STAT_LOCK;
 
-    unbind = erts_is_scheduler_bound(NULL);
-    if (unbind)
-	erts_smp_rwmtx_rlock(&erts_cpu_bind_rwmtx);
+    unbind = erts_sched_bind_atfork_prepare();
 
 #if !DISABLE_VFORK
     /* See fork/vfork discussion before this function. */
@@ -1478,7 +1461,7 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name, SysDriverOpts* op
 	if (pid == 0) {
 	    /* The child! Setup child... */
 
-	    if (unbind && erts_unbind_from_cpu(erts_cpuinfo) != 0)
+	    if (erts_sched_bind_atfork_child(unbind) != 0)
 		goto child_error;
 
 	    /* OBSERVE!
@@ -1579,8 +1562,7 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name, SysDriverOpts* op
 
 	cs_argv[CS_ARGV_PROGNAME_IX] = child_setup_prog;
 	cs_argv[CS_ARGV_WD_IX] = opts->wd ? opts->wd : ".";
-	cs_argv[CS_ARGV_UNBIND_IX]
-	    = (unbind ? erts_get_unbind_from_cpu_str(erts_cpuinfo) : "false");
+	cs_argv[CS_ARGV_UNBIND_IX] = erts_sched_bind_atvfork_child(unbind);
 	cs_argv[CS_ARGV_FD_CR_IX] = fd_close_range;
 	for (i = 0; i < CS_ARGV_NO_OF_DUP2_OPS; i++)
 	    cs_argv[CS_ARGV_DUP2_OP_IX(i)] = &dup2_op[i][0];
@@ -1629,8 +1611,7 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name, SysDriverOpts* op
     }
 #endif
 
-    if (unbind)
-	erts_smp_rwmtx_runlock(&erts_cpu_bind_rwmtx);
+    erts_sched_bind_atfork_parent(unbind);
 
     if (pid == -1) {
         saved_errno = errno;
@@ -1930,8 +1911,8 @@ static void clear_fd_data(int fd)
 {
     if (fd_data[fd].sz > 0) {
 	erts_free(ERTS_ALC_T_FD_ENTRY_BUF, (void *) fd_data[fd].buf);
-	ASSERT(erts_smp_atomic_read(&sys_misc_mem_sz) >= fd_data[fd].sz);
-	erts_smp_atomic_add(&sys_misc_mem_sz, -1*fd_data[fd].sz);
+	ASSERT(erts_smp_atomic_read_nob(&sys_misc_mem_sz) >= fd_data[fd].sz);
+	erts_smp_atomic_add_nob(&sys_misc_mem_sz, -1*fd_data[fd].sz);
     }
     fd_data[fd].buf = NULL;
     fd_data[fd].sz = 0;
@@ -2266,7 +2247,7 @@ static void ready_input(ErlDrvData e, ErlDrvEvent ready_fd)
 			port_inp_failure(port_num, ready_fd, -1);
 		    }
 		    else {
-			erts_smp_atomic_add(&sys_misc_mem_sz, h);
+			erts_smp_atomic_add_nob(&sys_misc_mem_sz, h);
 			sys_memcpy(buf, cpos, bytes_left);
 			fd_data[ready_fd].buf = buf;
 			fd_data[ready_fd].sz = h;
@@ -2322,87 +2303,6 @@ static void stop_select(ErlDrvEvent fd, void* _)
     close((int)fd);
 }
 
-/*
-** Async opertation support
-*/
-#if defined(USE_THREADS) && !defined(ERTS_SMP)
-static void
-sys_async_ready_failed(int fd, int r, int err)
-{
-    char buf[120];
-    sprintf(buf, "sys_async_ready(): Fatal error: fd=%d, r=%d, errno=%d\n",
-	     fd, r, err);
-    erts_silence_warn_unused_result(write(2, buf, strlen(buf)));
-    abort();
-}
-
-/* called from threads !! */
-void sys_async_ready(int fd)
-{
-    int r;
-    while (1) {
-	r = write(fd, "0", 1);  /* signal main thread fd MUST be async_fd[1] */
-	if (r == 1) {
-	    DEBUGF(("sys_async_ready(): r = 1\r\n"));
-	    break;
-	}
-	if (r < 0 && errno == EINTR) {
-	    DEBUGF(("sys_async_ready(): r = %d\r\n", r));
-	    continue;
-	}
-	sys_async_ready_failed(fd, r, errno);
-    }
-}
-
-static int async_drv_init(void)
-{
-    async_fd[0] = -1;
-    async_fd[1] = -1;
-    return 0;
-}
-
-static ErlDrvData async_drv_start(ErlDrvPort port_num,
-				  char* name, SysDriverOpts* opts)
-{
-    if (async_fd[0] != -1)
-	return ERL_DRV_ERROR_GENERAL;
-    if (pipe(async_fd) < 0)
-	return ERL_DRV_ERROR_GENERAL;
-
-    DEBUGF(("async_drv_start: %d\r\n", port_num));
-
-    SET_NONBLOCKING(async_fd[0]);
-    driver_select(port_num, async_fd[0], ERL_DRV_READ, 1);
-
-    if (init_async(async_fd[1]) < 0)
-	return ERL_DRV_ERROR_GENERAL;
-    return (ErlDrvData)port_num;
-}
-
-static void async_drv_stop(ErlDrvData e)
-{
-    int port_num = (int)(long)e;
-
-    DEBUGF(("async_drv_stop: %d\r\n", port_num));
-
-    exit_async();
-
-    driver_select(port_num, async_fd[0], ERL_DRV_READ, 0);
-
-    close(async_fd[0]);
-    close(async_fd[1]);
-    async_fd[0] = async_fd[1] = -1;
-}
-
-
-static void async_drv_input(ErlDrvData e, ErlDrvEvent fd)
-{
-    char *buf[32];
-    DEBUGF(("async_drv_input\r\n"));
-    while (read((int) fd, (void *) buf, 32) > 0); /* fd MUST be async_fd[0] */
-    check_async_ready();  /* invoke all async_ready */
-}
-#endif
 
 void erts_do_break_handling(void)
 {
@@ -2414,11 +2314,7 @@ void erts_do_break_handling(void)
      * therefore, make sure that all threads but this one are blocked before
      * proceeding!
      */
-    erts_smp_block_system(0);
-    /*
-     * NOTE: since we allow gc we are not allowed to lock
-     *       (any) process main locks while blocking system...
-     */
+    erts_smp_thr_progress_block();
 
     /* during break we revert to initial settings */
     /* this is done differently for oldshell */
@@ -2446,7 +2342,7 @@ void erts_do_break_handling(void)
       tcsetattr(0,TCSANOW,&temp_mode);
     }
 
-    erts_smp_release_system();
+    erts_smp_thr_progress_unblock();
 }
 
 /* Fills in the systems representation of the jam/beam process identifier.
@@ -2470,7 +2366,7 @@ erts_sys_putenv(char *buffer, int sep_ix)
 #else
     Uint sz = strlen(buffer)+1;
     env = erts_alloc(ERTS_ALC_T_PUTENV_STR, sz);
-    erts_smp_atomic_add(&sys_misc_mem_sz, sz);
+    erts_smp_atomic_add_nob(&sys_misc_mem_sz, sz);
     strcpy(env,buffer);
 #endif
     erts_smp_rwmtx_rwlock(&environ_rwmtx);
@@ -2480,12 +2376,10 @@ erts_sys_putenv(char *buffer, int sep_ix)
 }
 
 int
-erts_sys_getenv(char *key, char *value, size_t *size)
+erts_sys_getenv__(char *key, char *value, size_t *size)
 {
-    char *orig_value;
     int res;
-    erts_smp_rwmtx_rlock(&environ_rwmtx);
-    orig_value = getenv(key);
+    char *orig_value = getenv(key);
     if (!orig_value)
 	res = -1;
     else {
@@ -2500,6 +2394,15 @@ erts_sys_getenv(char *key, char *value, size_t *size)
 	    res = 0;
 	}
     }
+    return res;
+}
+
+int
+erts_sys_getenv(char *key, char *value, size_t *size)
+{
+    int res;
+    erts_smp_rwmtx_rlock(&environ_rwmtx);
+    res = erts_sys_getenv__(key, value, size);
     erts_smp_rwmtx_runlock(&environ_rwmtx);
     return res;
 }
@@ -2509,33 +2412,8 @@ sys_init_io(void)
 {
     fd_data = (struct fd_data *)
 	erts_alloc(ERTS_ALC_T_FD_TAB, max_files * sizeof(struct fd_data));
-    erts_smp_atomic_add(&sys_misc_mem_sz,
-			max_files * sizeof(struct fd_data));
-
-#ifdef USE_THREADS
-#ifdef ERTS_SMP
-    if (init_async(-1) < 0)
-	erl_exit(1, "Failed to initialize async-threads\n");
-#else
-    {
-	/* This is speical stuff, starting a driver from the 
-	 * system routines, but is a nice way of handling stuff
-	 * the erlang way
-	 */
-	SysDriverOpts dopts;
-	int ret;
-
-	sys_memset((void*)&dopts, 0, sizeof(SysDriverOpts));
-	add_driver_entry(&async_driver_entry);
-	ret = erts_open_driver(NULL, NIL, "async", &dopts, NULL);
-	DEBUGF(("open_driver = %d\n", ret));
-	if (ret < 0)
-	    erl_exit(1, "Failed to open async driver\n");
-	erts_port[ret].status |= ERTS_PORT_SFLG_IMMORTAL;
-    }
-#endif
-#endif
-
+    erts_smp_atomic_add_nob(&sys_misc_mem_sz,
+			    max_files * sizeof(struct fd_data));
 }
 
 #if (0) /* unused? */
@@ -2562,7 +2440,6 @@ extern Preload pre_loaded[];
 
 void erts_sys_alloc_init(void)
 {
-    elib_ensure_initialized();
 }
 
 void *erts_sys_alloc(ErtsAlcType_t t, void *x, Uint sz)
@@ -2763,15 +2640,7 @@ initiate_report_exit_status(ErtsSysReportExit *rep, int status)
     rep->next = report_exit_transit_list;
     rep->status = status;
     report_exit_transit_list = rep;
-    /*
-     * We need the scheduler thread to call check_children().
-     * If the scheduler thread is sleeping in a poll with a
-     * timeout, we need to wake the scheduler thread. We use the
-     * functionality of the async driver to do this, instead of
-     * implementing yet another driver doing the same thing. A
-     * little bit ugly, but it works...
-     */
-    sys_async_ready(async_fd[1]);
+    erts_sys_schedule_interrupt(1);
 }
 
 static int check_children(void)
@@ -2858,20 +2727,11 @@ erl_sys_schedule(int runnable)
 {
 #ifdef ERTS_SMP
     ERTS_CHK_IO(!runnable);
-    ERTS_SMP_LC_ASSERT(!ERTS_LC_IS_BLOCKING);
 #else
-    ERTS_CHK_IO_INTR(0);
-    if (runnable) {
-	ERTS_CHK_IO(0);		/* Poll for I/O */
-	check_async_ready();	/* Check async completions */
-    } else {
-	int wait_for_io = !check_async_ready();
-	if (wait_for_io)
-	    wait_for_io = !check_children();
-	ERTS_CHK_IO(wait_for_io);
-    }
-    (void) check_children();
+    ERTS_CHK_IO(runnable ? 0 : !check_children());
 #endif
+    ERTS_SMP_LC_ASSERT(!erts_thr_progress_is_blocking());
+    (void) check_children();
 }
 
 
@@ -2899,8 +2759,8 @@ smp_sig_notify(char c)
 static void *
 signal_dispatcher_thread_func(void *unused)
 {
-    int initialized = 0;
 #if !CHLDWTHR
+    int initialized = 0;
     int notify_check_children = 0;
 #endif
 #ifdef ERTS_ENABLE_LOCK_CHECK
@@ -2928,20 +2788,20 @@ signal_dispatcher_thread_func(void *unused)
 	     *         to other threads.
 	     *
 	     * NOTE 2: The signal dispatcher thread is not a blockable
-	     *         thread (i.e., it hasn't called 
-	     *         erts_register_blockable_thread()). This is
-	     *         intentional. We want to be able to interrupt
-	     *         writing of a crash dump by hitting C-c twice.
-	     *         Since it isn't a blockable thread it is important
-	     *         that it doesn't change the state of any data that
-	     *         a blocking thread expects to have exclusive access
-	     *         to (unless the signal dispatcher itself explicitly
-	     *         is blocking all blockable threads).
+	     *         thread (i.e., not a thread managed by the
+	     *         erl_thr_progress module). This is intentional.
+	     *         We want to be able to interrupt writing of a crash
+	     *         dump by hitting C-c twice. Since it isn't a
+	     *         blockable thread it is important that it doesn't
+	     *         change the state of any data that a blocking thread
+	     *         expects to have exclusive access to (unless the
+	     *         signal dispatcher itself explicitly is blocking all
+	     *         blockable threads).
 	     */
 	    switch (buf[i]) {
 	    case 0: /* Emulator initialized */
-		initialized = 1;
 #if !CHLDWTHR
+		initialized = 1;
 		if (!notify_check_children)
 #endif
 		    break;
@@ -2976,7 +2836,7 @@ signal_dispatcher_thread_func(void *unused)
 			 buf[i]);
 	    }
 	}
-	ERTS_SMP_LC_ASSERT(!ERTS_LC_IS_BLOCKING);
+	ERTS_SMP_LC_ASSERT(!erts_thr_progress_is_blocking());
     }
     return NULL;
 }
@@ -3000,11 +2860,27 @@ init_smp_sig_notify(void)
 			NULL,
 			&thr_opts);
 }
+#ifdef __DARWIN__
 
+int erts_darwin_main_thread_pipe[2];
+int erts_darwin_main_thread_result_pipe[2];
+
+static void initialize_darwin_main_thread_pipes(void) 
+{
+    if (pipe(erts_darwin_main_thread_pipe) < 0 || 
+	pipe(erts_darwin_main_thread_result_pipe) < 0) {
+	erl_exit(1,"Fatal error initializing Darwin main thread stealing");
+    }
+}
+
+#endif
 void
 erts_sys_main_thread(void)
 {
     erts_thread_disable_fpe();
+#ifdef __DARWIN__
+    initialize_darwin_main_thread_pipes();
+#endif
     /* Become signal receiver thread... */
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_set_thread_name("signal_receiver");
@@ -3013,6 +2889,27 @@ erts_sys_main_thread(void)
     smp_sig_notify(0); /* Notify initialized */
     while (1) {
 	/* Wait for a signal to arrive... */
+#ifdef __DARWIN__
+	/*
+	 * The wx driver needs to be able to steal the main thread for Cocoa to
+	 * work properly.
+	 */
+	fd_set readfds;
+	int res;
+
+	FD_ZERO(&readfds);
+	FD_SET(erts_darwin_main_thread_pipe[0], &readfds);
+	res = select(erts_darwin_main_thread_pipe[0] + 1, &readfds, NULL, NULL, NULL);
+	if (res > 0 && FD_ISSET(erts_darwin_main_thread_pipe[0],&readfds)) {
+	    void* (*func)(void*);
+	    void* arg;
+	    void *resp;
+	    read(erts_darwin_main_thread_pipe[0],&func,sizeof(void* (*)(void*)));
+	    read(erts_darwin_main_thread_pipe[0],&arg, sizeof(void*));
+	    resp = (*func)(arg);
+	    write(erts_darwin_main_thread_result_pipe[1],&resp,sizeof(void *));
+	}
+#else
 #ifdef DEBUG
 	int res =
 #else
@@ -3021,6 +2918,7 @@ erts_sys_main_thread(void)
 	    select(0, NULL, NULL, NULL, NULL);
 	ASSERT(res < 0);
 	ASSERT(errno == EINTR);
+#endif
     }
 }
 
@@ -3057,6 +2955,8 @@ void
 erl_sys_args(int* argc, char** argv)
 {
     int i, j;
+
+    erts_smp_rwmtx_init(&environ_rwmtx, "environ");
 
     i = 1;
 
@@ -3119,227 +3019,5 @@ erl_sys_args(int* argc, char** argv)
 	    argv[j++] = argv[i];
     }
     *argc = j;
+
 }
-
-#ifdef ERTS_TIMER_THREAD
-
-/*
- * Interruptible-wait facility: low-level synchronisation state
- * and methods that are implementation dependent.
- *
- * Constraint: Every implementation must define 'struct erts_iwait'
- * with a field 'erts_smp_atomic_t state;'.
- */
-
-/* values for struct erts_iwait's state field */
-#define IWAIT_WAITING	0
-#define IWAIT_AWAKE	1
-#define IWAIT_INTERRUPT	2
-
-#if 0	/* XXX: needs feature test in erts/configure.in */
-
-/*
- * This is an implementation of the interruptible wait facility on
- * top of Linux-specific futexes.
- */
-#include <asm/unistd.h>
-#define FUTEX_WAIT		0
-#define FUTEX_WAKE		1
-static int sys_futex(void *futex, int op, int val, const struct timespec *timeout)
-{
-    return syscall(__NR_futex, futex, op, val, timeout);
-}
-
-struct erts_iwait {
-    erts_smp_atomic_t state; /* &state.counter is our futex */
-};
-
-static void iwait_lowlevel_init(struct erts_iwait *iwait) { /* empty */ }
-
-static void iwait_lowlevel_wait(struct erts_iwait *iwait, struct timeval *delay)
-{
-    struct timespec timeout;
-    int res;
-
-    timeout.tv_sec = delay->tv_sec;
-    timeout.tv_nsec = delay->tv_usec * 1000;
-    res = sys_futex((void*)&iwait->state.counter, FUTEX_WAIT, IWAIT_WAITING, &timeout);
-    if (res < 0 && errno != ETIMEDOUT && errno != EWOULDBLOCK && errno != EINTR)
-	perror("FUTEX_WAIT");
-}
-
-static void iwait_lowlevel_interrupt(struct erts_iwait *iwait)
-{
-    int res = sys_futex((void*)&iwait->state.counter, FUTEX_WAKE, 1, NULL);
-    if (res < 0)
-	perror("FUTEX_WAKE");
-}
-
-#else	/* using poll() or select() */
-
-/*
- * This is an implementation of the interruptible wait facility on
- * top of pipe(), poll() or select(), read(), and write().
- */
-struct erts_iwait {
-    erts_smp_atomic_t state;
-    int read_fd;	/* wait polls and reads this fd */
-    int write_fd;	/* interrupt writes this fd */
-};
-
-static void iwait_lowlevel_init(struct erts_iwait *iwait)
-{
-    int fds[2];
-
-    if (pipe(fds) < 0) {
-	perror("pipe()");
-	exit(1);
-    }
-    iwait->read_fd = fds[0];
-    iwait->write_fd = fds[1];
-}
-
-#if defined(ERTS_USE_POLL)
-
-#include <sys/poll.h>
-#define PERROR_POLL "poll()"
-
-static int iwait_lowlevel_poll(int read_fd, struct timeval *delay)
-{
-    struct pollfd pollfd;
-    int timeout;
-
-    pollfd.fd = read_fd;
-    pollfd.events = POLLIN;
-    pollfd.revents = 0;
-    timeout = delay->tv_sec * 1000 + delay->tv_usec / 1000;
-    return poll(&pollfd, 1, timeout);
-}
-
-#else	/* !ERTS_USE_POLL */
-
-#include <sys/select.h>
-#define PERROR_POLL "select()"
-
-static int iwait_lowlevel_poll(int read_fd, struct timeval *delay)
-{
-    fd_set readfds;
-
-    FD_ZERO(&readfds);
-    FD_SET(read_fd, &readfds);
-    return select(read_fd + 1, &readfds, NULL, NULL, delay);
-}
-
-#endif	/* !ERTS_USE_POLL */
-
-static void iwait_lowlevel_wait(struct erts_iwait *iwait, struct timeval *delay)
-{
-    int res;
-    char buf[64];
-
-    res = iwait_lowlevel_poll(iwait->read_fd, delay);
-    if (res > 0)
-	(void)read(iwait->read_fd, buf, sizeof buf);
-    else if (res < 0 && errno != EINTR)
-	perror(PERROR_POLL);
-}
-
-static void iwait_lowlevel_interrupt(struct erts_iwait *iwait)
-{
-    int res = write(iwait->write_fd, "!", 1);
-    if (res < 0)
-	perror("write()");
-}
-
-#endif	/* using poll() or select() */
-
-#if 0	/* not using poll() or select() */
-/*
- * This is an implementation of the interruptible wait facility on
- * top of pthread_cond_timedwait(). This has two problems:
- * 1. pthread_cond_timedwait() requires an absolute time point,
- *    so the relative delay must be converted to absolute time.
- *    Worse, this breaks if the machine's time is adjusted while
- *    we're preparing to wait.
- * 2. Each cond operation requires additional mutex lock/unlock operations.
- *
- * Problem 2 is probably not too bad on Linux (they'll just become
- * relatively cheap futex operations), but problem 1 is the real killer.
- * Only use this implementation if no better alternatives are available!
- */
-struct erts_iwait {
-    erts_smp_atomic_t state;
-    pthread_cond_t cond;
-    pthread_mutex_t mutex;
-};
-
-static void iwait_lowlevel_init(struct erts_iwait *iwait)
-{
-    iwait->cond = (pthread_cond_t) PTHREAD_COND_INITIALIZER;
-    iwait->mutex = (pthread_mutex_t) PTHREAD_MUTEX_INITIALIZER;
-}
-
-static void iwait_lowlevel_wait(struct erts_iwait *iwait, struct timeval *delay)
-{
-    struct timeval tmp;
-    struct timespec timeout;
-
-    /* Due to pthread_cond_timedwait()'s use of absolute
-       time, this must be the real gettimeofday(), _not_
-       the "smoothed" one beam/erl_time_sup.c implements. */
-    gettimeofday(&tmp, NULL);
-
-    tmp.tv_sec += delay->tv_sec;
-    tmp.tv_usec += delay->tv_usec;
-    if (tmp.tv_usec >= 1000*1000) {
-	tmp.tv_usec -= 1000*1000;
-	tmp.tv_sec += 1;
-    }
-    timeout.tv_sec = tmp.tv_sec;
-    timeout.tv_nsec = tmp.tv_usec * 1000;
-    pthread_mutex_lock(&iwait->mutex);
-    pthread_cond_timedwait(&iwait->cond, &iwait->mutex, &timeout);
-    pthread_mutex_unlock(&iwait->mutex);
-}
-
-static void iwait_lowlevel_interrupt(struct erts_iwait *iwait)
-{
-    pthread_mutex_lock(&iwait->mutex);
-    pthread_cond_signal(&iwait->cond);
-    pthread_mutex_unlock(&iwait->mutex);
-}
-
-#endif /* not using POLL */
-
-/*
- * Interruptible-wait facility. This is just a wrapper around the
- * low-level synchronisation code, where we maintain our logical
- * state in order to suppress some state transitions.
- */
-
-struct erts_iwait *erts_iwait_init(void)
-{
-    struct erts_iwait *iwait = malloc(sizeof *iwait);
-    if (!iwait) {
-	perror("malloc");
-	exit(1);
-    }
-    iwait_lowlevel_init(iwait);
-    erts_smp_atomic_init(&iwait->state, IWAIT_AWAKE);
-    return iwait;
-}
-
-void erts_iwait_wait(struct erts_iwait *iwait, struct timeval *delay)
-{
-    if (erts_smp_atomic_xchg(&iwait->state, IWAIT_WAITING) != IWAIT_INTERRUPT)
-	iwait_lowlevel_wait(iwait, delay);
-    erts_smp_atomic_set(&iwait->state, IWAIT_AWAKE);
-}
-
-void erts_iwait_interrupt(struct erts_iwait *iwait)
-{
-    if (erts_smp_atomic_xchg(&iwait->state, IWAIT_INTERRUPT) == IWAIT_WAITING)
-	iwait_lowlevel_interrupt(iwait);
-}
-
-#endif /* ERTS_TIMER_THREAD */

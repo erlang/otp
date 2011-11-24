@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %% Core Erlang inliner.
@@ -65,7 +65,6 @@
 	       try_evars/1, try_handler/1, tuple_es/1, tuple_arity/1,
 	       type/1, values_es/1, var_name/1]).
 
--import(erlang, [max/2]).
 -import(lists, [foldl/3, foldr/3, mapfoldl/3, reverse/1]).
 
 %%
@@ -201,9 +200,9 @@ start(Reply, Tree, Ctxt, Opts) ->
         false ->
             ok
     end,
-    Size = max(1, proplists:get_value(inline_size, Opts)),
-    Effort = max(1, proplists:get_value(inline_effort, Opts)),
-    Unroll = max(1, proplists:get_value(inline_unroll, Opts)),
+    Size = erlang:max(1, proplists:get_value(inline_size, Opts)),
+    Effort = erlang:max(1, proplists:get_value(inline_effort, Opts)),
+    Unroll = erlang:max(1, proplists:get_value(inline_unroll, Opts)),
     case proplists:get_bool(verbose, Opts) of
 	true ->
 	    io:fwrite("Inlining: inline_size=~w inline_effort=~w\n",
@@ -1429,17 +1428,26 @@ inline(E, #app{opnds = Opnds, ctxt = Ctxt, loc = L}, Ren, Env, S) ->
 	    {E, S};
        true ->
 	    %% Create local bindings for the parameters to their
-	    %% respective operand structures from the app-structure, and
-	    %% visit the body in the context saved in the structure.
+	    %% respective operand structures from the app-structure.
 	    {Rs, Ren1, Env1, S1} = bind_locals(Vs, Opnds, Ren, Env, S),
-	    {E1, S2} = i(fun_body(E), Ctxt, Ren1, Env1, S1),
+
+	    %% function_clause exceptions that have been inlined
+	    %% into another function (or even into the same function)
+	    %% will not work properly. The v3_kernel pass will
+	    %% take care of it, but we will need to help it by
+	    %% removing any function_name annotations on match_fail
+	    %% primops that we inline.
+	    E1 = kill_function_name_anns(fun_body(E)),
+
+	    %% Visit the body in the context saved in the structure.
+	    {E2, S2} = i(E1, Ctxt, Ren1, Env1, S1),
 
 	    %% Create necessary bindings and/or set flags.
-	    {E2, S3} = make_let_bindings(Rs, E1, S2),
+	    {E3, S3} = make_let_bindings(Rs, E2, S2),
 
 	    %% Lastly, flag the application as inlined, since the inlining
 	    %% attempt was not aborted before we reached this point.
-	    {E2, st__set_app_inlined(L, S3)}
+	    {E3, st__set_app_inlined(L, S3)}
     end.
 
 %% For the (possibly renamed) argument variables to an inlined call,
@@ -2369,6 +2377,19 @@ kill_id_anns([A | As]) ->
     [A | kill_id_anns(As)];
 kill_id_anns([]) ->
     [].
+
+kill_function_name_anns(Body) ->
+    F = fun(P) ->
+		case type(P) of
+		    primop ->
+			Ann = get_ann(P),
+			Ann1 = lists:keydelete(function_name, 1, Ann),
+			set_ann(P, Ann1);
+		    _ ->
+			P
+		end
+	end,
+    cerl_trees:map(F, Body).
 
 
 %% =====================================================================

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -100,7 +100,7 @@ create_win(GS, Title, {X,Y}, Mode, Filter, Extra, FileName) ->
     Opts = [{y, Y4}, {width, Wbtn}, {height, Hbtn}, {font, Font}],
     case Mode of
 	normal ->
-	    gs:button(Win, [{label, {text,"Ok"}}, {x, Pad},
+	    gs:button(Win, [{label, {text,"OK"}}, {x, Pad},
 			    {data, select} | Opts]),
 	    gs:button(Win, [{label, {text,"Filter"}}, {x, Wlb/2-Wbtn/2},
 			    {data, filter} | Opts]),
@@ -202,8 +202,7 @@ handle_event({gs, 'Files', doubleclick, _Data, _Arg}, WinInfo) ->
 handle_event({gs, _Id, click, select, _Arg}, _WinInfo) ->
     {select, gs:read('Selection', text)};
 handle_event({gs, _Id, click, multiselect, _Arg}, WinInfo) ->
-    Files = lists:map(fun(File) -> untag(File) end,
-		      gs:read('Files', items)),
+    Files = [untag(File) || File <- gs:read('Files', items)],
     {multiselect, WinInfo#winInfo.cwd, Files};
 handle_event({gs, _Id, click, filter, _Arg}, WinInfo) ->
     {Cwd, Pattern} = update_win(gs:read('Filter', text),
@@ -286,7 +285,7 @@ max_existing([Name | Names]) ->
 max_existing(Dir, [Name | Names]) ->
     Dir2 = filename:join(Dir, Name),
     case filelib:is_file(Dir2, erl_prim_loader) of
-	true when Names==[] -> {Dir2, []};
+	true when Names =:= [] -> {Dir2, []};
 	true -> max_existing(Dir2, Names);
 	false -> {Dir, [Name | Names]}
     end.
@@ -309,11 +308,8 @@ extra_filter([], _Dir, _Fun) -> [].
 get_subdirs(Dir) ->
     case erl_prim_loader:list_dir(Dir) of
 	{ok, FileNames} ->
-	    X = lists:filter(fun(FileName) ->
-				     File = filename:join(Dir, FileName),
-				     filelib:is_dir(File, erl_prim_loader)
-			     end,
-			     FileNames),
+	    X = [FN || FN <- FileNames,
+		       filelib:is_dir(filename:join(Dir, FN), erl_prim_loader)],
 	    lists:sort(X);
 	_Error ->
 	    []
@@ -335,4 +331,3 @@ compare([], [$/|File]) ->
     File;
 compare(_, _) ->
     error.
-    

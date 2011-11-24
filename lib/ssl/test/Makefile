@@ -1,19 +1,19 @@
 #
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 1999-2009. All Rights Reserved.
-# 
+#
+# Copyright Ericsson AB 1999-2011. All Rights Reserved.
+#
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
 # compliance with the License. You should have received a copy of the
 # Erlang Public License along with this software. If not, it can be
 # retrieved online at http://www.erlang.org/.
-# 
+#
 # Software distributed under the License is distributed on an "AS IS"
 # basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 # the License for the specific language governing rights and limitations
 # under the License.
-# 
+#
 # %CopyrightEnd%
 #
 
@@ -35,35 +35,31 @@ VSN=$(GS_VSN)
 # ----------------------------------------------------
 
 MODULES = \
-        ssl_test_lib \
+	ssl_test_lib \
 	ssl_basic_SUITE \
+	ssl_handshake_SUITE \
 	ssl_packet_SUITE \
+	ssl_cipher_SUITE \
 	ssl_payload_SUITE \
 	ssl_to_openssl_SUITE \
-	ssl_test_MACHINE \
-	old_ssl_active_SUITE \
-	old_ssl_active_once_SUITE \
-	old_ssl_passive_SUITE \
-        old_ssl_verify_SUITE \
-	old_ssl_peer_cert_SUITE \
-	old_ssl_misc_SUITE \
-	old_ssl_protocol_SUITE \
-	old_transport_accept_SUITE \
-	old_ssl_dist_SUITE \
-	make_certs 
+	ssl_session_cache_SUITE	\
+	ssl_dist_SUITE \
+	make_certs\
+	erl_make_certs
 
 
 ERL_FILES = $(MODULES:%=%.erl)
 
-HRL_FILES = ssl_test_MACHINE.hrl 
+HRL_FILES =
 
 HRL_FILES_SRC = \
-	ssl_pkix.hrl \
+	ssl_internal.hrl\
 	ssl_alert.hrl \
-	ssl_handshake.hrl
+	ssl_handshake.hrl \
+	ssl_cipher.hrl \
+	ssl_record.hrl
 
-HRL_FILES_INC = \
-	OTP-PKIX.hrl
+HRL_FILES_INC = 
 
 HRL_FILES_NEEDED_IN_TEST = \
 	$(HRL_FILES_SRC:%=../src/%) \
@@ -126,8 +122,8 @@ release_spec: opt
 release_tests_spec: opt
 	$(INSTALL_DIR) $(RELSYSDIR)
 	$(INSTALL_DATA)  $(ERL_FILES) $(HRL_FILES) $(HRL_FILES_NEEDED_IN_TEST) $(COVER_FILE) $(RELSYSDIR)
-	$(INSTALL_DATA) ssl.spec $(RELSYSDIR)
-	chmod -f -R u+w $(RELSYSDIR)
+	$(INSTALL_DATA) ssl.spec ssl.cover $(RELSYSDIR)
+	chmod -R u+w $(RELSYSDIR)
 	@tar cf - *_SUITE_data | (cd $(RELSYSDIR); tar xf -)
 
 release_docs_spec:

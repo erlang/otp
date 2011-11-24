@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,21 +18,41 @@
 %%
 
 -module(beam_literals_SUITE).
--export([all/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 -export([putting/1, matching_smalls/1, matching_smalls_jt/1,
 	 matching_bigs/1, matching_more_bigs/1,
 	 matching_bigs_and_smalls/1, badmatch/1, case_clause/1,
 	 receiving/1, literal_type_tests/1,
-	 put_list/1, fconv/1, literal_case_expression/1]).
+	 put_list/1, fconv/1, literal_case_expression/1,
+	 increment/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
-all(suite) ->
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
     [putting, matching_smalls, matching_smalls_jt,
      matching_bigs, matching_more_bigs,
      matching_bigs_and_smalls, badmatch, case_clause,
-     receiving, literal_type_tests,
-     put_list, fconv, literal_case_expression].
+     receiving, literal_type_tests, put_list, fconv,
+     literal_case_expression, increment].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 putting(doc) -> "Test creating lists and tuples containing big number literals.";
 putting(Config) when is_list(Config) ->
@@ -48,6 +68,7 @@ matching_bigs(doc) -> "Test matching of a few big number literals (in Beam,"
 matching_bigs(Config) when is_list(Config) ->
     a = matching1(3972907842873739),
     b = matching1(-389789298378939783333333333333333333784),
+    other = matching1(3141699999999999999999999999999999999),
     other = matching1(42).
 
 matching_smalls(doc) -> "Test matching small numbers (both positive and negative).";
@@ -236,14 +257,14 @@ make_test([{T,L}|Ts]) ->
 make_test([]) -> [].
 
 test(T, L) ->
-    S = lists:flatten(io_lib:format("begin io:format(\"~~p~~n\", [{~p,~p}]), if ~w(~w) -> true; true -> false end end. ", [T, L, T, L])),
+    S = lists:flatten(io_lib:format("begin io:format(\"~~p~n\", [{~p,~p}]), if ~w(~w) -> true; true -> false end end. ", [T, L, T, L])),
     {ok,Toks,_Line} = erl_scan:string(S),
     {ok,E} = erl_parse:parse_exprs(Toks),
     {value,Val,_Bs} = erl_eval:exprs(E, []),
     {match,0,{atom,0,Val},hd(E)}.
 
 test(T, A, L) ->
-    S = lists:flatten(io_lib:format("begin io:format(\"~~p~~n\", [{~p,~p,~p}]), if ~w(~w, ~w) -> true; true -> false end end. ",
+    S = lists:flatten(io_lib:format("begin io:format(\"~~p~n\", [{~p,~p,~p}]), if ~w(~w, ~w) -> true; true -> false end end. ",
 				    [T,L,A,T,L,A])),
     {ok,Toks,_Line} = erl_scan:string(S),
     {ok,E} = erl_parse:parse_exprs(Toks),
@@ -405,12 +426,49 @@ fconv_2(F) when is_float(F) ->
 literal_case_expression(Config) when is_list(Config) ->
     ?line DataDir = ?config(data_dir, Config),
     ?line Src = filename:join(DataDir, "literal_case_expression"),
-    ?line {ok,literal_case_expression=Mod,Code} = compile:file(Src, [from_asm,binary]),
+    ?line {ok,literal_case_expression=Mod,Code} =
+	compile:file(Src, [from_asm,binary]),
     ?line {module,Mod} = code:load_binary(Mod, Src, Code),
     ?line ok = Mod:x(),
     ?line ok = Mod:y(),
+    ?line ok = Mod:zi1(),
+    ?line ok = Mod:zi2(),
+    ?line ok = Mod:za1(),
+    ?line ok = Mod:za2(),
     ?line true = code:delete(Mod),
     ?line code:purge(Mod),
+    ok.
+
+%% Test the i_increment instruction.
+increment(Config) when is_list(Config) ->
+    %% In the 32-bit emulator, Neg32 can be represented as a small,
+    %% but -Neg32 cannot. Therefore the i_increment instruction must
+    %% not be used in the subtraction that follows (since i_increment
+    %% cannot handle a bignum literal).
+    Neg32 = -(1 bsl 27),
+    Big32 = id(1 bsl 32),
+    Result32 = (1 bsl 32) + (1 bsl 27),
+    ?line Result32 = Big32 + (1 bsl 27),
+    ?line Result32 = Big32 - Neg32,
+
+    %% Same thing, but for the 64-bit emulator.
+    Neg64 = -(1 bsl 59),
+    Big64 = id(1 bsl 64),
+    Result64 = (1 bsl 64) + (1 bsl 59),
+    ?line Result64 = Big64 + (1 bsl 59),
+    ?line Result64 = Big64 - Neg64,
+
+    %% Test error handling for the i_increment instruction.
+    Bad = id(bad),
+    ?line {'EXIT',{badarith,_}} = (catch Bad + 42),
+
+    %% Small operands, but a big result.
+    Res32 = 1 bsl 27,
+    Small32 = id(Res32-1),
+    ?line Res32 = Small32 + 1,
+    Res64 = 1 bsl 59,
+    Small64 = id(Res64-1),
+    ?line Res64 = Small64 + 1,
     ok.
 
 %% Help functions.

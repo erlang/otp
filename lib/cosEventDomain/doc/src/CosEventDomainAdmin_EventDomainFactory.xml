@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2001</year>
-      <year>2007</year>
+      <year>2011</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -23,8 +23,7 @@
   The Initial Developer of the Original Code is Ericsson AB.
     </legalnotice>
 
-    <title>CosEventDomainAdmin_&shy;EventDomainFactory</title>
-    <shorttitle>..._EventChannel</shorttitle>
+    <title>CosEventDomainAdmin_EventDomainFactory</title>
     <prepared>Niclas Eklund</prepared>
     <responsible>Niclas Eklund</responsible>
     <docno></docno>

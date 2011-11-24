@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
   <header>
     <copyright>
-      <year>2007</year><year>2010</year>
+      <year>2007</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-
+    
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-
+    
     </legalnotice>
 
     <title>inets</title>
@@ -32,21 +32,26 @@
   <modulesummary>The inets services API</modulesummary>
   <description>
     <p>This module provides the most basic API to the 
-      clients and servers, that are part of the Inets application,
-      such as start and stop. </p>
+    clients and servers, that are part of the Inets application,
+    such as start and stop. </p>
+
+    <marker id="common_data_types"></marker>
   </description>
 
   <section>
     <title>COMMON DATA TYPES </title>
     <p>Type definitions that are used more than once in
       this module: </p>
-    <p><c> service() = ftpc | tfptd | httpc | httpd</c></p>
+    <p><c> service() = ftpc | tftp | httpc | httpd</c></p>
     <p><c> property() = atom() </c></p>
+    <marker id="functions"></marker>
+    <marker id="services"></marker>
   </section>
+
   <funcs>
     <func>
       <name>services() -> [{Service, Pid}]</name>
-      <fsummary>Returns a list of currently running services.  </fsummary>
+      <fsummary>Returns a list of currently running services. </fsummary>
       <type>
         <v>Service = service()</v>
         <v>Pid = pid()</v>
@@ -54,11 +59,13 @@
       <desc>
         <p>Returns a list of currently running services.</p>
         <note>
-          <p>Services started as <c>stand_alone</c> will not
-            be listed.</p>
+	  <p>Services started as <c>stand_alone</c> will not be listed.</p>
         </note>
+
+	<marker id="services_info"></marker>
       </desc>
     </func>
+
     <func>
       <name>services_info() -> [{Service, Pid, Info}]</name>
       <fsummary>Returns a list of currently running services where
@@ -73,11 +80,13 @@
       </type>
       <desc>
         <p>Returns a list of currently running services where each
-          service is described by a [{Option, Value}] list. The
-          information given in the list is specific for each service
-          and it is probable that each service will have its own info
-          function that gives you even more details about the
-          service.</p>
+	service is described by a [{Option, Value}] list. The
+	information given in the list is specific for each service
+	and it is probable that each service will have its own info
+	function that gives you even more details about the
+	service.</p>
+
+	<marker id="service_names"></marker>
       </desc>
     </func>
     
@@ -89,6 +98,8 @@
       </type>
       <desc>
         <p>Returns a list of available service names.</p>
+
+	<marker id="start"></marker>
       </desc>
     </func>
     
@@ -97,29 +108,33 @@
       <name>start(Type) -> ok | {error, Reason}</name>
       <fsummary>Starts the Inets application. </fsummary>
       <type>
-        <v>Type =  permanent | transient | temporary</v>
+        <v>Type = permanent | transient | temporary</v>
       </type>
       <desc>
         <p>Starts the Inets application. Default type
-          is temporary. See also
-          <seealso marker="kernel:application">application(3)</seealso></p>
+	is temporary. See also
+	<seealso marker="kernel:application">application(3)</seealso>. </p>
+
+	<marker id="stop"></marker>
       </desc>
     </func>
+
     <func>
       <name>stop() -> ok </name>
       <fsummary>Stops the inets application.</fsummary>
       <desc>
         <p>Stops the inets application. See also
-          <seealso marker="kernel:application">application(3)</seealso></p>
+	<seealso marker="kernel:application">application(3)</seealso>. </p>
+	
+	<marker id="start2"></marker>
       </desc>
     </func>
+
     <func>
       <name>start(Service, ServiceConfig) -> {ok, Pid} | {error, Reason}</name>
-      <name>start(Service, ServiceConfig, How) -> {ok, Pid} |
-	{error, Reason}</name>
+      <name>start(Service, ServiceConfig, How) -> {ok, Pid} | {error, Reason}</name>
       <fsummary>Dynamically starts an inets
-	service after the inets application has been
-	started. </fsummary>
+      service after the inets application has been started. </fsummary>
       <type>
         <v>Service = service()</v>
         <v>ServiceConfig = [{Option, Value}]</v>
@@ -146,22 +161,27 @@
             some sense the calling process has now become the top
             supervisor.</p>
         </note>
+	
+	<marker id="stop2"></marker>
       </desc>
     </func>
+
     <func>
       <name>stop(Service, Reference) -> ok | {error, Reason} </name>
       <fsummary>Stops a started service of the inets application or takes
           down a "stand_alone-service" gracefully.</fsummary>
       <type>
-        <v>Service = service() | stand_alone</v>
+	<v>Service = service() | stand_alone</v>
 	<v>Reference = pid() | term() - service specified reference</v>
-        <v>Reason = term()</v>	
+	<v>Reason = term()</v>
       </type>
       <desc>
         <p>Stops a started service of the inets application or takes
-          down a "stand_alone-service" gracefully. When the
-	  <c>stand_alone</c> option is used in start,
-	  only the pid is a valid argument to stop.</p>
+	down a "stand_alone-service" gracefully. When the
+	<c>stand_alone</c> option is used in start,
+	only the pid is a valid argument to stop.</p>
+	
+	<marker id="see_also"></marker>
       </desc>
     </func>
   </funcs>
@@ -169,7 +189,7 @@
   <section>
     <title>SEE ALSO</title>
     <p><seealso marker="ftp">ftp(3)</seealso>,
-      <seealso marker="http">http(3)</seealso>,
+      <seealso marker="httpc">httpc(3)</seealso>,
       <seealso marker="httpd">httpd(3)</seealso>,
       <seealso marker="tftp">tftp(3)</seealso></p>
   </section>

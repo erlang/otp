@@ -4,4 +4,5 @@ PKIX1Implicit88.asn1
 PKIXAttributeCertificate.asn1
 PKIX1Algorithms88.asn1
 PKCS-1.asn1
+PKCS-3.asn1
 DSS.asn1

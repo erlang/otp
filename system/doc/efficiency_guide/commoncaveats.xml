@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2001</year><year>2009</year>
+      <year>2001</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>Common Caveats</title>
@@ -31,20 +31,6 @@
 
   <p>Here we list a few modules and BIFs to watch out for, and not only
   from a performance point of view.</p>
-
-  <section>
-     <title>The regexp module</title>
-
-     <p>The regular expression functions in the
-        <seealso marker="stdlib:regexp">regexp</seealso>
-	module are written in Erlang, not in C, and were
-	meant for occasional use on small amounts of data,
-	for instance for validation of configuration files
-	when starting an application.</p>
-
-      <p>Use the <seealso marker="stdlib:re">re</seealso> module
-      (introduced in R13A) instead, especially in time-critical code.</p>
-  </section>
 
   <section>
      <title>The timer module</title>
@@ -69,7 +55,7 @@
 
     <p>Atoms are not garbage-collected. Once an atom is created, it will never
     be removed. The emulator will terminate if the limit for the number
-    of atoms (1048576) is reached.</p>
+    of atoms (1048576 by default) is reached.</p>
 
     <p>Therefore, converting arbitrary input strings to atoms could be
     dangerous in a system that will run continuously.

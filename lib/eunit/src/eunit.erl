@@ -13,13 +13,10 @@
 %% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
 %% USA
 %%
-%% $Id: eunit.erl 339 2009-04-05 14:10:47Z rcarlsson $
-%%
 %% @copyright 2004-2009 Mickaël Rémond, Richard Carlsson
 %% @author Mickaël Rémond <mickael.remond@process-one.net>
 %%   [http://www.process-one.net/]
-%% @author Richard Carlsson <richardc@it.uu.se>
-%%   [http://user.it.uu.se/~richardc/]
+%% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @version {@version}, {@date} {@time}
 %% @doc This module is the main EUnit user interface.
 
@@ -157,6 +154,7 @@ test_run(Reference, Listeners) ->
     receive
 	{done, Reference} ->
 	    cast(Listeners, {stop, Reference, self()}),
+            wait_until_listeners_have_terminated(Listeners),
 	    receive
 		{result, Reference, Result} ->
 		    Result
@@ -167,6 +165,15 @@ cast([P | Ps], Msg) ->
     P ! Msg,
     cast(Ps, Msg);
 cast([], _Msg) ->
+    ok.
+
+wait_until_listeners_have_terminated([P | Ps]) ->
+    MRef = erlang:monitor(process, P),
+    receive
+        {'DOWN', MRef, process, P, _} ->
+            wait_until_listeners_have_terminated(Ps)
+    end;
+wait_until_listeners_have_terminated([]) ->
     ok.
 
 %% TODO: functions that run tests on a given node, not a given server

@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(global).
@@ -28,7 +28,7 @@
 
 %% External exports
 -export([start/0, start_link/0, stop/0, sync/0, sync/1,
-	 safe_whereis_name/1, whereis_name/1,  register_name/2, 
+	 whereis_name/1,  register_name/2,
          register_name/3, register_name_external/2, register_name_external/3,
          unregister_name_external/1,re_register_name/2, re_register_name/3,
 	 unregister_name/1, registered_names/0, send/2, node_disconnected/1,
@@ -112,9 +112,10 @@
 		resolvers = [],
 		syncers = []       :: [pid()],
 		node_name = node() :: node(),
-		the_locker, the_deleter, the_registrar, trace,
-                global_lock_down = false
+		the_locker, the_registrar, trace,
+                global_lock_down = false :: boolean()
                }).
+-type state() :: #state{}.
 
 %%% There are also ETS tables used for bookkeeping of locks and names
 %%% (the first position is the key):
@@ -153,6 +154,8 @@
 %%% It can be removed later as can the deleter process.
 %%% An extra process calling erlang:monitor() is sometimes created.
 %%% The new_nodes messages has been augmented with the global lock id.
+%%%
+%%% R14A (OTP-8527): The deleter process has been removed.
 
 start() -> 
     gen_server:start({local, global_name_server}, ?MODULE, [], []).
@@ -163,7 +166,7 @@ start_link() ->
 stop() -> 
     gen_server:call(global_name_server, stop, infinity).
 
--spec sync() -> 'ok' | {'error', term()}.
+-spec sync() -> 'ok' | {'error', Reason :: term()}.
 sync() ->
     case check_sync_nodes() of
 	{error, _} = Error ->
@@ -172,7 +175,7 @@ sync() ->
 	    gen_server:call(global_name_server, {sync, SyncNodes}, infinity)
     end.
 
--spec sync([node()]) -> 'ok' | {'error', term()}.
+-spec sync([node()]) -> 'ok' | {'error', Reason :: term()}.
 sync(Nodes) ->
     case check_sync_nodes(Nodes) of
 	{error, _} = Error ->
@@ -181,7 +184,10 @@ sync(Nodes) ->
 	    gen_server:call(global_name_server, {sync, SyncNodes}, infinity)
     end.
 
--spec send(term(), term()) -> pid().
+-spec send(Name, Msg) -> Pid when
+      Name :: term(),
+      Msg :: term(),
+      Pid :: pid().
 send(Name, Msg) ->
     case whereis_name(Name) of
 	Pid when is_pid(Pid) ->
@@ -192,13 +198,10 @@ send(Name, Msg) ->
     end.
 
 %% See OTP-3737.
--spec whereis_name(term()) -> pid() | 'undefined'.
+-spec whereis_name(Name) -> pid() | 'undefined' when
+      Name :: term().
 whereis_name(Name) ->
     where(Name).
-
--spec safe_whereis_name(term()) -> pid() | 'undefined'.
-safe_whereis_name(Name) ->
-    gen_server:call(global_name_server, {whereis, Name}, infinity).
 
 node_disconnected(Node) ->
     global_name_server ! {nodedown, Node}.
@@ -216,13 +219,19 @@ node_disconnected(Node) ->
 %% undefined which one of them is used.
 %% Method blocks the name registration, but does not affect global locking.
 %%-----------------------------------------------------------------
--spec register_name(term(), pid()) -> 'yes' | 'no'.
+-spec register_name(Name, Pid) -> 'yes' | 'no' when
+      Name :: term(),
+      Pid :: pid().
 register_name(Name, Pid) when is_pid(Pid) ->
     register_name(Name, Pid, fun random_exit_name/3).
 
--type method() :: fun((term(), pid(), pid()) -> pid() | 'none').
+-type method() :: fun((Name :: term(), Pid :: pid(), Pid2 :: pid()) ->
+                             pid() | 'none').
 
--spec register_name(term(), pid(), method()) -> 'yes' | 'no'.
+-spec register_name(Name, Pid, Resolve) -> 'yes' | 'no' when
+      Name :: term(),
+      Pid :: pid(),
+      Resolve :: method().
 register_name(Name, Pid, Method) when is_pid(Pid) ->
     Fun = fun(Nodes) ->
         case (where(Name) =:= undefined) andalso check_dupname(Name, Pid) of
@@ -254,7 +263,8 @@ check_dupname(Name, Pid) ->
             end
     end.
 
--spec unregister_name(term()) -> _.
+-spec unregister_name(Name) -> _ when
+      Name :: term().
 unregister_name(Name) ->
     case where(Name) of
 	undefined ->
@@ -270,11 +280,16 @@ unregister_name(Name) ->
             gen_server:call(global_name_server, {registrar, Fun}, infinity)
     end.
 
--spec re_register_name(term(), pid()) -> _.
+-spec re_register_name(Name, Pid) -> _ when
+      Name :: term(),
+      Pid :: pid().
 re_register_name(Name, Pid) when is_pid(Pid) ->
     re_register_name(Name, Pid, fun random_exit_name/3).
 
--spec re_register_name(term(), pid(), method()) -> _.
+-spec re_register_name(Name, Pid, Resolve) -> _ when
+      Name :: term(),
+      Pid :: pid(),
+      Resolve :: method().
 re_register_name(Name, Pid, Method) when is_pid(Pid) ->
     Fun = fun(Nodes) ->
 		  gen_server:multi_call(Nodes,
@@ -285,7 +300,8 @@ re_register_name(Name, Pid, Method) when is_pid(Pid) ->
     ?trace({re_register_name, self(), Name, Pid, Method}),
     gen_server:call(global_name_server, {registrar, Fun}, infinity).
 
--spec registered_names() -> [term()].
+-spec registered_names() -> [Name] when
+      Name :: term().
 registered_names() ->
     MS = ets:fun2ms(fun({Name,_Pid,_M,_RP,_R}) -> Name end),
     ets:select(global_names, MS).
@@ -326,19 +342,25 @@ register_name_external(Name, Pid, Method) when is_pid(Pid) ->
 unregister_name_external(Name) ->
     unregister_name(Name).
 
--type id() :: {term(), term()}.
+-type id() :: {ResourceId :: term(), LockRequesterId :: term()}.
 
--spec set_lock(id()) -> boolean().
+-spec set_lock(Id) -> boolean() when
+      Id :: id().
 set_lock(Id) ->
     set_lock(Id, [node() | nodes()], infinity, 1).
 
 -type retries() :: non_neg_integer() | 'infinity'.
 
--spec set_lock(id(), [node()]) -> boolean().
+-spec set_lock(Id, Nodes) -> boolean() when
+      Id :: id(),
+      Nodes :: [node()].
 set_lock(Id, Nodes) ->
     set_lock(Id, Nodes, infinity, 1).
 
--spec set_lock(id(), [node()], retries()) -> boolean().
+-spec set_lock(Id, Nodes, Retries) -> boolean() when
+      Id :: id(),
+      Nodes :: [node()],
+      Retries :: retries().
 set_lock(Id, Nodes, Retries) when is_integer(Retries), Retries >= 0 ->
     set_lock(Id, Nodes, Retries, 1);
 set_lock(Id, Nodes, infinity) ->
@@ -360,11 +382,14 @@ set_lock({_ResourceId, _LockRequesterId} = Id, Nodes, Retries, Times) ->
 	    set_lock(Id, Nodes, dec(Retries), Times+1)
     end.
 
--spec del_lock(id()) -> 'true'.
+-spec del_lock(Id) -> 'true' when
+      Id :: id().
 del_lock(Id) ->
     del_lock(Id, [node() | nodes()]).
 
--spec del_lock(id(), [node()]) -> 'true'.
+-spec del_lock(Id, Nodes) -> 'true' when
+      Id :: id(),
+      Nodes :: [node()].
 del_lock({_ResourceId, _LockRequesterId} = Id, Nodes) ->
     ?trace({del_lock, {me,self()}, Id, {nodes,Nodes}}),
     gen_server:multi_call(Nodes, global_name_server, {del_lock, Id}),
@@ -372,13 +397,25 @@ del_lock({_ResourceId, _LockRequesterId} = Id, Nodes) ->
 
 -type trans_fun() :: function() | {module(), atom()}.
 
--spec trans(id(), trans_fun()) -> term().
+-spec trans(Id, Fun) -> Res | aborted when
+      Id :: id(),
+      Fun :: trans_fun(),
+      Res :: term().
 trans(Id, Fun) -> trans(Id, Fun, [node() | nodes()], infinity).
 
--spec trans(id(), trans_fun(), [node()]) -> term().
+-spec trans(Id, Fun, Nodes) -> Res | aborted when
+      Id :: id(),
+      Fun :: trans_fun(),
+      Nodes :: [node()],
+      Res :: term().
 trans(Id, Fun, Nodes) -> trans(Id, Fun, Nodes, infinity).
 
--spec trans(id(), trans_fun(), [node()], retries()) -> term().
+-spec trans(Id, Fun, Nodes, Retries) -> Res | aborted when
+      Id :: id(),
+      Fun :: trans_fun(),
+      Nodes :: [node()],
+      Retries :: retries(),
+      Res :: term().
 trans(Id, Fun, Nodes, Retries) ->
     case set_lock(Id, Nodes, Retries) of
 	true ->
@@ -397,6 +434,9 @@ info() ->
 %%%-----------------------------------------------------------------
 %%% Call-back functions from gen_server
 %%%-----------------------------------------------------------------
+
+-spec init([]) -> {'ok', state()}.
+
 init([]) ->
     process_flag(trap_exit, true),
     _ = ets:new(global_locks, [set, named_table, protected]),
@@ -418,7 +458,6 @@ init([]) ->
 
     S = #state{the_locker = start_the_locker(DoTrace),
                trace = T0,
-	       the_deleter = start_the_deleter(self()),
                the_registrar = start_the_registrar()},
     S1 = trace_message(S, {init, node()}, []),
 
@@ -467,8 +506,7 @@ init([]) ->
 %%   delay can sometimes be quite substantial. Global guarantees that
 %%   the name will eventually be removed, but there is no
 %%   synchronization between nodes; the name can be removed from some
-%%   node(s) long before it is removed from other nodes. Using
-%%   safe_whereis_name is no cure.
+%%   node(s) long before it is removed from other nodes.
 %%
 %% - Global cannot handle problems with the distribution very well.
 %%   Depending on the value of the kernel variable 'net_ticktime' long
@@ -541,9 +579,10 @@ init([]) ->
 %%          sent by each node to all new nodes (Node becomes known to them)
 %%-----------------------------------------------------------------
 
-handle_call({whereis, Name}, From, S) ->
-    do_whereis(Name, From),
-    {noreply, S};
+-spec handle_call(term(), {pid(), term()}, state()) ->
+        {'noreply', state()} |
+	{'reply', term(), state()} |
+	{'stop', 'normal', 'stopped', state()}.
 
 handle_call({registrar, Fun}, From, S) ->
     S#state.the_registrar ! {trans_all_known, Fun, From},
@@ -620,6 +659,9 @@ handle_call(Request, From, S) ->
 %% init_connect
 %%
 %%========================================================================
+
+-spec handle_cast(term(), state()) -> {'noreply', state()}.
+
 handle_cast({init_connect, Vsn, Node, InitMsg}, S) ->
     %% Sent from global_name_server at Node.
     ?trace({'####', init_connect, {vsn, Vsn}, {node,Node},{initmsg,InitMsg}}),
@@ -763,13 +805,16 @@ handle_cast({in_sync, Node, _IsKnown}, S) ->
 
 %% Called when Pid on other node crashed
 handle_cast({async_del_name, _Name, _Pid}, S) ->
-    %% Sent from the_deleter at some node in the partition but node().
+    %% Sent from the_deleter at some node in the partition but node() (-R13B)
     %% The DOWN message deletes the name.
+    %% R14A nodes and later do not send async_del_name messages.
     {noreply, S};
 
 handle_cast({async_del_lock, _ResourceId, _Pid}, S) ->
-    %% Sent from global_name_server at some node in the partition but node().
+    %% Sent from global_name_server at some node in the partition but
+    %% node(). (-R13B)
     %% The DOWN message deletes the lock.
+    %% R14A nodes and later do not send async_del_lock messages.
     {noreply, S};
 
 handle_cast(Request, S) ->
@@ -778,8 +823,11 @@ handle_cast(Request, S) ->
                              "handle_cast(~p, _)\n", [Request]),
     {noreply, S}.
 
-handle_info({'EXIT', Deleter, _Reason}=Exit, #state{the_deleter=Deleter}=S) ->
-    {stop, {deleter_died,Exit}, S#state{the_deleter=undefined}};
+%%========================================================================
+
+-spec handle_info(term(), state()) ->
+        {'noreply', state()} | {'stop', term(), state()}.
+
 handle_info({'EXIT', Locker, _Reason}=Exit, #state{the_locker=Locker}=S) ->
     {stop, {locker_died,Exit}, S#state{the_locker=undefined}};
 handle_info({'EXIT', Registrar, _}=Exit, #state{the_registrar=Registrar}=S) ->
@@ -1120,12 +1168,17 @@ do_whereis(Name, From) ->
 	    send_again({whereis, Name, From})
     end.
 
+-spec terminate(term(), state()) -> 'ok'.
+
 terminate(_Reason, _S) ->
     true = ets:delete(global_names),
     true = ets:delete(global_names_ext),
     true = ets:delete(global_locks),
     true = ets:delete(global_pid_names),
-    true = ets:delete(global_pid_ids).
+    true = ets:delete(global_pid_ids),
+    ok.
+
+-spec code_change(term(), state(), term()) -> {'ok', state()}.
 
 code_change(_OldVsn, S, _Extra) ->
     {ok, S}.
@@ -1173,7 +1226,15 @@ ins_name_ext(Name, Pid, Method, RegNode, FromPidOrNode, ExtraInfo, S0) ->
 
 where(Name) ->
     case ets:lookup(global_names, Name) of
-	[{_Name, Pid, _Method, _RPid, _Ref}] -> Pid;
+	[{_Name, Pid, _Method, _RPid, _Ref}] ->
+	    if node(Pid) == node() ->
+		    case is_process_alive(Pid) of
+			true  -> Pid;
+			false -> undefined
+		    end;
+	       true ->
+		    Pid
+	    end;
 	[] -> undefined
     end.
 
@@ -1348,29 +1409,12 @@ lock_still_set(PidOrNode, ExtraInfo, S) ->
         [{?GLOBAL_RID, _LockReqId, PidRefs}] when is_pid(PidOrNode) -> 
             %% Name registration.
             lists:keymember(PidOrNode, 1, PidRefs);
-        [{?GLOBAL_RID, LockReqId, PidRefs}] when is_atom(PidOrNode) ->
-            case extra_info(lock, ExtraInfo) of
-                {?GLOBAL_RID, LockId} -> % R11B-4 or later
-                    LockReqId =:= LockId;
-                undefined ->
-                    lock_still_set_old(PidOrNode, LockReqId, PidRefs)
-            end;
+        [{?GLOBAL_RID, LockReqId, _PidRefs}] when is_atom(PidOrNode) ->
+            {?GLOBAL_RID, LockId} = extra_info(lock, ExtraInfo),
+            LockReqId =:= LockId;
         [] ->
-            %% If the global lock was not removed by a DOWN message
-            %% then we have a node that do not monitor locking pids
-            %% (pre R11B-3), or an R11B-3 node (which does not ensure
-            %% that {new_nodes, ...} arrives before {del_lock, ...}).
             not S#state.global_lock_down
     end.
-
-%%% The following is probably overkill. It is possible that this node
-%%% has been locked again, but it is a rare occasion.
-lock_still_set_old(_Node, ReqId, _PidRefs) when is_pid(ReqId) ->
-    %% Cannot do better than return true.
-    true;
-lock_still_set_old(Node, ReqId, PidRefs) when is_list(ReqId) ->
-    %% Connection, version > 4, but before R11B-4.
-    [P || {P, _RPid, _Ref} <- PidRefs, node(P) =:= Node] =/= [].
 
 extra_info(Tag, ExtraInfo) ->
     %% ExtraInfo used to be a list of nodes (vsn 2).
@@ -1382,34 +1426,16 @@ extra_info(Tag, ExtraInfo) ->
     end.
 
 del_name(Ref, S) ->
-    NameL = [{Name, Pid} || 
+    NameL = [Name || 
                 {_, Name} <- ets:lookup(global_pid_names, Ref),
-                {_, Pid, _Method, _RPid, Ref1} <- 
+                {_, _Pid, _Method, _RPid, Ref1} <- 
                     ets:lookup(global_names, Name),
                 Ref1 =:= Ref],
-    ?trace({async_del_name, self(), NameL, Ref}),
     case NameL of
-        [{Name, Pid}] ->
-            _ = del_names(Name, Pid, S),
+        [Name] ->
             delete_global_name2(Name, S);
         [] ->
             S
-    end.
-
-%% Send {async_del_name, ...} to old nodes (pre R11B-3).
-del_names(Name, Pid, S) ->
-    Send = case ets:lookup(global_names_ext, Name) of
-               [{Name, Pid, RegNode}] ->
-                   RegNode =:= node();
-               [] ->
-                   node(Pid) =:= node()
-           end,
-    if 
-        Send ->
-            ?trace({del_names, {pid,Pid}, {name,Name}}),
-            S#state.the_deleter ! {delete_name, self(), Name, Pid};
-        true ->
-            ok
     end.
 
 %% Keeps the entry in global_names for whereis_name/1.
@@ -1939,7 +1965,10 @@ resolve_it(Method, Name, Pid1, Pid2) ->
 minmax(P1,P2) ->
     if node(P1) < node(P2) -> {P1, P2}; true -> {P2, P1} end.
 
--spec random_exit_name(term(), pid(), pid()) -> pid().
+-spec random_exit_name(Name, Pid1, Pid2) -> 'none' when
+      Name :: term(),
+      Pid1 :: pid(),
+      Pid2 :: pid().
 random_exit_name(Name, Pid, Pid2) ->
     {Min, Max} = minmax(Pid, Pid2),
     error_logger:info_msg("global: Name conflict terminating ~w\n",
@@ -1947,12 +1976,19 @@ random_exit_name(Name, Pid, Pid2) ->
     exit(Max, kill),
     Min.
 
+-spec random_notify_name(Name, Pid1, Pid2) -> 'none' when
+      Name :: term(),
+      Pid1 :: pid(),
+      Pid2 :: pid().
 random_notify_name(Name, Pid, Pid2) ->
     {Min, Max} = minmax(Pid, Pid2),
     Max ! {global_name_conflict, Name},
     Min.
 
--spec notify_all_name(term(), pid(), pid()) -> 'none'.
+-spec notify_all_name(Name, Pid1, Pid2) -> 'none' when
+      Name :: term(),
+      Pid1 :: pid(),
+      Pid2 :: pid().
 notify_all_name(Name, Pid, Pid2) ->
     Pid ! {global_name_conflict, Name, Pid2},
     Pid2 ! {global_name_conflict, Name, Pid},
@@ -1986,10 +2022,9 @@ pid_is_locking(Pid, PidRefs) ->
 
 delete_lock(Ref, S0) ->
     Locks = pid_locks(Ref),
-    del_locks(Locks, Ref, S0#state.known),
     F = fun({ResourceId, LockRequesterId, PidRefs}, S) -> 
                 {Pid, _RPid, Ref} = lists:keyfind(Ref, 3, PidRefs),
-                remove_lock(ResourceId, LockRequesterId, Pid, PidRefs, true,S)
+                remove_lock(ResourceId, LockRequesterId, Pid, PidRefs, true, S)
         end,
     lists:foldl(F, S0, Locks).
 
@@ -2002,20 +2037,6 @@ pid_locks(Ref) ->
 
 rpid_is_locking(Ref, PidRefs) ->
     lists:keyfind(Ref, 3, PidRefs) =/= false.
-
-%% Send {async_del_lock, ...} to old nodes (pre R11B-3).
-del_locks([{ResourceId, _LockReqId, PidRefs} | Tail], Ref, KnownNodes) ->
-    {Pid, _RPid, Ref} = lists:keyfind(Ref, 3, PidRefs),
-    case node(Pid) =:= node()  of
-        true -> 
-            gen_server:abcast(KnownNodes, global_name_server,
-                              {async_del_lock, ResourceId, Pid});
-        false -> 
-            ok
-    end,
-    del_locks(Tail, Ref, KnownNodes);
-del_locks([], _Ref, _KnownNodes) -> 
-    ok.
 
 handle_nodedown(Node, S) ->
     %% DOWN signals from monitors have removed locks and registered names.
@@ -2145,51 +2166,6 @@ get_own_nodes() ->
             {error, {"global_groups definition error", Error}};
         OkTup ->
             OkTup
-    end.
-
-%%-----------------------------------------------------------------
-%% The deleter process is a satellite process to global_name_server
-%% that does background batch deleting of names when a process
-%% that had globally registered names dies. It is started by and 
-%% linked to global_name_server.
-%%-----------------------------------------------------------------
-
-start_the_deleter(Global) ->
-    spawn_link(fun() -> loop_the_deleter(Global) end).
-
-loop_the_deleter(Global) ->
-    Deletions = collect_deletions(Global, []),
-    ?trace({loop_the_deleter, self(), {deletions,Deletions}, 
-            {names,get_names()}}),
-    %% trans_all_known is called rather than trans/3 with nodes() as
-    %% third argument. The reason is that known gets updated by
-    %% new_nodes when the lock is still set. nodes() on the other hand
-    %% could be updated later (if in_sync is received after the lock
-    %% is gone). It is not likely that in_sync would be received after
-    %% the lock has been taken here, but using trans_all_known makes it
-    %% even less likely.
-    trans_all_known(
-      fun(Known) ->
-              lists:map(
-                fun({Name,Pid}) ->
-                        gen_server:abcast(Known, global_name_server,
-                                          {async_del_name, Name, Pid})
-                end, Deletions)
-      end),
-    loop_the_deleter(Global).
-
-collect_deletions(Global, Deletions) ->
-    receive
-	{delete_name, Global, Name, Pid} ->
-	    collect_deletions(Global, [{Name,Pid} | Deletions]);
-	Other ->
-            unexpected_message(Other, deleter),
-	    collect_deletions(Global, Deletions)
-    after case Deletions of
-	      [] -> infinity;
-	      _  -> 0
-	  end ->
-	    lists:reverse(Deletions)
     end.
 
 %% The registrar is a helper process that registers and unregisters

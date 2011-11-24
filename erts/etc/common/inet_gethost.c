@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1998-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 1998-2011. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 /*
@@ -52,20 +52,21 @@
 #  include "config.h"
 #endif
 
+#include "erl_printf.h"
+
 #ifdef WIN32
 
 #define WIN32_LEAN_AND_MEAN
 #include <winsock2.h>
 #include <windows.h>
+#include <ws2tcpip.h>
 #include <process.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 /* These are not used even if they would exist which they should not */
-#undef HAVE_GETADDRINFO
 #undef HAVE_GETIPNODEBYNAME
 #undef HAVE_GETHOSTBYNAME2
-#undef HAVE_GETNAMEINFO
 #undef HAVE_GETIPNODEBYADDR
 
 #else /* Unix */
@@ -1296,7 +1297,7 @@ static int read_request(AddrByte **buff, size_t *buff_size)
     }
 
     if (siz > *buff_size) {
-	if (buff_size == 0) {
+	if (*buff_size == 0) {
 	    *buff = ALLOC((*buff_size = siz));
 	} else {
 	    *buff = REALLOC(*buff, (*buff_size = siz));
@@ -1759,7 +1760,7 @@ static int worker_loop(void)
 		struct addrinfo hints;
 		
 		memset(&hints, 0, sizeof(hints));
-		hints.ai_flags = (AI_CANONNAME|AI_V4MAPPED|AI_ADDRCONFIG);
+		hints.ai_flags = AI_CANONNAME;
 		hints.ai_socktype = SOCK_STREAM;
 		hints.ai_family = AF_INET6;
 		DEBUGF(5, ("Starting getaddrinfo(%s, ...)", data));
@@ -2552,7 +2553,7 @@ static void debugf(char *format, ...)
     sprintf(buff,"%s[%d] (DEBUG):",program_name,(int) getpid());
 #endif
     ptr = buff + strlen(buff);
-    vsprintf(ptr,format,ap);
+    erts_vsnprintf(ptr,sizeof(buff)-strlen(buff)-2,format,ap);
     strcat(ptr,"\r\n");
 #ifdef WIN32
     if (debug_console_allocated != INVALID_HANDLE_VALUE) {
@@ -2574,7 +2575,7 @@ static void warning(char *format, ...)
     va_start(ap,format);
     sprintf(buff,"%s[%d]: WARNING:",program_name, (int) getpid());
     ptr = buff + strlen(buff);
-    vsprintf(ptr,format,ap);
+    erts_vsnprintf(ptr,sizeof(buff)-strlen(buff)-2,format,ap);
     strcat(ptr,"\r\n");
 #ifdef WIN32
     {
@@ -2596,7 +2597,7 @@ static void fatal(char *format, ...)
     va_start(ap,format);
     sprintf(buff,"%s[%d]: FATAL ERROR:",program_name, (int) getpid());
     ptr = buff + strlen(buff);
-    vsprintf(ptr,format,ap);
+    erts_vsnprintf(ptr,sizeof(buff)-strlen(buff)-2,format,ap);
     strcat(ptr,"\r\n");
 #ifdef WIN32
     {

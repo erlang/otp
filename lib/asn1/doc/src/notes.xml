@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2010</year>
+      <year>2004</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -30,6 +30,175 @@
   </header>
   <p>This document describes the changes made to the asn1 application.</p>
 
+
+<section><title>Asn1 1.6.18</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Implement or fix -Werror option</p>
+          <p>
+	    If -Werror is enabled and there are warnings no output
+	    file is written. Also make sure that error/warning
+	    reporting is consistent. (Thanks to Tuncer Ayaz)</p>
+          <p>
+	    Own Id: OTP-9536</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 1.6.17</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Test cases which started failing when timer:tc was
+	    changed to not catch are corrected.</p>
+          <p>
+	    Own Id: OTP-9286</p>
+        </item>
+        <item>
+          <p>
+	    The bounds checking in the asn1_erl_driver when the
+	    length value of a TLV is a Long Definite Length is
+	    corrected. Thanks to Vance Shipley.</p>
+          <p>
+	    Own Id: OTP-9303</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 1.6.16</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    asn1ct: Make formatting of errors and warnings consistent</p>
+          <p>
+	    Consistently format warning and error reports. Warning
+	    and error options from erlc now also work in asnc1ct.
+	    (thanks to Tuncer Ayaz)</p>
+          <p>
+	    Own Id: OTP-9062</p>
+        </item>
+        <item>
+          <p>
+	    Shut off some dialyzer warnings</p>
+          <p>
+	    Own Id: OTP-9063</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Crash in asn1ct_check, componentrelation_leadingattr
+	    fixed. (Thanks to Stephane Pamelard for finding the bug)</p>
+          <p>
+	    Own Id: OTP-9092</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 1.6.15</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The encoding of ExtensionAdditionGroup (for PER and UPER)
+	    is corrected.</p>
+          <p>
+	    Own Id: OTP-8866 Aux Id: OTP-8797, SEQ-11557 </p>
+        </item>
+        <item>
+          <p>
+	    A race condition when several processes in parallel start
+	    to do encode/decode using the driver could cause an error
+	    log regarding crashing port owner process. This race is
+	    now eliminated.</p>
+          <p>
+	    Own Id: OTP-8948 Aux Id: seq11733 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 1.6.14.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Extension Addition Groups are now supported by the parser
+	    and in all backends.</p>
+          <p>
+	    Own Id: OTP-8598 Aux Id: seq-11557 </p>
+        </item>
+        <item>
+          <p>
+	    Extension Addition Groups are now supported in nested
+	    types within a SEQUENCE and CHOICE as well (missed that
+	    in previous fix)</p>
+          <p>
+	    Own Id: OTP-8797 Aux Id: seq-11557 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Bug in UNALIGNED PER regarding encoding and decoding of
+	    constrained numbers with a valuerange > 1024. (Thanks to
+	    Vincent de Phily)</p>
+          <p>
+	    Own Id: OTP-8779</p>
+        </item>
+        <item>
+          <p>
+	    Minor corrections in the User Guide.</p>
+          <p>
+	    Own Id: OTP-8829</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 1.6.14</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    By default, the ASN.1 compiler is now silent in the
+	    absence of warnings or errors. The new '<c>verbose</c>'
+	    option or the '<c>-v</c>' option for <c>erlc</c> can be
+	    given to show extra information (for instance, about the
+	    files that are generated). (Thanks to Tuncer Ayaz.)</p>
+          <p>
+	    Own Id: OTP-8565</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Asn1 1.6.13</title>
 

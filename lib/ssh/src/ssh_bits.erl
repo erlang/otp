@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2005-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -34,7 +34,7 @@
 %% integer utils
 -export([isize/1]).
 -export([irandom/1, irandom/3]).
--export([random/1, random/3]).
+-export([random/1]).
 -export([xor_bits/2, fill_bits/2]).
 -export([i2bin/2, bin2i/1]).
 
@@ -401,9 +401,6 @@ xor_bits(XBits, YBits) ->
 irandom(Bits) ->
     irandom(Bits, 1, 0).
 
-%% irandom_odd(Bits) ->
-%%     irandom(Bits, 1, 1).
-
 %%
 %% irandom(N, Top, Bottom)
 %%
@@ -414,57 +411,16 @@ irandom(Bits) ->
 %%       Bot = 0 - do not set the least signifcant bit
 %%       Bot = 1 - set the least signifcant bit (i.e always odd)
 %%
-irandom(0, _Top, _Bottom) -> 
-    0;
-irandom(Bits, Top, Bottom) ->
-    Bytes = (Bits+7) div 8,
-    Skip  = (8-(Bits rem 8)) rem 8,
-    TMask = case Top of
-		  0 -> 0;
-		  1 -> 16#80;
-		  2 -> 16#c0
-	      end,
-    BMask = case Bottom of
-		0 -> 0;
-		1 -> (1 bsl Skip)
-	    end,
-    <<X:Bits/big-unsigned-integer, _:Skip>> = random(Bytes, TMask, BMask),
-    X.
+irandom(Bits, Top, Bottom) when is_integer(Top),
+                                0 =< Top, Top =< 2 ->
+    crypto:erlint(crypto:strong_rand_mpint(Bits, Top - 1, Bottom)).
 
 %%
 %% random/1
 %%   Generate N random bytes
 %%
 random(N) ->
-    random(N, 0, 0).
-
-random(N, TMask, BMask) ->
-    list_to_binary(rnd(N, TMask, BMask)).
-
-%% random/3
-%%   random(Bytes, TopMask, BotMask)
-%% where 
-%% Bytes is the number of bytes to generate
-%% TopMask is bitwised or'ed to the first byte
-%% BotMask is bitwised or'ed to the last byte
-%%
-rnd(0, _TMask, _BMask) ->
-    [];
-rnd(1, TMask, BMask) ->
-    [(rand8() bor TMask) bor BMask];
-rnd(N, TMask, BMask) ->
-    [(rand8() bor TMask) | rnd_n(N-1, BMask)].
-
-rnd_n(1, BMask) ->
-    [rand8() bor BMask];
-rnd_n(I, BMask) ->
-    [rand8() | rnd_n(I-1, BMask)].
-
-rand8() ->
-    (rand32() bsr 8) band 16#ff.
-
-rand32() ->
-    random:uniform(16#100000000) -1.
+    crypto:strong_rand_bytes(N).
 
 %%
 %% Base 64 encode/decode

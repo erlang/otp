@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -147,7 +147,7 @@ but_pressed("Help",_ButtId,_User,GamePid,_Shell,_Wids,_Op) ->
 but_pressed("Newgame",_ButtId,_User,GamePid,_Shell,Wids,Options) ->
     new_game(GamePid,Wids,Options);
 but_pressed([],ButtId,User,GamePid,_Shell,_Wids,_Op) 
-					when pid(GamePid),User == player ->
+					when is_pid(GamePid),User == player ->
     [C,R] = atom_to_list(ButtId),
     GamePid ! {self(),position,othello_adt:pos(C-96,translate(R-48))},
     GamePid;
@@ -243,7 +243,7 @@ game_msg(Msg,User,GamePid,Shell,Wids,Options) ->
     end.
     
 
-new_game(GamePid,Wids,Options) when pid(GamePid) ->
+new_game(GamePid,Wids,Options) when is_pid(GamePid) ->
     exit(GamePid,kill),
     new_game(Wids,Options);
 new_game(_,Wids,Options) ->

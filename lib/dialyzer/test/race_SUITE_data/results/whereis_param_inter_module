@@ -1,0 +1,2 @@
+
+whereis_param_inter_module1.erl:8: The call erlang:register(AnAtom::atom(),pid()) might fail due to a possible race condition caused by its combination with the erlang:whereis(AnAtom::any()) call in whereis_param_inter_module2.erl on line 8

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -97,7 +97,7 @@ new(Parent,Message,Caption,Choices)
   new(Parent,Message,Caption,Choices, []).
 
 %% @spec (Parent::wxWindow:wxWindow(), Message::string(), Caption::string(), Choices::[[string()]], [Option]) -> wxMultiChoiceDialog()
-%% Option = {style, integer()} | {pos, {X::integer(),Y::integer()}}
+%% Option = {style, integer()} | {pos, {X::integer(), Y::integer()}}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmultichoicedialog.html#wxmultichoicedialogwxmultichoicedialog">external documentation</a>.
 new(#wx_ref{type=ParentT,ref=ParentRef},Message,Caption,Choices, Options)
  when is_list(Message),is_list(Caption),is_list(Choices),is_list(Options) ->

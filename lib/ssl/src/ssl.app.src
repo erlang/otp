@@ -4,15 +4,9 @@
     {modules, [ssl,
 	       ssl_app,
 	       ssl_sup,
-	       ssl_server,
-	       ssl_broker,
-	       ssl_broker_sup,
-	       ssl_base64,
-	       ssl_pem,
-	       ssl_pkix,
-	       ssl_pkix_oid,
-	       ssl_prim,
-	       inet_ssl_dist,
+	       inet_tls_dist,
+	       ssl_tls_dist_proxy,
+	       ssl_dist_sup,
 	       ssl_tls1,
 	       ssl_ssl3,
 	       ssl_ssl2,
@@ -28,11 +22,10 @@
 	       ssl_cipher,
 	       ssl_certificate_db,
 	       ssl_certificate,
-	       ssl_alert,
-	       'OTP-PKIX'
+	       ssl_alert
 	       ]},
-    {registered, [ssl_sup, ssl_server, ssl_broker_sup]},
-    {applications, [kernel, stdlib]},
+    {registered, [ssl_sup, ssl_manager]},
+    {applications, [crypto, public_key, kernel, stdlib]},
     {env, []},
     {mod, {ssl_app, []}}]}.
 

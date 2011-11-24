@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -21,15 +21,34 @@
 
 -module(gc_SUITE).
 
--include("test_server.hrl").
--export([all/1]).
+-include_lib("test_server/include/test_server.hrl").
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 
 -define(default_timeout, ?t:minutes(10)).
 
 -export([grow_heap/1, grow_stack/1, grow_stack_heap/1]).
 
-all(suite) ->
-    [grow_heap,grow_stack, grow_stack_heap].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [grow_heap, grow_stack, grow_stack_heap].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 grow_heap(doc) -> ["Produce a growing list of elements, ",
 		   "for X calls, then drop one item per call",

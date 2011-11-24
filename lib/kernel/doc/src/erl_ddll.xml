@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2009</year>
+      <year>1997</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>erl_ddll</title>
@@ -172,12 +172,20 @@
       </item>
     </taglist>
   </description>
+  <datatypes>
+    <datatype>
+      <name name="driver"/>
+    </datatype>
+    <datatype>
+      <name name="path"/>
+    </datatype>
+  </datatypes>
   <funcs>
     <func>
       <name>demonitor(MonitorRef) -> ok</name>
       <fsummary>Remove a monitor for a driver</fsummary>
       <type>
-        <v>MonitorRef = ref()</v>
+        <v>MonitorRef = reference()</v>
       </type>
       <desc>
         <p>Removes a driver monitor in much the same way as 
@@ -185,41 +193,25 @@
           monitors. See <seealso marker="#monitor/2">monitor/2</seealso>, <seealso marker="#try_load/3">try_load/3</seealso> and <seealso marker="#try_unload/2">try_unload/2</seealso> for details
           about how to create driver monitors.</p>
         <p>The function throws a <c>badarg</c> exception if the
-          parameter is not a ref().  </p>
+          parameter is not a reference().  </p>
       </desc>
     </func>
     <func>
-      <name>info() -> AllInfoList</name>
+      <name name="info" arity="0"/>
       <fsummary>Retrieve information about all drivers</fsummary>
-      <type>
-        <v>AllInfoList = [ DriverInfo ]</v>
-        <v>DriverInfo = {DriverName, InfoList}</v>
-        <v>DriverName = string()</v>
-        <v>InfoList = [ InfoItem ]</v>
-        <v>InfoItem = {Tag, Value}</v>
-        <v>Tag = atom()</v>
-        <v>Value = term()</v>
-      </type>
       <desc>
-        <p>Returns a list of tuples <c>{DriverName, InfoList}</c>, where
-          <c>InfoList</c> is the result of calling <seealso marker="#info/1">info/1</seealso> for that
-          <c>DriverName</c>. Only dynamically linked in drivers are
+        <p>Returns a list of tuples <c>{<anno>DriverName</anno>, <anno>InfoList</anno>}</c>, where
+          <c><anno>InfoList</anno></c> is the result of calling <seealso marker="#info/1">info/1</seealso> for that
+          <c><anno>DriverName</anno></c>. Only dynamically linked in drivers are
           included in the list.</p>
       </desc>
     </func>
     <func>
-      <name>info(Name) -> InfoList</name>
+      <name name="info" arity="1"/>
       <fsummary>Retrieve information about one driver</fsummary>
-      <type>
-        <v>Name = string() | atom()</v>
-        <v>InfoList = [ InfoItem ]</v>
-        <v>InfoItem = {Tag, Value}</v>
-        <v>Tag = atom()</v>
-        <v>Value = term()</v>
-      </type>
       <desc>
-        <p>Returns a list of tuples <c>{Tag, Value}</c>, where
-          <c>Tag</c> is the information item and <c>Value</c> is the result
+        <p>Returns a list of tuples <c>{<anno>Tag</anno>, <anno>Value</anno>}</c>, where
+          <c><anno>Tag</anno></c> is the information item and <c><anno>Value</anno></c> is the result
           of calling <seealso marker="#info/2">info/2</seealso> with this driver name and
           this tag. The result being a tuple list containing all
           information available about a driver. </p>
@@ -305,22 +297,18 @@
       </desc>
     </func>
     <func>
-      <name>load(Path, Name) -> ok | {error, ErrorDesc}</name>
+      <name name="load" arity="2"/>
       <fsummary>Load a driver</fsummary>
-      <type>
-        <v>Path = Name = string() | atom()</v>
-        <v>ErrorDesc = term()</v>
-      </type>
       <desc>
-        <p>Loads and links the dynamic driver <c>Name</c>. <c>Path</c>
+        <p>Loads and links the dynamic driver <c><anno>Name</anno></c>. <c><anno>Path</anno></c>
           is a file path to the directory containing the driver.
-          <c>Name</c> must be a sharable object/dynamic library. Two
-          drivers with different <c>Path</c> parameters cannot be
-          loaded under the same name. The <c>Name</c> is a string or
+          <c><anno>Name</anno></c> must be a sharable object/dynamic library. Two
+          drivers with different <c><anno>Path</anno></c> parameters cannot be
+          loaded under the same name. The <c><anno>Name</anno></c> is a string or
           atom containing at least one character.</p>
-        <p>The <c>Name</c> given should correspond to the filename
+        <p>The <c><anno>Name</anno></c> given should correspond to the filename
           of the actual dynamically loadable object file residing in
-          the directory given as <c>Path</c>, but <em>without</em> the
+          the directory given as <c><anno>Path</anno></c>, but <em>without</em> the
           extension (i.e. <c>.so</c>). The driver name provided in
           the driver initialization routine must correspond with the
           filename, in much the same way as erlang module names
@@ -328,14 +316,14 @@
         <p>If the driver has been previously unloaded, but is still
           present due to open ports against it, a call to
           <c>load/2</c> will stop the unloading and keep the driver
-          (as long as the <c>Path</c> is the same) and <c>ok</c> is
+          (as long as the <c><anno>Path</anno></c> is the same) and <c>ok</c> is
           returned. If one actually wants the object code to be
           reloaded, one uses <seealso marker="#reload/2">reload/2</seealso> or the low-level
           interface <seealso marker="#try_load/3">try_load/3</seealso>
           instead. Please refer to the description of <seealso marker="#scenarios">different scenarios</seealso> for
           loading/unloading in the introduction.</p>
         <p>If more than one process tries to load an already loaded
-          driver withe the same <c>Path</c>, or if the same process
+          driver withe the same <c><anno>Path</anno></c>, or if the same process
           tries to load it several times, the function will return
           <c>ok</c>.  The emulator will keep track of the
           <c>load/2</c> calls, so that a corresponding number of
@@ -349,16 +337,16 @@
           several drivers with the same name but with different
           <c>Path</c> parameters.</p>
         <note>
-          <p>Note especially that the <c>Path</c> is interpreted
+          <p>Note especially that the <c><anno>Path</anno></c> is interpreted
             literally, so that all loaders of the same driver needs to
-            give the same <em>literal</em><c>Path</c> string, even
+            give the same <em>literal</em><c><anno>Path</anno></c> string, even
             though different paths might point out the same directory
             in the filesystem (due to use of relative paths and
             links).</p>
         </note>
         <p>On success, the function returns <c>ok</c>. On
-          failure, the return value is <c>{error,ErrorDesc}</c>,
-          where <c>ErrorDesc</c> is an opaque term to be
+          failure, the return value is <c>{error,<anno>ErrorDesc</anno>}</c>,
+          where <c><anno>ErrorDesc</anno></c> is an opaque term to be
           translated into human readable form by the <seealso marker="#format_error/1">format_error/1</seealso>
           function.</p>
         <p>For more control over the error handling, again use the
@@ -369,20 +357,16 @@
       </desc>
     </func>
     <func>
-      <name>load_driver(Path, Name) -> ok | {error, ErrorDesc}</name>
+      <name name="load_driver" arity="2"/>
       <fsummary>Load a driver</fsummary>
-      <type>
-        <v>Path = Name = string() | atom()</v>
-        <v>ErrorDesc = term()</v>
-      </type>
       <desc>
         <p>Works essentially as <c>load/2</c>, but will load the driver
-          with options other options.  All ports that are using the
+          with other options.  All ports that are using the
           driver will get killed with the reason
           <c>driver_unloaded</c> when the driver is to be unloaded.</p>
         <p>The number of loads and unloads by different <seealso marker="#users">users</seealso> influence the actual loading
           and unloading of a driver file. The port killing will
-          therefore only happen when the <em>last</em><seealso marker="#users">user</seealso> unloads the driver, or the
+          therefore only happen when the <em>last</em> <seealso marker="#users">user</seealso> unloads the driver, or the
           last process having loaded the driver exits.</p>
         <p>This interface (or at least the name of the functions) is
           kept for backward compatibility.  Using <seealso marker="#try_load/3">try_load/3</seealso> with
@@ -400,7 +384,7 @@
         <v>Item = {Name, When}</v>
         <v>Name = atom() | string()</v>
         <v>When = loaded | unloaded | unloaded_only</v>
-        <v>MonitorRef = ref()</v>
+        <v>MonitorRef = reference()</v>
       </type>
       <desc>
         <p>This function creates a driver monitor and works in many
@@ -449,7 +433,7 @@
                   eventually lead to one of the following messages
                   being sent:</p>
                 <taglist>
-                  <tag><em>{'UP', ref(), driver, Name, loaded}</em></tag>
+                  <tag><em>{'UP', reference(), driver, Name, loaded}</em></tag>
                   <item>
                     <p>This message is sent, either immediately if the
                       driver is already loaded and no reloading is
@@ -459,7 +443,7 @@
                       expected to know if reloading is demanded prior
                       to creating a monitor for loading.</p>
                   </item>
-                  <tag><em>{'UP', ref(), driver, Name, permanent}</em></tag>
+                  <tag><em>{'UP', reference(), driver, Name, permanent}</em></tag>
                   <item>
                     <p>This message will be sent if reloading was
                       expected, but the (old) driver made itself
@@ -467,7 +451,7 @@
                       sent if the driver was permanent or statically
                       linked in when trying to create the monitor.</p>
                   </item>
-                  <tag><em>{'DOWN', ref(), driver, Name, load_cancelled}</em></tag>
+                  <tag><em>{'DOWN', reference(), driver, Name, load_cancelled}</em></tag>
                   <item>
                     <p>This message will arrive if reloading was
                       underway, but the <seealso marker="#users">user</seealso> having requested
@@ -476,7 +460,7 @@
                       (or <c>unload/1</c>/<c>unload_driver/1</c>)
                       again before it was reloaded.</p>
                   </item>
-                  <tag><em>{'DOWN', ref(), driver, Name, {load_failure, Failure}}</em></tag>
+                  <tag><em>{'DOWN', reference(), driver, Name, {load_failure, Failure}}</em></tag>
                   <item>
                     <p>This message will arrive if reloading was
                       underway but the loading for some reason
@@ -500,7 +484,7 @@
                 <p>A driver monitor for unload will eventually result
                   in one of the following messages being sent:</p>
                 <taglist>
-                  <tag><em>{'DOWN', ref(), driver, Name, unloaded}</em></tag>
+                  <tag><em>{'DOWN', reference(), driver, Name, unloaded}</em></tag>
                   <item>
                     <p>The driver instance monitored is now
                       unloaded. As the unload might have been due to a
@@ -508,7 +492,7 @@
                       again have been loaded when this message
                       arrives.</p>
                   </item>
-                  <tag><em>{'UP', ref(), driver, Name, unload_cancelled}</em></tag>
+                  <tag><em>{'UP', reference(), driver, Name, unload_cancelled}</em></tag>
                   <item>
                     <p>This message will be sent if unloading was
                       expected, but while the driver was waiting for
@@ -525,7 +509,7 @@
                       similar to an <c>unloaded</c> monitor, but does
                       never result in this message.</p>
                   </item>
-                  <tag><em>{'UP', ref(), driver, Name, permanent}</em></tag>
+                  <tag><em>{'UP', reference(), driver, Name, permanent}</em></tag>
                   <item>
                     <p>This message will be sent if unloading was
                       expected, but the driver made itself
@@ -539,7 +523,7 @@
               <item>
                 <p>A monitor created as <c>unloaded_only</c> behaves
                   exactly as one created as <c>unloaded</c> with the
-                  exception that the <c>{'UP', ref(), driver, Name, unload_cancelled}</c> message will never be
+                  exception that the <c>{'UP', reference(), driver, Name, unload_cancelled}</c> message will never be
                   sent, but the monitor instead persists until the
                   driver <em>really</em> gets unloaded.</p>
               </item>
@@ -551,16 +535,11 @@
       </desc>
     </func>
     <func>
-      <name>reload(Path, Name) -> ok | {error, ErrorDesc}</name>
+      <name name="reload" arity="2"/>
       <fsummary>Replace a driver</fsummary>
-      <type>
-        <v>Path = Name = string() | atom()</v>
-        <v>ErrorDesc = pending_process | OpaqueError</v>
-        <v>OpaqueError = term()</v>
-      </type>
       <desc>
-        <p>Reloads the driver named <c>Name</c> from a possibly
-          different <c>Path</c> than was previously used. This
+        <p>Reloads the driver named <c><anno>Name</anno></c> from a possibly
+          different <c><anno>Path</anno></c> than was previously used. This
           function is used in the code change <seealso marker="#scenarios">scenario</seealso> described in the
           introduction.</p>
         <p>If there are other <seealso marker="#users">users</seealso>
@@ -574,7 +553,7 @@
         <p>If one wants to avoid hanging on open ports, one should use
           the <seealso marker="#try_load/3">try_load/3</seealso>
           function instead.</p>
-        <p>The <c>Name</c> and <c>Path</c> parameters have exactly the
+        <p>The <c><anno>Name</anno></c> and <c><anno>Path</anno></c> parameters have exactly the
           same meaning as when calling the plain <seealso marker="#load/2">load/2</seealso> function.</p>
         <note>
           <p>Avoid mixing
@@ -594,13 +573,8 @@
       </desc>
     </func>
     <func>
-      <name>reload_driver(Path, Name) -> ok | {error, ErrorDesc}</name>
+      <name name="reload_driver" arity="2"/>
       <fsummary>Replace a driver</fsummary>
-      <type>
-        <v>Path = Name = string() | atom()</v>
-        <v>ErrorDesc = pending_process | OpaqueError</v>
-        <v>OpaqueError = term()</v>
-      </type>
       <desc>
         <p>Works exactly as <seealso marker="#reload/2">reload/2</seealso>, but for drivers
           loaded with the <seealso marker="#load_driver/2">load_driver/2</seealso> interface. </p>
@@ -626,7 +600,7 @@
         <v>ReloadOption = pending_driver | pending</v>
         <v>Status = loaded | already_loaded | PendingStatus </v>
         <v>PendingStatus = pending_driver | pending_process</v>
-        <v>Ref = ref()</v>
+        <v>Ref = reference()</v>
         <v>ErrorDesc = ErrorAtom | OpaqueError</v>
         <v>ErrorAtom = linked_in_driver | inconsistent | permanent | not_loaded_by_this_process | not_loaded |  pending_reload | pending_process</v>
       </type>
@@ -650,7 +624,7 @@
               registered and a corresponding <c>try_unload</c> is
               expected sometime in the future.</p>
           </item>
-          <tag><em>{ok, pending_driver}</em>or <em>{ok, pending_driver, ref()}</em></tag>
+          <tag><em>{ok, pending_driver}</em>or <em>{ok, pending_driver, reference()}</em></tag>
           <item>
             <p>The load request is registered, but the loading is
               delayed due to the fact that an earlier instance of the
@@ -665,7 +639,7 @@
               set. In other words, this return value will always need
               to be handled!</p>
           </item>
-          <tag><em>{ok, pending_process}</em>or <em>{ok, pending_process, ref()}</em></tag>
+          <tag><em>{ok, pending_process}</em>or <em>{ok, pending_process, reference()}</em></tag>
           <item>
             <p>The load request is registered, but the loading is
               delayed due to the fact that an earlier instance of the
@@ -683,7 +657,7 @@
           about when the driver is <em>actually</em> loaded. This can
           be achieved by using the <c>{monitor, PendingOption}</c> option.</p>
         <p>When monitoring is requested, and a corresponding <c>{ok, pending_driver}</c> or <c>{ok, pending_process}</c> would be
-          returned, the function will instead return a tuple <c>{ok, PendingStatus, ref()}</c> and the process will, at a later
+          returned, the function will instead return a tuple <c>{ok, PendingStatus, reference()}</c> and the process will, at a later
           time when the driver actually gets loaded, get a monitor
           message. The monitor message one can expect is described in
           the <seealso marker="#monitor/2">monitor/2</seealso>
@@ -730,7 +704,7 @@
               extension suffix, i.e. <c>.so</c>). The name by which
               the driver identifies itself must also be consistent
               with this <c>Name</c> parameter, much as a beam-file's
-              module name much correspond to it's filename.</p>
+              module name much correspond to its filename.</p>
           </item>
           <tag><em>OptionList</em></tag>
           <item>
@@ -742,8 +716,8 @@
               <tag><em>{driver_options, DriverOptionsList}</em></tag>
               <item>
                 <p>This option is to provide options that will change
-                  it's general behavior and will "stick" to the driver
-                  throughout it's lifespan.</p>
+                  its general behavior and will "stick" to the driver
+                  throughout its lifespan.</p>
                 <p>The driver options for a given driver name need
                   always to be consistent, <em>even when the driver is reloaded</em>, meaning that they are as much a part
                   of the driver as the actual name.</p>
@@ -760,7 +734,7 @@
                 <p>A <c>MonitorOption</c> tells <c>try_load/3</c> to
                   trigger a driver monitor under certain
                   conditions. When the monitor is triggered, the
-                  function will return a three-tuple <c>{ok, PendingStatus, ref()}</c>, where the <c>ref()</c> is
+                  function will return a three-tuple <c>{ok, PendingStatus, reference()}</c>, where the <c>reference()</c> is
                   the monitor ref for the driver monitor.</p>
                 <p>Only one <c>MonitorOption</c> can be specified and
                   it is either the atom <c>pending</c>, which means
@@ -891,7 +865,7 @@
         <v>MonitorOption = pending_driver | pending</v>
         <v>Status = unloaded | PendingStatus </v>
         <v>PendingStatus = pending_driver | pending_process</v>
-        <v>Ref = ref()</v>
+        <v>Ref = reference()</v>
         <v>ErrorAtom = linked_in_driver | not_loaded |  not_loaded_by_this_process | permanent</v>
       </type>
       <desc>
@@ -943,7 +917,7 @@
               ports using it and there are no more <seealso marker="#users">users</seealso> requiring it to be
               loaded.</p>
           </item>
-          <tag><em>{ok, pending_driver}</em>or <em>{ok, pending_driver, ref()}</em></tag>
+          <tag><em>{ok, pending_driver}</em>or <em>{ok, pending_driver, reference()}</em></tag>
           <item>
             <p>This return value indicates that this call removed the
               last <seealso marker="#users">user</seealso> from the
@@ -957,7 +931,7 @@
               in that case, however transient. Monitors are as always
               useful to detect when the driver is really unloaded.</p>
           </item>
-          <tag><em>{ok, pending_process}</em>or <em>{ok, pending_process, ref()}</em></tag>
+          <tag><em>{ok, pending_process}</em>or <em>{ok, pending_process, reference()}</em></tag>
           <item>
             <p>The unload request is registered, but there are still
               other <seealso marker="#users">users</seealso> holding
@@ -1015,7 +989,7 @@
                       <c>{ok, pending_driver}</c> or <c>{ok, pending_process}</c>.</p>
                   </item>
                 </taglist>
-                <p>The <c>pending_driver</c><c>MonitorOption</c> is by far
+                <p>The <c>pending_driver</c> <c>MonitorOption</c> is by far
                   the most useful and it has to be used to ensure that the
                   driver has really been unloaded and the ports closed
                   whenever the <c>kill_ports</c> option is used or the
@@ -1066,15 +1040,11 @@
       </desc>
     </func>
     <func>
-      <name>unload(Name) -> ok | {error, ErrorDesc}</name>
+      <name name="unload" arity="1"/>
       <fsummary>Unload a driver</fsummary>
-      <type>
-        <v>Name = string() | atom()</v>
-        <v>ErrorDesc = term()</v>
-      </type>
       <desc>
         <p>Unloads, or at least dereferences the driver named
-          <c>Name</c>. If the caller is the last <seealso marker="#users">user</seealso> of the driver, and there
+          <c><anno>Name</anno></c>. If the caller is the last <seealso marker="#users">user</seealso> of the driver, and there
           are no more open ports using the driver, the driver will
           actually get unloaded. In all other cases, actual unloading
           will be delayed until all ports are closed and there are no
@@ -1084,7 +1054,7 @@
           is no longer considered a user of the driver. For usage
           scenarios, see the <seealso marker="#scenarios">description</seealso> in the beginning
           of this document. </p>
-        <p>The <c>ErrorDesc</c> returned is an opaque value to be
+        <p>The <c><anno>ErrorDesc</anno></c> returned is an opaque value to be
           passed further on to the <seealso marker="#format_error/1">format_error/1</seealso>
           function. For more control over the operation, use the
           <seealso marker="#try_unload/2">try_unload/2</seealso>
@@ -1094,15 +1064,11 @@
       </desc>
     </func>
     <func>
-      <name>unload_driver(Name) -> ok | {error, ErrorDesc}</name>
+      <name name="unload_driver" arity="1"/>
       <fsummary>Unload a driver</fsummary>
-      <type>
-        <v>Name = string() | atom()</v>
-        <v>ErrorDesc = term()</v>
-      </type>
       <desc>
         <p>Unloads, or at least dereferences the driver named
-          <c>Name</c>. If the caller is the last <seealso marker="#users">user</seealso> of the driver, all
+          <c><anno>Name</anno></c>. If the caller is the last <seealso marker="#users">user</seealso> of the driver, all
           remaining open ports using the driver will get killed with
           the reason <c>driver_unloaded</c> and the driver will
           eventually get unloaded.</p>
@@ -1112,7 +1078,7 @@
           <seealso marker="#users">user</seealso>. For
           usage scenarios, see the <seealso marker="#scenarios">description</seealso> in the beginning
           of this document.</p>
-        <p>The <c>ErrorDesc</c> returned is an opaque value to be
+        <p>The <c><anno>ErrorDesc</anno></c> returned is an opaque value to be
           passed further on to the <seealso marker="#format_error/1">format_error/1</seealso>
           function. For more control over the operation, use the
           <seealso marker="#try_unload/2">try_unload/2</seealso>
@@ -1125,7 +1091,7 @@
       <name>loaded_drivers() -> {ok, Drivers}</name>
       <fsummary>List loaded drivers</fsummary>
       <type>
-        <v>Drivers = [Driver()]</v>
+        <v>Drivers = [Driver]</v>
         <v>Driver = string()</v>
       </type>
       <desc>
@@ -1138,13 +1104,10 @@
       </desc>
     </func>
     <func>
-      <name>format_error(ErrorDesc) -> string()</name>
+      <name name="format_error" arity="1"/>
       <fsummary>Format an error descriptor</fsummary>
-      <type>
-        <v>ErrorDesc -- see below</v>
-      </type>
       <desc>
-        <p>Takes an <c>ErrorDesc</c> returned by load, unload or
+        <p>Takes an <c><anno>ErrorDesc</anno></c> returned by load, unload or
           reload functions and returns a string which
           describes the error or warning.</p>
         <note>

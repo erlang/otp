@@ -97,14 +97,16 @@ start_link(ConfigFile, AcceptTimeout, ListenInfo, Debug) ->
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
-init([ConfigFile, ConfigList, AcceptTimeout, _Debug, Address, Port]) -> 
+init([ConfigFile, ConfigList, AcceptTimeout, Debug, Address, Port]) -> 
+    httpd_util:enable_debug(Debug), 
     Flags = {one_for_one, 0, 1},
     Children  = [sup_spec(httpd_acceptor_sup, Address, Port), 
 		 sup_spec(httpd_misc_sup, Address, Port), 
 		 worker_spec(httpd_manager, Address, Port, 
 			     ConfigFile, ConfigList,AcceptTimeout)],
     {ok, {Flags, Children}};
-init([ConfigFile, ConfigList, AcceptTimeout, _Debug, Address, Port, ListenInfo]) -> 
+init([ConfigFile, ConfigList, AcceptTimeout, Debug, Address, Port, ListenInfo]) -> 
+    httpd_util:enable_debug(Debug), 
     Flags = {one_for_one, 0, 1},
     Children  = [sup_spec(httpd_acceptor_sup, Address, Port), 
 		 sup_spec(httpd_misc_sup, Address, Port), 

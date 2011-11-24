@@ -22,7 +22,7 @@
 -export([ticket_7407_compile/2,ticket_7407_code/1, ticket_7678/2,
 	ticket_7708/2, ticket_7763/1, ticket_7876/3]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 
 ticket_7407_compile(Config,Option) ->

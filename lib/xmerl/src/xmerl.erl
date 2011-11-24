@@ -307,7 +307,7 @@ apply_cb(Ms, F, Df, Args) ->
 
 apply_cb([M|Ms], F, Df, Args, Ms0) ->
     case catch apply(M, F, Args) of
-	{'EXIT', {undef,[{M,F,_}|_]}} ->
+	{'EXIT', {undef,[{M,F,_,_}|_]}} ->
 	    apply_cb(Ms, F, Df, Args, Ms0);
 	{'EXIT', Reason} ->
 	    exit(Reason);

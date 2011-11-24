@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2002</year><year>2009</year>
+      <year>2002</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>ms_transform</title>
@@ -245,7 +245,7 @@ ets:select(emp_tab, ets:fun2ms(
                       fun(#emp{empno = [$0 | Rest] }) ->
                               {[$0|Rest],[$1|Rest]}
                       end)).    </code>
-    <p>As a matter of fact, this query hit's the feature of partially bound
+    <p>As a matter of fact, this query hits the feature of partially bound
       keys in the table type <c>ordered_set</c>, so that not the whole
       table need be searched, only the part of the table containing keys
       beginning with <c>0</c> is in fact looked into. </p>
@@ -599,12 +599,9 @@ ets:select(Table, [{{'$1',test,'$2'},[],['$_']}]).</code>
   </description>
   <funcs>
     <func>
-      <name>parse_transform(Forms,_Options) -> Forms</name>
+      <name name="parse_transform" arity="2"/>
       <fsummary>Transforms Erlang abstract format containing calls to ets/dbg:fun2ms into literal match specifications.</fsummary>
-      <type>
-        <v>Forms = Erlang abstract code format, see the erl_parse module description </v>
-        <v>_Options = Option list, required but not used</v>
-      </type>
+      <type_desc variable="Options">Option list, required but not used.</type_desc>
       <desc>
         <p>Implements the actual transformation at compile time. This
           function is called by the compiler to do the source code
@@ -617,29 +614,21 @@ ets:select(Table, [{{'$1',test,'$2'},[],['$_']}]).</code>
       </desc>
     </func>
     <func>
-      <name>transform_from_shell(Dialect,Clauses,BoundEnvironment) -> term()</name>
+      <name name="transform_from_shell" arity="3"/>
       <fsummary>Used when transforming fun's created in the shell into match_specifications.</fsummary>
-      <type>
-        <v>Dialect = ets | dbg</v>
-        <v>Clauses = Erlang abstract form for a single fun</v>
-        <v>BoundEnvironment = [{atom(), term()}, ...], list of variable bindings in the shell environment</v>
-      </type>
+      <type_desc variable="BoundEnvironment">List of variable bindings in the shell environment.</type_desc>
       <desc>
         <p>Implements the actual transformation when the <c>fun2ms</c>
           functions are called from the shell. In this case the abstract
           form is for one single fun (parsed by the Erlang shell), and
           all imported variables should be in the key-value list passed
-          as <c>BoundEnvironment</c>. The result is a term, normalized,
+          as <c><anno>BoundEnvironment</anno></c>. The result is a term, normalized,
           i.e. not in abstract format.</p>
       </desc>
     </func>
     <func>
-      <name>format_error(Errcode) -> ErrMessage</name>
+      <name name="format_error" arity="1"/>
       <fsummary>Error formatting function as required by the parse_transform interface.</fsummary>
-      <type>
-        <v>Errcode = term()</v>
-        <v>ErrMessage = string()</v>
-      </type>
       <desc>
         <p>Takes an error code returned by one of the other functions
           in the module and creates a textual description of the

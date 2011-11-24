@@ -1,0 +1,5 @@
+#
+# Don't ignore *.beam files in any sub-directory.
+#
+
+!*.beam

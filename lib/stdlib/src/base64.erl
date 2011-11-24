@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -38,7 +38,9 @@
 %% Description: Encodes a plain ASCII string (or binary) into base64.
 %%-------------------------------------------------------------------------
 
--spec encode_to_string(string() | binary()) -> ascii_string().
+-spec encode_to_string(Data) -> Base64String when
+      Data :: string() | binary(),
+      Base64String :: ascii_string().
 
 encode_to_string(Bin) when is_binary(Bin) ->
     encode_to_string(binary_to_list(Bin));
@@ -53,7 +55,9 @@ encode_to_string(List) when is_list(List) ->
 %% Description: Encodes a plain ASCII string (or binary) into base64.
 %%-------------------------------------------------------------------------
 
--spec encode(string() | binary()) -> binary().
+-spec encode(Data) -> Base64 when
+      Data :: string() | binary(),
+      Base64 :: binary().
 
 encode(Bin) when is_binary(Bin) ->
     encode_binary(Bin);
@@ -102,19 +106,23 @@ encode_binary(Bin) ->
 %% whereas decode crashes if an illegal character is found
 %%-------------------------------------------------------------------------
 
--spec decode(string() | binary()) -> binary().
+-spec decode(Base64) -> Data when
+      Base64 :: string() | binary(),
+      Data :: binary().
 
 decode(Bin) when is_binary(Bin) ->
     decode_binary(<<>>, Bin);
 decode(List) when is_list(List) ->
     list_to_binary(decode_l(List)).
 
--spec mime_decode(string() | binary()) -> binary().
+-spec mime_decode(Base64) -> Data when
+      Base64 :: string() | binary(),
+      Data :: binary().
 
 mime_decode(Bin) when is_binary(Bin) ->
     mime_decode_binary(<<>>, Bin);
 mime_decode(List) when is_list(List) ->
-    list_to_binary(mime_decode_l(List)).
+    mime_decode(list_to_binary(List)).
 
 -spec decode_l(string()) -> string().
 
@@ -125,7 +133,7 @@ decode_l(List) ->
 -spec mime_decode_l(string()) -> string().
 
 mime_decode_l(List) ->
-    L = strip_illegal(List, []),
+    L = strip_illegal(List, [], 0),
     decode(L, []).
 
 %%-------------------------------------------------------------------------
@@ -139,14 +147,18 @@ mime_decode_l(List) ->
 %% whereas decode crashes if an illegal character is found
 %%-------------------------------------------------------------------------
 
--spec decode_to_string(string() | binary()) -> string().
+-spec decode_to_string(Base64) -> DataString when
+      Base64 :: string() | binary(),
+      DataString :: string().
 
 decode_to_string(Bin) when is_binary(Bin) ->
     decode_to_string(binary_to_list(Bin));
 decode_to_string(List) when is_list(List) ->
     decode_l(List).
 
--spec mime_decode_to_string(string() | binary()) -> string().
+-spec mime_decode_to_string(Base64) -> DataString when
+      Base64 :: string() | binary(),
+      DataString :: string().
 
 mime_decode_to_string(Bin) when is_binary(Bin) ->
     mime_decode_to_string(binary_to_list(Bin));
@@ -198,6 +210,9 @@ decode_binary(Result, <<>>) ->
     true = is_binary(Result),
     Result.
 
+%% Skipping pad character if not at end of string. Also liberal about
+%% excess padding and skipping of other illegal (non-base64 alphabet)
+%% characters. See section 3.3 of RFC4648
 mime_decode_binary(Result, <<0:8,T/bits>>) ->
     mime_decode_binary(Result, T);
 mime_decode_binary(Result0, <<C:8,T/bits>>) ->
@@ -205,15 +220,27 @@ mime_decode_binary(Result0, <<C:8,T/bits>>) ->
 	Bits when is_integer(Bits) ->
 	    mime_decode_binary(<<Result0/bits,Bits:6>>, T);
 	eq ->
-	    case tail_contains_equal(T) of
-		true ->
-		    Split = byte_size(Result0) - 1,
-		    <<Result:Split/bytes,_:4>> = Result0,
-		    Result;
-		false ->
-		    Split = byte_size(Result0) - 1,
-		    <<Result:Split/bytes,_:2>> = Result0,
-		    Result
+	    case tail_contains_more(T, false) of
+		{<<>>, Eq} ->
+		    %% No more valid data.
+		    case bit_size(Result0) rem 8 of
+			0 ->
+			    %% '====' is not uncommon.
+			    Result0;
+			4 when Eq ->
+			    %% enforce at least one more '=' only ignoring illegals and spacing
+			    Split =  byte_size(Result0) - 1,
+			    <<Result:Split/bytes,_:4>> = Result0,
+			    Result;
+			2 ->
+			    %% remove 2 bits
+			    Split =  byte_size(Result0) - 1,
+			    <<Result:Split/bytes,_:2>> = Result0,
+			    Result
+		    end;
+		{More, _} ->
+		    %% More valid data, skip the eq as invalid
+		    mime_decode_binary(Result0, More)
 	    end;
 	_ ->
 	    mime_decode_binary(Result0, T)
@@ -262,31 +289,63 @@ strip_ws(<<$\s,T/binary>>) ->
     strip_ws(T);
 strip_ws(T) -> T.
 
-strip_illegal([0|Cs], A) ->
-    strip_illegal(Cs, A);
-strip_illegal([C|Cs], A) ->
+%% Skipping pad character if not at end of string. Also liberal about
+%% excess padding and skipping of other illegal (non-base64 alphabet)
+%% characters. See section 3.3 of RFC4648
+strip_illegal([], A, _Cnt) ->
+    A;
+strip_illegal([0|Cs], A, Cnt) ->
+    strip_illegal(Cs, A, Cnt);
+strip_illegal([C|Cs], A, Cnt) ->
     case element(C, ?DECODE_MAP) of
-	bad -> strip_illegal(Cs, A);
-	ws -> strip_illegal(Cs, A);
-	eq -> strip_illegal_end(Cs, [$=|A]);
-	_ -> strip_illegal(Cs, [C|A])
-    end;
-strip_illegal([], A) -> A.
+	bad ->
+	    strip_illegal(Cs, A, Cnt);
+	ws ->
+	    strip_illegal(Cs, A, Cnt);
+	eq ->
+	    case {tail_contains_more(Cs, false), Cnt rem 4} of
+		{{[], _}, 0} ->
+		    A;            %% Ignore extra =
+		{{[], true}, 2} ->
+		    [$=|[$=|A]];  %% 'XX=='
+		{{[], _}, 3} ->
+		    [$=|A];       %% 'XXX='
+		{{[H|T], _}, _} ->
+		    %% more data, skip equals
+		    strip_illegal(T, [H|A], Cnt+1)
+	    end;
+	_ ->
+	    strip_illegal(Cs, [C|A], Cnt+1)
+    end.
 
-strip_illegal_end([0|Cs], A) ->
-    strip_illegal_end(Cs, A);
-strip_illegal_end([C|Cs], A) ->
+%% Search the tail for more valid data and remember if we saw
+%% another equals along the way.
+tail_contains_more([], Eq) ->
+    {[], Eq};
+tail_contains_more(<<>>, Eq) ->
+    {<<>>, Eq};
+tail_contains_more([C|T]=More, Eq) ->
     case element(C, ?DECODE_MAP) of
-	bad -> strip_illegal(Cs, A);
-	ws -> strip_illegal(Cs, A);
-	eq -> [C|A];
-	_ -> strip_illegal(Cs, [C|A])
+	bad ->
+	    tail_contains_more(T, Eq);
+	ws ->
+	    tail_contains_more(T, Eq);
+	eq ->
+	    tail_contains_more(T, true);
+	_ ->
+	    {More, Eq}
     end;
-strip_illegal_end([], A) -> A.
-
-tail_contains_equal(<<$=,_/binary>>) -> true;
-tail_contains_equal(<<_,T/binary>>) -> tail_contains_equal(T);
-tail_contains_equal(<<>>) -> false.
+tail_contains_more(<<C:8,T/bits>> =More, Eq) ->
+    case element(C, ?DECODE_MAP) of
+	bad ->
+	    tail_contains_more(T, Eq);
+	ws ->
+	    tail_contains_more(T, Eq);
+	eq ->
+	    tail_contains_more(T, true);
+	_ ->
+	    {More, Eq}
+    end.
     
 %% accessors 
 b64e(X) ->

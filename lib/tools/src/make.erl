@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -222,12 +222,7 @@ recompilep(File, NoExec, Load, Opts) ->
 recompilep1(File, NoExec, Load, Opts, ObjFile) ->
     {ok, Erl} = file:read_file_info(lists:append(File, ".erl")),
     {ok, Obj} = file:read_file_info(ObjFile),
-    case {readable(Erl), writable(Obj)} of
-	{true, true} ->
-	    recompilep1(Erl, Obj, File, NoExec, Load, Opts);
-	_ ->
-	    error
-    end.
+	 recompilep1(Erl, Obj, File, NoExec, Load, Opts).
 
 recompilep1(#file_info{mtime=Te},
 	    #file_info{mtime=To}, File, NoExec, Load, Opts) when Te>To ->
@@ -276,14 +271,6 @@ exists(File) ->
 	_ ->
 	    false
     end.
-
-readable(#file_info{access=read_write}) -> true;
-readable(#file_info{access=read})       -> true;
-readable(_) -> false.
-
-writable(#file_info{access=read_write}) -> true;
-writable(#file_info{access=write})      -> true;
-writable(_) -> false.
 
 coerce_2_list(X) when is_atom(X) ->
     atom_to_list(X);

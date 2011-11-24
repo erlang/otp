@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -52,14 +52,17 @@
 -define(reg_dword, 4).
 
 %% Basic types internal to this file.
--type open_mode()  :: 'read' | 'write'.
--type reg_handle() :: {'win32reg',port()}.
+-opaque reg_handle() :: {'win32reg',port()}.
 -type name()       :: string() | 'default'.
 -type value()      :: string() | integer() | binary().
 
 %%% Exported functions.
 
--spec open([open_mode()]) -> {'ok', reg_handle()} | {'error', 'enotsup'}.
+-spec open(OpenModeList) -> ReturnValue when
+      OpenModeList :: [OpenMode],
+      OpenMode :: 'read' | 'write',
+      ReturnValue :: {'ok', RegHandle} | {'error', ErrorId :: 'enotsup'},
+      RegHandle :: reg_handle().
 
 open(Modes) ->
     case os:type() of
@@ -75,14 +78,17 @@ open(Modes) ->
 	    {error, enotsup}
     end.
 
--spec close(reg_handle()) -> 'ok'.
+-spec close(RegHandle) -> 'ok' when
+      RegHandle :: reg_handle().
 
 close({win32reg, Reg}) when is_port(Reg) ->
     unlink(Reg),
     exit(Reg, die),
     ok.
 
--spec current_key(reg_handle()) -> {'ok', string()}.
+-spec current_key(RegHandle) -> ReturnValue when
+      RegHandle :: reg_handle(),
+      ReturnValue :: {'ok', string()}.
 
 current_key({win32reg, Reg}) when is_port(Reg) ->
     Cmd = [?cmd_get_current],
@@ -94,12 +100,18 @@ current_key({win32reg, Reg}) when is_port(Reg) ->
 	     _  -> Root ++ [$\\|Name]
 	 end}.
 
--spec change_key(reg_handle(), string()) -> 'ok' | {'error', atom()}.
+-spec change_key(RegHandle, Key) -> ReturnValue when
+      RegHandle :: reg_handle(),
+      Key :: string(),
+      ReturnValue :: 'ok' | {'error', ErrorId :: atom()}.
 
 change_key({win32reg, Reg}, Key) when is_port(Reg) ->
     change_key(Reg, ?cmd_open_key, Key).
 
--spec change_key_create(reg_handle(), string()) -> 'ok' | {'error', atom()}.
+-spec change_key_create(RegHandle, Key) -> ReturnValue when
+      RegHandle :: reg_handle(),
+      Key :: string(),
+      ReturnValue :: 'ok' | {'error', ErrorId :: atom()}.
 
 change_key_create({win32reg, Reg}, Key) when is_port(Reg) ->
     change_key(Reg, ?cmd_create_key, Key).
@@ -113,21 +125,30 @@ change_key(Reg, Cmd, Key) ->
 	    {error, Reason}
     end.
 
--spec sub_keys(reg_handle()) -> {'ok', [string()]} | {'error', atom()}.
+-spec sub_keys(RegHandle) -> ReturnValue when
+      RegHandle :: reg_handle(),
+      ReturnValue :: {'ok', [SubKey]} | {'error', ErrorId :: atom()},
+      SubKey :: string().
 
 sub_keys({win32reg, Reg}) when is_port(Reg) ->
     Cmd = [?cmd_get_all_subkeys],
     Reg ! {self(), {command, Cmd}},
     collect_keys(Reg, []).
 
--spec delete_key(reg_handle()) -> 'ok' | {'error', atom()}.
+-spec delete_key(RegHandle) -> ReturnValue when
+      RegHandle :: reg_handle(),
+      ReturnValue :: 'ok' | {'error', ErrorId :: atom()}.
 
 delete_key({win32reg, Reg}) when is_port(Reg) ->
     Cmd = [?cmd_delete_key],
     Reg ! {self(), {command, Cmd}},
     get_result(Reg).
 
--spec set_value(reg_handle(), name(), value()) -> 'ok' | {'error', atom()}.
+-spec set_value(RegHandle, Name, Value) -> ReturnValue when
+      RegHandle :: reg_handle(),
+      Name :: name(),
+      Value :: value(),
+      ReturnValue :: 'ok' | {'error', ErrorId :: atom()}.
 
 set_value({win32reg, Reg}, Name0, Value) when is_port(Reg) ->
     Name =
@@ -140,7 +161,10 @@ set_value({win32reg, Reg}, Name0, Value) when is_port(Reg) ->
     Reg ! {self(), {command, Cmd}},
     get_result(Reg).
 
--spec value(reg_handle(), name()) -> {'ok', value()} | {'error', atom()}.
+-spec value(RegHandle, Name) -> ReturnValue when
+      RegHandle :: reg_handle(),
+      Name :: name(),
+      ReturnValue :: {'ok', Value :: value()} | {'error', ErrorId :: atom()}.
 
 value({win32reg, Reg}, Name) when is_port(Reg) ->
     Cmd = [?cmd_get_value, Name, 0],
@@ -152,14 +176,20 @@ value({win32reg, Reg}, Name) when is_port(Reg) ->
 	    {error, Reason}
     end.
     
--spec values(reg_handle()) -> {'ok', [{name(), value()}]} | {'error', atom()}.
+-spec values(RegHandle) -> ReturnValue when
+      RegHandle :: reg_handle(),
+      ReturnValue :: {'ok', [ValuePair]} | {'error', ErrorId :: atom()},
+      ValuePair :: {Name :: name(), Value :: value()}.
 
 values({win32reg, Reg}) when is_port(Reg) ->
     Cmd = [?cmd_get_all_values],
     Reg ! {self(), {command, Cmd}},
     collect_values(Reg, []).
 
--spec delete_value(reg_handle(), name()) -> 'ok' | {'error', atom()}.
+-spec delete_value(RegHandle, Name) -> ReturnValue when
+      RegHandle :: reg_handle(),
+      Name :: name(),
+      ReturnValue :: 'ok' | {'error', ErrorId :: atom()}.
 
 delete_value({win32reg, Reg}, Name0) when is_port(Reg) ->
     Name =
@@ -171,7 +201,9 @@ delete_value({win32reg, Reg}, Name0) when is_port(Reg) ->
     Reg ! {self(), {command, Cmd}},
     get_result(Reg).
 
--spec expand(string()) -> string().
+-spec expand(String) -> ExpandedString when
+      String :: string(),
+      ExpandedString :: string().
 
 expand(Value) ->
     expand(Value, [], []).
@@ -195,7 +227,9 @@ expand([C|Rest], Env, Result) ->
 expand([], [], Result) ->
     lists:reverse(Result).
 
--spec format_error(atom()) -> string().
+-spec format_error(ErrorId) -> ErrorString when
+      ErrorId :: atom(),
+      ErrorString :: string().
 
 format_error(ErrorId) ->
     erl_posix_msg:message(ErrorId).
@@ -203,7 +237,7 @@ format_error(ErrorId) ->
 %%% Implementation.
 
 -spec collect_values(port(), [{name(), value()}]) -> 
-        {'ok', [{name(), value()}]} | {'error', atom()}.
+        {'ok', [{name(), value()}]} | {'error', ErrorId :: atom()}.
 
 collect_values(P, Result) ->
     case get_result(P) of
@@ -215,7 +249,7 @@ collect_values(P, Result) ->
 	    {error, Reason}
     end.
 
--spec collect_keys(port(), string()) -> {'ok', [string()]} | {'error', atom()}.
+-spec collect_keys(port(), string()) -> {'ok', [string()]} | {'error', ErrorId :: atom()}.
 
 collect_keys(P, Result) ->
     case get_result(P) of

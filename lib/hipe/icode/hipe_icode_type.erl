@@ -2,19 +2,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
-%% 
+%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%%--------------------------------------------------------------------
@@ -23,8 +23,6 @@
 %%% Description : Propagate type information.
 %%%
 %%% Created : 25 Feb 2003 by Tobias Lindahl <Tobias.Lindahl@it.uu.se>
-%%%
-%%% $Id$
 %%%--------------------------------------------------------------------
 
 -module(hipe_icode_type).
@@ -78,7 +76,7 @@
 %-define(server_debug, fun(X, Y) -> io:format("~p server: ~s ~p~n", [self(), X, Y]) end).
 -define(server_debug, fun(_, _) -> ok end).
 
--import(erl_types, [min/2, max/2, number_min/1, number_max/1,
+-import(erl_types, [number_min/1, number_max/1,
 		    t_any/0, t_atom/1, t_atom/0, t_atom_vals/1,
 		    t_binary/0, t_bitstr/0, t_bitstr_base/1, t_bitstr_unit/1, 
 		    t_boolean/0, t_cons/0, t_constant/0,
@@ -494,10 +492,10 @@ integer_range_less_then_propagator(IntArg1, IntArg2) ->
   Min2 = number_min(IntArg2),
   Max2 = number_max(IntArg2),
   %% is this the same as erl_types:t_subtract?? no ... ??
-  TrueMax1 = min(Max1, erl_bif_types:infinity_add(Max2, -1)),
-  TrueMin2 = max(erl_bif_types:infinity_add(Min1, 1), Min2),
-  FalseMin1 = max(Min1, Min2),
-  FalseMax2 = min(Max1, Max2),
+  TrueMax1 = erl_types:min(Max1, erl_bif_types:infinity_add(Max2, -1)),
+  TrueMin2 = erl_types:max(erl_bif_types:infinity_add(Min1, 1), Min2),
+  FalseMin1 = erl_types:max(Min1, Min2),
+  FalseMax2 = erl_types:min(Max1, Max2),
   {t_from_range(Min1, TrueMax1),
    t_from_range(TrueMin2, Max2),
    t_from_range(FalseMin1, Max1),

@@ -1,28 +1,30 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %% Purpose : Kernel Erlang (naive) prettyprinter
 
 -module(v3_kernel_pp).
 
--include("v3_kernel.hrl").
-
 -export([format/1]).
+
+%%-define(INCLUDE_ANNOTATIONS, 1).
+
+-include("v3_kernel.hrl").
 
 %% These are "internal" structures in sys_kernel which are here for
 %% debugging purposes.
@@ -50,28 +52,33 @@ format(Node) -> format(Node, #ctxt{}).
 
 format(Node, Ctxt) ->
     case canno(Node) of
-%% 	[] ->
-%% 	    format_1(Node, Ctxt);
-%% 	[L,{file,_}] when is_integer(L) ->
-%% 	    format_1(Node, Ctxt);
-%% 	#k{a=Anno}=K when Anno =/= [] ->
-%% 	    format(setelement(2, Node, K#k{a=[]}), Ctxt);
-%% 	List ->
-%% 	    format_anno(List, Ctxt, fun (Ctxt1) ->
-%% 					    format_1(Node, Ctxt1)
-%% 				    end);
-	_ ->
-	    format_1(Node, Ctxt)
+	[] ->
+	    format_1(Node, Ctxt);
+	[L,{file,_}] when is_integer(L) ->
+	    format_1(Node, Ctxt);
+	#k{a=Anno}=K when Anno =/= [] ->
+	    format(setelement(2, Node, K#k{a=[]}), Ctxt);
+	List ->
+	    format_anno(List, Ctxt, fun (Ctxt1) ->
+					    format_1(Node, Ctxt1)
+				    end)
     end.
 
-%% format_anno(Anno, Ctxt0, ObjFun) ->
-%%     Ctxt1 = ctxt_bump_indent(Ctxt0, 1),
-%%     ["( ",
-%%      ObjFun(Ctxt0),
-%%      nl_indent(Ctxt1),
-%%      "-| ",io_lib:write(Anno),
-%%      " )"].
-    
+
+-ifndef(INCLUDE_ANNOTATIONS).
+%% Don't include annotations (for readability).
+format_anno(_Anno, Ctxt, ObjFun) ->
+    ObjFun(Ctxt).
+-else.
+%% Include annotations (for debugging of annotations).
+format_anno(Anno, Ctxt0, ObjFun) ->
+    Ctxt1 = ctxt_bump_indent(Ctxt0, 1),
+    ["( ",
+     ObjFun(Ctxt0),
+     nl_indent(Ctxt1),
+     "-| ",io_lib:write(Anno),
+     " )"].
+-endif.
 
 %% format_1(Kexpr, Context) -> string().
 
@@ -80,7 +87,6 @@ format_1(#k_atom{val=A}, _Ctxt) -> core_atom(A);
 format_1(#k_float{val=F}, _Ctxt) -> float_to_list(F);
 format_1(#k_int{val=I}, _Ctxt) -> integer_to_list(I);
 format_1(#k_nil{}, _Ctxt) -> "[]";
-format_1(#k_string{val=S}, _Ctxt) -> io_lib:write_string(S);
 format_1(#k_var{name=V}, _Ctxt) ->
     if is_atom(V) ->
 	    case atom_to_list(V) of
@@ -108,6 +114,8 @@ format_1(#k_bin_int{size=Sz,unit=U,flags=Fs,val=Val,next=Next}, Ctxt) ->
     [format_bin_seg_1(S, Ctxt),
      format_bin_seg(Next, ctxt_bump_indent(Ctxt, 2))];
 format_1(#k_bin_end{}, _Ctxt) -> "#<>#";
+format_1(#k_literal{val=Term}, _Ctxt) ->
+    io_lib:format("~p", [Term]);
 format_1(#k_local{name=N,arity=A}, Ctxt) ->
     "local " ++ format_fa_pair({N,A}, Ctxt);
 format_1(#k_remote{mod=M,name=N,arity=A}, _Ctxt) ->

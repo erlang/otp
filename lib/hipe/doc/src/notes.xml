@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2006</year><year>2010</year>
+      <year>2006</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -29,6 +29,314 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to HiPE.</p>
+
+<section><title>Hipe 3.8.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Clean up hipe.hrl.src (Thanks to Tuncer Ayaz)</p>
+          <p>
+	    Own Id: OTP-9511</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug with binary pattern matching of floats of
+	    variable size</p>
+          <p>
+	    Pattern matching of floats with variable size
+	    (&lt;&lt;F:S/float&gt;&gt;) did always fail. Judging from
+	    similar code for ints, this bug is simply a typo.(Thanks
+	    to Paul Guyot)</p>
+          <p>
+	    Own Id: OTP-9556</p>
+        </item>
+        <item>
+          <p>
+	    Quote atoms if necessary in types</p>
+          <p>
+	    Atoms in some occurrences were not correctly quoted when
+	    formatted to strings, for instance by the typer program
+	    (Thanks to Tomas Abrahamsson)</p>
+          <p>
+	    Update Dialyzer's reference results</p>
+          <p>
+	    Own Id: OTP-9560</p>
+        </item>
+        <item>
+          <p>
+	    Fix typer's crash for nonexisting files Remove unused
+	    macro Fix bug in dataflow Decrease tuple arity limit This
+	    fixes a memory related crash.</p>
+          <p>
+	    Own Id: OTP-9597</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Types for several BIFs have been extended/corrected. Also
+	    the types for types for <c>lists:keyfind/3</c>,
+	    <c>lists:keysearch/3</c>, and <c>lists:keyemember/3</c>
+	    have been corrected. The incorrect/incomplete types could
+	    cause false dialyzer warnings.</p>
+          <p>
+	    Own Id: OTP-9496</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Hipe 3.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix hipe bug causing minor heap corruption related to
+	    binary matching. The bug has not been confirmed as the
+	    cause of any actual fault symptom.</p>
+          <p>
+	    Own Id: OTP-9182</p>
+        </item>
+        <item>
+          <p>
+	    Enable HiPE by default when compiling for PPC64</p>
+          <p>
+	    Own Id: OTP-9198</p>
+        </item>
+        <item>
+          <p>
+	    Fix handling of &lt;&lt;_:N,_:_*M&gt;&gt; type
+	    expressions Fix the argument of
+	    erlang:list_to_bitstring/1 Remove unneeded function
+	    'sequence/2' Same functionality provided by
+	    string:join/2.</p>
+          <p>
+	    Own Id: OTP-9277</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Hipe 3.7.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix erroneous fail info of a hipe_bs_primop</p>
+          <p>
+	    Own Id: OTP-9036</p>
+        </item>
+        <item>
+          <p>
+	    The change fixes a bug in the translation of 'bs_add'
+	    BEAM instruction to HiPE's Icode representation. When
+	    these instructions appeared in a guard context the
+	    previous translation was obviously buggy.</p>
+          <p>
+	    Own Id: OTP-9044</p>
+        </item>
+        <item>
+          <p>
+	    Sanitize the specs of the code module</p>
+          <p>
+	    After the addition of unicode_binary() to the
+	    file:filename() type, dialyzer started complaining about
+	    erroneous or incomplete specs in some functions of the
+	    'code' module. The culprit was hard-coded information in
+	    erl_bif_types for functions of this module, which were
+	    not updated. Since these functions have proper specs
+	    these days and code duplication (pun intended) is never a
+	    good idea, their type information was removed from
+	    erl_bif_types.</p>
+          <p>
+	    While doing this, some erroneous comments were fixed in
+	    the code module and also made sure that the code now runs
+	    without dialyzer warnings even when the
+	    -Wunmatched_returns option is used.</p>
+          <p>
+	    Some cleanups were applied to erl_bif_types too.</p>
+          <p>
+	    Own Id: OTP-9100</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug in the simplification of inexact comparisons</p>
+          <p>
+	    On 31/1/2011 Paul Guyot reported a bug in the native code
+	    compilation of inexact equality/inequality tests between
+	    floats and integers. The relevant test was:</p>
+          <p>
+	    f(X) -&gt; Y = X / 2, Y == 0.</p>
+          <p>
+	    and hipe erroneously evaluated the calls f(0) and f(0.0)
+	    to 'false'.</p>
+          <p>
+	    The culprit was in the simplification code of the Icode
+	    range analysis which used an erroneous test (lists:any/1
+	    instead of lists:all/1).</p>
+          <p>
+	    Own Id: OTP-9101</p>
+        </item>
+        <item>
+          <p>
+	    Document exiting and garbage_collecting process statuses</p>
+          <p>
+	    Own Id: OTP-9102</p>
+        </item>
+        <item>
+          <p>
+	    Remove hipe constants pool</p>
+          <p>
+	    Hipe constants used to be allocated within a single,
+	    fixed-size pool for interaction with the garbage
+	    collector. However, the garbage collector no longer
+	    depends on constants being allocated within a single
+	    pool, and the fixed size of the pool both meant
+	    unnecessary allocations on most deployments and crashes
+	    on deployments requiring more constants.</p>
+          <p>
+	    The code was simplified to directly invoke erts_alloc.
+	    Debugging and undocumented function
+	    hipe_bifs:show_literals/0 was removed (it returned true
+	    and output text to the console), and debugging and
+	    undocumented function hipe_bifs:constants_size/0 was
+	    rewritten with a global to count the size of allocated
+	    constants.</p>
+          <p>
+	    Own Id: OTP-9128</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Hipe 3.7.8.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Several type specifications for standard libraries were
+	    wrong in the R14B01 release. This is now corrected. The
+	    corrections concern types in re,io,filename and the
+	    module erlang itself.</p>
+          <p>
+	    Own Id: OTP-9008</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Hipe 3.7.8</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Compiler warnings were eliminated.</p>
+          <p>
+	    Own Id: OTP-8855</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Hipe 3.7.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The HiPE compiler could crash when compiling certain
+	    modules (the bug has been latent, and been exposed by new
+	    optimizations introduced in the BEAM compiler in R14A).
+	    (Thanks to Mikael Pettersson.)</p>
+          <p>
+	    Own Id: OTP-8800</p>
+        </item>
+        <item>
+          <p>
+	    hipe:load/1 was broken. (Thanks to Paul Guyot.)</p>
+          <p>
+	    Own Id: OTP-8802</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Hipe 3.7.6</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p><c>receive</c> statements that can only read out a
+	    newly created reference are now specially optimized so
+	    that it will execute in constant time regardless of the
+	    number of messages in the receive queue for the process.
+	    That optimization will benefit calls to
+	    <c>gen_server:call()</c>. (See <c>gen:do_call/4</c> for
+	    an example of a receive statement that will be
+	    optimized.)</p>
+          <p>
+	    Own Id: OTP-8623</p>
+        </item>
+        <item>
+          <p>
+	    Various changes to dialyzer-related files for R14.</p>
+          <p>
+	    - Dialyzer properly supports the new attribute
+	    -export_type and checks that remote types only refer to
+	    exported types. A warning is produced if some
+	    files/applications refer to types defined in modules
+	    which are neither in the PLT nor in the analyzed
+	    applications.</p>
+          <p>
+	    - Support for detecting data races involving whereis/1
+	    and unregister/1.</p>
+          <p>
+	    - More precise identification of the reason(s) why a
+	    record construction violates the types declared for its
+	    fields.</p>
+          <p>
+	    - Fixed bug in the handling of the 'or' guard.</p>
+          <p>
+	    - Better handling of the erlang:element/2 BIF.</p>
+          <p>
+	    - Complete handling of Erlang BIFs.</p>
+          <p>
+	    Own Id: OTP-8699</p>
+        </item>
+        <item>
+	    <p><c>eprof</c> has been reimplemented with support in
+	    the Erlang virtual machine and is now both faster (i.e.
+	    slows down the code being measured less) and scales much
+	    better. In measurements we saw speed-ups compared to the
+	    old eprof ranging from 6 times (for sequential code that
+	    only uses one scheduler/core) up to 84 times (for
+	    parallel code that uses 8 cores).</p>
+	    <p>Note: The API for the <c>eprof</c> has been cleaned up
+	    and extended. See the documentation.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-8706</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Hipe 3.7.5</title>
 

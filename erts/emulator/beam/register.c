@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1996-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -39,8 +39,6 @@ static Hash process_reg;
 
 static erts_smp_rwmtx_t regtab_rwmtx;
 
-#define reg_lock_init()			erts_smp_rwmtx_init(&regtab_rwmtx, \
-							    "reg_tab")
 #define reg_try_read_lock()		erts_smp_rwmtx_tryrlock(&regtab_rwmtx)
 #define reg_try_write_lock()		erts_smp_rwmtx_tryrwlock(&regtab_rwmtx)
 #define reg_read_lock()			erts_smp_rwmtx_rlock(&regtab_rwmtx)
@@ -147,8 +145,11 @@ static void reg_free(RegProc *obj)
 void init_register_table(void)
 {
     HashFunctions f;
+    erts_smp_rwmtx_opt_t rwmtx_opt = ERTS_SMP_RWMTX_OPT_DEFAULT_INITER;
+    rwmtx_opt.type = ERTS_SMP_RWMTX_TYPE_FREQUENT_READ;
+    rwmtx_opt.lived = ERTS_SMP_RWMTX_LONG_LIVED;
 
-    reg_lock_init();
+    erts_smp_rwmtx_init_opt(&regtab_rwmtx, &rwmtx_opt, "reg_tab");
 
     f.hash = (H_FUN) reg_hash;
     f.cmp  = (HCMP_FUN) reg_cmp;
@@ -476,8 +477,9 @@ int erts_unregister_name(Process *c_p,
      *           on c_prt.
      */
 
-    if (!c_p)
+    if (!c_p) {
 	c_p_locks = 0;
+    }
     current_c_p_locks = c_p_locks;
 
  restart:
@@ -489,9 +491,15 @@ int erts_unregister_name(Process *c_p,
     if (is_non_value(name)) {
 	/* Unregister current process name */
 	ASSERT(c_p);
-	if (c_p->reg)
+#ifdef ERTS_SMP
+	if (current_c_p_locks != c_p_locks) {
+	    erts_smp_proc_lock(c_p, c_p_locks);
+	    current_c_p_locks = c_p_locks;
+	}
+#endif
+	if (c_p->reg) {
 	    r.name = c_p->reg->name;
-	else {
+	} else {
 	    /* Name got unregistered while main lock was released */
 	    res = 0;
 	    goto done;
@@ -500,8 +508,8 @@ int erts_unregister_name(Process *c_p,
 
     if ((rp = (RegProc*) hash_get(&process_reg, (void*) &r)) != NULL) {
 	if (rp->pt) {
-#ifdef ERTS_SMP
 	    if (port != rp->pt) {
+#ifdef ERTS_SMP
 		if (port) {
 		    ERTS_SMP_LC_ASSERT(port != c_prt);
 		    erts_smp_port_unlock(port);
@@ -519,10 +527,13 @@ int erts_unregister_name(Process *c_p,
 		    port = erts_id2port(id, NULL, 0);
 		    goto restart;
 		}
+#endif
 		port = rp->pt;
 	    }
-#endif
-	    ERTS_SMP_LC_ASSERT(rp->pt == port && erts_lc_is_port_locked(port));
+
+	    ASSERT(rp->pt == port);
+	    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(port));
+
 	    rp->pt->reg = NULL;
 	    
 	    if (IS_TRACED_FL(port, F_TRACE_PORTS)) {
@@ -530,24 +541,25 @@ int erts_unregister_name(Process *c_p,
 	    }
 
 	} else if (rp->p) {
-	    Process* p = rp->p;
+
 #ifdef ERTS_SMP
 	    erts_proc_safelock(c_p,
 			       current_c_p_locks,
 			       c_p_locks,
 			       rp->p,
-			       0,
+			       (c_p == rp->p) ?  current_c_p_locks : 0,
 			       ERTS_PROC_LOCK_MAIN);
 	    current_c_p_locks = c_p_locks;
 #endif
-	    p->reg = NULL;
-#ifdef ERTS_SMP
-	    if (rp->p != c_p)
-		erts_smp_proc_unlock(rp->p, ERTS_PROC_LOCK_MAIN);
-#endif
-	    if (IS_TRACED_FL(p, F_TRACE_PROCS)) {
-		trace_proc(c_p, p, am_unregister, r.name);
+	    rp->p->reg = NULL;
+	    if (IS_TRACED_FL(rp->p, F_TRACE_PROCS)) {
+		trace_proc(c_p, rp->p, am_unregister, r.name);
 	    }
+#ifdef ERTS_SMP
+	    if (rp->p != c_p) {
+		erts_smp_proc_unlock(rp->p, ERTS_PROC_LOCK_MAIN);
+	    }
+#endif
 	}
 	hash_erase(&process_reg, (void*) &r);
 	res = 1;
@@ -557,14 +569,17 @@ int erts_unregister_name(Process *c_p,
 
     reg_write_unlock();
     if (c_prt != port) {
-	if (port)
+	if (port) {
 	    erts_smp_port_unlock(port);
-	if (c_prt)
+	}
+	if (c_prt) {
 	    erts_smp_port_lock(c_prt);
+	}
     }
 #ifdef ERTS_SMP
-    if (c_p && !current_c_p_locks)
+    if (c_p && !current_c_p_locks) {
 	erts_smp_proc_lock(c_p, c_p_locks);
+    }
 #endif
     return res;
 }

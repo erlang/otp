@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 1996-2009. All Rights Reserved.
+# Copyright Ericsson AB 1996-2011. All Rights Reserved.
 # 
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -67,7 +67,7 @@ do_configure: configure
 configure: configure.in
 	autoconf
 
-.PHONY: info
+.PHONY: info gclean
 
 info: 
 	@echo "OS:       $(OS)"
@@ -75,6 +75,9 @@ info:
 	@echo ""
 	@echo "SNMP_VSN: $(SNMP_VSN)"
 	@echo "APP_VSN:  $(APP_VSN)"
+
+gclean: 
+	git clean -fXd
 
 
 # ----------------------------------------------------

@@ -46,9 +46,7 @@
          new_variable_names/2, new_variable_names/3, strip_comments/1,
          to_comment/1, to_comment/2, to_comment/3, variables/1]).
 
-%% =====================================================================
-
--type ordset(X) :: [X].  % XXX: TAKE ME OUT
+-export_type([info_pair/0]).
 
 %% =====================================================================
 %% @spec map(Function, Tree::syntaxTree()) -> syntaxTree()
@@ -400,10 +398,7 @@ new_variable_name(N, R, _T, F, S) ->
 %% implementation of `sets'.
 
 start_range(S) ->
-    max(sets:size(S) * ?START_RANGE_FACTOR, ?MINIMUM_RANGE).
-
-max(X, Y) when X > Y -> X;
-max(_, Y) -> Y.
+    erlang:max(sets:size(S) * ?START_RANGE_FACTOR, ?MINIMUM_RANGE).
 
 %% The previous number might or might not be used to compute the
 %% next number to be tried. It is currently not used.
@@ -481,7 +476,7 @@ new_variable_names(0, Names, _, _, _) ->
 %% @see annotate_bindings/1
 %% @see //stdlib/ordsets
 
--spec annotate_bindings(erl_syntax:syntaxTree(), ordset(atom())) ->
+-spec annotate_bindings(erl_syntax:syntaxTree(), ordsets:ordset(atom())) ->
         erl_syntax:syntaxTree().
 
 annotate_bindings(Tree, Env) ->
@@ -1135,21 +1130,21 @@ collect_attribute(_, {N, V}, Info) ->
 
 %% Abstract datatype for collecting module information.
 
--record(forms, {module, exports, module_imports, imports, attributes,
-		records, errors, warnings, functions, rules}).
+-record(forms, {module         = none :: 'none' | {'value', atom()},
+		exports        = []   :: [{atom(), arity()}],
+		module_imports = []   :: [atom()],
+		imports        = []   :: [{atom(), [{atom(), arity()}]}],
+		attributes     = []   :: [{atom(), term()}],
+		records        = []   :: [{atom(), [{atom(), field_default()}]}],
+		errors         = []   :: [term()],
+		warnings       = []   :: [term()],
+		functions      = []   :: [{atom(), arity()}],
+		rules          = []   :: [{atom(), arity()}]}).
+
+-type field_default() :: 'none' | erl_syntax:syntaxTree().
 
 new_finfo() ->
-    #forms{module = none,
-           exports = [],
-           module_imports = [],
-           imports = [],
-           attributes = [],
-           records = [],
-           errors = [],
-           warnings = [],
-           functions = [],
-           rules = []
-          }.
+    #forms{}.
 
 finfo_set_module(Name, Info) ->
     case Info#forms.module of

@@ -58,6 +58,9 @@ typedef struct db_table_hash {
 #ifdef ERTS_SMP
     DbTableHashFineLocks* locks;
 #endif
+#ifdef VALGRIND
+    struct ext_segment* top_ptr_to_segment_with_active_segtab;
+#endif
 } DbTableHash;
 
 

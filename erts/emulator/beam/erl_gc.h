@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2007-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2007-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -22,11 +22,12 @@
 
 /* GC declarations shared by beam/erl_gc.c and hipe/hipe_gc.c */
 
-#ifdef DEBUG
+#if defined(DEBUG) && !ERTS_GLB_INLINE_INCL_FUNC_DEF
 #  define HARDDEBUG 1
 #endif
 
-#define IS_MOVED(x)	(!is_header((x)))
+#define IS_MOVED_BOXED(x)	(!is_header((x)))
+#define IS_MOVED_CONS(x)	(is_non_value((x)))
 
 #define MOVE_CONS(PTR,CAR,HTOP,ORIG)					\
 do {									\
@@ -67,6 +68,30 @@ extern Uint erts_test_long_gc_sleep;
 
 #if defined(DEBUG) || defined(ERTS_OFFHEAP_DEBUG)
 int within(Eterm *ptr, Process *p);
+#endif
+
+ERTS_GLB_INLINE Eterm follow_moved(Eterm term);
+
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+ERTS_GLB_INLINE Eterm follow_moved(Eterm term)
+{
+    Eterm* ptr;
+    switch (primary_tag(term)) {
+    case TAG_PRIMARY_IMMED1:
+	break;
+    case TAG_PRIMARY_BOXED:
+	ptr = boxed_val(term);
+	if (IS_MOVED_BOXED(*ptr)) term = *ptr;
+	break;
+    case TAG_PRIMARY_LIST:
+	ptr = list_val(term);
+	if (IS_MOVED_CONS(ptr[0])) term = ptr[1];
+	break;
+    default:
+	ASSERT(!"strange tag in follow_moved");
+    }
+    return term;
+}
 #endif
 
 #endif /* __ERL_GC_H__ */

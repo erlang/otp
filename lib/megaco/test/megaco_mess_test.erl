@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -34,13 +34,13 @@
 
 %% -compile(export_all).
 -export([
-	 all/1, 
-	 init_per_testcase/2, 
-	 fin_per_testcase/2,
+	 all/0, groups/0, 
+	 init_per_suite/1,    end_per_suite/1, 
+	 init_per_group/2,    end_per_group/2, 
+	 init_per_testcase/2, end_per_testcase/2,
 
 	 connect/1,
-
-	 request_and_reply/1,
+	
 	 request_and_reply_plain/1,
 	 request_and_no_reply/1,
 	 request_and_reply_pending_ack_no_pending/1,
@@ -52,13 +52,13 @@
 	 request_and_reply_and_late_ack/1,
 	 trans_req_and_reply_and_req/1, 
 	 
-	 pending_ack/1,
+	
 	 pending_ack_plain/1,
 	 request_and_pending_and_late_reply/1, 
 	 
 	 dist/1,
 	 
-	 tickets/1,
+	
 	 otp_4359/1,
 	 otp_4836/1,
 	 otp_5805/1,
@@ -67,18 +67,18 @@
 	 otp_6253/1,
 	 otp_6275/1,
 	 otp_6276/1,
-	 otp_6442/1,
+	
 	 otp_6442_resend_request1/1,
 	 otp_6442_resend_request2/1,
 	 otp_6442_resend_reply1/1,
 	 otp_6442_resend_reply2/1,
-	 otp_6865/1, 
+	 
 	 otp_6865_request_and_reply_plain_extra1/1,
 	 otp_6865_request_and_reply_plain_extra2/1, 
 	 otp_7189/1, 
 	 otp_7259/1, 
 	 otp_7713/1,
-	 otp_8183/1, 
+	 
 	 otp_8183_request1/1, 
 	 otp_8212/1
 	]).
@@ -337,83 +337,94 @@ init_per_testcase(Case, Config) ->
     C = lists:keydelete(tc_timeout, 1, Config),
     megaco_test_lib:init_per_testcase(Case, [{tc_timeout, min(1)} |C]).
 
-% fin_per_testcase(pending_ack = Case, Config) ->
+% end_per_testcase(pending_ack = Case, Config) ->
 %     erase(dbg),
-%     megaco_test_lib:fin_per_testcase(Case, Config);
-fin_per_testcase(Case, Config) ->
-    megaco_test_lib:fin_per_testcase(Case, Config).
+%     megaco_test_lib:end_per_testcase(Case, Config);
+end_per_testcase(Case, Config) ->
+    megaco_test_lib:end_per_testcase(Case, Config).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-all(suite) ->
+all() -> 
     [
-     connect,
-     request_and_reply,
-     pending_ack,
-     dist,
-
-     %% Tickets last
-     tickets
+     connect, 
+     {group, request_and_reply},
+     {group, pending_ack}, 
+     dist, 
+     {group, tickets}
     ].
 
-request_and_reply(suite) ->
+groups() -> 
     [
-     request_and_reply_plain,
-     request_and_no_reply,
-     request_and_reply_pending_ack_no_pending,
-     request_and_reply_pending_ack_one_pending,
-     single_trans_req_and_reply,
-     single_trans_req_and_reply_sendopts,
-     request_and_reply_and_ack,
-     request_and_reply_and_no_ack,
-     request_and_reply_and_late_ack,
-     trans_req_and_reply_and_req
+     {request_and_reply, [],
+      [request_and_reply_plain, 
+       request_and_no_reply,
+       request_and_reply_pending_ack_no_pending,
+       request_and_reply_pending_ack_one_pending,
+       single_trans_req_and_reply,
+       single_trans_req_and_reply_sendopts,
+       request_and_reply_and_ack, 
+       request_and_reply_and_no_ack,
+       request_and_reply_and_late_ack,
+       trans_req_and_reply_and_req]},
+     {pending_ack, [],
+      [pending_ack_plain,
+       request_and_pending_and_late_reply]},
+     {tickets, [],
+      [otp_4359, 
+       otp_4836, 
+       otp_5805, 
+       otp_5881, 
+       otp_5887,
+       otp_6253, 
+       otp_6275, 
+       otp_6276, 
+       {group, otp_6442},
+       {group, otp_6865}, 
+       otp_7189, 
+       otp_7259, 
+       otp_7713,
+       {group, otp_8183}, 
+       otp_8212]},
+     {otp_6442, [],
+      [otp_6442_resend_request1, 
+       otp_6442_resend_request2,
+       otp_6442_resend_reply1, 
+       otp_6442_resend_reply2]},
+     {otp_6865, [],
+      [otp_6865_request_and_reply_plain_extra1,
+       otp_6865_request_and_reply_plain_extra2]},
+     {otp_8183, [], [otp_8183_request1]}
     ].
 
-pending_ack(suite) ->
-    [
-     pending_ack_plain,
-     request_and_pending_and_late_reply
-    ].
 
-tickets(suite) ->
-    [
-     otp_4359,
-     otp_4836,
-     otp_5805,
-     otp_5881,
-     otp_5887,
-     otp_6253,
-     otp_6275,
-     otp_6276,
-     otp_6442,
-     otp_6865,
-     otp_7189,
-     otp_7259,
-     otp_7713,
-     otp_8183,
-     otp_8212
-    ].
+init_per_suite(Config) ->
+    io:format("~w:init_per_suite -> entry with"
+	      "~n   Config: ~p"
+	      "~n", [?MODULE, Config]),
+    Config.
 
-otp_6442(suite) ->
-    [
-     otp_6442_resend_request1, 
-     otp_6442_resend_request2, 
-     otp_6442_resend_reply1, 
-     otp_6442_resend_reply2
-    ].
+end_per_suite(_Config) ->
+    io:format("~w:end_per_suite -> entry with"
+	      "~n   _Config: ~p"
+	      "~n", [?MODULE, _Config]),
+    ok.
 
-otp_6865(suite) ->
-    [
-     otp_6865_request_and_reply_plain_extra1,
-     otp_6865_request_and_reply_plain_extra2
-    ].
 
-otp_8183(suite) ->
-    [
-     otp_8183_request1
-    ].
+init_per_group(_GroupName, Config) ->
+    io:format("~w:init_per_group -> entry with"
+	      "~n   _GroupName: ~p"
+	      "~n   Config: ~p"
+	      "~n", [?MODULE, _GroupName, Config]),
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    io:format("~w:end_per_group -> entry with"
+	      "~n   _GroupName: ~p"
+	      "~n   Config: ~p"
+	      "~n", [?MODULE, _GroupName, Config]),
+    Config.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -427,12 +438,16 @@ connect(Config) when is_list(Config) ->
     PrelMid = preliminary_mid,
     MgMid   = ipv4_mid(4711),
 
+    d("connect -> start megaco app",[]),
     ?VERIFY(ok, application:start(megaco)),
+    d("connect -> start (MG) user ~p",[MgMid]),
     ?VERIFY(ok,	megaco:start_user(MgMid, [{send_mod, bad_send_mod},
 	                                  {request_timer, infinity},
 	                                  {reply_timer, infinity}])),
 
+    d("connect -> get receive info for ~p",[MgMid]),
     MgRH = user_info(MgMid, receive_handle),
+    d("connect -> (MG) try connect to MGC",[]),
     {ok, PrelCH} = ?VERIFY({ok, _}, megaco:connect(MgRH, PrelMid, sh, self())),
 
     connections([PrelCH]),
@@ -6809,16 +6824,12 @@ rapalr_mg_notify_request_ar(Rid, Tid, Cid) ->
 
 
 
-
-
-
-
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 dist(suite) ->
     [];
 dist(Config) when is_list(Config) ->
+    ?SKIP("Needs a re-write..."),
     [_Local, Dist] = ?ACQUIRE_NODES(2, Config),
     d("dist -> start proxy",[]),
     megaco_mess_user_test:start_proxy(),
@@ -6930,7 +6941,11 @@ dist(Config) when is_list(Config) ->
 
     ?VERIFY(ok, application:stop(megaco)),
     ?RECEIVE([]),
-    d("dist -> done",[]),
+
+    d("dist -> stop proxy",[]),
+    megaco_mess_user_test:stop_proxy(),
+
+    d("dist -> done", []),
     ok.
 
 

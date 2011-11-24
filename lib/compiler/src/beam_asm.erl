@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %% Purpose : Assembler for threaded Beam.
@@ -23,7 +23,7 @@
 -export([module/4]).
 -export([encode/2]).
 
--import(lists, [map/2,member/2,keymember/3,duplicate/2,filter/2]).
+-import(lists, [map/2,member/2,keymember/3,duplicate/2,splitwith/2]).
 -include("beam_opcodes.hrl").
 
 module(Code, Abst, SourceFile, Opts) ->
@@ -31,28 +31,33 @@ module(Code, Abst, SourceFile, Opts) ->
 
 assemble({Mod,Exp,Attr0,Asm0,NumLabels}, Abst, SourceFile, Opts) ->
     {1,Dict0} = beam_dict:atom(Mod, beam_dict:new()),
+    {0,Dict1} = beam_dict:fname(atom_to_list(Mod) ++ ".erl", Dict0),
     NumFuncs = length(Asm0),
     {Asm,Attr} = on_load(Asm0, Attr0),
-    {Code,Dict1} = assemble_1(Asm, Exp, Dict0, []),
-    build_file(Code, Attr, Dict1, NumLabels, NumFuncs, Abst, SourceFile, Opts).
+    {Code,Dict2} = assemble_1(Asm, Exp, Dict1, []),
+    build_file(Code, Attr, Dict2, NumLabels, NumFuncs, Abst, SourceFile, Opts).
 
 on_load(Fs0, Attr0) ->
     case proplists:get_value(on_load, Attr0) of
 	undefined ->
 	    {Fs0,Attr0};
 	[{Name,0}] ->
-	    Fs = map(fun({function,N,0,Entry,Asm0}) when N =:= Name ->
-			     [{label,_}=L,
-			      {func_info,_,_,_}=Fi,
-			      {label,_}=E|Asm1] = Asm0,
-			     Asm = [L,Fi,E,on_load|Asm1],
-			     {function,N,0,Entry,Asm};
+	    Fs = map(fun({function,N,0,Entry,Is0}) when N =:= Name ->
+			     Is = insert_on_load_instruction(Is0, Entry),
+			     {function,N,0,Entry,Is};
 			(F) ->
 			     F
 		     end, Fs0),
 	    Attr = proplists:delete(on_load, Attr0),
 	    {Fs,Attr}
     end.
+
+insert_on_load_instruction(Is0, Entry) ->
+    {Bef,[{label,Entry}=El|Is]} =
+	splitwith(fun({label,L}) when L =:= Entry -> false;
+		     (_) -> true
+		  end, Is0),
+    Bef ++ [El,on_load|Is].
 
 assemble_1([{function,Name,Arity,Entry,Asm}|T], Exp, Dict0, Acc) ->
     Dict1 = case member({Name,Arity}, Exp) of
@@ -132,14 +137,19 @@ build_file(Code, Attr, Dict, NumLabels, NumFuncs, Abst, SourceFile, Opts) ->
 			   LitTab = iolist_to_binary(zlib:compress(LitTab2)),
 			   chunk(<<"LitT">>, <<(byte_size(LitTab2)):32>>, LitTab)
 		   end,
+
+    %% Create the line chunk.
     
+    LineChunk = chunk(<<"Line">>, build_line_table(Dict)),
 
     %% Create the attributes and compile info chunks.
 
     Essentials0 = [AtomChunk,CodeChunk,StringChunk,ImportChunk,
 		   ExpChunk,LambdaChunk,LiteralChunk],
-    Essentials = [iolist_to_binary(C) || C <- Essentials0],
-    {Attributes,Compile} = build_attributes(Opts, SourceFile, Attr, Essentials),
+    Essentials1 = [iolist_to_binary(C) || C <- Essentials0],
+    MD5 = module_md5(Essentials1),
+    Essentials = finalize_fun_table(Essentials1, MD5),
+    {Attributes,Compile} = build_attributes(Opts, SourceFile, Attr, MD5),
     AttrChunk = chunk(<<"Attr">>, Attributes),
     CompileChunk = chunk(<<"CInf">>, Compile),
 
@@ -150,10 +160,31 @@ build_file(Code, Attr, Dict, NumLabels, NumFuncs, Abst, SourceFile, Opts) ->
     %% Create IFF chunk.
 
     Chunks = case member(slim, Opts) of
-		 true -> [Essentials,AttrChunk,AbstChunk];
-		 false -> [Essentials,LocChunk,AttrChunk,CompileChunk,AbstChunk]
+		 true ->
+		     [Essentials,AttrChunk,AbstChunk];
+		 false ->
+		     [Essentials,LocChunk,AttrChunk,
+		      CompileChunk,AbstChunk,LineChunk]
 	     end,
     build_form(<<"BEAM">>, Chunks).
+
+%% finalize_fun_table(Essentials, MD5) -> FinalizedEssentials
+%%  Update the 'old_uniq' field in the entry for each fun in the
+%%  'FunT' chunk. We'll use part of the MD5 for the module as a
+%%  unique value.
+
+finalize_fun_table(Essentials, MD5) ->
+    [finalize_fun_table_1(E, MD5) || E <- Essentials].
+
+finalize_fun_table_1(<<"FunT",Keep:8/binary,Table0/binary>>, MD5) ->
+    <<Uniq:27,_:101/bits>> = MD5,
+    Table = finalize_fun_table_2(Table0, Uniq, <<>>),
+    <<"FunT",Keep/binary,Table/binary>>;
+finalize_fun_table_1(Chunk, _) -> Chunk.
+
+finalize_fun_table_2(<<Keep:20/binary,0:32,T/binary>>, Uniq, Acc) ->
+    finalize_fun_table_2(T, Uniq, <<Acc/binary,Keep/binary,Uniq:32>>);
+finalize_fun_table_2(<<>>, _, Acc) -> Acc.
 
 %% Build an IFF form.
 
@@ -191,11 +222,7 @@ flatten_exports(Exps) ->
 flatten_imports(Imps) ->
     list_to_binary(map(fun({M,F,A}) -> <<M:32,F:32,A:32>> end, Imps)).
 
-build_attributes(Opts, SourceFile, Attr0, Essentials) ->
-    Attr = filter(fun({type,_}) -> false;
-		     ({spec,_}) -> false;
-		     (_) -> true
-		  end, Attr0),
+build_attributes(Opts, SourceFile, Attr, MD5) ->
     Misc = case member(slim, Opts) of
 	       false ->
 		   {{Y,Mo,D},{H,Mi,S}} = erlang:universaltime(),
@@ -203,7 +230,32 @@ build_attributes(Opts, SourceFile, Attr0, Essentials) ->
 	       true -> []
 	   end,
     Compile = [{options,Opts},{version,?COMPILER_VSN}|Misc],
-    {term_to_binary(calc_vsn(Attr, Essentials)),term_to_binary(Compile)}.
+    {term_to_binary(set_vsn_attribute(Attr, MD5)),term_to_binary(Compile)}.
+
+build_line_table(Dict) ->
+    {NumLineInstrs,NumFnames0,Fnames0,NumLines,Lines0} =
+	beam_dict:line_table(Dict),
+    NumFnames = NumFnames0 - 1,
+    [_|Fnames1] = Fnames0,
+    Fnames2 = [unicode:characters_to_binary(F) || F <- Fnames1],
+    Fnames = << <<(byte_size(F)):16,F/binary>> || F <- Fnames2 >>,
+    Lines1 = encode_line_items(Lines0, 0),
+    Lines = iolist_to_binary(Lines1),
+    Ver = 0,
+    Bits = 0,
+    <<Ver:32,Bits:32,NumLineInstrs:32,NumLines:32,NumFnames:32,
+     Lines/binary,Fnames/binary>>.
+
+%% encode_line_items([{FnameIndex,Line}], PrevFnameIndex)
+%%  Encode the line items compactly. Tag the FnameIndex with
+%%  an 'a' tag (atom) and only include it when it has changed.
+%%  Tag the line numbers with an 'i' (integer) tag.
+
+encode_line_items([{F,L}|T], F) ->
+    [encode(?tag_i, L)|encode_line_items(T, F)];
+encode_line_items([{F,L}|T], _) ->
+    [encode(?tag_a, F),encode(?tag_i, L)|encode_line_items(T, F)];
+encode_line_items([], _) -> [].
 
 %%
 %% If the attributes contains no 'vsn' attribute, we'll insert one
@@ -211,31 +263,29 @@ build_attributes(Opts, SourceFile, Attr0, Essentials) ->
 %% We'll not change an existing 'vsn' attribute.
 %%
 
-calc_vsn(Attr, Essentials0) ->
+set_vsn_attribute(Attr, MD5) ->
     case keymember(vsn, 1, Attr) of
 	true -> Attr;
 	false ->
-	    Essentials = filter_essentials(Essentials0),
-	    <<Number:128>> = erlang:md5(Essentials),
+	    <<Number:128>> = MD5,
 	    [{vsn,[Number]}|Attr]
     end.
 
+module_md5(Essentials0) ->
+    Essentials = filter_essentials(Essentials0),
+    erlang:md5(Essentials).
+
 %% filter_essentials([Chunk]) -> [Chunk']
 %%  Filter essentials so that we obtain the same MD5 as code:module_md5/1 and
-%%  beam_lib:md5/1 would calculate for this module.
+%%  beam_lib:md5/1 would calculate for this module.  Note that at this
+%%  point, the 'old_uniq' entry for each fun in the 'FunT' chunk is zeroed,
+%%  so there is no need to go through the 'FunT' chunk.
 
-filter_essentials([<<"FunT",_Sz:4/binary,Entries:4/binary,Table0/binary>>|T]) ->
-    Table = filter_funtab(Table0, <<0:32>>),
-    [Entries,Table|filter_essentials(T)];
 filter_essentials([<<_Tag:4/binary,Sz:32,Data:Sz/binary,_Padding/binary>>|T]) ->
     [Data|filter_essentials(T)];
 filter_essentials([<<>>|T]) ->
     filter_essentials(T);
 filter_essentials([]) -> [].
-
-filter_funtab(<<Important:20/binary,_OldUniq:4/binary,T/binary>>, Zero) ->
-    [Important,Zero|filter_funtab(T, Zero)];
-filter_funtab(<<>>, _) -> [].
 
 bif_type(fnegate, 1) -> {op,fnegate};
 bif_type(fadd, 2)   -> {op,fadd};
@@ -247,6 +297,9 @@ bif_type(_, 2)      -> bif2.
 
 make_op({'%',_}, Dict) ->
     {[],Dict};
+make_op({line,Location}, Dict0) ->
+    {Index,Dict} = beam_dict:line(Location, Dict0),
+    encode_op(line, [Index], Dict);
 make_op({bif, Bif, {f,_}, [], Dest}, Dict) ->
     %% BIFs without arguments cannot fail.
     encode_op(bif0, [{extfunc, erlang, Bif, 0}, Dest], Dict);
@@ -265,7 +318,8 @@ make_op({gc_bif,Bif,Fail,Live,Args,Dest}, Dict) ->
     Arity = length(Args),
     BifOp = case Arity of
 		1 -> gc_bif1;
-		2 -> gc_bif2
+		2 -> gc_bif2;
+		3 -> gc_bif3
 	    end,
     encode_op(BifOp, [Fail,Live,{extfunc,erlang,Bif,Arity}|Args++[Dest]],Dict);
 make_op({bs_add=Op,Fail,[Src1,Src2,Unit],Dest}, Dict) ->
@@ -274,8 +328,8 @@ make_op({test,Cond,Fail,Ops}, Dict) when is_list(Ops) ->
     encode_op(Cond, [Fail|Ops], Dict);
 make_op({test,Cond,Fail,Live,[Op|Ops],Dst}, Dict) when is_list(Ops) ->
     encode_op(Cond, [Fail,Op,Live|Ops++[Dst]], Dict);
-make_op({make_fun2,{f,Lbl},Index,OldUniq,NumFree}, Dict0) ->
-    {Fun,Dict} = beam_dict:lambda(Lbl, Index, OldUniq, NumFree, Dict0),
+make_op({make_fun2,{f,Lbl},_Index,_OldUniq,NumFree}, Dict0) ->
+    {Fun,Dict} = beam_dict:lambda(Lbl, NumFree, Dict0),
     make_op({make_fun2,Fun}, Dict);
 make_op({kill,Y}, Dict) ->
     make_op({init,Y}, Dict);

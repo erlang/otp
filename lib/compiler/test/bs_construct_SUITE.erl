@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -23,23 +23,44 @@
 
 -module(bs_construct_SUITE).
 
--export([all/1,init_per_testcase/2,fin_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
+	 init_per_testcase/2,end_per_testcase/2,
 	 two/1,test1/1,fail/1,float_bin/1,in_guard/1,in_catch/1,
 	 nasty_literals/1,coerce_to_float/1,side_effect/1,
 	 opt/1,otp_7556/1,float_arith/1,otp_8054/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
-all(suite) ->
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
     test_lib:recompile(?MODULE),
-    [two,test1,fail,float_bin,in_guard,in_catch,nasty_literals,
-     side_effect,opt,otp_7556,float_arith,otp_8054].
+    [two, test1, fail, float_bin, in_guard, in_catch,
+     nasty_literals, side_effect, opt, otp_7556, float_arith,
+     otp_8054].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     Dog = test_server:timetrap(?t:minutes(1)),
     [{watchdog,Dog}|Config].
 
-fin_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
+end_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),
     ok.
@@ -66,6 +87,8 @@ id(I) -> I.
 
 l(I_13, I_big1, I_16, Bin) ->
     [
+     ?T(<<I_13:0>>,
+	[]),
      ?T(<<-43>>,
 	[256-43]),
      ?T(<<4:4,7:4>>,
@@ -208,7 +231,7 @@ one_test({C_bin, E_bin, Str, Result}) ->
 		    ok;
 		%% For situations where the final bits may not matter, like
 		%% for floats:
-		N when integer(N) ->
+		N when is_integer(N) ->
 		    io:format("Info: compiled and interpreted differ in the"
 			      " last bytes:~n ~p, ~p.~n",
 			      [bitstring_to_list(C_bin), bitstring_to_list(E_bin)]),

@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,27 +19,14 @@
 
 -module(snmp_SUITE).
 
--export([all/1, 
-	 init_per_testcase/2, fin_per_testcase/2
+-export([all/0, 
+	 suite/0,
+	 groups/0, 
+	 init_per_suite/1,    end_per_suite/1, 
+	 init_per_group/2,    end_per_group/2, 
+	 init_per_testcase/2, end_per_testcase/2
 	]).
 
--export([app/1, compiler/1, misc/1, agent/1, manager/1]).
-
--export([
-	 app_test/1,
-	 appup_test/1,
-	 compiler_test/1,
-	 conf_test/1,
-	 pdus_test/1,
-	 log_test/1,
-	 note_store_test/1,
-	 mibs_test/1,
-	 nfilter_test/1,
-	 agent_test/1,
-	 manager_config_test/1,
-	 manager_user_test/1,
-	 manager_test/1
-	]).
 
 %%
 %% -----
@@ -48,110 +35,60 @@
 init_per_testcase(_Case, Config) when is_list(Config) ->
     Config.
 
-fin_per_testcase(_Case, Config) when is_list(Config) ->
+end_per_testcase(_Case, Config) when is_list(Config) ->
     Config.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Top test case
 
-all(doc) ->
-    ["Test suites for the snmp application.",
-     "There are eight different sub test-suites."];
+suite() -> 
+    [{ct_hooks, [ts_install_cth]}].
 
-all(suite) ->
-    [
-     app,
-     compiler,
-     misc,
-     agent,
-     manager
+all() -> 
+    [{group, app}, 
+     {group, compiler}, 
+     {group, misc},
+     {group, agent}, 
+     {group, manager}].
 
-    ].
+groups() -> 
+    [{app,      [], [{group, app_test}, 
+		     {group, appup_test}]},
+     {compiler, [], [{group, compiler_test}]},
+     {misc,     [], [{group, conf_test}, 
+		     {group, pdus_test},
+		     {group, log_test}, 
+		     {group, note_store_test}]},
+     {agent, [],    [{group, mibs_test}, 
+		     {group, nfilter_test},
+		     {group, agent_test}]},
+     {manager, [],  [{group, manager_config_test},
+		     {group, manager_user_test}, 
+		     {group, manager_test}]},
+     {app_test,            [], [{snmp_app_test,            all}]},
+     {appup_test,          [], [{snmp_appup_test,          all}]},
+     {compiler_test,       [], [{snmp_compiler_test,       all}]},
+     {conf_test,           [], [{snmp_conf_test,           all}]},
+     {pdus_test,           [], [{snmp_pdus_test,           all}]},
+     {log_test,            [], [{snmp_log_test,            all}]},
+     {note_store_test,     [], [{snmp_note_store_test,     all}]},
+     {mibs_test,           [], [{snmp_agent_mibs_test,     all}]},
+     {nfilter_test,        [], [{snmp_agent_nfilter_test,  all}]},
+     {agent_test,          [], [{snmp_agent_test,          all}]},
+     {manager_config_test, [], [{snmp_manager_config_test, all}]},
+     {manager_user_test,   [], [{snmp_manager_user_test,   all}]},
+     {manager_test,        [], [{snmp_manager_test,        all}]}].
 
-app(suite) ->
-    [
-     app_test,
-     appup_test
-     ].
+init_per_suite(Config) ->
+    Config.
 
-compiler(suite) ->
-    [
-     compiler_test
-    ].
+end_per_suite(_Config) ->
+    ok.
 
-misc(suite) ->
-    [
-     conf_test,
-     pdus_test,
-     log_test,
-     note_store_test
-    ].
+init_per_group(_GroupName, Config) ->
+    Config.
 
-agent(suite) ->
-    [
-     mibs_test,
-     nfilter_test,
-     agent_test
-    ].
-
-manager(suite) ->
-    [
-     manager_config_test,
-     manager_user_test,
-     manager_test
-    ].
-
-
-app_test(suite) ->
-    [{snmp_app_test, all}].
-
-
-appup_test(suite) ->
-    [{snmp_appup_test, all}].
-
-
-compiler_test(suite) ->
-    [{snmp_compiler_test, all}].  
-
-
-conf_test(suite) ->
-    [{snmp_conf_test, all}].  
-
-
-pdus_test(suite) ->
-    [{snmp_pdus_test, all}].  
-
-
-log_test(suite) ->
-    [{snmp_log_test, all}].  
-
-
-note_store_test(suite) ->
-    [{snmp_note_store_test, all}].  
-
-
-mibs_test(suite) ->
-    [{snmp_agent_mibs_test, all}].
-
-
-nfilter_test(suite) ->
-    [{snmp_agent_nfilter_test, all}].
-
-
-agent_test(suite) ->
-    [{snmp_agent_test, all}].
-
-
-manager_config_test(suite) ->
-    [{snmp_manager_config_test, all}].  
-
-
-manager_user_test(suite) ->
-    [{snmp_manager_user_test, all}].  
-
-
-manager_test(suite) ->
-    [{snmp_manager_test, all}].  
-
+end_per_group(_GroupName, Config) ->
+    Config.
 

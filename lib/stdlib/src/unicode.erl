@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -25,8 +25,39 @@
 %%                         InEncoding is not {latin1 | unicode | utf8})
 %%
 
--export([characters_to_list/1, characters_to_list_int/2, characters_to_binary/1,characters_to_binary_int/2, characters_to_binary/3,bom_to_encoding/1, encoding_to_bom/1]).
+-export([characters_to_list/1, characters_to_list_int/2,
+	 characters_to_binary/1, characters_to_binary_int/2,
+	 characters_to_binary/3,
+	 bom_to_encoding/1, encoding_to_bom/1]).
 
+-export_type([chardata/0, charlist/0, encoding/0, external_chardata/0,
+              external_charlist/0, latin1_chardata/0,
+              latin1_charlist/0, unicode_binary/0, unicode_char/0]).
+
+-type encoding()  :: 'latin1' | 'unicode' | 'utf8'
+                   | 'utf16' | {'utf16', endian()}
+                   | 'utf32' | {'utf32', endian()}.
+-type endian()    :: 'big' | 'little'.
+-type unicode_binary() :: binary().
+-type unicode_char() :: non_neg_integer().
+-type charlist() :: [unicode_char() | unicode_binary() | charlist()].
+-type chardata() :: charlist() | unicode_binary().
+-type external_unicode_binary() :: binary().
+-type external_chardata() :: external_charlist() | external_unicode_binary().
+-type external_charlist() :: [unicode_char() | external_unicode_binary()
+                              | external_charlist()].
+-type latin1_binary() :: binary().
+-type latin1_char() :: byte().
+-type latin1_chardata() :: latin1_charlist() | latin1_binary().
+-type latin1_charlist() :: [latin1_char() | latin1_binary()
+                            | latin1_charlist()].
+
+-spec characters_to_list(Data) -> Result when
+      Data :: latin1_chardata() | chardata() | external_chardata(),
+      Result :: list()
+              | {error, list(), RestData}
+              | {incomplete, list(), binary()},
+      RestData :: latin1_chardata() | chardata() | external_chardata().
 
 characters_to_list(ML) ->
     unicode:characters_to_list(ML,unicode).
@@ -42,7 +73,7 @@ characters_to_list_int(ML, Encoding) ->
 			   _ ->
 			       badarg
 		       end,
-	    {'EXIT',{new_stacktrace,[{Mod,_,L}|Rest]}} = 
+	    {'EXIT',{new_stacktrace,[{Mod,_,L,_}|Rest]}} =
 		(catch erlang:error(new_stacktrace,
 				    [ML,Encoding])),
 	    erlang:raise(error,TheError,[{Mod,characters_to_list,L}|Rest])
@@ -60,6 +91,13 @@ do_characters_to_list(ML, Encoding) ->
     end.
 
 
+-spec characters_to_binary(Data) -> Result when
+      Data :: latin1_chardata() | chardata() | external_chardata(),
+      Result :: binary()
+              | {error, binary(), RestData}
+              | {incomplete, binary(), binary()},
+      RestData :: latin1_chardata() | chardata() | external_chardata().
+
 characters_to_binary(ML) ->
     try
 	unicode:characters_to_binary(ML,unicode)
@@ -71,7 +109,7 @@ characters_to_binary(ML) ->
 			   _ ->
 			       badarg
 		       end,
-	    {'EXIT',{new_stacktrace,[{Mod,_,L}|Rest]}} = 
+	    {'EXIT',{new_stacktrace,[{Mod,_,L,_}|Rest]}} =
 		(catch erlang:error(new_stacktrace,
 				    [ML])),
 	    erlang:raise(error,TheError,[{Mod,characters_to_binary,L}|Rest])
@@ -89,11 +127,20 @@ characters_to_binary_int(ML,InEncoding) ->
 			   _ ->
 			       badarg
 		       end,
-	    {'EXIT',{new_stacktrace,[{Mod,_,L}|Rest]}} = 
+	    {'EXIT',{new_stacktrace,[{Mod,_,L,_}|Rest]}} =
 		(catch erlang:error(new_stacktrace,
 				    [ML,InEncoding])),
 	    erlang:raise(error,TheError,[{Mod,characters_to_binary,L}|Rest])
     end.
+
+-spec characters_to_binary(Data, InEncoding, OutEncoding) -> Result when
+      Data :: latin1_chardata() | chardata() | external_chardata(),
+      InEncoding :: encoding(),
+      OutEncoding :: encoding(),
+      Result :: binary()
+              | {error, binary(), RestData}
+              | {incomplete, binary(), binary()},
+      RestData :: latin1_chardata() | chardata() | external_chardata().
 
 characters_to_binary(ML, latin1, latin1) when is_binary(ML) ->
     ML;
@@ -112,7 +159,7 @@ characters_to_binary(ML, latin1, Uni) when is_binary(ML) and ((Uni =:= utf8) or 
 				       _ ->
 					   badarg
 				   end,
-			{'EXIT',{new_stacktrace,[{Mod,_,L}|Rest]}} = 
+			{'EXIT',{new_stacktrace,[{Mod,_,L,_}|Rest]}} =
 			    (catch erlang:error(new_stacktrace,
 						[ML,latin1,Uni])),
 			erlang:raise(error,TheError,
@@ -134,7 +181,7 @@ characters_to_binary(ML,Uni,latin1) when is_binary(ML) and ((Uni =:= utf8) or   
 				       _ ->
 					   badarg
 				   end,
-			{'EXIT',{new_stacktrace,[{Mod,_,L}|Rest]}} = 
+			{'EXIT',{new_stacktrace,[{Mod,_,L,_}|Rest]}} =
 			    (catch erlang:error(new_stacktrace,
 						[ML,Uni,latin1])),
 			erlang:raise(error,TheError,
@@ -153,7 +200,7 @@ characters_to_binary(ML, InEncoding, OutEncoding) ->
 			   _ ->
 			       badarg
 		       end,
-	    {'EXIT',{new_stacktrace,[{Mod,_,L}|Rest]}} = 
+	    {'EXIT',{new_stacktrace,[{Mod,_,L,_}|Rest]}} =
 		(catch erlang:error(new_stacktrace,
 				    [ML,InEncoding,OutEncoding])),
 	    erlang:raise(error,TheError,[{Mod,characters_to_binary,L}|Rest])
@@ -206,6 +253,13 @@ characters_to_binary_int(ML, InEncoding, OutEncoding) ->
 	    Res
     end.
 
+-spec bom_to_encoding(Bin) -> {Encoding, Length} when
+      Bin :: binary(),
+      Encoding ::  'latin1' | 'utf8'
+                 | {'utf16', endian()}
+                 | {'utf32', endian()},
+      Length :: non_neg_integer().
+
 bom_to_encoding(<<239,187,191,_/binary>>) ->
     {utf8,3};
 bom_to_encoding(<<0,0,254,255,_/binary>>) ->
@@ -218,6 +272,10 @@ bom_to_encoding(<<255,254,_/binary>>) ->
     {{utf16,little},2};
 bom_to_encoding(Bin) when is_binary(Bin) ->
     {latin1,0}.
+
+-spec encoding_to_bom(InEncoding) -> Bin when
+      Bin :: binary(),
+      InEncoding :: encoding().
 
 encoding_to_bom(unicode) ->
     <<239,187,191>>;

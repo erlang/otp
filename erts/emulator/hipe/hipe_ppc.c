@@ -1,23 +1,23 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2004-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2004-2011. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
-/* $Id$
- */
+
+
 #include <stddef.h>	/* offsetof() */
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -87,48 +87,6 @@ static struct segment {
 #define MAP_ANONYMOUS MAP_ANON
 #endif
 
-#if defined(__powerpc64__)
-static void *new_code_mapping(void)
-{
-    char *map_hint, *map_start;
-
-    /*
-     * Allocate a new 32MB code segment in the low 2GB of the address space.
-     *
-     * This is problematic for several reasons:
-     * - Linux/ppc64 lacks the MAP_32BIT flag that Linux/x86-64 has.
-     * - The address space hint to mmap is only respected if that
-     *   area is available. If it isn't, then mmap falls back to its
-     *   defaults, which (according to testing) results in very high
-     *   (and thus useless for us) addresses being returned.
-     * - Another mapping, presumably the brk, also occupies low addresses.
-     *
-     * As initial implementation, simply start allocating at the 0.5GB
-     * boundary. This leaves plenty of space for the brk before malloc
-     * needs to switch to mmap, while allowing for 1.5GB of code.
-     *
-     * A more robust implementation would be to parse /proc/self/maps,
-     * reserve all available space between (say) 0.5GB and 2GB with
-     * PROT_NONE MAP_NORESERVE mappings, and then allocate by releasing
-     * 32MB segments and re-mapping them properly. This would work on
-     * Linux/ppc64, I have no idea how things should be done on Darwin64.
-     */
-    if (curseg.base)
-	map_hint = (char*)curseg.base + SEGMENT_NRBYTES;
-    else
-	map_hint = (char*)(512*1024*1024); /* 0.5GB */
-    map_start = mmap(map_hint, SEGMENT_NRBYTES,
-		     PROT_EXEC|PROT_READ|PROT_WRITE,
-		     MAP_PRIVATE|MAP_ANONYMOUS,
-		     -1, 0);
-    if (map_start != MAP_FAILED &&
-	(((unsigned long)map_start + (SEGMENT_NRBYTES-1)) & ~0x7FFFFFFFUL)) {
-	fprintf(stderr, "mmap with hint %p returned code memory %p\r\n", map_hint, map_start);
-	abort();
-    }
-    return map_start;
-}
-#else
 static void *new_code_mapping(void)
 {
     return mmap(0, SEGMENT_NRBYTES,
@@ -136,7 +94,6 @@ static void *new_code_mapping(void)
 		MAP_PRIVATE|MAP_ANONYMOUS,
 		-1, 0);
 }
-#endif
 
 static int check_callees(Eterm callees)
 {
@@ -182,20 +139,30 @@ static unsigned int *try_alloc(Uint nrwords, int nrcallees, Eterm callees, unsig
 	unsigned int a = unsigned_val(tuple_val(mfa)[3]);
 	unsigned int *trampoline = hipe_mfa_get_trampoline(m, f, a);
 	if (!in_area(trampoline, base, SEGMENT_NRBYTES)) {
+#if defined(__powerpc64__)
+	    if (nrfreewords < 7)
+		return NULL;
+	    nrfreewords -= 7;
+	    tramp_pos = trampoline = tramp_pos - 7;
+	    trampoline[0] = 0x3D600000; /* addis r11,r0,0 */
+	    trampoline[1] = 0x616B0000; /* ori r11,r11,0 */
+	    trampoline[2] = 0x796B07C6; /* rldicr r11,r11,32,31 */
+	    trampoline[3] = 0x656B0000; /* oris r11,r11,0 */
+	    trampoline[4] = 0x616B0000; /* ori r11,r11,0 */
+	    trampoline[5] = 0x7D6903A6; /* mtctr r11 */
+	    trampoline[6] = 0x4E800420; /* bctr */
+	    hipe_flush_icache_range(trampoline, 7*sizeof(int));
+#else
 	    if (nrfreewords < 4)
 		return NULL;
 	    nrfreewords -= 4;
 	    tramp_pos = trampoline = tramp_pos - 4;
-#if defined(__powerpc64__)
-	    trampoline[0] = 0x3D600000; /* addis r11,0,0 */
-	    trampoline[1] = 0x616B0000; /* ori r11,r11,0 */
-#else
 	    trampoline[0] = 0x39600000; /* addi r11,r0,0 */
 	    trampoline[1] = 0x3D6B0000; /* addis r11,r11,0 */
-#endif
 	    trampoline[2] = 0x7D6903A6; /* mtctr r11 */
 	    trampoline[3] = 0x4E800420; /* bctr */
 	    hipe_flush_icache_range(trampoline, 4*sizeof(int));
+#endif
 	    hipe_mfa_set_trampoline(m, f, a, trampoline);
 	}
 	trampvec[trampnr-1] = trampoline;
@@ -281,21 +248,22 @@ static void patch_imm16(Uint32 *address, unsigned int imm16)
 }
 
 #if defined(__powerpc64__)
+/*
+ * To load a 64-bit immediate value 'val' into Rd (Rd != R0):
+ *
+ * addis Rd, 0, val@highest // (val >> 48) & 0xFFFF
+ * ori Rd, Rd, val@higher   // (val >> 32) & 0xFFFF
+ * rldicr Rd, Rd, 32, 31
+ * oris Rd, Rd, val@h       // (val >> 16) & 0xFFFF
+ * ori Rd, Rd, val@l        // val & 0xFFFF
+ */
 static void patch_li64(Uint32 *address, Uint64 value)
 {
-    patch_imm16(address+0, value >> 48);/* addis r,0,value@highest */
-    patch_imm16(address+1, value >> 32);/* ori r,r,value@higher */
-    /* sldi r,r,32 */
-    patch_imm16(address+3, value >> 16);/* oris r,r,value@h */
-    patch_imm16(address+4, value);	/* ori r,r,value@l */
-}
-
-static int patch_li31(Uint32 *address, Uint32 value)
-{
-    if ((value >> 31) != 0)
-	return -1;
-    patch_imm16(address, value >> 16);	/* addis r,0,value@h */
-    patch_imm16(address+1, value);	/* ori r,r,value@l */
+    patch_imm16(address+0, value >> 48);
+    patch_imm16(address+1, value >> 32);
+    /* rldicr Rd, Rd, 32, 31 */
+    patch_imm16(address+3, value >> 16);
+    patch_imm16(address+4, value);
 }
 
 void hipe_patch_load_fe(Uint *address, Uint value)
@@ -308,11 +276,10 @@ int hipe_patch_insn(void *address, Uint64 value, Eterm type)
     switch (type) {
       case am_closure:
       case am_constant:
-	patch_li64((Uint32*)address, value);
-	return 0;
       case am_atom:
       case am_c_const:
-	return patch_li31((Uint32*)address, value);
+	patch_li64((Uint32*)address, value);
+	return 0;
       default:
 	return -1;
     }
@@ -442,34 +409,33 @@ static void patch_b(Uint32 *address, Sint32 offset, Uint32 AA)
 
 int hipe_patch_call(void *callAddress, void *destAddress, void *trampoline)
 {
-    if ((Uint32)destAddress == ((Uint32)destAddress & 0x01FFFFFC)) {
+    if ((UWord)destAddress == ((UWord)destAddress & 0x01FFFFFC)) {
 	/* The destination is in the [0,32MB[ range.
 	   We can reach it with a ba/bla instruction.
 	   This is the typical case for BIFs and primops.
 	   It's also common for trap-to-BEAM stubs (on ppc32). */
-	patch_b((Uint32*)callAddress, (Uint32)destAddress >> 2, 2);
+	patch_b((Uint32*)callAddress, (Sint32)destAddress >> 2, 2);
     } else {
-	Sint32 destOffset = ((Sint32)destAddress - (Sint32)callAddress) >> 2;
+	SWord destOffset = ((SWord)destAddress - (SWord)callAddress) >> 2;
 	if (destOffset >= -0x800000 && destOffset <= 0x7FFFFF) {
 	    /* The destination is within a [-32MB,+32MB[ range from us.
 	       We can reach it with a b/bl instruction.
 	       This is typical for nearby Erlang code. */
-	    patch_b((Uint32*)callAddress, destOffset, 0);
+	    patch_b((Uint32*)callAddress, (Sint32)destOffset, 0);
 	} else {
 	    /* The destination is too distant for b/bl/ba/bla.
 	       Must do a b/bl to the trampoline. */
-	    Sint32 trampOffset = ((Sint32)trampoline - (Sint32)callAddress) >> 2;
+	    SWord trampOffset = ((SWord)trampoline - (SWord)callAddress) >> 2;
 	    if (trampOffset >= -0x800000 && trampOffset <= 0x7FFFFF) {
 		/* Update the trampoline's address computation.
 		   (May be redundant, but we can't tell.) */
 #if defined(__powerpc64__)
-		/* This relies on the fact that we allocate code below 2GB. */
-		patch_li31((Uint32*)trampoline, (Uint32)destAddress);
+		patch_li64((Uint32*)trampoline, (Uint64)destAddress);
 #else
 		patch_li((Uint32*)trampoline, (Uint32)destAddress);
 #endif
 		/* Update this call site. */
-		patch_b((Uint32*)callAddress, trampOffset, 0);
+		patch_b((Uint32*)callAddress, (Sint32)trampOffset, 0);
 	    } else
 		return -1;
 	}

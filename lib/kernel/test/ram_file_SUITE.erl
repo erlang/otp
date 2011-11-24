@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,14 +19,15 @@
 
 -module(ram_file_SUITE).
 
--export([all/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
 	 %% init/1, fini/1,
-	 init_per_testcase/2, fin_per_testcase/2]).
+	 init_per_testcase/2, end_per_testcase/2]).
 -export([open_modes/1, open_old_modes/1, pread_pwrite/1, position/1,
 	 truncate/1, sync/1, get_set_file/1, compress/1, uuencode/1,
 	 large_file_errors/1, large_file_light/1, large_file_heavy/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("kernel/include/file.hrl").
 
 -define(FILE_MODULE, file).         % Name of module to test
@@ -34,10 +35,28 @@
 
 %%--------------------------------------------------------------------------
 
-all(suite) ->
-    [open_modes, open_old_modes, pread_pwrite, position, 
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [open_modes, open_old_modes, pread_pwrite, position,
      truncate, sync, get_set_file, compress, uuencode,
      large_file_errors, large_file_light, large_file_heavy].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Time = 
@@ -51,7 +70,7 @@ init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     %% error_logger:info_msg("~p:~p *****~n", [?MODULE, Func]),
     [{watchdog, Dog} | Config].
 
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     %% error_logger:info_msg("~p:~p END *****~n", [?MODULE, Func]),
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog).
@@ -533,7 +552,7 @@ large_file_light(Config) when is_list(Config) ->
     ?line PrivDir = ?config(priv_dir, Config),
     %% Marker for next test case that is to heavy to run in a suite.
     ?line ok = ?FILE_MODULE:write_file(
-		  filename:join(PrivDir, large_file_light), 
+		  filename:join(PrivDir, "large_file_light"),
 		  <<"TAG">>),
     %%
     ?line Data = "abcdefghijklmnopqrstuvwzyz",
@@ -563,7 +582,7 @@ large_file_heavy(Config) when is_list(Config) ->
     ?line PrivDir = ?config(priv_dir, Config),
     %% Check previous test case marker.
     case ?FILE_MODULE:read_file_info(
-	    filename:join(PrivDir, large_file_light)) of
+	    filename:join(PrivDir, "large_file_light")) of
 	{ok,_} ->
 	    {skipped,"Too heavy for casual testing!"};
 	_ ->

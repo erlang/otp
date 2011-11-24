@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2005-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
@@ -21,7 +21,8 @@
 
 -export([parse_headers/1, handle_headers/1]).
 
--include("inets_internal.hrl").
+-include_lib("inets/src/inets_app/inets_internal.hrl").
+
 
 %%%=========================================================================
 %%%  Internal application API 
@@ -38,7 +39,7 @@
 %% body part. Note that it is presumed that <Data> starts with a
 %% string including "\r\n\r\n" if there is any header information
 %% present. The returned headers will not contain the HTTP header body
-%% delimiter \r\n. (All header, header delimiters are keept.)
+%% delimiter \r\n. (All header, header delimiters are kept.)
 %% Ex: ["Content-Type : text/html\r\n Connection : closing \r\n\r\n" | 
 %% io_list()] -->  {"Content-Type : text/html\r\n Connection : closing \r\n",
 %% io_list()}

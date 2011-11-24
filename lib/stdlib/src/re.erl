@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,14 +19,45 @@
 -module(re).
 -export([grun/3,urun/3,ucompile/2,replace/3,replace/4,split/2,split/3]).
 
+%-opaque mp() :: {re_pattern, _, _, _}.
+-type mp() :: {re_pattern, _, _, _}.
+
+-type nl_spec() :: cr | crlf | lf | anycrlf | any.
+
+-type compile_option() :: unicode | anchored | caseless | dollar_endonly
+                        | dotall | extended | firstline | multiline
+                        | no_auto_capture | dupnames | ungreedy
+                        | {newline, nl_spec()}| bsr_anycrlf
+                        | bsr_unicode.
+
 %% Emulator builtins in this module:
 %% re:compile/1
 %% re:compile/2
 %% re:run/2
 %% re:run/3
 
+-spec split(Subject, RE) -> SplitList when
+      Subject :: iodata() | unicode:charlist(),
+      RE :: mp() | iodata(),
+      SplitList :: [iodata() | unicode:charlist()].
+
 split(Subject,RE) ->
     split(Subject,RE,[]).
+
+-spec split(Subject, RE, Options) -> SplitList when
+      Subject :: iodata() | unicode:charlist(),
+      RE :: mp() | iodata() | unicode:charlist(),
+      Options :: [ Option ],
+      Option :: anchored | notbol | noteol | notempty
+              | {offset, non_neg_integer()} | {newline, nl_spec()}
+              | bsr_anycrlf | bsr_unicode | {return, ReturnType}
+              | {parts, NumParts} | group | trim | CompileOpt,
+      NumParts :: non_neg_integer() | infinity,
+      ReturnType :: iodata | list | binary,
+      CompileOpt :: compile_option(),
+      SplitList :: [RetData] | [GroupedRetData],
+      GroupedRetData :: [RetData],
+      RetData :: iodata() | unicode:charlist() | binary() | list().
 
 split(Subject,RE,Options) ->
     try
@@ -37,16 +68,16 @@ split(Subject,RE,Options) ->
 	{error,_Err} ->
 	    throw(badre);
 	{PreCompiled, NumSub, RunOpt} ->
-	    % OK, lets run
+	    %% OK, lets run
 	    case re:run(FlatSubject,PreCompiled,RunOpt ++ [global]) of
 		nomatch ->
 		    case Group of
 			true ->
 			    convert_any_split_result([[FlatSubject]], 
-						     Convert, Unicode,true);
+						     Convert, Unicode, true);
 			false ->
 			    convert_any_split_result([FlatSubject], 
-						     Convert, Unicode,false)
+						     Convert, Unicode, false)
 		    end;
 		{match, Matches} ->
 		    Res = do_split(FlatSubject, 0, Matches, NumSub, 
@@ -69,7 +100,7 @@ split(Subject,RE,Options) ->
 	    erlang:error(badarg,[Subject,RE,Options])
     end.
 
-backstrip_empty(List,false) ->
+backstrip_empty(List, false) ->
     do_backstrip_empty(List);
 backstrip_empty(List, true) ->
     do_backstrip_empty_g(List).
@@ -196,41 +227,52 @@ compile_split(Pat,Options0) when not is_tuple(Pat) ->
     end;
 compile_split(_,_) ->
     throw(badre).
-	    
     
-
+-spec replace(Subject, RE, Replacement) -> iodata() | unicode:charlist() when
+      Subject :: iodata() | unicode:charlist(),
+      RE :: mp() | iodata(),
+      Replacement :: iodata() | unicode:charlist().
 
 replace(Subject,RE,Replacement) ->
     replace(Subject,RE,Replacement,[]).
+
+-spec replace(Subject, RE, Replacement, Options) -> iodata() | unicode:charlist() when
+      Subject :: iodata() | unicode:charlist(),
+      RE :: mp() | iodata() | unicode:charlist(),
+      Replacement :: iodata() | unicode:charlist(),
+      Options :: [Option],
+      Option :: anchored | global | notbol | noteol | notempty
+              | {offset, non_neg_integer()} | {newline, NLSpec} | bsr_anycrlf
+              | bsr_unicode | {return, ReturnType} | CompileOpt,
+      ReturnType :: iodata | list | binary,
+      CompileOpt :: compile_option(),
+      NLSpec :: cr | crlf | lf | anycrlf | any.
+
 replace(Subject,RE,Replacement,Options) ->
     try
     {NewOpt,Convert,Unicode} =
 	process_repl_params(Options,iodata,false),
     FlatSubject = to_binary(Subject, Unicode),
     FlatReplacement = to_binary(Replacement, Unicode),
-    case do_replace(FlatSubject,Subject,RE,FlatReplacement,NewOpt) of
-	{error,_Err} ->
-	    throw(badre);
-	IoList ->
-	    case Convert of
-		iodata ->
-		    IoList;
-		binary ->
-		    case Unicode of
-			false ->
-			    iolist_to_binary(IoList);
-			true ->
-			    unicode:characters_to_binary(IoList,unicode)
-		    end;
-		list ->
-		    case Unicode of
-			false ->
-			    binary_to_list(iolist_to_binary(IoList));
-			true ->
-			    unicode:characters_to_list(IoList,unicode)
-		    end
-	    end
-    end
+    IoList = do_replace(FlatSubject,Subject,RE,FlatReplacement,NewOpt),
+	case Convert of
+	    iodata ->
+		IoList;
+	    binary ->
+		case Unicode of
+		    false ->
+			iolist_to_binary(IoList);
+		    true ->
+			unicode:characters_to_binary(IoList,unicode)
+		end;
+	    list ->
+		case Unicode of
+		    false ->
+			binary_to_list(iolist_to_binary(IoList));
+		    true ->
+			unicode:characters_to_list(IoList,unicode)
+		end
+	end
     catch
 	throw:badopt ->
 	    erlang:error(badarg,[Subject,RE,Replacement,Options]);
@@ -239,7 +281,7 @@ replace(Subject,RE,Replacement,Options) ->
 	error:badarg ->
 	    erlang:error(badarg,[Subject,RE,Replacement,Options])
     end.
-    
+
 
 do_replace(FlatSubject,Subject,RE,Replacement,Options) ->
     case re:run(FlatSubject,RE,Options) of
@@ -314,7 +356,7 @@ apply_mlist(Subject,Replacement,Mlist) ->
 precomp_repl(<<>>) ->
     [];
 precomp_repl(<<$\\,X,Rest/binary>>) when X < $1 ; X > $9 ->
-    % Escaped character
+    %% Escaped character
     case precomp_repl(Rest) of
 	[BHead | T0] when is_binary(BHead) ->
 	    [<<X,BHead/binary>> | T0];
@@ -524,17 +566,17 @@ process_uparams([H|T],Type) ->
     {[H|NL],NType};
 process_uparams([],Type) ->
     {[],Type}.
-							   
+
 
 ucompile(RE,Options) ->
     try
 	re:compile(unicode:characters_to_binary(RE,unicode),Options)
     catch
 	error:AnyError ->
-	    {'EXIT',{new_stacktrace,[{Mod,_,L}|Rest]}} = 
+	    {'EXIT',{new_stacktrace,[{Mod,_,L,Loc}|Rest]}} =
 		(catch erlang:error(new_stacktrace,
 				    [RE,Options])),
-	    erlang:raise(error,AnyError,[{Mod,compile,L}|Rest])
+	    erlang:raise(error,AnyError,[{Mod,compile,L,Loc}|Rest])
     end.
 	
 
@@ -543,11 +585,12 @@ urun(Subject,RE,Options) ->
 	urun2(Subject,RE,Options)
     catch
 	error:AnyError ->
-	    {'EXIT',{new_stacktrace,[{Mod,_,L}|Rest]}} = 
+	    {'EXIT',{new_stacktrace,[{Mod,_,L,Loc}|Rest]}} =
 		(catch erlang:error(new_stacktrace,
 				    [Subject,RE,Options])),
-	    erlang:raise(error,AnyError,[{Mod,run,L}|Rest])
+	    erlang:raise(error,AnyError,[{Mod,run,L,Loc}|Rest])
     end.
+
 urun2(Subject0,RE0,Options0) ->
     {Options,RetType} = case (catch process_uparams(Options0,index)) of
 			    {A,B} ->
@@ -573,7 +616,6 @@ urun2(Subject0,RE0,Options0) ->
 	_ ->
 	    Ret
     end.
-    
 	
 
 %% Might be called either with two-tuple (if regexp was already compiled)
@@ -583,20 +625,20 @@ grun(Subject,RE,{Options,NeedClean}) ->
 	grun2(Subject,RE,{Options,NeedClean})
     catch
 	error:AnyError ->
-	    {'EXIT',{new_stacktrace,[{Mod,_,L}|Rest]}} = 
+	    {'EXIT',{new_stacktrace,[{Mod,_,L,Loc}|Rest]}} =
 		(catch erlang:error(new_stacktrace,
 				    [Subject,RE,Options])),
-	    erlang:raise(error,AnyError,[{Mod,run,L}|Rest])
+	    erlang:raise(error,AnyError,[{Mod,run,L,Loc}|Rest])
     end;
 grun(Subject,RE,{Options,NeedClean,OrigRE}) ->
     try
 	grun2(Subject,RE,{Options,NeedClean})
     catch
 	error:AnyError ->
-	    {'EXIT',{new_stacktrace,[{Mod,_,L}|Rest]}} = 
+	    {'EXIT',{new_stacktrace,[{Mod,_,L,Loc}|Rest]}} =
 		(catch erlang:error(new_stacktrace,
 				    [Subject,OrigRE,Options])),
-	    erlang:raise(error,AnyError,[{Mod,run,L}|Rest])
+	    erlang:raise(error,AnyError,[{Mod,run,L,Loc}|Rest])
     end.
 
 grun2(Subject,RE,{Options,NeedClean}) ->

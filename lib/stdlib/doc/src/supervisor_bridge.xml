@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>1996</year>
-      <year>2007</year>
+      <year>2011</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -50,46 +50,37 @@
   </description>
   <funcs>
     <func>
-      <name>start_link(Module, Args) -> Result</name>
-      <name>start_link(SupBridgeName, Module, Args) -> Result</name>
+      <name name="start_link" arity="2"/>
+      <name name="start_link" arity="3"/>
       <fsummary>Create a supervisor bridge process.</fsummary>
-      <type>
-        <v>SupBridgeName = {local,Name} | {global,Name}</v>
-        <v>&nbsp;Name = atom()</v>
-        <v>Module = atom()</v>
-        <v>Args = term()</v>
-        <v>Result = {ok,Pid} | ignore | {error,Error}</v>
-        <v>&nbsp;Pid = pid()</v>
-        <v>&nbsp;Error = {already_started,Pid} | term()</v>
-      </type>
       <desc>
         <p>Creates a supervisor_bridge process, linked to the calling
-          process, which calls <c>Module:init/1</c> to start the subsystem.
+          process, which calls <c><anno>Module</anno>:init/1</c> to start the subsystem.
           To ensure a synchronized start-up procedure, this function does
-          not return until <c>Module:init/1</c> has returned.</p>
-        <p>If <c>SupBridgeName={local,Name}</c> the supervisor_bridge is
-          registered locally as <c>Name</c> using <c>register/2</c>.
-          If <c>SupBridgeName={global,Name}</c> the supervisor_bridge is
-          registered globally as <c>Name</c> using
+          not return until <c><anno>Module</anno>:init/1</c> has returned.</p>
+        <p>If <c><anno>SupBridgeName</anno>={local,<anno>Name</anno>}</c> the supervisor_bridge is
+          registered locally as <c><anno>Name</anno></c> using <c>register/2</c>.
+          If <c><anno>SupBridgeName</anno>={global,<anno>Name</anno>}</c> the supervisor_bridge is
+          registered globally as <c><anno>Name</anno></c> using
           <c>global:register_name/2</c>.
           If no name is provided, the supervisor_bridge is not registered.
           If there already exists a process with the specified
-          <c>SupBridgeName</c> the function returns
-          <c>{error,{already_started,Pid}}</c>, where <c>Pid</c> is the pid
+          <c><anno>SupBridgeName</anno></c> the function returns
+          <c>{error,{already_started,<anno>Pid</anno>}}</c>, where <c><anno>Pid</anno></c> is the pid
           of that process.</p>
-        <p><c>Module</c> is the name of the callback module.</p>
-        <p><c>Args</c> is an arbitrary term which is passed as the argument
-          to <c>Module:init/1</c>.</p>
+        <p><c><anno>Module</anno></c> is the name of the callback module.</p>
+        <p><c><anno>Args</anno></c> is an arbitrary term which is passed as the argument
+          to <c><anno>Module</anno>:init/1</c>.</p>
         <p>If the supervisor_bridge and the subsystem are successfully
-          started the function returns <c>{ok,Pid}</c>, where <c>Pid</c> is
+          started the function returns <c>{ok,<anno>Pid</anno>}</c>, where <c><anno>Pid</anno></c> is
           is the pid of the supervisor_bridge.</p>
-        <p>If <c>Module:init/1</c> returns <c>ignore</c>, this function
+        <p>If <c><anno>Module</anno>:init/1</c> returns <c>ignore</c>, this function
           returns <c>ignore</c> as well and the supervisor_bridge terminates
           with reason <c>normal</c>.
-          If <c>Module:init/1</c> fails or returns an error tuple or an
-          incorrect value, this function returns <c>{error,Term}</c> where
-          <c>Term</c> is a term with information about the error, and
-          the supervisor_bridge terminates with reason <c>Term</c>.</p>
+          If <c><anno>Module</anno>:init/1</c> fails or returns an error tuple or an
+          incorrect value, this function returns <c>{error,<anno>Error</anno>r}</c> where
+          <c><anno>Error</anno></c> is a term with information about the error, and
+          the supervisor_bridge terminates with reason <c><anno>Error</anno></c>.</p>
       </desc>
     </func>
   </funcs>

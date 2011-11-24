@@ -162,7 +162,7 @@ init2(CallingPid, Mode, SFile, GS) ->
     CallingPid ! {initialization_complete, self()},
 
     if
-	SFile==default ->
+	SFile =:= default ->
 	    loop(State3);
 	true ->
 	    loop(load_settings(SFile, State3))
@@ -226,7 +226,7 @@ loop(State) ->
 	    gui_cmd(stopped, State);
 
 	%% From the GUI
-	GuiEvent when is_tuple(GuiEvent), element(1, GuiEvent)==gs ->
+	GuiEvent when is_tuple(GuiEvent), element(1, GuiEvent) =:= gs ->
 	    Cmd = dbg_ui_mon_win:handle_event(GuiEvent,State#state.win),
 	    State2 = gui_cmd(Cmd, State),
 	    loop(State2);
@@ -269,7 +269,7 @@ gui_cmd(ignore, State) ->
     State;
 gui_cmd(stopped, State) ->
     if
-	State#state.starter==true -> int:stop();
+	State#state.starter =:= true -> int:stop();
 	true -> int:auto_attach(false)
     end,
     exit(stop);
@@ -413,9 +413,9 @@ gui_cmd({'Trace Window', TraceWin}, State) ->
     State2;
 gui_cmd({'Auto Attach', When}, State) ->
     if
-	When==[] -> int:auto_attach(false);
+	When =:= [] -> int:auto_attach(false);
 	true ->
-	    Flags = lists:map(fun(Name) -> map(Name) end, When),
+	    Flags = [map(Name) || Name <- When],
 	    int:auto_attach(Flags, trace_function(State))
     end,
     State;
@@ -676,7 +676,7 @@ load_settings2(Settings, State) ->
 			      Break,
 			  int:break(Mod, Line),
 			  if
-			      Status==inactive ->
+			      Status =:= inactive ->
 				  int:disable_break(Mod, Line);
 			      true -> ignore
 			  end,
@@ -700,12 +700,8 @@ save_settings(SFile, State) ->
 		int:auto_attach(),
 		int:stack_trace(),
 		State#state.backtrace,
-		lists:map(fun(Mod) ->
-				  int:file(Mod)
-			  end,
-			  int:interpreted()),
+		[int:file(Mod) || Mod <- int:interpreted()],
 		int:all_breaks()},
-
     Binary = term_to_binary({debugger_settings, Settings}),
     case file:write_file(SFile, Binary) of
 	ok ->
@@ -720,13 +716,12 @@ save_settings(SFile, State) ->
 %%====================================================================
 
 registered_name(Pid) ->
-
     %% Yield in order to give Pid more time to register its name
     timer:sleep(200),
 
     Node = node(Pid),
     if
-	Node==node() ->
+	Node =:= node() ->
 	    case erlang:process_info(Pid, registered_name) of
 		{registered_name, Name} -> Name;
 		_ -> undefined

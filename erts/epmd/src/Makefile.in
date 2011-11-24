@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 1998-2009. All Rights Reserved.
+# Copyright Ericsson AB 1998-2010. All Rights Reserved.
 # 
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -49,13 +49,29 @@ include ../epmd.mk
 
 BINDIR  = $(ERL_TOP)/bin/$(TARGET)
 OBJDIR  = $(ERL_TOP)/erts/obj$(TYPEMARKER)/$(TARGET)
+ERTS_INCL = -I$(ERL_TOP)/erts/include \
+            -I$(ERL_TOP)/erts/include/$(TARGET) \
+            -I$(ERL_TOP)/erts/include/internal \
+            -I$(ERL_TOP)/erts/include/internal/$(TARGET)
+
+# On windows we always need reentrant libraries.
+ifeq ($(TARGET),win32)
+ERTS_INTERNAL_LIBS=-L../../lib/internal/$(TARGET) -lerts_internal_r$(ERTS_LIB_TYPEMARKER) @ERTS_INTERNAL_X_LIBS@
+else
+ifeq ($(findstring vxworks,$(TARGET)),vxworks)
+ERTS_INTERNAL_LIBS=-L../../lib/internal/$(TARGET) -lerts_internal$(ERTS_LIB_TYPEMARKER) @ERTS_INTERNAL_X_LIBS@
+else
+ERTS_INTERNAL_LIBS=-L../../lib/internal/$(TARGET) -lerts_internal$(ERTS_LIB_TYPEMARKER) @ERTS_INTERNAL_X_LIBS@ -lm
+endif
+endif
 
 CC      = @CC@
 WFLAGS  = @WFLAGS@
-CFLAGS  = @CFLAGS@ @DEFS@ $(TYPE_FLAGS) $(WFLAGS)
+CFLAGS  = @CFLAGS@ @DEFS@ $(TYPE_FLAGS) $(WFLAGS) $(ERTS_INCL)
 LD      = @LD@
-LIBS    = @LIBS@
+LIBS    = @LIBS@ $(ERTS_INTERNAL_LIBS)
 LDFLAGS = @LDFLAGS@
+
 
 
 # ----------------------------------------------------
@@ -90,7 +106,7 @@ EPMD_OBJS = $(OBJDIR)/epmd.o       \
 #---------------------------------
 
 
-all: $(BINDIR)/$(EPMD)
+all: erts_lib $(BINDIR)/$(EPMD)
 
 docs:
 
@@ -109,8 +125,11 @@ clean:
 $(BINDIR)/$(EPMD): $(EPMD_OBJS)
 	$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(EPMD_OBJS) $(LIBS)
 
-$(OBJDIR)/%.o: %.c
+$(OBJDIR)/%.o: %.c epmd.h epmd_int.h
 	$(CC) $(CFLAGS) $(EPMD_FLAGS) -o $@ -c $<
+
+erts_lib:
+	cd $(ERL_TOP)/erts/lib_src && $(MAKE) $(TYPE)
 
 include $(ERL_TOP)/make/otp_release_targets.mk
 

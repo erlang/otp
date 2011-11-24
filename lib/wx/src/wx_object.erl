@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%%-------------------------------------------------------------------
 %%% File    : wx_object.erl
@@ -321,7 +321,8 @@ loop(Parent, Name, State, Mod, Time, Debug) ->
 	_Msg when Debug =:= [] ->
 	    handle_msg(Msg, Parent, Name, State, Mod);
 	_Msg ->
-	    Debug1 = sys:handle_debug(Debug, {gen_server, print_event}, Name, {in, Msg}),
+	    Debug1 = sys:handle_debug(Debug, fun print_event/3,
+				      Name, {in, Msg}),
 	    handle_msg(Msg, Parent, Name, State, Mod, Debug1)
     end.
 
@@ -410,12 +411,12 @@ handle_msg({'$gen_call', From, Msg}, Parent, Name, State, Mod, Debug) ->
 	    Debug1 = reply(Name, From, Reply, NState, Debug),
 	    loop(Parent, Name, NState, Mod, Time1, Debug1);
 	{noreply, NState} ->
-	    Debug1 = sys:handle_debug(Debug, {gen_server, print_event}, Name,
-				      {noreply, NState}),
+	    Debug1 = sys:handle_debug(Debug, fun print_event/3,
+				      Name, {noreply, NState}),
 	    loop(Parent, Name, NState, Mod, infinity, Debug1);
 	{noreply, NState, Time1} ->
-	    Debug1 = sys:handle_debug(Debug, {gen_server, print_event}, Name,
-				      {noreply, NState}),
+	    Debug1 = sys:handle_debug(Debug, fun print_event/3,
+				      Name, {noreply, NState}),
 	    loop(Parent, Name, NState, Mod, Time1, Debug1);
 	{stop, Reason, Reply, NState} ->
 	    {'EXIT', R} = 
@@ -437,12 +438,12 @@ handle_no_reply({noreply, NState}, Parent, Name, _Msg, Mod, _State, []) ->
 handle_no_reply({noreply, NState, Time1}, Parent, Name, _Msg, Mod, _State, []) ->
     loop(Parent, Name, NState, Mod, Time1, []);
 handle_no_reply({noreply, NState}, Parent, Name, _Msg, Mod, _State, Debug) ->
-    Debug1 = sys:handle_debug(Debug, {gen_server, print_event}, Name,
-			      {noreply, NState}),
+    Debug1 = sys:handle_debug(Debug, fun print_event/3,
+			      Name, {noreply, NState}),
     loop(Parent, Name, NState, Mod, infinity, Debug1);
 handle_no_reply({noreply, NState, Time1}, Parent, Name, _Msg, Mod, _State, Debug) ->
-    Debug1 = sys:handle_debug(Debug, {gen_server, print_event}, Name,
-			      {noreply, NState}),
+    Debug1 = sys:handle_debug(Debug, fun print_event/3,
+			      Name, {noreply, NState}),
     loop(Parent, Name, NState, Mod, Time1, Debug1);
 handle_no_reply(Reply, _Parent, Name, Msg, Mod, State, Debug) ->
     handle_common_reply(Reply, Name, Msg, Mod, State,Debug).
@@ -462,8 +463,8 @@ handle_common_reply(Reply, Name, Msg, Mod, State, Debug) ->
 %% @hidden
 reply(Name, {To, Tag}, Reply, State, Debug) ->
     reply({To, Tag}, Reply),
-    sys:handle_debug(Debug, {gen_server, print_event}, Name, 
-		     {out, Reply, To, State} ).
+    sys:handle_debug(Debug, fun print_event/3,
+		     Name, {out, Reply, To, State}).
 
 
 %%-----------------------------------------------------------------
@@ -484,6 +485,29 @@ system_code_change([Name, State, Mod, Time], _Module, OldVsn, Extra) ->
 	{ok, NewState} -> {ok, [Name, NewState, Mod, Time]};
 	Else -> Else
     end.
+
+%%-----------------------------------------------------------------
+%% Format debug messages.  Print them as the call-back module sees
+%% them, not as the real erlang messages.  Use trace for that.
+%%-----------------------------------------------------------------
+print_event(Dev, {in, Msg}, Name) ->
+    case Msg of
+	{'$gen_call', {From, _Tag}, Call} ->
+	    io:format(Dev, "*DBG* ~p got call ~p from ~w~n",
+		      [Name, Call, From]);
+	{'$gen_cast', Cast} ->
+	    io:format(Dev, "*DBG* ~p got cast ~p~n",
+		      [Name, Cast]);
+	_ ->
+	    io:format(Dev, "*DBG* ~p got ~p~n", [Name, Msg])
+    end;
+print_event(Dev, {out, Msg, To, State}, Name) ->
+    io:format(Dev, "*DBG* ~p sent ~p to ~w, new state ~w~n",
+	      [Name, Msg, To, State]);
+print_event(Dev, {noreply, State}, Name) ->
+    io:format(Dev, "*DBG* ~p new state ~w~n", [Name, State]);
+print_event(Dev, Event, Name) ->
+    io:format(Dev, "*DBG* ~p dbg  ~p~n", [Name, Event]).
 
 %%% ---------------------------------------------------
 %%% Terminate the server.
@@ -513,16 +537,16 @@ error_info(_Reason, application_controller, _Msg, _State, _Debug) ->
 error_info(Reason, Name, Msg, State, Debug) ->
     Reason1 = 
 	case Reason of
-	    {undef,[{M,F,A}|MFAs]} ->
+	    {undef,[{M,F,A,L}|MFAs]} ->
 		case code:is_loaded(M) of
 		    false ->
-			{'module could not be loaded',[{M,F,A}|MFAs]};
+			{'module could not be loaded',[{M,F,A,L}|MFAs]};
 		    _ ->
 			case erlang:function_exported(M, F, length(A)) of
 			    true ->
 				Reason;
 			    false ->
-				{'function not exported',[{M,F,A}|MFAs]}
+				{'function not exported',[{M,F,A,L}|MFAs]}
 			end
 		end;
 	    _ ->
@@ -581,12 +605,15 @@ dbg_opts(Name, Opts) ->
 %%-----------------------------------------------------------------
 format_status(Opt, StatusData) ->
     [PDict, SysState, Parent, Debug, [Name, State, Mod, _Time]] = StatusData,
-    NameTag = if is_pid(Name) ->
-		      pid_to_list(Name);
-		 is_atom(Name) ->
-		      Name
-	      end,
-    Header = lists:concat(["Status for generic server ", NameTag]),
+    StatusHdr = "Status for wx object ",
+    Header = if
+		 is_pid(Name) ->
+		     lists:concat([StatusHdr, pid_to_list(Name)]);
+		 is_atom(Name); is_list(Name) ->
+		     lists:concat([StatusHdr, Name]);
+		 true ->
+		     {StatusHdr, Name}
+	     end,
     Log = sys:get_debug(log, Debug, []),
     Specfic = 
 	case erlang:function_exported(Mod, format_status, 2) of

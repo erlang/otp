@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2003-2009. All Rights Reserved.
+# Copyright Ericsson AB 2003-2011. All Rights Reserved.
 # 
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -56,8 +56,10 @@ ifneq ($(findstring win32,$(TARGET)),win32)
 #
 # Files
 #
-FILES = vts.tool run_test.in
-SCRIPTS = install.sh
+FILES = vts.tool
+SCRIPTS = 
+IMAGES = tile1.jpg
+CSS = ct_default.css
 
 #
 # Rules
@@ -83,14 +85,12 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 
 ifeq ($(XNIX),true)
 release_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)/priv/bin
-	$(INSTALL_SCRIPT) $(SCRIPTS) $(RELSYSDIR)
-	$(INSTALL_DATA) $(FILES) $(RELSYSDIR)/priv
+	$(INSTALL_DIR) $(RELSYSDIR)/priv
+	$(INSTALL_DATA) $(FILES) $(IMAGES) $(CSS) $(RELSYSDIR)/priv
 else
 release_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)/priv/bin
-	$(INSTALL_SCRIPT) $(SCRIPTS) $(RELSYSDIR)
-	$(INSTALL_DATA) $(FILES) $(RELSYSDIR)/priv
+	$(INSTALL_DIR) $(RELSYSDIR)/priv
+	$(INSTALL_DATA) $(FILES) $(IMAGES) $(CSS) $(RELSYSDIR)/priv
 endif
 
 release_docs_spec:
@@ -105,6 +105,8 @@ else
 # Files
 #
 FILES = vts.tool 
+IMAGES = tile1.jpg
+CSS = ct_default.css
 
 #
 # Rules
@@ -123,8 +125,8 @@ clean:
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)/priv/bin
-	$(INSTALL_DATA) $(FILES) $(RELSYSDIR)/priv
+	$(INSTALL_DIR) $(RELSYSDIR)/priv
+	$(INSTALL_DATA) $(FILES) $(IMAGES) $(CSS) $(RELSYSDIR)/priv
 
 release_docs_spec:
 

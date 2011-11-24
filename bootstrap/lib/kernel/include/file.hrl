@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -21,29 +21,18 @@
 -define(FILE_HRL_, 1).
 %%--------------------------------------------------------------------------
 
-%%-type namelist() :: [char() | atom() | namelist()].
--type namelist() :: [_].       %% XXX: GROSS OVERAPPROXIMATION -- FIX ME
--type name() :: string() | atom() | namelist().
--type posix() :: atom().
-
--type date() :: {pos_integer(), pos_integer(), pos_integer()}.
--type time() :: {non_neg_integer(), non_neg_integer(), non_neg_integer()}.
--type date_time() :: {date(), time()}.
-
-%%--------------------------------------------------------------------------
-
 -record(file_info,
 	{size   :: non_neg_integer(),	% Size of file in bytes.
 	 type   :: 'device' | 'directory' | 'other' | 'regular' | 'symlink',
 	 access :: 'read' | 'write' | 'read_write' | 'none',
-	 atime  :: date_time(),	% The local time the file was last read:
-				% {{Year, Mon, Day}, {Hour, Min, Sec}}.
-	 mtime  :: date_time(),	% The local time the file was last written.
-	 ctime  :: date_time(),	% The interpretation of this time field
-	                        % is dependent on operating system.
-				% On Unix it is the last time the file or
-				% or the inode was changed.  On Windows,
-				% it is the creation time.
+	 atime  :: file:date_time(),	% The local time the file was last read:
+					% {{Year, Mon, Day}, {Hour, Min, Sec}}.
+	 mtime  :: file:date_time(),	% The local time the file was last written.
+	 ctime  :: file:date_time(),	% The interpretation of this time field
+					% is dependent on operating system.
+					% On Unix it is the last time the file
+					% or the inode was changed.  On Windows,
+					% it is the creation time.
 	 mode   :: integer(),		% File permissions.  On Windows,
 	 				% the owner permissions will be
 					% duplicated for group and user.
@@ -61,10 +50,8 @@
 
 
 -record(file_descriptor,
-	{module :: module(),      % Module that handles this kind of file
+	{module :: module(),     % Module that handles this kind of file
 	 data   :: term()}).     % Module dependent data
-
--type fd() :: pid() | #file_descriptor{}.
 
 %%--------------------------------------------------------------------------
 -endif.

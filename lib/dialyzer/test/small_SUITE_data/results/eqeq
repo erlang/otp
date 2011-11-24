@@ -1,0 +1,2 @@
+
+eqeq.erl:15: The test float() =:= 'foo' can never evaluate to 'true'

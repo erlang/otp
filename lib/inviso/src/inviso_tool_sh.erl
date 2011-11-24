@@ -1,10 +1,27 @@
-%%%------------------------------------------------------------------------------
-%%% File    : inviso_tool_sh.erl
-%%% Author  : Lennart Öhman <lennart.ohman@st.se>
-%%% Description : 
-%%%
-%%% Created : 24 Oct 2005 by Lennart Öhman
-%%%------------------------------------------------------------------------------
+%% %CopyrightBegin%
+%% 
+%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
+%% 
+%% The contents of this file are subject to the Erlang Public License,
+%% Version 1.1, (the "License"); you may not use this file except in
+%% compliance with the License. You should have received a copy of the
+%% Erlang Public License along with this software. If not, it can be
+%% retrieved online at http://www.erlang.org/.
+%% 
+%% Software distributed under the License is distributed on an "AS IS"
+%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+%% the License for the specific language governing rights and limitations
+%% under the License.
+%% 
+%% %CopyrightEnd%
+%%
+%% Description:
+%% The runtime component of the trace tool Inviso.
+%%
+%% Authors:
+%% Lennart Öhman, lennart.ohman@st.se
+%% -----------------------------------------------------------------------------
+
 -module(inviso_tool_sh).
 
 %% Inviso Session Handler.
@@ -50,7 +67,7 @@
 -export([start_link/5,start_link/8]).
 -export([cancel_session/1,stop_session/3]).
 -export([reactivate/1,reactivate/2]).
--export([tpl/5,tpl/6,tpl/7,
+-export([ctpl/5,tpl/5,tpl/6,tpl/7,
 	 tf/2,tf/3,
 	 tpm_localnames/2,init_tpm/6,init_tpm/9,tpm/6,tpm/7,tpm/10,
 	 tpm_ms/7,ctpm_ms/6,ctpm/5
@@ -170,8 +187,9 @@ ctpl(SID,Nodes,Mod,Func,Arity) ->
 
 tpm_localnames(SID,Nodes) ->
     gen_server:call(SID,{tpm_localnames,Nodes}).
-tpm_globalnames(SID,Nodes) ->
-    gen_server:call(SID,{tpm_globalnames,Nodes}).
+
+%% tpm_globalnames(SID,Nodes) ->
+%%     gen_server:call(SID,{tpm_globalnames,Nodes}).
 
 init_tpm(SID,Nodes,Mod,Func,Arity,CallFunc) ->
     gen_server:call(SID,{init_tpm,Nodes,Mod,Func,Arity,CallFunc}).

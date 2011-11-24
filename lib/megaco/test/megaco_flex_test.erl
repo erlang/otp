@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -32,10 +32,10 @@
 -export([
 	 t/0, t/1, 
 
-	 init_per_testcase/2, fin_per_testcase/2,
+	 init_per_testcase/2, end_per_testcase/2,
 
-	 all/1,
-	 flex_init/1, flex_fin/1, 
+	all/0,groups/0,init_per_group/2,end_per_group/2,
+	 init_per_suite/1, end_per_suite/1, 
 
 	 plain/1,
 	 port_exit/1,
@@ -55,26 +55,31 @@ t(Case) -> megaco_test_lib:t({?MODULE, Case}).
 init_per_testcase(Case, Config) ->
     megaco_test_lib:init_per_testcase(Case, Config).
 
-fin_per_testcase(Case, Config) ->
-    megaco_test_lib:fin_per_testcase(Case, Config).
+end_per_testcase(Case, Config) ->
+    megaco_test_lib:end_per_testcase(Case, Config).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-all(suite) ->
-    Cases = 
-	[
-	 plain,
-	 port_exit,
-	 garbage_in
-	],
-    {req, [], {conf, flex_init, Cases, flex_fin}}.
+all() -> 
+    [plain, port_exit, garbage_in].
 
-flex_init(suite) ->
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
+
+init_per_suite(suite) ->
     [];
-flex_init(doc) ->
+init_per_suite(doc) ->
     [];
-flex_init(Config) when is_list(Config) ->
+init_per_suite(Config) when is_list(Config) ->
     case megaco_flex_scanner:is_enabled() of
 	true ->
 	    Config;
@@ -82,9 +87,9 @@ flex_init(Config) when is_list(Config) ->
 	    ?SKIP(flex_scanner_not_enabled)
     end.
 
-flex_fin(suite) -> [];
-flex_fin(doc) -> [];
-flex_fin(Config) when is_list(Config) ->
+end_per_suite(suite) -> [];
+end_per_suite(doc) -> [];
+end_per_suite(Config) when is_list(Config) ->
     Config.
 
 

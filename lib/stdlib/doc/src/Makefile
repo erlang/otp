@@ -1,19 +1,19 @@
 #
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 1997-2009. All Rights Reserved.
-# 
+#
+# Copyright Ericsson AB 1997-2011. All Rights Reserved.
+#
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
 # compliance with the License. You should have received a copy of the
 # Erlang Public License along with this software. If not, it can be
 # retrieved online at http://www.erlang.org/.
-# 
+#
 # Software distributed under the License is distributed on an "AS IS"
 # basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 # the License for the specific language governing rights and limitations
 # under the License.
-# 
+#
 # %CopyrightEnd%
 #
 include $(ERL_TOP)/make/target.mk
@@ -40,6 +40,7 @@ XML_REF3_FILES = \
 	array.xml \
 	base64.xml \
 	beam_lib.xml \
+	binary.xml \
 	c.xml \
 	calendar.xml \
 	dets.xml \
@@ -82,7 +83,6 @@ XML_REF3_FILES = \
 	queue.xml \
 	random.xml \
 	re.xml \
-	regexp.xml \
 	sets.xml \
 	shell.xml \
 	shell_default.xml \
@@ -124,10 +124,16 @@ HTML_REF_MAN_FILE = $(HTMLDIR)/index.html
 
 TOP_PDF_FILE = $(PDFDIR)/$(APPLICATION)-$(VSN).pdf
 
+SPECS_FILES = $(XML_REF3_FILES:%.xml=$(SPECDIR)/specs_%.xml)
+
+TOP_SPECS_FILE = specs.xml
+
 # ----------------------------------------------------
 # FLAGS 
 # ----------------------------------------------------
 XML_FLAGS += 
+
+SPECS_FLAGS = -I../../include -I../../../kernel/include
 
 # ----------------------------------------------------
 # Targets
@@ -135,7 +141,7 @@ XML_FLAGS +=
 $(HTMLDIR)/%.gif: %.gif
 	$(INSTALL_DATA) $< $@
 
-docs: pdf html man
+docs: man pdf html
 
 $(TOP_PDF_FILE): $(XML_FILES)
 
@@ -154,7 +160,12 @@ clean clean_docs:
 	rm -f $(MAN3DIR)/*
 	rm -f $(MAN6DIR)/*
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
+	rm -f $(SPECDIR)/*
 	rm -f errs core *~ 
+
+$(SPECDIR)/specs_erl_id_trans.xml:
+	escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) \
+		-o$(dir $@) -module erl_id_trans
 
 # ----------------------------------------------------
 # Release Target

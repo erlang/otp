@@ -1,0 +1,2 @@
+
+whereis_diff_modules4_pathsens.erl:13: The call erlang:register(Atom::atom(),Pid::any()) might fail due to a possible race condition caused by its combination with the erlang:whereis(AnAtom::any()) call in whereis_diff_modules3_pathsens.erl on line 12, the erlang:whereis(AnAtom::any()) call in whereis_diff_modules3_pathsens.erl on line 19

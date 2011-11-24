@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -21,19 +21,36 @@
 
 -module(bs_bincomp_SUITE).
 
--export([all/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
 	 byte_aligned/1,bit_aligned/1,extended_byte_aligned/1,
 	 extended_bit_aligned/1,mixed/1,filters/1,trim_coverage/1,
-	 nomatch/1,sizes/1]).
+	 nomatch/1,sizes/1,tail/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
-all(suite) ->
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
     test_lib:recompile(?MODULE),
-    [byte_aligned,bit_aligned,extended_byte_aligned,
-     extended_bit_aligned,mixed,filters,trim_coverage,
-     nomatch,sizes].
+    [byte_aligned, bit_aligned, extended_byte_aligned,
+     extended_bit_aligned, mixed, filters, trim_coverage,
+     nomatch, sizes, tail].
 
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
 
 byte_aligned(Config) when is_list(Config) ->
     cs_init(),
@@ -270,6 +287,38 @@ sizes(Config) when is_list(Config) ->
     ?line cs_end(),
     ok.
 
+tail(Config) when is_list(Config) ->
+    ?line [] = tail_1(<<0:7>>),
+    ?line [0] = tail_1(<<0>>),
+    ?line [0] = tail_1(<<0:12>>),
+    ?line [0,0] = tail_1(<<0:20>>),
+
+    ?line [] = tail_2(<<0:7>>),
+    ?line [42] = tail_2(<<0>>),
+    ?line [] = tail_2(<<0:12>>),
+    ?line [42,42] = tail_2(<<0,1>>),
+
+    ?line <<>> = tail_3(<<0:7>>),
+    ?line <<42>> = tail_3(<<0>>),
+    ?line <<42>> = tail_3(<<0:12>>),
+    ?line <<42,42>> = tail_3(<<0:20>>),
+
+    ?line [] = tail_4(<<0:15>>),
+    ?line [7] = tail_4(<<7,8>>),
+    ?line [9] = tail_4(<<9,17:12>>),
+    ok.
+
+tail_1(Bits) ->
+    [X || <<X:8/integer, _/bits>> <= Bits].
+
+tail_2(Bits) ->
+    [42 || <<_:8/integer, _/bytes>> <= Bits].
+
+tail_3(Bits) ->
+    << <<42>> || <<_:8/integer, _/bits>> <= Bits >>.
+
+tail_4(Bits) ->
+    [X || <<X:8/integer, Tail/bits>> <= Bits, bit_size(Tail) >= 8].
 
 
 cs_init() ->

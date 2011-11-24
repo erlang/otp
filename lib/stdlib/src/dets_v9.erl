@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -21,7 +21,7 @@
 %% Dets files, implementation part. This module handles version 9.
 %% To be called from dets.erl only.
 
--export([constants/0, mark_dirty/1, read_file_header/2,
+-export([mark_dirty/1, read_file_header/2,
          check_file_header/2, do_perform_save/1, initiate_file/11,
          prep_table_copy/9, init_freelist/2, fsck_input/4,
          bulk_input/3, output_objs/4, bchunk_init/2,
@@ -70,6 +70,17 @@
 %%    16     MD5-sum for the 44 plus 112 bytes before the MD5-sum.
 %%           (FreelistsPointer, Cookie and ClosedProperly are not digested.)
 %%    128    Reserved for future versions. Initially zeros.
+%%           Version 9(d), introduced in R15A, has instead:
+%%    112    28 counters for the buddy system sizes (as for 9(b)).
+%%    16     MD5-sum for the 44 plus 112 bytes before the MD5-sum.
+%%           (FreelistsPointer, Cookie and ClosedProperly are not digested.)
+%%    4      Base of the buddy system.
+%%           0 (zero) if the base is equal to ?BASE. Compatible with R14B.
+%%           File size at the end of the file is RealFileSize - Base.
+%%           The reason for modifying file size is that when a file created
+%%           by R15 is read by R14 a repair takes place immediately, which
+%%           is acceptable when downgrading.
+%%    124    Reserved for future versions. Initially zeros.
 %%  ---
 %%  ------------------ end of file header
 %%    4*256  SegmentArray Pointers.
@@ -86,7 +97,7 @@
 %%  -----------------------------
 %%    ???    Free lists
 %%  -----------------------------
-%%    4      File size, in bytes. 
+%%    4      File size, in bytes. See 9(d) obove.
 
 %%  Before we can find an object we must find the slot where the
 %%  object resides. Each slot is a (possibly empty) list (or chain) of
@@ -177,14 +188,14 @@
 %%% File header
 %%%
 
--define(RESERVED, 128).        % Reserved for future use.
+-define(RESERVED, 124).        % Reserved for future use.
 
 -define(COLL_CNTRS, (28*4)).     % Counters for the buddy system.
 -define(MD5SZ, 16).
+-define(FL_BASE, 4).
 
--define(HEADSZ, 
-        56+?COLL_CNTRS+?MD5SZ). % The size of the file header, in bytes,
-                                % not including the reserved part.
+-define(HEADSZ, 56+?COLL_CNTRS  % The size of the file header, in bytes,
+            +?MD5SZ+?FL_BASE).  % not including the reserved part.
 -define(HEADEND, (?HEADSZ+?RESERVED)). 
                                % End of header and reserved area.
 -define(SEGSZ, 512).           % Size of a segment, in words. SZOBJP*SEGSZP.
@@ -270,10 +281,6 @@
 %%-define(DEBUGF(X,Y), io:format(X, Y)).
 -define(DEBUGF(X,Y), void).
 
-%% {Bump}
-constants() ->
-    {?BUMP, ?BASE}.
-
 %% -> ok | throw({NewHead,Error})
 mark_dirty(Head) ->
     Dirty = [{?CLOSED_PROPERLY_POS, <<?NOT_PROPERLY_CLOSED:32>>}],
@@ -356,7 +363,7 @@ init_file(Fd, Tab, Fname, Type, Kp, MinSlots, MaxSlots, Ram, CacheSz,
       cache = dets_utils:new_cache(CacheSz),
       version = ?FILE_FORMAT_VERSION,
       bump = ?BUMP,
-      base = ?BASE,
+      base = ?BASE, % to be overwritten
       mod = ?MODULE
      },
 
@@ -378,13 +385,20 @@ init_file(Fd, Tab, Fname, Type, Kp, MinSlots, MaxSlots, Ram, CacheSz,
     {Head1, Ws1} = init_parts(Head0, 0, no_parts(Next), Zero, []),
     NoSegs = no_segs(Next),
 
-    {Head, WsI, WsP} = init_segments(Head1, 0, NoSegs, Zero, [], []),
+    {Head2, WsI, WsP} = init_segments(Head1, 0, NoSegs, Zero, [], []),
     Ws2 = if
 	      DoInitSegments -> WsP ++ WsI;
 	      true -> WsP
 	 end,
     dets_utils:pwrite(Fd, Fname, [W0 | lists:append(Ws1) ++ Ws2]),
-    true = hash_invars(Head),
+    true = hash_invars(Head2),
+    %% The allocations that have been made so far (parts, segments)
+    %% are permanent; the table will never shrink. Therefore the base
+    %% of the Buddy system can be set to the first free object.
+    %% This is used in allocate_all(), see below.
+    {_, Where, _} = dets_utils:alloc(Head2, ?BUMP),
+    NewFtab = dets_utils:init_alloc(Where),
+    Head = Head2#head{freelists = NewFtab, base = Where},
     {ok, Head}.
 
 %% Returns a power of two not less than 256.
@@ -451,8 +465,9 @@ read_file_header(Fd, FileName) ->
       Version:32,    M:32,       Next:32,       Kp:32,
       NoObjects:32,  NoKeys:32,  MinNoSlots:32, MaxNoSlots:32,
       HashMethod:32, N:32, NoCollsB:?COLL_CNTRS/binary, 
-      MD5:?MD5SZ/binary>> = Bin,
-    <<_:12/binary,MD5DigestedPart:(?HEADSZ-?MD5SZ-12)/binary,_/binary>> = Bin,
+      MD5:?MD5SZ/binary, FlBase:32>> = Bin,
+    <<_:12/binary,MD5DigestedPart:(?HEADSZ-?MD5SZ-?FL_BASE-12)/binary,
+      _/binary>> = Bin,
     {ok, EOF} = dets_utils:position_close(Fd, FileName, eof),
     {ok, <<FileSize:32>>} = dets_utils:pread_close(Fd, FileName, EOF-4, 4),
     {CL, <<>>} = lists:foldl(fun(LSz, {Acc,<<NN:32,R/binary>>}) -> 
@@ -468,8 +483,12 @@ read_file_header(Fd, FileName) ->
 	    true ->
 		lists:reverse(CL)
 	end,
-			     
+    Base = case FlBase of
+               0 -> ?BASE;
+               _ -> FlBase
+           end,
     FH = #fileheader{freelist = FreeList,
+                     fl_base = Base,
 		     cookie = Cookie,
 		     closed_properly = CP,
 		     type = dets_utils:code_to_type(Type2),
@@ -486,7 +505,7 @@ read_file_header(Fd, FileName) ->
                      read_md5 = MD5,
                      has_md5 = <<0:?MD5SZ/unit:8>> =/= MD5,
                      md5 = erlang:md5(MD5DigestedPart),
-		     trailer = FileSize,
+		     trailer = FileSize + FlBase,
 		     eof = EOF,
 		     n = N,
 		     mod = ?MODULE},
@@ -544,7 +563,7 @@ check_file_header(FH, Fd) ->
 	      version = ?FILE_FORMAT_VERSION,
 	      mod = ?MODULE,
 	      bump = ?BUMP,
-	      base = ?BASE},
+	      base = FH#fileheader.fl_base},
 	    {ok, H, ExtraInfo};
 	Error ->
 	    Error
@@ -1185,41 +1204,25 @@ write_loop(Head, BytesToWrite, Bin) ->
     write_loop(Head, BytesToWrite, SmallBin).
 
 %% By allocating bigger objects before smaller ones, holes in the
-%% buddy system memory map are avoided. Unfortunately, the segments
-%% are always allocated first, so if there are objects bigger than a
-%% segment, there is a hole to handle. (Haven't considered placing the
-%% segments among other objects of the same size.)
+%% buddy system memory map are avoided.
 allocate_all_objects(Head, SizeT) ->
     DTL = lists:reverse(lists:keysort(1, ets:tab2list(SizeT))),
     MaxSz = element(1, hd(DTL)),
-    SegSize = ?ACTUAL_SEG_SIZE,
-    {Head1, HSz, HN, HA} = alloc_hole(MaxSz, Head, SegSize),
-    {Head2, NL} = allocate_all(Head1, DTL, []),
+    {Head1, NL} = allocate_all(Head, DTL, []),
     %% Find the position that will be the end of the file by allocating
     %% a minimal object.
-    {_Head, EndOfFile, _} = dets_utils:alloc(Head2, ?BUMP),
-    Head3 = free_hole(Head2, HSz, HN, HA),
-    NewHead = Head3#head{maxobjsize = max_objsize(Head3#head.no_collections)},
+    {_Head, EndOfFile, _} = dets_utils:alloc(Head1, ?BUMP),
+    NewHead = Head1#head{maxobjsize = max_objsize(Head1#head.no_collections)},
     {NewHead, NL, MaxSz, EndOfFile}.
-
-alloc_hole(LSize, Head, SegSz) when ?POW(LSize-1) > SegSz ->
-    Size = ?POW(LSize-1),
-    {_, SegAddr, _} = dets_utils:alloc(Head, adjsz(SegSz)),
-    {_, Addr, _} = dets_utils:alloc(Head, adjsz(Size)),
-    N = (Addr - SegAddr) div SegSz,
-    Head1 = dets_utils:alloc_many(Head, SegSz, N, SegAddr),
-    {Head1, SegSz, N, SegAddr};
-alloc_hole(_MaxSz, Head, _SegSz) ->
-    {Head, 0, 0, 0}.
-
-free_hole(Head, _Size, 0, _Addr) ->
-    Head;
-free_hole(Head, Size, N, Addr) ->
-    {Head1, _} = dets_utils:free(Head, Addr, adjsz(Size)),
-    free_hole(Head1, Size, N-1, Addr+Size).
 
 %% One (temporary) file for each buddy size, write all objects of that
 %% size to the file.
+%%
+%% Before R15 a "hole" was needed before the first bucket if the size
+%% of the biggest bucket was greater than the size of a segment. The
+%% hole proved to be a problem with almost full tables with huge
+%% buckets. Since R15 the hole is no longer needed due to the fact
+%% that the base of the Buddy system is flexible.
 allocate_all(Head, [{?FSCK_SEGMENT,_,Data,_}], L) ->
     %% And one file for the segments...
     %% Note that space for the array parts and the segments has
@@ -1593,23 +1596,28 @@ do_perform_save(H) ->
     H1 = H#head{freelists_p = FreeListsPointer},
     {FLW, FLSize} = free_lists_to_file(H1),
     FileSize = FreeListsPointer + FLSize + 4,
-    ok = dets_utils:write(H1, [FLW | <<FileSize:32>>]),
+    AdjustedFileSize = case H#head.base of
+                           ?BASE -> FileSize;
+                           Base -> FileSize - Base
+                       end,
+    ok = dets_utils:write(H1, [FLW | <<AdjustedFileSize:32>>]),
     FileHeader = file_header(H1, FreeListsPointer, ?CLOSED_PROPERLY),
     case dets_utils:debug_mode() of
         true -> 
-            TmpHead = H1#head{freelists = init_freelist(H1, true), 
-                              fixed = false},
+            TmpHead0 = init_freelist(H1#head{fixed = false}, true),
+            TmpHead = TmpHead0#head{base = H1#head.base},
             case 
                 catch dets_utils:all_allocated_as_list(TmpHead)
                       =:= dets_utils:all_allocated_as_list(H1)
-                of
+            of
                 true -> 
                     dets_utils:pwrite(H1, [{0, FileHeader}]);
                 _ -> 
+                    throw(
                     dets_utils:corrupt_reason(H1, {failed_to_save_free_lists,
                                                    FreeListsPointer,
                                                    TmpHead#head.freelists,
-                                                   H1#head.freelists})
+                                                   H1#head.freelists}))
             end;
         false ->
             dets_utils:pwrite(H1, [{0, FileHeader}])
@@ -1648,7 +1656,11 @@ file_header(Head, FreeListsPointer, ClosedProperly, NoColls) ->
               true -> erlang:md5(DigH);
               false -> <<0:?MD5SZ/unit:8>>
           end,
-    [H1, DigH, MD5 | <<0:?RESERVED/unit:8>>].
+    Base = case Head#head.base of
+               ?BASE -> <<0:32>>;
+               FlBase -> <<FlBase:32>>
+           end,
+    [H1, DigH, MD5, Base | <<0:?RESERVED/unit:8>>].
 
 %% Going through some trouble to avoid creating one single binary for
 %% the free lists. If the free lists are huge, binary_to_term and
@@ -1695,8 +1707,8 @@ free_lists_from_file(H, Pos) ->
     case catch bin_to_tree([], H, start, FL, -1, []) of
 	{'EXIT', _} ->
 	    throw({error, {bad_freelists, H#head.filename}});
-	Reply ->
-	    Reply
+        Ftab ->
+            H#head{freelists = Ftab, base = ?BASE}
     end.
 
 bin_to_tree(Bin, H, LastPos, Ftab, A0, L) ->
@@ -1908,6 +1920,9 @@ write_cache(Head) ->
     end.
 
 %% -> {NewHead, ok} | {NewHead, Error}
+may_grow(Head, 0, once) ->
+    %% Do not re-hash if there is a chance that the file is not dirty.
+    {Head, ok};
 may_grow(Head, _N, _How) when Head#head.fixed =/= false ->
     {Head, ok};
 may_grow(#head{access = read}=Head, _N, _How) ->

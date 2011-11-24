@@ -1,39 +1,59 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(lc_SUITE).
 
 -author('bjorn@erix.ericsson.se').
--export([all/1,init_per_testcase/2,fin_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
+	 init_per_testcase/2,end_per_testcase/2,
 	 basic/1,deeply_nested/1,no_generator/1,
 	 empty_generator/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
-all(suite) ->
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
     test_lib:recompile(?MODULE),
-    [basic,deeply_nested,no_generator,empty_generator].
+    [basic, deeply_nested, no_generator, empty_generator].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     Dog = test_server:timetrap(?t:minutes(1)),
     [{watchdog,Dog}|Config].
 
-fin_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
+end_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),
     ok.
@@ -66,8 +86,7 @@ basic(Config) when is_list(Config) ->
     ?line {'EXIT',_} = (catch [X || X <- L1, list_to_atom(X) == dum]),
     ?line [] = [X || X <- L1, X+1 < 2],
     ?line {'EXIT',_} = (catch [X || X <- L1, odd(X)]),
-    ?line {'EXIT',{function_clause,[{?MODULE,_,[x]}|_]}} =
-	(catch [E || E <- id(x)]),
+    ?line fc([x], catch [E || E <- id(x)]),
     ok.
 
 tuple_list() ->
@@ -160,3 +179,10 @@ empty_generator(Config) when is_list(Config) ->
 
 id(I) -> I.
     
+fc(Args, {'EXIT',{function_clause,[{?MODULE,_,Args,_}|_]}}) -> ok;
+fc(Args, {'EXIT',{function_clause,[{?MODULE,_,Arity,_}|_]}})
+  when length(Args) =:= Arity ->
+    true = test_server:is_native(?MODULE);
+fc(Args, {'EXIT',{{case_clause,ActualArgs},_}})
+  when ?MODULE =:= lc_inline_SUITE ->
+    Args = tuple_to_list(ActualArgs).

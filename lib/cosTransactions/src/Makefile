@@ -141,7 +141,7 @@ debug:
 	@${MAKE} TYPE=debug
 
 clean:
-	rm -f $(TARGET_FILES) $(GEN_FILES) $(APP_TARGET) $(APPUP_TARGET)
+	rm -f $(TARGET_FILES) $(GEN_FILES) $(APP_TARGET) $(APPUP_TARGET) IDL-GENERATED
 	rm -f errs core *~
 
 $(APP_TARGET): $(APP_SRC)
@@ -155,9 +155,14 @@ docs:
 # ----------------------------------------------------
 # Special Build Targets
 # ----------------------------------------------------
-$(GEN_ERL_FILES) $(EXTERNAL_GEN_HRL_FILES): CosTransactions.idl
+IDL-GENERATED: CosTransactions.idl
 	erlc $(ERL_IDL_FLAGS) +'{cfgfile,"CosTransactions.cfg"}' CosTransactions.idl
 	mv $(GEN_HRL_FILES) $(EXTERNAL_INC_PATH)
+	>IDL-GENERATED
+
+$(GEN_FILES): IDL-GENERATED
+
+$(TARGET_FILES): IDL-GENERATED
 
 # ----------------------------------------------------
 # Release Target

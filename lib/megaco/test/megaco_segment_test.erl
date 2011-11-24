@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -24,10 +24,10 @@
 -module(megaco_segment_test).
 
 -export([t/0, t/1]).
--export([init_per_testcase/2, fin_per_testcase/2]).
--export([all/1,
+-export([init_per_testcase/2, end_per_testcase/2]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,
 
-	 send/1,
+	
 	 send_segmented_msg_plain1/1, 
 	 send_segmented_msg_plain2/1, 
 	 send_segmented_msg_plain3/1, 
@@ -36,13 +36,11 @@
 	 send_segmented_msg_missing_seg_reply1/1, 
 	 send_segmented_msg_missing_seg_reply2/1, 
 
-	 recv/1,
+	
 	 recv_segmented_msg_plain/1, 
 	 recv_segmented_msg_ooo_seg/1, 
 	 recv_segmented_msg_missing_seg1/1, 
-	 recv_segmented_msg_missing_seg2/1, 
-
-	 tickets/1
+	 recv_segmented_msg_missing_seg2/1
 	
 	]).
 
@@ -66,45 +64,33 @@ init_per_testcase(Case, Config) ->
     process_flag(trap_exit, true),
     megaco_test_lib:init_per_testcase(Case, Config).
 
-fin_per_testcase(Case, Config) ->
+end_per_testcase(Case, Config) ->
     process_flag(trap_exit, false),
-    megaco_test_lib:fin_per_testcase(Case, Config).
+    megaco_test_lib:end_per_testcase(Case, Config).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-all(suite) ->
-    [
-     send,
-     recv
-     
-     %% Tickets last 
-     %% tickets
-    ].
+all() -> 
+    [{group, send}, {group, recv}].
 
-send(suite) ->
-    [
-     send_segmented_msg_plain1,
-     send_segmented_msg_plain2,
-     send_segmented_msg_plain3,
-     send_segmented_msg_plain4,
-     send_segmented_msg_ooo1,
-     send_segmented_msg_missing_seg_reply1,
-     send_segmented_msg_missing_seg_reply2
-    ].
+groups() -> 
+    [{send, [],
+      [send_segmented_msg_plain1, send_segmented_msg_plain2,
+       send_segmented_msg_plain3, send_segmented_msg_plain4,
+       send_segmented_msg_ooo1,
+       send_segmented_msg_missing_seg_reply1,
+       send_segmented_msg_missing_seg_reply2]},
+     {recv, [],
+      [recv_segmented_msg_plain, recv_segmented_msg_ooo_seg,
+       recv_segmented_msg_missing_seg1,
+       recv_segmented_msg_missing_seg2]}].
 
-recv(suite) ->
-    [
-     recv_segmented_msg_plain,
-     recv_segmented_msg_ooo_seg,
-     recv_segmented_msg_missing_seg1,
-     recv_segmented_msg_missing_seg2
-    ].
+init_per_group(_GroupName, Config) ->
+    Config.
 
-tickets(suite) ->
-    [
-    ].
-
+end_per_group(_GroupName, Config) ->
+    Config.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

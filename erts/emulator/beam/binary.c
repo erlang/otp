@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -32,17 +32,17 @@
 #include "erl_bits.h"
 
 #ifdef DEBUG
-static int list_to_bitstr_buf(Eterm obj, char* buf, int len);
+static int list_to_bitstr_buf(Eterm obj, char* buf, Uint len);
 #else
 static int list_to_bitstr_buf(Eterm obj, char* buf);
 #endif
-static Sint bitstr_list_len(Eterm obj);
+static int bitstr_list_len(Eterm obj, Uint* num_bytes);
 
 void
 erts_init_binary(void)
 {
     /* Verify Binary alignment... */
-    if ((((Uint) &((Binary *) 0)->orig_bytes[0]) % ((Uint) 8)) != 0) {
+    if ((((UWord) &((Binary *) 0)->orig_bytes[0]) % ((UWord) 8)) != 0) {
 	/* I assume that any compiler should be able to optimize this
 	   away. If not, this test is not very expensive... */
 	erl_exit(ERTS_ABORT_EXIT,
@@ -56,7 +56,7 @@ erts_init_binary(void)
  */
 
 Eterm
-new_binary(Process *p, byte *buf, int len)
+new_binary(Process *p, byte *buf, Uint len)
 {
     ProcBin* pb;
     Binary* bptr;
@@ -88,8 +88,8 @@ new_binary(Process *p, byte *buf, int len)
     pb = (ProcBin *) HAlloc(p, PROC_BIN_SIZE);
     pb->thing_word = HEADER_PROC_BIN;
     pb->size = len;
-    pb->next = MSO(p).mso;
-    MSO(p).mso = pb;
+    pb->next = MSO(p).first;
+    MSO(p).first = (struct erl_off_heap_header*)pb;
     pb->val = bptr;
     pb->bytes = (byte*) bptr->orig_bytes;
     pb->flags = 0;
@@ -97,7 +97,7 @@ new_binary(Process *p, byte *buf, int len)
     /*
      * Miscellanous updates. Return the tagged binary.
      */
-    MSO(p).overhead += pb->size / sizeof(Eterm);
+    OH_OVERHEAD(&(MSO(p)), pb->size / sizeof(Eterm));
     return make_binary(pb);
 }
 
@@ -127,8 +127,8 @@ Eterm erts_new_mso_binary(Process *p, byte *buf, int len)
     pb = (ProcBin *) HAlloc(p, PROC_BIN_SIZE);
     pb->thing_word = HEADER_PROC_BIN;
     pb->size = len;
-    pb->next = MSO(p).mso;
-    MSO(p).mso = pb;
+    pb->next = MSO(p).first;
+    MSO(p).first = (struct erl_off_heap_header*)pb;
     pb->val = bptr;
     pb->bytes = (byte*) bptr->orig_bytes;
     pb->flags = 0;
@@ -136,7 +136,7 @@ Eterm erts_new_mso_binary(Process *p, byte *buf, int len)
     /*
      * Miscellanous updates. Return the tagged binary.
      */
-    MSO(p).overhead += pb->size / sizeof(Eterm);
+    OH_OVERHEAD(&(MSO(p)), pb->size / sizeof(Eterm));
     return make_binary(pb);
 }
 
@@ -180,7 +180,7 @@ erts_realloc_binary(Eterm bin, size_t size)
 }
 
 byte*
-erts_get_aligned_binary_bytes_extra(Eterm bin, byte** base_ptr, unsigned extra)
+erts_get_aligned_binary_bytes_extra(Eterm bin, byte** base_ptr, ErtsAlcType_t allocator, unsigned extra)
 {
     byte* bytes;
     Eterm* real_bin;
@@ -208,7 +208,7 @@ erts_get_aligned_binary_bytes_extra(Eterm bin, byte** base_ptr, unsigned extra)
 	bytes = (byte *)(&(((ErlHeapBin *) real_bin)->data)) + offs;
     }
     if (bit_offs) {
-	byte* buf = (byte *) erts_alloc(ERTS_ALC_T_TMP, byte_size + extra);
+	byte* buf = (byte *) erts_alloc(allocator, byte_size + extra);
 	*base_ptr = buf;
 	buf += extra;
 	erts_copy_bits(bytes, bit_offs, 1, buf, 0, 1, byte_size*8);	
@@ -217,8 +217,8 @@ erts_get_aligned_binary_bytes_extra(Eterm bin, byte** base_ptr, unsigned extra)
     return bytes;
 }
 
-static Eterm
-bin_bytes_to_list(Eterm previous, Eterm* hp, byte* bytes, Uint size, Uint bitoffs)
+Eterm
+erts_bin_bytes_to_list(Eterm previous, Eterm* hp, byte* bytes, Uint size, Uint bitoffs)
 {
     if (bitoffs == 0) {
 	while (size) {
@@ -263,7 +263,7 @@ BIF_RETTYPE binary_to_list_1(BIF_ALIST_1)
 	Eterm* hp = HAlloc(BIF_P, 2 * size);
 	byte* bytes = binary_bytes(real_bin)+offset;
 
-	BIF_RET(bin_bytes_to_list(NIL, hp, bytes, size, bitoffs));
+	BIF_RET(erts_bin_bytes_to_list(NIL, hp, bytes, size, bitoffs));
     }
 
     error:
@@ -295,7 +295,7 @@ BIF_RETTYPE binary_to_list_3(BIF_ALIST_3)
     }
     i = stop-start+1;
     hp = HAlloc(BIF_P, 2*i);
-    BIF_RET(bin_bytes_to_list(NIL, hp, bytes+start-1, i, bitoffs));
+    BIF_RET(erts_bin_bytes_to_list(NIL, hp, bytes+start-1, i, bitoffs));
     
     error:
 	BIF_ERROR(BIF_P, BADARG);
@@ -339,36 +339,56 @@ BIF_RETTYPE bitstring_to_list_1(BIF_ALIST_1)
 	previous = CONS(hp, make_binary(last), previous);
 	hp += 2;
     }
-    BIF_RET(bin_bytes_to_list(previous, hp, bytes, size, bitoffs));
+    BIF_RET(erts_bin_bytes_to_list(previous, hp, bytes, size, bitoffs));
 }
 
 
 /* Turn a possibly deep list of ints (and binaries) into */
 /* One large binary object                               */
 
-BIF_RETTYPE list_to_binary_1(BIF_ALIST_1)
+/*
+ * This bif also exists in the binary module, under the name
+ * binary:list_to_bin/1, why it's divided into interface and
+ * implementation. Also the backend for iolist_to_binary_1.
+ */
+
+BIF_RETTYPE erts_list_to_binary_bif(Process *p, Eterm arg)
 {
     Eterm bin;
-    int i;
-    int offset;
+    Uint size;
     byte* bytes;
-    if (is_nil(BIF_ARG_1)) {
-	BIF_RET(new_binary(BIF_P,(byte*)"",0));
+#ifdef DEBUG
+    int offset;
+#endif
+
+    if (is_nil(arg)) {
+	BIF_RET(new_binary(p,(byte*)"",0));
     }
-    if (is_not_list(BIF_ARG_1)) {
+    if (is_not_list(arg)) {
 	goto error;
     }
-    if ((i = io_list_len(BIF_ARG_1)) < 0) {
-	goto error;
+    switch (erts_iolist_size(arg, &size)) {
+    case ERTS_IOLIST_OVERFLOW: BIF_ERROR(p, SYSTEM_LIMIT);
+    case ERTS_IOLIST_TYPE: goto error;
+    default: ;
     }
-    bin = new_binary(BIF_P, (byte *)NULL, i);
+    bin = new_binary(p, (byte *)NULL, size);
     bytes = binary_bytes(bin);
-    offset = io_list_to_buf(BIF_ARG_1, (char*) bytes, i);
+#ifdef DEBUG
+    offset = 
+#endif
+	io_list_to_buf(arg, (char*) bytes, size);
+
     ASSERT(offset == 0);
     BIF_RET(bin);
     
-    error:
-	BIF_ERROR(BIF_P, BADARG);
+ error:
+    BIF_ERROR(p, BADARG);
+}
+
+BIF_RETTYPE list_to_binary_1(BIF_ALIST_1)
+{
+    return erts_list_to_binary_bif(BIF_P, BIF_ARG_1);
 }
 
 /* Turn a possibly deep list of ints (and binaries) into */
@@ -376,37 +396,17 @@ BIF_RETTYPE list_to_binary_1(BIF_ALIST_1)
 
 BIF_RETTYPE iolist_to_binary_1(BIF_ALIST_1)
 {
-    Eterm bin;
-    int i;
-    int offset;
-    byte* bytes;
-
     if (is_binary(BIF_ARG_1)) {
 	BIF_RET(BIF_ARG_1);
     }
-    if (is_nil(BIF_ARG_1)) {
-	BIF_RET(new_binary(BIF_P,(byte*)"",0));
-    }
-    if (is_not_list(BIF_ARG_1)) {
-	goto error;
-    }
-    if ((i = io_list_len(BIF_ARG_1)) < 0) {
-	goto error;
-    }
-    bin = new_binary(BIF_P, (byte *)NULL, i);
-    bytes = binary_bytes(bin);
-    offset = io_list_to_buf(BIF_ARG_1, (char*) bytes, i);
-    ASSERT(offset == 0);
-    BIF_RET(bin);
-    
-    error:
-	BIF_ERROR(BIF_P, BADARG);
+    return erts_list_to_binary_bif(BIF_P, BIF_ARG_1);
 }
 
 BIF_RETTYPE list_to_bitstring_1(BIF_ALIST_1)
 {
     Eterm bin;
-    int i,offset;
+    Uint sz;
+    int offset;
     byte* bytes;
     ErlSubBin* sb1; 
     Eterm* hp;
@@ -415,15 +415,19 @@ BIF_RETTYPE list_to_bitstring_1(BIF_ALIST_1)
 	BIF_RET(new_binary(BIF_P,(byte*)"",0));
     }
     if (is_not_list(BIF_ARG_1)) {
-	goto error;
+    error:
+	BIF_ERROR(BIF_P, BADARG);
     }
-    if ((i = bitstr_list_len(BIF_ARG_1)) < 0) {
+    switch (bitstr_list_len(BIF_ARG_1, &sz)) {
+    case ERTS_IOLIST_TYPE:
 	goto error;
+    case ERTS_IOLIST_OVERFLOW:
+	BIF_ERROR(BIF_P, SYSTEM_LIMIT);
     }
-    bin = new_binary(BIF_P, (byte *)NULL, i);
+    bin = new_binary(BIF_P, (byte *)NULL, sz);
     bytes = binary_bytes(bin);
 #ifdef DEBUG
-    offset = list_to_bitstr_buf(BIF_ARG_1, (char*) bytes, i);
+    offset = list_to_bitstr_buf(BIF_ARG_1, (char*) bytes, sz);
 #else
     offset = list_to_bitstr_buf(BIF_ARG_1, (char*) bytes);
 #endif
@@ -432,20 +436,16 @@ BIF_RETTYPE list_to_bitstring_1(BIF_ALIST_1)
 	hp = HAlloc(BIF_P, ERL_SUB_BIN_SIZE);
 	sb1 = (ErlSubBin *) hp;
 	sb1->thing_word = HEADER_SUB_BIN;
-	sb1->size = i-1;
+	sb1->size = sz-1;
 	sb1->offs = 0;
 	sb1->orig = bin;
 	sb1->bitoffs = 0;
 	sb1->bitsize = offset;
 	sb1->is_writable = 0;
-	hp += ERL_SUB_BIN_SIZE;
 	bin = make_binary(sb1);
     }
     
     BIF_RET(bin);
-    
-    error:
-	BIF_ERROR(BIF_P, BADARG);
 }
 
 BIF_RETTYPE split_binary_2(BIF_ALIST_2)
@@ -497,16 +497,6 @@ BIF_RETTYPE split_binary_2(BIF_ALIST_2)
 	BIF_ERROR(BIF_P, BADARG);
 }
 
-void
-erts_cleanup_mso(ProcBin* pb)
-{
-    while (pb != NULL) {
-	ProcBin* next = pb->next;
-	if (erts_refc_dectest(&pb->val->refc, 0) == 0)
-	    erts_bin_free(pb->val);
-	pb = next;
-    }
-}
 
 /*
  * Local functions.
@@ -519,7 +509,7 @@ erts_cleanup_mso(ProcBin* pb)
  */
 static int
 #ifdef DEBUG
-list_to_bitstr_buf(Eterm obj, char* buf, int len)
+list_to_bitstr_buf(Eterm obj, char* buf, Uint len)
 #else
 list_to_bitstr_buf(Eterm obj, char* buf)
 #endif
@@ -622,14 +612,34 @@ list_to_bitstr_buf(Eterm obj, char* buf)
     return offset;
 }
 
-static Sint
-bitstr_list_len(Eterm obj)
+static int
+bitstr_list_len(Eterm obj, Uint* num_bytes)
 {
     Eterm* objp;
     Uint len = 0;
     Uint offs = 0;
     DECLARE_ESTACK(s);
     goto L_again;
+
+#define SAFE_ADD(Var, Val)			\
+    do {					\
+        Uint valvar = (Val);			\
+	Var += valvar;				\
+	if (Var < valvar) {			\
+	    goto L_overflow_error;		\
+	}					\
+    } while (0)
+
+#define SAFE_ADD_BITSIZE(Var, Bin)					\
+    do {								\
+	if (*binary_val(Bin) == HEADER_SUB_BIN) {			\
+            Uint valvar = ((ErlSubBin *) binary_val(Bin))->bitsize;	\
+	    Var += valvar;						\
+	    if (Var < valvar) {						\
+	         goto L_overflow_error;					\
+	    }								\
+        }								\
+    } while (0)
 
     while (!ESTACK_ISEMPTY(s)) {
 	obj = ESTACK_POP(s);
@@ -641,9 +651,12 @@ bitstr_list_len(Eterm obj)
 	    obj = CAR(objp);
 	    if (is_byte(obj)) {
 		len++;
+		if (len == 0) {
+		    goto L_overflow_error;
+		}
 	    } else if (is_binary(obj)) {
-		len += binary_size(obj);
-		offs += binary_bitsize(obj);
+		SAFE_ADD(len, binary_size(obj));
+		SAFE_ADD_BITSIZE(offs, obj);
 	    } else if (is_list(obj)) {
 		ESTACK_PUSH(s, CDR(objp));
 		goto L_iter_list; /* on head */
@@ -655,23 +668,44 @@ bitstr_list_len(Eterm obj)
 	    if (is_list(obj))
 		goto L_iter_list; /* on tail */
 	    else if (is_binary(obj)) {
-		len += binary_size(obj);
-		offs += binary_bitsize(obj);
+		SAFE_ADD(len, binary_size(obj));
+		SAFE_ADD_BITSIZE(offs, obj);
 	    } else if (is_not_nil(obj)) {
 		goto L_type_error;
 	    }
 	} else if (is_binary(obj)) {
-	    len += binary_size(obj);
-	    offs += binary_bitsize(obj);
+	    SAFE_ADD(len, binary_size(obj));
+	    SAFE_ADD_BITSIZE(offs, obj);
 	} else if (is_not_nil(obj)) {
 	    goto L_type_error;
 	}
     }
+#undef SAFE_ADD
+#undef SAFE_ADD_BITSIZE
 
     DESTROY_ESTACK(s);
-    return (Sint) (len + (offs/8) + ((offs % 8) != 0));
+
+    /*
+     * Make sure that the number of bits in the bitstring will fit
+     * in an Uint to ensure that the binary can be matched using
+     * the binary syntax.
+     */
+    if (len << 3 < len) {
+	goto L_overflow_error;
+    }
+    len += (offs >> 3) + ((offs & 7) != 0);
+    if (len << 3 < len) {
+	goto L_overflow_error;
+    }
+    *num_bytes = len;
+    return ERTS_IOLIST_OK;
 
  L_type_error:
     DESTROY_ESTACK(s);
-    return (Sint) -1;
+    return ERTS_IOLIST_TYPE;
+
+ L_overflow_error:
+    DESTROY_ESTACK(s);
+    return ERTS_IOLIST_OVERFLOW;
 }
+

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1999</year><year>2010</year>
+      <year>1999</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -29,6 +29,202 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
+
+<section><title>Crypto 2.0.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    <c>crypto:rand_uniform</c> works correctly for negative
+	    integers. Fails with <c>badarg</c> exception for invalid
+	    ranges (when <c>Hi =&lt; Lo</c>) instead of returning
+	    incorrect output.</p>
+          <p>
+	    Own Id: OTP-9526</p>
+        </item>
+        <item>
+          <p>
+	    Fix win32 OpenSSL static linking (Thanks to Dave
+	    Cottlehuber)</p>
+          <p>
+	    Own Id: OTP-9532</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Crypto 2.0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Various small documentation fixes (Thanks to Bernard
+	    Duggan)</p>
+          <p>
+	    Own Id: OTP-9172</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    New <c>crypto</c> support for streaming of AES CTR and
+	    HMAC. (Thanks to Travis Jensen)</p>
+          <p>
+	    Own Id: OTP-9275</p>
+        </item>
+        <item>
+          <p>
+	    Due to standard library DLL mismatches between versions
+	    of OpenSSL and Erlang/OTP, OpenSSL is now linked
+	    statically to the crypto driver on Windows. This fixes
+	    problems starting crypto when running Erlang as a service
+	    on all Windows versions.</p>
+          <p>
+	    Own Id: OTP-9280</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Crypto 2.0.2.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Strengthened random number generation. (Thanks to Geoff Cant)</p>
+          <p>
+	    Own Id: OTP-9225</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Crypto 2.0.2.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Misc. Updates.</p>
+          <p>
+	    Own Id: OTP-9132</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Crypto 2.0.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    AES CTR encryption support in <c>crypto</c>.</p>
+          <p>
+	    Own Id: OTP-8752 Aux Id: seq11642 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Crypto 2.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Crypto dialyzer type error in md5_mac and sha_mac.</p>
+          <p>
+	    Own Id: OTP-8718</p>
+        </item>
+        <item>
+          <p>
+	    RC4 stream cipher didn't work. This since the new NIF
+	    implementation of <c>crypto:rc4_encrypt_with_state/2</c>
+	    introduced in <c>crypto-2.0</c> didn't return an updated
+	    state. (Thanks to Paul Guyot)</p>
+          <p>
+	    Own Id: OTP-8781</p>
+        </item>
+        <item>
+          <p>
+	    A number of memory leaks in the crypto NIF library have
+	    been fixed.</p>
+          <p>
+	    Own Id: OTP-8810</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added erlang:system_info(build_type) which makes it
+	    easier to chose drivers, NIF libraries, etc based on
+	    build type of the runtime system.</p>
+          <p>
+	    The NIF library for crypto can now be built for valgrind
+	    and/or debug as separate NIF libraries that will be
+	    automatically loaded if the runtime system has been built
+	    with a matching build type.</p>
+          <p>
+	    Own Id: OTP-8760</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Crypto 2.0</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    crypto application changed to use NIFs instead of driver.</p>
+          <p>
+	    Own Id: OTP-8333</p>
+        </item>
+        <item>
+          <p>
+	    des_ecb_encrypt/2 and des_ecb_decrypt/2 has been added to
+	    the crypto module. The crypto:md4/1 function has been
+	    documented.</p>
+          <p>
+	    Own Id: OTP-8551</p>
+        </item>
+        <item>
+	    <p>The undocumented, unsupport, and deprecated function
+	    <c>lists:flat_length/1</c> has been removed.</p>
+          <p>
+	    Own Id: OTP-8584</p>
+        </item>
+        <item>
+          <p>
+	    New variants of <c>crypto:dss_sign</c> and
+	    <c>crypto:dss_verify</c> with an extra argument to
+	    control how the digest is calculated.</p>
+          <p>
+	    Own Id: OTP-8700</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Crypto 1.6.4</title>
 

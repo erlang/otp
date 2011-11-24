@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2004-2009. All Rights Reserved.
+# Copyright Ericsson AB 2004-2011. All Rights Reserved.
 # 
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -20,6 +20,9 @@
 PARSER_SRC = snmpc_mib_gram.yrl
 
 PARSER_MODULE = $(PARSER_SRC:%.yrl=%)
+
+ESCRIPT_SRC = \
+	snmpc.src
 
 MODULES = \
 	$(PARSER_MODULE) \

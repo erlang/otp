@@ -1,3 +1,5 @@
+{incl_app,eunit,details}.
+
 %% -*- erlang -*-
-{exclude,[eunit_test]}.
+{excl_mods,eunit,[eunit_test]}.
 

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2010</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -43,7 +43,7 @@
 
     <p>As of R13A, data supplied to the <seealso
     marker="#put_chars/2">put_chars</seealso> function should be in the
-    <c>chardata()</c> format described below. This means that programs
+    <seealso marker="unicode#type-chardata"><c>unicode:chardata()</c></seealso> format. This means that programs
     supplying binaries to this function need to convert them to UTF-8
     before trying to output the data on an
     <c>io_device()</c>.</p>
@@ -64,72 +64,84 @@
 
   </description>
 
-  <section>
-    <title>DATA TYPES</title>
-    <code type="none">
-io_device()
-  as returned by file:open/2, a process handling IO protocols</code>
+  <datatypes>
+    <datatype>
+      <name name="device"/>
+      <desc>
+        <p>Either <c>standard_io</c>, <c>standard_error</c>, a
+          registered name, or a pid handling IO protocols (returned from
+            <seealso marker="file#open/2">file:open/2</seealso>).</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="opt_pair"/>
+    </datatype>
+    <datatype>
+      <name name="expand_fun"/>
+    </datatype>
+    <datatype>
+      <name name="encoding"/>
+    </datatype>
+    <datatype>
+      <name name="setopt"/>
+    </datatype>
+    <datatype>
+      <name name="format"/>
+    </datatype>
+    <datatype>
+      <name name="line"/>
+    </datatype>
+    <datatype>
+      <name name="prompt"/>
+    </datatype>
+    <datatype>
+      <name name="request_error"/>
+    </datatype>
+    <datatype>
+      <name name="error_description"/>
+      <desc><p>Whatever the I/O-server sends.</p></desc>
+    </datatype>
+  </datatypes>
 
-    <code type="none">
-unicode_binary() = binary() with characters encoded in UTF-8 coding standard
-unicode_char() = integer() representing valid unicode codepoint
-
-chardata() = charlist() | unicode_binary()
-
-charlist() = [unicode_char() | unicode_binary() | charlist()]
-  a unicode_binary is allowed as the tail of the list</code>
-  </section>
   <funcs>
     <func>
-      <name>columns([IoDevice]) -> {ok,int()} | {error, enotsup}</name>
+      <name name="columns" arity="0"/>
+      <name name="columns" arity="1"/>
       <fsummary>Get the number of columns of a device</fsummary>
-      <type>
-        <v>IoDevice = io_device()</v>
-      </type>
       <desc>
           <p>Retrieves the number of columns of the 
-          <c>IoDevice</c> (i.e. the width of a terminal). The function
+          <c><anno>IoDevice</anno></c> (i.e. the width of a terminal). The function
           only succeeds for terminal devices, for all other devices
           the function returns <c>{error, enotsup}</c></p>
       </desc>
     </func>
     <func>
-      <name>put_chars([IoDevice,] IoData) -> ok</name>
+      <name name="put_chars" arity="1"/>
+      <name name="put_chars" arity="2"/>
       <fsummary>Write a list of characters</fsummary>
-      <type>
-        <v>IoDevice = io_device()</v>
-        <v>IoData = chardata()</v>
-      </type>
       <desc>
-        <p>Writes the characters of <c>IoData</c> to the io_server()
-          (<c>IoDevice</c>).</p>
+        <p>Writes the characters of <c><anno>CharData</anno></c> to the io_server()
+          (<c><anno>IoDevice</anno></c>).</p>
       </desc>
     </func>
     <func>
-      <name>nl([IoDevice]) -> ok</name>
+      <name name="nl" arity="0"/>
+      <name name="nl" arity="1"/>
       <fsummary>Write a newline</fsummary>
-      <type>
-        <v>IoDevice = io_device()</v>
-      </type>
       <desc>
-        <p>Writes new line to the standard output (<c>IoDevice</c>).</p>
+        <p>Writes new line to the standard output (<c><anno>IoDevice</anno></c>).</p>
       </desc>
     </func>
     <func>
-      <name>get_chars([IoDevice,] Prompt, Count) -> Data | eof</name>
+      <name name="get_chars" arity="2"/>
+      <name name="get_chars" arity="3"/>
       <fsummary>Read a specified number of characters</fsummary>
-      <type>
-        <v>IoDevice = io_device()</v>
-        <v>Prompt = atom() | string()</v>
-        <v>Count = int()</v>
-	<v>Data = [ unicode_char() ] | unicode_binary()</v>
-      </type>
       <desc>
-        <p>Reads <c>Count</c> characters from standard input
-          (<c>IoDevice</c>), prompting it with <c>Prompt</c>. It
+        <p>Reads <c><anno>Count</anno></c> characters from standard input
+          (<c><anno>IoDevice</anno></c>), prompting it with <c><anno>Prompt</anno></c>. It
           returns:</p>
         <taglist>
-          <tag><c>Data</c></tag>
+          <tag><c><anno>Data</anno></c></tag>
           <item>
             <p>The input characters. If the device supports Unicode,
             the data may represent codepoints larger than 255 (the
@@ -141,7 +153,7 @@ charlist() = [unicode_char() | unicode_binary() | charlist()]
           <item>
             <p>End of file was encountered.</p>
           </item>
-	  <tag><c>{error,Reason}</c></tag>
+	  <tag><c>{error,<anno>Reason</anno>}</c></tag>
 	  <item>
 	    <p>Other (rare) error condition, for instance <c>{error,estale}</c>
 	    if reading from an NFS file system.</p>
@@ -150,18 +162,14 @@ charlist() = [unicode_char() | unicode_binary() | charlist()]
       </desc>
     </func>
     <func>
-      <name>get_line([IoDevice,] Prompt) -> Data | eof | {error,Reason}</name>
+      <name name="get_line" arity="1"/>
+      <name name="get_line" arity="2"/>
       <fsummary>Read a line</fsummary>
-      <type>
-        <v>IoDevice = io_device()</v>
-        <v>Prompt = atom() | string()</v>
-	<v>Data = [ unicode_char() ] | unicode_binary()</v>
-      </type>
       <desc>
-        <p>Reads a line from the standard input (<c>IoDevice</c>),
-          prompting it with <c>Prompt</c>. It returns:</p>
+        <p>Reads a line from the standard input (<c><anno>IoDevice</anno></c>),
+          prompting it with <c><anno>Prompt</anno></c>. It returns:</p>
         <taglist>
-          <tag><c>Data</c></tag>
+          <tag><c><anno>Data</anno></c></tag>
           <item>
             <p>The characters in the line terminated by a LF (or end of
               file). If the device supports Unicode,
@@ -174,7 +182,7 @@ charlist() = [unicode_char() | unicode_binary() | charlist()]
           <item>
             <p>End of file was encountered.</p>
           </item>
-	  <tag><c>{error,Reason}</c></tag>
+	  <tag><c>{error,<anno>Reason</anno>}</c></tag>
 	  <item>
 	    <p>Other (rare) error condition, for instance <c>{error,estale}</c>
 	    if reading from an NFS file system.</p>
@@ -183,14 +191,9 @@ charlist() = [unicode_char() | unicode_binary() | charlist()]
       </desc>
     </func>
     <func>
-      <name>getopts([IoDevice]) -> Opts</name>
+      <name name="getopts" arity="0"/>
+      <name name="getopts" arity="1"/>
       <fsummary>Get the supported options and values from an I/O-server</fsummary>
-      <type>
-        <v>IoDevice = io_device()</v>
-        <v>Opts = [Opt]</v>
-        <v>&nbsp;&nbsp;Opt = {atom(),Value}</v>
-	<v>&nbsp;&nbsp;Value = term()</v>
-      </type>
       <desc>
       <p>This function requests all available options and their current values for a specific io_device(). Example:</p>
 <pre>
@@ -210,17 +213,11 @@ charlist() = [unicode_char() | unicode_binary() | charlist()]
       </desc>
     </func>
     <func>
-      <name>setopts([IoDevice,] Opts) -> ok | {error, Reason}</name>
+      <name name="setopts" arity="1"/>
+      <name name="setopts" arity="2"/>
       <fsummary>Set options</fsummary>
-      <type>
-        <v>IoDevice = io_device()</v>
-        <v>Opts = [Opt]</v>
-        <v>&nbsp;&nbsp;Opt = atom() | {atom(),Value}</v>
-	<v>&nbsp;&nbsp;Value = term()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
-        <p>Set options for the io_device() (<c>IoDevice</c>).</p>
+        <p>Set options for the io_device() (<c><anno>IoDevice</anno></c>).</p>
 
         <p>Possible options and values vary depending on the actual
         io_device(). For a list of supported options and their current values
@@ -229,17 +226,17 @@ charlist() = [unicode_char() | unicode_binary() | charlist()]
 
 	<p>The options and values supported by the current OTP io_devices are:</p>
         <taglist>
-          <tag><c>binary, list or {binary, bool()}</c></tag>
+          <tag><c>binary, list or {binary, boolean()}</c></tag>
           <item>
             <p>If set in binary mode (binary or {binary,true}), the io_server() sends binary data (encoded in UTF-8) as answers to the get_line, get_chars and, if possible, get_until requests (see the I/O protocol description in STDLIB User's Guide for details). The immediate effect is that <c>get_chars/2,3</c> and <c>get_line/1,2</c> return UTF-8 binaries instead of lists of chars for the affected device.</p>
 	    <p>By default, all io_devices in OTP are set in list mode, but the io functions can handle any of these modes and so should other, user written, modules behaving as clients to I/O-servers.</p>
 	    <p>This option is supported by the standard shell (group.erl), the 'oldshell' (user.erl) and the file I/O servers.</p>
           </item>
-          <tag><c>{echo, bool()}</c></tag>
+          <tag><c>{echo, boolean()}</c></tag>
 	  <item>
 	  <p>Denotes if the terminal should echo input. Only supported for the standard shell I/O-server (group.erl)</p>
 	  </item>
-          <tag><c>{expand_fun, fun()}</c></tag>
+          <tag><c>{expand_fun, expand_fun()}</c></tag>
           <item>
             <p>Provide a function for tab-completion (expansion)
               like the erlang shell. This function is called
@@ -281,33 +278,24 @@ charlist() = [unicode_char() | unicode_binary() | charlist()]
       </desc>
     </func>
     <func>
-      <name>write([IoDevice,] Term) -> ok</name>
+      <name name="write" arity="1"/>
+      <name name="write" arity="2"/>
       <fsummary>Write a term</fsummary>
-      <type>
-        <v>IoDevice = io_device()</v>
-        <v>Term = term()</v>
-      </type>
       <desc>
-        <p>Writes the term <c>Term</c> to the standard output
-          (<c>IoDevice</c>).</p>
+        <p>Writes the term <c><anno>Term</anno></c> to the standard output
+          (<c><anno>IoDevice</anno></c>).</p>
       </desc>
     </func>
     <func>
-      <name>read([IoDevice,] Prompt) -> Result</name>
+      <name name="read" arity="1"/>
+      <name name="read" arity="2"/>
       <fsummary>Read a term</fsummary>
-      <type>
-        <v>IoDevice = io_device()</v>
-        <v>Prompt = atom() | string()</v>
-        <v>Result = {ok, Term} | eof | {error, ErrorInfo}</v>
-        <v>&nbsp;Term = term()</v>
-        <v>&nbsp;ErrorInfo -- see section Error Information below</v>
-      </type>
       <desc>
-        <p>Reads a term <c>Term</c> from the standard input
-          (<c>IoDevice</c>), prompting it with <c>Prompt</c>. It
+        <p>Reads a term <c><anno>Term</anno></c> from the standard input
+          (<c><anno>IoDevice</anno></c>), prompting it with <c><anno>Prompt</anno></c>. It
           returns:</p>
         <taglist>
-          <tag><c>{ok, Term}</c></tag>
+          <tag><c>{ok, <anno>Term</anno>}</c></tag>
           <item>
             <p>The parsing was successful.</p>
           </item>
@@ -315,7 +303,7 @@ charlist() = [unicode_char() | unicode_binary() | charlist()]
           <item>
             <p>End of file was encountered.</p>
           </item>
-          <tag><c>{error, ErrorInfo}</c></tag>
+          <tag><c>{error, <anno>ErrorInfo</anno>}</c></tag>
           <item>
             <p>The parsing failed.</p>
           </item>
@@ -323,31 +311,22 @@ charlist() = [unicode_char() | unicode_binary() | charlist()]
       </desc>
     </func>
     <func>
-      <name>read(IoDevice, Prompt, StartLine) -> Result</name>
+      <name name="read" arity="3"/>
       <fsummary>Read a term</fsummary>
-      <type>
-        <v>IoDevice = io_device()</v>
-        <v>Prompt = atom() | string()</v>
-        <v>StartLine = int()</v>
-        <v>Result = {ok, Term, EndLine} | {eof, EndLine} |  {error, ErrorInfo, EndLine}</v>
-        <v>&nbsp;Term = term()</v>
-        <v>&nbsp;EndLine = int()</v>
-        <v>&nbsp;ErrorInfo -- see section Error Information below</v>
-      </type>
       <desc>
-        <p>Reads a term <c>Term</c> from <c>IoDevice</c>, prompting it
-          with <c>Prompt</c>. Reading starts at line number
-          <c>StartLine</c>. It returns:</p>
+        <p>Reads a term <c><anno>Term</anno></c> from <c><anno>IoDevice</anno></c>, prompting it
+          with <c><anno>Prompt</anno></c>. Reading starts at line number
+          <c><anno>StartLine</anno></c>. It returns:</p>
         <taglist>
-          <tag><c>{ok, Term, EndLine}</c></tag>
+          <tag><c>{ok, Term, <anno>EndLine</anno>}</c></tag>
           <item>
             <p>The parsing was successful.</p>
           </item>
-          <tag><c>{eof, EndLine}</c></tag>
+          <tag><c>{eof, <anno>EndLine</anno>}</c></tag>
           <item>
             <p>End of file was encountered.</p>
           </item>
-          <tag><c>{error, ErrorInfo, EndLine}</c></tag>
+          <tag><c>{error, <anno>ErrorInfo</anno>, <anno>ErrorLine</anno>}</c></tag>
           <item>
             <p>The parsing failed.</p>
           </item>
@@ -355,22 +334,19 @@ charlist() = [unicode_char() | unicode_binary() | charlist()]
       </desc>
     </func>
     <func>
-      <name>fwrite(Format) -></name>
-      <name>fwrite([IoDevice,] Format, Data) -> ok</name>
-      <name>format(Format) -></name>
-      <name>format([IoDevice,] Format, Data) -> ok</name>
+      <name name="fwrite" arity="1"/>
+      <name name="fwrite" arity="2"/>
+      <name name="fwrite" arity="3"/>
+      <name name="format" arity="1"/>
+      <name name="format" arity="2"/>
+      <name name="format" arity="3"/>
       <fsummary>Write formatted output</fsummary>
-      <type>
-        <v>IoDevice = io_device()</v>
-        <v>Format = atom() | string() | binary()</v>
-        <v>Data = [term()]</v>
-      </type>
       <desc>
-        <p>Writes the items in <c>Data</c> (<c>[]</c>) on the standard
-          output (<c>IoDevice</c>) in accordance with <c>Format</c>.
-          <c>Format</c> contains plain characters which are copied to
+        <p>Writes the items in <c><anno>Data</anno></c> (<c>[]</c>) on the standard
+          output (<c><anno>IoDevice</anno></c>) in accordance with <c><anno>Format</anno></c>.
+          <c><anno>Format</anno></c> contains plain characters which are copied to
           the output device, and control sequences for formatting, see
-          below. If <c>Format</c> is an atom or a binary, it is first 
+          below. If <c><anno>Format</anno></c> is an atom or a binary, it is first
           converted to a list with the aid of <c>atom_to_list/1</c>
           or <c>binary_to_list/1</c>.</p>
         <pre>
@@ -463,10 +439,10 @@ ok</pre>
           <item>
             <p>Prints the argument with the <c>string</c> syntax. The
               argument is, if no Unicode translation modifier is present, an 
-	      <seealso marker="erts:erlang#iolist_definition">I/O list</seealso>, a binary, or an atom. If the Unicode translation modifier ('t') is in effect, the argument is chardata(), meaning that binaries are in UTF-8. The characters
-              are printed without quotes. In this format, the printed
-              argument is truncated to the given precision and field
-              width.</p>
+              iolist(), a binary, or an atom. If the Unicode translation modifier ('t') is in effect, the argument is unicode:chardata(), meaning that binaries are in UTF-8. The characters
+              are printed without quotes. The string is first truncated
+	      by the given precision and then padded and justified
+	      to the given field width. The default precision is the field width.</p>
             <p>This format can be used for printing any object and
               truncating the output so it fits a specified field:</p>
             <pre>
@@ -475,6 +451,8 @@ ok</pre>
 ok
 4> <input>io:fwrite("|~10s|~n", [io_lib:write({hey, hey, hey})]).</input>
 |{hey,hey,h|
+5> <input>io:fwrite("|~-10.8s|~n", [io_lib:write({hey, hey, hey})]).</input>
+|{hey,hey  |
 ok</pre>
           <p>A list with integers larger than 255 is considered an error if the Unicode translation modifier is not given:</p>
 <pre>
@@ -660,22 +638,15 @@ ok
       </desc>
     </func>
     <func>
-      <name>fread([IoDevice,] Prompt, Format) -> Result</name>
+      <name name="fread" arity="2"/>
+      <name name="fread" arity="3"/>
       <fsummary>Read formatted input</fsummary>
-      <type>
-        <v>IoDevice = io_device()</v>
-        <v>Prompt = atom() | string()</v>
-        <v>Format = string()</v>
-        <v>Result = {ok, Terms} | eof | {error, What}</v>
-        <v>&nbsp;Terms = [term()]</v>
-        <v>&nbsp;What = term()</v>
-      </type>
       <desc>
-        <p>Reads characters from the standard input (<c>IoDevice</c>),
-          prompting it with <c>Prompt</c>. Interprets the characters in
-          accordance with <c>Format</c>. <c>Format</c> contains control
+        <p>Reads characters from the standard input (<c><anno>IoDevice</anno></c>),
+          prompting it with <c><anno>Prompt</anno></c>. Interprets the characters in
+          accordance with <c><anno>Format</anno></c>. <c><anno>Format</anno></c> contains control
           sequences which directs the interpretation of the input.</p>
-        <p><c>Format</c> may contain:</p>
+        <p><c><anno>Format</anno></c> may contain:</p>
         <list type="bulleted">
           <item>
             <p>White space characters (SPACE, TAB and NEWLINE) which
@@ -789,19 +760,19 @@ Prompt> <input>&lt;Character beyond latin1 range not printable in this medium&gt
             </taglist>
             <p>It returns:</p>
             <taglist>
-              <tag><c>{ok, Terms}</c></tag>
+              <tag><c>{ok, <anno>Terms</anno>}</c></tag>
               <item>
-                <p>The read was successful and <c>Terms</c> is the list
+                <p>The read was successful and <c><anno>Terms</anno></c> is the list
                   of successfully matched and read items.</p>
               </item>
               <tag><c>eof</c></tag>
               <item>
                 <p>End of file was encountered.</p>
               </item>
-              <tag><c>{error, What}</c></tag>
+              <tag><c>{error, <anno>What</anno>}</c></tag>
               <item>
                 <p>The read operation failed and the parameter
-                  <c>What</c> gives a hint about the error.</p>
+                  <c><anno>What</anno></c> gives a hint about the error.</p>
               </item>
             </taglist>
           </item>
@@ -820,31 +791,21 @@ enter><input>:</input>   <input>alan</input>   <input>:</input>   <input>joe</in
       </desc>
     </func>
     <func>
-      <name>rows([IoDevice]) -> {ok,int()} | {error, enotsup}</name>
+      <name name="rows" arity="0"/>
+      <name name="rows" arity="1"/>
       <fsummary>Get the number of rows of a device</fsummary>
-      <type>
-        <v>IoDevice = io_device()</v>
-      </type>
       <desc>
           <p>Retrieves the number of rows of the 
-          <c>IoDevice</c> (i.e. the height of a terminal). The function
+          <c><anno>IoDevice</anno></c> (i.e. the height of a terminal). The function
           only succeeds for terminal devices, for all other devices
           the function returns <c>{error, enotsup}</c></p>
       </desc>
     </func>
     <func>
-      <name>scan_erl_exprs(Prompt) -></name>
-      <name>scan_erl_exprs([IoDevice,] Prompt, StartLine) -> Result</name>
+      <name name="scan_erl_exprs" arity="1"/>
+      <name name="scan_erl_exprs" arity="2"/>
+      <name name="scan_erl_exprs" arity="3"/>
       <fsummary>Read and tokenize Erlang expressions</fsummary>
-      <type>
-        <v>IoDevice = io_device()</v>
-        <v>Prompt = atom() | string()</v>
-        <v>StartLine = int()</v>
-        <v>Result = {ok, Tokens, EndLine} | {eof, EndLine} | {error, ErrorInfo, EndLine}</v>
-        <v>&nbsp;Tokens -- see erl_scan(3)</v>
-        <v>&nbsp;EndLine = int()</v>
-        <v>&nbsp;ErrorInfo -- see section Error Information below</v>
-      </type>
       <desc>
         <p>Reads data from the standard input (<c>IoDevice</c>),
           prompting it with <c>Prompt</c>. Reading starts at line number
@@ -860,7 +821,7 @@ enter><input>:</input>   <input>alan</input>   <input>:</input>   <input>joe</in
           <item>
             <p>End of file was encountered.</p>
           </item>
-          <tag><c>{error, ErrorInfo, EndLine}</c></tag>
+          <tag><c>{error, ErrorInfo, ErrorLine}</c></tag>
           <item>
             <p>An error occurred.</p>
           </item>
@@ -876,22 +837,14 @@ enter><input>1.0er.</input>
       </desc>
     </func>
     <func>
-      <name>scan_erl_form(Prompt) -></name>
-      <name>scan_erl_form([IoDevice,] Prompt, StartLine) -> Result</name>
+      <name name="scan_erl_form" arity="1"/>
+      <name name="scan_erl_form" arity="2"/>
+      <name name="scan_erl_form" arity="3"/>
       <fsummary>Read and tokenize an Erlang form</fsummary>
-      <type>
-        <v>IoDevice = io_device()</v>
-        <v>Prompt = atom() | string()</v>
-        <v>StartLine = int()</v>
-        <v>Result = {ok, Tokens, EndLine} | {eof, EndLine} | {error, ErrorInfo, EndLine}</v>
-        <v>&nbsp;Tokens -- see erl_scan(3)</v>
-        <v>&nbsp;EndLine = int()</v>
-        <v>&nbsp;ErrorInfo -- see section Error Information below</v>
-      </type>
       <desc>
-        <p>Reads data from the standard input (<c>IoDevice</c>),
-          prompting it with <c>Prompt</c>. Starts reading at line number
-          <c>StartLine</c> (1). The data is tokenized as if it were an
+        <p>Reads data from the standard input (<c><anno>IoDevice</anno></c>),
+          prompting it with <c><anno>Prompt</anno></c>. Starts reading at line number
+          <c><anno>StartLine</anno></c> (1). The data is tokenized as if it were an
           Erlang form - one of the valid Erlang expressions in an
           Erlang source file - until a final <c>'.'</c> is reached.
           This last token is also returned. The return values are the
@@ -899,26 +852,19 @@ enter><input>1.0er.</input>
       </desc>
     </func>
     <func>
-      <name>parse_erl_exprs(Prompt) -></name>
-      <name>parse_erl_exprs([IoDevice,] Prompt, StartLine) -> Result</name>
+      <name name="parse_erl_exprs" arity="1"/>
+      <name name="parse_erl_exprs" arity="2"/>
+      <name name="parse_erl_exprs" arity="3"/>
+      <type name="parse_ret"/>
       <fsummary>Read, tokenize and parse Erlang expressions</fsummary>
-      <type>
-        <v>IoDevice = io_device()</v>
-        <v>Prompt = atom() | string()</v>
-        <v>StartLine = int()</v>
-        <v>Result = {ok, Expr_list, EndLine} | {eof, EndLine} | {error, ErrorInfo, EndLine}</v>
-        <v>&nbsp;Expr_list -- see erl_parse(3)</v>
-        <v>&nbsp;EndLine = int()</v>
-        <v>&nbsp;ErrorInfo -- see section Error Information below</v>
-      </type>
       <desc>
-        <p>Reads data from the standard input (<c>IoDevice</c>),
-          prompting it with <c>Prompt</c>. Starts reading at line number
-          <c>StartLine</c> (1). The data is tokenized and parsed as if
+        <p>Reads data from the standard input (<c><anno>IoDevice</anno></c>),
+          prompting it with <c><anno>Prompt</anno></c>. Starts reading at line number
+          <c><anno>StartLine</anno></c> (1). The data is tokenized and parsed as if
           it were a sequence of Erlang expressions until a final '.' is
           reached. It returns:</p>
         <taglist>
-          <tag><c>{ok, Expr_list, EndLine}</c></tag>
+          <tag><c>{ok, ExprList, EndLine}</c></tag>
           <item>
             <p>The parsing was successful.</p>
           </item>
@@ -926,7 +872,7 @@ enter><input>1.0er.</input>
           <item>
             <p>End of file was encountered.</p>
           </item>
-          <tag><c>{error, ErrorInfo, EndLine}</c></tag>
+          <tag><c>{error, ErrorInfo, ErrorLine}</c></tag>
           <item>
             <p>An error occurred.</p>
           </item>
@@ -942,22 +888,15 @@ enter><input>abc("hey".</input>
       </desc>
     </func>
     <func>
-      <name>parse_erl_form(Prompt) -></name>
-      <name>parse_erl_form([IoDevice,] Prompt, StartLine) -> Result</name>
+      <name name="parse_erl_form" arity="1"/>
+      <name name="parse_erl_form" arity="2"/>
+      <name name="parse_erl_form" arity="3"/>
+      <type name="parse_form_ret"/>
       <fsummary>Read, tokenize and parse an Erlang form</fsummary>
-      <type>
-        <v>IoDevice = io_device()</v>
-        <v>Prompt = atom() | string()</v>
-        <v>StartLine = int()</v>
-        <v>Result = {ok, AbsForm, EndLine} | {eof, EndLine} | {error, ErrorInfo, EndLine}</v>
-        <v>&nbsp;AbsForm -- see erl_parse(3)</v>
-        <v>&nbsp;EndLine = int()</v>
-        <v>&nbsp;ErrorInfo -- see section Error Information below</v>
-      </type>
       <desc>
-        <p>Reads data from the standard input (<c>IoDevice</c>),
-          prompting it with <c>Prompt</c>. Starts reading at line number
-          <c>StartLine</c> (1). The data is tokenized and parsed as if
+        <p>Reads data from the standard input (<c><anno>IoDevice</anno></c>),
+          prompting it with <c><anno>Prompt</anno></c>. Starts reading at line number
+          <c><anno>StartLine</anno></c> (1). The data is tokenized and parsed as if
           it were an Erlang form - one of the valid Erlang expressions
           in an Erlang source file - until a final '.' is reached. It
           returns:</p>
@@ -970,7 +909,7 @@ enter><input>abc("hey".</input>
           <item>
             <p>End of file was encountered.</p>
           </item>
-          <tag><c>{error, ErrorInfo, EndLine}</c></tag>
+          <tag><c>{error, ErrorInfo, ErrorLine}</c></tag>
           <item>
             <p>An error occurred.</p>
           </item>

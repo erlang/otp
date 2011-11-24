@@ -99,6 +99,7 @@ init_per_group(Group, Config) ->
     {Grs,_} = grs_and_tcs(),
     case lists:member(Group, Grs) of
 	true ->
+	    ct:comment(Group),
 	    init = ?config(suite,Config),
 	    [{Group,Group} | Config];
 	false ->
@@ -109,6 +110,7 @@ end_per_group(Group, Config) ->
     {Grs,_} = grs_and_tcs(),
     case lists:member(Group, Grs) of
 	true ->
+	    ct:comment(Group),
 	    init = ?config(suite,Config),
 	    Group = ?config(Group,Config),
 	    ok;

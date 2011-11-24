@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1999-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 1999-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -23,7 +23,9 @@
 #include "beam_opcodes.h"
 #include "erl_process.h"
 
-int beam_make_current_old(Process *c_p, ErtsProcLocks c_p_locks, Eterm module);
+Eterm beam_make_current_old(Process *c_p, ErtsProcLocks c_p_locks,
+			    Eterm module);
+
 
 typedef struct gen_op_entry {
    char* name;
@@ -44,13 +46,13 @@ extern void** beam_ops;
 #endif
 
 
-extern Eterm beam_debug_apply[];
-extern Eterm* em_call_error_handler;
-extern Eterm* em_apply_bif;
-extern Eterm* em_call_traced_function;
+extern BeamInstr beam_debug_apply[];
+extern BeamInstr* em_call_error_handler;
+extern BeamInstr* em_apply_bif;
+extern BeamInstr* em_call_traced_function;
 typedef struct {
-    Eterm* start;		/* Pointer to start of module. */
-    Eterm* end;			/* Points one word beyond last function in module. */
+    BeamInstr* start;		/* Pointer to start of module. */
+    BeamInstr* end;			/* Points one word beyond last function in module. */
 } Range;
 
 /*
@@ -101,11 +103,18 @@ extern Uint erts_total_code_size;
  */
 #define MI_LITERALS_START	8
 #define MI_LITERALS_END		9
+#define MI_LITERALS_OFF_HEAP	10
+
 
 /*
  * Pointer to the on_load function (or NULL if none).
  */
-#define MI_ON_LOAD_FUNCTION_PTR 10
+#define MI_ON_LOAD_FUNCTION_PTR 11
+
+/*
+ * Pointer to the line table (or NULL if none).
+ */
+#define MI_LINE_TABLE 12
 
 /*
  * Start of function pointer table.  This table contains pointers to
@@ -116,5 +125,5 @@ extern Uint erts_total_code_size;
  * this table.
  */
 
-#define MI_FUNCTIONS         11
+#define MI_FUNCTIONS         13
 #endif /* _BEAM_LOAD_H */

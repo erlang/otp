@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -45,7 +45,7 @@
 -export([config/2]).
 -define(DEFAULT_RECEIVE_TIMEOUT, 1000).
 -else.
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -define(DEFAULT_RECEIVE_TIMEOUT, infinity).
 -endif.
  
@@ -68,7 +68,8 @@ config(priv_dir,_) ->
 
 %%% When run in test server %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--export([all/1, basic/1, bit_syntax/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, basic/1, bit_syntax/1,
 	 return/1, on_and_off/1, stack_grow/1,info/1, delete/1,
 	 exception/1, exception_apply/1,
 	 exception_function/1, exception_apply_function/1,
@@ -79,33 +80,50 @@ config(priv_dir,_) ->
 	 exception_meta_nocatch/1, exception_meta_nocatch_apply/1,
 	 exception_meta_nocatch_function/1,
 	 exception_meta_nocatch_apply_function/1,
-	 init_per_testcase/2, fin_per_testcase/2]).
+	 init_per_testcase/2, end_per_testcase/2]).
 init_per_testcase(_Case, Config) ->
     ?line Dog=test_server:timetrap(test_server:minutes(2)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     shutdown(),
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
-all(doc) ->
-    ["Test tracing of local function calls and return traces."];
-all(suite) ->
-    case test_server:is_native(?MODULE) of
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    case test_server:is_native(trace_local_SUITE) of
 	true -> [not_run];
-	false -> [basic, bit_syntax, return, on_and_off, stack_grow, info, delete,
-		  exception, exception_apply,
-		  exception_function, exception_apply_function,
-		  exception_nocatch, exception_nocatch_apply,
-		  exception_nocatch_function, 
-		  exception_nocatch_apply_function,
-		  exception_meta, exception_meta_apply,
-		  exception_meta_function, exception_meta_apply_function,
-		  exception_meta_nocatch, exception_meta_nocatch_apply,
-		  exception_meta_nocatch_function,
-		  exception_meta_nocatch_apply_function]
+	false ->
+	    [basic, bit_syntax, return, on_and_off, stack_grow,
+	     info, delete, exception, exception_apply,
+	     exception_function, exception_apply_function,
+	     exception_nocatch, exception_nocatch_apply,
+	     exception_nocatch_function,
+	     exception_nocatch_apply_function, exception_meta,
+	     exception_meta_apply, exception_meta_function,
+	     exception_meta_apply_function, exception_meta_nocatch,
+	     exception_meta_nocatch_apply,
+	     exception_meta_nocatch_function,
+	     exception_meta_nocatch_apply_function]
     end.
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 not_run(Config) when is_list(Config) -> 
     {skipped,"Native code"}.
@@ -749,8 +767,8 @@ exception_test(Opts, Func0, Args0) ->
 	end,
     
     ?line R1 = exc_slave(ExcOpts, Func, Args),
-    ?line Stack2 = [{?MODULE,exc_top,3},{?MODULE,slave,2}],
-    ?line Stack3 = [{?MODULE,exc,2}|Stack2],
+    ?line Stack2 = [{?MODULE,exc_top,3,[]},{?MODULE,slave,2,[]}],
+    ?line Stack3 = [{?MODULE,exc,2,[]}|Stack2],
     ?line Rs = 
 	case x_exc_top(ExcOpts, Func, Args) of % Emulation
 	    {crash,{Reason,Stack}}=R when is_list(Stack) ->
@@ -771,21 +789,29 @@ exception_test(Opts, Func0, Args0) ->
 	  end,
     ?line expect({nm}).
 
-exception_validate(R1, [R2|Rs]) ->
+exception_validate(R0, Rs0) ->
+    R = clean_location(R0),
+    Rs = [clean_location(E) || E <- Rs0],
+    exception_validate_1(R, Rs).
+
+exception_validate_1(R1, [R2|Rs]) ->
     case [R1|R2] of
 	[R|R] ->
 	    ok;
-	[{crash,{badarg,[{lists,reverse,[L1a,L1b]}|T]}}|
-	 {crash,{badarg,[{lists,reverse,[L2a,L2b]}|T]}}] ->
+	[{crash,{badarg,[{lists,reverse,[L1a,L1b],_}|T]}}|
+	 {crash,{badarg,[{lists,reverse,[L2a,L2b],_}|T]}}] ->
 	    same({crash,{badarg,[{lists,reverse,
-				  [lists:reverse(L1b, L1a),[]]}|T]}},
+				  [lists:reverse(L1b, L1a),[]],[]}|T]}},
 		 {crash,{badarg,[{lists,reverse,
-				  [lists:reverse(L2b, L2a),[]]}|T]}});
+				  [lists:reverse(L2b, L2a),[]],[]}|T]}});
 	_ when is_list(Rs), Rs =/= [] ->
 	    exception_validate(R1, Rs)
     end.
 
-
+clean_location({crash,{Reason,Stk0}}) ->
+    Stk = [{M,F,A,[]} || {M,F,A,_} <- Stk0],
+    {crash,{Reason,Stk}};
+clean_location(Term) -> Term.
 
 %%% Tracee target functions %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
@@ -795,9 +821,6 @@ loop(D1,D2,D3,0) ->
     0;
 loop(D1,D2,D3,N) ->
     max(N,loop(D1,D2,D3,N-1)).
-
-max(A, B) when A > B -> A;
-max(_, B) -> B.
 
 exported_wrap(Val) ->
     exported(Val).
@@ -1042,10 +1065,10 @@ x_exc_exception(_Rtt, M, F, _, Arity, CR) ->
 x_exc_stacktrace() ->
     x_exc_stacktrace(erlang:get_stacktrace()).
 %% Truncate stacktrace to below exc/2
-x_exc_stacktrace([{?MODULE,x_exc,4}|_]) -> [];
-x_exc_stacktrace([{?MODULE,x_exc_func,4}|_]) -> [];
-x_exc_stacktrace([{?MODULE,x_exc_body,4}|_]) -> [];
-x_exc_stacktrace([{?MODULE,exc,2}|_]) -> [];
+x_exc_stacktrace([{?MODULE,x_exc,4,_}|_]) -> [];
+x_exc_stacktrace([{?MODULE,x_exc_func,4,_}|_]) -> [];
+x_exc_stacktrace([{?MODULE,x_exc_body,4,_}|_]) -> [];
+x_exc_stacktrace([{?MODULE,exc,2,_}|_]) -> [];
 x_exc_stacktrace([H|T]) ->
     [H|x_exc_stacktrace(T)].
 

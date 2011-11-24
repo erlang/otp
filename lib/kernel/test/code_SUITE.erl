@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,9 +18,9 @@
 %%
 -module(code_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
--export([all/1]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 -export([set_path/1, get_path/1, add_path/1, add_paths/1, del_path/1,
 	 replace_path/1, load_file/1, load_abs/1, ensure_loaded/1,
 	 delete/1, purge/1, soft_purge/1, is_loaded/1, all_loaded/1,
@@ -31,9 +31,10 @@
 	 where_is_file_cached/1, where_is_file_no_cache/1,
 	 purge_stacktrace/1, mult_lib_roots/1, bad_erl_libs/1,
 	 code_archive/1, code_archive2/1, on_load/1,
-	 on_load_embedded/1, on_load_errors/1]).
+	 big_boot_embedded/1,
+	 on_load_embedded/1, on_load_errors/1, native_early_modules/1]).
 
--export([init_per_testcase/2, fin_per_testcase/2, 
+-export([init_per_testcase/2, end_per_testcase/2, 
 	 init_per_suite/1, end_per_suite/1,
 	 sticky_compiler/1]).
 
@@ -42,18 +43,29 @@
 	 handle_event/2, handle_call/2, handle_info/2,
 	 terminate/2]).
 
-all(suite) ->
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
     [set_path, get_path, add_path, add_paths, del_path,
      replace_path, load_file, load_abs, ensure_loaded,
      delete, purge, soft_purge, is_loaded, all_loaded,
      load_binary, dir_req, object_code, set_path_file,
-     pa_pz_option, add_del_path,
-     dir_disappeared, ext_mod_dep, clash,
-     load_cached, start_node_with_cache, add_and_rehash,
-     where_is_file_no_cache, where_is_file_cached,
-     purge_stacktrace, mult_lib_roots, bad_erl_libs,
-     code_archive, code_archive2, on_load, on_load_embedded,
-     on_load_errors].
+     pa_pz_option, add_del_path, dir_disappeared,
+     ext_mod_dep, clash, load_cached, start_node_with_cache,
+     add_and_rehash, where_is_file_no_cache,
+     where_is_file_cached, purge_stacktrace, mult_lib_roots,
+     bad_erl_libs, code_archive, code_archive2, on_load,
+     on_load_embedded, big_boot_embedded, on_load_errors, 
+     native_early_modules].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
 
 init_per_suite(Config) ->
     %% The compiler will no longer create a Beam file if
@@ -69,12 +81,30 @@ init_per_suite(Config) ->
 end_per_suite(Config) ->
     Config.
 
+init_per_testcase(big_boot_embedded, Config) ->
+    case catch crypto:start() of
+	ok ->
+	    init_per_testcase(do_big_boot_embedded, Config);
+	_Else ->
+	    {skip, "Needs crypto!"}
+    end;
 init_per_testcase(_Func, Config) ->
     Dog=?t:timetrap(?t:minutes(5)),
     P=code:get_path(),
     P=code:get_path(),
     [{watchdog, Dog}, {code_path, P}|Config].
-fin_per_testcase(_Func, Config) ->
+
+end_per_testcase(TC, Config) when TC == mult_lib_roots; 
+				  TC == big_boot_embedded ->
+    {ok, HostName} = inet:gethostname(),
+    NodeName = list_to_atom(atom_to_list(TC)++"@"++HostName),
+    ?t:stop_node(NodeName),
+    end_per_testcase(Config);
+end_per_testcase(_Func, Config) ->
+    end_per_testcase(Config).
+
+end_per_testcase(Config) ->
+    code:purge(code_b_test),
     Dog=?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),
     P=?config(code_path, Config),
@@ -235,8 +265,8 @@ replace_path(Config) when is_list(Config) ->
 
     %% Add a completly new application.
 
-    NewAppName = "blurf_blarfer",
-    ?line NewAppDir = filename:join(Cwd, NewAppName ++ "-6.33.1"),
+    NewAppName = 'blurf_blarfer',
+    ?line NewAppDir = filename:join(Cwd, atom_to_list(NewAppName) ++ "-6.33.1"),
     ?line ok = file:make_dir(NewAppDir),
     ?line true = code:replace_path(NewAppName, NewAppDir),
     ?line NewAppDir = code:lib_dir(NewAppName),
@@ -387,8 +417,10 @@ all_loaded_1() ->
     ?line Loaded2 = match_and_remove(Preloaded, Loaded1),
 
     ObjExt = code:objfile_extension(),
-    ?line [] = lists:filter(fun({Mod,AbsName}) when is_atom(Mod), is_list(AbsName) ->
-				    Mod =:= filename:basename(AbsName, ObjExt);
+    ?line [] = lists:filter(fun({Mod,AbsName}) when is_atom(Mod),
+                                                    is_list(AbsName) ->
+                                    Mod =/= list_to_atom(filename:basename(AbsName,
+                                                                           ObjExt));
 			       (_) -> true
 			    end,
 			    Loaded2),
@@ -543,38 +575,64 @@ add_del_path(Config) when is_list(Config) ->
     ?line code:del_path(Dir2),
     ?line PrivDir1 = code:priv_dir(dummy_app),
     ok.
-    
-    
+
+
 clash(Config) when is_list(Config) ->
     DDir = ?config(data_dir,Config)++"clash/",
     P = code:get_path(),
+    [TestServerPath|_] = [Path || Path <- code:get_path(), 
+				  re:run(Path,"test_server/?$",[]) /= nomatch],
 
     %% test non-clashing entries
 
-    %% remove "." to prevent clash with test-server path
-    ?line true = code:del_path("."),
+    %% remove TestServerPath to prevent clash with test-server path
+    ?line true = code:del_path(TestServerPath),
     ?line true = code:add_path(DDir++"foobar-0.1/ebin"),
     ?line true = code:add_path(DDir++"zork-0.8/ebin"),
-    ?line test_server:capture_start(),
-    ?line code:clash(),
-    ?line test_server:capture_stop(),
-    ?line OKMsg = test_server:capture_get(),
-    ?line lists:prefix("** Found 0 name clashes in code paths", OKMsg),
+    test_server:capture_start(),
+    ?line ok = code:clash(),
+    test_server:capture_stop(),
+    ?line [OKMsg|_] = test_server:capture_get(),
+    ?line true = lists:prefix("** Found 0 name clashes", OKMsg),
     ?line true = code:set_path(P),
 
     %% test clashing entries
 
-    %% remove "." to prevent clash with test-server path
-    ?line true = code:del_path("."),
+    %% remove TestServerPath to prevent clash with test-server path
+    ?line true = code:del_path(TestServerPath),
     ?line true = code:add_path(DDir++"foobar-0.1/ebin"),
     ?line true = code:add_path(DDir++"foobar-0.1.ez/foobar-0.1/ebin"),
-    ?line test_server:capture_start(),
-    ?line code:clash(),
-    ?line test_server:capture_stop(),
-    ?line [ErrMsg1|_] = test_server:capture_get(),
-    ?line {match, [" hides "]} = re:run(ErrMsg1, "\\*\\* .*( hides ).*",
+    test_server:capture_start(),
+    ?line ok = code:clash(),
+    test_server:capture_stop(),
+    ?line [ClashMsg|_] = test_server:capture_get(),
+    ?line {match, [" hides "]} = re:run(ClashMsg, "\\*\\* .*( hides ).*",
 					[{capture,all_but_first,list}]),
     ?line true = code:set_path(P),
+
+    %% test "Bad path can't read"
+
+    %% remove TestServerPath to prevent clash with test-server path
+    Priv = ?config(priv_dir, Config),
+    ?line true = code:del_path(TestServerPath),
+    TmpEzFile = Priv++"foobar-0.tmp.ez",
+    ?line {ok, _} = file:copy(DDir++"foobar-0.1.ez", TmpEzFile),
+    ?line true = code:add_path(TmpEzFile++"/foobar-0.1/ebin"),
+    case os:type() of
+        {win32,_} ->
+	    %% The file wont be deleted on windows until it's closed, why we 
+	    %% need to rename instead.
+	    ?line ok = file:rename(TmpEzFile,TmpEzFile++".moved");
+	 _ ->
+    	    ?line ok = file:delete(TmpEzFile)
+    end,
+    test_server:capture_start(),
+    ?line ok = code:clash(),
+    test_server:capture_stop(),
+    ?line [BadPathMsg|_] = test_server:capture_get(),
+    ?line true = lists:prefix("** Bad path can't read", BadPathMsg),
+    ?line true = code:set_path(P),
+    file:delete(TmpEzFile++".moved"), %% Only effect on windows
     ok.
 
 ext_mod_dep(suite) ->
@@ -619,7 +677,7 @@ analyse([], [This={M,F,A}|Path], Visited, ErrCnt0) ->
     %% These modules should be loaded by code.erl before 
     %% the code_server is started.
     OK = [erlang, os, prim_file, erl_prim_loader, init, ets,
-	  code_server, lists, lists_sort, filename, packages, 
+	  code_server, lists, lists_sort, unicode, binary, filename, packages, 
 	  gb_sets, gb_trees, hipe_unified_loader, hipe_bifs,
 	  prim_zip, zlib],
     ErrCnt1 = 
@@ -647,6 +705,22 @@ analyse2(MFA={_,_,_}, Path, Visited0) ->
 
 %%%% We need to check these manually...
 % fun's are ok as long as they are defined locally.
+check_funs({'$M_EXPR','$F_EXPR',_},
+	   [{unicode,characters_to_binary_int,3},
+	    {unicode,characters_to_binary,3},
+	    {filename,filename_string_to_binary,1}|_]) -> 0;
+check_funs({'$M_EXPR','$F_EXPR',_},
+	   [{unicode,ml_map,3},
+	    {unicode,characters_to_binary_int,3},
+	    {unicode,characters_to_binary,3},
+	    {filename,filename_string_to_binary,1}|_]) -> 0;
+check_funs({'$M_EXPR','$F_EXPR',_},
+	   [{unicode,do_o_binary2,2},
+	    {unicode,do_o_binary,2},
+	    {unicode,o_trans,1},
+	    {unicode,characters_to_binary_int,3},
+	    {unicode,characters_to_binary,3},
+	    {filename,filename_string_to_binary,1}|_]) -> 0;
 check_funs({'$M_EXPR','$F_EXPR',_},
 	   [{code_server,load_native_code,4},
 	    {code_server,load_native_code_1,2},
@@ -864,6 +938,8 @@ add_and_rehash(Config) when is_list(Config) ->
     ?line true = rpc:call(Node, code, add_path, [OkDir]),
     ?line {error,_} = rpc:call(Node, code, add_path, [BadDir]),
     ?line ok = rpc:call(Node, code, rehash, []),
+
+    ?t:stop_node(Node),
     ok.
     
 where_is_file_no_cache(suite) ->
@@ -919,9 +995,9 @@ purge_stacktrace(Config) when is_list(Config) ->
 	error:function_clause ->
 	    ?line code:load_file(code_b_test),
 	    ?line case erlang:get_stacktrace() of
-		      [{?MODULE,_,[a]},
-		       {code_b_test,call,2},
-		       {?MODULE,purge_stacktrace,1}|_] ->
+		      [{?MODULE,_,[a],_},
+		       {code_b_test,call,2,_},
+		       {?MODULE,purge_stacktrace,1,_}|_] ->
 			  ?line false = code:purge(code_b_test),
 			  ?line [] = erlang:get_stacktrace()
 		  end
@@ -931,8 +1007,8 @@ purge_stacktrace(Config) when is_list(Config) ->
 	error:function_clause ->
 	    ?line code:load_file(code_b_test),
 	    ?line case erlang:get_stacktrace() of
-		      [{code_b_test,call,[nofun,2]},
-		       {?MODULE,purge_stacktrace,1}|_] ->
+		      [{code_b_test,call,[nofun,2],_},
+		       {?MODULE,purge_stacktrace,1,_}|_] ->
 			  ?line false = code:purge(code_b_test),
 			  ?line [] = erlang:get_stacktrace()
 		  end
@@ -943,8 +1019,8 @@ purge_stacktrace(Config) when is_list(Config) ->
 	error:badarg ->
 	    ?line code:load_file(code_b_test),
 	    ?line case erlang:get_stacktrace() of
-		      [{code_b_test,call,Args},
-		       {?MODULE,purge_stacktrace,1}|_] ->
+		      [{code_b_test,call,Args,_},
+		       {?MODULE,purge_stacktrace,1,_}|_] ->
 			  ?line false = code:purge(code_b_test),
 			  ?line [] = erlang:get_stacktrace()
 		  end
@@ -958,16 +1034,16 @@ mult_lib_roots(Config) when is_list(Config) ->
 			   "my_dummy_app-c/ebin/code_SUITE_mult_root_module"),
 
     %% Set up ERL_LIBS and start a slave node.
-    ErlLibs = filename:join(DataDir, first_root) ++ mult_lib_sep() ++
-	filename:join(DataDir, second_root),
+    ErlLibs = filename:join(DataDir, "first_root") ++ mult_lib_sep() ++
+	filename:join(DataDir, "second_root"),
 
     ?line {ok,Node} = 
 	?t:start_node(mult_lib_roots, slave,
 		      [{args,"-env ERL_LIBS "++ErlLibs}]),
 
-    ?line {ok,Cwd} = file:get_cwd(),
+    ?line TSPath = filename:dirname(code:which(test_server)),
     ?line Path0 = rpc:call(Node, code, get_path, []),
-    ?line [Cwd,"."|Path1] = Path0,
+    ?line [TSPath,"."|Path1] = Path0,
     ?line [Kernel|Path2] = Path1,
     ?line [Stdlib|Path3] = Path2,
     ?line mult_lib_verify_lib(Kernel, "kernel"),
@@ -986,7 +1062,6 @@ mult_lib_roots(Config) when is_list(Config) ->
 
     ?line true = rpc:call(Node, code_SUITE_mult_root_module, works_fine, []),
 
-    ?line ?t:stop_node(Node),
     ok.
 
 mult_lib_compile(Root, Last) ->
@@ -1129,6 +1204,22 @@ compile_files([File | Files], SrcDir, OutDir) ->
 compile_files([], _, _) ->
     ok.
 
+big_boot_embedded(suite) ->
+    [];
+big_boot_embedded(doc) ->
+    ["Test that a boot file with (almost) all of OTP can be used to start an"
+     " embeddedd system."];
+big_boot_embedded(Config) when is_list(Config) ->
+    ?line {BootArg,AppsInBoot} = create_big_boot(Config),
+    ?line {ok, Node} = 
+	?t:start_node(big_boot_embedded, slave,
+		      [{args,"-boot "++BootArg++" -mode embedded"}]),
+    ?line RemoteNodeApps = 
+	[ {X,Y} || {X,_,Y} <- 
+		       rpc:call(Node,application,loaded_applications,[]) ],
+    ?line true = lists:sort(AppsInBoot) =:=  lists:sort(RemoteNodeApps),
+    ok.
+
 on_load(Config) when is_list(Config) ->
     Master = on_load_test_case_process,
 
@@ -1210,7 +1301,8 @@ on_load_embedded_1(Config) ->
     ?line LibRoot = code:lib_dir(),
     ?line LinkName = filename:join(LibRoot, "on_load_app-1.0"),
     ?line OnLoadApp = filename:join(DataDir, "on_load_app-1.0"),
-    ?line file:delete(LinkName),
+    ?line del_link(LinkName),
+    io:format("LinkName :~p, OnLoadApp: ~p~n",[LinkName,OnLoadApp]),
     case file:make_symlink(OnLoadApp, LinkName) of
 	{error,enotsup} ->
 	    throw({skip,"Support for symlinks required"});
@@ -1239,7 +1331,15 @@ on_load_embedded_1(Config) ->
 
     %% Clean up.
     ?line stop_node(Node),
-    ?line ok = file:delete(LinkName).
+    ?line ok = del_link(LinkName).
+
+del_link(LinkName) ->
+   case file:delete(LinkName) of
+       {error,eperm} ->
+             file:del_dir(LinkName);
+       Other ->
+       	     Other
+   end.			   
 
 create_boot(Config, Options) ->
     ?line {ok, OldDir} = file:get_cwd(),
@@ -1255,7 +1355,7 @@ create_script(Config) ->
     ?line Apps = application_controller:which_applications(),
     ?line {value,{_,_,KernelVer}} = lists:keysearch(kernel, 1, Apps),
     ?line {value,{_,_,StdlibVer}} = lists:keysearch(stdlib, 1, Apps),
-    ?line {ok,Fd} = file:open(Name ++ ".rel", write),
+    ?line {ok,Fd} = file:open(Name ++ ".rel", [write]),
     ?line io:format(Fd,
 		    "{release, {\"Test release 3\", \"P2A\"}, \n"
 		    " {erts, \"9.42\"}, \n"
@@ -1264,6 +1364,73 @@ create_script(Config) ->
 		    [KernelVer,StdlibVer]),
     ?line file:close(Fd),
     {filename:dirname(Name),filename:basename(Name)}.
+
+create_big_boot(Config) ->
+    ?line {ok, OldDir} = file:get_cwd(),
+    ?line {Options,Local} = case is_source_dir() of 
+				true -> {[no_module_tests,local],true}; 
+				_ -> {[no_module_tests],false} 
+			    end,
+    ?line {LatestDir,LatestName,Apps} = create_big_script(Config,Local),
+    ?line ok = file:set_cwd(LatestDir),
+    ?line ok = systools:make_script(LatestName, Options),
+    ?line ok = file:set_cwd(OldDir),
+    {filename:join(LatestDir, LatestName),Apps}.
+
+% The following apps cannot be loaded 
+% hipe .app references (or can reference) files that have no
+% corresponding beam file (if hipe is not enabled)
+filter_app("hipe",_) ->
+    false;
+% Dialyzer and typer depends on hipe
+filter_app("dialyzer",_) ->
+    false;
+filter_app("typer",_) ->
+    false;
+% Orber requires explicit configuration
+filter_app("orber",_) ->
+    false;
+% cos* depends on orber
+filter_app("cos"++_,_) ->
+    false;
+% ic has a mod instruction in the app file but no corresponding start function
+filter_app("ic",_) ->
+    false;
+% Netconf has some dependency that I really do not understand (maybe like orber)
+filter_app("netconf",_) ->
+    false;
+% Safe has the same kind of error in the .app file as ic
+filter_app("safe",_) ->
+    false;
+% OS_mon does not find it's port program when running cerl
+filter_app("os_mon",true) ->
+    false;
+% Other apps should be OK.
+filter_app(_,_) ->
+    true.
+create_big_script(Config,Local) ->
+    ?line PrivDir = ?config(priv_dir, Config),
+    ?line Name = filename:join(PrivDir,"full_script_test"),
+    ?line InitialApplications=application:loaded_applications(),
+    %% Applications left loaded by the application suite, unload them!
+    ?line UnloadFix=[app0,app1,app2,group_leader,app_start_error],
+    ?line [application:unload(Leftover) || 
+	      Leftover <- UnloadFix,
+	      lists:keymember(Leftover,1,InitialApplications) ],
+    %% Now we should have only "real" applications...
+    ?line [application:load(list_to_atom(Y)) || {match,[Y]} <- [ re:run(X,code:lib_dir()++"/"++"([^/-]*).*/ebin",[{capture,[1],list}]) || X <- code:get_path()],filter_app(Y,Local)],
+    ?line Apps = [ {N,V} || {N,_,V} <- application:loaded_applications()],
+    ?line {ok,Fd} = file:open(Name ++ ".rel", [write]),
+    ?line io:format(Fd,
+		    "{release, {\"Test release 3\", \"P2A\"}, \n"
+		    " {erts, \"9.42\"}, \n"
+		    " ~p}.\n",
+		    [Apps]),
+    ?line file:close(Fd),
+    ?line NewlyLoaded = 
+	application:loaded_applications() -- InitialApplications,
+    ?line [ application:unload(N) || {N,_,_} <- NewlyLoaded],
+    {filename:dirname(Name),filename:basename(Name),Apps}.
 
 is_source_dir() ->
     filename:basename(code:lib_dir(kernel)) =:= "kernel" andalso
@@ -1314,7 +1481,35 @@ do_on_load_error(ReturnValue) ->
     ?line ErrorPid ! ReturnValue,
     receive
 	{'DOWN',Ref,process,_,Exit} ->
-	    ?line {undef,[{on_load_error,main,[]}|_]} = Exit
+	    ?line {undef,[{on_load_error,main,[],_}|_]} = Exit
+    end.
+
+native_early_modules(suite) -> [];
+native_early_modules(doc) -> ["Test that the native code of early loaded modules is loaded"];
+native_early_modules(Config) when is_list(Config) ->
+    case erlang:system_info(hipe_architecture) of
+	undefined ->
+	    {skip,"Native code support is not enabled"};
+	Architecture ->
+	    native_early_modules_1(Architecture)
+    end.
+
+native_early_modules_1(Architecture) ->
+    ?line {lists, ListsBinary, _ListsFilename} = code:get_object_code(lists),
+    ?line ChunkName = hipe_unified_loader:chunk_name(Architecture),
+    ?line NativeChunk = beam_lib:chunks(ListsBinary, [ChunkName]),
+    ?line IsHipeCompiled = case NativeChunk of
+        {ok,{_,[{_,Bin}]}} when is_binary(Bin) -> true;
+        {error, beam_lib, _} -> false
+    end,
+    case IsHipeCompiled of
+        false ->
+	    {skip,"OTP apparently not configured with --enable-native-libs"};
+        true ->
+            ?line true = lists:all(fun code:is_module_native/1,
+				   [ets,file,filename,gb_sets,gb_trees,
+				    hipe_unified_loader,lists,os,packages]),
+            ok
     end.
 
 %%-----------------------------------------------------------------

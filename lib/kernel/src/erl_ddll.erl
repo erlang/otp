@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %% Dynamic Driver Loader and Linker
@@ -29,6 +29,11 @@
 
 %%----------------------------------------------------------------------------
 
+-type path()   :: string() | atom().
+-type driver() :: string() | atom().
+
+%%----------------------------------------------------------------------------
+
 -spec start() -> {'error', {'already_started', 'undefined'}}.
 
 start() ->
@@ -39,14 +44,18 @@ start() ->
 stop() ->
     ok.
 
--spec load_driver(Path :: string() | atom(), Driver :: string() | atom()) ->
-	'ok' | {'error', any()}.
+-spec load_driver(Path, Name) -> 'ok' | {'error', ErrorDesc} when
+      Path :: path(),
+      Name :: driver(),
+      ErrorDesc :: term().
 
 load_driver(Path, Driver) ->
     do_load_driver(Path, Driver, [{driver_options,[kill_ports]}]).
 
--spec load(Path :: string() | atom(), Driver :: string() | atom()) ->
-	'ok' | {'error', any()}.
+-spec load(Path, Name) -> 'ok' | {'error', ErrorDesc} when
+      Path :: path(),
+      Name :: driver(),
+      ErrorDesc ::term().
 
 load(Path, Driver) ->
     do_load_driver(Path, Driver, []).
@@ -95,42 +104,56 @@ do_unload_driver(Driver,Flags) ->
 	    end
     end.
 
--spec unload_driver(Driver :: string() | atom()) -> 'ok' | {'error', any()}.
+-spec unload_driver(Name) -> 'ok' | {'error', ErrorDesc} when
+      Name :: driver(),
+      ErrorDesc :: term().
 
 unload_driver(Driver) ->
     do_unload_driver(Driver,[{monitor,pending_driver},kill_ports]).
 
--spec unload(Driver :: string() | atom()) -> 'ok' | {'error', any()}.
+-spec unload(Name) -> 'ok' | {'error', ErrorDesc} when
+      Name :: driver(),
+      ErrorDesc :: term().
 
 unload(Driver) ->
     do_unload_driver(Driver,[]).
 
--spec reload(Path :: string() | atom(), Driver :: string() | atom()) ->
-	'ok' | {'error', any()}.
+-spec reload(Path, Name) -> 'ok' | {'error', ErrorDesc} when
+      Path :: path(),
+      Name :: driver(),
+      ErrorDesc :: pending_process | OpaqueError,
+      OpaqueError :: term().
 
 reload(Path,Driver) ->
     do_load_driver(Path, Driver, [{reload,pending_driver}]).
 
--spec reload_driver(Path :: string() | atom(), Driver :: string() | atom()) ->
-	'ok' | {'error', any()}.
+-spec reload_driver(Path, Name) -> 'ok' | {'error', ErrorDesc} when
+      Path :: path(),
+      Name :: driver(),
+      ErrorDesc :: pending_process | OpaqueError,
+      OpaqueError :: term().
 
 reload_driver(Path,Driver) ->
     do_load_driver(Path, Driver, [{reload,pending_driver},
 				  {driver_options,[kill_ports]}]).			    
 
--spec format_error(Code :: atom()) -> string().
+-spec format_error(ErrorDesc) -> string() when
+      ErrorDesc :: term().
 
 format_error(Code) ->
     case Code of
-	% This is the only error code returned only from erlang code...
-	% 'permanent' has a translation in the emulator, even though the erlang code uses it to...
+	%% This is the only error code returned only from erlang code...
+	%% 'permanent' has a translation in the emulator, even though the erlang code uses it to...
 	load_cancelled ->
 	    "Loading was cancelled from other process";
 	_ ->
 	    erl_ddll:format_error_int(Code)
     end.
 
--spec info(Driver :: string() | atom()) -> [{atom(), any()}].
+-spec info(Name) -> InfoList when
+      Name :: driver(),
+      InfoList :: [InfoItem, ...],
+      InfoItem :: {Tag :: atom(), Value :: term()}.
  
 info(Driver) ->
     [{processes, erl_ddll:info(Driver,processes)},
@@ -141,7 +164,12 @@ info(Driver) ->
      {awaiting_load,  erl_ddll:info(Driver,awaiting_load)},
      {awaiting_unload, erl_ddll:info(Driver,awaiting_unload)}].
 
--spec info() -> [{string(), [{atom(), any()}]}].
+-spec info() -> AllInfoList when
+      AllInfoList :: [DriverInfo],
+      DriverInfo :: {DriverName, InfoList},
+      DriverName :: string(),
+      InfoList :: [InfoItem],
+      InfoItem :: {Tag :: atom(), Value :: term()}.
 
 info() ->
     {ok,DriverList} = erl_ddll:loaded_drivers(),

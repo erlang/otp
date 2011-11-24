@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2006-2009. All Rights Reserved.
+ * Copyright Ericsson AB 2006-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -120,7 +120,7 @@ static void ready_async(ErlDrvData drv_data, ErlDrvThreadData async_data)
     ErlDrvPort port = reinterpret_cast<ErlDrvPort>(drv_data);
     our_async_data* d = reinterpret_cast<our_async_data*>(async_data);
     int n = d->data.size(), result_n = n*2 + 5;
-    ErlDrvTermData* result = new ErlDrvTermData[result_n], * rp = result;
+    ErlDrvTermData *result = new ErlDrvTermData[result_n], *rp = result;
     *rp++ = ERL_DRV_PORT;
     *rp++ = driver_mk_port(port);
     for (vector<int>::iterator i = d->data.begin();

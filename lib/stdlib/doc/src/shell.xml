@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2010</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -763,26 +763,20 @@ loop(N) ->
 
   <funcs>
     <func>
-      <name>history(N) -> integer()</name>
+      <name name="history" arity="1"/>
       <fsummary>Sets the number of previous commands to keep</fsummary>
-      <type>
-        <v>N = integer()</v>
-      </type>
       <desc>
         <p>Sets the number of previous commands to keep in the
-          history list to <c>N</c>. The previous number is returned.
+          history list to <c><anno>N</anno></c>. The previous number is returned.
           The default number is 20.</p>
       </desc>
     </func>
     <func>
-      <name>results(N) -> integer()</name>
+      <name name="results" arity="1"/>
       <fsummary>Sets the number of previous results to keep</fsummary>
-      <type>
-        <v>N = integer()</v>
-      </type>
       <desc>
         <p>Sets the number of results from previous commands to keep in
-          the history list to <c>N</c>. The previous number is returned.
+          the history list to <c><anno>N</anno></c>. The previous number is returned.
           The default number is 20.</p>
       </desc>
     </func>
@@ -790,7 +784,7 @@ loop(N) ->
       <name>catch_exception(Bool) -> Bool</name>
       <fsummary>Sets the exception handling of the shell</fsummary>
       <type>
-        <v>Bool = bool()</v>
+        <v>Bool = boolean()</v>
       </type>
       <desc>
         <p>Sets the exception handling of the evaluator process. The
@@ -804,38 +798,29 @@ loop(N) ->
       </desc>
     </func>
     <func>
-      <name>prompt_func(PromptFunc) -> prompt_func()</name>
+      <name name="prompt_func" arity="1"/>
       <fsummary>Sets the shell prompt</fsummary>
-      <type>
-        <v>PromptFunc = prompt_func()</v>
-        <v>prompt_func() = default | {Mod, Func}</v>
-        <v>Mod = Func = atom()</v>
-      </type>
       <desc>
         <p>Sets the shell prompt function to <c>PromptFunc</c>. The
           previous prompt function is returned.</p>
       </desc>
     </func>
     <func>
-      <name>start_restricted(Module) -> ok | {error, Reason}</name>
+      <name name="start_restricted" arity="1"/>
       <fsummary>Exits a normal shell and starts a restricted shell.</fsummary>
-      <type>
-        <v>Module = atom()</v>
-        <v>Reason = atom()</v>
-      </type>
       <desc>
         <p>Exits a normal shell and starts a restricted
-          shell. <c>Module</c> specifies the callback module for the
+          shell. <c><anno>Module</anno></c> specifies the callback module for the
           functions <c>local_allowed/3</c> and <c>non_local_allowed/3</c>.
           The function is meant to be called from the shell.</p>
         <p>If the callback module cannot be loaded, an error tuple is
-          returned. The <c>Reason</c> in the error tuple is the one
+          returned. The <c><anno>Reason</anno></c> in the error tuple is the one
           returned by the code loader when trying to load the code of the callback
           module.</p>
       </desc>
     </func>
     <func>
-      <name>stop_restricted() -> ok</name>
+      <name name="stop_restricted" arity="0"/>
       <fsummary>Exits a restricted shell and starts a normal shell.</fsummary>
       <desc>
         <p>Exits a restricted shell and starts a normal shell. The function

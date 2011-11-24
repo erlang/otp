@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -27,15 +27,17 @@
 -define(privdir, "erl_expand_records_SUITE_priv").
 -define(t, test_server).
 -else.
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -define(privdir, ?config(priv_dir, Config)).
 -endif.
 
--export([all/1, init_per_testcase/2, fin_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 init_per_testcase/2, end_per_testcase/2]).
 
 -export([abstract_module/1, attributes/1, expr/1, guard/1,
          init/1, pattern/1, strict/1, update/1,
-         tickets/1, otp_5915/1, otp_7931/1, otp_5990/1,
+	 otp_5915/1, otp_7931/1, otp_5990/1,
 	 otp_7078/1, otp_7101/1]).
 
 % Default timetrap timeout (set in init_per_testcase).
@@ -45,14 +47,33 @@ init_per_testcase(_Case, Config) ->
     ?line Dog = ?t:timetrap(?default_timeout),
     [{watchdog, Dog} | Config].
 
-fin_per_testcase(_Case, _Config) ->
+end_per_testcase(_Case, _Config) ->
     Dog = ?config(watchdog, _Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
-all(suite) ->
-    [abstract_module, attributes, expr, guard, init, pattern, 
-     strict, update, tickets].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [abstract_module, attributes, expr, guard, init,
+     pattern, strict, update, {group, tickets}].
+
+groups() -> 
+    [{tickets, [],
+      [otp_5915, otp_7931, otp_5990, otp_7078, otp_7101]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 abstract_module(doc) ->
     "Compile an abstract module.";
@@ -399,8 +420,6 @@ update(Config) when is_list(Config) ->
     ?line run(Config, Ts),
     ok.
     
-tickets(suite) ->
-    [otp_5915, otp_7931, otp_5990, otp_7078, otp_7101].
 
 otp_5915(doc) ->
     "Strict record tests in guards.";

@@ -4,7 +4,7 @@
 <cref>
   <header>
     <copyright>
-      <year>2002</year><year>2010</year>
+      <year>2002</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -58,11 +58,8 @@
       <item>Allocator used for memory blocks that are expected to be
        long-lived, for example Erlang code.</item>
       <tag><c>fix_alloc</c></tag>
-      <item>A very fast allocator used for some fix-sized
-       data. <c>fix_alloc</c> manages a set of memory pools from
-       which memory blocks are handed out. <c>fix_alloc</c>
-       allocates memory pools from <c>ll_alloc</c>. Memory pools
-       that have been allocated are never deallocated.</item>
+      <item>A fast allocator used for some frequently used
+       fixed size data types.</item>
       <tag><c>std_alloc</c></tag>
       <item>Allocator used for most memory blocks not allocated via any of
        the other allocators described above.</item>
@@ -78,14 +75,20 @@
        segments are allocated, cached segments are used if possible
        instead of creating new segments.  This in order to reduce
        the number of system calls made.</item>
+      <tag><c>sbmbc_alloc</c></tag>
+      <item>Allocator used by other allocators for allocation of carriers
+      where only small blocks are placed. Currently this allocator is
+      disabled by default.</item>
     </taglist>
-    <p><c>sys_alloc</c> and <c>fix_alloc</c> are always enabled and
+    <p><c>sys_alloc</c> is always enabled and
       cannot be disabled. <c>mseg_alloc</c> is always enabled if it is
       available and an allocator that uses it is enabled. All other
       allocators can be <seealso marker="#M_e">enabled or disabled</seealso>.
       By default all allocators are enabled.
-      When an allocator is disabled, <c>sys_alloc</c>
-      is used instead of the disabled allocator.</p>
+      When an allocator is disabled, <c>sys_alloc</c> is used instead of
+      the disabled allocator. <c>sbmbc_alloc</c> is an exception. If
+      <c>sbmbc_alloc</c> is disabled, other allocators will not handle
+      small blocks in separate carriers.</p>
     <p>The main idea with the <c>erts_alloc</c> library is to separate
       memory blocks that are used differently into different memory
       areas, and by this achieving less memory fragmentation. By
@@ -98,26 +101,30 @@
     <marker id="alloc_util"></marker>
     <title>The alloc_util framework</title>
     <p>Internally a framework called <c>alloc_util</c> is used for
-      implementing allocators. <c>sys_alloc</c>, <c>fix_alloc</c>, and
+      implementing allocators. <c>sys_alloc</c>, and
       <c>mseg_alloc</c> do not use this framework; hence, the
       following does <em>not</em> apply to them.</p>
     <p>An allocator manages multiple areas, called carriers, in which
       memory blocks are placed. A carrier is either placed in a
-      separate memory segment (allocated via <c>mseg_alloc</c>) or in
-      the heap segment (allocated via <c>sys_alloc</c>). Multiblock
+      separate memory segment (allocated via <c>mseg_alloc</c>), in
+      the heap segment (allocated via <c>sys_alloc</c>), or inside
+      another carrier (in case it is a carrier created by
+      <c>sbmbc_alloc</c>). Multiblock
       carriers are used for storage of several blocks. Singleblock
       carriers are used for storage of one block. Blocks that are
       larger than the value of the singleblock carrier threshold
       (<seealso marker="#M_sbct">sbct</seealso>) parameter are placed
-      in singleblock carriers. Blocks smaller than the value of the
-      <c>sbct</c> parameter are placed in multiblock
-      carriers. Normally an allocator creates a "main multiblock
+      in singleblock carriers. Blocks that are smaller than the value
+      of the <c>sbct</c> parameter are placed in multiblock
+      carriers. Blocks that are smaller than the small block multiblock
+      carrier threshold (<seealso marker="#M_sbmbct">sbmbct</seealso>)
+      will be placed in multiblock carriers only used for small blocks.
+      Normally an allocator creates a "main multiblock
       carrier". Main multiblock carriers are never deallocated. The
       size of the main multiblock carrier is determined by the value
       of the <seealso marker="#M_mmbcs">mmbcs</seealso> parameter.</p>
-    <p>      <marker id="mseg_mbc_sizes"></marker>
-
-      Sizes of multiblock carriers allocated via <c>mseg_alloc</c> are
+    <p><marker id="mseg_mbc_sizes"></marker>Sizes of multiblock carriers
+      allocated via <c>mseg_alloc</c> are
       decided based on the values of the largest multiblock carrier
       size (<seealso marker="#M_lmbcs">lmbcs</seealso>), the smallest
       multiblock carrier size (<seealso marker="#M_smbcs">smbcs</seealso>),
@@ -133,8 +140,11 @@
       <c>sbct</c> parameter should be larger than the value of the
       <c>lmbcs</c> parameter, the allocator may have to create
       multiblock carriers that are larger than the value of the
-      <c>lmbcs</c> parameter, though. Singleblock carriers allocated
-      via <c>mseg_alloc</c> are sized to whole pages.</p>
+      <c>lmbcs</c> parameter, though. The size of multiblock carriers
+      for small blocks is determined by the small block multiblock
+      carrier size (<seealso marker="#M_sbmbcs">sbmbcs</seealso>).
+      Singleblock carriers allocated via <c>mseg_alloc</c> are sized
+      to whole pages.</p>
     <p>Sizes of carriers allocated via <c>sys_alloc</c> are
       decided based on the value of the <c>sys_alloc</c> carrier size
       (<seealso marker="#Muycs">ycs</seealso>) parameter. The size of
@@ -143,9 +153,8 @@
     <p>Coalescing of free blocks are always performed immediately.
       Boundary tags (headers and footers) in free blocks are used
       which makes the time complexity for coalescing constant.</p>
-    <p>      <marker id="strategy"></marker>
-
-      The memory allocation strategy used for multiblock carriers by an
+    <p><marker id="strategy"></marker>The memory allocation strategy
+      used for multiblock carriers by an
       allocator is configurable via the <seealso marker="#M_as">as</seealso>
       parameter. Currently the following strategies are available:</p>
     <taglist>
@@ -162,6 +171,14 @@
         <p>Strategy: Find the smallest block that satisfies the
           requested block size. If multiple blocks are found, choose
           the one with the lowest address.</p>
+        <p>Implementation: A balanced binary search tree is
+          used. The time complexity is proportional to log N, where
+          N is the number of free blocks.</p>
+      </item>
+      <tag>Address order first fit</tag>
+      <item>
+        <p>Strategy: Find the block with the lowest address that satisfies the
+          requested block size.</p>
         <p>Implementation: A balanced binary search tree is
           used. The time complexity is proportional to log N, where
           N is the number of free blocks.</p>
@@ -192,7 +209,20 @@
 	  This since it will only cause problems for other allocators.</p>
       </item>
     </taglist>
+    <p>Apart from the ordinary allocators described above a number of
+       pre-allocators are used for some specific data types. These
+       pre-allocators pre-allocate a fixed amount of memory for certain data
+       types when the run-time system starts. As long as there are available
+       pre-allocated memory, it will be used. When no pre-allocated memory is
+       available, memory will be allocated in ordinary allocators. These
+       pre-allocators are typically much faster than the ordinary allocators,
+       but can only satisfy a limited amount of requests.</p>
   </section>
+
+  <note><p>
+    Currently only allocators using the best fit and the address order
+    best fit strategies are able to use "small block multi block carriers".
+  </p></note>
 
   <section>
     <marker id="flags"></marker>
@@ -215,6 +245,7 @@
       the currently present allocators:</p>
     <list type="bulleted">
       <item><c>B: binary_alloc</c></item>
+      <item><c>C: sbmbc_alloc</c></item>
       <item><c>D: std_alloc</c></item>
       <item><c>E: ets_alloc</c></item>
       <item><c>F: fix_alloc</c></item>
@@ -246,18 +277,6 @@
        Max cached segments. The maximum number of memory segments
        stored in the memory segment cache. Valid range is
        0-30. Default value is 5.</item>
-      <tag><marker id="MMcci"><c><![CDATA[+MMcci <time>]]></c></marker></tag>
-      <item>
-       Cache check interval (in milliseconds). The memory segment
-       cache is checked for segments to destroy at an interval
-       determined by this parameter. Default value is 1000.</item>
-    </taglist>
-    <p>The following flags are available for configuration of
-      <c>fix_alloc</c>:</p>
-    <taglist>
-      <tag><marker id="MFe"><c>+MFe true</c></marker></tag>
-      <item>
-       Enable <c>fix_alloc</c>. Note: <c>fix_alloc</c> cannot be disabled.</item>
     </taglist>
     <p>The following flags are available for configuration of
       <c>sys_alloc</c>:</p>
@@ -296,15 +315,15 @@
        based on <c>alloc_util</c>. If <c>u</c> is used as subsystem
        identifier (i.e., <c><![CDATA[<S> = u]]></c>) all allocators based on
        <c>alloc_util</c> will be effected. If <c>B</c>, <c>D</c>, <c>E</c>,
-       <c>H</c>, <c>L</c>, <c>R</c>, <c>S</c>, or <c>T</c> is used as
+        <c>F</c>, <c>H</c>, <c>L</c>, <c>R</c>, <c>S</c>, or <c>T</c> is used as
        subsystem identifier, only the specific allocator identified will be
        effected:</p>
     <taglist>
-      <tag><marker id="M_as"><c><![CDATA[+M<S>as bf|aobf|gf|af]]></c></marker></tag>
+      <tag><marker id="M_as"><c><![CDATA[+M<S>as bf|aobf|aoff|gf|af]]></c></marker></tag>
       <item>
        Allocation strategy. Valid strategies are <c>bf</c> (best fit),
-      <c>aobf</c> (address order best fit), <c>gf</c> (good fit),
-       and <c>af</c> (a fit). See 
+      <c>aobf</c> (address order best fit), <c>aoff</c> (address order first fit),
+      <c>gf</c> (good fit), and <c>af</c> (a fit). See 
       <seealso marker="#strategy">the description of allocation strategies</seealso> in "the <c>alloc_util</c> framework" section.</item>
       <tag><marker id="M_asbcst"><c><![CDATA[+M<S>asbcst <size>]]></c></marker></tag>
       <item>
@@ -395,32 +414,43 @@
        threshold will be placed in singleblock carriers. Blocks
        smaller than this threshold will be placed in multiblock
        carriers.</item>
+      <tag><marker id="M_sbmbcs"><c><![CDATA[+M<S>sbmbcs <size>]]></c></marker></tag>
+      <item>
+	Small block multiblock carrier size (in bytes). Memory blocks smaller
+	than the small block multiblock carrier threshold
+	(<seealso marker="#M_sbmbct">sbmbct</seealso>) will be placed in
+	multiblock carriers used for small blocks only. This parameter
+	determines the size of such carriers.
+      </item>
+      <tag><marker id="M_sbmbct"><c><![CDATA[+M<S>sbmbct <size>]]></c></marker></tag>
+      <item>
+	Small block multiblock carrier threshold (in bytes). Memory blocks
+	smaller than this threshold will be placed in multiblock carriers
+	used for small blocks only.
+      </item>
       <tag><marker id="M_smbcs"><c><![CDATA[+M<S>smbcs <size>]]></c></marker></tag>
       <item>
        Smallest (<c>mseg_alloc</c>) multiblock carrier size (in
        kilobytes). See <seealso marker="#mseg_mbc_sizes">the description
        on how sizes for mseg_alloc multiblock carriers are decided</seealso>
        in "the <c>alloc_util</c> framework" section.</item>
-      <tag><marker id="M_t"><c><![CDATA[+M<S>t true|false|<amount>]]></c></marker></tag>
+      <tag><marker id="M_t"><c><![CDATA[+M<S>t true|false]]></c></marker></tag>
       <item>
        Multiple, thread specific instances of the allocator.
        This option will only have any effect on the runtime system
        with SMP support. Default behaviour on the runtime system with
-       SMP support (<c>N</c> equals the number of scheduler threads):
+       SMP support:
        <taglist>
-         <tag><c>temp_alloc</c></tag>
-	 <item><c>N + 1</c> instances.</item>
          <tag><c>ll_alloc</c></tag>
 	 <item><c>1</c> instance.</item>
          <tag>Other allocators</tag>
-	 <item><c>N</c> instances when <c>N</c> is less than or equal to
-	 <c>16</c>. <c>16</c> instances when <c>N</c> is greater than
-	 <c>16</c>.</item>
+	 <item><c>NoSchedulers+1</c> instances. Each scheduler will use
+	 a lock-free instance of its own and other threads will use
+	 a common instance.</item>
        </taglist>
-       <c>temp_alloc</c> will always use <c>N + 1</c> instances when
-       this option has been enabled regardless of the amount passed.
-       Other allocators will use the same amount of instances as the
-       amount passed as long as it isn't greater than <c>N</c>.       
+       It was previously (before ERTS version 5.9) possible to configure
+       a smaller amount of thread specific instances than schedulers.
+       This is, however, not possible any more.
       </item>
     </taglist>
     <p>Currently the following flags are available for configuration of

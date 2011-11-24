@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -270,12 +270,17 @@ create_id() ->
 get_qos([]) ->
     [];
 get_qos(Properties) ->
-    get_qos(Properties, [], []).
+    case get_qos(Properties, [], []) of
+	{ok, Supported} ->
+	    Supported;
+	{error, Unsupported} ->
+	    corba:raise(#'CosNotification_UnsupportedQoS'{qos_err = Unsupported})
+    end.
 
 get_qos([], Supported, []) ->
-    Supported;
+    {ok, Supported};
 get_qos([], _, Unsupported) ->
-    corba:raise(#'CosNotification_UnsupportedQoS'{qos_err = Unsupported});
+    {error, Unsupported};
 get_qos([#'CosNotification_Property'{name = ?CycleDetection,
 				     value= #any{value = ?AuthorizeCycles}}|T], 
 	Supported, Unsupported) ->

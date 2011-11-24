@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2000-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
@@ -27,7 +27,8 @@
 
 %% gen_server exports
 -export([init/1, 
-	 handle_call/3, handle_cast/2, handle_info/2, terminate/2]).
+	 handle_call/3, handle_cast/2, handle_info/2, terminate/2,
+	 code_change/3]).
 
 
 -define(default_verbosity,error).
@@ -86,8 +87,8 @@ options(Options) ->
 
 options([], Defaults, Options) ->
     Options ++ Defaults;
-options([{Key,Val} = Opt|Opts], Defaults, Options) ->
-    options(Opts, lists:keydelete(Key, 1, Defaults), [Opt|Options]).
+options([{Key, _Val} = Opt|Opts], Defaults, Options) ->
+    options(Opts, lists:keydelete(Key, 1, Defaults), [Opt | Options]).
 
 
 verbosity(silence) ->
@@ -134,10 +135,9 @@ uris(otp) ->
      uri_top_index(),
      uri_internal_product1(),
      uri_internal_product2(),
-     uri_p7a_test_results(),
+     uri_r13b03_test_results(),
      uri_bjorn1(),
-     uri_bjorn2(),
-     uri_top_ronja()
+     uri_bjorn2()
     ].
 
 uri_top_index() -> 
@@ -149,18 +149,15 @@ uri_internal_product1() ->
 uri_internal_product2() -> 
     {"product internal page (2)","/product/internal"}.
 
-uri_p7a_test_results() ->
-    {"test summery index page",
-     "/product/internal/test/test_results/progress_P7A/index.html"}.
+uri_r13b03_test_results() ->
+    {"daily build index page",
+     "/product/internal/test/daily/logs.html"}.
 
 uri_bjorn1() ->
     {"bjorns home page (1)","/~bjorn/"}.
 
 uri_bjorn2() ->
     {"bjorns home page (2)","/~bjorn"}.
-
-uri_top_ronja() ->
-    {"ronja top page","/ronja/"}.
 
 
 handle_call(stop, _From, State) ->
@@ -199,7 +196,11 @@ handle_info(Info, State) ->
     {noreply, State}.
 
 
-terminate(Reason,State) ->
+code_change(_OldVsn, State, _Extra) ->
+    {ok, State}.
+
+
+terminate(_Reason, State) ->
     tcancel(State#state.tref),
     log_close(get(log_file)),
     ok.
@@ -287,16 +288,16 @@ trash_the_rest(Socket,N) ->
     end.
 
 
-add(N1,N2) when integer(N1),integer(N2) ->
+add(N1, N2) when is_integer(N1) andalso is_integer(N2) ->
     N1 + N2;
-add(N1,N2) when integer(N1) ->
+add(N1, _N2) when is_integer(N1) ->
     N1;
-add(N1,N2) when integer(N2) ->
+add(_N1, N2) when is_integer(N2) ->
     N2.
 
-sz(L) when list(L) ->
+sz(L) when is_list(L) ->
     length(lists:flatten(L));
-sz(B) when binary(B) ->
+sz(B) when is_binary(B) ->
     size(B);
 sz(O) ->
     {unknown_size,O}.
@@ -307,9 +308,9 @@ sz(O) ->
 %% Status code to printable string
 %%
 
-status_to_message(L) when list(L) ->
+status_to_message(L) when is_list(L) ->
     case (catch list_to_integer(L)) of
-	I when integer(I) ->
+	I when is_integer(I) ->
 	    status_to_message(I);
 	_ ->
 	    io_lib:format("UNKNOWN STATUS CODE: '~p'",[L])
@@ -470,12 +471,12 @@ vlog(F,A)   -> vprint(get(verbosity),log,F,A).
 verror(F)   -> vprint(get(verbosity),error,F,[]).
 verror(F,A) -> vprint(get(verbosity),error,F,A).
 
-vprint(trace,Severity,F,A)         -> vprint(Severity,F,A);
-vprint(debug,trace,F,A)            -> ok;
-vprint(debug,Severity,F,A)         -> vprint(Severity,F,A);
-vprint(log,log,F,A)                -> vprint(log,F,A);
-vprint(log,error,F,A)              -> vprint(log,F,A);
-vprint(error,error,F,A)            -> vprint(error,F,A);
+vprint(trace, Severity,  F,  A)    -> vprint(Severity,F,A);
+vprint(debug, trace,    _F, _A)    -> ok;
+vprint(debug, Severity,  F,  A)    -> vprint(Severity,F,A);
+vprint(log,   log,       F,  A)    -> vprint(log,F,A);
+vprint(log,   error,     F,  A)    -> vprint(log,F,A);
+vprint(error, error,     F,  A)    -> vprint(error,F,A);
 vprint(_Verbosity,_Severity,_F,_A) -> ok.
 
 vprint(Severity,F,A) -> 
@@ -489,8 +490,5 @@ image_of(debug) -> "DBG: ";
 image_of(trace) -> "TRC: ".
    
 local_time() -> calendar:local_time().
-
-
-    
 
 

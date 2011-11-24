@@ -3,6 +3,54 @@
 		(in reversed chronological order)
 ==============================================================================
 
+Version 2.4.2 (in Erlang/OTP R14B02)
+------------------------------------
+ - Added --fullpath option to display files with warnings with their full
+   file names (thanks to Magnus Henoch for the original patch).
+ - Better handling of 'and'/'or'/'not' guards that generate warnings
+   (thanks to Stavros Aronis).
+ - Better blame assignment for cases when a function's spec is erroneous
+   (thanks to Stavros Aronis).
+ - More descriptive warnings when a tuple/record pattern contains subterms
+   that violate the declared types of record fields (thanks to Matthias Lang
+   for the test case and for Stavros Aronis for the actual fix).
+
+Version 2.4.0 (in Erlang/OTP R14B01)
+------------------------------------
+ - Added ability to supply multiple PLTs for the analysis (option --plts).
+   Currently these PLTs must be independent (i.e., no module appears in more
+   than one PLT) and there must not include files with module name clashes.
+ - Strengthened and streamlined hard-coded type information for some BIFs
+   and key library functions.
+ - Fixed pretty rare infinite loop when refining the types of an SCC whose
+   functions all returned none() (thanks to Stavros Aronis).
+ - Fixed pretty rare crash when taking the infimum of two tuple_sets.
+ - Fixed pretty rare crash when using parameterized types containing unbound
+   variables (thanks to Nicolas Trangez for reporting it).
+ - Deeper unfolding of recursive types (thanks to Maria Christakis).
+ - Fixed some incomplete and erroneous specs in modules of kernel and stdlib.
+ - Fixed problems in the handling of remote types in records used as types
+   (thanks to Nico Kruber for the report and to Maria Christakis for the fix).
+ - Fixed handling of nested opaque types (thanks to Thorsten Schuett for
+   reporting it and to Maria Christakis for fixing it).
+
+Version 2.3.1 (in Erlang/OTP R14B)
+----------------------------------
+ - Eliminated warnings for auto-imported BIF clashes.
+
+Version 2.3.0 (in Erlang/OTP R14A)
+----------------------------------
+ - Dialyzer properly supports the new attribute -export_type and checks
+   that remote types only refer to exported types. A warning is produced
+   if some files/applications refer to types defined in modules which are
+   neither in the PLT nor in the analyzed applications.
+ - Support for detecting data races involving whereis/1 and unregister/1.
+ - More precise identification of the reason(s) why a record construction
+   violates the types declared for its fields.
+ - Fixed bug in the handling of the 'or' guard.
+ - Better handling of the erlang:element/2 BIF.
+ - Complete handling of Erlang BIFs.
+
 Version 2.2.0 (in Erlang/OTP R13B04)
 ------------------------------------
  - Much better support for opaque types (thanks to Manouk Manoukian).

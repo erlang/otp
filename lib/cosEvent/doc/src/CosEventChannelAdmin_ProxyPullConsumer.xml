@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>1997</year>
-      <year>2007</year>
+      <year>2011</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -23,8 +23,7 @@
   The Initial Developer of the Original Code is Ericsson AB.
     </legalnotice>
 
-    <title>CosEventChannelAdmin_&shy;ProxyPullConsumer</title>
-    <shorttitle>..._ProxyPullConsumer</shorttitle>
+    <title>CosEventChannelAdmin_ProxyPullConsumer</title>
     <prepared></prepared>
     <responsible></responsible>
     <docno></docno>

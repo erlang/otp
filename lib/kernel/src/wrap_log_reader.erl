@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -37,9 +37,11 @@
 	 cont     :: dlog_cont(), 	% disk_log's continuation record
 	 file     :: file:filename(),	% file name without extension
 	 file_no  :: non_neg_integer(),	% current file number
-	 mod_time :: date_time(),	% modification time of current file
+	 mod_time :: file:date_time(),	% modification time of current file
 	 first_no :: non_neg_integer() | 'one' % first read file number
 	}).
+
+-opaque continuation() :: #wrap_reader{}.
 
 %%
 %%  Exported functions
@@ -50,9 +52,11 @@
 %% is not yet reached, we are on the first 'round' of filling the wrap
 %% files.
 
--type open_ret() :: {'ok', #wrap_reader{}} | {'error', tuple()}.
+-type open_ret() :: {'ok', Continuation :: continuation()}
+                  | {'error', Reason :: tuple()}.
 
--spec open(atom() | string()) -> open_ret().
+-spec open(Filename) -> open_ret() when
+      Filename :: string() | atom().
 
 open(File) when is_atom(File) ->
     open(atom_to_list(File));
@@ -77,7 +81,9 @@ open(File) when is_list(File) ->
 	    Error
     end.
 
--spec open(atom() | string(), integer()) -> open_ret().
+-spec open(Filename, N) -> open_ret() when
+      Filename :: string() | atom(),
+      N :: integer().
 
 open(File, FileNo) when is_atom(File), is_integer(FileNo) ->
     open(atom_to_list(File), FileNo);
@@ -100,22 +106,29 @@ open(File, FileNo) when is_list(File), is_integer(FileNo) ->
 	    Error
     end.
 
--spec close(#wrap_reader{}) -> 'ok' | {'error', atom()}.
+-spec close(Continuation) -> 'ok' | {'error', Reason} when
+      Continuation :: continuation(),
+      Reason :: file:posix().
 
 close(#wrap_reader{fd = FD}) ->
     file:close(FD).
 
--type chunk_ret() :: {#wrap_reader{}, [term()]}
-                   | {#wrap_reader{}, [term()], non_neg_integer()}
-                   | {#wrap_reader{}, 'eof'}
-                   | {'error', term()}.
+-type chunk_ret() :: {Continuation2, Terms :: [term()]}
+                   | {Continuation2,
+                      Terms :: [term()],
+                      Badbytes :: non_neg_integer()}
+                   | {Continuation2, 'eof'}
+                   | {'error', Reason :: term()}.
 
--spec chunk(#wrap_reader{}) -> chunk_ret().
+-spec chunk(Continuation) -> chunk_ret() when
+      Continuation :: continuation().
 
 chunk(WR = #wrap_reader{}) ->
     chunk(WR, ?MAX_CHUNK_SIZE, 0).
 
--spec chunk(#wrap_reader{}, 'infinity' | pos_integer()) -> chunk_ret().
+-spec chunk(Continuation, N) -> chunk_ret() when
+      Continuation :: continuation(),
+      N :: infinity | pos_integer().
 
 chunk(WR = #wrap_reader{}, infinity) ->
     chunk(WR, ?MAX_CHUNK_SIZE, 0);

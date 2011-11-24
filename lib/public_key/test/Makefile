@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2008-2010. All Rights Reserved.
+# Copyright Ericsson AB 2008-2011. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -28,7 +28,9 @@ INCLUDES= -I. -I ../include
 # ----------------------------------------------------
 
 MODULES= \
+	erl_make_certs \
 	public_key_SUITE \
+	pbe_SUITE \
 	pkits_SUITE
 
 ERL_FILES= $(MODULES:%=%.erl)
@@ -39,6 +41,9 @@ TARGET_FILES= \
 	$(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
 SPEC_FILES = public_key.spec
+
+COVER_FILE = public_key.cover
+
 
 # ----------------------------------------------------
 # Release directory specification
@@ -74,9 +79,9 @@ release_spec: opt
 
 release_tests_spec: opt
 	$(INSTALL_DIR) $(RELSYSDIR)
-	$(INSTALL_DATA) $(SPEC_FILES) $(ERL_FILES) $(HRL_FILES)$(RELSYSDIR)
+	$(INSTALL_DATA) $(SPEC_FILES) $(ERL_FILES) $(COVER_FILE) $(HRL_FILES) $(RELSYSDIR)
 	$(INSTALL_DATA) $(TARGET_FILES) $(RELSYSDIR)
-	chmod -f -R u+w $(RELSYSDIR)
+	chmod -R u+w $(RELSYSDIR)
 	@tar cf - *_SUITE_data | (cd $(RELSYSDIR); tar xf -)
 release_docs_spec:
 

@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2001-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2001-2011. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  *
 
@@ -25,16 +25,15 @@
 #include "ei_decode_term.h"
 #include "putget.h"
 
-/* Returns 1 if term is decoded, 0 if term is OK, but not decoded here
-   and -1 if something is wrong.
-   ONLY changes index if term is decoded (return value 1)! */
+/* Returns 1 on successful encoding, -1 on error, and 0 if the term seems
+   alright, but does not fit in the term structure. If it returns 1, the
+   index will be incremented, and the term contains the decoded term. */
 
 int ei_decode_ei_term(const char* buf, int* index, ei_term* term)
 {
     const char* s = buf + *index, * s0 = s;
     int len, i, n, sign;
     char c;
-    double f;
 
     if (term == NULL) return -1;
     c = term->ei_type = get8(s);
@@ -46,13 +45,11 @@ int ei_decode_ei_term(const char* buf, int* index, ei_term* term)
 	term->value.i_val = get32be(s);
 	break;
     case ERL_FLOAT_EXT:
-    	if (s[30]) return -1;
-	if (sscanf(s, "%lf", &f) != 1) return -1;
-	s += 31;
-	term->value.d_val = f;
-	break;
+    case NEW_FLOAT_EXT:
+        return ei_decode_double(buf, index, &term->value.d_val);
     case ERL_ATOM_EXT:
 	len = get16be(s);
+	if (len > MAXATOMLEN) return -1;
 	memcpy(term->value.atom_name, s, len); 
 	term->value.atom_name[len] = '\0';
 	s += len;
@@ -61,6 +58,7 @@ int ei_decode_ei_term(const char* buf, int* index, ei_term* term)
 	/* first the nodename */
 	if (get8(s) != ERL_ATOM_EXT) return -1;
 	len = get16be(s);
+	if (len > MAXATOMLEN) return -1;
 	memcpy(term->value.ref.node, s, len);
 	term->value.ref.node[len] = '\0';
 	s += len;
@@ -75,6 +73,7 @@ int ei_decode_ei_term(const char* buf, int* index, ei_term* term)
 	/* then the nodename */
 	if (get8(s) != ERL_ATOM_EXT) return -1;
 	len = get16be(s);
+	if (len > MAXATOMLEN) return -1;
 	memcpy(term->value.ref.node, s, len);
 	term->value.ref.node[len] = '\0';
 	s += len;
@@ -91,6 +90,7 @@ int ei_decode_ei_term(const char* buf, int* index, ei_term* term)
     case ERL_PORT_EXT:
 	if (get8(s) != ERL_ATOM_EXT) return -1;
 	len = get16be(s);
+	if (len > MAXATOMLEN) return -1;
 	memcpy(term->value.port.node, s, len);
 	term->value.port.node[len] = '\0';
 	term->value.port.id = get32be(s) & 0x0fffffff; /* 28 bits */;
@@ -100,6 +100,7 @@ int ei_decode_ei_term(const char* buf, int* index, ei_term* term)
 	if (get8(s) != ERL_ATOM_EXT) return -1;
 	/* name first */
 	len = get16be(s); 
+	if (len > MAXATOMLEN) return -1;
 	memcpy(term->value.pid.node, s, len);
 	term->value.pid.node[len] = '\0';
 	s += len;
@@ -110,10 +111,10 @@ int ei_decode_ei_term(const char* buf, int* index, ei_term* term)
 	break;
     case ERL_SMALL_TUPLE_EXT:
 	term->arity = get8(s);
-	break; /*return 0;*/
+	break;
     case ERL_LARGE_TUPLE_EXT:
 	term->arity = get32be(s);
-	break; /*return 0;*/
+	break;
     case ERL_NIL_EXT:
 	term->arity = 0;
 	break;
@@ -122,7 +123,7 @@ int ei_decode_ei_term(const char* buf, int* index, ei_term* term)
 	return 0;
     case ERL_LIST_EXT:
 	term->arity = get32be(s);
-	break; /*return 0;*/
+	break;
     case ERL_BINARY_EXT:
 	term->size = get32be(s);
 	return 0;

@@ -162,7 +162,7 @@ cleanb:
 	rm -f errs core *~
 
 clean:
-	rm -f $(TARGET_FILES) $(GEN_FILES) $(APP_TARGET) $(APPUP_TARGET)
+	rm -f $(TARGET_FILES) $(GEN_FILES) $(APP_TARGET) $(APPUP_TARGET) IDL-GENERATED
 	rm -f errs core *~
 
 $(APP_TARGET): $(APP_SRC)
@@ -176,17 +176,18 @@ docs:
 # ----------------------------------------------------
 # Special Build Targets
 # ----------------------------------------------------
-$(GEN_TIMEBASE_ERL_FILES) $(EXTERNAL_TIMEBASE_HRL_FILES): TimeBase.idl
+IDL-GENERATED: TimeBase.idl CosTime.idl CosTimerEvent.idl
 	erlc $(ERL_IDL_FLAGS) TimeBase.idl
 	mv $(GEN_TIMEBASE_HRL_FILES) $(EXTERNAL_INC_PATH)
-
-$(GEN_COSTIME_ERL_FILES) $(EXTERNAL_COSTIME_HRL_FILES): CosTime.idl
 	erlc $(ERL_IDL_FLAGS) +'{cfgfile,"CosTime.cfg"}' CosTime.idl
 	mv $(GEN_COSTIME_HRL_FILES) $(EXTERNAL_INC_PATH)
-
-$(GEN_COSTIMEREVENT_ERL_FILES) $(EXTERNAL_COSTIMEREVENT_HRL_FILES): CosTimerEvent.idl
 	erlc $(ERL_IDL_FLAGS) +'{cfgfile,"CosTimerEvent.cfg"}' CosTimerEvent.idl
 	mv $(GEN_COSTIMEREVENT_HRL_FILES) $(EXTERNAL_INC_PATH)
+	>IDL-GENERATED
+
+$(GEN_FILES): IDL-GENERATED
+
+$(TARGET_FILES): IDL-GENERATED
 
 # ----------------------------------------------------
 # Release Target

@@ -1,0 +1,1496 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" targetNamespace="http://www.ericsson.com/is/isco/MainSwitch_1" xmlns="http://www.ericsson.com/is/isco/MainSwitch_1" xmlns:nc="http://www.ericsson.com/is/isco/nc">
+  <xsd:annotation>
+    <xsd:appinfo>
+      <mim file="mx_mim.xml" version=""/>
+    </xsd:appinfo>
+  </xsd:annotation>
+  <xsd:import schemaLocation="nc.xsd" namespace="http://www.ericsson.com/is/isco/nc"/>
+  <xsd:complexType name="SubrackNum">
+    <xsd:simpleContent>
+      <xsd:extension base="ccsHelperType0">
+        <xsd:attribute ref="nc:operation"/>
+      </xsd:extension>
+    </xsd:simpleContent>
+  </xsd:complexType>
+  <xsd:complexType name="LinkAggregationData">
+    <xsd:annotation>
+      <xsd:documentation>
+        Description of Link Aggregation Data
+      </xsd:documentation>
+    </xsd:annotation>
+    <xsd:sequence>
+      <xsd:element name="aggrPortActorPort">
+        <xsd:complexType>
+          <xsd:simpleContent>
+            <xsd:extension base="xsd:integer">
+              <xsd:attribute ref="nc:operation"/>
+            </xsd:extension>
+          </xsd:simpleContent>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="aggrPortOperState">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="item" type="LinkAggregationOperStateData" minOccurs="8" maxOccurs="8"/>
+          </xsd:sequence>
+          <xsd:attribute ref="nc:operation"/>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="ifIndex">
+        <xsd:complexType>
+          <xsd:simpleContent>
+            <xsd:extension base="xsd:integer">
+              <xsd:attribute ref="nc:operation"/>
+            </xsd:extension>
+          </xsd:simpleContent>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="mode">
+        <xsd:annotation>
+          <xsd:documentation>
+            Port Channel Mode
+          </xsd:documentation>
+        </xsd:annotation>
+        <xsd:complexType>
+          <xsd:simpleContent>
+            <xsd:extension base="ccsHelperType1">
+              <xsd:attribute ref="nc:operation"/>
+            </xsd:extension>
+          </xsd:simpleContent>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="configuredPorts">
+        <xsd:annotation>
+          <xsd:documentation>
+            Number of configured ports for this interface.
+          </xsd:documentation>
+        </xsd:annotation>
+        <xsd:complexType>
+          <xsd:simpleContent>
+            <xsd:extension base="xsd:integer">
+              <xsd:attribute ref="nc:operation"/>
+            </xsd:extension>
+          </xsd:simpleContent>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="activePorts">
+        <xsd:annotation>
+          <xsd:documentation>
+            Number of active ports for this interface.
+          </xsd:documentation>
+        </xsd:annotation>
+        <xsd:complexType>
+          <xsd:simpleContent>
+            <xsd:extension base="xsd:integer">
+              <xsd:attribute ref="nc:operation"/>
+            </xsd:extension>
+          </xsd:simpleContent>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="macSelectionPolicy">
+        <xsd:annotation>
+          <xsd:documentation>
+            MAC Selection Policy
+          </xsd:documentation>
+        </xsd:annotation>
+        <xsd:complexType>
+          <xsd:simpleContent>
+            <xsd:extension base="ccsHelperType2">
+              <xsd:attribute ref="nc:operation"/>
+            </xsd:extension>
+          </xsd:simpleContent>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="linkSelectionPolicy">
+        <xsd:annotation>
+          <xsd:documentation>
+            Link Selection Policy
+          </xsd:documentation>
+        </xsd:annotation>
+        <xsd:complexType>
+          <xsd:simpleContent>
+            <xsd:extension base="ccsHelperType3">
+              <xsd:attribute ref="nc:operation"/>
+            </xsd:extension>
+          </xsd:simpleContent>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="aggregatorMac">
+        <xsd:annotation>
+          <xsd:documentation>
+            MAC address of Aggregator
+          </xsd:documentation>
+        </xsd:annotation>
+        <xsd:complexType>
+          <xsd:simpleContent>
+            <xsd:extension base="ccsHelperType4">
+              <xsd:attribute ref="nc:operation"/>
+            </xsd:extension>
+          </xsd:simpleContent>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="actorId">
+        <xsd:complexType>
+          <xsd:simpleContent>
+            <xsd:extension base="ccsHelperType4">
+              <xsd:attribute ref="nc:operation"/>
+            </xsd:extension>
+          </xsd:simpleContent>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="actorPrio">
+        <xsd:complexType>
+          <xsd:simpleContent>
+            <xsd:extension base="xsd:integer">
+              <xsd:attribute ref="nc:operation"/>
+            </xsd:extension>
+          </xsd:simpleContent>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="actorAdminKey">
+        <xsd:complexType>
+          <xsd:simpleContent>
+            <xsd:extension base="xsd:integer">
+              <xsd:attribute ref="nc:operation"/>
+            </xsd:extension>
+          </xsd:simpleContent>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="actorOperKey">
+        <xsd:complexType>
+          <xsd:simpleContent>
+            <xsd:extension base="xsd:integer">
+              <xsd:attribute ref="nc:operation"/>
+            </xsd:extension>
+          </xsd:simpleContent>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="partnerId">
+        <xsd:complexType>
+          <xsd:simpleContent>
+            <xsd:extension base="ccsHelperType4">
+              <xsd:attribute ref="nc:operation"/>
+            </xsd:extension>
+          </xsd:simpleContent>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="partnerPrio">
+        <xsd:complexType>
+          <xsd:simpleContent>
+            <xsd:extension base="xsd:integer">
+              <xsd:attribute ref="nc:operation"/>
+            </xsd:extension>
+          </xsd:simpleContent>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="partnerOperKey">
+        <xsd:complexType>
+          <xsd:simpleContent>
+            <xsd:extension base="xsd:integer">
+              <xsd:attribute ref="nc:operation"/>
+            </xsd:extension>
+          </xsd:simpleContent>
+        </xsd:complexType>
+      </xsd:element>
+    </xsd:sequence>
+    <xsd:attribute ref="nc:operation"/>
+  </xsd:complexType>
+  <xsd:complexType name="PercentUsage">
+    <xsd:simpleContent>
+      <xsd:extension base="ccsHelperType5">
+        <xsd:attribute ref="nc:operation"/>
+      </xsd:extension>
+    </xsd:simpleContent>
+  </xsd:complexType>
+  <xsd:complexType name="BladeSlotLink">
+    <xsd:simpleContent>
+      <xsd:extension base="ccsHelperType6">
+        <xsd:attribute ref="nc:operation"/>
+      </xsd:extension>
+    </xsd:simpleContent>
+  </xsd:complexType>
+  <xsd:complexType name="CosQueueConfigurationData">
+    <xsd:annotation>
+      <xsd:documentation>
+        Description of COS configuration data
+      </xsd:documentation>
+    </xsd:annotation>
+    <xsd:sequence>
+      <xsd:element name="queue">
+        <xsd:complexType>
+          <xsd:simpleContent>
+            <xsd:extension base="ccsHelperType7">
+              <xsd:attribute ref="nc:operation"/>
+            </xsd:extension>
+          </xsd:simpleContent>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="buffer" type="PercentUsage">
+        <xsd:annotation>
+          <xsd:documentation>
+            Indicates allocated buffer in percent
+          </xsd:documentation>
+        </xsd:annotation>
+      </xsd:element>
+      <xsd:element name="scheduling">
+        <xsd:annotation>
+          <xsd:documentation>
+            Indicates if Sceduling is Weighted Round Robin (WRR) or Strict Priority
+          </xsd:documentation>
+        </xsd:annotation>
+        <xsd:complexType>
+          <xsd:simpleContent>
+            <xsd:extension base="ccsHelperType8">
+              <xsd:attribute ref="nc:operation"/>
+            </xsd:extension>
+          </xsd:simpleContent>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="weight">
+        <xsd:annotation>
+          <xsd:documentation>
+            Indicates if Weight in case of WRR is High, Medium or Low
+          </xsd:documentation>
+        </xsd:annotation>
+        <xsd:complexType>
+          <xsd:simpleContent>
+            <xsd:extension base="ccsHelperType9">
+              <xsd:attribute ref="nc:operation"/>
+            </xsd:extension>
+          </xsd:simpleContent>
+        </xsd:complexType>
+      </xsd:element>
+    </xsd:sequence>
+    <xsd:attribute ref="nc:operation"/>
+  </xsd:complexType>
+  <xsd:complexType name="VlanData">
+    <xsd:annotation>
+      <xsd:documentation>
+        This struct describes Vlan data
+      </xsd:documentation>
+    </xsd:annotation>
+    <xsd:sequence>
+      <xsd:element name="vlanId">
+        <xsd:annotation>
+          <xsd:documentation>
+            Vlan Id 
+          </xsd:documentation>
+        </xsd:annotation>
+        <xsd:complexType>
+          <xsd:simpleContent>
+            <xsd:extension base="ccsHelperType10">
+              <xsd:attribute ref="nc:operation"/>
+            </xsd:extension>
+          </xsd:simpleContent>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="vlanType">
+        <xsd:annotation>
+          <xsd:documentation>
+            Type of Vlan
+          </xsd:documentation>
+        </xsd:annotation>
+        <xsd:complexType>
+          <xsd:simpleContent>
+            <xsd:extension base="ccsHelperType11">
+              <xsd:attribute ref="nc:operation"/>
+            </xsd:extension>
+          </xsd:simpleContent>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="isolationStatus">
+        <xsd:annotation>
+          <xsd:documentation>
+            Isolation status
+          </xsd:documentation>
+        </xsd:annotation>
+        <xsd:complexType>
+          <xsd:simpleContent>
+            <xsd:extension base="ccsHelperType12">
+              <xsd:attribute ref="nc:operation"/>
+            </xsd:extension>
+          </xsd:simpleContent>
+        </xsd:complexType>
+      </xsd:element>
+    </xsd:sequence>
+    <xsd:attribute ref="nc:operation"/>
+  </xsd:complexType>
+  <xsd:complexType name="StatisticCounter">
+    <xsd:simpleContent>
+      <xsd:extension base="xsd:integer">
+        <xsd:attribute ref="nc:operation"/>
+      </xsd:extension>
+    </xsd:simpleContent>
+  </xsd:complexType>
+  <xsd:complexType name="PbitQueue">
+    <xsd:sequence>
+      <xsd:element name="pbitKey">
+        <xsd:complexType>
+          <xsd:simpleContent>
+            <xsd:extension base="ccsHelperType7">
+              <xsd:attribute ref="nc:operation"/>
+            </xsd:extension>
+          </xsd:simpleContent>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="queueValue">
+        <xsd:complexType>
+          <xsd:simpleContent>
+            <xsd:extension base="ccsHelperType7">
+              <xsd:attribute ref="nc:operation"/>
+            </xsd:extension>
+          </xsd:simpleContent>
+        </xsd:complexType>
+      </xsd:element>
+    </xsd:sequence>
+    <xsd:attribute ref="nc:operation"/>
+  </xsd:complexType>
+  <xsd:complexType name="LinkAggregationOperStateData">
+    <xsd:annotation>
+      <xsd:documentation>
+        Description of Link Aggregation Oper State Data
+      </xsd:documentation>
+    </xsd:annotation>
+    <xsd:sequence>
+      <xsd:element name="lacpActivity">
+        <xsd:annotation>
+          <xsd:documentation>
+            Indicates LACP activity
+          </xsd:documentation>
+        </xsd:annotation>
+        <xsd:complexType>
+          <xsd:simpleContent>
+            <xsd:extension base="ccsHelperType13">
+              <xsd:attribute ref="nc:operation"/>
+            </xsd:extension>
+          </xsd:simpleContent>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="lacpTimeout">
+        <xsd:annotation>
+          <xsd:documentation>
+            Indicates if LACP timeout is long or short
+          </xsd:documentation>
+        </xsd:annotation>
+        <xsd:complexType>
+          <xsd:simpleContent>
+            <xsd:extension base="ccsHelperType14">
+              <xsd:attribute ref="nc:operation"/>
+            </xsd:extension>
+          </xsd:simpleContent>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="aggregation">
+        <xsd:annotation>
+          <xsd:documentation>
+            Indicates if Individual or Aggregatable
+          </xsd:documentation>
+        </xsd:annotation>
+        <xsd:complexType>
+          <xsd:simpleContent>
+            <xsd:extension base="ccsHelperType15">
+              <xsd:attribute ref="nc:operation"/>
+            </xsd:extension>
+          </xsd:simpleContent>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="syncronization">
+        <xsd:annotation>
+          <xsd:documentation>
+            Indicates if Syncronized or not
+          </xsd:documentation>
+        </xsd:annotation>
+        <xsd:complexType>
+          <xsd:simpleContent>
+            <xsd:extension base="ccsHelperType16">
+              <xsd:attribute ref="nc:operation"/>
+            </xsd:extension>
+          </xsd:simpleContent>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="collecting">
+        <xsd:complexType>
+          <xsd:simpleContent>
+            <xsd:extension base="ccsHelperType17">
+              <xsd:attribute ref="nc:operation"/>
+            </xsd:extension>
+          </xsd:simpleContent>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="distributing">
+        <xsd:complexType>
+          <xsd:simpleContent>
+            <xsd:extension base="ccsHelperType17">
+              <xsd:attribute ref="nc:operation"/>
+            </xsd:extension>
+          </xsd:simpleContent>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="defaulted">
+        <xsd:complexType>
+          <xsd:simpleContent>
+            <xsd:extension base="ccsHelperType17">
+              <xsd:attribute ref="nc:operation"/>
+            </xsd:extension>
+          </xsd:simpleContent>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="expired">
+        <xsd:complexType>
+          <xsd:simpleContent>
+            <xsd:extension base="ccsHelperType17">
+              <xsd:attribute ref="nc:operation"/>
+            </xsd:extension>
+          </xsd:simpleContent>
+        </xsd:complexType>
+      </xsd:element>
+    </xsd:sequence>
+    <xsd:attribute ref="nc:operation"/>
+  </xsd:complexType>
+  <xsd:complexType name="MxbSlot">
+    <xsd:simpleContent>
+      <xsd:extension base="ccsHelperType18">
+        <xsd:attribute ref="nc:operation"/>
+      </xsd:extension>
+    </xsd:simpleContent>
+  </xsd:complexType>
+  <xsd:complexType name="TresholdPercent">
+    <xsd:simpleContent>
+      <xsd:extension base="ccsHelperType19">
+        <xsd:attribute ref="nc:operation"/>
+      </xsd:extension>
+    </xsd:simpleContent>
+  </xsd:complexType>
+  <xsd:complexType name="PbitToQueueMapping">
+    <xsd:annotation>
+      <xsd:documentation>
+        Description of Pbit to queue mapping
+      </xsd:documentation>
+    </xsd:annotation>
+    <xsd:sequence>
+      <xsd:element name="bladeSlotLink" type="BladeSlotLink"/>
+      <xsd:element name="interface">
+        <xsd:annotation>
+          <xsd:documentation>
+            Interface number
+          </xsd:documentation>
+        </xsd:annotation>
+        <xsd:complexType>
+          <xsd:simpleContent>
+            <xsd:extension base="xsd:integer">
+              <xsd:attribute ref="nc:operation"/>
+            </xsd:extension>
+          </xsd:simpleContent>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="pbitQueue">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="item" type="PbitQueue" minOccurs="8" maxOccurs="8"/>
+          </xsd:sequence>
+          <xsd:attribute ref="nc:operation"/>
+        </xsd:complexType>
+      </xsd:element>
+    </xsd:sequence>
+    <xsd:attribute ref="nc:operation"/>
+  </xsd:complexType>
+  <xsd:complexType name="VlanIds">
+    <xsd:sequence>
+      <xsd:element name="vlanId">
+        <xsd:annotation>
+          <xsd:documentation>
+            Vlan Id 
+          </xsd:documentation>
+        </xsd:annotation>
+        <xsd:complexType>
+          <xsd:simpleContent>
+            <xsd:extension base="ccsHelperType10">
+              <xsd:attribute ref="nc:operation"/>
+            </xsd:extension>
+          </xsd:simpleContent>
+        </xsd:complexType>
+      </xsd:element>
+    </xsd:sequence>
+    <xsd:attribute ref="nc:operation"/>
+  </xsd:complexType>
+  <xsd:element name="model">
+    <xsd:complexType>
+      <xsd:sequence>
+        <xsd:element name="Vlan" minOccurs="0" maxOccurs="1">
+          <xsd:annotation>
+            <xsd:documentation>
+              Administrative and Operative Vlans
+              
+              Key attributes: []
+              
+              Possible children:
+              VlanAdmin
+              VlanOper
+            </xsd:documentation>
+          </xsd:annotation>
+          <xsd:complexType>
+            <xsd:sequence>
+              <xsd:element name="VlanAdmin" minOccurs="0" maxOccurs="31">
+                <xsd:annotation>
+                  <xsd:documentation>
+                    This class shows the Administrative configured Vlans
+                    
+                    Key attributes: [subrackNum]
+                  </xsd:documentation>
+                </xsd:annotation>
+                <xsd:complexType>
+                  <xsd:sequence>
+                    <xsd:element name="subrackNum" type="SubrackNum"/>
+                    <xsd:element minOccurs="0" name="numberOfDefinedVlans">
+                      <xsd:complexType>
+                        <xsd:simpleContent>
+                          <xsd:extension base="xsd:integer">
+                            <xsd:attribute ref="nc:operation"/>
+                          </xsd:extension>
+                        </xsd:simpleContent>
+                      </xsd:complexType>
+                    </xsd:element>
+                    <xsd:element minOccurs="0" name="vlanIds">
+                      <xsd:annotation>
+                        <xsd:documentation>
+                          Information about defined Vlan Ids
+                        </xsd:documentation>
+                      </xsd:annotation>
+                      <xsd:complexType>
+                        <xsd:sequence>
+                          <xsd:element name="item" type="VlanIds" minOccurs="0" maxOccurs="unbounded"/>
+                        </xsd:sequence>
+                        <xsd:attribute ref="nc:operation"/>
+                      </xsd:complexType>
+                    </xsd:element>
+                  </xsd:sequence>
+                  <xsd:attribute ref="nc:operation"/>
+                </xsd:complexType>
+              </xsd:element>
+              <xsd:element name="VlanOper" minOccurs="0" maxOccurs="31">
+                <xsd:annotation>
+                  <xsd:documentation>
+                    This class shows the Operative Vlans
+                    
+                    Key attributes: [subrackNum]
+                  </xsd:documentation>
+                </xsd:annotation>
+                <xsd:complexType>
+                  <xsd:sequence>
+                    <xsd:element name="subrackNum" type="SubrackNum"/>
+                    <xsd:element minOccurs="0" name="numberOfActiveVlans">
+                      <xsd:complexType>
+                        <xsd:simpleContent>
+                          <xsd:extension base="xsd:integer">
+                            <xsd:attribute ref="nc:operation"/>
+                          </xsd:extension>
+                        </xsd:simpleContent>
+                      </xsd:complexType>
+                    </xsd:element>
+                    <xsd:element minOccurs="0" name="vlanIds">
+                      <xsd:annotation>
+                        <xsd:documentation>
+                          Information about operative Vlan Ids
+                        </xsd:documentation>
+                      </xsd:annotation>
+                      <xsd:complexType>
+                        <xsd:sequence>
+                          <xsd:element name="item" type="VlanIds" minOccurs="0" maxOccurs="unbounded"/>
+                        </xsd:sequence>
+                        <xsd:attribute ref="nc:operation"/>
+                      </xsd:complexType>
+                    </xsd:element>
+                  </xsd:sequence>
+                  <xsd:attribute ref="nc:operation"/>
+                </xsd:complexType>
+              </xsd:element>
+            </xsd:sequence>
+            <xsd:attribute ref="nc:operation"/>
+          </xsd:complexType>
+        </xsd:element>
+        <xsd:element name="Cos" minOccurs="0" maxOccurs="1">
+          <xsd:annotation>
+            <xsd:documentation>
+              This class describes the Class of Service function.
+              
+              Key attributes: []
+              
+              Possible children:
+              Pbit
+              Queue
+            </xsd:documentation>
+          </xsd:annotation>
+          <xsd:complexType>
+            <xsd:sequence>
+              <xsd:element minOccurs="0" name="administrativeQueueConfiguration">
+                <xsd:annotation>
+                  <xsd:documentation>
+                    Description of administrative Queue Configuration Data
+                    to be applied for each subrack (or whole system?)
+                  </xsd:documentation>
+                </xsd:annotation>
+                <xsd:complexType>
+                  <xsd:sequence>
+                    <xsd:element name="item" type="CosQueueConfigurationData" minOccurs="0" maxOccurs="unbounded"/>
+                  </xsd:sequence>
+                  <xsd:attribute ref="nc:operation"/>
+                </xsd:complexType>
+              </xsd:element>
+              <xsd:element minOccurs="0" name="administrativePbitToQueueMapping">
+                <xsd:annotation>
+                  <xsd:documentation>
+                    Description of administrative Pbit to Queue mapping.
+                  </xsd:documentation>
+                </xsd:annotation>
+                <xsd:complexType>
+                  <xsd:sequence>
+                    <xsd:element name="item" type="PbitToQueueMapping" minOccurs="0" maxOccurs="unbounded"/>
+                  </xsd:sequence>
+                  <xsd:attribute ref="nc:operation"/>
+                </xsd:complexType>
+              </xsd:element>
+              <xsd:element minOccurs="0" name="operationalQueueConfiguration">
+                <xsd:annotation>
+                  <xsd:documentation>
+                    Description operational Queue Configuration Data
+                    to be applied for actual subrack and Mxb.
+                  </xsd:documentation>
+                </xsd:annotation>
+                <xsd:complexType>
+                  <xsd:sequence>
+                    <xsd:element name="item" type="CosQueueConfigurationData" minOccurs="0" maxOccurs="unbounded"/>
+                  </xsd:sequence>
+                  <xsd:attribute ref="nc:operation"/>
+                </xsd:complexType>
+              </xsd:element>
+              <xsd:element minOccurs="0" name="operationalPbitToQueueMapping">
+                <xsd:annotation>
+                  <xsd:documentation>
+                    Description of operational Pbit to Queue mapping.
+                  </xsd:documentation>
+                </xsd:annotation>
+                <xsd:complexType>
+                  <xsd:sequence>
+                    <xsd:element name="item" type="PbitToQueueMapping" minOccurs="0" maxOccurs="unbounded"/>
+                  </xsd:sequence>
+                  <xsd:attribute ref="nc:operation"/>
+                </xsd:complexType>
+              </xsd:element>
+              <xsd:element name="Pbit" minOccurs="0" maxOccurs="8">
+                <xsd:annotation>
+                  <xsd:documentation>
+                    This class is used to set the Pbit to queue table.
+                    
+                    Key attributes: [bladeSlotLink]
+                  </xsd:documentation>
+                </xsd:annotation>
+                <xsd:complexType>
+                  <xsd:sequence>
+                    <xsd:element name="bladeSlotLink" type="BladeSlotLink"/>
+                    <xsd:element minOccurs="0" name="pbitQueue">
+                      <xsd:complexType>
+                        <xsd:sequence>
+                          <xsd:element name="item" type="PbitQueue" minOccurs="8" maxOccurs="8"/>
+                        </xsd:sequence>
+                        <xsd:attribute ref="nc:operation"/>
+                      </xsd:complexType>
+                    </xsd:element>
+                  </xsd:sequence>
+                  <xsd:attribute ref="nc:operation"/>
+                </xsd:complexType>
+              </xsd:element>
+              <xsd:element name="Queue" minOccurs="0" maxOccurs="8">
+                <xsd:annotation>
+                  <xsd:documentation>
+                    This class is used to set the Queue Data table.
+                    
+                    Key attributes: [queueKey]
+                  </xsd:documentation>
+                </xsd:annotation>
+                <xsd:complexType>
+                  <xsd:sequence>
+                    <xsd:element name="queueKey">
+                      <xsd:annotation>
+                        <xsd:documentation>
+                          Queue value 0 to 7.
+                        </xsd:documentation>
+                      </xsd:annotation>
+                      <xsd:complexType>
+                        <xsd:simpleContent>
+                          <xsd:extension base="ccsHelperType7">
+                            <xsd:attribute ref="nc:operation"/>
+                          </xsd:extension>
+                        </xsd:simpleContent>
+                      </xsd:complexType>
+                    </xsd:element>
+                    <xsd:element name="queueData">
+                      <xsd:annotation>
+                        <xsd:documentation>
+                          Queue Configuration Data to be applied for the whole system.
+                        </xsd:documentation>
+                      </xsd:annotation>
+                      <xsd:complexType>
+                        <xsd:sequence>
+                          <xsd:element name="item" type="CosQueueConfigurationData" minOccurs="0" maxOccurs="unbounded"/>
+                        </xsd:sequence>
+                        <xsd:attribute ref="nc:operation"/>
+                      </xsd:complexType>
+                    </xsd:element>
+                  </xsd:sequence>
+                  <xsd:attribute ref="nc:operation"/>
+                </xsd:complexType>
+              </xsd:element>
+            </xsd:sequence>
+            <xsd:attribute ref="nc:operation"/>
+          </xsd:complexType>
+        </xsd:element>
+        <xsd:element name="State" minOccurs="0" maxOccurs="1">
+          <xsd:annotation>
+            <xsd:documentation>
+              This class describes data to be read for a Mxb.
+              
+              Key attributes: []
+              
+              Possible children:
+              StateBlade
+              StateLink
+            </xsd:documentation>
+          </xsd:annotation>
+          <xsd:complexType>
+            <xsd:sequence>
+              <xsd:element name="StateBlade" minOccurs="0" maxOccurs="64">
+                <xsd:annotation>
+                  <xsd:documentation>
+                    This class describes data related to a specific Mxb.
+                    
+                    Key attributes: [subrackNum,mxbSlot]
+                  </xsd:documentation>
+                </xsd:annotation>
+                <xsd:complexType>
+                  <xsd:sequence>
+                    <xsd:element name="subrackNum" type="SubrackNum"/>
+                    <xsd:element name="mxbSlot" type="MxbSlot"/>
+                    <xsd:element minOccurs="0" name="description">
+                      <xsd:annotation>
+                        <xsd:documentation>
+                          Description of type of Mxb.
+                        </xsd:documentation>
+                      </xsd:annotation>
+                      <xsd:complexType>
+                        <xsd:simpleContent>
+                          <xsd:extension base="ccsHelperType4">
+                            <xsd:attribute ref="nc:operation"/>
+                          </xsd:extension>
+                        </xsd:simpleContent>
+                      </xsd:complexType>
+                    </xsd:element>
+                    <xsd:element minOccurs="0" name="ipAddress">
+                      <xsd:complexType>
+                        <xsd:simpleContent>
+                          <xsd:extension base="ccsHelperType4">
+                            <xsd:attribute ref="nc:operation"/>
+                          </xsd:extension>
+                        </xsd:simpleContent>
+                      </xsd:complexType>
+                    </xsd:element>
+                    <xsd:element minOccurs="0" name="upTime">
+                      <xsd:complexType>
+                        <xsd:simpleContent>
+                          <xsd:extension base="ccsHelperType4">
+                            <xsd:attribute ref="nc:operation"/>
+                          </xsd:extension>
+                        </xsd:simpleContent>
+                      </xsd:complexType>
+                    </xsd:element>
+                    <xsd:element minOccurs="0" name="remoteMxbHost">
+                      <xsd:annotation>
+                        <xsd:documentation>
+                          Indicates if the other Mxb in the subrack is present or absent.
+                        </xsd:documentation>
+                      </xsd:annotation>
+                      <xsd:complexType>
+                        <xsd:simpleContent>
+                          <xsd:extension base="ccsHelperType4">
+                            <xsd:attribute ref="nc:operation"/>
+                          </xsd:extension>
+                        </xsd:simpleContent>
+                      </xsd:complexType>
+                    </xsd:element>
+                    <xsd:element minOccurs="0" name="executingSoftwareVersion">
+                      <xsd:annotation>
+                        <xsd:documentation>
+                          Software version executing.
+                        </xsd:documentation>
+                      </xsd:annotation>
+                      <xsd:complexType>
+                        <xsd:simpleContent>
+                          <xsd:extension base="ccsHelperType4">
+                            <xsd:attribute ref="nc:operation"/>
+                          </xsd:extension>
+                        </xsd:simpleContent>
+                      </xsd:complexType>
+                    </xsd:element>
+                    <xsd:element minOccurs="0" name="flashLoadedSoftwareVersion">
+                      <xsd:annotation>
+                        <xsd:documentation>
+                          Software version in flash memory.
+                        </xsd:documentation>
+                      </xsd:annotation>
+                      <xsd:complexType>
+                        <xsd:simpleContent>
+                          <xsd:extension base="ccsHelperType4">
+                            <xsd:attribute ref="nc:operation"/>
+                          </xsd:extension>
+                        </xsd:simpleContent>
+                      </xsd:complexType>
+                    </xsd:element>
+                    <xsd:element minOccurs="0" name="fallbackSoftwareVersion">
+                      <xsd:annotation>
+                        <xsd:documentation>
+                          Fallback software version.
+                        </xsd:documentation>
+                      </xsd:annotation>
+                      <xsd:complexType>
+                        <xsd:simpleContent>
+                          <xsd:extension base="ccsHelperType4">
+                            <xsd:attribute ref="nc:operation"/>
+                          </xsd:extension>
+                        </xsd:simpleContent>
+                      </xsd:complexType>
+                    </xsd:element>
+                    <xsd:element minOccurs="0" name="ipmiFirmwareVersion">
+                      <xsd:complexType>
+                        <xsd:simpleContent>
+                          <xsd:extension base="ccsHelperType4">
+                            <xsd:attribute ref="nc:operation"/>
+                          </xsd:extension>
+                        </xsd:simpleContent>
+                      </xsd:complexType>
+                    </xsd:element>
+                    <xsd:element minOccurs="0" name="bootLoaderVersion">
+                      <xsd:complexType>
+                        <xsd:simpleContent>
+                          <xsd:extension base="ccsHelperType4">
+                            <xsd:attribute ref="nc:operation"/>
+                          </xsd:extension>
+                        </xsd:simpleContent>
+                      </xsd:complexType>
+                    </xsd:element>
+                    <xsd:element minOccurs="0" name="hwVersion">
+                      <xsd:complexType>
+                        <xsd:simpleContent>
+                          <xsd:extension base="ccsHelperType4">
+                            <xsd:attribute ref="nc:operation"/>
+                          </xsd:extension>
+                        </xsd:simpleContent>
+                      </xsd:complexType>
+                    </xsd:element>
+                  </xsd:sequence>
+                  <xsd:attribute ref="nc:operation"/>
+                </xsd:complexType>
+              </xsd:element>
+              <xsd:element name="StateLink" minOccurs="0" maxOccurs="1">
+                <xsd:annotation>
+                  <xsd:documentation>
+                    This class describes actual state data for a specific link
+                    related to the Mxb.
+                    
+                    Key attributes: []
+                    
+                    Possible children:
+                    StateLa
+                    StateVlan
+                  </xsd:documentation>
+                </xsd:annotation>
+                <xsd:complexType>
+                  <xsd:sequence>
+                    <xsd:element name="StateLa" minOccurs="0" maxOccurs="1536">
+                      <xsd:annotation>
+                        <xsd:documentation>
+                          This class describes the state of the Blade Slot Links with
+                          regards to Link Aggregation info.
+                          
+                          Key attributes: [subrackNum,bladeSlotLink,mxbSlot]
+                        </xsd:documentation>
+                      </xsd:annotation>
+                      <xsd:complexType>
+                        <xsd:sequence>
+                          <xsd:element name="subrackNum" type="SubrackNum"/>
+                          <xsd:element name="bladeSlotLink" type="BladeSlotLink"/>
+                          <xsd:element name="mxbSlot" type="MxbSlot"/>
+                          <xsd:element minOccurs="0" name="linkAggregationData">
+                            <xsd:annotation>
+                              <xsd:documentation>
+                                Description of Link Aggregation info for 
+                                actual subrack, Mxb and Blade Slot Link.
+                              </xsd:documentation>
+                            </xsd:annotation>
+                            <xsd:complexType>
+                              <xsd:sequence>
+                                <xsd:element name="item" type="LinkAggregationData" minOccurs="16" maxOccurs="16"/>
+                              </xsd:sequence>
+                              <xsd:attribute ref="nc:operation"/>
+                            </xsd:complexType>
+                          </xsd:element>
+                        </xsd:sequence>
+                        <xsd:attribute ref="nc:operation"/>
+                      </xsd:complexType>
+                    </xsd:element>
+                    <xsd:element name="StateVlan" minOccurs="0" maxOccurs="768">
+                      <xsd:annotation>
+                        <xsd:documentation>
+                          This class describes the state of the Blade Slot Links with
+                          regards to Vlan info.
+                          
+                          Key attributes: [subrackNum,bladeSlotLink]
+                        </xsd:documentation>
+                      </xsd:annotation>
+                      <xsd:complexType>
+                        <xsd:sequence>
+                          <xsd:element name="subrackNum" type="SubrackNum"/>
+                          <xsd:element name="bladeSlotLink" type="BladeSlotLink"/>
+                          <xsd:element minOccurs="0" name="vlanData">
+                            <xsd:annotation>
+                              <xsd:documentation>
+                                Description of Vlans for actual subrack and Blade Slot Link
+                              </xsd:documentation>
+                            </xsd:annotation>
+                            <xsd:complexType>
+                              <xsd:sequence>
+                                <xsd:element name="item" type="VlanData" minOccurs="0" maxOccurs="unbounded"/>
+                              </xsd:sequence>
+                              <xsd:attribute ref="nc:operation"/>
+                            </xsd:complexType>
+                          </xsd:element>
+                        </xsd:sequence>
+                        <xsd:attribute ref="nc:operation"/>
+                      </xsd:complexType>
+                    </xsd:element>
+                  </xsd:sequence>
+                  <xsd:attribute ref="nc:operation"/>
+                </xsd:complexType>
+              </xsd:element>
+            </xsd:sequence>
+            <xsd:attribute ref="nc:operation"/>
+          </xsd:complexType>
+        </xsd:element>
+        <xsd:element name="Pm" minOccurs="0" maxOccurs="1">
+          <xsd:annotation>
+            <xsd:documentation>
+              This class describes the Performance Monitoring function.
+              
+              Key attributes: []
+              
+              Possible children:
+              PmBladeMeasure
+              PmLink
+            </xsd:documentation>
+          </xsd:annotation>
+          <xsd:complexType>
+            <xsd:sequence>
+              <xsd:element minOccurs="0" name="cpuUpperTreshold" type="TresholdPercent">
+                <xsd:annotation>
+                  <xsd:documentation>
+                    Configuration of CPU upper treshold, i.e. when the CPU load 
+                    is rising and crosses this treshold then the  PMON function 
+                    in ISS will raise a CPU alarm.
+                  </xsd:documentation>
+                </xsd:annotation>
+              </xsd:element>
+              <xsd:element minOccurs="0" name="cpuLowerTreshold" type="TresholdPercent">
+                <xsd:annotation>
+                  <xsd:documentation>
+                    CPU lower treshold, i.e. when the CPU load 
+                    is falling and crosses this treshold then the 
+                    PM function in ISS will cease the CPU alarm.
+                  </xsd:documentation>
+                </xsd:annotation>
+              </xsd:element>
+              <xsd:element minOccurs="0" name="cpuUsageSamplingPeriod">
+                <xsd:annotation>
+                  <xsd:documentation>
+                    The sampling period during which CPU usage is measured.
+                    This period is given in seconds.
+                  </xsd:documentation>
+                </xsd:annotation>
+                <xsd:complexType>
+                  <xsd:simpleContent>
+                    <xsd:extension base="xsd:integer">
+                      <xsd:attribute ref="nc:operation"/>
+                    </xsd:extension>
+                  </xsd:simpleContent>
+                </xsd:complexType>
+              </xsd:element>
+              <xsd:element minOccurs="0" name="memoryUpperTreshold">
+                <xsd:annotation>
+                  <xsd:documentation>
+                    Memory upper treshold, i.e. when the Memory usage 
+                    is rising and crosses this treshold then the PM 
+                    function in ISS will raise a Memory alarm.
+                  </xsd:documentation>
+                </xsd:annotation>
+                <xsd:complexType>
+                  <xsd:simpleContent>
+                    <xsd:extension base="xsd:integer">
+                      <xsd:attribute ref="nc:operation"/>
+                    </xsd:extension>
+                  </xsd:simpleContent>
+                </xsd:complexType>
+              </xsd:element>
+              <xsd:element minOccurs="0" name="memoryLowerTreshold" type="TresholdPercent">
+                <xsd:annotation>
+                  <xsd:documentation>
+                    Memory lower treshold, i.e. when the Memory usage 
+                    is falling and crosses this treshold then the PM 
+                    function in ISS will cease the Memory alarm.
+                  </xsd:documentation>
+                </xsd:annotation>
+              </xsd:element>
+              <xsd:element minOccurs="0" name="bandwidthUpperTreshold" type="TresholdPercent">
+                <xsd:annotation>
+                  <xsd:documentation>
+                    Bandwidth upper treshold, i.e. when the Bandwidth 
+                    usage is rising and crosses this treshold then the PM 
+                    function in ISS will raise a Bandwidth alarm.
+                  </xsd:documentation>
+                </xsd:annotation>
+              </xsd:element>
+              <xsd:element minOccurs="0" name="bandwidthLowerTreshold" type="TresholdPercent">
+                <xsd:annotation>
+                  <xsd:documentation>
+                    Bandwidth lower treshold, i.e. when the Bandwidth usage 
+                    is falling and crosses this treshold then the PM function 
+                    in ISS will cease the Bandwidth alarm.
+                  </xsd:documentation>
+                </xsd:annotation>
+              </xsd:element>
+              <xsd:element minOccurs="0" name="bandwidthUsageSamplingPeriod">
+                <xsd:annotation>
+                  <xsd:documentation>
+                    The sampling period during which Bandwidth usage is measured.
+                    This period is given in minutes.
+                  </xsd:documentation>
+                </xsd:annotation>
+                <xsd:complexType>
+                  <xsd:simpleContent>
+                    <xsd:extension base="xsd:integer">
+                      <xsd:attribute ref="nc:operation"/>
+                    </xsd:extension>
+                  </xsd:simpleContent>
+                </xsd:complexType>
+              </xsd:element>
+              <xsd:element name="PmBladeMeasure" minOccurs="0" maxOccurs="64">
+                <xsd:annotation>
+                  <xsd:documentation>
+                    Enabling monitoring of CPU and memory usage and reading
+                    the corresponding values of utilisation in percent.
+                    
+                    Key attributes: [subrackNum,mxbSlot]
+                  </xsd:documentation>
+                </xsd:annotation>
+                <xsd:complexType>
+                  <xsd:sequence>
+                    <xsd:element name="subrackNum" type="SubrackNum"/>
+                    <xsd:element name="mxbSlot" type="MxbSlot"/>
+                    <xsd:element name="typeOfMeasurement">
+                      <xsd:annotation>
+                        <xsd:documentation>
+                          Type of measurement to be performed, i.e. CPU or Memory.
+                        </xsd:documentation>
+                      </xsd:annotation>
+                      <xsd:complexType>
+                        <xsd:simpleContent>
+                          <xsd:extension base="ccsHelperType20">
+                            <xsd:attribute ref="nc:operation"/>
+                          </xsd:extension>
+                        </xsd:simpleContent>
+                      </xsd:complexType>
+                    </xsd:element>
+                    <xsd:element name="status">
+                      <xsd:annotation>
+                        <xsd:documentation>
+                          Start or stop performance measurement of a specific type
+                        </xsd:documentation>
+                      </xsd:annotation>
+                      <xsd:complexType>
+                        <xsd:simpleContent>
+                          <xsd:extension base="ccsHelperType21">
+                            <xsd:attribute ref="nc:operation"/>
+                          </xsd:extension>
+                        </xsd:simpleContent>
+                      </xsd:complexType>
+                    </xsd:element>
+                    <xsd:element minOccurs="0" name="usage" type="PercentUsage">
+                      <xsd:annotation>
+                        <xsd:documentation>
+                          This is the value of the usage in percent when
+                          performing the measurement.
+                        </xsd:documentation>
+                      </xsd:annotation>
+                    </xsd:element>
+                    <xsd:element minOccurs="0" name="memoryUsageBytes">
+                      <xsd:annotation>
+                        <xsd:documentation>
+                          This is the value of Memory usage in bytes when
+                          performing a Memory usage measurement.
+                        </xsd:documentation>
+                      </xsd:annotation>
+                      <xsd:complexType>
+                        <xsd:simpleContent>
+                          <xsd:extension base="xsd:integer">
+                            <xsd:attribute ref="nc:operation"/>
+                          </xsd:extension>
+                        </xsd:simpleContent>
+                      </xsd:complexType>
+                    </xsd:element>
+                  </xsd:sequence>
+                  <xsd:attribute ref="nc:operation"/>
+                </xsd:complexType>
+              </xsd:element>
+              <xsd:element name="PmLink" minOccurs="0" maxOccurs="1">
+                <xsd:annotation>
+                  <xsd:documentation>
+                    Performance Management Link related data.
+                    
+                    Key attributes: []
+                    
+                    Possible children:
+                    PmBwMeasure
+                    PmStatistics
+                  </xsd:documentation>
+                </xsd:annotation>
+                <xsd:complexType>
+                  <xsd:sequence>
+                    <xsd:element name="PmBwMeasure" minOccurs="0" maxOccurs="1536">
+                      <xsd:annotation>
+                        <xsd:documentation>
+                          Enabling monitoring Bandwidth usage and reading the 
+                          corresponding values of utilisation in percent.
+                          
+                          Key attributes: [subrackNum,bladeSlotLink,mxbSlot]
+                        </xsd:documentation>
+                      </xsd:annotation>
+                      <xsd:complexType>
+                        <xsd:sequence>
+                          <xsd:element name="subrackNum" type="SubrackNum"/>
+                          <xsd:element name="bladeSlotLink" type="BladeSlotLink"/>
+                          <xsd:element name="mxbSlot" type="MxbSlot"/>
+                          <xsd:element name="status">
+                            <xsd:annotation>
+                              <xsd:documentation>
+                                Start or stop measuring of bandwidth utilisation.
+                              </xsd:documentation>
+                            </xsd:annotation>
+                            <xsd:complexType>
+                              <xsd:simpleContent>
+                                <xsd:extension base="ccsHelperType21">
+                                  <xsd:attribute ref="nc:operation"/>
+                                </xsd:extension>
+                              </xsd:simpleContent>
+                            </xsd:complexType>
+                          </xsd:element>
+                          <xsd:element minOccurs="0" name="bandwidthUsage" type="PercentUsage">
+                            <xsd:annotation>
+                              <xsd:documentation>
+                                This is the value of the average Bandwidth usage in percent 
+                                during the configured sampling period.
+                              </xsd:documentation>
+                            </xsd:annotation>
+                          </xsd:element>
+                        </xsd:sequence>
+                        <xsd:attribute ref="nc:operation"/>
+                      </xsd:complexType>
+                    </xsd:element>
+                    <xsd:element name="PmStatistics" minOccurs="0" maxOccurs="1536">
+                      <xsd:annotation>
+                        <xsd:documentation>
+                          This class describes the Performance 
+                          Monitoring Statistics; i.e. counters
+                          for each backplane port on the Mxb,
+                          the actual speed used on the port and
+                          if the port operates in full or half duplex mode. 
+                          
+                          Key attributes: [subrackNum,bladeSlotLink,mxbSlot]
+                        </xsd:documentation>
+                      </xsd:annotation>
+                      <xsd:complexType>
+                        <xsd:sequence>
+                          <xsd:element name="subrackNum" type="SubrackNum"/>
+                          <xsd:element name="bladeSlotLink" type="BladeSlotLink"/>
+                          <xsd:element name="mxbSlot" type="MxbSlot"/>
+                          <xsd:element minOccurs="0" name="inOctets" type="StatisticCounter">
+                            <xsd:annotation>
+                              <xsd:documentation>
+                                Performance Monitoring counter for
+                                received octets.
+                              </xsd:documentation>
+                            </xsd:annotation>
+                          </xsd:element>
+                          <xsd:element minOccurs="0" name="inUnicastPackets" type="StatisticCounter">
+                            <xsd:annotation>
+                              <xsd:documentation>
+                                Performance Monitoring counter for
+                                received Unicast Packets
+                              </xsd:documentation>
+                            </xsd:annotation>
+                          </xsd:element>
+                          <xsd:element minOccurs="0" name="inMulticastPackets" type="StatisticCounter">
+                            <xsd:annotation>
+                              <xsd:documentation>
+                                Performance Monitoring counter for
+                                received Multicast Packets
+                              </xsd:documentation>
+                            </xsd:annotation>
+                          </xsd:element>
+                          <xsd:element minOccurs="0" name="inBroadcastPackets" type="StatisticCounter">
+                            <xsd:annotation>
+                              <xsd:documentation>
+                                Performance Monitoring counter for
+                                received Broadcast Packets
+                              </xsd:documentation>
+                            </xsd:annotation>
+                          </xsd:element>
+                          <xsd:element minOccurs="0" name="inOctetsDiscarded" type="StatisticCounter">
+                            <xsd:annotation>
+                              <xsd:documentation>
+                                Performance Monitoring counter 
+                                for number of received discarded octets.
+                              </xsd:documentation>
+                            </xsd:annotation>
+                          </xsd:element>
+                          <xsd:element minOccurs="0" name="inOctetsFaulty" type="StatisticCounter">
+                            <xsd:annotation>
+                              <xsd:documentation>
+                                Performance Monitoring counter 
+                                for number of received faulty octets.
+                              </xsd:documentation>
+                            </xsd:annotation>
+                          </xsd:element>
+                          <xsd:element minOccurs="0" name="inUnknownProtocol" type="StatisticCounter">
+                            <xsd:annotation>
+                              <xsd:documentation>
+                                Performance Monitoring counter 
+                                for number of received Unknown Protocol packets.
+                              </xsd:documentation>
+                            </xsd:annotation>
+                          </xsd:element>
+                          <xsd:element minOccurs="0" name="outOctets" type="StatisticCounter">
+                            <xsd:annotation>
+                              <xsd:documentation>
+                                Performance Monitoring counter for
+                                octets in send buffer.
+                              </xsd:documentation>
+                            </xsd:annotation>
+                          </xsd:element>
+                          <xsd:element minOccurs="0" name="outUnicastPackets" type="StatisticCounter">
+                            <xsd:annotation>
+                              <xsd:documentation>
+                                Performance Monitoring counter for
+                                Unicast Packets in send buffer.
+                              </xsd:documentation>
+                            </xsd:annotation>
+                          </xsd:element>
+                          <xsd:element minOccurs="0" name="outMulticastPackets" type="StatisticCounter">
+                            <xsd:annotation>
+                              <xsd:documentation>
+                                Performance Monitoring counter for
+                                Multicast Packets in send buffer.
+                              </xsd:documentation>
+                            </xsd:annotation>
+                          </xsd:element>
+                          <xsd:element minOccurs="0" name="outBroadcastPackets" type="StatisticCounter">
+                            <xsd:annotation>
+                              <xsd:documentation>
+                                Performance Monitoring counter for
+                                Broadcast Packets in send buffer.
+                              </xsd:documentation>
+                            </xsd:annotation>
+                          </xsd:element>
+                          <xsd:element minOccurs="0" name="framesOpcodePause" type="StatisticCounter">
+                            <xsd:annotation>
+                              <xsd:documentation>
+                                Performance Monitoring counter for
+                                Frames with Op code Pause
+                              </xsd:documentation>
+                            </xsd:annotation>
+                          </xsd:element>
+                          <xsd:element minOccurs="0" name="framesExceedingMaxFramesize" type="StatisticCounter">
+                            <xsd:annotation>
+                              <xsd:documentation>
+                                Performance Monitoring counter for
+                                Frames exceeding maximum frame size.
+                              </xsd:documentation>
+                            </xsd:annotation>
+                          </xsd:element>
+                        </xsd:sequence>
+                        <xsd:attribute ref="nc:operation"/>
+                      </xsd:complexType>
+                    </xsd:element>
+                  </xsd:sequence>
+                  <xsd:attribute ref="nc:operation"/>
+                </xsd:complexType>
+              </xsd:element>
+            </xsd:sequence>
+            <xsd:attribute ref="nc:operation"/>
+          </xsd:complexType>
+        </xsd:element>
+      </xsd:sequence>
+      <xsd:attribute ref="nc:operation"/>
+    </xsd:complexType>
+  </xsd:element>
+  <xsd:simpleType name="ccsHelperType21">
+    <xsd:restriction base="xsd:normalizedString">
+      <xsd:whiteSpace value="collapse"/>
+      <xsd:enumeration value="on"/>
+      <xsd:enumeration value="off"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ccsHelperType20">
+    <xsd:restriction base="xsd:normalizedString">
+      <xsd:whiteSpace value="collapse"/>
+      <xsd:enumeration value="cpu"/>
+      <xsd:enumeration value="memory"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ccsHelperType19">
+    <xsd:restriction base="xsd:integer">
+      <xsd:minInclusive value="50"/>
+      <xsd:maxInclusive value="100"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ccsHelperType18">
+    <xsd:restriction base="xsd:normalizedString">
+      <xsd:whiteSpace value="collapse"/>
+      <xsd:enumeration value="left"/>
+      <xsd:enumeration value="right"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ccsHelperType17">
+    <xsd:restriction base="xsd:normalizedString">
+      <xsd:whiteSpace value="collapse"/>
+      <xsd:enumeration value="yes"/>
+      <xsd:enumeration value="no"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ccsHelperType16">
+    <xsd:restriction base="xsd:normalizedString">
+      <xsd:whiteSpace value="collapse"/>
+      <xsd:enumeration value="inSync"/>
+      <xsd:enumeration value="outOfSync"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ccsHelperType15">
+    <xsd:restriction base="xsd:normalizedString">
+      <xsd:whiteSpace value="collapse"/>
+      <xsd:enumeration value="individual"/>
+      <xsd:enumeration value="aggregatable"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ccsHelperType14">
+    <xsd:restriction base="xsd:normalizedString">
+      <xsd:whiteSpace value="collapse"/>
+      <xsd:enumeration value="long"/>
+      <xsd:enumeration value="short"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ccsHelperType13">
+    <xsd:restriction base="xsd:normalizedString">
+      <xsd:whiteSpace value="collapse"/>
+      <xsd:enumeration value="passive"/>
+      <xsd:enumeration value="active"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ccsHelperType12">
+    <xsd:restriction base="xsd:normalizedString">
+      <xsd:whiteSpace value="collapse"/>
+      <xsd:enumeration value="protected"/>
+      <xsd:enumeration value="isolatable"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ccsHelperType11">
+    <xsd:restriction base="xsd:normalizedString">
+      <xsd:whiteSpace value="collapse"/>
+      <xsd:enumeration value="static"/>
+      <xsd:enumeration value="dynamic"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ccsHelperType10">
+    <xsd:restriction base="xsd:integer">
+      <xsd:minInclusive value="1"/>
+      <xsd:maxInclusive value="4094"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ccsHelperType9">
+    <xsd:restriction base="xsd:normalizedString">
+      <xsd:whiteSpace value="collapse"/>
+      <xsd:enumeration value="notUsed"/>
+      <xsd:enumeration value="high"/>
+      <xsd:enumeration value="medium"/>
+      <xsd:enumeration value="low"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ccsHelperType8">
+    <xsd:restriction base="xsd:normalizedString">
+      <xsd:whiteSpace value="collapse"/>
+      <xsd:enumeration value="notUsed"/>
+      <xsd:enumeration value="wrr"/>
+      <xsd:enumeration value="strictpriority"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ccsHelperType7">
+    <xsd:restriction base="xsd:integer">
+      <xsd:minInclusive value="0"/>
+      <xsd:maxInclusive value="7"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ccsHelperType6">
+    <xsd:restriction base="xsd:integer">
+      <xsd:minInclusive value="1"/>
+      <xsd:maxInclusive value="24"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ccsHelperType5">
+    <xsd:restriction base="xsd:integer">
+      <xsd:minInclusive value="0"/>
+      <xsd:maxInclusive value="100"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ccsHelperType4">
+    <xsd:restriction base="xsd:normalizedString">
+      <xsd:whiteSpace value="collapse"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ccsHelperType3">
+    <xsd:restriction base="xsd:normalizedString">
+      <xsd:whiteSpace value="collapse"/>
+      <xsd:enumeration value="srcMAC"/>
+      <xsd:enumeration value="dstMAC"/>
+      <xsd:enumeration value="srcAndDstMAC"/>
+      <xsd:enumeration value="srcIP"/>
+      <xsd:enumeration value="dstIP"/>
+      <xsd:enumeration value="srcAndDstIP"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ccsHelperType2">
+    <xsd:restriction base="xsd:normalizedString">
+      <xsd:whiteSpace value="collapse"/>
+      <xsd:enumeration value="dynamic"/>
+      <xsd:enumeration value="force"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ccsHelperType1">
+    <xsd:restriction base="xsd:normalizedString">
+      <xsd:whiteSpace value="collapse"/>
+      <xsd:enumeration value="lacp"/>
+      <xsd:enumeration value="manual"/>
+      <xsd:enumeration value="disable"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ccsHelperType0">
+    <xsd:restriction base="xsd:integer">
+      <xsd:minInclusive value="0"/>
+      <xsd:maxInclusive value="31"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+</xsd:schema>

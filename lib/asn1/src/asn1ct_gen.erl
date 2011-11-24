@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -22,7 +22,7 @@
 -include("asn1_records.hrl").
 
 -export([pgen_exports/3,
-	 pgen_hrl/4,
+	 pgen_hrl/5,
 	 gen_head/3,
 	 demit/1,
 	 emit/1,
@@ -41,28 +41,30 @@
 	 rt2ct_suffix/0,
 	 index2suffix/1,
 	 get_record_name_prefix/0]).
--export([pgen/4,
-	 pgen_module/5,
+-export([pgen/5,
+	 pgen_module/6,
 	 mk_var/1, 
 	 un_hyphen_var/1]).
 -export([gen_encode_constructed/4,
 	 gen_decode_constructed/4]).
+-export([nif_parameter/0]).
 
-%% pgen(Erules, Module, TypeOrVal)
+%% pgen(Outfile, Erules, Module, TypeOrVal, Options)
 %% Generate Erlang module (.erl) and (.hrl) file corresponding to an ASN.1 module
 %% .hrl file is only generated if necessary
 %% Erules = per | ber | ber_bin | per_bin
 %% Module = atom()
 %% TypeOrVal = {TypeList,ValueList}
 %% TypeList = ValueList = [atom()]
+%% Options = [Options] from asn1ct:compile()
 
-pgen(OutFile,Erules,Module,TypeOrVal) ->
-    pgen_module(OutFile,Erules,Module,TypeOrVal,true).
+pgen(OutFile,Erules,Module,TypeOrVal,Options) ->
+    pgen_module(OutFile,Erules,Module,TypeOrVal,Options,true).
 
 
 pgen_module(OutFile,Erules,Module,
 	    TypeOrVal = {Types,_Values,_Ptypes,_Classes,_Objects,_ObjectSets},
-	    Indent) ->
+	    Options,Indent) ->
     N2nConvEnums = [CName|| {n2n,CName} <- get(encoding_options)],
     case N2nConvEnums -- Types of
 	[] ->
@@ -72,7 +74,7 @@ pgen_module(OutFile,Erules,Module,
 		   UnmatchedTypes})
     end,
     put(outfile,OutFile),
-    HrlGenerated = pgen_hrl(Erules,Module,TypeOrVal,Indent),
+    HrlGenerated = pgen_hrl(Erules,Module,TypeOrVal,Options,Indent),
     asn1ct_name:start(),
     ErlFile = lists:concat([OutFile,".erl"]),
     Fid = fopen(ErlFile,[write]),
@@ -86,7 +88,7 @@ pgen_module(OutFile,Erules,Module,
 % gen_vars(asn1_db:mod_to_vars(Module)),
 % gen_tag_table(AllTypes),
     file:close(Fid),
-    io:format("--~p--~n",[{generated,ErlFile}]).
+    asn1ct:verbose("--~p--~n",[{generated,ErlFile}],Options).
 
 
 pgen_typeorval(Erules,Module,N2nConvEnums,{Types,Values,_Ptypes,_Classes,Objects,ObjectSets}) ->
@@ -535,14 +537,19 @@ gen_part_decode_funcs({primitive,bif},_TypeName,
 gen_part_decode_funcs(WhatKind,_TypeName,{_,Directive,_,_}) ->
     throw({error,{asn1,{"Not implemented yet",WhatKind," partial incomplete directive:",Directive}}}).
 
+
 gen_types(Erules,Tname,{RootL1,ExtList,RootL2}) 
   when is_list(RootL1), is_list(RootL2) ->
     gen_types(Erules,Tname,RootL1),
-    gen_types(Erules,Tname,ExtList),
+    Rtmod = list_to_atom(lists:concat(["asn1ct_gen_",erule(Erules),
+				       rt2ct_suffix(Erules)])),
+    gen_types(Erules,Tname,Rtmod:extaddgroup2sequence(ExtList)),
     gen_types(Erules,Tname,RootL2);
 gen_types(Erules,Tname,{RootList,ExtList}) when is_list(RootList) ->
     gen_types(Erules,Tname,RootList),
-    gen_types(Erules,Tname,ExtList);
+    Rtmod = list_to_atom(lists:concat(["asn1ct_gen_",erule(Erules),
+				       rt2ct_suffix(Erules)])),
+    gen_types(Erules,Tname,Rtmod:extaddgroup2sequence(ExtList));
 gen_types(Erules,Tname,[{'EXTENSIONMARK',_,_}|Rest]) ->
     gen_types(Erules,Tname,Rest);
 gen_types(Erules,Tname,[ComponentType|Rest]) ->
@@ -932,13 +939,13 @@ pgen_dispatcher(Erules,_Module,{Types,_Values,_,_,_Objects,_ObjectSets}) ->
     NoFinalPadding = lists:member(no_final_padding,get(encoding_options)),
     Call = case Erules of
 	       per -> "?RT_PER:complete(encode_disp(Type,Data))";
-	       per_bin -> "?RT_PER:complete(encode_disp(Type,Data))";
+	       per_bin -> ["?RT_PER:complete(encode_disp(Type,Data))"];
 	       ber -> "encode_disp(Type,Data)";
 	       ber_bin -> "encode_disp(Type,Data)";
 	       ber_bin_v2 -> "encode_disp(Type,Data)";
 	       uper_bin when NoFinalPadding == true -> 
 		   "?RT_PER:complete_NFP(encode_disp(Type,Data))";
-	       uper_bin -> "?RT_PER:complete(encode_disp(Type,Data))"
+	       uper_bin -> ["?RT_PER:complete(encode_disp(Type,Data))"]
 	   end,
     EncWrap = case Erules of
 	       ber -> "wrap_encode(Bytes)";
@@ -968,7 +975,7 @@ pgen_dispatcher(Erules,_Module,{Types,_Values,_,_,_Objects,_ObjectSets}) ->
 %     case Erules of
 % 	ber_bin_v2 ->
 % 	    emit(["decode(Type,Data0) ->",nl]),
-% 	    emit(["{Data,_RestBin} = ?RT_BER:decode(Data0",driver_parameter(),"),",nl]);
+% 	    emit(["{Data,_RestBin} = ?RT_BER:decode(Data0",nif_parameter(),"),",nl]);
 % 	_ ->
 % 	    emit(["decode(Type,Data) ->",nl])
 %     end,
@@ -985,10 +992,10 @@ pgen_dispatcher(Erules,_Module,{Types,_Values,_,_,_Objects,_ObjectSets}) ->
 	    {ber_bin_v2,false} ->
 		io_lib:format("~s~s~s~n",
 			      ["element(1,?RT_BER:decode(Data",
-			       driver_parameter(),"))"]);
+			       nif_parameter(),"))"]);
 	    {ber_bin_v2,true} ->
 		emit(["{Data,Rest} = ?RT_BER:decode(Data0",
-		      driver_parameter(),"),",nl]),
+		      nif_parameter(),"),",nl]),
 		"Data";
 	    _ ->
 		"Data"
@@ -1124,13 +1131,8 @@ gen_decode_partial_incomplete(Erule) when Erule == ber;Erule==ber_bin;
 			  "Data) of",nl]),
 		    EmitCaseClauses(),
 		    emit(["decode_part(Type,Data0) ->",nl]),
-		    Driver =
-			case lists:member(driver,get(encoding_options)) of
-			    true ->
-				",driver";
-			    _ -> ""
-			end,
-		    emit(["  case catch decode_inc_disp(Type,element(1,?RT_BER:decode(Data0",Driver,"))) of",nl]),
+		    emit(["  case catch decode_inc_disp(Type,element(1,"
+			  "?RT_BER:decode(Data0",nif_parameter(),"))) of",nl]),
 % 			  "  {Data,_RestBin} = ?RT_BER:decode(Data0),",nl,
 % 			  "  case catch decode_inc_disp(Type,Data) of",nl]),
 		    EmitCaseClauses();
@@ -1173,12 +1175,12 @@ gen_partial_inc_dispatcher([],_) ->
     emit(["decode_partial_inc_disp(Type,_Data) ->",nl,
 	  "  exit({error,{asn1,{undefined_type,Type}}}).",nl]).
 
-driver_parameter() ->
+nif_parameter() ->
     Options = get(encoding_options),
-    case lists:member(driver,Options) of
-	true ->
-	    ",driver";
-	_ -> ""
+    case {lists:member(driver,Options),lists:member(nif,Options)} of
+	{true,_} -> ",nif";
+	{_,true} -> ",nif";
+	_ ->  ""
     end.
 
 gen_wrapper() ->
@@ -1310,7 +1312,7 @@ fopen(F, ModeList) ->
 	    exit({error,Reason})
     end.
 
-pgen_hrl(Erules,Module,TypeOrVal,_Indent) ->
+pgen_hrl(Erules,Module,TypeOrVal,Options,_Indent) ->
     put(currmod,Module),
     {Types,Values,Ptypes,_,_,_} = TypeOrVal,
     Ret =
@@ -1334,8 +1336,9 @@ pgen_hrl(Erules,Module,TypeOrVal,_Indent) ->
 	Y ->
 	    Fid = get(gen_file_out),
 	    file:close(Fid),
-	    io:format("--~p--~n",
-		      [{generated,lists:concat([get(outfile),".hrl"])}]),
+	    asn1ct:verbose("--~p--~n",
+			   [{generated,lists:concat([get(outfile),".hrl"])}],
+			   Options),
 	    Y
     end.
 
@@ -1518,8 +1521,9 @@ gen_head(Erules,Mod,Hrl) ->
     emit({"-module('",Mod,"').",nl}),
     put(currmod,Mod),
     %emit({"-compile(export_all).",nl}),
-    case Hrl of
-	0 -> true;
+    case {Hrl,lists:member(inline,get(encoding_options))} of
+	{0,_} -> true;
+	{_,true} -> true;
 	_ -> 
 	    emit({"-include(\"",Mod,".hrl\").",nl})
     end,
@@ -1541,19 +1545,18 @@ gen_record2(Name,SeqOrSet,Comps) ->
 
 gen_record2(_Name,_SeqOrSet,[],_Com,_Extension) ->
     true;
-gen_record2(Name,SeqOrSet,[{'EXTENSIONMARK',_,_}|T],Com,Extension) ->
-    gen_record2(Name,SeqOrSet,T,Com,Extension);
-gen_record2(_Name,_SeqOrSet,[H],Com,Extension) ->
-    #'ComponentType'{name=Cname} = H,
+gen_record2(_Name,_SeqOrSet,[H = #'ComponentType'{name=Cname}],Com,Extension) ->
     emit(Com),
     emit({asis,Cname}),
     gen_record_default(H, Extension);
-gen_record2(Name,SeqOrSet,[H|T],Com, Extension) ->
-    #'ComponentType'{name=Cname} = H,
+gen_record2(Name,SeqOrSet,[H = #'ComponentType'{name=Cname}|T],Com, Extension) ->
     emit(Com),
     emit({asis,Cname}),
     gen_record_default(H, Extension),
-    gen_record2(Name,SeqOrSet,T,", ", Extension).
+    gen_record2(Name,SeqOrSet,T,", ", Extension);
+gen_record2(Name,SeqOrSet,[_|T],Com,Extension) ->
+    %% skip EXTENSIONMARK, ExtensionAdditionGroup and other markers
+    gen_record2(Name,SeqOrSet,T,Com,Extension).
 
 gen_record_default(#'ComponentType'{prop='OPTIONAL'}, _)->
     emit(" = asn1_NOVALUE"); 

@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>1996</year>
-      <year>2007</year>
+      <year>2011</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -45,7 +45,7 @@
   </description>
   <funcs>
     <func>
-      <name>pi() -> float()</name>
+      <name name="pi" arity="0"/>
       <fsummary>A useful number</fsummary>
       <desc>
         <p>A useful number.</p>

@@ -1,19 +1,19 @@
 #
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 1997-2009. All Rights Reserved.
-# 
+#
+# Copyright Ericsson AB 1997-2011. All Rights Reserved.
+#
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
 # compliance with the License. You should have received a copy of the
 # Erlang Public License along with this software. If not, it can be
 # retrieved online at http://www.erlang.org/.
-# 
+#
 # Software distributed under the License is distributed on an "AS IS"
 # basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 # the License for the specific language governing rights and limitations
 # under the License.
-# 
+#
 # %CopyrightEnd%
 #
 
@@ -61,7 +61,7 @@ MODULES= \
 	exception_SUITE \
 	float_SUITE \
 	fun_SUITE \
-	fun_r11_SUITE \
+	fun_r12_SUITE \
 	gc_SUITE \
 	guard_SUITE \
 	hash_SUITE \
@@ -75,14 +75,15 @@ MODULES= \
 	node_container_SUITE \
 	nofrag_SUITE \
 	num_bif_SUITE \
-	obsolete_SUITE \
 	op_SUITE \
 	port_SUITE \
 	port_bif_SUITE \
 	process_SUITE \
 	pseudoknot_SUITE \
+	receive_SUITE \
 	ref_SUITE \
 	register_SUITE \
+	mtx_SUITE \
 	save_calls_SUITE \
 	send_term_SUITE \
 	sensitive_SUITE \
@@ -100,6 +101,7 @@ MODULES= \
 	trace_local_SUITE \
 	trace_meta_SUITE \
 	trace_call_count_SUITE \
+	trace_call_time_SUITE \
 	scheduler_SUITE \
 	old_scheduler_SUITE \
 	z_SUITE \
@@ -117,11 +119,16 @@ NO_OPT= bs_bincomp \
 	bs_match_int \
 	bs_match_tail \
 	bs_match_misc \
-	bs_utf
+	bs_utf \
+	guard
 
+NATIVE= hibernate
 
 NO_OPT_MODULES= $(NO_OPT:%=%_no_opt_SUITE)
 NO_OPT_ERL_FILES= $(NO_OPT_MODULES:%=%.erl)
+
+NATIVE_MODULES= $(NATIVE:%=%_native_SUITE)
+NATIVE_ERL_FILES= $(NATIVE_MODULES:%=%.erl)
 
 ERL_FILES= $(MODULES:%=%.erl)
 
@@ -148,7 +155,7 @@ ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/test_server/include
 # Targets
 # ----------------------------------------------------
 
-make_emakefile: $(NO_OPT_ERL_FILES)
+make_emakefile: $(NO_OPT_ERL_FILES) $(NATIVE_ERL_FILES)
 	# This special rule can be removed when communication with R7B nodes 
 	# is no longer supported.
 	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) +compressed -o$(EBIN) \
@@ -157,6 +164,8 @@ make_emakefile: $(NO_OPT_ERL_FILES)
 	$(MODULES) >> $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile +no_copt +no_postopt $(ERL_COMPILE_FLAGS) \
 	-o$(EBIN) $(NO_OPT_MODULES) >> $(EMAKEFILE)
+	$(ERL_TOP)/make/make_emakefile +native $(ERL_COMPILE_FLAGS) \
+	-o$(EBIN) $(NATIVE_MODULES) >> $(EMAKEFILE)
 
 tests debug opt: make_emakefile
 	erl $(ERL_MAKE_FLAGS) -make
@@ -175,6 +184,9 @@ docs:
 %_no_opt_SUITE.erl: %_SUITE.erl
 	sed -e 's;-module($(basename $<));-module($(basename $@));' $< > $@
 
+%_native_SUITE.erl: %_SUITE.erl
+	sed -e 's;-module($(basename $<));-module($(basename $@));' $< > $@
+
 # ----------------------------------------------------
 # Release Target
 # ---------------------------------------------------- 
@@ -187,7 +199,8 @@ release_tests_spec: make_emakefile
 	$(INSTALL_DATA) $(EMAKEFILE) $(TEST_SPEC_FILES) \
 		$(ERL_FILES) $(RELSYSDIR)
 	$(INSTALL_DATA) $(NO_OPT_ERL_FILES) $(RELSYSDIR)
-	chmod -f -R u+w $(RELSYSDIR)
+	$(INSTALL_DATA) $(NATIVE_ERL_FILES) $(RELSYSDIR)
+	chmod -R u+w $(RELSYSDIR)
 	tar cf - *_SUITE_data | (cd $(RELSYSDIR); tar xf -)
 
 release_docs_spec:

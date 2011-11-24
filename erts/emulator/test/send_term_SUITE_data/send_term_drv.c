@@ -17,6 +17,7 @@
  */
 
 #include "erl_driver.h"
+#include <stdio.h>
 #include <errno.h>
 #include <string.h>
 
@@ -65,12 +66,21 @@ static void fail_term(ErlDrvTermData* msg, int len, int line);
 
 static void send_term_drv_run(ErlDrvData port, char *buf, int count)
 {
-    ErlDrvTermData msg[1024];
+    char buf7[1024];
+    ErlDrvTermData spec[1024];
+    ErlDrvTermData* msg = spec;
+    ErlDrvBinary* bins[15];
+    int bin_ix = 0;
+    ErlDrvSInt64 s64[15];
+    int s64_ix = 0;
+    ErlDrvUInt64 u64[15];
+    int u64_ix = 0;
+    int i = 0;
 
-    switch (*buf) {
+    for (i=0; i<count; i++) switch (buf[i]) {
     case 0:
 	msg[0] = ERL_DRV_NIL;
-	output_term(msg, 1);
+	msg += 1;
 	break;
 
     case 1: 			/* Most term types inside a tuple. */
@@ -102,7 +112,7 @@ static void send_term_drv_run(ErlDrvData port, char *buf, int count)
 	    msg[22] = driver_connected(erlang_port);
 	    msg[23] = ERL_DRV_TUPLE;
 	    msg[24] = (ErlDrvTermData) 7;
-	    output_term(msg, 25);
+	    msg += 25;
 	}
 	break;
 
@@ -117,7 +127,7 @@ static void send_term_drv_run(ErlDrvData port, char *buf, int count)
 	    msg[i] = ERL_DRV_NIL;
 	    msg[i+1] = ERL_DRV_LIST;
 	    msg[i+2] = (ErlDrvTermData) 201;
-	    output_term(msg, i+3);
+	    msg += i+3;
 	}
 	break;
 
@@ -126,7 +136,7 @@ static void send_term_drv_run(ErlDrvData port, char *buf, int count)
 	    ErlDrvBinary* bin;
 	    int i;
 
-	    bin = driver_alloc_binary(256);
+	    bin = bins[bin_ix++] = driver_alloc_binary(256);
 	    for (i = 0; i < 256; i++) {
 		bin->orig_bytes[i] = i;
 	    }
@@ -140,8 +150,7 @@ static void send_term_drv_run(ErlDrvData port, char *buf, int count)
 	    msg[7] = (ErlDrvTermData) 23;
 	    msg[8] = ERL_DRV_TUPLE;
 	    msg[9] = (ErlDrvTermData) 2;
-	    output_term(msg, 10);
-	    driver_free_binary(bin);
+	    msg += 10;
 	}
 	break;
 
@@ -152,11 +161,11 @@ static void send_term_drv_run(ErlDrvData port, char *buf, int count)
 	msg[3] = driver_caller(erlang_port);
 	msg[4] = ERL_DRV_TUPLE;
 	msg[5] = (ErlDrvTermData) 2;
-	output_term(msg, 6);
+	msg += 6;
 	break;
 
     case 5:
-	output_term(msg, make_ext_term_list(msg, 0));
+	msg += make_ext_term_list(msg, 0);
 	break;
 
     case 6:
@@ -166,94 +175,91 @@ static void send_term_drv_run(ErlDrvData port, char *buf, int count)
 	msg[3] = ~((ErlDrvTermData) 0);
 	msg[4] = ERL_DRV_TUPLE;
 	msg[5] = (ErlDrvTermData) 2;
-	output_term(msg, 6);
+	msg += 6;
 	break;
 
     case 7: {
 	int len = 0;
-	char buf[1024];
-	memset(buf, 17, sizeof(buf));
+	memset(buf7, 17, sizeof(buf7));
 	/* empty heap binary */
 	msg[len++] = ERL_DRV_BUF2BINARY;
 	msg[len++] = (ErlDrvTermData) NULL; /* NULL is ok if size == 0 */
 	msg[len++] = (ErlDrvTermData) 0;
 	/* empty heap binary again */
 	msg[len++] = ERL_DRV_BUF2BINARY;
-	msg[len++] = (ErlDrvTermData) &buf[0]; /* ptr is ok if size == 0 */
+	msg[len++] = (ErlDrvTermData) buf7; /* ptr is ok if size == 0 */
 	msg[len++] = (ErlDrvTermData) 0;
 	/* heap binary */
 	msg[len++] = ERL_DRV_BUF2BINARY;
-	msg[len++] = (ErlDrvTermData) &buf[0];
+	msg[len++] = (ErlDrvTermData) buf7;
 	msg[len++] = (ErlDrvTermData) 17;
 	/* off heap binary */
 	msg[len++] = ERL_DRV_BUF2BINARY;
-	msg[len++] = (ErlDrvTermData) &buf[0];
-	msg[len++] = (ErlDrvTermData) sizeof(buf);
+	msg[len++] = (ErlDrvTermData) buf7;
+	msg[len++] = (ErlDrvTermData) sizeof(buf7);
 
 	msg[len++] = ERL_DRV_TUPLE;
 	msg[len++] = (ErlDrvTermData) 4;
 
-	output_term(msg, len);
+	msg += len;
 	break;
     }
 
     case 8:
 	msg[0] = ERL_DRV_NIL;
-	output_term(msg, 1);
+	msg += 1;
 	break;
 
     case 9:
 	msg[0] = ERL_DRV_ATOM;
 	msg[1] = (ErlDrvTermData) driver_mk_atom("");
-	output_term(msg, 2);
+	msg += 2;
 	break;
 
     case 10:
 	msg[0] = ERL_DRV_ATOM;
 	msg[1] = (ErlDrvTermData) driver_mk_atom("an_atom");
-	output_term(msg, 2);
+	msg += 2;
 	break;
 
     case 11:
 	msg[0] = ERL_DRV_INT;
 	msg[1] = (ErlDrvTermData) -4711;
-	output_term(msg, 2);
+	msg += 2;
 	break;
 	  
     case 12:  
 	msg[0] = ERL_DRV_UINT;
 	msg[1] = (ErlDrvTermData) 4711;
-	output_term(msg, 2);
+	msg += 2;
 	  
 	break;
     case 13:  
 	msg[0] = ERL_DRV_PORT;
 	msg[1] = driver_mk_port(erlang_port);
-	output_term(msg, 2);
+	msg += 2;
 	break;
 
     case 14: {
-	ErlDrvBinary *dbin = driver_alloc_binary(0);
+	ErlDrvBinary *dbin = bins[bin_ix++] = driver_alloc_binary(0);
 	msg[0] = ERL_DRV_BINARY;
 	msg[1] = (ErlDrvTermData) dbin;
 	msg[2] = (ErlDrvTermData) 0;
 	msg[3] = (ErlDrvTermData) 0;
-	output_term(msg, 4);
-	driver_free_binary(dbin);
+	msg += 4;
 	break;
 	}
 
     case 15: {
-	char buf[] = "hejsan";
-	ErlDrvBinary *dbin = driver_alloc_binary(sizeof(buf)-1);
+	static const char buf[] = "hejsan";
+	ErlDrvBinary *dbin = bins[bin_ix++] = driver_alloc_binary(sizeof(buf)-1);
 	if (dbin)
 	    memcpy((void *) dbin->orig_bytes, (void *) buf, sizeof(buf)-1);
 	msg[0] = ERL_DRV_BINARY;
 	msg[1] = (ErlDrvTermData) dbin;
 	msg[2] = (ErlDrvTermData) (dbin ? sizeof(buf)-1 : 0);
 	msg[3] = (ErlDrvTermData) 0;
-	output_term(msg, 4);
-	driver_free_binary(dbin);
+	msg += 4;
 	break;
 	}
 
@@ -261,24 +267,24 @@ static void send_term_drv_run(ErlDrvData port, char *buf, int count)
 	msg[0] = ERL_DRV_BUF2BINARY;
 	msg[1] = (ErlDrvTermData) NULL;
 	msg[2] = (ErlDrvTermData) 0;
-	output_term(msg, 3);
+	msg += 3;
 	break;
 	
     case 17: {
-	char buf[] = "";
+	static const char buf[] = "";
 	msg[0] = ERL_DRV_BUF2BINARY;
 	msg[1] = (ErlDrvTermData) buf;
 	msg[2] = (ErlDrvTermData) sizeof(buf)-1;
-	output_term(msg, 3);
+	msg += 3;
 	break;
 	}
 
     case 18: {
-	char buf[] = "hoppsan";
+	static const char buf[] = "hoppsan";
 	msg[0] = ERL_DRV_BUF2BINARY;
 	msg[1] = (ErlDrvTermData) buf;
 	msg[2] = (ErlDrvTermData) sizeof(buf)-1;
-	output_term(msg, 3);
+	msg += 3;
 	break;
     }
 
@@ -286,44 +292,44 @@ static void send_term_drv_run(ErlDrvData port, char *buf, int count)
 	msg[0] = ERL_DRV_STRING;
 	msg[1] = (ErlDrvTermData) buf;
 	msg[2] = (ErlDrvTermData) 0;
-	output_term(msg, 3);
+	msg += 3;
 	break;
 
     case 20: {
-	char buf[] = "";
+	static const char buf[] = "";
 	msg[0] = ERL_DRV_STRING;
 	msg[1] = (ErlDrvTermData) buf;
 	msg[2] = (ErlDrvTermData) sizeof(buf)-1;
-	output_term(msg, 3);
+	msg += 3;
 	break;
     }
 	
     case 21: {
-	char buf[] = "hippsan";
+	static const char buf[] = "hippsan";
 	msg[0] = ERL_DRV_STRING;
 	msg[1] = (ErlDrvTermData) buf;
 	msg[2] = (ErlDrvTermData) sizeof(buf)-1;
-	output_term(msg, 3);
+	msg += 3;
 	break;
 	}
 
     case 22:
 	msg[0] = ERL_DRV_TUPLE;
 	msg[1] = (ErlDrvTermData) 0;
-	output_term(msg, 2);
+	msg += 2;
 	break;
 
     case 23:
 	msg[0] = ERL_DRV_NIL;
 	msg[1] = ERL_DRV_LIST;
 	msg[2] = (ErlDrvTermData) 1;
-	output_term(msg, 3);
+	msg += 3;
 	break;
 	
     case 24:
 	msg[0] = ERL_DRV_PID;
 	msg[1] = driver_connected(erlang_port);
-	output_term(msg, 2);
+	msg += 2;
 	break;
 	
     case 25:
@@ -331,132 +337,131 @@ static void send_term_drv_run(ErlDrvData port, char *buf, int count)
 	msg[1] = ERL_DRV_STRING_CONS;
 	msg[2] = (ErlDrvTermData) "";
 	msg[3] = (ErlDrvTermData) 0;
-	output_term(msg, 4);
+	msg += 4;
 	break;
 
     case 26: {
-	double my_float = 0.0;
+	static double my_float = 0.0;
 	msg[0] = ERL_DRV_FLOAT;
 	msg[1] = (ErlDrvTermData) &my_float; 
-	output_term(msg, 2);
+	msg += 2;
 	break;
     }
 
     case 27: {
-	char buf[] = {131, 106}; /* [] */
+	static char buf[] = {131, 106}; /* [] */
 	msg[0] = ERL_DRV_EXT2TERM;
 	msg[1] = (ErlDrvTermData) buf;
 	msg[2] = (ErlDrvTermData) sizeof(buf);
-	output_term(msg, 3);
+	msg += 3;
 	break;
     }
 
     case 28: {
-	ErlDrvUInt64 x = ~((ErlDrvUInt64) 0);
+	ErlDrvUInt64* x = &u64[u64_ix++];
+	*x = ~((ErlDrvUInt64) 0);
 	msg[0] = ERL_DRV_UINT64;
-	msg[1] = (ErlDrvTermData) &x;
-	output_term(msg, 2);
-
+	msg[1] = (ErlDrvTermData) x;
+	msg += 2;
 	break;
     }
 
     case 29: {
-	ErlDrvUInt64 x = ((ErlDrvUInt64) 4711) << 32;
+	ErlDrvUInt64* x = &u64[u64_ix++];
+	*x = ((ErlDrvUInt64) 4711) << 32;
 	msg[0] = ERL_DRV_UINT64;
-	msg[1] = (ErlDrvTermData) &x;
-	output_term(msg, 2);
-
+	msg[1] = (ErlDrvTermData) x;
+	msg += 2;
 	break;
     }
 
     case 30: {
-	ErlDrvUInt64 x = 4711;
+	ErlDrvUInt64* x = &u64[u64_ix++];
+	*x = 4711;
 	msg[0] = ERL_DRV_UINT64;
-	msg[1] = (ErlDrvTermData) &x;
-	output_term(msg, 2);
-
+	msg[1] = (ErlDrvTermData) x;
+	msg += 2;
 	break;
     }
 
     case 31: {
-	ErlDrvUInt64 x = 0;
+	ErlDrvUInt64* x = &u64[u64_ix++];
+	*x = 0;
 	msg[0] = ERL_DRV_UINT64;
-	msg[1] = (ErlDrvTermData) &x;
-	output_term(msg, 2);
-
+	msg[1] = (ErlDrvTermData) x;
+	msg += 2;
 	break;
     }
 
     case 32: {
-	ErlDrvSInt64 x = ((((ErlDrvUInt64) 0x7fffffff) << 32)
-			  | ((ErlDrvUInt64) 0xffffffff));
+	ErlDrvSInt64* x = &s64[s64_ix++];
+	*x = ((((ErlDrvUInt64) 0x7fffffff) << 32) | ((ErlDrvUInt64) 0xffffffff));
 	msg[0] = ERL_DRV_INT64;
-	msg[1] = (ErlDrvTermData) &x;
-	output_term(msg, 2);
-
+	msg[1] = (ErlDrvTermData) x;
+	msg += 2;
 	break;
     }
 
     case 33: {
-	ErlDrvSInt64 x = (ErlDrvSInt64) (((ErlDrvUInt64) 4711) << 32);
+	ErlDrvSInt64* x = &s64[s64_ix++];
+	*x = (ErlDrvSInt64) (((ErlDrvUInt64) 4711) << 32);
 	msg[0] = ERL_DRV_INT64;
-	msg[1] = (ErlDrvTermData) &x;
-	output_term(msg, 2);
-
+	msg[1] = (ErlDrvTermData) x;
+	msg += 2;
 	break;
     }
 
     case 34: {
-	ErlDrvSInt64 x = 4711;
+	ErlDrvSInt64* x = &s64[s64_ix++];
+	*x = 4711;
 	msg[0] = ERL_DRV_INT64;
-	msg[1] = (ErlDrvTermData) &x;
-	output_term(msg, 2);
-
+	msg[1] = (ErlDrvTermData) x;
+	msg += 2;
 	break;
     }
 
     case 35: {
-	ErlDrvSInt64 x = 0;
+	ErlDrvSInt64* x = &s64[s64_ix++];
+	*x = 0;
 	msg[0] = ERL_DRV_INT64;
-	msg[1] = (ErlDrvTermData) &x;
-	output_term(msg, 2);
-
+	msg[1] = (ErlDrvTermData) x;
+	msg += 2;
 	break;
     }
 
     case 36: {
-	ErlDrvSInt64 x = -1;
+	ErlDrvSInt64* x = &s64[s64_ix++];
+	*x = -1;
 	msg[0] = ERL_DRV_INT64;
-	msg[1] = (ErlDrvTermData) &x;
-	output_term(msg, 2);
-
+	msg[1] = (ErlDrvTermData) x;
+	msg += 2;
 	break;
     }
 
     case 37: {
-	ErlDrvSInt64 x = -4711;
+	ErlDrvSInt64* x = &s64[s64_ix++];
+	*x = -4711;
 	msg[0] = ERL_DRV_INT64;
-	msg[1] = (ErlDrvTermData) &x;
-	output_term(msg, 2);
-
+	msg[1] = (ErlDrvTermData) x;
+	msg += 2;
 	break;
     }
 
     case 38: {
-	ErlDrvSInt64 x = ((ErlDrvSInt64) ((ErlDrvUInt64) 4711) << 32)*-1;
+	ErlDrvSInt64* x = &s64[s64_ix++];
+	*x = ((ErlDrvSInt64) ((ErlDrvUInt64) 4711) << 32)*-1;
 	msg[0] = ERL_DRV_INT64;
-	msg[1] = (ErlDrvTermData) &x;
-	output_term(msg, 2);
-
+	msg[1] = (ErlDrvTermData) x;
+	msg += 2;
 	break;
     }
 
     case 39: {
-	ErlDrvSInt64 x = ((ErlDrvSInt64) 1) << 63;
+	ErlDrvSInt64* x = &s64[s64_ix++];
+	*x = ((ErlDrvSInt64) 1) << 63;
 	msg[0] = ERL_DRV_INT64;
-	msg[1] = (ErlDrvTermData) &x;
-	output_term(msg, 2);
-
+	msg[1] = (ErlDrvTermData) x;
+	msg += 2;
 	break;
     }
 
@@ -464,7 +469,7 @@ static void send_term_drv_run(ErlDrvData port, char *buf, int count)
     case 127:			/* Error cases */
 	{
 	    long refc;
-	    ErlDrvBinary* bin = driver_alloc_binary(256);
+	    ErlDrvBinary* bin = bins[bin_ix++] = driver_alloc_binary(256);
 
 	    FAIL_TERM(msg, 0);
 
@@ -537,7 +542,7 @@ static void send_term_drv_run(ErlDrvData port, char *buf, int count)
 	    refc = driver_binary_get_refc(bin);
 	    if (refc > 3) {
 		char sbuf[128];
-		sprintf(sbuf, "bad_refc:%d", refc);
+		sprintf(sbuf, "bad_refc:%ld", refc);
 		driver_failure_atom(erlang_port, sbuf);
 	    }
 	    driver_free_binary(bin);
@@ -644,12 +649,23 @@ static void send_term_drv_run(ErlDrvData port, char *buf, int count)
 	    /* Signal end of test case */
 	    msg[0] = ERL_DRV_NIL;
 	    driver_output_term(erlang_port, msg, 1);
+	    return;
 	}
 	break;
 
     default:
 	driver_failure_atom(erlang_port, "bad_request");
 	break;
+    }
+    if (count > 1) {
+	*msg++ = ERL_DRV_NIL;
+	*msg++ = ERL_DRV_LIST;
+	*msg++ = count + 1;
+    }
+    output_term(spec, msg-spec);
+    if ((bin_ix|s64_ix|u64_ix) > 15) abort();
+    while (bin_ix) {
+	driver_free_binary(bins[--bin_ix]);
     }
 }
 

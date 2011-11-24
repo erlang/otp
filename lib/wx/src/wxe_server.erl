@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%%-------------------------------------------------------------------
 %%% File    : wxe_server.erl
@@ -24,7 +24,7 @@
 %%% Created : 17 Jan 2007 by Dan Gudmundsson <dgud@erix.ericsson.se>
 %%%-------------------------------------------------------------------
 
-%% @hidden 
+%% @hidden
 -module(wxe_server).
 -behaviour(gen_server).
 
@@ -65,7 +65,7 @@ start() ->
 	    end;
 	Env = #wx_env{sv=Pid} ->
 	    case erlang:is_process_alive(Pid) of
-		true ->		    
+		true ->
 		    Env;
 		false ->  %% Ok we got an old wx env, someone forgot
 		    erase(?WXE_IDENTIFIER),  %% to call wx:destroy()
@@ -94,7 +94,7 @@ init([]) ->
     {ok,#state{port=Port, cb_port=CBPort,
 	       users=gb_trees:empty(), cb=gb_trees:empty(), cb_cnt=1}}.
 
-%% Register process 
+%% Register process
 handle_call(register_me, {From,_}, State=#state{users=Users}) ->
     erlang:monitor(process, From),
     case gb_trees:is_defined(From, Users) of
@@ -147,7 +147,7 @@ handle_cast({debug, Level}, State) ->
     put(?WXE_IDENTIFIER, Env#wx_env{debug=Level}),
     {noreply, State};
 
-handle_cast(_Msg, State) ->    
+handle_cast(_Msg, State) ->
     ?log("Unknown message ~p sent to ~p~n",[_Msg, ?MODULE]),
     {noreply, State}.
 
@@ -156,7 +156,7 @@ handle_cast(_Msg, State) ->
 %% Callback request from driver
 handle_info(Cb = {_, _, '_wx_invoke_cb_'}, State) ->
     invoke_cb(Cb, State),
-    {noreply, State}; 
+    {noreply, State};
 handle_info({wx_delete_cb, FunId}, State0 = #state{cb=CB}) when is_integer(FunId) ->
     case get(FunId) of
 	undefined ->
@@ -166,7 +166,7 @@ handle_info({wx_delete_cb, FunId}, State0 = #state{cb=CB}) when is_integer(FunId
 	    {noreply, State0#state{cb=gb_trees:delete(Fun, CB)}}
     end;
 handle_info({'DOWN',_,process,Pid,_}, State=#state{users=Users0,cleaners=Cs}) ->
-    try 
+    try
 	User = gb_trees:get(Pid,Users0),
 	Users = gb_trees:delete(Pid,Users0),
 	Env = wx:get_env(),
@@ -210,7 +210,7 @@ handle_connect(Object, EvData, From, State0 = #state{users=Users}) ->
     case Handler0 of
 	#wx_ref{} when Callback =:= 0 ->
 	    CBHandler = Handler0,
-	    Handler = Handler0;	
+	    Handler = Handler0;
 	undefined when Callback =:= 0 ->
 	    Handler = new_evt_listener(State0),
 	    CBHandler = Handler;
@@ -225,7 +225,7 @@ handle_connect(Object, EvData, From, State0 = #state{users=Users}) ->
 	    {FunId, State} = attach_fun(Callback,State1),
 	    Res = wxEvtHandler:connect_impl(CBHandler,Object,
 					    wxEvtHandler:replace_fun_with_id(EvData,FunId)),
-	    case Res of 
+	    case Res of
 		ok     -> {reply,Res,State};
 		_Error -> {reply,Res,State0}
 	    end;
@@ -238,11 +238,7 @@ invoke_cb({{Ev=#wx{}, Ref=#wx_ref{}}, FunId,_}, _S) ->
     %% Event callbacks
     case get(FunId) of
 	Fun when is_function(Fun) ->
-	    invoke_callback(fun() ->
-			       wxe_util:cast(?WXE_CB_START, <<>>),
-			       Fun(Ev, Ref),
-			       <<>>
-		            end);
+	    invoke_callback(fun() -> Fun(Ev, Ref), <<>> end);
 	Err ->
 	    ?log("Internal Error ~p~n",[Err])
     end;
@@ -254,12 +250,14 @@ invoke_cb({FunId, Args, _}, _S) when is_list(Args), is_integer(FunId) ->
 	Err ->
 	    ?log("Internal Error ~p ~p ~p~n",[Err, FunId, Args])
     end.
-	
+
 invoke_callback(Fun) ->
     Env = get(?WXE_IDENTIFIER),
     CB = fun() ->
 		 wx:set_env(Env),
-		 Res = try Return = Fun(),
+		 wxe_util:cast(?WXE_CB_START, <<>>),
+		 Res = try
+			   Return = Fun(),
 			   true = is_binary(Return),
 			   Return
 		       catch _:Reason ->
@@ -278,9 +276,9 @@ new_evt_listener(State) ->
     get_result(State).
 
 get_result(_State) ->
-    receive 
+    receive
 	{'_wxe_result_', Res} -> Res;
-	{'_wxe_error_', Op, Error} -> 
+	{'_wxe_error_', Op, Error} ->
 	    erlang:error({Error, {wxEvtHandler, {internal_installer, Op}}})
     end.
 
@@ -289,7 +287,7 @@ attach_fun(Fun, S = #state{cb=CB,cb_cnt=Next}) ->
 	{value, ID} ->
 	    {ID,S};
 	none ->
-	    put(Next,Fun), 
+	    put(Next,Fun),
 	    {Next,S#state{cb=gb_trees:insert(Fun,Next,CB),cb_cnt=Next+1}}
     end.
 
@@ -297,7 +295,7 @@ handle_disconnect(Object, Evh, From, State0 = #state{users=Users0}) ->
     User0 = #user{events=Evs0, evt_handler=PidH} = gb_trees:get(From, Users0),
     Fun = wxEvtHandler:get_callback(Evh),
     case find_handler(Evs0, Object, Fun) of
-	[] ->  
+	[] ->
 	    {reply, false, State0};
 	Handlers ->
 	    case disconnect(Object,Evh, Handlers) of
@@ -310,7 +308,7 @@ handle_disconnect(Object, Evh, From, State0 = #state{users=Users0}) ->
 			       [] when PidH =/= undefined ->
 				   wxEvtHandler:destroy_evt_listener(PidH),
 				   User0#user{events=[], evt_handler=undefined};
-			       Evs -> 
+			       Evs ->
 				   User0#user{events=Evs}
 			   end,
 		    {reply, true, State0#state{users=gb_trees:update(From,User,Users0)}};
@@ -345,7 +343,7 @@ find_handler([],_Object,_Fun,Res) ->
 
 
 %% Cleanup
-%% The server handles callbacks from driver so every other wx call must 
+%% The server handles callbacks from driver so every other wx call must
 %% be called from another process, therefore the cleaning must be spawned.
 %%
 cleanup(Env, _Pid, Data) ->
@@ -358,7 +356,7 @@ cleanup(#user{objects=_Os,events=Evs, evt_handler=Handler}) ->
     lists:foreach(fun(#event{object=_O, callback=CB, cb_handler=CbH}) ->
 			  %%catch wxEvtHandler:disconnect_impl(CbH,O),
 			  case is_function(CB) of
-			      true -> 
+			      true ->
 				  wxEvtHandler:destroy_evt_listener(CbH);
 			      false ->
 				  ignore

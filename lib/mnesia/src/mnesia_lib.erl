@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -96,6 +96,8 @@
 	 exists/1,
 	 fatal/2,
 	 get_node_number/0,
+	 have_majority/2,
+	 have_majority/3,
 	 fix_error/1,
 	 important/2,
 	 incr_counter/1,
@@ -113,6 +115,9 @@
 	 mkcore/1,
 	 not_active_here/1,
 	 other_val/2,
+         overload_read/0,
+         overload_read/1,
+         overload_set/2,
 	 pad_name/3,
 	 random_time/2,
 	 read_counter/1,
@@ -396,7 +401,7 @@ other_val(Var, Other) ->
 	    pr_other(Var, Other)
     end.
 
--spec(pr_other/2 :: (_,_) -> no_return()).
+-spec pr_other(_,_) -> no_return().
 
 pr_other(Var, Other) ->
     Why = 
@@ -408,7 +413,7 @@ pr_other(Var, Other) ->
 	    [self(), process_info(self(), registered_name),
 	     Var, Other, Why]),
     case Other of
-	{badarg, [{ets, lookup_element, _}|_]} ->
+	{badarg, [{ets, lookup_element, _, _}|_]} ->
 	    exit(Why);
 	_ ->
 	    erlang:error(Why)
@@ -551,6 +556,33 @@ cs_to_nodes(Cs) ->
     Cs#cstruct.disc_only_copies ++
     Cs#cstruct.disc_copies ++
     Cs#cstruct.ram_copies.
+
+overload_types() ->
+    [mnesia_tm, mnesia_dump_log].
+
+valid_overload_type(T) ->
+    case lists:member(T, overload_types()) of
+        false ->
+            erlang:error(bad_type);
+        true ->
+            true
+    end.
+
+overload_set(Type, Bool) when is_boolean(Bool) ->
+    valid_overload_type(Type),
+    set({overload, Type}, Bool).
+
+overload_read() ->
+    [{T, overload_read(T)} || T <- overload_types()].
+
+overload_read(T) ->
+    case ?catch_val({overload, T}) of
+        {'EXIT',_} ->
+            valid_overload_type(T),
+            false;
+        Flag when is_boolean(Flag) ->
+            Flag
+    end.
  
 dist_coredump() ->
     dist_coredump(all_nodes()).
@@ -629,6 +661,14 @@ proc_info(_) -> false.
 
 get_node_number() ->
     {node(), self()}.
+
+have_majority(Tab, HaveNodes) ->
+    have_majority(Tab, val({Tab, all_nodes}), HaveNodes).
+
+have_majority(_Tab, AllNodes, HaveNodes) ->
+    Missing = AllNodes -- HaveNodes,
+    Present = AllNodes -- Missing,
+    length(Present) > length(Missing).
 
 read_log_files() ->
     [{F, catch file:read_file(F)} || F <- mnesia_log:log_files()].
@@ -1101,11 +1141,17 @@ db_erase(ram_copies, Tab, Key) -> ?ets_delete(Tab, Key), ok;
 db_erase(disc_copies, Tab, Key) -> ?ets_delete(Tab, Key), ok;
 db_erase(disc_only_copies, Tab, Key) -> dets:delete(Tab, Key).
 
+db_match_erase(Tab, '_') ->
+    db_delete_all(val({Tab, storage_type}),Tab);
 db_match_erase(Tab, Pat) ->
     db_match_erase(val({Tab, storage_type}), Tab, Pat).
 db_match_erase(ram_copies, Tab, Pat) -> ?ets_match_delete(Tab, Pat), ok;
 db_match_erase(disc_copies, Tab, Pat) -> ?ets_match_delete(Tab, Pat), ok;
 db_match_erase(disc_only_copies, Tab, Pat) -> dets:match_delete(Tab, Pat).
+
+db_delete_all(ram_copies, Tab) ->       ets:delete_all_objects(Tab);
+db_delete_all(disc_copies, Tab) ->      ets:delete_all_objects(Tab);
+db_delete_all(disc_only_copies, Tab) -> dets:delete_all_objects(Tab).
 
 db_first(Tab) ->
     db_first(val({Tab, storage_type}), Tab).

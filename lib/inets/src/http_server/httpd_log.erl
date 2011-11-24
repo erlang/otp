@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -113,7 +113,7 @@ do_error_entry(ConfigDB, RemoteHost, undefined, Date, Reason) ->
 do_error_entry(ConfigDB, RemoteHost, URI, Date, Reason) ->
     case httpd_util:lookup(ConfigDB, error_log_format, pretty) of
 	pretty ->
-	   io_lib:format("[~s] access to ~s failed for ~s reason: ~n~p~n",
+	   io_lib:format("[~s] access to ~s failed for ~s, reason: ~n~p~n",
 			 [Date, URI, RemoteHost, Reason]);
 	compact ->
 	   io_lib:format( "[~s] access to ~s failed for ~s, reason: ~w~n", 

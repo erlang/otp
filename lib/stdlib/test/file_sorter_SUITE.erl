@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -27,12 +27,13 @@
 -define(t,test_server).
 -define(privdir(_), "./file_sorter_SUITE_priv").
 -else.
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -define(format(S, A), ok).
 -define(privdir(Conf), ?config(priv_dir, Conf)).
 -endif.
 
--export([all/1, basic/1, badarg/1, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, basic/1, badarg/1, 
 	 term_sort/1, term_keysort/1,
 	 binary_term_sort/1, binary_term_keysort/1,
 	 binary_sort/1, 
@@ -44,30 +45,42 @@
 	 binary_check/1,
 	 inout/1, misc/1, many/1]).
 
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 init_per_testcase(_Case, Config) ->
     Dog=?t:timetrap(?t:minutes(2)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
-all(suite) ->
-    {req,[stdlib,kernel],
-     [basic, badarg, 
-      term_sort, term_keysort, 
-      binary_term_sort, binary_term_keysort, 
-      binary_sort, 
-      term_merge, term_keymerge, 
-      binary_term_merge, binary_term_keymerge,
-      binary_merge,
-      term_check, binary_term_keycheck,
-      binary_term_check, binary_term_keycheck,
-      binary_check,
-      inout, misc, many]}.
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [basic, badarg, term_sort, term_keysort,
+     binary_term_sort, binary_term_keysort, binary_sort,
+     term_merge, term_keymerge, binary_term_merge,
+     binary_term_keymerge, binary_merge, term_check,
+     binary_term_keycheck, binary_term_check,
+     binary_term_keycheck, binary_check, inout, misc, many].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 basic(doc) ->
     ["Basic test case."];
@@ -76,7 +89,7 @@ basic(suite) ->
 basic(Config) when is_list(Config) ->
     Fmt = binary,
     Arg = {format,Fmt},
-    Foo = outfile(foo, Config),
+    Foo = outfile("foo", Config),
     P0 = pps(),
 
     ?line F1s = [F1] = to_files([[]], Fmt, Config),
@@ -442,7 +455,7 @@ inout(suite) ->
     [];
 inout(Config) when is_list(Config) ->
     BTF = {format, binary_term},
-    Foo = outfile(foo, Config),
+    Foo = outfile("foo", Config),
 
     %% Input is fun.
     End = fun(read) -> end_of_input end,
@@ -509,7 +522,7 @@ many(doc) ->
 many(suite) ->
     [];
 many(Config) when is_list(Config) ->
-    Foo = outfile(foo, Config),
+    Foo = outfile("foo", Config),
     PrivDir = ?privdir(Config),
     P0 = pps(),
 
@@ -574,7 +587,7 @@ misc(suite) ->
     [];
 misc(Config) when is_list(Config) ->
     BTF = {format, binary_term},
-    Foo = outfile(foo, Config),
+    Foo = outfile("foo", Config),
     FFoo = filename:absname(Foo),
     P0 = pps(),
 
@@ -691,7 +704,7 @@ misc(Config) when is_list(Config) ->
 sort(Fmt, XArgs, Config) ->
     Args = make_args(Fmt, [{size,5} | XArgs]),
     TmpArgs = [{tmpdir,?privdir(Config)} | Args],
-    Foo = outfile(foo, Config),
+    Foo = outfile("foo", Config),
 
     %% Input is a fun. Output is a fun.
     ?line [] = file_sorter:sort(input([], 2, Fmt), output([], Fmt), Args),
@@ -764,7 +777,7 @@ sort(Fmt, XArgs, Config) ->
 keysort(Fmt, XArgs, Config) ->
     Args = make_args(Fmt, [{size,50}, {no_files, 2} | XArgs]),
     TmpArgs = Args ++ [{tmpdir,?privdir(Config)}],
-    Foo = outfile(foo, Config),
+    Foo = outfile("foo", Config),
 
     %% Input is files. Output is a file.
     ?line ok = file_sorter:keysort(2, [], Foo, Args),
@@ -823,7 +836,7 @@ keysort(Fmt, XArgs, Config) ->
 
 merge(Fmt, XArgs, Config) ->
     Args = make_args(Fmt, [{size,5} | XArgs]),
-    Foo = outfile(foo, Config),
+    Foo = outfile("foo", Config),
 
     %% Input is a file. Output is a fun.
     ?line [] = file_sorter:merge([], output([], Fmt), Args),
@@ -860,7 +873,7 @@ merge(Fmt, XArgs, Config) ->
 
 keymerge(Fmt, XArgs, Config) ->
     Args = make_args(Fmt, [{size,50}, {no_files, 2} | XArgs]),
-    Foo = outfile(foo, Config),
+    Foo = outfile("foo", Config),
 
     %% Input is files. Output is a file.
     ?line ok = file_sorter:keymerge(2, [], Foo, Args),

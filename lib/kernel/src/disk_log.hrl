@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -44,33 +44,43 @@
 -define(OPENED, <<6,7,8,9>>).
 -define(CLOSED, <<99,88,77,11>>).
 
-%% Needed for the definition of fd()
+%% Needed for the definition of #file_info{}
 %% Must use include_lib() so that we always can be sure to find
 %% file.hrl. A relative path will not work in an installed system.
 -include_lib("kernel/include/file.hrl").
-
-%% Ugly workaround. If we are building the bootstrap compiler,
-%% file.hrl does not define the fd() type.
--ifndef(FILE_HRL_).
--type fd() :: pid() | #file_descriptor{}.
--endif.
 
 %%------------------------------------------------------------------------
 %% Types -- alphabetically
 %%------------------------------------------------------------------------
 
+-type dlog_byte()        :: [dlog_byte()] | byte().
 -type dlog_format()      :: 'external' | 'internal'.
 -type dlog_format_type() :: 'halt_ext' | 'halt_int' | 'wrap_ext' | 'wrap_int'.
 -type dlog_head()        :: 'none' | {'ok', binary()} | mfa().
+-type dlog_head_opt()    :: none | term() | binary() | [dlog_byte()].
+-type log()              :: term().  % XXX: refine
 -type dlog_mode()        :: 'read_only' | 'read_write'.
 -type dlog_name()        :: atom() | string().
 -type dlog_optattr()     :: 'name' | 'file' | 'linkto' | 'repair' | 'type'
                           | 'format' | 'size' | 'distributed' | 'notify'
                           | 'head' | 'head_func' | 'mode'.
--type dlog_options()     :: [{dlog_optattr(), any()}].
+-type dlog_option()      :: {name, Log :: log()}
+                          | {file, FileName :: file:filename()}
+                          | {linkto, LinkTo :: none | pid()}
+                          | {repair, Repair :: true | false | truncate}
+                          | {type, Type :: dlog_type}
+                          | {format, Format :: dlog_format()}
+                          | {size, Size :: dlog_size()}
+                          | {distributed, Nodes :: [node()]}
+                          | {notify, boolean()}
+                          | {head, Head :: dlog_head_opt()}
+                          | {head_func, mfa()}
+                          | {mode, Mode :: dlog_mode()}.
+-type dlog_options()     :: [dlog_option()].
 -type dlog_repair()      :: 'truncate' | boolean().
 -type dlog_size()        :: 'infinity' | pos_integer()
-                          | {pos_integer(), pos_integer()}.
+                          | {MaxNoBytes :: pos_integer(),
+                             MaxNoFiles :: pos_integer()}.
 -type dlog_status()      :: 'ok' | {'blocked', 'false' | [_]}. %QueueLogRecords
 -type dlog_type()        :: 'halt' | 'wrap'.
 
@@ -81,7 +91,7 @@
 %% record of args for open
 -record(arg, {name = 0,
 	      version = undefined,
-	      file = none         :: 'none' | string(),
+	      file = none         :: 'none' | file:filename(),
 	      repair = true       :: dlog_repair(),
 	      size = infinity     :: dlog_size(),
 	      type = halt         :: dlog_type(),
@@ -94,7 +104,7 @@
 	      options = []        :: dlog_options()}).
 
 -record(cache,                %% Cache for logged terms (per file descriptor).
-        {fd       :: fd(),              %% File descriptor.
+        {fd       :: file:fd(),         %% File descriptor.
          sz = 0   :: non_neg_integer(),	%% Number of bytes in the cache.
          c = []   :: iodata()}          %% The cache.
         ).

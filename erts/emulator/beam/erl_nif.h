@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2009-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2009-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -23,18 +23,72 @@
 #ifndef __ERL_NIF_H__
 #define __ERL_NIF_H__
 
+
 #include "erl_drv_nif.h"
 
 /* Version history:
 ** 0.1: R13B03
 ** 1.0: R13B04
+** 2.0: R14A
+** 2.1: R14B02 "vm_variant"
+** 2.2: R14B03 enif_is_exception
+** 2.3: R15 enif_make_reverse_list
 */
-#define ERL_NIF_MAJOR_VERSION 1
-#define ERL_NIF_MINOR_VERSION 0
+#define ERL_NIF_MAJOR_VERSION 2
+#define ERL_NIF_MINOR_VERSION 3
 
 #include <stdlib.h>
 
+#ifdef SIZEOF_CHAR
+#  define SIZEOF_CHAR_SAVED__ SIZEOF_CHAR
+#  undef SIZEOF_CHAR
+#endif
+#ifdef SIZEOF_SHORT
+#  define SIZEOF_SHORT_SAVED__ SIZEOF_SHORT
+#  undef SIZEOF_SHORT
+#endif
+#ifdef SIZEOF_INT
+#  define SIZEOF_INT_SAVED__ SIZEOF_INT
+#  undef SIZEOF_INT
+#endif
+#ifdef SIZEOF_LONG
+#  define SIZEOF_LONG_SAVED__ SIZEOF_LONG
+#  undef SIZEOF_LONG
+#endif
+#ifdef SIZEOF_LONG_LONG
+#  define SIZEOF_LONG_LONG_SAVED__ SIZEOF_LONG_LONG
+#  undef SIZEOF_LONG_LONG
+#endif
+#ifdef HALFWORD_HEAP_EMULATOR
+#  define HALFWORD_HEAP_EMULATOR_SAVED__ HALFWORD_HEAP_EMULATOR
+#  undef HALFWORD_HEAP_EMULATOR
+#endif
+#include "erl_int_sizes_config.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#if (defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_))
+typedef unsigned __int64 ErlNifUInt64;
+typedef __int64 ErlNifSInt64;
+#elif SIZEOF_LONG == 8
+typedef unsigned long ErlNifUInt64;
+typedef long ErlNifSInt64;
+#elif SIZEOF_LONG_LONG == 8
+typedef unsigned long long ErlNifUInt64;
+typedef long long ErlNifSInt64;
+#else
+#error No 64-bit integer type
+#endif
+
+#ifdef HALFWORD_HEAP_EMULATOR
+#  define ERL_NIF_VM_VARIANT "beam.halfword" 
+typedef unsigned int ERL_NIF_TERM;
+#else
+#  define ERL_NIF_VM_VARIANT "beam.vanilla" 
 typedef unsigned long ERL_NIF_TERM;
+#endif
 
 struct enif_environment_t;
 typedef struct enif_environment_t ErlNifEnv;
@@ -56,14 +110,15 @@ typedef struct enif_entry_t
     int  (*load)   (ErlNifEnv*, void** priv_data, ERL_NIF_TERM load_info);
     int  (*reload) (ErlNifEnv*, void** priv_data, ERL_NIF_TERM load_info);
     int  (*upgrade)(ErlNifEnv*, void** priv_data, void** old_priv_data, ERL_NIF_TERM load_info);
-    void (*unload) (ErlNifEnv*, void* priv_data);    
+    void (*unload) (ErlNifEnv*, void* priv_data);
+    const char* vm_variant;
 }ErlNifEntry;
 
 
 
 typedef struct
 {
-    unsigned size;
+    size_t size;
     unsigned char* data;
 
     /* Internals (avert your eyes) */
@@ -73,16 +128,21 @@ typedef struct
 
 typedef struct enif_resource_type_t ErlNifResourceType;
 typedef void ErlNifResourceDtor(ErlNifEnv*, void*);
-enum ErlNifResourceFlags
+typedef enum
 {
     ERL_NIF_RT_CREATE = 1,
     ERL_NIF_RT_TAKEOVER = 2
-};
+}ErlNifResourceFlags;
 
 typedef enum
 {
     ERL_NIF_LATIN1 = 1
 }ErlNifCharEncoding;
+
+typedef struct
+{
+    ERL_NIF_TERM pid;  /* internal, may change */
+}ErlNifPid;
 
 typedef ErlDrvSysInfo ErlNifSysInfo;
 
@@ -116,8 +176,6 @@ extern TWinDynNifCallbacks WinDynNifCallbacks;
 #endif
 
 
-
-
 #if (defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_))
 #  define ERL_NIF_INIT_GLOB TWinDynNifCallbacks WinDynNifCallbacks;
 #  define ERL_NIF_INIT_DECL(MODNAME) __declspec(dllexport) ErlNifEntry* nif_init(TWinDynNifCallbacks* callbacks)
@@ -133,8 +191,20 @@ extern TWinDynNifCallbacks WinDynNifCallbacks;
 #endif
 
 
+#ifdef __cplusplus
+}
+#  define ERL_NIF_INIT_PROLOGUE extern "C" {
+#  define ERL_NIF_INIT_EPILOGUE }
+#else
+#  define ERL_NIF_INIT_PROLOGUE
+#  define ERL_NIF_INIT_EPILOGUE
+#endif
+
+
 #define ERL_NIF_INIT(NAME, FUNCS, LOAD, RELOAD, UPGRADE, UNLOAD) \
+ERL_NIF_INIT_PROLOGUE                   \
 ERL_NIF_INIT_GLOB                       \
+ERL_NIF_INIT_DECL(NAME);		\
 ERL_NIF_INIT_DECL(NAME)			\
 {					\
     static ErlNifEntry entry = 		\
@@ -144,11 +214,14 @@ ERL_NIF_INIT_DECL(NAME)			\
 	#NAME,				\
 	sizeof(FUNCS) / sizeof(*FUNCS),	\
 	FUNCS,				\
-	LOAD, RELOAD, UPGRADE, UNLOAD	\
+	LOAD, RELOAD, UPGRADE, UNLOAD,	\
+	ERL_NIF_VM_VARIANT		\
     };                                  \
     ERL_NIF_INIT_BODY;                  \
     return &entry;			\
-}
+}                                       \
+ERL_NIF_INIT_EPILOGUE
+
 
 #endif /* __ERL_NIF_H__ */
 

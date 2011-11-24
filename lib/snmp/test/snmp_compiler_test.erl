@@ -1,19 +1,19 @@
 %% 
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2003-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %% 
 
@@ -28,7 +28,7 @@
 %%----------------------------------------------------------------------
 %% Include files
 %%----------------------------------------------------------------------
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include("snmp_test_lib.hrl").
 -include_lib("snmp/include/snmp_types.hrl").
 
@@ -37,16 +37,21 @@
 %% External exports
 %%----------------------------------------------------------------------
 -export([
-	 all/1, 
-         init_per_testcase/2, fin_per_testcase/2,
+	 all/0, 
+	 groups/0, init_per_group/2, end_per_group/2, 
+         init_per_testcase/2, end_per_testcase/2,
 
 	 description/1,
 	 oid_conflicts/1,
 	 imports/1,
 	 module_identity/1,
+	 agent_capabilities/1,
+	 module_compliance/1, 
+	 warnings_as_errors/1,
 
-	 tickets/1,
-	 otp_6150/1
+	 otp_6150/1,
+	 otp_8574/1, 
+	 otp_8595/1
 
 	]).
 
@@ -55,6 +60,7 @@
 %%----------------------------------------------------------------------
 -export([
         ]).
+
 
 %%----------------------------------------------------------------------
 %% Macros
@@ -75,9 +81,9 @@ init_per_testcase(_Case, Config) when is_list(Config) ->
     MibDir = join(lists:reverse(["snmp_test_data"|RL])),
     CompDir = join(Dir, "comp_dir/"),
     ?line ok = file:make_dir(CompDir),
-    [{comp_dir, CompDir},{mib_dir, MibDir}|Config].
+    [{comp_dir, CompDir}, {mib_dir, MibDir} | Config].
 
-fin_per_testcase(_Case, Config) when is_list(Config) ->
+end_per_testcase(_Case, Config) when is_list(Config) ->
     CompDir = ?config(comp_dir, Config),
     ?line ok = ?DEL_DIR(CompDir),
     lists:keydelete(comp_dir, 1, Config).
@@ -87,19 +93,28 @@ fin_per_testcase(_Case, Config) when is_list(Config) ->
 %% Test case definitions
 %%======================================================================
 
-all(suite) ->
+all() -> 
     [
-     description,
-     oid_conflicts,
-     imports,
-     module_identity,
-     tickets
+     description, 
+     oid_conflicts, 
+     imports, 
+     module_identity, 
+     agent_capabilities, 
+     module_compliance, 
+     warnings_as_errors,
+     {group, tickets}
     ].
 
-tickets(suite) ->
-    [
-     otp_6150
-    ].
+groups() -> 
+    [{tickets, [], [otp_6150, otp_8574, otp_8595]}].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
+
 
 
 %%======================================================================
@@ -139,6 +154,8 @@ description(Config) when is_list(Config) ->
     ok.
 
 
+%%======================================================================
+
 oid_conflicts(suite) -> [];
 oid_conflicts(Config) when is_list(Config) ->
     put(tname,oid_conflicts),
@@ -152,17 +169,133 @@ oid_conflicts(Config) when is_list(Config) ->
     ok.
 
 
+%%======================================================================
+
 imports(suite) ->
     [];
 imports(Config) when is_list(Config) ->
     ?SKIP(not_yet_implemented).
 
 
+%%======================================================================
+
 module_identity(suite) ->
     [];
 module_identity(Config) when is_list(Config) ->
     ?SKIP(not_yet_implemented).
 
+
+%%======================================================================
+
+agent_capabilities(suite) ->
+    [];
+agent_capabilities(Config) when is_list(Config) ->
+    put(tname,agent_capabilities),
+    p("starting with Config: ~p~n", [Config]),
+
+    SnmpPrivDir    = code:priv_dir(snmp),
+    SnmpMibsDir    = join(SnmpPrivDir, "mibs"), 
+    OtpMibsPrivDir = code:priv_dir(otp_mibs),
+    OtpMibsMibsDir = join(OtpMibsPrivDir, "mibs"), 
+    Dir   = ?config(mib_dir, Config),
+    AcMib = join(Dir,"AC-TEST-MIB.mib"),
+    ?line {ok, MibFile1} = snmpc:compile(AcMib, [options,
+						 version,
+						 {i,         [SnmpMibsDir, OtpMibsMibsDir]}, 
+						 {outdir,    Dir}, 
+						 {verbosity, trace}]),
+    ?line {ok, Mib1} = snmp_misc:read_mib(MibFile1), 
+    ?line {ok, MibFile2} = snmpc:compile(AcMib, [options,
+						 version,
+						 agent_capabilities,
+						 {i,         [SnmpMibsDir, OtpMibsMibsDir]}, 
+						 {outdir,    Dir}, 
+						 {verbosity, trace}]),
+    ?line {ok, Mib2} = snmp_misc:read_mib(MibFile2), 
+    MEDiff = Mib2#mib.mes -- Mib1#mib.mes,
+    %% This is a rather pathetic test, but it is somthing...
+    io:format("agent_capabilities -> "
+	      "~n   MEDiff: ~p"
+	      "~n   Mib1:   ~p"
+	      "~n   Mib2:   ~p"
+	      "~n", [MEDiff, Mib1, Mib2]),
+    case length(MEDiff) of
+	2 ->
+	    ok;
+	_BadLen ->
+	    exit({unexpected_mes, MEDiff})
+    end,
+    ok.
+
+
+%%======================================================================
+
+module_compliance(suite) ->
+    [];
+module_compliance(Config) when is_list(Config) ->
+    put(tname,module_compliance),
+    p("starting with Config: ~p~n", [Config]),
+
+    SnmpPrivDir    = code:priv_dir(snmp),
+    SnmpMibsDir    = join(SnmpPrivDir, "mibs"), 
+    OtpMibsPrivDir = code:priv_dir(otp_mibs),
+    OtpMibsMibsDir = join(OtpMibsPrivDir, "mibs"), 
+    Dir   = ?config(mib_dir, Config),
+    AcMib = join(Dir,"MC-TEST-MIB.mib"),
+    ?line {ok, MibFile1} = snmpc:compile(AcMib, [options,
+						 version,
+						 {i,           [SnmpMibsDir, OtpMibsMibsDir]}, 
+						 {outdir,      Dir}, 
+						 {verbosity,   trace}]),
+    ?line {ok, Mib1} = snmp_misc:read_mib(MibFile1), 
+    ?line {ok, MibFile2} = snmpc:compile(AcMib, [options,
+						 version,
+						 module_compliance,
+						 {i,           [SnmpMibsDir, OtpMibsMibsDir]}, 
+						 {outdir,      Dir}, 
+						 {verbosity,   trace}]),
+    ?line {ok, Mib2} = snmp_misc:read_mib(MibFile2), 
+    MEDiff = Mib2#mib.mes -- Mib1#mib.mes,
+    %% This is a rather pathetic test, but it is somthing...
+    io:format("agent_capabilities -> "
+	      "~n   MEDiff: ~p"
+	      "~n   Mib1:   ~p"
+	      "~n   Mib2:   ~p"
+	      "~n", [MEDiff, Mib1, Mib2]),
+    case length(MEDiff) of
+	1 ->
+	    ok;
+	_BadLen ->
+	    exit({unexpected_mes, MEDiff})
+    end,
+    ok.
+
+
+%%======================================================================
+
+warnings_as_errors(suite) ->
+    ["OTP-9437"];
+warnings_as_errors(Config) when is_list(Config) ->
+    put(tname,warnings_as_errors),
+    p("starting with Config: ~p~n", [Config]),
+    Dir     = ?config(comp_dir, Config),
+    MibDir  = ?config(mib_dir,  Config),
+    MibFile = join(MibDir, "OTP8574-MIB.mib"),
+    OutFile = join(Dir, "OTP8574-MIB.bin"),
+    Opts =  [{group_check, false},
+	     {outdir,      Dir},
+	     {verbosity,   trace},
+	     relaxed_row_name_assign_check],
+    {error, compilation_failed} =
+	snmpc:compile(MibFile, [warnings_as_errors|Opts]),
+    false = filelib:is_regular(OutFile),
+    {ok, _} = snmpc:compile(MibFile, Opts),
+    true = filelib:is_regular(OutFile),
+    ok = file:delete(OutFile),
+    ok.
+
+
+%%======================================================================
 
 otp_6150(suite) ->
     [];
@@ -175,6 +308,58 @@ otp_6150(Config) when is_list(Config) ->
     MibFile = join(MibDir, "ERICSSON-TOP-MIB.mib"),
     ?line {ok, Mib} = snmpc:compile(MibFile, [{outdir, Dir}, {verbosity, trace}]),
     io:format("otp_6150 -> Mib: ~n~p~n", [Mib]),
+    ok.
+
+
+%%======================================================================
+
+otp_8574(suite) ->
+    [];
+otp_8574(Config) when is_list(Config) ->
+    put(tname,otp_8574),
+    p("starting with Config: ~p~n", [Config]),
+
+    Dir     = ?config(comp_dir, Config),
+    MibDir  = ?config(mib_dir,  Config),
+    MibFile = join(MibDir, "OTP8574-MIB.mib"),
+    
+    p("ensure compile fail without relaxed assign check"),
+    case snmpc:compile(MibFile, [{group_check, false}, {outdir, Dir}]) of
+	{error, compilation_failed} ->
+	    p("with relaxed assign check MIB compiles with warning"),
+	    case snmpc:compile(MibFile, [{group_check, false}, 
+					 {outdir, Dir}, 
+					 relaxed_row_name_assign_check]) of
+		{ok, _Mib} ->
+		    ok;
+		{error, Reason} ->
+		    p("unexpected compile failure: "
+		      "~n   Reason: ~p", [Reason]),
+		    exit({unexpected_compile_failure, Reason})
+	    end;
+
+	{ok, _} ->
+	    p("unexpected compile success"),
+	    exit(unexpected_compile_success)
+    end.
+
+
+%%======================================================================
+
+otp_8595(suite) ->
+    [];
+otp_8595(Config) when is_list(Config) ->
+    put(tname,otp_8595),
+    p("starting with Config: ~p~n", [Config]),
+
+    Dir     = ?config(comp_dir, Config),
+    MibDir  = ?config(mib_dir,  Config),
+    MibFile = join(MibDir, "OTP8595-MIB.mib"),
+    ?line {ok, Mib} = 
+	snmpc:compile(MibFile, [{outdir,      Dir}, 
+				{verbosity,   trace}, 
+				{group_check, false}]),
+    io:format("otp_8595 -> Mib: ~n~p~n", [Mib]),
     ok.
 
 
@@ -204,7 +389,7 @@ LAST-UPDATED \"0005290000Z\"
                         Ericsson Utvecklings AB
 Open System
 Box 1505
-SE-125 25 ÄLVSJÖ\"
+SE-125 25 Ã„LVSJÃ–\"
 
 DESCRIPTION 
 \" Objects for management \"
@@ -372,6 +557,9 @@ join(A,B) ->
 
 %% p(F) ->
 %%     p(F, []).
+
+p(F) ->
+    p(F, []).
 
 p(F, A) ->
     p(get(tname), F, A).

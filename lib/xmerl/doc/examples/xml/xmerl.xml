@@ -1,0 +1,523 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE article
+      PUBLIC "-//OASIS//DTD Simplified DocBook XML V1.0//EN"
+      "http://www.oasis-open.org/docbook/xml/simple/1.0/sdocbook.dtd">
+
+<article  lang="en" xml:lang="en" >
+  <articleinfo>
+    <title>XMerL - XML processing tools for Erlang</title>
+    <subtitle>Reference Manual</subtitle>
+    <authorgroup>
+      <author>
+	<firstname>Ulf</firstname>
+	<surname>Wiger</surname>
+      </author>
+    </authorgroup>
+    <revhistory>
+      <revision>
+      <revnumber>1.0</revnumber><date>2003-02-04</date>
+      <revremark>Converted xml from html</revremark>
+      </revision>
+    </revhistory>
+    <abstract>
+      <para>XMerL tools contains xmerl_scan; a non-validating XML
+      processor, xmerl_xpath; a XPath implementation, xmerl for export
+      of XML trees to HTML, XML or text and xmerl_xs for XSLT like
+      transforms in erlang. 
+      </para>
+    </abstract>
+  </articleinfo>
+  
+  <section>
+    <title>xmerl_scan - the XML processor</title>
+    <para>The (non-validating) XML processor is activated through 
+    <computeroutput>xmerl_scan:string/[1,2]</computeroutput> or 
+    <computeroutput>xmerl_scan:file/[1,2]</computeroutput>.
+    It returns records of the type defined in xmerl.hrl.
+    </para>
+  
+    <para>As far as I can tell, xmerl_scan implements the complete XML
+    1.0 spec, including:</para>
+    <itemizedlist>
+      <listitem><para>entity expansion</para></listitem>
+      <listitem><para>fetching and parsing external DTDs</para></listitem>
+      <listitem><para>contitional processing</para></listitem>
+      <listitem><para>UniCode</para></listitem>
+      <listitem><para>XML Names</para></listitem>
+    </itemizedlist>
+    <programlisting>
+xmerl_scan:string(Text [ , Options ]) -> #xmlElement{}.
+xmerl_scan:file(Filename [ , Options ]) -> #xmlElement{}. </programlisting>
+    
+    <para>The Options are basically to specify the behaviour of the
+    scanner.  See the source code for details, but you can specify
+    funs to handle scanner events (event_fun), process the document
+    entities once identified (hook_fun), and decide what to do if the
+    scanner runs into eof before the document is complete
+    (continuation_fun).</para>
+
+    <para>You can also specify a path (fetch_path) as a list of
+    directories to search when fetching files. If the file in question
+    is not in the fetch_path, the URI will be used as a file
+    name.</para>
+
+
+    <section>
+      <title>Customization functions</title>
+      <para>The XML processor offers a number of hooks for
+      customization. These hooks are defined as function objects, and
+      can be provided by the caller.</para>
+      
+      <para>The following customization functions are available. If
+      they also have access to their own state variable, the access
+      function for this state is identified within parentheses:</para>
+
+      <itemizedlist>
+
+	<listitem><para>event function (<computeroutput>
+	xmerl_scan:event_state/[1,2]
+	</computeroutput>)</para></listitem>
+
+	<listitem><para>hook function (<computeroutput>
+	xmerl_scan:hook_state/[1,2]
+	</computeroutput>)</para></listitem>
+
+	<listitem><para>fetch function (<computeroutput>
+	xmerl_scan:fetch_state/[1,2] </computeroutput>)
+	</para></listitem>
+
+	<listitem><para>continuation function (<computeroutput>
+	xmerl_scan:cont_state/[1,2] </computeroutput>)
+	</para></listitem>
+
+	<listitem><para>rules function (<computeroutput>
+      xmerl_scan:rules_state/[1,2] </computeroutput>)
+      </para></listitem>
+
+	<listitem><para>accumulator function</para></listitem>
+
+	<listitem><para>close function</para></listitem>
+
+      </itemizedlist>
+
+      <para>For all of the above state access functions, the function
+      with one argument
+      (e.g. <computeroutput>event_fun(GlobalState)</computeroutput>)
+      will read the state variable, while the function with two
+      arguments (e.g.: <computeroutput>event_fun(NewStateData,
+      GlobalState)</computeroutput>) will modify it.</para>
+
+      <para>For each function, the description starts with the syntax
+      for specifying the function in the
+      <computeroutput>Options</computeroutput> list. The general forms
+      are <computeroutput>{Tag, Fun}</computeroutput>, or
+      <computeroutput>{Tag, Fun, LocalState}</computeroutput>. The
+      second form can be used to initialize the state variable in
+      question.</para>
+
+      <section>
+	<title>User State</title>
+
+	<para>All customization functions are free to access a
+	&quot;User state&quot; variable. Care must of course be taken
+	to coordinate the use of this state. It is recommended that
+	functions, which do not really have anything to contribute to
+	the &quot;global&quot; user state, use their own state
+	variable instead. Another option (used in
+	e.g. <computeroutput>xmerl_eventp.erl</computeroutput>) is for
+	customization functions to share one of the local states (in
+	<computeroutput>xmerl_eventp.erl</computeroutput>, the
+	continuation function and the fetch function both acces the
+	<computeroutput>cont_state</computeroutput>.)</para>
+
+	<para>Functions to access user state:</para>
+
+	<itemizedlist>
+
+	  <listitem><para><computeroutput>
+	  xmerl_scan:user_state(GlobalState) </computeroutput>
+	  </para></listitem>
+
+	  <listitem><para><computeroutput>xmerl_scan:user_state(UserState',
+	  GlobalState) </computeroutput></para></listitem>
+
+	</itemizedlist>
+
+      </section>
+      <section>
+	<title>Event Function</title>
+
+	<para><computeroutput>{event_fun, fun()} | {event_fun, fun(),
+	LocalState}</computeroutput></para>
+
+	<para>The event function is called at the beginning and at the
+	end of a parsed entity. It has the following format and
+	semantics:</para>
+
+<programlisting>
+<![CDATA[
+fun(Event, GlobalState) ->
+   EventState = xmerl_scan:event_state(GlobalState),
+   EventState' = foo(Event, EventState),
+   GlobalState' = xmerl_scan:event_state(EventState', GlobalState)
+end.
+]]></programlisting>
+
+      </section>
+      <section>
+	<title>Hook Function</title>
+	<para> <computeroutput>{hook_fun, fun()} | {hook_fun, fun(),
+	LocalState}</computeroutput></para>
+
+
+
+<para>The hook function is called when the processor has parsed a complete
+entity. Format and semantics:</para>
+
+<programlisting>
+<![CDATA[
+fun(Entity, GlobalState) ->
+   HookState = xmerl_scan:hook_state(GlobalState),
+   {TransformedEntity, HookState'} = foo(Entity, HookState),
+   GlobalState' = xmerl_scan:hook_state(HookState', GlobalState),
+   {TransformedEntity, GlobalState'}
+end.
+]]></programlisting>
+
+	<para>The relationship between the event function, the hook
+	function and the accumulator function is as follows:</para>
+
+	<orderedlist>
+	  <listitem><para>The event function is first called with an
+	  'ended' event for the parsed entity.</para></listitem>
+
+	  <listitem><para>The hook function is called, possibly
+	  re-formatting the entity.</para></listitem>
+
+	  <listitem><para>The acc function is called in order to
+	  (optionally) add the re-formatted entity to the contents of
+	  its parent element.</para></listitem>
+
+    </orderedlist>
+
+      </section>
+      <section>
+	<title>Fetch Function</title>
+<para>
+<computeroutput>{fetch_fun, fun()} | {fetch_fun, fun(), LocalState}</computeroutput>
+</para>
+<para>The fetch function is called in order to fetch an external resource
+(e.g. a DTD).</para>
+
+<para>The fetch function can respond with three different return values:</para>
+
+    <programlisting>
+<![CDATA[
+    Result ::=
+      {ok, GlobalState'} |
+      {ok, {file, Filename}, GlobalState'} |
+      {ok, {string, String}, GlobalState'}
+]]></programlisting>
+
+<para>Format and semantics:</para>
+
+    <programlisting>
+<![CDATA[
+fun(URI, GlobalState) ->
+   FetchState = xmerl_scan:fetch_state(GlobalState),
+   Result = foo(URI, FetchState).  % Result being one of the above
+end.
+]]></programlisting>
+
+      </section>
+      <section>
+	<title>Continuation Function</title>
+<para>
+<computeroutput>{continuation_fun, fun()} | {continuation_fun, fun(), LocalState}</computeroutput>
+</para>
+<para>The continuation function is called when the parser encounters the end
+of the byte stream. Format and semantics:</para>
+
+    <programlisting>
+<![CDATA[
+fun(Continue, Exception, GlobalState) ->
+   ContState = xmerl_scan:cont_state(GlobalState),
+   {Result, ContState'} = get_more_bytes(ContState),
+   GlobalState' = xmerl_scan:cont_state(ContState', GlobalState),
+   case Result of
+      [] ->
+         GlobalState' = xmerl_scan:cont_state(ContState', GlobalState),
+         Exception(GlobalState');
+      MoreBytes ->
+         {MoreBytes', Rest} = end_on_whitespace_char(MoreBytes),
+         ContState'' = update_cont_state(Rest, ContState'),
+         GlobalState' = xmerl_scan:cont_state(ContState'', GlobalState),
+         Continue(MoreBytes', GlobalState')
+   end
+end.
+]]></programlisting>
+      </section>
+      <section>
+	<title>Rules Functions</title>
+	<para>
+<computeroutput>
+{rules, ReadFun : fun(), WriteFun : fun(), LocalState} |
+{rules, Table : ets()}</computeroutput>
+</para>
+	<para>The rules functions take care of storing scanner
+	information in a rules database. User-provided rules functions
+	may opt to store the information in mnesia, or perhaps in the
+	user_state(LocalState).</para>
+
+	<para>The following modes exist:</para>
+
+	<itemizedlist>
+
+	  <listitem><para>If the user doesn't specify an option, the
+	  scanner creates an ets table, and uses built-in functions to
+	  read and write data to it. When the scanner is done, the ets
+	  table is deleted.</para></listitem>
+
+	  <listitem><para>If the user specifies an ets table via the 
+	<computeroutput>{rules, Table}</computeroutput> option, the
+	scanner uses this table. When the scanner is done, it does
+	<emphasis>not</emphasis> delete the table.</para></listitem>
+	  
+	  <listitem><para>If the user specifies read and write
+	  functions, the scanner will use them instead.</para></listitem>
+
+	</itemizedlist>
+	
+	<para>The format for the read and write functions are as
+	follows:</para>
+
+
+<programlisting>
+<![CDATA[
+WriteFun(Context, Name, Definition, ScannerState) -> NewScannerState.
+ReadFun(Context, Name, ScannerState) -> Definition | undefined.
+]]></programlisting>
+
+	<para>Here is a summary of the data objects currently being
+	written by the scanner:</para>
+	
+	<table>
+	  <title>Scanner data objects</title>
+	  <tgroup cols="3">
+	    <thead>
+	      <row>
+		<entry>Context</entry>
+		<entry>Key Value</entry>
+		<entry>Definition</entry>
+	      </row>
+	    </thead>
+	    <tbody>
+	      <row>
+		<entry>notation</entry>
+		<entry>NotationName</entry>
+		<entry><computeroutput>{system, SL} | {public, PIDL, SL}</computeroutput></entry>
+	      </row>
+	      <row>
+		<entry>elem_def</entry>
+		<entry>ElementName</entry>
+		<entry><computeroutput>#xmlElement{content = ContentSpec}</computeroutput></entry>
+	      </row>
+	      <row>
+		<entry>parameter_entity</entry>
+		<entry>PEName</entry>
+		<entry><computeroutput>PEDef</computeroutput></entry>
+	      </row>
+	      <row>
+		<entry>entity</entry>
+		<entry>EntityName</entry>
+	  <entry><computeroutput>EntityDef</computeroutput></entry>
+	      </row>
+	    </tbody>
+	  </tgroup>
+	</table>
+      
+	
+<programlisting>
+<![CDATA[
+ContentSpec ::= empty | any | ElemContent
+ElemContent ::= {Mode, Elems}
+Mode        ::= seq | choice
+Elems       ::= [Elem]
+Elem        ::= '#PCDATA' | Name | ElemContent | {Occurrence, Elems}
+Occurrence  ::= '*' | '?' | '+'
+]]></programlisting>
+	<note><para>When &lt;Elem&gt; is not wrapped with
+&lt;Occurrence&gt;, (Occurrence = once) is implied.</para></note>
+
+      </section>
+      <section>
+	<title>Accumulator Function</title>
+	<para><computeroutput>{acc_fun, fun()} | {acc_fun, fun(),
+	LocalState}</computeroutput></para>
+
+	<para>The accumulator function is called to accumulate the
+	contents of an entity.When parsing very large files, it may
+	not be desireable to do so.In this case, an acc function can
+	be provided that simply doesn't accumulate.</para>
+
+	<para>Note that it is possible to even modify the parsed
+	entity before accumulating it, but this must be done with
+	care. <computeroutput>xmerl_scan</computeroutput> performs
+	post-processing of the element for namespace management. Thus,
+	the element must keep its original structure for this to
+	work.</para>
+
+	<para>The acc function has the following format and
+	semantics:</para>
+
+	<programlisting>
+<![CDATA[
+%% default accumulating acc fun
+fun(ParsedEntity, Acc, GlobalState) ->
+   {[X|Acc], GlobalState}.
+
+%% non-accumulating acc fun
+fun(ParsedEntity, Acc, GlobalState) ->
+   {Acc, GlobalState}.
+]]></programlisting>
+      </section>
+      <section>
+	<title>Close Function</title>
+
+	<para>The close function is called when a document (either the
+	main document or an external DTD) has been completely
+	parsed. When xmerl_scan was started using
+	<computeroutput>xmerl_scan:file/[1,2]</computeroutput>, the
+	file will be read in full, and closed immediately, before the
+	parsing starts, so when the close function is called, it will
+	not need to actually close the file. In this case, the close
+	function will be a good place to modify the state
+	variables.</para>
+
+	<para>Format and semantics:</para>
+
+	<programlisting>
+<![CDATA[
+fun(GlobalState) ->
+   GlobalState' = ....  % state variables may be altered
+]]></programlisting>
+      </section>
+
+    </section>
+
+  </section>
+
+  <section>
+    <title>XPATH</title>
+
+    <programlisting>
+<![CDATA[
+xmerl_xpath:string(QueryString, #xmlElement{}) ->
+	[DocEntity]
+
+DocEntity :	#xmlElement{} 
+		| #xmlAttribute{} 
+		| #xmlText{} 
+		| #xmlPI{}
+		| #xmlComment{}
+]]></programlisting>
+
+    <para>The xmerl_xpath module does seem to handle the entire XPATH
+    1.0 spec, but I haven't tested that much yet. The grammar is
+    defined in
+    <computeroutput>xmerl_xpath_parse.yrl</computeroutput>.  The core
+    functions are defined in
+    <computeroutput>xmerl_xpath_pred.erl</computeroutput>.</para>
+  </section>
+  <section>
+    <title>Some useful shell commands for debugging the XPath parser</title>
+<para>
+    <command>
+<![CDATA[
+c(xmerl_xpath_scan).
+yecc:yecc("xmerl_xpath_parse.yrl", "xmerl_xpath_parse", true, []).
+c(xmerl_xpath_parse).
+
+xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("position() > -1")).
+xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("5 * 6 div 2")).
+xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("5 + 6 mod 2")).
+xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("5 * 6")).
+xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("5 * 6")).
+xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("-----6")).
+xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("parent::node()")).
+xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("descendant-or-self::node()")).
+xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("parent::processing-instruction('foo')")).]]></command></para>
+  </section>
+  <section>
+    <title>Erlang Data Structure Export</title>
+
+    <para>The idea as follows:</para>
+
+    <para>The Erlang data structure should look like this:</para>
+    <programlisting>
+<![CDATA[
+Element:	{Tag, Attributes, Content}
+Tag :		atom()
+Attributes:	[{Key, Value}]
+Content:	[String | Element]
+String:		[char() | binary() | String]
+]]></programlisting>
+
+    <para>Some short forms are allowed:</para>
+    <programlisting>
+<![CDATA[
+{Tag, Content}	-> {Tag, [], Content}
+Tag		-> {Tag, [], []}
+]]></programlisting>
+
+    <para>Note that content lists must be flat, but strings can be
+    deep.</para>
+
+    <para>It is also allowed to include normal
+    <computeroutput>#xml...</computeroutput> elements in the simple
+    format.</para>
+
+    <para><computeroutput>xmerl:export_simple(Data,
+    Callback)</computeroutput> takes the above data structure and
+    exports it, using the callback module
+    <computeroutput>Callback</computeroutput>.</para>
+
+    <para>The callback module should contain hook functions for all
+    tags present in the data structure. The hook function must have
+    the format:</para>
+    <para><computeroutput> Tag(Data, Attrs, Parents, E)
+    </computeroutput></para>
+
+    <para>where E is an <computeroutput>#xmlElement{}</computeroutput>
+    record  (see <computeroutput>xmerl.hrl</computeroutput>).</para>
+
+    <para>Attrs is converted from the simple <computeroutput>[{Key,
+    Value}]</computeroutput> to
+    <computeroutput>[#xmlAttribute{}]</computeroutput></para>
+
+    <para>Parents is a list of <computeroutput>[{ParentTag,
+    ParentTagPosition}]</computeroutput>.</para>
+
+    <para>The hook function should return either the Data to be
+    exported, or the tuple <computeroutput>{'#xml-redefine#',
+    NewStructure}</computeroutput>, where
+    <computeroutput>NewStructure</computeroutput> is an element (which
+    can be simple), or a (simple-) content list wrapped in a 1-tuple
+    as <computeroutput>{NewContent}</computeroutput>.</para>
+
+    <para>The callback module can inherit definitions from other
+    callback modules, through the required function
+    <computeroutput>'#xml-interitance#() ->
+    [ModuleName]</computeroutput>. </para>
+
+    <para>As long as a tag is represented in one of the callback
+    modules, things will work. It is of course also possible to
+    redefine a tag.</para>
+      <section>
+      <title>XSLT like transforms</title>
+	<para>See separate document <ulink url="xmerl_xs.html" >xmerl_xs.html
+	</ulink></para>.
+      </section>
+  </section>
+
+</article>

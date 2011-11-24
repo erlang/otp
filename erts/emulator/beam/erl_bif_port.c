@@ -1,28 +1,24 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2001-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2001-2011. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
-#endif
-
-#ifdef _OSE_
-#  include "ose.h"
 #endif
 
 #include <ctype.h>
@@ -51,6 +47,9 @@ static char **convert_args(Eterm);
 static void free_args(char **);
 
 char *erts_default_arg0 = "default";
+
+static BIF_RETTYPE
+port_call(Process* p, Eterm arg1, Eterm arg2, Eterm arg3);
 
 BIF_RETTYPE open_port_2(BIF_ALIST_2)
 {
@@ -121,11 +120,9 @@ id_or_name2port(Process *c_p, Eterm id)
 #define ERTS_PORT_COMMAND_FLAG_FORCE		(((Uint32) 1) << 0)
 #define ERTS_PORT_COMMAND_FLAG_NOSUSPEND	(((Uint32) 1) << 1)
 
-static BIF_RETTYPE do_port_command(Process *BIF_P,
-				   Eterm BIF_ARG_1,
-				   Eterm BIF_ARG_2,
-				   Eterm BIF_ARG_3,
-				   Uint32 flags)
+static BIF_RETTYPE
+do_port_command(Process *BIF_P, Eterm arg1, Eterm arg2, Eterm arg3,
+		Uint32 flags)
 {
     BIF_RETTYPE res;
     Port *p;
@@ -139,7 +136,7 @@ static BIF_RETTYPE do_port_command(Process *BIF_P,
     	profile_runnable_proc(BIF_P, am_inactive);
     }
 
-    p = id_or_name2port(BIF_P, BIF_ARG_1);
+    p = id_or_name2port(BIF_P, arg1);
     if (!p) {
     	if (IS_TRACED_FL(BIF_P, F_TRACE_SCHED_PROCS)) {
 	    trace_virtual_sched(BIF_P, am_in);
@@ -176,13 +173,13 @@ static BIF_RETTYPE do_port_command(Process *BIF_P,
 		monitor_generic(BIF_P, am_busy_port, p->id);
 	    }
 	    ERTS_BIF_PREP_YIELD3(res, bif_export[BIF_port_command_3], BIF_P,
-				 BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);    
+				 arg1, arg2, arg3);
 	}
     } else {
 	int wres;
 	erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
 	ERTS_SMP_CHK_NO_PROC_LOCKS;
-	wres = erts_write_to_port(BIF_P->id, p, BIF_ARG_2);
+	wres = erts_write_to_port(BIF_P->id, p, arg2);
 	erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 	if (wres != 0) {
 	    ERTS_BIF_PREP_ERROR(res, BIF_P, BADARG);
@@ -241,10 +238,16 @@ BIF_RETTYPE port_command_3(BIF_ALIST_3)
 
 BIF_RETTYPE port_call_2(BIF_ALIST_2)
 {
-    return port_call_3(BIF_P,BIF_ARG_1,make_small(0),BIF_ARG_2);
+    return port_call(BIF_P,BIF_ARG_1, make_small(0), BIF_ARG_2);
 }
 
 BIF_RETTYPE port_call_3(BIF_ALIST_3)
+{
+    return port_call(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
+}
+
+static BIF_RETTYPE
+port_call(Process* c_p, Eterm arg1, Eterm arg2, Eterm arg3)
 {
     Uint op;
     Port *p;
@@ -270,15 +273,15 @@ BIF_RETTYPE port_call_3(BIF_ALIST_3)
     /* trace of port scheduling with virtual process descheduling
      * lock wait 
      */
-    if (IS_TRACED_FL(BIF_P, F_TRACE_SCHED_PROCS)) {
-    	trace_virtual_sched(BIF_P, am_out);
+    if (IS_TRACED_FL(c_p, F_TRACE_SCHED_PROCS)) {
+	trace_virtual_sched(c_p, am_out);
     }
 
     if (erts_system_profile_flags.runnable_procs && erts_system_profile_flags.exclusive) {
-    	profile_runnable_proc(BIF_P, am_inactive);
+	profile_runnable_proc(c_p, am_inactive);
     }
 
-    p = id_or_name2port(BIF_P, BIF_ARG_1);
+    p = id_or_name2port(c_p, arg1);
     if (!p) {
     error:
 	if (port_resp != port_result && 
@@ -290,22 +293,22 @@ BIF_RETTYPE port_call_3(BIF_ALIST_3)
 	/* Need to virtual schedule in the process if there
 	 * was an error.
 	 */
-    	if (IS_TRACED_FL(BIF_P, F_TRACE_SCHED_PROCS)) {
-    	    trace_virtual_sched(BIF_P, am_in);
+	if (IS_TRACED_FL(c_p, F_TRACE_SCHED_PROCS)) {
+	    trace_virtual_sched(c_p, am_in);
     	}
 
 	if (erts_system_profile_flags.runnable_procs && erts_system_profile_flags.exclusive) {
-    	    profile_runnable_proc(BIF_P, am_active);
+	    profile_runnable_proc(c_p, am_active);
     	}
 
 	if (p)
 	    erts_port_release(p);
 #ifdef ERTS_SMP
-	ERTS_SMP_BIF_CHK_PENDING_EXIT(BIF_P, ERTS_PROC_LOCK_MAIN);
+	ERTS_SMP_BIF_CHK_PENDING_EXIT(c_p, ERTS_PROC_LOCK_MAIN);
 #else
-	ERTS_BIF_CHK_EXITED(BIF_P);
+	ERTS_BIF_CHK_EXITED(c_p);
 #endif
-	BIF_ERROR(BIF_P, BADARG);
+	BIF_ERROR(c_p, BADARG);
     }
 
     if ((drv = p->drv_ptr) == NULL) {
@@ -314,10 +317,10 @@ BIF_RETTYPE port_call_3(BIF_ALIST_3)
     if (drv->call == NULL) {
 	goto error;
     }
-    if (!term_to_Uint(BIF_ARG_2, &op)) {
+    if (!term_to_Uint(arg2, &op)) {
 	goto error;
     }
-    p->caller = BIF_P->id;
+    p->caller = c_p->id;
     
     /* Lock taken, virtual schedule of port */
     if (IS_TRACED_FL(p, F_TRACE_SCHED_PORTS)) {
@@ -327,19 +330,19 @@ BIF_RETTYPE port_call_3(BIF_ALIST_3)
     if (erts_system_profile_flags.runnable_ports && !erts_port_is_scheduled(p)) {
     	profile_runnable_port(p, am_active);
     }
-    size = erts_encode_ext_size(BIF_ARG_3);
+    size = erts_encode_ext_size(arg3);
     if (size > sizeof(port_input))
 	bytes = erts_alloc(ERTS_ALC_T_PORT_CALL_BUF, size);
 
     endp = bytes;
-    erts_encode_ext(BIF_ARG_3, &endp);
+    erts_encode_ext(arg3, &endp);
 
     real_size = endp - bytes;
     if (real_size > size) {
 	erl_exit(1, "%s, line %d: buffer overflow: %d word(s)\n",
 		 __FILE__, __LINE__, endp - (bytes + size));
     }
-    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+    erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
     prc  = (char *) port_resp;
     fpe_was_unmasked = erts_block_fpe();
     ret = drv->call((ErlDrvData)p->drv_data, 
@@ -360,7 +363,7 @@ BIF_RETTYPE port_call_3(BIF_ALIST_3)
    
     port_resp = (byte *) prc;
     p->caller = NIL;
-    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+    erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
 #ifdef HARDDEBUG
     { 
 	int z;
@@ -382,18 +385,18 @@ BIF_RETTYPE port_call_3(BIF_ALIST_3)
 	/* Error or a binary without magic/ with wrong magic */
 	goto error;
     }
-    result_size = erts_decode_ext_size(port_resp, ret, 0);
+    result_size = erts_decode_ext_size(port_resp, ret);
     if (result_size < 0) {
 	goto error;
     }
-    hp = HAlloc(BIF_P, result_size);
+    hp = HAlloc(c_p, result_size);
     hp_end = hp + result_size;
     endp = port_resp;
-    res = erts_decode_ext(&hp, &MSO(BIF_P), &endp);
+    res = erts_decode_ext(&hp, &MSO(c_p), &endp);
     if (res == THE_NON_VALUE) {
 	goto error;
     }
-    HRelease(BIF_P, hp_end, hp);
+    HRelease(c_p, hp_end, hp);
     if (port_resp != port_result && !(ret_flags & DRIVER_CALL_KEEP_BUFFER)) {
 	driver_free(port_resp);
     }
@@ -402,16 +405,16 @@ BIF_RETTYPE port_call_3(BIF_ALIST_3)
     if (p)
 	erts_port_release(p);
 #ifdef ERTS_SMP
-    ERTS_SMP_BIF_CHK_PENDING_EXIT(BIF_P, ERTS_PROC_LOCK_MAIN);
+    ERTS_SMP_BIF_CHK_PENDING_EXIT(c_p, ERTS_PROC_LOCK_MAIN);
 #else
-    ERTS_BIF_CHK_EXITED(BIF_P);
+    ERTS_BIF_CHK_EXITED(c_p);
 #endif
-    if (IS_TRACED_FL(BIF_P, F_TRACE_SCHED_PROCS)) {
-    	trace_virtual_sched(BIF_P, am_in);
+    if (IS_TRACED_FL(c_p, F_TRACE_SCHED_PROCS)) {
+	trace_virtual_sched(c_p, am_in);
     }
 
     if (erts_system_profile_flags.runnable_procs && erts_system_profile_flags.exclusive) {
-    	profile_runnable_proc(BIF_P, am_active);
+	profile_runnable_proc(c_p, am_active);
     }
   
     return res;
@@ -583,8 +586,8 @@ BIF_RETTYPE port_get_data_1(BIF_ALIST_1)
     if (prt->bp == NULL) {	/* MUST be CONST! */
 	res = prt->data;
     } else {
-	Eterm* hp = HAlloc(BIF_P, prt->bp->size);
-	res = copy_struct(prt->data, prt->bp->size, &hp, &MSO(BIF_P));
+	Eterm* hp = HAlloc(BIF_P, prt->bp->used_size);
+	res = copy_struct(prt->data, prt->bp->used_size, &hp, &MSO(BIF_P));
     }
     erts_smp_port_unlock(prt);
     BIF_RET(res);
@@ -614,6 +617,7 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_nump)
     int binary_io;
     int soft_eof;
     Sint linebuf;
+    Eterm edir = NIL;
     byte dir[MAXPATHLEN];
 
     /* These are the defaults */
@@ -690,19 +694,10 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_nump)
 
 		} else if (option == am_arg0) {
 		    char *a0;
-		    int n;
-		    if (is_nil(*tp)) {
-			n = 0;
-		    } else if( (n = is_string(*tp)) == 0) {
+
+		    if ((a0 = erts_convert_filename_to_native(*tp, ERTS_ALC_T_TMP, 1)) == NULL) {
 			goto badarg;
 		    }
-		    a0 = (char *) erts_alloc(ERTS_ALC_T_TMP, 
-					    (n + 1) * sizeof(byte));
-		    if (intlist_to_buf(*tp, a0, n) != n) {
-			erl_exit(1, "%s:%d: Internal error\n",
-				 __FILE__, __LINE__);
-		    }
-		    a0[n] = '\0';		    
 		    if (opts.argv == NULL) {
 			opts.argv = erts_alloc(ERTS_ALC_T_TMP, 
 					       2 * sizeof(char **));
@@ -715,20 +710,7 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_nump)
 			opts.argv[0] = a0;
 		    }
 		} else if (option == am_cd) {
-		    Eterm iolist;
-		    Eterm heap[4];
-		    int r;
-
-		    heap[0] = *tp;
-		    heap[1] = make_list(heap+2);
-		    heap[2] = make_small(0);
-		    heap[3] = NIL;
-		    iolist = make_list(heap);
-		    r = io_list_to_buf(iolist, (char*) dir, MAXPATHLEN);
-		    if (r < 0) {
-			goto badarg;
-		    }
-		    opts.wd = (char *) dir;
+		    edir = *tp;
 		} else {
 		    goto badarg;
 		}
@@ -840,19 +822,7 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_nump)
 		goto badarg;
 	    }
 	    name = tp[1];
-	    if (is_atom(name)) {
-		name_buf = (char *) erts_alloc(ERTS_ALC_T_TMP,
-					       atom_tab(atom_val(name))->len+1);
-		sys_memcpy((void *) name_buf,
-			   (void *) atom_tab(atom_val(name))->name, 
-			   atom_tab(atom_val(name))->len);
-		name_buf[atom_tab(atom_val(name))->len] = '\0';
-	    } else if ((i = is_string(name))) {
-		name_buf = (char *) erts_alloc(ERTS_ALC_T_TMP, i + 1);
-		if (intlist_to_buf(name, name_buf, i) != i)
-		    erl_exit(1, "%s:%d: Internal error\n", __FILE__, __LINE__);
-		name_buf[i] = '\0';
-	    } else {
+	    if ((name_buf = erts_convert_filename_to_native(name,ERTS_ALC_T_TMP,0)) == NULL) {
 		goto badarg;
 	    }
 	    opts.spawn_type = ERTS_SPAWN_EXECUTABLE;
@@ -894,7 +864,33 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_nump)
 	/* Argument vector only if explicit spawn_executable */
 	goto badarg;
     }
-	
+
+    if (edir != NIL) {
+	/* A working directory is expressed differently if spawn_executable, i.e. Unicode is handles 
+	   for spawn_executable... */
+	if (opts.spawn_type != ERTS_SPAWN_EXECUTABLE) {
+	    Eterm iolist;
+	    DeclareTmpHeap(heap,4,p);
+	    int r;
+	    
+	    UseTmpHeap(4,p);
+	    heap[0] = edir;
+	    heap[1] = make_list(heap+2);
+	    heap[2] = make_small(0);
+	    heap[3] = NIL;
+	    iolist = make_list(heap);
+	    r = io_list_to_buf(iolist, (char*) dir, MAXPATHLEN);
+	    UnUseTmpHeap(4,p);
+	    if (r < 0) {
+		goto badarg;
+	    }
+	    opts.wd = (char *) dir;
+	} else {
+	    if ((opts.wd = erts_convert_filename_to_native(edir,ERTS_ALC_T_TMP,0)) == NULL) {
+		goto badarg;
+	    }
+	}
+    }
 
     if (driver != &spawn_driver && opts.exit_status) {
 	goto badarg;
@@ -943,6 +939,9 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_nump)
     if (opts.argv) {
 	free_args(opts.argv);
     }
+    if (opts.wd && opts.wd != ((char *)dir)) {
+	erts_free(ERTS_ALC_T_TMP, (void *) opts.wd);
+    }
     return port_num;
     
  badarg:
@@ -952,6 +951,7 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_nump)
 #undef OPEN_PORT_ERROR
 }
 
+/* Arguments can be given i unicode and as raw binaries, convert filename is used to convert */
 static char **convert_args(Eterm l)
 {
     char **pp;
@@ -968,22 +968,14 @@ static char **convert_args(Eterm l)
     pp[i++] = erts_default_arg0;
     while (is_list(l)) {
 	str = CAR(list_val(l));
-
-	if (is_nil(str)) {
-	    n = 0;
-	} else if( (n = is_string(str)) == 0) {
-	    /* Not a string... */
+	if ((b = erts_convert_filename_to_native(str,ERTS_ALC_T_TMP,1)) == NULL) {
 	    int j;
 	    for (j = 1; j < i; ++j)
 		erts_free(ERTS_ALC_T_TMP, pp[j]);
 	    erts_free(ERTS_ALC_T_TMP, pp);
 	    return NULL;
-	}
-	b = (char *) erts_alloc(ERTS_ALC_T_TMP, (n + 1) * sizeof(byte));
-	pp[i++] = (char *) b;
-	if (intlist_to_buf(str, b, n) != n)
-	    erl_exit(1, "%s:%d: Internal error\n", __FILE__, __LINE__);
-	b[n] = '\0';
+	}	    
+	pp[i++] = b;
 	l = CDR(list_val(l));
     }
     pp[i] = NULL;
@@ -1011,6 +1003,7 @@ static byte* convert_environment(Process* p, Eterm env)
     Eterm* hp;
     Uint heap_size;
     int n;
+    Uint size;
     byte* bytes;
 
     if ((n = list_length(env)) < 0) {
@@ -1054,15 +1047,15 @@ static byte* convert_environment(Process* p, Eterm env)
     if (is_not_nil(env)) {
 	goto done;
     }
-    if ((n = io_list_len(all)) < 0) {
+    if (erts_iolist_size(all, &size)) {
 	goto done;
     }
 
     /*
      * Put the result in a binary (no risk for a memory leak that way).
      */
-    (void) erts_new_heap_binary(p, NULL, n, &bytes);
-    io_list_to_buf(all, (char*)bytes, n);
+    (void) erts_new_heap_binary(p, NULL, size, &bytes);
+    io_list_to_buf(all, (char*)bytes, size);
 
  done:
     erts_free(ERTS_ALC_T_TMP, temp_heap);
@@ -1077,10 +1070,14 @@ struct packet_callback_args
     Eterm res;   /* Out */
     int string_as_bin; /* return strings as binaries (http_bin): */
     byte* aligned_ptr;
+    Uint bin_sz;
     Eterm orig;
     Uint bin_offs;
     byte bin_bitoffs;
 };
+
+#define in_area(ptr,start,nbytes) \
+    ((unsigned long)((char*)(ptr) - (char*)(start)) < (nbytes))
 
 static Eterm
 http_bld_string(struct packet_callback_args* pca, Uint **hpp, Uint *szp,
@@ -1088,16 +1085,18 @@ http_bld_string(struct packet_callback_args* pca, Uint **hpp, Uint *szp,
 {
     Eterm res = THE_NON_VALUE;
     Uint size;
+    int make_subbin;
 
     if (pca->string_as_bin) {
 	size = heap_bin_size(len);
-    
+	make_subbin = (size > ERL_SUB_BIN_SIZE
+		       && in_area(str, pca->aligned_ptr, pca->bin_sz));
 	if (szp) {
-	    *szp += (size > ERL_SUB_BIN_SIZE) ? ERL_SUB_BIN_SIZE : size;	
+	    *szp += make_subbin ? ERL_SUB_BIN_SIZE : size;
 	}
 	if (hpp) {
 	    res = make_binary(*hpp);
-	    if (size > ERL_SUB_BIN_SIZE) {
+	    if (make_subbin) {
 		ErlSubBin* bin = (ErlSubBin*) *hpp;
 		bin->thing_word = HEADER_SUB_BIN;
 		bin->size = len;
@@ -1328,7 +1327,7 @@ BIF_RETTYPE decode_packet_3(BIF_ALIST_3)
     int packet_sz;           /*-------Binaries involved: ------------------*/
     byte* bin_ptr;           /*| orig: original binary                     */
     byte bin_bitsz;          /*| bin: BIF_ARG_2, may be sub-binary of orig */
-    Uint bin_sz;             /*| packet: prefix of bin                     */
+	                     /*| packet: prefix of bin                     */
     char* body_ptr;          /*| body: part of packet to return            */
     int body_sz;             /*| rest: bin without packet                  */
     struct packet_callback_args pca;
@@ -1389,18 +1388,18 @@ BIF_RETTYPE decode_packet_3(BIF_ALIST_3)
     }
 
 
-    bin_sz = binary_size(BIF_ARG_2);
+    pca.bin_sz = binary_size(BIF_ARG_2);
     ERTS_GET_BINARY_BYTES(BIF_ARG_2, bin_ptr, pca.bin_bitoffs, bin_bitsz);  
     if (pca.bin_bitoffs != 0) {
-        pca.aligned_ptr = erts_alloc(ERTS_ALC_T_TMP, bin_sz);
-        erts_copy_bits(bin_ptr, pca.bin_bitoffs, 1, pca.aligned_ptr, 0, 1, bin_sz*8);
+        pca.aligned_ptr = erts_alloc(ERTS_ALC_T_TMP, pca.bin_sz);
+        erts_copy_bits(bin_ptr, pca.bin_bitoffs, 1, pca.aligned_ptr, 0, 1, pca.bin_sz*8);
     }
     else {
         pca.aligned_ptr = bin_ptr;
     }
-    packet_sz = packet_get_length(type, (char*)pca.aligned_ptr, bin_sz,
+    packet_sz = packet_get_length(type, (char*)pca.aligned_ptr, pca.bin_sz,
                                   max_plen, trunc_len, &http_state);
-    if (!(packet_sz > 0 && packet_sz <= bin_sz)) {
+    if (!(packet_sz > 0 && packet_sz <= pca.bin_sz)) {
         if (packet_sz < 0) {
 	    goto error;
         }
@@ -1456,7 +1455,7 @@ error:
 
     rest = (ErlSubBin *) hp;
     rest->thing_word = HEADER_SUB_BIN;
-    rest->size = bin_sz - packet_sz;
+    rest->size = pca.bin_sz - packet_sz;
     rest->offs = pca.bin_offs + packet_sz;
     rest->orig = pca.orig;
     rest->bitoffs = pca.bin_bitoffs;

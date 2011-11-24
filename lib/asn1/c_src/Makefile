@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2002-2010. All Rights Reserved.
+# Copyright Ericsson AB 2002-2011. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -51,33 +51,26 @@ EI_LIBDIR = $(ERL_TOP)/lib/erl_interface/obj$(TYPEMARKER)/$(TARGET)
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-EI_INCLUDES = -I$(ERL_TOP)/lib/erl_interface/include
 CFLAGS = $(DED_INCLUDES) $(EI_INCLUDES) $(DED_CFLAGS)
 LDFLAGS += $(DED_LDFLAGS)
-
-LD_INCL_EI = -L$(EI_LIBDIR)
 
 # ----------------------------------------------------
 # Target Specs
 # ----------------------------------------------------
 
-C_FILES = asn1_erl_driver.c
+NIF_OBJ_FILES = $(OBJDIR)/asn1_erl_nif.o
 
 
 ifeq ($(TARGET),win32)
-LD_EI = -lei_md 
-SHARED_OBJ_FILES = $(LIBDIR)/asn1_erl_drv.dll
-OBJ_FILES = $(OBJDIR)/asn1_erl_drv.o
+NIF_SHARED_OBJ_FILE = $(LIBDIR)/asn1_erl_nif.dll
 CLIB_FLAGS =
 LN=cp
 else
-LD_EI = -lei 
-OBJ_FILES = $(OBJDIR)/asn1_erl_drv.o
 ifeq ($(findstring vxworks,$(TARGET)),vxworks)
-SHARED_OBJ_FILES = $(LIBDIR)/asn1_erl_drv.eld
+NIF_SHARED_OBJ_FILE = $(LIBDIR)/asn1_erl_nif.eld
 CLIB_FLAGS =
 else
-SHARED_OBJ_FILES = $(LIBDIR)/asn1_erl_drv.so
+NIF_SHARED_OBJ_FILE = $(LIBDIR)/asn1_erl_nif.so
 CLIB_FLAGS = -lc
 endif
 LN= ln -s
@@ -87,7 +80,9 @@ endif
 # Targets
 # ----------------------------------------------------
 
-opt: $(OBJDIR) $(LIBDIR) $(SHARED_OBJ_FILES)
+_create_dirs := $(shell mkdir -p $(OBJDIR) $(LIBDIR))
+
+opt: $(NIF_SHARED_OBJ_FILE)
 
 debug: opt
 
@@ -103,20 +98,12 @@ docs:
 # ----------------------------------------------------
 
 
-$(OBJ_FILES): $(C_FILES)
-	$(CC) -c $(CFLAGS) -o $(OBJ_FILES) $(C_FILES) 
+$(OBJDIR)/%.o: %.c
+	$(CC) -c $(CFLAGS) -O3 -o $@ $<
 
-$(SHARED_OBJ_FILES): $(OBJ_FILES)
-	$(LD) $(LDFLAGS) $(LD_INCL_EI) -o $(SHARED_OBJ_FILES) $(OBJ_FILES) $(LD_EI) $(CLIB_FLAGS) $(LIBS) 
+$(NIF_SHARED_OBJ_FILE): $(NIF_OBJ_FILES)
+	$(LD) $(LDFLAGS) -o $(NIF_SHARED_OBJ_FILE) $(NIF_OBJ_FILES) $(CLIB_FLAGS) $(LIBS)
 
-$(LIBDIR):
-	-mkdir -p $(LIBDIR)
-
-$(OBJDIR):
-	-mkdir -p $(OBJDIR)
-
-
- 
 # ----------------------------------------------------
 # Release Target
 # ----------------------------------------------------
@@ -124,9 +111,9 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
 	$(INSTALL_DIR) $(RELSYSDIR)/priv/lib
-	$(INSTALL_DATA) $(SHARED_OBJ_FILES) $(RELSYSDIR)/priv/lib
+	$(INSTALL_PROGRAM) $(NIF_SHARED_OBJ_FILE) $(RELSYSDIR)/priv/lib
 	$(INSTALL_DIR) $(RELSYSDIR)/c_src
-	$(INSTALL_DATA) $(C_FILES) $(RELSYSDIR)/c_src
+	$(INSTALL_DATA) *.c $(RELSYSDIR)/c_src
 
 release_docs_spec:
 

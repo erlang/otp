@@ -245,7 +245,6 @@ cmdf(Connection,CmdFormat,Args) ->
 %%%      Data = [string()]
 %%% @doc Send a telnet command and wait for prompt 
 %%%      (uses a format string and list of arguments to build the command).
-%%%-----------------------------------------------------------------
 cmdf(Connection,CmdFormat,Args,Timeout) when is_list(Args) ->
     Cmd = lists:flatten(io_lib:format(CmdFormat,Args)),
     cmd(Connection,Cmd,Timeout).
@@ -360,15 +359,15 @@ expect(Connection,Patterns) ->
 %%% will also be a <code>HaltReason</code> returned.</p>
 %%%
 %%% <p><underline>Examples:</underline><br/>
-%%% <code>expect(Connection,[{abc,"ABC"},{xyz,"XYZ"}],
-%%% [sequence,{halt,[{nnn,"NNN"}]}]).</code><br/> will try to match
+%%% <code>expect(Connection,[{abc,"ABC"},{xyz,"XYZ"}],</code>
+%%% <code>[sequence,{halt,[{nnn,"NNN"}]}]).</code><br/> will try to match
 %%% "ABC" first and then "XYZ", but if "NNN" appears the function will
 %%% return <code>{error,{nnn,["NNN"]}}</code>. If both "ABC" and "XYZ"
 %%% are matched, the function will return
 %%% <code>{ok,[AbcMatch,XyzMatch]}</code>.</p>
 %%%
-%%% <p><code>expect(Connection,[{abc,"ABC"},{xyz,"XYZ"}],
-%%% [{repeat,2},{halt,[{nnn,"NNN"}]}]).</code><br/> will try to match
+%%% <p><code>expect(Connection,[{abc,"ABC"},{xyz,"XYZ"}],</code>
+%%% <code>[{repeat,2},{halt,[{nnn,"NNN"}]}]).</code><br/> will try to match
 %%% "ABC" or "XYZ" twice. If "NNN" appears the function will return
 %%% with <code>HaltReason = {nnn,["NNN"]}</code>.</p>
 %%%

@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -849,9 +849,9 @@ create_refc_binary(Base, Size, Flags, Dst) ->
 
 heap_arch_spec(HP) ->
   Tmp1 = hipe_rtl:mk_new_reg(), % MSO state
-  [hipe_rtl_arch:pcb_load(Tmp1, ?P_OFF_HEAP_MSO),
+  [hipe_rtl_arch:pcb_load(Tmp1, ?P_OFF_HEAP_FIRST),
    set_field_from_pointer({proc_bin, next}, HP, Tmp1),
-   hipe_rtl_arch:pcb_store(?P_OFF_HEAP_MSO, HP)].
+   hipe_rtl_arch:pcb_store(?P_OFF_HEAP_FIRST, HP)].
 
 test_heap_binary(Binary, TrueLblName, FalseLblName) ->
   Tmp1 = hipe_rtl:mk_new_reg_gcsafe(),
@@ -1045,7 +1045,7 @@ convert_matchstate(Ms) ->
    build_sub_binary(Ms, ByteSize, ByteOffset, BitSize, BitOffset, 
 		    hipe_rtl:mk_imm(0), Orig), 
    size_from_header(SizeInWords, Header),
-   hipe_rtl:mk_alu(Hole, SizeInWords, sub, hipe_rtl:mk_imm(?SUB_BIN_WORDSIZE-1)),
+   hipe_rtl:mk_alu(Hole, SizeInWords, sub, hipe_rtl:mk_imm(?SUB_BIN_WORDSIZE)),
    mk_var_header(BigIntHeader, Hole, ?TAG_HEADER_POS_BIG),
    hipe_rtl:mk_store(Ms, hipe_rtl:mk_imm(?SUB_BIN_WORDSIZE*WordSize-?TAG_PRIMARY_BOXED),
 		     BigIntHeader)].

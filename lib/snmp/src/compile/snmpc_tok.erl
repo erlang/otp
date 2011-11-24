@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -36,6 +36,8 @@
 %% Internal exports
 -export([null_get_line/0, format_error/1, terminate/2, handle_call/3, init/1,
 	 test/0]).
+
+-include("snmpc_lib.hrl").
 
 
 %%----------------------------------------------------------------------
@@ -130,6 +132,10 @@ test() ->
 		'current','deprecated','not-accessible','obsolete', 
 		'read-create','read-only','read-write', 'IMPORTS', 'FROM',
 		'MODULE-COMPLIANCE',
+		'AGENT-CAPABILITIES',
+		'PRODUCT-RELEASE',
+		'SUPPORTS',
+		'INCLUDES',
 		'DisplayString', 
 		'PhysAddress', 
 		'MacAddress', 
@@ -225,6 +231,7 @@ get_all_tokens(Str,Toks) ->
     case catch tokenise(Str) of
 	{error, ErrorInfo} -> {error, ErrorInfo};
 	{Token, RestChars} when is_tuple(Token) -> 
+	    %% ?vtrace("get_all_tokens -> Token: ~p", [Token]),
 	    get_all_tokens(RestChars, [Token|Toks])
     end.
 

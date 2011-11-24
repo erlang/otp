@@ -1,28 +1,26 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%=======================================================================
 %% File        : hipe_beam_to_icode.erl
 %% Author      : Kostis Sagonas
 %% Description : Translates symbolic BEAM code to Icode
-%%=======================================================================
-%% $Id$
 %%=======================================================================
 %% @doc
 %%    This file translates symbolic BEAM code to Icode which is HiPE's
@@ -283,10 +281,14 @@ needs_redtest(Leafness) ->
 %%-----------------------------------------------------------------------
 
 %%--- label & func_info combo ---
+trans_fun([{label,_}=F,{func_info,_,_,_}=FI|Instructions], Env) ->
+  %% Handle old code without a line instruction.
+  trans_fun([F,{line,[]},FI|Instructions], Env);
 trans_fun([{label,B},{label,_},
 	   {func_info,M,F,A},{label,L}|Instructions], Env) ->
   trans_fun([{label,B},{func_info,M,F,A},{label,L}|Instructions], Env);
 trans_fun([{label,B},
+	   {line,_},
 	   {func_info,{atom,_M},{atom,_F},_A},
 	   {label,L}|Instructions], Env) ->
   %% Emit code to handle function_clause errors.  The BEAM test instructions
@@ -371,6 +373,10 @@ trans_fun([{bif,BifName,{f,Lbl},[_] = Args,Reg}|Instructions], Env) ->
 trans_fun([{bif,BifName,{f,Lbl},[_,_] = Args,Reg}|Instructions], Env) ->
   {BifInsts,Env1} = trans_bif(2,BifName,Lbl,Args,Reg,Env),
   [hipe_icode:mk_comment({bif2,BifName})|BifInsts] ++ trans_fun(Instructions,Env1);
+%%--- bif3 ---
+trans_fun([{bif,BifName,{f,Lbl},[_,_,_] = Args,Reg}|Instructions], Env) ->
+  {BifInsts,Env1} = trans_bif(3,BifName,Lbl,Args,Reg,Env),
+  [hipe_icode:mk_comment({bif3,BifName})|BifInsts] ++ trans_fun(Instructions,Env1);
 %%--- allocate
 trans_fun([{allocate,StackSlots,_}|Instructions], Env) ->
   trans_allocate(StackSlots) ++ trans_fun(Instructions,Env);
@@ -431,6 +437,11 @@ trans_fun([{wait_timeout,{_,Lbl},Reg}|Instructions], Env) ->
   SuspTmout = hipe_icode:mk_if(suspend_msg_timeout,[],
 			       map_label(Lbl),hipe_icode:label_name(DoneLbl)),
   Movs ++ [SetTmout, SuspTmout, DoneLbl | trans_fun(Instructions,Env1)];
+%%--- recv_mark/1 & recv_set/1 ---  XXX: Handle better??
+trans_fun([{recv_mark,{f,_}}|Instructions], Env) ->
+  trans_fun(Instructions,Env);
+trans_fun([{recv_set,{f,_}}|Instructions], Env) ->
+  trans_fun(Instructions,Env);
 %%--------------------------------------------------------------------
 %%--- Translation of arithmetics {bif,ArithOp, ...} ---
 %%--------------------------------------------------------------------
@@ -713,7 +724,7 @@ trans_fun([{test,bs_get_float2,{f,Lbl},[Ms,_Live,Size,Unit,{field_flags,Flags0},
 	?EXIT({bad_bs_size_constant,Size});
       BitReg ->
 	Bits = mk_var(BitReg),
-	{{bs_get_float,Unit,Flags}, [Bits,MsVar]}
+	{{bs_get_float,Unit,Flags}, [MsVar,Bits]}
     end,
   trans_op_call({hipe_bs_primop,Name}, Lbl, Args, [Dst,MsVar], Env, Instructions);
 trans_fun([{test,bs_get_integer2,{f,Lbl},[Ms,_Live,Size,Unit,{field_flags,Flags0},X]}|
@@ -892,11 +903,6 @@ trans_fun([{bs_init_bits,{f,Lbl},Size,_Words,_LiveRegs,{field_flags,Flags0},X}|
     end,
   trans_bin_call({hipe_bs_primop,Name}, Lbl, Args, [Dst, Base, Offset],
 		 Base, Offset, Env, Instructions);
-trans_fun([{bs_bits_to_bytes2, Bits, Bytes}|Instructions], Env) ->
-  Src = trans_arg(Bits),
-  Dst = mk_var(Bytes),
-  [hipe_icode:mk_primop([Dst], 'bsl', [Src, hipe_icode:mk_const(3)])|
-   trans_fun(Instructions,Env)];
 trans_fun([{bs_add, {f,Lbl}, [Old,New,Unit], Res}|Instructions], Env) ->
   Dst = mk_var(Res),
   Temp = mk_var(new),
@@ -916,7 +922,7 @@ trans_fun([{bs_add, {f,Lbl}, [Old,New,Unit], Res}|Instructions], Env) ->
 	    Succ = mk_label(new),
 	    [hipe_icode:mk_primop([Temp], '*', 
 				  [NewVar, hipe_icode:mk_const(Unit)],
-				  hipe_icode:label_name(Succ), Lbl),
+				  hipe_icode:label_name(Succ), map_label(Lbl)),
 	     Succ]
 	end
     end,
@@ -928,7 +934,7 @@ trans_fun([{bs_add, {f,Lbl}, [Old,New,Unit], Res}|Instructions], Env) ->
 	 [FailLbl,
 	  hipe_icode:mk_fail([hipe_icode:mk_const(badarg)], error)]};
        true ->
-	{Lbl, []}
+	{map_label(Lbl), []}
     end,
   IsPos = 
     [hipe_icode:mk_if('>=', [Temp, hipe_icode:mk_const(0)], 
@@ -1126,13 +1132,6 @@ trans_fun([{gc_bif,Name,Fail,_Live,SrcRs,DstR}|Instructions], Env) ->
       trans_fun([{bif,Name,Fail,SrcRs,DstR}|Instructions], Env)
   end;
 %%--------------------------------------------------------------------
-%% Instruction for constant pool added in February 2007 for R11B-4.
-%%--------------------------------------------------------------------
-trans_fun([{put_literal,{literal,Literal},DstR}|Instructions], Env) ->
-  DstV = mk_var(DstR),
-  Move = hipe_icode:mk_move(DstV, hipe_icode:mk_const(Literal)),
-  [Move | trans_fun(Instructions, Env)];
-%%--------------------------------------------------------------------
 %% New test instruction added in July 2007 for R12.
 %%--------------------------------------------------------------------
 %%--- is_bitstr ---
@@ -1146,6 +1145,11 @@ trans_fun([{trim,N,NY}|Instructions], Env) ->
   %% trim away N registers leaving NY registers
   Moves = trans_trim(N, NY),
   Moves ++ trans_fun(Instructions, Env);
+%%--------------------------------------------------------------------
+%% New line/1 instruction in R15.
+%%--------------------------------------------------------------------
+trans_fun([{line,_}|Instructions], Env) ->
+  trans_fun(Instructions,Env);
 %%--------------------------------------------------------------------
 %%--- ERROR HANDLING ---
 %%--------------------------------------------------------------------
@@ -1873,6 +1877,8 @@ patch_make_funs([], FunIndex, Acc) ->
 %%-----------------------------------------------------------------------
 
 find_mfa([{label,_}|Code]) ->
+  find_mfa(Code);
+find_mfa([{line,_}|Code]) ->
   find_mfa(Code);
 find_mfa([{func_info,{atom,M},{atom,F},A}|_]) 
   when is_atom(M), is_atom(F), is_integer(A), 0 =< A, A =< 255 ->

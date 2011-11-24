@@ -22,12 +22,14 @@ include $(ERL_TOP)/make/target.mk
 EBIN = ../../ebin
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
+
 # ----------------------------------------------------
 # Application version
 # ----------------------------------------------------
 include ../../vsn.mk
 
 VSN = $(INETS_VSN)
+
 
 # ----------------------------------------------------
 # Release directory specification
@@ -52,24 +54,21 @@ TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
 
 # ----------------------------------------------------
-# INETS FLAGS
+# FLAGS
 # ----------------------------------------------------
-INETS_FLAGS = -D'SERVER_SOFTWARE="$(APPLICATION)/$(VSN)"'
+
+include ../inets_app/inets.mk
 
 ifeq ($(FTP_DEBUG),true)
   INETS_FLAGS += -Dftp_debug
 endif
 
+ERL_COMPILE_FLAGS += \
+	$(INETS_FLAGS) \
+        $(INETS_ERL_COMPILE_FLAGS) \
+	-I../../include \
+	-I../inets_app
 
-# ----------------------------------------------------
-# FLAGS
-# ----------------------------------------------------
-INETS_ERL_FLAGS += -I ../inets_app -pa ../../ebin
-
-ERL_COMPILE_FLAGS += $(INETS_ERL_FLAGS) \
-		     $(INETS_FLAGS) \
-                     +'{parse_transform,sys_pre_attributes}' \
-                     +'{attribute,insert,app_vsn,$(APP_VSN)}'
 
 # ----------------------------------------------------
 # Targets
@@ -89,9 +88,10 @@ docs:
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)/src
-	$(INSTALL_DATA) $(HRL_FILES) $(ERL_FILES) $(RELSYSDIR)/src
-	$(INSTALL_DIR) $(RELSYSDIR)/ebin
+	$(INSTALL_DIR)  $(RELSYSDIR)/src
+	$(INSTALL_DIR)  $(RELSYSDIR)/src/ftp
+	$(INSTALL_DATA) $(HRL_FILES) $(ERL_FILES) $(RELSYSDIR)/src/ftp
+	$(INSTALL_DIR)  $(RELSYSDIR)/ebin
 	$(INSTALL_DATA) $(TARGET_FILES) $(RELSYSDIR)/ebin
 
 release_docs_spec:

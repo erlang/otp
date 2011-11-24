@@ -2,7 +2,7 @@ dnl Process this file with autoconf to produce a configure script for Erlang.
 dnl
 dnl %CopyrightBegin%
 dnl 
-dnl Copyright Ericsson AB 1997-2009. All Rights Reserved.
+dnl Copyright Ericsson AB 1997-2011. All Rights Reserved.
 dnl 
 dnl The contents of this file are subject to the Erlang Public License,
 dnl Version 1.1, (the "License"); you may not use this file except in
@@ -136,7 +136,7 @@ case $system in
 	fi
 	SHLIB_EXTRACT_ALL=""
 	;;
-    NetBSD-*|FreeBSD-*|OpenBSD-*)
+    NetBSD-*|FreeBSD-*|OpenBSD-*|DragonFly*)
 	# Not available on all versions:  check for include file.
 	AC_CHECK_HEADER(dlfcn.h, [
 	    SHLIB_CFLAGS="-fpic"

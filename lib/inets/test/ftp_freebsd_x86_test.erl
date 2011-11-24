@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -22,7 +22,7 @@
 
 -compile(export_all).
 
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -define(LIB_MOD,ftp_suite_lib).
 -define(CASE_WRAPPER(_A_,_B_,_C_),?LIB_MOD:wrapper(_A_,_B_,_C_)).
@@ -86,23 +86,30 @@ end_per_testcase(Case, Config) ->
 %%   Name of a test case.
 %% Description: Returns a list of all test cases in this test suite
 %%--------------------------------------------------------------------
-all(doc) -> 
-    ["Test ftp client"];
+all() -> 
+    [open, open_port, {group, passive}, {group, active},
+     api_missuse, not_owner, {group, progress_report}].
 
-all(suite) -> 
-    [open, open_port, passive, active, api_missuse,
-     not_owner, progress_report].
+groups() -> 
+    [{passive, [], ftp_suite_lib:passive(suite)},
+     {active, [], ftp_suite_lib:active(suite)},
+     {progress_report, [],
+      ftp_suite_lib:progress_report(suite)}].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 %% Test cases starts here.
 %%--------------------------------------------------------------------
 
 open(X) -> ?CASE_WRAPPER(?PLATFORM,X,fun ?LIB_MOD:open/1).
 open_port(X) -> ?CASE_WRAPPER(?PLATFORM,X,fun ?LIB_MOD:open_port/1).
-passive(X) -> ?CASE_WRAPPER(?PLATFORM,X,fun ?LIB_MOD:passive/1).
-active(X) -> ?CASE_WRAPPER(?PLATFORM,X,fun ?LIB_MOD:active/1).
 api_missuse(X) -> ?CASE_WRAPPER(?PLATFORM,X,fun ?LIB_MOD:api_missuse/1).
 not_owner(X) -> ?CASE_WRAPPER(?PLATFORM,X,fun ?LIB_MOD:not_owner/1).
-progress_report(X) -> ?CASE_WRAPPER(?PLATFORM,X,fun ?LIB_MOD:progress_report/1).
 
 passive_user(X) -> ?LIB_MOD:passive_user(X).
 passive_pwd(X) -> ?LIB_MOD:passive_pwd(X).

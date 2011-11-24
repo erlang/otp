@@ -1,0 +1,2 @@
+
+whereis_diff_functions1_pathsens.erl:32: The call erlang:register(Atom::'kostis',Pid::pid()) might fail due to a possible race condition caused by its combination with the erlang:whereis(AnAtom::'kostis') call in whereis_diff_functions1_pathsens.erl on line 15, the erlang:whereis(AnAtom::'kostis') call in whereis_diff_functions1_pathsens.erl on line 22

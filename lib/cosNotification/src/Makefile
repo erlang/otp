@@ -242,20 +242,26 @@ GEN_OE_EVENTCOMM_HRL_FILES =  \
 	oe_CosNotificationComm.hrl \
 	oe_CosNotificationComm_Event.hrl
 
-GEN_ERL_FILES = \
+IDL_GEN_ERL_FILES = \
 	$(GEN_NOTIFICATION_ERL_FILES) \
 	$(GEN_OE_EVENTCOMM_ERL_FILES) \
 	$(GEN_NOTIFYCOMM_ERL_FILES) \
 	$(GEN_NOTIFYFILTER_ERL_FILES) \
-	$(GEN_CHANNELADMIN_ERL_FILES) \
-	$(GEN_YECC_ERL_FILES)
+	$(GEN_CHANNELADMIN_ERL_FILES)
 
-GEN_HRL_FILES = \
+IDL_GEN_HRL_FILES = \
 	$(EXTERNAL_GEN_NOTIFICATION_HRL_FILES) \
 	$(GEN_OE_EVENTCOMM_HRL_FILES) \
 	$(EXTERNAL_GEN_NOTIFYCOMM_HRL_FILES) \
 	$(EXTERNAL_GEN_NOTIFYFILTER_HRL_FILES) \
-	$(EXTERNAL_GEN_CHANNELADMIN_HRL_FILES) \
+	$(EXTERNAL_GEN_CHANNELADMIN_HRL_FILES)
+
+GEN_ERL_FILES = \
+	$(IDL_GEN_ERL_FILES) \
+	$(GEN_YECC_ERL_FILES)
+
+GEN_HRL_FILES = \
+	$(IDL_GEN_HRL_FILES) \
 	$(GEN_YECC_HRL_FILES)
 
 
@@ -322,7 +328,7 @@ cleanb:
 	rm -f errs core *~
 
 clean:
-	rm -f $(TARGET_FILES) $(GEN_FILES) $(APP_TARGET) $(APPUP_TARGET)
+	rm -f $(TARGET_FILES) $(GEN_FILES) $(APP_TARGET) $(APPUP_TARGET) IDL-GENERATED
 	rm -f errs core *~
 
 $(APP_TARGET): $(APP_SRC)
@@ -336,20 +342,23 @@ docs:
 # ----------------------------------------------------
 # Special Build Targets
 # ----------------------------------------------------
-$(GEN_NOTIFICATION_ERL_FILES) $(EXTERNAL_GEN_NOTIFICATION_HRL_FILES): CosNotification.idl
+IDL-GENERATED: CosNotification.idl CosNotifyChannelAdmin.idl \
+  CosNotifyFilter.idl cosNotificationAppComm.idl CosNotifyComm.idl
 	erlc $(ERL_IDL_FLAGS) +'{cfgfile,"CosNotification.cfg"}' CosNotification.idl
 	mv $(GEN_NOTIFICATION_HRL_FILES) $(EXTERNAL_INC_PATH)
-$(GEN_CHANNELADMIN_ERL_FILES) $(EXTERNAL_GEN_CHANNELADMIN_HRL_FILES): CosNotifyChannelAdmin.idl
 	erlc $(ERL_IDL_FLAGS) +'{cfgfile,"CosNotifyChannelAdmin.cfg"}' CosNotifyChannelAdmin.idl
 	mv $(GEN_CHANNELADMIN_HRL_FILES) $(EXTERNAL_INC_PATH)
-$(GEN_NOTIFYFILTER_ERL_FILES) $(EXTERNAL_GEN_NOTIFYFILTER_HRL_FILES): CosNotifyFilter.idl
 	erlc $(ERL_IDL_FLAGS) +'{cfgfile,"CosNotifyFilter.cfg"}' CosNotifyFilter.idl
 	mv $(GEN_NOTIFYFILTER_HRL_FILES) $(EXTERNAL_INC_PATH)
-$(GEN_OE_EVENTCOMM_ERL_FILES) $(GEN_OE_EVENTCOMM_HRL_FILES): cosNotificationAppComm.idl
 	erlc $(ERL_IDL_FLAGS) +'{cfgfile,"cosNotificationComm.cfg"}' cosNotificationAppComm.idl
-$(GEN_NOTIFYCOMM_ERL_FILES) $(EXTERNAL_GEN_NOTIFYCOMM_HRL_FILES): CosNotifyComm.idl
 	erlc $(ERL_IDL_FLAGS) +'{cfgfile,"CosNotifyComm.cfg"}' CosNotifyComm.idl
 	mv $(GEN_NOTIFYCOMM_HRL_FILES) $(EXTERNAL_INC_PATH)
+	>IDL-GENERATED
+
+$(IDL_GEN_ERL_FILES) $(IDL_GEN_HRL_FILES): IDL-GENERATED
+
+$(TARGET_FILES): IDL-GENERATED
+
 $(GEN_YECC_ERL_FILES) $(GEN_YECC_HRL_FILES): cosNotification_Grammar.yrl
 
 # ----------------------------------------------------

@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -73,22 +73,24 @@
 %%
 
 
--export([all/1, init_per_testcase/2, fin_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, 
+	 init_per_testcase/2, end_per_testcase/2,
 	 init_per_suite/1, end_per_suite/1,
-	 stream/1, stream_small/1, stream_big/1,
+	 stream_small/1, stream_big/1,
 	 basic_ping/1, slow_writes/1, bad_packet/1, bad_port_messages/1,
-	 multiple_packets/1, mul_basic/1, mul_slow_writes/1,
+	 mul_basic/1, mul_slow_writes/1,
 	 dying_port/1, port_program_with_path/1,
 	 open_input_file_port/1, open_output_file_port/1,
 	 iter_max_ports/1, eof/1, input_only/1, output_only/1,
 	 name1/1,
-	 t_binary/1, options/1, parallell/1, t_exit/1,
+	 t_binary/1, parallell/1, t_exit/1,
 	 env/1, bad_env/1, cd/1, exit_status/1,
-	 tps/1, tps_16_bytes/1, tps_1K/1, line/1, stderr_to_stdout/1,
+	 tps_16_bytes/1, tps_1K/1, line/1, stderr_to_stdout/1,
 	 otp_3906/1, otp_4389/1, win_massive/1, win_massive_client/1,
 	 mix_up_ports/1, otp_5112/1, otp_5119/1, otp_6224/1,
 	 exit_status_multi_scheduling_block/1, ports/1,
-	 spawn_driver/1,spawn_executable/1]).
+	 spawn_driver/1, spawn_executable/1, close_deaf_port/1,
+	 unregister_name/1]).
 
 -export([]).
 
@@ -97,30 +99,42 @@
 -export([otp_3906_forker/5, otp_3906_start_forker_starter/4]).
 -export([env_slave_main/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("kernel/include/file.hrl").
 
-all(suite) ->
-    [
-     otp_6224, stream, basic_ping, slow_writes, bad_packet,
-     bad_port_messages, options, multiple_packets, parallell,
-     dying_port, port_program_with_path,
-     open_input_file_port, open_output_file_port,
-     name1,
-     env, bad_env, cd, exit_status,
-     iter_max_ports, t_exit, tps, line, stderr_to_stdout,
-     otp_3906, otp_4389, win_massive, mix_up_ports,
-     otp_5112, otp_5119,
-     exit_status_multi_scheduling_block,
-     ports, spawn_driver, spawn_executable
-    ].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [otp_6224, {group, stream}, basic_ping, slow_writes,
+     bad_packet, bad_port_messages, {group, options},
+     {group, multiple_packets}, parallell, dying_port,
+     port_program_with_path, open_input_file_port,
+     open_output_file_port, name1, env, bad_env, cd,
+     exit_status, iter_max_ports, t_exit, {group, tps}, line,
+     stderr_to_stdout, otp_3906, otp_4389, win_massive,
+     mix_up_ports, otp_5112, otp_5119,
+     exit_status_multi_scheduling_block, ports, spawn_driver,
+     spawn_executable, close_deaf_port, unregister_name].
+
+groups() -> 
+    [{stream, [], [stream_small, stream_big]},
+     {options, [], [t_binary, eof, input_only, output_only]},
+     {multiple_packets, [], [mul_basic, mul_slow_writes]},
+     {tps, [], [tps_16_bytes, tps_1K]}].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 -define(DEFAULT_TIMEOUT, ?t:minutes(5)).
 
 init_per_testcase(Case, Config) ->
     [{testcase, Case} |Config].
 
-fin_per_testcase(_Case, _Config) ->
+end_per_testcase(_Case, _Config) ->
     ok.
 
 init_per_suite(Config) when is_list(Config) ->
@@ -189,7 +203,6 @@ win_massive_loop(P,N) ->
     
 
 
-stream(suite) -> [stream_small, stream_big].
 
 %% Test that we can send a stream of bytes and get it back.
 %% We will send only a small amount of data, to avoid deadlock.
@@ -302,7 +315,6 @@ bad_message(PortTest, Message) ->
 %% Tests various options (stream and {packet, Number} are implicitly
 %% tested in other test cases).
 
-options(suite) -> [t_binary, eof, input_only, output_only].
 
 %% Tests the 'binary' option for a port.
 
@@ -414,7 +426,6 @@ output_and_verify(Config, Filename, Options, Data) ->
 %% Test that receiving several packages written in the same
 %% write operation works.
 
-multiple_packets(suite) -> [mul_basic, mul_slow_writes].
 
 %% Basic test of receiving multiple packages, written in
 %% one operation by the other end.
@@ -713,6 +724,8 @@ open_ports(Name, Settings) ->
 		    [];
 		system_limit ->
 		    [];
+		enomem ->
+		    [];
 		Other ->
 		    ?line test_server:fail({open_ports, Other})
 	    end;
@@ -738,7 +751,6 @@ suicide_port(Config) when is_list(Config) ->
     ?line exit(Port, die),
     ?line receive after infinity -> ok end.
 
-tps(suite) -> [tps_16_bytes, tps_1K].
 
 tps_16_bytes(doc) -> "";
 tps_16_bytes(suite) -> [];
@@ -876,11 +888,19 @@ env2(Config) ->
 			    "nisse" = os:getenv(Long)
 		    end),
 
-
+    
     ?line env_slave(Temp, [{"must_define_something","some_value"},
-			   {"certainly_not_existing",false},
+			    {"certainly_not_existing",false},
+                           {"ends_with_equal", "value="},
 			   {Long,false},
 			   {"glurf","a glorfy string"}]),
+
+    %% A lot of non existing variables (mingled with existing)
+    NotExistingList = [{lists:flatten(io_lib:format("V~p_not_existing",[X])),false} 
+                        ||  X <- lists:seq(1,150)],
+    ExistingList = [{lists:flatten(io_lib:format("V~p_existing",[X])),"a_value"} 
+                        ||  X <- lists:seq(1,150)],
+    ?line env_slave(Temp, lists:sort(ExistingList ++ NotExistingList)),
 
     ?line test_server:timetrap_cancel(Dog),
     ok.
@@ -1039,8 +1059,10 @@ otp_3906(Config)  when is_list(Config) ->
 -define(OTP_3906_MAX_CONC_OSP, 50).
 
 otp_3906(Config, OSName) ->
-    ?line TSDir = filename:dirname(code:which(test_server)),
-    ?line {ok, Variables} = file:consult(filename:join(TSDir, "variables")),
+    ?line DataDir = filename:dirname(proplists:get_value(data_dir,Config)),
+    ?line {ok, Variables} = file:consult(
+			      filename:join([DataDir,"..","..",
+					     "test_server","variables"])),
     case lists:keysearch('CC', 1, Variables) of
 	{value,{'CC', CC}} ->
 	    SuiteDir = filename:dirname(code:which(?MODULE)),
@@ -1433,6 +1455,10 @@ spawn_executable(Config) when is_list(Config) ->
     end,
     ?line test_server:timetrap_cancel(Dog),
     ok.
+
+unregister_name(Config) when is_list(Config) ->
+    ?line true = register(crash, open_port({spawn, "sleep 100"}, [])),
+    ?line true = unregister(crash).
 
 test_bat_file(Dir) ->
     FN = "tf.bat",
@@ -2286,3 +2312,37 @@ load_driver(Dir, Driver) ->
 	    io:format("~s\n", [erl_ddll:format_error(Error)]),
 	    Res
     end.
+
+
+close_deaf_port(doc) -> ["Send data to port program that does not read it, then close port."
+			 "Primary targeting Windows to test threaded_handle_closer in sys.c"];
+close_deaf_port(suite) -> [];
+close_deaf_port(Config) when is_list(Config) ->
+    ?line Dog = test_server:timetrap(test_server:seconds(100)),
+    ?line DataDir = ?config(data_dir, Config),
+    ?line DeadPort = os:find_executable("dead_port", DataDir),
+    ?line Port = open_port({spawn,DeadPort++" 60"},[]),
+    ?line erlang:port_command(Port,"Hello, can you hear me!?!?"),
+    ?line port_close(Port),
+
+    Res = close_deaf_port_1(0, DeadPort),
+    io:format("Waiting for OS procs to terminate...\n"),
+    receive after 5*1000 -> ok end,
+    ?line test_server:timetrap_cancel(Dog),
+    Res.
+
+close_deaf_port_1(1000, _) ->
+    ok;
+close_deaf_port_1(N, Cmd) ->
+    Timeout = integer_to_list(random:uniform(5*1000)),
+    ?line try open_port({spawn_executable,Cmd},[{args,[Timeout]}]) of
+    	Port ->
+	    ?line erlang:port_command(Port,"Hello, can you hear me!?!?"),
+	    ?line port_close(Port),
+	    close_deaf_port_1(N+1, Cmd)
+    catch
+    	_:eagain ->
+	    {comment, "Could not spawn more than " ++ integer_to_list(N) ++ " OS processes."}
+    end.
+    
+

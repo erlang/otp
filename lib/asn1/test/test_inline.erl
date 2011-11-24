@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
@@ -23,7 +23,7 @@
 -export([mvrasn_inlined_encdec/2,mvrasn_encdec/2,
 	 mi_encdec/2,m_encdec/2]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -define(times, 5000).
 -define(times2, 50000).
 
@@ -173,8 +173,8 @@ mi_encdec(N,Val) ->
 m_encdec(0,_) ->
     ok;
 m_encdec(N,Val) ->
-    {ok,B}='Mod1':encode('L',Val),
-    {ok,_R}='Mod1':decode('L',B),
+    {ok,B}='Mod':encode('L',Val),
+    {ok,_R}='Mod':decode('L',B),
     m_encdec(N-1,Val).
 
 

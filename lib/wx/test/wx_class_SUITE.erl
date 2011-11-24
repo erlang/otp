@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,14 +18,15 @@
 %%%-------------------------------------------------------------------
 %%% File    : wx_class_SUITE.erl
 %%% Author  : Dan Gudmundsson <dan.gudmundsson@ericsson.com>
-%%% Description : 
+%%% Description :
 %%%
 %%% Created : 13 Nov 2008 by Dan Gudmundsson <dan.gudmundsson@ericsson.com>
 %%%-------------------------------------------------------------------
 -module(wx_class_SUITE).
 
--export([all/0, init_per_suite/1, end_per_suite/1, 
-	 init_per_testcase/2, fin_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
+	 init_per_suite/1, end_per_suite/1,
+	 init_per_testcase/2, end_per_testcase/2]).
 
 -compile(export_all).
 
@@ -40,26 +41,25 @@ end_per_suite(Config) ->
 
 init_per_testcase(Func,Config) ->
     wx_test_lib:init_per_testcase(Func,Config).
-end_per_testcase(Func,Config) -> 
-    wx_test_lib:end_per_testcase(Func,Config).
-fin_per_testcase(Func,Config) -> %% For test_server
+end_per_testcase(Func,Config) ->
     wx_test_lib:end_per_testcase(Func,Config).
 
 %% SUITE specification
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
 all() ->
-    all(suite).
-all(suite) ->
-    [
-     calendarCtrl, 
-     treeCtrl,
-     notebook,
-     staticBoxSizer,
-     clipboard,
-     helpFrame,
-     htmlWindow,
-     listCtrlSort,
-     radioBox
-    ].
+    [calendarCtrl, treeCtrl, notebook, staticBoxSizer,
+     clipboard, helpFrame, htmlWindow, listCtrlSort, listCtrlVirtual,
+     radioBox, systemSettings].
+
+groups() ->
+    [].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
 
 %% The test cases
 
@@ -70,9 +70,9 @@ calendarCtrl(Config) ->
     Frame = ?mt(wxFrame, wxFrame:new(Wx, 1, "Calendar", [])),
     Panel = wxPanel:new(Frame),
     Sz = wxBoxSizer:new(?wxVERTICAL),
-    
+
     {YMD={_,_,Day},_} = DateTime = calendar:now_to_datetime(erlang:now()),
-    Cal = ?mt(wxCalendarCtrl, wxCalendarCtrl:new(Panel, ?wxID_ANY, 
+    Cal = ?mt(wxCalendarCtrl, wxCalendarCtrl:new(Panel, ?wxID_ANY,
 						 [{date,DateTime}
 						 ])),
     wxSizer:add(Sz,Cal),
@@ -91,25 +91,25 @@ calendarCtrl(Config) ->
     ?m({0,243,0,255}, wxCalendarDateAttr:getBackgroundColour(DateAttr1)),
 
     ?m({YMD, _},wxCalendarCtrl:getDate(Cal)),
-    
-    wxCalendarCtrl:connect(Cal, calendar_weekday_clicked), 
-    wxCalendarCtrl:connect(Cal, calendar_day_changed), 
-    wxCalendarCtrl:connect(Cal, calendar_month_changed), 
+
+    wxCalendarCtrl:connect(Cal, calendar_weekday_clicked),
+    wxCalendarCtrl:connect(Cal, calendar_day_changed),
+    wxCalendarCtrl:connect(Cal, calendar_month_changed),
     wxCalendarCtrl:connect(Cal, calendar_year_changed),
-    wxCalendarCtrl:connect(Cal, calendar_doubleclicked), 
+    wxCalendarCtrl:connect(Cal, calendar_doubleclicked),
     wxCalendarCtrl:connect(Cal, calendar_sel_changed),
-    
+
     wxWindow:setSizer(Panel,Sz),
     wxSizer:setSizeHints(Sz,Frame),
-    wxWindow:show(Frame), 
-    
+    wxWindow:show(Frame),
+
     wx_test_lib:wx_destroy(Frame,Config).
 
 
 treeCtrl(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
 treeCtrl(Config) ->
     Wx = wx:new(),
-    
+
     Frame = wxFrame:new(Wx, ?wxID_ANY, "Frame"),
     Panel = wxPanel:new(Frame, []),
     Tree = ?mt(wxTreeCtrl,wxTreeCtrl:new(Panel, [{style , ?wxTR_HAS_BUTTONS}])),
@@ -122,22 +122,25 @@ treeCtrl(Config) ->
     ?m(ok,  wxTreeCtrl:setItemData(Tree, Item2, {data, item2})),
     Item3 = wxTreeCtrl:appendItem(Tree, Root, "Item3", []),
     ?m(ok, wxTreeCtrl:setItemData(Tree, Item3, {data, item3})),
-    
+
     Sizer = wxBoxSizer:new(?wxVERTICAL),
     wxSizer:add(Sizer, Tree, [{flag, ?wxEXPAND}, {proportion, 1}]),
 
     wxWindow:setSizerAndFit(Panel, Sizer),
     wxFrame:show(Frame),
-    
+
     ?m([], wxTreeCtrl:getItemData(Tree, Root)),
     ?m({data,item1}, wxTreeCtrl:getItemData(Tree, Item1)),
     ?m({data,item2}, wxTreeCtrl:getItemData(Tree, Item2)),
     ?m({data,item3}, wxTreeCtrl:getItemData(Tree, Item3)),
-    
+
     wxFrame:connect(Tree, command_tree_item_expanded),
     wxFrame:connect(Tree, command_tree_item_collapsed),
     wxFrame:connect(Frame, close_window),
-    
+
+    wxTreeCtrl:editLabel(Tree, Root),
+
+
     wx_test_lib:wx_destroy(Frame,Config).
 
 notebook(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
@@ -207,13 +210,13 @@ staticBoxSizer(Config) ->
     Frame = wxFrame:new(Wx, ?wxID_ANY, "Frame"),
     Panel = wxPanel:new(Frame, []),
     InclSizer = ?mt(wxStaticBoxSizer,
-		    wxStaticBoxSizer:new(?wxVERTICAL, Panel, 
+		    wxStaticBoxSizer:new(?wxVERTICAL, Panel,
 					 [{label, "Module inclusion policy"}])),
     Sizer = wxBoxSizer:new(?wxVERTICAL),
     wxSizer:add(Sizer, InclSizer,
 		[{border, 2}, {flag, ?wxALL bor ?wxEXPAND}, {proportion, 1}]),
-    wxWindow:setSizerAndFit(Panel, Sizer),    
-    
+    wxWindow:setSizerAndFit(Panel, Sizer),
+
     wxWindow:show(Frame),
     wx_test_lib:wx_destroy(Frame,Config).
 
@@ -260,13 +263,13 @@ clipboard(_Config) ->
     wxClipboard:flush(CB),
     ?log("Stopping ~n",[]),
     ok.
-    
+
 helpFrame(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
 helpFrame(Config) ->
     Wx = wx:new(),
     MFrame = wx:batch(fun() ->
 			      MFrame = wxFrame:new(Wx, ?wxID_ANY, "Main Frame"),
-			      wxPanel:new(MFrame, [{size, {600,400}}]),      
+			      wxPanel:new(MFrame, [{size, {600,400}}]),
 			      wxWindow:show(MFrame),
 			      MFrame
 		      end),
@@ -276,11 +279,11 @@ helpFrame(Config) ->
     {X, Y, W,H} = wxWindow:getScreenRect(MFrame),
     io:format("Pos0: ~p ~p ~p Pos: ~p:~p Size: ~p:~p ~n",
 	      [X0,Y0, wxWindow:clientToScreen(MFrame, {0,0}), X,Y,W,H]),
-    
+
     Pos = {X+5, Y+(H div 2)},
     Size = {W-10, (H div 2) - 5},
 
-    Comp = wxFrame:new(MFrame, ?wxID_ANY, "Completion Window", 
+    Comp = wxFrame:new(MFrame, ?wxID_ANY, "Completion Window",
 		       [{pos, Pos}, {size, Size},
 			{style, ?wxFRAME_FLOAT_ON_PARENT}]),
     LB = wxListBox:new(Comp, 42, [{style, ?wxLB_SINGLE},
@@ -298,7 +301,7 @@ htmlWindow(Config) ->
     {MFrame,HPanel} =
 	wx:batch(fun() ->
 			 MFrame = wxFrame:new(Wx, ?wxID_ANY, "Main Frame"),
-			 HPanel = wxHtmlWindow:new(MFrame, [{size, {600,400}}]),  
+			 HPanel = wxHtmlWindow:new(MFrame, [{size, {600,400}}]),
 			 wxWindow:show(MFrame),
 			 {MFrame, HPanel}
 		 end),
@@ -307,7 +310,7 @@ htmlWindow(Config) ->
     WxMod = code:which(wx),
     WxDir = filename:split(filename:dirname(WxMod)) -- ["ebin"],
     Html = filename:join(filename:join(WxDir),filename:join("doc", "html")),
-    
+
     Index = filename:join(Html, "wx.html"),
 
     ?m(ok, wxHtmlWindow:connect(HPanel, command_html_link_clicked,
@@ -315,7 +318,7 @@ htmlWindow(Config) ->
 				  fun(Ev,_) ->
 					  io:format("Link clicked: ~p~n",[Ev])
 				  end}])),
-    
+
     case filelib:is_file(Index) of
 	true ->
 	    ?m(true, wxHtmlWindow:loadFile(HPanel, Index)),
@@ -323,7 +326,7 @@ htmlWindow(Config) ->
 	false ->
 	    ok
     end,
-    
+
     wx_test_lib:wx_destroy(MFrame,Config).
 
 
@@ -331,18 +334,18 @@ listCtrlSort(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
 listCtrlSort(Config) ->
     Wx = wx:new(),
     Frame = wxFrame:new(Wx, ?wxID_ANY, "Frame"),
-    
+
     LC = wxListCtrl:new(Frame, [{style, ?wxLC_REPORT bor ?wxLC_SORT_ASCENDING}]),
 
     %% must be done crashes in wxwidgets otherwise.
     wxListCtrl:insertColumn(LC, 0, "Column"),
-    
-    Add = fun(Int) ->    
+
+    Add = fun(Int) ->
 		  wxListCtrl:insertItem(LC, Int, integer_to_list(Int)),
 		  %% ItemData Can only be integers currently
 		  wxListCtrl:setItemData(LC, Int, abs(2500-Int))
 	  end,
-    
+
     wx:foreach(Add, lists:seq(0,5000)),
     wxWindow:show(Frame),
 
@@ -357,10 +360,10 @@ listCtrlSort(Config) ->
 						    end
 					    end)
 	   end,
-    
+
     Time = timer:tc(erlang, apply, [Sort,[]]),
     io:format("Sorted ~p ~n",[Time]),
-    
+
     Item = wxListItem:new(),
     _List = wx:map(fun(Int) ->
 			   wxListItem:setId(Item, Int),
@@ -371,6 +374,48 @@ listCtrlSort(Config) ->
 
     wx_test_lib:wx_destroy(Frame,Config).
 
+listCtrlVirtual(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
+listCtrlVirtual(Config) ->
+    Wx = wx:new(),
+    Frame = wxFrame:new(Wx, ?wxID_ANY, "Frame"),
+    IA = wxListItemAttr:new(),
+    wxListItemAttr:setTextColour(IA, {190, 25, 25}),
+    LC = wxListCtrl:new(Frame,
+			[{style, ?wxLC_REPORT bor ?wxLC_VIRTUAL},
+			 {onGetItemText, fun(_This, Item, 0) ->
+						 "Row " ++ integer_to_list(Item);
+					    (_, Item, 1) when Item rem 5 == 0 ->
+						 "Column 2";
+					    (_, _, _) -> ""
+					 end},
+			 {onGetItemAttr, fun(_This, Item) when Item rem 3 == 0 ->
+						 IA;
+					    (_This, _Item)  ->
+						 wx:typeCast(wx:null(), wxListItemAttr)
+					 end},
+			 {onGetItemColumnImage, fun(_This, Item, 1) ->
+							Item rem 4;
+						   (_, _, _) ->
+							-1
+						end}
+			]),
+
+    IL = wxImageList:new(16,16),
+    wxImageList:add(IL, wxArtProvider:getBitmap("wxART_COPY", [{size, {16,16}}])),
+    wxImageList:add(IL, wxArtProvider:getBitmap("wxART_MISSING_IMAGE", [{size, {16,16}}])),
+    wxImageList:add(IL, wxArtProvider:getBitmap("wxART_TICK_MARK", [{size, {16,16}}])),
+    wxImageList:add(IL, wxArtProvider:getBitmap("wxART_CROSS_MARK", [{size, {16,16}}])),
+    wxListCtrl:assignImageList(LC, IL, ?wxIMAGE_LIST_SMALL),
+
+    wxListCtrl:insertColumn(LC, 0, "Column 1"),
+    wxListCtrl:insertColumn(LC, 1, "Column 2"),
+    wxListCtrl:setColumnWidth(LC, 0, 200),
+    wxListCtrl:setColumnWidth(LC, 1, 200),
+    wxListCtrl:setItemCount(LC, 1000000),
+
+    wxWindow:show(Frame),
+    wx_test_lib:wx_destroy(Frame,Config).
+
 
 radioBox(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
 radioBox(Config) ->
@@ -379,7 +424,7 @@ radioBox(Config) ->
 
     TrSortRadioBox = wxRadioBox:new(Frame, ?wxID_ANY, "Sort by:",
 				    {100, 100},{100, 100}, ["Timestamp"]),
-    
+
     io:format("TrSortRadioBox ~p ~n", [TrSortRadioBox]),
     %% If I uncomment any of these lines, it will crash
 
@@ -387,5 +432,41 @@ radioBox(Config) ->
     %?m(_, wxListBox:append(TrSortRadioBox, "Session Id", session_id)),
     %?m(_, wxListBox:insert(TrSortRadioBox, "Session Id", 0, session_id)),
 
+    wxWindow:show(Frame),
+    wx_test_lib:wx_destroy(Frame,Config).
+
+
+systemSettings(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
+systemSettings(Config) ->
+    Wx = wx:new(),
+    Frame = wxFrame:new(Wx, ?wxID_ANY, "Frame"),
+
+    ?m({_,_,_,_}, wxSystemSettings:getColour(?wxSYS_COLOUR_DESKTOP)),
+    ?mt(wxFont, wxSystemSettings:getFont(?wxSYS_SYSTEM_FONT)),
+    ?m(true, is_integer(wxSystemSettings:getMetric(?wxSYS_MOUSE_BUTTONS))),
+    ?m(true, is_integer(wxSystemSettings:getScreenType())),
+
+    wxWindow:show(Frame),
+    wx_test_lib:wx_destroy(Frame,Config).
+
+
+textCtrl(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
+textCtrl(Config) ->
+    Wx = wx:new(),
+    Frame = wxFrame:new(Wx, ?wxID_ANY, "Frame"),
+
+    TC = ?mt(wxTextCtrl, wxTextCtrl:new(Frame, ?wxID_ANY, [{style, ?wxTE_MULTILINE bor ?wxTE_RICH2}])),
+    wxTextCtrl:appendText(TC, "This line is in default color\n"),
+    Attr = ?mt(wxTextAttr, wxTextAttr:new(?wxRED)),
+    wxTextCtrl:setDefaultStyle(TC, Attr),
+    wxTextCtrl:appendText(TC, "This line is in ?wxRED color\n"),
+    wxTextAttr:setTextColour(Attr, ?wxBLACK),
+    wxTextCtrl:setDefaultStyle(TC, Attr),
+    wxTextCtrl:appendText(TC, "This line is in ?wxBLACK color\n"),
+    Default = wxSystemSettings:getColour(?wxSYS_COLOUR_WINDOWTEXT),
+    wxTextAttr:setTextColour(Attr, Default),
+    wxTextCtrl:setDefaultStyle(TC, Attr),
+    wxTextCtrl:appendText(TC, "This line is in default color\n"),
+    wxTextAttr:destroy(Attr),
     wxWindow:show(Frame),
     wx_test_lib:wx_destroy(Frame,Config).

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2009. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2010. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -40,20 +40,13 @@
 #define EI_MYPROTO 0 /* tcp/ip */
 #endif
 
-/* epmd r3 protocol */
-#ifndef EI_EPMD_ALIVE_REQ
-#define EI_EPMD_ALIVE_REQ     'a'
-#define EI_EPMD_ALIVE_OK_RESP 'Y'
-#define EI_EPMD_PORT_REQ      'p'
-#define EI_EPMD_STOP_REQ      's'
-#endif
-
 /* epmd r4 */
 #ifndef EI_EPMD_ALIVE2_REQ
 #define EI_EPMD_ALIVE2_REQ  120
 #define EI_EPMD_ALIVE2_RESP 121
 #define EI_EPMD_PORT2_REQ   122
 #define EI_EPMD_PORT2_RESP  119
+#define EI_EPMD_STOP_REQ      's'
 #endif
 
 /* internal functions */

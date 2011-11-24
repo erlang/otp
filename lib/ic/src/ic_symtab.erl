@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -68,6 +68,8 @@ store(G, N, X) ->
 	{error, _} ->
 	    ets:insert(G#genobj.symtab, {Name, X});
 	{ok, Y} when is_record(Y, forward) ->
+	    ets:insert(G#genobj.symtab, {Name, X});
+	{ok, Y} when is_record(Y, constr_forward) ->
 	    ets:insert(G#genobj.symtab, {Name, X});
 	{ok, _Y} ->
 	    ic_error:error(G, {multiply_defined, X})

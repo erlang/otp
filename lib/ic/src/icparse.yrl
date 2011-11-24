@@ -1,21 +1,20 @@
-%%<copyright>
-%% <year>1997-2007</year>
-%% <holder>Ericsson AB, All Rights Reserved</holder>
-%%</copyright>
-%%<legalnotice>
+%%
+%% %CopyrightBegin%
+%% 
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%%
+%% 
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%%
-%% The Initial Developer of the Original Code is Ericsson AB.
-%%</legalnotice>
+%% 
+%% %CopyrightEnd%
 %%
 %%------------------------------------------------------------
 %% Yecc spec for IDL
@@ -150,6 +149,7 @@ Nonterminals
 	'ZorM_<integer_literal>'
 	'<fixed_pt_type>'
 	'<fixed_pt_const_type>'
+	'<constr_forward_decl>'
 	.
 
 
@@ -473,6 +473,7 @@ OE_preproc -> '#' '<integer_literal>' '<string_literal>'
 '<type_dcl>' -> '<struct_type>' : '$1' .
 '<type_dcl>' -> '<union_type>' : '$1' .
 '<type_dcl>' -> '<enum_type>' : '$1' .
+'<type_dcl>' -> '<constr_forward_decl>' : '$1' .
 
 %% (28) NIY multiple declarators (FIXED)
 '<type_declarator>' -> '<type_spec>' '<declarators>'
@@ -832,6 +833,9 @@ OE_preproc -> '#' '<integer_literal>' '<string_literal>'
 '<fixed_pt_type>' -> 'fixed' '<' '<positive_int_const>' ',' '<positive_int_const>' '>'
   : #fixed{digits='$3',scale='$5'} .
 
+%% (99)
+'<constr_forward_decl>' -> 'struct' '<identifier>' : #constr_forward{id='$2', tk=tk_struct} .
+'<constr_forward_decl>' -> 'union'  '<identifier>' : #constr_forward{id='$2', tk=tk_union} .
 
 %% Added clause
 'ZorM_<string_literal>' -> '$empty' : [] .

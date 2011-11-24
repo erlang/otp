@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 1997-2009. All Rights Reserved.
+# Copyright Ericsson AB 1997-2011. All Rights Reserved.
 # 
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -33,6 +33,7 @@ MODULES= \
 	ei_print_SUITE \
 	ei_tmo_SUITE \
 	erl_connect_SUITE \
+	erl_global_SUITE \
 	erl_eterm_SUITE \
 	erl_ext_SUITE \
 	erl_format_SUITE \
@@ -41,9 +42,9 @@ MODULES= \
 	runner
 
 SPEC_FILES = \
-	erl_interface.spec \
-	erl_interface.dynspec \
-	erl_interface.spec.vxworks
+	erl_interface.spec
+
+COVER_FILE = erl_interface.cover
 
 ERL_FILES = $(MODULES:%=%.erl)
 
@@ -71,8 +72,8 @@ release_spec:
 
 release_tests_spec: opt
 	$(INSTALL_DIR) $(RELSYSDIR)
-	$(INSTALL_DATA) $(SPEC_FILES) $(ERL_FILES) $(RELSYSDIR)
-	chmod -f -R u+w $(RELSYSDIR)
+	$(INSTALL_DATA) $(SPEC_FILES) $(COVER_FILE) $(ERL_FILES) $(RELSYSDIR)
+	chmod -R u+w $(RELSYSDIR)
 	@tar cf - *_SUITE_data | (cd $(RELSYSDIR); tar xf -)
 
 release_docs_spec:

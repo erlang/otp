@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -53,35 +53,34 @@ start_link(Options) ->
     gen_server:start_link({local, rb_server}, rb, Options, []).
 
 stop() -> 
-    gen_server:call(rb_server, stop),
-    supervisor:delete_child(sasl_sup, rb_server).
+    supervisor:terminate_child(sasl_sup, rb_server).
 
 rescan() -> rescan([]).
 rescan(Options) ->
-    gen_server:call(rb_server, {rescan, Options}, infinity).
+    call({rescan, Options}).
 
 list() -> list(all).
-list(Type) -> gen_server:call(rb_server, {list, Type}, infinity).
+list(Type) -> call({list, Type}).
 
 show() -> 
-    gen_server:call(rb_server, show, infinity).
+    call(show).
 
 show(Number) when is_integer(Number) -> 
-    gen_server:call(rb_server, {show_number, Number}, infinity);
+    call({show_number, Number});
 show(Type) when is_atom(Type) ->
-    gen_server:call(rb_server, {show_type, Type}, infinity).
+    call({show_type, Type}).
 
-grep(RegExp) -> gen_server:call(rb_server, {grep, RegExp}, infinity).
+grep(RegExp) -> call({grep, RegExp}).
 
 filter(Filters) when is_list(Filters) ->
-    gen_server:call(rb_server, {filter, Filters}, infinity).
+    call({filter, Filters}).
 
 filter(Filters, FDates) when is_list(Filters) andalso is_tuple(FDates) ->
-    gen_server:call(rb_server, {filter, {Filters, FDates}}, infinity).
+    call({filter, {Filters, FDates}}).
 
-start_log(FileName) -> gen_server:call(rb_server, {start_log, FileName}).
+start_log(FileName) -> call({start_log, FileName}).
 
-stop_log() -> gen_server:call(rb_server, stop_log).
+stop_log() -> call(stop_log).
 
 h() -> help().
 help() ->
@@ -122,6 +121,13 @@ help() ->
 %%-----------------------------------------------------------------
 %% Internal functions.
 %%-----------------------------------------------------------------
+
+%%-----------------------------------------------------------------
+%% call(Request) -> Term
+%%-----------------------------------------------------------------
+call(Req) ->
+    gen_server:call(rb_server, Req, infinity).
+
 %%-----------------------------------------------------------------
 %% MAKE SURE THESE TWO FUNCTIONS ARE UPDATED!
 %%-----------------------------------------------------------------
@@ -162,7 +168,7 @@ print_filters() ->
 
 print_dates() ->
     io:format("      - {StartDate, EndDate}~n"),
-    io:format("        StartDate = EndDate = {{Y-M-D},{H,M,S}} ~n"),
+    io:format("        StartDate = EndDate = {{Y,M,D},{H,M,S}} ~n"),
     io:format("        prints the reports with date between StartDate and EndDate~n"),
     io:format("      - {StartDate, from}~n"),
     io:format("        prints the reports with date greater than StartDate~n"),
@@ -198,8 +204,6 @@ handle_call({rescan, Options}, _From, State) ->
     NewState = State#state{data = Data, max = Max, type = Type,
 			   device = Device, abort = Abort, log = Log1},
     {reply, ok, NewState};
-handle_call(stop, _From, State) ->
-    {stop, normal, stopped, State};
 handle_call(_, _From, #state{data = undefined}) ->
     {reply, {error, no_data}, #state{}};
 handle_call({list, Type}, _From, State) ->
@@ -305,11 +309,14 @@ scan_files(RptDir, Max, Type) ->
 	{ok, Fd} ->
 	    case catch file:read(Fd, 1) of
 		{ok, [LastWritten]} -> 
+		    file:close(Fd),
 		    Files = make_file_list(RptDir, LastWritten),
 		    scan_files(RptDir, Files, Max, Type);		
-		_ -> exit("cannot read the index file")
+		_X ->
+		    file:close(Fd),
+		    exit("cannot read the index file")
 	    end;
-	_ -> exit("cannot read the index file")
+	_X -> exit("cannot read the index file")
     end.
 
 make_file_list(Dir, FirstFileNo) ->
@@ -782,7 +789,7 @@ filter_report([{Key, RegExp, re}|T], Msg) ->
 filter_report([{Key, RegExp, re, no}|T], Msg) ->
     case proplists:get_value(Key, Msg) of
 	undefined ->
-	    false;
+	    true;
 	Value ->
 	    Subject = lists:flatten(io_lib:format("~p",[Value])),
 	    case run_re(Subject, RegExp) of

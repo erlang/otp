@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -28,15 +28,14 @@
 -include("ssl_internal.hrl").
 
 %% Internal application API
--export([is_new/2, id/3, id/6, valid_session/2]).
+-export([is_new/2, id/4, id/7, valid_session/2]).
 
 -define(GEN_UNIQUE_ID_MAX_TRIES, 10).
 
+-type seconds()   :: integer(). 
+
 %%--------------------------------------------------------------------
-%% Function: is_new(ClientSuggestedId, ServerDecidedId) -> true | false
-%%
-%%      ClientSuggestedId = binary() 
-%%      ServerDecidedId = binary()
+-spec is_new(session_id(), session_id()) -> boolean().
 %%
 %% Description: Checks if the session id decided by the server is a
 %%              new or resumed sesion id.
@@ -45,23 +44,18 @@ is_new(<<>>, _) ->
     true;
 is_new(SessionId, SessionId) ->
     false;
-is_new(_, _) ->
+is_new(_ClientSuggestion, _ServerDecision) ->
     true.
 
 %%--------------------------------------------------------------------
-%% Function: id(ClientInfo, Cache, CacheCb) -> SessionId 
-%%
-%%      ClientInfo = {HostIP, Port, SslOpts}
-%%      HostIP = ipadress()
-%%      Port = integer() 
-%%      CacheCb = atom()
-%%      SessionId = binary()
+-spec id({host(), inet:port_number(), #ssl_options{}}, db_handle(), atom(),
+	 undefined | binary()) -> binary().
 %%
 %% Description: Should be called by the client side to get an id 
 %%              for the client hello message.
 %%--------------------------------------------------------------------
-id(ClientInfo, Cache, CacheCb) ->
-    case select_session(ClientInfo, Cache, CacheCb) of
+id(ClientInfo, Cache, CacheCb, OwnCert) ->
+    case select_session(ClientInfo, Cache, CacheCb, OwnCert) of
 	no_session ->
 	    <<>>;
 	SessionId ->
@@ -69,36 +63,27 @@ id(ClientInfo, Cache, CacheCb) ->
     end.
 
 %%--------------------------------------------------------------------
-%% Function: id(Port, SuggestedSessionId, ReuseFun, CacheCb,
-%%              SecondLifeTime) -> SessionId 
-%%
-%%      Port = integer() 
-%%      SuggestedSessionId = SessionId = binary()
-%%      ReuseFun = fun(SessionId, PeerCert, Compression, CipherSuite) -> 
-%%                                                             true | false 
-%%      CacheCb = atom()
+-spec id(inet:port_number(), binary(), #ssl_options{}, db_handle(),
+	 atom(), seconds(), binary()) -> binary().
 %%
 %% Description: Should be called by the server side to get an id 
 %%              for the server hello message.
 %%--------------------------------------------------------------------
-id(Port, <<>>, _, Cache, CacheCb, _) ->
+id(Port, <<>>, _, Cache, CacheCb, _, _) ->
     new_id(Port, ?GEN_UNIQUE_ID_MAX_TRIES, Cache, CacheCb);
 
 id(Port, SuggestedSessionId, #ssl_options{reuse_sessions = ReuseEnabled,
 					  reuse_session = ReuseFun}, 
-   Cache, CacheCb, SecondLifeTime) ->
+   Cache, CacheCb, SecondLifeTime, OwnCert) ->
     case is_resumable(SuggestedSessionId, Port, ReuseEnabled, 
-		      ReuseFun, Cache, CacheCb, SecondLifeTime) of
+		      ReuseFun, Cache, CacheCb, SecondLifeTime, OwnCert) of
 	true ->
 	    SuggestedSessionId;
 	false ->
 	    new_id(Port, ?GEN_UNIQUE_ID_MAX_TRIES, Cache, CacheCb)
     end.
 %%--------------------------------------------------------------------
-%% Function: valid_session(Session, LifeTime) -> true | false 
-%%
-%%	Session  = #session{}
-%%      LifeTime = integer() - seconds
+-spec valid_session(#session{}, seconds()) -> boolean().
 %%
 %% Description: Check that the session has not expired
 %%--------------------------------------------------------------------
@@ -109,19 +94,20 @@ valid_session(#session{time_stamp = TimeStamp}, LifeTime) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-select_session({HostIP, Port, SslOpts}, Cache, CacheCb) ->    
+select_session({HostIP, Port, SslOpts}, Cache, CacheCb, OwnCert) ->
     Sessions = CacheCb:select_session(Cache, {HostIP, Port}),
-    select_session(Sessions, SslOpts).
+    select_session(Sessions, SslOpts, OwnCert).
 
-select_session([], _) ->
+select_session([], _, _) ->
     no_session;
 
 select_session(Sessions, #ssl_options{ciphers = Ciphers,
-				      reuse_sessions = ReuseSession}) ->
-    IsResumable = 
- 	fun(Session) -> 
- 		ReuseSession andalso (Session#session.is_resumable) andalso  
+				      reuse_sessions = ReuseSession}, OwnCert) ->
+    IsResumable =
+	fun(Session) ->
+		ReuseSession andalso resumable(Session#session.is_resumable) andalso
  		    lists:member(Session#session.cipher_suite, Ciphers)
+		    andalso (OwnCert == Session#session.own_certificate)
  	end,
     case [Id || [Id, Session] <- Sessions, IsResumable(Session)] of
  	[] ->
@@ -129,7 +115,7 @@ select_session(Sessions, #ssl_options{ciphers = Ciphers,
  	List ->
  	    hd(List)
     end.
-	    
+
 %% If we can not generate a not allready in use session ID in
 %% ?GEN_UNIQUE_ID_MAX_TRIES we make the new session uncacheable The
 %% value of ?GEN_UNIQUE_ID_MAX_TRIES is stolen from open SSL which
@@ -156,17 +142,24 @@ new_id(Port, Tries, Cache, CacheCb) ->
     end.
 
 is_resumable(SuggestedSessionId, Port, ReuseEnabled, ReuseFun, Cache, 
-	     CacheCb, SecondLifeTime) ->
+	     CacheCb, SecondLifeTime, OwnCert) ->
     case CacheCb:lookup(Cache, {Port, SuggestedSessionId}) of
 	#session{cipher_suite = CipherSuite,
+		 own_certificate = SessionOwnCert,
 		 compression_method = Compression,
-		 is_resumable = Is_resumable,
+		 is_resumable = IsResumable,
 		 peer_certificate = PeerCert} = Session ->
 	    ReuseEnabled 
-		andalso Is_resumable  
+		andalso resumable(IsResumable)
+		andalso (OwnCert == SessionOwnCert)
 		andalso valid_session(Session, SecondLifeTime) 
 		andalso ReuseFun(SuggestedSessionId, PeerCert, 
 				 Compression, CipherSuite);
 	undefined ->
 	    false
     end.
+
+resumable(new) ->
+    false;
+resumable(IsResumable) ->
+    IsResumable.

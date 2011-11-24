@@ -1,0 +1,2 @@
+
+whereis_diff_modules3.erl:8: The call erlang:register(AnAtom::atom(),'undefined' | pid() | port()) might fail due to a possible race condition caused by its combination with the erlang:whereis(Atom::any()) call in whereis_diff_modules4.erl on line 11

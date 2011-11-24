@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,16 +18,18 @@
 %%
 -module(init_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
--export([all/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 
 -export([get_arguments/1, get_argument/1, boot_var/1, restart/1,
+	 many_restarts/1,
 	 get_plain_arguments/1,
-	 reboot/1, stop/1, get_status/1, script_id/1, boot/1]).
+	 reboot/1, stop/1, get_status/1, script_id/1]).
 -export([boot1/1, boot2/1]).
 
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 -export([init/1, fini/1]).
 
@@ -38,17 +40,35 @@
 %% Should be started in a CC view with:
 %% erl -sname master -rsh ctrsh
 %%-----------------------------------------------------------------
-all(suite) ->
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
     [get_arguments, get_argument, boot_var,
-     get_plain_arguments,
-     restart,
-     get_status, script_id, boot].
+     many_restarts,
+     get_plain_arguments, restart, get_status, script_id,
+     {group, boot}].
+
+groups() -> 
+    [{boot, [], [boot1, boot2]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog=?t:timetrap(?t:seconds(?DEFAULT_TIMEOUT_SEC)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     Dog=?config(watchdog, Config),
     ?t:timetrap_cancel(Dog).
 
@@ -299,6 +319,73 @@ is_real_system(KernelVsn, StdlibVsn) ->
 %% Therefore the slave process must be killed
 %% before restart.
 %% ------------------------------------------------
+many_restarts(doc) -> [];
+many_restarts(suite) ->
+    case ?t:os_type() of
+	{Fam, _} when Fam == unix; Fam == win32 ->
+	    {req, [distribution, {local_slave_nodes, 1}, {time, 5}]};
+	_ ->
+	    {skip, "Only run on unix and win32"}
+    end;
+
+many_restarts(Config) when is_list(Config) ->
+    ?line Dog = ?t:timetrap(?t:seconds(480)),
+    ?line {ok, Node} = loose_node:start(init_test, "", ?DEFAULT_TIMEOUT_SEC),
+    ?line loop_restart(30,Node,rpc:call(Node,erlang,whereis,[error_logger])),
+    ?line loose_node:stop(Node),
+    ?line ?t:timetrap_cancel(Dog),
+    ok.
+
+loop_restart(0,_,_) ->
+    ok;
+loop_restart(N,Node,EHPid) ->
+    ?line erlang:monitor_node(Node, true),
+    ?line ok = rpc:call(Node, init, restart, []),
+    ?line receive
+	      {nodedown, Node} ->
+		  ok
+	  after 10000 ->
+		  loose_node:stop(Node),
+		  ?t:fail(not_stopping)
+	  end,
+    ?line ok = wait_for(30, Node, EHPid),
+    ?line loop_restart(N-1,Node,rpc:call(Node,erlang,whereis,[error_logger])).
+
+wait_for(0,Node,_) ->
+    loose_node:stop(Node),    
+    error;
+wait_for(N,Node,EHPid) ->
+    ?line case rpc:call(Node, erlang, whereis, [error_logger]) of
+	Pid when is_pid(Pid), Pid =/= EHPid ->
+		  %% ?line erlang:display(ok),
+		  ?line ok;
+	_X ->
+		  %% ?line erlang:display(_X),
+		  %% ?line Procs = rpc:call(Node, erlang, processes, []),
+		  %% ?line erlang:display(Procs),
+		  %% case is_list(Procs) of
+		  %%     true ->
+		  %% 	  ?line [(catch erlang:display(
+		  %% 			  rpc:call(Node, 
+		  %% 				   erlang, 
+		  %% 				   process_info, 
+		  %% 				   [Y,registered_name]))) 
+		  %% 		 || Y <- Procs];
+		  %%     _ ->
+		  %% 	  ok
+		  %% end,
+		  receive
+		      after 100 ->
+			      ok
+		      end,
+		  ?line wait_for(N-1,Node,EHPid)
+	  end.
+
+%% ------------------------------------------------
+%% Slave executes erlang:halt() on master nodedown.
+%% Therefore the slave process must be killed
+%% before restart.
+%% ------------------------------------------------
 restart(doc) -> [];
 restart(suite) ->
     case ?t:os_type() of
@@ -488,7 +575,6 @@ script_id(Config) when is_list(Config) ->
 %% ------------------------------------------------
 %% Start the slave system with -boot flag.
 %% ------------------------------------------------
-boot(suite) -> [boot1, boot2].
 
 boot1(doc) -> [];
 boot1(suite) -> {req, [distribution, {local_slave_nodes, 1}, {time, 35}]};
@@ -570,7 +656,7 @@ create_script(Config) ->
     ?line Apps = application_controller:which_applications(),
     ?line {value,{_,_,KernelVer}} = lists:keysearch(kernel,1,Apps),
     ?line {value,{_,_,StdlibVer}} = lists:keysearch(stdlib,1,Apps),
-    ?line {ok,Fd} = file:open(Name ++ ".rel", write),
+    ?line {ok,Fd} = file:open(Name ++ ".rel", [write]),
     ?line io:format(Fd,
 		    "{release, {\"Test release 3\", \"P2A\"}, \n"
 		    " {erts, \"4.4\"}, \n"

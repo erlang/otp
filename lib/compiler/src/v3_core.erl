@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -122,14 +122,13 @@
            | iclause()  | ifun()      | iletrec()   | imatch() | iprimop()
            | iprotect() | ireceive1() | ireceive2() | iset()   | itry().
 
--type error()   :: {file:filename(), [{integer(), module(), term()}]}.
 -type warning() :: {file:filename(), [{integer(), module(), term()}]}.
 
 -record(core, {vcount=0 :: non_neg_integer(),	%Variable counter
 	       fcount=0 :: non_neg_integer(),	%Function counter
 	       in_guard=false :: boolean(),	%In guard or not.
+	       wanted=true :: boolean(),	%Result wanted or not.
 	       opts     :: [compile:option()],	%Options.
-	       es=[]    :: [error()],		%Errors.
 	       ws=[]    :: [warning()],		%Warnings.
                file=[{file,""}]}).              %File
 
@@ -140,53 +139,48 @@
                    | {attribute, integer(), attribute(), _}.
 
 -spec module({module(), [fa()], [form()]}, [compile:option()]) ->
-        {'ok',cerl:c_module(),[warning()]} | {'error',[error()],[warning()]}.
+        {'ok',cerl:c_module(),[warning()]}.
 
 module({Mod,Exp,Forms}, Opts) ->
     Cexp = map(fun ({_N,_A} = NA) -> #c_var{name=NA} end, Exp),
-    {Kfs0,As0,Es,Ws,_File} = foldl(fun (F, Acc) ->
-					   form(F, Acc, Opts)
-				   end, {[],[],[],[],[]}, Forms),
+    {Kfs0,As0,Ws,_File} = foldl(fun (F, Acc) ->
+					form(F, Acc, Opts)
+				end, {[],[],[],[]}, Forms),
     Kfs = reverse(Kfs0),
     As = reverse(As0),
-    case Es of
-	[] ->
-	    {ok,#c_module{name=#c_literal{val=Mod},exports=Cexp,attrs=As,defs=Kfs},Ws};
-	_ ->
-	    {error,Es,Ws}
-    end.
+    {ok,#c_module{name=#c_literal{val=Mod},exports=Cexp,attrs=As,defs=Kfs},Ws}.
 
-form({function,_,_,_,_}=F0, {Fs,As,Es0,Ws0,File}, Opts) ->
-    {F,Es,Ws} = function(F0, Es0, Ws0, File, Opts),
-    {[F|Fs],As,Es,Ws,File};
-form({attribute,_,file,{File,_Line}}, {Fs,As,Es,Ws,_}, _Opts) ->
-    {Fs,As,Es,Ws,File};
-form({attribute,_,_,_}=F, {Fs,As,Es,Ws,File}, _Opts) ->
-    {Fs,[attribute(F)|As],Es,Ws,File}.
+form({function,_,_,_,_}=F0, {Fs,As,Ws0,File}, Opts) ->
+    {F,Ws} = function(F0, Ws0, File, Opts),
+    {[F|Fs],As,Ws,File};
+form({attribute,_,file,{File,_Line}}, {Fs,As,Ws,_}, _Opts) ->
+    {Fs,As,Ws,File};
+form({attribute,_,_,_}=F, {Fs,As,Ws,File}, _Opts) ->
+    {Fs,[attribute(F)|As],Ws,File}.
 
 attribute({attribute,Line,Name,Val}) ->
     {#c_literal{val=Name, anno=[Line]}, #c_literal{val=Val, anno=[Line]}}.
 
-function({function,_,Name,Arity,Cs0}, Es0, Ws0, File, Opts) ->
+function({function,_,Name,Arity,Cs0}, Ws0, File, Opts) ->
     %%ok = io:fwrite("~p - ", [{Name,Arity}]),
-    St0 = #core{vcount=0,opts=Opts,es=Es0,ws=Ws0,file=[{file,File}]},
+    St0 = #core{vcount=0,opts=Opts,ws=Ws0,file=[{file,File}]},
     {B0,St1} = body(Cs0, Name, Arity, St0),
     %%ok = io:fwrite("1", []),
     %%ok = io:fwrite("~w:~p~n", [?LINE,B0]),
     {B1,St2} = ubody(B0, St1),
     %%ok = io:fwrite("2", []),
     %%ok = io:fwrite("~w:~p~n", [?LINE,B1]),
-    {B2,#core{es=Es,ws=Ws}} = cbody(B1, St2),
+    {B2,#core{ws=Ws}} = cbody(B1, St2),
     %%ok = io:fwrite("3~n", []),
     %%ok = io:fwrite("~w:~p~n", [?LINE,B2]),
-    {{#c_var{name={Name,Arity}},B2},Es,Ws}.
+    {{#c_var{name={Name,Arity}},B2},Ws}.
 
 body(Cs0, Name, Arity, St0) ->
     Anno = lineno_anno(element(2, hd(Cs0)), St0),
     {Args,St1} = new_vars(Anno, Arity, St0),
     {Cs1,St2} = clauses(Cs0, St1),
     {Ps,St3} = new_vars(Arity, St2),    %Need new variables here
-    Fc = function_clause(Ps, {Name,Arity}),
+    Fc = function_clause(Ps, Anno, {Name,Arity}),
     {#ifun{anno=#a{anno=Anno},id=[],vars=Args,clauses=Cs1,fc=Fc},St3}.
 
 %% clause(Clause, State) -> {Cclause,State} | noclause.
@@ -213,10 +207,7 @@ clause({clause,Lc,H0,G0,B0}, St0) ->
     catch
 	throw:nomatch ->
 	    St = add_warning(Lc, nomatch, St0),
-	    {noclause,St};			%Bad pattern
-	throw:no_binaries ->
-	    St = add_error(Lc, no_binaries, St0),
-	    {noclause,St}
+	    {noclause,St}			%Bad pattern
     end.
 
 clause_arity({clause,_,H0,_,_}) -> length(H0).
@@ -496,22 +487,18 @@ expr({tuple,L,Es0}, St0) ->
     {Es1,Eps,St1} = safe_list(Es0, St0),
     A = lineno_anno(L, St1),
     {ann_c_tuple(A, Es1),Eps,St1};
-expr({bin,L,Es0}, #core{opts=Opts}=St0) ->
-    St1 = case member(no_binaries, Opts) of
-	      false -> St0;
-	      true -> add_error(L, no_binaries, St0)
-	  end,
-    try expr_bin(Es0, lineno_anno(L, St1), St1) of
+expr({bin,L,Es0}, St0) ->
+    try expr_bin(Es0, lineno_anno(L, St0), St0) of
 	{_,_,_}=Res -> Res
     catch
 	throw:bad_binary ->
-	    St2 = add_warning(L, bad_binary, St1),
-	    LineAnno = lineno_anno(L, St2),
+	    St = add_warning(L, bad_binary, St0),
+	    LineAnno = lineno_anno(L, St),
 	    As = [#c_literal{anno=LineAnno,val=badarg}],
 	    {#icall{anno=#a{anno=LineAnno},	%Must have an #a{}
 		    module=#c_literal{anno=LineAnno,val=erlang},
 		    name=#c_literal{anno=LineAnno,val=error},
-		    args=As},[],St2}
+		    args=As},[],St}
     end;
 expr({block,_,Es0}, St0) ->
     %% Inline the block directly.
@@ -520,15 +507,15 @@ expr({block,_,Es0}, St0) ->
     {E1,Es1 ++ Eps,St2};
 expr({'if',L,Cs0}, St0) ->
     {Cs1,St1} = clauses(Cs0, St0),
-    Fc = fail_clause([], #c_literal{val=if_clause}),
     Lanno = lineno_anno(L, St1),
+    Fc = fail_clause([], Lanno, #c_literal{val=if_clause}),
     {#icase{anno=#a{anno=Lanno},args=[],clauses=Cs1,fc=Fc},[],St1};
 expr({'case',L,E0,Cs0}, St0) ->
     {E1,Eps,St1} = novars(E0, St0),
     {Cs1,St2} = clauses(Cs0, St1),
     {Fpat,St3} = new_var(St2),
-    Fc = fail_clause([Fpat], c_tuple([#c_literal{val=case_clause},Fpat])),
-    Lanno = lineno_anno(L, St3),
+    Lanno = lineno_anno(L, St2),
+    Fc = fail_clause([Fpat], Lanno, c_tuple([#c_literal{val=case_clause},Fpat])),
     {#icase{anno=#a{anno=Lanno},args=[E1],clauses=Cs1,fc=Fc},Eps,St3};
 expr({'receive',L,Cs0}, St0) ->
     {Cs1,St1} = clauses(Cs0, St0),
@@ -554,9 +541,10 @@ expr({'try',L,Es0,Cs0,Ecs,[]}, St0) ->
     {V,St2} = new_var(St1),		%This name should be arbitrary
     {Cs1,St3} = clauses(Cs0, St2),
     {Fpat,St4} = new_var(St3),
-    Fc = fail_clause([Fpat], c_tuple([#c_literal{val=try_clause},Fpat])),
+    Lanno = lineno_anno(L, St4),
+    Fc = fail_clause([Fpat], Lanno,
+		     c_tuple([#c_literal{val=try_clause},Fpat])),
     {Evs,Hs,St5} = try_exception(Ecs, St4),
-    Lanno = lineno_anno(L, St1),
     {#itry{anno=#a{anno=lineno_anno(L, St5)},args=Es1,
 	   vars=[V],body=[#icase{anno=#a{anno=Lanno},args=[V],clauses=Cs1,fc=Fc}],
 	   evars=Evs,handler=Hs},
@@ -585,12 +573,23 @@ expr({'catch',L,E0}, St0) ->
 expr({'fun',L,{function,F,A},{_,_,_}=Id}, St) ->
     Lanno = lineno_anno(L, St),
     {#c_var{anno=Lanno++[{id,Id}],name={F,A}},[],St};
+expr({'fun',L,{function,M,F,A}}, St0) ->
+    {As,Aps,St1} = safe_list([M,F,A], St0),
+    Lanno = lineno_anno(L, St1),
+    {#icall{anno=#a{anno=Lanno},
+	    module=#c_literal{val=erlang},
+	    name=#c_literal{val=make_fun},
+	    args=As},Aps,St1};
 expr({'fun',L,{clauses,Cs},Id}, St) ->
     fun_tq(Id, Cs, L, St);
-expr({call,L,{remote,_,M,F},As0}, St0) ->
+expr({call,L,{remote,_,M,F},As0}, #core{wanted=Wanted}=St0) ->
     {[M1,F1|As1],Aps,St1} = safe_list([M,F|As0], St0),
     Lanno = lineno_anno(L, St1),
-    {#icall{anno=#a{anno=Lanno},module=M1,name=F1,args=As1},Aps,St1};
+    Anno = case Wanted of
+	       false -> [result_not_wanted|Lanno];
+	       true -> Lanno
+	   end,
+    {#icall{anno=#a{anno=Anno},module=M1,name=F1,args=As1},Aps,St1};
 expr({call,Lc,{atom,Lf,F},As0}, St0) ->
     {As1,Aps,St1} = safe_list(As0, St0),
     Op = #c_var{anno=lineno_anno(Lf, St1),name={F,length(As1)}},
@@ -603,27 +602,28 @@ expr({call,L,FunExp,As0}, St0) ->
 expr({match,L,P0,E0}, St0) ->
     %% First fold matches together to create aliases.
     {P1,E1} = fold_match(E0, P0),
-    {E2,Eps,St1} = novars(E1, St0),
+    St1 = case P1 of
+	      {var,_,'_'} -> St0#core{wanted=false};
+	      _ -> St0
+	  end,
+    {E2,Eps,St2} = novars(E1, St1),
+    St3 = St2#core{wanted=St0#core.wanted},
     P2 = try
-	     pattern(P1, St1)
+	     pattern(P1, St3)
 	 catch
 	     throw:Thrown ->
 		 Thrown
 	 end,
-    {Fpat,St2} = new_var(St1),
-    Fc = fail_clause([Fpat], c_tuple([#c_literal{val=badmatch},Fpat])),
-    Lanno = lineno_anno(L, St2),
+    {Fpat,St4} = new_var(St3),
+    Lanno = lineno_anno(L, St4),
+    Fc = fail_clause([Fpat], Lanno, c_tuple([#c_literal{val=badmatch},Fpat])),
     case P2 of
 	nomatch ->
-	    St = add_warning(L, nomatch, St2),
-	    {#icase{anno=#a{anno=Lanno},
-		    args=[E2],clauses=[],fc=Fc},Eps,St};
-	no_binaries ->
-	    St = add_error(L, no_binaries, St2),
+	    St = add_warning(L, nomatch, St4),
 	    {#icase{anno=#a{anno=Lanno},
 		    args=[E2],clauses=[],fc=Fc},Eps,St};
 	Other when not is_atom(Other) ->
-	    {#imatch{anno=#a{anno=Lanno},pat=P2,arg=E2,fc=Fc},Eps,St2}
+	    {#imatch{anno=#a{anno=Lanno},pat=P2,arg=E2,fc=Fc},Eps,St4}
     end;
 expr({op,_,'++',{lc,Llc,E,Qs},More}, St0) ->
     %% Optimise '++' here because of the list comprehension algorithm.
@@ -836,8 +836,9 @@ fun_tq({_,_,Name}=Id, Cs0, L, St0) ->
     {Cs1,St1} = clauses(Cs0, St0),
     {Args,St2} = new_vars(Arity, St1),
     {Ps,St3} = new_vars(Arity, St2),		%Need new variables here
-    Fc = function_clause(Ps, {Name,Arity}),
-    Fun = #ifun{anno=#a{anno=lineno_anno(L, St3)},
+    Anno = lineno_anno(L, St3),
+    Fc = function_clause(Ps, Anno, {Name,Arity}),
+    Fun = #ifun{anno=#a{anno=Anno},
 		id=[{id,Id}],				%We KNOW!
 		vars=Args,clauses=Cs1,fc=Fc},
     {Fun,[],St3}.
@@ -900,25 +901,22 @@ lc_tq(Line, E, [{generate,Lg,P,G}|Qs0], Mc, St0) ->
 lc_tq(Line, E, [{b_generate,Lg,P,G}|Qs0], Mc, St0) ->
     {Gs,Qs1} =  splitwith(fun is_guard_test/1, Qs0),
     {Name,St1} = new_fun_name("blc", St0),
-    {Tname,St2} = new_var_name(St1),
-    LA = lineno_anno(Line, St2),
+    LA = lineno_anno(Line, St1),
     LAnno = #a{anno=LA},
-    HeadBinPattern = pattern(P,St2),
-    #c_binary{segments=Ps} = HeadBinPattern,
-    {EPs,St3} = emasculate_segments(Ps,St2),
-    Tail = #c_var{anno=LA,name=Tname},
-    TailSegment = #c_bitstr{val=Tail,size=#c_literal{val=all},
-			    unit=#c_literal{val=1},
-			    type=#c_literal{val=binary},
-			    flags=#c_literal{val=[big,unsigned]}},
-    Pattern = HeadBinPattern#c_binary{segments=Ps ++ [TailSegment]},
-    EPattern = HeadBinPattern#c_binary{segments=EPs ++ [TailSegment]},
+    HeadBinPattern = pattern(P, St1),
+    #c_binary{segments=Ps0} = HeadBinPattern,
+    {Ps,Tail,St2} = append_tail_segment(Ps0, St1),
+    {EPs,St3} = emasculate_segments(Ps, St2),
+    Pattern = HeadBinPattern#c_binary{segments=Ps},
+    EPattern = HeadBinPattern#c_binary{segments=EPs},
     {Arg,St4} = new_var(St3),
     {Guardc,St5} = lc_guard_tests(Gs, St4),	%These are always flat!
+    Tname = Tail#c_var.name,
     {Nc,[],St6} = expr({call,Lg,{atom,Lg,Name},[{var,Lg,Tname}]}, St5),
     {Bc,Bps,St7} = lc_tq(Line, E, Qs1, Nc, St6),
     {Gc,Gps,St10} = safe(G, St7),		%Will be a function argument!
     Fc = function_clause([Arg], LA, {Name,1}),
+    {TailSegList,_,St} = append_tail_segment([], St10),
     Cs = [#iclause{anno=#a{anno=[compiler_generated|LA]},
 		   pats=[Pattern],
 		   guard=Guardc,
@@ -930,17 +928,17 @@ lc_tq(Line, E, [{b_generate,Lg,P,G}|Qs0], Mc, St0) ->
 				 op=#c_var{anno=LA,name={Name,1}},
 				 args=[Tail]}]},
 	  #iclause{anno=LAnno,
-		   pats=[#c_binary{anno=LA, segments=[TailSegment]}],guard=[],
+		   pats=[#c_binary{anno=LA,segments=TailSegList}],guard=[],
 		   body=[Mc]}],
     Fun = #ifun{anno=LAnno,id=[],vars=[Arg],clauses=Cs,fc=Fc},
     {#iletrec{anno=LAnno,defs=[{{Name,1},Fun}],
 	      body=Gps ++ [#iapply{anno=LAnno,
 				   op=#c_var{anno=LA,name={Name,1}},
 				   args=[Gc]}]},
-     [],St10};
+     [],St};
 lc_tq(Line, E, [Fil0|Qs0], Mc, St0) ->
     %% Special case sequences guard tests.
-    LA = lineno_anno(Line, St0),
+    LA = lineno_anno(element(2, Fil0), St0),
     LAnno = #a{anno=LA},
     case is_guard_test(Fil0) of
 	true ->
@@ -956,7 +954,8 @@ lc_tq(Line, E, [Fil0|Qs0], Mc, St0) ->
 	false ->
 	    {Lc,Lps,St1} = lc_tq(Line, E, Qs0, Mc, St0),
 	    {Fpat,St2} = new_var(St1),
-	    Fc = fail_clause([Fpat], c_tuple([#c_literal{val=case_clause},Fpat])),
+	    Fc = fail_clause([Fpat], LA,
+			     c_tuple([#c_literal{val=case_clause},Fpat])),
 	    %% Do a novars little optimisation here.
 	    {Filc,Fps,St3} = novars(Fil0, St2),
 	    {#icase{anno=LAnno,
@@ -1045,26 +1044,24 @@ bc_tq1(Line, E, [{b_generate,Lg,P,G}|Qs0], AccExpr, St0) ->
     {Gs,Qs1} =  splitwith(fun is_guard_test/1, Qs0),
     {Name,St1} = new_fun_name("lbc", St0),
     LA = lineno_anno(Line, St1),
-    {[Tail,AccVar],St2} = new_vars(LA, 2, St1),
+    {AccVar,St2} = new_var(LA, St1),
     LAnno = #a{anno=LA},
     HeadBinPattern = pattern(P, St2),
-    #c_binary{segments=Ps} = HeadBinPattern,
-    {EPs,St3} = emasculate_segments(Ps, St2),
-    TailSegment = #c_bitstr{val=Tail,size=#c_literal{val=all},
-			    unit=#c_literal{val=1},
-			    type=#c_literal{val=binary},
-			    flags=#c_literal{val=[big,unsigned]}},
-    Pattern = HeadBinPattern#c_binary{segments=Ps ++ [TailSegment]},
-    EPattern = HeadBinPattern#c_binary{segments=EPs ++ [TailSegment]},
-    {Arg,St4} = new_var(St3),
+    #c_binary{segments=Ps0} = HeadBinPattern,
+    {Ps,Tail,St3} = append_tail_segment(Ps0, St2),
+    {EPs,St4} = emasculate_segments(Ps, St3),
+    Pattern = HeadBinPattern#c_binary{segments=Ps},
+    EPattern = HeadBinPattern#c_binary{segments=EPs},
+    {Arg,St5} = new_var(St4),
     NewMore = {call,Lg,{atom,Lg,Name},[{var,Lg,Tail#c_var.name},
 				       {var,Lg,AccVar#c_var.name}]},
-    {Guardc,St5} = lc_guard_tests(Gs, St4),	%These are always flat!
-    {Bc,Bps,St6} = bc_tq1(Line, E, Qs1, AccVar, St5),
-    {Nc,Nps,St7} = expr(NewMore, St6),
-    {Gc,Gps,St8} = safe(G, St7),		%Will be a function argument!
+    {Guardc,St6} = lc_guard_tests(Gs, St5),	%These are always flat!
+    {Bc,Bps,St7} = bc_tq1(Line, E, Qs1, AccVar, St6),
+    {Nc,Nps,St8} = expr(NewMore, St7),
+    {Gc,Gps,St9} = safe(G, St8),	 %Will be a function argument!
     Fc = function_clause([Arg,AccVar], LA, {Name,2}),
     Body = Bps ++ Nps ++ [#iset{var=AccVar,arg=Bc},Nc],
+    {TailSegList,_,St} = append_tail_segment([], St9),
     Cs = [#iclause{anno=LAnno,
 		   pats=[Pattern,AccVar],
 		   guard=Guardc,
@@ -1074,7 +1071,7 @@ bc_tq1(Line, E, [{b_generate,Lg,P,G}|Qs0], AccExpr, St0) ->
 		   guard=[],
 		   body=Nps ++ [Nc]},
 	  #iclause{anno=LAnno,
-		   pats=[#c_binary{anno=LA,segments=[TailSegment]},AccVar],
+		   pats=[#c_binary{anno=LA,segments=TailSegList},AccVar],
 		   guard=[],
 		   body=[AccVar]}],
     Fun = #ifun{anno=LAnno,id=[],vars=[Arg,AccVar],clauses=Cs,fc=Fc},
@@ -1082,10 +1079,10 @@ bc_tq1(Line, E, [{b_generate,Lg,P,G}|Qs0], AccExpr, St0) ->
 	      body=Gps ++ [#iapply{anno=LAnno,
 				   op=#c_var{anno=LA,name={Name,2}},
 				   args=[Gc,AccExpr]}]},
-     [],St8};
+     [],St};
 bc_tq1(Line, E, [Fil0|Qs0], AccVar, St0) ->
     %% Special case sequences guard tests.
-    LA = lineno_anno(Line, St0),
+    LA = lineno_anno(element(2, Fil0), St0),
     LAnno = #a{anno=LA},
     case is_guard_test(Fil0) of
 	true ->
@@ -1102,7 +1099,8 @@ bc_tq1(Line, E, [Fil0|Qs0], AccVar, St0) ->
 	false ->
 	    {Bc,Bps,St1} = bc_tq1(Line, E, Qs0, AccVar, St0),
 	    {Fpat,St2} = new_var(St1),
-	    Fc = fail_clause([Fpat], c_tuple([#c_literal{val=case_clause},Fpat])),
+	    Fc = fail_clause([Fpat], LA,
+			     c_tuple([#c_literal{val=case_clause},Fpat])),
 	    %% Do a novars little optimisation here.
 	    {Filc,Fps,St} = novars(Fil0, St2),
 	    {#icase{anno=LAnno,
@@ -1127,6 +1125,29 @@ bc_tq1(_, {bin,Bl,Elements}, [], AccVar, St0) ->
     Anno = Anno0#a{anno=[compiler_generated,single_use|A]},
     %%Anno = Anno0#a{anno=[compiler_generated|A]},
     {set_anno(E, Anno),Pre,St}.
+
+append_tail_segment(Segs, St) ->
+    app_tail_seg(Segs, St, []).
+
+app_tail_seg([#c_bitstr{val=Var0,size=#c_literal{val=all}}=Seg0]=L,
+	     St0, Acc) ->
+    case Var0 of
+	#c_var{name='_'} ->
+	    {Var,St} = new_var(St0),
+	    Seg = Seg0#c_bitstr{val=Var},
+	    {reverse(Acc, [Seg]),Var,St};
+	#c_var{} ->
+	    {reverse(Acc, L),Var0,St0}
+    end;
+app_tail_seg([H|T], St, Acc) ->
+    app_tail_seg(T, St, [H|Acc]);
+app_tail_seg([], St0, Acc) ->
+    {Var,St} = new_var(St0),
+    Tail = #c_bitstr{val=Var,size=#c_literal{val=all},
+		     unit=#c_literal{val=1},
+		     type=#c_literal{val=binary},
+		     flags=#c_literal{val=[unsigned,big]}},
+    {reverse(Acc, [Tail]),Var,St}.
 
 emasculate_segments(Segs, St) ->
     emasculate_segments(Segs, St, []).
@@ -1443,15 +1464,10 @@ pattern({cons,L,H,T}, St) ->
     ann_c_cons(lineno_anno(L, St), pattern(H, St), pattern(T, St));
 pattern({tuple,L,Ps}, St) ->
     ann_c_tuple(lineno_anno(L, St), pattern_list(Ps, St));
-pattern({bin,L,Ps}, #core{opts=Opts}=St) ->
-    case member(no_binaries, Opts) of
-	false ->
-	    %% We don't create a #ibinary record here, since there is
-	    %% no need to hold any used/new annotations in a pattern.
-	    #c_binary{anno=lineno_anno(L, St),segments=pat_bin(Ps, St)};
-	true ->
-	    throw(no_binaries)
-    end;
+pattern({bin,L,Ps}, St) ->
+    %% We don't create a #ibinary record here, since there is
+    %% no need to hold any used/new annotations in a pattern.
+    #c_binary{anno=lineno_anno(L, St),segments=pat_bin(Ps, St)};
 pattern({match,_,P1,P2}, St) ->
     pat_alias(pattern(P1, St), pattern(P2, St)).
 
@@ -1557,18 +1573,16 @@ new_vars_1(N, Anno, St0, Vs) when N > 0 ->
     new_vars_1(N-1, Anno, St1, [V|Vs]);
 new_vars_1(0, _, St, Vs) -> {Vs,St}.
 
-function_clause(Ps, Name) ->
-    fail_clause(Ps, c_tuple([#c_literal{anno=[{name,Name}],
-					val=function_clause}|Ps])).
-function_clause(Ps, Anno, Name) ->
-    fail_clause(Ps, ann_c_tuple(Anno,
-				[#c_literal{anno=[{name,Name}],
-					    val=function_clause}|Ps])).
+function_clause(Ps, LineAnno, Name) ->
+    FcAnno = [{function_name,Name}|LineAnno],
+    fail_clause(Ps, FcAnno,
+		ann_c_tuple(LineAnno, [#c_literal{val=function_clause}|Ps])).
 
-fail_clause(Pats, A) ->
+fail_clause(Pats, Anno, Arg) ->
     #iclause{anno=#a{anno=[compiler_generated]},
 	     pats=Pats,guard=[],
-	     body=[#iprimop{anno=#a{},name=#c_literal{val=match_fail},args=[A]}]}.
+	     body=[#iprimop{anno=#a{anno=Anno},name=#c_literal{val=match_fail},
+			    args=[Arg]}]}.
 
 ubody(B, St) -> uexpr(B, [], St).
 
@@ -1811,7 +1825,21 @@ upattern_list([], _, St) -> {[],[],[],[],St}.
 %% upat_bin([Pat], [KnownVar], State) ->
 %%                        {[Pat],[GuardTest],[NewVar],[UsedVar],State}.
 upat_bin(Es0, Ks, St0) ->
-  upat_bin(Es0, Ks, [], St0).
+    {Es1,Pg,Pv,Pu0,St1} = upat_bin(Es0, Ks, [], St0),
+
+    %% In a clause such as <<Sz:8,V:Sz>> in a function head, Sz will both
+    %% be new and used; a situation that is not handled properly by
+    %% uclause/4.  (Basically, since Sz occurs in two sets that are
+    %% subtracted from each other, Sz will not be added to the list of
+    %% known variables and will seem to be new the next time it is
+    %% used in a match.)
+    %%   Since the variable Sz really is new (it does not use a
+    %% value bound prior to the binary matching), Sz should only be
+    %% included in the set of new variables. Thus we should take it
+    %% out of the set of used variables.
+
+    Pu1 = subtract(Pu0, intersection(Pv, Pu0)),
+    {Es1,Pg,Pv,Pu1,St1}.
 
 %% upat_bin([Pat], [KnownVar], [LocalVar], State) ->
 %%                        {[Pat],[GuardTest],[NewVar],[UsedVar],State}.
@@ -1823,35 +1851,36 @@ upat_bin([], _, _, St) -> {[],[],[],[],St}.
 
 
 %% upat_element(Segment, [KnownVar], [LocalVar], State) ->
-%%                        {Segment,[GuardTest],[NewVar],[UsedVar],[LocalVar],State}
-upat_element(#c_bitstr{val=H0,size=Sz}=Seg, Ks, Bs, St0) ->
-  {H1,Hg,Hv,[],St1} = upattern(H0, Ks, St0),
-  Bs1 = case H0 of
-	  #c_var{name=Hname} ->
-	    case H1 of
+%%        {Segment,[GuardTest],[NewVar],[UsedVar],[LocalVar],State}
+upat_element(#c_bitstr{val=H0,size=Sz0}=Seg, Ks, Bs0, St0) ->
+    {H1,Hg,Hv,[],St1} = upattern(H0, Ks, St0),
+    Bs1 = case H0 of
 	      #c_var{name=Hname} ->
-		Bs;
-	      #c_var{name=Other} ->
-		[{Hname, Other}|Bs]
-	    end;
-	  _ ->
-	    Bs
-	end,
-  {Sz1, Us} = case Sz of
-		  #c_var{name=Vname} -> 
-		    rename_bitstr_size(Vname, Bs);
-		  _Other -> {Sz, []}
-		end,
-  {Seg#c_bitstr{val=H1, size=Sz1},Hg,Hv,Us,Bs1,St1}.
+		  case H1 of
+		      #c_var{name=Hname} ->
+			  Bs0;
+		      #c_var{name=Other} ->
+			  [{Hname,Other}|Bs0]
+		  end;
+	      _ ->
+		  Bs0
+	  end,
+    {Sz1,Us} = case Sz0 of
+		   #c_var{name=Vname} -> 
+		       rename_bitstr_size(Vname, Bs0);
+		   _Other ->
+		       {Sz0,[]}
+	       end,
+    {Seg#c_bitstr{val=H1,size=Sz1},Hg,Hv,Us,Bs1,St1}.
 
-rename_bitstr_size(V, [{V, N}|_]) ->
-   New = #c_var{name=N},
-  {New, [N]};
+rename_bitstr_size(V, [{V,N}|_]) ->
+    New = #c_var{name=N},
+    {New,[N]};
 rename_bitstr_size(V, [_|Rest]) ->
-  rename_bitstr_size(V, Rest);
+    rename_bitstr_size(V, Rest);
 rename_bitstr_size(V, []) ->
-  Old = #c_var{name=V},
-  {Old, [V]}.
+    Old = #c_var{name=V},
+    {Old,[V]}.
  
 used_in_any(Les) ->
     foldl(fun (Le, Ns) -> union((get_anno(Le))#a.us, Ns) end,
@@ -2098,39 +2127,25 @@ is_simple(#c_literal{}) -> true;
 is_simple(#c_cons{hd=H,tl=T}) ->
     is_simple(H) andalso is_simple(T);
 is_simple(#c_tuple{es=Es}) -> is_simple_list(Es);
-is_simple(#c_binary{segments=Es}) -> is_simp_bin(Es);
 is_simple(_) -> false.
 
 -spec is_simple_list([cerl:cerl()]) -> boolean().
 
 is_simple_list(Es) -> lists:all(fun is_simple/1, Es).
 
--spec is_simp_bin([cerl:cerl()]) -> boolean().
-
-is_simp_bin(Es) ->
-    lists:all(fun (#c_bitstr{val=E,size=S}) ->
-		      is_simple(E) andalso is_simple(S)
-	      end, Es).
-
 %%%
 %%% Handling of warnings.
 %%%
 
--type err_desc() :: 'bad_binary' | 'no_binaries' | 'nomatch'.
+-type err_desc() :: 'bad_binary' | 'nomatch'.
 
 -spec format_error(err_desc()) -> nonempty_string().
 
 format_error(nomatch) ->
     "pattern cannot possibly match";
 format_error(bad_binary) ->
-    "binary construction will fail because of a type mismatch";
-format_error(no_binaries) ->
-    "bit syntax is not allowed to be used when compatibility with a previous "
-	"version has been requested".
+    "binary construction will fail because of a type mismatch".
 
 add_warning(Line, Term, #core{ws=Ws,file=[{file,File}]}=St) when Line >= 0 ->
     St#core{ws=[{File,[{location(Line),?MODULE,Term}]}|Ws]};
 add_warning(_, _, St) -> St.
-
-add_error(Line, Term, #core{es=Es,file=[{file,File}]}=St) ->
-    St#core{es=[{File,[{location(abs_line(Line)),?MODULE,Term}]}|Es]}.

@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2005</year>
-      <year>2007</year>
+      <year>2011</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -39,12 +39,8 @@
   </description>
   <funcs>
     <func>
-      <name>module(AbsForms, CompileOptions) -> AbsForms</name>
+      <name name="module" arity="2"/>
       <fsummary>Expand all records in a module</fsummary>
-      <type>
-        <v>AbsForms = [term()]</v>
-        <v>CompileOptions = [term()]</v>
-      </type>
       <desc>
         <p>Expands all records in a module. The returned module has no
           references to records, neither attributes nor code.</p>

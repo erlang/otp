@@ -151,7 +151,7 @@ init([Parent, Id, Options0]) ->
     Bott = wxDialog:createButtonSizer(Dlg, ?wxCANCEL bor ?wxOK),
     wxDialog:connect(Dlg, command_button_clicked), 
     
-    %% Ok done 
+    %% OK done
     Box  = wxBoxSizer:new(?wxVERTICAL),
     wxSizer:add(Box, Top,  [{border, 2}, {flag,?wxALL bor ?wxEXPAND}]),
     wxSizer:add(Box, Dir,  [{border, 2}, {flag,?wxALL bor ?wxEXPAND}]),

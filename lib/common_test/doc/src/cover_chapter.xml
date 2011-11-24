@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2006</year><year>2009</year>
+      <year>2006</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -94,10 +94,10 @@
 
     <p>To activate the code coverage support, you simply specify the
       name of the cover specification file as you start Common Test.
-      This you do either by using the <c>-cover</c> flag with <c>run_test</c>.
+      This you do either by using the <c>-cover</c> flag with <c>ct_run</c>.
       Example:</p>
 
-    <p><c>$ run_test -dir $TESTOBJS/db -cover $TESTOBJS/db/config/db.coverspec</c></p>
+    <p><c>$ ct_run -dir $TESTOBJS/db -cover $TESTOBJS/db/config/db.coverspec</c></p>
     
     <p>You may also pass the cover specification file name in a
       call to <c>ct:run_test/1</c>, by adding a <c>{cover,CoverSpec}</c>

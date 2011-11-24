@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2004-2010. All Rights Reserved.
+# Copyright Ericsson AB 2004-2011. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -65,7 +65,7 @@ TYPE_SUFFIX=.purecov
 PRE_LD=purecov $(PURECOV_BUILD_OPTIONS)
 else
 ifeq ($(TYPE),gcov)
-CFLAGS=@DEBUG_CFLAGS@ -fprofile-arcs -ftest-coverage -O0
+CFLAGS=@DEBUG_CFLAGS@ -DGCOV -fprofile-arcs -ftest-coverage -O0
 TYPE_SUFFIX=.gcov
 PRE_LD=
 else
@@ -280,8 +280,18 @@ endif
 #
 # ethread library
 #
+ETHR_THR_LIB_BASE_DIR=@ETHR_THR_LIB_BASE_DIR@
 ifneq ($(strip $(ETHR_LIB_NAME)),)
-ETHREAD_LIB_SRC=common/ethread.c
+ETHREAD_LIB_SRC=common/ethr_aux.c \
+		common/ethr_atomics.c \
+		common/ethr_mutex.c \
+		common/ethr_cbf.c \
+		$(ETHR_THR_LIB_BASE_DIR)/ethread.c \
+		$(ETHR_THR_LIB_BASE_DIR)/ethr_event.c
+ETHR_X86_SSE2_ASM=@ETHR_X86_SSE2_ASM@
+ifeq ($(ETHR_X86_SSE2_ASM),yes)
+ETHREAD_LIB_SRC += pthread/ethr_x86_sse2_asm.c
+endif
 ETHREAD_LIB_NAME=ethread$(TYPE_SUFFIX)
 
 ifeq ($(USING_VC),yes)
@@ -376,16 +386,19 @@ $(ERTS_LIB): $(ERTS_LIB_OBJS)
 # Object files
 #
 
+$(r_OBJ_DIR)/ethr_x86_sse2_asm.o: pthread/ethr_x86_sse2_asm.c
+	$(CC) -msse2 $(THR_DEFS) $(CFLAGS) $(INCLUDES) -c $< -o $@
+
 $(r_OBJ_DIR)/%.o: common/%.c
 	$(CC) $(THR_DEFS) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
-$(r_OBJ_DIR)/%.o: $(ERLANG_OSTYPE)/%.c
+$(r_OBJ_DIR)/%.o: $(ETHR_THR_LIB_BASE_DIR)/%.c
 	$(CC) $(THR_DEFS) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
 $(OBJ_DIR)/%.o: common/%.c
 	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
-$(OBJ_DIR)/%.o: $(ERLANG_OSTYPE)/%.c
+$(OBJ_DIR)/%.o: $(ETHR_THR_LIB_BASE_DIR)/%.c
 	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
 # Win32 specific
@@ -393,25 +406,25 @@ $(OBJ_DIR)/%.o: $(ERLANG_OSTYPE)/%.c
 $(MD_OBJ_DIR)/%.o: common/%.c
 	$(CC) $(THR_DEFS) $(CFLAGS) -MD $(INCLUDES) -c $< -o $@
 
-$(MD_OBJ_DIR)/%.o: $(ERLANG_OSTYPE)/%.c
+$(MD_OBJ_DIR)/%.o: $(ETHR_THR_LIB_BASE_DIR)/%.c
 	$(CC) $(THR_DEFS) $(CFLAGS) -MD $(INCLUDES) -c $< -o $@
 
 $(MDd_OBJ_DIR)/%.o: common/%.c
 	$(CC) $(THR_DEFS) $(CFLAGS) -MDd $(INCLUDES) -c $< -o $@
 
-$(MDd_OBJ_DIR)/%.o: $(ERLANG_OSTYPE)/%.c
+$(MDd_OBJ_DIR)/%.o: $(ETHR_THR_LIB_BASE_DIR)/%.c
 	$(CC) $(THR_DEFS) $(CFLAGS) -MDd $(INCLUDES) -c $< -o $@
 
 $(MT_OBJ_DIR)/%.o: common/%.c
 	$(CC) $(THR_DEFS) $(CFLAGS) -MT $(INCLUDES) -c $< -o $@
 
-$(MT_OBJ_DIR)/%.o: $(ERLANG_OSTYPE)/%.c
+$(MT_OBJ_DIR)/%.o: $(ETHR_THR_LIB_BASE_DIR)/%.c
 	$(CC) $(THR_DEFS) $(CFLAGS) -MT $(INCLUDES) -c $< -o $@
 
 $(MTd_OBJ_DIR)/%.o: common/%.c
 	$(CC) $(THR_DEFS) $(CFLAGS) -MTd $(INCLUDES) -c $< -o $@
 
-$(MTd_OBJ_DIR)/%.o: $(ERLANG_OSTYPE)/%.c
+$(MTd_OBJ_DIR)/%.o: $(ETHR_THR_LIB_BASE_DIR)/%.c
 	$(CC) $(THR_DEFS) $(CFLAGS) -MTd $(INCLUDES) -c $< -o $@
 
 #
@@ -438,6 +451,9 @@ RELEASE_LIBS=$(ERTS_LIBS)
 INTERNAL_RELEASE_INCLUDES= \
 	$(ERTS_INCL_INT)/README \
 	$(ERTS_INCL_INT)/ethread.h \
+	$(ERTS_INCL_INT)/ethr_mutex.h \
+	$(ERTS_INCL_INT)/ethr_optimized_fallbacks.h \
+	$(ERTS_INCL_INT)/ethr_atomics.h \
 	$(ERTS_INCL_INT)/$(TARGET)/ethread.mk \
 	$(ERTS_INCL_INT)/$(TARGET)/erts_internal.mk \
 	$(ERTS_INCL_INT)/$(TARGET)/ethread_header_config.h \
@@ -447,7 +463,8 @@ INTERNAL_RELEASE_INCLUDES= \
 	$(ERTS_INCL_INT)/erl_misc_utils.h \
 	$(ERTS_INCL_INT)/erl_errno.h
 
-INTERNAL_X_RELEASE_INCLUDE_DIRS= i386 x86_64 ppc32 sparc32 sparc64 tile
+INTERNAL_X_RELEASE_INCLUDE_DIRS= \
+        i386 x86_64 ppc32 sparc32 sparc64 tile gcc pthread win libatomic_ops
 
 INTERNAL_RELEASE_LIBS= \
 	../lib/internal/README \

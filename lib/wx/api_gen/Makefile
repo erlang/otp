@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2008-2009. All Rights Reserved.
+# Copyright Ericsson AB 2008-2010. All Rights Reserved.
 # 
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -39,14 +39,14 @@ TARGET_CDIR = ../c_src/gen
 C_TARGETS   = wxe_funcs.cpp
 GL_C_TARGETS = gl_funcs.cpp
 
-WX = $(TARGET_CDIR)/$(C_TARGETS)
+WX = wx_code_generated
 
-GL = $(TARGET_CDIR)/$(GL_C_TARGETS)
+GL = gl_code_generated
 
 opt:  $(WX) $(GL)
 
 $(WX): wxxml_generated $(COMPILER_T) wxapi.conf $(wildcard wx_extra/wx*.c_src) $(wildcard wx_extra/wx*.erl)
-	erl -noshell -run wx_gen code
+	erl -noshell -run wx_gen code && touch wx_code_generated
 
 wxxml_generated:  wx_doxygen.conf wx_extra/bugs.h wx_extra/wxe_evth.h
 	sed -e 's|@WXGTK_DIR@|$(WXGTK_DIR)|g' wx_doxygen.conf > wx_doxygen
@@ -56,9 +56,8 @@ glxml_generated: gl_doxygen.conf
 	sed -e 's|@GL_DIR@|$(GL_DIR)|g' gl_doxygen.conf > gl_doxygen
 	doxygen gl_doxygen && touch glxml_generated
 
-
 $(GL): glxml_generated $(GL_COMP_T) glapi.conf
-	erl -noshell -run gl_gen code
+	erl -noshell -run gl_gen code && touch gl_code_generated
 
 %.beam: %.erl wx_gen.hrl gl_gen.hrl
 	$(ERLC) -W $(ERL_FLAGS) $(ERL_COMPILE_FLAGS) $< -o$(EBIN)
@@ -66,7 +65,7 @@ $(GL): glxml_generated $(GL_COMP_T) glapi.conf
 # TODO split cleans into separate targets?
 complete_clean:
 	rm -f gl_doxygen wx_doxygen wx_xml/*.x* gl_xml/*.x* 
-	rm -f glxml_generated  wxxml_generated
+	rm -f *_generated
 	$(MAKE) clean
 clean: 
 	rm -f *~

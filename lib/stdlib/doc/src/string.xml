@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2009</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -38,65 +38,46 @@
   </description>
   <funcs>
     <func>
-      <name>len(String) -> Length</name>
+      <name name="len" arity="1"/>
       <fsummary>Return the length of a string</fsummary>
-      <type>
-        <v>String = string()</v>
-        <v>Length = integer()</v>
-      </type>
       <desc>
         <p>Returns the number of characters in the string.</p>
       </desc>
     </func>
     <func>
-      <name>equal(String1, String2) -> bool()</name>
+      <name name="equal" arity="2"/>
       <fsummary>Test string equality</fsummary>
-      <type>
-        <v>String1 = String2 = string()</v>
-      </type>
       <desc>
         <p>Tests whether two strings are equal. Returns <c>true</c> if
           they are, otherwise <c>false</c>.</p>
       </desc>
     </func>
     <func>
-      <name>concat(String1, String2) -> String3</name>
+      <name name="concat" arity="2"/>
       <fsummary>Concatenate two strings</fsummary>
-      <type>
-        <v>String1 = String2 = String3 = string()</v>
-      </type>
       <desc>
         <p>Concatenates two strings to form a new string. Returns the
           new string.</p>
       </desc>
     </func>
     <func>
-      <name>chr(String, Character) -> Index</name>
-      <name>rchr(String, Character) -> Index</name>
+      <name name="chr" arity="2"/>
+      <name name="rchr" arity="2"/>
       <fsummary>Return the index of the first/last occurrence of<c>Character</c>in <c>String</c></fsummary>
-      <type>
-        <v>String = string()</v>
-        <v>Character = char()</v>
-        <v>Index = integer()</v>
-      </type>
       <desc>
         <p>Returns the index of the first/last occurrence of
-          <c>Character</c> in <c>String</c>. <c>0</c> is returned if <c>Character</c> does not
+          <c><anno>Character</anno></c> in <c><anno>String</anno></c>. <c>0</c> is returned if <c><anno>Character</anno></c> does not
           occur.</p>
       </desc>
     </func>
     <func>
-      <name>str(String, SubString) -> Index</name>
-      <name>rstr(String, SubString) -> Index</name>
+      <name name="str" arity="2"/>
+      <name name="rstr" arity="2"/>
       <fsummary>Find the index of a substring</fsummary>
-      <type>
-        <v>String = SubString = string()</v>
-        <v>Index = integer()</v>
-      </type>
       <desc>
         <p>Returns the position where the first/last occurrence of
-          <c>SubString</c> begins in <c>String</c>. <c>0</c> is returned if <c>SubString</c>
-          does not exist in <c>String</c>.
+          <c><anno>SubString</anno></c> begins in <c><anno>String</anno></c>. <c>0</c> is returned if <c><anno>SubString</anno></c>
+          does not exist in <c><anno>String</anno></c>.
           For example:</p>
         <code type="none">
 > string:str(" Hello Hello World World ", "Hello World").
@@ -104,17 +85,13 @@
       </desc>
     </func>
     <func>
-      <name>span(String, Chars) -> Length </name>
-      <name>cspan(String, Chars) -> Length</name>
+      <name name="span" arity="2"/>
+      <name name="cspan" arity="2"/>
       <fsummary>Span characters at start of string</fsummary>
-      <type>
-        <v>String = Chars = string()</v>
-        <v>Length = integer()</v>
-      </type>
       <desc>
         <p>Returns the length of the maximum initial segment of
-          String, which consists entirely of characters from (not
-          from) Chars.</p>
+          <c><anno>String</anno></c>, which consists entirely of characters from (not
+          from) <c><anno>Chars</anno></c>.</p>
         <p>For example:</p>
         <code type="none">
 > string:span("\t    abcdef", " \t").
@@ -124,17 +101,13 @@
       </desc>
     </func>
     <func>
-      <name>substr(String, Start) -> SubString</name>
-      <name>substr(String, Start, Length) -> Substring</name>
+      <name name="substr" arity="2"/>
+      <name name="substr" arity="3"/>
       <fsummary>Return a substring of <c>String</c></fsummary>
-      <type>
-        <v>String = SubString = string()</v>
-        <v>Start = Length = integer()</v>
-      </type>
       <desc>
-        <p>Returns a substring of <c>String</c>, starting at the
-          position <c>Start</c>, and ending at the end of the string or
-          at length <c>Length</c>.</p>
+        <p>Returns a substring of <c><anno>String</anno></c>, starting at the
+          position <c><anno>Start</anno></c>, and ending at the end of the string or
+          at length <c><anno>Length</anno></c>.</p>
         <p>For example:</p>
         <code type="none">
 > substr("Hello World", 4, 5).
@@ -142,15 +115,11 @@
       </desc>
     </func>
     <func>
-      <name>tokens(String, SeparatorList) -> Tokens</name>
+      <name name="tokens" arity="2"/>
       <fsummary>Split string into tokens</fsummary>
-      <type>
-        <v>String = SeparatorList = string()</v>
-        <v>Tokens = [string()]</v>
-      </type>
       <desc>
-        <p>Returns a list of tokens in <c>String</c>, separated by the
-          characters in <c>SeparatorList</c>.</p>
+        <p>Returns a list of tokens in <c><anno>String</anno></c>, separated by the
+          characters in <c><anno>SeparatorList</anno></c>.</p>
         <p>For example:</p>
         <code type="none">
 > tokens("abc defxxghix jkl", "x ").
@@ -158,15 +127,11 @@
       </desc>
     </func>
     <func>
-      <name>join(StringList, Separator) -> String</name>
+      <name name="join" arity="2"/>
       <fsummary>Join a list of strings with separator</fsummary>
-      <type>
-	<v>StringList = [string()]</v>
-	<v>Separator = string()</v>
-      </type>
       <desc>
-	<p>Returns a string with the elements of <c>StringList</c>
-	  separated by the string in <c>Seperator</c>.</p>
+	<p>Returns a string with the elements of <c><anno>StringList</anno></c>
+	  separated by the string in <c><anno>Separator</anno></c>.</p>
 	<p>For example:</p>
 	<code type="none">
 > join(["one", "two", "three"], ", ").
@@ -174,44 +139,30 @@
       </desc>
     </func>
     <func>
-      <name>chars(Character, Number) -> String</name>
-      <name>chars(Character, Number, Tail) -> String</name>
+      <name name="chars" arity="2"/>
+      <name name="chars" arity="3"/>
       <fsummary>Returns a string consisting of numbers of characters</fsummary>
-      <type>
-        <v>Character = char()</v>
-        <v>Number = integer()</v>
-        <v>String = string()</v>
-      </type>
       <desc>
-        <p>Returns a string consisting of <c>Number</c> of characters
-          <c>Character</c>. Optionally, the string can end with the
-          string <c>Tail</c>.</p>
+        <p>Returns a string consisting of <c><anno>Number</anno></c> of characters
+          <c><anno>Character</anno></c>. Optionally, the string can end with the
+          string <c><anno>Tail</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name>copies(String, Number) -> Copies</name>
+      <name name="copies" arity="2"/>
       <fsummary>Copy a string</fsummary>
-      <type>
-        <v>String = Copies = string()</v>
-        <v>Number = integer()</v>
-      </type>
       <desc>
-        <p>Returns a string containing <c>String</c> repeated
-          <c>Number</c> times.</p>
+        <p>Returns a string containing <c><anno>String</anno></c> repeated
+          <c><anno>Number</anno></c> times.</p>
       </desc>
     </func>
     <func>
-      <name>words(String) -> Count</name>
-      <name>words(String, Character) -> Count</name>
+      <name name="words" arity="1"/>
+      <name name="words" arity="2"/>
       <fsummary>Count blank separated words</fsummary>
-      <type>
-        <v>String = string()</v>
-        <v>Character = char()</v>
-        <v>Count = integer()</v>
-      </type>
       <desc>
-        <p>Returns the number of words in <c>String</c>, separated by
-          blanks or <c>Character</c>.</p>
+        <p>Returns the number of words in <c><anno>String</anno></c>, separated by
+          blanks or <c><anno>Character</anno></c>.</p>
         <p>For example:</p>
         <code type="none">
 > words(" Hello old boy!", $o).
@@ -219,17 +170,12 @@
       </desc>
     </func>
     <func>
-      <name>sub_word(String, Number) -> Word</name>
-      <name>sub_word(String, Number, Character) -> Word</name>
+      <name name="sub_word" arity="2"/>
+      <name name="sub_word" arity="3"/>
       <fsummary>Extract subword</fsummary>
-      <type>
-        <v>String = Word = string()</v>
-        <v>Character = char()</v>
-        <v>Number = integer()</v>
-      </type>
       <desc>
-        <p>Returns the word in position <c>Number</c> of <c>String</c>.
-          Words are separated by blanks or <c>Character</c>s.</p>
+        <p>Returns the word in position <c><anno>Number</anno></c> of <c><anno>String</anno></c>.
+          Words are separated by blanks or <c><anno>Character</anno></c>s.</p>
         <p>For example:</p>
         <code type="none">
 > string:sub_word(" Hello old boy !",3,$o).
@@ -237,19 +183,14 @@
       </desc>
     </func>
     <func>
-      <name>strip(String) -> Stripped</name>
-      <name>strip(String, Direction) -> Stripped</name>
-      <name>strip(String, Direction, Character) -> Stripped</name>
+      <name name="strip" arity="1"/>
+      <name name="strip" arity="2"/>
+      <name name="strip" arity="3"/>
       <fsummary>Strip leading or trailing characters</fsummary>
-      <type>
-        <v>String = Stripped = string()</v>
-        <v>Direction = left | right | both</v>
-        <v>Character = char()</v>
-      </type>
       <desc>
         <p>Returns a string, where leading and/or trailing blanks or a
-          number of <c>Character</c> have been removed.
-          <c>Direction</c> can be <c>left</c>, <c>right</c>, or
+          number of <c><anno>Character</anno></c> have been removed.
+          <c><anno>Direction</anno></c> can be <c>left</c>, <c>right</c>, or
           <c>both</c> and indicates from which direction blanks are to be
           removed. The function <c>strip/1</c> is equivalent to
           <c>strip(String, both)</c>.</p>
@@ -260,19 +201,14 @@
       </desc>
     </func>
     <func>
-      <name>left(String, Number) -> Left</name>
-      <name>left(String, Number, Character) -> Left</name>
+      <name name="left" arity="2"/>
+      <name name="left" arity="3"/>
       <fsummary>Adjust left end of string</fsummary>
-      <type>
-        <v>String = Left = string()</v>
-        <v>Character = char</v>
-        <v>Number = integer()</v>
-      </type>
       <desc>
-        <p>Returns the <c>String</c> with the length adjusted in
-          accordance with <c>Number</c>. The left margin is
-          fixed. If the <c>length(String)</c> &lt; <c>Number</c>,
-          <c>String</c> is padded with blanks or <c>Character</c>s.</p>
+        <p>Returns the <c><anno>String</anno></c> with the length adjusted in
+          accordance with <c><anno>Number</anno></c>. The left margin is
+          fixed. If the <c>length(<anno>String</anno>)</c> &lt; <c><anno>Number</anno></c>,
+          <c><anno>String</anno></c> is padded with blanks or <c><anno>Character</anno></c>s.</p>
         <p>For example:</p>
         <code type="none">
 > string:left("Hello",10,$.).
@@ -280,19 +216,14 @@
       </desc>
     </func>
     <func>
-      <name>right(String, Number) -> Right</name>
-      <name>right(String, Number, Character) -> Right</name>
+      <name name="right" arity="2"/>
+      <name name="right" arity="3"/>
       <fsummary>Adjust right end of string</fsummary>
-      <type>
-        <v>String = Right = string()</v>
-        <v>Character = char</v>
-        <v>Number = integer()</v>
-      </type>
       <desc>
-        <p>Returns the <c>String</c> with the length adjusted in
-          accordance with <c>Number</c>. The right margin is
-          fixed. If the length of <c>(String)</c> &lt; <c>Number</c>,
-          <c>String</c> is padded with blanks or <c>Character</c>s.</p>
+        <p>Returns the <c><anno>String</anno></c> with the length adjusted in
+          accordance with <c><anno>Number</anno></c>. The right margin is
+          fixed. If the length of <c>(<anno>String</anno>)</c> &lt; <c><anno>Number</anno></c>,
+          <c><anno>String</anno></c> is padded with blanks or <c><anno>Character</anno></c>s.</p>
         <p>For example:</p>
         <code type="none">
 > string:right("Hello", 10, $.).
@@ -300,32 +231,23 @@
       </desc>
     </func>
     <func>
-      <name>centre(String, Number) -> Centered</name>
-      <name>centre(String, Number, Character) -> Centered</name>
+      <name name="centre" arity="2"/>
+      <name name="centre" arity="3"/>
       <fsummary>Center a string</fsummary>
-      <type>
-        <v>String = Centered = string()</v>
-        <v>Character = char</v>
-        <v>Number = integer()</v>
-      </type>
       <desc>
-        <p>Returns a string, where <c>String</c> is centred in the
+        <p>Returns a string, where <c><anno>String</anno></c> is centred in the
           string and surrounded by blanks or characters. The resulting
-          string will have the length <c>Number</c>.</p>
+          string will have the length <c><anno>Number</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name>sub_string(String, Start) -> SubString</name>
-      <name>sub_string(String, Start, Stop) -> SubString</name>
+      <name name="sub_string" arity="2"/>
+      <name name="sub_string" arity="3"/>
       <fsummary>Extract a substring</fsummary>
-      <type>
-        <v>String = SubString = string()</v>
-        <v>Start = Stop = integer()</v>
-      </type>
       <desc>
-        <p>Returns a substring of <c>String</c>, starting at the
-          position <c>Start</c> to the end of the string, or to and
-          including the <c>Stop</c> position.</p>
+        <p>Returns a substring of <c><anno>String</anno></c>, starting at the
+          position <c><anno>Start</anno></c> to the end of the string, or to and
+          including the <c><anno>Stop</anno></c> position.</p>
         <p>For example:</p>
         <code type="none">
 sub_string("Hello World", 4, 8).
@@ -383,15 +305,15 @@ sub_string("Hello World", 4, 8).
       </desc>
     </func>
     <func>
-      <name>to_lower(String) -> Result</name>
-      <name>to_lower(Char) -> CharResult</name>
-      <name>to_upper(String) -> Result</name>
-      <name>to_upper(Char) -> CharResult</name>
+      <name name="to_lower" arity="1" clause_i="1"/>
+      <name name="to_lower" arity="1" clause_i="2"/>
+      <name name="to_upper" arity="1" clause_i="1"/>
+      <name name="to_upper" arity="1" clause_i="2"/>
       <fsummary>Convert case of string (ISO/IEC 8859-1)</fsummary>
-      <type>
-        <v>String = Result = string()</v>
-        <v>Char = CharResult = integer()</v>
-      </type>
+      <type variable="String" name_i="1"/>
+      <type variable="Result" name_i="1"/>
+      <type variable="Char"/>
+      <type variable="CharResult"/>
       <desc>
         <p>The given string or character is case-converted. Note that
           the supported character set is ISO/IEC 8859-1 (a.k.a. Latin 1),

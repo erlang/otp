@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
   <header>
     <copyright>
-      <year>1999</year><year>2009</year>
+      <year>1999</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,355 +13,515 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
-    </legalnotice>
 
+    </legalnotice>
     <title>ssl</title>
-    <prepared>Peter H&ouml;gfeldt</prepared>
-    <responsible>Peter H&ouml;gfeldt</responsible>
-    <docno></docno>
-    <approved>Peter H&ouml;gfeldt</approved>
-    <checked></checked>
-    <date>2003-03-25</date>
-    <rev>D</rev>
-    <file>ssl.sgml</file>
+    <file>ssl.xml</file>
   </header>
   <module>ssl</module>
   <modulesummary>Interface Functions for Secure Socket Layer</modulesummary>
   <description>
-    <p>This module contains interface functions to the Secure Socket Layer.</p>
+    <p>This module contains interface functions to the Secure Socket
+      Layer. 
+    </p>
   </description>
+  
+  <section>
+    <title>SSL</title>
 
+    <list type="bulleted">
+      <item>ssl requires the crypto and public_key applications.</item>
+      <item>Supported SSL/TLS-versions are SSL-3.0 and TLS-1.0 </item>
+      <item>For security reasons sslv2 is not supported.</item>
+      <item>Ephemeral Diffie-Hellman cipher suites are supported
+      but not Diffie Hellman Certificates cipher suites.</item>
+      <item>Export cipher suites are not supported as the
+      U.S. lifted its export restrictions in early 2000.</item>
+      <item>CRL and policy certificate
+            extensions are not supported yet. </item>
+    </list>
+ 
+  </section>
+  
+  <section>
+    <title>COMMON DATA TYPES</title>
+    <p>The following data types are used in the functions below:
+    </p>
+
+    <p><c>boolean() = true | false</c></p>
+
+    <p><c>option() = socketoption() | ssloption() | transportoption()</c></p>
+
+     <p><c>socketoption() = proplists:property() - The default socket options are
+      [{mode,list},{packet, 0},{header, 0},{active, true}].
+    </c></p>
+
+    <p>For valid options
+      see <seealso marker="kernel:inet">inet(3) </seealso> and
+      <seealso marker="kernel:gen_tcp">gen_tcp(3) </seealso>.
+    </p>
+    
+    <p> <c>ssloption() = {verify, verify_type()} |
+      {verify_fun, {fun(), term()}} |
+      {fail_if_no_peer_cert, boolean()}
+      {depth, integer()} |
+      {cert, der_encoded()}| {certfile, path()} |
+      {key, {'RSAPrivateKey'| 'DSAPrivateKey' | 'PrivateKeyInfo', der_encoded()}} |
+      {keyfile, path()} | {password, string()} |
+      {cacerts, [der_encoded()]} | {cacertfile, path()} |
+      |{dh, der_encoded()} | {dhfile, path()} | {ciphers, ciphers()} |
+      {ssl_imp, ssl_imp()} | {reuse_sessions, boolean()} | {reuse_session, fun()} 
+    </c></p>
+
+    <p><c>transportoption() = {CallbackModule, DataTag, ClosedTag}
+	- defaults to {gen_tcp, tcp, tcp_closed}. Ssl may be
+	run over any reliable transport protocol that has
+	an equivalent API to gen_tcp's.</c></p>
+    
+    <p><c>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; CallbackModule =
+	atom()</c>
+    </p> <p><c>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; DataTag =
+	atom() - tag used in socket data message.</c></p>
+    <p><c>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ClosedTag = atom() - tag used in
+    socket close message.</c></p>
+
+    <p><c>verify_type() = verify_none | verify_peer</c></p>
+    
+    <p><c>path() = string() - representing a file path.</c></p>
+
+    <p><c>der_encoded() = binary() -Asn1 DER encoded entity as an erlang binary.</c></p>
+    
+    <p><c>host() = hostname() | ipaddress()</c></p>
+        
+    <p><c>hostname() = string()</c></p>
+    
+    <p><c>
+      ip_address() = {N1,N2,N3,N4}  % IPv4
+      | {K1,K2,K3,K4,K5,K6,K7,K8}  % IPv6    </c></p>
+
+    <p><c>sslsocket() - opaque to the user. </c></p>
+    
+    <p><c>protocol() = sslv3 | tlsv1 </c></p>
+    
+    <p><c>ciphers() = [ciphersuite()] | string() (according to old API)</c></p>
+    
+    <p><c>ciphersuite() =
+      {key_exchange(), cipher(), hash()}</c></p>
+    
+    <p><c>key_exchange() =  rsa | dhe_dss | dhe_rsa | dh_anon
+    </c></p>
+
+   <p><c>cipher() = rc4_128 | des_cbc | '3des_ede_cbc'
+      | aes_128_cbc | aes_256_cbc </c></p>
+
+   <p> <c>hash() = md5 | sha
+    </c></p>
+
+  </section>
+
+  <section>
+    <title>SSL OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT</title>
+
+    <p>Options described here are options that are have the same
+    meaning in the client and the server.
+    </p>
+    
+    <taglist>
+
+      <tag>{cert, der_encoded()}</tag>
+      <item> The DER encoded users certificate. If this option
+      is supplied it will override the certfile option.</item>
+      
+      <tag>{certfile, path()}</tag>
+      <item>Path to a file containing the user's certificate.</item>
+      
+      <tag>{key, {'RSAPrivateKey'| 'DSAPrivateKey' | 'PrivateKeyInfo', der_encoded()}}</tag>
+      <item> The DER encoded users private key. If this option
+      is supplied it will override the keyfile option.</item>
+      
+      <tag>{keyfile, path()}</tag>
+      <item>Path to file containing user's
+      private PEM encoded key. As PEM-files may contain several
+      entries this option defaults to the same file as given by
+      certfile option.</item>
+
+      <tag>{password, string()}</tag>
+      <item>String containing the user's password.
+	Only used if the private keyfile is password protected.
+      </item>
+
+      <tag>{cacerts, [der_encoded()]}</tag>
+      <item> The DER encoded trusted certificates. If this option
+      is supplied it will override the cacertfile option.</item>
+
+      <tag>{cacertfile, path()}</tag>
+      <item>Path to file containing PEM encoded
+      CA certificates (trusted certificates used for verifying a peer
+      certificate). May be omitted if you do not want to verify
+      the peer.</item>
+
+      <tag>{ciphers, ciphers()}</tag>
+      <item>The cipher suites that should be supported. The function
+      <c>cipher_suites/0</c> can be used to find all available
+      ciphers. Additionally some anonymous cipher suites ({dh_anon,
+      rc4_128, md5}, {dh_anon, des_cbc, sha}, {dh_anon,
+      '3des_ede_cbc', sha}, {dh_anon, aes_128_cbc, sha}, {dh_anon,
+      aes_256_cbc, sha}) are supported for testing purposes and will
+      only work if explicitly enabled by this option and they are supported/enabled
+      by the peer also.
+      </item>
+
+      <tag>{ssl_imp, new | old}</tag>
+      <item>No longer has any meaning as the old implementation has
+      been removed, it will be ignored.
+      </item>
+
+      <tag>{secure_renegotiate, boolean()}</tag>
+      <item>Specifies if to reject renegotiation attempt that does
+      not live up to RFC 5746. By default secure_renegotiate is
+      set to false i.e. secure renegotiation will be used if possible
+      but it will fallback to unsecure renegotiation if the peer
+      does not support RFC 5746.
+      </item>
+
+      <tag>{depth, integer()}</tag>
+      <item>Specifies the maximum
+      verification depth, i.e. how far in a chain of certificates the
+      verification process can proceed before the verification is
+      considered to fail. Peer certificate = 0, CA certificate = 1,
+      higher level CA certificate = 2, etc.  The value 2 thus means
+      that a chain can at most contain peer cert, CA cert, next CA
+      cert, and an additional CA cert. The default value is 1.
+      </item>
+
+      <tag>{verify_fun, {Verifyfun :: fun(), InitialUserState :: term()}}</tag>
+      <item>
+	<p>The verification fun should be defined as:</p>
+
+	<code>
+fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
+	     {extension, #'Extension'{}}, InitialUserState :: term()) ->
+	{valid, UserState :: term()} | {valid_peer, UserState :: term()} |
+	{fail, Reason :: term()} | {unknown, UserState :: term()}.
+	</code>
+
+	<p>The verify fun will be called during the X509-path
+	validation when an error or an extension unknown to the ssl
+	application is encountered. Additionally it will be called
+	when a certificate is considered valid by the path validation
+	to allow access to each certificate in the path to the user
+	application. Note that it will differentiate between the
+	peer certificate and CA certificates by using valid_peer or
+	valid as the second argument to the verify fun.  See <seealso
+	marker="public_key:cert_records">the public_key User's
+	Guide</seealso> for definition of #'OTPCertificate'{} and
+	#'Extension'{}.</p>
+
+	<p>If the verify callback fun returns {fail, Reason}, the
+	verification process is immediately stopped and an alert is
+	sent to the peer and the TLS/SSL handshake is terminated. If
+	the verify callback fun returns {valid, UserState}, the
+	verification process is continued.  If the verify callback fun
+	always returns {valid, UserState}, the TLS/SSL handshake will
+	not be terminated with respect to verification failures and
+	the connection will be established. If called with an
+	extension unknown to the user application the return value
+	{unknown, UserState} should be used.</p>
+
+	<p>The default verify_fun option in verify_peer mode:</p>
+
+      <code>
+{fun(_,{bad_cert, _} = Reason, _) ->
+	 {fail, Reason};
+    (_,{extension, _}, UserState) ->
+	 {unknown, UserState};
+    (_, valid, UserState) ->
+	 {valid, UserState};
+    (_, valid_peer, UserState) ->
+         {valid, UserState}
+ end, []}
+      </code>
+
+      <p>The default verify_fun option in verify_none mode:</p>
+
+       <code>
+{fun(_,{bad_cert, _}, UserState) ->
+	 {valid, UserState};
+    (_,{extension, _}, UserState) ->
+	 {unknown, UserState};
+    (_, valid, UserState) ->
+	 {valid, UserState};
+    (_, valid_peer, UserState) ->
+         {valid, UserState}
+ end, []}
+      </code>
+
+<p>Possible path validation errors: </p>
+
+<p> {bad_cert, cert_expired}, {bad_cert, invalid_issuer}, {bad_cert, invalid_signature}, {bad_cert, unknown_ca},{bad_cert, selfsigned_peer}, {bad_cert, name_not_permitted}, {bad_cert, missing_basic_constraint}, {bad_cert, invalid_key_usage}</p>
+      </item>
+
+      <tag>{hibernate_after, integer()|undefined}</tag>
+      <item>When an integer-value is specified, the <code>ssl_connection</code>
+            will go into hibernation after the specified number of milliseconds
+            of inactivity, thus reducing its memory footprint. When
+            <code>undefined</code> is specified (this is the default), the process
+            will never go into hibernation.
+      </item>
+    </taglist>
+
+  </section>
+
+   <section>
+    <title>SSL OPTION DESCRIPTIONS - CLIENT SIDE</title>
+
+    <p>Options described here are client specific or has a slightly different
+    meaning in the client than in the server.</p>
+
+    <taglist>
+      <tag>{verify, verify_type()}</tag>
+      <item> In verify_none mode the default behavior will be to
+      allow all x509-path validation errors. See also the verify_fun
+      option.
+      </item>
+      <tag>{reuse_sessions, boolean()}</tag>
+      <item>Specifies if client should try to reuse sessions
+      when possible.
+      </item>
+
+    </taglist>
+  </section>
+
+  <section>
+    <title>SSL OPTION DESCRIPTIONS - SERVER SIDE</title>
+
+    <p>Options described here are server specific or has a slightly different
+    meaning in the server than in the client.</p>
+
+    <taglist>
+
+      <tag>{dh, der_encoded()}</tag>
+      <item>The DER encoded Diffie Hellman parameters. If this option
+      is supplied it will override the dhfile option.
+      </item>
+
+      <tag>{dhfile, path()}</tag>
+      <item>Path to file containing PEM encoded Diffie Hellman parameters,
+      for the server to use if a cipher suite using Diffie Hellman key exchange
+      is negotiated. If not specified default parameters will be used.
+      </item>
+
+      <tag>{verify, verify_type()}</tag>
+      <item>Servers only do the x509-path validation in verify_peer
+      mode, as it then will send a certificate request to the client
+      (this message is not sent if the verify option is verify_none)
+      and you may then also want to specify the option
+      fail_if_no_peer_cert.
+      </item>
+
+      <tag>{fail_if_no_peer_cert, boolean()}</tag>
+      <item>Used together with {verify, verify_peer} by an ssl server.
+      If set to true, the server will fail if the client does not have
+      a certificate to send, i.e. sends a empty certificate, if set to
+      false it will only fail if the client sends an invalid
+      certificate (an empty certificate is considered valid).
+      </item>
+
+      <tag>{reuse_sessions, boolean()}</tag>
+      <item>Specifies if the server should agree to reuse sessions
+      when the clients request to do so. See also the reuse_session
+      option.
+      </item>
+
+      <tag>{reuse_session, fun(SuggestedSessionId,
+      PeerCert, Compression, CipherSuite) -> boolean()}</tag>
+      <item>Enables the ssl server to have a local policy
+      for deciding if a session should be reused or not,
+      only meaningful if <c>reuse_sessions</c> is set to true.
+      SuggestedSessionId is a binary(),  PeerCert is a DER encoded
+      certificate, Compression is an enumeration integer
+      and CipherSuite is of type ciphersuite().
+      </item>
+
+    </taglist>
+  </section>
+  
   <section>
     <title>General</title>
-
-    <p>There is a new implementation of ssl available in 
-    this module but until it is 100 % complete, so that it can replace
-    the old implementation in all aspects it will be
-    described here <seealso marker="new_ssl"> new ssl API </seealso></p>
-    
-    <p>The reader is advised to also read the <c>ssl(6)</c> manual page
-      describing the SSL application.
-      </p>
-    <warning>
-      <p>It is strongly advised to seed the random generator after
-        the ssl application has been started (see <c>seed/1</c>
-        below), and before any connections are established. Although
-        the port program interfacing to the ssl libraries does a
-        "random" seeding of its own in order to make everything work
-        properly, that seeding is by no means random for the world
-        since it has a constant value which is known to everyone
-        reading the source code of the port program.</p>
-    </warning>
-  </section>
-
-  <section>
-    <title>Common data types</title>
-    <p>The following datatypes are used in the functions below:
-      </p>
-    <list type="bulleted">
-      <item>
-        <p><c>options() = [option()]</c></p>
-      </item>
-      <item>
-        <p><c>option() = socketoption() | ssloption()</c></p>
-      </item>
-      <item>
-        <p><c>socketoption() = {mode, list} | {mode, binary} |  binary | {packet, packettype()} | {header, integer()} | {nodelay, boolean()} | {active, activetype()} |  {backlog, integer()} | {ip, ipaddress()} | {port, integer()}</c></p>
-      </item>
-      <item>
-        <p><c>ssloption() = {verify, code()} | {depth, depth()} |  {certfile, path()} | {keyfile, path()} | {password, string()} | {cacertfile, path()} | {ciphers, string()}</c></p>
-      </item>
-      <item>
-        <p><c>packettype()</c>  (see inet(3))</p>
-      </item>
-      <item>
-        <p><c>activetype()</c>  (see inet(3))</p>
-      </item>
-      <item>
-        <p><c>reason() = atom() | {atom(), string()}</c></p>
-      </item>
-      <item>
-        <p><c>bytes() = [byte()]</c></p>
-      </item>
-      <item>
-        <p><c>string() = [byte()]</c></p>
-      </item>
-      <item>
-        <p><c>byte() = 0 | 1 | 2 | ... | 255</c></p>
-      </item>
-      <item>
-        <p><c>code() = 0 | 1 | 2</c></p>
-      </item>
-      <item>
-        <p><c>depth() = byte()</c></p>
-      </item>
-      <item>
-        <p><c>address() = hostname() | ipstring() | ipaddress()</c></p>
-      </item>
-      <item>
-        <p><c>ipaddress() = ipstring() | iptuple()</c></p>
-      </item>
-      <item>
-        <p><c>hostname() = string()</c></p>
-      </item>
-      <item>
-        <p><c>ipstring() = string()</c></p>
-      </item>
-      <item>
-        <p><c>iptuple() = {byte(), byte(), byte(), byte()}</c></p>
-      </item>
-      <item>
-        <p><c>sslsocket()</c></p>
-      </item>
-      <item>
-        <p><c>protocol() = sslv2 | sslv3 | tlsv1</c></p>
-      </item>
-      <item>
-        <p><c></c></p>
-      </item>
-    </list>
-    <p>The socket option <c>{backlog, integer()}</c> is for
-      <c>listen/2</c> only, and the option <c>{port, integer()}</c>
-      is for <c>connect/3/4</c> only. 
-      </p>
-    <p>The following socket options are set by default: <c>{mode, list}</c>, <c>{packet, 0}</c>, <c>{header, 0}</c>, <c>{nodelay, false}</c>, <c>{active, true}</c>, <c>{backlog, 5}</c>,
-      <c>{ip, {0,0,0,0}}</c>, and <c>{port, 0}</c>.
-      </p>
-    <p>Note that the options <c>{mode, binary}</c> and <c>binary</c>
-      are equivalent. Similarly <c>{mode, list}</c> and the absence of
-      option <c>binary</c> are equivalent. 
-      </p>
-    <p>The ssl options are for setting specific SSL parameters as follows:
-      </p>
-    <list type="bulleted">
-      <item>
-        <p><c>{verify, code()}</c> Specifies type of verification:
-          0 = do not verify peer; 1 = verify peer, 2 = verify peer,
-          fail if no peer certificate.  The default value is 0.
-          </p>
-      </item>
-      <item>
-        <p><c>{depth, depth()}</c> Specifies the maximum
-          verification depth, i.e. how far in a chain of certificates
-          the verification process can proceed before the verification
-          is considered to fail. 
-          </p>
-        <p>Peer certificate = 0, CA certificate = 1, higher level CA
-          certificate = 2, etc.  The value 2 thus means that a chain
-          can at most contain peer cert, CA cert, next CA cert, and an
-          additional CA cert.
-          </p>
-        <p>The default value is 1.
-          </p>
-      </item>
-      <item>
-        <p><c>{certfile, path()}</c> Path to a file containing the
-          user's certificate.
-          chain of PEM encoded certificates.</p>
-      </item>
-      <item>
-        <p><c>{keyfile, path()}</c> Path to file containing user's
-          private PEM encoded key.</p>
-      </item>
-      <item>
-        <p><c>{password, string()}</c> String containing the user's
-          password. Only used if the private keyfile is password protected.</p>
-      </item>
-      <item>
-        <p><c>{cacertfile, path()}</c> Path to file containing PEM encoded
-          CA certificates (trusted certificates used for verifying a peer
-          certificate).</p>
-      </item>
-      <item>
-        <p><c>{ciphers, string()}</c> String of ciphers as a colon
-          separated list of ciphers. The function <c>ciphers/0</c> can
-          be used to find all available ciphers.</p>
-      </item>
-    </list>
-    <p>The type <c>sslsocket()</c> is opaque to the user.
-      </p>
-    <p>The owner of a socket is the one that created it by a call to
-      <c>transport_accept/[1,2]</c>,  <c>connect/[3,4]</c>,
-      or <c>listen/2</c>.
-      </p>
-    <p>When a socket is in active mode (the default), data from the
+      
+    <p>When an ssl socket is in active mode (the default), data from the
       socket is delivered to the owner of the socket in the form of
       messages:
-      </p>
+    </p>
     <list type="bulleted">
-      <item>
-        <p><c>{ssl, Socket, Data}</c></p>
+      <item>{ssl, Socket, Data}
+      </item>
+      <item>{ssl_closed, Socket}
       </item>
       <item>
-        <p><c>{ssl_closed, Socket}</c></p>
-      </item>
-      <item>
-        <p><c>{ssl_error, Socket, Reason}</c></p>
+        {ssl_error, Socket, Reason}
       </item>
     </list>
+    
     <p>A <c>Timeout</c> argument specifies a timeout in milliseconds. The 
       default value for a <c>Timeout</c> argument is <c>infinity</c>.
-      </p>
-    <p>Functions listed below may return the value <c>{error, closed}</c>, which only indicates that the SSL socket is
-      considered closed for the operation in question. It is for
-      instance possible to have <c>{error, closed}</c> returned from
-      an call to <c>send/2</c>, and a subsequent call to <c>recv/3</c>
-      returning <c>{ok, Data}</c>.
-      </p>
-    <p>Hence a return value of <c>{error, closed}</c> must not be
-      interpreted as if the socket was completely closed. On the
-      contrary, in order to free all resources occupied by an SSL
-      socket, <c>close/1</c> must be called, or else the process owning
-      the socket has to terminate.
-      </p>
-    <p>For each SSL socket there is an Erlang process representing the
-      socket.  When a socket is opened, that process links to the
-      calling client process.  Implementations that want to detect
-      abnormal exits from the socket process by receiving <c>{'EXIT', Pid, Reason}</c> messages, should use the function <c>pid/1</c>
-      to retrieve the process identifier from the socket, in order to
-      be able to match exit messages properly.</p>
+    </p>
   </section>
+  
   <funcs>
     <func>
-      <name>ciphers() -> {ok, string()} | {error, enotstarted}</name>
-      <fsummary>Get supported ciphers.</fsummary>
-      <desc>
-        <p>Returns a string consisting of colon separated cipher
-          designations that are supported by the current SSL library
-          implementation.
-          </p>
-        <p>The SSL application has to be started to return the string
-          of ciphers.</p>
-      </desc>
-    </func>
-    <func>
-      <name>close(Socket) -> ok | {error, Reason}</name>
-      <fsummary>Close a socket returned by <c>transport_accept/[1,2]</c>, <c>connect/3/4</c>, or <c>listen/2</c>.</fsummary>
+      <name>cipher_suites() -></name>
+      <name>cipher_suites(Type) -> ciphers()</name>
+      <fsummary> Returns a list of supported cipher suites</fsummary>
       <type>
-        <v>Socket = sslsocket()</v>
+        <v>Type = erlang | openssl</v>
+
       </type>
-      <desc>
-	<p>Closes a socket returned by <c>transport_accept/[1,2]</c>,
-	<c>connect/[3,4]</c>, or <c>listen/2</c></p>
-      </desc>
+      <desc><p>Returns a list of supported cipher suites.
+	cipher_suites() is equivalent to cipher_suites(erlang).
+	Type openssl is provided for backwards compatibility with
+	old ssl that used openssl.
+	</p>
+    </desc>
     </func>
+    
     <func>
-      <name>connect(Address, Port, Options) -> {ok, Socket} | {error, Reason}</name>
-      <name>connect(Address, Port, Options, Timeout) -> {ok, Socket} | {error, Reason}</name>
-      <fsummary>Connect to <c>Port</c>at <c>Address</c>.</fsummary>
+      <name>connect(Socket, SslOptions) -> </name>
+      <name>connect(Socket, SslOptions, Timeout) -> {ok, SslSocket}
+	| {error, Reason}</name>
+      <fsummary> Upgrades a gen_tcp, or
+	equivalent, connected socket to an ssl socket. </fsummary>
       <type>
-        <v>Address = address()</v>
-        <v>Port = integer()</v>
-        <v>Options = [connect_option()]</v>
-        <v>connect_option() = {mode, list} | {mode, binary} | binary | {packet, packettype()} | {header, integer()} | {nodelay, boolean()} | {active, activetype()} | {ip, ipaddress()} | {port, integer()} | {verify, code()} | {depth, depth()} | {certfile, path()} | {keyfile, path()} | {password, string()} | {cacertfile, path()} | {ciphers, string()}</v>
-        <v>Timeout = integer()</v>
-        <v>Socket = sslsocket()</v>
+        <v>Socket = socket()</v>
+        <v>SslOptions = [ssloption()]</v>
+	<v>Timeout = integer() | infinity</v>
+	<v>SslSocket = sslsocket()</v>
+	<v>Reason = term()</v>
       </type>
-      <desc>
-        <p>Connects to <c>Port</c> at <c>Address</c>. If the optional 
-          <c>Timeout</c> argument is specified, and a connection could not
-          be established within the given time, <c>{error, timeout}</c> is
-          returned. The default value for <c>Timeout</c> is <c>infinity</c>.
-          </p>
-        <p>The <c>ip</c> and <c>port</c> options are for binding to a 
-          particular <em>local</em> address and port, respectively.</p>
-      </desc>
+      <desc> <p>Upgrades a gen_tcp, or equivalent,
+	  connected socket to an ssl socket i.e. performs the
+	  client-side ssl handshake.</p>
+    </desc>
     </func>
+
     <func>
-      <name>connection_info(Socket) -> {ok, {Protocol, Cipher}} | {error, Reason}</name>
-      <fsummary>Get current protocol version and cipher.</fsummary>
+      <name>connect(Host, Port, Options) -></name>
+      <name>connect(Host, Port, Options, Timeout) ->
+	  {ok, SslSocket} | {error, Reason}</name>
+      <fsummary>Opens an ssl connection to Host, Port. </fsummary>
       <type>
-        <v>Socket = sslsocket()</v>
-        <v>Protocol = protocol()</v>
-        <v>Cipher = string()</v>
+	  <v>Host = host()</v>
+	  <v>Port = integer()</v>
+	  <v>Options = [option()]</v>
+	  <v>Timeout = integer() | infinity</v>
+	  <v>SslSocket = sslsocket()</v>
+	  <v>Reason = term()</v>
       </type>
-      <desc>
-        <p>Gets the chosen protocol version and cipher for an established
-          connection (accepted och connected). </p>
-      </desc>
+      <desc> <p>Opens an ssl connection to Host, Port.</p> </desc>
     </func>
+
     <func>
-      <name>controlling_process(Socket, NewOwner) -> ok | {error, Reason}</name>
-      <fsummary>Assign a new controlling process to the socket.</fsummary>
+      <name>close(SslSocket) -> ok | {error, Reason}</name>
+      <fsummary>Close an ssl connection</fsummary>
       <type>
-        <v>Socket = sslsocket()</v>
-        <v>NewOwner = pid()</v>
+	  <v>SslSocket = sslsocket()</v>
+	  <v>Reason = term()</v>
       </type>
-      <desc>
-        <p>Assigns a new controlling process to <c>Socket</c>. A controlling
-          process is the owner of a socket, and receives all messages from
-          the socket.</p>
+      <desc><p>Close an ssl connection.</p>
       </desc>
     </func>
+
     <func>
-      <name>format_error(ErrorCode) -> string()</name>
+      <name>controlling_process(SslSocket, NewOwner) ->
+	ok | {error, Reason}</name>
+      
+	<fsummary>Assigns a new controlling process to the
+	ssl-socket.</fsummary>
+      
+	<type>
+	  <v>SslSocket = sslsocket()</v>
+	  <v>NewOwner = pid()</v>
+	  <v>Reason = term()</v>
+	</type>
+	<desc><p>Assigns a new controlling process to the ssl-socket. A
+      controlling process is the owner of an ssl-socket, and receives
+      all messages from the socket.</p>
+      </desc>
+    </func>
+
+    <func>
+	<name>connection_info(SslSocket) ->
+	  {ok, {ProtocolVersion, CipherSuite}} |  {error, Reason} </name>
+      <fsummary>Returns the negotiated protocol version and cipher suite.
+      </fsummary>
+      <type>
+        <v>CipherSuite = ciphersuite()</v>
+        <v>ProtocolVersion = protocol()</v>
+      </type>
+      <desc><p>Returns the negotiated protocol version and cipher suite.</p> 
+      </desc>
+    </func>
+
+     <func>
+      <name>format_error(Reason) -> string()</name>
       <fsummary>Return an error string.</fsummary>
       <type>
-        <v>ErrorCode = term()</v>
+        <v>Reason = term()</v>
       </type>
       <desc>
-        <p>Returns a diagnostic string describing an error.</p>
+        <p>Presents the error returned by an ssl function as a printable string.</p>
       </desc>
     </func>
+   
     <func>
-      <name>getopts(Socket, OptionsTags) -> {ok, Options} | {error, Reason}</name>
-      <fsummary>Get options set for socket</fsummary>
+      <name>getopts(Socket, OptionNames) ->
+	{ok, [socketoption()]} | {error, Reason}</name>
+      <fsummary>Get the value of the specified options.</fsummary>
       <type>
-        <v>Socket = sslsocket()</v>
-        <v>OptionTags = [optiontag()]()</v>
+	<v>Socket = sslsocket()</v>
+	<v>OptionNames = [atom()]</v>
       </type>
       <desc>
-        <p>Returns the options the tags of which are <c>OptionTags</c> for
-          for the socket <c>Socket</c>. </p>
-      </desc>
-    </func>
-    <func>
-      <name>listen(Port, Options) -> {ok, ListenSocket} | {error, Reason}</name>
-      <fsummary>Set up a socket to listen on a port on the local host.</fsummary>
-      <type>
-        <v>Port = integer()</v>
-        <v>Options = [listen_option()]</v>
-        <v>listen_option() = {mode, list} | {mode, binary} | binary | {packet, packettype()} | {header, integer()} | {active, activetype()} | {backlog, integer()} | {ip, ipaddress()} | {verify, code()} | {depth, depth()} | {certfile, path()} | {keyfile, path()} | {password, string()} | {cacertfile, path()} | {ciphers, string()}</v>
-        <v>ListenSocket = sslsocket()</v>
-      </type>
-      <desc>
-        <p>Sets up a socket to listen on port <c>Port</c> at the local host.
-          If <c>Port</c> is zero, <c>listen/2</c> picks an available port
-          number (use <c>port/1</c> to retrieve it).
-          </p>
-        <p>The listen queue size defaults to 5. If a different value is 
-          wanted, the option <c>{backlog, Size}</c> should be added to the 
-          list of options.
-          </p>
-        <p>An empty <c>Options</c> list is considered an error, and
-          <c>{error, enooptions}</c> is returned.
-          </p>
-        <p>The returned <c>ListenSocket</c> can only be used in calls to 
-          <c>transport_accept/[1,2]</c>.</p>
-      </desc>
-    </func>
-    <func>
-      <name>peercert(Socket) -> {ok, Cert} |  {error, Reason}</name>
-      <fsummary>Return the peer certificate.</fsummary>
-      <type>
-        <v>Socket = sslsocket()</v>
-        <v>Cert = binary()()</v>
-        <v>Subject = term()()</v>
-      </type>
-      <desc>
-	<p>Returns the DER encoded peer certificate, the certificate can be decoded with
-	  <c>public_key:pkix_decode_cert/2</c>.
+	<p>Get the value of the specified socket options.
 	</p>
       </desc>
     </func>
+
     <func>
-      <name>peername(Socket) -> {ok, {Address, Port}} | {error, Reason}</name>
+      <name>listen(Port, Options) ->
+	{ok, ListenSocket} | {error, Reason}</name>
+      <fsummary>Creates an ssl listen socket.</fsummary>
+      <type>
+	<v>Port = integer()</v>
+	<v>Options = options()</v>
+	<v>ListenSocket = sslsocket()</v>
+      </type>
+      <desc>
+	<p>Creates an ssl listen socket.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>peercert(Socket) -> {ok, Cert} | {error, Reason}</name>
+      <fsummary>Return the peer certificate.</fsummary>
+     <type>
+        <v>Socket = sslsocket()</v>
+        <v>Cert = binary()</v>
+      </type>
+      <desc>
+        <p>The peer certificate is returned as a DER encoded binary.
+	  The certificate can be decoded with <c>public_key:pkix_decode_cert/2</c>.
+        </p>
+      </desc>
+    </func>
+    <func>
+      <name>peername(Socket) -> {ok, {Address, Port}} |
+	{error, Reason}</name>
       <fsummary>Return peer address and port.</fsummary>
       <type>
         <v>Socket = sslsocket()</v>
@@ -372,73 +532,53 @@
         <p>Returns the address and port number of the peer.</p>
       </desc>
     </func>
+    
     <func>
-      <name>pid(Socket) -> pid()</name>
-      <fsummary>Return the pid of the socket process.</fsummary>
+      <name>recv(Socket, Length) -> </name>
+      <name>recv(Socket, Length, Timeout) -> {ok, Data} | {error,
+	Reason}</name>
+      <fsummary>Receive data on a socket.</fsummary>
       <type>
         <v>Socket = sslsocket()</v>
-      </type>
-      <desc>
-        <p>Returns the pid of the socket process. The returned pid should
-          only be used for receiving exit messages.</p>
-      </desc>
-    </func>
-    <func>
-      <name>recv(Socket, Length) -> {ok, Data} | {error, Reason}</name>
-      <name>recv(Socket, Length, Timeout) -> {ok, Data} | {error, Reason}</name>
-      <fsummary>Receive data on socket.</fsummary>
-      <type>
-        <v>Socket = sslsocket()</v>
-        <v>Length = integer() >= 0</v>
+        <v>Length = integer()</v>
         <v>Timeout = integer()</v>
-        <v>Data = bytes() | binary()</v>
+        <v>Data = [char()] | binary()</v>
       </type>
       <desc>
-        <p>Receives data on socket <c>Socket</c> when the socket is in
-          passive mode, i.e. when the option <c>{active, false}</c>
-          has been specified.
-          </p>
-        <p>A notable return value is <c>{error, closed}</c> which
-          indicates that the socket is closed.
-          </p>
-        <p>A positive value of the <c>Length</c> argument is only
-          valid when the socket is in raw mode (option <c>{packet, 0}</c> is set, and the option <c>binary</c> is <em>not</em>
-          set); otherwise it should be set to 0, whence all available
-          bytes are returned.
-          </p>
-        <p>If the optional <c>Timeout</c> parameter is specified, and
-          no data was available within the given time, <c>{error, timeout}</c> is returned. The default value for
-          <c>Timeout</c> is <c>infinity</c>.</p>
+        <p>This function receives a packet from a socket in passive
+          mode. A closed socket is indicated by a return value
+          <c>{error, closed}</c>.</p>
+        <p>The <c>Length</c> argument is only meaningful when
+          the socket is in <c>raw</c> mode and denotes the number of
+          bytes to read. If <c>Length</c> = 0, all available bytes are
+          returned. If <c>Length</c> &gt; 0, exactly <c>Length</c>
+          bytes are returned, or an error; possibly discarding less
+          than <c>Length</c> bytes of data when the socket gets closed
+          from the other side.</p>
+        <p>The optional <c>Timeout</c> parameter specifies a timeout in
+          milliseconds. The default value is <c>infinity</c>.</p>
       </desc>
     </func>
+    
     <func>
-      <name>seed(Data) -> ok | {error, Reason}</name>
-      <fsummary>Seed the ssl random generator.</fsummary>
+      <name>renegotiate(Socket) -> ok | {error, Reason}</name>
+      <fsummary> Initiates a new handshake.</fsummary>
       <type>
-        <v>Data = iolist() | binary()</v>
+	<v>Socket = sslsocket()</v>
       </type>
-      <desc>
-        <p>Seeds the ssl random generator.
-          </p>
-        <p>It is strongly advised to seed the random generator after
-          the ssl application has been started, and before any
-          connections are established. Although the port program
-          interfacing to the OpenSSL libraries does a "random" seeding
-          of its own in order to make everything work properly, that
-          seeding is by no means random for the world since it has a 
-          constant value which is known to everyone reading the source
-          code of the seeding. 
-          </p>
-        <p>A notable return value is <c>{error, edata}}</c> indicating that
-          <c>Data</c> was not a binary nor an iolist.</p>
+      <desc><p>Initiates a new handshake. A notable return value is
+      <c>{error, renegotiation_rejected}</c> indicating that the peer
+      refused to go through with the renegotiation but the connection
+      is still active using the previously negotiated session.</p>
       </desc>
     </func>
+    
     <func>
       <name>send(Socket, Data) -> ok | {error, Reason}</name>
       <fsummary>Write data to a socket.</fsummary>
       <type>
         <v>Socket = sslsocket()</v>
-        <v>Data = iolist() | binary()</v>
+        <v>Data = iodata()</v>
       </type>
       <desc>
         <p>Writes <c>Data</c> to <c>Socket</c>. </p>
@@ -446,6 +586,7 @@
           the socket is closed.</p>
       </desc>
     </func>
+
     <func>
       <name>setopts(Socket, Options) -> ok | {error, Reason}</name>
       <fsummary>Set socket options.</fsummary>
@@ -458,26 +599,65 @@
           <c>Socket</c>. </p>
       </desc>
     </func>
+
     <func>
-      <name>ssl_accept(Socket) -> ok | {error, Reason}</name>
-      <name>ssl_accept(Socket, Timeout) -> ok | {error, Reason}</name>
-      <fsummary>Perform server-side SSL handshake and key exchange</fsummary>
+      <name>shutdown(Socket, How) -> ok | {error, Reason}</name>
+      <fsummary>Immediately close a socket</fsummary>
       <type>
         <v>Socket = sslsocket()</v>
+        <v>How = read | write | read_write</v>
+        <v>Reason = reason()</v>
+      </type>
+      <desc>
+        <p>Immediately close a socket in one or two directions.</p>
+        <p><c>How == write</c> means closing the socket for writing,
+          reading from it is still possible.</p>
+        <p>To be able to handle that the peer has done a shutdown on
+          the write side, the <c>{exit_on_close, false}</c> option
+          is useful.</p>
+      </desc>
+    </func>
+    
+    <func>
+      <name>ssl_accept(ListenSocket) -> </name>
+      <name>ssl_accept(ListenSocket, Timeout) -> ok | {error, Reason}</name>
+      <fsummary>Perform server-side SSL handshake</fsummary>
+      <type>
+        <v>ListenSocket = sslsocket()</v>
         <v>Timeout = integer()</v>
-        <v>Reason = atom()</v>
+        <v>Reason = term()</v>
       </type>
       <desc>
         <p>The <c>ssl_accept</c> function establish the SSL connection
           on the server side. It should be called directly after
           <c>transport_accept</c>, in the spawned server-loop.</p>
-        <p>Note that the ssl connection is not complete until <c>ssl_accept</c>
-          has returned <c>true</c>, and if an error is returned, the socket
-          is unavailable and for instance <c>close/1</c> will crash.</p>
       </desc>
     </func>
+
     <func>
-      <name>sockname(Socket) -> {ok, {Address, Port}} | {error, Reason}</name>
+      <name>ssl_accept(ListenSocket, SslOptions) -> </name>
+      <name>ssl_accept(ListenSocket, SslOptions, Timeout) -> {ok, Socket} | {error, Reason}</name>
+      <fsummary>Perform server-side SSL handshake</fsummary>
+      <type>
+        <v>ListenSocket = socket()</v>
+	<v>SslOptions = ssloptions()</v>
+        <v>Timeout = integer()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p> Upgrades a gen_tcp, or
+	  equivalent, socket to an ssl socket i.e. performs the
+	ssl server-side handshake.</p>
+	<warning><p>Note that the listen socket should be in {active, false} mode
+	before telling the client that the server is ready to upgrade
+	and calling this function, otherwise the upgrade may
+	or may not succeed depending on timing.</p></warning>
+      </desc>
+    </func>
+    
+    <func>
+      <name>sockname(Socket) -> {ok, {Address, Port}} |
+	{error, Reason}</name>
       <fsummary>Return the local address and port.</fsummary>
       <type>
         <v>Socket = sslsocket()</v>
@@ -489,217 +669,84 @@
           <c>Socket</c>.</p>
       </desc>
     </func>
+    
     <func>
-      <name>transport_accept(Socket) -> {ok, NewSocket} | {error, Reason}</name>
-      <name>transport_accept(Socket, Timeout) -> {ok, NewSocket} | {error, Reason}</name>
-      <fsummary>Accept an incoming connection and prepare for <c>ssl_accept</c></fsummary>
+      <name>start() -> </name>
+      <name>start(Type) -> ok | {error, Reason}</name>
+      <fsummary>Starts the Ssl application. </fsummary>
+      <type>
+        <v>Type =  permanent | transient | temporary</v>
+      </type>
+      <desc>
+        <p>Starts the Ssl application. Default type
+          is temporary.
+          <seealso marker="kernel:application">application(3)</seealso></p>
+      </desc>
+    </func>
+    <func>
+      <name>stop() -> ok </name>
+      <fsummary>Stops the Ssl application.</fsummary>
+      <desc>
+        <p>Stops the Ssl application.
+          <seealso marker="kernel:application">application(3)</seealso></p>
+      </desc>
+    </func>
+
+    <func>
+      <name>transport_accept(Socket) -></name>
+      <name>transport_accept(Socket, Timeout) ->
+	{ok, NewSocket} | {error, Reason}</name>
+      <fsummary>Accept an incoming connection and
+	prepare for <c>ssl_accept</c></fsummary>
       <type>
         <v>Socket = NewSocket = sslsocket()</v>
         <v>Timeout = integer()</v>
-        <v>Reason = atom()</v>
+        <v>Reason = reason()</v>
       </type>
       <desc>
         <p>Accepts an incoming connection request on a listen socket.
-          <c>ListenSocket</c> must be a socket returned from <c>listen/2</c>.
-          The socket returned should be passed to <c>ssl_accept</c> to
-          complete ssl handshaking and establishing the connection.</p>
+          <c>ListenSocket</c> must be a socket returned from
+          <c>listen/2</c>.  The socket returned should be passed to
+          <c>ssl_accept</c> to complete ssl handshaking and
+          establishing the connection.</p>
         <warning>
           <p>The socket returned can only be used with <c>ssl_accept</c>,
             no traffic can be sent or received before that call.</p>
         </warning>
-        <p>The accepted socket inherits the options set for <c>ListenSocket</c>
-          in <c>listen/2</c>.</p>
-        <p>The default value for <c>Timeout</c> is <c>infinity</c>. If 
-          <c>Timeout</c> is specified, and no connection is accepted within
-          the given time, <c>{error, timeout}</c> is returned.</p>
+        <p>The accepted socket inherits the options set for
+          <c>ListenSocket</c> in <c>listen/2</c>.</p>
+	<p>The default
+          value for <c>Timeout</c> is <c>infinity</c>. If
+          <c>Timeout</c> is specified, and no connection is accepted
+          within the given time, <c>{error, timeout}</c> is
+          returned.</p>
       </desc>
     </func>
+    
     <func>
-      <name>version() -> {ok, {SSLVsn, CompVsn, LibVsn}}</name>
-      <fsummary>Return the version of SSL.</fsummary>
+      <name>versions() ->
+	[{SslAppVer, SupportedSslVer, AvailableSslVsn}]</name>
+      <fsummary>Returns version information relevant for the
+	ssl application.</fsummary>
       <type>
-        <v>SSLVsn = CompVsn = LibVsn = string()()</v>
+	<v>SslAppVer = string()</v>
+      	<v>SupportedSslVer = [protocol()]</v>
+      	<v>AvailableSslVsn = [protocol()]</v>
       </type>
       <desc>
-        <p>Returns the SSL application version (<c>SSLVsn</c>), the library
-          version used when compiling the SSL application port program
-          (<c>CompVsn</c>), and the actual library version used when
-          dynamically linking in runtime (<c>LibVsn</c>).
-          </p>
-        <p>If the SSL application has not been started, <c>CompVsn</c> and
-          <c>LibVsn</c> are empty strings.
-          </p>
+	<p>
+	  Returns version information relevant for the
+	  ssl application.</p>
       </desc>
     </func>
-  </funcs>
-
-  <section>
-    <title>ERRORS</title>
-    <p>The possible error reasons and the corresponding diagnostic strings 
-      returned by <c>format_error/1</c> are either the same as those defined
-      in the <c>inet(3)</c> reference manual, or as follows:
-      </p>
-    <taglist>
-      <tag><c>closed</c></tag>
-      <item>
-        <p>Connection closed for the operation in question.
-          </p>
-      </item>
-      <tag><c>ebadsocket</c></tag>
-      <item>
-        <p>Connection not found (internal error).
-          </p>
-      </item>
-      <tag><c>ebadstate</c></tag>
-      <item>
-        <p>Connection not in connect state (internal error).
-          </p>
-      </item>
-      <tag><c>ebrokertype</c></tag>
-      <item>
-        <p>Wrong broker type (internal error).
-          </p>
-      </item>
-      <tag><c>ecacertfile</c></tag>
-      <item>
-        <p>Own CA certificate file is invalid.
-          </p>
-      </item>
-      <tag><c>ecertfile</c></tag>
-      <item>
-        <p>Own certificate file is invalid.
-          </p>
-      </item>
-      <tag><c>echaintoolong</c></tag>
-      <item>
-        <p>The chain of certificates provided by peer is too long.
-          </p>
-      </item>
-      <tag><c>ecipher</c></tag>
-      <item>
-        <p>Own list of specified ciphers is invalid.
-          </p>
-      </item>
-      <tag><c>ekeyfile</c></tag>
-      <item>
-        <p>Own private key file is invalid.
-          </p>
-      </item>
-      <tag><c>ekeymismatch</c></tag>
-      <item>
-        <p>Own private key does not match own certificate.
-          </p>
-      </item>
-      <tag><c>enoissuercert</c></tag>
-      <item>
-        <p>Cannot find certificate of issuer of certificate provided
-          by peer.
-          </p>
-      </item>
-      <tag><c>enoservercert</c></tag>
-      <item>
-        <p>Attempt to do accept without having set own certificate.
-          </p>
-      </item>
-      <tag><c>enotlistener</c></tag>
-      <item>
-        <p>Attempt to accept on a non-listening socket.
-          </p>
-      </item>
-      <tag><c>enoproxysocket</c></tag>
-      <item>
-        <p>No proxy socket found (internal error).
-          </p>
-      </item>
-      <tag><c>enooptions</c></tag>
-      <item>
-        <p>The list of options is empty.
-          </p>
-      </item>
-      <tag><c>enotstarted</c></tag>
-      <item>
-        <p>The SSL application has not been started.
-          </p>
-      </item>
-      <tag><c>eoptions</c></tag>
-      <item>
-        <p>Invalid list of options.
-          </p>
-      </item>
-      <tag><c>epeercert</c></tag>
-      <item>
-        <p>Certificate provided by peer is in error.
-          </p>
-      </item>
-      <tag><c>epeercertexpired</c></tag>
-      <item>
-        <p>Certificate provided by peer has expired.
-          </p>
-      </item>
-      <tag><c>epeercertinvalid</c></tag>
-      <item>
-        <p>Certificate provided by peer is invalid.
-          </p>
-      </item>
-      <tag><c>eselfsignedcert</c></tag>
-      <item>
-        <p>Certificate provided by peer is self signed.
-          </p>
-      </item>
-      <tag><c>esslaccept</c></tag>
-      <item>
-        <p>Server SSL handshake procedure between client and server failed.
-          </p>
-      </item>
-      <tag><c>esslconnect</c></tag>
-      <item>
-        <p>Client SSL handshake procedure between client and server failed.
-          </p>
-      </item>
-      <tag><c>esslerrssl</c></tag>
-      <item>
-        <p>SSL protocol failure. Typically because of a fatal alert 
-          from peer.
-          </p>
-      </item>
-      <tag><c>ewantconnect</c></tag>
-      <item>
-        <p>Protocol wants to connect, which is not supported in
-          this version of the SSL application.
-          </p>
-      </item>
-      <tag><c>ex509lookup</c></tag>
-      <item>
-        <p>Protocol wants X.509 lookup, which is not supported in
-          this version of the SSL application.
-          </p>
-      </item>
-      <tag><c>{badcall, Call}</c></tag>
-      <item>
-        <p>Call not recognized for current mode (active or passive) and
-          state of socket.
-          </p>
-      </item>
-      <tag><c>{badcast, Cast}</c></tag>
-      <item>
-        <p>Call not recognized for current mode (active or passive) and
-          state of socket. 
-          </p>
-      </item>
-      <tag><c>{badinfo, Info}</c></tag>
-      <item>
-        <p>Call not recognized for current mode (active or passive) and
-          state of socket.
-          </p>
-      </item>
-    </taglist>
-  </section>
-
+  </funcs> 
+      
   <section>
     <title>SEE ALSO</title>
-    <p>gen_tcp(3), inet(3) public_key(3) </p>
+    <p><seealso marker="kernel:inet">inet(3) </seealso> and 
+      <seealso marker="kernel:gen_tcp">gen_tcp(3) </seealso>
+    </p>
   </section>
-  
-</erlref>
 
+</erlref>
 

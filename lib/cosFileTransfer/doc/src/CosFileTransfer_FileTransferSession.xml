@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2000</year><year>2009</year>
+      <year>2000</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -21,8 +21,7 @@
     
     </legalnotice>
 
-    <title>CosFileTransfer_&shy;FileTransferSession</title>
-    <shorttitle>..._FileTransferSession</shorttitle>
+    <title>CosFileTransfer_FileTransferSession</title>
     <prepared></prepared>
     <docno></docno>
     <checked></checked>
@@ -160,7 +159,7 @@
     </func>
     <func>
       <name>insert(FTS, SourceFile, DestinationFile, Offset) -> Return</name>
-      <fsummary>Insert the <c>SourceFile</c>into the <c>DestinationFile</c><c>Offset</c>bytes from the start of the file</fsummary>
+      <fsummary>Insert the <c>SourceFile</c>into the <c>DestinationFile</c> <c>Offset</c>bytes from the start of the file</fsummary>
       <type>
         <v>FTS = SourceFile = DestinationFile = #objref</v>
         <v>Offset = long()</v>
@@ -169,7 +168,7 @@
       <desc>
         <p>This operation behaves almost like the <c>append/3</c> operation. The 
           difference is that the <c>SourceFile</c> will be inserted into the
-          <c>DestinationFile</c><c>Offset</c> bytes from the start of the file.</p>
+          <c>DestinationFile</c> <c>Offset</c> bytes from the start of the file.</p>
         <p>Currently, it is not possible to use this operation when the target 
           object represents FTP.</p>
       </desc>

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -75,33 +75,57 @@
 	 collect_line/2, collect_line/3, collect_line/4,
 	 get_until/3, get_until/4]).
 
+-export_type([chars/0, continuation/0]).
+
 %%----------------------------------------------------------------------
 
- %% XXX: overapproximates a deep list of (unicode) characters
--type chars() :: [_].
+-type chars() :: [char() | chars()].
 -type depth() :: -1 | non_neg_integer().
+
+-opaque continuation() :: {_, _, _, _}.  % XXX: refine
 
 %%----------------------------------------------------------------------
 
 %% Interface calls to sub-modules.
 
--spec fwrite(io:format(), [term()]) -> chars().
+-spec fwrite(Format, Data) -> chars() | UnicodeList when
+      Format :: io:format(),
+      Data :: [term()],
+      UnicodeList :: [unicode:unicode_char()],
+      Data :: [term()].
 
 fwrite(Format, Args) ->
     format(Format, Args).
 
--spec fread(string(), string()) -> io_lib_fread:fread_2_ret().
+-spec fread(Format, String) -> Result when
+      Format :: string(),
+      String :: string(),
+      Result :: {'ok', InputList :: [term()], LeftOverChars :: string()}
+              | {'more', RestFormat :: string(),
+                 Nchars :: non_neg_integer(),
+                 InputStack :: chars()}
+              | {'error', What :: term()}.
 
 fread(Chars, Format) ->
     io_lib_fread:fread(Chars, Format).
 
--spec fread(io_lib_fread:continuation(), string(), string()) ->
-        io_lib_fread:fread_3_ret().
+-spec fread(Continuation, CharSpec, Format) -> Return when
+      Continuation :: continuation() | [],
+      CharSpec :: string() | eof,
+      Format :: string(),
+      Return :: {'more', Continuation1 :: continuation()}
+              | {'done', Result, LeftOverChars :: string()},
+      Result :: {'ok', InputList :: [term()]}
+              | 'eof'
+              | {'error', What :: term()}.
 
 fread(Cont, Chars, Format) ->
     io_lib_fread:fread(Cont, Chars, Format).
 
--spec format(io:format(), [term()]) -> chars().
+-spec format(Format, Data) -> chars() | UnicodeList when
+      Format :: io:format(),
+      Data :: [term()],
+      UnicodeList :: [unicode:unicode_char()].
 
 format(Format, Args) ->
     case catch io_lib_format:fwrite(Format, Args) of
@@ -111,17 +135,24 @@ format(Format, Args) ->
 	    Other
     end.
 
--spec print(term()) -> chars().
+-spec print(Term) -> chars() when
+      Term :: term().
 
 print(Term) ->
     io_lib_pretty:print(Term).
 
--spec print(term(), non_neg_integer(), non_neg_integer(), depth()) -> chars().
+-spec print(Term, Column, LineLength, Depth) -> chars() when
+      Term :: term(),
+      Column :: non_neg_integer(),
+      LineLength :: non_neg_integer(),
+      Depth :: depth().
 
 print(Term, Column, LineLength, Depth) ->
     io_lib_pretty:print(Term, Column, LineLength, Depth).
 
--spec indentation(string(), integer()) -> integer().
+-spec indentation(String, StartIndent) -> integer() when
+      String :: string(),
+      StartIndent :: integer().
 
 indentation(Chars, Current) ->
     io_lib_format:indentation(Chars, Current).
@@ -156,7 +187,8 @@ format_prompt(Format, Args) ->
 %%  Return a (non-flattened) list of characters giving a printed
 %%  representation of the term. write/3 is for backward compatibility.
 
--spec write(term()) -> chars().
+-spec write(Term) -> chars() when
+      Term :: term().
 
 write(Term) -> write(Term, -1).
 
@@ -167,7 +199,9 @@ write(Term, D, true) ->
 write(Term, D, false) ->
     write(Term, D).
 
--spec write(term(), depth()) -> chars().
+-spec write(Term, Depth) -> chars() when
+      Term :: term(),
+      Depth :: depth().
 
 write(_Term, 0) -> "...";
 write(Term, _D) when is_integer(Term) -> integer_to_list(Term);
@@ -232,7 +266,8 @@ write_binary_body(B, _D) ->
 %% write_atom(Atom) -> [Char]
 %%  Generate the list of characters needed to print an atom.
 
--spec write_atom(atom()) -> chars().
+-spec write_atom(Atom) -> chars() when
+      Atom :: atom().
 
 write_atom(Atom) ->
     Chars = atom_to_list(Atom),
@@ -281,7 +316,8 @@ name_char(_) -> false.
 %% write_string([Char]) -> [Char]
 %%  Generate the list of characters needed to print a string.
 
--spec write_string(string()) -> chars().
+-spec write_string(String) -> chars() when
+      String :: string().
 
 write_string(S) ->
     write_string(S, $").   %"
@@ -328,7 +364,8 @@ string_char(_,C, _, Tail) when C < $\240->	%Other control characters.
 %%  Generate the list of characters needed to print a character constant.
 %%  Must special case SPACE, $\s, here.
 
--spec write_char(char()) -> chars().
+-spec write_char(Char) -> chars() when
+      Char :: char().
 
 write_char($\s) -> "$\\s";			%Must special case this.
 write_char(C) when is_integer(C), C >= $\000, C =< $\377 ->
@@ -344,7 +381,8 @@ write_unicode_char(Uni) ->
 %%  Return true if CharList is a (possibly deep) list of characters, else
 %%  false.
 
--spec char_list(term()) -> boolean().
+-spec char_list(Term) -> boolean() when
+      Term :: term().
 
 char_list([C|Cs]) when is_integer(C), C >= $\000, C =< $\377 ->
     char_list(Cs);
@@ -360,7 +398,8 @@ unicode_char_list([C|Cs]) when is_integer(C), C >= 0, C < 16#D800;
 unicode_char_list([]) -> true;
 unicode_char_list(_) -> false.			%Everything else is false
 
--spec deep_char_list(term()) -> boolean().
+-spec deep_char_list(Term) -> boolean() when
+      Term :: term().
 
 deep_char_list(Cs) ->
     deep_char_list(Cs, []).
@@ -397,7 +436,8 @@ deep_unicode_char_list(_, _More) ->		%Everything else is false
 %%  Return true if CharList is a list of printable characters, else
 %%  false.
 
--spec printable_list(term()) -> boolean().
+-spec printable_list(Term) -> boolean() when
+      Term :: term().
 
 printable_list([C|Cs]) when is_integer(C), C >= $\040, C =< $\176 ->
     printable_list(Cs);

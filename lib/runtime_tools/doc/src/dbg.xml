@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2009</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -316,7 +316,8 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard) c
         <v>Module = atom() | '_'</v>
         <v>Function = atom() | '_'</v>
         <v>Arity = integer() |'_'</v>
-        <v>MatchSpec = integer() | atom() | [] | match_spec()</v>
+        <v>MatchSpec = integer() | Built-inAlias | [] | match_spec()</v>
+	<v>Built-inAlias = x | c | cx</v>
         <v>MatchDesc = [MatchInfo]</v>
         <v>MatchInfo = {saved, integer()} | MatchNum</v>
         <v>MatchNum = {matched, node(), integer()} | {matched, node(), 0, RPCError}</v>
@@ -349,8 +350,9 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard) c
           if the MatchSpec is other
           than []. The integer <c>N</c> may then be used in
           subsequent calls to this function and will stand as an
-          "alias" for the given expression. There are also built-in
-          aliases named with atoms (see also <c>ltp/0</c> below).</p>
+          "alias" for the given expression. There are also a couple of
+	  built-in aliases for common expressions, see <c>ltp/0</c> below 
+	  for details.</p>
         <p>If an error is returned, it can be due to errors in
           compilation of the match specification. Such errors are
           presented as a list of tuples <c>{error, string()}</c> where
@@ -528,6 +530,21 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard) c
         <p>Match specifications used can be saved in a file (if a
           read-write file system is present) for use in later
           debugging sessions, see <c>wtp/1</c> and <c>rtp/1</c></p>
+	<p>There are three built-in trace patterns:
+	  <c>exception_trace</c>, <c>caller_trace</c> 
+	  and <c>caller_exception_trace</c> (or <c>x</c>, <c>c</c> and 
+	  <c>cx</c> respectively). 
+	  Exception trace sets a trace which will show function names, 
+	  parameters, return values and exceptions thrown from functions. 
+	  Caller traces display function names, parameters and information 
+	  about which function called it. An example using a built-in alias:</p>
+	  <pre>
+(x@y)4> <input>dbg:tp(lists,sort,cx).</input>
+{ok,[{matched,nonode@nohost,2},{saved,cx}]}
+(x@y)4> <input>lists:sort([2,1]).</input>
+(&lt;0.32.0&gt;) call lists:sort([2,1]) ({erl_eval,do_apply,5})
+(&lt;0.32.0&gt;) returned from lists:sort/1 -> [1,2]
+[1,2]</pre>
       </desc>
     </func>
     <func>
@@ -706,7 +723,7 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard) c
           value from the last invocation of the fun. The initial value
           of the second parameter is specified in the <c>InitialData</c>
           part of the <c>HandlerSpec</c>. The <c>HandlerFun</c> may
-          chose any appropriate action to take when invoked, and can
+          choose any appropriate action to take when invoked, and can
           save a state for the next invocation by returning it.
           </p>
         <p>If <c>Type</c> is a port, then the second parameter should
@@ -766,7 +783,7 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard) c
         <p>This function creates a trace port generating <em>fun</em>.
           The <em>fun</em> takes no arguments and returns a newly opened
           trace port. The return value from this function is suitable as
-          a second parameter to tracer/2, i. e. <c>dbg:tracer(port, dbg:trace_port(ip, 4711))</c>. </p>
+          a second parameter to tracer/2, i.e. <c>dbg:tracer(port, dbg:trace_port(ip, 4711))</c>. </p>
         <p>A trace port is an
           Erlang port to a dynamically linked in driver that handles
           trace messages directly, without the overhead of sending them
@@ -852,9 +869,9 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard) c
       <desc>
         <p>This function is used to do a control operation on the
           active trace port driver on the given node
-          (<c>Nodename</c>). Which operations that are allowed as well
-          as their return values are depending on which trace driver
-          that is used.</p>
+          (<c>Nodename</c>). Which operations are allowed as well
+          as their return values depend on which trace driver
+          is used.</p>
         <p>Returns either <c>ok</c> or <c>{ok, Result}</c> 
           if the operation was successful, or <c>{error, Reason}</c> 
           if the current tracer is a process 

@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1998-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 1998-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  *
 
@@ -181,11 +181,6 @@ int ei_show_sendmsg(FILE *stream, const char *header, const char *msgbuf)
 	mbuf = header;
 	break;
     
-    case ERL_NODE_LINK:
-	/* nothing to do */
-	mbuf = header;
-	break;
-
     default:
 	break;
     }
@@ -239,10 +234,6 @@ static void show_msg(FILE *stream, int direction, const erlang_msg *msg,
 	show_pid(stream,&msg->from);
 	fprintf(stream," To: ");
 	show_pid(stream,&msg->to);
-	break;
-      
-    case ERL_NODE_LINK:
-	fprintf(stream,"NODE_LINK");
 	break;
       
     case ERL_REG_SEND:
@@ -400,6 +391,7 @@ static void show_term(const char *termbuf, int *index, FILE *stream)
 	break;
 
     case ERL_FLOAT_EXT:
+    case NEW_FLOAT_EXT:
 	ei_decode_double(termbuf,index,&fnum);
 	fprintf(stream,"%f",fnum);
 	break;

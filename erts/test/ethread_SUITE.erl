@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -31,27 +31,24 @@
 
 -define(DEFAULT_TIMEOUT, ?t:minutes(10)).
 
--export([all/1, init_per_testcase/2, fin_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 init_per_testcase/2, fin_per_testcase/2]).
 
 -export([create_join_thread/1,
 	 equal_tids/1,
 	 mutex/1,
 	 try_lock_mutex/1,
-	 recursive_mutex/1,
-	 time_now/1,
 	 cond_wait/1,
-	 cond_timedwait/1,
 	 broadcast/1,
 	 detached_thread/1,
 	 max_threads/1,
-	 forksafety/1,
-	 vfork/1,
 	 tsd/1,
 	 spinlock/1,
 	 rwspinlock/1,
 	 rwmutex/1,
 	 atomic/1,
-	 gate/1]).
+	 dw_atomic_massage/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -60,25 +57,39 @@ tests() ->
      equal_tids,
      mutex,
      try_lock_mutex,
-     recursive_mutex,
-     time_now,
      cond_wait,
-     cond_timedwait,
      broadcast,
      detached_thread,
      max_threads,
-     forksafety,
-     vfork,
      tsd,
      spinlock,
      rwspinlock,
      rwmutex,
      atomic,
-     gate].
+     dw_atomic_massage].
 
 all(doc) -> [];
 all(suite) -> tests().
 
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    tests().
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
 
 %%
 %%
@@ -113,24 +124,6 @@ try_lock_mutex(suite) ->
     [];
 try_lock_mutex(Config) ->
     run_case(Config, "try_lock_mutex", "").
-
-recursive_mutex(doc) ->
-    ["Tests recursive mutexes."];
-recursive_mutex(suite) ->
-    [];
-recursive_mutex(Config) ->
-    run_case(Config, "recursive_mutex", "").
-
-time_now(doc) ->
-    ["Tests ethr_time_now by comparing time values with Erlang."];
-time_now(suite) ->
-    [];
-time_now(Config) ->
-    run_case(Config, "time_now", "", fun (P) ->
-					     spawn_link(fun () ->
-								watchdog(P)
-							end)
-				     end).
 
 wd_dispatch(P) ->
     receive
@@ -169,13 +162,6 @@ cond_wait(suite) ->
 cond_wait(Config) ->
     run_case(Config, "cond_wait", "").
 
-cond_timedwait(doc) ->
-    ["Tests ethr_cond_timedwait with ethr_cond_signal and ethr_cond_broadcast."];
-cond_timedwait(suite) ->
-    [];
-cond_timedwait(Config) ->
-    run_case(Config, "cond_timedwait", "").
-
 broadcast(doc) ->
     ["Tests that a ethr_cond_broadcast really wakes up all waiting threads"];
 broadcast(suite) ->
@@ -195,26 +181,15 @@ max_threads(doc) ->
 max_threads(suite) ->
     [];
 max_threads(Config) ->
-    run_case(Config, "max_threads", "").
-
-forksafety(doc) ->
-    ["Tests forksafety."];
-forksafety(suite) ->
-    [];
-forksafety(Config) ->
-    run_case(Config, "forksafety", "").
-
-vfork(doc) ->
-    ["Tests vfork with threads."];
-vfork(suite) ->
-    case ?t:os_type() of
-	{unix, osf1} ->
-	    {skip, "vfork() known to hang multi-threaded applications on osf1"};
+    case {os:type(), os:version()} of
+	{{unix,darwin}, {9, _, _}} ->
+	    %% For some reason pthread_create() crashes when more
+	    %% threads cannot be created, instead of returning an
+	    %% error code on our MacOS X Leopard machine...
+	    {skipped, "MacOS X Leopard cannot cope with this test..."};
 	_ ->
-	    []
-    end;
-vfork(Config) ->
-    run_case(Config, "vfork", "").
+	    run_case(Config, "max_threads", "")
+    end.
 
 tsd(doc) ->
     ["Tests thread specific data."];
@@ -251,12 +226,12 @@ atomic(suite) ->
 atomic(Config) ->
     run_case(Config, "atomic", "").
 
-gate(doc) ->
-    ["Tests gates."];
-gate(suite) ->
+dw_atomic_massage(doc) ->
+    ["Massage double word atomics"];
+dw_atomic_massage(suite) ->
     [];
-gate(Config) ->
-    run_case(Config, "gate", "").
+dw_atomic_massage(Config) ->
+    run_case(Config, "dw_atomic_massage", "").
 
 %%
 %%

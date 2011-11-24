@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2007</year>
-      <year>2007</year>
+      <year>2011</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -206,7 +206,7 @@ By default EPMD listens on port 4369.
       <section>
 	<title>Unregister a node from the EPMD</title>
 	<p>
-	  A node unregister itself from the EPMD by simply closing the
+	  A node unregisters itself from the EPMD by simply closing the
 	  TCP connection towards EPMD established when the node was registered.
 	</p>
       </section>

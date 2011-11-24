@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2009. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -266,7 +266,7 @@ int ei_reg_restore(int fd, ei_reg *reg, const char *mntab)
   /* make sure receive buffer can handle largest expected message */
   len = maxkey + maxobj + 512; 
   if (len > EISMALLBUF)
-    if (!(dbuf = malloc(index))) {
+    if (!(dbuf = malloc(len))) {
       ei_send_exit(fd,&self,&mnesia,"cannot allocate space for incoming data");
       return -1;
     }
@@ -303,6 +303,9 @@ int ei_reg_restore(int fd, ei_reg *reg, const char *mntab)
     if (mn_decode_insert(reg,msgbuf,&index,keybuf)) goto restore_failure;
   }
   
+  if (keybuf) free(keybuf);
+  if (dbuf) free(dbuf);
+
   /* wait for unlink */
   if (mn_unlink(fd)) return -1;
 
@@ -310,8 +313,6 @@ int ei_reg_restore(int fd, ei_reg *reg, const char *mntab)
   ei_hash_foreach(reg->tab,clean_obj);
 
   /* success */
-  if (keybuf) free(keybuf);
-  if (dbuf) free(dbuf);
   return 0;
 
 restore_failure:

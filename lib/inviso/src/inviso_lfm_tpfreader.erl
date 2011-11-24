@@ -60,9 +60,9 @@
 %%       File=string()
 %% Spawn on this function to start a reader process for trace-port generated
 %% logfiles, possibly with inviso-generated ti-files.
-init(RecPid,LogFiles=[Tuple|_]) when tuple(Tuple) -> % Only one LogFiles.
+init(RecPid,LogFiles=[Tuple|_]) when is_tuple(Tuple) -> % Only one LogFiles.
     init(RecPid,[LogFiles]);
-init(RecPid,FileStruct) when list(FileStruct) ->
+init(RecPid,FileStruct) when is_list(FileStruct) ->
     logfiles_loop(RecPid,FileStruct).
 %% -----------------------------------------------------------------------------
 
@@ -135,7 +135,7 @@ read_traceport_file(FileName,FD) ->
     case file:read(FD,5) of                 % Trace-port file entries start with 5 bytes.
 	{ok,<<0,Size:32>>} ->               % Each entry in a traceport file begins.
 	    case file:read(FD,Size) of
-		{ok,Bin} when binary(Bin),size(Bin)=:=Size ->
+		{ok,Bin} when is_binary(Bin),size(Bin)=:=Size ->
 		    try binary_to_term(Bin) of
 			Term ->             % Bin was a properly formatted term!
 			    {ok,Term}
@@ -244,7 +244,7 @@ find_timestamp_in_term(_) ->                % Don't know if there is a timestamp
 %%   (1) plain straight raw binary files.
 handle_ti_file(FileStruct) ->
     case lists:keysearch(ti_log,1,FileStruct) of
-	{value,{_,[FileName]}} when list(FileName) -> % There is one ti-file in this set.
+	{value,{_,[FileName]}} when is_list(FileName) -> % There is one ti-file in this set.
 	    case file:open(FileName,[read,raw,binary]) of
 		{ok,FD} ->
 		    TIdAlias=ets:new(list_to_atom("inviso_ti_atab_"++pid_to_list(self())),
@@ -308,9 +308,9 @@ handle_ti_file_2(FD,TIdAlias,TIdUnalias) ->
 handle_logfiles(FileStruct) ->
     handle_logfiles_2(lists:keysearch(trace_log,1,FileStruct)).
 
-handle_logfiles_2({value,{_,[FileName]}}) when list(FileName)-> % One single plain file.
+handle_logfiles_2({value,{_,[FileName]}}) when is_list(FileName)-> % One single plain file.
     [FileName];
-handle_logfiles_2({value,{_,Files}}) when list(Files) -> % A wrap-set.
+handle_logfiles_2({value,{_,Files}}) when is_list(Files) -> % A wrap-set.
     handle_logfile_sort_wrapset(Files);
 handle_logfiles_2(_) ->
     [].                                      % Pretend there were no files otherwise.

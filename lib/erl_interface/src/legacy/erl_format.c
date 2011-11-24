@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1996-2009. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -116,7 +116,7 @@ static lvar *lvar_alloc(void)
   lvar *tmp;
   
   if ((tmp = ef.idle) == NULL) {
-    tmp = (lvar *) malloc(sizeof(lvar)); /* FIXME check result */
+    tmp = (lvar *) erl_malloc(sizeof(lvar));
   }
   else {
     tmp = ef.idle;

@@ -3,7 +3,7 @@
      #
      # %CopyrightBegin%
      # 
-     # Copyright Ericsson AB 2009. All Rights Reserved.
+     # Copyright Ericsson AB 2009-2011. All Rights Reserved.
      # 
      # The contents of this file are subject to the Erlang Public License,
      # Version 1.1, (the "License"); you may not use this file except in
@@ -22,9 +22,15 @@
 
 <xsl:stylesheet version="1.0"
   xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  xmlns:exsl="http://exslt.org/common"
+  extension-element-prefixes="exsl"
   xmlns:fn="http://www.w3.org/2005/02/xpath-functions"> 
 
   <xsl:output method="text" encoding="UTF-8" indent="no"/>
+
+  <xsl:param name="specs_file" select="''"/>
+  <xsl:variable name="i" select="document($specs_file)"></xsl:variable>
+
 
   <!-- Book -->
   <xsl:template match="/book">
@@ -50,9 +56,7 @@
   <xsl:template match="erlref">
     <xsl:text>{"</xsl:text><xsl:value-of select="module"/><xsl:text>.html", {function, {"</xsl:text><xsl:value-of select="$appname"/>
     <xsl:text>", "</xsl:text><xsl:value-of select="module"/><xsl:text>"}},&#10;[&#10;</xsl:text>
-    <xsl:apply-templates select="funcs">  
-      <xsl:with-param name="mod" select="module"/>
-    </xsl:apply-templates>  
+    <xsl:apply-templates select="funcs"/>  
     <xsl:text>]}.&#10;</xsl:text>
     <xsl:text>{"</xsl:text><xsl:value-of select="module"/><xsl:text>.html", {module, "</xsl:text>
     <xsl:value-of select="$appname"/><xsl:text>"}, ["</xsl:text><xsl:value-of select="module"/><xsl:text>"]}.&#10;</xsl:text>
@@ -62,9 +66,7 @@
   <xsl:template match="cref">
     <xsl:text>{"</xsl:text><xsl:value-of select="lib"/><xsl:text>.html", {function, {"</xsl:text><xsl:value-of select="$appname"/>
     <xsl:text>", "</xsl:text><xsl:value-of select="lib"/><xsl:text>"}}, [&#10;</xsl:text>
-    <xsl:apply-templates select="funcs">  
-      <xsl:with-param name="mod" select="lib"/>
-    </xsl:apply-templates>  
+    <xsl:apply-templates select="funcs"/>  
     <xsl:text>]}.&#10;</xsl:text>
     <xsl:text>{"</xsl:text><xsl:value-of select="lib"/><xsl:text>.html", {clib, "</xsl:text>
     <xsl:value-of select="$appname"/><xsl:text>"}, ["</xsl:text><xsl:value-of select="lib"/><xsl:text>"]}.&#10;</xsl:text>
@@ -91,69 +93,161 @@
 
   <!-- Funcs -->
   <xsl:template match="funcs">
-    <xsl:param name="mod"/>
     <xsl:variable name="lastfuncsblock">
       <xsl:value-of select="position() = last()"/>
     </xsl:variable>         
     <xsl:apply-templates select="func/name">
-      <xsl:with-param name="mod" select="$mod"/>
       <xsl:with-param name="lastfuncsblock" select="$lastfuncsblock"/>
     </xsl:apply-templates>
   </xsl:template>
 
-
-
-
   <xsl:template match="name">
-    <xsl:param name="mod"/>
+    <xsl:param name="lastfuncsblock"/>
+    <xsl:choose>
+      <!-- @arity is mandatory when referring to a specification -->
+      <xsl:when test="string-length(@arity) > 0">
+        <xsl:call-template name="spec_name">
+	  <xsl:with-param name="lastfuncsblock" select="$lastfuncsblock"/>
+	</xsl:call-template>
+      </xsl:when>
+      <xsl:otherwise>
+        <xsl:call-template name="name">
+	  <xsl:with-param name="lastfuncsblock" select="$lastfuncsblock"/>
+	</xsl:call-template>
+      </xsl:otherwise>
+    </xsl:choose>
+  </xsl:template>
+
+  <xsl:template name="err">
+    <xsl:param name="f"/>
+    <xsl:param name="m"/>
+    <xsl:param name="n"/>
+    <xsl:param name="a"/>
+    <xsl:param name="s"/>
+    <xsl:message terminate="yes">
+  Error <xsl:if test="$f != ''">in <xsl:value-of select ="$f"/>:</xsl:if>
+        <xsl:if test="$m != ''"><xsl:value-of select ="$m"/>:</xsl:if>
+        <xsl:value-of select="$n"/>
+        <xsl:if test="$a != ''">/<xsl:value-of
+             select ="$a"/></xsl:if>: <xsl:value-of select="$s"/>
+    </xsl:message>
+  </xsl:template>
+
+  <xsl:template name="find_spec">
+    <xsl:variable name="curModule" select="ancestor::erlref/module"/>
+    <xsl:variable name="mod" select="@mod"/>
+    <xsl:variable name="name" select="@name"/>
+    <xsl:variable name="arity" select="@arity"/>
+    <xsl:variable name="clause_i" select="@clause_i"/>
+    <xsl:variable name="spec0" select=
+        "$i/specs/module[@name=$curModule]/spec
+             [name=$name and arity=$arity
+              and (string-length($mod) = 0 or module = $mod)]"/>
+    <xsl:variable name="spec" select="$spec0[string-length($clause_i) = 0
+                                             or position() = $clause_i]"/>
+
+    <xsl:if test="count($spec) != 1">
+      <xsl:variable name="why">
+        <xsl:choose>
+          <xsl:when test="count($spec) > 1">ambiguous spec</xsl:when>
+          <xsl:when test="count($spec) = 0">unknown spec</xsl:when>
+        </xsl:choose>
+      </xsl:variable>
+      <xsl:call-template name="err">
+        <xsl:with-param name="f" select="$curModule"/>
+	<xsl:with-param name="m" select="$mod"/>
+	<xsl:with-param name="n" select="$name"/>
+	<xsl:with-param name="a" select="$arity"/>
+        <xsl:with-param name="s" select="$why"/>
+      </xsl:call-template>
+    </xsl:if>
+    <xsl:copy-of select="$spec"/>
+  </xsl:template>
+
+
+  <xsl:template name="spec_name">
+    <xsl:param name="lastfuncsblock"/>
+    <xsl:variable name="fname" select="@name"/>
+    <xsl:variable name="arity" select="@arity"/>
+    <xsl:variable name="spec0">
+      <xsl:call-template name="find_spec"/>
+    </xsl:variable>
+    <xsl:variable name="spec" select="exsl:node-set($spec0)/spec"/>
+
+    <xsl:variable name="tmpstring">
+      <xsl:value-of select="substring-before($spec/contract/clause/head, ' ->')"/>
+    </xsl:variable>
+
+    <xsl:text>  {"</xsl:text><xsl:value-of select="$fname"/>
+    <xsl:text>", "</xsl:text><xsl:value-of select="$tmpstring"/>
+    <xsl:text>", "</xsl:text><xsl:value-of select="$fname"/>
+    <xsl:text>-</xsl:text><xsl:value-of select="$arity"/><xsl:text>"}</xsl:text>
+    
+    <xsl:choose>
+      <xsl:when test="($lastfuncsblock = 'true') and (position() = last())">
+        <xsl:text>&#10;</xsl:text>
+      </xsl:when>
+      <xsl:otherwise>
+        <xsl:text>,&#10;</xsl:text>
+      </xsl:otherwise>
+    </xsl:choose>
+
+  </xsl:template>
+
+
+  <xsl:template name="name">
     <xsl:param name="lastfuncsblock"/>
 
     <xsl:variable name="tmpstring">
       <xsl:value-of select="substring-before(substring-after(., '('), '->')"/>
-    </xsl:variable>     
+    </xsl:variable>
+
     <xsl:variable name="ustring">
       <xsl:choose>
-        <xsl:when test="string-length($tmpstring) > 0">
-          <xsl:call-template name="remove-paren">
-            <xsl:with-param name="string" select="$tmpstring"/>
-          </xsl:call-template>            
-        </xsl:when>
-        <xsl:otherwise>
-          <xsl:call-template name="remove-paren">
-            <xsl:with-param name="string" select="substring-after(., '(')"/>
-          </xsl:call-template>                      
-        </xsl:otherwise>
+	<xsl:when test="string-length($tmpstring) > 0">
+	  <xsl:call-template name="remove-paren">
+	    <xsl:with-param name="string" select="$tmpstring"/>
+	  </xsl:call-template>
+	</xsl:when>
+	<xsl:otherwise>
+	  <xsl:call-template name="remove-paren">
+	    <xsl:with-param name="string" select="substring-after(., '(')"/>
+	  </xsl:call-template>
+	</xsl:otherwise>
       </xsl:choose>
-    </xsl:variable>       
+    </xsl:variable>
+
     <xsl:variable name="arity">
       <xsl:call-template name="calc-arity">
-        <xsl:with-param name="string" select="substring-before($ustring, ')')"/>
-        <xsl:with-param name="no-of-pars" select="0"/> 
+	<xsl:with-param name="string" select="substring-before($ustring, ')')"/>
+	<xsl:with-param name="no-of-pars" select="0"/>
       </xsl:call-template>
-    </xsl:variable> 
+    </xsl:variable>
+
     <xsl:variable name="fname">
       <xsl:choose>
-        <xsl:when test="ancestor::cref">
-          <xsl:value-of select="substring-before(nametext, '(')"/>
-        </xsl:when>
-        <xsl:when test="ancestor::erlref">
-          <xsl:variable name="fname1">
-            <xsl:value-of select="substring-before(., '(')"/>
-          </xsl:variable>
-          <xsl:variable name="fname2">
-            <xsl:value-of select="substring-after($fname1, 'erlang:')"/>
-          </xsl:variable>
-          <xsl:choose>
-            <xsl:when test="string-length($fname2) > 0">   
-              <xsl:value-of select="$fname2"/>
-            </xsl:when>
-            <xsl:otherwise>
-              <xsl:value-of select="$fname1"/>
-            </xsl:otherwise>
-          </xsl:choose>
-        </xsl:when>
+	<xsl:when test="ancestor::cref">
+	  <xsl:value-of select="substring-before(nametext, '(')"/>
+	</xsl:when>
+	<xsl:when test="ancestor::erlref">
+	  <xsl:variable name="fname1">
+	    <xsl:value-of select="substring-before(., '(')"/>
+	  </xsl:variable>
+	  <xsl:variable name="fname2">
+	    <xsl:value-of select="substring-after($fname1, 'erlang:')"/>
+	  </xsl:variable>
+	  <xsl:choose>
+	    <xsl:when test="string-length($fname2) > 0">
+	      <xsl:value-of select="$fname2"/>
+	    </xsl:when>
+	    <xsl:otherwise>
+	      <xsl:value-of select="$fname1"/>
+	    </xsl:otherwise>
+	  </xsl:choose>
+	</xsl:when>
       </xsl:choose>
-    </xsl:variable>     
+    </xsl:variable>
+    
     <xsl:text>  {"</xsl:text><xsl:value-of select="$fname"/>
     <xsl:text>", "</xsl:text><xsl:value-of select="$fname"/>
     <xsl:text>(</xsl:text><xsl:value-of select="normalize-space($tmpstring)"/>

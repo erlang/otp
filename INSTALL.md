@@ -1,8 +1,12 @@
 Building and Installing Erlang/OTP
 ==================================
 
-Please read the whole file before attempting to build and install Erlang/OTP.
-You can find more information about Open Source Erlang/OTP at:
+Introduction
+------------
+
+This document describes how to build and install Erlang/OTP-%OTP-REL%. You
+are advised to read the whole document before attempting to build and install
+Erlang/OTP. You can find more information about Open Source Erlang/OTP at:
 
    <http://www.erlang.org/>
 
@@ -10,24 +14,22 @@ The source code for Erlang/OTP can also be found in a Git repository:
 
    <http://github.com/erlang/otp>
 
-Portability
------------
-
 Erlang/OTP should be possible to build from source on any Unix system,
 including Mac OS X. This document describes how to native compile Erlang/OTP
 on Unix. For detailed instructions on how to
 
-*   cross compile Erlang/OTP, see the [`$ERL_TOP/INSTALL-CROSS.md`] [1]
+*   cross compile Erlang/OTP, see the [$ERL_TOP/INSTALL-CROSS.md][]
     document.
 
-*   build Erlang/OTP on Windows, see the [`$ERL_TOP/INSTALL-WIN32.md`] [2]
+*   build Erlang/OTP on Windows, see the [$ERL_TOP/INSTALL-WIN32.md][]
     document.
 
     Binary releases for Windows can be found at
     <http://www.erlang.org/download.html>.
 
-However, you are in any case advised to read this document first, since it
-covers building Erlang/OTP in general as well as other important information.
+Before reading the above mentioned documents you are in any case advised to
+read this document first, since it covers building Erlang/OTP in general as
+well as other important information.
 
 Daily Build and Test
 --------------------
@@ -44,9 +46,9 @@ At Ericsson we have a "Daily Build and Test" that runs on:
     *   x86
 *   SuSE Linux/GNU 10.0, 10.1
     *   x86
-    *   x86_64
+    *   x86\_64
 *   SuSE Linux/GNU 11.0
-    *   x86_64
+    *   x86\_64
 *   Gentoo Linux/GNU 1.12.11.1
     *   x86
 *   MontaVista Linux/GNU 4.0.1
@@ -60,15 +62,15 @@ At Ericsson we have a "Daily Build and Test" that runs on:
 
 We also have the following "Daily Cross Builds":
 
-*   SuSE Linux/GNU 10.1 x86 -> SuSE Linux/GNU 10.1 x86_64
-*   SuSE Linux/GNU 10.1 x86_64 -> Linux/GNU TILEPro64
+*   SuSE Linux/GNU 10.1 x86 -> SuSE Linux/GNU 10.1 x86\_64
+*   SuSE Linux/GNU 10.1 x86\_64 -> Linux/GNU TILEPro64
 
 and the following "Daily Cross Build Tests":
 
-*   SuSE Linux/GNU 10.1 x86_64
+*   SuSE Linux/GNU 10.1 x86\_64
 
-Versions Known *not* to Work
-----------------------------
+Versions Known NOT to Work
+--------------------------
 
 *   Suse linux 9.1 is shipped with a patched GCC version 3.3.3, having the
     rpm named `gcc-3.3.3-41`. That version has a serious optimization bug
@@ -118,14 +120,15 @@ These are the tools you will need in order to unpack and build Erlang/OTP.
 
 ### Building ###
 
-*   GNU make
-*   GNU C compiler
+*   GNU `make`
+*   `gcc` -- GNU C compiler
 *   Perl 5
-*   GNU m4 -- If hipe (native code) support is enabled.
-*   ncurses (or termcap or termlib) -- The development headers and libraries
-    are needed, often known as ncurses-devel. (Use --without-termcap to build
-    without any of these libraries. Only the old shell (without any line
-    editing) can be used.)
+*   GNU `m4` -- If HiPE (native code) support is enabled. HiPE can be
+    disabled using `--disable-hipe`
+*   `ncurses`, `termcap`, or `termlib` -- The development headers and
+    libraries are needed, often known as `ncurses-devel`. Use
+    `--without-termcap` to build without any of these libraries. Note that
+    in this case only the old shell (without any line editing) can be used.
 *   OpenSSL -- Optional, but needed for building the Erlang/OTP applications
     `ssl` and `crypto`. You need the "development package" of OpenSSL, i.e.
     including the header files. For building the application `ssl` the OpenSSL
@@ -140,23 +143,21 @@ These are the tools you will need in order to unpack and build Erlang/OTP.
 *  `sed` -- There seem to be some problems with some of the `sed` version on
     Solaris. Make sure `/bin/sed` or `/usr/bin/sed` is used on the Solaris
     platform.
-*   Flex -- Optional, headers and libraries are needed to build the flex
+*   `flex` -- Optional, headers and libraries are needed to build the `flex`
     scanner for the `megaco` application on Unix/Linux.
-
-If you are building in a Git working directory you also have to have a GNU
-`autoconf` of at least version 2.59. Autoconf is however not needed if you
-build an unmodified version of the released source.
 
 #### Building Documentation ####
 
 *   `xsltproc` -- XSLT processor. A tool for applying XSLT stylesheets
     to XML documents. Can be downloaded from
     <http://xmlsoft.org/XSLT/xsltproc2.html>.
-*   `fop` -- Apache FOP print formatter (requires Java). Can be downloaded from
-    <http://xmlgraphics.apache.org/fop>.
-*   `Markdown.pl` -- Optional. This is a `perl` script that generates an
-    HTML version of a document written in Markdown notation. Can be
-    downloaded at <http://daringfireball.net/projects/markdown>.
+*   `fop` -- Apache FOP print formatter (requires Java). Can be downloaded
+    from <http://xmlgraphics.apache.org/fop>.
+
+#### Building in Git ####
+
+*   GNU `autoconf` of at least version 2.59. Note that `autoconf` is not
+    needed when building an unmodified version of the released source.
 
 ### Installing ###
 
@@ -165,12 +166,12 @@ build an unmodified version of the released source.
 How to Build and Install Erlang/OTP
 -----------------------------------
 
-The following instructions are for building using the source tar ball.
+The following instructions are for building [the released source tar ball][].
 
 The variable `$ERL_TOP` will be mentioned a lot of times. It refers to
 the top directory in the source tree. More information about `$ERL_TOP`
-can be found in the "`make` and `$ERL_TOP`" section below. If you are
-building in git you probably want to take a look at the "Building in Git"
+can be found in the [make and $ERL_TOP][] section below. If you are
+building in git you probably want to take a look at the [Building in Git][]
 section below before proceeding.
 
 ### Unpacking ###
@@ -178,13 +179,16 @@ section below before proceeding.
 Step 1: Start by unpacking the Erlang/OTP distribution file with your GNU
 compatible TAR program.
 
-    $ gunzip -c otp_src_R13B04.tar.gz | tar xf -
-    $ zcat otp_src_R13B04.tar.gz | tar xf -
+    $ gunzip -c otp_src_%OTP-REL%.tar.gz | tar xf -
+
+alternatively:
+
+    $ zcat otp_src_%OTP-REL%.tar.gz | tar xf -
 
 
 Step 2: Now cd into the base directory (`$ERL_TOP`).
 
-    $ cd otp_src_R13B04
+    $ cd otp_src_%OTP-REL%
 
 ### Configuring ###
 
@@ -208,8 +212,8 @@ To instead install in `<BaseDir>/{bin,lib/erlang}`, use the
 `--prefix=<BaseDir>` option.
 
 If you upgraded the source with some patch you may need to clean up
-from previous builds before the new build. Do a `make clean`; see
-"Caveats" below.
+from previous builds before the new build. Before doing a `make clean`,
+be sure to read the [Pre-built Source Release][] section below.
 
 ### Building ###
 
@@ -237,46 +241,59 @@ type `./configure --help` or `./configure --help=recursive` for details.
 `./configure --help=recursive` will give help for all `configure` scripts in
 all applications.
 
-One of the things you can specify is where Erlang/OTP should be installed: by
-default Erlang/OTP will be installed in `/usr/local/{bin,lib/erlang}`;
-to keep the same structure but install in a different place, `<Dir>` say,
+One of the things you can specify is where Erlang/OTP should be installed. By
+default Erlang/OTP will be installed in `/usr/local/{bin,lib/erlang}`.
+To keep the same structure but install in a different place, `<Dir>` say,
 use the `--prefix` argument like this: `./configure --prefix=<Dir>`.
 
 Some of the available `configure` options are:
 
-  * `--prefix=PATH`: Specify installation prefix.
-  * `--{enable,disable}-threads`: Thread support (enabled by default if
+*   `--prefix=PATH` - Specify installation prefix.
+*   `--{enable,disable}-threads` - Thread support (enabled by default if
     possible)
-  * `--{enable,disable}-smp-support`: SMP support (enabled by default if
+*   `--{enable,disable}-smp-support` - SMP support (enabled by default if
     possible)
-  * `--{enable,disable}-kernel-poll`: Kernel poll support (enabled by default
-    if possible)
-  * `--{enable,disable}-hipe`: HiPE support (enabled by default on supported
+*   `--{enable,disable}-kernel-poll` - Kernel poll support (enabled by
+    default if possible)
+*   `--{enable,disable}-hipe` - HiPE support (enabled by default on supported
     platforms)
-  * `--enable-darwin-universal`: Build universal binaries on darwin i386.
-  * `--enable-darwin-64bit`: Build 64bit binaries on darwin
-  * `--enable-m64-build`: Build 64bit binaries using the -m64 flag to (g)cc
-  * `--enable-m32-build`: Build 32bit binaries using the -m32 flag to (g)cc
-  * `--{with,without}-termcap`: termcap (without implies that only the old
+*   `--enable-darwin-universal` - Build universal binaries on darwin i386.
+*   `--enable-darwin-64bit` - Build 64-bit binaries on darwin
+*   `--enable-m64-build` - Build 64-bit binaries using the `-m64` flag to
+    `(g)cc`
+*   `--enable-m32-build` - Build 32-bit binaries using the `-m32` flag to
+    `(g)cc`
+*   `--{with,without}-termcap` - termcap (without implies that only the old
     Erlang shell can be used)
-  * `--with-javac=JAVAC`: Specify Java compiler to use
-  * `--{with,without}-javac`: Java compiler (without implies that the
-    `jinterface` application won't be built).
-  * `--{enable,disable}-dynamic-ssl-lib`: Dynamic OpenSSL libraries
-  * `--{enable,disable}-shared-zlib`: Shared zlib library
-  * `--with-ssl=PATH`: Specify location of OpenSSL include and lib
-  * `--{with,without}-ssl`: OpenSSL (without implies that the `crypto`, `ssh`,
-    and `ssl` won't be built)
+*   `--with-javac=JAVAC` - Specify Java compiler to use
+*   `--{with,without}-javac` - Java compiler (without implies that the
+    `jinterface` application won't be built)
+*   `--{enable,disable}-dynamic-ssl-lib` - Dynamic OpenSSL libraries
+*   `--{enable,disable}-shared-zlib` - Shared zlib library
+*   `--with-ssl=PATH` - Specify location of OpenSSL include and lib
+*   `--{with,without}-ssl` - OpenSSL (without implies that the `crypto`,
+    `ssh`, and `ssl` won't be built)
+*   `--with-libatomic_ops=PATH` - Use the `libatomic_ops` library for atomic
+    memory accesses. If `configure` should inform you about no native atomic
+    implementation available, you typically want to try using the
+    `libatomic_ops` library. It can be downloaded from
+    <http://www.hpl.hp.com/research/linux/atomic_ops/>.
 
-If you or your system has special requirements please read the
-Makefile for additional configuration information.
+If you or your system has special requirements please read the `Makefile` for
+additional configuration information.
 
 #### Building ####
 
 Step 5 builds the Erlang/OTP system. On a fast computer, this will take about
 5 minutes. After completion of this step, you should have a working
 Erlang/OTP system which you can try by typing `bin/erl`. This should start
-up Erlang/OTP and give you a prompt.
+up Erlang/OTP and give you a prompt:
+
+    $ bin/erl
+    Erlang %OTP-REL% (erts-%ERTS-VSN%) [source] [smp:4:4] [rq:4] [async-threads:0] [kernel-poll:false]
+
+    Eshell V%ERTS-VSN%  (abort with ^G)
+    1> _
 
 #### Installing ####
 
@@ -286,7 +303,7 @@ without having to do step 5 again).
 
 ##### Alternative Installation Procedures #####
 
-*   Staged install using [`DESTDIR`] [3]. You can perform the install
+*   Staged install using [DESTDIR][]. You can perform the install
     phase in a temporary directory and later move the installation into
     its correct location by use of the `DESTDIR` variable:
 
@@ -366,7 +383,7 @@ without having to do step 5 again).
     if you want to try the system out, running test suites, etc, before doing
     the real install without `EXTRA_PREFIX`.
 
-### Symbolic Links in `--bindir` ###
+### Symbolic Links in --bindir ###
 
 When doing `make install` and the default installation prefix is used,
 relative symbolic links will be created from `/usr/local/bin` to all public
@@ -380,10 +397,28 @@ passed to `configure`. One can force relative, or absolute links by passing
 phase. Note that such a request might cause a failure if the request cannot
 be satisfied.
 
+### Pre-built Source Release ###
+
+The source release is delivered with a lot of platform independent
+build results already pre-built. If you want to remove these pre-built
+files, invoke `./otp_build remove_prebuilt_files` from the `$ERL_TOP`
+directory. After you have done this, you can build exactly the same way
+as before, but the build process will take a much longer time.
+
+> *WARNING*: Doing `make clean` in an arbitrary directory of the source
+> tree, may remove files needed for bootstrapping the build.
+>
+> Doing `./otp_build save_bootstrap` from the `$ERL_TOP` directory before
+> doing `make clean` will ensure that it will be possible to build after
+> doing `make clean`. `./otp_build save_bootstrap` will be invoked
+> automatically when `make` is invoked from `$ERL_TOP` with either the
+> `clean` target, or the default target. It is also automatically invoked
+> if `./otp_build remove_prebuilt_files` is invoked.
+
 ### Building in Git ###
 
 When building in a Git working directory you also have to have a GNU `autoconf`
-of at least version 2.59 on your system. This since you need to generate the
+of at least version 2.59 on your system, because you need to generate the
 `configure` scripts before you can start building.
 
 The `configure` scripts are generated by invoking `./otp_build autoconf` in
@@ -394,32 +429,13 @@ content, and you may therefore have to regenerate the `configure` scripts
 when checking out a branch. Regenerated `configure` scripts imply that you
 have to run `configure` and build again.
 
-Note that running `./otp_build autoconf` is **not** needed when building an
-unmodified version the released source.
+> *NOTE*: Running `./otp_build autoconf` is **not** needed when building
+> an unmodified version of the released source.
 
 Other useful information can be found at our github wiki:
 <http://wiki.github.com/erlang/otp>
 
-Pre-built Source Tree
----------------------
-
-The source tree is delivered with a lot of platform independent
-build results already pre-built. If you want to remove these pre-built
-files, invoke `./otp_build remove_prebuilt_files` from the `$ERL_TOP`
-directory. After you have done this, you can build exactly the same way
-as before, but the build process will take a much longer time.
-
-*NOTE*: Doing `make clean` in an arbitrary directory of the source tree,
-may remove files needed for bootstrapping the build. Doing
-`./otp_build save_bootstrap` from the `$ERL_TOP` directory before
-doing `make clean` will ensure that it will be possible to build after
-doing `make clean`. `./otp_build save_bootstrap` will be invoked
-automatically when `make` is invoked from `$ERL_TOP` with either the
-`clean` target, or the default target. It is also automatically invoked
-if `./otp_build remove_prebuilt_files` is invoked.
-
-`make` and `$ERL_TOP`
----------------------
+### make and $ERL\_TOP ###
 
 All the makefiles in the entire directory tree use the environment
 variable `ERL_TOP` to find the absolute path of the installation. The
@@ -437,8 +453,10 @@ want to rebuild the application `STDLIB`, then you could do:
 where `<Dir>` would be what you find `ERL_TOP` is set to in the top level
 Makefile.
 
-How to Build the Erlang/OTP Documentation
------------------------------------------
+The Erlang/OTP Documentation
+----------------------------
+
+### How to Build the Documentation ###
 
     $ cd $ERL_TOP
 
@@ -448,19 +466,10 @@ already ran `configure` and do not need to do this again; otherwise, run
 
     $ ./configure [Configure Args]
 
-When building the documentation you need a full Erlang/OTP-R13B04 system in
+When building the documentation you need a full Erlang/OTP-%OTP-REL% system in
 the `$PATH`.
 
-    $ export PATH=<Erlang/OTP-R13B04 bin dir>:$PATH     # Assuming bash/sh
-
-This document as well as some other documents have been written using
-Markdown notation. HTML versions of these documents are created and included
-in the HTML documentation if the environment variable `MD2HTML` is set to a
-command that generates HTML on `stdout` for a Markdown document passed as
-argument. This is a last minute hack, which will be handled in a better way
-in the future. We currently set `MD2HTML` as follows.
-
-    $ export MD2HTML="perl <path to script>/Markdown.pl --html4tags"
+    $ export PATH=<Erlang/OTP-%OTP-REL% bin dir>:$PATH     # Assuming bash/sh
 
 Build the documentation.
 
@@ -478,13 +487,13 @@ or using the `release_docs` target.
 
 *   If you have installed Erlang/OTP using the `release` target, install
     the documentation using the `release_docs` target. You typically want
-    to use the same RELEASE_ROOT as when invoking `make release`.
+    to use the same `RELEASE_ROOT` as when invoking `make release`.
 
         $ make release_docs RELEASE_ROOT=<release dir>
 
-### Build Issues ###
+#### Build Issues ####
 
-We have sometimes experienced problems with suns `java` running out of
+We have sometimes experienced problems with Sun's `java` running out of
 memory when running `fop`. Increasing the amount of memory available
 as follows has in our case solved the problem.
 
@@ -493,23 +502,22 @@ as follows has in our case solved the problem.
 More information can be found at
 <http://xmlgraphics.apache.org/fop/0.95/running.html#memory>.
 
-How to Install the Pre-formatted Erlang/OTP Documentation
----------------------------------------------------------
+### How to Install the Pre-formatted Documentation ###
 
-Pre-formatted documentation can be downloaded at
+Pre-formatted [html documentation][] and [man pages][] can be downloaded at
 <http://www.erlang.org/download.html>.
 
 For some graphical tools to find the on-line help you have to install
 the HTML documentation on top of the installed OTP applications, i.e.
 
     $ cd <ReleaseDir>
-    $ gunzip -c otp_html_R13B04.tar.gz | tar xf -
+    $ gunzip -c otp_html_%OTP-REL%.tar.gz | tar xf -
 
 For `erl -man <page>` to work the Unix manual pages have to be
 installed in the same way, i.e.
 
     $ cd <ReleaseDir>
-    $ gunzip -c otp_man_R13B04.tar.gz | tar xf -
+    $ gunzip -c otp_man_%OTP-REL%.tar.gz | tar xf -
 
 Where `<ReleaseDir>` is
 
@@ -620,7 +628,7 @@ To add hipe options, write like this from the Erlang shell:
 
     1> c(Module, [native,{hipe,HipeOptions}|MoreOptions]).
 
-Use hipe:help_options/0 to print out the available options.
+Use `hipe:help_options/0` to print out the available options.
 
     1> hipe:help_options().
 
@@ -702,6 +710,7 @@ purposes.
 
 Authors
 -------
+
 Authors are mostly listed in the application's `AUTHORS` files,
 that is `$ERL_TOP/lib/*/AUTHORS` and `$ERL_TOP/erts/AUTHORS`,
 not in the individual source files.
@@ -709,30 +718,44 @@ not in the individual source files.
 Copyright and License
 ---------------------
 
-> %CopyrightBegin%
->
-> Copyright Ericsson AB 1998-2010. All Rights Reserved.
->
-> The contents of this file are subject to the Erlang Public License,
-> Version 1.1, (the "License"); you may not use this file except in
-> compliance with the License. You should have received a copy of the
-> Erlang Public License along with this software. If not, it can be
-> retrieved online at http://www.erlang.org/.
->
-> Software distributed under the License is distributed on an "AS IS"
-> basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-> the License for the specific language governing rights and limitations
-> under the License.
->
-> %CopyrightEnd%
+%CopyrightBegin%
+
+Copyright Ericsson AB 1998-2011. All Rights Reserved.
+
+The contents of this file are subject to the Erlang Public License,
+Version 1.1, (the "License"); you may not use this file except in
+compliance with the License. You should have received a copy of the
+Erlang Public License along with this software. If not, it can be
+retrieved online at http://www.erlang.org/.
+
+Software distributed under the License is distributed on an "AS IS"
+basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+the License for the specific language governing rights and limitations
+under the License.
+
+%CopyrightEnd%
 
 More Information
 ----------------
 
 More information can be found at <http://www.erlang.org>.
 
+Modifying This Document
+-----------------------
+
+Before modifying this document you need to have a look at the
+`$ERL_TOP/README.md.txt` document.
 
 
-   [1]: INSTALL-CROSS.html "$ERL_TOP/INSTALL-CROSS.md"
-   [2]: INSTALL-WIN32.html "$ERL_TOP/INSTALL-WIN32.md"
-   [3]: http://www.gnu.org/prep/standards/html_node/DESTDIR.html "DESTDIR"
+
+   [$ERL_TOP/INSTALL-CROSS.md]: INSTALL-CROSS
+   [$ERL_TOP/INSTALL-WIN32.md]: INSTALL-WIN32
+   [DESTDIR]: http://www.gnu.org/prep/standards/html_node/DESTDIR.html
+   [Building in Git]: #How-to-Build-and-Install-ErlangOTP_Building-in-Git
+   [Pre-built Source Release]: #How-to-Build-and-Install-ErlangOTP_Prebuilt-Source-Release
+   [make and $ERL_TOP]: #How-to-Build-and-Install-ErlangOTP_make-and-ERLTOP
+   [html documentation]: http://www.erlang.org/download/otp_doc_html_%OTP-REL%.tar.gz
+   [man pages]: http://www.erlang.org/download/otp_doc_man_%OTP-REL%.tar.gz
+   [the released source tar ball]: http://www.erlang.org/download/otp_src_%OTP-REL%.tar.gz
+
+   [?TOC]: true

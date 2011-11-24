@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -182,6 +182,8 @@
 	]).
 	
 	
+-compile({no_auto_import,[error/2]}).
+
 -include("mnesia.hrl").
 -import(mnesia_lib, [val/1, dir/1]).
 -import(mnesia_lib, [exists/1, fatal/2, error/2, dbg_out/2]).
@@ -1019,7 +1021,8 @@ add_recs([LogH|Rest], N)
        LogH#log_header.log_version >= "1.0" ->    
     add_recs(Rest, N);
 add_recs([{{Tab, _Key}, _Val, clear_table} | Rest], N) ->
-    true = ets:match_delete(Tab, '_'),
-    add_recs(Rest, N+ets:info(Tab, size));  
+    Size = ets:info(Tab, size),
+    true = ets:delete_all_objects(Tab),
+    add_recs(Rest, N+Size);
 add_recs([], N) ->
     N.

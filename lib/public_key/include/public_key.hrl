@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -23,10 +23,22 @@
 -define(public_key, true).
 
 -include("OTP-PUB-KEY.hrl").
+-include("PKCS-FRAME.hrl").
 
 -record('SubjectPublicKeyInfoAlgorithm', {
  	  algorithm, 
  	  parameters = asn1_NOVALUE}).
+
+-define(DEFAULT_VERIFYFUN,
+	{fun(_,{bad_cert, _} = Reason, _) ->
+		 {fail, Reason};
+	    (_,{extension, _}, UserState) ->
+		 {unknown, UserState};
+	    (_, valid, UserState) ->
+		 {valid, UserState};
+	    (_, valid_peer, UserState) ->
+		 {valid, UserState}
+	 end, []}).
 
 -record(path_validation_state, {
 	  valid_policy_tree,
@@ -42,7 +54,7 @@
 	  working_public_key_parameters,
 	  working_issuer_name,
 	  max_path_length,
-	  acc_errors,  %% If verify_none option is set
+	  verify_fun,
 	  user_state
 	 }).
 
@@ -58,5 +70,19 @@
 	  cert_status,
 	  interim_reasons_mask
 	 }).
+
+-type public_key()           ::  rsa_public_key() | dsa_public_key().
+-type rsa_public_key()       ::  #'RSAPublicKey'{}.
+-type rsa_private_key()      ::  #'RSAPrivateKey'{}.
+-type dsa_private_key()      ::  #'DSAPrivateKey'{}.
+-type dsa_public_key()       :: {integer(), #'Dss-Parms'{}}.
+-type pki_asn1_type()        ::  'Certificate' | 'RSAPrivateKey' | 'RSAPublicKey'
+			       | 'DSAPrivateKey' | 'DSAPublicKey' | 'DHParameter'
+                               | 'SubjectPublicKeyInfo'.
+-type pem_entry()            :: {pki_asn1_type(), binary(), %% DER or Encrypted DER
+				 not_encrypted | {Cipher :: string(), Salt :: binary()}}.
+-type asn1_type()            :: atom(). %% see "OTP-PUB-KEY.hrl
+-type ssh_file()             :: openssh_public_key | rfc4716_public_key | known_hosts |
+				auth_keys.
 
 -endif. % -ifdef(public_key).

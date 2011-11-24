@@ -1,0 +1,3 @@
+
+record_test.erl:19: The pattern {'foo', _} can never match the type 'foo'
+record_test.erl:21: The variable _ can never match since previous clauses completely covered the type 'foo'

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -118,9 +118,9 @@ init([]) ->
     {ok, #state{}}.
 
 handle_call({is_started, Title}, _From, State) ->
-    Reply = case lists:keysearch(Title, #win.title, State#state.wins) of
-		{value, Win} -> {true, Win#win.win};
-		false -> false
+    Reply = case lists:keyfind(Title, #win.title, State#state.wins) of
+		false -> false;
+		Win -> {true, Win#win.win}
 	    end,
     {reply, Reply, State}.
 
@@ -132,8 +132,8 @@ handle_cast({insert, Pid, Title, Win}, State) ->
 
 handle_cast({clear_process, Title}, State) ->
     OldWins = State#state.wins,
-    Wins = case lists:keysearch(Title, #win.title, OldWins) of
-		 {value, #win{owner=Pid}} ->     
+    Wins = case lists:keyfind(Title, #win.title, OldWins) of
+	       #win{owner=Pid} ->
 		   Msg = {dbg_ui_winman, destroy},
 		   Pid ! Msg,
 		   lists:keydelete(Title, #win.title, OldWins);
@@ -145,7 +145,7 @@ handle_cast({clear_process, Title}, State) ->
 handle_info({'EXIT', Pid, _Reason}, State) ->
     [Mon | _Wins] = State#state.wins,
     if
-	Pid==Mon#win.owner -> {stop, normal, State};
+	Pid =:= Mon#win.owner -> {stop, normal, State};
 	true ->
 	    Wins2 = lists:keydelete(Pid, #win.owner, State#state.wins),
 	    inform_all(Wins2),

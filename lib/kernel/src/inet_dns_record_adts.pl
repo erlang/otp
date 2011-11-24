@@ -2,7 +2,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2009. All Rights Reserved.
+# Copyright Ericsson AB 2009-2011. All Rights Reserved.
 # 
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -73,6 +73,10 @@ while( my ($Name, $r) = each(%Names)) {
     # "@Values" = "V1,V2"...",VN"
     my @D = @DATA;
     foreach my $line (@D) {
+	# Ignore !name lines
+	if ($line =~ s/^\!(\S+)\s+//) {
+	    next if $1 eq $Name;
+	}
 	my $m = 1;
 	# For leading * iterate $n times, otherwise once
 	$line =~ s/^\s*[*]// and $m = $n;
@@ -155,9 +159,9 @@ make_Name() -> \
 make_Name(L) when is_list(L) -> \
     make_Name(#Record{}, L).
 
-%% Generate #Record{} with one updated field
-%%
-*make_Name(Field, Value) -> \
+!dns_rr_opt %% Generate #Record{} with one updated field
+!dns_rr_opt %%
+!dns_rr_opt *make_Name(Field, Value) -> \
     #Record{Field=Value};
 %%
 %% Update #Record{} from property list

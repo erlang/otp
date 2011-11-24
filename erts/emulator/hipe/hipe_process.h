@@ -1,22 +1,22 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2001-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2001-2011. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
-/* $Id$
+/*
  * HiPE-specific process fields
  */
 #ifndef HIPE_PROCESS_H
@@ -42,6 +42,12 @@ struct hipe_process_state {
     void (*nra)(void);		/* Native code return address. */
 #endif
     unsigned int narity;	/* Arity of BIF call, for stack walks. */
+#ifdef NO_FPE_SIGNALS
+    double float_result;        /* to be checked for inf/NaN by hipe_emulate_fpe */ 
+#endif
+#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
+    void (*bif_callee)(void);   /* When calling BIF's via debug wrapper */
+#endif
 };
 
 extern void hipe_arch_print_pcb(struct hipe_process_state *p);

@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -23,8 +23,9 @@
 -module(snmp_app_test).
 
 -export([
-	 all/1, init_suite/1, fin_suite/1,
-	 init_per_testcase/2, fin_per_testcase/2, 
+	all/0,groups/0,init_per_group/2,end_per_group/2, init_per_suite/1,
+	 end_per_suite/1,
+	 init_per_testcase/2, end_per_testcase/2, 
 
 	 fields/1,
 	 modules/1,
@@ -32,7 +33,7 @@
 	 app_depend/1,
 	 undef_funcs/1,
 
-	 start_and_stop/1,
+	
 	 start_and_stop_empty/1, 
 	 start_and_stop_with_agent/1, 
 	 start_and_stop_with_manager/1,
@@ -44,25 +45,34 @@
 
 
 -include_lib("kernel/include/file.hrl").
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include("snmp_test_lib.hrl").
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-all(suite) ->
-    Cases = 
-	[
-	 fields,
-	 modules,
-	 exportall,
-	 app_depend,
-         undef_funcs,
-	 start_and_stop
-	],
-    {conf, init_suite, Cases, fin_suite}.
+all() -> 
+Cases = [fields, modules, exportall, app_depend,
+	 undef_funcs, {group, start_and_stop}],
+	Cases.
 
-init_suite(Config) when is_list(Config) ->
+groups() -> 
+    [{start_and_stop, [],
+  [start_and_stop_empty, start_and_stop_with_agent,
+   start_and_stop_with_manager,
+   start_and_stop_with_agent_and_manager,
+   start_epmty_and_then_agent_and_manager_and_stop,
+   start_with_agent_and_then_manager_and_stop,
+   start_with_manager_and_then_agent_and_stop]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
+
+init_per_suite(Config) when is_list(Config) ->
     ?DISPLAY_SUITE_INFO(), 
     PrivDir = ?config(priv_dir, Config),
     TopDir = filename:join(PrivDir, app),
@@ -97,9 +107,9 @@ is_app(App) ->
 	    {error, {invalid_format, Error}}
     end.
 
-fin_suite(suite) -> [];
-fin_suite(doc) -> [];
-fin_suite(Config) when is_list(Config) ->
+end_per_suite(suite) -> [];
+end_per_suite(doc) -> [];
+end_per_suite(Config) when is_list(Config) ->
     Config.
 
 
@@ -112,7 +122,7 @@ init_per_testcase(undef_funcs, Config) ->
 init_per_testcase(_Case, Config) ->
     Config.
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Config.
 
 
@@ -290,6 +300,25 @@ undef_funcs(Config) when is_list(Config) ->
     xref:stop(XRef),
     analyze_undefined_function_calls(Undefs, Mods, []).
 
+valid_undef(crypto = CalledMod) ->
+    case (catch CalledMod:version()) of
+        Version when is_list(Version) ->
+	    %% The called module was crypto and the version 
+	    %% function returns a valid value. 
+	    %% This means that the function is
+	    %% actually undefined...
+	    true;
+	_ ->
+	    %% The called module was crypto but the version 
+	    %% function does *not* return a valid value.
+	    %% This means the crypto was not actually not
+	    %% build, which is an case snmp handles.
+	    false
+    end;
+valid_undef(_) ->
+    true.
+
+    
 analyze_undefined_function_calls([], _, []) ->
     ok;
 analyze_undefined_function_calls([], _, AppUndefs) ->
@@ -302,14 +331,25 @@ analyze_undefined_function_calls([{{Mod, _F, _A}, _C} = AppUndef|Undefs],
             {Calling,Called} = AppUndef,
             {Mod1,Func1,Ar1} = Calling,
             {Mod2,Func2,Ar2} = Called,
-            io:format("undefined function call: "
-                      "~n   ~w:~w/~w calls ~w:~w/~w~n",
-                      [Mod1,Func1,Ar1,Mod2,Func2,Ar2]),
-            analyze_undefined_function_calls(Undefs, AppModules,
-                                             [AppUndef|AppUndefs]);
+	    %% If the called module is crypto, then we will *not*
+	    %% fail if crypto is not built (since crypto is actually 
+	    %% not built for all platforms)
+	    case valid_undef(Mod2) of
+		true ->
+		    io:format("undefined function call: "
+			      "~n   ~w:~w/~w calls ~w:~w/~w~n",
+			      [Mod1,Func1,Ar1,Mod2,Func2,Ar2]),
+		    analyze_undefined_function_calls(
+		      Undefs, AppModules, [AppUndef|AppUndefs]);
+		false ->
+		    io:format("skipping ~p (calling ~w:~w/~w)~n", 
+			      [Mod, Mod2, Func2, Ar2]),
+		    analyze_undefined_function_calls(Undefs, 
+						     AppModules, AppUndefs)
+	    end;
         false ->
-            io:format("dropping ~p~n", [Mod]),
-            analyze_undefined_function_calls(Undefs, AppModules, AppUndefs)
+	    io:format("dropping ~p~n", [Mod]),
+	    analyze_undefined_function_calls(Undefs, AppModules, AppUndefs)
     end.
 
 %% This function is used simply to avoid cut-and-paste errors later...
@@ -319,16 +359,6 @@ undef_funcs_make_name(App, PostFix) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-start_and_stop(suite) ->
-    [
-     start_and_stop_empty, 
-     start_and_stop_with_agent, 
-     start_and_stop_with_manager,
-     start_and_stop_with_agent_and_manager,
-     start_epmty_and_then_agent_and_manager_and_stop,
-     start_with_agent_and_then_manager_and_stop,
-     start_with_manager_and_then_agent_and_stop
-    ].
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -45,6 +45,7 @@ static Export *urun_trap_exportp = NULL;
 static Export *ucompile_trap_exportp = NULL;
 
 static BIF_RETTYPE re_exec_trap(BIF_ALIST_3);
+static BIF_RETTYPE re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3);
 
 static void *erts_erts_pcre_malloc(size_t size) {
     return erts_alloc(ERTS_ALC_T_RE_HEAP,size);
@@ -76,8 +77,8 @@ void erts_init_bif_re(void)
     re_exec_trap_export.code[0] = am_erlang;
     re_exec_trap_export.code[1] = am_re_run_trap;
     re_exec_trap_export.code[2] = 3;
-    re_exec_trap_export.code[3] = (Eterm) em_apply_bif;
-    re_exec_trap_export.code[4] = (Eterm) &re_exec_trap;
+    re_exec_trap_export.code[3] = (BeamInstr) em_apply_bif;
+    re_exec_trap_export.code[4] = (BeamInstr) &re_exec_trap;
 
     grun_trap_exportp =  erts_export_put(am_re,am_grun,3);
     urun_trap_exportp =  erts_export_put(am_re,am_urun,3);
@@ -103,7 +104,7 @@ Sint erts_re_set_loop_limit(Sint limit)
 
 static int term_to_int(Eterm term, int *sp)
 {
-#ifdef ARCH_64
+#if defined(ARCH_64) && !HALFWORD_HEAP
 
     if (is_small(term)) {
 	Uint x = signed_val(term);
@@ -154,7 +155,7 @@ static int term_to_int(Eterm term, int *sp)
 
 static Eterm make_signed_integer(int x, Process *p)
 {
-#ifdef ARCH_64
+#if defined(ARCH_64) && !HALFWORD_HEAP
     return make_small(x);
 #else
     Eterm* hp;
@@ -414,10 +415,10 @@ build_compile_result(Process *p, Eterm error_tag, pcre *result, int errcode, con
  * Compile BIFs
  */
 
-BIF_RETTYPE
-re_compile_2(BIF_ALIST_2)
+static BIF_RETTYPE
+re_compile(Process* p, Eterm arg1, Eterm arg2)
 {
-    int slen;
+    Uint slen;
     char *expr;
     pcre *result;
     int errcode = 0;
@@ -429,43 +430,49 @@ re_compile_2(BIF_ALIST_2)
     int unicode = 0;
 
 
-    if (parse_options(BIF_ARG_2,&options,NULL,&pflags,NULL,NULL)
+    if (parse_options(arg2,&options,NULL,&pflags,NULL,NULL)
 	< 0) {
-	BIF_ERROR(BIF_P,BADARG);
+	BIF_ERROR(p,BADARG);
     }
 
     if (pflags & PARSE_FLAG_UNIQUE_EXEC_OPT) {
-	BIF_ERROR(BIF_P,BADARG);
+	BIF_ERROR(p,BADARG);
     }
 
     unicode = (pflags & PARSE_FLAG_UNICODE) ? 1 : 0;
 
-    if (pflags & PARSE_FLAG_UNICODE && !is_binary(BIF_ARG_1)) { 
-	BIF_TRAP2(ucompile_trap_exportp, BIF_P, BIF_ARG_1, BIF_ARG_2);
+    if (pflags & PARSE_FLAG_UNICODE && !is_binary(arg1)) {
+	BIF_TRAP2(ucompile_trap_exportp, p, arg1, arg2);
     }
 
-    if ((slen = io_list_len(BIF_ARG_1)) < 0) {
-        BIF_ERROR(BIF_P,BADARG);
+    if (erts_iolist_size(arg1, &slen)) {
+        BIF_ERROR(p,BADARG);
     }
     expr = erts_alloc(ERTS_ALC_T_RE_TMP_BUF, slen + 1);
-    if (io_list_to_buf(BIF_ARG_1, expr, slen) != 0) {
+    if (io_list_to_buf(arg1, expr, slen) != 0) {
 	erts_free(ERTS_ALC_T_RE_TMP_BUF, expr);
-	BIF_ERROR(BIF_P,BADARG);
+	BIF_ERROR(p,BADARG);
     }
     expr[slen]='\0';
     result = erts_pcre_compile2(expr, options, &errcode, 
 			   &errstr, &errofset, default_table);
 
-    ret = build_compile_result(BIF_P, am_error, result, errcode, 
+    ret = build_compile_result(p, am_error, result, errcode,
 			       errstr, errofset, unicode, 1);
     erts_free(ERTS_ALC_T_RE_TMP_BUF, expr);
     BIF_RET(ret);
 }
 
 BIF_RETTYPE
+re_compile_2(BIF_ALIST_2)
+{
+    return re_compile(BIF_P, BIF_ARG_1, BIF_ARG_2);
+}
+
+BIF_RETTYPE
 re_compile_1(BIF_ALIST_1)
 {
-    return re_compile_2(BIF_P,BIF_ARG_1,NIL);
+    return re_compile(BIF_P, BIF_ARG_1, NIL);
 }
 
 /*
@@ -795,8 +802,8 @@ build_capture(Eterm capture_spec[CAPSPEC_SIZE], const pcre *code)
 			memcpy(tmpb,ap->name,ap->len);
 			tmpb[ap->len] = '\0';
 		    } else {
-			int slen = io_list_len(val);
-			if (slen < 0) {
+			Uint slen;
+			if (erts_iolist_size(val, &slen)) {
 			    goto error;
 			}
 			if ((slen + 1) > tmpbsiz) {
@@ -845,13 +852,13 @@ build_capture(Eterm capture_spec[CAPSPEC_SIZE], const pcre *code)
 /*
  * The actual re:run/2,3 BIFs
  */
-BIF_RETTYPE
-re_run_3(BIF_ALIST_3)
+static BIF_RETTYPE
+re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3)
 {
     const pcre *code_tmp;
     RestartContext restart;
     byte *temp_alloc = NULL;
-    int slength;
+    Uint slength;
     int startoffset = 0;
     int options = 0, comp_options = 0;
     int ovsize;
@@ -865,17 +872,17 @@ re_run_3(BIF_ALIST_3)
     Eterm capture[CAPSPEC_SIZE];
     int is_list_cap;
 
-    if (parse_options(BIF_ARG_3,&comp_options,&options,&pflags,&startoffset,capture)
+    if (parse_options(arg3,&comp_options,&options,&pflags,&startoffset,capture)
 	< 0) {
-	BIF_ERROR(BIF_P,BADARG);
+	BIF_ERROR(p,BADARG);
     }
     is_list_cap = ((pflags & PARSE_FLAG_CAPTURE_OPT) && 
 		   (capture[CAPSPEC_TYPE] == am_list));
 
-    if (is_not_tuple(BIF_ARG_2) || (arityval(*tuple_val(BIF_ARG_2)) != 4)) {
-	if (is_binary(BIF_ARG_2) || is_list(BIF_ARG_2) || is_nil(BIF_ARG_2)) { 
+    if (is_not_tuple(arg2) || (arityval(*tuple_val(arg2)) != 4)) {
+	if (is_binary(arg2) || is_list(arg2) || is_nil(arg2)) {
 	    /* Compile from textual RE */
-	    int slen;
+	    Uint slen;
 	    char *expr;
 	    pcre *result;
 	    int errcode = 0;
@@ -884,19 +891,19 @@ re_run_3(BIF_ALIST_3)
 	    int capture_count;
 
 	    if (pflags & PARSE_FLAG_UNICODE && 
-		(!is_binary(BIF_ARG_2) || !is_binary(BIF_ARG_1) ||
+		(!is_binary(arg2) || !is_binary(arg1) ||
 		 (is_list_cap && !(pflags & PARSE_FLAG_GLOBAL)))) { 
-		BIF_TRAP3(urun_trap_exportp, BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
+		BIF_TRAP3(urun_trap_exportp, p, arg1, arg2, arg3);
 	    }
 	    
-	    if ((slen = io_list_len(BIF_ARG_2)) < 0) {
-		BIF_ERROR(BIF_P,BADARG);
+	    if (erts_iolist_size(arg2, &slen)) {
+		BIF_ERROR(p,BADARG);
 	    }
 	    
 	    expr = erts_alloc(ERTS_ALC_T_RE_TMP_BUF, slen + 1);
-	    if (io_list_to_buf(BIF_ARG_2, expr, slen) != 0) {
+	    if (io_list_to_buf(arg2, expr, slen) != 0) {
 		erts_free(ERTS_ALC_T_RE_TMP_BUF, expr);
-		BIF_ERROR(BIF_P,BADARG);
+		BIF_ERROR(p,BADARG);
 	    }
 	    expr[slen]='\0';
 	    result = erts_pcre_compile2(expr, comp_options, &errcode, 
@@ -905,11 +912,11 @@ re_run_3(BIF_ALIST_3)
 		erts_free(ERTS_ALC_T_RE_TMP_BUF, expr);
 		/* Compilation error gives badarg except in the compile 
 		   function */
-		BIF_ERROR(BIF_P,BADARG);
+		BIF_ERROR(p,BADARG);
 	    }
 	    if (pflags & PARSE_FLAG_GLOBAL) {
 		Eterm precompiled = 
-		    build_compile_result(BIF_P, am_error, 
+		    build_compile_result(p, am_error,
 					 result, errcode, 
 					 errstr, errofset, 
 					 (pflags & 
@@ -917,13 +924,13 @@ re_run_3(BIF_ALIST_3)
 					 0);
 		Eterm *hp,r;
 		erts_free(ERTS_ALC_T_RE_TMP_BUF, expr);
-		hp = HAlloc(BIF_P,4);
-		/* BIF_ARG_2 is in the tuple just to make exceptions right */
-		r = TUPLE3(hp,BIF_ARG_3,
+		hp = HAlloc(p,4);
+		/* arg2 is in the tuple just to make exceptions right */
+		r = TUPLE3(hp,arg3,
 			   ((pflags & PARSE_FLAG_UNIQUE_COMPILE_OPT) ? 
 			    am_true : 
-			    am_false), BIF_ARG_2);
-		BIF_TRAP3(grun_trap_exportp, BIF_P, BIF_ARG_1, precompiled, r);
+			    am_false), arg2);
+		BIF_TRAP3(grun_trap_exportp, p, arg1, precompiled, r);
 	    }
 
 	    erts_pcre_fullinfo(result, NULL, PCRE_INFO_SIZE, &code_size);
@@ -935,31 +942,31 @@ re_run_3(BIF_ALIST_3)
 	    erts_free(ERTS_ALC_T_RE_TMP_BUF, expr);
 	    /*unicode = (pflags & PARSE_FLAG_UNICODE) ? 1 : 0;*/
 	} else {  
-	    BIF_ERROR(BIF_P,BADARG);
+	    BIF_ERROR(p,BADARG);
 	}
     } else {
 	if (pflags & PARSE_FLAG_UNIQUE_COMPILE_OPT) {
-	    BIF_ERROR(BIF_P,BADARG);
+	    BIF_ERROR(p,BADARG);
 	}
 
-	tp = tuple_val(BIF_ARG_2);
+	tp = tuple_val(arg2);
 	if (tp[1] != am_re_pattern || is_not_small(tp[2]) || 
 	    is_not_small(tp[3]) || is_not_binary(tp[4])) {
-	    BIF_ERROR(BIF_P,BADARG);
+	    BIF_ERROR(p,BADARG);
 	}
 
 	if (unsigned_val(tp[3]) && 
-	    (!is_binary(BIF_ARG_1) || 
+	    (!is_binary(arg1) ||
 	     (is_list_cap && !(pflags & PARSE_FLAG_GLOBAL)))) { /* unicode */
-	    BIF_TRAP3(urun_trap_exportp, BIF_P, BIF_ARG_1, BIF_ARG_2, 
-		      BIF_ARG_3);
+	    BIF_TRAP3(urun_trap_exportp, p, arg1, arg2,
+		      arg3);
 	}
 
 	if (pflags & PARSE_FLAG_GLOBAL) {
 	    Eterm *hp,r;
-	    hp = HAlloc(BIF_P,3);
-	    r = TUPLE2(hp,BIF_ARG_3,am_false);
-	    BIF_TRAP3(grun_trap_exportp, BIF_P, BIF_ARG_1, BIF_ARG_2, 
+	    hp = HAlloc(p,3);
+	    r = TUPLE2(hp,arg3,am_false);
+	    BIF_TRAP3(grun_trap_exportp, p, arg1, arg2,
 		      r);
 	}
 
@@ -968,7 +975,7 @@ re_run_3(BIF_ALIST_3)
 	if ((code_tmp = (const pcre *) 
 	     erts_get_aligned_binary_bytes(tp[4], &temp_alloc)) == NULL) {
 	    erts_free_aligned_binary_bytes(temp_alloc);
-	    BIF_ERROR(BIF_P, BADARG);
+	    BIF_ERROR(p, BADARG);
 	}
 	restart.code = erts_alloc(ERTS_ALC_T_RE_SUBJECT, code_size);
 	memcpy(restart.code, code_tmp, code_size);
@@ -980,7 +987,7 @@ re_run_3(BIF_ALIST_3)
     restart.ovector =  erts_alloc(ERTS_ALC_T_RE_SUBJECT, ovsize * sizeof(int));
     restart.extra.flags = PCRE_EXTRA_TABLES | PCRE_EXTRA_LOOP_LIMIT;
     restart.extra.tables = default_table;
-    restart.extra.loop_limit = ERTS_BIF_REDS_LEFT(BIF_P) * LOOP_FACTOR;
+    restart.extra.loop_limit = ERTS_BIF_REDS_LEFT(p) * LOOP_FACTOR;
     loop_limit_tmp = max_loop_limit; /* To lesser probability of race in debug
 					situation (erts_debug) */
     if (restart.extra.loop_limit > loop_limit_tmp) {
@@ -996,7 +1003,7 @@ re_run_3(BIF_ALIST_3)
 	if ((restart.ret_info = build_capture(capture,restart.code)) == NULL) {
 	    erts_free(ERTS_ALC_T_RE_SUBJECT, restart.ovector);
 	    erts_free(ERTS_ALC_T_RE_SUBJECT, restart.code);
-	    BIF_ERROR(BIF_P,BADARG);
+	    BIF_ERROR(p,BADARG);
 	}
     }
 	    
@@ -1004,7 +1011,7 @@ re_run_3(BIF_ALIST_3)
        copying, also binary returns can be sub binaries in that case */
 
     restart.flags = 0;
-    if (is_binary(BIF_ARG_1)) {
+    if (is_binary(arg1)) {
 	Eterm real_bin;
 	Uint offset;
 	Eterm* bptr;
@@ -1012,9 +1019,9 @@ re_run_3(BIF_ALIST_3)
 	int bitsize;
 	ProcBin* pb;
 
-	ERTS_GET_REAL_BIN(BIF_ARG_1, real_bin, offset, bitoffs, bitsize);
+	ERTS_GET_REAL_BIN(arg1, real_bin, offset, bitoffs, bitsize);
 
-	slength = binary_size(BIF_ARG_1);
+	slength = binary_size(arg1);
 	bptr = binary_val(real_bin);
 	if (bitsize != 0 || bitoffs != 0 ||  (*bptr != HEADER_PROC_BIN)) {
 	    goto handle_iolist;
@@ -1027,24 +1034,24 @@ re_run_3(BIF_ALIST_3)
 	restart.flags |= RESTART_FLAG_SUBJECT_IN_BINARY;
     } else {
 handle_iolist:
-	if ((slength = io_list_len(BIF_ARG_1)) < 0) {
+	if (erts_iolist_size(arg1, &slength)) {
 	    erts_free(ERTS_ALC_T_RE_SUBJECT, restart.ovector);
 	    erts_free(ERTS_ALC_T_RE_SUBJECT, restart.code);
 	    if (restart.ret_info != NULL) {
 		erts_free(ERTS_ALC_T_RE_SUBJECT, restart.ret_info);
 	    }
-	    BIF_ERROR(BIF_P,BADARG);
+	    BIF_ERROR(p,BADARG);
 	}
 	restart.subject = erts_alloc(ERTS_ALC_T_RE_SUBJECT, slength);
 
-	if (io_list_to_buf(BIF_ARG_1, restart.subject, slength) != 0) {
+	if (io_list_to_buf(arg1, restart.subject, slength) != 0) {
 	    erts_free(ERTS_ALC_T_RE_SUBJECT, restart.ovector);
 	    erts_free(ERTS_ALC_T_RE_SUBJECT, restart.code);
 	    erts_free(ERTS_ALC_T_RE_SUBJECT, restart.subject);
 	    if (restart.ret_info != NULL) {
 		erts_free(ERTS_ALC_T_RE_SUBJECT, restart.ret_info);
 	    }
-	    BIF_ERROR(BIF_P,BADARG);
+	    BIF_ERROR(p,BADARG);
 	}
     }
 
@@ -1056,7 +1063,7 @@ handle_iolist:
     rc = erts_pcre_exec(restart.code, &(restart.extra), restart.subject, slength, startoffset, 
 		   options, restart.ovector, ovsize);
     ASSERT(loop_count != 0xFFFFFFFF);
-    BUMP_REDS(BIF_P, loop_count / LOOP_FACTOR);
+    BUMP_REDS(p, loop_count / LOOP_FACTOR);
     if (rc == PCRE_ERROR_LOOP_LIMIT) {
 	/* Trap */
 	Binary *mbp = erts_create_magic_binary(sizeof(RestartContext),
@@ -1065,17 +1072,17 @@ handle_iolist:
 	Eterm magic_bin;
 	Eterm *hp;
 	memcpy(restartp,&restart,sizeof(RestartContext));
-	BUMP_ALL_REDS(BIF_P);
-	hp = HAlloc(BIF_P, PROC_BIN_SIZE);
-	magic_bin = erts_mk_magic_binary_term(&hp, &MSO(BIF_P), mbp);
+	BUMP_ALL_REDS(p);
+	hp = HAlloc(p, PROC_BIN_SIZE);
+	magic_bin = erts_mk_magic_binary_term(&hp, &MSO(p), mbp);
 	BIF_TRAP3(&re_exec_trap_export, 
-		  BIF_P, 
-		  BIF_ARG_1, 
-		  BIF_ARG_2 /* To avoid GC of precompiled code, XXX: not utilized yet */, 
+		  p,
+		  arg1,
+		  arg2 /* To avoid GC of precompiled code, XXX: not utilized yet */,
 		  magic_bin);
     }
     
-    res = build_exec_return(BIF_P, rc, &restart, BIF_ARG_1);
+    res = build_exec_return(p, rc, &restart, arg1);
  
     cleanup_restart_context(&restart);
 
@@ -1083,9 +1090,15 @@ handle_iolist:
 }
 
 BIF_RETTYPE
+re_run_3(BIF_ALIST_3)
+{
+    return re_run(BIF_P,BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
+}
+
+BIF_RETTYPE
 re_run_2(BIF_ALIST_2) 
 {
-    return re_run_3(BIF_P,BIF_ARG_1, BIF_ARG_2, NIL);
+    return re_run(BIF_P,BIF_ARG_1, BIF_ARG_2, NIL);
 }
 
 /*

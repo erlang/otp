@@ -4,7 +4,7 @@
 <comref>
   <header>
     <copyright>
-      <year>1996</year><year>2010</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -41,6 +41,26 @@
       to scroll back to text which has scrolled off the screen.
       The <c><![CDATA[erl]]></c> program must be used, however, in pipelines or if
       you want to redirect standard input or output.</p>
+      <note><p>As of ERTS version 5.8 (OTP-R14A) the runtime system will by
+               default bind schedulers to logical processors using the
+	       <c>default_bind</c> bind type if the amount of schedulers are
+	       at least equal to the amount of logical processors configured,
+	       binding of schedulers is supported, and a CPU topology is
+	       available at startup.
+	    </p><p>
+	       If the Erlang runtime system is the only operating system
+	       process that binds threads to logical processors, this
+	       improves the performance of the runtime system. However,
+	       if other operating system processes (as for example
+	       another Erlang runtime system) also bind threads to
+	       logical processors, there might be a performance penalty
+	       instead. If this is the case you, are are advised to
+	       unbind the schedulers using the
+	       <seealso marker="#+sbt">+sbtu</seealso> command line argument,
+	       or by invoking
+	       <seealso marker="erlang#system_flag_scheduler_bind_type">erlang:system_flag(scheduler_bind_type,
+	       unbound)</seealso>.</p>
+      </note>
   </description>
   <funcs>
     <func>
@@ -211,7 +231,8 @@
       <tag><c><![CDATA[-detached]]></c></tag>
       <item>
         <p>Starts the Erlang runtime system detached from the system
-          console. Useful for running daemons and backgrounds processes.</p>
+          console. Useful for running daemons and backgrounds processes. Implies
+          <c><![CDATA[-noinput]]></c>.</p>
       </item>
       <tag><c><![CDATA[-emu_args]]></c></tag>
       <item>
@@ -521,6 +542,28 @@
 	<p>Calling <c>erlang:halt/1</c> with a string argument will still
 	produce a crash dump.</p>
       </item>
+      <tag><c><![CDATA[+e Number]]></c></tag>
+      <item>
+        <p>Set max number of ETS tables.</p>
+      </item>
+      <tag><c><![CDATA[+ec]]></c></tag>
+      <item>
+        <p>Force the <c>compressed</c> option on all ETS tables.
+              Only intended for test and evaluation.</p>
+      </item>
+      <tag><c><![CDATA[+fnl]]></c></tag>
+      <item>
+        <p>The VM works with file names as if they are encoded using the ISO-latin-1 encoding, disallowing Unicode characters with codepoints beyond 255. This is default on operating systems that have transparent file naming, i.e. all Unixes except MacOSX.</p>
+      </item>
+      <tag><c><![CDATA[+fnu]]></c></tag>
+      <item>
+        <p>The VM works with file names as if they are encoded using UTF-8 (or some other system specific Unicode encoding). This is the default on operating systems that enforce Unicode encoding, i.e. Windows and MacOSX.</p>
+	<p>By enabling Unicode file name translation on systems where this is not default, you open up to the possibility that some file names can not be interpreted by the VM and therefore will be returned to the program as raw binaries. The option is therefore considered experimental.</p>
+      </item>
+      <tag><c><![CDATA[+fna]]></c></tag>
+      <item>
+        <p>Selection between <c>+fnl</c> and <c>+fnu</c> is done based on the current locale settings in the OS, meaning that if you have set your terminal for UTF-8 encoding, the filesystem is expected to use the same encoding for filenames (use with care).</p>
+      </item>
       <tag><c><![CDATA[+hms Size]]></c></tag>
       <item>
         <p>Sets the default heap size of processes to the size
@@ -543,6 +586,13 @@
       <item>
         <p>Enables auto load tracing, displaying info while loading
           code.</p>
+      </item>
+      <tag><c><![CDATA[+L]]></c></tag>
+      <item>
+        <p>Don't load information about source filenames and line numbers.
+	  This will save some memory, but exceptions will not contain
+	  information about the filenames and line numbers.
+          </p>
       </item>
       <tag><marker id="erts_alloc"><c><![CDATA[+MFlag Value]]></c></marker></tag>
       <item>
@@ -582,6 +632,24 @@
       <tag><c><![CDATA[+r]]></c></tag>
       <item>
         <p>Force ets memory block to be moved on realloc.</p>
+      </item>
+      <tag><marker id="+rg"><c><![CDATA[+rg ReaderGroupsLimit]]></c></marker></tag>
+      <item>
+        <p>Limits the amount of reader groups used by read/write locks
+	   optimized for read operations in the Erlang runtime system. By
+	   default the reader groups limit equals 8.</p>
+	<p>When the amount of schedulers is less than or equal to the reader
+	   groups limit, each scheduler has its own reader group. When the
+	   amount of schedulers is larger than the reader groups limit,
+	   schedulers share reader groups. Shared reader groups degrades
+	   read lock and read unlock performance while a large amount of
+	   reader groups degrades write lock performance, so the limit is a
+	   tradeoff between performance for read operations and performance
+	   for write operations. Each reader group currently consumes 64 byte
+	   in each read/write lock. Also note that a runtime system using
+	   shared reader groups benefits from <seealso marker="#+sbt">binding
+	   schedulers to logical processors</seealso>, since the reader groups
+	   are distributed better between schedulers.</p>
       </item>
       <tag><marker id="+S"><c><![CDATA[+S Schedulers:SchedulerOnline]]></c></marker></tag>
       <item>
@@ -647,8 +715,8 @@
 	      <seealso marker="erlang#system_flag_scheduler_bind_type">erlang:system_flag(scheduler_bind_type, default_bind)</seealso>.
 	      </p></item>
 	    </taglist>
-	    <p>Binding of schedulers are currently only supported on newer
-	       Linux and Solaris systems.</p>
+	    <p>Binding of schedulers is currently only supported on newer
+	       Linux, Solaris, FreeBSD, and Windows systems.</p>
 	    <p>If no CPU topology is available when the <c>+sbt</c> flag
 	       is processed and <c>BindType</c> is any other type than
 	       <c>u</c>, the runtime system will fail to start. CPU
@@ -657,8 +725,37 @@
 	       that the <c>+sct</c> flag may have to be passed before the
 	       <c>+sbt</c> flag on the command line (in case no CPU topology
 	       has been automatically detected).</p>
+            <p>The runtime system will by default bind schedulers to logical
+	       processors using the <c>default_bind</c> bind type if the amount
+	       of schedulers are at least equal to the amount of logical
+	       processors configured, binding of schedulers is supported,
+	       and a CPU topology is available at startup.
+	    </p>
+	    <p><em>NOTE:</em> If the Erlang runtime system is the only operating
+	       system process that binds threads to logical processors, this
+	       improves the performance of the runtime system. However, if other
+	       operating system processes (as for example another Erlang runtime
+	       system) also bind threads to logical processors, there might be a
+	       performance penalty instead. If this is the case you, are advised
+	       to unbind the schedulers using the <c>+sbtu</c> command line
+	       argument, or by invoking
+	       <seealso marker="erlang#system_flag_scheduler_bind_type">erlang:system_flag(scheduler_bind_type,
+	       unbound)</seealso>.</p>
 	    <p>For more information, see
 	    <seealso marker="erlang#system_flag_scheduler_bind_type">erlang:system_flag(scheduler_bind_type, SchedulerBindType)</seealso>.
+	    </p>
+          </item>
+          <tag><marker id="+scl"><c>+scl true|false</c></marker></tag>
+          <item>
+	    <p>Enable or disable scheduler compaction of load. By default
+	    scheduler compaction of load is enabled. When enabled, load
+	    balancing will strive for a load distribution which causes
+	    as many scheduler threads as possible to be fully loaded (i.e.,
+	    not run out of work). This is accomplished by migrating load
+	    (e.g. runnable processes) into a smaller set of schedulers
+	    when schedulers frequently run out of work. When disabled,
+	    the frequency with which schedulers run out of work will
+	    not be taken into account by the load balancing logic.
 	    </p>
           </item>
           <tag><marker id="+sct"><c>+sct CpuTopology</c></marker></tag>
@@ -777,13 +874,27 @@
 	    <p>For more information, see
 	    <seealso marker="erlang#system_flag_cpu_topology">erlang:system_flag(cpu_topology, CpuTopology)</seealso>.</p>
           </item>
+	  <tag><marker id="+swt"><c>+swt very_low|low|medium|high|very_high</c></marker></tag>
+	  <item>
+             <p>Set scheduler wakeup threshold. Default is <c>medium</c>.
+	        The threshold determines when to wake up sleeping schedulers
+		when more work than can be handled by currently awake schedulers
+		exist. A low threshold will cause earlier wakeups, and a high
+		threshold will cause later wakeups. Early wakeups will
+		distribute work over multiple schedulers faster, but work will
+		more easily bounce between schedulers.
+	     </p>
+             <p><em>NOTE:</em> This flag may be removed or changed at any time
+	        without prior notice.
+	     </p>
+	  </item>
+	  <tag><marker id="sched_thread_stack_size"><c><![CDATA[+sss size]]></c></marker></tag>
+	  <item>
+	    <p>Suggested stack size, in kilowords, for scheduler threads.
+            Valid range is 4-8192 kilowords. The default stack size
+            is OS dependent.</p>
+	  </item>
         </taglist>
-      </item>
-      <tag><marker id="sched_thread_stack_size"><c><![CDATA[+sss size]]></c></marker></tag>
-      <item>
-        <p>Suggested stack size, in kilowords, for scheduler threads.
-          Valid range is 4-8192 kilowords. The default stack size
-          is OS dependent.</p>
       </item>
       <tag><marker id="+t"><c><![CDATA[+t size]]></c></marker></tag>
       <item>
@@ -838,6 +949,25 @@
           <seealso marker="kernel:error_logger#warning_map/0">error_logger(3)</seealso>
           for further information.</p>
       </item>
+      <tag><c><![CDATA[+zFlag Value]]></c></tag>
+      <item>
+        <p>Miscellaneous flags.</p>
+        <taglist>
+          <tag><marker id="+zdbbl"><c>+zdbbl size</c></marker></tag>
+          <item>
+            <p>Set the distribution buffer busy limit
+	    (<seealso marker="erlang#system_info_dist_buf_busy_limit">dist_buf_busy_limit</seealso>)
+	    in kilobytes. Valid range is 1-2097151. Default is 1024.</p>
+            <p>A larger buffer limit will allow processes to buffer
+            more outgoing messages over the distribution. When the
+            buffer limit has been reached, sending processes will be
+            suspended until the buffer size has shrunk. The buffer
+            limit is per distribution channel. A higher limit will
+            give lower latency and higher throughput at the expense
+            of higher memory usage.</p>
+          </item>
+        </taglist>
+      </item>
     </taglist>
   </section>
 
@@ -877,7 +1007,7 @@
           the <c><![CDATA[-extra]]></c> section, i.e. the end of the command line
           following after an <c><![CDATA[-extra]]></c> flag.</p>
       </item>
-      <tag><c><![CDATA[ERL_ZFLAGS]]></c>and <c><![CDATA[ERL_FLAGS]]></c></tag>
+      <tag><c><![CDATA[ERL_ZFLAGS]]></c> and <c><![CDATA[ERL_FLAGS]]></c></tag>
       <item>
         <p>The content of these environment variables will be added to the
           end of the command line for <c><![CDATA[erl]]></c>.</p>
@@ -894,6 +1024,15 @@
 	  add to the code path.
   	  See <seealso marker="kernel:code">code(3)</seealso>.</p>
       </item>
+      <tag><c><![CDATA[ERL_EPMD_ADDRESS]]></c></tag>
+      <item>
+        <p>This environment variable may be set to a comma-separated
+          list of IP addresses, in which case the
+          <seealso marker="epmd">epmd</seealso> daemon
+          will listen only on the specified address(es) and on the
+          loopback address (which is implicitly added to the list if it
+          has not been specified).</p>
+      </item>
       <tag><c><![CDATA[ERL_EPMD_PORT]]></c></tag>
       <item>
         <p>This environment variable can contain the port number to use when
@@ -906,6 +1045,49 @@
   </section>
 
   <section>
+    <marker id="configuration"></marker>
+    <title>Configuration</title>
+    <p>The standard Erlang/OTP system can be re-configured to change the default
+       behavior on start-up.</p>
+    <taglist>
+       <tag>The .erlang Start-up File</tag>
+       <item>
+         <p>When Erlang/OTP is started, the system searches for a file named .erlang
+            in the directory where Erlang/OTP is started. If not found, the user's home
+            directory is searched for an .erlang file.</p>
+         <p>If an .erlang file is found, it is assumed to contain valid Erlang expressions.
+            These expressions are evaluated as if they were input to the shell.</p>
+         <p>A typical .erlang file contains a set of search paths, for example:</p>
+    <code type="none"><![CDATA[
+        io:format("executing user profile in HOME/.erlang\n",[]).
+        code:add_path("/home/calvin/test/ebin").
+        code:add_path("/home/hobbes/bigappl-1.2/ebin").
+        io:format(".erlang rc finished\n",[]).
+    ]]></code>
+       </item>
+       <tag>user_default and shell_default</tag>
+       <item>
+         <p>Functions in the shell which are not prefixed by a module name are assumed
+           to be functional objects (Funs), built-in functions (BIFs), or belong to the
+           module user_default or shell_default.</p>
+         <p>To include private shell commands, define them in a module user_default and
+           add the following argument as the first line in the .erlang file.</p>
+    <code type="none"><![CDATA[
+         code:load_abs("..../user_default").
+    ]]></code>
+       </item>
+       <tag>erl</tag>
+       <item>
+         <p>If the contents of .erlang are changed and a private version of
+           user_default is defined, it is possible to customize the Erlang/OTP environment.
+           More powerful changes can be made by supplying command line arguments in the
+           start-up script erl. Refer to erl(1) and <seealso marker="init">init(3)</seealso>
+           for further information.</p>
+       </item>
+    </taglist>
+  </section>
+
+   <section>
     <title>SEE ALSO</title>
     <p><seealso marker="init">init(3)</seealso>,
       <seealso marker="erl_prim_loader">erl_prim_loader(3)</seealso>,

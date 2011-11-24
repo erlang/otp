@@ -1,42 +1,53 @@
 changecom(`/*', `*/')dnl
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2004-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2004-2011. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
-/*
- * $Id$
- */
+
 
 include(`hipe/hipe_ppc_asm.m4')
+#`include' "config.h"
 #`include' "hipe_literals.h"
+
+`#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
+#  define CALL_BIF(F)	STORE_IA(CSYM(F), P_BIF_CALLEE(P), r29); bl CSYM(hipe_debug_bif_wrapper) 
+#else
+#  define CALL_BIF(F)	bl	CSYM(F)
+#endif'
 
 	.text
 	.p2align 2
 
-`#define TEST_GOT_MBUF		LOAD r4, P_MBUF(P) SEMI CMPI r4, 0 SEMI bne- 3f SEMI 2:
-#define JOIN3(A,B,C)		A##B##C
-#define HANDLE_GOT_MBUF(ARITY)	3: bl CSYM(JOIN3(nbif_,ARITY,_gc_after_bif)) SEMI b 2b'
+define(TEST_GOT_MBUF,`LOAD r4, P_MBUF(P)	# `TEST_GOT_MBUF'
+	CMPI r4, 0
+	bne- 3f
+2:')
+define(HANDLE_GOT_MBUF,`
+3:	bl CSYM(nbif_$1_gc_after_bif)	# `HANDLE_GOT_MBUF'
+	b 2b')
+
 
 /*
  * standard_bif_interface_1(nbif_name, cbif_name)
  * standard_bif_interface_2(nbif_name, cbif_name)
  * standard_bif_interface_3(nbif_name, cbif_name)
+ * standard_bif_interface_0(nbif_name, cbif_name)
  *
- * Generate native interface for a BIF with 1-3 parameters and
+ * Generate native interface for a BIF with 0-3 parameters and
  * standard failure mode.
  */
 define(standard_bif_interface_1,
@@ -51,7 +62,9 @@ ASYM($1):
 
 	/* Save caller-save registers and call the C function. */
 	SAVE_CONTEXT_BIF
-	bl	CSYM($2)
+	STORE	r4, P_ARG0(r3)		# Store BIF__ARGS in def_arg_reg[]
+	addi	r4, r3, P_ARG0
+	CALL_BIF($2)
 	TEST_GOT_MBUF
 
 	/* Restore registers. Check for exception. */
@@ -79,7 +92,10 @@ ASYM($1):
 
 	/* Save caller-save registers and call the C function. */
 	SAVE_CONTEXT_BIF
-	bl	CSYM($2)
+	STORE	r4, P_ARG0(r3)		# Store BIF__ARGS in def_arg_reg[]
+	STORE	r5, P_ARG1(r3)
+	addi	r4, r3, P_ARG0
+	CALL_BIF($2)
 	TEST_GOT_MBUF
 
 	/* Restore registers. Check for exception. */
@@ -108,7 +124,11 @@ ASYM($1):
 
 	/* Save caller-save registers and call the C function. */
 	SAVE_CONTEXT_BIF
-	bl	CSYM($2)
+	STORE	r4, P_ARG0(r3)		# Store BIF__ARGS in def_arg_reg[]
+	STORE	r5, P_ARG1(r3)
+	STORE	r6, P_ARG2(r3)
+	addi	r4, r3, P_ARG0
+	CALL_BIF($2)
 	TEST_GOT_MBUF
 
 	/* Restore registers. Check for exception. */
@@ -123,13 +143,7 @@ ASYM($1):
 	TYPE_FUNCTION(ASYM($1))
 #endif')
 
-/*
- * fail_bif_interface_0(nbif_name, cbif_name)
- *
- * Generate native interface for a BIF with 0 parameters and
- * standard failure mode.
- */
-define(fail_bif_interface_0,
+define(standard_bif_interface_0,
 `
 #ifndef HAVE_$1
 #`define' HAVE_$1
@@ -140,7 +154,8 @@ ASYM($1):
 
 	/* Save caller-save registers and call the C function. */
 	SAVE_CONTEXT_BIF
-	bl	CSYM($2)
+	/* ignore empty BIF__ARGS */
+	CALL_BIF($2)
 	TEST_GOT_MBUF
 
 	/* Restore registers. Check for exception. */
@@ -175,7 +190,8 @@ ASYM($1):
 
 	/* Save caller-save registers and call the C function. */
 	SAVE_CONTEXT_GC
-	bl	CSYM($2)
+	/* ignore empty BIF__ARGS */
+	CALL_BIF($2)
 	TEST_GOT_MBUF
 
 	/* Restore registers. */
@@ -198,7 +214,9 @@ ASYM($1):
 
 	/* Save caller-save registers and call the C function. */
 	SAVE_CONTEXT_GC
-	bl	CSYM($2)
+	STORE	r4, P_ARG0(r3)		# Store BIF__ARGS in def_arg_reg[]
+	addi	r4, r3, P_ARG0
+	CALL_BIF($2)
 	TEST_GOT_MBUF
 
 	/* Restore registers. Check for exception. */
@@ -226,7 +244,10 @@ ASYM($1):
 
 	/* Save caller-save registers and call the C function. */
 	SAVE_CONTEXT_GC
-	bl	CSYM($2)
+	STORE	r4, P_ARG0(r3)		# Store BIF__ARGS in def_arg_reg[]
+	STORE	r5, P_ARG1(r3)
+	addi	r4, r3, P_ARG0
+	CALL_BIF($2)
 	TEST_GOT_MBUF
 
 	/* Restore registers. Check for exception. */

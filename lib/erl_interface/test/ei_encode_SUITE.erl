@@ -1,31 +1,32 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
 %%
 -module(ei_encode_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include("ei_encode_SUITE_data/ei_encode_test_cases.hrl").
 
 -export(
    [
-    all/1,
+    all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+    init_per_group/2,end_per_group/2,
     test_ei_encode_long/1,
     test_ei_encode_ulong/1,
     test_ei_encode_longlong/1,
@@ -35,16 +36,29 @@
     test_ei_encode_fails/1
    ]).
 
-all(suite) ->
-    [
-     test_ei_encode_long,
-     test_ei_encode_ulong,
-     test_ei_encode_longlong,
-     test_ei_encode_ulonglong,
-     test_ei_encode_char,
-     test_ei_encode_misc,
-     test_ei_encode_fails
-    ].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [test_ei_encode_long, test_ei_encode_ulong,
+     test_ei_encode_longlong, test_ei_encode_ulonglong,
+     test_ei_encode_char, test_ei_encode_misc,
+     test_ei_encode_fails].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 %% ---------------------------------------------------------------------------
 
@@ -181,20 +195,14 @@ test_ei_encode_misc(Config) when is_list(Config) ->
 
     ?line <<131>>  = get_binaries(P),
 
-%    ?line {term,F} = get_term(P),
-%    ?line match_float(F, 0.0),
-%    ?line {term,F} = get_term(P),
-%    ?line match_float(F, 0.0),
+    ?line {<<70,_:8/binary>>,F0} = get_buf_and_term(P),
+    ?line true = match_float(F0, 0.0),
 
-%    ?line {term,F} = get_term(P),
-%    ?line true = match_float(F, -1.0),
-%    ?line {term,F} = get_term(P),
-%    ?line true = match_float(F, -1.0),
+    ?line {<<70,_:8/binary>>,Fn1} = get_buf_and_term(P),
+    ?line true = match_float(Fn1, -1.0),
 
-%    ?line {term,F} = get_term(P),
-%    ?line true = match_float(F, 1.0),
-%    ?line {term,F} = get_term(P),
-%    ?line true = match_float(F, 1.0),
+    ?line {<<70,_:8/binary>>,Fp1} = get_buf_and_term(P),
+    ?line true = match_float(Fp1, 1.0),
 
     ?line {<<100,0,5,"false">>,false}  = get_buf_and_term(P),
     ?line {<<100,0,4,"true">> ,true}   = get_buf_and_term(P),
@@ -310,6 +318,8 @@ get_term(P) ->
  
 %%
 
+match_float(F, Match) when is_float(F), is_float(Match), F == Match ->
+    true;
 match_float(F, Match) when is_float(F), F > Match*0.99, F < Match*1.01 ->
     true.
     

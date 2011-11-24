@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+<header>
+<copyright>
+<year>2011</year>
+<holder>Ericsson AB. All Rights Reserved.</holder>
+</copyright>
+<legalnotice>
+The contents of this file are subject to the Erlang Public License,
+Version 1.1, (the "License"); you may not use this file except in
+compliance with the License. You should have received a copy of the
+Erlang Public License along with this software. If not, it can be
+retrieved online at http://www.erlang.org/.
+
+Software distributed under the License is distributed on an "AS IS"
+basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+the License for the specific language governing rights and limitations
+under the License.
+
+</legalnotice>
+
+<title>diameter_transport(3)</title>
+<prepared>Anders Svensson</prepared>
+<responsible></responsible>
+<docno></docno>
+<approved></approved>
+<checked></checked>
+<date></date>
+<rev></rev>
+<file>diameter_transport.xml</file>
+</header>
+
+<module>diameter_transport</module>
+<modulesummary>Diameter transport interface.</modulesummary>
+
+<description>
+
+<p>
+A module specified as a <c>transport_module</c> to <seealso
+marker="diameter#add_transport">diameter:add_transport/2</seealso>
+must implement the interface documented here.
+The interface consists of a function with which
+diameter starts a transport process and a message interface with which
+the transport process communicates with the process that starts it (aka its
+parent).</p>
+
+<marker id="start"/>
+</description>
+
+<!-- ===================================================================== -->
+
+<funcs>
+
+<func>
+<name>Mod:start({Type, Ref}, Svc, Opts)
+         -> {ok, Pid} | {ok, Pid, LAddrs} | {error, Reason}</name>
+<fsummary>Start a transport process.</fsummary>
+<type>
+<v>Type = connect | accept</v>
+<v>Ref = reference()</v>
+<v>Svc = #diameter_service{}</v>
+<v>Opts = term()</v>
+<v>Pid = pid()</v>
+<v>LAddrs = [ip_address()]</v>
+<v>Reason = term()</v>
+</type>
+<desc>
+<p>
+Start a transport process.
+Called by diameter as a consequence of a call to <seealso
+marker="diameter#add_transport">diameter:add_transport/2</seealso> in
+order to establish or accept a transport connection respectively.
+A transport process maintains a connection with a single remote peer.</p>
+
+<p>
+The first argument indicates whether the transport process in question
+is being started for a connecting (<c>connect</c>) or listening
+(<c>accept</c>) transport.
+In the latter case, transport processes are started as required to
+accept connections from multiple peers.
+Ref is in each case the same value that was returned from the
+call to <seealso
+marker="diameter#add_transport">diameter:add_transport/2</seealso>
+that has lead to starting of a transport process.</p>
+
+<p>
+A transport process must implement the message interface documented below.
+It should retain the pid of its parent, monitor the parent and terminate if
+it dies.
+It should not link to the parent.
+It should exit if its transport connection with its peer is lost.</p>
+
+<p>
+Transport processes for a given service are started sequentially.</p>
+
+<p>
+The start function should use the 'Host-IP-Address' list on the service,
+namely <c>Svc#diameter_service.host_ip_address</c>, and/or
+<c>Opts</c> to select an appropriate list of local IP addresses,
+and should return this list if different from the service addresses.
+The returned list is used to populate 'Host-IP-Address' AVPs in outgoing
+capabilities exchange messages, the service addresses being used
+otherwise.</p>
+
+<marker id="MESSAGES"/>
+</desc>
+</func>
+
+</funcs>
+
+<!-- ===================================================================== -->
+
+<section>
+<title>MESSAGES</title>
+
+<p>
+All messages sent over the transport interface are of the
+form <c>{diameter, term()}</c>.</p>
+
+<p>
+A transport process can expect the following messages from
+diameter.</p>
+
+<taglist>
+
+<tag><c>{diameter, {send, Packet}}</c></tag>
+<item>
+<p>
+An outbound Diameter message.
+Packet can be either <c>binary()</c> (the message to be sent)
+or a <c>#diameter_packet{}</c> whose <c>transport_data</c> field
+containes a value other than undefined.</p>
+</item>
+
+<tag><c>{diameter, {close, Pid}}</c></tag>
+<item>
+<p>
+A request to close the transport connection.
+The transport process should terminate after closing the
+connection.
+Pid is the pid() of the parent process.</p>
+</item>
+
+<tag><c>{diameter, {tls, Ref, Type, Bool}}</c></tag>
+<item>
+<p>
+Indication of whether or not capabilities exchange has selected
+inband security using TLS.
+Ref is a reference() that must be included in the
+<c>{diameter, {tls, Ref}}</c> reply message to the transport's
+parent process (see below).
+Type is either <c>connect</c> or <c>accept</c> depending on
+whether the process has been started for a connecting or listening
+transport respectively.
+Bool is a boolean() indicating whether or not the transport connection
+should be upgraded to TLS.</p>
+
+<p>
+If TLS is requested (Bool = true) then a connecting process should
+initiate a TLS handshake with the peer and an accepting process should
+prepare to accept a handshake.
+A successful handshake should be followed by a <c>{diameter, {tls, Ref}}</c>
+message to the parent process.
+A failed handshake should cause the process to exit.</p>
+
+<p>
+This message is only sent to a transport process over whose
+<c>Inband-Security-Id</c> configuration has indicated support for
+TLS.</p>
+</item>
+
+</taglist>
+
+<p>
+A transport process should send the following messages
+to its parent.</p>
+
+<taglist>
+
+<tag><c>{diameter, {self(), connected}}</c></tag>
+<item>
+<p>
+Inform the parent that the transport process with Type = accept has
+established a connection with the peer.
+Not sent if the transport process has Type = connect.</p>
+</item>
+
+<tag><c>{diameter, {self(), connected, Remote}}</c></tag>
+<item>
+<p>
+Inform the parent that the transport process with Type = connect
+has established a connection with a peer.
+Not sent if the transport process has Type = accept.
+Remote is an arbitrary term that uniquely identifies the remote
+endpoint to which the transport has connected.</p>
+</item>
+
+<tag><c>{diameter, {recv, Packet}}</c></tag>
+<item>
+<p>
+An inbound Diameter message.
+Packet can be either <c>binary()</c> (the message to be sent)
+or <c>#diameter_packet{}</c>
+whose <c>packet</c> field contains a <c>binary()</c>.
+Any value (other than undefined) set in
+the <c>transport_data</c> field will be passed back with a
+corresponding answer message in the case that the inbound message is a
+request unless the sender sets another value.
+How the <c>transport_data</c> is used/interpreted is up to the
+transport module.</p>
+</item>
+
+<tag><c>{diameter, {tls, Ref}}</c></tag>
+<item>
+<p>
+Acknowledgment of a successful TLS handshake.
+Ref is the reference() received in the
+<c>{diameter, {tls, Ref, Type, Bool}}</c> message in response
+to which the reply is sent.
+A transport must exit if a handshake is not successful.</p>
+</item>
+
+</taglist>
+
+</section>
+
+<!-- ===================================================================== -->
+<!-- ===================================================================== -->
+
+<section>
+<title>SEE ALSO</title>
+
+<p>
+<seealso marker="diameter_tcp">diameter_tcp(3)</seealso>,
+<seealso marker="diameter_sctp">diameter_sctp(3)</seealso></p>
+
+</section>
+
+</erlref>

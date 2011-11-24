@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2000</year>
-      <year>2007</year>
+      <year>2011</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -23,12 +23,11 @@
   The Initial Developer of the Original Code is Ericsson AB.
     </legalnotice>
 
-    <title>CosPropertyService_&shy;PropertySetFactory</title>
-    <shorttitle>..._PropertySetFactory</shorttitle>
-    <prepared>Niclas Eklund</prepared>
-    <responsible>Niclas Eklund</responsible>
+    <title>CosPropertyService_PropertySetFactory</title>
+    <prepared></prepared>
+    <responsible></responsible>
     <docno></docno>
-    <approved>Niclas Eklund</approved>
+    <approved></approved>
     <checked></checked>
     <date>2000-07-25</date>
     <rev>1.0</rev>

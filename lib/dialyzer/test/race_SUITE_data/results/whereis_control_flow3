@@ -1,0 +1,2 @@
+
+whereis_control_flow3.erl:25: The call erlang:register(AnAtom::atom(),Pid::pid()) might fail due to a possible race condition caused by its combination with the erlang:whereis(AnAtom::any()) call in whereis_control_flow3.erl on line 11, the erlang:whereis(AnAtom::any()) call in whereis_control_flow3.erl on line 18

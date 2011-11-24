@@ -1,19 +1,19 @@
 #
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 1997-2009. All Rights Reserved.
-# 
+#
+# Copyright Ericsson AB 1997-2011. All Rights Reserved.
+#
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
 # compliance with the License. You should have received a copy of the
 # Erlang Public License along with this software. If not, it can be
 # retrieved online at http://www.erlang.org/.
-# 
+#
 # Software distributed under the License is distributed on an "AS IS"
 # basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 # the License for the specific language governing rights and limitations
 # under the License.
-# 
+#
 # %CopyrightEnd%
 #
 #
@@ -133,9 +133,7 @@ ERL_FILES= $(MODULES:%=%.erl)
 
 HRL_FILES= External.hrl
 
-TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
-
-INSTALL_PROGS= $(TARGET_FILES)
+EMAKEFILE=Emakefile
 
 # ----------------------------------------------------
 # Release directory specification
@@ -145,19 +143,20 @@ RELSYSDIR = $(RELEASE_PATH)/asn1_test
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/test_server/include \
-		-I$(ERL_TOP)/lib/kernel/include
-
+ERL_COMPILE_FLAGS += +warnings_as_errors
 EBIN = .
 
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
 
-tests debug opt: $(TARGET_FILES) $(SUITE) $(SUITE_BIN) $(SUITE_BIN_V2)
+$(EMAKEFILE): $(ERL_FILES) $(HRL_FILES)
+	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) $(MODULES) $(ERL_FILES) >$(EMAKEFILE)
+
+tests debug opt: $(SUITE) $(SUITE_BIN) $(SUITE_BIN_V2) $(EMAKEFILE)
 
 clean:
-	rm -f $(TARGET_FILES) $(SUITE) $(SUITE_BIN) $(SUITE_BIN_V2)
+	rm -f $(SUITE) $(SUITE_BIN) $(SUITE_BIN_V2)
 	rm -f core
 
 docs:
@@ -190,23 +189,16 @@ release_spec: opt
 
 release_tests_spec: opt
 	$(INSTALL_DIR) $(RELSYSDIR)
+	$(INSTALL_DIR) $(RELSYSDIR)/asn1_SUITE_data
+	$(INSTALL_DIR) $(RELSYSDIR)/asn1_bin_SUITE_data
+	$(INSTALL_DIR) $(RELSYSDIR)/asn1_bin_v2_SUITE_data
 	$(INSTALL_DATA)  $(ERL_FILES) $(HRL_FILES) $(RELSYSDIR)
-	$(INSTALL_DATA) asn1.spec $(INSTALL_PROGS) $(RELSYSDIR)
-	chmod -f -R u+w $(RELSYSDIR)
-	@tar cfh - *_SUITE_data | (cd $(RELSYSDIR); tar xf -)
+	$(INSTALL_DATA) asn1.spec asn1.cover $(INSTALL_PROGS) $(RELSYSDIR)
+	chmod -R u+w $(RELSYSDIR)
+	cd asn1_SUITE_data; tar cfh $(RELSYSDIR)/asn1_SUITE_data.tar *
+	cd $(RELSYSDIR)/asn1_SUITE_data; tar xf $(RELSYSDIR)/asn1_SUITE_data.tar
+	cd $(RELSYSDIR)/asn1_bin_SUITE_data; tar xf $(RELSYSDIR)/asn1_SUITE_data.tar
+	cd $(RELSYSDIR)/asn1_bin_v2_SUITE_data; tar xf $(RELSYSDIR)/asn1_SUITE_data.tar
+	rm $(RELSYSDIR)/asn1_SUITE_data.tar
 
 release_docs_spec:
-
-
-
-
-
-
-
-
-
-
-
-
-
-

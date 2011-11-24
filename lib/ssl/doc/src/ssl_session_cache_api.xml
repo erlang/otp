@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="iso-8859-1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1999</year><year>2010</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+
+    </legalnotice>
+    <title>ssl</title>
+    <file>ssl_session_cache_api.xml</file>
+  </header>
+  <module>ssl_session_cache_api</module>
+  <modulesummary>Defines the API for the TLS session cache so
+    that the data storage scheme can be replaced by
+    defining a new callback module implementing this API.</modulesummary>
+
+  <section>
+    <title>Common Data Types</title>
+
+    <p>The following data types are used in the functions below:
+    </p>
+
+    <p><c>cache_ref() = opaque()</c></p> 
+    
+    <p><c>key() = {partialkey(), session_id()}</c></p>
+    
+    <p><c>partialkey() = opaque()</c></p>
+    
+    <p><c>session_id() = binary()</c></p>
+
+    <p><c>session() = opaque()</c></p>
+    
+  </section>
+  
+  <funcs>   
+
+    <func>
+      <name>delete(Cache, Key) -> _</name>
+      <fsummary></fsummary>
+      <type>
+	<v> Cache = cache_ref()</v>
+	<v> Key  = key()</v>
+      </type>
+      <desc>
+	<p> Deletes a cache entry. Will only be called from the cache
+	handling process.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>foldl(Fun, Acc0, Cache) -> Acc</name>
+      <fsummary></fsummary>
+      <type>
+	<v></v>
+      </type>
+      <desc>
+	<p>Calls Fun(Elem, AccIn) on successive elements of the
+	cache, starting with AccIn == Acc0. Fun/2 must return a new
+	accumulator which is passed to the next call. The function returns
+	the final value of the accumulator. Acc0 is returned if the cache is
+	empty. 
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>init() -> opaque() </name>
+      <fsummary>Return cache reference</fsummary>
+      <type>
+	<v></v>
+      </type>
+      <desc>
+	<p>Performs possible initializations of the cache and returns
+	a reference to it that will be used as parameter to the other
+	api functions. Will be called by the cache handling processes
+	init function, hence putting the same requirements on it as
+	a normal process init function.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>lookup(Cache, Key) -> Entry</name>
+      <fsummary> Looks up a cache entry.</fsummary>
+      <type>
+	<v> Cache = cache_ref()</v>
+	<v> Key  = key()</v>
+	<v> Entry = session() | undefined </v>
+      </type>
+      <desc>
+	<p>Looks up a cache entry. Should be callable from any
+         process.
+         </p>
+      </desc>
+    </func>
+    
+    <func>
+      <name>select_session(Cache, PartialKey) -> [session()]</name>
+      <fsummary>>Selects sessions that could be reused.</fsummary>
+      <type>
+	<v> Cache = cache_ref()</v>
+	<v> PartialKey = partialkey()</v>
+	<v> Session = session()</v>
+      </type>
+      <desc>
+	<p>Selects sessions that could be reused. Should be callable
+	from any process.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>terminate(Cache) -> _</name>
+      <fsummary>Called by the process that handles the cache when it
+      is about to terminate.</fsummary>
+      <type>
+	<v>Cache = term()  - as returned by init/0</v>
+      </type>
+      <desc>
+	<p>Takes care of possible cleanup that is needed when the
+	cache handling process terminates.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>update(Cache, Key, Session) -> _</name>
+      <fsummary> Caches a new session or updates a already cached one.</fsummary>
+      <type>
+	<v> Cache = cache_ref()</v>
+	<v> Key  = key()</v>
+	<v> Session = session()</v>
+      </type>
+      <desc>
+	<p> Caches a new session or updates a already cached one. Will
+	only be called from the cache handling process.
+	</p>
+      </desc>
+    </func>
+    
+  </funcs> 
+  
+</erlref>

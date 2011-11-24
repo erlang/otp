@@ -1,0 +1,33 @@
+{'Sun-idc004.nogen',{["idc004.nogen.n02.xml", "idc004.nogen.n03.xml"],[]}}.
+{'Sun-idc006.nogen',{["idc006.nogen.n00.xml"],[]}}.
+{'Sun-xsd001',{["xsd001.n04.xml",
+                "xsd001.n05.xml",
+                "xsd001.n06.xml"],[]}}.
+{'Sun-xsd002',{["xsd002.v01.xml","xsd002.v00.xml"],[]}}.
+{'Sun-xsd003a',{["xsd003a.v00.xml"],[]}}.
+{'Sun-xsd003b',{["xsd003b.v01.xml"],[]}}.
+{'Sun-xsd004',{["xsd004.v00.xml",
+		"xsd004.n00.xml", 
+		"xsd004.n05.xml",
+		"xsd004.n06.xml", 
+		"xsd004.n07.xml",
+		"xsd004.n11.xml",
+		"xsd004.n12.xml"
+		],[]}}.
+{'Sun-xsd005',{["xsd005.n05.xml"],[]}}.
+{'Sun-xsd008',{[],[]}}.
+{'Sun-xsd012',{["xsd012.v00.xml"],[]}}.
+{'Sun-xsd021',{["xsd021.v00.xml",
+                "xsd021.n03.xml",
+                "xsd021.n02.xml",
+		"xsd021.n06.xml",
+		"xsd021.n07.xml",
+                "xsd021.n01.xml",
+                "xsd021.n00.xml"],[]}}.
+{'Sun-xsd022',{["xsd022.v00.xml"],[]}}.
+{'Sun-xsiType1',{["xsiType1.v1.xml"],[]}}.
+{'Sun-xsiType-block-1',{["xsiType-block-1.n1.xml", "xsiType-block-1.v1.xml"],[]}}.
+{'Sun-xsiType-block-2',{["xsiType-block-2.n1.xml", "xsiType-block-2.v1.xml"],[]}}.
+{'Sun-xsiType-block-3',{["xsiType-block-3.n1.xml", "xsiType-block-3.v1.xml"],[]}}.
+{'Sun-xsiType-block-4',{["xsiType-block-4.n2.xml", "xsiType-block-4.v1.xml"],[]}}.
+{'Sun-type-and-subst-1',{["type-and-subst-1.v2.xml"],[]}}.

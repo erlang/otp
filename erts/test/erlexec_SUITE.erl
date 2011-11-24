@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -31,9 +31,11 @@
 
 -define(DEFAULT_TIMEOUT, ?t:minutes(1)).
 
--export([all/1, init_per_testcase/2, fin_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 init_per_testcase/2, end_per_testcase/2]).
 
--export([args_file/1, evil_args_file/1, env/1, args_file_env/1, otp_7461/1, otp_7461_remote/1, otp_8209/1]).
+-export([args_file/1, evil_args_file/1, env/1, args_file_env/1, otp_7461/1, otp_7461_remote/1, otp_8209/1, zdbbl_dist_buf_busy_limit/1]).
 
 -include_lib("test_server/include/test_server.hrl").
     
@@ -43,7 +45,7 @@ init_per_testcase(Case, Config) ->
     SavedEnv = save_env(),
     [{testcase, Case}, {watchdog, Dog}, {erl_flags_env, SavedEnv} |Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     SavedEnv = ?config(erl_flags_env, Config),
     restore_env(SavedEnv),
@@ -51,10 +53,26 @@ fin_per_testcase(_Case, Config) ->
     ?t:timetrap_cancel(Dog),
     ok.
 
-all(doc) -> [];
-all(suite) ->
-    [args_file, evil_args_file, env, args_file_env, otp_7461, otp_8209].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
+all() -> 
+    [args_file, evil_args_file, env, args_file_env,
+     otp_7461, otp_8209, zdbbl_dist_buf_busy_limit].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
 
 otp_8209(doc) ->
     ["Test that plain first argument does not "
@@ -330,6 +348,25 @@ otp_7461_remote([halt, Pid]) ->
     io:format("halt order from ~p to node ~p\n",[Pid,node()]),
     halt().
 
+zdbbl_dist_buf_busy_limit(doc) ->    
+    ["Check +zdbbl flag"];
+zdbbl_dist_buf_busy_limit(suite) ->
+    [];
+zdbbl_dist_buf_busy_limit(Config) when is_list(Config) ->
+    LimKB = 1122233,
+    LimB = LimKB*1024,
+    ?line {ok,[[PName]]} = init:get_argument(progname),
+    ?line SNameS = "erlexec_test_02",
+    ?line SName = list_to_atom(SNameS++"@"++
+                         hd(tl(string:tokens(atom_to_list(node()),"@")))),
+    ?line Cmd = PName ++ " -sname "++SNameS++" -setcookie "++
+        atom_to_list(erlang:get_cookie()) ++
+	" +zdbbl " ++ integer_to_list(LimKB),
+    ?line open_port({spawn,Cmd},[]),
+    ?line pong = loop_ping(SName,40),
+    ?line LimB = rpc:call(SName,erlang,system_info,[dist_buf_busy_limit]),
+    ?line ok = cleanup_node(SNameS, 10),
+    ok.
     
 
 %%

@@ -1,20 +1,20 @@
 /* -*- c-indent-level: 2; c-continued-statement-offset: 2 -*- */ 
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1998-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 1998-2011. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -23,11 +23,7 @@
 #endif
 #include "epmd.h"     /* Renamed from 'epmd_r4.h' */
 #include "epmd_int.h"
-
-#ifdef _OSE_
-#  include "ose.h"
-#  include "efs.h"
-#endif
+#include "erl_printf.h"
 
 #ifdef HAVE_STDLIB_H
 #  include <stdlib.h>
@@ -37,7 +33,9 @@
 
 static void usage(EpmdVars *);
 static void run_daemon(EpmdVars*);
+static char* get_addresses(void);
 static int get_port_no(void);
+static int check_relaxed(void);
 #ifdef __WIN32__
 static int has_console(void);
 #endif
@@ -82,86 +80,7 @@ static char *mystrdup(char *s)
     return r;
 }
 
-#ifdef _OSE_
-
-struct args_sig {
-  SIGSELECT sig_no;
-  int argc ;
-  char argv[20][20];
-};
-
-union SIGNAL {
-  SIGSELECT sig_no;
-  struct args_sig args;
-};
-
-/* Start function. It may be called from the start script as well as from
-   the OSE shell directly (using late start hooks). It spawns epmd as an
-   OSE process which calls the epmd main function. */
-int start_ose_epmd(int argc, char **argv) {
-  union SIGNAL *sig;
-  PROCESS epmd_;
-  OSENTRYPOINT ose_epmd;
-  int i;
-
-  if(hunt("epmd", 0, &epmd_, NULL)) {
-    fprintf(stderr, "Warning! EPMD already exists (%u).\n", epmd_);
-    return 0;
-  }
-  else {
-    /* copy start args to signal */
-    sig = alloc(sizeof(struct args_sig), 0);
-    sig->args.argc = argc;
-    for(i=0; i<argc; i++) {
-      strcpy((sig->args.argv)[i], argv[i]);
-    }    
-    /* start epmd and send signal */
-    epmd_ = create_process(OS_BG_PROC, /* processtype */
-			   "epmd",      /* name        */
-			   ose_epmd,    /* entrypoint  */
-			   16383,	/* stacksize   */
-			   20,	        /* priority    */
-			   0,	        /* timeslice   */
-			   0,	        /* block       */
-			   NULL,0,0);   /* not used    */
-    efs_clone(epmd_);
-    start(epmd_);
-    send(&sig, epmd_);	
-#ifdef DEBUG
-    printf("EPMD ID: %li\n", epmd_);
-#endif
-  }
-  return 0;
-}
-
-OS_PROCESS(ose_epmd) {
-  union SIGNAL *sig;
-  static const SIGSELECT rec_any_sig[] = { 0 };
-  int i, argc;
-  char **argv;
-
-  sig = receive((SIGSELECT*)rec_any_sig);
-
-  argc = sig->args.argc;
-  argv = (char **)malloc((argc+1)*sizeof(char *));
-  for(i=0; i<argc; i++) {
-    argv[i] = (char *)malloc(strlen((sig->args.argv)[i])+1);
-    strcpy(argv[i], (sig->args.argv)[i]);
-  }
-  argv[argc] = NULL;
-  free_buf(&sig);
-
-  epmd(argc, argv);
-
-  for(i=0; i<argc; i++) {
-    free(argv[i]);
-  }
-  free(argv);
-}
-
-#else  /* ifdef _OSE_ */
-
-/* VxWorks start function */
+#ifdef VXWORKS
 int start_epmd(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9)
 char *a0, *a1, *a2, *a3, *a4, *a5, *a6, *a7, *a8, *a9;     
 {
@@ -200,10 +119,7 @@ char *a0, *a1, *a2, *a3, *a4, *a5, *a6, *a7, *a8, *a9;
 		   argc,(int) argv,1,
 		   0,0,0,0,0,0,0);
 }
-    
-#endif    /* _OSE_ */
-    
-    
+#endif    /* WxWorks */
 
 
 int epmd(int argc, char **argv)
@@ -218,6 +134,7 @@ int main(int argc, char** argv)
 {
     EpmdVars g_empd_vars;
     EpmdVars *g = &g_empd_vars;
+    int i;
 #ifdef __WIN32__
     WORD wVersionRequested;
     WSADATA wsaData;
@@ -243,20 +160,24 @@ int main(int argc, char** argv)
     g->argv = NULL;
 #endif
 
-    g->port  = get_port_no();
-    g->debug = 0;
+    g->addresses      = get_addresses();
+    g->port           = get_port_no();
+    g->debug          = 0;
 
     g->silent         = 0; 
     g->is_daemon      = 0;
+    g->brutal_kill    = check_relaxed();
     g->packet_timeout = CLOSE_TIMEOUT; /* Default timeout */
     g->delay_accept   = 0;
     g->delay_write    = 0;
     g->progname       = argv[0];
-    g->listenfd       = -1;
     g->conn           = NULL;
     g->nodes.reg = g->nodes.unreg = g->nodes.unreg_tail = NULL;
     g->nodes.unreg_count = 0;
     g->active_conn    = 0;
+
+    for (i = 0; i < MAX_LISTEN_SOCKETS; i++)
+	g->listenfd[i] = -1;
 
     argc--;
     argv++;
@@ -283,12 +204,20 @@ int main(int argc, char** argv)
 	} else if (strcmp(argv[0], "-daemon") == 0) {
 	    g->is_daemon = 1;
 	    argv++; argc--;
+	} else if (strcmp(argv[0], "-relaxed_command_check") == 0) {
+	    g->brutal_kill = 1;
+	    argv++; argc--;
 	} else if (strcmp(argv[0], "-kill") == 0) {
 	    if (argc == 1)
 		kill_epmd(g);
 	    else
 		usage(g);
 	    epmd_cleanup_exit(g,0);
+	} else if (strcmp(argv[0], "-address") == 0) {
+	    if (argc == 1)
+	      usage(g);
+	    g->addresses = argv[1];
+	    argv += 2; argc -= 2;
 	} else if (strcmp(argv[0], "-port") == 0) {
 	    if ((argc == 1) ||
 		((g->port = atoi(argv[1])) == 0))
@@ -313,11 +242,17 @@ int main(int argc, char** argv)
 	    else
 		usage(g);
 	    epmd_cleanup_exit(g,0);
+	} else if (strcmp(argv[0], "-stop") == 0) {
+	    if (argc == 2)
+		stop_cli(g, argv[1]);
+	    else
+		usage(g);
+	    epmd_cleanup_exit(g,0);
 	}
 	else
 	    usage(g);
     }
-    dbg_printf(g,0,"epmd running - daemon = %d",g->is_daemon);
+    dbg_printf(g,1,"epmd running - daemon = %d",g->is_daemon);
 
 #ifndef NO_SYSCONF
     if ((g->max_conn = sysconf(_SC_OPEN_MAX)) <= 0)
@@ -327,13 +262,10 @@ int main(int argc, char** argv)
     /*
      * max_conn must not be greater than FD_SETSIZE.
      * (at least QNX crashes)
-     *
-     * More correctly, it must be FD_SETSIZE - 1, beacuse the
-     * listen FD is stored outside the connection array.
      */
   
     if (g->max_conn > FD_SETSIZE) {
-      g->max_conn = FD_SETSIZE - 1;
+      g->max_conn = FD_SETSIZE;
     }
 
     if (g->is_daemon)  {
@@ -392,7 +324,11 @@ static void run_daemon(EpmdVars *g)
       }
 
     /* move cwd to root to make sure we are not on a mounted filesystem  */
-    chdir("/");
+    if (chdir("/") < 0)
+      {
+	dbg_perror(g,"epmd: chdir() failed");
+	epmd_cleanup_exit(g,1);
+      }
     
     umask(0);
 
@@ -453,7 +389,7 @@ static void run_daemon(EpmdVars *g)
 }
 #endif
 
-#if (defined(VXWORKS) || defined(_OSE_))
+#if defined(VXWORKS)
 static void run_daemon(EpmdVars *g)
 {
     run(g);
@@ -468,10 +404,14 @@ static void run_daemon(EpmdVars *g)
 
 static void usage(EpmdVars *g)
 {
-    fprintf(stderr, "usage: epmd [-d|-debug] [DbgExtra...] [-port No] [-daemon]\n");
-    fprintf(stderr, "            [-d|-debug] [-port No] [-names|-kill]\n\n");
-    fprintf(stderr, "See the Erlang epmd manual page for info about the usage.\n");
-    fprintf(stderr, "The -port and DbgExtra options are\n\n");
+    fprintf(stderr, "usage: epmd [-d|-debug] [DbgExtra...] [-address List]\n");
+    fprintf(stderr, "            [-port No] [-daemon] [-relaxed_command_check]\n");
+    fprintf(stderr, "       epmd [-d|-debug] [-port No] [-names|-kill|-stop name]\n\n");
+    fprintf(stderr, "See the Erlang epmd manual page for info about the usage.\n\n");
+    fprintf(stderr, "Regular options\n");
+    fprintf(stderr, "    -address List\n");
+    fprintf(stderr, "        Let epmd listen only on the comma-separated list of IP\n");
+    fprintf(stderr, "        addresses (and on the loopback interface).\n");
     fprintf(stderr, "    -port No\n");
     fprintf(stderr, "        Let epmd listen to another port than default %d\n",
 	    EPMD_PORT_NO);
@@ -481,8 +421,16 @@ static void usage(EpmdVars *g)
     fprintf(stderr, "        the standard error stream. It will shorten\n");
     fprintf(stderr, "        the number of saved used node names to 5.\n\n");
     fprintf(stderr, "        If you give more than one debug flag you may\n");
-    fprintf(stderr, "        get more debugging information.\n\n");
-    fprintf(stderr, "    -packet_timout Seconds\n");
+    fprintf(stderr, "        get more debugging information.\n");
+    fprintf(stderr, "    -daemon\n");
+    fprintf(stderr, "        Start epmd detached (as a daemon)\n");
+    fprintf(stderr, "    -relaxed_command_check\n");
+    fprintf(stderr, "        Allow this instance of epmd to be killed with\n");
+    fprintf(stderr, "        epmd -kill even if there "
+	    "are registered nodes.\n");
+    fprintf(stderr, "        Also allows forced unregister (epmd -stop).\n");
+    fprintf(stderr, "\nDbgExtra options\n");
+    fprintf(stderr, "    -packet_timeout Seconds\n");
     fprintf(stderr, "        Set the number of seconds a connection can be\n");
     fprintf(stderr, "        inactive before epmd times out and closes the\n");
     fprintf(stderr, "        connection (default 60).\n\n");
@@ -494,6 +442,18 @@ static void usage(EpmdVars *g)
     fprintf(stderr, "    -delay_write Seconds\n");
     fprintf(stderr, "        Also a simulation of a busy server. Inserts\n");
     fprintf(stderr, "        a delay before a reply is sent.\n");
+    fprintf(stderr, "\nInteractive options\n");
+    fprintf(stderr, "    -names\n");
+    fprintf(stderr, "        List names registered with the currently "
+	    "running epmd\n");
+    fprintf(stderr, "    -kill\n");
+    fprintf(stderr, "        Kill the currently running epmd\n");
+    fprintf(stderr, "        (only allowed if -names show empty database or\n");
+    fprintf(stderr, "        -relaxed_command_check was given when epmd was started).\n");
+    fprintf(stderr, "    -stop Name\n");
+    fprintf(stderr, "        Forcibly unregisters a name with epmd\n");
+    fprintf(stderr, "        (only allowed if -relaxed_command_check was given when \n");
+    fprintf(stderr, "        epmd was started).\n");
     epmd_cleanup_exit(g,1);
 }
 
@@ -513,20 +473,20 @@ static void usage(EpmdVars *g)
  *      args...      Arguments to print out according to the format
  *      
  */
-
+#define DEBUG_BUFFER_SIZE 2048
 static void dbg_gen_printf(int onsyslog,int perr,int from_level,
 			   EpmdVars *g,const char *format, va_list args)
 {
   time_t now;
   char *timestr;
-  char buf[2048];
+  char buf[DEBUG_BUFFER_SIZE];
 
   if (g->is_daemon)
     {
 #ifndef NO_SYSLOG
       if (onsyslog)
 	{
-	  vsprintf(buf, format, args);
+	  erts_vsnprintf(buf, DEBUG_BUFFER_SIZE, format, args);
 	  syslog(LOG_ERR,"epmd: %s",buf);
 	}
 #endif
@@ -537,11 +497,12 @@ static void dbg_gen_printf(int onsyslog,int perr,int from_level,
 
       time(&now);
       timestr = (char *)ctime(&now);
-      sprintf(buf, "epmd: %.*s: ", (int) strlen(timestr)-1, timestr);
+      erts_snprintf(buf, DEBUG_BUFFER_SIZE, "epmd: %.*s: ",
+		    (int) strlen(timestr)-1, timestr);
       len = strlen(buf);
-      vsprintf(buf + len, format, args);
-      if (perr == 1)
-	perror(buf);
+      erts_vsnprintf(buf + len, DEBUG_BUFFER_SIZE - len, format, args);
+      if (perr != 0)
+	fprintf(stderr,"%s: %s\r\n",buf,strerror(perr));
       else
 	fprintf(stderr,"%s\r\n",buf);
     }
@@ -552,7 +513,7 @@ void dbg_perror(EpmdVars *g,const char *format,...)
 {
   va_list args;
   va_start(args, format);
-  dbg_gen_printf(1,1,0,g,format,args);
+  dbg_gen_printf(1,errno,0,g,format,args);
   va_end(args);
 }
 
@@ -608,8 +569,9 @@ void epmd_cleanup_exit(EpmdVars *g, int exitval)
 	      epmd_conn_close(g,&g->conn[i]);
       free(g->conn);
   }
-  if(g->listenfd >= 0)
-      close(g->listenfd);
+  for(i=0; i < MAX_LISTEN_SOCKETS; i++)
+      if(g->listenfd[i] >= 0)
+          close(g->listenfd[i]);
   free_all_nodes(g);
   if(g->argv){
       for(i=0; g->argv[i] != NULL; ++i)
@@ -621,9 +583,18 @@ void epmd_cleanup_exit(EpmdVars *g, int exitval)
   exit(exitval);
 }
 
+static char* get_addresses(void)
+{
+    return getenv("ERL_EPMD_ADDRESS");
+}
 static int get_port_no(void)
 {
     char* port_str = getenv("ERL_EPMD_PORT");
     return (port_str != NULL) ? atoi(port_str) : EPMD_PORT_NO;
+}
+static int check_relaxed(void)
+{
+    char* port_str = getenv("ERL_EPMD_RELAXED_COMMAND_CHECK");
+    return (port_str != NULL) ? 1 : 0;
 }
 

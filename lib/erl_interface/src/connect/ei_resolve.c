@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1997-2009. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -185,7 +185,12 @@ static int verify_dns_configuration(void)
  * align: increment buf until it is dword-aligned, reduce len by same amount.
  * advance:  increment buf by n bytes, reduce len by same amount .
  */
-#define align_buf(buf,len) for (;(((unsigned)buf)&0x3); (buf)++, len--)
+#if defined SIZEOF_VOID_P
+#define ALIGNBYTES (SIZEOF_VOID_P - 1)
+#else
+#define ALIGNBYTES (sizeof(void*) - 1)
+#endif
+#define align_buf(buf,len) for (;(((unsigned)buf) & ALIGNBYTES); (buf)++, len--)
 #define advance_buf(buf,len,n) ((buf)+=(n),(len)-=(n))
 
 /* "and now the tricky part..." */
@@ -601,7 +606,7 @@ struct hostent *ei_gethostbyaddr_r(const char *addr,
 #ifndef HAVE_GETHOSTBYNAME_R
   return my_gethostbyaddr_r(addr,length,type,hostp,buffer,buflen,h_errnop);
 #else
-#if (defined(__GLIBC__) || (__FreeBSD_version >= 602000))
+#if (defined(__GLIBC__) || (__FreeBSD_version >= 602000) || defined(__DragonFly__))
   struct hostent *result;
 
   gethostbyaddr_r(addr, length, type, hostp, buffer, buflen, &result,
@@ -628,7 +633,7 @@ struct hostent *ei_gethostbyname_r(const char *name,
 #ifndef HAVE_GETHOSTBYNAME_R
   return my_gethostbyname_r(name,hostp,buffer,buflen,h_errnop);
 #else
-#if (defined(__GLIBC__) || (__FreeBSD_version >= 602000))
+#if (defined(__GLIBC__) || (__FreeBSD_version >= 602000) || defined(__DragonFly__))
   struct hostent *result;
 
   gethostbyname_r(name, hostp, buffer, buflen, &result, h_errnop);

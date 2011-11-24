@@ -1,7 +1,7 @@
 # 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2003-2009. All Rights Reserved.
+# Copyright Ericsson AB 2003-2011. All Rights Reserved.
 # 
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -45,6 +45,7 @@ WTARGET_DIR=$(shell (cygpath -d $(TARGET_DIR) 2>/dev/null || cygpath -d $(TARGET
 
 REDIST_FILE=$(shell (sh ./find_redist.sh || echo ""))
 REDIST_DLL_VERSION=$(shell (sh ./dll_version_helper.sh || echo ""))
+REDIST_DLL_NAME=$(shell (sh ./dll_version_helper.sh -n || echo ""))
 
 release_spec:
 	@NSIS_VER=`makensis /hdrinfo | head -1 | awk '{print $$2}'`; \
@@ -73,6 +74,7 @@ release_spec:
 		cp $(REDIST_FILE) $(RELEASE_PATH)/vcredist_x86.exe;\
 		echo '!define HAVE_REDIST_FILE 1'  >> $(VERSION_HEADER); \
 		echo '!define REDIST_DLL_VERSION "$(REDIST_DLL_VERSION)"' >> $(VERSION_HEADER);\
+		echo '!define REDIST_DLL_NAME "$(REDIST_DLL_NAME)"' >> $(VERSION_HEADER);\
 	  fi;\
 	  if [ -f $(RELEASE_PATH)/docs/doc/index.html ];\
 	  then \

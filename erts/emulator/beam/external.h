@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -54,6 +54,10 @@
 
 #define DIST_HEADER       'D'
 #define ATOM_CACHE_REF    'R'
+#define ATOM_INTERNAL_REF2 'I'
+#define ATOM_INTERNAL_REF3 'K'
+#define BINARY_INTERNAL_REF 'J'
+#define BIT_BINARY_INTERNAL_REF 'L'
 #define COMPRESSED        'P'
 
 #if 0
@@ -156,7 +160,10 @@ Uint erts_encode_dist_ext_size(Eterm, Uint32, ErtsAtomCacheMap *);
 void erts_encode_dist_ext(Eterm, byte **, Uint32, ErtsAtomCacheMap *);
 
 Uint erts_encode_ext_size(Eterm);
+Uint erts_encode_ext_size_2(Eterm, unsigned);
+Uint erts_encode_ext_size_ets(Eterm);
 void erts_encode_ext(Eterm, byte **);
+byte* erts_encode_ext_ets(Eterm, byte *, struct erl_off_heap_header** ext_off_heap);
 
 #ifdef ERTS_WANT_EXTERNAL_TAGS
 ERTS_GLB_INLINE void erts_peek_dist_header(ErtsDistHeaderPeek *, byte *, Uint);
@@ -168,11 +175,13 @@ void *erts_dist_ext_trailer(ErtsDistExternal *);
 void erts_destroy_dist_ext_copy(ErtsDistExternal *);
 int erts_prepare_dist_ext(ErtsDistExternal *, byte *, Uint,
 			  DistEntry *, ErtsAtomCache *);
-Sint erts_decode_dist_ext_size(ErtsDistExternal *, int);
+Sint erts_decode_dist_ext_size(ErtsDistExternal *);
 Eterm erts_decode_dist_ext(Eterm **, ErlOffHeap *, ErtsDistExternal *);
 
-Sint erts_decode_ext_size(byte*, Uint, int);
+Sint erts_decode_ext_size(byte*, Uint);
+Sint erts_decode_ext_size_ets(byte*, Uint);
 Eterm erts_decode_ext(Eterm **, ErlOffHeap *, byte**);
+Eterm erts_decode_ext_ets(Eterm **, ErlOffHeap *, byte*);
 
 Eterm erts_term_to_binary(Process* p, Eterm Term, int level, Uint flags);
 
@@ -211,8 +220,8 @@ ERTS_GLB_INLINE void *
 erts_dist_ext_trailer(ErtsDistExternal *edep)
 {
     void *res = (void *) (edep->ext_endp
-			  + ERTS_WORD_ALIGN_PAD_SZ(edep->ext_endp));
-    ASSERT((((Uint) res) % sizeof(Uint)) == 0);
+			  + ERTS_EXTRA_DATA_ALIGN_SZ(edep->ext_endp));
+    ASSERT((((UWord) res) % sizeof(Uint)) == 0);
     return res;
 }
 

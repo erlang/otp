@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,14 +18,36 @@
 %%
 -module(fun_SUITE).
 
--export([all/1,
-	 test1/1,overwritten_fun/1,otp_7202/1,bif_fun/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
+	 test1/1,overwritten_fun/1,otp_7202/1,bif_fun/1,
+	 external/1]).
 
--include("test_server.hrl").
+%% Internal export.
+-export([call_me/1]).
 
-all(suite) ->
+-include_lib("test_server/include/test_server.hrl").
+
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
     test_lib:recompile(?MODULE),
-    [test1,overwritten_fun,otp_7202,bif_fun].
+    [test1,overwritten_fun,otp_7202,bif_fun,external].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
 
 %%% The help functions below are copied from emulator:bs_construct_SUITE.
 
@@ -133,4 +155,47 @@ bif_fun(Config) when is_list(Config) ->
     ?line F = fun abs/1,
     ?line 5 = F(-5),
     ok.
+
+-define(APPLY(M, F, A), (fun(Fun) -> {ok,{a,b}} = Fun({a,b}) end)(fun M:F/A)).
+-define(APPLY2(M, F, A),
+	(fun(Map) ->
+		 Id = fun(I) -> I end,
+		 List = [x,y],
+		 List = Map(Id, List),
+		 {type,external} = erlang:fun_info(Map, type)
+	 end)(fun M:F/A)).
     
+external(Config) when is_list(Config) ->
+    Mod = id(?MODULE),
+    Func = id(call_me),
+    Arity = id(1),
+
+    ?APPLY(?MODULE, call_me, 1),
+    ?APPLY(?MODULE, call_me, Arity),
+    ?APPLY(?MODULE, Func, 1),
+    ?APPLY(?MODULE, Func, Arity),
+    ?APPLY(Mod, call_me, 1),
+    ?APPLY(Mod, call_me, Arity),
+    ?APPLY(Mod, Func, 1),
+    ?APPLY(Mod, Func, Arity),
+
+    ListsMod = id(lists),
+    ListsMap = id(map),
+    ListsArity = id(2),
+
+    ?APPLY2(lists, map, 2),
+    ?APPLY2(lists, map, ListsArity),
+    ?APPLY2(lists, ListsMap, 2),
+    ?APPLY2(lists, ListsMap, ListsArity),
+    ?APPLY2(ListsMod, map, 2),
+    ?APPLY2(ListsMod, map, ListsArity),
+    ?APPLY2(ListsMod, ListsMap, 2),
+    ?APPLY2(ListsMod, ListsMap, ListsArity),
+
+    ok.
+
+call_me(I) ->
+    {ok,I}.
+
+id(I) ->
+    I.

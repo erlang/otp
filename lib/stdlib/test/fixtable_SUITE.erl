@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -21,22 +21,41 @@
 %%%----------------------------------------------------------------------
 
 -module(fixtable_SUITE).
--export([all/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 %%% Test cases
 -export([multiple_fixes/1, multiple_processes/1,
 	 other_process_deletes/1, owner_dies/1,
 	 other_process_closes/1,insert_same_key/1]).
 -export([fixbag/1]).
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 %%% Internal exports
 -export([command_loop/0,start_commander/0]).
 
-all(suite) -> {req, [stdlib],
-	       [multiple_fixes, multiple_processes,
-		other_process_deletes, owner_dies,
-		other_process_closes,insert_same_key,fixbag]}.
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
--include("test_server.hrl").
+all() -> 
+    [multiple_fixes, multiple_processes,
+     other_process_deletes, owner_dies, other_process_closes,
+     insert_same_key, fixbag].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
+
+-include_lib("test_server/include/test_server.hrl").
 
 %%% I wrote this thinking I would use more than one temporary at a time, but 
 %%% I wasn't... Well, maybe in the future...
@@ -53,7 +72,7 @@ init_per_testcase(_Func, Config) ->
     Dog=test_server:timetrap(test_server:seconds(60)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     lists:foreach(fun(X) ->

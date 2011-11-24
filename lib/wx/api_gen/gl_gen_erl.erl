@@ -49,7 +49,7 @@ glu_defines(Defs) ->
     w("~n%% GLU DEFINITIONS~n~n", []),
     w("%% This file is generated DO NOT EDIT~n~n", []),
     [gen_define(Def) || Def=#def{} <- Defs],
-    close(), 
+    close(),
     ok.   
 
 gen_define(#def{name=N, val=Val, type=int}) ->
@@ -78,7 +78,11 @@ types() ->
      {"GLsizeiptr","64/native-unsigned"}, % 64 bits int, convert on c-side
      {"GLintptr",  "64/native-unsigned"}, % 64 bits int, convert on c-sidew
      {"GLUquadric", "64/native-unsigned"},% Handle 32bits aargh 64bits on mac64
-     {"GLhandleARB","64/native-unsigned"} % Handle 32bits aargh 64bits on mac64
+     {"GLhandleARB","64/native-unsigned"},% Handle 32bits aargh 64bits on mac64
+     
+     {"GLsync",     "64/native-unsigned"}, % Pointer to record
+     {"GLuint64",     "64/native-unsigned"},
+     {"GLint64",     "64/native-signed"}
     ].
 
 gl_api(Fs) ->
@@ -90,22 +94,53 @@ gl_api(Fs) ->
     w("%% See <a href=\"http://www.opengl.org/sdk/docs/man/\">www.opengl.org</a>~n",[]),
     w("%%~n", []),
     w("%% Booleans are represented by integers 0 and 1.~n~n", []),
-    w("%% @type wx_mem(). see wx.erl on memory allocation functions~n", []),
+    w("%% @type mem().    memory block~n", []),
     w("%% @type enum().   An integer defined in gl.hrl~n", []),    
     w("%% @type offset(). An integer which is an offset in an array~n", []),
     w("%% @type clamp().  A float clamped between 0.0 - 1.0~n", []),
     
     w("-module(gl).~n~n",[]),    
     w("-compile(inline).~n", []),
-    %%    w("-compile(export_all).~n~n", []),
-    %%    w("-compile(binary_comprehension).~n~n", []),
-    w("-include(\"wxe.hrl\").~n", []),
+%%    w("-include(\"wxe.hrl\").~n", []),
     [w("-define(~s,~s).~n", [GL,Erl]) || {GL,Erl} <- types()],
-    
+
+    gen_types(gl),
+   
     Exp = fun(F) -> gen_export(F) end,
     ExportList = lists:map(Exp,Fs),
     w("~n-export([~s]).~n~n", [args(fun(EF) -> EF end, ",", ExportList, 60)]),
-
+    w("-export([call/2, cast/2, send_bin/1]).~n",[]),
+    w("%% @hidden~n", []),
+    w("call(Op, Args) ->~n", []),
+    w("    Port = get(opengl_port), ~n", []),
+    w("    _ = erlang:port_control(Port,Op,Args),~n", []),
+    w("    rec().~n", []),
+    w("    ~n", []),
+    w("%% @hidden~n", []),
+    w("cast(Op, Args) ->~n", []),
+    w("    Port = get(opengl_port), ~n", []),
+    w("    _ = erlang:port_control(Port,Op,Args),~n", []),
+    w("    ok.~n", []),
+    w("    ~n", []),
+    w("%% @hidden~n", []),
+    w("rec() ->~n", []),
+    w("    receive ~n", []),
+    w("        {'_egl_result_', Res} -> Res;~n", []),
+    w("        {'_egl_error_',  Op, Res} -> error({error,Res,Op})~n", []),
+    w("    end. ~n", []),
+    w("~n", []),
+    w("%% @hidden~n", []),
+    w("send_bin(Bin) when is_binary(Bin) ->~n", []),
+    w("    Port = get(opengl_port), ~n", []),
+    w("    erlang:port_command(Port,Bin);~n", []),
+    w("send_bin(Tuple) when is_tuple(Tuple) ->~n", []),
+    w("    Port = get(opengl_port), ~n", []),
+    w("    case element(2, Tuple) of~n", []),
+    w("        Bin when is_binary(Bin) ->~n", []),
+    w("            erlang:port_command(Port,Bin)~n", []),
+    w("    end.~n", []),
+    w("~n", []),
+    
     w("~n%% API~n~n", []),
     [gen_funcs(F) || F <- Fs],
     close(), 
@@ -120,20 +155,22 @@ glu_api(Fs) ->
     w("%% See <a href=\"http://www.opengl.org/sdk/docs/man/\">www.opengl.org</a>~n",[]),
     w("%%~n", []),
     w("%% Booleans are represented by integers 0 and 1.~n~n", []),
-    w("%% @type wx_mem(). see wx.erl on memory allocation functions~n", []),
+    w("%% @type mem().    memory block~n", []),
     w("%% @type enum().   An integer defined in gl.hrl~n", []),    
     w("%% @type offset(). An integer which is an offset in an array~n", []),
     w("%% @type clamp().  A float clamped between 0.0 - 1.0~n~n", []),
 
     w("-module(glu).~n",[]),    
     w("-compile(inline).~n", []),
-    w("-include(\"wxe.hrl\").~n", []),
+    %%w("-include(\"wxe.hrl\").~n", []),
     [w("-define(~s,~s).~n", [GL,Erl]) || {GL,Erl} <- types()],
 
+    gen_types(glu),
+    
     Exp = fun(F) -> gen_export(F) end,
     ExportList = ["tesselate/2" | lists:map(Exp,Fs)],
     w("~n-export([~s]).~n~n", [args(fun(EF) -> EF end, ",", ExportList, 60)]),
-
+    w("-import(gl, [call/2,cast/2,send_bin/1]).", []),
     w("~n%% API~n~n", []),
 
     w("%% @spec (Vec3, [Vec3]) -> {Triangles, VertexPos}~n",[]),
@@ -148,13 +185,13 @@ glu_api(Fs) ->
       "%% may contain newly created vertices in the end.~n", []),
 
     w("tesselate({Nx,Ny,Nz}, Vs) ->~n",[]),
-    w("  wxe_util:call(5000, <<(length(Vs)):32/native,0:32,~n"
+    w("  call(5000, <<(length(Vs)):32/native,0:32,~n"
       "    Nx:?GLdouble,Ny:?GLdouble,Nz:?GLdouble,~n"
       "    (<< <<Vx:?GLdouble,Vy:?GLdouble,Vz:?GLdouble >>~n"
       "        || {Vx,Vy,Vz} <- Vs>>)/binary >>).~n~n", []),
 
     [gen_funcs(F) || F <- Fs],
-    close(), 
+    close(),
     ok.
 
 gen_funcs([F]) when is_list(F) ->
@@ -178,9 +215,27 @@ gen_funcs(F) ->
     erase(current_func),
     w(".~n~n",[]).
 
-gen_export([F|_]) when is_list(F) ->
+gen_types(Where) ->    
+    case Where of
+	glu -> ignore;
+	gl ->
+	    w("-type clamp() :: float().~n", []),
+	    w("-type offset() :: non_neg_integer().~n", [])
+    end,
+    w("-type enum() :: non_neg_integer().~n", []),
+    w("-type mem() :: binary() | tuple().~n", []),
+    ok.
+
+gen_export(F) ->
+    try gen_export_1(F)
+    catch E:R ->
+	    io:format("Crash ~p:~p in ~p ~n",[E,R, erlang:get_stacktrace()]),
+	    io:format("Func = ~p~n  ~p", [F, get(F)])
+    end.
+
+gen_export_1([F|_]) when is_list(F) ->
     gen_export2(get(F));
-gen_export(F) when is_list(F) ->
+gen_export_1(F) when is_list(F) ->
     gen_export2(get(F)).
 
 gen_export2(#func{name=Name,alt={vector,VecPos,Vec}}) ->
@@ -192,19 +247,27 @@ gen_export2(#func{name=Name,params=As0}) ->
     Args = lists:filter(fun(Arg) -> func_arg(Arg) =/= skip end, As0),
     erl_func_name(Name) ++ "/" ++ integer_to_list(length(Args)).
 
-
-gen_doc([#func{alt={vector,VecPos,Vec}}]) ->
+gen_doc([#func{name=Name, alt={vector,VecPos,Vec}}]) ->
     #func{type=T,params=As} = get(Vec), 
     {As1,As2} = lists:split(VecPos, As),
     Args1 = case args(fun func_arg/1, ",", As1) of [] -> []; Else -> Else++"," end,
     Args2 = args(fun func_arg/1, ",", As2),
-    w("%% @spec (~s{~s}) -> ~s~n",[Args1,Args2,doc_return_types(T,As)]), 
-    w("%% @equiv ~s(~s)~n",[erl_func_name(Vec), Args1++Args2]);
+    w("%% @spec (~s{~s}) -> ~s~n",[Args1,Args2,doc_return_types(T,As, doc)]), 
+    w("%% @equiv ~s(~s)~n",[erl_func_name(Vec), Args1++Args2]),
+    SA1 = case doc_arg_types(As1, spec) of [] -> []; E -> E++"," end,
+    SA2 = doc_arg_types(As2, spec),
+    w("-spec ~s(~s{~s}) -> ~s.~n",
+      [erl_func_name(Name), SA1, SA2, 
+       doc_return_types(T,As, spec)]);
+    
 gen_doc([#func{name=Name,type=T,params=As,alt=Alt}|_]) ->
-    w("%% @spec (~s) -> ~s~n", [doc_arg_types(As),doc_return_types(T,As)]),
+    w("%% @spec (~s) -> ~s~n", [doc_arg_types(As, doc),doc_return_types(T,As, doc)]),
     GLDoc = "http://www.opengl.org/sdk/docs/man/xhtml/",
     w("%% @doc See <a href=\"~s~s.xml\">external</a> documentation.~n",
-      [GLDoc, doc_name(Name,Alt)]).
+      [GLDoc, doc_name(Name,Alt)]),
+    w("-spec ~s(~s) -> ~s.~n",
+      [erl_func_name(Name), doc_arg_types(As, spec), doc_return_types(T,As, spec)]).
+
 
 gen_func(#func{name=Name,alt={vector,VecPos,Vec}}) ->
     #func{params=As} = get(Vec), 
@@ -222,9 +285,9 @@ gen_func(_F=#func{name=Name,type=T,params=As,id=MId}) ->
     {StrArgs,_} = marshal_args(PreAs),
     case have_return_vals(T,As) of
 	true ->
-	    w("  wxe_util:call(~p, <<~s>>)", [MId, StrArgs]);
+	    w("  call(~p, <<~s>>)", [MId, StrArgs]);
 	false ->
-	    w("  wxe_util:cast(~p, <<~s>>)", [MId, StrArgs])
+	    w("  cast(~p, <<~s>>)", [MId, StrArgs])
     end.
 
 func_arg(#arg{in=In,where=W,name=Name,type=Type}) 
@@ -242,29 +305,38 @@ func_arg(#arg{in=In,where=W,name=Name,type=Type})
     end;
 func_arg(_) -> skip.
 
-doc_arg_types(Ps0) ->
+doc_arg_types(Ps0, Type) ->
     Ps = [P || P=#arg{in=In, where=Where} <- Ps0,In =/= false, Where =/= c],
-    args(fun doc_arg_type/1, ",", Ps).
+    args(fun(Arg) -> doc_arg_type(Arg, Type) end, ",", Ps).
 
-doc_return_types(T, Ps0) ->
+doc_return_types(T, Ps0, Type) ->
     Ps = [P || P=#arg{in=In, where=Where} <- Ps0,In =/= true, Where =/= c],
-    doc_return_types2(T, Ps).
+    doc_return_types2(T, Ps, Type).
 
-doc_return_types2(void, []) ->    "ok";
-doc_return_types2(void, [#arg{type=T}]) ->     doc_arg_type2(T);
-doc_return_types2(T, []) ->                      doc_arg_type2(T);
-doc_return_types2(void, Ps) -> 
-    "{" ++ args(fun doc_arg_type/1,",",Ps) ++ "}";
-doc_return_types2(T, Ps) ->
-    "{" ++ doc_arg_type2(T) ++ "," ++ args(fun doc_arg_type/1,",",Ps) ++ "}".
+doc_return_types2(void, [], _) ->    "ok";
+doc_return_types2(void, [#arg{type=T}], _) ->     doc_arg_type2(T);
+doc_return_types2(T, [], _) ->                      doc_arg_type2(T);
+doc_return_types2(void, Ps, Type) -> 
+    "{" ++ args(fun(Arg) -> doc_arg_type(Arg, Type) end,",",Ps) ++ "}";
+doc_return_types2(T, Ps, Type) ->
+    "{" ++ doc_arg_type2(T) ++ "," ++ 
+	args(fun(Arg) -> doc_arg_type(Arg, Type) end,",",Ps) ++ "}".
 
-doc_arg_type(#arg{name=Name,type=T}) ->
+doc_arg_type(#arg{name=Name,type=T}, doc) ->
     try  
 	erl_arg_name(Name) ++ "::" ++ doc_arg_type2(T)
     catch _:Error ->
 	    io:format("Error: ~p ~p~n~p~n",[Name, Error, erlang:get_stacktrace()]),
 	    exit(error)
+    end;
+doc_arg_type(#arg{name=Name,type=T}, spec) ->
+    try  
+	doc_arg_type2(T)
+    catch _:Error ->
+	    io:format("Error spec: ~p ~p~n~p~n",[Name, Error, erlang:get_stacktrace()]),
+	    exit(error)
     end.
+
 
 doc_arg_type2(T=#type{single=true}) ->
     doc_arg_type3(T);
@@ -272,30 +344,26 @@ doc_arg_type2(T=#type{single=undefined}) ->
     doc_arg_type3(T);
 doc_arg_type2(T=#type{single={tuple,undefined}}) ->
     "{" ++ doc_arg_type3(T) ++ "}";
-doc_arg_type2(T=#type{single={tuple,_Sz}}) ->
-    "{" ++ doc_arg_type3(T) ++ "}";
+doc_arg_type2(T=#type{single={tuple,Sz}}) ->
+    "{" ++ args(fun doc_arg_type3/1, ",", lists:duplicate(Sz,T)) ++ "}";
 doc_arg_type2(T=#type{single=list}) ->
     "[" ++ doc_arg_type3(T) ++ "]";
-doc_arg_type2(T=#type{single={list, Max}}) when is_integer(Max) ->
+doc_arg_type2(T=#type{single={list, _Max}}) ->
     "[" ++ doc_arg_type3(T) ++ "]";
-doc_arg_type2(_T=#type{single={list,null}}) ->
-    "string()";
-doc_arg_type2(T=#type{base=string}) ->
-    doc_arg_type3(T);
 doc_arg_type2(T=#type{single={list,_,_}}) ->
     "[" ++ doc_arg_type3(T) ++ "]";
-doc_arg_type2(T=#type{single={tuple_list,_TSz}}) ->
-    "[{" ++ doc_arg_type3(T) ++ "}]".
+doc_arg_type2(T=#type{single={tuple_list,Sz}}) ->
+    "[{" ++ args(fun doc_arg_type3/1, ",", lists:duplicate(Sz,T)) ++ "}]".
 
 doc_arg_type3(#type{name="GLenum"}) ->  "enum()";
 doc_arg_type3(#type{name="GLclamp"++_}) ->  "clamp()";
 doc_arg_type3(#type{base=int}) ->       "integer()";
 doc_arg_type3(#type{base=float}) ->     "float()";
-doc_arg_type3(#type{base=guard_int}) -> "offset()|binary()";
+doc_arg_type3(#type{base=guard_int}) -> "offset()|mem()";
 doc_arg_type3(#type{base=string}) ->    "string()";
 doc_arg_type3(#type{base=bool}) ->      "0|1";
 doc_arg_type3(#type{base=binary}) ->    "binary()";
-doc_arg_type3(#type{base=memory}) ->    "wx:wx_mem()".
+doc_arg_type3(#type{base=memory}) ->    "mem()".
 
 guard_test(As) -> 
     Str = args(fun(#arg{name=N,type=#type{base=guard_int}}) -> 
@@ -309,10 +377,10 @@ guard_test(As) ->
     end.	    
 
 pre_marshal([#arg{name=N,in=true,type=#type{base=binary}}|R]) -> 
-    w("  wxe_util:send_bin(~s),~n", [erl_arg_name(N)]),
+    w("  send_bin(~s),~n", [erl_arg_name(N)]),
     pre_marshal(R);
 pre_marshal([#arg{name=N,type=#type{base=memory}}|R]) -> 
-    w("  wxe_util:send_bin(~s#wx_mem.bin),~n", [erl_arg_name(N)]),
+    w("  send_bin(~s),~n", [erl_arg_name(N)]),
     pre_marshal(R);
 pre_marshal([A=#arg{name=N,type=#type{base=string,single=list}}|R]) ->
     %% With null terminations
@@ -587,6 +655,7 @@ gen_debug(GL, GLU) ->
     w(" {-1, {mod, func, -1}}~n",[]),
     w("].~n~n", []),
     close().
+
 
 printd([F|R],Mod) when is_list(F) ->
     printd(F,Mod),

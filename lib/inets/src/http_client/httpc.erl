@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -48,7 +48,7 @@
 	 stop_service/1, 
 	 services/0, service_info/1]).
 
--include("http_internal.hrl").
+-include_lib("inets/src/http_lib/http_internal.hrl").
 -include("httpc_internal.hrl").
 
 -define(DEFAULT_PROFILE, default).
@@ -64,17 +64,16 @@ default_profile() ->
 
 profile_name(?DEFAULT_PROFILE) ->
     httpc_manager;
+profile_name(Profile) when is_pid(Profile) -> 
+    Profile;
 profile_name(Profile) -> 
-    profile_name("httpc_manager_", Profile).
+    Prefix = lists:flatten(io_lib:format("~w_", [?MODULE])),
+    profile_name(Prefix, Profile).
 
 profile_name(Prefix, Profile) when is_atom(Profile) ->
     list_to_atom(Prefix ++ atom_to_list(Profile));
-profile_name(Prefix, Profile) when is_pid(Profile) ->
-    ProfileStr0 = 
-	string:strip(string:strip(erlang:pid_to_list(Profile), left, $<), right, $>),
-    F = fun($.) -> $_; (X) -> X end, 
-    ProfileStr = [F(C) || C <- ProfileStr0], 
-    list_to_atom(Prefix ++ "pid_" ++ ProfileStr).
+profile_name(_Prefix, Profile) when is_pid(Profile) ->
+    Profile.
 
 
 %%--------------------------------------------------------------------------
@@ -104,14 +103,21 @@ request(Url, Profile) ->
 %%	HTTPOptions - [HttpOption]
 %%	HTTPOption - {timeout, Time} | {connect_timeout, Time} | 
 %%                   {ssl, SSLOptions} | {proxy_auth, {User, Password}}
-%%	Ssloptions = [SSLOption]
-%%	SSLOption =  {verify, code()} | {depth, depth()} | {certfile, path()} |
+%%	Ssloptions = ssl_options() | 
+%%                   {ssl,  ssl_options()} | 
+%%                   {essl, ssl_options()}
+%%      ssl_options() = [ssl_option()]
+%%	ssl_option() =  {verify, code()} | 
+%%                      {depth, depth()} | 
+%%                      {certfile, path()} |
 %%	{keyfile, path()} | {password, string()} | {cacertfile, path()} |
 %%	{ciphers, string()} 
 %%	Options - [Option]
-%%	Option - {sync, Boolean} | {body_format, BodyFormat} | 
-%%	{full_result, Boolean} | {stream, To} |
-%%      {headers_as_is, Boolean}  
+%%	Option -  {sync, Boolean}           | 
+%%                {body_format, BodyFormat} | 
+%%	          {full_result, Boolean}    | 
+%%                {stream, To}              |
+%%                {headers_as_is, Boolean}  
 %%	StatusLine = {HTTPVersion, StatusCode, ReasonPhrase}</v>
 %%	HTTPVersion = string()
 %%	StatusCode = integer()
@@ -120,7 +126,10 @@ request(Url, Profile) ->
 %%      Header = {Field, Value}
 %%	Field = string()
 %%	Value = string()
-%%	Body = string() | binary() - HTLM-code
+%%	Body = string() | binary() | {fun(SendAcc) -> SendFunResult, SendAcc} |
+%%              {chunkify, fun(SendAcc) -> SendFunResult, SendAcc} - HTLM-code
+%%      SendFunResult = eof | {ok, iolist(), NewSendAcc}
+%%      SendAcc = NewSendAcc = term()
 %%
 %% Description: Sends a HTTP-request. The function can be both
 %% syncronus and asynchronous in the later case the function will
@@ -132,7 +141,9 @@ request(Url, Profile) ->
 request(Method, Request, HttpOptions, Options) ->
     request(Method, Request, HttpOptions, Options, default_profile()). 
 
-request(Method, {Url, Headers}, HTTPOptions, Options, Profile) 
+request(Method, 
+	{Url, Headers}, 
+	HTTPOptions, Options, Profile) 
   when (Method =:= options) orelse 
        (Method =:= get) orelse 
        (Method =:= head) orelse 
@@ -145,15 +156,17 @@ request(Method, {Url, Headers}, HTTPOptions, Options, Profile)
 		      {http_options, HTTPOptions}, 
 		      {options,      Options}, 
 		      {profile,      Profile}]),
-    case http_uri:parse(Url) of
+    case http_uri:parse(Url, Options) of
 	{error, Reason} ->
 	    {error, Reason};
-	ParsedUrl ->
+	{ok, ParsedUrl} ->
 	    handle_request(Method, Url, ParsedUrl, Headers, [], [], 
 			   HTTPOptions, Options, Profile)
     end;
      
-request(Method, {Url,Headers,ContentType,Body}, HTTPOptions, Options, Profile) 
+request(Method, 
+	{Url, Headers, ContentType, Body}, 
+	HTTPOptions, Options, Profile) 
   when ((Method =:= post) orelse (Method =:= put)) andalso 
        (is_atom(Profile) orelse is_pid(Profile)) ->
     ?hcrt("request", [{method,       Method}, 
@@ -164,10 +177,10 @@ request(Method, {Url,Headers,ContentType,Body}, HTTPOptions, Options, Profile)
 		      {http_options, HTTPOptions}, 
 		      {options,      Options}, 
 		      {profile,      Profile}]),
-    case http_uri:parse(Url) of
+    case http_uri:parse(Url, Options) of
 	{error, Reason} ->
 	    {error, Reason};
-	ParsedUrl ->
+	{ok, ParsedUrl} ->
 	    handle_request(Method, Url, 
 			   ParsedUrl, Headers, ContentType, Body, 
 			   HTTPOptions, Options, Profile)
@@ -246,7 +259,7 @@ set_option(Key, Value, Profile) ->
 %% Description: Store the cookies from <SetCookieHeaders> 
 %%              in the cookie database
 %% for the profile <Profile>. This function shall be used when the option
-%% cookie is set to verify. 
+%% cookies is set to verify.
 %%-------------------------------------------------------------------------
 store_cookies(SetCookieHeaders, Url) ->
     store_cookies(SetCookieHeaders, Url, default_profile()).
@@ -258,7 +271,10 @@ store_cookies(SetCookieHeaders, Url, Profile)
 			    {profile,            Profile}]),
     try 
 	begin
-	    {_, _, Host, Port, Path, _} = http_uri:parse(Url),
+	    %% Since the Address part is not actually used
+	    %% by the manager when storing cookies, we dont
+	    %% care about ipv6-host-with-brackets.
+	    {ok, {_, _, Host, Port, Path, _}} = http_uri:parse(Url),
 	    Address     = {Host, Port}, 
 	    ProfileName = profile_name(Profile),
 	    Cookies     = httpc_cookie:cookies(SetCookieHeaders, Path, Host),
@@ -420,49 +436,105 @@ service_info(Pid) ->
 
 handle_request(Method, Url, 
 	       {Scheme, UserInfo, Host, Port, Path, Query}, 
-	       Headers, ContentType, Body, 
+	       Headers0, ContentType, Body0,
 	       HTTPOptions0, Options0, Profile) ->
 
-    Started    = http_util:timestamp(), 
-    NewHeaders = [{http_util:to_lower(Key), Val} || {Key, Val} <- Headers],
+    Started     = http_util:timestamp(), 
+    NewHeaders0 = [{http_util:to_lower(Key), Val} || {Key, Val} <- Headers0],
 
     try
 	begin
+	    ?hcrt("begin processing", [{started,     Started}, 
+				       {new_headers, NewHeaders0}]),
+
+	    {NewHeaders, Body} = 
+		case Body0 of
+		    {chunkify, ProcessBody, Acc} 
+		      when is_function(ProcessBody, 1) ->
+			NewHeaders1 = ensure_chunked_encoding(NewHeaders0), 
+			Body1       = {mk_chunkify_fun(ProcessBody), Acc}, 
+			{NewHeaders1, Body1};
+		    {ProcessBody, _} 
+		      when is_function(ProcessBody, 1) ->
+			{NewHeaders0, Body0};
+		    _ when is_list(Body0) orelse is_binary(Body0) ->
+			{NewHeaders0, Body0};
+		    _ ->
+			throw({error, {bad_body, Body0}})
+		end,
+
 	    HTTPOptions   = http_options(HTTPOptions0),
 	    Options       = request_options(Options0), 
 	    Sync          = proplists:get_value(sync,   Options),
 	    Stream        = proplists:get_value(stream, Options),
-	    Host2         = header_host(Host, Port), 
+	    Host2         = header_host(Scheme, Host, Port), 
 	    HeadersRecord = header_record(NewHeaders, Host2, HTTPOptions),
-	    Receiver   = proplists:get_value(receiver, Options),
-	    SocketOpts = proplists:get_value(socket_opts, Options),
+	    Receiver      = proplists:get_value(receiver, Options),
+	    SocketOpts    = proplists:get_value(socket_opts, Options),
+	    BracketedHost = proplists:get_value(ipv6_host_with_brackets, 
+						Options),
+	    MaybeEscPath  = maybe_encode_uri(HTTPOptions, Path),
+	    MaybeEscQuery = maybe_encode_uri(HTTPOptions, Query),
+	    AbsUri        = maybe_encode_uri(HTTPOptions, Url),
+
 	    Request = #request{from          = Receiver,
 			       scheme        = Scheme, 
 			       address       = {Host, Port},
-			       path          = Path, 
-			       pquery        = Query, 
+			       path          = MaybeEscPath,
+			       pquery        = MaybeEscQuery,
 			       method        = Method,
 			       headers       = HeadersRecord, 
 			       content       = {ContentType, Body},
 			       settings      = HTTPOptions, 
-			       abs_uri       = Url, 
+			       abs_uri       = AbsUri,
 			       userinfo      = UserInfo, 
 			       stream        = Stream, 
-			       headers_as_is = headers_as_is(Headers, Options),
+			       headers_as_is = headers_as_is(Headers0, Options),
 			       socket_opts   = SocketOpts, 
-			       started       = Started},
+			       started       = Started,
+			       ipv6_host_with_brackets = BracketedHost},
+
 	    case httpc_manager:request(Request, profile_name(Profile)) of
 		{ok, RequestId} ->
 		    handle_answer(RequestId, Sync, Options);
 		{error, Reason} ->
+		    ?hcrd("request failed", [{reason, Reason}]),
 		    {error, Reason}
 	    end
 	end
     catch
 	error:{noproc, _} ->
+	    ?hcrv("noproc", [{profile, Profile}]),
 	    {error, {not_started, Profile}};
 	throw:Error ->
+	    ?hcrv("throw", [{error, Error}]),
 	    Error
+    end.
+
+ensure_chunked_encoding(Hdrs) ->
+    Key = "transfer-encoding",
+    lists:keystore(Key, 1, Hdrs, {Key, "chunked"}).
+
+maybe_encode_uri(#http_options{url_encode = true}, URI) ->
+    http_uri:encode(URI);
+maybe_encode_uri(_, URI) ->
+    URI.
+
+mk_chunkify_fun(ProcessBody) ->
+    fun(eof_body) ->
+	    eof;
+       (Acc) ->
+	    case ProcessBody(Acc) of
+		eof ->
+		    {ok, <<"0\r\n\r\n">>, eof_body};
+		{ok, Data, NewAcc} ->
+		    Chunk = [
+			     integer_to_list(iolist_size(Data), 16), 
+			     "\r\n",
+			     Data,
+			     "\r\n"],
+		    {ok, Chunk, NewAcc}
+	    end
     end.
 
 
@@ -471,10 +543,15 @@ handle_answer(RequestId, false, _) ->
 handle_answer(RequestId, true, Options) ->
     receive
 	{http, {RequestId, saved_to_file}} ->
+	    ?hcrt("received saved-to-file", [{request_id, RequestId}]),
 	    {ok, saved_to_file};
 	{http, {RequestId, {_,_,_} = Result}} ->
+	    ?hcrt("received answer", [{request_id, RequestId}, 
+				      {result,     Result}]),
 	    return_answer(Options, Result);
 	{http, {RequestId, {error, Reason}}} ->
+	    ?hcrt("received error", [{request_id, RequestId}, 
+				     {reason,     Reason}]),
 	    {error, Reason}
     end.
 
@@ -483,9 +560,7 @@ return_answer(Options, {{"HTTP/0.9",_,_}, _, BinBody}) ->
     {ok, Body};
    
 return_answer(Options, {StatusLine, Headers, BinBody}) ->
-
     Body = maybe_format_body(BinBody, Options),
-    
     case proplists:get_value(full_result, Options, true) of
 	true ->
 	    {ok, {StatusLine, Headers, Body}};
@@ -572,14 +647,14 @@ http_options_default() ->
 		     (_) ->
 			  error
 		  end,
-    AutoRedirectPost = fun(Value) when (Value =:= true) orelse 
-				       (Value =:= false) ->
-			       {ok, Value};
-			  (_) ->
-			       error
-		       end,
+    AutoRedirectPost =  boolfun(),
+
     SslPost = fun(Value) when is_list(Value) ->
-		      {ok, Value};
+		      {ok, {?HTTP_DEFAULT_SSL_KIND, Value}};
+		 ({ssl, SslOptions}) when is_list(SslOptions) ->
+		      {ok, {?HTTP_DEFAULT_SSL_KIND, SslOptions}};
+		 ({essl, SslOptions}) when is_list(SslOptions) ->
+		      {ok, {essl, SslOptions}};
 		 (_) ->
 		      error
 	      end,
@@ -589,12 +664,8 @@ http_options_default() ->
 		       (_) ->
 			    error
 		    end,
-    RelaxedPost = fun(Value) when (Value =:= true) orelse 
-				  (Value =:= false) ->
-			  {ok, Value};
-		     (_) ->
-			  error
-		  end,
+    RelaxedPost =  boolfun(),
+
     ConnTimeoutPost = 
 	fun(Value) when is_integer(Value) andalso (Value >= 0) ->
 		{ok, Value};
@@ -603,25 +674,30 @@ http_options_default() ->
 	   (_) ->
 		error
 	end,
+
+    UrlDecodePost =  boolfun(),
     [
-     {version,         {value, "HTTP/1.1"},              #http_options.version,         VersionPost}, 
-     {timeout,         {value, ?HTTP_REQUEST_TIMEOUT},   #http_options.timeout,         TimeoutPost},
-     {autoredirect,    {value, true},                    #http_options.autoredirect,    AutoRedirectPost},
-     {ssl,             {value, []},                      #http_options.ssl,             SslPost},
-     {proxy_auth,      {value, undefined},               #http_options.proxy_auth,      ProxyAuthPost},
-     {relaxed,         {value, false},                   #http_options.relaxed,         RelaxedPost},
-     %% this field has to be *after* the timeout field (as that field is used for the default value)
-     {connect_timeout, {field,   #http_options.timeout}, #http_options.connect_timeout, ConnTimeoutPost}
+     {version,         {value, "HTTP/1.1"},            #http_options.version,         VersionPost}, 
+     {timeout,         {value, ?HTTP_REQUEST_TIMEOUT}, #http_options.timeout,         TimeoutPost},
+     {autoredirect,    {value, true},                  #http_options.autoredirect,    AutoRedirectPost},
+     {ssl,             {value, {?HTTP_DEFAULT_SSL_KIND, []}}, #http_options.ssl,             SslPost},
+     {proxy_auth,      {value, undefined},             #http_options.proxy_auth,      ProxyAuthPost},
+     {relaxed,         {value, false},                 #http_options.relaxed,         RelaxedPost},
+     {url_encode,      {value, false},                 #http_options.url_encode,      UrlDecodePost},
+     %% this field has to be *after* the timeout option (as that field is used for the default value)
+     {connect_timeout, {field, #http_options.timeout}, #http_options.connect_timeout, ConnTimeoutPost}
     ].
 
+boolfun() ->
+    fun(Value) when (Value =:= true) orelse
+		    (Value =:= false) ->
+	    {ok, Value};
+       (_) ->
+	    error
+    end.
 
 request_options_defaults() ->
-    VerifyBoolean = 
-	fun(Value) when ((Value =:= true) orelse (Value =:= false)) ->
-		ok;
-	   (_) ->
-		error
-	end,
+    VerifyBoolean = boolfun(),
 
     VerifySync = VerifyBoolean,
 
@@ -673,14 +749,17 @@ request_options_defaults() ->
 		error
 	end,
 
+    VerifyBrackets = VerifyBoolean, 
+
     [
-     {sync,          true,      VerifySync}, 
-     {stream,        none,      VerifyStream},
-     {body_format,   string,    VerifyBodyFormat},
-     {full_result,   true,      VerifyFullResult},
-     {headers_as_is, false,     VerifyHeaderAsIs},
-     {receiver,      self(),    VerifyReceiver},
-     {socket_opts,   undefined, VerifySocketOpts}
+     {sync,                    true,      VerifySync}, 
+     {stream,                  none,      VerifyStream},
+     {body_format,             string,    VerifyBodyFormat},
+     {full_result,             true,      VerifyFullResult},
+     {headers_as_is,           false,     VerifyHeaderAsIs},
+     {receiver,                self(),    VerifyReceiver},
+     {socket_opts,             undefined, VerifySocketOpts},
+     {ipv6_host_with_brackets, false,     VerifyBrackets}
     ]. 
 
 request_options(Options) ->
@@ -895,9 +974,11 @@ bad_option(Option, BadValue) ->
     throw({error, {bad_option, Option, BadValue}}).
 
 
-header_host(Host, 80 = _Port) ->
+header_host(https, Host, 443 = _Port) ->
     Host;
-header_host(Host, Port) ->
+header_host(http, Host, 80 = _Port) ->
+    Host;
+header_host(_Scheme, Host, Port) ->
     Host ++ ":" ++ integer_to_list(Port).
 
 

@@ -1,0 +1,1531 @@
+<!--
+  Configuration data file vendor-specific XML schema
+  EricssonSpecificAttributes.5.1.xsd
+  Includes Transport.
+  -->
+<schema xmlns:es="EricssonSpecificAttributes.5.1.xsd" xmlns:xn="genericNrm.xsd" xmlns="http://www.w3.org/2001/XMLSchema" targetNamespace="EricssonSpecificAttributes.5.1.xsd" elementFormDefault="qualified" attributeFormDefault="unqualified">
+	<!-- EricssonSpecificAttributes version 5.0  vendor-specific data -->
+	<import namespace="genericNrm.xsd" schemaLocation="genericNrm.xsd"/>
+	<include schemaLocation="EricssonSpecificAttributes.5.1Tran.xsd"/>
+	<element name="vsDataAntennaBranch" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="userLabel" minOccurs="0"/>
+						<element name="branchName" minOccurs="0"/>
+						<element name="antennaType" minOccurs="0"/>
+						<element name="verticalAntennaTilt" minOccurs="0"/>
+						<element name="mechanicalAntennaTilt" minOccurs="0"/>
+						<element name="antennaSupervisionThreshold" minOccurs="0"/>
+						<element name="fqBandHighEdge" minOccurs="0"/>
+						<element name="fqBandLowEdge" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataAntFeederCable" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="userLabel" minOccurs="0"/>
+						<element name="ulAttenuation" minOccurs="0" maxOccurs="unbounded"/>
+						<element name="dlAttenuation" minOccurs="0" maxOccurs="unbounded"/>
+						<element name="objectBConnector" minOccurs="0"/>
+						<element name="connectedToObjectBRef" minOccurs="0"/>
+						<element name="electricalUlDelay" minOccurs="0"/>
+						<element name="electricalDlDelay" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataAreas" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData"/>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataCchFrameSynch" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="dto" minOccurs="0"/>
+						<element name="doStep" minOccurs="0"/>
+						<element name="toAWS" minOccurs="0"/>
+						<element name="toAWE" minOccurs="0"/>
+						<element name="toAE" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataChannelSwitching" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="dlRlcBufUpswitch" minOccurs="0"/>
+						<element name="ulRlcBufUpswitch" minOccurs="0"/>
+						<element name="downswitchThreshold" minOccurs="0"/>
+						<element name="downswitchTimerThreshold" minOccurs="0"/>
+						<element name="downswitchTimer" minOccurs="0"/>
+						<element name="dlRlcBufUpswitchMrab" minOccurs="0"/>
+						<element name="ulRlcBufUpswitchMrab" minOccurs="0"/>
+						<element name="upswitchTimer" minOccurs="0"/>
+						<element name="coverageTimer" minOccurs="0"/>
+						<element name="inactivityTimer" minOccurs="0"/>
+						<element name="downswitchPwrMargin" minOccurs="0"/>
+						<element name="reportHysteresis" minOccurs="0"/>
+						<element name="upswitchPwrMargin" minOccurs="0"/>
+						<element name="downswitchTimerUp" minOccurs="0"/>
+						<element name="downswitchTimerSp" minOccurs="0"/>
+						<element name="hsdschInactivityTimer" minOccurs="0"/>
+						<element name="bandwidthMarginUl" minOccurs="0"/>
+						<element name="upswitchTimerUl" minOccurs="0"/>
+						<element name="bandwidthMargin" minOccurs="0"/>
+						<element name="dlDownswitchBandwidthMargin" minOccurs="0"/>
+						<element name="dlThroughputAllowUpswitchThreshold" minOccurs="0"/>
+						<element name="dlThroughputDownswitchTimer" minOccurs="0"/>
+						<element name="inactivityTimerPch" minOccurs="0"/>
+						<element name="multiRabSp0Available" minOccurs="0"/>
+						<element name="multiRabUdi8Available" minOccurs="0"/>
+						<element name="ulThroughputAllowUpswitchThreshold" minOccurs="0"/>
+						<element name="ulThroughputDownswitchTimer" minOccurs="0"/>
+						<element name="ulDownswitchBandwidthMargin" minOccurs="0"/>
+						<element name="inactivityTimeMultiPsInteractive" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataDchFrameSynch" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="dto" minOccurs="0"/>
+						<element name="doStep" minOccurs="0"/>
+						<element name="toAWS" minOccurs="0"/>
+						<element name="toAWE" minOccurs="0"/>
+						<element name="toAE" minOccurs="0"/>
+						<element name="uto" minOccurs="0"/>
+						<element name="uoStep" minOccurs="0"/>
+						<element name="toAWEUl" minOccurs="0"/>
+						<element name="toAEUl" minOccurs="0"/>
+						<element name="userLabel" minOccurs="0"/>
+						<element name="toAWSUl" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataAuxPlugInUnit" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData"/>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataEquipment" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData"/>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataPlmn" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="userLabel" minOccurs="0"/>
+						<element name="mcc" minOccurs="0"/>
+						<element name="mnc" minOccurs="0"/>
+						<element name="mncLength" minOccurs="0"/>
+						<element name="aliasPlmnIdentities" minOccurs="0" maxOccurs="unbounded">
+							<complexType>
+								<sequence>
+									<element name="mcc" minOccurs="0"/>
+									<element name="mnc" minOccurs="0"/>
+									<element name="mncLength" minOccurs="0"/>
+								</sequence>
+							</complexType>
+						</element>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataExternalGsmCell" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="maxTxPowerUl" minOccurs="0"/>
+						<element name="qRxLevMin" minOccurs="0"/>
+						<element name="individualOffset" minOccurs="0"/>
+						<element name="parentSystem" minOccurs="0"/>
+						<element name="mncLength" minOccurs="0"/>
+						<element name="bandIndicator" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataExternalGsmPlmn" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="userLabel" minOccurs="0"/>
+						<element name="mcc" minOccurs="0"/>
+						<element name="mnc" minOccurs="0"/>
+						<element name="mncLength" minOccurs="0"/>
+						<element name="aliasPlmnIdentities" minOccurs="0" maxOccurs="unbounded">
+							<complexType>
+								<sequence>
+									<element name="mcc" minOccurs="0"/>
+									<element name="mnc" minOccurs="0"/>
+									<element name="mncLength" minOccurs="0"/>
+								</sequence>
+							</complexType>
+						</element>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataExternalTma" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="userLabel" minOccurs="0"/>
+						<element name="dlAttenuation" minOccurs="0"/>
+						<element name="ulGain" minOccurs="0"/>
+						<element name="dlTrafficDelayA" minOccurs="0"/>
+						<element name="dlTrafficDelayB" minOccurs="0"/>
+						<element name="internalPower" minOccurs="0"/>
+						<element name="ulTrafficDelayA" minOccurs="0"/>
+						<element name="ulTrafficDelayB" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataExternalUtranCell" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="qQualMin" minOccurs="0"/>
+						<element name="qRxLevMin" minOccurs="0"/>
+						<element name="maxTxPowerUl" minOccurs="0"/>
+						<element name="individualOffset" minOccurs="0"/>
+						<element name="parentSystem" minOccurs="0"/>
+						<element name="mncLength" minOccurs="0"/>
+						<element name="agpsEnabled" minOccurs="0"/>
+						<element name="cellCapability" minOccurs="0">
+							<complexType>
+								<sequence>
+									<element name="hsdschSupport" minOccurs="0"/>
+									<element name="edchSupport" minOccurs="0"/>
+								</sequence>
+							</complexType>
+						</element>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataExternalUtranPlmn" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="userLabel" minOccurs="0"/>
+						<element name="mcc" minOccurs="0"/>
+						<element name="mnc" minOccurs="0"/>
+						<element name="mncLength" minOccurs="0"/>
+						<element name="reservedBy" minOccurs="0"/>
+						<element name="aliasPlmnIdentities" minOccurs="0" maxOccurs="unbounded">
+							<complexType>
+								<sequence>
+									<element name="mcc" minOccurs="0"/>
+									<element name="mnc" minOccurs="0"/>
+									<element name="mncLength" minOccurs="0"/>
+								</sequence>
+							</complexType>
+						</element>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataFach" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="userLabel" minOccurs="0"/>
+						<element name="maxFach1Power" minOccurs="0"/>
+						<element name="maxFach2Power" minOccurs="0"/>
+						<element name="sccpchOffset" minOccurs="0"/>
+						<element name="pOffset1Fach" minOccurs="0"/>
+						<element name="pOffset3Fach" minOccurs="0"/>
+						<element name="administrativeState" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataGsmRelation" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="qOffset1sn" minOccurs="0"/>
+						<element name="mobilityRelationType" minOccurs="0"/>
+						<element name="selectionPriority" minOccurs="0"/>
+						<element name="externalGsmCellRef" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataHandover" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="maxActiveSet" minOccurs="0"/>
+						<element name="fddGsmHOSupp" minOccurs="0"/>
+						<element name="selHoSup" minOccurs="0"/>
+						<element name="timeReleaseIuPs" minOccurs="0"/>
+						<element name="gsmAmountPropRepeat" minOccurs="0"/>
+						<element name="gsmPropRepeatInterval" minOccurs="0"/>
+						<element name="ifhoPropRepeatInterval" minOccurs="0"/>
+						<element name="ifhoAmountPropRepeat" minOccurs="0"/>
+						<element name="fddIfhoSupp" minOccurs="0"/>
+						<element name="hoTypeDrncBand1" minOccurs="0"/>
+						<element name="hoTypeDrncBand2" minOccurs="0"/>
+						<element name="hoTypeDrncBand3" minOccurs="0"/>
+						<element name="hoTypeDrncBand4" minOccurs="0"/>
+						<element name="hoTypeDrncBand5" minOccurs="0"/>
+						<element name="hoTypeDrncBand6" minOccurs="0"/>
+						<element name="hoTypeDrncBand7" minOccurs="0"/>
+						<element name="hoTypeDrncBand8" minOccurs="0"/>
+						<element name="hoTypeDrncBand9" minOccurs="0"/>
+						<element name="hoTypeDrncBand10" minOccurs="0"/>
+						<element name="hoTypeDrncBand11" minOccurs="0"/>
+						<element name="hoTypeDrncBand12" minOccurs="0"/>
+						<element name="releaseConnOffset" minOccurs="0"/>
+						<element name="hoTypeDrncBand13" minOccurs="0"/>
+						<element name="hoTypeDrncBand14" minOccurs="0"/>
+						<element name="hoTypeDrncBand15" minOccurs="0"/>
+						<element name="hoTypeDrncBand16" minOccurs="0"/>
+						<element name="hoTypeDrncBand17" minOccurs="0"/>
+						<element name="maxGsmMonSubset" minOccurs="0"/>
+						<element name="maxIefMonSubset" minOccurs="0"/>
+						<element name="cnhhoSupp" minOccurs="0"/>
+						<element name="interFreqCnhhoPenaltyEcno" minOccurs="0"/>
+						<element name="interFreqCnhhoPenaltyRscp" minOccurs="0"/>
+						<element name="intraFreqCnhhoPenalty" minOccurs="0"/>
+						<element name="intraFreqCnhhoWeight" minOccurs="0"/>
+						<element name="serviceBasedHoSupport" minOccurs="0"/>
+						<element name="tmStopGsmMeas" minOccurs="0"/>
+						<element name="eulReservedHwBandwidthSchedDataNonServCell" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataIubLink" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="rbsId" minOccurs="0"/>
+						<element name="beMarginDlHw" minOccurs="0"/>
+						<element name="dlHwAdm" minOccurs="0"/>
+						<element name="ulHwAdm" minOccurs="0"/>
+						<element name="beMarginUlHw" minOccurs="0"/>
+						<element name="rncModuleRef" minOccurs="0"/>
+						<element name="preferredSubrackRef" minOccurs="0"/>
+						<element name="edchIubDynDelayLimit" minOccurs="0"/>
+						<element name="userPlaneTransportOption" minOccurs="0">
+							<complexType>
+								<sequence>
+									<element name="atm" minOccurs="0"/>
+									<element name="ipv4" minOccurs="0"/>
+								</sequence>
+							</complexType>
+						</element>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataIurLink" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="userLabel" minOccurs="0"/>
+						<element name="mcc" minOccurs="0"/>
+						<element name="mnc" minOccurs="0"/>
+						<element name="mncLength" minOccurs="0"/>
+						<element name="rncId" minOccurs="0"/>
+						<element name="aliasPlmnIdentities" minOccurs="0" maxOccurs="unbounded">
+							<complexType>
+								<sequence>
+									<element name="mcc" minOccurs="0"/>
+									<element name="mnc" minOccurs="0"/>
+									<element name="mncLength" minOccurs="0"/>
+								</sequence>
+							</complexType>
+						</element>
+						<element name="utranNetworkRef" minOccurs="0"/>
+						<element name="cellCapabilityControl" minOccurs="0">
+							<complexType>
+								<sequence>
+									<element name="hsdschSupport" minOccurs="0"/>
+									<element name="edchSupport" minOccurs="0"/>
+								</sequence>
+							</complexType>
+						</element>
+						<element name="hspaPathlossThreshold" minOccurs="0"/>
+						<element name="userPlaneTransportOption" minOccurs="0">
+							<complexType>
+								<sequence>
+									<element name="atm" minOccurs="0"/>
+									<element name="ipv4" minOccurs="0"/>
+								</sequence>
+							</complexType>
+						</element>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataLocationArea" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="userLabel" minOccurs="0"/>
+						<element name="lac" minOccurs="0"/>
+						<element name="t3212" minOccurs="0"/>
+						<element name="att" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataMeContext" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="userLabel" minOccurs="0"/>
+						<element name="ipAddress" minOccurs="0"/>
+						<element name="neMIMversion" minOccurs="0"/>
+						<element name="rbsIubId" minOccurs="0"/>
+						<element name="bcrLastChange" minOccurs="0"/>
+						<element name="bctLastChange" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataNodeBFunction" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="toaeDch" minOccurs="0"/>
+						<element name="toaeCch" minOccurs="0"/>
+						<element name="fwdGuardPeriod" minOccurs="0"/>
+						<element name="bwdGuardPeriod" minOccurs="0"/>
+						<element name="tpcFilterLength" minOccurs="0"/>
+						<element name="branchDiffAbsTime" minOccurs="0"/>
+						<element name="branchDiffMeasTime" minOccurs="0"/>
+						<element name="countersAlarmThreshold" minOccurs="0"/>
+						<element name="maxNumberOfCounters" minOccurs="0"/>
+						<element name="steeredHsAllocation" minOccurs="0"/>
+						<element name="eulNoReschUsers" minOccurs="0"/>
+						<element name="eulTargetRate" minOccurs="0"/>
+						<element name="eulMaxShoRate" minOccurs="0"/>
+						<element name="supportOf16qam" minOccurs="0"/>
+						<element name="flexibleSchedulerOn" minOccurs="0"/>
+						<element name="eulReservedHwBandwidthSchedDataNonServCell" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataPaging" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="cnDrxCycleLengthCs" minOccurs="0"/>
+						<element name="cnDrxCycleLengthPs" minOccurs="0"/>
+						<element name="noOfPagingRecordTransm" minOccurs="0"/>
+						<element name="utranDrxCycleLength" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataPch" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="userLabel" minOccurs="0"/>
+						<element name="pchPower" minOccurs="0"/>
+						<element name="pichPower" minOccurs="0"/>
+						<element name="sccpchOffset" minOccurs="0"/>
+						<element name="administrativeState" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataPowerControl" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="cBackOff" minOccurs="0"/>
+						<element name="ulOuterLoopRegulator" minOccurs="0"/>
+						<element name="ulSirStep" minOccurs="0"/>
+						<element name="sirMin" minOccurs="0"/>
+						<element name="sirMax" minOccurs="0"/>
+						<element name="dlPcMethod" minOccurs="0"/>
+						<element name="cPO" minOccurs="0"/>
+						<element name="pO1" minOccurs="0"/>
+						<element name="pO2" minOccurs="0"/>
+						<element name="pO3" minOccurs="0"/>
+						<element name="ecNoPcpichDefault" minOccurs="0"/>
+						<element name="pcpichPowerDefault" minOccurs="0"/>
+						<element name="fixedPowerDl" minOccurs="0"/>
+						<element name="cNbifho" minOccurs="0"/>
+						<element name="fixedRefPower" minOccurs="0"/>
+						<element name="initShoPowerParam" minOccurs="0"/>
+						<element name="dlInitSirTarget" minOccurs="0"/>
+						<element name="ulInitSirTargetExtraHigh" minOccurs="0"/>
+						<element name="ulInitSirTargetHigh" minOccurs="0"/>
+						<element name="ulInitSirTargetLow" minOccurs="0"/>
+						<element name="ulInitSirTargetSrb" minOccurs="0"/>
+						<element name="transmissionTargetError" minOccurs="0"/>
+						<element name="ulInitSirTargetEdch" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataRach" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="userLabel" minOccurs="0"/>
+						<element name="scramblingCodeWordNo" minOccurs="0"/>
+						<element name="preambleSignatures" minOccurs="0"/>
+						<element name="subChannelNo" minOccurs="0"/>
+						<element name="aichTransmissionTiming" minOccurs="0"/>
+						<element name="aichPower" minOccurs="0"/>
+						<element name="powerOffsetP0" minOccurs="0"/>
+						<element name="powerOffsetPpm" minOccurs="0"/>
+						<element name="preambleRetransMax" minOccurs="0"/>
+						<element name="maxPreambleCycle" minOccurs="0"/>
+						<element name="constantValueCprach" minOccurs="0"/>
+						<element name="spreadingFactor" minOccurs="0"/>
+						<element name="administrativeState" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataRbsLocalCell" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="userLabel" minOccurs="0"/>
+						<element name="localCellId" minOccurs="0"/>
+						<element name="cellRange" minOccurs="0"/>
+						<element name="carrierRef" minOccurs="0"/>
+						<element name="dynamicHsPdschCodeAdditionOn" minOccurs="0"/>
+						<element name="hsCodeResourceId" minOccurs="0"/>
+						<element name="maxNumHsPdschCodes" minOccurs="0"/>
+						<element name="eulMaxRotCoverage" minOccurs="0"/>
+						<element name="eulMaxOwnUuLoad" minOccurs="0"/>
+						<element name="maxUserEHichERgchPowerDl" minOccurs="0"/>
+						<element name="eulMaxNoSchEDch" minOccurs="0"/>
+						<element name="eulMinMarginCoverage" minOccurs="0"/>
+						<element name="eulOptimalNoiseFloorLock" minOccurs="0" maxOccurs="unbounded">
+							<complexType>
+								<sequence>
+									<element name="eulNoiseFloorLock" minOccurs="0"/>
+									<element name="eulOptimalNoiseFloorEstimate" minOccurs="0"/>
+								</sequence>
+							</complexType>
+						</element>
+						<element name="eulSlidingWindowTime" minOccurs="0"/>
+						<element name="eulThermalLevelPrior" minOccurs="0"/>
+						<element name="eulNoERgchGroups" minOccurs="0"/>
+						<element name="maxEAgchPowerDl" minOccurs="0"/>
+						<element name="maxNumHsdpaUsers" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataRcs" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="dchRcLostT" minOccurs="0"/>
+						<element name="cchWaitCuT" minOccurs="0"/>
+						<element name="hsDschRcLostT" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataRetDevice" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="electricalAntennaTilt" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataRetDeviceSet" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="userLabel" minOccurs="0"/>
+						<element name="retType" minOccurs="0"/>
+						<element name="productNumber" minOccurs="0"/>
+						<element name="revState" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<!--element name="vsDataRetProfile" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="userLabel" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element-->
+	<element name="vsDataRetuDeviceGroup" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData"/>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataRoutingArea" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="userLabel" minOccurs="0"/>
+						<element name="rac" minOccurs="0"/>
+						<element name="nmo" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataRrc" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="t305" minOccurs="0"/>
+						<element name="packetEstMode" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataSector" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="numberOfCarriers" minOccurs="0"/>
+						<element name="numberOfTxBranches" minOccurs="0"/>
+						<element name="outputPower" minOccurs="0"/>
+						<element name="latitude" minOccurs="0"/>
+						<element name="latHemisphere" minOccurs="0"/>
+						<element name="longitude" minOccurs="0"/>
+						<element name="longHemisphere" minOccurs="0"/>
+						<element name="geoDatum" minOccurs="0"/>
+						<element name="beamDirection" minOccurs="0"/>
+						<element name="height" minOccurs="0"/>
+						<element name="sectorAntennaRef" minOccurs="0"/>
+						<element name="userLabel" minOccurs="0"/>
+						<element name="retDeviceRef" minOccurs="0"/>
+						<element name="maxInternalUlGainOn" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataSectorAntenna" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="antennaType" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataCarrier" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="cqiAdjustmentOn" minOccurs="0"/>
+						<element name="cqiErrors" minOccurs="0"/>
+						<element name="cqiErrorsAbsent" minOccurs="0"/>
+						<element name="hsPowerMargin" minOccurs="0"/>
+						<element name="hsScchMaxCodePower" minOccurs="0"/>
+						<element name="queueSelectAlgorithm" minOccurs="0"/>
+						<element name="frequencyPlane" minOccurs="0"/>
+						<element name="hsScchMinCodePower" minOccurs="0"/>
+						<element name="qualityCheckPower" minOccurs="0"/>
+						<element name="supportOf16qam" minOccurs="0"/>
+						<element name="airRateTypeSelector" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataServiceArea" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="userLabel" minOccurs="0"/>
+						<element name="sac" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataSid" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="updateCellReattsNo" minOccurs="0"/>
+						<element name="noOfMaxDrxCycles" minOccurs="0"/>
+						<element name="noOfMibValueTagRetrans" minOccurs="0"/>
+						<element name="sib1" minOccurs="0" maxOccurs="unbounded">
+							<complexType>
+								<sequence>
+									<element name="sib1RepPeriod" minOccurs="0"/>
+									<element name="sib1StartPos" minOccurs="0"/>
+								</sequence>
+							</complexType>
+						</element>
+						<element name="sib11" minOccurs="0" maxOccurs="unbounded">
+							<complexType>
+								<sequence>
+									<element name="sib11RepPeriod" minOccurs="0"/>
+									<element name="sib11StartPos" minOccurs="0"/>
+								</sequence>
+							</complexType>
+						</element>
+						<element name="sib12" minOccurs="0" maxOccurs="unbounded">
+							<complexType>
+								<sequence>
+									<element name="sib12RepPeriod" minOccurs="0"/>
+									<element name="sib12StartPos" minOccurs="0"/>
+								</sequence>
+							</complexType>
+						</element>
+						<element name="sib3" minOccurs="0" maxOccurs="unbounded">
+							<complexType>
+								<sequence>
+									<element name="sib3RepPeriod" minOccurs="0"/>
+									<element name="sib3StartPos" minOccurs="0"/>
+								</sequence>
+							</complexType>
+						</element>
+						<element name="sib5" minOccurs="0" maxOccurs="unbounded">
+							<complexType>
+								<sequence>
+									<element name="sib5RepPeriod" minOccurs="0"/>
+									<element name="sib5StartPos" minOccurs="0"/>
+								</sequence>
+							</complexType>
+						</element>
+						<element name="sib7" minOccurs="0" maxOccurs="unbounded">
+							<complexType>
+								<sequence>
+									<element name="sib7RepPeriod" minOccurs="0"/>
+									<element name="sib7StartPos" minOccurs="0"/>
+								</sequence>
+							</complexType>
+						</element>
+						<element name="sib7ExpirationTimeFactor" minOccurs="0"/>
+						<element name="sib2" minOccurs="0" maxOccurs="unbounded">
+							<complexType>
+								<sequence>
+									<element name="sib2RepPeriod" minOccurs="0"/>
+									<element name="sib2StartPos" minOccurs="0"/>
+								</sequence>
+							</complexType>
+						</element>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataUeMeasControl" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="userLabel" minOccurs="0"/>
+						<element name="reportingRange1a" minOccurs="0"/>
+						<element name="reportingRange1b" minOccurs="0"/>
+						<element name="hysteresis1c" minOccurs="0"/>
+						<element name="hysteresis1d" minOccurs="0"/>
+						<element name="hysteresis2d" minOccurs="0"/>
+						<element name="hysteresis2f" minOccurs="0"/>
+						<element name="gsmThresh3a" minOccurs="0"/>
+						<element name="hysteresis3a" minOccurs="0"/>
+						<element name="measQuantity1" minOccurs="0"/>
+						<element name="ueTxPowerThresh6a" minOccurs="0"/>
+						<element name="ueTxPowerThresh6b" minOccurs="0"/>
+						<element name="usedFreqThresh2dEcnoDrnc" minOccurs="0"/>
+						<element name="usedFreqThresh2dRscpDrnc" minOccurs="0"/>
+						<element name="usedFreqRelThresh2fEcno" minOccurs="0"/>
+						<element name="usedFreqRelThresh2fRscp" minOccurs="0"/>
+						<element name="hyst4_2b" minOccurs="0"/>
+						<element name="nonUsedFreqThresh4_2bEcno" minOccurs="0"/>
+						<element name="nonUsedFreqThresh4_2bRscp" minOccurs="0"/>
+						<element name="timeToTrigger1a" minOccurs="0"/>
+						<element name="hysteresis1a" minOccurs="0"/>
+						<element name="timeToTrigger1b" minOccurs="0"/>
+						<element name="hysteresis1b" minOccurs="0"/>
+						<element name="timeToTrigger1c" minOccurs="0"/>
+						<element name="timeToTrigger1d" minOccurs="0"/>
+						<element name="timeToTrigger3a" minOccurs="0"/>
+						<element name="reportingInterval1a" minOccurs="0"/>
+						<element name="reportingInterval1c" minOccurs="0"/>
+						<element name="timeTrigg6a" minOccurs="0"/>
+						<element name="timeTrigg6b" minOccurs="0"/>
+						<element name="timeTrigg4_2b" minOccurs="0"/>
+						<element name="hsHysteresis1d" minOccurs="0"/>
+						<element name="hsQualityEstimate" minOccurs="0"/>
+						<element name="hsTimeToTrigger1d" minOccurs="0"/>
+						<element name="filterCoefficient1" minOccurs="0"/>
+						<element name="filterCoefficient2" minOccurs="0"/>
+						<element name="utranFilterCoefficient3" minOccurs="0"/>
+						<element name="gsmFilterCoefficient3" minOccurs="0"/>
+						<element name="filterCoeff6" minOccurs="0"/>
+						<element name="filterCoeff4_2b" minOccurs="0"/>
+						<element name="w1a" minOccurs="0"/>
+						<element name="w1b" minOccurs="0"/>
+						<element name="usedFreqW2d" minOccurs="0"/>
+						<element name="usedFreqW2f" minOccurs="0"/>
+						<element name="usedFreqW4_2b" minOccurs="0"/>
+						<element name="utranW3a" minOccurs="0"/>
+						<element name="nonUsedFreqW4_2b" minOccurs="0"/>
+						<element name="timeToTrigger2dEcno" minOccurs="0"/>
+						<element name="timeToTrigger2fEcno" minOccurs="0"/>
+						<element name="utranRelThresh3aEcno" minOccurs="0"/>
+						<element name="utranRelThresh3aRscp" minOccurs="0"/>
+						<element name="usedFreqRelThresh4_2bEcno" minOccurs="0"/>
+						<element name="usedFreqRelThresh4_2bRscp" minOccurs="0"/>
+						<element name="timeToTrigger2dRscp" minOccurs="0"/>
+						<element name="timeToTrigger2fRscp" minOccurs="0"/>
+						<element name="utranRelThreshRscp" minOccurs="0"/>
+						<element name="event1dRncThreshold" minOccurs="0"/>
+						<element name="event1dRncOffset" minOccurs="0"/>
+						<element name="timeToTrigger6d" minOccurs="0"/>
+						<element name="txPowerConnQualMonEnabled" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataUeRc" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="userLabel" minOccurs="0"/>
+						<element name="serviceOffset2dEcno" minOccurs="0"/>
+						<element name="serviceOffset2dRscp" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataUeRcTrCh" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="blerQualityTargetDl" minOccurs="0"/>
+						<element name="blerQualityTargetUl" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataUtranCell" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="tCell" minOccurs="0"/>
+						<element name="cellReserved" minOccurs="0"/>
+						<element name="treSelection" minOccurs="0"/>
+						<element name="qualMeasQuantity" minOccurs="0"/>
+						<element name="qHyst1" minOccurs="0"/>
+						<element name="qHyst2" minOccurs="0"/>
+						<element name="qQualMin" minOccurs="0"/>
+						<element name="qRxLevMin" minOccurs="0"/>
+						<element name="individualOffset" minOccurs="0"/>
+						<element name="pwrAdm" minOccurs="0"/>
+						<element name="pwrAdmOffset" minOccurs="0"/>
+						<element name="pwrOffset" minOccurs="0"/>
+						<element name="pwrHyst" minOccurs="0"/>
+						<element name="tmCongAction" minOccurs="0"/>
+						<element name="releaseAseDl" minOccurs="0"/>
+						<element name="aseDlAdm" minOccurs="0"/>
+						<element name="dlCodeAdm" minOccurs="0"/>
+						<element name="aseUlAdm" minOccurs="0"/>
+						<element name="sf8Adm" minOccurs="0"/>
+						<element name="sf32Adm" minOccurs="0"/>
+						<element name="aseUlAdmOffset" minOccurs="0"/>
+						<element name="minPwrRl" minOccurs="0"/>
+						<element name="maxRate" minOccurs="0"/>
+						<element name="interRate" minOccurs="0"/>
+						<element name="minimumRate" minOccurs="0"/>
+						<element name="maxPwrMax" minOccurs="0"/>
+						<element name="interPwrMax" minOccurs="0"/>
+						<element name="minPwrMax" minOccurs="0"/>
+						<element name="compModeAdm" minOccurs="0"/>
+						<element name="iFOffset" minOccurs="0"/>
+						<element name="iFHyst" minOccurs="0"/>
+						<element name="iFCong" minOccurs="0"/>
+						<element name="interFreqFddMeasIndicator" minOccurs="0"/>
+						<element name="sRatSearch" minOccurs="0"/>
+						<element name="sIntraSearch" minOccurs="0"/>
+						<element name="sInterSearch" minOccurs="0"/>
+						<element name="fachMeasOccaCycLenCoeff" minOccurs="0"/>
+						<element name="accessClassNBarred" minOccurs="0" maxOccurs="unbounded"/>
+						<element name="utranCellPosition" minOccurs="0" maxOccurs="unbounded"/>
+						<element name="maxTxPowerUl" minOccurs="0"/>
+						<element name="beMarginAseUl" minOccurs="0"/>
+						<element name="beMarginAseDl" minOccurs="0"/>
+						<element name="reservedBy" minOccurs="0" maxOccurs="unbounded"/>
+						<element name="sib1PlmnScopeValueTag" minOccurs="0"/>
+						<element name="sf16Adm" minOccurs="0"/>
+						<element name="beMarginDlPwr" minOccurs="0"/>
+						<element name="beMarginDlCode" minOccurs="0"/>
+						<element name="hoType" minOccurs="0"/>
+						<element name="usedFreqThresh2dEcno" minOccurs="0"/>
+						<element name="usedFreqThresh2dRscp" minOccurs="0"/>
+						<element name="administrativeState" minOccurs="0"/>
+						<element name="loadSharingGsmThreshold" minOccurs="0"/>
+						<element name="loadSharingGsmFraction" minOccurs="0"/>
+						<element name="snDirectedRetryTarget" minOccurs="0"/>
+						<element name="nInSyncInd" minOccurs="0"/>
+						<element name="rlFailureT" minOccurs="0"/>
+						<element name="nOutSyncInd" minOccurs="0"/>
+						<element name="sf4AdmUl" minOccurs="0"/>
+						<element name="hardIfhoCorr" minOccurs="0"/>
+						<element name="hsdpaUsersAdm" minOccurs="0"/>
+						<element name="loadSharingMargin" minOccurs="0"/>
+						<element name="releaseAseDlGhs" minOccurs="0"/>
+						<element name="tmCongActionGhs" minOccurs="0"/>
+						<element name="tmInitialGhs" minOccurs="0"/>
+						<element name="sf4UlPathlossThreshold" minOccurs="0"/>
+						<element name="ulPathlossCheckEnabled" minOccurs="0"/>
+						<element name="sHcsRat" minOccurs="0"/>
+						<element name="sf16gAdm" minOccurs="0"/>
+						<element name="releaseAseDlNg" minOccurs="0"/>
+						<element name="tmCongActionNg" minOccurs="0"/>
+						<element name="tmInitialG" minOccurs="0"/>
+						<element name="sf16AdmUl" minOccurs="0"/>
+						<element name="sf8AdmUl" minOccurs="0"/>
+						<element name="sf8gAdmUl" minOccurs="0"/>
+						<element name="iubLinkRef" minOccurs="0"/>
+						<element name="eulNonServingCellUsersAdm" minOccurs="0"/>
+						<element name="eulServingCellUsersAdm" minOccurs="0"/>
+						<element name="agpsEnabled" minOccurs="0"/>
+						<element name="codeLoadThresholdDlSf128" minOccurs="0"/>
+						<element name="pwrLoadThresholdDlSpeech" minOccurs="0" maxOccurs="unbounded">
+							<complexType>
+								<sequence>
+									<element name="amr12200" minOccurs="0"/>
+									<element name="amr7950" minOccurs="0"/>
+									<element name="amr5900" minOccurs="0"/>
+								</sequence>
+							</complexType>
+						</element>
+						<element name="aseLoadThresholdUlSpeech" minOccurs="0">
+							<complexType>
+								<sequence>
+									<element name="amr12200" minOccurs="0"/>
+									<element name="amr7950" minOccurs="0"/>
+									<element name="amr5900" minOccurs="0"/>
+								</sequence>
+							</complexType>
+						</element>
+						<element name="accessClassesBarredCs" minOccurs="0" maxOccurs="unbounded"/>
+						<element name="accessClassesBarredPs" minOccurs="0" maxOccurs="unbounded"/>
+						<element name="rateSelectionPsInteractive" minOccurs="0">
+							<complexType>
+								<sequence>
+									<element name="channelType" minOccurs="0"/>
+									<element name="ulPrefRate" minOccurs="0"/>
+									<element name="dlPrefRate" minOccurs="0"/>
+								</sequence>
+							</complexType>
+						</element>
+						<element name="hcsUsage" minOccurs="0">
+							<complexType>
+								<sequence>
+									<element name="idleMode" minOccurs="0"/>
+									<element name="connectedMode" minOccurs="0"/>
+								</sequence>
+							</complexType>
+						</element>
+						<element name="hcsSib3Config" minOccurs="0">
+							<complexType>
+								<sequence>
+									<element name="sSearchHcs" minOccurs="0"/>
+									<element name="hcsPrio" minOccurs="0"/>
+									<element name="qHcs" minOccurs="0"/>
+								</sequence>
+							</complexType>
+						</element>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataUtranRelation" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="qOffset1sn" minOccurs="0"/>
+						<element name="qOffset2sn" minOccurs="0"/>
+						<element name="loadSharingCandidate" minOccurs="0"/>
+						<element name="selectionPriority" minOccurs="0"/>
+						<element name="frequencyRelationType" minOccurs="0"/>
+						<element name="hcsSib11Config" minOccurs="0">
+							<complexType>
+								<sequence>
+									<element name="hcsPrio" minOccurs="0"/>
+									<element name="qHcs" minOccurs="0"/>
+									<element name="penaltyTime" minOccurs="0"/>
+									<element name="temporaryOffset1" minOccurs="0"/>
+									<element name="temporaryOffset2" minOccurs="0"/>
+								</sequence>
+							</complexType>
+						</element>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataRncFunction" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="mncLength" minOccurs="0"/>
+						<element name="emergencyCallRedirect" minOccurs="0"/>
+						<element name="loadSharingDirRetryEnabled" minOccurs="0"/>
+						<element name="hsCellChangeAllowed" minOccurs="0"/>
+						<element name="hsOnlyBestCell" minOccurs="0"/>
+						<element name="aliasPlmnIdentities" minOccurs="0" maxOccurs="unbounded">
+							<complexType>
+								<sequence>
+									<element name="mcc" minOccurs="0"/>
+									<element name="mnc" minOccurs="0"/>
+									<element name="mncLength" minOccurs="0"/>
+								</sequence>
+							</complexType>
+						</element>
+						<element name="counterAlarmCeaseLimit" minOccurs="0"/>
+						<element name="counterAlarmThreshold" minOccurs="0"/>
+						<element name="counterWarningAlarmCeaseLimit" minOccurs="0"/>
+						<element name="ctrFileSize" minOccurs="0"/>
+						<element name="gpehDataLevel" minOccurs="0"/>
+						<element name="gpehFileSize" minOccurs="0"/>
+						<element name="loadSharingRrcEnabled" minOccurs="0"/>
+						<element name="uetrFileSize" minOccurs="0"/>
+						<element name="networkResourceIdentifierLengthCs" minOccurs="0"/>
+						<element name="networkResourceIdentifierLengthPs" minOccurs="0"/>
+						<element name="hsToDchTrigger" minOccurs="0" maxOccurs="unbounded">
+							<complexType>
+								<sequence>
+									<element name="servHsChangeInterRnc" minOccurs="0"/>
+									<element name="servHsChangeIntraRnc" minOccurs="0"/>
+									<element name="changeOfBestCellIntraRnc" minOccurs="0"/>
+									<element name="poorQualityDetected" minOccurs="0"/>
+									<element name="changeOfBestCellInterRnc" minOccurs="0"/>
+								</sequence>
+							</complexType>
+						</element>
+						<element name="harqTransmUlTti10Max" minOccurs="0" maxOccurs="unbounded"/>
+						<element name="ecLocationAttemptUmts" minOccurs="0"/>
+						<element name="ecCnSbhoRequestIgnore" minOccurs="0"/>
+						<element name="ecCnPriorityLevel" minOccurs="0"/>
+						<element name="ecSbhoTimer" minOccurs="0"/>
+						<element name="primaryCnOperatorRef" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataUeRcEdchFlow" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="harqTransmUlMax" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataSecurityHandling" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="ciphering" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataRabHandling" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="psStreamingInactivityTimer" minOccurs="0"/>
+						<element name="activeQueueMgmt" minOccurs="0"/>
+						<element name="dscpValuePsStreaming" minOccurs="0"/>
+						<element name="psStreaming128" minOccurs="0"/>
+						<element name="state128_128Supported" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataSubrack" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData"/>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataSlot" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData"/>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataPlugInUnit" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="administrativeState" minOccurs="0"/>
+						<element name="allowedSeqRestarts" minOccurs="0"/>
+						<element name="piuGroupNumber" minOccurs="0"/>
+						<element name="piuType" minOccurs="0"/>
+						<element name="productType" minOccurs="0"/>
+						<element name="userLabel" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<!--element name="vsDataGigaBitEthernet" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="userLabel" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element-->
+	<element name="vsDataUePositioning" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="enabledPositioningFeatures" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataGpsReceiver" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="administrativeState" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataAgpsPositioning" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="altitudeDirection" minOccurs="0"/>
+						<element name="altitude" minOccurs="0"/>
+						<element name="uncertaintyAltitude" minOccurs="0"/>
+						<element name="confidence" minOccurs="0"/>
+						<element name="polygonRadiusFactor" minOccurs="0"/>
+						<element name="utranRnsPosition" minOccurs="0">
+							<complexType>
+								<sequence>
+									<element name="latitudeSign" minOccurs="0"/>
+									<element name="latitude" minOccurs="0"/>
+									<element name="longitude" minOccurs="0"/>
+								</sequence>
+							</complexType>
+						</element>
+						<element name="utranRnsUncertaintyRadius" minOccurs="0"/>
+						<element name="utranRnsConfidence" minOccurs="0"/>
+						<element name="elevationThreshold" minOccurs="0"/>
+						<element name="ueMeasurementReportCriteria" minOccurs="0">
+							<complexType>
+								<sequence>
+									<element name="reportingAmount" minOccurs="0"/>
+									<element name="reportingInterval" minOccurs="0"/>
+								</sequence>
+							</complexType>
+						</element>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataIubDataStreams" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="maxHsRate" minOccurs="0"/>
+						<element name="maxEDchRate" minOccurs="0"/>
+						<element name="hsDataFrameDelayThreshold" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataTxDeviceGroup" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="loadHs" minOccurs="0"/>
+						<element name="numHsCodeResources" minOccurs="0"/>
+						<element name="numEulResources" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataHsdsch" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="administrativeState" minOccurs="0"/>
+						<element name="userLabel" minOccurs="0"/>
+						<element name="numHsPdschCodes" minOccurs="0"/>
+						<element name="deltaAck1" minOccurs="0"/>
+						<element name="deltaNack1" minOccurs="0"/>
+						<element name="deltaAck2" minOccurs="0"/>
+						<element name="deltaNack2" minOccurs="0"/>
+						<element name="deltaCqi1" minOccurs="0"/>
+						<element name="deltaCqi2" minOccurs="0"/>
+						<element name="initialCqiRepetitionFactor" minOccurs="0"/>
+						<element name="initialAckNackRepetitionFactor" minOccurs="0"/>
+						<element name="cqiFeedbackCycle" minOccurs="0"/>
+						<element name="hsMeasurementPowerOffset" minOccurs="0"/>
+						<element name="codeThresholdPdu656" minOccurs="0"/>
+						<element name="numHsScchCodes" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataCoverageRelation" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="utranCellRef" minOccurs="0"/>
+						<element name="coverageIndicator" minOccurs="0"/>
+						<element name="hsPathlossThreshold" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataUeRcRab" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="fcState" minOccurs="0"/>
+						<element name="trBearerQosClass" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataUeRcRrc" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="trBearerQosClass" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataUeRabType" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="trBearerQosClass" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataUra" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="userLabel" minOccurs="0"/>
+						<element name="uraIdentity" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataLicensing" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData"/>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataRncFeature" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="featureState" minOccurs="0"/>
+						<element name="licenseState" minOccurs="0"/>
+						<element name="serviceState" minOccurs="0"/>
+						<element name="keyId" minOccurs="0"/>
+						<element name="isLicenseControlled" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataEul" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="userLabel" minOccurs="0"/>
+						<element name="administrativeState" minOccurs="0"/>
+						<element name="numEagchCodes" minOccurs="0"/>
+						<element name="numEhichErgchCodes" minOccurs="0"/>
+						<element name="eulMaxTargetRtwp" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataSystemFunctions" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData"/>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataIubEdch" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="edchDataFrameDelayThreshold" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataWcdmaCarrier" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="userLabel" minOccurs="0"/>
+						<element name="defaultHoType" minOccurs="0"/>
+						<element name="freqBand" minOccurs="0"/>
+						<element name="sib5bisEnabled" minOccurs="0"/>
+						<element name="uarfcnDl" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataUtranNetwork" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="userLabel" minOccurs="0"/>
+						<element name="aliasPlmnIdentities" minOccurs="0" maxOccurs="unbounded">
+							<complexType>
+								<sequence>
+									<element name="mcc" minOccurs="0"/>
+									<element name="mnc" minOccurs="0"/>
+									<element name="mncLength" minOccurs="0"/>
+								</sequence>
+							</complexType>
+						</element>
+						<element name="plmnIdentity" minOccurs="0">
+							<complexType>
+								<sequence>
+									<element name="mcc" minOccurs="0"/>
+									<element name="mnc" minOccurs="0"/>
+									<element name="mncLength" minOccurs="0"/>
+								</sequence>
+							</complexType>
+						</element>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataCnOperator" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="userLabel" minOccurs="0"/>
+						<element name="plmnIdentity" minOccurs="0">
+							<complexType>
+								<sequence>
+									<element name="mcc" minOccurs="0"/>
+									<element name="mnc" minOccurs="0"/>
+									<element name="mncLength" minOccurs="0"/>
+								</sequence>
+							</complexType>
+						</element>
+						<element name="iphoNetworkRefsUtran" minOccurs="0"/>
+						<element name="iphoNetworkRefsGsm" minOccurs="0"/>
+						<element name="equivalentPlmnIdentities" minOccurs="0" maxOccurs="unbounded">
+							<complexType>
+								<sequence>
+									<element name="mcc" minOccurs="0"/>
+									<element name="mnc" minOccurs="0"/>
+									<element name="mncLength" minOccurs="0"/>
+								</sequence>
+							</complexType>
+						</element>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataRbsSynchronization" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="plugInUnitRef1" minOccurs="0"/>
+						<element name="plugInUnitRef2" minOccurs="0"/>
+						<element name="timDeviceRef1" minOccurs="0"/>
+						<element name="timDeviceRef2" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataUeRcPhyChEdch" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="eulHarqRv" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="vsDataPmService" substitutionGroup="xn:vsData">
+		<complexType>
+			<complexContent>
+				<extension base="xn:vsData">
+					<sequence>
+						<element name="minorAlarmCeasingDelta" minOccurs="0"/>
+						<element name="warningAlarmLimitPercent" minOccurs="0"/>
+						<element name="warningAlarmCeasingDelta" minOccurs="0"/>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+</schema>

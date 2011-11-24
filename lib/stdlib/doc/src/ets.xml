@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2009</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>ets</title>
@@ -56,8 +56,8 @@
       Even if there are no references to a table from any process, it
       will not automatically be destroyed unless the owner process
       terminates. It can be destroyed explicitly by using
-      <c>delete/1</c>.</p>
-    <p>Since R13B01, table ownership can be transferred at process termination
+      <c>delete/1</c>. The default owner is the process that created the
+      table. Table ownership can be transferred at process termination
       by using the <seealso marker="#heir">heir</seealso> option or explicitly
       by calling <seealso marker="#give_away/3">give_away/3</seealso>.</p>
     <p>Some implementation details:</p>
@@ -82,11 +82,15 @@
       <c>float()</c> that extends to the same value, hence the key
       <c>1</c> and the key <c>1.0</c> are regarded as equal in an
       <c>ordered_set</c> table.</p>
-    <p>In general, the functions below will exit with reason
-      <c>badarg</c> if any argument is of the wrong format, or if the
-      table identifier is invalid.</p>
   </description>
-
+  <section>
+    <title>Failure</title>
+    <p>In general, the functions below will exit with reason
+      <c>badarg</c> if any argument is of the wrong format, if the
+      table identifier is invalid or if the operation is denied due to
+      table access rights (<seealso marker="#protected">protected</seealso>
+      or <seealso marker="#private">private</seealso>).</p>
+  </section>
   <section><marker id="concurrency"></marker>
     <title>Concurrency</title>
       <p>This module provides some limited support for concurrent access.
@@ -122,15 +126,30 @@
       <em>ERTS User's Guide</em>.</p>
   </section>
 
-  <section>
-    <title>DATA TYPES</title>
-    <code type="none">
-match_spec()
-  a match specification, see above
-
-tid()
-  a table identifier, as returned by new/2</code>
-  </section>
+  <datatypes>
+    <datatype>
+      <name><marker id="type-continuation">continuation()</marker></name>
+      <desc>
+        <p>Opaque continuation used by <seealso marker="#select/1">
+          <c>select/1</c></seealso> and <seealso marker="#select/3">
+          <c>select/3</c></seealso>.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="match_spec"/>
+      <desc><p>A match specification, see above.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="match_pattern"/>
+    </datatype>
+    <datatype>
+      <name name="tab"/>
+    </datatype>
+    <datatype>
+      <name name="tid"/>
+      <desc><p>A table identifier, as returned by new/2.</p></desc>
+    </datatype>
+  </datatypes>
   <funcs>
     <func>
       <name>all() -> [Tab]</name>
@@ -193,37 +212,25 @@ tid()
       </desc>
     </func>
     <func>
-      <name>file2tab(Filename) -> {ok,Tab} | {error,Reason}</name>
+      <name name="file2tab" arity="1"/>
       <fsummary>Read an ETS table from a file.</fsummary>
-      <type>
-        <v>Filename = string() | atom()</v>
-        <v>Tab = tid() | atom()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Reads a file produced by <seealso
           marker="#tab2file/2">tab2file/2</seealso> or 
 	  <seealso marker="#tab2file/3">tab2file/3</seealso> and creates the
-          corresponding table <c>Tab</c>.</p>
-	<p>Equivalent to <c>file2tab(Filename,[])</c>.</p>
+          corresponding table <c><anno>Tab</anno></c>.</p>
+	<p>Equivalent to <c>file2tab(<anno>Filename</anno>, [])</c>.</p>
       </desc>
     </func>
     <func>
-      <name>file2tab(Filename,Options) -> {ok,Tab} | {error,Reason}</name>
+      <name name="file2tab" arity="2"/>
       <fsummary>Read an ETS table from a file.</fsummary>
-      <type>
-        <v>Filename = string() | atom()</v>
-        <v>Tab = tid() | atom()</v>
-	<v>Options = [Option]</v>
-	<v>Option = {verify, bool()}</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Reads a file produced by <seealso
           marker="#tab2file/2">tab2file/2</seealso> or 
 	  <seealso marker="#tab2file/3">tab2file/3</seealso> and creates the
-          corresponding table <c>Tab</c>.</p>
-	<p>The currently only supported option is <c>{verify,bool()}</c>. If 
+          corresponding table <c><anno>Tab</anno></c>.</p>
+	<p>The currently only supported option is <c>{verify,boolean()}</c>. If
 	verification is turned on (by means of specifying 
 	<c>{verify,true}</c>), the function utilizes whatever
 	information is present in the file to assert that the
@@ -267,70 +274,52 @@ tid()
       </desc>
     </func>
     <func>
-      <name>foldl(Function, Acc0, Tab) -> Acc1</name>
+      <name name="foldl" arity="3"/>
       <fsummary>Fold a function over an ETS table</fsummary>
-      <type>
-        <v>Function = fun(A, AccIn) -> AccOut</v>
-        <v>Tab = tid() | atom()</v>
-        <v>Acc0 = Acc1 = AccIn = AccOut = term()</v>
-      </type>
       <desc>
-        <p><c>Acc0</c> is returned if the table is empty.
+        <p><c><anno>Acc0</anno></c> is returned if the table is empty.
           This function is similar to <c>lists:foldl/3</c>. The order in
           which the elements of the table are traversed is unspecified,
           except for tables of type <c>ordered_set</c>, for which they
           are traversed first to last.</p>
 
-	 <p>If <c>Function</c> inserts objects into the table, or another
+	 <p>If <c><anno>Function</anno></c> inserts objects into the table, or another
 	 process inserts objects into the table, those objects <em>may</em>
 	 (depending on key ordering) be included in the traversal.</p>
       </desc>
     </func>
     <func>
-      <name>foldr(Function, Acc0, Tab) -> Acc1</name>
+      <name name="foldr" arity="3"/>
       <fsummary>Fold a function over an ETS table</fsummary>
-      <type>
-        <v>Function = fun(A, AccIn) -> AccOut</v>
-        <v>Tab = tid() | atom()</v>
-        <v>Acc0 = Acc1 = AccIn = AccOut = term()</v>
-      </type>
       <desc>
-        <p><c>Acc0</c> is returned if the table is empty.
+        <p><c><anno>Acc0</anno></c> is returned if the table is empty.
           This function is similar to <c>lists:foldr/3</c>. The order in
           which the elements of the table are traversed is unspecified,
           except for tables of type <c>ordered_set</c>, for which they
           are traversed last to first.</p>
 
-	 <p>If <c>Function</c> inserts objects into the table, or another
+	 <p>If <c><anno>Function</anno></c> inserts objects into the table, or another
 	 process inserts objects into the table, those objects <em>may</em>
 	 (depending on key ordering) be included in the traversal.</p>
       </desc>
     </func>
     <func>
-      <name>from_dets(Tab, DetsTab) -> true</name>
+      <name name="from_dets" arity="2"/>
       <fsummary>Fill an ETS table with objects from a Dets table.</fsummary>
-      <type>
-        <v>Tab = tid() | atom()</v>
-        <v>DetsTab = atom()</v>
-      </type>
       <desc>
         <p>Fills an already created ETS table with the objects in the
-          already opened Dets table named <c>DetsTab</c>. The existing
+          already opened Dets table named <c><anno>DetsTab</anno></c>. The existing
           objects of the ETS table are kept unless overwritten.</p>
 	<p>Throws a badarg error if any of the tables does not exist or the 
 	  dets table is not open.</p>
       </desc>
     </func>
     <func>
-      <name>fun2ms(LiteralFun) -> MatchSpec</name>
+      <name name="fun2ms" arity="1"/>
       <fsummary>Pseudo function that transforms fun syntax to a match_spec.</fsummary>
-      <type>
-        <v>LiteralFun -- see below</v>
-        <v>MatchSpec = match_spec()</v>
-      </type>
       <desc>
         <p>Pseudo function that by means of a <c>parse_transform</c>
-          translates <c>LiteralFun</c> typed as parameter in the
+          translates <c><anno>LiteralFun</anno></c> typed as parameter in the
           function call to a
           <seealso marker="#match_spec">match_spec</seealso>. With
           "literal" is meant that the fun needs to textually be written
@@ -338,7 +327,7 @@ tid()
           variable which in turn is passed to the function).</p>
         <p>The parse transform is implemented in the module
           <c>ms_transform</c> and the source <em>must</em> include the
-          file <c>ms_transform.hrl</c> in <c>stdlib</c> for this
+          file <c>ms_transform.hrl</c> in STDLIB for this
           pseudo function to work. Failing to include the hrl file in
           the source will result in a runtime error, not a compile
           time ditto. The include file is easiest included by adding
@@ -418,20 +407,17 @@ Error: fun containing local Erlang function calls
       </desc>
     </func>
     <func>
-      <name>i() -> ok</name>
+      <name name="i" arity="0"/>
       <fsummary>Display information about all ETS tables on tty.</fsummary>
       <desc>
         <p>Displays information about all ETS tables on tty.</p>
       </desc>
     </func>
     <func>
-      <name>i(Tab) -> ok</name>
+      <name name="i" arity="1"/>
       <fsummary>Browse an ETS table on tty.</fsummary>
-      <type>
-        <v>Tab = tid() | atom()</v>
-      </type>
       <desc>
-        <p>Browses the table <c>Tab</c> on tty.</p>
+        <p>Browses the table <c><anno>Tab</anno></c> on tty.</p>
       </desc>
     </func>
     <func>
@@ -450,7 +436,7 @@ Error: fun containing local Erlang function calls
 	  correct type, this function fails with reason <c>badarg</c>.</p>
 
         <list type="bulleted">
-          <item><c>Item=memory, Value=int()</c>          <br></br>
+          <item><c>Item=memory, Value=integer()</c>          <br></br>
 
            The number of words allocated to the table.</item>
           <item><c>Item=owner, Value=pid()</c>          <br></br>
@@ -462,7 +448,7 @@ Error: fun containing local Erlang function calls
           <item><c>Item=name, Value=atom()</c>          <br></br>
 
            The name of the table.</item>
-          <item><c>Item=size, Value=int()</c>          <br></br>
+          <item><c>Item=size, Value=integer()</c>          <br></br>
 
            The number of objects inserted in the table.</item>
           <item><c>Item=node, Value=atom()</c>          <br></br>
@@ -475,12 +461,15 @@ Error: fun containing local Erlang function calls
           <item><c>Item=type, Value=set|ordered_set|bag|duplicate_bag</c>          <br></br>
 
            The table type.</item>
-          <item><c>Item=keypos, Value=int()</c>          <br></br>
+          <item><c>Item=keypos, Value=integer()</c>          <br></br>
 
            The key position.</item>
           <item><c>Item=protection, Value=public|protected|private</c>          <br></br>
 
            The table access rights.</item>
+           <item><c>Item=compressed, Value=true|false</c>          <br></br>
+
+            Indicates if the table is compressed or not.</item>
         </list>
       </desc>
     </func>
@@ -523,31 +512,27 @@ Error: fun containing local Erlang function calls
               of the reference counter, keeping track of how many times
               the table has been fixed by the process.</p>
             <p>If the table never has been fixed, the call returns
-              <c>false</c>.</p>
-          </item>
+              <c>false</c>.</p></item>
+          <item><p><c>Item=stats, Value=tuple()</c>          <br></br>
+	  Returns internal statistics about set, bag and duplicate_bag tables on an internal format used by OTP test suites.
+	  Not for production use.</p></item>
         </list>
       </desc>
     </func>
     <func>
-      <name>init_table(Name, InitFun) -> true</name>
+      <name name="init_table" arity="2"/>
       <fsummary>Replace all objects of an ETS table.</fsummary>
-      <type>
-        <v>Name = atom()</v>
-        <v>InitFun = fun(Arg) -> Res</v>
-        <v>Arg = read | close</v>
-        <v>Res = end_of_input | {[object()], InitFun} | term()</v>
-      </type>
       <desc>
-        <p>Replaces the existing objects of the table <c>Tab</c> with
-          objects created by calling the input function <c>InitFun</c>,
+        <p>Replaces the existing objects of the table <c><anno>Tab</anno></c> with
+          objects created by calling the input function <c><anno>InitFun</anno></c>,
           see below. This function is provided for compatibility with
           the <c>dets</c> module, it is not more efficient than filling
           a table by using <c>ets:insert/2</c>.
           </p>
         <p>When called with the argument <c>read</c> the function
-          <c>InitFun</c> is assumed to return <c>end_of_input</c> when
-          there is no more input, or <c>{Objects, Fun}</c>, where
-          <c>Objects</c> is a list of objects and <c>Fun</c> is a new
+          <c><anno>InitFun</anno></c> is assumed to return <c>end_of_input</c> when
+          there is no more input, or <c>{<anno>Objects</anno>, Fun}</c>, where
+          <c><anno>Objects</anno></c> is a list of objects and <c>Fun</c> is a new
           input function. Any other value Value is returned as an error
           <c>{error, {init_fun, Value}}</c>. Each input function will be
           called exactly once, and should an error occur, the last
@@ -587,7 +572,7 @@ Error: fun containing local Erlang function calls
       </desc>
     </func>
     <func>
-      <name>insert_new(Tab, ObjectOrObjects) -> bool()</name>
+      <name>insert_new(Tab, ObjectOrObjects) -> boolean()</name>
       <fsummary>Insert an object into an ETS table if the key is not already present.</fsummary>
       <type>
         <v>Tab = tid() | atom()</v>
@@ -608,7 +593,7 @@ Error: fun containing local Erlang function calls
       </desc>
     </func>
     <func>
-      <name>is_compiled_ms(Term) -> bool()</name>
+      <name>is_compiled_ms(Term) -> boolean()</name>
       <fsummary>Checks if an Erlang term is the result of ets:match_spec_compile</fsummary>
       <type>
         <v>Term = term()</v>
@@ -675,9 +660,9 @@ ets:is_compiled_ms(Broken).</code>
           table. The difference being the same as between <c>=:=</c>
           and <c>==</c>. As an example, one might insert an object
           with the
-          <c>integer()</c><c>1</c> as a key in an <c>ordered_set</c>
+          <c>integer()</c> <c>1</c> as a key in an <c>ordered_set</c>
           and get the object returned as a result of doing a
-          <c>lookup/2</c> with the <c>float()</c><c>1.0</c> as the
+          <c>lookup/2</c> with the <c>float()</c> <c>1.0</c> as the
           key to search for.</p>
         <p>If the table is of type <c>set</c> or <c>ordered_set</c>,
           the function returns either the empty list or a list with one
@@ -701,7 +686,7 @@ ets:is_compiled_ms(Broken).</code>
       <type>
         <v>Tab = tid() | atom()</v>
         <v>Key = term()</v>
-        <v>Pos = int()</v>
+        <v>Pos = integer()</v>
         <v>Elem = term() | [term()]</v>
       </type>
       <desc>
@@ -795,15 +780,11 @@ ets:is_compiled_ms(Broken).</code>
       </desc>
     </func>
     <func>
-      <name>match_delete(Tab, Pattern) -> true</name>
+      <name name="match_delete" arity="2"/>
       <fsummary>Delete all objects which match a given pattern from an ETS table.</fsummary>
-      <type>
-        <v>Tab = tid() | atom()</v>
-        <v>Pattern = tuple()</v>
-      </type>
       <desc>
-        <p>Deletes all objects which match the pattern <c>Pattern</c>
-          from the table <c>Tab</c>. See <c>match/2</c> for a
+        <p>Deletes all objects which match the pattern <c><anno>Pattern</anno></c>
+          from the table <c><anno>Tab</anno></c>. See <c>match/2</c> for a
           description of patterns.</p>
       </desc>
     </func>
@@ -947,10 +928,11 @@ ets:select(Table,MatchSpec),</code>
       <type>
         <v>Name = atom()</v>
         <v>Options = [Option]</v>
-        <v>&nbsp;Option = Type | Access | named_table | {keypos,Pos} | {heir,pid(),HeirData} | {heir,none} | {write_concurrency,bool()}</v>
+        <v>&nbsp;Option = Type | Access | named_table | {keypos,Pos} | {heir,pid(),HeirData} | {heir,none} | Tweaks</v>
         <v>&nbsp;&nbsp;Type = set | ordered_set | bag | duplicate_bag</v>
         <v>&nbsp;&nbsp;Access = public | protected | private</v>
-        <v>&nbsp;&nbsp;Pos = int()</v>
+        <v>&nbsp;&nbsp;Tweaks = {write_concurrency,boolean()} | {read_concurrency,boolean()} | compressed</v>
+        <v>&nbsp;&nbsp;Pos = integer()</v>
         <v>&nbsp;&nbsp;HeirData = term()</v>
       </type>
       <desc>
@@ -963,7 +945,7 @@ ets:select(Table,MatchSpec),</code>
           table is named or not. If one or more options are left out,
           the default values are used. This means that not specifying
           any options (<c>[]</c>) is the same as specifying
-          <c>[set,protected,{keypos,1},{heir,none},{write_concurrency,false}]</c>.</p>
+          <c>[set, protected, {keypos,1}, {heir,none}, {write_concurrency,false}, {read_concurrency,false}]</c>.</p>
         <list type="bulleted">
           <item>
             <p><c>set</c>
@@ -980,7 +962,7 @@ ets:select(Table,MatchSpec),</code>
               <c>ordered_set</c> tables regard keys as equal when they
               <em>compare equal</em>, not only when they match. This
               means that to an <c>ordered_set</c>, the
-              <c>integer()</c><c>1</c> and the <c>float()</c><c>1.0</c> are regarded as equal. This also means that the
+              <c>integer()</c> <c>1</c> and the <c>float()</c> <c>1.0</c> are regarded as equal. This also means that the
               key used to lookup an element not necessarily
               <em>matches</em> the key in the elements returned, if
               <c>float()</c>'s and <c>integer()</c>'s are mixed in
@@ -1002,12 +984,14 @@ ets:select(Table,MatchSpec),</code>
               Any process may read or write to the table.</p>
           </item>
           <item>
+            <marker id="protected"></marker>
             <p><c>protected</c>
               The owner process can read and write to the table. Other
               processes can only read the table. This is the default
               setting for the access rights.</p>
           </item>
           <item>
+            <marker id="private"></marker>
             <p><c>private</c>
               Only the owner process can read or write to the table.</p>
           </item>
@@ -1039,21 +1023,60 @@ ets:select(Table,MatchSpec),</code>
               the owner terminates.</p>
           </item>
           <item>
-            <p><c>{write_concurrency,bool()}</c>
-              Performance tuning. Default is <c>false</c>, which means that the table
-              is optimized towards concurrent read access. An operation that
+            <marker id="new_2_write_concurrency"></marker>
+            <p><c>{write_concurrency,boolean()}</c>
+              Performance tuning. Default is <c>false</c>, in which case an operation that
               mutates (writes to) the table will obtain exclusive access,
               blocking any concurrent access of the same table until finished.
               If set to <c>true</c>, the table is optimized towards concurrent
               write access. Different objects of the same table can be mutated
               (and read) by concurrent processes. This is achieved to some degree
-              at the expense of single access and concurrent reader performance.
+              at the expense of sequential access and concurrent reader performance.
+	      The <c>write_concurrency</c> option can be combined with the
+	      <seealso marker="#new_2_read_concurrency">read_concurrency</seealso>
+	      option. You typically want to combine these when large concurrent
+	      read bursts and large concurrent write bursts are common (see the
+	      documentation of the
+	      <seealso marker="#new_2_read_concurrency">read_concurrency</seealso>
+	      option for more information).
               Note that this option does not change any guarantees about 
               <seealso marker="#concurrency">atomicy and isolation</seealso>.
               Functions that makes such promises over several objects (like
               <c>insert/2</c>) will gain less (or nothing) from this option.</p>
              <p>Table type <c>ordered_set</c> is not affected by this option in current
               implementation.</p>
+          </item>
+          <item>
+            <marker id="new_2_read_concurrency"></marker>
+	    <p><c>{read_concurrency,boolean()}</c>
+              Performance tuning. Default is <c>false</c>. When set to
+	      <c>true</c>, the table is optimized for concurrent read
+	      operations. When this option is enabled on a runtime system with
+	      SMP support, read operations become much cheaper; especially on
+	      systems with multiple physical processors. However, switching
+	      between read and write operations becomes more expensive. You
+	      typically want to enable this option when concurrent read
+	      operations are much more frequent than write operations, or when
+	      concurrent reads and writes comes in large read and write
+	      bursts (i.e., lots of reads not interrupted by writes, and lots
+	      of writes not interrupted by reads). You typically do
+	      <em>not</em> want to enable this option when the common access
+	      pattern is a few read operations interleaved with a few write
+	      operations repeatedly. In this case you will get a performance
+	      degradation by enabling this option. The <c>read_concurrency</c>
+	      option can be combined with the
+	      <seealso marker="#new_2_write_concurrency">write_concurrency</seealso>
+	      option. You typically want to combine these when large concurrent
+	      read bursts and large concurrent write bursts are common.</p>
+          </item>
+          <item>
+            <marker id="new_2_compressed"></marker>
+	          <p><c>compressed</c>
+              If this option is present, the table data will be stored in a more compact format to
+              consume less memory. The downside is that it will make table operations slower.
+              Especially operations that need to inspect entire objects,
+              such as <c>match</c> and <c>select</c>, will get much slower. The key element
+              is not compressed in current implementation.</p>
           </item>
         </list>
       </desc>
@@ -1111,12 +1134,8 @@ ets:select(Table,MatchSpec),</code>
       </desc>
     </func>
     <func>
-      <name>repair_continuation(Continuation, MatchSpec) -> Continuation</name>
+      <name name="repair_continuation" arity="2"/>
       <fsummary>Repair a continuation from ets:select/1 or ets:select/3 that has passed through external representation</fsummary>
-      <type>
-        <v>Continuation = term()</v>
-        <v>MatchSpec = match_spec()</v>
-      </type>
       <desc>
         <p>This function can be used to restore an opaque continuation
           returned by <c>ets:select/3</c> or <c>ets:select/1</c> if the
@@ -1355,6 +1374,28 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
       </desc>
     </func>
     <func>
+      <name>select_count(Tab, MatchSpec) -> NumMatched</name>
+      <fsummary>Match the objects in an ETS table against a match_spec and returns the number of objects for which the match_spec returned 'true'</fsummary>
+      <type>
+        <v>Tab = tid() | atom()</v>
+        <v>Object = tuple()</v>
+        <v>MatchSpec = match_spec()</v>
+        <v>NumMatched = integer()</v>
+      </type>
+      <desc>
+        <p>Matches the objects in the table <c>Tab</c> using a
+          <seealso marker="#match_spec">match_spec</seealso>. If the
+          match_spec returns <c>true</c> for an object, that object
+          considered a match and is counted. For any other result from
+          the match_spec the object is not considered a match and is
+          therefore not counted.</p>
+        <p>The function could be described as a <c>match_delete/2</c>
+          that does not actually delete any elements, but only counts
+          them.</p>
+        <p>The function returns the number of objects matched.</p>
+      </desc>
+    </func>
+    <func>
       <name>select_delete(Tab, MatchSpec) -> NumDeleted</name>
       <fsummary>Match the objects in an ETS table against a match_spec and deletes objects where the match_spec returns 'true'</fsummary>
       <type>
@@ -1381,25 +1422,82 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
       </desc>
     </func>
     <func>
-      <name>select_count(Tab, MatchSpec) -> NumMatched</name>
-      <fsummary>Match the objects in an ETS table against a match_spec and returns the number of objects for which the match_spec returned 'true'</fsummary>
+      <name>select_reverse(Tab, MatchSpec) -> [Match]</name>
+      <fsummary>Match the objects in an ETS table against a match_spec.</fsummary>
       <type>
         <v>Tab = tid() | atom()</v>
-        <v>Object = tuple()</v>
+        <v>Match = term()</v>
         <v>MatchSpec = match_spec()</v>
-        <v>NumMatched = integer()</v>
       </type>
       <desc>
-        <p>Matches the objects in the table <c>Tab</c> using a
-          <seealso marker="#match_spec">match_spec</seealso>. If the
-          match_spec returns <c>true</c> for an object, that object
-          considered a match and is counted. For any other result from
-          the match_spec the object is not considered a match and is
-          therefore not counted.</p>
-        <p>The function could be described as a <c>match_delete/2</c>
-          that does not actually delete any elements, but only counts
-          them.</p>
-        <p>The function returns the number of objects matched.</p>
+
+      <p>Works like <c>select/2</c>, but returns the list in reverse
+      order for the <c>ordered_set</c> table type. For all other table
+      types, the return value is identical to that of <c>select/2</c>.</p>
+
+      </desc>
+    </func>
+    <func>
+      <name>select_reverse(Tab, MatchSpec, Limit) -> {[Match],Continuation} | '$end_of_table'</name>
+      <fsummary>Match the objects in an ETS table against a match_spec and returns part of the answers.</fsummary>
+      <type>
+        <v>Tab = tid() | atom()</v>
+        <v>Match = term()</v>
+        <v>MatchSpec = match_spec()</v>
+        <v>Continuation = term()</v>
+      </type>
+      <desc>
+
+      <p>Works like <c>select/3</c>, but for the <c>ordered_set</c>
+      table type, traversing is done starting at the last object in
+      Erlang term order and moves towards the first. For all other
+      table types, the return value is identical to that of
+      <c>select/3</c>.</p>
+
+      <p>Note that this is <em>not</em> equivalent to
+      reversing the result list of a <c>select/3</c> call, as the result list
+      is not only reversed, but also contains the last <c>Limit</c>
+      matching objects in the table, not the first.</p>
+
+      </desc>
+    </func>
+    <func>
+      <name>select_reverse(Continuation) -> {[Match],Continuation} | '$end_of_table'</name>
+      <fsummary>Continue matching objects in an ETS table.</fsummary>
+      <type>
+        <v>Match = term()</v>
+        <v>Continuation = term()</v>
+      </type>
+      <desc>
+
+      <p>Continues a match started with
+      <c>ets:select_reverse/3</c>. If the table is an
+      <c>ordered_set</c>, the traversal of the table will continue
+      towards objects with keys earlier in the Erlang term order. The
+      returned list will also contain objects with keys in reverse
+      order.</p>
+
+      <p>For all other table types, the behaviour is exatly that of <c>select/1</c>.</p>
+      <p>Example:</p>
+      <code>
+1> T = ets:new(x,[ordered_set]).
+2> [ ets:insert(T,{N}) || N &lt;- lists:seq(1,10) ].
+...
+3> {R0,C0} = ets:select_reverse(T,[{'_',[],['$_']}],4).
+...
+4> R0.
+[{10},{9},{8},{7}]
+5> {R1,C1} = ets:select_reverse(C0).
+...
+6> R1.
+[{6},{5},{4},{3}]
+7> {R2,C2} = ets:select_reverse(C1).
+...
+8> R2.
+[{2},{1}]
+9> '$end_of_table' = ets:select_reverse(C2).
+...
+      </code>
       </desc>
     </func>
     <func>
@@ -1423,7 +1521,7 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
       <fsummary>Return all objects in a given slot of an ETS table.</fsummary>
       <type>
         <v>Tab = tid() | atom()</v>
-        <v>I = int()</v>
+        <v>I = integer()</v>
         <v>Object = tuple()</v>
       </type>
       <desc>
@@ -1444,32 +1542,19 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
       </desc>
     </func>
     <func>
-      <name>tab2file(Tab, Filename) -> ok | {error,Reason}</name>
+      <name name="tab2file" arity="2"/>
       <fsummary>Dump an ETS table to a file.</fsummary>
-      <type>
-        <v>Tab = tid() | atom()</v>
-        <v>Filename = string() | atom()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
-        <p>Dumps the table <c>Tab</c> to the file <c>Filename</c>.</p>
-	<p>Equivalent to <c>tab2file(Tab, Filename,[])</c></p>
+        <p>Dumps the table <c><anno>Tab</anno></c> to the file <c><anno>Filename</anno></c>.</p>
+	<p>Equivalent to <c>tab2file(<anno>Tab</anno>, <anno>Filename</anno>,[])</c></p>
 
       </desc>
     </func>
     <func>
-      <name>tab2file(Tab, Filename, Options) -> ok | {error,Reason}</name>
+      <name name="tab2file" arity="3"/>
       <fsummary>Dump an ETS table to a file.</fsummary>
-      <type>
-        <v>Tab = tid() | atom()</v>
-        <v>Filename = string() | atom()</v>
-	<v>Options = [Option]</v>
-	<v>Option = {extended_info, [ExtInfo]}</v>
-	<v>ExtInfo = object_count | md5sum</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
-        <p>Dumps the table <c>Tab</c> to the file <c>Filename</c>.</p>
+        <p>Dumps the table <c><anno>Tab</anno></c> to the file <c><anno>Filename</anno></c>.</p>
 	<p>When dumping the table, certain information about the table
 	is dumped to a header at the beginning of the dump. This
 	information contains data about the table type,
@@ -1506,26 +1591,15 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
       </desc>
     </func>
     <func>
-      <name>tab2list(Tab) -> [Object]</name>
+      <name name="tab2list" arity="1"/>
       <fsummary>Return a list of all objects in an ETS table.</fsummary>
-      <type>
-        <v>Tab = tid() | atom()</v>
-        <v>Object = tuple()</v>
-      </type>
       <desc>
-        <p>Returns a list of all objects in the table <c>Tab</c>.</p>
+        <p>Returns a list of all objects in the table <c><anno>Tab</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name>tabfile_info(Filename) -> {ok, TableInfo} | {error, Reason}</name>
+      <name name="tabfile_info" arity="1"/>
       <fsummary>Return a list of all objects in an ETS table.</fsummary>
-      <type>
-      <v>Filename = string() | atom()</v>
-      <v>TableInfo = [InfoItem]</v>
-      <v>InfoItem = {InfoTag, term()}</v>
-      <v>InfoTag = name | type | protection | named_table | keypos | size | extended_info | version</v>
-      <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Returns information about the table dumped to file by 
         <seealso marker="#tab2file/2">tab2file/2</seealso> or 
@@ -1571,7 +1645,7 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
 	one or more of the atoms <c>object_count</c> and
 	<c>md5sum</c>.</item>
 	<tag>version</tag>
-	<item>A tuple <c>{Major,Minor}</c> containing the major and
+	<item>A tuple <c>{<anno>Major</anno>,<anno>Minor</anno>}</c> containing the major and
 	minor version of the file format for ets table dumps. This
 	version field was added beginning with stdlib-1.5.1, files
 	dumped with older versions will return <c>{0,0}</c> in this
@@ -1584,20 +1658,11 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
       </desc>
     </func>
     <func>
-      <name>table(Tab [, Options]) -> QueryHandle</name>
+      <name name="table" arity="1"/>
+      <name name="table" arity="2"/>
       <fsummary>Return a QLC query handle.</fsummary>
-      <type>
-        <v>Tab = tid() | atom()</v>
-        <v>QueryHandle = -&nbsp;a query handle, see qlc(3)&nbsp;-</v>
-        <v>Options = [Option] | Option</v>
-        <v>Option = {n_objects, NObjects} | {traverse, TraverseMethod}</v>
-        <v>NObjects = default | integer() > 0</v>
-        <v>TraverseMethod = first_next | last_prev | select | {select, MatchSpec}</v>
-        <v>MatchSpec = match_spec()</v>
-      </type>
       <desc>
-        <p>          <marker id="qlc_table"></marker>
-Returns a QLC (Query List
+        <p><marker id="qlc_table"></marker>Returns a QLC (Query List
           Comprehension) query handle. The module <c>qlc</c> implements
           a query language aimed mainly at Mnesia but ETS tables, Dets
           tables, and lists are also recognized by QLC as sources of
@@ -1632,7 +1697,7 @@ Returns a QLC (Query List
               that matches all objects.</p>
           </item>
           <item>
-            <p><c>{select, MatchSpec}</c>. As for <c>select</c>
+            <p><c>{select, <anno>MatchSpec</anno>}</c>. As for <c>select</c>
               the table is traversed by calling <c>ets:select/3</c> and
               <c>ets:select/1</c>. The difference is that the
               match_spec is explicitly given. This is how to state
@@ -1660,41 +1725,31 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name>test_ms(Tuple, MatchSpec) -> {ok, Result} | {error, Errors}</name>
+      <name name="test_ms" arity="2"/>
       <fsummary>Test a match_spec for use in ets:select/2.</fsummary>
-      <type>
-        <v>Tuple = tuple()</v>
-        <v>MatchSpec = match_spec()</v>
-        <v>Result = term()</v>
-        <v>Errors = [{warning|error, string()}]</v>
-      </type>
       <desc>
         <p>This function is a utility to test a
           <seealso marker="#match_spec">match_spec</seealso> used in
           calls to <c>ets:select/2</c>. The function both tests
-          <c>MatchSpec</c> for "syntactic" correctness and runs the
-          match_spec against the object <c>Tuple</c>. If the match_spec
-          contains errors, the tuple <c>{error, Errors}</c> is returned
-          where <c>Errors</c> is a list of natural language
+          <c><anno>MatchSpec</anno></c> for "syntactic" correctness and runs the
+          match_spec against the object <c><anno>Tuple</anno></c>. If the match_spec
+          contains errors, the tuple <c>{error, <anno>Errors</anno>}</c> is returned
+          where <c><anno>Errors</anno></c> is a list of natural language
           descriptions of what was wrong with the match_spec. If the
           match_spec is syntactically OK, the function returns
-          <c>{ok,Term}</c> where <c>Term</c> is what would have been
+          <c>{ok,<anno>Result</anno>}</c> where <c><anno>Result</anno></c> is what would have been
           the result in a real <c>ets:select/2</c> call or <c>false</c>
-          if the match_spec does not match the object <c>Tuple</c>.</p>
+          if the match_spec does not match the object <c><anno>Tuple</anno></c>.</p>
         <p>This is a useful debugging and test tool, especially when
           writing complicated <c>ets:select/2</c> calls.</p>
       </desc>
     </func>
     <func>
-      <name>to_dets(Tab, DetsTab) -> Tab</name>
+      <name name="to_dets" arity="2"/>
       <fsummary>Fill a Dets table with objects from an ETS table.</fsummary>
-      <type>
-        <v>Tab = tid() | atom()</v>
-        <v>DetsTab = atom()</v>
-      </type>
       <desc>
         <p>Fills an already created/opened Dets table with the objects
-          in the already opened ETS table named <c>Tab</c>. The Dets
+          in the already opened ETS table named <c><anno>Tab</anno></c>. The Dets
           table is emptied before the objects are inserted.</p>
       </desc>
     </func>
@@ -1707,7 +1762,7 @@ true</pre>
         <v>Tab = tid() | atom()</v>
         <v>Key = term()</v> 
         <v>UpdateOp = {Pos,Incr} | {Pos,Incr,Threshold,SetValue}</v>
-        <v>Pos = Incr = Threshold = SetValue = Result = int()</v>
+        <v>Pos = Incr = Threshold = SetValue = Result = integer()</v>
       </type>
       <desc>
         <p>This function provides an efficient way to update one or more 
@@ -1769,7 +1824,7 @@ true</pre>
       <type>
         <v>Tab = tid() | atom()</v>
         <v>Key = Value = term()</v>
-        <v>Pos = int()</v>
+        <v>Pos = integer()</v>
       </type>
       <desc>
         <p>This function provides an efficient way to update one or more 

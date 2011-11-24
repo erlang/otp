@@ -1,0 +1,38 @@
+-------------------------------
+To add test cases in any suite:
+-------------------------------
+
+  1) If the test requires Dialyzer to analyze a single file (TEST.erl) place it
+     in the suite's 'src' directory. If analysis of more files is needed place
+     them all in a new directory (TEST) in suite's 'src' directory.
+
+  2) Create a file named TEST containing the expected result in suite's 'result'
+     directory.
+
+----------------------
+To create a new suite:
+----------------------
+
+  1) Create a directory with the suffix '_SUITE_data'. The name should
+     describe the suite.
+
+  2) In the suite's directory create subdirectories 'src' and 'results' as
+     well as a 'dialyzer_options' file with the following content:
+
+        {dialyzer_options, List}.
+        {time_limit, Limit}.
+
+        where:
+
+        List  = a list of Dialyzer options. Common case will be something
+                like [{warnings, Warnings}], where Warnings is a list of valid
+                '-W' prefixed dialyzer options without the 'W' prefix (e.g.
+                '-Wfoo' would be declared as [{warnings, [foo]}].
+        Limit = the amount of time (in minutes) each test case is allowed to
+                run. Must be greater than the time required to complete the most
+                time-consuming test in the suite.
+     
+     Any of these lines may be missing. Default options list is empty and
+     default time limit is 1 minute.
+
+  3) Add tests as described in previous section.

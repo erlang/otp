@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -20,7 +20,7 @@
 %%
 %%----------------------------------------------------------------------
 %% Purpose: Handles sslv2 hello as clients supporting sslv2 and higher 
-%% will send a sslv2 hello.
+%% will send an sslv2 hello.
 %%----------------------------------------------------------------------
 
 -module(ssl_ssl2).

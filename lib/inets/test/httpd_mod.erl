@@ -1,25 +1,24 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
 
 -module(httpd_mod).
--author('ingela@erix.ericsson.se').
 
 -include("test_server.hrl").
 -include("test_server_line.hrl").
@@ -40,6 +39,13 @@
 %% Test cases starts here.
 %%-------------------------------------------------------------------------
 alias(Type, Port, Host, Node) ->
+%%     io:format(user, "~w:alias -> entry with"
+%% 	      "~n   Type:       ~p"
+%% 	      "~n   Port:       ~p"
+%% 	      "~n   Host:       ~p"
+%% 	      "~n   Node:       ~p"
+%% 	      "~n", [?MODULE, Type, Port, Host, Node]),    
+    
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
  				       "GET /pics/icon.sheet.gif "
  				       "HTTP/1.0\r\n\r\n",
@@ -82,14 +88,15 @@ actions(Type, Port, Host, Node) ->
 
 %%-------------------------------------------------------------------------
 security(ServerRoot, Type, Port, Host, Node) ->
-    io:format(user, "~w:security -> entry with"
-	      "~n   ServerRoot: ~p"
-	      "~n   Type:       ~p"
-	      "~n   Port:       ~p"
-	      "~n   Host:       ~p"
-	      "~n   Node:       ~p"
-	      "~n", [?MODULE, ServerRoot, Type, Port, Host, Node]),
+    %% io:format(user, "~w:security -> entry with"
+    %% 	      "~n   ServerRoot: ~p"
+    %% 	      "~n   Type:       ~p"
+    %% 	      "~n   Port:       ~p"
+    %% 	      "~n   Host:       ~p"
+    %% 	      "~n   Node:       ~p"
+    %% 	      "~n", [?MODULE, ServerRoot, Type, Port, Host, Node]),
     
+%%     io:format(user, "~w:security -> register~n", [?MODULE]), 
     global:register_name(mod_security_test, self()),   % Receive events
 
     test_server:sleep(5000),
@@ -99,92 +106,128 @@ security(ServerRoot, Type, Port, Host, Node) ->
     %% Test blocking / unblocking of users.
 
     %% /open, require user one Aladdin
+%%     io:format(user, "~w:security -> remove user~n", [?MODULE]), 
     remove_users(Node, ServerRoot, Host, Port, "open"),
 
+%%     io:format(user, "~w:security -> auth request~n", [?MODULE]), 
     auth_request(Type, Host, Port, Node, "/open/", "one", "onePassword", 
 		 [{statuscode, 401}]),
+%%     io:format(user, "~w:security -> await fail security event~n", [?MODULE]), 
     receive_security_event({event, auth_fail, Port, OpenDir,
 			    [{user, "one"}, {password, "onePassword"}]},
 			   Node, Port),
     
+%%     io:format(user, "~w:security -> auth request~n", [?MODULE]), 
     auth_request(Type,Host,Port,Node,"/open/", "two", "twoPassword",
 		 [{statuscode, 401}]),
+%%     io:format(user, "~w:security -> await fail security event~n", [?MODULE]), 
     receive_security_event({event, auth_fail, Port, OpenDir,
 			    [{user, "two"}, {password, "twoPassword"}]},
 			   Node, Port),
 
+%%     io:format(user, "~w:security -> auth request~n", [?MODULE]), 
     auth_request(Type, Host, Port, Node,"/open/", "Aladdin", 
 		 "AladdinPassword", [{statuscode, 401}]),
+%%     io:format(user, "~w:security -> await fail security event~n", [?MODULE]), 
     receive_security_event({event, auth_fail, Port, OpenDir,
 			    [{user, "Aladdin"},
 			     {password, "AladdinPassword"}]},
 			   Node, Port),
 
+%%     io:format(user, "~w:security -> add users~n", [?MODULE]), 
     add_user(Node, ServerRoot, Port, "open", "one", "onePassword", []),
     add_user(Node, ServerRoot, Port, "open", "two", "twoPassword", []),
 
+%%     io:format(user, "~w:security -> auth request~n", [?MODULE]), 
     auth_request(Type, Host, Port, Node,"/open/", "one", "WrongPassword", 
 		 [{statuscode, 401}]),
+%%     io:format(user, "~w:security -> await fail security event~n", [?MODULE]), 
     receive_security_event({event, auth_fail, Port, OpenDir,
 			    [{user, "one"}, {password, "WrongPassword"}]},
 			   Node, Port),
  
+%%     io:format(user, "~w:security -> auth request~n", [?MODULE]), 
     auth_request(Type, Host, Port, Node,"/open/", "one", "WrongPassword", 
 		 [{statuscode, 401}]),
+%%     io:format(user, "~w:security -> await fail security event~n", [?MODULE]), 
     receive_security_event({event, auth_fail, Port, OpenDir,
 			    [{user, "one"}, {password, "WrongPassword"}]},
 			   Node, Port),
     
+%%     io:format(user, "~w:security -> await block security event~n", [?MODULE]), 
     receive_security_event({event, user_block, Port, OpenDir,
 			    [{user, "one"}]}, Node, Port),
     
+%%     io:format(user, "~w:security -> unregister~n", [?MODULE]), 
     global:unregister_name(mod_security_test),   % No more events.
 
+%%     io:format(user, "~w:security -> auth request~n", [?MODULE]), 
     auth_request(Type, Host, Port, Node,"/open/", "one", "WrongPassword", 
 		 [{statuscode, 401}]),
+%%     io:format(user, "~w:security -> auth request~n", [?MODULE]), 
     auth_request(Type, Host, Port, Node,"/open/", "one", "onePassword",
 		 [{statuscode, 403}]),
 
     %% User "one" should be blocked now..
     %% [{"one",_, Port, OpenDir,_}] = list_blocked_users(Node,Port),
+%%     io:format(user, "~w:security -> list blocked users~n", [?MODULE]), 
     case list_blocked_users(Node, Port) of
 	[{"one",_, Port, OpenDir,_}] ->
 	    ok;
 	Blocked ->
-	    io:format(user, "~w:security -> Blocked: ~p"
-		      "~n", [?MODULE, Blocked]),
+	    %% io:format(user, "~w:security -> Blocked: ~p"
+	    %% 	      "~n", [?MODULE, Blocked]),
 	    exit({unexpected_blocked, Blocked})
     end,
 	    
+%%     io:format(user, "~w:security -> list blocked users~n", [?MODULE]), 
     [{"one",_, Port, OpenDir,_}] = list_blocked_users(Node,Port,OpenDir),
 
+%%     io:format(user, "~w:security -> unblock user~n", [?MODULE]), 
     true = unblock_user(Node, "one", Port, OpenDir),
     %% User "one" should not be blocked any more..
+%%     io:format(user, "~w:security -> list blocked users~n", [?MODULE]), 
     [] = list_blocked_users(Node, Port),
+%%     io:format(user, "~w:security -> list blocked users~n", [?MODULE]), 
     [] = list_blocked_users(Node, Port, OpenDir),
+%%     io:format(user, "~w:security -> auth request~n", [?MODULE]), 
     auth_request(Type, Host, Port, Node,"/open/", "one", "onePassword", 
 		 [{statuscode, 200}]),
 
     %% Test list_auth_users & auth_timeout
+%%     io:format(user, "~w:security -> list blocked users~n", [?MODULE]), 
     ["one"] = list_auth_users(Node, Port),
+%%     io:format(user, "~w:security -> list blocked users~n", [?MODULE]), 
     ["one"] = list_auth_users(Node, Port, OpenDir),
+%%     io:format(user, "~w:security -> auth request~n", [?MODULE]), 
     auth_request(Type, Host, Port, Node,"/open/", "two", "onePassword", 
 		 [{statuscode, 401}]),
+%%     io:format(user, "~w:security -> list blocked users~n", [?MODULE]), 
     ["one"] = list_auth_users(Node, Port),
+%%     io:format(user, "~w:security -> list blocked users~n", [?MODULE]), 
     ["one"] = list_auth_users(Node, Port, OpenDir),
+%%     io:format(user, "~w:security -> auth request~n", [?MODULE]), 
     auth_request(Type, Host, Port, Node,"/open/", "two", "twoPassword", 
 		 [{statuscode, 401}]),
+%%     io:format(user, "~w:security -> list blocked users~n", [?MODULE]), 
     ["one"] = list_auth_users(Node, Port),
+%%     io:format(user, "~w:security -> list blocked users~n", [?MODULE]), 
     ["one"] = list_auth_users(Node, Port, OpenDir),
     %% Wait for successful auth to timeout.
     test_server:sleep(?AUTH_TIMEOUT*1001),  
+%%     io:format(user, "~w:security -> list blocked users~n", [?MODULE]), 
     [] = list_auth_users(Node, Port),
+%%     io:format(user, "~w:security -> list blocked users~n", [?MODULE]), 
     [] = list_auth_users(Node, Port, OpenDir),
     %% "two" is blocked.
+%%     io:format(user, "~w:security -> unblock user~n", [?MODULE]), 
     true = unblock_user(Node, "two", Port, OpenDir),
     %% Test explicit blocking. Block user 'two'.
+%%     io:format(user, "~w:security -> list blocked users~n", [?MODULE]), 
     [] = list_blocked_users(Node,Port,OpenDir),
+%%     io:format(user, "~w:security -> block user~n", [?MODULE]), 
     true = block_user(Node, "two", Port, OpenDir, 10),
+%%     io:format(user, "~w:security -> auth request~n", [?MODULE]), 
     auth_request(Type, Host, Port, Node,"/open/", "two", "twoPassword", 
 		 [{statuscode, 401}]).
 
@@ -600,6 +643,11 @@ htaccess(Type, Port, Host, Node) ->
 					{header, "WWW-Authenticate"}]).
 %%--------------------------------------------------------------------
 cgi(Type, Port, Host, Node) ->
+%%     tsp("cgi -> entry with"
+%% 	"~n   Type: ~p"
+%% 	"~n   Port: ~p"
+%% 	"~n   Host: ~p"
+%% 	"~n   Node: ~p", []),
     {Script, Script2, Script3} =
 	case test_server:os_type() of
 	    {win32, _} ->
@@ -609,6 +657,7 @@ cgi(Type, Port, Host, Node) ->
 	end,
 
     %% The length (> 100) is intentional
+%%     tsp("cgi -> request 01 with length > 100"),
     ok = httpd_test_lib:
 	verify_request(Type, Host, Port, Node, 
 		       "POST /cgi-bin/" ++ Script3 ++
@@ -636,46 +685,55 @@ cgi(Type, Port, Host, Node) ->
 			{version, "HTTP/1.0"},
 			{header, "content-type", "text/plain"}]),
     
+%%     tsp("cgi -> request 02"),
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
 				       "GET /cgi-bin/"++ Script ++
 				       " HTTP/1.0\r\n\r\n", 
 				       [{statuscode, 200},
 				       {version, "HTTP/1.0"}]),
+%%     tsp("cgi -> request 03"),
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
 				       "GET /cgi-bin/not_there "
 				       "HTTP/1.0\r\n\r\n", 
 				       [{statuscode, 404},{statuscode, 500},
 				       {version, "HTTP/1.0"}]),
+%%     tsp("cgi -> request 04"),
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
 				       "GET /cgi-bin/"++ Script ++
 				       "?Nisse:kkk?sss/lll HTTP/1.0\r\n\r\n", 
 				       [{statuscode, 200}, 
 					{version, "HTTP/1.0"}]),
+%%     tsp("cgi -> request 04"),
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
 				       "POST /cgi-bin/"++ Script ++
 				       " HTTP/1.0\r\n\r\n", 
 				       [{statuscode, 200},
 					{version, "HTTP/1.0"}]),
+%%     tsp("cgi -> request 05"),
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
 				       "GET /htbin/"++ Script ++
 				       " HTTP/1.0\r\n\r\n",
 				       [{statuscode, 200},
 				       {version, "HTTP/1.0"}]),
+%%     tsp("cgi -> request 06"),
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
 				       "GET /htbin/not_there "
 				       "HTTP/1.0\r\n\r\n", 
 				       [{statuscode, 404},{statuscode, 500},
 				        {version, "HTTP/1.0"}]),
+%%     tsp("cgi -> request 07"),
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
 				       "GET /htbin/"++ Script ++
 				       "?Nisse:kkk?sss/lll HTTP/1.0\r\n\r\n", 
 				       [{statuscode, 200},
 					{version, "HTTP/1.0"}]),
+%%     tsp("cgi -> request 08"),
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
 				       "POST /htbin/"++ Script ++
 				       " HTTP/1.0\r\n\r\n",
 				       [{statuscode, 200},
 				       {version, "HTTP/1.0"}]),
+%%     tsp("cgi -> request 09"),
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
 				       "POST /htbin/"++ Script ++
 				       " HTTP/1.0\r\n\r\n",
@@ -683,18 +741,23 @@ cgi(Type, Port, Host, Node) ->
 				       {version, "HTTP/1.0"}]),
     
     %% Execute an existing, but bad CGI script..
+%%     tsp("cgi -> request 10 - bad script"),
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
 				       "POST /htbin/"++ Script2 ++
 				       " HTTP/1.0\r\n\r\n",
 				       [{statuscode, 404},
 					{version, "HTTP/1.0"}]),
     
+%%     tsp("cgi -> request 11 - bad script"),
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
 				       "POST /cgi-bin/"++ Script2 ++
 				       " HTTP/1.0\r\n\r\n",
 				       [{statuscode, 404},
 				       {version, "HTTP/1.0"}]),
+
+%%     tsp("cgi -> done"),
     ok.
+
 
 %%--------------------------------------------------------------------
 esi(Type, Port, Host, Node) ->
@@ -751,6 +814,8 @@ esi(Type, Port, Host, Node) ->
 					[{statuscode, 302},
 					{version, "HTTP/1.0"}]),
     ok.
+
+
 %%--------------------------------------------------------------------
 get(Type, Port, Host, Node) ->
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node,
@@ -850,24 +915,43 @@ list_users(Node, Root, _Host, Port, Dir) ->
     Directory = filename:join([Root, "htdocs", Dir]),
     rpc:call(Node, mod_auth, list_users, [Addr, Port, Directory]).
 
+
 receive_security_event(Event, Node, Port) ->
-    io:format(user, "~w:receive_security_event -> entry with"
-	      "~n   Event: ~p"
-	      "~n   Node:  ~p"
-	      "~n   Port:  ~p"
-	      "~n", [?MODULE, Event, Node, Port]),
+    %% io:format(user, "~w:receive_security_event -> entry with"
+    %% 	      "~n   Event: ~p"
+    %% 	      "~n   Node:  ~p"
+    %% 	      "~n   Port:  ~p"
+    %% 	      "~n", [?MODULE, Event, Node, Port]),
     receive 
 	Event ->
 	    ok;
 	{'EXIT', _, _} ->
-	    receive_security_event(Event, Node, Port);	
-	Other ->
-	    test_server:fail({unexpected_event, 
-			      {expected, Event}, {received, Other}})
+	    receive_security_event(Event, Node, Port)
     after 5000 ->
-	    test_server:fail(no_event_recived)
+	    %% Flush the message queue, to see if we got something...
+	    Msgs = inets_test_lib:flush(),
+	    tsf({expected_event_not_received, Msgs})
 				     
     end.
+
+%% receive_security_event(Event, Node, Port) ->
+%%     io:format(user, "~w:receive_security_event -> entry with"
+%% 	      "~n   Event: ~p"
+%% 	      "~n   Node:  ~p"
+%% 	      "~n   Port:  ~p"
+%% 	      "~n", [?MODULE, Event, Node, Port]),
+%%     receive 
+%% 	Event ->
+%% 	    ok;
+%% 	{'EXIT', _, _} ->
+%% 	    receive_security_event(Event, Node, Port);	
+%% 	Other ->
+%% 	    test_server:fail({unexpected_event, 
+%% 			      {expected, Event}, {received, Other}})
+%%     after 5000 ->
+%% 	    test_server:fail(no_event_recived)
+				     
+%%     end.
 
 list_blocked_users(Node,Port) ->
     Addr = undefined, % Assumed to be on the same host
@@ -945,3 +1029,12 @@ check_lists_members1(L,L) ->
     ok;
 check_lists_members1(L1,L2) ->
     {error,{lists_not_equal,L1,L2}}.
+
+
+%% tsp(F) ->
+%%     tsp(F, []).
+%% tsp(F, A) ->
+%%     test_server:format("~p ~p:" ++ F ++ "~n", [self(), ?MODULE | A]).
+
+tsf(Reason) ->
+    test_server:fail(Reason).

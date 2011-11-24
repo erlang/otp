@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -121,7 +121,7 @@ create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef}, Opti
   wxe_util:call(?wxStatusBar_Create,
   <<ThisRef:32/?UI,ParentRef:32/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxStatusBar(), I::integer(), Rect::{X::integer(),Y::integer(),W::integer(),H::integer()}) -> bool()
+%% @spec (This::wxStatusBar(), I::integer(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstatusbar.html#wxstatusbargetfieldrect">external documentation</a>.
 getFieldRect(#wx_ref{type=ThisT,ref=ThisRef},I,{RectX,RectY,RectW,RectH})
  when is_integer(I),is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH) ->

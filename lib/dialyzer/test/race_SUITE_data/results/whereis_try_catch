@@ -1,0 +1,3 @@
+
+whereis_try_catch.erl:13: The call erlang:register('master',Pid::any()) might fail due to a possible race condition caused by its combination with the erlang:whereis('master') call in whereis_try_catch.erl on line 8
+whereis_try_catch.erl:21: The call erlang:register('master',Pid::any()) might fail due to a possible race condition caused by its combination with the erlang:whereis('master') call in whereis_try_catch.erl on line 18

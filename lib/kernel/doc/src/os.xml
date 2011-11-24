@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2009</year>
+      <year>1997</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -38,13 +38,10 @@
   </description>
   <funcs>
     <func>
-      <name>cmd(Command) -> string()</name>
+      <name name="cmd" arity="1"/>
       <fsummary>Execute a command in a shell of the target OS</fsummary>
-      <type>
-        <v>Command = string() | atom()</v>
-      </type>
       <desc>
-        <p>Executes <c>Command</c> in a command shell of the target OS,
+        <p>Executes <c><anno>Command</anno></c> in a command shell of the target OS,
           captures the standard output of the command and returns this
           result as a string. This function is a replacement of
           the previous <c>unix:cmd/1</c>; on a Unix platform they are
@@ -60,23 +57,18 @@ DirOut = os:cmd("dir"), % on Win32 platform</code>
       </desc>
     </func>
     <func>
-      <name>find_executable(Name) -> Filename | false</name>
-      <name>find_executable(Name, Path) -> Filename | false</name>
+      <name name="find_executable" arity="1"/>
+      <name name="find_executable" arity="2"/>
       <fsummary>Absolute filename of a program</fsummary>
-      <type>
-        <v>Name = string()</v>
-        <v>Path = string()</v>
-        <v>Filename = string()</v>
-      </type>
       <desc>
         <p>These two functions look up an executable program given its
           name and a search path, in the same way as the underlying
           operating system. <c>find_executable/1</c> uses the current
           execution path (that is, the environment variable PATH on
           Unix and Windows).</p>
-        <p><c>Path</c>, if given, should conform to the syntax of
+        <p><c><anno>Path</anno></c>, if given, should conform to the syntax of
           execution paths on the operating system. The absolute
-          filename of the executable program <c>Name</c> is returned,
+          filename of the executable program <c><anno>Name</anno></c> is returned,
           or <c>false</c> if the program was not found.</p>
       </desc>
     </func>
@@ -134,10 +126,11 @@ DirOut = os:cmd("dir"), % on Win32 platform</code>
       </desc>
     </func>
     <func>
-      <name>timestamp() -> {MegaSecs, Secs, MicroSecs}</name>
+      <name>timestamp() -> Timestamp</name>
       <fsummary>Returna a timestamp from the OS in the erlang:now/0 format</fsummary>
       <type>
-        <v>MegaSecs = Secs = MicroSecs = int()</v>
+        <v>Timestamp = {MegaSecs, Secs, MicroSecs} = <seealso marker="erts:erlang#type-timestamp">erlang:timestamp()</seealso></v>
+        <v>MegaSecs = Secs = MicroSecs = integer() >= 0</v>
       </type>
       <desc>
       <p>Returns a tuple in the same format as <seealso marker="erts:erlang#now/0">erlang:now/0</seealso>. The difference is that this function returns what the operating system thinks (a.k.a. the wall clock time) without any attempts at time correction. The result of two different calls to this function is <em>not</em> guaranteed to be different.</p>
@@ -165,19 +158,15 @@ format_utc_timestamp() ->
       </desc>
     </func>
     <func>
-      <name>type() -> {Osfamily, Osname} | Osfamily</name>
+      <name name="type" arity="0"/>
       <fsummary>Return the OS family and, in some cases, OS name of the current operating system</fsummary>
-      <type>
-        <v>Osfamily = win32 | unix | vxworks</v>
-        <v>Osname = atom()</v>
-      </type>
       <desc>
-        <p>Returns the <c>Osfamily</c> and, in some cases, <c>Osname</c>
+        <p>Returns the <c><anno>Osfamily</anno></c> and, in some cases, <c><anno>Osname</anno></c>
           of the current operating system.</p>
-        <p>On Unix, <c>Osname</c> will have same value as
+        <p>On Unix, <c><anno>Osname</anno></c> will have same value as
           <c>uname -s</c> returns, but in lower case. For example, on
           Solaris 1 and 2, it will be <c>sunos</c>.</p>
-        <p>In Windows, <c>Osname</c> will be either <c>nt</c> (on
+        <p>In Windows, <c><anno>Osname</anno></c> will be either <c>nt</c> (on
           Windows NT), or <c>windows</c> (on Windows 95).</p>
         <p>On VxWorks the OS family alone is returned, that is
           <c>vxworks</c>.</p>
@@ -185,17 +174,13 @@ format_utc_timestamp() ->
           <p>Think twice before using this function. Use the
             <c>filename</c> module if you want to inspect or build
             file names in a portable way.
-            Avoid matching on the <c>Osname</c> atom.</p>
+            Avoid matching on the <c><anno>Osname</anno></c> atom.</p>
         </note>
       </desc>
     </func>
     <func>
-      <name>version() -> {Major, Minor, Release} | VersionString</name>
+      <name name="version" arity="0"/>
       <fsummary>Return the Operating System version</fsummary>
-      <type>
-        <v>Major = Minor = Release = integer()</v>
-        <v>VersionString = string()</v>
-      </type>
       <desc>
         <p>Returns the operating system version.
           On most systems, this function returns a tuple, but a string

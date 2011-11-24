@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2005-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -327,7 +327,7 @@ window_change(Tty, OldTty, Buf)
     {[], Buf};
 window_change(Tty, OldTty, {Buf, BufTail, Col}) ->
     M1 = move_cursor(Col, 0, OldTty),
-    N = max(Tty#ssh_pty.width - OldTty#ssh_pty.width, 0) * 2,
+    N = erlang:max(Tty#ssh_pty.width - OldTty#ssh_pty.width, 0) * 2,
     S = lists:reverse(Buf, [BufTail | lists:duplicate(N, $ )]),
     M2 = move_cursor(length(Buf) + length(BufTail) + N, Col, Tty),
     {[M1, S | M2], {Buf, BufTail, Col}}.
@@ -398,10 +398,6 @@ nthtail(0, A) -> A;
 nthtail(N, [_ | A]) when N > 0 -> nthtail(N-1, A);
 nthtail(_, _) -> [].
 
-%%% utils
-max(A, B) when A > B -> A;
-max(_A, B) -> B.
-
 ifelse(Cond, A, B) ->
     case Cond of
 	true -> A;
@@ -419,16 +415,14 @@ start_shell(ConnectionManager, State) ->
     Shell = State#state.shell,
     ShellFun = case is_function(Shell) of
 		   true ->
+		       {ok, User} = 
+			   ssh_userreg:lookup_user(ConnectionManager),
 		       case erlang:fun_info(Shell, arity) of
 			   {arity, 1} ->
-			       {ok, User} = 
-				   ssh_userreg:lookup_user(ConnectionManager),
 			       fun() -> Shell(User) end;
 			   {arity, 2} ->
-			       {ok, User} = 
-				   ssh_userreg:lookup_user(ConnectionManager),
 			       {ok, PeerAddr} = 
-				   ssh_cm:get_peer_addr(ConnectionManager),
+				   ssh_connection_manager:peer_addr(ConnectionManager),
 			       fun() -> Shell(User, PeerAddr) end;
 			   _ ->
 			       Shell
@@ -441,9 +435,27 @@ start_shell(ConnectionManager, State) ->
     State#state{group = Group, buf = empty_buf()}.
 
 start_shell(_ConnectionManager, Cmd, #state{exec={M, F, A}} = State) ->
-    Group = group:start(self(), {M, F, A++[Cmd]}, [{echo,false}]),
+    Group = group:start(self(), {M, F, A++[Cmd]}, [{echo, false}]),
+    State#state{group = Group, buf = empty_buf()};
+start_shell(ConnectionManager, Cmd, #state{exec=Shell} = State) when is_function(Shell) ->
+    {ok, User} = 
+	ssh_userreg:lookup_user(ConnectionManager),
+    ShellFun = 
+	case erlang:fun_info(Shell, arity) of
+	    {arity, 1} ->
+		fun() -> Shell(Cmd) end;
+	    {arity, 2} ->
+		fun() -> Shell(Cmd, User) end;
+	    {arity, 3} ->
+		{ok, PeerAddr} = 
+		    ssh_connection_manager:peer_addr(ConnectionManager),
+		fun() -> Shell(Cmd, User, PeerAddr) end;
+	    _ ->
+		Shell
+	end,
+    Echo = get_echo(State#state.pty),
+    Group = group:start(self(), ShellFun, [{echo,Echo}]),
     State#state{group = Group, buf = empty_buf()}.
-
 
 % Pty can be undefined if the client never sets any pty options before
 % starting the shell.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -29,17 +29,17 @@
 
 -module(wxListCtrl).
 -include("wxe.hrl").
--export([ sortItems/2 ,arrange/1,arrange/2,assignImageList/3,clearAll/1,create/2,
-  create/3,deleteAllItems/1,deleteColumn/2,deleteItem/2,destroy/1,editLabel/2,
-  ensureVisible/2,findItem/3,findItem/4,getColumn/3,getColumnCount/1,
-  getColumnWidth/2,getCountPerPage/1,getEditControl/1,getImageList/2,
-  getItem/2,getItemBackgroundColour/2,getItemCount/1,getItemData/2,
-  getItemFont/2,getItemPosition/3,getItemRect/3,getItemRect/4,getItemSpacing/1,
-  getItemState/3,getItemText/2,getItemTextColour/2,getNextItem/2,getNextItem/3,
-  getSelectedItemCount/1,getTextColour/1,getTopItem/1,getViewRect/1,
-  hitTest/2,insertColumn/3,insertColumn/4,insertItem/2,insertItem/3,
-  insertItem/4,new/0,new/1,new/2,refreshItem/2,refreshItems/3,scrollList/3,
-  setBackgroundColour/2,setColumn/3,setColumnWidth/3,setImageList/3,
+-export([ create/2, create/3 , new/0, new/1, new/2 , sortItems/2 ,arrange/1,
+  arrange/2,assignImageList/3,clearAll/1,deleteAllItems/1,deleteColumn/2,
+  deleteItem/2,destroy/1,editLabel/2,ensureVisible/2,findItem/3,findItem/4,
+  getColumn/3,getColumnCount/1,getColumnWidth/2,getCountPerPage/1,getEditControl/1,
+  getImageList/2,getItem/2,getItemBackgroundColour/2,getItemCount/1,
+  getItemData/2,getItemFont/2,getItemPosition/3,getItemRect/3,getItemRect/4,
+  getItemSpacing/1,getItemState/3,getItemText/2,getItemTextColour/2,
+  getNextItem/2,getNextItem/3,getSelectedItemCount/1,getTextColour/1,
+  getTopItem/1,getViewRect/1,hitTest/2,insertColumn/3,insertColumn/4,
+  insertItem/2,insertItem/3,insertItem/4,refreshItem/2,refreshItems/3,
+  scrollList/3,setBackgroundColour/2,setColumn/3,setColumnWidth/3,setImageList/3,
   setItem/2,setItem/4,setItem/5,setItemBackgroundColour/3,setItemColumnImage/4,
   setItemCount/2,setItemData/3,setItemFont/3,setItemImage/3,setItemImage/4,
   setItemPosition/3,setItemState/4,setItemText/3,setItemTextColour/3,
@@ -89,11 +89,11 @@ parent_class(wxWindow) -> true;
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
+
 %% @spec () -> wxListCtrl()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistctrl.html#wxlistctrlwxlistctrl">external documentation</a>.
 new() ->
-  wxe_util:construct(?wxListCtrl_new_0,
-  <<>>).
+    wxe_util:construct(?wxListCtrl_new_0, <<>>).
 
 %% @spec (Parent::wxWindow:wxWindow()) -> wxListCtrl()
 %% @equiv new(Parent, [])
@@ -102,20 +102,44 @@ new(Parent)
   new(Parent, []).
 
 %% @spec (Parent::wxWindow:wxWindow(), [Option]) -> wxListCtrl()
-%% Option = {winid, integer()} | {pos, {X::integer(),Y::integer()}} | {size, {W::integer(),H::integer()}} | {style, integer()} | {validator, wx:wx()}
+%% Option = {winid, integer()} |
+%%          {pos, {X::integer(),Y::integer()}} |
+%%          {size, {W::integer(),H::integer()}} |
+%%          {style, integer()} |
+%%          {validator, wx:wx()} |
+%%          {onGetItemText, OnGetItemText} |
+%%          {onGetItemAttr, OnGetItemAttr} |
+%%          {onGetItemColumnImage, OnGetItemColumnImage}
+%%
+%% OnGetItemText = (This, Item, Column) -> wxString()
+%% OnGetItemAttr = (This, Item) -> wxListItemAttr()
+%% OnGetItemColumnImage = (This, Item, Column) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistctrl.html#wxlistctrlwxlistctrl">external documentation</a>.
+
 new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
- when is_list(Options) ->
-  ?CLASS(ParentT,wxWindow),
-  MOpts = fun({winid, Winid}, Acc) -> [<<1:32/?UI,Winid:32/?UI>>|Acc];
-          ({pos, {PosX,PosY}}, Acc) -> [<<2:32/?UI,PosX:32/?UI,PosY:32/?UI,0:32>>|Acc];
-          ({size, {SizeW,SizeH}}, Acc) -> [<<3:32/?UI,SizeW:32/?UI,SizeH:32/?UI,0:32>>|Acc];
-          ({style, Style}, Acc) -> [<<4:32/?UI,Style:32/?UI>>|Acc];
-          ({validator, #wx_ref{type=ValidatorT,ref=ValidatorRef}}, Acc) ->   ?CLASS(ValidatorT,wx),[<<5:32/?UI,ValidatorRef:32/?UI>>|Acc];
-          (BadOpt, _) -> erlang:error({badoption, BadOpt}) end,
-  BinOpt = list_to_binary(lists:foldl(MOpts, [<<0:32>>], Options)),
-  wxe_util:construct(?wxListCtrl_new_2,
-  <<ParentRef:32/?UI, 0:32,BinOpt/binary>>).
+  when is_list(Options)->
+    ?CLASS(ParentT,wxWindow),
+    MOpts = fun({winid, Winid}, Acc) -> [<<1:32/?UI,Winid:32/?UI>>|Acc];
+	       ({pos, {PosX,PosY}}, Acc) -> [<<2:32/?UI,PosX:32/?UI,PosY:32/?UI,0:32>>|Acc];
+	       ({size, {SizeW,SizeH}}, Acc) -> [<<3:32/?UI,SizeW:32/?UI,SizeH:32/?UI,0:32>>|Acc];
+	       ({style, Style}, Acc) -> [<<4:32/?UI,Style:32/?UI>>|Acc];
+	       ({validator, #wx_ref{type=ValidatorT,ref=ValidatorRef}}, Acc) ->
+		    ?CLASS(ValidatorT,wx),[<<5:32/?UI,ValidatorRef:32/?UI>>|Acc];
+	       ({onGetItemText, F}, Acc) when is_function(F) ->
+		    Fun = fun([This,Item,Col]) -> unicode:characters_to_binary([F(This,Item,Col),0]) end,
+		    [<<6:32/?UI,(wxe_util:get_cbId(Fun)):32/?UI>>|Acc];
+	       ({onGetItemAttr, F}, Acc) when is_function(F) ->
+		    Fun = fun([This,Item]) ->
+				  #wx_ref{type=wxListItemAttr,ref=ThisRef} = F(This,Item),
+				  <<ThisRef:32/?UI>>
+			  end,
+		    [<<7:32/?UI,(wxe_util:get_cbId(Fun)):32/?UI>>|Acc];
+	       ({onGetItemColumnImage, F}, Acc) when is_function(F) ->
+		    Fun = fun([This,Item, Col]) -> <<(F(This,Item,Col)):32/?I>> end,
+		    [<<8:32/?UI,(wxe_util:get_cbId(Fun)):32/?UI>>|Acc];
+	       (BadOpt, _) -> erlang:error({badoption, BadOpt}) end,
+    BinOpt = list_to_binary(lists:foldl(MOpts, [<<0:32>>], Options)),
+    wxe_util:construct(?wxListCtrl_new_2, <<ParentRef:32/?UI, 0:32,BinOpt/binary>>).
 
 %% @spec (This::wxListCtrl()) -> bool()
 %% @equiv arrange(This, [])
@@ -151,6 +175,7 @@ clearAll(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:cast(?wxListCtrl_ClearAll,
   <<ThisRef:32/?UI>>).
 
+
 %% @spec (This::wxListCtrl(), Parent::wxWindow:wxWindow()) -> bool()
 %% @equiv create(This,Parent, [])
 create(This,Parent)
@@ -158,7 +183,18 @@ create(This,Parent)
   create(This,Parent, []).
 
 %% @spec (This::wxListCtrl(), Parent::wxWindow:wxWindow(), [Option]) -> bool()
-%% Option = {winid, integer()} | {pos, {X::integer(),Y::integer()}} | {size, {W::integer(),H::integer()}} | {style, integer()} | {validator, wx:wx()}
+%% Option = {winid, integer()} |
+%%          {pos, {X::integer(),Y::integer()}} |
+%%          {size, {W::integer(),H::integer()}} |
+%%          {style, integer()} |
+%%          {validator, wx:wx()} |
+%%          {onGetItemText, OnGetItemText} |
+%%          {onGetItemAttr, OnGetItemAttr} |
+%%          {onGetItemColumnImage, OnGetItemColumnImage}
+%%
+%% OnGetItemText = (This, Item, Column) -> wxString()
+%% OnGetItemAttr = (This, Item) -> wxListItemAttr()
+%% OnGetItemColumnImage = (This, Item, Column) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistctrl.html#wxlistctrlcreate">external documentation</a>.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->
@@ -227,7 +263,7 @@ findItem(This,Start,Str)
 %%<br /> Option = {partial, bool()}
 %% </p>
 %% <p><c>
-%% findItem(This::wxListCtrl(), Start::integer(), Pt::{X::integer(),Y::integer()}, Direction::integer()) -> integer() </c>
+%% findItem(This::wxListCtrl(), Start::integer(), Pt::{X::integer(), Y::integer()}, Direction::integer()) -> integer() </c>
 %% </p>
 findItem(#wx_ref{type=ThisT,ref=ThisRef},Start,Str, Options)
  when is_integer(Start),is_list(Str),is_list(Options) ->
@@ -329,7 +365,7 @@ getItemFont(#wx_ref{type=ThisT,ref=ThisRef},Item)
   wxe_util:call(?wxListCtrl_GetItemFont,
   <<ThisRef:32/?UI,Item:32/?UI>>).
 
-%% @spec (This::wxListCtrl(), Item::integer(), Pos::{X::integer(),Y::integer()}) -> bool()
+%% @spec (This::wxListCtrl(), Item::integer(), Pos::{X::integer(), Y::integer()}) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistctrl.html#wxlistctrlgetitemposition">external documentation</a>.
 getItemPosition(#wx_ref{type=ThisT,ref=ThisRef},Item,{PosX,PosY})
  when is_integer(Item),is_integer(PosX),is_integer(PosY) ->
@@ -337,13 +373,13 @@ getItemPosition(#wx_ref{type=ThisT,ref=ThisRef},Item,{PosX,PosY})
   wxe_util:call(?wxListCtrl_GetItemPosition,
   <<ThisRef:32/?UI,Item:32/?UI,PosX:32/?UI,PosY:32/?UI>>).
 
-%% @spec (This::wxListCtrl(), Item::integer(), Rect::{X::integer(),Y::integer(),W::integer(),H::integer()}) -> bool()
+%% @spec (This::wxListCtrl(), Item::integer(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}) -> bool()
 %% @equiv getItemRect(This,Item,Rect, [])
 getItemRect(This,Item,Rect={RectX,RectY,RectW,RectH})
  when is_record(This, wx_ref),is_integer(Item),is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH) ->
   getItemRect(This,Item,Rect, []).
 
-%% @spec (This::wxListCtrl(), Item::integer(), Rect::{X::integer(),Y::integer(),W::integer(),H::integer()}, [Option]) -> bool()
+%% @spec (This::wxListCtrl(), Item::integer(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}, [Option]) -> bool()
 %% Option = {code, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistctrl.html#wxlistctrlgetitemrect">external documentation</a>.
 getItemRect(#wx_ref{type=ThisT,ref=ThisRef},Item,{RectX,RectY,RectW,RectH}, Options)
@@ -355,7 +391,7 @@ getItemRect(#wx_ref{type=ThisT,ref=ThisRef},Item,{RectX,RectY,RectW,RectH}, Opti
   wxe_util:call(?wxListCtrl_GetItemRect,
   <<ThisRef:32/?UI,Item:32/?UI,RectX:32/?UI,RectY:32/?UI,RectW:32/?UI,RectH:32/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxListCtrl()) -> {W::integer(),H::integer()}
+%% @spec (This::wxListCtrl()) -> {W::integer(), H::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistctrl.html#wxlistctrlgetitemspacing">external documentation</a>.
 getItemSpacing(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxListCtrl),
@@ -426,14 +462,14 @@ getTopItem(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxListCtrl_GetTopItem,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxListCtrl()) -> {X::integer(),Y::integer(),W::integer(),H::integer()}
+%% @spec (This::wxListCtrl()) -> {X::integer(), Y::integer(), W::integer(), H::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistctrl.html#wxlistctrlgetviewrect">external documentation</a>.
 getViewRect(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxListCtrl),
   wxe_util:call(?wxListCtrl_GetViewRect,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxListCtrl(), Point::{X::integer(),Y::integer()}) -> {integer(),Flags::integer()}
+%% @spec (This::wxListCtrl(), Point::{X::integer(), Y::integer()}) -> {integer(), Flags::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistctrl.html#wxlistctrlhittest">external documentation</a>.
 hitTest(#wx_ref{type=ThisT,ref=ThisRef},{PointX,PointY})
  when is_integer(PointX),is_integer(PointY) ->
@@ -656,7 +692,7 @@ setItemColumnImage(#wx_ref{type=ThisT,ref=ThisRef},Item,Column,Image)
   wxe_util:call(?wxListCtrl_SetItemColumnImage,
   <<ThisRef:32/?UI,Item:32/?UI,Column:32/?UI,Image:32/?UI>>).
 
-%% @spec (This::wxListCtrl(), Item::integer(), Pos::{X::integer(),Y::integer()}) -> bool()
+%% @spec (This::wxListCtrl(), Item::integer(), Pos::{X::integer(), Y::integer()}) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistctrl.html#wxlistctrlsetitemposition">external documentation</a>.
 setItemPosition(#wx_ref{type=ThisT,ref=ThisRef},Item,{PosX,PosY})
  when is_integer(Item),is_integer(PosX),is_integer(PosY) ->
@@ -726,12 +762,12 @@ setWindowStyleFlag(#wx_ref{type=ThisT,ref=ThisRef},Style)
 
 %% @spec (This::wxListCtrl(), SortCallBack::function()) -> boolean()
 %% @doc Sort the items in the list control<br />
-%%   <pre>SortCalBack(Item1,Item2) -> integer()</pre>
+%%   <pre>SortCallBack(Item1,Item2) -> integer()</pre>
 %%  <br /> SortCallBack receives the client data associated with two items
 %%         to compare, and should return 0 if the items are equal, a negative
 %%         value if the first item is less than the second one and a positive
 %%         value if the first item is greater than the second one.
-%%  <br /> NOTE: The callback may not call other processes.
+%%  <br /> NOTE: The callback may not call other (wx) processes.
 sortItems(#wx_ref{type=ThisT,ref=ThisRef}, SortCallBack)
   when is_function(SortCallBack, 2) ->
 	?CLASS(ThisT,wxListCtrl),

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" targetNamespace="http://www.ericsson.com/is/isco/nc" xmlns="http://www.ericsson.com/is/isco/nc">
+  <xsd:attribute name="operation">
+    <xsd:simpleType>
+      <xsd:restriction base="xsd:normalizedString">
+        <xsd:whiteSpace value="collapse"/>
+        <xsd:enumeration value="merge"/>
+        <xsd:enumeration value="create"/>
+        <xsd:enumeration value="replace"/>
+        <xsd:enumeration value="delete"/>
+      </xsd:restriction>
+    </xsd:simpleType>
+  </xsd:attribute>
+</xsd:schema>

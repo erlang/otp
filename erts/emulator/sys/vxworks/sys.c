@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1997-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 1997-2011. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 /*
@@ -85,7 +85,7 @@ EXTERN_FUNCTION(void, erl_exit, (int n, char*, _DOTS_));
 EXTERN_FUNCTION(void, erl_error, (char*, va_list));
 EXTERN_FUNCTION(int, driver_interrupt, (int, int));
 EXTERN_FUNCTION(void, increment_time, (int));
-EXTERN_FUNCTION(int, next_time, (_VOID_));
+EXTERN_FUNCTION(int, erts_next_time, (_VOID_));
 EXTERN_FUNCTION(void, set_reclaim_free_function, (FreeFunction));
 EXTERN_FUNCTION(int, erl_mem_info_get, (MEM_PART_STATS *));
 EXTERN_FUNCTION(void, erl_crash_dump, (char* file, int line, char* fmt, ...));
@@ -142,6 +142,14 @@ int erts_vxworks_max_files;
 volatile int erts_break_requested;
 
 /********************* General functions ****************************/
+
+/*
+ * Reset the terminal to the original settings on exit
+ * (nothing to do for WxWorks).
+ */
+void sys_tty_reset(int exit_code)
+{
+}
 
 Uint
 erts_sys_misc_mem_sz(void)
@@ -230,6 +238,12 @@ erl_sys_args(int* argc, char** argv)
     ASSERT(max_files <= erts_vxworks_max_files);
 }
 
+void
+erts_sys_schedule_interrupt(int set)
+{
+    erts_check_io_interrupt(set);
+}
+
 /*
  * Called from schedule() when it runs out of runnable processes,
  * or when Erlang code has performed INPUT_REDUCTIONS reduction
@@ -238,7 +252,6 @@ erl_sys_args(int* argc, char** argv)
 void
 erl_sys_schedule(int runnable)
 {	
-    erts_check_io_interrupt(0);
     erts_check_io(!runnable);
 }
 
@@ -301,7 +314,7 @@ static void request_break(void)
   fprintf(stderr,"break!\n");
 #endif
   erts_break_requested = 1;
-  erts_check_io_interrupt(1); /* Make sure we don't sleep in erts_poll_wait */
+  erts_check_io_async_sig_interrupt(1); /* Make sure we don't sleep in erts_poll_wait */
 }
 
 static void do_quit(void)
@@ -1507,6 +1520,12 @@ erts_sys_getenv(char *key, char *value, size_t *size)
     return res;
 }
 
+int
+erts_sys_getenv__(char *key, char *value, size_t *size)
+{
+    return erts_sys_getenv(key, value, size);
+}
+
 void
 sys_init_io(void)
 {
@@ -2017,9 +2036,6 @@ int erl_memory_show(int p0, int p1, int p2, int p3, int p4, int p5,
 	erts_printf("The memory block used by elib is save_malloc'ed "
 		   "at 0x%08x.\n", (unsigned int) alloc_pool_ptr);
     }
-#ifdef NO_FIX_ALLOC
-    erts_printf("Fix_alloc is disabled in this build\n");
-#endif
     erts_printf("Statistics from elib_malloc:\n");
     ELIB_LOCK;
 

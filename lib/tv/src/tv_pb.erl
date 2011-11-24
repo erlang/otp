@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 -module(tv_pb).
 
@@ -522,7 +522,7 @@ handle_col_resizing(RbtnId, RealCol, VirtualCol, Xpos, ProcVars) ->
 get_xdiff(Id, Btn, LastXdiff, LineId, LineXpos, MinAllowedXdiff) ->
     receive
 	{gs, Id, motion, {resbtn, _RealCol, _VirtCol, _OldXpos}, [NewXdiff | _T]} ->
-	    UsedXdiff = max(MinAllowedXdiff, NewXdiff),
+	    UsedXdiff = erlang:max(MinAllowedXdiff, NewXdiff),
 	    gs:config(LineId, [{x, LineXpos + UsedXdiff}]),
 	    get_xdiff(Id, Btn, UsedXdiff, LineId, LineXpos, MinAllowedXdiff);
 	{gs, Id, buttonrelease, _Data, [Btn | _T]} ->
@@ -658,28 +658,3 @@ update_vbtns(Msg, ProcVars) ->
 update_keys(Msg, ProcVars) ->
     #pb_key_info{list_of_keys = KeyList} = Msg,
     tv_pb_funcs:update_keys(KeyList, ProcVars).
-
-
-
-
-
-
-
-
-%%======================================================================
-%% Function:      
-%%
-%% Return Value:  
-%%
-%% Description:   
-%%
-%% Parameters:    
-%%======================================================================
-
-
-max(A, B) when A >= B ->
-    A;
-max(_, B) ->
-    B.
-    
-

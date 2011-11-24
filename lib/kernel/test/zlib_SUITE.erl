@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,7 +19,7 @@
 
 -module(zlib_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -compile(export_all).
 
@@ -42,13 +42,13 @@
 		end
 	end()).
 
--define(BARG, {'EXIT',{badarg,[{zlib,_,_}|_]}}).
--define(DATA_ERROR, {'EXIT',{data_error,[{zlib,_,_}|_]}}).
+-define(BARG, {'EXIT',{badarg,[{zlib,_,_,_}|_]}}).
+-define(DATA_ERROR, {'EXIT',{data_error,[{zlib,_,_,_}|_]}}).
 
 init_per_testcase(_Func, Config) ->
     Dog = test_server:timetrap(test_server:seconds(60)),
     [{watchdog, Dog}|Config].
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog).
 
@@ -69,33 +69,40 @@ error(Format, Args, File, Line) ->
 %%     end,
 %%     log("<>ERROR<>~n" ++ Format, Args, File, Line).
 
-all(suite) -> 
-    [api, examples, func, smp, otp_7359].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-api(doc) -> "Basic the api tests";
-api(suite) ->
-    [api_open_close,
-     api_deflateInit,
-     api_deflateSetDictionary,
-     api_deflateReset,
-     api_deflateParams,
-     api_deflate,
-     api_deflateEnd,
-     api_inflateInit,
-     api_inflateSetDictionary,
-     api_inflateSync,
-     api_inflateReset,
-     api_inflate,
-     api_inflateEnd,
-     api_setBufsz,
-     api_getBufsz,
-     api_crc32,
-     api_adler32,
-     api_getQSize,
-     api_un_compress,
-     api_un_zip,
-%     api_g_un_zip_file,
-     api_g_un_zip].
+all() -> 
+    [{group, api}, {group, examples}, {group, func}, smp,
+     otp_7359].
+
+groups() -> 
+    [{api, [],
+      [api_open_close, api_deflateInit,
+       api_deflateSetDictionary, api_deflateReset,
+       api_deflateParams, api_deflate, api_deflateEnd,
+       api_inflateInit, api_inflateSetDictionary,
+       api_inflateSync, api_inflateReset, api_inflate,
+       api_inflateEnd, api_setBufsz, api_getBufsz, api_crc32,
+       api_adler32, api_getQSize, api_un_compress, api_un_zip,
+       api_g_un_zip]},
+     {examples, [], [intro]},
+     {func, [],
+      [zip_usage, gz_usage, gz_usage2, compress_usage,
+       dictionary_usage, large_deflate, crc, adler]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
+
 
 api_open_close(doc) -> "Test open/0 and close/1";
 api_open_close(suite) -> [];
@@ -405,6 +412,7 @@ api_crc32(Config) when is_list(Config) ->
     Compressed = list_to_binary(Compressed1 ++ Compressed2),
      CRC1 = ?m( CRC1 when is_integer(CRC1), zlib:crc32(Z1)),
     ?m(CRC1 when is_integer(CRC1), zlib:crc32(Z1,Bin)),
+    ?m(CRC1 when is_integer(CRC1), zlib:crc32(Z1,binary_to_list(Bin))),
     ?m(CRC2 when is_integer(CRC2), zlib:crc32(Z1,Compressed)),
     CRC2 = ?m(CRC2 when is_integer(CRC2), zlib:crc32(Z1,0,Compressed)),
     ?m(CRC3 when CRC2 /= CRC3, zlib:crc32(Z1,234,Compressed)),
@@ -430,6 +438,7 @@ api_adler32(Config) when is_list(Config) ->
     Compressed2 = ?m(_, zlib:deflate(Z1, <<>>, finish)),
     Compressed = list_to_binary(Compressed1 ++ Compressed2),
     ?m(ADLER1 when is_integer(ADLER1), zlib:adler32(Z1,Bin)),
+    ?m(ADLER1 when is_integer(ADLER1), zlib:adler32(Z1,binary_to_list(Bin))),
     ADLER2 = ?m(ADLER2 when is_integer(ADLER2), zlib:adler32(Z1,Compressed)),
     ?m(ADLER2 when is_integer(ADLER2), zlib:adler32(Z1,1,Compressed)),
     ?m(ADLER3 when ADLER2 /= ADLER3, zlib:adler32(Z1,234,Compressed)),
@@ -457,6 +466,7 @@ api_un_compress(Config) when is_list(Config) ->
     ?m({'EXIT',{data_error,_}}, zlib:uncompress(<<120,156,3>>)),
     ?m({'EXIT',{data_error,_}}, zlib:uncompress(<<120,156,3,0>>)),
     ?m({'EXIT',{data_error,_}}, zlib:uncompress(<<0,156,3,0,0,0,0,1>>)),
+    ?m(Bin, zlib:uncompress(binary_to_list(Comp))),
     ?m(Bin, zlib:uncompress(Comp)).
 
 api_un_zip(doc) -> "Test zip";
@@ -465,10 +475,12 @@ api_un_zip(Config) when is_list(Config) ->
     ?m(?BARG,zlib:zip(not_a_binary)),
     Bin = <<1,11,1,23,45>>,
     ?line  Comp = zlib:zip(Bin),
+    ?m(Comp, zlib:zip(binary_to_list(Bin))),
     ?m(?BARG,zlib:unzip(not_a_binary)),
     ?m({'EXIT',{data_error,_}}, zlib:unzip(<<171,171,171,171,171>>)),
     ?m({'EXIT',{data_error,_}}, zlib:unzip(<<>>)),
     ?m(Bin, zlib:unzip(Comp)),
+    ?m(Bin, zlib:unzip(binary_to_list(Comp))),
     
     %% OTP-6396
     B = <<131,104,19,100,0,13,99,95,99,105,100,95,99,115,103,115,110,95,50,97,1,107,0,4,208,161,246,29,107,0,3,237,166,224,107,0,6,66,240,153,0,2,10,1,0,8,97,116,116,97,99,104,101,100,104,2,100,0,22,117,112,100,97,116,101,95,112,100,112,95,99,111,110,116,101,120,116,95,114,101,113,107,0,114,69,3,12,1,11,97,31,113,150,64,104,132,61,64,104,12,3,197,31,113,150,64,104,132,61,64,104,12,1,11,97,31,115,150,64,104,116,73,64,104,0,0,0,0,0,0,65,149,16,61,65,149,16,61,1,241,33,4,5,0,33,4,4,10,6,10,181,4,10,6,10,181,38,15,99,111,109,109,97,110,100,1,114,45,97,112,110,45,49,3,99,111,109,5,109,110,99,57,57,6,109,99,99,50,52,48,4,103,112,114,115,8,0,104,2,104,2,100,0,8,97,99,116,105,118,97,116,101,104,23,100,0,11,112,100,112,95,99,111,110,116,1,120,116,100,0,7,112,114,105,109,97,114,121,97,1,100,0,9,117,110,100,101,102,105,110,101,100,97,1,97,4,97,4,97,7,100,0,9,117,110,100,101,102,105,110,101,100,100,0,9,117,110,100,101,102,105,110,10100,100,0,9,117,110,100,101,102,105,110,101,100,100,0,5,102,97,108,115,101,100,0,9,117,110,100,101,102,105,110,101,100,100,0,9,117,110,100,101,102,105,110,101,100,100,0,9,117,110,100,101,102,105,1,101,100,97,0,100,0,9,117,110,100,101,102,105,110,101,100,107,0,4,16,0,1,144,107,0,4,61,139,186,181,107,0,4,10,8,201,49,100,0,9,117,110,100,101,102,105,110,101,100,100,0,9,117,110,100,101,102,105,0,101,100,100,0,9,117,110,100,101,102,105,110,101,100,104,2,104,3,98,0,0,7,214,97,11,97,20,104,3,97,17,97,16,97,21,106,108,0,0,0,3,104,2,97,1,104,2,104,3,98,0,0,7,214,97,11,97,20,104,3,97,17,97,167,20,104,2,97,4,104,2,104,3,98,0,0,7,214,97,11,97,20,104,3,97,17,97,16,97,21,104,2,97,10,104,2,104,3,98,0,0,7,214,97,11,97,20,104,3,97,17,97,16,97,26,106,100,0,5,118,101,114,57,57,100,0,9,117,110,0,101,102,105,110,101,100,107,0,2,0,244,107,0,4,10,6,102,195,107,0,4,10,6,102,195,100,0,9,117,110,100,101,102,105,110,101,100,100,0,9,117,110,100,101,102,105,110,101,100,107,0,125,248,143,0,203,25115,157,116,65,185,65,172,55,87,164,88,225,50,203,251,115,157,116,65,185,65,172,55,87,164,88,225,50,0,0,82,153,50,0,200,98,87,148,237,193,185,65,149,167,69,144,14,16,153,50,3,81,70,94,13,109,193,1,120,5,181,113,198,118,50,3,81,70,94,13,109,193,185,120,5,181,113,198,118,153,3,81,70,94,13,109,193,185,120,5,181,113,198,118,153,50,16,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,113,92,2,119,128,0,0,108,0,0,1,107,0,114,69,3,12,1,11,97,31,113,150,64,104,132,61,64,104,12,3,11,97,31,113,150,64,104,132,61,64,104,12,1,11,97,31,115,150,64,104,116,73,64,104,0,0,0,0,0,0,65,149,16,61,65,149,16,61,1,241,33,4,0,33,4,4,10,6,10,181,4,10,6,10,181,38,15,99,111,109,109,97,110,100,101,114,45,97,112,110,45,49,3,99,111,109,5,109,110,99,57,57,6,109,99,99,50,52,48,4,103,112,114,115,8,0,106>>,
@@ -497,10 +509,12 @@ api_g_un_zip(Config) when is_list(Config) ->
     ?m(?BARG,zlib:gzip(not_a_binary)),
     Bin = <<1,11,1,23,45>>,
     ?line Comp = zlib:gzip(Bin),
+    ?m(Comp, zlib:gzip(binary_to_list(Bin))),
     ?m(?BARG, zlib:gunzip(not_a_binary)),
     ?m(?DATA_ERROR, zlib:gunzip(<<171,171,171,171,171>>)),
     ?m(?DATA_ERROR, zlib:gunzip(<<>>)),
     ?m(Bin, zlib:gunzip(Comp)),
+    ?m(Bin, zlib:gunzip(binary_to_list(Comp))),
     
     %% Bad CRC; bad length.
     BadCrc = bad_crc_data(),
@@ -517,11 +531,6 @@ bad_len_data() ->
     %% zlib:zip(<<42>>), one byte changed.
     <<31,139,8,0,0,0,0,0,0,3,211,2,0,91,38,185,9,2,0,0,0>>.
 
-examples(doc) ->  "Test the doc examples";
-examples(suite) -> 
-    [
-     intro
-    ].
 
 intro(suite) -> [];
 intro(doc) -> "";
@@ -551,15 +560,6 @@ intro(Config) when is_list(Config) ->
     Orig = list_to_binary(lists:duplicate(5, D)),
     ?m(Orig, zlib:uncompress(Res)).
 
-func(doc) ->  "Test the functionality";
-func(suite) -> 
-    [zip_usage, gz_usage, gz_usage2, compress_usage,
-     dictionary_usage, 
-     large_deflate, 
-     %%     inflateSync,
-     crc,
-     adler
-    ].
 
 large_deflate(doc) -> "Test deflate large file, which had a bug reported on erlang-bugs";
 large_deflate(suite) -> [];
@@ -851,6 +851,7 @@ dictionary_usage({run}) ->
     ?m(ok, zlib:inflateInit(Z2)),
     ?line {'EXIT',{{need_dictionary,DictID},_}} = (catch zlib:inflate(Z2, Compressed)),
     ?m(ok, zlib:inflateSetDictionary(Z2, Dict)),
+    ?m(ok, zlib:inflateSetDictionary(Z2, binary_to_list(Dict))),
     ?line Uncompressed = ?m(B when is_list(B), zlib:inflate(Z2, [])),
     ?m(ok, zlib:inflateEnd(Z2)),
     ?m(ok, zlib:close(Z2)),    

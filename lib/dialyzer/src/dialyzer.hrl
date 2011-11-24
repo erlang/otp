@@ -2,7 +2,7 @@
 %%%
 %%% %CopyrightBegin%
 %%%
-%%% Copyright Ericsson AB 2006-2010. All Rights Reserved.
+%%% Copyright Ericsson AB 2006-2011. All Rights Reserved.
 %%%
 %%% The contents of this file are subject to the Erlang Public License,
 %%% Version 1.1, (the "License"); you may not use this file except in
@@ -31,7 +31,7 @@
 -define(RET_DISCREPANCIES, 2).
 
 -type dial_ret() :: ?RET_NOTHING_SUSPICIOUS
-                  | ?RET_INTERNAL_ERROR 
+                  | ?RET_INTERNAL_ERROR
                   | ?RET_DISCREPANCIES.
 
 %%--------------------------------------------------------------------
@@ -52,10 +52,12 @@
 -define(WARN_CONTRACT_NOT_EQUAL, warn_contract_not_equal).
 -define(WARN_CONTRACT_SUBTYPE, warn_contract_subtype).
 -define(WARN_CONTRACT_SUPERTYPE, warn_contract_supertype).
+-define(WARN_CONTRACT_RANGE, warn_contract_range).
 -define(WARN_CALLGRAPH, warn_callgraph).
 -define(WARN_UNMATCHED_RETURN, warn_umatched_return).
 -define(WARN_RACE_CONDITION, warn_race_condition).
--define(WARN_BEHAVIOUR,warn_behaviour).
+-define(WARN_BEHAVIOUR, warn_behaviour).
+-define(WARN_UNDEFINED_CALLBACK, warn_undefined_callbacks).
 
 %%
 %% The following type has double role:
@@ -70,7 +72,8 @@
                        | ?WARN_CONTRACT_NOT_EQUAL | ?WARN_CONTRACT_SUBTYPE
                        | ?WARN_CONTRACT_SUPERTYPE | ?WARN_CALLGRAPH
                        | ?WARN_UNMATCHED_RETURN | ?WARN_RACE_CONDITION
-                       | ?WARN_BEHAVIOUR.
+                       | ?WARN_BEHAVIOUR | ?WARN_CONTRACT_RANGE
+		       | ?WARN_UNDEFINED_CALLBACK.
 
 %%
 %% This is the representation of each warning as they will be returned
@@ -87,7 +90,7 @@
 %%--------------------------------------------------------------------
 %% THIS TYPE SHOULD ONE DAY DISAPPEAR -- IT DOES NOT BELONG HERE
 %%--------------------------------------------------------------------
- 
+
 -type ordset(T)      :: [T] .      %% XXX: temporarily
 
 %%--------------------------------------------------------------------
@@ -102,6 +105,8 @@
 -type dial_define()   :: {atom(), term()}.
 -type dial_option()   :: {atom(), term()}.
 -type dial_options()  :: [dial_option()].
+-type fopt()          :: 'basename' | 'fullpath'.
+-type format()        :: 'formatted' | 'raw'.
 -type label()	      :: non_neg_integer().
 -type rep_mode()      :: 'quiet' | 'normal' | 'verbose'.
 -type start_from()    :: 'byte_code' | 'src_code'.
@@ -129,7 +134,7 @@
 		  defines         = []		   :: [dial_define()],
 		  from            = byte_code	   :: start_from(),
 		  get_warnings    = maybe          :: boolean() | 'maybe',
-		  init_plt        = none	   :: 'none' | file:filename(),
+		  init_plts       = []	           :: [file:filename()],
 		  include_dirs    = []		   :: [file:filename()],
 		  output_plt      = none           :: 'none' | file:filename(),
 		  legal_warnings  = ordsets:new()  :: ordset(dial_warn_tag()),
@@ -137,10 +142,10 @@
 		  erlang_mode     = false	   :: boolean(),
 		  use_contracts   = true           :: boolean(),
 		  output_file     = none	   :: 'none' | file:filename(),
-		  output_format   = formatted      :: 'raw' | 'formatted',
+		  output_format   = formatted      :: format(),
+		  filename_opt	  = basename       :: fopt(),
 		  callgraph_file  = ""             :: file:filename(),
-		  check_plt       = true           :: boolean()
-		 }).
+		  check_plt       = true           :: boolean()}).
 
 -record(contract, {contracts	  = []		   :: [contract_pair()],
 		   args		  = []		   :: [erl_types:erl_type()],

@@ -138,10 +138,65 @@ esac
 
 PTHR_CFLAGS="-D_THREAD_SAFE -D_REENTRANT"
 
+OBJC_CC=$CC
+OBJC_CFLAGS=""
+
 dnl NOTE: CPPFLAGS will be included in CFLAGS at the end
 case $host_os in
     darwin*)
-        C_ONLY_FLAGS="-ObjC"
+	AC_MSG_CHECKING([if compiler accepts -ObjC])
+	saved_CFLAGS=$CFLAGS
+  	CFLAGS="$CFLAGS -ObjC"
+  	AC_TRY_COMPILE([],[;], accept_objc_flag=true, accept_objc_flag=false)
+  	if test "X$accept_objc_flag" = "Xtrue"; then
+	   AC_MSG_RESULT([yes])
+           C_ONLY_FLAGS="-ObjC"
+	else
+	   dnl We are probebly trying to build with a non-Apple gcc,
+	   dnl which is good as long as we do not try to build Cocoa
+	   dnl code. We need an Apple compiler for just that (Objective C)
+	   AC_MSG_RESULT([no])
+	   AC_MSG_CHECKING([for a Cocoa compliant Objective C compiler])
+	   SEARCHFOR=""
+	   save_IFS=$IFS
+	   IFS=:
+	   set $PATH
+	   IFS=$save_IFS
+	   while test X"$1" != X""; do
+	       dnl Add all possible paths to a real apple gcc
+	       SEARCHFOR="$1/gcc-apple-4.2 $SEARCHFOR"
+	       shift
+	   done
+	   dnl Add LLVM compilers, they will work in this case
+	   SEARCHFOR="/usr/bin/clang /usr/bin/gcc $SEARCHFOR"	
+	   APPLE_CC=""
+	   dnl SEARCHFOR is reversed, so we want to find the last existing
+	   dnl executable in the list
+	   for x in $SEARCHFOR; do
+	       if test -x $x; then
+	       	  APPLE_CC=$x
+	       fi
+	   done	
+	   if test X$APPLE_CC = X; then
+	      AC_MSG_RESULT([no])
+	      dnl Complete failure, we cannot build Cocoa code
+	      if test X"$WX_BUILDING_INSIDE_ERLSRC" != X"true" ; then
+		AC_MSG_ERROR([Can not find compiler to compile Cocoa applications])
+	      else
+		echo "Can not find compiler to compile Cocoa applications" > ./CONF_INFO
+		WXERL_CAN_BUILD_DRIVER=false
+		AC_MSG_WARN([Can not find compiler to compile Cocoa applications])
+	      fi
+	      WXERL_CAN_BUILD_DRIVER=false
+	   else
+	      dnl We think we found an Apple compiler and will add 
+	      dnl Apple specific options
+	      AC_MSG_RESULT($APPLE_CC)
+	      OBJC_CC=$APPLE_CC
+	      OBJC_CFLAGS="-ObjC"
+	   fi
+  	fi
+  	CFLAGS=$saved_CFLAGS
 	CPPFLAGS="$CPPFLAGS -D_MACOSX $PTHR_CFLAGS"
 	;;
     mingw32)
@@ -159,19 +214,42 @@ case $host_os in
 	;;
 esac
 
+AC_SUBST(OBJC_CC)
+AC_SUBST(OBJC_CFLAGS)
+
 case $host_os in
     darwin*)
-	CFLAGS="-no-cpp-precomp $CFLAGS"
-	LDFLAGS="-bundle -flat_namespace -undefined warning -fPIC -framework OpenGL $LDFLAGS"
+	AC_TRY_COMPILE([],[
+		#if __GNUC__ >= 4 
+		;
+		#else
+		#error old or no gcc
+		#endif
+		],
+		gcc_need_no_cpp_precomp=no,
+		gcc_need_no_cpp_precomp=yes)
+
+	if test x$gcc_need_no_cpp_precomp = xyes; then
+	   CFLAGS="-no-cpp-precomp $CFLAGS"
+	fi
+	LDFLAGS="-bundle -flat_namespace -undefined warning -fPIC $LDFLAGS"
+	# Check sizof_void_p as future will hold 64bit MacOS wx
+	if test $ac_cv_sizeof_void_p = 4; then
+	    LDFLAGS="-m32 $LDFLAGS"
+	fi		   
+	GL_LIBS="-framework OpenGL"
 	;;
     win32)
         LDFLAGS="-dll $LDFLAGS"
+	GL_LIBS="-lglu32 -lOpengl32"
 	;;
     mingw32)
 	LDFLAGS="-shared -fPIC $LDFLAGS"
+	GL_LIBS="-lglu32 -lOpengl32"
 	;;
     *)
 	LDFLAGS="-shared -fPIC $LDFLAGS"
+	GL_LIBS="-lGL -lGLU"
 	;;
 esac
 
@@ -193,6 +271,42 @@ case $host_os in
 	CFLAGS="-g -Wall -O2 -fPIC -fomit-frame-pointer -fno-strict-aliasing $CFLAGS"
 	;;
 esac
+
+dnl  
+dnl  Opengl tests
+dnl
+
+if test X"$host_os" != X"win32" ; then
+    AC_CHECK_HEADERS([GL/gl.h], [],
+    	[AC_CHECK_HEADERS([OpenGL/gl.h])])
+    if test X"$ac_cv_header_GL_gl_h" != Xyes &&
+       	test X"$ac_cv_header_OpenGL_gl_h" != Xyes
+    then
+       	saved_CPPFLAGS="$CPPFLAGS"
+	AC_MSG_NOTICE(Checking for OpenGL headers in /usr/X11R6)
+       	CPPFLAGS="-isystem /usr/X11R6/include $CPPFLAGS"
+       	$as_unset ac_cv_header_GL_gl_h
+       	AC_CHECK_HEADERS([GL/gl.h])
+       	if test X"$ac_cv_header_GL_gl_h" != Xyes ; then
+	    AC_MSG_NOTICE(Checking for OpenGL headers in /usr/local)
+	    CPPFLAGS="-isystem /usr/local/include $saved_CPPFLAGS"
+	    $as_unset ac_cv_header_GL_gl_h
+	    AC_CHECK_HEADERS([GL/gl.h])
+	    if test X"$ac_cv_header_GL_gl_h" != Xyes ; then
+		AC_MSG_WARN([No OpenGL headers found, wx will NOT be usable])
+		CPPFLAGS="$saved_CPPFLAGS"
+	    else 
+	    	GL_LIBS="-L/usr/local/lib $GL_LIBS"
+	    fi
+	else 
+    	    GL_LIBS="-L/usr/X11R6/lib $GL_LIBS"
+       	fi
+    fi
+else
+    AC_CHECK_HEADERS([gl/gl.h],[],[],[#include <windows.h>])
+fi
+
+AC_SUBST(GL_LIBS)
 
 CXXFLAGS="$CFLAGS $CPPFLAGS" 
 CFLAGS="$CFLAGS $CPPFLAGS $C_ONLY_FLAGS"
@@ -385,17 +499,6 @@ if test "$WXERL_CAN_BUILD_DRIVER" != "false"; then
 
 AC_SUBST(WX_HAVE_STATIC_LIBS)
 AC_SUBST(RC_FILE_TYPE)
-
-dnl  
-dnl  Opengl tests
-dnl
-
-if test X"$host_os" != X"win32" ; then
-    AC_CHECK_HEADERS([GL/gl.h])
-    AC_CHECK_HEADERS([OpenGL/gl.h])
-else
-    AC_CHECK_HEADERS([gl/gl.h],[],[],[#include <windows.h>])
-fi
 
 AC_MSG_CHECKING(if wxwidgets have opengl support)
 AC_LANG_PUSH(C++)

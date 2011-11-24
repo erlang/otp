@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -31,7 +31,6 @@
 iv() ->
     Vsn = string:substr(filename:basename(code:lib_dir(debugger)), 10),
     list_to_atom(Vsn).
-    
 
 %% -------------------------------------------
 %% Start a new graphical monitor.
@@ -288,10 +287,9 @@ ia(X,Y,Z) ->
 %% -------------------------------------------
 
 ia(Pid,Fnk) ->
-    case lists:keysearch(Pid, 1, int:snapshot()) of
-	{value, _PidTuple} ->
-	    int:attach(Pid,Fnk);
-	false -> no_proc
+    case lists:keymember(Pid, 1, int:snapshot()) of
+	false -> no_proc;
+	true  -> int:attach(Pid,Fnk)
     end.
 
 ia(X,Y,Z,Fnk) ->

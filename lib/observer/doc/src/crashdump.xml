@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2003</year>
-      <year>2007</year>
+      <year>2011</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -38,6 +38,10 @@
   <description>
     <p>The Crashdump Viewer is an HTML based tool for browsing Erlang
       crashdumps. Crashdump Viewer runs under the WebTool application.</p>
+
+    <p>See the <seealso marker="crashdump_ug">user's guide</seealso>
+    for more information about how to get started with the Crashdump
+    Viewer.</p>
   </description>
   <funcs>
     <func>

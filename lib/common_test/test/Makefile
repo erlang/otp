@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2008-2010. All Rights Reserved.
+# Copyright Ericsson AB 2008-2011. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -27,13 +27,21 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 MODULES= \
 	ct_test_support \
 	ct_test_support_eh \
+	ct_userconfig_callback \
 	ct_smoke_test_SUITE \
 	ct_event_handler_SUITE \
 	ct_groups_test_1_SUITE \
 	ct_groups_test_2_SUITE \
+	ct_sequence_1_SUITE \
+	ct_repeat_1_SUITE \
+	ct_testspec_1_SUITE \
 	ct_skip_SUITE \
 	ct_error_SUITE \
-	ct_test_server_if_1_SUITE
+	ct_test_server_if_1_SUITE \
+	ct_config_SUITE \
+	ct_master_SUITE \
+	ct_misc_1_SUITE \
+	ct_hooks_SUITE
 
 ERL_FILES= $(MODULES:%=%.erl)
 
@@ -64,15 +72,15 @@ EBIN = .
 #.PHONY: make_emakefile
 
 #make_emakefile:
-#	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) \
-#	'*_SUITE_make' > $(EMAKEFILE)
 #	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) $(MODULES)\
-#	>> $(EMAKEFILE)
+#	> $(EMAKEFILE)
 
 tests debug opt:
+	erl $(ERL_MAKE_FLAGS) -make
 
 clean:
 	rm -f $(TARGET_FILES)
+#	rm -f $(EMAKEFILE)
 	rm -f core
 
 docs:
@@ -87,8 +95,8 @@ release_spec: opt
 release_tests_spec:
 	$(INSTALL_DIR) $(RELSYSDIR)
 	$(INSTALL_DATA) $(ERL_FILES) $(COVERFILE) $(RELSYSDIR)
-	$(INSTALL_PROGRAM) common_test.spec $(RELSYSDIR)
-	chmod -f -R u+w $(RELSYSDIR)
+	$(INSTALL_DATA) common_test.spec $(RELSYSDIR)
+	chmod -R u+w $(RELSYSDIR)
 	@tar cf - *_SUITE_data | (cd $(RELSYSDIR); tar xf -)
 
 release_docs_spec:

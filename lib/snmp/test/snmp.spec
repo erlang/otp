@@ -1,1 +1,1 @@
-{topcase, {dir, "../snmp_test"}}.
+{suites,"../snmp_test",all}.

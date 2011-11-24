@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2004-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2004-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -16,9 +16,7 @@
  *
  * %CopyrightEnd%
  */
-/*
- * $Id$
- */
+
 
 #include "hipe_amd64_asm.h"
 #include "hipe_literals.h"
@@ -346,6 +344,8 @@ nbif_3_gc_after_bif:
 	subq	$(16-8), %rsp
 	movq	P, %rdi
 	movq	%rax, %rsi
+	xorl	%edx, %edx		# Pass NULL in regs
+	xorl	%ecx, %ecx		# Pass 0 in arity
 	call	CSYM(erts_gc_after_bif_call)
 	addq	$(16-8), %rsp
 	movl	$0, P_NARITY(P)		# Note: narity is a 32-bit field
@@ -400,7 +400,7 @@ nbif_3_simple_exception:
 	 * - the native heap/stack/reds registers are saved in P
 	 */
 .handle_trap:
-	movq	%rax, P_NARITY(P)
+	movl	%eax, P_NARITY(P)	# Note: narity is a 32-bit field
 	movl	$HIPE_MODE_SWITCH_RES_TRAP, %eax
 	jmp	.nosave_exit
 

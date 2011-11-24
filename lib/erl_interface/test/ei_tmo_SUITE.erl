@@ -1,37 +1,58 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2003-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
 %%
 -module(ei_tmo_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("kernel/include/inet.hrl").
 -include("ei_tmo_SUITE_data/ei_tmo_test_cases.hrl").
 
 -define(dummy_host,test01).
 
--export([all/1, init_per_testcase/2, fin_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 init_per_testcase/2, end_per_testcase/2,
 	 framework_check/1, ei_accept_tmo/1, ei_connect_tmo/1, ei_send_tmo/1,
 	 ei_recv_tmo/1]).
 
-all(suite) -> [framework_check,ei_accept_tmo,ei_connect_tmo,
-	       ei_send_tmo,ei_recv_tmo].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [framework_check, ei_accept_tmo, ei_connect_tmo,
+     ei_send_tmo, ei_recv_tmo].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 init_per_testcase(_Case, Config) ->
     Dog = ?t:timetrap(?t:minutes(1)),
@@ -43,7 +64,7 @@ init_per_testcase(_Case, Config) ->
 	    end,
     [{vxsim,Bool},{watchdog, Dog}|Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
@@ -349,10 +370,12 @@ make_and_check_dummy() ->
 -define(DFLAG_ATOM_CACHE,2).
 -define(DFLAG_EXTENDED_REFERENCES,4).
 -define(DFLAG_EXTENDED_PIDS_PORTS,16#100).
+-define(DFLAG_NEW_FLOATS,16#800).
 -define(DFLAG_DIST_MONITOR,8).
 
 %% From R9 and forward extended references is compulsory
--define(COMPULSORY_DFLAGS, (?DFLAG_EXTENDED_REFERENCES bor ?DFLAG_EXTENDED_PIDS_PORTS)).
+%% From 14 and forward new float is compulsory
+-define(COMPULSORY_DFLAGS, (?DFLAG_EXTENDED_REFERENCES bor ?DFLAG_EXTENDED_PIDS_PORTS bor ?DFLAG_NEW_FLOATS)).
 
 -define(shutdown(X), exit(X)).
 -define(int16(X), [((X) bsr 8) band 16#ff, (X) band 16#ff]).

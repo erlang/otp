@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -30,7 +30,7 @@
 -export([subagent_set/2, 
 	 load_mibs/2, unload_mibs/2, which_mibs/1, whereis_mib/2, info/1,
 	 register_subagent/3, unregister_subagent/2,
-	 send_trap/6, 
+	 send_notification/3, 
          register_notification_filter/5,
          unregister_notification_filter/2,
          which_notification_filter/1,
@@ -48,6 +48,7 @@
 	 get/2, get/3, get_next/2, get_next/3]).
 -export([mib_of/1, mib_of/2, me_of/1, me_of/2,
 	 invalidate_mibs_cache/1,
+	 which_mibs_cache_size/1, 
 	 enable_mibs_cache/1, disable_mibs_cache/1,
 	 gc_mibs_cache/1, gc_mibs_cache/2, gc_mibs_cache/3,
 	 enable_mibs_cache_autogc/1, disable_mibs_cache_autogc/1,
@@ -61,10 +62,16 @@
 -export([increment_counter/3]).
 -export([restart_worker/1, restart_set_worker/1]).
 
+%% For backward compatibillity
+-export([send_trap/6, send_trap/7]).
+
 %% Internal exports
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
 	 terminate/2, code_change/3, tr_var/2, tr_varbind/1,
-	 handle_pdu/7, worker/2, worker_loop/1, do_send_trap/6]).
+	 handle_pdu/7, worker/2, worker_loop/1, 
+	 do_send_trap/7, do_send_trap/8]).
+
+-include("snmpa_internal.hrl").
 
 -ifndef(default_verbosity).
 -define(default_verbosity,silence).
@@ -243,6 +250,10 @@ enable_mibs_cache(Agent) ->
 
 disable_mibs_cache(Agent) ->
     call(Agent, {mibs_cache_request, disable_cache}).
+
+
+which_mibs_cache_size(Agent) ->
+    call(Agent, {mibs_cache_request, cache_size}).
 
 
 enable_mibs_cache_autogc(Agent) ->
@@ -522,23 +533,94 @@ which_notification_filter(Agent) ->
     call(Agent, which_notification_filter).
 
 
+send_notification(Agent, Notification, SendOpts) ->
+    Msg = {send_notif, Notification, SendOpts},
+    maybe_call(Agent, Msg).
+    
+%% <BACKWARD-COMPAT>
 send_trap(Agent, Trap, NotifyName, CtxName, Recv, Varbinds) ->
     ?d("send_trap -> entry with"
-       "~n   self():     ~p"
-       "~n   Agent:      ~p [~p]"
-       "~n   Trap:       ~p"
-       "~n   NotifyName: ~p"
-       "~n   CtxName:    ~p"
-       "~n   Recv:       ~p"
-       "~n   Varbinds:   ~p", 
-       [self(), Agent, wis(Agent), Trap, NotifyName, CtxName, Recv, Varbinds]),
-    Msg = {send_trap, Trap, NotifyName, CtxName, Recv, Varbinds}, 
-    case (wis(Agent) =:= self()) of
-	false ->
-	    call(Agent, Msg);
-	true ->
-	    Agent ! Msg
-    end.
+       "~n   self():        ~p"
+       "~n   Agent:         ~p [~p]"
+       "~n   Trap:          ~p"
+       "~n   NotifyName:    ~p"
+       "~n   CtxName:       ~p"
+       "~n   Recv:          ~p"
+       "~n   Varbinds:      ~p", 
+       [self(), Agent, wis(Agent), 
+	Trap, NotifyName, CtxName, Recv, Varbinds]),
+    SendOpts = [
+		{receiver, Recv},
+		{varbinds, Varbinds}, 
+		{name,     NotifyName},
+		{context,  CtxName}, 
+		{extra,    ?DEFAULT_NOTIF_EXTRA_INFO}
+	       ],
+    send_notification(Agent, Trap, SendOpts).
+    
+%% send_trap(Agent, Trap, NotifyName, CtxName, Recv, Varbinds) ->
+%%     ?d("send_trap -> entry with"
+%%        "~n   self():        ~p"
+%%        "~n   Agent:         ~p [~p]"
+%%        "~n   Trap:          ~p"
+%%        "~n   NotifyName:    ~p"
+%%        "~n   CtxName:       ~p"
+%%        "~n   Recv:          ~p"
+%%        "~n   Varbinds:      ~p", 
+%%        [self(), Agent, wis(Agent), 
+%% 	Trap, NotifyName, CtxName, Recv, Varbinds]),
+%%     Msg = {send_trap, Trap, NotifyName, CtxName, Recv, Varbinds}, 
+%%     case (wis(Agent) =:= self()) of
+%% 	false ->
+%% 	    call(Agent, Msg);
+%% 	true ->
+%% 	    Agent ! Msg
+%%     end.
+
+send_trap(Agent, Trap, NotifyName, CtxName, Recv, Varbinds, LocalEngineID) ->
+    ?d("send_trap -> entry with"
+       "~n   self():        ~p"
+       "~n   Agent:         ~p [~p]"
+       "~n   Trap:          ~p"
+       "~n   NotifyName:    ~p"
+       "~n   CtxName:       ~p"
+       "~n   Recv:          ~p"
+       "~n   Varbinds:      ~p" 
+       "~n   LocalEngineID: ~p", 
+       [self(), Agent, wis(Agent), 
+	Trap, NotifyName, CtxName, Recv, Varbinds, LocalEngineID]),
+    SendOpts = [
+		{receiver,        Recv},
+		{varbinds,        Varbinds}, 
+		{name,            NotifyName},
+		{context,         CtxName}, 
+		{extra,           ?DEFAULT_NOTIF_EXTRA_INFO}, 
+		{local_engine_id, LocalEngineID}
+	       ],
+    send_notification(Agent, Trap, SendOpts).
+    
+%% send_trap(Agent, Trap, NotifyName, CtxName, Recv, Varbinds, LocalEngineID) ->
+%%     ?d("send_trap -> entry with"
+%%        "~n   self():        ~p"
+%%        "~n   Agent:         ~p [~p]"
+%%        "~n   Trap:          ~p"
+%%        "~n   NotifyName:    ~p"
+%%        "~n   CtxName:       ~p"
+%%        "~n   Recv:          ~p"
+%%        "~n   Varbinds:      ~p" 
+%%        "~n   LocalEngineID: ~p", 
+%%        [self(), Agent, wis(Agent), 
+%% 	Trap, NotifyName, CtxName, Recv, Varbinds, LocalEngineID]),
+%%     Msg = 
+%% 	{send_trap, Trap, NotifyName, CtxName, Recv, Varbinds, LocalEngineID}, 
+%%     case (wis(Agent) =:= self()) of
+%% 	false ->
+%% 	    call(Agent, Msg);
+%% 	true ->
+%% 	    Agent ! Msg
+%%     end.
+
+%% </BACKWARD-COMPAT>
 
 
 %% -- Discovery functions --
@@ -626,8 +708,16 @@ wis(Pid) when is_pid(Pid) ->
 wis(Atom) when is_atom(Atom) ->
     whereis(Atom).
 
+
 forward_trap(Agent, TrapRecord, NotifyName, CtxName, Recv, Varbinds) ->
-    Agent ! {forward_trap, TrapRecord, NotifyName, CtxName, Recv, Varbinds}.
+    ExtraInfo = ?DEFAULT_NOTIF_EXTRA_INFO, 
+    forward_trap(Agent, TrapRecord, NotifyName, CtxName, Recv, Varbinds, 
+		 ExtraInfo).
+
+forward_trap(Agent, TrapRecord, NotifyName, CtxName, Recv, Varbinds, 
+	     ExtraInfo) ->
+    Agent ! {forward_trap, TrapRecord, NotifyName, CtxName, Recv, Varbinds, 
+	     ExtraInfo}.
 
 
 %%-----------------------------------------------------------------
@@ -717,16 +807,12 @@ handle_info(worker_available, S) ->
     ?vdebug("worker available",[]),
     {noreply, S#state{worker_state = ready}};
 
-handle_info({send_trap, Trap, NotifyName, ContextName, Recv, Varbinds}, S) ->
+handle_info({send_notif, Notification, SendOpts}, S) ->
     ?vlog("[handle_info] send trap request:"
-	  "~n   Trap:        ~p"
-	  "~n   NotifyName:  ~p"
-	  "~n   ContextName: ~p"
-	  "~n   Recv:        ~p" 
-	  "~n   Varbinds:    ~p", 
-	  [Trap,NotifyName,ContextName,Recv,Varbinds]),
-    case catch handle_send_trap(S, Trap, NotifyName, ContextName,
-				Recv, Varbinds) of
+	  "~n   Notification:  ~p"
+	  "~n   SendOpts:      ~p", 
+	  [Notification, SendOpts]),
+    case (catch handle_send_trap(cast, S, Notification, SendOpts)) of
 	{ok, NewS} ->
 	    {noreply, NewS};
 	{'EXIT', R} ->
@@ -736,17 +822,19 @@ handle_info({send_trap, Trap, NotifyName, ContextName, Recv, Varbinds}, S) ->
 	    {noreply, S}
     end;
 
-handle_info({forward_trap, TrapRecord, NotifyName, ContextName,
-	     Recv, Varbinds},S) ->
-    ?vlog("[handle_info] forward trap request:"
-	  "~n   TrapRecord:  ~p"
-	  "~n   NotifyName:  ~p"
-	  "~n   ContextName: ~p"
-	  "~n   Recv:        ~p"
-	  "~n   Varbinds:    ~p", 
-	  [TrapRecord,NotifyName,ContextName,Recv,Varbinds]),
-    case (catch maybe_send_trap(S, TrapRecord, NotifyName, ContextName,
-				Recv, Varbinds)) of
+%% <BACKWARD-COMPAT>
+handle_info({send_trap, Trap, NotifyName, ContextName, Recv, Varbinds}, S) ->
+    ?vlog("[handle_info] send trap request:"
+	  "~n   Trap:          ~p"
+	  "~n   NotifyName:    ~p"
+	  "~n   ContextName:   ~p"
+	  "~n   Recv:          ~p" 
+	  "~n   Varbinds:      ~p", 
+	  [Trap, NotifyName, ContextName, Recv, Varbinds]),
+    ExtraInfo     = ?DEFAULT_NOTIF_EXTRA_INFO, 
+    LocalEngineID = ?DEFAULT_LOCAL_ENGINE_ID, 
+    case (catch handle_send_trap(S, Trap, NotifyName, ContextName,
+				 Recv, Varbinds, LocalEngineID, ExtraInfo)) of
 	{ok, NewS} ->
 	    {noreply, NewS};
 	{'EXIT', R} ->
@@ -755,6 +843,74 @@ handle_info({forward_trap, TrapRecord, NotifyName, ContextName,
 	_ ->
 	    {noreply, S}
     end;
+
+handle_info({send_trap, Trap, NotifyName, ContextName, Recv, Varbinds, 
+	     LocalEngineID}, S) ->
+    ?vlog("[handle_info] send trap request:"
+	  "~n   Trap:          ~p"
+	  "~n   NotifyName:    ~p"
+	  "~n   ContextName:   ~p"
+	  "~n   Recv:          ~p" 
+	  "~n   Varbinds:      ~p" 
+	  "~n   LocalEngineID: ~p", 
+	  [Trap, NotifyName, ContextName, Recv, Varbinds, LocalEngineID]),
+    ExtraInfo = ?DEFAULT_NOTIF_EXTRA_INFO, 
+    case (catch handle_send_trap(S, Trap, NotifyName, ContextName,
+				 Recv, Varbinds, LocalEngineID, ExtraInfo)) of
+	{ok, NewS} ->
+	    {noreply, NewS};
+	{'EXIT', R} ->
+	    ?vinfo("Trap not sent:~n   ~p", [R]),
+	    {noreply, S};
+	_ ->
+	    {noreply, S}
+    end;
+%% </BACKWARD-COMPAT>
+
+handle_info({forward_trap, TrapRecord, NotifyName, ContextName, 
+	     Recv, Varbinds, ExtraInfo}, S) ->
+    ?vlog("[handle_info] forward trap request:"
+	  "~n   TrapRecord:    ~p"
+	  "~n   NotifyName:    ~p"
+	  "~n   ContextName:   ~p"
+	  "~n   Recv:          ~p"
+	  "~n   Varbinds:      ~p", 
+	  [TrapRecord, NotifyName, ContextName, Recv, Varbinds]),
+    LocalEngineID = ?DEFAULT_LOCAL_ENGINE_ID, 
+    case (catch maybe_send_trap(S, TrapRecord, NotifyName, ContextName,
+				Recv, Varbinds, LocalEngineID, ExtraInfo)) of
+	{ok, NewS} ->
+	    {noreply, NewS};
+	{'EXIT', R} ->
+	    ?vinfo("Trap not sent:~n   ~p", [R]),
+	    {noreply, S};
+	_ ->
+	    {noreply, S}
+    end;
+
+%% <BACKWARD-COMPAT>
+handle_info({forward_trap, TrapRecord, NotifyName, ContextName, 
+	     Recv, Varbinds}, S) ->
+    ?vlog("[handle_info] forward trap request:"
+	  "~n   TrapRecord:    ~p"
+	  "~n   NotifyName:    ~p"
+	  "~n   ContextName:   ~p"
+	  "~n   Recv:          ~p"
+	  "~n   Varbinds:      ~p", 
+	  [TrapRecord, NotifyName, ContextName, Recv, Varbinds]),
+    ExtraInfo     = ?DEFAULT_NOTIF_EXTRA_INFO, 
+    LocalEngineID = ?DEFAULT_LOCAL_ENGINE_ID, 
+    case (catch maybe_send_trap(S, TrapRecord, NotifyName, ContextName,
+				Recv, Varbinds, LocalEngineID, ExtraInfo)) of
+	{ok, NewS} ->
+	    {noreply, NewS};
+	{'EXIT', R} ->
+	    ?vinfo("Trap not sent:~n   ~p", [R]),
+	    {noreply, S};
+	_ ->
+	    {noreply, S}
+    end;
+%% </BACKWARD-COMPAT>
 
 handle_info({backup_done, Reply}, #state{backup = {_, From}} = S) ->
     ?vlog("[handle_info] backup done:"
@@ -856,17 +1012,13 @@ handle_call(restart_set_worker, _From, #state{set_worker = Pid} = S) ->
 	    ok
     end,
     {reply, ok, S};
-handle_call({send_trap, Trap, NotifyName, ContextName, Recv, Varbinds}, 
-	    _From, S) ->
-    ?vlog("[handle_call] send trap request:"
-	  "~n   Trap:        ~p"
-	  "~n   NotifyName:  ~p"
-	  "~n   ContextName: ~p"
-	  "~n   Recv:        ~p" 
-	  "~n   Varbinds:    ~p", 
-	  [Trap,NotifyName,ContextName,Recv,Varbinds]),
-    case (catch handle_send_trap(S, Trap, NotifyName, ContextName,
-				 Recv, Varbinds)) of
+
+handle_call({send_notif, Notification, SendOpts}, _From, S) ->
+    ?vlog("[handle_info] send trap request:"
+	  "~n   Notification:  ~p"
+	  "~n   SendOpts:      ~p", 
+	  [Notification, SendOpts]),
+    case (catch handle_send_trap(call, S, Notification, SendOpts)) of
 	{ok, NewS} ->
 	    {reply, ok, NewS};
 	{'EXIT', Reason} ->
@@ -876,8 +1028,69 @@ handle_call({send_trap, Trap, NotifyName, ContextName, Recv, Varbinds},
 	    ?vinfo("Trap not sent", []),
 	    {reply, {error, send_failed}, S}
     end;
+
+%% <BACKWARD-COMPAT>
+handle_call({send_trap, Trap, NotifyName, ContextName, Recv, Varbinds}, 
+	    _From, S) ->
+    ?vlog("[handle_call] send trap request:"
+	  "~n   Trap:          ~p"
+	  "~n   NotifyName:    ~p"
+	  "~n   ContextName:   ~p"
+	  "~n   Recv:          ~p" 
+	  "~n   Varbinds:      ~p", 
+	  [Trap, NotifyName, ContextName, Recv, Varbinds]),
+    ExtraInfo = ?DEFAULT_NOTIF_EXTRA_INFO, 
+    LocalEngineID = 
+	case S#state.type of
+	    master_agent ->
+		?DEFAULT_LOCAL_ENGINE_ID;
+	    _ -> 
+		%% subagent - 
+		%% we don't need this now, eventually the trap send 
+		%% request will reach the master-agent and then it 
+		%% will look up the proper engine id.
+		ignore
+	end,
+    case (catch handle_send_trap(S, Trap, NotifyName, ContextName,
+				 Recv, Varbinds, LocalEngineID, ExtraInfo)) of
+	{ok, NewS} ->
+	    {reply, ok, NewS};
+	{'EXIT', Reason} ->
+	    ?vinfo("Trap not sent:~n   ~p", [Reason]),
+	    {reply, {error, {send_failed, Reason}}, S};
+	_ ->
+	    ?vinfo("Trap not sent", []),
+	    {reply, {error, send_failed}, S}
+    end;
+
+handle_call({send_trap, Trap, NotifyName, 
+	     ContextName, Recv, Varbinds, LocalEngineID}, 
+	    _From, S) ->
+    ?vlog("[handle_call] send trap request:"
+	  "~n   Trap:          ~p"
+	  "~n   NotifyName:    ~p"
+	  "~n   ContextName:   ~p"
+	  "~n   Recv:          ~p" 
+	  "~n   Varbinds:      ~p" 
+	  "~n   LocalEngineID: ~p", 
+	  [Trap, NotifyName, ContextName, Recv, Varbinds, LocalEngineID]),
+    ExtraInfo = ?DEFAULT_NOTIF_EXTRA_INFO, 
+    case (catch handle_send_trap(S, Trap, NotifyName, ContextName,
+				 Recv, Varbinds, LocalEngineID, ExtraInfo)) of
+	{ok, NewS} ->
+	    {reply, ok, NewS};
+	{'EXIT', Reason} ->
+	    ?vinfo("Trap not sent:~n   ~p", [Reason]),
+	    {reply, {error, {send_failed, Reason}}, S};
+	_ ->
+	    ?vinfo("Trap not sent", []),
+	    {reply, {error, send_failed}, S}
+    end;
+%% </BACKWARD-COMPAT>
+
 handle_call({discovery, 
-	     TargetName, Notification, ContextName, Vbs, DiscoHandler, ExtraInfo}, 
+	     TargetName, Notification, ContextName, Vbs, DiscoHandler, 
+	     ExtraInfo}, 
 	    From, 
 	    #state{disco = undefined} = S) ->
     ?vlog("[handle_call] initiate discovery process:"
@@ -1219,6 +1432,8 @@ handle_mibs_cache_request(MibServer, Req) ->
 			      snmpa_mib:gc_cache(MibServer, Age);
 			  {gc_cache, Age, GcLimit} ->
 			      snmpa_mib:gc_cache(MibServer, Age, GcLimit);
+			  cache_size ->
+			      snmpa_mib:which_cache_size(MibServer);
 			  enable_cache ->
 			      snmpa_mib:enable_cache(MibServer);
 			  disable_cache ->
@@ -1380,7 +1595,10 @@ handle_backup_res([{Who, Crap}|Results], Acc) ->
 %% because we (for some reason) support the function
 %% snmpa:current_community().
 %%-----------------------------------------------------------------
-cheat({community, _SecModel, Community, _IpUdp}, Address, ContextName) ->
+cheat({community, SecModel, Community, _TAddress}, Address, ContextName) ->
+    {Community, Address, ContextName};
+cheat({community, _SecModel, Community, _TDomain, _TAddress}, 
+      Address, ContextName) ->
     {Community, Address, ContextName};
 cheat(_, Address, ContextName) ->
     {"", Address, ContextName}.
@@ -1408,7 +1626,7 @@ invalidate_ca_cache() ->
 				    MasterAgent ! invalidate_ca_cache;
 				false ->
 				    %% This is running on a sub-agent node, 
-				    %% so sent skip it
+				    %% so skip it
 				    ok
 			    end;
 			_ -> % Not on this node 
@@ -1432,17 +1650,25 @@ spawn_thread(Vsn, Pdu, PduMS, ACMData, Address, Extra) ->
     Args = [Vsn, Pdu, PduMS, ACMData, Address, Extra, Dict], 
     proc_lib:spawn_link(?MODULE, handle_pdu, Args).
 
-spawn_trap_thread(TrapRec, NotifyName, ContextName, Recv, V) ->
+spawn_trap_thread(TrapRec, NotifyName, ContextName, Recv, Vbs, 
+		  LocalEngineID, ExtraInfo) ->
     Dict = get(),
     proc_lib:spawn_link(?MODULE, do_send_trap,
-			[TrapRec, NotifyName, ContextName, Recv, V, Dict]).
+			[TrapRec, NotifyName, ContextName, 
+			 Recv, Vbs, LocalEngineID, ExtraInfo, Dict]).
 
-do_send_trap(TrapRec, NotifyName, ContextName, Recv, V, Dict) ->
+do_send_trap(TrapRec, NotifyName, ContextName, Recv, Vbs, 
+	     LocalEngineID, Dict) ->
+    ExtraInfo = ?DEFAULT_NOTIF_EXTRA_INFO, 
+    do_send_trap(TrapRec, NotifyName, ContextName, Recv, Vbs, 
+		 LocalEngineID, ExtraInfo, Dict).
+do_send_trap(TrapRec, NotifyName, ContextName, Recv, Vbs, 
+	     LocalEngineID, ExtraInfo, Dict) ->
     lists:foreach(fun({Key, Val}) -> put(Key, Val) end, Dict),
     put(sname,trap_sender_short_name(get(sname))),
     ?vlog("starting",[]),
-    snmpa_trap:send_trap(TrapRec, NotifyName, ContextName, Recv, V, 
-			 get(net_if)).
+    snmpa_trap:send_trap(TrapRec, NotifyName, ContextName, Recv, Vbs, 
+			 LocalEngineID, ExtraInfo, get(net_if)).
 
 worker(Master, Dict) ->
     lists:foreach(fun({Key, Val}) -> put(Key, Val) end, Dict),
@@ -1457,17 +1683,35 @@ worker_loop(Master) ->
 	    handle_pdu(Vsn, Pdu, PduMS, ACMData, Address, Extra),
 	    Master ! worker_available;
 
-	%% Old style message
-	{MibView, Vsn, Pdu, PduMS, ACMData, AgentData, Extra} ->
-	    ?vtrace("worker_loop -> received (old) request", []),
-	    do_handle_pdu(MibView, Vsn, Pdu, PduMS, ACMData, AgentData, Extra),
-	    Master ! worker_available;
-
-	{TrapRec, NotifyName, ContextName, Recv, V} -> % We don't trap exits!
+	%% We don't trap EXITs!
+	{TrapRec, NotifyName, ContextName, Recv, Vbs} -> 
 	    ?vtrace("worker_loop -> send trap:"
 		    "~n   ~p", [TrapRec]),
 	    snmpa_trap:send_trap(TrapRec, NotifyName, 
-				 ContextName, Recv, V, get(net_if)),
+				 ContextName, Recv, Vbs, 
+				 ?DEFAULT_NOTIF_EXTRA_INFO, 
+				 get(net_if)),
+	    Master ! worker_available;
+
+	%% We don't trap EXITs!
+	{send_trap, 
+	 TrapRec, NotifyName, ContextName, Recv, Vbs, LocalEngineID} -> 
+	    ?vtrace("worker_loop -> send trap:"
+		    "~n   ~p", [TrapRec]),
+	    snmpa_trap:send_trap(TrapRec, NotifyName, 
+				 ContextName, Recv, Vbs, 
+				 LocalEngineID, ?DEFAULT_NOTIF_EXTRA_INFO, 
+				 get(net_if)),
+	    Master ! worker_available;
+
+	{send_trap, 
+	 TrapRec, NotifyName, ContextName, Recv, Vbs, LocalEngineID, ExtraInfo} -> 
+	    ?vtrace("worker_loop -> send trap:"
+		    "~n   ~p", [TrapRec]),
+	    snmpa_trap:send_trap(TrapRec, NotifyName, 
+				 ContextName, Recv, Vbs, 
+				 LocalEngineID, ExtraInfo, 
+				 get(net_if)),
 	    Master ! worker_available;
 
 	{verbosity, Verbosity} ->
@@ -1615,31 +1859,79 @@ handle_acm_error(Vsn, Reason, Pdu, ACMData, Address, Extra) ->
 	    ok
     end.
 
+get_opt(Key, Default, SendOpts) ->
+    case lists:keysearch(Key, 1, SendOpts) of
+	{value, {Key, Value}} ->
+	    Value;
+	false ->
+	    Default
+    end.
 
-handle_send_trap(S, TrapName, NotifyName, ContextName, Recv, Varbinds) ->
+handle_send_trap(call, #state{type = master_agent} = S, 
+		 Notification, SendOpts) ->
+    SendOpts2 = 
+	case lists:keymember(local_engine_id, 1, SendOpts) of
+	    true ->
+		SendOpts;
+	    false ->
+		[{local_engine_id, ?DEFAULT_LOCAL_ENGINE_ID}|SendOpts]
+	end,
+    handle_send_trap(S, Notification, SendOpts2);
+handle_send_trap(call, S, Notification, SendOpts) ->
+    SendOpts2 = 
+	case lists:keymember(local_engine_id, 1, SendOpts) of
+	    true ->
+		SendOpts;
+	    false ->
+		%% subagent - 
+		%% we don't need this now, eventually the trap send 
+		%% request will reach the master-agent and then it 
+		%% will look up the proper engine id.
+		[{local_engine_id, ignore}|SendOpts]
+	end,
+    handle_send_trap(S, Notification, SendOpts2);
+handle_send_trap(_, S, Notification, SendOpts) ->
+    handle_send_trap(S, Notification, SendOpts).
+
+handle_send_trap(S, Notification, SendOpts) ->
+    NotifyName    = get_opt(name,     "",                        SendOpts),
+    ContextName   = get_opt(context,  "",                        SendOpts),
+    Recv          = get_opt(receiver, no_receiver,               SendOpts),
+    Varbinds      = get_opt(varbinds, [],                        SendOpts),
+    ExtraInfo     = get_opt(extra,    ?DEFAULT_NOTIF_EXTRA_INFO, SendOpts),
+    LocalEngineID = 
+	get_opt(local_engine_id, ?DEFAULT_LOCAL_ENGINE_ID, SendOpts),
+    handle_send_trap(S, Notification, NotifyName, ContextName, Recv, Varbinds, 
+		     LocalEngineID, ExtraInfo).
+
+handle_send_trap(#state{type = Type} = S, 
+		 Notification, NotifyName, ContextName, Recv, Varbinds, 
+		 LocalEngineID, ExtraInfo) ->
     ?vtrace("handle_send_trap -> entry with"
-	"~n   S#state.type: ~p"
-	"~n   TrapName:     ~p"
-	"~n   NotifyName:   ~p"
-	"~n   ContextName:  ~p", 
-	[S#state.type, TrapName, NotifyName, ContextName]),
-    case snmpa_trap:construct_trap(TrapName, Varbinds) of
+	"~n   Agent type:    ~p"
+	"~n   TrapName:      ~p"
+	"~n   NotifyName:    ~p"
+	"~n   ContextName:   ~p"
+	"~n   LocalEngineID: ~p", 
+	    [Type, Notification, NotifyName, ContextName, LocalEngineID]),
+    case snmpa_trap:construct_trap(Notification, Varbinds) of
 	{ok, TrapRecord, VarList} ->
 	    ?vtrace("handle_send_trap -> construction complete: "
 		    "~n   TrapRecord: ~p"
 		    "~n   VarList: ~p",
 		    [TrapRecord, VarList]),
-	    case S#state.type of
+	    case Type of
 		subagent ->
 		    ?vtrace("handle_send_trap -> [sub] forward trap",[]),
 		    maybe_forward_trap(S, TrapRecord, NotifyName,
-				       ContextName, Recv, VarList),
+				       ContextName, Recv, VarList, ExtraInfo),
 		    {ok, S};
 		master_agent ->
 		    ?vtrace("handle_send_trap -> "
 			    "[master] handle send trap",[]),
 		    maybe_send_trap(S, TrapRecord, NotifyName,
-				    ContextName, Recv, VarList)
+				    ContextName, Recv, VarList,
+				    LocalEngineID, ExtraInfo)
 	    end;
 	error ->
 	    error
@@ -1647,7 +1939,7 @@ handle_send_trap(S, TrapName, NotifyName, ContextName, Recv, Varbinds) ->
 				
 
 maybe_forward_trap(#state{parent = Parent, nfilters = NFs} = S,
-		   TrapRec, NotifyName, ContextName, Recv, V) ->
+		   TrapRec, NotifyName, ContextName, Recv, V, ExtraInfo) ->
     ?vtrace("maybe_forward_trap -> entry with"
 	    "~n   NFs: ~p", [NFs]),
     case filter_notification(NFs, [], TrapRec) of
@@ -1663,20 +1955,23 @@ maybe_forward_trap(#state{parent = Parent, nfilters = NFs} = S,
 	{send, [], TrapRec2} ->
 	    ?vtrace("maybe_forward_trap -> forward trap:"
 		    "~n   ~p", [TrapRec2]),
-	    forward_trap(Parent, TrapRec2, NotifyName, ContextName, Recv, V),
+	    forward_trap(Parent, TrapRec2, NotifyName, ContextName, Recv, V, 
+			 ExtraInfo),
 	    {ok, S};
 	
 	{send, Removed, TrapRec2} ->
 	    ?vtrace("maybe_forward_trap -> forward trap:"
 		    "~n   ~p", [TrapRec2]),
-	    forward_trap(Parent, TrapRec2, NotifyName, ContextName, Recv, V),
+	    forward_trap(Parent, TrapRec2, NotifyName, ContextName, Recv, V, 
+			 ExtraInfo),
 	    NFs2 = del_notification_filter(Removed, NFs),
 	    {ok, S#state{nfilters = NFs2}}
     end.
 
 
 maybe_send_trap(#state{nfilters = NFs} = S, 
-		TrapRec, NotifyName, ContextName, Recv, Varbinds) ->
+		TrapRec, NotifyName, ContextName, Recv, Varbinds, 
+		LocalEngineID, ExtraInfo) ->
     ?vtrace("maybe_send_trap -> entry with"
 	    "~n   NFs: ~p", [NFs]),
     case filter_notification(NFs, [], TrapRec) of
@@ -1693,39 +1988,46 @@ maybe_send_trap(#state{nfilters = NFs} = S,
 	    ?vtrace("maybe_send_trap -> send trap:"
 		    "~n   ~p", [TrapRec2]),
 	    do_handle_send_trap(S, TrapRec2, 
-				NotifyName, ContextName, Recv, Varbinds);
+				NotifyName, ContextName, Recv, Varbinds, 
+				LocalEngineID, ExtraInfo);
 	
 	{send, Removed, TrapRec2} ->
 	    ?vtrace("maybe_send_trap -> send trap:"
 		    "~n   ~p", [TrapRec2]),
 	    NFs2 = del_notification_filter(Removed, NFs),
 	    do_handle_send_trap(S#state{nfilters = NFs2}, TrapRec2, 
-				NotifyName, ContextName, Recv, Varbinds)
+				NotifyName, ContextName, Recv, Varbinds,
+				LocalEngineID, ExtraInfo)
     end.
    
-do_handle_send_trap(S, TrapRec, NotifyName, ContextName, Recv, Varbinds) ->
-    V = snmpa_trap:try_initialise_vars(get(mibserver), Varbinds),
+do_handle_send_trap(S, TrapRec, NotifyName, ContextName, Recv, Varbinds,
+		    LocalEngineID, ExtraInfo) ->
+    Vbs = snmpa_trap:try_initialise_vars(get(mibserver), Varbinds),
     case S#state.type of
 	subagent ->
 	    forward_trap(S#state.parent, TrapRec, NotifyName, ContextName,
-			 Recv, V),
+			 Recv, Vbs, ExtraInfo),
 	    {ok, S};
 	master_agent when S#state.multi_threaded =:= false ->
 	    ?vtrace("do_handle_send_trap -> send trap:"
 		    "~n   ~p", [TrapRec]),
 	    snmpa_trap:send_trap(TrapRec, NotifyName, ContextName,
-				 Recv, V, get(net_if)),
+				 Recv, Vbs, LocalEngineID, ExtraInfo, 
+				 get(net_if)),
 	    {ok, S};
 	master_agent when S#state.worker_state =:= busy ->
 	    %% Main worker busy => create new worker
 	    ?vtrace("do_handle_send_trap -> main worker busy: "
 		    "spawn a trap sender", []),
-	    spawn_trap_thread(TrapRec, NotifyName, ContextName, Recv, V),
+	    spawn_trap_thread(TrapRec, NotifyName, ContextName, Recv, Vbs,
+			      LocalEngineID, ExtraInfo),
 	    {ok, S};
 	master_agent ->
 	    %% Send to main worker
 	    ?vtrace("do_handle_send_trap -> send to main worker",[]),
-	    S#state.worker ! {TrapRec, NotifyName, ContextName, Recv, V},
+	    S#state.worker ! {send_trap, 
+			      TrapRec, NotifyName, ContextName, Recv, Vbs,
+			      LocalEngineID, ExtraInfo},
 	    {ok, S#state{worker_state = busy}}
     end.
     
@@ -1824,7 +2126,7 @@ send_discovery(S, From,
 	       TargetName, Record, ContextName, InitVars, 
 	       DiscoHandler, ExtraInfo) ->
     case snmpa_trap:send_discovery(TargetName, Record, ContextName,
-				   InitVars, get(net_if)) of
+				   InitVars, get(net_if), ExtraInfo) of
 	{ok, Sender, SecLevel} ->
 	    Disco = #disco{from      = From, 
 			   rec       = Record,
@@ -1901,9 +2203,12 @@ handle_discovery_response(#state{disco = #disco{target = TargetName,
 		    #disco{rec  = Record,
 			   ctx  = ContextName,
 			   ivbs = InitVars} = Disco, 
-		    case snmpa_trap:send_discovery(TargetName, Record, 
+		    case snmpa_trap:send_discovery(TargetName, 
+						   Record, 
 						   ContextName,
-						   InitVars, get(net_if)) of
+						   InitVars, 
+						   get(net_if), 
+						   ExtraInfo) of
 			{ok, Sender, _SecLevel} ->
 			    ?vdebug("handle_discovery_response(1) -> "
 				    "stage 2 trap sent", []),
@@ -3862,6 +4167,14 @@ user_err(F, A) ->
 
 
 %% ---------------------------------------------------------------------
+
+maybe_call(Server, Req) ->
+    case (wis(Server) =:= self()) of
+	false ->
+	    call(Server, Req);
+	true ->
+	    Server ! Req
+    end.
 
 call(Server, Req) ->
     gen_server:call(Server, Req, infinity).

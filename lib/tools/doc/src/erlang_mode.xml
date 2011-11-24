@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2003</year><year>2009</year>
+      <year>2003</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -173,7 +173,7 @@
         
         sum(L)          -> sum(L, 0).
         sum([H|T], Sum) -> sum(T, Sum + H);
-        sum([], Sum)    -> Sum."</code>
+        sum([], Sum)    -> Sum.</code>
       </item>
     </list>
   </section>

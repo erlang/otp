@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2000</year><year>2010</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+
+    </legalnotice>
+
+    <title>Installing the Binary Release</title>
+    <prepared>Peter H&ouml;gfeldt</prepared>
+    <responsible>Peter H&ouml;gfeldt</responsible>
+    <docno></docno>
+    <approved>(Peter H&ouml;gfeldt</approved>
+    <checked></checked>
+    <date>1997-05-26</date>
+    <rev>C</rev>
+    <file>install-binary.xml</file>
+  </header>
+
+  <section>
+    <title>UNIX</title>
+
+    <section>
+      <title>Introduction</title>
+      <p>The system is delivered as a single compressed tar file.</p>
+      <p>To browse the on-line HTML documentation, Netscape or an equivalent
+        browser supporting frames is needed.</p>
+    </section>
+
+    <section>
+      <title>Installation Procedure</title>
+      <p>When installed, the entire system, except for a small start-up
+        script, resides in a single directory tree. The location of this
+        directory tree can be chosen arbitrarily by the installer, and it
+        does not need to be in the user's <c>$PATH</c>. The only requirements
+        are that the file system where it is placed has enough free space,
+        and that the users who run Erlang/OTP have read access to it. In the
+        example below, the directory tree is assumed to be located at
+        <c>/usr/local/erlang</c>, which is here called the <em>top-level directory</em>.</p>
+      <p>It is assumed that you have the compressed tar file, the name of
+        which is <c><![CDATA[<PREFIX>.tar.gz]]></c>, where <c><![CDATA[<PREFIX>]]></c> is a string
+        denoting the particular Erlang/OTP release, e.g.
+        <c>otp_LXA_11930_sunos5_R9B</c>.</p>
+      <p>Wherever the string <c><![CDATA[<PREFIX>]]></c> is used below, it should
+        be replaced by the actual name prefix of the compressed tar file.</p>
+      <p>The tape archive file does not have one single directory in which
+        all other files are rooted. Therefore the tape archive file must be
+        extracted into an empty (newly created) directory.</p>
+      <list type="ordered">
+        <item>
+          <p>If the <em>top-level directory</em> does not already exist,
+            create it:</p>
+          <pre>
+mkdir /usr/local/erlang</pre>
+        </item>
+        <item>
+          <p>Change the current directory to the <em>top level directory</em>:</p>
+          <pre>
+cd /usr/local/erlang</pre>
+        </item>
+        <item>
+          <p>Create the <em>installation directory</em> with an appropriate
+            name. For example:</p>
+          <pre>
+mkdir otp_r7b</pre>
+        </item>
+        <item>
+          <p>Change to the <em>installation directory</em>, e.g.</p>
+          <pre>
+cd otp_r7b</pre>
+        </item>
+        <item>
+          <p>Assuming the compressed tar file resides in the directory
+            <c><![CDATA[<SOME-DIR>]]></c>,. extract the compressed tar file into the
+            current directory:</p>
+          <pre>
+gunzip -c &lt;SOME-DIR&gt;/&lt;PREFIX&gt;.tar.gz | tar xfp -</pre>
+        </item>
+        <item>
+          <p>Read the <c>README</c> file in the installation directory for
+            last minute updates, before proceeding.</p>
+        </item>
+        <item>
+          <p>Run the <c>Install</c> script in the installation directory,
+            with the absolute path of the installation directory as argument,</p>
+          <pre>
+./Install /usr/local/erlang/otp_r7b</pre>
+          <p>and supply answers to the prompts.</p>
+          <p>In most cases, there is a default answer in square brackets
+            (<c>[]</c>). If the default is satisfactory, just press
+            <c><![CDATA[<Return>]]></c>. In general you are only prompted for one thing:</p>
+          <list type="bulleted">
+            <item>
+              <p>"Do you want to use a minimal system startup instead of the
+                SASL startup?"                <br></br>
+
+                In a minimal system, only the Kernel and STDLIB applications
+                are loaded and started. If the SASL startup is used, the SASL
+                application is included as well. Normally, the minimal system
+                is enough.</p>
+            </item>
+          </list>
+        </item>
+        <item>
+          <p>Make Erlang/OTP available for users, either by putting the path
+            <c>/usr/local/erlang/otp_r7b/bin</c> in users <c>$PATH</c>
+            variable, or link the executable
+            <c>/usr/local/erlang/otp_r7b/bin/erl</c> accordingly, e.g.:</p>
+          <pre>
+ln -s /usr/local/erlang/otp_r7b/bin/erl /usr/local/bin/erl </pre>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Windows</title>
+
+    <section>
+      <title>Introduction</title>
+      <p>The system is delivered as a single <c>.exe</c> file.</p>
+      <p>To browse the on-line HTML documentation, Netscape or an equivalent
+        browser supporting frames is needed.</p>
+    </section>
+
+    <section>
+      <title>Installation Procedure</title>
+      <p>The installation procedure is is automated. Double-click the
+        <c>.exe</c> file icon and follow the instructions.</p>
+    </section>
+  </section>
+</chapter>

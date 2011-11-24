@@ -29,8 +29,8 @@ typedef struct erl_module {
     IndexSlot slot;		/* Must be located at top of struct! */
     int module;			/* Atom index for module (not tagged). */
 
-    Eterm* code;
-    Eterm* old_code;
+    BeamInstr* code;
+    BeamInstr* old_code;
     int code_length;		/* Length of loaded code in bytes. */
     int old_code_length;	/* Length of old loaded code in bytes */
     unsigned catches, old_catches;

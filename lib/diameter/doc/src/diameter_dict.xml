@@ -1,0 +1,613 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "fileref.dtd">
+
+<fileref>
+<header>
+
+<copyright>
+<year>2011</year>
+<holder>Ericsson AB. All Rights Reserved.</holder>
+</copyright>
+<legalnotice>
+The contents of this file are subject to the Erlang Public License,
+Version 1.1, (the "License"); you may not use this file except in
+compliance with the License. You should have received a copy of the
+Erlang Public License along with this software. If not, it can be
+retrieved online at http://www.erlang.org/.
+    
+Software distributed under the License is distributed on an "AS IS"
+basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+the License for the specific language governing rights and limitations
+under the License.
+    
+</legalnotice>
+
+<title>diameter_dict(4)</title>
+<prepared>Anders Svensson</prepared>
+<responsible></responsible>
+<docno></docno>
+<approved></approved>
+<checked></checked>
+<date></date>
+<rev>%VSN%</rev>
+<file>diameter_dict.xml</file>
+</header>
+
+<!-- ===================================================================== -->
+
+<file>diameter_dict</file>
+<filesummary>Dictionary inteface of the diameter application.</filesummary>
+
+<description>
+<p>
+A diameter service as configured with <seealso
+marker="diameter#start_service">diameter:start_service/2</seealso>
+specifies one or more supported Diameter applications.
+Each Diameter application specifies a dictionary module that knows how
+to encode and decode its messages and AVP's.
+The dictionary module is in turn generated from a file that defines
+these messages and AVP's.
+The format of such a file is defined in
+<seealso marker="#FILE_FORMAT">FILE FORMAT</seealso> below.
+Users add support for their specific applications by creating
+dictionary files, compiling them to Erlang modules using
+<seealso marker="diameterc">diameterc</seealso> and configuring the
+resulting dictionaries modules on a service.</p>
+
+<p>
+The codec generation also results in a hrl file that defines records
+for the messages and grouped AVP's defined for the application, these
+records being what a user of the diameter application sends and receives.
+(Modulo other available formats as discussed in <seealso
+marker="diameter_app">diameter_app(3)</seealso>.)
+These records and the underlying Erlang data types corresponding to
+Diameter data formats are discussed in <seealso
+marker="#MESSAGE_RECORDS">MESSAGE RECORDS</seealso> and <seealso
+marker="#DATA_TYPES">DATA TYPES</seealso> respectively.
+The generated hrl also contains defines for the possible values of
+AVPs of type Enumerated.</p>
+
+<p>
+The diameter application includes three dictionary modules
+corresponding to applications defined in section 2.4 of RFC 3588:
+<c>diameter_gen_base_rfc3588</c> for the Diameter Common Messages
+application with application identifier 0,
+<c>diameter_gen_accounting</c> for the Diameter Base Accounting
+application with application identifier 3 and
+<c>diameter_gen_relay</c>the Relay application with application
+identifier 0xFFFFFFFF.
+The Common Message and Relay applications are the only applications
+that diameter itself has any specific knowledge of.
+The Common Message application is used for messages that diameter
+itself handles: CER/CEA, DWR/DWA and DPR/DPA.
+The Relay application is given special treatment with regard to
+encode/decode since the messages and AVP's it handles are not specifically
+defined.</p>
+
+<marker id="FILE_FORMAT"/>
+</description>
+
+<!-- ===================================================================== -->
+
+<section>
+<title>FILE FORMAT</title>
+
+<p>
+A dictionary file consists of distinct sections.
+Each section starts with a line consisting of a tag
+followed by zero or more arguments.
+Each section ends at the the start of the next section or end of file.
+Tags consist of an ampersand character followed by a keyword and are
+separated from their arguments by whitespace.
+Whitespace within a section separates individual tokens but its
+quantity is insignificant.</p>
+
+<p>
+The tags, their arguments and the contents of each corresponding
+section are as follows.
+Each section can occur at most once unless otherwise specified.
+The order in which sections are specified is unimportant.</p>
+
+<taglist>
+
+<tag><c>@id Number</c></tag>
+<item>
+<p>
+Defines the integer Number as the Diameter Application Id of the
+application in question.
+Required if the dictionary defines <c>@messages</c>.
+The section has empty content.</p>
+
+<p>
+The Application Id is set in the Diameter Header of outgoing messages
+of the application, and the value in the header of an incoming message
+is used to identify the relevant dictionary module.</p>
+
+<p>
+Example:</p>
+
+<code>
+@id 16777231
+</code>
+
+</item>
+
+<tag><c>@name Mod</c></tag>
+<item>
+<p>
+Defines the name of the generated dictionary module.
+The section has empty content.
+Mod must match the regular expression '^[a-zA-Z0-9][-_a-zA-Z0-9]*$';
+that is, contains only alphanumerics, hyphens and underscores begin with an
+alphanumeric.</p>
+
+<p>
+A name is optional and defaults to the name of the dictionary file
+minus any extension.
+Note that a generated module must have a unique name an not colide
+with another module in the system.</p>
+
+<p>
+Example:</p>
+
+<code>
+@name etsi_e2
+</code>
+
+</item>
+
+<tag><c>@prefix Name</c></tag>
+<item>
+<p>
+Defines Name as the prefix to be added to record and constant names in
+the generated dictionary module and hrl.
+The section has empty content.
+Name must be of the same form as a @name.</p>
+
+<p>
+A prefix is optional but can
+be used to disambiguate record and constant names
+resulting from similarly named messages and AVP's in different
+Diameter applications.</p>
+
+<p>
+Example:</p>
+
+<code>
+@prefix etsi_e2_
+</code>
+
+</item>
+
+<tag><c>@vendor Number Name</c></tag>
+<item>
+<p>
+Defines the integer Number as the the default Vendor-ID of AVP's for
+which the V flag is set.
+Name documents the owner of the application
+but is otherwise unused.
+The section has empty content.</p>
+
+<p>
+Example:</p>
+
+<code>
+@vendor 13019 ETSI
+</code>
+
+</item>
+
+<tag><c>@avp_vendor_id Number</c></tag>
+<item>
+<p>
+Defines the integer Number as the Vendor-ID of the AVP's listed in the
+section content, overriding the <c>@vendor</c> default.
+The section content consists of AVP names.
+Can occur zero or more times (with different values of Number).</p>
+
+<p>
+Example:</p>
+
+<code>
+@avp_vendor_id 2937
+
+WWW-Auth
+Domain-Index
+Region-Set
+</code>
+
+</item>
+
+<tag><c>@inherits Mod</c></tag>
+<item>
+<p>
+Defines the name of a generated dictionary module containing AVP
+definitions referenced by the dictionary but not defined by it.
+The section content is empty.</p>
+
+<p>
+Can occur 0 or more times (with different values of Mod) but all
+dictionaries should typically inherit RFC3588 AVPs from
+<c>diameter_gen_base_rfc3588</c>.</p>
+
+<p>
+Example:</p>
+
+<code>
+@inherits diameter_gen_base_rfc3588
+</code>
+
+</item>
+
+<tag><c>@avp_types</c></tag>
+<item>
+<p>
+Defines the name, code, type and flags of individual AVPs.
+The section consists of definitions of the form</p>
+
+<p><c>Name Code Type Flags</c></p>
+
+<p>
+where Code is the integer AVP code, Flags is a string of V,
+M and P characters indicating the flags to be
+set on an outgoing AVP or a single - (minus) character if none are to
+be set.
+Type identifies either an AVP Data Format as defined in <seealso
+marker="#DATA_TYPES">DATA TYPES</seealso> below or a
+type as defined by a <c>@custom_types</c> tag.</p>
+
+<p>
+Example:</p>
+
+<code>
+@avp_types
+
+Location-Information   350  Grouped     VM
+Requested-Information  353  Enumerated  V
+</code>
+
+<p>
+Note that the P flag has been deprecated by the Diameter Maintenance
+and Extensions Working Group of the IETF: diameter will set the P flag
+to 0 as mandated by the current draft standard.</p>
+
+</item>
+
+<tag><c>@custom_types Mod</c></tag>
+<item>
+<p>
+Defines AVPs for which module Mod provides encode/decode.
+The section contents consists of type names.
+For each AVP Name defined with custom type Type, Mod should export the
+function Name/3 with arguments encode|decode, Type and Data,
+the latter being the term to be encoded/decoded.
+The function returns the encoded/decoded value.</p>
+
+<p>
+Can occur 0 or more times (with different values of Mod).</p>
+
+<p>
+Example:</p>
+
+<code>
+@custom_types rfc4005_types
+
+Framed-IP-Address
+</code>
+</item>
+
+<tag><c>@messages</c></tag>
+<item>
+<p>
+Defines the messages of the application.
+The section content consists of definitions of the form specified in
+section 3.2 of RFC 3588, "Command Code ABNF specification".</p>
+
+<!-- RFC 4740 RTR/RTA -->
+<code>
+@messages
+
+RTR ::= &lt; Diameter Header: 287, REQ, PXY >
+        &lt; Session-Id >
+        { Auth-Application-Id }
+        { Auth-Session-State }
+        { Origin-Host }
+        { Origin-Realm }
+        { Destination-Host }
+        { SIP-Deregistration-Reason }
+        [ Destination-Realm ]
+        [ User-Name ]
+      * [ SIP-AOR ]
+      * [ Proxy-Info ]
+      * [ Route-Record ]
+      * [ AVP ]
+
+RTA ::= &lt; Diameter Header: 287, PXY >
+        &lt; Session-Id >
+        { Auth-Application-Id }
+        { Result-Code }
+        { Auth-Session-State }
+        { Origin-Host }
+        { Origin-Realm }
+        [ Authorization-Lifetime ]
+        [ Auth-Grace-Period ]
+        [ Redirect-Host ]
+        [ Redirect-Host-Usage ]
+        [ Redirect-Max-Cache-Time ]
+      * [ Proxy-Info ]
+      * [ Route-Record ]
+      * [ AVP ]
+</code>
+
+</item>
+
+<tag><c>@grouped</c></tag>
+<item>
+<p>
+Defines the contents of the AVPs of the application having type
+Grouped.
+The section content consists of definitions of the form specified in
+section 4.4 of RFC 3588, "Grouped AVP Values".</p>
+
+<p>
+Example:</p>
+
+<code>
+@grouped
+
+SIP-Deregistration-Reason ::= &lt; AVP Header: 383 >
+                              { SIP-Reason-Code }
+                              [ SIP-Reason-Info ]
+                            * [ AVP ]
+</code>
+</item>
+
+<tag><c>@enum Name</c></tag>
+<item>
+<p>
+Defines values of AVP Name having type Enumerated.
+Section content consists of names and corresponding integer values.
+Integer values can be prefixed with 0x to be interpreted as
+hexidecimal.</p>
+
+<p>
+Can occur 0 or more times (with different values of Name).
+The AVP in question can be defined in an inherited dictionary in order
+to introduce additional values.
+An AVP so extended must be referenced by in a <c>@messages</c> or
+<c>@grouped</c> section.</p>
+
+<p>
+Example:</p>
+
+<code>
+@enum SIP-Reason-Code
+
+PERMANENT_TERMINATION    0
+NEW_SIP_SERVER_ASSIGNED  1
+SIP_SERVER_CHANGE        2
+REMOVE_SIP_SERVER        3
+</code>
+</item>
+
+</taglist>
+
+<p>
+Comments can be included in a dictionary file using semicolon:
+text from a semicolon to end of line is ignored.</p>
+
+<marker id="MESSAGE_RECORDS"/>
+</section>
+
+<!-- ===================================================================== -->
+
+<section>
+<title>MESSAGE RECORDS</title>
+
+<p>
+The hrl generated from a dictionary specification defines records for the
+messages and grouped AVPs defined in <c>@messages</c> and
+<c>@grouped</c> sections.
+For each message or grouped AVP definition, a record is defined whose
+name is the message or AVP name prefixed with any dictionary prefix
+defined with <c>@prefix</c> and whose fields are the names of the AVPs
+contained in the message or grouped AVP in the order specified in the
+definition in question.
+For example, the grouped AVP</p>
+
+<code>
+SIP-Deregistration-Reason ::= &lt; AVP Header: 383 >
+                              { SIP-Reason-Code }
+                              [ SIP-Reason-Info ]
+                            * [ AVP ]
+</code>
+
+<p>
+will result in the following record definition given an empty
+prefix.</p>
+
+<code>
+-record('SIP-Deregistration-Reason' {'SIP-Reason-Code',
+                                     'SIP-Reason-Info',
+                                     'AVP'}).
+</code>
+
+<p>
+The values encoded in the fields of generated records depends on the
+type and number of times the AVP can occur.
+In particular, an AVP which is specified as occurring exactly once is
+encoded as a value of the AVP's type while an AVP with any other
+specification is encoded as a list of values of the AVP's type.
+The AVP's type is as specified in the AVP definition, the RFC 3588
+types being described below.</p>
+
+<marker id="DATA_TYPES"/>
+</section>
+
+<!-- ===================================================================== -->
+
+<section>
+<title>DATA TYPES</title>
+
+<p>
+The data formats defined in sections 4.2 ("Basic AVP Data
+Formats") and 4.3 ("Derived AVP Data Formats") of RFC 3588 are encoded
+as values of the types defined here.
+Values are passed to <seealso
+marker="diameter#call">diameter:call/4</seealso>
+in a request record when sending a request, returned in a resulting
+answer record and passed to a <seealso
+marker="diameter_app#handle_request">handle_request</seealso>
+callback upon reception of an incoming request.</p>
+
+<p>
+<em>Basic AVP Data Formats</em></p>
+
+<marker id="OctetString"/>
+<marker id="Integer32"/>
+<marker id="Integer64"/>
+<marker id="Unsigned32"/>
+<marker id="Unsigned64"/>
+<marker id="Float32"/>
+<marker id="Float64"/>
+<marker id="Grouped"/>
+
+<code>
+OctetString() = [0..255]
+Integer32()   = -2147483647..2147483647
+Integer64()   = -9223372036854775807..9223372036854775807
+Unsigned32()  = 0..4294967295
+Unsigned64()  = 0..18446744073709551615
+Float32()     = '-infinity' | float() | infinity
+Float64()     = '-infinity' | float() | infinity
+Grouped()     = record()
+</code>
+
+<p>
+On encode, an OctetString() can be specified as an iolist(),
+excessively large floats (in absolute value) are equivalent to
+<c>infinity</c> or <c>'-infinity'</c> and excessively large integers
+result in encode failure.
+The records for grouped AVPs are as discussed in the previous
+section.</p>
+
+<p>
+<em>Derived AVP Data Formats</em></p>
+
+<marker id="Address"/>
+<code>
+Address() = OctetString()
+          | tuple()
+</code>
+
+<p>
+On encode, an OctetString() IPv4 address is parsed in the usual
+x.x.x.x format while an IPv6 address is parsed in any of the formats
+specified by section  2.2 of RFC 2373, "Text Representation of
+Addresses".
+An IPv4 tuple() has length 4 and contains values of type 0..255.
+An IPv6 tuple() has length 8 and contains values of type 0..65535.
+The tuple representation is used on decode.</p>
+
+<marker id="Time"/>
+<code>
+Time() = {date(), time()}
+
+where
+
+  date() = {Year, Month, Day}
+  time() = {Hour, Minute, Second}
+
+  Year   = integer()
+  Month  = 1..12
+  Day    = 1..31
+  Hour   = 0..23
+  Minute = 0..59
+  Second = 0..59
+</code>
+
+<p>
+Additionally, values that can be encoded are
+limited by way of their encoding as four octets as required by RFC
+3588 with the required extension from RFC 2030.
+In particular, only values between <c>{{1968,1,20},{3,14,8}}</c>
+and <c>{{2104,2,26},{9,42,23}}</c> (both inclusive) can be encoded.</p>
+
+<marker id="UTF8String"/>
+<code>
+UTF8String() = [integer()]
+</code>
+
+<p>
+List elements are the UTF-8 encodings of the individual characters
+in the string.
+Invalid codepoints will result in encode/decode failure.</p>
+
+<marker id="DiameterIdentity"/>
+<code>
+DiameterIdentity() = OctetString()
+</code>
+
+<p>
+A value must have length at least 1.</p>
+
+<marker id="DiameterURI"/>
+<code>
+DiameterURI() = OctetString()
+              | #diameter_URI{type = Type,
+                              fqdn = FQDN,
+                              port = Port,
+                              transport = Transport,
+                              protocol  = Protocol}
+
+where
+
+  Type = aaa | aaas
+  FQDN = OctetString()
+  Port = integer()
+  Transport = sctp | tcp
+  Protocol  = diameter | radius | 'tacacs+'
+</code>
+
+<p>
+On encode, fields port, transport and protocol default to 3868, sctp
+and diameter respectively.
+The grammar of an OctetString-valued DiameterURI() is as specified in
+section 4.3 of RFC 3588.
+The record representation is used on decode.</p>
+
+<marker id="Enumerated"/>
+<code>
+Enumerated() = Integer32()
+</code>
+
+<p>
+On encode, values can be specified using the macros defined in a
+dictionary's hrl file.</p>
+
+<marker id="IPFilterRule"/>
+<marker id="QoSFilterRule"/>
+<code>
+IPFilterRule()  = OctetString()
+QoSFilterRule() = OctetString()
+</code>
+
+<p>
+Values of these types are not currently parsed by diameter.</p>
+
+</section>
+
+<!-- ===================================================================== -->
+<!-- ===================================================================== -->
+
+<section>
+<title>SEE ALSO</title>
+
+<p>
+<seealso marker="diameterc">diameterc(1)</seealso>,
+<seealso marker="diameter">diameter(3)</seealso>,
+<seealso marker="diameter_app">diameter_app(3)</seealso></p>
+
+</section>
+
+</fileref>

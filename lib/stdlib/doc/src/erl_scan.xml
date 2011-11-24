@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2009</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>erl_scan</title>
@@ -37,56 +37,96 @@
     <p>This module contains functions for tokenizing characters into
       Erlang tokens.</p>
   </description>
-  <section>
-    <title>DATA TYPES</title>
-    <code type="none">
-category() = atom()
-column() = integer() > 0
-line() = integer()
-location() = line() | {line(), column()}
-reserved_word_fun() -> fun(atom()) -> bool()
-set_attribute_fun() -> fun(term()) -> term()
-symbol() = atom() | float() | integer() | string()
-token() = {category(), attributes()} | {category(), attributes(), symbol()}
-attributes() = line() | list() | tuple()</code>
-  </section>
+  <datatypes>
+    <datatype>
+      <name name="attribute_info"></name>
+    </datatype>
+    <datatype>
+      <name name="attributes"></name>
+    </datatype>
+    <datatype>
+      <name name="attributes_data"></name>
+    </datatype>
+    <datatype>
+      <name name="category"></name>
+    </datatype>
+    <datatype>
+      <name name="column"></name>
+    </datatype>
+    <datatype>
+      <name name="error_description"></name>
+    </datatype>
+    <datatype>
+      <name name="error_info"></name>
+    </datatype>
+    <datatype>
+      <name name="info_line"></name>
+    </datatype>
+    <datatype>
+      <name name="info_location"></name>
+    </datatype>
+    <datatype>
+      <name name="line"></name>
+    </datatype>
+    <datatype>
+      <name name="location"></name>
+    </datatype>
+    <datatype>
+      <name name="option"></name>
+    </datatype>
+    <datatype>
+      <name name="options"></name>
+    </datatype>
+    <datatype>
+      <name name="symbol"></name>
+    </datatype>
+    <datatype>
+      <name name="resword_fun"></name>
+    </datatype>
+    <datatype>
+      <name name="token"></name>
+    </datatype>
+    <datatype>
+      <name name="token_info"></name>
+    </datatype>
+    <datatype>
+      <name name="tokens"></name>
+    </datatype>
+    <datatype>
+      <name name="tokens_result"></name>
+    </datatype>
+  </datatypes>
   <funcs>
     <func>
-      <name>string(String) -> Return</name>
-      <name>string(String, StartLocation) -> Return</name>
-      <name>string(String, StartLocation, Options) -> Return</name>
+      <name name="string" arity="1"/>
+      <name name="string" arity="2"/>
+      <name name="string" arity="3"/>
       <fsummary>Scan a string and return the Erlang tokens</fsummary>
-      <type>
-        <v>String = string()</v>
-        <v>Return = {ok, Tokens, EndLocation} | Error</v>
-        <v>Tokens = [token()]</v>
-        <v>Error = {error, ErrorInfo, EndLocation}</v>
-        <v>StartLocation = EndLocation = location()</v>
-        <v>Options = Option | [Option]</v>
-        <v>Option = {reserved_word_fun,reserved_word_fun()}
-                  | return_comments | return_white_spaces | return
-                  | text</v>
-      </type>
       <desc>
-        <p>Takes the list of characters <c>String</c> and tries to
-          scan (tokenize) them. Returns <c>{ok, Tokens, EndLocation}</c>,
-          where <c>Tokens</c> are the Erlang tokens from
-          <c>String</c>. <c>EndLocation</c> is the first location
-          after the last token.</p>
-        <p><c>{error, ErrorInfo, EndLocation}</c> is returned if an
-          error occurs. <c>EndLocation</c> is the first location after
+        <p>Takes the list of characters <c><anno>String</anno></c> and tries to
+          scan (tokenize) them. Returns <c>{ok, <anno>Tokens</anno>,
+           <anno>EndLocation</anno>}</c>,
+          where <c><anno>Tokens</anno></c> are the Erlang tokens from
+          <c><anno>String</anno></c>. <c><anno>EndLocation</anno></c>
+          is the first location after the last token.</p>
+        <p><c>{error, <anno>ErrorInfo</anno>, <anno>ErrorLocation</anno>}</c>
+          is returned if an error occurs.
+          <c><anno>ErrorLocation</anno></c> is the first location after
           the erroneous token.</p>
-        <p><c>string(String)</c> is equivalent to
-          <c>string(String, 1)</c>, and <c>string(String,
-          StartLocation)</c> is equivalent to <c>string(String,
-          StartLocation, [])</c>.</p>
-        <p><c>StartLocation</c> indicates the initial location when
-          scanning starts. If <c>StartLocation</c> is a line
-          <c>attributes()</c> as well as <c>EndLocation</c> and
-          <c>ErrorLocation</c> will be lines. If
-          <c>StartLocation</c> is a pair of a line and a column
+        <p><c>string(<anno>String</anno>)</c> is equivalent to
+          <c>string(<anno>String</anno>, 1)</c>, and
+          <c>string(<anno>String</anno>,
+          <anno>StartLocation</anno>)</c> is equivalent to
+          <c>string(<anno>String</anno>,
+          <anno>StartLocation</anno>, [])</c>.</p>
+        <p><c><anno>StartLocation</anno></c> indicates the initial location
+          when scanning starts. If <c><anno>StartLocation</anno></c> is a line
+          <c>attributes()</c> as well as <c><anno>EndLocation</anno></c> and
+          <c><anno>ErrorLocation</anno></c> will be lines. If
+          <c><anno>StartLocation</anno></c> is a pair of a line and a column
           <c>attributes()</c> takes the form of an opaque compound
-          data type, and <c>EndLocation</c> and <c>ErrorLocation</c>
+          data type, and <c><anno>EndLocation</anno></c> and
+          <c><anno>ErrorLocation</anno></c>
           will be pairs of a line and a column. The <em>token
           attributes</em> contain information about the column and the
           line where the token begins, as well as the text of the
@@ -103,7 +143,7 @@ attributes() = line() | list() | tuple()</code>
           Info, atom()}</c>,
           <c>{char, Info, integer()}</c>, <c>{comment, Info,
           string()}</c>, <c>{float, Info, float()}</c>, <c>{integer,
-          Info, integer()}</c>, <c>{var, Info, atom()}</c>, 
+          Info, integer()}</c>, <c>{var, Info, atom()}</c>,
           and <c>{white_space, Info, string()}</c>.</p>
         <p>The valid options are:</p>
         <taglist>
@@ -134,253 +174,218 @@ attributes() = line() | list() | tuple()</code>
       </desc>
     </func>
     <func>
-      <name>tokens(Continuation, CharSpec, StartLocation) -> Return</name>
-      <name>tokens(Continuation, CharSpec, StartLocation, Options) -> Return</name>
+      <name name="tokens" arity="3"/>
+      <name name="tokens" arity="4"/>
+      <type name="char_spec"/>
+      <type name="return_cont"/>
+      <type_desc name="return_cont">An opaque continuation</type_desc>
       <fsummary>Re-entrant scanner</fsummary>
-      <type>
-        <v>Continuation = [] | Continuation1</v>
-        <v>Return = {done, Result, LeftOverChars} | {more, Continuation1}</v>
-        <v>LeftOverChars = CharSpec</v>
-        <v>CharSpec = string() | eof</v>
-        <v>Continuation1 = tuple()</v>
-        <v>Result = {ok, Tokens, EndLocation} | {eof, EndLocation} | Error</v>
-        <v>Tokens = [token()]</v>
-        <v>Error = {error, ErrorInfo, EndLocation}</v>
-        <v>StartLocation = EndLocation = location()</v>
-        <v>Options = Option | [Option]</v>
-        <v>Option = {reserved_word_fun,reserved_word_fun()}
-                  | return_comments | return_white_spaces | return</v>
-      </type>
       <desc>
         <p>This is the re-entrant scanner which scans characters until
           a <em>dot</em> ('.' followed by a white space) or
           <c>eof</c> has been reached. It returns:</p>
         <taglist>
-          <tag><c>{done, Result, LeftOverChars}</c></tag>
+          <tag><c>{done, <anno>Result</anno>, <anno>LeftOverChars</anno>}</c>
+          </tag>
           <item>
             <p>This return indicates that there is sufficient input
-              data to get a result. <c>Result</c> is:</p>
+              data to get a result. <c><anno>Result</anno></c> is:</p>
             <taglist>
-              <tag><c>{ok, Tokens, EndLocation}</c></tag>
+              <tag><c>{ok, Tokens, EndLocation}</c>
+              </tag>
               <item>
-                <p>The scanning was successful. <c>Tokens</c> is the
-                  list of tokens including <em>dot</em>.</p>
+                <p>The scanning was successful. <c>Tokens</c>
+                  is the list of tokens including <em>dot</em>.</p>
               </item>
               <tag><c>{eof, EndLocation}</c></tag>
               <item>
                 <p>End of file was encountered before any more tokens.</p>
               </item>
-              <tag><c>{error, ErrorInfo, EndLocation}</c></tag>
+              <tag><c>{error, ErrorInfo, EndLocation}</c>
+              </tag>
               <item>
-                <p>An error occurred. <c>LeftOverChars</c> is the remaining
-                  characters of the input data, 
+                <p>An error occurred. <c><anno>LeftOverChars</anno></c>
+                  is the remaining characters of the input data,
                   starting from <c>EndLocation</c>.</p>
               </item>
             </taglist>
           </item>
-          <tag><c>{more, Continuation1}</c></tag>
+          <tag><c>{more, <anno>Continuation1</anno>}</c></tag>
           <item>
             <p>More data is required for building a term.
-              <c>Continuation1</c> must be passed in a new call to
+              <c><anno>Continuation1</anno></c> must be passed in a new call to
               <c>tokens/3,4</c> when more data is available.</p>
           </item>
         </taglist>
-        <p>The <c>CharSpec</c> <c>eof</c> signals end of file.
-        <c>LeftOverChars</c> will then take the value <c>eof</c> as
-          well.</p>
-        <p><c>tokens(Continuation, CharSpec, StartLocation)</c> is
-          equivalent to <c>tokens(Continuation, CharSpec,
-          StartLocation, [])</c>.</p>
+        <p>The <c><anno>CharSpec</anno></c> <c>eof</c> signals end of file.
+        <c><anno>LeftOverChars</anno></c> will then take the value <c>eof</c>
+          as well.</p>
+        <p><c>tokens(<anno>Continuation</anno>, <anno>CharSpec</anno>,
+          <anno>StartLocation</anno>)</c> is equivalent to
+          <c>tokens(<anno>Continuation</anno>, <anno>CharSpec</anno>,
+          <anno>StartLocation</anno>, [])</c>.</p>
         <p>See <seealso marker="#string/3">string/3</seealso> for a
           description of the various options.</p>
       </desc>
     </func>
     <func>
-      <name>reserved_word(Atom) -> bool()</name>
+      <name name="reserved_word" arity="1"/>
       <fsummary>Test for a reserved word</fsummary>
-      <type>
-        <v>Atom = atom()</v>
-      </type>
       <desc>
-        <p>Returns <c>true</c> if <c>Atom</c> is an Erlang reserved
-          word, otherwise <c>false</c>.</p>
+        <p>Returns <c>true</c> if <c><anno>Atom</anno></c> is an Erlang
+         reserved word, otherwise <c>false</c>.</p>
       </desc>
     </func>
     <func>
-      <name>token_info(Token) -> TokenInfo</name>
+      <name name="token_info" arity="1"/>
       <fsummary>Return information about a token</fsummary>
-      <type>
-        <v>Token = token()</v>
-        <v>TokenInfo = [TokenInfoTuple]</v>
-        <v>TokenInfoTuple = {TokenItem, Info}</v>
-        <v>TokenItem = atom()</v>
-        <v>Info = term()</v>
-      </type>
       <desc>
         <p>Returns a list containing information about the token
-          <c>Token</c>. The order of the <c>TokenInfoTuple</c>s is not
-          defined. The following <c>TokenItem</c>s are returned:
-          <c>category</c>, <c>column</c>, <c>length</c>,
-          <c>line</c>, <c>symbol</c>, and <c>text</c>. See <seealso
+          <c><anno>Token</anno></c>. The order of the
+          <c><anno>TokenInfoTuple</anno></c>s is not
+          defined. See <seealso
           marker="#token_info/2">token_info/2</seealso> for
           information about specific
-          <c>TokenInfoTuple</c>s.</p>
+          <c><anno>TokenInfoTuple</anno></c>s.</p>
         <p>Note that if <c>token_info(Token, TokenItem)</c> returns
-          <c>undefined</c> for some <c>TokenItem</c> in the list above, the
-          item is not included in <c>TokenInfo</c>.</p>
+          <c>undefined</c> for some <c>TokenItem</c>, the
+          item is not included in <c><anno>TokenInfo</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name>token_info(Token, TokenItemSpec) -> TokenInfo</name>
+      <name name="token_info" arity="2" clause_i="1"/>
+      <name name="token_info" arity="2" clause_i="2"/>
+      <type name="token_item"/>
+      <type name="attribute_item"/>
       <fsummary>Return information about a token</fsummary>
-      <type>
-        <v>Token = token()</v>
-        <v>TokenItemSpec = TokenItem | [TokenItem]</v>
-        <v>TokenInfo = TokenInfoTuple | undefined | [TokenInfoTuple]</v>
-        <v>TokenInfoTuple = {TokenItem, Info}</v>
-        <v>TokenItem = atom()</v>
-        <v>Info = term()</v>
-      </type>
       <desc>
         <p>Returns a list containing information about the token
-          <c>Token</c>. If <c>TokenItemSpec</c> is a single
-          <c>TokenItem</c>, the returned value is the corresponding
+          <c><anno>Token</anno></c>. If one single
+          <c><anno>TokenItem</anno></c> is given the returned value is
+          the corresponding
           <c>TokenInfoTuple</c>, or <c>undefined</c> if the
-          <c>TokenItem</c> has no value. If <c>TokenItemSpec</c> is a
-          list of
-          <c>TokenItem</c>, the result is a list of
-          <c>TokenInfoTuple</c>. The <c>TokenInfoTuple</c>s will
-          appear with the corresponding
-	  <c>TokenItem</c>s in the same order as the <c>TokenItem</c>s
-	  appeared in the list of <c>TokenItem</c>s. <c>TokenItem</c>s
-	  with no value are not included in the list of
-	  <c>TokenInfoTuple</c>.</p>
-	<p>The following <c>TokenInfoTuple</c>s with corresponding
-	   <c>TokenItem</c>s are valid:</p>
+          <c>TokenItem</c> has no value. If a list of
+          <c><anno>TokenItem</anno></c>s is given the result is a list of
+          <c><anno>TokenInfoTuple</anno></c>. The
+          <c><anno>TokenInfoTuple</anno></c>s will
+          appear with the corresponding <c><anno>TokenItem</anno></c>s in
+          the same order as the <c><anno>TokenItem</anno></c>s
+	  appear in the list of <c>TokenItem</c>s.
+          <c><anno>TokenItem</anno></c>s with no value are not included
+          in the list of <c><anno>TokenInfoTuple</anno></c>.</p>
+	<p>The following <c><anno>TokenInfoTuple</anno></c>s with corresponding
+	   <c><anno>TokenItem</anno></c>s are valid:</p>
         <taglist>
-          <tag><c>{category, category()}</c></tag>
+          <tag><c>{category, <seealso marker="#type-category">
+            category()</seealso>}</c></tag>
           <item><p>The category of the token.</p>
           </item>
-          <tag><c>{column, column()}</c></tag>
+          <tag><c>{column, <seealso marker="#type-column">
+            column()</seealso>}</c></tag>
           <item><p>The column where the token begins.</p>
           </item>
           <tag><c>{length, integer() > 0}</c></tag>
           <item><p>The length of the token's text.</p>
           </item>
-          <tag><c>{line, line()}</c></tag>
+          <tag><c>{line, <seealso marker="#type-line">
+            line()</seealso>}</c></tag>
           <item><p>The line where the token begins.</p>
           </item>
-          <tag><c>{location, location()}</c></tag>
+          <tag><c>{location, <seealso marker="#type-location">
+            location()</seealso>}</c></tag>
           <item><p>The line and column where the token begins, or
             just the line if the column unknown.</p>
           </item>
-          <tag><c>{symbol, symbol()}</c></tag>
+          <tag><c>{symbol, <seealso marker="#type-symbol">
+            symbol()</seealso>}</c></tag>
           <item><p>The token's symbol.</p>
           </item>
           <tag><c>{text, string()}</c></tag>
-          <item><p>The token's text..</p>
+          <item><p>The token's text.</p>
           </item>
         </taglist>
       </desc>
     </func>
     <func>
-      <name>attributes_info(Attributes) -> AttributesInfo</name>
+      <name name="attributes_info" arity="1"/>
       <fsummary>Return information about token attributes</fsummary>
-      <type>
-        <v>Attributes = attributes()</v>
-        <v>AttributesInfo = [AttributeInfoTuple]</v>
-        <v>AttributeInfoTuple = {AttributeItem, Info}</v>
-        <v>AttributeItem = atom()</v>
-        <v>Info = term()</v>
-      </type>
       <desc>
         <p>Returns a list containing information about the token
-          attributes <c>Attributes</c>. The order of the
-          <c>AttributeInfoTuple</c>s is not defined. The following
-          <c>AttributeItem</c>s are returned:
-          <c>column</c>, <c>length</c>, <c>line</c>, and <c>text</c>.
+          attributes <c><anno>Attributes</anno></c>. The order of the
+          <c><anno>AttributeInfoTuple</anno></c>s is not defined.
           See <seealso
           marker="#attributes_info/2">attributes_info/2</seealso> for
           information about specific
-          <c>AttributeInfoTuple</c>s.</p>
+          <c><anno>AttributeInfoTuple</anno></c>s.</p>
         <p>Note that if <c>attributes_info(Token, AttributeItem)</c>
           returns <c>undefined</c> for some <c>AttributeItem</c> in
           the list above, the item is not included in
-          <c>AttributesInfo</c>.</p>
+          <c><anno>AttributesInfo</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name>attributes_info(Attributes, AttributeItemSpec) -> AttributesInfo</name>
+      <name name="attributes_info" arity="2" clause_i="1"/>
+      <name name="attributes_info" arity="2" clause_i="2"/>
       <fsummary>Return information about a token attributes</fsummary>
-      <type>
-        <v>Attributes = attributes()</v>
-        <v>AttributeItemSpec = AttributeItem | [AttributeItem]</v>
-        <v>AttributesInfo = AttributeInfoTuple | undefined 
-                          | [AttributeInfoTuple]</v>
-        <v>AttributeInfoTuple = {AttributeItem, Info}</v>
-        <v>AttributeItem = atom()</v>
-        <v>Info = term()</v>
-      </type>
+      <type name="attribute_item"/>
       <desc>
         <p>Returns a list containing information about the token
-          attributes <c>Attributes</c>. If <c>AttributeItemSpec</c> is
-          a single <c>AttributeItem</c>, the returned value is the
-          corresponding <c>AttributeInfoTuple</c>, or <c>undefined</c>
-          if the <c>AttributeItem</c> has no value. If
-          <c>AttributeItemSpec</c> is a list of
-          <c>AttributeItem</c>, the result is a list of
-          <c>AttributeInfoTuple</c>. The <c>AttributeInfoTuple</c>s
-          will appear with the corresponding <c>AttributeItem</c>s in
-          the same order as the <c>AttributeItem</c>s appeared in the
-          list of <c>AttributeItem</c>s. <c>AttributeItem</c>s with no
+          attributes <c><anno>Attributes</anno></c>. If one single
+          <c><anno>AttributeItem</anno></c> is given the returned value is the
+          corresponding <c><anno>AttributeInfoTuple</anno></c>,
+          or <c>undefined</c> if the <c><anno>AttributeItem</anno></c>
+          has no value. If a list of <c><anno>AttributeItem</anno></c>
+          is given the result is a list of
+          <c><anno>AttributeInfoTuple</anno></c>.
+          The <c><anno>AttributeInfoTuple</anno></c>s
+          will appear with the corresponding <c><anno>AttributeItem</anno></c>s
+          in the same order as the <c><anno>AttributeItem</anno></c>s
+          appear in the list of <c><anno>AttributeItem</anno></c>s.
+          <c><anno>AttributeItem</anno></c>s with no
           value are not included in the list of
-	  <c>AttributeInfoTuple</c>.</p>
-	<p>The following <c>AttributeInfoTuple</c>s with corresponding
-	   <c>AttributeItem</c>s are valid:</p>
+	  <c><anno>AttributeInfoTuple</anno></c>.</p>
+	<p>The following <c><anno>AttributeInfoTuple</anno></c>s with
+          corresponding <c><anno>AttributeItem</anno></c>s are valid:</p>
         <taglist>
-          <tag><c>{column, column()}</c></tag>
+          <tag><c>{column, <seealso marker="#type-column">
+            column()</seealso>}</c></tag>
           <item><p>The column where the token begins.</p>
           </item>
           <tag><c>{length, integer() > 0}</c></tag>
           <item><p>The length of the token's text.</p>
           </item>
-          <tag><c>{line, line()}</c></tag>
+          <tag><c>{line, <seealso marker="#type-line">
+            line()</seealso>}</c></tag>
           <item><p>The line where the token begins.</p>
           </item>
-          <tag><c>{location, location()}</c></tag>
+          <tag><c>{location, <seealso marker="#type-location">
+            location()</seealso>}</c></tag>
           <item><p>The line and column where the token begins, or
             just the line if the column unknown.</p>
           </item>
           <tag><c>{text, string()}</c></tag>
-          <item><p>The token's text..</p>
+          <item><p>The token's text.</p>
           </item>
         </taglist>
       </desc>
     </func>
     <func>
-      <name>set_attribute(AttributeItem, Attributes, SetAttributeFun) -> AttributesInfo</name>
+      <name name="set_attribute" arity="3"/>
       <fsummary>Set a token attribute value</fsummary>
-      <type>
-        <v>AttributeItem = line</v>
-        <v>Attributes = attributes()</v>
-        <v>SetAttributeFun = set_attribute_fun()</v>
-      </type>
       <desc>
         <p>Sets the value of the <c>line</c> attribute of the token
-          attributes <c>Attributes</c>.</p>
-        <p>The <c>SetAttributeFun</c> is called with the value of
+          attributes <c><anno>Attributes</anno></c>.</p>
+        <p>The <c><anno>SetAttributeFun</anno></c> is called with the value of
           the <c>line</c> attribute, and is to return the new value of
           the <c>line</c> attribute.</p>
       </desc>
     </func>
     <func>
-      <name>format_error(ErrorDescriptor) -> string()</name>
+      <name name="format_error" arity="1"/>
       <fsummary>Format an error descriptor</fsummary>
-      <type>
-        <v>ErrorDescriptor = errordesc()</v>
-      </type>
       <desc>
-        <p>Takes an <c>ErrorDescriptor</c> and returns a string which
+        <p>Takes an <c><anno>ErrorDescriptor</anno></c> and returns
+          a string which
           describes the error or warning. This function is usually
           called implicitly when processing an <c>ErrorInfo</c>
           structure (see below).</p>

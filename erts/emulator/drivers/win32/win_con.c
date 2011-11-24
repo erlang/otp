@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1997-2009. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -704,6 +704,18 @@ FrameWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 	}
         write_inbuf(&c, 1);
 	return 0;
+    case WM_MOUSEWHEEL:
+      {
+	int delta = GET_WHEEL_DELTA_WPARAM(wParam);
+	if (delta < 0) {
+	  PostMessage(hClientWnd, WM_VSCROLL, MAKELONG(SB_THUMBTRACK,
+						       (iVscrollPos + 5)),0);
+	} else {
+	  WORD pos = ((iVscrollPos - 5) < 0) ? 0 : (iVscrollPos - 5);
+	  PostMessage(hClientWnd, WM_VSCROLL, MAKELONG(SB_THUMBTRACK,pos),0);
+	}
+      return 0;
+      }
     case WM_CHAR:
 	c = (TCHAR)wParam;
         write_inbuf(&c,1);

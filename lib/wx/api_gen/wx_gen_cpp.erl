@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,7 +19,7 @@
 %%%-------------------------------------------------------------------
 %%% File    : wx_gen_cpp.erl
 %%% Author  : Dan Gudmundsson <dgud@erix.ericsson.se>
-%%% Description : 
+%%% Description :
 %%%
 %%% Created : 19 Feb 2007 by Dan Gudmundsson <dgud@erix.ericsson.se>
 %%%-------------------------------------------------------------------
@@ -35,7 +35,7 @@
 		   args/3, strip_name/2]).
 -import(wx_gen, [next_id/1]).
 
-gen(Defs) ->   
+gen(Defs) ->
     open_write("../c_src/gen/wxe_derived_dest.h"),
     c_copyright(),
     w("~n/***** This file is generated do not edit ****/~n~n", []),
@@ -49,48 +49,26 @@ gen(Defs) ->
 
     open_write("../c_src/gen/wxe_macros.h"),
     c_copyright(),
-    gen_macros(), 
+    gen_macros(),
     close(),
 
     open_write("../c_src/gen/wxe_init.cpp"),
     c_copyright(),
     build_enums(),
     close(),
-    
+
     build_events(),
     Res.
-	    
+
 gen_derived_dest(Defs) ->
     [gen_derived_dest_2(Class) || Class <- Defs],
-    
-    UglySkipList = ["wxCaret", "wxCalendarDateAttr", 
-		    "wxFileDataObject", "wxTextDataObject", "wxBitmapDataObject"
-		   ],
-
-    ?WTC("gen_derived_dest"),
-    w("void WxeApp::delete_object(void *ptr, wxeRefData *refd) {~n", []),
-    w(" switch(refd->type) {~n", []),
-    Case = fun(#class{name=Class, id=Id, abstract=IsAbs, parent=P}) when P /= "static" ->
-		   UglyWorkaround = lists:member(Class, UglySkipList),
-		   case hd(reverse(wx_gen_erl:parents(Class))) of
-		       root when IsAbs == false, UglyWorkaround == false ->
-			   w("  case ~p: delete (~s *) ptr; break;~n", [Id, Class]);
-		       root when IsAbs == false, UglyWorkaround == true ->
-			   w("  case ~p: /* delete (~s *) ptr;"
-			     "These objects must be deleted by owner object */ "
-			     "break;~n", [Id, Class]);
-		       _ -> ok
-		   end;
-	      (_) -> ok
-	   end,
-    [Case(Class) || Class <- Defs],
-    w("  default: delete (wxObject *) ptr;~n", []),
-    w("}}~n~n", []).
+    ok.
 
 gen_derived_dest_2(C=#class{name=Class}) ->
-    case is_derived(C) of
-	true -> 
-	    ?WTC("gen_derived_dest_2"),
+    ?WTC("gen_derived_dest_2"),
+    Derived = is_derived(C),
+    TaylorMade = taylormade_class(C),
+    if Derived andalso (TaylorMade =:= false) ->
 	    w("class E~s : public ~s {~n",[Class,Class]),
 	    case Class of
 		"wxGLCanvas" ->  %% Special for cleaning up gl context
@@ -101,15 +79,32 @@ gen_derived_dest_2(C=#class{name=Class}) ->
 	    end,
 	    gen_constructors(C),
 	    w("};~n~n", []);
-	false ->
+       TaylorMade /= false ->
+	    w("~s~n", [TaylorMade]);
+       true ->
 	    ignore
+    end.
+
+taylormade_class(#class{name=CName, methods=Ms}) ->
+    TaylorMade = lists:any(fun([#method{where=taylormade}|_]) -> true;
+			      (_) -> false
+			   end, Ms),
+    case TaylorMade  of
+	false -> false;
+	true ->
+	    {ok, Bin} = file:read_file(filename:join([wx_extra, CName ++".c_src"])),
+	    Src = binary_to_list(Bin),
+	    case gen_util:get_taylor_made(Src, CName ++ "_class") of
+		nomatch ->   false;
+		{match, [Str0]} -> Str0
+	    end
     end.
 
 gen_constructors(#class{name=Class, methods=Ms0}) ->
     Ms = lists:append(Ms0),
     Cs = lists:filter(fun(#method{method_type=MT}) -> MT =:= constructor end, Ms),
     [gen_constructor(Class, Const) || Const <- Cs].
-    
+
 gen_constructor(_Class, #method{where=merged_c}) -> ok;
 gen_constructor(_Class, #method{where=erl_no_opt}) -> ok;
 gen_constructor(Class, _M=#method{params=Ps}) ->
@@ -119,7 +114,7 @@ gen_constructor(Class, _M=#method{params=Ps}) ->
     HaveMergedType = fun(#param{type={merged,_,_,_,_,_,_}}) -> true; (_) -> false end,
     ?WTC("gen_constructor"),
     case lists:any(HaveMergedType, Ps) of
-	false -> 
+	false ->
 	    w(" E~s(~s) : ~s(~s) {};~n",
 	      [Class,args(Gen1,",",Ps),Class,args(CallA,",",Ps)]);
 	true ->
@@ -141,9 +136,9 @@ gen_type(#type{name=Type, ref=undefined, single=array, mod=Mod},_) ->
     mods(Mod) ++ to_string(Type) ++ " * ";
 gen_type(#type{name=Type, ref=undefined, mod=Mod},_) ->
     mods(Mod) ++ to_string(Type) ++ " ";
-gen_type({merged, _, T1, _,_, _T2,_}, 1) -> 
+gen_type({merged, _, T1, _,_, _T2,_}, 1) ->
     gen_type(T1,error);
-gen_type({merged, _, _T1,_, _, T2,_}, 2) -> 
+gen_type({merged, _, _T1,_, _, T2,_}, 2) ->
     gen_type(T2,error).
 
 gen_funcs(Defs) ->
@@ -152,6 +147,7 @@ gen_funcs(Defs) ->
     w("#include \"../wxe_impl.h\"~n"),
     w("#include \"../wxe_events.h\"~n"),
     w("#include \"../wxe_return.h\"~n"),
+    w("#include \"../wxe_gl.h\"~n"),
     w("#include \"wxe_macros.h\"~n"),
     w("#include \"wxe_derived_dest.h\"~n~n"),
 
@@ -167,7 +163,7 @@ gen_funcs(Defs) ->
 %%     w("  case WXE_REMOVE_PORT:~n", []),
 %%     w("   { destroyMemEnv(Ecmd.port); } break;~n", []),
     w("  case DESTROY_OBJECT: {~n"),
-    w("     wxObject *This = (wxObject *) getPtr(bp,memenv); "),   
+    w("     wxObject *This = (wxObject *) getPtr(bp,memenv); "),
     w("     if(This) {"),
     w("       ((WxeApp *) wxTheApp)->clearPtr((void *) This);~n"),
     w("       delete This; }~n  } break;~n"),
@@ -176,6 +172,9 @@ gen_funcs(Defs) ->
       "     rt.addAtom(\"ok\");~n"
       "     break;~n"
       " }~n"),
+    w(" case WXE_BIN_INCR:~n   driver_binary_inc_refc(Ecmd.bin[0]->bin);~n   break;~n",[]),
+    w(" case WXE_BIN_DECR:~n   driver_binary_dec_refc(Ecmd.bin[0]->bin);~n   break;~n",[]),
+    w(" case WXE_INIT_OPENGL:~n  wxe_initOpenGL(rt, bp);~n   break;~n",[]),
 
     Res = [gen_class(Class) || Class <- Defs],
 
@@ -199,16 +198,39 @@ gen_funcs(Defs) ->
     w("    error.addTupleCount(2);~n"),
     w("    error.addTupleCount(3);~n"),
     w("    error.send();~n"),
-    w("}} /* The End */~n"),
+    w("}} /* The End */~n~n~n"),
+
+    UglySkipList = ["wxCaret", "wxCalendarDateAttr",
+		    "wxFileDataObject", "wxTextDataObject", "wxBitmapDataObject"
+		   ],
+
+    w("void WxeApp::delete_object(void *ptr, wxeRefData *refd) {~n", []),
+    w(" switch(refd->type) {~n", []),
+    Case = fun(#class{name=Class, id=Id, abstract=IsAbs, parent=P}) when P /= "static" ->
+		   UglyWorkaround = lists:member(Class, UglySkipList),
+		   case hd(reverse(wx_gen_erl:parents(Class))) of
+		       root when IsAbs == false, UglyWorkaround == false ->
+			   w("  case ~p: delete (~s *) ptr; break;~n", [Id, Class]);
+		       root when IsAbs == false, UglyWorkaround == true ->
+			   w("  case ~p: /* delete (~s *) ptr;"
+			     "These objects must be deleted by owner object */ "
+			     "break;~n", [Id, Class]);
+		       _ -> ok
+		   end;
+	      (_) -> ok
+	   end,
+    [Case(Class) || Class <- Defs],
+    w("  default: delete (wxObject *) ptr;~n", []),
+    w("}}~n~n", []),
     Res.
-		 
+
 gen_class(C=#class{name=Name,methods=Ms,options=Opts}) ->
     put(current_class, Name),
-    NewMs = 
+    NewMs =
 	case lists:member(taylormade, Opts) of
 	    true ->
 		{ok, Bin} = file:read_file(filename:join([wx_extra,Name++".c_src"])),
-        ?WTC("gen_class"),
+		?WTC("gen_class"),
 		w("~s~n", [binary_to_list(Bin)]),
 		Ms;
 	    false ->
@@ -216,13 +238,13 @@ gen_class(C=#class{name=Name,methods=Ms,options=Opts}) ->
 		    {value, {ifdef, What}} ->
 			w("#if ~p~n",[What]),
 			Methods = lists:flatten(Ms),
-			MsR = [gen_method(Name,M) || 
+			MsR = [gen_method(Name,M) ||
 				  M <- lists:keysort(#method.id, Methods)],
 			w("#endif // ~p~n",[What]),
 			MsR;
 		    false ->
 			Methods = lists:flatten(Ms),
-			[gen_method(Name,M) || 
+			[gen_method(Name,M) ||
 			    M <- lists:keysort(#method.id, Methods)]
 		end
 	end,
@@ -230,15 +252,19 @@ gen_class(C=#class{name=Name,methods=Ms,options=Opts}) ->
     C#class{methods=NewMs}.
 
 gen_method(_CName, M=#method{where=erl_no_opt}) ->     M;
-gen_method(CName, M=#method{where=taylormade, name=Name, id=Id}) ->     
+gen_method(CName, M=#method{where=taylormade, name=Name, id=Id}) ->
     {ok, Bin} = file:read_file(filename:join([wx_extra, CName ++".c_src"])),
-    Str0 = binary_to_list(Bin),
+    Src = binary_to_list(Bin),
     %%    io:format("C++ Class ~p ~p~n", [CName, Name]),
-    
-    {match, [Str1]} = re:run(Str0, "<<"++Name++"(.*)"++Name++">>",
-			   [dotall, {capture, all_but_first, list}]),
+    Str = case gen_util:get_taylor_made(Src, Name) of
+	      nomatch ->
+		  {match, [Str0]} = gen_util:get_taylor_made(Src, wx_gen_erl:get_unique_name(Id)),
+		  Str0;
+	      {match, [Str0]} ->
+		  Str0
+	  end,
     ?WTC("gen_method"),
-    w(Str1, [wx_gen_erl:get_unique_name(Id)]),
+    w(Str, [wx_gen_erl:get_unique_name(Id)]),
     M;
 gen_method(CName, M=#method{name=N,params=[Ps],method_type=destructor,id=MethodId}) ->
     case hd(reverse(wx_gen_erl:parents(CName))) of
@@ -249,7 +275,7 @@ gen_method(CName, M=#method{name=N,params=[Ps],method_type=destructor,id=MethodI
 	    w(" if(This) {", []),
 	    w("   ((WxeApp *) wxTheApp)->clearPtr((void *) This);~n", []),
 	    w("   delete This;}~n", []),
-	    free_args(), 
+	    free_args(),
 	    w(" break;~n}~n", []);
 	object ->  %% Use default
 	    ignore
@@ -262,16 +288,16 @@ gen_method(CName,  M=#method{name=N,params=Ps0,type=T,method_type=MT,id=MethodId
     w("case ~s: { // ~s::~s~n", [wx_gen_erl:get_unique_name(MethodId),CName,N]),
     Ps1 = declare_variables(void, Ps0),
     {Ps2,Align} = decode_arguments(Ps1),
-    Opts = [Opt || Opt = #param{def=Def,in=In,where=Where} <- Ps2, 
+    Opts = [Opt || Opt = #param{def=Def,in=In,where=Where} <- Ps2,
 		   Def =/= none, In =/= false, Where =/= c],
     decode_options(Opts, Align),
-    case M#method.pre_hook of
-	undefined -> skip;
+    case gen_util:get_hook(c, M#method.pre_hook) of
+	ignore -> skip;
 	Pre -> w(" ~s;~n", [Pre])
     end,
     Ps3 = call_wx(N,{MT,CName},T,Ps2),
-    case M#method.post_hook of
-	undefined -> skip;
+    case gen_util:get_hook(c, M#method.post_hook) of
+	ignore -> skip;
 	Post -> w(" ~s;~n", [Post])
     end,
     free_args(),
@@ -288,7 +314,7 @@ declare_variables(T, Ps) ->
 
 declare_var(P = #param{where=erl}) -> P;
 declare_var(P = #param{where=this}) -> P;
-declare_var(P = #param{name=Name,def=Def,type=Type,in=true}) when Def =/= none -> 
+declare_var(P = #param{name=Name,def=Def,type=Type,in=true}) when Def =/= none ->
     declare_type(Name, true, Def, Type),
     P;
 declare_var(P = #param{in=In}) when In =/= false -> P;
@@ -300,7 +326,7 @@ declare_type(N,false,_,#type{name="wxArrayInt"}) ->
     w(" wxArrayInt ~s;~n", [N]);
 declare_type(N,false,_,#type{name="wxArrayString"}) ->
     w(" wxArrayString ~s;~n", [N]);
-declare_type(N,false,_,#type{base=Base,single=true,name=Type,by_val=false,mod=Mod}) 
+declare_type(N,false,_,#type{base=Base,single=true,name=Type,by_val=false,mod=Mod})
   when Base =:= int; Base =:= long; Base =:= float; Base =:= double ->
     w(" ~s~s ~s;~n", [mods(Mod),Type,N]);
 declare_type(N,false,_,#type{base={enum,_},single=true,name=Type,by_val=false,mod=Mod}) ->
@@ -311,7 +337,7 @@ declare_type(N,false,_,#type{name="wxDateTime"}) ->
     w(" wxDateTime ~s;~n", [N]);
 declare_type(N,false,_,#type{name=Type, base=int64, ref=reference}) ->
     w(" ~s ~s;~n", [Type,N]);
-declare_type(N,true,Def,#type{base=Base,single=true,name=Type,by_val=true}) 
+declare_type(N,true,Def,#type{base=Base,single=true,name=Type,by_val=true})
   when Base =:= int; Base =:= long; Base =:= float; Base =:= double; Base =:= bool ->
     w(" ~s ~s=~s;~n", [Type,N,Def]);
 declare_type(N,true,Def,#type{base={comp,_,_},single=true,name=Type,mod=Mod,ref={pointer,1}}) ->
@@ -324,7 +350,7 @@ declare_type(N,true,Def,#type{base={class,_},single=true,name=Type,ref={pointer,
     w(" ~s~s * ~s=~s;~n", [mods(Mod),Type,N,Def]);
 declare_type(N,true,Def,#type{base={class,_},single=true,name=Type,ref=reference,mod=Mod}) ->
     w(" ~s~s * ~s= &~s;~n", [mods(Mod),Type,N,Def]);
-declare_type(N,true,Def,#type{base=Base,single=true,name=Type,by_val=false,ref={pointer,1}}) 
+declare_type(N,true,Def,#type{base=Base,single=true,name=Type,by_val=false,ref={pointer,1}})
   when Base =:= int; Base =:= long; Base =:= float; Base =:= double; Base =:= bool ->
     w(" ~s *~s=~s;~n", [Type,N,Def]);
 declare_type(N,true,Def,#type{single=true,name="wxArtClient"}) ->
@@ -341,7 +367,7 @@ declare_type(N,true,Def,#type{name=Type, ref={pointer,2}}) ->
     %% xxxx
     w(" ~s ** ~s = ~s;~n", [Type,N,Def]);
 declare_type(N,true,Def,#type{name=Type, single=array, ref={pointer,1}}) ->
-    w(" int * ~sLen = 0;~n", [N]),    
+    w(" int * ~sLen = 0;~n", [N]),
     w(" ~s * ~s = ~s;~n", [Type,N,Def]);
 declare_type(N,true,"",#type{name="wxArrayString", single=array, ref=reference}) ->
     w(" wxArrayString ~s;~n", [N]);
@@ -359,12 +385,12 @@ decode_options(Opts, Align) ->
 
 decode_opt(#param{name=Name,type=Type}, N) ->
     w("  case ~p: {bp += 4;~n", [N]),
-    Align = decode_arg(Name,Type,opt,1), 
+    Align = decode_arg(Name,Type,opt,1),
     align(Align, 64),
     w("  } break;~n", []),
     N+1.
 
-decode_arguments(Ps0) -> 
+decode_arguments(Ps0) ->
     lists:mapfoldl(fun decode_arg/2,0,Ps0).
 
 store_free(N) ->
@@ -376,7 +402,7 @@ store_free(N) ->
 free_args() ->
     case get(free_args) of
         undefined -> ignore;
-        List -> 
+        List ->
 	    erase(free_args),
             [w(" driver_free(~s);~n", [Arg]) || Arg <- List]
     end.
@@ -384,7 +410,7 @@ free_args() ->
 decode_arg(P = #param{where=erl},A) -> {P,A};
 decode_arg(P = #param{where=c},A) ->  {P,A};
 decode_arg(P = #param{in=false},A) -> {P,A};
-decode_arg(P = #param{def=Def},A) when Def =/= none -> {P,A}; 
+decode_arg(P = #param{def=Def},A) when Def =/= none -> {P,A};
 decode_arg(P = #param{name=Name,type=Type},A0) ->
     A = decode_arg(Name, Type, arg, A0),
     {P, A}.
@@ -422,22 +448,22 @@ decode_arg(N,#type{base=float,single=true,name=Type},arg,A0) ->
     align(A0,32);
 decode_arg(N,#type{base=double,single=true,name=Type},Arg,A0) ->
     A = align(A0,64),
-    case Arg of 
+    case Arg of
 	arg -> w(" ~s * ~s = (~s *) bp; bp += 8;~n", [Type,N,Type]);
 	opt -> w(" ~s = * (~s *) bp; bp += 8;~n",    [N,Type])
     end,
     A;
 decode_arg(N,#type{base=bool,single=true,name=Type},Arg,A0) ->
-    case Arg of 
+    case Arg of
 	arg -> w(" bool * ~s = (~s *) bp; bp += 4;~n", [N,Type]);
 	opt -> w(" ~s = *(~s *) bp; bp += 4;~n", [N,Type])
     end,
     align(A0,32);
 decode_arg(N,#type{base={enum,Type},single=true},Arg,A0) ->
-    wa(" ~s ", [enum_type(Type)], "~s = *(~s *) bp; bp += 4;;~n",[N, enum_type(Type)], Arg), 
+    wa(" ~s ", [enum_type(Type)], "~s = *(~s *) bp; bp += 4;;~n",[N, enum_type(Type)], Arg),
     align(A0,32);
 decode_arg(N,#type{base={comp,"wxDateTime",List},single=true,name=Type,ref=Ref},Arg,A0) ->
-    Decl = fun({int,Spec}) -> 
+    Decl = fun({int,Spec}) ->
 		   w(" int * ~s~s = (int *) bp; bp += 4;~n", [N,Spec])
 	   end,
     align(A0,32),
@@ -448,15 +474,15 @@ decode_arg(N,#type{base={comp,"wxDateTime",List},single=true,name=Type,ref=Ref},
 	   end,
     case Arg of
 	arg -> w(" ~s ~s = ~s(~s);~n", [Type,N,Type,args(Name, ",", List)]);
-	opt when Ref =:= {pointer,1} -> 
-	    w(" ~sTmp = ~s(~s); ~s = & ~sTmp;~n", 
+	opt when Ref =:= {pointer,1} ->
+	    w(" ~sTmp = ~s(~s); ~s = & ~sTmp;~n",
 	      [N,Type,args(Name, ",", List), N,N]);
 	opt ->
 	    w(" ~s = ~s(~s);~n", [N,Type,args(Name, ",", List)])
     end,
     (A0+length(List)) rem 2;
 decode_arg(N,#type{base={comp,_,List},single=true,name=Type,ref=Ref},Arg,A0) ->
-    Decl = fun({int,Spec}) -> 
+    Decl = fun({int,Spec}) ->
 		   w(" int * ~s~s = (int *) bp; bp += 4;~n", [N,Spec]);
 	      ({double, Spec}) ->
 		   w(" wxDouble * ~s~s = (wxDouble *) bp; bp += 8;~n", [N,Spec])
@@ -469,8 +495,8 @@ decode_arg(N,#type{base={comp,_,List},single=true,name=Type,ref=Ref},Arg,A0) ->
     Name = fun({_,Spec}) -> "*"++N++Spec end,
     case Arg of
 	arg -> w(" ~s ~s = ~s(~s);~n", [Type,N,Type,args(Name, ",", List)]);
-	opt when Ref =:= {pointer,1} -> 
-	    w(" ~sTmp = ~s(~s); ~s = & ~sTmp;~n", 
+	opt when Ref =:= {pointer,1} ->
+	    w(" ~sTmp = ~s(~s); ~s = & ~sTmp;~n",
 	      [N,Type,args(Name, ",", List), N,N]);
 	opt ->
 	    w(" ~s = ~s(~s);~n", [N,Type,args(Name, ",", List)])
@@ -479,7 +505,7 @@ decode_arg(N,#type{base={comp,_,List},single=true,name=Type,ref=Ref},Arg,A0) ->
 	{int, _} ->    (A0+length(List)) rem 2;
 	{double, _} -> 0
     end;
-  
+
 decode_arg(N,#type{name=Class="wxTreeItemId",single=true},Arg,A0) ->
     A = align(A0,64),
     wa(" ~s ",[Class],"~s = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;~n",[N],Arg),
@@ -488,7 +514,7 @@ decode_arg(N,#type{name=Class="wxTreeItemIdValue",single=true},Arg,A0) ->
     A = align(A0,64),
     wa(" ~s ",[Class],"~s = (~s) * (wxUint64 *) bp; bp += 8;~n",[N,Class],Arg),
     A;
-decode_arg(N,#type{name="wxChar", single=S},Arg,A0) 
+decode_arg(N,#type{name="wxChar", single=S},Arg,A0)
   when S =/= true ->
     w(" int * ~sLen = (int *) bp; bp += 4;~n", [N]),
     wa(" wxString", []," ~s = wxString(bp, wxConvUTF8);~n", [N],Arg),
@@ -497,7 +523,7 @@ decode_arg(N,#type{name="wxChar", single=S},Arg,A0)
 decode_arg(N,#type{base=string, name="wxFileName"},Arg,A0)  ->
     w(" int * ~sLen = (int *) bp; bp += 4;~n", [N]),
     wa(" wxString", []," ~sStr = wxString(bp, wxConvUTF8);~n", [N],Arg),
-    w(" bp += *~sLen+((8-((~p+ *~sLen) & 7)) & 7);~n", [N,4*((A0+1) rem 2),N]),    
+    w(" bp += *~sLen+((8-((~p+ *~sLen) & 7)) & 7);~n", [N,4*((A0+1) rem 2),N]),
     w(" wxFileName ~s = wxFileName(~sStr);~n",[N,N]),
     0;
 decode_arg(N,#type{base=string},Arg,A0)  ->
@@ -537,7 +563,7 @@ decode_arg(N,#type{name="wxArrayDouble"},arg,A0) ->
 decode_arg(_N,#type{base=eventType},_Arg,A0) ->
 %%     w(" int * ~sLen = (int *) bp; bp += 4;~n", [N]),
 %%     case Arg of
-%% 	arg -> 
+%% 	arg ->
 %% 	    w(" int ~s = wxeEventTypeFromAtom(bp);bp += *~sLen;~n",[N,N]),
 %% 	    w(" char *class_name = bp;~n", []),
 %% 	    w(" wxeCallbackData * Evt_cb = new wxeCallbackData(Ecmd.caller,This,class_name);~n",
@@ -547,7 +573,7 @@ decode_arg(_N,#type{base=eventType},_Arg,A0) ->
 decode_arg(N,#type{name=Type,base=binary,mod=Mod0},Arg,A0) ->
     Mod = mods([M || M <- Mod0]),
     case Arg of
-	arg -> 
+	arg ->
 	    w(" ~s~s * ~s = (~s~s*) Ecmd.bin[~p]->base;~n",
 	      [Mod,Type,N,Mod,Type, next_id(bin_count)]);
 	opt ->
@@ -560,10 +586,10 @@ decode_arg(N,#type{base={term,"wxTreeItemData"},mod=Mod0},Arg,A0) ->
     Type = "wxETreeItemData",
     BinCnt = next_id(bin_count),
     case Arg of
-	arg -> 
+	arg ->
 	    w(" ~s~s * ~s =  new ~s(Ecmd.bin[~p]->size, Ecmd.bin[~p]->base);~n",
 	      [Mod,Type,N,Type,BinCnt,BinCnt]);
-	opt -> 
+	opt ->
 	    w(" ~s = new ~s(Ecmd.bin[~p]->size, Ecmd.bin[~p]->base);~n",
 	      [N,Type,BinCnt,BinCnt])
     end,
@@ -572,10 +598,10 @@ decode_arg(N,#type{name=Type,base={term,_},mod=Mod0},Arg,A0) ->
     Mod = mods([M || M <- Mod0]),
     BinCnt = next_id(bin_count),
     case Arg of
-	arg -> 
+	arg ->
 	    w(" ~s~s * ~s =  new ~s(Ecmd.bin[~p]);~n",
 	      [Mod,Type,N,Type,BinCnt]);
-	opt -> 
+	opt ->
 	    w(" ~s = new ~s(Ecmd.bin[~p]);~n",
 	      [N,Type,BinCnt])
     end,
@@ -584,17 +610,17 @@ decode_arg(N,#type{single=array,base=int},Arg,A0)  ->
     case Arg of
 	arg ->
 	    w(" int * ~sLen = (int *) bp; bp += 4;~n", [N]),
-	    w(" int * ~s = (int *) bp; bp += *~sLen*4+((~p+ *~sLen)%2 )*4;~n", 
+	    w(" int * ~s = (int *) bp; bp += *~sLen*4+((~p+ *~sLen)%2 )*4;~n",
 	      [N,N,(A0+1) rem 2,N]);
-	opt ->	
+	opt ->
 	    w(" ~sLen = (int *) bp; bp += 4;~n", [N]),
-	    w(" ~s = (int *) bp; bp += *~sLen*4+((~p+ *~sLen)%2 )*4;~n", 
+	    w(" ~s = (int *) bp; bp += *~sLen*4+((~p+ *~sLen)%2 )*4;~n",
 	      [N,N,(A0+1) rem 2,N])
     end,
     0;
 decode_arg(N,#type{by_val=true,single=array,base={comp,Class="wxPoint",_}},arg,A0) ->
-    w(" int * ~sLen = (int *) bp; bp += 4;~n", [N]),    
-    w(" ~s *~s;~n",[Class,N]), 
+    w(" int * ~sLen = (int *) bp; bp += 4;~n", [N]),
+    w(" ~s *~s;~n",[Class,N]),
     w(" ~s = (~s *) driver_alloc(sizeof(~s) * *~sLen);~n",[N,Class,Class,N]),
     store_free(N),
     w(" for(int i=0; i < *~sLen; i++) {~n", [N]),
@@ -625,13 +651,13 @@ decode_arg(Name,T, Arg,_A) ->
 align(0, 32) -> 1;
 align(1, 32) -> 0;
 align(0, 64) -> 0;
-align(1, 64) -> 
+align(1, 64) ->
     w(" bp += 4; /* Align */~n"),
     0;
 align(N,Sz) ->
     align(N rem 2, Sz).
 
-call_wx(_N,{constructor,_},#type{base={class,RClass}},Ps) -> 
+call_wx(_N,{constructor,_},#type{base={class,RClass}},Ps) ->
     #class{id=Id} = ClassDef = get({class,RClass}),
     Class = case is_derived(ClassDef) of
 		true ->  "E" ++ RClass;
@@ -644,8 +670,8 @@ call_wx(_N,{constructor,_},#type{base={class,RClass}},Ps) ->
 		    case is_dialog(RClass) of
 			true -> 2;   %% Dialogs must be closed first event before windows
 			false -> 0
-		    end;			
-		false -> 
+		    end;
+		false ->
 		    case hd(reverse(wx_gen_erl:parents(RClass))) of
 			root -> Id;
 			_ -> 1
@@ -678,10 +704,10 @@ call_wx(N,{static,Class},Type,Ps) ->
 return_res(void) -> {"", ""};
 return_res(Type = #type{mod=Mod}) ->
     case lists:member(const, Mod) of
- 	true -> 
-	    {Beg, End} = return_res1(Type), 
+	true ->
+	    {Beg, End} = return_res1(Type),
  	    {"const " ++ Beg, End};
-	_ -> 
+	_ ->
 	    return_res1(Type)
     end.
 
@@ -691,8 +717,8 @@ return_res1(#type{name=Type,ref={pointer,_}}) ->
     {Type ++ " * Result = (" ++ Type ++ "*)", ""};
 return_res1(#type{name=Type,single=true,ref=reference}) ->
     {Type ++ " * Result = &", ""};
-return_res1(#type{name=Type,single=true,by_val=true}) 
-  when is_atom(Type) -> 
+return_res1(#type{name=Type,single=true,by_val=true})
+  when is_atom(Type) ->
     {atom_to_list(Type) ++ " Result = ", ""};
 return_res1(#type{name=Type="wxArrayInt"}) ->
     {Type ++ " Result = ", ""};
@@ -701,19 +727,19 @@ return_res1(#type{name=Type,base={class,_},single=list,ref=reference}) ->
 return_res1(#type{name=Type,base={comp,_,_},single=array,by_val=true}) ->
     {Type ++ " Result = ", ""};
 return_res1(#type{name=Type,single=true,by_val=true, base={class, _}}) ->
-    %% Memory leak !!!!!!   XXXX BUGBUG FIXME or doument!!    
-    case Type of 
+    %% Memory leak !!!!!!   XXXX BUGBUG FIXME or doument!!
+    case Type of
 	"wxImage" ->  ok;
 	"wxFont"  ->  ok;
 	"wxBitmap" -> ok;
 	"wxIcon" ->   ok;
 	"wxGraphics" ++ _ -> ok;
 	_ ->
-	    io:format("~s::~s Building return value of temp ~s~n", 
+	    io:format("~s::~s Building return value of temp ~s~n",
 		      [get(current_class),get(current_func),Type])
     end,
     %% #class{id=Id} = get({class,Type}),
-    {Type ++ " * Result = new " ++ Type ++ "(", "); newPtr((void *) Result," 
+    {Type ++ " * Result = new " ++ Type ++ "(", "); newPtr((void *) Result,"
      ++ "3, memenv);"};
 return_res1(#type{base={enum,_Type},single=true,by_val=true}) ->
     {"int Result = " , ""};
@@ -726,7 +752,7 @@ return_res1(#type{name=Type,single=true,by_val=true}) ->
 
 filter(Ps) ->
     lists:filter(fun filter_arg/1, Ps).
-filter_arg(#param{where=erl}) -> false;	   
+filter_arg(#param{where=erl}) -> false;
 filter_arg(#param{where=this}) -> false;
 filter_arg(#param{}) -> true.
 %%filter_arg(#param{def=Def, in=In}) -> Def =:= none orelse In =:= false.
@@ -735,20 +761,20 @@ filter_arg(#param{}) -> true.
 call_arg(#param{where=c, alt={length,Alt}}) when is_list(Alt) ->
     "*" ++ Alt ++ "Len";
 call_arg(#param{where=c, alt={size,Id}}) when is_integer(Id) ->
-    %% It's a binary 
+    %% It's a binary
     "Ecmd.bin["++ integer_to_list(Id) ++ "]->size";
-call_arg(#param{name=N,def=Def,type=#type{name=Type,by_val=true,single=true,base=Base}}) 
-  when Base =:= int; Base =:= long; Base =:= float; Base =:= double; Base =:= bool -> 
+call_arg(#param{name=N,def=Def,type=#type{name=Type,by_val=true,single=true,base=Base}})
+  when Base =:= int; Base =:= long; Base =:= float; Base =:= double; Base =:= bool ->
     case Def of
 	none -> "(" ++ to_string(Type) ++ ") *" ++ N;
 	_ ->  N
     end;
 
-call_arg(#param{name=N,type=#type{base={enum,Type}, by_val=true,single=true}}) -> 
+call_arg(#param{name=N,type=#type{base={enum,Type}, by_val=true,single=true}}) ->
     "(" ++ enum_type(Type) ++") " ++ N;
 call_arg(#param{name=N,type=#type{base={class,_},by_val=true,single=true}}) -> "*" ++ N;
 call_arg(#param{name=N,type=#type{base={class,_},ref=reference,single=true}}) -> "*" ++ N;
-call_arg(#param{name=N,type=#type{base=eventType}}) -> 
+call_arg(#param{name=N,type=#type{base=eventType}}) ->
     N ++ ", (wxObjectEventFunction)(wxEventFunction) &WxeApp::handle_evt, Evt_cb, this";
 call_arg(#param{name=N,type=#type{by_val=true, single=_False}}) -> N;
 call_arg(#param{name=N,def=Def,type=#type{by_val=false, ref={pointer,2}}})
@@ -756,20 +782,20 @@ call_arg(#param{name=N,def=Def,type=#type{by_val=false, ref={pointer,2}}})
 call_arg(#param{name=N,type=#type{by_val=false, ref={pointer,2}}}) -> "&" ++ N;
 call_arg(#param{name=N,in=false,type=#type{ref=reference, single=true}}) -> N;
 call_arg(#param{name=N,in=false,type=#type{by_val=false, single=true}}) -> "&" ++ N;
-call_arg(#param{name=N,def=Def,type=#type{base={comp,_,_},ref={pointer,1},single=true}}) 
+call_arg(#param{name=N,def=Def,type=#type{base={comp,_,_},ref={pointer,1},single=true}})
   when Def =:= none ->
     "&" ++N;
 call_arg(#param{name=N,type=#type{by_val=false}}) -> N;
 call_arg(#param{name=N,type={merged,_,#type{base={class,_},single=true,
 					    by_val=ByVal,
-					    ref=Ref},_,_,_,_}}) 
-  when ByVal =:= true; Ref =:= reference -> 
+					    ref=Ref},_,_,_,_}})
+  when ByVal =:= true; Ref =:= reference ->
     "*" ++ N;
-call_arg(#param{def=Def, type=void}) when Def =/= none -> Def;  
+call_arg(#param{def=Def, type=void}) when Def =/= none -> Def;
 call_arg(#param{name=N,type=#type{base={ref,_},by_val=true,single=true}}) -> N;
 call_arg(#param{name=N,type={merged,_,_,_,_,_,_}}) -> N.
 
-%% call_arg(#param{name=N,type=#type{base=Tuple,ref=reference}}) 
+%% call_arg(#param{name=N,type=#type{base=Tuple,ref=reference}})
 %%   when is_tuple(Tuple) -> "&" ++ N;
 
 to_string(Type) when is_atom(Type) -> atom_to_list(Type);
@@ -777,19 +803,19 @@ to_string(Type) when is_list(Type) -> Type.
 
 virtual_dest(#class{abstract=true, parent="root"}) -> false;
 virtual_dest(#class{abstract=true, parent="object"}) -> true;
-virtual_dest(#class{abstract=true, parent=Parent}) ->  
+virtual_dest(#class{abstract=true, parent=Parent}) ->
     virtual_dest(get({class,Parent}));
 virtual_dest(#class{methods=Ms, parent=Parent}) ->
     case lists:keysearch(destructor,#method.method_type, lists:append(Ms)) of
 	{value, #method{method_type=destructor, virtual=Virtual}} ->
 	    case Virtual of
-		undefined -> 
+		undefined ->
 		    case get({class,Parent}) of
-			undefined -> 
+			undefined ->
 			    case Parent of
-				"object" -> 
+				"object" ->
 				    true;
-				"root"   -> 
+				"root"   ->
 				    false;
 				_ ->
 				    io:format("Error: ~p~n",[Parent]),
@@ -798,10 +824,10 @@ virtual_dest(#class{methods=Ms, parent=Parent}) ->
 			PClass ->
 			    virtual_dest(PClass)
 		    end;
-		_ -> 
+		_ ->
 		    Virtual
 	    end;
-	false -> 
+	false ->
 	    false
     end.
 
@@ -815,24 +841,24 @@ is_derived(#class{abstract=true}) -> false;
 is_derived(C = #class{}) -> virtual_dest(C).
 
 is_window(Class) ->
-    lists:member("wxWindow", wx_gen_erl:parents(Class)).    
+    lists:member("wxWindow", wx_gen_erl:parents(Class)).
 
 is_dialog(Class) ->
     lists:member("wxDialog", wx_gen_erl:parents(Class)).
-   
+
 build_return_vals(Type,Ps) ->
     HaveType = case Type of  void -> 0; _ -> 1 end,
     NoOut = lists:sum([1 || #param{in=In} <- Ps, In =/= true]) + HaveType,
     OutTupSz = if NoOut > 1 -> NoOut; true -> 0 end,
-    
+
     build_ret_types(Type,Ps),
-    if 
+    if
 	OutTupSz > 1 -> w(" rt.addTupleCount(~p);~n",[OutTupSz]);
 	true -> ignore
-    end,	    
+    end,
     Ps.
 
-build_ret_types(void,Ps) -> 
+build_ret_types(void,Ps) ->
     Calc = fun(#param{name=N,in=False,type=T}, Free) when False =/= true ->
 		   case build_ret(N, False, T) of
 		       ok -> Free;
@@ -841,7 +867,7 @@ build_ret_types(void,Ps) ->
 	      (_, Free) -> Free
 	   end,
     lists:foldl(Calc, [], Ps);
-build_ret_types(Type,Ps) -> 
+build_ret_types(Type,Ps) ->
     Free = case build_ret("Result", out, Type) of
 	       ok -> [];
 	       FreeStr -> [FreeStr]
@@ -850,8 +876,8 @@ build_ret_types(Type,Ps) ->
 		   case build_ret(N, False, T) of
 		       ok -> FreeAcc;
 		       FreeMe -> [FreeMe|FreeAcc]
-		   end;	      
-	      (_, FreeAcc) -> FreeAcc 
+		   end;
+	      (_, FreeAcc) -> FreeAcc
 	   end,
     lists:foldl(Calc, Free, Ps).
 
@@ -894,17 +920,17 @@ build_ret(Name,_,#type{name="wxArrayInt"}) ->
 build_ret(Name,_,#type{base={comp,_,_},single=array}) ->
     w(" for(unsigned int i=0; i < ~s.GetCount(); i++) {~n", [Name]),
     w("  rt.add(~s[i]);~n }~n",[Name]),
-    w(" rt.endList(~s.GetCount());~n",[Name]);    
+    w(" rt.endList(~s.GetCount());~n",[Name]);
 build_ret(Name,_,#type{name=List,single=list,base={class,Class}}) ->
     w(" int i=0;~n"),
     w(" for(~s::const_iterator it = ~s.begin(); it != ~s.end(); ++it) {~n",
       [List, Name, Name]),
     w("   ~s * ~sTmp = *it;~n", [Class,Name]),
     w("   rt.addRef(getRef((void *)~sTmp,memenv), \"~s\"); i++;}~n",[Name,Class]),
-    w(" rt.endList(~s.GetCount());~n",[Name]);    
-    
+    w(" rt.endList(~s.GetCount());~n",[Name]);
+
 build_ret(Name,_,#type{name="wxArrayTreeItemIds"}) ->
-    w(" for(unsigned int i=0; i < ~s.GetCount(); i++) {~n", [Name]),   
+    w(" for(unsigned int i=0; i < ~s.GetCount(); i++) {~n", [Name]),
     w("    rt.add((wxUIntPtr *)~s[i].m_pItem);}~n",[Name]),
     w(" rt.endList(~s.GetCount());~n",[Name]);
 
@@ -919,10 +945,10 @@ build_ret(Name,_,#type{name="wxArrayString", single=array}) ->
     w(" rt.add(~s);~n", [Name]);
 build_ret(Name,In,T) ->
     ?error({nyi, Name,In, T}).
-		 
+
 mods([const|R]) -> "const " ++ mods(R);
 mods([unsigned|R]) -> "unsigned " ++ mods(R);
-mods([]) -> "".   
+mods([]) -> "".
 
 build_enums() ->
     Tree = get(consts),
@@ -931,13 +957,13 @@ build_enums() ->
     w("#include \"../wxe_impl.h\"~n"),
     w("#include \"wxe_macros.h\"~n"),
     w("#include \"../wxe_return.h\"~n"),
-    w("void WxeApp::init_nonconsts(wxeMemEnv *memenv, ErlDrvTermData caller) {~n"), 
+    w("void WxeApp::init_nonconsts(wxeMemEnv *memenv, ErlDrvTermData caller) {~n"),
     NotConsts = [NC || NC = #const{is_const=false} <- gb_trees:values(Tree)],
     Size = length(NotConsts),
     GVars = get(gvars),
     GSize = length(GVars),
     w("  wxeReturn rt = wxeReturn(WXE_DRV_PORT, caller);~n"),
-    w(" rt.addAtom((char*)\"wx_consts\");~n"),    
+    w(" rt.addAtom((char*)\"wx_consts\");~n"),
     [build_enum(NConst) || NConst <- lists:keysort(#const.val, NotConsts)],
     _Cnt = foldl(fun(Gvar, I) -> build_gvar(Gvar,I) end, 0, lists:sort(GVars)),
     w(" rt.endList(~p);~n", [Size+GSize]),
@@ -964,9 +990,9 @@ build_gvar({Name, Class, _Id}, Cnt) ->
     Cnt+1.
 
 gen_macros() ->
-    w("#include <wx/caret.h>~n"),   %% Arrg wxw forgot?? some files 
-    w("#include <wx/tooltip.h>~n"), 
-    w("#include <wx/gbsizer.h>~n"), 
+    w("#include <wx/caret.h>~n"),   %% Arrg wxw forgot?? some files
+    w("#include <wx/tooltip.h>~n"),
+    w("#include <wx/gbsizer.h>~n"),
     w("#include <wx/splash.h>~n"),
     w("#include <wx/grid.h>~n"),
     w("#include <wx/image.h>~n"),
@@ -991,15 +1017,15 @@ gen_macros() ->
     w("#include <wx/stc/stc.h>~n"),
     w("#include <wx/minifram.h>~n"),
     w("#include <wx/sashwin.h>~n"),
-    w("#include <wx/laywin.h>~n"), 
-    w("#include <wx/graphics.h>~n"), 
-    w("#include <wx/aui/aui.h>~n"), 
-    w("#include <wx/datectrl.h>~n"), 
-    w("#include <wx/filepicker.h>~n"), 
-    w("#include <wx/fontpicker.h>~n"), 
-    w("#include <wx/clrpicker.h>~n"), 
-    w("#include <wx/statline.h>~n"), 
-    w("#include <wx/clipbrd.h>~n"), 
+    w("#include <wx/laywin.h>~n"),
+    w("#include <wx/graphics.h>~n"),
+    w("#include <wx/aui/aui.h>~n"),
+    w("#include <wx/datectrl.h>~n"),
+    w("#include <wx/filepicker.h>~n"),
+    w("#include <wx/fontpicker.h>~n"),
+    w("#include <wx/clrpicker.h>~n"),
+    w("#include <wx/statline.h>~n"),
+    w("#include <wx/clipbrd.h>~n"),
     w("#include <wx/splitter.h>~n"),
     w("#include <wx/choicebk.h>~n"),
     w("#include <wx/toolbook.h>~n"),
@@ -1008,9 +1034,15 @@ gen_macros() ->
     w("#include <wx/html/htmlwin.h>~n"),
     w("#include <wx/html/htmlcell.h>~n"),
     w("#include <wx/filename.h>~n"),
-    
+    w("#include <wx/sysopt.h>~n"),
+
     w("~n~n", []),
-    [w("#define ~s_~s ~p~n", [Class,Name,Id]) || 
+    w("#ifndef wxICON_DEFAULT_BITMAP_TYPE~n",[]),
+    w("  #define wxICON_DEFAULT_BITMAP_TYPE wxBITMAP_TYPE_ICO_RESOURCE~n",[]),
+    w("#endif~n", []),
+    w("~n~n", []),
+
+    [w("#define ~s_~s ~p~n", [Class,Name,Id]) ||
 	{Class,Name,_,Id} <- wx_gen_erl:get_unique_names()],
     w("~n~n").
 
@@ -1023,29 +1055,29 @@ build_events() ->
     w("#include \"wxe_macros.h\"~n"),
     w("#include \"../wxe_events.h\"~n~n"),
     w("#include \"../wxe_return.h\"~n~n"),
-    
+
     w("wxeEtype::wxeEtype(const char *name, int Id) {eName = name;cID = Id;}~n~n"),
     w("WX_DECLARE_HASH_MAP(int, wxeEtype*, wxIntegerHash, wxIntegerEqual, wxeETmap );~n~n"),
-    
+
     w("wxeETmap etmap;~n~n"),
-    
+
     w(
 "int wxeEventTypeFromAtom(char *etype_atom) {
   wxeETmap::iterator it;
   for(it = etmap.begin(); it != etmap.end(); ++it) {
        wxeEtype * value = it->second;
-       if(strcmp(value->eName, etype_atom) == 0) { 
-	 if(it->first > wxEVT_USER_FIRST) {	   
+       if(strcmp(value->eName, etype_atom) == 0) {
+	 if(it->first > wxEVT_USER_FIRST) {
 	       return it->first - wxEVT_USER_FIRST;
 	    } else {
 	       return it->first;
 	    }
        }
-  }   
-  return -1; 
+  }
+  return -1;
 }
 
-"), 
+"),
 
     Evs0 = [C || {_,C=#class{event=Evs}} <- get(), Evs =/= false],
     Evs = lists:keysort(#class.id, Evs0),
@@ -1058,7 +1090,7 @@ initEventTable(Evs) ->
     w("  struct { ",[]),
     w("int ev_type;  int class_id; const char * ev_name;} event_types[] =~n  {~n",[]),
 
-    lists:foreach(fun(Ev) -> init_event_classes(Ev) end, 
+    lists:foreach(fun(Ev) -> init_event_classes(Ev) end,
 		  [#class{id=0,event=[wxEVT_NULL]}|Evs]),
     w("   {-1, 0, ""}~n  };~n",[]),
     w("  for(int i=0; event_types[i].ev_type != -1; i++) {~n",[]),
@@ -1076,7 +1108,7 @@ initEventTable(Evs) ->
       "     }~n"
       "  }~n", []),
     w("}~n~n").
-    
+
 init_event_classes(#class{event=ETs, id=Id}) ->
     F = fun({Eev, Cev, OtherClass}) ->
 		w("   {~w + wxEVT_USER_FIRST, ~w, ~p},~n",
@@ -1096,7 +1128,7 @@ find_id(OtherClass) ->
     Class = get({class,atom_to_list(OtherClass)}),
     %%{value, Class} = lists:keysearch(atom_to_list(OtherClass), #class.name, All),
     Class#class.id.
-    
+
 encode_events(Evs) ->
     ?WTC("encode_events"),
     w("void wxeEvtListener::forward(wxEvent& event)~n"
@@ -1123,7 +1155,7 @@ encode_events(Evs) ->
       " wxeMemEnv *memenv = app->getMemEnv(port);~n"
       " if(!memenv) return 0;~n~n"
       " wxeReturn rt = wxeReturn(port, cb->listener);~n"),
-    
+
     w("~n rt.addAtom((char*)\"wx\");~n"
       " rt.addInt((int) event->GetId());~n"
       " rt.addRef(getRef((void *)(cb->obj), memenv), cb->class_name);~n"
@@ -1146,15 +1178,15 @@ encode_events(Evs) ->
     w("   app->clearPtr((void *) event);~n"),
     w(" } else {~n"),
     w("   send_res =  rt.send();~n"),
-    w("   if(cb->skip) event->Skip();~n"),  
+    w("   if(cb->skip) event->Skip();~n"),
     w(" };~n"),
     w(" return send_res;~n"),
     w(" }~n").
 
 encode_event(C = #class{name=Class, id=Id, options=Opts}) ->
     ?WTC("encode_event"),
-    case proplists:get_value("mixed_event", Opts) of 
-	undefined -> 
+    case proplists:get_value("mixed_event", Opts) of
+	undefined ->
 	    w("case ~p: {// ~s~n", [Id,Class]),
 	    encode_event2(C),
 	    ok;
@@ -1180,10 +1212,10 @@ encode_event2(Class = #class{name=Name}) ->
 
 build_event_attrs(ClassRec = #class{name=Class}) ->
     Attrs0 = wx_gen_erl:filter_attrs(ClassRec),
-    Rename = 
-	fun(Att = #param{name=Name,prot=public,acc=undefined}, {All,Use}) -> 
+    Rename =
+	fun(Att = #param{name=Name,prot=public,acc=undefined}, {All,Use}) ->
 		{[Att#param{name= "ev->" ++ Name}|All],Use};
-	   (Att = #param{acc=Acc}, {All,_}) -> 
+	   (Att = #param{acc=Acc}, {All,_}) ->
 		{[Att#param{name= "ev->" ++ Acc}|All], true}
 	end,
     case foldr(Rename,{[],false},Attrs0) of
@@ -1193,9 +1225,9 @@ build_event_attrs(ClassRec = #class{name=Class}) ->
 %% 	    Attrs;
 	{Attrs,_} ->
 	    w(" ~s * ev = (~s *) event;~n",[Class,Class]),
-	    FixClass = 
+	    FixClass =
 		fun(P=#param{name=N,acc=Acc,type=#type{single=Single,by_val=ByVal,
-						       base={class,C}}}) 
+						       base={class,C}}})
 		   when Acc =/= undefined ->
 			Var = var_name(N),
 			if Single, ByVal ->
@@ -1206,17 +1238,17 @@ build_event_attrs(ClassRec = #class{name=Class}) ->
 			end,
 			P#param{name=Var};
 		   (P) -> P
-		end, 
+		end,
 	    lists:map(FixClass, Attrs)
     end.
 
-var_name("ev->" ++ Name0) -> 
+var_name("ev->" ++ Name0) ->
     case reverse(Name0) of
 	")(" ++ Name -> reverse(Name);
 	_ -> Name0
     end;
 var_name(Name) -> Name.
-     
+
 enum_name({Class,Type}) ->
     uppercase_all(Class ++ "_" ++ Type);
 enum_name(Type) ->

@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %% =====================================================================
@@ -37,7 +37,7 @@
 %% overriding the default settings, object properties, annotations,
 %% etc.</p>
 %%
-%% @type property() = atom() | tuple()
+%% % @type property() = atom() | tuple()
 
 -module(proplists).
 
@@ -49,16 +49,13 @@
 
 %% ---------------------------------------------------------------------
 
--type property()   :: atom() | tuple().
+-export_type([property/0, proplist/0]).
 
--type aliases()    :: [{any(), any()}].
--type negations()  :: [{any(), any()}].
--type expansions() :: [{property(), [any()]}].
+-type property()   :: atom() | tuple().
+-type proplist()  :: [property()].
 
 %% ---------------------------------------------------------------------
 
-%% @spec property(P::property()) -> property()
-%%
 %% @doc Creates a normal form (minimal) representation of a property. If
 %% <code>P</code> is <code>{Key, true}</code> where <code>Key</code> is
 %% an atom, this returns <code>Key</code>, otherwise the whole term
@@ -66,7 +63,8 @@
 %%
 %% @see property/2
 
--spec property(property()) -> property().
+-spec property(Property) -> Property when
+      Property :: property().
 
 property({Key, true}) when is_atom(Key) ->
     Key;
@@ -74,8 +72,6 @@ property(Property) ->
     Property.
 
 
-%% @spec property(Key::term(), Value::term()) -> property()
-%%
 %% @doc Creates a normal form (minimal) representation of a simple
 %% key/value property. Returns <code>Key</code> if <code>Value</code> is
 %% <code>true</code> and <code>Key</code> is an atom, otherwise a tuple
@@ -83,7 +79,10 @@ property(Property) ->
 %%
 %% @see property/1
 
--spec property(Key::term(), Value::term()) -> atom() | {term(), term()}.
+-spec property(Key, Value) -> Property when
+      Key :: term(),
+      Value :: term(),
+      Property :: atom() | {term(), term()}.
 
 property(Key, true) when is_atom(Key) ->
     Key;
@@ -93,14 +92,13 @@ property(Key, Value) ->
 
 %% ---------------------------------------------------------------------
 
-%% @spec unfold(List::[term()]) -> [term()]
-%%
 %% @doc Unfolds all occurences of atoms in <code>List</code> to tuples
 %% <code>{Atom, true}</code>.
 %%
 %% @see compact/1
 
--spec unfold(List::[term()]) -> [term()].
+-spec unfold(List) -> List when
+      List :: [term()].
 
 unfold([P | Ps]) ->
     if is_atom(P) ->
@@ -111,15 +109,14 @@ unfold([P | Ps]) ->
 unfold([]) ->
     [].
 
-%% @spec compact(List::[term()]) -> [term()]
-%%
 %% @doc Minimizes the representation of all entries in the list. This is
 %% equivalent to <code>[property(P) || P &lt;- List]</code>.
 %%
 %% @see unfold/1
 %% @see property/1
 
--spec compact(List::[property()]) -> [property()].
+-spec compact(List) -> List when
+      List :: [property()].
 
 compact(List) ->
     [property(P) || P <- List].
@@ -127,8 +124,6 @@ compact(List) ->
 
 %% ---------------------------------------------------------------------
 
-%% @spec lookup(Key::term(), List::[term()]) -> none | tuple()
-%%
 %% @doc Returns the first entry associated with <code>Key</code> in
 %% <code>List</code>, if one exists, otherwise returns
 %% <code>none</code>. For an atom <code>A</code> in the list, the tuple
@@ -138,7 +133,9 @@ compact(List) ->
 %% @see get_value/2
 %% @see get_bool/2
 
--spec lookup(Key::term(), List::[term()]) -> 'none' | tuple().
+-spec lookup(Key, List) -> 'none' | tuple() when
+      Key :: term(),
+      List :: [term()].
 
 lookup(Key, [P | Ps]) ->
     if is_atom(P), P =:= Key ->
@@ -152,15 +149,15 @@ lookup(Key, [P | Ps]) ->
 lookup(_Key, []) ->
     none.
 
-%% @spec lookup_all(Key::term(), List::[term()]) -> [tuple()]
-%%
 %% @doc Returns the list of all entries associated with <code>Key</code>
 %% in <code>List</code>. If no such entry exists, the result is the
 %% empty list.
 %%
 %% @see lookup/2
 
--spec lookup_all(Key::term(), List::[term()]) -> [tuple()].
+-spec lookup_all(Key, List) -> [tuple()] when
+      Key :: term(),
+      List :: [term()].
 
 lookup_all(Key, [P | Ps]) ->
     if is_atom(P), P =:= Key ->
@@ -176,13 +173,13 @@ lookup_all(_Key, []) ->
 
 %% ---------------------------------------------------------------------
 
-%% @spec is_defined(Key::term(), List::[term()]) -> boolean()
-%%
 %% @doc Returns <code>true</code> if <code>List</code> contains at least
 %% one entry associated with <code>Key</code>, otherwise
 %% <code>false</code> is returned.
 
--spec is_defined(Key::term(), List::[term()]) -> boolean().
+-spec is_defined(Key, List) -> boolean() when
+      Key :: term(),
+      List :: [term()].
 
 is_defined(Key, [P | Ps]) ->
     if is_atom(P), P =:= Key ->
@@ -198,17 +195,15 @@ is_defined(_Key, []) ->
 
 %% ---------------------------------------------------------------------
 
-%% @spec get_value(Key::term(), List::[term()]) -> term()
 %% @equiv get_value(Key, List, undefined)
 
--spec get_value(Key::term(), List::[term()]) -> term().
+-spec get_value(Key, List) -> term() when
+      Key :: term(),
+      List :: List::[term()].
 
 get_value(Key, List) ->
     get_value(Key, List, undefined).
 
-%% @spec get_value(Key::term(), List::[term()], Default::term()) ->
-%%         term()
-%%
 %% @doc Returns the value of a simple key/value property in
 %% <code>List</code>. If <code>lookup(Key, List)</code> would yield
 %% <code>{Key, Value}</code>, this function returns the corresponding
@@ -219,7 +214,10 @@ get_value(Key, List) ->
 %% @see get_all_values/2
 %% @see get_bool/2
 
--spec get_value(Key::term(), List::[term()], Default::term()) -> term().
+-spec get_value(Key, List, Default) -> term() when
+      Key :: term(),
+      List :: [term()],
+      Default :: term().
 
 get_value(Key, [P | Ps], Default) ->
     if is_atom(P), P =:= Key ->
@@ -238,8 +236,6 @@ get_value(Key, [P | Ps], Default) ->
 get_value(_Key, [], Default) ->
     Default.
 
-%% @spec get_all_values(Key, List) -> [term()]
-%%
 %% @doc Similar to <code>get_value/2</code>, but returns the list of
 %% values for <em>all</em> entries <code>{Key, Value}</code> in
 %% <code>List</code>. If no such entry exists, the result is the empty
@@ -247,7 +243,9 @@ get_value(_Key, [], Default) ->
 %%
 %% @see get_value/2
 
--spec get_all_values(Key::term(), List::[term()]) -> [term()].
+-spec get_all_values(Key, List) -> [term()] when
+      Key :: term(),
+      List :: [term()].
 
 get_all_values(Key, [P | Ps]) ->
     if is_atom(P), P =:= Key ->
@@ -265,8 +263,6 @@ get_all_values(Key, [P | Ps]) ->
 get_all_values(_Key, []) ->
     [].
 
-%% @spec append_values(Key::term(), List::[term()]) -> [term()]
-%%
 %% @doc Similar to <code>get_all_values/2</code>, but each value is
 %% wrapped in a list unless it is already itself a list, and the
 %% resulting list of lists is concatenated. This is often useful for
@@ -276,7 +272,9 @@ get_all_values(_Key, []) ->
 %%
 %% @see get_all_values/2
 
--spec append_values(Key::term(), List::[term()]) -> [term()].
+-spec append_values(Key, List) -> List when
+      Key :: term(),
+      List :: [term()].
 
 append_values(Key, [P | Ps]) ->
     if is_atom(P), P =:= Key ->
@@ -299,8 +297,6 @@ append_values(_Key, []) ->
 
 %% ---------------------------------------------------------------------
 
-%% @spec get_bool(Key::term(), List::[term()]) -> boolean()
-%%
 %% @doc Returns the value of a boolean key/value option. If
 %% <code>lookup(Key, List)</code> would yield <code>{Key, true}</code>,
 %% this function returns <code>true</code>; otherwise <code>false</code>
@@ -309,7 +305,9 @@ append_values(_Key, []) ->
 %% @see lookup/2
 %% @see get_value/2
 
--spec get_bool(Key::term(), List::[term()]) -> boolean().
+-spec get_bool(Key, List) -> boolean() when
+      Key :: term(),
+      List :: [term()].
 
 get_bool(Key, [P | Ps]) ->
     if is_atom(P), P =:= Key ->
@@ -331,12 +329,11 @@ get_bool(_Key, []) ->
 
 %% ---------------------------------------------------------------------
 
-%% @spec get_keys(List::[term()]) -> [term()]
-%%
 %% @doc Returns an unordered list of the keys used in <code>List</code>,
 %% not containing duplicates.
 
--spec get_keys(List::[term()]) -> [term()].
+-spec get_keys(List) -> [term()] when
+      List :: [term()].
 
 get_keys(Ps) ->
     sets:to_list(get_keys(Ps, sets:new())).
@@ -355,12 +352,12 @@ get_keys([], Keys) ->
 
 %% ---------------------------------------------------------------------
 
-%% @spec delete(Key::term(), List::[term()]) -> [term()]
-%%
 %% @doc Deletes all entries associated with <code>Key</code> from
 %% <code>List</code>.
 
--spec delete(Key::term(), List::[term()]) -> [term()].
+-spec delete(Key, List) -> List when
+      Key :: term(),
+      List::[term()].
 
 delete(Key, [P | Ps]) ->
     if is_atom(P), P =:= Key ->
@@ -376,11 +373,6 @@ delete(_, []) ->
 
 %% ---------------------------------------------------------------------
 
-%% @spec substitute_aliases(Aliases, List::[term()]) -> [term()]
-%%
-%%	    Aliases = [{Key, Key}]
-%%	    Key = term()
-%%
 %% @doc Substitutes keys of properties. For each entry in
 %% <code>List</code>, if it is associated with some key <code>K1</code>
 %% such that <code>{K1, K2}</code> occurs in <code>Aliases</code>, the
@@ -396,7 +388,10 @@ delete(_, []) ->
 %% @see substitute_negations/2
 %% @see normalize/2
 
--spec substitute_aliases(aliases(), List::[term()]) -> [term()].
+-spec substitute_aliases(Aliases, List) -> List when
+      Aliases :: [{Key, Key}],
+      Key :: term(),
+      List::[term()].
 
 substitute_aliases(As, Props) ->
     [substitute_aliases_1(As, P) || P <- Props].
@@ -415,11 +410,6 @@ substitute_aliases_1([], P) ->
 
 %% ---------------------------------------------------------------------
 
-%% @spec substitute_negations(Negations, List::[term()]) -> [term()]
-%%
-%%	    Negations = [{Key, Key}]
-%%	    Key = term()
-%%
 %% @doc Substitutes keys of boolean-valued properties and simultaneously
 %% negates their values. For each entry in <code>List</code>, if it is
 %% associated with some key <code>K1</code> such that <code>{K1,
@@ -441,7 +431,10 @@ substitute_aliases_1([], P) ->
 %% @see substitute_aliases/2
 %% @see normalize/2
 
--spec substitute_negations(negations(), List::[term()]) -> [term()].
+-spec substitute_negations(Negations, List) -> List when
+      Negations :: [{Key, Key}],
+      Key :: term(),
+      List :: [term()].
 
 substitute_negations(As, Props) ->
     [substitute_negations_1(As, P) || P <- Props].
@@ -470,10 +463,6 @@ substitute_negations_1([], P) ->
 
 %% ---------------------------------------------------------------------
 
-%% @spec expand(Expansions, List::[term()]) -> [term()]
-%%
-%%	    Expansions = [{property(), [term()]}]
-%%
 %% @doc Expands particular properties to corresponding sets of
 %% properties (or other terms). For each pair <code>{Property,
 %% Expansion}</code> in <code>Expansions</code>, if <code>E</code> is
@@ -508,7 +497,9 @@ substitute_negations_1([], P) ->
 %%
 %% @see normalize/2
 
--spec expand(Expansions::expansions(), [term()]) -> [term()].
+-spec expand(Expansions, List) -> List when
+      Expansions :: [{Property :: property(), Expansion :: [term()]}],
+      List :: [term()].
 
 expand(Es, Ps) when is_list(Ps) ->
     Es1 = [{property(P), V} || {P, V} <- Es],
@@ -587,15 +578,6 @@ flatten([]) ->
 
 %% ---------------------------------------------------------------------
 
-%% @spec normalize(List::[term()], Stages::[Operation]) -> [term()]
-%%
-%%	    Operation = {aliases, Aliases} | {negations, Negations}
-%%                    | {expand, Expansions}
-%%	    Aliases = [{Key, Key}]
-%%	    Negations = [{Key, Key}]
-%%	    Key = term()
-%%	    Expansions = [{property(), [term()]}]
-%%
 %% @doc Passes <code>List</code> through a sequence of
 %% substitution/expansion stages. For an <code>aliases</code> operation,
 %% the function <code>substitute_aliases/2</code> is applied using the
@@ -617,11 +599,15 @@ flatten([]) ->
 %% @see expand/2
 %% @see compact/1
 
--type operation() :: {'aliases', aliases()}
-                   | {'negations', negations()}
-                   | {'expand', expansions()}.
-
--spec normalize(List::[term()], Stages::[operation()]) -> [term()].
+-spec normalize(List, Stages) -> List when
+      List :: [term()],
+      Stages :: [Operation],
+      Operation :: {'aliases', Aliases}
+                 | {'negations', Negations}
+                 | {'expand', Expansions},
+      Aliases :: [{Key, Key}],
+      Negations :: [{Key, Key}],
+      Expansions :: [{Property :: property(), Expansion :: [term()]}].
 
 normalize(L, [{aliases, As} | Xs]) ->
     normalize(substitute_aliases(As, L), Xs);
@@ -634,10 +620,6 @@ normalize(L, []) ->
 
 %% ---------------------------------------------------------------------
 
-%% @spec split(List::[term()], Keys::[term()]) -> {Lists, Rest}
-%%           Lists = [[term()]]
-%%           Rest = [term()]
-%%
 %% @doc Partitions <code>List</code> into a list of sublists and a
 %% remainder. <code>Lists</code> contains one sublist for each key in
 %% <code>Keys</code>, in the corresponding order. The relative order of
@@ -652,7 +634,11 @@ normalize(L, []) ->
 %% {[[a], [{b, 5}, b],[{c, 2}, {c, 3, 4}]], [{e, 1}, d]}</pre>
 %% </p>
 
--spec split(List::[term()], Keys::[term()]) -> {[[term()]], [term()]}.
+-spec split(List, Keys) -> {Lists, Rest} when
+      List :: [term()],
+      Keys :: [term()],
+      Lists :: [[term()]],
+      Rest :: [term()].
 
 split(List, Keys) ->
     {Store, Rest} = split(List, dict:from_list([{K, []} || K <- Keys]), []),

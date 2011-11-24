@@ -14,14 +14,12 @@
 %% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
 %% USA
 %%
-%% $Id$
-%%
 %% @private
 %% @copyright 2003 Richard Carlsson
-%% @author Richard Carlsson <richardc@it.uu.se>
+%% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @see edoc
 %% @see edoc_parse_ref
-%% @end 
+%% @end
 %% =====================================================================
 
 %% @doc Representation and handling of EDoc object references. See

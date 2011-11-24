@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -332,7 +332,7 @@ set_info(Config) ->
 register_users(MgrAgentConfName, Users) ->
     {snmp, SnmpVals} = ct:get_config(MgrAgentConfName),
     NewSnmpVals = lists:keyreplace(users, 1, SnmpVals, {users, Users}),
-    ct_util:update_config(MgrAgentConfName, {snmp, NewSnmpVals}),
+    ct_config:update_config(MgrAgentConfName, {snmp, NewSnmpVals}),
     setup_users(Users).
 
 %%% @spec register_agents(MgrAgentConfName, ManagedAgents) -> ok | {error, Reason}
@@ -347,7 +347,7 @@ register_agents(MgrAgentConfName, ManagedAgents) ->
     {snmp, SnmpVals} = ct:get_config(MgrAgentConfName),
     NewSnmpVals = lists:keyreplace(managed_agents, 1, SnmpVals,
 				   {managed_agents, ManagedAgents}),
-    ct_util:update_config(MgrAgentConfName, {snmp, NewSnmpVals}),
+    ct_config:update_config(MgrAgentConfName, {snmp, NewSnmpVals}),
     setup_managed_agents(ManagedAgents).
 
 %%% @spec register_usm_users(MgrAgentConfName, UsmUsers) ->  ok | {error, Reason}
@@ -361,7 +361,7 @@ register_agents(MgrAgentConfName, ManagedAgents) ->
 register_usm_users(MgrAgentConfName, UsmUsers) ->
     {snmp, SnmpVals} = ct:get_config(MgrAgentConfName),
     NewSnmpVals = lists:keyreplace(users, 1, SnmpVals, {usm_users, UsmUsers}),
-    ct_util:update_config(MgrAgentConfName, {snmp, NewSnmpVals}),
+    ct_config:update_config(MgrAgentConfName, {snmp, NewSnmpVals}),
     EngineID = ct:get_config({MgrAgentConfName, engine_id}, ?ENGINE_ID),
     setup_usm_users(UsmUsers, EngineID).
 
@@ -376,7 +376,7 @@ unregister_users(MgrAgentConfName) ->
 		      ct:get_config({MgrAgentConfName, users})),
     {snmp, SnmpVals} = ct:get_config(MgrAgentConfName),
     NewSnmpVals = lists:keyreplace(users, 1, SnmpVals, {users, []}),
-    ct_util:update_config(MgrAgentConfName, {snmp, NewSnmpVals}),
+    ct_config:update_config(MgrAgentConfName, {snmp, NewSnmpVals}),
     takedown_users(Users).
 
 %%% @spec unregister_agents(MgrAgentConfName) ->  ok | {error, Reason}
@@ -393,7 +393,7 @@ unregister_agents(MgrAgentConfName) ->
     {snmp, SnmpVals} = ct:get_config(MgrAgentConfName),
     NewSnmpVals = lists:keyreplace(managed_agents, 1, SnmpVals, 
 				   {managed_agents, []}),
-    ct_util:update_config(MgrAgentConfName, {snmp, NewSnmpVals}),
+    ct_config:update_config(MgrAgentConfName, {snmp, NewSnmpVals}),
     takedown_managed_agents(ManagedAgents).
 
 
@@ -409,7 +409,7 @@ update_usm_users(MgrAgentConfName, UsmUsers) ->
     {snmp, SnmpVals} = ct:get_config(MgrAgentConfName),
     NewSnmpVals = lists:keyreplace(usm_users, 1, SnmpVals, 
 				   {usm_users, UsmUsers}),
-    ct_util:update_config(MgrAgentConfName, {snmp, NewSnmpVals}),
+    ct_config:update_config(MgrAgentConfName, {snmp, NewSnmpVals}),
     EngineID = ct:get_config({MgrAgentConfName, engine_id}, ?ENGINE_ID),
     do_update_usm_users(UsmUsers, EngineID). 
 

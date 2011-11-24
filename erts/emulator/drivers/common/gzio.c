@@ -28,6 +28,7 @@
 
 #ifdef __WIN32__
 #define HAVE_CONFLICTING_FREAD_DECLARATION
+#define FILENAMES_16BIT 1
 #endif
 
 #ifdef STDC
@@ -102,6 +103,40 @@ local uLong  getLong      OF((gz_stream *s));
 # define ERTS_GZREAD(File, Buf, Count) fread((Buf), 1, (Count), (File))
 #endif
 
+/*
+ * Ripped from efile_drv.c
+ */
+
+#ifdef FILENAMES_16BIT
+#  define FILENAME_BYTELEN(Str) filename_len_16bit(Str)
+#  define FILENAME_COPY(To,From) filename_cpy_16bit((To),(From)) 
+#  define FILENAME_CHARSIZE 2
+
+   static int filename_len_16bit(const char *str) 
+   {
+       const char *p = str;
+       while(*p != '\0' || p[1] != '\0') {
+	   p += 2;
+       }
+       return (p - str);
+   }
+
+   static void filename_cpy_16bit(char *to, const char *from) 
+   {
+       while(*from != '\0' || from[1] != '\0') {
+	   *to++ = *from++;
+	   *to++ = *from++;
+       }
+       *to++ = *from++;
+       *to++ = *from++;
+   }
+
+#else
+#  define FILENAME_BYTELEN(Str) strlen(Str)
+#  define FILENAME_COPY(To,From) strcpy(To,From) 
+#  define FILENAME_CHARSIZE 1
+#endif
+
 /* ===========================================================================
      Opens a gzip (.gz) file for reading or writing. The mode parameter
    is as in fopen ("rb" or "wb"). The file is given either by file descriptor
@@ -144,11 +179,11 @@ local gzFile gz_open (path, mode)
     s->position = 0;
     s->destroy = destroy;
 
-    s->path = (char*)ALLOC(strlen(path)+1);
+    s->path = (char*)ALLOC(FILENAME_BYTELEN(path)+FILENAME_CHARSIZE);
     if (s->path == NULL) {
         return s->destroy(s), (gzFile)Z_NULL;
     }
-    strcpy(s->path, path); /* do this early for debugging */
+    FILENAME_COPY(s->path, path); /* do this early for debugging */
 
     s->mode = '\0';
     do {
@@ -194,7 +229,22 @@ local gzFile gz_open (path, mode)
     s->stream.avail_out = Z_BUFSIZE;
 
     errno = 0;
-#ifdef UNIX
+#if defined(FILENAMES_16BIT)
+    {
+	char wfmode[160];
+	int i=0,j;
+	for(j=0;fmode[j] != '\0';++j) {
+	    wfmode[i++]=fmode[j];
+	    wfmode[i++]='\0';
+	}
+	wfmode[i++] = '\0';
+	wfmode[i++] = '\0';
+	s->file = F_OPEN(path, wfmode);
+	if (s->file == NULL) {
+	    return s->destroy(s), (gzFile)Z_NULL;
+	}
+    }
+#elif defined(UNIX)
     if (s->mode == 'r') {
 	s->file = open(path, O_RDONLY);
     } else {
@@ -582,6 +632,7 @@ erts_gzseek(gzFile file, int offset, int whence)
     while (s->position < pos) {
 	char buf[512];
 	int n;
+	int save_pos = s->position;
 
 	n = pos - s->position;
 	if (n > sizeof(buf))
@@ -593,6 +644,7 @@ erts_gzseek(gzFile file, int offset, int whence)
 	    memset(buf, '\0', n);
 	    erts_gzwrite(file, buf, n);
 	}
+	if (save_pos == s->position) break;
     }
 
     return s->position;

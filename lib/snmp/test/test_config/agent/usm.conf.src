@@ -1,0 +1,17 @@
+%% This file defines the security parameters for the user-based
+%% security model.
+%% The data is inserted into the usmUserTable defined
+%% in SNMP-USER-BASED-SM-MIB.
+%% Each row is a 13-tuple:
+%% {EngineID, UserName, SecName, Clone, AuthP, AuthKeyC, OwnAuthKeyC,
+%%  PrivP, PrivKeyC, OwnPrivKeyC, Public, AuthKey, PrivKey}.
+%% For example
+%% {"agentEngine", "initial", "initial", zeroDotZero,
+%%  usmNoAuthProtocol, "", "", usmNoPrivProtocol, "", "", "",
+%%  "", ""}.
+%%
+
+
+{%USM_ENGINE_ID%, "initial", "initial", zeroDotZero, usmHMACMD5AuthProtocol, "", "", usmNoPrivProtocol, "", "", "", [160,66,33,136,178,59,246,214,102,63,131,131,54,14,221,177], ""}.
+{%USM_ENGINE_ID%, "templateMD5", "templateMD5", zeroDotZero, usmHMACMD5AuthProtocol, "", "", usmNoPrivProtocol, "", "", "", [160,66,33,136,178,59,246,214,102,63,131,131,54,14,221,177], ""}.
+{%USM_ENGINE_ID%, "templateSHA", "templateSHA", zeroDotZero, usmHMACSHAAuthProtocol, "", "", usmNoPrivProtocol, "", "", "", [199,94,239,13,229,135,141,77,124,129,65,189,230,240,115,163,239,15,13,242], ""}.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -72,13 +72,13 @@ stop() ->
     sounder ! {stop},
     ok end.
 
-new(File) when list(File) -> new(list_to_atom(File));
-new(File) when atom(File) ->
+new(File) when is_list(File) -> new(list_to_atom(File));
+new(File) when is_atom(File) ->
     catch begin check(),
     sounder ! {new,File,self()},
     wait_for_ack(sounder) end.
 
-play(No) when integer(No) ->
+play(No) when is_integer(No) ->
     catch begin check(),
     sounder ! {play, No, self()},
     wait_for_ack(sounder) end.
@@ -94,14 +94,14 @@ go()  ->
 
 loop(Port) ->
     receive
-	{new, File, From} when atom(File) ->
+	{new, File, From} when is_atom(File) ->
 	    Port ! {self(),{command,lists:append([0],atom_to_list(File))}},
 	    From ! {sounder,wait_for_ack(Port)},
 	    loop(Port);
 	{play,silent,From} ->
 	    From ! {sounder,false},
 	    loop(Port);
-	{play,No,From} when integer(No) ->
+	{play,No,From} when is_integer(No) ->
 	    Port ! {self(),{command,[No]}},
 	    From ! {sounder,wait_for_ack(Port)},
 	    loop(Port);
@@ -118,13 +118,13 @@ loop(Port) ->
 
 nosound() ->
     receive
-	{new,File,From} when atom(File) ->
+	{new,File,From} when is_atom(File) ->
 	    From ! {sounder,{ok,silent}},
 	    nosound();
 	{play,silent,From} ->
 	    From ! {sounder,true},
 	    nosound();
-	{play,No,From} when integer(No) ->
+	{play,No,From} when is_integer(No) ->
 	    From ! {sounder,{error,no_audio_cap}},
 	    nosound();
 	{stop} ->
@@ -135,7 +135,7 @@ nosound() ->
 
 wait_for_ack(sounder) ->
     receive {sounder,Res} -> Res end;
-wait_for_ack(Port) when port(Port) ->
+wait_for_ack(Port) when is_port(Port) ->
     receive
 	{Port,{data,"ok"}} ->
 	    ok;
@@ -149,7 +149,7 @@ wait_for_ack(Port) when port(Port) ->
 
 check() ->
     case whereis(sounder) of
-	Pid when pid(Pid) -> 
+	Pid when is_pid(Pid) -> 
 	    ok;
 	undefined ->
 	    throw({error,sounder_not_started})

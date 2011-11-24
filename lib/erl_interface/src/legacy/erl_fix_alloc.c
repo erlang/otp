@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1996-2009. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -109,6 +109,10 @@ void *erl_eterm_alloc (void)
 	erl_eterm_state->freed--;      
     } else if ((b = malloc(sizeof(*b))) == NULL) {
 	erl_errno = ENOMEM;
+#ifdef _REENTRANT
+	ei_mutex_unlock(erl_eterm_state->lock);
+#endif /* _REENTRANT */
+	return NULL;
     }
     erl_eterm_state->allocated++;
     b->free = 0;

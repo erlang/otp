@@ -1,0 +1,43 @@
+%% This is an example sys config file for starting the snmp application
+%% with only a agent running.
+[{snmp, 
+  [
+   {agent,
+    [
+     {priority, normal}, 
+     {versions, [v1,v2,v3]}, 
+     {db_dir, "%DIR%/agent/db"}, 
+     {mib_storage, ets}, 
+%%     {agent_mib_storage, volatile},
+     {agent_mib_storage, persistent},
+     {target_cache, [{verbosity,silence}]}, 
+     {symbolic_store, [{verbosity,silence}]}, 
+     {local_db, [{repair,true},{auto_save,5000},{verbosity,silence}]}, 
+     {error_report_module, snmpa_error_logger}, 
+     {agent_type, master}, 
+     {agent_verbosity, trace}, 
+     {audit_trail_log, [{type, read}, 
+                        {dir, "%DIR%/agent/log"},
+                        {size, {10240,10}}]},
+     {config, [{dir,        "%DIR%/agent/conf"}, 
+               {force_load, true}, 
+               {verbosity,  trace}]}, 
+     {multi_threaded, true}, 
+     {mib_server, [{mibentry_override,  false},
+                   {trapentry_override, false},
+                   {cache,              true},
+                   {verbosity,          trace}]}, 
+     {note_store, [{timeout,30000}, {verbosity,silence}]}, 
+     {supervisor, [{verbosity,silence}]}, 
+     {net_if, [{module,    snmpa_net_if},
+               {verbosity, silence},
+               {options,   [{bind_to,   true},
+                            {no_reuse,  false},
+                            {req_limit, infinity},
+                            {sndbuf,    32000}, 
+                            {recbuf,    32000}]}]}
+    ]
+   }
+  ]
+ }
+].

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2001</year><year>2009</year>
+      <year>2001</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>Advanced</title>
@@ -34,7 +34,7 @@
     <p>A good start when programming efficiently is to have knowledge about
       how much memory different data types and operations require. It is
       implementation-dependent how much memory the Erlang data types and
-      other items consume, but here are some figures for
+      other items consume, but here are some figures for the
       erts-5.2 system (OTP release R9B). (There have been no significant
       changes in R13.)</p>
 
@@ -47,11 +47,13 @@
         <cell align="center" valign="middle">Memory size</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">Integer (-16#7FFFFFF &lt; i &lt;16#7FFFFFF)</cell>
-        <cell align="left" valign="middle">1 word</cell>
+        <cell align="left" valign="middle">Small integer</cell>
+        <cell align="left" valign="middle">1 word<br></br>
+On 32-bit architectures: -134217729 &lt; i &lt; 134217728 (28 bits)<br></br>
+On 64-bit architectures: -576460752303423489 &lt; i &lt; 576460752303423488 (60 bits)</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">Integer (big numbers)</cell>
+        <cell align="left" valign="middle">Big integer</cell>
         <cell align="left" valign="middle">3..N words</cell>
       </row>
       <row>
@@ -72,11 +74,11 @@ On 64-bit architectures: 3 words</cell>
       </row>
       <row>
         <cell align="left" valign="middle">List</cell>
-        <cell align="left" valign="middle">1 word per element + the size of each element</cell>
+        <cell align="left" valign="middle">1 word + 1 word per element + the size of each element</cell>
       </row>
       <row>
         <cell align="left" valign="middle">String (is the same as a list of integers)</cell>
-        <cell align="left" valign="middle">2 words per character</cell>
+        <cell align="left" valign="middle">1 word + 2 words per character</cell>
       </row>
       <row>
         <cell align="left" valign="middle">Tuple</cell>
@@ -154,7 +156,8 @@ On 64-bit architectures: 4 words for a reference from the current local node, an
       <item>255</item>
       <tag><em>Atoms </em></tag>
       <item>      <marker id="atoms"></marker>
-The maximum number of atoms is 1048576. </item>
+	By default, the maximum number of atoms is 1048576.
+	This limit can be raised or lowered using the <c>+t</c> option.</item>
       <tag><em>Ets-tables</em></tag>
       <item>The default is 1400, can be changed with the environment variable <c>ERL_MAX_ETS_TABLES</c>.</item>
       <tag><em>Elements in a tuple</em></tag>
@@ -175,7 +178,7 @@ The maximum number of atoms is 1048576. </item>
       <tag><em>Total amount of data allocated by an Erlang node</em></tag>
       <item>The Erlang runtime system can use the complete 32 (or 64) bit address space,
        but the operating system often limits a single process to use less than that.</item>
-      <tag><em>length of a node name</em></tag>
+      <tag><em>Length of a node name</em></tag>
       <item>An Erlang node name has the form host@shortname or host@longname. The node name is 
        used as an atom within the system so the maximum size of 255 holds for the node name too.</item>
       <tag><em>Open ports</em></tag>
@@ -197,7 +200,7 @@ The maximum number of atoms is 1048576. </item>
       <seealso marker="#ports">the maximum number of Erlang ports</seealso>
        available, and operating system specific settings and limits.</item>
       <tag><em>Number of arguments to a function or fun</em></tag>
-      <item>256</item>
+      <item>255</item>
     </taglist>
   </section>
 </chapter>

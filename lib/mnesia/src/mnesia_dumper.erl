@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -214,7 +214,12 @@ insert_rec(Rec, InPlace, InitBy, LogV) when is_record(Rec, commit) ->
 	{Tid, committed} ->
 	    do_insert_rec(Tid, Rec, InPlace, InitBy, LogV);
 	{Tid, aborted} ->
-	    mnesia_schema:undo_prepare_commit(Tid, Rec)
+	    case InitBy of
+		startup ->
+		    mnesia_schema:undo_prepare_commit(Tid, Rec);
+		_ ->
+		    ok
+	    end
     end;
 insert_rec(H, _InPlace, _InitBy, _LogV) when is_record(H, log_header) ->
     CurrentVersion = mnesia_log:version(),
@@ -359,7 +364,7 @@ dets_insert(Op,Tab,Key,Val) ->
 	    ok = dets:delete_object(Tab, Val);
 	clear_table ->
 	    dets_cleared(Tab),
-	    ok = dets:match_delete(Tab, '_')
+	    ok = dets:delete_all_objects(Tab)
     end.
 	    
 dets_updated(Tab,Key) -> 
@@ -643,7 +648,7 @@ insert_op(Tid, _, {op, create_table, TabDef}, InPlace, InitBy) ->
 			true -> ignore;
 			false ->
 			    mnesia_log:open_log(temp, 
-						mnesia_log:dcl_log_header(),
+						mnesia_log:dcd_log_header(),
 						Dcd, 
 						false, 
 						false,
@@ -871,7 +876,11 @@ insert_op(Tid, _, {op, add_index, Pos, TabDef}, InPlace, InitBy) ->
 	startup ->
 	    ignore; 
 	_  ->
-	    mnesia_index:init_indecies(Tab, Storage, [Pos])
+	    case val({Tab,where_to_read}) of
+		nowhere -> ignore;
+		_ ->
+		    mnesia_index:init_indecies(Tab, Storage, [Pos])
+	    end
     end;
 
 insert_op(Tid, _, {op, del_index, Pos, TabDef}, InPlace, InitBy) ->
@@ -893,6 +902,14 @@ insert_op(Tid, _, {op, change_table_access_mode,TabDef, _OldAccess, _Access}, In
     case InitBy of
 	startup -> ignore;
 	_ -> mnesia_controller:change_table_access_mode(Cs)
+    end,
+    insert_cstruct(Tid, Cs, true, InPlace, InitBy);
+
+insert_op(Tid, _, {op, change_table_majority,TabDef, _OldAccess, _Access}, InPlace, InitBy) ->
+    Cs = mnesia_schema:list2cs(TabDef),
+    case InitBy of
+	startup -> ignore;
+	_ -> mnesia_controller:change_table_majority(Cs)
     end,
     insert_cstruct(Tid, Cs, true, InPlace, InitBy);
 

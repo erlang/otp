@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2007-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -27,14 +27,15 @@
 -include("ssl_cipher.hrl").
 -include("ssl_internal.hrl").
 -include("ssl_record.hrl"). 			
--include("ssl_debug.hrl").
 
 -export([master_secret/3, finished/3, certificate_verify/2, mac_hash/7, 
-	 setup_keys/5, setup_keys/6, suites/0]).
+	 setup_keys/6, suites/0]).
 
 %%====================================================================
 %% Internal application API
 %%====================================================================
+
+-spec master_secret(binary(), binary(), binary()) -> binary().
 
 master_secret(PreMasterSecret, ClientRandom, ServerRandom) ->
     %% RFC 2246 & 4346 - 8.1 %% master_secret = PRF(pre_master_secret,
@@ -42,6 +43,8 @@ master_secret(PreMasterSecret, ClientRandom, ServerRandom) ->
     %%                           ServerHello.random)[0..47];
     prf(PreMasterSecret, <<"master secret">>, 
 	[ClientRandom, ServerRandom], 48).
+
+-spec finished(client | server, binary(), {binary(), binary()}) -> binary().
 
 finished(Role, MasterSecret, {MD5Hash, SHAHash}) ->
     %% RFC 2246 & 4346 - 7.4.9. Finished
@@ -56,18 +59,20 @@ finished(Role, MasterSecret, {MD5Hash, SHAHash}) ->
     SHA = hash_final(?SHA, SHAHash),
     prf(MasterSecret, finished_label(Role), [MD5, SHA], 12).
 
+-spec certificate_verify(OID::tuple(), {binary(), binary()}) -> binary().
 
-certificate_verify(Algorithm, {MD5Hash, SHAHash}) when Algorithm == rsa;
-						       Algorithm == dh_rsa;
-						       Algorithm == dhe_rsa ->
+certificate_verify(?'rsaEncryption', {MD5Hash, SHAHash}) ->
     MD5 = hash_final(?MD5, MD5Hash),
     SHA = hash_final(?SHA, SHAHash),
     <<MD5/binary, SHA/binary>>;
 
-certificate_verify(Algorithm, {_, SHAHash}) when Algorithm == dh_dss;
-						       Algorithm == dhe_dss ->
+certificate_verify(?'id-dsa', {_, SHAHash}) ->
     hash_final(?SHA, SHAHash).
-    
+
+-spec setup_keys(binary(), binary(), binary(), integer(), 
+		 integer(), integer()) -> {binary(), binary(), binary(), 
+					  binary(), binary(), binary()}.  
+
 setup_keys(MasterSecret, ServerRandom, ClientRandom, HashSize,
 	   KeyMatLen, IVSize) ->
     %% RFC 2246 - 6.3. Key calculation
@@ -92,26 +97,30 @@ setup_keys(MasterSecret, ServerRandom, ClientRandom, HashSize,
     {ClientWriteMacSecret, ServerWriteMacSecret, ClientWriteKey,
      ServerWriteKey, ClientIV, ServerIV}.
 
-setup_keys(MasterSecret, ServerRandom, ClientRandom, HashSize, KeyMatLen) ->
-    %% RFC 4346 - 6.3. Key calculation
-    %% key_block = PRF(SecurityParameters.master_secret,
-    %%                      "key expansion",
-    %%                      SecurityParameters.server_random +
-    %%                      SecurityParameters.client_random);
-    %% Then the key_block is partitioned as follows:
-    %%  client_write_MAC_secret[SecurityParameters.hash_size]
-    %%  server_write_MAC_secret[SecurityParameters.hash_size]
-    %%  client_write_key[SecurityParameters.key_material_length]
-    %%  server_write_key[SecurityParameters.key_material_length]
-    WantedLength = 2 * (HashSize + KeyMatLen),
-    KeyBlock = prf(MasterSecret, "key expansion",
-		   [ServerRandom, ClientRandom], WantedLength),
-    <<ClientWriteMacSecret:HashSize/binary, 
-     ServerWriteMacSecret:HashSize/binary,
-     ClientWriteKey:KeyMatLen/binary, ServerWriteKey:KeyMatLen/binary>> 
-	= KeyBlock,
-    {ClientWriteMacSecret, ServerWriteMacSecret, ClientWriteKey,
-     ServerWriteKey, undefined, undefined}.
+%% TLS v1.1 uncomment when supported.
+%% setup_keys(MasterSecret, ServerRandom, ClientRandom, HashSize, KeyMatLen) ->
+%%     %% RFC 4346 - 6.3. Key calculation
+%%     %% key_block = PRF(SecurityParameters.master_secret,
+%%     %%                      "key expansion",
+%%     %%                      SecurityParameters.server_random +
+%%     %%                      SecurityParameters.client_random);
+%%     %% Then the key_block is partitioned as follows:
+%%     %%  client_write_MAC_secret[SecurityParameters.hash_size]
+%%     %%  server_write_MAC_secret[SecurityParameters.hash_size]
+%%     %%  client_write_key[SecurityParameters.key_material_length]
+%%     %%  server_write_key[SecurityParameters.key_material_length]
+%%     WantedLength = 2 * (HashSize + KeyMatLen),
+%%     KeyBlock = prf(MasterSecret, "key expansion",
+%% 		   [ServerRandom, ClientRandom], WantedLength),
+%%     <<ClientWriteMacSecret:HashSize/binary, 
+%%      ServerWriteMacSecret:HashSize/binary,
+%%      ClientWriteKey:KeyMatLen/binary, ServerWriteKey:KeyMatLen/binary>> 
+%% 	= KeyBlock,
+%%     {ClientWriteMacSecret, ServerWriteMacSecret, ClientWriteKey,
+%%      ServerWriteKey, undefined, undefined}.
+
+-spec mac_hash(integer(), binary(), integer(), integer(), tls_version(),
+	       integer(), binary()) -> binary(). 
 
 mac_hash(Method, Mac_write_secret, Seq_num, Type, {Major, Minor}, 
 	 Length, Fragment) ->
@@ -119,51 +128,30 @@ mac_hash(Method, Mac_write_secret, Seq_num, Type, {Major, Minor},
     %% HMAC_hash(MAC_write_secret, seq_num + TLSCompressed.type +
     %%              TLSCompressed.version + TLSCompressed.length +
     %%              TLSCompressed.fragment));
-    case Method of
-        ?NULL -> ok;
-        _ ->
-	    ?DBG_HEX(Mac_write_secret),
-	    ?DBG_HEX(hash(Method, Fragment)),
-            ok
-    end,
     Mac = hmac_hash(Method, Mac_write_secret, 
 		    [<<?UINT64(Seq_num), ?BYTE(Type), 
 		      ?BYTE(Major), ?BYTE(Minor), ?UINT16(Length)>>, 
 		     Fragment]),
-    ?DBG_HEX(Mac),
     Mac.
 
+-spec suites() -> [cipher_suite()].
+    
 suites() ->
     [ 
-      %% TODO: uncomment when supported
-      %%       ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA,
-      %%       ?TLS_DHE_DSS_WITH_AES_256_CBC_SHA,
-      %% TODO: Funkar inte, borde: ?TLS_RSA_WITH_AES_256_CBC_SHA,
-      %%       ?TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA,
-      %%       ?TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA,
+      ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA,
+      ?TLS_DHE_DSS_WITH_AES_256_CBC_SHA,
+      ?TLS_RSA_WITH_AES_256_CBC_SHA,
+      ?TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA,
+      ?TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA,
       ?TLS_RSA_WITH_3DES_EDE_CBC_SHA,
-      %%       ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA,
-      %%       ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA,
+      ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA,
+      ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA,
       ?TLS_RSA_WITH_AES_128_CBC_SHA,
-      %%?TLS_DHE_DSS_WITH_RC4_128_SHA, TODO: Support this?
-      %%       ?TLS_RSA_WITH_IDEA_CBC_SHA,
+      %%?TLS_RSA_WITH_IDEA_CBC_SHA,
       ?TLS_RSA_WITH_RC4_128_SHA,
       ?TLS_RSA_WITH_RC4_128_MD5,
-      %%?TLS_RSA_EXPORT1024_WITH_RC4_56_MD5,
-      %%?TLS_RSA_EXPORT1024_WITH_RC2_CBC_56_MD5,
-      %%?TLS_RSA_EXPORT1024_WITH_DES_CBC_SHA,
-      %%?TLS_DHE_DSS_EXPORT1024_WITH_DES_CBC_SHA,
-      %%?TLS_RSA_EXPORT1024_WITH_RC4_56_SHA,
-      %%?TLS_DHE_DSS_EXPORT1024_WITH_RC4_56_SHA,
-      %%?TLS_DHE_DSS_WITH_RC4_128_SHA,
-      %%?TLS_DHE_RSA_WITH_DES_CBC_SHA,
-      %% EDH-DSS-DES-CBC-SHA  TODO: ??
+      ?TLS_DHE_RSA_WITH_DES_CBC_SHA,
       ?TLS_RSA_WITH_DES_CBC_SHA
-      %%       ?TLS_DHE_RSA_EXPORT_WITH_DES40_CBC_SHA,
-      %%       ?TLS_DHE_DSS_EXPORT_WITH_DES40_CBC_SHA,
-      %%?TLS_RSA_EXPORT_WITH_DES40_CBC_SHA,
-      %%?TLS_RSA_EXPORT_WITH_RC2_CBC_40_MD5,
-      %%?TLS_RSA_EXPORT_WITH_RC4_40_MD5
      ].
 
 %%--------------------------------------------------------------------
@@ -245,7 +233,3 @@ hash_final(?MD5, Conntext) ->
     crypto:md5_final(Conntext);
 hash_final(?SHA, Conntext) -> 
     crypto:sha_final(Conntext).
-
-
-
- 

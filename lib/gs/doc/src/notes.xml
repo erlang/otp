@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2009</year>
+      <year>2004</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>GS Release Notes</title>
@@ -30,7 +30,41 @@
   </header>
   <p>This document describes the changes made to the GS application.</p>
 
-  <section>
+  <section><title>GS 1.5.14</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Remove misc. compiler warnings</p>
+          <p>
+	    Own Id: OTP-9542</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>GS 1.5.13</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The documentation for GS is updated with the warning that
+	    it should not be used in new applications. GS is planned
+	    to be deprecated soon and might be removed from the
+	    distribution already in the next major release (R15). For
+	    graphical applications we recommend the use of WX
+	    instead.</p>
+          <p>
+	    Own Id: OTP-8824</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section>
     <title>GS 1.5.10</title>
 
     <section>
@@ -47,7 +81,22 @@
     </section>
   </section>
 
-  <section><title>GS 1.5.11</title>
+  <section><title>GS 1.5.12</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Warnings due to new autoimported BIFs removed</p>
+          <p>
+	    Own Id: OTP-8674 Aux Id: OTP-8579 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>GS 1.5.11</title>
 
     <section><title>Improvements and New Features</title>
       <list>

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -22,6 +22,7 @@
 -export([do/1]).
 
 -include("httpd.hrl").
+-include("httpd_internal.hrl").
 
 do(Info) ->
     ?DEBUG("do -> response_control",[]),
@@ -208,14 +209,14 @@ compare_etags(Tag,Etags) ->
 	    nomatch
     end.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%                                                                   %%
-%%Control if the file is modificated                                 %%
-%%                                                                   %%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%	    
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                                                                  %%
+%% Control if the file is modificated                               %%
+%%                                                                  %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%	    
 
 %%----------------------------------------------------------------------
-%%Control the If-Modified-Since and If-Not-Modified-Since header fields
+%% Control the If-Modified-Since and If-Not-Modified-Since header fields
 %%----------------------------------------------------------------------
 control_modification(Path,Info,FileInfo)->
     ?DEBUG("control_modification() -> entry",[]),
@@ -226,6 +227,8 @@ control_modification(Path,Info,FileInfo)->
 	    continue;	
 	unmodified->
 	    {304, Info, Path};
+	{bad_date, _} = BadDate->
+	    {400, Info, BadDate};
 	undefined ->
 	    case control_modification_data(Info,
 					   FileInfo#file_info.mtime,
@@ -252,21 +255,27 @@ control_modification_data(Info, ModificationTime, HeaderField)->
  	undefined->
 	    undefined;
 	LastModified0 ->
-	    LastModified = calendar:universal_time_to_local_time(
-			     httpd_util:convert_request_date(LastModified0)),
-	    ?DEBUG("control_modification_data() -> "
-		   "~n   Request-Field:    ~s"
-		   "~n   FileLastModified: ~p"
-		   "~n   FieldValue:       ~p",
-		   [HeaderField, ModificationTime, LastModified]),
-	    FileTime =
-		calendar:datetime_to_gregorian_seconds(ModificationTime),
-	    FieldTime = calendar:datetime_to_gregorian_seconds(LastModified),
-	    if 
-		FileTime =< FieldTime ->
-		    ?DEBUG("File unmodified~n", []), unmodified;
-		FileTime >= FieldTime ->
-		    ?DEBUG("File modified~n", []), modified	    
+	    case httpd_util:convert_request_date(LastModified0) of
+	    	bad_date ->
+	    	    {bad_date, LastModified0};
+	    	ConvertedReqDate ->
+		    LastModified = 
+			calendar:universal_time_to_local_time(ConvertedReqDate),
+		    ?DEBUG("control_modification_data() -> "
+			   "~n   Request-Field:    ~s"
+			   "~n   FileLastModified: ~p"
+			   "~n   FieldValue:       ~p",
+			   [HeaderField, ModificationTime, LastModified]),
+		    FileTime =
+			calendar:datetime_to_gregorian_seconds(ModificationTime),
+		    FieldTime = 
+			calendar:datetime_to_gregorian_seconds(LastModified),
+		    if 
+			FileTime =< FieldTime ->
+			    ?DEBUG("File unmodified~n", []), unmodified;
+			FileTime >= FieldTime ->
+			    ?DEBUG("File modified~n", []), modified	    
+		    end
 	    end
     end.
 
@@ -283,6 +292,9 @@ strip_date([C | Rest]) ->
 
 send_return_value({412,_,_}, _FileInfo)->
     {status,{412,none,"Precondition Failed"}};
+
+send_return_value({400,_, {bad_date, BadDate}}, _FileInfo)->
+    {status, {400, none, "Bad date: " ++ BadDate}};
 
 send_return_value({304,Info,Path}, FileInfo)->
     Suffix = httpd_util:suffix(Path),

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+    <root id="1">
+        <elem1 id="2">
+            <elem2 id="3">
+                <e id="4"/>
+                <elem3 id="5">
+                    <e id="6"/>
+                </elem3>
+                <elem3 id="7"/>
+            </elem2>
+        </elem1>
+        <elem1 id="8">
+            <elem2 id="9"/>
+            <e id="10"/>
+            <e id="11"/>
+        </elem1>
+        <e id="12"/>
+    </root>

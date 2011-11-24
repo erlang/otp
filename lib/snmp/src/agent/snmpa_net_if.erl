@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%%
-%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
-%%
+%% 
+%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
+%% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%%
+%% 
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%%
+%% 
 %% %CopyrightEnd%
 %%
 -module(snmpa_net_if).
@@ -314,6 +314,14 @@ loop(S) ->
 	    NewS = maybe_handle_send_pdu(S, Vsn, Pdu, MsgData, To, undefined),
 	    loop(NewS);
 
+	%% We dont use the extra-info at this time, ...
+	{send_pdu, Vsn, Pdu, MsgData, To, _ExtraInfo} ->
+	    ?vdebug("send pdu: "
+		    "~n   Pdu: ~p"
+		    "~n   To:  ~p", [Pdu, To]),
+	    NewS = maybe_handle_send_pdu(S, Vsn, Pdu, MsgData, To, undefined),
+	    loop(NewS);
+
 	%% Informs
 	{send_pdu_req, Vsn, Pdu, MsgData, To, From} ->
 	    ?vdebug("send pdu request: "
@@ -324,13 +332,36 @@ loop(S) ->
 	    NewS = maybe_handle_send_pdu(S, Vsn, Pdu, MsgData, To, From),
 	    loop(NewS);
 
+	%% We dont use the extra-info at this time, ...
+	{send_pdu_req, Vsn, Pdu, MsgData, To, From, _ExtraInfo} ->
+	    ?vdebug("send pdu request: "
+		    "~n   Pdu:     ~p"
+		    "~n   To:      ~p"
+		    "~n   From:    ~p", 
+		    [Pdu, To, toname(From)]),
+	    NewS = maybe_handle_send_pdu(S, Vsn, Pdu, MsgData, To, From),
+	    loop(NewS);
+
 	%% Discovery Inform
+	%% <BACKWARD-COMPAT>
 	{send_discovery, Pdu, MsgData, To, From} ->
 	    ?vdebug("received send discovery request: "
 		    "~n   Pdu:  ~p"
 		    "~n   To:   ~p"
 		    "~n   From: ~p", 
 		    [Pdu, To, toname(From)]),
+	    NewS = handle_send_discovery(S, Pdu, MsgData, To, From),
+	    loop(NewS);
+	%% </BACKWARD-COMPAT>
+
+	%% Discovery Inform
+	{send_discovery, Pdu, MsgData, To, From, ExtraInfo} ->
+	    ?vdebug("received send discovery request: "
+		    "~n   Pdu:       ~p"
+		    "~n   To:        ~p"
+		    "~n   From:      ~p"
+		    "~n   ExtraInfo: ~p", 
+		    [Pdu, To, toname(From), ExtraInfo]),
 	    NewS = handle_send_discovery(S, Pdu, MsgData, To, From),
 	    loop(NewS);
 
@@ -478,12 +509,13 @@ update_req_counter_outgoing(#state{limit = Limit, rcnt = RCnt} = S,
     S#state{rcnt = NewRCnt}.
     
 
-maybe_handle_recv(#state{filter = FilterMod} = S, 
+maybe_handle_recv(#state{usock = Sock, filter = FilterMod} = S, 
 		  Ip, Port, Packet) ->
     case (catch FilterMod:accept_recv(Ip, Port)) of
 	false ->
 	    %% Drop the received packet 
 	    inc(netIfMsgInDrops),
+	    active_once(Sock),
 	    S;
 	_ ->
 	    handle_recv(S, Ip, Port, Packet)
@@ -503,7 +535,6 @@ handle_discovery_response(_Ip, _Port, #pdu{request_id = ReqId} = Pdu,
 	    S
     end.
 	   
-    
 handle_recv(#state{usock      = Sock, 
 		   mpd_state  = MpdState, 
 		   note_store = NS,
@@ -512,7 +543,9 @@ handle_recv(#state{usock      = Sock,
     LogF = fun(Type, Data) ->
 		   log(Log, Type, Data, Ip, Port)
 	   end,
-    case (catch snmpa_mpd:process_packet(Packet, snmpUDPDomain, {Ip, Port}, 
+    Domain = snmp_conf:which_domain(Ip), % What the ****...
+    case (catch snmpa_mpd:process_packet(Packet, 
+					 Domain, {Ip, Port}, 
 					 MpdState, NS, LogF)) of
 	{ok, _Vsn, Pdu, _PduMS, {discovery, ManagerEngineId}} ->
 	    handle_discovery_response(Ip, Port, Pdu, ManagerEngineId, S);
@@ -634,7 +667,6 @@ process_taddrs([{{_Domain, AddrAndPort}, _SecData}|T], Acc) ->
 %% v1 & v2
 process_taddrs([{_Domain, AddrAndPort}|T], Acc) ->
     process_taddrs(T, [AddrAndPort|Acc]).
-
 
 merge_taddrs(To1, To2) ->
     merge_taddrs(To1, To2, []).
@@ -775,15 +807,49 @@ handle_send_pdu1(#state{log    = Log,
 			usock  = Sock,
 			filter = FilterMod}, Type, Addresses) ->
     SendFun = 
-	fun({snmpUDPDomain, {Ip, Port}, Packet}) when is_binary(Packet) ->
-		?vdebug("sending packet:"
+	fun({snmpUDPDomain, {Ip, Port}, Packet}) 
+	      when is_binary(Packet) ->
+		?vdebug("[snmpUDPDomain] sending packet:"
 			"~n   size: ~p"
 			"~n   to:   ~p:~p",
 			[sz(Packet), Ip, Port]),
 		maybe_udp_send(FilterMod, Log, Type, Sock, Ip, Port, Packet);
 
-	   ({snmpUDPDomain, {Ip, Port}, {Packet, _LogData}}) when is_binary(Packet) ->
-		?vdebug("sending encrypted packet:"
+	   ({snmpUDPDomain, {Ip, Port}, {Packet, _LogData}}) 
+	      when is_binary(Packet) ->
+		?vdebug("[snmpUDPDomain] sending encrypted packet:"
+			"~n   size: ~p"
+			"~n   to:   ~p:~p",
+			[sz(Packet), Ip, Port]),
+		maybe_udp_send(FilterMod, Log, Type, Sock, Ip, Port, Packet);
+
+	   ({transportDomainUdpIpv4, {Ip, Port}, Packet}) 
+	      when is_binary(Packet) ->
+		?vdebug("[transportDomainUdpIpv4] sending packet:"
+			"~n   size: ~p"
+			"~n   to:   ~p:~p",
+			[sz(Packet), Ip, Port]),
+		maybe_udp_send(FilterMod, Log, Type, Sock, Ip, Port, Packet);
+
+	   ({transportDomainUdpIpv4, {Ip, Port}, {Packet, _LogData}}) 
+	      when is_binary(Packet) ->
+		?vdebug("[transportDomainUdpIpv4] sending encrypted packet:"
+			"~n   size: ~p"
+			"~n   to:   ~p:~p",
+			[sz(Packet), Ip, Port]),
+		maybe_udp_send(FilterMod, Log, Type, Sock, Ip, Port, Packet);
+
+	   ({transportDomainUdpIpv6, {Ip, Port}, Packet}) 
+	      when is_binary(Packet) ->
+		?vdebug("[transportDomainUdpIpv6] sending packet:"
+			"~n   size: ~p"
+			"~n   to:   ~p:~p",
+			[sz(Packet), Ip, Port]),
+		maybe_udp_send(FilterMod, Log, Type, Sock, Ip, Port, Packet);
+
+	   ({transportDomainUdpIpv6, {Ip, Port}, {Packet, _LogData}}) 
+	      when is_binary(Packet) ->
+		?vdebug("[transportDomainUdpIpv6] sending encrypted packet:"
 			"~n   size: ~p"
 			"~n   to:   ~p:~p",
 			[sz(Packet), Ip, Port]),

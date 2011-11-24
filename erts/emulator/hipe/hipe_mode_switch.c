@@ -1,22 +1,23 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2001-2009. All Rights Reserved.
- * 
+
+ *
+ * Copyright Ericsson AB 2001-2011. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
-/* $Id$
+/*
  * hipe_mode_switch.c
  */
 #ifdef HAVE_CONFIG_H
@@ -33,6 +34,17 @@
 #include "error.h"
 #include "hipe_stack.h"
 #include "hipe_bif0.h"	/* hipe_mfa_info_table_init() */
+
+#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
+#    define ERTS_SMP_REQ_PROC_MAIN_LOCK(P) \
+        if ((P)) erts_proc_lc_require_lock((P), ERTS_PROC_LOCK_MAIN)
+#    define ERTS_SMP_UNREQ_PROC_MAIN_LOCK(P) \
+        if ((P)) erts_proc_lc_unrequire_lock((P), ERTS_PROC_LOCK_MAIN)
+#else
+#    define ERTS_SMP_REQ_PROC_MAIN_LOCK(P)
+#    define ERTS_SMP_UNREQ_PROC_MAIN_LOCK(P)
+#endif
+
 
 /*
  * Internal debug support.
@@ -208,6 +220,8 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 #endif
 
     p->i = NULL;
+    /* Set current_function to undefined. stdlib hibernate tests rely on it. */
+    p->current = NULL;
 
     DPRINTF("cmd == %#x (%s)", cmd, code_str(cmd));
     HIPE_CHECK_PCB(p);
@@ -315,34 +329,38 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	   * Native code called a BIF, which "failed" with a TRAP to BEAM.
 	   * Prior to returning, the BIF stored (see BIF_TRAP<N>):
 
-	   * the callee's address in p->def_arg_reg[3]
-	   * the callee's parameters in p->def_arg_reg[0..2]
+	   * the callee's address in p->i
+	   * the callee's parameters in reg[0..2]
 	   * the callee's arity in p->arity (for BEAM gc purposes)
 	   *
 	   * We need to remove the BIF's parameters from the native
 	   * stack: to this end hipe_${ARCH}_glue.S stores the BIF's
 	   * arity in p->hipe.narity.
+	   *
+	   * If the BIF emptied the stack (typically hibernate), p->hipe.nsp is
+	   * NULL and there is no need to get rid of stacked parameters.
 	   */
-	  unsigned int i, is_recursive, callee_arity;
+	  unsigned int i, is_recursive = 0;
 
-	  /* Save p->arity, then update it with the original BIF's arity.
-	     Get rid of any stacked parameters in that call. */
-	  /* XXX: hipe_call_from_native_is_recursive() copies data to
-	     reg[], which is useless in the TRAP case. Maybe write a
-	     specialised hipe_trap_from_native_is_recursive() later. */
-	  callee_arity = p->arity;
-	  p->arity = p->hipe.narity; /* caller's arity */
-	  is_recursive = hipe_call_from_native_is_recursive(p, reg);
+          if (p->hipe.nsp != NULL) {
+	      is_recursive = hipe_trap_from_native_is_recursive(p);
+          }
 
-	  p->i = (Eterm *)(p->def_arg_reg[3]);
-	  p->arity = callee_arity;
-
-	  for (i = 0; i < p->arity; ++i)
-	      reg[i] = p->def_arg_reg[i];
+	  /* Schedule next process if current process was hibernated or is waiting
+	     for messages */
+	  if (p->flags & F_HIBERNATE_SCHED) {
+	      p->flags &= ~F_HIBERNATE_SCHED;
+	      goto do_schedule;
+	  }
+	  if (p->status == P_WAITING) {
+	      for (i = 0; i < p->arity; ++i)
+		  p->arg_reg[i] = reg[i]; 	      
+	      goto do_schedule;
+	  }
 
 	  if (is_recursive)
 	      hipe_push_beam_trap_frame(p, reg, p->arity);
-
+	  
 	  result = HIPE_MODE_SWITCH_RES_CALL;
 	  break;
       }
@@ -451,10 +469,12 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 #if !(NR_ARG_REGS > 5)
 	      int reds_in = p->def_arg_reg[5];
 #endif
+	      ERTS_SMP_UNREQ_PROC_MAIN_LOCK(p);
 	      p = schedule(p, reds_in - p->fcalls);
+	      ERTS_SMP_REQ_PROC_MAIN_LOCK(p);
 #ifdef ERTS_SMP
 	      p->hipe_smp.have_receive_locks = 0;
-	      reg = p->scheduler_data->save_reg;
+	      reg = p->scheduler_data->x_reg_array;
 #endif
 	  }
 	  {
@@ -592,6 +612,17 @@ void hipe_inc_nstack(Process *p)
 }
 #endif
 
+void hipe_empty_nstack(Process *p)
+{
+    if (p->hipe.nstack) {
+	erts_free(ERTS_ALC_T_HIPE, p->hipe.nstack);
+    }
+    p->hipe.nstgraylim = NULL;
+    p->hipe.nsp = NULL;
+    p->hipe.nstack = NULL;
+    p->hipe.nstend = NULL;
+}
+
 static void hipe_check_nstack(Process *p, unsigned nwords)
 {
     while (hipe_nstack_avail(p) < nwords)
@@ -618,7 +649,7 @@ Eterm hipe_build_stacktrace(Process *p, struct StackTrace *s)
     if (depth < 1)
 	return NIL;
 
-    heap_size = 6 * depth;	/* each [{M,F,A}|_] is 2+4 == 6 words */
+    heap_size = 7 * depth;	/* each [{M,F,A,[]}|_] is 2+5 == 7 words */
     hp = HAlloc(p, heap_size);
     hp_end = hp + heap_size;
 
@@ -629,8 +660,8 @@ Eterm hipe_build_stacktrace(Process *p, struct StackTrace *s)
 	ra = (const void*)s->trace[i];
 	if (!hipe_find_mfa_from_ra(ra, &m, &f, &a))
 	    continue;
-	mfa = TUPLE3(hp, m, f, make_small(a));
-	hp += 4;
+	mfa = TUPLE4(hp, m, f, make_small(a), NIL);
+	hp += 5;
 	next = CONS(hp, mfa, NIL);
 	*next_p = next;
 	next_p = &CDR(list_val(next));

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,7 +19,7 @@
 
 -record(zip_file, {
 	  name      :: string(),	  % file name
-	  info	    :: #file_info{},
+	  info	    :: file:file_info(),
 	  comment   :: string(),	  % zip file comment
 	  offset    :: non_neg_integer(), % offset of file's local header in archive
 	  comp_size :: non_neg_integer()  % compressed size

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -39,6 +39,7 @@
 
 	 %% Access within an activity - Lock acquisition
 	 lock/2, lock/4,
+	 lock_table/2,
 	 read_lock_table/1, 
 	 write_lock_table/1,
 
@@ -92,7 +93,7 @@
 	 add_table_copy/3, del_table_copy/2, move_table_copy/3,
 	 add_table_index/2, del_table_index/2,
 	 transform_table/3, transform_table/4,
-	 change_table_copy_type/3,
+	 change_table_copy_type/3, change_table_majority/2,
 	 read_table_property/2, write_table_property/2, delete_table_property/2,
 	 change_table_frag/2,
 	 clear_table/1, clear_table/4,
@@ -302,7 +303,7 @@ ms() ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Activity mgt
 
--spec(abort/1 :: (_) -> no_return()).
+-spec abort(_) -> no_return().
 
 abort(Reason) -> 
     exit({aborted, Reason}).
@@ -415,6 +416,9 @@ lock(LockItem, LockKind) ->
 	    abort(no_transaction)
     end.
 
+lock_table(Tab, LockKind) ->
+    lock({table, Tab}, LockKind).
+
 lock(Tid, Ts, LockItem, LockKind) ->
     case element(1, Tid) of
 	tid ->
@@ -467,6 +471,8 @@ lock_table(Tid, Ts, Tab, LockKind) when is_atom(Tab) ->
 	    mnesia_locker:rlock_table(Tid, Store, Tab);
 	write ->
 	    mnesia_locker:wlock_table(Tid, Store, Tab);
+	load ->
+	    mnesia_locker:load_lock_table(Tid, Store, Tab);
 	sticky_write ->
 	    mnesia_locker:sticky_wlock_table(Tid, Store, Tab);
 	none ->
@@ -1835,6 +1841,7 @@ do_dirty_rpc(Tab, Node, M, F, Args) ->
 %% Info
 
 %% Info about one table
+-spec table_info(atom(), any()) -> any().
 table_info(Tab, Item) ->
     case get(mnesia_activity_state) of
 	undefined ->
@@ -1868,7 +1875,7 @@ any_table_info(Tab, Item) when is_atom(Tab) ->
 	type -> 
 	    case ?catch_val({Tab, setorbag}) of
 		{'EXIT', _} ->
-		    bad_info_reply(Tab, Item);
+		    abort({no_exists, Tab, Item});
 		Val ->
 		    Val
 	    end;
@@ -1886,7 +1893,7 @@ any_table_info(Tab, Item) when is_atom(Tab) ->
 	_ ->
 	    case ?catch_val({Tab, Item}) of
 		{'EXIT', _} ->
-		    bad_info_reply(Tab, Item);
+		    abort({no_exists, Tab, Item});
 		Val ->
 		    Val
 	    end
@@ -2453,6 +2460,9 @@ change_table_access_mode(T, Access) ->
 
 change_table_load_order(T, O) -> 
     mnesia_schema:change_table_load_order(T, O).
+
+change_table_majority(T, M) ->
+    mnesia_schema:change_table_majority(T, M).
 
 set_master_nodes(Nodes) when is_list(Nodes) ->
     UseDir = system_info(use_dir),

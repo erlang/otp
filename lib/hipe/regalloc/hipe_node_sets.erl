@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -29,7 +29,7 @@
 
 -record(node_sets, 
 	{spilled,    % Nodes marked for spilling
-	 colored     % Nodes succesfully colored
+	 colored     % Nodes successfully colored
 	}).
 
 spilled(Node_sets) -> Node_sets#node_sets.spilled.

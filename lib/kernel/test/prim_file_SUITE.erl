@@ -1,54 +1,56 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2000-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(prim_file_SUITE).
--export([all/1,
-	init/1, fini/1,
-	read_write_file/1, dirs/1, files/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
+	 read_write_file/1]).
 -export([cur_dir_0a/1, cur_dir_0b/1, 
 	 cur_dir_1a/1, cur_dir_1b/1, 
 	 make_del_dir_a/1, make_del_dir_b/1,
-	 pos/1, pos1/1, pos2/1]).
+	 pos1/1, pos2/1]).
 -export([close/1, 
 	 delete_a/1, delete_b/1]).
--export([open/1, open1/1, modes/1]).
--export([file_info/1, 
-	 file_info_basic_file_a/1, file_info_basic_file_b/1,
-	 file_info_basic_directory_a/1, file_info_basic_directory_b/1,
-	 file_info_bad_a/1, file_info_bad_b/1, 
-	 file_info_times_a/1, file_info_times_b/1, 
-	 file_write_file_info_a/1, file_write_file_info_b/1]).
+-export([ open1/1, modes/1]).
+-export([ 
+	  file_info_basic_file_a/1, file_info_basic_file_b/1,
+	  file_info_basic_directory_a/1, file_info_basic_directory_b/1,
+	  file_info_bad_a/1, file_info_bad_b/1, 
+	  file_info_times_a/1, file_info_times_b/1, 
+	  file_write_file_info_a/1, file_write_file_info_b/1]).
 -export([rename_a/1, rename_b/1, 
-	 access/1, truncate/1, sync/1,
-	 read_write/1, pread_write/1, append/1]).
--export([errors/1, e_delete/1, e_rename/1, e_make_dir/1, e_del_dir/1]).
+	 access/1, truncate/1, datasync/1, sync/1,
+	 read_write/1, pread_write/1, append/1, exclusive/1]).
+-export([ e_delete/1, e_rename/1, e_make_dir/1, e_del_dir/1]).
 
--export([compression/1, read_not_really_compressed/1,
-	 read_compressed/1, write_compressed/1,
-	 compress_errors/1]).
+-export([ read_not_really_compressed/1,
+	  read_compressed/1, write_compressed/1,
+	  compress_errors/1]).
 
--export([links/1, 
-	 make_link_a/1, make_link_b/1,
-	 read_link_info_for_non_link/1, 
-	 symlinks_a/1, symlinks_b/1,
-	 list_dir_limit/1]).
+-export([ 
+	  make_link_a/1, make_link_b/1,
+	  read_link_info_for_non_link/1, 
+	  symlinks_a/1, symlinks_b/1,
+	  list_dir_limit/1]).
 
--include("test_server.hrl").
+-export([advise/1]).
+
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("kernel/include/file.hrl").
 
 -define(PRIM_FILE, prim_file).
@@ -65,14 +67,47 @@
 	    _ ->  apply(?PRIM_FILE, F, [H | A])
 	end).
 
-all(suite) -> {req, [kernel],
-	       {conf, init,
-		[read_write_file, dirs, files, 
-		 delete_a, delete_b, rename_a, rename_b, errors,
-		 compression, links, list_dir_limit],
-		fini}}.
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-init(Config) when is_list(Config) ->
+all() -> 
+    [read_write_file, {group, dirs}, {group, files},
+     delete_a, delete_b, rename_a, rename_b, {group, errors},
+     {group, compression}, {group, links}, list_dir_limit].
+
+groups() -> 
+    [{dirs, [],
+      [make_del_dir_a, make_del_dir_b, cur_dir_0a, cur_dir_0b,
+       cur_dir_1a, cur_dir_1b]},
+     {files, [],
+      [{group, open}, {group, pos}, {group, file_info},
+       truncate, sync, datasync, advise]},
+     {open, [],
+      [open1, modes, close, access, read_write, pread_write,
+       append, exclusive]},
+     {pos, [], [pos1, pos2]},
+     {file_info, [],
+      [file_info_basic_file_a, file_info_basic_file_b,
+       file_info_basic_directory_a,
+       file_info_basic_directory_b, file_info_bad_a,
+       file_info_bad_b, file_info_times_a, file_info_times_b,
+       file_write_file_info_a, file_write_file_info_b]},
+     {errors, [],
+      [e_delete, e_rename, e_make_dir, e_del_dir]},
+     {compression, [],
+      [read_compressed, read_not_really_compressed,
+       write_compressed, compress_errors]},
+     {links, [],
+      [make_link_a, make_link_b, read_link_info_for_non_link,
+       symlinks_a, symlinks_b]}].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
+
+init_per_suite(Config) when is_list(Config) ->
     case os:type() of
 	{win32, _} ->
 	    Priv = ?config(priv_dir, Config),
@@ -89,7 +124,7 @@ init(Config) when is_list(Config) ->
 	    Config
     end.
 
-fini(Config) when is_list(Config) ->
+end_per_suite(Config) when is_list(Config) ->
     case os:type() of
 	{win32, _} ->
 	    os:cmd("subst z: /d");
@@ -188,9 +223,6 @@ read_write_file(Config) when is_list(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-dirs(suite) -> [make_del_dir_a, make_del_dir_b, 
-		cur_dir_0a, cur_dir_0b, 
-		cur_dir_1a, cur_dir_1b].
 
 make_del_dir_a(suite) -> [];
 make_del_dir_a(doc) -> [];
@@ -218,36 +250,49 @@ make_del_dir(Config, Handle, Suffix) ->
     ?line ok = ?PRIM_FILE_call(del_dir, Handle, [NewDir]),
     ?line {error, enoent} = ?PRIM_FILE_call(del_dir, Handle, [NewDir]),
 
-    %% Check that we get an error when trying to create...
-    %% a deep directory
-    ?line NewDir2 = filename:join(RootDir, 
-				  atom_to_list(?MODULE)
-				  ++"_mk-dir/foo"),
-    ?line {error, enoent} = ?PRIM_FILE_call(make_dir, Handle, [NewDir2]),
-    %% a nameless directory
-    ?line {error, enoent} = ?PRIM_FILE_call(make_dir, Handle, [""]),
-    %% a directory with illegal name
-    ?line {error, badarg} = ?PRIM_FILE_call(make_dir, Handle, ['mk-dir']),
+    % Make sure we are not in a directory directly under test_server
+    % as that would result in eacess errors when trying to delere '..',
+    % because there are processes having that directory as current.
+    ?line ok = ?PRIM_FILE_call(make_dir, Handle, [NewDir]),
+    ?line {ok, CurrentDir} = ?PRIM_FILE_call(get_cwd, Handle, []),
+    ?line ok = ?PRIM_FILE_call(set_cwd, Handle, [NewDir]),
+    try
+	%% Check that we get an error when trying to create...
+	%% a deep directory
+	?line NewDir2 = filename:join(RootDir, 
+				      atom_to_list(?MODULE)
+				      ++"_mk-dir-noexist/foo"),
+	?line {error, enoent} = ?PRIM_FILE_call(make_dir, Handle, [NewDir2]),
+	%% a nameless directory
+	?line {error, enoent} = ?PRIM_FILE_call(make_dir, Handle, [""]),
+	%% a directory with illegal name
+	?line {error, badarg} = ?PRIM_FILE_call(make_dir, Handle, ['mk-dir']),
+	
+	%% a directory with illegal name, even if it's a (bad) list
+	?line {error, badarg} = ?PRIM_FILE_call(make_dir, Handle, [[1,2,3,{}]]),
+	
+	%% Maybe this isn't an error, exactly, but worth mentioning anyway:
+	%% ok = ?PRIM_FILE:make_dir([$f,$o,$o,0,$b,$a,$r])),
+	%% The above line works, and created a directory "./foo"
+	%% More elegant would maybe have been to fail, or to really create
+	%% a directory, but with a name that incorporates the "bar" part of
+	%% the list, so that [$f,$o,$o,0,$f,$o,$o] wouldn't refer to the same
+	%% dir. But this would slow it down.
+	
+	%% Try deleting some bad directories
+	%% Deleting the parent directory to the current, sounds dangerous, huh?
+	%% Don't worry ;-) the parent directory should never be empty, right?
+	?line case ?PRIM_FILE_call(del_dir, Handle, [".."]) of
+		  {error, eexist} -> ok;
+		  {error, einval} -> ok		%FreeBSD
+	      end,
+	?line {error, enoent} = ?PRIM_FILE_call(del_dir, Handle, [""]),
+	?line {error, badarg} = ?PRIM_FILE_call(del_dir, Handle, [[3,2,1,{}]]),
 
-    %% a directory with illegal name, even if it's a (bad) list
-    ?line {error, badarg} = ?PRIM_FILE_call(make_dir, Handle, [[1,2,3,{}]]),
-
-    %% Maybe this isn't an error, exactly, but worth mentioning anyway:
-    %% ok = ?PRIM_FILE:make_dir([$f,$o,$o,0,$b,$a,$r])),
-    %% The above line works, and created a directory "./foo"
-    %% More elegant would maybe have been to fail, or to really create
-    %% a directory, but with a name that incorporates the "bar" part of
-    %% the list, so that [$f,$o,$o,0,$f,$o,$o] wouldn't refer to the same
-    %% dir. But this would slow it down.
-
-    %% Try deleting some bad directories
-    %% Deleting the parent directory to the current, sounds dangerous, huh?
-    %% Don't worry ;-) the parent directory should never be empty, right?
-    ?line {error, eexist} = ?PRIM_FILE_call(del_dir, Handle, [".."]),
-    ?line {error, enoent} = ?PRIM_FILE_call(del_dir, Handle, [""]),
-    ?line {error, badarg} = ?PRIM_FILE_call(del_dir, Handle, [[3,2,1,{}]]),
-
-    ?line test_server:timetrap_cancel(Dog),
+	?line test_server:timetrap_cancel(Dog)
+    after
+	?line ok = ?PRIM_FILE_call(set_cwd, Handle, [CurrentDir])
+    end,
     ok.
 
 cur_dir_0a(suite) -> [];
@@ -377,10 +422,7 @@ win_cur_dir_1(_Config, Handle) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-files(suite) -> [open,pos,file_info,truncate,sync].
 
-open(suite) -> [open1,modes,close,access,read_write,
-	       pread_write,append].
 
 open1(suite) -> [];
 open1(doc) -> [];
@@ -605,9 +647,24 @@ append(Config) when is_list(Config) ->
     ?line test_server:timetrap_cancel(Dog),
     ok.
 
+exclusive(suite) -> [];
+exclusive(doc) -> "Test exclusive access to a file.";
+exclusive(Config) when is_list(Config) ->
+    ?line Dog = test_server:timetrap(test_server:seconds(5)),
+    ?line RootDir = ?config(priv_dir,Config),
+    ?line NewDir = filename:join(RootDir,
+				 atom_to_list(?MODULE)
+				 ++"_exclusive"),
+    ?line ok = ?PRIM_FILE:make_dir(NewDir),
+    ?line Name = filename:join(NewDir, "ex_file.txt"),
+    ?line {ok,Fd} = ?PRIM_FILE:open(Name, [write, exclusive]),
+    ?line {error, eexist} = ?PRIM_FILE:open(Name, [write, exclusive]),
+    ?line ok = ?PRIM_FILE:close(Fd),
+    ?line test_server:timetrap_cancel(Dog),
+    ok.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-pos(suite) -> [pos1,pos2].
 
 pos1(suite) -> [];
 pos1(doc) -> [];
@@ -695,12 +752,6 @@ pos2(Config) when is_list(Config) ->
     ?line test_server:timetrap_cancel(Dog),
     ok.
 
-file_info(suite) -> [file_info_basic_file_a, file_info_basic_file_b,
-		     file_info_basic_directory_a, 
-		     file_info_basic_directory_b,
-		     file_info_bad_a, file_info_bad_b, 
-		     file_info_times_a, file_info_times_b, 
-		     file_write_file_info_a, file_write_file_info_b].
 
 file_info_basic_file_a(suite) -> [];
 file_info_basic_file_a(doc) -> [];
@@ -1061,6 +1112,24 @@ truncate(Config) when is_list(Config) ->
     ok.
 
 
+datasync(suite) -> [];
+datasync(doc) -> "Tests that ?PRIM_FILE:datasync/1 at least doesn't crash.";
+datasync(Config) when is_list(Config) ->
+    ?line Dog = test_server:timetrap(test_server:seconds(5)),
+    ?line PrivDir = ?config(priv_dir, Config),
+    ?line Sync = filename:join(PrivDir,
+			       atom_to_list(?MODULE)
+			       ++"_sync.fil"),
+
+    %% Raw open.
+    ?line {ok, Fd} = ?PRIM_FILE:open(Sync, [write]),
+    ?line ok = ?PRIM_FILE:datasync(Fd),
+    ?line ok = ?PRIM_FILE:close(Fd),
+
+    ?line test_server:timetrap_cancel(Dog),
+    ok.
+
+
 sync(suite) -> [];
 sync(doc) -> "Tests that ?PRIM_FILE:sync/1 at least doesn't crash.";
 sync(Config) when is_list(Config) ->
@@ -1074,6 +1143,77 @@ sync(Config) when is_list(Config) ->
     ?line {ok, Fd} = ?PRIM_FILE:open(Sync, [write]),
     ?line ok = ?PRIM_FILE:sync(Fd),
     ?line ok = ?PRIM_FILE:close(Fd),
+
+    ?line test_server:timetrap_cancel(Dog),
+    ok.
+
+
+advise(suite) -> [];
+advise(doc) -> "Tests that ?PRIM_FILE:advise/4 at least doesn't crash.";
+advise(Config) when is_list(Config) ->
+    ?line Dog = test_server:timetrap(test_server:seconds(5)),
+    ?line PrivDir = ?config(priv_dir, Config),
+    ?line Advise = filename:join(PrivDir,
+			       atom_to_list(?MODULE)
+			       ++"_advise.fil"),
+
+    Line1 = "Hello\n",
+    Line2 = "World!\n",
+
+    ?line {ok, Fd} = ?PRIM_FILE:open(Advise, [write]),
+    ?line ok = ?PRIM_FILE:advise(Fd, 0, 0, normal),
+    ?line ok = ?PRIM_FILE:write(Fd, Line1),
+    ?line ok = ?PRIM_FILE:write(Fd, Line2),
+    ?line ok = ?PRIM_FILE:close(Fd),
+
+    ?line {ok, Fd2} = ?PRIM_FILE:open(Advise, [write]),
+    ?line ok = ?PRIM_FILE:advise(Fd2, 0, 0, random),
+    ?line ok = ?PRIM_FILE:write(Fd2, Line1),
+    ?line ok = ?PRIM_FILE:write(Fd2, Line2),
+    ?line ok = ?PRIM_FILE:close(Fd2),
+
+    ?line {ok, Fd3} = ?PRIM_FILE:open(Advise, [write]),
+    ?line ok = ?PRIM_FILE:advise(Fd3, 0, 0, sequential),
+    ?line ok = ?PRIM_FILE:write(Fd3, Line1),
+    ?line ok = ?PRIM_FILE:write(Fd3, Line2),
+    ?line ok = ?PRIM_FILE:close(Fd3),
+
+    ?line {ok, Fd4} = ?PRIM_FILE:open(Advise, [write]),
+    ?line ok = ?PRIM_FILE:advise(Fd4, 0, 0, will_need),
+    ?line ok = ?PRIM_FILE:write(Fd4, Line1),
+    ?line ok = ?PRIM_FILE:write(Fd4, Line2),
+    ?line ok = ?PRIM_FILE:close(Fd4),
+
+    ?line {ok, Fd5} = ?PRIM_FILE:open(Advise, [write]),
+    ?line ok = ?PRIM_FILE:advise(Fd5, 0, 0, dont_need),
+    ?line ok = ?PRIM_FILE:write(Fd5, Line1),
+    ?line ok = ?PRIM_FILE:write(Fd5, Line2),
+    ?line ok = ?PRIM_FILE:close(Fd5),
+
+    ?line {ok, Fd6} = ?PRIM_FILE:open(Advise, [write]),
+    ?line ok = ?PRIM_FILE:advise(Fd6, 0, 0, no_reuse),
+    ?line ok = ?PRIM_FILE:write(Fd6, Line1),
+    ?line ok = ?PRIM_FILE:write(Fd6, Line2),
+    ?line ok = ?PRIM_FILE:close(Fd6),
+
+    ?line {ok, Fd7} = ?PRIM_FILE:open(Advise, [write]),
+    ?line {error, einval} = ?PRIM_FILE:advise(Fd7, 0, 0, bad_advise),
+    ?line ok = ?PRIM_FILE:close(Fd7),
+
+    %% test write without advise, then a read after an advise
+    ?line {ok, Fd8} = ?PRIM_FILE:open(Advise, [write]),
+    ?line ok = ?PRIM_FILE:write(Fd8, Line1),
+    ?line ok = ?PRIM_FILE:write(Fd8, Line2),
+    ?line ok = ?PRIM_FILE:close(Fd8),
+    ?line {ok, Fd9} = ?PRIM_FILE:open(Advise, [read]),
+    Offset = 0,
+    %% same as a 0 length in some implementations
+    Length = length(Line1) + length(Line2),
+    ?line ok = ?PRIM_FILE:advise(Fd9, Offset, Length, sequential),
+    ?line {ok, Line1} = ?PRIM_FILE:read_line(Fd9),
+    ?line {ok, Line2} = ?PRIM_FILE:read_line(Fd9),
+    ?line eof = ?PRIM_FILE:read_line(Fd9),
+    ?line ok = ?PRIM_FILE:close(Fd9),
 
     ?line test_server:timetrap_cancel(Dog),
     ok.
@@ -1188,7 +1328,6 @@ rename(Config, Handle, Suffix) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-errors(suite) -> [e_delete, e_rename, e_make_dir, e_del_dir].
 
 e_delete(suite) -> [];
 e_delete(doc) -> [];
@@ -1440,8 +1579,6 @@ e_del_dir(Config) when is_list(Config) ->
     ?line test_server:timetrap_cancel(Dog),
     ok.
 
-compression(suite) -> [read_compressed, read_not_really_compressed,
-		       write_compressed, compress_errors].
 
 %% Trying reading and positioning from a compressed file.
 
@@ -1594,11 +1731,6 @@ compress_errors(Config) when is_list(Config) ->
     ?line test_server:timetrap_cancel(Dog),
     ok.
 
-links(doc) -> "Test the link functions.";
-links(suite) -> 
-    [make_link_a, make_link_b, 
-     read_link_info_for_non_link, 
-     symlinks_a, symlinks_b].
 
 make_link_a(doc) -> "Test creating a hard link.";
 make_link_a(suite) -> [];

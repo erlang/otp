@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,12 +18,12 @@
 %%
 -module(timer_SUITE).
 
--export([all/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
 -export([do_big_test/1]).
 -export([big_test/1, collect/3, i_t/3, a_t/2]).
 -export([do_nrev/1, internal_watchdog/2]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 %% Test suite for timer module. This is a really nasty test it runs a
 %% lot of timeouts and then checks in the end if any of them was
@@ -51,7 +51,26 @@
 %% amount of load. The test suite should also include tests that test the
 %% interface of the timer module.
 
-all(suite) -> [do_big_test].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [do_big_test].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 %% ------------------------------------------------------- %%
 

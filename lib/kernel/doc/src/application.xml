@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2009</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>application</title>
@@ -50,20 +50,27 @@
     <p>Refer to <seealso marker="doc/design_principles:des_princ">OTP Design Principles</seealso> for more information about
       applications and behaviours.</p>
   </description>
+  <datatypes>
+    <datatype>
+      <name name="start_type"/>
+    </datatype>
+    <datatype>
+      <name name="restart_type"/>
+    </datatype>
+    <datatype>
+      <!-- Parameterized opaque types are NYI: -->
+      <name><marker id="type-tuple_of">tuple_of(T)</marker></name>
+      <desc><p>A tuple where the elements are of type <c>T</c>.</p></desc>
+    </datatype>
+  </datatypes>
   <funcs>
     <func>
-      <name>get_all_env() -> Env</name>
-      <name>get_all_env(Application) -> Env</name>
+      <name name="get_all_env" arity="0"/>
+      <name name="get_all_env" arity="1"/>
       <fsummary>Get the configuration parameters for an application</fsummary>
-      <type>
-        <v>Application = atom()</v>
-        <v>Env = [{Par,Val}]</v>
-        <v>&nbsp;Par = atom()</v>
-        <v>&nbsp;Val = term()</v>
-      </type>
       <desc>
         <p>Returns the configuration parameters and their values for
-          <c>Application</c>. If the argument is omitted, it defaults to
+          <c><anno>Application</anno></c>. If the argument is omitted, it defaults to
           the application of the calling process.</p>
         <p>If the specified application is not loaded, or if the process
           executing the call does not belong to any application,
@@ -71,18 +78,12 @@
       </desc>
     </func>
     <func>
-      <name>get_all_key() -> {ok, Keys} | []</name>
-      <name>get_all_key(Application) -> {ok, Keys} | undefined </name>
+      <name name="get_all_key" arity="0"/>
+      <name name="get_all_key" arity="1"/>
       <fsummary>Get the application specification keys</fsummary>
-      <type>
-        <v>Application = atom()</v>
-        <v>Keys = [{Key,Val}]</v>
-        <v>&nbsp;Key = atom()</v>
-        <v>&nbsp;Val = term()</v>
-      </type>
       <desc>
         <p>Returns the application specification keys and their values
-          for <c>Application</c>. If the argument is omitted, it
+          for <c><anno>Application</anno></c>. If the argument is omitted, it
           defaults to the application of the calling process.</p>
         <p>If the specified application is not loaded, the function
           returns <c>undefined</c>. If the process executing the call
@@ -91,17 +92,12 @@
       </desc>
     </func>
     <func>
-      <name>get_application() -> {ok, Application} | undefined</name>
-      <name>get_application(Pid | Module) -> {ok, Application} | undefined</name>
+      <name name="get_application" arity="0"/>
+      <name name="get_application" arity="1"/>
       <fsummary>Get the name of an application containing a certain process or module</fsummary>
-      <type>
-        <v>Pid = pid()</v>
-        <v>Module = atom()</v>
-        <v>Application = atom()</v>
-      </type>
       <desc>
         <p>Returns the name of the application to which the process
-          <c>Pid</c> or the module <c>Module</c> belongs. Providing no
+          <c><anno>Pid</anno></c> or the module <c><anno>Module</anno></c> belongs. Providing no
           argument is the same as calling
           <c>get_application(self())</c>.</p>
         <p>If the specified process does not belong to any application,
@@ -110,17 +106,12 @@
       </desc>
     </func>
     <func>
-      <name>get_env(Par) -> {ok, Val} | undefined</name>
-      <name>get_env(Application, Par) -> {ok, Val} | undefined</name>
+      <name name="get_env" arity="1"/>
+      <name name="get_env" arity="2"/>
       <fsummary>Get the value of a configuration parameter</fsummary>
-      <type>
-        <v>Application = atom()</v>
-        <v>Par = atom()</v>
-        <v>Val = term()</v>
-      </type>
       <desc>
-        <p>Returns the value of the configuration parameter <c>Par</c>
-          for <c>Application</c>. If the application argument is
+        <p>Returns the value of the configuration parameter <c><anno>Par</anno></c>
+          for <c><anno>Application</anno></c>. If the application argument is
           omitted, it defaults to the application of the calling
           process.</p>
         <p>If the specified application is not loaded, or
@@ -130,17 +121,12 @@
       </desc>
     </func>
     <func>
-      <name>get_key(Key) -> {ok, Val} | undefined</name>
-      <name>get_key(Application, Key) -> {ok, Val} | undefined</name>
+      <name name="get_key" arity="1"/>
+      <name name="get_key" arity="2"/>
       <fsummary>Get the value of an application specification key</fsummary>
-      <type>
-        <v>Application = atom()</v>
-        <v>Key = atom()</v>
-        <v>Val = term()</v>
-      </type>
       <desc>
         <p>Returns the value of the application specification key
-          <c>Key</c> for <c>Application</c>. If the application
+          <c><anno>Key</anno></c> for <c><anno>Application</anno></c>. If the application
           argument is omitted, it defaults to the application of
           the calling process.</p>
         <p>If the specified application is not loaded, or
@@ -150,45 +136,35 @@
       </desc>
     </func>
     <func>
-      <name>load(AppDescr) -> ok | {error, Reason}</name>
-      <name>load(AppDescr, Distributed) -> ok | {error, Reason}</name>
+      <name name="load" arity="1"/>
+      <name name="load" arity="2"/>
       <fsummary>Load an application</fsummary>
-      <type>
-        <v>AppDescr = Application | AppSpec</v>
-        <v>&nbsp;Application = atom()</v>
-        <v>&nbsp;AppSpec = {application,Application,AppSpecKeys}</v>
-        <v>&nbsp;&nbsp;AppSpec = [{Key,Val}]</v>
-        <v>&nbsp;&nbsp;&nbsp;Key = atom()</v>
-        <v>&nbsp;&nbsp;&nbsp;Val = term()</v>
-        <v>Distributed = {Application,Nodes} | {Application,Time,Nodes} | default</v>
-        <v>&nbsp;Nodes = [node() | {node(),..,node()}]</v>
-        <v>&nbsp;Time = integer() > 0</v>
-        <v>Reason = term()</v>
-      </type>
+      <type name="application_spec"/>
+      <type name="application_opt"/>
       <desc>
         <p>Loads the application specification for an application into
           the application controller. It will also load the application
           specifications for any included applications. Note that
           the function does not load the actual Erlang object code.</p>
-        <p>The application can be given by its name <c>Application</c>.
+        <p>The application can be given by its name <c><anno>Application</anno></c>.
           In this case the application controller will search the code
-          path for the application resource file <c>Application.app</c>
+          path for the application resource file <c><anno>Application</anno>.app</c>
           and load the specification it contains.</p>
         <p>The application specification can also be given directly as a
-          tuple <c>AppSpec</c>. This tuple should have the format and
+          tuple <c><anno>AppSpec</anno></c>. This tuple should have the format and
           contents as described in <c>app(4)</c>.</p>
-        <p>If <c>Distributed == {Application,[Time,]Nodes}</c>,
+        <p>If <c><anno>Distributed</anno> == {<anno>Application</anno>,[<anno>Time</anno>,]<anno>Nodes</anno>}</c>,
           the application will be distributed. The argument overrides
           the value for the application in the Kernel configuration
-          parameter <c>distributed</c>. <c>Application</c> must be
+          parameter <c>distributed</c>. <c><anno>Application</anno></c> must be
           the name of the application (same as in the first argument).
-          If a node crashes and <c>Time</c> has been specified, then
-          the application controller will wait for <c>Time</c>
+          If a node crashes and <c><anno>Time</anno></c> has been specified, then
+          the application controller will wait for <c><anno>Time</anno></c>
           milliseconds before attempting to restart the application on
-          another node. If <c>Time</c> is not specified, it will
+          another node. If <c><anno>Time</anno></c> is not specified, it will
           default to 0 and the application will be restarted
           immediately.</p>
-        <p><c>Nodes</c> is a list of node names where the application
+        <p><c><anno>Nodes</anno></c> is a list of node names where the application
           may run, in priority from left to right. Node names can be
           grouped using tuples to indicate that they have the same
           priority. Example:</p>
@@ -204,32 +180,22 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
       </desc>
     </func>
     <func>
-      <name>loaded_applications() -> [{Application, Description, Vsn}]</name>
+      <name name="loaded_applications" arity="0"/>
       <fsummary>Get the currently loaded applications</fsummary>
-      <type>
-        <v>Application = atom()</v>
-        <v>Description = string()</v>
-        <v>Vsn = string()</v>
-      </type>
       <desc>
         <p>Returns a list with information about the applications which
           have been loaded using <c>load/1,2</c>, also included
-          applications. <c>Application</c> is the application name.
-          <c>Description</c> and <c>Vsn</c> are the values of its
+          applications. <c><anno>Application</anno></c> is the application name.
+          <c><anno>Description</anno></c> and <c><anno>Vsn</anno></c> are the values of its
           <c>description</c> and <c>vsn</c> application specification
           keys, respectively.</p>
       </desc>
     </func>
     <func>
-      <name>permit(Application, Bool) -> ok | {error, Reason}</name>
+      <name name="permit" arity="2"/>
       <fsummary>Change an application's permission to run on a node.</fsummary>
-      <type>
-        <v>Application = atom()</v>
-        <v>Bool = bool()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
-        <p>Changes the permission for <c>Application</c> to run at
+        <p>Changes the permission for <c><anno>Application</anno></c> to run at
           the current node. The application must have been loaded using
           <c>load/1,2</c> for the function to have effect.</p>
         <p>If the permission of a loaded, but not started, application
@@ -258,20 +224,14 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
       </desc>
     </func>
     <func>
-      <name>set_env(Application, Par, Val) -> ok</name>
-      <name>set_env(Application, Par, Val, Timeout) -> ok</name>
+      <name name="set_env" arity="3"/>
+      <name name="set_env" arity="4"/>
       <fsummary>Set the value of a configuration parameter</fsummary>
-      <type>
-        <v>Application = atom()</v>
-        <v>Par = atom()</v>
-        <v>Val = term()</v>
-        <v>Timeout = int() | infinity</v>
-      </type>
       <desc>
-        <p>Sets the value of the configuration parameter <c>Par</c> for
-          <c>Application</c>.</p>
+        <p>Sets the value of the configuration parameter <c><anno>Par</anno></c> for
+          <c><anno>Application</anno></c>.</p>
         <p><c>set_env/3</c> uses the standard <c>gen_server</c> timeout
-          value (5000 ms). A <c>Timeout</c> argument can be provided
+          value (5000 ms). A <c><anno>Timeout</anno></c> argument can be provided
           if another timeout value is useful, for example, in situations
           where the application controller is heavily loaded.</p>
         <warning>
@@ -285,20 +245,15 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
       </desc>
     </func>
     <func>
-      <name>start(Application) -> ok | {error, Reason}</name>
-      <name>start(Application, Type) -> ok | {error, Reason}</name>
+      <name name="start" arity="1"/>
+      <name name="start" arity="2"/>
       <fsummary>Load and start an application</fsummary>
-      <type>
-        <v>Application = atom()</v>
-        <v>Type = permanent | transient | temporary</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
-        <p>Starts <c>Application</c>. If it is not loaded,
+        <p>Starts <c><anno>Application</anno></c>. If it is not loaded,
           the application controller will first load it using
           <c>load/1</c>. It will make sure any included applications
           are loaded, but will not start them. That is assumed to be
-          taken care of in the code for <c>Application</c>.</p>
+          taken care of in the code for <c><anno>Application</anno></c>.</p>
         <p>The application controller checks the value of
           the application specification key <c>applications</c>, to
           ensure that all applications that should be started before
@@ -310,7 +265,7 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
           The application master starts the application by calling
           the application callback function <c>Module:start/2</c> as
           defined by the application specification key <c>mod</c>.</p>
-        <p>The <c>Type</c> argument specifies the type of
+        <p>The <c><anno>Type</anno></c> argument specifies the type of
           the application. If omitted, it defaults to <c>temporary</c>.</p>
         <list type="bulleted">
           <item>If a permanent application terminates, all other
@@ -331,19 +286,15 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
       </desc>
     </func>
     <func>
-      <name>start_type() -> StartType | local | undefined</name>
+      <name name="start_type" arity="0"/>
       <fsummary>Get the start type of an ongoing application startup.</fsummary>
-      <type>
-        <v>StartType = normal | {takeover,Node} | {failover,Node}</v>
-        <v>&nbsp;Node = node()</v>
-      </type>
       <desc>
         <p>This function is intended to be called by a process belonging
           to an application, when the application is being started, to
-          determine the start type which is either <c>StartType</c> or
+          determine the start type which is either <c><anno>StartType</anno></c> or
           <c>local</c>.</p>
-        <p>See <c>Module:start/2</c> for a description of
-          <c>StartType</c>.</p>
+        <p>See <seealso marker="#start_type"><c>Module:start/2</c></seealso> for a description of
+          <c><anno>StartType</anno></c>.</p>
         <p><c>local</c> is returned if only parts of the application is
           being restarted (by a supervisor), or if the function is
           called outside a startup.</p>
@@ -352,14 +303,10 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
       </desc>
     </func>
     <func>
-      <name>stop(Application) -> ok | {error, Reason}</name>
+      <name name="stop" arity="1"/>
       <fsummary>Stop an application</fsummary>
-      <type>
-        <v>Application = atom()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
-        <p>Stops <c>Application</c>. The application master calls
+        <p>Stops <c><anno>Application</anno></c>. The application master calls
           <c>Module:prep_stop/1</c>, if such a function is defined, and
           then tells the top supervisor of the application to shutdown
           (see <c>supervisor(3)</c>). This means that the entire
@@ -384,16 +331,11 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
       </desc>
     </func>
     <func>
-      <name>takeover(Application, Type) -> ok | {error, Reason}</name>
+      <name name="takeover" arity="2"/>
       <fsummary>Take over a distributed application</fsummary>
-      <type>
-        <v>Application = atom()</v>
-        <v>Type = permanent | transient | temporary</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Performs a takeover of the distributed application
-          <c>Application</c>, which executes at another node
+          <c><anno>Application</anno></c>, which executes at another node
           <c>Node</c>. At the current node, the application is
           restarted by calling
           <c>Module:start({takeover,Node},StartArgs)</c>. <c>Module</c>
@@ -413,14 +355,10 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
       </desc>
     </func>
     <func>
-      <name>unload(Application) -> ok | {error, Reason}</name>
+      <name name="unload" arity="1"/>
       <fsummary>Unload an application</fsummary>
-      <type>
-        <v>Application = atom()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
-        <p>Unloads the application specification for <c>Application</c>
+        <p>Unloads the application specification for <c><anno>Application</anno></c>
           from the application controller. It will also unload
           the application specifications for any included applications.
           Note that the function does not purge the actual Erlang
@@ -428,19 +366,14 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
       </desc>
     </func>
     <func>
-      <name>unset_env(Application, Par) -> ok</name>
-      <name>unset_env(Application, Par, Timeout) -> ok</name>
+      <name name="unset_env" arity="2"/>
+      <name name="unset_env" arity="3"/>
       <fsummary>Unset the value of a configuration parameter</fsummary>
-      <type>
-        <v>Application = atom()</v>
-        <v>Par = atom()</v>
-        <v>Timeout = int() | infinity</v>
-      </type>
       <desc>
-        <p>Removes the configuration parameter <c>Par</c> and its value
-          for <c>Application</c>.</p>
+        <p>Removes the configuration parameter <c><anno>Par</anno></c> and its value
+          for <c><anno>Application</anno></c>.</p>
         <p><c>unset_env/2</c> uses the standard <c>gen_server</c>
-          timeout value (5000 ms). A <c>Timeout</c> argument can be
+          timeout value (5000 ms). A <c><anno>Timeout</anno></c> argument can be
           provided if another timeout value is useful, for example, in
           situations where the application controller is heavily loaded.</p>
         <warning>
@@ -454,23 +387,17 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
       </desc>
     </func>
     <func>
-      <name>which_applications() -> [{Application, Description, Vsn}]</name>
-      <name>which_applications(Timeout) -> [{Application, Description, Vsn}]</name>
+      <name name="which_applications" arity="0"/>
+      <name name="which_applications" arity="1"/>
       <fsummary>Get the currently running applications</fsummary>
-      <type>
-        <v>Application = atom()</v>
-        <v>Description = string()</v>
-        <v>Vsn = string()</v>
-        <v>Timeout = int() | infinity</v>
-      </type>
       <desc>
         <p>Returns a list with information about the applications which
-          are currently running. <c>Application</c> is the application
-          name. <c>Description</c> and <c>Vsn</c> are the values of its
+          are currently running. <c><anno>Application</anno></c> is the application
+          name. <c><anno>Description</anno></c> and <c><anno>Vsn</anno></c> are the values of its
           <c>description</c> and <c>vsn</c> application specification
           keys, respectively.</p>
         <p><c>which_applications/0</c> uses the standard
-          <c>gen_server</c> timeout value (5000 ms). A <c>Timeout</c>
+          <c>gen_server</c> timeout value (5000 ms). A <c><anno>Timeout</anno></c>
           argument can be provided if another timeout value is useful,
           for example, in situations where the application controller
           is heavily loaded.</p>
@@ -501,9 +428,9 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
           structured according to the OTP design principles as a
           supervision tree, this means starting the top supervisor of
           the tree.</p>
-        <p><c>StartType</c> defines the type of start:</p>
+        <p><marker id="start_type"/><c>StartType</c> defines the type of start:</p>
         <list type="bulleted">
-          <item><c>normal</c> if its a normal startup.</item>
+          <item><c>normal</c> if it's a normal startup.</item>
           <item><c>normal</c> also if the application is distributed and
            started at the current node due to a failover from another
            node, and the application specification key <c>start_phases == undefined</c>.</item>
@@ -532,8 +459,7 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
       <fsummary>Extended start of an application</fsummary>
       <type>
         <v>Phase = atom()</v>
-        <v>StartType = normal | {takeover,Node} | {failover,Node}</v>
-        <v>&nbsp;Node = node()</v>
+        <v>StartType = <seealso marker="#type-start_type">start_type()</seealso></v>
         <v>PhaseArgs = term()</v>
         <v>Pid = pid()</v>
         <v>State = state()</v>

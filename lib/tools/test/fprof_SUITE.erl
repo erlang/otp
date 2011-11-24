@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,10 +18,11 @@
 %%
 -module(fprof_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 %% Test server framework exports
--export([all/1, not_run/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, not_run/1]).
 
 %% Test suites
 -export([stack_seq/1, tail_seq/1, create_file_slow/1, spawn_simple/1,
@@ -54,17 +55,32 @@
 
 
 
-all(doc) ->
-    ["Test the 'fprof' profiling tool."];
-all(suite) ->
-    case test_server:is_native(?MODULE) of
-	true ->
-	    [not_run];
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    case test_server:is_native(fprof_SUITE) of
+	true -> [not_run];
 	false ->
 	    [stack_seq, tail_seq, create_file_slow, spawn_simple,
 	     imm_tail_seq, imm_create_file_slow, imm_compile,
 	     cpu_create_file_slow]
     end.
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 not_run(Config) when is_list(Config) ->
     {skipped, "Native code"}.
@@ -356,7 +372,7 @@ imm_tail_seq(Config) when is_list(Config) ->
     ?line profiling_stopped = eprof:stop_profiling(),
     ?line R2 = R0,
     %%
-    ?line eprof:analyse(),
+    ?line eprof:analyze(),
     ?line stopped = eprof:stop(),
     %%
     ?line {ok, Tracer} = fprof:profile(start),
@@ -471,7 +487,7 @@ imm_compile(Config) when is_list(Config) ->
     ?line TS3 = erlang:now(),
     ?line profiling_stopped = eprof:stop_profiling(),
     %%
-    ?line eprof:analyse(),
+    ?line eprof:analyze(),
     ?line stopped = eprof:stop(),
     %%
     ?line {ok, Tracer} = fprof:profile(start),

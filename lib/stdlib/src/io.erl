@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(io).
@@ -32,11 +32,15 @@
 	 parse_erl_form/1,parse_erl_form/2,parse_erl_form/3]).
 -export([request/1,request/2,requests/1,requests/2]).
 
+-export_type([device/0, format/0]).
 
 %%-------------------------------------------------------------------------
 
 -type device() :: atom() | pid().
 -type prompt() :: atom() | string().
+
+-type error_description() :: term(). % Whatever the io-server sends.
+-type request_error() :: {'error',error_description()}.
 
 %% XXX: Some uses of line() in this file may need to read erl_scan:location()
 -type line()   :: pos_integer().
@@ -52,37 +56,26 @@
 to_tuple(T) when is_tuple(T) -> T;
 to_tuple(T) -> {T}.
 
-%% Problem: the variables Other, Name and Args may collide with surrounding
-%% ones.
-%% Give extra args to macro, being the variables to use.
--define(O_REQUEST(Io, Request),
-    case request(Io, Request) of
-	{error, Reason} ->
-	    [Name | Args] = tuple_to_list(to_tuple(Request)),
-	    erlang:error(conv_reason(Name, Reason), [Name, Io | Args]);
-	Other ->
-	    Other
-    end).
-
 o_request(Io, Request, Func) ->
     case request(Io, Request) of
 	{error, Reason} ->
 	    [_Name | Args] = tuple_to_list(to_tuple(Request)),
-	    {'EXIT',{undef,[_Current|Mfas]}} = (catch erlang:error(undef)),
-	    MFA = {io, Func, [Io | Args]},
-	    exit({conv_reason(Func, Reason),[MFA|Mfas]});
-%	    erlang:error(conv_reason(Name, Reason), [Name, Io | Args]);
+	    {'EXIT',{get_stacktrace,[_Current|Mfas]}} = (catch erlang:error(get_stacktrace)),
+	    erlang:raise(error, conv_reason(Func, Reason), [{io, Func, [Io | Args]}|Mfas]);
 	Other ->
 	    Other
     end.
 
 %% Put chars takes mixed *unicode* list from R13 onwards.
--spec put_chars(iodata()) -> 'ok'.
+-spec put_chars(CharData) -> 'ok' when
+      CharData :: unicode:chardata().
 
 put_chars(Chars) ->
     put_chars(default_output(), Chars).
 
--spec put_chars(device(), iodata()) -> 'ok'.
+-spec put_chars(IoDevice, IoData) -> 'ok' when
+      IoDevice :: device(),
+      IoData :: unicode:chardata().
 
 put_chars(Io, Chars) ->
     o_request(Io, {put_chars,unicode,Chars}, put_chars).
@@ -92,7 +85,8 @@ put_chars(Io, Chars) ->
 nl() ->
     nl(default_output()).
 
--spec nl(device()) -> 'ok'.
+-spec nl(IoDevice) -> 'ok' when
+      IoDevice :: device().
 
 nl(Io) ->
 %    o_request(Io, {put_chars,io_lib:nl()}).
@@ -103,7 +97,8 @@ nl(Io) ->
 columns() ->
     columns(default_output()).
 
--spec columns(device()) -> {'ok', pos_integer()} | {'error', 'enotsup'}.
+-spec columns(IoDevice) -> {'ok', pos_integer()} | {'error', 'enotsup'} when
+      IoDevice :: device().
 
 columns(Io) ->
     case request(Io, {get_geometry,columns}) of
@@ -118,7 +113,8 @@ columns(Io) ->
 rows() ->
     rows(default_output()).
 
--spec rows(device()) -> {'ok', pos_integer()} | {'error', 'enotsup'}.
+-spec rows(IoDevice) -> {'ok', pos_integer()} | {'error', 'enotsup'} when
+      IoDevice :: device().
 
 rows(Io) ->
     case request(Io,{get_geometry,rows}) of
@@ -128,22 +124,36 @@ rows(Io) ->
 	    {error,enotsup}
     end.    
 
--spec get_chars(prompt(), non_neg_integer()) -> iodata() | 'eof'.
+-spec get_chars(Prompt, Count) -> Data | 'eof' when
+      Prompt :: prompt(),
+      Count :: non_neg_integer(),
+      Data :: [unicode:unicode_char()] | unicode:unicode_binary().
 
 get_chars(Prompt, N) ->
     get_chars(default_input(), Prompt, N).
 
--spec get_chars(device(), prompt(), non_neg_integer()) -> iodata() | 'eof'.
+-spec get_chars(IoDevice, Prompt, Count) -> Data | 'eof' | {error, Reason} when
+      IoDevice :: device(),
+      Prompt :: prompt(),
+      Count :: non_neg_integer(),
+      Reason :: term(),
+      Data :: [unicode:unicode_char()] | unicode:unicode_binary().
 
 get_chars(Io, Prompt, N) when is_integer(N), N >= 0 ->
     request(Io, {get_chars,unicode,Prompt,N}).
 
--spec get_line(prompt()) -> iodata() | 'eof' | {'error', term()}.
+-spec get_line(Prompt) -> Data | 'eof' | {'error', Reason} when
+      Prompt :: prompt(),
+      Reason :: term(),
+      Data :: [unicode:unicode_char()] | unicode:unicode_binary().
 
 get_line(Prompt) ->
     get_line(default_input(), Prompt).
 
--spec get_line(device(), prompt()) -> iodata() | 'eof' | {'error', term()}.
+-spec get_line(IoDevice, Prompt) -> Data | 'eof' | {'error', term()} when
+      IoDevice :: device(),
+      Prompt :: prompt(),
+      Data :: [unicode:unicode_char()] | unicode:unicode_binary().
 
 get_line(Io, Prompt) ->
     request(Io, {get_line,unicode,Prompt}).
@@ -167,46 +177,62 @@ get_password(Io) ->
 getopts() ->
     getopts(default_input()).
 
--spec getopts(device()) -> [opt_pair()].
+-spec getopts(IoDevice) -> [opt_pair()] when
+      IoDevice :: device().
 
 getopts(Io) ->
     request(Io, getopts).
 
 -type setopt() :: 'binary' | 'list' | opt_pair().
 
--spec setopts([setopt()]) -> 'ok' | {'error', term()}.
+-spec setopts(Opts) -> 'ok' | {'error', Reason} when
+      Opts :: [setopt()],
+      Reason :: term().
 
 setopts(Opts) ->
     setopts(default_input(), Opts).
 
--spec setopts(device(), [setopt()]) -> 'ok' | {'error', term()}.
+-spec setopts(IoDevice, Opts) -> 'ok' | {'error', Reason} when
+      IoDevice :: device(),
+      Opts :: [setopt()],
+      Reason :: term().
 
 setopts(Io, Opts) ->
     request(Io, {setopts, Opts}).
 
 %% Writing and reading Erlang terms.
 
--spec write(term()) -> 'ok'.
+-spec write(Term) -> 'ok' when
+      Term :: term().
 
 write(Term) ->
     write(default_output(), Term).
 
--spec write(device(), term()) -> 'ok'.
+-spec write(IoDevice, Term) -> 'ok' when
+      IoDevice :: device(),
+      Term :: term().
 
 write(Io, Term) ->
     o_request(Io, {write,Term}, write).
 
 
--spec read(prompt()) -> 
-    {'ok', term()} | 'eof' | {'error', erl_scan:error_info()}.
+-spec read(Prompt) -> Result when
+      Prompt :: prompt(),
+      Result :: {'ok', Term :: term()}
+              | 'eof'
+              | {'error', ErrorInfo :: erl_scan:error_info()}.
 
 % Read does not use get_until as erl_scan does not work with unicode
 % XXX:PaN fixme?
 read(Prompt) ->
     read(default_input(), Prompt).
 
--spec read(device(), prompt()) ->
-    {'ok', term()} | 'eof' | {'error', erl_scan:error_info()}.
+-spec read(IoDevice, Prompt) -> Result when
+      IoDevice :: device(),
+      Prompt :: prompt(),
+      Result :: {'ok', Term :: term()}
+              | 'eof'
+              | {'error', ErrorInfo :: erl_scan:error_info()}.
 
 read(Io, Prompt) ->
     case request(Io, {get_until,unicode,Prompt,erl_scan,tokens,[1]}) of
@@ -222,9 +248,13 @@ read(Io, Prompt) ->
 	    Other
     end.
 
--spec read(device(), prompt(), line()) ->
-    {'ok', term(), line()} | {'eof', line()} |
-    {'error', erl_scan:error_info(), line()}.
+-spec read(IoDevice, Prompt, StartLine) -> Result when
+      IoDevice :: device(),
+      Prompt :: prompt(),
+      StartLine :: line(),
+      Result :: {'ok', Term :: term(), EndLine :: line()}
+              | {'eof', EndLine :: line()}
+              | {'error', ErrorInfo :: erl_scan:error_info(), ErrorLine :: line()}.
 
 read(Io, Prompt, StartLine) when is_integer(StartLine) ->
     case request(Io, {get_until,unicode,Prompt,erl_scan,tokens,[StartLine]}) of
@@ -250,28 +280,40 @@ conv_reason(_, _Reason) -> badarg.
 
 -type format() :: atom() | string() | binary().
 
--spec fwrite(format()) -> 'ok'.
+-spec fwrite(Format) -> 'ok' when
+      Format :: format().
 
 fwrite(Format) ->
     format(Format).
 
--spec fwrite(format(), [term()]) -> 'ok'.
+-spec fwrite(Format, Data) -> 'ok' when
+      Format :: format(),
+      Data :: [term()].
 
 fwrite(Format, Args) ->
     format(Format, Args).
 
--spec fwrite(device(), format(), [term()]) -> 'ok'.
+-spec fwrite(IoDevice, Format, Data) -> 'ok' when
+      IoDevice :: device(),
+      Format :: format(),
+      Data :: [term()].
 
 fwrite(Io, Format, Args) ->
     format(Io, Format, Args).
 
--spec fread(prompt(), format()) -> {'ok', [term()]} | 'eof' | {'error',term()}.
+-spec fread(Prompt, Format) -> Result when
+      Prompt :: prompt(),
+      Format :: format(),
+      Result :: {'ok', Terms :: [term()]} | 'eof' | {'error', What :: term()}.
 
 fread(Prompt, Format) ->
     fread(default_input(), Prompt, Format).
 
--spec fread(device(), prompt(), format()) -> 
-    {'ok', [term()]} | 'eof' | {'error',term()}.
+-spec fread(IoDevice, Prompt, Format) -> Result when
+      IoDevice :: device(),
+      Prompt :: prompt(),
+      Format :: format(),
+      Result :: {'ok', Terms :: [term()]} | 'eof' | {'error', What :: term()}.
 
 fread(Io, Prompt, Format) ->
     case request(Io, {fread,Prompt,Format}) of
@@ -281,72 +323,104 @@ fread(Io, Prompt, Format) ->
 	    Other
     end.
 
--spec format(format()) -> 'ok'.
+-spec format(Format) -> 'ok' when
+      Format :: format().
 
 format(Format) ->
     format(Format, []).
 
--spec format(format(), [term()]) -> 'ok'.
+-spec format(Format, Data) -> 'ok' when
+      Format :: format(),
+      Data :: [term()].
 
 format(Format, Args) ->
     format(default_output(), Format, Args).
 
--spec format(device(), format(), [term()]) -> 'ok'.
+-spec format(IoDevice, Format, Data) -> 'ok' when
+      IoDevice :: device(),
+      Format :: format(),
+      Data :: [term()].
 
 format(Io, Format, Args) ->
     o_request(Io, {format,Format,Args}, format).
 
 %% Scanning Erlang code.
 
--spec scan_erl_exprs(prompt()) -> erl_scan:tokens_result().
+-spec scan_erl_exprs(Prompt) -> Result when
+      Prompt :: prompt(),
+      Result :: erl_scan:tokens_result() | request_error().
  
 scan_erl_exprs(Prompt) ->
     scan_erl_exprs(default_input(), Prompt, 1).
 
--spec scan_erl_exprs(device(), prompt()) -> erl_scan:tokens_result().
+-spec scan_erl_exprs(Device, Prompt) -> Result when
+      Device :: device(),
+      Prompt :: prompt(),
+      Result :: erl_scan:tokens_result() | request_error().
 
 scan_erl_exprs(Io, Prompt) ->
     scan_erl_exprs(Io, Prompt, 1).
 
--spec scan_erl_exprs(device(), prompt(), line()) -> erl_scan:tokens_result().
+-spec scan_erl_exprs(Device, Prompt, StartLine) -> Result when
+      Device :: device(),
+      Prompt :: prompt(),
+      StartLine :: line(),
+      Result :: erl_scan:tokens_result() | request_error().
 
 scan_erl_exprs(Io, Prompt, Pos0) ->
     request(Io, {get_until,unicode,Prompt,erl_scan,tokens,[Pos0]}).
 
--spec scan_erl_form(prompt()) -> erl_scan:tokens_result().
+-spec scan_erl_form(Prompt) -> Result when
+      Prompt :: prompt(),
+      Result :: erl_scan:tokens_result() | request_error().
 
 scan_erl_form(Prompt) ->
     scan_erl_form(default_input(), Prompt, 1).
 
--spec scan_erl_form(device(), prompt()) -> erl_scan:tokens_result().
+-spec scan_erl_form(IoDevice, Prompt) -> Result when
+      IoDevice :: device(),
+      Prompt :: prompt(),
+      Result :: erl_scan:tokens_result() | request_error().
 
 scan_erl_form(Io, Prompt) ->
     scan_erl_form(Io, Prompt, 1).
 
--spec scan_erl_form(device(), prompt(), line()) -> erl_scan:tokens_result().
+-spec scan_erl_form(IoDevice, Prompt, StartLine) -> Result when
+      IoDevice :: device(),
+      Prompt :: prompt(),
+      StartLine :: line(),
+      Result :: erl_scan:tokens_result() | request_error().
 
 scan_erl_form(Io, Prompt, Pos0) ->
     request(Io, {get_until,unicode,Prompt,erl_scan,tokens,[Pos0]}).
 
 %% Parsing Erlang code.
 
--type erl_parse_expr_list() :: [_]. %% XXX: should be imported from erl_parse
+-type parse_ret() :: {'ok', ExprList :: erl_parse:abstract_expr(), EndLine :: line()}
+                   | {'eof', EndLine :: line()}
+                   | {'error', ErrorInfo :: erl_scan:error_info(), ErrorLine :: line()}
+                   | request_error().
 
--type parse_ret() :: {'ok', erl_parse_expr_list(), line()}
-                   | {'eof', line()}
-                   | {'error', erl_scan:error_info(), line()}.
-
--spec parse_erl_exprs(prompt()) -> parse_ret().
+-spec parse_erl_exprs(Prompt) -> Result when
+      Prompt :: prompt(),
+      Result :: parse_ret().
 
 parse_erl_exprs(Prompt) ->
     parse_erl_exprs(default_input(), Prompt, 1).
 
--spec parse_erl_exprs(device(), prompt()) -> parse_ret().
+-spec parse_erl_exprs(IoDevice, Prompt) -> Result when
+      IoDevice :: device(),
+      Prompt :: prompt(),
+      Result :: parse_ret().
 
 parse_erl_exprs(Io, Prompt) ->
     parse_erl_exprs(Io, Prompt, 1).
 
--spec parse_erl_exprs(device(), prompt(), line()) -> parse_ret().
+-spec parse_erl_exprs(IoDevice, Prompt, StartLine) -> Result when
+      IoDevice :: device(),
+      Prompt :: prompt(),
+      StartLine :: line(),
+      Result :: parse_ret().
 
 parse_erl_exprs(Io, Prompt, Pos0) ->
     case request(Io, {get_until,unicode,Prompt,erl_scan,tokens,[Pos0]}) of
@@ -359,23 +433,31 @@ parse_erl_exprs(Io, Prompt, Pos0) ->
 	    Other
     end.
 
--type erl_parse_absform() :: _. %% XXX: should be imported from erl_parse
+-type parse_form_ret() :: {'ok', AbsForm :: erl_parse:abstract_form(), EndLine :: line()}
+                        | {'eof', EndLine :: line()}
+                        | {'error', ErrorInfo :: erl_scan:error_info(), ErrorLine :: line()}
+                        | request_error().
 
--type parse_form_ret() :: {'ok', erl_parse_absform(), line()}
-                        | {'eof', line()}
-                        | {'error', erl_scan:error_info(), line()}.
-
--spec parse_erl_form(prompt()) -> parse_form_ret().
+-spec parse_erl_form(Prompt) -> Result when
+      Prompt :: prompt(),
+      Result :: parse_form_ret().
 
 parse_erl_form(Prompt) ->
     parse_erl_form(default_input(), Prompt, 1).
 
--spec parse_erl_form(device(), prompt()) -> parse_form_ret().
+-spec parse_erl_form(IoDevice, Prompt) -> Result when
+      IoDevice :: device(),
+      Prompt :: prompt(),
+      Result :: parse_form_ret().
 
 parse_erl_form(Io, Prompt) ->
     parse_erl_form(Io, Prompt, 1).
 
--spec parse_erl_form(device(), prompt(), line()) -> parse_form_ret().
+-spec parse_erl_form(IoDevice, Prompt, StartLine) -> Result when
+      IoDevice :: device(),
+      Prompt :: prompt(),
+      StartLine :: line(),
+      Result :: parse_form_ret().
 
 parse_erl_form(Io, Prompt, Pos0) ->
     case request(Io, {get_until,unicode,Prompt,erl_scan,tokens,[Pos0]}) of

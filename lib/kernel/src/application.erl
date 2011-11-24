@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -28,49 +28,70 @@
 -export([get_application/0, get_application/1, info/0]).
 -export([start_type/0]).
 
--export([behaviour_info/1]).
-
 %%%-----------------------------------------------------------------
 
+-type start_type() :: 'normal'
+                    | {'takeover', Node :: node()}
+                    | {'failover', Node :: node()}.
 -type restart_type() :: 'permanent' | 'transient' | 'temporary'.
--type application_opt() :: {'description', string()}
-                         | {'vsn', string()}
-                         | {'id', string()}
-                         | {'modules', [atom() | {atom(), any()}]} 
-                         | {'registered', [atom()]}
-                         | {'applications', [atom()]}
-                         | {'included_applications', [atom()]}
-                         | {'env', [{atom(), any()}]}
-                         | {'start_phases', [{atom(), any()}] | 'undefined'}
-                         | {'maxT', timeout()}                % max timeout
-                         | {'maxP', integer() | 'infinity'}   % max processes
-                         | {'mod', {atom(), any()}}.
--type application_spec() :: {'application', atom(), [application_opt()]}.
+-type application_opt() :: {'description', Description :: string()}
+                         | {'vsn', Vsn :: string()}
+                         | {'id', Id :: string()}
+                         | {'modules', [(Module :: module()) |
+                                        {Module :: module(), Version :: term()}]}
+                         | {'registered', Names :: [Name :: atom()]}
+                         | {'applications', [Application :: atom()]}
+                         | {'included_applications', [Application :: atom()]}
+                         | {'env', [{Par :: atom(), Val :: term()}]}
+                         | {'start_phases',
+                            [{Phase :: atom(), PhaseArgs :: term()}] | 'undefined'}
+                         | {'maxT', MaxT :: timeout()}          % max timeout
+                         | {'maxP',
+                            MaxP :: pos_integer() | 'infinity'} % max processes
+                         | {'mod', Start :: {Module :: module(), StartArgs :: term()}}.
+-type application_spec() :: {'application',
+                             Application :: atom(),
+                             AppSpecKeys :: [application_opt()]}.
+
+-type(tuple_of(_T) :: tuple()).
 
 %%------------------------------------------------------------------
 
--spec behaviour_info(atom()) -> 'undefined' | [{atom(), byte()}].
+-callback start(StartType :: normal | {takeover, node()} | {failover, node()},
+		StartArgs :: term()) ->
+    {ok, pid()} | {ok, pid(), State :: term()} | {error, Reason :: term}.
 
-behaviour_info(callbacks) ->
-    [{start,2},{stop,1}];
-behaviour_info(_Other) ->
-    undefined.
+-callback stop(State :: term()) ->
+    term().
 
 %%%-----------------------------------------------------------------
 %%% This module is API towards application_controller and
 %%% application_master.
 %%%-----------------------------------------------------------------
 
--spec load(Application :: atom() | application_spec()) ->
-	     'ok' | {'error', term()}.
+-spec load(AppDescr) -> 'ok' | {'error', Reason} when
+      AppDescr :: Application | (AppSpec :: application_spec()),
+      Application :: atom(),
+      Reason :: term().
 
 load(Application) ->
-    load(Application, []).
+    load1(Application, []).
 
--spec load(Application :: atom() | application_spec(),
-	   Distributed :: any()) -> 'ok' | {'error', term()}.
+-spec load(AppDescr, Distributed) -> 'ok' | {'error', Reason} when
+      AppDescr :: Application | (AppSpec :: application_spec()),
+      Application :: atom(),
+      Distributed :: {Application,Nodes}
+                   | {Application,Time,Nodes}
+                   | 'default',
+      Nodes :: [node() | tuple_of(node())],
+      Time :: pos_integer(),
+      Reason :: term().
 
 load(Application, DistNodes) ->
+    load1(Application, DistNodes).
+
+%% Workaround due to specs.
+load1(Application, DistNodes) ->
     case application_controller:load_application(Application) of
 	ok when DistNodes =/= [] ->
 	    AppName = get_appl_name(Application),
@@ -85,18 +106,24 @@ load(Application, DistNodes) ->
 	    Else
     end.
 
--spec unload(Application :: atom()) -> 'ok' | {'error', term()}.
+-spec unload(Application) -> 'ok' | {'error', Reason} when
+      Application :: atom(),
+      Reason :: term().
 
 unload(Application) ->
     application_controller:unload_application(Application).
 
--spec start(Application :: atom()) -> 'ok' | {'error', term()}.
+-spec start(Application) -> 'ok' | {'error', Reason} when
+      Application :: atom(),
+      Reason :: term().
 
 start(Application) ->
     start(Application, temporary).
 
--spec start(Application :: atom() | application_spec(),
-	    RestartType :: restart_type()) -> any().
+-spec start(Application, Type) -> 'ok' | {'error', Reason} when
+      Application :: atom(),
+      Type :: restart_type(),
+      Reason :: term().
 
 start(Application, RestartType) ->
     case load(Application) of
@@ -120,12 +147,18 @@ start_boot(Application) ->
 start_boot(Application, RestartType) ->
     application_controller:start_boot_application(Application, RestartType).
 
--spec takeover(Application :: atom(), RestartType :: restart_type()) -> any().
+-spec takeover(Application, Type) -> 'ok' | {'error', Reason} when
+      Application :: atom(),
+      Type :: restart_type(),
+      Reason :: term().
 
 takeover(Application, RestartType) ->
     dist_ac:takeover_application(Application, RestartType).
 
--spec permit(Application :: atom(), Bool :: boolean()) -> 'ok' | {'error', term()}.
+-spec permit(Application, Permission) -> 'ok' | {'error', Reason} when
+      Application :: atom(),
+      Permission :: boolean(),
+      Reason :: term().
 
 permit(Application, Bool) ->
     case Bool of
@@ -142,105 +175,146 @@ permit(Application, Bool) ->
 	    LocalResult
     end.
 
--spec stop(Application :: atom()) -> 'ok' | {'error', term()}.
+-spec stop(Application) -> 'ok' | {'error', Reason} when
+      Application :: atom(),
+      Reason :: term().
 
 stop(Application) ->
     application_controller:stop_application(Application).
 
--spec which_applications() -> [{atom(), string(), string()}].
+-spec which_applications() -> [{Application, Description, Vsn}] when
+      Application :: atom(),
+      Description :: string(),
+      Vsn :: string().
 
 which_applications() ->
     application_controller:which_applications().
 
--spec which_applications(timeout()) -> [{atom(), string(), string()}].
+-spec which_applications(Timeout) -> [{Application, Description, Vsn}] when
+      Timeout :: timeout(),
+      Application :: atom(),
+      Description :: string(),
+      Vsn :: string().
 
 which_applications(infinity) ->
     application_controller:which_applications(infinity);
 which_applications(Timeout) when is_integer(Timeout), Timeout>=0 ->
     application_controller:which_applications(Timeout).
 
--spec loaded_applications() -> [{atom(), string(), string()}].
+-spec loaded_applications() -> [{Application, Description, Vsn}] when
+      Application :: atom(),
+      Description :: string(),
+      Vsn :: string().
 
 loaded_applications() -> 
     application_controller:loaded_applications().
 
--spec info() -> any().
+-spec info() -> term().
 
 info() -> 
     application_controller:info().
 
--spec set_env(Application :: atom(), Key :: atom(), Value :: any()) -> 'ok'.
+-spec set_env(Application, Par, Val) -> 'ok' when
+      Application :: atom(),
+      Par :: atom(),
+      Val :: term().
 
 set_env(Application, Key, Val) -> 
     application_controller:set_env(Application, Key, Val).
 
--spec set_env(Application :: atom(), Key :: atom(),
-	      Value :: any(), Timeout :: timeout()) -> 'ok'.
+-spec set_env(Application, Par, Val, Timeout) -> 'ok' when
+      Application :: atom(),
+      Par :: atom(),
+      Val :: term(),
+      Timeout :: timeout().
 
 set_env(Application, Key, Val, infinity) ->
     application_controller:set_env(Application, Key, Val, infinity);
 set_env(Application, Key, Val, Timeout) when is_integer(Timeout), Timeout>=0 ->
     application_controller:set_env(Application, Key, Val, Timeout).
 
--spec unset_env(atom(), atom()) -> 'ok'.
+-spec unset_env(Application, Par) -> 'ok' when
+      Application :: atom(),
+      Par :: atom().
 
 unset_env(Application, Key) -> 
     application_controller:unset_env(Application, Key).
 
--spec unset_env(atom(), atom(), timeout()) -> 'ok'.
+-spec unset_env(Application, Par, Timeout) -> 'ok' when
+      Application :: atom(),
+      Par :: atom(),
+      Timeout :: timeout().
 
 unset_env(Application, Key, infinity) ->
     application_controller:unset_env(Application, Key, infinity);
 unset_env(Application, Key, Timeout) when is_integer(Timeout), Timeout>=0 ->
     application_controller:unset_env(Application, Key, Timeout).
 
--spec get_env(atom()) -> 'undefined' | {'ok', term()}.
+-spec get_env(Par) -> 'undefined' | {'ok', Val} when
+      Par :: atom(),
+      Val :: term().
 
 get_env(Key) -> 
     application_controller:get_pid_env(group_leader(), Key).
 
--spec get_env(atom(), atom()) -> 'undefined' | {'ok', term()}.
+-spec get_env(Application, Par) -> 'undefined' | {'ok', Val} when
+      Application :: atom(),
+      Par :: atom(),
+      Val :: term().
 
 get_env(Application, Key) -> 
     application_controller:get_env(Application, Key).
 
--spec get_all_env() -> [] | [{atom(), any()}].
+-spec get_all_env() -> Env when
+      Env :: [{Par :: atom(), Val :: term()}].
 
 get_all_env() -> 
     application_controller:get_pid_all_env(group_leader()).
 
--spec get_all_env(atom()) -> [] | [{atom(), any()}].
+-spec get_all_env(Application) -> Env when
+      Application :: atom(),
+      Env :: [{Par :: atom(), Val :: term()}].
 
 get_all_env(Application) -> 
     application_controller:get_all_env(Application).
 
--spec get_key(atom()) -> 'undefined' | {'ok', term()}.
+-spec get_key(Key) -> 'undefined' | {'ok', Val} when
+      Key :: atom(),
+      Val :: term().
 
 get_key(Key) -> 
     application_controller:get_pid_key(group_leader(), Key).
 
--spec get_key(atom(), atom()) -> 'undefined' | {'ok', term()}.
+-spec get_key(Application, Key) -> 'undefined' | {'ok', Val} when
+      Application :: atom(),
+      Key :: atom(),
+      Val :: term().
 
 get_key(Application, Key) -> 
     application_controller:get_key(Application, Key).
 
--spec get_all_key() -> 'undefined' | [] | {'ok', [{atom(),any()},...]}.
+-spec get_all_key() -> [] | {'ok', Keys} when
+      Keys :: [{Key :: atom(),Val :: term()},...].
 
 get_all_key() ->
     application_controller:get_pid_all_key(group_leader()).
 
--spec get_all_key(atom()) -> 'undefined' | {'ok', [{atom(),any()},...]}.
+-spec get_all_key(Application) -> 'undefined' | Keys when
+      Application :: atom(),
+      Keys :: {'ok', [{Key :: atom(),Val :: term()},...]}.
 
 get_all_key(Application) -> 
     application_controller:get_all_key(Application).
 
--spec get_application() -> 'undefined' | {'ok', atom()}.
+-spec get_application() -> 'undefined' | {'ok', Application} when
+      Application :: atom().
 
 get_application() -> 
     application_controller:get_application(group_leader()).
 
--spec get_application(Pid :: pid()) -> 'undefined' | {'ok', atom()}
-		   ; (Module :: atom()) -> 'undefined' | {'ok', atom()}.
+-spec get_application(PidOrModule) -> 'undefined' | {'ok', Application} when
+      PidOrModule :: (Pid :: pid()) | (Module :: module()),
+      Application :: atom().
 
 get_application(Pid) when is_pid(Pid) ->
     case process_info(Pid, group_leader) of
@@ -252,8 +326,8 @@ get_application(Pid) when is_pid(Pid) ->
 get_application(Module) when is_atom(Module) ->
     application_controller:get_application_module(Module).
 
--spec start_type() -> 'undefined' | 'local' | 'normal'
-		    | {'takeover', node()} | {'failover', node()}.
+-spec start_type() -> StartType | 'undefined' | 'local' when
+      StartType :: start_type().
 
 start_type() ->
     application_controller:start_type(group_leader()).

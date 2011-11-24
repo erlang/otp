@@ -1,7 +1,4 @@
-{exclude, [ssl_pkix_oid,
-	   'PKIX1Algorithms88', 
-	   'PKIX1Explicit88',
-	   'PKIX1Implicit88',
-	   'PKIXAttributeCertificate',
-	   'SSL-PKIX']}.
+{incl_app,ssl,details}.
+
+{excl_mods, ssl, [ssl_debug]}.
 

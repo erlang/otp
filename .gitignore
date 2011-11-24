@@ -1,5 +1,10 @@
 # Match at any level.
+
+# emacs
 *~
+# vim
+.*.sw[a-z]
+
 autom4te.cache
 *.beam
 *.asn1db
@@ -9,6 +14,12 @@ autom4te.cache
 !/bootstrap/lib/stdlib/ebin/*.beam
 !/erts/preloaded/ebin/*.beam
 !/lib/*/test/*_SUITE_data/*.beam
+
+#
+# Generated source code files.
+#
+/bootstrap/lib/compiler/egen
+/bootstrap/lib/stdlib/egen
 
 # Compiler derivatives
 #
@@ -27,18 +38,81 @@ powerpc-unknown-linux-gnu
 # Mac OS X
 a.out.dSYM/
 
+# Windows
+*.pdb
+tcltk85_win32_bin.tar.gz
+erts/autoconf/win32.config.cache
+erts/emulator/obj/
+erts/emulator/pcre/obj/
+erts/emulator/pcre/win32/
+erts/emulator/win32/
+erts/emulator/zlib/obj/
+erts/emulator/zlib/win32/
+erts/epmd/src/win32/
+erts/etc/common/Install.ini
+erts/etc/common/win32/
+erts/etc/win32/cygwin_tools/vc/coffix.exe
+erts/include/internal/win32/
+erts/include/win32/
+erts/lib/internal/win32/
+erts/lib/win32/
+erts/lib_src/obj/
+erts/lib_src/win32/
+erts/obj/win32/
+erts/win32/
+erts/etc/win32/nsis/erlang.nsh
+lib/asn1/priv/lib/
+lib/asn1/priv/obj/
+lib/common_test/priv/win32/
+lib/crypto/c_src/win32/
+lib/crypto/priv/lib/
+lib/crypto/priv/obj/
+lib/erl_interface/obj.md/
+lib/erl_interface/obj.mdd/
+lib/erl_interface/src/win32/
+lib/gs/priv/tcl/
+lib/gs/tcl/binaries/
+lib/ic/c_src/win32/
+lib/ic/priv/lib/win32/
+lib/ic/priv/obj/win32/
+lib/megaco/src/flex/win32/
+lib/odbc/c_src/win32/
+lib/odbc/priv/bin/odbcserver.exe
+lib/odbc/priv/obj/win32/odbcserver.o
+lib/orber/c_src/win32/
+lib/os_mon/c_src/win32/
+lib/os_mon/priv/bin/win32/
+lib/os_mon/priv/obj/win32/
+lib/runtime_tools/c_src/win32/
+lib/runtime_tools/priv/lib/
+lib/runtime_tools/priv/obj/
+lib/tools/bin/win32/
+lib/tools/c_src/win32/
+lib/tools/obj/win32/
+lib/wx/c_src/win32/
+lib/wx/priv/win32/
+lib/wx/win32/
+make/win32/
+
+# Used by ic & orber & cos* applications.
+IDL-GENERATED
+
+# Used by applications that run javadoc (e.g. ic).
+JAVADOC-GENERATED
+
 # Anchored from $ERL_TOP
 /bin
 /config.log
 /config.status
 
 /bootstrap/bin/*
-!/bootstrap/bin/*.script
+/bootstrap/target
 !/bootstrap/bin/*.boot
 
 /bootstrap/lib/asn1
 /bootstrap/lib/hipe
 /bootstrap/lib/ic
+/bootstrap/lib/orber
 /bootstrap/lib/parsetools
 /bootstrap/lib/sasl
 /bootstrap/lib/snmp
@@ -51,6 +125,7 @@ a.out.dSYM/
 
 /release
 
+/make/emd2exml
 
 # Created by "out_build update_primary"
 /bootstrap/primary_compiler/
@@ -66,6 +141,7 @@ a.out.dSYM/
 /lib/*/ebin/*.appup
 
 /lib/*/test/Emakefile
+/erts/epmd/test/Emakefile
 
 /lib/*/SKIP
 
@@ -98,14 +174,21 @@ a.out.dSYM/
 /lib/*/test/*_SUITE_make.erl
 /lib/*/test/*_SUITE_data/Makefile
 /erts/emulator/test/*_SUITE_make.erl
+/erts/emulator/test/*_native_SUITE.erl
 /erts/emulator/test/*_SUITE_data/Makefile
+/erts/test/install_SUITE_data/install_bin
+/erts/test/autoimport_SUITE_data/erlang.xml
 
 # asn1
 
 /lib/asn1/doc/src/asn1_spec.xml
+/lib/asn1/test/asn1_SUITE.erl
+/lib/asn1/test/asn1_bin_SUITE.erl
+/lib/asn1/test/asn1_bin_v2_SUITE.erl
 
 # common_test
 
+/lib/common_test/doc/src/ct_slave.xml
 /lib/common_test/priv/install.sh
 
 # compiler
@@ -114,9 +197,9 @@ a.out.dSYM/
 /lib/compiler/src/beam_opcodes.hrl
 /lib/compiler/src/core_parse.erl
 
-/lib/compiler/test/*_r11_SUITE.erl
 /lib/compiler/test/*_no_opt_SUITE.erl
 /lib/compiler/test/*_post_opt_SUITE.erl
+/lib/compiler/test/*_inline_SUITE.erl
 
 # debugger
 
@@ -136,6 +219,14 @@ a.out.dSYM/
 /erts/doc/pdf/*.fo
 /erts/doc/pdf/*.pdf
 /erts/doc/man[0-9]/*.[0-9]
+/erts/doc/CONF_INFO
+
+# et
+
+/lib/et/doc/html/*.png
+/lib/et/doc/src/et_desc.xml
+/lib/et/doc/src/et_examples.xml
+/lib/et/doc/src/et_tutorial.xml
 
 # gs
 
@@ -162,16 +253,24 @@ a.out.dSYM/
 /lib/ic/priv/ic.jar
 /lib/ic/src/icparse.erl
 /lib/ic/doc/html/java
+/lib/ic/java_src/SKIP
 
 # jinterface
 
 /lib/jinterface/priv/OtpErlang.jar
 /lib/jinterface/priv/com/
 /lib/jinterface/doc/html/java
+/lib/jinterface/pom.xml
+/lib/jinterface/target
 
 # kernel
 
 /lib/kernel/src/inet_dns_record_adts.hrl
+
+# kernel
+
+/lib/mnesia/test/Mnesia.*
+/lib/mnesia/test/test_log*
 
 # otp_mibs
 
@@ -185,13 +284,6 @@ a.out.dSYM/
 /lib/os_mon/mibs/v1/OTP*.mib.v1
 /lib/os_mon/priv/mibs/OTP*.bin
 
-# public_key
-
-/lib/public_key/asn1/*.asn1db
-/lib/public_key/asn1/*.erl
-/lib/public_key/asn1/*.hrl
-/lib/public_key/include/OTP-PUB-KEY.hrl
-
 # ssh
 
 /lib/ssh/src/*.asn1db
@@ -200,17 +292,6 @@ a.out.dSYM/
 /lib/ssh/src/PKCS-1.erl
 /lib/ssh/src/PKCS-1.hrl
 
-# ssl
-
-/lib/ssl/pkix/*.asn1db
-/lib/ssl/examples/certs/done
-/lib/ssl/examples/certs/ebin/make_certs.beam
-/lib/ssl/examples/certs/etc/
-/lib/ssl/include/OTP-PKIX.hrl
-/lib/ssl/pkix/OTP-PKIX.erl
-/lib/ssl/pkix/OTP-PKIX.hrl
-/lib/ssl/pkix/ssl_pkix_oid.erl
-
 # stdlib
 
 /lib/stdlib/src/erl_parse.erl
@@ -218,6 +299,7 @@ a.out.dSYM/
 # snmp
 
 /lib/snmp/bin/snmp-v2tov1
+/lib/snmp/bin/snmpc
 /lib/snmp/examples/ex1/EX1-MIB.bin
 /lib/snmp/mibs/Makefile
 /lib/snmp/mibs/v1/OTP-SNMPEA-MIB.mib.v1
@@ -231,15 +313,25 @@ a.out.dSYM/
 
 /system/doc/pdf/*.pdf
 /system/doc/pdf/*.fo
+/system/doc/html/*.html
+/system/doc/html/*.eix
+/system/doc/html/js
 /system/doc/html/*/*.html
 /system/doc/html/*/*.gif
 /system/doc/html/*/*.eix
+/system/doc/top/PR.template
+/system/doc/top/erlresolvelinks.js
 /system/doc/programming_examples/funs.xml
 /system/doc/tutorial/c_port.xml
 /system/doc/tutorial/c_portdriver.xml
 /system/doc/tutorial/cnode.xml
 /system/doc/tutorial/erl_interface.xml
 /system/doc/tutorial/example.xml
+/system/doc/tutorial/nif.xml
+/system/doc/html/installation_guide
+/system/doc/installation_guide/INSTALL.xml
+/system/doc/installation_guide/INSTALL-CROSS.xml
+/system/doc/installation_guide/INSTALL-WIN32.xml
 
 # test_server
 
@@ -256,15 +348,18 @@ a.out.dSYM/
 /lib/wx/api_gen/wx_xml/*
 /lib/wx/api_gen/gl_xml/*
 /lib/wx/api_gen/??_doxygen
-/lib/wx/api_gen/??xml_generated
+/lib/wx/api_gen/*_generated
 /lib/wx/wx-*.ez
 /lib/wx/CONF_INFO
 /lib/wx/doc/src/wx*.xml
+/lib/wx/priv/wxe_driver.*
+/lib/wx/priv/erl_gl.*
 
 # xmerl
 
 /lib/xmerl/src/xmerl_sax_parser_*.erl
 /lib/xmerl/src/xmerl_b64Bin.erl
 /lib/xmerl/src/xmerl_xpath_parse.erl
+/lib/xmerl/test/xmerl_test.erl
 /lib/erl_interface/config.h.in
 /lib/configure.in

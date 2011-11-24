@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -64,7 +64,8 @@
 	       prev_tab = [], % initiate to a non valid table name
 	       prev_types,
 	       prev_snmp,
-	       types 
+	       types,
+	       majority = []
 	      }).
 
 -record(participant, {tid, pid, commit, disc_nodes = [], 
@@ -1100,9 +1101,12 @@ t_commit(Type) ->
 	    case arrange(Tid, Store, Type) of
 		{N, Prep} when N > 0 ->
 		    multi_commit(Prep#prep.protocol,
+				 majority_attr(Prep),
 				 Tid, Prep#prep.records, Store);
 		{0, Prep} ->
-		    multi_commit(read_only, Tid, Prep#prep.records, Store)
+		    multi_commit(read_only,
+				 majority_attr(Prep),
+				 Tid, Prep#prep.records, Store)
 	    end;
 	true ->
 	    %% nested commit
@@ -1116,6 +1120,10 @@ t_commit(Type) ->
 	    put(mnesia_activity_state, NewTidTs),
 	    do_commit_nested
     end.
+
+majority_attr(#prep{majority = M}) ->
+    M.
+
 
 %% This function arranges for all objects we shall write in S to be
 %% in a list of {Node, CommitRecord}
@@ -1222,11 +1230,13 @@ prepare_items(Tid, Tab, Key, Items, Prep) ->
 	{blocked, _} -> 
 	    unblocked = req({unblock_me, Tab}),
 	    prepare_items(Tid, Tab, Key, Items, Prep);
-	_ ->     
+	_ ->
+	    Majority = needs_majority(Tab, Prep),
 	    Snmp = val({Tab, snmp}),
 	    Recs2 = do_prepare_items(Tid, Tab, Key, Types, 
 				     Snmp, Items, Prep#prep.records),
 	    Prep2 = Prep#prep{records = Recs2, prev_tab = Tab, 
+			      majority = Majority,
 			      prev_types = Types, prev_snmp = Snmp},
 	    check_prep(Prep2, Types)
     end.
@@ -1234,6 +1244,33 @@ prepare_items(Tid, Tab, Key, Items, Prep) ->
 do_prepare_items(Tid, Tab, Key, Types, Snmp, Items, Recs) ->
     Recs2 = prepare_snmp(Tid, Tab, Key, Types, Snmp, Items, Recs), % May exit
     prepare_nodes(Tid, Types, Items, Recs2, normal).
+
+
+needs_majority(Tab, #prep{majority = M}) ->
+    case lists:keymember(Tab, 1, M) of
+	true ->
+	    M;
+	false ->
+	    case ?catch_val({Tab, majority}) of
+		{'EXIT', _} ->
+		    M;
+		false ->
+		    M;
+		true ->
+		    CopyHolders = val({Tab, all_nodes}),
+		    [{Tab, CopyHolders} | M]
+	    end
+    end.
+
+have_majority([], _) ->
+    ok;
+have_majority([{Tab, AllNodes} | Rest], Nodes) ->
+    case mnesia_lib:have_majority(Tab, AllNodes, Nodes) of
+	true ->
+	    have_majority(Rest, Nodes);
+	false ->
+	    {error, Tab}
+    end.
 
 prepare_snmp(Tab, Key, Items) ->
     case val({Tab, snmp}) of 
@@ -1261,10 +1298,15 @@ prepare_snmp(Tid, Tab, Key, Types, Us, Items, Recs) ->
 	    prepare_nodes(Tid, Types, [{clear_table, Tab}], Recs, snmp)
     end.
 
-check_prep(Prep, Types) when Prep#prep.types == Types ->
+check_prep(#prep{majority = [], types = Types} = Prep, Types) ->
     Prep;
-check_prep(Prep, Types) when Prep#prep.types == undefined ->
-    Prep#prep{types = Types};
+check_prep(#prep{majority = M, types = undefined} = Prep, Types) ->
+    Protocol = if M == [] ->
+		       Prep#prep.protocol;
+		  true ->
+		       asym_trans
+	       end,
+    Prep#prep{protocol = Protocol, types = Types};
 check_prep(Prep, _Types) ->
     Prep#prep{protocol = asym_trans}.
 
@@ -1311,7 +1353,7 @@ prepare_node(_Node, _Storage, [], Rec, _Kind) ->
 
 %% multi_commit((Protocol, Tid, CommitRecords, Store)
 %% Local work is always performed in users process
-multi_commit(read_only, Tid, CR, _Store) ->
+multi_commit(read_only, _Maj = [], Tid, CR, _Store) ->
     %% This featherweight commit protocol is used when no 
     %% updates has been performed in the transaction.
 
@@ -1324,7 +1366,7 @@ multi_commit(read_only, Tid, CR, _Store) ->
     ?MODULE ! {delete_transaction, Tid},
     do_commit;
 
-multi_commit(sym_trans, Tid, CR, Store) ->
+multi_commit(sym_trans, _Maj = [], Tid, CR, Store) ->
     %% This lightweight commit protocol is used when all
     %% the involved tables are replicated symetrically.
     %% Their storage types must match on each node.
@@ -1376,7 +1418,7 @@ multi_commit(sym_trans, Tid, CR, Store) ->
 		    [{tid, Tid}, {outcome, Outcome}]),
     Outcome;
 
-multi_commit(sync_sym_trans, Tid, CR, Store) ->
+multi_commit(sync_sym_trans, _Maj = [], Tid, CR, Store) ->
     %%   This protocol is the same as sym_trans except that it
     %%   uses syncronized calls to disk_log and syncronized commits
     %%   when several nodes are involved.
@@ -1408,7 +1450,7 @@ multi_commit(sync_sym_trans, Tid, CR, Store) ->
 		    [{tid, Tid}, {outcome, Outcome}]),
     Outcome;
 
-multi_commit(asym_trans, Tid, CR, Store) ->
+multi_commit(asym_trans, Majority, Tid, CR, Store) ->
     %% This more expensive commit protocol is used when 
     %% table definitions are changed (schema transactions).
     %% It is also used when the involved tables are
@@ -1469,6 +1511,10 @@ multi_commit(asym_trans, Tid, CR, Store) ->
     {D2, CR2} = commit_decision(D, CR, [], []),
     DiscNs = D2#decision.disc_nodes,
     RamNs = D2#decision.ram_nodes,
+    case have_majority(Majority, DiscNs ++ RamNs) of
+	ok  -> ok;
+	{error, Tab} -> mnesia:abort({no_majority, Tab})
+    end,
     Pending = mnesia_checkpoint:tm_enter_pending(Tid, DiscNs, RamNs),
     ?ets_insert(Store, Pending),
     {WaitFor, Local} = ask_commit(asym_trans, Tid, CR2, DiscNs, RamNs),
@@ -1604,6 +1650,7 @@ tell_participants([Pid | Pids], Msg) ->
 tell_participants([], _Msg) ->
     ok.
 
+-spec commit_participant(_, _, _, _, _) -> no_return().
 %% Trap exit because we can get a shutdown from application manager
 commit_participant(Coord, Tid, Bin, DiscNs, RamNs) when is_binary(Bin) ->
     process_flag(trap_exit, true),
@@ -1733,7 +1780,9 @@ do_commit(Tid, C, DumperMode) ->
     R  = do_snmp(Tid, C#commit.snmp),
     R2 = do_update(Tid, ram_copies, C#commit.ram_copies, R),
     R3 = do_update(Tid, disc_copies, C#commit.disc_copies, R2),
-    do_update(Tid, disc_only_copies, C#commit.disc_only_copies, R3).
+    R4 = do_update(Tid, disc_only_copies, C#commit.disc_only_copies, R3),
+    mnesia_subscr:report_activity(Tid),
+    R4.
 
 %% Update the items
 do_update(Tid, Storage, [Op | Ops], OldRes) ->
@@ -2277,6 +2326,7 @@ fixtable(Tab, Lock, Me) ->
 system_continue(_Parent, _Debug, State) ->
     doit_loop(State).
 
+-spec system_terminate(_, _, _, _) -> no_return().
 system_terminate(_Reason, _Parent, _Debug, State) ->
     do_stop(State).
 

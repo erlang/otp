@@ -419,7 +419,14 @@ expr({'fun',Line,Body}) ->
 	    {'fun',Line,{clauses,Cs1}};
 	{function,F,A} ->
 	    {'fun',Line,{function,F,A}};
-	{function,M,F,A} ->			%R10B-6: fun M:F/A.
+	{function,M,F,A} when is_atom(M), is_atom(F), is_integer(A) ->
+	    %% R10B-6: fun M:F/A. (Backward compatibility)
+	    {'fun',Line,{function,M,F,A}};
+	{function,M0,F0,A0} ->
+	    %% R15: fun M:F/A with variables.
+	    M = expr(M0),
+	    F = expr(F0),
+	    A = expr(A0),
 	    {'fun',Line,{function,M,F,A}}
     end;
 expr({call,Line,F0,As0}) ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -21,30 +21,38 @@
 
 -module(y2k_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
--export([all/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
 	 date_1999_01_01/1, date_1999_02_28/1, 
 	 date_1999_09_09/1, date_2000_01_01/1, 
 	 date_2000_02_29/1, date_2001_01_01/1, 
 	 date_2001_02_29/1, date_2004_02_29/1
 	]).
 
-all(doc) ->
-    "This is the test suite for year 2000. Eight dates according "
-    "to Ericsson Corporate Millennium Test Specification "
-    "(LME/DT-98:1097 are tested.";
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all(suite) ->
-    [date_1999_01_01, 
-     date_1999_02_28,
-     date_1999_09_09,
-     date_2000_01_01,
-     date_2000_02_29,
-     date_2001_01_01,
-     date_2001_02_29,
-     date_2004_02_29
-    ].
+all() -> 
+    [date_1999_01_01, date_1999_02_28, date_1999_09_09,
+     date_2000_01_01, date_2000_02_29, date_2001_01_01,
+     date_2001_02_29, date_2004_02_29].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 date_1999_01_01(doc) ->
     "#1 : 1999-01-01: test roll-over from 1998-12-31 to 1999-01-01.";

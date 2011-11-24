@@ -159,15 +159,15 @@ static char* lock_opt(Uint16 flag) {
 }
 
 static void print_lock_x(erts_lcnt_lock_t *lock, Uint16 flag, char *action, char *extra) {
-    long int colls, tries, w_state, r_state;
+    erts_aint_t colls, tries, w_state, r_state;
     erts_lcnt_lock_stats_t *stats = NULL;
     
     char *type;
     int i;
     
     type = lcnt_lock_type(lock->flag);
-    ethr_atomic_read(&lock->r_state, &r_state);
-    ethr_atomic_read(&lock->w_state, &w_state);
+    r_state = ethr_atomic_read(&lock->r_state);
+    w_state = ethr_atomic_read(&lock->w_state);
 
     
     if (lock->flag & flag) {
@@ -255,6 +255,10 @@ void erts_lcnt_init() {
 
     /* set start timer and zero statistics */
     erts_lcnt_clear_counters();
+}
+
+void erts_lcnt_late_init() {
+    erts_thr_install_exit_handler(erts_lcnt_thread_exit_handler);
 }
 
 /* list operations */
@@ -381,7 +385,7 @@ void erts_lcnt_destroy_lock(erts_lcnt_lock_t *lock) {
 /* lock */
 
 void erts_lcnt_lock_opt(erts_lcnt_lock_t *lock, Uint16 option) {
-    long r_state = 0, w_state = 0;
+    erts_aint_t r_state = 0, w_state = 0;
     erts_lcnt_thread_data_t *eltd;
     
     if (erts_lcnt_rt_options & ERTS_LCNT_OPT_SUSPEND) return;
@@ -390,10 +394,10 @@ void erts_lcnt_lock_opt(erts_lcnt_lock_t *lock, Uint16 option) {
 
     ASSERT(eltd);
     
-    ethr_atomic_read(&lock->w_state, &w_state);
+    w_state = ethr_atomic_read(&lock->w_state);
     
     if (option & ERTS_LCNT_LO_WRITE) {
-        ethr_atomic_read(&lock->r_state, &r_state);
+        r_state = ethr_atomic_read(&lock->r_state);
         ethr_atomic_inc( &lock->w_state);
     }
     if (option & ERTS_LCNT_LO_READ) {
@@ -414,12 +418,12 @@ void erts_lcnt_lock_opt(erts_lcnt_lock_t *lock, Uint16 option) {
 }
 
 void erts_lcnt_lock(erts_lcnt_lock_t *lock) {
-    long w_state;
+    erts_aint_t w_state;
     erts_lcnt_thread_data_t *eltd;
     
     if (erts_lcnt_rt_options & ERTS_LCNT_OPT_SUSPEND) return;
 
-    ethr_atomic_read(&lock->w_state, &w_state);
+    w_state = ethr_atomic_read(&lock->w_state);
     ethr_atomic_inc( &lock->w_state);
 
     eltd = lcnt_get_thread_data();
@@ -467,14 +471,14 @@ void erts_lcnt_lock_post_x(erts_lcnt_lock_t *lock, char *file, unsigned int line
     erts_lcnt_time_t time_wait;
     erts_lcnt_lock_stats_t *stats;
 #ifdef DEBUG
-    long flowstate;
+    erts_aint_t flowstate;
 #endif
 
     if (erts_lcnt_rt_options & ERTS_LCNT_OPT_SUSPEND) return;
     
 #ifdef DEBUG
     if (!(lock->flag & (ERTS_LCNT_LT_RWMUTEX | ERTS_LCNT_LT_RWSPINLOCK))) {
-    	ethr_atomic_read(&lock->flowstate, &flowstate);
+	flowstate = ethr_atomic_read(&lock->flowstate);
 	ASSERT(flowstate == 0);
     	ethr_atomic_inc( &lock->flowstate);
     }
@@ -512,18 +516,18 @@ void erts_lcnt_unlock_opt(erts_lcnt_lock_t *lock, Uint16 option) {
 
 void erts_lcnt_unlock(erts_lcnt_lock_t *lock) {
 #ifdef DEBUG
-    long w_state;  
-    long flowstate;
+    erts_aint_t w_state;  
+    erts_aint_t flowstate;
 #endif
     if (erts_lcnt_rt_options & ERTS_LCNT_OPT_SUSPEND) return;
 #ifdef DEBUG
     /* flowstate */
-    ethr_atomic_read(&lock->flowstate, &flowstate);
+    flowstate = ethr_atomic_read(&lock->flowstate);
     ASSERT(flowstate == 1);
     ethr_atomic_dec( &lock->flowstate);
     
     /* write state */
-    ethr_atomic_read(&lock->w_state, &w_state);
+    w_state = ethr_atomic_read(&lock->w_state);
     ASSERT(w_state > 0)
 #endif
     ethr_atomic_dec(&lock->w_state);
@@ -548,13 +552,13 @@ void erts_lcnt_trylock_opt(erts_lcnt_lock_t *lock, int res, Uint16 option) {
 void erts_lcnt_trylock(erts_lcnt_lock_t *lock, int res) {
     /* Determine lock_state via res instead of state */
 #ifdef DEBUG
-    long flowstate;
+    erts_aint_t flowstate;
 #endif 
     if (erts_lcnt_rt_options & ERTS_LCNT_OPT_SUSPEND) return;
     if (res != EBUSY) {
 	
 #ifdef DEBUG
-    	ethr_atomic_read(&lock->flowstate, &flowstate);
+	flowstate = ethr_atomic_read(&lock->flowstate);
 	ASSERT(flowstate == 0);
     	ethr_atomic_inc( &lock->flowstate);
 #endif
@@ -570,36 +574,26 @@ void erts_lcnt_trylock(erts_lcnt_lock_t *lock, int res) {
 
 /* thread operations */
 
-static void *lcnt_thr_init(erts_lcnt_thread_data_t *eltd) {
-    void *(*function)(void *);
-    void *argument;
-    void *res;
-    function = eltd->function;
-    argument = eltd->argument;
-    
-    ethr_tsd_set(lcnt_thr_data_key, eltd);
-    
-    res = (void *)function(argument);
-    free(eltd);
-    return (void *)res;
-}
-
-    
-
-int erts_lcnt_thr_create(ethr_tid *tid, void * (*function)(void *), void *arg, ethr_thr_opts *opts) {
+void erts_lcnt_thread_setup(void) {
     erts_lcnt_thread_data_t *eltd;
-    
+
     lcnt_lock();
     /* lock for thread id global update */
     eltd = lcnt_thread_data_alloc();
     lcnt_unlock();
-    
-    eltd->function = function;
-    eltd->argument = arg;
-
-    return ethr_thr_create(tid, (void *)lcnt_thr_init, (void *)eltd, opts);
+    ASSERT(eltd);
+    ethr_tsd_set(lcnt_thr_data_key, eltd);
 }
 
+void erts_lcnt_thread_exit_handler() {
+    erts_lcnt_thread_data_t *eltd;
+
+    eltd = ethr_tsd_get(lcnt_thr_data_key);
+
+    if (eltd) {
+        free(eltd);
+    }
+}
 
 /* bindings for bifs */
 

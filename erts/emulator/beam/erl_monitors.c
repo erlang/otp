@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2004-2009. All Rights Reserved.
+ * Copyright Ericsson AB 2004-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -85,7 +85,7 @@ static ERTS_INLINE int cmp_mon_ref(Eterm ref1, Eterm ref2)
     if (is_ref_thing_header(*b2)) {
 	return 1;
     }
-    return cmp(ref1,ref2);
+    return CMP(ref1,ref2);
 }
 	    
 #define CP_LINK_VAL(To, Hp, From)				\
@@ -125,7 +125,7 @@ static ErtsMonitor *create_monitor(Uint type, Eterm ref, Eterm pid, Eterm name)
      } else {
 	 n = (ErtsMonitor *) erts_alloc(ERTS_ALC_T_MONITOR_LH,
 					mon_size*sizeof(Uint));
-	 erts_smp_atomic_add(&tot_link_lh_size, mon_size*sizeof(Uint));
+	 erts_smp_atomic_add_nob(&tot_link_lh_size, mon_size*sizeof(Uint));
      } 
      hp = n->heap;
 
@@ -156,7 +156,7 @@ static ErtsLink *create_link(Uint type, Eterm pid)
      } else {
 	 n = (ErtsLink *) erts_alloc(ERTS_ALC_T_NLINK_LH,
 				     lnk_size*sizeof(Uint));
-	 erts_smp_atomic_add(&tot_link_lh_size, lnk_size*sizeof(Uint));
+	 erts_smp_atomic_add_nob(&tot_link_lh_size, lnk_size*sizeof(Uint));
      } 
      hp = n->heap;
 
@@ -191,13 +191,13 @@ static ErtsSuspendMonitor *create_suspend_monitor(Eterm pid)
 void
 erts_init_monitors(void)
 {
-    erts_smp_atomic_init(&tot_link_lh_size, 0);
+    erts_smp_atomic_init_nob(&tot_link_lh_size, 0);
 }
 
 Uint
 erts_tot_link_lh_size(void)
 {
-    return (Uint) erts_smp_atomic_read(&tot_link_lh_size);
+    return (Uint) erts_smp_atomic_read_nob(&tot_link_lh_size);
 }
 
 void erts_destroy_monitor(ErtsMonitor *mon)
@@ -222,7 +222,7 @@ void erts_destroy_monitor(ErtsMonitor *mon)
 	erts_free(ERTS_ALC_T_MONITOR_SH, (void *) mon);
     } else {
 	erts_free(ERTS_ALC_T_MONITOR_LH, (void *) mon);
-	erts_smp_atomic_add(&tot_link_lh_size, -1*mon_size*sizeof(Uint));
+	erts_smp_atomic_add_nob(&tot_link_lh_size, -1*mon_size*sizeof(Uint));
     }
 }
     
@@ -244,7 +244,7 @@ void erts_destroy_link(ErtsLink *lnk)
 	erts_free(ERTS_ALC_T_NLINK_SH, (void *) lnk);
     } else {
 	erts_free(ERTS_ALC_T_NLINK_LH, (void *) lnk);
-	erts_smp_atomic_add(&tot_link_lh_size, -1*lnk_size*sizeof(Uint));
+	erts_smp_atomic_add_nob(&tot_link_lh_size, -1*lnk_size*sizeof(Uint));
     }
 }
 
@@ -380,7 +380,7 @@ int erts_add_link(ErtsLink **root, Uint type, Eterm pid)
 	    state = 1;
 	    *this = create_link(type,pid);
 	    break;
-	} else if ((c = cmp(pid,(*this)->pid)) < 0) { 
+	} else if ((c = CMP(pid,(*this)->pid)) < 0) {
 	    /* go left */
 	    dstack[dpos++] = DIR_LEFT;
 	    tstack[tpos++] = this;
@@ -415,7 +415,7 @@ erts_add_or_lookup_suspend_monitor(ErtsSuspendMonitor **root, Eterm pid)
 	    state = 1;
 	    res = *this = create_suspend_monitor(pid);
 	    break;
-	} else if ((c = cmp(pid,(*this)->pid)) < 0) { 
+	} else if ((c = CMP(pid,(*this)->pid)) < 0) {
 	    /* go left */
 	    dstack[dpos++] = DIR_LEFT;
 	    tstack[tpos++] = this;
@@ -453,7 +453,7 @@ ErtsLink *erts_add_or_lookup_link(ErtsLink **root, Uint type, Eterm pid)
 	    *this = create_link(type,pid);
 	    ret = *this;
 	    break;
-	} else if ((c = cmp(pid,(*this)->pid)) < 0) { 
+	} else if ((c = CMP(pid,(*this)->pid)) < 0) {
 	    /* go left */
 	    dstack[dpos++] = DIR_LEFT;
 	    tstack[tpos++] = this;
@@ -663,7 +663,7 @@ ErtsLink *erts_remove_link(ErtsLink **root, Eterm pid)
     for (;;) {
 	if (!*this) { /* Failure */
 	    return NULL;
-	} else if ((c = cmp(pid,(*this)->pid)) < 0) { 
+	} else if ((c = CMP(pid,(*this)->pid)) < 0) {
 	    dstack[dpos++] = DIR_LEFT;
 	    tstack[tpos++] = this;
 	    this = &((*this)->left);
@@ -715,7 +715,7 @@ erts_delete_suspend_monitor(ErtsSuspendMonitor **root, Eterm pid)
     for (;;) {
 	if (!*this) { /* Nothing found */
 	    return;
-	} else if ((c = cmp(pid,(*this)->pid)) < 0) { 
+	} else if ((c = CMP(pid,(*this)->pid)) < 0) {
 	    dstack[dpos++] = DIR_LEFT;
 	    tstack[tpos++] = this;
 	    this = &((*this)->left);
@@ -771,7 +771,7 @@ ErtsLink *erts_lookup_link(ErtsLink *root, Eterm pid)
     Sint c;
 
     for (;;) {
-	if (root == NULL || (c = cmp(pid,root->pid)) == 0) {
+	if (root == NULL || (c = CMP(pid,root->pid)) == 0) {
 	    return root;
 	} else if (c < 0) { 
 	    root = root->left;
@@ -787,7 +787,7 @@ erts_lookup_suspend_monitor(ErtsSuspendMonitor *root, Eterm pid)
     Sint c;
 
     for (;;) {
-	if (root == NULL || (c = cmp(pid,root->pid)) == 0) {
+	if (root == NULL || (c = CMP(pid,root->pid)) == 0) {
 	    return root;
 	} else if (c < 0) { 
 	    root = root->left;
@@ -948,8 +948,10 @@ static void erts_dump_links(ErtsLink *root, int indent)
     erts_destroy_tmp_dsbuf(dsbufp);
 }
 
-Eterm erts_debug_dump_monitors_1(Process *p, Eterm pid)
+Eterm erts_debug_dump_monitors_1(BIF_ALIST_1)
 {
+    Process *p = BIF_P;
+    Eterm pid = BIF_ARG_1;
     Process *rp;
     DistEntry *dep;
     rp = erts_pid2proc(p, ERTS_PROC_LOCK_MAIN, pid, ERTS_PROC_LOCK_LINK);
@@ -976,8 +978,10 @@ Eterm erts_debug_dump_monitors_1(Process *p, Eterm pid)
     }
 }
 
-Eterm erts_debug_dump_links_1(Process *p, Eterm pid)
+Eterm erts_debug_dump_links_1(BIF_ALIST_1)
 {
+    Process *p = BIF_P;
+    Eterm pid = BIF_ARG_1;
     Process *rp;
     DistEntry *dep;
     if (is_internal_port(pid)) {

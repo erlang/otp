@@ -1,22 +1,22 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2004-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2004-2011. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
-/* $Id$
+/*
  *
  * List all non architecture-specific BIFs and primops, and
  * classify each as belonging to one of the classes below.
@@ -70,21 +70,15 @@
  ****************************************************************/
 
 /*
+ * standard_bif_interface_0(nbif_name, cbif_name)
  * standard_bif_interface_1(nbif_name, cbif_name)
  * standard_bif_interface_2(nbif_name, cbif_name)
  * standard_bif_interface_3(nbif_name, cbif_name)
  *
- * A BIF with implicit P parameter, 1-3 ordinary parameters,
+ * A BIF with implicit P parameter, 0-3 ordinary parameters,
  * which may fail.
  * HP and FCALLS may be read and updated.
  * HP_LIMIT, NSP, NSP_LIMIT, and NRA may not be accessed.
- */
-
-/*
- * fail_bif_interface_0(nbif_name, cbif_name)
- *
- * A zero-arity BIF which may fail, otherwise
- * identical to standard_bif_interface_N.
  */
 
 /*
@@ -150,8 +144,7 @@
 /*
  * Zero-arity BIFs that can fail.
  */
-fail_bif_interface_0(nbif_memory_0, memory_0)
-fail_bif_interface_0(nbif_processes_0, processes_0)
+standard_bif_interface_0(nbif_processes_0, processes_0)
 
 /*
  * BIFs and primops that may do a GC (change heap limit and walk the native stack).
@@ -176,10 +169,10 @@ gc_bif_interface_0(nbif_hipe_bifs_nstack_used_size_0, hipe_bifs_nstack_used_size
 /*
  * Arithmetic operators called indirectly by the HiPE compiler.
  */
-standard_bif_interface_2(nbif_add_2, erts_mixed_plus)
-standard_bif_interface_2(nbif_sub_2, erts_mixed_minus)
-standard_bif_interface_2(nbif_mul_2, erts_mixed_times)
-standard_bif_interface_2(nbif_div_2, erts_mixed_div)
+standard_bif_interface_2(nbif_add_2, splus_2)
+standard_bif_interface_2(nbif_sub_2, sminus_2)
+standard_bif_interface_2(nbif_mul_2, stimes_2)
+standard_bif_interface_2(nbif_div_2, div_2)
 standard_bif_interface_2(nbif_intdiv_2, intdiv_2)
 standard_bif_interface_2(nbif_rem_2, rem_2)
 standard_bif_interface_2(nbif_bsl_2, bsl_2)
@@ -252,6 +245,10 @@ noproc_primop_interface_5(nbif_bs_put_big_integer, hipe_bs_put_big_integer)
 
 gc_bif_interface_0(nbif_check_get_msg, hipe_check_get_msg)
 
+#ifdef NO_FPE_SIGNALS
+nocons_nofail_primop_interface_0(nbif_emulate_fpe, hipe_emulate_fpe)
+#endif
+
 /*
  * SMP-specific stuff
  */
@@ -259,11 +256,6 @@ ifelse(ERTS_SMP,1,`
 nocons_nofail_primop_interface_0(nbif_clear_timeout, hipe_clear_timeout)
 noproc_primop_interface_1(nbif_atomic_inc, hipe_atomic_inc)
 ',)dnl
-
-/*
- * Implement standard_bif_interface_0 as nofail_primop_interface_0.
- */
-define(standard_bif_interface_0,`nofail_primop_interface_0($1, $2)')
 
 /*
  * Standard BIFs.

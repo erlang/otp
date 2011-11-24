@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1611,25 +1611,8 @@ complete_NFP(InList) when is_bitstring(InList) ->
 
 %% 10.5.6 NOTE: If "range" satisfies the inequality 2^m < "range" =<
 %% 2^(m+1) then the number of bits = m + 1
-num_bits(1) -> 0;
-num_bits(2) -> 1;
-num_bits(R) when R =< 4 -> 
-    2;
-num_bits(R) when R =< 8 ->
-    3;
-num_bits(R) when R =< 16 ->
-    4;
-num_bits(R) when R =< 32 ->
-    5;	
-num_bits(R) when R =< 64 ->
-    6;
-num_bits(R) when R =< 128 ->
-    7;
-num_bits(R) when R =< 256 ->
-    8;
-num_bits(R) when R =< 512 ->
-    9;
-num_bits(R) when R =< 1024 ->
-    10;
-num_bits(R) ->
-    1+num_bits(R bsr 1).
+
+num_bits(N) ->
+    num_bits(N,1,0).
+num_bits(N,T,B) when N=<T->B;
+num_bits(N,T,B) ->num_bits(N,T bsl 1, B+1).

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -35,33 +35,50 @@
 -export([delay_trap/2]).
 -export([set_cookie/2, get_cookie/0]).
 -export([nodes/0]).
--export([concat_binary/1]).
+
 -export([list_to_integer/2,integer_to_list/2]).
 -export([flush_monitor_message/2]).
 -export([set_cpu_topology/1, format_cpu_topology/1]).
 -export([await_proc_exit/3]).
+-export([memory/0, memory/1]).
+-export([alloc_info/1, alloc_sizes/1]).
 
 -deprecated([hash/2]).
--deprecated([concat_binary/1]).
 
--compile(nowarn_bif_clash).
+% Get rid of autoimports of spawn to avoid clashes with ourselves.
+-compile({no_auto_import,[spawn/1]}).
+-compile({no_auto_import,[spawn/4]}).
+-compile({no_auto_import,[spawn_link/1]}).
+-compile({no_auto_import,[spawn_link/4]}).
+-compile({no_auto_import,[spawn_opt/2]}).
+-compile({no_auto_import,[spawn_opt/4]}).
+-compile({no_auto_import,[spawn_opt/5]}).
+
+-export_type([timestamp/0]).
+
+-type timestamp() :: {MegaSecs :: non_neg_integer(),
+                      Secs :: non_neg_integer(),
+                      MicroSecs :: non_neg_integer()}.
 
 %%--------------------------------------------------------------------------
 
--type date() :: {pos_integer(), pos_integer(), pos_integer()}.
--type time() :: {non_neg_integer(), non_neg_integer(), non_neg_integer()}.
--type date_time() :: {date(), time()}.
-
-%%--------------------------------------------------------------------------
-
+-spec apply(Fun, Args) -> term() when
+      Fun :: function(),
+      Args :: [term()].
 apply(Fun, Args) ->
-    apply(Fun, Args).
+    erlang:apply(Fun, Args).
 
+-spec apply(Module, Function, Args) -> term() when
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()].
 apply(Mod, Name, Args) ->
-    apply(Mod, Name, Args).
+    erlang:apply(Mod, Name, Args).
 
 %% Spawns with a fun
 
+-spec spawn(Fun) -> pid() when
+      Fun :: function().
 spawn(F) when is_function(F) ->
     spawn(erlang, apply, [F, []]);
 spawn({M,F}=MF) when is_atom(M), is_atom(F) ->
@@ -69,6 +86,9 @@ spawn({M,F}=MF) when is_atom(M), is_atom(F) ->
 spawn(F) ->
     erlang:error(badarg, [F]).
 
+-spec spawn(Node, Fun) -> pid() when
+      Node :: node(),
+      Fun :: function().
 spawn(N, F) when N =:= node() ->
     spawn(F);
 spawn(N, F) when is_function(F) ->
@@ -78,6 +98,8 @@ spawn(N, {M,F}=MF) when is_atom(M), is_atom(F) ->
 spawn(N, F) ->
     erlang:error(badarg, [N, F]).
 
+-spec spawn_link(Fun) -> pid() when
+      Fun :: function().
 spawn_link(F) when is_function(F) ->
     spawn_link(erlang, apply, [F, []]);
 spawn_link({M,F}=MF) when is_atom(M), is_atom(F) ->
@@ -85,6 +107,9 @@ spawn_link({M,F}=MF) when is_atom(M), is_atom(F) ->
 spawn_link(F) ->
     erlang:error(badarg, [F]).
 
+-spec spawn_link(Node, Fun) -> pid() when
+      Node :: node(),
+      Fun :: function().
 spawn_link(N, F) when N =:= node() ->
     spawn_link(F);
 spawn_link(N, F) when is_function(F) ->
@@ -96,16 +121,30 @@ spawn_link(N, F) ->
 
 %% Spawn and atomically set up a monitor.
 
+-spec spawn_monitor(Fun) -> {pid(), reference()} when
+      Fun :: function().
 spawn_monitor(F) when is_function(F, 0) ->
     erlang:spawn_opt({erlang,apply,[F,[]],[monitor]});
 spawn_monitor(F) ->
     erlang:error(badarg, [F]).
 
+-spec spawn_monitor(Module, Function, Args) -> {pid(), reference()} when
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()].
 spawn_monitor(M, F, A) when is_atom(M), is_atom(F), is_list(A) ->
     erlang:spawn_opt({M,F,A,[monitor]});
 spawn_monitor(M, F, A) ->
     erlang:error(badarg, [M,F,A]).
 
+-spec spawn_opt(Fun, Options) -> pid() | {pid(), reference()} when
+      Fun :: function(),
+      Options :: [Option],
+      Option :: link | monitor | {priority, Level}
+              | {fullsweep_after, Number :: non_neg_integer()}
+              | {min_heap_size, Size :: non_neg_integer()}
+              | {min_bin_vheap_size, VSize :: non_neg_integer()},
+      Level :: low | normal | high.
 spawn_opt(F, O) when is_function(F) ->
     spawn_opt(erlang, apply, [F, []], O);
 spawn_opt({M,F}=MF, O) when is_atom(M), is_atom(F) ->
@@ -115,6 +154,15 @@ spawn_opt({M,F,A}, O) -> % For (undocumented) backward compatibility
 spawn_opt(F, O) ->
     erlang:error(badarg, [F, O]).
 
+-spec spawn_opt(Node, Fun, Options) -> pid() | {pid(), reference()} when
+      Node :: node(),
+      Fun :: function(),
+      Options :: [Option],
+      Option :: link | monitor | {priority, Level}
+              | {fullsweep_after, Number :: non_neg_integer()}
+              | {min_heap_size, Size :: non_neg_integer()}
+              | {min_bin_vheap_size, VSize :: non_neg_integer()},
+      Level :: low | normal | high.
 spawn_opt(N, F, O) when N =:= node() ->
     spawn_opt(F, O);
 spawn_opt(N, F, O) when is_function(F) ->
@@ -126,6 +174,11 @@ spawn_opt(N, F, O) ->
 
 %% Spawns with MFA
 
+-spec spawn(Node, Module, Function, Args) -> pid() when
+      Node :: node(),
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()].
 spawn(N,M,F,A) when N =:= node(), is_atom(M), is_atom(F), is_list(A) ->
     spawn(M,F,A);
 spawn(N,M,F,A) when is_atom(N), is_atom(M), is_atom(F) ->
@@ -151,6 +204,11 @@ spawn(N,M,F,A) when is_atom(N), is_atom(M), is_atom(F) ->
 spawn(N,M,F,A) ->
     erlang:error(badarg, [N, M, F, A]).
 
+-spec spawn_link(Node, Module, Function, Args) -> pid() when
+      Node :: node(),
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()].
 spawn_link(N,M,F,A) when N =:= node(), is_atom(M), is_atom(F), is_list(A) ->
     spawn_link(M,F,A);
 spawn_link(N,M,F,A) when is_atom(N), is_atom(M), is_atom(F) ->
@@ -176,6 +234,17 @@ spawn_link(N,M,F,A) when is_atom(N), is_atom(M), is_atom(F) ->
 spawn_link(N,M,F,A) ->
     erlang:error(badarg, [N, M, F, A]).
 
+-spec spawn_opt(Module, Function, Args, Options) ->
+                       pid() | {pid(), reference()} when
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()],
+      Options :: [Option],
+      Option :: link | monitor | {priority, Level}
+              | {fullsweep_after, Number :: non_neg_integer()}
+              | {min_heap_size, Size :: non_neg_integer()}
+              | {min_bin_vheap_size, VSize :: non_neg_integer()},
+      Level :: low | normal | high.
 spawn_opt(M, F, A, Opts) ->
     case catch erlang:spawn_opt({M,F,A,Opts}) of
 	{'EXIT',{Reason,_}} ->
@@ -184,6 +253,18 @@ spawn_opt(M, F, A, Opts) ->
 	    Res
     end.
 
+-spec spawn_opt(Node, Module, Function, Args, Options) ->
+                       pid() | {pid(), reference()} when
+      Node :: node(),
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()],
+      Options :: [Option],
+      Option :: link | monitor | {priority, Level}
+              | {fullsweep_after, Number :: non_neg_integer()}
+              | {min_heap_size, Size :: non_neg_integer()}
+              | {min_bin_vheap_size, VSize :: non_neg_integer()},
+      Level :: low | normal | high.
 spawn_opt(N, M, F, A, O) when N =:= node(),
 			      is_atom(M), is_atom(F), is_list(A),
 			      is_list(O) ->
@@ -253,18 +334,25 @@ crasher(Node,Mod,Fun,Args,Opts,Reason) ->
 			     [Mod,Fun,Args,Opts,Node]),
     exit(Reason).
 
--spec yield() -> 'true'.
+-spec erlang:yield() -> 'true'.
 yield() ->
     erlang:yield().
 
--spec nodes() -> [node()].
+-spec nodes() -> Nodes when
+      Nodes :: [node()].
 nodes() ->
     erlang:nodes(visible).
 
--spec disconnect_node(node()) -> boolean().
+-spec disconnect_node(Node) -> boolean() | ignored when
+      Node :: node().
 disconnect_node(Node) ->
     net_kernel:disconnect(Node).
 
+-spec erlang:fun_info(Fun) -> [{Item, Info}] when
+      Fun :: function(),
+      Item :: arity | env | index | name
+            | module | new_index | new_uniq | pid | type | uniq,
+      Info :: term().
 fun_info(Fun) when is_function(Fun) ->
     Keys = [type,env,arity,name,uniq,index,new_uniq,new_index,module,pid],
     fun_info_1(Keys, Fun, []).
@@ -276,24 +364,37 @@ fun_info_1([K|Ks], Fun, A) ->
     end;
 fun_info_1([], _, A) -> A.
 
--type dst() :: pid() | port() | atom() | {atom(), node()}.
+-type dst() :: pid()
+             | port()
+             | (RegName :: atom())
+             | {RegName :: atom(), Node :: node()}.
 
--spec send_nosuspend(dst(), term()) -> boolean().
+-spec erlang:send_nosuspend(Dest, Msg) -> boolean() when
+      Dest :: dst(),
+      Msg :: term().
 send_nosuspend(Pid, Msg) ->
     send_nosuspend(Pid, Msg, []).
 
--spec send_nosuspend(dst(), term(), ['noconnect' | 'nosuspend']) -> boolean().
+-spec erlang:send_nosuspend(Dest, Msg, Options) -> boolean() when
+      Dest :: dst(),
+      Msg :: term(),
+      Options :: [noconnect].
 send_nosuspend(Pid, Msg, Opts) ->
     case erlang:send(Pid, Msg, [nosuspend|Opts]) of
 	ok -> true;
 	_  -> false
     end.
 
--spec localtime_to_universaltime(date_time()) -> date_time().
+-spec erlang:localtime_to_universaltime({Date1, Time1}) -> {Date2, Time2} when
+      Date1 :: calendar:date(),
+      Date2 :: calendar:date(),
+      Time1 :: calendar:time(),
+      Time2 :: calendar:time().
 localtime_to_universaltime(Localtime) ->
     erlang:localtime_to_universaltime(Localtime, undefined).
 
--spec suspend_process(pid()) -> 'true'.
+-spec erlang:suspend_process(Suspendee) -> 'true' when
+      Suspendee :: pid().
 suspend_process(P) ->
     case catch erlang:suspend_process(P, []) of
 	{'EXIT', {Reason, _}} -> erlang:error(Reason, [P]);
@@ -419,28 +520,25 @@ delay_trap(Result, Timeout) -> receive after Timeout -> Result end.
 %% Messages to us use our cookie. IF we change our cookie, other nodes 
 %% have to reflect that, which we cannot forsee.
 %%
+-spec erlang:set_cookie(Node, Cookie) -> true when
+      Node :: node(),
+      Cookie :: atom().
 set_cookie(Node, C) when Node =/= nonode@nohost, is_atom(Node) ->
-    Res = case C of
-	      _ when is_atom(C) ->
-		  auth:set_cookie(Node, C);
-	      {CI,CO} when is_atom(CI), is_atom(CO) ->
-		  auth:set_cookie(Node, {CI, CO});
-	      _ ->
-		  error
-	  end,
-    case Res of
-	error -> exit(badarg);
-	Other -> Other
+    case is_atom(C) of
+	true ->
+	    auth:set_cookie(Node, C);
+	false ->
+	    error(badarg)
     end.
 
--spec get_cookie() -> atom().
+-spec erlang:get_cookie() -> Cookie | nocookie when
+      Cookie :: atom().
 get_cookie() ->
     auth:get_cookie().
 
-concat_binary(List) ->
-    list_to_binary(List).
-
--spec integer_to_list(integer(), 1..255) -> string().
+-spec integer_to_list(Integer, Base) -> string() when
+      Integer :: integer(),
+      Base :: 2..36.
 integer_to_list(I, 10) ->
     erlang:integer_to_list(I);
 integer_to_list(I, Base) 
@@ -468,6 +566,9 @@ integer_to_list(I0, Base, R0) ->
     end.
 
 
+-spec list_to_integer(String, Base) -> integer() when
+      String :: string(),
+      Base :: 2..36.
 list_to_integer(L, 10) ->
     erlang:list_to_integer(L);
 list_to_integer(L, Base)
@@ -688,10 +789,418 @@ await_proc_exit(Proc, Op, Data) ->
 	    end
     end.
 
--spec min(term(), term()) -> term().
+-spec min(Term1, Term2) -> Minimum when
+      Term1 :: term(),
+      Term2 :: term(),
+      Minimum :: term().
 min(A, B) when A > B -> B;
 min(A, _) -> A.
 
--spec max(term(), term()) -> term().
+-spec max(Term1, Term2) -> Maximum when
+      Term1 :: term(),
+      Term2 :: term(),
+      Maximum :: term().
 max(A, B) when A < B -> B;
 max(A, _) -> A.
+
+
+%%
+%% erlang:memory/[0,1]
+%%
+%% NOTE! When updating these functions, make sure to also update
+%%       erts_memory() in $ERL_TOP/erts/emulator/beam/erl_alloc.c
+%%
+
+-type memory_type() :: 'total' | 'processes' | 'processes_used' | 'system' | 'atom' | 'atom_used' | 'binary' | 'code' | 'ets' | 'low' | 'maximum'.
+
+-define(CARRIER_ALLOCS, [mseg_alloc, sbmbc_alloc, sbmbc_low_alloc]).
+-define(LOW_ALLOCS, [sbmbc_low_alloc, ll_low_alloc, std_low_alloc]).
+-define(ALL_NEEDED_ALLOCS, (erlang:system_info(alloc_util_allocators)
+			    -- ?CARRIER_ALLOCS)).
+
+-record(memory, {total = 0,
+		 processes = 0,
+		 processes_used = 0,
+		 system = 0,
+		 atom = 0,
+		 atom_used = 0,
+		 binary = 0,
+		 code = 0,
+		 ets = 0,
+		 low = 0,
+		 maximum = 0}).
+
+-spec memory() -> [{memory_type(), non_neg_integer()}].
+memory() ->
+    case aa_mem_data(au_mem_data(?ALL_NEEDED_ALLOCS)) of
+	notsup ->
+	    erlang:error(notsup);
+	Mem ->
+	    InstrTail = case Mem#memory.maximum of
+			    0 -> [];
+			    _ -> [{maximum, Mem#memory.maximum}]
+			end,
+	    Tail = case Mem#memory.low of
+		       0 -> InstrTail;
+		       _ -> [{low, Mem#memory.low} | InstrTail]
+		   end,
+	    [{total, Mem#memory.total},
+	     {processes, Mem#memory.processes},
+	     {processes_used, Mem#memory.processes_used},
+	     {system, Mem#memory.system},
+	     {atom, Mem#memory.atom},
+	     {atom_used, Mem#memory.atom_used},
+	     {binary, Mem#memory.binary},
+	     {code, Mem#memory.code},
+	     {ets, Mem#memory.ets} | Tail]
+    end.
+
+-spec memory(memory_type()|[memory_type()]) -> non_neg_integer() | [{memory_type(), non_neg_integer()}].
+memory(Type) when is_atom(Type) ->
+    {AA, ALCU, ChkSup, BadArgZero} = need_mem_info(Type),
+    case get_mem_data(ChkSup, ALCU, AA) of
+	notsup ->
+	    erlang:error(notsup, [Type]);
+	Mem ->
+	    Value = get_memval(Type, Mem),
+	    case {BadArgZero, Value} of
+		{true, 0} -> erlang:error(badarg, [Type]);
+		_ -> Value
+	    end
+    end;
+memory(Types) when is_list(Types) ->
+    {AA, ALCU, ChkSup, BadArgZeroList} = need_mem_info_list(Types),
+    case get_mem_data(ChkSup, ALCU, AA) of
+	notsup ->
+	    erlang:error(notsup, [Types]);
+	Mem ->
+	    case memory_result_list(Types, BadArgZeroList, Mem) of
+		badarg -> erlang:error(badarg, [Types]);
+		Result -> Result
+	    end
+    end.
+
+memory_result_list([], [], _Mem) ->
+    [];
+memory_result_list([T|Ts], [BAZ|BAZs], Mem) ->
+    case memory_result_list(Ts, BAZs, Mem) of
+	badarg -> badarg;
+	TVs ->
+	    V = get_memval(T, Mem),
+	    case {BAZ, V} of
+		{true, 0} -> badarg;
+		_ -> [{T, V}| TVs]
+	    end
+    end.
+
+get_mem_data(true, AlcUAllocs, NeedAllocatedAreas) ->
+    case memory_is_supported() of
+	false -> notsup;
+	true -> get_mem_data(false, AlcUAllocs, NeedAllocatedAreas)
+    end;
+get_mem_data(false, AlcUAllocs, NeedAllocatedAreas) ->
+    AlcUMem = case AlcUAllocs of
+		  [] -> #memory{};
+		  _ ->
+		      au_mem_data(AlcUAllocs)
+	      end,
+    case NeedAllocatedAreas of
+	true -> aa_mem_data(AlcUMem);
+	false -> AlcUMem
+    end.
+
+need_mem_info_list([]) ->
+    {false, [], false, []};
+need_mem_info_list([T|Ts]) ->
+    {MAA, MALCU, MChkSup, MBadArgZero} = need_mem_info_list(Ts),
+    {AA, ALCU, ChkSup, BadArgZero} = need_mem_info(T),
+    {case AA of
+	 true -> true;
+	 _ -> MAA
+     end,
+     ALCU ++ (MALCU -- ALCU),
+     case ChkSup of
+	 true -> true;
+	 _ -> MChkSup
+     end,
+     [BadArgZero|MBadArgZero]}.
+
+need_mem_info(Type) when Type == total;
+			 Type == system ->
+    {true, ?ALL_NEEDED_ALLOCS, false, false};
+need_mem_info(Type) when Type == processes;
+			 Type == processes_used ->
+    {true, [eheap_alloc, fix_alloc], true, false};
+need_mem_info(Type) when Type == atom;
+			 Type == atom_used;
+			 Type == code ->
+    {true, [], true, false};
+need_mem_info(binary) ->
+    {false, [binary_alloc], true, false};
+need_mem_info(ets) ->
+    {true, [ets_alloc], true, false};
+need_mem_info(low) ->
+    LowAllocs = ?LOW_ALLOCS -- ?CARRIER_ALLOCS,
+    {_, _, FeatureList, _} = erlang:system_info(allocator),
+    AlcUAllocs = case LowAllocs -- FeatureList of
+		     [] -> LowAllocs;
+		     _ -> []
+		 end,
+    {false, AlcUAllocs, true, true};
+need_mem_info(maximum) ->
+    {true, [], true, true};
+need_mem_info(_) ->
+    {false, [], false, true}.
+
+get_memval(total, #memory{total = V}) -> V;
+get_memval(processes, #memory{processes = V}) -> V;
+get_memval(processes_used, #memory{processes_used = V}) -> V;
+get_memval(system, #memory{system = V}) -> V;
+get_memval(atom, #memory{atom = V}) -> V;
+get_memval(atom_used, #memory{atom_used = V}) -> V;
+get_memval(binary, #memory{binary = V}) -> V;
+get_memval(code, #memory{code = V}) -> V;
+get_memval(ets, #memory{ets = V}) -> V;
+get_memval(low, #memory{low = V}) -> V;
+get_memval(maximum, #memory{maximum = V}) -> V;
+get_memval(_, #memory{}) -> 0.
+
+memory_is_supported() ->
+    {_, _, FeatureList, _} = erlang:system_info(allocator),
+    case ((erlang:system_info(alloc_util_allocators) 
+	   -- ?CARRIER_ALLOCS)
+	  -- FeatureList) of
+	[] -> true;
+	_ -> false
+    end.
+
+get_blocks_size([{blocks_size, Sz, _, _} | Rest], Acc) ->
+    get_blocks_size(Rest, Acc+Sz);
+get_blocks_size([{_, _, _, _} | Rest], Acc) ->
+    get_blocks_size(Rest, Acc);
+get_blocks_size([], Acc) ->
+    Acc.
+
+blocks_size([{Carriers, SizeList} | Rest], Acc) when Carriers == mbcs;
+						     Carriers == sbcs;
+						     Carriers == sbmbcs ->
+    blocks_size(Rest, get_blocks_size(SizeList, Acc));
+blocks_size([_ | Rest], Acc) ->
+    blocks_size(Rest, Acc);
+blocks_size([], Acc) ->
+    Acc.
+
+get_fix_proc([{ProcType, A1, U1}| Rest], {A0, U0}) when ProcType == proc;
+							ProcType == monitor_sh;
+							ProcType == nlink_sh;
+							ProcType == msg_ref ->
+    get_fix_proc(Rest, {A0+A1, U0+U1});
+get_fix_proc([_|Rest], Acc) ->
+    get_fix_proc(Rest, Acc);
+get_fix_proc([], Acc) ->
+    Acc.
+
+fix_proc([{fix_types, SizeList} | _Rest], Acc) ->
+    get_fix_proc(SizeList, Acc);
+fix_proc([_ | Rest], Acc) ->
+    fix_proc(Rest, Acc);
+fix_proc([], Acc) ->
+    Acc.
+
+is_low_alloc(_A, []) ->
+    false;
+is_low_alloc(A, [A|_As]) ->
+    true;
+is_low_alloc(A, [_A|As]) ->
+    is_low_alloc(A, As).
+
+is_low_alloc(A) ->
+    is_low_alloc(A, ?LOW_ALLOCS).
+
+au_mem_data(notsup, _) ->
+    notsup;
+au_mem_data(_, [{_, false} | _]) ->
+    notsup;
+au_mem_data(#memory{total = Tot,
+		    processes = Proc,
+		    processes_used = ProcU} = Mem,
+	    [{eheap_alloc, _, Data} | Rest]) ->
+    Sz = blocks_size(Data, 0),
+    au_mem_data(Mem#memory{total = Tot+Sz,
+			   processes = Proc+Sz,
+			   processes_used = ProcU+Sz},
+		Rest);
+au_mem_data(#memory{total = Tot,
+		    system = Sys,
+		    ets = Ets} = Mem,
+	    [{ets_alloc, _, Data} | Rest]) ->
+    Sz = blocks_size(Data, 0),
+    au_mem_data(Mem#memory{total = Tot+Sz,
+			   system = Sys+Sz,
+			   ets = Ets+Sz},
+		Rest);
+au_mem_data(#memory{total = Tot,
+		    system = Sys,
+		    binary = Bin} = Mem,
+	    [{binary_alloc, _, Data} | Rest]) ->
+    Sz = blocks_size(Data, 0),
+    au_mem_data(Mem#memory{total = Tot+Sz,
+			   system = Sys+Sz,
+			   binary = Bin+Sz},
+		Rest);
+au_mem_data(#memory{total = Tot,
+		    processes = Proc,
+		    processes_used = ProcU,
+		    system = Sys} = Mem,
+	    [{fix_alloc, _, Data} | Rest]) ->
+    {A, U} = fix_proc(Data, {0, 0}),
+    Sz = blocks_size(Data, 0),
+    au_mem_data(Mem#memory{total = Tot+Sz,
+			   processes = Proc+A,
+			   processes_used = ProcU+U,
+			   system = Sys+Sz-A},
+		Rest);
+au_mem_data(#memory{total = Tot,
+		    system = Sys,
+		    low = Low} = Mem,
+	    [{A, _, Data} | Rest]) ->
+    Sz = blocks_size(Data, 0),
+    au_mem_data(Mem#memory{total = Tot+Sz,
+			   system = Sys+Sz,
+			   low = case is_low_alloc(A) of
+				     true -> Low+Sz;
+				     false -> Low
+				 end},
+		Rest);
+au_mem_data(EMD, []) ->
+    EMD.
+
+au_mem_data(Allocs) ->
+    Ref = make_ref(),
+    erlang:system_info({allocator_sizes, Ref, Allocs}),
+    receive_emd(Ref).
+
+receive_emd(_Ref, EMD, 0) ->
+    EMD;
+receive_emd(Ref, EMD, N) ->
+    receive
+	{Ref, _, Data} ->
+	    receive_emd(Ref, au_mem_data(EMD, Data), N-1)
+    end.
+
+receive_emd(Ref) ->
+    receive_emd(Ref, #memory{}, erlang:system_info(schedulers)).
+
+aa_mem_data(notsup, _) ->
+    notsup;
+aa_mem_data(#memory{} = Mem,
+	    [{maximum, Max} | Rest]) ->
+    aa_mem_data(Mem#memory{maximum = Max},
+		Rest);
+aa_mem_data(#memory{} = Mem,
+	    [{total, Tot} | Rest]) ->
+    aa_mem_data(Mem#memory{total = Tot,
+			   system = 0}, % system will be adjusted later
+		Rest);
+aa_mem_data(#memory{atom = Atom,
+		    atom_used = AtomU} = Mem,
+	    [{atom_space, Alloced, Used} | Rest]) ->
+    aa_mem_data(Mem#memory{atom = Atom+Alloced,
+			   atom_used = AtomU+Used},
+		Rest);
+aa_mem_data(#memory{atom = Atom,
+		    atom_used = AtomU} = Mem,
+	    [{atom_table, Sz} | Rest]) ->
+    aa_mem_data(Mem#memory{atom = Atom+Sz,
+			   atom_used = AtomU+Sz},
+		Rest);
+aa_mem_data(#memory{ets = Ets} = Mem,
+	    [{ets_misc, Sz} | Rest]) ->
+    aa_mem_data(Mem#memory{ets = Ets+Sz},
+		Rest);
+aa_mem_data(#memory{processes = Proc,
+		    processes_used = ProcU,
+		    system = Sys} = Mem,
+	    [{ProcData, Sz} | Rest]) when ProcData == bif_timer;
+					  ProcData == link_lh;
+					  ProcData == process_table ->
+    aa_mem_data(Mem#memory{processes = Proc+Sz,
+			   processes_used = ProcU+Sz,
+			   system = Sys-Sz},
+		Rest);
+aa_mem_data(#memory{code = Code} = Mem,
+	    [{CodeData, Sz} | Rest]) when CodeData == module_table;
+					  CodeData == export_table;
+					  CodeData == export_list;
+					  CodeData == fun_table;
+					  CodeData == module_refs;
+					  CodeData == loaded_code ->
+    aa_mem_data(Mem#memory{code = Code+Sz},
+		Rest);
+aa_mem_data(EMD, [{_, _} | Rest]) ->
+    aa_mem_data(EMD, Rest);
+aa_mem_data(#memory{total = Tot,
+		    processes = Proc,
+		    system = Sys} = Mem,
+	    []) when Sys =< 0 ->
+    %% Instrumented runtime system -> Sys = Tot - Proc
+    Mem#memory{system = Tot - Proc};
+aa_mem_data(EMD, []) ->
+    EMD.
+
+aa_mem_data(notsup) ->
+    notsup;
+aa_mem_data(EMD) ->
+    aa_mem_data(EMD, erlang:system_info(allocated_areas)).
+
+%%
+%% alloc_info/1 and alloc_sizes/1 are for internal use only (used by
+%% erlang:system_info({allocator|allocator_sizes, _})).
+%%
+
+alloc_info(Allocs) ->
+    get_alloc_info(allocator, Allocs).
+
+alloc_sizes(Allocs) ->
+    get_alloc_info(allocator_sizes, Allocs).
+
+get_alloc_info(Type, AAtom) when is_atom(AAtom) ->
+    [{AAtom, Result}] = get_alloc_info(Type, [AAtom]),
+    Result;
+get_alloc_info(Type, AList) when is_list(AList) ->
+    Ref = make_ref(),
+    erlang:system_info({Type, Ref, AList}),
+    receive_allocator(Ref,
+		      erlang:system_info(schedulers),
+		      mk_res_list(AList)).
+
+mk_res_list([]) ->
+    [];
+mk_res_list([Alloc | Rest]) ->
+    [{Alloc, []} | mk_res_list(Rest)].
+
+insert_instance(I, N, []) ->
+    [{instance, N, I}];
+insert_instance(I, N, [{instance, M, _}|_] = Rest) when N < M ->
+    [{instance, N, I} | Rest];
+insert_instance(I, N, [Prev|Rest]) ->
+    [Prev | insert_instance(I, N, Rest)].
+
+insert_info([], Ys) ->
+    Ys;
+insert_info([{A, false}|Xs], [{A, _IList}|Ys]) ->
+    insert_info(Xs, [{A, false}|Ys]);
+insert_info([{A, N, I}|Xs], [{A, IList}|Ys]) ->
+    insert_info(Xs, [{A, insert_instance(I, N, IList)}|Ys]);
+insert_info([{A1, _}|_] = Xs, [{A2, _} = Y | Ys]) when A1 /= A2 ->
+    [Y | insert_info(Xs, Ys)];
+insert_info([{A1, _, _}|_] = Xs, [{A2, _} = Y | Ys]) when A1 /= A2 ->
+    [Y | insert_info(Xs, Ys)].
+
+receive_allocator(_Ref, 0, Acc) ->
+    Acc;
+receive_allocator(Ref, N, Acc) ->
+    receive
+	{Ref, _, InfoList} ->
+	    receive_allocator(Ref, N-1, insert_info(InfoList, Acc))
+    end.

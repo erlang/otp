@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2005-2009. All Rights Reserved.
+ * Copyright Ericsson AB 2005-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -21,6 +21,6 @@
 #define ERL_PRINTF_TERM_H__
 
 #include "erl_printf_format.h"
-int erts_printf_term(fmtfn_t fn, void* arg, unsigned long term, long precision);
-
+int erts_printf_term(fmtfn_t fn, void* arg, unsigned long term, long precision,
+		     unsigned long* term_base);
 #endif

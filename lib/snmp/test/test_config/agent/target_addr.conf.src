@@ -1,0 +1,21 @@
+%% This file defines the target address parameters.
+%% The data is inserted into the snmpTargetAddrTable defined
+%% in SNMP-TARGET-MIB, and in the snmpTargetAddrExtTable defined
+%% in SNMP-COMMUNITY-MIB.
+%% Each row is a 10-tuple:
+%% {Name, Ip, Udp, Timeout, RetryCount, TagList, ParamsName, EngineId,
+%%        TMask, MaxMessageSize}.
+%% The EngineId value is only used if Inform-Requests are sent to this
+%% target.  If Informs are not sent, this value is ignored, and can be
+%% e.g. an empty string.  However, if Informs are sent, it is essential
+%% that the value of EngineId matches the value of the target's
+%% actual snmpEngineID.
+%% For example
+%% {"1.2.3.4 v1", [1,2,3,4], 162, 
+%%  1500, 3, "std_inform", "otp_v2", "",
+%%  [127,0,0,0],  2048}.
+%%
+
+
+{"%TARGET_NAME_PRE% v2",   %ADDR%, 5000, 1500, 3, "std_trap",   "target_v2", "", [], 2048}.
+{"%TARGET_NAME_PRE% v2.2", %ADDR%, 5000, 1500, 3, "std_inform", "target_v2", "", [], 2048}.

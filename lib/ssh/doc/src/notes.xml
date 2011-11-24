@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2010</year>
+      <year>2004</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -28,6 +28,228 @@
     <rev>%VSN%</rev>
     <file>notes.xml</file>
   </header>
+
+<section><title>Ssh 2.0.8</title>
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            Calling ssh_sftp:stop_channel/1 resulted in that the trap_exit flag was
+            set to true for the invoking process.</p>
+          <p>
+            Own Id: OTP-9386 Aux Id: seq11865</p>
+        </item>
+      </list>
+    </section>
+</section>
+
+<section><title>Ssh 2.0.7</title>
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            An unexpected message would crash the ssh_connection_handler and close
+            the connection. Now an error message is generated instead.</p>
+          <p>
+            Own Id: OTP-9273</p>
+        </item>
+      </list>
+    </section>
+</section>
+
+<section><title>Ssh 2.0.6</title>
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            A memory leak has been fixed. I.e. per terminated connection the size of
+            a pid and the length of a user name string was not cleared.</p>
+          <p>
+            Own Id: OTP-9232</p>
+        </item>
+      </list>
+    </section>
+</section>
+
+<section><title>Ssh 2.0.5</title>
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            Strengthened random number generation. (Thanks to Geoff Cant)</p>
+          <p>
+            Own Id: OTP-9225</p>
+        </item>
+      </list>
+    </section>
+</section>
+
+<section><title>Ssh 2.0.4</title>
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>In some cases SSH returned {error, normal} when a channel was terminated
+             unexpectedly. This has now been changed to {error, channel_closed}.</p>
+          <p>
+            *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+            Own Id: OTP-8987 Aux Id: seq11748</p>
+        </item>
+        <item>
+          <p>
+            SSH did not handle the error reason enetunreach
+            when trying to open a IPv6 connection.</p>
+          <p>
+            Own Id: OTP-9031</p>
+        </item>
+      </list>
+    </section>
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            It is now possible to use SSH to sign and verify binary data.</p>
+          <p>
+            Own Id: OTP-8986</p>
+        </item>
+        <item>
+          <p>
+            SSH now ensures that the .ssh directory exists before trying
+            to access files located in that directory.</p>
+          <p>
+            Own Id: OTP-9010</p>
+        </item>
+      </list>
+    </section>
+</section>
+
+<section><title>Ssh 2.0.3</title>
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            The fix regarding OTP-8849 was not included in the
+            previous version as stated.</p>
+          <p>
+            Own Id: OTP-8918</p>
+        </item>
+      </list>
+    </section>
+</section>
+
+<section><title>Ssh 2.0.2</title>
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            The ssh_system_sup did not catch noproc and shutdown
+            messages.</p>
+          <p>
+            Own Id: OTP-8863</p>
+        </item>
+        <item>
+          <p>
+            In some cases a crash report was generated when a
+            connection was closing down. This was caused by a race
+            condition between two processes.</p>
+          <p>
+            Own Id: OTP-8881 Aux Id: seq11656, seq11648 </p>
+        </item>
+      </list>
+    </section>
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            SSH no longer use deprecated public_key functions.</p>
+          <p>
+            Own Id: OTP-8849</p>
+        </item>
+      </list>
+    </section>
+ </section>
+ <section><title>Ssh 2.0.1</title>
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    SSH in some cases terminated channels with reason normal
+	    when it should have been shutdown.</p>
+          <p>
+	    Own Id: OTP-8714</p>
+        </item>
+        <item>
+          <p>
+	    SSH in some cases generated a crash report when a channel
+	    was closed in a normal way.</p>
+          <p>
+	    Own Id: OTP-8735 Aux Id: seq11615 </p>
+        </item>
+        <item>
+          <p>
+	    The processes ssh_subsystem_sup and one ssh_channel_sup
+	    was not terminated when a connection was closed.</p>
+          <p>
+	    Own Id: OTP-8807</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 2.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>The function ssh:connect/4 was not exported.</p>
+          <p>Own Id: OTP-8550 Aux Id:</p>
+        </item>
+        <item>
+          <p>Aligned error message with used version (SSH_FX_FAILURE vs
+             SSH_FX_NOT_A_DIRECTORY, the latter introduced in version 6).</p>
+          <p>
+            *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-8644 Aux Id: seq11574</p>
+        </item>
+        <item>
+          <p>Resolved race condition when another connection is started
+             before a channel is opened in the first connection.</p>
+          <p>Own Id: OTP-8645 Aux Id: seq11577</p>
+        </item>
+      </list>
+    </section>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>The configuration parameter ip_v6_disabled is now available,
+             which makes it possible for the user to alter the IP version
+             SSH shall use.</p>
+          <p>
+            *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-8535 Aux Id:</p>
+        </item>
+        <item>
+          <p>The ssh_connection:send operation now accepts infinity as timeout.</p>
+          <p>Own Id: OTP-8534 Aux Id:</p>
+        </item>
+        <item>
+          <p>The connection handler now include stack traces when a channel 
+             message is not handled correctly.</p>
+          <p>Own Id: OTP-8524 Aux Id:</p>
+        </item>
+        <item>
+          <p>Removed deprecated modules (ssh_ssh, ssh_sshd and ssh_cm) and
+             functions (ssh_sftp:connect and ssh_sftp:stop).</p>
+          <p>
+            *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-8596 Aux Id:</p>
+        </item>
+      </list>
+    </section>
+
+ </section>
 
  <section><title>Ssh 1.1.8</title>
 

@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -28,7 +28,7 @@
 
 -include("ts.hrl").
 
--import(lists, [map/2,member/2,filter/2,reverse/1]).
+-import(lists, [member/2,filter/2]).
 
 -record(state,
 	{file,					% File given.
@@ -63,48 +63,16 @@ run(File, Args0, Options, Vars0) ->
 	    _ ->
 		{false, fun run_interactive/3}
 	end,
-    HandleTopcase = case member(keep_topcase, Options) of
-			true -> [fun copy_topcase/3];
-			false -> [fun remove_original_topcase/3,
-				  fun init_topcase/3]
-		    end,
-    MakefileHooks = [fun make_make/3,
-		     fun add_make_testcase/3],
-    MakeLoop = fun(V, Sp, St) -> make_loop(MakefileHooks, V, Sp, St) end,
     Hooks = [fun init_state/3,
-	     fun read_spec_file/3] ++
-	     HandleTopcase ++
-             [fun run_preinits/3,
-	     fun find_makefiles/3,
-	     MakeLoop,
-	     fun make_test_suite/3,
-	     fun add_topcase_to_spec/3,
-	     fun write_spec_file/3,
+             fun run_preinits/3,
 	     fun make_command/3,
 	     Runner],
-    Args = make_test_server_args(Args0,Options,Vars),
+    Args = make_common_test_args(Args0,Options,Vars),
     St = #state{file=File,test_server_args=Args,batch=Batch},
     R = execute(Hooks, Vars, [], St),
-    case Batch of
-	true -> ts_reports:make_index();
-	false -> ok % ts_reports:make_index() is run on the test_server node
-    end,
     case R of
 	{ok,_,_,_} -> ok;
 	Error -> Error
-    end.
-
-make_loop(Hooks, Vars0, Spec0, St0) ->
-    case St0#state.makefiles of
-	[Makefile|Rest] ->
-	    case execute(Hooks, Vars0, Spec0, St0#state{makefile=Makefile}) of
-		{error, Reason} ->
-		    {error, Reason};
-		{ok, Vars, Spec, St} ->
-		    make_loop(Hooks, Vars, Spec, St#state{makefiles=Rest})
-	    end;
-	[] ->
-	    {ok, Vars0, Spec0, St0}
     end.
 
 execute([Hook|Rest], Vars0, Spec0, St0) ->
@@ -156,103 +124,6 @@ init_state(Vars, [], St0) ->
 	false ->
 	    {error,{no_test_directory,TestDir}}
     end.
-    
-%% Read the spec file for the test suite.
-
-read_spec_file(Vars, _, St) ->
-    TestDir = St#state.test_dir,
-    File = St#state.file,
-    {SpecFile,Res} = get_spec_filename(Vars, TestDir, File),
-    case Res of
-	{ok,Spec} ->
-	    {ok,Vars,Spec,St};
-	{error,Atom} when is_atom(Atom) ->
-	    {error,{no_spec,SpecFile}};
-	{error,Reason} ->
-	    {error,{bad_spec,lists:flatten(file:format_error(Reason))}}
-    end.
-
-get_spec_filename(Vars, TestDir, File) ->
-    DynSpec = filename:join(TestDir, File ++ ".dynspec"),
-    case filelib:is_file(DynSpec) of
-	true ->
-	    Bs0 = erl_eval:new_bindings(),
-	    Bs1 = erl_eval:add_binding('Target', ts_lib:var(target, Vars), Bs0),
-	    Bs2 = erl_eval:add_binding('Os', ts_lib:var(os, Vars), Bs1),
-	    TCCStr = ts_lib:var(test_c_compiler, Vars),
-	    TCC = try
-		      {ok, Toks, _} = erl_scan:string(TCCStr ++ "."),
-		      {ok, Tcc} = erl_parse:parse_term(Toks),
-		      Tcc
-		  catch
-		      _:_ -> undefined
-		  end,
-	    Bs = erl_eval:add_binding('TestCCompiler', TCC, Bs2),
-	    {DynSpec,file:script(DynSpec, Bs)};
-	false ->
-	    SpecFile = get_spec_filename_1(Vars, TestDir, File),
-	    {SpecFile,file:consult(SpecFile)}
-    end.
-
-get_spec_filename_1(Vars, TestDir, File) ->
-    case ts_lib:var(os, Vars) of
-	"VxWorks" ->
-	    check_spec_filename(TestDir, File, ".spec.vxworks");
-	"OSE" ->
-	    check_spec_filename(TestDir, File, ".spec.ose");
-	"Windows"++_ ->
-	    check_spec_filename(TestDir, File, ".spec.win");
-	_Other ->
-	    filename:join(TestDir, File ++ ".spec")
-    end.
-
-check_spec_filename(TestDir, File, Ext) ->
-    Spec = filename:join(TestDir, File ++ Ext),
-    case filelib:is_file(Spec) of
-	true -> Spec;
-	false -> filename:join(TestDir, File ++ ".spec")
-    end.
-
-%% Remove the top case from the spec file. We will add our own
-%% top case later.
-
-remove_original_topcase(Vars, Spec, St) ->
-    {ok,Vars,filter(fun ({topcase,_}) -> false;
-			(_Other) -> true end, Spec),St}.
-
-%% Initialize our new top case. We'll keep in it the state to be
-%%  able to add more to it.
-
-init_topcase(Vars, Spec, St) ->
-    TestDir = St#state.test_dir,
-    TopCase = 
-	case St#state.mod of
-	    Mod when is_atom(Mod) ->
-		ModStr = atom_to_list(Mod),
-		case filelib:is_file(filename:join(TestDir,ModStr++".erl")) of
-		    true -> [{Mod,all}];
-		    false ->
-			Wc = filename:join(TestDir, ModStr ++ "*_SUITE.erl"),
-			[{list_to_atom(filename:basename(M, ".erl")),all} ||
-			    M <- filelib:wildcard(Wc)]
-		end;
-	    _Other ->
-		%% Here we used to return {dir,TestDir}. Now we instead
-		%% list all suites in TestDir, so we can add make testcases
-		%% around it later (see add_make_testcase) without getting
-		%% duplicates of the suite. (test_server_ctrl does no longer
-		%% check for duplicates of testcases)
-		Wc = filename:join(TestDir, "*_SUITE.erl"),
-		[{list_to_atom(filename:basename(M, ".erl")),all} ||
-		    M <- filelib:wildcard(Wc)]
-	end,
-    {ok,Vars,Spec,St#state{topcase=TopCase}}.
-
-%% Or if option keep_topcase was given, eh... keep the topcase
-copy_topcase(Vars, Spec, St) ->
-    {value,{topcase,Tc}} = lists:keysearch(topcase,1,Spec),
-    {ok, Vars, lists:keydelete(topcase,1,Spec),St#state{topcase=Tc}}.
-
 
 %% Run any "Makefile.first" files first.
 %%  XXX We should fake a failing test case if the make fails.
@@ -281,188 +152,14 @@ run_pre_makefile(Vars, Spec, St) ->
 	{error,_Reason}=Error -> Error
     end.
 
-%% Search for `Makefile.src' in each *_SUITE_data directory.
-
-find_makefiles(Vars, Spec, St) ->
-    Wc = filename:join(St#state.data_wc, "Makefile.src"),
-    Makefiles = reverse(del_skipped_suite_data_dir(filelib:wildcard(Wc), Spec)),
-    {ok,Vars,Spec,St#state{makefiles=Makefiles}}.
-    
-%% Create "Makefile" from "Makefile.src".
-
-make_make(Vars, Spec, State) ->
-    Src = State#state.makefile,
-    Dest = filename:rootname(Src),
-    ts_lib:progress(Vars, 1, "Making ~s...\n", [Dest]),
-    case ts_lib:subst_file(Src, Dest, Vars) of
-	ok ->
-	    {ok, Vars, Spec, State#state{makefile=Dest}};
-	{error, Reason} ->
-	    {error, {Src, Reason}}
-    end.
-
-%% Add a testcase which will do the making of the stuff in the data directory.
-
-add_make_testcase(Vars, Spec, St) ->
-    Makefile = St#state.makefile,
-    Dir = filename:dirname(Makefile),
-    case ts_lib:var(os, Vars) of
-	"OSE" ->
-	    %% For OSE, C code in datadir must be linked in the image file,
-	    %% and erlang code is sent as binaries from test_server_ctrl
-	    %% Making erlang code here because the Makefile.src probably won't
-	    %% work.
-	    Erl_flags=[{i, "../../test_server"}|ts_lib:var(erl_flags,Vars)],
-	    {ok, Cwd} = file:get_cwd(),
-	    ok = file:set_cwd(Dir),
-	    Result = (catch make:all(Erl_flags)),
-	    ok = file:set_cwd(Cwd),
-	    case Result of
-		up_to_date -> {ok, Vars, Spec, St};
-		_error -> {error, {erlang_make_failed,Dir}}
-	    end;
-	_ ->
-	    Shortname = filename:basename(Makefile),
-	    Suite = filename:basename(Dir, "_data"),
-	    Config = [{data_dir,Dir},{makefile,Shortname}],
-	    MakeModule = Suite ++ "_make",
-	    MakeModuleSrc = filename:join(filename:dirname(Dir), 
-					  MakeModule ++ ".erl"),
-	    MakeMod = list_to_atom(MakeModule),
-	    case filelib:is_file(MakeModuleSrc) of
-		true -> ok;
-		false -> generate_make_module(ts_lib:var(make_command, Vars),
-					      MakeModuleSrc, 
-					      MakeModule)
-	    end,
-	    case Suite of
-		"all_SUITE" ->
-		    {ok,Vars,Spec,St#state{all={MakeMod,Config}}};
-		_ ->
-		    %% Avoid duplicates of testcases. There is no longer
-		    %% a check for this in test_server_ctrl.
-		    TestCase = {list_to_atom(Suite),all},
-		    TopCase0 = case St#state.topcase of
-				   List when is_list(List) ->
-				       List -- [TestCase];
-				   Top ->
-				       [Top] -- [TestCase]
-			       end,
-		    TopCase = [{make,{MakeMod,make,[Config]},
-				TestCase,
-				{MakeMod,unmake,[Config]}}|TopCase0],
-		    {ok,Vars,Spec,St#state{topcase=TopCase}}
-	    end
-    end.
-
-generate_make_module(MakeCmd, Name, ModuleString) ->
-    {ok,Host} = inet:gethostname(),
-    file:write_file(Name,
-		    ["-module(",ModuleString,").\n",
-		     "\n",
-		     "-export([make/1,unmake/1]).\n",
-		     "\n",
-		     "make(Config) when is_list(Config) ->\n",
-		     "    Mins = " ++ integer_to_list(?DEFAULT_MAKE_TIMETRAP_MINUTES) ++ ",\n"
-		     "    test_server:format(\"=== Setting timetrap to ~p minutes ===~n\", [Mins]),\n"
-		     "    TimeTrap = test_server:timetrap(test_server:minutes(Mins)),\n"
-		     "    Res = ts_make:make([{make_command, \""++MakeCmd++"\"},{cross_node,\'ts@" ++ Host ++ "\'}|Config]),\n",
-		     "    test_server:timetrap_cancel(TimeTrap),\n"
-		     "    Res.\n"
-		     "\n",
-		     "unmake(Config) when is_list(Config) ->\n",
-		     "    Mins = " ++ integer_to_list(?DEFAULT_UNMAKE_TIMETRAP_MINUTES) ++ ",\n"
-		     "    test_server:format(\"=== Setting timetrap to ~p minutes ===~n\", [Mins]),\n"
-		     "    TimeTrap = test_server:timetrap(test_server:minutes(Mins)),\n"
-		     "    Res = ts_make:unmake([{make_command, \""++MakeCmd++"\"}|Config]),\n"
-		     "    test_server:timetrap_cancel(TimeTrap),\n"
-		     "    Res.\n"
-		     "\n"]).
-			   
-
-make_test_suite(Vars, _Spec, State) ->
-    TestDir = State#state.test_dir,
-
-    Erl_flags=[{i, "../test_server"}|ts_lib:var(erl_flags,Vars)],
-
-    case code:is_loaded(test_server_line) of
-        false -> code:load_file(test_server_line);
-	_ -> ok
-    end,
-
-    {ok, Cwd} = file:get_cwd(),
-    ok = file:set_cwd(TestDir),
-    Result = (catch make:all(Erl_flags)),
-    ok = file:set_cwd(Cwd),
-    case Result of
-	up_to_date ->
-	    ok;
-	{'EXIT', Reason} ->
-	    %% If I return an error here, the test will be stopped
-	    %% and it will not show up in the top index page. Instead
-	    %% I return ok - the test will run for all existing suites.
-	    %% It might be that there are old suites that are run, but
-	    %% at least one suite is missing, and that is reported on the
-	    %% top index page.
-	    io:format("~s: {error,{make_crashed,~p}\n",
-		      [State#state.file,Reason]),
-	    ok;
-	error ->
-	    %% See comment above
-	    io:format("~s: {error,make_of_test_suite_failed}\n",
-		      [State#state.file]),
-	    ok
-    end.
-
-%% Add topcase to spec.
-
-add_topcase_to_spec(Vars, Spec, St) ->
-    Tc = case St#state.all of
-	     {MakeMod,Config} ->
-		 [{make,{MakeMod,make,[Config]},
-		   St#state.topcase,
-		   {MakeMod,unmake,[Config]}}];
-	     undefined -> St#state.topcase
-	 end,
-    {ok,Vars,Spec++[{topcase,Tc}],St}.
-
-%% Writes the (possibly transformed) spec file.
-
-write_spec_file(Vars, Spec, _State) ->
-    F = fun(Term) -> io_lib:format("~p.~n", [Term]) end,
-    SpecFile = map(F, Spec),
-    Hosts = 
-	case lists:keysearch(hosts, 1, Vars) of
-	    false ->
-		[];
-	    {value, {hosts, HostList}} ->
-		io_lib:format("{hosts,~p}.~n",[HostList])
-	end,
-    DiskLess =
-	case lists:keysearch(diskless, 1, Vars) of
-	    false ->
-		[];
-	    {value, {diskless, How}} ->
-		io_lib:format("{diskless, ~p}.~n",[How])
-	end,
-    Conf = consult_config(),
-    MoreConfig = io_lib:format("~p.\n", [{config,Conf}]),
-    file:write_file("current.spec", [DiskLess,Hosts,MoreConfig,SpecFile]).
-
-consult_config() ->
-    {ok,Conf} = file:consult("ts.config"),
-    case os:type() of
-	{unix,_} -> consult_config("ts.unix.config", Conf);
-	{win32,_} -> consult_config("ts.win32.config", Conf);
-	vxworks -> consult_config("ts.vxworks.config", Conf);
-	_ -> Conf
-    end.
-
-consult_config(File, Conf0) ->
-    case file:consult(File) of
-	{ok,Conf} -> Conf++Conf0;
-	{error,enoent} -> Conf0
-    end.
+get_config_files() ->
+    TSConfig = "ts.config",
+    [TSConfig | case os:type() of
+		    {unix,_} -> ["ts.unix.config"];
+		    {win32,_} -> ["ts.win32.config"];
+		    vxworks -> ["ts.vxworks.config"];
+		    _ -> []
+		end].
 
 %% Makes the command to start up the Erlang node to run the tests.
 
@@ -476,6 +173,7 @@ backslashify([]) ->
     [].
 
 make_command(Vars, Spec, State) ->
+    {ok,Cwd} = file:get_cwd(),
     TestDir = State#state.test_dir,
     TestPath = filename:nativename(TestDir),
     Erl = case os:getenv("TS_RUN_VALGRIND") of
@@ -506,7 +204,7 @@ make_command(Vars, Spec, State) ->
 	    {value,{erl_start_args,Args}} -> Args;
 	    false -> ""
 	end,
-    CrashFile = State#state.file ++ "_erl_crash.dump",
+    CrashFile = filename:join(Cwd,State#state.file ++ "_erl_crash.dump"),
     case filelib:is_file(CrashFile) of
 	true -> 
 	    io:format("ts_run: Deleting dump: ~s\n",[CrashFile]),
@@ -514,7 +212,14 @@ make_command(Vars, Spec, State) ->
 	false -> 
 	    ok
     end,
-    Cmd = [Erl, Naming, "test_server -pa ", $", TestPath, $",
+
+    %% If Common Test specific variables are needed, add them here
+    %% on form: "{key1,value1}" "{key2,value2}" ...
+    NetDir = ts_lib:var(ts_net_dir, Vars),
+    TestVars = [ "\"{net_dir,\\\"",NetDir,"\\\"}\"" ],
+
+    %% NOTE: Do not use ' in these commands as it wont work on windows
+    Cmd = [Erl, Naming, "test_server"
 	   " -rsh ", ts_lib:var(rsh_name, Vars),
 	   " -env PATH \"",
 	   backslashify(lists:flatten([TestPath, path_separator(),
@@ -524,15 +229,21 @@ make_command(Vars, Spec, State) ->
 	   %% uncomment the line below to disable exception formatting 
 	   %%	   " -test_server_format_exception false",
 	   " -boot start_sasl -sasl errlog_type error",
-	   " -s test_server_ctrl run_test ", State#state.test_server_args,
+	   " -pz ",Cwd,
+	   " -ct_test_vars ",TestVars,
+	   " -eval \"file:set_cwd(\\\"",TestDir,"\\\")\" "
+	   " -eval \"ct:run_test(", 
+	   backslashify(lists:flatten(State#state.test_server_args)),")\""
 	   " ",
 	   ExtraArgs],
     {ok, Vars, Spec, State#state{command=lists:flatten(Cmd)}}.
+    
 
 run_batch(Vars, _Spec, State) ->
     process_flag(trap_exit, true),
     Command = State#state.command ++ " -noinput -s erlang halt",
     ts_lib:progress(Vars, 1, "Command: ~s~n", [Command]),
+    io:format(user, "Command: ~s~n",[Command]),
     Port = open_port({spawn, Command}, [stream, in, eof]),
     tricky_print_data(Port).
 
@@ -573,7 +284,7 @@ is_testnode_dead([{"test_server",_}|_]) -> false;
 is_testnode_dead([_|T]) -> is_testnode_dead(T).
 
 run_interactive(Vars, _Spec, State) ->
-    Command = State#state.command ++ " -s ts_reports make_index",
+    Command = State#state.command,
     ts_lib:progress(Vars, 1, "Command: ~s~n", [Command]),
     case ts_lib:var(os, Vars) of
 	"Windows 95" ->
@@ -623,79 +334,63 @@ path_separator() ->
     end.
 
 
-make_test_server_args(Args0,Options,Vars) ->
-    Parameters = 
-	case ts_lib:var(os, Vars) of
-	    "VxWorks" ->
-		F = write_parameterfile(vxworks,Vars),
-		" PARAMETERS " ++ F;
-	    "OSE" ->
-		F = write_parameterfile(ose,Vars),
-		" PARAMETERS " ++ F;
-	    _ ->
-		""
-	end,
+make_common_test_args(Args0, Options, _Vars) ->
     Trace = 
 	case lists:keysearch(trace,1,Options) of
 	    {value,{trace,TI}} when is_tuple(TI); is_tuple(hd(TI)) ->
 		ok = file:write_file(?tracefile,io_lib:format("~p.~n",[TI])),
-		" TRACE " ++ ?tracefile;
+		[{ct_trace,?tracefile}];
 	    {value,{trace,TIFile}} when is_atom(TIFile) ->
-		" TRACE " ++ atom_to_list(TIFile);
+		[{ct_trace,atom_to_list(TIFile)}];
 	    {value,{trace,TIFile}} ->
-		" TRACE " ++ TIFile;
+		[{ct_trace,TIFile}];
 	    false ->
-		""
+		[]
 	end,
     Cover = 
 	case lists:keysearch(cover,1,Options) of
-	    {value,{cover,App,File,Analyse}} -> 
-		" COVER " ++ to_list(App) ++ " " ++ to_list(File) ++ " " ++ 
-		    to_list(Analyse);
+	    {value,{cover, App, none, _Analyse}} ->
+		io:format("No cover file found for ~p~n",[App]),
+		[];
+	    {value,{cover,_App,File,_Analyse}} -> 
+		[{cover,to_list(File)}];
 	    false -> 
-		""
+		[]
 	end,
-    TCCallback =
-	case ts_lib:var(ts_testcase_callback, Vars) of
-	    "" -> 
-		"";
-	    {Mod,Func} ->
-		io:format("Function ~w:~w/4 will be called before and "
-			  "after each test case.\n", [Mod,Func]),
-		" TESTCASE_CALLBACK " ++ to_list(Mod) ++ " " ++ to_list(Func);	    
-	    ModFunc when is_list(ModFunc) ->
-		[Mod,Func]=string:tokens(ModFunc," "),
-		io:format("Function ~s:~s/4 will be called before and "
-			  "after each test case.\n", [Mod,Func]),			
-		" TESTCASE_CALLBACK " ++ ModFunc;		    
-	    _ ->
-		""
-	end,
-    Args0 ++ Parameters ++ Trace ++ Cover ++ TCCallback.
+
+    Logdir = case lists:keysearch(logdir, 1, Options) of
+		  {value,{logdir, _}} ->
+		      [];
+		  false ->
+		      [{logdir,"../test_server"}]
+	     end,
+
+    TimeTrap = case test_server:timetrap_scale_factor() of
+		   1 ->
+		       [];
+		   Scale ->
+		       [{multiply_timetraps, Scale},
+			{scale_timetraps, true}]
+	       end,
+
+    ConfigPath = case {os:getenv("TEST_CONFIG_PATH"),
+		       lists:keysearch(config, 1, Options)} of
+		     {false,{value, {config, Path}}} ->
+			 Path;
+		     {false,false} ->
+			 "../test_server";
+		     {Path,_} ->
+			 Path
+		 end,
+    ConfigFiles = [{config,[filename:join(ConfigPath,File)
+			    || File <- get_config_files()]}],
+    io_lib:format("~100000p",[Args0++Trace++Cover++Logdir++
+				  ConfigFiles++Options++TimeTrap]).
 
 to_list(X) when is_atom(X) ->
     atom_to_list(X);
 to_list(X) when is_list(X) ->
     X.
-
-write_parameterfile(Type,Vars) ->
-    Cross_host = ts_lib:var(target_host, Vars),
-    SlaveTargets = case lists:keysearch(slavetargets,1,Vars) of
-		       {value, ST} ->
-			   [ST];
-		       _ ->
-			   []
-		   end,
-    Master = case lists:keysearch(master,1,Vars) of
-		 {value,M} -> [M];
-		 false -> []
-	     end,
-    ToWrite = [{type,Type},
-	       {target, list_to_atom(Cross_host)}] ++ SlaveTargets ++ Master,
-
-    Crossfile = atom_to_list(Type) ++ "parameters" ++ os:getpid(),
-    ok = file:write_file(Crossfile,io_lib:format("~p.~n", [ToWrite])),
-    Crossfile.
 
 %%
 %% Paths and spaces handling for w2k and XP
@@ -742,5 +437,3 @@ split_one(Path) ->
 
 split_path(Path) ->
     string:tokens(Path,";").
-
-

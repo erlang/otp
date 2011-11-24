@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -86,7 +86,7 @@ new(Parent)
 %% new(Parent::wxWindow:wxWindow(), Shared::wxGLContext:wxGLContext() | wxGLCanvas()) -> new(Parent,Shared, []) </c></p>
 %% <p><c>
 %% new(Parent::wxWindow:wxWindow(), [Option]) -> wxGLCanvas() </c>
-%%<br /> Option = {id, integer()} | {pos, {X::integer(),Y::integer()}} | {size, {W::integer(),H::integer()}} | {style, integer()} | {name, string()} | {attribList, [integer()]} | {palette, wxPalette:wxPalette()}
+%%<br /> Option = {id, integer()} | {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()} | {name, string()} | {attribList, [integer()]} | {palette, wxPalette:wxPalette()}
 %% </p>
 
 new(Parent,Shared)
@@ -109,7 +109,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
   <<ParentRef:32/?UI, 0:32,BinOpt/binary>>).
 
 %% @spec (Parent::wxWindow:wxWindow(), Shared::wxGLContext:wxGLContext() | wxGLCanvas(), [Option]) -> wxGLCanvas()
-%% Option = {id, integer()} | {pos, {X::integer(),Y::integer()}} | {size, {W::integer(),H::integer()}} | {style, integer()} | {name, string()} | {attribList, [integer()]} | {palette, wxPalette:wxPalette()}
+%% Option = {id, integer()} | {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()} | {name, string()} | {attribList, [integer()]} | {palette, wxPalette:wxPalette()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxglcanvas.html#wxglcanvaswxglcanvas">external documentation</a>.
 new(#wx_ref{type=ParentT,ref=ParentRef},#wx_ref{type=SharedT,ref=SharedRef}, Options)
  when is_list(Options) ->
@@ -144,8 +144,10 @@ getContext(#wx_ref{type=ThisT,ref=ThisRef}) ->
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxglcanvas.html#wxglcanvassetcurrent">external documentation</a>.
 setCurrent(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGLCanvas),
-  wxe_util:cast(?wxGLCanvas_SetCurrent,
-  <<ThisRef:32/?UI>>).
+  _Result =  wxe_util:cast(?wxGLCanvas_SetCurrent,
+  <<ThisRef:32/?UI>>),
+  {ok, _} = wxe_master:init_opengl(),
+  _Result.
 
 %% @spec (This::wxGLCanvas()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxglcanvas.html#wxglcanvasswapbuffers">external documentation</a>.

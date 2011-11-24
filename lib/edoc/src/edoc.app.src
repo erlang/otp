@@ -15,6 +15,7 @@
 	     edoc_report,
 	     edoc_run,
 	     edoc_scanner,
+             edoc_specs,
 	     edoc_tags,
 	     edoc_types,
 	     edoc_wiki,

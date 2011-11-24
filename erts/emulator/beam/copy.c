@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1996-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -36,6 +36,8 @@ MA_STACK_DECLARE(src);
 MA_STACK_DECLARE(dst);
 MA_STACK_DECLARE(offset);
 #endif
+
+static void move_one_frag(Eterm** hpp, Eterm* src, Uint src_sz, ErlOffHeap*);
 
 void
 init_copy(void)
@@ -70,8 +72,11 @@ copy_object(Eterm obj, Process* to)
  * Return the "flat" size of the object.
  */
 
-Uint
-size_object(Eterm obj)
+#if HALFWORD_HEAP
+Uint size_object_rel(Eterm obj, Eterm* base)
+#else
+Uint size_object(Eterm obj)
+#endif
 {
     Uint sum = 0;
     Eterm* ptr;
@@ -82,24 +87,24 @@ size_object(Eterm obj)
 	switch (primary_tag(obj)) {
 	case TAG_PRIMARY_LIST:
 	    sum += 2;
-	    ptr = list_val(obj);
+	    ptr = list_val_rel(obj,base);
 	    obj = *ptr++;
 	    if (!IS_CONST(obj)) {
 		ESTACK_PUSH(s, obj);
-	    }
+	    }	    
 	    obj = *ptr;
 	    break;
 	case TAG_PRIMARY_BOXED:
 	    {
-		Eterm hdr = *boxed_val(obj);
+		Eterm hdr = *boxed_val_rel(obj,base);
 		ASSERT(is_header(hdr));
 		switch (hdr & _TAG_HEADER_MASK) {
 		case ARITYVAL_SUBTAG:
-		    ptr = tuple_val(obj);
+		    ptr = tuple_val_rel(obj,base);
 		    arity = header_arity(hdr);
 		    sum += arity + 1;
 		    if (arity == 0) { /* Empty tuple -- unusual. */
-			goto size_common;
+			goto pop_next;
 		    }
 		    while (arity-- > 1) {
 			obj = *++ptr;
@@ -111,11 +116,10 @@ size_object(Eterm obj)
 		    break;
 		case FUN_SUBTAG:
 		    {
-			Eterm* bptr = fun_val(obj);
+			Eterm* bptr = fun_val_rel(obj,base);
 			ErlFunThing* funp = (ErlFunThing *) bptr;
 			unsigned eterms = 1 /* creator */ + funp->num_free;
 			unsigned sz = thing_arityval(hdr);
-
 			sum += 1 /* header */ + sz + eterms;
 			bptr += 1 /* header */ + sz;
 			while (eterms-- > 1) {
@@ -130,12 +134,12 @@ size_object(Eterm obj)
 		case SUB_BINARY_SUBTAG:
 		    {
 			Eterm real_bin;
-			Uint offset; /* Not used. */
+			ERTS_DECLARE_DUMMY(Uint offset); /* Not used. */
 			Uint bitsize;
 			Uint bitoffs;
 			Uint extra_bytes;
 			Eterm hdr;
-			ERTS_GET_REAL_BIN(obj, real_bin, offset, bitoffs, bitsize);
+			ERTS_GET_REAL_BIN_REL(obj, real_bin, offset, bitoffs, bitsize, base);
 			if ((bitsize + bitoffs) > 8) {
 			    sum += ERL_SUB_BIN_SIZE;
 			    extra_bytes = 2;
@@ -145,13 +149,13 @@ size_object(Eterm obj)
 			} else {
 			    extra_bytes = 0;
 			}
-			hdr = *binary_val(real_bin);
+			hdr = *binary_val_rel(real_bin,base);
 			if (thing_subtag(hdr) == REFC_BINARY_SUBTAG) {
 			    sum += PROC_BIN_SIZE;
 			} else {
-			    sum += heap_bin_size(binary_size(obj)+extra_bytes);
+			    sum += heap_bin_size(binary_size_rel(obj,base)+extra_bytes);
 			}
-			goto size_common;
+			goto pop_next;
 		    }
 		    break;
 		case BIN_MATCHSTATE_SUBTAG:
@@ -159,18 +163,12 @@ size_object(Eterm obj)
 			     "size_object: matchstate term not allowed");
 		default:
 		    sum += thing_arityval(hdr) + 1;
-		    /* Fall through */
-		size_common:
-		    if (ESTACK_ISEMPTY(s)) {
-			DESTROY_ESTACK(s);
-			return sum;
-		    }
-		    obj = ESTACK_POP(s);
-		    break;
+		    goto pop_next;
 		}
 	    }
 	    break;
 	case TAG_PRIMARY_IMMED1:
+	pop_next:
 	    if (ESTACK_ISEMPTY(s)) {
 		DESTROY_ESTACK(s);
 		return sum;
@@ -186,8 +184,12 @@ size_object(Eterm obj)
 /*
  *  Copy a structure to a heap.
  */
-Eterm
-copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
+#if HALFWORD_HEAP
+Eterm copy_struct_rel(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap,
+                      Eterm* src_base, Eterm* dst_base)
+#else
+Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
+#endif
 {
     char* hstart;
     Uint hsize;
@@ -219,7 +221,10 @@ copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 
     /* Copy the object onto the heap */
     switch (primary_tag(obj)) {
-    case TAG_PRIMARY_LIST: argp = &res; goto L_copy_list;
+    case TAG_PRIMARY_LIST:
+	argp = &res;
+	objp = list_val_rel(obj,src_base);
+	goto L_copy_list;
     case TAG_PRIMARY_BOXED: argp = &res; goto L_copy_boxed;
     default:
 	erl_exit(ERTS_ABORT_EXIT,
@@ -236,32 +241,46 @@ copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 	    hp++;
 	    break;
 	case TAG_PRIMARY_LIST:
-	    objp = list_val(obj);
+	    objp = list_val_rel(obj,src_base);
+	#if !HALFWORD_HEAP || defined(DEBUG)
 	    if (in_area(objp,hstart,hsize)) {
+		ASSERT(!HALFWORD_HEAP);
 		hp++;
 		break;
 	    }
+	#endif
 	    argp = hp++;
 	    /* Fall through */
 
 	L_copy_list:
 	    tailp = argp;
-	    while (is_list(obj)) {
-		objp = list_val(obj);
+	    for (;;) {
 		tp = tailp;
-		elem = *objp;
+		elem = CAR(objp);
 		if (IS_CONST(elem)) {
-		    *(hbot-2) = elem;
-		    tailp = hbot-1;
 		    hbot -= 2;
+		    CAR(hbot) = elem;
+		    tailp = &CDR(hbot);
 		}
 		else {
-		    *htop = elem;
-		    tailp = htop+1;
+		    CAR(htop) = elem;
+		#if HALFWORD_HEAP
+		    CDR(htop) = CDR(objp);
+		    *tailp = make_list_rel(htop,dst_base);
 		    htop += 2;
+		    goto L_copy;
+		#else
+		    tailp = &CDR(htop);
+		    htop += 2;
+		#endif
 		}
-		*tp = make_list(tailp - 1);
-		obj = *(objp+1);
+		ASSERT(!HALFWORD_HEAP || tp < hp || tp >= hbot);
+		*tp = make_list_rel(tailp - 1, dst_base);
+		obj = CDR(objp);
+		if (!is_list(obj)) {
+		    break;
+		}
+		objp = list_val_rel(obj,src_base);
 	    }
 	    switch (primary_tag(obj)) {
 	    case TAG_PRIMARY_IMMED1: *tailp = obj; goto L_copy;
@@ -273,21 +292,24 @@ copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 	    }
 	    
 	case TAG_PRIMARY_BOXED:
-	    if (in_area(boxed_val(obj),hstart,hsize)) {
+	#if !HALFWORD_HEAP || defined(DEBUG)
+	    if (in_area(boxed_val_rel(obj,src_base),hstart,hsize)) {
+		ASSERT(!HALFWORD_HEAP);
 		hp++;
 		break;
 	    }
+	#endif
 	    argp = hp++;
 
 	L_copy_boxed:
-	    objp = boxed_val(obj);
+	    objp = boxed_val_rel(obj, src_base);
 	    hdr = *objp;
 	    switch (hdr & _TAG_HEADER_MASK) {
 	    case ARITYVAL_SUBTAG:
 		{
 		    int const_flag = 1; /* assume constant tuple */
 		    i = arityval(hdr);
-		    *argp = make_tuple(htop);
+		    *argp = make_tuple_rel(htop, dst_base);
 		    tp = htop;	/* tp is pointer to new arity value */
 		    *htop++ = *objp++; /* copy arity value */
 		    while (i--) {
@@ -316,13 +338,13 @@ copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 		    while (i--)  {
 			*tp++ = *objp++;
 		    }
-		    *argp = make_binary(hbot);
+		    *argp = make_binary_rel(hbot, dst_base);
 		    pb = (ProcBin*) hbot;
 		    erts_refc_inc(&pb->val->refc, 2);
-		    pb->next = off_heap->mso;
+		    pb->next = off_heap->first;
 		    pb->flags = 0;
-		    off_heap->mso = pb;
-		    off_heap->overhead += pb->size / sizeof(Eterm);
+		    off_heap->first = (struct erl_off_heap_header*) pb;
+		    OH_OVERHEAD(off_heap, pb->size / sizeof(Eterm));
 		}
 		break;
 	    case SUB_BINARY_SUBTAG:
@@ -343,7 +365,7 @@ copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 			extra_bytes = 0;
 		    } 
 		    real_size = size+extra_bytes;
-		    objp = binary_val(real_bin);
+		    objp = binary_val_rel(real_bin,src_base);
 		    if (thing_subtag(*objp) == HEAP_BINARY_SUBTAG) {
 			ErlHeapBin* from = (ErlHeapBin *) objp;
 			ErlHeapBin* to;
@@ -368,12 +390,12 @@ copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 			to->val = from->val;
 			erts_refc_inc(&to->val->refc, 2);
 			to->bytes = from->bytes + offset;
-			to->next = off_heap->mso;
+			to->next = off_heap->first;
 			to->flags = 0;
-			off_heap->mso = to;
-			off_heap->overhead += to->size / sizeof(Eterm);
+			off_heap->first = (struct erl_off_heap_header*) to;
+			OH_OVERHEAD(off_heap, to->size / sizeof(Eterm));
 		    }
-		    *argp = make_binary(hbot);
+		    *argp = make_binary_rel(hbot, dst_base);
 		    if (extra_bytes != 0) {
 			ErlSubBin* res;
 			hbot -= ERL_SUB_BIN_SIZE;
@@ -385,7 +407,7 @@ copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 			res->offs = 0;
 			res->is_writable = 0;
 			res->orig = *argp;
-			*argp = make_binary(hbot);
+			*argp = make_binary_rel(hbot, dst_base);
 		    }
 		    break;
 		}
@@ -401,11 +423,11 @@ copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 		    }
 #ifndef HYBRID /* FIND ME! */
 		    funp = (ErlFunThing *) tp;
-		    funp->next = off_heap->funs;
-		    off_heap->funs = funp;
+		    funp->next = off_heap->first;
+		    off_heap->first = (struct erl_off_heap_header*) funp;
 		    erts_refc_inc(&funp->fe->refc, 2);
 #endif
-		    *argp = make_fun(tp);
+		    *argp = make_fun_rel(tp, dst_base);
 		}
 		break;
 	    case EXTERNAL_PID_SUBTAG:
@@ -421,11 +443,11 @@ copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 		    *htop++ = *objp++;
 		  }
 
-		  etp->next = off_heap->externals;
-		  off_heap->externals = etp;
+		  etp->next = off_heap->first;
+		  off_heap->first = (struct erl_off_heap_header*)etp;
 		  erts_refc_inc(&etp->node->refc, 2);
 
-		  *argp = make_external(tp);
+		  *argp = make_external_rel(tp, dst_base);
 		}
 		break;
 	    case BIN_MATCHSTATE_SUBTAG:
@@ -435,7 +457,7 @@ copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 		i = thing_arityval(hdr)+1;
 		hbot -= i;
 		tp = hbot;
-		*argp = make_boxed(hbot);
+		*argp = make_boxed_rel(hbot, dst_base);
 		while (i--) {
 		    *tp++ = *objp++;
 		}
@@ -455,7 +477,7 @@ copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
     if (htop != hbot)
 	erl_exit(ERTS_ABORT_EXIT,
 		 "Internal error in copy_struct() when copying %T:"
-		 " htop=%p != hbot=%p (sz=%bpu)\n",
+		 " htop=%p != hbot=%p (sz=%beu)\n",
 		 org_obj, htop, hbot, org_sz); 
 #else
     if (htop > hbot) {
@@ -655,9 +677,9 @@ Eterm copy_struct_lazy(Process *from, Eterm orig, Uint offs)
                     *hp++ = *objp++;
                 }
                 erts_refc_inc(&pb->val->refc, 2);
-                pb->next = erts_global_offheap.mso;
-                erts_global_offheap.mso = pb;
-                erts_global_offheap.overhead += pb->size / sizeof(Eterm);
+                pb->next = erts_global_offheap.first;
+                erts_global_offheap.first = pb;
+		OH_OVERHEAD(off_heap, pb->size / sizeof(Eterm));
                 continue;
             }
 
@@ -677,9 +699,9 @@ Eterm copy_struct_lazy(Process *from, Eterm orig, Uint offs)
                 while (i--) {
                     *hp++ = *objp++;
                 }
-#ifndef HYBRID // FIND ME!
-                funp->next = erts_global_offheap.funs;
-                erts_global_offheap.funs = funp;
+#ifndef HYBRID /* FIND ME! */
+                funp->next = erts_global_offheap.first;
+                erts_global_offheap.first = funp;
                 erts_refc_inc(&funp->fe->refc, 2);
 #endif
                 for (i = k; i < j; i++) {
@@ -723,8 +745,8 @@ Eterm copy_struct_lazy(Process *from, Eterm orig, Uint offs)
                     *hp++ = *objp++;
                 }
 
-                etp->next = erts_global_offheap.externals;
-                erts_global_offheap.externals = etp;
+                etp->next = erts_global_offheap.first;
+                erts_global_offheap.first = etp;
 		erts_refc_inc(&etp->node->refc, 2);
                 continue;
             }
@@ -780,9 +802,9 @@ Eterm copy_struct_lazy(Process *from, Eterm orig, Uint offs)
                     to_bin->size = real_size;
                     to_bin->val = from_bin->val;
                     to_bin->bytes = from_bin->bytes + sub_offset;
-                    to_bin->next = erts_global_offheap.mso;
-                    erts_global_offheap.mso = to_bin;
-                    erts_global_offheap.overhead += to_bin->size / sizeof(Eterm);
+                    to_bin->next = erts_global_offheap.first;
+                    erts_global_offheap.first = to_bin;
+		    OH_OVERHEAD(&erts_global_offheap, to_bin->size / sizeof(Eterm));
 		    res_binary=make_binary(to_bin);
 		    hp += PROC_BIN_SIZE;
                 }
@@ -890,12 +912,21 @@ Eterm copy_struct_lazy(Process *from, Eterm orig, Uint offs)
  *
  * NOTE: Assumes that term is a tuple (ptr is an untagged tuple ptr).
  */
-Eterm
-copy_shallow(Eterm* ptr, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
+#if HALFWORD_HEAP
+Eterm copy_shallow_rel(Eterm* ptr, Uint sz, Eterm** hpp, ErlOffHeap* off_heap,
+		       Eterm* src_base)
+#else
+Eterm copy_shallow(Eterm* ptr, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
+#endif
 {
     Eterm* tp = ptr;
     Eterm* hp = *hpp;
-    Sint offs = hp - tp;
+    const Eterm res = make_tuple(hp);
+#if HALFWORD_HEAP
+    const Sint offs = COMPRESS_POINTER(hp - (tp - src_base));
+#else
+    const Sint offs = (hp - tp) * sizeof(Eterm);
+#endif
 
     while (sz--) {
 	Eterm val = *tp++;
@@ -906,7 +937,7 @@ copy_shallow(Eterm* ptr, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 	    break;
 	case TAG_PRIMARY_LIST:
 	case TAG_PRIMARY_BOXED:
-	    *hp++ = offset_ptr(val, offs);
+	    *hp++ = byte_offset_ptr(val, offs);
 	    break;
 	case TAG_PRIMARY_HEADER:
 	    *hp++ = val;
@@ -915,57 +946,43 @@ copy_shallow(Eterm* ptr, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 		break;
 	    case REFC_BINARY_SUBTAG:
 		{
-		    ProcBin* pb = (ProcBin *) (hp-1);
-		    int tari = thing_arityval(val);
-
-		    sz -= tari;
-		    while (tari--) {
-			*hp++ = *tp++;
-		    }
+		    ProcBin* pb = (ProcBin *) (tp-1);
 		    erts_refc_inc(&pb->val->refc, 2);
-		    pb->next = off_heap->mso;
-		    off_heap->mso = pb;
-		    off_heap->overhead += pb->size / sizeof(Eterm);
+		    OH_OVERHEAD(off_heap, pb->size / sizeof(Eterm));
 		}
-		break;
+		goto off_heap_common;
+
 	    case FUN_SUBTAG:
 		{
-#ifndef HYBRID /* FIND ME! */
-		    ErlFunThing* funp = (ErlFunThing *) (hp-1);
-#endif
-		    int tari = thing_arityval(val);
-
-		    sz -= tari;
-		    while (tari--) {
-			*hp++ = *tp++;
-		    }
-#ifndef HYBRID /* FIND ME! */
-		    funp->next = off_heap->funs;
-		    off_heap->funs = funp;
+		    ErlFunThing* funp = (ErlFunThing *) (tp-1);
 		    erts_refc_inc(&funp->fe->refc, 2);
-#endif
 		}
-		break;
+		goto off_heap_common;
+
 	    case EXTERNAL_PID_SUBTAG:
 	    case EXTERNAL_PORT_SUBTAG:
 	    case EXTERNAL_REF_SUBTAG:
 		{
-		    ExternalThing* etp = (ExternalThing *) (hp-1);
+		    ExternalThing* etp = (ExternalThing *) (tp-1);
+		    erts_refc_inc(&etp->node->refc, 2);
+		}
+	    off_heap_common:
+		{
+		    struct erl_off_heap_header* ohh = (struct erl_off_heap_header*)(hp-1);
 		    int tari = thing_arityval(val);
-
+		    
 		    sz -= tari;
 		    while (tari--) {
 			*hp++ = *tp++;
 		    }
-		    etp->next = off_heap->externals;
-		    off_heap->externals = etp;
-		    erts_refc_inc(&etp->node->refc, 2);
+		    ohh->next = off_heap->first;
+		    off_heap->first = ohh;
 		}
 		break;
 	    default:
 		{
 		    int tari = header_arity(val);
-
+    
 		    sz -= tari;
 		    while (tari--) {
 			*hp++ = *tp++;
@@ -977,5 +994,95 @@ copy_shallow(Eterm* ptr, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 	}
     }
     *hpp = hp;
-    return make_tuple(ptr + offs); 
+
+    return res;
 }
+
+/* Move all terms in heap fragments into heap. The terms must be guaranteed to 
+ * be contained within the fragments. The source terms are destructed with
+ * move markers.
+ * Typically used to copy a multi-fragmented message (from NIF).
+ */
+void move_multi_frags(Eterm** hpp, ErlOffHeap* off_heap, ErlHeapFragment* first,
+		      Eterm* refs, unsigned nrefs)
+{
+    ErlHeapFragment* bp;
+    Eterm* hp_start = *hpp;
+    Eterm* hp_end;
+    Eterm* hp;
+    unsigned i;
+
+    for (bp=first; bp!=NULL; bp=bp->next) {
+	move_one_frag(hpp, bp->mem, bp->used_size, off_heap);
+	OH_OVERHEAD(off_heap, bp->off_heap.overhead);
+    }
+    hp_end = *hpp;
+    for (hp=hp_start; hp<hp_end; ++hp) {
+	Eterm* ptr;
+	Eterm val;
+	Eterm gval = *hp;
+	switch (primary_tag(gval)) {
+	case TAG_PRIMARY_BOXED:
+	    ptr = boxed_val(gval);
+	    val = *ptr;
+	    if (IS_MOVED_BOXED(val)) {
+		ASSERT(is_boxed(val));
+		*hp = val;
+	    }
+	    break;
+	case TAG_PRIMARY_LIST:
+	    ptr = list_val(gval);
+	    val = *ptr;
+	    if (IS_MOVED_CONS(val)) {
+		*hp = ptr[1];
+	    }
+	    break;
+	case TAG_PRIMARY_HEADER:
+	    if (header_is_thing(gval)) {
+		hp += thing_arityval(gval);
+	    }
+	    break;
+	}
+    }
+    for (i=0; i<nrefs; ++i) {
+	refs[i] = follow_moved(refs[i]);
+    }
+}
+
+static void
+move_one_frag(Eterm** hpp, Eterm* src, Uint src_sz, ErlOffHeap* off_heap)
+{
+    Eterm* ptr = src;
+    Eterm* end = ptr + src_sz;
+    Eterm dummy_ref;
+    Eterm* hp = *hpp;
+
+    while (ptr != end) {
+	Eterm val;
+	ASSERT(ptr < end);
+	val = *ptr;
+	ASSERT(val != ERTS_HOLE_MARKER);
+	if (is_header(val)) {
+	    struct erl_off_heap_header* hdr = (struct erl_off_heap_header*)hp;
+	    ASSERT(ptr + header_arity(val) < end);
+	    MOVE_BOXED(ptr, val, hp, &dummy_ref);	    
+	    switch (val & _HEADER_SUBTAG_MASK) {
+	    case REFC_BINARY_SUBTAG:
+	    case FUN_SUBTAG:
+	    case EXTERNAL_PID_SUBTAG:
+	    case EXTERNAL_PORT_SUBTAG:
+	    case EXTERNAL_REF_SUBTAG:
+		hdr->next = off_heap->first;
+		off_heap->first = hdr;
+		break;
+	    }
+	}
+	else { /* must be a cons cell */
+	    ASSERT(ptr+1 < end);
+	    MOVE_CONS(ptr, val, hp, &dummy_ref);
+	    ptr += 2;
+	}
+    }
+    *hpp = hp;
+}
+

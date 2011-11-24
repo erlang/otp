@@ -1,36 +1,55 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
 -module(bs_utf_SUITE).
 
--export([all/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
 	 utf8_roundtrip/1,unused_utf_char/1,utf16_roundtrip/1,
 	 utf32_roundtrip/1,guard/1,extreme_tripping/1,
 	 literals/1,coverage/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
-all(suite) ->
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
     test_lib:recompile(?MODULE),
-    [utf8_roundtrip,unused_utf_char,utf16_roundtrip,
-     utf32_roundtrip,guard,extreme_tripping,
-     literals,coverage].
+    [utf8_roundtrip, unused_utf_char, utf16_roundtrip,
+     utf32_roundtrip, guard, extreme_tripping, literals,
+     coverage].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 utf8_roundtrip(Config) when is_list(Config) ->
     ?line [utf8_roundtrip_1(P) || P <- utf_data()],
@@ -245,18 +264,10 @@ literals(Config) when is_list(Config) ->
     ?line {'EXIT',{badarg,_}} = (catch <<(-1)/utf32,I/utf8>>),
     ?line {'EXIT',{badarg,_}} = (catch <<(-1)/little-utf32,I/utf8>>),
     ?line {'EXIT',{badarg,_}} = (catch <<16#D800/utf8,I/utf8>>),
-    ?line {'EXIT',{badarg,_}} = (catch <<16#FFFE/utf8,I/utf8>>),
-    ?line {'EXIT',{badarg,_}} = (catch <<16#FFFF/utf8,I/utf8>>),
     ?line {'EXIT',{badarg,_}} = (catch <<16#D800/utf16,I/utf8>>),
     ?line {'EXIT',{badarg,_}} = (catch <<16#D800/little-utf16,I/utf8>>),
-    ?line {'EXIT',{badarg,_}} = (catch <<16#FFFE/utf16,I/utf8>>),
-    ?line {'EXIT',{badarg,_}} = (catch <<16#FFFE/little-utf16,I/utf8>>),
-    ?line {'EXIT',{badarg,_}} = (catch <<16#FFFF/utf16,I/utf8>>),
-    ?line {'EXIT',{badarg,_}} = (catch <<16#FFFF/little-utf16,I/utf8>>),
     ?line {'EXIT',{badarg,_}} = (catch <<16#D800/utf32,I/utf8>>),
     ?line {'EXIT',{badarg,_}} = (catch <<16#D800/little-utf32,I/utf8>>),
-    ?line {'EXIT',{badarg,_}} = (catch <<16#FFFE/utf32,I/utf8>>),
-    ?line {'EXIT',{badarg,_}} = (catch <<16#FFFF/little-utf32,I/utf8>>),
 
     B = 16#10FFFF+1,
     ?line {'EXIT',{badarg,_}} = (catch <<B/utf8>>),
@@ -267,20 +278,11 @@ literals(Config) when is_list(Config) ->
 
     %% Matching of bad literals.
     ?line error = bad_literal_match(<<237,160,128>>), %16#D800 in UTF-8
-    ?line error = bad_literal_match(<<239,191,190>>), %16#FFFE in UTF-8
-    ?line error = bad_literal_match(<<239,191,191>>), %16#FFFF in UTF-8
     ?line error = bad_literal_match(<<244,144,128,128>>), %16#110000 in UTF-8
 
-    ?line error = bad_literal_match(<<255,254>>), %16#FFFE in UTF-16
-    ?line error = bad_literal_match(<<255,255>>), %16#FFFF in UTF-16
-
     ?line error = bad_literal_match(<<16#D800:32>>),
-    ?line error = bad_literal_match(<<16#FFFE:32>>),
-    ?line error = bad_literal_match(<<16#FFFF:32>>),
     ?line error = bad_literal_match(<<16#110000:32>>),
     ?line error = bad_literal_match(<<16#D800:32/little>>),
-    ?line error = bad_literal_match(<<16#FFFE:32/little>>),
-    ?line error = bad_literal_match(<<16#FFFF:32/little>>),
     ?line error = bad_literal_match(<<16#110000:32/little>>),
 
     ok.
@@ -295,11 +297,7 @@ match_literal(<<"bj\366rn"/big-utf16>>) -> bjorn_utf16be;
 match_literal(<<"bj\366rn"/little-utf16>>) -> bjorn_utf16le.
 
 bad_literal_match(<<16#D800/utf8>>) -> ok;
-bad_literal_match(<<16#FFFE/utf8>>) -> ok;
-bad_literal_match(<<16#FFFF/utf8>>) -> ok;
 bad_literal_match(<<16#110000/utf8>>) -> ok;
-bad_literal_match(<<16#FFFE/utf16>>) -> ok;
-bad_literal_match(<<16#FFFF/utf16>>) -> ok;
 bad_literal_match(<<16#D800/utf32>>) -> ok;
 bad_literal_match(<<16#110000/utf32>>) -> ok;
 bad_literal_match(<<16#D800/little-utf32>>) -> ok;
@@ -314,7 +312,7 @@ coverage(Config) when is_list(Config) ->
     ?line 0 = coverage_2(<<4096/utf8,65536/utf8,0>>),
     ?line 1 = coverage_2(<<1024/utf8,1025/utf8,1>>),
 
-    ?line {'EXIT',{function_clause,_}} = (catch coverage_3(1)),
+    ?line fc(catch coverage_3(1)),
 
     %% Cover beam_flatten (combining the heap allocation in
     %% a subsequent test_heap instruction into the bs_init2
@@ -394,3 +392,5 @@ utf32_data() ->
      <<16#41:32/little,NotIdentical:32/little,
       16#0391:32/little,16#2E:32/little>>}.
      
+fc({'EXIT',{function_clause,_}}) -> ok;
+fc({'EXIT',{{case_clause,_},_}}) when ?MODULE =:= bs_utf_inline_SUITE -> ok.

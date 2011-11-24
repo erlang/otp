@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %% =====================================================================
@@ -808,7 +808,7 @@ take_work({Queue0, Set0}) ->
 is_escape_op(match_fail, 1) -> false; 
 is_escape_op(F, A) when is_atom(F), is_integer(A) -> true.
 
--spec is_escape_op(module(), atom(), arity()) -> boolean().
+-spec is_escape_op(atom(), atom(), arity()) -> boolean().
 
 is_escape_op(erlang, error, 1) -> false;
 is_escape_op(erlang, error, 2) -> false;
@@ -825,7 +825,7 @@ is_escape_op(M, F, A) when is_atom(M), is_atom(F), is_integer(A) -> true.
 is_literal_op(match_fail, 1) -> true;
 is_literal_op(F, A) when is_atom(F), is_integer(A) -> false.
 
--spec is_literal_op(module(), atom(), arity()) -> boolean().
+-spec is_literal_op(atom(), atom(), arity()) -> boolean().
 
 is_literal_op(erlang, '+', 2) -> true;
 is_literal_op(erlang, '-', 2) -> true;

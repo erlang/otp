@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -354,6 +354,8 @@
          phi_arglist_update/2,
          phi_redirect_pred/3]).
 
+-export_type([alub_cond/0]).
+
 %%
 %% RTL
 %%
@@ -590,6 +592,9 @@ branch_pred(#branch{p=P}) -> P.
 %% alub
 %%
 
+-type alub_cond() :: 'eq' | 'ne' | 'ge' | 'geu' | 'gt' | 'gtu' | 'le'
+                   | 'leu' | 'lt' | 'ltu' | 'overflow' | 'not_overflow'.
+
 mk_alub(Dst, Src1, Op, Src2, Cond, True, False) ->
   mk_alub(Dst, Src1, Op, Src2, Cond, True, False, 0.5).
 mk_alub(Dst, Src1, Op, Src2, Cond, True, False, P) ->
@@ -776,8 +781,11 @@ fstore_src_update(F, NewSrc) -> F#fstore{src=NewSrc}.
 %% fp
 %%
 
+    
 mk_fp(Dst, Src1, Op, Src2) -> 
-  #fp{dst=Dst, src1=Src1, op=Op, src2=Src2}.
+    [#fp{dst=Dst, src1=Src1, op=Op, src2=Src2}
+     | hipe_rtl_arch:mk_fp_check_result(Dst)].
+
 fp_dst(#fp{dst=Dst}) -> Dst.
 fp_dst_update(Fp, NewDst) -> Fp#fp{dst=NewDst}.
 fp_src1(#fp{src1=Src1}) -> Src1.

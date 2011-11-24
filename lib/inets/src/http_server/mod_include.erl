@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -21,6 +21,7 @@
 -export([do/1,parse/2,config/6,include/6,echo/6,fsize/6,flastmod/6,exec/6]).
 
 -include("httpd.hrl").
+-include("httpd_internal.hrl").
 
 -define(VMODULE,"INCLUDE").
 
@@ -186,9 +187,9 @@ document_uri(ConfigDB, RequestURI) ->
     FileName = string:substr(Path,Start,Length),
     case inets_regexp:match(VirtualPath, FileName++"\$") of
 	{match, _, _} ->
-	    httpd_util:decode_hex(VirtualPath)++AfterPath;
+	    http_uri:decode(VirtualPath)++AfterPath;
 	nomatch ->
-	    string:strip(httpd_util:decode_hex(VirtualPath),right,$/)++
+	    string:strip(http_uri:decode(VirtualPath),right,$/)++
 		"/"++FileName++AfterPath
     end.
 

@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -186,7 +186,7 @@ sql_query(ConnectionReference, SQLQuery, infinity) when
     call(ConnectionReference, {sql_query, ODBCCmd}, infinity);
 
 sql_query(ConnectionReference, SQLQuery, TimeOut) 
-  when is_pid(ConnectionReference),is_list(SQLQuery),integer(TimeOut),TimeOut>0 -> 
+  when is_pid(ConnectionReference),is_list(SQLQuery),is_integer(TimeOut),TimeOut>0 -> 
     ODBCCmd = [?QUERY, SQLQuery],
     call(ConnectionReference, {sql_query, ODBCCmd}, TimeOut).
 
@@ -397,7 +397,7 @@ describe_table(ConnectionReference, Table, infinity) when
     call(ConnectionReference, {describe_table, ODBCCmd}, infinity);
 
 describe_table(ConnectionReference, Table, TimeOut) 
-  when is_pid(ConnectionReference),is_list(Table),integer(TimeOut),TimeOut>0 -> 
+  when is_pid(ConnectionReference),is_list(Table),is_integer(TimeOut),TimeOut>0 -> 
     ODBCCmd = [?DESCRIBE, "SELECT * FROM " ++ Table],
     call(ConnectionReference, {describe_table, ODBCCmd}, TimeOut).
 %%%=========================================================================
@@ -431,7 +431,7 @@ init(Args) ->
     
     erlang:monitor(process, ClientPid),
     
-    Inet = case gen_tcp:listen(0, [inet6]) of
+    Inet = case gen_tcp:listen(0, [inet6, {ip, loopback}]) of
 	       {ok, Dummyport} ->
 		   gen_tcp:close(Dummyport),
 		   inet6;
@@ -441,10 +441,12 @@ init(Args) ->
 
     {ok, ListenSocketSup} =
 	gen_tcp:listen(0, [Inet, binary, {packet, ?LENGTH_INDICATOR_SIZE},
-			   {active, false}, {nodelay, true}]),
+			   {active, false}, {nodelay, true},
+			   {ip, loopback}]),
     {ok, ListenSocketOdbc} =
 	gen_tcp:listen(0, [Inet, binary, {packet, ?LENGTH_INDICATOR_SIZE},
-			   {active, false}, {nodelay, true}]),
+			   {active, false}, {nodelay, true},
+			   {ip, loopback}]),
 
     %% Start the port program (a c program) that utilizes the odbc driver 
     case os:find_executable(?SERVERPROG, ?SERVERDIR) of
@@ -746,6 +748,9 @@ handle_info({'DOWN', _Ref, _Type, _Process, normal}, State) ->
     
 handle_info({'DOWN', _Ref, _Type, _Process, timeout}, State) ->
     {stop, normal, State#state{reply_to = undefined}};
+
+handle_info({'DOWN', _Ref, _Type, _Process, shutdown}, State) ->
+    {stop, normal, State#state{reply_to = undefined}};
  
 handle_info({'DOWN', _Ref, _Type, Process, Reason}, State) ->
     {stop, {stopped, {'EXIT', Process, Reason}}, 
@@ -801,9 +806,11 @@ connect(ConnectionReferense, ConnectionStr, Options) ->
 	connection_config(scrollable_cursors, Options),
     {C_TupleRow, _} = 
 	connection_config(tuple_row, Options),
+    {BinaryStrings, _} = connection_config(binary_strings, Options),
+
     ODBCCmd = 
 	[?OPEN_CONNECTION, C_AutoCommitMode, C_TraceDriver, 
-	 C_SrollableCursors, C_TupleRow, ConnectionStr],
+	 C_SrollableCursors, C_TupleRow, BinaryStrings, ConnectionStr],
     
     %% Send request, to open a database connection, to the control process.
     case call(ConnectionReferense, 
@@ -848,7 +855,9 @@ connection_default(trace_driver) ->
     {?OFF, off};
 
 connection_default(scrollable_cursors) ->
-    {?ON, on}.
+    {?ON, on};
+connection_default(binary_strings) ->
+    {?OFF, off}.
 
 %%-------------------------------------------------------------------------
 call(ConnectionReference, Msg, Timeout) ->
@@ -858,7 +867,7 @@ call(ConnectionReference, Msg, Timeout) ->
     case Result of
 	%% Normal case, the result from the port-program has directly 
 	%% been forwarded to the client
-	Binary when binary(Binary) -> 
+	Binary when is_binary(Binary) -> 
 	     decode(Binary);
 	timeout -> 
 	    exit(timeout);
@@ -908,21 +917,20 @@ fix_params({{sql_numeric, Precision, 0}, InOut,
 fix_params({{sql_numeric, Precision, Scale}, InOut, Values}) ->
         {?USER_NUMERIC, Precision, Scale, fix_inout(InOut), Values};
 fix_params({{sql_char, Max}, InOut, Values}) ->
-     NewValues =
- 	case (catch 
- 	      lists:map(fun(Str) -> Str ++ [?STR_TERMINATOR] end, Values)) of
- 	    Result ->
- 		Result
- 	end,
+     NewValues = string_terminate(Values),
     {?USER_CHAR, Max, fix_inout(InOut), NewValues};
 fix_params({{sql_varchar, Max}, InOut, Values}) ->
-     NewValues =
- 	case (catch 
- 	      lists:map(fun(Str) -> Str ++ [?STR_TERMINATOR] end, Values)) of
- 	    Result ->
- 		Result
- 	end,
+     NewValues = string_terminate(Values),
     {?USER_VARCHAR, Max, fix_inout(InOut), NewValues};
+fix_params({{sql_wchar, Max}, InOut, Values}) ->
+    NewValues = string_terminate(Values),
+    {?USER_WCHAR, Max, fix_inout(InOut), NewValues};
+fix_params({{sql_wvarchar, Max}, InOut, Values}) ->
+    NewValues = string_terminate(Values),
+    {?USER_WVARCHAR, Max, fix_inout(InOut), NewValues};
+fix_params({{sql_wlongvarchar, Max}, InOut, Values}) ->
+    NewValues = string_terminate(Values),
+    {?USER_WLONGVARCHAR, Max, fix_inout(InOut), NewValues};
 fix_params({{sql_float, Precision}, InOut, Values}) ->
     {?USER_FLOAT, Precision, fix_inout(InOut), Values};
 fix_params({sql_real, InOut, Values}) ->
@@ -931,6 +939,16 @@ fix_params({sql_double, InOut, Values}) ->
     {?USER_DOUBLE, fix_inout(InOut), Values};
 fix_params({sql_bit, InOut, Values}) ->
     {?USER_BOOLEAN, fix_inout(InOut), Values};
+fix_params({'sql_timestamp', InOut, Values}) ->
+    NewValues =
+ 	case (catch 
+		  lists:map(fun({{Year,Month,Day},{Hour,Minute,Second}}) -> 
+                                {Year,Month,Day,Hour,Minute,Second}
+                        end, Values)) of
+ 	    Result ->
+ 		Result
+ 	end,
+    {?USER_TIMESTAMP, fix_inout(InOut), NewValues};
 %% default is IN %%%
 fix_params({Type, Values}) ->
     fix_params({Type, in, Values}).
@@ -941,3 +959,16 @@ fix_inout(out) ->
     ?OUT;
 fix_inout(inout) ->
     ?INOUT.
+
+string_terminate([Value| _ ] = Values) when is_list(Value)->
+    case (catch 
+ 	      lists:map(fun(Str) -> Str ++ [?STR_TERMINATOR] end, Values)) of
+	Result ->
+	    Result
+    end;
+string_terminate([Value| _ ] = Values) when is_binary(Value)->
+    case (catch 
+  	      lists:map(fun(B) -> <<B/binary,0:16>> end, Values)) of
+	Result ->
+	    Result
+    end.

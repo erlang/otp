@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -34,45 +34,20 @@
 
 -export([t/0, t/1]).
 
--export([all/1, 
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, 
 
 	 tickets/0, 
-	 tickets/1, 
+	 
 	 otp7672_msg01/1,
  	 otp7672_msg02/1,
  
-	 init_per_testcase/2, fin_per_testcase/2]).  
+	 init_per_testcase/2, end_per_testcase/2]).  
 
 
 %% ----
 
 -define(SET_DBG(S,D), begin put(severity, S), put(dbg, D) end).
 -define(RESET_DBG(),  begin erase(severity),  erase(dbg)  end).
-
-
-%% ----
-
-tickets() ->
-    Flag  = process_flag(trap_exit, true),    
-    Cases = expand(tickets),
-    Fun   = fun(Case) ->
-		    C = init_per_testcase(Case, [{tc_timeout, 
-						  timer:minutes(10)}]),
-		    io:format("Eval ~w~n", [Case]),
-		    Result = 
-			case (catch apply(?MODULE, Case, [C])) of
-			    {'EXIT', Reason} ->
- 				io:format("~n~p exited:~n   ~p~n", 
- 					  [Case, Reason]),
-				{error, {Case, Reason}};
-			    Res ->
-				Res
-			end,
-		    fin_per_testcase(Case, C),
-		    Result
-	    end,
-    process_flag(trap_exit, Flag),
-    lists:map(Fun, Cases).
 
 expand(RootCase) ->
     expand([RootCase], []).
@@ -106,24 +81,51 @@ init_per_testcase(Case, Config) ->
 	end,
     megaco_test_lib:init_per_testcase(Case, C).
 
-fin_per_testcase(Case, Config) ->
+end_per_testcase(Case, Config) ->
     erase(verbosity),
-    megaco_test_lib:fin_per_testcase(Case, Config).
+    megaco_test_lib:end_per_testcase(Case, Config).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Top test case
 
-all(suite) ->
-    [
-     tickets
-    ].
+all() -> 
+    [{group, tickets}].
 
-tickets(suite) ->
-    [
-     otp7672_msg01, 
-     otp7672_msg02
-    ].
+groups() -> 
+    [{tickets, [], [otp7672_msg01, otp7672_msg02]}].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
+
+
+%% ----
+
+tickets() ->
+    Flag  = process_flag(trap_exit, true),    
+    Cases = expand(tickets),
+    Fun   = fun(Case) ->
+		    C = init_per_testcase(Case, [{tc_timeout, 
+						  timer:minutes(10)}]),
+		    io:format("Eval ~w~n", [Case]),
+		    Result = 
+			case (catch apply(?MODULE, Case, [C])) of
+			    {'EXIT', Reason} ->
+ 				io:format("~n~p exited:~n   ~p~n", 
+ 					  [Case, Reason]),
+				{error, {Case, Reason}};
+			    Res ->
+				Res
+			end,
+		    end_per_testcase(Case, C),
+		    Result
+	    end,
+    process_flag(trap_exit, Flag),
+    lists:map(Fun, Cases).
 
 		
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2003-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2003-2011. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -49,30 +49,30 @@
 #define MIN_MBC_FIRST_FREE_SZ		(4*1024)
 
 #define MAX_SUB_MASK_IX \
-  ((((Uint)1) << (NO_OF_BKT_IX_BITS - SUB_MASK_IX_SHIFT)) - 1)
-#define MAX_SUB_BKT_IX ((((Uint)1) << SUB_MASK_IX_SHIFT) - 1)
+  ((((UWord)1) << (NO_OF_BKT_IX_BITS - SUB_MASK_IX_SHIFT)) - 1)
+#define MAX_SUB_BKT_IX ((((UWord)1) << SUB_MASK_IX_SHIFT) - 1)
 #define MAX_BKT_IX (NO_OF_BKTS - 1)
 
-#define MIN_BLK_SZ  UNIT_CEILING(sizeof(GFFreeBlock_t) + sizeof(Uint))
+#define MIN_BLK_SZ  UNIT_CEILING(sizeof(GFFreeBlock_t) + sizeof(UWord))
 
-#define IX2SBIX(IX) ((IX) & (~(~((Uint)0) << SUB_MASK_IX_SHIFT)))
+#define IX2SBIX(IX) ((IX) & (~(~((UWord)0) << SUB_MASK_IX_SHIFT)))
 #define IX2SMIX(IX) ((IX) >> SUB_MASK_IX_SHIFT)
 #define MAKE_BKT_IX(SMIX, SBIX)	\
-  ((((Uint)(SMIX)) << SUB_MASK_IX_SHIFT) | ((Uint)(SBIX)))
+  ((((UWord)(SMIX)) << SUB_MASK_IX_SHIFT) | ((UWord)(SBIX)))
 
 #define SET_BKT_MASK_IX(BM, IX)						\
 do {									\
     int sub_mask_ix__ = IX2SMIX((IX));					\
-    (BM).main |= (((Uint) 1) << sub_mask_ix__);				\
-    (BM).sub[sub_mask_ix__] |= (((Uint)1) << IX2SBIX((IX)));		\
+    (BM).main |= (((UWord) 1) << sub_mask_ix__);				\
+    (BM).sub[sub_mask_ix__] |= (((UWord)1) << IX2SBIX((IX)));		\
 } while (0)
 
 #define UNSET_BKT_MASK_IX(BM, IX)					\
 do {									\
     int sub_mask_ix__ = IX2SMIX((IX));					\
-    (BM).sub[sub_mask_ix__] &= ~(((Uint)1) << IX2SBIX((IX)));		\
+    (BM).sub[sub_mask_ix__] &= ~(((UWord)1) << IX2SBIX((IX)));		\
     if (!(BM).sub[sub_mask_ix__])					\
-	(BM).main &= ~(((Uint)1) << sub_mask_ix__);			\
+	(BM).main &= ~(((UWord)1) << sub_mask_ix__);			\
 } while (0)
 
 /* Buckets ... */
@@ -163,10 +163,10 @@ BKT_MIN_SZ(GFAllctr_t *gfallctr, int ix)
 
 /* Prototypes of callback functions */
 static Block_t *	get_free_block		(Allctr_t *, Uint,
-						 Block_t *, Uint);
-static void		link_free_block		(Allctr_t *, Block_t *);
-static void		unlink_free_block	(Allctr_t *, Block_t *);
-static void		update_last_aux_mbc	(Allctr_t *, Carrier_t *);
+						 Block_t *, Uint, Uint32);
+static void		link_free_block		(Allctr_t *, Block_t *, Uint32);
+static void		unlink_free_block	(Allctr_t *, Block_t *, Uint32);
+static void		update_last_aux_mbc	(Allctr_t *, Carrier_t *, Uint32);
 static Eterm		info_options		(Allctr_t *, char *, int *,
 						 void *, Uint **, Uint *);
 static void		init_atoms		(void);
@@ -190,14 +190,20 @@ erts_gfalc_start(GFAllctr_t *gfallctr,
 		 GFAllctrInit_t *gfinit,
 		 AllctrInit_t *init)
 {
-    GFAllctr_t nulled_state = {{0}};
-    /* {{0}} is used instead of {0}, in order to avoid (an incorrect) gcc
-       warning. gcc warns if {0} is used as initializer of a struct when
-       the first member is a struct (not if, for example, the third member
-       is a struct). */
+    struct {
+	int dummy;
+	GFAllctr_t allctr;
+    } zero = {0};
+    /* The struct with a dummy element first is used in order to avoid (an
+       incorrect) gcc warning. gcc warns if {0} is used as initializer of
+       a struct when the first member is a struct (not if, for example,
+       the third member is a struct). */
+
     Allctr_t *allctr = (Allctr_t *) gfallctr;
 
-    sys_memcpy((void *) gfallctr, (void *) &nulled_state, sizeof(GFAllctr_t));
+    sys_memcpy((void *) gfallctr, (void *) &zero.allctr, sizeof(GFAllctr_t));
+
+    init->sbmbct = 0; /* Small mbc not yet supported by goodfit */
 
     allctr->mbc_header_size		= sizeof(Carrier_t);
     allctr->min_mbc_size		= MIN_MBC_SZ;
@@ -263,8 +269,8 @@ find_bucket(BucketMask_t *bmask, int min_index)
     while(max != min) {					\
 	mid = ((max - min) >> 1) + min;			\
 	if((BitMask)					\
-	   & (~(~((Uint) 0) << (mid + 1)))		\
-	   & (~((Uint) 0) << min))			\
+	   & (~(~((UWord) 0) << (mid + 1)))		\
+	   & (~((UWord) 0) << min))			\
 	    max = mid;					\
 	else						\
 	    min = mid + 1;				\
@@ -272,21 +278,21 @@ find_bucket(BucketMask_t *bmask, int min_index)
     (MinBit) = min
 
 
-    ASSERT(bmask->main < (((Uint) 1) << (MAX_SUB_MASK_IX+1)));
+    ASSERT(bmask->main < (((UWord) 1) << (MAX_SUB_MASK_IX+1)));
 
     sub_mask_ix = IX2SMIX(min_index);
 
-    if ((bmask->main & (~((Uint) 0) << sub_mask_ix)) == 0)
+    if ((bmask->main & (~((UWord) 0) << sub_mask_ix)) == 0)
 	return -1;
 
     /* There exists a non empty bucket; find it... */
 
-    if (bmask->main & (((Uint) 1) << sub_mask_ix)) {
+    if (bmask->main & (((UWord) 1) << sub_mask_ix)) {
 	sub_bkt_ix = IX2SBIX(min_index);
-	if ((bmask->sub[sub_mask_ix] & (~((Uint) 0) << sub_bkt_ix)) == 0) {
+	if ((bmask->sub[sub_mask_ix] & (~((UWord) 0) << sub_bkt_ix)) == 0) {
 	    sub_mask_ix++;
 	    sub_bkt_ix = 0;
-	    if ((bmask->main & (~((Uint) 0)<< sub_mask_ix)) == 0)
+	    if ((bmask->main & (~((UWord) 0)<< sub_mask_ix)) == 0)
 		return -1;
 	}
 	else
@@ -299,17 +305,17 @@ find_bucket(BucketMask_t *bmask, int min_index)
 
     ASSERT(sub_mask_ix <= MAX_SUB_MASK_IX);
     /* Has to be a bit > sub_mask_ix */
-    ASSERT(bmask->main & (~((Uint) 0) << (sub_mask_ix)));
+    ASSERT(bmask->main & (~((UWord) 0) << (sub_mask_ix)));
     GET_MIN_BIT(sub_mask_ix, bmask->main, sub_mask_ix, MAX_SUB_MASK_IX);
 
  find_sub_bkt_ix:
     ASSERT(sub_mask_ix <= MAX_SUB_MASK_IX);
     ASSERT(sub_bkt_ix <= MAX_SUB_BKT_IX);
 
-    if ((bmask->sub[sub_mask_ix] & (((Uint) 1) << sub_bkt_ix)) == 0) {
+    if ((bmask->sub[sub_mask_ix] & (((UWord) 1) << sub_bkt_ix)) == 0) {
 	ASSERT(sub_mask_ix + 1 <= MAX_SUB_BKT_IX);
 	/* Has to be a bit > sub_bkt_ix */
-	ASSERT(bmask->sub[sub_mask_ix] & (~((Uint) 0) << sub_bkt_ix));
+	ASSERT(bmask->sub[sub_mask_ix] & (~((UWord) 0) << sub_bkt_ix));
 
 	GET_MIN_BIT(sub_bkt_ix,
 		    bmask->sub[sub_mask_ix],
@@ -336,7 +342,7 @@ search_bucket(Allctr_t *allctr, int ix, Uint size)
     Uint min_sz;
     Uint blk_sz;
     Uint cand_sz = 0;
-    Uint max_blk_search;
+    UWord max_blk_search;
     GFFreeBlock_t *blk;
     GFFreeBlock_t *cand = NULL;
     int blk_on_lambc;
@@ -379,7 +385,7 @@ search_bucket(Allctr_t *allctr, int ix, Uint size)
 
 static Block_t *
 get_free_block(Allctr_t *allctr, Uint size,
-	       Block_t *cand_blk, Uint cand_size)
+	       Block_t *cand_blk, Uint cand_size, Uint32 flags)
 {
     GFAllctr_t *gfallctr = (GFAllctr_t *) allctr;
     int unsafe_bi, min_bi;
@@ -398,7 +404,7 @@ get_free_block(Allctr_t *allctr, Uint size,
 	if (blk) {
 	    if (cand_blk && cand_size <= BLK_SZ(blk))
 		return NULL; /* cand_blk was better */
-	    unlink_free_block(allctr, blk);
+	    unlink_free_block(allctr, blk, flags);
 	    return blk;
 	}
 	if (min_bi < NO_OF_BKTS - 1) {
@@ -418,14 +424,14 @@ get_free_block(Allctr_t *allctr, Uint size,
     ASSERT(blk);
     if (cand_blk && cand_size <= BLK_SZ(blk))
 	return NULL; /* cand_blk was better */
-    unlink_free_block(allctr, blk);
+    unlink_free_block(allctr, blk, flags);
     return blk;
 }
 
 
 
 static void
-link_free_block(Allctr_t *allctr, Block_t *block)
+link_free_block(Allctr_t *allctr, Block_t *block, Uint32 flags)
 {
     GFAllctr_t *gfallctr = (GFAllctr_t *) allctr;
     GFFreeBlock_t *blk = (GFFreeBlock_t *) block;
@@ -446,7 +452,7 @@ link_free_block(Allctr_t *allctr, Block_t *block)
 }
 
 static void
-unlink_free_block(Allctr_t *allctr, Block_t *block)
+unlink_free_block(Allctr_t *allctr, Block_t *block, Uint32 flags)
 {
     GFAllctr_t *gfallctr = (GFAllctr_t *) allctr;
     GFFreeBlock_t *blk = (GFFreeBlock_t *) block;
@@ -467,7 +473,7 @@ unlink_free_block(Allctr_t *allctr, Block_t *block)
 }
 
 static void
-update_last_aux_mbc(Allctr_t *allctr, Carrier_t *mbc)
+update_last_aux_mbc(Allctr_t *allctr, Carrier_t *mbc, Uint32 flags)
 {
     GFAllctr_t *gfallctr = (GFAllctr_t *) allctr;
 
@@ -615,9 +621,9 @@ check_block(Allctr_t *allctr, Block_t * blk, int free_block)
 	Uint blk_sz = BLK_SZ(blk);
 	bi = BKT_IX(gfallctr, blk_sz);
 
-	ASSERT(gfallctr->bucket_mask.main & (((Uint) 1) << IX2SMIX(bi)));
+	ASSERT(gfallctr->bucket_mask.main & (((UWord) 1) << IX2SMIX(bi)));
 	ASSERT(gfallctr->bucket_mask.sub[IX2SMIX(bi)]
-	       & (((Uint) 1) << IX2SBIX(bi)));
+	       & (((UWord) 1) << IX2SBIX(bi)));
 		
 	found = 0;
 	for (fblk = gfallctr->buckets[bi]; fblk; fblk = fblk->next)
@@ -648,9 +654,9 @@ check_mbc(Allctr_t *allctr, Carrier_t *mbc)
     int bi;
 
     for(bi = 0; bi < NO_OF_BKTS; bi++) {
-	if ((gfallctr->bucket_mask.main & (((Uint) 1) << IX2SMIX(bi)))
+	if ((gfallctr->bucket_mask.main & (((UWord) 1) << IX2SMIX(bi)))
 	    && (gfallctr->bucket_mask.sub[IX2SMIX(bi)]
-		& (((Uint) 1) << IX2SBIX(bi)))) {
+		& (((UWord) 1) << IX2SBIX(bi)))) {
 	    ASSERT(gfallctr->buckets[bi] != NULL);
 	}
 	else {

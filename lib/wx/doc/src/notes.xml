@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2009</year><year>2010</year>
+      <year>2009</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -30,6 +30,145 @@
   </header>
   <p>This document describes the changes made to the wxErlang
     application.</p>
+
+<section><title>Wx 0.99</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    wx: fix obsolete guard warning (list/1) (Thanks to Tuncer
+	    Ayaz)</p>
+          <p>
+	    Own Id: OTP-9513</p>
+        </item>
+        <item>
+	    <p> XML files have been corrected. </p>
+          <p>
+	    Own Id: OTP-9550 Aux Id: OTP-9541 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Support virtual tables in wxListCtrl.</p>
+          <p>
+	    Own Id: OTP-9415</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 0.98.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed wx app files on mac and solaris. Thanks Jachym
+	    Holecek and Joe Williams.</p>
+          <p>
+	    Own Id: OTP-9324</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 0.98.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Wx crashed if graphics could not be initiated, for
+	    instance if DISPLAY was not available.</p> <p>Wx could
+	    crash during startup, thanks Boris Muhmer for extra
+	    ordinary testing.</p>
+          <p>
+	    Own Id: OTP-9080</p>
+        </item>
+        <item>
+          <p>
+	    Wx on MacOS X generated complains on stderr about certain
+	    cocoa functions not beeing called from the "Main thread".
+	    This is now corrected.</p>
+          <p>
+	    Own Id: OTP-9081</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 0.98.8</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Add wxSystemSettings which was missing in the previous
+	    release, despite previous comments.</p> <p>Fix an
+	    external loop when stopping erlang nicely.</p>
+	    <p>Separate OpenGL to it's own dynamic loaded library, so
+	    other graphic libraries can reuse the gl module and it
+	    will not waste memory if not used.</p>
+          <p>
+	    Own Id: OTP-8951</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 0.98.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix crash (segmentation fault) in callback handling.</p>
+          <p>
+	    Own Id: OTP-8766</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add wxSystemSettings module.</p>
+          <p>
+	    Add wxTreeCtrl:editLabel/2.</p>
+          <p>
+	    Own Id: OTP-8767</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 0.98.6</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            Calling <c>sys:get_status()</c> for processes that have
+            globally registered names that were not atoms would cause
+            a crash. Corrected. (Thanks to Steve Vinoski.)</p>
+          <p>
+            Own Id: OTP-8656</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Wx 0.98.5</title>
 

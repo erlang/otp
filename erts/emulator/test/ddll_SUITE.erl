@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -30,7 +30,8 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
--export([all/1, ddll_test/1, errors/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, ddll_test/1, errors/1,
 	 reference_count/1,
 	 kill_port/1, dont_kill_port/1]).
 -export([unload_on_process_exit/1, delayed_unload_with_ports/1, 
@@ -50,35 +51,39 @@
 
 -import(ordsets, [subtract/2]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
-all(suite) ->
-    [ddll_test, errors,
-     reference_count,
-     kill_port,
-     dont_kill_port,
-     properties,
-     load_and_unload,
-     unload_on_process_exit, 
-     delayed_unload_with_ports, 
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [ddll_test, errors, reference_count, kill_port,
+     dont_kill_port, properties, load_and_unload,
+     unload_on_process_exit, delayed_unload_with_ports,
      unload_due_to_process_exit,
-     no_unload_due_to_process_exit, 
-     no_unload_due_to_process_exit_2,
-     unload_reload_thingie, 
-     unload_reload_thingie_2,
-     unload_reload_thingie_3,
-     reload_pending,
-     load_fail_init,
-     reload_pending_fail_init,
-     reload_pending_kill,
-     more_error_codes, 
-     forced_port_killing, 
-     no_trap_exit_and_kill_ports,
-     monitor_demonitor, 
-     monitor_demonitor_load,
-     new_interface,
-     lock_driver
-    ].
+     no_unload_due_to_process_exit,
+     no_unload_due_to_process_exit_2, unload_reload_thingie,
+     unload_reload_thingie_2, unload_reload_thingie_3,
+     reload_pending, load_fail_init,
+     reload_pending_fail_init, reload_pending_kill,
+     more_error_codes, forced_port_killing,
+     no_trap_exit_and_kill_ports, monitor_demonitor,
+     monitor_demonitor_load, new_interface, lock_driver].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 unload_on_process_exit(suite) ->
     [];

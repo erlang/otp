@@ -1,25 +1,27 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(c).
 
 %% Utilities to use from shell.
 
+%% Avoid warning for local function error/2 clashing with autoimported BIF.
+-compile({no_auto_import,[error/2]}).
 -export([help/0,lc/1,c/1,c/2,nc/1,nc/2, nl/1,l/1,i/0,i/1,ni/0,
          y/1, y/2,
 	 lc_batch/0, lc_batch/1,
@@ -31,41 +33,54 @@
 -export([display_info/1]).
 -export([appcall/4]).
 
--import(lists, [reverse/1,flatten/1,sublist/3,sort/1,keysearch/3,keysort/2,
+-import(lists, [reverse/1,flatten/1,sublist/3,sort/1,keysort/2,
 		concat/1,max/1,min/1,foreach/2,foldl/3,flatmap/2]).
 -import(io, [format/1, format/2]).
 
+%%-----------------------------------------------------------------------
+
+-spec help() -> 'ok'.
+
 help() ->
-    format("bt(Pid)    -- stack backtrace for a process\n"
-	   "c(File)    -- compile and load code in <File>\n"
-	   "cd(Dir)    -- change working directory\n"
-	   "flush()    -- flush any messages sent to the shell\n"
-	   "help()     -- help info\n"
-	   "i()        -- information about the system\n"
-	   "ni()       -- information about the networked system\n"
-	   "i(X,Y,Z)   -- information about pid <X,Y,Z>\n"
-	   "l(Module)  -- load or reload module\n"
-	   "lc([File]) -- compile a list of Erlang modules\n"
-	   "ls()       -- list files in the current directory\n"
-	   "ls(Dir)    -- list files in directory <Dir>\n"
-	   "m()        -- which modules are loaded\n"
-	   "m(Mod)     -- information about module <Mod>\n"
-	   "memory()   -- memory allocation information\n"
-	   "memory(T)  -- memory allocation information of type <T>\n"
-	   "nc(File)   -- compile and load code in <File> on all nodes\n"
-	   "nl(Module) -- load module on all nodes\n"
-	   "pid(X,Y,Z) -- convert X,Y,Z to a Pid\n"
-	   "pwd()      -- print working directory\n"
-	   "q()        -- quit - shorthand for init:stop()\n"
-	   "regs()     -- information about registered processes\n"
-	   "nregs()    -- information about all registered processes\n"
-	   "xm(M)      -- cross reference check a module\n"
-           "y(File)    -- generate a Yecc parser\n").
+    io:put_chars(<<"bt(Pid)    -- stack backtrace for a process\n"
+		   "c(File)    -- compile and load code in <File>\n"
+		   "cd(Dir)    -- change working directory\n"
+		   "flush()    -- flush any messages sent to the shell\n"
+		   "help()     -- help info\n"
+		   "i()        -- information about the system\n"
+		   "ni()       -- information about the networked system\n"
+		   "i(X,Y,Z)   -- information about pid <X,Y,Z>\n"
+		   "l(Module)  -- load or reload module\n"
+		   "lc([File]) -- compile a list of Erlang modules\n"
+		   "ls()       -- list files in the current directory\n"
+		   "ls(Dir)    -- list files in directory <Dir>\n"
+		   "m()        -- which modules are loaded\n"
+		   "m(Mod)     -- information about module <Mod>\n"
+		   "memory()   -- memory allocation information\n"
+		   "memory(T)  -- memory allocation information of type <T>\n"
+		   "nc(File)   -- compile and load code in <File> on all nodes\n"
+		   "nl(Module) -- load module on all nodes\n"
+		   "pid(X,Y,Z) -- convert X,Y,Z to a Pid\n"
+		   "pwd()      -- print working directory\n"
+		   "q()        -- quit - shorthand for init:stop()\n"
+		   "regs()     -- information about registered processes\n"
+		   "nregs()    -- information about all registered processes\n"
+		   "xm(M)      -- cross reference check a module\n"
+		   "y(File)    -- generate a Yecc parser\n">>).
 
 %% c(FileName)
 %%  Compile a file/module.
 
+-spec c(File) -> {'ok', Module} | 'error' when
+      File :: file:name(),
+      Module :: module().
+
 c(File) -> c(File, []).
+
+-spec c(File, Options) -> {'ok', Module} | 'error' when
+      File :: file:name(),
+      Options :: [compile:option()],
+      Module :: module().
 
 c(File, Opts0) when is_list(Opts0) ->
     Opts = [report_errors,report_warnings|Opts0],
@@ -82,6 +97,8 @@ c(File, Opt) ->
 
 %%% Obtain the 'outdir' option from the argument. Return "." if no
 %%% such option was given.
+-spec outdir([compile:option()]) -> file:filename().
+
 outdir([]) ->
     ".";
 outdir([Opt|Rest]) ->
@@ -118,8 +135,8 @@ machine_load(Mod, File, Opts) ->
 %%% loaded from some other place than current directory.
 %%% Now, loading from other than current directory is supposed to work.
 %%% so this function does nothing special.
-check_load({error, R}, _) -> {error, R};
-check_load(_, X) -> {ok, X}.
+check_load({error, _R} = Error, _) -> Error;
+check_load(_, Mod) -> {ok, Mod}.
 
 %% Compile a list of modules
 %% enables the nice unix shell cmd
@@ -127,6 +144,9 @@ check_load(_, X) -> {ok, X}.
 %% to compile files f1.erl , f2.erl ....... from a unix shell
 %% with constant c2 defined, c1=v1 (v1 must be a term!), include dir
 %% IDir, outdir ODir.
+
+-spec lc(Files) -> 'ok' | 'error' when
+      Files :: [File :: erl_compile:cmd_line_arg()].
 
 lc(Args) ->
     case catch split(Args, [], []) of
@@ -145,7 +165,7 @@ lc_batch() ->
     io:format("Error: no files to compile~n"),
     halt(1).
 
--spec lc_batch([_]) -> no_return().
+-spec lc_batch([erl_compile:cmd_line_arg()]) -> no_return().
 
 lc_batch(Args) ->
     try split(Args, [], []) of
@@ -191,7 +211,17 @@ make_term(Str) ->
 	    throw(error)
     end.
 
+-spec nc(File) -> {'ok', Module} | 'error' when
+      File :: file:name(),
+      Module :: module().
+
 nc(File) -> nc(File, []).
+
+-spec nc(File, Options) -> {'ok', Module} | 'error' when
+      File :: file:name(),
+      Options :: [Option] | Option,
+      Option:: compile:option(),
+      Module :: module().
 
 nc(File, Opts0) when is_list(Opts0) ->
     Opts = Opts0 ++ [report_errors, report_warnings],
@@ -215,25 +245,39 @@ nc(File, Opt) when is_atom(Opt) ->
 
 %% l(Mod)
 %%  Reload module Mod from file of same name
+-spec l(Module) -> code:load_ret() when
+      Module :: module().
 
 l(Mod) ->
     code:purge(Mod),
     code:load_file(Mod).
 
 %% Network version of l/1
+-spec nl(Module) -> abcast | error when
+      Module :: module().
+
 nl(Mod) ->
     case code:get_object_code(Mod) of
 	{_Module, Bin, Fname} ->
-            rpc:eval_everywhere(code,load_binary,[Mod,Fname,Bin]);
+            rpc:eval_everywhere(code, load_binary, [Mod, Fname, Bin]);
 	Other ->
 	    Other
     end.
 
+-spec i() -> 'ok'.
+
 i() -> i(processes()).
+
+-spec ni() -> 'ok'.
+
 ni() -> i(all_procs()).
+
+-spec i([pid()]) -> 'ok'.
 
 i(Ps) ->
     i(Ps, length(Ps)).
+
+-spec i([pid()], non_neg_integer()) -> 'ok'.
 
 i(Ps, N) when N =< 100 ->
     iformat("Pid", "Initial Call", "Heap", "Reds",
@@ -275,7 +319,6 @@ paged_i(Ps, Acc, N, Page) ->
 	    paged_i([], NewAcc, 0, Page)
     end.
 
-
 choice(F) ->
     case get_line('(c)ontinue (q)uit -->', "c\n") of
 	"c\n" ->
@@ -285,7 +328,6 @@ choice(F) ->
 	_ ->
 	    choice(F)
     end.
-    
 
 get_line(P, Default) ->
     case io:get_line(P) of
@@ -305,7 +347,6 @@ mfa_string({M,F,A}) ->
 mfa_string(X) ->
     w(X).
 
-
 display_info(Pid) ->
     case pinfo(Pid) of
 	undefined -> {0,0,0,0};
@@ -317,7 +358,7 @@ display_info(Pid) ->
 		       Other ->
 			   Other
 		   end,
-	    Reds  = fetch(reductions, Info),
+	    Reds = fetch(reductions, Info),
 	    LM = length(fetch(messages, Info)),
 	    HS = fetch(heap_size, Info),
 	    SS = fetch(stack_size, Info),
@@ -364,20 +405,35 @@ pinfo(Pid) ->
     end.
 
 fetch(Key, Info) ->
-    case keysearch(Key, 1, Info) of
-	{value, {_, Val}} -> Val;
+    case lists:keyfind(Key, 1, Info) of
+	{_, Val} -> Val;
 	false -> 0
     end.
 
-pid(X,Y,Z) ->
+-spec pid(X, Y, Z) -> pid() when
+      X :: non_neg_integer(),
+      Y :: non_neg_integer(),
+      Z :: non_neg_integer().
+
+pid(X, Y, Z) ->
     list_to_pid("<" ++ integer_to_list(X) ++ "." ++
 		integer_to_list(Y) ++ "." ++
 		integer_to_list(Z) ++ ">").
 
-i(X,Y,Z) -> pinfo(pid(X,Y,Z)).
+-spec i(X, Y, Z) -> [{atom(), term()}] when
+      X :: non_neg_integer(),
+      Y :: non_neg_integer(),
+      Z :: non_neg_integer().
+
+i(X, Y, Z) -> pinfo(pid(X, Y, Z)).
+
+-spec q() -> no_return().
 
 q() ->
     init:stop().
+
+-spec bt(Pid) -> 'ok' | 'undefined' when
+      Pid :: pid().
 
 bt(Pid) ->
     case catch erlang:process_display(Pid, backtrace) of
@@ -386,6 +442,8 @@ bt(Pid) ->
 	_ ->
 	    ok
     end.
+
+-spec m() -> 'ok'.
 
 m() ->
     mformat("Module", "File"),
@@ -414,8 +472,8 @@ error(Fmt, Args) ->
 
 f_p_e(P, F) ->
     case file:path_eval(P, F) of
-	{error, enoent} ->
-	    {error, enoent};
+	{error, enoent} = Enoent ->
+	    Enoent;
 	{error, E={Line, _Mod, _Term}} ->
 	    error("file:path_eval(~p,~p): error on line ~p: ~s~n",
 		  [P, F, Line, file:format_error(E)]),
@@ -438,10 +496,12 @@ bi(I) ->
 %%
 %% Short and nice form of module info
 %%
+-spec m(Module) -> 'ok' when
+      Module :: module().
 
 m(M) ->
     L = M:module_info(),
-    {value,{exports,E}} = keysearch(exports, 1, L),
+    {exports,E} = lists:keyfind(exports, 1, L),
     Time = get_compile_time(L),
     COpts = get_compile_options(L),
     format("Module ~w compiled: ",[M]), print_time(Time),
@@ -470,10 +530,10 @@ get_compile_options(L) ->
     end.
 
 get_compile_info(L, Tag) ->
-    case keysearch(compile, 1, L) of
-	{value, {compile, I}} ->
-	    case keysearch(Tag, 1, I) of
-		{value, {Tag, Val}} -> {ok,Val};
+    case lists:keyfind(compile, 1, L) of
+	{compile, I} ->
+	    case lists:keyfind(Tag, 1, I) of
+		{Tag, Val} -> {ok,Val};
 		false -> error
 	    end;
 	false -> error
@@ -523,6 +583,8 @@ month(11) -> "November";
 month(12) -> "December".
 
 %% Just because we can't eval receive statements...
+-spec flush() -> 'ok'.
+
 flush() ->
     receive
 	X ->
@@ -533,8 +595,12 @@ flush() ->
     end.
 
 %% Print formatted info about all registered names in the system
+-spec nregs() -> 'ok'.
+
 nregs() ->
     foreach(fun (N) -> print_node_regs(N) end, all_regs()).
+
+-spec regs() -> 'ok'.
 
 regs() ->
     print_node_regs({node(),registered()}).
@@ -609,13 +675,18 @@ portformat(Name, Id, Cmd) ->
 %% cd(Directory)
 %%  These are just wrappers around the file:get/set_cwd functions.
 
+-spec pwd() -> 'ok'.
+
 pwd() ->
     case file:get_cwd() of
 	{ok, Str} ->
-	    ok = io:format("~s\n", [Str]);
+	    ok = io:format("~ts\n", [fixup_one_bin(Str)]);
 	{error, _} ->
 	    ok = io:format("Cannot determine current directory\n")
     end.
+
+-spec cd(Dir) -> 'ok' when
+      Dir :: file:name().
 
 cd(Dir) ->
     file:set_cwd(Dir),
@@ -625,16 +696,37 @@ cd(Dir) ->
 %% ls(Directory)
 %%  The strategy is to print in fixed width files.
 
+-spec ls() -> 'ok'.
+
 ls() ->
     ls(".").
+
+-spec ls(Dir) -> 'ok' when
+      Dir :: file:name().
 
 ls(Dir) ->
     case file:list_dir(Dir) of
 	{ok, Entries} ->
-	    ls_print(sort(Entries));
+	    ls_print(sort(fixup_bin(Entries)));
 	{error,_E} ->
 	    format("Invalid directory\n")
     end.
+
+fixup_one_bin(X) when is_binary(X) ->
+    L = binary_to_list(X),
+    [ if 
+	  El > 127 ->
+	      $?;
+	  true ->
+	      El
+      end || El <- L];
+fixup_one_bin(X) -> 
+    X.
+fixup_bin([H|T]) ->
+    [fixup_one_bin(H) | fixup_bin(T)];
+fixup_bin([]) ->
+    [].
+	      
 
 ls_print([]) -> ok;
 ls_print(L) ->
@@ -645,7 +737,7 @@ ls_print(X, Width, Len) when Width + Len >= 80 ->
     io:nl(),
     ls_print(X, Width, 0);
 ls_print([H|T], Width, Len) ->
-    io:format("~-*s",[Width,H]),
+    io:format("~-*ts",[Width,H]),
     ls_print(T, Width, Len+Width);
 ls_print([], _, _) ->
     io:nl().
@@ -660,24 +752,38 @@ w(X) ->
 %% memory/[0,1]
 %%
 
-memory()         -> erlang:memory().
+-spec memory() -> [{Type, Size}] when
+      Type :: atom(),
+      Size :: non_neg_integer().
+
+memory() -> erlang:memory().
+
+-spec memory(Type) -> Size when
+               Type :: atom(),
+               Size :: non_neg_integer()
+          ; (Types) -> [{Type, Size}] when
+               Types :: [Type],
+               Type :: atom(),
+               Size :: non_neg_integer().
+
 memory(TypeSpec) -> erlang:memory(TypeSpec).
 
 %%
 %% Cross Reference Check
 %% 
-
+%%-spec xm(module() | file:filename()) -> xref:m/1 return
 xm(M) ->
     appcall(tools, xref, m, [M]).
 
 %%
 %% Call yecc 
 %% 
-
+%%-spec y(file:name()) -> yecc:file/2 return
 y(File) -> y(File, []).
 
+%%-spec y(file:name(), [yecc:option()]) -> yecc:file/2 return
 y(File, Opts) ->
-    appcall(parsetools, yecc, file, [File,Opts]).
+    appcall(parsetools, yecc, file, [File, Opts]).
 
 
 %%
@@ -691,7 +797,7 @@ appcall(App, M, F, Args) ->
     catch
 	error:undef ->
 	    case erlang:get_stacktrace() of
-		[{M,F,Args}|_] ->
+		[{M,F,Args,_}|_] ->
 		    Arity = length(Args),
 		    io:format("Call to ~w:~w/~w in application ~w failed.\n",
 			      [M,F,Arity,App]);
@@ -699,4 +805,3 @@ appcall(App, M, F, Args) ->
 		    erlang:raise(error, undef, Stk)
 	    end
     end.
-

@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2005-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2005-2011. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -23,18 +23,20 @@
  *
  * Based on the examples in Appendix E of Motorola's
  * "Programming Environments Manual For 32-Bit Implementations
- * of the PowerPC Architecture". Uses eieio instead of sync
- * in the unlock sequence, as suggested in the manual.
+ * of the PowerPC Architecture".
  */
 #ifndef ETHREAD_PPC_RWLOCK_H
 #define ETHREAD_PPC_RWLOCK_H
+
+#define ETHR_HAVE_NATIVE_RWSPINLOCKS 1
+#define ETHR_NATIVE_RWSPINLOCK_IMPL "ethread"
 
 /* Unlocked if zero, read-locked if negative, write-locked if +1. */
 typedef struct {
     volatile int lock;
 } ethr_native_rwlock_t;
 
-#ifdef ETHR_TRY_INLINE_FUNCS
+#if defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_AUX_IMPL__)
 
 static ETHR_INLINE void
 ethr_native_rwlock_init(ethr_native_rwlock_t *lock)
@@ -47,9 +49,10 @@ ethr_native_read_unlock(ethr_native_rwlock_t *lock)
 {
     int tmp;
 
-    /* this is eieio + ethr_native_atomic_inc() - isync */
+    ETHR_MEMBAR(ETHR_LoadStore|ETHR_StoreStore);
+
+    /* this is ethr_native_atomic_inc() - isync */
     __asm__ __volatile__(
-	"eieio\n\t"
 	"1:\t"
 	"lwarx	%0,0,%1\n\t"
 	"addic	%0,%0,1\n\t"
@@ -105,7 +108,7 @@ ethr_native_read_lock(ethr_native_rwlock_t *lock)
 static ETHR_INLINE void
 ethr_native_write_unlock(ethr_native_rwlock_t *lock)
 {
-    __asm__ __volatile__("eieio" : : : "memory");
+    ETHR_MEMBAR(ETHR_LoadStore|ETHR_StoreStore);
     lock->lock = 0;
 }
 

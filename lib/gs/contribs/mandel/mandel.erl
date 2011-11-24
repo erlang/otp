@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -119,7 +119,7 @@ start_client(Opts,Nodes) ->
 
 try_random(random,Low,High) ->
     random:uniform()*(High-Low)+Low;
-try_random(Float,_Low,_High) when number(Float) -> Float.
+try_random(Float,_Low,_High) when is_number(Float) -> Float.
     
 
 %%-----------------------------------------------------------------

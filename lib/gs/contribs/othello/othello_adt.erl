@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -375,29 +375,29 @@ is_good(Colour,H,Board) ->
     false.
 
 is_good_0(_,_,false,_) -> false;
-is_good_0(_,H,D,_) when integer(H), integer(D), H+D<0 -> false;
-is_good_0(_,H,D,_) when integer(H), integer(D), H+D>63 -> false;
-is_good_0(black,H,D,Board) when integer(H), integer(D) ->
+is_good_0(_,H,D,_) when is_integer(H), is_integer(D), H+D<0 -> false;
+is_good_0(_,H,D,_) when is_integer(H), is_integer(D), H+D>63 -> false;
+is_good_0(black,H,D,Board) when is_integer(H), is_integer(D) ->
     case element((H+D)+1,Board) of
 	white -> is_good_1(black,H+D,dir(H+D,D),Board);
 	_     -> false
     end;
-is_good_0(white,H,D,Board) when integer(H), integer(D) -> 
+is_good_0(white,H,D,Board) when is_integer(H), is_integer(D) ->
     case element((H+D)+1,Board) of
 	black -> is_good_1(white,H+D,dir(H+D,D),Board);
 	_     -> false
     end.
 
 is_good_1(_,_,false,_) -> false;
-is_good_1(_,H,D,_) when integer(H), integer(D), H+D<0 -> false;
-is_good_1(_,H,D,_) when integer(H), integer(D), H+D>63 -> false;
-is_good_1(black,H,D,Board) when integer(H), integer(D) -> 
+is_good_1(_,H,D,_) when is_integer(H), is_integer(D), H+D<0 -> false;
+is_good_1(_,H,D,_) when is_integer(H), is_integer(D), H+D>63 -> false;
+is_good_1(black,H,D,Board) when is_integer(H), is_integer(D) ->
     case element((H+D)+1,Board) of
 	white -> is_good_1(black,H+D,dir(H+D,D),Board);
 	black -> throw(true);
 	_     -> false
     end;
-is_good_1(white,H,D,Board) when integer(H), integer(D) -> 
+is_good_1(white,H,D,Board) when is_integer(H), is_integer(D) ->
     case element((H+D)+1,Board) of
 	black -> is_good_1(white,H+D,dir(H+D,D),Board);
 	white -> throw(true);
@@ -429,15 +429,15 @@ turn(Colour,H,D,Board) ->
 	    Board
     end.
 
-turn_0(_,H,D,B) when integer(H), integer(D), H+D<0 -> B;
-turn_0(_,H,D,B) when integer(H), integer(D), H+D>63 -> B;
-turn_0(black,H,D,Board) when integer(H), integer(D) ->
+turn_0(_,H,D,B) when is_integer(H), is_integer(D), H+D<0 -> B;
+turn_0(_,H,D,B) when is_integer(H), is_integer(D), H+D>63 -> B;
+turn_0(black,H,D,Board) when is_integer(H), is_integer(D) ->
     E = H+D,
     case element(E+1,Board) of
 	white -> turn_0(black,H+D,D,swap(black,E,Board));
 	_     -> Board
     end;
-turn_0(white,H,D,Board) when integer(H), integer(D) ->
+turn_0(white,H,D,Board) when is_integer(H), is_integer(D) ->
     E = H+D,
     case element(E+1,Board) of
 	black -> turn_0(white,H+D,D,swap(white,E,Board));
@@ -450,7 +450,7 @@ turn_0(white,H,D,Board) when integer(H), integer(D) ->
 %%                          Neighbours are not changed !!
 %%-------------------------------------------------------
 
-swap(Colour,Pos,Board) when integer(Pos) ->
+swap(Colour,Pos,Board) when is_integer(Pos) ->
     setelement(Pos+1,Board,Colour).
 
 score(Pos) -> score1({col(Pos),row(Pos)}).

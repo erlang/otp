@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2009. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -157,7 +157,7 @@ static int mn_send_delete(int fd, erlang_pid *mnesia, const char *key)
   int len = strlen(key) + 32; /* 32 is a slight overestimate */
 
   if (len > EISMALLBUF)
-    if (!(dbuf = malloc(index)))
+    if (!(dbuf = malloc(len)))
       return -1;
   msgbuf = (dbuf ? dbuf : sbuf);
 
@@ -187,7 +187,7 @@ static int mn_send_write(int fd, erlang_pid *mnesia, const char *key, ei_reg_obj
   int len = 32 + keylen + obj->size;
 
   if (len > EISMALLBUF)
-    if (!(dbuf = malloc(index)))
+    if (!(dbuf = malloc(len)))
       return -1;
   msgbuf = (dbuf ? dbuf : sbuf);
 
@@ -215,6 +215,7 @@ static int mn_send_write(int fd, erlang_pid *mnesia, const char *key, ei_reg_obj
     else ei_encode_long(msgbuf,&index,(long)(obj->val.p));  /* just the pointer */
     break;
   default:
+    if (dbuf) free(dbuf);
     return -1;
   }
 

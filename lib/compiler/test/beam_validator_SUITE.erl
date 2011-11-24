@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,7 +18,9 @@
 %%
 -module(beam_validator_SUITE).
 
--export([all/1,init_per_testcase/2,fin_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
+	 init_per_testcase/2,end_per_testcase/2,
 	 beam_files/1,compiler_bug/1,stupid_but_valid/1,
 	 xrange/1,yrange/1,stack/1,call_last/1,merge_undefined/1,
 	 uninit/1,unsafe_catch/1,
@@ -30,34 +32,49 @@
 	 state_after_fault_in_catch/1,no_exception_in_catch/1,
 	 undef_label/1,illegal_instruction/1,failing_gc_guard_bif/1]).
 	 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     Dog = test_server:timetrap(?t:minutes(10)),
     [{watchdog,Dog}|Config].
 
-fin_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
+end_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),
     ok.
 
-all(suite) ->
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
     test_lib:recompile(?MODULE),
-    [beam_files,compiler_bug,stupid_but_valid,
-     xrange,yrange,stack,call_last,merge_undefined,
-     uninit,unsafe_catch,
-     dead_code,mult_labels,
-     overwrite_catchtag,overwrite_trytag,accessing_tags,bad_catch_try,
-     cons_guard,
-     freg_range,freg_uninit,freg_state,
-     bin_match,bin_aligned,
-     bad_dsetel,state_after_fault_in_catch,no_exception_in_catch,
-     undef_label,illegal_instruction,failing_gc_guard_bif].
+    [beam_files, compiler_bug, stupid_but_valid, xrange,
+     yrange, stack, call_last, merge_undefined, uninit,
+     unsafe_catch, dead_code, mult_labels,
+     overwrite_catchtag, overwrite_trytag, accessing_tags,
+     bad_catch_try, cons_guard, freg_range, freg_uninit,
+     freg_state, bin_match, bin_aligned, bad_dsetel,
+     state_after_fault_in_catch, no_exception_in_catch,
+     undef_label, illegal_instruction, failing_gc_guard_bif].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 beam_files(Config) when is_list(Config) ->
-    ?line {ok,Cwd} = file:get_cwd(),
-    ?line Parent = filename:dirname(Cwd),
-    ?line Wc = filename:join([Parent,"*","*.beam"]),
+    ?line DataDir = proplists:get_value(data_dir, Config),
+    ?line Wc = filename:join([DataDir,"..","..","*","*.beam"]),
     %% Must have at least two files here, or there will be
     %% a grammatical error in the output of the io:format/2 call below. ;-)
     ?line [_,_|_] = Fs = filelib:wildcard(Wc),

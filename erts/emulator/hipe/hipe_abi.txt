@@ -2,7 +2,7 @@
  %CopyrightBegin%
  %CopyrightEnd%
 
-$Id$
+
 
 HiPE ABI
 ========
@@ -62,7 +62,7 @@ exceptional condition, it puts an error code in p->freason
 and returns THE_NON_VALUE (zero, except in debug mode).
 
 If p->freason == TRAP, then the BIF redirects its call to some
-other function, given by p->def_arg_reg[].
+other function, given by p->i
 The BIF and the new callee may have different arities.
 
 The "hipe_${ARCH}_bifs.m4" macro files take care of these issues

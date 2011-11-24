@@ -2,19 +2,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
-%% 
+%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -26,9 +26,6 @@
 %%  Notes    : 
 %%  History  :	* 2001-06-13 Erik Johansson (happi@it.uu.se): 
 %%               Created.
-%%
-%% $Id$
-%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -module(hipe_icode_primops).
@@ -197,7 +194,7 @@ fails(#element{}) -> true;
 %% fails(#gc_test{}) -> ???
 fails({hipe_bs_primop, {bs_start_match, _}}) -> true;
 fails({hipe_bs_primop, {{bs_start_match, bitstr}, _}}) -> true;
-fails({hipe_bs_primop, {{bs_start_match, ok_matchstate}, _}}) -> false;
+fails({hipe_bs_primop, {{bs_start_match, ok_matchstate}, _}}) -> true;
 fails({hipe_bs_primop, {bs_get_binary, _, _}}) -> true;
 fails({hipe_bs_primop, {bs_get_binary_all, _, _}}) -> true;
 fails({hipe_bs_primop, {bs_get_binary_all_2, _, _}}) -> true;

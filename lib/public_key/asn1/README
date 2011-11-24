@@ -46,6 +46,6 @@ diff -r1.1 PKIXAttributeCertificate.asn1
 ---
 >                 version        AttCertVersion,  -- version is v2
 
-4. Defenitions of publuic keys from PKCS-1.asn1 present in
+4. Definitions of public keys from PKCS-1.asn1 present in
 PKIX1Algorithms88.asn1 where removed as we take them directly from
 PKCS-1.asn1

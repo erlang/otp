@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -29,7 +29,7 @@
 
 -compile(export_all).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("common_test/include/ct_event.hrl").
 
 -define(eh, ct_test_support_eh).
@@ -56,13 +56,20 @@ init_per_testcase(TestCase, Config) ->
 end_per_testcase(TestCase, Config) ->
     ct_test_support:end_per_testcase(TestCase, Config).
 
-all(doc) -> 
-    [""];
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all(suite) -> 
-    [
-     ts_if_1
-    ].
+all() -> 
+    [ts_if_1].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
      
 
 %%--------------------------------------------------------------------
@@ -87,14 +94,15 @@ ts_if_1(Config) when is_list(Config) ->
 
     TestSpecName = ct_test_support:write_testspec(TestSpec, PrivDir, "ts_if_1_spec"),
     {Opts,ERPid} = setup({spec,TestSpecName}, Config),
-    ok = ct_test_support:run(ct, run_test, [Opts], Config),    
+    ok = ct_test_support:run(Opts, Config),
     Events = ct_test_support:get_events(ERPid, Config),
 
     ct_test_support:log_events(ts_if_1, 
-			       reformat(Events, ?eh), 
-			       PrivDir),
+			       reformat(Events, ?eh),
+			       PrivDir,
+			       Opts),
 
-    TestEvents = test_events(ts_if_1),    
+    TestEvents = events_to_check(ts_if_1),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
         
 
@@ -119,6 +127,15 @@ reformat(Events, EH) ->
 %%%-----------------------------------------------------------------
 %%% TEST EVENTS
 %%%-----------------------------------------------------------------
+events_to_check(Test) ->
+    %% 2 tests (ct:run_test + script_start) is default
+    events_to_check(Test, 2).
+
+events_to_check(_, 0) ->
+    [];
+events_to_check(Test, N) ->
+    test_events(Test) ++ events_to_check(Test, N-1).
+
 test_events(ts_if_1) ->
     [
      {?eh,start_logging,{'DEF','RUNDIR'}},
@@ -193,14 +210,14 @@ test_events(ts_if_1) ->
        {?eh,tc_done,{ts_if_1_SUITE,{end_per_group,g2,[parallel]},ok}}]},
 
      {?eh,tc_start,{ts_if_1_SUITE,tc12}},
-     {?eh,tc_done,{undefined,undefined,{testcase_aborted,{abort_current_testcase,tc12},'_'}}},
+     {?eh,tc_done,{ts_if_1_SUITE,tc12,{failed,{testcase_aborted,'stopping tc12'}}}},
      {?eh,test_stats,{2,5,{3,6}}},
      {?eh,tc_start,{ts_if_1_SUITE,tc13}},
      {?eh,tc_done,{ts_if_1_SUITE,tc13,ok}},
      {?eh,test_stats,{3,5,{3,6}}},
      {?eh,tc_start,{ts_if_1_SUITE,end_per_suite}},
      {?eh,tc_done,{ts_if_1_SUITE,end_per_suite,ok}},
-%%!
+
      {?eh,tc_start,{ts_if_2_SUITE,init_per_suite}},
      {?eh,tc_done,{ts_if_2_SUITE,init_per_suite,
 		   {failed,{error,{suite0_failed,{exited,suite0_goes_boom}}}}}},

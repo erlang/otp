@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -133,12 +133,15 @@
 %%% Interface to erl_compile.
 
 compile(Input0, Output0, 
-        #options{warning = WarnLevel, verbose=Verbose, includes=Includes}) ->
+        #options{warning = WarnLevel, verbose=Verbose, includes=Includes,
+		 specific=Specific}) ->
     Input = shorten_filename(Input0),
     Output = shorten_filename(Output0),
     Includefile = lists:sublist(Includes, 1),
+    Werror = proplists:get_bool(warnings_as_errors, Specific),
     Opts = [{parserfile,Output}, {includefile,Includefile}, {verbose,Verbose},
-            {report_errors, true}, {report_warnings, WarnLevel > 0}],
+            {report_errors, true}, {report_warnings, WarnLevel > 0},
+	    {warnings_as_errors, Werror}],
     case file(Input, Opts) of
         {ok, _OutFile} ->
             ok;
@@ -278,8 +281,8 @@ options(Options0) when is_list(Options0) ->
                              (T) -> [T]
                           end, Options0),
         options(Options, [file_attributes, includefile, parserfile, 
-                          report_errors, report_warnings, return_errors, 
-                          return_warnings, time, verbose], [])
+                          report_errors, report_warnings, warnings_as_errors,
+                          return_errors, return_warnings, time, verbose], [])
     catch error: _ -> badarg
     end;
 options(Option) ->
@@ -333,6 +336,7 @@ default_option(includefile) -> [];
 default_option(parserfile) -> [];
 default_option(report_errors) -> true;
 default_option(report_warnings) -> true;
+default_option(warnings_as_errors) -> false;
 default_option(return_errors) -> false;
 default_option(return_warnings) -> false;
 default_option(time) -> false;
@@ -341,6 +345,7 @@ default_option(verbose) -> false.
 atom_option(file_attributes) -> {file_attributes, true};
 atom_option(report_errors) -> {report_errors, true};
 atom_option(report_warnings) -> {report_warnings, true};
+atom_option(warnings_as_errors) -> {warnings_as_errors,true};
 atom_option(return_errors) -> {return_errors, true};
 atom_option(return_warnings) -> {return_warnings, true};
 atom_option(time) -> {time, true};
@@ -409,11 +414,15 @@ infile(Parent, Infilex, Options) ->
              {error, Reason} ->
                  add_error(St0#yecc.infile, none, {file_error, Reason}, St0)
          end,
-    case St#yecc.errors of
-        [] -> ok;
+    case {St#yecc.errors, werror(St)} of
+        {[], false} -> ok;
         _ -> _ = file:delete(St#yecc.outfile)
     end,
     Parent ! {self(), yecc_ret(St)}.
+
+werror(St) ->
+    St#yecc.warnings =/= []
+	andalso member(warnings_as_errors, St#yecc.options).
 
 outfile(St0) ->
     case file:open(St0#yecc.outfile, [write, delayed_write]) of
@@ -777,17 +786,23 @@ yecc_ret(St0) ->
     report_warnings(St),
     Es = pack_errors(St#yecc.errors),
     Ws = pack_warnings(St#yecc.warnings),
+    Werror = werror(St),
     if 
+        Werror ->
+            do_error_return(St, Es, Ws);
         Es =:= [] -> 
             case member(return_warnings, St#yecc.options) of
                 true -> {ok, St#yecc.outfile, Ws};
                 false -> {ok, St#yecc.outfile}
             end;
         true -> 
-            case member(return_errors, St#yecc.options) of
-                true -> {error, Es, Ws};
-                false -> error
-            end
+            do_error_return(St, Es, Ws)
+    end.
+
+do_error_return(St, Es, Ws) ->
+    case member(return_errors, St#yecc.options) of
+        true -> {error, Es, Ws};
+        false -> error
     end.
 
 check_expected(St0) ->
@@ -837,14 +852,22 @@ report_errors(St) ->
     end.
 
 report_warnings(St) ->
-    case member(report_warnings, St#yecc.options) of
+    Werror = member(warnings_as_errors, St#yecc.options),
+    Prefix = case Werror of
+		 true -> "";
+		 false -> "Warning: "
+	     end,
+    ReportWerror = Werror andalso member(report_errors, St#yecc.options),
+    case member(report_warnings, St#yecc.options) orelse ReportWerror of
         true ->
             foreach(fun({File,{none,Mod,W}}) -> 
-                            io:fwrite(<<"~s: Warning: ~s\n">>, 
-                                      [File,Mod:format_error(W)]);
+                            io:fwrite(<<"~s: ~s~s\n">>,
+                                      [File,Prefix,
+				       Mod:format_error(W)]);
                        ({File,{Line,Mod,W}}) -> 
-                            io:fwrite(<<"~s:~w: Warning: ~s\n">>, 
-                                      [File,Line,Mod:format_error(W)])
+                            io:fwrite(<<"~s:~w: ~s~s\n">>,
+                                      [File,Line,Prefix,
+				       Mod:format_error(W)])
                     end, sort(St#yecc.warnings));
         false -> 
             ok
@@ -1582,6 +1605,11 @@ find_action_conflicts2(Rs, Cxt0) ->
          
 find_reduce_reduce([R], Cxt) ->
     {R, Cxt};
+find_reduce_reduce([accept=A, #reduce{}=R | Rs], Cxt0) ->
+    Confl = conflict(R, A, Cxt0),
+    St = conflict_error(Confl, Cxt0#cxt.yecc), 
+    Cxt = Cxt0#cxt{yecc = St},
+    find_reduce_reduce([R | Rs], Cxt);
 find_reduce_reduce([#reduce{head = Categ1, prec = {P1, _}}=R1, 
                     #reduce{head = Categ2, prec = {P2, _}}=R2 | Rs], Cxt0) ->
     #cxt{res = Res0, yecc = St0} = Cxt0,
@@ -1773,6 +1801,8 @@ add_conflict(Conflict, St) ->
     case Conflict of
         {Symbol, StateN, _, {reduce, _, _, _}} ->
             St#yecc{reduce_reduce = [{StateN,Symbol} |St#yecc.reduce_reduce]};
+        {Symbol, StateN, _, {accept, _}} ->
+            St#yecc{reduce_reduce = [{StateN,Symbol} |St#yecc.reduce_reduce]};
         {Symbol, StateN, _, {shift, _, _}} ->
             St#yecc{shift_reduce = [{StateN,Symbol} | St#yecc.shift_reduce]};
         {_Symbol, _StateN, {one_level_up, _, _}, _Confl} ->
@@ -1791,6 +1821,8 @@ conflict(#reduce{rule_nmbr = RuleNmbr1}, NewAction, Cxt) ->
     #cxt{terminal = Symbol, state_n = N, yecc = St} = Cxt,
     {R1, RuleLine1, RuleN1} = rule(RuleNmbr1, St),
     Confl = case NewAction of
+                accept -> 
+                    {accept, St#yecc.rootsymbol};
                 #reduce{rule_nmbr = RuleNmbr2} -> 
                     {R2, RuleLine2, RuleN2} = rule(RuleNmbr2, St),
                     {reduce, R2, RuleN2, RuleLine2};
@@ -1830,7 +1862,10 @@ format_conflict({Symbol, N, Reduce, Confl}) ->
              {shift, NewState, Sym} ->
                  io_lib:fwrite(<<"   shift to state ~w, adding right "
                                  "sisters to ~s.">>,
-                           [NewState, format_symbol(Sym)])
+                               [NewState, format_symbol(Sym)]);
+             {accept, Rootsymbol} ->
+                 io_lib:fwrite(<<"   reduce to rootsymbol ~s.">>,
+                               [format_symbol(Rootsymbol)])
          end,
     [S1, S2, S3].
 
@@ -1863,8 +1898,12 @@ format_conflict({Symbol, N, Reduce, Confl}) ->
 %%   - "__Stack" has been substituted for "Stack";
 %%   - several states can share yeccpars2_S_cont(), which reduces code size;
 %%   - instead if calling lists:nthtail() matching code is emitted.
+%%
+%% "1.4", parsetools-2.0.4:
+%% - yeccerror() is called when a syntax error is found (as in version 1.1).
+%% - the include file yeccpre.hrl has been changed.
 
--define(CODE_VERSION, "1.3").
+-define(CODE_VERSION, "1.4").
 -define(YECC_BUG(M, A), 
         iolist_to_binary([" erlang:error({yecc_bug,\"",?CODE_VERSION,"\",",
                           io_lib:fwrite(M, A), "}).\n\n"])).
@@ -1994,14 +2033,16 @@ output_actions(St0, StateJumps, StateInfo) ->
     %% Not all the clauses of the dispatcher function yeccpars2() can
     %% be reached. Only when shifting, that is, calling yeccpars1(),
     %% will yeccpars2() be called.
-    Y2CL = [NewState || {_State,{Actions,_J}} <- StateJumps,
-                        {_LA, #shift{state = NewState}} <- Actions],
+    Y2CL = [NewState || {_State,{Actions,J}} <- StateJumps,
+                        {_LA, #shift{state = NewState}} <- 
+                            (Actions
+                             ++ [A || {_Tag,_To,Part} <- [J], A <- Part])],
     Y2CS = ordsets:from_list([0 | Y2CL]),
     Y2S = ordsets:from_list([S || {S,_} <- StateJumps]),
     NY2CS = ordsets:subtract(Y2S, Y2CS),
     Sel = [{S,true} || S <- ordsets:to_list(Y2CS)] ++
           [{S,false} || S <- ordsets:to_list(NY2CS)],
-                                    
+
     SelS = [{State,Called} || 
                {{State,_JActions}, {State,Called}} <- 
                    lists:zip(StateJumps, lists:keysort(1, Sel))],
@@ -2078,7 +2119,7 @@ output_action(St0, State, Terminal, #shift{state = NewState}, IsFirst, _SI) ->
 output_action(St0, State, Terminal, accept, IsFirst, _SI) ->
     St10 = delim(St0, IsFirst),
     St = fwrite(St10, 
-                <<"yeccpars2_~w(_S, ~s, _Ss, Stack,  _T, _Ts, _Tzr) ->\n">>,
+                <<"yeccpars2_~w(_S, ~s, _Ss, Stack, _T, _Ts, _Tzr) ->\n">>,
                 [State, quoted_atom(Terminal)]),
     fwrite(St, <<" {ok, hd(Stack)}">>, []);
 output_action(St, _State, _Terminal, nonassoc, _IsFirst, _SI) ->
@@ -2092,13 +2133,11 @@ output_call_to_includefile(NewState, St) ->
     fwrite(St, <<" yeccpars1(S, ~w, Ss, Stack, T, Ts, Tzr)">>, 
            [NewState]).
 
-output_state_actions_fini(State, #yecc{includefile_version = {1,1}}=St0) ->
-    %% Backward compatibility.
+output_state_actions_fini(State, St0) ->
+    %% Backward compatible.
     St10 = delim(St0, false),
     St = fwrite(St10, <<"yeccpars2_~w(_, _, _, _, T, _, _) ->\n">>, [State]),
-    fwrite(St, <<" yeccerror(T).\n\n">>, []);
-output_state_actions_fini(_State, St) ->
-    fwrite(St, <<".\n\n">>, []).
+    fwrite(St, <<" yeccerror(T).\n\n">>, []).
 
 output_reduce(St0, State, Terminal0, 
               #reduce{rule_nmbr = RuleNmbr, 
@@ -2402,7 +2441,7 @@ include1(Line, Inport, Outport, Nmbr_of_lines) ->
     include1(io:get_line(Inport, ''), Inport, Outport, Nmbr_of_lines + Incr).
 
 includefile_version([]) ->
-    {1,2};
+    {1,4};
 includefile_version(Includefile) ->
     case epp:open(Includefile, []) of
         {ok, Epp} ->
@@ -2418,7 +2457,7 @@ includefile_version(Includefile) ->
 parse_file(Epp) ->
     case epp:parse_erl_form(Epp) of
         {ok, {function,_Line,yeccpars1,7,_Clauses}} ->
-            {1,2};
+            {1,4};
         {eof,_Line} ->
             {1,1};
         _Form ->

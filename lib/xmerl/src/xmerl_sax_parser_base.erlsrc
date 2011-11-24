@@ -1,7 +1,7 @@
 %%-*-erlang-*-
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -934,17 +934,29 @@ parse_att_value(?STRING_REST("&", Rest), State, Stop, Acc)  ->
 	    parse_att_value(Rest1, State2, Stop, ParsedValue ++ Acc);
 	{external_general, Name, _} ->
 	    ?fatal_error(State1, "External parsed entity reference in attribute value: " ++ Name);
+	{not_found, Name} ->
+	    case State#xmerl_sax_parser_state.skip_external_dtd of
+		false ->
+		    ?fatal_error(State1, "Entity not declared: " ++ Name); %%VC: Entity Declared
+		true ->
+		    parse_att_value(Rest1, State1, Stop, ";" ++ lists:reverse(Name) ++ "&" ++ Acc)
+	    end;
 	{unparsed, Name, _}  ->
 	    ?fatal_error(State1, "Unparsed entity reference in  attribute value: " ++ Name)
     end;
-parse_att_value(?STRING_UNBOUND_REST(Stop, Rest), State, Stop, Acc) -> 
+parse_att_value(?STRING_UNBOUND_REST(Stop, Rest), State, Stop, Acc) ->
     {lists:reverse(Acc), Rest, State};
-parse_att_value(?STRING_UNBOUND_REST($<, _Rest), State, _Stop, _Acc)   -> 
+parse_att_value(?STRING_UNBOUND_REST($<, _Rest), State, _Stop, _Acc)   ->
     ?fatal_error(State,  "< not allowed in attribute value");
-parse_att_value(?STRING_UNBOUND_REST(C, Rest), State, Stop, Acc)   -> 
-    parse_att_value(Rest, State, Stop, [C|Acc]);
-parse_att_value(Bytes, State, Stop, Acc)   -> 
-    unicode_incomplete_check([Bytes, State, Stop, Acc, fun parse_att_value/4], 
+parse_att_value(?STRING_UNBOUND_REST(C, Rest), State, Stop, Acc)   ->
+    if
+	?is_char(C) ->
+	    parse_att_value(Rest, State, Stop, [C|Acc]);
+	true ->
+	     ?fatal_error(State, lists:flatten(io_lib:format("Bad character in attribute value: ~p", [C])))
+    end;
+parse_att_value(Bytes, State, Stop, Acc)   ->
+    unicode_incomplete_check([Bytes, State, Stop, Acc, fun parse_att_value/4],
 			     undefined).
 
 
@@ -1098,6 +1110,13 @@ parse_content(?STRING_REST("&", Rest), State, Acc, _IgnorableWS) ->
 	{external_general, _, {PubId, SysId}} ->
 	    State2 = parse_external_entity(State1, PubId, SysId),
 	    parse_content(Rest1, State2, Acc, false);
+	{not_found, Name} ->
+	    case State#xmerl_sax_parser_state.skip_external_dtd of
+		false ->
+		    ?fatal_error(State1, "Entity not declared: " ++ Name); %%VC: Entity Declared
+		true ->
+		    parse_content(Rest1, State1, ";" ++ lists:reverse(Name) ++ "&" ++ Acc, false)
+	    end;
 	{unparsed, Name, _}  ->
 	    ?fatal_error(State1, "Unparsed entity reference in content: " ++ Name)
     end;
@@ -1106,10 +1125,10 @@ parse_content(?STRING_UNBOUND_REST(C, Rest), State, Acc, _IgnorableWS) ->
 	?is_char(C) ->
 	    parse_content(Rest, State, [C|Acc], false);
 	true ->
-	     ?fatal_error(State, "Bad character in content: " ++ C)
-    end;   
-parse_content(Bytes, State, Acc, IgnorableWS)   -> 
-    unicode_incomplete_check([Bytes, State, Acc, IgnorableWS, fun parse_content/4], 
+	     ?fatal_error(State, lists:flatten(io_lib:format("Bad character in content: ~p", [C])))
+    end;
+parse_content(Bytes, State, Acc, IgnorableWS)   ->
+    unicode_incomplete_check([Bytes, State, Acc, IgnorableWS, fun parse_content/4],
 			     undefined).
 
 
@@ -1357,7 +1376,7 @@ look_up_reference(Name, HaveToExist, State) ->
 			yes ->
 			    ?fatal_error(State, "Entity not declared: " ++ Name); %%WFC: Entity Declared 
 			no ->
-			    ?fatal_error(State, "Entity not declared: " ++ Name) %%VC: Entity Declared
+			    {not_found, Name}  %%VC: Entity Declared
 		    end;
 		false ->
 		    {not_found, Name}
@@ -1869,7 +1888,14 @@ parse_doctype_decl(?STRING_REST("%", Rest), State) ->
 	    parse_doctype_decl(?APPEND_STRING(IValue, Rest1), State1);
 	{external_parameter, _, {PubId, SysId}} ->
 	    State2 = parse_external_entity(State1#xmerl_sax_parser_state{file_type = entity}, PubId, SysId),
-	    parse_doctype_decl(Rest1, State2)
+	    parse_doctype_decl(Rest1, State2);
+	 {not_found, Name} ->
+	    case State#xmerl_sax_parser_state.skip_external_dtd of
+		false ->
+		    ?fatal_error(State1, "Entity not declared: " ++ Name); %%WFC: Entity Declared 
+		true ->
+		    parse_doctype_decl(Rest1, State1)
+	    end
     end;
 parse_doctype_decl(?STRING_REST("<!", Rest1), State) ->
     parse_doctype_decl_1(Rest1, State);
@@ -2443,7 +2469,7 @@ parse_ndata(Bytes, State) ->
 %%             Acc = string()
 %% Result    : {Value, Rest, State}
 %%             Value = string()
-%% Description: Parse an attribute value
+%% Description: Parse an entity value
 %%----------------------------------------------------------------------
 parse_entity_value(?STRING_EMPTY, State, undefined, Acc) ->
     {Acc, [], State}; %% stop clause when parsing references
@@ -2473,7 +2499,7 @@ parse_entity_value(?STRING_REST("&", Rest), State, Stop, Acc)  ->
 	{external_general, Name, _} ->
 	    parse_entity_value(Rest1, State1, Stop, ";" ++ lists:reverse(Name) ++ "&" ++ Acc);
 	{not_found, Name} ->
-	    parse_entity_value(Rest1, State1, Stop, ";" ++ lists:reverse(Name) ++ "&" ++ Acc);
+	    parse_entity_value(Rest1, State1, Stop, ";" ++ lists:reverse(Name) ++ "&" ++ Acc); 
 	{unparsed, Name, _} ->
 	    ?fatal_error(State1, "Unparsed entity reference in entity value: " ++ Name)
     end;
@@ -2490,14 +2516,27 @@ parse_entity_value(?STRING_REST("%", Rest), #xmerl_sax_parser_state{file_type=Ty
 		    IValue = ?TO_INPUT_FORMAT(" " ++ RefValue ++ " "),
 		    parse_entity_value(?APPEND_STRING(IValue, Rest1), State1, Stop, Acc);
 		{external_parameter, _, {_PubId, _SysId}} ->
-		    ?fatal_error(State1, "Parameter references in entity value not supported yet.")
+		    ?fatal_error(State1, "Parameter references in entity value not supported yet.");
+		{not_found, Name} ->
+		    case State#xmerl_sax_parser_state.skip_external_dtd of
+			false ->
+			    ?fatal_error(State1, "Entity not declared: " ++ Name); %%VC: Entity Declared
+			true ->
+			    parse_entity_value(Rest1, State1, Stop, ";" ++ lists:reverse(Name) ++ "&" ++ Acc)
+		    end
+			
 	    end
     end;
-parse_entity_value(?STRING_UNBOUND_REST(Stop, Rest), State, Stop, Acc) -> 
+parse_entity_value(?STRING_UNBOUND_REST(Stop, Rest), State, Stop, Acc) ->
     {lists:reverse(Acc), Rest, State};
-parse_entity_value(?STRING_UNBOUND_REST(C, Rest), State, Stop, Acc)   -> 
-    parse_entity_value(Rest, State, Stop, [C|Acc]);
-parse_entity_value(Bytes, State, Stop, Acc)   -> 
+parse_entity_value(?STRING_UNBOUND_REST(C, Rest), State, Stop, Acc)   ->
+    if
+	?is_char(C) ->
+	    parse_entity_value(Rest, State, Stop, [C|Acc]);
+	true ->
+	     ?fatal_error(State, lists:flatten(io_lib:format("Bad character in entity value: ~p", [C])))
+    end;
+parse_entity_value(Bytes, State, Stop, Acc)   ->
     unicode_incomplete_check([Bytes, State, Stop, Acc, fun parse_entity_value/4],
 			     undefined).
 

@@ -112,8 +112,8 @@ loop() ->
       <c>code_switch</c> to it. The process then will make a fully
       qualified call to <c>m:loop()</c> and change to current code.
       Note that <c>m:loop/0</c> must be exported.</p>
-    <p>For code replacement of funs to work, the tuple syntax
-      <c>{Module,FunctionName}</c> must be used to represent the fun.</p>
+    <p>For code replacement of funs to work, the syntax
+      <c>fun Module:FunctionName/Arity</c> should be used.</p>
   </section>
 
   <section>

@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
   <header>
     <copyright>
-      <year>1999</year><year>2009</year>
+      <year>1999</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>crypto</title>
@@ -35,6 +35,9 @@
     <p>References:</p>
     <list type="bulleted">
       <item>
+        <p>md4: The MD4 Message Digest Algorithm (RFC 1320)</p>
+      </item>
+      <item>
         <p>md5: The MD5 Message Digest Algorithm (RFC 1321)</p>
       </item>
       <item>
@@ -50,7 +53,7 @@
         <p>aes: Advanced Encryption Standard (AES) (FIPS 197) </p>
       </item>
       <item>
-        <p>ecb, cbc, cfb, ofb: Recommendation for Block Cipher Modes
+        <p>ecb, cbc, cfb, ofb, ctr: Recommendation for Block Cipher Modes
           of Operation (NIST SP 800-38A).</p>
       </item>
       <item>
@@ -112,6 +115,52 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
 > <input>info_lib().</input>
 [{&lt;&lt;"OpenSSL"&gt;&gt;,9469983,&lt;&lt;"OpenSSL 0.9.8a 11 Oct 2005"&gt;&gt;}]
         </pre>
+      </desc>
+    </func>
+    <func>
+      <name>md4(Data) -> Digest</name>
+      <fsummary>Compute an <c>MD4</c>message digest from <c>Data</c></fsummary>
+      <type>
+        <v>Data = iolist() | binary()</v>
+        <v>Digest = binary()</v>
+      </type>
+      <desc>
+        <p>Computes an <c>MD4</c> message digest from <c>Data</c>, where
+          the length of the digest is 128 bits (16 bytes).</p>
+      </desc>
+    </func>
+    <func>
+      <name>md4_init() -> Context</name>
+      <fsummary>Creates an MD4 context</fsummary>
+      <type>
+        <v>Context = binary()</v>
+      </type>
+      <desc>
+        <p>Creates an MD4 context, to be used in subsequent calls to
+          <c>md4_update/2</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>md4_update(Context, Data) -> NewContext</name>
+      <fsummary>Update an MD4 <c>Context</c>with <c>Data</c>, and return a <c>NewContext</c></fsummary>
+      <type>
+        <v>Data = iolist() | binary()</v>
+        <v>Context = NewContext = binary()</v>
+      </type>
+      <desc>
+        <p>Updates an MD4 <c>Context</c> with <c>Data</c>, and returns
+          a <c>NewContext</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>md4_final(Context) -> Digest</name>
+      <fsummary>Finish the update of an MD4 <c>Context</c>and return the computed <c>MD4</c>message digest</fsummary>
+      <type>
+        <v>Context = Digest = binary()</v>
+      </type>
+      <desc>
+        <p>Finishes the update of an MD4 <c>Context</c> and returns
+          the computed <c>MD4</c> message digest.</p>
       </desc>
     </func>
     <func>
@@ -233,21 +282,74 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
       </desc>
     </func>
     <func>
+      <name>hmac_init(Type, Key) -> Context</name>
+      <fsummary></fsummary>
+      <type>
+        <v>Type = sha | md5 | ripemd160</v>
+        <v>Key = iolist() | binary()</v>
+        <v>Context = binary()</v>
+      </type>
+      <desc>
+        <p>Initializes the context for streaming HMAC operations. <c>Type</c> determines
+        which hash function to use in the HMAC operation. <c>Key</c> is the authentication
+        key. The key can be any length.</p>
+      </desc>
+    </func>
+    <func>
+      <name>hmac_update(Context, Data) -> NewContext</name>
+      <fsummary></fsummary>
+      <type>
+        <v>Context = NewContext = binary()</v>
+        <v>Data = iolist() | binary()</v>
+      </type>
+      <desc>
+        <p>Updates the HMAC represented by <c>Context</c> using the given <c>Data</c>. <c>Context</c>
+        must have been generated using an HMAC init function (such as 
+        <seealso marker="#hmac_init/2">hmac_init</seealso>). <c>Data</c> can be any length. <c>NewContext</c>
+        must be passed into the next call to <c>hmac_update</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>hmac_final(Context) -> Mac</name>
+      <fsummary></fsummary>
+      <type>
+        <v>Context = Mac = binary()</v>
+      </type>
+      <desc>
+        <p>Finalizes the HMAC operation referenced by <c>Context</c>. The size of the resultant MAC is
+        determined by the type of hash function used to generate it.</p>
+      </desc>
+    </func>
+    <func>
+      <name>hmac_final_n(Context, HashLen) -> Mac</name>
+      <fsummary></fsummary>
+      <type>
+        <v>Context = Mac = binary()</v>
+        <v>HashLen = non_neg_integer()</v>
+      </type>
+      <desc>
+        <p>Finalizes the HMAC operation referenced by <c>Context</c>. <c>HashLen</c> must be greater than
+        zero. <c>Mac</c> will be a binary with at most <c>HashLen</c> bytes. Note that if HashLen is greater than the actual number of bytes returned from the underlying hash, the returned hash will have fewer than <c>HashLen</c> bytes.</p>
+      </desc>
+    </func>
+    <func>
       <name>sha_mac(Key, Data) -> Mac</name>
+      <name>sha_mac(Key, Data, MacLength) -> Mac</name>
       <fsummary>Compute an <c>MD5 MAC</c>message authentification code</fsummary>
       <type>
         <v>Key = Data = iolist() | binary()</v>
         <v>Mac = binary()</v>
+	<v>MacLenength = integer() =&lt; 20 </v>
       </type>
       <desc>
         <p>Computes an <c>SHA MAC</c> message authentification code
-          from <c>Key</c> and <c>Data</c>, where the length of the Mac
+          from <c>Key</c> and <c>Data</c>, where the default length of the Mac
           is 160 bits (20 bytes).</p>
       </desc>
     </func>
     <func>
       <name>sha_mac_96(Key, Data) -> Mac</name>
-      <fsummary>Compute an <c>MD5 MAC</c>message authentification code</fsummary>
+      <fsummary>Compute an <c>SHA MAC</c>message authentification code</fsummary>
       <type>
         <v>Key = Data = iolist() | binary()</v>
         <v>Mac = binary()</v>
@@ -304,6 +406,51 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
       </desc>
     </func>
     <func>
+      <name>des_cfb_encrypt(Key, IVec, Text) -> Cipher</name>
+      <fsummary>Encrypt <c>Text</c>according to DES in CFB mode</fsummary>
+      <type>
+        <v>Key = Text = iolist() | binary()</v>
+        <v>IVec = Cipher = binary()</v>
+      </type>
+      <desc>
+        <p>Encrypts <c>Text</c> according to DES in 8-bit CFB
+          mode. <c>Key</c> is the DES key, and <c>IVec</c> is an
+          arbitrary initializing vector. The lengths of <c>Key</c> and
+          <c>IVec</c> must be 64 bits (8 bytes).</p>
+      </desc>
+    </func>
+    <func>
+      <name>des_cfb_decrypt(Key, IVec, Cipher) -> Text</name>
+      <fsummary>Decrypt <c>Cipher</c>according to DES in CFB mode</fsummary>
+      <type>
+        <v>Key = Cipher = iolist() | binary()</v>
+        <v>IVec = Text = binary()</v>
+      </type>
+      <desc>
+        <p>Decrypts <c>Cipher</c> according to DES in 8-bit CFB mode.
+          <c>Key</c> is the DES key, and <c>IVec</c> is an arbitrary
+          initializing vector.  <c>Key</c> and <c>IVec</c> must have
+          the same values as those used when encrypting.  The lengths of
+          <c>Key</c> and <c>IVec</c> must be 64 bits (8 bytes).</p>
+      </desc>
+    </func>
+    <func>
+      <name>des_cfb_ivec(IVec, Data) -> NextIVec</name>
+      <fsummary>Get <c>IVec</c> to be used in next iteration of
+                <c>des_cfb_[ecrypt|decrypt]</c></fsummary>
+      <type>
+        <v>IVec = iolist() | binary()</v>
+        <v>Data = iolist() | binary()</v>
+        <v>NextIVec = binary()</v>
+      </type>
+      <desc>
+        <p>Returns the <c>IVec</c> to be used in a next iteration of
+          <c>des_cfb_[encrypt|decrypt]</c>. <c>IVec</c> is the vector
+          used in the previous iteration step. <c>Data</c> is the encrypted
+          data from the previous iteration step.</p>
+      </desc>
+    </func>
+    <func>
       <name>des3_cbc_encrypt(Key1, Key2, Key3, IVec, Text) -> Cipher</name>
       <fsummary>Encrypt <c>Text</c>according to DES3 in CBC mode</fsummary>
       <type>
@@ -321,7 +468,7 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
     </func>
     <func>
       <name>des3_cbc_decrypt(Key1, Key2, Key3, IVec, Cipher) -> Text</name>
-      <fsummary>Decrypt <c>Cipher</c>according to DES in CBC mode</fsummary>
+      <fsummary>Decrypt <c>Cipher</c>according to DES3 in CBC mode</fsummary>
       <type>
         <v>Key1 = Key2 = Key3 = Cipher = iolist() | binary()</v>
         <v>IVec = Text = binary()</v>
@@ -337,22 +484,83 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
           <c>Key3</c>, and <c>IVec</c> must be 64 bits (8 bytes).</p>
       </desc>
     </func>
+    <func>
+      <name>des3_cfb_encrypt(Key1, Key2, Key3, IVec, Text) -> Cipher</name>
+      <fsummary>Encrypt <c>Text</c>according to DES3 in CFB mode</fsummary>
+      <type>
+        <v>Key1 =Key2 = Key3 Text = iolist() | binary()</v>
+        <v>IVec = Cipher = binary()</v>
+      </type>
+      <desc>
+        <p>Encrypts <c>Text</c> according to DES3 in 8-bit CFB
+          mode. <c>Key1</c>, <c>Key2</c>, <c>Key3</c>, are the DES
+          keys, and <c>IVec</c> is an arbitrary initializing
+          vector. The lengths of each of <c>Key1</c>, <c>Key2</c>,
+          <c>Key3</c> and <c>IVec</c> must be 64 bits (8 bytes).</p>
+      </desc>
+    </func>
+    <func>
+      <name>des3_cfb_decrypt(Key1, Key2, Key3, IVec, Cipher) -> Text</name>
+      <fsummary>Decrypt <c>Cipher</c>according to DES3 in CFB mode</fsummary>
+      <type>
+        <v>Key1 = Key2 = Key3 = Cipher = iolist() | binary()</v>
+        <v>IVec = Text = binary()</v>
+      </type>
+      <desc>
+        <p>Decrypts <c>Cipher</c> according to DES3 in 8-bit CFB mode.
+          <c>Key1</c>, <c>Key2</c>, <c>Key3</c> are the DES key, and
+          <c>IVec</c> is an arbitrary initializing vector.
+          <c>Key1</c>, <c>Key2</c>, <c>Key3</c> and <c>IVec</c> must
+          and <c>IVec</c> must have the same values as those used when
+          encrypting.  The lengths of <c>Key1</c>, <c>Key2</c>,
+          <c>Key3</c>, and <c>IVec</c> must be 64 bits (8 bytes).</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>des_ecb_encrypt(Key, Text) -> Cipher</name>
+      <fsummary>Encrypt <c>Text</c>according to DES in ECB mode</fsummary>
+      <type>
+        <v>Key = Text = iolist() | binary()</v>
+        <v>Cipher = binary()</v>
+      </type>
+      <desc>
+        <p>Encrypts <c>Text</c> according to DES in ECB mode.
+          <c>Key</c> is the DES key. The lengths of <c>Key</c> and
+          <c>Text</c> must be 64 bits (8 bytes).</p>
+      </desc>
+    </func>
+    <func>
+      <name>des_ecb_decrypt(Key, Cipher) -> Text</name>
+      <fsummary>Decrypt <c>Cipher</c>according to DES in ECB mode</fsummary>
+      <type>
+        <v>Key = Cipher = iolist() | binary()</v>
+        <v>Text = binary()</v>
+      </type>
+      <desc>
+        <p>Decrypts <c>Cipher</c> according to DES in ECB mode.
+          <c>Key</c> is the DES key. The lengths of <c>Key</c> and
+          <c>Cipher</c> must be 64 bits (8 bytes).</p>
+      </desc>
+    </func>
 
     <func>
       <name>blowfish_ecb_encrypt(Key, Text) -> Cipher</name>
       <fsummary>Encrypt the first 64 bits of <c>Text</c> using Blowfish in ECB mode</fsummary>
       <type>
         <v>Key = Text = iolist() | binary()</v>
-        <v>IVec = Cipher = binary()</v>
+        <v>Cipher = binary()</v>
       </type>
       <desc>
         <p>Encrypts the first 64 bits of <c>Text</c> using Blowfish in ECB mode. <c>Key</c> is the Blowfish key. The length of <c>Text</c> must be at least 64 bits (8 bytes).</p>
       </desc>
+    </func>
+    <func>
       <name>blowfish_ecb_decrypt(Key, Text) -> Cipher</name>
       <fsummary>Decrypt the first 64 bits of <c>Text</c> using Blowfish in ECB mode</fsummary>
       <type>
         <v>Key = Text = iolist() | binary()</v>
-        <v>IVec = Cipher = binary()</v>
+        <v>Cipher = binary()</v>
       </type>
       <desc>
         <p>Decrypts the first 64 bits of <c>Text</c> using Blowfish in ECB mode. <c>Key</c> is the Blowfish key. The length of <c>Text</c> must be at least 64 bits (8 bytes).</p>
@@ -360,7 +568,7 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
     </func>
 
     <func>
-      <name>blowfish_cbc_encrypt(Key, Text) -> Cipher</name>
+      <name>blowfish_cbc_encrypt(Key, IVec, Text) -> Cipher</name>
       <fsummary>Encrypt <c>Text</c> using Blowfish in CBC mode</fsummary>
       <type>
         <v>Key = Text = iolist() | binary()</v>
@@ -371,7 +579,9 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
           arbitrary initializing vector. The length of <c>IVec</c>
           must be 64 bits (8 bytes). The length of <c>Text</c> must be a multiple of 64 bits (8 bytes).</p>
       </desc>
-      <name>blowfish_cbc_decrypt(Key, Text) -> Cipher</name>
+    </func>
+    <func>
+      <name>blowfish_cbc_decrypt(Key, IVec, Text) -> Cipher</name>
       <fsummary>Decrypt <c>Text</c> using Blowfish in CBC mode</fsummary>
       <type>
         <v>Key = Text = iolist() | binary()</v>
@@ -481,6 +691,83 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
       </desc>
     </func>
     <func>
+      <name>aes_ctr_encrypt(Key, IVec, Text) -> Cipher</name>
+      <fsummary>Encrypt <c>Text</c>according to AES in Counter mode</fsummary>
+      <type>
+        <v>Key = Text = iolist() | binary()</v>
+        <v>IVec = Cipher = binary()</v>
+      </type>
+      <desc>
+      <p>Encrypts <c>Text</c> according to AES in Counter mode (CTR). <c>Text</c>
+        can be any number of bytes. <c>Key</c> is the AES key and must be either
+        128, 192 or 256 bits long. <c>IVec</c> is an arbitrary initializing vector of 128 bits
+        (16 bytes).</p>
+    </desc>
+    </func>
+    <func>
+      <name>aes_ctr_decrypt(Key, IVec, Cipher) -> Text</name>
+      <fsummary>Decrypt <c>Cipher</c>according to AES in Counter mode</fsummary>
+      <type>
+        <v>Key = Cipher = iolist() | binary()</v>
+        <v>IVec = Text = binary()</v>
+      </type>
+      <desc>
+      <p>Decrypts <c>Cipher</c> according to AES in Counter mode (CTR). <c>Cipher</c>
+        can be any number of bytes. <c>Key</c> is the AES key and must be either
+        128, 192 or 256 bits long. <c>IVec</c> is an arbitrary initializing vector of 128 bits
+        (16 bytes).</p>
+    </desc>
+    </func>
+    <func>
+      <name>aes_ctr_stream_init(Key, IVec) -> State</name>
+      <fsummary></fsummary>
+      <type>
+        <v>State = { K, I, E, C }</v>
+        <v>Key = K = iolist()</v>
+        <v>IVec = I = E = binary()</v>
+        <v>C = integer()</v>
+      </type>
+      <desc>
+        <p>Initializes the state for use in streaming AES encryption using Counter mode (CTR).
+        <c>Key</c> is the AES key and must be either 128, 192, or 256 bts long. <c>IVec</c> is
+        an arbitrary initializing vector of 128 bits (16 bytes). This state is for use with
+        <seealso marker="#aes_ctr_stream_encrypt/2">aes_ctr_stream_encrypt</seealso> and 
+        <seealso marker="#aes_ctr_stream_decrypt/2">aes_ctr_stream_decrypt</seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>aes_ctr_stream_encrypt(State, Text) -> { NewState, Cipher}</name>
+      <fsummary></fsummary>
+      <type>
+        <v>Text = iolist() | binary()</v>
+        <v>Cipher = binary()</v>
+      </type>
+      <desc>
+      <p>Encrypts <c>Text</c> according to AES in Counter mode (CTR).  This function can be
+        used to encrypt a stream of text using a series of calls instead of requiring all
+        text to be in memory. <c>Text</c> can be any number of bytes. State is initialized using 
+        <seealso marker="#aes_ctr_stream_init/2">aes_ctr_stream_init</seealso>. <c>NewState</c> is the new streaming
+        encryption state that must be passed to the next call to <c>aes_ctr_stream_encrypt</c>.
+        <c>Cipher</c> is the encrypted cipher text.</p>
+      </desc>
+    </func>
+    <func>
+      <name>aes_ctr_stream_decrypt(State, Cipher) -> { NewState, Text }</name>
+      <fsummary></fsummary>
+      <type>
+        <v>Cipher = iolist() | binary()</v>
+        <v>Text = binary()</v>
+      </type>
+      <desc>
+      <p>Decrypts <c>Cipher</c> according to AES in Counter mode (CTR). This function can be
+        used to decrypt a stream of ciphertext using a series of calls instead of requiring all
+        ciphertext to be in memory.  <c>Cipher</c> can be any number of bytes. State is initialized using 
+        <seealso marker="#aes_ctr_stream_init/2">aes_ctr_stream_init</seealso>. <c>NewState</c> is the new streaming
+        encryption state that must be passed to the next call to <c>aes_ctr_stream_encrypt</c>.
+        <c>Text</c> is the decrypted data.</p>
+      </desc>
+    </func>
+    <func>
       <name>erlint(Mpint) -> N</name>
       <name>mpint(N) -> Mpint</name>
       <fsummary>Convert between binary multi-precision integer and erlang big integer</fsummary>
@@ -511,6 +798,21 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
       </desc>
     </func>
     <func>
+      <name>strong_rand_bytes(N) -> binary()</name>
+      <fsummary>Generate a binary of random bytes</fsummary>
+      <type>
+        <v>N = integer()</v>
+      </type>
+      <desc>
+        <p>Generates N bytes randomly uniform 0..255, and returns the
+        result in a binary. Uses a cryptographically secure prng seeded and
+        periodically mixed with operating system provided entropy. By default
+        this is the <c>RAND_bytes</c> method from OpenSSL.</p>
+	<p>May throw exception <c>low_entropy</c> in case the random generator
+	failed due to lack of secure "randomness".</p>
+      </desc>
+    </func>
+    <func>
       <name>rand_uniform(Lo, Hi) -> N</name>
       <fsummary>Generate a random number</fsummary>
       <type>
@@ -521,7 +823,32 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
         <p>Generate a random number <c><![CDATA[N, Lo =< N < Hi.]]></c> Uses the
           <c>crypto</c> library pseudo-random number generator. The
           arguments (and result) can be either erlang integers or binary
-          multi-precision integers.</p>
+          multi-precision integers. <c>Hi</c> must be larger than <c>Lo</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>strong_rand_mpint(N, Top, Bottom) -> Mpint</name>
+      <fsummary>Generate an N bit random number</fsummary>
+      <type>
+        <v>N = non_neg_integer()</v>
+        <v>Top = -1 | 0 | 1</v>
+        <v>Bottom = 0 | 1</v>
+        <v>Mpint = binary()</v>
+      </type>
+      <desc>
+        <p>Generate an N bit random number using OpenSSL's
+        cryptographically strong pseudo random number generator
+        <c>BN_rand</c>.</p>
+        <p>The parameter <c>Top</c> places constraints on the most
+        significant bits of the generated number. If <c>Top</c> is 1, then the
+        two most significant bits will be set to 1, if <c>Top</c> is 0, the
+        most significant bit will be 1, and if <c>Top</c> is -1 then no
+        constraints are applied and thus the generated number may be less than
+        N bits long.</p>
+        <p>If <c>Bottom</c> is 1, then the generated number is
+        constrained to be odd.</p>
+	<p>May throw exception <c>low_entropy</c> in case the random generator
+	failed due to lack of secure "randomness".</p>
       </desc>
     </func>
     <func>
@@ -679,42 +1006,71 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
       
     <func>
       <name>dss_sign(Data, Key) -> Signature</name>
+      <name>dss_sign(DigestType, Data, Key) -> Signature</name>
       <fsummary>Sign the data using dsa with given private key.</fsummary>
       <type>
-        <v>Digest = Mpint</v>
+        <v>DigestType = sha | none (default is sha)</v>
+        <v>Data = Mpint | ShaDigest</v>
         <v>Key = [P, Q, G, X]</v>
         <v>P, Q, G, X = Mpint</v>
 	<d> Where <c>P</c>, <c>Q</c> and <c>G</c> are the dss
 	  parameters and <c>X</c> is the private key.</d>
-        <v>Mpint = binary()</v>
+        <v>ShaDigest = binary() with length 20 bytes</v>
         <v>Signature = binary()</v>
       </type>
       <desc>
-        <p>Calculates the sha digest of the <c>Data</c>
-	  and creates a DSS signature with the private key <c>Key</c>
-	  of the digest.</p>
+        <p>Creates a DSS signature with the private key <c>Key</c> of a digest.
+        If <c>DigestType</c> is 'sha', the digest is calculated as SHA1 of <c>Data</c>.
+        If <c>DigestType</c> is 'none', <c>Data</c> is the precalculated SHA1 digest.</p>
       </desc>
     </func>
 
     <func>
       <name>dss_verify(Data, Signature, Key) -> Verified</name>
+      <name>dss_verify(DigestType, Data, Signature, Key) -> Verified</name>
       <fsummary>Verify the data and signature using dsa with given public key.</fsummary>
       <type>
         <v>Verified = boolean()</v>
-        <v>Digest, Signature = Mpint</v>
+        <v>DigestType = sha | none</v>
+        <v>Data = Mpint | ShaDigest</v>
+        <v>Signature = Mpint</v>
         <v>Key = [P, Q, G, Y]</v>
         <v>P, Q, G, Y = Mpint</v>
 	<d> Where <c>P</c>, <c>Q</c> and <c>G</c> are the dss
 	  parameters and <c>Y</c> is the public key.</d>
-        <v>Mpint = binary()</v>
+        <v>ShaDigest = binary() with length 20 bytes</v>
       </type>
       <desc>
-        <p>Calculates the sha digest of the <c>Data</c> and verifies that the
-          digest matches the DSS signature using the public key <c>Key</c>.
-	</p>
+        <p>Verifies that a digest matches the DSS signature using the public key <c>Key</c>.
+        If <c>DigestType</c> is 'sha', the digest is calculated as SHA1 of <c>Data</c>.
+        If <c>DigestType</c> is 'none', <c>Data</c> is the precalculated SHA1 digest.</p>
       </desc>
     </func>
 
+    <func>
+      <name>rc2_cbc_encrypt(Key, IVec, Text) -> Cipher</name>
+      <fsummary>Encrypt <c>Text</c>according to RC2 in CBC mode</fsummary>
+      <type>
+        <v>Key = Text = iolist() | binary()</v>
+        <v>Ivec = Cipher = binary()</v>
+      </type>
+      <desc>
+        <p>Encrypts <c>Text</c> according to RC2 in CBC mode.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>rc2_cbc_decrypt(Key, IVec, Cipher) -> Text</name>
+      <fsummary>Decrypts <c>Cipher</c>according to RC2 in CBC mode</fsummary>
+      <type>
+        <v>Key = Text = iolist() | binary()</v>
+        <v>Ivec = Cipher = binary()</v>
+      </type>
+      <desc>
+        <p>Decrypts <c>Cipher</c> according to RC2 in CBC mode.</p>
+      </desc>
+    </func>
+    
     <func>
       <name>rc4_encrypt(Key, Data) -> Result</name>
       <fsummary>Encrypt data using RC4</fsummary>

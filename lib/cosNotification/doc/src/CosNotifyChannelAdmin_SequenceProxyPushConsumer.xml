@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2000</year><year>2009</year>
+      <year>2000</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -21,15 +21,14 @@
     
     </legalnotice>
 
-    <title>CosNotifyChannelAdmin_&shy;SequenceProxyPushConsumer</title>
-    <shorttitle>..._SequenceProxyPushConsumer</shorttitle>
+    <title>CosNotifyChannelAdmin_SequenceProxyPushConsumer</title>
     <prepared></prepared>
     <docno></docno>
     <checked></checked>
     <date>2000-02-01</date>
     <rev>1.0</rev>
   </header>
-  <module>CosNotifyChannelAdmin_&shy;SequenceProxyPushConsumer</module>
+  <module>CosNotifyChannelAdmin_SequenceProxyPushConsumer</module>
   <modulesummary>This module implements the OMG  CosNotifyChannelAdmin::SequenceProxyPushConsumer interface.</modulesummary>
   <description>
     <p>To get access to the record definitions for the structures use:      <br></br>

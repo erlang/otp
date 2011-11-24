@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2009</year>
+      <year>1997</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -160,10 +160,13 @@ init(...) ->
           be restarted.</p>
         <list type="bulleted">
           <item>A <c>permanent</c> child process is always restarted.</item>
-          <item>A <c>temporary</c> child process is never restarted.</item>
+          <item>A <c>temporary</c> child process is never restarted
+          (not even when the supervisor's restart strategy
+          is <c>rest_for_one</c> or <c>one_for_all</c> and a sibling's
+          death causes the temporary process to be terminated).</item>
           <item>A <c>transient</c> child process is restarted only if it
            terminates abnormally, i.e. with another exit reason than
-          <c>normal</c>.</item>
+          <c>normal</c>, <c>shutdown</c> or <c>{shutdown,Term}</c>.</item>
         </list>
       </item>
       <item>
@@ -181,8 +184,16 @@ init(...) ->
            terminated using <c>exit(Child, kill)</c>.</item>
           <item>If the child process is another supervisor, it should be
            set to <c>infinity</c> to give the subtree enough time to
-           shutdown.</item>
+           shutdown. It is also allowed to set it to <c>infinity</c>, if the
+           child process is a worker.</item>
         </list>
+        <warning>
+          <p>Be careful by setting the <c>Shutdown</c> strategy to
+          <c>infinity</c> when the child process is a worker. Because, in this
+          situation, the termination of the supervision tree depends on the
+          child process, it must be implemented in a safe way and its cleanup
+          procedure must always return.</p>
+        </warning>
       </item>
       <item>
         <p><c>Type</c> specifies if the child process is a supervisor or
@@ -335,6 +346,16 @@ supervisor:start_child(Pid, [id1])</code>
       <c>apply(call, start_link, []++[id1])</c>, or actually:</p>
     <code type="none">
 call:start_link(id1)</code>
+    <p>A child under a <c>simple_one_for_one</c> supervisor can be terminated
+    with</p>
+    <code type="none">
+supervisor:terminate_child(Sup, Pid)</code>
+    <p>where <c>Sup</c> is the pid, or name, of the supervisor and
+    <c>Pid</c> is the pid of the child.</p>
+    <p>Because a <c>simple_one_for_one</c> supervisor could have many children,
+    it shuts them all down at same time. So, order in which they are stopped is
+    not defined. For the same reason, it could have an overhead with regards to
+    the <c>Shutdown</c> strategy.</p>
   </section>
 
   <section>

@@ -1,0 +1,11 @@
+
+wings_dissolve.erl:103: Guard test is_list(List::gb_set()) breaks the opaqueness of its argument
+wings_dissolve.erl:19: Guard test is_list(Faces::gb_set()) breaks the opaqueness of its argument
+wings_dissolve.erl:272: Guard test is_list(Faces::gb_set()) breaks the opaqueness of its argument
+wings_dissolve.erl:31: The call gb_sets:is_empty(Faces::[any(),...]) does not have an opaque term of type gb_set() as 1st argument
+wings_edge.erl:205: The pattern <Edge, 'hard', Htab> can never match the type <_,'soft',_>
+wings_edge_cmd.erl:30: The call gb_trees:size(P::gb_set()) contains an opaque term as 1st argument when an opaque term of type gb_tree() is expected
+wings_edge_cmd.erl:32: The pattern [_ | Parts] can never match the type []
+wings_edge_cmd.erl:32: The pattern [{_, P} | _] can never match the type []
+wings_io.erl:30: The attempt to match a term of type {'empty',queue()} against the pattern {'empty', {In, Out}} breaks the opaqueness of queue()
+wings_we.erl:155: The call wings_util:gb_trees_largest_key(Etab::gb_tree()) contains an opaque term as 1st argument when a structured term of type {_,{_,_,_,'nil' | {_,_,_,'nil' | {_,_,_,_}}}} is expected

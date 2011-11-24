@@ -24,6 +24,7 @@
 -export([init/0,start/1,edit_line/2,prefix_arg/1]).
 -export([erase_line/1,erase_inp/1,redraw_line/1]).
 -export([length_before/1,length_after/1,prompt/1]).
+-export([current_line/1]).
 %%-export([expand/1]).
 
 -export([edit_line1/2]).
@@ -421,6 +422,7 @@ over_paren_auto([], _, _, _) ->
 %% length_before(Line)
 %% length_after(Line)
 %% prompt(Line)
+%% current_line(Line)
 %%  Various functions for accessing bits of a line.
 
 erase_line({line,Pbs,{Bef,Aft},_}) ->
@@ -446,6 +448,9 @@ length_after({line,_,{_Bef,Aft},_}) ->
 
 prompt({line,Pbs,_,_}) ->
     Pbs.
+
+current_line({line,_,{Bef, Aft},_}) ->
+    reverse(Bef, Aft ++ "\n").
 
 %% %% expand(CurrentBefore) ->
 %% %%	{yes,Expansion} | no

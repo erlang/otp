@@ -1,0 +1,5 @@
+
+tuple1.erl:13: Function t1/2 has no local return
+tuple1.erl:14: The call lists:mapfoldl(fun((_,_) -> 'a' | 'b'),X::any(),List::nonempty_maybe_improper_list()) will never return since the success typing arguments are (fun((_,_) -> {_,_}),any(),[any()])
+tuple1.erl:19: Function t3/2 has no local return
+tuple1.erl:20: The call lists:mapfoldl(fun((_) -> 1),X::any(),List::nonempty_maybe_improper_list()) will never return since it differs in the 1st argument from the success typing arguments: (fun((_,_) -> {_,_}),any(),[any()])

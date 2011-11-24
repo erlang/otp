@@ -1,3 +1,21 @@
+dnl
+dnl %CopyrightBegin%
+dnl
+dnl Copyright Ericsson AB 2005-2010. All Rights Reserved.
+dnl
+dnl The contents of this file are subject to the Erlang Public License,
+dnl Version 1.1, (the "License"); you may not use this file except in
+dnl compliance with the License. You should have received a copy of the
+dnl Erlang Public License along with this software. If not, it can be
+dnl retrieved online at http://www.erlang.org/.
+dnl
+dnl Software distributed under the License is distributed on an "AS IS"
+dnl basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+dnl the License for the specific language governing rights and limitations
+dnl under the License.
+dnl
+dnl %CopyrightEnd%
+dnl
 
 dnl define([AC_CACHE_LOAD], )dnl
 dnl define([AC_CACHE_SAVE], )dnl
@@ -24,6 +42,11 @@ if test "X$host" != "Xfree_source" -a "X$host" != "Xwin32"; then
 else
     host_os=win32
 fi
+
+AC_ARG_WITH(odbc,
+[  --with-odbc=PATH        specify location of ODBC include and lib
+  --with-odbc             use ODBC (default)
+  --without-odbc          don't use ODBC])
 
 if test "$with_odbc" = "no"; then
 
@@ -95,11 +118,18 @@ AC_CHECK_FUNC(gethostbyname, , AC_CHECK_LIB(nsl, main, [LIBS="$LIBS -lnsl"]))
 
 dnl Checks for header files.
 AC_HEADER_STDC
-AC_CHECK_HEADERS([fcntl.h netdb.h stdlib.h string.h sys/socket.h])
+AC_CHECK_HEADERS([fcntl.h netdb.h stdlib.h string.h sys/socket.h winsock2.h])
 
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
 AC_TYPE_SIZE_T
+AC_CHECK_MEMBERS([struct sockaddr_in6.sin6_addr], [], [],
+			 [#if HAVE_WINSOCK2_H
+			  #include <winsock2.h>
+			  #include <ws2tcpip.h>
+			  #else
+			  #include <netinet/in.h>
+			  #endif])
 
 dnl Checks for library functions.
 AC_CHECK_FUNCS([memset socket])
@@ -116,7 +146,7 @@ AC_SUBST(TARGET_FLAGS)
     case $host_os in
         darwin*)
                 TARGET_FLAGS="-DUNIX"
-	        if test ! -d "$with_odbc" || test "$with_odbc" = "yes" ; then				
+	        if test ! -d "$with_odbc" || test "$with_odbc" = "yes"; then
 		    ODBC_LIB= -L"/usr/lib"
 		    ODBC_INCLUDE="-I/usr/lib/include"
 		else
@@ -129,7 +159,7 @@ AC_SUBST(TARGET_FLAGS)
         win32|cygwin)
 		TARGET_FLAGS="-DWIN32"
 		AC_CHECK_LIB(ws2_32, main)
-		if test ! -d "$with_odbc"; then				
+		if test ! -d "$with_odbc" || test "$with_odbc" = "yes"; then
 		    ODBC_LIB=""   
 		    ODBC_INCLUDE=""
 		else
@@ -147,7 +177,7 @@ AC_SUBST(TARGET_FLAGS)
 			echo "$msg" > "$ERL_TOP/lib/odbc/SKIP"
 			odbc_lib_link_success=wont_try
 			;;
-		    no- )
+		    no-yes | no- )
 			AC_CHECK_SIZEOF(void *)
 			AC_MSG_CHECKING([for odbc in standard locations])
 			for rdir in /usr/local/odbc /usr/local /usr/odbc \
@@ -177,7 +207,7 @@ AC_SUBST(TARGET_FLAGS)
 			fi
 			;;
 
-		    no-*)
+		    *)
 			ODBC_LIB=-L"$with_odbc/lib"
 			ODBC_INCLUDE="-I$with_odbc/include"
 			AC_CHECK_LIB(odbc, SQLAllocHandle,[ODBC_LIB="$ODBC_LIB -lodbc"; odbc_lib_link_success=yes])

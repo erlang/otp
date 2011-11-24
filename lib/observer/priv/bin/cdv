@@ -1,0 +1,4 @@
+#!/bin/sh 
+
+erl -sname cdv -noinput -s crashdump_viewer script_start $@
+

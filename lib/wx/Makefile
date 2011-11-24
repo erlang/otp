@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2008-2009. All Rights Reserved.
+# Copyright Ericsson AB 2008-2010. All Rights Reserved.
 # 
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -23,7 +23,7 @@ SUBDIRS = src
 ifeq ($(CAN_BUILD_DRIVER), true) 
 SUBDIRS += c_src 
 endif 
-SUBDIRS += examples demos doc/src
+SUBDIRS += examples doc/src
 CLEANDIRS = $(SUBDIRS) api_gen
 
 ifeq ($(INSIDE_ERLSRC),true)

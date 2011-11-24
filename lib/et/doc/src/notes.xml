@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2002</year><year>2010</year>
+      <year>2002</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -35,6 +35,77 @@
   (ET)</c>. Each release of <c>Event Tracer (ET) </c> thus constitutes
   one section in this document. The title of each section is the
   version number of <c>Event Tracer (ET)</c>.</p>
+
+<section><title>ET 1.4.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Dialyzer warnings have been fixed. </p>
+          <p>
+	    Own Id: OTP-9470</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ET 1.4.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The popup window 'contents viewer' did not display
+	    properly on Windows.</p>
+          <p>
+	    Own Id: OTP-9238</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ET 1.4.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix error when module et was used in et_selector
+	    trace patterns. </p>
+          <p>
+	    Own Id: OTP-8904</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ET 1.4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fixed broken links in the documentation. </p>
+          <p>
+	    Own Id: OTP-8796</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fixed gui crash on windows.</p>
+          <p>
+	    Own Id: OTP-8830</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>ET 1.4</title>
 

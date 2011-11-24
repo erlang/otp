@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2003-2009. All Rights Reserved.
+ * Copyright Ericsson AB 2003-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -87,15 +87,15 @@ WDD_TYPEDEF(unsigned long, erts_alc_test, (unsigned long,
 					   unsigned long,
 					   unsigned long,
 					   unsigned long));
-WDD_TYPEDEF(long, driver_binary_get_refc, (ErlDrvBinary *dbp));
-WDD_TYPEDEF(long, driver_binary_inc_refc, (ErlDrvBinary *dbp));
-WDD_TYPEDEF(long, driver_binary_dec_refc, (ErlDrvBinary *dbp));
+WDD_TYPEDEF(ErlDrvSInt, driver_binary_get_refc, (ErlDrvBinary *dbp));
+WDD_TYPEDEF(ErlDrvSInt, driver_binary_inc_refc, (ErlDrvBinary *dbp));
+WDD_TYPEDEF(ErlDrvSInt, driver_binary_dec_refc, (ErlDrvBinary *dbp));
 WDD_TYPEDEF(ErlDrvPDL, driver_pdl_create, (ErlDrvPort));
 WDD_TYPEDEF(void, driver_pdl_lock, (ErlDrvPDL));
 WDD_TYPEDEF(void, driver_pdl_unlock, (ErlDrvPDL));
-WDD_TYPEDEF(long, driver_pdl_get_refc, (ErlDrvPDL));
-WDD_TYPEDEF(long, driver_pdl_inc_refc, (ErlDrvPDL));
-WDD_TYPEDEF(long, driver_pdl_dec_refc, (ErlDrvPDL));
+WDD_TYPEDEF(ErlDrvSInt, driver_pdl_get_refc, (ErlDrvPDL));
+WDD_TYPEDEF(ErlDrvSInt, driver_pdl_inc_refc, (ErlDrvPDL));
+WDD_TYPEDEF(ErlDrvSInt, driver_pdl_dec_refc, (ErlDrvPDL));
 WDD_TYPEDEF(void, driver_system_info, (ErlDrvSysInfo *, size_t));
 WDD_TYPEDEF(int, driver_get_now, (ErlDrvNowData *));
 WDD_TYPEDEF(int, driver_monitor_process, (ErlDrvPort port, 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -25,16 +25,92 @@
 
 -include("inet_int.hrl").
 
+-type option() ::
+        {active,          true | false | once} |
+        {add_membership,  {inet:ip_address(), inet:ip_address()}} |
+        {broadcast,       boolean()} |
+        {buffer,          non_neg_integer()} |
+        {deliver,         port | term} |
+        {dontroute,       boolean()} |
+        {drop_membership, {inet:ip_address(), inet:ip_address()}} |
+        {header,          non_neg_integer()} |
+        {mode,            list | binary} | list | binary |
+        {multicast_if,    inet:ip_address()} |
+        {multicast_loop,  boolean()} |
+        {multicast_ttl,   non_neg_integer()} |
+        {priority,        non_neg_integer()} |
+        {raw,
+         Protocol :: non_neg_integer(),
+         OptionNum :: non_neg_integer(),
+         ValueBin :: binary()} |
+        {read_packets,    non_neg_integer()} |
+        {recbuf,          non_neg_integer()} |
+        {reuseaddr,       boolean()} |
+        {sndbuf,          non_neg_integer()} |
+        {tos,             non_neg_integer()}.
+-type option_name() ::
+        active |
+        broadcast |
+        buffer |
+        deliver |
+        dontroute |
+        header |
+        mode |
+        multicast_if |
+        multicast_loop |
+        multicast_ttl |
+        priority |
+        {raw,
+         Protocol :: non_neg_integer(),
+         OptionNum :: non_neg_integer(),
+         ValueSpec :: (ValueSize :: non_neg_integer()) |
+                      (ValueBin :: binary())} |
+        read_packets |
+        recbuf |
+        reuseaddr |
+        sndbuf |
+        tos.
+-type socket() :: port().
+
+-export_type([option/0, option_name/0]).
+
+-spec open(Port) -> {ok, Socket} | {error, Reason} when
+      Port :: inet:port_number(),
+      Socket :: socket(),
+      Reason :: inet:posix().
+
 open(Port) -> 
     open(Port, []).
 
+-spec open(Port, Opts) -> {ok, Socket} | {error, Reason} when
+      Port :: inet:port_number(),
+      Opts :: [Option],
+      Option :: {ip, inet:ip_address()}
+              | {fd, non_neg_integer()}
+              | {ifaddr, inet:ip_address()}
+              | inet:address_family()
+              | {port, inet:port_number()}
+              | option(),
+      Socket :: socket(),
+      Reason :: inet:posix().
+
 open(Port, Opts) ->
-    Mod = mod(Opts),
+    Mod = mod(Opts, undefined),
     {ok,UP} = Mod:getserv(Port),
     Mod:open(UP, Opts).
 
+-spec close(Socket) -> ok when
+      Socket :: socket().
+
 close(S) ->
     inet:udp_close(S).
+
+-spec send(Socket, Address, Port, Packet) -> ok | {error, Reason} when
+      Socket :: socket(),
+      Address :: inet:ip_address() | inet:hostname(),
+      Port :: inet:port_number(),
+      Packet :: iodata(),
+      Reason :: not_owner | inet:posix().
 
 send(S, Address, Port, Packet) when is_port(S) ->
     case inet_db:lookup_socket(S) of
@@ -61,6 +137,15 @@ send(S, Packet) when is_port(S) ->
 	    Error
     end.
 
+-spec recv(Socket, Length) ->
+                  {ok, {Address, Port, Packet}} | {error, Reason} when
+      Socket :: socket(),
+      Length :: non_neg_integer(),
+      Address :: inet:ip_address(),
+      Port :: inet:port_number(),
+      Packet :: string() | binary(),
+      Reason :: not_owner | inet:posix().
+
 recv(S,Len) when is_port(S), is_integer(Len) ->
     case inet_db:lookup_socket(S) of
 	{ok, Mod} ->
@@ -68,6 +153,16 @@ recv(S,Len) when is_port(S), is_integer(Len) ->
 	Error ->
 	    Error
     end.
+
+-spec recv(Socket, Length, Timeout) ->
+                  {ok, {Address, Port, Packet}} | {error, Reason} when
+      Socket :: socket(),
+      Length :: non_neg_integer(),
+      Timeout :: timeout(),
+      Address :: inet:ip_address(),
+      Port :: inet:port_number(),
+      Packet :: string() | binary(),
+      Reason :: not_owner | inet:posix().
 
 recv(S,Len,Time) when is_port(S) ->
     case inet_db:lookup_socket(S) of
@@ -90,6 +185,10 @@ connect(S, Address, Port) when is_port(S) ->
 	    Error
     end.
 
+-spec controlling_process(Socket, Pid) -> ok when
+      Socket :: socket(),
+      Pid :: pid().
+
 controlling_process(S, NewOwner) ->
     inet:udp_controlling_process(S, NewOwner).
 
@@ -97,21 +196,31 @@ controlling_process(S, NewOwner) ->
 %% Create a port/socket from a file descriptor 
 %%
 fdopen(Fd, Opts) ->
-    Mod = mod(),
+    Mod = mod(Opts, undefined),
     Mod:fdopen(Fd, Opts).
 
 
-%% Get the udp_module
-mod() -> inet_db:udp_module().
+%% Get the udp_module, but IPv6 address overrides default IPv4
+mod(Address) ->
+    case inet_db:udp_module() of
+	inet_udp when tuple_size(Address) =:= 8 ->
+	    inet6_udp;
+	Mod ->
+	    Mod
+    end.
 
 %% Get the udp_module, but option udp_module|inet|inet6 overrides
-mod([{udp_module,Mod}|_]) ->
+mod([{udp_module,Mod}|_], _Address) ->
     Mod;
-mod([inet|_]) ->
+mod([inet|_], _Address) ->
     inet_udp;
-mod([inet6|_]) ->
+mod([inet6|_], _Address) ->
     inet6_udp;
-mod([_|Opts]) ->
-    mod(Opts);
-mod([]) ->
-    mod().
+mod([{ip, Address}|Opts], _) ->
+    mod(Opts, Address);
+mod([{ifaddr, Address}|Opts], _) ->
+    mod(Opts, Address);
+mod([_|Opts], Address) ->
+    mod(Opts, Address);
+mod([], Address) ->
+    mod(Address).

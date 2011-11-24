@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,9 +19,11 @@
 
 -module(nofrag_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
--export([all/1,init_per_testcase/2,end_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
+	 init_per_testcase/2,end_per_testcase/2,
 	 error_handler/1,error_handler_apply/1,
 	 error_handler_fixed_apply/1,error_handler_fun/1,
 	 error_handler_tuple_fun/1,
@@ -30,9 +32,28 @@
 %% Exported functions for an error_handler module.
 -export([undefined_function/3,undefined_lambda/3,breakpoint/3]).
 
-all(suite) ->
-    [error_handler,error_handler_apply,error_handler_fixed_apply,
-     error_handler_fun,error_handler_tuple_fun,debug_breakpoint].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [error_handler, error_handler_apply,
+     error_handler_fixed_apply, error_handler_fun,
+     error_handler_tuple_fun, debug_breakpoint].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog = ?t:timetrap(?t:minutes(3)),

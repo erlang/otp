@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(ts_lib).
@@ -21,6 +21,8 @@
 -include_lib("kernel/include/file.hrl").
 -include("ts.hrl").
 
+%% Avoid warning for local function error/1 clashing with autoimported BIF.
+-compile({no_auto_import,[error/1]}).
 -export([error/1, var/2, erlang_type/0,
 	 initial_capital/1, interesting_logs/1, 
 	 specs/1, suites/2, last_test/1,
@@ -72,12 +74,10 @@ progress(Vars, Level, Format, Args) ->
 
 erlang_type() ->
     {_, Version} = init:script_id(),
-    RelDir = filename:join([code:root_dir(), "releases"]), % Only in installed
-    SysDir = filename:join([code:root_dir(), "system"]),   % Nonexisting link/dir outside ClearCase 
-    case {filelib:is_file(RelDir),filelib:is_file(SysDir)} of
-	{true,_} -> {otp,       Version};	% installed OTP
-	{_,true} -> {clearcase, Version};
-	_        -> {srctree,   Version}
+    RelDir = filename:join(code:root_dir(), "releases"), % Only in installed
+    case filelib:is_file(RelDir) of
+	true -> {otp,Version};			% installed OTP
+	false -> {srctree,Version}		% source code tree
     end.
 	        
 %% Upcases the first letter in a string.

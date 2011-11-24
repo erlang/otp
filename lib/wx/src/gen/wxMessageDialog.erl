@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -91,7 +91,7 @@ new(Parent,Message)
   new(Parent,Message, []).
 
 %% @spec (Parent::wxWindow:wxWindow(), Message::string(), [Option]) -> wxMessageDialog()
-%% Option = {caption, string()} | {style, integer()} | {pos, {X::integer(),Y::integer()}}
+%% Option = {caption, string()} | {style, integer()} | {pos, {X::integer(), Y::integer()}}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmessagedialog.html#wxmessagedialogwxmessagedialog">external documentation</a>.
 new(#wx_ref{type=ParentT,ref=ParentRef},Message, Options)
  when is_list(Message),is_list(Options) ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,15 +18,16 @@
 %%
 -module(io_SUITE).
 
--export([all/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 -export([error_1/1, float_g/1, otp_5403/1, otp_5813/1, otp_6230/1, 
          otp_6282/1, otp_6354/1, otp_6495/1, otp_6517/1, otp_6502/1,
          manpage/1, otp_6708/1, otp_7084/1, otp_7421/1,
 	 io_lib_collect_line_3_wb/1, cr_whitespace_in_string/1,
-	 io_fread_newlines/1]).
+	 io_fread_newlines/1, otp_8989/1, io_lib_fread_literal/1]).
 
 %-define(debug, true).
 
@@ -37,7 +38,7 @@
 -define(t, test_server).
 -define(privdir(_), "./io_SUITE_priv").
 -else.
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -define(format(S, A), ok).
 -define(privdir(Conf), ?config(priv_dir, Conf)).
 -endif.
@@ -49,17 +50,35 @@
 init_per_testcase(_Case, Config) ->
     ?line Dog = ?t:timetrap(?default_timeout),
     [{watchdog, Dog} | Config].
-fin_per_testcase(_Case, _Config) ->
+end_per_testcase(_Case, _Config) ->
     Dog = ?config(watchdog, _Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
-all(doc) ->
-    ["Test cases for io."];
-all(suite) ->
-    [error_1,float_g,otp_5403,otp_5813,otp_6230,otp_6282,otp_6354,otp_6495,
-     otp_6517,otp_6502,manpage,otp_6708,otp_7084,otp_7421,
-     io_lib_collect_line_3_wb,cr_whitespace_in_string,io_fread_newlines].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [error_1, float_g, otp_5403, otp_5813, otp_6230,
+     otp_6282, otp_6354, otp_6495, otp_6517, otp_6502,
+     manpage, otp_6708, otp_7084, otp_7421,
+     io_lib_collect_line_3_wb, cr_whitespace_in_string,
+     io_fread_newlines, otp_8989, io_lib_fread_literal].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 error_1(doc) ->
     ["Error cases for output"];
@@ -1898,3 +1917,107 @@ read_newlines(Fd, Acc, N0) ->
 	eof ->
 	    {lists:reverse(Acc),N0}
     end.
+
+
+
+otp_8989(doc) ->
+    "OTP-8989 io:format for ~F.Ps ignores P in some cases";
+otp_8989(Suite) when is_list(Suite) ->
+    Hello = "Hello",
+    ?line " Hello" = fmt("~6.6s", [Hello]),
+    ?line " Hello" = fmt("~*.6s", [6,Hello]),
+    ?line " Hello" = fmt("~6.*s", [6,Hello]),
+    ?line " Hello" = fmt("~*.*s", [6,6,Hello]),
+    %%
+    ?line " Hello" = fmt("~6.5s", [Hello]),
+    ?line " Hello" = fmt("~*.5s", [6,Hello]),
+    ?line " Hello" = fmt("~6.*s", [5,Hello]),
+    ?line " Hello" = fmt("~*.*s", [6,5,Hello]),
+    %%
+    ?line "  Hell" = fmt("~6.4s", [Hello]),
+    ?line "  Hell" = fmt("~*.4s", [6,Hello]),
+    ?line "  Hell" = fmt("~6.*s", [4,Hello]),
+    ?line "  Hell" = fmt("~*.*s", [6,4,Hello]),
+    %%
+    ?line "Hello" = fmt("~5.5s", [Hello]),
+    ?line "Hello" = fmt("~*.5s", [5,Hello]),
+    ?line "Hello" = fmt("~5.*s", [5,Hello]),
+    ?line "Hello" = fmt("~*.*s", [5,5,Hello]),
+    %%
+    ?line " Hell" = fmt("~5.4s", [Hello]),
+    ?line " Hell" = fmt("~*.4s", [5,Hello]),
+    ?line " Hell" = fmt("~5.*s", [4,Hello]),
+    ?line " Hell" = fmt("~*.*s", [5,4,Hello]),
+    %%
+    ?line "Hell" = fmt("~4.4s", [Hello]),
+    ?line "Hell" = fmt("~*.4s", [4,Hello]),
+    ?line "Hell" = fmt("~4.*s", [4,Hello]),
+    ?line "Hell" = fmt("~*.*s", [4,4,Hello]),
+    %%
+    ?line " Hel" = fmt("~4.3s", [Hello]),
+    ?line " Hel" = fmt("~*.3s", [4,Hello]),
+    ?line " Hel" = fmt("~4.*s", [3,Hello]),
+    ?line " Hel" = fmt("~*.*s", [4,3,Hello]),
+    %%
+    %%
+    ?line "Hello " = fmt("~-6.6s", [Hello]),
+    ?line "Hello " = fmt("~*.6s", [-6,Hello]),
+    ?line "Hello " = fmt("~-6.*s", [6,Hello]),
+    ?line "Hello " = fmt("~*.*s", [-6,6,Hello]),
+    %%
+    ?line "Hello " = fmt("~-6.5s", [Hello]),
+    ?line "Hello " = fmt("~*.5s", [-6,Hello]),
+    ?line "Hello " = fmt("~-6.*s", [5,Hello]),
+    ?line "Hello " = fmt("~*.*s", [-6,5,Hello]),
+    %%
+    ?line "Hell  " = fmt("~-6.4s", [Hello]),
+    ?line "Hell  " = fmt("~*.4s", [-6,Hello]),
+    ?line "Hell  " = fmt("~-6.*s", [4,Hello]),
+    ?line "Hell  " = fmt("~*.*s", [-6,4,Hello]),
+    %%
+    ?line "Hello" = fmt("~-5.5s", [Hello]),
+    ?line "Hello" = fmt("~*.5s", [-5,Hello]),
+    ?line "Hello" = fmt("~-5.*s", [5,Hello]),
+    ?line "Hello" = fmt("~*.*s", [-5,5,Hello]),
+    %%
+    ?line "Hell " = fmt("~-5.4s", [Hello]),
+    ?line "Hell " = fmt("~*.4s", [-5,Hello]),
+    ?line "Hell " = fmt("~-5.*s", [4,Hello]),
+    ?line "Hell " = fmt("~*.*s", [-5,4,Hello]),
+    %%
+    ?line "Hell" = fmt("~-4.4s", [Hello]),
+    ?line "Hell" = fmt("~*.4s", [-4,Hello]),
+    ?line "Hell" = fmt("~-4.*s", [4,Hello]),
+    ?line "Hell" = fmt("~*.*s", [-4,4,Hello]),
+    %%
+    ?line "Hel " = fmt("~-4.3s", [Hello]),
+    ?line "Hel " = fmt("~*.3s", [-4,Hello]),
+    ?line "Hel " = fmt("~-4.*s", [3,Hello]),
+    ?line "Hel " = fmt("~*.*s", [-4,3,Hello]),
+    ok.
+
+io_lib_fread_literal(doc) ->
+    "OTP-9439 io_lib:fread bug for literate at end";
+io_lib_fread_literal(Suite) when is_list(Suite) ->
+    ?line {more,"~d",0,""} = io_lib:fread("~d", ""),
+    ?line {error,{fread,integer}} = io_lib:fread("~d", " "),
+    ?line {more,"~d",1,""} = io_lib:fread(" ~d", " "),
+    ?line {ok,[17],"X"} = io_lib:fread(" ~d", " 17X"),
+    %%
+    ?line {more,"d",0,""} = io_lib:fread("d", ""),
+    ?line {error,{fread,input}} = io_lib:fread("d", " "),
+    ?line {more,"d",1,""} = io_lib:fread(" d", " "),
+    ?line {ok,[],"X"} = io_lib:fread(" d", " dX"),
+    %%
+    ?line {done,eof,_} = io_lib:fread([], eof, "~d"),
+    ?line {done,eof,_} = io_lib:fread([], eof, " ~d"),
+    ?line {more,C1} = io_lib:fread([], " \n", " ~d"),
+    ?line {done,{error,{fread,input}},_} = io_lib:fread(C1, eof, " ~d"),
+    ?line {done,{ok,[18]},""} = io_lib:fread(C1, "18\n", " ~d"),
+    %%
+    ?line {done,eof,_} = io_lib:fread([], eof, "d"),
+    ?line {done,eof,_} = io_lib:fread([], eof, " d"),
+    ?line {more,C2} = io_lib:fread([], " \n", " d"),
+    ?line {done,{error,{fread,input}},_} = io_lib:fread(C2, eof, " d"),
+    ?line {done,{ok,[]},[]} = io_lib:fread(C2, "d\n", " d"),
+    ok.

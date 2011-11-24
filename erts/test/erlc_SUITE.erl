@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -20,14 +20,33 @@
 
 %% Tests the erlc command by compiling various types of files.
 
--export([all/1, compile_erl/1, compile_yecc/1, compile_script/1,
-	 compile_mib/1, good_citizen/1, deep_cwd/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, compile_erl/1,
+	 compile_yecc/1, compile_script/1,
+	 compile_mib/1, good_citizen/1, deep_cwd/1, arg_overflow/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
-all(suite) ->
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
     [compile_erl, compile_yecc, compile_script, compile_mib,
-     good_citizen, deep_cwd].
+     good_citizen, deep_cwd, arg_overflow].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
 
 %% Copy from erlc_SUITE_data/include/erl_test.hrl.
 
@@ -60,7 +79,7 @@ compile_erl(Config) when is_list(Config) ->
 
     ?line run(Config, Cmd, FileName, "-Werror",
 	      ["compile: warnings being treated as errors\$",
-	       "Warning: function foo/0 is unused\$",
+	       "function foo/0 is unused\$",
 	       "_ERROR_"]),
 
     %% Check a bad file.
@@ -188,6 +207,39 @@ deep_cwd_1(PrivDir) ->
     ?line io:format("~s\n", [os:cmd("erlc test.erl")]),
     ?line true = filelib:is_file("test.beam"),
     ok.
+
+%% Test that a large number of command line switches does not
+%% overflow the argument buffer
+arg_overflow(Config) when is_list(Config) ->
+    ?line {SrcDir, _OutDir, Cmd} = get_cmd(Config),
+    ?line FileName = filename:join(SrcDir, "erl_test_ok.erl"),
+    %% Each -D option will be expanded to three arguments when
+    %% invoking 'erl'.
+    ?line NumDOptions = num_d_options(),
+    ?line Args = lists:flatten([ ["-D", integer_to_list(N, 36), "=1 "] ||
+            N <- lists:seq(1, NumDOptions) ]),
+    ?line run(Config, Cmd, FileName, Args,
+	      ["Warning: function foo/0 is unused\$",
+	       "_OK_"]),
+    ok.
+
+num_d_options() ->
+    case {os:type(),os:version()} of
+	{{win32,_},_} ->
+	    %% The maximum size of a command line in the command
+	    %% shell on Windows is 8191 characters.
+	    %% Each -D option is expanded to "@dv NN 1", i.e.
+	    %% 8 characters. (Numbers up to 1295 can be expressed
+	    %% as two 36-base digits.)
+	    1000;
+	{{unix,linux},Version} when Version < {2,6,23} ->
+	    %% On some older 64-bit versions of Linux, the maximum number
+	    %% of arguments is 16383.
+	    %% See: http://www.in-ulm.de/~mascheck/various/argmax/
+	    5440;
+	{_,_} ->
+	    12000
+    end.
 
 erlc() ->
     case os:find_executable("erlc") of

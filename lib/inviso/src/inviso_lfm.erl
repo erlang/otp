@@ -87,13 +87,13 @@
 %%   close the outfile.
 %%
 %% Using merge/2 assumes you want to use default handlers writing to a file.
-merge(Files,OutputFile) when list(OutputFile) ->
+merge(Files,OutputFile) when is_list(OutputFile) ->
     merge(Files,fun outfile_opener/1,fun outfile_writer/4,fun outfile_closer/1,OutputFile,off).
-merge(Files,WorkHandlerFun,HandlerData) when function(WorkHandlerFun) ->
+merge(Files,WorkHandlerFun,HandlerData) when is_function(WorkHandlerFun) ->
     merge(Files,void,WorkHandlerFun,void,HandlerData,off);
-merge(Files,OutputFile,Dbg) when list(OutputFile) ->
+merge(Files,OutputFile,Dbg) when is_list(OutputFile) ->
     merge(Files,fun outfile_opener/1,fun outfile_writer/4,fun outfile_closer/1,OutputFile,Dbg).
-merge(Files,WorkHandlerFun,HandlerData,Dbg) when function(WorkHandlerFun) ->
+merge(Files,WorkHandlerFun,HandlerData,Dbg) when is_function(WorkHandlerFun) ->
     merge(Files,void,WorkHandlerFun,void,HandlerData,Dbg).
 merge(Files,BeginHandlerFun,WorkHandlerFun,EndHandlerFun,HandlerData) ->
     merge(Files,BeginHandlerFun,WorkHandlerFun,EndHandlerFun,HandlerData,off).
@@ -123,7 +123,7 @@ init_receiver(From,Files,BeginHandlerFun,WorkHandlerFun,EndHandlerFun,HandlerDat
 	{ok,Readers} ->
 	    process_flag(trap_exit,true),
 	    if
-		function(BeginHandlerFun) ->
+		is_function(BeginHandlerFun) ->
 		    case catch BeginHandlerFun(HandlerData) of
 			{ok,NewHandlerData} ->
 			    init_receiver_2(From,WorkHandlerFun,EndHandlerFun,
@@ -145,7 +145,7 @@ init_receiver_2(From,WorkHandlerFun,EndHandlerFun,HandlerData,Dbg,Readers) ->
     {Reply,NewHandlerData}=
 	loop(From,WorkHandlerFun,HandlerData,NewReaders,EntryStruct,Dbg,0),
     if
-	function(EndHandlerFun) ->
+	is_function(EndHandlerFun) ->
 	    case EndHandlerFun(NewHandlerData) of
 		ok ->
 		    From ! {reply,self(),Reply};
@@ -207,7 +207,7 @@ find_oldest_entry(EntryStruct) ->
     case list_all_entries(EntryStruct) of
 	[] ->                               % The we are done!
 	    done;
-	EntryList when list(EntryList) ->   % Find smallest timestamp in here then.
+	EntryList when is_list(EntryList) ->   % Find smallest timestamp in here then.
 	    {Pid,Node,PidMappings,_TS,Term}=
 		lists:foldl(fun({P,N,PMap,TS1,T},{_P,_N,_PMap,TS0,_T}) when TS1<TS0 ->
 				    {P,N,PMap,TS1,T};

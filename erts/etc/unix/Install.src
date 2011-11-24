@@ -89,7 +89,11 @@ cp -p $ERL_ROOT/erts-%I_VSN%/bin/erl .
 cp -p $ERL_ROOT/erts-%I_VSN%/bin/erlc .
 cp -p $ERL_ROOT/erts-%I_VSN%/bin/dialyzer .
 cp -p $ERL_ROOT/erts-%I_VSN%/bin/typer .
+cp -p $ERL_ROOT/erts-%I_VSN%/bin/ct_run .
 cp -p $ERL_ROOT/erts-%I_VSN%/bin/escript .
+
+# Remove in R16B
+ln -s ct_run run_test
 
 #
 # Set a soft link to epmd

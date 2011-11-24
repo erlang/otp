@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,28 +18,48 @@
 %%
 -module(pmod_SUITE).
 
--export([all/1,init_per_testcase/2,fin_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
+	 init_per_testcase/2,end_per_testcase/2,
 	 basic/1, otp_8447/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
-all(suite) ->
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
     test_lib:recompile(?MODULE),
     [basic, otp_8447].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     Dog = test_server:timetrap(?t:minutes(1)),
     [{watchdog,Dog}|Config].
 
-fin_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
+end_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),
     ok.
 
 basic(Config) when is_list(Config) ->
     ?line basic_1(Config, []),
-%    ?line basic_1(Config, [inline]),
-%    ?line basic_1(Config, [{inline,500},inline]),
+    ?line basic_1(Config, [inline]),
+    ?line basic_1(Config, [{inline,500},inline]),
     ok.
 
 basic_1(Config, Opts) ->
@@ -75,6 +95,10 @@ basic_1(Config, Opts) ->
     ?line ok = Prop4:bar_bar({s,blurf}),
     ?line error = Prop4:bar_bar({s,a,b}),
     ?line error = Prop4:bar_bar([]),
+
+    %% Call from a fun.
+    Fun = fun(Arg) -> Prop4:bar(Arg) end,
+    ?line ok = Fun({s,0}),
 
     ok.
 

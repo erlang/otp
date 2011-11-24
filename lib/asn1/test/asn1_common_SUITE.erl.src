@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,14 +18,11 @@
 %%
 %%
 
-common() -> [app_test, appup_test,testTimer_ber,testTimer_ber_bin,
+common() -> [{group,app_test}, {group,appup_test},testTimer_ber,testTimer_ber_bin,
 	testTimer_ber_bin_opt, testTimer_ber_bin_opt_driver, testTimer_per,
 	testTimer_per_bin, testTimer_per_bin_opt, testTimer_uper_bin,
 	testComment,testName2Number].
 
-
-app_test(suite) -> [{asn1_app_test,all}].
-appup_test(suite) -> [{asn1_appup_test,all}].
 
 testTimer_ber(suite) -> [];
 testTimer_ber(Config) ->

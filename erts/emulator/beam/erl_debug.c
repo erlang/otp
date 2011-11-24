@@ -207,11 +207,7 @@ pdisplay1(int to, void *to_arg, Process* p, Eterm obj)
     case FLOAT_DEF: {
 	    FloatDef ff;
 	    GET_DOUBLE(obj, ff);
-#ifdef _OSE_
-	    erts_print(to, to_arg, "%e", ff.fd);
-#else
 	    erts_print(to, to_arg, "%.20e", ff.fd);
-#endif
 	}
 	break;
     case BINARY_DEF:
@@ -235,9 +231,9 @@ pps(Process* p, Eterm* stop)
     }
 
     while(sp >= stop) {
-	erts_print(to, to_arg, "%0*lx: ", PTR_SIZE, (Eterm) sp);
+	erts_print(to, to_arg, "%0*lx: ", PTR_SIZE, (UWord) sp);
 	if (is_catch(*sp)) {
-	    erts_print(to, to_arg, "catch %d", (Uint)catch_pc(*sp));
+	    erts_print(to, to_arg, "catch %ld", (UWord)catch_pc(*sp));
 	} else {
 	    paranoid_display(to, to_arg, p, *sp);
 	}
@@ -265,7 +261,7 @@ static int verify_eterm(Process *p,Eterm element)
             return 1;
 
         for (mbuf = p->mbuf; mbuf; mbuf = mbuf->next) {
-            if (WITHIN(ptr, &mbuf->mem[0], &mbuf->mem[0] + mbuf->size)) {
+            if (WITHIN(ptr, &mbuf->mem[0], &mbuf->mem[0] + mbuf->used_size)) {
                 return 1;
             }
         }
@@ -312,7 +308,7 @@ void erts_check_stack(Process *p)
 	if (IN_HEAP(p, ptr))
 	    continue;
 	for (mbuf = p->mbuf; mbuf; mbuf = mbuf->next)
-	    if (WITHIN(ptr, &mbuf->mem[0], &mbuf->mem[0] + mbuf->size)) {
+	    if (WITHIN(ptr, &mbuf->mem[0], &mbuf->mem[0] + mbuf->used_size)) {
 		in_mbuf = 1;
 		break;
 	    }
@@ -750,7 +746,7 @@ static void print_process_memory(Process *p)
                     PTR_SIZE, "heap fragments",
                     dashes, dashes, dashes, dashes);
     while (bp) {
-	print_untagged_memory(bp->mem,bp->mem + bp->size);
+	print_untagged_memory(bp->mem,bp->mem + bp->used_size);
         bp = bp->next;
     }
 }
@@ -895,5 +891,29 @@ void print_memory_info(Process *p)
 #endif
     erts_printf("+-----------------%s-%s-%s-%s-+\n",dashes,dashes,dashes,dashes);
 }
+#if !HEAP_ON_C_STACK && defined(DEBUG)
+Eterm *erts_debug_allocate_tmp_heap(int size, Process *p)
+{
+    ErtsSchedulerData *sd = ((p == NULL) ? erts_get_scheduler_data() : ERTS_PROC_GET_SCHDATA(p));
+    int offset = sd->num_tmp_heap_used;
+
+    ASSERT(offset+size <= TMP_HEAP_SIZE);
+    return (sd->tmp_heap)+offset;
+}
+void erts_debug_use_tmp_heap(int size, Process *p)
+{
+    ErtsSchedulerData *sd = ((p == NULL) ? erts_get_scheduler_data() : ERTS_PROC_GET_SCHDATA(p));
+
+    sd->num_tmp_heap_used += size;
+    ASSERT(sd->num_tmp_heap_used <= TMP_HEAP_SIZE);
+}
+void erts_debug_unuse_tmp_heap(int size, Process *p)
+{
+    ErtsSchedulerData *sd = ((p == NULL) ? erts_get_scheduler_data() : ERTS_PROC_GET_SCHDATA(p));
+
+    sd->num_tmp_heap_used -= size;
+    ASSERT(sd->num_tmp_heap_used >= 0);
+}
+#endif
 #endif
 

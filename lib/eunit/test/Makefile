@@ -75,7 +75,7 @@ release_spec: opt
 
 release_tests_spec: make_emakefile
 	$(INSTALL_DIR) $(RELSYSDIR)
-	$(INSTALL_DATA) eunit.dynspec $(EMAKEFILE) \
+	$(INSTALL_DATA) eunit.spec $(EMAKEFILE) \
 		$(COVERFILE) $(ERL_FILES) \
 		$(RELSYSDIR)
 

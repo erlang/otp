@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2000</year><year>2009</year>
+      <year>2000</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -294,7 +294,7 @@ FilterID = 'CosNotifyChannelAdmin_ConsumerAdmin':
         </row>
         <row>
           <cell align="left" valign="middle"><c>in</c></cell>
-          <cell align="left" valign="middle"><c>"'Erlang' in $.FunctionalLanguages&shy;StringSeq"</c></cell>
+          <cell align="left" valign="middle"><c>"'Erlang' in $.FunctionalLanguagesStringSeq"</c></cell>
           <cell align="left" valign="middle">Returns <c>TRUE</c>if a given element is found in the given sequence. The element must be of a simple type and the same as the sequence is defined to contain.</cell>
         </row>
         <row>
@@ -394,17 +394,17 @@ Figure 1: The structure of a structured event.</icaption>
         </row>
         <row>
           <cell align="left" valign="middle">type_name</cell>
-          <cell align="left" valign="middle">"$.header.fixed_header.event_&shy;type.type_name == 'Type'"</cell>
+          <cell align="left" valign="middle">"$.header.fixed_header.event_type.type_name == 'Type'"</cell>
           <cell align="left" valign="middle">"$type_name == 'Type'"</cell>
         </row>
         <row>
           <cell align="left" valign="middle">domain_name</cell>
-          <cell align="left" valign="middle">"$.header.fixed_header.event_&shy;type.domain_name == 'Domain'"</cell>
+          <cell align="left" valign="middle">"$.header.fixed_header.event_type.domain_name == 'Domain'"</cell>
           <cell align="left" valign="middle">"$domain_name == 'Domain'"</cell>
         </row>
         <row>
           <cell align="left" valign="middle">event_name</cell>
-          <cell align="left" valign="middle">"$.header.fixed_header.event_&shy;name == 'Event'"</cell>
+          <cell align="left" valign="middle">"$.header.fixed_header.event_name == 'Event'"</cell>
           <cell align="left" valign="middle">"$event_name == 'Event'"</cell>
         </row>
         <tcaption>Table 2: Fixed Header Constraint Examples</tcaption>

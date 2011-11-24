@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2009</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -63,121 +63,165 @@
       given as local time, they must be converted to universal time, in
       order to get the correct value of the elapsed time between epochs.
       Use of the function <c>time_difference/2</c> is discouraged.</p>
+    <p>There exists different definitions for the week of the year.
+      The calendar module contains a week of the year implementation
+      which conforms to the ISO 8601 standard. Since the week number for
+      a given date can fall on the previous, the current or on the next
+      year it is important to provide the information which year is it
+      together with the week number. The function <c>iso_week_number/0</c>
+      and <c>iso_week_number/1</c> returns a tuple of the year and the
+      week number.</p>
   </description>
 
-  <section>
-    <title>DATA TYPES</title>
-    <code type="none">
-date() = {Year, Month, Day}
-  Year = int()
-  Month = 1..12
-  Day = 1..31
-Year cannot be abbreviated. Example: 93 denotes year 93, not 1993.
-Valid range depends on the underlying OS.
-The date tuple must denote a valid date.
+  <datatypes>
+    <datatype>
+      <name name="datetime"/>
+    </datatype>
+    <datatype>
+      <name name="datetime1970"/>
+    </datatype>
+    <datatype>
+      <name name="date"/>
+    </datatype>
+    <datatype>
+      <name name="year"/>
+      <desc><p>Year cannot be abbreviated. Example: 93 denotes year
+        93, not 1993. Valid range depends on the underlying OS. The
+        date tuple must denote a valid date.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="year1970"/>
+    </datatype>
+    <datatype>
+      <name name="month"/>
+    </datatype>
+    <datatype>
+      <name name="day"/>
+    </datatype>
+    <datatype>
+      <name name="time"/>
+    </datatype>
+    <datatype>
+      <name name="hour"/>
+    </datatype>
+    <datatype>
+      <name name="minute"/>
+    </datatype>
+    <datatype>
+      <name name="second"/>
+    </datatype>
+    <datatype>
+      <name name="daynum"/>
+    </datatype>
+    <datatype>
+      <name name="ldom"/>
+    </datatype>
+    <datatype>
+      <name name="yearweeknum"/>
+    </datatype>
+    <datatype>
+      <name name="weeknum"/>
+    </datatype>
+  </datatypes>
 
-time() = {Hour, Minute, Second}
-  Hour = 0..23
-  Minute = Second = 0..59</code>
-  </section>
   <funcs>
     <func>
-      <name>date_to_gregorian_days(Date) -> Days</name>
-      <name>date_to_gregorian_days(Year, Month, Day) -> Days</name>
+      <name name="date_to_gregorian_days" arity="1"/>
+      <name name="date_to_gregorian_days" arity="3"/>
+      <type variable="Date" name_i="1"/>
+      <type variable="Year"/>
+      <type variable="Month"/>
+      <type variable="Day"/>
       <fsummary>Compute the number of days from year 0 up to the given date</fsummary>
-      <type>
-        <v>Date = date()</v>
-        <v>Days = int()</v>
-      </type>
       <desc>
         <p>This function computes the number of gregorian days starting
           with year 0 and ending at the given date.</p>
       </desc>
     </func>
     <func>
-      <name>datetime_to_gregorian_seconds({Date, Time}) -> Seconds</name>
+      <name name="datetime_to_gregorian_seconds" arity="1"/>
       <fsummary>Compute the number of seconds from year 0 up to the given date and time</fsummary>
-      <type>
-        <v>Date = date()</v>
-        <v>Time = time()</v>
-        <v>Seconds = int()</v>
-      </type>
       <desc>
         <p>This function computes the number of gregorian seconds
           starting with year 0 and ending at the given date and time.</p>
       </desc>
     </func>
     <func>
-      <name>day_of_the_week(Date) -> DayNumber</name>
-      <name>day_of_the_week(Year, Month, Day) -> DayNumber</name>
+      <name name="day_of_the_week" arity="1"/>
+      <name name="day_of_the_week" arity="3"/>
       <fsummary>Compute the day of the week</fsummary>
-      <type>
-        <v>Date = date()</v>
-        <v>DayNumber = 1..7</v>
-      </type>
+      <type variable="Date" name_i="1"/>
+      <type variable="Year"/>
+      <type variable="Month"/>
+      <type variable="Day"/>
       <desc>
-        <p>This function computes the day of the week given <c>Year</c>,
-          <c>Month</c> and <c>Day</c>. The return value denotes the day
+        <p>This function computes the day of the week given <c><anno>Year</anno></c>,
+          <c><anno>Month</anno></c> and <c><anno>Day</anno></c>. The return value denotes the day
           of the week as <c>1</c>: Monday, <c>2</c>: Tuesday, and so on.</p>
       </desc>
     </func>
     <func>
-      <name>gregorian_days_to_date(Days) -> Date</name>
+      <name name="gregorian_days_to_date" arity="1"/>
       <fsummary>Compute the date given the number of gregorian days</fsummary>
-      <type>
-        <v>Days = int()</v>
-        <v>Date = date()</v>
-      </type>
       <desc>
         <p>This function computes the date given the number of
           gregorian days.</p>
       </desc>
     </func>
     <func>
-      <name>gregorian_seconds_to_datetime(Seconds) -> {Date, Time}</name>
+      <name name="gregorian_seconds_to_datetime" arity="1"/>
       <fsummary>Compute the date given the number of gregorian days</fsummary>
-      <type>
-        <v>Seconds = int()</v>
-        <v>Date = date()</v>
-        <v>Time = time()</v>
-      </type>
       <desc>
         <p>This function computes the date and time from the given
           number of gregorian seconds.</p>
       </desc>
     </func>
     <func>
-      <name>is_leap_year(Year) -> bool()</name>
+      <name name="is_leap_year" arity="1"/>
       <fsummary>Check if a year is a leap year</fsummary>
       <desc>
         <p>This function checks if a year is a leap year.</p>
       </desc>
     </func>
     <func>
-      <name>last_day_of_the_month(Year, Month) -> int()</name>
+      <name name="iso_week_number" arity="0"/>
+      <fsummary>Compute the iso week number for the actual date</fsummary>
+      <desc>
+        <p>This function returns the tuple {Year, WeekNum} representing
+          the iso week number for the actual date. For determining the
+          actual date, the function <c>local_time/0</c> is used.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="iso_week_number" arity="1"/>
+      <fsummary>Compute the iso week number for the given date</fsummary>
+      <desc>
+        <p>This function returns the tuple {Year, WeekNum} representing
+          the iso week number for the given date.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="last_day_of_the_month" arity="2"/>
       <fsummary>Compute the number of days in a month</fsummary>
       <desc>
         <p>This function computes the number of days in a month.</p>
       </desc>
     </func>
     <func>
-      <name>local_time() -> {Date, Time}</name>
+      <name name="local_time" arity="0"/>
       <fsummary>Compute local time</fsummary>
-      <type>
-        <v>Date = date()</v>
-        <v>Time = time()</v>
-      </type>
       <desc>
         <p>This function returns the local time reported by
           the underlying operating system.</p>
       </desc>
     </func>
     <func>
-      <name>local_time_to_universal_time({Date1, Time1}) -> {Date2, Time2}</name>
+      <name name="local_time_to_universal_time" arity="1"/>
       <fsummary>Convert from local time to universal time (deprecated)</fsummary>
       <desc>
         <p>This function converts from local time to Universal 
-          Coordinated Time (UTC). <c>Date1</c> must refer to a local
+          Coordinated Time (UTC). <c><anno>DateTime1</anno></c> must refer to a local
           date after Jan 1, 1970.</p>
         <warning>
           <p>This function is deprecated. Use
@@ -190,15 +234,11 @@ time() = {Hour, Minute, Second}
       </desc>
     </func>
     <func>
-      <name>local_time_to_universal_time_dst({Date1, Time1}) -> [{Date, Time}]</name>
+      <name name="local_time_to_universal_time_dst" arity="1"/>
       <fsummary>Convert from local time to universal time(s)</fsummary>
-      <type>
-        <v>Date1 = Date = date()</v>
-        <v>Time1 = Time = time()</v>
-      </type>
       <desc>
         <p>This function converts from local time to Universal
-          Coordinated Time (UTC). <c>Date1</c> must refer to a local
+          Coordinated Time (UTC). <c><anno>DateTime1</anno></c> must refer to a local
           date after Jan 1, 1970.</p>
         <p>The return value is a list of 0, 1 or 2 possible UTC times:</p>
         <taglist>
@@ -226,65 +266,48 @@ time() = {Hour, Minute, Second}
       </desc>
     </func>
     <func>
-      <name>now_to_local_time(Now) -> {Date, Time}</name>
+      <name name="now_to_local_time" arity="1"/>
       <fsummary>Convert now to local date and time</fsummary>
-      <type>
-        <v>Now -- see erlang:now/0</v>
-        <v>Date = date()</v>
-        <v>Time = time()</v>
-      </type>
       <desc>
         <p>This function returns local date and time converted from
           the return value from <c>erlang:now()</c>.</p>
       </desc>
     </func>
     <func>
-      <name>now_to_universal_time(Now) -> {Date, Time}</name>
-      <name>now_to_datetime(Now) -> {Date, Time}</name>
+      <name name="now_to_universal_time" arity="1"/>
+      <name name="now_to_datetime" arity="1"/>
       <fsummary>Convert now to date and time</fsummary>
-      <type>
-        <v>Now -- see erlang:now/0</v>
-        <v>Date = date()</v>
-        <v>Time = time()</v>
-      </type>
       <desc>
         <p>This function returns Universal Coordinated Time (UTC)
           converted from the return value from <c>erlang:now()</c>.</p>
       </desc>
     </func>
     <func>
-      <name>seconds_to_daystime(Seconds) -> {Days, Time}</name>
+      <name name="seconds_to_daystime" arity="1"/>
       <fsummary>Compute days and time from seconds</fsummary>
-      <type>
-        <v>Seconds = Days = int()</v>
-        <v>Time = time()</v>
-      </type>
       <desc>
         <p>This function transforms a given number of seconds into days,
-          hours, minutes, and seconds. The <c>Time</c> part is always
-          non-negative, but <c>Days</c> is negative if the argument
-          <c>Seconds</c> is.</p>
+          hours, minutes, and seconds. The <c><anno>Time</anno></c> part is always
+          non-negative, but <c><anno>Days</anno></c> is negative if the argument
+          <c><anno>Seconds</anno></c> is.</p>
       </desc>
     </func>
     <func>
-      <name>seconds_to_time(Seconds) -> Time</name>
+      <name name="seconds_to_time" arity="1"/>
       <fsummary>Compute time from seconds</fsummary>
-      <type>
-        <v>Seconds = int() &lt; 86400</v>
-        <v>Time = time()</v>
-      </type>
+      <type name="secs_per_day"/>
       <desc>
         <p>This function computes the time from the given number of
-          seconds. <c>Seconds</c> must be less than the number of
+          seconds. <c><anno>Seconds</anno></c> must be less than the number of
           seconds per day (86400).</p>
       </desc>
     </func>
     <func>
-      <name>time_difference(T1, T2) -> {Days, Time}</name>
+      <name name="time_difference" arity="2"/>
       <fsummary>Compute the difference between two times (deprecated)</fsummary>
       <desc>
-        <p>This function returns the difference between two <c>{Date, Time}</c> tuples. <c>T2</c> should refer to an epoch later
-          than <c>T1</c>.</p>
+        <p>This function returns the difference between two <c>{Date, Time}</c> tuples. <c><anno>T2</anno></c> should refer to an epoch later
+          than <c><anno>T1</anno></c>.</p>
         <warning>
           <p>This function is obsolete. Use the conversion functions for
             gregorian days and seconds instead.</p>
@@ -292,24 +315,17 @@ time() = {Hour, Minute, Second}
       </desc>
     </func>
     <func>
-      <name>time_to_seconds(Time) -> Seconds</name>
+      <name name="time_to_seconds" arity="1"/>
       <fsummary>Compute the number of seconds since midnight up to  the given time</fsummary>
-      <type>
-        <v>Time = time()</v>
-        <v>Seconds = int()</v>
-      </type>
+      <type name="secs_per_day"/>
       <desc>
         <p>This function computes the number of seconds since midnight
           up to the specified time.</p>
       </desc>
     </func>
     <func>
-      <name>universal_time() -> {Date, Time}</name>
+      <name name="universal_time" arity="0"/>
       <fsummary>Compute universal time</fsummary>
-      <type>
-        <v>Date = date()</v>
-        <v>Time = time()</v>
-      </type>
       <desc>
         <p>This function returns the Universal Coordinated Time (UTC)
           reported by the underlying operating system. Local time is
@@ -317,25 +333,22 @@ time() = {Hour, Minute, Second}
       </desc>
     </func>
     <func>
-      <name>universal_time_to_local_time({Date1, Time1}) -> {Date2, Time2}</name>
+      <name name="universal_time_to_local_time" arity="1"/>
       <fsummary>Convert from universal time to local time</fsummary>
-      <type>
-        <v>Date1 = Date2 = date()</v>
-        <v>Time1 = Time2 = time()</v>
-      </type>
       <desc>
         <p>This function converts from Universal Coordinated Time (UTC)
-          to local time. <c>Date1</c> must refer to a date after Jan 1, 
+          to local time. <c><anno>DateTime</anno></c> must refer to a date after Jan 1,
           1970.</p>
       </desc>
     </func>
     <func>
-      <name>valid_date(Date) -> bool()</name>
-      <name>valid_date(Year, Month, Day) -> bool()</name>
+      <name name="valid_date" arity="1"/>
+      <name name="valid_date" arity="3"/>
+      <type variable="Date" name_i="1"/>
+      <type variable="Year"/>
+      <type variable="Month"/>
+      <type variable="Day"/>
       <fsummary>Check if a date is valid</fsummary>
-      <type>
-        <v>Date = date()</v>
-      </type>
       <desc>
         <p>This function checks if a date is a valid.</p>
       </desc>

@@ -4,7 +4,7 @@
 <cref>
   <header>
     <copyright>
-      <year>2001</year><year>2010</year>
+      <year>2001</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -36,7 +36,7 @@
   <description>
     <p>As of erts version 5.5.3 the driver interface has been extended
       (see <seealso marker="driver_entry#extended_marker">extended marker</seealso>).
-      The extended interface introduce
+      The extended interface introduces
       <seealso marker="erl_driver#version_management">version management</seealso>,
       the possibility to pass capability flags
       (see <seealso marker="driver_entry#driver_flags">driver flags</seealso>)
@@ -45,21 +45,21 @@
     <note>
       <p>Old drivers (compiled with an <c>erl_driver.h</c> from an
         earlier erts version than 5.5.3) have to be recompiled
-        (but does not have to use the extended interface).</p>
+        (but do not have to use the extended interface).</p>
     </note>
     <p>The <c>driver_entry</c> structure is a C struct that all erlang
-      drivers defines. It contains entry points for the erlang driver
+      drivers define. It contains entry points for the erlang driver
       that are called by the erlang emulator when erlang code accesses
       the driver.</p>
     <p>      
       <marker id="emulator"></marker>
       The <seealso marker="driver_entry">erl_driver</seealso> driver
-      API functions needs a port handle
+      API functions need a port handle
       that identifies the driver instance (and the port in the
       emulator). This is only passed to the <c>start</c> function, but
       not to the other functions. The <c>start</c> function returns a
       driver-defined handle that is passed to the other functions. A
-      common practice is to have the <c>start</c> function allocating
+      common practice is to have the <c>start</c> function allocate
       some application-defined structure and stash the <c>port</c>
       handle in it, to use it later with the driver API functions.</p>
     <p>The driver call-back functions are called synchronously from the
@@ -121,7 +121,7 @@ typedef struct erl_drv_entry {
                                    the port */
     void (*ready_input)(ErlDrvData drv_data, ErlDrvEvent event); 
                                 /* called when we have input from one of 
-                                   the driver's handles) */
+                                   the driver's handles */
     void (*ready_output)(ErlDrvData drv_data, ErlDrvEvent event);  
                                 /* called when output is possible to one of 
                                    the driver's handles */
@@ -133,7 +133,7 @@ typedef struct erl_drv_entry {
     int (*control)(ErlDrvData drv_data, unsigned int command, char *buf, 
                    int len, char **rbuf, int rlen); 
                                 /* "ioctl" for drivers - invoked by 
-                                   port_control/3) */
+                                   port_control/3 */
     void (*timeout)(ErlDrvData drv_data);        /* Handling of timeout in driver */
     void (*outputv)(ErlDrvData drv_data, ErlIOVec *ev);
                                 /* called when we have output from erlang
@@ -146,7 +146,7 @@ typedef struct erl_drv_entry {
                                    before 'stop' can be called */
     int (*call)(ErlDrvData drv_data, unsigned int command, char *buf, 
                    int len, char **rbuf, int rlen, unsigned int *flags); 
-                                /* Works mostly like 'control', a syncronous
+                                /* Works mostly like 'control', a synchronous
                                    call into the driver. */
     void (*event)(ErlDrvData drv_data, ErlDrvEvent event,
                   ErlDrvEventData event_data);
@@ -172,7 +172,7 @@ typedef struct erl_drv_entry {
           added to the driver list.) The driver should return 0, or if
           the driver can't initialize, -1.</p>
       </item>
-      <tag><marker id="start"/>int (*start)(ErlDrvPort port, char* command)</tag>
+      <tag><marker id="start"/>ErlDrvData (*start)(ErlDrvPort port, char* command)</tag>
       <item>
         <p>This is called when the driver is instantiated, when
           <c>open_port/2</c> is called. The driver should return a
@@ -188,7 +188,9 @@ typedef struct erl_drv_entry {
         <p>This is called when the port is closed, with
           <c>port_close/1</c> or <c>Port ! {self(), close}</c>. Note
           that terminating the port owner process also closes the
-          port.</p>
+          port. If <c>drv_data</c> is a pointer to memory allocated in
+	  <c>start</c>, then <c>stop</c> is the place to deallocate that
+	  memory.</p>
       </item>
       <tag><marker id="output"/>void (*output)(ErlDrvData drv_data, char *buf, int len)</tag>
       <item>
@@ -217,6 +219,10 @@ typedef struct erl_drv_entry {
           completes, write to the pipe (use <c>SetEvent</c> on
           Windows), this will make the emulator call
           <c>ready_input</c> or <c>ready_output</c>.</p>
+          <p>Spurious events may happen. That is, calls to <c>ready_input</c>
+          or <c>ready_output</c> even though no real events are signaled. In
+          reality it should be rare (and OS dependant), but a robust driver
+          must nevertheless be able to handle such cases.</p>
       </item>
       <tag><marker id="driver_name"/>char *driver_name</tag>
       <item>
@@ -233,7 +239,7 @@ typedef struct erl_drv_entry {
       </item>
       <tag>void *handle</tag>
       <item>
-        <p>This field is reserved for the emulators internal use. The
+        <p>This field is reserved for the emulator's internal use. The
           emulator will modify this field; therefore, it is important
           that the <c>driver_entry</c> isn't declared <c>const</c>.</p> 
       </item>
@@ -397,7 +403,7 @@ typedef struct erl_drv_entry {
       <tag>void *handle2</tag>
       <item>
         <p>
-          This field is reserved for the emulators internal use. The
+          This field is reserved for the emulator's internal use. The
           emulator will modify this field; therefore, it is important
           that the <c>driver_entry</c> isn't declared <c>const</c>.
         </p>

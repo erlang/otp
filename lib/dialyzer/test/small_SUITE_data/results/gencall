@@ -1,0 +1,4 @@
+
+gencall.erl:11: Call to missing or unexported function gencall:foo/0
+gencall.erl:12: Call to missing or unexported function gen_server:handle_cast/2
+gencall.erl:9: Call to missing or unexported function ets:lookup/3

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,8 @@
 %% %CopyrightEnd%
 
 -module(erl_eval_SUITE).
--export([all/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 
 -export([guard_1/1, guard_2/1,
 	 match_pattern/1,
@@ -38,7 +39,8 @@
          otp_8133/1,
          funs/1,
 	 try_catch/1,
-	 eval_expr_5/1]).
+	 eval_expr_5/1,
+	 zero_width/1]).
 
 %%
 %% Define to run outside of test server
@@ -57,26 +59,42 @@
 config(priv_dir,_) ->
     ".".
 -else.
--include("test_server.hrl").
--export([init_per_testcase/2, fin_per_testcase/2]).
+-include_lib("test_server/include/test_server.hrl").
+-export([init_per_testcase/2, end_per_testcase/2]).
 % Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(1)).
 init_per_testcase(_Case, Config) ->
     ?line Dog = ?t:timetrap(?default_timeout),
     [{watchdog, Dog} | Config].
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
 -endif.
 
-all(doc) ->
-    ["Test cases for the 'erl_eval' module."];
-all(suite) ->
-    [guard_1, guard_2, match_pattern, string_plusplus, pattern_expr,
-     match_bin, guard_3, guard_4, 
-     lc, simple_cases, unary_plus, apply_atom, otp_5269, otp_6539, otp_6543,
-     otp_6787, otp_6977, otp_7550, otp_8133, funs, try_catch, eval_expr_5].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [guard_1, guard_2, match_pattern, string_plusplus,
+     pattern_expr, match_bin, guard_3, guard_4, lc,
+     simple_cases, unary_plus, apply_atom, otp_5269,
+     otp_6539, otp_6543, otp_6787, otp_6977, otp_7550,
+     otp_8133, funs, try_catch, eval_expr_5, zero_width].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
 
 guard_1(doc) ->
     ["(OTP-2405)"];
@@ -553,6 +571,17 @@ otp_5269(Config) when is_list(Config) ->
                                  B:A>> <- [<<16:8,19:16>>],
                                <<X:8>> <- [<<B:8>>]].",
                 [19]),
+    ?line check(fun() ->
+		(fun (<<A:1/binary, B:8/integer, _C:B/binary>>) ->
+			    case A of
+				B -> wrong;
+				_ -> ok
+			    end
+		 end)(<<1,2,3,4>>) end,
+		"(fun(<<A:1/binary, B:8/integer, _C:B/binary>>) ->"
+			    " case A of B -> wrong; _ -> ok end"
+		" end)(<<1, 2, 3, 4>>).",
+		ok),
     ok.
 
 otp_6539(doc) ->
@@ -1007,6 +1036,12 @@ funs(Config) when is_list(Config) ->
         lists:usort([run_many_args(SAs) || SAs <- many_args(MaxArgs)]),
     ?line {'EXIT',{{argument_limit,_},_}} = 
         (catch run_many_args(many_args1(MaxArgs+1))),
+
+    ?line check(fun() -> M = lists, F = fun M:reverse/1,
+			 [1,2] = F([2,1]), ok end,
+		"begin M = lists, F = fun M:reverse/1,"
+		" [1,2] = F([2,1]), ok end.",
+		ok),
     ok.
 
 run_many_args({S, As}) ->
@@ -1160,7 +1195,7 @@ lfh() ->
     {eval, fun(F, As, Bs) -> local_func(F, As, Bs) end}.
 
 local_func(F, As0, Bs0) when is_atom(F) ->
-    {As,Bs} = erl_eval:expr_list(As0, Bs0, {eval,lfh()}),
+    {As,Bs} = erl_eval:expr_list(As0, Bs0, lfh()),
     case erlang:function_exported(?MODULE, F, length(As)) of
 	true ->
 	    {value,apply(?MODULE, F, As),Bs};
@@ -1170,7 +1205,7 @@ local_func(F, As0, Bs0) when is_atom(F) ->
 
 lfh_value_extra() ->
     %% Not documented.
-    {value, fun(F, As) -> local_func_value(F, As) end, []}.
+    {value, fun(F, As, a1, a2) -> local_func_value(F, As) end, [a1, a2]}.
 
 lfh_value() ->
     {value, fun(F, As) -> local_func_value(F, As) end}.
@@ -1325,6 +1360,14 @@ eval_expr_5(Config) when is_list(Config) ->
 	error:function_clause ->
 	    ok
     end.
+
+zero_width(Config) when is_list(Config) ->
+    ?line check(fun() ->
+			{'EXIT',{badarg,_}} = (catch <<not_a_number:0>>),
+			ok
+		end, "begin {'EXIT',{badarg,_}} = (catch <<not_a_number:0>>), "
+		"ok end.", ok),
+    ok.
 
 %% Check the string in different contexts: as is; in fun; from compiled code.
 check(F, String, Result) ->

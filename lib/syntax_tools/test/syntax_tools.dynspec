@@ -1,5 +1,0 @@
-%% -*- erlang -*-
-%% You can test this file using this command.
-%%    file:script("syntax_tools.dynspec", [{'Os',"Unix"}]).
-
-[].

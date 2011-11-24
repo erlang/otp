@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2010</year>
+      <year>2004</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -30,6 +30,76 @@
   </header>
   <p>This document describes the changes made to the Runtime_Tools
     application.</p>
+
+<section><title>Runtime_Tools 1.8.6</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Two new built-in trace pattern aliases have been added:
+	    caller_trace (c) and caller_exception_trace (cx). See the
+	    dbg:ltp/0 documentation for more info.</p>
+          <p>
+	    Own Id: OTP-9458</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.8.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    When a big number of trace patterns are set by inviso the
+	    Erlang VM could get unresponsive for several seconds.
+	    This is now corrected.</p>
+          <p>
+	    Own Id: OTP-9048 Aux Id: seq11480 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.8.4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Minor corrections and removal of a temporary workaround.</p>
+          <p>
+	    Own Id: OTP-8755 Aux Id: seq-11628, seq-11639 </p>
+        </item>
+        <item>
+          <p>
+	    Small fix in inviso_autostart_server.</p>
+          <p>
+	    Own Id: OTP-8783 Aux Id: seq11628 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.8.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Miscellaneous updates.</p>
+          <p>
+	    Own Id: OTP-8705</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Runtime_Tools 1.8.3</title>
 

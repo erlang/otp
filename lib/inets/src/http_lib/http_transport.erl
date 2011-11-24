@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -23,7 +23,7 @@
 -export([
 	 start/1, 
 	 connect/3, connect/4, 
-	 listen/2, listen/3, 
+	 listen/2, listen/3, listen/4, 
 	 accept/2, accept/3, 
 	 close/2,
 	 send/3, 
@@ -33,10 +33,12 @@
 	 peername/2, sockname/2, 
 	 resolve/0
 	]).
-
 -export([negotiate/3]).
+-export([ipv4_name/1, ipv6_name/1]).
 
--include("inets_internal.hrl").
+-include_lib("inets/src/inets_app/inets_internal.hrl").
+-include("http_internal.hrl").
+
 -define(SERVICE, httpl).
 -define(hlri(Label, Content), ?report_important(Label, ?SERVICE, Content)).
 -define(hlrv(Label, Content), ?report_verbose(Label,   ?SERVICE, Content)).
@@ -55,6 +57,16 @@
 %% Description: Makes sure inet_db or ssl is started. 
 %%-------------------------------------------------------------------------
 start(ip_comm) ->
+    do_start_ip_comm();
+
+%% This is just for backward compatibillity
+start({ssl, _}) ->
+    do_start_ssl();
+start({essl, _}) ->
+    do_start_ssl().
+
+
+do_start_ip_comm() ->
     case inet_db:start() of
 	{ok, _} ->
 	    ok;
@@ -62,8 +74,9 @@ start(ip_comm) ->
 	    ok;
 	Error ->
 	    Error
-    end;
-start({ssl, _}) ->
+    end.
+
+do_start_ssl() ->
     case ssl:start() of
 	ok ->
 	    ok;
@@ -95,28 +108,45 @@ connect(ip_comm = _SocketType, {Host, Port}, Opts0, Timeout)
     Opts = [binary, {packet, 0}, {active, false}, {reuseaddr, true} | Opts0],
     ?hlrt("connect using gen_tcp", 
 	  [{host, Host}, {port, Port}, {opts, Opts}, {timeout, Timeout}]),
-    gen_tcp:connect(Host, Port, Opts, Timeout);
+    try gen_tcp:connect(Host, Port, Opts, Timeout) of
+	{ok, _} = OK ->
+	    OK;
+	{error, _} = ERROR ->
+	    ERROR
+    catch 
+	exit:{badarg, _} ->
+	    {error, {eoptions, Opts}};
+	exit:badarg ->
+	    {error, {eoptions, Opts}}
+    end;
 
-connect({ssl, SslConfig}, {Host, Port}, _, Timeout) ->
-    Opts = [binary, {active, false}] ++ SslConfig,
-    ?hlrt("connect using ssl", 
-	  [{host, Host}, {port, Port}, {ssl_config, SslConfig}, 
-	   {timeout, Timeout}]),
-    ssl:connect(Host, Port, Opts, Timeout);
+%% Wrapper for backaward compatibillity
+connect({ssl, SslConfig}, Address, Opts, Timeout) ->
+    connect({?HTTP_DEFAULT_SSL_KIND, SslConfig}, Address, Opts, Timeout);
 
-connect({erl_ssl, SslConfig}, {Host, Port}, _, Timeout) ->
-    Opts = [binary, {active, false}, {ssl_imp, new}] ++ SslConfig,
-    ?hlrt("connect using erl_ssl", 
-	  [{host, Host}, {port, Port}, {ssl_config, SslConfig}, 
-	   {timeout, Timeout}]),
-    ssl:connect(Host, Port, Opts, Timeout).
+connect({essl, SslConfig}, {Host, Port}, Opts0, Timeout) -> 
+    Opts = [binary, {active, false}, {ssl_imp, new} | Opts0] ++ SslConfig,
+    ?hlrt("connect using essl", 
+	  [{host,       Host}, 
+	   {port,       Port}, 
+	   {ssl_config, SslConfig}, 
+	   {timeout,    Timeout}]),
+    case (catch ssl:connect(Host, Port, Opts, Timeout)) of
+	{'EXIT', Reason} ->
+	    {error, {eoptions, Reason}};
+	{ok, _} = OK ->
+	    OK;
+	{error, _} = ERROR ->
+	    ERROR
+    end.
 
 
 %%-------------------------------------------------------------------------
-%% listen(SocketType, Port) -> {ok, Socket} | {error, Reason}
+%% listen(SocketType, Addr, Port, Fd) -> {ok, Socket} | {error, Reason}
 %%      SocketType = ip_comm | {ssl, SSLConfig}  
 %%      Port = integer() 
-%%      Socket = socket()                            
+%%      Socket = socket()
+%%      Fd = undefined | fd()
 %%
 %% Description: Sets up socket to listen on the port Port on the local
 %% host using either gen_tcp or ssl. In the gen_tcp case the port
@@ -128,75 +158,137 @@ connect({erl_ssl, SslConfig}, {Host, Port}, _, Timeout) ->
 listen(SocketType, Port) ->
     listen(SocketType, undefined, Port).
 
-listen(ip_comm, Addr, Port) ->
-    case (catch listen_ip_comm(Addr, Port)) of
+listen(ip_comm = _SocketType, Addr, Port) ->
+    listen_ip_comm(Addr, Port, undefined);
+
+%% Wrapper for backaward compatibillity
+listen({ssl, SSLConfig}, Addr, Port) ->
+    ?hlrt("listen (wrapper)", 
+	  [{addr,       Addr}, 
+	   {port,       Port}, 
+	   {ssl_config, SSLConfig}]),
+    listen({?HTTP_DEFAULT_SSL_KIND, SSLConfig}, Addr, Port);
+
+listen({essl, SSLConfig}, Addr, Port) ->
+    ?hlrt("listen (essl)", 
+	  [{addr,       Addr}, 
+	   {port,       Port}, 
+	   {ssl_config, SSLConfig}]),
+    listen_ssl(Addr, Port, [{ssl_imp, new}, {reuseaddr, true} | SSLConfig]).
+
+
+listen(ip_comm, Addr, Port, Fd) ->
+    listen_ip_comm(Addr, Port, Fd).
+
+listen_ip_comm(Addr, Port, Fd) ->
+    case (catch do_listen_ip_comm(Addr, Port, Fd)) of
 	{'EXIT', Reason} ->
 	    {error, {exit, Reason}};
 	Else ->
 	    Else
-    end;
+    end.
 
-listen({ssl, SSLConfig} = Ssl, Addr, Port) ->
-    Opt = sock_opt(Ssl, Addr, SSLConfig),
-    ssl:listen(Port, Opt);
-
-listen({erl_ssl, SSLConfig} = Ssl, Addr, Port) ->
-    Opt = sock_opt(Ssl, Addr, SSLConfig),
-    ssl:listen(Port, [{ssl_imp, new} | Opt]).
-
-
-listen_ip_comm(Addr, Port) ->
-    {NewPort, Opts, IpFamily} = get_socket_info(Addr, Port),
+do_listen_ip_comm(Addr, Port, Fd) ->
+    {NewPort, Opts, IpFamily} = get_socket_info(Addr, Port, Fd),
     case IpFamily of
 	inet6fb4 -> 
 	    Opts2 = [inet6 | Opts], 
+	    ?hlrt("try ipv6 listen", [{port, NewPort}, {opts, Opts2}]),
 	    case (catch gen_tcp:listen(NewPort, Opts2)) of
 		{error, Reason} when ((Reason =:= nxdomain) orelse 
 				      (Reason =:= eafnosupport)) ->
 		    Opts3 = [inet | Opts], 
+		    ?hlrt("ipv6 listen failed - try ipv4 instead", 
+			  [{reason, Reason}, {port, NewPort}, {opts, Opts3}]),
 		    gen_tcp:listen(NewPort, Opts3);
 
 		%% This is when a given hostname has resolved to a 
 		%% IPv4-address. The inet6-option together with a 
 		%% {ip, IPv4} option results in badarg
-		{'EXIT', _} -> 
+		{'EXIT', Reason} -> 
 		    Opts3 = [inet | Opts], 
+		    ?hlrt("ipv6 listen exit - try ipv4 instead", 
+			  [{reason, Reason}, {port, NewPort}, {opts, Opts3}]),
 		    gen_tcp:listen(NewPort, Opts3); 
 
 		Other ->
+		    ?hlrt("ipv6 listen done", [{other, Other}]),
 		    Other
 	    end;
 	_ ->
 	    Opts2 = [IpFamily | Opts],
+	    ?hlrt("listen", [{port, NewPort}, {opts, Opts2}]),
 	    gen_tcp:listen(NewPort, Opts2)
     end.
+
+
+listen_ssl(Addr, Port, Opts0) ->
+    IpFamily = ipfamily_default(Addr, Port), 
+    BaseOpts = [{backlog, 128}, {reuseaddr, true} | Opts0], 
+    Opts     = sock_opts(Addr, BaseOpts),
+    case IpFamily of
+	inet6fb4 -> 
+	    Opts2 = [inet6 | Opts], 
+	    ?hlrt("try ipv6 listen", [{opts, Opts2}]),
+	    case (catch ssl:listen(Port, Opts2)) of
+		{error, Reason} when ((Reason =:= nxdomain) orelse 
+				      (Reason =:= eafnosupport)) ->
+		    Opts3 = [inet | Opts], 
+		    ?hlrt("ipv6 listen failed - try ipv4 instead", 
+			  [{reason, Reason}, {opts, Opts3}]),
+		    ssl:listen(Port, Opts3);
+		
+		{'EXIT', Reason} -> 
+		    Opts3 = [inet | Opts], 
+		    ?hlrt("ipv6 listen exit - try ipv4 instead", 
+			  [{reason, Reason}, {opts, Opts3}]),
+		    ssl:listen(Port, Opts3); 
+		
+		Other ->
+		    ?hlrt("ipv6 listen done", [{other, Other}]),
+		    Other
+	    end;
+	
+	_ ->
+	    Opts2 = [IpFamily | Opts],
+	    ?hlrt("listen", [{opts, Opts2}]),
+	    ssl:listen(Port, Opts2)
+    end.
+
 
 ipfamily_default(Addr, Port) ->
     httpd_conf:lookup(Addr, Port, ipfamily, inet6fb4).
 
-get_socket_info(Addr, Port) ->
-    Key  = list_to_atom("httpd_" ++ integer_to_list(Port)),
-    BaseOpts =  [{backlog, 128}, {reuseaddr, true}], 
+get_socket_info(Addr, Port, Fd0) ->
+    BaseOpts        = [{backlog, 128}, {reuseaddr, true}], 
     IpFamilyDefault = ipfamily_default(Addr, Port), 
-    case init:get_argument(Key) of
-	{ok, [[Value]]} ->
-	    {Fd, IpFamily} = 
-		case string:tokens(Value, [$|]) of
-		    [FdStr, IpFamilyStr] ->
-			Fd0       = fd_of(FdStr),
-			IpFamily0 = ip_family_of(IpFamilyStr),
-			{Fd0, IpFamily0};
-		    [FdStr] ->
-			{fd_of(FdStr), IpFamilyDefault};
-		    _ ->
-			throw({error, {bad_descriptor, Value}})
-		end,
-	    {0, sock_opt(ip_comm, Addr, [{fd, Fd} | BaseOpts]), IpFamily};
-	error ->
-	    {Port, sock_opt(ip_comm, Addr, BaseOpts), IpFamilyDefault}
+    %% The presence of a file descriptor takes precedence
+    case get_fd(Port, Fd0, IpFamilyDefault) of
+	{Fd, IpFamily} -> 
+	    {0, sock_opts(Addr, [{fd, Fd} | BaseOpts]), IpFamily};
+	undefined ->
+	    {Port, sock_opts(Addr, BaseOpts), IpFamilyDefault}
     end.
 	    
+get_fd(Port, undefined = _Fd, IpFamilyDefault) ->
+    FdKey = list_to_atom("httpd_" ++ integer_to_list(Port)),
+    case init:get_argument(FdKey) of
+	{ok, [[Value]]} ->
+	    case string:tokens(Value, [$|]) of
+		[FdStr, IpFamilyStr] ->
+		    {fd_of(FdStr), ip_family_of(IpFamilyStr)};
+		[FdStr] ->
+		    {fd_of(FdStr), IpFamilyDefault};
+		_ ->
+		    throw({error, {bad_descriptor, Value}})
+	    end;
+	error ->
+	    undefined
+    end;
+get_fd(_Port, Fd, IpFamilyDefault) ->
+    {Fd, IpFamilyDefault}.
 
+    
 fd_of(FdStr) ->
     case (catch list_to_integer(FdStr)) of
 	Fd when is_integer(Fd) ->
@@ -228,9 +320,15 @@ ip_family_of(IpFamilyStr) ->
 %%-------------------------------------------------------------------------
 accept(SocketType, ListenSocket) ->
     accept(SocketType, ListenSocket, infinity).
+
 accept(ip_comm, ListenSocket, Timeout) ->
     gen_tcp:accept(ListenSocket, Timeout);
-accept({ssl,_SSLConfig}, ListenSocket, Timeout) ->
+
+%% Wrapper for backaward compatibillity
+accept({ssl, SSLConfig}, ListenSocket, Timeout) ->
+    accept({?HTTP_DEFAULT_SSL_KIND, SSLConfig}, ListenSocket, Timeout);
+
+accept({essl, _SSLConfig}, ListenSocket, Timeout) ->
     ssl:transport_accept(ListenSocket, Timeout).
 
 
@@ -244,7 +342,12 @@ accept({ssl,_SSLConfig}, ListenSocket, Timeout) ->
 %%-------------------------------------------------------------------------
 controlling_process(ip_comm, Socket, NewOwner) ->
     gen_tcp:controlling_process(Socket, NewOwner);
-controlling_process({ssl, _}, Socket, NewOwner) ->
+
+%% Wrapper for backaward compatibillity
+controlling_process({ssl, SSLConfig}, Socket, NewOwner) ->
+    controlling_process({?HTTP_DEFAULT_SSL_KIND, SSLConfig}, Socket, NewOwner);
+
+controlling_process({essl, _}, Socket, NewOwner) ->
     ssl:controlling_process(Socket, NewOwner).
 
 
@@ -259,9 +362,16 @@ controlling_process({ssl, _}, Socket, NewOwner) ->
 setopts(ip_comm, Socket, Options) ->
     ?hlrt("ip_comm setopts", [{socket, Socket}, {options, Options}]),
     inet:setopts(Socket, Options);
-setopts({ssl, _}, Socket, Options) ->
-    ?hlrt("ssl setopts", [{socket, Socket}, {options, Options}]),
-    ssl:setopts(Socket, Options).
+
+%% Wrapper for backaward compatibillity
+setopts({ssl, SSLConfig}, Socket, Options) ->
+    setopts({?HTTP_DEFAULT_SSL_KIND, SSLConfig}, Socket, Options);
+
+setopts({essl, _}, Socket, Options) ->
+    ?hlrt("[e]ssl setopts", [{socket, Socket}, {options, Options}]),
+    Reason = (catch ssl:setopts(Socket, Options)),
+    ?hlrt("[e]ssl setopts result", [{reason, Reason}]),
+    Reason.
 
 
 %%-------------------------------------------------------------------------
@@ -283,15 +393,23 @@ getopts(ip_comm, Socket, Options) ->
 	{error, _} -> 
 	    []
     end;
-getopts({ssl, _}, Socket, Options) ->
-    ?hlrt("ssl getopts", [{socket, Socket}, {options, Options}]),
+
+%% Wrapper for backaward compatibillity
+getopts({ssl, SSLConfig}, Socket, Options) ->
+    getopts({?HTTP_DEFAULT_SSL_KIND, SSLConfig}, Socket, Options);
+
+getopts({essl, _}, Socket, Options) ->
+    ?hlrt("essl getopts", [{socket, Socket}, {options, Options}]),
+    getopts_ssl(Socket, Options).
+
+getopts_ssl(Socket, Options) ->
     case ssl:getopts(Socket, Options) of
 	{ok, SocketOpts} ->
 	    SocketOpts;
 	{error, _} -> 
 	    []
     end.
-
+    
 
 %%-------------------------------------------------------------------------
 %% getstat(SocketType, Socket) -> socket_stats()
@@ -308,8 +426,12 @@ getstat(ip_comm = _SocketType, Socket) ->
 	{error, _} ->
 	    []
     end;
-getstat({ssl, _} = _SocketType, _Socket) ->
-    %% ?hlrt("ssl getstat", [{socket, Socket}]),
+
+%% Wrapper for backaward compatibillity
+getstat({ssl, SSLConfig}, Socket) ->
+    getstat({?HTTP_DEFAULT_SSL_KIND, SSLConfig}, Socket);
+
+getstat({essl, _} = _SocketType, _Socket) ->
     [].
 
 
@@ -322,7 +444,12 @@ getstat({ssl, _} = _SocketType, _Socket) ->
 %%-------------------------------------------------------------------------
 send(ip_comm, Socket, Message) ->
     gen_tcp:send(Socket, Message);
-send({ssl, _}, Socket, Message) ->
+
+%% Wrapper for backaward compatibillity
+send({ssl, SSLConfig}, Socket, Message) ->
+    send({?HTTP_DEFAULT_SSL_KIND, SSLConfig}, Socket, Message);
+
+send({essl, _}, Socket, Message) ->
     ssl:send(Socket, Message).
 
 
@@ -335,8 +462,14 @@ send({ssl, _}, Socket, Message) ->
 %%-------------------------------------------------------------------------
 close(ip_comm, Socket) ->
     gen_tcp:close(Socket);
-close({ssl, _}, Socket) ->
+
+%% Wrapper for backaward compatibillity
+close({ssl, SSLConfig}, Socket) ->
+    close({?HTTP_DEFAULT_SSL_KIND, SSLConfig}, Socket);
+
+close({essl, _}, Socket) ->
     ssl:close(Socket).
+
 
 %%-------------------------------------------------------------------------
 %% peername(SocketType, Socket) -> {Port, SockName}
@@ -349,34 +482,25 @@ close({ssl, _}, Socket) ->
 %% connection, usning either gen_tcp or ssl.
 %%-------------------------------------------------------------------------
 peername(ip_comm, Socket) ->
-    case inet:peername(Socket) of
-	{ok,{{A, B, C, D}, Port}} ->
-	    PeerName = integer_to_list(A)++"."++integer_to_list(B)++"."++
-		integer_to_list(C)++"."++integer_to_list(D),
-	    {Port, PeerName};
-	{ok,{{A, B, C, D, E, F, G, H}, Port}} ->
-	    PeerName =  http_util:integer_to_hexlist(A) ++ ":"++  
-		http_util:integer_to_hexlist(B) ++ ":" ++  
-		http_util:integer_to_hexlist(C) ++ ":" ++ 
-		http_util:integer_to_hexlist(D) ++ ":" ++  
-		http_util:integer_to_hexlist(E) ++ ":" ++  
-		http_util:integer_to_hexlist(F) ++ ":" ++  
-		http_util:integer_to_hexlist(G) ++":"++  
-		http_util:integer_to_hexlist(H),
-	    {Port, PeerName};
-	{error, _} ->
-	    {-1, "unknown"}
-    end;
+    do_peername(inet:peername(Socket));
 
-peername({ssl, _}, Socket) ->
-    case ssl:peername(Socket) of
-	{ok,{{A, B, C, D}, Port}} ->
-	    PeerName = integer_to_list(A)++"."++integer_to_list(B)++"."++
-		integer_to_list(C)++"."++integer_to_list(D),
-	    {Port, PeerName};
-	{error, _} ->
-	    {-1, "unknown"}
-    end.
+%% Wrapper for backaward compatibillity
+peername({ssl, SSLConfig}, Socket) ->
+    peername({?HTTP_DEFAULT_SSL_KIND, SSLConfig}, Socket);
+
+peername({essl, _}, Socket) ->
+    do_peername(ssl:peername(Socket)).
+
+do_peername({ok, {Addr, Port}}) 
+  when is_tuple(Addr) andalso (size(Addr) =:= 4) ->
+    PeerName = ipv4_name(Addr), 
+    {Port, PeerName};
+do_peername({ok, {Addr, Port}}) 
+  when is_tuple(Addr) andalso (size(Addr) =:= 8) ->
+    PeerName = ipv6_name(Addr), 
+    {Port, PeerName};
+do_peername({error, _}) ->
+    {-1, "unknown"}.
 
 
 %%-------------------------------------------------------------------------
@@ -390,34 +514,25 @@ peername({ssl, _}, Socket) ->
 %% other end of connection, using either gen_tcp or ssl.
 %%-------------------------------------------------------------------------
 sockname(ip_comm, Socket) ->
-    case inet:sockname(Socket) of
-	{ok,{{A, B, C, D}, Port}} ->
-	    SockName = integer_to_list(A)++"."++integer_to_list(B)++"."++
-		integer_to_list(C)++"."++integer_to_list(D),
-	    {Port, SockName};
-	{ok,{{A, B, C, D, E, F, G, H}, Port}} ->
-	    SockName =  http_util:integer_to_hexlist(A) ++ ":"++  
-		http_util:integer_to_hexlist(B) ++ ":" ++  
-		http_util:integer_to_hexlist(C) ++ ":" ++ 
-		http_util:integer_to_hexlist(D) ++ ":" ++  
-		http_util:integer_to_hexlist(E) ++ ":" ++  
-		http_util:integer_to_hexlist(F) ++ ":" ++  
-		http_util:integer_to_hexlist(G) ++":"++  
-		http_util:integer_to_hexlist(H),
-	    {Port, SockName};
-	{error, _} ->
-	    {-1, "unknown"}
-    end;
+    do_sockname(inet:sockname(Socket));
 
-sockname({ssl, _}, Socket) ->
-    case ssl:sockname(Socket) of
-	{ok,{{A, B, C, D}, Port}} ->
-	    SockName = integer_to_list(A)++"."++integer_to_list(B)++"."++
-		integer_to_list(C)++"."++integer_to_list(D),
-	    {Port, SockName};
-	{error, _} ->
-	    {-1, "unknown"}
-    end.
+%% Wrapper for backaward compatibillity
+sockname({ssl, SSLConfig}, Socket) ->
+    sockname({?HTTP_DEFAULT_SSL_KIND, SSLConfig}, Socket);
+
+sockname({essl, _}, Socket) ->
+    do_sockname(ssl:sockname(Socket)).
+
+do_sockname({ok, {Addr, Port}}) 
+  when is_tuple(Addr) andalso (size(Addr) =:= 4) ->
+    SockName = ipv4_name(Addr), 
+    {Port, SockName};
+do_sockname({ok, {Addr, Port}}) 
+  when is_tuple(Addr) andalso (size(Addr) =:= 8) ->
+    SockName = ipv6_name(Addr), 
+    {Port, SockName};
+do_sockname({error, _}) ->
+    {-1, "unknown"}.
 
 
 %%-------------------------------------------------------------------------
@@ -431,46 +546,72 @@ resolve() ->
     Name.
 
 
+%%-------------------------------------------------------------------------
+%% ipv4_name(Ipv4Addr) -> string()
+%% ipv6_name(Ipv6Addr) -> string()
+%%     Ipv4Addr = ip4_address()
+%%     Ipv6Addr = ip6_address()
+%%     
+%% Description: Returns the local hostname. 
+%%-------------------------------------------------------------------------
+ipv4_name({A, B, C, D}) ->
+    integer_to_list(A) ++ "." ++
+	integer_to_list(B) ++ "." ++
+	integer_to_list(C) ++ "." ++
+	integer_to_list(D).
+
+ipv6_name({A, B, C, D, E, F, G, H}) ->
+    http_util:integer_to_hexlist(A) ++ ":"++ 
+	http_util:integer_to_hexlist(B) ++ ":" ++  
+	http_util:integer_to_hexlist(C) ++ ":" ++ 
+	http_util:integer_to_hexlist(D) ++ ":" ++  
+	http_util:integer_to_hexlist(E) ++ ":" ++  
+	http_util:integer_to_hexlist(F) ++ ":" ++  
+	http_util:integer_to_hexlist(G) ++ ":" ++  
+	http_util:integer_to_hexlist(H).
+
+
 %%%========================================================================
 %%% Internal functions
 %%%========================================================================
 
+%% -- sock_opts --
 %% Address any comes from directive: BindAddress "*"
-sock_opt(ip_comm, any = Addr, Opts) -> 
-    sock_opt2([{ip, Addr} | Opts]);
-sock_opt(ip_comm, undefined, Opts) -> 
-    sock_opt2(Opts);
-sock_opt(_, any = _Addr, Opts) ->
-    sock_opt2(Opts);
-sock_opt(_, undefined = _Addr, Opts) ->
-    sock_opt2(Opts);
-sock_opt(_, {_,_,_,_} = Addr, Opts) -> 
-    sock_opt2([{ip, Addr} | Opts]);
-sock_opt(ip_comm, Addr, Opts) -> 
-    sock_opt2([{ip, Addr} | Opts]);
-sock_opt(_, Addr, Opts) ->
-    sock_opt2([{ip, Addr} | Opts]).
+sock_opts(undefined, Opts) -> 
+    sock_opts(Opts);
+sock_opts(any = Addr, Opts) -> 
+    sock_opts([{ip, Addr} | Opts]);
+sock_opts(Addr, Opts) ->
+    sock_opts([{ip, Addr} | Opts]).
 
-sock_opt2(Opts) ->
+sock_opts(Opts) ->
     [{packet, 0}, {active, false} | Opts].
 
-negotiate(ip_comm,_,_) ->
-    ok;
-negotiate({ssl,_},Socket,Timeout) ->
-    negotiate(Socket, Timeout);
-negotiate({erl_ssl, _}, Socket, Timeout) ->
-    negotiate(Socket, Timeout).
 
-negotiate(Socket, Timeout) ->
+%% -- negotiate --
+negotiate(ip_comm,_,_) ->
+    ?hlrt("negotiate(ip_comm)", []),
+    ok;
+negotiate({ssl, SSLConfig}, Socket, Timeout) ->
+    ?hlrt("negotiate(ssl)", []),
+    negotiate({?HTTP_DEFAULT_SSL_KIND, SSLConfig}, Socket, Timeout);
+negotiate({essl, _}, Socket, Timeout) ->
+    ?hlrt("negotiate(essl)", []),
+    negotiate_ssl(Socket, Timeout).
+
+negotiate_ssl(Socket, Timeout) ->
+    ?hlrt("negotiate_ssl", [{socket, Socket}, {timeout, Timeout}]),
     case ssl:ssl_accept(Socket, Timeout) of
 	ok ->
 	    ok;
-	{error, Error} ->
-	    case lists:member(Error,
-			      [timeout,econnreset,esslaccept,esslerrssl]) of
+	{error, Reason} ->
+	    ?hlrd("negotiate_ssl - accept failed", [{reason, Reason}]),
+	    %% Look for "valid" error reasons
+	    ValidReasons = [timeout, econnreset, esslaccept, esslerrssl], 
+	    case lists:member(Reason, ValidReasons) of
 		true ->
-		    {error,normal};
+		    {error, normal};
 		false ->
-		    {error, Error}
+		    {error, Reason}
            end
     end.

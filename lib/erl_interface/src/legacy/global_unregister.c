@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2009. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -37,7 +37,7 @@ int erl_global_unregister(int fd, const char *name)
   erlang_msg msg;
   int i;
   int version,arity,msglen;
-  int needunlink, needatom;
+  int needunlink, needatom, needdemonitor;
 
   /* make a self pid */
   self->num = fd;
@@ -57,7 +57,7 @@ int erl_global_unregister(int fd, const char *name)
   if (ei_send_reg_encoded(fd,self,"rex",buf,index)) return -1;
 
   /* get the reply: expect unlink and an atom, or just an atom */
-  needunlink = needatom = 1;
+  needunlink = needatom = needdemonitor = 1;
   while (1) {
     /* get message */
     while (1) {
@@ -68,9 +68,15 @@ int erl_global_unregister(int fd, const char *name)
 
     switch (i) {
     case ERL_UNLINK:
-      /* got link */
+      /* got unlink */
       if (!needunlink) return -1;
       needunlink = 0;
+      break;
+
+    case ERL_DEMONITOR_P-10:
+      /* got demonitor */
+      if (!needdemonitor) return -1;
+      needdemonitor = 0;
       break;
 
     case ERL_SEND:

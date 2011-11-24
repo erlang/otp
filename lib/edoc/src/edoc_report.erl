@@ -14,11 +14,9 @@
 %% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
 %% USA
 %%
-%% $Id$
-%% 
 %% @private
 %% @copyright 2001-2003 Richard Carlsson
-%% @author Richard Carlsson <richardc@it.uu.se>
+%% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @see edoc
 %% @end 
 %% =====================================================================
@@ -27,6 +25,8 @@
 
 -module(edoc_report).
 
+%% Avoid warning for local function error/2 clashing with autoimported BIF.
+-compile({no_auto_import,[error/2]}).
 -export([error/1,
 	 error/2,
 	 error/3,

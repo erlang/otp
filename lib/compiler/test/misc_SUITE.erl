@@ -1,42 +1,112 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2006-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2006-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(misc_SUITE).
 
--export([all/1,init_per_testcase/2,fin_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
+	 init_per_testcase/2,end_per_testcase/2,
 	 tobias/1,empty_string/1,md5/1,silly_coverage/1,
-	 confused_literals/1,integer_encoding/1]).
+	 confused_literals/1,integer_encoding/1,override_bif/1]).
 	 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
+
+%% For the override_bif testcase.
+%% NB, no other testcases in this testsuite can use these without erlang:prefix!
+-compile({no_auto_import,[abs/1]}).
+-compile({no_auto_import,[binary_part/3]}).
+-compile({no_auto_import,[binary_part/2]}).
+-import(test_lib,[binary_part/2]).
+
+%% This should do no harm (except for fun byte_size/1 which does not, by design, work with import
+-compile({no_auto_import,[byte_size/1]}).
+-import(erlang,[byte_size/1]).
+
+
+
+%% Include an opaque declaration to cover the stripping of
+%% opaque types from attributes in v3_kernel.
+-opaque misc_SUITE_test_cases() :: [atom()].
 
 init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     Dog = test_server:timetrap(?t:minutes(10)),
     [{watchdog,Dog}|Config].
 
-fin_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
+end_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),
     ok.
 
-all(suite) ->
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+-spec all() -> misc_SUITE_test_cases().
+all() -> 
     test_lib:recompile(?MODULE),
-    [tobias,empty_string,md5,silly_coverage,confused_literals,
-     integer_encoding].
+    [tobias, empty_string, md5, silly_coverage,
+     confused_literals, integer_encoding, override_bif].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
+
+
+%%
+%% Functions that override new and old bif's
+%%
+abs(_N) ->
+    dummy_abs.
+
+binary_part(_,_,_) ->
+    dummy_bp.
+
+% Make sure that auto-imported BIF's are overridden correctly
+
+override_bif(suite) ->
+    [];
+override_bif(doc) ->
+    ["Test dat local functions and imports override auto-imported BIFs."];
+override_bif(Config) when is_list(Config) ->
+    ?line dummy_abs = abs(1),
+    ?line dummy_bp = binary_part(<<"hello">>,1,1),
+    ?line dummy = binary_part(<<"hello">>,{1,1}),
+    ?line 1 = erlang:abs(1),
+    ?line <<"e">> = erlang:binary_part(<<"hello">>,1,1),
+    ?line <<"e">> = erlang:binary_part(<<"hello">>,{1,1}),
+    F = fun(X) when byte_size(X) =:= 4 ->
+		four;
+	   (X) ->
+		byte_size(X)
+	end,
+    ?line four = F(<<1,2,3,4>>),
+    ?line 5 = F(<<1,2,3,4,5>>),
+    ok.
 
 %% A bug reported by Tobias Lindahl for a development version of R11B.
 
@@ -92,14 +162,24 @@ md5_1(Beam) ->
 silly_coverage(Config) when is_list(Config) ->
     %% sys_core_fold, sys_core_setel, v3_kernel
     BadCoreErlang = {c_module,[],
-		     name,exports,attrs,
+		     name,[],[],
 		     [{{c_var,[],{foo,2}},seriously_bad_body}]},
     ?line expect_error(fun() -> sys_core_fold:module(BadCoreErlang, []) end),
     ?line expect_error(fun() -> sys_core_dsetel:module(BadCoreErlang, []) end),
     ?line expect_error(fun() -> v3_kernel:module(BadCoreErlang, []) end),
 
-    %% v3_codgen
-    CodegenInput = {?MODULE,[{foo,0}],[],[{function,foo,0,[a|b],a,b}]},
+    %% v3_life
+    BadKernel = {k_mdef,[],?MODULE,
+		 [{foo,0}],
+		 [],
+		 [{k_fdef,
+		   {k,[],[],[]},
+		   f,0,[],
+		   seriously_bad_body}]},
+    ?line expect_error(fun() -> v3_life:module(BadKernel, []) end),
+
+    %% v3_codegen
+    CodegenInput = {?MODULE,[{foo,0}],[],[{function,foo,0,[a|b],a,b,[]}]},
     ?line expect_error(fun() -> v3_codegen:module(CodegenInput, []) end),
 
     %% beam_block
@@ -107,7 +187,7 @@ silly_coverage(Config) when is_list(Config) ->
 		  [{function,foo,0,2,
 		    [{label,1},
 		     {func_info,{atom,?MODULE},{atom,foo},0},
-		     {label,2}|non_proper_list],99}]},
+		     {label,2}|non_proper_list]}],99},
     ?line expect_error(fun() -> beam_block:module(BlockInput, []) end),
 
     %% beam_bool
@@ -154,6 +234,17 @@ silly_coverage(Config) when is_list(Config) ->
 		   {test,bs_get_binary2,{f,99},0,[{x,0},{atom,all},1,[]],{x,0}},
 		   {block,[a|b]}]}],0},
     ?line expect_error(fun() -> beam_bsm:module(BsmInput, []) end),
+
+    %% beam_receive.
+    ReceiveInput = {?MODULE,[{foo,0}],[],
+		    [{function,foo,0,2,
+		      [{label,1},
+		       {func_info,{atom,?MODULE},{atom,foo},0},
+		       {label,2},
+		       {call_ext,0,{extfunc,erlang,make_ref,0}},
+		       {block,[a|b]}]}],0},
+    ?line expect_error(fun() -> beam_receive:module(ReceiveInput, []) end),
+
     ok.
 
 expect_error(Fun) ->

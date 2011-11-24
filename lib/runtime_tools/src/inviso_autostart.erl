@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -59,16 +59,9 @@ autostart(_AutoModArgs) ->
 		case try_load_module(FileNames) of
 		    ok ->
 			autostart_apply(M,F);
+
 		    false ->                % No such module available
 			"inviso_autostart.config"
-		end;
-	    {ok,{gettia_asc,asc_file}} ->   % Uggly hack to not have to change in GSN-CPS.
-		case try_load_module(["/tmp/DPE_COMMONLOG/gettia_asc",
-				      "/tmp/DPE_COMMONLOG/gettia_overload"]) of
-		    ok ->
-			autostart_apply(gettia_asc,asc_file);
-		    false ->                % No such module available
-			false
 		end;
 	    {ok,{M,F}} ->                   % Use M:F(node())
 		autostart_apply(M,F);

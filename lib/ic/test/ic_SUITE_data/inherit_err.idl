@@ -1,0 +1,71 @@
+
+
+// %CopyrightBegin%
+// 
+// Copyright Ericsson AB 1997-2010. All Rights Reserved.
+// 
+// The contents of this file are subject to the Erlang Public License,
+// Version 1.1, (the "License"); you may not use this file except in
+// compliance with the License. You should have received a copy of the
+// Erlang Public License along with this software. If not, it can be
+// retrieved online at http://www.erlang.org/.
+// 
+// Software distributed under the License is distributed on an "AS IS"
+// basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+// the License for the specific language governing rights and limitations
+// under the License.
+// 
+// %CopyrightEnd%
+
+//
+// Ops and attributes must not be redefined (shadowed)
+
+interface I1 {
+  long op1( in long a, inout char b, out boolean c );
+  long op2( in char a, inout char b, out boolean c );
+  attribute long a1, a2;
+  readonly attribute char a3;
+};
+
+interface I2 : I1 {
+  long op1( in float a, inout char b, out boolean c );
+  long op2( in char a, inout char b, out boolean c );
+  attribute long a1, a2;
+  readonly attribute char a3;
+};
+
+interface I3 : I1 {
+  long op3 (in string<19> b);
+};
+
+
+interface I4 : I3 {
+  long op1( in float a, inout char b, out boolean c );
+  long op2( in char a, inout char b, out boolean c );
+  attribute long a1, a2;
+  readonly attribute char a3;
+  
+  long op3 (in string<19> b);
+};
+
+
+interface I11 {
+  long op1( in float a, inout char b, out boolean c );
+  long op2( in char a, inout char b, out boolean c );
+  attribute long a1, a2;
+  readonly attribute char a3;
+};
+
+
+
+interface I5 : I1, I11 {};
+
+interface I6 : I1 {
+  const long op1=0;
+  const long op2=0;
+  const long a1=0;
+  const long a2=0;
+  const long a3=0;
+};
+
+

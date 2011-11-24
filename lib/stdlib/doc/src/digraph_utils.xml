@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2000</year><year>2009</year>
+      <year>2000</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -119,49 +119,43 @@
       considering all edges undirected.</p>
   </description>
 
+  <datatypes>
+    <datatype>
+      <name><marker id="type-digraph">digraph()</marker></name>
+      <desc><p>A digraph as returned by <c>digraph:new/0,1</c>.</p></desc>
+    </datatype>
+  </datatypes>
   <funcs>
     <func>
-      <name>arborescence_root(Digraph) -> no | {yes, Root}</name>
+      <name name="arborescence_root" arity="1"/>
       <fsummary>Check if a digraph is an arborescence.</fsummary>
-      <type>
-        <v>Digraph = digraph()</v>
-	<v>Root = vertex()</v>
-      </type>
       <desc>
-
-        <p>Returns <c>{yes, Root}</c> if <c>Root</c> is 
+        <p>Returns <c>{yes, <anno>Root</anno>}</c> if <c><anno>Root</anno></c> is
 	  the <seealso marker="#root">root</seealso> of the arborescence
-	  <c>Digraph</c>, <c>no</c> otherwise.
+	  <c><anno>Digraph</anno></c>, <c>no</c> otherwise.
 	  </p>
       </desc>
     </func>
     <func>
-      <name>components(Digraph) -> [Component]</name>
+      <name name="components" arity="1"/>
       <fsummary>Return the components of a digraph.</fsummary>
-      <type>
-        <v>Digraph = digraph()</v>
-        <v>Component = [vertex()]</v>
-      </type>
       <desc>
         <p>Returns a list 
 	  of <seealso marker="#components">connected components</seealso>. 
 	  Each component is represented by its
           vertices. The order of the vertices and the order of the
           components are arbitrary. Each vertex of the digraph
-          <c>Digraph</c> occurs in exactly one component.
+          <c><anno>Digraph</anno></c> occurs in exactly one component.
           </p>
       </desc>
     </func>
     <func>
-      <name>condensation(Digraph) -> CondensedDigraph</name>
+      <name name="condensation" arity="1"/>
       <fsummary>Return a condensed graph of a digraph.</fsummary>
-      <type>
-        <v>Digraph = CondensedDigraph = digraph()</v>
-      </type>
       <desc>
         <p>Creates a digraph where the vertices are 
   	  the <seealso marker="#strong_components">strongly connected 
-	  components</seealso> of <c>Digraph</c> as returned by
+	  components</seealso> of <c><anno>Digraph</anno></c> as returned by
           <c>strong_components/1</c>. If X and Y are strongly
           connected components, and there exist vertices x and y in X
           and Y respectively such that there is an 
@@ -169,7 +163,7 @@
 	  and <seealso marker="#incident">incident</seealso> on y, then 
 	  an edge emanating from X and incident on Y is created.
           </p>
-        <p>The created digraph has the same type as <c>Digraph</c>.
+        <p>The created digraph has the same type as <c><anno>Digraph</anno></c>.
           All vertices and edges have the 
 	  default <seealso marker="#label">label</seealso> <c>[]</c>.
           </p>
@@ -181,12 +175,8 @@
       </desc>
     </func>
     <func>
-      <name>cyclic_strong_components(Digraph) -> [StrongComponent]</name>
+      <name name="cyclic_strong_components" arity="1"/>
       <fsummary>Return the cyclic strong components of a digraph.</fsummary>
-      <type>
-        <v>Digraph = digraph()</v>
-        <v>StrongComponent = [vertex()]</v>
-      </type>
       <desc>
         <p>Returns a list of <seealso marker="#strong_components">strongly 
 	  connected components</seealso>. 
@@ -194,67 +184,50 @@
           by its vertices. The order of the vertices and the order of
           the components are arbitrary. Only vertices that are
           included in some <seealso marker="#cycle">cycle</seealso> in
-          <c>Digraph</c> are returned, otherwise the returned list is
+          <c><anno>Digraph</anno></c> are returned, otherwise the returned list is
           equal to that returned by <c>strong_components/1</c>.
           </p>
       </desc>
     </func>
     <func>
-      <name>is_acyclic(Digraph) -> bool()</name>
+      <name name="is_acyclic" arity="1"/>
       <fsummary>Check if a digraph is acyclic.</fsummary>
-      <type>
-        <v>Digraph = digraph()</v>
-      </type>
       <desc>
         <p>Returns <c>true</c> if and only if the digraph
-          <c>Digraph</c> is <seealso marker="#acyclic_digraph">acyclic</seealso>.</p>
+          <c><anno>Digraph</anno></c> is <seealso marker="#acyclic_digraph">acyclic</seealso>.</p>
       </desc>
     </func>
     <func>
-      <name>is_arborescence(Digraph) -> bool()</name>
+      <name name="is_arborescence" arity="1"/>
       <fsummary>Check if a digraph is an arborescence.</fsummary>
-      <type>
-        <v>Digraph = digraph()</v>
-      </type>
       <desc>
         <p>Returns <c>true</c> if and only if the digraph
-          <c>Digraph</c> is 
+          <c><anno>Digraph</anno></c> is
 	  an <seealso marker="#arborescence">arborescence</seealso>.</p>
       </desc>
     </func>
     <func>
-      <name>is_tree(Digraph) -> bool()</name>
+      <name name="is_tree" arity="1"/>
       <fsummary>Check if a digraph is a tree.</fsummary>
-      <type>
-        <v>Digraph = digraph()</v>
-      </type>
       <desc>
         <p>Returns <c>true</c> if and only if the digraph
-          <c>Digraph</c> is 
+          <c><anno>Digraph</anno></c> is
 	  a <seealso marker="#tree">tree</seealso>.</p>
       </desc>
     </func>
     <func>
-      <name>loop_vertices(Digraph) -> Vertices</name>
+      <name name="loop_vertices" arity="1"/>
       <fsummary>Return the vertices of a digraph included in  some loop.</fsummary>
-      <type>
-        <v>Digraph = digraph()</v>
-        <v>Vertices = [vertex()]</v>
-      </type>
       <desc>
-        <p>Returns a list of all vertices of <c>Digraph</c> that are
+        <p>Returns a list of all vertices of <c><anno>Digraph</anno></c> that are
           included in some <seealso marker="#loop">loop</seealso>.</p>
       </desc>
     </func>
     <func>
-      <name>postorder(Digraph) -> Vertices</name>
+      <name name="postorder" arity="1"/>
       <fsummary>Return the vertices of a digraph in post-order.</fsummary>
-      <type>
-        <v>Digraph = digraph()</v>
-        <v>Vertices = [vertex()]</v>
-      </type>
       <desc>
-        <p>Returns all vertices of the digraph <c>Digraph</c>. The
+        <p>Returns all vertices of the digraph <c><anno>Digraph</anno></c>. The
           order is given by 
 	  a <seealso marker="#depth_first_traversal">depth-first 
 	  traversal</seealso> of the digraph, collecting visited
@@ -266,14 +239,10 @@
       </desc>
     </func>
     <func>
-      <name>preorder(Digraph) -> Vertices</name>
+      <name name="preorder" arity="1"/>
       <fsummary>Return the vertices of a digraph in pre-order.</fsummary>
-      <type>
-        <v>Digraph = digraph()</v>
-        <v>Vertices = [vertex()]</v>
-      </type>
       <desc>
-        <p>Returns all vertices of the digraph <c>Digraph</c>. The
+        <p>Returns all vertices of the digraph <c><anno>Digraph</anno></c>. The
           order is given by 
 	  a <seealso marker="#depth_first_traversal">depth-first 
 	  traversal</seealso> of the digraph, collecting visited
@@ -281,119 +250,94 @@
       </desc>
     </func>
     <func>
-      <name>reachable(Vertices, Digraph) -> Vertices</name>
+      <name name="reachable" arity="2"/>
       <fsummary>Return the vertices reachable from some vertices of  a digraph.</fsummary>
-      <type>
-        <v>Digraph = digraph()</v>
-        <v>Vertices = [vertex()]</v>
-      </type>
       <desc>
         <p>Returns an unsorted list of digraph vertices such that for
           each vertex in the list, there is 
-	  a <seealso marker="#path">path</seealso> in <c>Digraph</c> from some
-          vertex of <c>Vertices</c> to the vertex. In particular,
+	  a <seealso marker="#path">path</seealso> in <c><anno>Digraph</anno></c> from some
+          vertex of <c><anno>Vertices</anno></c> to the vertex. In particular,
           since paths may have length zero, the vertices of
-          <c>Vertices</c> are included in the returned list.
+          <c><anno>Vertices</anno></c> are included in the returned list.
           </p>
       </desc>
     </func>
     <func>
-      <name>reachable_neighbours(Vertices, Digraph) -> Vertices</name>
+      <name name="reachable_neighbours" arity="2"/>
       <fsummary>Return the neighbours reachable from some vertices of  a digraph.</fsummary>
-      <type>
-        <v>Digraph = digraph()</v>
-        <v>Vertices = [vertex()]</v>
-      </type>
       <desc>
         <p>Returns an unsorted list of digraph vertices such that for
           each vertex in the list, there is 
-	  a <seealso marker="#path">path</seealso> in <c>Digraph</c> of length
-          one or more from some vertex of <c>Vertices</c> to the
+	  a <seealso marker="#path">path</seealso> in <c><anno>Digraph</anno></c> of length
+          one or more from some vertex of <c><anno>Vertices</anno></c> to the
           vertex. As a consequence, only those vertices 
-	  of <c>Vertices</c> that are included in 
+	  of <c><anno>Vertices</anno></c> that are included in
 	  some <seealso marker="#cycle">cycle</seealso> are returned.
           </p>
       </desc>
     </func>
     <func>
-      <name>reaching(Vertices, Digraph) -> Vertices</name>
+      <name name="reaching" arity="2"/>
       <fsummary>Return the vertices that reach some vertices of  a digraph.</fsummary>
-      <type>
-        <v>Digraph = digraph()</v>
-        <v>Vertices = [vertex()]</v>
-      </type>
       <desc>
         <p>Returns an unsorted list of digraph vertices such that for
           each vertex in the list, there is 
 	  a <seealso marker="#path">path</seealso> from the vertex to some 
-	  vertex of <c>Vertices</c>. In particular, since paths may have
-          length zero, the vertices of <c>Vertices</c> are included in
+	  vertex of <c><anno>Vertices</anno></c>. In particular, since paths may have
+          length zero, the vertices of <c><anno>Vertices</anno></c> are included in
           the returned list.
           </p>
       </desc>
     </func>
     <func>
-      <name>reaching_neighbours(Vertices, Digraph) -> Vertices</name>
+      <name name="reaching_neighbours" arity="2"/>
       <fsummary>Return the neighbours that reach some vertices of  a digraph.</fsummary>
-      <type>
-        <v>Digraph = digraph()</v>
-        <v>Vertices = [vertex()]</v>
-      </type>
       <desc>
         <p>Returns an unsorted list of digraph vertices such that for
           each vertex in the list, there is 
 	  a <seealso marker="#path">path</seealso> of length one or more 
-	  from the vertex to some vertex of <c>Vertices</c>. As a consequence,
-          only those vertices of <c>Vertices</c> that are included in
+	  from the vertex to some vertex of <c><anno>Vertices</anno></c>. As a consequence,
+          only those vertices of <c><anno>Vertices</anno></c> that are included in
           some <seealso marker="#cycle">cycle</seealso> are returned.
           </p>
       </desc>
     </func>
     <func>
-      <name>strong_components(Digraph) -> [StrongComponent]</name>
+      <name name="strong_components" arity="1"/>
       <fsummary>Return the strong components of a digraph.</fsummary>
-      <type>
-        <v>Digraph = digraph()</v>
-        <v>StrongComponent = [vertex()]</v>
-      </type>
       <desc>
         <p>Returns a list of <seealso marker="#strong_components">strongly 
 	  connected components</seealso>. 
 	  Each strongly component is represented
           by its vertices. The order of the vertices and the order of
           the components are arbitrary. Each vertex of the digraph
-          <c>Digraph</c> occurs in exactly one strong component.
+          <c><anno>Digraph</anno></c> occurs in exactly one strong component.
           </p>
       </desc>
     </func>
     <func>
-      <name>subgraph(Digraph, Vertices [, Options]) ->  Subgraph</name>
+      <name name="subgraph" arity="2"/>
+      <name name="subgraph" arity="3"/>
       <fsummary>Return a subgraph of a digraph.</fsummary>
-      <type>
-        <v>Digraph = Subgraph = digraph()</v>
-        <v>Options = [{type, SubgraphType}, {keep_labels, bool()}]</v>
-        <v>SubgraphType = inherit | type()</v>
-        <v>Vertices = [vertex()]</v>
-      </type>
       <desc>
         <p>Creates a maximal <seealso marker="#subgraph">subgraph</seealso> of <c>Digraph</c> having
-          as vertices those vertices of <c>Digraph</c> that are
-          mentioned in <c>Vertices</c>.
+          as vertices those vertices of <c><anno>Digraph</anno></c> that are
+          mentioned in <c><anno>Vertices</anno></c>.
           </p>
         <p>If the value of the option <c>type</c> is <c>inherit</c>,
-          which is the default, then the type of <c>Digraph</c> is used 
+          which is the default, then the type of <c><anno>Digraph</anno></c> is used
           for the subgraph as well. Otherwise the option value of <c>type</c>
           is used as argument to <c>digraph:new/1</c>.
           </p>
         <p>If the value of the option <c>keep_labels</c> is <c>true</c>,
           which is the default, then 
 	  the <seealso marker="#label">labels</seealso> of vertices and edges
-          of <c>Digraph</c> are used for the subgraph as well. If the value
+          of <c><anno>Digraph</anno></c> are used for the subgraph as well. If the value
           is <c>false</c>, then the default label, <c>[]</c>, is used
           for the subgraph's vertices and edges.
           </p>
-        <p><c>subgraph(Digraph, Vertices)</c> is equivalent to
-          <c>subgraph(Digraph, Vertices, [])</c>.
+        <p><c>subgraph(<anno>Digraph</anno>, <anno>Vertices</anno>)</c> is equivalent to
+          <c>subgraph(<anno>Digraph</anno>, <anno>Vertices</anno>, [])</c>.
           </p>
        	<p>There will be a <c>badarg</c> exception if any of the arguments
 	  are invalid.
@@ -401,16 +345,12 @@
       </desc>
     </func>
     <func>
-      <name>topsort(Digraph) -> Vertices | false</name>
+      <name name="topsort" arity="1"/>
       <fsummary>Return a topological sorting of the vertices of  a digraph.</fsummary>
-      <type>
-        <v>Digraph = digraph()</v>
-        <v>Vertices = [vertex()]</v>
-      </type>
       <desc>
         <p>Returns a <seealso marker="#topsort">topological 
 	  ordering</seealso> of the vertices of the digraph
-          <c>Digraph</c> if such an ordering exists, <c>false</c>
+          <c><anno>Digraph</anno></c> if such an ordering exists, <c>false</c>
           otherwise. For each vertex in the returned list, there are
           no <seealso marker="#out_neighbour">out-neighbours</seealso>
           that occur earlier in the list.</p>

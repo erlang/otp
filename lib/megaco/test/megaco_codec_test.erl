@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -36,8 +36,8 @@ t(Case) -> megaco_test_lib:t({?MODULE, Case}).
 init_per_testcase(Case, Config) ->
     megaco_test_lib:init_per_testcase(Case, Config).
 
-fin_per_testcase(Case, Config) ->
-    megaco_test_lib:fin_per_testcase(Case, Config).
+end_per_testcase(Case, Config) ->
+    megaco_test_lib:end_per_testcase(Case, Config).
 
 init() ->
     process_flag(trap_exit, true),
@@ -47,17 +47,24 @@ init() ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Top test case
 
-all(suite) ->
-    [
-     codec
-    ].
+all() -> 
+    [{group, codec}].
 
-codec(suite) ->
-    [{megaco_codec_mini_test,   all}, 
-     {megaco_codec_v1_test,     all}, 
-     {megaco_codec_v2_test,     all}, 
-     {megaco_codec_prev3a_test, all}, 
-     {megaco_codec_prev3b_test, all}, 
-     {megaco_codec_prev3c_test, all}, 
-     {megaco_codec_v3_test,     all}].
+groups() -> 
+    [{codec, [],
+      [{megaco_codec_mini_test, all},
+       {megaco_codec_v1_test, all},
+       {megaco_codec_v2_test, all},
+       {megaco_codec_prev3a_test, all},
+       {megaco_codec_prev3b_test, all},
+       {megaco_codec_prev3c_test, all},
+       {megaco_codec_v3_test, all}]}].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
+
 

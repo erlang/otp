@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,12 +18,14 @@
 %%
 -module(snmp_community_mib).
 
+%% Avoid warning for local function error/1 clashing with autoimported BIF.
+-compile({no_auto_import,[error/1]}).
 -export([configure/1, reconfigure/1,
 	 snmpCommunityTable/1, snmpCommunityTable/3,
 	 snmpTargetAddrExtTable/3,
 	 community2vacm/2, vacm2community/2,
 	 get_target_addr_ext_mms/2]).
--export([add_community/5, delete_community/1]).
+-export([add_community/5, add_community/6, delete_community/1]).
 -export([check_community/1]).
 
 -include("SNMP-COMMUNITY-MIB.hrl").
@@ -126,12 +128,16 @@ read_community_config_files(Dir) ->
     Comms.
 
 check_community({Index, CommunityName, SecName, CtxName, TransportTag}) ->
+    EngineID = get_engine_id(),
+    check_community({Index, CommunityName, SecName, 
+		     EngineID, CtxName, TransportTag});
+check_community({Index, CommunityName, SecName, 
+		 EngineID, CtxName, TransportTag}) ->
     snmp_conf:check_string(Index,{gt,0}),
     snmp_conf:check_string(CommunityName),
     snmp_conf:check_string(SecName),
     snmp_conf:check_string(CtxName),
     snmp_conf:check_string(TransportTag),
-    EngineID = get_engine_id(),
     Comm = {Index, CommunityName, SecName, EngineID, CtxName, TransportTag,
 	    ?'StorageType_nonVolatile', ?'RowStatus_active'},
     {ok, Comm};
@@ -171,6 +177,13 @@ table_del_row(Tab, Key) ->
 %% FIXME: does not work with mnesia
 add_community(Idx, CommName, SecName, CtxName, TransportTag) ->
     Community = {Idx, CommName, SecName, CtxName, TransportTag},
+    do_add_community(Community).
+
+add_community(Idx, CommName, SecName, EngineId, CtxName, TransportTag) ->
+    Community = {Idx, CommName, SecName, EngineId, CtxName, TransportTag},
+    do_add_community(Community).
+
+do_add_community(Community) ->
     case (catch check_community(Community)) of
 	{ok, Row} ->
 	    Key = element(1, Row),
@@ -334,6 +347,8 @@ get_target_addr_ext_mms(TDomain, TAddress, Key) ->
 		    get_target_addr_ext_mms(TDomain, TAddress, NextKey)
 	    end
     end.
+
+
 %%-----------------------------------------------------------------
 %% Instrumentation Functions
 %%-----------------------------------------------------------------
@@ -345,7 +360,7 @@ snmpCommunityTable(print) ->
     PrintRow = 
 	fun(Prefix, Row) ->
 		lists:flatten(
-		  io_lib:format("~sIndex:             ~p"
+		  io_lib:format("~sIndex:           ~p"
 				"~n~sName:            ~p"
 				"~n~sSecurityName:    ~p"
 				"~n~sContextEngineID: ~p"

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -64,8 +64,10 @@
 static const char plusM_au_allocs[]= {
     'u',	/* all alloc_util allocators */
     'B',	/* binary_alloc		*/
+    'C',	/* sbmbc_alloc		*/
     'D',	/* std_alloc		*/
     'E',	/* ets_alloc		*/
+    'F',	/* fix_alloc		*/
     'H',	/* eheap_alloc		*/
     'L',	/* ll_alloc		*/
     'R',	/* driver_alloc		*/
@@ -93,6 +95,8 @@ static char *plusM_au_alloc_switches[] = {
     "rsbcst",
     "sbct",
     "smbcs",
+    "sbmbcs",
+    "sbmbct",
     NULL
 };
 
@@ -107,8 +111,6 @@ static char *plusM_other_switches[] = {
     "Mamcbf",
     "Mrmcbf",
     "Mmcs",
-    "Mcci",
-    "Fe",
     "Ye",
     "Ym",
     "Ytp",
@@ -119,7 +121,9 @@ static char *plusM_other_switches[] = {
 /* +s arguments with values */
 static char *pluss_val_switches[] = {
     "bt",
+    "cl",
     "ct",
+    "wt",
     "ss",
     NULL
 };
@@ -128,6 +132,18 @@ static char *plush_val_switches[] = {
     "ms",
     "mbs",
     "",
+    NULL
+};
+
+/* +r arguments with values */
+static char *plusr_val_switches[] = {
+    "g",
+    NULL
+};
+
+/* +z arguments with values */
+static char *plusz_val_switches[] = {
+    "dbbl",
     NULL
 };
 
@@ -302,7 +318,7 @@ free_env_val(char *value)
 }
 
 /*
- * Add the arcitecture suffix to the program name if needed,
+ * Add the architecture suffix to the program name if needed,
  * except on Windows, where we insert it just before ".DLL".
  */
 static char*
@@ -381,6 +397,7 @@ int main(int argc, char **argv)
     int print_args_exit = 0;
     int print_qouted_cmd_exit = 0;
     erts_cpu_info_t *cpuinfo = NULL;
+    char* emu_name;
 
 #ifdef __WIN32__
     this_module_handle = module;
@@ -553,7 +570,8 @@ int main(int argc, char **argv)
 	    usage("+MYm");
     }
     emu = add_extra_suffixes(emu, emu_type);
-    sprintf(tmpStr, "%s" DIRSEP "%s" BINARY_EXT, bindir, emu);
+    emu_name = strsave(emu);
+    erts_snprintf(tmpStr, sizeof(tmpStr), "%s" DIRSEP "%s" BINARY_EXT, bindir, emu);
     emu = strsave(tmpStr);
 
     add_Eargs(emu);		/* Will be argv[0] -- necessary! */
@@ -564,12 +582,12 @@ int main(int argc, char **argv)
 
     s = get_env("PATH");
     if (!s) {
-	sprintf(tmpStr, "%s" PATHSEP "%s" DIRSEP "bin", bindir, rootdir);
+	erts_snprintf(tmpStr, sizeof(tmpStr), "%s" PATHSEP "%s" DIRSEP "bin", bindir, rootdir);
     } else if (strstr(s, bindir) == NULL) {
-	sprintf(tmpStr, "%s" PATHSEP "%s" DIRSEP "bin" PATHSEP "%s", bindir, 
+	erts_snprintf(tmpStr, sizeof(tmpStr), "%s" PATHSEP "%s" DIRSEP "bin" PATHSEP "%s", bindir,
 		rootdir, s);
     } else {
-	sprintf(tmpStr, "%s", s);
+	erts_snprintf(tmpStr, sizeof(tmpStr), "%s", s);
     }
     free_env_val(s);
     set_env("PATH", tmpStr);
@@ -669,6 +687,9 @@ int main(int argc, char **argv)
 			verbose = 1;
 		    } else if (strcmp(argv[i], "-emu_args_exit") == 0) {
 			print_args_exit = 1;
+		    } else if (strcmp(argv[i], "-emu_name_exit") == 0) {
+			printf("%s\n", emu_name);
+			exit(0);
 		    } else if (strcmp(argv[i], "-emu_qouted_cmd_exit") == 0) {
 			print_qouted_cmd_exit = 1;
 		    } else if (strcmp(argv[i], "-env") == 0) { /* -env VARNAME VARVALUE */
@@ -707,7 +728,7 @@ int main(int argc, char **argv)
 			error("-man not supported on Windows");
 #else
 			argv[i] = "man";
-			sprintf(tmpStr, "%s/man", rootdir);
+			erts_snprintf(tmpStr, sizeof(tmpStr), "%s/man", rootdir);
 			set_env("MANPATH", tmpStr);
 			execvp("man", argv+i);
 			error("Could not execute the 'man' command.");
@@ -872,11 +893,40 @@ int main(int argc, char **argv)
 			  i++;
 		      }
 		      break;
+		  case 'r':
+		      if (!is_one_of_strings(&argv[i][2],
+					     plusr_val_switches))
+			  goto the_default;
+		      else {
+			  if (i+1 >= argc
+			      || argv[i+1][0] == '-'
+			      || argv[i+1][0] == '+')
+			      usage(argv[i]);
+			  argv[i][0] = '-';
+			  add_Eargs(argv[i]);
+			  add_Eargs(argv[i+1]);
+			  i++;
+		      }
+		      break;
 		  case 's':
 		      if (!is_one_of_strings(&argv[i][2],
 					     pluss_val_switches))
 			  goto the_default;
 		      else {
+			  if (i+1 >= argc
+			      || argv[i+1][0] == '-'
+			      || argv[i+1][0] == '+')
+			      usage(argv[i]);
+			  argv[i][0] = '-';
+			  add_Eargs(argv[i]);
+			  add_Eargs(argv[i+1]);
+			  i++;
+		      }
+		      break;
+		  case 'z':
+		      if (!is_one_of_strings(&argv[i][2], plusz_val_switches)) {
+			  goto the_default;
+		      } else {
 			  if (i+1 >= argc
 			      || argv[i+1][0] == '-'
 			      || argv[i+1][0] == '+')
@@ -1069,11 +1119,12 @@ usage_aux(void)
 	  "[-hybrid] "
 #endif
 	  "[-make] [-man [manopts] MANPAGE] [-x] [-emu_args] "
-	  "[-args_file FILENAME] "
-	  "[+A THREADS] [+a SIZE] [+B[c|d|i]] [+c] [+h HEAP_SIZE_OPTION] [+K BOOLEAN] "
+	  "[-args_file FILENAME] [+A THREADS] [+a SIZE] [+B[c|d|i]] [+c] "
+	  "[+h HEAP_SIZE_OPTION] [+K BOOLEAN] "
 	  "[+l] [+M<SUBSWITCH> <ARGUMENT>] [+P MAX_PROCS] [+R COMPAT_REL] "
-	  "[+r] [+s SCHEDULER_OPTION] [+S NO_SCHEDULERS:NO_SCHEDULERS_ONLINE] [+T LEVEL] [+V] [+v] [+W<i|w>] "
-	  "[args ...]\n");
+	  "[+r] [+rg READER_GROUPS_LIMIT] [+s SCHEDULER_OPTION] "
+	  "[+S NO_SCHEDULERS:NO_SCHEDULERS_ONLINE] [+T LEVEL] [+V] [+v] "
+	  "[+W<i|w>] [+z MISC_OPTION] [args ...]\n");
   exit(1);
 }
 
@@ -1122,10 +1173,10 @@ start_epmd(char *epmd)
     if (!epmd) {
 	epmd = epmd_cmd;
 #ifdef __WIN32__
-	sprintf(epmd_cmd, "%s" DIRSEP "epmd", bindir);
+	erts_snprintf(epmd_cmd, sizeof(epmd_cmd), "%s" DIRSEP "epmd", bindir);
 	arg1 = "-daemon";
 #else
-	sprintf(epmd_cmd, "%s" DIRSEP "epmd -daemon", bindir);
+	erts_snprintf(epmd_cmd, sizeof(epmd_cmd), "%s" DIRSEP "epmd -daemon", bindir);
 #endif
     } 
 #ifdef __WIN32__
@@ -1201,7 +1252,7 @@ void error(char* format, ...)
     va_list ap;
 
     va_start(ap, format);
-    vsprintf(sbuf, format, ap);
+    erts_vsnprintf(sbuf, sizeof(sbuf), format, ap);
     va_end(ap);
     fprintf(stderr, "erlexec: %s\n", sbuf);
     exit(1);
@@ -1281,14 +1332,14 @@ static void get_start_erl_data(char *file)
     if (env)
 	reldir = strsave(env);
     else {
-	sprintf(tmpbuffer, "%s/releases", rootdir);
+	erts_snprintf(tmpbuffer, sizeof(tmpbuffer), "%s/releases", rootdir);
 	reldir = strsave(tmpbuffer);
     }
     free_env_val(env);
     if (file == NULL)
-       sprintf(start_erl_data, "%s/start_erl.data", reldir);
+       erts_snprintf(start_erl_data, sizeof(start_erl_data), "%s/start_erl.data", reldir);
     else
-       sprintf(start_erl_data, "%s", file);
+       erts_snprintf(start_erl_data, sizeof(start_erl_data), "%s", file);
     fp = _open(start_erl_data, _O_RDONLY );
     if( fp == -1 )
 	error( "open failed on %s",start_erl_data );
@@ -1318,16 +1369,16 @@ static void get_start_erl_data(char *file)
     }
 	
     bindir = emalloc(512);
-    sprintf(bindir,"%s/erts-%s/bin",rootdir,tmpbuffer);
+    erts_snprintf(bindir,512,"%s/erts-%s/bin",rootdir,tmpbuffer);
     /* BINDIR=$ROOTDIR/erts-$ERTS_VSN/bin */
     tprogname = progname;
     progname = emalloc(strlen(tprogname) + 20);
-    sprintf(progname,"%s -start_erl",tprogname);
+    erts_snprintf(progname,strlen(tprogname) + 20,"%s -start_erl",tprogname);
 
     boot_script = emalloc(512);
     config_script = emalloc(512);
-    sprintf(boot_script, "%s/%s/start", reldir, otpstring);
-    sprintf(config_script, "%s/%s/sys", reldir, otpstring);
+    erts_snprintf(boot_script, 512, "%s/%s/start", reldir, otpstring);
+    erts_snprintf(config_script, 512, "%s/%s/sys", reldir, otpstring);
        
 }
 
@@ -1335,7 +1386,7 @@ static void get_start_erl_data(char *file)
 static char *replace_filename(char *path, char *new_base) 
 {
     int plen = strlen(path);
-    char *res = malloc((plen+strlen(new_base)+1)*sizeof(char));
+    char *res = emalloc((plen+strlen(new_base)+1)*sizeof(char));
     char *p;
 
     strcpy(res,path);
@@ -1350,7 +1401,7 @@ static char *path_massage(char *long_path)
 {
      char *p;
 
-     p = malloc(MAX_PATH+1);
+     p = emalloc(MAX_PATH+1);
      strcpy(p, long_path);
      GetShortPathName(p, p, MAX_PATH);
      return p;
@@ -1486,7 +1537,8 @@ get_parameters(int argc, char** argv)
 	/* Determine bindir from absolute path to executable */
 	char *p;
 	char buffer[PATH_MAX];
-	strcpy(buffer, argv[0]);
+	strncpy(buffer, argv[0], sizeof(buffer));
+	buffer[sizeof(buffer)-1] = '\0';
 	
 	for (p = buffer+strlen(buffer)-1 ; p >= buffer && *p != '/'; --p)
 	    ;
@@ -1499,7 +1551,8 @@ get_parameters(int argc, char** argv)
 	/* Determine rootdir from absolute path to bindir */
 	char *p;
 	char buffer[PATH_MAX];
-	strcpy(buffer, bindir);
+	strncpy(buffer, bindir, sizeof(buffer));
+	buffer[sizeof(buffer)-1] = '\0';
 	
 	for (p = buffer+strlen(buffer)-1; p >= buffer && *p != '/'; --p)
 	    ;
@@ -1925,6 +1978,11 @@ initial_argv_massage(int *argc, char ***argv)
      */
 
     vix = 0;
+
+    av = build_args_from_env("ERL_" OTP_SYSTEM_VERSION "_FLAGS");
+    if (av)
+	avv[vix++].argv = av;
+
     av = build_args_from_env("ERL_AFLAGS");
     if (av)
 	avv[vix++].argv = av;
@@ -1936,10 +1994,6 @@ initial_argv_massage(int *argc, char ***argv)
     }
 
     av = build_args_from_env("ERL_FLAGS");
-    if (av)
-	avv[vix++].argv = av;
-
-    av = build_args_from_env("ERL_" OTP_SYSTEM_VERSION "_FLAGS");
     if (av)
 	avv[vix++].argv = av;
 

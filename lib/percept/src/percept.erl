@@ -185,10 +185,27 @@ stop_webserver() ->
     	undefined -> 
 	    {error, not_started};
 	Pid ->
-	    Pid ! {self(), get_port},
-	    receive Port -> ok end,
-	    Pid ! quit,
-	    stop_webserver(Port)
+            do_stop([], Pid)
+    end.
+
+do_stop([], Pid)->
+    Pid ! {self(), get_port},
+    Port = receive P -> P end,
+    do_stop(Port, Pid);
+do_stop(Port, [])->
+    case whereis(percept_httpd) of
+        undefined ->
+            {error, not_started};
+        Pid ->
+            do_stop(Port, Pid)
+    end;
+do_stop(Port, Pid)->
+    case find_service_pid_from_port(inets:services_info(), Port) of
+        undefined ->
+            {error, not_started};
+        Pid2 ->
+            Pid ! quit,
+            inets:stop(httpd, Pid2)
     end.
 
 %% @spec stop_webserver(integer()) -> ok | {error, not_started}
@@ -196,12 +213,7 @@ stop_webserver() ->
 %% @hidden
 
 stop_webserver(Port) ->
-    case find_service_pid_from_port(inets:services_info(), Port) of
-	undefined ->
-	    {error, not_started};
-	Pid ->
-	    inets:stop(httpd, Pid)
-    end. 
+    do_stop(Port,[]).
 
 %%==========================================================================
 %%

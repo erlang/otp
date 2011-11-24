@@ -378,15 +378,15 @@ dbg_apply(M,F,A) ->
 		Res
 	end,
     case Result of
-	{'EXIT', {undef, [{M, F, A} | _]}} ->
+	{'EXIT', {undef, [{M, F, A, _} | _]}} ->
 	    {'EXIT', {hook_undef, {M, F, A}}};
-	{'EXIT', {function_clause, [{M, F, A} | _]}} ->
+	{'EXIT', {function_clause, [{M, F, A, _} | _]}} ->
 	    {'EXIT', {hook_function_clause, {M, F, A}}};
 
 	% XXX: Old format for compatibility
-	{'EXIT', {undef, {M, F, A}}} ->
+	{'EXIT', {undef, {M, F, A, _}}} ->
 	    {'EXIT', {hook_undef, {M, F, A}}};
-	{'EXIT', {function_clause, {M, F, A}}} ->
+	{'EXIT', {function_clause, {M, F, A, _}}} ->
 	    {'EXIT', {hook_function_clause, {M, F, A}}};
 
 	Result ->

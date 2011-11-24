@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -33,10 +33,10 @@ run() ->
 run([ColorMode]) ->   % This is for the start script...
     run(ColorMode);
 
-run(ColorMode) when atom(ColorMode) ->
+run(ColorMode) when is_atom(ColorMode) ->
     GS = gs:start(),
-    SoundPid=spawn_link(bonk_sound,start,[]),
-    {H,M,S}=time(),
+    SoundPid = spawn_link(bonk_sound,start,[]),
+    {H,M,S} = time(),
     random:seed(H*13,M*7,S*3),
     {SqrPids, Bmps, Colors} = create_board(GS, ColorMode),
     {ScoreL,_File} = get_highscore(),
@@ -96,7 +96,7 @@ init(SoundPid, SqrPids, Bmps, Colors) ->
 
 game(SoundPid, SqrPids, Bmps, Colors, Scores) ->
     receive
-  	{gs, _Square, buttonpress, SqrPid, [1 | _Rest]} when pid(SqrPid) ->
+	{gs, _Square, buttonpress, SqrPid, [1 | _Rest]} when is_pid(SqrPid) ->
 	    SqrPid ! bonk,
 	    game(SoundPid, SqrPids, Bmps, Colors, Scores);
 	{gs, _Id, buttonpress, _Data, [Butt | _Rest]} when Butt =/= 1 ->
@@ -224,11 +224,9 @@ update_score(SoundPid, SqrPids, Scores) ->
 
 send_to_all([], _Msg) ->
     true;
-
-send_to_all([Pid|Rest],Msg) when pid(Pid) ->
+send_to_all([Pid|Rest],Msg) when is_pid(Pid) ->
     Pid ! Msg,
     send_to_all(Rest,Msg);
-
 send_to_all([_Else|Rest],Msg) ->
     send_to_all(Rest,Msg).
 
@@ -460,7 +458,7 @@ update_scorelist(SoundPid, Scores) ->
 	    {ScoreL,FileName} = get_highscore(),
 	    New_scorelist=update_scorelist_2(ScoreL, Score, 0, SoundPid),
 	    display_highscore(New_scorelist),
-	    case file:open(FileName, write) of
+	    case file:open(FileName, [write]) of
 		{error,_} ->
 		    true;
 		{ok,FD} ->
@@ -559,7 +557,7 @@ display_about() ->
 					   {activebg, BGColor}]),
     gs:create(text, aboutText, aboutCan, [{width, Wid-30}, {coords, [{15, 0}]},
 					  {fg, TextColor}, {justify, center}]),
-    case file:open(lists:append(bonk_dir(),"bonk.txt"), read) of
+    case file:open(lists:append(bonk_dir(),"bonk.txt"), [read]) of
 	{ok, Fd} ->
 	    write_text(Fd, "", io:get_line(Fd, "")),
 	    file:close(Fd);

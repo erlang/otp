@@ -1,44 +1,66 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2003-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%% Purpose : Test records.
 
 -module(record_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
--export([all/1,init_per_testcase/2,fin_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
+	 init_per_testcase/2,end_per_testcase/2,
 	 errors/1,record_test_2/1,record_test_3/1,record_access_in_guards/1,
-	 guard_opt/1,eval_once/1,foobar/1,missing_test_heap/1]).
+	 guard_opt/1,eval_once/1,foobar/1,missing_test_heap/1,
+	 nested_access/1,coverage/1]).
 
 init_per_testcase(_Case, Config) ->
     ?line Dog = test_server:timetrap(test_server:minutes(2)),
     [{watchdog,Dog}|Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
-all(suite) ->
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
     test_lib:recompile(?MODULE),
-    [errors,record_test_2,record_test_3,record_access_in_guards,
-     guard_opt,eval_once,foobar,missing_test_heap].
+    [errors, record_test_2, record_test_3,
+     record_access_in_guards, guard_opt, eval_once, foobar,
+     missing_test_heap, nested_access, coverage].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 -record(foo, {a,b,c,d}).
 -record(bar, {a,b,c,d}).
@@ -521,5 +543,44 @@ missing_test_heap_1(A = #foo_rec {foo_1 = _B,
     A#foo_rec {foo_1 = {C, D},
   	       foo_3 = C + 1,
   	       foo_2 = D + 1}.
+
+-record(nrec0, {name = <<"nested0">>}).
+-record(nrec1, {name = <<"nested1">>, nrec0=#nrec0{}}).
+-record(nrec2, {name = <<"nested2">>, nrec1=#nrec1{}}).
+
+nested_access(Config) when is_list(Config) ->
+    N0 = #nrec0{},
+    N1 = #nrec1{},
+    N2 = #nrec2{},
+    ?line <<"nested0">> = N0#nrec0.name,
+    ?line <<"nested1">> = N1#nrec1.name,
+    ?line <<"nested2">> = N2#nrec2.name,
+    ?line <<"nested0">> = N1#nrec1.nrec0#nrec0.name,
+    ?line <<"nested0">> = N2#nrec2.nrec1#nrec1.nrec0#nrec0.name,
+    ?line <<"nested1">> = N2#nrec2.nrec1#nrec1.name,
+    ?line <<"nested0">> = ((N2#nrec2.nrec1)#nrec1.nrec0)#nrec0.name,
+
+    N1a = N2#nrec2.nrec1#nrec1{name = <<"nested1a">>},
+    ?line <<"nested1a">> = N1a#nrec1.name,
+
+    N2a = N2#nrec2.nrec1#nrec1.nrec0#nrec0{name = <<"nested0a">>},
+    N2b = ((N2#nrec2.nrec1)#nrec1.nrec0)#nrec0{name = <<"nested0a">>},
+    ?line <<"nested0a">> = N2a#nrec0.name,
+    ?line N2a = N2b,
+    ok.
+
+-record(rr, {a,b,c}).
+
+coverage(Config) when is_list(Config) ->
+    %% There should only remain one record test in the code below.
+    R0 = id(#rr{a=1,b=2,c=3}),
+    B = R0#rr.b,				%Test the record here.
+    R = R0#rr{c=42},				%No need to test here.
+    if 
+	B > R#rr.a ->				%No need to test here.
+	    ok
+    end,
+    #rr{a=1,b=2,c=42} = id(R),			%Test for correctness.
+    ok.
 
 id(I) -> I.

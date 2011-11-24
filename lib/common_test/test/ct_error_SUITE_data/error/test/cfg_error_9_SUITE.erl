@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -76,13 +76,15 @@ init_per_testcase(tc1, Config) ->
     Config;
 init_per_testcase(tc2, Config) ->
     ct:comment("init_per_testcase(tc2) timeout"),
-    timer:sleep(5000),
+    ct:sleep(5000),
     Config;
 init_per_testcase(tc3, Config) ->
     badmatch = ?config(void, Config),
     Config;
 init_per_testcase(tc4, _) ->
     ok;
+init_per_testcase(tc7, _) ->
+    {fail,tc7_should_be_failed};
 init_per_testcase(_, Config) ->
     Config.
 
@@ -94,22 +96,20 @@ init_per_testcase(_, Config) ->
 %%--------------------------------------------------------------------
 end_per_testcase(tc11, _Config) ->
     ct:comment("A warning should be printed"),
-    exit(warning_should_be_printed),
-    done;
+    exit(warning_should_be_printed);
 end_per_testcase(tc12, _Config) ->
     ct:comment("A warning should be printed"),
-    timer:sleep(5000),
-    done;
+    ct:sleep(5000);
 end_per_testcase(tc13, Config) ->
     ct:comment("A warning should be printed"),
-    badmatch = ?config(void, Config),
-    done;
+    badmatch = ?config(void, Config);
 end_per_testcase(tc14, Config) ->
     ok = ?config(tc_status, Config),
     {fail,tc14_should_be_failed};
 end_per_testcase(tc15, Config) ->
-    {failed,byebye} = ?config(tc_status, Config),
-    ok;
+    exit(kaboom);
+end_per_testcase(tc16, Config) ->
+    ct:sleep(5000);
 end_per_testcase(_TestCase, _Config) ->
     done.
 
@@ -136,8 +136,8 @@ groups() ->
 %% Reason = term()
 %%--------------------------------------------------------------------
 all() -> 
-    [tc1,tc2,tc3,tc4,tc5,tc6,
-     tc11,tc12,tc13,tc14].
+    [tc1,tc2,tc3,tc4,tc5,tc6,tc7,
+     tc11,tc12,tc13,tc14,tc15,tc16].
 
 tc1(_) ->
     fini.
@@ -171,6 +171,11 @@ tc6(_) ->
     ct:comment("This one should succeed but then get failed by end_tc!"),
     fini.
 
+tc7(_) ->
+    ct:comment("This one should get failed by iptc!"),
+    fini.
+
+
 tc11(_) ->
     fini.
 tc12(_) ->
@@ -182,4 +187,6 @@ tc14(_) ->
     ct:comment("This one should be failed by eptc"),
     yes.
 tc15(_) ->
-    exit(byebye).
+    exit(this_error_must_show).
+tc16(_) ->
+    exit(this_error_must_show).

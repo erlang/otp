@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -25,19 +25,21 @@
 %%	process_info/1,2
 %%	register/2 (partially)
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -define(heap_binary_size, 64).
 
--export([all/1, spawn_with_binaries/1,
-	 t_exit_1/1, t_exit_2/1, t_exit_2_other/1, t_exit_2_other_normal/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, spawn_with_binaries/1,
+	 t_exit_1/1, t_exit_2_other/1, t_exit_2_other_normal/1,
 	 self_exit/1, normal_suicide_exit/1, abnormal_suicide_exit/1,
 	 t_exit_2_catch/1, trap_exit_badarg/1, trap_exit_badarg_in_bif/1,
 	 exit_and_timeout/1, exit_twice/1,
-	 t_process_info/1, process_info_other_msg/1,
+	 t_process_info/1, process_info_other/1, process_info_other_msg/1,
 	 process_info_other_dist_msg/1,
 	 process_info_2_list/1, process_info_lock_reschedule/1,
 	 process_info_lock_reschedule2/1,
+	 process_info_lock_reschedule3/1,
 	 bump_reductions/1, low_prio/1, binary_owner/1, yield/1, yield2/1,
 	 process_status_exiting/1,
 	 otp_4725/1, bad_register/1, garbage_collect/1, otp_6237/1,
@@ -46,38 +48,68 @@
 	 processes_large_tab/1, processes_default_tab/1, processes_small_tab/1,
 	 processes_this_tab/1, processes_apply_trap/1,
 	 processes_last_call_trap/1, processes_gc_trap/1,
-	 processes_term_proc_list/1, processes_bif/1,
-	 otp_7738/1, otp_7738_waiting/1, otp_7738_suspended/1,
-	 otp_7738_resume/1]).
+	 processes_term_proc_list/1,
+	 otp_7738_waiting/1, otp_7738_suspended/1,
+	 otp_7738_resume/1,
+	 garb_other_running/1]).
 -export([prio_server/2, prio_client/2]).
 
--export([init_per_testcase/2, fin_per_testcase/2, end_per_suite/1]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 -export([hangaround/2, processes_bif_test/0, do_processes/1,
 	 processes_term_proc_list_test/1]).
 
-all(suite) ->
-    [spawn_with_binaries, t_exit_1, t_exit_2,
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [spawn_with_binaries, t_exit_1, {group, t_exit_2},
      trap_exit_badarg, trap_exit_badarg_in_bif,
-     t_process_info, process_info_other_msg, process_info_other_dist_msg,
-     process_info_2_list,
-     process_info_lock_reschedule, process_info_lock_reschedule2,
-     process_status_exiting,
-     bump_reductions, low_prio, yield, yield2, otp_4725, bad_register,
-     garbage_collect, process_info_messages, process_flag_badarg, process_flag_heap_size,
-     spawn_opt_heap_size, otp_6237, processes_bif, otp_7738].
+     t_process_info, process_info_other, process_info_other_msg,
+     process_info_other_dist_msg, process_info_2_list,
+     process_info_lock_reschedule,
+     process_info_lock_reschedule2,
+     process_info_lock_reschedule3, process_status_exiting,
+     bump_reductions, low_prio, yield, yield2, otp_4725,
+     bad_register, garbage_collect, process_info_messages,
+     process_flag_badarg, process_flag_heap_size,
+     spawn_opt_heap_size, otp_6237, {group, processes_bif},
+     {group, otp_7738}, garb_other_running].
+
+groups() -> 
+    [{t_exit_2, [],
+      [t_exit_2_other, t_exit_2_other_normal, self_exit,
+       normal_suicide_exit, abnormal_suicide_exit,
+       t_exit_2_catch, exit_and_timeout, exit_twice]},
+     {processes_bif, [],
+      [processes_large_tab, processes_default_tab,
+       processes_small_tab, processes_this_tab,
+       processes_last_call_trap, processes_apply_trap,
+       processes_gc_trap, processes_term_proc_list]},
+     {otp_7738, [],
+      [otp_7738_waiting, otp_7738_suspended,
+       otp_7738_resume]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(Config) ->
+    catch erts_debug:set_internal_state(available_internal_state, false),
+    Config.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog=?t:timetrap(?t:minutes(10)),
     [{watchdog, Dog},{testcase, Func}|Config].
 
-fin_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
+end_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog=?config(watchdog, Config),
     ?t:timetrap_cancel(Dog).
-
-end_per_suite(Config) ->
-    catch erts_debug:set_internal_state(available_internal_state, false),
-    Config.
 
 fun_spawn(Fun) ->
     spawn_link(erlang, apply, [Fun, []]).
@@ -117,10 +149,6 @@ t_exit_1() ->
 	      {'EXIT', Pid, Garbage} -> ok
 	  end.
 
-t_exit_2(suite) -> [t_exit_2_other, t_exit_2_other_normal, 
-		    self_exit, normal_suicide_exit,
-		    abnormal_suicide_exit, t_exit_2_catch,
-		    exit_and_timeout, exit_twice].
 
 %% Tests exit/2 with a lot of data in the exit message.
 t_exit_2_other(Config) when is_list(Config) ->
@@ -230,7 +258,9 @@ trap_exit_badarg() ->
     ?line Pid = fun_spawn(fun() -> bad_guy(kb_128()) end),
     ?line Garbage = kb_128(),
     ?line receive
-	      {'EXIT', Pid, {badarg,[{erlang,abs,[Garbage]},{?MODULE,bad_guy,1}|_]}} ->
+	      {'EXIT',Pid,{badarg,[{erlang,abs,[Garbage],Loc1},
+				   {?MODULE,bad_guy,1,Loc2}|_]}}
+	      when is_list(Loc1), is_list(Loc2) ->
 		  ok;
 	      Other ->
 		  ?line ok = io:format("Bad EXIT message: ~P", [Other, 30]),
@@ -382,7 +412,7 @@ etwice_high(Low) ->
     exit(Low, first),
     exit(Low, second).
 
-%% Tests the process_info/1 BIF.
+%% Tests the process_info/2 BIF.
 t_process_info(Config) when is_list(Config) ->
     ?line [] = process_info(self(), registered_name),
     ?line register(my_name, self()),
@@ -390,12 +420,99 @@ t_process_info(Config) when is_list(Config) ->
     ?line {status, running} = process_info(self(), status),
     ?line {min_heap_size, 233} = process_info(self(), min_heap_size),
     ?line {min_bin_vheap_size, 46368} = process_info(self(), min_bin_vheap_size),
-    ?line {current_function, {?MODULE, t_process_info, 1}} =
+    ?line {current_function,{?MODULE,t_process_info,1}} =
 	process_info(self(), current_function),
+    ?line {current_function,{?MODULE,t_process_info,1}} =
+	apply(erlang, process_info, [self(),current_function]),
+
+    %% current_location and current_stacktrace
+    {Line1,Res1} = {?LINE,process_info(self(), current_location)},
+    verify_loc(Line1, Res1),
+    {Line2,Res2} = {?LINE,apply(erlang, process_info,
+				[self(),current_location])},
+    verify_loc(Line2, Res2),
+    pi_stacktrace([{?MODULE,t_process_info,1,?LINE}]),
+
     ?line Gleader = group_leader(),
     ?line {group_leader, Gleader} = process_info(self(), group_leader),
     ?line {'EXIT',{badarg,_Info}} = (catch process_info('not_a_pid')),
     ok.
+
+pi_stacktrace(Expected0) ->
+    {Line,Res} = {?LINE,erlang:process_info(self(), current_stacktrace)},
+    {current_stacktrace,Stack} = Res,
+    Expected = [{?MODULE,pi_stacktrace,1,Line}|Expected0],
+    pi_stacktrace_1(Stack, Expected).
+
+pi_stacktrace_1([{M,F,A,Loc}|Stk], [{M,F,A,Line}|Exp]) ->
+    case Loc of
+	[] ->
+	    %% No location info for some reason (+L, native code).
+	    io:format("Missing location information for ~w:~w/~w",
+		      [M,F,A]),
+	    ok;
+	[_|_] ->
+	    Line = proplists:get_value(line, Loc),
+	    File = proplists:get_value(file, Loc),
+	    File = ?MODULE_STRING ++ ".erl"
+    end,
+    pi_stacktrace_1(Stk, Exp);
+pi_stacktrace_1([_|_], []) -> ok.
+
+verify_loc(Line, {current_location,{?MODULE,t_process_info=F,1=A,Loc}}) ->
+    case Loc of
+	[] ->
+	    %% No location info for some reason (+L, native code).
+	    io:format("Missing location information for ~w:~w/~w",
+		      [?MODULE,F,A]),
+	    ok;
+	[_|_] ->
+	    Line = proplists:get_value(line, Loc),
+	    File = proplists:get_value(file, Loc),
+	    File = ?MODULE_STRING ++ ".erl"
+    end.
+
+process_info_other(Config) when is_list(Config) ->
+    Self = self(),
+    Pid = spawn_link(fun() -> process_info_looper(Self) end),
+    receive after 1 -> ok end,
+    pio_current_location(10000, Pid, 0, 0),
+    pio_current_stacktrace().
+
+pio_current_location(0, _, Pi, Looper) ->
+    io:format("~w call(s) to erlang:process_info/2", [Pi]),
+    io:format("~w call(s) to ~w:process_info_looper/1", [Looper,?MODULE]);
+pio_current_location(N, Pid, Pi, Looper) ->
+    erlang:yield(),
+    {current_location,Where} = process_info(Pid, current_location),
+    case Where of
+	{erlang,process_info,2,[]} ->
+	    pio_current_location(N-1, Pid, Pi+1, Looper);
+	{?MODULE,process_info_looper,1,Loc} when is_list(Loc) ->
+	    pio_current_location(N-1, Pid, Pi, Looper+1)
+    end.
+
+pio_current_stacktrace() ->
+    L = [begin
+	     {current_stacktrace,Stk} = process_info(P, current_stacktrace),
+	     {P,Stk}
+	 end || P <- processes()],
+    [erlang:garbage_collect(P) || {P,_} <- L],
+    erlang:garbage_collect(),
+    [verify_stacktrace(Stk) || {_,Stk} <- L],
+    ok.
+
+verify_stacktrace([{M,F,A,Loc}|T])
+  when is_atom(M),
+       is_atom(F),
+       is_integer(A),
+       is_list(Loc) ->
+    verify_stacktrace(T);
+verify_stacktrace([]) -> ok.
+
+process_info_looper(Parent) ->
+    process_info(Parent, current_location),
+    process_info_looper(Parent).
 
 %% Tests the process_info/1 BIF on another process with messages.
 process_info_other_msg(Config) when is_list(Config) ->
@@ -676,6 +793,52 @@ process_info_lock_reschedule2(Config) when is_list(Config) ->
     ?line unlink(P5), exit(P5, bang),
     ?line unlink(P6), exit(P6, bang),
     ?line ok.
+
+many_args(0,_B,_C,_D,_E,_F,_G,_H,_I,_J) ->
+    ok;
+many_args(A,B,C,D,E,F,G,H,I,J) ->
+    many_args(A-1,B,C,D,E,F,G,H,I,J).
+
+do_pi_msg_len(PT, AT) ->
+    lists:map(fun (_) -> ok end, [a,b,c,d]),
+    {message_queue_len, _} = process_info(element(2,PT), element(2,AT)).
+    
+process_info_lock_reschedule3(doc) ->
+    [];
+process_info_lock_reschedule3(suite) ->
+    [];
+process_info_lock_reschedule3(Config) when is_list(Config) ->
+    %% We need a process that is running and an item that requires
+    %% process_info to take the main process lock.
+    ?line Target1 = spawn_link(fun tok_loop/0),
+    ?line Name1 = process_info_lock_reschedule_running,
+    ?line register(Name1, Target1),
+    ?line Target2 = spawn_link(fun () -> receive after infinity -> ok end end),
+    ?line Name2 = process_info_lock_reschedule_waiting,
+    ?line register(Name2, Target2),
+    ?line PI = fun(N) ->
+		       case N rem 10 of
+			   0 -> erlang:yield();
+			   _ -> ok
+		       end,
+		       ?line do_pi_msg_len({proc, Target1},
+					   {arg, message_queue_len})
+	       end,
+    ?line many_args(100000,1,2,3,4,5,6,7,8,9),
+    ?line lists:foreach(PI, lists:seq(1,1000000)),
+    %% Make sure Target1 still is willing to "tok loop"
+    ?line case process_info(Target1, status) of
+	      {status, OkStatus} when OkStatus == runnable;
+				      OkStatus == running;
+				      OkStatus == garbage_collecting ->
+		  ?line unlink(Target1),
+		  ?line unlink(Target2),
+		  ?line exit(Target1, bang),
+		  ?line exit(Target2, bang),
+		  ?line OkStatus;
+	      {status, BadStatus} ->
+		  ?line ?t:fail(BadStatus)
+	  end.
 
 process_status_exiting(Config) when is_list(Config) ->
     %% Make sure that erts_debug:get_internal_state({process_status,P})
@@ -1227,17 +1390,6 @@ otp_6237_select_loop() ->
     otp_6237_select_loop().
 
 
-processes_bif(doc) ->
-    [];
-processes_bif(suite) ->
-    [processes_large_tab,
-     processes_default_tab,
-     processes_small_tab,
-     processes_this_tab,
-     processes_last_call_trap,
-     processes_apply_trap,
-     processes_gc_trap,
-     processes_term_proc_list].
 
 -define(NoTestProcs, 10000).
 -record(processes_bif_info, {min_start_reds,
@@ -1965,10 +2117,6 @@ processes_term_proc_list_test(MustChk) ->
     ?line erlang:system_flag(multi_scheduling, unblock),
     ?line as_expected.
 
-otp_7738(doc) ->
-    [];
-otp_7738(suite) ->
-    [otp_7738_waiting, otp_7738_suspended, otp_7738_resume].
 
 otp_7738_waiting(doc) ->
     [];
@@ -2056,6 +2204,41 @@ otp_7738_test(Type) ->
 		  ?line ?t:format("~p~n", [I]),
 		  ?line ?t:fail(no_progress)
 	  end,
+    ?line ok.
+
+gor(Reds, Stop) ->
+    receive
+	{From, reds} ->
+	    From ! {reds, Reds, self()},
+	    gor(Reds+1, Stop);
+	{From, Stop} ->
+	    From ! {stopped, Stop, Reds, self()}
+    after 0 ->
+	    gor(Reds+1, Stop)
+    end.
+
+garb_other_running(Config) when is_list(Config) ->
+    ?line Stop = make_ref(),
+    ?line {Pid, Mon} = spawn_monitor(fun () -> gor(0, Stop) end),
+    ?line Reds = lists:foldl(fun (_, OldReds) ->
+				     ?line erlang:garbage_collect(Pid),
+				     ?line receive after 1 -> ok end,
+				     ?line Pid ! {self(), reds},
+				     ?line receive
+					       {reds, NewReds, Pid} ->
+						   ?line true = (NewReds > OldReds),
+						   ?line NewReds
+					   end
+			     end,
+			     0,
+			     lists:seq(1, 10000)),
+    ?line receive after 1 -> ok end,
+    ?line Pid ! {self(), Stop},
+    ?line receive
+	      {stopped, Stop, StopReds, Pid} ->
+		  ?line true = (StopReds > Reds)
+	  end,
+    ?line receive {'DOWN', Mon, process, Pid, normal} -> ok end,
     ?line ok.
 
 %% Internal functions

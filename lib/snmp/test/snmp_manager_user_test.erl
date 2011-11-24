@@ -1,19 +1,19 @@
 %% 
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %% 
 
@@ -26,7 +26,7 @@
 %%----------------------------------------------------------------------
 %% Include files
 %%----------------------------------------------------------------------
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include("snmp_test_lib.hrl").
  
 
@@ -36,10 +36,10 @@
 %% -compile(export_all).
 
 -export([
-         all/1,
-         init_per_testcase/2, fin_per_testcase/2,
+all/0,groups/0,init_per_group/2,end_per_group/2,
+         init_per_testcase/2, end_per_testcase/2,
 	 
-	 register_user/1, 
+	 
 	 simple_register_and_unregister1/1,
 	 simple_register_and_unregister2/1,
 	 simple_register_and_unregister3/1,
@@ -62,7 +62,7 @@
 	 register_monitor_request_and_crash3/1,
 	 register_monitor_request_and_crash4/1, 
 
-	 tickets/1,
+	
 	 otp7902/1
 
 	]).
@@ -123,8 +123,8 @@ init_per_testcase(Case, Config) when is_list(Config) ->
      {manager_log_dir,  MgrLogDir} | Config].
 
 
-fin_per_testcase(Case, Config) when is_list(Config) ->
-    p("fin_per_testcase -> Case: ~p", [Case]),
+end_per_testcase(Case, Config) when is_list(Config) ->
+    p("end_per_testcase -> Case: ~p", [Case]),
 %     MgrTopDir = ?config(manager_dir, Config),
 %     ?DEL_DIR(MgrTopDir),
     Config.
@@ -134,42 +134,41 @@ fin_per_testcase(Case, Config) when is_list(Config) ->
 %% Test case definitions
 %%======================================================================
 
-all(suite) ->
-    [
-     register_user,
-     tickets
-    ].
+all() -> 
+[{group, register_user}, {group, tickets}].
 
-register_user(suite) ->
-    [
-     simple_register_and_unregister1,
-     simple_register_and_unregister2,
-     simple_register_and_unregister3,
-     register_and_crash1,
-     register_and_crash2,
-     register_and_crash3,
-     register_request_and_crash1,
-     register_request_and_crash2,
-     register_request_and_crash3,
-     simple_register_monitor_and_unregister1,
-     simple_register_monitor_and_unregister2,
-     simple_register_monitor_and_unregister3,
-     register_monitor_and_crash1,
-     register_monitor_and_crash2,
-     register_monitor_and_crash3,
-     register_monitor_and_crash4,
-     register_monitor_and_crash5,
-     register_monitor_request_and_crash1,
-     register_monitor_request_and_crash2,
-     register_monitor_request_and_crash3,
-     register_monitor_request_and_crash4
-    ].
+groups() -> 
+    [{register_user, [],
+  [simple_register_and_unregister1,
+   simple_register_and_unregister2,
+   simple_register_and_unregister3, register_and_crash1,
+   register_and_crash2, register_and_crash3,
+   register_request_and_crash1,
+   register_request_and_crash2,
+   register_request_and_crash3,
+   simple_register_monitor_and_unregister1,
+   simple_register_monitor_and_unregister2,
+   simple_register_monitor_and_unregister3,
+   register_monitor_and_crash1,
+   register_monitor_and_crash2,
+   register_monitor_and_crash3,
+   register_monitor_and_crash4,
+   register_monitor_and_crash5,
+   register_monitor_request_and_crash1,
+   register_monitor_request_and_crash2,
+   register_monitor_request_and_crash3,
+   register_monitor_request_and_crash4]},
+ {tickets, [], [otp7902]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
 
 
-tickets(suite) ->
-    [
-     otp7902
-    ].
+
+
 
 
 %%======================================================================
@@ -822,10 +821,39 @@ register_monitor_and_crash3(doc) ->
     "Start a single user process, "
 	"register-monitor one user and register one user, "
 	"crash the single user process.";
-register_monitor_and_crash3(Conf) when is_list(Conf) ->
-    put(tname,rlac3),
-    p("start"),
+register_monitor_and_crash3(Conf) when is_list(Conf) -> 
     process_flag(trap_exit, true),
+    put(tname,rlac3),
+
+    %% <CONDITIONAL-SKIP>
+    %% The point of this is to catch machines running 
+    %% SLES9 (2.6.5)
+    LinuxVersionVerify = 
+	fun() ->
+		case os:cmd("uname -m") of
+		    "i686" ++ _ ->
+%% 			io:format("found an i686 machine, "
+%% 				  "now check version~n", []),
+			case os:version() of
+			    {2, 6, Rev} when Rev >= 16 ->
+				true;
+			    {2, Min, _} when Min > 6 ->
+				true;
+			    {Maj, _, _} when Maj > 2 ->
+				true;
+			    _ ->
+				false
+			end;
+		    _ ->
+			true
+		end
+	end,
+    Skippable = [{unix, [{linux, LinuxVersionVerify}]}],
+    Condition = fun() -> ?OS_BASED_SKIP(Skippable) end,
+    ?NON_PC_TC_MAYBE_SKIP(Conf, Condition),
+    %% </CONDITIONAL-SKIP>
+
+    p("start"),
 
     ConfDir = ?config(manager_conf_dir, Conf),
     DbDir = ?config(manager_db_dir, Conf),

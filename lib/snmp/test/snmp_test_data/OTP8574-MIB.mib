@@ -1,0 +1,77 @@
+OTP8574-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE, enterprises, IpAddress FROM SNMPv2-SMI
+    RowStatus FROM SNMPv2-TC
+    ;
+
+otp8574MIB MODULE-IDENTITY
+     LAST-UPDATED "1004200000Z"
+     ORGANIZATION "Erlang/OTP"
+     CONTACT-INFO "www.erlang.org"
+     DESCRIPTION  "The MIB module is used for testing a compiler feature"
+     ::= { otpSnmp 1 }
+
+ericsson        OBJECT IDENTIFIER ::= { enterprises 193 }
+otp             OBJECT IDENTIFIER ::= { ericsson 19 }
+otpApplications OBJECT IDENTIFIER ::= { otp 3 }
+otpSnmp         OBJECT IDENTIFIER ::= { otpApplications 3 }
+
+testMIBObjects OBJECT IDENTIFIER ::= { otp8574MIB 1 }
+
+testMIBObjectGroup OBJECT IDENTIFIER ::= { testMIBObjects 1 }
+
+example-Table OBJECT-TYPE
+    SYNTAX      SEQUENCE OF ExampleEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "An example table"
+    ::= { testMIBObjectGroup 1 }
+
+example-Entry       OBJECT-TYPE
+    SYNTAX      ExampleEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "Example table entry"
+    INDEX   { exampleIndex }
+    ::= { example-Table 5 }
+
+ExampleEntry ::= SEQUENCE {
+      exampleIndex              INTEGER,
+      exampleColumn             OCTET STRING,
+      exampleNotAccessible      OCTET STRING,
+      exampleRowStatus          RowStatus
+}
+
+exampleIndex    OBJECT-TYPE
+    SYNTAX      INTEGER (1..100)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION "The index for this entry."
+    ::= { example-Entry 1 }
+
+exampleColumn OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+            "Example table column"
+    ::= { example-Entry 2 }
+
+exampleNotAccessible OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+            "Example table column"
+    ::= { example-Entry 3 }
+
+exampleRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+            "Example table RowStatus"
+    ::= { example-Entry 4 }
+
+END

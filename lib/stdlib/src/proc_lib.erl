@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(proc_lib).
@@ -34,81 +34,114 @@
 %% Internal exports.
 -export([wake_up/3]).
 
+-export_type([spawn_option/0]).
+
 %%-----------------------------------------------------------------------------
 
 -type priority_level() :: 'high' | 'low' | 'max' | 'normal'.
 -type spawn_option()   :: 'link'
+                        | 'monitor'
                         | {'priority', priority_level()}
                         | {'min_heap_size', non_neg_integer()}
+                        | {'min_bin_vheap_size', non_neg_integer()}
                         | {'fullsweep_after', non_neg_integer()}.
 
--type dict_or_pid()    :: pid() | [_] | {integer(), integer(), integer()}.
+-type dict_or_pid()    :: pid()
+                        | (ProcInfo :: [_])
+                        | {X :: integer(), Y :: integer(), Z :: integer()}.
 
 %%-----------------------------------------------------------------------------
 
--spec spawn(function()) -> pid().
+-spec spawn(Fun) -> pid() when
+      Fun :: function().
 
 spawn(F) when is_function(F) ->
     Parent = get_my_name(),
     Ancestors = get_ancestors(),
     erlang:spawn(?MODULE, init_p, [Parent,Ancestors,F]).
 
--spec spawn(atom(), atom(), [term()]) -> pid().
+-spec spawn(Module, Function, Args) -> pid() when
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()].
 
 spawn(M,F,A) when is_atom(M), is_atom(F), is_list(A) ->
     Parent = get_my_name(),
     Ancestors = get_ancestors(),
     erlang:spawn(?MODULE, init_p, [Parent,Ancestors,M,F,A]).
 
--spec spawn_link(function()) -> pid().
+-spec spawn_link(Fun) -> pid() when
+      Fun :: function().
 
 spawn_link(F) when is_function(F) ->
     Parent = get_my_name(),
     Ancestors = get_ancestors(),
     erlang:spawn_link(?MODULE, init_p, [Parent,Ancestors,F]).
 
--spec spawn_link(atom(), atom(), [term()]) -> pid().
+-spec spawn_link(Module, Function, Args) -> pid() when
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()].
 
 spawn_link(M,F,A) when is_atom(M), is_atom(F), is_list(A) ->
     Parent = get_my_name(),
     Ancestors = get_ancestors(),
     erlang:spawn_link(?MODULE, init_p, [Parent,Ancestors,M,F,A]).
 
--spec spawn(node(), function()) -> pid().
+-spec spawn(Node, Fun) -> pid() when
+      Node :: node(),
+      Fun :: function().
 
 spawn(Node, F) when is_function(F) ->
     Parent = get_my_name(),
     Ancestors = get_ancestors(),
     erlang:spawn(Node, ?MODULE, init_p, [Parent,Ancestors,F]).
 
--spec spawn(node(), atom(), atom(), [term()]) -> pid().
+-spec spawn(Node, Module, Function, Args) -> pid() when
+      Node :: node(),
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()].
+
 spawn(Node, M, F, A) when is_atom(M), is_atom(F), is_list(A) ->
     Parent = get_my_name(),
     Ancestors = get_ancestors(),
     erlang:spawn(Node, ?MODULE, init_p, [Parent,Ancestors,M,F,A]).
 
--spec spawn_link(node(), function()) -> pid().
+-spec spawn_link(Node, Fun) -> pid() when
+      Node :: node(),
+      Fun :: function().
 
 spawn_link(Node, F) when is_function(F) ->
     Parent = get_my_name(),
     Ancestors = get_ancestors(),
     erlang:spawn_link(Node, ?MODULE, init_p, [Parent,Ancestors,F]).
 
--spec spawn_link(node(), atom(), atom(), [term()]) -> pid().
+-spec spawn_link(Node, Module, Function, Args) -> pid() when
+      Node :: node(),
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()].
 
 spawn_link(Node, M, F, A) when is_atom(M), is_atom(F), is_list(A) ->
     Parent = get_my_name(),
     Ancestors = get_ancestors(),
     erlang:spawn_link(Node, ?MODULE, init_p, [Parent,Ancestors,M,F,A]).
 
--spec spawn_opt(function(), [spawn_option()]) -> pid().
+-spec spawn_opt(Fun, SpawnOpts) -> pid() when
+      Fun :: function(),
+      SpawnOpts :: [spawn_option()].
+
 spawn_opt(F, Opts) when is_function(F) ->
     Parent = get_my_name(),
     Ancestors = get_ancestors(),
     check_for_monitor(Opts),
     erlang:spawn_opt(?MODULE, init_p, [Parent,Ancestors,F],Opts).
 
--spec spawn_opt(node(), function(), [spawn_option()]) -> pid().
+-spec spawn_opt(Node, Function, SpawnOpts) -> pid() when
+      Node :: node(),
+      Function :: function(),
+      SpawnOpts :: [spawn_option()].
 
 spawn_opt(Node, F, Opts) when is_function(F) ->
     Parent = get_my_name(),
@@ -116,7 +149,11 @@ spawn_opt(Node, F, Opts) when is_function(F) ->
     check_for_monitor(Opts),
     erlang:spawn_opt(Node, ?MODULE, init_p, [Parent,Ancestors,F], Opts).
 
--spec spawn_opt(atom(), atom(), [term()], [spawn_option()]) -> pid().
+-spec spawn_opt(Module, Function, Args, SpawnOpts) -> pid() when
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()],
+      SpawnOpts :: [spawn_option()].
 
 spawn_opt(M, F, A, Opts) when is_atom(M), is_atom(F), is_list(A) ->
     Parent = get_my_name(),
@@ -124,7 +161,12 @@ spawn_opt(M, F, A, Opts) when is_atom(M), is_atom(F), is_list(A) ->
     check_for_monitor(Opts),
     erlang:spawn_opt(?MODULE, init_p, [Parent,Ancestors,M,F,A], Opts).
 
--spec spawn_opt(node(), atom(), atom(), [term()], [spawn_option()]) -> pid().
+-spec spawn_opt(Node, Module, Function, Args, SpawnOpts) -> pid() when
+      Node :: node(),
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()],
+      SpawnOpts :: [spawn_option()].
 
 spawn_opt(Node, M, F, A, Opts) when is_atom(M), is_atom(F), is_list(A) ->
     Parent = get_my_name(),
@@ -142,7 +184,10 @@ check_for_monitor(SpawnOpts) ->
 	    false
     end.
 
--spec hibernate(module(), atom(), [term()]) -> no_return().
+-spec hibernate(Module, Function, Args) -> no_return() when
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()].
 
 hibernate(M, F, A) when is_atom(M), is_atom(F), is_list(A) ->
     erlang:hibernate(?MODULE, wake_up, [M, F, A]).
@@ -208,35 +253,65 @@ exit_p(Class, Reason) ->
 	    exit(Reason)
     end.
 
--spec start(atom(), atom(), [term()]) -> term().
+-spec start(Module, Function, Args) -> Ret when
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()],
+      Ret :: term() | {error, Reason :: term()}.
 
 start(M, F, A) when is_atom(M), is_atom(F), is_list(A) ->
     start(M, F, A, infinity).
 
--spec start(atom(), atom(), [term()], timeout()) -> term().
+-spec start(Module, Function, Args, Time) -> Ret when
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()],
+      Time :: timeout(),
+      Ret :: term() | {error, Reason :: term()}.
 
 start(M, F, A, Timeout) when is_atom(M), is_atom(F), is_list(A) ->
     Pid = ?MODULE:spawn(M, F, A),
     sync_wait(Pid, Timeout).
 
--spec start(atom(), atom(), [term()], timeout(), [spawn_option()]) -> term().
+-spec start(Module, Function, Args, Time, SpawnOpts) -> Ret when
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()],
+      Time :: timeout(),
+      SpawnOpts :: [spawn_option()],
+      Ret :: term() | {error, Reason :: term()}.
 
 start(M, F, A, Timeout, SpawnOpts) when is_atom(M), is_atom(F), is_list(A) ->
     Pid = ?MODULE:spawn_opt(M, F, A, SpawnOpts),
     sync_wait(Pid, Timeout).
 
--spec start_link(atom(), atom(), [term()]) -> term().
+-spec start_link(Module, Function, Args) -> Ret when
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()],
+      Ret :: term() | {error, Reason :: term()}.
 
 start_link(M, F, A) when is_atom(M), is_atom(F), is_list(A) ->
     start_link(M, F, A, infinity).
 
--spec start_link(atom(), atom(), [term()], timeout()) -> term().
+-spec start_link(Module, Function, Args, Time) -> Ret when
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()],
+      Time :: timeout(),
+      Ret :: term() | {error, Reason :: term()}.
 
 start_link(M, F, A, Timeout) when is_atom(M), is_atom(F), is_list(A) ->
     Pid = ?MODULE:spawn_link(M, F, A),
     sync_wait(Pid, Timeout).
 
--spec start_link(atom(),atom(),[term()],timeout(),[spawn_option()]) -> term().
+-spec start_link(Module, Function, Args, Time, SpawnOpts) -> Ret when
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()],
+      Time :: timeout(),
+      SpawnOpts :: [spawn_option()],
+      Ret :: term() | {error, Reason :: term()}.
 
 start_link(M,F,A,Timeout,SpawnOpts) when is_atom(M), is_atom(F), is_list(A) ->
     Pid = ?MODULE:spawn_opt(M, F, A, ensure_link(SpawnOpts)),
@@ -265,13 +340,17 @@ flush(Pid) ->
 	    true
     end.
 
--spec init_ack(pid(), term()) -> 'ok'.
+-spec init_ack(Parent, Ret) -> 'ok' when
+      Parent :: pid(),
+      Ret :: term().
 
 init_ack(Parent, Return) ->
     Parent ! {ack, self(), Return},
     ok.
 
--spec init_ack(term()) -> 'ok'.
+-spec init_ack(Ret) -> 'ok' when
+      Ret :: term().
+
 init_ack(Return) ->
     [Parent|_] = get('$ancestors'),
     init_ack(Parent, Return).
@@ -280,7 +359,11 @@ init_ack(Return) ->
 %% Fetch the initial call of a proc_lib spawned process.
 %% -----------------------------------------------------
 
--spec initial_call(dict_or_pid()) -> {atom(), atom(), [atom()]} | 'false'.
+-spec initial_call(Process) -> {Module, Function, Args} | 'false' when
+      Process :: dict_or_pid(),
+      Module :: module(),
+      Function :: atom(),
+      Args :: [atom()].
 
 initial_call(DictOrPid) ->
     case raw_initial_call(DictOrPid) of
@@ -303,7 +386,11 @@ make_dummy_args(N, Acc) ->
 %% This function is typically called from c:i() and c:regs().
 %% -----------------------------------------------------
 
--spec translate_initial_call(dict_or_pid()) -> mfa().
+-spec translate_initial_call(Process) -> {Module, Function, Arity} when
+      Process :: dict_or_pid(),
+      Module :: module(),
+      Function :: atom(),
+      Arity :: byte().
 
 translate_initial_call(DictOrPid) ->
     case raw_initial_call(DictOrPid) of
@@ -575,7 +662,8 @@ check(Res)               -> Res.
 %%% Format (and write) a generated crash info structure.
 %%% -----------------------------------------------------------
 
--spec format([term()]) -> string().
+-spec format(CrashReport) -> string() when
+      CrashReport :: [term()].
 
 format([OwnReport,LinkReport]) ->
     OwnFormat = format_report(OwnReport),

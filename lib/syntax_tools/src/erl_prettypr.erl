@@ -50,11 +50,15 @@
 
 -type hook() :: 'none'
               | fun((erl_syntax:syntaxTree(), _, _) -> prettypr:document()).
+-type clause_t() :: 'case_expr' | 'cond_expr' | 'fun_expr'
+                  | 'if_expr' | 'receive_expr' | 'try_expr'
+                  | {'function', prettypr:document()}
+                  | {'rule', prettypr:document()}.
 
 -record(ctxt, {prec = 0           :: integer(),
 	       sub_indent = 2     :: non_neg_integer(),
 	       break_indent = 4   :: non_neg_integer(),
-	       clause = undefined,
+	       clause = undefined :: clause_t() | 'undefined',
 	       hook = ?NOHOOK     :: hook(),
 	       paper = ?PAPER     :: integer(),
 	       ribbon = ?RIBBON   :: integer(),
@@ -384,7 +388,7 @@ lay_postcomments(Cs, D) ->
     beside(D, floating(break(stack_comments(Cs, true)), 1, 0)).
 
 %% Format (including padding, if `Pad' is `true', otherwise not)
-%% and stack the listed comments above each other,
+%% and stack the listed comments above each other.
 
 stack_comments([C | Cs], Pad) ->
     D = stack_comment_lines(erl_syntax:comment_text(C)),
@@ -405,9 +409,7 @@ stack_comments([C | Cs], Pad) ->
 	    D1;	   % done
 	_ ->
 	    above(D1, stack_comments(Cs, Pad))
-    end;
-stack_comments([], _) ->
-    empty().
+    end.
 
 %% Stack lines of text above each other and prefix each string in
 %% the list with a single `%' character.
@@ -601,9 +603,8 @@ lay_2(Node, Ctxt) ->
 	case_expr ->
 	    Ctxt1 = reset_prec(Ctxt),
 	    D1 = lay(erl_syntax:case_expr_argument(Node), Ctxt1),
-	    D2 = lay_clauses(
-		   erl_syntax:case_expr_clauses(Node),
-		   case_expr, Ctxt1),
+	    D2 = lay_clauses(erl_syntax:case_expr_clauses(Node),
+			     case_expr, Ctxt1),
 	    sep([par([follow(text("case"), D1, Ctxt1#ctxt.sub_indent),
 		      text("of")],
 		     Ctxt1#ctxt.break_indent),
@@ -821,9 +822,8 @@ lay_2(Node, Ctxt) ->
 
 	receive_expr ->
 	    Ctxt1 = reset_prec(Ctxt),
-	    D1 = lay_clauses(
-		   erl_syntax:receive_expr_clauses(Node),
-		   receive_expr, Ctxt1),
+	    D1 = lay_clauses(erl_syntax:receive_expr_clauses(Node),
+			     receive_expr, Ctxt1),
 	    D2 = case erl_syntax:receive_expr_timeout(Node) of
 		     none ->
 			 D1;

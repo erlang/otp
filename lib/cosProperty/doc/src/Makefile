@@ -28,14 +28,6 @@ VSN=$(COSPROPERTY_VSN)
 APPLICATION=cosProperty
 
 # ----------------------------------------------------
-# Include dependency
-# ----------------------------------------------------
-
-ifndef DOCSUPPORT
-include make.dep
-endif
-
-# ----------------------------------------------------
 # Release directory specification
 # ----------------------------------------------------
 RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
@@ -99,34 +91,9 @@ EXTRA_FILES = summary.html.src \
 MAN3_FILES = $(XML_REF3_FILES:%.xml=$(MAN3DIR)/%.3)
 MAN6_FILES = $(XML_REF6_FILES:%.xml=$(MAN6DIR)/%.6)
 
-
-ifdef DOCSUPPORT
-
 HTML_REF_MAN_FILE = $(HTMLDIR)/index.html
 
 TOP_PDF_FILE = $(PDFDIR)/$(APPLICATION)-$(VSN).pdf
-
-else
-
-TEX_FILES_BOOK = \
-	$(BOOK_FILES:%.xml=%.tex)
-TEX_FILES_REF_MAN = $(XML_REF3_FILES:%.xml=%.tex) \
-	$(XML_REF6_FILES:%.xml=%.tex) \
-	$(XML_APPLICATION_FILES:%.xml=%.tex)
-TEX_FILES_USERS_GUIDE = \
-	$(XML_CHAPTER_FILES:%.xml=%.tex)
-
-TOP_PDF_FILE = $(APPLICATION)-$(VSN).pdf
-
-TOP_PS_FILE = $(APPLICATION)-$(VSN).ps
-
-$(TOP_PDF_FILE): book.dvi ../../vsn.mk
-	$(DVI2PS) $(DVIPS_FLAGS) -f $< | $(DISTILL) $(DISTILL_FLAGS) > $@
-
-$(TOP_PS_FILE): book.dvi ../../vsn.mk
-	$(DVI2PS) $(DVIPS_FLAGS) -f $< > $@
-
-endif
 
 # ----------------------------------------------------
 # FLAGS 
@@ -139,8 +106,6 @@ DVIPS_FLAGS +=
 # ----------------------------------------------------
 $(HTMLDIR)/%.gif: %.gif
 	$(INSTALL_DATA) $< $@
-
-ifdef DOCSUPPORT
 
 docs: pdf html man
 
@@ -156,42 +121,6 @@ clean clean_docs:
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
 	rm -f errs core *~
 
-else
-
-ifeq ($(DOCTYPE),pdf)
-docs: pdf
-else
-ifeq ($(DOCTYPE),ps)
-docs: ps
-else
-docs: html gifs man
-endif
-endif
-
-pdf: $(TOP_PDF_FILE)
-
-ps: $(TOP_PS_FILE)
-
-html: $(HTML_FILES) $(INTERNAL_HTML_FILES)
-
-tex_users_guide: $(TEX_FILES_USERS_GUIDE) 
-tex_ref_man: $(TEX_FILES_REF_MAN)
-tex: tex_users_guide tex_ref_man $(TEX_FILES_BOOK)
-
-$(DOCDIR)/latexlog: $(BOOK_FILES:%.xml=%.dvi)
-	-fgrep -i "latex warning" $(BOOK_FILES:%.xml=%.log) >$(DOCDIR)/latexlog
-
-clean_tex:
-	-rm -f $(TEX_FILES_USERS_GUIDE) $(TEX_FILES_REF_MAN) $(TEX_FILES_BOOK)
-
-clean:
-	rm -f ../html/* $(MAN3_FILES) $(MAN6_FILES) $(TEX_FILES_USERS_GUIDE) 
-	rm -f *xmls_output *xmls_errs
-	rm -f $(TOP_PDF_FILE) $(TOP_PS_FILE)
-	rm -f errs core *~ $(LATEX_CLEAN) 
-
-endif
-
 man: $(MAN3_FILES) $(MAN6_FILES)
 
 gifs: $(GIF_FILES:%=$(HTMLDIR)/%)
@@ -206,8 +135,6 @@ debug opt:
 # ---------------------------------------------------- 
 include $(ERL_TOP)/make/otp_release_targets.mk
 
-ifdef DOCSUPPORT
-
 release_docs_spec: docs
 	$(INSTALL_DIR) $(RELSYSDIR)/doc/pdf
 	$(INSTALL_DATA) $(TOP_PDF_FILE) $(RELSYSDIR)/doc/pdf
@@ -217,30 +144,5 @@ release_docs_spec: docs
 	$(INSTALL_DATA) $(INFO_FILE) $(RELSYSDIR)
 	$(INSTALL_DIR) $(RELEASE_PATH)/man/man3
 	$(INSTALL_DATA) $(MAN3DIR)/* $(RELEASE_PATH)/man/man3
-else
-
-ifeq ($(DOCTYPE),pdf)
-release_docs_spec: pdf
-	$(INSTALL_DIR) $(RELEASE_PATH)/pdf
-	$(INSTALL_DATA) $(TOP_PDF_FILE) $(RELEASE_PATH)/pdf
-else
-ifeq ($(DOCTYPE),ps)
-release_docs_spec: ps
-	$(INSTALL_DIR) $(RELEASE_PATH)/ps
-	$(INSTALL_DATA) $(TOP_PS_FILE) $(RELEASE_PATH)/ps
-else
-release_docs_spec: docs
-	$(INSTALL_DIR) $(RELSYSDIR)/doc/html
-	$(INSTALL_DATA) $(GIF_FILES) $(EXTRA_FILES) $(HTML_FILES) \
-		$(RELSYSDIR)/doc/html
-	$(INSTALL_DATA) $(INFO_FILE) $(RELSYSDIR)
-	$(INSTALL_DIR) $(RELEASE_PATH)/man/man3
-	$(INSTALL_DATA) $(MAN3_FILES) $(RELEASE_PATH)/man/man3
-
-endif
-endif
-
-endif
 
 release_spec:
-

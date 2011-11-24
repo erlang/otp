@@ -41,6 +41,16 @@
 #  define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #endif
 
+#if !HEAP_ON_C_STACK
+#  define DECLARE_TMP(VariableName,N,P)  \
+     Eterm *VariableName = ((ERTS_PROC_GET_SCHDATA(P)->erl_arith_tmp_heap) + (2 * N))
+#else
+#  define DECLARE_TMP(VariableName,N,P) \
+     Eterm VariableName[2]
+#endif
+#  define ARG_IS_NOT_TMP(Arg,Tmp) ((Arg) != make_big((Tmp)))
+
+
 static Eterm shift(Process* p, Eterm arg1, Eterm arg2, int right);
 
 static ERTS_INLINE void maybe_shrink(Process* p, Eterm* hp, Eterm res, Uint alloc)
@@ -154,14 +164,14 @@ BIF_RETTYPE bxor_2(BIF_ALIST_2)
     BIF_RET(erts_bxor(BIF_P, BIF_ARG_1, BIF_ARG_2));
 } 
 
-BIF_RETTYPE bsl_2(Process* p, Eterm arg1, Eterm arg2)
+BIF_RETTYPE bsl_2(BIF_ALIST_2)
 {
-    BIF_RET(shift(p, arg1, arg2, 0));
+    BIF_RET(shift(BIF_P, BIF_ARG_1, BIF_ARG_2, 0));
 } 
 
-BIF_RETTYPE bsr_2(Process* p, Eterm arg1, Eterm arg2)
+BIF_RETTYPE bsr_2(BIF_ALIST_2)
 {
-    BIF_RET(shift(p, arg1, arg2, 1));
+    BIF_RET(shift(BIF_P, BIF_ARG_1, BIF_ARG_2, 1));
 } 
 
 static Eterm
@@ -169,7 +179,7 @@ shift(Process* p, Eterm arg1, Eterm arg2, int right)
 {
     Sint i;
     Sint ires;
-    Eterm tmp_big1[2];
+    DECLARE_TMP(tmp_big1,0,p);
     Eterm* bigp;
     Uint need;
 
@@ -312,8 +322,8 @@ BIF_RETTYPE bnot_1(BIF_ALIST_1)
 Eterm
 erts_mixed_plus(Process* p, Eterm arg1, Eterm arg2)
 {
-    Eterm tmp_big1[2];
-    Eterm tmp_big2[2];
+    DECLARE_TMP(tmp_big1,0,p);
+    DECLARE_TMP(tmp_big2,1,p);
     Eterm res;
     Eterm hdr;
     FloatDef f1, f2;
@@ -458,8 +468,8 @@ erts_mixed_plus(Process* p, Eterm arg1, Eterm arg2)
 Eterm
 erts_mixed_minus(Process* p, Eterm arg1, Eterm arg2)
 {
-    Eterm tmp_big1[2];
-    Eterm tmp_big2[2];
+    DECLARE_TMP(tmp_big1,0,p);
+    DECLARE_TMP(tmp_big2,1,p);
     Eterm hdr;
     Eterm res;
     FloatDef f1, f2;
@@ -602,8 +612,8 @@ erts_mixed_minus(Process* p, Eterm arg1, Eterm arg2)
 Eterm
 erts_mixed_times(Process* p, Eterm arg1, Eterm arg2)
 {
-    Eterm tmp_big1[2];
-    Eterm tmp_big2[2];
+    DECLARE_TMP(tmp_big1,0,p);
+    DECLARE_TMP(tmp_big2,1,p);
     Eterm hdr;
     Eterm res;
     FloatDef f1, f2;
@@ -627,8 +637,8 @@ erts_mixed_times(Process* p, Eterm arg1, Eterm arg2)
 		    } else if (arg2 == SMALL_ONE) {
 			return(arg1);
 		    } else {
-			Eterm big_res[3];
-
+			DeclareTmpHeap(big_res,3,p);
+			UseTmpHeap(3,p);
 			/*
 			 * The following code is optimized for the case that
 			 * result is small (which should be the most common case
@@ -636,6 +646,7 @@ erts_mixed_times(Process* p, Eterm arg1, Eterm arg2)
 			 */
 			res = small_times(signed_val(arg1), signed_val(arg2), big_res);
 			if (is_small(res)) {
+			    UnUseTmpHeap(3,p);
 			    return res;
 			} else {
 			    /*
@@ -657,6 +668,7 @@ erts_mixed_times(Process* p, Eterm arg1, Eterm arg2)
 			    if (arity > 1) {
 				*hp = big_res[2];
 			    }
+			    UnUseTmpHeap(3,p);
 			    return res;
 			}
 		    }
@@ -915,8 +927,8 @@ erts_mixed_div(Process* p, Eterm arg1, Eterm arg2)
 Eterm
 erts_int_div(Process* p, Eterm arg1, Eterm arg2)
 {
-    Eterm tmp_big1[2];
-    Eterm tmp_big2[2];
+    DECLARE_TMP(tmp_big1,0,p);
+    DECLARE_TMP(tmp_big2,1,p);
     int ires;
 
     switch (NUMBER_CODE(arg1, arg2)) {
@@ -967,8 +979,8 @@ erts_int_div(Process* p, Eterm arg1, Eterm arg2)
 Eterm
 erts_int_rem(Process* p, Eterm arg1, Eterm arg2)
 {
-    Eterm tmp_big1[2];
-    Eterm tmp_big2[2];
+    DECLARE_TMP(tmp_big1,0,p);
+    DECLARE_TMP(tmp_big2,1,p);
     int ires;
 
     switch (NUMBER_CODE(arg1, arg2)) {
@@ -979,7 +991,8 @@ erts_int_rem(Process* p, Eterm arg1, Eterm arg2)
 	if (arg1 != make_small(MIN_SMALL)) {
 	    return arg1;
 	} else {
-	    Eterm tmp = small_to_big(signed_val(arg1), tmp_big1);
+	    Eterm tmp;
+	    tmp = small_to_big(signed_val(arg1), tmp_big1);
 	    if ((ires = big_ucomp(tmp, arg2)) == 0) {
 		return SMALL_ZERO;
 	    } else {
@@ -1013,8 +1026,8 @@ erts_int_rem(Process* p, Eterm arg1, Eterm arg2)
 
 Eterm erts_band(Process* p, Eterm arg1, Eterm arg2)
 {
-    Eterm tmp_big1[2];
-    Eterm tmp_big2[2];
+    DECLARE_TMP(tmp_big1,0,p);
+    DECLARE_TMP(tmp_big2,1,p);
     Eterm* hp;
     int need;
 
@@ -1041,8 +1054,8 @@ Eterm erts_band(Process* p, Eterm arg1, Eterm arg2)
 
 Eterm erts_bor(Process* p, Eterm arg1, Eterm arg2)
 {
-    Eterm tmp_big1[2];
-    Eterm tmp_big2[2];
+    DECLARE_TMP(tmp_big1,0,p);
+    DECLARE_TMP(tmp_big2,1,p);
     Eterm* hp;
     int need;
 
@@ -1069,8 +1082,8 @@ Eterm erts_bor(Process* p, Eterm arg1, Eterm arg2)
 
 Eterm erts_bxor(Process* p, Eterm arg1, Eterm arg2)
 {
-    Eterm tmp_big1[2];
-    Eterm tmp_big2[2];
+    DECLARE_TMP(tmp_big1,0,p);
+    DECLARE_TMP(tmp_big2,1,p);
     Eterm* hp;
     int need;
 
@@ -1148,8 +1161,8 @@ erts_gc_mixed_plus(Process* p, Eterm* reg, Uint live)
 {
     Eterm arg1;
     Eterm arg2;
-    Eterm tmp_big1[2];
-    Eterm tmp_big2[2];
+    DECLARE_TMP(tmp_big1,0,p);
+    DECLARE_TMP(tmp_big2,1,p);
     Eterm res;
     Eterm hdr;
     FloatDef f1, f2;
@@ -1237,10 +1250,10 @@ erts_gc_mixed_plus(Process* p, Eterm* reg, Uint live)
 		    need_heap = BIG_NEED_SIZE(sz);
 		    if (ERTS_NEED_GC(p, need_heap)) {
 			erts_garbage_collect(p, need_heap, reg, live+2);
-			if (arg1 != make_big(tmp_big1)) {
+			if (ARG_IS_NOT_TMP(arg1,tmp_big1)) {
 			    arg1 = reg[live];
 			}
-			if (arg2 != make_big(tmp_big2)) {
+			if (ARG_IS_NOT_TMP(arg2,tmp_big2)) {
 			    arg2 = reg[live+1];
 			}
 		    }
@@ -1316,8 +1329,8 @@ erts_gc_mixed_minus(Process* p, Eterm* reg, Uint live)
 {
     Eterm arg1;
     Eterm arg2;
-    Eterm tmp_big1[2];
-    Eterm tmp_big2[2];
+    DECLARE_TMP(tmp_big1,0,p);
+    DECLARE_TMP(tmp_big2,1,p);
     Eterm hdr;
     Eterm res;
     FloatDef f1, f2;
@@ -1394,10 +1407,10 @@ erts_gc_mixed_minus(Process* p, Eterm* reg, Uint live)
 		    need_heap = BIG_NEED_SIZE(sz);
 		    if (ERTS_NEED_GC(p, need_heap)) {
 			erts_garbage_collect(p, need_heap, reg, live+2);
-			if (arg1 != make_big(tmp_big1)) {
+			if (ARG_IS_NOT_TMP(arg1,tmp_big1)) {
 			    arg1 = reg[live];
 			}
-			if (arg2 != make_big(tmp_big2)) {
+			if (ARG_IS_NOT_TMP(arg2,tmp_big2)) {
 			    arg2 = reg[live+1];
 			}
 		    }
@@ -1482,8 +1495,8 @@ erts_gc_mixed_times(Process* p, Eterm* reg, Uint live)
 {
     Eterm arg1;
     Eterm arg2;
-    Eterm tmp_big1[2];
-    Eterm tmp_big2[2];
+    DECLARE_TMP(tmp_big1,0,p);
+    DECLARE_TMP(tmp_big2,1,p);
     Eterm hdr;
     Eterm res;
     FloatDef f1, f2;
@@ -1509,7 +1522,8 @@ erts_gc_mixed_times(Process* p, Eterm* reg, Uint live)
 		    } else if (arg2 == SMALL_ONE) {
 			return(arg1);
 		    } else {
-			Eterm big_res[3];
+			DeclareTmpHeap(big_res,3,p);
+			UseTmpHeap(3,p);
 
 			/*
 			 * The following code is optimized for the case that
@@ -1519,6 +1533,7 @@ erts_gc_mixed_times(Process* p, Eterm* reg, Uint live)
 			res = small_times(signed_val(arg1), signed_val(arg2),
 					  big_res);
 			if (is_small(res)) {
+			    UnUseTmpHeap(3,p);
 			    return res;
 			} else {
 			    /*
@@ -1546,6 +1561,7 @@ erts_gc_mixed_times(Process* p, Eterm* reg, Uint live)
 			    if (arity > 1) {
 				*hp = big_res[2];
 			    }
+			    UnUseTmpHeap(3,p);
 			    return res;
 			}
 		    }
@@ -1609,17 +1625,17 @@ erts_gc_mixed_times(Process* p, Eterm* reg, Uint live)
 		    need_heap = BIG_NEED_SIZE(sz);
 		    if (ERTS_NEED_GC(p, need_heap)) {
 			erts_garbage_collect(p, need_heap, reg, live+2);
-			if (arg1 != make_big(tmp_big1)) {
+			if (ARG_IS_NOT_TMP(arg1,tmp_big1)) {
 			    arg1 = reg[live];
 			}
-			if (arg2 != make_big(tmp_big2)) {
+			if (ARG_IS_NOT_TMP(arg2,tmp_big2)) {
 			    arg2 = reg[live+1];
 			}
 		    }
 		    hp = p->htop;
 		    p->htop += need_heap;
 		    res = big_times(arg1, arg2, hp);
-                    trim_heap(p, hp, res);
+		    trim_heap(p, hp, res);
 
 		    /*
 		     * Note that the result must be big in this case, since
@@ -1828,8 +1844,8 @@ erts_gc_int_div(Process* p, Eterm* reg, Uint live)
 {
     Eterm arg1;
     Eterm arg2;
-    Eterm tmp_big1[2];
-    Eterm tmp_big2[2];
+    DECLARE_TMP(tmp_big1,0,p);
+    DECLARE_TMP(tmp_big2,1,p);
     int ires;
 
     arg1 = reg[live];
@@ -1866,10 +1882,10 @@ erts_gc_int_div(Process* p, Eterm* reg, Uint live)
 	    need = BIG_NEED_SIZE(i-ires+1) + BIG_NEED_SIZE(i);
 	    if (ERTS_NEED_GC(p, need)) {
 		erts_garbage_collect(p, need, reg, live+2);
-		if (arg1 != make_big(tmp_big1)) {
+		if (ARG_IS_NOT_TMP(arg1,tmp_big1)) {
 		    arg1 = reg[live];
 		}
-		if (arg2 != make_big(tmp_big2)) {
+		if (ARG_IS_NOT_TMP(arg2,tmp_big2)) {
 		    arg2 = reg[live+1];
 		}
 	    }
@@ -1894,8 +1910,8 @@ erts_gc_int_rem(Process* p, Eterm* reg, Uint live)
 {
     Eterm arg1;
     Eterm arg2;
-    Eterm tmp_big1[2];
-    Eterm tmp_big2[2];
+    DECLARE_TMP(tmp_big1,0,p);
+    DECLARE_TMP(tmp_big2,1,p);
     int ires;
 
     arg1 = reg[live];
@@ -1908,7 +1924,8 @@ erts_gc_int_rem(Process* p, Eterm* reg, Uint live)
 	if (arg1 != make_small(MIN_SMALL)) {
 	    return arg1;
 	} else {
-	    Eterm tmp = small_to_big(signed_val(arg1), tmp_big1);
+	    Eterm tmp;
+	    tmp = small_to_big(signed_val(arg1), tmp_big1);
 	    if ((ires = big_ucomp(tmp, arg2)) == 0) {
 		return SMALL_ZERO;
 	    } else {
@@ -1928,10 +1945,10 @@ erts_gc_int_rem(Process* p, Eterm* reg, Uint live)
 
 	    if (ERTS_NEED_GC(p, need)) {
 		erts_garbage_collect(p, need, reg, live+2);
-		if (arg1 != make_big(tmp_big1)) {
+		if (ARG_IS_NOT_TMP(arg1,tmp_big1)) {
 		    arg1 = reg[live];
 		}
-		if (arg2 != make_big(tmp_big2)) {
+		if (ARG_IS_NOT_TMP(arg2,tmp_big2)) {
 		    arg2 = reg[live+1];
 		}
 	    }
@@ -1956,8 +1973,8 @@ Eterm erts_gc_##func(Process* p, Eterm* reg, Uint live)				\
 {										\
     Eterm arg1;									\
     Eterm arg2;									\
-    Eterm tmp_big1[2];								\
-    Eterm tmp_big2[2];								\
+    DECLARE_TMP(tmp_big1,0,p);							\
+    DECLARE_TMP(tmp_big2,1,p);							\
     Eterm* hp;									\
     int need;									\
 										\

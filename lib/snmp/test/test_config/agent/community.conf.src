@@ -1,0 +1,15 @@
+%% This file defines the community info which maps to VACM parameters.
+%% The data is inserted into the snmpCommunityTable defined
+%% in SNMP-COMMUNITY-MIB.
+%% Each row is a 5-tuple:
+%% {CommunityIndex, CommunityName, SecurityName, ContextName, TransportTag}.
+%% For example
+%% {"1", "public", "initial", "", ""}.
+%% {"2", "secret", "secret_name", "", "tag"}.
+%% {"3", "bridge1", "initial", "bridge1", ""}.
+%%
+
+
+{"public", "public", "initial", "", ""}.
+{"all-rights", "all-rights", "all-rights", "", ""}.
+{"standard trap", "standard trap", "initial", "", ""}.

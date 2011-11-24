@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1999-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 1999-2011. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -76,14 +76,12 @@ struct erl_bits_state ErlBitsState;
 #define byte_buf	(ErlBitsState.byte_buf_)
 #define byte_buf_len	(ErlBitsState.byte_buf_len_)
 
-#ifdef ERTS_SMP
 static erts_smp_atomic_t bits_bufs_size;
-#endif
 
 Uint
 erts_bits_bufs_size(void)
 {
-    return 0;
+    return (Uint) erts_smp_atomic_read_nob(&bits_bufs_size);
 }
 
 #if !defined(ERTS_SMP)
@@ -109,8 +107,8 @@ erts_bits_destroy_state(ERL_BITS_PROTO_0)
 void
 erts_init_bits(void)
 {
+    erts_smp_atomic_init_nob(&bits_bufs_size, 0);
 #if defined(ERTS_SMP)
-    erts_smp_atomic_init(&bits_bufs_size, 0);
     /* erl_process.c calls erts_bits_init_state() on all state instances */
 #else
     ERL_BITS_DECLARE_STATEP;
@@ -177,7 +175,6 @@ erts_bs_get_integer_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuff
     byte* LSB;
     byte* MSB;
     Uint* hp;
-    Uint* hp_end;
     Uint words_needed;
     Uint actual;
     Uint v32;
@@ -255,7 +252,7 @@ erts_bs_get_integer_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuff
 	 * Simply shift whole bytes into the result.
 	 */
 	switch (BYTE_OFFSET(n)) {
-#ifdef ARCH_64
+#if defined(ARCH_64) && !HALFWORD_HEAP
 	case 7: w = (w << 8) | *bp++;
 	case 6: w = (w << 8) | *bp++;
 	case 5: w = (w << 8) | *bp++;
@@ -360,7 +357,7 @@ erts_bs_get_integer_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuff
     case 3: 
 	v32 = LSB[0] + (LSB[1]<<8) + (LSB[2]<<16); 
 	goto big_small;
-#if !defined(ARCH_64)
+#if !defined(ARCH_64) || HALFWORD_HEAP
     case 4:
 	v32 = (LSB[0] + (LSB[1]<<8) + (LSB[2]<<16) + (LSB[3]<<24));
 	if (!IS_USMALL(sgn, v32)) {
@@ -405,7 +402,6 @@ erts_bs_get_integer_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuff
     default:
 	words_needed = 1+WSIZE(bytes);
 	hp = HeapOnlyAlloc(p, words_needed);
-	hp_end = hp + words_needed;
 	res = bytes_to_big(LSB, bytes, sgn, hp); 
 	if (is_small(res)) {
 	    p->htop = hp;
@@ -425,7 +421,6 @@ Eterm
 erts_bs_get_binary_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuffer* mb)
 {
     ErlSubBin* sb;
-    size_t num_bytes;		/* Number of bytes in binary. */
 
     if (mb->size - mb->offset < num_bits) {	/* Asked for too many bits.  */
 	return THE_NON_VALUE;
@@ -435,7 +430,6 @@ erts_bs_get_binary_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuffe
      * From now on, we can't fail.
      */
 
-    num_bytes = NBYTES(num_bits);
     sb = (ErlSubBin *) HeapOnlyAlloc(p, ERL_SUB_BIN_SIZE);
     
     sb->thing_word = HEADER_SUB_BIN;
@@ -555,10 +549,11 @@ fmt_int(byte *buf, Uint sz, Eterm val, Uint size, Uint flags)
 {
     unsigned long offs;
 
-    ASSERT(size != 0);
     offs = BIT_OFFSET(size);
     if (is_small(val)) {
 	Sint v = signed_val(val);
+
+	ASSERT(size != 0);	  /* Tested by caller */
 	if (flags & BSF_LITTLE) { /* Little endian */
 	    sz--;
 	    COPY_VAL(buf,1,v,sz);
@@ -578,6 +573,9 @@ fmt_int(byte *buf, Uint sz, Eterm val, Uint size, Uint flags)
 	ErtsDigit* dp = big_v(val);
 	int n = MIN(sz,ds);
 
+	if (size == 0) {
+	    return 0;
+	}
 	if (flags & BSF_LITTLE) {
 	    sz -= n;                       /* pad with this amount */
 	    if (sign) {
@@ -713,9 +711,7 @@ static void
 ERTS_INLINE need_byte_buf(ERL_BITS_PROTO_1(int need))
 {
     if (byte_buf_len < need) {
-#ifdef ERTS_SMP
-	erts_smp_atomic_add(&bits_bufs_size, need - byte_buf_len);
-#endif
+	erts_smp_atomic_add_nob(&bits_bufs_size, need - byte_buf_len);
 	byte_buf_len = need;
 	byte_buf = erts_realloc(ERTS_ALC_T_BITS_BUF, byte_buf, byte_buf_len);
     }
@@ -729,15 +725,13 @@ erts_new_bs_put_integer(ERL_BITS_PROTO_3(Eterm arg, Uint num_bits, unsigned flag
     Uint b;
     byte *iptr;
 
-    if (num_bits == 0) {
-	return 1;
-    }
-
     bit_offset = BIT_OFFSET(bin_offset);
     if (is_small(arg)) {
 	Uint rbits = 8 - bit_offset;
 
-	if (bit_offset + num_bits <= 8) {
+	if (num_bits == 0) {
+	    return 1;
+	} else if (bit_offset + num_bits <= 8) {
 	    /*
 	     * All bits are in the same byte.
 	     */ 
@@ -851,8 +845,7 @@ erts_bs_put_utf8(ERL_BITS_PROTO_1(Eterm arg))
 	dst[1] = 0x80 | (val & 0x3F);
 	num_bits = 16;
     } else if (val < 0x10000UL) {
-	if ((0xD800 <= val && val <= 0xDFFF) ||
-	    val == 0xFFFE || val == 0xFFFF) {
+	if (0xD800 <= val && val <= 0xDFFF) {
 	    return 0;
 	}
 	dst[0] = 0xE0 | (val >> 12);
@@ -892,8 +885,7 @@ erts_bs_put_utf16(ERL_BITS_PROTO_2(Eterm arg, Uint flags))
 	return 0;
     }
     val = unsigned_val(arg);
-    if (val > 0x10FFFF || (0xD800 <= val && val <= 0xDFFF) ||
-	val == 0xFFFE || val == 0xFFFF) {
+    if (val > 0x10FFFF || (0xD800 <= val && val <= 0xDFFF)) {
 	return 0;
     }
 
@@ -1335,12 +1327,12 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
 	hp += PROC_BIN_SIZE;
 	pb->thing_word = HEADER_PROC_BIN;
 	pb->size = used_size_in_bytes;
-	pb->next = MSO(c_p).mso;
-	MSO(c_p).mso = pb;
+	pb->next = MSO(c_p).first;
+	MSO(c_p).first = (struct erl_off_heap_header*)pb;
 	pb->val = bptr;
 	pb->bytes = (byte*) bptr->orig_bytes;
 	pb->flags = PB_IS_WRITABLE | PB_ACTIVE_WRITER;
-	MSO(c_p).overhead += pb->size / sizeof(Eterm);
+	OH_OVERHEAD(&(MSO(c_p)), pb->size / sizeof(Eterm));
 
 	/*
 	 * Now allocate the sub binary and set its size to include the
@@ -1506,12 +1498,12 @@ erts_bs_init_writable(Process* p, Eterm sz)
     hp += PROC_BIN_SIZE;
     pb->thing_word = HEADER_PROC_BIN;
     pb->size = 0;
-    pb->next = MSO(p).mso;
-    MSO(p).mso = pb;
+    pb->next = MSO(p).first;
+    MSO(p).first = (struct erl_off_heap_header*) pb;
     pb->val = bptr;
     pb->bytes = (byte*) bptr->orig_bytes;
     pb->flags = PB_IS_WRITABLE | PB_ACTIVE_WRITER;
-    MSO(p).overhead += pb->size / sizeof(Eterm);
+    OH_OVERHEAD(&(MSO(p)), pb->size / sizeof(Eterm));
     
     /*
      * Now allocate the sub binary.
@@ -1555,7 +1547,6 @@ Uint32
 erts_bs_get_unaligned_uint32(ErlBinMatchBuffer* mb)
 {
     Uint bytes;
-    Uint bits;
     Uint offs;
     byte bigbuf[4];
     byte* LSB;
@@ -1565,7 +1556,6 @@ erts_bs_get_unaligned_uint32(ErlBinMatchBuffer* mb)
     ASSERT(mb->size - mb->offset >= 32);
 
     bytes = 4;
-    bits = 8;
     offs = 0;
 
     LSB = bigbuf;
@@ -1660,8 +1650,7 @@ erts_bs_get_utf8(ErlBinMatchBuffer* mb)
 	    return THE_NON_VALUE;
 	}
 	result = (((result << 6) + a) << 6) + b - (Eterm) 0x000E2080UL;
-	if ((0xD800 <= result && result <= 0xDFFF) ||
-	    result == 0xFFFE || result == 0xFFFF) {
+	if (0xD800 <= result && result <= 0xDFFF) {
 	    return THE_NON_VALUE;
 	}
 	mb->offset += 24;
@@ -1731,9 +1720,6 @@ erts_bs_get_utf16(ErlBinMatchBuffer* mb, Uint flags)
 	w1 = (src[0] << 8) | src[1];
     }
     if (w1 < 0xD800 || w1 > 0xDFFF) {
-	if (w1 == 0xFFFE || w1 == 0xFFFF) {
-	    return THE_NON_VALUE;
-	}
 	mb->offset += 16;
 	return make_small(w1);
     } else if (w1 > 0xDBFF) {

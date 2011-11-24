@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -40,38 +40,46 @@ strip_name([H|R1],[H|R2]) ->
     strip_name(R1,R2);
 strip_name(String,[]) -> String.
 
+
+get_hook(_Type, undefined) -> ignore;
+get_hook(Type, List) -> proplists:get_value(Type, List, ignore).
+
+get_taylor_made(Str, Name) ->
+    re:run(Str, "<<"++Name++"(.*)"++Name++">>",
+	   [dotall, {capture, all_but_first, list}]).
+
 open_write(File) ->
     %% io:format("Generating ~s~n",[File]),
     {ok, Fd} = file:open(File++".temp", [write]),
     put(current_file, {Fd,File}).
-    
+
 
 close() ->
     case get(current_file) of
-	undefined -> 
+	undefined ->
 	    ok;
 	{closed, File} ->
 	    io:format("Closing twice ~s~n",[File]);
 	{Fd,File} ->
 	    file:close(Fd),
 	    case os:cmd("diff " ++ File ++ " " ++ File ++ ".temp" ++ "| head -30") of
-		[] -> 
+		[] ->
 		    ok = file:delete(File ++ ".temp"),
 		    %% So that make understands that we have made this
-		    case os:getenv("CLEARCASE_ROOT") of
-			false -> os:cmd("touch " ++ File);
-			_ ->  ignore
-		    end,
+		    %% case os:getenv("CLEARCASE_ROOT") of
+		    %% 	false -> os:cmd("touch " ++ File);
+		    %% 	_ ->  ignore
+		    %% end,
 		    ok;
 		Diff ->
 		    case check_diff(Diff) of
 			copyright -> %% We ignore copyright changes only
 			    ok = file:delete(File ++ ".temp");
-			_ ->		    
+			_ ->
 			    io:format("Diff in ~s~n~s ~n", [File, Diff]),
 			    case file:rename(File ++ ".temp", File) of
 				ok -> ok;
-				_ -> 
+				_ ->
 				    io:format("*****  Failed to save file ~p ~n",[File])
 			    end
 		    end
@@ -81,9 +89,9 @@ close() ->
 
 
 check_diff(Diff) ->
-    try 
+    try
 	[_,D1,_,D2|Tail] = re:split(Diff, "\n"),
-	case Tail of 
+	case Tail of
 	    [] -> ok;
 	    [<<>>] -> ok;
 	    _ -> throw(diff)
@@ -113,29 +121,29 @@ args(Fun, Limit, List, Max) ->
     args(Fun, Limit, List, Max, 0).
 
 args(_Fun, _Limit, [], _Max, _) -> "";  %% No args
-args(Fun, _Limit, [Last], _Max, _Pos) -> 
-    case Fun(Last) of 
+args(Fun, _Limit, [Last], _Max, _Pos) ->
+    case Fun(Last) of
 	skip -> ""; %% FIXME bug if last skips
 	Str  -> Str
     end;
 args(Fun, Limit, [H|R], Max, Pos) ->
-    case Fun(H) of 
+    case Fun(H) of
 	skip -> args(Fun,Limit,R, Max, Pos);
-	Str  -> 
-	    {NL, NewPos} = 
+	Str  ->
+	    {NL, NewPos} =
 		case length(Str) + Pos of
 		    Curr when Curr > Max ->
 			{"\n  ", 0};
-		    Curr -> 
+		    Curr ->
 			{"", Curr}
 		end,
-	    case args(Fun,Limit,R, Max, NewPos) of 
+	    case args(Fun,Limit,R, Max, NewPos) of
 		"" -> Str;
 		End -> Str ++ Limit ++ NL ++ End
 	    end
     end.
 
-    
+
 
 
 tokens(S) ->
@@ -163,11 +171,11 @@ replace_and_remove([E|R], Acc) when is_list(E) -> %% Keep everything that is a w
     replace_and_remove(R, [E|Acc]);
 replace_and_remove([$\n | R], Acc) ->   %% It is semi line oriented so keep eol
     replace_and_remove(R, [eol|Acc]);
-replace_and_remove([$( | R], Acc) ->    
+replace_and_remove([$( | R], Acc) ->
     replace_and_remove(R, ["("|Acc]);
 replace_and_remove([$) | R], Acc) ->
     replace_and_remove(R, [")"|Acc]);
-replace_and_remove([${ | R], Acc) ->    
+replace_and_remove([${ | R], Acc) ->
     replace_and_remove(R, ["{"|Acc]);
 replace_and_remove([$} | R], Acc) ->
     replace_and_remove(R, ["}"|Acc]);
@@ -183,7 +191,7 @@ replace_and_remove([$, | R], Acc) ->
     replace_and_remove(R, [cont|Acc]);
 replace_and_remove([$; | R], Acc) ->
     replace_and_remove(R, [eoe|Acc]);
-replace_and_remove([$@ | R], Acc) ->    
+replace_and_remove([$@ | R], Acc) ->
     replace_and_remove(R, [directive|Acc]);
 
 replace_and_remove([_E|R], Acc) ->       %% Ignore everthing else
@@ -209,7 +217,7 @@ erl_copyright() ->
     w("%%~n",[]),
     w("%% %CopyrightBegin%~n",[]),
     w("%%~n",[]),
-    w("%% Copyright Ericsson AB ~p-2010. All Rights Reserved.~n",
+    w("%% Copyright Ericsson AB ~p-2011. All Rights Reserved.~n",
       [StartYear]),
     w("%%~n",[]),
     w("%% The contents of this file are subject to the Erlang Public License,~n",[]),
@@ -225,11 +233,11 @@ erl_copyright() ->
     w("%%~n",[]),
     w("%% %CopyrightEnd%~n",[]).
 
-c_copyright() -> 
+c_copyright() ->
     w("/*~n",[]),
     w(" * %CopyrightBegin%~n",[]),
     w(" *~n",[]),
-    w(" * Copyright Ericsson AB 2008-2010. All Rights Reserved.~n",[]),
+    w(" * Copyright Ericsson AB 2008-2011. All Rights Reserved.~n",[]),
     w(" *~n",[]),
     w(" * The contents of this file are subject to the Erlang Public License,~n",[]),
     w(" * Version 1.1, (the \"License\"); you may not use this file except in~n",[]),

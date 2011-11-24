@@ -1,0 +1,2 @@
+
+whereis_control_flow6.erl:11: The call erlang:unregister('kostis') might fail due to a possible race condition caused by its combination with the erlang:whereis('kostis') call in whereis_control_flow6.erl on line 8

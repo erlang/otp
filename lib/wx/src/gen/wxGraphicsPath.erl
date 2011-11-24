@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -40,7 +40,7 @@
 parent_class(wxGraphicsObject) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec (This::wxGraphicsPath(), P::{X::float(),Y::float()}) -> ok
+%% @spec (This::wxGraphicsPath(), P::{X::float(), Y::float()}) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicspath.html#wxgraphicspathmovetopoint">external documentation</a>.
 moveToPoint(#wx_ref{type=ThisT,ref=ThisRef},{PX,PY})
  when is_number(PX),is_number(PY) ->
@@ -56,7 +56,7 @@ moveToPoint(#wx_ref{type=ThisT,ref=ThisRef},X,Y)
   wxe_util:cast(?wxGraphicsPath_MoveToPoint_2,
   <<ThisRef:32/?UI,0:32,X:64/?F,Y:64/?F>>).
 
-%% @spec (This::wxGraphicsPath(), C::{X::float(),Y::float()}, R::float(), StartAngle::float(), EndAngle::float(), Clockwise::bool()) -> ok
+%% @spec (This::wxGraphicsPath(), C::{X::float(), Y::float()}, R::float(), StartAngle::float(), EndAngle::float(), Clockwise::bool()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicspath.html#wxgraphicspathaddarc">external documentation</a>.
 addArc(#wx_ref{type=ThisT,ref=ThisRef},{CX,CY},R,StartAngle,EndAngle,Clockwise)
  when is_number(CX),is_number(CY),is_float(R),is_float(StartAngle),is_float(EndAngle),is_boolean(Clockwise) ->
@@ -88,7 +88,7 @@ addCircle(#wx_ref{type=ThisT,ref=ThisRef},X,Y,R)
   wxe_util:cast(?wxGraphicsPath_AddCircle,
   <<ThisRef:32/?UI,0:32,X:64/?F,Y:64/?F,R:64/?F>>).
 
-%% @spec (This::wxGraphicsPath(), C1::{X::float(),Y::float()}, C2::{X::float(),Y::float()}, E::{X::float(),Y::float()}) -> ok
+%% @spec (This::wxGraphicsPath(), C1::{X::float(), Y::float()}, C2::{X::float(), Y::float()}, E::{X::float(), Y::float()}) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicspath.html#wxgraphicspathaddcurvetopoint">external documentation</a>.
 addCurveToPoint(#wx_ref{type=ThisT,ref=ThisRef},{C1X,C1Y},{C2X,C2Y},{EX,EY})
  when is_number(C1X),is_number(C1Y),is_number(C2X),is_number(C2Y),is_number(EX),is_number(EY) ->
@@ -112,7 +112,7 @@ addEllipse(#wx_ref{type=ThisT,ref=ThisRef},X,Y,W,H)
   wxe_util:cast(?wxGraphicsPath_AddEllipse,
   <<ThisRef:32/?UI,0:32,X:64/?F,Y:64/?F,W:64/?F,H:64/?F>>).
 
-%% @spec (This::wxGraphicsPath(), P::{X::float(),Y::float()}) -> ok
+%% @spec (This::wxGraphicsPath(), P::{X::float(), Y::float()}) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicspath.html#wxgraphicspathaddlinetopoint">external documentation</a>.
 addLineToPoint(#wx_ref{type=ThisT,ref=ThisRef},{PX,PY})
  when is_number(PX),is_number(PY) ->
@@ -167,7 +167,7 @@ closeSubpath(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:cast(?wxGraphicsPath_CloseSubpath,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxGraphicsPath(), C::{X::float(),Y::float()}) -> bool()
+%% @spec (This::wxGraphicsPath(), C::{X::float(), Y::float()}) -> bool()
 %% @equiv contains(This,C, [])
 contains(This,C={CX,CY})
  when is_record(This, wx_ref),is_number(CX),is_number(CY) ->
@@ -179,7 +179,7 @@ contains(This,C={CX,CY})
 %% <p><c>
 %% contains(This::wxGraphicsPath(), X::float(), Y::float()) -> contains(This,X,Y, []) </c></p>
 %% <p><c>
-%% contains(This::wxGraphicsPath(), C::{X::float(),Y::float()}, [Option]) -> bool() </c>
+%% contains(This::wxGraphicsPath(), C::{X::float(), Y::float()}, [Option]) -> bool() </c>
 %%<br /> Option = {fillStyle, integer()}
 %% </p>
 
@@ -207,14 +207,14 @@ contains(#wx_ref{type=ThisT,ref=ThisRef},X,Y, Options)
   wxe_util:call(?wxGraphicsPath_Contains_3,
   <<ThisRef:32/?UI,0:32,X:64/?F,Y:64/?F, BinOpt/binary>>).
 
-%% @spec (This::wxGraphicsPath()) -> {X::float(),Y::float(),W::float(),H::float()}
+%% @spec (This::wxGraphicsPath()) -> {X::float(), Y::float(), W::float(), H::float()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicspath.html#wxgraphicspathgetbox">external documentation</a>.
 getBox(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGraphicsPath),
   wxe_util:call(?wxGraphicsPath_GetBox,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxGraphicsPath()) -> {X::float(),Y::float()}
+%% @spec (This::wxGraphicsPath()) -> {X::float(), Y::float()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicspath.html#wxgraphicspathgetcurrentpoint">external documentation</a>.
 getCurrentPoint(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGraphicsPath),

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2007</year><year>2010</year>
+      <year>2007</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -30,6 +30,54 @@
   </header>
   <p>This document describes the changes made to the Syntax_Tools
     application.</p>
+
+<section><title>Syntax_Tools 1.6.7.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> In a file containing declarations and comments
+	    without any empty lines between them, the
+	    <c>recomment_forms()</c> function would associate a
+	    multi-line comment with the declaration above it rather
+	    than the one following it. (Thanks to Richard Carlsson
+	    and Kostis Sagonas.) </p>
+          <p>
+	    Own Id: OTP-9180</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Syntax_Tools 1.6.7</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Miscellaneous updates</p>
+          <p>
+	    Own Id: OTP-8976</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Syntax_Tools 1.6.6</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Minor changes and clean-ups.</p>
+          <p>
+	    Own Id: OTP-8709</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Syntax_Tools 1.6.5</title>
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,9 +19,10 @@
 -module(ms_transform_SUITE).
 -author('pan@erix.ericsson.se').
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
--export([all/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 -export([basic_ets/1]).
 -export([basic_dbg/1]).
 -export([from_shell/1]).
@@ -37,20 +38,151 @@
 -export([andalso_orelse/1]).
 -export([float_1_function/1]).
 -export([action_function/1]).
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([warnings/1]).
+-export([no_warnings/1]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 init_per_testcase(_Func, Config) ->
     Dog=test_server:timetrap(test_server:seconds(360)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog).
 
-all(suite) -> [from_shell,basic_ets,basic_dbg,records,record_index,multipass,
-	       bitsyntax, record_defaults, andalso_orelse,
-               float_1_function, action_function, 
-	       top_match, old_guards, autoimported, semicolon].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [from_shell, basic_ets, basic_dbg, records,
+     record_index, multipass, bitsyntax, record_defaults,
+     andalso_orelse, float_1_function, action_function,
+     warnings, no_warnings, top_match, old_guards, autoimported,
+     semicolon].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
+
+%% This may be subject to change
+-define(WARN_NUMBER_SHADOW,50).
+warnings(suite) ->
+    [];
+warnings(doc) ->
+    ["Check that shadowed variables in fun head generate warning"];
+warnings(Config) when is_list(Config) ->
+    ?line setup(Config),
+    Prog = <<"A=5, "
+	    "ets:fun2ms(fun({A,B}) "
+	    "            when is_integer(A) and (A+5 > B) -> "
+	    "              A andalso B "
+	    "            end)">>,
+    ?line [{_,[{_,ms_transform,{?WARN_NUMBER_SHADOW,'A'}}]}] =
+	compile_ww(Prog),
+    Prog2 = <<"C=5, "
+	    "ets:fun2ms(fun({A,B} = C) "
+	    "            when is_integer(A) and (A+5 > B) -> "
+	    "              {A andalso B,C} "
+	    "            end)">>,
+    ?line [{_,[{_,ms_transform,{?WARN_NUMBER_SHADOW,'C'}}]}] =
+	compile_ww(Prog2),
+    Rec3 = <<"-record(a,{a,b,c,d=foppa}).">>,
+    Prog3 = <<"A=3,C=5, "
+	    "ets:fun2ms(fun(#a{a = A, b = B} = C) "
+	    "            when is_integer(A) and (A+5 > B) -> "
+	    "              {A andalso B,C} "
+	    "            end)">>,
+    ?line [{_,[{_,ms_transform,{?WARN_NUMBER_SHADOW,'A'}},
+	       {_,ms_transform,{?WARN_NUMBER_SHADOW,'C'}}]}] =
+	compile_ww(Rec3,Prog3),
+    Rec4 = <<"-record(a,{a,b,c,d=foppa}).">>,
+    Prog4 = <<"A=3,C=5, "
+	     "F = fun(B) -> B*3 end,"
+	     "erlang:display(F(A)),"
+	     "ets:fun2ms(fun(#a{a = A, b = B} = C) "
+	     "            when is_integer(A) and (A+5 > B) -> "
+	     "              {A andalso B,C} "
+	     "            end)">>,
+    ?line [{_,[{_,ms_transform,{?WARN_NUMBER_SHADOW,'A'}},
+	       {_,ms_transform,{?WARN_NUMBER_SHADOW,'C'}}]}] =
+	compile_ww(Rec4,Prog4),
+    Rec5 = <<"-record(a,{a,b,c,d=foppa}).">>,
+    Prog5 = <<"A=3,C=5, "
+	     "F = fun(B) -> B*3 end,"
+	     "erlang:display(F(A)),"
+	     "B = ets:fun2ms(fun(#a{a = A, b = B} = C) "
+	     "            when is_integer(A) and (A+5 > B) -> "
+	     "              {A andalso B,C} "
+	     "            end)">>,
+    ?line [{_,[{_,ms_transform,{?WARN_NUMBER_SHADOW,'A'}},
+	       {_,ms_transform,{?WARN_NUMBER_SHADOW,'C'}}]}] =
+	compile_ww(Rec5,Prog5),
+    Prog6 = <<"   X=bar, "
+	     "    A = case X of"
+	     "       foo ->"
+	     "          foo;"
+	     "       Y ->"
+	     "          ets:fun2ms(fun(Y) ->" % This is a warning
+	     "                         3*Y"
+	     "                     end)"
+	     "   end,"
+	     "   ets:fun2ms(fun(Y) ->" % Y out of "scope" here, so no warning
+	     "                  {3*Y,A}"
+	     "              end)">>,
+    ?line [{_,[{_,ms_transform,{?WARN_NUMBER_SHADOW,'Y'}}]}] =
+	compile_ww(Prog6),
+    Prog7 = <<"   X=bar, "
+	     "    A = case X of"
+	     "       foo ->"
+	     "          Y = foo;"
+	     "       Y ->"
+	     "          bar"
+	     "   end,"
+	     "   ets:fun2ms(fun(Y) ->" % Y exported from case and safe, so warn
+	     "                  {3*Y,A}"
+	     "              end)">>,
+    ?line [{_,[{_,ms_transform,{?WARN_NUMBER_SHADOW,'Y'}}]}] =
+	compile_ww(Prog7),
+    ok.
+
+no_warnings(suite) ->
+    [];
+no_warnings(doc) ->
+    ["Check that variables bound in other function clauses don't generate "
+     "warning"];
+no_warnings(Config) when is_list(Config) ->
+    ?line setup(Config),
+    Prog = <<"tmp(X) when X > 100 ->\n",
+	     "   Y=X,\n"
+	     "   Y;\n"
+	     "tmp(X) ->\n"
+	     "   ets:fun2ms(fun(Y) ->\n"
+	     "                  {X, 3*Y}\n"
+	     "              end)">>,
+    ?line [] = compile_no_ww(Prog),
+
+    Prog2 = <<"tmp(X) when X > 100 ->\n",
+	     "   Y=X,\n"
+	     "   Y;\n"
+	     "tmp(X) when X < 200 ->\n"
+	     "   ok;\n"
+	     "tmp(X) ->\n"
+	     "   ets:fun2ms(fun(Y) ->\n"
+	     "                  {X, 3*Y}\n"
+	     "              end)">>,
+    ?line [] = compile_no_ww(Prog2),
+    ok.
 
 andalso_orelse(suite) ->
     [];
@@ -720,6 +852,38 @@ compile_and_run(Records,Expr) ->
     {ok,tmp,Bin} = compile:forms(Forms),
     code:load_binary(tmp,FN,Bin),
     tmp:tmp().
+
+compile_ww(Expr) ->
+    compile_ww(<<>>,Expr).
+compile_ww(Records,Expr) ->
+    Prog = <<
+	"-module(tmp).\n",
+    "-include_lib(\"stdlib/include/ms_transform.hrl\").\n",
+    "-export([tmp/0]).\n",
+    Records/binary,"\n",
+    "tmp() ->\n",
+    Expr/binary,".\n">>,
+    FN=temp_name(),
+    file:write_file(FN,Prog),
+    {ok,Forms} = epp:parse_file(FN,"",""),
+    {ok,tmp,_Bin,Wlist} = compile:forms(Forms,[return_warnings,
+					       nowarn_unused_vars,
+					       nowarn_unused_record]),
+    Wlist.
+
+compile_no_ww(Expr) ->
+    Prog = <<
+	"-module(tmp).\n",
+    "-include_lib(\"stdlib/include/ms_transform.hrl\").\n",
+    "-export([tmp/1]).\n\n",
+    Expr/binary,".\n">>,
+    FN=temp_name(),
+    file:write_file(FN,Prog),
+    {ok,Forms} = epp:parse_file(FN,"",""),
+    {ok,tmp,_Bin,Wlist} = compile:forms(Forms,[return_warnings,
+					       nowarn_unused_vars,
+					       nowarn_unused_record]),
+    Wlist.
 
 do_eval(String) ->
     {done,{ok,T,_},[]} = erl_scan:tokens(

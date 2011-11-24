@@ -51,7 +51,7 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 
 docs: 
 
-release_spec: 
+release_spec: opt
 	$(INSTALL_DIR) $(EXRELSYSDIR)
 	$(INSTALL_DATA) $(TESTSRC) sudoku.hrl $(EXRELSYSDIR)
 	$(INSTALL_DATA) $(TESTTARGETS) $(EXRELSYSDIR)

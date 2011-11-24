@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(erl_pp).
@@ -31,24 +31,52 @@
 
 -define(MAXLINE, 72).
 
+-type(hook_function() :: none
+                       | fun((Expr :: erl_parse:abstract_expr(),
+                              CurrentIndentation :: integer(),
+                              CurrentPrecedence :: non_neg_integer(),
+                              HookFunction :: hook_function()) ->
+                                    io_lib:chars())).
+
 %%%
 %%% Exported functions
 %%%
 
+-spec(form(Form) -> io_lib:chars() when
+      Form :: erl_parse:abstract_form()).
+
 form(Thing) ->
     form(Thing, none).
+
+-spec(form(Form, HookFunction) -> io_lib:chars() when
+      Form :: erl_parse:abstract_form(),
+      HookFunction :: hook_function()).
 
 form(Thing, Hook) ->
     frmt(lform(Thing, Hook)).
 
+-spec(attribute(Attribute) -> io_lib:chars() when
+      Attribute :: erl_parse:abstract_form()).
+
 attribute(Thing) ->
     attribute(Thing, none).
+
+-spec(attribute(Attribute, HookFunction) -> io_lib:chars() when
+      Attribute :: erl_parse:abstract_form(),
+      HookFunction :: hook_function()).
 
 attribute(Thing, Hook) ->
     frmt(lattribute(Thing, Hook)).
 
+-spec(function(Function) -> io_lib:chars() when
+      Function :: erl_parse:abstract_form()).
+
 function(F) ->
     function(F, none).
+
+-spec(function(Function, HookFunction) -> io_lib:chars() when
+      Function :: erl_parse:abstract_form(),
+      HookFunction :: hook_function()).
 
 function(F, Hook) ->
     frmt(lfunction(F, Hook)).
@@ -59,29 +87,66 @@ rule(R) ->
 rule(R, Hook) ->
     frmt(lrule(R, Hook)).
 
+-spec(guard(Guard) -> io_lib:chars() when
+      Guard :: [erl_parse:abstract_expr()]).
+
 guard(Gs) ->
     guard(Gs, none).
+
+-spec(guard(Guard, HookFunction) -> io_lib:chars() when
+      Guard :: [erl_parse:abstract_expr()],
+      HookFunction :: hook_function()).
 
 guard(Gs, Hook) ->
     frmt(lguard(Gs, Hook)).
 
+-spec(exprs(Expressions) -> io_lib:chars() when
+      Expressions :: [erl_parse:abstract_expr()]).
+
 exprs(Es) ->
     exprs(Es, 0, none).
+
+-spec(exprs(Expressions, HookFunction) -> io_lib:chars() when
+      Expressions :: [erl_parse:abstract_expr()],
+      HookFunction :: hook_function()).
 
 exprs(Es, Hook) ->
     exprs(Es, 0, Hook).
 
+-spec(exprs(Expressions, Indent, HookFunction) -> io_lib:chars() when
+      Expressions :: [erl_parse:abstract_expr()],
+      Indent :: integer(),
+      HookFunction :: hook_function()).
+
 exprs(Es, I, Hook) ->
     frmt({seq,[],[],[$,],lexprs(Es, Hook)}, I).
+
+-spec(expr(Expression) -> io_lib:chars() when
+      Expression :: erl_parse:abstract_expr()).
 
 expr(E) ->
     frmt(lexpr(E, 0, none)).
 
+-spec(expr(Expression, HookFunction) -> io_lib:chars() when
+      Expression :: erl_parse:abstract_expr(),
+      HookFunction :: hook_function()).
+
 expr(E, Hook) ->
     frmt(lexpr(E, 0, Hook)).
 
+-spec(expr(Expression, Indent, HookFunction) -> io_lib:chars() when
+      Expression :: erl_parse:abstract_expr(),
+      Indent :: integer(),
+      HookFunction :: hook_function()).
+
 expr(E, I, Hook) ->
     frmt(lexpr(E, 0, Hook), I).
+
+-spec(expr(Expression, Indent, Precedence, HookFunction) -> io_lib:chars() when
+      Expression :: erl_parse:abstract_expr(),
+      Indent :: integer(),
+      Precedence :: non_neg_integer(),
+      HookFunction :: hook_function()).
 
 expr(E, I, P, Hook) ->
     frmt(lexpr(E, P, Hook), I).
@@ -115,7 +180,7 @@ lattribute({attribute,_Line,Name,Arg}, Hook) ->
 
 lattribute(module, {M,Vs}, _Hook) ->
     attr("module",[{var,0,pname(M)},
-                   foldr(fun(V, C) -> {cons,0,{var,0,V},C} 
+                   foldr(fun(V, C) -> {cons,0,{var,0,V},C}
                          end, {nil,0}, Vs)]);
 lattribute(module, M, _Hook) ->
     attr("module", [{var,0,pname(M)}]);
@@ -140,7 +205,7 @@ typeattr(Tag, {TypeName,Type,Args}, _Hook) ->
 ltype({ann_type,_Line,[V,T]}) ->
     typed(lexpr(V, none), T);
 ltype({paren_type,_Line,[T]}) ->
-    [$(,ltype(T),$)];    
+    [$(,ltype(T),$)];
 ltype({type,_Line,union,Ts}) ->
     {seq,[],[],[' |'],ltypes(Ts)};
 ltype({type,_Line,list,[T]}) ->
@@ -153,7 +218,7 @@ ltype({type,Line,tuple,any}) ->
     simple_type({atom,Line,tuple}, []);
 ltype({type,_Line,tuple,Ts}) ->
     tuple_type(Ts, fun ltype/1);
-ltype({type,_Line,record,[N|Fs]}) ->
+ltype({type,_Line,record,[{atom,_,N}|Fs]}) ->
     record_type(N, Fs);
 ltype({type,_Line,range,[_I1,_I2]=Es}) ->
     expr_list(Es, '..', fun lexpr/2, none);
@@ -161,24 +226,28 @@ ltype({type,_Line,binary,[I1,I2]}) ->
     binary_type(I1, I2); % except binary()
 ltype({type,_Line,'fun',[]}) ->
     leaf("fun()");
-ltype({type,_Line,'fun',_}=FunType) ->
+ltype({type,_,'fun',[{type,_,any},_]}=FunType) ->
+    [fun_type(['fun',$(], FunType),$)];
+ltype({type,_Line,'fun',[{type,_,product,_},_]}=FunType) ->
     [fun_type(['fun',$(], FunType),$)];
 ltype({type,Line,T,Ts}) ->
     simple_type({atom,Line,T}, Ts);
 ltype({remote_type,Line,[M,F,Ts]}) ->
     simple_type({remote,Line,M,F}, Ts);
 ltype({atom,_,T}) ->
-    %% Follow the convention to always quote atoms (in types):
-    leaf([$',atom_to_list(T),$']);
+    leaf(write(T));
 ltype(E) ->
     lexpr(E, 0, none).
 
-binary_type({integer,_,Int1}=I1, {integer,_,Int2}=I2) ->
-    E1 = [[leaf("_:"),lexpr(I1, 0, none)] || Int1 =/= 0],
-    E2 = [[leaf("_:_*"),lexpr(I2, 0, none)] || Int2 =/= 0],
+binary_type(I1, I2) ->
+    B = [[] || {integer,_,0} <- [I1]] =:= [],
+    U = [[] || {integer,_,0} <- [I2]] =:= [],
+    P = max_prec(),
+    E1 = [[leaf("_:"),lexpr(I1, P, none)] || B],
+    E2 = [[leaf("_:_*"),lexpr(I2, P, none)] || U],
     {seq,'<<','>>',[$,],E1++E2}.
 
-record_type({atom,_,Name}, Fields) ->
+record_type(Name, Fields) ->
     {first,[record_name(Name)],field_types(Fields)}.
 
 field_types(Fs) ->
@@ -388,8 +457,16 @@ lexpr({'fun',_,{function,F,A}}, _Prec, _Hook) ->
     leaf(format("fun ~w/~w", [F,A]));
 lexpr({'fun',_,{function,F,A},Extra}, _Prec, _Hook) ->
     {force_nl,fun_info(Extra),leaf(format("fun ~w/~w", [F,A]))};
-lexpr({'fun',_,{function,M,F,A}}, _Prec, _Hook) ->
+lexpr({'fun',_,{function,M,F,A}}, _Prec, _Hook)
+  when is_atom(M), is_atom(F), is_integer(A) ->
+    %% For backward compatibility with pre-R15 abstract format.
     leaf(format("fun ~w:~w/~w", [M,F,A]));
+lexpr({'fun',_,{function,M,F,A}}, _Prec, Hook) ->
+    %% New format in R15.
+    NameItem = lexpr(M, Hook),
+    CallItem = lexpr(F, Hook),
+    ArityItem = lexpr(A, Hook),
+    ["fun ",NameItem,$:,CallItem,$/,ArityItem];
 lexpr({'fun',_,{clauses,Cs}}, _Prec, Hook) ->
     {list,[{first,'fun',fun_clauses(Cs, Hook)},'end']};
 lexpr({'fun',_,{clauses,Cs},Extra}, _Prec, Hook) ->
@@ -442,7 +519,7 @@ lexpr({op,_,Op,Arg}, Prec, Hook) ->
     Ol = leaf(format("~s ", [Op])),
     El = [Ol,lexpr(Arg, R, Hook)],
     maybe_paren(P, Prec, El);
-lexpr({op,_,Op,Larg,Rarg}, Prec, Hook)  when Op =:= 'orelse'; 
+lexpr({op,_,Op,Larg,Rarg}, Prec, Hook)  when Op =:= 'orelse';
                                              Op =:= 'andalso' ->
     %% Breaks lines since R12B.
     {L,P,R} = inop_prec(Op),
@@ -554,16 +631,10 @@ record_field({typed_record_field,{record_field,_,F,Val},Type}, Hook) ->
     Fl = lexpr(F, L, Hook),
     Vl = typed(lexpr(Val, R, Hook), Type),
     {list,[{cstep,[Fl,' ='],Vl}]};
-record_field({typed_record_field,Field,Type0}, Hook) ->
-    Type = remove_undefined(Type0),
+record_field({typed_record_field,Field,Type}, Hook) ->
     typed(record_field(Field, Hook), Type);
 record_field({record_field,_,F}, Hook) ->
     lexpr(F, 0, Hook).
-
-remove_undefined({type,L,union,[{atom,_,undefined}|T]}) ->
-    {type,L,union,T};
-remove_undefined(T) -> % cannot happen
-    T.
 
 list({cons,_,H,T}, Es, Hook) ->
     list(T, [H|Es], Hook);
@@ -726,15 +797,15 @@ frmt(Item, I) ->
 %%%   and indentation are inserted between IPs.
 %%% - {first,I,IP2}: IP2 follows after I, and is output with an indentation
 %%%   updated with the width of I.
-%%% - {seq,Before,After,Separator,IPs}: a sequence of Is separated by 
-%%%   Separator. Before is output before IPs, and the indentation of IPs 
+%%% - {seq,Before,After,Separator,IPs}: a sequence of Is separated by
+%%%   Separator. Before is output before IPs, and the indentation of IPs
 %%%   is updated with the width of Before. After follows after IPs.
 %%% - {force_nl,ExtraInfo,I}: fun-info (a comment) forces linebreak before I.
 %%% - {prefer_nl,Sep,IPs}: forces linebreak between Is unlesss negative
 %%%   indentation.
 %%% - {string,S}: a string.
 %%% - {hook,...}, {ehook,...}: hook expressions.
-%%% 
+%%%
 %%% list, first, seq, force_nl, and prefer_nl all accept IPs, where each
 %%% element is either an item or a tuple {step|cstep,I1,I2}. step means
 %%% that I2 is output after linebreak and an incremented indentation.
@@ -760,7 +831,7 @@ f({seq,Before,After,Sep,LItems}, I0, ST, WT) ->
     {CharsL,SizeL} = unz(CharsSizeL),
     {BCharsL,BSizeL} = unz1([BCharsSize]),
     Sizes = BSizeL ++ SizeL,
-    NSepChars = if 
+    NSepChars = if
                     is_list(Sep), Sep =/= [] ->
                         erlang:max(0, length(CharsL)-1);
                     true ->
@@ -875,7 +946,7 @@ nl_indent(I, T) when I > 0 ->
     [$\n|spaces(I, T)].
 
 same_line(I0, SizeL, NSepChars) ->
-    try 
+    try
         Size = lists:sum(SizeL) + NSepChars,
         true = incr(I0, Size) =< ?MAXLINE,
         {yes,Size}
@@ -955,9 +1026,9 @@ write_a_string(S, N, Len) ->
 -define(N_SPACES, 30).
 
 spacetab() ->
-    {[_|L],_} = mapfoldl(fun(_, A) -> {A,[$\s|A]} 
+    {[_|L],_} = mapfoldl(fun(_, A) -> {A,[$\s|A]}
                          end, [], lists:seq(0, ?N_SPACES)),
-    list_to_tuple(L).    
+    list_to_tuple(L).
 
 spaces(N, T) when N =< ?N_SPACES ->
     element(N, T);
@@ -965,7 +1036,7 @@ spaces(N, T) ->
     [element(?N_SPACES, T)|spaces(N-?N_SPACES, T)].
 
 wordtable() ->
-    L = [begin {leaf,Sz,S} = leaf(W), {S,Sz} end || 
+    L = [begin {leaf,Sz,S} = leaf(W), {S,Sz} end ||
             W <- [" ->"," =","<<",">>","[]","after","begin","case","catch",
                   "end","fun","if","of","receive","try","when"," ::","..",
                   " |"]],

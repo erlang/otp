@@ -1,22 +1,22 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2001-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2001-2011. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
-/* $Id$
+/*
  * hipe_native_bif.c
  */
 #ifdef HAVE_CONFIG_H
@@ -41,9 +41,9 @@
  */
 
 /* for -Wmissing-prototypes :-( */
-extern Eterm hipe_check_process_code_2(Process*, Eterm, Eterm);
-extern Eterm hipe_garbage_collect_1(Process*, Eterm);
-extern Eterm hipe_show_nstack_1(Process*, Eterm);
+extern Eterm hipe_check_process_code_2(BIF_ALIST_2);
+extern Eterm hipe_garbage_collect_1(BIF_ALIST_1);
+extern Eterm hipe_show_nstack_1(BIF_ALIST_1);
 
 /* Used when a BIF can trigger a stack walk. */
 static __inline__ void hipe_set_narity(Process *p, unsigned int arity)
@@ -56,7 +56,7 @@ Eterm hipe_check_process_code_2(BIF_ALIST_2)
     Eterm ret;
 
     hipe_set_narity(BIF_P, 2);
-    ret = check_process_code_2(BIF_P, BIF_ARG_1, BIF_ARG_2);
+    ret = check_process_code_2(BIF_P, BIF__ARGS);
     hipe_set_narity(BIF_P, 0);
     return ret;
 }
@@ -66,7 +66,7 @@ Eterm hipe_garbage_collect_1(BIF_ALIST_1)
     Eterm ret;
 
     hipe_set_narity(BIF_P, 1);
-    ret = garbage_collect_1(BIF_P, BIF_ARG_1);
+    ret = garbage_collect_1(BIF_P, BIF__ARGS);
     hipe_set_narity(BIF_P, 0);
     return ret;
 }
@@ -76,7 +76,7 @@ Eterm hipe_show_nstack_1(BIF_ALIST_1)
     Eterm ret;
 
     hipe_set_narity(BIF_P, 1);
-    ret = hipe_bifs_show_nstack_1(BIF_P, BIF_ARG_1);
+    ret = hipe_bifs_show_nstack_1(BIF_P, BIF__ARGS);
     hipe_set_narity(BIF_P, 0);
     return ret;
 }
@@ -99,8 +99,10 @@ void hipe_gc(Process *p, Eterm need)
  *  has begun.
  * XXX: BUG: native code should check return status
  */
-Eterm hipe_set_timeout(Process *p, Eterm timeout_value)
+BIF_RETTYPE hipe_set_timeout(BIF_ALIST_1)
 {
+    Process* p = BIF_P;
+    Eterm timeout_value = BIF_ARG_1;
 #if !defined(ARCH_64)
     Uint time_val;
 #endif
@@ -187,6 +189,8 @@ void hipe_fclearerror_error(Process *p)
 {
 #if !defined(NO_FPE_SIGNALS)
     erts_fp_check_init_error(&p->fp_exception);
+#else
+    erl_exit(ERTS_ABORT_EXIT, "Emulated FPE not cleared by HiPE");
 #endif
 }
 
@@ -286,8 +290,13 @@ static struct StackTrace *get_trace_from_exc(Eterm exc)
  * This does what the (misnamed) Beam instruction 'raise_ss' does,
  * namely, a proper re-throw of an exception that was caught by 'try'.
  */
-Eterm hipe_rethrow(Process *c_p, Eterm exc, Eterm value)
+
+BIF_RETTYPE hipe_rethrow(BIF_ALIST_2)
 {
+    Process* c_p = BIF_P;
+    Eterm exc = BIF_ARG_1;
+    Eterm value = BIF_ARG_2;
+
     c_p->fvalue = value;
     if (c_p->freason == EXC_NULL) {
 	/* a safety check for the R10-0 case; should not happen */
@@ -334,7 +343,7 @@ char *hipe_bs_allocate(int len)
     bptr = erts_bin_nrml_alloc(len);
     bptr->flags = 0;
     bptr->orig_size = len;
-    erts_smp_atomic_init(&bptr->refc, 1);
+    erts_smp_atomic_init_nob(&bptr->refc, 1);
     return bptr->orig_bytes;
 }
 
@@ -411,8 +420,12 @@ Eterm hipe_bs_utf8_size(Eterm arg)
 	return make_small(4);
 }
 
-Eterm hipe_bs_put_utf8(Process *p, Eterm arg, byte *base, unsigned int offset)
+BIF_RETTYPE hipe_bs_put_utf8(BIF_ALIST_3)
 {
+    Process* p = BIF_P;
+    Eterm arg = BIF_ARG_1;
+    byte* base = (byte*) BIF_ARG_2;
+    Uint offset = (Uint) BIF_ARG_3;
     byte *save_bin_buf;
     Uint save_bin_offset;
     int res;
@@ -468,13 +481,21 @@ Eterm hipe_bs_put_utf16(Process *p, Eterm arg, byte *base, unsigned int offset, 
     return new_offset;
 }
 
-Eterm hipe_bs_put_utf16be(Process *p, Eterm arg, byte *base, unsigned int offset)
+BIF_RETTYPE hipe_bs_put_utf16be(BIF_ALIST_3)
 {
+    Process *p = BIF_P;
+    Eterm arg = BIF_ARG_1;
+    byte *base = (byte*) BIF_ARG_2; 
+    Uint offset = (Uint) BIF_ARG_3;
     return hipe_bs_put_utf16(p, arg, base, offset, 0);
 }
 
-Eterm hipe_bs_put_utf16le(Process *p, Eterm arg, byte *base, unsigned int offset)
+BIF_RETTYPE hipe_bs_put_utf16le(BIF_ALIST_3)
 {
+    Process *p = BIF_P;
+    Eterm arg = BIF_ARG_1;
+    byte *base = (byte*) BIF_ARG_2; 
+    Uint offset = (Uint) BIF_ARG_3;
     return hipe_bs_put_utf16(p, arg, base, offset, BSF_LITTLE);
 }
 
@@ -489,8 +510,10 @@ static int validate_unicode(Eterm arg)
     return 1;
 }
 
-Eterm hipe_bs_validate_unicode(Process *p, Eterm arg)
+BIF_RETTYPE hipe_bs_validate_unicode(BIF_ALIST_1)
 {
+    Process *p = BIF_P;
+    Eterm arg = BIF_ARG_1;
     if (!validate_unicode(arg))
 	BIF_ERROR(p, BADARG);
     return NIL;
@@ -584,7 +607,7 @@ void hipe_clear_timeout(Process *c_p)
 
 void hipe_atomic_inc(int *counter)
 {
-    erts_smp_atomic_inc((erts_smp_atomic_t*)counter);
+    erts_smp_atomic_inc_nob((erts_smp_atomic_t*)counter);
 }
 
 #endif

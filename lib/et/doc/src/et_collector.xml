@@ -29,6 +29,7 @@
     <checked></checked>
     <date></date>
     <rev>%VSN%</rev>
+    <file>et_collector.xml</file>
   </header>
   <module>et_collector</module>
   <modulesummary>Collect trace events and provide a backing storage appropriate for iteration </modulesummary>

@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(kernel_config).
@@ -40,6 +40,9 @@ start_link() -> gen_server:start_link(kernel_config, [], []).
 %%-----------------------------------------------------------------
 %% Callback functions from gen_server
 %%-----------------------------------------------------------------
+
+-spec init([]) -> {'ok', []} | {'stop', term()}.
+
 init([]) ->  
     process_flag(trap_exit, true),
     case sync_nodes() of
@@ -59,17 +62,27 @@ init([]) ->
 	    {stop, Error}
     end.
 
+-spec handle_info(term(), State) -> {'noreply', State}.
+
 handle_info(_, State) ->
     {noreply, State}.
+
+-spec terminate(term(), term()) -> 'ok'.
 
 terminate(_Reason, _State) ->
     ok.
 
+-spec handle_call(term(), term(), State) -> {'reply', 'ok', State}.
+
 handle_call('__not_used', _From, State) ->
     {reply, ok, State}.
 
+-spec handle_cast(term(), State) -> {'noreply', State}.
+
 handle_cast('__not_used', State) ->
     {noreply, State}.
+
+-spec code_change(term(), State, term()) -> {'ok', State}.
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
@@ -79,9 +92,9 @@ code_change(_OldVsn, State, _Extra) ->
 %%-----------------------------------------------------------------
 sync_nodes() ->
     case catch get_sync_data() of
-	{error, Reason} ->
+	{error, Reason} = Error ->
 	    error_logger:format("~p", [Reason]),
-	    {error, Reason};
+	    Error;
 	{infinity, MandatoryNodes, OptionalNodes} ->
 	    case wait_nodes(MandatoryNodes, OptionalNodes) of
 		ok ->

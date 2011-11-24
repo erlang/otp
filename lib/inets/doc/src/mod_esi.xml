@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2010</year>
+      <year>1997</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -31,17 +31,20 @@
   <module>mod_esi</module>
   <modulesummary>Erlang Server Interface </modulesummary>
   <description>
-    <p>This module defines the API - Erlang Server Interface (ESI).
-      Which is a more efficient way of writing erlang scripts
-      for your Inets web server than writing them as common CGI scripts.</p>
+    <p>This module defines the Erlang Server Interface (ESI) API.
+    It is a more efficient way of writing erlang scripts
+    for your Inets web server than writing them as common CGI scripts.</p>
+
+    <marker id="deliver"></marker>
   </description>
+
   <funcs>
     <func>
       <name>deliver(SessionID, Data) -> ok | {error, Reason}</name>
       <fsummary>Sends Data back to client.</fsummary>
       <type>
         <v>SessionID = term()</v>
-        <v>Data = string() | io_list()</v>
+        <v>Data = string() | io_list() | binary()</v>
         <v>Reason = term()</v>
       </type>
       <desc>
@@ -51,13 +54,15 @@
 	parts of the content to the user.</p>
 	<p>Sends data from a Erl Scheme script back to the client.</p>
 	
-	<note><p>Note
-          that if any HTTP-header fields should be added by the
-          script they must be in the first call to deliver/2  and the
-          data in the call must be a string. Do not
-          assume anything about the data type of SessionID, the
-          SessionID must be the value given as input to the esi
-          call back function that you implemented.</p></note>
+	<note>
+	  <p>Note that if any HTTP-header fields should be added by the
+	  script they must be in the first call to deliver/2  and the
+	  data in the call must be a string. Calls after the headers
+	  are complete may contain binary data to reduce copying
+	  overhead.  Do not assume anything about the data type of 
+	  SessionID, the SessionID must be the value given as input to 
+	  the esi call back function that you implemented.</p>
+	</note>
       </desc>
     </func>
   </funcs>
@@ -73,28 +78,29 @@
         <v>SessionID = term()</v>
         <v>Env  = [EnvironmentDirectives] ++ ParsedHeader</v>
         <v>EnvironmentDirectives = {Key,Value}</v>
-        <v>Key = query_string | content_length | server_software | gateway_interface | server_protocol | server_port | request_method | remote_addr | script_name. &lt;v>Input = string()</v>
+        <v>Key = query_string | content_length | server_software | gateway_interface | server_protocol | server_port | request_method | remote_addr | script_name</v>
+        <v>Input = string()</v>
       </type>
       <desc>
         <p>The <c>Module</c> must be found in the code path and export
-          <c>Function</c> with an arity of two. An erlScriptAlias must
+          <c>Function</c> with an arity of three. An erlScriptAlias must
           also be set up in the configuration file for the Web server.</p>
-        <p>If the HTTP request is a post request and a body is sent
+        <p>If the HTTP request is a 'post' request and a body is sent
           then content_length will be the length of the posted
-          data. If get is used query_string will be the data after
+          data. If 'get' is used query_string will be the data after
           <em>?</em> in the url.</p>
         <p>ParsedHeader is the HTTP request as a key value tuple
           list. The keys in parsed header will be the in lower case.</p>
         <p>SessionID is a identifier
-          the server use when <c>deliver/2</c> is called, do not
-          assume any-thing about the datatype.</p>
+          the server uses when <c>deliver/2</c> is called; do not
+          assume anything about the datatype.</p>
         <p>Use this callback function to dynamically generate dynamic web
-          content. when a part of the page is generated send the
+          content. When a part of the page is generated send the
           data back to the client through <c>deliver/2</c>. Note
           that the first chunk of data sent to the client must at
           least contain all HTTP header fields that the response
-          will generate. If the first chunk not contains 
-          <em>End of HTTP header</em> that is <c>"\r\n\r\n"</c> 
+          will generate. If the first chunk does not contain the
+          <em>End of HTTP header</em>, that is <c>"\r\n\r\n",</c>
           the server will
           assume that no HTTP header fields will be generated.</p>
       </desc>
@@ -105,14 +111,15 @@
       <type>
         <v>Env  = [EnvironmentDirectives] ++ ParsedHeader</v>
         <v>EnvironmentDirectives = {Key,Value}</v>
-        <v>Key = query_string | content_length | server_software | gateway_interface | server_protocol | server_port | request_method | remote_addr | script_name. &lt;v>Input = string()</v>
+		  <v>Key = query_string | content_length | server_software | gateway_interface | server_protocol | server_port | request_method | remote_addr | script_name.</v>
+        <v>Input = string()</v>
         <v>Response = string()</v>
       </type>
       <desc>
-        <p>This callback format consumes quite much memory since the
+        <p>This callback format consumes a lot of memory since the
           whole response must be generated before it is sent to the
-          user. This functions is deprecated and only keept for backwards
-          compatibility. 
+          user. This function is deprecated and only kept for backwards
+          compatibility.
           For new development Module:Function/3 should be used.</p>
       </desc>
     </func>

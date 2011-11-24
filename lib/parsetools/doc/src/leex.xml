@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2009</year><year>2009</year>
+      <year>2009</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -78,6 +78,10 @@ Token = tuple()</code>
             <tag><c>{report_warnings, bool()}</c></tag>
             <item><p>Causes warnings to be printed as they occur. Default is
               <c>true</c>.</p>
+            </item>
+            <tag><c>warnings_as_errors</c></tag>
+            <item>
+              <p>Causes warnings to be treated as errors.</p>
             </item>
             <tag><c>{report, bool()}</c></tag>
             <item><p>This is a short form for both <c>report_errors</c> and

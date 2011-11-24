@@ -29,6 +29,7 @@
     <checked></checked>
     <date></date>
     <rev>%VSN%</rev>
+    <file>et_viewer.xml</file>
   </header>
   <module>et_viewer</module>
   <modulesummary>Displays a sequence chart for trace events (messages/actions)</modulesummary>

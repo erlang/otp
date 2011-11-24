@@ -22,7 +22,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 # Macros
 #
 
-SUB_DIRECTORIES = bin css docbuilder_dtd dtd_html_entities dtd_man_entities images js/flipmenu xsl
+SUB_DIRECTORIES = bin css dtd dtd_html_entities dtd_man_entities images js/flipmenu xsl
 
 SPECIAL_TARGETS = 
 

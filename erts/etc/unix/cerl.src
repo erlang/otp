@@ -1,20 +1,20 @@
 #!/bin/sh
 #
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 2003-2009. All Rights Reserved.
-# 
+#
+# Copyright Ericsson AB 2003-2011. All Rights Reserved.
+#
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
 # compliance with the License. You should have received a copy of the
 # Erlang Public License along with this software. If not, it can be
 # retrieved online at http://www.erlang.org/.
-# 
+#
 # Software distributed under the License is distributed on an "AS IS"
 # basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 # the License for the specific language governing rights and limitations
 # under the License.
-# 
+#
 # %CopyrightEnd%
 #
 #
@@ -62,12 +62,21 @@ cxargs_add() {
     done
 }
 
+eeargs=
+eeargs_add() {
+    while [ $# -gt 0 ]; do
+	cargs="$cargs $1"
+	eeargs="$eeargs $1"
+	shift
+    done
+}
+
 core=
 
 GDB=
 GDBBP=
+GDBARGS=
 TYPE=
-EMU_TYPE=
 debug=
 run_valgrind=no
 
@@ -126,33 +135,36 @@ while [ $# -gt 0 ]; do
 	    ;;
 	"-smp")
 	    shift
-	    cargs="$cargs -smp"
-	    EMU_TYPE=.smp
+	    if [ $# -le 0 ]; then
+		eeargs_add -smp
+	    else
+		case $1 in
+		    disable)
+			shift
+			eeargs_add -smpdisable
+			;;
+		    enable)
+			shift
+			eeargs_add -smp
+			;;
+		    *)
+			eeargs_add -smp
+		esac
+	    fi
+	    ;;
+	"-smpdisable")
+	    shift
+	    eeargs_add -smpdisable
 	    ;;
 	"-lcnt")
 	    shift
 	    cargs="$cargs -lcnt"
 	    TYPE=.lcnt
 	    ;;
-	"-frag")
-	    shift
-	    cargs="$cargs -frag"
-	    EMU_TYPE=.frag
-	    ;;
-	"-smp_frag")
-	    shift
-	    cargs="$cargs -smp_frag"
-	    EMU_TYPE=.smp_frag
-	    ;;
 	"-gprof")
 	    shift
 	    cargs="$cargs -gprof"
 	    TYPE=.gprof
-	    ;;
-	"-hybrid")
-	    shift
-	    cargs="$cargs -hybrid"
-	    EMU_TYPE=.hybrid
 	    ;;
 	"-debug")
 	    shift
@@ -179,11 +191,6 @@ while [ $# -gt 0 ]; do
 #	    shift
 #	    GDB=xxgdb
 #	    ;;
-	"-shared")
-	    shift
-	    cargs="$cargs -shared"
-	    TYPE=.shared
-	    ;;
 	"-purify")
 	    shift
 	    cargs="$cargs -purify"
@@ -221,23 +228,38 @@ PATH=$BINDIR:$ROOTDIR/bin:$PATH
 EXEC=$BINDIR/erlexec
 
 PROGNAME="$PROGNAME $cargs"
-EMU=$EMU$TYPE$EMU_TYPE
+EMU="$EMU$TYPE"
+EMU_NAME=`$EXEC -emu_name_exit $eeargs`
+
 if [ $run_valgrind != yes ]; then
     xargs="$xargs -pz $PRELOADED --"
 fi
 if [ "x$GDB" = "x" ]; then
     if [ $run_valgrind = yes ]; then
+	valversion=`valgrind --version`
+	valmajor=`echo $valversion | sed 's,[a-z]*\-\([0-9]*\).*,\1,'`
+        valminor=`echo $valversion | sed 's,[a-z]*\-[0-9]*.\([0-9]*\).*,\1,'`
 	emu_xargs=`echo $xargs | sed "s|+|-|g"`
-	if [ "x$VALGRIND_LOG_DIR" = "x" ]; then
-	    valgrind_log=
-	else
-	    valgrind_log="--log-file=$VALGRIND_LOG_DIR/$VALGRIND_LOGFILE_PREFIX$VALGRIND_LOGFILE_INFIX$EMU.log"
-	fi
 	if [ "x$VALGRIND_LOG_XML" = "x" ]; then
 	    valgrind_xml=
+	    log_file_prefix="--log-file="
 	else
 	    export VALGRIND_LOG_XML
 	    valgrind_xml="--xml=yes"
+	    if [ $valmajor -gt 2 -a $valminor -gt 4 ]; then
+		log_file_prefix="--xml-file="
+	    else
+		log_file_prefix="--log-file="
+	    fi
+	fi
+	if [ "x$VALGRIND_LOG_DIR" = "x" ]; then
+	    valgrind_log=
+	else
+	    if [ $valmajor -gt 2 -a $valminor -gt 4 ]; then
+		valgrind_log="$log_file_prefix$VALGRIND_LOG_DIR/$VALGRIND_LOGFILE_PREFIX$VALGRIND_LOGFILE_INFIX$EMU_NAME.log.$$"
+	    else
+		valgrind_log="$log_file_prefix$VALGRIND_LOG_DIR/$VALGRIND_LOGFILE_PREFIX$VALGRIND_LOGFILE_INFIX$EMU_NAME.log"
+	    fi
 	fi
 	if [ "x$VALGRIND_MISC_FLAGS" = "x" ]; then
 	    valgrind_misc_flags=
@@ -249,9 +271,9 @@ if [ "x$GDB" = "x" ]; then
 	early_beam_args=`echo $beam_args | sed "s|^\(.*-progname\).*$|\1|g"`
 	late_beam_args=`echo $beam_args | sed "s|^$pre_beam_args.*\(-- -home.*\)$|\1|g"`
 	
-	exec valgrind $valgrind_xml $valgrind_log $valgrind_misc_flags $BINDIR/$EMU $emu_xargs $early_beam_args "$PROGNAME" $late_beam_args -pz $PRELOADED
+	exec valgrind $valgrind_xml $valgrind_log $valgrind_misc_flags $BINDIR/$EMU_NAME $emu_xargs $early_beam_args "$PROGNAME" $late_beam_args -pz $PRELOADED
     else
-	exec $EXEC $xargs ${1+"$@"}
+	exec $EXEC $eeargs $xargs ${1+"$@"}
     fi
 else
     if [ "x$EMACS" = "x" ]; then
@@ -277,9 +299,14 @@ else
 	    ;;
     esac
 
+    # Set annotation level for gdb in emacs 22 and higher.
+    emacs_major=`$EMACS --version | head -1 | sed 's,^[^0-9]*\([0-9]*\).*,\1,g'`
+    if [ '!' -z "$emacs_major" -a $emacs_major -gt 21 ]; then
+	GDBARGS="--annotate=3 "
+    fi
     gdbcmd="$gdbcmd $GDBBP \
             (insert-string \"source $ROOTDIR/erts/etc/unix/etp-commands\") \
             (comint-send-input)"
     # Fire up gdb in emacs...
-    exec $EMACS --eval "(progn (gdb \"gdb $EMU\") $gdbcmd)"
+    exec $EMACS --eval "(progn (gdb \"gdb $GDBARGS$EMU_NAME\") $gdbcmd)"
 fi

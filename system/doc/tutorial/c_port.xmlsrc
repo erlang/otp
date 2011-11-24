@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2000</year><year>2009</year>
+      <year>2000</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -70,7 +70,7 @@ loop(Port) ->
     {call, Caller, Msg} ->
       Port ! {self(), {command, encode(Msg)}},
       receive
-\011{Port, {data, Data}} ->
+    {Port, {data, Data}} ->
           Caller ! {complex, decode(Data)}
       end,
       loop(Port)

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -33,22 +33,74 @@
 %%-----------------------------------------------------------------
 
 -type name()         :: pid() | atom() | {'global', atom()}.
--type system_event() :: {'in', _Msg} | {'in', _Msg, _From} | {'out', _Msg, _To}.
+-type system_event() :: {'in', Msg :: _}
+                      | {'in', Msg :: _, From :: _}
+                      | {'out', Msg :: _, To :: _}
+                        | term().
+-opaque dbg_opt()    :: list().
+-type dbg_fun()      :: fun((FuncState :: _,
+                             Event :: system_event(),
+                             ProcState :: _) -> 'done' | (NewFuncState :: _)).
 
 %%-----------------------------------------------------------------
 %% System messages
 %%-----------------------------------------------------------------
+-spec suspend(Name) -> Void when
+      Name :: name(),
+      Void :: term().
 suspend(Name) -> send_system_msg(Name, suspend).
+-spec suspend(Name, Timeout) -> Void when
+      Name :: name(),
+      Timeout :: timeout(),
+      Void :: term().
 suspend(Name, Timeout) -> send_system_msg(Name, suspend, Timeout).
 
+-spec resume(Name) -> Void when
+      Name :: name(),
+      Void :: term().
 resume(Name) -> send_system_msg(Name, resume).
+-spec resume(Name, Timeout) -> Void when
+      Name :: name(),
+      Timeout :: timeout(),
+      Void :: term().
 resume(Name, Timeout) -> send_system_msg(Name, resume, Timeout).
 
+-spec get_status(Name) -> Status when
+      Name :: name(),
+      Status :: {status, Pid :: pid(), {module, Module :: module()}, [SItem]},
+      SItem :: (PDict :: [{Key :: term(), Value :: term()}])
+             | (SysState :: 'running' | 'suspended')
+             | (Parent :: pid())
+             | (Dbg :: dbg_opt())
+             | (Misc :: term()).
 get_status(Name) -> send_system_msg(Name, get_status).
+-spec get_status(Name, Timeout) -> Status when
+      Name :: name(),
+      Timeout :: timeout(),
+      Status :: {status, Pid :: pid(), {module, Module :: module()}, [SItem]},
+      SItem :: (PDict :: [{Key :: term(), Value :: term()}])
+             | (SysState :: 'running' | 'suspended')
+             | (Parent :: pid())
+             | (Dbg :: dbg_opt())
+             | (Misc :: term()).
 get_status(Name, Timeout) -> send_system_msg(Name, get_status, Timeout).
 
+-spec change_code(Name, Module, OldVsn, Extra) -> 'ok' | {error, Reason} when
+      Name :: name(),
+      Module :: module(),
+      OldVsn :: 'undefined' | term(),
+      Extra :: term(),
+      Reason :: term().
 change_code(Name, Mod, Vsn, Extra) ->
     send_system_msg(Name, {change_code, Mod, Vsn, Extra}).
+-spec change_code(Name, Module, OldVsn, Extra, Timeout) ->
+                         'ok' | {error, Reason} when
+      Name :: name(),
+      Module :: module(),
+      OldVsn :: 'undefined' | term(),
+      Extra :: term(),
+      Timeout :: timeout(),
+      Reason :: term().
 change_code(Name, Mod, Vsn, Extra, Timeout) ->
     send_system_msg(Name, {change_code, Mod, Vsn, Extra}, Timeout).
 
@@ -56,52 +108,116 @@ change_code(Name, Mod, Vsn, Extra, Timeout) ->
 %% Debug commands
 %%-----------------------------------------------------------------
 
--type log_flag() :: 'true' | {'true',pos_integer()} | 'false' | 'get' | 'print'.
-
--spec log(name(), log_flag()) -> 'ok' | {'ok', [system_event()]}.
+-spec log(Name, Flag) -> 'ok' | {'ok', [system_event()]} when
+      Name :: name(),
+      Flag :: 'true' |
+              {'true', N :: pos_integer()}
+            | 'false' | 'get' | 'print'.
 log(Name, Flag) ->
     send_system_msg(Name, {debug, {log, Flag}}).
 
--spec log(name(), log_flag(), timeout()) -> 'ok' | {'ok', [system_event()]}.
+-spec log(Name, Flag, Timeout) -> 'ok' | {'ok', [system_event()]} when
+      Name :: name(),
+      Flag :: 'true' |
+              {'true', N :: pos_integer()}
+            | 'false' | 'get' | 'print',
+      Timeout :: timeout().
 log(Name, Flag, Timeout) ->
     send_system_msg(Name, {debug, {log, Flag}}, Timeout).
 
--spec trace(name(), boolean()) -> 'ok'.
+-spec trace(Name, Flag) -> 'ok' when
+      Name :: name(),
+      Flag :: boolean().
 trace(Name, Flag) ->
     send_system_msg(Name, {debug, {trace, Flag}}).
 
--spec trace(name(), boolean(), timeout()) -> 'ok'.
+-spec trace(Name, Flag, Timeout) -> 'ok' when
+      Name :: name(),
+      Flag :: boolean(),
+      Timeout :: timeout().
 trace(Name, Flag, Timeout) ->
     send_system_msg(Name, {debug, {trace, Flag}}, Timeout).
 
--type l2f_fname() :: string() | 'false'.
-
--spec log_to_file(name(), l2f_fname()) -> 'ok' | {'error','open_file'}.
+-spec log_to_file(Name, Flag) -> 'ok' | {'error','open_file'} when
+      Name :: name(),
+      Flag :: (FileName :: string()) | 'false'.
 log_to_file(Name, FileName) ->
     send_system_msg(Name, {debug, {log_to_file, FileName}}).
 
--spec log_to_file(name(), l2f_fname(), timeout()) -> 'ok' | {'error','open_file'}.
+-spec log_to_file(Name, Flag, Timeout) -> 'ok' | {'error','open_file'} when
+      Name :: name(),
+      Flag :: (FileName :: string()) | 'false',
+      Timeout :: timeout().
 log_to_file(Name, FileName, Timeout) ->
     send_system_msg(Name, {debug, {log_to_file, FileName}}, Timeout).
 
+-spec statistics(Name, Flag) -> 'ok' | {'ok', Statistics} when
+      Name :: name(),
+      Flag :: 'true' | 'false' | 'get',
+      Statistics :: [StatisticsTuple] | no_statistics,
+      StatisticsTuple :: {'start_time', DateTime1}
+                       | {'current_time', DateTime2}
+                       | {'reductions', non_neg_integer()}
+                       | {'messages_in', non_neg_integer()}
+                       | {'messages_out', non_neg_integer()},
+      DateTime1 :: file:date_time(),
+      DateTime2 :: file:date_time().
 statistics(Name, Flag) ->
     send_system_msg(Name, {debug, {statistics, Flag}}).
+
+-spec statistics(Name, Flag, Timeout) -> 'ok' | {'ok', Statistics} when
+      Name :: name(),
+      Flag :: 'true' | 'false' | 'get',
+      Statistics :: [StatisticsTuple] | no_statistics,
+      StatisticsTuple :: {'start_time', DateTime1}
+                       | {'current_time', DateTime2}
+                       | {'reductions', non_neg_integer()}
+                       | {'messages_in', non_neg_integer()}
+                       | {'messages_out', non_neg_integer()},
+      DateTime1 :: file:date_time(),
+      DateTime2 :: file:date_time(),
+      Timeout :: timeout().
 statistics(Name, Flag, Timeout) ->
     send_system_msg(Name, {debug, {statistics, Flag}}, Timeout).
 
--spec no_debug(name()) -> 'ok'.
+-spec no_debug(Name) -> 'ok' when
+      Name :: name().
 no_debug(Name) -> send_system_msg(Name, {debug, no_debug}).
 
--spec no_debug(name(), timeout()) -> 'ok'.
+-spec no_debug(Name, Timeout) -> 'ok' when
+      Name :: name(),
+      Timeout :: timeout().
 no_debug(Name, Timeout) -> send_system_msg(Name, {debug, no_debug}, Timeout).
 
+-spec install(Name, FuncSpec) -> Void when
+      Name :: name(),
+      FuncSpec :: {Func, FuncState},
+      Func :: dbg_fun(),
+      FuncState :: term(),
+      Void :: term().
 install(Name, {Func, FuncState}) ->
     send_system_msg(Name, {debug, {install, {Func, FuncState}}}).
+-spec install(Name, FuncSpec, Timeout) -> Void when
+      Name :: name(),
+      FuncSpec :: {Func, FuncState},
+      Func :: dbg_fun(),
+      FuncState :: term(),
+      Timeout :: timeout(),
+      Void :: term().
 install(Name, {Func, FuncState}, Timeout) ->
     send_system_msg(Name, {debug, {install, {Func, FuncState}}}, Timeout).
 
+-spec remove(Name, Func) -> Void when
+      Name :: name(),
+      Func :: dbg_fun(),
+      Void :: term().
 remove(Name, Func) ->
     send_system_msg(Name, {debug, {remove, Func}}).
+-spec remove(Name, Func, Timeout) -> Void when
+      Name :: name(),
+      Func :: dbg_fun(),
+      Timeout :: timeout(),
+      Void :: term().
 remove(Name, Func, Timeout) ->
     send_system_msg(Name, {debug, {remove, Func}}, Timeout).
 
@@ -150,6 +266,14 @@ mfa(Name, Req, Timeout) ->
 %%          The Module must export system_continue/3, system_terminate/4
 %%          and format_status/2 for status information.
 %%-----------------------------------------------------------------
+-spec handle_system_msg(Msg, From, Parent, Module, Debug, Misc) -> Void when
+      Msg :: term(),
+      From :: {pid(), Tag :: _},
+      Parent :: pid(),
+      Module :: module(),
+      Debug :: [dbg_opt()],
+      Misc :: term(),
+      Void :: term().
 handle_system_msg(Msg, From, Parent, Module, Debug, Misc) ->
     handle_system_msg(running, Msg, From, Parent, Module, Debug, Misc, false).
 
@@ -176,6 +300,11 @@ handle_system_msg(SysState, Msg, From, Parent, Mod, Debug, Misc, Hib) ->
 %%          Func is a formatting function, called as Func(Device, Event).
 %% Returns: [debug_opts()]
 %%-----------------------------------------------------------------
+-spec handle_debug(Debug, FormFunc, Extra, Event) -> [dbg_opt()] when
+      Debug :: [dbg_opt()],
+      FormFunc :: dbg_fun(),
+      Extra :: term(),
+      Event :: system_event().
 handle_debug([{trace, true} | T], FormFunc, State, Event) ->
     print_event({Event, State, FormFunc}),
     [{trace, true} | handle_debug(T, FormFunc, State, Event)];
@@ -341,24 +470,36 @@ trim(N, LogData) ->
 %% Debug structure manipulating functions
 %%-----------------------------------------------------------------
 install_debug(Item, Data, Debug) ->
-    case get_debug(Item, Debug, undefined) of
+    case get_debug2(Item, Debug, undefined) of
 	undefined -> [{Item, Data} | Debug];
 	_ -> Debug
     end.
 remove_debug(Item, Debug) -> lists:keydelete(Item, 1, Debug).
+
+-spec get_debug(Item, Debug, Default) -> term() when
+      Item :: 'log' | 'statistics',
+      Debug :: [dbg_opt()],
+      Default :: term().
 get_debug(Item, Debug, Default) -> 
+    get_debug2(Item, Debug, Default).
+
+%% Workaround: accepts more Item types than get_debug/3.
+get_debug2(Item, Debug, Default) ->
     case lists:keysearch(Item, 1, Debug) of
 	{value, {Item, Data}} -> Data;
 	_ -> Default
     end.
 
+-spec print_log(Debug) -> Void when
+      Debug :: [dbg_opt()],
+      Void :: term().
 print_log(Debug) ->
     {_N, Logs} = get_debug(log, Debug, {0, []}),
     lists:foreach(fun print_event/1,
 		  lists:reverse(Logs)).
     
 close_log_file(Debug) ->
-    case get_debug(log_to_file, Debug, []) of
+    case get_debug2(log_to_file, Debug, []) of
 	[] ->
 	    Debug;
 	Fd -> 
@@ -375,6 +516,15 @@ close_log_file(Debug) ->
 %%          system messages.
 %% Returns: [debug_opts()]
 %%-----------------------------------------------------------------
+
+-spec debug_options(Options) -> [dbg_opt()] when
+      Options :: [Opt],
+      Opt :: 'trace' | 'log' | 'statistics' | {'log_to_file', FileName}
+           | {'install', FuncSpec},
+      FileName :: file:name(),
+      FuncSpec :: {Func, FuncState},
+      Func :: dbg_fun(),
+      FuncState :: term().
 debug_options(Options) ->
     debug_options(Options, []).
 debug_options([trace | T], Debug) ->

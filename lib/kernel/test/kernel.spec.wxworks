@@ -1,0 +1,63 @@
+%% -*- erlang -*-
+{suites,"kernel_test",all}.
+{skip_cases,"kernel_test",bif_SUITE,[spawn_link_race1],"Known bug."}.
+{skip_cases,"kernel_test",file_SUITE,
+            [read_write_file],
+            "VxWorks filesystem can't handle this"}.
+{skip_cases,"kernel_test",file_SUITE,
+            [cur_dir_0],
+            "VxWorks filesystem can't handle this"}.
+{skip_cases,"kernel_test",file_SUITE,
+            [open1],
+            "VxWorks filesystem can't handle this"}.
+{skip_cases,"kernel_test",file_SUITE,
+            [file_info_times],
+            "VxWorks filesystem can't handle this"}.
+{skip_cases,"kernel_test",file_SUITE,
+            [file_write_file_info],
+            "VxWorks filesystem can't handle this"}.
+{skip_cases,"kernel_test",file_SUITE,
+            [truncate],
+            "VxWorks filesystem can't handle this"}.
+{skip_cases,"kernel_test",file_SUITE,
+            [rename],
+            "VxWorks filesystem can't handle this"}.
+{skip_cases,"kernel_test",file_SUITE,
+            [e_delete],
+            "VxWorks filesystem can't handle this"}.
+{skip_cases,"kernel_test",file_SUITE,
+            [e_rename],
+            "VxWorks filesystem can't handle this"}.
+{skip_cases,"kernel_test",file_SUITE,
+            [delayed_write],
+            "VxWorks filesystem can't handle this"}.
+{skip_cases,"kernel_test",file_SUITE,
+            [read_ahead],
+            "VxWorks filesystem can't handle this"}.
+{skip_cases,"kernel_test",file_SUITE,
+            [segment_write],
+            "VxWorks filesystem would overload"}.
+{skip_cases,"kernel_test",file_SUITE,
+            [segment_read],
+            "VxWorks filesystem would overload"}.
+{skip_cases,"kernel_test",file_SUITE,
+            [compress_errors],
+            "VxWorks filesystem can't handle this"}.
+{skip_cases,"kernel_test",init_SUITE,[restart],"Uses peer nodes"}.
+{skip_cases,"kernel_test",os_SUITE,[space_in_cwd],"VxWorks can't handle this"}.
+{skip_cases,"kernel_test",os_SUITE,
+            [space_in_name],
+            "VxWorks can't handle this"}.
+{skip_cases,"kernel_test",os_SUITE,[quoting],"VxWorks can't handle this"}.
+{skip_cases,"kernel_test",prim_file_SUITE,
+            [open1],
+            "VxWorks filesystem can't handle this"}.
+{skip_cases,"kernel_test",prim_file_SUITE,
+            [compress_errors],
+            "VxWorks filesystem can't handle this"}.
+{skip_cases,"kernel_test",seq_trace_SUITE,
+            [distributed_recv],
+            "Test not adopted to slaves on different machine"}.
+{skip_cases,"kernel_test",seq_trace_SUITE,
+            [distributed_exit],
+            "Test not adopted to slaves on different machine"}.

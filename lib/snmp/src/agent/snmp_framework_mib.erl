@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -37,6 +37,8 @@
 %%% over all known contexts.
 %%%-----------------------------------------------------------------
 %% External exports
+%% Avoid warning for local function error/1 clashing with autoimported BIF.
+-compile({no_auto_import,[error/1]}).
 -export([init/0, configure/1]).
 -export([intContextTable/1, intContextTable/3,
 	 intAgentUDPPort/1, intAgentIpAddress/1,
@@ -371,15 +373,27 @@ intAgentUDPPort(Op) ->
 intAgentIpAddress(Op) ->
     snmp_generic:variable_func(Op, db(intAgentIpAddress)).
 
+snmpEngineID(print) ->
+    VarAndValue = [{snmpEngineID, snmpEngineID(get)}],
+    snmpa_mib_lib:print_variables(VarAndValue);
 snmpEngineID(Op) ->
     snmp_generic:variable_func(Op, db(snmpEngineID)).
 
+snmpEngineMaxMessageSize(print) ->
+    VarAndValue = [{snmpEngineMaxMessageSize, snmpEngineMaxMessageSize(get)}],
+    snmpa_mib_lib:print_variables(VarAndValue);
 snmpEngineMaxMessageSize(Op) ->
     snmp_generic:variable_func(Op, db(snmpEngineMaxMessageSize)).
 
+snmpEngineBoots(print) ->
+    VarAndValue = [{snmpEngineBoots, snmpEngineBoots(get)}],
+    snmpa_mib_lib:print_variables(VarAndValue);
 snmpEngineBoots(Op) ->
     snmp_generic:variable_func(Op, db(snmpEngineBoots)).
 
+snmpEngineTime(print) ->
+    VarAndValue = [{snmpEngineTime, snmpEngineTime(get)}],
+    snmpa_mib_lib:print_variables(VarAndValue);
 snmpEngineTime(get) ->
     {value, get_engine_time()}.
 

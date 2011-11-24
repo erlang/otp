@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2009</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -65,19 +65,20 @@
       be tagged as warnings or info. Tagging them as warnings may
       require rewriting existing user defined event handlers.</p>
   </description>
+  <datatypes>
+    <datatype>
+      <name name="report"/>
+    </datatype>
+  </datatypes>
   <funcs>
     <func>
-      <name>error_msg(Format) -> ok</name>
-      <name>error_msg(Format, Data) -> ok</name>
-      <name>format(Format, Data) -> ok</name>
+      <name name="error_msg" arity="1"/>
+      <name name="error_msg" arity="2"/>
+      <name name="format" arity="2"/>
       <fsummary>Send an standard error event to the error logger</fsummary>
-      <type>
-        <v>Format = string()</v>
-        <v>Data = [term()]</v>
-      </type>
       <desc>
         <p>Sends a standard error event to the error logger.
-          The <c>Format</c> and <c>Data</c> arguments are the same as
+          The <c><anno>Format</anno></c> and <c><anno>Data</anno></c> arguments are the same as
           the arguments of <c>io:format/2</c>. The event is handled by
           the standard event handler.</p>
         <pre>
@@ -94,12 +95,8 @@ ok</pre>
       </desc>
     </func>
     <func>
-      <name>error_report(Report) -> ok</name>
+      <name name="error_report" arity="1"/>
       <fsummary>Send a standard error report event to the error logger</fsummary>
-      <type>
-        <v>Report = [{Tag, Data} | term()] | string() | term()</v>
-        <v>&nbsp;Tag = Data = term()</v>
-      </type>
       <desc>
         <p>Sends a standard error report event to the error logger.
           The event is handled by the standard event handler.</p>
@@ -119,18 +116,13 @@ ok</pre>
       </desc>
     </func>
     <func>
-      <name>error_report(Type, Report) -> ok</name>
+      <name name="error_report" arity="2"/>
       <fsummary>Send a user defined error report event to the error logger</fsummary>
-      <type>
-        <v>Type = term()</v>
-        <v>Report = [{Tag, Data} | term()] | string() | term()</v>
-        <v>&nbsp;Tag = Data = term()</v>
-      </type>
       <desc>
         <p>Sends a user defined error report event to the error logger.
           An event handler to handle the event is supposed to have been
           added. The event is ignored by the standard event handler.</p>
-        <p>It is recommended that <c>Report</c> follows the same
+        <p>It is recommended that <c><anno>Report</anno></c> follows the same
           structure as for <c>error_report/1</c>.</p>
       </desc>
     </func>
@@ -174,16 +166,12 @@ ok</pre>
       </desc>
     </func>
     <func>
-      <name>warning_msg(Format) -> ok</name>
-      <name>warning_msg(Format, Data) -> ok</name>
+      <name name="warning_msg" arity="1"/>
+      <name name="warning_msg" arity="2"/>
       <fsummary>Send a standard warning event to the error logger</fsummary>
-      <type>
-        <v>Format = string()</v>
-        <v>Data = [term()]</v>
-      </type>
       <desc>
         <p>Sends a standard warning event to the error logger.
-          The <c>Format</c> and <c>Data</c> arguments are the same as
+          The <c><anno>Format</anno></c> and <c><anno>Data</anno></c> arguments are the same as
           the arguments of <c>io:format/2</c>. The event is handled by
           the standard event handler. It is tagged either as an error,
           warning or info, see
@@ -196,12 +184,8 @@ ok</pre>
       </desc>
     </func>
     <func>
-      <name>warning_report(Report) -> ok</name>
+      <name name="warning_report" arity="1"/>
       <fsummary>Send a standard warning report event to the error logger</fsummary>
-      <type>
-        <v>Report = [{Tag, Data} | term()] | string() | term()</v>
-        <v>&nbsp;Tag = Data = term()</v>
-      </type>
       <desc>
         <p>Sends a standard warning report event to the error logger.
           The event is handled by the standard event handler. It is
@@ -210,13 +194,8 @@ ok</pre>
       </desc>
     </func>
     <func>
-      <name>warning_report(Type, Report) -> ok</name>
+      <name name="warning_report" arity="2"/>
       <fsummary>Send a user defined warning report event to the error logger</fsummary>
-      <type>
-        <v>Type = term()</v>
-        <v>Report = [{Tag, Data} | term()] | string() | term()</v>
-        <v>&nbsp;Tag = Data = term()</v>
-      </type>
       <desc>
         <p>Sends a user defined warning report event to the error
           logger. An event handler to handle the event is supposed to
@@ -227,16 +206,12 @@ ok</pre>
       </desc>
     </func>
     <func>
-      <name>info_msg(Format) -> ok</name>
-      <name>info_msg(Format, Data) -> ok</name>
+      <name name="info_msg" arity="1"/>
+      <name name="info_msg" arity="2"/>
       <fsummary>Send a standard information event to the error logger</fsummary>
-      <type>
-        <v>Format = string()</v>
-        <v>Data = [term()]</v>
-      </type>
       <desc>
         <p>Sends a standard information event to the error logger.
-          The <c>Format</c> and <c>Data</c> arguments are the same as
+          The <c><anno>Format</anno></c> and <c><anno>Data</anno></c> arguments are the same as
           the arguments of <c>io:format/2</c>. The event is handled by
           the standard event handler.</p>
         <pre>
@@ -253,12 +228,8 @@ ok</pre>
       </desc>
     </func>
     <func>
-      <name>info_report(Report) -> ok</name>
+      <name name="info_report" arity="1"/>
       <fsummary>Send a standard information report event to the error logger</fsummary>
-      <type>
-        <v>Report = [{Tag, Data} | term()] | string() | term()</v>
-        <v>&nbsp;Tag = Data = term()</v>
-      </type>
       <desc>
         <p>Sends a standard information report event to the error
           logger. The event is handled by the standard event handler.</p>
@@ -278,63 +249,49 @@ ok</pre>
       </desc>
     </func>
     <func>
-      <name>info_report(Type, Report) -> ok</name>
+      <name name="info_report" arity="2"/>
       <fsummary>Send a user defined information report event to the error logger</fsummary>
-      <type>
-        <v>Type = term()</v>
-        <v>Report = [{Tag, Data} | term()] | string() | term()</v>
-        <v>&nbsp;Tag = Data = term()</v>
-      </type>
       <desc>
         <p>Sends a user defined information report event to the error
           logger. An event handler to handle the event is supposed to
           have been added. The event is ignored by the standard event
           handler.</p>
-        <p>It is recommended that <c>Report</c> follows the same
+        <p>It is recommended that <c><anno>Report</anno></c> follows the same
           structure as for <c>info_report/1</c>.</p>
       </desc>
     </func>
     <func>
-      <name>add_report_handler(Handler) -> Result</name>
-      <name>add_report_handler(Handler, Args) -> Result</name>
+      <name name="add_report_handler" arity="1"/>
+      <name name="add_report_handler" arity="2"/>
       <fsummary>Add an event handler to the error logger</fsummary>
-      <type>
-        <v>Handler, Args, Result -- see gen_event:add_handler/3</v>
-      </type>
       <desc>
         <p>Adds a new event handler to the error logger. The event
           handler must be implemented as a <c>gen_event</c> callback
           module, see
           <seealso marker="stdlib:gen_event">gen_event(3)</seealso>.</p>
-        <p><c>Handler</c> is typically the name of the callback module
-          and <c>Args</c> is an optional term (defaults to []) passed
-          to the initialization callback function <c>Module:init/1</c>.
+        <p><c><anno>Handler</anno></c> is typically the name of the callback module
+          and <c><anno>Args</anno></c> is an optional term (defaults to []) passed
+          to the initialization callback function <c><anno>Handler</anno>:init/1</c>.
           The function returns <c>ok</c> if successful.</p>
         <p>The event handler must be able to handle the
           <seealso marker="#events">events</seealso> described below.</p>
       </desc>
     </func>
     <func>
-      <name>delete_report_handler(Handler) -> Result</name>
+      <name name="delete_report_handler" arity="1"/>
       <fsummary>Delete an event handler from the error logger</fsummary>
-      <type>
-        <v>Handler, Result -- see gen_event:delete_handler/3</v>
-      </type>
       <desc>
         <p>Deletes an event handler from the error logger by calling
-          <c>gen_event:delete_handler(error_logger, Handler, [])</c>,
+          <c>gen_event:delete_handler(error_logger, <anno>Handler</anno>, [])</c>,
           see <seealso marker="stdlib:gen_event">gen_event(3)</seealso>.</p>
       </desc>
     </func>
     <func>
-      <name>tty(Flag) -> ok</name>
+      <name name="tty" arity="1"/>
       <fsummary>Enable or disable printouts to the tty</fsummary>
-      <type>
-        <v>Flag = bool()</v>
-      </type>
       <desc>
-        <p>Enables (<c>Flag == true</c>) or disables
-          (<c>Flag == false</c>) printout of standard events to the tty.</p>
+        <p>Enables (<c><anno>Flag</anno> == true</c>) or disables
+          (<c><anno>Flag</anno> == false</c>) printout of standard events to the tty.</p>
         <p>This is done by adding or deleting the standard event handler
           for output to tty, thus calling this function overrides
           the value of the Kernel <c>error_logger</c> configuration
@@ -342,13 +299,15 @@ ok</pre>
       </desc>
     </func>
     <func>
-      <name>logfile(Request) -> ok | Filename | {error, What}</name>
+      <name name="logfile" arity="1" clause_i="1"/>
+      <name name="logfile" arity="1" clause_i="2"/>
+      <name name="logfile" arity="1" clause_i="3"/>
+      <type variable="Filename"/>
+      <type variable="OpenReason" name_i="1"/>
+      <type variable="CloseReason" name_i="2"/>
+      <type variable="FilenameReason" name_i="3"/>
+      <type name="open_error"/>
       <fsummary>Enable or disable error printouts to a file</fsummary>
-      <type>
-        <v>Request = {open, Filename} | close | filename</v>
-        <v>&nbsp;Filename = atom() | string()</v>
-        <v>What = allready_have_logfile | no_log_file | term()</v>
-      </type>
       <desc>
         <p>Enables or disables printout of standard events to a file.</p>
         <p>This is done by adding or deleting the standard event handler
@@ -361,22 +320,22 @@ ok</pre>
           There can only be one active log file at a time.</p>
         <p><c>Request</c> is one of:</p>
         <taglist>
-          <tag><c>{open, Filename}</c></tag>
+          <tag><c>{open, <anno>Filename</anno>}</c></tag>
           <item>
-            <p>Opens the log file <c>Filename</c>. Returns <c>ok</c> if
+            <p>Opens the log file <c><anno>Filename</anno></c>. Returns <c>ok</c> if
               successful, or <c>{error, allready_have_logfile}</c> if
               logging to file is already enabled, or an error tuple if
-              another error occurred. For example, if <c>Filename</c>
+              another error occurred. For example, if <c><anno>Filename</anno></c>
               could not be opened.</p>
           </item>
           <tag><c>close</c></tag>
           <item>
             <p>Closes the current log file. Returns <c>ok</c>, or
-              <c>{error, What}</c>.</p>
+              <c>{error, module_not_found}</c>.</p>
           </item>
           <tag><c>filename</c></tag>
           <item>
-            <p>Returns the name of the log file <c>Filename</c>, or
+            <p>Returns the name of the log file <c><anno>Filename</anno></c>, or
               <c>{error, no_log_file}</c> if logging to file is not
               enabled.</p>
           </item>

@@ -128,6 +128,7 @@
 /megaco/src/text/megaco_text_parser_v1.erl
 /megaco/src/text/megaco_text_parser_v2.erl
 /megaco/src/text/megaco_text_parser_v3.erl
+/megaco/doc/html/mstone1.jpg
 
 # mnesia
 
@@ -140,6 +141,11 @@
 /mnesia/doc/src/Mnesia_chap7.xml
 
 # orber & cos* applications
+
+/orber/test/idl_output
+/cosEvent/test/idl_output
+/cosNotification/test/idl_output
+/cosTransactions/test/idl_output
 
 /cosEvent/include/CosEventChannelAdmin.hrl
 /cosEvent/include/CosEventChannelAdmin_ConsumerAdmin.hrl
@@ -524,6 +530,10 @@
 /percept/doc/src/percept.xml
 /percept/doc/src/percept_profile.xml
 /percept/doc/src/percept_ug.xml
+
+# snmp
+
+snmp/doc/intex.html
 
 # syntax_tools
 

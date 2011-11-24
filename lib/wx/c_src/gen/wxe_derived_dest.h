@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -362,10 +362,22 @@ class EwxListBox : public wxListBox {
  EwxListBox() : wxListBox() {};
 };
 
+
 class EwxListCtrl : public wxListCtrl {
- public: ~EwxListCtrl() {((WxeApp *)wxTheApp)->clearPtr(this);};
+ public: ~EwxListCtrl();
  EwxListCtrl(wxWindow * parent,wxWindowID winid,const wxPoint& pos,const wxSize& size,long style,const wxValidator& validator) : wxListCtrl(parent,winid,pos,size,style,validator) {};
  EwxListCtrl() : wxListCtrl() {};
+
+ int onGetItemText;
+ int onGetItemAttr;
+ int onGetItemColumnImage;
+ ErlDrvPort port;
+
+ private:
+ virtual wxString OnGetItemText(long item, long col) const;
+ virtual wxListItemAttr* OnGetItemAttr(long item) const;
+ virtual int OnGetItemImage(long item) const;
+ virtual int OnGetItemColumnImage(long item, long column) const;
 };
 
 class EwxListItem : public wxListItem {
@@ -714,29 +726,4 @@ class EwxHtmlWindow : public wxHtmlWindow {
  EwxHtmlWindow(wxWindow * parent,wxWindowID id,const wxPoint& pos,const wxSize& size,long style) : wxHtmlWindow(parent,id,pos,size,style) {};
  EwxHtmlWindow() : wxHtmlWindow() {};
 };
-
-void WxeApp::delete_object(void *ptr, wxeRefData *refd) {
- switch(refd->type) {
-  case 24: delete (wxGridCellBoolRenderer *) ptr; break;
-  case 25: delete (wxGridCellBoolEditor *) ptr; break;
-  case 26: delete (wxGridCellFloatRenderer *) ptr; break;
-  case 27: delete (wxGridCellFloatEditor *) ptr; break;
-  case 28: delete (wxGridCellStringRenderer *) ptr; break;
-  case 29: delete (wxGridCellTextEditor *) ptr; break;
-  case 30: delete (wxGridCellChoiceEditor *) ptr; break;
-  case 31: delete (wxGridCellNumberRenderer *) ptr; break;
-  case 32: delete (wxGridCellNumberEditor *) ptr; break;
-  case 61: delete (wxIconBundle *) ptr; break;
-  case 69: delete (wxAcceleratorEntry *) ptr; break;
-  case 70: /* delete (wxCaret *) ptr;These objects must be deleted by owner object */ break;
-  case 72: delete (wxSizerFlags *) ptr; break;
-  case 88: /* delete (wxCalendarDateAttr *) ptr;These objects must be deleted by owner object */ break;
-  case 102: delete (wxTextAttr *) ptr; break;
-  case 154: delete (wxAuiPaneInfo *) ptr; break;
-  case 211: /* delete (wxFileDataObject *) ptr;These objects must be deleted by owner object */ break;
-  case 212: /* delete (wxTextDataObject *) ptr;These objects must be deleted by owner object */ break;
-  case 213: /* delete (wxBitmapDataObject *) ptr;These objects must be deleted by owner object */ break;
-  case 222: delete (wxLogNull *) ptr; break;
-  default: delete (wxObject *) ptr;
-}}
 

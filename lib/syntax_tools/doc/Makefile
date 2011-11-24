@@ -78,12 +78,3 @@ release_docs_spec: docs
 
 
 release_spec:
-
-
-
-# ----------------------------------------------------
-# Include dependency
-# ----------------------------------------------------
-#-include make.dep
-
-

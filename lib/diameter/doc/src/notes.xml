@@ -1,0 +1,233 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+
+<header>
+<copyright>
+<year>2011</year>
+<holder>Ericsson AB. All Rights Reserved.</holder>
+</copyright>
+<legalnotice>
+The contents of this file are subject to the Erlang Public License,
+Version 1.1, (the "License"); you may not use this file except in
+compliance with the License. You should have received a copy of the
+Erlang Public License along with this software. If not, it can be
+retrieved online at http://www.erlang.org/.
+
+Software distributed under the License is distributed on an "AS IS"
+basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+the License for the specific language governing rights and limitations
+under the License.
+
+</legalnotice>
+
+<title>Release Notes</title>
+<prepared></prepared>
+<docno></docno>
+<date></date>
+<rev></rev>
+<file>notes.xml</file>
+</header>
+
+<p>
+Releases are listed in reverse chronological order, most recent
+first.</p>
+
+<!-- ===================================================================== -->
+
+<section><title>Diameter 0.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Handle #sctp_paddr_change and #sctp_pdapi_event from
+	    gen_sctp.</p>
+          <p>
+	    The events are enabled by default but diameter_sctp
+	    neither disabled nor dealt with them. Reception of such
+	    an event caused a transport process to crash.</p>
+          <p>
+	    Own Id: OTP-9538</p>
+        </item>
+        <item>
+          <p>
+	    Fix header folding bug.</p>
+          <p>
+	    A prepare_request callback from diameter can return a
+	    diameter_header record in order to set values in the
+	    header of an outgoing request. A fault in
+	    diameter_lib:fold_tuple/3 caused the subsequent encode of
+	    the outgoing request to fail.</p>
+          <p>
+	    Own Id: OTP-9577</p>
+        </item>
+        <item>
+          <p>
+	    Fix bugs in sending of answer-message replies.</p>
+          <p>
+	    3001 (DIAMETER_COMMAND_UNSUPPORTED) was not sent since
+	    the decode placed the AVP list in the wrong field of the
+	    diameter_packet, causing the subsequent encode to fail.
+	    Session-Id was also set improperly, causing encode to
+	    fail even in this case.</p>
+          <p>
+	    Own Id: OTP-9578</p>
+        </item>
+        <item>
+          <p>
+	    Fix improper use of error_logger:info_report/2.</p>
+          <p>
+	    Function doesn't take a format string and arguments as it
+	    was called. Instead use error_logger:info_report/1 and
+	    use the same report format as used for warning and error
+	    reports.</p>
+          <p>
+	    Own Id: OTP-9579</p>
+        </item>
+        <item>
+          <p>
+	    Fix and clarify semantics of peer filters.</p>
+          <p>
+	    An eval filter returning a non-true value caused the call
+	    process to fail and the doc was vague on how an exception
+	    was treated. Clarify that the non-tuple host/realm
+	    filters assume messages of a certain form.</p>
+          <p>
+	    Own Id: OTP-9580</p>
+        </item>
+        <item>
+          <p>
+	    Fix and clarify relay behaviour.</p>
+          <p>
+	    Implicit filtering of the sending peer in relaying a
+	    request could cause loop detection to be preempted in a
+	    manner not specified by RFC3588. Reply with 3002
+	    (DIAMETER_UNABLE_TO_DELIVER) on anything but an answer to
+	    a relayed request.</p>
+          <p>
+	    Own Id: OTP-9583</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    @id required in dictionary files only when @messages is
+	    specified.</p>
+          <p>
+	    @id defines an application identifier and this is used
+	    only when sending or receiving messages. A dictionary can
+	    define only AVP's however, to be included by other
+	    dictionaries using @inherits, in which case it makes no
+	    sense to require @id.</p>
+          <p>
+	    Note that message definitions are not inherited with
+	    @inherits, only AVP's</p>
+          <p>
+	    Own Id: OTP-9467</p>
+        </item>
+        <item>
+          <p>
+	    Allow @enum when AVP is defined in an inherited
+	    dictionary.</p>
+          <p>
+	    3GPP standards (for one) extend the values allowed for
+	    RFC 3588 AVP's of type Enumerated. Previously, extending
+	    an AVP was only possible by completely redefining the
+	    AVP.</p>
+          <p>
+	    Own Id: OTP-9469</p>
+        </item>
+        <item>
+          <p>
+	    Migrate testsuites to pure common test and add both
+	    suites and testcases.</p>
+          <p>
+	    Own Id: OTP-9553</p>
+        </item>
+        <item>
+          <p>
+	    Requests of arbitrary form.</p>
+          <p>
+	    diameter:call/4 can be passed anything, as long as the
+	    subsequent prepare_request callback returns a term that
+	    can be encoded.</p>
+          <p>
+	    Own Id: OTP-9581</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section>
+<title>diameter 0.9</title>
+
+<p>
+Initial release of the diameter application.</p>
+
+<p>
+Known issues or limitations:</p>
+
+<list>
+
+<item>
+<p>
+Some agent-related functionality is not entirely complete.
+In particular, support for proxy agents, that advertise specific
+Diameter applications but otherwise relay messages in much the same
+way as relay agents (for which a <seealso
+marker="diameter_app#handle_request">handle_request/3</seealso>
+callback can return a <c>relay</c> tuple), will be completed in an
+upcoming release.
+There may also be more explicit support for redirect agents, although
+redirect behaviour can be implemented with the current
+functionality.</p>
+
+</item>
+
+<item>
+<p>
+There is some asymmetry in the treatment of messages sent as
+<c>diameter_header/avp</c> records and those sent in the "normal"
+fashion, and not all of this is documented.
+This is related to the previous point since this form of sending a
+message was introduced specifically to handle relay agent behaviour
+using the same callback interface as for client/server behaviour.</p>
+</item>
+
+<item>
+<p>
+The User's Guide is currently quite thin.
+The introductory chapter followed by the examples (in the application
+<c>examples</c> subdirectory) may be sufficient
+for those having some familiarity with the Diameter protocol but the
+intention is to provide more introductory text.
+The reference documentation is quite complete, although some points
+could likely be expanded upon.</p>
+</item>
+
+<item>
+<p>
+The function <seealso
+marker="diameter#service_info">diameter:service_info/2</seealso>
+can be used to retrieve information about a started service
+(statistics, information about connected peers, etc) but
+this is not yet documented and both the input and output may change
+in the next release.</p>
+</item>
+
+
+</list>
+
+<p>
+See <seealso marker="diameter_soc">Standards Compliance</seealso> for
+standards-related issues.</p>
+</section>
+
+</chapter>

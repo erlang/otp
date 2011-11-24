@@ -234,7 +234,7 @@ or
 ?TESTCALL(you:function(2,1)).</code>
     <p>results in</p>
     <code type="none">
-io:format("Call ~s: ~w~n",["myfunction ( 1 , 2 )",m:myfunction(1,2)]),
+io:format("Call ~s: ~w~n",["myfunction ( 1 , 2 )",myfunction(1,2)]),
 io:format("Call ~s: ~w~n",["you : function ( 2 , 1 )",you:function(2,1)]).</code>
     <p>That is, a trace output with both the function called and
       the resulting value.</p>

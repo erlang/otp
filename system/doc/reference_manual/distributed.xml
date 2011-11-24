@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2009</year>
+      <year>2003</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -78,7 +78,7 @@ dilbert@uab</pre>
       using the command line flag <c>-connect_all false</c>, see
       <c>erl(1)</c>.</p>
     <p>If a node goes down, all connections to that node are removed.
-      Calling <c>erlang:disconnect(Node)</c> will force disconnection
+      Calling <c>erlang:disconnect_node(Node)</c> will force disconnection
       of a node.</p>
     <p>The list of (visible) nodes currently connected to is returned by
       <c>nodes()</c>.</p>
@@ -176,11 +176,11 @@ dilbert@uab</pre>
       </row>
       <row>
         <cell align="left" valign="middle"><c>is_alive()</c></cell>
-        <cell align="left" valign="middle">Returns <c>true</c>if the runtime system is a node and can connect to other nodes, <c>false</c>otherwise.</cell>
+        <cell align="left" valign="middle">Returns <c>true</c> if the runtime system is a node and can connect to other nodes, <c>false</c> otherwise.</cell>
       </row>
       <row>
         <cell align="left" valign="middle"><c>monitor_node(Node, true|false)</c></cell>
-        <cell align="left" valign="middle">Monitor the status of <c>Node</c>. A message<c>{nodedown, Node}</c>is received if the connection to it is lost.</cell>
+        <cell align="left" valign="middle">Monitor the status of <c>Node</c>. A message<c>{nodedown, Node}</c> is received if the connection to it is lost.</cell>
       </row>
       <row>
         <cell align="left" valign="middle"><c>node()</c></cell>
@@ -200,7 +200,7 @@ dilbert@uab</pre>
       </row>
       <row>
         <cell align="left" valign="middle"><c>set_cookie(Node, Cookie)</c></cell>
-        <cell align="left" valign="middle">Sets the magic cookie used when connecting to <c>Node</c>. If <c>Node</c>is the current node, <c>Cookie</c>will be used when connecting to all new nodes.</cell>
+        <cell align="left" valign="middle">Sets the magic cookie used when connecting to <c>Node</c>. If <c>Node</c> is the current node, <c>Cookie</c> will be used when connecting to all new nodes.</cell>
       </row>
       <row>
         <cell align="left" valign="middle"><c>spawn[_link|_opt](Node, Fun)</c></cell>

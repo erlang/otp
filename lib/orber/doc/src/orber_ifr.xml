@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2009</year>
+      <year>1997</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -297,7 +297,7 @@
       </desc>
     </func>
     <func>
-      <name>describe_contents(Objref,Limit_type,Exclude_inherited,Max_returned_objs) -> Return</name>
+      <name>describe_contents(Objref, Limit_type, Exclude_inherited, Max_returned_objs) -> Return</name>
       <fsummary>Return a list of descriptions of the IFR objects contained by the target Container object</fsummary>
       <type>
         <v>Objref = #IFR_objref</v>

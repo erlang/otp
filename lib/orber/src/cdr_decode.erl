@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -898,9 +898,13 @@ dec_sequence_struct(Version, Message, N, TypeCodeList, Len, ByteOrder, Buff, C, 
     {Seq, Rest2, Len2, NewC2} = dec_sequence_struct(Version, Rest1, N - 1,  TypeCodeList, Len1, ByteOrder, 
 						    Buff, NewC, Name),
     {[list_to_tuple([Name |Struct]) | Seq], Rest2, Len2, NewC2}.
-dec_sequence_union(_, Message, 0, _DiscrTC, _Default, _ElementList, Len, _ByteOrder, _Buff, C, _Name) ->
+
+
+dec_sequence_union(_, Message, 0, _DiscrTC, _Default, _ElementList,
+		   Len, _ByteOrder, _Buff, C, _Name) ->
     {[], Message, Len, C};
-dec_sequence_union(Version, Message, N, DiscrTC, Default, ElementList, Len, ByteOrder, Buff, C, Name) ->
+dec_sequence_union(Version, Message, N, DiscrTC, Default, ElementList,
+		   Len, ByteOrder, Buff, C, Name) when is_list(ElementList) ->
 
     {Label, Rest1, Len1, NewC} = dec_type(DiscrTC, Version, Message, Len, ByteOrder, Buff, C),
     Result = dec_union(Version, stringify_enum(DiscrTC, Label), ElementList, Default, 
@@ -916,7 +920,20 @@ dec_sequence_union(Version, Message, N, DiscrTC, Default, ElementList, Len, Byte
 						   DiscrTC, Default, ElementList, 
 						   Len2, ByteOrder, 
 						   Buff, NewC3, Name),
-    {[{Name, Label, Value} | Seq], Rest3, Len3, NewC4}.
+    {[{Name, Label, Value} | Seq], Rest3, Len3, NewC4};
+dec_sequence_union(Version, Message, N, _DiscrTC, _Default, Module,
+		   Len, ByteOrder, Buff, C, Name) when is_atom(Module) ->
+    case catch Module:tc() of
+	{tk_union, _, _, DiscrTC, Default, ElementList} ->
+	    dec_sequence_union(Version, Message, N, DiscrTC, Default, ElementList,
+			       Len, ByteOrder, Buff, C, Name);
+	What ->
+	    orber:dbg("[~p] ~p:dec_sequence_union(~p). Union module doesn't exist or incorrect.", 
+		      [?LINE, ?MODULE, What], ?DEBUG_LEVEL),
+	    corba:raise(#'MARSHAL'{completion_status=?COMPLETED_MAYBE})
+    end.
+   
+ 
 
 %% A special case; when something is encapsulated (i.e. sent as octet-sequence)
 %% we sometimes don not want the result to be converted to a list.
@@ -993,14 +1010,16 @@ dec_wstring(Version, Message, Len, ByteOrder, Buff, C) ->
 %% Func: dec_union/9
 %%-----------------------------------------------------------------
 %% ## NEW IIOP 1.2 ##
-dec_union(Version, ?SYSTEM_TYPE, Name, DiscrTC, Default, ElementList, Bytes, Len, ByteOrder, Buff, C) ->
+dec_union(Version, ?SYSTEM_TYPE, Name, DiscrTC, Default, ElementList, Bytes,
+	  Len, ByteOrder, Buff, C) ->
     {Label, Rest1, Len1, NewC} = dec_type(DiscrTC, Version, Bytes, Len, ByteOrder, Buff, C),
     {Value, Rest2, Len2, NewC3} = dec_union(Version, Label, ElementList, Default, 
 					    Rest1, Len1, ByteOrder, Buff, NewC),
     {{Name, Label, Value}, Rest2, Len2, NewC3};
 
 
-dec_union(Version, IFRId, _, DiscrTC, Default, ElementList, Bytes, Len, ByteOrder, Buff, C) ->
+dec_union(Version, IFRId, _, DiscrTC, Default, ElementList, Bytes, Len, 
+	  ByteOrder, Buff, C) when is_list(ElementList) ->
     {Label, Rest1, Len1, NewC} = dec_type(DiscrTC, Version, Bytes, Len, ByteOrder, Buff, C),
     Result = dec_union(Version, stringify_enum(DiscrTC, Label), ElementList, Default, 
 				     Rest1, Len1, ByteOrder, Buff, NewC),
@@ -1012,7 +1031,20 @@ dec_union(Version, IFRId, _, DiscrTC, Default, ElementList, Bytes, Len, ByteOrde
 		    X
 	    end,
     Name = ifrid_to_name(IFRId, ?IFR_UnionDef),
-    {{Name, Label, Value}, Rest2, Len2, NewC3}.
+    {{Name, Label, Value}, Rest2, Len2, NewC3};
+dec_union(Version, IFRId, _, _DiscrTC, _Default, Module, Bytes, Len, 
+	  ByteOrder, Buff, C) when is_atom(Module) ->
+    case catch Module:tc() of
+	{tk_union, _, Name, DiscrTC, Default, ElementList} ->
+	    dec_union(Version, IFRId, Name, DiscrTC, Default, ElementList, Bytes, Len, 
+		      ByteOrder, Buff, C);
+	What ->
+	    orber:dbg("[~p] ~p:dec_union(~p). Union module doesn't exist or incorrect.", 
+		      [?LINE, ?MODULE, What], ?DEBUG_LEVEL),
+	    corba:raise(#'MARSHAL'{completion_status=?COMPLETED_MAYBE})
+    end.
+   
+    
 
 dec_union(_, _, [], Default,  Message, Len, _, _Buff, C) when Default < 0 ->
     {undefined, Message, Len, C};
@@ -1047,7 +1079,16 @@ dec_struct1(_, [], Message, Len, _ByteOrder, _, C) ->
 dec_struct1(Version, [{_ElemName, ElemType} | TypeCodeList], Message, Len, ByteOrder, Buff, C) ->
     {Element, Rest, Len1, NewC} = dec_type(ElemType, Version, Message, Len, ByteOrder, Buff, C),
     {Struct, Rest1, Len2, NewC2} = dec_struct1(Version, TypeCodeList, Rest, Len1, ByteOrder, Buff, NewC),
-    {[Element |Struct], Rest1, Len2, NewC2}.
+    {[Element |Struct], Rest1, Len2, NewC2};
+dec_struct1(Version, Module, Message, Len, ByteOrder, Buff, C) ->
+    case catch Module:tc() of
+	{tk_struct, _, _, TypeCodeList} ->
+	    dec_struct1(Version, TypeCodeList, Message, Len, ByteOrder, Buff, C);
+	What ->
+	    orber:dbg("[~p] ~p:dec_struct1(~p). Struct module doesn't exist or incorrect.", 
+		      [?LINE, ?MODULE, What], ?DEBUG_LEVEL),
+	    corba:raise(#'MARSHAL'{completion_status=?COMPLETED_MAYBE})
+    end.
 
 ifrid_to_name([], Type) ->
     orber:dbg("[~p] ~p:ifrid_to_name([], ~p). No Id supplied.", 
@@ -1232,7 +1273,9 @@ get_user_exception_type(TypeId) ->
 %%-----------------------------------------------------------------
 dec_type_code(Version, Message, Len, ByteOrder, Buff, C) ->
     {TypeNo, Message1, Len1, NewC} = dec_type('tk_ulong', Version, Message, Len, ByteOrder, Buff, C),
-    dec_type_code(TypeNo, Version, Message1, Len1, ByteOrder, Buff, NewC).
+    TC = dec_type_code(TypeNo, Version, Message1, Len1, ByteOrder, Buff, NewC),
+    erase(orber_indirection),
+    TC.
 
 %%-----------------------------------------------------------------
 %% Func: dec_type_code/5
@@ -1441,13 +1484,22 @@ dec_type_code(33, Version, Message, Len, ByteOrder, Buff, C) ->
 					{"name", {'tk_string', 0}}]},
 		 Version, Rest1, 1, ByteOrder1, Buff, C+1+Ex),
     {{'tk_local_interface', RepId, Name}, Message1, Len1, NewC};
-dec_type_code(16#ffffffff, Version, Message, Len, ByteOrder, Buff, C) ->  %% placeholder
+dec_type_code(16#ffffffff, Version, Message, Len, ByteOrder, Buff, C) ->
     {Indirection, Message1, Len1, NewC} =
 	dec_type('tk_long', Version, Message, Len, ByteOrder, Buff, C),
     Position = C+Indirection,
-    <<_:Position/binary, SubBuff/binary>> = Buff,
-    {TC, _, _, _} = dec_type_code(Version, SubBuff, Position, ByteOrder, Buff, Position),
-    {TC, Message1, Len1, NewC};
+    case put(orber_indirection, Position) of
+	Position ->
+%%	    {{'none', Indirection}, Message1, Len1, NewC};
+            %% Recursive TypeCode. Break the loop.
+ 	    orber:dbg("[~p] cdr_decode:dec_type_code(~p); Recursive TC not supported.", 
+ 		      [?LINE,Position], ?DEBUG_LEVEL),
+ 	    corba:raise(#'MARSHAL'{completion_status=?COMPLETED_NO});
+	_ ->
+	    <<_:Position/binary, SubBuff/binary>> = Buff,
+	    {TC, _, _, _} = dec_type_code(Version, SubBuff, Position, ByteOrder, Buff, Position),
+	    {TC, Message1, Len1, NewC}
+    end;
 dec_type_code(Type, _, _, _, _, _, _) -> 
     orber:dbg("[~p] cdr_decode:dec_type_code(~p); No match.", 
 			    [?LINE, Type], ?DEBUG_LEVEL),

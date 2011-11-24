@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -35,8 +35,8 @@
 -export([fail/0,fail/1,format/1,format/2,format/3]).
 -export([capture_start/0,capture_stop/0,capture_get/0]).
 -export([messages_get/0]).
--export([hours/1,minutes/1,seconds/1,sleep/1,timecall/3]).
--export([timetrap_scale_factor/0,timetrap/1,timetrap_cancel/1]).
+-export([hours/1,minutes/1,seconds/1,sleep/1,adjusted_sleep/1,timecall/3]).
+-export([timetrap_scale_factor/0,timetrap/1,timetrap_cancel/1,timetrap_cancel/0]).
 -export([m_out_of_n/3,do_times/4,do_times/2]).
 -export([call_crash/3,call_crash/4,call_crash/5]).
 -export([temp_name/1]).
@@ -89,14 +89,14 @@ init(Host,Port,Starter) ->
     global:register_name(?MODULE,self()),
     process_flag(trap_exit,true),
     test_server_sup:cleanup_crash_dumps(),
-    case gen_tcp:connect(Host,Port, [binary, 
-				     {reuseaddr,true}, 
+    case gen_tcp:connect(Host,Port, [binary,
+				     {reuseaddr,true},
 				     {packet,2}]) of
-	{ok,MainSock} -> 
+	{ok,MainSock} ->
 	    Starter ! {self(),started},
 	    request(MainSock,{target_info,init_target_info()}),
 	    loop(#state{controller={Host,MainSock}});
-	Error -> 
+	Error ->
 	    Starter ! {self(),{error,
 			       {could_not_contact_controller,Error}}}
     end.
@@ -127,7 +127,7 @@ loop(#state{controller={_,MainSock}} = State) ->
 	    halt();
 	{'EXIT',Pid,Reason} ->
 	    case lists:keysearch(Pid,1,State#state.jobs) of
-		{value,{Pid,Name}} -> 
+		{value,{Pid,Name}} ->
 		    case Reason of
 			normal -> ignore;
 			_other -> request(MainSock,{job_proc_killed,Name,Reason})
@@ -157,14 +157,14 @@ init_purify() ->
 job(Host,Port,Starter) ->
     process_flag(trap_exit,true),
     init_purify(),
-    case gen_tcp:connect(Host,Port, [binary, 
-				     {reuseaddr,true}, 
+    case gen_tcp:connect(Host,Port, [binary,
+				     {reuseaddr,true},
 				     {packet,4},
 				     {active,false}]) of
 	{ok,JobSock} ->
 	    Starter ! {self(),started},
 	    job(JobSock);
-	Error -> 
+	Error ->
 	    Starter ! {self(),{error,
 			       {could_not_contact_controller,Error}}}
     end.
@@ -192,7 +192,7 @@ get_jobdir() ->
 	true ->
 	    {ok,Cwd} = file:get_cwd(),
 	    Cwd ++ "/" ++ Basename;
-	false ->	    
+	false ->
 	    filename:absname(Basename)
     end.
 
@@ -216,7 +216,7 @@ send_privdir(JobDir,JobSock) ->
 
 del_dir(Dir) ->
     case file:read_file_info(Dir) of
-	{ok,#file_info{type=directory}} -> 
+	{ok,#file_info{type=directory}} ->
 	    {ok,Cont} = file:list_dir(Dir),
 	    lists:foreach(fun(F) -> del_dir(filename:join(Dir,F)) end, Cont),
 	    ok = file:del_dir(Dir);
@@ -227,7 +227,7 @@ del_dir(Dir) ->
 	    catch file:delete(Dir),
 	    ok
     end.
-    
+
 %%
 %% Receive and decode request on job socket
 %%
@@ -237,7 +237,7 @@ job_loop(JobSock) ->
 	ok -> job_loop(JobSock);
 	{stop,R} -> R
     end.
-    
+
 decode_job({{beam,Mod,Which},Beam}) ->
     % FIXME, shared directory structure on host and target required,
     % "Library beams" are not loaded from HOST... /Patrik
@@ -254,7 +254,7 @@ decode_job({{datadir,Tarfile0},Archive}) ->
     ok = erl_tar:extract(Tarfile,[compressed,{cwd,JobDir}]),
     ok = file:delete(Tarfile),
     ok;
-decode_job({test_case,Case}) -> 
+decode_job({test_case,Case}) ->
     Result = run_test_case_apply(Case),
     JobSock = get(test_server_job_sock),
     request(JobSock,{test_case_result,Result}),
@@ -266,11 +266,11 @@ decode_job({test_case,Case}) ->
 	    request(JobSock,{{crash_dumps,filename:basename(TarFile)},TarBin})
     end,
     ok;
-decode_job({sync_apply,{M,F,A}}) -> 
+decode_job({sync_apply,{M,F,A}}) ->
     R = apply(M,F,A),
     request(get(test_server_job_sock),{sync_result,R}),
     ok;
-decode_job(job_done) -> 
+decode_job(job_done) ->
     {stop,stopped}.
 
 %%
@@ -282,9 +282,9 @@ decode_job(job_done) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% cover_compile({App,Include,Exclude,Cross}) -> 
+%% cover_compile({App,Include,Exclude,Cross}) ->
 %%                                          {ok,AnalyseModules} | {error,Reason}
-%% 
+%%
 %% App = atom() , name of application to be compiled
 %% Exclude = [atom()], list of modules to exclude
 %% Include = [atom()], list of modules outside of App that should be included
@@ -293,7 +293,7 @@ decode_job(job_done) ->
 %%                 in the cover compilation, but that shall not be part of
 %%                 the cover analysis for this application.
 %%
-%% Cover compile the given application. Return {ok,AnalyseMods} if application 
+%% Cover compile the given application. Return {ok,AnalyseMods} if application
 %% is found, else {error,application_not_found}.
 
 cover_compile({none,_Exclude,Include,Cross}) ->
@@ -330,7 +330,7 @@ cover_compile({App,all,Include,Cross}) ->
     end;
 cover_compile({App,Exclude,Include,Cross}) ->
     case code:lib_dir(App) of
-	{error,bad_name} -> 
+	{error,bad_name} ->
 	    case Include++Cross of
 		[] ->
 		    io:format("\nWARNING: Can't find lib_dir for \'~w\'\n"
@@ -366,7 +366,7 @@ cover_compile({App,Exclude,Include,Cross}) ->
 		    {ok,AnalyseMods}
 	    end
     end.
-    
+
 
 module_names(Beams) ->
     [list_to_atom(filename:basename(filename:rootname(Beam))) || Beam <- Beams].
@@ -380,11 +380,11 @@ do_cover_compile1([Dont|Rest]) when Dont=:=cover;
 				    Dont=:=test_server_ctrl ->
     do_cover_compile1(Rest);
 do_cover_compile1([M|Rest]) ->
-    case {code:is_sticky(M),code:is_loaded(M)} of 
+    case {code:is_sticky(M),code:is_loaded(M)} of
 	{true,_} ->
 	    code:unstick_mod(M),
 	    case cover:compile_beam(M) of
-		{ok,_} -> 
+		{ok,_} ->
 		    ok;
 		Error ->
 		    io:fwrite("\nWARNING: Could not cover compile ~w: ~p\n",
@@ -402,7 +402,7 @@ do_cover_compile1([M|Rest]) ->
 	    end;
 	{false,_} ->
 	    case cover:compile_beam(M) of
-		{ok,_} -> 
+		{ok,_} ->
 		    ok;
 		Error ->
 		    io:fwrite("\nWARNING: Could not cover compile ~w: ~p\n",
@@ -415,14 +415,14 @@ do_cover_compile1([]) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% cover_analyse(Analyse,Modules) -> [{M,{Cov,NotCov,Details}}]
-%% 
+%%
 %% Analyse = {details,Dir} | details | {overview,void()} | overview
 %% Modules = [atom()], the modules to analyse
 %%
 %% Cover analysis. If this is a remote target, analyse_to_file can not be used.
 %% In that case the analyse level 'line' is used instead if Analyse==details.
 %%
-%% If this is a local target, the test directory is given 
+%% If this is a local target, the test directory is given
 %% (Analyse=={details,Dir}) and analyse_to_file can be used directly.
 %%
 %% If Analyse==overview | {overview,Dir} analyse_to_file is not used, only
@@ -432,12 +432,12 @@ do_cover_compile1([]) ->
 %% all.coverdata in that directory.
 cover_analyse(Analyse,Modules) ->
     io:fwrite("Cover analysing...\n",[]),
-    DetailsFun = 
+    DetailsFun =
 	case Analyse of
 	    {details,Dir} ->
 		case cover:export(filename:join(Dir,"all.coverdata")) of
 		    ok ->
-			fun(M) -> 
+			fun(M) ->
 				OutFile = filename:join(Dir,
 							atom_to_list(M) ++
 							".COVER.html"),
@@ -451,7 +451,7 @@ cover_analyse(Analyse,Modules) ->
 		    Error ->
 			fun(_) -> Error end
 		end;
-	    details -> 
+	    details ->
 		fun(M) ->
 			case cover:analyse(M,line) of
 			    {ok,Lines} ->
@@ -470,7 +470,7 @@ cover_analyse(Analyse,Modules) ->
 	    overview ->
 		fun(_) -> undefined end
 	end,
-    R = lists:map(
+    R = pmap(
 	  fun(M) ->
 		  case cover:analyse(M,module) of
 		      {ok,{M,{Cov,NotCov}}} ->
@@ -486,10 +486,23 @@ cover_analyse(Analyse,Modules) ->
     stick_all_sticky(node(),Sticky),
     R.
 
+pmap(Fun,List) ->
+    Collector = self(),
+    Pids = lists:map(fun(E) ->
+			     spawn(fun() ->
+					   Collector ! {res,self(),Fun(E)} 
+				   end) 
+		     end, List),
+    lists:map(fun(Pid) ->
+		      receive
+			  {res,Pid,Res} ->
+			      Res
+		      end
+	      end, Pids).
 
 unstick_all_sticky(Node) ->
     lists:filter(
-      fun(M) -> 
+      fun(M) ->
 	      case code:is_sticky(M) of
 		  true ->
 		      rpc:call(Node,code,unstick_mod,[M]),
@@ -502,24 +515,24 @@ unstick_all_sticky(Node) ->
 
 stick_all_sticky(Node,Sticky) ->
     lists:foreach(
-      fun(M) -> 
+      fun(M) ->
 	      rpc:call(Node,code,stick_mod,[M])
       end,
       Sticky).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% run_test_case_apply(Mod,Func,Args,Name,RunInit,MultiplyTimetrap) -> 
+%% run_test_case_apply(Mod,Func,Args,Name,RunInit,TimetrapData) ->
 %%               {Time,Value,Loc,Opts,Comment} | {died,Reason,unknown,Comment}
-%% 
+%%
 %% Time = float()   (seconds)
 %% Value = term()
 %% Loc = term()
 %% Comment = string()
 %% Reason = term()
 %%
-%% Spawns off a process (case process) that actually runs the test suite. 
-%% The case process will have the job process as group leader, which makes 
+%% Spawns off a process (case process) that actually runs the test suite.
+%% The case process will have the job process as group leader, which makes
 %% it possible to capture all it's output from io:format/2, etc.
 %%
 %% The job process then sits down and waits for news from the case process.
@@ -535,40 +548,43 @@ stick_all_sticky(Node,Sticky) ->
 %% called or the comment given by the return value {comment,Comment} from
 %% a test case.
 %%
-%% {died,Reason,unknown,Comment} is returned if the test case was killed 
+%% {died,Reason,unknown,Comment} is returned if the test case was killed
 %% by some other process. Reason is the kill reason provided.
 %%
-%% MultiplyTimetrap indicates a possible extension of all timetraps
-%% Timetraps will be multiplied by this integer. If it is infinity, no
-%% timetraps will be started at all.
+%% TimetrapData = {MultiplyTimetrap,ScaleTimetrap}, which indicates a
+%% possible extension of all timetraps. Timetraps will be multiplied by
+%% MultiplyTimetrap. If it is infinity, no timetraps will be started at all.
+%% ScaleTimetrap indicates if test_server should attemp to automatically
+%% compensate timetraps for runtime delays introduced by e.g. tools like
+%% cover.
 
-run_test_case_apply({CaseNum,Mod,Func,Args,Name,RunInit,MultiplyTimetrap}) ->
+run_test_case_apply({CaseNum,Mod,Func,Args,Name,RunInit,TimetrapData}) ->
     purify_format("Test case #~w ~w:~w/1", [CaseNum, Mod, Func]),
     case os:getenv("TS_RUN_VALGRIND") of
-	false -> 
+	false ->
 	    ok;
 	_ ->
 	    os:putenv("VALGRIND_LOGFILE_INFIX",atom_to_list(Mod)++"."++
 		      atom_to_list(Func)++"-")
     end,
     test_server_h:testcase({Mod,Func,1}),
-    ProcBef = erlang:system_info(process_count),    
-    Result = run_test_case_apply(Mod, Func, Args, Name, RunInit, MultiplyTimetrap),
+    ProcBef = erlang:system_info(process_count),
+    Result = run_test_case_apply(Mod, Func, Args, Name, RunInit, TimetrapData),
     ProcAft = erlang:system_info(process_count),
     purify_new_leaks(),
     DetFail = get(test_server_detected_fail),
     {Result,DetFail,ProcBef,ProcAft}.
-    
-run_test_case_apply(Mod, Func, Args, Name, RunInit, MultiplyTimetrap) ->
+
+run_test_case_apply(Mod, Func, Args, Name, RunInit, TimetrapData) ->
     case get(test_server_job_dir) of
 	undefined ->
 	    %% i'm a local target
-	    do_run_test_case_apply(Mod, Func, Args, Name, RunInit, MultiplyTimetrap);
+	    do_run_test_case_apply(Mod, Func, Args, Name, RunInit, TimetrapData);
 	JobDir ->
 	    %% i'm a remote target
 	    case Args of
 		[Config] when is_list(Config) ->
-		    {value,{data_dir,HostDataDir}} = 
+		    {value,{data_dir,HostDataDir}} =
 			lists:keysearch(data_dir, 1, Config),
 		    DataBase = filename:basename(HostDataDir),
 		    TargetDataDir = filename:join(JobDir, DataBase),
@@ -578,38 +594,40 @@ run_test_case_apply(Mod, Func, Args, Name, RunInit, MultiplyTimetrap) ->
 		    Config2 = lists:keyreplace(priv_dir, 1, Config1,
 					       {priv_dir,TargetPrivDir}),
 		    do_run_test_case_apply(Mod, Func, [Config2], Name, RunInit,
-					   MultiplyTimetrap);
+					   TimetrapData);
 		_other ->
 		    do_run_test_case_apply(Mod, Func, Args, Name, RunInit,
-					   MultiplyTimetrap)
+					   TimetrapData)
 	    end
     end.
-do_run_test_case_apply(Mod, Func, Args, Name, RunInit, MultiplyTimetrap) ->
+do_run_test_case_apply(Mod, Func, Args, Name, RunInit, TimetrapData) ->
     {ok,Cwd} = file:get_cwd(),
     Args2Print = case Args of
-		     [Args1] when is_list(Args1) -> 
+		     [Args1] when is_list(Args1) ->
 			 lists:keydelete(tc_group_result, 1, Args1);
-		     _ -> 
+		     _ ->
 			 Args
 		 end,
     print(minor, "Test case started with:\n~s:~s(~p)\n", [Mod,Func,Args2Print]),
     print(minor, "Current directory is ~p\n", [Cwd]),
     print_timestamp(minor,"Started at "),
+    print(minor, "", []),
     TCCallback = get(test_server_testcase_callback),
+    LogOpts = get(test_server_logopts),
     Ref = make_ref(),
     OldGLeader = group_leader(),
     %% Set ourself to group leader for the spawned process
     group_leader(self(),self()),
-    Pid = 
+    Pid =
 	spawn_link(
-	  fun() -> 
-		  run_test_case_eval(Mod, Func, Args, Name, Ref, 
-				     RunInit, MultiplyTimetrap,
-				     TCCallback)
+	  fun() ->
+		  run_test_case_eval(Mod, Func, Args, Name, Ref,
+				     RunInit, TimetrapData,
+				     LogOpts, TCCallback)
 	  end),
     group_leader(OldGLeader, self()),
     put(test_server_detected_fail, []),
-    run_test_case_msgloop(Ref, Pid, false, false, "").
+    run_test_case_msgloop(Ref, Pid, false, false, "", undefined).
 
 %% Ugly bug (pre R5A):
 %% If this process (group leader of the test case) terminates before
@@ -620,7 +638,7 @@ do_run_test_case_apply(Mod, Func, Args, Name, RunInit, MultiplyTimetrap) ->
 %% A test case is known to have failed if it returns {'EXIT', _} tuple,
 %% or sends a message {failed, File, Line} to it's group_leader
 %%
-run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate, Comment) ->
+run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate, Comment, CurrConf) ->
     %% NOTE: Keep job_proxy_msgloop/0 up to date when changes
     %%       are made in this function!
     {Timeout,ReturnValue} =
@@ -641,13 +659,13 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate, Comment) ->
 		receive
 		    {'DOWN', Mon, process, Pid, _} ->
 			Comment
-		    after 10000 ->		    
+		    after 10000 ->
 			    %% Pid is probably trapping exits, hit it harder...
 			    exit(Pid, kill),
 			    %% here's the only place we know Reason, so we save
 			    %% it as a comment, potentially replacing user data
 			    Error = lists:flatten(io_lib:format("Aborted: ~p",[Reason])),
-			    Error1 = lists:flatten([string:strip(S,left) || 
+			    Error1 = lists:flatten([string:strip(S,left) ||
 						    S <- string:tokens(Error,[$\n])]),
 			    if length(Error1) > 63 ->
 				    string:substr(Error1,1,60) ++ "...";
@@ -655,149 +673,235 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate, Comment) ->
 				    Error1
 			    end
 		    end,
-	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,NewComment);
+	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,NewComment,CurrConf);
         {io_request,From,ReplyAs,{put_chars,io_lib,Func,[Format,Args]}}
 	when is_list(Format) ->
 	    Msg = (catch io_lib:Func(Format,Args)),
 	    run_test_case_msgloop_io(ReplyAs,CaptureStdout,Msg,From,Func),
-            run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment);
+            run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,CurrConf);
         {io_request,From,ReplyAs,{put_chars,io_lib,Func,[Format,Args]}}
 	when is_atom(Format) ->
 	    Msg = (catch io_lib:Func(Format,Args)),
 	    run_test_case_msgloop_io(ReplyAs,CaptureStdout,Msg,From,Func),
-            run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment);
+            run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,CurrConf);
         {io_request,From,ReplyAs,{put_chars,Bytes}} ->
 	    run_test_case_msgloop_io(
 	      ReplyAs,CaptureStdout,Bytes,From,put_chars),
-            run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment);
+            run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,CurrConf);
         {io_request,From,ReplyAs,{put_chars,unicode,io_lib,Func,[Format,Args]}}
 	when is_list(Format) ->
 	    Msg = unicode_to_latin1(catch io_lib:Func(Format,Args)),
 	    run_test_case_msgloop_io(ReplyAs,CaptureStdout,Msg,From,Func),
-            run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment);
+            run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,CurrConf);
         {io_request,From,ReplyAs,{put_chars,latin1,io_lib,Func,[Format,Args]}}
 	when is_list(Format) ->
 	    Msg = (catch io_lib:Func(Format,Args)),
 	    run_test_case_msgloop_io(ReplyAs,CaptureStdout,Msg,From,Func),
-            run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment);
+            run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,CurrConf);
         {io_request,From,ReplyAs,{put_chars,unicode,io_lib,Func,[Format,Args]}}
 	when is_atom(Format) ->
 	    Msg = unicode_to_latin1(catch io_lib:Func(Format,Args)),
 	    run_test_case_msgloop_io(ReplyAs,CaptureStdout,Msg,From,Func),
-            run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment);
+            run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,CurrConf);
         {io_request,From,ReplyAs,{put_chars,latin1,io_lib,Func,[Format,Args]}}
 	when is_atom(Format) ->
 	    Msg = (catch io_lib:Func(Format,Args)),
 	    run_test_case_msgloop_io(ReplyAs,CaptureStdout,Msg,From,Func),
-            run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment);
+            run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,CurrConf);
         {io_request,From,ReplyAs,{put_chars,unicode,Bytes}} ->
 	    run_test_case_msgloop_io(
 	      ReplyAs,CaptureStdout,unicode_to_latin1(Bytes),From,put_chars),
-            run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment);
+            run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,CurrConf);
         {io_request,From,ReplyAs,{put_chars,latin1,Bytes}} ->
 	    run_test_case_msgloop_io(
 	      ReplyAs,CaptureStdout,Bytes,From,put_chars),
-            run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment);
+            run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,CurrConf);
         IoReq when element(1, IoReq) == io_request ->
 	    %% something else, just pass it on
             group_leader() ! IoReq,
-            run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment);
+            run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,CurrConf);
 	{structured_io,ClientPid,Msg} ->
 	    output(Msg, ClientPid),
-            run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment);
+            run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,CurrConf);
 	{capture,NewCapture} ->
-            run_test_case_msgloop(Ref,Pid,NewCapture,Terminate,Comment);
+            run_test_case_msgloop(Ref,Pid,NewCapture,Terminate,Comment,CurrConf);
 	{sync_apply,From,MFA} ->
 	    sync_local_or_remote_apply(false,From,MFA),
-	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment);
+	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,CurrConf);
 	{sync_apply_proxy,Proxy,From,MFA} ->
 	    sync_local_or_remote_apply(Proxy,From,MFA),
-	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment);
+	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,CurrConf);
 	{printout,Detail,Format,Args} ->
 	    print(Detail,Format,Args),
-	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment);
+	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,CurrConf);
 	{comment,NewComment} ->
+	    NewComment1 = test_server_ctrl:to_string(NewComment),
+	    NewComment2 = test_server_sup:framework_call(format_comment,
+							 [NewComment1],
+							 NewComment1),
 	    Terminate1 =
 		case Terminate of
-		    {true,{Time,Value,Loc,Opts,_OldComment}} -> 
-			{true,{Time,Value,mod_loc(Loc),Opts,NewComment}};
+		    {true,{Time,Value,Loc,Opts,_OldComment}} ->
+			{true,{Time,Value,mod_loc(Loc),Opts,NewComment2}};
 		    Other ->
 			Other
 		end,
-	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate1,NewComment);
+	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate1,NewComment2,CurrConf);
+	{read_comment,From} ->
+	    From ! {self(),read_comment,Comment},
+	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,CurrConf);
+	{set_curr_conf,From,NewCurrConf} ->
+	    From ! {self(),set_curr_conf,ok},
+	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,NewCurrConf);
 	{'EXIT',Pid,{Ref,Time,Value,Loc,Opts}} ->
 	    RetVal = {Time/1000000,Value,mod_loc(Loc),Opts,Comment},
-	    run_test_case_msgloop(Ref,Pid,CaptureStdout,{true,RetVal},Comment);
+	    run_test_case_msgloop(Ref,Pid,CaptureStdout,{true,RetVal},Comment,undefined);
 	{'EXIT',Pid,Reason} ->
 	    case Reason of
 		{timetrap_timeout,TVal,Loc} ->
 		    %% convert Loc to form that can be formatted
-		    Loc1 = mod_loc(Loc),
-		    {Mod,Func} = get_mf(Loc1),
-		    %% The framework functions mustn't execute on this
-		    %% group leader process or io will cause deadlock,
-		    %% so we spawn a dedicated process for the operation
-		    %% and let the group leader go back to handle io.
-		    spawn_fw_call(Mod,Func,Pid,{timetrap_timeout,TVal},
-				  Loc1,self(),Comment),
-		    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment);
+		    case mod_loc(Loc) of
+			{FwMod,FwFunc,framework} ->
+			    %% timout during framework call
+			    spawn_fw_call(FwMod,FwFunc,CurrConf,Pid,
+					  {framework_error,{timetrap,TVal}},
+					  unknown,self(),Comment),
+			    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
+						  Comment,undefined);
+			Loc1 ->
+			    %% call end_per_testcase on a separate process,
+			    %% only so that the user has a chance to clean up
+			    %% after init_per_testcase, even after a timetrap timeout
+			    NewCurrConf =
+				case CurrConf of
+				    {{Mod,Func},Conf} ->
+					EndConfPid =
+					    call_end_conf(Mod,Func,Pid,
+							  {timetrap_timeout,TVal},
+							  Loc1,[{tc_status,
+								 {failed,
+								  timetrap_timeout}}|Conf],
+							  TVal),
+					{EndConfPid,{Mod,Func},Conf};
+				    _ ->
+					{Mod,Func} = get_mf(Loc1),
+					%% The framework functions mustn't execute on this
+					%% group leader process or io will cause deadlock,
+					%% so we spawn a dedicated process for the operation
+					%% and let the group leader go back to handle io.
+					spawn_fw_call(Mod,Func,CurrConf,Pid,
+						      {timetrap_timeout,TVal},
+						      Loc1,self(),Comment),
+					undefined
+				end,
+			    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
+						  Comment,NewCurrConf)
+		    end;
 		{timetrap_timeout,TVal,Loc,InitOrEnd} ->
-		    Loc1 = mod_loc(Loc),
-		    {Mod,_Func} = get_mf(Loc1),
-		    spawn_fw_call(Mod,InitOrEnd,Pid,{timetrap_timeout,TVal},
-				  Loc1,self(),Comment),
-		    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment);		    
-		{testcase_aborted,Reason,Loc} ->
-		    Loc1 = mod_loc(Loc),
-		    {Mod,Func} = get_mf(Loc1),
-		    spawn_fw_call(Mod,Func,Pid,{testcase_aborted,Reason},
-				  Loc1,self(),Comment),
-		    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment);
-		killed ->			
+		    case mod_loc(Loc) of
+			{FwMod,FwFunc,framework} ->
+			    %% timout during framework call
+			    spawn_fw_call(FwMod,FwFunc,CurrConf,Pid,
+					  {framework_error,{timetrap,TVal}},
+					  unknown,self(),Comment);
+			Loc1 ->
+			    {Mod,_Func} = get_mf(Loc1),
+			    spawn_fw_call(Mod,InitOrEnd,CurrConf,Pid,
+					  {timetrap_timeout,TVal},
+					  Loc1,self(),Comment)
+		    end,
+		    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,CurrConf);
+		{testcase_aborted,AbortReason,AbortLoc} ->
+		    ErrorMsg = {testcase_aborted,AbortReason},
+		    case mod_loc(AbortLoc) of
+			{FwMod,FwFunc,framework} ->
+			    %% abort during framework call
+			    spawn_fw_call(FwMod,FwFunc,CurrConf,Pid,
+					  {framework_error,ErrorMsg},
+					  unknown,self(),Comment),
+			    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
+						  Comment,undefined);
+			Loc1 ->
+			    %% call end_per_testcase on a separate process, only so
+			    %% that the user has a chance to clean up after init_per_testcase,
+			    %% even after abortion
+			    NewCurrConf =
+				case CurrConf of
+				    {{Mod,Func},Conf} ->
+					TVal = case lists:keysearch(default_timeout,1,Conf) of
+						   {value,{default_timeout,Tmo}} -> Tmo;
+						   _ -> ?DEFAULT_TIMETRAP_SECS*1000
+					       end,
+					EndConfPid =
+					    call_end_conf(Mod,Func,Pid,ErrorMsg,
+							  Loc1,
+							  [{tc_status,{failed,ErrorMsg}}|Conf],
+							  TVal),
+					{EndConfPid,{Mod,Func},Conf};
+				    _ ->
+					{Mod,Func} = get_mf(Loc1),
+					spawn_fw_call(Mod,Func,CurrConf,Pid,ErrorMsg,
+						      Loc1,self(),Comment),
+					undefined
+				end,
+			    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
+						  Comment,NewCurrConf)
+		    end;
+		killed ->
 		    %% result of an exit(TestCase,kill) call, which is the
-		    %% only way to abort a testcase process that traps exits 
+		    %% only way to abort a testcase process that traps exits
 		    %% (see abort_current_testcase)
-		    spawn_fw_call(undefined,undefined,Pid,testcase_aborted_or_killed,
+		    spawn_fw_call(undefined,undefined,CurrConf,Pid,
+				  testcase_aborted_or_killed,
 				  unknown,self(),Comment),
-		    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment);
+		    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,CurrConf);
 		{fw_error,{FwMod,FwFunc,FwError}} ->
-		    spawn_fw_call(FwMod,FwFunc,Pid,{framework_error,FwError},
+		    spawn_fw_call(FwMod,FwFunc,CurrConf,Pid,{framework_error,FwError},
 				  unknown,self(),Comment),
-		    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment);		    
-		_ ->
+		    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,CurrConf);
+		_Other ->
 		    %% the testcase has terminated because of Reason (e.g. an exit
 		    %% because a linked process failed)
-		    spawn_fw_call(undefined,undefined,Pid,Reason,
+		    spawn_fw_call(undefined,undefined,CurrConf,Pid,Reason,
 				  unknown,self(),Comment),
-		    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment)
+		    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,CurrConf)
+	    end;
+	{EndConfPid,{call_end_conf,Data,_Result}} ->
+	    case CurrConf of
+		{EndConfPid,{Mod,Func},_Conf} ->
+		    {_Mod,_Func,TCPid,TCExitReason,Loc} = Data,
+		    spawn_fw_call(Mod,Func,CurrConf,TCPid,TCExitReason,Loc,self(),Comment),
+		    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,undefined);
+		_ ->
+		    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,CurrConf)
 	    end;
 	{_FwCallPid,fw_notify_done,RetVal} ->
 	    %% the framework has been notified, we're finished
-	    run_test_case_msgloop(Ref,Pid,CaptureStdout,{true,RetVal},Comment);	    
+	    run_test_case_msgloop(Ref,Pid,CaptureStdout,{true,RetVal},Comment,undefined);
  	{'EXIT',_FwCallPid,{fw_notify_done,Func,Error}} ->
 	    %% a framework function failed
 	    CB = os:getenv("TEST_SERVER_FRAMEWORK"),
 	    Loc = case CB of
-		      false -> 
+		      FW when FW =:= false; FW =:= "undefined" ->
 			  {test_server,Func};
-		      _ -> 
+		      _ ->
 			  {list_to_atom(CB),Func}
 		  end,
 	    RetVal = {died,{framework_error,Loc,Error},Loc,"Framework error"},
-	    run_test_case_msgloop(Ref,Pid,CaptureStdout,{true,RetVal},Comment);
+	    run_test_case_msgloop(Ref,Pid,CaptureStdout,{true,RetVal},Comment,undefined);
 	{failed,File,Line} ->
-	    put(test_server_detected_fail, 
+	    put(test_server_detected_fail,
 		[{File, Line}| get(test_server_detected_fail)]),
-       	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment);
+	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,CurrConf);
 	_Other when not is_tuple(_Other) ->
 	    %% ignore anything not generated by test server
-	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment);	    
+	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,CurrConf);
 	_Other when element(1, _Other) /= 'EXIT',
 		    element(1, _Other) /= started,
 		    element(1, _Other) /= finished,
 		    element(1, _Other) /= print ->
 	    %% ignore anything not generated by test server
-	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment)
+	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,CurrConf)
     after Timeout ->
 	    ReturnValue
     end.
@@ -819,57 +923,108 @@ run_test_case_msgloop_io(ReplyAs,CaptureStdout,Msg,From,Func) ->
 output(Msg,Sender) ->
     local_or_remote_apply({test_server_ctrl,output,[Msg,Sender]}).
 
-spawn_fw_call(Mod,{init_per_testcase,Func},Pid,{timetrap_timeout,TVal}=Why,
+call_end_conf(Mod,Func,TCPid,TCExitReason,Loc,Conf,TVal) ->
+    Starter = self(),
+    Data = {Mod,Func,TCPid,TCExitReason,Loc},
+    EndConfProc =
+	fun() ->
+		Supervisor = self(),
+		EndConfApply =
+		    fun() ->
+			    case catch apply(Mod,end_per_testcase,[Func,Conf]) of
+				{'EXIT',Why} ->
+				    group_leader() ! {printout,12,
+						      "ERROR! ~p:end_per_testcase(~p, ~p)"
+						      " crashed!\n\tReason: ~p\n",
+						      [Mod,Func,Conf,Why]};
+				_ ->
+				    ok
+			    end,
+			    Supervisor ! {self(),end_conf}
+		    end,
+		Pid = spawn_link(EndConfApply),
+		receive
+		    {Pid,end_conf} ->
+			Starter ! {self(),{call_end_conf,Data,ok}};
+		    {'EXIT',Pid,Reason} ->
+			Starter ! {self(),{call_end_conf,Data,{error,Reason}}}
+		after TVal ->
+			Starter ! {self(),{call_end_conf,Data,{error,timeout}}}
+		end
+	end,
+    spawn_link(EndConfProc).
+
+spawn_fw_call(Mod,{init_per_testcase,Func},_,Pid,{timetrap_timeout,TVal}=Why,
 	      Loc,SendTo,Comment) ->
     FwCall =
 	fun() ->
-	    Skip = {skip,{failed,{Mod,init_per_testcase,Why}}},
-	    %% if init_per_testcase fails, the test case 
-	    %% should be skipped
-	    case catch test_server_sup:framework_call(
-			 end_tc,[?pl2a(Mod),Func,{Pid,Skip,[[]]}]) of
-		{'EXIT',FwEndTCErr} ->
-		    exit({fw_notify_done,end_tc,FwEndTCErr});
-		_ ->
-		    ok
-	    end,
-	    %% finished, report back
-	    SendTo ! {self(),fw_notify_done,
-		      {TVal/1000,Skip,Loc,[],Comment}}
-	end,
-    spawn_link(FwCall);
-spawn_fw_call(Mod,{end_per_testcase,Func},Pid,{timetrap_timeout,TVal}=Why,
-	      Loc,SendTo,_Comment) ->
-    FwCall =
-	fun() ->
-	    Conf = [{tc_status,ok}],
-	    %% if end_per_testcase fails, the test case should be
-	    %% reported successful with a warning printed as comment
-	    case catch test_server_sup:framework_call(end_tc,
-						      [?pl2a(Mod),Func,
-						       {Pid,
-							{failed,{Mod,end_per_testcase,Why}},
-							[Conf]}]) of
-		{'EXIT',FwEndTCErr} ->
-		    exit({fw_notify_done,end_tc,FwEndTCErr});
-		_ ->
-		    ok
-	    end,
-	    %% finished, report back
-	    SendTo ! {self(),fw_notify_done,
-		      {TVal/1000,{error,{Mod,end_per_testcase,Why}},Loc,[],
-		       ["<font color=\"red\">"
-			"WARNING: end_per_testcase timed out!"
-			"</font>"]}}
+		Skip = {skip,{failed,{Mod,init_per_testcase,Why}}},
+		%% if init_per_testcase fails, the test case
+		%% should be skipped
+		case catch do_end_tc_call(Mod,Func, Loc, {Pid,Skip,[[]]}, Why) of
+		    {'EXIT',FwEndTCErr} ->
+			exit({fw_notify_done,end_tc,FwEndTCErr});
+		    _ ->
+			ok
+		end,
+		%% finished, report back
+		SendTo ! {self(),fw_notify_done,
+			  {TVal/1000,Skip,Loc,[],Comment}}
 	end,
     spawn_link(FwCall);
 
-spawn_fw_call(FwMod,FwFunc,_Pid,{framework_error,FwError},_,SendTo,_Comment) ->
+spawn_fw_call(Mod,{end_per_testcase,Func},EndConf,Pid,
+	      {timetrap_timeout,TVal}=Why,_Loc,SendTo,Comment) ->
+    %%! This is a temporary fix that keeps Test Server alive during
+    %%! execution of a parallel test case group, when sometimes
+    %%! this clause gets called with EndConf == undefined. See OTP-9594
+    %%! for more info.
+    EndConf1 = if EndConf == undefined ->
+		       [{tc_status,{failed,{Mod,end_per_testcase,Why}}}];
+		  true ->
+		       EndConf
+	       end,
+    FwCall =
+	fun() ->
+		{RetVal,Report} =
+		    case proplists:get_value(tc_status, EndConf1) of
+			undefined ->
+			    E = {failed,{Mod,end_per_testcase,Why}},
+			    {E,E};
+			E = {failed,Reason} ->
+			    {E,{error,Reason}};
+			Result ->
+			    E = {failed,{Mod,end_per_testcase,Why}},
+			    {Result,E}
+		    end,
+		FailLoc = proplists:get_value(tc_fail_loc, EndConf1),
+		case catch do_end_tc_call(Mod,Func, FailLoc,
+					  {Pid,Report,[EndConf1]}, Why) of
+		    {'EXIT',FwEndTCErr} ->
+			exit({fw_notify_done,end_tc,FwEndTCErr});
+		    _ ->
+			ok
+		end,
+		%% if end_per_testcase fails a warning should be
+		%% printed as comment
+		Comment1 = if Comment == "" -> "";
+			      true -> Comment ++ "<br>"
+			   end,
+		%% finished, report back
+		SendTo ! {self(),fw_notify_done,
+			  {TVal/1000,RetVal,FailLoc,[],
+			   [Comment1,"<font color=\"red\">"
+			    "WARNING: end_per_testcase timed out!"
+			    "</font>"]}}
+	end,
+    spawn_link(FwCall);
+
+spawn_fw_call(FwMod,FwFunc,_,_Pid,{framework_error,FwError},_,SendTo,_Comment) ->
     FwCall =
 	fun() ->
 		test_server_sup:framework_call(report, [framework_error,
 							{{FwMod,FwFunc},FwError}]),
-		Comment = 
+		Comment =
 		    lists:flatten(
 		      io_lib:format("<font color=\"red\">"
 				    "WARNING! ~w:~w failed!</font>", [FwMod,FwFunc])),
@@ -879,7 +1034,7 @@ spawn_fw_call(FwMod,FwFunc,_Pid,{framework_error,FwError},_,SendTo,_Comment) ->
 	end,
     spawn_link(FwCall);
 
-spawn_fw_call(Mod,Func,Pid,Error,Loc,SendTo,Comment) ->
+spawn_fw_call(Mod,Func,_,Pid,Error,Loc,SendTo,Comment) ->
     FwCall =
 	fun() ->
 		case catch fw_error_notify(Mod,Func,[],
@@ -891,9 +1046,8 @@ spawn_fw_call(Mod,Func,Pid,Error,Loc,SendTo,Comment) ->
 			ok
 		end,
 		Conf = [{tc_status,{failed,timetrap_timeout}}],
-		case catch test_server_sup:framework_call(end_tc,
-							  [?pl2a(Mod),Func,
-							   {Pid,Error,[Conf]}]) of
+		case catch do_end_tc_call(Mod,Func, Loc,
+					  {Pid,Error,[Conf]},Error) of
 		    {'EXIT',FwEndTCErr} ->
 			exit({fw_notify_done,end_tc,FwEndTCErr});
 		    _ ->
@@ -953,32 +1107,37 @@ job_proxy_msgloop() ->
 %% A test case is known to have failed if it returns {'EXIT', _} tuple,
 %% or sends a message {failed, File, Line} to it's group_leader
 
-run_test_case_eval(Mod, Func, Args0, Name, Ref, RunInit, 
-		   MultiplyTimetrap, TCCallback) ->
-    put(test_server_multiply_timetraps,MultiplyTimetrap),
+run_test_case_eval(Mod, Func, Args0, Name, Ref, RunInit,
+		   TimetrapData, LogOpts, TCCallback) ->
+    put(test_server_multiply_timetraps, TimetrapData),
+    put(test_server_logopts, LogOpts),
+
     {{Time,Value},Loc,Opts} =
 	case test_server_sup:framework_call(init_tc,[?pl2a(Mod),Func,Args0],
 					    {ok,Args0}) of
 	    {ok,Args} ->
 		run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback);
 	    Error = {error,_Reason} ->
-		test_server_sup:framework_call(end_tc,[?pl2a(Mod),Func,{Error,Args0}]),
-		{{0,{skip,{failed,Error}}},{Mod,Func},[]};
+		Where = {Mod,Func},
+		NewResult = do_end_tc_call(Mod,Func, Where, {Error,Args0},
+					   {skip,{failed,Error}}),
+		{{0,NewResult},Where,[]};
 	    {fail,Reason} ->
-		[Conf] = Args0,
-		Conf1 = [{tc_status,{failed,Reason}} | Conf],
+		Conf = [{tc_status,{failed,Reason}} | hd(Args0)],
+		Where = {Mod,Func},
 		fw_error_notify(Mod, Func, Conf, Reason),
-		test_server_sup:framework_call(end_tc,[?pl2a(Mod),Func,
-						       {{error,Reason},[Conf1]}]),
-		{{0,{failed,Reason}},{Mod,Func},[]};
+		NewResult = do_end_tc_call(Mod,Func, Where, {{error,Reason},[Conf]},
+					   {fail,Reason}),
+		{{0,NewResult},Where,[]};
 	    Skip = {skip,_Reason} ->
-		test_server_sup:framework_call(end_tc,[?pl2a(Mod),Func,{Skip,Args0}]),
-		{{0,Skip},{Mod,Func},[]};
+		Where = {Mod,Func},
+		NewResult = do_end_tc_call(Mod,Func, Where, {Skip,Args0}, Skip),
+		{{0,NewResult},Where,[]};
 	    {auto_skip,Reason} ->
-		test_server_sup:framework_call(end_tc,[?pl2a(Mod),
-						       Func,
-						       {{skip,Reason},Args0}]),
-		{{0,{skip,{fw_auto_skip,Reason}}},{Mod,Func},[]}
+		Where = {Mod,Func},
+		NewResult = do_end_tc_call(Mod,Func, Where, {{skip,Reason},Args0},
+					   {skip,{fw_auto_skip,Reason}}),
+		{{0,NewResult},Where,[]}
 	end,
     exit({Ref,Time,Value,Loc,Opts}).
 
@@ -992,33 +1151,46 @@ run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback) ->
 		Skip = {skip,Reason} ->
 		    Line = get_loc(),
 		    Conf = [{tc_status,{skipped,Reason}}],
-		    test_server_sup:framework_call(end_tc,[?pl2a(Mod),Func,{Skip,[Conf]}]),
-		    {{0,{skip,Reason}},Line,[]};
+		    NewRes = do_end_tc_call(Mod,Func, Line, {Skip,[Conf]}, Skip),
+		    {{0,NewRes},Line,[]};
 		{skip_and_save,Reason,SaveCfg} ->
 		    Line = get_loc(),
 		    Conf = [{tc_status,{skipped,Reason}},{save_config,SaveCfg}],
-		    test_server_sup:framework_call(end_tc,[?pl2a(Mod),Func,
-							   {{skip,Reason},[Conf]}]),
-		    {{0,{skip,Reason}},Line,[]};
+		    NewRes = do_end_tc_call(Mod,Func, Line, {{skip,Reason},[Conf]},
+					    {skip,Reason}),
+		    {{0,NewRes},Line,[]};
+		FailTC = {fail,Reason} ->       % user fails the testcase
+		    EndConf = [{tc_status,{failed,Reason}} | hd(Args)],
+		    fw_error_notify(Mod, Func, EndConf, Reason),
+		    NewRes = do_end_tc_call(Mod,Func, {Mod,Func},
+					    {{error,Reason},[EndConf]},
+					    FailTC),
+		    {{0,NewRes},{Mod,Func},[]};
 		{ok,NewConf} ->
 		    put(test_server_init_or_end_conf,undefined),
 		    %% call user callback function if defined
 		    NewConf1 = user_callback(TCCallback, Mod, Func, init, NewConf),
+		    %% save current state in controller loop
+		    sync_send(group_leader(),set_curr_conf,{{Mod,Func},NewConf1},
+			      5000, fun() -> exit(no_answer_from_group_leader) end),
 		    put(test_server_loc, {Mod,Func}),
 		    %% execute the test case
 		    {{T,Return},Loc} = {ts_tc(Mod, Func, [NewConf1]),get_loc()},
 		    {EndConf,TSReturn,FWReturn} =
 			case Return of
 			    {E,TCError} when E=='EXIT' ; E==failed ->
+				ModLoc = mod_loc(Loc),
 				fw_error_notify(Mod, Func, NewConf1,
-						TCError, mod_loc(Loc)),
-				{[{tc_status,{failed,TCError}}|NewConf1],
+						TCError, ModLoc),
+				{[{tc_status,{failed,TCError}},
+				  {tc_fail_loc,ModLoc}|NewConf1],
 				 Return,{error,TCError}};
 			    SaveCfg={save_config,_} ->
 				{[{tc_status,ok},SaveCfg|NewConf1],Return,ok};
 			    {skip_and_save,Why,SaveCfg} ->
 				Skip = {skip,Why},
-				{[{tc_status,{skipped,Why}},{save_config,SaveCfg}|NewConf1],
+				{[{tc_status,{skipped,Why}},
+				  {save_config,SaveCfg}|NewConf1],
 				 Skip,Skip};
 			    {skip,Why} ->
 				{[{tc_status,{skipped,Why}}|NewConf1],Return,Return};
@@ -1027,25 +1199,38 @@ run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback) ->
 			end,
 		    %% call user callback function if defined
 		    EndConf1 = user_callback(TCCallback, Mod, Func, 'end', EndConf),
+		    %% update current state in controller loop
+		    sync_send(group_leader(),set_curr_conf,EndConf1,
+			      5000, fun() -> exit(no_answer_from_group_leader) end),
 		    {FWReturn1,TSReturn1,EndConf2} =
 			case end_per_testcase(Mod, Func, EndConf1) of
 			    SaveCfg1={save_config,_} ->
-				{FWReturn,TSReturn,[SaveCfg1|lists:keydelete(save_config, 1, EndConf1)]};
-			    {fail,ReasonToFail} ->                       % user has failed the testcase
+				{FWReturn,TSReturn,[SaveCfg1|lists:keydelete(save_config,1,
+									     EndConf1)]};
+			    {fail,ReasonToFail} ->
+				%% user has failed the testcase
 				fw_error_notify(Mod, Func, EndConf1, ReasonToFail),
 				{{error,ReasonToFail},{failed,ReasonToFail},EndConf1};
-			    {failed,{_,end_per_testcase,_}} = Failure -> % unexpected termination
+			    {failed,{_,end_per_testcase,_}} = Failure when FWReturn == ok ->
+				%% unexpected termination in end_per_testcase
+				%% report this as the result to the framework
 				{Failure,TSReturn,EndConf1};
-			    _ -> 
+			    _ ->
+				%% test case result should be reported to framework
+				%% no matter the status of end_per_testcase
 				{FWReturn,TSReturn,EndConf1}
 			end,
-		    case test_server_sup:framework_call(end_tc, [?pl2a(Mod), Func,
-								 {FWReturn1,[EndConf2]}]) of
-			{fail,Reason} ->
-			    fw_error_notify(Mod, Func, EndConf2, Reason),
-			    {{T,{failed,Reason}},{Mod,Func},[]};
-			_ ->
-			    {{T,TSReturn1},Loc,[]}
+		    %% clear current state in controller loop
+		    sync_send(group_leader(),set_curr_conf,undefined,
+			      5000, fun() -> exit(no_answer_from_group_leader) end),
+		    put(test_server_init_or_end_conf,undefined),
+		    case do_end_tc_call(Mod,Func, Loc,
+					{FWReturn1,[EndConf2]}, TSReturn1) of
+			{failed,Reason} = NewReturn ->
+			    fw_error_notify(Mod,Func,EndConf2, Reason),
+			    {{T,NewReturn},{Mod,Func},[]};
+			NewReturn ->
+			    {{T,NewReturn},Loc,[]}
 		    end
 	    end;
 	skip_init ->
@@ -1063,11 +1248,67 @@ run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback) ->
 	    {{T,Return},Loc} = {ts_tc(Mod, Func, Args2),get_loc()},
 	    %% call user callback function if defined
 	    Return1 = user_callback(TCCallback, Mod, Func, 'end', Return),
-	    {Return2,Opts} = process_return_val([Return1], Mod,Func,Args1, Loc, Return1),
+	    {Return2,Opts} = process_return_val([Return1], Mod, Func,
+						Args1, {Mod,Func}, Return1),
 	    {{T,Return2},Loc,Opts}
     end.
 
-%% the return value is a list and we have to check if it contains 
+do_end_tc_call(M,F, Loc, Res, Return) ->
+    FwMod = os:getenv("TEST_SERVER_FRAMEWORK"),
+    {Mod,Func} =
+	if FwMod == M ; FwMod == "undefined"; FwMod == false ->
+		{M,F};
+	   is_list(Loc) and (length(Loc)>1) ->
+		%% If failure in other module (M) than suite, try locate
+		%% suite name in Loc list and call end_tc with Suite:TestCase
+		%% instead of M:F.
+		GetSuite = fun(S,TC) ->
+				   case lists:reverse(atom_to_list(S)) of
+				       [$E,$T,$I,$U,$S,$_|_]  -> [{S,TC}];
+				      _ -> []
+				   end
+			  end,
+		case lists:flatmap(fun({S,TC,_})   -> GetSuite(S,TC);
+				      ({{S,TC},_}) -> GetSuite(S,TC);
+				      ({S,TC})     -> GetSuite(S,TC);
+				      (_)          -> []
+				   end, Loc) of
+		    [] ->
+			{M,F};
+		    [FoundSuite|_] ->
+			FoundSuite
+		end;
+	   true ->
+		{M,F}
+	end,
+
+    Ref = make_ref(),
+    if FwMod == "ct_framework" ; FwMod == "undefined"; FwMod == false ->
+	    case test_server_sup:framework_call(
+		   end_tc, [?pl2a(Mod),Func,Res, Return], ok) of
+		{fail,FWReason} ->
+		    {failed,FWReason};
+		ok ->
+		    case Return of
+			{fail,Reason} ->
+			    {failed,Reason};
+			Return ->
+			    Return
+		    end;
+		NewReturn ->
+		    NewReturn
+	    end;
+       true ->
+	    case test_server_sup:framework_call(FwMod, end_tc,
+						[?pl2a(Mod),Func,Res], Ref) of
+		{fail,FWReason} ->
+		    {failed,FWReason};
+		_Else ->
+		    Return
+	    end
+    end.
+
+%% the return value is a list and we have to check if it contains
 %% the result of an end conf case or if it's a Config list
 process_return_val([Return], M,F,A, Loc, Final) when is_list(Return) ->
     ReturnTags = [skip,skip_and_save,save_config,comment,return_group_result],
@@ -1081,25 +1322,35 @@ process_return_val([Return], M,F,A, Loc, Final) when is_list(Return) ->
 		   end, Return) of
 	true ->		     % must be return value from end conf case
 	    process_return_val1(Return, M,F,A, Loc, Final, []);
-	false ->	     % must be Config value from init conf case
-	    test_server_sup:framework_call(end_tc, [?pl2a(M),F,{ok,A}]),
-	    {Return,[]}
+	false -> % must be Config value from init conf case
+	    case do_end_tc_call(M, F, Loc, {ok,A}, Return) of
+		{failed, FWReason} = Failed ->
+		    fw_error_notify(M,F,A, FWReason),
+		    {Failed, []};
+		NewReturn ->
+		    {NewReturn, []}
+	    end
     end;
 %% the return value is not a list, so it's the return value from an
 %% end conf case or it's a dummy value that can be ignored
 process_return_val(Return, M,F,A, Loc, Final) ->
     process_return_val1(Return, M,F,A, Loc, Final, []).
 
-process_return_val1([Failed={E,TCError}|_], M,F,A=[Args], Loc, _, SaveOpts) when E=='EXIT'; 
-										 E==failed ->
+process_return_val1([Failed={E,TCError}|_], M,F,A=[Args], Loc, _, SaveOpts)
+  when E=='EXIT';
+       E==failed ->
     fw_error_notify(M,F,A, TCError, mod_loc(Loc)),
-    test_server_sup:framework_call(end_tc,
-				   [?pl2a(M),F,{{error,TCError},
-						[[{tc_status,{failed,TCError}}|Args]]}]),
-    {Failed,SaveOpts};
-process_return_val1([SaveCfg={save_config,_}|Opts], M,F,[Args], Loc, Final, SaveOpts) ->    
+    case do_end_tc_call(M,F, Loc, {{error,TCError},
+				   [[{tc_status,{failed,TCError}}|Args]]},
+			Failed) of
+	{failed,FWReason} ->
+	    {{failed,FWReason},SaveOpts};
+	NewReturn ->
+	    {NewReturn,SaveOpts}
+    end;
+process_return_val1([SaveCfg={save_config,_}|Opts], M,F,[Args], Loc, Final, SaveOpts) ->
     process_return_val1(Opts, M,F,[[SaveCfg|Args]], Loc, Final, SaveOpts);
-process_return_val1([{skip_and_save,Why,SaveCfg}|Opts], M,F,[Args], Loc, _, SaveOpts) ->    
+process_return_val1([{skip_and_save,Why,SaveCfg}|Opts], M,F,[Args], Loc, _, SaveOpts) ->
     process_return_val1(Opts, M,F,[[{save_config,SaveCfg}|Args]], Loc, {skip,Why}, SaveOpts);
 process_return_val1([GR={return_group_result,_}|Opts], M,F,A, Loc, Final, SaveOpts) ->
     process_return_val1(Opts, M,F,A, Loc, Final, [GR|SaveOpts]);
@@ -1108,9 +1359,13 @@ process_return_val1([RetVal={Tag,_}|Opts], M,F,A, Loc, _, SaveOpts) when Tag==sk
     process_return_val1(Opts, M,F,A, Loc, RetVal, SaveOpts);
 process_return_val1([_|Opts], M,F,A, Loc, Final, SaveOpts) ->
     process_return_val1(Opts, M,F,A, Loc, Final, SaveOpts);
-process_return_val1([], M,F,A, _Loc, Final, SaveOpts) ->
-    test_server_sup:framework_call(end_tc, [?pl2a(M),F,{Final,A}]),
-    {Final,lists:reverse(SaveOpts)}.
+process_return_val1([], M,F,A, Loc, Final, SaveOpts) ->
+    case do_end_tc_call(M,F, Loc, {Final,A}, Final) of
+	{failed,FWReason} ->
+	    {{failed,FWReason},SaveOpts};
+	NewReturn ->
+	    {NewReturn,lists:reverse(SaveOpts)}
+    end.
 
 user_callback(undefined, _, _, _, Args) ->
     Args;
@@ -1134,55 +1389,62 @@ init_per_testcase(Mod, Func, Args) ->
 	false -> code:load_file(Mod);
 	_ -> ok
     end,
-    %% init_per_testcase defined, returns new configuration
-    case erlang:function_exported(Mod,init_per_testcase,2) of
+    case erlang:function_exported(Mod, init_per_testcase, 2) of
 	true ->
-	    case catch my_apply(Mod, init_per_testcase, [Func|Args]) of
-		{'$test_server_ok',{Skip,Reason}} when Skip==skip; 
-						       Skip==skipped ->
-		    {skip,Reason};
-		{'$test_server_ok',Res={skip_and_save,_,_}} ->
-		    Res;
-		{'$test_server_ok',NewConf} when is_list(NewConf) ->
-		    case lists:filter(fun(T) when is_tuple(T) -> false;
-					 (_) -> true end, NewConf) of
-			[] ->
-			    {ok,NewConf};
-			Bad ->
-			    group_leader() ! {printout,12, 
-					      "ERROR! init_per_testcase has returned "
-					      "bad elements in Config: ~p\n",[Bad]},  
-			    {skip,{failed,{Mod,init_per_testcase,bad_return}}}
-		    end;
-		{'$test_server_ok',_Other} ->
-		    group_leader() ! {printout,12, 
-				      "ERROR! init_per_testcase did not return "
-				      "a Config list.\n",[]},   
-		    {skip,{failed,{Mod,init_per_testcase,bad_return}}};
-		{'EXIT',Reason} ->
-		    Line = get_loc(),
-		    FormattedLoc = test_server_sup:format_loc(mod_loc(Line)),
-		    group_leader() ! {printout,12, 
-				      "ERROR! init_per_testcase crashed!\n"
-				      "\tLocation: ~s\n\tReason: ~p\n",
-				      [FormattedLoc,Reason]},  
-		    {skip,{failed,{Mod,init_per_testcase,Reason}}};
-		Other ->
-		    Line = get_loc(),
-		    FormattedLoc = test_server_sup:format_loc(mod_loc(Line)),
-		    group_leader() ! {printout,12, 
-				      "ERROR! init_per_testcase thrown!\n"
-				      "\tLocation: ~s\n\tReason: ~p\n",
-				      [FormattedLoc, Other]},  
-		    {skip,{failed,{Mod,init_per_testcase,Other}}}
-	    end;
+	    do_init_per_testcase(Mod, [Func|Args]);
 	false ->
-	    %% Optional init_per_testcase not defined
-	    %% keep quiet.
+	    %% Optional init_per_testcase is not defined -- keep quiet.
 	    [Config] = Args,
 	    {ok, Config}
     end.
-	    
+
+do_init_per_testcase(Mod, Args) ->
+    try	apply(Mod, init_per_testcase, Args) of
+	{Skip,Reason} when Skip =:= skip; Skip =:= skipped ->
+	    {skip,Reason};
+	{skip_and_save,_,_}=Res ->
+	    Res;
+	NewConf when is_list(NewConf) ->
+	    case lists:filter(fun(T) when is_tuple(T) -> false;
+				 (_) -> true end, NewConf) of
+		[] ->
+		    {ok,NewConf};
+		Bad ->
+		    group_leader() ! {printout,12,
+				      "ERROR! init_per_testcase has returned "
+				      "bad elements in Config: ~p\n",[Bad]},
+		    {skip,{failed,{Mod,init_per_testcase,bad_return}}}
+	    end;
+	{fail,_Reason}=Res ->
+	    Res;
+	_Other ->
+	    group_leader() ! {printout,12,
+			      "ERROR! init_per_testcase did not return "
+			      "a Config list.\n",[]},
+	    {skip,{failed,{Mod,init_per_testcase,bad_return}}}
+    catch
+	throw:Other ->
+	    set_loc(erlang:get_stacktrace()),
+	    Line = get_loc(),
+	    FormattedLoc = test_server_sup:format_loc(mod_loc(Line)),
+	    group_leader() ! {printout,12,
+			      "ERROR! init_per_testcase thrown!\n"
+			      "\tLocation: ~s\n\tReason: ~p\n",
+			      [FormattedLoc, Other]},
+	    {skip,{failed,{Mod,init_per_testcase,Other}}};
+	_:Reason0 ->
+	    Stk = erlang:get_stacktrace(),
+	    Reason = {Reason0,Stk},
+	    set_loc(Stk),
+	    Line = get_loc(),
+	    FormattedLoc = test_server_sup:format_loc(mod_loc(Line)),
+	    group_leader() ! {printout,12,
+			      "ERROR! init_per_testcase crashed!\n"
+			      "\tLocation: ~s\n\tReason: ~p\n",
+			      [FormattedLoc,Reason]},
+	    {skip,{failed,{Mod,init_per_testcase,Reason}}}
+    end.
+
 end_per_testcase(Mod, Func, Conf) ->
     case erlang:function_exported(Mod,end_per_testcase,2) of
 	true ->
@@ -1200,61 +1462,91 @@ end_per_testcase(Mod, Func, Conf) ->
 do_end_per_testcase(Mod,EndFunc,Func,Conf) ->
     put(test_server_init_or_end_conf,{EndFunc,Func}),
     put(test_server_loc, {Mod,{EndFunc,Func}}),
-    case catch my_apply(Mod, EndFunc, [Func,Conf]) of
-	{'$test_server_ok',SaveCfg={save_config,_}} ->
+    try Mod:EndFunc(Func, Conf) of
+	{save_config,_}=SaveCfg ->
 	    SaveCfg;
-	{'$test_server_ok',{fail,_}=Fail} ->
+	{fail,_}=Fail ->
 	    Fail;
-	{'$test_server_ok',_} ->
-	    ok;
-	{'EXIT',Reason} = Why ->
-	    comment(io_lib:format("<font color=\"red\">"
-				  "WARNING: ~w crashed!"
-				  "</font>\n",[EndFunc])),
-	    group_leader() ! {printout,12, 
-			      "WARNING: ~w crashed!\n"
-			      "Reason: ~p\n"
-			      "Line: ~s\n",
-			      [EndFunc, Reason, 
-			       test_server_sup:format_loc(
-				 mod_loc(get_loc()))]},
-	    {failed,{Mod,end_per_testcase,Why}};
-	Other ->
-	    comment(io_lib:format("<font color=\"red\">"
+	_ ->
+	    ok
+    catch
+	throw:Other ->
+	    Comment0 = case read_comment() of
+			   ""  -> "";
+			   Cmt -> Cmt ++ "<br>"
+		       end,
+	    set_loc(erlang:get_stacktrace()),
+	    comment(io_lib:format("~s<font color=\"red\">"
 				  "WARNING: ~w thrown!"
-				  "</font>\n",[EndFunc])),
-	    group_leader() ! {printout,12, 
+				  "</font>\n",[Comment0,EndFunc])),
+	    group_leader() ! {printout,12,
 			      "WARNING: ~w thrown!\n"
 			      "Reason: ~p\n"
 			      "Line: ~s\n",
-			      [EndFunc, Other, 
+			      [EndFunc, Other,
 			       test_server_sup:format_loc(
-				 mod_loc(get_loc()))]},  
-	    {failed,{Mod,end_per_testcase,Other}}
+				 mod_loc(get_loc()))]},
+	    {failed,{Mod,end_per_testcase,Other}};
+	  Class:Reason ->
+	    Stk = erlang:get_stacktrace(),
+	    set_loc(Stk),
+	    Why = case Class of
+		      exit -> {'EXIT',Reason};
+		      error -> {'EXIT',{Reason,Stk}}
+		  end,
+	    Comment0 = case read_comment() of
+			   ""  -> "";
+			   Cmt -> Cmt ++ "<br>"
+		       end,
+	    comment(io_lib:format("~s<font color=\"red\">"
+				  "WARNING: ~w crashed!"
+				  "</font>\n",[Comment0,EndFunc])),
+	    group_leader() ! {printout,12,
+			      "WARNING: ~w crashed!\n"
+			      "Reason: ~p\n"
+			      "Line: ~s\n",
+			      [EndFunc, Reason,
+			       test_server_sup:format_loc(
+				 mod_loc(get_loc()))]},
+	    {failed,{Mod,end_per_testcase,Why}}
     end.
 
 get_loc() ->
-    case catch test_server_line:get_lines() of
-	[] ->
-	    get(test_server_loc);
-	{'EXIT',_} ->
-	    get(test_server_loc);
-	Loc ->
-	    Loc
-    end.
+    get(test_server_loc).
 
 get_loc(Pid) ->
-    {dictionary,Dict} = process_info(Pid, dictionary),
-    lists:foreach(fun({Key,Val}) -> put(Key,Val) end,Dict),
+    [{current_stacktrace,Stk0},{dictionary,Dict}] =
+	process_info(Pid, [current_stacktrace,dictionary]),
+    lists:foreach(fun({Key,Val}) -> put(Key, Val) end, Dict),
+    Stk = [rewrite_loc_item(Loc) || Loc <- Stk0],
+    put(test_server_loc, Stk),
     get_loc().
 
-get_mf([{M,F,_}|_]) -> {M,F};
-get_mf([{M,F}|_])   -> {M,F};
-get_mf(_)           -> {undefined,undefined}.
+%% find the latest known Suite:Testcase
+get_mf(MFs) ->
+    get_mf(MFs, {undefined,undefined}).
+
+get_mf([MF|MFs], _Found) when is_tuple(MF) ->
+    ModFunc = {Mod,_} = case MF of
+			    {M,F,_} -> {M,F};
+			    MF -> MF
+			end,
+    case is_suite(Mod) of
+	true -> ModFunc;
+	false -> get_mf(MFs, ModFunc)
+    end;
+get_mf(_, Found) ->
+    Found.
+
+is_suite(Mod) ->
+    case lists:reverse(atom_to_list(Mod)) of
+	"ETIUS" ++ _ -> true;
+	_ -> false
+    end.
 
 mod_loc(Loc) ->
     %% handle diff line num versions
-    case Loc of	
+    case Loc of
 	[{{_M,_F},_L}|_] ->
 	    [{?pl2a(M),F,L} || {{M,F},L} <- Loc];
 	[{_M,_F}|_] ->
@@ -1286,7 +1578,7 @@ fw_error_notify(Mod, Func, Args, Error, Loc) ->
 %% Args = [term()]
 %%
 %% Just like io:format, except that depending on the Detail value, the output
-%% is directed to console, major and/or minor log files. 
+%% is directed to console, major and/or minor log files.
 
 print(Detail,Format,Args) ->
     local_or_remote_apply({test_server_ctrl,print,[Detail,Format,Args]}).
@@ -1296,11 +1588,11 @@ print(Detail,Format,Args) ->
 %%
 %% Prints Leader followed by a time stamp (date and time). Depending on
 %% the Detail value, the output is directed to console, major and/or minor
-%% log files. 
+%% log files.
 
 print_timestamp(Detail,Leader) ->
     local_or_remote_apply({test_server_ctrl,print_timestamp,[Detail,Leader]}).
-    
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% lookup_config(Key,Config) -> {value,{Key,Value}} | undefined
@@ -1323,16 +1615,22 @@ lookup_config(Key,Config) ->
 %% timer:tc/3
 ts_tc(M, F, A) ->
     Before = erlang:now(),
-    Val = (catch my_apply(M, F, A)),
+    Result = try
+		 apply(M, F, A)
+	     catch
+		 Type:Reason ->
+		     Stk = erlang:get_stacktrace(),
+		     set_loc(Stk),
+		     case Type of
+			 throw ->
+			     {failed,{thrown,Reason}};
+			 error ->
+			     {'EXIT',{Reason,Stk}};
+			 exit ->
+			     {'EXIT',Reason}
+		     end
+	     end,
     After = erlang:now(),
-    Result = case Val of
-		 {'$test_server_ok', R} -> 
-		     R; % test case ok
-		 {'EXIT',_Reason} = R -> 
-		     R; % test case crashed
-		 Other -> 
-		     {failed, {thrown,Other}} % test case was thrown
-	  end,
     Elapsed =
 	(element(1,After)*1000000000000
 	 +element(2,After)*1000000+element(3,After)) -
@@ -1340,8 +1638,12 @@ ts_tc(M, F, A) ->
 	 +element(2,Before)*1000000+element(3,Before)),
     {Elapsed, Result}.
 
-my_apply(M, F, A) ->
-    {'$test_server_ok',apply(M, F, A)}.
+set_loc(Stk) ->
+    Loc = [rewrite_loc_item(I) || {_,_,_,_}=I <- Stk],
+    put(test_server_loc, Loc).
+
+rewrite_loc_item({M,F,_,Loc}) ->
+    {M,F,proplists:get_value(line, Loc, 0)}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -1352,7 +1654,7 @@ my_apply(M, F, A) ->
 %%       in an attempt to keep this modules small (yeah, right!)    %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 unicode_to_latin1(Chars) when is_list(Chars); is_binary(Chars) ->
-    lists:flatten( 
+    lists:flatten(
       [ case X of
 	    High when High > 255 ->
 		io_lib:format("\\{~.8B}",[X]);
@@ -1460,13 +1762,60 @@ sleep(MSecs) ->
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% adjusted_sleep(Time) -> ok
+%% Time = integer() | float() | infinity
+%%
+%% Sleeps the specified number of milliseconds, multiplied by the
+%% 'multiply_timetraps' value (if set) and possibly also automatically scaled
+%% up if 'scale_timetraps' is set to true (which is default).
+%% This function also accepts floating point numbers (which are truncated) and
+%% the atom 'infinity'.
+adjusted_sleep(infinity) ->
+    receive
+    after infinity ->
+	    ok
+    end;
+adjusted_sleep(MSecs) ->
+    {Multiplier,ScaleFactor} =
+	case test_server_ctrl:get_timetrap_parameters() of
+	    {undefined,undefined} ->
+		{1,1};
+	    {undefined,false} ->
+		{1,1};
+	    {undefined,true} ->
+		{1,timetrap_scale_factor()};
+	    {infinity,_} ->
+		{infinity,1};
+	    {Mult,undefined} ->
+		{Mult,1};
+	    {Mult,false} ->
+		{Mult,1};
+	    {Mult,true} ->
+		{Mult,timetrap_scale_factor()}
+	end,
+    receive
+    after trunc(MSecs*Multiplier*ScaleFactor) ->
+	    ok
+    end,
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% fail(Reason) -> exit({suite_failed,Reason})
 %%
 %% Immediately calls exit. Included because test suites are easier
 %% to read when using this function, rather than exit directly.
 fail(Reason) ->
     comment(cast_to_list(Reason)),
-    exit({suite_failed,Reason}).
+    try
+	exit({suite_failed,Reason})
+    catch
+	Class:R ->
+	    case erlang:get_stacktrace() of
+		[{?MODULE,fail,1,_}|Stk] -> ok;
+		Stk -> ok
+	    end,
+	    erlang:raise(Class, R, Stk)
+    end.
 
 cast_to_list(X) when is_list(X) -> X;
 cast_to_list(X) when is_atom(X) -> atom_to_list(X);
@@ -1480,7 +1829,16 @@ cast_to_list(X) -> lists:flatten(io_lib:format("~p", [X])).
 %% Immediately calls exit. Included because test suites are easier
 %% to read when using this function, rather than exit directly.
 fail() ->
-    exit(suite_failed).
+    try
+	exit(suite_failed)
+    catch
+	Class:R ->
+	    case erlang:get_stacktrace() of
+		[{?MODULE,fail,0,_}|Stk] -> ok;
+		Stk -> ok
+	    end,
+	    erlang:raise(Class, R, Stk)
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% break(Comment) -> ok
@@ -1490,7 +1848,7 @@ fail() ->
 break(Comment) ->
     case erase(test_server_timetraps) of
 	undefined -> ok;
-	List -> lists:foreach(fun(Ref) -> timetrap_cancel(Ref) end,List)
+	List -> lists:foreach(fun({Ref,_}) -> timetrap_cancel(Ref) end, List)
     end,
     io:format(user,
 	      "\n\n\n--- SEMIAUTOMATIC TESTING ---"
@@ -1509,9 +1867,9 @@ break(Comment) ->
     receive continue -> ok end.
 
 spawn_break_process(Pid) ->
-    spawn(fun() -> 
+    spawn(fun() ->
 		  register(test_server_break_process,self()),
-		  receive 
+		  receive
 		      continue -> continue(Pid);
 		      cancel -> ok
 		  end
@@ -1561,28 +1919,30 @@ timetrap_scale_factor() ->
 %% timetrap(Timeout) -> Handle
 %% Handle = term()
 %%
-%% Creates a time trap, that will kill the calling process if the 
+%% Creates a time trap, that will kill the calling process if the
 %% trap is not cancelled with timetrap_cancel/1, within Timeout milliseconds.
-
 timetrap(Timeout0) ->
     Timeout = time_ms(Timeout0),
     cancel_default_timetrap(),
     case get(test_server_multiply_timetraps) of
-	undefined -> timetrap1(Timeout);
-	infinity -> infinity;
-	Int -> timetrap1(Timeout*Int)
+	undefined -> timetrap1(Timeout, true);
+	{undefined,false} -> timetrap1(Timeout, false);
+	{undefined,_} -> timetrap1(Timeout, true);
+	{infinity,_} -> infinity;
+	{_Int,_Scale} when Timeout == infinity -> infinity;
+	{Int,Scale} -> timetrap1(Timeout*Int, Scale)
     end.
 
-timetrap1(Timeout) ->
-    Ref = spawn_link(test_server_sup,timetrap,[Timeout,self()]),
+timetrap1(Timeout, Scale) ->
+    TCPid = self(),
+    Ref = spawn_link(test_server_sup,timetrap,[Timeout,Scale,TCPid]),
     case get(test_server_timetraps) of
-	undefined -> put(test_server_timetraps,[Ref]);
-	List -> put(test_server_timetraps,[Ref|List])
+	undefined -> put(test_server_timetraps,[{Ref,TCPid}]);
+	List -> put(test_server_timetraps,[{Ref,TCPid}|List])
     end,
     Ref.
 
 ensure_timetrap(Config) ->
-    %format("ensure_timetrap:~p~n",[Config]),
     case get(test_server_timetraps) of
 	[_|_] ->
 	    ok;
@@ -1591,14 +1951,16 @@ ensure_timetrap(Config) ->
 		undefined -> ok;
 		Garbage ->
 		    erase(test_server_default_timetrap),
-		    format("=== WARNING: garbage in test_server_default_timetrap: ~p~n",
+		    format("=== WARNING: garbage in "
+			   "test_server_default_timetrap: ~p~n",
 			   [Garbage])
 	    end,
 	    DTmo = case lists:keysearch(default_timeout,1,Config) of
 		       {value,{default_timeout,Tmo}} -> Tmo;
 		       _ -> ?DEFAULT_TIMETRAP_SECS
 		   end,
-	    format("=== test_server setting default timetrap of ~p seconds~n",
+	    format("=== test_server setting default "
+		   "timetrap of ~p seconds~n",
 		   [DTmo]),
 	    put(test_server_default_timetrap, timetrap(seconds(DTmo)))
     end.
@@ -1610,11 +1972,13 @@ cancel_default_timetrap() ->
 	TimeTrap when is_pid(TimeTrap) ->
 	    timetrap_cancel(TimeTrap),
 	    erase(test_server_default_timetrap),
-	    format("=== test_server canceled default timetrap since another timetrap was set~n"),
+	    format("=== test_server canceled default timetrap "
+		   "since another timetrap was set~n"),
 	    ok;
 	Garbage ->
 	    erase(test_server_default_timetrap),
-	    format("=== WARNING: garbage in test_server_default_timetrap: ~p~n",
+	    format("=== WARNING: garbage in "
+		   "test_server_default_timetrap: ~p~n",
 		   [Garbage]),
 	    error
     end.
@@ -1623,13 +1987,57 @@ cancel_default_timetrap() ->
 time_ms({hours,N}) -> hours(N);
 time_ms({minutes,N}) -> minutes(N);
 time_ms({seconds,N}) -> seconds(N);
-time_ms({Other,_N}) -> 
+time_ms({Other,_N}) ->
     format("=== ERROR: Invalid time specification: ~p. "
 	   "Should be seconds, minutes, or hours.~n", [Other]),
-    exit({invalid_time_spec,Other});
+    exit({invalid_time_format,Other});
 time_ms(Ms) when is_integer(Ms) -> Ms;
-time_ms(Other) -> exit({invalid_time_spec,Other}).
+time_ms(infinity) -> infinity;
+time_ms(Fun) when is_function(Fun) ->
+    time_ms_apply(Fun);
+time_ms({M,F,A}=MFA) when is_atom(M), is_atom(F), is_list(A) ->
+    time_ms_apply(MFA);
+time_ms(Other) -> exit({invalid_time_format,Other}).
 
+time_ms_apply(Func) ->
+    time_ms_apply(Func, [5000,30000,60000,infinity]).
+
+time_ms_apply(Func, TOs) ->
+    Apply = fun() ->
+		    case Func of
+			{M,F,A} ->
+			    exit({self(),apply(M, F, A)});
+			Fun ->
+			    exit({self(),Fun()})
+		    end
+	    end,
+    Pid = spawn(Apply),
+    Ref = monitor(process, Pid),
+    time_ms_wait(Func, Pid, Ref, TOs).
+
+time_ms_wait(Func, Pid, Ref, [TO|TOs]) ->
+    receive
+	{'DOWN',Ref,process,Pid,{Pid,Result}} ->
+	    time_ms_check(Result);
+	{'DOWN',Ref,process,Pid,Error} ->
+	    exit({timetrap_error,Error})
+    after
+	TO ->
+	    format("=== WARNING: No return from timetrap function ~p~n", [Func]),
+	    time_ms_wait(Func, Pid, Ref, TOs)
+    end;
+%% this clause will never execute if 'infinity' is in TOs list, that's ok!
+time_ms_wait(Func, Pid, Ref, []) ->
+    demonitor(Ref),
+    exit(Pid, kill),
+    exit({timetrap_error,{no_return_from_timetrap_function,Func}}).
+
+time_ms_check(MFA = {M,F,A}) when is_atom(M), is_atom(F), is_list(A) ->
+    exit({invalid_time_format,MFA});
+time_ms_check(Fun) when is_function(Fun) ->
+    exit({invalid_time_format,Fun});
+time_ms_check(Other) ->
+    time_ms(Other).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% timetrap_cancel(Handle) -> ok
@@ -1641,10 +2049,28 @@ timetrap_cancel(infinity) ->
 timetrap_cancel(Handle) ->
     case get(test_server_timetraps) of
 	undefined -> ok;
-	[Handle] -> erase(test_server_timetraps);
-	List -> put(test_server_timetraps,lists:delete(Handle,List))
+	[{Handle,_}] -> erase(test_server_timetraps);
+	Timers -> put(test_server_timetraps,
+		      lists:keydelete(Handle, 1, Timers))
     end,
     test_server_sup:timetrap_cancel(Handle).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% timetrap_cancel() -> ok
+%%
+%% Cancels timetrap for current test case.
+timetrap_cancel() ->
+    case get(test_server_timetraps) of
+	undefined ->
+	    ok;
+	Timers ->
+	    case lists:keysearch(self(), 2, Timers) of
+		{value,{Handle,_}} ->
+		    timetrap_cancel(Handle);
+		_ ->
+		    ok
+	    end
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% hours(N) -> Milliseconds
@@ -1658,6 +2084,19 @@ timetrap_cancel(Handle) ->
 hours(N)   -> trunc(N * 1000 * 60 * 60).
 minutes(N) -> trunc(N * 1000 * 60).
 seconds(N) -> trunc(N * 1000).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% sync_send(Pid,Tag,Msg,Timeout,DoAfter) -> Result
+%%
+sync_send(Pid,Tag,Msg,Timeout,DoAfter) ->
+    Pid ! {Tag,self(),Msg},
+    receive
+	{Pid,Tag,Result} ->
+	    Result
+    after Timeout ->
+	    DoAfter()
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% timecall(M,F,A) -> {Time,Val}
@@ -1763,21 +2202,21 @@ call_crash(Time,Crash,M,F,A) ->
 %% Slave and Peer:
 %% {remote, true}         - Start the node on a remote host. If not specified,
 %%                          the node will be started on the local host (with
-%%                          some exceptions, as for the case of VxWorks and OSE,
+%%                          some exceptions, for instance VxWorks,
 %%                          where all nodes are started on a remote host).
 %% {args, Arguments}      - Arguments passed directly to the node.
 %% {cleanup, false}       - Nodes started with this option will not be killed
 %%                          by the test server after completion of the test case
 %%                          Therefore it is IMPORTANT that the USER terminates
 %%                          the node!!
-%% {erl, ReleaseList}     - Use an Erlang emulator determined by ReleaseList 
-%%                          when starting nodes, instead of the same emulator 
+%% {erl, ReleaseList}     - Use an Erlang emulator determined by ReleaseList
+%%                          when starting nodes, instead of the same emulator
 %%                          as the test server is running. ReleaseList is a list
-%%                          of specifiers, where a specifier is either 
-%%                          {release, Rel}, {prog, Prog}, or 'this'. Rel is 
-%%                          either the name of a release, e.g., "r7a" or 
-%%                          'latest'. 'this' means using the same emulator as 
-%%                          the test server. Prog is the name of an emulator 
+%%                          of specifiers, where a specifier is either
+%%                          {release, Rel}, {prog, Prog}, or 'this'. Rel is
+%%                          either the name of a release, e.g., "r7a" or
+%%                          'latest'. 'this' means using the same emulator as
+%%                          the test server. Prog is the name of an emulator
 %%                          executable.  If the list has more than one element,
 %%                          one of them is picked randomly. (Only
 %%                          works on Solaris and Linux, and the test
@@ -1792,13 +2231,13 @@ call_crash(Time,Crash,M,F,A) ->
 %%                          peer nodes.
 %%                          Note that slave nodes always act as if they had
 %%                          fail_on_error==false.
-%% 
+%%
 
 start_node(Name, Type, Options) ->
     lists:foreach(
-      fun(N) -> 
+      fun(N) ->
 	      case firstname(N) of
-		  Name -> 
+		  Name ->
 		      format("=== WARNING: Trying to start node \'~w\' when node"
 			     " with same first name exists: ~w", [Name, N]);
 		  _other -> ok
@@ -1817,19 +2256,19 @@ start_node(Name, Type, Options) ->
             %% Cannot run cover on shielded node or on a node started
             %% by a shielded node.
             Cover = case is_cover() of
-                        true -> 
+                        true ->
                             not is_shielded(Name) andalso same_version(Node);
-                        false -> 
+                        false ->
                             false
                     end,
 
 	    net_adm:ping(Node),
 	    case Cover of
-		true -> 
+		true ->
 		    Sticky = unstick_all_sticky(Node),
 		    cover:start(Node),
 		    stick_all_sticky(Node,Sticky);
-		_ -> 
+		_ ->
 		    ok
 	    end,
 	    {ok,Node};
@@ -1857,7 +2296,7 @@ wait_for_node(Slave) ->
 		      self(),
 		      {test_server_ctrl,wait_for_node,[Slave]}},
     receive {sync_result,R} -> R end.
-    
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% stop_node(Name) -> true|false
@@ -1867,7 +2306,7 @@ wait_for_node(Slave) ->
 stop_node(Slave) ->
     Nocover = is_shielded(Slave) orelse not same_version(Slave),
     case is_cover() of
-	true when not Nocover -> 
+	true when not Nocover ->
 	    Sticky = unstick_all_sticky(Slave),
 	    cover:stop(Slave),
 	    stick_all_sticky(Slave,Sticky);
@@ -1895,10 +2334,10 @@ stop_node(Slave) ->
 	    %% with the {cleanup,false} option, or it was started
 	    %% in some other way than test_server:start_node/3
 	    format("=== WARNING: Attempt to stop a nonexisting slavenode (~p)~n"
-		   "===          Trying to kill it anyway!!!", 
+		   "===          Trying to kill it anyway!!!",
 		   [Slave]),
 	    case net_adm:ping(Slave)of
-		pong -> 
+		pong ->
 		    slave:stop(Slave),
 		    true;
 		pang ->
@@ -1918,7 +2357,7 @@ is_release_available(Release) ->
 		      self(),
 		      {test_server_ctrl,is_release_available,[Release]}},
     receive {sync_result,R} -> R end.
-    
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% run_on_shielded_node(Fun, CArgs) -> term()
@@ -1937,7 +2376,7 @@ is_release_available(Release) ->
 %%
 %% Fun    -  Function to execute
 %% CArg   -  Extra command line arguments to use when starting
-%%           the shielded node. 
+%%           the shielded node.
 %%
 %% If Fun is successfully executed, the result is returned.
 %%
@@ -2014,14 +2453,8 @@ temp_name(Stem) ->
 app_test(App) ->
     app_test(App, pedantic).
 app_test(App, Mode) ->
-    case os:type() of
-	{ose,_} -> 
-	    Comment = "Skipping app_test on OSE",
-	    comment(Comment), % in case user ignores the return value
-	    {skip,Comment};
-	_other -> 
-	    test_server_sup:app_test(App, Mode)
-    end.
+    test_server_sup:app_test(App, Mode).
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
@@ -2043,14 +2476,29 @@ is_native(Mod) ->
 %% The given String will occur in the comment field
 %% of the table on the test suite result page. If
 %% called several times, only the last comment is
-%% printed. 
-%% comment/1 is also overwritten by the return value 
+%% printed.
+%% comment/1 is also overwritten by the return value
 %% {comment,Comment} or fail/1 (which prints Reason
 %% as a comment).
 comment(String) ->
     group_leader() ! {comment,String},
     ok.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% read_comment() -> string()
+%%
+%% Read the current comment string stored in
+%% state during test case execution.
+read_comment() ->
+    MsgLooper = group_leader(),
+    MsgLooper ! {read_comment,self()},
+    receive
+	{MsgLooper,read_comment,Comment} ->
+	    Comment
+    after
+	5000 ->
+	    ""
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% os_type() -> OsType
@@ -2160,7 +2608,7 @@ purify_new_fds_inuse() ->
 	{'EXIT', _} -> false;
 	Inuse when is_integer(Inuse) -> Inuse
     end.
-    
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% purify_format(Format, Args) -> ok
 %% Format = string()
@@ -2208,9 +2656,9 @@ local_or_remote_apply({M,F,A} = MFA) ->
 request(Sock,Request) ->
     gen_tcp:send(Sock,<<1,(term_to_binary(Request))/binary>>).
 
-%% 
+%%
 %% Generic receive function for communication with host
-%% 
+%%
 recv(Sock) ->
     case gen_tcp:recv(Sock,0) of
 	{error,closed} ->

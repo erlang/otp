@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -22,33 +22,33 @@
 %%----------------------------------------------------------------------
 
 -module(ssl_certificate_db).
-
+-include("ssl_internal.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
 -export([create/0, remove/1, add_trusted_certs/3, 
-	 remove_trusted_certs/2, lookup_trusted_cert/3, issuer_candidate/1,
-	 lookup_cached_certs/1, cache_pem_file/3]).
+	 remove_trusted_certs/2, lookup_trusted_cert/4, foldl/3, 
+	 lookup_cached_certs/2, cache_pem_file/4, uncache_pem_file/2, lookup/2]).
+
+-type time()      :: {non_neg_integer(), non_neg_integer(), non_neg_integer()}.
 
 %%====================================================================
 %% Internal application API
 %%====================================================================
 
 %%--------------------------------------------------------------------
-%% Function: create() -> Db
-%% Db = term() - Reference to the crated database 
+-spec create() -> [db_handle()].
 %% 
 %% Description: Creates a new certificate db.
-%% Note: lookup_trusted_cert/3 may be called from any process but only
+%% Note: lookup_trusted_cert/4 may be called from any process but only
 %% the process that called create may call the other functions.
 %%--------------------------------------------------------------------
 create() ->
-    [ets:new(certificate_db_name(), [named_table, set, protected]),
-     ets:new(ssl_file_to_ref, [named_table, set, protected]),
+    [ets:new(ssl_otp_certificate_db, [set, protected]),
+     ets:new(ssl_file_to_ref, [set, protected]),
      ets:new(ssl_pid_to_file, [bag, private])]. 
 
 %%--------------------------------------------------------------------
-%% Function: delete(Db) -> _
-%% Db = Database refererence as returned by create/0
+-spec remove([db_handle()]) -> term().
 %%
 %% Description: Removes database db  
 %%--------------------------------------------------------------------
@@ -56,38 +56,36 @@ remove(Dbs) ->
     lists:foreach(fun(Db) -> true = ets:delete(Db) end, Dbs).
 
 %%--------------------------------------------------------------------
-%% Function: lookup_trusted_cert(Ref, SerialNumber, Issuer) -> {BinCert,DecodedCert}
-%% Ref = ref()
-%% SerialNumber = integer()
-%% Issuer = {rdnSequence, IssuerAttrs}
-%% BinCert = binary()
+-spec lookup_trusted_cert(db_handle(), certdb_ref(), serialnumber(), issuer()) ->
+				 undefined | {ok, {der_cert(), #'OTPCertificate'{}}}.
+
 %%
 %% Description: Retrives the trusted certificate identified by 
 %% <SerialNumber, Issuer>. Ref is used as it is specified  
 %% for each connection which certificates are trusted.
 %%--------------------------------------------------------------------
-lookup_trusted_cert(Ref, SerialNumber, Issuer) ->
-    case lookup({Ref, SerialNumber, Issuer}, certificate_db_name()) of
+lookup_trusted_cert(DbHandle, Ref, SerialNumber, Issuer) ->
+    case lookup({Ref, SerialNumber, Issuer}, DbHandle) of
 	undefined ->
 	    undefined;
 	[Certs] ->
 	    {ok, Certs}
     end.
 
-lookup_cached_certs(File) ->
-    ets:lookup(certificate_db_name(), {file, File}).
+lookup_cached_certs(DbHandle, File) ->
+    ets:lookup(DbHandle, {file, File}).
 
 %%--------------------------------------------------------------------
-%% Function: add_trusted_certs(Pid, File, Db) -> {ok, Ref}
-%% Pid = pid() 
-%% File = string()
-%% Db = Database refererence as returned by create/0
-%% Ref = ref()
+-spec add_trusted_certs(pid(), string() | {der, list()}, [db_handle()]) -> {ok, [db_handle()]}.
 %%
 %% Description: Adds the trusted certificates from file <File> to the
 %% runtime database. Returns Ref that should be handed to lookup_trusted_cert
 %% together with the cert serialnumber and issuer.
 %%--------------------------------------------------------------------
+add_trusted_certs(_Pid, {der, DerList}, [CerDb, _,_]) ->
+    NewRef = make_ref(),
+    add_certs_from_der(DerList, NewRef, CerDb),
+    {ok, NewRef};
 add_trusted_certs(Pid, File, [CertsDb, FileToRefDb, PidToFileDb]) ->
     Ref = case lookup(File, FileToRefDb) of
 	      undefined ->
@@ -101,20 +99,37 @@ add_trusted_certs(Pid, File, [CertsDb, FileToRefDb, PidToFileDb]) ->
 	  end,
     insert(Pid, File, PidToFileDb),
     {ok, Ref}.
-
 %%--------------------------------------------------------------------
-%% Function: cache_pem_file(Pid, File, Db) -> FileContent
+-spec cache_pem_file(pid(), string(), time(), [db_handle()]) -> term().
 %%
 %% Description: Cache file as binary in DB
 %%--------------------------------------------------------------------
-cache_pem_file(Pid, File, [CertsDb, _FileToRefDb, PidToFileDb]) ->
-    Res = {ok, Content} = public_key:pem_to_der(File),
-    insert({file, File}, Content, CertsDb),
+cache_pem_file(Pid, File, Time, [CertsDb, _FileToRefDb, PidToFileDb]) ->
+    {ok, PemBin} = file:read_file(File), 
+    Content = public_key:pem_decode(PemBin),
+    insert({file, File}, {Time, Content}, CertsDb),
     insert(Pid, File, PidToFileDb),
-    Res.
+    {ok, Content}.
+
+%--------------------------------------------------------------------
+-spec uncache_pem_file(string(), [db_handle()]) -> no_return().
+%%
+%% Description: If a cached file is no longer valid (changed on disk)
+%% we must terminate the connections using the old file content, and
+%% when those processes are finish the cache will be cleaned. It is
+%% a rare but possible case a new ssl client/server is started with
+%% a filename with the same name as previously started client/server
+%% but with different content.
+%% --------------------------------------------------------------------
+uncache_pem_file(File, [_CertsDb, _FileToRefDb, PidToFileDb]) ->
+    Pids = select(PidToFileDb, [{{'$1', File},[],['$$']}]),
+    lists:foreach(fun([Pid]) ->
+			  exit(Pid, shutdown)
+		  end, Pids).
 
 %%--------------------------------------------------------------------
-%% Function: remove_trusted_certs(Pid, Db) -> _ 
+-spec remove_trusted_certs(pid(), [db_handle()]) -> term().
+				  
 %%
 %% Description: Removes trusted certs originating from 
 %% the file associated to Pid from the runtime database.  
@@ -144,44 +159,35 @@ remove_trusted_certs(Pid, [CertsDb, FileToRefDb, PidToFileDb]) ->
     end.
 
 %%--------------------------------------------------------------------
-%% Function: issuer_candidate() -> {Key, Candidate} | no_more_candidates   
+-spec lookup(term(), db_handle()) -> term() | undefined.
 %%
-%%     Candidate
-%%     
-%%     
-%% Description: If a certificat does not define its issuer through
-%%              the extension 'ce-authorityKeyIdentifier' we can
-%%              try to find the issuer in the database over known
-%%              certificates.
+%% Description: Looks up an element in a certificat <Db>.
 %%--------------------------------------------------------------------
-issuer_candidate(no_candidate) ->
-    Db = certificate_db_name(),
-    case ets:first(Db) of
- 	'$end_of_table' ->
- 	    no_more_candidates;
- 	Key ->
-	    [Cert] = lookup(Key, Db),
- 	    {Key, Cert}
-    end;
-
-issuer_candidate(PrevCandidateKey) ->	    
-    Db = certificate_db_name(),
-    case ets:next(Db, PrevCandidateKey) of
- 	'$end_of_table' ->
- 	    no_more_candidates;
-	{file, _} = Key ->
-	    issuer_candidate(Key);
- 	Key ->
-	    [Cert] = lookup(Key, Db),
- 	    {Key, Cert}
+lookup(Key, Db) ->
+    case ets:lookup(Db, Key) of
+	[] ->
+	    undefined;
+	Contents  ->
+	    Pick = fun({_, Data}) -> Data;
+		      ({_,_,Data}) -> Data
+		   end,
+	    [Pick(Data) || Data <- Contents]
     end.
-
+%%--------------------------------------------------------------------
+-spec foldl(fun(), term(), db_handle()) -> term().
+%%
+%% Description: Calls Fun(Elem, AccIn) on successive elements of the
+%% cache, starting with AccIn == Acc0. Fun/2 must return a new
+%% accumulator which is passed to the next call. The function returns
+%% the final value of the accumulator. Acc0 is returned if the certifate
+%% db is empty.
+%%--------------------------------------------------------------------
+foldl(Fun, Acc0, Cache) ->
+    ets:foldl(Fun, Acc0, Cache).
+  
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-certificate_db_name() ->
-    ssl_otp_certificate_db.
-
 insert(Key, Data, Db) ->
     true = ets:insert(Db, {Key, Data}).
 
@@ -194,29 +200,32 @@ ref_count(Key, Db,N) ->
 delete(Key, Db) ->
     _ = ets:delete(Db, Key).
 
-lookup(Key, Db) ->
-    case ets:lookup(Db, Key) of
-	[] ->
-	    undefined;
-	Contents  ->
-	    Pick = fun({_, Data}) -> Data;
-		      ({_,_,Data}) -> Data
-		   end,
-	    [Pick(Data) || Data <- Contents]
-    end.
+select(Db, MatchSpec)->
+    ets:select(Db, MatchSpec).
 
 remove_certs(Ref, CertsDb) ->
     ets:match_delete(CertsDb, {{Ref, '_', '_'}, '_'}).
 
+add_certs_from_der(DerList, Ref, CertsDb) ->
+    Add = fun(Cert) -> add_certs(Cert, Ref, CertsDb) end,
+     [Add(Cert) || Cert <- DerList].
+
 add_certs_from_file(File, Ref, CertsDb) ->   
-    Decode = fun(Cert) ->
-		     {ok, ErlCert} = public_key:pkix_decode_cert(Cert, otp),
-		     TBSCertificate = ErlCert#'OTPCertificate'.tbsCertificate,
-		     SerialNumber = TBSCertificate#'OTPTBSCertificate'.serialNumber,
-		     Issuer = public_key:pkix_normalize_general_name(
-				TBSCertificate#'OTPTBSCertificate'.issuer),
-		     insert({Ref, SerialNumber, Issuer}, {Cert,ErlCert}, CertsDb)
-	     end,
-    {ok,Der} = public_key:pem_to_der(File),
-    [Decode(Cert) || {cert, Cert, not_encrypted} <- Der].
+    Add = fun(Cert) -> add_certs(Cert, Ref, CertsDb) end,
+    {ok, PemBin} = file:read_file(File),
+    PemEntries = public_key:pem_decode(PemBin),
+    [Add(Cert) || {'Certificate', Cert, not_encrypted} <- PemEntries].
     
+add_certs(Cert, Ref, CertsDb) ->
+    try  ErlCert = public_key:pkix_decode_cert(Cert, otp),
+	 TBSCertificate = ErlCert#'OTPCertificate'.tbsCertificate,
+	 SerialNumber = TBSCertificate#'OTPTBSCertificate'.serialNumber,
+	 Issuer = public_key:pkix_normalize_name(
+		    TBSCertificate#'OTPTBSCertificate'.issuer),
+	 insert({Ref, SerialNumber, Issuer}, {Cert,ErlCert}, CertsDb)
+    catch
+	error:_ ->
+	    Report = io_lib:format("SSL WARNING: Ignoring a CA cert as "
+				   "it could not be correctly decoded.~n", []),
+	    error_logger:info_report(Report)
+    end.

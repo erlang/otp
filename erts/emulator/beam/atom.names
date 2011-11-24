@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2010. All Rights Reserved.
+# Copyright Ericsson AB 1996-2011. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -65,9 +65,12 @@ atom EXIT='EXIT'
 atom aborted
 atom abs_path
 atom absoluteURI
+atom ac
 atom active
 atom all
 atom all_but_first
+atom alloc_info
+atom alloc_sizes
 atom allocated
 atom allocated_areas
 atom allocator
@@ -75,6 +78,7 @@ atom allocator_sizes
 atom alloc_util_allocators
 atom allow_passive_connect
 atom already_loaded
+atom amd64
 atom anchored
 atom and
 atom andalso
@@ -100,8 +104,15 @@ atom band
 atom big
 atom bif_return_trap
 atom binary
+atom binary_bin_to_list_trap
+atom binary_copy_trap
+atom binary_longest_prefix_trap
+atom binary_longest_suffix_trap
+atom binary_match_trap
+atom binary_matches_trap
 atom block
 atom blocked
+atom bm
 atom bnot
 atom bor
 atom bxor
@@ -111,10 +122,12 @@ atom bsl
 atom bsr
 atom bsr_anycrlf
 atom bsr_unicode
+atom build_type
 atom busy_dist_port
 atom busy_port
 atom call
 atom call_count
+atom call_time
 atom caller
 atom capture
 atom case_clause
@@ -145,6 +158,8 @@ atom cr
 atom crlf
 atom creation
 atom current_function
+atom current_location
+atom current_stacktrace
 atom data
 atom debug_flags
 atom delay_trap
@@ -256,6 +271,7 @@ atom info
 atom info_msg
 atom initial_call
 atom input
+atom internal
 atom internal_error
 atom internal_status
 atom instruction_counts
@@ -368,6 +384,7 @@ atom old_heap_size
 atom on_load
 atom open
 atom open_error
+atom opt
 atom or
 atom ordered_set
 atom orelse
@@ -422,6 +439,7 @@ atom raw
 atom re
 atom re_pattern
 atom re_run_trap
+atom read_concurrency
 atom ready_input
 atom ready_output
 atom ready_async
@@ -453,6 +471,7 @@ atom scheduler
 atom scheduler_id
 atom schedulers_online
 atom scheme
+atom scope
 atom sensitive
 atom sequential_tracer
 atom sequential_trace_token
@@ -538,5 +557,6 @@ atom warning_msg
 atom wordsize
 atom write_concurrency
 atom xor
+atom x86
 atom yes
 atom yield

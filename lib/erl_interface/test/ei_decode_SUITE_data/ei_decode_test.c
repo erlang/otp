@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2004-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2004-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -246,13 +246,23 @@ TESTCASE(test_ei_decode_long)
     EI_DECODE_2     (decode_long,  5, long, 256);
     EI_DECODE_2     (decode_long,  5, long, -1);
 
+    /* Old 28 bit limits for INTEGER_EXT */
     EI_DECODE_2     (decode_long,  5, long,  0x07ffffff);
     EI_DECODE_2     (decode_long,  5, long, -0x08000000);
-    EI_DECODE_2     (decode_long,  7, long,  0x08000000);
-    EI_DECODE_2     (decode_long,  7, long, -0x08000001);
+    EI_DECODE_2     (decode_long,  5, long,  0x08000000);  
+    EI_DECODE_2     (decode_long,  5, long, -0x08000001);
 
-    EI_DECODE_2     (decode_long,  7, long,  0x7fffffff);
-    EI_DECODE_2     (decode_long,  7, long, -ll(0x80000000)); /* Strange :-( */
+    /* New 32 bit limits for INTEGER_EXT */
+    EI_DECODE_2     (decode_long,  5, long,     0x7fffffff);
+    EI_DECODE_2     (decode_long,  5, long, -ll(0x80000000)); /* Strange :-( */
+    if (sizeof(long) > 4) {
+	EI_DECODE_2(decode_long,  7, long,     0x80000000);
+	EI_DECODE_2(decode_long,  7, long, -ll(0x80000001));
+    }
+    else {
+	EI_DECODE_2_FAIL(decode_long,  7, long,     0x80000000);
+	EI_DECODE_2_FAIL(decode_long,  7, long, -ll(0x80000001));       
+    }
 
     EI_DECODE_2_FAIL(decode_long,  7, long,  0x80000000);
     EI_DECODE_2_FAIL(decode_long,  7, long,  0xffffffff);
@@ -280,11 +290,13 @@ TESTCASE(test_ei_decode_ulong)
 
     EI_DECODE_2     (decode_ulong,  5, unsigned long,  0x07ffffff);
     EI_DECODE_2_FAIL(decode_ulong,  5, unsigned long, -0x08000000);
-    EI_DECODE_2     (decode_ulong,  7, unsigned long,  0x08000000);
-    EI_DECODE_2_FAIL(decode_ulong,  7, unsigned long, -0x08000001);
+    EI_DECODE_2     (decode_ulong,  5, unsigned long,  0x08000000);
+    EI_DECODE_2_FAIL(decode_ulong,  5, unsigned long, -0x08000001);
 
-    EI_DECODE_2     (decode_ulong,  7, unsigned long,  0x7fffffff);
-    EI_DECODE_2_FAIL(decode_ulong,  7, unsigned long, -ll(0x80000000));
+    EI_DECODE_2     (decode_ulong,  5, unsigned long,     0x7fffffff);
+    EI_DECODE_2_FAIL(decode_ulong,  5, unsigned long, -ll(0x80000000));
+    EI_DECODE_2     (decode_ulong,  7, unsigned long,     0x80000000);
+    EI_DECODE_2_FAIL(decode_ulong,  7, unsigned long, -ll(0x80000001));
 
     if (sizeof(long) > 4) {
       EI_DECODE_2     (decode_ulong,  11, unsigned long,  ll(0x8000000000000000));
@@ -319,13 +331,14 @@ TESTCASE(test_ei_decode_longlong)
 
     EI_DECODE_2     (decode_longlong,  5, EI_LONGLONG,  0x07ffffff);
     EI_DECODE_2     (decode_longlong,  5, EI_LONGLONG, -0x08000000);
-    EI_DECODE_2     (decode_longlong,  7, EI_LONGLONG,  0x08000000);
-    EI_DECODE_2     (decode_longlong,  7, EI_LONGLONG, -0x08000001);
+    EI_DECODE_2     (decode_longlong,  5, EI_LONGLONG,  0x08000000);
+    EI_DECODE_2     (decode_longlong,  5, EI_LONGLONG, -0x08000001);
 
-    EI_DECODE_2     (decode_longlong,  7, EI_LONGLONG,  0x7fffffff);
-    EI_DECODE_2     (decode_longlong,  7, EI_LONGLONG, -ll(0x80000000));
-
+    EI_DECODE_2     (decode_longlong,  5, EI_LONGLONG,  0x7fffffff);
+    EI_DECODE_2     (decode_longlong,  5, EI_LONGLONG, -ll(0x80000000));
     EI_DECODE_2     (decode_longlong,  7, EI_LONGLONG,  0x80000000);
+    EI_DECODE_2     (decode_longlong,  7, EI_LONGLONG, -ll(0x80000001));
+
     EI_DECODE_2     (decode_longlong,  7, EI_LONGLONG,  0xffffffff);
 
     EI_DECODE_2     (decode_longlong,  9, EI_LONGLONG,  ll(0x7fffffffffff));
@@ -352,13 +365,14 @@ TESTCASE(test_ei_decode_ulonglong)
 
     EI_DECODE_2     (decode_ulonglong, 5, EI_ULONGLONG,  0x07ffffff);
     EI_DECODE_2_FAIL(decode_ulonglong, 5, EI_ULONGLONG, -0x08000000);
-    EI_DECODE_2     (decode_ulonglong, 7, EI_ULONGLONG,  0x08000000);
-    EI_DECODE_2_FAIL(decode_ulonglong, 7, EI_ULONGLONG, -0x08000001);
+    EI_DECODE_2     (decode_ulonglong, 5, EI_ULONGLONG,  0x08000000);
+    EI_DECODE_2_FAIL(decode_ulonglong, 5, EI_ULONGLONG, -0x08000001);
 
-    EI_DECODE_2     (decode_ulonglong, 7, EI_ULONGLONG,  0x7fffffff);
-    EI_DECODE_2_FAIL(decode_ulonglong, 7, EI_ULONGLONG, -ll(0x80000000));
-
+    EI_DECODE_2     (decode_ulonglong, 5, EI_ULONGLONG,  0x7fffffff);
+    EI_DECODE_2_FAIL(decode_ulonglong, 5, EI_ULONGLONG, -ll(0x80000000));
     EI_DECODE_2     (decode_ulonglong, 7, EI_ULONGLONG,  0x80000000);
+    EI_DECODE_2_FAIL(decode_ulonglong, 7, EI_ULONGLONG, -0x80000001);
+
     EI_DECODE_2     (decode_ulonglong, 7, EI_ULONGLONG,  0xffffffff);
 
     EI_DECODE_2     (decode_ulonglong, 9, EI_ULONGLONG,  ll(0x7fffffffffff));
@@ -515,11 +529,10 @@ TESTCASE(test_ei_decode_misc)
 /*
     EI_DECODE_0(decode_version);
 */
-/*
-    EI_DECODE_2(decode_double, 0.0);
-    EI_DECODE_2(decode_double, -1.0);
-    EI_DECODE_2(decode_double, 1.0);
-*/
+    EI_DECODE_2(decode_double, 32, double, 0.0);
+    EI_DECODE_2(decode_double, 32, double, -1.0);
+    EI_DECODE_2(decode_double, 32, double, 1.0);
+
     EI_DECODE_2(decode_boolean, 8, int, 0);
     EI_DECODE_2(decode_boolean, 7, int, 1);
 

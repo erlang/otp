@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -29,7 +29,7 @@
 
 -compile(export_all).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("common_test/include/ct_event.hrl").
 
 -define(eh, ct_test_support_eh).
@@ -56,14 +56,20 @@ init_per_testcase(TestCase, Config) ->
 end_per_testcase(TestCase, Config) ->
     ct_test_support:end_per_testcase(TestCase, Config).
 
-all(doc) -> 
-    [""];
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all(suite) -> 
-    [
-     auto_skip,
-     user_skip
-    ].
+all() -> 
+    [auto_skip, user_skip].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
      
 
 %%--------------------------------------------------------------------
@@ -89,14 +95,15 @@ auto_skip(Config) when is_list(Config) ->
 	     ],
 
     {Opts,ERPid} = setup({suite,Suites}, Config),
-    ok = ct_test_support:run(ct, run_test, [Opts], Config),    
+    ok = ct_test_support:run(Opts, Config),
     Events = ct_test_support:get_events(ERPid, Config),
 
     ct_test_support:log_events(auto_skip, 
-			       reformat(Events, ?eh), 
-			       ?config(priv_dir, Config)),
+			       reformat(Events, ?eh),
+			       ?config(priv_dir, Config),
+			       Opts),
 
-    TestEvents = test_events(auto_skip),    
+    TestEvents = events_to_check(auto_skip),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
     
 
@@ -112,14 +119,15 @@ user_skip(Config) when is_list(Config) ->
 	      Join(DataDir, "user_skip_5_SUITE")],
 
     {Opts,ERPid} = setup({suite,Suites}, Config),
-    ok = ct_test_support:run(ct, run_test, [Opts], Config),    
+    ok = ct_test_support:run(Opts, Config),
     Events = ct_test_support:get_events(ERPid, Config),
 
     ct_test_support:log_events(user_skip, 
-			       reformat(Events, ?eh), 
-			       ?config(priv_dir, Config)),
+			       reformat(Events, ?eh),
+			       ?config(priv_dir, Config),
+			       Opts),
 
-    TestEvents = test_events(user_skip),    
+    TestEvents = events_to_check(user_skip),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
 
 %%%-----------------------------------------------------------------
@@ -142,6 +150,15 @@ reformat(Events, EH) ->
 %%%-----------------------------------------------------------------
 %%% TEST EVENTS
 %%%-----------------------------------------------------------------
+events_to_check(Test) ->
+    %% 2 tests (ct:run_test + script_start) is default
+    events_to_check(Test, 2).
+
+events_to_check(_, 0) ->
+    [];
+events_to_check(Test, N) ->
+    test_events(Test) ++ events_to_check(Test, N-1).
+
 test_events(auto_skip) ->
     [
      {?eh,start_logging,{'DEF','RUNDIR'}},
@@ -180,7 +197,7 @@ test_events(auto_skip) ->
      {?eh,tc_done,
       {auto_skip_3_SUITE,tc1,
        {skipped,{failed,{auto_skip_3_SUITE,init_per_testcase,
-			 {init_per_testcase,tc1,failed}}}}}},
+			 {{init_per_testcase,tc1,failed},'_'}}}}}},
      {?eh,test_stats,{0,0,{0,4}}},
      {?eh,tc_start,{auto_skip_3_SUITE,tc2}},
      {?eh,tc_done,{auto_skip_3_SUITE,tc2,ok}},
@@ -347,12 +364,7 @@ test_events(auto_skip) ->
 	 {?eh,tc_done,
 	  {auto_skip_9_SUITE,tc8,
 	   {skipped,{failed,{auto_skip_9_SUITE,init_per_testcase,
-			     {{badmatch,undefined},
-			      [{auto_skip_9_SUITE,init_per_testcase,2},
-			       {test_server,my_apply,3},
-			       {test_server,init_per_testcase,3},
-			       {test_server,run_test_case_eval1,6},
-			       {test_server,run_test_case_eval,8}]}}}}}},
+			     {{badmatch,undefined},'_'}}}}}},
 	 {?eh,tc_start,
 	  {auto_skip_9_SUITE,{end_per_group,g5,[parallel]}}},
 	 {?eh,tc_done,

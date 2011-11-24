@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -344,6 +344,16 @@ pop_catch(Cs) ->
 
 pop_catch_1([[_|C] | Cs]) ->
   [C | pop_catch_1(Cs)];
+pop_catch_1([[] | Cs]) ->
+  %% The elements in the list represent different possible incoming
+  %% stacks of catch handlers to this BB.  Before the fixpoint has
+  %% been found these elements are underapproximations of the true
+  %% stacks, therefore it's possible for these elements to be too
+  %% short for the number of pops implied by the code in the BB.
+  %% We must not fail in that case, so we set pop([]) = [].
+  %% This fixes find_catches_crash.erl and compiler_tests in the
+  %% HiPE test suite.
+  [[] | pop_catch_1(Cs)];
 pop_catch_1([]) ->
   [].
 

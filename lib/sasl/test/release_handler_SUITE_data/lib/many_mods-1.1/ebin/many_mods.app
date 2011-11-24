@@ -1,0 +1,17 @@
+%% -*- erlang -*-
+{application, many_mods,
+ [{description, "Application with many modules  CXC 138 11"},
+  {vsn, "1.1"},
+  {modules, [{m, 1},
+	     {m1,1},
+	     {m2,1},
+	     {m3,1},
+	     {m4,1},
+	     {m5,1},
+	     {m6,1},
+	     {m7,1},
+	     {m8,1},
+	     {m9,1},
+	     {m10,1}]},
+  {registered, []},
+  {applications, [kernel, stdlib]}]}.

@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2008</year>
-      <year>2008</year>
+      <year>2011</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -31,6 +31,118 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the EUnit application.</p>
+
+<section><title>Eunit 2.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Generate separate surefire XMLs for each test suite</p>
+          <p>
+	    Previously the test cases of all test suites (=modules)
+	    were put in one and the same surefire report XML thereby
+	    breaking the principle of least astonishment and making
+	    post analysis harder. Assume the following layout:</p>
+          <p>
+	    src/x.erl src/y.erl test/x_tests.erl test/y_tests.erl</p>
+          <p>
+	    The results for both x_tests and y_tests were written to
+	    only one report grouped under either module x or y
+	    (seemingly randomly).</p>
+          <p>
+	    Now two reports, one for module x and one for y are
+	    generated. (Thanks to Klas Johansson)</p>
+          <p>
+	    Own Id: OTP-9465</p>
+        </item>
+        <item>
+          <p>
+	    Updated to EUnit version 2.2.0</p>
+          <p>
+	    New macros assertNotMatch(Guard, Expr),
+	    assertNotEqual(Unexpected, Expr), and
+	    assertNotException(Class, Term, Expr). </p>
+          <p>
+	    The debugMsg macro now also prints the pid of the current
+	    process.</p>
+          <p>
+	    When testing all modules in a directory, tests in
+	    Module_tests.erl are no longer executed twice.</p>
+          <p>
+	    The use of regexp internally has been replaced with re.
+	    (Thanks to Richard Carlsson)</p>
+          <p>
+	    Own Id: OTP-9505</p>
+        </item>
+        <item>
+          <p>
+	    Removed some never-matching clauses reported by dialyzer
+	    Updated author e-mails and homepages Removed cvs keywords
+	    from files Removed files that should not be checked in
+	    (Thanks to Richard Carlsson)</p>
+          <p>
+	    Own Id: OTP-9591</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.1.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Increase depth of error messages in Eunit Surefire
+	    reports</p>
+          <p>
+	    Currently, error messages in Eunit Surefire reports are
+	    shortened just like when written to a terminal. However,
+	    the space limitations that constrain terminal output do
+	    not apply here, so it's more useful to include more of
+	    the error message. The new depth of 100 should be enough
+	    for most cases, while protecting against runaway errors.
+	    (Thanks to Magnus Henoch)</p>
+          <p>
+	    Own Id: OTP-9220</p>
+        </item>
+        <item>
+          <p>
+	    Don't let eunit_surefire report back to eunit when
+	    stopping</p>
+          <p>
+	    When eunit is terminating, a stop message is sent to all
+	    listeners and eunit then waits for *one* result message
+	    but previously both eunit_tty and eunit_surefire sent a
+	    response on error. Don't send a result message from
+	    eunit_surefire; let eunit_tty take care of all result
+	    reporting, both positive and negative to avoid race
+	    conditions and inconsistencies. (Thanks to Klas
+	    Johansson)</p>
+          <p>
+	    Own Id: OTP-9269</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.1.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix format_man_pages so it handles all man sections
+	    and remove warnings/errors in various man pages. </p>
+          <p>
+	    Own Id: OTP-8600</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Eunit 2.1.5</title>
 

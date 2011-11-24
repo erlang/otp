@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -56,14 +56,14 @@
 new() -> {[],[]}. %{RearList,FrontList}
 
 %% O(1)
--spec is_queue(term()) -> boolean().
+-spec is_queue(Term :: term()) -> boolean().
 is_queue({R,F}) when is_list(R), is_list(F) ->
     true;
 is_queue(_) ->
     false.
 
 %% O(1)
--spec is_empty(queue()) -> boolean().
+-spec is_empty(Q :: queue()) -> boolean().
 is_empty({[],[]}) ->
     true;
 is_empty({In,Out}) when is_list(In), is_list(Out) ->
@@ -72,14 +72,14 @@ is_empty(Q) ->
     erlang:error(badarg, [Q]).
 
 %% O(len(Q))
--spec len(queue()) -> non_neg_integer().
+-spec len(Q :: queue()) -> non_neg_integer().
 len({R,F}) when is_list(R), is_list(F) ->
     length(R)+length(F);
 len(Q) ->
     erlang:error(badarg, [Q]).
 
 %% O(len(Q))
--spec to_list(queue()) -> list().
+-spec to_list(Q :: queue()) -> list().
 to_list({In,Out}) when is_list(In), is_list(Out) ->
     Out++lists:reverse(In, []);
 to_list(Q) ->
@@ -88,7 +88,7 @@ to_list(Q) ->
 %% Create queue from list
 %%
 %% O(length(L))
--spec from_list(list()) -> queue().
+-spec from_list(L :: list()) -> queue().
 from_list(L) when is_list(L) ->
     f2r(L);
 from_list(L) ->
@@ -97,7 +97,7 @@ from_list(L) ->
 %% Return true or false depending on if element is in queue
 %% 
 %% O(length(Q)) worst case
--spec member(term(), queue()) -> boolean().
+-spec member(Item :: term(), Q :: queue()) -> boolean().
 member(X, {R,F}) when is_list(R), is_list(F) ->
     lists:member(X, R) orelse lists:member(X, F);
 member(X, Q) ->
@@ -110,7 +110,7 @@ member(X, Q) ->
 %% Put at least one element in each list, if it is cheap
 %%
 %% O(1)
--spec in(term(), queue()) -> queue().
+-spec in(Item :: term(), Q1 :: queue()) -> Q2 :: queue().
 in(X, {[_]=In,[]}) ->
     {[X], In};
 in(X, {In,Out}) when is_list(In), is_list(Out) ->
@@ -122,7 +122,7 @@ in(X, Q) ->
 %% Put at least one element in each list, if it is cheap
 %%
 %% O(1)
--spec in_r(term(), queue()) -> queue().
+-spec in_r(Item :: term(), Q1 :: queue()) -> Q2 :: queue().
 in_r(X, {[],[_]=F}) ->
     {F,[X]};
 in_r(X, {R,F}) when is_list(R), is_list(F) ->
@@ -133,7 +133,9 @@ in_r(X, Q) ->
 %% Take from head/front
 %%
 %% O(1) amortized, O(len(Q)) worst case
--spec out(queue()) -> {'empty' | {'value',term()}, queue()}.
+-spec out(Q1 :: queue()) ->
+                 {{value, Item :: term()}, Q2 :: queue()} |
+                 {empty, Q1 :: queue()}.
 out({[],[]}=Q) ->
     {empty,Q};
 out({[V],[]}) ->
@@ -151,7 +153,9 @@ out(Q) ->
 %% Take from tail/rear
 %%
 %% O(1) amortized, O(len(Q)) worst case
--spec out_r(queue()) -> {'empty' | {'value',term()}, queue()}.
+-spec out_r(Q1 :: queue()) ->
+                   {{value, Item :: term()}, Q2 :: queue()} |
+                   {empty, Q1 :: queue()}.
 out_r({[],[]}=Q) ->
     {empty,Q};
 out_r({[],[V]}) ->
@@ -172,7 +176,7 @@ out_r(Q) ->
 %% Return the first element in the queue
 %%
 %% O(1) since the queue is supposed to be well formed
--spec get(queue()) -> term().
+-spec get(Q :: queue()) -> Item :: term().
 get({[],[]}=Q) ->
     erlang:error(empty, [Q]);
 get({R,F}) when is_list(R), is_list(F) ->
@@ -191,7 +195,7 @@ get([_|R], []) -> % malformed queue -> O(len(Q))
 %% Return the last element in the queue
 %%
 %% O(1) since the queue is supposed to be well formed
--spec get_r(queue()) -> term().
+-spec get_r(Q :: queue()) -> Item :: term().
 get_r({[],[]}=Q) ->
     erlang:error(empty, [Q]);
 get_r({[H|_],F}) when is_list(F) ->
@@ -206,7 +210,7 @@ get_r(Q) ->
 %% Return the first element in the queue
 %%
 %% O(1) since the queue is supposed to be well formed
--spec peek(queue()) -> 'empty' | {'value',term()}.
+-spec peek(Q :: queue()) -> empty | {value,Item :: term()}.
 peek({[],[]}) ->
     empty;
 peek({R,[H|_]}) when is_list(R) ->
@@ -221,7 +225,7 @@ peek(Q) ->
 %% Return the last element in the queue
 %%
 %% O(1) since the queue is supposed to be well formed
--spec peek_r(queue()) -> 'empty' | {'value',term()}.
+-spec peek_r(Q :: queue()) -> empty | {value,Item :: term()}.
 peek_r({[],[]}) ->
     empty;
 peek_r({[H|_],F}) when is_list(F) ->
@@ -236,7 +240,7 @@ peek_r(Q) ->
 %% Remove the first element and return resulting queue
 %%
 %% O(1) amortized
--spec drop(queue()) -> queue().
+-spec drop(Q1 :: queue()) -> Q2 :: queue().
 drop({[],[]}=Q) ->
     erlang:error(empty, [Q]);
 drop({[_],[]}) ->
@@ -254,7 +258,7 @@ drop(Q) ->
 %% Remove the last element and return resulting queue
 %%
 %% O(1) amortized
--spec drop_r(queue()) -> queue().
+-spec drop_r(Q1 :: queue()) -> Q2 :: queue().
 drop_r({[],[]}=Q) ->
     erlang:error(empty, [Q]);
 drop_r({[],[_]}) ->
@@ -275,7 +279,7 @@ drop_r(Q) ->
 %% Return reversed queue
 %%
 %% O(1)
--spec reverse(queue()) -> queue().
+-spec reverse(Q1 :: queue()) -> Q2 :: queue().
 reverse({R,F}) when is_list(R), is_list(F) ->
     {F,R};
 reverse(Q) ->
@@ -285,7 +289,7 @@ reverse(Q) ->
 %%
 %% Q2 empty: O(1)
 %% else:     O(len(Q1))
--spec join(queue(), queue()) -> queue().
+-spec join(Q1 :: queue(), Q2 :: queue()) -> Q3 :: queue().
 join({R,F}=Q, {[],[]}) when is_list(R), is_list(F) ->
     Q;
 join({[],[]}, {R,F}=Q) when is_list(R), is_list(F) ->
@@ -299,7 +303,8 @@ join(Q1, Q2) ->
 %%
 %% N = 0..len(Q)
 %% O(max(N, len(Q)))
--spec split(non_neg_integer(), queue()) -> {queue(),queue()}.
+-spec split(N :: non_neg_integer(), Q1 :: queue()) ->
+                   {Q2 :: queue(),Q3 :: queue()}.
 split(0, {R,F}=Q) when is_list(R), is_list(F) ->
     {{[],[]},Q};
 split(N, {R,F}=Q) when is_integer(N), N >= 1, is_list(R), is_list(F) ->
@@ -340,7 +345,8 @@ split_r1_to_f2(N, [X|R1], F1, R2, F2) ->
 %% 
 %% Fun(_) -> List: O(length(List) * len(Q))
 %% else:           O(len(Q)
--spec filter(fun((term()) -> boolean() | list()), queue()) -> queue().
+-spec filter(Fun, Q1 :: queue()) -> Q2 :: queue() when
+      Fun :: fun((Item :: term()) -> boolean() | list()).
 filter(Fun, {R0,F0}) when is_function(Fun, 1), is_list(R0), is_list(F0) ->
     F = filter_f(Fun, F0),
     R = filter_r(Fun, R0),
@@ -416,7 +422,7 @@ filter_r(Fun, [X|R0]) ->
 
 %% Cons to head
 %%
--spec cons(term(), queue()) -> queue().
+-spec cons(Item :: term(), Q1 :: queue()) -> Q2 :: queue().
 cons(X, Q) ->
     in_r(X, Q).
 
@@ -425,7 +431,7 @@ cons(X, Q) ->
 %% Return the first element in the queue
 %%
 %% O(1) since the queue is supposed to be well formed
--spec head(queue()) -> term().
+-spec head(Q :: queue()) -> Item :: term().
 head({[],[]}=Q) ->
     erlang:error(empty, [Q]);
 head({R,F}) when is_list(R), is_list(F) ->
@@ -435,7 +441,7 @@ head(Q) ->
 
 %% Remove head element and return resulting queue
 %%
--spec tail(queue()) -> queue().
+-spec tail(Q1 :: queue()) -> Q2 :: queue().
 tail(Q) ->
     drop(Q).
 
@@ -443,22 +449,22 @@ tail(Q) ->
 
 %% Cons to tail
 %%
--spec snoc(queue(), term()) -> queue().
+-spec snoc(Q1 :: queue(), Item :: term()) -> Q2 :: queue().
 snoc(Q, X) ->
     in(X, Q).
 
 %% Return last element
--spec daeh(queue()) -> term().
+-spec daeh(Q :: queue()) -> Item :: term().
 daeh(Q) -> get_r(Q).
--spec last(queue()) -> term().
+-spec last(Q :: queue()) -> Item :: term().
 last(Q) -> get_r(Q).
 
 %% Remove last element and return resulting queue
--spec liat(queue()) -> queue().
+-spec liat(Q1 :: queue()) -> Q2 :: queue().
 liat(Q) -> drop_r(Q).
--spec lait(queue()) -> queue().
+-spec lait(Q1 :: queue()) -> Q2 :: queue().
 lait(Q) -> drop_r(Q). %% Oops, mis-spelled 'tail' reversed. Forget this one.
--spec init(queue()) -> queue().
+-spec init(Q1 :: queue()) -> Q2 :: queue().
 init(Q) -> drop_r(Q).
 
 %%--------------------------------------------------------------------------

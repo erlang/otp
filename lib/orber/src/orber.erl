@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -245,7 +245,7 @@ create_nodes(Host, N, Port, Options, Errors, NodeData) ->
     
 
 create_node(Host, Port, Options) ->
-    case slave:start_link(Host, Port) of
+    case slave:start_link(Host, list_to_atom(integer_to_list(Port))) of
 	{ok, NewNode} ->
 	    case net_adm:ping(NewNode) of
 		pong ->
@@ -1027,12 +1027,18 @@ remove_node(Node) when is_atom(Node) ->
 
 
 remove_tables(Tables, Node) ->
-    remove_tables(Tables, Node, []).
+    case remove_tables(Tables, Node, []) of
+	ok ->
+	    ok;
+	{error, Node, Failed} ->
+	    ?EFORMAT("orber:remove_node(~p) failed. Unable to remove table(s): ~p", 
+		     [Node, Failed])
+    end.
 
-remove_tables([], _, []) -> ok;
+remove_tables([], _, []) -> 
+    ok;
 remove_tables([], Node, Failed) ->
-    ?EFORMAT("orber:remove_node(~p) failed. Unable to remove table(s): ~p", 
-	     [Node, Failed]);
+    {error, Node, Failed};
 remove_tables([T1|Trest], Node, Failed) ->
     case mnesia:del_table_copy(T1, Node) of
 	{atomic, ok} ->
@@ -1040,8 +1046,6 @@ remove_tables([T1|Trest], Node, Failed) ->
 	{aborted, Reason} ->
 	    remove_tables(Trest, Node, [{T1, Reason}|Failed])
     end.
-
-
 
 %%-----------------------------------------------------------------
 %% Internal interface functions

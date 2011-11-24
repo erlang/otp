@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(disk_log_SUITE).
@@ -28,46 +28,47 @@
 -define(config(X,Y), foo).
 -define(t,test_server).
 -else.
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -define(format(S, A), ok).
 -define(privdir(Conf), ?config(priv_dir, Conf)).
 -define(datadir(Conf), ?config(data_dir, Conf)).
 -endif.
 
--export([all/1, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
 
-	 halt_int/1, halt_int_inf/1, halt_int_sz/1, 
+	 halt_int_inf/1, 
 	 halt_int_sz_1/1, halt_int_sz_2/1,
 
-	 read_mode/1, halt_int_ro/1, halt_ext_ro/1, wrap_int_ro/1, 
+	 halt_int_ro/1, halt_ext_ro/1, wrap_int_ro/1, 
 	 wrap_ext_ro/1, halt_trunc/1, halt_misc/1, halt_ro_alog/1, 
 	 halt_ro_balog/1, halt_ro_crash/1,
 
-	 wrap_int/1, wrap_int_1/1, wrap_int_2/1, inc_wrap_file/1,
+	 wrap_int_1/1, wrap_int_2/1, inc_wrap_file/1,
 
-	 halt_ext/1, halt_ext_inf/1,
+	 halt_ext_inf/1,
 
-	 halt_ext_sz/1, halt_ext_sz_1/1, halt_ext_sz_2/1,
+	 halt_ext_sz_1/1, halt_ext_sz_2/1,
 
-	 wrap_ext/1, wrap_ext_1/1, wrap_ext_2/1,
+	 wrap_ext_1/1, wrap_ext_2/1,
 
-	 head/1, head_func/1, plain_head/1, one_header/1,
+	 head_func/1, plain_head/1, one_header/1,
 
-	 notif/1, wrap_notif/1, full_notif/1, trunc_notif/1, blocked_notif/1,
+	 wrap_notif/1, full_notif/1, trunc_notif/1, blocked_notif/1,
 
 	 new_idx_vsn/1, 
 
 	 reopen/1, 
 
-	 block/1, block_blocked/1, block_queue/1, block_queue2/1,
+	 block_blocked/1, block_queue/1, block_queue2/1,
 
 	 unblock/1,
 
-	 open/1, open_overwrite/1, open_size/1, open_truncate/1, open_error/1,
+	 open_overwrite/1, open_size/1, open_truncate/1, open_error/1,
 
-	 close/1, close_race/1, close_block/1, close_deadlock/1,
+	 close_race/1, close_block/1, close_deadlock/1,
 
-	 error/1, error_repair/1, error_log/1, error_index/1,
+	 error_repair/1, error_log/1, error_index/1,
 
 	 chunk/1, 
 
@@ -75,15 +76,15 @@
 
 	 many_users/1,
 
-	 info/1, info_current/1, 
+	 info_current/1, 
 
-	 change_size/1, change_size_before/1, change_size_during/1, 
+	 change_size_before/1, change_size_during/1, 
 	 change_size_after/1, default_size/1, change_size2/1,
 	 change_size_truncate/1,
 
 	 change_attribute/1,
 
-	 distribution/1, dist_open/1, dist_error_open/1, dist_notify/1, 
+	 dist_open/1, dist_error_open/1, dist_notify/1, 
 	 dist_terminate/1, dist_accessible/1, dist_deadlock/1,
          dist_open2/1, other_groups/1,
 
@@ -94,7 +95,7 @@
 -export([head_fun/1, hf/0, lserv/1, 
 	 measure/0, init_m/1, xx/0, head_exit/0, slow_header/1]).
 
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 -export([try_unblock/1]).
 
@@ -142,8 +143,59 @@
 			  change_size_after, default_size]).
 
 
-all(suite) ->
-    ?ALL_TESTS.
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [{group, halt_int}, {group, wrap_int},
+     {group, halt_ext}, {group, wrap_ext},
+     {group, read_mode}, {group, head}, {group, notif},
+     new_idx_vsn, reopen, {group, block}, unblock,
+     {group, open}, {group, close}, {group, error}, chunk,
+     truncate, many_users, {group, info},
+     {group, change_size}, change_attribute,
+     {group, distribution}, evil, otp_6278].
+
+groups() -> 
+    [{halt_int, [], [halt_int_inf, {group, halt_int_sz}]},
+     {halt_int_sz, [], [halt_int_sz_1, halt_int_sz_2]},
+     {read_mode, [],
+      [halt_int_ro, halt_ext_ro, wrap_int_ro, wrap_ext_ro,
+       halt_trunc, halt_misc, halt_ro_alog, halt_ro_balog,
+       halt_ro_crash]},
+     {wrap_int, [], [wrap_int_1, wrap_int_2, inc_wrap_file]},
+     {halt_ext, [], [halt_ext_inf, {group, halt_ext_sz}]},
+     {halt_ext_sz, [], [halt_ext_sz_1, halt_ext_sz_2]},
+     {wrap_ext, [], [wrap_ext_1, wrap_ext_2]},
+     {head, [], [head_func, plain_head, one_header]},
+     {notif, [],
+      [wrap_notif, full_notif, trunc_notif, blocked_notif]},
+     {block, [], [block_blocked, block_queue, block_queue2]},
+     {open, [],
+      [open_overwrite, open_size, open_truncate, open_error]},
+     {close, [], [close_race, close_block, close_deadlock]},
+     {error, [], [error_repair, error_log, error_index]},
+     {info, [], [info_current]},
+     {change_size, [],
+      [change_size_before, change_size_during,
+       change_size_after, default_size, change_size2,
+       change_size_truncate]},
+     {distribution, [],
+      [dist_open, dist_error_open, dist_notify,
+       dist_terminate, dist_accessible, dist_deadlock,
+       dist_open2, other_groups]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 
 init_per_testcase(Case, Config) ->
@@ -167,12 +219,11 @@ init_per_testcase(Case, Config) ->
 	    [{watchdog, Dog}|Config]
     end.
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
-halt_int(suite) -> [halt_int_inf, halt_int_sz].
 
 halt_int_inf(suite) -> [];
 halt_int_inf(doc) -> ["Test simple halt disk log, size infinity"];
@@ -187,7 +238,6 @@ halt_int_inf(Conf) when is_list(Conf) ->
     ?line ok = disk_log:close(a),
     ?line ok = file:delete(File).
 
-halt_int_sz(suite) -> [halt_int_sz_1, halt_int_sz_2].
 
 halt_int_sz_1(suite) -> [];
 halt_int_sz_1(doc) -> ["Test simple halt disk log, size defined"];
@@ -275,10 +325,6 @@ halt_int_sz_2(Conf) when is_list(Conf) ->
     ?line ok = file:delete(File3),
     ok.
 
-read_mode(suite) -> [halt_int_ro, halt_ext_ro, 
-		     wrap_int_ro, wrap_ext_ro,
-		     halt_trunc, halt_misc, halt_ro_alog, halt_ro_balog,
-		     halt_ro_crash].
 
 halt_int_ro(suite) -> [];
 halt_int_ro(doc) -> ["Test simple halt disk log, read only, internal"];
@@ -384,7 +430,7 @@ halt_misc(Conf) when is_list(Conf) ->
     ?line {error, {read_only_mode, a}} = 
         disk_log:change_header(a, {head,header}),
     ?line {error, {read_only_mode, a}} = 
-        disk_log:change_size(a, inifinity),
+        disk_log:change_size(a, infinity),
     ?line ok = disk_log:close(a),
     ?line ok = file:delete(File).
 
@@ -480,7 +526,6 @@ halt_ro_crash(Conf) when is_list(Conf) ->
 
 
 
-wrap_int(suite) -> [wrap_int_1, wrap_int_2, inc_wrap_file].
 
 wrap_int_1(suite) -> [];
 wrap_int_1(doc) -> ["Test wrap disk log, internal"];
@@ -628,7 +673,6 @@ inc_wrap_file(Conf) when is_list(Conf) ->
 
 
 
-halt_ext(suite) -> [halt_ext_inf, halt_ext_sz].
 
 halt_ext_inf(suite) -> [];
 halt_ext_inf(doc) -> ["Test halt disk log, external, infinity"];
@@ -642,7 +686,6 @@ halt_ext_inf(Conf) when is_list(Conf) ->
     ?line ok = disk_log:close(a),
     ?line ok = file:delete(File).
 
-halt_ext_sz(suite) -> [halt_ext_sz_1, halt_ext_sz_2].
 
 halt_ext_sz_1(suite) -> [];
 halt_ext_sz_1(doc) -> ["Test halt disk log, external, size defined"];
@@ -734,7 +777,6 @@ halt_ext_sz_2(Conf) when is_list(Conf) ->
     ?line ok = file:delete(File3),
     ok.
 
-wrap_ext(suite) -> [wrap_ext_1, wrap_ext_2].
 
 wrap_ext_1(suite) -> [];
 wrap_ext_1(doc) -> ["Test wrap disk log, external, size defined"];
@@ -1147,7 +1189,6 @@ end_times({T1,W1}) ->
     {W2, _} = statistics(wall_clock),
     {T2-T1, W2-W1}.
 
-head(suite) -> [head_func, plain_head, one_header].
 
 head_func(suite) -> [];
 head_func(doc) -> ["Test head parameter"];
@@ -1327,8 +1368,6 @@ one_header(Conf) when is_list(Conf) ->
     ok.
 
 
-notif(suite) -> [wrap_notif, full_notif, trunc_notif, 
-		 blocked_notif].
 
 wrap_notif(suite) -> [];
 wrap_notif(doc) -> ["Test notify parameter, wrap"];
@@ -1553,7 +1592,6 @@ reopen(Conf) when is_list(Conf) ->
     ?line Q = qlen(),
     ok.
 
-block(suite) -> [block_blocked, block_queue, block_queue2].
 
 block_blocked(suite) -> [];
 block_blocked(doc) -> 
@@ -1574,7 +1612,7 @@ block_blocked(Conf) when is_list(Conf) ->
     ?line "The blocked disk" ++ _ = format_error(Error1),
     ?line {error, {blocked_log, halt}} = disk_log:sync(halt),
     ?line {error, {blocked_log, halt}} = disk_log:truncate(halt),
-    ?line {error, {blocked_log, halt}} = disk_log:change_size(halt, inifinity),
+    ?line {error, {blocked_log, halt}} = disk_log:change_size(halt, infinity),
     ?line {error, {blocked_log, halt}} = 
         disk_log:change_notify(halt, self(), false),
     ?line {error, {blocked_log, halt}} = 
@@ -1793,11 +1831,16 @@ block_queue2(Conf) when is_list(Conf) ->
     %% Asynchronous stuff is ignored.
     ?line ok = disk_log:balog_terms(n, [<<"foo">>,<<"bar">>]),
     ?line ok = disk_log:balog_terms(n, [<<"more">>,<<"terms">>]),
+    Parent = self(),
     ?line Fun = 
-        fun() -> {error,disk_log_stopped} = disk_log:sync(n)
+        fun() ->
+                {error,no_such_log} = disk_log:sync(n),
+                receive {disk_log, _, {error, disk_log_stopped}} -> ok end,
+                Parent ! disk_log_stopped_ok
         end,
     ?line spawn(Fun),
     ?line ok = sync_do(Pid, close),
+    ?line receive disk_log_stopped_ok -> ok end,
     ?line sync_do(Pid, terminate),
     ?line {ok,<<>>} = file:read_file(File ++ ".1"),
     ?line del(File, No),    
@@ -1826,8 +1869,6 @@ try_unblock(Log) ->
     ?line Error = {error, {not_blocked_by_pid, n}} = disk_log:unblock(Log),
     ?line "The disk log" ++ _ = format_error(Error).
 
-open(suite) -> [open_overwrite, open_size, 
-		open_truncate, open_error].
 
 open_overwrite(suite) -> [];
 open_overwrite(doc) -> 
@@ -2075,7 +2116,6 @@ open_error(Conf) when is_list(Conf) ->
 
     ?line del(File, No).    
 
-close(suite) -> [close_race, close_block, close_deadlock].
 
 close_race(suite) -> [];
 close_race(doc) -> 
@@ -2423,6 +2463,9 @@ get_reply() ->
 sync_do(Pid, Req) ->
     Pid ! {self(), Req},
     receive
+        Reply when Req =:= terminate ->
+            timer:sleep(500),
+            Reply;
 	Reply ->
 	    Reply
     end.
@@ -2494,7 +2537,6 @@ lserv(Log) ->
     end,
     lserv(Log).
 
-error(suite) -> [error_repair, error_log, error_index].
 
 error_repair(suite) -> [];
 error_repair(doc) -> 
@@ -2671,7 +2713,7 @@ error_log(Conf) when is_list(Conf) ->
     % reopen (rename) fails, the log is terminated, ./File.2/ exists
     ?line {ok, n} = disk_log:open([{name, n}, {file, File}, {type, halt},
 				   {format, external},{size, 100000}]),
-    ?line {error, eisdir} = disk_log:reopen(n, LDir),
+    ?line {error, {file_error, _, eisdir}} = disk_log:reopen(n, LDir),
     ?line true = (P0 == pps()),
     ?line file:delete(File),
 
@@ -2682,7 +2724,7 @@ error_log(Conf) when is_list(Conf) ->
     ?line {ok, n} = disk_log:open([{name, n}, {file, File2}, {type, wrap},
 				   {format, external},{size, {100, No}}]),
     ?line ok = disk_log:blog_terms(n, [B,B,B]),
-    ?line {error, eisdir} = disk_log:reopen(n, File),
+    ?line {error, {file_error, _, eisdir}} = disk_log:reopen(n, File),
     ?line {error, no_such_log} = disk_log:close(n),
     ?line del(File2, No),
     ?line del(File, No),
@@ -3165,7 +3207,7 @@ many_users(Conf) when is_list(Conf) ->
     ?line true = lists:duplicate(NoClients, ok) == C1,
     ?line true = length(T1) == N*NoClients,
     ?line {C2, T2} = many(Fun1, NoClients, N, halt, internal, 1000, Dir),
-    ?line true = lists:duplicate(NoClients, {error, {full,'log.LOG'}}) == C2,
+    ?line true = lists:duplicate(NoClients, {error, {full,"log.LOG"}}) == C2,
     ?line true = length(T2) > 0,
     ?line {C3, T3} = many(Fun2, NoClients, N, wrap, internal, 
 			  {300*NoClients,20}, Dir),
@@ -3174,7 +3216,7 @@ many_users(Conf) when is_list(Conf) ->
     ok.
 
 many(Fun, NoClients, N, Type, Format, Size, Dir) ->
-    Name = 'log.LOG',
+    Name = "log.LOG",
     File = filename:join(Dir, Name),
     del_files(Size, File),
     ?line Q = qlen(),
@@ -3212,7 +3254,6 @@ del_files(_Size, File) ->
 
 
 
-info(suite) -> [info_current].
 
 info_current(suite) -> [];
 info_current(doc) -> 
@@ -3417,11 +3458,6 @@ info_current(Conf) when is_list(Conf) ->
     ok.
 
 
-change_size(suite) -> [change_size_before, 
-		       change_size_during, 
-		       change_size_after, 
-		       default_size, change_size2,
-		       change_size_truncate].
 
 change_size_before(suite) -> [];
 change_size_before(doc) -> 
@@ -4091,13 +4127,6 @@ change_attribute(Conf) when is_list(Conf) ->
     ?line Q = qlen(),
     ?line del(File, No).
     
-distribution(suite) -> [dist_open, dist_error_open, 
-			dist_notify, 
-			dist_terminate, 
-			dist_accessible,
-			dist_deadlock,
-                        dist_open2, 
-                        other_groups].
 
 dist_open(suite) -> [];
 dist_open(doc) -> 
@@ -4328,11 +4357,9 @@ dist_terminate(Conf) when is_list(Conf) ->
     ?line 0 = sync_do(Pid1, users),
     ?line 0 = sync_do(Pid2, users),
     ?line sync_do(Pid1, terminate),
-    ?line timer:sleep(500),
     ?line [_] = sync_do(Pid2, owners),
     ?line 0 = sync_do(Pid2, users),
     ?line sync_do(Pid2, terminate),    
-    ?line timer:sleep(500),
     ?line {error, no_such_log} = disk_log:info(n),
 
     %% Users terminate (no link...).
@@ -4895,7 +4922,7 @@ mark(FileName, What) ->
     ok = file:close(Fd).
 
 crash(File, Where) ->
-    {ok, Fd} = file:open(File, read_write),
+    {ok, Fd} = file:open(File, [read,write]),
     file:position(Fd, Where),
     ok = file:write(Fd, [10]),
     ok = file:close(Fd).
@@ -4911,7 +4938,7 @@ writable(Fname) ->
     file:write_file_info(Fname, Info#file_info{mode = Mode}).
 
 truncate(File, Where) ->
-    {ok, Fd} = file:open(File, read_write),
+    {ok, Fd} = file:open(File, [read,write]),
     file:position(Fd, Where),
     ok = file:truncate(Fd),
     ok = file:close(Fd).

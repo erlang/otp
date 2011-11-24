@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -46,10 +46,10 @@
 
 	 %% Verification functions
          verify_val/2,
-	 verify_strict_uint/1,
-	 verify_strict_int/1, verify_strict_int/2, 
-	 verify_uint/1,
-	 verify_int/1, verify_int/2,
+%% 	 verify_strict_uint/1,
+%% 	 verify_strict_int/1, verify_strict_int/2, 
+%% 	 verify_uint/1,
+%% 	 verify_int/1, verify_int/2,
          
 
 	 %% Reply limit counter
@@ -224,149 +224,278 @@ update_user_info(UserMid, orig_pending_limit, Val) ->
 update_user_info(UserMid, Item, Val) ->
     call({update_user_info, UserMid, Item, Val}).
 
-conn_info(CH, Item) 
-  when is_record(CH, megaco_conn_handle) andalso (Item /= cancel) ->
-    case Item of
-        conn_handle ->
-            CH;
-        mid ->
-            CH#megaco_conn_handle.local_mid;
-        local_mid ->
-            CH#megaco_conn_handle.local_mid;
-        remote_mid ->
-            CH#megaco_conn_handle.remote_mid;
-        conn_data ->
-            case lookup_local_conn(CH) of
-                [] ->
-                    exit({no_such_connection, CH});
-                [ConnData] ->
-                    ConnData
-            end;
-        _ ->
-            case lookup_local_conn(CH) of
-                [] ->
-                    exit({no_such_connection, CH});
-                [ConnData] ->
-                    conn_info(ConnData, Item)
-            end
+
+conn_info(Data, Item) ->
+    %% The purpose of this is a compiler optimization...
+    %% Args are processed from left to right.
+    do_conn_info(Item, Data).
+
+do_conn_info(mid = _Item, #megaco_conn_handle{local_mid = Mid}) ->
+    Mid;
+do_conn_info(local_mid = _Item, #megaco_conn_handle{local_mid = LMid}) ->
+    LMid;
+do_conn_info(remote_mid = _Item, #megaco_conn_handle{remote_mid = RMid}) ->
+    RMid;
+do_conn_info(conn_handle = _Item, CH) when is_record(CH, megaco_conn_handle) ->
+    CH;
+do_conn_info(conn_data = _Item, CH) when is_record(CH, megaco_conn_handle) ->
+    case lookup_local_conn(CH) of
+	[] ->
+	    exit({no_such_connection, CH});
+	[ConnData] ->
+	    ConnData
     end;
-conn_info(#conn_data{conn_handle = CH}, cancel) ->
+do_conn_info(Item, CH) when is_record(CH, megaco_conn_handle) ->
+    case lookup_local_conn(CH) of
+	[] ->
+	    exit({no_such_connection, CH});
+	[ConnData] ->
+	    do_conn_info(Item, ConnData)
+    end;
+
+do_conn_info(cancel = _Item, #conn_data{conn_handle = CH}) ->
+    %% To minimise raise-condition propabillity,
+    %% we always look in the table instead of
+    %% in the record for this one
+    ets:lookup_element(megaco_local_conn, CH, #conn_data.cancel);
+do_conn_info(cancel = _Item, CH) when is_record(CH, megaco_conn_handle) ->
     %% To minimise raise-condition propabillity,
     %% we always look in the table instead of
     %% in the record for this one
     ets:lookup_element(megaco_local_conn, CH, #conn_data.cancel);
 
-conn_info(CD, Item) when is_record(CD, conn_data) ->
-    case Item of
-	all ->
-	    Tags0 = record_info(fields, conn_data),
-	    Tags1 = replace(serial, trans_id, Tags0),
-	    Tags  = [mid, local_mid, remote_mid] ++ 
-		replace(max_serial, max_trans_id, Tags1),
-	    [{Tag, conn_info(CD,Tag)} || Tag <- Tags, 
-					 Tag /= conn_data, 
-					 Tag /= trans_sender,
-					 Tag /= cancel];
-        conn_data          -> CD;
-        conn_handle        -> CD#conn_data.conn_handle;
-        mid                -> (CD#conn_data.conn_handle)#megaco_conn_handle.local_mid;
-        local_mid          -> (CD#conn_data.conn_handle)#megaco_conn_handle.local_mid;
-        remote_mid         -> (CD#conn_data.conn_handle)#megaco_conn_handle.remote_mid;
-        trans_id           -> CH       = CD#conn_data.conn_handle, 
-			      LocalMid = CH#megaco_conn_handle.local_mid,
-			      Item2    = {LocalMid, trans_id_counter},
-			      case (catch ets:lookup(megaco_config, Item2)) of
-				  {'EXIT', _} ->
-				      undefined_serial;
-				  [] ->
-				      user_info(LocalMid, min_trans_id);
-				  [{_, Serial}] ->
-				      Max = CD#conn_data.max_serial,
-				      if
-					  ((Max =:= infinity) andalso 
-					   is_integer(Serial) andalso 
-					   (Serial < 4294967295)) ->
-					      Serial + 1;
-					  (Max =:= infinity) andalso  
-					  is_integer(Serial) andalso 
-					  (Serial =:= 4294967295) ->
-					      user_info(LocalMid, 
-							min_trans_id);
-					  Serial < Max ->
-					      Serial  + 1;
-					  Serial =:= Max ->
-					      user_info(LocalMid, 
-							min_trans_id);
-					  Serial =:= 4294967295 ->
-					      user_info(LocalMid, 
-							min_trans_id);
-					  true ->
-					      undefined_serial
-				      end
-			      end;
-        max_trans_id         -> CD#conn_data.max_serial;
-        request_timer        -> CD#conn_data.request_timer;
-        long_request_timer   -> CD#conn_data.long_request_timer;
+do_conn_info(all = _Item, 
+	     #conn_data{conn_handle                = CH,
+			serial                     = TransId,
+			max_serial                 = MaxTransId,
+			request_timer              = ReqTmr,
+			long_request_timer         = LongReqTmr,
+			auto_ack                   = AutoAck,
+			trans_ack                  = TransAck,
+			trans_ack_maxcount         = TransAckMaxCount,
+			trans_req                  = TransReq, 
+			trans_req_maxcount         = TransReqMaxCount, 
+			trans_req_maxsize          = TransReqMaxSz, 
+			trans_timer                = TransTmr, 
+			%% trans_sender,   
+			pending_timer              = PendingTmr,
+			sent_pending_limit         = SentPendingLimit, 
+			recv_pending_limit         = RecvPendingLimit, 
+			reply_timer                = ReplyTmr,
+			control_pid                = CtrlPid,
+			monitor_ref                = MonRef,
+			send_mod                   = SendMod,
+			send_handle                = SendHandle,
+			encoding_mod               = EncodingMod,
+			encoding_config            = EncodingConf,
+			protocol_version           = ProtoVersion,
+			auth_data                  = AuthData,
+			user_mod                   = UserMod,
+			user_args                  = UserArgs,
+			reply_action               = ReplyAction, 
+			reply_data                 = ReplyData, 
+			threaded                   = Threaded, 
+			strict_version             = StrictVersion, 
+			long_request_resend        = LongReqResend, 
+			call_proxy_gc_timeout      = CallProxyGCTimeout, 
+			%% cancel, 
+			resend_indication          = ResendInd, 
+			segment_reply_ind          = SegReplyInd, 
+			segment_recv_acc           = SegRecvAcc, 
+			segment_recv_timer         = SegRecvTmr, 
+			segment_send               = SegSend, 
+			segment_send_timer         = SegSendTmr, 
+			max_pdu_size               = MaxPduSz, 
+			request_keep_alive_timeout = RequestKeepAliveTmr}) ->
+    [{conn_handle,                CH}, 
+     {trans_id,                   TransId}, 
+     {max_trans_id,               MaxTransId},
+     {request_timer,              ReqTmr},
+     {long_request_timer,         LongReqTmr},
+     {mid,                        CH#megaco_conn_handle.local_mid},
+     {local_mid,                  CH#megaco_conn_handle.local_mid},
+     {remote_mid,                 CH#megaco_conn_handle.remote_mid},
+     {auto_ack,                   AutoAck},
+     {trans_ack,                  TransAck},
+     {trans_ack_maxcount,         TransAckMaxCount},
+     {trans_req,                  TransReq}, 
+     {trans_req_maxcount,         TransReqMaxCount}, 
+     {trans_req_maxsize,          TransReqMaxSz}, 
+     {trans_timer,                TransTmr}, 
+     {pending_timer,              PendingTmr},
+     {sent_pending_limit,         SentPendingLimit}, 
+     {recv_pending_limit,         RecvPendingLimit}, 
+     {reply_timer,                ReplyTmr},
+     {control_pid,                CtrlPid},
+     {monitor_ref,                MonRef},
+     {send_mod,                   SendMod},
+     {send_handle,                SendHandle},
+     {encoding_mod,               EncodingMod},
+     {encoding_config,            EncodingConf},
+     {protocol_version,           ProtoVersion},
+     {auth_data,                  AuthData},
+     {user_mod,                   UserMod},
+     {user_args,                  UserArgs},
+     {reply_action,               ReplyAction}, 
+     {reply_data,                 ReplyData}, 
+     {threaded,                   Threaded}, 
+     {strict_version,             StrictVersion}, 
+     {long_request_resend,        LongReqResend}, 
+     {call_proxy_gc_timeout,      CallProxyGCTimeout}, 
+     {resend_indication,          ResendInd}, 
+     {segment_reply_ind,          SegReplyInd}, 
+     {segment_recv_acc,           SegRecvAcc}, 
+     {segment_recv_timer,         SegRecvTmr}, 
+     {segment_send,               SegSend}, 
+     {segment_send_timer,         SegSendTmr}, 
+     {max_pdu_size,               MaxPduSz}, 
+     {request_keep_alive_timeout, RequestKeepAliveTmr}];
 
-        auto_ack             -> CD#conn_data.auto_ack;
-
-        trans_ack            -> CD#conn_data.trans_ack;
-        trans_ack_maxcount   -> CD#conn_data.trans_ack_maxcount;
-
-        trans_req            -> CD#conn_data.trans_req;
-        trans_req_maxcount   -> CD#conn_data.trans_req_maxcount;
-        trans_req_maxsize    -> CD#conn_data.trans_req_maxsize;
-
-        trans_timer          -> CD#conn_data.trans_timer;
-
-        pending_timer        -> CD#conn_data.pending_timer;
-        orig_pending_limit   -> CD#conn_data.sent_pending_limit;
-        sent_pending_limit   -> CD#conn_data.sent_pending_limit;
-        recv_pending_limit   -> CD#conn_data.recv_pending_limit;
-        reply_timer          -> CD#conn_data.reply_timer;
-        control_pid          -> CD#conn_data.control_pid;
-        monitor_ref          -> CD#conn_data.monitor_ref;
-        send_mod             -> CD#conn_data.send_mod;
-        send_handle          -> CD#conn_data.send_handle;
-        encoding_mod         -> CD#conn_data.encoding_mod;
-        encoding_config      -> CD#conn_data.encoding_config;
-        protocol_version     -> CD#conn_data.protocol_version;
-        auth_data            -> CD#conn_data.auth_data;
-        user_mod             -> CD#conn_data.user_mod;
-        user_args            -> CD#conn_data.user_args;
-        reply_action         -> CD#conn_data.reply_action;
-        reply_data           -> CD#conn_data.reply_data;
-        threaded             -> CD#conn_data.threaded;
-        strict_version       -> CD#conn_data.strict_version;
-	long_request_resend  -> CD#conn_data.long_request_resend;
-	call_proxy_gc_timeout -> CD#conn_data.call_proxy_gc_timeout;
-	cancel               -> CD#conn_data.cancel;
-	resend_indication    -> CD#conn_data.resend_indication;
-	segment_reply_ind    -> CD#conn_data.segment_reply_ind;
-	segment_recv_acc     -> CD#conn_data.segment_recv_acc;
-	segment_recv_timer   -> CD#conn_data.segment_recv_timer;
-	segment_send         -> CD#conn_data.segment_send;
-	segment_send_timer   -> CD#conn_data.segment_send_timer;
-	max_pdu_size         -> CD#conn_data.max_pdu_size;
-	request_keep_alive_timeout -> CD#conn_data.request_keep_alive_timeout;
-        receive_handle       ->
-            LocalMid = (CD#conn_data.conn_handle)#megaco_conn_handle.local_mid,
-            #megaco_receive_handle{local_mid       = LocalMid,
-                                   encoding_mod    = CD#conn_data.encoding_mod,
-                                   encoding_config = CD#conn_data.encoding_config,
-                                   send_mod        = CD#conn_data.send_mod};
-        _ ->
-            exit({no_such_item, Item})
+do_conn_info(conn_data = _Item, CD) ->
+    CD;
+do_conn_info(conn_handle = _Item, #conn_data{conn_handle = Val}) ->
+    Val;
+do_conn_info(mid = _Item, 
+	     #conn_data{conn_handle = #megaco_conn_handle{local_mid = Val}}) ->
+    Val;
+do_conn_info(local_mid = _Item, 
+	     #conn_data{conn_handle = #megaco_conn_handle{local_mid = Val}}) ->
+    Val;
+do_conn_info(remote_mid = _Item, 
+	     #conn_data{conn_handle = #megaco_conn_handle{remote_mid = Val}}) ->
+    Val;
+do_conn_info(trans_id = _Item, 
+	     #conn_data{conn_handle = #megaco_conn_handle{local_mid = LMid},
+			max_serial  = Max}) ->
+    Item2 = {LMid, trans_id_counter},
+    case (catch ets:lookup(megaco_config, Item2)) of
+	{'EXIT', _} ->
+	    undefined_serial;
+	[] ->
+	    user_info(LMid, min_trans_id);
+	[{_, Serial}] ->
+	    if
+		((Max =:= infinity) andalso 
+		 is_integer(Serial) andalso 
+		 (Serial < 4294967295)) ->
+		    Serial + 1;
+		((Max =:= infinity) andalso  
+		 is_integer(Serial) andalso 
+		 (Serial =:= 4294967295)) ->
+		    user_info(LMid, min_trans_id);
+		Serial < Max ->
+		    Serial  + 1;
+		Serial =:= Max ->
+		    user_info(LMid, min_trans_id);
+		Serial =:= 4294967295 ->
+		    user_info(LMid, min_trans_id);
+		true ->
+		    undefined_serial
+	    end
     end;
-conn_info(BadHandle, _Item) ->
-    {error, {no_such_connection, BadHandle}}.
+do_conn_info(max_trans_id = _Item, #conn_data{max_serial = Val}) ->
+    Val;
+do_conn_info(request_timer = _Item, #conn_data{request_timer = Val}) ->
+    Val;
+do_conn_info(long_request_timer = _Item, #conn_data{long_request_timer = Val}) ->
+    Val;
+do_conn_info(auto_ack = _Item, #conn_data{auto_ack = Val}) ->
+    Val;
+do_conn_info(trans_ack = _Item, #conn_data{trans_ack = Val}) ->
+    Val;
+do_conn_info(trans_ack_maxcount = _Item, #conn_data{trans_ack_maxcount = Val}) ->
+    Val;
+do_conn_info(trans_req = _Item, #conn_data{trans_req = Val}) ->
+    Val;
+do_conn_info(trans_req_maxcount = _Item, #conn_data{trans_req_maxcount = Val}) ->
+    Val;
+do_conn_info(trans_req_maxsize = _Item, #conn_data{trans_req_maxsize = Val}) ->
+    Val;
+do_conn_info(trans_timer = _Item, #conn_data{trans_timer = Val}) ->
+    Val;
+do_conn_info(pending_timer = _Item, #conn_data{pending_timer = Val}) ->
+    Val;
+do_conn_info(orig_pending_limit = _Item, #conn_data{sent_pending_limit = Val}) ->
+    Val;
+do_conn_info(sent_pending_limit = _Item, #conn_data{sent_pending_limit = Val}) ->
+    Val;
+do_conn_info(recv_pending_limit = _Item, #conn_data{recv_pending_limit = Val}) ->
+    Val;
+do_conn_info(reply_timer = _Item, #conn_data{reply_timer = Val}) ->
+    Val;
+do_conn_info(control_pid = _Item, #conn_data{control_pid = Val}) ->
+    Val;
+do_conn_info(send_mod = _Item, #conn_data{send_mod = Val}) ->
+    Val;
+do_conn_info(send_handle = _Item, #conn_data{send_handle = Val}) ->
+    Val;
+do_conn_info(encoding_mod = _Item, #conn_data{encoding_mod = Val}) ->
+    Val;
+do_conn_info(encoding_config = _Item, #conn_data{encoding_config = Val}) ->
+    Val;
+do_conn_info(protocol_version = _Item, #conn_data{protocol_version = Val}) ->
+    Val;
+do_conn_info(auth_data = _Item, #conn_data{auth_data = Val}) ->
+    Val;
+do_conn_info(user_mod = _Item, #conn_data{user_mod = Val}) ->
+    Val;
+do_conn_info(user_args = _Item, #conn_data{user_args = Val}) ->
+    Val;
+do_conn_info(reply_action = _Item, #conn_data{reply_action = Val}) ->
+    Val;
+do_conn_info(reply_data = _Item, #conn_data{reply_data = Val}) ->
+    Val;
+do_conn_info(threaded = _Item, #conn_data{threaded = Val}) ->
+    Val;
+do_conn_info(strict_version = _Item, #conn_data{strict_version = Val}) ->
+    Val;
+do_conn_info(long_request_resend = _Item, 
+	     #conn_data{long_request_resend = Val}) ->
+    Val;
+do_conn_info(call_proxy_gc_timeout = _Item, 
+	     #conn_data{call_proxy_gc_timeout = Val}) ->
+    Val;
+do_conn_info(resend_indication = _Item, #conn_data{resend_indication = Val}) ->
+    Val;
+do_conn_info(segment_reply_ind = _Item, #conn_data{segment_reply_ind = Val}) ->
+    Val;
+do_conn_info(segment_recv_acc = _Item, #conn_data{segment_recv_acc = Val}) ->
+    Val;
+do_conn_info(segment_recv_timer = _Item, 
+	     #conn_data{segment_recv_timer = Val}) ->
+    Val;
+do_conn_info(segment_send = _Item, #conn_data{segment_send = Val}) ->
+    Val;
+do_conn_info(segment_send_timer = _Item, 
+	     #conn_data{segment_send_timer = Val}) ->
+    Val;
+do_conn_info(max_pdu_size = _Item, #conn_data{max_pdu_size = Val}) ->
+    Val;
+do_conn_info(request_keep_alive_timeout = _Item, 
+	     #conn_data{request_keep_alive_timeout = Val}) ->
+    Val;
+do_conn_info(receive_handle = _Item, 
+	     #conn_data{conn_handle = #megaco_conn_handle{local_mid = LMid},
+			encoding_mod    = EM,
+			encoding_config = EC,
+			send_mod        = SM}) ->
+    #megaco_receive_handle{local_mid       = LMid,
+			   encoding_mod    = EM,
+			   encoding_config = EC,
+			   send_mod        = SM};
+do_conn_info(Item, Data) 
+  when is_record(Data, conn_data) orelse is_record(Data, megaco_conn_handle) ->
+    exit({no_such_item, Item});
+do_conn_info(_Item, BadData) ->
+    {error, {no_such_connection, BadData}}.
 
-replace(_, _, []) ->
-    [];
-replace(Item, WithItem, [Item|List]) ->
-    [WithItem|List];
-replace(Item, WithItem, [OtherItem|List]) ->
-    [OtherItem | replace(Item, WithItem, List)].
+
+%% replace(_, _, []) ->
+%%     [];
+%% replace(Item, WithItem, [Item|List]) ->
+%%     [WithItem|List];
+%% replace(Item, WithItem, [OtherItem|List]) ->
+%%     [OtherItem | replace(Item, WithItem, List)].
 
 
 update_conn_info(#conn_data{conn_handle = CH}, Item, Val) ->
@@ -499,31 +628,19 @@ incr_counter(Item, Incr) ->
 	end
     catch
 	error:_ ->
+	    %% Counter does not exist, so try creat it
 	    try
 		begin
 		    cre_counter(Item, Incr)
 		end
 	    catch
 		exit:_ ->
-		    %% Ok, some other process got there before us,
-		    %% so try again
+		    %% This is a raise condition. 
+		    %% When we tried to update the counter above, it
+		    %% did not exist, but now it does...
 		    ets:update_counter(megaco_config, Item, Incr)
 	    end
     end.
-%% incr_counter(Item, Incr) ->
-%%     case (catch ets:update_counter(megaco_config, Item, Incr)) of
-%%         {'EXIT', _} ->
-%% 	    case (catch cre_counter(Item, Incr)) of
-%% 		{'EXIT', _} ->
-%% 		    %% Ok, some other process got there before us,
-%% 		    %% so try again
-%% 		    ets:update_counter(megaco_config, Item, Incr);
-%% 		NewVal ->
-%% 		    NewVal
-%% 	    end;
-%%         NewVal ->
-%%             NewVal
-%%     end.
 
 cre_counter(Item, Initial) ->
     case whereis(?SERVER) =:= self() of
@@ -531,8 +648,8 @@ cre_counter(Item, Initial) ->
 	    case call({cre_counter, Item, Initial}) of
 		{ok, Value} ->
 		    Value;
-		Error ->
-		    exit(Error)
+		{error, Reason} ->
+		    exit({failed_creating_counter, Item, Initial, Reason})
 	    end;
 	true ->
 	    %% Check that the counter does not already exists
@@ -542,7 +659,7 @@ cre_counter(Item, Initial) ->
 		    ets:insert(megaco_config, {Item, Initial}),
 		    {ok, Initial};
 		[_] ->
-		    %% Ouch, now what?
+		    %% Possibly a raise condition
 		    {error, already_exists}
 		
 		end
@@ -1384,28 +1501,37 @@ verify_val(Item, Val) ->
         mid                    -> true;
         local_mid              -> true;
         remote_mid             -> true;
-        min_trans_id           -> verify_strict_uint(Val, 4294967295); % uint32
-        max_trans_id           -> verify_uint(Val, 4294967295);        % uint32
+        min_trans_id           -> 
+	    megaco_config_misc:verify_strict_uint(Val, 4294967295); % uint32
+        max_trans_id           -> 
+	    megaco_config_misc:verify_uint(Val, 4294967295);        % uint32
         request_timer          -> verify_timer(Val);
         long_request_timer     -> verify_timer(Val);
 
-        auto_ack               -> verify_bool(Val);
+        auto_ack               -> 
+	    megaco_config_misc:verify_bool(Val);
 
-	trans_ack              -> verify_bool(Val);
-        trans_ack_maxcount     -> verify_uint(Val);
+	trans_ack              -> 
+	    megaco_config_misc:verify_bool(Val);
+        trans_ack_maxcount     -> 
+	    megaco_config_misc:verify_uint(Val);
 
-	trans_req              -> verify_bool(Val);
-        trans_req_maxcount     -> verify_uint(Val);
-        trans_req_maxsize      -> verify_uint(Val);
+	trans_req              -> 
+	    megaco_config_misc:verify_bool(Val);
+        trans_req_maxcount     -> 
+	    megaco_config_misc:verify_uint(Val);
+        trans_req_maxsize      -> 
+	    megaco_config_misc:verify_uint(Val);
 
-        trans_timer            -> verify_timer(Val) and (Val >= 0);
-	trans_sender when Val == undefined -> true;
+        trans_timer            -> 
+	    verify_timer(Val) and (Val >= 0);
+	trans_sender when Val =:= undefined -> true;
 
         pending_timer                      -> verify_timer(Val);
-        sent_pending_limit                 -> verify_uint(Val) andalso 
-								 (Val > 0);
-        recv_pending_limit                 -> verify_uint(Val) andalso 
-								 (Val > 0);
+        sent_pending_limit                 -> 
+	    megaco_config_misc:verify_uint(Val) andalso (Val > 0);
+        recv_pending_limit                 -> 
+	    megaco_config_misc:verify_uint(Val) andalso (Val > 0);
         reply_timer                        -> verify_timer(Val);
         control_pid      when is_pid(Val)  -> true;
         monitor_ref                        -> true; % Internal usage only
@@ -1413,110 +1539,43 @@ verify_val(Item, Val) ->
         send_handle                        -> true;
         encoding_mod     when is_atom(Val) -> true;
         encoding_config  when is_list(Val) -> true;
-        protocol_version                   -> verify_strict_uint(Val);
+        protocol_version                   -> 
+	    megaco_config_misc:verify_strict_uint(Val);
         auth_data                          -> true;
         user_mod         when is_atom(Val) -> true;
         user_args        when is_list(Val) -> true;
         reply_data                         -> true;
-        threaded                           -> verify_bool(Val);
-        strict_version                     -> verify_bool(Val);
-	long_request_resend                -> verify_bool(Val);
-	call_proxy_gc_timeout              -> verify_strict_uint(Val);
-	cancel                             -> verify_bool(Val);
+        threaded                           -> 
+	    megaco_config_misc:verify_bool(Val);
+        strict_version                     -> 
+	    megaco_config_misc:verify_bool(Val);
+	long_request_resend                -> 
+	    megaco_config_misc:verify_bool(Val);
+	call_proxy_gc_timeout              -> 
+	    megaco_config_misc:verify_strict_uint(Val);
+	cancel                             -> 
+	    megaco_config_misc:verify_bool(Val);
 	resend_indication                  -> verify_resend_indication(Val);
 
-	segment_reply_ind               -> verify_bool(Val);
-	segment_recv_acc                -> verify_bool(Val);
+	segment_reply_ind               -> 
+	    megaco_config_misc:verify_bool(Val);
+	segment_recv_acc                -> 
+	    megaco_config_misc:verify_bool(Val);
 	segment_recv_timer              -> verify_timer(Val);
 	segment_send                    -> verify_segmentation_window(Val);
 	segment_send_timer              -> verify_timer(Val);
-	max_pdu_size                    -> verify_int(Val) andalso (Val > 0);
+	max_pdu_size                    -> 
+	    megaco_config_misc:verify_int(Val) andalso (Val > 0);
 	request_keep_alive_timeout      -> 
-	    (verify_uint(Val) orelse (Val =:= plain));
+	    (megaco_config_misc:verify_uint(Val) orelse (Val =:= plain));
 
         _                               -> false
     end.
 
 
 
-verify_bool(true)  -> true;
-verify_bool(false) -> true;
-verify_bool(_)     -> false.
-
 verify_resend_indication(flag) -> true;
-verify_resend_indication(Val)  -> verify_bool(Val).
-
--spec verify_strict_int(Int :: integer()) -> boolean().
-verify_strict_int(Int) when is_integer(Int) -> true;
-verify_strict_int(_)                        -> false.
-
--spec verify_strict_int(Int :: integer(), 
-			Max :: integer() | 'infinity') -> boolean().
-verify_strict_int(Int, infinity) ->
-    verify_strict_int(Int);
-verify_strict_int(Int, Max) ->
-    verify_strict_int(Int) andalso verify_strict_int(Max) andalso (Int =< Max).
-
--spec verify_strict_uint(Int :: non_neg_integer()) -> boolean().
-verify_strict_uint(Int) when is_integer(Int) andalso (Int >= 0) -> true;
-verify_strict_uint(_)                                           -> false.
-
--spec verify_strict_uint(Int :: non_neg_integer(), 
-			 Max :: non_neg_integer() | 'infinity') -> boolean().
-verify_strict_uint(Int, infinity) ->
-    verify_strict_uint(Int);
-verify_strict_uint(Int, Max) ->
-    verify_strict_int(Int, 0, Max).
-
--spec verify_uint(Val :: non_neg_integer() | 'infinity') -> boolean().
-verify_uint(infinity) -> true;
-verify_uint(Val)      -> verify_strict_uint(Val).
-
--spec verify_int(Val :: integer() | 'infinity') -> boolean().
-verify_int(infinity) -> true;
-verify_int(Val)      -> verify_strict_int(Val).
-
--spec verify_int(Int :: integer() | 'infinity', 
-		 Max :: integer() | 'infinity') -> boolean().
-verify_int(Int, infinity) ->
-    verify_int(Int);
-verify_int(infinity, _Max) ->
-    true;
-verify_int(Int, Max) ->
-    verify_strict_int(Int) andalso verify_strict_int(Max) andalso (Int =< Max).
-
--spec verify_uint(Int :: non_neg_integer() | 'infinity', 
-		  Max :: non_neg_integer() | 'infinity') -> boolean().
-verify_uint(Int, infinity) ->
-    verify_uint(Int);
-verify_uint(infinity, _Max) ->
-    true;
-verify_uint(Int, Max) ->
-    verify_strict_int(Int, 0, Max).
-
--spec verify_strict_int(Int :: integer(), 
-			Min :: integer(), 
-			Max :: integer()) -> boolean().
-verify_strict_int(Val, Min, Max) 
-  when (is_integer(Val) andalso 
-	is_integer(Min) andalso 
-	is_integer(Max) andalso 
-	(Val >= Min)    andalso 
-	(Val =< Max)) ->
-    true;
-verify_strict_int(_Val, _Min, _Max) ->
-    false.
-    
--spec verify_int(Val :: integer() | 'infinity', 
-		 Min :: integer(), 
-		 Max :: integer() | 'infinity') -> boolean(). 
-verify_int(infinity, Min, infinity) ->
-    verify_strict_int(Min);
-verify_int(Val, Min, infinity) ->
-    verify_strict_int(Val) andalso 
-	verify_strict_int(Min) andalso (Val >= Min);
-verify_int(Int, Min, Max) ->
-    verify_strict_int(Int, Min, Max).
+verify_resend_indication(Val)  -> megaco_config_misc:verify_bool(Val).
 
 verify_timer(Timer) ->
     megaco_timer:verify(Timer).
@@ -1524,7 +1583,7 @@ verify_timer(Timer) ->
 verify_segmentation_window(none) ->
     true;
 verify_segmentation_window(K) ->
-    verify_int(K, 1, infinity).
+    megaco_config_misc:verify_int(K, 1, infinity).
 
 handle_stop_user(UserMid) ->
     case catch user_info(UserMid, mid) of

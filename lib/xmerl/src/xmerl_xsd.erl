@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2006-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2006-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -29,7 +29,9 @@
 %% @type option_list(). <p>Options allow to customize the behaviour of the 
 %% validation.
 %% </p>
+%% <p>
 %% Possible options are :
+%% </p>
 %% <dl>
 %%   <dt><code>{tab2file,boolean()}</code></dt>
 %%      <dd>Enables saving of abstract structure on file for debugging
@@ -46,6 +48,7 @@
 %%      <dd>It is possible by this option to provide a state with process
 %%          information from an earlier validation.</dd> 
 %% </dl>
+%% @end
 %%%-------------------------------------------------------------------
 -module(xmerl_xsd).
 
@@ -242,21 +245,27 @@ process_validate2({SE,_},Schema,Xml,Opts) ->
     S4 = validation_options(S3,Opts),
     validate3(Schema,Xml,S4).
 
-validate3(Schema,Xml,S=#xsd_state{errors=[]}) -> 
-    Ret = {_,S2} = 
-	case catch validate_xml(Xml,S) of
-	    {[XML2],[],Sx}  ->
-		{XML2,Sx};
-	    {XML2,[],Sx} ->
-		{XML2,Sx};
-	    {_,UnValidated,Sx} ->
-		{Xml,acc_errs(Sx,{error_path(UnValidated,Xml#xmlElement.name),?MODULE,
-				  {unvalidated_rest,UnValidated}})};
-	    _Err = {error,Reason} ->
-		{Xml,acc_errs(S,Reason)};
-	    {'EXIT',Reason} ->
-		{Xml,acc_errs(S,{error_path(Xml,Xml#xmlElement.name),?MODULE,
-				 {undefined,{internal_error,Reason}}})}
+validate3(Schema, Xml,S =#xsd_state{errors=[]}) -> 
+    Ret = {_, S2} = 
+	case catch validate_xml(Xml, S) of
+	    _Err = {error, Reason} ->
+		{Xml, acc_errs(S, Reason)};
+	    {'EXIT', Reason} ->
+		{Xml, acc_errs(S, {error_path(Xml, Xml#xmlElement.name), ?MODULE,
+				 {undefined, {internal_error, Reason}}})};
+	    {XML2, Rest, Sx} ->
+		case lists:dropwhile(fun(X) when is_record(X, xmlComment) -> true; (_) -> false end, Rest) of
+		    [] ->
+			case XML2 of
+			    [XML3] ->
+				{XML3,Sx};
+			    XML3 ->
+				{XML3,Sx}
+			end;
+		    UnValidated ->
+			{Xml,acc_errs(Sx,{error_path(UnValidated,Xml#xmlElement.name),?MODULE,
+					  {unvalidated_rest,UnValidated}})}
+		end
 	end,
     save_to_file(S2,filename:rootname(Schema)++".tab2"),
     case S2#xsd_state.errors of
@@ -284,10 +293,19 @@ process_schema(Schema) ->
 %% error reason. The error reason may be a list of several errors
 %% or a single error encountered during the processing.
 process_schema(Schema,Options) when is_list(Options) ->
-    S = initiate_state(Options,Schema),
-    process_schema2(xmerl_scan:file(filename:join(S#xsd_state.xsd_base, Schema)),S,Schema);
-process_schema(Schema,State) when is_record(State,xsd_state) ->
-    process_schema2(xmerl_scan:file(filename:join(State#xsd_state.xsd_base, Schema)),State,Schema).
+    State = initiate_state(Options,Schema),
+    process_schema(Schema, State);
+process_schema(Schema, State=#xsd_state{fetch_fun=Fetch})->
+    case Fetch(Schema, State) of
+	{ok,{file,File},_} ->
+	    process_schema2(xmerl_scan:file(File), State, Schema);
+	{ok,{string,Str},_} ->
+	    process_schema2(xmerl_scan:string(Str), State, Schema);
+	{ok,[],_} ->
+	    {error,enoent};
+	Err ->
+	    Err
+    end.
 
 process_schema2(Err={error,_},_,_) ->
     Err;
@@ -316,12 +334,9 @@ process_schemas(Schemas) ->
 %% error reason. The error reason may be a list of several errors
 %% or a single error encountered during the processing.
 process_schemas(Schemas=[{_,Schema}|_],Options) when is_list(Options) ->
-    process_schemas(Schemas,initiate_state(Options,Schema));
+    State = initiate_state(Options,Schema),
+    process_schemas(Schemas, State);
 process_schemas([{_NS,Schema}|Rest],State=#xsd_state{fetch_fun=Fetch}) ->
-%%      case process_external_schema_once(Schema,if_list_to_atom(NS),State) of
-%%   	S when is_record(S,xsd_state) ->
-%%     case process_schema(filename:join([State#xsd_state.xsd_base,Schema]),State) of
-%% 	{ok,S} ->
     Res=
     case Fetch(Schema,State) of
 	{ok,{file,File},_} ->
@@ -342,20 +357,20 @@ process_schemas([{_NS,Schema}|Rest],State=#xsd_state{fetch_fun=Fetch}) ->
 process_schemas([],S) when is_record(S,xsd_state) ->
     {ok,S}.
 
-
 initiate_state(Opts,Schema) ->
     XSDBase = filename:dirname(Schema),
     {{state,S},RestOpts}=new_state(Opts),
     S2 = create_tables(S),
-    initiate_state2(S2#xsd_state{schema_name = Schema,
-				xsd_base = XSDBase,
-				fetch_fun = fun fetch/2},RestOpts).
+    initiate_state2(S2#xsd_state{schema_name = Schema, xsd_base=XSDBase,
+				 fetch_fun = fun fetch/2}, 
+		    RestOpts).
+
 initiate_state2(S,[]) ->
     S;
 initiate_state2(S,[{tab2file,Bool}|T]) ->
     initiate_state2(S#xsd_state{tab2file=Bool},T);
-initiate_state2(S,[{xsdbase,XSDBase}|T]) ->
-    initiate_state2(S#xsd_state{xsd_base=XSDBase},T);
+initiate_state2(S,[{xsdbase, XSDBase}|T]) ->
+    initiate_state2(S#xsd_state{xsd_base=XSDBase, external_xsd_base=true},T);
 initiate_state2(S,[{fetch_fun,FetchFun}|T]) ->
     initiate_state2(S#xsd_state{fetch_fun=FetchFun},T);
 initiate_state2(S,[{fetch_path,FetchPath}|T]) ->
@@ -733,7 +748,7 @@ element_content({IDC,S},El,Env)
 	    {{IDC,IDConstr},S3};
 	Err ->
 	    S3 = acc_errs(S2,{error_path(El,El#xmlElement.name),?MODULE,
-			      {erronous_content_in_identity_constraint,IDC,Err}}),
+			      {erroneous_content_in_identity_constraint,IDC,Err}}),
 	    {{IDC,[]},S3}
     end;
 element_content({selector,S},Sel,_Env) ->
@@ -1941,7 +1956,7 @@ fetch_external_schema(Path,S) when is_list(Path) ->
 			{EXSD,S#xsd_state{schema_name=File}}
 		end;
 	    {_,{string,String},_} -> %% this is for a user defined fetch fun that returns an xml document on string format.
-		?debug("scanning string: ~p~n",[File]),
+		?debug("scanning string: ~p~n",[String]),
 		case xmerl_scan:string(String,S#xsd_state.xml_options) of
 		    {error,Reason} ->
 			{error,acc_errs(S,{[],?MODULE,{parsing_external_schema_failed,Path,Reason}})};
@@ -2417,8 +2432,8 @@ validate_xml(XMLEl=#xmlElement{},SEl=#schema_element{},S) ->
 %% 2 often
 check_element_type(XML=[XMLTxt=#xmlText{}|Rest],CM=[CMEl|CMRest],Env,
 		   Block,S,Checked) ->
-    %% XMLTxt är det första av content i element,
-    %% CMEl är den tillåtna typen enligt schemat
+    %% XMLTxt is the first part of the elements content,
+    %% CMEl is the allowed type according to the schema
     case is_whitespace(XMLTxt) of
 	true -> %% Ignore XMLEl
 	    check_element_type(Rest,CM,Env,Block,S,[XMLTxt|Checked]);
@@ -2450,7 +2465,7 @@ check_element_type(XML=[#xmlElement{}|_],[{choice,{CM,Occ}}|_CMRest],
 check_element_type(XML=[#xmlElement{}|_],[{all,{CM,Occ}}|_CMRest],
 		   Env,_Block,S,Checked) ->
     ?debug("calling choice/6~n",[]),
-    check_all(XML,CM,Occ,Env,S,Checked,XML);
+    check_all(XML,CM,Occ,Env,set_num_el(S,0),Checked,XML); %%LTH
 %% 3 often. CMEL may be ((simpleType | complexType)?, (unique | key | keyref)*))
 check_element_type(XML=[XMLEl=#xmlElement{}|_],[CMEl|CMRest],Env,
 		   Block,S,Checked) ->
@@ -2511,9 +2526,9 @@ check_element_type([],#schema_complex_type{name=_Name,block=_Bl,content=C},
 	    {error,{error_path(Checked,undefined),?MODULE,
 		    {empty_content_not_allowed,C}}}
     end;
-check_element_type(C,{anyType,_},_Env,_Block,S,_Checked) ->
+check_element_type(C, {anyType, _}, _Env, _Block, S, _Checked) ->
     %% permitt anything
-    {C,[],S};
+    {lists:reverse(C), [], S};
 
 check_element_type(XML=[#xmlText{}|_],Type=#schema_simple_type{},
 		    _Env,_Block,S,_Checked) ->
@@ -2576,7 +2591,7 @@ check_element_type(XML=[XMLEl=#xmlElement{name=Name}|RestXML],
 	    S6 = check_form(ElName,Name,XMLEl,
 			    actual_form_value(CMEl#schema_element.form,
 					      S5#xsd_state.elementFormDefault),
-			    S5),
+			    S5), 
 	    %Step into content of XML element.
 	    {Content,_,S7} =
 		case
@@ -2596,12 +2611,12 @@ check_element_type(XML=[XMLEl=#xmlElement{name=Name}|RestXML],
 	     RestXML,
 	     set_scope(S5#xsd_state.scope,set_num_el(S7,S6))};
 	true ->
-	    {error,{error_path(XMLEl,Name),?MODULE,
-		    {element_not_suitable_with_schema,ElName,S}}};
+	    {error,{error_path(XMLEl, Name), ?MODULE,
+		    {element_not_suitable_with_schema, ElName, S}}};
 	_ when S#xsd_state.num_el >= Min -> 
 	    %% it may be a match error or an optional element not
 	    %% present
-	    {[],XML,S#xsd_state{num_el=0}}; 
+	    {[], XML, S#xsd_state{num_el=0}}; 
 	_ -> 
 	    {error,{error_path(XMLEl,Name),?MODULE,
 		    {element_not_suitable_with_schema,ElName,CMName,CMEl,S}}}
@@ -2636,7 +2651,7 @@ check_element_type(XML=[#xmlElement{}|_Rest],
 check_element_type(XML=[E=#xmlElement{name=Name}|Rest],
 		   Any={any,{Namespace,_Occ={Min,_},ProcessorContents}},Env,
 		   _Block,S,_Checked) ->
-    ?debug("check any: {any,{~p,~p,~p}}~n",[Namespace,Occ,ProcessorContents]),
+    ?debug("check any: {any,{~p,~p,~p}}~n",[Namespace,_Occ,ProcessorContents]),
     %% ProcessorContents any of lax | strict | skip
     %% lax: may validate if schema is found
     %% strict: must validate
@@ -2687,19 +2702,25 @@ check_element_type(XML=[E=#xmlElement{name=Name}|Rest],
 	_ ->
 	    {error,{error_path(E,Name),?MODULE,{element_bad_match,E,Any,Env}}}
     end;
-check_element_type([],CM,_Env,_Block,_S,Checked) ->
+check_element_type([],CM,_Env,_Block,S,Checked) ->
     %% #schema_complex_type, any, #schema_group, anyType and lists are
     %% catched above.
     case CM of
+	#schema_simple_type{} ->
+	    {NewVal,S2} = check_type(CM,[],unapplied,S),
+	    {NewVal,[],S2};
 	{simpleType,_} ->
-	    {error,{error_path(Checked,undefined),?MODULE,
-		    {empty_content_not_allowed,CM}}};
+	    {NewVal,S2} = check_type(CM,[],unapplied,S),
+	    {NewVal,[],S2};
 	_ ->
 	    {error,{error_path(Checked,undefined),?MODULE,
 		    {empty_content_not_allowed,CM}}}
     end;
+check_element_type([C = #xmlComment{} |Rest],CM,Env,Block,S,Checked) ->
+     check_element_type(Rest,CM,Env,Block,S,[C |Checked]);
 check_element_type(XML,CM,_Env,_Block,S,_Checked) ->
     {error,{error_path(XML,undefined),?MODULE,{match_failure,XML,CM,S}}}.
+
 %% single xml content object and single schema object
 check_text_type(XML=[#xmlText{}|_],optional_text,S) ->
 %    {XMLTxt,optional_text};
@@ -2718,7 +2739,7 @@ check_text_type([XMLTxt=#xmlText{}|_],CMEl,_S) ->
 	    {cannot_contain_text,XMLTxt,CMEl}}}.
 
 split_xmlText(XML) ->
-    splitwith(fun(#xmlText{}) -> true;(_) -> false end,XML).
+    splitwith(fun(#xmlText{}) -> true;(#xmlComment{}) -> true;(_) -> false end,XML).
 
 %% Sequence
 check_sequence([T=#xmlText{}|Rest],Els,Occ,Env,S,Checked) ->
@@ -2761,6 +2782,8 @@ check_sequence(Seq=[_InstEl=#xmlElement{}|_],[El|Els],Occ={_Min,_Max},Env,S,Chec
 			   count_num_el(set_num_el(S3,S2)),
 			   Ret++Checked)
     end;
+check_sequence([C = #xmlComment{} |Rest], Els, Occ, Env, S, Checked) ->
+    check_sequence(Rest,Els,Occ,Env,S,[C |Checked]);
 check_sequence(Rest,[],_Occ,_Env,S,Checked) ->
     {Checked,Rest,set_num_el(S,0)};
 check_sequence([],Els,_Occ,_Env,S,Checked) ->
@@ -2857,6 +2880,8 @@ check_all(XML=[E=#xmlElement{name=Name}|RestXML],CM,Occ,Env,S,
 		   {element_not_in_all,ElName,E,CM}},
 	    check_all(RestXML,CM,Occ,Env,acc_errs(S,Err),[E|Checked],PrevXML)
     end;
+check_all([C=#xmlComment{} |RestXML], CM, Occ, Env, S, Checked, XML) ->
+    check_all(RestXML, CM, Occ, Env, S, [C |Checked], XML);
 check_all(XML,[],_,_,S,Checked,_) ->
     {Checked,XML,S};
 check_all([],CM,_Occ,_,S,Checked,_PrevXML) ->
@@ -2908,14 +2933,14 @@ check_target_namespace(XMLEl,S) ->
 
 schemaLocations(El=#xmlElement{attributes=Atts},S) ->
     Pred = fun(#xmlAttribute{name=schemaLocation}) -> false;
-	      (#xmlAttribute{namespace={_,"schemaLocation"}}) -> false;
+	      (#xmlAttribute{nsinfo={_,"schemaLocation"}}) -> false;
 	      (_) -> true
 	   end,
     case lists:dropwhile(Pred,Atts) of
 	[] ->
 	    S;
 	[#xmlAttribute{value=Paths}|_] ->
-	    case string:tokens(Paths," ") of
+	    case string:tokens(Paths," \n\t\r") of
 		L when length(L) > 0 ->
 		    case length(L) rem 2 of
 			0 ->
@@ -3387,8 +3412,12 @@ qualified_node_set(Paths,[QN|QNs],El,S,Acc) ->
 		  end
 	  end,
     {KeySequence,S2} = mapfoldl(Fun,S,Paths),
-    qualified_node_set(Paths,QNs,El,S2,[flatten(KeySequence)|Acc]).
-
+    case flatten(KeySequence) of
+	[] ->
+	    qualified_node_set(Paths,QNs,El,S2,Acc);
+	KS ->
+	    qualified_node_set(Paths,QNs,El,S2,[KS|Acc])
+    end.
 
 apply_field(F,El,S) ->
     %% xmerl_xpath:string returns a list
@@ -5222,7 +5251,12 @@ fetch(URI,S) ->
 	    [] -> %% empty systemliteral
 		[];
 	    _ ->
-		filename:join(S#xsd_state.xsd_base, URI)
+		case S#xsd_state.external_xsd_base of
+		    true ->
+			filename:join(S#xsd_state.xsd_base, URI);
+		    false ->
+			filename:join(S#xsd_state.xsd_base, filename:basename(URI))
+		end
 	end,
     Path = path_locate(S#xsd_state.fetch_path, Filename, Fullname),
     ?dbg("fetch(~p) -> {file, ~p}.~n", [URI, Path]),
@@ -5550,7 +5584,7 @@ format_error({incomplete_file,_FileName,_Other}) ->
     "Schema: The file containing a schema state must be produced by xmerl_xsd:state2file/[1,2].";
 format_error({unexpected_content_in_any,A}) ->
     io_lib:format("Schema: The any type is considered to have no content besides annotation. ~p was found.",[A]);
-format_error({erronous_content_in_identity_constraint,IDC,Err}) ->
+format_error({erroneous_content_in_identity_constraint,IDC,Err}) ->
     io_lib:format("Schema: An ~p identity constraint must have one selector and one or more field in content. This case ~p",[IDC,Err]);
 format_error({missing_xpath_attribute,IDCContent}) ->
     io_lib:format("Schema: A ~p in a identity constraint must have a xpath attribute.",[IDCContent]);

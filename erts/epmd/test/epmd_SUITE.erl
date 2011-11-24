@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %%
 -module(epmd_SUITE).
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("kernel/include/file.hrl").
 
 
@@ -35,7 +35,9 @@
 -record(node_info, {port, node_type, prot, lvsn, hvsn, node_name, extra}).
 
 % Test server specific exports
--export([all/1, init_per_testcase/2, fin_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 init_per_testcase/2, end_per_testcase/2]).
 
 -export(
    [
@@ -63,7 +65,13 @@
     alive_req_too_large/1,
 
     returns_valid_empty_extra/1,
-    returns_valid_populated_extra_with_nulls/1
+    returns_valid_populated_extra_with_nulls/1,
+
+    buffer_overrun_1/1,
+    buffer_overrun_2/1,
+    no_nonlocal_register/1,
+    no_nonlocal_kill/1,
+    no_live_killing/1
    ]).
 
 
@@ -82,11 +90,8 @@
 -define(REG_REPEAT_LIM,1000).
 
 % Message codes in epmd protocol
--define(EPMD_ALIVE_REQ,		$a).
 -define(EPMD_ALIVE2_REQ,	$x).
--define(EPMD_ALIVE_OK_RESP,	$Y).
 -define(EPMD_ALIVE2_RESP,	$y).
--define(EPMD_PORT_REQ,		$p).
 -define(EPMD_PORT_PLEASE2_REQ,	$z).
 -define(EPMD_PORT2_RESP,	$w).
 -define(EPMD_NAMES_REQ,	$n).
@@ -98,45 +103,48 @@
 %% all/1
 %%
 
-all(suite) ->
-    [
-     register_name,
-     register_names_1,
-     register_names_2,
-     register_duplicate_name,
-     get_port_nr,
-     slow_get_port_nr,
-     unregister_others_name_1,
-     unregister_others_name_2,
-     register_overflow,
-     name_with_null_inside,
-     name_null_terminated,
-     stupid_names_req,
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-     no_data,
-     one_byte,
-     two_bytes,
-     partial_packet,
-     zero_length,
-     too_large,
-     alive_req_too_small_1,
-     alive_req_too_small_2,
-     alive_req_too_large,
+all() -> 
+    [register_name, register_names_1, register_names_2,
+     register_duplicate_name, get_port_nr, slow_get_port_nr,
+     unregister_others_name_1, unregister_others_name_2,
+     register_overflow, name_with_null_inside,
+     name_null_terminated, stupid_names_req, no_data,
+     one_byte, two_bytes, partial_packet, zero_length,
+     too_large, alive_req_too_small_1, alive_req_too_small_2,
+     alive_req_too_large, returns_valid_empty_extra,
+     returns_valid_populated_extra_with_nulls,
+     {group, buffer_overrun}, no_nonlocal_register,
+     no_nonlocal_kill, no_live_killing].
 
-     returns_valid_empty_extra,
-     returns_valid_populated_extra_with_nulls
-    ].
+groups() -> 
+    [{buffer_overrun, [],
+      [buffer_overrun_1, buffer_overrun_2]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 %%
 %% Run before and after each test case
 %%
 
 init_per_testcase(_Func, Config) ->
-    Dog = test_server:timetrap(?SHORT_TEST_TIMEOUT),
+    Dog = test_server:timetrap(?MEDIUM_TEST_TIMEOUT),
     cleanup(),
     [{watchdog, Dog} | Config].
 
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     cleanup(),
     Dog = ?config(watchdog, Config),
     catch test_server:timetrap_cancel(Dog),	% We may have canceled already
@@ -148,7 +156,7 @@ register_name(doc) ->
     ["Register a name"];
 register_name(suite) ->
     [];
-register_name(Config) when list(Config) ->
+register_name(Config) when is_list(Config) ->
     ?line ok = epmdrun(),
     ?line {ok,Sock} = register_node("foobar"),
     ?line ok = close(Sock),			% Unregister
@@ -158,7 +166,7 @@ register_names_1(doc) ->
     ["Register and unregister two nodes"];
 register_names_1(suite) ->
     [];
-register_names_1(Config) when list(Config) ->
+register_names_1(Config) when is_list(Config) ->
     ?line ok = epmdrun(),
     ?line {ok,Sock1} = register_node("foobar"),
     ?line {ok,Sock2} = register_node("foozap"),
@@ -170,7 +178,7 @@ register_names_2(doc) ->
     ["Register and unregister two nodes"];
 register_names_2(suite) ->
     [];
-register_names_2(Config) when list(Config) ->
+register_names_2(Config) when is_list(Config) ->
     ?line ok = epmdrun(),
     ?line {ok,Sock1} = register_node("foobar"),
     ?line {ok,Sock2} = register_node("foozap"),
@@ -182,7 +190,7 @@ register_duplicate_name(doc) ->
     ["Two nodes with the same name"];
 register_duplicate_name(suite) ->
     [];
-register_duplicate_name(Config) when list(Config) ->
+register_duplicate_name(Config) when is_list(Config) ->
     ?line ok = epmdrun(),
     ?line {ok,Sock} = register_node("foobar"),
     ?line error = register_node("foobar"),
@@ -192,22 +200,9 @@ register_duplicate_name(Config) when list(Config) ->
 % Internal function to register a node name, no close, i.e. unregister
 
 register_node(Name) ->
-    register_node(Name,?DUMMY_PORT).
-
-register_node(Name, Port) ->
-    case send_req([?EPMD_ALIVE_REQ, put16(Port), Name]) of
-	{ok,Sock} ->
-	    case recv(Sock,3) of
-		{ok, [?EPMD_ALIVE_OK_RESP,_D1,_D0]} ->
-		    {ok,Sock};
-		Other ->
-		    test_server:format("recv on sock ~w: ~p~n",
-				       [Sock,Other]),
-		    error
-	    end;
-	error ->
-	    error
-    end.
+    register_node_v2(?DUMMY_PORT,$M,0,5,5,Name,"").
+register_node(Name,Port) ->
+    register_node_v2(Port,$M,0,5,5,Name,"").
 
 register_node_v2(Port, NodeType, Prot, HVsn, LVsn, Name, Extra) ->
     Req = [?EPMD_ALIVE2_REQ, put16(Port), NodeType, Prot,
@@ -254,7 +249,7 @@ parse_port2_resp(Resp) ->
 			    hvsn=HVsn,lvsn=LVsn,
 			    node_name=binary_to_list(NodeName),
 			    extra=binary_to_list(Extra)}};
-	Other ->
+	_Other ->
 	    test_server:format("invalid port2 resp: ~p~n",
 			       [Resp]),
 	    error
@@ -266,7 +261,7 @@ name_with_null_inside(doc) ->
     ["Register a name with a null char in it"];
 name_with_null_inside(suite) ->
     [];
-name_with_null_inside(Config) when list(Config) ->
+name_with_null_inside(Config) when is_list(Config) ->
     ?line ok = epmdrun(),
     ?line error = register_node("foo\000bar"),
     ok.
@@ -277,11 +272,9 @@ name_null_terminated(doc) ->
     ["Register a name with terminating null byte"];
 name_null_terminated(suite) ->
     [];
-name_null_terminated(Config) when list(Config) ->
+name_null_terminated(Config) when is_list(Config) ->
     ?line ok = epmdrun(),
-    ?line {ok,Sock} = register_node("foobar\000"),
-    ?line error = register_node("foobar"),
-    ?line ok = close(Sock),			% Unregister
+    ?line error = register_node("foobar\000"),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -290,7 +283,7 @@ stupid_names_req(doc) ->
     ["Read names from epmd in a stupid way"];
 stupid_names_req(suite) ->
     [];
-stupid_names_req(Config) when list(Config) ->
+stupid_names_req(Config) when is_list(Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     LongDog = test_server:timetrap(?MEDIUM_TEST_TIMEOUT),
@@ -394,15 +387,15 @@ get_port_nr(doc) ->
     ["Register a name on a port and ask about port nr"];
 get_port_nr(suite) ->
     [];
-get_port_nr(Config) when list(Config) ->
-    port_request([?EPMD_PORT_REQ,"foo"]).
+get_port_nr(Config) when is_list(Config) ->
+    port_request([?EPMD_PORT_PLEASE2_REQ,"foo"]).
 
 slow_get_port_nr(doc) ->
     ["Register with slow write and ask about port nr"];
 slow_get_port_nr(suite) ->
     [];
-slow_get_port_nr(Config) when list(Config) ->
-    port_request([?EPMD_PORT_REQ,d,$f,d,$o,d,$o]).
+slow_get_port_nr(Config) when is_list(Config) ->
+    port_request([?EPMD_PORT_PLEASE2_REQ,d,$f,d,$o,d,$o]).
 
 
 % Internal function used above
@@ -413,9 +406,18 @@ port_request(M) ->
     ?line {ok,RSock} = register_node("foo", Port),
     ?line {ok,Sock} = connect(),
     ?line ok = send(Sock,[size16(M),M]),
-    R = put16(Port),
-    ?line {ok,R} = recv(Sock, length(R)),
-    ?line ok = close(RSock),
+    ?line case recv_until_sock_closes(Sock) of
+	      {ok, Resp} ->
+		  ?line close(RSock),
+		  ?line {ok,Rec} = parse_port2_resp(Resp),
+		  ?line Port = Rec#node_info.port,
+		  ok;
+	      Other ->
+		  ?line close(RSock),
+		  ?line test_server:format("recv on sock ~w: ~p~n",
+					   [Sock,Other]),
+		  ?line throw({error,Other})
+	  end,
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -424,8 +426,8 @@ unregister_others_name_1(doc) ->
     ["Unregister name of other node"];
 unregister_others_name_1(suite) ->
     [];
-unregister_others_name_1(Config) when list(Config) ->
-    ?line ok = epmdrun(),
+unregister_others_name_1(Config) when is_list(Config) ->
+    ?line ok = epmdrun("-relaxed_command_check"),
     ?line {ok,RSock} = register_node("foo"),
     ?line {ok,Sock} = connect(),
     M = [?EPMD_STOP_REQ,"foo"],
@@ -441,8 +443,8 @@ unregister_others_name_2(doc) ->
     ["Unregister name of other node"];
 unregister_others_name_2(suite) ->
     [];
-unregister_others_name_2(Config) when list(Config) ->
-    ?line ok = epmdrun(),
+unregister_others_name_2(Config) when is_list(Config) ->
+    ?line ok = epmdrun("-relaxed_command_check"),
     ?line {ok,Sock} = connect(),
     M = [?EPMD_STOP_REQ,"xxx42"],
     ?line ok = send(Sock,[size16(M),M]),
@@ -456,7 +458,7 @@ register_overflow(doc) ->
     ["Register too many, clean and redo 10 times"];
 register_overflow(suite) ->
     [];
-register_overflow(Config) when list(Config) ->
+register_overflow(Config) when is_list(Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     LongDog = test_server:timetrap(?LONG_TEST_TIMEOUT),
@@ -546,7 +548,7 @@ no_data(doc) ->
     ["Open but send no data"];
 no_data(suite) ->
     [];
-no_data(Config) when list(Config) ->
+no_data(Config) when is_list(Config) ->
     ?line ok = epmdrun(),
     ?line {ok,Sock} = connect(),
     sleep(?LONG_PAUSE),
@@ -559,7 +561,7 @@ one_byte(doc) ->
     ["Send one byte only"];
 one_byte(suite) ->
     [];
-one_byte(Config) when list(Config) ->
+one_byte(Config) when is_list(Config) ->
     ?line ok = epmdrun(),
     ?line {ok,Sock} = connect(),
     ?line ok = send(Sock,[0]),
@@ -573,7 +575,7 @@ two_bytes(doc) ->
     ["Send packet size only"];
 two_bytes(suite) ->
     [];
-two_bytes(Config) when list(Config) ->
+two_bytes(Config) when is_list(Config) ->
     ?line ok = epmdrun(),
     ?line {ok,Sock} = connect(),
     ?line ok = send(Sock,[put16(3)]),
@@ -587,7 +589,7 @@ partial_packet(doc) ->
     ["Got only part of a packet"];
 partial_packet(suite) ->
     [];
-partial_packet(Config) when list(Config) ->
+partial_packet(Config) when is_list(Config) ->
     ?line ok = epmdrun(),
     ?line {ok,Sock} = connect(),
     ?line ok = send(Sock,[put16(100),"only a few bytes"]),
@@ -601,7 +603,7 @@ zero_length(doc) ->
     ["Invalid zero packet size"];
 zero_length(suite) ->
     [];
-zero_length(Config) when list(Config) ->
+zero_length(Config) when is_list(Config) ->
     ?line ok = epmdrun(),
     ?line {ok,Sock} = connect(),
     ?line ok = send(Sock,[0,0,0,0,0,0,0,0,0,0]),
@@ -615,15 +617,20 @@ too_large(doc) ->
     ["Invalid large packet"];
 too_large(suite) ->
     [];
-too_large(Config) when list(Config) ->
+too_large(Config) when is_list(Config) ->
     ?line ok = epmdrun(),
     ?line {ok,Sock} = connect(),
     Size = 63000,
     M = lists:duplicate(Size, $z),
     ?line ok = send(Sock,[put16(Size),M]),
     sleep(?MEDIUM_PAUSE),
-    ?line closed = recv(Sock,1),
-    ok.
+    % With such a large packet, even the writes can fail as the
+    % daemon closes before everything is delivered -> econnaborted
+    case recv(Sock,1) of
+	closed -> ok;
+	{error,econnaborted} -> ok;
+	Other -> exit({unexpected,Other})
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -631,10 +638,11 @@ alive_req_too_small_1(doc) ->
     ["Try to register but not enough data"];
 alive_req_too_small_1(suite) ->
     [];
-alive_req_too_small_1(Config) when list(Config) ->
+alive_req_too_small_1(Config) when is_list(Config) ->
     ?line ok = epmdrun(),
     ?line {ok,Sock} = connect(),
-    M = [?EPMD_ALIVE_REQ, 42],
+    M = [?EPMD_ALIVE2_REQ, put16(?DUMMY_PORT),$M,0, put16(5),
+	 put16(5),put16(0)],
     ?line ok = send(Sock, [size16(M), M]),
     sleep(?MEDIUM_PAUSE),
     ?line closed = recv(Sock,1),
@@ -646,10 +654,11 @@ alive_req_too_small_2(doc) ->
     ["Try to register but not enough data"];
 alive_req_too_small_2(suite) ->
     [];
-alive_req_too_small_2(Config) when list(Config) ->
+alive_req_too_small_2(Config) when is_list(Config) ->
     ?line ok = epmdrun(),
     ?line {ok,Sock} = connect(),
-    M = [?EPMD_ALIVE_REQ, put16(?DUMMY_PORT)],
+    M =  [?EPMD_ALIVE2_REQ, put16(?DUMMY_PORT),$M,0, put16(5),
+	  put16(5)],
     ?line ok = send(Sock, [size16(M), M]),
     sleep(?MEDIUM_PAUSE),
     ?line closed = recv(Sock,1),
@@ -661,7 +670,7 @@ alive_req_too_large(doc) ->
     ["Try to register but node name too large"];
 alive_req_too_large(suite) ->
     [];
-alive_req_too_large(Config) when list(Config) ->
+alive_req_too_large(Config) when is_list(Config) ->
     ?line ok = epmdrun(),
     ?line {ok,Sock} = connect(),
     L = [
@@ -678,10 +687,12 @@ alive_req_too_large(Config) when list(Config) ->
 	 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 	 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	 ],
-    M = [?EPMD_ALIVE_REQ, put16(?DUMMY_PORT), L],
+    S = length(lists:flatten(L)),
+    M = [?EPMD_ALIVE2_REQ, put16(?DUMMY_PORT),$M,0, put16(5),
+	 put16(5), put16(S),L,put16(0)],
     ?line ok = send(Sock, [size16(M), M]),
     sleep(?MEDIUM_PAUSE),
-    ?line closed = recv(Sock,1),
+    ?line {ok,[?EPMD_ALIVE2_RESP,1]} = recv(Sock,2),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -690,7 +701,7 @@ returns_valid_empty_extra(doc) ->
     ["Check that an empty extra is prefixed by a two byte length"];
 returns_valid_empty_extra(suite) ->
     [];
-returns_valid_empty_extra(Config) when list(Config) ->
+returns_valid_empty_extra(Config) when is_list(Config) ->
     ?line ok = epmdrun(),
     ?line {ok,Sock} = register_node_v2(4711, 72, 0, 5, 5, "foo", []),
     ?line {ok,#node_info{extra=[]}} = port_please_v2("foo"),
@@ -703,11 +714,170 @@ returns_valid_populated_extra_with_nulls(doc) ->
     ["Check a populated extra with embedded null characters"];
 returns_valid_populated_extra_with_nulls(suite) ->
     [];
-returns_valid_populated_extra_with_nulls(Config) when list(Config) ->
+returns_valid_populated_extra_with_nulls(Config) when is_list(Config) ->
     ?line ok = epmdrun(),
     ?line {ok,Sock} = register_node_v2(4711, 72, 0, 5, 5, "foo", "ABC\000\000"),
     ?line {ok,#node_info{extra="ABC\000\000"}} = port_please_v2("foo"),
     ?line ok = close(Sock),
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+buffer_overrun_1(suite) ->
+    [];
+buffer_overrun_1(doc) ->
+    ["Test security vulnerability in fake extra lengths in alive2_req"];
+buffer_overrun_1(Config) when is_list(Config) ->
+    ?line ok = epmdrun(),
+    ?line true = alltrue([hostile(N) || N <- lists:seq(1,10000)]),
+    ok.
+buffer_overrun_2(suite) ->
+    [];
+buffer_overrun_2(doc) ->
+    ["Test security vulnerability in fake extra lengths in alive2_req"];
+buffer_overrun_2(Config) when is_list(Config) ->
+    ?line ok = epmdrun(),
+    ?line [false | Rest] = [hostile2(N) || N <- lists:seq(255,10000)],
+    ?line true = alltrue(Rest),
+    ok.
+hostile(N) ->
+    try
+	Bin= <<$x:8,4747:16,$M:8,0:8,5:16,5:16,5:16,"gurka",N:16>>,
+	S = size(Bin),
+	{ok,E}=connect_sturdy(),
+	gen_tcp:send(E,[<<S:16>>,Bin]),
+	closed = recv(E,1),
+	gen_tcp:close(E),
+	true
+    catch
+	_:_ ->
+	    false
+    end.
+hostile2(N) ->
+    try
+	B2 = list_to_binary(lists:duplicate(N,255)),
+	Bin= <<$x:8,4747:16,$M:8,0:8,5:16,5:16,5:16,"gurka",N:16,B2/binary>>,
+	S = size(Bin),
+	{ok,E}=connect_sturdy(),
+	gen_tcp:send(E,[<<S:16>>,Bin]),
+	Z = recv(E,2),
+	gen_tcp:close(E),
+	(Z =:= closed) or (Z =:= {ok, [$y,1]})
+    catch
+	_A:_B ->
+	    false
+    end.
+
+alltrue([]) ->
+    true;
+alltrue([true|T]) ->
+    alltrue(T);
+alltrue([_|_]) ->
+    false.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+no_nonlocal_register(suite) ->
+    [];
+no_nonlocal_register(doc) ->
+    ["Ensure that we cannot register throug a nonlocal connection"];
+no_nonlocal_register(Config) when is_list(Config) ->
+    ?line case {os:find_executable("ssh"),ct:get_config(ssh_proxy_host)} of
+	      {SSH,Name} when is_list(Name), is_list(SSH) ->
+		  do_no_nonlocal_register(Config,Name);
+	      {false,_} ->
+		  {skip, "No ssh command found to create proxy"};
+	      _ ->
+		  {skip, "No ssh_proxy_host configured in ts.config"}
+	  end.
+do_no_nonlocal_register(Config,SSHHost) when is_list(Config) ->
+    ?line ok = epmdrun(),
+    ?line ProxyPort = proxy_port(),
+    ?line ok = ssh_proxy(SSHHost,ProxyPort),
+    Res = try
+	      ?line Name = "gurka_"
+	      %++
+	      %integer_to_list(A1)++"_"++
+	      %integer_to_list(A2)++"_"++
+	      %integer_to_list(A3)++"_"++
+	      %integer_to_list(A4)
+	      ,
+	      ?line Bname = list_to_binary(Name),
+	      ?line NameS = byte_size(Bname),
+	      ?line Bin= <<$x:8,4747:16,$M:8,0:8,5:16,
+			  5:16,NameS:16,Bname/binary,
+			  0:16>>,
+	      ?line S = size(Bin),
+	      ?line {ok, E} = connect("localhost",ProxyPort,passive),
+	      ?line gen_tcp:send(E,[<<S:16>>,Bin]),
+	      ?line closed = recv(E,1),
+	      ?line gen_tcp:close(E),
+	      true
+	  catch
+	      _:_ ->
+		  false
+	  end,
+    %erlang:display(Res),
+    true = Res,
+    ok.
+
+no_nonlocal_kill(suite) ->
+    [];
+no_nonlocal_kill(doc) ->
+    ["Ensure that we cannot kill through nonlocal connection"];
+no_nonlocal_kill(Config) when is_list(Config) ->
+    ?line case {os:find_executable("ssh"),ct:get_config(ssh_proxy_host)} of
+	      {SSH,Name} when is_list(Name), is_list(SSH) ->
+		  do_no_nonlocal_kill(Config,Name);
+	      {false,_} ->
+		  {skip, "No ssh command found to create proxy"};
+	      _ ->
+		  {skip, "No ssh_proxy_host configured in ts.config"}
+	  end.
+do_no_nonlocal_kill(Config,SSHHost) when is_list(Config) ->
+    ?line ok = epmdrun(),
+    ?line ProxyPort = proxy_port(),
+    ?line ok = ssh_proxy(SSHHost,ProxyPort),
+    Res = try
+	      {ok, E} = connect("localhost",ProxyPort,passive),
+	      M = [?EPMD_KILL_REQ],
+	      send(E, [size16(M), M]),
+	      closed = recv(E,2),
+	      gen_tcp:close(E),
+	      sleep(?MEDIUM_PAUSE),
+	      {ok, E2} = connect("localhost",ProxyPort,passive),
+	      gen_tcp:close(E2),
+	      true
+	  catch
+	      _:_ ->
+		  false
+	  end,
+    %erlang:display(Res),
+    true = Res,
+    ok.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+no_live_killing(doc) ->
+    ["Dont allow killing with live nodes or any unregistering w/o -relaxed_command_check"];
+no_live_killing(suite) ->
+    [];
+no_live_killing(Config) when is_list(Config) ->
+    ?line ok = epmdrun(),
+    ?line {ok,RSock} = register_node("foo"),
+    ?line {ok,Sock} = connect(),
+    ?line M = [?EPMD_KILL_REQ],
+    ?line ok = send(Sock,[size16(M),M]),
+    ?line {ok,"NO"} = recv(Sock,2),
+    ?line close(Sock),
+    ?line {ok,Sock2} = connect(),
+    ?line M2 = [?EPMD_STOP_REQ,"foo"],
+    ?line ok = send(Sock2,[size16(M2),M2]),
+    ?line closed = recv(Sock2,1),
+    ?line close(Sock2),
+    ?line close(RSock),
+    ?line sleep(?MEDIUM_PAUSE),
+    ?line {ok,Sock3} = connect(),
+    ?line M3 = [?EPMD_KILL_REQ],
+    ?line ok = send(Sock3,[size16(M3),M3]),
+    ?line {ok,"OK"} = recv(Sock3,2),
+    ?line close(Sock3),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -726,21 +896,42 @@ cleanup() ->
 	    true
     end.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Start an ssh channel to simulate remote access
+
+proxy_port() ->
+    ?PORT+1.
+
+ssh_proxy(SSHHost,ProxyPort) ->
+    ?line Host = lists:nth(2,string:tokens(atom_to_list(node()),"@")),
+    % Requires proxy to be a unix host with the command 'read' accessible
+    ?line osrun("ssh -L "++integer_to_list(ProxyPort)++":"++Host++":"
+		++integer_to_list(?PORT)++" "++SSHHost++" read").
+    
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Normal debug start of epmd
 
 epmdrun() ->
+    epmdrun([]).
+epmdrun(Args) ->
     case os:find_executable(epmd) of
 	false ->
 	    {error, {could_not_find_epmd_in_path}};
 	Path ->
-	    epmdrun(Path)
+	    epmdrun(Path,Args)
     end.
 
-epmdrun(Epmd) ->
+epmdrun(Epmd,Args0) ->
   %% test_server:format("epmdrun() => Epmd = ~p",[Epmd]),
-  osrun(Epmd ++ " " ?EPMDARGS " -port " ++ integer_to_list(?PORT)).
+    Args = case Args0 of
+	       [] ->
+		   [];
+	       O ->
+		   " "++O
+	   end,
+  osrun(Epmd ++ Args ++ " " ?EPMDARGS " -port " ++ integer_to_list(?PORT)).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -753,20 +944,27 @@ osrun(Cmd) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Wrappers of TCP functions
 
-% These two functions is the interface for connect.
+% These functions is the interface for connect.
 % Passive mode is the default
 
 connect() ->
-    connect(?PORT, passive).
+    connect("localhost",?PORT, passive).
+
+connect(Addr) ->
+    connect(Addr,?PORT, passive).
 
 connect_active() ->
-    connect(?PORT, active).
+    connect("localhost",?PORT, active).
 
+%% Retry after 15 seconds, to avoid TIME_WAIT socket exhaust.
+connect_sturdy() ->
+    connect("localhost",?PORT, passive, 15000, 3).
 
 % Try a few times before giving up
-
-connect(Port, Mode) ->
-    case connect_repeat(?CONN_RETRY, Port, Mode) of
+connect(Addr, Port, Mode) ->
+    connect(Addr, Port, Mode, ?CONN_SLEEP, ?CONN_RETRY).
+connect(Addr, Port, Mode, Sleep, Retry) ->
+    case connect_repeat(Addr, Retry, Port, Mode, Sleep) of
 	{ok,Sock} ->
 	    {ok,Sock};
 	{error,timeout} ->
@@ -783,25 +981,25 @@ connect(Port, Mode) ->
 % Try a few times before giving up. Pause a small time between
 % each try.
 
-connect_repeat(1, Port, Mode) ->
-    connect_mode(Port, Mode);
-connect_repeat(Retry, Port, Mode) ->
-    case connect_mode(Port, Mode) of
+connect_repeat(Addr, 1, Port, Mode, _Sleep) ->
+    connect_mode(Addr,Port, Mode);
+connect_repeat(Addr,Retry, Port, Mode, Sleep) ->
+    case connect_mode(Addr,Port, Mode) of
 	{ok,Sock} ->
 	    {ok,Sock};
 	{error,Reason} ->
 	    test_server:format("connect: error: ~w~n",[Reason]),
-	    timer:sleep(?CONN_SLEEP),
-	    connect_repeat(Retry - 1, Port, Mode);
+	    timer:sleep(Sleep),
+	    connect_repeat(Addr, Retry - 1, Port, Mode, Sleep);
 	Any ->
 	    test_server:format("connect: unknown message: ~w~n",[Any]),
 	    exit(1)
     end.
 
-connect_mode(Port, active) ->
-    gen_tcp:connect("localhost", Port, [{packet, 0}], ?CONN_TIMEOUT);
-connect_mode(Port, passive) ->
-    gen_tcp:connect("localhost", Port, [{packet, 0}, {active, false}],
+connect_mode(Addr,Port, active) ->
+    gen_tcp:connect(Addr, Port, [{packet, 0}], ?CONN_TIMEOUT);
+connect_mode(Addr, Port, passive) ->
+    gen_tcp:connect(Addr, Port, [{packet, 0}, {active, false}],
 		    ?CONN_TIMEOUT).
 
 
@@ -858,9 +1056,9 @@ send(Sock, SendSpec) ->
 
 send([], RevBytes, _Sock) ->
     {ok,RevBytes};
-send([Byte | Spec], RevBytes, Sock) when integer(Byte) ->
+send([Byte | Spec], RevBytes, Sock) when is_integer(Byte) ->
     send(Spec, [Byte | RevBytes], Sock);
-send([List | Spec], RevBytes, Sock) when list(List) ->
+send([List | Spec], RevBytes, Sock) when is_list(List) ->
     case send(List, RevBytes, Sock) of
 	{ok,Left} ->
 	    send(Spec, Left, Sock);

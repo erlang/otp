@@ -2,20 +2,20 @@
 # set -x
 # 
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 2002-2009. All Rights Reserved.
-# 
+#
+# Copyright Ericsson AB 2002-2010. All Rights Reserved.
+#
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
 # compliance with the License. You should have received a copy of the
 # Erlang Public License along with this software. If not, it can be
 # retrieved online at http://www.erlang.org/.
-# 
+#
 # Software distributed under the License is distributed on an "AS IS"
 # basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 # the License for the specific language governing rights and limitations
 # under the License.
-# 
+#
 # %CopyrightEnd%
 # 
 # Save the command line for debug outputs
@@ -80,7 +80,7 @@ if [ "X$RC_SH_DEBUG_LOG" != "X" ]; then
 fi
 eval $RCC "$CMD"  >/tmp/rc.exe.${p}.1 2>/tmp/rc.exe.${p}.2
 RES=$?
-tail +2 /tmp/rc.exe.${p}.2 >&2
+tail -n +2 /tmp/rc.exe.${p}.2 >&2
 cat /tmp/rc.exe.${p}.1
 rm -f /tmp/rc.exe.${p}.2 /tmp/rc.exe.${p}.1
 exit $RES

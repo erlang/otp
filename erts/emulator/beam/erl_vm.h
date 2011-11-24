@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -47,13 +47,23 @@
 #define SEQ_TRACE 1
 
 #define CONTEXT_REDS 2000	/* Swap process out after this number */
-#define MAX_ARG 256	        /* Max number of arguments allowed */
+#define MAX_ARG 255	        /* Max number of arguments allowed */
 #define MAX_REG 1024            /* Max number of x(N) registers used */
+
+/* Scheduler stores data for temporary heaps if
+   !HEAP_ON_C_STACK. Macros (*TmpHeap*) in global.h selects if we put temporary
+   heap data on the C stack or if we use the buffers in the scheduler data. */
+#define TMP_HEAP_SIZE 128            /* Number of Eterm in the schedulers
+				        small heap for transient heap data */
+#define CMP_TMP_HEAP_SIZE       32   /* cmp wants its own tmp-heap... */
+#define ERL_ARITH_TMP_HEAP_SIZE 4    /* as does erl_arith... */
+#define BEAM_EMU_TMP_HEAP_SIZE  2    /* and beam_emu... */
 
 /*
  * The new arithmetic operations need some extra X registers in the register array.
+ * so does the gc_bif's (i_gc_bif3 need 3 extra).
  */
-#define ERTS_X_REGS_ALLOCATED (MAX_REG+2)
+#define ERTS_X_REGS_ALLOCATED (MAX_REG+3)
 
 #define INPUT_REDUCTIONS (2 * CONTEXT_REDS)
 
@@ -73,10 +83,7 @@
 #define CP_SIZE 1
 
 #define ErtsHAllocLockCheck(P) \
-  ERTS_SMP_LC_ASSERT((ERTS_PROC_LOCK_MAIN & erts_proc_lc_my_proc_locks((P))) \
-		     || ((P)->scheduler_data \
-			 && (P) == (P)->scheduler_data->match_pseudo_process) \
-		     || erts_is_system_blocked(0))
+  ERTS_SMP_LC_ASSERT(erts_dbg_check_halloc_lock((P)))
 
 
 #ifdef DEBUG
@@ -109,14 +116,15 @@
  * Allocate heap memory, first on the ordinary heap;
  * failing that, in a heap fragment.
  */
-#define HAlloc(p, sz)			                              \
+#define HAllocX(p, sz, xtra)		                              \
     (ASSERT_EXPR((sz) >= 0),					      \
      ErtsHAllocLockCheck(p),					      \
      (IS_FORCE_HEAP_FRAGS || (((HEAP_LIMIT(p) - HEAP_TOP(p)) < (sz))) \
-      ? erts_heap_alloc((p),(sz))                                     \
+      ? erts_heap_alloc((p),(sz),(xtra))                              \
       : (INIT_HEAP_MEM(p,sz),		                              \
          HEAP_TOP(p) = HEAP_TOP(p) + (sz), HEAP_TOP(p) - (sz))))
 
+#define HAlloc(P, SZ) HAllocX(P,SZ,0)
 
 #define HRelease(p, endp, ptr)					\
   if ((ptr) == (endp)) {					\
@@ -130,7 +138,11 @@
 #define HeapWordsLeft(p) (HEAP_LIMIT(p) - HEAP_TOP(p))
 
 #if defined(DEBUG) || defined(CHECK_FOR_HOLES)
+#if HALFWORD_HEAP
+# define ERTS_HOLE_MARKER (0xaf5e78ccU)
+#else
 # define ERTS_HOLE_MARKER (((0xaf5e78ccUL << 24) << 8) | 0xaf5e78ccUL)
+#endif
 #endif
 
 /*
@@ -184,6 +196,7 @@ extern int BIN_VH_MIN_SIZE;	/* minimum virtual (bin) heap */
 extern int erts_atom_table_size;/* Atom table size */
 
 #define ORIG_CREATION 0
+#define INTERNAL_CREATION 255
 
 /* macros for extracting bytes from uint16's */
 

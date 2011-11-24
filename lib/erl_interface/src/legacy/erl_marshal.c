@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1996-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 /*
@@ -26,6 +26,7 @@
 #include <ctype.h>
 #include <sys/types.h>
 #include <string.h>
+#include <limits.h>
 
 #include "erl_interface.h"
 #include "erl_marshal.h"
@@ -102,6 +103,7 @@ void erl_init_marshal(void)
     cmp_array[ERL_SMALL_INTEGER_EXT] = 1;
     cmp_array[ERL_INTEGER_EXT]       = 1;
     cmp_array[ERL_FLOAT_EXT]         = 1;
+    cmp_array[NEW_FLOAT_EXT]         = 1;
     cmp_array[ERL_SMALL_BIG_EXT]     = 1;
     cmp_array[ERL_LARGE_BIG_EXT]     = 1;
     cmp_array[ERL_ATOM_EXT]          = 2;
@@ -124,6 +126,7 @@ void erl_init_marshal(void)
     cmp_num_class[ERL_SMALL_INTEGER_EXT] = SMALL;
     cmp_num_class[ERL_INTEGER_EXT]       = SMALL;
     cmp_num_class[ERL_FLOAT_EXT]         = FLOAT;
+    cmp_num_class[NEW_FLOAT_EXT]         = FLOAT;
     cmp_num_class[ERL_SMALL_BIG_EXT]     = BIG;
     cmp_num_class[ERL_LARGE_BIG_EXT]     = BIG;
     init_cmp_num_class_p = 0;
@@ -176,26 +179,14 @@ int erl_encode_it(ETERM *ep, unsigned char **ext, int dist)
 	return 0;
 
     case ERL_INTEGER:
-	i = ep->uval.ival.i;
-	/* ERL_SMALL_BIG */
-	if ((i > ERL_MAX) || (i < ERL_MIN)) { 
-	    *(*ext)++ = ERL_SMALL_BIG_EXT;
-	    *(*ext)++ = 4;		/* four bytes */
-	    if ((*(*ext)++ = ((i>>31) & 0x01))) /* sign byte  */ 
-	      i = -i;
-	    *(*ext)++ = i  & 0xff;	/* LSB first  */
-	    *(*ext)++ = (i >> 8) & 0xff;
-	    *(*ext)++ = (i >> 16) & 0xff;
-	    *(*ext)++ = (i >> 24) & 0x7f; /* Don't include the sign bit */
-	    return 0;
-	} 
+	i = ep->uval.ival.i;	
 	/* SMALL_INTEGER */
 	if ((i < 256) && (i >= 0)) {
 	    *(*ext)++ = ERL_SMALL_INTEGER_EXT;
 	    *(*ext)++ = i & 0xff;
 	    return 0;
 	}
-	/* INTEGER */
+	/* R14B: Use all 32 bits of INTEGER_EXT */
 	*(*ext)++ = ERL_INTEGER_EXT;
 	*(*ext)++ = (i >> 24) & 0xff;
 	*(*ext)++ = (i >> 16) & 0xff;
@@ -206,23 +197,23 @@ int erl_encode_it(ETERM *ep, unsigned char **ext, int dist)
     case ERL_U_INTEGER:
 	u = ep->uval.uival.u;
 	/* ERL_U_SMALL_BIG */
-	if (u > ERL_MAX) {
-	*(*ext)++ = ERL_SMALL_BIG_EXT;
-	*(*ext)++ = 4;		/* four bytes */
-	*(*ext)++ = 0;		/* sign byte  */ 
-	*(*ext)++ = u  & 0xff;	/* LSB first  */
-	*(*ext)++ = (u >> 8) & 0xff;
-	*(*ext)++ = (u >> 16) & 0xff;
-	*(*ext)++ = (u >> 24) & 0xff; 
-	return 0;
+	if ((int)u < 0) {
+	    *(*ext)++ = ERL_SMALL_BIG_EXT;
+	    *(*ext)++ = 4;		/* four bytes */
+	    *(*ext)++ = 0;		/* sign byte  */ 
+	    *(*ext)++ = u  & 0xff;	/* LSB first  */
+	    *(*ext)++ = (u >> 8) & 0xff;
+	    *(*ext)++ = (u >> 16) & 0xff;
+	    *(*ext)++ = (u >> 24) & 0xff; 
+	    return 0;
 	}
 	/* SMALL_INTEGER */
-	if ((u < 256) && (u >= 0)) {
+	if (u < 256) {
 	    *(*ext)++ = ERL_SMALL_INTEGER_EXT;
 	    *(*ext)++ = u & 0xff;
 	    return 0;
 	}
-	/* INTEGER */
+	/* R14B: Use all 32 bits of INTEGER_EXT */
 	*(*ext)++ = ERL_INTEGER_EXT;
 	*(*ext)++ = (u >> 24) & 0xff;
 	*(*ext)++ = (u >> 16) & 0xff;
@@ -232,29 +223,28 @@ int erl_encode_it(ETERM *ep, unsigned char **ext, int dist)
     case ERL_LONGLONG:
 	l = ep->uval.llval.i;
 	/* ERL_SMALL_BIG */
-	if ((l > ((long long) ERL_MAX)) ||
-	    (l < ((long long) ERL_MIN))) { 
-	    *(*ext)++ = ERL_SMALL_BIG_EXT; 
-	    *(*ext)++ = 8;              /* eight bytes */ 
-	    if ((*(*ext)++ = ((l>>63) & 0x01))) /* sign byte  */ 
+	if (l > ((long long) INT_MAX) || l < ((long long) INT_MIN)) {
+	    *(*ext)++ = ERL_SMALL_BIG_EXT;
+	    *(*ext)++ = 8;
+	    if ((*(*ext)++ = (l<0))) /* sign byte  */ 
 	    	l = -l;
-	    *(*ext)++ = l  & 0xff;      /* LSB first  */
+	    *(*ext)++ =  l        & 0xff; /* LSB first  */
 	    *(*ext)++ = (l >>  8) & 0xff;
 	    *(*ext)++ = (l >> 16) & 0xff;
-	    *(*ext)++ = (l >> 24) & 0xff;
-	    *(*ext)++ = (l >> 32) & 0xff;
-	    *(*ext)++ = (l >> 40) & 0xff;
-	    *(*ext)++ = (l >> 48) & 0xff;
-	    *(*ext)++ = (l >> 56) & 0x7f; /* Don't include the sign bit */
+	    *(*ext)++ = (l >> 24) & 0xff; 
+	    *(*ext)++ = (l >> 32) & 0xff; 
+	    *(*ext)++ = (l >> 40) & 0xff; 
+	    *(*ext)++ = (l >> 48) & 0xff; 
+	    *(*ext)++ = (l >> 56) & 0xff; 
 	    return 0;
 	} 
 	/* SMALL_INTEGER */
 	if ((l < 256) && (l >= 0)) {
-	*(*ext)++ = ERL_SMALL_INTEGER_EXT;
-	*(*ext)++ = l & 0xff;
-	return 0;
+	    *(*ext)++ = ERL_SMALL_INTEGER_EXT;
+	    *(*ext)++ = l & 0xff;
+	    return 0;
 	}
-	/* INTEGER */
+	/* R14B: Use all 32 bits of INTEGER_EXT */
 	*(*ext)++ = ERL_INTEGER_EXT;
 	*(*ext)++ = (l >> 24) & 0xff;
 	*(*ext)++ = (l >> 16) & 0xff;
@@ -265,7 +255,7 @@ int erl_encode_it(ETERM *ep, unsigned char **ext, int dist)
     case ERL_U_LONGLONG:
 	ul = ep->uval.ullval.u;
 	/* ERL_U_SMALL_BIG */
-	if (ul > ((unsigned long long) ERL_MAX)) {
+	if (ul > ((unsigned long long) INT_MAX)) {
 	    *(*ext)++ = ERL_SMALL_BIG_EXT;
 	    *(*ext)++ = 8; /* eight bytes */
 	    *(*ext)++ = 0; /* sign byte  */ 
@@ -285,7 +275,7 @@ int erl_encode_it(ETERM *ep, unsigned char **ext, int dist)
 	    *(*ext)++ = ul & 0xff;
 	    return 0;
 	}
-	/* INTEGER */
+	/* R14B: Use all 32 bits of INTEGER_EXT */
 	*(*ext)++ = ERL_INTEGER_EXT;
 	*(*ext)++ = (ul >> 24) & 0xff;
 	*(*ext)++ = (ul >> 16) & 0xff;
@@ -521,29 +511,28 @@ static int erl_term_len_helper(ETERM *ep, int dist)
 
     case ERL_INTEGER:
       i = ep->uval.ival.i;
-      if ((i > ERL_MAX) || (i < ERL_MIN)) len = 7;
-      else if ((i < 256) && (i >= 0)) len = 2; 
+      if ((i < 256) && (i >= 0)) len = 2; 
       else len = 5;
       break;
 
     case ERL_U_INTEGER:
       u = ep->uval.uival.u;
-      if (u > ERL_MAX) len = 7;
+      if ((int)u < 0) len = 7;
       else if (u  < 256) len = 2;
       else len = 5;
       break;
 
     case ERL_LONGLONG:
       l = ep->uval.llval.i;
-      if ((l > ((long long) ERL_MAX)) || 
-         (l < ((long long) ERL_MIN))) len = 11;
+      if ((l > ((long long) INT_MAX)) || 
+         (l < ((long long) INT_MIN))) len = 11;
       else if ((l < 256) && (l >= 0)) len = 2; 
       else len = 5;
       break;
 
     case ERL_U_LONGLONG:
       ul = ep->uval.ullval.u;
-      if (ul > ((unsigned long long) ERL_MAX)) len = 11;
+      if (ul > ((unsigned long long) INT_MAX)) len = 11;
       else if (ul  < 256) len = 2;
       else len = 5;
       break;
@@ -556,12 +545,7 @@ static int erl_term_len_helper(ETERM *ep, int dist)
 
     case ERL_REF:
       i = strlen((char *)ERL_REF_NODE(ep));
-      if (dist >= 4 && ERL_REF_LEN(ep) > 1) {
-	  len = 1 + 2 + (i+3) + 1 + ERL_REF_LEN(ep) * 4;
-      } else {
-	  /* 1 + N + 4 + 1 where N = 3 + strlen */
-	  len = 9 + i;
-      }
+      len = 1 + 2 + (i+3) + 1 + ERL_REF_LEN(ep) * 4;
       break;
 
     case ERL_PORT:
@@ -678,7 +662,7 @@ len = i
 #define STATIC_NODE_BUF_SZ 30
 
 #define SET_NODE(node,node_buf,cp,len) \
-if (len >= STATIC_NODE_BUF_SZ) node = malloc(len+1); \
+if (len >= STATIC_NODE_BUF_SZ) node = erl_malloc(len+1); \
 else node = node_buf; \
 memcpy(node, cp, len); \
 node[len] = '\0'
@@ -730,11 +714,6 @@ static ETERM *erl_decode_it(unsigned char **ext)
 	if (arity > 8)             
 	    goto big_truncate;
 
-	if (arity == 8 && ((*ext)[7] & 0x80) && sign) {
-	    /* MSB already occupied ! */
-	    goto big_truncate;
-	}
-
 	if (arity == 4 && ((*ext)[3] & 0x80) && !sign) {
 	    /* It will fit into an unsigned int !! */
 	    u = (((*ext)[3] << 24)|((*ext)[2])<< 16|((*ext)[1]) << 8 |(**ext));
@@ -745,14 +724,10 @@ static ETERM *erl_decode_it(unsigned char **ext)
 	    return ep;
 	} else if (arity == 4 && !((*ext)[3] & 0x80)) {
 	    /* It will fit into an int !! 
-	     * Note: It comes in "one's-complement notation" 
 	     */
-	    if (sign)
-		i = (int) (~(((*ext)[3] << 24) | ((*ext)[2])<< 16 |
-			     ((*ext)[1]) << 8 | (**ext)) | (unsigned int) sign);
-	    else
-		i = (int) (((*ext)[3] << 24) | ((*ext)[2])<< 16 |
-			   ((*ext)[1]) << 8 | (**ext));
+	    i = (int) (((*ext)[3] << 24) | ((*ext)[2])<< 16 |
+		       ((*ext)[1]) << 8 | (**ext));
+	    if (sign) i = -i;
 	    ERL_TYPE(ep) = ERL_INTEGER;
 	    ep->uval.ival.i = i;
 	    *ext += arity;
@@ -778,8 +753,10 @@ static ETERM *erl_decode_it(unsigned char **ext)
 	    for(x = 0 ; x < arity ; x++) {
 		l |= ((long long)(*ext)[x]) << ((long long)(8*x));
 	    }
-
-	    if (sign) l = (long long) (~l | (unsigned long long) sign);
+	    if (sign) {
+		l = -l;
+		if (l > 0) goto big_truncate;
+	    }
 
 	    ERL_TYPE(ep) = ERL_LONGLONG;
 	    ep->uval.llval.i = l;
@@ -1008,10 +985,13 @@ static ETERM *erl_decode_it(unsigned char **ext)
 	return ep;
 
     case ERL_FLOAT_EXT:
+    case NEW_FLOAT_EXT:
 	ERL_TYPE(ep) = ERL_FLOAT;
-	if (sscanf((char *) *ext, "%lf", &ff) != 1)
+	cp = (char *) *ext;
+	i = -1;
+	if (ei_decode_double(cp, &i, &ff) == -1)
 	    goto failure;
-	*ext += 31;
+	*ext += i;
 	ep->uval.fval.f = ff;
 	return ep;
 
@@ -1176,6 +1156,7 @@ unsigned char erl_ext_type(unsigned char *ext)
     case ERL_LARGE_TUPLE_EXT:
 	return ERL_TUPLE;
     case ERL_FLOAT_EXT:
+    case NEW_FLOAT_EXT:
 	return ERL_FLOAT;
     case ERL_BINARY_EXT:
 	return ERL_BINARY;
@@ -1218,6 +1199,7 @@ int erl_ext_size(unsigned char *t)
     case ERL_BINARY_EXT:
     case ERL_STRING_EXT:
     case ERL_FLOAT_EXT:
+    case NEW_FLOAT_EXT:
     case ERL_SMALL_BIG_EXT:
     case ERL_LARGE_BIG_EXT:
 	return 0;
@@ -1331,6 +1313,9 @@ static int jump(unsigned char **ext)
 	break;
     case ERL_FLOAT_EXT:
 	*ext += 31;
+	break;
+    case NEW_FLOAT_EXT:
+	*ext += 8;
 	break;
     case ERL_BINARY_EXT:
 	i = (**ext << 24) | ((*ext)[1] << 16) |((*ext)[2] << 8) | (*ext)[3];
@@ -1549,7 +1534,7 @@ static int cmp_string_list(unsigned char **e1, unsigned char **e2) {
   if ( e1_len < 256 ) {
     bp = buf;
   } else {
-    bp = malloc(5+(2*e1_len)+1);
+    bp = erl_malloc(5+(2*e1_len)+1);
   }
 
   bp[0] = ERL_LIST_EXT;
@@ -1661,11 +1646,14 @@ static int cmp_exe2(unsigned char **e1, unsigned char **e2)
       min = (i < j) ? i : j;
       k = 0;
       while (1) {
-	if (k++ == min)
-	  return compare_top_ext(e1 , e2);
-	if ((ret = compare_top_ext(e1 , e2)) == 0) 
-	  continue;
-	return ret;
+	  if (k++ == min){
+	      if (i == j) return 0;
+	      if (i < j) return -1;
+	      return 1;
+	  }
+	  if ((ret = compare_top_ext(e1 , e2)) == 0)
+	      continue;
+	  return ret;
       }
     case ERL_STRING_EXT:
       i = (**e1 << 8) | ((*e1)[1]);
@@ -1696,12 +1684,15 @@ static int cmp_exe2(unsigned char **e1, unsigned char **e2)
       }
       return 0;
     case ERL_FLOAT_EXT:
-      if (sscanf((char *) *e1, "%lf", &ff1) != 1)
-	return -1;
-      *e1 += 31;
-      if (sscanf((char *) *e2, "%lf", &ff2) != 1)
-	return -1;
-      *e2 += 31;
+    case NEW_FLOAT_EXT:
+      i = -1;
+      if (ei_decode_double((char *) *e1, &i, &ff1) != 0)
+        return -1;
+      *e1 += i;
+      j = -1;
+      if (ei_decode_double((char *) *e2, &j, &ff2) != 0)
+        return -1;
+      *e2 += j;
       return cmp_floats(ff1,ff2);
 
     case ERL_BINARY_EXT:
@@ -1896,8 +1887,11 @@ static int cmp_big_big(unsigned char**e1, unsigned char **e2)
     ei_get_type((char *)*e1,&i1,&t1,&n1);
     ei_get_type((char *)*e2,&i2,&t2,&n2);
     
-    b1 = ei_alloc_big(n1);
-    b2 = ei_alloc_big(n2);
+    if ( (b1 = ei_alloc_big(n1)) == NULL) return -1;
+    if ( (b2 = ei_alloc_big(n2)) == NULL) {
+        ei_free_big(b1);
+        return 1;
+    }
     
     ei_decode_big((char *)*e1,&i1,b1);
     ei_decode_big((char *)*e2,&i2,b2);

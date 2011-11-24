@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2010. All Rights Reserved.
+# Copyright Ericsson AB 1996-2011. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -58,6 +58,7 @@ MODULES =  \
 	beam_listing \
 	beam_opcodes \
 	beam_peep \
+	beam_receive \
 	beam_trim \
 	beam_type \
 	beam_utils \
@@ -117,7 +118,9 @@ APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
 ifeq ($(NATIVE_LIBS_ENABLED),yes)
 ERL_COMPILE_FLAGS += +native
 endif
-ERL_COMPILE_FLAGS += +inline +warn_unused_import -I../../stdlib/include -I$(EGEN) -W
+ERL_COMPILE_FLAGS += +inline +warn_unused_import \
+ +warnings_as_errors \
+ -I../../stdlib/include -I$(EGEN) -W
 
 # ----------------------------------------------------
 # Targets

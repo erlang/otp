@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2003-2009. All Rights Reserved.
+ * Copyright Ericsson AB 2003-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -43,9 +43,9 @@
 
 /* Prototypes of callback functions */
 static Block_t *	get_free_block		(Allctr_t *, Uint,
-						 Block_t *, Uint);
-static void		link_free_block		(Allctr_t *, Block_t *);
-static void		unlink_free_block	(Allctr_t *, Block_t *);
+						 Block_t *, Uint, Uint32);
+static void		link_free_block		(Allctr_t *, Block_t *, Uint32);
+static void		unlink_free_block	(Allctr_t *, Block_t *, Uint32);
 
 
 static Eterm		info_options		(Allctr_t *, char *, int *,
@@ -65,14 +65,20 @@ erts_afalc_start(AFAllctr_t *afallctr,
 		 AFAllctrInit_t *afinit,
 		 AllctrInit_t *init)
 {
-    AFAllctr_t nulled_state = {{0}};
-    /* {{0}} is used instead of {0}, in order to avoid (an incorrect) gcc
-       warning. gcc warns if {0} is used as initializer of a struct when
-       the first member is a struct (not if, for example, the third member
-       is a struct). */
+    struct {
+	int dummy;
+	AFAllctr_t allctr;
+    } zero = {0};
+    /* The struct with a dummy element first is used in order to avoid (an
+       incorrect) gcc warning. gcc warns if {0} is used as initializer of
+       a struct when the first member is a struct (not if, for example,
+       the third member is a struct). */
+
     Allctr_t *allctr = (Allctr_t *) afallctr;
 
-    sys_memcpy((void *) afallctr, (void *) &nulled_state, sizeof(AFAllctr_t));
+    sys_memcpy((void *) afallctr, (void *) &zero.allctr, sizeof(AFAllctr_t));
+
+    init->sbmbct = 0; /* Small mbc not supported by afit */
 
     allctr->mbc_header_size		= sizeof(Carrier_t);
     allctr->min_mbc_size		= MIN_MBC_SZ;
@@ -105,7 +111,8 @@ erts_afalc_start(AFAllctr_t *afallctr,
 }
 
 static Block_t *
-get_free_block(Allctr_t *allctr, Uint size, Block_t *cand_blk, Uint cand_size)
+get_free_block(Allctr_t *allctr, Uint size, Block_t *cand_blk, Uint cand_size,
+	       Uint32 flags)
 {
     AFAllctr_t *afallctr = (AFAllctr_t *) allctr;
 
@@ -123,7 +130,7 @@ get_free_block(Allctr_t *allctr, Uint size, Block_t *cand_blk, Uint cand_size)
 }
 
 static void
-link_free_block(Allctr_t *allctr, Block_t *block)
+link_free_block(Allctr_t *allctr, Block_t *block, Uint32 flags)
 {
     AFFreeBlock_t *blk = (AFFreeBlock_t *) block;
     AFAllctr_t *afallctr = (AFAllctr_t *) allctr;
@@ -144,7 +151,7 @@ link_free_block(Allctr_t *allctr, Block_t *block)
 }
 
 static void
-unlink_free_block(Allctr_t *allctr, Block_t *block)
+unlink_free_block(Allctr_t *allctr, Block_t *block, Uint32 flags)
 {
     AFFreeBlock_t *blk = (AFFreeBlock_t *) block;
     AFAllctr_t *afallctr = (AFAllctr_t *) allctr;

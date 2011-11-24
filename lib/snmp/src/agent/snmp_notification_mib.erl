@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,6 +18,8 @@
 %%
 -module(snmp_notification_mib).
 
+%% Avoid warning for local function error/1 clashing with autoimported BIF.
+-compile({no_auto_import,[error/1]}).
 -export([configure/1, reconfigure/1, invalidate_cache/0,
 	 snmpNotifyTable/1, snmpNotifyTable/3,
 	 snmpNotifyFilterTable/3, snmpNotifyFilterProfileTable/3,
@@ -271,9 +273,12 @@ find_targets(Key, TargAddrs, Db, Res) ->
 get_targets([{TagList, Addr, TargetName, Params, Timeout, Retry}|T],
 	    Tag, Type, Name) ->
     case snmp_misc:is_tag_member(Tag, TagList) of
-	true -> [{Name, {Addr, TargetName, Params, type(Type, Timeout, Retry)}}|
-		 get_targets(T, Tag, Type, Name)];
+	true -> 
+	    ?vtrace("tag ~w *is* member", [Tag]),
+	    [{Name, {Addr, TargetName, Params, type(Type, Timeout, Retry)}}|
+	     get_targets(T, Tag, Type, Name)];
 	false ->
+	    ?vtrace("tag ~w is *not* member", [Tag]),
 	    get_targets(T, Tag, Type, Name)
     end;
 get_targets([], _Tag, _Type, _Name) ->

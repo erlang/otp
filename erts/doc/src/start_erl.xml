@@ -4,7 +4,7 @@
 <comref>
   <header>
     <copyright>
-      <year>1998</year><year>2009</year>
+      <year>1998</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -69,12 +69,29 @@
           <c><![CDATA[erl]]></c> program. Everything <em>after</em><c><![CDATA[++]]></c> is
            interpreted as options to <c><![CDATA[start_erl]]></c> itself.</item>
           <tag>-reldir &lt;release root&gt;</tag>
-          <item>Mandatory if the environment variable <c><![CDATA[RELDIR]]></c> is not
-           specified. Tells start_erl where the root of the
-           release tree is placed in the file-system 
-           (like &lt;Erlang root&gt;\\releases). The
-          <c><![CDATA[start_erl.data]]></c> file is expected to be placed in
-           this directory (if not otherwise specified).</item>
+
+          <item>Mandatory if the environment variable
+          <c><![CDATA[RELDIR]]></c> is not specified and no
+          <c>-rootdir</c> option is given. Tells start_erl where the
+          root of the release tree is placed in the file-system (typically
+          &lt;Erlang root&gt;\\releases). The
+          <c><![CDATA[start_erl.data]]></c> file is expected to be
+          placed in this directory (if not otherwise specified). If
+          only the <c>-rootdir</c> option is given, the directory is
+          assumed to be &lt;Erlang root&gt;\\releases.</item>
+
+	  <tag>-rootdir &lt;Erlang root directory&gt;</tag> 
+
+	  <item>Mandatory if <c>-reldir</c> is not given and there is
+	  no <c><![CDATA[RELDIR]]></c> in the environment. This
+	  specifies the Erlang installation root directory (under
+	  which the <c>lib</c>, <c>releases</c> and
+	  <c>erts-&lt;Version&gt;</c> directories are placed). If only
+	  <c>-reldir</c> (or the environment variable
+	  <c><![CDATA[RELDIR]]></c>) is given, the Erlang root is assumed to
+	  be the directory exactly one level above the release
+	  directory.</item>
+
           <tag>-data &lt;data file name&gt;</tag>
           <item>Optional, specifies another data file than start_erl.data
            in the &lt;release root&gt;. It is specified relative to the

@@ -1,24 +1,23 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2001-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2001-2011. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
-/*
- * $Id$
- */
+
+
 #ifndef HIPE_X86_GLUE_H
 #define HIPE_X86_GLUE_H
 
@@ -186,6 +185,25 @@ hipe_call_from_native_is_recursive(Process *p, Eterm reg[])
     }
     return 0;
 }
+
+/* BEAM called native, which called BIF that returned trap
+ * Discard bif parameters.
+ * If tailcall, also clean up native stub continuation. */
+static __inline__ int
+hipe_trap_from_native_is_recursive(Process *p)
+{
+    Eterm nra = *(p->hipe.nsp++);
+
+    if (p->hipe.narity > NR_ARG_REGS) {
+	p->hipe.nsp += (p->hipe.narity - NR_ARG_REGS);
+    }
+    if (nra != (Eterm)nbif_return) {
+	*--(p->hipe.nsp) = nra;
+	return 1;
+    }
+    return 0;
+}
+
 
 /* Native makes a call which needs to unload the parameters.
    This differs from hipe_call_from_native_is_recursive() in

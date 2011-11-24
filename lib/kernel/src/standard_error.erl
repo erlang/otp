@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2009-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(standard_error).
@@ -24,8 +24,6 @@
 
 -define(NAME, standard_error).
 -define(PROCNAME_SUP, standard_error_sup).
-%% Internal exports
--export([server/1, server/2]).
 
 %% Defines for control ops
 -define(CTRL_OP_GET_WINSIZE,100).
@@ -33,12 +31,18 @@
 %%
 %% The basic server and start-up.
 %%
+-spec start_link() -> 'ignore' | {'error',term()} | {'ok',pid()}.
+
 start_link() ->
     supervisor_bridge:start_link({local, ?PROCNAME_SUP}, ?MODULE, []).
+
+-spec terminate(term(), pid()) -> 'ok'.
 
 terminate(_Reason,Pid) ->
     (catch exit(Pid,kill)),
     ok.
+
+-spec init([]) -> {'error','no_stderror'} | {'ok',pid(),pid()}.
 
 init([]) ->
     case (catch start_port([out,binary])) of
@@ -48,17 +52,10 @@ init([]) ->
 	    {error,no_stderror}
     end.
 
-
 start_port(PortSettings) ->
-    Id = spawn(?MODULE,server,[{fd,2,2},PortSettings]),
-    register(?NAME,Id),
+    Id = spawn(fun () -> server({fd,2,2}, PortSettings) end),
+    register(?NAME, Id),
     Id.
-
-
-server(Pid) when is_pid(Pid) ->
-    process_flag(trap_exit, true),
-    link(Pid),
-    run(Pid).
 
 server(PortName,PortSettings) ->
     process_flag(trap_exit, true),
@@ -82,16 +79,14 @@ server_loop(Port) ->
 	    server_loop(Port)
     end.
 
-
 get_fd_geometry(Port) ->
     case (catch port_control(Port,?CTRL_OP_GET_WINSIZE,[])) of
-	List when is_list(List), length(List) =:= 8 -> 
+	List when length(List) =:= 8 ->
 	    <<W:32/native,H:32/native>> = list_to_binary(List),
 	    {W,H};
 	_ ->
 	    error
     end.
-
 
 %% NewSaveBuffer = io_request(Request, FromPid, ReplyAs, Port, SaveBuffer)
 
@@ -221,12 +216,7 @@ do_setopts(Opts, _Port) ->
     {ok,ok}.
 
 getopts(_Port) ->
-    Uni = {unicode, case get(unicode) of
-		       true ->
-			   true;
-		       _ ->
-			   false
-		   end},
+    Uni = {unicode, get(unicode) =:= true},
     {ok,[Uni]}.
 
 wrap_characters_to_binary(Chars,From,To) ->

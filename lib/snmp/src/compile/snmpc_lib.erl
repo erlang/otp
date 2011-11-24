@@ -1,25 +1,27 @@
 %% 
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %% 
 
 -module(snmpc_lib).
 
 %% API
+%% Avoid warning for local function error/2 clashing with autoimported BIF.
+-compile({no_auto_import,[error/2]}).
 -export([test_father/4, make_ASN1type/1, import/1, makeInternalNode2/2,
 	 is_consistent/1, resolve_defval/1, make_variable_info/1,
 	 check_trap_name/3, make_table_info/4, get_final_mib/2, set_dir/2,
@@ -125,7 +127,8 @@ test_kibbles(Kibbles,Line) ->
 
 test_kibbles2([],_,_) ->
     ok;
-test_kibbles2([{_KibbleName,BitNo}|Ks],BitNo,Line) ->
+test_kibbles2([{_KibbleName,BitNo}|Ks],ExpectBitNo,Line)
+  when BitNo >= ExpectBitNo ->
     test_kibbles2(Ks,BitNo+1,Line);
 test_kibbles2([{_KibbleName,BitNo}|_Ks],ExpectBitNo,Line) ->
     print_error("Expected kibble no ~p but got ~p.",[ExpectBitNo,BitNo],Line).
@@ -303,7 +306,10 @@ import_mib({{'SNMPv2-TC', ImportsFromMib},Line}) ->
     Macros = ['TEXTUAL-CONVENTION'],
     import_built_in_loop(ImportsFromMib,Nodes,Types,Macros,'SNMPv2-TC',Line);
 import_mib({{'SNMPv2-CONF', ImportsFromMib},Line}) ->
-    Macros = ['OBJECT-GROUP','NOTIFICATION-GROUP','MODULE-COMPLIANCE'],
+    Macros = ['OBJECT-GROUP',
+	      'NOTIFICATION-GROUP',
+	      'MODULE-COMPLIANCE', 
+	      'AGENT-CAPABILITIES'],
     import_built_in_loop(ImportsFromMib,[],[],Macros,'SNMPv2-CONF',Line);
 import_mib({{'RFC1155-SMI', ImportsFromMib},Line}) ->
     Nodes = [makeInternalNode(internet, [1,3,6,1]),
@@ -1748,12 +1754,12 @@ error(FormatStr, Data, Line) when is_list(FormatStr) ->
     exit(error).
 
 print_error(FormatStr, Data) when is_list(FormatStr) ->
-    ok = io:format("~s: Error: " ++ FormatStr,[get(filename)|Data]),
+    ok = io:format("~s: " ++ FormatStr,[get(filename)|Data]),
     put(errors,yes),
     io:format("~n").
     
 print_error(FormatStr, Data,Line) when is_list(FormatStr) ->
-    ok = io:format("~s: ~w: Error: " ++ FormatStr,[get(filename), Line |Data]),
+    ok = io:format("~s: ~w: " ++ FormatStr,[get(filename), Line |Data]),
     put(errors,yes),
     io:format("~n").
 

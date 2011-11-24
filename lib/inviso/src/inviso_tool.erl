@@ -1,25 +1,25 @@
-% ``The contents of this file are subject to the Erlang Public License,
+%% %CopyrightBegin%
+%% 
+%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
+%% 
+%% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
-%% retrieved via the world wide web at http://www.erlang.org/.
+%% retrieved online at http://www.erlang.org/.
 %% 
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
 %% 
-%% The Initial Developer of the Original Code is Ericsson Utvecklings AB.
-%% Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
-%% AB. All Rights Reserved.''
-%% 
-%%     $Id$
+%% %CopyrightEnd%
 %%
 %% Description:
 %% The inviso_tool implementation. A tool that uses inviso.
 %%
 %% Authors:
-%% Lennart Öhman, lennart.ohman@st.se
+%% Lennart Ã–hman, lennart.ohman@st.se
 %% -----------------------------------------------------------------------------
 
 -module(inviso_tool).
@@ -267,9 +267,9 @@ stop(UntouchedNodes) ->
 %% tracing.
 reconnect_nodes() ->
     gen_server:call(?MODULE,{reconnect_nodes,local_runtime},?CALL_TIMEOUT).
-reconnect_nodes(Node) when atom(Node) ->
+reconnect_nodes(Node) when is_atom(Node) ->
     reconnect_nodes([Node]);
-reconnect_nodes(Nodes) when list(Nodes) ->
+reconnect_nodes(Nodes) when is_list(Nodes) ->
     gen_server:call(?MODULE,{reconnect_nodes,Nodes},?CALL_TIMEOUT).
 %% -----------------------------------------------------------------------------
 
@@ -572,7 +572,7 @@ reactivator_reply(TPid,Counter) ->
 
 init(Config) ->
     case fetch_configuration(Config) of     % From conf-file and Config.
-	{ok,LD} when record(LD,ld) ->
+	{ok,LD} when is_record(LD,ld) ->
 	    case start_inviso_at_c_node(LD) of
 		{ok,CPid} ->
 		    LD2=start_runtime_components(LD),
@@ -650,7 +650,7 @@ start_runtime_components_2([],_,LD) ->
 
 start_runtime_components_mk_opts(Node,{M,F,Args}) ->
     case catch apply(M,F,[Node|Args]) of
-	{ok,Opts} when list(Opts) ->
+	{ok,Opts} when is_list(Opts) ->
 	    start_runtime_component_mk_opts_add_dependency(Opts);
 	_ ->
 	    [?DEFAULT_DEPENDENCY]
@@ -698,7 +698,7 @@ handle_call({reconnect_nodes,Nodes},_From,LD) ->
 		    {reply,
 		     build_reconnect_nodes_reply(Nodes,Nodes2,NodesErr,NewLD#ld.nodes),
 		     NewLD};
-		list(Nodes) ->
+		is_list(Nodes) ->
 		    {reply,
 		     {ok,build_reconnect_nodes_reply(Nodes,Nodes2,NodesErr,NewLD#ld.nodes)},
 		     NewLD}
@@ -711,7 +711,7 @@ handle_call({start_session,MoreTDGargs},_From,LD=#ld{session_state=SState}) ->
     case is_tracing(SState) of
 	false ->                               % No session running.
 	    if
-		list(MoreTDGargs) ->
+		is_list(MoreTDGargs) ->
 		    DateTime=calendar:universal_time(),
 		    {M,F,Args}=LD#ld.tdg,
 		    TDGargs=inviso_tool_lib:mk_tdg_args(DateTime,MoreTDGargs++Args),
@@ -757,15 +757,15 @@ handle_call({reinitiate_session,Nodes},_From,LD=#ld{session_state=SState}) ->
     end;
 
 handle_call({restore_session,{FileName,MoreTDGargs}},_From,LD=#ld{chl=OldCHL})
-  when list(MoreTDGargs) ->
+  when is_list(MoreTDGargs) ->
     case is_tracing(LD#ld.session_state) of
 	false ->
 	    case catch make_absolute_path(FileName,LD#ld.dir) of
-		AbsFileName when list(AbsFileName) ->
+		AbsFileName when is_list(AbsFileName) ->
 		    case file:read_file(AbsFileName) of
 			{ok,Bin} ->
 			    if
-				list(MoreTDGargs) ->
+				is_list(MoreTDGargs) ->
 				    case catch replace_history_chl(OldCHL,
 								   binary_to_term(Bin)) of
 					{ok,CHL} -> % The file was well formatted.
@@ -803,7 +803,7 @@ handle_call({restore_session,MoreTDGargs},_From,LD=#ld{chl=CHL}) ->
 	    case history_exists_chl(CHL) of
 		true ->                        % There is a history to redo.
 		    if
-			list(MoreTDGargs) ->
+			is_list(MoreTDGargs) ->
 			    case h_restore_session(MoreTDGargs,LD) of
 				{ok,{SessionNr,ReturnVal,NewLD}} ->
 				    {reply,
@@ -879,7 +879,7 @@ handle_call({sync_atc,{TC,Id,Vars,TimeOut}},_From,LD=#ld{session_state=SState}) 
     case is_tracing(SState) of
 	true ->
 	    if
-		integer(TimeOut);TimeOut==infinity ->
+		is_integer(TimeOut);TimeOut==infinity ->
 		    case h_sync_atc(TC,Id,Vars,TimeOut,LD) of
 			{ok,NewLD,Result} ->
 			    {reply,Result,NewLD};
@@ -897,7 +897,7 @@ handle_call({sync_rtc,{TC,Vars,TimeOut}},_From,LD=#ld{session_state=SState}) ->
     case is_tracing(SState) of
 	true ->
 	    if
-		integer(TimeOut);TimeOut==infinity ->
+		is_integer(TimeOut);TimeOut==infinity ->
 		    case h_sync_rtc(TC,Vars,TimeOut,LD) of
 			{ok,NewLD,Result} ->
 			    {reply,Result,NewLD};
@@ -929,7 +929,7 @@ handle_call({sync_dtc,{TC,Id,TimeOut}},_From,LD=#ld{session_state=SState}) ->
     case is_tracing(SState) of              % Check that we are tracing now.
 	true ->
 	    if
-		integer(TimeOut);TimeOut==infinity ->
+		is_integer(TimeOut);TimeOut==infinity ->
 		    case h_sync_dtc(TC,Id,TimeOut,LD) of
 			{ok,NewLD,Result} ->
 			    {reply,Result,NewLD};
@@ -947,7 +947,7 @@ handle_call({inviso,{Cmd,Args}},_From,LD=#ld{session_state=SState}) ->
     case is_tracing(SState) of
 	true ->
 	    if
-		list(Args) ->
+		is_list(Args) ->
 		    case h_inviso(Cmd,Args,LD) of
 			{ok,{Reply,NewLD}} ->
 			    {reply,Reply,NewLD};
@@ -1000,19 +1000,14 @@ handle_call({save_history,FileName},_From,LD=#ld{chl=CHL,dir=Dir,history_dir=HDi
 	    end
     end;
 
-
 handle_call({get_autostart_data,{Nodes,Dependency}},_From,LD=#ld{chl=CHL}) ->
-    case build_autostart_data(lists:keysort(2,get_loglist_chl(CHL)),LD#ld.tc_dict) of
-	{ok,ASD} ->
-	    TDGargs=get_latest_tdgargs_tracer_data(LD#ld.tracer_data),
-	    {M,F,_}=LD#ld.tdg,
-	    OptsG=LD#ld.optg,                       % Addnodes options generator.
-	    {reply,
-	     h_get_autostart_data(Nodes,LD#ld.c_node,Dependency,ASD,M,F,TDGargs,OptsG),
-	     LD};
-	{error,Reason} ->                           % Bad datatypes in command args.
-	    {reply,{error,Reason},LD}
-    end;
+    {ok,ASD} = build_autostart_data(lists:keysort(2,get_loglist_chl(CHL)),LD#ld.tc_dict),
+    TDGargs=get_latest_tdgargs_tracer_data(LD#ld.tracer_data),
+    {M,F,_}=LD#ld.tdg,
+    OptsG=LD#ld.optg,                       % Addnodes options generator.
+    {reply,
+     h_get_autostart_data(Nodes,LD#ld.c_node,Dependency,ASD,M,F,TDGargs,OptsG),
+     LD};
 
 handle_call({get_autostart_data,Dependency},From,LD=#ld{c_node=undefined}) ->
     handle_call({get_autostart_data,{local_runtime,Dependency}},From,LD);
@@ -1156,7 +1151,7 @@ h_reconnect_nodes(local_runtime,LD=#ld{nodes=NodesD}) -> % Non-distributed.
 	_ ->                                   % Allready connected!
 	    {ok,{[],{error,already_connected},LD}}
     end;
-h_reconnect_nodes(Nodes,LD=#ld{nodes=NodesD}) when list(Nodes) ->
+h_reconnect_nodes(Nodes,LD=#ld{nodes=NodesD}) when is_list(Nodes) ->
     {Nodes2,NodesErr}=
 	lists:foldl(fun(N,{Nodes2,NodesErr})->
 			    case get_state_nodes(N,NodesD) of
@@ -1246,7 +1241,7 @@ h_start_session_ctp_all_2([],Errors,Nodes) ->
 %% Help function doing the actual init_tracing.
 h_start_session_2(undefined,TracerData,_Errors) -> % Non distributed case.
     case inviso:init_tracing(TracerData) of
-	{ok,LogResult} when list(LogResult) ->
+	{ok,LogResult} when is_list(LogResult) ->
 	    {ok,{ok,LogResult}};
 	{error,already_initated} ->         % Perhaps adopted!?
 	    {ok,{error,already_initiated}}; % Not necessarily wrong.
@@ -1360,7 +1355,7 @@ h_reinitiate_session_2(local_runtime,NodesD,undefined) -> % Non distributed case
 	_ ->
 	    {ok,{[],{error,already_in_session}}}
     end;
-h_reinitiate_session_2(Nodes,NodesD,CNode) when list(Nodes) ->
+h_reinitiate_session_2(Nodes,NodesD,CNode) when is_list(Nodes) ->
     {ok,lists:foldl(fun(N,{Nodes2,NodesErr})->
 			    case get_state_nodes(N,NodesD) of
 				{inactive,running} -> % Only ok case.
@@ -1515,7 +1510,7 @@ h_atc(TC,Id,Vars,LD=#ld{c_node=CNode,tc_dict=TCdict,chl=CHL},Nodes) ->
 		    case check_bindings(Vars,TraceCase) of
 			{ok,Bindings} ->    % Necessary vars exists in Vars.
 			    if
-				list(Nodes) -> % Nodes predefined.
+				is_list(Nodes) -> % Nodes predefined.
 				    h_atc_2(TC,Id,CNode,CHL,LD,TraceCase,Bindings,Nodes);
 				true ->     % Use all tracing and running nodes.
 				    Nodes1=get_nodenames_running_nodes(LD#ld.nodes),
@@ -1532,13 +1527,10 @@ h_atc(TC,Id,Vars,LD=#ld{c_node=CNode,tc_dict=TCdict,chl=CHL},Nodes) ->
     end.
 
 h_atc_2(TC,Id,CNode,CHL,LD,TraceCase,Bindings,Nodes) ->
-    case exec_trace_case_on(CNode,TraceCase,Bindings,Nodes) of
-	{ok,ProcH} ->                       % Trace cases have no return values.
-	    NewCHL=set_activating_chl(TC,Id,CHL,Bindings,ProcH),
-	    {ok,LD#ld{chl=NewCHL}};
-	{error,Reason} ->
-	    {error,Reason}
-    end.
+    {ok,ProcH} = exec_trace_case_on(CNode,TraceCase,Bindings,Nodes),
+    %% Trace cases have no return values.
+    NewCHL=set_activating_chl(TC,Id,CHL,Bindings,ProcH),
+    {ok,LD#ld{chl=NewCHL}}.
 %% -----------------------------------------------------------------------------
 
 %% -----------------------------------------------------------------------------
@@ -1769,13 +1761,13 @@ h_reactivate(Node,CNode) ->
 h_save_history(HDir,Dir,FileName,SortedLog) ->
     Dir0=
 	if
-	    list(HDir) ->                   % There is a history dir specified.
+	    is_list(HDir) ->                   % There is a history dir specified.
 		HDir;                       % Use it then.
 	    true ->
 		Dir                         % Else use the tool dir.
 	end,
     case catch make_absolute_path(FileName,Dir0) of
-	AbsFileName when list(AbsFileName) ->
+	AbsFileName when is_list(AbsFileName) ->
 	    Log2=build_saved_history_data(SortedLog), % Remove stopped tracecases.
 	    case file:write_file(AbsFileName,term_to_binary(Log2)) of
 		ok ->
@@ -1801,7 +1793,7 @@ h_get_autostart_data(local_runtime,_,Dependency,ASD,M,F,TDGargs,OptsG) ->
     Opts=[Dependency|lists:keydelete(dependency,1,Opts0)],
     {ok,{ASD,{ok,{Opts,{tdg,{M,F,CompleteTDGargs}}}}}};
 
-h_get_autostart_data(Nodes,CNode,Dependency,ASD,M,F,TDGargs,OptsG) when list(Nodes) ->
+h_get_autostart_data(Nodes,CNode,Dependency,ASD,M,F,TDGargs,OptsG) when is_list(Nodes) ->
     {ok,{ASD,h_get_autostart_data_2(Nodes,CNode,Dependency,M,F,TDGargs,OptsG)}};
 h_get_autostart_data(Nodes,_CNode,_Dependency,_ASD,_M,_F,_TDGargs,_OptsG) ->
     {error,{badarg,Nodes}}.
@@ -2144,14 +2136,14 @@ expand_module_regexps(Args,_RegExpNode,_Nodes,false) ->
     {ok,Args};
 expand_module_regexps([PatternList],RegExpNode,Nodes,{tp,1,1}) ->
     case catch expand_module_regexps_tp(PatternList,RegExpNode,Nodes) of
-	NewPatternList when list(NewPatternList) ->
+	NewPatternList when is_list(NewPatternList) ->
 	    {ok,[NewPatternList]};
 	{error,Reason} ->
 	    {error,Reason}
     end;
 expand_module_regexps([PatternList],RegExpNode,Nodes,{ctp,1,1}) ->
     case catch expand_module_regexps_ctp(PatternList,RegExpNode,Nodes) of
-	NewPatternList when list(NewPatternList) ->
+	NewPatternList when is_list(NewPatternList) ->
 	    {ok,[NewPatternList]};
 	{error,Reason} ->
 	    {error,Reason}
@@ -2164,9 +2156,9 @@ expand_module_regexps([M,F,Arity],RegExpNode,Nodes,{ctp,3,1}) ->
     expand_module_regexps([[{M,F,Arity}]],RegExpNode,Nodes,{ctp,1,1}).
 
 
-expand_module_regexps_tp([E={M,_,_,_,_}|Rest],RegExpNode,Nodes) when atom(M) ->
+expand_module_regexps_tp([E={M,_,_,_,_}|Rest],RegExpNode,Nodes) when is_atom(M) ->
     [E|expand_module_regexps_tp(Rest,RegExpNode,Nodes)];
-expand_module_regexps_tp([{M,F,Arity,MS,Opts}|Rest],RegExpNode,Nodes) when list(M);tuple(M) ->
+expand_module_regexps_tp([{M,F,Arity,MS,Opts}|Rest],RegExpNode,Nodes) when is_list(M);is_tuple(M) ->
     case inviso_tool_lib:expand_module_names([RegExpNode],
 					     M,
 					     [{expand_only_at,RegExpNode}]) of
@@ -2193,19 +2185,12 @@ expand_module_regexps_tp_2([M|MRest],F,Arity,MS,Opts,Rest,RegExpNode,Nodes) ->
 expand_module_regexps_tp_2([],_,_,_,_,Rest,RegExpNode,Nodes) ->
     expand_module_regexps_tp(Rest,RegExpNode,Nodes).
 
-expand_module_regexps_ctp([E={M,_,_}|Rest],RegExpNode,Nodes) when atom(M) ->
+expand_module_regexps_ctp([E={M,_,_}|Rest],RegExpNode,Nodes) when is_atom(M) ->
     [E|expand_module_regexps_ctp(Rest,RegExpNode,Nodes)];
-expand_module_regexps_ctp([{M,F,Arity}|Rest],RegExpNode,Nodes) when list(M);tuple(M) ->
+expand_module_regexps_ctp([{M,F,Arity}|Rest],RegExpNode,Nodes) when is_list(M);is_tuple(M) ->
     case inviso_tool_lib:expand_module_names([RegExpNode],
 					     M,
 					     [{expand_only_at,RegExpNode}]) of
-	{singlenode_expansion,badrpc} ->       % RegExpNode probably down.
-	    case Nodes of
-		[NewRegExpNode|RestNodes] ->   % Ok, just choose a node.
-		    expand_module_regexps_ctp([{M,F,Arity}|Rest],NewRegExpNode,RestNodes);
-		[] ->                          % No more nodes to choose from.
-		    throw({error,no_available_regexpnode})
-	    end;
 	{singlenode_expansion,Modules} ->
 	    expand_module_regexps_ctp_2(Modules,F,Arity,Rest,RegExpNode,Nodes);
 	{error,_Reason} ->
@@ -2436,9 +2421,8 @@ fetch_configuration(Config) ->
 		{ok,LD} ->                  % Managed to open a file.
 		    NewLD=read_config_list(LD,Config),
 		    {ok,NewLD};
-		{error,_Reason} ->          % Problem finding/opening file.
-		    LD=read_config_list(#ld{},Config),
-		    {ok,LD}
+		Error = {error,_Reason} ->          % Problem finding/opening file.
+		    Error
 	    end;
 	false ->                            % No filename specified.
 	    LD=read_config_list(#ld{},Config),
@@ -2450,7 +2434,7 @@ fetch_configuration(Config) ->
 %% Returns {ok,FileName} or 'false'. The latter if no name could be determined.
 fetch_config_filename(Config) ->
     case catch lists:keysearch(config_file,1,Config) of
-	{value,{_,FName}} when list(FName) ->
+	{value,{_,FName}} when is_list(FName) ->
 	    {ok,FName};
 	_ ->                                % No filename in the start argument.
 	    fetch_config_filename_2()
@@ -2458,7 +2442,7 @@ fetch_config_filename(Config) ->
 
 fetch_config_filename_2() ->
     case application:get_env(inviso_tool_config_file) of
-	{ok,FName} when list(FName) ->
+	{ok,FName} when is_list(FName) ->
 	    {ok,FName};
 	_ ->                                % Application parameter not specified.
 	    false                           % Means no config file will be used.
@@ -2477,60 +2461,21 @@ read_config_file(FName) ->
 
 %% Help function traversing the Terms list entering known tag-values into #ld.
 read_config_list(LD,Terms) ->
-    LD1=read_config_list_2(LD,Terms,nodes),
-    LD2=read_config_list_2(LD1,Terms,c_node),
-    LD3=read_config_list_2(LD2,Terms,regexp_node),
-    LD4=read_config_list_2(LD3,Terms,tc_def_file),
-    LD6=read_config_list_2(LD4,Terms,tdg),
-    LD8=read_config_list_2(LD6,Terms,debug),
-    LD10=read_config_list_2(LD8,Terms,initial_tcs),
-    LD11=read_config_list_2(LD10,Terms,dir),
-    _LD12=read_config_list_2(LD11,Terms,optg).
+    LD#ld{
+      nodes = case mk_nodes(proplists:get_value(nodes,Terms,LD#ld.nodes)) of 
+		  {ok,Nodes} -> Nodes;
+		  _ -> LD#ld.nodes
+	      end,
+      c_node = proplists:get_value(c_node,Terms,LD#ld.c_node), % atom8)
+      regexp_node = proplists:get_value(regexp_node,Terms,LD#ld.regexp_node), % atom()
+      tc_def_file = proplists:get_value(tc_def_file,Terms,LD#ld.tc_def_file),
+      tdg = proplists:get_value(tdg,Terms,LD#ld.tdg),
+      debug = proplists:get_value(debug,Terms,LD#ld.debug),
+      initial_tcs = proplists:get_value(initial_tcs,Terms,LD#ld.initial_tcs),
+      dir = proplists:get_value(dir,Terms,LD#ld.dir),
+      optg = proplists:get_value(optg,Terms,LD#ld.optg)
+     }.
 
-read_config_list_2(LD,Terms,Tag) ->
-    case catch lists:keysearch(Tag,1,Terms) of
-	{value,{_,Value}} ->
-	    update_ld_record(LD,Tag,Value);
-	_ ->
-	    LD                              % Tag not found in Terms (or error!)
-    end.
-%% -----------------------------------------------------------------------------
-
-%% Function updating a named field in a record. Returns a new record. Note that
-%% this function must be maintained due the fact that field names are removed
-%% at compile time.
-update_ld_record(LD,nodes,Value) when record(LD,ld) ->
-    case mk_nodes(Value) of
-	{ok,NodesD} ->
-	    LD#ld{nodes=NodesD};
-	error ->
-	    LD
-    end;
-update_ld_record(LD,Tag,Value) when record(LD,ld) ->
-    Index=
-	case Tag of
-	    c_node ->                       % atom()
-		#ld.c_node;
-	    regexp_node ->                  % atom()
-		#ld.regexp_node;
-	    tc_def_file ->                  % string()
-		#ld.tc_def_file;
-	    initial_tcs ->                  % [{TCname,VarList},...]
-		#ld.initial_tcs;
-	    history_dir ->                  % string()
-		#ld.history_dir;
-	    debug ->                        % true | false
-		#ld.debug;
-	    dir ->                          % string()
-		#ld.dir;
-	    optg ->                         % {Mod,Func,Args}
-		#ld.optg;
-	    tdg ->                          % {Mod,Func,Args}
-		#ld.tdg;
-	    keep_nodes ->                   % [Nodes,...]
-		#ld.keep_nodes
-	end,
-    setelement(Index,LD,Value).             % Cheeting!
 %% -----------------------------------------------------------------------------
 
 
@@ -2546,7 +2491,7 @@ update_ld_record(LD,Tag,Value) when record(LD,ld) ->
 %%   ActivationFileName=DeactivationFileName=string()
 read_trace_case_definitions(LD) ->
     case LD#ld.tc_def_file of
-	TCfileName when list(TCfileName) ->
+	TCfileName when is_list(TCfileName) ->
 	    case catch file:consult(TCfileName) of
 		{ok,Terms} ->
 		    Dir=LD#ld.dir,          % The working directory of the tool.
@@ -2636,8 +2581,8 @@ get_status(CNode,Nodes) ->
 %%     We can end up here if a session is stopped with this node suspended.
 
 %% Returns a nodes database structure filled with the nodes Nodes.
-mk_nodes(Nodes) when list(Nodes) ->
-    {ok,lists:map(fun(N) when atom(N)->{N,down} end,Nodes)};
+mk_nodes(Nodes) when is_list(Nodes) ->
+    {ok,lists:map(fun(N) when is_atom(N)->{N,down} end,Nodes)};
 mk_nodes(local_runtime) ->                  % The non-distributed case.
     down;
 mk_nodes(_Nodes) ->
@@ -2703,13 +2648,8 @@ update_added_nodes_3({error,_Reason}) ->
 %% be marked as suspended later when that inviso event message arrives to the tool.
 %% Returns {NewNodesD,Nodes} where Nodes are the nodes that actually got initiated
 %% as a result of the init_tracing call (judged from the LogResults).
-set_tracing_running_nodes(undefined,{ok,LogResults},_AvailableStatus) -> % Non-distr. case.
-    case set_tracing_running_nodes_checkresult(LogResults) of
-	ok ->
-	    {{up,{tracing,running}},local_runtime};
-	error ->
-	    {down,[]}
-    end;
+set_tracing_running_nodes(undefined,{ok,_LogResults},_AvailableStatus) -> % Non-distr. case.
+    {{up,{tracing,running}},local_runtime};
 set_tracing_running_nodes(undefined,{error,already_initiated},_) -> % Non-distributed case.
     {mk_nodes_state_from_status(inviso:get_status()),[]}; % Ask it for its status.
 set_tracing_running_nodes(undefined,{error,_Reason},_) -> % Non-distributed case.
@@ -2717,19 +2657,13 @@ set_tracing_running_nodes(undefined,{error,_Reason},_) -> % Non-distributed case
 set_tracing_running_nodes(CNode,{ok,NodeResults},NodesD) ->
     set_tracing_running_nodes_2(CNode,NodeResults,NodesD,[]).
 
-set_tracing_running_nodes_2(CNode,[{Node,{ok,LogResults}}|Rest],NodesD,Nodes) ->
-    case set_tracing_running_nodes_checkresult(LogResults) of
-	ok ->                              % The result is good.
-	    case lists:keysearch(Node,1,NodesD) of
-		{value,_} ->
-		    NewNodesD=lists:keyreplace(Node,1,NodesD,{Node,{up,{tracing,running}}}),
-		    set_tracing_running_nodes_2(CNode,Rest,NewNodesD,[Node|Nodes]);
-		false ->                   % Strange.
-		    set_tracing_running_nodes_2(CNode,Rest,NodesD,Nodes)
-	    end;
-	error ->                           % This node is not tracing correctly.
-	    NewNodesD=lists:keyreplace(Node,1,NodesD,{Node,down}),
-	    set_tracing_running_nodes_2(CNode,Rest,NewNodesD,Nodes)
+set_tracing_running_nodes_2(CNode,[{Node,{ok,_LogResults}}|Rest],NodesD,Nodes) ->
+    case lists:keysearch(Node,1,NodesD) of
+	{value,_} ->
+	    NewNodesD=lists:keyreplace(Node,1,NodesD,{Node,{up,{tracing,running}}}),
+	    set_tracing_running_nodes_2(CNode,Rest,NewNodesD,[Node|Nodes]);
+	false ->                   % Strange.
+	    set_tracing_running_nodes_2(CNode,Rest,NodesD,Nodes)
     end;
 set_tracing_running_nodes_2(CNode,[{Node,{error,already_initiated}}|Rest],NodesD,Nodes) ->
     case get_status(CNode,[Node]) of       % Then we must ask what it is doing now.
@@ -2747,9 +2681,6 @@ set_tracing_running_nodes_2(CNode,[{Node,{error,_Reason}}|Rest],NodesD,Nodes) ->
 set_tracing_running_nodes_2(_CNode,[],NodesD,Nodes) ->
     {NodesD,Nodes}.                        % New NodesD and nodes successfully initiated.
 
-%% Help function checking if a returnvalue from inviso:init_tracing really
-%% means that tracing has started as requested.
-set_tracing_running_nodes_checkresult(_LogResults) -> ok. % Should really be better!
 %% -----------------------------------------------------------------------------
 
 %% Function updating Node in the NodesD structure and sets it to 'down'.
@@ -2783,7 +2714,7 @@ set_suspended_nodes(_,{up,{State,_}}) ->
 %% This function is called when reactivation is completed. Hence it moves the
 %% node to no longer suspended. Note this can mean that the node is either
 %% tracing or inactive. Reactivation is not allowed for a node have trace_failure.
-set_running_nodes(Node,NodesD) when list(NodesD) ->
+set_running_nodes(Node,NodesD) when is_list(NodesD) ->
     case lists:keysearch(Node,1,NodesD) of
 	{value,{_,AvailableStatus}} ->
 	    lists:keyreplace(Node,1,NodesD,{Node,set_running_nodes_2(AvailableStatus)});
@@ -2902,7 +2833,7 @@ get_available_nodes([]) ->
 %% suspended or not.
 %% Returns {State,Status} | reactivating | down
 %% where 
-get_state_nodes(Node,NodesD) when list(NodesD) ->
+get_state_nodes(Node,NodesD) when is_list(NodesD) ->
     case lists:keysearch(Node,1,NodesD) of
 	{value,{_,AvailableStatus}} ->
 	    get_state_nodes_2(AvailableStatus);

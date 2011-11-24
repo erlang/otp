@@ -1,5 +1,7 @@
+{incl_app,megaco,details}.
+
 %% -*- erlang -*-
-{exclude,
+{excl_mods, megaco,
  [megaco_encoder,
   megaco_edist_compress,
   megaco_filter,

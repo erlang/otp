@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2010</year>
+      <year>2004</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -20,7 +20,7 @@
       under the License.
 
     </legalnotice>
-
+    
     <title>ODBC Release Notes</title>
     <prepared>otp_appnotes</prepared>
     <docno>nil</docno>
@@ -31,21 +31,131 @@
   <p>This document describes the changes made to the odbc application.
   </p>
 
-  <section><title>ODBC 2.10.7</title>
+  <section><title>ODBC 2.10.11</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
         <item>
           <p>
-	    The odbc application can now be compiled on FreeBSD.
-	    (Thanks to Kenji Rikitake.)</p>
+	    When using output parameters the internal odbc state was
+	    not correctly cleaned causing the next call to
+	    param_query to misbehave.</p>
           <p>
-	    Own Id: OTP-8444</p>
+	    Own Id: OTP-9444</p>
+        </item>
+        <item>
+	    <p> XML files have been corrected. </p>
+          <p>
+	    Own Id: OTP-9550 Aux Id: OTP-9541 </p>
         </item>
       </list>
     </section>
 
 
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add code to handle old ODBC drivers on solaris. Also adds
+	    tests with MySQL.</p>
+          <p>
+	    Own Id: OTP-8407</p>
+        </item>
+        <item>
+          <p>
+	    Odbc now supports SQL_WLONGVARCHAR, thanks to Hanfei Shen
+	    for the patch.</p>
+          <p>
+	    Own Id: OTP-8493</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.10.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Better error messages for connection issues.</p>
+          <p>
+	    Own Id: OTP-9111</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.10.9</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Ipv6 is now supported on Windows as well as on UNIX for
+	    internal socket communication. (ODBC uses sockets instead
+	    of the "Erlang port pipes" as some ODBC-drivers are known
+	    to mess with stdin/stdout.) </p>
+          <p>
+	    Loopback address constants are used when connecting the
+	    c-side to the erlang-side over local socket API avoiding
+	    getaddrinfo problems, and the {ip, loopback} option is
+	    added as a listen option on the erlang-side. Also cleaned
+	    up the TIME_STAMP contribution.</p>
+          <p>
+	    Own Id: OTP-8917</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.10.8</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            ODBC now handles the types SQL_WCHAR and SQL_WVARCHAR.
+            Thanks to Juhani Ränkimies. ODBC also has a new
+            connection option to return all strings as binaries and
+            also expect strings to be binaries in the param_query
+            function. These changes provides some unicode support.</p>
+          <p>
+            Own Id: OTP-7452</p>
+        </item>
+        <item>
+          <p>
+            Now supports SQL_TYPE_TIMESTAMP on the format {{YY, MM,
+            DD}, {HH, MM, SS}}. Thanks to Juhani Ränkimies.</p>
+          <p>
+            *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+            Own Id: OTP-8511</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+  
+  <section><title>ODBC 2.10.7</title>
+  
+    <section><title>Fixed Bugs and Malfunctions</title>
+    <list>
+      <item>
+	<p>
+	  The odbc application can now be compiled on FreeBSD.
+	(Thanks to Kenji Rikitake.)</p>
+	<p>
+	Own Id: OTP-8444</p>
+      </item>
+    </list>
+    </section>
+
+    
     <section><title>Improvements and New Features</title>
       <list>
         <item>

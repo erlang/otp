@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -33,7 +33,8 @@
 	 stop_system/2, system_supervisor/2,
 	 subsystem_supervisor/1, channel_supervisor/1, 
 	 connection_supervisor/1, 
-	 acceptor_supervisor/1, start_subsystem/2, restart_subsystem/2, restart_acceptor/2]).
+	 acceptor_supervisor/1, start_subsystem/2, restart_subsystem/2,
+	 restart_acceptor/2, stop_subsystem/2]).
 
 %% Supervisor callback
 -export([init/1]).
@@ -82,6 +83,23 @@ acceptor_supervisor(SystemSup) ->
 start_subsystem(SystemSup, Options) ->
     Spec = ssh_subsystem_child_spec(Options),
     supervisor:start_child(SystemSup, Spec).
+
+stop_subsystem(SystemSup, SubSys) ->
+    case catch lists:keyfind(SubSys, 2, supervisor:which_children(SystemSup)) of
+	false ->
+	    {error, not_found};
+	{Id, _, _, _} ->
+	    spawn(fun() -> supervisor:terminate_child(SystemSup, Id),
+			   supervisor:delete_child(SystemSup, Id) end),
+	    ok;
+	{'EXIT', {noproc, _}} ->
+	    %% Already terminated; probably shutting down.
+	    ok;
+	{'EXIT', {shutdown, _}} ->
+	    %% Already shutting down.
+	    ok
+    end.
+
 
 restart_subsystem(Address, Port) ->
     SysSupName = make_name(Address, Port),

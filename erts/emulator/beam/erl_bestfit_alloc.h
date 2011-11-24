@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2003-2009. All Rights Reserved.
+ * Copyright Ericsson AB 2003-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -54,7 +54,8 @@ typedef struct RBTree_t_ RBTree_t;
 struct BFAllctr_t_ {
     Allctr_t		allctr; /* Has to be first! */
 
-    RBTree_t *		root;
+    RBTree_t *		mbc_root;
+    RBTree_t *		sbmbc_root;
     int 		address_order;
 };
 

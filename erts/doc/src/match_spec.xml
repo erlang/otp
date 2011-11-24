@@ -60,7 +60,7 @@
 
   <section>
     <title>Grammar</title>
-    <p>A match_spec can be described in this <em>informal</em> grammar:</p>
+    <p>A match_spec used in tracing can be described in this <em>informal</em> grammar:</p>
     <list type="bulleted">
       <item>MatchExpression ::= [ MatchFunction, ... ]
       </item>
@@ -116,6 +116,52 @@
       <c><![CDATA[enable_trace]]></c> | <c><![CDATA[disable_trace]]></c> | <c><![CDATA[trace]]></c> |
       <c><![CDATA[display]]></c> | <c><![CDATA[caller]]></c> | <c><![CDATA[set_tcw]]></c> |
       <c><![CDATA[silent]]></c></item>
+    </list>
+
+    <p>A match_spec used in ets can be described in this <em>informal</em> grammar:</p>
+    <list type="bulleted">
+      <item>MatchExpression ::= [ MatchFunction, ... ]
+      </item>
+      <item>MatchFunction ::= { MatchHead, MatchConditions, MatchBody }
+      </item>
+      <item>MatchHead ::=  MatchVariable | <c><![CDATA['_']]></c> | { MatchHeadPart, ... }
+      </item>
+      <item>MatchHeadPart ::= term() | MatchVariable | <c><![CDATA['_']]></c></item>
+      <item>MatchVariable ::= '$&lt;number&gt;'
+      </item>
+      <item>MatchConditions ::= [ MatchCondition, ...] | <c><![CDATA[[]]]></c></item>
+      <item>MatchCondition ::= { GuardFunction } |
+       { GuardFunction, ConditionExpression, ... }
+      </item>
+      <item>BoolFunction ::= <c><![CDATA[is_atom]]></c> | <c><![CDATA[is_constant]]></c> |
+      <c><![CDATA[is_float]]></c> | <c><![CDATA[is_integer]]></c> | <c><![CDATA[is_list]]></c> |
+      <c><![CDATA[is_number]]></c> | <c><![CDATA[is_pid]]></c> | <c><![CDATA[is_port]]></c> |
+      <c><![CDATA[is_reference]]></c> | <c><![CDATA[is_tuple]]></c> | <c><![CDATA[is_binary]]></c> |
+      <c><![CDATA[is_function]]></c> | <c><![CDATA[is_record]]></c> | <c><![CDATA[is_seq_trace]]></c> |
+      <c><![CDATA['and']]></c> | <c><![CDATA['or']]></c> | <c><![CDATA['not']]></c> | <c><![CDATA['xor']]></c> |
+      <c><![CDATA[andalso]]></c> | <c><![CDATA[orelse]]></c></item>
+      <item>ConditionExpression ::= ExprMatchVariable | { GuardFunction } |
+       { GuardFunction, ConditionExpression, ... } | TermConstruct
+      </item>
+      <item>ExprMatchVariable ::= MatchVariable (bound in the MatchHead) |
+      <c><![CDATA['$_']]></c> | <c><![CDATA['$$']]></c></item>
+      <item>TermConstruct = {{}} | {{ ConditionExpression, ... }} |
+      <c><![CDATA[[]]]></c> | [ConditionExpression, ...] | NonCompositeTerm | Constant
+      </item>
+      <item>NonCompositeTerm ::= term() (not list or tuple)
+      </item>
+      <item>Constant ::= {<c><![CDATA[const]]></c>, term()}
+      </item>
+      <item>GuardFunction ::= BoolFunction | <c><![CDATA[abs]]></c> |
+      <c><![CDATA[element]]></c> | <c><![CDATA[hd]]></c> | <c><![CDATA[length]]></c> | <c><![CDATA[node]]></c> |
+      <c><![CDATA[round]]></c> | <c><![CDATA[size]]></c> | <c><![CDATA[tl]]></c> | <c><![CDATA[trunc]]></c> |
+      <c><![CDATA['+']]></c> | <c><![CDATA['-']]></c> | <c><![CDATA['*']]></c> | <c><![CDATA['div']]></c> |
+      <c><![CDATA['rem']]></c> | <c><![CDATA['band']]></c> | <c><![CDATA['bor']]></c> | <c><![CDATA['bxor']]></c> |
+      <c><![CDATA['bnot']]></c> | <c><![CDATA['bsl']]></c> | <c><![CDATA['bsr']]></c> | <c><![CDATA['>']]></c> |
+      <c><![CDATA['>=']]></c> | <c><![CDATA['<']]></c> | <c><![CDATA['=<']]></c> | <c><![CDATA['=:=']]></c> |
+      <c><![CDATA['==']]></c> | <c><![CDATA['=/=']]></c> | <c><![CDATA['/=']]></c> | <c><![CDATA[self]]></c> |
+      <c><![CDATA[get_tcw]]></c></item>
+      <item>MatchBody ::= [ ConditionExpression, ... ]</item>
     </list>
   </section>
 
@@ -453,8 +499,8 @@
   <section>
     <title>Differences between match specifications in ETS and tracing</title>
     <p>ETS match specifications are there to produce a return
-      value. Usually the expression contains one single
-      <c><![CDATA[ActionTerm]]></c> which defines the return value without having
+      value. Usually the <c><![CDATA[MatchBody]]></c> contains one single
+      <c><![CDATA[ConditionExpression]]></c> which defines the return value without having
       any side effects. Calls with side effects are not allowed in the
       ETS context.</p>
     <p>When tracing there is no return value to produce, the
@@ -530,7 +576,7 @@
       the atom 'strider' and the tuple arity is 3 and return the whole
       object.</p>
     <code type="none"><![CDATA[
-[{{strider,'_'.'_'},
+[{{strider,'_','_'},
   [],
   ['$_']}]
     ]]></code>

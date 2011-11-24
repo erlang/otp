@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %% Purpose : Partitions assembly instructions into basic blocks and
@@ -36,12 +36,14 @@ function({function,Name,Arity,CLabel,Is0}, Lc0) ->
 
 	%% Collect basic blocks and optimize them.
 	Is2 = blockify(Is1),
-	Is3 = beam_utils:live_opt(Is2),
-	Is4 = opt_blocks(Is3),
-	Is5 = beam_utils:delete_live_annos(Is4),
+	Is3 = embed_lines(Is2),
+	Is4 = move_allocates(Is3),
+	Is5 = beam_utils:live_opt(Is4),
+	Is6 = opt_blocks(Is5),
+	Is7 = beam_utils:delete_live_annos(Is6),
 
 	%% Optimize bit syntax.
-	{Is,Lc} = bsm_opt(Is5, Lc0),
+	{Is,Lc} = bsm_opt(Is7, Lc0),
 
 	%% Done.
 	{{function,Name,Arity,CLabel,Is},Lc}
@@ -140,13 +142,30 @@ collect({move,S,D})          -> {set,[D],[S],move};
 collect({put_list,S1,S2,D})  -> {set,[D],[S1,S2],put_list};
 collect({put_tuple,A,D})     -> {set,[D],[],{put_tuple,A}};
 collect({put,S})             -> {set,[],[S],put};
-collect({put_string,L,S,D})  -> {set,[D],[],{put_string,L,S}};
 collect({get_tuple_element,S,I,D}) -> {set,[D],[S],{get_tuple_element,I}};
 collect({set_tuple_element,S,D,I}) -> {set,[],[S,D],{set_tuple_element,I}};
 collect({get_list,S,D1,D2})  -> {set,[D1,D2],[S],get_list};
 collect(remove_message)      -> {set,[],[],remove_message};
 collect({'catch',R,L})       -> {set,[R],[],{'catch',L}};
 collect(_)                   -> error.
+
+%% embed_lines([Instruction]) -> [Instruction]
+%%  Combine blocks that would be split by line/1 instructions.
+%%  Also move a line instruction before a block into the block,
+%%  but leave the line/1 instruction after a block outside.
+
+embed_lines(Is) ->
+    embed_lines(reverse(Is), []).
+
+embed_lines([{block,B2},{line,_}=Line,{block,B1}|T], Acc) ->
+    B = {block,B1++[{set,[],[],Line}]++B2},
+    embed_lines([B|T], Acc);
+embed_lines([{block,B1},{line,_}=Line|T], Acc) ->
+    B = {block,[{set,[],[],Line}|B1]},
+    embed_lines([B|T], Acc);
+embed_lines([I|Is], Acc) ->
+    embed_lines(Is, [I|Acc]);
+embed_lines([], Acc) -> Acc.
 
 opt_blocks([{block,Bl0}|Is]) ->
     %% The live annotation at the beginning is not useful.
@@ -157,11 +176,7 @@ opt_blocks([I|Is]) ->
 opt_blocks([]) -> [].
 
 opt_block(Is0) ->
-    %% We explicitly move any allocate instruction upwards before optimising
-    %% moves, to avoid any potential problems with the calculation of live
-    %% registers.
-    Is1 = move_allocates(Is0),
-    Is = find_fixpoint(fun opt/1, Is1),
+    Is = find_fixpoint(fun opt/1, Is0),
     opt_alloc(Is).
 
 find_fixpoint(OptFun, Is0) ->
@@ -171,11 +186,21 @@ find_fixpoint(OptFun, Is0) ->
     end.
 
 %% move_allocates(Is0) -> Is
-%%  Move allocates upwards in the instruction stream, in the hope of
-%%  getting more possibilities for optimizing away moves later.
+%%  Move allocate instructions upwards in the instruction stream, in the
+%%  hope of getting more possibilities for optimizing away moves later.
+%%
+%%  NOTE: Moving allocation instructions is only safe because it is done
+%%  immediately after code generation so that we KNOW that if {x,X} is
+%%  initialized, all x registers with lower numbers are also initialized.
+%%  That assumption may not be true after other optimizations, such as
+%%  the beam_utils:live_opt/1 optimization.
 
-move_allocates(Is) ->
-    move_allocates_1(reverse(Is), []).
+move_allocates([{block,Bl0}|Is]) ->
+    Bl = move_allocates_1(reverse(Bl0), []),
+    [{block,Bl}|move_allocates(Is)];
+move_allocates([I|Is]) ->
+    [I|move_allocates(Is)];
+move_allocates([]) -> [].
 
 move_allocates_1([{set,[],[],{alloc,_,_}=Alloc}|Is0], Acc0) ->
     {Is,Acc} = move_allocates_2(Alloc, Is0, Acc0),
@@ -202,9 +227,7 @@ move_allocates_2(Alloc, [], Acc) ->
 alloc_may_pass({set,_,_,{alloc,_,_}}) -> false;
 alloc_may_pass({set,_,_,{set_tuple_element,_}}) -> false;
 alloc_may_pass({set,_,_,put_list}) -> false;
-alloc_may_pass({set,_,_,{put_tuple,_}}) -> false;
 alloc_may_pass({set,_,_,put}) -> false;
-alloc_may_pass({set,_,_,{put_string,_,_}}) -> false;
 alloc_may_pass({set,_,_,_}) -> true.
     
 combine_alloc({_,Ns,Nh1,Init}, {_,nostack,Nh2,[]})  ->
@@ -221,10 +244,12 @@ opt([{set,[Dst],As,{bif,Bif,Fail}}=I1,
  	RevBif -> [{set,[Dst],As,{bif,RevBif,Fail}}|opt(Is)]
     end;
 opt([{set,[X],[X],move}|Is]) -> opt(Is);
-opt([{set,[D1],[{integer,Idx1},Reg],{bif,element,{f,0}}}=I1,
+opt([{set,_,_,{line,_}}=Line1,
+     {set,[D1],[{integer,Idx1},Reg],{bif,element,{f,0}}}=I1,
+     {set,_,_,{line,_}}=Line2,
      {set,[D2],[{integer,Idx2},Reg],{bif,element,{f,0}}}=I2|Is])
   when Idx1 < Idx2, D1 =/= D2, D1 =/= Reg, D2 =/= Reg ->
-    opt([I2,I1|Is]);
+    opt([Line2,I2,Line1,I1|Is]);
 opt([{set,Ds0,Ss,Op}|Is0]) ->	
     {Ds,Is} = opt_moves(Ds0, Is0),
     [{set,Ds,Ss,Op}|opt(Is)];

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2006-2009. All Rights Reserved.
+ * Copyright Ericsson AB 2006-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -35,6 +35,7 @@
 #include "sys.h"
 #include "global.h"
 #include "erl_check_io.h"
+#include "erl_thr_progress.h"
 
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
 #  define ERTS_DRV_EV_STATE_EXTRA_SIZE 128
@@ -66,6 +67,9 @@ typedef char EventStateFlags;
 
 #define ERTS_CIO_POLL_CTL	ERTS_POLL_EXPORT(erts_poll_control)
 #define ERTS_CIO_POLL_WAIT	ERTS_POLL_EXPORT(erts_poll_wait)
+#ifdef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
+#define ERTS_CIO_POLL_AS_INTR 	ERTS_POLL_EXPORT(erts_poll_async_sig_interrupt)
+#endif
 #define ERTS_CIO_POLL_INTR 	ERTS_POLL_EXPORT(erts_poll_interrupt)
 #define ERTS_CIO_POLL_INTR_TMD	ERTS_POLL_EXPORT(erts_poll_interrupt_timed)
 #define ERTS_CIO_NEW_POLLSET 	ERTS_POLL_EXPORT(erts_poll_create_pollset)
@@ -218,7 +222,7 @@ remember_removed(ErtsDrvEventState *state, struct pollset_info* psi)
 #ifdef ERTS_SMP
     struct removed_fd *fdlp;
     ERTS_SMP_LC_ASSERT(erts_smp_lc_mtx_is_locked(fd_mtx(state->fd)));
-    if (erts_smp_atomic_read(&psi->in_poll_wait)) {
+    if (erts_smp_atomic_read_nob(&psi->in_poll_wait)) {
 	state->remove_cnt++;
 	ASSERT(state->remove_cnt > 0);
 	fdlp = removed_fd_alloc();
@@ -333,7 +337,7 @@ grow_drv_ev_state(int min_ix)
 	new_len = max_fds;
 
     erts_smp_mtx_lock(&drv_ev_state_grow_lock);
-    if (erts_smp_atomic_read(&drv_ev_state_len) <= min_ix) {
+    if (erts_smp_atomic_read_nob(&drv_ev_state_len) <= min_ix) {
 	for (i=0; i<DRV_EV_STATE_LOCK_CNT; i++) { /* lock all fd's */
 	    erts_smp_mtx_lock(&drv_ev_state_locks[i].lck);
 	}
@@ -343,7 +347,7 @@ grow_drv_ev_state(int min_ix)
 				       sizeof(ErtsDrvEventState)*new_len)
 			: erts_alloc(ERTS_ALC_T_DRV_EV_STATE,
 				     sizeof(ErtsDrvEventState)*new_len));
-	for (i = erts_smp_atomic_read(&drv_ev_state_len); i < new_len; i++) {
+	for (i = erts_smp_atomic_read_nob(&drv_ev_state_len); i < new_len; i++) {
 	    drv_ev_state[i].fd = (ErtsSysFdType) i;
 	    drv_ev_state[i].driver.select = NULL;
 	    drv_ev_state[i].events = 0;
@@ -351,7 +355,7 @@ grow_drv_ev_state(int min_ix)
 	    drv_ev_state[i].type = ERTS_EV_TYPE_NONE;
 	    drv_ev_state[i].flags = 0;
 	}
-	erts_smp_atomic_set(&drv_ev_state_len, new_len);
+	erts_smp_atomic_set_nob(&drv_ev_state_len, new_len);
 	for (i=0; i<DRV_EV_STATE_LOCK_CNT; i++) {
 	    erts_smp_mtx_unlock(&drv_ev_state_locks[i].lck);
 	}
@@ -497,7 +501,7 @@ ERTS_CIO_EXPORT(driver_select)(ErlDrvPort ix,
 		       && erts_lc_is_port_locked(erts_drvport2port(ix)));
 
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
-    if ((unsigned)fd >= (unsigned)erts_smp_atomic_read(&drv_ev_state_len)) {
+    if ((unsigned)fd >= (unsigned)erts_smp_atomic_read_nob(&drv_ev_state_len)) {
 	if (fd < 0) {
 	    return -1;    
 	}
@@ -709,7 +713,7 @@ ERTS_CIO_EXPORT(driver_event)(ErlDrvPort ix,
 		       && erts_lc_is_port_locked(erts_drvport2port(ix)));
 
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
-    if ((unsigned)fd >= (unsigned)erts_smp_atomic_read(&drv_ev_state_len)) {
+    if ((unsigned)fd >= (unsigned)erts_smp_atomic_read_nob(&drv_ev_state_len)) {
 	if (fd < 0)
 	    return -1;    
 	if (fd >= max_fds) {
@@ -1115,6 +1119,14 @@ eready(Eterm id, ErtsDrvEventState *state, ErlDrvEventData event_data)
 
 static void bad_fd_in_pollset( ErtsDrvEventState *, Eterm, Eterm, ErtsPollEvents);
 
+#ifdef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
+void
+ERTS_CIO_EXPORT(erts_check_io_async_sig_interrupt)(void)
+{
+    ERTS_CIO_POLL_AS_INTR(pollset.ps);
+}
+#endif
+
 void
 ERTS_CIO_EXPORT(erts_check_io_interrupt)(int set)
 {
@@ -1137,6 +1149,11 @@ ERTS_CIO_EXPORT(erts_check_io)(int do_wait)
 
  restart:
 
+#ifdef ERTS_BREAK_REQUESTED
+    if (ERTS_BREAK_REQUESTED)
+	erts_do_break_handling();
+#endif
+
     /* Figure out timeout value */
     if (do_wait) {
 	erts_time_remaining(&wait_time);
@@ -1148,17 +1165,15 @@ ERTS_CIO_EXPORT(erts_check_io)(int do_wait)
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_check_exact(NULL, 0); /* No locks should be locked */
 #endif
-    erts_smp_activity_begin(ERTS_ACTIVITY_WAIT, NULL, NULL, NULL);
     pollres_len = sizeof(pollres)/sizeof(ErtsPollResFd);
 
-    erts_smp_atomic_set(&pollset.in_poll_wait, 1);
+    erts_smp_atomic_set_nob(&pollset.in_poll_wait, 1);
 
     poll_ret = ERTS_CIO_POLL_WAIT(pollset.ps, pollres, &pollres_len, &wait_time);
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_check_exact(NULL, 0); /* No locks should be locked */
 #endif
-    erts_smp_activity_end(ERTS_ACTIVITY_WAIT, NULL, NULL, NULL);
 
     erts_deliver_time(); /* sync the machine's idea of time */
 
@@ -1168,7 +1183,7 @@ ERTS_CIO_EXPORT(erts_check_io)(int do_wait)
 #endif
 
     if (poll_ret != 0) {
-	erts_smp_atomic_set(&pollset.in_poll_wait, 0);
+	erts_smp_atomic_set_nob(&pollset.in_poll_wait, 0);
 	forget_removed(&pollset);
 	if (poll_ret == EAGAIN) {
 	    goto restart;
@@ -1299,7 +1314,7 @@ ERTS_CIO_EXPORT(erts_check_io)(int do_wait)
 #endif
     }
 
-    erts_smp_atomic_set(&pollset.in_poll_wait, 0);
+    erts_smp_atomic_set_nob(&pollset.in_poll_wait, 0);
     forget_removed(&pollset);
 }
 
@@ -1414,7 +1429,7 @@ static void drv_ev_state_free(void *des)
 void
 ERTS_CIO_EXPORT(erts_init_check_io)(void)
 {
-    erts_smp_atomic_init(&pollset.in_poll_wait, 0);
+    erts_smp_atomic_init_nob(&pollset.in_poll_wait, 0);
     ERTS_CIO_POLL_INIT();
     pollset.ps = ERTS_CIO_NEW_POLLSET();
 
@@ -1436,7 +1451,7 @@ ERTS_CIO_EXPORT(erts_init_check_io)(void)
 #endif
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
     max_fds = ERTS_CIO_POLL_MAX_FDS();
-    erts_smp_atomic_init(&drv_ev_state_len, 0);
+    erts_smp_atomic_init_nob(&drv_ev_state_len, 0);
     drv_ev_state = NULL;
     erts_smp_mtx_init(&drv_ev_state_grow_lock, "drv_ev_state_grow");
 #else
@@ -1474,7 +1489,7 @@ ERTS_CIO_EXPORT(erts_check_io_size)(void)
     ERTS_CIO_POLL_INFO(pollset.ps, &pi);
     res = pi.memory_size;
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
-    res += sizeof(ErtsDrvEventState) * erts_smp_atomic_read(&drv_ev_state_len);
+    res += sizeof(ErtsDrvEventState) * erts_smp_atomic_read_nob(&drv_ev_state_len);
 #else
     res += safe_hash_table_sz(&drv_ev_state_tab);
     {
@@ -1501,7 +1516,7 @@ ERTS_CIO_EXPORT(erts_check_io_info)(void *proc)
     ERTS_CIO_POLL_INFO(pollset.ps, &pi);
     memory_size = pi.memory_size;
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
-    memory_size += sizeof(ErtsDrvEventState) * erts_smp_atomic_read(&drv_ev_state_len);
+    memory_size += sizeof(ErtsDrvEventState) * erts_smp_atomic_read_nob(&drv_ev_state_len);
 #else
     memory_size += safe_hash_table_sz(&drv_ev_state_tab);
     {
@@ -1865,12 +1880,11 @@ ERTS_CIO_EXPORT(erts_check_io_debug)(void)
 
     erts_printf("--- fds in pollset --------------------------------------\n");
 
-#ifdef ERTS_SMP
-# ifdef ERTS_ENABLE_LOCK_CHECK
+#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
     erts_lc_check_exact(NULL, 0); /* No locks should be locked */
-# endif
-    erts_block_system(0); /* stop the world to avoid messy locking */
 #endif
+
+    erts_smp_thr_progress_block(); /* stop the world to avoid messy locking */
 
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
     counters.epep = erts_alloc(ERTS_ALC_T_TMP, sizeof(ErtsPollEvents)*max_fds);
@@ -1881,7 +1895,7 @@ ERTS_CIO_EXPORT(erts_check_io_debug)(void)
     counters.num_errors = 0;
 
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
-    len = erts_smp_atomic_read(&drv_ev_state_len);
+    len = erts_smp_atomic_read_nob(&drv_ev_state_len);
     for (fd = 0; fd < len; fd++) {
 	doit_erts_check_io_debug((void *) &drv_ev_state[fd], (void *) &counters);
     }
@@ -1893,9 +1907,7 @@ ERTS_CIO_EXPORT(erts_check_io_debug)(void)
     safe_hash_for_each(&drv_ev_state_tab, &doit_erts_check_io_debug, (void *) &counters);
 #endif
 
-#ifdef ERTS_SMP
-    erts_release_system();
-#endif
+    erts_smp_thr_progress_unblock();
 
     erts_printf("\n");
     erts_printf("used fds=%d\n", counters.used_fds);

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2007</year><year>2010</year>
+      <year>2007</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -45,10 +45,17 @@
       SUSE Linux Enterprise Server 10 (x86_64) kernel 2.6.16.27-0.6-smp,
       with lksctp-tools-1.0.6, briefly on Solaris 10, and later on
       SUSE Linux Enterprise Server 10 Service Pack 1 (x86_64)
-      kernel 2.6.16.54-0.2.3-smp with lksctp-tools-1.0.7.</p>
+      kernel 2.6.16.54-0.2.3-smp with lksctp-tools-1.0.7,
+      and later also on FreeBSD 8.2.
+    </p>
+    <p>
+      This module was written for one-to-many style sockets
+      (type <c>seqpacket</c>). With the addition of
+      <seealso marker="#peeloff/2">peeloff/2</seealso>, one-to-one style
+      sockets (type <c>stream</c>) were introduced.
+    </p>
     <p>Record definitions for the <c>gen_sctp</c> module can be found using:</p>
-    <pre>
-  -include_lib("kernel/include/inet_sctp.hrl").    </pre>
+<pre>  -include_lib("kernel/include/inet_sctp.hrl").    </pre>
     <p>These record definitions use the "new" spelling 'adaptation',
       not the deprecated 'adaption', regardless of which
       spelling the underlying C API uses.</p>
@@ -63,79 +70,54 @@
       <item><seealso marker="#options">SCTP SOCKET OPTIONS</seealso></item>
       <item><seealso marker="#examples">SCTP EXAMPLES</seealso></item>
       <item><seealso marker="#seealso">SEE ALSO</seealso></item>
-      <item><seealso marker="#authors">AUTHORS</seealso></item>
     </list>
+    <marker id="types"></marker>
   </section>
 
-  <section>
-    <marker id="types"></marker>
-    <title>DATA TYPES</title>
-    <marker id="type-assoc_id"></marker>
-    <taglist>
-      <tag><c>assoc_id()</c></tag>
-      <item>
+  <datatypes>
+    <datatype>
+      <name><marker id="type-assoc_id">assoc_id()</marker></name>
+      <desc>
         <p>An opaque term returned in for example #sctp_paddr_change{}
           that identifies an association for an SCTP socket. The term
           is opaque except for the special value <c>0</c> that has a
-          meaning such as "the whole endpoint" or "all future associations".</p>
-        <marker id="type-charlist"></marker>
-      </item>
-      <tag><c>charlist() = [char()]</c></tag>
-      <item>      <marker id="type-iolist"></marker>
-</item>
-      <tag><c>iolist() = [char() | binary()]</c></tag>
-      <item>      <marker id="type-ip_address"></marker>
-</item>
-      <tag><c>ip_address()</c></tag>
-      <item>
-        <p>Represents an address of an SCTP socket. 
-          It is a tuple as explained in
-          <seealso marker="inet">inet(3)</seealso>.</p>
-        <marker id="type-port_number"></marker>
-      </item>
-      <tag><c>port_number() = 0 .. 65535</c></tag>
-      <item>      <marker id="type-posix"></marker>
-</item>
-      <tag><c>posix()</c></tag>
-      <item>
-        <p>See 
-          <seealso marker="inet#error_codes">inet(3); POSIX Error Codes.</seealso></p>
-        <marker id="type-sctp_option"></marker>
-      </item>
-      <tag><c>sctp_option()</c></tag>
-      <item>
+          meaning such as "the whole endpoint" or "all future associations".
+        </p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="option"/>
+      <desc>
         <p>One of the 
           <seealso marker="#options">SCTP Socket Options.</seealso></p>
-        <marker id="type-sctp_socket"></marker>
-      </item>
-      <tag><c>sctp_socket()</c></tag>
-      <item>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="option_name"/>
+      <desc><marker id="type-sctp_socket"></marker></desc>
+    </datatype>
+    <datatype>
+      <name><marker id="type-sctp_socket">sctp_socket()</marker></name>
+      <desc>
         <p>Socket identifier returned from <c>open/*</c>.</p>
-        <marker id="type-timeout"></marker>
-      </item>
-      <tag><c>timeout() = int() | infinity</c></tag>
-      <item>
-        <p>Timeout used in SCTP connect and receive calls.</p>
-      </item>
-    </taglist>
-    <marker id="exports"></marker>
-  </section>
+        <marker id="exports"></marker>
+      </desc>
+    </datatype>
+  </datatypes>
+
   <funcs>
     <func>
-      <name>abort(sctp_socket(), Assoc) -&gt; ok | {error, posix()}</name>
+      <name name="abort" arity="2"/>
       <fsummary>Abnormally terminate the association given by Assoc, without flushing of unsent data</fsummary>
-      <type>
-        <v>Assoc = #sctp_assoc_change{}</v>
-      </type>
       <desc>
-        <p>Abnormally terminates the association given by <c>Assoc</c>, without
+        <p>Abnormally terminates the association given by <c><anno>Assoc</anno></c>, without
           flushing of unsent data. The socket itself remains open. Other
           associations opened on this socket are still valid, and it can be
           used in new associations.</p>
       </desc>
     </func>
     <func>
-      <name>close(sctp_socket()) -&gt; ok | {error, posix()}</name>
+      <name name="close" arity="1"/>
       <fsummary>Completely close the socket and all associations on it</fsummary>
       <desc>
         <p>Completely closes the socket and all associations on it. The unsent
@@ -148,35 +130,26 @@
       </desc>
     </func>
     <func>
-      <name>connect(Socket, Addr, Port, Opts) -&gt; {ok,Assoc} | {error, posix()}</name>
+      <name name="connect" arity="4"/>
       <fsummary>Same as <c>connect(Socket, Addr, Port, Opts, infinity)</c>.</fsummary>
       <desc>
-        <p>Same as <c>connect(Socket, Addr, Port, Opts, infinity)</c>.</p>
+        <p>Same as <c>connect(<anno>Socket</anno>, <anno>Addr</anno>, <anno>Port</anno>, <anno>Opts</anno>, infinity)</c>.</p>
       </desc>
     </func>
     <func>
-      <name>connect(Socket, Addr, Port, [Opt], Timeout) -&gt; {ok, Assoc} | {error, posix()}</name>
+      <name name="connect" arity="5"/>
       <fsummary>Establish a new association for the socket <c>Socket</c>, with a peer (SCTP server socket)</fsummary>
-      <type>
-        <v>Socket  = sctp_socket()</v>
-        <v>Addr    = ip_address() | Host</v>
-        <v>Port    = port_number()</v>
-        <v>Opt     = sctp_option()</v>
-        <v>Timeout = timeout()</v>
-        <v>Host    = atom() | string()</v>
-        <v>Assoc   = #sctp_assoc_change{}</v>
-      </type>
       <desc>
-        <p>Establishes a new association for the socket <c>Socket</c>,
+        <p>Establishes a new association for the socket <c><anno>Socket</anno></c>,
           with the peer (SCTP server socket) given by
-          <c>Addr</c> and <c>Port</c>. The <c>Timeout</c>,
+          <c><anno>Addr</anno></c> and <c><anno>Port</anno></c>. The <c><anno>Timeout</anno></c>,
           is expressed in milliseconds. A socket can be associated with multiple peers.</p>
 
-        <p><b>WARNING:</b>Using a value of <c>Timeout</c> less than
+        <p><b>WARNING:</b>Using a value of <c><anno>Timeout</anno></c> less than
         the maximum time taken by the OS to establish an association (around 4.5 minutes
         if the default values from RFC 4960 are used) can result in
         inconsistent or incorrect return values. This is especially
-        relevant for associations sharing the same <c>Socket</c>
+        relevant for associations sharing the same <c><anno>Socket</anno></c>
         (i.e. source address and port) since the controlling process
         blocks until <c>connect/*</c> returns.
 	  <seealso marker="#connect_init/4">connect_init/*</seealso>
@@ -185,26 +158,24 @@
         <p><marker id="record-sctp_assoc_change"></marker>
           The result of <c>connect/*</c> is an <c>#sctp_assoc_change{}</c>
           event which contains, in particular, the new 
-          <seealso marker="#type-assoc_id">Association ID:</seealso></p>
-        <pre>
-  #sctp_assoc_change{
+          <seealso marker="#type-assoc_id">Association ID</seealso>.</p>
+<pre>   #sctp_assoc_change{
         state             = atom(),
         error             = atom(),
-        outbound_streams  = int(),
-        inbound_streams   = int(),
+        outbound_streams  = integer(),
+        inbound_streams   = integer(),
         assoc_id          = assoc_id()
   }        </pre>
         <p>The number of outbound and inbound streams can be set by
           giving an <c>sctp_initmsg</c> option to <c>connect</c>
           as in:</p>
-        <pre>
-  connect(Socket, Ip, Port,
+<pre>  connect(<anno>Socket</anno>, Ip, <anno>Port</anno>,
         [{sctp_initmsg,#sctp_initmsg{num_ostreams=OutStreams,
                                      max_instreams=MaxInStreams}}])        </pre>
-        <p>All options <c>Opt</c> are set on the socket before the 
+        <p>All options <c><anno>Opt</anno></c> are set on the socket before the
           association is attempted. If an option record has got undefined
           field values, the options record is first read from the socket
-          for those values. In effect, <c>Opt</c> option records only 
+          for those values. In effect, <c><anno>Opt</anno></c> option records only
           define field values to change before connecting.</p>
         <p>The returned <c>outbound_streams</c> and <c>inbound_streams</c>
           are the actual stream numbers on the socket, which may be different
@@ -242,27 +213,19 @@
       </desc>
     </func>
     <func>
-      <name>connect_init(Socket, Addr, Port, Opts) -&gt; ok | {error, posix()}</name>
+      <name name="connect_init" arity="4"/>
       <fsummary>Same as <c>connect_init(Socket, Addr, Port, Opts, infinity)</c>.</fsummary>
       <desc>
-        <p>Same as <c>connect_init(Socket, Addr, Port, Opts, infinity)</c>.</p>
+        <p>Same as <c>connect_init(<anno>Socket</anno>, <anno>Addr</anno>, <anno>Port</anno>, <anno>Opts</anno>, infinity)</c>.</p>
       </desc>
     </func>
     <func>
-      <name>connect_init(Socket, Addr, Port, [Opt], Timeout) -&gt; ok | {error, posix()}</name>
+      <name name="connect_init" arity="5"/>
       <fsummary>Initiate a new association for the socket <c>Socket</c>, with a peer (SCTP server socket)</fsummary>
-      <type>
-        <v>Socket  = sctp_socket()</v>
-        <v>Addr    = ip_address() | Host</v>
-        <v>Port    = port_number()</v>
-        <v>Opt     = sctp_option()</v>
-        <v>Timeout = timeout()</v>
-        <v>Host    = atom() | string()</v>
-      </type>
       <desc>
-        <p>Initiates a new association for the socket <c>Socket</c>,
+        <p>Initiates a new association for the socket <c><anno>Socket</anno></c>,
           with the peer (SCTP server socket) given by
-          <c>Addr</c> and <c>Port</c>.</p>
+          <c><anno>Addr</anno></c> and <c><anno>Port</anno></c>.</p>
 	<p>The fundamental difference between this API
 	and <c>connect/*</c> is that the return value is that of the
 	underlying OS connect(2) system call. If <c>ok</c> is returned
@@ -275,97 +238,119 @@
 	active option.</p>
 	<p>The parameters are as described
 	in <seealso marker="#connect/5">connect/*</seealso>, with the
-	exception of the <c>Timeout</c> value.</p>
-	<p>The timer associated with <c>Timeout</c> only supervises
-	IP resolution of <c>Addr</c></p>
+	exception of the <c><anno>Timeout</anno></c> value.</p>
+	<p>The timer associated with <c><anno>Timeout</anno></c> only supervises
+	IP resolution of <c><anno>Addr</anno></c></p>
       </desc>
     </func>
     <func>
-      <name>controlling_process(sctp_socket(), pid()) -&gt; ok</name>
+      <name name="controlling_process" arity="2"/>
       <fsummary>Assign a new controlling process pid to the socket</fsummary>
       <desc>
-        <p>Assigns a new controlling process Pid to Socket. Same implementation
+        <p>Assigns a new controlling process <c><anno>Pid</anno></c> to <c><anno>Socket</anno></c>. Same implementation
           as <c>gen_udp:controlling_process/2</c>.</p>
       </desc>
     </func>
     <func>
-      <name>eof(Socket, Assoc) -&gt; ok | {error, Reason}</name>
+      <name name="eof" arity="2"/>
       <fsummary>Gracefully terminate the association given by Assoc, with flushing of all unsent data</fsummary>
-      <type>
-        <v>Socket = sctp_socket()</v>
-        <v>Assoc  = #sctp_assoc_change{}</v>
-      </type>
       <desc>
-        <p>Gracefully terminates the association given by <c>Assoc</c>, with
+        <p>Gracefully terminates the association given by <c><anno>Assoc</anno></c>, with
           flushing of all unsent data. The socket itself remains open. Other
           associations opened on this socket are still valid, and it can be
           used in new associations.</p>
       </desc>
     </func>
     <func>
-      <name>listen(Socket, IsServer) -&gt; ok | {error, Reason}</name>
+      <name name="listen" arity="2" clause_i="1"/>
+      <name name="listen" arity="2" clause_i="2"/>
       <fsummary>Set up a socket to listen.</fsummary>
-      <type>
-        <v>Socket   = sctp_socket()</v>
-        <v>IsServer = bool()</v>
-      </type>
       <desc>
         <p>Sets up a socket to listen on the IP address and port number
-          it is bound to. IsServer must be 'true' or 'false'.
-          In the contrast to TCP, in SCTP there is no listening queue length.
-          If IsServer is 'true' the socket accepts new associations, i.e.
-          it will become an SCTP server socket.</p>
+	it is bound to.</p>
+	<p>For type <c>seqpacket</c> sockets (the default)
+	<c><anno>IsServer</anno></c> must be <c>true</c> or <c>false</c>.
+	In the contrast to TCP, in SCTP there is no listening queue length.
+	If <c><anno>IsServer</anno></c> is <c>true</c> the socket accepts new associations, i.e.
+	it will become an SCTP server socket.</p>
+	<p>For type <c>stream</c> sockets <anno>Backlog</anno> defines
+	the backlog queue length just like in TCP.</p>
       </desc>
     </func>
     <func>
-      <name>open() -&gt; {ok, Socket} | {error, posix()}</name>
-      <name>open(Port) -&gt; {ok, Socket} | {error, posix()}</name>
-      <name>open([Opt]) -&gt; {ok, Socket} | {error, posix()}</name>
-      <name>open(Port, [Opt]) -&gt; {ok, Socket} | {error, posix()}</name>
+      <name name="open" arity="0"/>
+      <name name="open" arity="1" clause_i="1"/>
+      <name name="open" arity="1" clause_i="2"/>
+      <name name="open" arity="2"/>
       <fsummary>Create an SCTP socket and bind it to local addresses</fsummary>
-      <type>
-        <v>Opt  = {ip,IP} | {ifaddr,IP} | {port,Port} | sctp_option()</v>
-        <v>IP   = ip_address() | any | loopback</v>
-        <v>Port = port_number()</v>
-      </type>
       <desc>
         <p>Creates an SCTP socket and binds it to the local addresses 
-          specified by all <c>{ip,IP}</c> (or synonymously <c>{ifaddr,IP}</c>)
+          specified by all <c>{ip,<anno>IP</anno>}</c> (or synonymously <c>{ifaddr,<anno>IP</anno>}</c>)
           options (this feature is called SCTP multi-homing).
-          The default <c>IP</c> and <c>Port</c> are <c>any</c> 
+          The default <c><anno>IP</anno></c> and <c><anno>Port</anno></c> are <c>any</c>
           and <c>0</c>, meaning bind to all local addresses on any
           one free port.</p>
+
+        <p>Other options are:</p>
+        <taglist>
+          <tag><c>inet6</c></tag>
+          <item>
+            <p>Set up the socket for IPv6.</p>
+          </item>
+          <tag><c>inet</c></tag>
+          <item>
+            <p>Set up the socket for IPv4. This is the default.</p>
+          </item>
+        </taglist>
+
         <p>A default set of socket <seealso marker="#options">options</seealso>
           is used. In particular, the socket is opened in 
           <seealso marker="#option-binary">binary</seealso> and
           <seealso marker="#option-active">passive</seealso> mode,
+	  with <anno>SockType</anno> <c>seqpacket</c>,
           and with reasonably large
           <seealso marker="#option-sndbuf">kernel</seealso> and driver
           <seealso marker="#option-buffer">buffers.</seealso></p>
       </desc>
     </func>
     <func>
-      <name>recv(sctp_socket()) -&gt; {ok, {FromIP, FromPort, AncData, BinMsg}} | {error, Reason}</name>
-      <name>recv(sctp_socket(), timeout()) -&gt; {ok, {FromIP, FromPort, AncData, Data}} | {error, Reason}</name>
-      <fsummary>Receive a message from a socket</fsummary>
-      <type>
-        <v>FromIP   = ip_address()</v>
-        <v>FromPort = port_number()</v>
-        <v>AncData  = [#sctp_sndrcvinfo{}]</v>
-        <v>Data     = binary() | charlist() | #sctp_sndrcvinfo{} |
-                      #sctp_assoc_change{} | #sctp_paddr_change{} |
-                      #sctp_adaptation_event{} </v>
-        <v>Reason   = posix() | #sctp_send_failed{} | #scpt_paddr_change{} |
-                      #sctp_pdapi_event{} | #sctp_remote_error{} |
-                      #sctp_shutdown_event{}</v>
-      </type>
+      <name name="peeloff" arity="2"/>
+      <fsummary>
+	Peel off a type <c>stream</c> socket from a type <c>seqpacket</c> one
+      </fsummary>
       <desc>
-        <p>Receives the <c>Data</c> message from any association of the socket.
+	<p>
+	  Branch off an existing association <anno>Assoc</anno>
+	  in a socket <anno>Socket</anno> of type <c>seqpacket</c>
+	  (one-to-may style) into
+	  a new socket <anno>NewSocket</anno> of type <c>stream</c>
+	  (one-to-one style).
+	</p>
+	<p>
+	  The existing association argument <anno>Assoc</anno>
+	  can be either a
+	  <seealso marker="#record-sctp_assoc_change">
+	    #sctp_assoc_change{}
+	  </seealso>
+	  record as returned from e.g
+	  <seealso marker="#recv-2">recv/*</seealso>,
+	  <seealso marker="#connect-5">connect/*</seealso> or
+	  from a listening socket in active mode. Or it can be just
+	  the field <c>assoc_id</c> integer from such a record.
+	</p>
+      </desc>
+    </func>
+    <func>
+      <name name="recv" arity="1"/>
+      <name name="recv" arity="2"/>
+      <fsummary>Receive a message from a socket</fsummary>
+      <desc>
+        <p>Receives the <c><anno>Data</anno></c> message from any association of the socket.
           If the receive times out <c>{error,timeout</c> is returned.
           The default timeout is <c>infinity</c>.
-          <c>FromIP</c> and <c>FromPort</c> indicate the sender's address.</p>
-        <p><c>AncData</c> is a list of Ancillary Data items which
-          may be received along with the main <c>Data</c>.
+          <c><anno>FromIP</anno></c> and <c><anno>FromPort</anno></c> indicate the sender's address.</p>
+        <p><c><anno>AncData</anno></c> is a list of Ancillary Data items which
+          may be received along with the main <c><anno>Data</anno></c>.
           This list can be empty, or contain a single
           <seealso marker="#record-sctp_sndrcvinfo">#sctp_sndrcvinfo{}</seealso>
           record, if receiving of such ancillary data is enabled
@@ -375,10 +360,10 @@
           provide an easy way of determining the association and stream
           over which the message has been received.
           (An alternative way would be to get the Association ID from the
-          <c>FromIP</c> and <c>FromPort</c> using the
+          <c><anno>FromIP</anno></c> and <c><anno>FromPort</anno></c> using the
           <seealso marker="#option-sctp_get_peer_addr_info">sctp_get_peer_addr_info</seealso> socket option,
           but this would still not produce the Stream number).</p>
-        <p>The actual <c>Data</c> received may be a <c>binary()</c>,
+        <p>The actual <c><anno>Data</anno></c> received may be a <c>binary()</c>,
           or <c>list()</c> of bytes (integers in the range 0 through 255)
           depending on the socket mode, or an SCTP Event.
                     <marker id="sctp_events"></marker>
@@ -392,11 +377,10 @@
             <p><seealso marker="#record-sctp_assoc_change">#sctp_assoc_change{}</seealso>;</p>
           </item>
           <item>
-            <pre>
-  #sctp_paddr_change{
+<pre>  #sctp_paddr_change{
         addr      = {ip_address(),port()},
         state     = atom(),
-        error     = int(),
+        error     = integer(),
         assoc_id  = assoc_id()
   }            </pre>
             <p>Indicates change of the status of the peer's IP address given by
@@ -430,10 +414,9 @@
               converted into a string using <c>error_string/1</c>.</p>
           </item>
           <item>
-            <pre>
-  #sctp_send_failed{
+<pre>  #sctp_send_failed{
         flags     = true | false,
-        error     = int(),
+        error     = integer(),
         info      = #sctp_sndrcvinfo{},
         assoc_id  = assoc_id()
         data      = binary()
@@ -451,9 +434,8 @@
               returned by <c>recv/*</c>.</p>
           </item>
           <item>
-            <pre>
-  #sctp_adaptation_event{
-        adaptation_ind = int(),
+<pre>  #sctp_adaptation_event{
+        adaptation_ind = integer(),
         assoc_id       = assoc_id()
   }            </pre>
             <p>Delivered when a peer sends an Adaptation Layer Indication
@@ -463,8 +445,7 @@
               the Erlang/SCTP binding, this event is disabled by default.</p>
           </item>
           <item>
-            <pre>
-  #sctp_pdapi_event{
+<pre>  #sctp_pdapi_event{
         indication = sctp_partial_delivery_aborted,
         assoc_id   = assoc_id()
   }            </pre>
@@ -476,15 +457,10 @@
       </desc>
     </func>
     <func>
-      <name>send(Socket, SndRcvInfo, Data) -&gt; ok | {error, Reason}</name>
+      <name name="send" arity="3"/>
       <fsummary>Send a message using an <c>#sctp_sndrcvinfo{}</c>record</fsummary>
-      <type>
-        <v>Socket     = sctp_socket()</v>
-        <v>SndRcvInfo = #sctp_sndrcvinfo{}</v>
-        <v>Data       = binary() | iolist()</v>
-      </type>
       <desc>
-        <p>Sends the <c>Data</c> message with all sending parameters from a
+        <p>Sends the <c><anno>Data</anno></c> message with all sending parameters from a
           <seealso marker="#record-sctp_sndrcvinfo">#sctp_sndrcvinfo{}</seealso> record.
           This way, the user can specify the PPID (passed to the remote end)
           and Context (passed to the local SCTP layer) which can be used
@@ -494,21 +470,15 @@
       </desc>
     </func>
     <func>
-      <name>send(Socket, Assoc, Stream, Data) -&gt; ok | {error, Reason}</name>
+      <name name="send" arity="4"/>
       <fsummary>Send a message over an existing association and given stream</fsummary>
-      <type>
-        <v>Socket = sctp_socket()</v>
-        <v>Assoc  = #sctp_assoc_change{} | assoc_id()</v>
-        <v>Stream = integer()</v>
-        <v>Data   = binary() | iolist()</v>
-      </type>
       <desc>
-        <p>Sends <c>Data</c> message over an existing association and given
+        <p>Sends <c><anno>Data</anno></c> message over an existing association and given
           stream.</p>
       </desc>
     </func>
     <func>
-      <name>error_string(integer()) -> ok | string() | undefined</name>
+      <name name="error_string" arity="1"/>
       <fsummary>Translate an SCTP error number into a string</fsummary>
       <desc>
         <p>Translates an SCTP error number from for example 
@@ -532,7 +502,7 @@
     <marker id="option-binary"></marker>
     <marker id="option-list"></marker>
     <taglist>
-      <tag><c>{mode, list|binary}</c>or just <c>list</c> or <c>binary</c>.</tag>
+      <tag><c>{mode, list|binary}</c> or just <c>list</c> or <c>binary</c></tag>
       <item>
         <p>Determines the type of data returned from <c>gen_sctp:recv/1,2</c>.</p>
         <marker id="option-active"></marker>
@@ -562,7 +532,7 @@
         </list>
         <marker id="option-buffer"></marker>
       </item>
-      <tag><c>{buffer, int()}</c></tag>
+      <tag><c>{buffer, integer()}</c></tag>
       <item>
         <p>Determines the size of the user-level software buffer used by
           the SCTP driver. Not to be confused with <c>sndbuf</c>
@@ -572,7 +542,7 @@
           In fact, the <c>val(buffer)</c> is automatically set to
           the above maximum when <c>sndbuf</c> or <c>recbuf</c> values are set.</p>
       </item>
-      <tag><c>{tos, int()}</c></tag>
+      <tag><c>{tos, integer()}</c></tag>
       <item>
         <p>Sets the Type-Of-Service field on the IP datagrams being sent,
           to the given value, which effectively determines a prioritization
@@ -580,7 +550,7 @@
           are system-dependent. TODO: we do not provide
           symbolic names for these values yet.</p>
       </item>
-      <tag><c>{priority, int()}</c></tag>
+      <tag><c>{priority, integer()}</c></tag>
       <item>
         <p>A protocol-independent equivalent of <c>tos</c> above. Setting
           priority implies setting tos as well.</p>
@@ -599,7 +569,7 @@
           required for high-throughput servers).</p>
         <marker id="option-linger"></marker>
       </item>
-      <tag><c>{linger, {true|false, int()}</c></tag>
+      <tag><c>{linger, {true|false, integer()}</c></tag>
       <item>
         <p>Determines the timeout in seconds for flushing unsent data in the
           <c>gen_sctp:close/1</c> socket call. If the 1st component of the value
@@ -609,14 +579,14 @@
           the flushing time-out in seconds.</p>
         <marker id="option-sndbuf"></marker>
       </item>
-      <tag><c>{sndbuf, int()}</c></tag>
+      <tag><c>{sndbuf, integer()}</c></tag>
       <item>
         <p>The size, in bytes, of the *kernel* send buffer for this socket.
           Sending errors would occur for datagrams larger than
           <c>val(sndbuf)</c>. Setting this option also adjusts
           the size of the driver buffer (see <c>buffer</c> above).</p>
       </item>
-      <tag><c>{recbuf, int()}</c></tag>
+      <tag><c>{recbuf, integer()}</c></tag>
       <item>
         <p>The size, in bytes, of the *kernel* recv buffer for this socket.
           Sending errors would occur for datagrams larger than
@@ -625,12 +595,11 @@
       </item>
       <tag><c>{sctp_rtoinfo, #sctp_rtoinfo{}}</c></tag>
       <item>
-        <pre>
-  #sctp_rtoinfo{
+<pre>  #sctp_rtoinfo{
         assoc_id = assoc_id(),
-        initial  = int(),
-        max      = int(),
-        min      = int()
+        initial  = integer(),
+        max      = integer(),
+        min      = integer()
   }        </pre>
         <p>Determines re-transmission time-out parameters, in milliseconds,
           for the association(s) given by <c>assoc_id</c>. 
@@ -640,14 +609,13 @@
       </item>
       <tag><c>{sctp_associnfo, #sctp_assocparams{}}</c></tag>
       <item>
-        <pre>
-  #sctp_assocparams{
+<pre>  #sctp_assocparams{
         assoc_id                 = assoc_id(),
-        asocmaxrxt               = int(),
-        number_peer_destinations = int(),
-        peer_rwnd                = int(),
-        local_rwnd               = int(),
-        cookie_life              = int()
+        asocmaxrxt               = integer(),
+        number_peer_destinations = integer(),
+        peer_rwnd                = integer(),
+        local_rwnd               = integer(),
+        cookie_life              = integer()
   }        </pre>
         <p>Determines association parameters for the association(s) given by
           <c>assoc_id</c>. <c>assoc_id = 0</c> (default) indicates
@@ -656,12 +624,11 @@
       </item>
       <tag><c>{sctp_initmsg, #sctp_initmsg{}}</c></tag>
       <item>
-        <pre>
-  #sctp_initmsg{
-       num_ostreams   = int(),
-       max_instreams  = int(),
-       max_attempts   = int(),
-       max_init_timeo = int()
+<pre>  #sctp_initmsg{
+       num_ostreams   = integer(),
+       max_instreams  = integer(),
+       max_attempts   = integer(),
+       max_init_timeo = integer()
   }        </pre>
         <p>Determines the default parameters which this socket attempts
           to negotiate with its peer while establishing an association with it.
@@ -685,12 +652,12 @@
               for establishing an association.</p>
           </item>
         </list>
-        <p></p>
       </item>
-      <tag><c>{sctp_autoclose, int()|infinity}</c></tag>
+      <tag><c>{sctp_autoclose, integer() >= 0}</c></tag>
       <item>
         <p>Determines the time (in seconds) after which an idle association is
-          automatically closed.</p>
+          automatically closed. <c>0</c> means that the association is
+          never automatically closed.</p>
       </item>
       <tag><c>{sctp_nodelay, true|false}</c></tag>
       <item>
@@ -712,15 +679,14 @@
         <p>Turns on|off automatic mapping of IPv4 addresses into IPv6 ones
           (if the socket address family is AF_INET6).</p>
       </item>
-      <tag><c>{sctp_maxseg, int()}</c></tag>
+      <tag><c>{sctp_maxseg, integer()}</c></tag>
       <item>
         <p>Determines the maximum chunk size if message fragmentation is used.
           If <c>0</c>, the chunk size is limited by the Path MTU only.</p>
       </item>
       <tag><c>{sctp_primary_addr, #sctp_prim{}}</c></tag>
       <item>
-        <pre>
-  #sctp_prim{
+<pre>  #sctp_prim{
         assoc_id = assoc_id(),
         addr     = {IP, Port}
   }
@@ -733,8 +699,7 @@
       </item>
       <tag><c>{sctp_set_peer_primary_addr, #sctp_setpeerprim{}}</c></tag>
       <item>
-        <pre>
-  #sctp_setpeerprim{
+<pre>  #sctp_setpeerprim{
         assoc_id = assoc_id(),
         addr     = {IP, Port}
   }
@@ -748,9 +713,8 @@
       <tag><c>{sctp_adaptation_layer, #sctp_setadaptation{}}</c></tag>
       <item>
         <marker id="record-sctp_setadaptation"></marker>
-        <pre>
-  #sctp_setadaptation{
-        adaptation_ind = int()
+<pre>  #sctp_setadaptation{
+        adaptation_ind = integer()
   }        </pre>
         <p>When set, requests that the local endpoint uses the value given by
           <c>adaptation_ind</c> as the Adaptation Indication parameter for
@@ -760,14 +724,13 @@
       </item>
       <tag><c>{sctp_peer_addr_params, #sctp_paddrparams{}}</c></tag>
       <item>
-        <pre>
-  #sctp_paddrparams{
+<pre>  #sctp_paddrparams{
         assoc_id   = assoc_id(),
         address    = {IP, Port},
-        hbinterval = int(),
-        pathmaxrxt = int(),
-        pathmtu    = int(),
-        sackdelay  = int(),
+        hbinterval = integer(),
+        pathmaxrxt = integer(),
+        pathmtu    = integer(),
+        sackdelay  = integer(),
         flags      = list()
   }
   IP = ip_address()
@@ -818,24 +781,21 @@
                 <p><c>sackdelay_disable</c>: disable SAC delay.</p>
               </item>
             </list>
-            <p></p>
           </item>
         </list>
-        <p></p>
       </item>
       <tag><c>{sctp_default_send_param, #sctp_sndrcvinfo{}}</c></tag>
       <item>
         <marker id="record-sctp_sndrcvinfo"></marker>
-        <pre>
-  #sctp_sndrcvinfo{
-        stream     = int(),
-        ssn        = int(),
+<pre>  #sctp_sndrcvinfo{
+        stream     = integer(),
+        ssn        = integer(),
         flags      = list(),
-        ppid       = int(),
-        context    = int(),
-        timetolive = int(),
-        tsn        = int(),
-        cumtsn     = int(),
+        ppid       = integer(),
+        context    = integer(),
+        timetolive = integer(),
+        tsn        = integer(),
+        cumtsn     = integer(),
         assoc_id   = assoc_id()
   }        </pre>
         <p><c>#sctp_sndrcvinfo{}</c> is used both in this socket option, and as
@@ -869,20 +829,17 @@
                   association, with flushing of unsent data.</p>
               </item>
             </list>
-            <p></p>
             <p>Other fields are rarely used. See 
               <url href="http://www.rfc-archive.org/getrfc.php?rfc=2960">RFC2960</url> and 
               <url href="http://tools.ietf.org/html/draft-ietf-tsvwg-sctpsocket-13">Sockets API Extensions for SCTP</url> for full information.</p>
           </item>
         </list>
-        <p></p>
         <marker id="option-sctp_events"></marker>
       </item>
       <tag><c>{sctp_events, #sctp_event_subscribe{}}</c></tag>
       <item>
         <marker id="record-sctp_event_subscribe"></marker>
-        <pre>
-  #sctp_event_subscribe{
+<pre>  #sctp_event_subscribe{
           data_io_event          = true | false,
           association_event      = true | false,
           address_event          = true | false,
@@ -907,10 +864,9 @@
       </item>
       <tag><c>{sctp_delayed_ack_time, #sctp_assoc_value{}}</c></tag>
       <item>
-        <pre>
-  #sctp_assoc_value{
+<pre>  #sctp_assoc_value{
         assoc_id    = assoc_id(),
-        assoc_value = int()
+        assoc_value = integer()
   }        </pre>
         <p>Rarely used. Determines the ACK time
           (given by <c>assoc_value</c> in milliseconds) for
@@ -919,16 +875,15 @@
       </item>
       <tag><c>{sctp_status, #sctp_status{}}</c></tag>
       <item>
-        <pre>
-  #sctp_status{
+<pre>  #sctp_status{
         assoc_id            = assoc_id(),
         state               = atom(),
-        rwnd                = int(),
-        unackdata           = int(),
-        penddata            = int(),
-        instrms             = int(),
-        outstrms            = int(),
-        fragmentation_point = int(),
+        rwnd                = integer(),
+        unackdata           = integer(),
+        penddata            = integer(),
+        instrms             = integer(),
+        outstrms            = integer(),
+        fragmentation_point = integer(),
         primary             = #sctp_paddrinfo{}
   }        </pre>
         <p>This option is read-only. It determines the status of
@@ -992,21 +947,19 @@
               address (see below for the format of <c>#sctp_paddrinfo{}</c>).</p>
           </item>
         </list>
-        <p></p>
         <marker id="option-sctp_get_peer_addr_info"></marker>
       </item>
       <tag><c>{sctp_get_peer_addr_info, #sctp_paddrinfo{}}</c></tag>
       <item>
         <marker id="record-sctp_paddrinfo"></marker>
-        <pre>
-  #sctp_paddrinfo{
+<pre>  #sctp_paddrinfo{
         assoc_id  = assoc_id(),
         address   = {IP, Port},
         state     = inactive | active,
-        cwnd      = int(),
-        srtt      = int(),
-        rto       = int(),
-        mtu       = int()
+        cwnd      = integer(),
+        srtt      = integer(),
+        rto       = integer(),
+        mtu       = integer()
   }
   IP = ip_address()
   Port = port_number()        </pre>
@@ -1030,8 +983,7 @@
       <item>
         <p>Example of an Erlang SCTP Server which receives SCTP messages and
           prints them on the standard output:</p>
-        <pre>
-  -module(sctp_server).
+<pre>  -module(sctp_server).
   
   -export([server/0,server/1,server/2]).
   -include_lib("kernel/include/inet.hrl").
@@ -1047,7 +999,7 @@
   
   server(IP, Port) when is_tuple(IP) orelse IP == any orelse IP == loopback,
                         is_integer(Port) -&gt;
-      {ok,S} = gen_sctp:open([{ip,IP},{port,Port}],[{recbuf,65536}]),
+      {ok,S} = gen_sctp:open(Port, [{recbuf,65536}, {ip,IP}]),
       io:format("Listening on ~w:~w. ~w~n", [IP,Port,S]),
       ok     = gen_sctp:listen(S, true),
       server_loop(S).
@@ -1060,7 +1012,6 @@
           io:format("Received: ~p~n", [Data])
       end,
       server_loop(S).        </pre>
-        <p></p>
       </item>
       <item>
         <p>Example of an Erlang SCTP Client which interacts with the above Server.
@@ -1070,8 +1021,7 @@
           over Stream 5 fails. The client then <c>abort</c>s the association,
           which results in the corresponding Event being received on
           the Server side.</p>
-        <pre>
-  -module(sctp_client).
+<pre>  -module(sctp_client).
   
   -export([client/0, client/1, client/2]).
   -include_lib("kernel/include/inet.hrl").
@@ -1104,13 +1054,11 @@
       
       timer:sleep(1000),
       gen_sctp:close(S).        </pre>
-        <p></p>
       </item>
       <item>
         <p>A very simple Erlang SCTP Client which uses the
           connect_init API.</p>
-        <pre>
--module(ex3).
+<pre>-module(ex3).
 
 -export([client/4]).
 -include_lib("kernel/include/inet.hrl").
@@ -1163,7 +1111,6 @@ client_loop(S, Peer1, Port1, AssocId1, Peer2, Port2, AssocId2) -&gt;
             ok
     end.
 </pre>
-        <p></p>
       </item>
     </list>
   </section>
@@ -1173,10 +1120,9 @@ client_loop(S, Peer1, Port1, AssocId1, Peer2, Port2, AssocId2) -&gt;
     <title>SEE ALSO</title>
     <p><seealso marker="inet">inet(3)</seealso>,
       <seealso marker="gen_tcp">gen_tcp(3)</seealso>,
-      <seealso marker="gen_udp">gen_upd(3)</seealso>,
+      <seealso marker="gen_udp">gen_udp(3)</seealso>,
       <url href="http://www.rfc-archive.org/getrfc.php?rfc=2960">RFC2960</url> (Stream Control Transmission Protocol),
       <url href="http://tools.ietf.org/html/draft-ietf-tsvwg-sctpsocket-13">Sockets API Extensions for SCTP.</url></p>
-    <marker id="authors"></marker>
   </section>
 </erlref>
 

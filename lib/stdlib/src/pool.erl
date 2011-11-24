@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -52,11 +52,16 @@
 
 %% Start up using the .hosts.erlang file
 
--spec start(atom()) -> [node()].
+-spec start(Name) -> Nodes when
+      Name :: atom(),
+      Nodes :: [node()].
 start(Name) ->
     start(Name,[]).
 
--spec start(atom(), string()) -> [node()].
+-spec start(Name, Args) -> Nodes when
+      Name :: atom(),
+      Args :: string(),
+      Nodes :: [node()].
 start(Name, Args) when is_atom(Name) ->
     gen_server:start({global, pool_master}, pool, [], []),
     Hosts = net_adm:host_file(),
@@ -71,7 +76,8 @@ start(Name, Args) when is_atom(Name) ->
 get_nodes() ->
     get_elements(2, get_nodes_and_load()).
 
--spec attach(node()) -> 'already_attached' | 'attached'.
+-spec attach(Node) -> 'already_attached' | 'attached' when
+      Node :: node().
 attach(Node) ->
     gen_server:call({global, pool_master}, {attach, Node}).
 
@@ -82,11 +88,17 @@ get_nodes_and_load() ->
 get_node() ->
     gen_server:call({global, pool_master}, get_node).
 
--spec pspawn(module(), atom(), [term()]) -> pid().
+-spec pspawn(Mod, Fun, Args) -> pid() when
+      Mod :: module(),
+      Fun :: atom(),
+      Args :: [term()].
 pspawn(M, F, A) ->
     gen_server:call({global, pool_master}, {spawn, group_leader(), M, F, A}).
 
--spec pspawn_link(module(), atom(), [term()]) -> pid().
+-spec pspawn_link(Mod, Fun, Args) -> pid() when
+      Mod :: module(),
+      Fun :: atom(),
+      Args :: [term()].
 pspawn_link(M, F, A) ->
     P = pspawn(M, F, A),
     link(P),
@@ -95,6 +107,9 @@ pspawn_link(M, F, A) ->
 start_nodes([], _, _) -> [];
 start_nodes([Host|Tail], Name, Args) -> 
     case slave:start(Host, Name, Args) of 
+	{error, {already_running, Node}} ->
+	    io:format("Can't start node on host ~w due to ~w~n",[Host, {already_running, Node}]),
+	    [Node | start_nodes(Tail, Name, Args)];
 	{error, R} ->
 	    io:format("Can't start node on host ~w due to ~w~n",[Host, R]),
 	    start_nodes(Tail, Name, Args);

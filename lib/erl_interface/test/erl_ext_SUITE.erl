@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -20,27 +20,42 @@
 %%
 -module(erl_ext_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include("erl_ext_SUITE_data/ext_test_cases.hrl").
 
 -export([
-	all/1, 
-	compare_tuple/1,
-	compare_list/1,
-	compare_string/1,
-	compare_list_string/1,
-	compare_nc_ext/1
+	 all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 compare_tuple/1,
+	 compare_list/1,
+	 compare_string/1,
+	 compare_list_string/1,
+	 compare_nc_ext/1
 	]).
 
 -import(runner, [get_term/1]).
 
-all(suite) -> [
-	compare_tuple,
-	compare_list,
-	compare_string,
-	compare_list_string, 
-	compare_nc_ext
-	].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [compare_tuple, compare_list, compare_string,
+     compare_list_string, compare_nc_ext].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 compare_tuple(suite) -> [];
 compare_tuple(doc) -> [];

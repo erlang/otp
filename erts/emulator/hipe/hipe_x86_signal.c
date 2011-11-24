@@ -1,22 +1,23 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2001-2009. All Rights Reserved.
- * 
+
+ *
+ * Copyright Ericsson AB 2001-2011. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
-/* $Id$
+/*
  * hipe_x86_signal.c
  *
  * Erlang code compiled to x86 native code uses the x86 %esp as its
@@ -195,7 +196,7 @@ static void do_init(void)
 #define INIT()	do { if (!init_done()) do_init(); } while (0)
 #endif /* __DARWIN__ */
 
-#if !defined(__GLIBC__) && !defined(__DARWIN__)
+#if !defined(__GLIBC__) && !defined(__DARWIN__) && !defined(__NetBSD__)
 /*
  * Assume Solaris/x86 2.8.
  * There is a number of sigaction() procedures in libc:
@@ -231,6 +232,7 @@ static void do_init(void)
 #define INIT()	do { if (!init_done()) do_init(); } while (0)
 #endif	/* not glibc or darwin */
 
+#if !defined(__NetBSD__)
 /*
  * This is our wrapper for sigaction(). sigaction() can be called before
  * hipe_signal_init() has been executed, especially when threads support
@@ -253,7 +255,7 @@ static int my_sigaction(int signum, const struct sigaction *act, struct sigactio
     }
     return __next_sigaction(signum, act, oldact);
 }
-
+#endif
 /*
  * This overrides the C library's core sigaction() procedure, catching
  * all its internal calls.
@@ -268,7 +270,7 @@ int __SIGACTION(int signum, const struct sigaction *act, struct sigaction *oldac
 /*
  * This catches the application's own sigaction() calls.
  */
-#if !defined(__DARWIN__)
+#if !defined(__DARWIN__) && !defined(__NetBSD__)
 int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact)
 {
     return my_sigaction(signum, act, oldact);
@@ -326,7 +328,9 @@ void hipe_signal_init(void)
     struct sigaction sa;
     int i;
 
+#ifndef __NetBSD__
     INIT();
+#endif
 
     hipe_sigaltstack_init();
 

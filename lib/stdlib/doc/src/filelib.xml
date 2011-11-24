@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2003</year><year>2009</year>
+      <year>2003</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -36,101 +36,94 @@
   <description>
     <p>This module contains utilities on a higher level than the <c>file</c>
       module.</p>
+    <p>The module supports Unicode file names, so that it will match against regular expressions given in Unicode and that it will find and process raw file names (i.e. files named in a way that does not confirm to the expected encoding).</p>
+    <p>If the VM operates in Unicode file naming mode on a machine with transparent file naming, the <c>fun()</c> provided to <c>fold_files/5</c> needs to be prepared to handle binary file names.</p>
+    <p>For more information about raw file names, see the <seealso marker="kernel:file">file</seealso> module.</p>
   </description>
 
-  <section>
-    <title>DATA TYPES</title>
-    <code type="none">
-filename() = string() | atom() | DeepList
-dirname() = filename()
-DeepList = [char() | atom() | DeepList]</code>
-  </section>
+  <datatypes>
+    <datatype>
+      <name name="filename"/>
+    </datatype>
+    <datatype>
+      <name name="dirname"/>
+    </datatype>
+  </datatypes>
 
   <funcs>
     <func>
-      <name>ensure_dir(Name) -> ok | {error, Reason}</name>
+      <name name="ensure_dir" arity="1"/>
       <fsummary>Ensure that all parent directories for a file or directory exist.</fsummary>
-      <type>
-        <v>Name = filename() | dirname()</v>
-        <v>Reason = posix() -- see file(3)</v>
-      </type>
       <desc>
         <p>The <c>ensure_dir/1</c> function ensures that all parent
-          directories for the given file or directory name <c>Name</c>
+          directories for the given file or directory name <c><anno>Name</anno></c>
           exist, trying to create them if necessary.</p>
         <p>Returns <c>ok</c> if all parent directories already exist
-          or could be created, or <c>{error, Reason}</c> if some parent
+          or could be created, or <c>{error, <anno>Reason</anno>}</c> if some parent
           directory does not exist and could not be created for some
           reason.</p>
       </desc>
     </func>
     <func>
-      <name>file_size(Filename) -> integer()</name>
+      <name name="file_size" arity="1"/>
       <fsummary>Return the size in bytes of the file.</fsummary>
       <desc>
         <p>The <c>file_size</c> function returns the size of the given file.</p>
       </desc>
     </func>
     <func>
-      <name>fold_files(Dir, RegExp, Recursive, Fun, AccIn) -> AccOut   </name>
+      <name name="fold_files" arity="5"/>
       <fsummary>Fold over all files matching a regular expression.</fsummary>
-      <type>
-        <v>Dir = dirname()</v>
-        <v>RegExp = regular_expression_string()</v>
-        <v>Recursive = true|false</v>
-        <v>Fun = fun(F, AccIn) -> AccOut</v>
-        <v>AccIn = AccOut = term()</v>
-      </type>
       <desc>
         <p>The <c>fold_files/5</c> function folds the function
-          <c>Fun</c> over all (regular) files <c>F</c> in the
-          directory <c>Dir</c> that match the regular expression <c>RegExp</c>
+          <c><anno>Fun</anno></c> over all (regular) files <c><anno>F</anno></c> in the
+          directory <c><anno>Dir</anno></c> that match the regular expression <c><anno>RegExp</anno></c>
 	  (see the <seealso marker="re">re</seealso> module for a description
 	  of the allowed regular expressions).
-          If <c>Recursive</c> is true all sub-directories to <c>Dir</c>
+          If <c><anno>Recursive</anno></c> is true all sub-directories to <c>Dir</c>
           are processed. The regular expression matching is done on just
 	  the filename without the directory part.</p>
+
+	  <p>If Unicode file name translation is in effect and the file
+	  system is completely transparent, file names that cannot be
+	  interpreted as Unicode may be encountered, in which case the
+	  <c>fun()</c> must be prepared to handle raw file names
+	  (i.e. binaries). If the regular expression contains
+	  codepoints beyond 255, it will not match file names that do
+	  not conform to the expected character encoding (i.e. are not
+	  encoded in valid UTF-8).</p>
+
+	  <p>For more information about raw file names, see the 
+          <seealso marker="kernel:file">file</seealso> module.</p>
       </desc>
     </func>
     <func>
-      <name>is_dir(Name) -> true | false</name>
+      <name name="is_dir" arity="1"/>
       <fsummary>Test whether Name refer to a directory or not</fsummary>
-      <type>
-        <v>Name = filename() | dirname()</v>
-      </type>
       <desc>
-        <p>The <c>is_dir/1</c> function returns <c>true</c> if <c>Name</c>
+        <p>The <c>is_dir/1</c> function returns <c>true</c> if <c><anno>Name</anno></c>
           refers to a directory, and <c>false</c> otherwise.</p>
       </desc>
     </func>
     <func>
-      <name>is_file(Name) -> true | false</name>
+      <name name="is_file" arity="1"/>
       <fsummary>Test whether Name refer to a file or directory.</fsummary>
-      <type>
-        <v>Name = filename() | dirname()</v>
-      </type>
       <desc>
-        <p>The <c>is_file/1</c> function returns <c>true</c> if <c>Name</c>
+        <p>The <c>is_file/1</c> function returns <c>true</c> if <c><anno>Name</anno></c>
           refers to a file or a directory, and <c>false</c> otherwise.</p>
       </desc>
     </func>
     <func>
-      <name>is_regular(Name) -> true | false</name>
+      <name name="is_regular" arity="1"/>
       <fsummary>Test whether Name refer to a (regular) file.</fsummary>
-      <type>
-        <v>Name = filename()</v>
-      </type>
       <desc>
-        <p>The <c>is_regular/1</c> function returns <c>true</c> if <c>Name</c>
+        <p>The <c>is_regular/1</c> function returns <c>true</c> if <c><anno>Name</anno></c>
           refers to a file (regular file), and <c>false</c> otherwise.</p>
       </desc>
     </func>
     <func>
-      <name>last_modified(Name) -> {{Year,Month,Day},{Hour,Min,Sec}} | 0</name>
+      <name name="last_modified" arity="1"/>
       <fsummary>Return the local date and time when a file was last modified.</fsummary>
-      <type>
-        <v>Name = filename() | dirname()</v>
-      </type>
       <desc>
         <p>The <c>last_modified/1</c> function returns the date and time the
           given file or directory was last modified, or 0 if the file
@@ -138,14 +131,11 @@ DeepList = [char() | atom() | DeepList]</code>
       </desc>
     </func>
     <func>
-      <name>wildcard(Wildcard) -> list()</name>
+      <name name="wildcard" arity="1"/>
       <fsummary>Match filenames using Unix-style wildcards.</fsummary>
-      <type>
-        <v>Wildcard = filename() | dirname()</v>
-      </type>
       <desc>
         <p>The <c>wildcard/1</c> function returns a list of all files
-          that match Unix-style wildcard-string <c>Wildcard</c>.</p>
+          that match Unix-style wildcard-string <c><anno>Wildcard</anno></c>.</p>
         <p>The wildcard string looks like an ordinary filename, except
           that certain "wildcard characters" are interpreted in a special
           way. The following characters are special:
@@ -159,6 +149,12 @@ DeepList = [char() | atom() | DeepList]</code>
           <item>
             <p>Matches any number of characters up to the end of
               the filename, the next dot, or the next slash.</p>
+          </item>
+          <tag>[Character1,Character2,...]</tag>
+          <item>
+            <p>Matches any of the characters listed. Two characters
+	    separated by a hyphen will match a range of characters.
+	    Example: <c>[A-Z]</c> will match any uppercase letter.</p>
           </item>
           <tag>{Item,...}</tag>
           <item>
@@ -199,15 +195,11 @@ DeepList = [char() | atom() | DeepList]</code>
       </desc>
     </func>
     <func>
-      <name>wildcard(Wildcard, Cwd) -> list()</name>
+      <name name="wildcard" arity="2"/>
       <fsummary>Match filenames using Unix-style wildcards starting at a specified directory.</fsummary>
-      <type>
-        <v>Wildcard = filename() | dirname()</v>
-        <v>Cwd = dirname()</v>
-      </type>
       <desc>
         <p>The <c>wildcard/2</c> function works like <c>wildcard/1</c>,
-          except that instead of the actual working directory, <c>Cwd</c>
+          except that instead of the actual working directory, <c><anno>Cwd</anno></c>
           will be used.</p>
       </desc>
     </func>

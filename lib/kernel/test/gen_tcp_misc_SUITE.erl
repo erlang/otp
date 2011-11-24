@@ -1,31 +1,33 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(gen_tcp_misc_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 %-compile(export_all).
 
--export([all/1, controlling_process/1, no_accept/1, close_with_pending_output/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 controlling_process/1, no_accept/1, close_with_pending_output/1,
 	 data_before_close/1, iter_max_socks/1, get_status/1,
 	 passive_sockets/1, accept_closed_by_other_process/1,
-	 init_per_testcase/2, fin_per_testcase/2,
+	 init_per_testcase/2, end_per_testcase/2,
 	 otp_3924/1, otp_3924_sender/4, closed_socket/1,
 	 shutdown_active/1, shutdown_passive/1, shutdown_pending/1,
 	 default_options/1, http_bad_packet/1, 
@@ -34,38 +36,59 @@
 	 partial_recv_and_close_2/1,partial_recv_and_close_3/1,so_priority/1,
 	 % Accept tests
 	 primitive_accept/1,multi_accept_close_listen/1,accept_timeout/1,
-	 accept_timeouts_in_order/1,accept_timeouts_in_order2/1,accept_timeouts_in_order3/1,
-	 accept_timeouts_mixed/1, 
+	 accept_timeouts_in_order/1,accept_timeouts_in_order2/1,
+	 accept_timeouts_in_order3/1,accept_timeouts_mixed/1, 
 	 killing_acceptor/1,killing_multi_acceptors/1,killing_multi_acceptors2/1,
-	 several_accepts_in_one_go/1,active_once_closed/1, send_timeout/1, otp_7731/1,
-	 zombie_sockets/1, otp_7816/1, otp_8102/1]).
+	 several_accepts_in_one_go/1,active_once_closed/1, send_timeout/1, send_timeout_active/1, 
+	 otp_7731/1, zombie_sockets/1, otp_7816/1, otp_8102/1]).
 
 %% Internal exports.
--export([sender/3, not_owner/1, passive_sockets_server/2, priority_server/1, otp_7731_server/1, zombie_server/2]).
+-export([sender/3, not_owner/1, passive_sockets_server/2, priority_server/1, 
+	 otp_7731_server/1, zombie_server/2]).
 
 init_per_testcase(_Func, Config) when is_list(Config) ->
     Dog = test_server:timetrap(test_server:seconds(240)),
     [{watchdog, Dog}|Config].
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog).
 
-all(suite) ->
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
     [controlling_process, no_accept,
-     close_with_pending_output,
-     data_before_close, iter_max_socks, passive_sockets,
+     close_with_pending_output, data_before_close,
+     iter_max_socks, passive_sockets,
      accept_closed_by_other_process, otp_3924, closed_socket,
      shutdown_active, shutdown_passive, shutdown_pending,
-     default_options, http_bad_packet, 
-     busy_send, busy_disconnect_passive, busy_disconnect_active,
-     fill_sendq, partial_recv_and_close, 
-     partial_recv_and_close_2, partial_recv_and_close_3, so_priority,
-     primitive_accept,multi_accept_close_listen,accept_timeout,
-     accept_timeouts_in_order,accept_timeouts_in_order2,accept_timeouts_in_order3,
-     accept_timeouts_mixed, 
-     killing_acceptor,killing_multi_acceptors,killing_multi_acceptors2,
-     several_accepts_in_one_go, active_once_closed, send_timeout, otp_7731,
+     default_options, http_bad_packet, busy_send,
+     busy_disconnect_passive, busy_disconnect_active,
+     fill_sendq, partial_recv_and_close,
+     partial_recv_and_close_2, partial_recv_and_close_3,
+     so_priority, primitive_accept,
+     multi_accept_close_listen, accept_timeout,
+     accept_timeouts_in_order, accept_timeouts_in_order2,
+     accept_timeouts_in_order3, accept_timeouts_mixed,
+     killing_acceptor, killing_multi_acceptors,
+     killing_multi_acceptors2, several_accepts_in_one_go,
+     active_once_closed, send_timeout, send_timeout_active, otp_7731,
      zombie_sockets, otp_7816, otp_8102].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 
 default_options(doc) ->
@@ -957,12 +980,11 @@ http_bad_packet(Config) when is_list(Config) ->
 
 http_worker(S) ->
     case gen_tcp:recv(S, 0, 30000) of
+	{ok,{http_error,Error}} ->
+	     io:format("Http error: ~s\n", [Error]);
 	{ok,Data} ->
 	    io:format("Data: ~p\n", [Data]),
-	    http_worker(S);
-	{error,Rsn} ->
-	    io:format("Error: ~p\n", [Rsn]),
-	    ok
+	    http_worker(S)
     end.
 
 http_bad_client(Port) ->
@@ -1935,6 +1957,60 @@ send_timeout(Config) when is_list(Config) ->
     ParaFun(false),
     ParaFun(true),
     ok.
+mad_sender(S) ->
+    {_, _, USec} = now(),
+    case gen_tcp:send(S, integer_to_list(USec)) of
+        ok ->
+            mad_sender(S);
+        Err ->
+            Err
+    end.
+
+
+flush() ->
+    receive
+	_X ->
+	    %erlang:display(_X),
+	    flush()
+    after 0 ->
+	    ok
+    end.
+
+send_timeout_active(suite) ->
+    [];
+send_timeout_active(doc) ->
+    ["Test the send_timeout socket option for active sockets"];
+send_timeout_active(Config) when is_list(Config) ->
+    Dog = test_server:timetrap(test_server:seconds(20)),
+    %% Basic
+    BasicFun = 
+	fun(AutoClose) ->
+		?line {Loop,A,RNode,C} = setup_active_timeout_sink(1, AutoClose),
+		inet:setopts(A, [{active, once}]),
+		?line Mad = spawn_link(RNode,fun() -> mad_sender(C) end),
+		?line {error,timeout} = 
+		    Loop(fun() ->
+				 receive
+				     {tcp, Sock, _Data} ->
+					 inet:setopts(A, [{active, once}]),
+					 Res = gen_tcp:send(A,lists:duplicate(1000, $a)),
+					 %erlang:display(Res),
+					 Res;
+				     Err ->
+					 io:format("sock closed: ~p~n", [Err]),
+					 Err
+				 end
+			 end),
+		unlink(Mad),
+		exit(Mad,kill),
+		?line test_server:stop_node(RNode)
+	end,
+    BasicFun(false),
+    flush(),
+    BasicFun(true),
+    flush(),
+    test_server:timetrap_cancel(Dog),
+    ok.
 
 after_send_timeout(AutoClose) ->
     case AutoClose of
@@ -2017,35 +2093,35 @@ setup_closed_ao() ->
     {Loop,A}.
     
 setup_timeout_sink(Timeout, AutoClose) ->
-    Dir = filename:dirname(code:which(?MODULE)),
-    {ok,R} = test_server:start_node(test_default_options_slave,slave,
+    ?line Dir = filename:dirname(code:which(?MODULE)),
+    ?line {ok,R} = test_server:start_node(test_default_options_slave,slave,
 				       [{args,"-pa " ++ Dir}]),    
-    Host = list_to_atom(lists:nth(2,string:tokens(atom_to_list(node()),"@"))),
-    {ok, L} = gen_tcp:listen(0, [{active,false},{packet,2},
+    ?line Host = list_to_atom(lists:nth(2,string:tokens(atom_to_list(node()),"@"))),
+    ?line {ok, L} = gen_tcp:listen(0, [{active,false},{packet,2},
 				 {send_timeout,Timeout},
 				 {send_timeout_close,AutoClose}]),
-    Fun = fun(F) -> 
+    ?line Fun = fun(F) -> 
 		  receive 
 		      {From,X} when is_function(X) -> 
 			  From ! {self(),X()}, F(F); 
 		      die -> ok 
 		  end 
 	  end, 
-    Pid =  rpc:call(R,erlang,spawn,[fun() -> Fun(Fun) end]),
-    {ok, Port} = inet:port(L),
-    Remote = fun(Fu) -> 
+    ?line Pid =  rpc:call(R,erlang,spawn,[fun() -> Fun(Fun) end]),
+    ?line {ok, Port} = inet:port(L),
+    ?line Remote = fun(Fu) -> 
 		     Pid ! {self(), Fu}, 
 		     receive {Pid,X} -> X 
 		     end 
 	     end,
-    {ok, C} = Remote(fun() -> 
+    ?line {ok, C} = Remote(fun() -> 
 			     gen_tcp:connect(Host,Port,
 					     [{active,false},{packet,2}]) 
 		     end),
-    {ok,A} = gen_tcp:accept(L),
-    gen_tcp:send(A,"Hello"),
-    {ok, "Hello"} = Remote(fun() -> gen_tcp:recv(C,0) end),
-    Loop2 = fun(_,_,0) -> 
+    ?line {ok,A} = gen_tcp:accept(L),
+    ?line gen_tcp:send(A,"Hello"),
+    ?line {ok, "Hello"} = Remote(fun() -> gen_tcp:recv(C,0) end),
+    ?line Loop2 = fun(_,_,0) -> 
 		    {failure, timeout}; 
 	       (L2,F2,N) -> 
 		    Ret = F2(),
@@ -2056,9 +2132,53 @@ setup_timeout_sink(Timeout, AutoClose) ->
 			Other -> Other
 		    end 
 	    end,
-    Loop = fun(F3) ->  Loop2(Loop2,F3,1000) end,
+    ?line Loop = fun(F3) ->  Loop2(Loop2,F3,1000) end,
     {Loop,A,R}.
-    
+
+setup_active_timeout_sink(Timeout, AutoClose) ->
+    ?line Dir = filename:dirname(code:which(?MODULE)),
+    ?line {ok,R} = test_server:start_node(test_default_options_slave,slave,
+				       [{args,"-pa " ++ Dir}]),    
+    ?line Host = list_to_atom(lists:nth(2,string:tokens(atom_to_list(node()),"@"))),
+    ?line {ok, L} = gen_tcp:listen(0, [binary,{active,false},{packet,0},{nodelay, true},{keepalive, true},
+				 {send_timeout,Timeout},
+				 {send_timeout_close,AutoClose}]),
+    ?line Fun = fun(F) -> 
+		  receive 
+		      {From,X} when is_function(X) -> 
+			  From ! {self(),X()}, F(F); 
+		      die -> ok 
+		  end 
+	  end, 
+    ?line Pid =  rpc:call(R,erlang,spawn,[fun() -> Fun(Fun) end]),
+    ?line {ok, Port} = inet:port(L),
+    ?line Remote = fun(Fu) -> 
+		     Pid ! {self(), Fu}, 
+		     receive {Pid,X} -> X 
+		     end 
+	     end,
+    ?line {ok, C} = Remote(fun() -> 
+			     gen_tcp:connect(Host,Port,
+					     [{active,false}]) 
+		     end),
+    ?line {ok,A} = gen_tcp:accept(L),
+    ?line gen_tcp:send(A,"Hello"),
+    ?line {ok, "H"++_} = Remote(fun() -> gen_tcp:recv(C,0) end),
+    ?line Loop2 = fun(_,_,0) -> 
+		    {failure, timeout}; 
+	       (L2,F2,N) -> 
+		    Ret = F2(),
+		    io:format("~p~n",[Ret]),
+		    case Ret of
+			ok -> receive after 1 -> ok end, 
+			      L2(L2,F2,N-1);
+			Other -> Other
+		    end 
+	    end,
+    ?line Loop = fun(F3) ->  Loop2(Loop2,F3,1000) end,
+    {Loop,A,R,C}.
+
+     
 millistamp() ->
     {Mega, Secs, Micros} = erlang:now(),
     (Micros div 1000) + Secs * 1000 + Mega * 1000000000.

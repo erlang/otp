@@ -1,57 +1,49 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2005-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
 %%----------------------------------------------------------------------
-%% Purpose: Verify the application specifics of the Megaco application
+%% Purpose: Verify the application specifics of the asn1 application
 %%----------------------------------------------------------------------
 -module(asn1_appup_test).
-
+-compile({no_auto_import,[error/1]}).
 -compile(export_all).
 
-%-include("megaco_test_lib.hrl").
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+all() -> 
+    [appup].
 
-%t()     -> megaco_test_lib:t(?MODULE).
-%t(Case) -> megaco_test_lib:t({?MODULE, Case}).
+groups() -> 
+    [].
 
+init_per_group(_GroupName, Config) ->
+	Config.
 
-%% Test server callbacks
-% init_per_testcase(Case, Config) ->
-%     megaco_test_lib:init_per_testcase(Case, Config).
+end_per_group(_GroupName, Config) ->
+	Config.
 
-% fin_per_testcase(Case, Config) ->
-%     megaco_test_lib:fin_per_testcase(Case, Config).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-all(suite) ->
-    Cases = 
-	[
-	 appup
-	],
-    {req, [], {conf, appup_init, Cases, appup_fin}}.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-appup_init(suite) -> [];
-appup_init(doc) -> [];
-appup_init(Config) when list(Config) ->
+init_per_suite(suite) -> [];
+init_per_suite(doc) -> [];
+init_per_suite(Config) when is_list(Config) ->
     AppFile   = file_name(asn1, ".app"),
     AppupFile = file_name(asn1, ".appup"),
     [{app_file, AppFile}, {appup_file, AppupFile}|Config].
@@ -62,9 +54,9 @@ file_name(App, Ext) ->
     filename:join([LibDir, "ebin", atom_to_list(App) ++ Ext]).
 
 
-appup_fin(suite) -> [];
-appup_fin(doc) -> [];
-appup_fin(Config) when list(Config) ->
+end_per_suite(suite) -> [];
+end_per_suite(doc) -> [];
+end_per_suite(Config) when is_list(Config) ->
     Config.
 
 
@@ -74,7 +66,7 @@ appup(suite) ->
     [];
 appup(doc) ->
     "perform a simple check of the appup file";
-appup(Config) when list(Config) ->
+appup(Config) when is_list(Config) ->
     AppupFile = key1search(appup_file, Config),
     AppFile   = key1search(app_file, Config),
     Modules   = modules(AppFile),
@@ -161,14 +153,14 @@ check_instructions(UpDown, [Instr|Instrs], AllInstr, Good, Bad, Modules) ->
 
 %% A new module is added
 check_instruction(up, {add_module, Module}, _, Modules) 
-  when atom(Module) ->
+  when is_atom(Module) ->
     d("check_instruction -> entry when up-add_module instruction with"
       "~n   Module: ~p", [Module]),
     check_module(Module, Modules);
 
 %% An old module is re-added
 check_instruction(down, {add_module, Module}, _, Modules) 
-  when atom(Module) ->
+  when is_atom(Module) ->
     d("check_instruction -> entry when down-add_module instruction with"
       "~n   Module: ~p", [Module]),
     case (catch check_module(Module, Modules)) of
@@ -182,7 +174,7 @@ check_instruction(down, {add_module, Module}, _, Modules)
 %% - the module has been removed from the app-file.
 %% - check that no module depends on this (removed) module
 check_instruction(up, {remove, {Module, Pre, Post}}, _, Modules) 
-  when atom(Module), atom(Pre), atom(Post) ->
+  when is_atom(Module), is_atom(Pre), is_atom(Post) ->
     d("check_instruction -> entry when up-remove instruction with"
       "~n   Module: ~p"
       "~n   Pre:    ~p"
@@ -198,7 +190,7 @@ check_instruction(up, {remove, {Module, Pre, Post}}, _, Modules)
 %% Removing a module on downgrade: the module exist
 %% in the app-file.
 check_instruction(down, {remove, {Module, Pre, Post}}, AllInstr, Modules) 
-  when atom(Module), atom(Pre), atom(Post) ->
+  when is_atom(Module), is_atom(Pre), is_atom(Post) ->
     d("check_instruction -> entry when down-remove instruction with"
       "~n   Module: ~p"
       "~n   Pre:    ~p"
@@ -214,7 +206,7 @@ check_instruction(down, {remove, {Module, Pre, Post}}, AllInstr, Modules)
 
 check_instruction(_, {load_module, Module, Pre, Post, Depend}, 
 		  AllInstr, Modules) 
-  when atom(Module), atom(Pre), atom(Post), list(Depend) ->
+  when is_atom(Module), is_atom(Pre), is_atom(Post), is_list(Depend) ->
     d("check_instruction -> entry when load_module instruction with"
       "~n   Module: ~p"
       "~n   Pre:    ~p"
@@ -228,7 +220,7 @@ check_instruction(_, {load_module, Module, Pre, Post, Depend},
 
 check_instruction(_, {update, Module, Change, Pre, Post, Depend}, 
 		  AllInstr, Modules) 
-  when atom(Module), atom(Pre), atom(Post), list(Depend) ->
+  when is_atom(Module), is_atom(Pre), is_atom(Post), is_list(Depend) ->
     d("check_instruction -> entry when update instruction with"
       "~n   Module: ~p"
       "~n   Change: ~p"
@@ -244,7 +236,7 @@ check_instruction(_, {update, Module, Change, Pre, Post, Depend},
 
 check_instruction(_, {apply, {Module, Function, Args}}, 
 		  _AllInstr, Modules) 
-  when atom(Module), atom(Function), list(Args) ->
+  when is_atom(Module), is_atom(Function), is_list(Args) ->
     d("check_instruction -> entry when apply instruction with"
       "~n   Module: ~p"
       "~n   Function: ~p"
@@ -289,13 +281,13 @@ instruction_module(Instr) ->
     
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-check_version(V) when list(V) ->
+check_version(V) when is_list(V) ->
     ok;
 check_version(V) ->
     error({bad_version, V}).
 
 
-check_module(M, Modules) when atom(M) ->
+check_module(M, Modules) when is_atom(M) ->
     case lists:member(M,Modules) of
         true ->
             ok;
@@ -307,7 +299,7 @@ check_module(M, _) ->
 
 check_apply(Module,Function,Args) ->
     case (catch Module:module_info()) of
-	Info when list(Info) ->
+	Info when is_list(Info) ->
 	    check_exported(Function,Args,Info);
 	{'EXIT',{undef,_}} ->
 	    error({not_existing_module,Module})
@@ -326,11 +318,11 @@ check_exported(Function,Args,Info) ->
 	    error({bad_export,Info})
     end.
 
-check_module_depend(M, [], _) when atom(M) ->
+check_module_depend(M, [], _) when is_atom(M) ->
     d("check_module_depend -> entry with"
       "~n   M: ~p", [M]),    
     ok;
-check_module_depend(M, Deps, Modules) when atom(M), list(Deps) ->
+check_module_depend(M, Deps, Modules) when is_atom(M), is_list(Deps) ->
     d("check_module_depend -> entry with"
       "~n   M: ~p"
       "~n   Deps: ~p"

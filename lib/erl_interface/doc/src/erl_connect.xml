@@ -4,7 +4,7 @@
 <cref>
   <header>
     <copyright>
-      <year>1996</year><year>2009</year>
+      <year>1996</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -451,7 +451,7 @@ typedef struct {
         <p><c><![CDATA[port]]></c> is the local name to register, and should be the
           same as the port number that was previously bound to the socket.</p>
         <p>To unregister with epmd, simply close the returned
-          descriptor. See also <c><![CDATA[erl_unpublish()]]></c>.
+          descriptor.
           </p>
         <p>On success, the functions return a descriptor connecting the
           calling process to epmd. On failure, they return -1 and set
@@ -507,21 +507,24 @@ typedef struct {
     </func>
     <func>
       <name><ret>int</ret><nametext>erl_unpublish(alive)</nametext></name>
-      <fsummary>Unpublish a node name</fsummary>
+      <fsummary>Forcefully unpublish a node name</fsummary>
       <type>
         <v>char *alive;</v>
       </type>
       <desc>
-        <p>This function can be called by a process to unregister a
-          specified node name from epmd on the localhost. This may be
-          useful, for example, when epmd has not detected the failure of a
-          node, and will not allow the name to be reused. If you use this
-          function to unregister your own process, be sure to also close
-          the descriptor that was returned by <c><![CDATA[erl_publish()]]></c>.</p>
-        <note>
-          <p>Careless use of this function may have unpredictable
-            results, if the registered node is in fact still running.</p>
-        </note>
+       <p>This function can be called by a process to unregister a
+          specified node from epmd on the localhost. This is however usually not 
+	  allowed, unless epmd was started with the -relaxed_command_check 
+	  flag, which it normally isn't.</p>
+
+	  <p>To unregister a node you have published, you should instead
+	  close the descriptor that was returned by  
+	  <c><![CDATA[ei_publish()]]></c>.</p> 
+
+        <warning>
+          <p>This function is deprecated and will be removed in a future 
+	  release.</p>
+        </warning>
         <p><c><![CDATA[alive]]></c> is the name of the node to unregister, i.e., the
           first component of the nodename, without the <c><![CDATA[@hostname]]></c>.</p>
         <p>If the node was successfully unregistered from epmd, the

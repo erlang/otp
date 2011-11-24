@@ -280,7 +280,7 @@ release_spec: opt
 	$(INSTALL_DATA) $(TARGET_FILES) $(RELSYSDIR)/ebin
 ifeq ($(ENABLE_MEGACO_FLEX_SCANNER),true)
 	$(INSTALL_DATA) $(FLEX_FILES) $(C_TARGETS) $(RELSYSDIR)/src/flex
-	$(INSTALL_DATA) $(SOLIBS) $(RELSYSDIR)/priv/lib
+	$(INSTALL_PROGRAM) $(SOLIBS) $(RELSYSDIR)/priv/lib
 endif
 
 
@@ -391,7 +391,9 @@ $(STD_DRV).c: $(STD_DRV).flex
 $(MT_DRV).c: $(MT_DRV).flex
 	$(LEX) $(MT_LEX_FLAGS) -P$* -o$@ $< 
 
-solibs: $(LIBDIR) $(OBJDIR) $(SOLIBS) 
+_create_dirs := $(shell mkdir -p $(OBJDIR) $(LIBDIR))
+
+solibs: $(SOLIBS) 
 
 $(OBJDIR)/$(STD_DRV).o: $(STD_DRV).c 
 	@echo "compiling std driver:"
@@ -411,10 +413,3 @@ $(LIBDIR)/$(STD_DRV).$(DED_EXT): $(OBJDIR)/$(STD_DRV).o
 $(LIBDIR)/$(MT_DRV).$(DED_EXT): $(OBJDIR)/$(MT_DRV).o
 	@echo "linking multi-threaded driver:"
 	$(LD) $(LDFLAGS) -o $@ $< 
-
-$(LIBDIR):
-	-mkdir -p $(LIBDIR)
-
-$(OBJDIR):
-	-mkdir -p $(OBJDIR)
-

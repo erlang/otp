@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -22,15 +22,34 @@
 
 -module(bs_bincomp_SUITE).
 
--export([all/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
 	 byte_aligned/1,bit_aligned/1,extended_byte_aligned/1,
 	 extended_bit_aligned/1,mixed/1,tracing/1]).
 
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
-all(suite) ->
-    [byte_aligned,bit_aligned,extended_byte_aligned,
-     extended_bit_aligned,mixed,tracing].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [byte_aligned, bit_aligned, extended_byte_aligned,
+     extended_bit_aligned, mixed, tracing].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 
 byte_aligned(Config) when is_list(Config) ->

@@ -30,7 +30,6 @@ opt debug release docs release_docs tests release_tests clean depend valgrind:
 	if test -f vsn.mk; then						\
 	    echo "=== Entering application" `basename $$app_pwd` ;	\
 	fi ;								\
-	case "$(MAKE)" in *clearmake*) tflag="-T";; *) tflag="";; esac;	\
 	for d in $(SUB_DIRECTORIES); do					\
 	    if test -f $$d/SKIP ; then					\
 		echo "=== Skipping subdir $$d, reason:" ;		\
@@ -40,11 +39,7 @@ opt debug release docs release_docs tests release_tests clean depend valgrind:
 		if test ! -d $$d ; then					\
 		    echo "=== Skipping subdir $$d, it is missing" ;	\
 		else							\
-		    xflag="" ;						\
-		    if test -f $$d/ignore_config_record.inf; then	\
-			xflag=$$tflag ;					\
-		    fi ;						\
-		    (cd $$d && $(MAKE) $$xflag $@) || exit $$? ;	\
+		    (cd $$d && $(MAKE) $@) || exit $$? ;		\
 		fi ;							\
 	    fi ;							\
 	done ;								\

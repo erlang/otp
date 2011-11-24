@@ -1,0 +1,3 @@
+
+my_sofs.erl:34: The pattern {'Set', _, _} can never match the type #'OrdSet'{}
+my_sofs.erl:54: The pattern {'Set', _, _} can never match the type #'OrdSet'{}

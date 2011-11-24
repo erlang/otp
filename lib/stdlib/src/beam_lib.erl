@@ -1,24 +1,28 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2000-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(beam_lib).
 -behaviour(gen_server).
 
+%% Avoid warning for local function error/1 clashing with autoimported BIF.
+-compile({no_auto_import,[error/1]}).
+%% Avoid warning for local function error/2 clashing with autoimported BIF.
+-compile({no_auto_import,[error/2]}).
 -export([info/1,
 	 cmp/2,
 	 cmp_dirs/2,
@@ -41,23 +45,18 @@
 	 terminate/2,code_change/3]).
 -export([make_crypto_key/2, get_crypto_key/1]).	%Utilities used by compiler
 
+-export_type([attrib_entry/0, compinfo_entry/0, labeled_entry/0]).
+
 -import(lists, [append/1, delete/2, foreach/2, keysort/2, 
 		member/2, reverse/1, sort/1, splitwith/2]).
-
--include_lib("kernel/include/file.hrl").
--include("erl_compile.hrl").
 
 %%-------------------------------------------------------------------------
 
 -type beam() :: module() | file:filename() | binary().
 
-%% XXX: THE FOLLOWING SHOULD BE IMPORTED FROM SOMEWHERE ELSE
--type forms()     :: term().
+-type forms()     :: [erl_parse:abstract_form()].
 
--type abst_vsn()  :: atom().
--type abst_code() :: {abst_vsn(), forms()} | 'no_abstract_code'.
--type attribute() :: atom().
--type attrvalue() :: term().
+-type abst_code() :: {AbstVersion :: atom(), forms()} | 'no_abstract_code'.
 -type dataB()     :: binary().
 -type index()     :: non_neg_integer().
 -type label()     :: integer().
@@ -71,9 +70,9 @@
                    | 'atoms'.
 -type chunkref()  :: chunkname() | chunkid().
 
--type attrib_entry()   :: {attribute(), [attrvalue()]}.
--type compinfo_entry() :: {atom(), term()}.
--type labeled_entry()  :: {atom(), arity(), label()}.
+-type attrib_entry()   :: {Attribute :: atom(), [AttributeValue :: term()]}.
+-type compinfo_entry() :: {InfoKey :: atom(), term()}.
+-type labeled_entry()  :: {Function :: atom(), arity(), label()}.
 
 -type chunkdata() :: {chunkid(), dataB()}
                    | {'abstract_code', abst_code()}
@@ -82,20 +81,17 @@
                    | {'exports', [{atom(), arity()}]}
                    | {'labeled_exports', [labeled_entry()]}
                    | {'imports', [mfa()]}
-                   | {'indexed_imports', [{index(), module(), atom(), arity()}]}
+                   | {'indexed_imports', [{index(), module(), Function :: atom(), arity()}]}
                    | {'locals', [{atom(), arity()}]}
                    | {'labeled_locals', [labeled_entry()]}
                    | {'atoms', [{integer(), atom()}]}.
 
--type info_pair() :: {'file', file:filename()}
-                   | {'binary', binary()}
-                   | {'module', module()}
-                   | {'chunks', [{chunkid(), integer(), integer()}]}.
-
 %% Error reasons
 -type info_rsn()  :: {'chunk_too_big', file:filename(),
-		      chunkid(), integer(), integer()}
-                   | {'invalid_beam_file', file:filename(), integer()}
+		      chunkid(), ChunkSize :: non_neg_integer(),
+                      FileSize :: non_neg_integer()}
+                   | {'invalid_beam_file', file:filename(),
+                      Position :: non_neg_integer()}
                    | {'invalid_chunk', file:filename(), chunkid()}
                    | {'missing_chunk', file:filename(), chunkid()}
                    | {'not_a_beam_file', file:filename()}
@@ -106,6 +102,7 @@
                    | info_rsn().
 -type cmp_rsn()   :: {'modules_different', module(), module()}
                    | {'chunks_different', chunkid()}
+                   | 'different_chunks'
                    | info_rsn().
 
 %%-------------------------------------------------------------------------
@@ -114,20 +111,34 @@
 %%  Exported functions
 %%
 
--spec info(beam()) -> [info_pair()] | {'error', 'beam_lib', info_rsn()}.
+-spec info(Beam) -> [InfoPair] | {'error', 'beam_lib', info_rsn()} when
+      Beam :: beam(),
+      InfoPair :: {'file', Filename :: file:filename()}
+                | {'binary', Binary :: binary()}
+                | {'module', Module :: module()}
+                | {'chunks', [{ChunkId :: chunkid(),
+                               Pos :: non_neg_integer(),
+                               Size :: non_neg_integer()}]}.
 
 info(File) ->
     read_info(beam_filename(File)).
 
--spec chunks(beam(), [chunkref()]) ->
-        {'ok', {module(), [chunkdata()]}} | {'error', 'beam_lib', chnk_rsn()}.
+-spec chunks(Beam, ChunkRefs) ->
+                    {'ok', {module(), [chunkdata()]}} |
+                    {'error', 'beam_lib', chnk_rsn()} when
+      Beam :: beam(),
+      ChunkRefs :: [chunkref()].
 
 chunks(File, Chunks) ->
     read_chunk_data(File, Chunks).
 
--spec chunks(beam(), [chunkref()], ['allow_missing_chunks']) ->
-        {'ok', {module(), [{chunkref(), chunkdata() | 'missing_chunk'}]}}
-      | {'error', 'beam_lib', chnk_rsn()}.
+-spec chunks(Beam, ChunkRefs, Options) ->
+                    {'ok', {module(), [ChunkResult]}} |
+                    {'error', 'beam_lib', chnk_rsn()} when
+      Beam :: beam(),
+      ChunkRefs :: [chunkref()],
+      Options :: ['allow_missing_chunks'],
+      ChunkResult :: chunkdata() | {ChunkRef :: chunkref(), 'missing_chunk'}.
 
 chunks(File, Chunks, Options) ->
     try read_chunk_data(File, Chunks, Options)
@@ -138,49 +149,65 @@ chunks(File, Chunks, Options) ->
 all_chunks(File) ->
     read_all_chunks(File).
 
--spec cmp(beam(), beam()) -> 'ok' | {'error', 'beam_lib', cmp_rsn()}.
+-spec cmp(Beam1, Beam2) -> 'ok' | {'error', 'beam_lib', cmp_rsn()} when
+      Beam1 :: beam(),
+      Beam2 :: beam().
 
 cmp(File1, File2) ->
     try cmp_files(File1, File2)
     catch Error -> Error end.
 
--spec cmp_dirs(atom() | file:filename(), atom() | file:filename()) ->
-        {[file:filename()], [file:filename()],
-	 [{file:filename(), file:filename()}]}
-      | {'error', 'beam_lib', {'not_a_directory', term()} | info_rsn()}.
+-spec cmp_dirs(Dir1, Dir2) ->
+           {Only1, Only2, Different} | {'error', 'beam_lib', Reason} when
+      Dir1 :: atom() | file:filename(),
+      Dir2 :: atom() | file:filename(),
+      Only1 :: [file:filename()],
+      Only2 :: [file:filename()],
+      Different :: [{Filename1 :: file:filename(), Filename2 :: file:filename()}],
+      Reason :: {'not_a_directory', term()} | info_rsn().
 
 cmp_dirs(Dir1, Dir2) ->
     catch compare_dirs(Dir1, Dir2).
 
--spec diff_dirs(atom() | file:filename(), atom() | file:filename()) ->
-        'ok' | {'error', 'beam_lib', {'not_a_directory', term()} | info_rsn()}.
+-spec diff_dirs(Dir1, Dir2) -> 'ok' | {'error', 'beam_lib', Reason} when
+      Dir1 :: atom() | file:filename(),
+      Dir2 :: atom() | file:filename(),
+      Reason :: {'not_a_directory', term()} | info_rsn().
 
 diff_dirs(Dir1, Dir2) ->
     catch diff_directories(Dir1, Dir2).
 
--spec strip(beam()) ->
-        {'ok', {module(), beam()}} | {'error', 'beam_lib', info_rsn()}.
+-spec strip(Beam1) ->
+        {'ok', {module(), Beam2}} | {'error', 'beam_lib', info_rsn()} when
+      Beam1 :: beam(),
+      Beam2 :: beam().
 
 strip(FileName) ->
     try strip_file(FileName)
     catch Error -> Error end.
     
--spec strip_files([beam()]) ->
-        {'ok', [{module(), beam()}]} | {'error', 'beam_lib', info_rsn()}.
+-spec strip_files(Files) ->
+        {'ok', [{module(), Beam}]} | {'error', 'beam_lib', info_rsn()} when
+      Files :: [beam()],
+      Beam :: beam().
 
 strip_files(Files) when is_list(Files) ->
     try strip_fils(Files)
     catch Error -> Error end.
 
--spec strip_release(atom() | file:filename()) ->
+-spec strip_release(Dir) ->
         {'ok', [{module(), file:filename()}]}
-      | {'error', 'beam_lib', {'not_a_directory', term()} | info_rsn()}.
+      | {'error', 'beam_lib', Reason} when
+      Dir :: atom() | file:filename(),
+      Reason :: {'not_a_directory', term()} | info_rsn().
 
 strip_release(Root) ->
     catch strip_rel(Root).
 
--spec version(beam()) ->
-        {'ok', {module(), [term()]}} | {'error', 'beam_lib', chnk_rsn()}.
+-spec version(Beam) ->
+                     {'ok', {module(), [Version :: term()]}} |
+                     {'error', 'beam_lib', chnk_rsn()} when
+      Beam :: beam().
 
 version(File) ->
     case catch read_chunk_data(File, [attributes]) of
@@ -191,11 +218,13 @@ version(File) ->
 	    Error
     end.
 
--spec md5(beam()) ->
-        {'ok', {module(), binary()}} | {'error', 'beam_lib', chnk_rsn()}.
+-spec md5(Beam) ->
+        {'ok', {module(), MD5}} | {'error', 'beam_lib', chnk_rsn()} when
+      Beam :: beam(),
+      MD5 :: binary().
 
 md5(File) ->
-    case catch read_significant_chunks(File) of
+    case catch read_significant_chunks(File, md5_chunks()) of
 	{ok, {Module, Chunks0}} ->
 	    Chunks = filter_funtab(Chunks0),
 	    {ok, {Module, erlang:md5([C || {_Id, C} <- Chunks])}};
@@ -203,7 +232,8 @@ md5(File) ->
 	    Error
     end.
 
--spec format_error(term()) -> [char() | string()].
+-spec format_error(Reason) -> io_lib:chars() when
+      Reason :: term().
 
 format_error({error, Error}) ->
     format_error(Error);
@@ -256,12 +286,15 @@ format_error(E) ->
                         | {'debug_info', mode(), module(), file:filename()}.
 -type crypto_fun()     :: fun((crypto_fun_arg()) -> term()).
 
--spec crypto_key_fun(crypto_fun()) -> 'ok' | {'error', term()}.
+-spec crypto_key_fun(CryptoKeyFun) -> 'ok' | {'error', Reason} when
+      CryptoKeyFun :: crypto_fun(),
+      Reason :: badfun | exists | term().
 
 crypto_key_fun(F) ->
     call_crypto_server({crypto_key_fun, F}).
 
--spec clear_crypto_key_fun() -> 'undefined' | {'ok', term()}.
+-spec clear_crypto_key_fun() -> 'undefined' | {'ok', Result} when
+      Result :: 'undefined' | term().
 
 clear_crypto_key_fun() ->
     call_crypto_server(clear_crypto_key_fun).
@@ -331,13 +364,11 @@ beam_files(Dir) ->
 
 %% -> ok | throw(Error)
 cmp_files(File1, File2) ->
-    {ok, {M1, L1}} = read_significant_chunks(File1),
-    {ok, {M2, L2}} = read_significant_chunks(File2),
+    {ok, {M1, L1}} = read_all_but_useless_chunks(File1),
+    {ok, {M2, L2}} = read_all_but_useless_chunks(File2),
     if
 	M1 =:= M2 ->
-	    List1 = filter_funtab(L1),
-	    List2 = filter_funtab(L2),
-	    cmp_lists(List1, List2);
+	    cmp_lists(L1, L2);
 	true ->
 	    error({modules_different, M1, M2})
     end.
@@ -364,7 +395,7 @@ strip_fils(Files) ->
 
 %% -> {ok, {Mod, FileName}} | {ok, {Mod, binary()}} | throw(Error)
 strip_file(File) ->
-    {ok, {Mod, Chunks}} = read_significant_chunks(File),
+    {ok, {Mod, Chunks}} = read_significant_chunks(File, significant_chunks()),
     {ok, Stripped0} = build_module(Chunks),
     Stripped = compress(Stripped0),
     case File of
@@ -408,8 +439,22 @@ pad(Size) ->
     end.
 
 %% -> {ok, {Module, Chunks}} | throw(Error)
-read_significant_chunks(File) ->
-    case read_chunk_data(File, significant_chunks(), [allow_missing_chunks]) of
+read_all_but_useless_chunks(File0) when is_atom(File0);
+					is_list(File0);
+					is_binary(File0) ->
+    File = beam_filename(File0),
+    {ok, Module, ChunkIds0} = scan_beam(File, info),
+    ChunkIds = [Name || {Name,_,_} <- ChunkIds0,
+			not is_useless_chunk(Name)],
+    {ok, Module, Chunks} = scan_beam(File, ChunkIds),
+    {ok, {Module, lists:reverse(Chunks)}}.
+
+is_useless_chunk("CInf") -> true;
+is_useless_chunk(_) -> false.
+
+%% -> {ok, {Module, Chunks}} | throw(Error)
+read_significant_chunks(File, ChunkList) ->
+    case read_chunk_data(File, ChunkList, [allow_missing_chunks]) of
 	{ok, {Module, Chunks0}} ->
 	    Mandatory = mandatory_chunks(),
 	    Chunks = filter_significant_chunks(Chunks0, Mandatory, File, Module),
@@ -790,12 +835,15 @@ file_error(FileName, {error, Reason}) ->
 error(Reason) ->
     throw({error, ?MODULE, Reason}).
 
-
-%% The following chunks are significant when calculating the MD5 for a module,
-%% and also the modules that must be retained when stripping a file.
-%% They are listed in the order that they should be MD5:ed.
+%% The following chunks must be kept when stripping a BEAM file.
 
 significant_chunks() ->
+    ["Line" | md5_chunks()].
+
+%% The following chunks are significant when calculating the MD5
+%% for a module. They are listed in the order that they should be MD5:ed.
+
+md5_chunks() ->
     ["Atom", "Code", "StrT", "ImpT", "ExpT", "FunT", "LitT"].
 
 %% The following chunks are mandatory in every Beam file.
@@ -848,13 +896,17 @@ call_crypto_server(Req) ->
 	gen_server:call(?CRYPTO_KEY_SERVER, Req, infinity)
     catch
 	exit:{noproc,_} ->
-	    start_crypto_server(),
-	    erlang:yield(),
-	    call_crypto_server(Req)
+	    %% Not started.
+	    call_crypto_server_1(Req);
+	exit:{normal,_} ->
+	    %% The process finished just as we called it.
+	    call_crypto_server_1(Req)
     end.
 
-start_crypto_server() ->
-    gen_server:start({local,?CRYPTO_KEY_SERVER}, ?MODULE, [], []).
+call_crypto_server_1(Req) ->
+    gen_server:start({local,?CRYPTO_KEY_SERVER}, ?MODULE, [], []),
+    erlang:yield(),
+    call_crypto_server(Req).
 
 -spec init([]) -> {'ok', #state{}}.
 

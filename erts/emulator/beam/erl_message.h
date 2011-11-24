@@ -28,13 +28,22 @@ struct external_thing_;
  * but is stored outside of any heap.
  */
 
-typedef struct erl_off_heap {
-    struct proc_bin* mso;	/* List of associated binaries. */
-#ifndef HYBRID /* FIND ME! */
-    struct erl_fun_thing* funs;	/* List of funs. */
+struct erl_off_heap_header {
+    Eterm thing_word;
+    Uint size;
+#if HALFWORD_HEAP
+    void* dummy_ptr_padding__;
 #endif
-    struct external_thing_* externals; /* List of external things. */
-    int overhead;		/* Administrative overhead (used to force GC). */
+    struct erl_off_heap_header* next;
+};
+
+#define OH_OVERHEAD(oh, size) do { \
+    (oh)->overhead += size;        \
+} while(0)
+
+typedef struct erl_off_heap {
+    struct erl_off_heap_header* first;
+    Uint64 overhead;     /* Administrative overhead (used to force GC). */
 } ErlOffHeap;
 
 #include "external.h"
@@ -49,7 +58,7 @@ typedef struct erl_heap_fragment ErlHeapFragment;
 struct erl_heap_fragment {
     ErlHeapFragment* next;	/* Next heap fragment */
     ErlOffHeap off_heap;	/* Offset heap data. */
-    unsigned size;		/* Size in words of mem */
+    unsigned alloc_size;	/* Size in (half)words of mem */
     unsigned used_size;         /* With terms to be moved to heap by GC */
     Eterm mem[1];		/* Data */
 };
@@ -75,6 +84,13 @@ typedef struct {
     ErlMessage** last;  /* point to the last next pointer */
     ErlMessage** save;
     int len;            /* queue length */
+
+    /*
+     * The following two fields are used by the recv_mark/1 and
+     * recv_set/1 instructions.
+     */
+    BeamInstr* mark;		/* address to rec_loop/2 instruction */
+    ErlMessage** saved_last;	/* saved last pointer */
 } ErlMessageQueue;
 
 #ifdef ERTS_SMP
@@ -137,6 +153,7 @@ do {							\
      (p)->msg.len--; \
      if (__mp == NULL) \
          (p)->msg.last = (p)->msg.save; \
+     (p)->msg.mark = 0; \
 } while(0)
 
 /* Reset message save point (after receive match) */
@@ -191,11 +208,9 @@ do {									\
 #define ERTS_INIT_HEAP_FRAG(HEAP_FRAG_P, DATA_WORDS)	\
 do {							\
     (HEAP_FRAG_P)->next = NULL;				\
-    (HEAP_FRAG_P)->size = (DATA_WORDS);			\
+    (HEAP_FRAG_P)->alloc_size = (DATA_WORDS);		\
     (HEAP_FRAG_P)->used_size = (DATA_WORDS);            \
-    (HEAP_FRAG_P)->off_heap.mso = NULL;			\
-    (HEAP_FRAG_P)->off_heap.funs = NULL;		\
-    (HEAP_FRAG_P)->off_heap.externals = NULL;		\
+    (HEAP_FRAG_P)->off_heap.first = NULL; 	        \
     (HEAP_FRAG_P)->off_heap.overhead = 0;		\
 } while (0)
 
@@ -219,14 +234,25 @@ void erts_move_msg_attached_data_to_heap(Eterm **, ErlOffHeap *, ErlMessage *);
 Eterm erts_msg_distext2heap(Process *, ErtsProcLocks *, ErlHeapFragment **,
 			    Eterm *, ErtsDistExternal *);
 
+ERTS_GLB_INLINE Uint erts_msg_used_frag_sz(const ErlMessage *msg);
 ERTS_GLB_INLINE Uint erts_msg_attached_data_size(ErlMessage *msg);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
+ERTS_GLB_INLINE Uint erts_msg_used_frag_sz(const ErlMessage *msg)
+{
+    const ErlHeapFragment *bp;
+    Uint sz = 0;
+    for (bp = msg->data.heap_frag; bp!=NULL; bp=bp->next) {
+	sz += bp->used_size;
+    }
+    return sz;
+}
+
 ERTS_GLB_INLINE Uint erts_msg_attached_data_size(ErlMessage *msg)
 {
     ASSERT(msg->data.attached);
     if (is_value(ERL_MESSAGE_TERM(msg)))
-	return msg->data.heap_frag->size;
+	return erts_msg_used_frag_sz(msg);
     else if (msg->data.dist_ext->heap_size < 0)
 	return erts_msg_attached_data_size_aux(msg);
     else {
@@ -234,7 +260,7 @@ ERTS_GLB_INLINE Uint erts_msg_attached_data_size(ErlMessage *msg)
 	if (is_not_nil(ERL_MESSAGE_TOKEN(msg))) {
 	    ErlHeapFragment *heap_frag;
 	    heap_frag = erts_dist_ext_trailer(msg->data.dist_ext);
-	    sz += heap_frag->size;
+	    sz += heap_frag->used_size;
 	}
 	return sz;
     }

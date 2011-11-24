@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -22,8 +22,9 @@
 %%% Created :  3 Nov 2008 by Dan Gudmundsson <dan.gudmundsson@ericsson.com>
 %%%-------------------------------------------------------------------
 -module(wx_event_SUITE).
--export([all/0, init_per_suite/1, end_per_suite/1, 
-	 init_per_testcase/2, fin_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, 
+	 init_per_suite/1, end_per_suite/1, 
+	 init_per_testcase/2, end_per_testcase/2]).
 
 -compile(export_all).
 
@@ -40,22 +41,23 @@ init_per_testcase(Func,Config) ->
     wx_test_lib:init_per_testcase(Func,Config).
 end_per_testcase(Func,Config) -> 
     wx_test_lib:end_per_testcase(Func,Config).
-fin_per_testcase(Func,Config) -> %% For test_server
-    wx_test_lib:end_per_testcase(Func,Config).
 
 %% SUITE specification
-all() ->
-    all(suite).
-all(suite) ->
-    [
-     connect,
-     disconnect,
-     connect_msg_20,
-     connect_cb_20,
-     mouse_on_grid,
-     spin_event,
-     connect_in_callback
-    ].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [connect, disconnect, connect_msg_20, connect_cb_20,
+     mouse_on_grid, spin_event, connect_in_callback, recursive].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
   
 %% The test cases
 
@@ -328,4 +330,36 @@ connect_in_callback(Config) ->
     wxFrame:show(Frame),
     wx_test_lib:flush(),
     
+    wx_test_lib:wx_destroy(Frame, Config).
+
+%% Test that event callback which triggers another callback works
+%% i.e. the callback invoker in driver will recurse
+recursive(TestInfo)   when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
+recursive(Config) ->
+    Wx = wx:new(),
+    Frame = wxFrame:new(Wx, ?wxID_ANY, "Connect in callback"),
+    Panel = wxPanel:new(Frame, []),
+    Sz = wxBoxSizer:new(?wxVERTICAL),
+    ListBox = wxListBox:new(Panel, ?wxID_ANY, [{choices, ["foo", "bar", "baz"]}]),
+    wxSizer:add(Sz, ListBox, [{proportion, 1},{flag, ?wxEXPAND}]),
+    wxWindow:setSizer(Panel, Sz),
+    wxListBox:connect(ListBox, command_listbox_selected,
+		      [{callback,
+			fun(#wx{event=#wxCommand{commandInt=Id}}, _) ->
+				io:format("Selected ~p~n",[Id])
+			end}]),
+    wxListBox:setSelection(ListBox, 0),
+    wxListBox:connect(ListBox, size,
+		      [{callback,
+			fun(#wx{event=#wxSize{}}, _) ->
+				io:format("Size init ~n",[]),
+				case wxListBox:getCount(ListBox) > 0 of
+				    true ->  wxListBox:delete(ListBox, 0);
+				    false -> ok
+				end,
+				io:format("Size done ~n",[])
+			end}]),
+    wxFrame:show(Frame),
+    wx_test_lib:flush(),
+
     wx_test_lib:wx_destroy(Frame, Config).

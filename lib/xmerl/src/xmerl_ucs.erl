@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2005-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -43,6 +43,7 @@
 -export([to_utf16be/1, from_utf16be/1, from_utf16be/2]).
 -export([to_utf16le/1, from_utf16le/1, from_utf16le/2]).
 -export([to_utf8/1, from_utf8/1]).
+-export([from_latin9/1]).
 
 %%% NB: Non-canonical UTF-8 encodings and incorrectly used
 %%% surrogate-pair codes are disallowed by this code.  There are
@@ -177,13 +178,27 @@ to_utf8(List) when is_list(List) -> lists:flatmap(fun to_utf8/1, List);
 to_utf8(Ch) -> char_to_utf8(Ch).
 
 from_utf8(Bin) when is_binary(Bin) -> from_utf8(binary_to_list(Bin));
-from_utf8(List) -> 
+from_utf8(List) ->
     case expand_utf8(List) of
 	{Result,0} -> Result;
 	{_Res,_NumBadChar} ->
 	    exit({ucs,{bad_utf8_character_code}})
     end.
 
+%%% Latin9 support
+from_latin9(Bin) when is_binary(Bin) -> from_latin9(binary_to_list(Bin));
+from_latin9(List) ->
+    [ latin9_to_ucs4(Char) || Char <- List].
+
+latin9_to_ucs4(16#A4) -> 16#20AC;
+latin9_to_ucs4(16#A6) -> 16#160;
+latin9_to_ucs4(16#A8) -> 16#161;
+latin9_to_ucs4(16#B4) -> 16#17D;
+latin9_to_ucs4(16#B8) -> 16#17E;
+latin9_to_ucs4(16#BC) -> 16#152;
+latin9_to_ucs4(16#BD) -> 16#153;
+latin9_to_ucs4(16#BE) -> 16#178;
+latin9_to_ucs4(Other) -> Other.
 
 
 
@@ -238,7 +253,7 @@ from_ucs4le(Bin,Acc,Tail) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% UCS-2 support
-%%% FIXME! Don't know how to encode UCS-2!! 
+%%% FIXME! Don't know how to encode UCS-2!!
 %%% Currently I just encode as UCS-4, but strips the 16 higher bits.
 char_to_ucs2be(Ch) ->
     true = is_iso10646(Ch),
@@ -259,15 +274,15 @@ from_ucs2be(Bin,Acc,Tail) ->
 
 char_to_ucs2le(Ch) ->
     true = is_iso10646(Ch),
-    [(Ch bsr 16) band 16#FF,
-     (Ch bsr 24)].
+    [Ch band 16#FF,
+     (Ch bsr 8) band 16#FF].
 
 
 from_ucs2le(<<Ch:16/little-signed-integer, Rest/binary>>,Acc,Tail) ->
     if Ch < 0; Ch >= 16#D800, Ch < 16#E000; Ch =:= 16#FFFE; Ch =:= 16#FFFF ->
 	    exit({bad_character_code,Ch});
        true ->
-	    from_ucs4le(Rest,[Ch|Acc],Tail)
+	    from_ucs2le(Rest,[Ch|Acc],Tail)
     end;
 from_ucs2le(<<>>,Acc,Tail) ->
     lists:reverse(Acc,Tail);
@@ -476,6 +491,8 @@ to_unicode(Input,Cs) when Cs=='iso_8859-1:1987';Cs=='iso-ir-100';
 			  Cs=='l1';Cs=='ibm819';
 			  Cs=='cp819';Cs=='csisolatin1' ->
     Input;
+to_unicode(Input,Cs) when Cs=='iso_8859-15';Cs=='iso-8859-15';Cs=='latin9' ->
+    from_latin9(Input);
 % to_unicode(Input,Cs) when Cs=='mnemonic';Cs=='"mnemonic+ascii+38';
 % 			  Cs=='mnem';Cs=='"mnemonic+ascii+8200' ->
 %     from_mnemonic(Input);

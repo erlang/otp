@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1999-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 1999-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -225,18 +225,23 @@ BIF_RETTYPE is_function_1(BIF_ALIST_1)
 
 BIF_RETTYPE is_function_2(BIF_ALIST_2)
 {
+    BIF_RET(erl_is_function(BIF_P, BIF_ARG_1, BIF_ARG_2));
+}
+
+Eterm erl_is_function(Process* p, Eterm arg1, Eterm arg2)
+{
     Sint arity;
 
     /*
      * Verify argument 2 (arity); arity must be >= 0.
      */ 
-    if (is_small(BIF_ARG_2)) {
-	arity = signed_val(BIF_ARG_2);
+    if (is_small(arg2)) {
+	arity = signed_val(arg2);
 	if (arity < 0) {
 	error:
-	    BIF_ERROR(BIF_P, BADARG);
+	    BIF_ERROR(p, BADARG);
 	}
-    } else if (is_big(BIF_ARG_2) && !bignum_header_is_neg(*big_val(BIF_ARG_2))) {
+    } else if (is_big(arg2) && !bignum_header_is_neg(*big_val(arg2))) {
 	/* A positive bignum is OK, but can't possibly match. */
 	arity = -1;
     } else {
@@ -244,20 +249,20 @@ BIF_RETTYPE is_function_2(BIF_ALIST_2)
 	goto error;
     }
 
-    if (is_fun(BIF_ARG_1)) {
-	ErlFunThing* funp = (ErlFunThing *) fun_val(BIF_ARG_1);
+    if (is_fun(arg1)) {
+	ErlFunThing* funp = (ErlFunThing *) fun_val(arg1);
 
 	if (funp->arity == (Uint) arity) {
 	    BIF_RET(am_true);
 	}
-    } else if (is_export(BIF_ARG_1)) {
-	Export* exp = (Export *) (export_val(BIF_ARG_1))[1];
+    } else if (is_export(arg1)) {
+	Export* exp = (Export *) EXPAND_POINTER((export_val(arg1))[1]);
 
 	if (exp->code[2] == (Uint) arity) {
 	    BIF_RET(am_true);
 	}
-    } else if (is_tuple(BIF_ARG_1)) {
-	Eterm* tp = tuple_val(BIF_ARG_1);
+    } else if (is_tuple(arg1)) {
+	Eterm* tp = tuple_val(arg1);
 	if (tp[0] == make_arityval(2) && is_atom(tp[1]) && is_atom(tp[2])) {
 	    BIF_RET(am_true);
 	}

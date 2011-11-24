@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2008-2009. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -61,7 +61,7 @@ static ERTS_INLINE int align_up_pow2(int val)
 */
 static void rehash(SafeHash* h, int grow_limit)
 {
-    if (erts_smp_atomic_xchg(&h->is_rehashing, 1) != 0) {        
+    if (erts_smp_atomic_xchg_acqb(&h->is_rehashing, 1) != 0) {        
 	return; /* already in progress */
     }
     if (h->grow_limit == grow_limit) {
@@ -99,7 +99,7 @@ static void rehash(SafeHash* h, int grow_limit)
 	erts_free(h->type, (void *) old_tab);
     }
     /*else already done */
-    erts_smp_atomic_set(&h->is_rehashing, 0);
+    erts_smp_atomic_set_relb(&h->is_rehashing, 0);
 }
 
 
@@ -166,8 +166,8 @@ SafeHash* safe_hash_init(ErtsAlcType_t type, SafeHash* h, char* name, int size, 
     h->name = name;
     h->fun = fun;
     set_size(h,size);
-    erts_smp_atomic_init(&h->is_rehashing, 0);
-    erts_smp_atomic_init(&h->nitems, 0);
+    erts_smp_atomic_init_nob(&h->is_rehashing, 0);
+    erts_smp_atomic_init_nob(&h->nitems, 0);
     for (i=0; i<SAFE_HASH_LOCK_CNT; i++) {
 	erts_smp_mtx_init(&h->lock_vec[i].mtx,"safe_hash");
     }
@@ -222,7 +222,7 @@ void* safe_hash_put(SafeHash* h, void* tmpl)
     *head = b;
     grow_limit = h->grow_limit;
     erts_smp_mtx_unlock(lock);
-    if (erts_smp_atomic_inctest(&h->nitems) > grow_limit) {
+    if (erts_smp_atomic_inc_read_nob(&h->nitems) > grow_limit) {
 	rehash(h, grow_limit);
     }
     return (void*) b;
@@ -245,7 +245,7 @@ void* safe_hash_erase(SafeHash* h, void* tmpl)
 	if ((b->hvalue == hval) && (h->fun.cmp(tmpl, (void*)b) == 0)) {
 	    *prevp = b->next;
 	    erts_smp_mtx_unlock(lock);
-	    erts_smp_atomic_dec(&h->nitems);
+	    erts_smp_atomic_dec_nob(&h->nitems);
 	    h->fun.free((void*)b);
 	    return tmpl;
 	}

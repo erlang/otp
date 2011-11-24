@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -66,26 +66,31 @@
 %% Effect   : Install necessary data in the IFR DB
 %%------------------------------------------------------------
 install() -> 
-    install_loop(?IDL_MODULES, []).
+    case install_loop(?IDL_MODULES, []) of
+	ok ->
+	    ok;
+	{error, Reason} ->
+	    exit(Reason)
+    end.
 
 install_loop([], _) ->
     ok;
 install_loop([H|T], Accum) ->
     case catch H:'oe_register'() of
 	{'EXIT',{unregistered,App}} ->
-	    ?write_ErrorMsg("Unable to register '~p'; application ~p not registered.
-Trying to unregister ~p~n", [H,App,Accum]),
+	    ?write_ErrorMsg("Unable to register '~p'; application ~p not registered.\n"
+ 			    "Trying to unregister ~p~n", [H,App,Accum]),
 	    uninstall_loop(Accum, {exit, register});
 	{'EXCEPTION',_} ->
-	    ?write_ErrorMsg("Unable to register '~p'; propably already registered.
-You are adviced to confirm this.
-Trying to unregister ~p~n", [H,Accum]),
+ 	    ?write_ErrorMsg("Unable to register '~p'; propably already registered.\n"
+			    "You are adviced to confirm this.\n"
+			    "Trying to unregister ~p~n", [H,Accum]),
 	    uninstall_loop(Accum, {exit, register});
 	ok ->
 	    install_loop(T, [H|Accum]);
 	_ ->
-	    ?write_ErrorMsg("Unable to register '~p'; reason unknown.
-Trying to unregister ~p~n", [H,Accum]),
+ 	    ?write_ErrorMsg("Unable to register '~p'; reason unknown.\n"
+			    "Trying to unregister ~p~n", [H,Accum]),
 	    uninstall_loop(Accum, {exit, register})
     end.
 
@@ -96,27 +101,32 @@ Trying to unregister ~p~n", [H,Accum]),
 %% Effect   : Remove data related to cosEvent from the IFR DB
 %%------------------------------------------------------------
 uninstall() -> 
-    uninstall_loop(lists:reverse(?IDL_MODULES), ok).
+    case uninstall_loop(lists:reverse(?IDL_MODULES), ok) of
+	ok ->
+	    ok;
+	{error, Reason} ->
+	    exit(Reason)
+    end.
 
 uninstall_loop([],ok) ->
     ok;
 uninstall_loop([],{exit, register}) ->
-    exit({?MODULE, "oe_register failed"});
+    {error, {?MODULE, "oe_register failed"}};
 uninstall_loop([],{exit, unregister}) ->
-    exit({?MODULE, "oe_unregister failed"});
+    {error, {?MODULE, "oe_unregister failed"}};
 uninstall_loop([],{exit, both}) ->
-    exit({?MODULE, "oe_register and, for some of those already registered, oe_unregister failed"});
+    {error, {?MODULE, "oe_register and, for some of those already registered, oe_unregister failed"}};
 uninstall_loop([H|T], Status) ->
     case catch H:'oe_unregister'() of
 	ok ->
 	    uninstall_loop(T, Status);
 	_ when Status == ok ->
-	    ?write_ErrorMsg("Unable to unregister '~p'; propably already unregistered.
-You are adviced to confirm this.~n",[H]),
+	    ?write_ErrorMsg("Unable to unregister '~p'; propably already unregistered.\n"
+			    "You are adviced to confirm this.\n",[H]),
 	    uninstall_loop(T, {exit, unregister});
 	_ ->
-	    ?write_ErrorMsg("Unable to unregister '~p'; propably already unregistered.
-You are adviced to confirm this.~n",[H]),
+	    ?write_ErrorMsg("Unable to unregister '~p'; propably already unregistered.\n"
+			    "You are adviced to confirm this.\n",[H]),
 	    uninstall_loop(T, {exit, both})
     end.
 	

@@ -46,7 +46,8 @@ MODULES= \
 	runtime_tools_sup \
 	dbg \
 	percept_profile \
-	observer_backend
+	observer_backend \
+	ttb_autostart
 HRL_FILES= ../include/observer_backend.hrl
 
 ERL_FILES= $(MODULES:%=%.erl)

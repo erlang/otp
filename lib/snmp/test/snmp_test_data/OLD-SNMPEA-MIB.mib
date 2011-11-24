@@ -12,18 +12,12 @@ OLD-SNMPEA-MIB DEFINITIONS ::= BEGIN
 		;
  
 --   MODULE-IDENTITY
---   LAST-UPDATED "9709220900Z"
---   ORGANIZATION "ETX/DN/S"
---   CONTACT-INFO
---      "            Martin Björklund
---
---           Postal: ERICSSON SOFTWARE TECHNOLOGY AB
---                   ERLANG SYSTEMS
---                   Box 1214
---                   S-164 28  KISTA, SWEDEN
---
---              Tel: +46  8 719 20 89
---           E-mail: mbj@erlang.ericsson.se"
+--   LAST-UPDATED "1004200000Z"
+--   ORGANIZATION "Erlang/OTP"
+--   CONTACT-INFO ""
+--   DESCRIPTION
+--       "Header cleanup."
+--   REVISION     "1004200000Z"
 --   DESCRIPTION
 --       "This MIB module defines MIB objects for the SNMPEA
 --       component in OTP."

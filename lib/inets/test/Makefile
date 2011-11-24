@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2010. All Rights Reserved.
+# Copyright Ericsson AB 1997-2011. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -143,6 +143,8 @@ else
   INETS_FLAGS += -Dhttpd_security_verbosity=log
 endif
 
+INETS_FLAGS += -pa ../../inets/ebin
+
 INETS_ROOT = ../../inets
 
 MODULES =                 		\
@@ -198,7 +200,8 @@ SOURCE = $(ERL_FILES) $(HRL_FILES)
 
 TARGET_FILES = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
-INETS_SPECS = inets.spec inets.spec.vxworks
+INETS_SPECS = inets.spec
+COVER_FILE = inets.cover
 INETS_FILES = inets.config $(INETS_SPECS)
 
 # SUB_SUITES = \
@@ -220,10 +223,10 @@ MAKE_EMAKE = $(wildcard $(ERL_TOP)/make/make_emakefile)
 
 ifeq ($(MAKE_EMAKE),)
 BUILDTARGET   = $(TARGET_FILES)
-RELTEST_FILES = $(INETS_SPECS) $(SOURCE)
+RELTEST_FILES = $(COVER_FILE) $(INETS_SPECS) $(SOURCE)
 else
 BUILDTARGET   = emakebuild
-RELTEST_FILES = $(EMAKEFILE) $(INETS_SPECS) $(SOURCE)
+RELTEST_FILES = $(EMAKEFILE) $(COVER_FILE) $(INETS_SPECS) $(SOURCE)
 endif
 
 
@@ -241,8 +244,11 @@ RELTESTSYSBINDIR     = $(RELTESTSYSALLDATADIR)/bin
 # The path to the test_server ebin dir is needed when 
 # running the target "targets".
 # ----------------------------------------------------
-ERL_COMPILE_FLAGS += -pa ../../../internal_tools/test_server/ebin \
-                     $(INCLUDES) $(FTP_FLAGS) $(INETS_FLAGS)
+ERL_COMPILE_FLAGS += \
+	-pa ../../../internal_tools/test_server/ebin \
+	$(INCLUDES) \
+	$(FTP_FLAGS) \
+	$(INETS_FLAGS)
 
 # ----------------------------------------------------
 # Targets
@@ -283,26 +289,30 @@ release_spec: opt
 	$(INSTALL_DATA) $(INETS_FILES) $(RELSYSDIR)/test
 	@for d in $(DATADIRS); do \
             echo "installing data dir $$d"; \
-            echo $$d/TAR.exclude2 > $$d/TAR.exclude2; \
-            cat $$d/TAR.exclude >> $$d/TAR.exclude2; \
-            find $$d -name '*.contrib*'     >> $$d/TAR.exclude2; \
-            find $$d -name '*.keep*'        >> $$d/TAR.exclude2; \
-            find $$d -name '*.mkelem*'      >> $$d/TAR.exclude2; \
-            find $$d -name '*~'             >> $$d/TAR.exclude2; \
-            find $$d -name 'erl_crash.dump' >> $$d/TAR.exclude2; \
-            find $$d -name 'core'           >> $$d/TAR.exclude2; \
-            find $$d -name '.cmake.state'   >> $$d/TAR.exclude2; \
-            tar cfX - $$d/TAR.exclude2 $$d | (cd $(RELSYSDIR)/test; tar xf -); \
+            if test -f $$d/TAR.exclude; then \
+                echo $$d/TAR.exclude2 > $$d/TAR.exclude2; \
+                cat $$d/TAR.exclude >> $$d/TAR.exclude2; \
+                find $$d -name '*.contrib*'     >> $$d/TAR.exclude2; \
+                find $$d -name '*.keep*'        >> $$d/TAR.exclude2; \
+                find $$d -name '*.mkelem*'      >> $$d/TAR.exclude2; \
+                find $$d -name '*~'             >> $$d/TAR.exclude2; \
+                find $$d -name 'erl_crash.dump' >> $$d/TAR.exclude2; \
+                find $$d -name 'core'           >> $$d/TAR.exclude2; \
+                find $$d -name '.cmake.state'   >> $$d/TAR.exclude2; \
+                tar cfX - $$d/TAR.exclude2 $$d | (cd $(RELSYSDIR)/test; tar xf -); \
+            else \
+                tar cf - $$d | (cd $(RELSYSDIR)/test; tar xf -); \
+            fi; \
         done
 
 release_tests_spec: opt
 	$(INSTALL_DIR) $(RELTESTSYSDIR)
 	$(INSTALL_DATA) $(RELTEST_FILES) $(RELTESTSYSDIR)
-	chmod -f -R u+w $(RELTESTSYSDIR)
+	chmod -R u+w $(RELTESTSYSDIR)
 	tar chf - $(DATADIRS) | (cd $(RELTESTSYSDIR); tar xf -)
 	$(INSTALL_DIR) $(RELTESTSYSALLDATADIR)
 	$(INSTALL_DIR) $(RELTESTSYSBINDIR)
-	chmod -f -R +x $(RELTESTSYSBINDIR)
+	chmod -R +x $(RELTESTSYSBINDIR)
 	$(INSTALL_DIR) $(RELTESTSYSALLDATADIR)/win32/lib	
 
 release_docs_spec:

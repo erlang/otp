@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -34,7 +34,7 @@
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec (Window::wxWindow:wxWindow(), Size::{W::integer(),H::integer()}) -> wxCaret()
+%% @spec (Window::wxWindow:wxWindow(), Size::{W::integer(), H::integer()}) -> wxCaret()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcaret.html#wxcaretwxcaret">external documentation</a>.
 new(#wx_ref{type=WindowT,ref=WindowRef},{SizeW,SizeH})
  when is_integer(SizeW),is_integer(SizeH) ->
@@ -50,7 +50,7 @@ new(#wx_ref{type=WindowT,ref=WindowRef},Width,Height)
   wxe_util:construct(?wxCaret_new_3,
   <<WindowRef:32/?UI,Width:32/?UI,Height:32/?UI>>).
 
-%% @spec (This::wxCaret(), Window::wxWindow:wxWindow(), Size::{W::integer(),H::integer()}) -> bool()
+%% @spec (This::wxCaret(), Window::wxWindow:wxWindow(), Size::{W::integer(), H::integer()}) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcaret.html#wxcaretcreate">external documentation</a>.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=WindowRef},{SizeW,SizeH})
  when is_integer(SizeW),is_integer(SizeH) ->
@@ -74,14 +74,14 @@ getBlinkTime() ->
   wxe_util:call(?wxCaret_GetBlinkTime,
   <<>>).
 
-%% @spec (This::wxCaret()) -> {X::integer(),Y::integer()}
+%% @spec (This::wxCaret()) -> {X::integer(), Y::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcaret.html#wxcaretgetposition">external documentation</a>.
 getPosition(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxCaret),
   wxe_util:call(?wxCaret_GetPosition,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxCaret()) -> {W::integer(),H::integer()}
+%% @spec (This::wxCaret()) -> {W::integer(), H::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcaret.html#wxcaretgetsize">external documentation</a>.
 getSize(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxCaret),
@@ -116,7 +116,7 @@ isVisible(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxCaret_IsVisible,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxCaret(), Pt::{X::integer(),Y::integer()}) -> ok
+%% @spec (This::wxCaret(), Pt::{X::integer(), Y::integer()}) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcaret.html#wxcaretmove">external documentation</a>.
 move(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY})
  when is_integer(PtX),is_integer(PtY) ->
@@ -139,7 +139,7 @@ setBlinkTime(Milliseconds)
   wxe_util:cast(?wxCaret_SetBlinkTime,
   <<Milliseconds:32/?UI>>).
 
-%% @spec (This::wxCaret(), Size::{W::integer(),H::integer()}) -> ok
+%% @spec (This::wxCaret(), Size::{W::integer(), H::integer()}) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcaret.html#wxcaretsetsize">external documentation</a>.
 setSize(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH})
  when is_integer(SizeW),is_integer(SizeH) ->

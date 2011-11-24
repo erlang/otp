@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -28,13 +28,16 @@
 -behaviour(gen_server).
 
 %% External exports
+%% Avoid warning for local function error/1 clashing with autoimported BIF.
+-compile({no_auto_import,[error/1]}).
 -export([start_link/1, stop/0, is_started/0]).
 -export([register_user/4, unregister_user/1, 
 	 which_users/0, 
 	 user_info/0, user_info/1, user_info/2, 
 
 	 register_agent/3, unregister_agent/2, 
-	 agent_info/0, agent_info/2, agent_info/3, update_agent_info/4, 
+	 agent_info/0, agent_info/2, agent_info/3, 
+	 update_agent_info/3, update_agent_info/4, 
 	 which_agents/0, which_agents/1, 
 
 	 is_known_engine_id/2, 
@@ -82,7 +85,9 @@
 
 	 backup/1,
 
-	 mk_target_name/3
+	 mk_target_name/3,
+	 
+	 default_transport_domain/0
 
 	]).
 
@@ -125,23 +130,24 @@
 
 
 %% Macros and Constants:
--define(SERVER,    ?MODULE).
--define(BACKUP_DB, snmpm_config_backup).
--define(CONFIG_DB, snmpm_config_db).
+-define(SERVER,             ?MODULE).
+-define(BACKUP_DB,          snmpm_config_backup).
+-define(CONFIG_DB,          snmpm_config_db).
 
 -define(DEFAULT_USER,       default_user).
 
 -define(DEFAULT_AGENT_PORT, 161).
 
--define(IRB_DEFAULT, auto).
-%% -define(IRB_DEFAULT, {user, timer:seconds(15)}).
+-define(IRB_DEFAULT,        auto).
+%% -define(IRB_DEFAULT,        {user, timer:seconds(15)}).
 
--define(USER_MOD_DEFAULT,  snmpm_user_default).
--define(USER_DATA_DEFAULT, undefined).
+-define(USER_MOD_DEFAULT,   snmpm_user_default).
+-define(USER_DATA_DEFAULT,  undefined).
 
 %% -define(DEF_ADDR_TAG, default_addr_tag).
 -define(DEFAULT_TARGETNAME, default_agent).
--define(DEF_PORT_TAG, default_port_tag).
+-define(DEF_PORT_TAG,       default_port_tag).
+-define(SUPPORTED_DOMAINS,  [transportDomainUdpIpv4, transportDomainUdpIpv6]).
 
 -ifdef(snmp_debug).
 -define(GS_START_LINK(Opts),
@@ -157,6 +163,11 @@
 %%%-------------------------------------------------------------------
 %%% API
 %%%-------------------------------------------------------------------
+
+default_transport_domain() ->
+    transportDomainUdpIpv4.
+
+
 start_link(Opts) -> 
     ?d("start_link -> entry with"
        "~n   Opts: ~p", [Opts]),
@@ -267,9 +278,10 @@ do_user_info(_UserId, BadItem) ->
     error({not_found, BadItem}).
 
 
-%% A target-name constructed in this way is a string with the following 
+%% A target-name constructed in this way is a string with the following: 
 %% <IP-address>:<Port>-<Version>
-%% 
+%% This is intended for backward compatibility and therefor has
+%% only support for IPv4 addresses and *no* other transport domain.
 mk_target_name(Addr0, Port, Config) when is_list(Config) ->
     Version = 
 	case lists:keysearch(version, 1, Config) of
@@ -278,7 +290,6 @@ mk_target_name(Addr0, Port, Config) when is_list(Config) ->
 	    false ->
 		select_lowest_supported_version()
 	end,
-%%     p("mk_target_name -> Version: ~p", [Version]),
     case normalize_address(Addr0) of
 	{A, B, C, D} ->
 	    lists:flatten(
@@ -306,55 +317,97 @@ select_lowest_supported_version([H|T], Versions) ->
     end.
 
 
-register_agent(UserId, _TargetName, _Config) when (UserId =:= user_id) ->
+register_agent(UserId, _TargetName, _Config0) when (UserId =:= user_id) ->
     {error, {bad_user_id, UserId}};
-register_agent(UserId, TargetName, Config) 
+register_agent(UserId, TargetName, Config0) 
   when (is_list(TargetName) andalso 
 	(length(TargetName) > 0) andalso 
-	is_list(Config)) ->
+	is_list(Config0)) ->
 
-%%     p("register_agent -> entry with"
-%%       "~n   UserId:     ~p"
-%%       "~n   TargetName: ~p"
-%%       "~n   Config:     ~p", [UserId, TargetName, Config]),
+    ?vtrace("register_agent -> entry with"
+	    "~n   UserId:     ~p"
+	    "~n   TargetName: ~p"
+	    "~n   Config0:    ~p", [UserId, TargetName, Config0]),
 
     %% Check: 
     %%   1) That the mandatory configs are present
-    %%   2) That the illegal config user_id (used internally) is 
-    %%      not present
+    %%   2) That no illegal config, e.g. user_id (used internally), 
+    %%      is not present
     %%   3) Check that there are no invalid or erroneous configs
-    %%   4) Chack that the manager is capable to use the selected version
-    case verify_agent_config(Config) of
-	ok ->
+    %%   4) Check that the manager is capable of using the selected version
+    case verify_agent_config(Config0) of
+	{ok, Config} ->
 	    call({register_agent, UserId, TargetName, Config});
 	Error ->
 	    Error
     end.
 
 
-verify_agent_config(Conf) ->
-    ok = verify_mandatory(Conf, [engine_id, address, reg_type]),
-    case verify_invalid(Conf, [user_id]) of
-	ok ->
-	    case verify_agent_config2(Conf) of
-		ok ->
-		    {ok, Vsns} = system_info(versions),
-		    Vsn = 
-			case lists:keysearch(version, 1, Conf) of
-			    {value, {version, V}} ->
-				V;
-			    false ->
-				v1
-			end,
-		    case lists:member(Vsn, Vsns) of
-			true ->
-			    ok;
-			false ->
-			    {error, {version_not_supported_by_manager, Vsn, Vsns}}
-		    end
-	    end;
-	Error ->
+verify_agent_config(Conf0) ->
+    try
+	begin
+	    verify_mandatory(Conf0, [engine_id, address, reg_type]),
+	    verify_invalid(Conf0, [user_id]),
+	    Conf = verify_agent_config3(Conf0),
+	    Vsns = versions(),
+	    Vsn  = which_version(Conf),
+	    verify_version(Vsn, Vsns),
+	    {ok, Conf}
+	end
+    catch
+	throw:Error ->
 	    Error
+    end.
+
+versions() ->
+    case system_info(versions) of
+	{ok, Vsns} ->
+	    Vsns;
+	{error, _} = ERROR ->
+	    throw(ERROR)
+    end.
+
+which_version(Conf) ->
+    case lists:keysearch(version, 1, Conf) of
+	{value, {version, V}} ->
+	    V;
+	false ->
+	    v1
+    end.
+
+verify_version(Vsn, Vsns) ->
+    case lists:member(Vsn, Vsns) of
+	true ->
+	    ok;
+	false ->
+	    Reason = {version_not_supported_by_manager, Vsn, Vsns}, 
+	    throw({error, Reason})
+    end.
+
+verify_agent_config3(Conf0) ->
+    %% Fix (transport) address and domain
+    {TDomain, Conf1} = 
+	case lists:keysearch(tdomain, 1, Conf0) of
+	    {value, {tdomain, Dom}} ->
+		{Dom, Conf0};
+	    false ->
+		Dom = default_transport_domain(), 
+		{Dom, [{tdomain, Dom} | Conf0]}
+	end,
+    Conf2 = case lists:keysearch(address, 1, Conf1) of
+		{value, {address, Address}} ->
+		    lists:keyreplace(address, 1, Conf1, 
+				     {address, {TDomain, Address}});
+		false ->
+		    %% This is a mandatory config option, 
+		    %% a later test will detect this
+		    Conf1
+	    end,
+    case verify_agent2(Conf2) of
+	{ok, Conf} ->
+	    Conf;
+	{error, _} = ERROR ->
+	    throw(ERROR)
     end.
 
 verify_agent_config2(Conf) ->
@@ -364,6 +417,7 @@ verify_agent_config2(Conf) ->
 unregister_agent(UserId, TargetName) ->
     call({unregister_agent, UserId, TargetName}).
 
+%% This is the old style agent unregistration (using Addr and Port).
 unregister_agent(UserId, Addr0, Port) ->
     Addr = normalize_address(Addr0),
     case do_agent_info(Addr, Port, target_name) of
@@ -419,17 +473,51 @@ which_agents(UserId) ->
     Agents = ets:match(snmpm_agent_table, Pat),
     [TargetName || [TargetName] <- Agents].
 
-    
-update_agent_info(UserId, TargetName, Item, Val0) 
-  when (Item =/= user_id) ->
-    case (catch verify_val(Item, Val0)) of
-	{ok, Val} ->
-	    call({update_agent_info, UserId, TargetName, Item, Val});
-	Error ->
+
+verify_agent_info(TargetName, Info0) ->
+    try 
+	begin
+	    verify_invalid(Info0, [user_id]), 
+	    %% Check if address is part of the list and
+	    %% if so update it with the domain info. 
+	    Info = 
+		case lists:keysearch(address, 1, Info0) of
+		    {value, {address, Addr}} ->
+			%% If domain is part of the info, then use it.
+			%% If not, lookup what is already stored for 
+			%% this agent and use that.
+			Domain = 
+			    case lists:keysearch(tdomain, 1, Info0) of
+				{value, {tdomain, Dom}} ->
+				    Dom;
+				false ->
+				    {ok, Dom} = 
+					agent_info(TargetName, tdomain),
+				    Dom
+			    end,
+			Addr2 = {Domain, Addr}, 
+			lists:keyreplace(address, 1, Info0, {address, Addr2});
+		    false ->
+			Info0
+		end,
+	    verify_agent2(Info)
+	end
+    catch
+	throw:Error ->
 	    Error
     end.
 
-%% Backward compatibillity
+update_agent_info(UserId, TargetName, Info) ->
+    call({update_agent_info, UserId, TargetName, Info}).
+
+%% <BACKWARD-COMPAT-2>
+%% This is wrapped in the interface module, so this function is
+%% only here to catch code-upgrade problems.
+update_agent_info(UserId, TargetName, Item, Val) ->
+    update_agent_info(UserId, TargetName, [{Item, Val}]).
+%% </BACKWARD-COMPAT-2>
+
+%% <BACKWARD-COMPAT-1>
 update_agent_info(UserId, Addr, Port, Item, Val)  ->
     case agent_info(Addr, Port, target_name) of
 	{ok, TargetName} ->
@@ -437,6 +525,7 @@ update_agent_info(UserId, Addr, Port, Item, Val)  ->
 	Error ->
 	    Error
     end.
+%% </BACKWARD-COMPAT-1>
 
 is_known_engine_id(EngineID, TargetName) ->
     case agent_info(TargetName, engine_id) of
@@ -648,22 +737,14 @@ unregister_usm_user(EngineID, Name)
     call({unregister_usm_user, EngineID, Name}).
 
 verify_usm_user_config(EngineID, Name, Config) ->
-    %%     case verify_mandatory(Config, []) of
-    %% 	ok ->
-    %% 	    case verify_invalid(Config, [engine_id, name]) of
-    %% 		ok ->
-    %% 		    verify_usm_user_config2(EngineID, Name, Config);
-    %% 		Error ->
-    %% 		    Error
-    %% 	    end;
-    %% 	Error ->
-    %% 	    Error
-    %%     end.
-    ok = verify_mandatory(Config, []),
-    case verify_invalid(Config, [engine_id, name]) of
-	ok ->
-	    verify_usm_user_config2(EngineID, Name, Config);
-	Error ->
+    try
+	begin
+	    verify_mandatory(Config, []), 
+	    verify_invalid(Config, [engine_id, name]),
+	    verify_usm_user_config2(EngineID, Name, Config)
+	end
+    catch 
+	throw:Error ->
 	    Error
     end.
 
@@ -1588,6 +1669,7 @@ check_agent_config2(Agent) ->
 	    throw(Err)
     end.
 
+%% For backward compatibility
 check_agent_config({UserId, 
 		    TargetName, 
 		    Community, 
@@ -1595,10 +1677,27 @@ check_agent_config({UserId,
 		    EngineId, 
 		    Timeout, MaxMessageSize, 
 		    Version, SecModel, SecName, SecLevel}) ->
+    TDomain = default_transport_domain(),
+    check_agent_config({UserId, 
+			TargetName, 
+			Community, 
+			TDomain, Ip, Port, 
+			EngineId, 
+			Timeout, MaxMessageSize, 
+			Version, SecModel, SecName, SecLevel});
+
+check_agent_config({UserId, 
+		    TargetName, 
+		    Community, 
+		    TDomain, Ip, Port, 
+		    EngineId, 
+		    Timeout, MaxMessageSize, 
+		    Version, SecModel, SecName, SecLevel}) ->
     ?vtrace("check_agent_config -> entry with"
 	    "~n   UserId:         ~p"
 	    "~n   TargetName:     ~p"
 	    "~n   Community:      ~p"
+	    "~n   TDomain:        ~p"
 	    "~n   Ip:             ~p"
 	    "~n   Port:           ~p"
 	    "~n   EngineId:       ~p"
@@ -1608,15 +1707,16 @@ check_agent_config({UserId,
 	    "~n   SecModel:       ~p"
 	    "~n   SecName:        ~p"
 	    "~n   SecLevel:       ~p", 
-	    [UserId, TargetName, Community, Ip, Port, 
+	    [UserId, TargetName, Community, 
+	     TDomain, Ip, Port, 
 	     EngineId, Timeout, MaxMessageSize, 
 	     Version, SecModel, SecName, SecLevel]),
-    Addr = normalize_address(Ip),
+    Addr = normalize_address(TDomain, Ip),
     ?vtrace("check_agent_config -> Addr: ~p", [Addr]),
     Agent = {UserId, 
 	     TargetName, 
 	     Community, 
-	     Addr, Port, 
+	     TDomain, Addr, Port, 
 	     EngineId, 
 	     Timeout, MaxMessageSize, 
 	     Version, SecModel, SecName, SecLevel},
@@ -1642,6 +1742,7 @@ init_agent_config({UserId, TargetName, Config}) ->
     end.
 
 
+%% For backward compatibility
 verify_agent({UserId, 
 	      TargetName, 
 	      Comm, 
@@ -1649,48 +1750,68 @@ verify_agent({UserId,
 	      EngineId, 
 	      Timeout, MMS, 
 	      Version, SecModel, SecName, SecLevel}) ->
-    ?vtrace("verify_agent -> entry with"
+    TDomain = default_transport_domain(),
+    verify_agent({UserId, 
+		  TargetName, 
+		  Comm, 
+		  TDomain, Ip, Port, 
+		  EngineId, 
+		  Timeout, MMS, 
+		  Version, SecModel, SecName, SecLevel});
+
+verify_agent({UserId, 
+	      TargetName, 
+	      Comm, 
+	      TDomain, Ip, Port, 
+	      EngineId, 
+	      Timeout, MMS, 
+	      Version, SecModel, SecName, SecLevel}) ->
+    ?vdebug("verify_agent -> entry with"
 	    "~n   UserId:     ~p"
 	    "~n   TargetName: ~p", [UserId, TargetName]),
     snmp_conf:check_string(TargetName, {gt, 0}),
-    case verify_val(address, Ip) of
-	{ok, Addr} ->
-	    snmp_conf:check_integer(Port, {gt, 0}),
-	    Conf = 
-		[{reg_type,         target_name},
-		 {address,          Addr},
-		 {port,             Port},
-		 {community,        Comm}, 
-		 {engine_id,        EngineId},
-		 {timeout,          Timeout},
-		 {max_message_size, MMS},
-		 {version,          Version},
-		 {sec_model,        SecModel},
-		 {sec_name,         SecName},
-		 {sec_level,        SecLevel}
-		],
-	    case verify_agent2(Conf) of
-		ok ->
-		    {UserId, TargetName, Conf, Version};
-		Err ->
-		    throw(Err)
-	    end;
-	
-	Error ->
-	    ?vlog("verify_agent -> failed: ~n   ~p", [Error]),
-	    throw(Error)
+    snmp_conf:check_integer(Port, {gt, 0}),
+    %% Note that the order of Conf *is* important.
+    %% Some properties may depend on others, so that
+    %% in order to verify one property, another must
+    %% be already verified (and present). An example 
+    %% of this is the property 'address', for which
+    %% the property tdomain is needed.
+    Conf0 = 
+	[{reg_type,         target_name},
+	 {tdomain,          TDomain}, 
+	 %% This should be taddress, but what the*...
+	 {address,          {TDomain, Ip}},
+	 {port,             Port},
+	 {community,        Comm}, 
+	 {engine_id,        EngineId},
+	 {timeout,          Timeout},
+	 {max_message_size, MMS},
+	 {version,          Version},
+	 {sec_model,        SecModel},
+	 {sec_name,         SecName},
+	 {sec_level,        SecLevel}
+	],
+    case verify_agent2(Conf0) of
+	{ok, Conf} ->
+	    {UserId, TargetName, Conf, Version};
+	Err ->
+	    throw(Err)
     end.
 
-verify_agent2([]) ->
-    ok;
-verify_agent2([{Item, Val}|Items]) ->
-    case verify_val(Item, Val) of
-	{ok, _Val} ->
-	    verify_agent2(Items);
+verify_agent2(Conf) -> 
+    verify_agent2(Conf, []).
+
+verify_agent2([], VerifiedConf) ->
+    {ok, VerifiedConf};
+verify_agent2([{Item, Val0}|Items], VerifiedConf) ->
+    case verify_val(Item, Val0) of
+	{ok, Val} ->
+	    verify_agent2(Items, [{Item, Val} | VerifiedConf]);
 	Err ->
 	    Err
     end;
-verify_agent2([Bad|_]) ->
+verify_agent2([Bad|_], _VerifiedConf) ->
     {error, {bad_agent_config, Bad}}.
 
 
@@ -1706,14 +1827,28 @@ read_users_config_file(Dir) ->
 
 
 check_user_config({Id, Mod, Data}) ->
+    ?vtrace("check_user_config -> entry with"
+	    "~n   Id:   ~p"
+	    "~n   Mod:  ~p"
+	    "~n   Data: ~p", [Id, Mod, Data]),
     check_user_config({Id, Mod, Data, []});
-check_user_config({Id, Mod, _Data, DefaultAgentConfig} = User) 
+check_user_config({Id, Mod, Data, DefaultAgentConfig} = _User) 
   when (Id =/= ?DEFAULT_USER) andalso is_list(DefaultAgentConfig) ->
+    ?vtrace("check_user_config -> entry with"
+	    "~n   Id:                 ~p"
+	    "~n   Mod:                ~p"
+	    "~n   Data:               ~p"
+	    "~n   DefaultAgentConfig: ~p", 
+	    [Id, Mod, Data, DefaultAgentConfig]),
     case (catch verify_user_behaviour(Mod)) of
 	ok ->
+	    ?vtrace("check_user_config -> user behaviour verified", []),
 	    case verify_user_agent_config(DefaultAgentConfig) of
-		ok ->
-	    	    {ok, User};
+		{ok, DefAgentConf} ->
+		    ?vtrace("check_user_config -> "
+			    "user agent (default) config verified", []),
+		    User2 = {Id, Mod, Data, DefAgentConf}, 
+	    	    {ok, User2};
 		{error, Reason} ->
 		    error({bad_default_agent_config, Reason})
 	    end;
@@ -1754,16 +1889,16 @@ verify_user({Id, UserMod, UserData}) ->
 verify_user({Id, UserMod, UserData, DefaultAgentConfig}) 
   when (Id =/= ?DEFAULT_USER) andalso is_list(DefaultAgentConfig) ->
     ?d("verify_user -> entry with"
-       "~n   Id:       ~p"
-       "~n   UserMod:  ~p"
-       "~n   UserData: ~p"
+       "~n   Id:                 ~p"
+       "~n   UserMod:            ~p"
+       "~n   UserData:           ~p"
        "~n   DefaultAgentConfig: ~p", 
        [Id, UserMod, UserData, DefaultAgentConfig]),
     case (catch verify_user_behaviour(UserMod)) of
 	ok ->
 	    case verify_user_agent_config(DefaultAgentConfig) of
-		ok ->
-		    Config = default_agent_config(DefaultAgentConfig),
+		{ok, DefAgentConf} ->
+		    Config = default_agent_config(DefAgentConf),
 		    {ok, #user{id                   = Id, 
 			       mod                  = UserMod, 
 			       data                 = UserData, 
@@ -1781,10 +1916,15 @@ verify_user({Id, _, _, _}) ->
     {error, {bad_user_id, Id}}.
 
 verify_user_agent_config(Conf) ->
-    case verify_invalid(Conf, [user_id, engine_id, address]) of
-	ok ->
-	    verify_agent_config2(Conf);
-	Error ->
+    try
+	begin
+	    verify_invalid(Conf, [user_id, engine_id, address]),
+	    verify_agent_config2(Conf)
+	end
+    catch
+	throw:Error ->
+	    ?vdebug("verify_user_agent_config -> throw"
+		    "~n   Error: ~p", [Error]),
 	    Error
     end.
 
@@ -2145,6 +2285,16 @@ handle_call({unregister_agent, UserId, TargetName}, _From, State) ->
     Reply = handle_unregister_agent(UserId, TargetName),
     {reply, Reply, State};
 
+handle_call({update_agent_info, UserId, TargetName, Info}, 
+	    _From, State) ->
+    ?vlog("received update_agent_info request: "
+	  "~n   UserId:     ~p"
+	  "~n   TargetName: ~p"
+	  "~n   Info:       ~p", [UserId, TargetName, Info]),
+    Reply = handle_update_agent_info(UserId, TargetName, Info),
+    {reply, Reply, State};
+
+%% <BACKWARD-COMPAT>
 handle_call({update_agent_info, UserId, TargetName, Item, Val}, 
 	    _From, State) ->
     ?vlog("received update_agent_info request: "
@@ -2154,6 +2304,7 @@ handle_call({update_agent_info, UserId, TargetName, Item, Val},
 	  "~n   Val:        ~p", [UserId, TargetName, Item, Val]),
     Reply = handle_update_agent_info(UserId, TargetName, Item, Val),
     {reply, Reply, State};
+%% </BACKWARD-COMPAT>
 
 handle_call({register_usm_user, User}, _From, State) ->
     ?vlog("received register_usm_user request: "
@@ -2515,16 +2666,27 @@ handle_register_agent(UserId, TargetName, Config) ->
 	    "~n   Config:     ~p", [UserId, TargetName, Config]),
     case (catch agent_info(TargetName, user_id)) of
 	{error, _} ->
+	    ?vtrace("handle_register_agent -> user_id not found in config", []),
 	    case ets:lookup(snmpm_user_table, UserId) of
 		[#user{default_agent_config = DefConfig}] ->
+		    ?vtrace("handle_register_agent -> "
+			    "~n   DefConfig: ~p", [DefConfig]),
+		    %% First, insert this users default config
+		    ?vtrace("handle_register_agent -> store default config", []),
 		    do_handle_register_agent(TargetName, DefConfig),
+		    %% Second, insert the config for this agent
+		    ?vtrace("handle_register_agent -> store config", []),
 		    do_handle_register_agent(TargetName, 
 					     [{user_id, UserId}|Config]),
 		    %% <DIRTY-BACKWARD-COMPATIBILLITY>
 		    %% And now for some (backward compatibillity) 
 		    %% dirty crossref stuff
+		    ?vtrace("handle_register_agent -> lookup address", []),
 		    {ok, Addr} = agent_info(TargetName, address),
+		    ?vtrace("handle_register_agent -> Addr: ~p, lookup Port", 
+			    [Addr]),
 		    {ok, Port} = agent_info(TargetName, port),
+		    ?vtrace("handle_register_agent -> register cross-ref fix", []),
 		    ets:insert(snmpm_agent_table, 
 			       {{Addr, Port, target_name}, TargetName}),
 		    %% </DIRTY-BACKWARD-COMPATIBILLITY>
@@ -2549,10 +2711,18 @@ handle_register_agent(UserId, TargetName, Config) ->
 do_handle_register_agent(_TargetName, []) ->
     ok;
 do_handle_register_agent(TargetName, [{Item, Val}|Rest]) ->
+    ?vtrace("handle_register_agent -> entry with"
+	    "~n   TargetName: ~p"
+	    "~n   Item:       ~p"
+	    "~n   Val:        ~p"
+	    "~n   Rest:       ~p", [TargetName, Item, Val, Rest]),
     case (catch do_update_agent_info(TargetName, Item, Val)) of
 	ok ->
 	    do_handle_register_agent(TargetName, Rest);
 	{error, Reason} ->
+	    ?vtrace("handle_register_agent -> failed updating ~p"
+		    "~n   Item:   ~p"
+		    "~n   Reason: ~p", [Item, Reason]),
 	    ets:match_delete(snmpm_agent_table, {TargetName, '_'}),
 	    {error, Reason}
     end;
@@ -2587,40 +2757,60 @@ handle_unregister_agent(UserId, TargetName) ->
     end.
 
 
-handle_update_agent_info(UserId, TargetName, Item, Val) ->
+handle_update_agent_info(UserId, TargetName, Info) ->
     ?vdebug("handle_update_agent_info -> entry with"
 	    "~n   UserId:     ~p"
 	    "~n   TargetName: ~p"
-	    "~n   Item:       ~p"
-	    "~n   Val:        ~p", [UserId, TargetName, Item, Val]),
+	    "~n   Info:       ~p", [UserId, TargetName, Info]),
+    %% Verify ownership
     case (catch agent_info(TargetName, user_id)) of
-	{ok, UserId} ->
-	    do_update_agent_info(TargetName, Item, Val);
+	{ok, UserId} -> 
+	    handle_update_agent_info(TargetName, Info);
 	{ok, OtherUserId} ->
 	    {error, {not_owner, OtherUserId}};
 	Error ->
 	    Error
     end.
 
-do_update_agent_info(TargetName, Item, Val0) ->
-%%     p("do_update_agent_info -> entry with"
-%%       "~n   TargetName: ~p"
-%%       "~n   Item:       ~p"
-%%       "~n   Val0:       ~p", [TargetName, Item, Val0]),
-    case verify_val(Item, Val0) of
-	{ok, Val} ->
-%% 	    p("do_update_agent_info -> verified value"
-%% 	      "~n   Val: ~p", [Val]),
-	    ets:insert(snmpm_agent_table, {{TargetName, Item}, Val}),
-	    ok;
+handle_update_agent_info(TargetName, Info0) ->
+    ?vtrace("handle_update_agent_info -> entry with"
+	    "~n   TargetName: ~p"
+	    "~n   Info0:      ~p", [TargetName, Info0]),
+    %% Verify info
+    try verify_agent_info(TargetName, Info0) of
+	{ok, Info} -> 
+	    do_update_agent_info(TargetName, Info);
 	Error ->
-	    ?vlog("do_update_agent_info -> verify value failed: "
-		  "~n   TargetName: ~p"
-		  "~n   Item:       ~p"
-		  "~n   Val0:       ~p"
-		  "~n   Error:      ~p", [TargetName, Item, Val0, Error]),
-	    {error, {bad_agent_val, TargetName, Item, Val0}}
+	    Error
+    catch 
+	throw:Error ->
+	    Error;
+	T:E ->
+	    {error, {failed_info_verification, Info0, T, E}}
     end.
+
+handle_update_agent_info(UserId, TargetName, Item, Val) ->
+    ?vdebug("handle_update_agent_info -> entry with"
+	    "~n   UserId:     ~p"
+	    "~n   TargetName: ~p"
+	    "~n   Item:       ~p"
+	    "~n   Val:        ~p", [UserId, TargetName, Item, Val]),
+    handle_update_agent_info(TargetName, [{Item, Val}]).
+
+do_update_agent_info(TargetName, Info) ->
+    InsertItem = 
+	fun({Item, Val}) -> 
+		ets:insert(snmpm_agent_table, {{TargetName, Item}, Val})
+	end,
+    lists:foreach(InsertItem, Info).
+
+do_update_agent_info(TargetName, Item, Val) ->
+    ?vtrace("do_update_agent_info -> entry with"
+	    "~n   TargetName: ~p"
+	    "~n   Item:       ~p"
+	    "~n   Val:       ~p", [TargetName, Item, Val]),
+    ets:insert(snmpm_agent_table, {{TargetName, Item}, Val}),
+    ok.
 
 
 handle_register_usm_user(#usm_user{engine_id = EngineID, 
@@ -2789,7 +2979,7 @@ verify_mandatory(Conf, [Mand|Mands]) ->
 	true ->
 	    verify_mandatory(Conf, Mands);
 	false ->
-	    {error, {missing_mandatory_config, Mand}}
+	    throw({error, {missing_mandatory_config, Mand}})
     end.
 
 verify_invalid(_, []) ->
@@ -2799,7 +2989,7 @@ verify_invalid(Conf, [Inv|Invs]) ->
 	false ->
 	    verify_invalid(Conf, Invs);
 	true ->
-	    {error, {illegal_config, Inv}}
+	    throw({error, {illegal_config, Inv}})
     end.
 
 
@@ -2808,9 +2998,25 @@ verify_val(user_id, UserId) ->
 verify_val(reg_type, RegType) 
   when (RegType =:= addr_port) orelse (RegType =:= target_name) ->
     {ok, RegType};
-verify_val(address, Addr0) ->
-    case normalize_address(Addr0) of
+verify_val(tdomain = Item, snmpUDPDomain = _Domain) ->
+    verify_val(Item, transportDomainUdpIpv4);
+verify_val(tdomain, Domain) ->
+    case lists:member(Domain, ?SUPPORTED_DOMAINS) of
+	true ->
+	    {ok, Domain};
+	false ->
+	    case lists:member(Domain, snmp_conf:all_domains()) of
+		true ->
+		    error({unsupported_domain, Domain});
+		false ->
+		    error({unknown_domain, Domain})
+	    end
+    end;
+verify_val(address, {Domain, Addr0}) ->
+    case normalize_address(Domain, Addr0) of
 	{_A1, _A2, _A3, _A4} = Addr ->
+	    {ok, Addr};
+	{_A1, _A2, _A3, _A4, _A5, _A6, _A7, _A8} = Addr ->
 	    {ok, Addr};
 	_ when is_list(Addr0) ->
 	    case (catch snmp_conf:check_ip(Addr0)) of
@@ -2822,6 +3028,8 @@ verify_val(address, Addr0) ->
 	_ ->
 	    error({bad_address, Addr0})
     end;
+verify_val(address, BadAddress) ->
+    error({bad_address, BadAddress});
 verify_val(port, Port) ->
     case (catch snmp_conf:check_integer(Port, {gt, 0})) of
 	ok ->
@@ -2873,7 +3081,7 @@ verify_val(sec_name, BadName) ->
 verify_val(sec_level, Level) ->
     (catch snmp_conf:check_sec_level(Level));
 verify_val(Item, _) ->
-    {error, {no_such_item, Item}}.
+    {error, {unknown_item, Item}}.
 
 
 %%%-------------------------------------------------------------------
@@ -3032,11 +3240,17 @@ init_mini_mib_elems(MibName, [_|T], Res) ->
 %%----------------------------------------------------------------------
 
 normalize_address(Addr) ->
-    case inet:getaddr(Addr, inet) of
+    normalize_address(snmpUDPDomain, Addr).
+
+normalize_address(snmpUDPDomain, Addr) ->
+    normalize_address(transportDomainUdpIpv4, Addr);
+
+normalize_address(Domain, Addr) ->
+    case inet:getaddr(Addr, td2fam(Domain)) of
         {ok, Addr2} ->
             Addr2;
         _ when is_list(Addr) ->
-	    case (catch snmp_conf:check_ip(Addr)) of
+	    case (catch snmp_conf:check_ip(Domain, Addr)) of
 		ok ->
 		    list_to_tuple(Addr);
 		_ ->
@@ -3046,6 +3260,9 @@ normalize_address(Addr) ->
             Addr
     end.
 
+td2fam(transportDomainUdpIpv4) -> inet;
+td2fam(transportDomainUdpIpv6) -> inet6.
+    
 
 %%----------------------------------------------------------------------
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -24,6 +24,8 @@
 
 %% External exports 
 
+%% Avoid warning for local function error/1 clashing with autoimported BIF.
+-compile({no_auto_import,[error/1]}).
 -export([parse_transform/2, transform_from_evaluator/2]).
 
 -export([q/1, q/2]).
@@ -58,7 +60,7 @@
 
 -record(qlc_table,   % qlc:table/2
         {trav_fun,   % traverse fun
-         trav_MS,    % bool(); true iff traverse fun takes a match spec
+         trav_MS,    % boolean(); true iff traverse fun takes a match spec
          pre_fun,
          post_fun,
          info_fun,
@@ -108,12 +110,12 @@
 -record(qlc_cursor, {c}).
 
 -record(qlc_opt,
-        {unique = false,      % bool()
-         cache = false,       % bool() | list (true~ets, false~no)
+        {unique = false,      % boolean()
+         cache = false,       % boolean() | list (true~ets, false~no)
          max_lookup = -1,     % int() >= 0 | -1 (represents infinity)
          join = any,          % any | nested_loop | merge | lookup
          tmpdir = "",         % global tmpdir
-         lookup = any,        % any | bool()
+         lookup = any,        % any | boolean()
          max_list = ?MAX_LIST_SIZE,  % int() >= 0
          tmpdir_usage = allowed    % allowed | not_allowed 
                                    %  | warning_msg | error_msg | info_msg
@@ -121,7 +123,9 @@
 
 -record(setup, {parent}).
 
--define(THROWN_ERROR, {?MODULE, throw_error, _}).
+-define(THROWN_ERROR, {?MODULE, throw_error, _, _}).
+
+-export_type([query_handle/0]).
 
 %%% A query handle is a tuple {qlc_handle, Handle} where Handle is one
 %%% of #qlc_append, #qlc_table, #qlc_sort, and #qlc_lc.
@@ -142,6 +146,35 @@ get_handle(_) ->
 %%% Exported functions
 %%%
 
+-type(query_list_comprehension() :: term()).
+-opaque(query_cursor() :: {qlc_cursor, term()}).
+-opaque(query_handle() :: {qlc_handle, term()}).
+-type(query_handle_or_list() :: query_handle() | list()).
+-type(answers() :: [answer()]).
+-type(answer() :: term()).
+-type(abstract_expr() :: erl_parse:abstract_expr()).
+-type(match_expression() :: ets:match_spec()).
+-type(spawn_options() :: default | [proc_lib:spawn_option()]).
+-type(sort_options() :: [sort_option()] | sort_option()).
+-type(sort_option() :: {compressed, boolean()}
+                     | {no_files, no_files()}
+                     | {order, order()}
+                     | {size, pos_integer()}
+                     | {tmpdir, tmp_directory()}
+                     | {unique, boolean()}).
+-type(order() :: ascending | descending | order_fun()).
+-type(order_fun() :: fun((term(), term()) -> boolean())).
+-type(tmp_directory() :: [] | file:name()).
+-type(no_files() :: pos_integer()). % > 1
+-type(key_pos() :: pos_integer() | [pos_integer()]).
+-type(max_list_size() :: non_neg_integer()).
+-type(cache() :: ets | list | no).
+-type(tmp_file_usage() :: allowed | not_allowed | info_msg
+                        | warning_msg  | error_msg).
+
+-spec(append(QHL) -> QH when
+      QHL :: [query_handle_or_list()],
+      QH :: query_handle()).
 append(QHs) ->
     Hs = [case get_handle(QH) of
               badarg -> erlang:error(badarg, [QHs]);
@@ -149,6 +182,10 @@ append(QHs) ->
           end || QH <- QHs],
     #qlc_handle{h = #qlc_append{hl = Hs}}.
 
+-spec(append(QH1, QH2) -> QH3 when
+      QH1 :: query_handle_or_list(),
+      QH2 :: query_handle_or_list(),
+      QH3 :: query_handle()).
 append(QH1, QH2) ->
     Hs = [case get_handle(QH) of
               badarg -> erlang:error(badarg, [QH1, QH2]);
@@ -156,9 +193,22 @@ append(QH1, QH2) ->
           end || QH <- [QH1, QH2]],
     #qlc_handle{h = #qlc_append{hl = Hs}}.
 
+-spec(cursor(QH) -> Cursor when
+      QH :: query_handle_or_list(),
+      Cursor :: query_cursor()).
 cursor(QH) ->
     cursor(QH, []).
 
+-spec(cursor(QH, Options) -> Cursor when
+      QH :: query_handle_or_list(),
+      Options :: [Option] | Option,
+      Option :: {cache_all, cache()} | cache_all
+              | {max_list_size, max_list_size()}
+              | {spawn_options, spawn_options()}
+              | {tmpdir_usage, tmp_file_usage()}
+              | {tmpdir, tmp_directory()}
+              | {unique_all, boolean()} | unique_all,
+      Cursor :: query_cursor()).
 cursor(QH, Options) ->
     case {options(Options, [unique_all, cache_all, tmpdir, 
                             spawn_options, max_list_size, 
@@ -177,6 +227,8 @@ cursor(QH, Options) ->
             end
     end.
 
+-spec(delete_cursor(QueryCursor) -> ok when
+      QueryCursor :: query_cursor()).
 delete_cursor(#qlc_cursor{c = {_, Owner}}=C) when Owner =/= self() ->
     erlang:error(not_cursor_owner, [C]);
 delete_cursor(#qlc_cursor{c = {Pid, _}}) ->
@@ -184,15 +236,47 @@ delete_cursor(#qlc_cursor{c = {Pid, _}}) ->
 delete_cursor(T) ->
     erlang:error(badarg, [T]).
 
+-spec(e(QH) -> Answers | Error when
+      QH :: query_handle_or_list(),
+      Answers :: answers(),
+      Error :: {error, module(), Reason},
+      Reason :: file_sorter:reason()).
 e(QH) ->
     eval(QH, []).
 
+-spec(e(QH, Options) -> Answers | Error when
+      QH :: query_handle_or_list(),
+      Options :: [Option] | Option,
+      Option :: {cache_all, cache()} | cache_all
+              | {max_list_size, max_list_size()}
+              | {tmpdir_usage, tmp_file_usage()}
+              | {tmpdir, tmp_directory()}
+              | {unique_all, boolean()} | unique_all,
+      Answers :: answers(),
+      Error :: {error, module(), Reason},
+      Reason :: file_sorter:reason()).
 e(QH, Options) ->
     eval(QH, Options).
 
+-spec(eval(QH) -> Answers | Error when
+      QH :: query_handle_or_list(),
+      Answers :: answers(),
+      Error :: {error, module(), Reason},
+      Reason :: file_sorter:reason()).
 eval(QH) ->
     eval(QH, []).
 
+-spec(eval(QH, Options) -> Answers | Error when
+      QH :: query_handle_or_list(),
+      Answers :: answers(),
+      Options :: [Option] | Option,
+      Option :: {cache_all, cache()} | cache_all
+              | {max_list_size, max_list_size()}
+              | {tmpdir_usage, tmp_file_usage()}
+              | {tmpdir, tmp_directory()}
+              | {unique_all, boolean()} | unique_all,
+      Error :: {error, module(), Reason},
+      Reason :: file_sorter:reason()).
 eval(QH, Options) ->
     case {options(Options, [unique_all, cache_all, tmpdir, max_list_size,
                             tmpdir_usage]),
@@ -224,9 +308,35 @@ eval(QH, Options) ->
             end
     end.
 
+-spec(fold(Function, Acc0, QH) ->
+               Acc1 | Error when
+      QH :: query_handle_or_list(),
+      Function :: fun((answer(), AccIn) -> AccOut),
+      Acc0 :: term(),
+      Acc1 :: term(),
+      AccIn :: term(),
+      AccOut :: term(),
+      Error :: {error, module(), Reason},
+      Reason :: file_sorter:reason()).
 fold(Fun, Acc0, QH) ->
     fold(Fun, Acc0, QH, []).
 
+-spec(fold(Function, Acc0, QH, Options) ->
+               Acc1 | Error when
+      QH :: query_handle_or_list(),
+      Function :: fun((answer(), AccIn) -> AccOut),
+      Acc0 :: term(),
+      Acc1 :: term(),
+      AccIn :: term(),
+      AccOut :: term(),
+      Options :: [Option] | Option,
+      Option :: {cache_all, cache()} | cache_all
+              | {max_list_size, max_list_size()}
+              | {tmpdir_usage, tmp_file_usage()}
+              | {tmpdir, tmp_directory()}
+              | {unique_all, boolean()} | unique_all,
+      Error :: {error, module(), Reason},
+      Reason :: file_sorter:reason()).
 fold(Fun, Acc0, QH, Options) ->
     case {options(Options, [unique_all, cache_all, tmpdir, max_list_size,
                             tmpdir_usage]), 
@@ -256,6 +366,9 @@ fold(Fun, Acc0, QH, Options) ->
             end
     end.
 
+-spec(format_error(Error) -> Chars when
+      Error :: {error, module(), term()},
+      Chars :: io_lib:chars()).
 format_error(not_a_query_list_comprehension) ->
     io_lib:format("argument is not a query list comprehension", []);
 format_error({used_generator_variable, V}) ->
@@ -293,9 +406,29 @@ format_error({error, Module, Reason}) ->
 format_error(E) ->
     io_lib:format("~p~n", [E]).
 
+-spec(info(QH) -> Info when
+      QH :: query_handle_or_list(),
+      Info :: abstract_expr() | string()).
 info(QH) ->
     info(QH, []).
 
+-spec(info(QH, Options) -> Info when
+      QH :: query_handle_or_list(),
+      Options :: [Option] | Option,
+      Option :: EvalOption | ReturnOption,
+      EvalOption :: {cache_all, cache()} | cache_all
+                  | {max_list_size, max_list_size()}
+                  | {tmpdir_usage, tmp_file_usage()}
+                  | {tmpdir, tmp_directory()}
+                  | {unique_all, boolean()} | unique_all,
+      ReturnOption :: {depth, Depth}
+                    | {flat, boolean()}
+                    | {format, Format}
+                    | {n_elements, NElements},
+      Depth :: infinity | non_neg_integer(),
+      Format :: abstract_code | string,
+      NElements :: infinity | pos_integer(),
+      Info :: abstract_expr() | string()).
 info(QH, Options) ->
     case {options(Options, [unique_all, cache_all, flat, format, n_elements, 
                             depth, tmpdir, max_list_size, tmpdir_usage]),
@@ -331,9 +464,18 @@ info(QH, Options) ->
             end
     end.
 
+-spec(keysort(KeyPos, QH1) -> QH2 when
+      KeyPos :: key_pos(),
+      QH1 :: query_handle_or_list(),
+      QH2 :: query_handle()).
 keysort(KeyPos, QH) ->
     keysort(KeyPos, QH, []).
 
+-spec(keysort(KeyPos, QH1, SortOptions) -> QH2 when
+      KeyPos :: key_pos(),
+      SortOptions :: sort_options(),
+      QH1 :: query_handle_or_list(),
+      QH2 :: query_handle()).
 keysort(KeyPos, QH, Options) ->
     case {is_keypos(KeyPos), 
           options(Options, [tmpdir, order, unique, compressed, 
@@ -352,9 +494,22 @@ keysort(KeyPos, QH, Options) ->
 
 -define(DEFAULT_NUM_OF_ANSWERS, 10).
 
+-spec(next_answers(QueryCursor) ->
+            Answers | Error when
+      QueryCursor :: query_cursor(),
+      Answers :: answers(),
+      Error :: {error, module(), Reason},
+      Reason :: file_sorter:reason()).
 next_answers(C) ->
     next_answers(C, ?DEFAULT_NUM_OF_ANSWERS).
 
+-spec(next_answers(QueryCursor, NumberOfAnswers) ->
+            Answers | Error when
+      QueryCursor :: query_cursor(),
+      Answers :: answers(),
+      NumberOfAnswers :: all_remaining | pos_integer(),
+      Error :: {error, module(), Reason},
+      Reason :: file_sorter:reason()).
 next_answers(#qlc_cursor{c = {_, Owner}}=C, 
              NumOfAnswers) when Owner =/= self() ->
     erlang:error(not_cursor_owner, [C, NumOfAnswers]);
@@ -368,14 +523,35 @@ next_answers(#qlc_cursor{c = {Pid, _}}=C, NumOfAnswers) ->
 next_answers(T1, T2) ->
     erlang:error(badarg, [T1, T2]).
 
+-spec(parse_transform(Forms, Options) -> Forms2 when
+      Forms :: [erl_parse:abstract_form()],
+      Forms2 :: [erl_parse:abstract_form()],
+      Options :: [Option],
+      Option :: type_checker | compile:option()).
+
 parse_transform(Forms, Options) ->
     qlc_pt:parse_transform(Forms, Options).
 
 %% The funcspecs qlc:q/1 and qlc:q/2 are known by erl_eval.erl and
 %% erl_lint.erl.
+-spec(q(QLC) -> QH when
+      QLC :: query_list_comprehension(),
+      QH :: query_handle()).
 q(QLC_lc) ->
     q(QLC_lc, []).
 
+-spec(q(QLC, Options) -> QH when
+      QH :: query_handle(),
+      Options :: [Option] | Option,
+      Option :: {max_lookup, MaxLookup}
+              | {cache, cache()} | cache
+              | {join, Join}
+              | {lookup, Lookup}
+              | {unique, boolean()} | unique,
+      MaxLookup :: non_neg_integer() | infinity,
+      Join :: any | lookup | merge | nested_loop,
+      Lookup :: boolean() | any,
+      QLC :: query_list_comprehension()).
 q(#qlc_lc{}=QLC_lc, Options) ->
     case options(Options, [unique, cache, max_lookup, join, lookup]) of
         [Unique, Cache, Max, Join, Lookup] ->
@@ -388,9 +564,16 @@ q(#qlc_lc{}=QLC_lc, Options) ->
 q(T1, T2) ->
     erlang:error(badarg, [T1, T2]).
 
+-spec(sort(QH1) -> QH2 when
+      QH1 :: query_handle_or_list(),
+      QH2 :: query_handle()).
 sort(QH) ->
     sort(QH, []).
 
+-spec(sort(QH1, SortOptions) -> QH2 when
+      SortOptions :: sort_options(),
+      QH1 :: query_handle_or_list(),
+      QH2 :: query_handle()).
 sort(QH, Options) ->
     case {options(Options, [tmpdir, order, unique, compressed, 
                             size, no_files]), get_handle(QH)} of
@@ -404,14 +587,47 @@ sort(QH, Options) ->
     end.
 
 %% Note that the generated code is evaluated by (the slow) erl_eval.
+-spec(string_to_handle(QueryString) -> QH | Error when
+      QueryString :: string(),
+      QH :: query_handle(),
+      Error :: {error, module(), Reason},
+      Reason :: erl_parse:error_info() | erl_scan:error_info()).
 string_to_handle(Str) ->
     string_to_handle(Str, []).
 
+-spec(string_to_handle(QueryString, Options) -> QH | Error when
+      QueryString :: string(),
+      Options :: [Option] | Option,
+      Option :: {max_lookup, MaxLookup}
+              | {cache, cache()} | cache
+              | {join, Join}
+              | {lookup, Lookup}
+              | {unique, boolean()} | unique,
+      MaxLookup :: non_neg_integer() | infinity,
+      Join :: any | lookup | merge | nested_loop,
+      Lookup :: boolean() | any,
+      QH :: query_handle(),
+      Error :: {error, module(), Reason},
+      Reason :: erl_parse:error_info() | erl_scan:error_info()).
 string_to_handle(Str, Options) ->
-    string_to_handle(Str, Options, []).
+    string_to_handle(Str, Options, erl_eval:new_bindings()).
 
-string_to_handle(Str, Options, Bindings) when is_list(Str), 
-                                              is_list(Bindings) ->
+-spec(string_to_handle(QueryString, Options, Bindings) -> QH | Error when
+      QueryString :: string(),
+      Options :: [Option] | Option,
+      Option :: {max_lookup, MaxLookup}
+              | {cache, cache()} | cache
+              | {join, Join}
+              | {lookup, Lookup}
+              | {unique, boolean()} | unique,
+      MaxLookup :: non_neg_integer() | infinity,
+      Join :: any | lookup | merge | nested_loop,
+      Lookup :: boolean() | any,
+      Bindings :: erl_eval:binding_struct(),
+      QH :: query_handle(),
+      Error :: {error, module(), Reason},
+      Reason :: erl_parse:error_info() | erl_scan:error_info()).
+string_to_handle(Str, Options, Bindings) when is_list(Str) ->
     case options(Options, [unique, cache, max_lookup, join, lookup]) of
         badarg ->
             erlang:error(badarg, [Str, Options, Bindings]);
@@ -445,6 +661,51 @@ string_to_handle(Str, Options, Bindings) when is_list(Str),
 string_to_handle(T1, T2, T3) ->    
     erlang:error(badarg, [T1, T2, T3]).
 
+-spec(table(TraverseFun, Options) -> QH when
+      TraverseFun :: TraverseFun0 | TraverseFun1,
+      TraverseFun0 :: fun(() -> TraverseResult),
+      TraverseFun1 :: fun((match_expression()) -> TraverseResult),
+      TraverseResult :: Objects | term(),
+      Objects :: [] | [term() | ObjectList],
+      ObjectList :: TraverseFun0 | Objects,
+      Options :: [Option] | Option,
+      Option :: {format_fun, FormatFun}
+              | {info_fun, InfoFun}
+              | {lookup_fun, LookupFun}
+              | {parent_fun, ParentFun}
+              | {post_fun, PostFun}
+              | {pre_fun, PreFun}
+              | {key_equality, KeyComparison},
+      FormatFun :: undefined  | fun((SelectedObjects) -> FormatedTable),
+      SelectedObjects :: all
+                       | {all, NElements, DepthFun}
+                       | {match_spec, match_expression()}
+                       | {lookup, Position, Keys}
+                       | {lookup, Position, Keys, NElements, DepthFun},
+      NElements :: infinity | pos_integer(),
+      DepthFun :: fun((term()) -> term()),
+      FormatedTable :: {Mod, Fun, Args}
+                     | abstract_expr()
+                     | string(),
+      InfoFun :: undefined  | fun((InfoTag) -> InfoValue),
+      InfoTag :: indices | is_unique_objects | keypos | num_of_objects,
+      InfoValue :: undefined  | term(),
+      LookupFun :: undefined  | fun((Position, Keys) -> LookupResult),
+      LookupResult :: [term()] | term(),
+      ParentFun :: undefined  | fun(() -> ParentFunValue),
+      PostFun :: undefined  | fun(() -> term()),
+      PreFun :: undefined  | fun((PreArgs) -> term()),
+      PreArgs :: [PreArg],
+      PreArg :: {parent_value, ParentFunValue}  | {stop_fun, StopFun},
+      ParentFunValue :: undefined  | term(),
+      StopFun :: undefined  | fun(() -> term()),
+      KeyComparison :: '=:=' | '==',
+      Position :: pos_integer(),
+      Keys :: [term()],
+      Mod :: atom(),
+      Fun :: atom(),
+      Args :: [term()],
+      QH :: query_handle()).
 table(TraverseFun, Options) when is_function(TraverseFun) ->
     case {is_function(TraverseFun, 0), 
           IsFun1 = is_function(TraverseFun, 1)} of
@@ -469,6 +730,11 @@ table(TraverseFun, Options) when is_function(TraverseFun) ->
     end;
 table(T1, T2) ->
     erlang:error(badarg, [T1, T2]).
+
+-spec(transform_from_evaluator(LC, Bs) -> Expr when
+      LC :: abstract_expr(),
+      Expr :: abstract_expr(),
+      Bs :: erl_eval:binding_struct()).
 
 transform_from_evaluator(LC, Bs0) ->
     qlc_pt:transform_from_evaluator(LC, Bs0).
@@ -720,8 +986,8 @@ listify(T) ->
 
 %% Optimizations to be carried out.
 -record(optz,
-        {unique = false,    % bool()
-         cache = false,     % bool() | list
+        {unique = false,    % boolean()
+         cache = false,     % boolean() | list
          join_option = any, % constraint set by the 'join' option
          fast_join = no,    % no | #qlc_join. 'no' means nested loop.
          opt                % #qlc_opt
@@ -754,8 +1020,8 @@ listify(T) ->
          lu_skip_quals = [], % qualifiers to skip due to lookup
          join = {[],[]},  % {Lookup, Merge}
          n_objs = undefined,   % for join (not used yet)
-         is_unique_objects = false, % bool()
-         is_cached = false          % bool() (true means 'ets' or 'list')
+         is_unique_objects = false, % boolean()
+         is_cached = false          % boolean() (true means 'ets' or 'list')
         }).
 
 %%% Cursor process functions.
@@ -1006,7 +1272,10 @@ abstr_term(Fun, Line) when is_function(Fun) ->
             case erlang:fun_info(Fun, type) of
                 {type, external} ->
                     {module, Module} = erlang:fun_info(Fun, module),
-                    {'fun', Line, {function,Module,Name,Arity}};
+                    {'fun', Line, {function,
+				   {atom,Line,Module},
+				   {atom,Line,Name},
+				   {integer,Line,Arity}}};
                 {type, local} ->
                     {'fun', Line, {function,Name,Arity}}
             end
@@ -1141,20 +1410,20 @@ monitor_request(Pid, Req) ->
 %% QueryDesc = {qlc, TemplateDesc, [QualDesc], [QueryOpt]} 
 %%           | {table, TableDesc}
 %%           | {append, [QueryDesc]}
-%%           | {sort, QueryDesc, [SortOption]}
-%%           | {keysort, KeyPos, QueryDesc, [SortOption]}
+%%           | {sort, QueryDesc, [sort_option()]}
+%%           | {keysort, key_pos(), QueryDesc, [sort_option()]}
 %%           | {list, list()}
-%%           | {list, QueryDesc, MatchExpression}
+%%           | {list, QueryDesc, match_expression()}
 %% TableDesc = {Mod, Fun, Args}
-%%           | AbstractExpression
-%%           | character_list()
+%%           | erl_parse:abstract_expr()
+%%           | string()
 %% Mod = module()
 %% Fun = atom()
 %% Args = [term()]
 %% QualDesc = FilterDesc
 %%          | {generate, PatternDesc, QueryDesc}
-%% QueryOpt = {cache, bool()} | cache 
-%%          | {unique, bool()} | unique
+%% QueryOpt = {cache, boolean()} | cache
+%%          | {unique, boolean()} | unique
 %% FilterDesc = PatternDesc = TemplateDesc = binary()
 
 le_info(#prepared{qh = #simple_qlc{le = LE, p = P, line = L, optz = Optz}},
@@ -3435,7 +3704,8 @@ lookup_join(F1, C1, LuF, C2, Rev) ->
 maybe_error_logger(allowed, _) ->
     ok;
 maybe_error_logger(Name, Why) ->
-    [_, _, {?MODULE,maybe_error_logger,_} | Stacktrace] = expand_stacktrace(),
+    [_, _, {?MODULE,maybe_error_logger,_,_} | Stacktrace] =
+	expand_stacktrace(),
     Trimmer = fun(M, _F, _A) -> M =:= erl_eval end,
     Formater = fun(Term, I) -> io_lib:print(Term, I, 80, -1) end,
     X = lib:format_stacktrace(1, Stacktrace, Trimmer, Formater),
@@ -3454,7 +3724,7 @@ expand_stacktrace() ->
 expand_stacktrace(D) ->
     _ = erlang:system_flag(backtrace_depth, D),
     {'EXIT', {foo, Stacktrace}} = (catch erlang:error(foo)),
-    L = lists:takewhile(fun({M,_,_}) -> M =/= ?MODULE 
+    L = lists:takewhile(fun({M,_,_,_}) -> M =/= ?MODULE
                         end, lists:reverse(Stacktrace)),
     if
         length(L) < 3 andalso length(Stacktrace) =:= D ->

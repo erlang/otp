@@ -1,0 +1,4 @@
+
+compare1.erl:15: Guard test X::42 > 42 can never succeed
+compare1.erl:17: Guard test X::42 < 42 can never succeed
+compare1.erl:19: Guard test X::42 =/= 42 can never succeed

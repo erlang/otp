@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2009</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -55,33 +55,31 @@
      <c>-loader_debug</c> are also experimental</p></warning>
 
   </description>
+  <datatypes>
+    <datatype>
+      <name name="host"/>
+    </datatype>
+  </datatypes>
+
   <funcs>
     <func>
-      <name>start(Id, Loader, Hosts) -> {ok, Pid} | {error, What}</name>
+      <name name="start" arity="3"/>
       <fsummary>Start the Erlang low level loader</fsummary>
-      <type>
-        <v>Id = term()</v>
-        <v>Loader = atom() | string()</v>
-        <v>Hosts = [Host]</v>
-        <v>Host = atom()</v>
-        <v>Pid = pid()</v>
-        <v>What = term()</v>
-      </type>
       <desc>
         <p>Starts the Erlang low level loader. This function is called
           by the <c>init</c> process (and module). The <c>init</c>
-          process reads the command line flags <c>-id Id</c>,
-          <c>-loader Loader</c>, and <c>-hosts Hosts</c>. These are
+          process reads the command line flags <c>-id <anno>Id</anno></c>,
+          <c>-loader <anno>Loader</anno></c>, and <c>-hosts <anno>Hosts</anno></c>. These are
           the arguments supplied to the <c>start/3</c> function.</p>
         <p>If <c>-loader</c> is not given, the default loader is
           <c>efile</c> which tells the system to read from the file
           system.</p>
-        <p>If <c>-loader</c> is <c>inet</c>, the <c>-id Id</c>,
-          <c>-hosts Hosts</c>, and <c>-setcookie Cookie</c> flags must
-          also be supplied. <c>Hosts</c> identifies hosts which this
+        <p>If <c>-loader</c> is <c>inet</c>, the <c>-id <anno>Id</anno></c>,
+          <c>-hosts <anno>Hosts</anno></c>, and <c>-setcookie Cookie</c> flags must
+          also be supplied. <c><anno>Hosts</anno></c> identifies hosts which this
           node can contact in order to load modules. One Erlang
           runtime system with a <c>erl_boot_server</c> process must be
-          started on each of hosts given in <c>Hosts</c> in order to
+          started on each of hosts given in <c><anno>Hosts</anno></c> in order to
           answer the requests. See <seealso
           marker="kernel:erl_boot_server">erl_boot_server(3)</seealso>.</p>
         <p>If <c>-loader</c> is something else, the given port program
@@ -90,35 +88,26 @@
       </desc>
     </func>
     <func>
-      <name>get_file(Filename) -> {ok, Bin, FullName} | error</name>
+      <name name="get_file" arity="1"/>
       <fsummary>Get a file</fsummary>
-      <type>
-        <v>Filename = string()</v>
-        <v>Bin = binary()</v>
-        <v>FullName = string()</v>
-      </type>
       <desc>
         <p>This function fetches a file using the low level loader.
-          <c>Filename</c> is either an absolute file name or just the name
+          <c><anno>Filename</anno></c> is either an absolute file name or just the name
           of the file, for example <c>"lists.beam"</c>. If an internal
           path is set to the loader, this path is used to find the file.
           If a user supplied loader is used, the path can be stripped
           off if it is obsolete, and the loader does not use a path.
-          <c>FullName</c> is the complete name of the fetched file.
-          <c>Bin</c> is the contents of the file as a binary.</p>
+          <c><anno>FullName</anno></c> is the complete name of the fetched file.
+          <c><anno>Bin</anno></c> is the contents of the file as a binary.</p>
 
-	  <p>The <c>Filename</c> can also be a file in an archive. For example
-          <c>/otp/root/lib/mnesia-4.4.7.ez/mnesia-4.4.7/ebin/mnesia_backup.beam</c>
+	  <p>The <c><anno>Filename</anno></c> can also be a file in an archive. For example
+          <c>$OTPROOT/lib/</c><c>mnesia-4.4.7.ez/mnesia-4.4.7/ebin/</c><c>mnesia.beam</c>.
           See <seealso marker="kernel:code">code(3)</seealso> about archive files.</p>
       </desc>
     </func>
     <func>
-      <name>get_path() -> {ok, Path}</name>
+      <name name="get_path" arity="0"/>
       <fsummary>Get the path set in the loader</fsummary>
-      <type>
-        <v>Path = [Dir]</v>
-        <v>Dir = string()</v>
-      </type>
       <desc>
         <p>This function gets the path set in the loader. The path is
           set by the <c>init</c> process according to information found
@@ -126,35 +115,26 @@
       </desc>
     </func>
     <func>
-      <name>list_dir(Dir) -> {ok, Filenames} | error</name>
+      <name name="list_dir" arity="1"/>
       <fsummary>List files in a directory</fsummary>
-      <type>
-        <v>Dir = name()</v>
-        <v>Filenames = [Filename]</v>
-        <v>Filename = string()</v>
-      </type>
       <desc>
         <p>Lists all the files in a directory. Returns
-          <c>{ok, Filenames}</c> if successful. Otherwise, it returns
-          <c>error</c>. <c>Filenames</c> is a list of
+          <c>{ok, <anno>Filenames</anno>}</c> if successful. Otherwise, it returns
+          <c>error</c>. <c><anno>Filenames</anno></c> is a list of
           the names of all the files in the directory. The names are
           not sorted.</p>
-	  <p>The <c>Dir</c> can also be a directory in an archive. For example
-          <c>/otp/root/lib/mnesia-4.4.7.ez/mnesia-4.4.7/ebin</c>
+	  <p>The <c><anno>Dir</anno></c> can also be a directory in an archive. For example
+          <c>$OTPROOT/lib/</c><c>mnesia-4.4.7.ez/mnesia-4.4.7/ebin</c>.
            See <seealso marker="kernel:code">code(3)</seealso> about archive files.</p>
       </desc>
     </func>
     <func>
-      <name>read_file_info(Filename) -> {ok, FileInfo} | error</name>
+      <name name="read_file_info" arity="1"/>
       <fsummary>Get information about a file</fsummary>
-      <type>
-        <v>Filename = name()</v>
-        <v>FileInfo = #file_info{}</v>
-      </type>
       <desc>
         <p>Retrieves information about a file. Returns
-          <c>{ok, FileInfo}</c> if successful, otherwise
-          <c>error</c>. <c>FileInfo</c> is a record
+          <c>{ok, <anno>FileInfo</anno>}</c> if successful, otherwise
+          <c>error</c>. <c><anno>FileInfo</anno></c> is a record
           <c>file_info</c>, defined in the Kernel include file
           <c>file.hrl</c>. Include the following directive in the module
           from which the function is called:</p>
@@ -162,18 +142,14 @@
 -include_lib("kernel/include/file.hrl").</code>
         <p>See <seealso marker="kernel:file">file(3)</seealso> for more info about
           the record <c>file_info</c>.</p>
-	<p>The <c>Filename</c> can also be a file in an archive. For example
-          <c>/otp/root/lib/mnesia-4.4.7.ez/mnesia-4.4.7/ebin/mnesia_backup.beam</c>
+	<p>The <c><anno>Filename</anno></c> can also be a file in an archive. For example
+          <c>$OTPROOT/lib/</c><c>mnesia-4.4.7.ez/mnesia-4.4.7/ebin/</c><c>mnesia</c>.
           See <seealso marker="kernel:code">code(3)</seealso> about archive files.</p>
       </desc>
     </func>
     <func>
-      <name>set_path(Path) -> ok</name>
+      <name name="set_path" arity="1"/>
       <fsummary>Set the path of the loader</fsummary>
-      <type>
-        <v>Path = [Dir]</v>
-        <v>Dir = string()</v>
-      </type>
       <desc>
         <p>This function sets the path of the loader if <c>init</c>
           interprets a <c>path</c> command in the start script.</p>

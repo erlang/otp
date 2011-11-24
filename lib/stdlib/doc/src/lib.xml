@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2009</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -37,27 +37,23 @@
   </description>
   <funcs>
     <func>
-      <name>flush_receive() -> void()</name>
+      <name name="flush_receive" arity="0"/>
       <fsummary>Flush messages</fsummary>
       <desc>
         <p>Flushes the message buffer of the current process.</p>
       </desc>
     </func>
     <func>
-      <name>error_message(Format, Args) -> ok</name>
+      <name name="error_message" arity="2"/>
       <fsummary>Print error message</fsummary>
-      <type>
-        <v>Format = atom() | string() | binary()</v>
-        <v>Args = [term()]</v>
-      </type>
       <desc>
-        <p>Prints error message <c>Args</c> in accordance with
-          <c>Format</c>. Similar to <c>io:format/2</c>, see
+        <p>Prints error message <c><anno>Args</anno></c> in accordance with
+          <c><anno>Format</anno></c>. Similar to <c>io:format/2</c>, see
           <seealso marker="io#fwrite/1">io(3)</seealso>.</p>
       </desc>
     </func>
     <func>
-      <name>progname() -> atom()</name>
+      <name name="progname" arity="0"/>
       <fsummary>Return name of Erlang start script</fsummary>
       <desc>
         <p>Returns the name of the script that started the current
@@ -65,37 +61,24 @@
       </desc>
     </func>
     <func>
-      <name>nonl(String1) -> String2</name>
+      <name name="nonl" arity="1"/>
       <fsummary>Remove last newline</fsummary>
-      <type>
-        <v>String1 = String2 = string()</v>
-      </type>
       <desc>
         <p>Removes the last newline character, if any, in
-          <c>String1</c>.</p>
+          <c><anno>String1</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name>send(To, Msg)</name>
+      <name name="send" arity="2"/>
       <fsummary>Send a message</fsummary>
-      <type>
-        <v>To = pid() | Name | {Name,Node}</v>
-        <v>&nbsp;Name = Node = atom()</v>
-        <v>Msg = term()</v>
-      </type>
       <desc>
         <p>This function to makes it possible to send a message using
           the <c>apply/3</c> BIF.</p>
       </desc>
     </func>
     <func>
-      <name>sendw(To, Msg)</name>
+      <name name="sendw" arity="2"/>
       <fsummary>Send a message and wait for an answer</fsummary>
-      <type>
-        <v>To = pid() | Name | {Name,Node}</v>
-        <v>&nbsp;Name = Node = atom()</v>
-        <v>Msg = term()</v>
-      </type>
       <desc>
         <p>As <c>send/2</c>, but waits for an answer. It is implemented
           as follows:</p>

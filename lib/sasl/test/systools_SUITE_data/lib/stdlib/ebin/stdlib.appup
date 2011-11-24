@@ -1,0 +1,12 @@
+%%
+%% Fake release upgrade script for stdlib
+%%
+
+{
+ "1.1",
+ [
+ ],
+
+ [
+ ]
+}.

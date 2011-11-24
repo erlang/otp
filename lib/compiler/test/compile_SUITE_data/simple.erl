@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -36,4 +36,8 @@ test() ->
 foo() ->
     {?included_value, ?foo_value}.
 
+-endif.
+
+-ifdef(include_generated).
+-include("generated.hrl").
 -endif.

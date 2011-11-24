@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -26,6 +26,7 @@
 -export([do/1, load/2, store/2, remove/1]).
 
 -include("httpd.hrl").
+-include("httpd_internal.hrl").
 -define(VMODULE,"LOG").
 
 %%%=========================================================================
@@ -99,7 +100,7 @@ do(Info) ->
 		    transfer_log(Info,"-",AuthUser,Date,StatusCode,Size),
 		    {proceed,Info#mod.data};
 		{response, Head, _Body} ->
-		    Size = proplists:get_value(content_length,Head,unknown),
+                    Size = content_length(Head),
 		    Code = proplists:get_value(code,Head,unknown),
 		    transfer_log(Info, "-", AuthUser, Date, Code, Size),
 		    {proceed, Info#mod.data};
@@ -253,4 +254,10 @@ auth_user(Data) ->
 	    RemoteUser
     end.
 
-
+content_length(Head) ->
+    case proplists:get_value(content_length, Head) of
+        undefined ->
+            unknown;
+        Size ->
+            list_to_integer(Size)
+    end.

@@ -125,13 +125,9 @@ docs:
 # Special Build Targets
 # ----------------------------------------------------
 
-$(OBJDIR):
-	-mkdir -p $(OBJDIR)
+_create_dirs := $(shell mkdir -p $(OBJDIR) $(LIBDIR))
 
-$(LIBDIR):
-	-mkdir -p $(LIBDIR)
-
-$(LIBRARY): $(OBJDIR) $(LIBDIR) $(OBJ_FILES) 
+$(LIBRARY): $(OBJ_FILES) 
 	-$(AR) $(AR_OUT) $@ $(OBJ_FILES) 
 	-$(RANLIB) $@
 

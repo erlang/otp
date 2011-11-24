@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -29,24 +29,26 @@
 -define(privdir, "yecc_SUITE_priv").
 -define(t, test_server).
 -else.
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -define(datadir, ?config(data_dir, Config)).
 -define(privdir, ?config(priv_dir, Config)).
 -endif.
 
--export([all/1, init_per_testcase/2, fin_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 init_per_testcase/2, end_per_testcase/2]).
 
 -export([app_test/1,
-         checks/1, 
-             file/1, syntax/1, compile/1, rules/1, expect/1,
-             conflicts/1,
-         examples/1,
-             empty/1, prec/1, yeccpre/1, lalr/1, old_yecc/1, 
-             other_examples/1,
-         bugs/1, 
-             otp_5369/1, otp_6362/1, otp_7945/1,
-         improvements/1,
-             otp_7292/1, otp_7969/1]).
+	 
+	 file/1, syntax/1, compile/1, rules/1, expect/1,
+	 conflicts/1,
+	 
+	 empty/1, prec/1, yeccpre/1, lalr/1, old_yecc/1, 
+	 other_examples/1,
+	 
+	 otp_5369/1, otp_6362/1, otp_7945/1, otp_8483/1, otp_8486/1,
+	 
+	 otp_7292/1, otp_7969/1, otp_8919/1]).
 
 % Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(1)).
@@ -55,12 +57,38 @@ init_per_testcase(_Case, Config) ->
     ?line Dog = ?t:timetrap(?default_timeout),
     [{watchdog, Dog} | Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
-all(suite) -> [app_test, checks, examples, bugs, improvements].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [app_test, {group, checks}, {group, examples},
+     {group, bugs}, {group, improvements}].
+
+groups() -> 
+    [{checks, [],
+      [file, syntax, compile, rules, expect, conflicts]},
+     {examples, [],
+      [empty, prec, yeccpre, lalr, old_yecc, other_examples]},
+     {bugs, [],
+      [otp_5369, otp_6362, otp_7945, otp_8483, otp_8486]},
+     {improvements, [], [otp_7292, otp_7969, otp_8919]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 app_test(doc) ->
     ["Tests the applications consistency."];
@@ -70,8 +98,6 @@ app_test(Config) when is_list(Config) ->
     ?line ok=?t:app_test(parsetools),
     ok.
 
-checks(suite) ->
-    [file, syntax, compile, rules, expect, conflicts].
 
 file(doc) ->
     "Bad files and options.";
@@ -147,6 +173,7 @@ syntax(Config) when is_list(Config) ->
     %% Report errors. Very simple test of format_error/1.
     Ret = [return, {report, true}],
     Filename = filename:join(Dir, "file.yrl"),
+    Parserfile = filename:join(Dir, "file.erl"),
     Parserfile1 = filename:join(Dir, "a file"),
 
     ?line ok = file:write_file(Filename, <<"">>),
@@ -220,6 +247,19 @@ syntax(Config) when is_list(Config) ->
             nt -> t. e e.">>),
     ?line {ok,_,[{_,[{2,yecc,bad_declaration}]}]} = 
         yecc:file(Filename, Ret),
+
+    %% Bad declaration with warnings_as_errors.
+    ok = file:delete(Parserfile),
+    error = yecc:file(Filename, [warnings_as_errors]),
+    false = filelib:is_regular(Parserfile),
+    error = yecc:file(Filename, [return_warnings,warnings_as_errors]),
+    false = filelib:is_regular(Parserfile),
+    {error,_,[{_,[{2,yecc,bad_declaration}]}]} =
+        yecc:file(Filename, [return_errors,warnings_as_errors]),
+    false = filelib:is_regular(Parserfile),
+    {ok,_,[{_,[{2,yecc,bad_declaration}]}]} =
+        yecc:file(Filename, [return_warnings]),
+    true = filelib:is_regular(Parserfile),
 
     %% Bad declaration.
     ?line ok = file:write_file(Filename, 
@@ -298,8 +338,8 @@ syntax(Config) when is_list(Config) ->
                           {_,[{L1,_,{undefined_function,{yeccpars2_2_,1}}},
                               {L2,_,{bad_inline,{yeccpars2_2_,1}}}]}],
                    []} = compile:file(Parserfile1, [basic_validation,return]),
-            ?line L1 = 24 + SzYeccPre,
-            ?line L2 = 31 + SzYeccPre
+            ?line L1 = 28 + SzYeccPre,
+            ?line L2 = 35 + SzYeccPre
     end(),
 
     %% Bad macro in action. OTP-7224.
@@ -316,8 +356,8 @@ syntax(Config) when is_list(Config) ->
                           {_,[{L1,_,{undefined_function,{yeccpars2_2_,1}}},
                               {L2,_,{bad_inline,{yeccpars2_2_,1}}}]}],
                    []} = compile:file(Parserfile1, [basic_validation,return]),
-            ?line L1 = 24 + SzYeccPre,
-            ?line L2 = 31 + SzYeccPre
+            ?line L1 = 28 + SzYeccPre,
+            ?line L2 = 35 + SzYeccPre
     end(),
 
     %% Check line numbers. OTP-7224.
@@ -730,8 +770,6 @@ rules(Config) when is_list(Config) ->
     ?line run(Config, Ts),
     ok.
 
-examples(suite) ->
-    [empty, prec, yeccpre, lalr, old_yecc, other_examples].
 
 expect(doc) ->
     "Check of expect.";
@@ -1283,8 +1321,6 @@ other_examples(Config) when is_list(Config) ->
     ?line run(Config, Ts),
     ok.
 
-bugs(suite) ->
-    [otp_5369, otp_6362, otp_7945].
 
 otp_5369(doc) ->
     "OTP-5369. A bug in parse_and_scan reported on erlang questions.";
@@ -1486,8 +1522,59 @@ otp_7945(Config) when is_list(Config) ->
     ?line {error,_} = erl_parse:parse([{atom,3,foo},{'.',2,9,9}]),
     ok.
 
-improvements(suite) ->
-    [otp_7292, otp_7969].
+otp_8483(doc) ->
+    "OTP-8483. reduce/accept conflict";
+otp_8483(suite) -> [];
+otp_8483(Config) when is_list(Config) ->
+    Dir = ?privdir,
+    Input = filename:join(Dir, "bug.yrl"),
+
+    Bug1 = <<"Nonterminals elem seq.
+              Terminals 'foo'.
+              Rootsymbol elem.
+              elem -> 'foo'.
+              elem -> seq.
+              seq -> elem.
+              seq -> seq elem.">>,
+    ?line ok = file:write_file(Input, Bug1),
+    Ret = [return, {report, true}],
+    ?line {error,[{_,[{none,yecc,{conflict,_}},
+                      {none,yecc,{conflict,_}},
+                      {none,yecc,{conflict,_}}]}],
+           [{_,[{none,yecc,{conflicts,1,3}}]}]} = 
+        yecc:file(Input, Ret),
+    file:delete(Input),
+    ok.
+
+otp_8486(doc) ->
+    "OTP-8486.";
+otp_8486(suite) -> [];
+otp_8486(Config) when is_list(Config) ->
+    Ts = [{otp_8486,<<"
+           Nonterminals boolean command.
+           Terminals '(' ')' if then else true and or skip while do.
+           Rootsymbol command.
+           Left 100 or.
+           Left 200 and.
+           boolean -> '(' boolean ')' : '$2'.
+           boolean -> 'true' : b.
+           boolean -> boolean 'and' boolean : {a,'$1','$3'}.
+           boolean -> boolean 'or' boolean : {o,'$1','$3'}.
+           command -> 'skip' : s.
+           command -> 'if' boolean 'then' command 'else' command : 
+                                  {i,'$2','$4','$6'}.
+           command -> 'while' boolean 'do' command : {w,'$2','$4'}.
+
+           Erlang code.
+           -export([t/0]).
+           t() ->
+               {ok,{i,{o,b,b},s,s}} =
+                   parse([{'if',1},{'true',1},{'or',1},{'true',1},
+                          {'then',1},{'skip',1},{'else',1},{'skip',1}]),
+               ok.
+          ">>,default,ok}],
+    ?line run(Config, Ts),
+    ok.
 
 otp_7292(doc) ->
     "OTP-7292. Header declarations for edoc.";
@@ -1530,8 +1617,8 @@ otp_7292(Config) when is_list(Config) ->
                         {L2,_,{bad_inline,{yeccpars2_2_,1}}}]}],
                    [{_,[{16,_,{unused_function,{foo,0}}}]}]} = 
                 compile:file(Parserfile1, [basic_validation, return]),
-            ?line L1 = 34 + SzYeccPre,
-            ?line L2 = 41 + SzYeccPre
+            ?line L1 = 38 + SzYeccPre,
+            ?line L2 = 45 + SzYeccPre
     end(),
 
     YeccPre = filename:join(Dir, "yeccpre.hrl"),
@@ -1548,8 +1635,8 @@ otp_7292(Config) when is_list(Config) ->
                         {L2,_,{bad_inline,{yeccpars2_2_,1}}}]}],
                    [{_,[{16,_,{unused_function,{foo,0}}}]}]} = 
                 compile:file(Parserfile1, [basic_validation, return]),
-            ?line L1 = 33 + SzYeccPre,
-            ?line L2 = 40 + SzYeccPre
+            ?line L1 = 37 + SzYeccPre,
+            ?line L2 = 44 + SzYeccPre
     end(),
 
     file:delete(YeccPre),
@@ -1717,6 +1804,14 @@ otp_7969(Config) when is_list(Config) ->
     ?line {ok, Ts21, EL} = erl_scan:string("f() -> a; g() -> b. ", {1,1}),
     ?line F6 = fun() -> {ok, Ts21, EL} end,
     ?line {error,{{1,11},erl_parse,_}} = erl_parse:parse_and_scan({F6, []}),
+    ok.
+
+otp_8919(doc) ->
+    "OTP-8919. Improve formating of Yecc error messages.";
+otp_8919(suite) -> [];
+otp_8919(Config) when is_list(Config) ->
+    {error,{1,Mod,Mess}} = erl_parse:parse([{cat,1,"hello"}]),
+    "syntax error before: \"hello\"" = lists:flatten(Mod:format_error(Mess)),
     ok.
 
 yeccpre_size() ->

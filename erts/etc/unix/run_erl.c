@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1996-2009. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -74,6 +74,9 @@
 #endif
 #ifdef HAVE_SYS_IOCTL_H
 #  include <sys/ioctl.h>
+#endif
+#if defined(__sun) && defined(__SVR4)
+#  include <stropts.h>
 #endif
 
 #include "run_erl.h"
@@ -218,6 +221,8 @@ int main(int argc, char **argv)
   char *p, *ptyslave=NULL;
   int i = 1;
   int off_argv;
+  int calculated_pipename = 0;
+  int highest_pipe_num = 0;
 
   program_name = argv[0];
 
@@ -295,10 +300,10 @@ int main(int argc, char **argv)
   if(*pipename && pipename[strlen(pipename)-1] == '/') {
     /* The user wishes us to find a unique pipe name in the specified */
     /* directory */
-    int highest_pipe_num = 0;
     DIR *dirp;
     struct dirent *direntp;
 
+    calculated_pipename = 1;
     dirp = opendir(pipename);
     if(!dirp) {
       ERRNO_ERR1(LOG_ERR,"Can't access pipe directory '%s'.", pipename);
@@ -319,28 +324,37 @@ int main(int argc, char **argv)
 	      PIPE_STUBNAME, highest_pipe_num+1);
   } /* if */
 
-  /* write FIFO - is read FIFO for `to_erl' program */
-  strn_cpy(fifo1, sizeof(fifo1), pipename);
-  strn_cat(fifo1, sizeof(fifo1), ".r");
-  if (create_fifo(fifo1, PERM) < 0) {
-    ERRNO_ERR1(LOG_ERR,"Cannot create FIFO %s for writing.", fifo1);
-    exit(1);
-  }
-
-  /* read FIFO - is write FIFO for `to_erl' program */
-  strn_cpy(fifo2, sizeof(fifo2), pipename);
-  strn_cat(fifo2, sizeof(fifo2), ".w");
-
-  /* Check that nobody is running run_erl already */
-  if ((fd = open (fifo2, O_WRONLY|DONT_BLOCK_PLEASE, 0)) >= 0) {
-    /* Open as client succeeded -- run_erl is already running! */
-    fprintf(stderr, "Erlang already running on pipe %s.\n", pipename);
-    close(fd);
-    exit(1);
-  }
-  if (create_fifo(fifo2, PERM) < 0) { 
-    ERRNO_ERR1(LOG_ERR,"Cannot create FIFO %s for reading.", fifo2);
-    exit(1);
+  for(;;) {
+      /* write FIFO - is read FIFO for `to_erl' program */
+      strn_cpy(fifo1, sizeof(fifo1), pipename);
+      strn_cat(fifo1, sizeof(fifo1), ".r");
+      if (create_fifo(fifo1, PERM) < 0) {
+	  ERRNO_ERR1(LOG_ERR,"Cannot create FIFO %s for writing.", fifo1);
+	  exit(1);
+      }
+      
+      /* read FIFO - is write FIFO for `to_erl' program */
+      strn_cpy(fifo2, sizeof(fifo2), pipename);
+      strn_cat(fifo2, sizeof(fifo2), ".w");
+      
+      /* Check that nobody is running run_erl already */
+      if ((fd = open (fifo2, O_WRONLY|DONT_BLOCK_PLEASE, 0)) >= 0) {
+	  /* Open as client succeeded -- run_erl is already running! */
+	  close(fd);
+	  if (calculated_pipename) {
+	      ++highest_pipe_num;
+	      strn_catf(pipename, sizeof(pipename), "%s.%d",
+			PIPE_STUBNAME, highest_pipe_num+1);
+	      continue;
+	  } 
+	  fprintf(stderr, "Erlang already running on pipe %s.\n", pipename);
+	  exit(1);
+      }
+      if (create_fifo(fifo2, PERM) < 0) { 
+	  ERRNO_ERR1(LOG_ERR,"Cannot create FIFO %s for reading.", fifo2);
+	  exit(1);
+      }
+      break;
   }
 
   /*
@@ -864,8 +878,12 @@ static int open_pty_master(char **ptyslave)
 
 /* Use the posix_openpt if working, as this guarantees creation of the 
    slave device properly. */
-#ifdef HAVE_WORKING_POSIX_OPENPT
+#if defined(HAVE_WORKING_POSIX_OPENPT) || (defined(__sun) && defined(__SVR4))
+#  ifdef HAVE_WORKING_POSIX_OPENPT
   if ((mfd = posix_openpt(O_RDWR)) >= 0) {
+#  elif defined(__sun) && defined(__SVR4)
+  if ((mfd = open("/dev/ptmx", O_RDWR)) >= 0) {
+#  endif
       if ((*ptyslave = ptsname(mfd)) != NULL &&
 	  grantpt(mfd) == 0 && 
 	  unlockpt(mfd) == 0) {
@@ -973,16 +991,53 @@ static int open_pty_master(char **ptyslave)
 static int open_pty_slave(char *name)
 {
   int sfd;
-#ifdef DEBUG
   struct termios tty_rmode;
-#endif
 
   if ((sfd = open(name, O_RDWR, 0)) < 0) {
     return -1;
   }
 
+#if defined(__sun) && defined(__SVR4)
+  /* Load the necessary STREAMS modules for Solaris */
+  if ((ioctl(sfd, I_FIND, "ldterm")) < 0) {
+    ERROR0(LOG_ERR, "Failed to find ldterm STREAMS module");
+    return -1;
+  }
+  if (ioctl(sfd, I_PUSH, "ptem") < 0) {
+    ERROR0(LOG_ERR, "Failed to push ptem STREAMS module");
+    return -1;
+  }
+  if (ioctl(sfd, I_PUSH, "ldterm") < 0) {
+    ERROR0(LOG_ERR, "Failed to push ldterm STREAMS module");
+    return -1;
+  }
+  if (ioctl(sfd, I_PUSH, "ttcompat") < 0) {
+    ERROR0(LOG_ERR, "Failed to push ttcompat STREAMS module");
+    return -1;
+  }
+#endif
+
+  if (getenv("RUN_ERL_DISABLE_FLOWCNTRL")) {
+    if (tcgetattr(sfd, &tty_rmode) < 0) {
+      fprintf(stderr, "Cannot get terminal's current mode\n");
+      exit(-1);
+    }
+
+    tty_rmode.c_iflag &= ~IXOFF;
+    if (tcsetattr(sfd, TCSANOW, &tty_rmode) < 0) {
+      fprintf(stderr, "Cannot disable terminal's flow control on input\n");
+      exit(-1);
+    }
+
+    tty_rmode.c_iflag &= ~IXON;
+    if (tcsetattr(sfd, TCSANOW, &tty_rmode) < 0) {
+      fprintf(stderr, "Cannot disable terminal's flow control on output\n");
+      exit(-1);
+    }
+  }
+
 #ifdef DEBUG
-  if (tcgetattr(sfd, &tty_rmode) , 0) {
+  if (tcgetattr(sfd, &tty_rmode) < 0) {
     fprintf(stderr, "Cannot get terminals current mode\n");
     exit(-1);
   }

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -24,7 +24,7 @@
 %%         
 
 -export([file_term2binary/2, read_term/1, read_term_from_stream/2,
-	 get_dirs/1, get_path/1]).
+	 get_dirs/1, get_path/1, werror/2]).
 
 -include_lib("kernel/include/file.hrl").
 
@@ -176,21 +176,26 @@ add_dirs(RegName, Dirs, Root) ->
 regexp_match(RegName, D0, Root) ->
     case file:list_dir(D0) of
 	{ok, Files} when length(Files) > 0 ->
-	    FR = fun(F) ->
-			 case regexp:match(F, RegName) of
-			     {match,1,N} when N == length(F) ->
-				 DirF = join(D0, F, Root),
-				 case dir_p(DirF) of
-				     true ->
-					 {true, DirF};
+	    case re:compile(RegName) of
+		{ok, MP} ->
+		    FR = fun(F) ->
+				 case re:run(F, MP) of
+				     {match,[{0,N}]} when N == length(F) ->
+					 DirF = join(D0, F, Root),
+					 case dir_p(DirF) of
+					     true ->
+						 {true, DirF};
+					     _ ->
+						 false
+					 end;
 				     _ ->
 					 false
-				 end;
-			     _ ->
-				 false
-			 end
-		 end,
-	    {true,lists:zf(FR, Files)};
+				 end
+			 end,
+		    {true,lists:zf(FR, Files)};
+		_ ->
+		    false
+	    end;
 	_ ->
 	    false
     end.
@@ -214,6 +219,7 @@ flat([H|T], Ack) ->
     flat(T, [H|Ack]);
 flat([], Ack) ->
     lists:reverse(Ack).
-    
-			       
+
+werror(Options, Warnings) ->
+    lists:member(warnings_as_errors, Options) andalso Warnings =/= [].
 

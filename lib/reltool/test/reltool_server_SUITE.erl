@@ -1,36 +1,40 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 
 -module(reltool_server_SUITE).
 
--export([all/0, init_per_suite/1, end_per_suite/1, 
-         init_per_testcase/2, fin_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, 
+	 init_per_suite/1, end_per_suite/1, 
+         init_per_testcase/2, end_per_testcase/2]).
 
 -compile(export_all).
 
 -include("reltool_test_lib.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -define(NODE_NAME, '__RELTOOL__TEMPORARY_TEST__NODE__').
+-define(WORK_DIR, "reltool_work_dir").
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Initialization functions.
 
 init_per_suite(Config) ->
+    ?ignore(file:make_dir(?WORK_DIR)),
     reltool_test_lib:init_per_suite(Config).
 
 end_per_suite(Config) ->
@@ -40,25 +44,27 @@ init_per_testcase(Func,Config) ->
     reltool_test_lib:init_per_testcase(Func,Config).
 end_per_testcase(Func,Config) -> 
     reltool_test_lib:end_per_testcase(Func,Config).
-fin_per_testcase(Func,Config) -> %% For test_server
-    reltool_test_lib:end_per_testcase(Func,Config).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% SUITE specification
 
-all() ->
-    all(suite).
-all(suite) ->
-    [
-     start_server,
-     set_config,
-     create_release,
-     create_script,
-     create_target,
-     create_embedded,
-     create_standalone,
-     create_old_target
-    ].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [start_server, set_config, create_release,
+     create_script, create_target, create_embedded,
+     create_standalone, create_old_target,
+     otp_9135, otp_9229_exclude_app, otp_9229_exclude_mod].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 %% The test cases
 
@@ -106,6 +112,37 @@ set_config(_Config) ->
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% OTP-9135, test that app_file option can be set to all | keep | strip
+
+otp_9135(TestInfo) when is_atom(TestInfo) -> 
+    reltool_test_lib:tc_info(TestInfo);
+otp_9135(_Config) ->
+    Libs = lists:sort(erl_libs()),
+    StrippedDefaultSys = 
+        case Libs of
+            [] -> [];
+            _  -> {lib_dirs, Libs}
+        end,
+    
+    Config1 = {sys,[{app_file, keep}]}, % this is the default
+    {ok, Pid1} = ?msym({ok, _}, reltool:start_server([{config, Config1}])),
+    ?m({ok, {sys,StrippedDefaultSys}}, reltool:get_config(Pid1)),
+    ?m(ok, reltool:stop(Pid1)),
+       
+    Config2 = {sys,[{app_file, strip}]},
+    {ok, Pid2} = ?msym({ok, _}, reltool:start_server([{config, Config2}])),
+    ExpectedConfig2 = StrippedDefaultSys++[{app_file,strip}],
+    ?m({ok, {sys,ExpectedConfig2}}, reltool:get_config(Pid2)),
+    ?m(ok, reltool:stop(Pid2)),
+
+    Config3 = {sys,[{app_file, all}]},
+    {ok, Pid3} = ?msym({ok, _}, reltool:start_server([{config, Config3}])),
+    ExpectedConfig3 = StrippedDefaultSys++[{app_file,all}],
+    ?m({ok, {sys,ExpectedConfig3}}, reltool:get_config(Pid3)),
+    ?m(ok, reltool:stop(Pid3)),
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Generate releases
 
 create_release(TestInfo) when is_atom(TestInfo) -> 
@@ -128,8 +165,7 @@ create_release(_Config) ->
     {value, {_, _, StdlibVsn}} = lists:keysearch(stdlib, 1, Apps),
     Rel = {release, {RelName, RelVsn}, 
            {erts, ErtsVsn}, 
-           [{kernel, KernelVsn}, 
-            {stdlib, StdlibVsn}]},
+           [{kernel, KernelVsn}, {stdlib, StdlibVsn}]},
     ?m({ok, Rel}, reltool:get_rel([{config, Config}], RelName)),
     ok.
 
@@ -159,15 +195,17 @@ create_script(_Config) ->
     Rel = {release, 
            {RelName, RelVsn}, 
            {erts, ErtsVsn},
-           [{stdlib, StdlibVsn}, {kernel, KernelVsn}]},
+           [{kernel, KernelVsn}, {stdlib, StdlibVsn}]},
     ?m({ok, Rel}, reltool:get_rel(Pid, RelName)),
-    RelFile = RelName ++ ".rel",
-    ?m(ok, file:write_file(RelFile, io_lib:format("~p.\n", [Rel]))),
+    ?m(ok, file:write_file(filename:join([?WORK_DIR, RelName ++ ".rel"]),
+			   io_lib:format("~p.\n", [Rel]))),
 
     %% Generate script file
+    {ok, Cwd} = file:get_cwd(),
+    ?m(ok, file:set_cwd(?WORK_DIR)),
     ?m(ok, systools:make_script(RelName, [])),
-    ScriptFile = RelName ++ ".script",
-    {ok, [OrigScript]} = ?msym({ok, [_]}, file:consult(ScriptFile)),
+    {ok, [OrigScript]} = ?msym({ok, [_]}, file:consult(RelName ++ ".script")),
+    ?m(ok, file:set_cwd(Cwd)),
     {ok, Script} = ?msym({ok, _}, reltool:get_script(Pid, RelName)),
     %% OrigScript2 = sort_script(OrigScript),
     %% Script2 = sort_script(Script),
@@ -201,9 +239,10 @@ create_target(_Config) ->
          ]},
 
     %% Generate target file
-    TargetDir = "reltool_target_dir_development",
+    TargetDir = filename:join([?WORK_DIR, "target_development"]),
     ?m(ok, reltool_utils:recursive_delete(TargetDir)),
     ?m(ok, file:make_dir(TargetDir)),
+    ?log("SPEC: ~p\n", [reltool:get_target_spec([{config, Config}])]),
     ?m(ok, reltool:create_target([{config, Config}], TargetDir)),
     
     Erl = filename:join([TargetDir, "bin", "erl"]),
@@ -234,7 +273,7 @@ create_embedded(_Config) ->
          ]},
 
     %% Generate target file
-    TargetDir = "reltool_target_dir_embedded",
+    TargetDir = filename:join([?WORK_DIR, "target_embedded"]),
     ?m(ok, reltool_utils:recursive_delete(TargetDir)),
     ?m(ok, file:make_dir(TargetDir)),
     ?m(ok, reltool:create_target([{config, Config}], TargetDir)),
@@ -264,7 +303,7 @@ create_standalone(_Config) ->
          ]},
 
     %% Generate target file
-    TargetDir = "reltool_target_dir_standalone",
+    TargetDir = filename:join([?WORK_DIR, "target_standalone"]),
     ?m(ok, reltool_utils:recursive_delete(TargetDir)),
     ?m(ok, file:make_dir(TargetDir)),
     ?m(ok, reltool:create_target([{config, Config}], TargetDir)),
@@ -290,6 +329,8 @@ create_standalone(_Config) ->
 create_old_target(TestInfo) when is_atom(TestInfo) -> 
     reltool_test_lib:tc_info(TestInfo);
 create_old_target(_Config) ->
+    ?skip("Old style of target", []),
+    
     %% Configure the server
     RelName1 = "Just testing",
     RelName2 = "Just testing with SASL",
@@ -306,7 +347,7 @@ create_old_target(_Config) ->
          ]},
 
     %% Generate target file
-    TargetDir = "reltool_target_dir_old",
+    TargetDir = filename:join([?WORK_DIR, "target_old_style"]),
     ?m(ok, reltool_utils:recursive_delete(TargetDir)),
     ?m(ok, file:make_dir(TargetDir)),
     ?m(ok, reltool:create_target([{config, Config}], TargetDir)),
@@ -319,6 +360,114 @@ create_old_target(_Config) ->
     ?msym(ok, stop_node(Node)),
     
     ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% OTP-9229 - handle duplicated module names, i.e. same module name
+%% exists in two applications.
+
+%% Include on app, exclude the other
+otp_9229_exclude_app(Config) ->
+    DataDir =  ?config(data_dir,Config),
+    LibDir = filename:join(DataDir,"otp_9229"),
+
+    %% Configure the server
+    ExclApp =
+        {sys,
+         [
+          {root_dir, code:root_dir()},
+          {lib_dirs, [LibDir]},
+	  {incl_cond,exclude},
+	  {app,x,[{incl_cond,include}]},
+	  {app,y,[{incl_cond,exclude}]},
+	  {app,kernel,[{incl_cond,include}]},
+	  {app,stdlib,[{incl_cond,include}]},
+	  {app,sasl,[{incl_cond,include}]}
+         ]},
+
+    %% Generate target file
+    TargetDir = filename:join([?WORK_DIR, "target_dupl_mod_excl_app"]),
+    ?m(ok, reltool_utils:recursive_delete(TargetDir)),
+    ?m(ok, file:make_dir(TargetDir)),
+    ?log("SPEC: ~p\n", [reltool:get_target_spec([{config, ExclApp}])]),
+    {ok,["Module mylib exists in applications x and y. Using module from application x."]} = reltool:get_status([{config, ExclApp}]),
+    ?m(ok, reltool:create_target([{config, ExclApp}], TargetDir)),
+
+    Erl = filename:join([TargetDir, "bin", "erl"]),
+    {ok, Node} = ?msym({ok, _}, start_node(?NODE_NAME, Erl)),
+
+    AbsTargetDir = filename:absname(TargetDir),
+    XArchive = "x-1.0.ez",
+    AbsXArchive = filename:join([AbsTargetDir,lib,XArchive]),
+    XEbin = ["ebin","x-1.0",XArchive],
+    YArchive = "y-1.0.ez",
+    AbsYArchive = filename:join([AbsTargetDir,lib,YArchive]),
+
+    ?m(true, filelib:is_file(AbsXArchive)),
+    ?m(XEbin, mod_path(Node,x)),
+    ?m(XEbin, mod_path(Node,mylib)),
+    ?m(false, filelib:is_file(AbsYArchive)),
+    ?m(non_existing, mod_path(Node,y)),
+
+    ?msym(ok, stop_node(Node)),
+
+    ok.
+
+%% Include both apps, but exclude common module from one app
+otp_9229_exclude_mod(Config) ->
+    DataDir =  ?config(data_dir,Config),
+    LibDir = filename:join(DataDir,"otp_9229"),
+
+    %% Configure the server
+    ExclMod =
+        {sys,
+         [
+          {root_dir, code:root_dir()},
+          {lib_dirs, [LibDir]},
+	  {incl_cond,exclude},
+	  {app,x,[{incl_cond,include}]},
+	  {app,y,[{incl_cond,include},{mod, mylib,[{incl_cond,exclude}]}]},
+	  {app,kernel,[{incl_cond,include}]},
+	  {app,stdlib,[{incl_cond,include}]},
+	  {app,sasl,[{incl_cond,include}]}
+         ]},
+
+    %% Generate target file
+    TargetDir = filename:join([?WORK_DIR, "target_dupl_mod_excl_mod"]),
+    ?m(ok, reltool_utils:recursive_delete(TargetDir)),
+    ?m(ok, file:make_dir(TargetDir)),
+    ?log("SPEC: ~p\n", [reltool:get_target_spec([{config, ExclMod}])]),
+    {ok,["Module mylib exists in applications x and y. Using module from application x."]} = reltool:get_status([{config, ExclMod}]),
+    ?m(ok, reltool:create_target([{config, ExclMod}], TargetDir)),
+
+    Erl = filename:join([TargetDir, "bin", "erl"]),
+    {ok, Node} = ?msym({ok, _}, start_node(?NODE_NAME, Erl)),
+
+    AbsTargetDir = filename:absname(TargetDir),
+    XArchive = "x-1.0.ez",
+    AbsXArchive = filename:join([AbsTargetDir,lib,XArchive]),
+    XEbin = ["ebin","x-1.0",XArchive],
+    YArchive = "y-1.0.ez",
+    AbsYArchive = filename:join([AbsTargetDir,lib,YArchive]),
+    YEbin = ["ebin","y-1.0",YArchive],
+
+    ?m(true, filelib:is_file(AbsXArchive)),
+    ?m(XEbin, mod_path(Node,x)),
+    ?m(XEbin, mod_path(Node,mylib)),
+    ?m(true, filelib:is_file(AbsYArchive)),
+    ?m(YEbin, mod_path(Node,y)),
+
+    %% Remove path to XEbin and check that mylib is not located in YEbin
+    Mylib = rpc:call(Node,code,which,[mylib]),
+    rpc:call(Node,code,del_path,[filename:dirname(Mylib)]),
+    ?m(non_existing, mod_path(Node,mylib)),
+
+    ?msym(ok, stop_node(Node)),
+
+    ok.
+
+
+
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Library functions
@@ -365,6 +514,20 @@ os_cmd(Cmd) when is_list(Cmd) ->
                 Status = string:substr(Return,Position + 1, length(Return) - Position - 1),
                 {list_to_integer(Status), Result}
             end
+    end.
+
+%% Returns the location (directory) of the given module. Split,
+%% reverted and relative to the lib dir.
+mod_path(Node,Mod) ->
+    case rpc:call(Node,code,which,[Mod]) of
+	Path when is_list(Path) ->
+	    lists:takewhile(
+	      fun("lib") -> false;
+		 (_) -> true
+	      end,
+	      lists:reverse(filename:split(filename:dirname(Path))));
+	Other ->
+	    Other
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

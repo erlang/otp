@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -24,11 +24,13 @@
 -include("ssh.hrl").
 -include("ssh_connect.hrl").
 
--export([start/0, start/1, stop/0, connect/3, close/1, connection_info/2,
+-export([start/0, start/1, stop/0, connect/3, connect/4, close/1, connection_info/2,
 	 channel_info/3,
 	 daemon/1, daemon/2, daemon/3,
 	 stop_listener/1, stop_listener/2, stop_daemon/1, stop_daemon/2,
 	 shell/1, shell/2, shell/3]).
+
+-export([sign_data/2, verify_data/3]).
 
 %%--------------------------------------------------------------------
 %% Function: start([, Type]) -> ok
@@ -94,11 +96,17 @@ connect(Host, Port, Options, Timeout) ->
 		    do_demonitor(MRef, Manager),
 		    {error, Other};
 		{'DOWN', MRef, _, Manager, Reason} when is_pid(Manager) ->
+		    error_logger:warning_report([{ssh, connect},
+						 {diagnose,
+						  "Connection was closed before properly set up."},
+						 {host, Host},
+						 {port, Port},
+						 {reason, Reason}]),
 		    receive %% Clear EXIT message from queue
 			{'EXIT', Manager, _What} -> 
-			    {error, Reason}
+			    {error, channel_closed}
 		    after 0 ->
-			    {error, Reason}
+			    {error, channel_closed}
 		    end
 	    after Timeout  ->
 		    do_demonitor(MRef, Manager),
@@ -239,6 +247,43 @@ shell(Host, Port, Options) ->
 	    Error
     end.
 
+
+%%--------------------------------------------------------------------
+%% Function: sign_data(Data, Algorithm) -> binary() | 
+%%                                         {error, Reason}
+%%
+%%   Data = binary()
+%%   Algorithm = "ssh-rsa"
+%%
+%% Description: Use SSH key to sign data.
+%%--------------------------------------------------------------------
+sign_data(Data, Algorithm) when is_binary(Data) ->
+    case ssh_file:private_identity_key(Algorithm,[]) of
+	{ok, Key} when Algorithm == "ssh-rsa" ->
+	    ssh_rsa:sign(Key, Data);
+	Error ->
+	    Error
+    end.
+
+%%--------------------------------------------------------------------
+%% Function: verify_data(Data, Signature, Algorithm) -> ok | 
+%%                                                      {error, Reason}
+%%
+%%   Data = binary()
+%%   Signature = binary()
+%%   Algorithm = "ssh-rsa"
+%%
+%% Description: Use SSH signature to verify data.
+%%--------------------------------------------------------------------
+verify_data(Data, Signature, Algorithm) when is_binary(Data), is_binary(Signature) ->
+    case ssh_file:public_identity_key(Algorithm, []) of
+	{ok, Key} when Algorithm == "ssh-rsa" ->
+	    ssh_rsa:verify(Key, Data, Signature);
+	Error ->
+	    Error
+    end.
+
+
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
@@ -330,10 +375,10 @@ handle_options([{nodelay, _} = Opt | Rest], SockOpts, Opts) ->
 handle_options([Opt | Rest], SockOpts, Opts) ->
     handle_options(Rest, SockOpts, [Opt | Opts]).
 
+%% Has IPv6 been disabled?
 inetopt(true) ->
-    inet6;
-
+    inet;
 inetopt(false) ->
-    inet.
+    inet6.
 
 
