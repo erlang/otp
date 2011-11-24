@@ -105,7 +105,6 @@ MODULES= \
 	qlc_pt \
 	queue \
 	random \
-	regexp \
 	sets \
 	shell \
 	shell_default \

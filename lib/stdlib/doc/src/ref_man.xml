@@ -80,7 +80,6 @@
   <xi:include href="queue.xml"/>
   <xi:include href="random.xml"/>
   <xi:include href="re.xml"/>
-  <xi:include href="regexp.xml"/>
   <xi:include href="sets.xml"/>
   <xi:include href="shell.xml"/>
   <xi:include href="shell_default.xml"/>

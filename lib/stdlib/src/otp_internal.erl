@@ -56,19 +56,6 @@ obsolete_1(net, _, _) ->
 obsolete_1(erl_internal, builtins, 0) ->
     {deprecated, {erl_internal, bif, 2}};
 
-obsolete_1(string, re_sh_to_awk, 1) ->
-    {removed, {regexp, sh_to_awk, 1}, "R12B"};
-obsolete_1(string, re_parse, 1) ->
-    {removed, {regexp, parse, 1}, "R12B"};
-obsolete_1(string, re_match, 2) ->
-    {removed, {regexp, match, 2}, "R12B"};
-obsolete_1(string, re_sub, 3) ->
-    {removed, {regexp, sub, 3}, "R12B"};
-obsolete_1(string, re_gsub, 3) ->
-    {removed, {regexp, gsub, 3}, "R12B"};
-obsolete_1(string, re_split, 2) ->
-    {removed, {regexp, split, 2}, "R12B"};
-
 obsolete_1(string, index, 2) ->
     {removed, {string, str, 2}, "R12B"};
 
@@ -431,7 +418,7 @@ obsolete_1(ssh_sshd, stop, 1) ->
 
 %% Added in R13A.
 obsolete_1(regexp, _, _) ->
-    {deprecated, "the regexp module is deprecated (will be removed in R15A); use the re module instead"};
+    {removed, "removed in R15; use the re module instead"};
 
 obsolete_1(lists, flat_length, 1) ->
     {removed,{lists,flatlength,1},"R14"};

@@ -46,7 +46,6 @@
   <xi:include href="../specs/specs_queue.xml"/>
   <xi:include href="../specs/specs_random.xml"/>
   <xi:include href="../specs/specs_re.xml"/>
-  <xi:include href="../specs/specs_regexp.xml"/>
   <xi:include href="../specs/specs_sets.xml"/>
   <xi:include href="../specs/specs_shell.xml"/>
   <xi:include href="../specs/specs_shell_default.xml"/>
