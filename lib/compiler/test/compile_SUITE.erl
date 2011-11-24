@@ -77,10 +77,16 @@ file_1(Config) when is_list(Config) ->
     ?line {Simple, Target} = files(Config, "file_1"),
     ?line {ok, Cwd} = file:get_cwd(),
     ?line ok = file:set_cwd(filename:dirname(Target)),
-    ?line {ok,simple} = compile:file(Simple),	%Smoke test only.
+
+    %% Native from BEAM without compilation info.
     ?line {ok,simple} = compile:file(Simple, [slim]), %Smoke test only.
-    ?line {ok,simple} = compile:file(Simple, [native,report]), %Smoke test.
     ?line {ok,simple} = compile:file(Target, [native,from_beam]), %Smoke test.
+
+    %% Native from BEAM with compilation info.
+    ?line {ok,simple} = compile:file(Simple),	%Smoke test only.
+    ?line {ok,simple} = compile:file(Target, [native,from_beam]), %Smoke test.
+
+    ?line {ok,simple} = compile:file(Simple, [native,report]), %Smoke test.
     ?line {ok,simple} = compile:file(Simple, [debug_info]),
     ?line {ok,simple} = compile:file(Simple, [no_line_info]), %Coverage
     ?line ok = file:set_cwd(Cwd),
