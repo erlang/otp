@@ -4301,7 +4301,7 @@ static int inet_ctl_ifget(inet_descriptor* desc, char* buf, int len,
                     sptr += alen;
                 }
             }
-#elif defined(SIOCGIFHWADDR)
+#elif defined(SIOCGIFHWADDR) && defined(HAVE_STRUCT_IFREQ_IFR_HWADDR)
 	    if (ioctl(desc->s, SIOCGIFHWADDR, (char *)&ifreq) < 0)
 		break;
 	    buf_check(sptr, s_end, 1+2+IFHWADDRLEN);
