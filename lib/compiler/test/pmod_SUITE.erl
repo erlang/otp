@@ -100,6 +100,7 @@ basic_1(Config, Opts) ->
     Fun = fun(Arg) -> Prop4:bar(Arg) end,
     ?line ok = Fun({s,0}),
 
+    [{y,[1,2]},{x,[5,19]}] = Prop4:collapse([{y,[2,1]},{x,[19,5]}]),
     ok.
 
 otp_8447(Config) when is_list(Config) ->
