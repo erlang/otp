@@ -134,11 +134,12 @@ check_plt_aux([_] = Plt, Opts) ->
   report_check(Opts2),
   plt_common(Opts2, [], []);
 check_plt_aux([Plt|Plts], Opts) ->
-  Opts1 = Opts#options{init_plts = [Plt]},
-  Opts2 = init_opts_for_check(Opts1),
-  report_check(Opts2),
-  plt_common(Opts2, [], []),
-  check_plt_aux(Plts, Opts).
+  case check_plt_aux([Plt], Opts) of
+    {?RET_NOTHING_SUSPICIOUS, []} -> check_plt_aux(Plts, Opts);
+    {?RET_DISCREPANCIES, Warns} ->
+      {_RET, MoreWarns} = check_plt_aux(Plts, Opts),
+      {?RET_DISCREPANCIES, Warns ++ MoreWarns}
+  end.
 
 init_opts_for_check(Opts) ->
   InitPlt =
@@ -193,7 +194,7 @@ plt_common(#options{init_plts = [InitPlt]} = Opts, RemoveFiles, AddFiles) ->
 	none -> ok;
 	OutPlt ->
 	  {ok, Binary} = file:read_file(InitPlt),
-	  file:write_file(OutPlt, Binary)
+	  ok = file:write_file(OutPlt, Binary)
       end,
       case Opts#options.report_mode of
 	quiet -> ok;
