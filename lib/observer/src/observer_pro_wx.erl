@@ -44,10 +44,17 @@
 -define(ID_REFRESH, 203).
 -define(ID_REFRESH_INTERVAL, 204).
 -define(ID_DUMP_TO_FILE, 205).
--define(ID_TRACEMENU, 206).
--define(ID_TRACE_ALL_MENU, 207).
--define(ID_TRACE_NEW_MENU, 208).
--define(ID_ACCUMULATE, 209).
+-define(ID_TRACE_PIDS, 206).
+-define(ID_TRACE_NAMES, 207).
+-define(ID_TRACE_NEW, 208).
+-define(ID_TRACE_ALL, 209).
+-define(ID_ACCUMULATE, 210).
+
+-define(TRACE_PIDS_STR, "Trace selected process identifiers").
+-define(TRACE_NAMES_STR, "Trace selected processes, "
+	"if a process have a registered name "
+	"processes with same name will be traced on all nodes").
+
 
 %% Records
 
@@ -121,8 +128,9 @@ create_pro_menu(Parent, Holder) ->
 		     #create_menu{id=?ID_REFRESH, text="Refresh\tCtrl-R"},
 		     #create_menu{id=?ID_REFRESH_INTERVAL, text="Refresh Interval"}]},
 		   {"Trace",
-		    [#create_menu{id=?ID_TRACEMENU, text="Trace selected processes"},
-		     #create_menu{id=?ID_TRACE_NEW_MENU, text="Trace new processes"}
+		    [#create_menu{id=?ID_TRACE_PIDS, text="Trace processes"},
+		     #create_menu{id=?ID_TRACE_NAMES, text="Trace named processes (all nodes)"},
+		     #create_menu{id=?ID_TRACE_NEW, text="Trace new processes"}
 		     %% , #create_menu{id=?ID_TRACE_ALL_MENU, text="Trace all processes"}
 		    ]}
 		  ],
@@ -300,7 +308,7 @@ handle_event(#wx{id=?ID_PROC},
     Opened2 = start_procinfo(Pid, Panel, Opened),
     {noreply, State#state{procinfo_menu_pids=Opened2}};
 
-handle_event(#wx{id=?ID_TRACEMENU}, #state{sel={_, Pids}, panel=Panel}=State)  ->
+handle_event(#wx{id=?ID_TRACE_PIDS}, #state{sel={_, Pids}, panel=Panel}=State)  ->
     case Pids of
 	[] ->
 	    observer_wx:create_txt_dialog(Panel, "No selected processes", "Tracer", ?wxICON_EXCLAMATION),
@@ -310,7 +318,18 @@ handle_event(#wx{id=?ID_TRACEMENU}, #state{sel={_, Pids}, panel=Panel}=State)  -
 	    {noreply,  State}
     end;
 
-handle_event(#wx{id=?ID_TRACE_NEW_MENU, event=#wxCommand{type=command_menu_selected}}, State) ->
+handle_event(#wx{id=?ID_TRACE_NAMES}, #state{sel={SelIds,_Pids}, holder=Holder, panel=Panel}=State)  ->
+    case SelIds of
+	[] ->
+	    observer_wx:create_txt_dialog(Panel, "No selected processes", "Tracer", ?wxICON_EXCLAMATION),
+	    {noreply, State};
+	_ ->
+	    PidsOrReg = call(Holder, {get_name_or_pid, self(), SelIds}),
+	    observer_trace_wx:add_processes(observer_wx:get_tracer(), PidsOrReg),
+	    {noreply,  State}
+    end;
+
+handle_event(#wx{id=?ID_TRACE_NEW, event=#wxCommand{type=command_menu_selected}}, State) ->
     observer_trace_wx:add_processes(observer_wx:get_tracer(), [new]),
     {noreply,  State};
 
@@ -336,8 +355,10 @@ handle_event(#wx{event=#wxList{type=command_list_item_right_click,
 	{ok, _} ->
 	    Menu = wxMenu:new(),
 	    wxMenu:append(Menu, ?ID_PROC, "Process info"),
-	    wxMenu:append(Menu, ?ID_TRACEMENU, "Trace selected"),
-	    wxMenu:append(Menu, ?ID_TRACEMENU, "Kill Process"),
+	    wxMenu:append(Menu, ?ID_TRACE_PIDS, "Trace processes", [{help, ?TRACE_PIDS_STR}]),
+	    wxMenu:append(Menu, ?ID_TRACE_NAMES, "Trace named processes (all nodes)",
+			  [{help, ?TRACE_NAMES_STR}]),
+	    wxMenu:append(Menu, ?ID_KILL, "Kill Process"),
 	    wxWindow:popupMenu(Panel, Menu),
 	    wxMenu:destroy(Menu)
     end,
@@ -452,6 +473,9 @@ table_holder(#holder{info=#etop_info{procinfo=Info}, attrs=Attrs,
 	{get_rows_from_pids, From, Pids} ->
 	    get_rows_from_pids(From, Pids, Info),
 	    table_holder(S0);
+	{get_name_or_pid, From, Indices} ->
+	    get_name_or_pid(From, Indices, Info),
+	    table_holder(S0);
 
 	{get_node, From} ->
 	    From ! {self(), Node},
@@ -536,6 +560,14 @@ col_to_element(?COL_MSG)  -> #etop_proc_info.mq.
 get_pids(From, Indices, ProcInfo) ->
     Processes = [(lists:nth(I+1, ProcInfo))#etop_proc_info.pid || I <- Indices],
     From ! {self(), Processes}.
+
+get_name_or_pid(From, Indices, ProcInfo) ->
+    Get = fun(#etop_proc_info{name=Name}) when is_atom(Name) -> Name;
+	     (#etop_proc_info{pid=Pid}) -> Pid
+	  end,
+    Processes = [Get(lists:nth(I+1, ProcInfo)) || I <- Indices],
+    From ! {self(), Processes}.
+
 
 get_row(From, Row, pid, Info) ->
     Pid = case Row =:= -1 of

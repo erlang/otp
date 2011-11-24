@@ -97,12 +97,12 @@ info_fields() ->
 	     ]}
 	   ],
     Stat = [{"Memory Usage", right,
-	     [{"Total", total},
-	      {"Processes", processes},
-	      {"Atoms", atom},
-	      {"Binaries", binary},
-	      {"Code", code},
-	      {"Ets", ets}
+	     [{"Total", {bytes, total}},
+	      {"Processes", {bytes, processes}},
+	      {"Atoms", {bytes, atom}},
+	      {"Binaries", {bytes, binary}},
+	      {"Code", {bytes, code}},
+	      {"Ets", {bytes, ets}}
 	     ]},
 	    {"Statistics", right,
 	     [{"Up time", uptime},
@@ -202,15 +202,6 @@ sys_info() ->
      {logical_processors_available, erlang:system_info(logical_processors_available)},
      {logical_processors_online, erlang:system_info(logical_processors_online)},
 
-     {total, {bytes, erlang:memory(total)}},
-     %%{processes_used, erlang:memory(processes_used)},
-     {processes, {bytes, erlang:memory(processes)}},
-     %%{atom_used, erlang:memory(atom_used)},
-     {atom, {bytes, erlang:memory(atom)}},
-     {binary, {bytes, erlang:memory(binary)}},
-     {code, {bytes, erlang:memory(code)}},
-     {ets, {bytes, erlang:memory(ets)}},
-
      {otp_release, erlang:system_info(otp_release)},
      {version, erlang:system_info(version)},
      {system_architecture, erlang:system_info(system_architecture)},
@@ -219,5 +210,6 @@ sys_info() ->
      {threads, erlang:system_info(threads)},
      {thread_pool_size, erlang:system_info(thread_pool_size)},
      {wordsize_internal, erlang:system_info({wordsize, internal})},
-     {wordsize_external, erlang:system_info({wordsize, external})}
+     {wordsize_external, erlang:system_info({wordsize, external})} |
+     erlang:memory()
     ].

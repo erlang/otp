@@ -57,6 +57,8 @@ MODULES= \
 HRL_FILES= \
 	../include/etop.hrl
 INTERNAL_HRL_FILES= \
+	observer_tv.hrl \
+	observer_defs.hrl \
 	crashdump_viewer.hrl \
 	etop_defs.hrl
 ERL_FILES= $(MODULES:%=%.erl)
@@ -103,6 +105,8 @@ ERL_COMPILE_FLAGS += \
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
+
+$(TARGET_FILES): $(INTERNAL_HRL_FILES)
 
 debug opt: $(TARGET_FILES)
 

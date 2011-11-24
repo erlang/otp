@@ -302,6 +302,10 @@ handle_info({nodedown, Node},
     create_txt_dialog(Frame, Msg, "Node down", ?wxICON_EXCLAMATION),
     {noreply, State3};
 
+handle_info({'EXIT', _Pid, _Reason}, State) ->
+    io:format("Child crashed exiting:  ~p ~p~n", [_Pid,_Reason]),
+    {stop, normal, State};
+
 handle_info(_Info, State) ->
     {noreply, State}.
 

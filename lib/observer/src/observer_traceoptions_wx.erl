@@ -21,9 +21,8 @@
 -include_lib("wx/include/wx.hrl").
 -include("observer_defs.hrl").
 
--export([process_trace/2, trace_pattern/4]).
-
--compile(export_all).
+-export([process_trace/2, trace_pattern/4, select_nodes/2,
+	 output/2, select_matchspec/3]).
 
 process_trace(Parent, Default) ->
     Dialog = wxDialog:new(Parent, ?wxID_ANY, "Process Options",
@@ -53,19 +52,15 @@ process_trace(Parent, Default) ->
     check_box(LinkBox,  LinkBool),
     enable(SpawnBox, [SpwnAllRadio, SpwnFirstRadio]),
     enable(LinkBox, [LinkAllRadio, LinkFirstRadio]),
-    wxRadioButton:setValue(SpwnAllRadio, lists:member(on_spawn, Default)),
-    wxRadioButton:setValue(SpwnFirstRadio, lists:member(on_first_spawn, Default)),
-    wxRadioButton:setValue(LinkAllRadio, lists:member(on_link, Default)),
-    wxRadioButton:setValue(LinkFirstRadio, lists:member(on_first_link, Default)),
+    [wxRadioButton:setValue(Radio, lists:member(Opt, Default)) ||
+	{Radio, Opt} <- [{SpwnAllRadio, on_spawn}, {SpwnFirstRadio, on_first_spawn},
+			 {LinkAllRadio, on_link},  {LinkFirstRadio, on_first_link}]],
 
-    wxSizer:add(LeftSz, FuncBox, []),
-    wxSizer:add(LeftSz, SendBox, []),
-    wxSizer:add(LeftSz, RecBox, []),
-    wxSizer:add(LeftSz, EventBox, []),
+    [wxSizer:add(LeftSz, CheckBox, []) || CheckBox <- [FuncBox,SendBox,RecBox,EventBox]],
     wxSizer:add(LeftSz, 150, -1),
 
-    wxSizer:add(PanelSz, LeftSz, [{flag, ?wxEXPAND}]),
-    wxSizer:add(PanelSz, RightSz,[{flag, ?wxEXPAND}]),
+    wxSizer:add(PanelSz, LeftSz, [{flag, ?wxEXPAND}, {proportion,1}]),
+    wxSizer:add(PanelSz, RightSz,[{flag, ?wxEXPAND}, {proportion,1}]),
     wxPanel:setSizer(Panel, PanelSz),
     wxSizer:add(MainSz, Panel, [{flag, ?wxEXPAND}, {proportion,1}]),
     Buttons = wxDialog:createButtonSizer(Dialog, ?wxOK bor ?wxCANCEL),
@@ -81,26 +76,26 @@ process_trace(Parent, Default) ->
 					   enable(LinkBox, [LinkAllRadio, LinkFirstRadio])
 				   end}]),
 
-    Res = case wxDialog:showModal(Dialog) of
-	      ?wxID_OK ->
-		  All = [{SendBox, send}, {RecBox, 'receive'},
-			 {FuncBox, functions}, {EventBox, events},
-			 {{SpawnBox, SpwnAllRadio}, on_spawn},
-			 {{SpawnBox,SpwnFirstRadio}, on_first_spawn},
-			 {{LinkBox, LinkAllRadio}, on_link},
-			 {{LinkBox, LinkFirstRadio}, on_first_link}],
-		  Check = fun({Box, Radio}) ->
-				  wxCheckBox:getValue(Box) andalso wxRadioButton:getValue(Radio);
-			     (Box) ->
-				  wxCheckBox:getValue(Box)
-			  end,
-		  Opts = [Id || {Tick, Id} <- All, Check(Tick)],
-		  {ok, lists:reverse(Opts)};
-	      ?wxID_CANCEL ->
-		  cancel
-	  end,
-    wxDialog:destroy(Dialog),
-    Res.
+    case wxDialog:showModal(Dialog) of
+	?wxID_OK ->
+	    All = [{SendBox, send}, {RecBox, 'receive'},
+		   {FuncBox, functions}, {EventBox, events},
+		   {{SpawnBox, SpwnAllRadio}, on_spawn},
+		   {{SpawnBox,SpwnFirstRadio}, on_first_spawn},
+		   {{LinkBox, LinkAllRadio}, on_link},
+		   {{LinkBox, LinkFirstRadio}, on_first_link}],
+	    Check = fun({Box, Radio}) ->
+			    wxCheckBox:getValue(Box) andalso wxRadioButton:getValue(Radio);
+		       (Box) ->
+			    wxCheckBox:getValue(Box)
+		    end,
+	    Opts = [Id || {Tick, Id} <- All, Check(Tick)],
+	    wxDialog:destroy(Dialog),
+	    lists:reverse(Opts);
+	?wxID_CANCEL ->
+	    wxDialog:destroy(Dialog),
+	    throw(cancel)
+    end.
 
 trace_pattern(ParentPid, Parent, Node, MatchSpecs) ->
     try
@@ -110,6 +105,10 @@ trace_pattern(ParentPid, Parent, Node, MatchSpecs) ->
 	{Module, [#tpattern{m=M,fa={F,A},ms=MatchSpec} || {M,F,A} <- MFAs]}
     catch cancel -> cancel
     end.
+
+select_nodes(Parent, Nodes) ->
+    Choices = [{atom_to_list(X), X} || X <- Nodes],
+    check_selector(Parent, Choices).
 
 module_selector(Parent, Node) ->
     Dialog = wxDialog:new(Parent, ?wxID_ANY, "Select Module",
@@ -167,6 +166,17 @@ module_selector(Parent, Node) ->
     end.
 
 function_selector(Parent, Node, Module) ->
+    Functions = observer_wx:try_rpc(Node, Module, module_info, [functions]),
+    Choices = lists:sort([{Name, Arity} || {Name, Arity} <- Functions,
+					   not(erl_internal:guard_bif(Name, Arity))]),
+    ParsedChoices = parse_function_names(Choices),
+    case check_selector(Parent, ParsedChoices) of
+	[] -> [{Module, '_', '_'}];
+	FAs ->
+	    [{Module, F, A} || {F,A} <- FAs]
+    end.
+
+check_selector(Parent, ParsedChoices) ->
     Dialog = wxDialog:new(Parent, ?wxID_ANY, "Trace Functions",
 			  [{style, ?wxDEFAULT_DIALOG_STYLE bor ?wxRESIZE_BORDER},
 			   {size, {400, 400}}]),
@@ -195,10 +205,6 @@ function_selector(Parent, Node, Module) ->
     wxWindow:setSizer(Dialog, MainSz),
     wxWindow:setFocus(TxtCtrl),
     %% Init
-    Functions = observer_wx:try_rpc(Node, Module, module_info, [functions]),
-    Choices = lists:sort([{Name, Arity} || {Name, Arity} <- Functions,
-					   not(erl_internal:guard_bif(Name, Arity))]),
-    ParsedChoices = parse_function_names(Choices),
     filter_listbox_data("", ParsedChoices, ListBox, false),
     %% Setup Event handling
     wxTextCtrl:connect(TxtCtrl, command_text_updated,
@@ -242,22 +248,19 @@ function_selector(Parent, Node, Module) ->
     case wxDialog:showModal(Dialog) of
 	?wxID_OK ->
 	    wxDialog:destroy(Dialog),
-	    case get_checked_funcs(ListBox, []) of
-		[] -> [{Module, '_', '_'}];
-		FAs ->
-		    [{Module, F, A} || {F,A} <- FAs]
-	    end;
+	    get_checked(ListBox, []);
 	?wxID_CANCEL ->
 	    wxDialog:destroy(Dialog),
+	    get_checked(ListBox, []),
 	    throw(cancel)
     end.
 
-get_checked_funcs(ListBox, Acc) ->
+get_checked(ListBox, Acc) ->
     receive
 	{ListBox, true, FA} ->
-	    get_checked_funcs(ListBox, [FA|lists:delete(FA,Acc)]);
+	    get_checked(ListBox, [FA|lists:delete(FA,Acc)]);
 	{ListBox, false, FA} ->
-	    get_checked_funcs(ListBox, lists:delete(FA,Acc))
+	    get_checked(ListBox, lists:delete(FA,Acc))
     after 0 ->
 	    lists:reverse(Acc)
     end.
@@ -365,6 +368,38 @@ select_matchspec(Pid, Parent, MatchSpecs) ->
 	    MS = lists:nth(SelId+1, MSs),
 	    wxDialog:destroy(Dialog),
 	    MS;
+	?wxID_CANCEL ->
+	    wxDialog:destroy(Dialog),
+	    throw(cancel)
+    end.
+
+output(Parent, Default) ->
+    Dialog = wxDialog:new(Parent, ?wxID_ANY, "Process Options",
+			  [{style, ?wxDEFAULT_DIALOG_STYLE bor ?wxRESIZE_BORDER}]),
+    Panel = wxPanel:new(Dialog),
+    MainSz = wxBoxSizer:new(?wxVERTICAL),
+    PanelSz = wxStaticBoxSizer:new(?wxVERTICAL, Panel,  [{label, "Output"}]),
+
+    %% Output select
+    WinB = wxCheckBox:new(Panel, ?wxID_ANY, "Window", []),
+    check_box(WinB, proplists:get_value(window, Default, true)),
+    ShellB = wxCheckBox:new(Panel, ?wxID_ANY, "Shell", []),
+    check_box(ShellB, proplists:get_value(shell, Default, false)),
+    [wxSizer:add(PanelSz, CheckBox, []) || CheckBox <- [WinB, ShellB]],
+    GetFileOpts = ttb_file_options(Panel, PanelSz, Default),
+    %% Set sizer and show dialog
+    wxPanel:setSizer(Panel, PanelSz),
+    wxSizer:add(MainSz, Panel, [{flag, ?wxEXPAND bor ?wxALL}, {proportion,1}, {border, 3}]),
+    Buttons = wxDialog:createButtonSizer(Dialog, ?wxOK bor ?wxCANCEL),
+    wxSizer:add(MainSz, Buttons, [{flag, ?wxEXPAND bor ?wxALL}, {border, 5}]),
+    wxWindow:setSizerAndFit(Dialog, MainSz),
+    wxSizer:setSizeHints(MainSz, Dialog),
+    case wxDialog:showModal(Dialog) of
+	?wxID_OK ->
+	    Res = [{window, wxCheckBox:getValue(WinB)},
+		   {shell, wxCheckBox:getValue(ShellB)} | GetFileOpts()],
+	    wxDialog:destroy(Dialog),
+	    Res;
 	?wxID_CANCEL ->
 	    wxDialog:destroy(Dialog),
 	    throw(cancel)
@@ -570,3 +605,69 @@ ensure_last_is_dot(String) ->
 	false ->
 	    String ++ "."
     end.
+
+ttb_file_options(Panel, Sizer, Default) ->
+    Top   = wxBoxSizer:new(?wxVERTICAL),
+    NameS = wxBoxSizer:new(?wxHORIZONTAL),
+    FileBox = wxCheckBox:new(Panel, ?wxID_ANY, "File (Using ttb file tracer)", []),
+    check_box(FileBox, proplists:get_value(file, Default, false)),
+    wxSizer:add(Sizer, FileBox),
+    Desc  = wxStaticText:new(Panel, ?wxID_ANY, "File"),
+    FileName = proplists:get_value(filename, Default, "ttb"),
+    FileT = wxTextCtrl:new(Panel, ?wxID_ANY, [{size, {150,-1}}, {value, FileName}]),
+    FileB = wxButton:new(Panel, ?wxID_ANY, [{label, "Browse"}]),
+    wxSizer:add(NameS, Desc,  [{proportion, 0}, {flag, ?wxALIGN_CENTER_VERTICAL}]),
+    wxSizer:add(NameS, FileT, [{proportion, 1}, {flag, ?wxEXPAND bor ?wxALIGN_CENTER_VERTICAL}]),
+    wxSizer:add(NameS, FileB, [{proportion, 0}, {flag, ?wxALIGN_CENTER_VERTICAL}]),
+
+    WrapB = wxCheckBox:new(Panel, ?wxID_ANY, "Wrap logs"),
+    WrapSz = wxSlider:new(Panel, ?wxID_ANY, proplists:get_value(wrap_sz, Default, 128),
+			  64, 10*1024, [{style, ?wxSL_HORIZONTAL bor ?wxSL_LABELS}]),
+    WrapC = wxSlider:new(Panel, ?wxID_ANY, proplists:get_value(wrap_c, Default, 8),
+			 2, 100, [{style, ?wxSL_HORIZONTAL bor ?wxSL_LABELS}]),
+
+    wxSizer:add(Top, NameS, [{flag, ?wxEXPAND}]),
+    wxSizer:add(Top, WrapB, []),
+    wxSizer:add(Top, WrapSz,[{flag, ?wxEXPAND}]),
+    wxSizer:add(Top, WrapC, [{flag, ?wxEXPAND}]),
+    wxSizer:add(Sizer, Top, [{flag, ?wxEXPAND bor ?wxLEFT},{border, 20}]),
+
+    Enable = fun(UseFile, UseWrap0) ->
+		     UseWrap = UseFile andalso UseWrap0,
+		     [wxWindow:enable(W, [{enable, UseFile}]) || W <- [Desc,FileT,FileB,WrapB]],
+		     [wxWindow:enable(W, [{enable, UseWrap}]) || W <- [WrapSz, WrapC]],
+		     check_box(WrapB, UseWrap0)
+	     end,
+    Enable(proplists:get_value(file, Default, false), proplists:get_value(wrap, Default, false)),
+    wxPanel:connect(FileBox, command_checkbox_clicked,
+		    [{callback, fun(_,_) ->
+					Enable(wxCheckBox:getValue(FileBox),
+					       wxCheckBox:getValue(WrapB))
+				end}]),
+    wxPanel:connect(WrapB, command_checkbox_clicked,
+		    [{callback, fun(_,_) ->
+					Enable(true, wxCheckBox:getValue(WrapB))
+				end}]),
+    wxPanel:connect(FileB, command_button_clicked,
+		    [{callback, fun(_,_) ->  get_file(FileT) end}]),
+    fun() ->
+	    [{file, wxCheckBox:getValue(FileBox)},
+	     {filename, wxTextCtrl:getValue(FileT)},
+	     {wrap, wxCheckBox:getValue(WrapB)},
+	     {wrap_sz, wxSlider:getValue(WrapSz)},
+	     {wrap_c, wxSlider:getValue(WrapC)}]
+    end.
+
+get_file(Text) ->
+    Str = wxTextCtrl:getValue(Text),
+    Dialog = wxFileDialog:new(Text,
+			      [{message, "Select a file"},
+			       {default_file, Str}]),
+    case wxDialog:showModal(Dialog) of
+	?wxID_OK ->
+	    Dir = wxFileDialog:getDirectory(Dialog),
+	    File = wxFileDialog:getFilename(Dialog),
+	    wxTextCtrl:setValue(Text, filename:join(Dir, File));
+	_ -> ok
+    end,
+    wxFileDialog:destroy(Dialog).

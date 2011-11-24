@@ -239,15 +239,21 @@ create_menu(Name, MenuItems, Index, MenuBar, _Type) ->
 create_menu_item(#create_menu{id = ?wxID_HELP=Id}, Menu, Index) ->
     wxMenu:insert(Menu, Index, Id),
     Index+1;
-create_menu_item(#create_menu{id = Id, text = Text, type = Type, check = Check}, Menu, Index) ->
+create_menu_item(#create_menu{id=Id, text=Text, help=Help, type=Type, check=Check},
+		 Menu, Index) ->
+    Opts = case Help of
+	       [] -> [];
+	       _ -> [{help, Help}]
+	   end,
     case Type of
 	append ->
-	    wxMenu:insert(Menu, Index, Id, [{text, Text}]);
+	    wxMenu:insert(Menu, Index, Id,
+			  [{text, Text}|Opts]);
 	check ->
-	    wxMenu:insertCheckItem(Menu, Index, Id, Text),
+	    wxMenu:insertCheckItem(Menu, Index, Id, Text, Opts),
 	    wxMenu:check(Menu, Id, Check);
 	radio ->
-	    wxMenu:insertRadioItem(Menu, Index, Id, Text),
+	    wxMenu:insertRadioItem(Menu, Index, Id, Text, Opts),
 	    wxMenu:check(Menu, Id, Check);
 	separator ->
 	    wxMenu:insertSeparator(Menu, Index)
