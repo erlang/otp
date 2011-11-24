@@ -525,10 +525,7 @@ native_compile(Mods) ->
   end.
 
 hc(Mod) ->
-  case code:ensure_loaded(Mod) of
-    {module, Mod} -> ok;
-    {error, sticky_directory} -> ok
-  end,
+  {module, Mod} = code:ensure_loaded(Mod),
   case code:is_module_native(Mod) of
     true -> ok;
     false ->
