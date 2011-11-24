@@ -78,7 +78,7 @@ init(_Args) ->
     wx:new(),
     catch wxSystemOptions:setOption("mac.listctrl.always_use_generic", 1),
     Frame = wxFrame:new(wx:null(), ?wxID_ANY, "Observer",
-			[{size, {1000, 500}}, {style, ?wxDEFAULT_FRAME_STYLE}]),
+			[{size, {850, 600}}, {style, ?wxDEFAULT_FRAME_STYLE}]),
     IconFile = filename:join(code:priv_dir(observer), "erlang_observer.png"),
     Icon = wxIcon:new(IconFile, [{type,?wxBITMAP_TYPE_PNG}]),
     wxFrame:setIcon(Frame, Icon),
@@ -155,11 +155,18 @@ setup(#state{frame = Frame} = State) ->
 			   nodes = Nodes
 			  },
     %% Create resources which we don't want to duplicate
-    SysFont = wxSystemSettings:getFont(?wxSYS_DEFAULT_GUI_FONT),
-    SysFontSize = wxFont:getPointSize(SysFont),
-    Modern = wxFont:new(SysFontSize, ?wxFONTFAMILY_MODERN, ?wxFONTSTYLE_NORMAL, ?wxFONTWEIGHT_NORMAL),
-    put({font, modern}, Modern),
-    put({font, fixed}, Modern),
+    SysFont = wxSystemSettings:getFont(?wxSYS_SYSTEM_FIXED_FONT),
+    %% OemFont = wxSystemSettings:getFont(?wxSYS_OEM_FIXED_FONT),
+    %% io:format("Sz sys ~p(~p) oem ~p(~p)~n",
+    %% 	      [wxFont:getPointSize(SysFont), wxFont:isFixedWidth(SysFont),
+    %% 	       wxFont:getPointSize(OemFont), wxFont:isFixedWidth(OemFont)]),
+    Fixed = case wxFont:isFixedWidth(SysFont) of
+		true -> SysFont;
+		false -> %% Sigh
+		    SysFontSize = wxFont:getPointSize(SysFont),
+		    wxFont:new(SysFontSize, ?wxFONTFAMILY_MODERN, ?wxFONTSTYLE_NORMAL, ?wxFONTWEIGHT_NORMAL)
+	    end,
+    put({font, fixed}, Fixed),
     UpdState.
 
 
@@ -472,7 +479,7 @@ default_menus(NodesMenuItems) ->
 				 [#create_menu{id = ?ID_CONNECT, text = "Enable distribution"}]}
 	       end,
     case os:type() =:= {unix, darwin} of
-	false -> 
+	false ->
 	    FileMenu = {"File", [Quit]},
 	    HelpMenu = {"Help", [About,Help]},
 	    [FileMenu, NodeMenu, HelpMenu];
