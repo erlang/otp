@@ -277,7 +277,7 @@ struct erl_drv_entry efile_driver_entry = {
     file_init,
     file_start,
     file_stop,
-    file_output,
+    NULL,
     NULL,
     file_ready_output,
     "efile",
