@@ -3401,7 +3401,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    reply_posix_error(desc, EINVAL);
 	    goto done;
 	}
-	d->c.sendfile.offset = (off_t) offsetT;
+	d->c.sendfile.offset = (off_t) offsetL;
     #else
 	d->c.sendfile.offset = ((off_t) offsetH << 32) | offsetL;
     #endif
@@ -3411,7 +3411,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    reply_posix_error(desc, EINVAL);
 	    goto done;
 	}
-	d->c.sendfile.nbytes = (size_t) nbytesT;
+	d->c.sendfile.nbytes = (size_t) nbytesL;
     #else
 	d->c.sendfile.nbytes = ((size_t) nbytesH << 32) | nbytesL;
     #endif
