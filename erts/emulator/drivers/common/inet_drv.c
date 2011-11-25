@@ -4283,24 +4283,22 @@ static int inet_ctl_ifget(inet_descriptor* desc, char* buf, int len,
 
 	case INET_IFOPT_HWADDR: {
 #ifdef HAVE_LIBDLPI_H
-            {
-                /*
-                ** OpenSolaris have SIGCGIFHWADDR, but no ifr_hwaddr member..
-                ** The proper way to get the mac address would be to
-                ** use libdlpi...
-                */
-                uchar_t addr[DLPI_PHYSADDR_MAX];
-                size_t alen = sizeof(addr);
+	    /*
+	    ** OpenSolaris have SIGCGIFHWADDR, but no ifr_hwaddr member..
+	    ** The proper way to get the mac address would be to
+	    ** use libdlpi...
+	    */
+	    uchar_t addr[DLPI_PHYSADDR_MAX];
+	    size_t alen = sizeof(addr);
 
-                if (hwaddr_libdlpi_lookup(ifreq.ifr_name, addr, &alen) == 0) {
-                    buf_check(sptr, s_end, 1+2+alen);
-                    *sptr++ = INET_IFOPT_HWADDR;
-                    put_int16(alen, sptr);
+	    if (hwaddr_libdlpi_lookup(ifreq.ifr_name, addr, &alen) == 0) {
+		buf_check(sptr, s_end, 1+2+alen);
+		*sptr++ = INET_IFOPT_HWADDR;
+		put_int16(alen, sptr);
                     sptr += 2;
                     sys_memcpy(sptr, addr, alen);
                     sptr += alen;
-                }
-            }
+	    }
 #elif defined(SIOCGIFHWADDR) && defined(HAVE_STRUCT_IFREQ_IFR_HWADDR)
 	    if (ioctl(desc->s, SIOCGIFHWADDR, (char *)&ifreq) < 0)
 		break;
@@ -4310,7 +4308,7 @@ static int inet_ctl_ifget(inet_descriptor* desc, char* buf, int len,
 	    /* raw memcpy (fix include autoconf later) */
 	    sys_memcpy(sptr, (char*)(&ifreq.ifr_hwaddr.sa_data), IFHWADDRLEN);
 	    sptr += IFHWADDRLEN;
-#elif defined(SIOCGENADDR)
+#elif defined(SIOCGENADDR) && defined(HAVE_STRUCT_IFREQ_IFR_ENADDR)
 	    if (ioctl(desc->s, SIOCGENADDR, (char *)&ifreq) < 0)
 		break;
 	    buf_check(sptr, s_end, 1+2+sizeof(ifreq.ifr_enaddr));

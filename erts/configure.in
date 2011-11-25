@@ -1492,6 +1492,16 @@ AC_CHECK_MEMBERS([struct ifreq.ifr_hwaddr], [], [],
 	 #endif
 	])
 
+AC_CHECK_MEMBERS([struct ifreq.ifr_enaddr], [], [],
+	[#ifdef __WIN32__
+	 #else
+	 #ifdef VXWORKS
+	 #else
+	 #include <net/if.h>
+	 #endif
+	 #endif
+	])
+
 dnl ----------------------------------------------------------------------
 dnl Check the availability for libdlpi
 dnl ----------------------------------------------------------------------
