@@ -352,28 +352,37 @@ insert_constraints([], Dict) -> Dict.
 
 store_tmp_contract(MFA, FileLine, TypeSpec, SpecDict, RecordsDict) ->
   %% io:format("contract from form: ~p\n", [TypeSpec]),
-  TmpContract = contract_from_form(TypeSpec, RecordsDict),
+  TmpContract = contract_from_form(TypeSpec, RecordsDict, FileLine),
   %% io:format("contract: ~p\n", [Contract]),
   dict:store(MFA, {FileLine, TmpContract}, SpecDict).
 
-contract_from_form(Forms, RecDict) ->
-  {CFuns, Forms1} = contract_from_form(Forms, RecDict, [], []),
+contract_from_form(Forms, RecDict, FileLine) ->
+  {CFuns, Forms1} = contract_from_form(Forms, RecDict, FileLine, [], []),
   #tmp_contract{contract_funs = CFuns, forms = Forms1}.
 
 contract_from_form([{type, _, 'fun', [_, _]} = Form | Left], RecDict,
-		   TypeAcc, FormAcc) ->
+		   FileLine, TypeAcc, FormAcc) ->
   TypeFun =
     fun(ExpTypes, AllRecords) ->
-	Type = erl_types:t_from_form(Form, RecDict),
+	Type =
+	  try
+	    erl_types:t_from_form(Form, RecDict)
+	  catch
+	    throw:{error, Msg} ->
+	      {File, Line} = FileLine,
+	      NewMsg = io_lib:format("~s:~p: ~s", [filename:basename(File),
+						     Line, Msg]),
+	      throw({error, NewMsg})
+	  end,
 	NewType = erl_types:t_solve_remote(Type, ExpTypes, AllRecords),
 	{NewType, []}
     end,
   NewTypeAcc = [TypeFun | TypeAcc],
   NewFormAcc = [{Form, []} | FormAcc],
-  contract_from_form(Left, RecDict, NewTypeAcc, NewFormAcc);
+  contract_from_form(Left, RecDict, FileLine, NewTypeAcc, NewFormAcc);
 contract_from_form([{type, _L1, bounded_fun,
 		     [{type, _L2, 'fun', [_, _]} = Form, Constr]}| Left],
-		   RecDict, TypeAcc, FormAcc) ->
+		   RecDict, FileLine, TypeAcc, FormAcc) ->
   TypeFun =
     fun(ExpTypes, AllRecords) ->
 	Constr1 = [constraint_from_form(C, RecDict, ExpTypes, AllRecords)
@@ -385,8 +394,8 @@ contract_from_form([{type, _L1, bounded_fun,
     end,
   NewTypeAcc = [TypeFun | TypeAcc],
   NewFormAcc = [{Form, Constr} | FormAcc],
-  contract_from_form(Left, RecDict, NewTypeAcc, NewFormAcc);
-contract_from_form([], _RecDict, TypeAcc, FormAcc) ->
+  contract_from_form(Left, RecDict, FileLine, NewTypeAcc, NewFormAcc);
+contract_from_form([], _RecDict, _FileLine, TypeAcc, FormAcc) ->
   {lists:reverse(TypeAcc), lists:reverse(FormAcc)}.
 
 constraint_from_form({type, _, constraint, [{atom, _, is_subtype},

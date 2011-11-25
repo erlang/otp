@@ -608,7 +608,7 @@ cl_loop(State, LogCache) ->
 -spec failed_anal_msg(string(), [_]) -> nonempty_string().
 
 failed_anal_msg(Reason, LogCache) ->
-  Msg = "Analysis failed with error: " ++ Reason ++ "\n",
+  Msg = "Analysis failed with error:\n" ++ Reason ++ "\n",
   case LogCache =:= [] of
     true -> Msg;
     false ->
