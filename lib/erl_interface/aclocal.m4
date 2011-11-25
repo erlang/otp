@@ -213,8 +213,10 @@ AC_DEFUN(LM_FIND_EMU_CC,
 			ac_cv_prog_emu_cc,
 			[
 AC_TRY_COMPILE([],[
-#ifdef __llvm__
-#error "llvm is currently unable to compile beam_emu.c"
+#if defined(__clang_major__) && __clang_major__ >= 3
+    /* clang 3.x or later is fine */
+#elif defined(__llvm__)
+#error "this version of llvm is unable to correctly compile beam_emu.c"
 #endif
     __label__ lbl1;
     __label__ lbl2;
@@ -256,6 +258,11 @@ if test $ac_cv_prog_emu_cc != no; then
 	CFLAGS=""
 	CPPFLAGS=""
 	AC_TRY_COMPILE([],[
+#if defined(__clang_major__) && __clang_major__ >= 3
+    /* clang 3.x or later is fine */
+#elif defined(__llvm__)
+#error "this version of llvm is unable to correctly compile beam_emu.c"
+#endif
     	__label__ lbl1;
     	__label__ lbl2;
     	int x = magic();
