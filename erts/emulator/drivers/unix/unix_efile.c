@@ -1494,6 +1494,7 @@ efile_sendfile(Efile_error* errInfo, int in_fd, int out_fd,
 #elif defined(DARWIN)
     off_t len = *nbytes;
     int retval = sendfile(in_fd, out_fd, *offset, &len, NULL, 0);
+    *offset += len;
     *nbytes = len;
     return check_error(retval, errInfo);
 #elif defined(__FreeBSD__) || defined(__DragonFly__)
