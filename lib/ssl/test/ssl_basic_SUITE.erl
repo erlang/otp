@@ -257,7 +257,8 @@ all() ->
      %%different_ca_peer_sign,
      no_reuses_session_server_restart_new_cert,
      no_reuses_session_server_restart_new_cert_file, reuseaddr,
-     hibernate, connect_twice, renegotiate_dos_mitigate,
+     hibernate, connect_twice, renegotiate_dos_mitigate_active,
+     renegotiate_dos_mitigate_passive,
      tcp_error_propagation_in_active_mode
     ].
 
@@ -1565,14 +1566,14 @@ eoptions(Config) when is_list(Config) ->
 		{cacertfile, ""}, 
 		{dhfile,'dh.pem' },
 		{ciphers, [{foo, bar, sha, ignore}]},
-		{reuse_session, foo}, 
-		{reuse_sessions, 0}, 
+		{reuse_session, foo},
+		{reuse_sessions, 0},
 		{renegotiate_at, "10"},
-		{debug, 1}, 
+		{debug, 1},
 		{mode, depech},
-		{packet, 8.0}, 
-		{packet_size, "2"}, 
-		{header, a}, 
+		{packet, 8.0},
+		{packet_size, "2"},
+		{header, a},
 		{active, trice},
 		{key, 'key.pem' }],
 
@@ -3692,24 +3693,56 @@ connect_twice(Config) when is_list(Config) ->
     ssl_test_lib:close(Client1).
 
 %%--------------------------------------------------------------------
-renegotiate_dos_mitigate(doc) -> 
+renegotiate_dos_mitigate_active(doc) ->
     ["Mitigate DOS computational attack by not allowing client to renegotiate many times in a row",
     "immediately after each other"];
 
-renegotiate_dos_mitigate(suite) -> 
+renegotiate_dos_mitigate_active(suite) ->
     [];
 
-renegotiate_dos_mitigate(Config) when is_list(Config) -> 
-    ServerOpts = ?config(server_opts, Config),  
-    ClientOpts = ?config(client_opts, Config),  
+renegotiate_dos_mitigate_active(Config) when is_list(Config) ->
+    ServerOpts = ?config(server_opts, Config),
+    ClientOpts = ?config(client_opts, Config),
 
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    
-    Server = 
-	ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+
+    Server =
+	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 				   {from, self()},
 				   {mfa, {?MODULE, send_recv_result_active, []}},
 				   {options, [ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {?MODULE,
+					       renegotiate_immediately, []}},
+					{options, ClientOpts}]),
+
+    ssl_test_lib:check_result(Client, ok, Server, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+renegotiate_dos_mitigate_passive(doc) ->
+    ["Mitigate DOS computational attack by not allowing client to renegotiate many times in a row",
+    "immediately after each other"];
+
+renegotiate_dos_mitigate_passive(suite) ->
+    [];
+
+renegotiate_dos_mitigate_passive(Config) when is_list(Config) ->
+    ServerOpts = ?config(server_opts, Config),
+    ClientOpts = ?config(client_opts, Config),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server =
+	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+				   {from, self()},
+				   {mfa, {?MODULE, send_recv_result, []}},
+				   {options, [{active, false} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
  
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
@@ -3723,6 +3756,7 @@ renegotiate_dos_mitigate(Config) when is_list(Config) ->
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
+%%--------------------------------------------------------------------
 tcp_error_propagation_in_active_mode(doc) ->
     ["Test that process recives {ssl_error, Socket, closed} when tcp error ocurres"];
 tcp_error_propagation_in_active_mode(Config) when is_list(Config) ->
