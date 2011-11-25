@@ -301,7 +301,11 @@ int packet_get_length(enum PacketParseType htype,
         /* TCP_PB_LINE_LF:  [Data ... \n]  */
         const char* ptr2;
         if ((ptr2 = memchr(ptr, '\n', n)) == NULL) {
-            if (n >= trunc_len && trunc_len!=0) { /* buffer full */
+            if (n > max_plen && max_plen != 0) { /* packet full */
+                DEBUGF((" => packet full (no NL)=%d\r\n", n));
+                goto error;
+            }
+            else if (n >= trunc_len && trunc_len!=0) { /* buffer full */
                 DEBUGF((" => line buffer full (no NL)=%d\r\n", n));
                 return trunc_len;
             }
@@ -309,6 +313,10 @@ int packet_get_length(enum PacketParseType htype,
         }
         else {
             int len = (ptr2 - ptr) + 1; /* including newline */
+            if (len > max_plen && max_plen!=0) {
+                DEBUGF((" => packet_size %d exceeded\r\n", max_plen));
+                goto error;
+            }
             if (len > trunc_len && trunc_len!=0) {
                 DEBUGF((" => truncated line=%d\r\n", trunc_len));
                 return trunc_len;
@@ -401,7 +409,11 @@ int packet_get_length(enum PacketParseType htype,
                 const char* ptr2 = memchr(ptr1, '\n', len);
                 
                 if (ptr2 == NULL) {
-                    if (n >= trunc_len && trunc_len!=0) { /* buffer full */
+                    if (max_plen != 0) {
+                        if (n > max_plen) /* packet full */
+                            goto error;
+                    }
+                    else if (n >= trunc_len && trunc_len!=0) { /* buffer full */
                         plen = trunc_len;
                         goto done;
                     }
@@ -409,21 +421,38 @@ int packet_get_length(enum PacketParseType htype,
                 }
                 else {
                     plen = (ptr2 - ptr) + 1;
-                    
-                    if (*statep == 0)
+
+                    if (*statep == 0) {
+                        if (max_plen != 0 && plen > max_plen)
+                            goto error;
+                        if (plen >= trunc_len && trunc_len != 0)
+                            plen = trunc_len;
                         goto done;
-                    
+                    }
+
                     if (plen < n) {
                         if (SP(ptr2+1) && plen>2) {
                             /* header field value continue on next line */
                             ptr1 = ptr2+1;
                             len = n - plen;
                         }
-                        else
+                        else {
+                            if (max_plen != 0 && plen > max_plen)
+                                goto error;
+                            if (plen >= trunc_len && trunc_len != 0)
+                                plen = trunc_len;
                             goto done;
+                        }
                     }
-                    else
+                    else {
+                        if (max_plen != 0 && plen > max_plen)
+                            goto error;
+                        if (plen >= trunc_len && trunc_len != 0) {
+                            plen = trunc_len;
+                            goto done;
+                        }
                         goto more;
+                    }
                 }
             }
         }

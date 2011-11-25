@@ -26,12 +26,14 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
-	 basic/1, packet_size/1, neg/1, http/1, line/1, ssl/1, otp_8536/1]).
+	 basic/1, packet_size/1, neg/1, http/1, line/1, ssl/1, otp_8536/1,
+         otp_9389/1, otp_9389_line/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [basic, packet_size, neg, http, line, ssl, otp_8536].
+    [basic, packet_size, neg, http, line, ssl, otp_8536,
+     otp_9389, otp_9389_line].
 
 groups() -> 
     [].
@@ -251,6 +253,28 @@ packet_size(Config) when is_list(Config) ->
 			  ?line {error,_} = decode_pkt(4,<<Size:32,Packet/binary>>)
 		  end, 
 		  lists:seq(-10,-1)),
+
+    %% Test OTP-9389, long HTTP header lines.
+    Opts = [{packet_size, 128}],
+    Pkt = list_to_binary(["GET / HTTP/1.1\r\nHost: localhost\r\nLink: /",
+                          string:chars($Y, 64), "\r\n\r\n"]),
+    <<Pkt1:50/binary, Pkt2/binary>> = Pkt,
+    ?line {ok, {http_request,'GET',{abs_path,"/"},{1,1}}, Rest1} =
+        erlang:decode_packet(http, Pkt1, Opts),
+    ?line {ok, {http_header,_,'Host',_,"localhost"}, Rest2} =
+        erlang:decode_packet(httph, Rest1, Opts),
+    ?line {more, undefined} = erlang:decode_packet(httph, Rest2, Opts),
+    ?line {ok, {http_header,_,"Link",_,_}, _} =
+        erlang:decode_packet(httph, list_to_binary([Rest2, Pkt2]), Opts),
+
+    Pkt3 = list_to_binary(["GET / HTTP/1.1\r\nHost: localhost\r\nLink: /",
+                           string:chars($Y, 129), "\r\n\r\n"]),
+    ?line {ok, {http_request,'GET',{abs_path,"/"},{1,1}}, Rest3} =
+        erlang:decode_packet(http, Pkt3, Opts),
+    ?line {ok, {http_header,_,'Host',_,"localhost"}, Rest4} =
+        erlang:decode_packet(httph, Rest3, Opts),
+    ?line {error, invalid} = erlang:decode_packet(httph, Rest4, Opts),
+
     ok.
 
 
@@ -557,3 +581,37 @@ decode_pkt(Type,Bin,Opts) ->
     %%io:format(" -> ~p\n",[Res]),
     Res.
 
+otp_9389(doc) -> ["Verify line_length works correctly for HTTP headers"];
+otp_9389(suite) -> [];
+otp_9389(Config) when is_list(Config) ->
+    Opts = [{packet_size, 16384}, {line_length, 3000}],
+    Pkt = list_to_binary(["GET / HTTP/1.1\r\nHost: localhost\r\nLink: /",
+                          string:chars($X, 8192),
+                          "\r\nContent-Length: 0\r\n\r\n"]),
+    <<Pkt1:5000/binary, Pkt2/binary>> = Pkt,
+    {ok, {http_request,'GET',{abs_path,"/"},{1,1}}, Rest1} =
+        erlang:decode_packet(http, Pkt1, Opts),
+    {ok, {http_header,_,'Host',_,"localhost"}, Rest2} =
+        erlang:decode_packet(httph, Rest1, Opts),
+    {more, undefined} = erlang:decode_packet(httph, Rest2, Opts),
+    {ok, {http_header,_,"Link",_,Link}, Rest3} =
+        erlang:decode_packet(httph, list_to_binary([Rest2, Pkt2]), Opts),
+    true = (length(Link) =< 3000),
+    {ok, {http_error, _}, Rest4} = erlang:decode_packet(httph, Rest3, Opts),
+    {ok, {http_error, _}, Rest5} = erlang:decode_packet(httph, Rest4, Opts),
+    {ok, {http_header,_,'Content-Length',_,"0"}, <<"\r\n">>} =
+        erlang:decode_packet(httph, Rest5, Opts),
+    ok.
+
+otp_9389_line(doc) -> ["Verify packet_size works correctly for line mode"];
+otp_9389_line(suite) -> [];
+otp_9389_line(Config) when is_list(Config) ->
+    Opts = [{packet_size, 20}],
+    Line1 = <<"0123456789012345678\n">>,
+    Line2 = <<"0123456789\n">>,
+    Line3 = <<"01234567890123456789\n">>,
+    Pkt = list_to_binary([Line1, Line2, Line3]),
+    ?line {ok, Line1, Rest1} = erlang:decode_packet(line, Pkt, Opts),
+    ?line {ok, Line2, Rest2} = erlang:decode_packet(line, Rest1, Opts),
+    ?line {error, invalid} = erlang:decode_packet(line, Rest2, Opts),
+    ok.

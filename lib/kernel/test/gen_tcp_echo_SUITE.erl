@@ -167,8 +167,12 @@ echo_test_1(SockOpts, EchoFun, Config0) ->
 		      [{type, {cdr, little}}|Config]),
     ?line case lists:keymember(packet_size, 1, SockOpts) of
 	      false ->
-		  ?line echo_packet([{packet, line}|SockOpts],
-				    EchoFun, Config);
+		  % This is cheating, we should test that packet_size
+		  % also works for line and http.
+		  echo_packet([{packet, line}|SockOpts], EchoFun, Config),
+		  echo_packet([{packet, http}|SockOpts], EchoFun, Config),
+		  echo_packet([{packet, http_bin}|SockOpts], EchoFun, Config);
+
 	      true -> ok
 	  end,
     ?line echo_packet([{packet, tpkt}|SockOpts], EchoFun, Config),
@@ -183,9 +187,6 @@ echo_test_1(SockOpts, EchoFun, Config0) ->
 		      [{type, {asn1, short, LongTag}}|Config]),
     ?line echo_packet([{packet, asn1}|SockOpts], EchoFun,
 		      [{type, {asn1, long, LongTag}}|Config]),
-
-    ?line echo_packet([{packet, http}|SockOpts], EchoFun, Config),
-    ?line echo_packet([{packet, http_bin}|SockOpts], EchoFun, Config),
     ok.
 
 echo_packet(SockOpts, EchoFun, Opts) ->

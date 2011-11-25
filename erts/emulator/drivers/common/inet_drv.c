@@ -8729,8 +8729,15 @@ static int tcp_remain(tcp_descriptor* desc, int* len)
     else if (tlen == 0) { /* need unknown more */
         *len = 0;
         if (nsz == 0) {
-            if (nfill == n)
-                goto error;
+            if (nfill == n) {
+                if (desc->inet.psize != 0 && desc->inet.psize > nfill) {
+                    if (tcp_expand_buffer(desc, desc->inet.psize) < 0)
+                        return -1;
+                    return desc->inet.psize;
+                }
+                else
+                    goto error;
+            }
             DEBUGF((" => restart more=%d\r\n", nfill - n));
             return nfill - n;
         }
