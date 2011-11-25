@@ -39,19 +39,18 @@
 
     <section>
       <title>Improvements and new features</title>
-      <p>-</p>
-
 <!--
+      <p>-</p>
+-->
+
       <list type="bulleted">
         <item>
-          <p>Bad note store GC timer deactivation. 
-	  Wrong field in the state record was set (timeout instead active). </p>
-          <p>Stefan Grundmann</p>
-          <p>Own Id: OTP-9690</p>
+          <p>[compiler] Improved version info printout from the 
+	  <seealso marker="snmpc(command)#">MIB compiler frontend escript</seealso>. </p>
+          <p>Own Id: OTP-9618</p>
         </item>
 
       </list>
--->
 
     </section>
 
