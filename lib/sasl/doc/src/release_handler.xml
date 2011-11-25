@@ -492,7 +492,7 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
   </section>
   <funcs>
     <func>
-      <name>upgrade_app(App, Dir) -> {ok, Unpurged} | restart_new_emulator | {error, Reason}</name>
+      <name>upgrade_app(App, Dir) -> {ok, Unpurged} | restart_emulator | {error, Reason}</name>
       <fsummary>Upgrade to a new application version</fsummary>
       <type>
         <v>App = atom()</v>
@@ -521,14 +521,21 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
           does.</p>
         <p>Returns <c>{ok, Unpurged}</c> if evaluating the script is
           successful, where <c>Unpurged</c> is a list of unpurged
-          modules, or <c>restart_new_emulator</c> if this instruction is
+          modules, or <c>restart_emulator</c> if this instruction is
           encountered in the script, or <c>{error, Reason}</c> if
           an error occurred when finding or evaluating the script.</p>
+	<p>If the <c>restart_new_emulator</c> instruction is found in
+	  the script, <c>upgrade_app/2</c> will return
+	  <c>{error,restart_new_emulator}</c>. The reason for this is
+	  that this instruction requires that a new version of the
+	  emulator is started before the rest of the upgrade
+	  instructions can be executed, and this can only be done by
+          <c>install_release/1,2</c>.</p>
       </desc>
     </func>
     <func>
       <name>downgrade_app(App, Dir) -></name>
-      <name>downgrade_app(App, OldVsn, Dir) -> {ok, Unpurged} | restart_new_emulator | {error, Reason}</name>
+      <name>downgrade_app(App, OldVsn, Dir) -> {ok, Unpurged} | restart_emulator | {error, Reason}</name>
       <fsummary>Downgrade to a previous application version</fsummary>
       <type>
         <v>App = atom()</v>
@@ -562,7 +569,7 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
           does.</p>
         <p>Returns <c>{ok, Unpurged}</c> if evaluating the script is
           successful, where <c>Unpurged</c> is a list of unpurged
-          modules, or <c>restart_new_emulator</c> if this instruction is
+          modules, or <c>restart_emulator</c> if this instruction is
           encountered in the script, or <c>{error, Reason}</c> if
           an error occurred when finding or evaluating the script.</p>
       </desc>
@@ -638,7 +645,7 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
       </desc>
     </func>
     <func>
-      <name>eval_appup_script(App, ToVsn, ToDir, Script) -> {ok, Unpurged} | restart_new_emulator | {error, Reason}</name>
+      <name>eval_appup_script(App, ToVsn, ToDir, Script) -> {ok, Unpurged} | restart_emulator | {error, Reason}</name>
       <fsummary>Evaluate an application upgrade or downgrade script</fsummary>
       <type>
         <v>App = atom()</v>
@@ -651,8 +658,8 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
       <desc>
         <p>Evaluates an application upgrade or downgrade script
           <c>Script</c>, the result from calling
-          <seealso marker="#upgrade_app/2">upgrade_app/2</seealso> or
-          <seealso marker="#downgrade_app/3">downgrade_app/2,3</seealso>,
+          <seealso marker="#upgrade_app/2">upgrade_script/2</seealso> or
+          <seealso marker="#downgrade_app/3">downgrade_script/3</seealso>,
           exactly in the same way as
           <seealso marker="#install_release/1">install_release/1,2</seealso>
           does.</p>
@@ -663,9 +670,16 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
           <c>.appup</c> files should be located under <c>Dir/ebin</c>.</p>
         <p>Returns <c>{ok, Unpurged}</c> if evaluating the script is
           successful, where <c>Unpurged</c> is a list of unpurged
-          modules, or <c>restart_new_emulator</c> if this instruction is
+          modules, or <c>restart_emulator</c> if this instruction is
           encountered in the script, or <c>{error, Reason}</c> if
           an error occurred when evaluating the script.</p>
+	<p>If the <c>restart_new_emulator</c> instruction is found in
+	  the script, <c>eval_appup_script/4</c> will return
+	  <c>{error,restart_new_emulator}</c>. The reason for this is
+	  that this instruction requires that a new version of the
+	  emulator is started before the rest of the upgrade
+	  instructions can be executed, and this can only be done by
+          <c>install_release/1,2</c>.</p>
       </desc>
     </func>
   </funcs>
