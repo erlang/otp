@@ -33,6 +33,55 @@
   </header>
 
   <section>
+    <title>SNMP Development Toolkit 4.21.3</title>
+    <p>Version 4.21.3 supports code replacement in runtime from/to
+      version 4.21.2, 4.21.1, 4.21, 4.20.1, 4.20 and 4.19. </p>
+
+    <section>
+      <title>Improvements and new features</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>Bad note store GC timer deactivation. 
+	  Wrong field in the state record was set (timeout instead active). </p>
+          <p>Stefan Grundmann</p>
+          <p>Own Id: OTP-9690</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+<!--
+      <p>-</p> 
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>[agent] Version 4.20 introduced a change that broke trap 
+	  sending from subagents. Due to a bug in the test code, 
+	  this was not discovered, until that bug was fixed. </p>
+          <p>Own Id: OTP-9745</p>
+        </item>
+
+      </list>
+    </section>
+
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+    </section>
+
+  </section> <!-- 4.21.3 -->
+
+
+  <section>
     <title>SNMP Development Toolkit 4.21.2</title>
     <p>Version 4.21.2 supports code replacement in runtime from/to
       version 4.21.1, 4.21, 4.20.1, 4.20 and 4.19. </p>
