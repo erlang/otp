@@ -1475,7 +1475,6 @@ int
 efile_sendfile(Efile_error* errInfo, int in_fd, int out_fd,
 	       off_t *offset, Uint64 *nbytes)
 {
-  //    printf("sendfile(%d,%d,%d,%d)\r\n",out_fd,in_fd,*offset,*nbytes);
     Uint64 written = 0;
 #if defined(__linux__) || (defined(__sun) && defined(__SVR4))
     ssize_t retval;

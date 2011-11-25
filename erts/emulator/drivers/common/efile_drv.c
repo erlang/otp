@@ -1755,12 +1755,10 @@ static void invoke_sendfile(void *data)
 
     result = efile_sendfile(&d->errInfo, fd, out_fd, &d->c.sendfile.offset, &nbytes);
 
-    //printf("sendfile: result: %d, errno: %d, offset: %d, nbytes: %d\r\n",result, errno, d->c.sendfile.offset,nbytes);
     d->c.sendfile.written += nbytes;
 
     if (result == 1) {
 	if (sys_info.async_threads != 0) {
-	    printf("==> sendfile DONE written=%ld\r\n", d->c.sendfile.written);
 	    d->result_ok = 0;
 	} else if (d->c.sendfile.nbytes == 0 && nbytes != 0) {
 	    d->result_ok = 1;
@@ -1768,7 +1766,6 @@ static void invoke_sendfile(void *data)
 	    d->result_ok = 1;
 	    d->c.sendfile.nbytes -= nbytes;
 	} else {
-	    printf("==> sendfile DONE written=%ld\r\n", d->c.sendfile.written);
 	    d->result_ok = 0;
 	}
     } else if (result == 0 && (d->errInfo.posix_errno == EAGAIN
@@ -1776,7 +1773,6 @@ static void invoke_sendfile(void *data)
 	d->result_ok = 1;
     } else {
 	d->result_ok = -1;
-	printf("==> sendfile ERROR %s\r\n", erl_errno_id(d->errInfo.posix_errno));
     }
 }
 
@@ -2224,7 +2220,6 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
 	  break;
 #ifdef HAVE_SENDFILE
       case FILE_SENDFILE:
-	//printf("efile_ready_async: sendfile (d->result_ok == %d)\r\n",d->result_ok);
 	  if (d->result_ok == -1) {
 	      desc->sendfile_state = not_sending;
 	      reply_error(desc, &d->errInfo);
@@ -3441,8 +3436,6 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
     #endif
 
 	d->c.sendfile.nbytes = nbytes;
-
-	printf("sendfile(nbytes => %ld, offset => %d, flags => %x)\r\n",d->c.sendfile.nbytes,d->c.sendfile.offset, d->c.sendfile.flags);
 
 	/* Do HEADER TRAILER stuff by calculating pointer places, not by copying data! */
 
