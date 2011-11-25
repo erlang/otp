@@ -1772,7 +1772,7 @@ static void file_ready_output(ErlDrvData data, ErlDrvEvent event)
 	driver_select(fd->port, (ErlDrvEvent)fd->d->c.sendfile.out_fd,
 		      (int)ERL_DRV_WRITE,(int) 0);
 	invoke_sendfile((void *)fd->d);
-	file_async_ready((ErlDrvData)fd, (ErlDrvThreadData)fd->d);
+	file_async_ready(data, (ErlDrvThreadData)fd->d);
 	break;
     default:
 	break;
@@ -2203,15 +2203,19 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
 	      reply_error(desc, &d->errInfo);
 	      if (sys_info.async_threads != 0) {
 		  SET_NONBLOCKING(d->c.sendfile.out_fd);
+	      } else {
+		driver_select(desc->port, (ErlDrvEvent)d->c.sendfile.out_fd,
+			      ERL_DRV_USE, 0);
 	      }
-	      free_sendfile(data);
 	  } else if (d->result_ok == 0) {
 	      desc->sendfile_state = not_sending;
 	      reply_Sint64(desc, d->c.sendfile.written);
 	      if (sys_info.async_threads != 0) {
 		SET_NONBLOCKING(d->c.sendfile.out_fd);
+	      } else {
+		driver_select(desc->port, (ErlDrvEvent)d->c.sendfile.out_fd,
+			      ERL_DRV_USE, 0);
 	      }
-	      free_sendfile(data);
 	  } else if (d->result_ok == 1) { // If we are using select to send the rest of the data
 	      desc->sendfile_state = sending;
 	      desc->d = d;
@@ -3389,7 +3393,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	d->fd = desc->fd;
 	d->command = command;
 	d->invoke = invoke_sendfile;
-	d->free = free_sendfile;
+	d->free = NULL;
 	d->level = 2;
 
 	d->c.sendfile.out_fd = (int) out_fd;
@@ -3422,6 +3426,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 
 	if (sys_info.async_threads != 0) {
 	    SET_BLOCKING(d->c.sendfile.out_fd);
+	    d->free = free_sendfile;
 	}
 
 	cq_enq(desc, d);
