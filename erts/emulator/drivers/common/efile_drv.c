@@ -2229,6 +2229,7 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
 	      } else {
 		driver_select(desc->port, (ErlDrvEvent)(long)d->c.sendfile.out_fd,
 			ERL_DRV_USE, 0);
+		free_sendfile(data);
 	      }
 	  } else if (d->result_ok == 0) {
 	      desc->sendfile_state = not_sending;
@@ -2238,6 +2239,7 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
 		free_sendfile(data);
 	      } else {
 		driver_select(desc->port, (ErlDrvEvent)(long)d->c.sendfile.out_fd, ERL_DRV_USE, 0);
+		free_sendfile(data);
 	      }
 	  } else if (d->result_ok == 1) { // If we are using select to send the rest of the data
 	      desc->sendfile_state = sending;
@@ -3441,7 +3443,6 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 
 	if (sys_info.async_threads != 0) {
 	    SET_BLOCKING(d->c.sendfile.out_fd);
-	    d->free = free_sendfile;
 	}
 
 	cq_enq(desc, d);
