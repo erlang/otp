@@ -317,6 +317,8 @@ expr({'try',Line,Es0,Scs0,Ccs0,As0},St) ->
     Ccs1 = icr_clauses(Ccs0,St),
     As1 = exprs(As0,St),
     {'try',Line,Es1,Scs1,Ccs1,As1};
+expr({'fun',_,{function,_,_,_}}=ExtFun,_St) ->
+    ExtFun;
 expr({'fun',Line,Body,Info},St) ->
     case Body of
 	{clauses,Cs0} ->

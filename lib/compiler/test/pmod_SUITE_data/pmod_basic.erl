@@ -21,6 +21,7 @@
 -export([lookup/1,or_props/1,prepend/1,append/1,stupid_sum/0]).
 -export([bar/1,bar_bar/1]).
 -export([bc1/0, bc2/0]).
+-export([collapse/1]).
 
 lookup(Key) ->
     proplists:lookup(Key, Props).
@@ -77,3 +78,6 @@ bc1() ->
 
 bc2() ->
     << <<A:1>> || A <- [1,0,1,0] >>.
+
+collapse(L) ->
+    lists:keymap(fun lists:sort/1, 2, L).
