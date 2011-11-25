@@ -1050,37 +1050,49 @@ new_emulator_make_tmp_release(CurrentRelease,ToRelease,RelDir,Opts,Masters) ->
     CurrentVsn = CurrentRelease#release.vsn,
     ToVsn = ToRelease#release.vsn,
     TmpVsn = ?tmp_vsn(CurrentVsn),
-    BaseApps = [kernel,stdlib,sasl],
-    BaseLibs = [{App,Vsn,Lib} || {App,Vsn,Lib} <- ToRelease#release.libs,
-				 lists:member(App,BaseApps)],
-    check_base_libs(BaseLibs,ToVsn),
-    OldBaseLibs = [{App,Vsn,Lib} || {App,Vsn,Lib} <- CurrentRelease#release.libs,
-				    lists:member(App,BaseApps)],
-    check_base_libs(OldBaseLibs,CurrentVsn),
-    RestLibs = [{App,Vsn,Lib} || {App,Vsn,Lib} <- CurrentRelease#release.libs,
-				 not lists:member(App,BaseApps)],
-    TmpRelease = CurrentRelease#release{vsn=TmpVsn,
-					erts_vsn=ToRelease#release.erts_vsn,
-					libs = BaseLibs ++ RestLibs,
-					status = unpacked},
-    new_emulator_make_hybrid_boot(CurrentVsn,ToVsn,TmpVsn,BaseLibs,
-				  RelDir,Opts,Masters),
-    new_emulator_make_hybrid_config(CurrentVsn,ToVsn,TmpVsn,RelDir,Masters),
-    {TmpVsn,TmpRelease}.
-
-check_base_libs([_,_,_]=BaseLibs,_Vsn) ->
-    [Kernel,Sasl,Stdlib] = lists:keysort(1,BaseLibs),
-    [Kernel,Stdlib,Sasl];
-check_base_libs(SomeMissing,Vsn) ->
-    find_missing(SomeMissing,[kernel,stdlib,sasl],Vsn).
-
-find_missing(SomeMissing,[H|T],Vsn) ->
-    case lists:keymember(H,1,SomeMissing) of
-	true ->
-	    find_missing(SomeMissing,T,Vsn);
-	false ->
-	    throw({error,{missing_base_app,Vsn,H}})
+    case get_base_libs(ToRelease#release.libs) of
+	{ok,{Kernel,Stdlib,Sasl}=BaseLibs,_} ->
+	    case get_base_libs(ToRelease#release.libs) of
+		{ok,_,RestLibs} ->
+		    TmpErtsVsn = ToRelease#release.erts_vsn,
+		    TmpLibs = [Kernel,Stdlib,Sasl|RestLibs],
+		    TmpRelease = CurrentRelease#release{vsn=TmpVsn,
+							erts_vsn=TmpErtsVsn,
+							libs = TmpLibs,
+							status = unpacked},
+		    new_emulator_make_hybrid_boot(CurrentVsn,ToVsn,TmpVsn,
+						  BaseLibs,RelDir,Opts,Masters),
+		    new_emulator_make_hybrid_config(CurrentVsn,ToVsn,TmpVsn,
+						    RelDir,Masters),
+		    {TmpVsn,TmpRelease};
+		{error,{missing,Missing}} ->
+		    throw({error,{missing_base_app,CurrentVsn,Missing}})
+	    end;
+	{error,{missing,Missing}} ->
+	    throw({error,{missing_base_app,ToVsn,Missing}})
     end.
+
+%% Get kernel, stdlib and sasl libs,
+%% and also return the rest of the libs as a list.
+%% Return error if any of kernel, stdlib or sasl does not exist.
+get_base_libs(Libs) ->
+    get_base_libs(Libs,undefined,undefined,undefined,[]).
+get_base_libs([{kernel,_,_}=Kernel|Libs],undefined,Stdlib,Sasl,Rest) ->
+    get_base_libs(Libs,Kernel,Stdlib,Sasl,Rest);
+get_base_libs([{stdlib,_,_}=Stdlib|Libs],Kernel,undefined,Sasl,Rest) ->
+    get_base_libs(Libs,Kernel,Stdlib,Sasl,Rest);
+get_base_libs([{sasl,_,_}=Sasl|Libs],Kernel,Stdlib,undefined,Rest) ->
+    get_base_libs(Libs,Kernel,Stdlib,Sasl,Rest);
+get_base_libs([Lib|Libs],Kernel,Stdlib,Sasl,Rest) ->
+    get_base_libs(Libs,Kernel,Stdlib,Sasl,[Lib|Rest]);
+get_base_libs([],undefined,_Stdlib,_Sasl,_Rest) ->
+    {error,{missing,kernel}};
+get_base_libs([],_Kernel,undefined,_Sasl,_Rest) ->
+    {error,{missing,stdlib}};
+get_base_libs([],_Kernel,_Stdlib,undefined,_Rest) ->
+    {error,{missing,sasl}};
+get_base_libs([],Kernel,Stdlib,Sasl,Rest) ->
+    {ok,{Kernel,Stdlib,Sasl},lists:reverse(Rest)}.
 
 new_emulator_make_hybrid_boot(CurrentVsn,ToVsn,TmpVsn,BaseLibs,RelDir,Opts,Masters) ->
     FromBootFile = filename:join([RelDir,CurrentVsn,"start.boot"]),
@@ -1090,9 +1102,10 @@ new_emulator_make_hybrid_boot(CurrentVsn,ToVsn,TmpVsn,BaseLibs,RelDir,Opts,Maste
     Args = [ToVsn,Opts],
     {ok,FromBoot} = read_file(FromBootFile,Masters),
     {ok,ToBoot} = read_file(ToBootFile,Masters),
-    [KernelPath,SaslPath,StdlibPath] =
-	[filename:join(Path,ebin) || {_,_,Path} <- lists:keysort(1,BaseLibs)],
-    Paths = {KernelPath,StdlibPath,SaslPath},
+    {{_,_,KernelPath},{_,_,SaslPath},{_,_,StdlibPath}} = BaseLibs,
+    Paths = {filename:join(KernelPath,"ebin"),
+	     filename:join(StdlibPath,"ebin"),
+	     filename:join(SaslPath,"ebin")},
     case systools_make:make_hybrid_boot(TmpVsn,FromBoot,ToBoot,Paths,Args) of
 	{ok,TmpBoot} ->
 	    write_file(TmpBootFile,TmpBoot,Masters);
