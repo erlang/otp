@@ -138,8 +138,9 @@
       <fsummary>Generate a boot script <c>.script/.boot</c>.</fsummary>
       <type>
         <v>Name = string()</v>
-        <v>Opt = src_tests | {path,[Dir]} | local | {variables,[Var]} | exref | {exref,[App]}]
-	| silent | {outdir,Dir} | warnings_as_errors</v>
+        <v>Opt = src_tests | {path,[Dir]} | local | {variables,[Var]} | exref |
+	  {exref,[App]}] | silent | {outdir,Dir} | no_warn_sasl |
+	  warnings_as_errors</v>
         <v>&nbsp;Dir = string()</v>
         <v>&nbsp;Var = {VarName,Prefix}</v>
         <v>&nbsp;&nbsp;VarName = Prefix = string()</v>
@@ -195,6 +196,10 @@
         <p>The applications are sorted according to the dependencies
           between the applications. Where there are no dependencies,
           the order in the <c>.rel</c> file is kept.</p>
+	<p>If <c>sasl</c> is not included as an application in
+	  the <c>.rel</c> file, a warning is emitted because such a
+	  release can not be used in an upgrade. To turn of this
+	  warning, add the option <c>no_warn_sasl</c>.</p>
         <p>All files are searched for in the current path. It is
           assumed that the <c>.app</c> and <c>.beam</c> files for an
           application is located in the same directory. The <c>.erl</c>
@@ -225,7 +230,7 @@
         <p>Example: If the option <c>{variables,[{"TEST","lib"}]}</c> is
           supplied, and <c>myapp.app</c> is found in
           <c>lib/myapp/ebin</c>, then the path to this application in
-          the boot script will be <c>$TEST/myapp-1/ebin"</c>. If
+          the boot script will be <c>"$TEST/myapp-1/ebin"</c>. If
           <c>myapp.app</c> is found in <c>lib/test</c>, then the path
           will be <c>$TEST/test/myapp-1/ebin</c>.</p>
         <p>The checks performed before the boot script is generated can

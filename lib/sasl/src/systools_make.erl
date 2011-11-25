@@ -58,6 +58,7 @@
 %%              {variables,[{Name,AbsString}]}
 %%              {machine, jam | beam | vee}
 %%              exref | {exref, [AppName]}
+%%              no_warn_sasl
 %%-----------------------------------------------------------------
 
 make_script(RelName) when is_list(RelName) ->
@@ -88,7 +89,8 @@ make_script(RelName, Output, Flags) when is_list(RelName),
 	    Path  = make_set(Path1 ++ code:get_path()),
 	    ModTestP = {member(src_tests, Flags),xref_p(Flags)},
 	    case get_release(RelName, Path, ModTestP, machine(Flags)) of
-		{ok, Release, Appls, Warnings} ->
+		{ok, Release, Appls, Warnings0} ->
+		    Warnings = wsasl(Flags, Warnings0),
 		    case systools_lib:werror(Flags, Warnings) of
 			true ->
 			    return(ok,Warnings,Flags);
@@ -112,7 +114,13 @@ make_script(RelName, _Output, Flags) when is_list(Flags) ->
 make_script(RelName, _Output, Flags) ->
     badarg(Flags,[RelName, Flags]).
 
-%% Inlined.
+
+wsasl(Options, Warnings) ->
+    case lists:member(no_warn_sasl,Options) of
+	true -> lists:delete({warning,missing_sasl},Warnings);
+	false -> Warnings
+    end.
+
 badarg(BadArg, Args) ->
     erlang:error({badarg,BadArg}, Args).
 
@@ -1970,90 +1978,67 @@ get_flag(_,_)         -> false.
 
 %% Check Options for make_script
 check_args_script(Args) ->
-    cas(Args,
-	{undef, undef, undef, undef, undef, undef, undef, undef,
-	 undef, []}).
+    cas(Args, []).
 
-cas([], {_Path,_Sil,_Loc,_Test,_Var,_Mach,_Xref,_XrefApps,_Werror, X}) ->
+cas([], X) ->
     X;
 %%% path ---------------------------------------------------------------
-cas([{path, P} | Args], {Path, Sil, Loc, Test, Var, Mach, Xref,
-			 XrefApps, Werror, X}) when is_list(P) ->
+cas([{path, P} | Args], X) when is_list(P) ->
     case check_path(P) of
 	ok ->
-	    cas(Args, {P, Sil, Loc, Test, Var, Mach, Xref, XrefApps,
-		       Werror, X});
+	    cas(Args, X);
 	error ->
-	    cas(Args, {Path, Sil, Loc, Test, Var, Mach, Xref, XrefApps,
-		       Werror, X++[{path,P}]})
+	    cas(Args, X++[{path,P}])
     end;
 %%% silent -------------------------------------------------------------
-cas([silent | Args], {Path, _Sil, Loc, Test, Var, Mach, Xref,
-		      XrefApps, Werror, X}) ->
-    cas(Args, {Path, silent, Loc, Test, Var, Mach, Xref, XrefApps,
-	       Werror, X});
+cas([silent | Args], X) ->
+    cas(Args, X);
 %%% local --------------------------------------------------------------
-cas([local | Args], {Path, Sil, _Loc, Test, Var, Mach, Xref,
-		     XrefApps, Werror, X}) ->
-    cas(Args, {Path, Sil, local, Test, Var, Mach, Xref, XrefApps,
-	       Werror, X});
+cas([local | Args], X) ->
+    cas(Args, X);
 %%% src_tests -------------------------------------------------------
-cas([src_tests | Args], {Path, Sil, Loc, _Test, Var, Mach, Xref,
-			 XrefApps, Werror, X}) ->
-    cas(Args,
-	{Path, Sil, Loc, src_tests, Var, Mach, Xref, Werror, XrefApps,X});
+cas([src_tests | Args], X) ->
+    cas(Args, X);
 %%% variables ----------------------------------------------------------
-cas([{variables, V} | Args], {Path, Sil, Loc, Test, Var, Mach, Xref,
-			      XrefApps, Werror, X}) when is_list(V) ->
+cas([{variables, V} | Args], X) when is_list(V) ->
     case check_vars(V) of
 	ok ->
-	    cas(Args,
-		{Path, Sil, Loc, Test, V, Mach, Xref, XrefApps, Werror, X});
+	    cas(Args, X);
 	error ->
-	    cas(Args, {Path, Sil, Loc, Test, Var, Mach, Xref, XrefApps,
-		       Werror, X++[{variables, V}]})
+	    cas(Args, X++[{variables, V}])
     end;
 %%% machine ------------------------------------------------------------
-cas([{machine, M} | Args], {Path, Sil, Loc, Test, Var, Mach, Xref,
-			    XrefApps, Werror, X}) when is_atom(M) ->
-    cas(Args, {Path, Sil, Loc, Test, Var, Mach, Xref, XrefApps, Werror, X});
+cas([{machine, M} | Args], X) when is_atom(M) ->
+    cas(Args, X);
 %%% exref --------------------------------------------------------------
-cas([exref | Args], {Path, Sil, Loc, Test, Var, Mach, _Xref,
-		     XrefApps, Werror, X})  ->
-    cas(Args, {Path, Sil, Loc, Test, Var, Mach, exref, XrefApps, Werror, X});
+cas([exref | Args], X)  ->
+    cas(Args, X);
 %%% exref Apps ---------------------------------------------------------
-cas([{exref, Apps} | Args], {Path, Sil, Loc, Test, Var, Mach, Xref,
-			     XrefApps, Werror, X}) when is_list(Apps) ->
+cas([{exref, Apps} | Args], X) when is_list(Apps) ->
     case check_apps(Apps) of 
 	ok ->
-	    cas(Args, {Path, Sil, Loc, Test, Var, Mach, 
-		       Xref, Apps, Werror, X});
+	    cas(Args, X);
 	error ->
-	    cas(Args, {Path, Sil, Loc, Test, Var, Mach, 
-		       Xref, XrefApps, Werror, X++[{exref, Apps}]})
+	    cas(Args, X++[{exref, Apps}])
     end;
 %%% outdir Dir ---------------------------------------------------------
-cas([{outdir, Dir} | Args], {Path, Sil, Loc, Test, Var, Mach, Xref,
-			     XrefApps, Werror, X}) when is_list(Dir) ->
-    cas(Args, {Path, Sil, Loc, Test, Var, Mach, Xref, XrefApps, Werror, X});
+cas([{outdir, Dir} | Args], X) when is_list(Dir) ->
+    cas(Args, X);
 %%% otp_build (secret, not documented) ---------------------------------
-cas([otp_build | Args], {Path, Sil, Loc, Test, Var, Mach, Xref,
-			 XrefApps, Werror, X}) ->
-    cas(Args, {Path, Sil, Loc, Test, Var, Mach, Xref, XrefApps, Werror, X});
+cas([otp_build | Args], X) ->
+    cas(Args, X);
+%%% warnings_as_errors -------------------------------------------------
+cas([warnings_as_errors | Args], X) ->
+    cas(Args, X);
+%%% no_warn_sasl -------------------------------------------------------
+cas([no_warn_sasl | Args], X) ->
+    cas(Args, X);
 %%% no_module_tests (kept for backwards compatibility, but ignored) ----
-cas([no_module_tests | Args], {Path, Sil, Loc, Test, Var, Mach, Xref,
-			       XrefApps, Werror, X}) ->
-    cas(Args, {Path, Sil, Loc, Test, Var, Mach, Xref, XrefApps, Werror, X});
-%%% warnings_as_errors (kept for backwards compatibility, but ignored) ----
-cas([warnings_as_errors | Args], {Path, Sil, Loc, Test, Var, Mach, Xref,
-				  XrefApps, _Werror, X}) ->
-    cas(Args, {Path, Sil, Loc, Test, Var, Mach, Xref, XrefApps,
-	       warnings_as_errors, X});
+cas([no_module_tests | Args], X) ->
+    cas(Args, X);
 %%% ERROR --------------------------------------------------------------
-cas([Y | Args], {Path, Sil, Loc, Test, Var, Mach, Xref, XrefApps,
-		 Werror, X}) ->
-    cas(Args, {Path, Sil, Loc, Test, Var, Mach, Xref, XrefApps, Werror,
-	       X++[Y]}).
+cas([Y | Args], X) ->
+    cas(Args, X++[Y]).
 
 
 
