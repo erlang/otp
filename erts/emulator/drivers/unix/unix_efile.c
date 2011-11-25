@@ -1473,7 +1473,7 @@ efile_fadvise(Efile_error* errInfo, int fd, Sint64 offset,
 
 int
 efile_sendfile(Efile_error* errInfo, int in_fd, int out_fd,
-	       off_t *offset, Uint64 *nbytes)
+	       off_t *offset, Uint64 *nbytes, struct t_sendfile_hdtl** hdtl)
 {
     Uint64 written = 0;
 #if defined(__linux__) || (defined(__sun) && defined(__SVR4))

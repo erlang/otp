@@ -118,6 +118,19 @@ typedef struct _Efile_info {
 				 */
 } Efile_info;
 
+
+#ifdef HAVE_SENDFILE
+/*
+ * Described the structure of header/trailers for sendfile
+ */
+struct t_sendfile_hdtl {
+    SysIOVec *headers;
+    int hdr_cnt;
+    SysIOVec *trailers;
+    int trl_cnt;
+};
+#endif /* HAVE_SENDFILE */
+
 /*
  * Functions.
  */
@@ -164,5 +177,5 @@ int efile_fadvise(Efile_error* errInfo, int fd, Sint64 offset, Sint64 length,
 		  int advise);
 #ifdef HAVE_SENDFILE
 int efile_sendfile(Efile_error* errInfo, int in_fd, int out_fd,
-		      off_t *offset, Uint64 *nbytes);
+		      off_t *offset, Uint64 *nbytes, struct t_sendfile_hdtl **hdtl);
 #endif /* HAVE_SENDFILE */

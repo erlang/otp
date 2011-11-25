@@ -327,7 +327,7 @@ unrecv(S, Data) when is_port(S) ->
 sendfile(File, _Sock, _Offet, _Bytes, _Opts) when is_pid(File) ->
     {error, badarg};
 sendfile(File, Sock, Offset, Bytes, []) ->
-    sendfile(File, Sock, Offset, Bytes, ?MAX_CHUNK_SIZE, undefined, undefined,
+    sendfile(File, Sock, Offset, Bytes, ?MAX_CHUNK_SIZE, [], [],
 	     false, false, false);
 sendfile(File, Sock, Offset, Bytes, Opts) ->
     ChunkSize0 = proplists:get_value(chunk_size, Opts, ?MAX_CHUNK_SIZE),
@@ -335,8 +335,8 @@ sendfile(File, Sock, Offset, Bytes, Opts) ->
 			?MAX_CHUNK_SIZE;
 		   true -> ChunkSize0
 		end,
-    Headers = proplists:get_value(headers, Opts),
-    Trailers = proplists:get_value(trailers, Opts),
+    Headers = proplists:get_value(headers, Opts, []),
+    Trailers = proplists:get_value(trailers, Opts, []),
     sendfile(File, Sock, Offset, Bytes, ChunkSize, Headers, Trailers,
 	     lists:member(sf_nodiskio,Opts),lists:member(sf_mnowait,Opts),
 	     lists:member(sf_sync,Opts)).
@@ -432,11 +432,13 @@ sendfile(_,_,_,_,_,_,_,_,_,_) ->
 %%%
 sendfile_fallback(File, Sock, Offset, Bytes, ChunkSize,
 		  Headers, Trailers)
-  when is_list(Headers) == false ->
+  when Headers == []; is_integer(Headers) ->
     case sendfile_fallback(File, Sock, Offset, Bytes, ChunkSize) of
-	{ok, BytesSent} when is_list(Trailers),is_integer(Headers) ->
+	{ok, BytesSent} when is_list(Trailers),
+			     Trailers =/= [],
+			     is_integer(Headers) ->
 	    sendfile_send(Sock, Trailers, BytesSent+Headers);
-	{ok, BytesSent} when is_list(Trailers) ->
+	{ok, BytesSent} when is_list(Trailers), Trailers =/= [] ->
 	    sendfile_send(Sock, Trailers, BytesSent);
 	{ok, BytesSent} when is_integer(Headers) ->
 	    {ok, BytesSent + Headers};

@@ -370,7 +370,7 @@ t_sendfile_hdtl(Config) ->
 	   end,
 
     SendHdTl = fun(Sock) ->
-		       Headers = [<<"header1">>,"header2"],
+		       Headers = [<<"header1">>,<<0:(1024*8)>>,"header2"],
 		       Trailers = [<<"trailer1">>,"trailer2"],
 		       D = Send(Sock,Headers,Trailers,
 			    iolist_size([Headers,Trailers])),

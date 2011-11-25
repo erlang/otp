@@ -547,37 +547,20 @@ write_file(_, _) ->
 sendfile(#file_descriptor{module = ?MODULE, data = {Port, _}},
 	 DestFD, Offset, Bytes, ChunkSize, Headers, Trailers,
 	 Nodiskio, MNowait, Sync) ->
-    drv_command(Port, <<?FILE_SENDFILE, DestFD:32,
-			(get_bit(Nodiskio)):1,
-			(get_bit(MNowait)):1,
-			(get_bit(Sync)):1,0:5,
-			Offset:64/unsigned,
-			Bytes:64/unsigned,
-			ChunkSize:64,
-			(encode_hdtl(Headers))/binary,
-			(encode_hdtl(Trailers))/binary>>).
+    drv_command(Port, [<<?FILE_SENDFILE, DestFD:32,
+			 (get_bit(Nodiskio)):1,
+			 (get_bit(MNowait)):1,
+			 (get_bit(Sync)):1,0:5,
+			 Offset:64/unsigned,
+			 Bytes:64/unsigned,
+			 (iolist_size(Headers)):32/unsigned,
+			 (iolist_size(Trailers)):32/unsigned>>,
+		       Headers,Trailers]).
 
 get_bit(true) ->
     1;
 get_bit(false) ->
     0.
-
-encode_hdtl(undefined) ->
-    <<0>>;
-encode_hdtl([]) ->
-    <<0>>;
-encode_hdtl(List) ->
-    encode_hdtl(List,<<>>,0).
-
-encode_hdtl([], Acc, Cnt) ->
-    <<Cnt:8, Acc/binary>>;
-encode_hdtl([Bin|T], Acc, Cnt) when is_binary(Bin) ->
-    encode_hdtl(T, <<(byte_size(Bin)):32, Bin/binary, Acc/binary>>,Cnt + 1);
-encode_hdtl([Bin|T], Acc, Cnt) ->
-    encode_hdtl(T, <<(iolist_size(Bin)):32, (iolist_to_binary(Bin))/binary,
-		     Acc/binary>>,Cnt + 1).
-
-
 
 
 
