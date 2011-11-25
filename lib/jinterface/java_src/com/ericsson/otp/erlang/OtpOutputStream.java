@@ -25,6 +25,7 @@ import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.text.DecimalFormat;
+import java.util.Arrays;
 
 /**
  * Provides a stream for encoding Erlang terms to external format, for
@@ -39,7 +40,7 @@ public class OtpOutputStream extends ByteArrayOutputStream {
     /** The default initial size of the stream. * */
     public static final int defaultInitialSize = 2048;
 
-    /** The default increment used when growing the stream. * */
+    /** The default increment used when growing the stream (increment at least this much). * */
     public static final int defaultIncrement = 2048;
 
     // static formats, used to encode floats and doubles
@@ -95,6 +96,39 @@ public class OtpOutputStream extends ByteArrayOutputStream {
     }
 
     /**
+     * Trims the capacity of this <tt>OtpOutputStream</tt> instance to be the
+     * buffer's current size.  An application can use this operation to minimize
+     * the storage of an <tt>OtpOutputStream</tt> instance.
+     */
+    public void trimToSize() {
+	if (super.count < super.buf.length) {
+	    super.buf = Arrays.copyOf(super.buf, super.count);
+	}
+    }
+
+    /**
+     * Increases the capacity of this <tt>OtpOutputStream</tt> instance, if
+     * necessary, to ensure that it can hold at least the number of elements
+     * specified by the minimum capacity argument.
+     *
+     * @param   minCapacity   the desired minimum capacity
+     */
+    public void ensureCapacity(int minCapacity) {
+	int oldCapacity = super.buf.length;
+	if (minCapacity > oldCapacity) {
+	    int newCapacity = (oldCapacity * 3)/2 + 1;
+	    if (newCapacity < oldCapacity + defaultIncrement)
+		newCapacity = oldCapacity + defaultIncrement;
+	    if (newCapacity < minCapacity)
+		newCapacity = minCapacity;
+	    // minCapacity is usually close to size, so this is a win:
+	    final byte[] tmp = new byte[newCapacity];
+	    System.arraycopy(super.buf, 0, tmp, 0, super.count);
+	    super.buf = tmp;
+	}
+    }
+
+    /**
      * Write one byte to the stream.
      * 
      * @param b
@@ -102,13 +136,7 @@ public class OtpOutputStream extends ByteArrayOutputStream {
      * 
      */
     public void write(final byte b) {
-	if (super.count >= super.buf.length) {
-	    // System.err.println("Expanding buffer from " + this.buf.length
-	    // + " to " + (this.buf.length+defaultIncrement));
-	    final byte[] tmp = new byte[super.buf.length + defaultIncrement];
-	    System.arraycopy(super.buf, 0, tmp, 0, super.count);
-	    super.buf = tmp;
-	}
+	ensureCapacity(super.count + 1);
 	super.buf[super.count++] = b;
     }
 
@@ -122,14 +150,7 @@ public class OtpOutputStream extends ByteArrayOutputStream {
 
     @Override
     public void write(final byte[] buf) {
-	if (super.count + buf.length > super.buf.length) {
-	    // System.err.println("Expanding buffer from " + super.buf.length
-	    // + " to " + (buf.length + super.buf.lengt + defaultIncrement));
-	    final byte[] tmp = new byte[super.buf.length + buf.length
-		    + defaultIncrement];
-	    System.arraycopy(super.buf, 0, tmp, 0, super.count);
-	    super.buf = tmp;
-	}
+	ensureCapacity(super.count + buf.length);
 	System.arraycopy(buf, 0, super.buf, super.count, buf.length);
 	super.count += buf.length;
     }
