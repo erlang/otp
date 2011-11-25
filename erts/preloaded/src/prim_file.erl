@@ -539,30 +539,22 @@ write_file(File, Bin) when (is_list(File) orelse is_binary(File)) ->
     end;
 write_file(_, _) -> 
     {error, badarg}.
-    
+
 
 %% Returns {error, Reason} | {ok, BytesCopied}
-sendfile(_,_,_,_,_,_,_,_,_,_) ->
-    {error, enotsup};
+%sendfile(_,_,_,_,_,_,_,_,_,_) ->
+%    {error, enotsup};
 sendfile(#file_descriptor{module = ?MODULE, data = {Port, _}},
 	 DestFD, Offset, Bytes, ChunkSize, Headers, Trailers,
 	 Nodiskio, MNowait, Sync) ->
 
-    ok = drv_command(Port, <<?FILE_SENDFILE, DestFD:32, Offset:64, Bytes:64,
-			     ChunkSize:64,
-			     (get_bit(Nodiskio)):1,
-			     (get_bit(MNowait)):1,
-			     (get_bit(Sync)):1,0:5,
-			     (encode_hdtl(Headers))/binary,
-			     (encode_hdtl(Trailers))/binary>>),
-    Self = self(),
-    %% Should we use a ref()?
-    receive
-	{efile_reply, Self, Port, {ok, _Written}=OKRes}->
-	    OKRes;
-	{efile_reply, Self, Port, {error, _PosixError}=Error}->
-	    Error
-    end.
+    drv_command(Port, <<?FILE_SENDFILE, DestFD:32, Offset:64, Bytes:64,
+			ChunkSize:64,
+			(get_bit(Nodiskio)):1,
+			(get_bit(MNowait)):1,
+			(get_bit(Sync)):1,0:5,
+			(encode_hdtl(Headers))/binary,
+			(encode_hdtl(Trailers))/binary>>).
 
 get_bit(true) ->
     1;
@@ -578,8 +570,11 @@ encode_hdtl(List) ->
 
 encode_hdtl([], Acc, Cnt) ->
     <<Cnt:8, Acc/binary>>;
+encode_hdtl([Bin|T], Acc, Cnt) when is_binary(Bin) ->
+    encode_hdtl(T, <<(byte_size(Bin)):32, Bin/binary, Acc/binary>>,Cnt + 1);
 encode_hdtl([Bin|T], Acc, Cnt) ->
-    encode_hdtl(T, <<(byte_size(Bin)):32, Bin/binary, Acc/binary>>,Cnt + 1).
+    encode_hdtl(T, <<(iolist_size(Bin)):32, (iolist_to_binary(Bin))/binary,
+		     Acc/binary>>,Cnt + 1).
 
 
 
