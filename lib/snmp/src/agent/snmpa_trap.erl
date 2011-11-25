@@ -379,8 +379,13 @@ send_discovery(TargetName, Record, ContextName, Vbs, NetIf, ExtraInfo) ->
 
 get_values(VariablesWithType) ->
     {Order, Varbinds} = extract_order(VariablesWithType, 1),
+    ?vtrace("get_values -> "
+	    "~n   Order:    ~p"
+	    "~n   Varbinds: ~p", [Order, Varbinds]),
     case snmpa_agent:do_get(snmpa_acm:get_root_mib_view(), Varbinds, true) of
 	{noError, _, NewVarbinds} ->
+	    ?vtrace("get_values -> values retrieved"
+		    "~n   NewVarbinds: ~p", [NewVarbinds]),
 	    %% NewVarbinds is the result of:
 	    %% first a reverse, then a sort on the oid field and finally 
 	    %% a reverse during the get-processing so we need to re-sort 

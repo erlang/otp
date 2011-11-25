@@ -4723,46 +4723,46 @@ snmp_view_based_acm_mib() ->
 
 do_set(Row) ->
     s(Row),
-    expect(1, Row).
+    expect(do_set_1, Row).
     
 add_row(RowStatus) ->
     s([{RowStatus, ?createAndGo}]),
-    expect(1, [{RowStatus, ?createAndGo}]).
+    expect(add_row_1, [{RowStatus, ?createAndGo}]).
 
 del_row(RowStatus) ->
     s([{RowStatus, ?destroy}]),
-    expect(1, [{RowStatus, ?destroy}]).
+    expect(del_row_1, [{RowStatus, ?destroy}]).
     
     
 
 use_no_rights() ->
     g([[xDescr,0]]),
-    ?v1_2_3(expect(11, noSuchName, 1, any),
-	    expect(12, [{[xDescr,0], noSuchObject}]),
-	    expect(13, authorizationError, 1, any)),
+    ?v1_2_3(expect(use_no_rights_11, noSuchName, 1, any),
+	    expect(use_no_rights_12, [{[xDescr,0], noSuchObject}]),
+	    expect(use_no_rights_13, authorizationError, 1, any)),
     g([[xDescr2,0]]),
-    ?v1_2_3(expect(21, noSuchName, 1, any),
-	    expect(22, [{[xDescr2,0], noSuchObject}]),
-	    expect(23, authorizationError, 1, any)),
+    ?v1_2_3(expect(use_no_rights_21, noSuchName, 1, any),
+	    expect(use_no_rights_22, [{[xDescr2,0], noSuchObject}]),
+	    expect(use_no_rights_23, authorizationError, 1, any)),
     gn([[xDescr]]),
-    ?v1_2_3(expect(31, noSuchName, 1, any),
-	    expect(32, [{[xDescr], endOfMibView}]),
-	    expect(33, authorizationError, 1, any)),
+    ?v1_2_3(expect(use_no_rights_31, noSuchName, 1, any),
+	    expect(use_no_rights_32, [{[xDescr], endOfMibView}]),
+	    expect(use_no_rights_33, authorizationError, 1, any)),
     s([{[xDescr,0], "tryit"}]),
-    ?v1_2_3(expect(41, noSuchName, 1, any),
-	    expect(42, noAccess, 1, any),
-	    expect(43, authorizationError, 1, any)).
+    ?v1_2_3(expect(use_no_rights_41, noSuchName, 1, any),
+	    expect(use_no_rights_42, noAccess, 1, any),
+	    expect(use_no_rights_43, authorizationError, 1, any)).
 
 
 use_rights() ->
     g([[xDescr,0]]),
-    expect(1, [{[xDescr,0], any}]),
+    expect(use_rights_1, [{[xDescr,0], any}]),
     g([[xDescr2,0]]),
-    expect(2, [{[xDescr2,0], any}]),
+    expect(use_rights_2, [{[xDescr2,0], any}]),
     s([{[xDescr,0], "tryit"}]),
-    expect(3, noError, 0, any),
+    expect(use_rights_3, noError, 0, any),
     g([[xDescr,0]]),
-    expect(4, [{[xDescr,0], "tryit"}]).
+    expect(use_rights_4, [{[xDescr,0], "tryit"}]).
 
 mk_ln(X) ->
     [length(X) | X].

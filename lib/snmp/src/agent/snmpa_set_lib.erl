@@ -143,8 +143,8 @@ consistency_check(Varbinds) ->
     consistency_check(Varbinds, []).
 consistency_check([{TableOid, TableVbs} | Varbinds], Done) ->
     ?vtrace("consistency_check -> entry with"
-	"~n   TableOid: ~p"
-	"~n   TableVbs: ~p",[TableOid,TableVbs]),
+	    "~n   TableOid: ~p"
+	    "~n   TableVbs: ~p", [TableOid, TableVbs]),
     TableOpsWithShortOids = deletePrefixes(TableOid, TableVbs),
     [#ivarbind{mibentry = MibEntry}|_] = TableVbs,
     case is_set_ok_table(MibEntry, TableOpsWithShortOids) of
@@ -158,7 +158,7 @@ consistency_check([{TableOid, TableVbs} | Varbinds], Done) ->
     end;
 consistency_check([IVarbind | Varbinds], Done) ->
     ?vtrace("consistency_check -> entry with"
-	"~n   IVarbind: ~p",[IVarbind]),
+	    "~n   IVarbind: ~p", [IVarbind]),
     #ivarbind{varbind = Varbind, mibentry = MibEntry} = IVarbind,
     #varbind{value = Value, org_index = OrgIndex} = Varbind,
     case is_set_ok_variable(MibEntry, Value) of
@@ -358,32 +358,39 @@ make_value_a_correct_value(Value, ASN1Type, Mfa) ->
 %% Runtime debug support
 %%-----------------------------------------------------------------
 
-% XXX: This function match on the exakt return codes from EXIT
-% messages. As of this writing it was not decided if this is
-% the right way so don't blindly do things this way.
-%
-% We fake a real EXIT signal as the return value because the
-% result is passed to the function snmpa_agent:validate_err()
-% that expect it.
+%% XYZ: This function match on the exakt return codes from EXIT
+%% messages. As of this writing it was not decided if this is
+%% the right way so don't blindly do things this way.
+%%
+%% We fake a real EXIT signal as the return value because the
+%% result is passed to the function snmpa_agent:validate_err()
+%% that expect it.
   
 dbg_apply(M,F,A) ->
-    Result =
-	case get(verbosity) of
-	    false ->
-		(catch apply(M,F,A));
-	    _ ->
-		?vlog("~n   apply: ~w,~w,~p~n", [M,F,A]),
-		Res = (catch apply(M,F,A)),
-		?vlog("~n   returned: ~p", [Res]),
-		Res
-	end,
-    case Result of
+    case maybe_verbose_apply(M, F, A) of
+	%% <Future proofing>
+	%% As of R15 we get extra info containing, 
+	%% among other things, line numbers.
+	{'EXIT', {undef, [{M, F, A, _} | _]}} ->
+	    {'EXIT', {hook_undef, {M, F, A}}};
+	{'EXIT', {function_clause, [{M, F, A, _} | _]}} ->
+	    {'EXIT', {hook_function_clause, {M, F, A}}};
+
+	%% This is really overkill, but just to be on the safe side...
+	{'EXIT', {undef, {M, F, A, _}}} ->
+	    {'EXIT', {hook_undef, {M, F, A}}};
+	{'EXIT', {function_clause, {M, F, A, _}}} ->
+	    {'EXIT', {hook_function_clause, {M, F, A}}};
+	%% </Future proofing>
+
+
+	%% Old format format for compatibility
 	{'EXIT', {undef, [{M, F, A} | _]}} ->
 	    {'EXIT', {hook_undef, {M, F, A}}};
 	{'EXIT', {function_clause, [{M, F, A} | _]}} ->
 	    {'EXIT', {hook_function_clause, {M, F, A}}};
 
-	% XXX: Old format for compatibility
+	% XYZ: Older format for compatibility
 	{'EXIT', {undef, {M, F, A}}} ->
 	    {'EXIT', {hook_undef, {M, F, A}}};
 	{'EXIT', {function_clause, {M, F, A}}} ->
@@ -391,5 +398,17 @@ dbg_apply(M,F,A) ->
 
 	Result ->
 	    Result
+    end.
+
+
+maybe_verbose_apply(M, F, A) ->
+    case get(verbosity) of
+	false ->
+	    (catch apply(M,F,A));
+	_ ->
+	    ?vlog("~n   apply: ~w,~w,~p~n", [M,F,A]),
+	    Res = (catch apply(M,F,A)),
+	    ?vlog("~n   returned: ~p", [Res]),
+	    Res
     end.
 
