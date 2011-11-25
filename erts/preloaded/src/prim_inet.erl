@@ -36,7 +36,8 @@
 -export([recvfrom/2, recvfrom/3]).
 -export([setopt/3, setopts/2, getopt/2, getopts/2, is_sockopt_val/2]).
 -export([chgopt/3, chgopts/2]).
--export([getstat/2, getfd/1, getindex/1, getstatus/1, gettype/1, 
+-export([getstat/2, getfd/1, stealfd/1, returnfd/1,
+	 getindex/1, getstatus/1, gettype/1,
 	 getifaddrs/1, getiflist/1, ifget/3, ifset/3,
 	 gethostname/1]).
 -export([getservbyname/3, getservbyport/3]).
@@ -839,6 +840,28 @@ getfd(S) when is_port(S) ->
 	{ok, [S3,S2,S1,S0]} -> {ok, ?u32(S3,S2,S1,S0)};
 	{error,_}=Error -> Error
     end.        
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%
+%% STEALFD(insock()) -> {ok,integer()} | {error, Reason}
+%%
+%% steal internal file descriptor
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+stealfd(S) when is_port(S) ->
+    getfd(S).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%
+%% RETURNFD(insock()) -> {ok,integer()} | {error, Reason}
+%%
+%% return internal file descriptor
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+returnfd(S) when is_port(S) ->
+    ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%

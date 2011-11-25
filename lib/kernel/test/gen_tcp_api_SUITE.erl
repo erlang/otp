@@ -22,8 +22,9 @@
 %% are not tested here, because they are tested indirectly in this and
 %% and other test suites.
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/inet.hrl").
+-include_lib("kernel/include/file.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, 
@@ -32,20 +33,30 @@
 	 t_connect_bad/1,
 	 t_recv_timeout/1, t_recv_eof/1,
 	 t_shutdown_write/1, t_shutdown_both/1, t_shutdown_error/1,
-	 t_fdopen/1, t_implicit_inet6/1]).
+	 t_fdopen/1, t_implicit_inet6/1,
+	 t_sendfile/0, t_sendfile/1, t_sendfile_hdtl/1, t_sendfile_partial/1,
+	 t_sendfile_offset/1]).
+
+-export([sendfile_server/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [{group, t_accept}, {group, t_connect}, {group, t_recv},
      t_shutdown_write, t_shutdown_both, t_shutdown_error,
-     t_fdopen, t_implicit_inet6].
+     t_fdopen, t_implicit_inet6,{group,t_sendfile}].
 
 groups() -> 
     [{t_accept, [], [t_accept_timeout]},
      {t_connect, [], [t_connect_timeout, t_connect_bad]},
      {t_recv, [], [t_recv_timeout, t_recv_eof]},
-     {t_sendfile, [], [sendfile]}].
+     {t_sendfile, [], [{group, t_sendfile_raw},
+		       {group, t_sendfile_ioserv}]},
+     {t_sendfile_raw, [], sendfile_all()},
+     {t_sendfile_ioserv, [], sendfile_all()}].
+
+sendfile_all() ->
+    [t_sendfile,t_sendfile_hdtl, t_sendfile_partial, t_sendfile_offset].
 
 init_per_suite(Config) ->
     Config.
@@ -53,6 +64,16 @@ init_per_suite(Config) ->
 end_per_suite(_Config) ->
     ok.
 
+init_per_group(t_sendfile, Config) ->
+    Priv = ?config(priv_dir, Config),
+    Filename = filename:join(Priv, "sendfile_small.html"),
+    {ok, D} = file:open(Filename,[write]),
+    io:format(D,"yo baby yo",[]),
+    file:sync(D),
+    file:close(D),
+    [{small_file, Filename}|Config];
+init_per_group(t_sendfile_raw, Config) ->
+    [{file_opts, [raw]}|Config];
 init_per_group(_GroupName, Config) ->
     Config.
 
@@ -238,65 +259,137 @@ implicit_inet6(S, Addr) ->
     ?line ok = gen_tcp:close(S1).
 
 
-sendfile() ->
+t_sendfile() ->
     [{timetrap, {seconds, 5}}].
 
-sendfile_supported({unix,linux}) -> true;
-sendfile_supported({unix,sunos}) -> true;
-sendfile_supported({unix,freebsd}) -> true;
-sendfile_supported({unix,dragonfly}) -> true;
-sendfile_supported({unix,darwin}) -> true;
-%% TODO: enable win32 once TransmitFile based implemenation written properly
-%% sendfile_supported({win32,_}) -> true;
-sendfile_supported(_) -> false.
+t_sendfile(Config) when is_list(Config) ->
+    Filename = proplists:get_value(small_file, Config),
 
-sendfile(Config) when is_list(Config) ->
-    case sendfile_supported(os:type()) of
-	true ->
-	    ?line Data = ?config(data_dir, Config),
-	    ?line Real = filename:join(Data, "realmen.html"),
-	    Host = "localhost",
+    Send = fun(Sock) ->
+		   {Size, Data} = sendfile_file_info(Filename),
+		   {ok, Size} = gen_tcp:sendfile(Filename, Sock),
+		   Data
+	   end,
 
-	    %% TODO: find another way to test for {error, posix_error()}?
-	    %% Disabled because with driver_select I cannot test for
-	    %% invalid out_fd
-	    %% ?line {error, Error} = file:sendfile(Real, -1),
-	    %% ?line test_server:format("sendfile error = ~p", [Error]),
-	    %% %% Unix ebadf, Windows eio
-	    %% ?line true = Error =:= ebadf orelse Error =:= eio,
+    ok = sendfile_send(Send).
 
-	    ?line ok = sendfile_send(Host, Real);
-	false ->
-	    {skip, "sendfile not supported on this platform"}
-    end.
+t_sendfile_partial(Config) ->
+    Filename = proplists:get_value(small_file, Config),
+    FileOpts = proplists:get_value(file_opts, Config, []),
+
+    SendSingle = fun(Sock) ->
+			 {_Size, <<Data:5/binary,_/binary>>} =
+			     sendfile_file_info(Filename),
+			 {ok,D} = file:open(Filename,[read|FileOpts]),
+			 {ok,5} = gen_tcp:sendfile(D,Sock,undefined,5,[]),
+			 file:close(D),
+			 Data
+		 end,
+    ok = sendfile_send(SendSingle),
+
+    {_Size, <<FData:5/binary,SData:3/binary,_/binary>>} =
+	sendfile_file_info(Filename),
+    {ok,D} = file:open(Filename,[read|FileOpts]),
+    FSend = fun(Sock) ->
+		    {ok,5} = gen_tcp:sendfile(D,Sock,undefined,5,[]),
+		    FData
+	    end,
+
+    ok = sendfile_send(FSend),
+
+    SSend = fun(Sock) ->
+		    {ok,3} = gen_tcp:sendfile(D,Sock,undefined,3,[]),
+		    SData
+	    end,
+
+    ok = sendfile_send(SSend),
+    file:close(D).
+
+t_sendfile_offset(Config) ->
+    Filename = proplists:get_value(small_file, Config),
+    FileOpts = proplists:get_value(file_opts, Config, []),
+
+    Send = fun(Sock) ->
+		   {_Size, <<_:5/binary,Data:3/binary,_/binary>> = AllData} =
+		       sendfile_file_info(Filename),
+		   {ok,D} = file:open(Filename,[read,binary|FileOpts]),
+		   {ok,3} = gen_tcp:sendfile(D,Sock,5,3,[]),
+		   {ok, AllData} = file:read(D,100),
+		   file:close(D),
+		   Data
+	   end,
+    ok = sendfile_send(Send).
+
+
+t_sendfile_hdtl(Config) ->
+    Filename = proplists:get_value(small_file, Config),
+    FileOpts = proplists:get_value(file_opts, Config, []),
+
+    Send = fun(Sock, Headers, Trailers, HdtlSize) ->
+		   {Size, Data} = sendfile_file_info(Filename),
+		   {ok,D} = file:open(Filename,[read|FileOpts]),
+		   AllSize = Size+HdtlSize,
+		   {ok, AllSize} = gen_tcp:sendfile(
+				     D, Sock,undefined,undefined,
+				     [{headers,Headers},
+				      {trailers,Trailers}]),
+		   file:close(D),
+		   Data
+	   end,
+
+    SendHdTl = fun(Sock) ->
+		       Headers = [<<"header1">>,"header2"],
+		       Trailers = [<<"trailer1">>,"trailer2"],
+		       D = Send(Sock,Headers,Trailers,
+			    iolist_size([Headers,Trailers])),
+		       iolist_to_binary([Headers,D,Trailers])
+	       end,
+    ok = sendfile_send(SendHdTl),
+
+    SendHd = fun(Sock) ->
+		       Headers = [<<"header1">>,"header2"],
+		       D = Send(Sock,Headers,undefined,
+			    iolist_size([Headers])),
+		       iolist_to_binary([Headers,D])
+	       end,
+    ok = sendfile_send(SendHd),
+
+    SendTl = fun(Sock) ->
+		       Trailers = [<<"trailer1">>,"trailer2"],
+		       D = Send(Sock,Trailers,undefined,
+			    iolist_size([Trailers])),
+		       iolist_to_binary([Trailers,D])
+	       end,
+    ok = sendfile_send(SendTl).
+
 
 %% TODO: consolidate tests and reduce code
-
-sendfile_send(Host, File) ->
-    {Size, _Md5} = FileInfo = sendfile_file_info(File),
+sendfile_send(Send) ->
+    sendfile_send("localhost",Send).
+sendfile_send(Host, Send) ->
     spawn_link(?MODULE, sendfile_server, [self()]),
     receive
 	{server, Port} ->
-	    ?line {ok, Sock} = gen_tcp:connect(Host, Port,
+	    {ok, Sock} = gen_tcp:connect(Host, Port,
 					       [binary,{packet,0}]),
-	    ?line {ok, Size} = file:sendfile(File, Sock),
-	    ?line ok = gen_tcp:close(Sock),
+	    Data = Send(Sock),
+	    ok = gen_tcp:close(Sock),
 	    receive
 		{ok, Bin} ->
-		    ?line FileInfo = sendfile_bin_info(Bin),
+		    Data = Bin,
 		    ok
 	    end
     end.
 
 sendfile_server(ClientPid) ->
-    ?line {ok, LSock} = gen_tcp:listen(0, [binary, {packet, 0},
+    {ok, LSock} = gen_tcp:listen(0, [binary, {packet, 0},
 					   {active, false},
 					   {reuseaddr, true}]),
-    ?line {ok, Port} = inet:port(LSock),
+    {ok, Port} = inet:port(LSock),
     ClientPid ! {server, Port},
-    ?line {ok, Sock} = gen_tcp:accept(LSock),
-    ?line {ok, Bin} = sendfile_do_recv(Sock, []),
-    ?line ok = gen_tcp:close(Sock),
+    {ok, Sock} = gen_tcp:accept(LSock),
+    {ok, Bin} = sendfile_do_recv(Sock, []),
+    ok = gen_tcp:close(Sock),
     ClientPid ! {ok, Bin}.
 
 -define(SENDFILE_TIMEOUT, 5000).
@@ -306,20 +399,13 @@ sendfile_do_recv(Sock, Bs) ->
 	{ok, B} ->
 	    sendfile_do_recv(Sock, [B|Bs]);
 	{error, closed} ->
-	    {ok, lists:reverse(Bs)}
+	    {ok, iolist_to_binary(lists:reverse(Bs))}
     end.
 
 sendfile_file_info(File) ->
     {ok, #file_info{size = Size}} = file:read_file_info(File),
     {ok, Data} = file:read_file(File),
-    Md5 = erlang:md5(Data),
-    {Size, Md5}.
-
-sendfile_bin_info(Data) ->
-    Size = lists:foldl(fun(E,Sum) -> size(E) + Sum end, 0, Data),
-    Md5 = erlang:md5(Data),
-    {Size, Md5}.
-
+    {Size, Data}.
 
 
 %%% Utilities
