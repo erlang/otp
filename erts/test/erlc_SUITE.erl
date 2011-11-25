@@ -238,6 +238,12 @@ num_d_options() ->
 	    %% of arguments is 16383.
 	    %% See: http://www.in-ulm.de/~mascheck/various/argmax/
 	    5440;
+	{{unix,darwin},{Major,_,_}} when Major >= 11 ->
+	    %% "getconf ARG_MAX" still reports 262144 (as in previous
+	    %% version of MacOS X), but the useful space seem to have
+	    %% shrunk significantly (or possibly the number of arguments).
+	    %% 7673
+	    7500;
 	{_,_} ->
 	    12000
     end.
