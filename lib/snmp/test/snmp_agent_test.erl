@@ -92,7 +92,8 @@ all() ->
     Conf1 ++ Conf2.
 
 groups() -> 
-    [{all_tcs, [], cases()},
+    [
+     {all_tcs, [], cases()},
      {mib_storage, [],
       [
        {group, mib_storage_ets}, 
@@ -1321,7 +1322,7 @@ finish_v3(Config) when is_list(Config) ->
 
 
 mt_cases() -> 
-[multi_threaded, mt_trap].
+    [multi_threaded, mt_trap].
 
 init_mt(Config) when is_list(Config) ->
     SaNode = ?config(snmp_sa, Config),
@@ -1498,7 +1499,8 @@ mt_trap(Config) when is_list(Config) ->
     ?line load_master("TestTrapv2"),
     try_test(mt_trap_test, [MA]),
     ?line unload_master("TestTrapv2"),
-    ?line unload_master("Test1").
+    ?line unload_master("Test1"),
+    ok.
 
 v2_types(suite) -> [];
 v2_types(Config) when is_list(Config) ->
@@ -3134,8 +3136,9 @@ mt_trap_test(MA) ->
     ?DBG("mt_trap_test(01) -> issue testTrapv22 (standard trap)", []),
     snmpa:send_trap(MA, testTrapv22, "standard trap"),
     ?DBG("mt_trap_test(02) -> await v2trap", []),
-    ?line expect(1, v2trap, [{[sysUpTime, 0], any},
-			     {[snmpTrapOID, 0], ?system ++ [0,1]}]),
+    ?line expect(mt_trap_test_1, v2trap, 
+		 [{[sysUpTime, 0],   any},
+		  {[snmpTrapOID, 0], ?system ++ [0,1]}]),
 
     ?DBG("mt_trap_test(03) -> issue mtTrap (standard trap)", []),
     snmpa:send_trap(MA, mtTrap, "standard trap"),
@@ -3143,28 +3146,22 @@ mt_trap_test(MA) ->
     ?DBG("mt_trap_test(04) -> multi pid: ~p. Now request sysUpTime...", [Pid]),
     g([[sysUpTime,0]]),
 
-    %% Previously (before OTP-6784) this was done at 09 below 
-    %% when the test1:multiStr was actually executed by the 
-    %% worker-process, but as of 4.9.4, this is now executed
-    %% my the master_agent-process...
-    ?DBG("mt_trap_test(05) -> send continue to multi-pid", []),
-    Pid ! continue,
-
     ?DBG("mt_trap_test(06) -> await sysUpTime", []),
-    ?line expect(2, [{[sysUpTime,0], any}]),
+    ?line expect(mt_trap_test_2, [{[sysUpTime,0], any}]),
     ?DBG("mt_trap_test(07) -> issue testTrapv22 (standard trap)", []),
     snmpa:send_trap(MA, testTrapv22, "standard trap"),
     ?DBG("mt_trap_test(08) -> await v2trap", []),
-    ?line expect(3, v2trap, [{[sysUpTime, 0], any},
-			     {[snmpTrapOID, 0], ?system ++ [0,1]}]),
+    ?line expect(mt_trap_test_3, v2trap, 
+		 [{[sysUpTime, 0],   any}, 
+		  {[snmpTrapOID, 0], ?system ++ [0,1]}]),
 
-    %% ?DBG("mt_trap_test(09) -> send continue to multi-pid", []),
-    %% Pid ! continue,
+    ?DBG("mt_trap_test(09) -> send continue to multi-pid", []),
+    Pid ! continue,
 
     ?DBG("mt_trap_test(10) -> await v2trap", []),
-    ?line expect(4, v2trap, [{[sysUpTime, 0], any},
-			     {[snmpTrapOID, 0], ?testTrap ++ [2]},
-			     {[multiStr,0], "ok"}]),
+    ?line expect(mt_trap_test_4, v2trap, [{[sysUpTime, 0], any},
+					  {[snmpTrapOID, 0], ?testTrap ++ [2]},
+					  {[multiStr,0], "ok"}]),
     ?DBG("mt_trap_test(11) -> done", []),
     ok.
 
@@ -3563,53 +3560,82 @@ do_mul_set_err() ->
 %% Req. SA-MIB
 sa_mib() ->
     g([[sa, [2,0]]]),
-    ?line expect(1, [{[sa, [2,0]], 3}]),
+    ?line expect(sa_mib_1, [{[sa, [2,0]], 3}]),
     s([{[sa, [1,0]], s, "sa_test"}]),
-    ?line expect(2, [{[sa, [1,0]], "sa_test"}]).
+    ?line expect(sa_mib_2, [{[sa, [1,0]], "sa_test"}]),
+    ok.
 
 ma_trap1(MA) ->
     ok = snmpa:send_trap(MA, testTrap2, "standard trap"), 
-    ?line expect(1, trap, [system], 6, 1, [{[system, [4,0]],
-				    "{mbj,eklas}@erlang.ericsson.se"}]),
+    ?line expect(ma_trap1_1, 
+		 trap, [system], 6, 1, [{[system, [4,0]],
+					 "{mbj,eklas}@erlang.ericsson.se"}]),
     ok = snmpa:send_trap(MA, testTrap1, "standard trap"),
-    ?line expect(2, trap, [1,2,3] , 1, 0, [{[system, [4,0]],
-				      "{mbj,eklas}@erlang.ericsson.se"}]).
+    ?line expect(ma_trap1_2, 
+		 trap, [1,2,3] , 1, 0, [{[system, [4,0]],
+					 "{mbj,eklas}@erlang.ericsson.se"}]),
+    ok.
 
 ma_trap2(MA) ->
     snmpa:send_trap(MA,testTrap2,"standard trap",[{sysContact,"pelle"}]),
-    ?line expect(3, trap, [system], 6, 1, [{[system, [4,0]], "pelle"}]).
+    ?line expect(ma_trap2_3, 
+		 trap, [system], 6, 1, [{[system, [4,0]], "pelle"}]),
+    ok.
 
 ma_v2_2_v1_trap(MA) ->
     snmpa:send_trap(MA,testTrapv22,"standard trap",[{sysContact,"pelle"}]),
-    ?line expect(3, trap, [system], 6, 1, [{[system, [4,0]], "pelle"}]).    
+    ?line expect(ma_v2_2_v1_trap_3, 
+		 trap, [system], 6, 1, [{[system, [4,0]], "pelle"}]),
+    ok.    
 
 ma_v2_2_v1_trap2(MA) ->
     snmpa:send_trap(MA,linkUp,"standard trap",[{ifIndex, [1], 1},
 					      {ifAdminStatus, [1], 1},
 					      {ifOperStatus, [1], 2}]),
-    ?line expect(3, trap, [1,2,3], 3, 0, [{[ifIndex, 1], 1},
-					 {[ifAdminStatus, 1], 1},
-					 {[ifOperStatus, 1], 2}]).    
+    ?line expect(ma_v2_2_v1_trap2_3, 
+		 trap, [1,2,3], 3, 0, [{[ifIndex, 1], 1},
+				       {[ifAdminStatus, 1], 1},
+				       {[ifOperStatus, 1], 2}]),
+    ok.
 
 sa_trap1(SA) ->
-    snmpa:send_trap(SA, saTrap, "standard trap"),
-    ?line expect(4, trap, [ericsson], 6, 1, [{[system, [4,0]],
-				      "{mbj,eklas}@erlang.ericsson.se"},
-				     {[sa, [1,0]], "sa_test"}]).
+    %% io:format("sa_trap1 -> entry with"
+    %% 	      "~n   SA:       ~p"
+    %% 	      "~n   node(SA): ~p"
+    %% 	      "~n   self():   ~p"
+    %% 	      "~n   node():   ~p"
+    %% 	      "~n", [SA, node(SA), self(), node()]),
+    _VRes  = (catch snmpa:verbosity(SA, {subagents, trace})),
+    %% io:format("sa_trap1 -> SA verbosity set: "
+    %% 	      "~n   VRes: ~p"
+    %% 	      "~n", [VRes]),
+    _TSRes = (catch snmpa:send_trap(SA, saTrap, "standard trap")),
+    %% io:format("sa_trap1 -> SA trap send: "
+    %% 	      "~n   TSRes: ~p"
+    %% 	      "~n", [TSRes]),
+    ?line expect(sa_trap1_4, 
+		 trap, [ericsson], 6, 1, [{[system, [4,0]],
+					   "{mbj,eklas}@erlang.ericsson.se"},
+					  {[sa, [1,0]], "sa_test"}]),
+    snmpa:verbosity(SA, {subagents, silence}),
+    ok.
 
 sa_trap2(SA) ->
     snmpa:send_trap(SA, saTrap, "standard trap",[{sysContact,"pelle"}]),
-    ?line expect(5, trap, [ericsson], 6, 1, [{[system, [4,0]],
-				      "pelle"},
-				     {[sa, [1,0]], "sa_test"}]).
+    ?line expect(sa_trap2_5, 
+		 trap, [ericsson], 6, 1, [{[system, [4,0]], "pelle"},
+					  {[sa, [1,0]], "sa_test"}]),
+    ok.
 
 sa_trap3(SA) ->
     snmpa:send_trap(SA, saTrap2, "standard trap",
 			 [{intViewSubtree, [4], [1,2,3,4]}]),
-    ?line expect(6, trap, [ericsson], 6, 2, [{[system, [4,0]],
-				      "{mbj,eklas}@erlang.ericsson.se"},
-				     {[sa, [1,0]], "sa_test"},
-				     {[intViewSubtree,4],[1,2,3,4]}]).
+    ?line expect(sa_trap3_6, 
+		 trap, [ericsson], 6, 2, [{[system, [4,0]],
+					   "{mbj,eklas}@erlang.ericsson.se"},
+					  {[sa, [1,0]], "sa_test"},
+					  {[intViewSubtree,4],[1,2,3,4]}]),
+    ok.
 
 ma_v2_trap1(MA) ->
     ?DBG("ma_v2_traps -> entry with MA = ~p => "
@@ -4029,33 +4055,42 @@ ma_v1_2_v2_trap2(MA) ->
     
 
 sa_v1_2_v2_trap1(SA) ->
+    snmpa:verbosity(SA, {subagents, trace}),
     snmpa:send_trap(SA, saTrap, "standard trap"),
-    ?line expect(4, v2trap, [{[sysUpTime, 0], any},
-			     {[snmpTrapOID, 0], ?ericsson ++ [0, 1]},
-			     {[system, [4,0]],
-			      "{mbj,eklas}@erlang.ericsson.se"},
-			     {[sa, [1,0]], "sa_test"},
-			     {[snmpTrapEnterprise, 0], ?ericsson}]).
+    ?line expect(trap1_4, v2trap, [{[sysUpTime, 0], any},
+				   {[snmpTrapOID, 0], ?ericsson ++ [0, 1]},
+				   {[system, [4,0]],
+				    "{mbj,eklas}@erlang.ericsson.se"},
+				   {[sa, [1,0]], "sa_test"},
+				   {[snmpTrapEnterprise, 0], ?ericsson}]),
+    snmpa:verbosity(SA, {subagents, silence}),
+    ok.
 
 sa_v1_2_v2_trap2(SA) ->
+    snmpa:verbosity(SA, {subagents, trace}),
     snmpa:send_trap(SA, saTrap, "standard trap",[{sysContact,"pelle"}]),
-    ?line expect(4, v2trap, [{[sysUpTime, 0], any},
-			     {[snmpTrapOID, 0], ?ericsson ++ [0, 1]},
-			     {[system, [4,0]], "pelle"},
-			     {[sa, [1,0]], "sa_test"},
-			     {[snmpTrapEnterprise, 0], ?ericsson}]).
-			     
+    ?line expect(trap2_4, v2trap, [{[sysUpTime, 0], any},
+				   {[snmpTrapOID, 0], ?ericsson ++ [0, 1]},
+				   {[system, [4,0]], "pelle"},
+				   {[sa, [1,0]], "sa_test"},
+				   {[snmpTrapEnterprise, 0], ?ericsson}]),
+    snmpa:verbosity(SA, {subagents, silence}),
+    ok.
+
 
 sa_v1_2_v2_trap3(SA) ->
+    snmpa:verbosity(SA, {subagents, trace}),
     snmpa:send_trap(SA, saTrap2, "standard trap",
 			 [{intViewSubtree, [4], [1,2,3,4]}]),
-    ?line expect(4, v2trap, [{[sysUpTime, 0], any},
-			     {[snmpTrapOID, 0], ?ericsson ++ [0, 2]},
-			     {[system, [4,0]],
-			      "{mbj,eklas}@erlang.ericsson.se"},
-			     {[sa, [1,0]], "sa_test"},
-			     {[intViewSubtree,4],[1,2,3,4]},
-			     {[snmpTrapEnterprise, 0], ?ericsson}]).
+    ?line expect(trap3_4, v2trap, [{[sysUpTime, 0], any},
+				   {[snmpTrapOID, 0], ?ericsson ++ [0, 2]},
+				   {[system, [4,0]],
+				    "{mbj,eklas}@erlang.ericsson.se"},
+				   {[sa, [1,0]], "sa_test"},
+				   {[intViewSubtree,4],[1,2,3,4]},
+				   {[snmpTrapEnterprise, 0], ?ericsson}]),
+    snmpa:verbosity(SA, {subagents, silence}),
+    ok.
 			     
 
 %% Req. SA-MIB, OLD-SNMPEA-MIB
@@ -4195,9 +4230,9 @@ snmp_standard_mib(Config) when is_list(Config) ->
 
 %% Req. SNMP-STANDARD-MIB
 standard_mib_a() ->
-    ?line [OutPkts] = get_req(2, [[snmpOutPkts,0]]),
+    ?line [OutPkts]  = get_req(2, [[snmpOutPkts,0]]),
     ?line [OutPkts2] = get_req(3, [[snmpOutPkts,0]]),
-    ?line OutPkts2 = OutPkts + 1,
+    ?line OutPkts2   = OutPkts + 1,
     %% There are some more counters we could test here, but it's not that
     %% important, since they are removed from SNMPv2-MIB.
     ok.
@@ -4207,27 +4242,27 @@ std_mib_init() ->
     %% disable authentication failure traps.  (otherwise w'd get many of
     %% them - this is also a test to see that it works).
     s([{[snmpEnableAuthenTraps,0], 2}]),
-    ?line expect(1, [{[snmpEnableAuthenTraps, 0], 2}]).
+    ?line expect(std_mib_init_1, [{[snmpEnableAuthenTraps, 0], 2}]).
 
 %% Req. SNMP-STANDARD-MIB | SNMPv2-MIB
 std_mib_finish() ->
     %% enable again
     s([{[snmpEnableAuthenTraps,0], 1}]),
-    ?line expect(1, [{[snmpEnableAuthenTraps, 0], 1}]).
+    ?line expect(std_mib_finish_1, [{[snmpEnableAuthenTraps, 0], 1}]).
 
 %% Req. SNMP-STANDARD-MIB
 standard_mib_test_finish() ->
-    %% force a authenticationFailure
+    %% force a authenticationFailure (should result in a trap)
     std_mib_write(),
     %% check that we got a trap
-    ?line expect(2, trap, [1,2,3], 4, 0, []).
+    ?line expect(standard_mib_test_finish_2, trap, [1,2,3], 4, 0, []).
 
 %% Req. SNMP-STANDARD-MIB | SNMPv2-MIB
 std_mib_read() ->
     ?DBG("std_mib_read -> entry", []),
     g([[sysUpTime,0]]), % try a bad <something>; msg dropped, no reply
     ?DBG("std_mib_read -> await timeout (i.e. no reply)", []),
-    ?line expect(1, timeout). % make sure we don't get a trap!
+    ?line expect(std_mib_read_1, timeout). % make sure we don't get a trap!
 
 
 %% Req. SNMP-STANDARD-MIB | SNMPv2-MIB
@@ -4362,10 +4397,10 @@ std_mib_c({InBadCommunityNames, InBadCommunityUses, InASNErrs}) ->
 snmpv2_mib_a() ->
     ?line [SetSerial] = get_req(2, [[snmpSetSerialNo,0]]),
     s([{[snmpSetSerialNo,0], SetSerial}, {[sysLocation, 0], "val2"}]),
-    ?line expect(3, [{[snmpSetSerialNo,0], SetSerial},
-		     {[sysLocation, 0], "val2"}]),
+    ?line expect(snmpv2_mib_a_3, [{[snmpSetSerialNo,0], SetSerial},
+				  {[sysLocation, 0], "val2"}]),
     s([{[sysLocation, 0], "val3"}, {[snmpSetSerialNo,0], SetSerial}]),
-    ?line expect(4, inconsistentValue, 2,
+    ?line expect(snmpv2_mib_a_4, inconsistentValue, 2,
 		 [{[sysLocation, 0], "val3"},
 		  {[snmpSetSerialNo,0], SetSerial}]),
     ?line ["val2"] = get_req(5, [[sysLocation,0]]).
