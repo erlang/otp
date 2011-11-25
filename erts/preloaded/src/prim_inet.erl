@@ -36,7 +36,7 @@
 -export([recvfrom/2, recvfrom/3]).
 -export([setopt/3, setopts/2, getopt/2, getopts/2, is_sockopt_val/2]).
 -export([chgopt/3, chgopts/2]).
--export([getstat/2, getfd/1, stealfd/1, returnfd/1,
+-export([getstat/2, getfd/1, ignorefd/2,
 	 getindex/1, getstatus/1, gettype/1,
 	 getifaddrs/1, getiflist/1, ifget/3, ifset/3,
 	 gethostname/1]).
@@ -843,25 +843,18 @@ getfd(S) when is_port(S) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
-%% STEALFD(insock()) -> {ok,integer()} | {error, Reason}
+%% IGNOREFD(insock(),boolean()) -> {ok,integer()} | {error, Reason}
 %%
 %% steal internal file descriptor
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-stealfd(S) when is_port(S) ->
-    getfd(S).
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%
-%% RETURNFD(insock()) -> {ok,integer()} | {error, Reason}
-%%
-%% return internal file descriptor
-%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-returnfd(S) when is_port(S) ->
-    ok.
+ignorefd(S,Bool) when is_port(S) ->
+    Val = if Bool -> 1; true -> 0 end,
+    case ctl_cmd(S, ?INET_REQ_IGNOREFD, [Val]) of
+	{ok, _} -> ok;
+	Error -> Error
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%

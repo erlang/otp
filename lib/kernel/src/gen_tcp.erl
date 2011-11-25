@@ -420,15 +420,16 @@ mod([], Address) ->
 sendfile(#file_descriptor{ module = Mod } = Fd, Sock, Offset, Bytes,
 	 ChunkSize, Headers, Trailers, Nodiskio, MNowait, Sync)
   when is_port(Sock) ->
-    {ok,SockFd} = prim_inet:stealfd(Sock),
+    ok = prim_inet:ignorefd(Sock,true),
+    {ok, SockFd} = prim_inet:getfd(Sock),
     case Mod:sendfile(Fd, SockFd, Offset, Bytes, ChunkSize, Headers, Trailers,
 		      Nodiskio, MNowait, Sync) of
 	{error, enotsup} ->
-	    prim_inet:returnfd(Sock),
+	    ok = prim_inet:ignorefd(Sock,false),
 	    sendfile_fallback(Fd, Sock, Offset, Bytes, ChunkSize,
 			      Headers, Trailers);
 	Else ->
-	    prim_inet:returnfd(Sock),
+	    ok = prim_inet:ignorefd(Sock,false),
 	    Else
     end;
 sendfile(_,_,_,_,_,_,_,_,_,_) ->

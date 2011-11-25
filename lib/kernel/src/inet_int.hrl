@@ -85,6 +85,8 @@
 -define(INET_REQ_GETIFADDRS,    25).
 -define(INET_REQ_ACCEPT,        26).
 -define(INET_REQ_LISTEN,        27).
+-define(INET_REQ_IGNOREFD,      28).
+
 %% TCP requests
 %%-define(TCP_REQ_ACCEPT,         40). MOVED
 %%-define(TCP_REQ_LISTEN,         41). MERGED
