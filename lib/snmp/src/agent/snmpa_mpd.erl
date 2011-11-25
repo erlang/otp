@@ -468,15 +468,10 @@ v3_proc(NoteStore, Packet, LocalEngineID, V3Hdr, Data, Log) ->
 			_ ->
 			    %% 4.2.2.1.2
 			    NIsReportable = snmp_misc:is_reportable_pdu(Type),
-			    Val = inc(snmpUnknownPDUHandlers),
 			    ErrorInfo = 
-				{#varbind{oid = ?snmpUnknownPDUHandlers,
-					  variabletype = 'Counter32',
-					  value = Val},
-				 SecName,
-				 [{securityLevel,   SecLevel},
-				  {contextEngineID, ContextEngineID},
-				  {contextName,     ContextName}]},
+				snmpUnknownPDUHandlers_ei(SecName, SecLevel, 
+							  ContextEngineID, 
+							  ContextName),
 			    case generate_v3_report_msg(MsgID, 
 							MsgSecurityModel,
 							Data, LocalEngineID, 
@@ -507,6 +502,21 @@ v3_proc(NoteStore, Packet, LocalEngineID, V3Hdr, Data, Log) ->
 	    end
     end.
 
+make_error_info(Variable, Oid, SecName, Opts) ->
+    Val = inc(Variable),
+    VB  = #varbind{oid          = Oid, 
+		   variabletype = 'Counter32',
+		   value        = Val},
+    {VB, SecName, Opts}.
+
+snmpUnknownPDUHandlers_ei(SecName, SecLevel, 
+			  ContextEngineID, ContextName) ->
+    Opts = [{securityLevel,   SecLevel},
+	    {contextEngineID, ContextEngineID},
+	    {contextName,     ContextName}], 
+    make_error_info(snmpUnknownPDUHandlers, 
+		    ?snmpUnknownPDUHandlers_instance,
+		    SecName, Opts).
 
 get_security_module(?SEC_USM) ->
     snmpa_usm;
