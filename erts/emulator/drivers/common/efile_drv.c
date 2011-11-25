@@ -421,7 +421,7 @@ struct t_data
 	struct {
 	    int out_fd;
 	    off_t offset;
-	    size_t nbytes;
+	    Uint64 nbytes;
 	    Uint64 written;
 	    short flags;
 	    struct t_sendfile_hdtl *hdtl;
@@ -1728,7 +1728,7 @@ static void invoke_sendfile(void *data)
     struct t_data *d = (struct t_data *)data;
     int fd = d->fd;
     int out_fd = d->c.sendfile.out_fd;
-    size_t nbytes = d->c.sendfile.nbytes;
+    Uint64 nbytes = d->c.sendfile.nbytes;
     int result = 0;
     d->again = 0;
 
@@ -2197,12 +2197,13 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
 	  free_preadv(data);
 	  break;
       case FILE_SENDFILE:
-	  printf("efile_ready_async: sendfile (d->result_ok == %d)\r\n",d->result_ok);
+	//printf("efile_ready_async: sendfile (d->result_ok == %d)\r\n",d->result_ok);
 	  if (d->result_ok == -1) {
 	      desc->sendfile_state = not_sending;
 	      reply_error(desc, &d->errInfo);
 	      if (sys_info.async_threads != 0) {
 		  SET_NONBLOCKING(d->c.sendfile.out_fd);
+		  free_sendfile(data);
 	      } else {
 		driver_select(desc->port, (ErlDrvEvent)d->c.sendfile.out_fd,
 			      ERL_DRV_USE, 0);
@@ -2212,6 +2213,7 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
 	      reply_Sint64(desc, d->c.sendfile.written);
 	      if (sys_info.async_threads != 0) {
 		SET_NONBLOCKING(d->c.sendfile.out_fd);
+		free_sendfile(data);
 	      } else {
 		driver_select(desc->port, (ErlDrvEvent)d->c.sendfile.out_fd,
 			      ERL_DRV_USE, 0);
@@ -3367,7 +3369,8 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
     case FILE_SENDFILE: {
 
         struct t_data *d;
-	Uint32 out_fd, offsetH, offsetL, nbytesH, nbytesL;
+	Uint32 out_fd, offsetH, offsetL;
+	Uint64 nbytes;
 	char flags;
 
 	/* DestFD:32, Offset:64, Bytes:64,
@@ -3382,8 +3385,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 		|| !EV_GET_CHAR(ev, &flags, &p, &q)
 		|| !EV_GET_UINT32(ev, &offsetH, &p, &q)
 		|| !EV_GET_UINT32(ev, &offsetL, &p, &q)
-		|| !EV_GET_UINT32(ev, &nbytesH, &p, &q)
-		|| !EV_GET_UINT32(ev, &nbytesL, &p, &q)) {
+		|| !EV_GET_UINT64(ev, &nbytes, &p, &q)) {
 	    /* Buffer has wrong length to contain all the needed values */
 	    reply_posix_error(desc, EINVAL);
 	    goto done;
@@ -3410,17 +3412,9 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	d->c.sendfile.offset = ((off_t) offsetH << 32) | offsetL;
     #endif
 
-    #if SIZEOF_SIZE_T == 4
-	if (nbytesH != 0) {
-	    reply_posix_error(desc, EINVAL);
-	    goto done;
-	}
-	d->c.sendfile.nbytes = (size_t) nbytesL;
-    #else
-	d->c.sendfile.nbytes = ((size_t) nbytesH << 32) | nbytesL;
-    #endif
+	d->c.sendfile.nbytes = nbytes;
 
-	printf("sendfile(nbytes => %d, offset => %d, flags => %x)\r\n",d->c.sendfile.nbytes,d->c.sendfile.offset, d->c.sendfile.flags);
+	printf("sendfile(nbytes => %ld, offset => %d, flags => %x)\r\n",d->c.sendfile.nbytes,d->c.sendfile.offset, d->c.sendfile.flags);
 
 	/* Do HEADER TRAILER stuff by calculating pointer places, not by copying data! */
 

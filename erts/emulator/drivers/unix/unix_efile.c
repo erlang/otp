@@ -1469,33 +1469,46 @@ efile_fadvise(Efile_error* errInfo, int fd, Sint64 offset,
 }
 
 #ifdef HAVE_SENDFILE
-#define SENDFILE_CHUNK_SIZE ((1 << 30) - 1)
 int
 efile_sendfile(Efile_error* errInfo, int in_fd, int out_fd,
-	       off_t *offset, size_t *nbytes)
+	       off_t *offset, Uint64 *nbytes)
 {
+  //    printf("sendfile(%d,%d,%d,%d)\r\n",out_fd,in_fd,*offset,*nbytes);
+    Uint64 written = 0;
 #if defined(__linux__) || (defined(__sun) && defined(__SVR4))
-    ssize_t retval, written = 0;
-    // printf("sendfile(%d,%d,%d,%d)\r\n",out_fd,in_fd,*offset,*nbytes);
-    if (*nbytes == 0) {
-	do {
-	    *nbytes = SENDFILE_CHUNK_SIZE; // chunk size
-	    retval = sendfile(out_fd, in_fd, offset, *nbytes);
-	    if (retval > 0)
-		written += retval;
-	} while (retval == SENDFILE_CHUNK_SIZE);
-    } else {
-	retval =  sendfile(out_fd, in_fd, offset, *nbytes);
-	if (retval > 0)
-	    written = retval;
-    }
+#define SENDFILE_CHUNK_SIZE ((1 << (8*SIZEOF_SIZE_T)) - 1)
+    ssize_t retval;
+    do {
+      // check if *nbytes is 0 or greater than the largest size_t
+      if (*nbytes == 0 || *nbytes > SENDFILE_CHUNK_SIZE)
+	retval = sendfile(out_fd, in_fd, offset, SENDFILE_CHUNK_SIZE);
+      else
+	retval = sendfile(out_fd, in_fd, offset, *nbytes);
+      if (retval > 0) {
+	written += retval;
+	*nbytes -= retval;
+      }
+    } while (retval == SENDFILE_CHUNK_SIZE);
     *nbytes = written;
     return check_error(retval == -1 ? -1 : 0, errInfo);
 #elif defined(DARWIN)
-    off_t len = *nbytes;
-    int retval = sendfile(in_fd, out_fd, *offset, &len, NULL, 0);
-    *offset += len;
-    *nbytes = len;
+#define SENDFILE_CHUNK_SIZE ((1 << (8*SIZEOF_OFF_T)) - 1)
+    int retval;
+    off_t len;
+    do {
+      // check if *nbytes is 0 or greater than the largest off_t
+      if(*nbytes > SENDFILE_CHUNK_SIZE)
+	len = SENDFILE_CHUNK_SIZE;
+      else
+	len = *nbytes;
+      retval = sendfile(in_fd, out_fd, *offset, &len, NULL, 0);
+      if (retval != -1 || errno == EAGAIN || errno == EINTR) {
+        *offset += len;
+	*nbytes -= len;
+	written += len;
+      }
+    } while (len == SENDFILE_CHUNK_SIZE);
+    *nbytes = written;
     return check_error(retval, errInfo);
 #elif defined(__FreeBSD__) || defined(__DragonFly__)
     off_t len = 0;
