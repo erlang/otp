@@ -106,7 +106,7 @@
 -type date_time() :: calendar:datetime().
 -type posix_file_advise() :: 'normal' | 'sequential' | 'random'
                            | 'no_reuse' | 'will_need' | 'dont_need'.
--type sendfile_option() :: {chunk_size, non_neg_integer()} |
+-type sendfile_option() :: {chunk_size, pos_integer()} |
 			   {headers, Hdrs :: list(iodata())} |
 			   {trailers, Tlrs :: list(iodata())} |
 			   sf_nodiskio | sf_mnowait | sf_sync.
@@ -1126,10 +1126,10 @@ change_time(Name, Atime, Mtime)
 
 -define(MAX_CHUNK_SIZE, (1 bsl 20)*20). %% 20 MB, has to fit in primary memory
 
--spec sendfile(File, Sock, Offset, Bytes, Opts) ->
+-spec sendfile(RawFile, Socket, Offset, Bytes, Opts) ->
    {'ok', non_neg_integer()} | {'error', inet:posix() | badarg | not_owner} when
-      File :: file:fd(),
-      Sock :: inet:socket(),
+      RawFile :: file:fd(),
+      Socket :: inet:socket(),
       Offset :: non_neg_integer(),
       Bytes :: non_neg_integer(),
       Opts :: [sendfile_option()].
@@ -1151,12 +1151,12 @@ sendfile(File, Sock, Offset, Bytes, Opts) ->
 	     lists:member(sf_sync,Opts)).
 
 %% sendfile/2
--spec sendfile(File, Sock) ->
+-spec sendfile(Filename, Socket) ->
    {'ok', non_neg_integer()} | {'error', inet:posix() | badarg | not_owner}
-      when File :: file:name(),
-	   Sock :: inet:socket().
-sendfile(File, Sock)  ->
-    case file:open(File, [read, raw, binary]) of
+      when Filename :: file:name(),
+	   Socket :: inet:socket().
+sendfile(Filename, Sock)  ->
+    case file:open(Filename, [read, raw, binary]) of
 	{error, Reason} ->
 	    {error, Reason};
 	{ok, Fd} ->
