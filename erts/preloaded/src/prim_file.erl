@@ -545,17 +545,24 @@ write_file(_, _) ->
 %sendfile(_,_,_,_,_,_,_,_,_,_) ->
 %    {error, enotsup};
 sendfile(#file_descriptor{module = ?MODULE, data = {Port, _}},
-	 DestFD, Offset, Bytes, ChunkSize, Headers, Trailers,
-	 Nodiskio, MNowait, Sync) ->
-    drv_command(Port, [<<?FILE_SENDFILE, DestFD:32,
-			 (get_bit(Nodiskio)):1,
-			 (get_bit(MNowait)):1,
-			 (get_bit(Sync)):1,0:5,
-			 Offset:64/unsigned,
-			 Bytes:64/unsigned,
-			 (iolist_size(Headers)):32/unsigned,
-			 (iolist_size(Trailers)):32/unsigned>>,
-		       Headers,Trailers]).
+	 Dest, Offset, Bytes, _ChunkSize, _Headers, _Trailers,
+	 _Nodiskio, _MNowait, _Sync) ->
+    case erlang:port_get_data(Dest) of
+	Data when Data == inet_tcp; Data == inet6_tcp ->
+	    ok = inet:lock_socket(Dest,true),
+	    {ok, DestFD} = prim_inet:getfd(Dest),
+	    try drv_command(Port, [<<?FILE_SENDFILE, DestFD:32,
+				     0:8,
+				     Offset:64/unsigned,
+				     Bytes:64/unsigned,
+				     0:32/unsigned,
+				     0:32/unsigned>>])
+	    after
+		ok = inet:lock_socket(Dest,false)
+	    end;
+	_Else ->
+	    {error,badarg}
+    end.
 
 get_bit(true) ->
     1;
