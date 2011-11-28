@@ -88,7 +88,7 @@ init_per_testcase(Func, Config) ->
 		    inet_db:ins_alt_ns(IP, Port);
 		_ -> ok
 	    end,
-	    Dog = test_server:timetrap(test_server:seconds(10)),
+	    Dog = test_server:timetrap(test_server:seconds(20)),
 	    [{nameserver,NsSpec},{res_lookup,Lookup},{watchdog,Dog}|Config]
     catch
 	SkipReason ->
@@ -303,7 +303,7 @@ basic(Config) when is_list(Config) ->
     {ok,Msg2} = inet_dns:decode(Bin2),
     %%
     %% lookup
-    [IP] = inet_res:lookup(Name, in, a, [{nameservers,[NS]}]),
+    [IP] = inet_res:lookup(Name, in, a, [{nameservers,[NS]},verbose]),
     %%
     %% gethostbyname
     {ok,#hostent{h_addr_list=[IP]}} = inet_res:gethostbyname(Name),
@@ -410,7 +410,7 @@ edns0(Config) when is_list(Config) ->
     false = inet_db:res_option(edns), % ASSERT
     true = inet_db:res_option(udp_payload_size) >= 1280, % ASSERT
     %% These will fall back to TCP
-    MXs = lists:sort(inet_res:lookup(Domain, in, mx, [{nameservers,[NS]}])),
+    MXs = lists:sort(inet_res:lookup(Domain, in, mx, [{nameservers,[NS]},verbose])),
     %%
     {ok,#hostent{h_addr_list=As}} = inet_res:getbyname(Domain++".", mx),
     MXs = lists:sort(As),

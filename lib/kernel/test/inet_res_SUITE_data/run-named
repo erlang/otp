@@ -163,7 +163,7 @@ echo "Command: $NAMED $NAMED_FG -c $CONF_FILE"
 NAMED_PID=$!
 trap "kill -TERM $NAMED_PID >/dev/null 2>&1; wait $NAMED_PID >/dev/null 2>&1" \
     0 1 2 3 15
-sleep 2 # Give name server time to load its zone files
+sleep 5 # Give name server time to load its zone files
 if [ -f "$EXIT_FILE" ]; then
     ERROR="`cat "$EXIT_FILE"`"
     (exit "$ERROR")& error "$NAMED returned $ERROR on start"
