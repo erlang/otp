@@ -483,6 +483,22 @@ find_src(Config) when is_list(Config) ->
     
     %% Try to find the source for a preloaded module.
     ?line {error,{preloaded,init}} = filename:find_src(init),
+
+    %% Make sure that find_src works for a slim BEAM file.
+    OldPath = code:get_path(),
+    try
+	PrivDir = ?config(priv_dir, Config),
+	code:add_patha(PrivDir),
+	Src = "simple",
+	SrcPath = filename:join(PrivDir, Src) ++ ".erl",
+	SrcContents = "-module(simple).\n",
+	ok = file:write_file(SrcPath, SrcContents),
+	{ok,simple} = compile:file(SrcPath, [slim,{outdir,PrivDir}]),
+	BeamPath = filename:join(PrivDir, Src),
+	{BeamPath,[]} = filename:find_src(simple)
+    after
+	code:set_path(OldPath)
+    end,
     ok.
 
 %%

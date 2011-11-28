@@ -836,16 +836,18 @@ try_file(undefined, ObjFilename, Mod, Rules) ->
 	Error -> Error
     end;
 try_file(Src, _ObjFilename, Mod, _Rules) ->
-    List = Mod:module_info(compile),
-    {options, Options} = lists:keyfind(options, 1, List),
+    List = case Mod:module_info(compile) of
+	       none -> [];
+	       List0 -> List0
+	   end,
+    Options = proplists:get_value(options, List, []),
     {ok, Cwd} = file:get_cwd(),
     AbsPath = make_abs_path(Cwd, Src),
     {AbsPath, filter_options(dirname(AbsPath), Options, [])}.
 
 %% Filters the options.
 %%
-%% 1) Remove options that have no effect on the generated code,
-%%    such as report and verbose.
+%% 1) Only keep options that have any effect on code generation.
 %%
 %% 2) The paths found in {i, Path} and {outdir, Path} are converted
 %%    to absolute paths.  When doing this, it is assumed that relatives
@@ -857,13 +859,9 @@ filter_options(Base, [{outdir, Path}|Rest], Result) ->
     filter_options(Base, Rest, [{outdir, make_abs_path(Base, Path)}|Result]);
 filter_options(Base, [{i, Path}|Rest], Result) ->
     filter_options(Base, Rest, [{i, make_abs_path(Base, Path)}|Result]);
-filter_options(Base, [Option|Rest], Result) when Option =:= trace ->
-    filter_options(Base, Rest, [Option|Result]);
 filter_options(Base, [Option|Rest], Result) when Option =:= export_all ->
     filter_options(Base, Rest, [Option|Result]);
 filter_options(Base, [Option|Rest], Result) when Option =:= binary ->
-    filter_options(Base, Rest, [Option|Result]);
-filter_options(Base, [Option|Rest], Result) when Option =:= fast ->
     filter_options(Base, Rest, [Option|Result]);
 filter_options(Base, [Tuple|Rest], Result) when element(1, Tuple) =:= d ->
     filter_options(Base, Rest, [Tuple|Result]);
@@ -878,12 +876,7 @@ filter_options(_Base, [], Result) ->
 %% Gets the source file given path of object code and module name.
 
 get_source_file(Obj, Mod, Rules) ->
-    case catch Mod:module_info(source_file) of
-	{'EXIT', _Reason} ->
-	    source_by_rules(dirname(Obj), packages:last(Mod), Rules);
-	File ->
-	    {ok, File}
-    end.
+    source_by_rules(dirname(Obj), packages:last(Mod), Rules).
 
 source_by_rules(Dir, Base, [{From, To}|Rest]) ->
     case try_rule(Dir, Base, From, To) of
