@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -456,9 +456,20 @@ connect(Config) when is_list(Config) ->
     ?VERIFY(bad_send_mod, megaco:user_info(MgMid, send_mod)),
     ?VERIFY(bad_send_mod, megaco:conn_info(PrelCH, send_mod)),
     SC = service_change_request(),
-    ?VERIFY({1, {error, {send_message_failed, {'EXIT',
-                  {undef, [{bad_send_mod, send_message, [sh, _]} | _]}}}}},
-	     megaco:call(PrelCH, [SC], [])),
+    case megaco:call(PrelCH, [SC], []) of
+	{error, 
+	 {send_message_failed, 
+	  {'EXIT', {undef, [{bad_send_mod, send_message, [sh, _]} | _]}}}} ->
+	    ok;
+	
+	%% As of R15, we also get some extra info (line numbers, line numbers)
+	{error, 
+	 {send_message_failed, 
+	  {'EXIT', {undef, [{bad_send_mod, send_message, [sh, _], _} | _]}}}} ->
+	    ok;
+	Unexpected ->
+	    ?ERROR(Unexpected)
+    end,
 
     ?VERIFY(ok, megaco:disconnect(PrelCH, shutdown)),
 
