@@ -2341,7 +2341,7 @@ server_verify_client_once_active(Config) when is_list(Config) ->
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
 					{from, self()}, 
 					{mfa, {?MODULE, send_recv_result_active, []}},
-					{options, [{active, once}, {verify, verify_peer},
+					{options, [{active, true}, {verify, verify_peer},
 						   {verify_client_once, true}
 						   | ServerOpts]}]),
     Port  = ssl_test_lib:inet_port(Server),
