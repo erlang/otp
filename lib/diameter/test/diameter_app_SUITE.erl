@@ -50,8 +50,7 @@
                            diameter_exprecs,
                            diameter_make]).
 
--define(HELP_MODULES, [diameter_callback,
-                       diameter_dbg,
+-define(HELP_MODULES, [diameter_dbg,
                        diameter_info]).
 
 %% ===========================================================================
