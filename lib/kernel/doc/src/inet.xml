@@ -573,6 +573,10 @@ fe80::204:acff:fe17:bf38
               is longer than the max allowed length, the packet is
               considered invalid. The same happens if the packet header
               is too big for the socket receive buffer.</p>
+	    <p>For line oriented protocols (<c>line</c>,<c>http*</c>),
+	    option <c>packet_size</c> also guarantees that lines up to the
+	    indicated length are accepted and not considered invalid due
+	    to internal buffer limitations.</p>
           </item>
           <tag><c>{read_packets, Integer}</c>(UDP sockets)</tag>
           <item>

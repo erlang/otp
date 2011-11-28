@@ -724,9 +724,12 @@ false</pre>
                 size limit.</p>
               </item>
               <tag><c>{line_length, integer()}</c></tag>
-              <item><p>Applies only to line oriented protocols
-                (<c>line</c>, <c>http</c>). Lines longer than this
-                will be truncated.</p>
+              <item><p>For packet type <c>line</c>, truncate lines longer
+	      than the indicated length.</p>
+	      <p>Option <c>line_length</c> also applies to <c>http*</c> 
+	      packet types as an alias for option <c>packet_size</c> in the
+	      case when <c>packet_size</c> itself is not set. This usage is
+	      only intended for backward compatibility.</p>
               </item>
             </taglist>
         <pre>

@@ -596,11 +596,9 @@ otp_9389(Config) when is_list(Config) ->
     {more, undefined} = erlang:decode_packet(httph, Rest2, Opts),
     {ok, {http_header,_,"Link",_,Link}, Rest3} =
         erlang:decode_packet(httph, list_to_binary([Rest2, Pkt2]), Opts),
-    true = (length(Link) =< 3000),
-    {ok, {http_error, _}, Rest4} = erlang:decode_packet(httph, Rest3, Opts),
-    {ok, {http_error, _}, Rest5} = erlang:decode_packet(httph, Rest4, Opts),
+    true = (length(Link) > 8000),
     {ok, {http_header,_,'Content-Length',_,"0"}, <<"\r\n">>} =
-        erlang:decode_packet(httph, Rest5, Opts),
+        erlang:decode_packet(httph, Rest3, Opts),
     ok.
 
 otp_9389_line(doc) -> ["Verify packet_size works correctly for line mode"];

@@ -405,17 +405,21 @@ int packet_get_length(enum PacketParseType htype,
             const char* ptr1 = ptr;
             int   len = plen;
             
+	    if (!max_plen) {
+		/* This is for backward compatibility with old user of decode_packet
+		 * that might use option 'line_length' to limit accepted length of
+		 * http lines.
+		 */
+		max_plen = trunc_len;
+	    }
+
             while (1) {
                 const char* ptr2 = memchr(ptr1, '\n', len);
                 
                 if (ptr2 == NULL) {
                     if (max_plen != 0) {
-                        if (n > max_plen) /* packet full */
+                        if (n >= max_plen) /* packet full */
                             goto error;
-                    }
-                    else if (n >= trunc_len && trunc_len!=0) { /* buffer full */
-                        plen = trunc_len;
-                        goto done;
                     }
                     goto more;
                 }
@@ -425,8 +429,6 @@ int packet_get_length(enum PacketParseType htype,
                     if (*statep == 0) {
                         if (max_plen != 0 && plen > max_plen)
                             goto error;
-                        if (plen >= trunc_len && trunc_len != 0)
-                            plen = trunc_len;
                         goto done;
                     }
 
@@ -439,18 +441,12 @@ int packet_get_length(enum PacketParseType htype,
                         else {
                             if (max_plen != 0 && plen > max_plen)
                                 goto error;
-                            if (plen >= trunc_len && trunc_len != 0)
-                                plen = trunc_len;
                             goto done;
                         }
                     }
                     else {
                         if (max_plen != 0 && plen > max_plen)
                             goto error;
-                        if (plen >= trunc_len && trunc_len != 0) {
-                            plen = trunc_len;
-                            goto done;
-                        }
                         goto more;
                     }
                 }
