@@ -35,6 +35,7 @@
 -export([check_body/1]).
 -export([millis/0, millis_diff/2, hours/1, minutes/1, seconds/1, sleep/1]).
 -export([oscmd/1, has_ipv6_support/1]).
+-export([ensure_started/1]).
 -export([non_pc_tc_maybe_skip/4, os_based_skip/1, skip/3, fail/3]).
 -export([flush/0]).
 -export([start_node/1, stop_node/1]).
@@ -123,6 +124,37 @@ await_stopped(Node, N) ->
         false ->
             ok
     end.
+
+
+%% ----------------------------------------------------------------
+%% Ensure apps are started
+%% This to ensure we dont attempt to run teatcases on platforms 
+%% where there is no working ssl app.
+
+ensure_started([]) ->
+    ok;
+ensure_started([App|Apps]) ->
+    ensure_started(App),
+    ensure_started(Apps);
+ensure_started(crypto = App) ->
+    %% We have to treat crypto in this special way because 
+    %% only this function ensures that the NIF lib is actually
+    %% loaded. And only by loading that lib can we know if it 
+    %% is even possible to run crypto.
+    do_ensure_started(App, fun() -> crypto:start() end);
+ensure_started(App) when is_atom(App) ->
+    do_ensure_started(App, fun() -> application:start(App) end).
+
+do_ensure_started(App, Start) when is_function(Start) ->
+    case (catch Start()) of
+	ok ->
+	    ok;
+	{error, {already_started, _}} ->
+	    ok;
+	Error ->
+	    throw({error, {failed_starting, App, Error}})
+    end.
+
 
 
 %% ----------------------------------------------------------------
