@@ -1469,7 +1469,7 @@ efile_fadvise(Efile_error* errInfo, int fd, Sint64 offset,
 }
 
 #ifdef HAVE_SENDFILE
-#define SENDFILE_CHUNK_SIZE ((1 << 30) -1)
+#define SENDFILE_CHUNK_SIZE ((1UL << 30) -1)
 
 /*
  * sendfile: The implementation of the sendfile system call varies
