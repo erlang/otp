@@ -89,7 +89,7 @@ calls() ->
 %%   F(), 
 %%   %% Get result.
 %%   R = res(),
-%%   %% Turn of profiling.
+%%   %% Turn off profiling.
 %%   prof_off(),
 %%   R.
 

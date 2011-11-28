@@ -17,7 +17,7 @@ dnl
 dnl %CopyrightEnd%
 dnl
 
-dnl Turn of caching
+dnl Turn off caching
 define([AC_CACHE_LOAD], )dnl
 define([AC_CACHE_SAVE], )dnl
 
