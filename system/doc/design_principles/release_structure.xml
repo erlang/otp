@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2009</year>
+      <year>2003</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -61,12 +61,14 @@
   {ApplicationN, AppVsnN}]}.</code>
     <p>The file must be named <c>Rel.rel</c>, where <c>Rel</c> is a
       unique name.</p>
-    <p><c>Name</c>, <c>Vsn</c> and <c>Evsn</c> are strings.</p>
+    <p><c>Name</c>, <c>Vsn</c> and <c>EVsn</c> are strings.</p>
     <p>Each <c>Application</c> (atom) and <c>AppVsn</c> (string) is
       the name and version of an application included in the release.
-      Note the the minimal release based on Erlang/OTP consists of
+      Note that the minimal release based on Erlang/OTP consists of
       the <c>kernel</c> and <c>stdlib</c> applications, so these
       applications must be included in the list.</p>
+    <p>If the release is to be upgraded, it must also include
+      the <c>sasl</c> application.</p>
     <marker id="ch_rel"></marker>
     <p>Example: We want to make a release of <c>ch_app</c> from
       the <seealso marker="applications#ch_app">Applications</seealso>
@@ -173,6 +175,7 @@ lib/ch_app-1/ebin/ch_app.beam
 lib/ch_app-1/ebin/ch_sup.beam
 lib/ch_app-1/ebin/ch3.beam
 releases/A/start.boot
+releases/A/ch_rel-1.rel
 releases/ch_rel-1.rel</pre>
     <p>Note that a new boot script was generated, without
       the <c>local</c> option set, before the release package was made.
@@ -180,6 +183,17 @@ releases/ch_rel-1.rel</pre>
       under <c>lib</c>. Also, we do not know where the release package
       will be installed, so we do not want any hardcoded absolute paths
       in the boot script here.</p>
+    <p>The release resource file <c>mysystem.rel</c> is duplicated in
+      the tar file. Originally, this file was only stored in
+      the <c>releases</c> directory in order to make it possible for
+      the <c>release_handler</c> to extract this file
+      separately. After unpacking the tar file, <c>release_handler</c>
+      would automatically copy the file
+      to <c>releases/FIRST</c>. However, sometimes the tar file is
+      unpacked without involving the <c>release_handler</c> (e.g. when
+      unpacking the first target system) and therefore the file is now
+      instead duplicated in the tar file so no manual copying is
+      necessary.</p>
     <p>If a <c>relup</c> file and/or a system configuration file called
       <c>sys.config</c> is found, these files are included in
       the release package as well. See

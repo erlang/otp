@@ -64,10 +64,10 @@
       downgraded to the specified version by evaluating the instructions
       in <c>relup</c>. An installed release can be made
       <em>permanent</em>. There can only be one permanent release in
-      the system, and this is the release that is used if the system is
-      restarted. An installed release, except the permanent one, can be
-      <em>removed</em>. When a release is removed, all files that
-      belong to that release only are deleted.</p>
+      the system, and this is the release that is used if the system
+      is restarted. An installed release, except the permanent one,
+      can be <em>removed</em>. When a release is removed, all files
+      that belong to that release only are deleted.</p>
     <p>Each version of the release has a status. The status can be
       <c>unpacked</c>, <c>current</c>, <c>permanent</c>, or <c>old</c>.
       There is always one latest release which either has status
@@ -107,16 +107,17 @@ old        reboot_old            permanent
       restarted. This is taken care of automatically if Erlang is
       started as an embedded system. Read about this in <em>Embedded System</em>. In this case, the system configuration file
       <c>sys.config</c> is mandatory.</p>
-    <p>A new release may restart the system. Which program to use is
-      specified by the SASL configuration parameter <c>start_prg</c>
-      which defaults to <c>$ROOT/bin/start</c>.</p>
+    <p>The installation of a new release may restart the system. Which
+      program to use is specified by the SASL configuration
+      parameter <c>start_prg</c> which defaults
+      to <c>$ROOT/bin/start</c>.</p>
     <p>The emulator restart on Windows NT expects that the system is
       started using the <c>erlsrv</c> program (as a service).
       Furthermore the release handler expects that the service is named 
       <em>NodeName</em>_<em>Release</em>, where <em>NodeName</em> is
       the first part of the Erlang nodename (up to, but not including
-      the "@") and <em>Release</em> is the current release of
-      the application. The release handler furthermore expects that a
+      the "@") and <em>Release</em> is the current version of
+      the release. The release handler furthermore expects that a
       program like <c>start_erl.exe</c> is specified as "machine" to
       <c>erlsrv</c>. During upgrading with restart, a new service will
       be registered and started. The new service will be set to
@@ -484,7 +485,7 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
         <c>release_handler</c> to end up in an inconsistent state.</p>
       <p>No persistent information is updated, why these functions can
         be used on any Erlang node, embedded or not. Also, using these
-        functions does not effect which code will be loaded in case of
+        functions does not affect which code will be loaded in case of
         a reboot.</p>
       <p>If the upgrade or downgrade fails, the application may end up
         in an inconsistent state.</p>
