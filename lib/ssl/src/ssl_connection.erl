@@ -87,10 +87,10 @@
           bytes_to_read,       % integer(), # bytes to read in passive mode
           user_data_buffer,    % binary()
 	  log_alert,           % boolean() 
-	  renegotiation,        % {boolean(), From | internal | peer}
-	  recv_during_renegotiation,  %boolean() 
-	  send_queue,           % queue()
-	  terminated = false,   %
+	  renegotiation,       % {boolean(), From | internal | peer}
+	  recv_from,           %
+	  send_queue,          % queue()
+	  terminated = false,  %
 	  allow_renegotiate = true
 	 }).
 
@@ -720,9 +720,7 @@ connection(#client_hello{}, #state{role = server, allow_renegotiate = false,
     {BinMsg, ConnectionStates} =
 	encode_alert(Alert, Version, ConnectionStates0),
     Transport:send(Socket, BinMsg),
-    {Record, State} = next_record(State0#state{connection_states = 
-     						   ConnectionStates}),
-    next_state(connection, connection, Record, State);
+    next_state_connection(connection, State0#state{connection_states = ConnectionStates});
   
 connection(timeout, State) ->
     {next_state, connection, State, hibernate};
@@ -814,14 +812,12 @@ handle_sync_event({shutdown, How0}, _, StateName,
     end;
     
 handle_sync_event({recv, N}, From, connection = StateName, State0) ->
-    passive_receive(State0#state{bytes_to_read = N, from = From}, StateName);
+    passive_receive(State0#state{bytes_to_read = N, recv_from = From}, StateName);
 
 %% Doing renegotiate wait with handling request until renegotiate is
-%% finished. Will be handled by next_state_connection/2.
+%% finished. Will be handled by next_state_is_connection/2.
 handle_sync_event({recv, N}, From, StateName, State) ->
-    {next_state, StateName,
-     State#state{bytes_to_read = N, from = From,
-                 recv_during_renegotiation = true},
+    {next_state, StateName, State#state{bytes_to_read = N, recv_from = From},
      get_timeout(State)};
 
 handle_sync_event({new_user, User}, _From, StateName, 
@@ -1689,7 +1685,7 @@ passive_receive(State0 = #state{user_data_buffer = Buffer}, StateName) ->
 read_application_data(Data, #state{user_application = {_Mon, Pid},
                               socket_options = SOpts,
                               bytes_to_read = BytesToRead,
-                              from = From,
+                              recv_from = From,
                               user_data_buffer = Buffer0} = State0) ->
     Buffer1 = if 
 		  Buffer0 =:= <<>> -> Data;
@@ -1700,7 +1696,7 @@ read_application_data(Data, #state{user_application = {_Mon, Pid},
 	{ok, ClientData, Buffer} -> % Send data
 	    SocketOpt = deliver_app_data(SOpts, ClientData, Pid, From),
 	    State = State0#state{user_data_buffer = Buffer,
-				 from = undefined,
+				 recv_from = undefined,
 				 bytes_to_read = 0,
 				 socket_options = SocketOpt 
 				},
@@ -2000,10 +1996,10 @@ next_state_connection(StateName, #state{send_queue = Queue0,
 %% premaster_secret and public_key_info (only needed during handshake)
 %% to reduce memory foot print of a connection.
 next_state_is_connection(_, State = 
-		      #state{recv_during_renegotiation = true, socket_options =     
-			     #socket_options{active = false}}) ->
-    passive_receive(State#state{recv_during_renegotiation = false,
-				premaster_secret = undefined,
+		      #state{recv_from = From,
+			     socket_options =
+			     #socket_options{active = false}}) when From =/= undefined ->
+    passive_receive(State#state{premaster_secret = undefined,
 				public_key_info = undefined,
 				tls_handshake_hashes = {<<>>, <<>>}}, connection);
 
@@ -2065,7 +2061,7 @@ initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions}, User,
 	   log_alert = true,
 	   session_cache_cb = SessionCacheCb,
 	   renegotiation = {false, first},
-	   recv_during_renegotiation = false,
+	   recv_from = undefined,
 	   send_queue = queue:new()
 	  }.
 

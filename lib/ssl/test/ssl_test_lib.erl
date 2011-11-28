@@ -690,7 +690,6 @@ public_key(#'PrivateKeyInfo'{privateKeyAlgorithm =
     public_key:der_decode('DSAPrivateKey', iolist_to_binary(Key));
 public_key(Key) ->
     Key.
-
 receive_rizzo_duong_beast() ->
     receive 
 	{ssl, _, "ello\n"} ->
