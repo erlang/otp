@@ -254,6 +254,7 @@ typedef struct LoaderState {
     char* file_name;		/* Name of file we are reading (usually chunk name). */
     byte* file_p;		/* Current pointer within file. */
     unsigned file_left;		/* Number of bytes left in file. */
+    ErlDrvBinary* bin;		/* Binary holding BEAM file (or NULL) */
 
     /*
      * The following are used mainly for diagnostics.
@@ -499,8 +500,10 @@ static void free_state(LoaderState* stp);
 static Eterm insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
 			     Eterm group_leader, Eterm module,
 			     BeamInstr* code, Uint size);
+static int init_iff_file(LoaderState* stp, byte* code, Uint size);
 static int scan_iff_file(LoaderState* stp, Uint* chunk_types,
 			 Uint num_types, Uint num_mandatory);
+static int verify_chunks(LoaderState* stp);
 static int load_atom_table(LoaderState* stp);
 static int load_import_table(LoaderState* stp);
 static int read_export_table(LoaderState* stp);
@@ -630,40 +633,23 @@ erts_prepare_loading(LoaderState* stp, Process *c_p, Eterm group_leader,
 		     Eterm* modp, byte* code, Uint unloaded_size)
 {
     Eterm retval = am_badfile;
-    ErlDrvBinary* bin = NULL;
 
     stp->module = *modp;
     stp->group_leader = group_leader;
-
-    /*
-     * Check if the module is compressed (or possibly invalid/corrupted).
-     */
-    if ( !(unloaded_size >= 4 &&
-	   code[0] == 'F' && code[1] == 'O' &&
-	   code[2] == 'R' && code[3] == '1') ) {
-	bin = (ErlDrvBinary *)
-	    erts_gzinflate_buffer((char*)code, unloaded_size);
-	if (bin == NULL) {
-	    goto load_error;
-	}
-	code = (byte*)bin->orig_bytes;
-	unloaded_size = bin->orig_size;
-    }
-
-    /*
-     * Scan the IFF file.
-     */
 
 #if defined(LOAD_MEMORY_HARD_DEBUG) && defined(DEBUG)
     erts_fprintf(stderr,"Loading a module\n");
 #endif
 
+    /*
+     * Scan the IFF file.
+     */
+
     CHKALLOC();
     CHKBLK(ERTS_ALC_T_CODE,stp->code);
-    stp->file_name = "IFF header for Beam file";
-    stp->file_p = code;
-    stp->file_left = unloaded_size;
-    if (!scan_iff_file(stp, chunk_types, NUM_CHUNK_TYPES, NUM_MANDATORY)) {
+    if (!init_iff_file(stp, code, unloaded_size) ||
+	!scan_iff_file(stp, chunk_types, NUM_CHUNK_TYPES, NUM_MANDATORY) ||
+	!verify_chunks(stp)) {
 	goto load_error;
     }
 
@@ -787,9 +773,6 @@ erts_prepare_loading(LoaderState* stp, Process *c_p, Eterm group_leader,
     retval = NIL;
 
  load_error:
-    if (bin) {
-	driver_free_binary(bin);
-    }
     if (retval != NIL) {
 	free_state(stp);
     }
@@ -864,6 +847,7 @@ erts_alloc_loader_state(void)
     LoaderState* stp;
 
     stp = erts_alloc(ERTS_ALC_T_LOADER_TMP, sizeof(LoaderState));
+    stp->bin = NULL;
     stp->function = THE_NON_VALUE; /* Function not known yet */
     stp->arity = 0;
     stp->specific_op = -1;
@@ -897,6 +881,9 @@ erts_alloc_loader_state(void)
 static void
 free_state(LoaderState* stp)
 {
+    if (stp->bin != 0) {
+	driver_free_binary(stp->bin);
+    }
     if (stp->code != 0) {
 	erts_free(ERTS_ALC_T_CODE, stp->code);
     }
@@ -956,6 +943,7 @@ free_state(LoaderState* stp)
     if (stp->fname != 0) {
 	erts_free(ERTS_ALC_T_LOADER_TMP, stp->fname);
     }
+
     erts_free(ERTS_ALC_T_LOADER_TMP, stp);
 }
 
@@ -1011,21 +999,45 @@ insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
 }
 
 static int
-scan_iff_file(LoaderState* stp, Uint* chunk_types, Uint num_types, Uint num_mandatory)
+init_iff_file(LoaderState* stp, byte* code, Uint size)
 {
-    MD5_CTX context;
+    Uint form_id = MakeIffId('F', 'O', 'R', '1');
     Uint id;
     Uint count;
-    int i;
+
+    if (size < 4) {
+	goto load_error;
+    }
+
+    /*
+     * Check if the module is compressed (or possibly invalid/corrupted).
+     */
+    if (MakeIffId(code[0], code[1], code[2], code[3]) != form_id) {
+	stp->bin = (ErlDrvBinary *) erts_gzinflate_buffer((char*)code, size);
+	if (stp->bin == NULL) {
+	    goto load_error;
+	}
+	code = (byte*)stp->bin->orig_bytes;
+	size = stp->bin->orig_size;
+	if (size < 4) {
+	    goto load_error;
+	}
+    }
 
     /*
      * The binary must start with an IFF 'FOR1' chunk.
      */
-
-    GetInt(stp, 4, id);
-    if (id != MakeIffId('F', 'O', 'R', '1')) {
+    if (MakeIffId(code[0], code[1], code[2], code[3]) != form_id) {
 	LoadError0(stp, "not a BEAM file: no IFF 'FOR1' chunk");
     }
+
+    /*
+     * Initialize our "virtual file system".
+     */
+
+    stp->file_name = "IFF header for Beam file";
+    stp->file_p = code + 4;
+    stp->file_left = size - 4;
 
     /*
      * Retrieve the chunk size and verify it.  If the size is equal to
@@ -1048,6 +1060,21 @@ scan_iff_file(LoaderState* stp, Uint* chunk_types, Uint num_types, Uint num_mand
     if (id != MakeIffId('B', 'E', 'A', 'M')) {
 	LoadError0(stp, "not a BEAM file: IFF form type is not 'BEAM'");
     }
+    return 1;
+
+ load_error:
+    return 0;
+}
+
+/*
+ * Scan the IFF file. The header should have been verified by init_iff_file().
+ */
+static int
+scan_iff_file(LoaderState* stp, Uint* chunk_types, Uint num_types, Uint num_mandatory)
+{
+    Uint count;
+    Uint id;
+    int i;
 
     /*
      * Initialize the chunks[] array in the state.
@@ -1104,17 +1131,25 @@ scan_iff_file(LoaderState* stp, Uint* chunk_types, Uint num_types, Uint num_mand
 	stp->file_p += count;
 	stp->file_left -= count;
     }
+    return 1;
 
-    /*
-     * At this point, we have read the entire IFF file, and we
-     * know that it is syntactically correct.
-     *
-     * Now check that it contains all mandatory chunks. At the
-     * same time calculate the MD5 for the module.
-     */
+ load_error:
+    return 0;
+}
+
+/*
+ * Verify that all mandatory chunks are present and calculate
+ * MD5 for the module.
+ */
+
+static int
+verify_chunks(LoaderState* stp)
+{
+    int i;
+    MD5_CTX context;
 
     MD5Init(&context);
-    for (i = 0; i < num_mandatory; i++) {
+    for (i = 0; i < NUM_MANDATORY; i++) {
 	if (stp->chunks[i].start != NULL) {
 	    MD5Update(&context, stp->chunks[i].start, stp->chunks[i].size);
 	} else {
@@ -1124,41 +1159,49 @@ scan_iff_file(LoaderState* stp, Uint* chunk_types, Uint num_types, Uint num_mand
 	    LoadError1(stp, "mandatory chunk of type '%s' not found\n", sbuf);
 	}
     }
-    if (LITERAL_CHUNK < num_types) {
-	if (stp->chunks[LAMBDA_CHUNK].start != 0) {
-	    byte* start = stp->chunks[LAMBDA_CHUNK].start;
-	    Uint left = stp->chunks[LAMBDA_CHUNK].size;
 
-	    /*
-	     * The idea here is to ignore the OldUniq field for the fun; it is
-	     * based on the old broken hash function, which can be different
-	     * on little endian and big endian machines.
-	     */
-	    if (left >= 4) {
-		static byte zero[4];
-		MD5Update(&context, start, 4);
-		start += 4;
-		left -= 4;
+    /*
+     * If there is a lambda chunk, include parts of it in the MD5.
+     */
+    if (stp->chunks[LAMBDA_CHUNK].start != 0) {
+	byte* start = stp->chunks[LAMBDA_CHUNK].start;
+	Uint left = stp->chunks[LAMBDA_CHUNK].size;
+
+	/*
+	 * The idea here is to ignore the OldUniq field for the fun; it is
+	 * based on the old broken hash function, which can be different
+	 * on little endian and big endian machines.
+	 */
+	if (left >= 4) {
+	    static byte zero[4];
+	    MD5Update(&context, start, 4);
+	    start += 4;
+	    left -= 4;
 		
-		while (left >= 24) {
-		    /* Include: Function Arity Index NumFree */
-		    MD5Update(&context, start, 20);
-		    /* Set to zero: OldUniq */
-		    MD5Update(&context, zero, 4);
-		    start += 24;
-		    left -= 24;
-		}
-	    }
-	    /* Can't happen for a correct 'FunT' chunk */
-	    if (left > 0) {
-		MD5Update(&context, start, left);
+	    while (left >= 24) {
+		/* Include: Function Arity Index NumFree */
+		MD5Update(&context, start, 20);
+		/* Set to zero: OldUniq */
+		MD5Update(&context, zero, 4);
+		start += 24;
+		left -= 24;
 	    }
 	}
-	if (stp->chunks[LITERAL_CHUNK].start != 0) {
-	    MD5Update(&context, stp->chunks[LITERAL_CHUNK].start,
-		      stp->chunks[LITERAL_CHUNK].size);
+	/* Can't happen for a correct 'FunT' chunk */
+	if (left > 0) {
+	    MD5Update(&context, start, left);
 	}
     }
+
+
+    /*
+     * If there is a literal chunk, include it in the MD5.
+     */
+    if (stp->chunks[LITERAL_CHUNK].start != 0) {
+	MD5Update(&context, stp->chunks[LITERAL_CHUNK].start,
+		  stp->chunks[LITERAL_CHUNK].size);
+    }
+
     MD5Final(stp->mod_md5, &context);
     return 1;
 
@@ -5407,7 +5450,7 @@ code_get_chunk_2(BIF_ALIST_2)
     Process* p = BIF_P;
     Eterm Bin = BIF_ARG_1;
     Eterm Chunk = BIF_ARG_2;
-    LoaderState state;
+    LoaderState* stp;
     Uint chunk = 0;
     ErlSubBin* sb;
     Uint offset;
@@ -5419,15 +5462,16 @@ code_get_chunk_2(BIF_ALIST_2)
     Eterm real_bin;
     byte* temp_alloc = NULL;
 
+    stp = erts_alloc_loader_state();
     if ((start = erts_get_aligned_binary_bytes(Bin, &temp_alloc)) == NULL) {
     error:
 	erts_free_aligned_binary_bytes(temp_alloc);
+	if (stp) {
+	    free_state(stp);
+	}
 	BIF_ERROR(p, BADARG);
     }
-    state.module = THE_NON_VALUE; /* Suppress diagnostiscs */
-    state.file_name = "IFF header for Beam file";
-    state.file_p = start;
-    state.file_left = binary_size(Bin);
+    stp->module = THE_NON_VALUE; /* Suppress diagnostics */
     for (i = 0; i < 4; i++) {
 	Eterm* chunkp;
 	Eterm num;
@@ -5445,25 +5489,30 @@ code_get_chunk_2(BIF_ALIST_2)
     if (is_not_nil(Chunk)) {
 	goto error;
     }
-    if (!scan_iff_file(&state, &chunk, 1, 1)) {
-	erts_free_aligned_binary_bytes(temp_alloc);
-	return am_undefined;
+    if (!init_iff_file(stp, start, binary_size(Bin)) ||
+	!scan_iff_file(stp, &chunk, 1, 1) ||
+	stp->chunks[0].start == NULL) {
+	res = am_undefined;
+	goto done;
     }
     ERTS_GET_REAL_BIN(Bin, real_bin, offset, bitoffs, bitsize);
     if (bitoffs) {
-	res = new_binary(p, state.chunks[0].start, state.chunks[0].size);
+	res = new_binary(p, stp->chunks[0].start, stp->chunks[0].size);
     } else {
 	sb = (ErlSubBin *) HAlloc(p, ERL_SUB_BIN_SIZE);
 	sb->thing_word = HEADER_SUB_BIN;
 	sb->orig = real_bin;
-	sb->size = state.chunks[0].size;
+	sb->size = stp->chunks[0].size;
 	sb->bitsize = 0;
 	sb->bitoffs = 0;
-	sb->offs = offset + (state.chunks[0].start - start);
+	sb->offs = offset + (stp->chunks[0].start - start);
 	sb->is_writable = 0;
 	res = make_binary(sb);
     }
+
+ done:
     erts_free_aligned_binary_bytes(temp_alloc);
+    free_state(stp);
     return res;
 }
 
@@ -5476,21 +5525,29 @@ code_module_md5_1(BIF_ALIST_1)
 {
     Process* p = BIF_P;
     Eterm Bin = BIF_ARG_1;
-    LoaderState state;
+    LoaderState* stp;
+    byte* bytes;
     byte* temp_alloc = NULL;
+    Eterm res;
 
-    if ((state.file_p = erts_get_aligned_binary_bytes(Bin, &temp_alloc)) == NULL) {
+    stp = erts_alloc_loader_state();
+    if ((bytes = erts_get_aligned_binary_bytes(Bin, &temp_alloc)) == NULL) {
+	free_state(stp);
 	BIF_ERROR(p, BADARG);
     }
-    state.module = THE_NON_VALUE; /* Suppress diagnostiscs */
-    state.file_name = "IFF header for Beam file";
-    state.file_left = binary_size(Bin);
-
-    if (!scan_iff_file(&state, chunk_types, NUM_CHUNK_TYPES, NUM_MANDATORY)) {
-	return am_undefined;
+    stp->module = THE_NON_VALUE; /* Suppress diagnostiscs */
+    if (!init_iff_file(stp, bytes, binary_size(Bin)) ||
+	!scan_iff_file(stp, chunk_types, NUM_CHUNK_TYPES, NUM_MANDATORY) ||
+	!verify_chunks(stp)) {
+	res = am_undefined;
+	goto done;
     }
+    res = new_binary(p, stp->mod_md5, sizeof(stp->mod_md5));
+
+ done:
     erts_free_aligned_binary_bytes(temp_alloc);
-    return new_binary(p, state.mod_md5, sizeof(state.mod_md5));
+    free_state(stp);
+    return res;
 }
 
 #define WORDS_PER_FUNCTION 6
@@ -5776,7 +5833,6 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
     int code_size;
     int rval;
     int i;
-    ErlDrvBinary* bin = NULL;
     byte* temp_alloc = NULL;
     byte* bytes;
     Uint size;
@@ -5809,29 +5865,17 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
     size = binary_size(Beam);
 
     /*
-     * Uncompressed if needed.
-     */
-    if (!(size >= 4 && bytes[0] == 'F' && bytes[1] == 'O' &&
-	  bytes[2] == 'R' && bytes[3] == '1')) {
-	bin = (ErlDrvBinary *) erts_gzinflate_buffer((char*)bytes, size);
-	if (bin == NULL) {
-	    goto error;
-	}
-	bytes = (byte*)bin->orig_bytes;
-	size = bin->orig_size;
-    }
-    
-    /*
      * Scan the Beam binary and read the interesting sections.
      */
 
-    stp->file_name = "IFF header for Beam file";
-    stp->file_p = bytes;
-    stp->file_left = size;
     stp->module = Mod;
     stp->group_leader = p->group_leader;
     stp->num_functions = n;
-    if (!scan_iff_file(stp, chunk_types, NUM_CHUNK_TYPES, NUM_MANDATORY)) {
+    if (!init_iff_file(stp, bytes, size)) {
+	goto error;
+    }
+    if (!scan_iff_file(stp, chunk_types, NUM_CHUNK_TYPES, NUM_MANDATORY) ||
+	!verify_chunks(stp)) {
 	goto error;
     }
     define_file(stp, "code chunk header", CODE_CHUNK);
@@ -5986,13 +6030,11 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
     if (patch_funentries(Patchlist)) {
 	erts_free_aligned_binary_bytes(temp_alloc);
 	free_state(stp);
-	if (bin != NULL) {
-	    driver_free_binary(bin);
-	}
 	return Mod;
     }
 
  error:
+    erts_free_aligned_binary_bytes(temp_alloc);
     free_state(stp);
     BIF_ERROR(p, BADARG);
 }

@@ -36,7 +36,6 @@
 
 -export([chunk_name/1,
 	 %% Only the code and code_server modules may call the entries below!
-	 load_hipe_modules/0,
 	 load_native_code/2,
 	 post_beam_load/1,
 	 load_module/3,
@@ -75,16 +74,6 @@ chunk_name(Architecture) ->
     %% Future:     HSV9      %% HiPE, SPARC, V9 (implicit: 64-bit)
     %%             HW32      %% HiPE, x86, Win32 
   end.
-
-%%========================================================================
-
--spec load_hipe_modules() -> 'ok'.
-%% @doc
-%%    Ensures HiPE's loader modules are loaded.
-%%    Called from code.erl at start-up.
-
-load_hipe_modules() ->
-  ok.
 
 %%========================================================================
 
