@@ -1484,6 +1484,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     Eterm ret = am_ok;
     int veto;
     struct erl_module_nif* lib = NULL;
+    int reload_warning = 0;
 
     len = list_length(BIF_ARG_1);
     if (len < 0) {
@@ -1623,6 +1624,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 	else {
 	    mod->nif->entry = NULL; /* to prevent 'unload' callback */
 	    erts_unload_nif(mod->nif);
+	    reload_warning = 1;
 	}
     }
     else {
@@ -1691,6 +1693,15 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     erts_smp_thr_progress_unblock();
     erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
     erts_free(ERTS_ALC_T_TMP, lib_name);
+
+    if (reload_warning) {
+	erts_dsprintf_buf_t* dsbufp = erts_create_logger_dsbuf();
+	erts_dsprintf(dsbufp,
+		      "Repeated calls to erlang:load_nif from module '%T'.\n\n"
+		      "The NIF reload mechanism is deprecated and must not "
+		      "be used in production systems.\n", mod_atom);
+	erts_send_warning_to_logger(BIF_P->group_leader, dsbufp);
+    }
     BIF_RET(ret);
 }
 
