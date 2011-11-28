@@ -377,7 +377,15 @@ validate(ExpStatusCode, SocketType, Socket, Response) ->
 		      "Expected status code: ~p (~s)", 
 		      [StatusCode,    status_to_message(StatusCode),
 		       ExpStatusCode, status_to_message(ExpStatusCode)]),
-            exit({unexpected_response_code, StatusCode, ExpStatusCode})
+            exit({unexpected_response_code, StatusCode, ExpStatusCode});
+        {ok, Unexpected} -> 
+	    error_msg("Unexpected response split: ~p (~s)", 
+		      [Unexpected, Response]),
+            exit({unexpected_response, Unexpected, Response});
+        {error, Reason} -> 
+	    error_msg("Failed processing response: ~p (~s)", 
+		      [Reason, Response]),
+            exit({failed_response_processing, Reason, Response})
     end.
 
 
