@@ -447,7 +447,7 @@ server_hello_done() ->
 -spec encode_handshake(tls_handshake(), tls_version()) -> iolist().
 %%     
 %% Description: Encode a handshake packet to binary
-%%--------------------------------------------------------------------
+%%--------------------------------------------------------------------x
 encode_handshake(Package, Version) ->
     {MsgType, Bin} = enc_hs(Package, Version),
     Len = byte_size(Bin),

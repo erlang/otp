@@ -158,14 +158,24 @@ all() ->
      packet_asn1_decode, packet_asn1_decode_list,
      packet_tpkt_decode, packet_tpkt_decode_list,
      packet_sunrm_decode, packet_sunrm_decode_list,
-     header_decode_one_byte, header_decode_two_bytes,
-     header_decode_two_bytes_one_sent,
-     header_decode_two_bytes_two_sent].
+     {group, header}
+    ].
 
 groups() -> 
-    [].
+    [{header, [], [ header_decode_one_byte,  
+		    header_decode_two_bytes, 
+		    header_decode_two_bytes_one_sent,
+		    header_decode_two_bytes_two_sent]}].
 
-init_per_group(_GroupName, Config) ->
+init_per_group(header, Config) ->
+    case ssl_record:highest_protocol_version(ssl_record:supported_protocol_versions()) of
+	{3, N} when N < 2 ->
+	    {skip, ""};
+	_ ->
+	    Config
+    end;
+
+init_per_group(_, Config) ->
     Config.
 
 end_per_group(_GroupName, Config) ->
@@ -2626,6 +2636,13 @@ active_once_raw(_, _, 0, _) ->
     ok;
 active_once_raw(Socket, Data, N, Acc) ->
     receive 
+	{ssl, Socket, Byte} when length(Byte) == 1 ->
+	    ssl:setopts(Socket, [{active, once}]),
+	    receive 
+		{ssl, Socket, _} ->
+		    ssl:setopts(Socket, [{active, once}]),
+		    active_once_raw(Socket, Data, N-1, [])
+	    end;
 	{ssl, Socket, Data} ->
 	    ssl:setopts(Socket, [{active, once}]),
 	    active_once_raw(Socket, Data, N-1, []);
@@ -2648,7 +2665,14 @@ active_once_packet(Socket,_, 0) ->
 	    {other, Other, ssl:session_info(Socket), 0}
     end;
 active_once_packet(Socket, Data, N) ->
-    receive 
+    receive 	
+	{ssl, Socket, Byte} when length(Byte) == 1 ->
+	    ssl:setopts(Socket, [{active, once}]),
+	    receive 
+		{ssl, Socket, _} ->
+		    ssl:setopts(Socket, [{active, once}]),
+		    active_once_packet(Socket, Data, N-1)
+	    end;
 	{ssl, Socket, Data} ->
 	    ok
     end,
@@ -2662,6 +2686,11 @@ active_raw(_Socket, _, 0, _) ->
     ok;
 active_raw(Socket, Data, N, Acc) ->
     receive 
+	{ssl, Socket, Byte} when length(Byte) == 1 ->
+	    receive
+		{ssl, Socket, _} ->
+		    active_raw(Socket, Data, N -1)
+	    end;
 	{ssl, Socket, Data} ->
 	    active_raw(Socket, Data, N-1, []);
 	{ssl, Socket, Other} ->
@@ -2682,6 +2711,11 @@ active_packet(Socket, _, 0) ->
     end;
 active_packet(Socket, Data, N) ->
     receive 
+	{ssl, Socket, Byte} when length(Byte) == 1 ->
+	    receive
+		{ssl, Socket, _} ->
+		    active_packet(Socket, Data, N -1)
+		end;
 	{ssl, Socket, Data} ->
 	    active_packet(Socket, Data, N -1);
 	Other ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -70,9 +70,10 @@
 -define(MAX_SEQENCE_NUMBER, 18446744073709552000). %% math:pow(2, 64) - 1 = 1.8446744073709552e19
 %% Sequence numbers can not wrap so when max is about to be reached we should renegotiate.
 %% We will renegotiate a little before so that there will be sequence numbers left
-%% for the rehandshake and a little data. 
--define(MARGIN, 100).
--define(DEFAULT_RENEGOTIATE_AT, ?MAX_SEQENCE_NUMBER - ?MARGIN).
+%% for the rehandshake and a little data. Currently we decided to renegotiate a little more
+%% often as we can have a cheaper test to check if it is time to renegotiate. It will still
+%% be fairly seldom. 
+-define(DEFAULT_RENEGOTIATE_AT, 268435456). %% math:pow(2, 28) 
 
 %% ConnectionEnd
 -define(SERVER, 0).

@@ -48,7 +48,7 @@
 
 %% Encoding records
 -export([encode_handshake/3, encode_alert_record/3,
-	 encode_change_cipher_spec/2, encode_data/4]).
+	 encode_change_cipher_spec/2, encode_data/3]).
 
 %% Decoding
 -export([decode_cipher_text/2]).
@@ -503,36 +503,14 @@ decode_cipher_text(CipherText, ConnnectionStates0) ->
 	   Alert
    end.
 %%--------------------------------------------------------------------
--spec encode_data(iolist(), tls_version(), #connection_states{}, integer()) ->
-			 {iolist(), iolist(), #connection_states{}}.
+-spec encode_data(binary(), tls_version(), #connection_states{}) ->
+			 {iolist(), #connection_states{}}.
 %%
 %% Description: Encodes data to send on the ssl-socket.
 %%--------------------------------------------------------------------
-encode_data(Frag, Version, ConnectionStates, RenegotiateAt)
-  when byte_size(Frag) < (?MAX_PLAIN_TEXT_LENGTH - 2048) ->
-    case encode_plain_text(?APPLICATION_DATA,Version,Frag,ConnectionStates, RenegotiateAt) of
-	{renegotiate, Data} ->
-	    {[], Data, ConnectionStates};
-	{Msg, CS} ->
-	    {Msg, [], CS}
-    end;
-
-encode_data(Frag, Version, ConnectionStates, RenegotiateAt) when is_binary(Frag) ->
-    Data = split_bin(Frag, ?MAX_PLAIN_TEXT_LENGTH - 2048),
-    encode_data(Data, Version, ConnectionStates, RenegotiateAt);
-
-encode_data(Data, Version, ConnectionStates0, RenegotiateAt) when is_list(Data) ->
-    {ConnectionStates, EncodedMsg, NotEncdedData} =
-        lists:foldl(fun(B, {CS0, Encoded, Rest}) ->
-			    case encode_plain_text(?APPLICATION_DATA,
-						   Version, B, CS0, RenegotiateAt) of
-				{renegotiate, NotEnc} ->
-				    {CS0, Encoded, [NotEnc | Rest]};
-				{Enc, CS1} ->
-				    {CS1, [Enc | Encoded], Rest}
-			    end
-		    end, {ConnectionStates0, [], []}, Data),
-    {lists:reverse(EncodedMsg), lists:reverse(NotEncdedData), ConnectionStates}.
+encode_data(Frag, Version, ConnectionStates) ->
+    Data = split_bin(Frag, ?MAX_PLAIN_TEXT_LENGTH, Version),
+    encode_iolist(?APPLICATION_DATA, Data, Version, ConnectionStates).
 
 %%--------------------------------------------------------------------
 -spec encode_handshake(iolist(), tls_version(), #connection_states{}) ->
@@ -566,6 +544,14 @@ encode_change_cipher_spec(Version, ConnectionStates) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+encode_iolist(Type, Data, Version, ConnectionStates0) ->
+    {ConnectionStates, EncodedMsg} =
+        lists:foldl(fun(Text, {CS0, Encoded}) ->
+			    {Enc, CS1} = encode_plain_text(Type, Version, Text, CS0),
+			    {CS1, [Enc | Encoded]}
+		    end, {ConnectionStates0, []}, Data),
+    {lists:reverse(EncodedMsg), ConnectionStates}.
+
 highest_protocol_version() ->
     highest_protocol_version(supported_protocol_versions()).
 
@@ -602,27 +588,21 @@ record_protocol_role(client) ->
 record_protocol_role(server) ->
     ?SERVER.
 
-split_bin(Bin, ChunkSize) ->
-    split_bin(Bin, ChunkSize, []).
+%% 1/n-1 splitting countermeasure Rizzo/Duong-Beast
+split_bin(<<FirstByte:8, Rest/binary>>, ChunkSize, Version) when {3, 1} == Version orelse
+								 {3, 0} == Version ->
+    do_split_bin(Rest, ChunkSize, [[FirstByte]]);
+split_bin(Bin, ChunkSize, _) ->
+    do_split_bin(Bin, ChunkSize, []).
 
-split_bin(<<>>, _, Acc) ->
+do_split_bin(<<>>, _, Acc) ->
     lists:reverse(Acc);
-split_bin(Bin, ChunkSize, Acc) ->
+do_split_bin(Bin, ChunkSize, Acc) ->
     case Bin of
         <<Chunk:ChunkSize/binary, Rest/binary>> ->
-            split_bin(Rest, ChunkSize, [Chunk | Acc]);
+            do_split_bin(Rest, ChunkSize, [Chunk | Acc]);
         _ ->
             lists:reverse(Acc, [Bin])
-    end.
-
-encode_plain_text(Type, Version, Data, ConnectionStates, RenegotiateAt) ->
-    #connection_states{current_write = 
-		       #connection_state{sequence_number = Num}} = ConnectionStates,
-    case renegotiate(Num, RenegotiateAt) of
-	false ->
-	    encode_plain_text(Type, Version, Data, ConnectionStates);
-	true ->
-	    {renegotiate, Data}
     end.
 
 encode_plain_text(Type, Version, Data, ConnectionStates) ->
@@ -636,11 +616,6 @@ encode_plain_text(Type, Version, Data, ConnectionStates) ->
     {CipherText, CS2} = cipher(Type, Version, Comp, CS1),
     CTBin = encode_tls_cipher_text(Type, Version, CipherText),
     {CTBin, ConnectionStates#connection_states{current_write = CS2}}.
-
-renegotiate(N, M) when N < M->
-    false;
-renegotiate(_,_) ->
-    true.
 
 encode_tls_cipher_text(Type, {MajVer, MinVer}, Fragment) ->
     Length = erlang:iolist_size(Fragment),
