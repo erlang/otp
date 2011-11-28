@@ -1638,8 +1638,19 @@ add_system_files(Tar, RelName, Release, Path1) ->
     SVsn = Release#release.vsn,
     RelName0 = filename:basename(RelName),
 
+    RelVsnDir = filename:join("releases", SVsn),
+
+    %% OTP-9746: store rel file in releases/<vsn>
+    %% Adding rel file to
+    %% 1) releases directory - so it can be easily extracted
+    %%    separately (see release_handler:unpack_release)
+    %% 2) releases/<vsn> - so the file must not be explicitly moved
+    %%    after unpack.
     add_to_tar(Tar, RelName ++ ".rel",
 	       filename:join("releases", RelName0 ++ ".rel")),
+    add_to_tar(Tar, RelName ++ ".rel",
+	       filename:join(RelVsnDir, RelName0 ++ ".rel")),
+
 
     %% OTP-6226 Look for the system files not only in cwd
     %% --
@@ -1655,26 +1666,25 @@ add_system_files(Tar, RelName, Release, Path1) ->
 		   [RelDir, "."|Path1]
 	   end,
 
-    ToDir = filename:join("releases", SVsn),
     case lookup_file(RelName0 ++ ".boot", Path) of
 	false ->
 	    throw({error, {tar_error,{add, RelName0++".boot",enoent}}});
 	Boot ->
-	    add_to_tar(Tar, Boot, filename:join(ToDir, "start.boot"))
+	    add_to_tar(Tar, Boot, filename:join(RelVsnDir, "start.boot"))
     end,
 
     case lookup_file("relup", Path) of
 	false ->
 	    ignore;
 	Relup ->
-	    add_to_tar(Tar, Relup, filename:join(ToDir, "relup"))
+	    add_to_tar(Tar, Relup, filename:join(RelVsnDir, "relup"))
     end,
 
     case lookup_file("sys.config", Path) of
 	false ->
 	    ignore;
 	Sys ->
-	    add_to_tar(Tar, Sys, filename:join(ToDir, "sys.config"))
+	    add_to_tar(Tar, Sys, filename:join(RelVsnDir, "sys.config"))
     end,
     
     ok.
