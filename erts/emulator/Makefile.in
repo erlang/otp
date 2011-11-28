@@ -359,7 +359,6 @@ ERLANG_OSTYPE = @ERLANG_OSTYPE@
 
 ENABLE_ALLOC_TYPE_VARS += @ERLANG_OSTYPE@
 
-EMULATOR_EXECUTABLE_ELIB = beam.elib$(TF_MARKER)
 ifeq ($(TARGET), win32)
 EMULATOR_EXECUTABLE = beam$(TF_MARKER).dll
 else
@@ -942,7 +941,6 @@ $(TARGET)/Makefile: Makefile.in
 
 #SED_REPL_WIN_DRIVE=s|\([ 	]\)\([A-Za-z]\):|\1/cygdrive/\2|g;s|^\([A-Za-z]\):|/cygdrive/\1|g
 SED_REPL_O=s|^\([^:]*:\)|$$(OBJDIR)/\1|g
-SED_REPL_ELIB_O=s|^\([^:]*\).o[ 	]*:|$$(OBJDIR)/\1.elib.o:|g
 SED_REPL_TTF_DIR=s|$(TTF_DIR)/|$$(TTF_DIR)/|g
 SED_REPL_ERL_TOP=s|\([ 	]\)$(ERL_TOP)/|\1$$(ERL_TOP)/|g;s|^$(ERL_TOP)/|$$(ERL_TOP)/|g
 SED_REPL_POLL=s|$$(OBJDIR)/erl_poll.o|$$(OBJDIR)/erl_poll.kp.o $$(OBJDIR)/erl_poll.nkp.o|g
@@ -962,7 +960,6 @@ SED_SUFFIX=
 endif
 
 SED_DEPEND=sed '$(SED_PREFIX)$(SED_REPL_O);$(SED_REPL_TTF_DIR);$(SED_REPL_ERL_TOP)$(SED_SUFFIX)'
-SED_ELIB_DEPEND=sed '$(SED_PREFIX)$(SED_REPL_ELIB_O);$(SED_REPL_TTF_DIR);$(SED_REPL_ERL_TOP)$(SED_SUFFIX)'
 
 ifdef HIPE_ENABLED
 HIPE_SRC=$(wildcard hipe/*.c)
@@ -1018,10 +1015,6 @@ depend:
 		| $(SED_DEPEND) >> $(TARGET)/depend.mk
 	$(DEP_CC) $(DEP_FLAGS) $(TARGET_SRC) \
 		| $(SED_DEPEND) >> $(TARGET)/depend.mk
-ifneq ($(TARGET),win32)
-	$(DEP_CC) $(DEP_FLAGS) $(ELIB_C_FILES) \
-		| $(SED_ELIB_DEPEND) >> $(TARGET)/depend.mk
-endif
 ifdef HIPE_ENABLED
 	$(DEP_CC) $(DEP_FLAGS) $(HIPE_SRC) \
 		| $(SED_DEPEND) >> $(TARGET)/depend.mk
