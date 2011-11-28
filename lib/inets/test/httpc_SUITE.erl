@@ -145,14 +145,6 @@ groups() ->
     ].
 
 
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
 %%--------------------------------------------------------------------
 %% Function: init_per_suite(Config) -> Config
 %% Config - [tuple()]
@@ -226,9 +218,7 @@ init_per_testcase(initial_server_connect = Case, Config) ->
     %% this test case does not work unless it does
     try 
 	begin
-	    ensure_started(crypto),
-	    ensure_started(public_key),
-	    ensure_started(ssl),
+	    ?ENSURE_STARTED([crypto, public_key, ssl]),
 	    inets:start(),
 	    Config
 	end
@@ -267,10 +257,12 @@ init_per_testcase(Case, Timeout, Config) ->
     NewConfig = 
 	case atom_to_list(Case) of
 	    [$s, $s, $l | _] ->
+		?ENSURE_STARTED([crypto, public_key, ssl]), 
 		init_per_testcase_ssl(ssl, PrivDir, SslConfFile, 
 				      [{watchdog, Dog} | TmpConfig]);
 
 	    [$e, $s, $s, $l | _] ->
+		?ENSURE_STARTED([crypto, public_key, ssl]), 
 		init_per_testcase_ssl(essl, PrivDir, SslConfFile, 
 				      [{watchdog, Dog} | TmpConfig]);
 
@@ -282,7 +274,7 @@ init_per_testcase(Case, Timeout, Config) ->
 			inets:start(),
 			tsp("init_per_testcase -> "
 			    "[proxy case] start crypto, public_key and ssl"),
-			try ensure_started([crypto, public_key, ssl]) of
+			try ?ENSURE_STARTED([crypto, public_key, ssl]) of
 			    ok ->
 				[{watchdog, Dog} | TmpConfig]
 			catch 
@@ -335,8 +327,8 @@ init_per_testcase(Case, Timeout, Config) ->
 		end;
 
 	    "ipv6_" ++ _Rest ->
-		%% Ensure needed apps (crypto, public_key and ssl) started
-		try ensure_started([crypto, public_key, ssl]) of
+		%% Ensure needed apps (crypto, public_key and ssl) are started
+		try ?ENSURE_STARTED([crypto, public_key, ssl]) of
 		    ok ->
 			Profile = ipv6, 
 			%% A stand-alone profile is represented by a pid()
@@ -3550,22 +3542,6 @@ dummy_ssl_server_hang_loop(_) ->
     receive
 	stop ->
 	    ok
-    end.
-
-
-ensure_started([]) ->
-    ok;
-ensure_started([App|Apps]) ->
-    ensure_started(App),
-    ensure_started(Apps);
-ensure_started(App) when is_atom(App) ->
-    case (catch application:start(App)) of
-	ok ->
-	    ok;
-	{error, {already_started, _}} ->
-	    ok;
-	Error ->
-	    throw({error, {failed_starting, App, Error}})
     end.
 
 

@@ -344,10 +344,14 @@ await_poll_response2(SocketType, Socket, ExpStatusCode, Data) ->
     receive 
 	%% SSL receives
 	{ssl, Socket, NewData} ->
+	    d("await_poll_response2 -> "
+	      "received part (~w bytes) of the response", [sz(NewData)]),
             await_poll_response2(SocketType, Socket, ExpStatusCode, 
 				 [NewData | Data]);
 	{ssl_closed, Socket} -> 
 	    %% We are done or we failed
+	    d("await_poll_response2 -> "
+	      "we are done after receiving ~w bytes data", [sz(Data)]),
 	    validate(ExpStatusCode, SocketType, Socket, 
 		     lists:flatten(lists:reverse(Data)));
 	{ssl_error, Socket, Error} ->
@@ -355,10 +359,14 @@ await_poll_response2(SocketType, Socket, ExpStatusCode, Data) ->
 
 	%% TCP receives
         {tcp, Socket, NewData} ->
+	    d("await_poll_response2 -> "
+	      "received part (~w bytes) of the response", [sz(NewData)]),
             await_poll_response2(SocketType, Socket, ExpStatusCode, 
 				 [NewData | Data]);
         {tcp_closed, Socket} ->
 	    %% We are done or we failed
+	    d("await_poll_response2 -> "
+	      "we are done after receiving ~w bytes data", [sz(Data)]),
 	    validate(ExpStatusCode, SocketType, Socket, 
 		     lists:flatten(lists:reverse(Data)));
 	{tcp_error, Socket, Error} ->
