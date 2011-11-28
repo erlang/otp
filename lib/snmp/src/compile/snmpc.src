@@ -74,7 +74,7 @@
 %% --rrnac
 %% --version
 %% --verbosity V
-%% --warnings
+%% --warnings | --W
 %% --Werror | --wae | --warnings_as_errors
 main(Args) when is_list(Args) ->
     case (catch process_args(Args)) of
@@ -221,7 +221,10 @@ process_args([], #state{verbosity = Verbosity0, file = MIB} = State) ->
 process_args(["--help"|_Args], _State) ->
     ok;
 process_args(["--version"|_Args], #state{version = Version, mfv = MFV} = _State) ->
-    {ok, lists:flatten(io_lib:format("snmpc ~s (~s)", [Version, MFV]))};
+    OtpVersion = otp_release(), 
+    {ok, lists:flatten(
+	   io_lib:format("snmpc ~s [Mib format version ~s] (OTP ~s)", 
+			 [Version, MFV, OtpVersion]))};
 process_args(["--verbosity", Verbosity0|Args], #state{verbosity = V} = State) 
   when (V =:= undefined) ->
     Verbosity = list_to_atom(Verbosity0),
@@ -234,7 +237,7 @@ process_args(["--verbosity", Verbosity0|Args], #state{verbosity = V} = State)
 process_args(["--verbosity"|_Args], #state{verbosity = V}) 
   when (V =/= undefined) ->
     e(lists:flatten(io_lib:format("Verbosity already set to ~w", [V])));
-process_args(["--w"|Args], State) ->
+process_args(["--W"|Args], State) ->
     process_args(Args, State#state{warnings = true});
 process_args(["--warnings"|Args], State) ->
     process_args(Args, State#state{warnings = true});
@@ -398,3 +401,16 @@ usage() ->
 e(Reason) ->
     throw({error, Reason}).
 
+otp_release() ->
+    system_info(otp_release, string).
+
+
+system_info(Tag, Type) ->
+    case (catch erlang:system_info(Tag)) of
+	{'EXIT', _} ->
+	    "-";
+	Info when is_list(Info) andalso (Type =:= string) ->
+	    Info;
+	Info ->
+	    lists:flatten(io_lib:format("~w", [Info]))
+    end.

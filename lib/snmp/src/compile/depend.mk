@@ -44,6 +44,6 @@ $(EBIN)/snmpc_mib_gram.$(EMULATOR): \
 	../../include/snmp_types.hrl \
 	snmpc_mib_gram.erl
 
-$(BIN)/snmpc: snmpc.src
+$(BIN)/snmpc: snmpc.src ../../vsn.mk
 	$(PERL) -p -e 's?%VSN%?$(VSN)? ' < $< > $@
 	chmod 755 $@
