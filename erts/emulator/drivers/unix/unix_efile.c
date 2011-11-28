@@ -1500,7 +1500,7 @@ efile_sendfile(Efile_error* errInfo, int in_fd, int out_fd,
 	written += retval;
 	*nbytes -= retval;
       }
-    } while (retval != -1 && retval == SENDFILE_CHUNK_SIZE);
+    } while (retval == SENDFILE_CHUNK_SIZE);
     *nbytes = written;
     return check_error(retval == -1 ? -1 : 0, errInfo);
 #elif defined(DARWIN)
