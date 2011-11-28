@@ -70,7 +70,7 @@ init_per_suite(Config) when is_list(Config) ->
     application:start(inets), % will be using the http client later
     httpc:set_options([{ipfamily,inet6fb4}]),
     DataDir = ?config(data_dir,Config),
-    Rels = [R || R <- [r12b,r13b], ?t:is_release_available(R)] ++ [current],
+    Rels = [R || R <- [r13b,r14b], ?t:is_release_available(R)] ++ [current],
     io:format("Creating crash dumps for the following releases: ~p", [Rels]),
     AllDumps = create_dumps(DataDir,Rels),
     ?t:timetrap_cancel(Dog),
@@ -722,7 +722,8 @@ dump_prefix(Rel) ->
 	r11b -> "r11b_dump.";
 	r12b -> "r12b_dump.";
 	r13b -> "r13b_dump.";
-	current -> "r14b_dump."
+	r14b -> "r14b_dump.";
+	current -> "r15b_dump."
     end.
 
 compat_rel(Rel) ->
@@ -733,5 +734,6 @@ compat_rel(Rel) ->
 	r11b -> "+R11 ";
 	r12b -> "+R12 ";
 	r13b -> "+R13 ";
+	r14b -> "+R13 ";
 	current -> ""
     end.

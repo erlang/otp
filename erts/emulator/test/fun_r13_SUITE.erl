@@ -17,10 +17,10 @@
 %% %CopyrightEnd%
 %%
 
--module(fun_r12_SUITE).
--compile(r12).
+-module(fun_r13_SUITE).
+-compile(r13).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,dist_old_release/1]).
 
@@ -29,10 +29,10 @@
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
+all() ->
     [dist_old_release].
 
-groups() -> 
+groups() ->
     [].
 
 init_per_suite(Config) ->

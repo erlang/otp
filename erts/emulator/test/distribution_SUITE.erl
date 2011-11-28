@@ -18,7 +18,7 @@
 %%
 
 -module(distribution_SUITE).
--compile(r12).
+-compile(r13).
 
 %% Tests distribution and the tcp driver.
 
@@ -37,7 +37,7 @@
 	 dist_auto_connect_never/1, dist_auto_connect_once/1,
 	 dist_parallel_send/1,
 	 atom_roundtrip/1,
-	 atom_roundtrip_r12b/1,
+	 atom_roundtrip_r13b/1,
 	 contended_atom_cache_entry/1,
 	 bad_dist_structure/1,
 	 bad_dist_ext_receive/1,
@@ -62,7 +62,7 @@ all() ->
      link_to_dead_new_node, applied_monitor_node,
      ref_port_roundtrip, nil_roundtrip, stop_dist,
      {group, trap_bif}, {group, dist_auto_connect},
-     dist_parallel_send, atom_roundtrip, atom_roundtrip_r12b,
+     dist_parallel_send, atom_roundtrip, atom_roundtrip_r13b,
      contended_atom_cache_entry, bad_dist_structure, {group, bad_dist_ext}].
 
 groups() -> 
@@ -1100,17 +1100,17 @@ atom_roundtrip(Config) when is_list(Config) ->
     ?line stop_node(Node),
     ?line ok.
 
-atom_roundtrip_r12b(Config) when is_list(Config) ->
-    case ?t:is_release_available("r12b") of
+atom_roundtrip_r13b(Config) when is_list(Config) ->
+    case ?t:is_release_available("r13b") of
 	true ->
 	    ?line AtomData = atom_data(),
 	    ?line verify_atom_data(AtomData),
-	    ?line {ok, Node} = start_node(Config, [], "r12b"),
+	    ?line {ok, Node} = start_node(Config, [], "r13b"),
 	    ?line do_atom_roundtrip(Node, AtomData),
 	    ?line stop_node(Node),
 	    ?line ok;
 	false ->
-	    ?line {skip,"No OTP R12B available"}
+	    ?line {skip,"No OTP R13B available"}
     end.
 
 do_atom_roundtrip(Node, AtomData) ->

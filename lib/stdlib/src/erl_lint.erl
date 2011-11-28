@@ -2767,12 +2767,6 @@ default_types() ->
 		{var, 1}],
     dict:from_list([{T, -1} || T <- DefTypes]).
 
-%% R12B-5
-is_newly_introduced_builtin_type({module, 0}) -> true;
-is_newly_introduced_builtin_type({node, 0}) -> true;
-is_newly_introduced_builtin_type({nonempty_string, 0}) -> true;
-is_newly_introduced_builtin_type({term, 0}) -> true;
-is_newly_introduced_builtin_type({timeout, 0}) -> true;
 %% R13
 is_newly_introduced_builtin_type({arity, 0}) -> true;
 is_newly_introduced_builtin_type({array, 0}) -> true; % opaque
