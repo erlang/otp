@@ -31,7 +31,7 @@
 
 -module(hipe_beam_to_icode).
 
--export([module/2, mfa/3]).
+-export([module/2]).
 
 %%-----------------------------------------------------------------------
 
@@ -109,55 +109,6 @@ trans_beam_function_chunk(FunBeamCode, ClosureInfo) ->
   {M,F,A} = MFA = find_mfa(FunBeamCode),
   Icode = trans_mfa_code(M,F,A, FunBeamCode, ClosureInfo),
   {MFA,Icode}.
-
-%%-----------------------------------------------------------------------
-%% @doc
-%% Translates the BEAM code of a single function into Icode.
-%%   Returns a tuple whose first argument is list of {{M,F,A}, ICode}
-%%   pairs, where the first entry is that of the given MFA, and the
-%%   following (in undefined order) are those of the funs that are
-%%   defined in the function, and recursively, in the funs.  The
-%%   second argument of the tuple is the HiPE compiler options
-%%   contained in the file.
-%% @end
-%%-----------------------------------------------------------------------
-
--spec mfa(list(), mfa(), comp_options()) -> hipe_beam_to_icode_ret().
-
-mfa(BeamFuns, {M,F,A} = MFA, Options)
-  when is_atom(M), is_atom(F), is_integer(A) ->
-  BeamCode0 = [beam_disasm:function__code(Fn) || Fn <- BeamFuns],
-  {ModCode, ClosureInfo} = preprocess_code(BeamCode0),
-  mfa_loop([MFA], [], sets:new(), ModCode, ClosureInfo, Options).
-
-mfa_loop([{M,F,A} = MFA | MFAs], Acc, Seen, ModCode, ClosureInfo,
-	 Options) when is_atom(M), is_atom(F), is_integer(A) ->
-  case sets:is_element(MFA, Seen) of
-    true ->
-      mfa_loop(MFAs, Acc, Seen, ModCode, ClosureInfo, Options);
-    false ->
-      {Icode, FunMFAs} = mfa_get(M, F, A, ModCode, ClosureInfo, Options),
-      mfa_loop(FunMFAs ++ MFAs, [{MFA, Icode} | Acc],
-	       sets:add_element(MFA, Seen),
-	       ModCode, ClosureInfo, Options)
-  end;
-mfa_loop([], Acc, _, _, _, _) ->
-  lists:reverse(Acc).
-
-mfa_get(M, F, A, ModCode, ClosureInfo, Options) ->
-  BeamCode = get_fun(ModCode, M,F,A),
-  pp_beam([BeamCode], Options),  % cheat by using a list
-  Icode = trans_mfa_code(M,F,A, BeamCode, ClosureInfo),
-  FunMFAs = get_fun_mfas(BeamCode),
-  {Icode, FunMFAs}.
-
-get_fun_mfas([{patched_make_fun,{M,F,A} = MFA,_,_,_}|BeamCode])
-  when is_atom(M), is_atom(F), is_integer(A) ->
-  [MFA|get_fun_mfas(BeamCode)];
-get_fun_mfas([_|BeamCode]) ->
-  get_fun_mfas(BeamCode);
-get_fun_mfas([]) ->
-  [].
 
 %%-----------------------------------------------------------------------
 %% The main translation function.
@@ -1884,16 +1835,6 @@ find_mfa([{func_info,{atom,M},{atom,F},A}|_])
   when is_atom(M), is_atom(F), is_integer(A), 0 =< A, A =< 255 ->
   {M, F, A}.
 
-%%-----------------------------------------------------------------------
-
-%% Localize a particular function in a module
-get_fun([[L, {func_info,{atom,M},{atom,F},A} | Is] | _], M,F,A) ->
-  [L, {func_info,{atom,M},{atom,F},A} | Is];
-get_fun([[_L1,_L2, {func_info,{atom,M},{atom,F},A} = MFA| _Is] | _], M,F,A) ->
-  ?WARNING_MSG("Consecutive labels found; please re-create the .beam file~n", []),
-  [_L1,_L2, MFA | _Is];
-get_fun([_|Rest], M,F,A) ->
-  get_fun(Rest, M,F,A).    
 
 %%-----------------------------------------------------------------------
 %% Takes a list of arguments and returns the constants of them into

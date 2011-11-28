@@ -47,9 +47,8 @@
 %%
 %% <h3>Using the direct interface - for advanced users only</h3>
 %%
-%% To compile a module or a specific function to native code and
-%% automatically load the code into memory, call <a
-%% href="#c-1"><code>hipe:c(Module)</code></a> or <a
+%% To compile a module to native code and automatically load the code
+%% into memory, call <a href="#c-1"><code>hipe:c(Module)</code></a> or <a
 %% href="#c-2"><code>hipe:c(Module, Options)</code></a>. Note that all
 %% options are specific to the HiPE compiler. See the <a
 %% href="#index">function index</a> for other compiler functions.
@@ -221,11 +220,10 @@
 %%-------------------------------------------------------------------
 
 -type mod() :: atom().
--type c_unit() :: mod() | mfa().
 -type f_unit() :: mod() | binary().
 -type ret_rtl() :: [_].
--type c_ret() :: {'ok', c_unit()} | {'error', term()} |
-                 {'ok', c_unit(), ret_rtl()}. %% The last for debugging only
+-type c_ret() :: {'ok', mod()} | {'error', term()} |
+                 {'ok', mod(), ret_rtl()}. %% The last for debugging only
 -type compile_file() :: atom() | string() | binary().
 -type compile_ret() :: {hipe_architecture(), binary()} | list().
 
@@ -278,47 +276,44 @@ load(Mod, BeamFileName) when is_list(BeamFileName) ->
   end.
 
 %% @spec c(Name) -> {ok, Name} | {error, Reason}
-%%       Name = mod() | mfa()
+%%       Name = mod()
 %%       Reason = term()
 %%
 %% @equiv c(Name, [])
 
--spec c(c_unit()) -> c_ret().
+-spec c(mod()) -> c_ret().
 
 c(Name) ->
   c(Name, []).
 
 %% @spec c(Name, options()) -> {ok, Name} | {error, Reason}
-%%     Name = mod() | mfa()
+%%     Name = mod()
 %%     options() = [option()]
 %%     option() = term()
 %%     Reason = term()
-%%
-%% @type mfa() = {M::mod(),F::fun(),A::arity()}.
-%%       A fully qualified function name.
 %%
 %% @type fun() = atom(). A function identifier.
 %%
 %% @type arity() = integer(). A function arity; always nonnegative.
 %% 
 %% @doc User-friendly native code compiler interface. Reads BEAM code
-%% from the corresponding "Module<code>.beam</code>" file in the system
-%% path, and compiles either a single function or the whole module to
-%% native code. By default, the compiled code is loaded directly. See
-%% above for documentation of options.
+%% from the corresponding "Module<code>.beam</code>" file in the
+%% system path, and compiles the whole module to native code. By
+%% default, the compiled code is loaded directly. See above for
+%% documentation of options.
 %%
 %% @see c/1
 %% @see c/3
 %% @see f/2
 %% @see compile/2
 
--spec c(c_unit(), comp_options()) -> c_ret().
+-spec c(mod(), comp_options()) -> c_ret().
 
 c(Name, Options) ->
   c(Name, beam_file(Name), Options).
 
 %% @spec c(Name, File, options()) -> {ok, Name} | {error, Reason}
-%%     Name = mod() | mfa()
+%%     Name = mod()
 %%     File = filename() | binary()
 %%     Reason = term()
 %%
@@ -329,7 +324,6 @@ c(Name, Options) ->
 %% @see f/2
 
 c(Name, File, Opts) ->
-  %% No server if only one function is compiled
   Opts1 = user_compile_opts(Opts),
   case compile(Name, File, Opts1) of
     {ok, Res} ->
@@ -359,8 +353,7 @@ f(File) ->
 %%     Reason = term()
 %%
 %% @doc Like <code>c/3</code>, but takes the module name from the
-%% specified <code>File</code>. This always compiles the whole module;
-%% there is no possibility to compile just a single function.
+%% specified <code>File</code>.
 %%
 %% @see c/3
 
@@ -381,26 +374,26 @@ user_compile_opts(Opts) ->
 
 
 %% @spec compile(Name) -> {ok, {Target,Binary}} | {error, Reason}
-%%       Name = mod() | mfa()
+%%       Name = mod()
 %%       Binary = binary()
 %%       Reason = term()
 %% 
 %% @equiv compile(Name, [])
 
--spec compile(c_unit()) -> {'ok', compile_ret()} | {'error', term()}.
+-spec compile(mod()) -> {'ok', compile_ret()} | {'error', term()}.
 
 compile(Name) ->
   compile(Name, []).
 
 %% @spec compile(Name, options()) -> {ok, {Target,Binary}} | {error, Reason}
-%%       Name = mod() | mfa()
+%%       Name = mod()
 %%       Binary = binary()
 %%       Reason = term()
 %%
-%% @doc Direct compiler interface, for advanced use. This just compiles
-%% the named function or module, reading BEAM code from the
-%% corresponding "Module<code>.beam</code>" file in the system path.
-%% Returns <code>{ok, Binary}</code> if successful, or <code>{error,
+%% @doc Direct compiler interface, for advanced use. This just
+%% compiles the module, reading BEAM code from the corresponding
+%% "Module<code>.beam</code>" file in the system path.  Returns
+%% <code>{ok, Binary}</code> if successful, or <code>{error,
 %% Reason}</code> otherwise. By default, it does <em>not</em> load the
 %% binary to memory (the <code>load</code> option can be used to
 %% activate automatic loading). <code>File</code> can be either a file
@@ -412,15 +405,13 @@ compile(Name) ->
 %% @see file/2
 %% @see load/2
 
--spec compile(c_unit(), comp_options()) -> {'ok', compile_ret()} | {'error', _}.
+-spec compile(mod(), comp_options()) -> {'ok', compile_ret()} | {'error', _}.
 
 compile(Name, Options) ->
   compile(Name, beam_file(Name), Options).
 
--spec beam_file(mod() | mfa()) -> string().
+-spec beam_file(mod()) -> string().
 
-beam_file({M,F,A}) when is_atom(M), is_atom(F), is_integer(A), A >= 0 ->
-  beam_file(M);
 beam_file(Module) when is_atom(Module) ->
   case code:which(Module) of
     non_existing ->
@@ -432,7 +423,7 @@ beam_file(Module) when is_atom(Module) ->
 
 %% @spec compile(Name, File, options()) ->
 %%           {ok, {Target, Binary}} | {error, Reason}
-%%       Name = mod() | mfa()
+%%       Name = mod()
 %%       File = filename() | binary()
 %%       Binary = binary()
 %%       Reason = term()
@@ -442,18 +433,11 @@ beam_file(Module) when is_atom(Module) ->
 %%
 %% @see compile/2
 
--spec compile(c_unit(), compile_file(), comp_options()) ->
+-spec compile(mod(), compile_file(), comp_options()) ->
 	 {'ok', compile_ret()} | {'error', term()}.
 
-compile(Name, File, Opts0) ->
-  Opts1 = expand_kt2(Opts0),
-  Opts = 
-    case Name of
-      {_Mod, _Fun, _Arity} ->
-	[no_concurrent_comp|Opts1];
-      _ ->
-	Opts1
-    end,
+compile(Name, File, Opts0) when is_atom(Name) ->
+  Opts = expand_kt2(Opts0),
   case proplists:get_value(core, Opts) of
     true when is_binary(File) ->
       ?error_msg("Cannot get Core Erlang code from BEAM binary.",[]),
@@ -486,23 +470,11 @@ compile(Name, File, Opts0) ->
 	  ?EXIT({cant_compile_source_code, Error})
       end;
     Other when Other =:= false; Other =:= undefined ->
-      NewOpts =
-	case proplists:get_value(use_callgraph, Opts) of
-	  No when No =:= false; No =:= undefined -> Opts;
-	  _ ->
-	    case Name of
-	      {_M,_F,_A} ->
-		%% There is no point in using the callgraph or concurrent_comp
-		%% when analyzing just one function.
-		[no_use_callgraph, no_concurrent_comp|Opts];
-	      _ -> Opts
-	    end
-	end,
       DisasmFun = fun (_) -> disasm(File) end,
       IcodeFun = fun (Code, Opts_) ->
 		     get_beam_icode(Name, Code, File, Opts_)
 		 end,
-      run_compiler(Name, DisasmFun, IcodeFun, NewOpts)
+      run_compiler(Name, DisasmFun, IcodeFun, Opts)
   end.
 
 -spec compile_core(mod(), cerl:c_module(), compile_file(), comp_options()) ->
@@ -625,11 +597,6 @@ fix_beam_exports([{F,A,_}|BeamExports], Exports) ->
 fix_beam_exports([], Exports) ->
   Exports.
 
-get_beam_icode({M,_F,_A} = MFA, {BeamCode, Exports}, _File, Options) ->
-  ?option_time({ok, Icode} = 
-	       (catch {ok, hipe_beam_to_icode:mfa(BeamCode, MFA, Options)}),
-	       "BEAM-to-Icode", Options),
-  {{M, Exports, Icode}, false};
 get_beam_icode(Mod, {BeamCode, Exports}, File, Options) ->
   ?option_time({ok, Icode} =
 	       (catch {ok, hipe_beam_to_icode:module(BeamCode, Options)}),
@@ -899,7 +866,8 @@ maybe_load(Mod, Bin, WholeModule, Opts) ->
       do_load(Mod, Bin, WholeModule)
   end.
 
-do_load(Mod, Bin, WholeModule) ->
+do_load(Mod, Bin, BeamBinOrPath) when is_binary(BeamBinOrPath);
+				      is_list(BeamBinOrPath) ->
   HostArch = get(hipe_host_arch),
   TargetArch = get(hipe_target_arch),
   %% Make sure we can do the load.
@@ -907,29 +875,22 @@ do_load(Mod, Bin, WholeModule) ->
     ?EXIT({host_and_target_arch_differ, HostArch, TargetArch});
     true -> ok
   end,
-  case WholeModule of 
+  case code:is_sticky(Mod) of
+    true ->
+      %% We unpack and repack the Beam binary as a workaround to
+      %% ensure that it is not compressed.
+      {ok, _, Chunks} = beam_lib:all_chunks(BeamBinOrPath),
+      {ok, Beam} = beam_lib:build_module(Chunks),
+      %% Don't purge or register sticky mods; just load native.
+      code:load_native_sticky(Mod, Bin, Beam);
     false ->
-      %% In this case, the emulated code for the module must be loaded.
-      {module, Mod} = code:ensure_loaded(Mod),
-      code:load_native_partial(Mod, Bin);
-    BeamBinOrPath when is_binary(BeamBinOrPath) orelse is_list(BeamBinOrPath) ->
-      case code:is_sticky(Mod) of
-	true ->
-	  %% We unpack and repack the Beam binary as a workaround to
-	  %% ensure that it is not compressed.
-	  {ok, _, Chunks} = beam_lib:all_chunks(WholeModule),
-	  {ok, Beam} = beam_lib:build_module(Chunks),
-	  %% Don't purge or register sticky mods; just load native.
-	  code:load_native_sticky(Mod, Bin, Beam);
-	false ->
-	  %% Normal loading of a whole module
-	  Architecture = erlang:system_info(hipe_architecture),
-	  ChunkName = hipe_unified_loader:chunk_name(Architecture),
-	  {ok, _, Chunks0} = beam_lib:all_chunks(WholeModule),
-	  Chunks = [{ChunkName, Bin}|lists:keydelete(ChunkName, 1, Chunks0)],
-	  {ok, BeamPlusNative} = beam_lib:build_module(Chunks),
-	  code:load_binary(Mod, code:which(Mod), BeamPlusNative)
-      end
+      %% Normal loading of a whole module
+      Architecture = erlang:system_info(hipe_architecture),
+      ChunkName = hipe_unified_loader:chunk_name(Architecture),
+      {ok, _, Chunks0} = beam_lib:all_chunks(BeamBinOrPath),
+      Chunks = [{ChunkName, Bin}|lists:keydelete(ChunkName, 1, Chunks0)],
+      {ok, BeamPlusNative} = beam_lib:build_module(Chunks),
+      code:load_binary(Mod, code:which(Mod), BeamPlusNative)
   end.
 
 assemble(CompiledCode, Closures, Exports, Options) ->
