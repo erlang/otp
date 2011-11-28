@@ -691,7 +691,6 @@ public_key(#'PrivateKeyInfo'{privateKeyAlgorithm =
 public_key(Key) ->
     Key.
 
-
 receive_rizzo_duong_beast() ->
     receive 
 	{ssl, _, "ello\n"} ->
@@ -703,3 +702,10 @@ receive_rizzo_duong_beast() ->
 		    end
 	    end
     end.
+
+state([{data,[{"State", State}]} | _]) ->
+    State;
+state([{data,[{"StateData", State}]} | _]) ->
+    State;
+state([_ | Rest]) ->
+    state(Rest).
