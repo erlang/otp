@@ -20,20 +20,20 @@
 %%
 %% Module alternative to diameterc for dictionary compilation.
 %%
-%% Eg. 1> diameter_make:dict("mydict.dia").
+%% Eg. 1> diameter_make:file("mydict.dia").
 %%
 %%     $ erl -noshell \
 %%           -boot start_clean \
-%%           -s diameter_make dict mydict.dia \
+%%           -s diameter_make file mydict.dia \
 %%           -s init stop
 %%
 
 -module(diameter_make).
 
--export([dict/1,
-         dict/2,
-         spec/1,
-         spec/2]).
+-export([file/1,
+         file/2,
+         dict/1,
+         dict/2]).
 
 -type opt() :: {outdir|include|name|prefix|inherits, string()}
              | verbose
@@ -41,37 +41,49 @@
 
 %% dict/1-2
 
--spec dict(string(), [opt()])
-   -> ok.
+-spec file(string(), [opt()])
+   -> ok
+    | {error, string()}.
 
-dict(File, Opts) ->
-    make(File,
-         Opts,
-         spec(File, Opts),
-         [spec || _ <- [1], lists:member(debug, Opts)] ++ [erl, hrl]).
+file(File, Opts) ->
+    case dict(File, Opts) of
+        {ok, Dict} ->
+            make(File,
+                 Opts,
+                 Dict,
+                 [spec || _ <- [1], lists:member(debug, Opts)] ++ [erl, hrl]);
+        {error, _} = E ->
+            E
+    end.
+
+file(File) ->
+    file(File, []).
+
+%% dict/2
+
+-spec dict(string(), [opt()])
+   -> {ok, orddict:orddict()}
+    | {error, string()}.
+
+dict(Path, Opts) ->
+    case diameter_dict_util:parse({path, Path}, Opts) of
+        {ok, _} = Ok ->
+            Ok;
+        {error = E, Reason} ->
+            {E, diameter_dict_util:format_error(Reason)}
+    end.
 
 dict(File) ->
     dict(File, []).
-
-%% spec/2
-
--spec spec(string(), [opt()])
-   -> orddict:orddict().
-
-spec(File, Opts) ->
-    diameter_spec_util:parse(File, Opts).
-
-spec(File) ->
-    spec(File, []).
 
 %% ===========================================================================
 
 make(_, _, _, []) ->
     ok;
-make(File, Opts, Spec, [Mode | Rest]) ->
-    try diameter_codegen:from_spec(File, Spec, Opts, Mode) of
+make(File, Opts, Dict, [Mode | Rest]) ->
+    try diameter_codegen:from_dict(File, Dict, Opts, Mode) of
         ok ->
-            make(File, Opts, Spec, Rest)
+            make(File, Opts, Dict, Rest)
     catch
         error: Reason ->
             {error, {Reason, Mode, erlang:get_stacktrace()}}
