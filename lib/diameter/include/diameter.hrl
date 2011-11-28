@@ -107,6 +107,21 @@
          transport = sctp,       %% | tcp,
          protocol  = diameter}). %% | radius | 'tacacs+'
 
+%% A diameter_callback record can be specified as an application
+%% module in order to selectively receive callbacks or alter their
+%% form.
+-record(diameter_callback,
+        {peer_up,
+         peer_down,
+         pick_peer,
+         prepare_request,
+         prepare_retransmit,
+         handle_request,
+         handle_answer,
+         handle_error,
+         default,
+         extra = []}).
+
 %% The diameter service and diameter_apps records are only passed
 %% through the transport interface when starting a transport process,
 %% although typically a transport implementation will (and probably
