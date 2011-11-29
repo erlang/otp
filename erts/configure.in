@@ -2458,6 +2458,17 @@ case $ARCH-$OPSYS in
 		darwin_mcontext_leopard=no
 		;;
 esac
+
+if test X${enable_fp_exceptions} = Xauto ; then
+   case $host_os in
+	darwin*)
+	      enable_fp_exceptions=no
+	      AC_MSG_NOTICE([Floating point exceptions disabled by default on MacOS X]) ;;
+	      *)
+	      ;;
+    esac
+fi
+
 if test X${enable_fp_exceptions} = Xauto ; then
    if test X${enable_hipe} = Xyes; then
       enable_fp_exceptions=yes
