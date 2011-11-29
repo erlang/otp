@@ -60,7 +60,8 @@ check on newline and when there are no changes)."
   (list (concat (erlang-flymake-get-app-dir) "ebin")))
 
 (defun erlang-flymake-get-include-dirs ()
-  (list (concat (erlang-flymake-get-app-dir) "include")))
+  (list (concat (erlang-flymake-get-app-dir) "include")
+        (concat (erlang-flymake-get-app-dir) "deps")))
 
 (defun erlang-flymake-get-app-dir ()
   (let ((src-path (file-name-directory (buffer-file-name))))
