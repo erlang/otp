@@ -5,6 +5,10 @@ P2B= \
      P2B/a-2.0/ebin/a_sup.@EMULATOR@
 
 LIB= \
+     lib/a-9.1/ebin/a.@EMULATOR@ \
+     lib/a-9.1/ebin/a_sup.@EMULATOR@ \
+     lib/a-9.0/ebin/a.@EMULATOR@ \
+     lib/a-9.0/ebin/a_sup.@EMULATOR@ \
      lib/a-1.2/ebin/a.@EMULATOR@ \
      lib/a-1.2/ebin/a_sup.@EMULATOR@ \
      lib/a-1.1/ebin/a.@EMULATOR@ \
@@ -100,6 +104,17 @@ lib/a-1.2/ebin/a.@EMULATOR@: lib/a-1.2/src/a.erl
 	erlc $(EFLAGS) -olib/a-1.2/ebin lib/a-1.2/src/a.erl
 lib/a-1.2/ebin/a_sup.@EMULATOR@: lib/a-1.2/src/a_sup.erl
 	erlc $(EFLAGS) -olib/a-1.2/ebin lib/a-1.2/src/a_sup.erl
+
+lib/a-9.0/ebin/a.@EMULATOR@: lib/a-9.0/src/a.erl
+	erlc $(EFLAGS) -olib/a-9.0/ebin lib/a-9.0/src/a.erl
+lib/a-9.0/ebin/a_sup.@EMULATOR@: lib/a-9.0/src/a_sup.erl
+	erlc $(EFLAGS) -olib/a-9.0/ebin lib/a-9.0/src/a_sup.erl
+
+lib/a-9.1/ebin/a.@EMULATOR@: lib/a-9.1/src/a.erl
+	erlc $(EFLAGS) -olib/a-9.1/ebin lib/a-9.1/src/a.erl
+lib/a-9.1/ebin/a_sup.@EMULATOR@: lib/a-9.1/src/a_sup.erl
+	erlc $(EFLAGS) -olib/a-9.1/ebin lib/a-9.1/src/a_sup.erl
+
 
 lib/b-1.0/ebin/b_server.@EMULATOR@: lib/b-1.0/src/b_server.erl
 	erlc $(EFLAGS) -olib/b-1.0/ebin lib/b-1.0/src/b_server.erl
