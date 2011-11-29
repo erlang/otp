@@ -505,14 +505,19 @@ resume(Pids) ->
 
 change_code(Pids, Mod, Vsn, Extra, Timeout) ->
     Fun = fun(Pid) -> 
-		  case Timeout of
-		      default ->
-			  ok = sys:change_code(Pid, Mod, Vsn, Extra);
-		      _Else ->
-			  ok = sys:change_code(Pid, Mod, Vsn, Extra, Timeout)
+		  case sys_change_code(Pid, Mod, Vsn, Extra, Timeout) of
+		      ok ->
+			  ok;
+		      {error,Reason} ->
+			  throw({code_change_failed,Pid,Mod,Vsn,Reason})
 		  end
 	  end,
     lists:foreach(Fun, Pids).
+
+sys_change_code(Pid, Mod, Vsn, Extra, default) ->
+    sys:change_code(Pid, Mod, Vsn, Extra);
+sys_change_code(Pid, Mod, Vsn, Extra, Timeout) ->
+    sys:change_code(Pid, Mod, Vsn, Extra, Timeout).
 
 stop(Mod, Procs) ->
     lists:zf(fun({undefined, _Name, _Pid, _Mods}) ->

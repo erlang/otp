@@ -134,7 +134,7 @@
     term().
 -callback code_change(OldVsn :: (term() | {down, term()}), State :: term(),
                       Extra :: term()) ->
-    {ok, NewState :: term()}.
+    {ok, NewState :: term()} | {error, Reason :: term()}.
 
 %%%  -----------------------------------------------------------------
 %%% Starts a generic server.
