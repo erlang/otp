@@ -545,7 +545,7 @@ write_file(_, _) ->
 %sendfile(_,_,_,_,_,_,_,_,_,_) ->
 %    {error, enotsup};
 sendfile(#file_descriptor{module = ?MODULE, data = {Port, _}},
-	 Dest, Offset, Bytes, _ChunkSize, _Headers, _Trailers,
+	 Dest, Offset, Bytes, _ChunkSize, Headers, Trailers,
 	 _Nodiskio, _MNowait, _Sync) ->
     case erlang:port_get_data(Dest) of
 	Data when Data == inet_tcp; Data == inet6_tcp ->
@@ -555,20 +555,15 @@ sendfile(#file_descriptor{module = ?MODULE, data = {Port, _}},
 				     0:8,
 				     Offset:64/unsigned,
 				     Bytes:64/unsigned,
-				     0:32/unsigned,
-				     0:32/unsigned>>])
+				     (iolist_size(Headers)):32/unsigned,
+				     (iolist_size(Trailers)):32/unsigned>>,
+				   Headers,Trailers])
 	    after
 		ok = inet:lock_socket(Dest,false)
 	    end;
 	_Else ->
 	    {error,badarg}
     end.
-
-get_bit(true) ->
-    1;
-get_bit(false) ->
-    0.
-
 
 
 %%%-----------------------------------------------------------------

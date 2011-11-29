@@ -106,10 +106,7 @@
 -type date_time() :: calendar:datetime().
 -type posix_file_advise() :: 'normal' | 'sequential' | 'random'
                            | 'no_reuse' | 'will_need' | 'dont_need'.
--type sendfile_option() :: {chunk_size, pos_integer()} |
-			   {headers, Hdrs :: list(iodata())} |
-			   {trailers, Tlrs :: list(iodata())} |
-			   sf_nodiskio | sf_mnowait | sf_sync.
+-type sendfile_option() :: {chunk_size, non_neg_integer()}.
 %%%-----------------------------------------------------------------
 %%% General functions
 
@@ -1144,11 +1141,11 @@ sendfile(File, Sock, Offset, Bytes, Opts) ->
 			?MAX_CHUNK_SIZE;
 		   true -> ChunkSize0
 		end,
-    Headers = proplists:get_value(headers, Opts, []),
-    Trailers = proplists:get_value(trailers, Opts, []),
-    sendfile(File, Sock, Offset, Bytes, ChunkSize, Headers, Trailers,
-	     lists:member(sf_nodiskio,Opts),lists:member(sf_mnowait,Opts),
-	     lists:member(sf_sync,Opts)).
+    %% Support for headers, trailers and options has been removed because the
+    %% Darwin and BSD API for using it does not play nice with
+    %% non-blocking sockets. See unix_efile.c for more info.
+    sendfile(File, Sock, Offset, Bytes, ChunkSize, [], [],
+	     false,false,false).
 
 %% sendfile/2
 -spec sendfile(Filename, Socket) ->

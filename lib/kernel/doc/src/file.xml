@@ -1602,35 +1602,10 @@
 	using file:read and gen_tcp:send is used.</p>
 	<p>The option list can contain the following options:
 	<taglist>
-          <tag><c>headers</c></tag>
-          <item>A list containing data which is to be sent before
-	  the file is sent. If <c>headers</c> is used, <c>Bytes</c> specifies
-	  the total bytes in the header and/or file to be sent. If
-	  <c>Bytes</c> is set to 0, the all headers, the file and
-	  possible trailers will be sent. </item>
-          <tag><c>trailers</c></tag>
-          <item>A list containing data which is to be after before
-	  the file is sent. All the <c>trailers</c> will be sent after the
-	  file is sent, no matter what <c>Bytes</c> is set to. </item>
           <tag><c>chunk_size</c></tag>
           <item>The chunk size used by the erlang fallback to send
 	  data. If using the fallback, this should be set to a value
 	  which comfortably fits in the systems memory. Default is 20 MB.</item>
-          <tag><c>sf_nodiskio</c></tag>
-          <item>This flag causes any sendfile() call which would
-	   block on disk I/O to instead return EBUSY.  Busy servers may bene-
-	   fit by transferring requests that would block to a separate I/O
-	   worker thread.</item>
-          <tag><c>sf_mnowait</c></tag>
-          <item>Do not wait for some kernel resource to become avail-
-	   able, in particular, mbuf and sf_buf.  The flag does not make the
-	   sendfile() syscall truly non-blocking, since other resources are
-	   still allocated in a blocking fashion.</item>
-          <tag><c>sf_sync</c></tag>
-          <item>sendfile sleeps until the network stack no longer refer-
-	   ences the VM pages of the file, making subsequent modifications to
-	   it safe.  Please note that this is not a guarantee that the data
-	   has actually been sent.</item>
 	</taglist>
 	</p>
 	<p>On operating systems with thread support, it is recommended to use

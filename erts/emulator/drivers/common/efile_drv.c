@@ -431,8 +431,6 @@ struct t_data
 	    off_t offset;
 	    Uint64 nbytes;
 	    Uint64 written;
-	    short flags;
-	    struct t_sendfile_hdtl *hdtl;
 	} sendfile;
 #endif /* HAVE_SENDFILE */
     } c;
@@ -520,9 +518,6 @@ static void *ef_safe_realloc(void *op, Uint s)
                  : ((*(qp))++, 0)),                       \
         !0)                                               \
      : 0)
-
-/* int EV_GET_SYSIOVEC(ErlIoVec *ev, Uint32, int *cnt, SysIOVec **target, int *pp, int *qp) */
-#define EV_GET_SYSIOVEC ev_get_sysiovec
 
 
 #if 0
@@ -935,43 +930,6 @@ static int reply_eof(file_descriptor *desc) {
     driver_output2(desc->port, &c, 1, NULL, 0);
     return 0;
 }
-
-static int ev_get_sysiovec(ErlIOVec *ev, Uint32 len, int *cnt, SysIOVec **target, int *pp, int *qp) {
-    int tmp_p = *pp, tmp_q = *qp, tmp_len = len, i;
-    SysIOVec *tmp_target;
-    while (tmp_len != 0) {
-	if (tmp_len + tmp_p > ev->iov[tmp_q].iov_len) {
-
-	    tmp_len -= ev->iov[tmp_q].iov_len - tmp_p;
-	    tmp_q++;
-	    tmp_p = 0;
-	    if (tmp_q == ev->vsize)
-		return 0;
-	} else break;
-    }
-    *cnt = tmp_q - *qp + 1;
-    tmp_target = EF_SAFE_ALLOC(sizeof(SysIOVec)* (*cnt));
-    *target = tmp_target;
-    for (i = 0; i < *cnt; i++) {
-	tmp_target[i].iov_base = ev->iov[*qp].iov_base+*pp;
-	if (len + *pp <= ev->iov[*qp].iov_len) {
-	    tmp_target[i].iov_len = len;
-	    if (len + *pp == ev->iov[*qp].iov_len) {
-	      *pp = 0;
-	      (*qp)++;
-	    } else
-	      *pp += len;
-	} else {
-	    tmp_target[i].iov_len = ev->iov[*qp].iov_len - *pp;
-	    len -= ev->iov[*qp].iov_len - *pp;
-	    *pp = 0;
-	    (*qp)++;
-	}
-    }
-    return 1;
-}
-
-
  
 static void invoke_name(void *data, int (*f)(Efile_error *, char *))
 {
@@ -1781,7 +1739,7 @@ static void invoke_sendfile(void *data)
     int result = 0;
     d->again = 0;
 
-    result = efile_sendfile(&d->errInfo, fd, out_fd, &d->c.sendfile.offset, &nbytes, &d->c.sendfile.hdtl);
+    result = efile_sendfile(&d->errInfo, fd, out_fd, &d->c.sendfile.offset, &nbytes, NULL);
 
     d->c.sendfile.written += nbytes;
 
@@ -3426,14 +3384,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	Uint64 nbytes;
 	char flags;
 
-	/* DestFD:32, Offset:64, Bytes:64,
-	 ChunkSize:64,
-	 (get_bit(Nodiskio)):1,
-	 (get_bit(MNowait)):1,
-	 (get_bit(Sync)):1,0:5,
-	 (encode_hdtl(Headers))/binary,
-	 (encode_hdtl(Trailers))/binary */
-	if (ev->size < 1 + 1 + 5 * sizeof(Uint32) + sizeof(char)
+	if (ev->size < 1 + 7 * sizeof(Uint32) + sizeof(char)
 		|| !EV_GET_UINT32(ev, &out_fd, &p, &q)
 		|| !EV_GET_CHAR(ev, &flags, &p, &q)
 		|| !EV_GET_UINT32(ev, &offsetH, &p, &q)
@@ -3446,6 +3397,12 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    goto done;
 	}
 
+	if (hd_len != 0 || tl_len != 0 || flags != 0) {
+	    // We do not allow header, trailers and/or flags right now
+	    reply_posix_error(desc, EINVAL);
+	    goto done;
+	}
+
 	d = EF_SAFE_ALLOC(sizeof(struct t_data));
 	d->fd = desc->fd;
 	d->command = command;
@@ -3454,7 +3411,6 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	d->level = 2;
 
 	d->c.sendfile.out_fd = (int) out_fd;
-	d->c.sendfile.flags = (int) flags;
 	d->c.sendfile.written = 0;
 
     #if SIZEOF_OFF_T == 4
@@ -3468,18 +3424,6 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
     #endif
 
 	d->c.sendfile.nbytes = nbytes;
-	if (hd_len == 0 && tl_len == 0)
-	    d->c.sendfile.hdtl = NULL;
-	else {
-	    d->c.sendfile.hdtl = EF_SAFE_ALLOC(sizeof(struct t_sendfile_hdtl));
-	    if (!EV_GET_SYSIOVEC(ev, hd_len, &d->c.sendfile.hdtl->hdr_cnt, &d->c.sendfile.hdtl->headers, &p, &q)
-		    || !EV_GET_SYSIOVEC(ev, tl_len, &d->c.sendfile.hdtl->trl_cnt, &d->c.sendfile.hdtl->trailers, &p, &q)) {
-		EF_FREE(d->c.sendfile.hdtl);
-		EF_FREE(d);
-		reply_posix_error(desc, EINVAL);
-		goto done;
-	    }
-	}
 
 	if (sys_info.async_threads != 0) {
 	    SET_BLOCKING(d->c.sendfile.out_fd);

@@ -27,7 +27,6 @@
 all() ->
     [t_sendfile_small
      ,t_sendfile_big
-%     ,t_sendfile_hdtl
      ,t_sendfile_partial
      ,t_sendfile_offset
      ,t_sendfile_sendafter
@@ -129,47 +128,6 @@ t_sendfile_offset(Config) ->
 	   end,
     ok = sendfile_send(Send).
 
-
-t_sendfile_hdtl(Config) ->
-    Filename = proplists:get_value(small_file, Config),
-    FileOpts = proplists:get_value(file_opts, Config, []),
-
-    Send = fun(Sock, Headers, Trailers, HdtlSize) ->
-		   {Size, Data} = sendfile_file_info(Filename),
-		   {ok,D} = file:open(Filename,[read|FileOpts]),
-		   AllSize = Size+HdtlSize,
-		   {ok, AllSize} = file:sendfile(
-				     D, Sock,0,0,
-				     [{headers,Headers},
-				      {trailers,Trailers}]),
-		   file:close(D),
-		   Data
-	   end,
-
-    SendHdTl = fun(Sock) ->
-		       Headers = [<<"header1">>,<<0:(1024*8)>>,"header2"],
-		       Trailers = [<<"trailer1">>,"trailer2"],
-		       D = Send(Sock,Headers,Trailers,
-			    iolist_size([Headers,Trailers])),
-		       iolist_to_binary([Headers,D,Trailers])
-	       end,
-    ok = sendfile_send(SendHdTl),
-
-    SendHd = fun(Sock) ->
-		       Headers = [<<"header1">>,"header2"],
-		       D = Send(Sock,Headers,undefined,
-			    iolist_size([Headers])),
-		       iolist_to_binary([Headers,D])
-	       end,
-    ok = sendfile_send(SendHd),
-
-    SendTl = fun(Sock) ->
-		       Trailers = [<<"trailer1">>,"trailer2"],
-		       D = Send(Sock,undefined,Trailers,
-			    iolist_size([Trailers])),
-		       iolist_to_binary([D,Trailers])
-	       end,
-    ok = sendfile_send(SendTl).
 
 t_sendfile_sendafter(Config) ->
     Filename = proplists:get_value(small_file, Config),

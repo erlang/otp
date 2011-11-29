@@ -1471,9 +1471,21 @@ efile_fadvise(Efile_error* errInfo, int fd, Sint64 offset,
 #ifdef HAVE_SENDFILE
 #define SENDFILE_CHUNK_SIZE ((1 << 30) -1)
 
+/*
+ * sendfile: The implementation of the sendfile system call varies
+ * a lot on different *nix platforms so to make the api similar in all
+ * we have to emulate some things in linux and play with variables on
+ * bsd/darwin.
+ *
+ * It could be possible to implement header/trailer in sendfile, though
+ * you would have to emulate it in linux and on BSD/Darwin some complex
+ * calculations have to be made when using a non blocking socket to figure
+ * out how much of the header/file/trailer was sent in each command.
+ */
+
 int
 efile_sendfile(Efile_error* errInfo, int in_fd, int out_fd,
-	       off_t *offset, Uint64 *nbytes, struct t_sendfile_hdtl** hdtl)
+	       off_t *offset, Uint64 *nbytes, struct t_sendfile_hdtl* hdtl)
 {
     Uint64 written = 0;
 #if defined(__linux__) || (defined(__sun) && defined(__SVR4))
