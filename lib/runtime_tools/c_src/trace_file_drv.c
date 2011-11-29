@@ -21,6 +21,9 @@
  * Purpose: Send trace messages to a file.
  */
 
+#ifdef __WIN32__
+#include <windows.h>
+#endif
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
@@ -31,7 +34,6 @@
 #ifdef __WIN32__
 #  include <io.h>
 #  define write _write
-#  define open _open
 #  define close _close
 #  define unlink _unlink
 #else
@@ -194,6 +196,10 @@ static int my_flush(TraceFileData *data);
 static void put_be(unsigned n, unsigned char *s);
 static void close_unlink_port(TraceFileData *data); 
 static int wrap_file(TraceFileData *data);
+#ifdef __WIN32__
+static int win_open(char *path, int flags, int mask);
+#define open win_open
+#endif
 
 /*
 ** The driver struct
@@ -240,6 +246,7 @@ static ErlDrvData trace_file_start(ErlDrvPort port, char *buff)
     FILETYPE fd;
     int n, w;
     static const char name[] = "trace_file_drv";
+
 
 #ifdef HARDDEBUG
     fprintf(stderr,"hello (%s)\r\n", buff);
@@ -636,3 +643,40 @@ static int wrap_file(TraceFileData *data) {
     return 0;
 }
 
+#ifdef __WIN32__
+static int win_open(char *path, int flags, int mask)
+{
+  DWORD access = 0;
+  DWORD creation = 0;
+  HANDLE fd;
+  int ret;
+  if (flags & O_WRONLY) {
+    access =  GENERIC_WRITE;
+  } else if (flags & O_RDONLY) {
+    access = GENERIC_READ;
+  } else {
+    access = (GENERIC_READ | GENERIC_WRITE);
+  } 
+  
+  if (flags & O_CREAT) {
+    creation |= CREATE_ALWAYS;
+  }  else {
+     creation |= OPEN_ALWAYS;
+  }
+
+  fd = CreateFileA(path, access,  
+		   FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, 
+		   NULL, creation, FILE_ATTRIBUTE_NORMAL, NULL);
+  if (fd == INVALID_HANDLE_VALUE) {
+    
+    return -1;
+  }
+  
+  if ((ret = _open_osfhandle((intptr_t)fd, (flags & O_RDONLY) ? O_RDONLY : 0))
+      < 0) {
+    CloseHandle(fd);
+  }
+
+  return ret;
+}
+#endif
