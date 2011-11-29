@@ -1542,7 +1542,7 @@ mkfunname(Erule,TopType,Cname,WhatKind,DecOrEnc,Arity) ->
 	    F = lists:concat(["fun '",DecOrEnc,"_",EType,"'/",Arity]),
 	    {F, "?MODULE", F};
 	#'Externaltypereference'{module=Mod,type=EType} ->
-	    {lists:concat(["{'",Mod,"','",DecOrEnc,"_",EType,"'}"]),Mod,
+	    {lists:concat(["fun '",Mod,"':'",DecOrEnc,"_",EType,"'/",Arity]),Mod,
 	     lists:concat(["'",DecOrEnc,"_",EType,"'"])};
 	{constructed,bif} ->
 	    F =
