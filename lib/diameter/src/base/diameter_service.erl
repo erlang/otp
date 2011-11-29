@@ -647,11 +647,6 @@ mod_state(Alias) ->
 mod_state(Alias, ModS) ->
     put({?MODULE, mod_state, Alias}, ModS).
 
-%% have_transport/2
-
-have_transport(SvcName, Ref) ->
-    [] /= diameter_config:have_transport(SvcName, Ref).
-
 %%% ---------------------------------------------------------------------------
 %%% # shutdown/2
 %%% ---------------------------------------------------------------------------
@@ -1131,7 +1126,7 @@ start_tc(Tc, T, _) ->
 %% tc_timeout/2
 
 tc_timeout({Ref, _Type, _Opts} = T, #state{service_name = SvcName} = S) ->
-    tc(have_transport(SvcName, Ref), T, S).
+    tc(diameter_config:have_transport(SvcName, Ref), T, S).
 
 tc(true, {Ref, Type, Opts}, #state{service_name = SvcName}
                             = S) ->
@@ -1159,7 +1154,7 @@ close(Pid, #state{service_name = SvcName,
           options = Opts}
         = fetch(PeerT, Pid),
 
-    c(Pid, have_transport(SvcName, Ref), Opts).
+    c(Pid, diameter_config:have_transport(SvcName, Ref), Opts).
 
 %% Tell watchdog to (maybe) die later ...
 c(Pid, true, Opts) ->
