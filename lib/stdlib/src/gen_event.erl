@@ -70,7 +70,8 @@
 
 -callback init(InitArgs :: term()) ->
     {ok, State :: term()} |
-    {ok, State :: term(), hibernate}.
+    {ok, State :: term(), hibernate} |
+    {error, Reason :: term()}.
 -callback handle_event(Event :: term(), State :: term()) ->
     {ok, NewState :: term()} |
     {ok, NewState :: term(), hibernate} |
