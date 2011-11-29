@@ -225,10 +225,6 @@ typedef union {
 
 static ErtsAlignedSchedulerSleepInfo *aligned_sched_sleep_info;
 
-#ifndef BM_COUNTERS
-static int processes_busy;
-#endif
-
 Process**  process_tab;
 static Uint last_reductions;
 static Uint last_exact_reductions;
@@ -497,9 +493,6 @@ erts_init_process(int ncpu)
     p_serial_shift = erts_fit_in_bits(erts_max_processes - 1);
     p_serial_mask = ((~(~((Uint) 0) << proc_bits)) >> p_serial_shift);
     erts_process_tab_index_mask = ~(~((Uint) 0) << p_serial_shift);
-#ifndef BM_COUNTERS
-    processes_busy = 0;
-#endif
     last_reductions = 0;
     last_exact_reductions = 0;
     erts_default_process_flags = 0;
@@ -6892,7 +6885,9 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 	goto error;
     }
 
+#ifdef BM_COUNTERS
     processes_busy++;
+#endif
     BM_COUNT(processes_spawned);
 
 #ifndef HYBRID
@@ -8415,7 +8410,9 @@ continue_exit_process(Process *p
     pbt = ERTS_PROC_SET_CALL_TIME(p, ERTS_PROC_LOCKS_ALL, NULL);
 
     erts_smp_proc_unlock(p, ERTS_PROC_LOCKS_ALL);
+#ifdef BM_COUNTERS
     processes_busy--;
+#endif
 
     if (dep) {
 	erts_do_net_exits(dep, reason);

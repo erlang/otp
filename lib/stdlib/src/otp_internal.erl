@@ -346,6 +346,8 @@ obsolete_1(docb_xml_check, _, _) ->
 %% Added in R15B
 obsolete_1(asn1rt, F, _) when F == load_driver; F == unload_driver ->
     {deprecated,"deprecated (will be removed in R16A); has no effect as drivers are no longer used."};
+obsolete_1(ssl, pid, 1) ->
+    {deprecated,"deprecated (will be removed in R17); is no longer needed"};
 
 obsolete_1(_, _, _) ->
     no.
