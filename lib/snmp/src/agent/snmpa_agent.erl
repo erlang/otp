@@ -2767,7 +2767,12 @@ validate_tab_res(_TooMany, [], Mfa, _Res, I) ->
 %%      subagent must be considered to be very rare.
 %%-----------------------------------------------------------------
 do_get_next(MibView, UnsortedVarbinds) ->
+    ?vt("do_get_next -> entry when"
+ 	"~n   MibView:          ~p"
+ 	"~n   UnsortedVarbinds: ~p", [MibView, UnsortedVarbinds]),
     SortedVarbinds = oid_sort_varbindlist(UnsortedVarbinds),
+    ?vt("do_get_next -> "
+ 	"~n   SortedVarbinds: ~p", [SortedVarbinds]),
     next_loop_varbinds([], SortedVarbinds, MibView, [], []).
 
 oid_sort_varbindlist(Vbs) ->
@@ -2780,22 +2785,33 @@ next_loop_varbinds([], [Vb | Vbs], MibView, Res, LAVb) ->
  	"~n   MibView: ~p", [Vb, MibView]),
     case varbind_next(Vb, MibView) of
 	endOfMibView ->
+	    ?vt("next_loop_varbind -> endOfMibView", []),
 	    RVb = if LAVb =:= [] -> Vb;
 		     true -> LAVb
 		  end,
 	    NewVb = RVb#varbind{variabletype = 'NULL', value = endOfMibView},
 	    next_loop_varbinds([], Vbs, MibView, [NewVb | Res], []);
+
 	{variable, ME, VarOid} when ((ME#me.access =/= 'not-accessible') andalso 
 				     (ME#me.access =/= 'write-only') andalso 
 				     (ME#me.access =/= 'accessible-for-notify')) -> 
+	    ?vt("next_loop_varbind -> variable: "
+		"~n   ME:     ~p"
+		"~n   VarOid: ~p", [ME, VarOid]),
 	    case try_get_instance(Vb, ME) of
 		{value, noValue, _NoSuchSomething} ->
+		    ?vt("next_loop_varbind -> noValue", []),
 		    %% Try next one
-		    NewVb = Vb#varbind{oid = VarOid, value = 'NULL'},
+		    NewVb = Vb#varbind{oid   = VarOid, 
+				       value = 'NULL'},
 		    next_loop_varbinds([], [NewVb | Vbs], MibView, Res, []);
 		{value, Type, Value} ->
-		    NewVb = Vb#varbind{oid = VarOid, variabletype = Type,
-				       value = Value},
+		    ?vt("next_loop_varbind -> value"
+			"~n   Type:  ~p"
+			"~n   Value: ~p", [Type, Value]),
+		    NewVb = Vb#varbind{oid          = VarOid, 
+				       variabletype = Type,
+				       value        = Value},
 		    next_loop_varbinds([], Vbs, MibView, [NewVb | Res], []);
 		{error, ErrorStatus} ->
 		    ?vdebug("next loop varbinds:"
@@ -2803,16 +2819,25 @@ next_loop_varbinds([], [Vb | Vbs], MibView, Res, LAVb) ->
 		    {ErrorStatus, Vb#varbind.org_index, []}
 	    end;
 	{variable, _ME, VarOid} -> 
+	    ?vt("next_loop_varbind -> variable: "
+		"~n   VarOid: ~p", [VarOid]),
 	    RVb = if LAVb =:= [] -> Vb;
 		     true -> LAVb
 		  end,
 	    NewVb = Vb#varbind{oid = VarOid, value = 'NULL'},
 	    next_loop_varbinds([], [NewVb | Vbs], MibView, Res, RVb);
 	{table, TableOid, TableRestOid, ME} ->
+	    ?vt("next_loop_varbind -> table: "
+		"~n   TableOid:     ~p"
+		"~n   TableRestOid: ~p"
+		"~n   ME:           ~p", [TableOid, TableRestOid, ME]),
 	    next_loop_varbinds({table, TableOid, ME,
 				[{tab_oid(TableRestOid), Vb}]},
 			       Vbs, MibView, Res, []);
 	{subagent, SubAgentPid, SAOid} ->
+	    ?vt("next_loop_varbind -> subagent: "
+		"~n   SubAgentPid: ~p"
+		"~n   SAOid:       ~p", [SubAgentPid, SAOid]),
 	    NewVb = Vb#varbind{variabletype = 'NULL', value = 'NULL'},
 	    next_loop_varbinds({subagent, SubAgentPid, SAOid, [NewVb]},
 			       Vbs, MibView, Res, [])
@@ -2949,7 +2974,10 @@ next_loop_varbinds([], [], _MibView, Res, _LAVb) ->
     {noError, 0, Res}.
 
 try_get_instance(_Vb, #me{mfa = {M, F, A}, asn1_type = ASN1Type}) ->
-    ?vtrace("try get instance from <~p,~p,~p>",[M,F,A]),
+    ?vtrace("try_get_instance -> entry with"
+	    "~n   M: ~p"
+	    "~n   F: ~p"
+	    "~n   A: ~p", [M,F,A]),
     Result = (catch dbg_apply(M, F, [get | A])),
     % mib shall return {value, <a-nice-value-within-range>} |
     % {noValue, noSuchName} (v1) | 
@@ -2959,6 +2987,7 @@ try_get_instance(_Vb, #me{mfa = {M, F, A}, asn1_type = ASN1Type}) ->
 
 tab_oid([]) -> [0];
 tab_oid(X) -> X.
+
 
 %%-----------------------------------------------------------------
 %% Perform a next, using the varbinds Oid if value is simple
@@ -3208,7 +3237,7 @@ next_oid(Oid) ->
 %%% 5. GET-BULK REQUEST
 %%%-----------------------------------------------------------------
 do_get_bulk(MibView, NonRepeaters, MaxRepetitions, PduMS, Varbinds) ->
-    ?vtrace("do get bulk: start with"
+    ?vtrace("do_get_bulk -> entry with"
 	    "~n   MibView:        ~p"
 	    "~n   NonRepeaters:   ~p"
 	    "~n   MaxRepetitions: ~p"
@@ -3216,12 +3245,12 @@ do_get_bulk(MibView, NonRepeaters, MaxRepetitions, PduMS, Varbinds) ->
 	    "~n   Varbinds:       ~p",
 	    [MibView, NonRepeaters, MaxRepetitions, PduMS, Varbinds]),
     {NonRepVbs, RestVbs} = split_vbs(NonRepeaters, Varbinds, []),
-    ?vt("do get bulk -> split: "
+    ?vt("do_get_bulk -> split: "
 	"~n   NonRepVbs: ~p"
 	"~n   RestVbs:   ~p", [NonRepVbs, RestVbs]),
     case do_get_next(MibView, NonRepVbs) of
 	{noError, 0, UResNonRepVbs} -> 
-	    ?vt("do get bulk -> next: "
+	    ?vt("do_get_bulk -> next noError: "
 		"~n   UResNonRepVbs: ~p", [UResNonRepVbs]),
 	    ResNonRepVbs = lists:keysort(#varbind.org_index, UResNonRepVbs),
 	    %% Decode the first varbinds, produce a reversed list of
@@ -3231,7 +3260,7 @@ do_get_bulk(MibView, NonRepeaters, MaxRepetitions, PduMS, Varbinds) ->
 		    user_err("failed encoding varbind ~w:~n~p", [Idx, Reason]),
                     {genErr, Idx, []};
                 {SizeLeft, Res} when is_integer(SizeLeft) and is_list(Res) ->
- 		    ?vtrace("do get bulk -> encoded: "
+ 		    ?vtrace("do_get_bulk -> encoded: "
 			    "~n   SizeLeft: ~p"
 			    "~n   Res:      ~w", [SizeLeft, Res]),
 		    case (catch do_get_rep(SizeLeft, MibView, MaxRepetitions,
@@ -3244,6 +3273,10 @@ do_get_bulk(MibView, NonRepeaters, MaxRepetitions, PduMS, Varbinds) ->
 			    ?vtrace("do get bulk -> Res: "
 				    "~n   ~w", [Res]),
 			    {noError, 0, conv_res(Res)};
+			{noError, 0, Data} = OK ->
+			    ?vtrace("do get bulk -> OK: "
+				    "~n   length(Data): ~w", [length(Data)]),
+			    OK;
 			Else ->
 			    ?vtrace("do get bulk -> Else: "
 				    "~n   ~w", [Else]),
@@ -3343,20 +3376,24 @@ do_get_rep(Sz, MibView, Count, Max, Varbinds, Res) ->
 
 try_get_bulk(Sz, MibView, Varbinds) -> 
     ?vt("try_get_bulk -> entry with"
-	"~n   Sz: ~w", [Sz]),
+	"~n   Sz:       ~w"
+	"~n   MibView:  ~w"
+	"~n   Varbinds: ~w", [Sz, MibView, Varbinds]),
     case do_get_next(MibView, Varbinds) of
 	{noError, 0, UNextVarbinds} -> 
-	    ?vt("try_get_bulk -> noError", []),
+	    ?vt("try_get_bulk -> noError: "
+		"~n   UNextVarbinds: ~p", [UNextVarbinds]),
 	    NextVarbinds = lists:keysort(#varbind.org_index, UNextVarbinds),
 	    case (catch enc_vbs(Sz, NextVarbinds)) of
 		{error, Idx, Reason} ->
 		    user_err("failed encoding varbind ~w:~n~p", [Idx, Reason]),
-		    ?vtrace("try_get_bulk -> error: "
+		    ?vtrace("try_get_bulk -> encode error: "
 			    "~n   Idx:    ~p"
 			    "~n   Reason: ~p", [Idx, Reason]),
 		    {genErr, Idx};
-		{SizeLeft, Res} when is_integer(SizeLeft) andalso is_list(Res) ->
-		    ?vt("try get bulk -> "
+		{SizeLeft, Res} when is_integer(SizeLeft) andalso 
+				     is_list(Res) ->
+		    ?vt("try get bulk -> encode ok: "
 			"~n   SizeLeft: ~w"
 			"~n   Res:      ~w", [SizeLeft, Res]),
 		    {check_end_of_mibview(NextVarbinds),
@@ -3367,9 +3404,9 @@ try_get_bulk(Sz, MibView, Varbinds) ->
 		    {endOfMibView, [], 0, Res}
 	    end;
 	{ErrorStatus, Index, _} ->
-	    ?vt("try get bulk: "
+	    ?vt("try_get_bulk -> error: "
 		"~n   ErrorStatus: ~p"
-		"~n   Index:       ~p",[ErrorStatus, Index]),
+		"~n   Index:       ~p", [ErrorStatus, Index]),
 	    {ErrorStatus, Index}
     end.
 
