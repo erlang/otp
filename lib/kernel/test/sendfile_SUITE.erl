@@ -54,6 +54,30 @@ init_per_suite(Config) ->
 end_per_suite(Config) ->
     file:delete(proplists:get_value(big_file, Config)).
 
+init_per_testcase(TC,Config) when TC == t_sendfile_recvduring;
+				  TC == t_sendfile_sendduring ->
+    Filename = proplists:get_value(small_file, Config),
+
+    Send = fun(Sock) ->
+		   {_Size, Data} = sendfile_file_info(Filename),
+		   {ok,D} = file:open(Filename, [raw,binary,read]),
+		   prim_file:sendfile(D, Sock, 0, 0, 0,
+				      [],[],false,false,false),
+		   Data
+	   end,
+
+    %% Check if sendfile is supported on this platform
+    case catch sendfile_send(Send) of
+	ok ->
+	    Config;
+	Error ->
+	    ct:log("Error: ~p",[Error]),
+	    {skip,"Not supported"}
+    end;
+init_per_testcase(_Tc,Config) ->
+    Config.
+
+
 t_sendfile_small(Config) when is_list(Config) ->
     Filename = proplists:get_value(small_file, Config),
 
