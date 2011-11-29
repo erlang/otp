@@ -107,20 +107,31 @@ static ErlTimer *tiw_min_ptr;
 /* Actual interval time chosen by sys_init_time() */
 static int itime; /* Constant after init */
 
-erts_smp_atomic_t do_time;	/* set at clock interrupt */
-static ERTS_INLINE erts_aint_t do_time_read(void) { return erts_smp_atomic_read_acqb(&do_time); }
-static ERTS_INLINE erts_aint_t do_time_update(void) { return do_time_read(); }
-static ERTS_INLINE void do_time_init(void) { erts_smp_atomic_init_nob(&do_time, 0L); }
+erts_smp_atomic32_t do_time;	/* set at clock interrupt */
+static ERTS_INLINE erts_short_time_t do_time_read(void)
+{
+    return erts_smp_atomic32_read_acqb(&do_time);
+}
+
+static ERTS_INLINE erts_short_time_t do_time_update(void)
+{
+    return do_time_read();
+}
+
+static ERTS_INLINE void do_time_init(void)
+{
+    erts_smp_atomic32_init_nob(&do_time, 0);
+}
 
 /* get the time (in units of itime) to the next timeout,
    or -1 if there are no timeouts                     */
 
-static erts_aint_t next_time_internal(void) /* PRE: tiw_lock taken by caller */
+static erts_short_time_t next_time_internal(void) /* PRE: tiw_lock taken by caller */
 {
     int i, tm, nto;
-    unsigned int min;
+    Uint32 min;
     ErlTimer* p;
-    erts_aint_t dt;
+    erts_short_time_t dt;
   
     if (tiw_nto == 0)
 	return -1;	/* no timeouts in wheel */
@@ -133,7 +144,7 @@ static erts_aint_t next_time_internal(void) /* PRE: tiw_lock taken by caller */
   
     /* start going through wheel to find next timeout */
     tm = nto = 0;
-    min = (unsigned int) -1;	/* max unsigned int */
+    min = (Uint32) -1;	/* max Uint32 */
     i = tiw_pos;
     do {
 	p = tiw[i];
@@ -162,7 +173,11 @@ static erts_aint_t next_time_internal(void) /* PRE: tiw_lock taken by caller */
 	i = (i + 1) % TIW_SIZE;
     } while (i != tiw_pos);
     dt = do_time_read();
-    return ((min >= dt) ? (min - dt) : 0);
+    if (min <= (Uint32) dt)
+	return 0;
+    if ((min - (Uint32) dt) > (Uint32) ERTS_SHORT_TIME_T_MAX)
+	return ERTS_SHORT_TIME_T_MAX;
+    return (erts_short_time_t) (min - (Uint32) dt);
 }
 
 static void remove_timer(ErlTimer *p) {
@@ -191,9 +206,9 @@ static void remove_timer(ErlTimer *p) {
 }
 
 /* Private export to erl_time_sup.c */
-erts_aint_t erts_next_time(void)
+erts_short_time_t erts_next_time(void)
 {
-    erts_aint_t ret;
+    erts_short_time_t ret;
 
     erts_smp_mtx_lock(&tiw_lock);
     (void)do_time_update();
@@ -202,7 +217,7 @@ erts_aint_t erts_next_time(void)
     return ret;
 }
 
-static ERTS_INLINE void bump_timer_internal(erts_aint_t dt) /* PRE: tiw_lock is write-locked */
+static ERTS_INLINE void bump_timer_internal(erts_short_time_t dt) /* PRE: tiw_lock is write-locked */
 {
     Uint keep_pos;
     Uint count;
@@ -273,7 +288,7 @@ static ERTS_INLINE void bump_timer_internal(erts_aint_t dt) /* PRE: tiw_lock is 
     }
 }
 
-void erts_bump_timer(erts_aint_t dt) /* dt is value from do_time */
+void erts_bump_timer(erts_short_time_t dt) /* dt is value from do_time */
 {
     erts_smp_mtx_lock(&tiw_lock);
     bump_timer_internal(dt);
@@ -378,8 +393,8 @@ erts_set_timer(ErlTimer* p, ErlTimeoutProc timeout, ErlCancelProc cancel,
     insert_timer(p, t);
     erts_smp_mtx_unlock(&tiw_lock);
 #if defined(ERTS_SMP)
-    if (t <= (Uint) LONG_MAX)
-	erts_sys_schedule_interrupt_timed(1, (long) t);
+    if (t <= (Uint) ERTS_SHORT_TIME_T_MAX)
+	erts_sys_schedule_interrupt_timed(1, (erts_short_time_t) t);
 #endif
 }
 
@@ -419,7 +434,7 @@ Uint
 erts_time_left(ErlTimer *p)
 {
     Uint left;
-    erts_aint_t dt;
+    erts_short_time_t dt;
 
     erts_smp_mtx_lock(&tiw_lock);
 

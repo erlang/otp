@@ -636,10 +636,11 @@ extern char *erts_sys_ddll_error(int code);
 /*
  * System interfaces for startup.
  */
+#include "erl_time.h"
 
 void erts_sys_schedule_interrupt(int set);
 #ifdef ERTS_SMP
-void erts_sys_schedule_interrupt_timed(int set, long msec);
+void erts_sys_schedule_interrupt_timed(int set, erts_short_time_t msec);
 void erts_sys_main_thread(void);
 #endif
 

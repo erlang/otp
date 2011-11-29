@@ -265,7 +265,7 @@ struct {
     int (*event)(ErlDrvPort, ErlDrvEvent, ErlDrvEventData);
     void (*check_io_as_interrupt)(void);
     void (*check_io_interrupt)(int);
-    void (*check_io_interrupt_tmd)(int, long);
+    void (*check_io_interrupt_tmd)(int, erts_short_time_t);
     void (*check_io)(int);
     Uint (*size)(void);
     Eterm (*info)(void *);
@@ -371,7 +371,7 @@ erts_sys_schedule_interrupt(int set)
 
 #ifdef ERTS_SMP
 void
-erts_sys_schedule_interrupt_timed(int set, long msec)
+erts_sys_schedule_interrupt_timed(int set, erts_short_time_t msec)
 {
     ERTS_CHK_IO_INTR_TMD(set, msec);
 }
