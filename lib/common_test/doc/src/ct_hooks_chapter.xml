@@ -108,9 +108,10 @@
     </section>
    
     <section>
-      <title>CTH Priority</title>
+      <title>CTH Execution order</title>
       <p>By default each CTH installed will be executed in the order which
-      they are installed. This is not always wanted so common_test allows 
+      they are installed for init calls, and then reversed for end calls.
+      This is not always wanted so common_test allows
       the user to specify a priority for each hook. The priority can either
       be specified in the CTH <seealso marker="ct_hooks#Module:init-2">init/2
       </seealso> function or when installing the hook. The priority given at
