@@ -29,10 +29,6 @@
 
 -module(dialyzer_cl).
 
-%% Avoid warning for local function error/1 clashing with autoimported BIF.
--compile({no_auto_import,[error/1]}).
-%% Avoid warning for local function error/2 clashing with autoimported BIF.
--compile({no_auto_import,[error/2]}).
 -export([start/1]).
 
 -include("dialyzer.hrl").
@@ -88,7 +84,7 @@ init_opts_for_build(Opts) ->
         Plts ->
           Msg = io_lib:format("Could not build multiple PLT files: ~s\n",
                               [format_plts(Plts)]),
-          error(Msg)
+          cl_error(Msg)
       end;
     false -> Opts#options{init_plts = []}
   end.
@@ -110,7 +106,7 @@ init_opts_for_add(Opts) ->
         Plts ->
           Msg = io_lib:format("Could not add to multiple PLT files: ~s\n",
                               [format_plts(Plts)]),
-          error(Msg)
+          cl_error(Msg)
       end;
     false ->
       case Opts#options.init_plts =:= [] of
@@ -176,7 +172,7 @@ init_opts_for_remove(Opts) ->
         Plts ->
           Msg = io_lib:format("Could not remove from multiple PLT files: ~s\n",
                               [format_plts(Plts)]),
-          error(Msg)
+          cl_error(Msg)
       end;
     false ->
       case Opts#options.init_plts =:= [] of
@@ -222,19 +218,19 @@ plt_common(#options{init_plts = [InitPlt]} = Opts, RemoveFiles, AddFiles) ->
     {error, no_such_file} ->
       Msg = io_lib:format("Could not find the PLT: ~s\n~s",
 			  [InitPlt, default_plt_error_msg()]),
-      error(Msg);
+      cl_error(Msg);
     {error, not_valid} ->
       Msg = io_lib:format("The file: ~s is not a valid PLT file\n~s",
 			  [InitPlt, default_plt_error_msg()]),
-      error(Msg);
+      cl_error(Msg);
     {error, read_error} ->
       Msg = io_lib:format("Could not read the PLT: ~s\n~s",
 			  [InitPlt, default_plt_error_msg()]),
-      error(Msg);
+      cl_error(Msg);
     {error, {no_file_to_remove, F}} ->
       Msg = io_lib:format("Could not remove the file ~s from the PLT: ~s\n",
 			  [F, InitPlt]),
-      error(Msg)
+      cl_error(Msg)
   end.
 
 default_plt_error_msg() ->
@@ -427,7 +423,7 @@ assert_writable(PltFile) ->
     true -> ok;
     false ->
       Msg = io_lib:format("    The PLT file ~s is not writable", [PltFile]),
-      error(Msg)
+      cl_error(Msg)
   end.
 
 check_if_writable(PltFile) ->
@@ -551,7 +547,7 @@ init_output(State0, #options{output_file = OutFile,
 	{error, Reason} ->
 	  Msg = io_lib:format("Could not open output file ~p, Reason: ~p\n",
 			      [OutFile, Reason]),
-	  error(State, lists:flatten(Msg))
+	  cl_error(State, lists:flatten(Msg))
       end
   end.
 
@@ -597,10 +593,10 @@ cl_loop(State, LogCache) ->
       cl_loop(NewState, LogCache);
     {'EXIT', BackendPid, {error, Reason}} ->
       Msg = failed_anal_msg(Reason, LogCache),
-      error(State, Msg);
+      cl_error(State, Msg);
     {'EXIT', BackendPid, Reason} when Reason =/= 'normal' ->
       Msg = failed_anal_msg(io_lib:format("~P", [Reason, 12]), LogCache),
-      error(State, Msg);
+      cl_error(State, Msg);
     _Other ->
       %% io:format("Received ~p\n", [_Other]),
       cl_loop(State, LogCache)
@@ -633,14 +629,14 @@ store_warnings(#cl_state{stored_warnings = StoredWarnings} = St, Warnings) ->
 store_unknown_behaviours(#cl_state{unknown_behaviours = Behs} = St, Beh) ->
   St#cl_state{unknown_behaviours = Beh ++ Behs}.
 
--spec error(string()) -> no_return().
+-spec cl_error(string()) -> no_return().
 
-error(Msg) ->
+cl_error(Msg) ->
   throw({dialyzer_error, Msg}).
 
--spec error(#cl_state{}, string()) -> no_return().
+-spec cl_error(#cl_state{}, string()) -> no_return().
 
-error(State, Msg) ->
+cl_error(State, Msg) ->
   case State#cl_state.output of
     standard_io -> ok;
     Outfile -> io:format(Outfile, "\n~s\n", [Msg])
