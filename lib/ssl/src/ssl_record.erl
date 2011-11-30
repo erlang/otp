@@ -508,8 +508,12 @@ decode_cipher_text(CipherText, ConnnectionStates0) ->
 %%
 %% Description: Encodes data to send on the ssl-socket.
 %%--------------------------------------------------------------------
-encode_data(Frag, Version, ConnectionStates) ->
-    Data = split_bin(Frag, ?MAX_PLAIN_TEXT_LENGTH, Version),
+encode_data(Frag, Version,
+	    #connection_states{current_write = #connection_state{
+				 security_parameters =
+				     #security_parameters{bulk_cipher_algorithm = BCA}}} =
+		ConnectionStates) ->
+    Data = split_bin(Frag, ?MAX_PLAIN_TEXT_LENGTH, Version, BCA),
     encode_iolist(?APPLICATION_DATA, Data, Version, ConnectionStates).
 
 %%--------------------------------------------------------------------
@@ -588,11 +592,11 @@ record_protocol_role(client) ->
 record_protocol_role(server) ->
     ?SERVER.
 
-%% 1/n-1 splitting countermeasure Rizzo/Duong-Beast
-split_bin(<<FirstByte:8, Rest/binary>>, ChunkSize, Version) when {3, 1} == Version orelse
-								 {3, 0} == Version ->
+%% 1/n-1 splitting countermeasure Rizzo/Duong-Beast, RC4 chiphers are not vulnerable to this attack.
+split_bin(<<FirstByte:8, Rest/binary>>, ChunkSize, Version, BCA) when BCA =/= ?RC4 andalso ({3, 1} == Version orelse
+											    {3, 0} == Version) ->
     do_split_bin(Rest, ChunkSize, [[FirstByte]]);
-split_bin(Bin, ChunkSize, _) ->
+split_bin(Bin, ChunkSize, _, _) ->
     do_split_bin(Bin, ChunkSize, []).
 
 do_split_bin(<<>>, _, Acc) ->
