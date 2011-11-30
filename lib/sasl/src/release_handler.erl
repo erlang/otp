@@ -842,6 +842,13 @@ do_unpack_release(Root, RelDir, ReleaseName, Releases) ->
     extract_tar(Root, Tar),
     NewReleases = [Release#release{status = unpacked} | Releases],
     write_releases(RelDir, NewReleases, false),
+
+    %% Keeping this for backwards compatibility reasons with older
+    %% systools:make_tar, where there is no copy of the .rel file in
+    %% the releases/<vsn> dir. See OTP-9746.
+    Dir = filename:join([RelDir, Vsn]),
+    copy_file(RelFile, Dir, false),
+
     {ok, NewReleases, Vsn}.
 
 %% Note that this function is not executed by a client
