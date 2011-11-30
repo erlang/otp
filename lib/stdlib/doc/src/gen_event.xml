@@ -195,12 +195,13 @@ gen_event:stop             ----->  Module:terminate/2
           handlers using the same callback module.</p>
         <p><c>Args</c> is an arbitrary term which is passed as the argument
           to <c>Module:init/1</c>.</p>
-        <p>If <c>Module:init/1</c> returns a correct value, the event
-          manager adds the event handler and this function returns
+        <p>If <c>Module:init/1</c> returns a correct value indicating
+          successful completion, the event manager adds the event
+          handler and this function returns
           <c>ok</c>. If <c>Module:init/1</c> fails with <c>Reason</c> or
-          returns an unexpected value <c>Term</c>, the event handler is
+          returns <c>{error,Reason}</c>, the event handler is
           ignored and this function returns <c>{'EXIT',Reason}</c> or
-          <c>Term</c>, respectively.</p>
+          <c>{error,Reason}</c>, respectively.</p>
       </desc>
     </func>
     <func>
@@ -448,12 +449,13 @@ gen_event:stop             ----->  Module:terminate/2
   </section>
   <funcs>
     <func>
-      <name>Module:init(InitArgs) -> {ok,State} | {ok,State,hibernate}</name>
+      <name>Module:init(InitArgs) -> {ok,State} | {ok,State,hibernate} | {error,Reason}</name>
       <fsummary>Initialize an event handler.</fsummary>
       <type>
         <v>InitArgs = Args | {Args,Term}</v>
         <v>&nbsp;Args = Term = term()</v>
         <v>State = term()</v>
+	<v>Reason = term()</v>
       </type>
       <desc>
         <p>Whenever a new event handler is added to an event manager,
@@ -470,8 +472,9 @@ gen_event:stop             ----->  Module:terminate/2
           the argument provided in the function call/return tuple and
           <c>Term</c> is the result of terminating the old event handler,
           see <c>gen_event:swap_handler/3</c>.</p>
-        <p>The function should return <c>{ok,State}</c> or <c>{ok,State, hibernate}</c>
-	  where <c>State</c> is the initial internal state of the event handler.</p>
+        <p>If successful, the function should return <c>{ok,State}</c>
+	  or <c>{ok,State,hibernate}</c> where <c>State</c> is the
+	  initial internal state of the event handler.</p>
 	<p>If <c>{ok,State,hibernate}</c> is returned, the event
 	  manager will go into hibernation (by calling <seealso
 	  marker="proc_lib#hibernate/3">proc_lib:hibernate/3</seealso>),
