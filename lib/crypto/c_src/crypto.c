@@ -53,6 +53,13 @@
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 
+#if OPENSSL_VERSION_NUMBER >= 0x00908000L && !defined(OPENSSL_NO_SHA256) && defined(NID_sha256)
+# define HAVE_SHA256
+#endif
+#if OPENSSL_VERSION_NUMBER >= 0x00908000L && !defined(OPENSSL_NO_SHA512) && defined(NID_sha512)
+# define HAVE_SHA512
+#endif
+
 #ifdef VALGRIND
     #  include <valgrind/memcheck.h>
 
@@ -124,6 +131,14 @@ static ERL_NIF_TERM sha(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM sha_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM sha_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM sha_final(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM sha256_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM sha256_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM sha256_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM sha256_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM sha512_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM sha512_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM sha512_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM sha512_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM md4(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM md4_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM md4_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -201,6 +216,14 @@ static ErlNifFunc nif_funcs[] = {
     {"sha_init", 0, sha_init},
     {"sha_update", 2, sha_update},
     {"sha_final", 1, sha_final},
+    {"sha256_nif", 1, sha256_nif},
+    {"sha256_init_nif", 0, sha256_init_nif},
+    {"sha256_update_nif", 2, sha256_update_nif},
+    {"sha256_final_nif", 1, sha256_final_nif},
+    {"sha512_nif", 1, sha512_nif},
+    {"sha512_init_nif", 0, sha512_init_nif},
+    {"sha512_update_nif", 2, sha512_update_nif},
+    {"sha512_final_nif", 1, sha512_final_nif},
     {"md4", 1, md4},
     {"md4_init", 0, md4_init},
     {"md4_update", 2, md4_update},
@@ -260,6 +283,9 @@ ERL_NIF_INIT(crypto,nif_funcs,load,reload,upgrade,unload)
 #define SHA_CTX_LEN     (sizeof(SHA_CTX))
 #define SHA_LEN         20
 #define SHA_LEN_96      12
+#define SHA256_LEN	(256/8)
+#define SHA384_LEN	(384/8)
+#define SHA512_LEN	(512/8)
 #define HMAC_INT_LEN    64
 
 #define HMAC_IPAD       0x36
@@ -286,6 +312,7 @@ static ERL_NIF_TERM atom_not_suitable_generator;
 static ERL_NIF_TERM atom_check_failed;
 static ERL_NIF_TERM atom_unknown;
 static ERL_NIF_TERM atom_none;
+static ERL_NIF_TERM atom_notsup;
 
 
 static int is_ok_load_info(ErlNifEnv* env, ERL_NIF_TERM load_info)
@@ -355,6 +382,7 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_check_failed = enif_make_atom(env,"check_failed");
     atom_unknown = enif_make_atom(env,"unknown");
     atom_none = enif_make_atom(env,"none");
+    atom_notsup = enif_make_atom(env,"notsup");
 
     *priv_data = NULL;
     library_refc++;
@@ -518,6 +546,129 @@ static ERL_NIF_TERM sha_final(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     SHA1_Final(enif_make_new_binary(env, SHA_LEN, &ret), &ctx_clone);    
     return ret;
 }
+
+static ERL_NIF_TERM sha256_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Data) */
+#ifdef HAVE_SHA256
+    ErlNifBinary ibin;
+    ERL_NIF_TERM ret;
+
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &ibin)) {
+	return enif_make_badarg(env);
+    }
+    SHA256((unsigned char *) ibin.data, ibin.size,
+	 enif_make_new_binary(env,SHA256_LEN, &ret));
+    return ret;
+#else
+    return atom_notsup;
+#endif
+}
+static ERL_NIF_TERM sha256_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* () */   
+#ifdef HAVE_SHA256
+    ERL_NIF_TERM ret;
+    SHA256_Init((SHA256_CTX *) enif_make_new_binary(env, sizeof(SHA256_CTX), &ret));
+    return ret;
+#else
+    return atom_notsup;
+#endif
+}
+static ERL_NIF_TERM sha256_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Context, Data) */
+#ifdef HAVE_SHA256
+    SHA256_CTX* new_ctx;
+    ErlNifBinary ctx_bin, data_bin;
+    ERL_NIF_TERM ret;
+    if (!enif_inspect_binary(env, argv[0], &ctx_bin) || ctx_bin.size != sizeof(SHA256_CTX)
+	|| !enif_inspect_iolist_as_binary(env, argv[1], &data_bin)) {
+	return enif_make_badarg(env);
+    }
+    new_ctx = (SHA256_CTX*) enif_make_new_binary(env,sizeof(SHA256_CTX), &ret);
+    memcpy(new_ctx, ctx_bin.data, sizeof(SHA256_CTX));
+    SHA256_Update(new_ctx, data_bin.data, data_bin.size);
+    return ret;
+#else
+    return atom_notsup;
+#endif
+}
+static ERL_NIF_TERM sha256_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Context) */
+#ifdef HAVE_SHA256
+    ErlNifBinary ctx_bin;
+    SHA256_CTX ctx_clone;
+    ERL_NIF_TERM ret;
+    if (!enif_inspect_binary(env, argv[0], &ctx_bin) || ctx_bin.size != sizeof(SHA256_CTX)) {
+	return enif_make_badarg(env);
+    }
+    memcpy(&ctx_clone, ctx_bin.data, sizeof(SHA256_CTX)); /* writable */
+    SHA256_Final(enif_make_new_binary(env, SHA256_LEN, &ret), &ctx_clone);    
+    return ret;
+#else
+    return atom_notsup;
+#endif
+}
+
+static ERL_NIF_TERM sha512_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Data) */
+#ifdef HAVE_SHA512
+    ErlNifBinary ibin;
+    ERL_NIF_TERM ret;
+
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &ibin)) {
+	return enif_make_badarg(env);
+    }
+    SHA512((unsigned char *) ibin.data, ibin.size,
+	 enif_make_new_binary(env,SHA512_LEN, &ret));
+    return ret;
+#else
+    return atom_notsup;
+#endif
+}
+static ERL_NIF_TERM sha512_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* () */   
+#ifdef HAVE_SHA512
+    ERL_NIF_TERM ret;
+    SHA512_Init((SHA512_CTX *) enif_make_new_binary(env, sizeof(SHA512_CTX), &ret));
+    return ret;
+#else
+    return atom_notsup;
+#endif
+}
+static ERL_NIF_TERM sha512_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Context, Data) */
+#ifdef HAVE_SHA512
+    SHA512_CTX* new_ctx;
+    ErlNifBinary ctx_bin, data_bin;
+    ERL_NIF_TERM ret;
+    if (!enif_inspect_binary(env, argv[0], &ctx_bin) || ctx_bin.size != sizeof(SHA512_CTX)
+	|| !enif_inspect_iolist_as_binary(env, argv[1], &data_bin)) {
+	return enif_make_badarg(env);
+    }
+    new_ctx = (SHA512_CTX*) enif_make_new_binary(env,sizeof(SHA512_CTX), &ret);
+    memcpy(new_ctx, ctx_bin.data, sizeof(SHA512_CTX));
+    SHA512_Update(new_ctx, data_bin.data, data_bin.size);
+    return ret;
+#else
+    return atom_notsup;
+#endif
+}
+static ERL_NIF_TERM sha512_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Context) */
+#ifdef HAVE_SHA512
+    ErlNifBinary ctx_bin;
+    SHA512_CTX ctx_clone;
+    ERL_NIF_TERM ret;
+    if (!enif_inspect_binary(env, argv[0], &ctx_bin) || ctx_bin.size != sizeof(SHA512_CTX)) {
+	return enif_make_badarg(env);
+    }
+    memcpy(&ctx_clone, ctx_bin.data, sizeof(SHA512_CTX)); /* writable */
+    SHA512_Final(enif_make_new_binary(env, SHA512_LEN, &ret), &ctx_clone);    
+    return ret;
+#else
+    return atom_notsup;
+#endif
+}
+
 
 static ERL_NIF_TERM md4(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Data) */    

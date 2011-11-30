@@ -25,8 +25,8 @@
 -export([md4/1, md4_init/0, md4_update/2, md4_final/1]).
 -export([md5/1, md5_init/0, md5_update/2, md5_final/1]).
 -export([sha/1, sha_init/0, sha_update/2, sha_final/1]).
-%-export([sha256/1, sha256_init/0, sha256_update/2, sha256_final/1]).
-%-export([sha512/1, sha512_init/0, sha512_update/2, sha512_final/1]).
+-export([sha256/1, sha256_init/0, sha256_update/2, sha256_final/1]).
+-export([sha512/1, sha512_init/0, sha512_update/2, sha512_final/1]).
 -export([md5_mac/2, md5_mac_96/2, sha_mac/2, sha_mac/3, sha_mac_96/2]).
 -export([hmac_init/2, hmac_update/2, hmac_final/1, hmac_final_n/2]).
 -export([des_cbc_encrypt/3, des_cbc_decrypt/3, des_cbc_ivec/1]).
@@ -64,8 +64,8 @@
 -define(FUNC_LIST, [md4, md4_init, md4_update, md4_final,
 		    md5, md5_init, md5_update, md5_final,
 		    sha, sha_init, sha_update, sha_final,
-%% 		    sha256, sha256_init, sha256_update, sha256_final,
-%% 		    sha512, sha512_init, sha512_update, sha512_final,
+ 		    sha256, sha256_init, sha256_update, sha256_final,
+ 		    sha512, sha512_init, sha512_update, sha512_final,
 		    md5_mac,  md5_mac_96,
 		    sha_mac,  sha_mac_96,
                     sha_mac_init, sha_mac_update, sha_mac_final,
@@ -219,6 +219,73 @@ sha_init() -> ?nif_stub.
 sha_update(_Context, _Data) -> ?nif_stub.
 sha_final(_Context) -> ?nif_stub.
 
+%
+%% SHA256
+%%
+-spec sha256(iodata()) -> binary().
+-spec sha256_init() -> binary().
+-spec sha256_update(binary(), iodata()) -> binary().
+-spec sha256_final(binary()) -> binary().
+
+sha256(Data) ->
+    case sha256_nif(Data) of
+	notsup -> erlang:error(notsup);
+	Bin -> Bin
+    end.
+sha256_init() ->
+    case sha256_init_nif() of
+	notsup -> erlang:error(notsup);
+	Bin -> Bin
+    end.
+sha256_update(Context, Data) ->
+    case sha256_update_nif(Context, Data) of
+	notsup -> erlang:error(notsup);
+	Bin -> Bin
+    end.
+sha256_final(Context) ->
+    case sha256_final_nif(Context) of
+	notsup -> erlang:error(notsup);
+	Bin -> Bin
+    end.
+
+sha256_nif(_Data) -> ?nif_stub.
+sha256_init_nif() -> ?nif_stub.
+sha256_update_nif(_Context, _Data) -> ?nif_stub.
+sha256_final_nif(_Context) -> ?nif_stub.
+
+%
+%% SHA512
+%%
+-spec sha512(iodata()) -> binary().
+-spec sha512_init() -> binary().
+-spec sha512_update(binary(), iodata()) -> binary().
+-spec sha512_final(binary()) -> binary().
+
+sha512(Data) ->
+    case sha512_nif(Data) of
+	notsup -> erlang:error(notsup);
+	Bin -> Bin
+    end.
+sha512_init() ->
+    case sha512_init_nif() of
+	notsup -> erlang:error(notsup);
+	Bin -> Bin
+    end.
+sha512_update(Context, Data) ->
+    case sha512_update_nif(Context, Data) of
+	notsup -> erlang:error(notsup);
+	Bin -> Bin
+    end.
+sha512_final(Context) ->
+    case sha512_final_nif(Context) of
+	notsup -> erlang:error(notsup);
+	Bin -> Bin
+    end.
+
+sha512_nif(_Data) -> ?nif_stub.
+sha512_init_nif() -> ?nif_stub.
+sha512_update_nif(_Context, _Data) -> ?nif_stub.
+sha512_final_nif(_Context) -> ?nif_stub.
 
 %%
 %%  MESSAGE AUTHENTICATION CODES
