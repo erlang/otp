@@ -91,7 +91,7 @@ IMPORTS
        id-ce-certificateIssuer, CertificateIssuer,
        id-ce-holdInstructionCode, HoldInstructionCode,
        id-ce-invalidityDate, InvalidityDate
-
+       
        FROM PKIX1Implicit88 { iso(1) identified-organization(3) dod(6) 
        internet(1) security(5) mechanisms(5) pkix(7) id-mod(0) 
        id-pkix1-implicit(19) }
@@ -114,8 +114,20 @@ IMPORTS
 	id-ecPublicKey, EcpkParameters, ECPoint
 	FROM PKIX1Algorithms88 { iso(1) identified-organization(3) dod(6)
 	     internet(1) security(5) mechanisms(5) pkix(7) id-mod(0)
-	     id-mod-pkix1-algorithms(17) };
-
+	     id-mod-pkix1-algorithms(17) }
+	     
+       md2WithRSAEncryption,
+       md5WithRSAEncryption,
+       sha1WithRSAEncryption,
+       sha256WithRSAEncryption,
+       sha384WithRSAEncryption,
+       sha512WithRSAEncryption	     
+    	     
+      FROM PKCS-1 {
+       iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1) pkcs-1(1)
+        modules(0) pkcs-1(1)
+	};	   
+	     
 --
 -- Certificate
 --
@@ -295,6 +307,9 @@ PublicKeyAlgorithm ::=  SEQUENCE  {
 SupportedSignatureAlgorithms SIGNATURE-ALGORITHM-CLASS ::= { 
 		    dsa-with-sha1 | md2-with-rsa-encryption |
 		    md5-with-rsa-encryption | sha1-with-rsa-encryption |
+		    sha256-with-rsa-encryption |
+		    sha384-with-rsa-encryption |
+		    sha512-with-rsa-encryption |
 		    ecdsa-with-sha1 } 
 
 SupportedPublicKeyAlgorithms PUBLIC-KEY-ALGORITHM-CLASS ::= { 
@@ -338,6 +353,18 @@ SupportedPublicKeyAlgorithms PUBLIC-KEY-ALGORITHM-CLASS ::= {
 
    sha1-with-rsa-encryption SIGNATURE-ALGORITHM-CLASS ::= {
 			    ID sha1WithRSAEncryption 
+			    TYPE NULL }
+
+   sha256-with-rsa-encryption SIGNATURE-ALGORITHM-CLASS ::= {
+			    ID sha256WithRSAEncryption 
+			    TYPE NULL }
+
+   sha384-with-rsa-encryption SIGNATURE-ALGORITHM-CLASS ::= {
+			    ID sha384WithRSAEncryption 
+			    TYPE NULL }
+	    
+   sha512-with-rsa-encryption SIGNATURE-ALGORITHM-CLASS ::= {
+			    ID sha512WithRSAEncryption 
 			    TYPE NULL }
 
    -- Certificate.signature
