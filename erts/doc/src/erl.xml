@@ -41,25 +41,11 @@
       to scroll back to text which has scrolled off the screen.
       The <c><![CDATA[erl]]></c> program must be used, however, in pipelines or if
       you want to redirect standard input or output.</p>
-      <note><p>As of ERTS version 5.8 (OTP-R14A) the runtime system will by
-               default bind schedulers to logical processors using the
-	       <c>default_bind</c> bind type if the amount of schedulers are
-	       at least equal to the amount of logical processors configured,
-	       binding of schedulers is supported, and a CPU topology is
-	       available at startup.
-	    </p><p>
-	       If the Erlang runtime system is the only operating system
-	       process that binds threads to logical processors, this
-	       improves the performance of the runtime system. However,
-	       if other operating system processes (as for example
-	       another Erlang runtime system) also bind threads to
-	       logical processors, there might be a performance penalty
-	       instead. If this is the case you, are are advised to
-	       unbind the schedulers using the
-	       <seealso marker="#+sbt">+sbtu</seealso> command line argument,
-	       or by invoking
-	       <seealso marker="erlang#system_flag_scheduler_bind_type">erlang:system_flag(scheduler_bind_type,
-	       unbound)</seealso>.</p>
+      <note><p>As of ERTS version 5.9 (OTP-R15B) the runtime system will by
+               default <em>not</em> bind schedulers to logical processors.
+	       For more information see documentation of the
+	       <seealso marker="#+sbt">+sbt</seealso> system flag.
+	    </p>
       </note>
   </description>
   <funcs>
@@ -725,22 +711,18 @@
 	       that the <c>+sct</c> flag may have to be passed before the
 	       <c>+sbt</c> flag on the command line (in case no CPU topology
 	       has been automatically detected).</p>
-            <p>The runtime system will by default bind schedulers to logical
-	       processors using the <c>default_bind</c> bind type if the amount
-	       of schedulers are at least equal to the amount of logical
-	       processors configured, binding of schedulers is supported,
-	       and a CPU topology is available at startup.
+            <p>The runtime system will by default <em>not</em> bind schedulers
+	       to logical processors.
 	    </p>
-	    <p><em>NOTE:</em> If the Erlang runtime system is the only operating
-	       system process that binds threads to logical processors, this
-	       improves the performance of the runtime system. However, if other
-	       operating system processes (as for example another Erlang runtime
-	       system) also bind threads to logical processors, there might be a
-	       performance penalty instead. If this is the case you, are advised
-	       to unbind the schedulers using the <c>+sbtu</c> command line
-	       argument, or by invoking
-	       <seealso marker="erlang#system_flag_scheduler_bind_type">erlang:system_flag(scheduler_bind_type,
-	       unbound)</seealso>.</p>
+	    <p><em>NOTE:</em> If the Erlang runtime system is the only operating system
+	       process that binds threads to logical processors, this
+	       improves the performance of the runtime system. However,
+	       if other operating system processes (as for example
+	       another Erlang runtime system) also bind threads to
+	       logical processors, there might be a performance penalty
+	       instead. In some cases this performance penalty might be
+	       severe. If this is the case, you are advised to not
+	       bind the schedulers.</p>
 	    <p>For more information, see
 	    <seealso marker="erlang#system_flag_scheduler_bind_type">erlang:system_flag(scheduler_bind_type, SchedulerBindType)</seealso>.
 	    </p>

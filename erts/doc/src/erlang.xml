@@ -5200,21 +5200,17 @@ true</pre>
 	       For more information on how to define the CPU topology, see 
 	       <seealso marker="#system_flag_cpu_topology">erlang:system_flag(cpu_topology, CpuTopology)</seealso>.
 	    </p>
-            <p>The runtime system will by default bind schedulers to logical
-	       processors using the <c>default_bind</c> bind type if the amount
-	       of schedulers are at least equal to the amount of logical
-	       processors configured, binding of schedulers is supported,
-	       and a CPU topology is available at startup.
+            <p>The runtime system will by default <em>not</em> bind schedulers
+	       to logical processors.
 	    </p>
 	    <p><em>NOTE:</em> If the Erlang runtime system is the only
 	       operating system process that binds threads to logical processors,
 	       this improves the performance of the runtime system. However,
 	       if other operating system processes (as for example another Erlang
 	       runtime system) also bind threads to logical processors, there
-	       might be a performance penalty instead. If this is the case you,
-	       are are advised to unbind the schedulers using the
-	       <seealso marker="erl#+sbt">+sbtu</seealso> command line argument,
-	       or <c>erlang:system_flag(scheduler_bind_type, unbound)</c>.</p>
+	       might be a performance penalty instead. In some cases this
+	       performance penalty might be severe. If this is the case, you
+	       are advised to not bind the schedulers.</p>
 	    <p>Schedulers can be bound in different ways. The <c>How</c>
 	       argument determines how schedulers are bound. <c>How</c> can
 	       currently be one of:</p>
