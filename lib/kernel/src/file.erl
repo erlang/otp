@@ -1335,7 +1335,7 @@ fname_join(Dir, Name) ->
 %% all times from prime_file (and file_server) are in unix epochs
 
 %% from_epochs
-file_info_time(epoch, {ok, FI}) -> FI;
+file_info_time(epoch, {ok, FI} = R) -> R;
 file_info_time(local, {ok, #file_info{ atime = Atime, ctime = Ctime, mtime = Mtime } = FI}) ->
     {ok, FI#file_info{
 	    atime = time_epochs_to_local(Atime),
