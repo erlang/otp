@@ -3894,9 +3894,11 @@ suspend_scheduler(ErtsSchedulerData *esdp)
 		wake = 0;
 	    }
 
-	    flgs = erts_smp_atomic32_read_acqb(&ssi->flags);
-	    if (!(flgs & ERTS_SSI_FLG_SUSPENDED))
-		break;
+	    if (curr_online && !ongoing_multi_scheduling_block()) {
+		flgs = erts_smp_atomic32_read_acqb(&ssi->flags);
+		if (!(flgs & ERTS_SSI_FLG_SUSPENDED))
+		    break;
+	    }
 	    erts_smp_mtx_unlock(&schdlr_sspnd.mtx);
 
 	    while (1) {
