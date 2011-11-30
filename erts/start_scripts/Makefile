@@ -145,13 +145,11 @@ bootstrap_scripts: $(SS_ROOT)/start_clean.rel
 	$(INSTALL_DIR) $(TESTROOT)/bin
 	$(INSTALL_DIR) $(SS_TMP)
 	( cd $(SS_TMP) && \
-	  $(ERLC) $(BOOTSTRAP_SCRIPT_PATH) +no_warn_sasl +otp_build \
-	    +no_module_tests -o $(TESTROOT)/bin/start.script \
-	    $(SS_ROOT)/start_clean.rel )
+	  $(ERLC) $(BOOTSTRAP_SCRIPT_PATH) +otp_build +no_module_tests \
+	    -o $(TESTROOT)/bin/start.script $(SS_ROOT)/start_clean.rel )
 	( cd $(SS_TMP) && \
-	  $(ERLC) $(BOOTSTRAP_SCRIPT_PATH) +no_warn_sasl +otp_build \
-	    +no_module_tests -o $(TESTROOT)/bin/start_clean.script \
-	    $(SS_ROOT)/start_clean.rel )
+	  $(ERLC) $(BOOTSTRAP_SCRIPT_PATH) +otp_build +no_module_tests \
+	    -o $(TESTROOT)/bin/start_clean.script $(SS_ROOT)/start_clean.rel )
 
 clean:
 	$(RM) $(REL_SCRIPTS) $(INSTALL_SCRIPTS)
