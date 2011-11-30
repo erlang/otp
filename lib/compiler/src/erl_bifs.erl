@@ -136,6 +136,7 @@ is_pure(math, sinh, 1) -> true;
 is_pure(math, sqrt, 1) -> true;
 is_pure(math, tan, 1) -> true;
 is_pure(math, tanh, 1) -> true;
+is_pure(math, pi, 0) -> true;
 is_pure(_, _, _) -> false.
 
 
