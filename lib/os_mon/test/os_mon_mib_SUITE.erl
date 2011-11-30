@@ -718,7 +718,7 @@ del_dir(Dir) ->
     {ok, Files} = file:list_dir(Dir),
     FullPathFiles = lists:map(fun(File) -> filename:join(Dir, File) end,
 			      Files),
-    lists:foreach({file, delete}, FullPathFiles),
+    lists:foreach(fun file:delete/1, FullPathFiles),
     file:del_dir(Dir).
 
 %%---------------------------------------------------------------------

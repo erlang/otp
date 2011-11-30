@@ -1065,9 +1065,10 @@ local_func(F, As0, Bs0, _Shell, _RT, Lf, Ef) when is_atom(F) ->
     non_builtin_local_func(F,As,Bs).
 
 non_builtin_local_func(F,As,Bs) ->
-    case erlang:function_exported(user_default, F, length(As)) of
+    Arity = length(As),
+    case erlang:function_exported(user_default, F, Arity) of
 	true ->
-            {eval,{user_default,F},As,Bs};
+            {eval,erlang:make_fun(user_default, F, Arity),As,Bs};
 	false ->
 	    shell_default(F,As,Bs)
     end.
@@ -1079,7 +1080,7 @@ shell_default(F,As,Bs) ->
 	{module, _} ->
 	    case erlang:function_exported(M,F,A) of
 		true ->
-		    {eval,{M,F},As,Bs};		    
+		    {eval,erlang:make_fun(M, F, A),As,Bs};
 		false ->
 		    shell_undef(F,A)
 	    end;

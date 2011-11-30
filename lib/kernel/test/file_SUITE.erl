@@ -3144,12 +3144,12 @@ ipread_int(Dir, ModeList) ->
 		{fun (Bin) when is_binary(Bin) -> Bin;
 		     (List) when is_list(List) -> list_to_binary(List)
 		 end, 
-		 {erlang, size}};
+		 fun erlang:byte_size/1};
 	    false ->
 		{fun (Bin) when is_binary(Bin) -> binary_to_list(Bin);
 		     (List) when is_list(List) -> List
 		 end, 
-		 {erlang, length}}
+		 fun erlang:length/1}
 	end,
     ?line Pos = 4711,
     ?line Data = Conv("THE QUICK BROWN FOX JUMPS OVER A LAZY DOG"),

@@ -65,11 +65,11 @@
 %% Shadow argument macros 
 -define(loadShadowArgs, 
 	{loadTable, string, record_info(fields, loadTable), 5000,
-	 {os_mon_mib, update_load_table}}). 
+	 fun os_mon_mib:update_load_table/0}).
 	
 -define(diskShadowArgs, 
 	{diskTable, {integer, integer}, record_info(fields, diskTable), 5000,
-	 {os_mon_mib, update_disk_table}}). 
+	 fun os_mon_mib:update_disk_table/0}).
 
 %% Misc
 -record(diskAlloc, {diskDescr, diskId}).

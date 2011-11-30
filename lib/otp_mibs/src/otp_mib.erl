@@ -48,11 +48,11 @@
 %% Shadow argument macros 
 -define(erlNodeShadowArgs, 
 	{erlNodeTable, integer, record_info(fields, erlNodeTable), 5000,
-	 {otp_mib, update_erl_node_table}}). 
+	 fun otp_mib:update_erl_node_table/0}).
 
 -define(applShadowArgs,
 	{applTable, {integer, integer}, record_info(fields, applTable), 
-	 5000, {otp_mib, update_appl_table}}).
+	 5000, fun otp_mib:update_appl_table/0}).
 
 %% Misc
 -record(erlNodeAlloc, {nodeName, nodeId}).

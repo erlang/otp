@@ -28,10 +28,11 @@ parse(Tokens) ->
 
 -spec parse_and_scan({function() | {atom(), atom()}, [_]}
                      | {atom(), atom(), [_]}) -> yecc_ret().
-parse_and_scan({F, A}) -> % Fun or {M, F}
+parse_and_scan({F, A}) ->
     yeccpars0([], {{F, A}, no_line}, 0, [], []);
 parse_and_scan({M, F, A}) ->
-    yeccpars0([], {{{M, F}, A}, no_line}, 0, [], []).
+    Arity = length(A),
+    yeccpars0([], {{fun M:F/Arity, A}, no_line}, 0, [], []).
 
 -spec format_error(any()) -> [char() | list()].
 format_error(Message) ->
