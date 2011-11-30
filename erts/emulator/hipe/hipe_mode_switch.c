@@ -337,14 +337,22 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	   * stack: to this end hipe_${ARCH}_glue.S stores the BIF's
 	   * arity in p->hipe.narity.
 	   *
-	   * If the BIF emptied the stack (typically hibernate), p->hipe.nsp is
-	   * NULL and there is no need to get rid of stacked parameters.
+	   * If the BIF emptied the stack (typically hibernate), p->hipe.nstack
+	   * is NULL and there is no need to get rid of stacked parameters.
 	   */
 	  unsigned int i, is_recursive = 0;
 
-          if (p->hipe.nsp != NULL) {
+          if (p->hipe.nstack != NULL) {
+	      ASSERT(p->hipe.nsp != NULL);
 	      is_recursive = hipe_trap_from_native_is_recursive(p);
           }
+	  else {
+	      /* Some architectures (risc) need this re-reset of nsp as the
+	       * BIF wrapper do not detect stack change and causes an obsolete
+	       * stack pointer to be saved in p->hipe.nsp before return to us.
+	       */
+	      p->hipe.nsp = NULL;
+	  }
 
 	  /* Schedule next process if current process was hibernated or is waiting
 	     for messages */
