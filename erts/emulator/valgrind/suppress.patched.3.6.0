@@ -305,3 +305,46 @@ fun:erl_init
 fun:erl_start
 fun:main
 }
+
+{
+Permanent cache aligned malloc for array of mseg allocators
+Memcheck:Leak
+PossiblyLost
+fun:malloc
+fun:erts_mseg_init
+fun:erts_alloc_init
+fun:early_init
+fun:erl_start
+fun:main
+}
+
+{
+Early permanent cache aligned erl_process:aux_work_tmo
+Memcheck:Leak
+PossiblyLost
+fun:malloc
+fun:aux_work_timeout_early_init
+fun:erts_early_init_scheduling
+fun:early_init
+fun:erl_start
+fun:main
+}
+
+{
+Early permanent cache aligned ts_event_pool
+Memcheck:Leak
+PossiblyLost
+fun:malloc
+fun:erts_sys_alloc
+fun:erts_alloc_fnf
+fun:ethr_std_alloc
+fun:ts_event_pool
+fun:init_ts_event_alloc
+fun:ethr_late_init_common__
+fun:ethr_late_init
+fun:erts_thr_late_init
+fun:early_init
+fun:erl_start
+fun:main
+}
+

@@ -37,7 +37,7 @@
 
 %%--------------------------------------------------------------------------
 
--type child()    :: pid() | 'undefined'.
+-type child()    :: 'undefined' | pid() | [pid()].
 -type child_id() :: term().
 -type mfargs()   :: {M :: module(), F :: atom(), A :: [term()] | undefined}.
 -type modules()  :: [module()] | 'dynamic'.
