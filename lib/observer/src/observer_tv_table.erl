@@ -221,33 +221,10 @@ search_area(Parent) ->
 
 edit(Index, #state{pid=Pid, frame=Frame}) ->
     Str = get_row(Pid, Index, all),
-    Dialog = wxTextEntryDialog:new(Frame, "Edit object:", [{value, Str}]),
-    case wxTextEntryDialog:showModal(Dialog) of
-	?wxID_OK ->
-	    New = wxTextEntryDialog:getValue(Dialog),
-	    wxTextEntryDialog:destroy(Dialog),
-	    case Str =:= New of
-		true -> ok;
-		false ->
-		    complete_edit(Index, New, Pid)
-	    end;
-	?wxID_CANCEL ->
-	    wxTextEntryDialog:destroy(Dialog)
-    end.
-
-complete_edit(Row, New0, Pid) ->
-    New = case lists:reverse(New0) of
-	      [$.|_] -> New0;
-	      _ -> New0 ++ "."
-	  end,
-    try
-	{ok, Tokens, _} = erl_scan:string(New),
-	{ok, Term} = erl_parse:parse_term(Tokens),
-	Pid ! {edit, Row, Term}
-    catch _:{badmatch, {error, {_, _, Err}}} ->
-	    self() ! {error, ["Parse error: ", Err]};
-	  _Err ->
-	    self() ! {error, ["Syntax error in: ", New]}
+    case observer_lib:user_term(Frame, "Edit object:", Str) of
+	cancel -> ok;
+	{ok, Term} -> Pid ! {edit, Index, Term};
+	Err = {error, _} -> self() ! Err
     end.
 
 handle_event(#wx{id=?ID_REFRESH},State = #state{pid=Pid}) ->

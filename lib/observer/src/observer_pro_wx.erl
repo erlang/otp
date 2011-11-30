@@ -241,10 +241,6 @@ handle_info(not_active, #state{timer=Timer0}=State) ->
     Timer = observer_lib:stop_timer(Timer0),
     {noreply, State#state{timer=Timer}};
 
-handle_info({node, Node}, #state{holder=Holder}=State) ->
-    Holder ! {change_node, Node},
-    {noreply, State};
-
 handle_info(Info, State) ->
     io:format("~p:~p, Unexpected info: ~p~n", [?MODULE, ?LINE, Info]),
     {noreply, State}.

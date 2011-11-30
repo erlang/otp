@@ -610,7 +610,7 @@ ttb_output_args(Parent, Opts) ->
     ToWindow = proplists:get_value(window, Opts, true),
     ToShell = proplists:get_value(shell, Opts, false),
     ToFile = proplists:get_value(file, Opts, false),
-    ToWindow orelse ToShell orelse ToShell orelse
+    ToWindow orelse ToShell orelse ToFile orelse
 	throw({error, "No output of trace"}),
     {LogWin,Text} = create_logwindow(Parent, ToWindow),
     Write = output_fun(Text, ToShell),

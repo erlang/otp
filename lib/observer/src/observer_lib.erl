@@ -19,7 +19,7 @@
 -module(observer_lib).
 
 -export([get_wx_parent/1,
-	 display_info_dialog/1,
+	 display_info_dialog/1, user_term/3,
 	 interval_dialog/4, start_timer/1, stop_timer/1,
 	 display_info/2, fill_info/2, update_info/2, to_str/1,
 	 create_menus/3, create_menu_item/3,
@@ -196,6 +196,7 @@ to_str(No) when is_integer(No) ->
 to_str(Term) ->
     io_lib:format("~w", [Term]).
 
+create_menus([], _MenuBar, _Type) -> ok;
 create_menus(Menus, MenuBar, Type) ->
     Add = fun({Tag, Ms}, Index) ->
 		  create_menu(Tag, Ms, Index, MenuBar, Type)
@@ -329,4 +330,26 @@ scroll_size(LCtrl) ->
 		true -> wxSystemSettings:getMetric(?wxSYS_VSCROLL_X);
 		false -> 0
 	    end
+    end.
+
+
+user_term(Parent, Title, Default) ->
+    Dialog = wxTextEntryDialog:new(Parent, Title, [{value, Default}]),
+    case wxTextEntryDialog:showModal(Dialog) of
+	?wxID_OK ->
+	    Str = wxTextEntryDialog:getValue(Dialog),
+	    wxTextEntryDialog:destroy(Dialog),
+	    parse_string(Str);
+	?wxID_CANCEL ->
+	    wxTextEntryDialog:destroy(Dialog)
+    end.
+
+parse_string(Str) ->
+    try
+	{ok, Tokens, _} = erl_scan:string(Str),
+	erl_parse:parse_term(Tokens)
+    catch _:{badmatch, {error, {_, _, Err}}} ->
+	    {error, ["Parse error: ", Err]};
+	  _Err ->
+	    {error, ["Syntax error in: ", Str]}
     end.

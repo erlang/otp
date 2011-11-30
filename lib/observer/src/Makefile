@@ -42,6 +42,7 @@ MODULES= \
 	etop_tr \
 	etop_txt \
 	observer \
+	observer_app_wx \
 	observer_lib \
 	observer_wx \
 	observer_pro_wx \

@@ -54,6 +54,7 @@
 	 tv_panel,
 	 sys_panel,
 	 trace_panel,
+	 app_panel,
 	 active_tab,
 	 node,
 	 nodes
@@ -137,6 +138,10 @@ setup(#state{frame = Frame} = State) ->
     TracePanel = observer_trace_wx:start_link(Notebook, self()),
     wxNotebook:addPage(Notebook, TracePanel, ?TRACE_STR, []),
 
+    %% App Viewer Panel
+    AppPanel = observer_app_wx:start_link(Notebook, self()),
+    wxNotebook:addPage(Notebook, AppPanel, "Applications", []),
+
     %% Force redraw (window needs it)
     wxWindow:refresh(Panel),
 
@@ -150,6 +155,7 @@ setup(#state{frame = Frame} = State) ->
 			   pro_panel = ProPanel,
 			   tv_panel  = TVPanel,
 			   trace_panel = TracePanel,
+			   app_panel = AppPanel,
 			   active_tab = SysPid,
 			   node  = node(),
 			   nodes = Nodes
@@ -277,10 +283,13 @@ handle_cast(_Cast, State) ->
 
 handle_call({create_menus, TabMenus}, _From,
 	    State = #state{menubar=MenuBar, menus=PrevTabMenus}) ->
-    wx:batch(fun() ->
-		     clean_menus(PrevTabMenus, MenuBar),
-		     observer_lib:create_menus(TabMenus, MenuBar, plugin)
-	     end),
+    if TabMenus == PrevTabMenus -> ignore;
+       true ->
+	    wx:batch(fun() ->
+			     clean_menus(PrevTabMenus, MenuBar),
+			     observer_lib:create_menus(TabMenus, MenuBar, plugin)
+		     end)
+    end,
     {reply, ok, State#state{menus=TabMenus}};
 
 handle_call({get_attrib, Attrib}, _From, State) ->
@@ -379,9 +388,8 @@ connect2(NodeName, Opts, Cookie) ->
 	    {error, net_kernel, Reason}
     end.
 
-change_node_view(Node, State = #state{pro_panel=Pro, sys_panel=Sys, tv_panel=Tv}) ->
-    lists:foreach(fun(Pid) -> wx_object:get_pid(Pid) ! {node, Node} end,
-		  [Pro, Sys, Tv]),
+change_node_view(Node, State) ->
+    get_active_pid(State) ! {active, Node},
     StatusText = ["Observer - " | atom_to_list(Node)],
     wxFrame:setTitle(State#state.frame, StatusText),
     wxStatusBar:setStatusText(State#state.status_bar, StatusText),
@@ -391,12 +399,14 @@ check_page_title(Notebook) ->
     Selection = wxNotebook:getSelection(Notebook),
     wxNotebook:getPageText(Notebook, Selection).
 
-get_active_pid(#state{notebook=Notebook, pro_panel=Pro, sys_panel=Sys, tv_panel=Tv, trace_panel=Trace}) ->
+get_active_pid(#state{notebook=Notebook, pro_panel=Pro, sys_panel=Sys,
+		      tv_panel=Tv, trace_panel=Trace, app_panel=App}) ->
     Panel = case check_page_title(Notebook) of
 		"Processes" -> Pro;
 		"System" -> Sys;
 		"Table Viewer" -> Tv;
-		?TRACE_STR -> Trace
+		?TRACE_STR -> Trace;
+		"Applications" -> App
 	    end,
     wx_object:get_pid(Panel).
 

@@ -197,12 +197,6 @@ handle_info(not_active, State = #state{timer = Timer0}) ->
     Timer = observer_lib:stop_timer(Timer0),
     {noreply, State#state{timer=Timer}};
 
-handle_info({node, Node}, State = #state{grid=Grid, opt=Opt}) ->
-    Tables = get_tables(Node, Opt),
-    Tabs = update_grid(Grid, Opt, Tables),
-    wxWindow:setFocus(Grid),
-    {noreply, State#state{node=Node, tabs=Tabs}};
-
 handle_info({error, Error}, State) ->
     handle_error(Error),
     {noreply, State};

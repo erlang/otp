@@ -126,16 +126,6 @@ handle_info(refresh_interval, #sys_wx_state{panel = Panel,
     end,
     {noreply, State};
 
-handle_info({node, Node}, #sys_wx_state{panel = Panel} = State) ->
-    UpdState = State#sys_wx_state{node = Node},
-    try
-	update_syspage(UpdState),
-	{noreply, UpdState}
-    catch error:{badrpc, _} ->
-	    observer_wx:return_to_localnode(Panel, Node),
-	    {noreply, State}
-    end;
-
 handle_info({active, Node}, #sys_wx_state{parent = Parent, panel = Panel,
 					  timer = Timer} = State) ->
     UpdState = State#sys_wx_state{node = Node},
@@ -147,7 +137,6 @@ handle_info({active, Node}, #sys_wx_state{parent = Parent, panel = Panel,
 	    observer_wx:return_to_localnode(Panel, Node),
 	    {noreply, State}
     end;
-
 
 handle_info(not_active, #sys_wx_state{timer = Timer} = State) ->
     {noreply, State#sys_wx_state{timer = observer_lib:stop_timer(Timer)}};
