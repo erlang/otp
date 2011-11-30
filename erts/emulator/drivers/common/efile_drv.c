@@ -2124,9 +2124,10 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
 		put_int32(d->info.size_low,          &resbuf[1 + ( 1 * 4)]);
 		put_int32(d->info.type,              &resbuf[1 + ( 2 * 4)]);
 
+		/* Note 64 bit indexing in resbuf here */
 		put_int64(d->info.accessTime,        &resbuf[1 + ( 3 * 4)]);
 		put_int64(d->info.modifyTime,        &resbuf[1 + ( 5 * 4)]);
-		put_int64(d->info.cTime     ,        &resbuf[1 + ( 7 * 4)]);
+		put_int64(d->info.cTime,             &resbuf[1 + ( 7 * 4)]);
 
 		put_int32(d->info.mode,              &resbuf[1 + ( 9 * 4)]);
 		put_int32(d->info.links,             &resbuf[1 + (10 * 4)]);
@@ -2490,9 +2491,9 @@ file_output(ErlDrvData e, char* buf, int count)
 	    d->info.mode       = get_int32(buf +  0 * 4);
 	    d->info.uid        = get_int32(buf +  1 * 4);
 	    d->info.gid        = get_int32(buf +  2 * 4);
-	    d->info.accessTime = get_int64(buf +  3 * 4);
-	    d->info.modifyTime = get_int64(buf +  5 * 4);
-	    d->info.cTime      = get_int64(buf +  7 * 4);
+	    d->info.accessTime = (time_t)((Sint64)get_int64(buf +  3 * 4));
+	    d->info.modifyTime = (time_t)((Sint64)get_int64(buf +  5 * 4));
+	    d->info.cTime      = (time_t)((Sint64)get_int64(buf +  7 * 4));
 
 	    FILENAME_COPY(d->b, buf + 9*4);
 	    d->command = command;
