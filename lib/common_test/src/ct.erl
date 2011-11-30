@@ -63,7 +63,7 @@
 	 log/1, log/2, log/3,
 	 print/1, print/2, print/3,
 	 pal/1, pal/2, pal/3,
-	 fail/1, comment/1,
+	 fail/1, fail/2, comment/1,
 	 testcases/2, userdata/2, userdata/3,
 	 timetrap/1, sleep/1]).
 
@@ -527,6 +527,25 @@ pal(Category,Format,Args) ->
 %%% <code>Reason</code>.
 fail(Reason) ->
     exit({test_case_failed,Reason}).
+
+
+%%%-----------------------------------------------------------------
+%%% @spec fail(Format, Args) -> void()
+%%%      Format = string()
+%%%      Args = list()
+%%%
+%%% @doc Terminate a test case with an error message specified
+%%% by a format string and a list of values (used as arguments to
+%%% <code>io_lib:format/2</code>).
+fail(Format, Args) ->
+    try io_lib:format(Format, Args) of
+	Str ->
+	    exit({test_case_failed,lists:flatten(Str)})
+    catch
+	_:BadArgs ->
+	    exit({BadArgs,{?MODULE,fail,[Format,Args]}})
+    end.
+
 
 %%%-----------------------------------------------------------------
 %%% @spec comment(Comment) -> void()
