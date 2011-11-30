@@ -2423,8 +2423,8 @@ server_verify_client_once_active_once(Config) when is_list(Config) ->
 					{options, [{active, once} | ClientOpts]}]),
     
     ssl_test_lib:check_result(Server, ok, Client0, ok),
-    ssl_test_lib:close(Client0),
     Server ! {listen, {mfa, {ssl_test_lib, no_result, []}}},
+    ssl_test_lib:close(Client0),
     Client1 = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
 					 {host, Hostname},
 					 {from, self()},

@@ -242,6 +242,8 @@ check_timer(Timer) ->
     case erlang:read_timer(Timer) of
 	false ->
 	    {status, _, _, _} = sys:get_status(whereis(ssl_manager)),
+	    timer:sleep(?SLEEP),
+	    {status, _, _, _} = sys:get_status(whereis(ssl_manager)),
 	    ok;
 	Int ->
 	    test_server:sleep(Int),
