@@ -1253,7 +1253,7 @@ erts_lc_init_lock(erts_lc_lock_t *lck, char *name, Uint16 flags)
 {
     lck->id = erts_lc_get_lock_order_id(name);
 
-    lck->extra = &lck->extra;
+    lck->extra = (UWord) &lck->extra;
     ASSERT(is_not_immed(lck->extra));
     lck->flags = flags;
     lck->inited = ERTS_LC_INITITALIZED;
