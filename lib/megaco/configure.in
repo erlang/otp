@@ -208,7 +208,7 @@ if test "X$host" = "Xwin32"; then
 else
   case $host_os in
     darwin*)
-	CFLAGS="$CFLAGS -no-cpp-precomp -fno-common"
+	CFLAGS="$CFLAGS -fno-common"
 	;;
   esac
 

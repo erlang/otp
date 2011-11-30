@@ -338,12 +338,6 @@ AC_SUBST(LIB_CFLAGS)
 if test "X$host" = "Xwin32"; then
   LIB_CFLAGS="$CFLAGS"
 else
-  case $host_os in
-    darwin*)
-	CFLAGS="$CFLAGS -no-cpp-precomp"
-	;;
-  esac
-
   if test "x$GCC" = xyes; then
 	LIB_CFLAGS="$CFLAGS -fPIC"
   else

@@ -674,6 +674,44 @@ test on).
 
 Universal binaries and 64bit binaries are mutually exclusive options.
 
+Building a fast Erlang VM on Mac OS Lion
+----------------------------------------
+
+Starting with XCode 4.2, Apple no longer includes a "real" `gcc`
+compiler (not based on the LLVM).  Building with `llvm-gcc` or `clang`
+will work, but the performance of the Erlang run-time system will not
+be the best possible.
+
+Note that if you have `gcc-4.2` installed and included in `PATH`
+(from a previous version of XCode), `configure` will automatically
+make sure that `gcc-4.2` will be used to compile `beam_emu.c`
+(the source file most in need of `gcc`).
+
+If you don't have `gcc-4.2.` and want to build a run-time system with
+the best possible performance, do like this:
+
+Install XCode from the AppStore if it is not already installed.
+
+Install MacPorts (<http://www.macports.org/>). Then:
+
+    $ sudo port selfupdate
+    $ sudo port install gcc45 +universal
+
+If you want to build the `wx` application, get wxMac-2.8.12
+(`wxMac-2.8.12.tar.gz` from
+<http://sourceforge.net/projects/wxwindows/files/2.8.12/>) and build:
+
+    $ arch_flags="-arch i386" ./configure CFLAGS="$arch_flags" CXXFLAGS="$arch_flags" CPPFLAGS="$arch_flags" LDFLAGS="$arch_flags" OBJCFLAGS="$arch_flags" OBJCXXFLAGS="$arch_flags" --prefix=/usr/local --with-macosx-sdk=/Developer/SDKs/MacOSX10.6.sdk --with-macosx-version-min=10.6 --enable-unicode --with-opengl --disable-shared
+    $ make
+    $ sudo make install
+
+Build Erlang with the MacPorts GCC as the main compiler (using `clang`
+for the Objective-C Cocoa code in the `wx` application):
+
+    $ PATH=/usr/local/bin:$PATH CC=/opt/local/bin/gcc-mp-4.5 CXX=/opt/local/bin/g++-mp-4.5 ./configure --enable-m32-build make
+    $ sudo make install
+
+
 How to Build a Debug Enabled Erlang RunTime System
 --------------------------------------------------
 

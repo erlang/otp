@@ -495,16 +495,6 @@ erts_find_local_func(Eterm mfa[3]) {
     return NULL;
 }
 
-/* bp_hash */
-ERTS_INLINE Uint bp_sched2ix() {
-#ifdef ERTS_SMP
-    ErtsSchedulerData *esdp;
-    esdp = erts_get_scheduler_data();
-    return esdp->no - 1;
-#else
-    return 0;
-#endif
-}
 static void bp_hash_init(bp_time_hash_t *hash, Uint n) {
     Uint size = sizeof(bp_data_time_item_t)*n;
     Uint i;
@@ -1347,7 +1337,7 @@ static BpData *is_break(BeamInstr *pc, BeamInstr break_op) {
 	return NULL;
     }
 
-    bd = ebd = rs[bp_sched2ix()];
+    bd = ebd = rs[erts_bp_sched2ix()];
     ASSERT(bd);
     if ( (break_op == 0) || (bd->this_instr == break_op)) {
 	return bd;
