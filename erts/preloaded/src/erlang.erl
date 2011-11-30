@@ -1091,8 +1091,6 @@ receive_emd(Ref, EMD, N) ->
 receive_emd(Ref) ->
     receive_emd(Ref, #memory{}, erlang:system_info(schedulers)).
 
-aa_mem_data(notsup, _) ->
-    notsup;
 aa_mem_data(#memory{} = Mem,
 	    [{maximum, Max} | Rest]) ->
     aa_mem_data(Mem#memory{maximum = Max},
