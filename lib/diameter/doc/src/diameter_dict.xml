@@ -36,7 +36,7 @@ under the License.
 <!-- ===================================================================== -->
 
 <file>diameter_dict</file>
-<filesummary>Dictionary inteface of the diameter application.</filesummary>
+<filesummary>Dictionary interface of the diameter application.</filesummary>
 
 <description>
 <p>
@@ -74,7 +74,7 @@ corresponding to applications defined in section 2.4 of RFC 3588:
 application with application identifier 0,
 <c>diameter_gen_accounting</c> for the Diameter Base Accounting
 application with application identifier 3 and
-<c>diameter_gen_relay</c>the Relay application with application
+<c>diameter_gen_relay</c> the Relay application with application
 identifier 0xFFFFFFFF.
 The Common Message and Relay applications are the only applications
 that diameter itself has any specific knowledge of.
@@ -94,18 +94,16 @@ defined.</p>
 
 <p>
 A dictionary file consists of distinct sections.
-Each section starts with a line consisting of a tag
-followed by zero or more arguments.
-Each section ends at the the start of the next section or end of file.
+Each section starts with a tag followed by zero or more arguments
+and ends at the the start of the next section or end of file.
 Tags consist of an ampersand character followed by a keyword and are
 separated from their arguments by whitespace.
-Whitespace within a section separates individual tokens but its
-quantity is insignificant.</p>
+Whitespace separates individual tokens but is otherwise insignificant.</p>
 
 <p>
 The tags, their arguments and the contents of each corresponding
 section are as follows.
-Each section can occur at most once unless otherwise specified.
+Each section can occur multiple times unless otherwise specified.
 The order in which sections are specified is unimportant.</p>
 
 <taglist>
@@ -115,7 +113,8 @@ The order in which sections are specified is unimportant.</p>
 <p>
 Defines the integer Number as the Diameter Application Id of the
 application in question.
-Required if the dictionary defines <c>@messages</c>.
+Can occur at most once and is required if the dictionary defines
+<c>@messages</c>.
 The section has empty content.</p>
 
 <p>
@@ -136,16 +135,13 @@ Example:</p>
 <item>
 <p>
 Defines the name of the generated dictionary module.
-The section has empty content.
-Mod must match the regular expression '^[a-zA-Z0-9][-_a-zA-Z0-9]*$';
-that is, contains only alphanumerics, hyphens and underscores begin with an
-alphanumeric.</p>
+Can occur at most once and defaults to the name of the dictionary file
+minus any extension if unspecified.
+The section has empty content.</p>
 
 <p>
-A name is optional and defaults to the name of the dictionary file
-minus any extension.
-Note that a generated module must have a unique name an not colide
-with another module in the system.</p>
+Note that a dictionary module should have a unique name so as not collide
+with existing modules in the system.</p>
 
 <p>
 Example:</p>
@@ -159,22 +155,22 @@ Example:</p>
 <tag><c>@prefix Name</c></tag>
 <item>
 <p>
-Defines Name as the prefix to be added to record and constant names in
-the generated dictionary module and hrl.
-The section has empty content.
-Name must be of the same form as a @name.</p>
+Defines Name as the prefix to be added to record and constant names
+(followed by a <c>'_'</c> character) in the generated dictionary
+module and hrl.
+Can occur at most once.
+The section has empty content.</p>
 
 <p>
-A prefix is optional but can
-be used to disambiguate record and constant names
-resulting from similarly named messages and AVPs in different
-Diameter applications.</p>
+A prefix is optional but can be be used to disambiguate between record
+and constant names resulting from similarly named messages and AVPs in
+different Diameter applications.</p>
 
 <p>
 Example:</p>
 
 <code>
-@prefix etsi_e2_
+@prefix etsi_e2
 </code>
 
 </item>
@@ -182,10 +178,12 @@ Example:</p>
 <tag><c>@vendor Number Name</c></tag>
 <item>
 <p>
-Defines the integer Number as the the default Vendor-ID of AVPs for
+Defines the integer Number as the the default Vendor-Id of AVPs for
 which the V flag is set.
 Name documents the owner of the application
 but is otherwise unused.
+Can occur at most once and is required if an AVP sets the V flag and
+is not otherwise assigned a Vendor-Id.
 The section has empty content.</p>
 
 <p>
@@ -200,10 +198,9 @@ Example:</p>
 <tag><c>@avp_vendor_id Number</c></tag>
 <item>
 <p>
-Defines the integer Number as the Vendor-ID of the AVPs listed in the
+Defines the integer Number as the Vendor-Id of the AVPs listed in the
 section content, overriding the <c>@vendor</c> default.
-The section content consists of AVP names.
-Can occur zero or more times (with different values of Number).</p>
+The section content consists of AVP names.</p>
 
 <p>
 Example:</p>
@@ -221,13 +218,27 @@ Region-Set
 <tag><c>@inherits Mod</c></tag>
 <item>
 <p>
-Defines the name of a generated dictionary module containing AVP
-definitions referenced by the dictionary but not defined by it.
-The section content is empty.</p>
+Defines the name of a dictionary module containing AVP
+definitions that should be imported into the current dictionary.
+The section content consists of the names of those AVPs whose
+definitions should be imported from the dictionary, an empty list
+causing all to be imported.
+Any listed AVPs must not be defined in the current dictionary and
+it is an error to inherit the same AVP from more than one
+dictionary.</p>
 
 <p>
-Can occur 0 or more times (with different values of Mod) but all
-dictionaries should typically inherit RFC3588 AVPs from
+Note that an inherited AVP that sets the V flag takes its Vendor-Id
+from either <c>@avp_vendor_id</c> in the inheriting dictionary or
+<c>@vendor</c> in the inherited dictionary.
+In particular, <c>@avp_vendor_id</c> in the inherited dictionary is
+ignored.
+Inheriting from a dictionary that specifies the required <c>@vendor</c>
+is equivalent to using <c>@avp_vendor_id</c> with a copy of the
+dictionary's definitions but the former makes for easier reuse.</p>
+
+<p>
+All dictionaries should typically inherit RFC3588 AVPs from
 <c>diameter_gen_base_rfc3588</c>.</p>
 
 <p>
@@ -248,13 +259,11 @@ The section consists of definitions of the form</p>
 <p><c>Name Code Type Flags</c></p>
 
 <p>
-where Code is the integer AVP code, Flags is a string of V,
-M and P characters indicating the flags to be
-set on an outgoing AVP or a single - (minus) character if none are to
-be set.
-Type identifies either an AVP Data Format as defined in <seealso
-marker="#DATA_TYPES">DATA TYPES</seealso> below or a
-type as defined by a <c>@custom_types</c> section.</p>
+where Code is the integer AVP code, Type identifies an AVP Data Format
+as defined in <seealso marker="#DATA_TYPES">DATA TYPES</seealso> below,
+and Flags is a string of V, M and P characters indicating the flags to be
+set on an outgoing AVP or a single <c>'-'</c> (minus) character if
+none are to be set.</p>
 
 <p>
 Example:</p>
@@ -262,8 +271,8 @@ Example:</p>
 <code>
 @avp_types
 
-Location-Information   350  Grouped     VM
-Requested-Information  353  Enumerated  V
+Location-Information   350  Grouped     MV
+Requested-Information  353  Enumerated   V
 </code>
 
 <p>
@@ -276,21 +285,36 @@ to 0 as mandated by the current draft standard.</p>
 <tag><c>@custom_types Mod</c></tag>
 <item>
 <p>
-Defines AVPs for which module Mod provides encode/decode.
+Specifies AVPs for which module Mod provides encode/decode functions.
 The section contents consists of AVP names.
-For each AVP Name in the content, <c>Mod:Name(encode|decode, Type, Data)</c>
-is expected to provide encode/decode for values of the AVP, where Type
-is the type of the AVP as declared in the <c>@avp_types</c> section
-of the dictionary and Data is the value to encoded/decoded.</p>
-
-<p>
-Can occur 0 or more times (with different values of Mod).</p>
+For each such name, <c>Mod:Name(encode|decode, Type, Data)</c> is
+expected to provide encode/decode for values of the AVP, where Name is
+the name of the AVP, Type is it's type as declared in the
+<c>@avp_types</c> section of the dictionary and Data is the value to
+encode/decode.</p>
 
 <p>
 Example:</p>
 
 <code>
 @custom_types rfc4005_avps
+
+Framed-IP-Address
+</code>
+</item>
+
+<tag><c>@codecs Mod</c></tag>
+<item>
+<p>
+Like <c>@custom_types</c> but requires the specified module to export
+<c>Mod:Type(encode|decode, Name, Data)</c> rather than
+<c>Mod:Name(encode|decode, Type, Data)</c>.</p>
+
+<p>
+Example:</p>
+
+<code>
+@codecs rfc4005_avps
 
 Framed-IP-Address
 </code>
@@ -360,6 +384,10 @@ SIP-Deregistration-Reason ::= &lt; AVP Header: 383 >
                               [ SIP-Reason-Info ]
                             * [ AVP ]
 </code>
+
+<p>
+Specifying a Vendor-Id in the definition of a grouped AVP is
+equivalent to specifying it with <c>@avp_vendor_id</c>.</p>
 </item>
 
 <tag><c>@enum Name</c></tag>
@@ -371,11 +399,9 @@ Integer values can be prefixed with 0x to be interpreted as
 hexidecimal.</p>
 
 <p>
-Can occur 0 or more times (with different values of Name).
-The AVP in question can be defined in an inherited dictionary in order
-to introduce additional values.
-An AVP so extended must be referenced by in a <c>@messages</c> or
-<c>@grouped</c> section.</p>
+Note that the AVP in question can be defined in an inherited
+dictionary in order to introduce additional values to an enumeration
+otherwise defined in another dictionary.</p>
 
 <p>
 Example:</p>
@@ -390,11 +416,18 @@ REMOVE_SIP_SERVER        3
 </code>
 </item>
 
+<tag><c>@end</c></tag>
+<item>
+<p>
+Causes parsing of the dictionary to terminate:
+any remaining content is ignored.</p>
+</item>
+
 </taglist>
 
 <p>
 Comments can be included in a dictionary file using semicolon:
-text from a semicolon to end of line is ignored.</p>
+characters from a semicolon to end of line are ignored.</p>
 
 <marker id="MESSAGE_RECORDS"/>
 </section>
