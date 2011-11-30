@@ -20,7 +20,6 @@
 %%% Purpose:Test Suite for the 'qlc' module.
 %%%-----------------------------------------------------------------
 -module(qlc_SUITE).
--compile(r12).
 
 -define(QLC, qlc).
 -define(QLCs, "qlc").
@@ -7402,70 +7401,37 @@ backward(doc) ->
     "OTP-6674. Join info and extra constants.";
 backward(suite) -> [];
 backward(Config) when is_list(Config) ->
-    case try_old_join_info(Config) of
-        ok ->
-            ok;
-        Reply ->
-            Reply
-    end.
-
--ifdef(debug).
-try_old_join_info(_Config) ->
+    try_old_join_info(Config),
     ok.
--else.
+
 try_old_join_info(Config) ->
-    case ?t:is_release_available("r12b") of
-        true ->
-            %% Check join info for handlers of extra constants. Start R12B-0.
-            ?line {ok, R12} = start_node_rel(r12, r12b, slave),
-            File  = filename("handle.erl", Config),
-            ?line file:write_file(File, 
-                <<"-module(handle).\n"
-                  "-export([create_handle/0, lookup_handle/0]).\n"
-                  "-include_lib(\"stdlib/include/qlc.hrl\").\n"
-                  "create_handle() ->\n"
-                  "  H1 = qlc:sort([{192.0,1,a},{192.0,2,b},{192.0,3,c}]),\n"
-                  "  qlc:q([{X, Y} || {B,X,_} <- H1,\n"
-                  "                   B =:= 192.0,\n"
-                  "                   {Y} <- [{0},{1},{2}],\n"
-                  "                   X == Y]).\n",
-                  "\n",
-                  "lookup_handle() ->\n"
-                  "  E = qlc_SUITE:table([{1,a},{2,b},{3,c}], 1, [1]),\n"
-                  "  qlc:q([{X, Y} || {X,_} <- E,\n"
-                  "                   {Y} <- [{0},{1},{2}],\n"
-                  "                   X =:= Y]).\n">>),
-            ?line {ok, handle} = rpc:call(R12, compile, file,
-                                          [File, [{outdir,?privdir}]]),
-            ?line {module, handle} = rpc:call(R12, code, load_abs,
-                                              [filename:rootname(File)]),
-            ?line H = rpc:call(R12, handle, create_handle, []),
-            ?line {module, handle} = code:load_abs(filename:rootname(File)),
-            ?line {block,0,
-                     [{match,_,_,
-                       {call,_,_,
-                        [{lc,_,_,
-                          [_,
-                           {op,_,'=:=',
-                            {float,_,192.0},
-                            {call,_,{atom,_,element},[{integer,_,1},_]}}]}]}},
-                      _,_,
-                      {call,_,_,
-                       [{lc,_,_,
-                         [_,
-                          {op,_,'=:=',{var,_,'B'},{float,_,192.0}},
-                          {op,_,'==',{var,_,'X'},{var,_,'Y'}}]}]}]} 
-                    = qlc:info(H,{format,abstract_code}),
-            ?line [{1,1},{2,2}] = qlc:e(H),
-            ?line H2 = rpc:call(R12, handle, lookup_handle, []),
-            ?line {qlc,_,[{generate,_,{qlc,_,_,[{join,lookup}]}},_],[]} =
-                qlc:info(H2, {format,debug}),
-            ?line [{1,1},{2,2}] = qlc:e(H2),
-            stop_node(R12);
-	false ->
-	    ?line {skipped, "No support for old node"}
-    end.
--endif.
+    %% Check join info for handlers of extra constants.
+    File = filename:join(?datadir, "join_info_compat.erl"),
+    M = join_info_compat,
+    {ok, M} = compile:file(File, [{outdir, ?datadir}]),
+    {module, M} = code:load_abs(filename:rootname(File)),
+    H = M:create_handle(),
+    {block,0,
+     [{match,_,_,
+       {call,_,_,
+        [{lc,_,_,
+          [_,
+           {op,_,'=:=',
+            {float,_,192.0},
+            {call,_,{atom,_,element},[{integer,_,1},_]}}]}]}},
+      _,_,
+      {call,_,_,
+       [{lc,_,_,
+         [_,
+          {op,_,'=:=',{var,_,'B'},{float,_,192.0}},
+          {op,_,'==',{var,_,'X'},{var,_,'Y'}}]}]}]}
+        = qlc:info(H,{format,abstract_code}),
+    [{1,1},{2,2}] = qlc:e(H),
+
+    H2 = M:lookup_handle(),
+    {qlc,_,[{generate,_,{qlc,_,_,[{join,lookup}]}},_],[]} =
+        qlc:info(H2, {format,debug}),
+    [{1,1},{2,2}] = qlc:e(H2).
 
 forward(doc) ->
     "";
@@ -8129,27 +8095,6 @@ fail(Source) ->
     ?t:fail({failed,testcase,on,Source}).
 
 %% Copied from global_SUITE.erl.
-
-start_node_rel(Name, Rel, How) ->
-    {Release, Compat} = case Rel of
-                            this ->
-                                {[this], "+R8"};
-                            Rel when is_atom(Rel) ->
-                                {[{release, atom_to_list(Rel)}], ""};
-                            RelList ->
-			       {RelList, ""}
-		       end,
-    ?line Pa = filename:dirname(code:which(?MODULE)),
-    ?line Res = test_server:start_node(Name, How, 
-                                       [{args,
-                                         Compat ++ 
-                                         " -kernel net_setuptime 100 "
-                                         " -pa " ++ Pa},
-                                        {erl, Release}]),
-    Res.
-
-stop_node(Node) ->
-    ?line ?t:stop_node(Node).
 
 install_error_logger() ->
     error_logger:add_report_handler(?MODULE, self()).
