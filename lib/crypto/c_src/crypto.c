@@ -56,6 +56,10 @@
 #if OPENSSL_VERSION_NUMBER >= 0x00908000L && !defined(OPENSSL_NO_SHA256) && defined(NID_sha256)
 # define HAVE_SHA256
 #endif
+#if OPENSSL_VERSION_NUMBER >= 0x00908000L && !defined(OPENSSL_NO_SHA384) && defined(NID_sha384)\
+         && !defined(OPENSSL_NO_SHA512) /* disabled like this in my sha.h (?) */
+# define HAVE_SHA384
+#endif
 #if OPENSSL_VERSION_NUMBER >= 0x00908000L && !defined(OPENSSL_NO_SHA512) && defined(NID_sha512)
 # define HAVE_SHA512
 #endif
@@ -163,7 +167,7 @@ static ERL_NIF_TERM strong_rand_mpint_nif(ErlNifEnv* env, int argc, const ERL_NI
 static ERL_NIF_TERM rand_uniform_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM mod_exp_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM dss_verify(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM rsa_verify(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM rsa_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM aes_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM exor(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rc4_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -251,7 +255,7 @@ static ErlNifFunc nif_funcs[] = {
     {"rand_uniform_nif", 2, rand_uniform_nif},
     {"mod_exp_nif", 3, mod_exp_nif},
     {"dss_verify", 4, dss_verify},
-    {"rsa_verify", 4, rsa_verify},
+    {"rsa_verify_nif", 4, rsa_verify_nif},
     {"aes_cbc_crypt", 4, aes_cbc_crypt},
     {"exor", 2, exor},
     {"rc4_encrypt", 2, rc4_encrypt},
@@ -296,6 +300,9 @@ static ErlNifRWLock** lock_vec = NULL; /* Static locks used by openssl */
 static ERL_NIF_TERM atom_true;
 static ERL_NIF_TERM atom_false;
 static ERL_NIF_TERM atom_sha;
+static ERL_NIF_TERM atom_sha256;
+static ERL_NIF_TERM atom_sha384;
+static ERL_NIF_TERM atom_sha512;
 static ERL_NIF_TERM atom_md5;
 static ERL_NIF_TERM atom_ripemd160;
 static ERL_NIF_TERM atom_error;
@@ -367,6 +374,9 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_true = enif_make_atom(env,"true");
     atom_false = enif_make_atom(env,"false");
     atom_sha = enif_make_atom(env,"sha");
+    atom_sha256 = enif_make_atom(env,"sha256");
+    atom_sha384 = enif_make_atom(env,"sha384");
+    atom_sha512 = enif_make_atom(env,"sha512");
     atom_md5 = enif_make_atom(env,"md5");
     atom_ripemd160 = enif_make_atom(env,"ripemd160");
     atom_error = enif_make_atom(env,"error");
@@ -1246,17 +1256,14 @@ static ERL_NIF_TERM dss_verify(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     return(i > 0) ? atom_true : atom_false;
 }
 
-static ERL_NIF_TERM rsa_verify(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+static ERL_NIF_TERM rsa_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Type, Data, Signature, Key=[E,N]) */
     ErlNifBinary data_bin, sign_bin;
-    unsigned char hmacbuf[SHA_DIGEST_LENGTH];
+    unsigned char hmacbuf[SHA512_LEN];
     ERL_NIF_TERM head, tail, ret;
-    int i, is_sha;
+    int i;
     RSA* rsa = RSA_new();
-
-    if (argv[0] == atom_sha) is_sha = 1;
-    else if (argv[0] == atom_md5) is_sha = 0;
-    else goto badarg;
+    const ERL_NIF_TERM type = argv[0];
 
     if (!inspect_mpint(env, argv[1], &data_bin)
 	|| !inspect_mpint(env, argv[2], &sign_bin)
@@ -1265,22 +1272,57 @@ static ERL_NIF_TERM rsa_verify(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 	|| !enif_get_list_cell(env, tail, &head, &tail)
 	|| !get_bn_from_mpint(env, head, &rsa->n)
 	|| !enif_is_empty_list(env, tail)) {
-    badarg:
+	
 	ret = enif_make_badarg(env);
     }
     else {
-	if (is_sha) {
+	if (type == atom_sha) {
 	    SHA1(data_bin.data+4, data_bin.size-4, hmacbuf);
 	    i = RSA_verify(NID_sha1, hmacbuf, SHA_DIGEST_LENGTH,
 			   sign_bin.data+4, sign_bin.size-4, rsa);
 	}
-	else {
+	else if (type == atom_sha256) {
+	  #ifdef HAVE_SHA256
+	    SHA256(data_bin.data+4, data_bin.size-4, hmacbuf);
+	    i = RSA_verify(NID_sha256, hmacbuf, SHA256_LEN,
+			   sign_bin.data+4, sign_bin.size-4, rsa);
+	  #else
+	    ret = atom_notsup;
+	    goto done;
+	  #endif 
+	}
+	else if (type == atom_sha384) {
+	  #ifdef HAVE_SHA384
+	    SHA384(data_bin.data+4, data_bin.size-4, hmacbuf);
+	    i = RSA_verify(NID_sha384, hmacbuf, SHA384_LEN,
+			   sign_bin.data+4, sign_bin.size-4, rsa);
+	  #else
+	    ret = atom_notsup;
+	    goto done;
+	  #endif 
+	}
+	else if (type == atom_sha512) {
+	  #ifdef HAVE_SHA512
+	    SHA512(data_bin.data+4, data_bin.size-4, hmacbuf);
+	    i = RSA_verify(NID_sha512, hmacbuf, SHA512_LEN,
+			   sign_bin.data+4, sign_bin.size-4, rsa);
+	  #else
+	    ret = atom_notsup;
+	    goto done;	    
+	  #endif
+	}
+	else if (type == atom_md5) {
 	    MD5(data_bin.data+4, data_bin.size-4, hmacbuf);
 	    i = RSA_verify(NID_md5, hmacbuf, MD5_DIGEST_LENGTH,
 			   sign_bin.data+4, sign_bin.size-4, rsa);
 	}
+	else {
+	    ret = enif_make_badarg(env);
+	    goto done;
+	}
 	ret = (i==1 ? atom_true : atom_false);
-    }
+    }    
+done:
     RSA_free(rsa);
     return ret;
 }

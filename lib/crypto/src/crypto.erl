@@ -95,7 +95,7 @@
                     aes_ctr_stream_init, aes_ctr_stream_encrypt, aes_ctr_stream_decrypt,
 		    info_lib]).
 
--type rsa_digest_type() :: 'md5' | 'sha'.
+-type rsa_digest_type() :: 'md5' | 'sha' | 'sha256' | 'sha384' | 'sha512'.
 -type dss_digest_type() :: 'none' | 'sha'.
 -type crypto_integer() :: binary() | integer().
 
@@ -589,8 +589,14 @@ dss_verify(_Type,_Data,_Signature,_Key) -> ?nif_stub.
 
 % Key = [E,N]  E=PublicExponent N=PublicModulus
 rsa_verify(Data,Signature,Key) ->
-    rsa_verify(sha, Data,Signature,Key).
-rsa_verify(_Type,_Data,_Signature,_Key) -> ?nif_stub.
+    rsa_verify_nif(sha, Data,Signature,Key).
+rsa_verify(Type, Data, Signature, Key) ->
+    case rsa_verify_nif(Type, Data, Signature, Key) of
+    	notsup -> erlang:error(notsup);
+	Bool -> Bool
+    end.
+
+rsa_verify_nif(_Type, _Data, _Signature, _Key) -> ?nif_stub.
 
 
 %%
