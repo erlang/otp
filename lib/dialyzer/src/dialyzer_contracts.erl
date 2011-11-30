@@ -256,7 +256,7 @@ check_extraneous([C|Cs], SuccType) ->
 check_extraneous_1(Contract, SuccType) ->
   CRngs = erl_types:t_elements(erl_types:t_fun_range(Contract)),
   STRng = erl_types:t_fun_range(SuccType),
-  %% io:format("CR = ~p\nSR = ~p\n", [CRngs, STRng]),
+  ?debug("CR = ~p\nSR = ~p\n", [CRngs, STRng]),
   case [CR || CR <- CRngs, erl_types:t_is_none(erl_types:t_inf(CR, STRng, opaque))] of
     [] -> ok;
     CRs -> {error, {extra_range, erl_types:t_sup(CRs), STRng}}
@@ -352,28 +352,37 @@ insert_constraints([], Dict) -> Dict.
 
 store_tmp_contract(MFA, FileLine, TypeSpec, SpecDict, RecordsDict) ->
   %% io:format("contract from form: ~p\n", [TypeSpec]),
-  TmpContract = contract_from_form(TypeSpec, RecordsDict),
+  TmpContract = contract_from_form(TypeSpec, RecordsDict, FileLine),
   %% io:format("contract: ~p\n", [Contract]),
   dict:store(MFA, {FileLine, TmpContract}, SpecDict).
 
-contract_from_form(Forms, RecDict) ->
-  {CFuns, Forms1} = contract_from_form(Forms, RecDict, [], []),
+contract_from_form(Forms, RecDict, FileLine) ->
+  {CFuns, Forms1} = contract_from_form(Forms, RecDict, FileLine, [], []),
   #tmp_contract{contract_funs = CFuns, forms = Forms1}.
 
 contract_from_form([{type, _, 'fun', [_, _]} = Form | Left], RecDict,
-		   TypeAcc, FormAcc) ->
+		   FileLine, TypeAcc, FormAcc) ->
   TypeFun =
     fun(ExpTypes, AllRecords) ->
-	Type = erl_types:t_from_form(Form, RecDict),
+	Type =
+	  try
+	    erl_types:t_from_form(Form, RecDict)
+	  catch
+	    throw:{error, Msg} ->
+	      {File, Line} = FileLine,
+	      NewMsg = io_lib:format("~s:~p: ~s", [filename:basename(File),
+						     Line, Msg]),
+	      throw({error, NewMsg})
+	  end,
 	NewType = erl_types:t_solve_remote(Type, ExpTypes, AllRecords),
 	{NewType, []}
     end,
   NewTypeAcc = [TypeFun | TypeAcc],
   NewFormAcc = [{Form, []} | FormAcc],
-  contract_from_form(Left, RecDict, NewTypeAcc, NewFormAcc);
+  contract_from_form(Left, RecDict, FileLine, NewTypeAcc, NewFormAcc);
 contract_from_form([{type, _L1, bounded_fun,
 		     [{type, _L2, 'fun', [_, _]} = Form, Constr]}| Left],
-		   RecDict, TypeAcc, FormAcc) ->
+		   RecDict, FileLine, TypeAcc, FormAcc) ->
   TypeFun =
     fun(ExpTypes, AllRecords) ->
 	Constr1 = [constraint_from_form(C, RecDict, ExpTypes, AllRecords)
@@ -385,8 +394,8 @@ contract_from_form([{type, _L1, bounded_fun,
     end,
   NewTypeAcc = [TypeFun | TypeAcc],
   NewFormAcc = [{Form, Constr} | FormAcc],
-  contract_from_form(Left, RecDict, NewTypeAcc, NewFormAcc);
-contract_from_form([], _RecDict, TypeAcc, FormAcc) ->
+  contract_from_form(Left, RecDict, FileLine, NewTypeAcc, NewFormAcc);
+contract_from_form([], _RecDict, _FileLine, TypeAcc, FormAcc) ->
   {lists:reverse(TypeAcc), lists:reverse(FormAcc)}.
 
 constraint_from_form({type, _, constraint, [{atom, _, is_subtype},
@@ -444,7 +453,21 @@ get_invalid_contract_warnings_funs([{MFA, {FileLine, Contract}}|Left],
 	  {error, invalid_contract} ->
 	    [invalid_contract_warning(MFA, FileLine, Sig, RecDict)|Acc];
 	  {error, {extra_range, ExtraRanges, STRange}} ->
-	    [extra_range_warning(MFA, FileLine, ExtraRanges, STRange)|Acc];
+	    Warn =
+	      case t_from_forms_without_remote(Contract#contract.forms,
+					       RecDict) of
+		{ok, NoRemoteType} ->
+		  CRet = erl_types:t_fun_range(NoRemoteType),
+		  erl_types:t_is_subtype(ExtraRanges, CRet);
+		unsupported ->
+		  true
+	      end,
+	    case Warn of
+	      true ->
+		[extra_range_warning(MFA, FileLine, ExtraRanges, STRange)|Acc];
+	      false ->
+		Acc
+	    end;
 	  {error, Msg} ->
 	    [{?WARN_CONTRACT_SYNTAX, FileLine, Msg}|Acc];
 	  ok ->
@@ -507,26 +530,92 @@ picky_contract_check(CSig0, Sig0, MFA, FileLine, Contract, RecDict, Acc) ->
 extra_contract_warning({M, F, A}, FileLine, Contract, CSig, Sig, RecDict) ->
   SigString = lists:flatten(dialyzer_utils:format_sig(Sig, RecDict)),
   ContractString0 = lists:flatten(dialyzer_utils:format_sig(CSig, RecDict)),
-  case SigString =:= ContractString0 of
+  %% The only difference is in record fields containing 'undefined' or not.
+  IsUndefRecordFieldsRelated = SigString =:= ContractString0,
+  {IsRemoteTypesRelated, SubtypeRelation} =
+    is_remote_types_related(Contract, CSig, Sig, RecDict),
+  case IsUndefRecordFieldsRelated orelse IsRemoteTypesRelated of
     true ->
-      %% The only difference is in record fields containing 'undefined' or not.
       no_warning;
     false ->
       ContractString = contract_to_string(Contract),
       {Tag, Msg} =
-	case erl_types:t_is_subtype(CSig, Sig) of
-	  true ->
+	case SubtypeRelation of
+	  contract_is_subtype ->
 	    {?WARN_CONTRACT_SUBTYPE,
 	     {contract_subtype, [M, F, A, ContractString, SigString]}};
-	  false ->
-	    case erl_types:t_is_subtype(Sig, CSig) of
-	      true ->
-		{?WARN_CONTRACT_SUPERTYPE,
-		 {contract_supertype, [M, F, A, ContractString, SigString]}};
-	      false ->
-		{?WARN_CONTRACT_NOT_EQUAL,
-		 {contract_diff, [M, F, A, ContractString, SigString]}}
-	    end
+	  contract_is_supertype ->
+	    {?WARN_CONTRACT_SUPERTYPE,
+	     {contract_supertype, [M, F, A, ContractString, SigString]}};
+	  neither ->
+	    {?WARN_CONTRACT_NOT_EQUAL,
+	     {contract_diff, [M, F, A, ContractString, SigString]}}
 	end,
       {warning, {Tag, FileLine, Msg}}
+  end.
+
+is_remote_types_related(Contract, CSig, Sig, RecDict) ->
+  case erl_types:t_is_subtype(CSig, Sig) of
+    true ->
+      {false, contract_is_subtype};
+    false ->
+      case erl_types:t_is_subtype(Sig, CSig) of
+	true ->
+	  case t_from_forms_without_remote(Contract#contract.forms, RecDict) of
+	    {ok, NoRemoteTypeSig} ->
+	      case blame_remote(CSig, NoRemoteTypeSig, Sig) of
+		true ->
+		  {true, neither};
+		false ->
+		  {false, contract_is_supertype}
+	      end;
+	    unsupported ->
+	      {false, contract_is_supertype}
+	  end;
+	false ->
+	  {false, neither}
+      end
+  end.
+
+t_from_forms_without_remote([{FType, []}], RecDict) ->
+  Type0 = erl_types:t_from_form(FType, RecDict),
+  Map =
+    fun(Type) ->
+	case erl_types:t_is_remote(Type) of
+	  true -> erl_types:t_none();
+	  false -> Type
+	end
+    end,
+  {ok, erl_types:t_map(Map, Type0)};
+t_from_forms_without_remote([{_FType, _Constrs}], _RecDict) ->
+  %% 'When' constraints
+  unsupported;
+t_from_forms_without_remote(_Forms, _RecDict) ->
+  %% Lots of forms
+  unsupported.
+
+blame_remote(ContractSig, NoRemoteContractSig, Sig) ->
+  CArgs  = erl_types:t_fun_args(ContractSig),
+  CRange = erl_types:t_fun_range(ContractSig),
+  NRArgs = erl_types:t_fun_args(NoRemoteContractSig),
+  NRRange = erl_types:t_fun_range(NoRemoteContractSig),
+  SArgs = erl_types:t_fun_args(Sig),
+  SRange = erl_types:t_fun_range(Sig),
+  blame_remote_list([CRange|CArgs], [NRRange|NRArgs], [SRange|SArgs]).
+
+blame_remote_list([], [], []) ->
+  true;
+blame_remote_list([CArg|CArgs], [NRArg|NRArgs], [SArg|SArgs]) ->
+  case erl_types:t_is_equal(CArg, NRArg) of
+    true ->
+      case not erl_types:t_is_equal(CArg, SArg) of
+	true  -> false;
+	false -> blame_remote_list(CArgs, NRArgs, SArgs)
+      end;
+    false ->
+      case erl_types:t_is_subtype(SArg, NRArg)
+	andalso not erl_types:t_is_subtype(NRArg, SArg) of
+	true  -> false;
+	false -> blame_remote_list(CArgs, NRArgs, SArgs)
+      end
   end.

@@ -595,9 +595,9 @@ optimizeDefine([I|Code], Dsts, DstLst, Res) ->
   [Ds] = Dsts,
   case isCallPrimop(I, mktuple) andalso DstLst =:= [] of
     true ->
-      case (hipe_icode:call_dstlist(I) =:= Dsts) of
+      case hipe_icode:call_dstlist(I) =:= Dsts of
 	true ->
-	  case (hipe_icode:call_args(I) > 1) of 
+	  case length(hipe_icode:call_args(I)) > 1 of
 	    true ->
 	      optimizeDefine(Code, Dsts, hipe_icode:call_args(I), Res);
 	    false ->

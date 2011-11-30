@@ -49,6 +49,12 @@ coordinate(CG, Escaping, NonEscaping, Mod) ->
     fun (PM) -> last_action(PM, ServerPid, Mod, All) end, 
   coordinate({Clean,All}, CG, gb_trees:empty(), Restart, LastAction, ServerPid).
 
+-type mfalists() :: {[mfa()], [mfa()]}.
+
+-spec coordinate(mfalists(), hipe_digraph:hdg(), gb_tree(),
+                 fun((mfalists(), gb_tree()) -> mfalists()),
+                 fun((gb_tree()) -> 'ok'), pid()) -> no_return().
+
 coordinate(MFALists, CG, PM, Restart, LastAction, ServerPid) ->
   case MFALists of
     {[], []} ->
@@ -106,8 +112,7 @@ last_action(PM, ServerPid, Mod, All) ->
 		    receive 
 		      {done_rewrite, MFA} -> ok
 		    end
-		end, All),
-  ok.
+		end, All).
 
 restart_funs({Queue, Busy} = QB, PM, All, ServerPid) ->
   case ?MAX_CONCURRENT - length(Busy) of
