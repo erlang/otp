@@ -255,15 +255,20 @@ sendfile_do_recv(Sock, Bs) ->
 		nomatch when is_integer(Bs) ->
 		    sendfile_do_recv(Sock, byte_size(B) + Bs);
 		_ when is_list(Bs) ->
+		    ct:log("Stopped due to a 1"),
 		    {ok, iolist_to_binary(lists:reverse([B|Bs]))};
 		_ when is_integer(Bs) ->
+		    ct:log("Stopped due to a 1"),
 		    {ok, byte_size(B) + Bs}
 	    end;
 	{tcp_closed, Sock} when is_list(Bs) ->
+	    ct:log("Stopped due to close"),
 	    {ok, iolist_to_binary(lists:reverse(Bs))};
 	{tcp_closed, Sock} when is_integer(Bs) ->
+	    ct:log("Stopped due to close"),
 	    {ok, Bs}
     after ?SENDFILE_TIMEOUT ->
+	    ct:log("Sendfile timeout"),
 	    timeout
     end.
 
