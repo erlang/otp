@@ -2046,8 +2046,7 @@ lookup_type(Key, Map) ->
   %% case cerl:is_literal(Key) of
   %%   true -> t_from_term(cerl:concrete(Key));
   %%   false ->
-  Subst = t_subst(Key, Map),
-  t_sup(Subst, Subst).
+  t_subst(Key, Map).
   %% end.
 
 mk_var(Var) ->

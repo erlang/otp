@@ -2533,29 +2533,26 @@ findfirst(N1, N2, U1, B1, U2, B2) ->
 
 t_subst(T, Dict) ->
   case t_has_var(T) of
-    true -> t_subst(T, Dict, fun(X) -> X end);
+    true -> t_subst_aux(T, Dict);
     false -> T
   end.
 
 -spec subst_all_vars_to_any(erl_type()) -> erl_type().
 
 subst_all_vars_to_any(T) ->
-  case t_has_var(T) of
-    true -> t_subst(T, dict:new(), fun(_) -> ?any end);
-    false -> T
-  end.
+  t_subst(T, dict:new()).
 
-t_subst(?var(Id) = V, Dict, Fun) ->
+t_subst_aux(?var(Id), Dict) ->
   case dict:find(Id, Dict) of
-    error -> Fun(V);
+    error -> ?any;
     {ok, Type} -> Type
   end;
-t_subst(?list(Contents, Termination, Size), Dict, Fun) ->
-  case t_subst(Contents, Dict, Fun) of
+t_subst_aux(?list(Contents, Termination, Size), Dict) ->
+  case t_subst_aux(Contents, Dict) of
     ?none -> ?none;
     NewContents ->
       %% Be careful here to make the termination collapse if necessary.
-      case t_subst(Termination, Dict, Fun) of
+      case t_subst_aux(Termination, Dict) of
 	?nil -> ?list(NewContents, ?nil, Size);
 	?any -> ?list(NewContents, ?any, Size);
 	Other ->
@@ -2563,17 +2560,17 @@ t_subst(?list(Contents, Termination, Size), Dict, Fun) ->
 	  ?list(NewContents, NewTermination, Size)
       end
   end;
-t_subst(?function(Domain, Range), Dict, Fun) ->
-  ?function(t_subst(Domain, Dict, Fun), t_subst(Range, Dict, Fun));
-t_subst(?product(Types), Dict, Fun) -> 
-  ?product([t_subst(T, Dict, Fun) || T <- Types]);
-t_subst(?tuple(?any, ?any, ?any) = T, _Dict, _Fun) ->
+t_subst_aux(?function(Domain, Range), Dict) ->
+  ?function(t_subst_aux(Domain, Dict), t_subst_aux(Range, Dict));
+t_subst_aux(?product(Types), Dict) ->
+  ?product([t_subst_aux(T, Dict) || T <- Types]);
+t_subst_aux(?tuple(?any, ?any, ?any) = T, _Dict) ->
   T;
-t_subst(?tuple(Elements, _Arity, _Tag), Dict, Fun) ->
-  t_tuple([t_subst(E, Dict, Fun) || E <- Elements]);
-t_subst(?tuple_set(_) = TS, Dict, Fun) ->
-  t_sup([t_subst(T, Dict, Fun) || T <- t_tuple_subtypes(TS)]);
-t_subst(T, _Dict, _Fun) -> 
+t_subst_aux(?tuple(Elements, _Arity, _Tag), Dict) ->
+  t_tuple([t_subst_aux(E, Dict) || E <- Elements]);
+t_subst_aux(?tuple_set(_) = TS, Dict) ->
+  t_sup([t_subst_aux(T, Dict) || T <- t_tuple_subtypes(TS)]);
+t_subst_aux(T, _Dict) ->
   T.
 	      
 %%-----------------------------------------------------------------------------
