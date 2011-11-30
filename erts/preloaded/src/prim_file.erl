@@ -1360,17 +1360,17 @@ datetime_to_epoch(Datetime) ->
     datetime_to_gregorian_seconds(Datetime) - ?SECONDS_PER_DAY * ?DAYS_FROM_0_TO_1970.
 
 
-%% perhaps like this
-
-posix_time(Time) ->
-    EpochStart = {{1970,1,1},{0,0,0}},
-    {Days,{Hour,Min,Sec}} = calendar:time_difference(EpochStart, Time),
-    86400*Days + 3600*Hour + 60*Min + Sec.
-
-posix_to_erlang_time(Sec) ->
-    OneMillion = 1000000,
-    Time = calendar:now_to_datetime({Sec div OneMillion, Sec rem OneMillion, 0}),
-    erlang:universaltime_to_localtime(Time).
+%% erl_tar uses this convention (investigate)
+%%
+%% posix_time(Time) ->
+%%     EpochStart = {{1970,1,1},{0,0,0}},
+%%     {Days,{Hour,Min,Sec}} = calendar:time_difference(EpochStart, Time),
+%%     86400*Days + 3600*Hour + 60*Min + Sec.
+%%
+%% posix_to_erlang_time(Sec) ->
+%%     OneMillion = 1000000,
+%%     Time = calendar:now_to_datetime({Sec div OneMillion, Sec rem OneMillion, 0}),
+%%     erlang:universaltime_to_localtime(Time).
 
 
 % from calendar, slightly modified
