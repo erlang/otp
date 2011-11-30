@@ -130,13 +130,20 @@ compile(Config) when is_list(Config) ->
     ?line {ok,_} = compile:file(x),
     ?line {ok,_} = compile:file("d/y",[debug_info,{outdir,"d"},report]),
     ?line Key = "A Krypto Key",
-    ?line {ok,_} = compile:file(crypt, [debug_info,{debug_info_key,Key},report]),
+    CryptoWorks = crypto_works(),
+    case CryptoWorks of
+	false ->
+	    {ok,_} = compile:file(crypt, [debug_info,report]),
+	    {ok,crypt} = cover:compile_beam("crypt.beam");
+	true ->
+	    {ok,_} = compile:file(crypt, [{debug_info_key,Key},report]),
+	    {error,{encrypted_abstract_code,_}} =
+		cover:compile_beam("crypt.beam"),
+	    ok = beam_lib:crypto_key_fun(simple_crypto_fun(Key)),
+	    {ok,crypt} = cover:compile_beam("crypt.beam")
+    end,
     ?line {ok,v} = cover:compile_beam(v),
     ?line {ok,w} = cover:compile_beam("w.beam"),
-    ?line {error,{encrypted_abstract_code,_}} =
-	cover:compile_beam("crypt.beam"),
-    ?line ok = beam_lib:crypto_key_fun(simple_crypto_fun(Key)),
-    ?line {ok,crypt} = cover:compile_beam("crypt.beam"),
     ?line {error,{no_abstract_code,"./x.beam"}} = cover:compile_beam(x),
     ?line {error,{already_cover_compiled,no_beam_found,a}}=cover:compile_beam(a),
     ?line {error,non_existing} = cover:compile_beam(z),
@@ -147,6 +154,15 @@ compile(Config) when is_list(Config) ->
     ?line decompile([v,w,y]),
     ?line Files = lsfiles(),
     ?line remove(files(Files, ".beam")).
+
+crypto_works() ->
+    try crypto:start() of
+	{error,{already_started,crypto}} -> true;
+	ok -> true
+    catch
+	error:_ ->
+	    false
+    end.
 
 simple_crypto_fun(Key) ->
     fun(init) -> ok;
