@@ -51,7 +51,7 @@
 	 make_link/2, make_link/3,
 	 make_symlink/2, make_symlink/3,
 	 read_link/1, read_link/2,
-	 read_link_info/1, read_link_info/2,
+	 read_link_info/1, read_link_info/2, read_link_info/3,
 	 list_dir/1, list_dir/2]).
 %% How to start and stop the ?DRV port.
 -export([start/0, stop/1]).
@@ -725,16 +725,18 @@ del_dir_int(Port, Dir) ->
 
 
 
-%% read_file_info/{1,2}
+%% read_file_info/{1,2,3}
 
 read_file_info(File) ->
     read_file_info_int({?DRV, [binary]}, File, local).
 
 read_file_info(Port, File) when is_port(Port) ->
-    read_file_info_int(Port, File, local).
+    read_file_info_int(Port, File, local);
+read_file_info(File, Opts) ->
+    read_file_info_int({?DRV, [binary]}, File, plgv(time, Opts, local)).
 
 read_file_info(Port, File, Opts) when is_port(Port) ->
-    read_file_info_int(Port, File, plgv(time, Opts)).
+    read_file_info_int(Port, File, plgv(time, Opts, local)).
 
 read_file_info_int(Port, File, TimeType) ->
     case drv_command(Port, [?FILE_FSTAT, pathname(File)]) of
@@ -765,12 +767,11 @@ write_file_info(File, Info) ->
 
 write_file_info(Port, File, Info) when is_port(Port) ->
     write_file_info_int(Port, File, Info, local);
-
 write_file_info(File, Info, Opts) ->
-    write_file_info_int({?DRV, [binary]}, File, Info, plgv(time, Opts)).
+    write_file_info_int({?DRV, [binary]}, File, Info, plgv(time, Opts, local)).
 
 write_file_info(Port, File, Info, Opts) when is_port(Port) ->
-    write_file_info_int(Port, File, Info, plgv(time, Opts)).
+    write_file_info_int(Port, File, Info, plgv(time, Opts, local)).
 
 write_file_info_int(Port, 
 		    File, 
@@ -783,9 +784,13 @@ write_file_info_int(Port,
 		       TimeType) ->
 
     %% FIXME: wtf
+    %% sätt atime beroende på timetype, om ej satt
+    %% sätt mtime som atime, om ej satt
+
     {Atime, Mtime} = case {Atime0, Mtime0} of
 	{undefined, Mtime0} -> {erlang:localtime(), Mtime0};
 	{Atime0, undefined} -> {Atime0, Atime0};
+	{undefined, undefined} -> {erlang:localtime(), erlang:localtime()};
 	Complete -> Complete
     end,
 
@@ -848,10 +853,10 @@ read_link_info(Port, Link) when is_port(Port) ->
     read_link_info_int(Port, Link, local);
 
 read_link_info(Link, Opts) ->
-    read_link_info_int({?DRV, [binary]}, Link, plgv(time, Opts)).
+    read_link_info_int({?DRV, [binary]}, Link, plgv(time, Opts, local)).
 
 read_link_info(Port, Link, Opts) when is_port(Port) ->
-    read_link_info_int(Port, Link, plgv(time, Opts)).
+    read_link_info_int(Port, Link, plgv(time, Opts, local)).
 
 
 read_link_info_int(Port, Link, TimeType) ->
@@ -1161,7 +1166,6 @@ translate_response(?FILE_RESP_ALL_DATA, Data) ->
 translate_response(X, Data) ->
     {error, {bad_response_from_port, [X | Data]}}.
 
-
 transform_info([
     Hsize1, Hsize2, Hsize3, Hsize4, 
     Lsize1, Lsize2, Lsize3, Lsize4,
@@ -1211,9 +1215,7 @@ int_to_int32bytes(undefined) ->
     <<-1:32>>.
 
 int_to_int64bytes(Int) when is_integer(Int) ->
-    <<Int:64>>;
-int_to_int64bytes(undefined) ->
-    <<-1:64>>.
+    <<Int:64/signed>>.
 
 
 sint64(I1,I2,I3,I4,I5,I6,I7,I8) when I1 > 127 ->
@@ -1315,10 +1317,10 @@ pathname(File) ->
     (catch prim_file:internal_name2native(File)).
 
 
-%% proplist:get_value/2
-plgv(K,[{K, V}|_]) -> V;
-plgv(K,[_|KVs])    -> plgv(K,KVs);
-plgv(_,[])         -> undefined.
+%% proplist:get_value/3
+plgv(K, [{K, V}|_], _) -> V;
+plgv(K, [_|KVs], D)    -> plgv(K, KVs, D);
+plgv(_, [], D)         -> D.
 
 
 %%
@@ -1333,16 +1335,28 @@ plgv(_,[])         -> undefined.
 -define(DAYS_PER_YEAR, 365).
 -define(DAYS_PER_LEAP_YEAR, 366).
 
+from_seconds(Seconds, epoch) when is_integer(Seconds) ->
+    Seconds;
 from_seconds(Seconds, utc) when is_integer(Seconds) ->
-    gregorian_seconds_to_datetime(Seconds + ?SECONDS_PER_DAY * ?DAYS_FROM_0_TO_1970);
+    epoch_to_datetime(Seconds);
 from_seconds(Seconds, local) when is_integer(Seconds) ->
-    erlang:universaltime_to_localtime(gregorian_seconds_to_datetime(Seconds + ?SECONDS_PER_DAY * ?DAYS_FROM_0_TO_1970)).
+    erlang:universaltime_to_localtime(epoch_to_datetime(Seconds)).
 
+epoch_to_datetime(Seconds) ->
+    gregorian_seconds_to_datetime(Seconds + ?SECONDS_PER_DAY * ?DAYS_FROM_0_TO_1970).
+
+to_seconds(Seconds, epoch) when is_integer(Seconds) ->
+    Seconds;
 to_seconds({_,_} = Datetime, utc) ->
-    datetime_to_gregorian_seconds(Datetime) - ?SECONDS_PER_DAY * ?DAYS_FROM_0_TO_1970;
+    datetime_to_epoch(Datetime);
 to_seconds({_,_} = Datetime, local) ->
-    datetime_to_gregorian_seconds(erlang:localtime_to_universaltime(Datetime)) - ?SECONDS_PER_DAY * ?DAYS_FROM_0_TO_1970;
-to_seconds(undefined, _) -> to_seconds(erlang:universaltime(), utc).
+    datetime_to_epoch(erlang:localtime_to_universaltime(Datetime));
+to_seconds(undefined, _) ->
+    to_seconds(erlang:universaltime(), utc).
+
+datetime_to_epoch(Datetime) ->
+    datetime_to_gregorian_seconds(Datetime) - ?SECONDS_PER_DAY * ?DAYS_FROM_0_TO_1970.
+
 
 %% perhaps like this
 
