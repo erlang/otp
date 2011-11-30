@@ -3624,12 +3624,15 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit, Where,
 	host ->
 	    ok
     end,
-    test_server_sup:framework_call(report, [tc_start,{?pl2a(Mod),Func}]),
     print(major, "=case          ~p:~p", [Mod, Func]),
     MinorName = start_minor_log_file(Mod, Func),
     print(minor, "<a name=\"top\"></a>", []),
     MinorBase = filename:basename(MinorName),
     print(major, "=logfile       ~s", [filename:basename(MinorName)]),
+
+    Args1 = [[{tc_logfile,MinorName} | proplists:delete(tc_logfile,hd(Args))]],
+    test_server_sup:framework_call(report, [tc_start,{{?pl2a(Mod),Func},MinorName}]),
+
     print_props((RunInit==skip_init), get_props(Mode)),
     print(major, "=started       ~s", [lists:flatten(timestamp_get(""))]),
     {{Col0,Col1},Style} = get_font_style((RunInit==run_init), Mode),
@@ -3643,7 +3646,7 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit, Where,
     do_if_parallel(Main, ok, fun erlang:yield/0),
     %% run the test case
     {Result,DetectedFail,ProcsBefore,ProcsAfter} =
-	run_test_case_apply(Num, Mod, Func, Args, get_name(Mode),
+	run_test_case_apply(Num, Mod, Func, Args1, get_name(Mode),
 			    RunInit, Where, TimetrapData),
     {Time,RetVal,Loc,Opts,Comment} =
 	case Result of
