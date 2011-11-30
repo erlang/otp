@@ -773,8 +773,7 @@ write_file_info(File, Info, Opts) ->
 write_file_info(Port, File, Info, Opts) when is_port(Port) ->
     write_file_info_int(Port, File, Info, plgv(time, Opts, local)).
 
-write_file_info_int(Port, 
-		    File, 
+write_file_info_int(Port, File, 
 		    #file_info{mode=Mode, 
 			       uid=Uid, 
 			       gid=Gid,
@@ -783,16 +782,12 @@ write_file_info_int(Port,
 			       ctime=Ctime},
 		       TimeType) ->
 
-    %% FIXME: wtf
-    %% sätt atime beroende på timetype, om ej satt
-    %% sätt mtime som atime, om ej satt
+    % Atime and/or Mtime might be undefined
+    %  - use localtime() for atime, if atime is undefined
+    %  - use atime as mtime if mtime is undefined
 
-    {Atime, Mtime} = case {Atime0, Mtime0} of
-	{undefined, Mtime0} -> {erlang:localtime(), Mtime0};
-	{Atime0, undefined} -> {Atime0, Atime0};
-	{undefined, undefined} -> {erlang:localtime(), erlang:localtime()};
-	Complete -> Complete
-    end,
+    Atime = file_info_validate_atime(Atime0, TimeType),
+    Mtime = file_info_validate_mtime(Mtime0, Atime),
 
     drv_command(Port, [?FILE_WRITE_INFO, 
 			int_to_int32bytes(Mode), 
@@ -804,6 +799,13 @@ write_file_info_int(Port,
 			pathname(File)]).
 
 
+file_info_validate_atime(Atime, _) when Atime =/= undefined -> Atime;
+file_info_validate_atime(undefined, local) -> erlang:localtime();
+file_info_validate_atime(undefined, utc)   -> erlang:universaltime();
+file_info_validate_atime(undefined, epoch) -> datetime_to_epoch(erlang:universaltime()).
+
+file_info_validate_mtime(undefined, Atime) -> Atime;
+file_info_validate_mtime(Mtime, _)         -> Mtime.
 
 %% make_link/{2,3}
 
