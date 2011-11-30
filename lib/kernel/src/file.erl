@@ -238,6 +238,12 @@ altname(Name) ->
 read_link_info(Name) ->
     check_and_call(read_link_info, [file_name(Name)]).
 
+-spec read_link_info(Name, Opts) -> {ok, FileInfo} | {error, Reason} when
+      Name :: name(),
+      Opts :: list(),
+      FileInfo :: file_info(),
+      Reason :: posix() | badarg.
+
 read_link_info(Name, Opts) when is_list(Opts) ->
     check_and_call(read_link_info, [file_name(Name),Opts]).
 
@@ -263,7 +269,6 @@ write_file_info(Name, Info = #file_info{}) ->
       Opts :: list(),
       FileInfo :: file_info(),
       Reason :: posix() | badarg.
-
 
 write_file_info(Name, Info = #file_info{}, Opts) when is_list(Opts) ->
     check_and_call(write_file_info, [file_name(Name), Info, Opts]).
