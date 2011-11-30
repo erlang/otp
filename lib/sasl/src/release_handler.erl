@@ -842,8 +842,6 @@ do_unpack_release(Root, RelDir, ReleaseName, Releases) ->
     extract_tar(Root, Tar),
     NewReleases = [Release#release{status = unpacked} | Releases],
     write_releases(RelDir, NewReleases, false),
-    Dir = filename:join([RelDir, Vsn]),
-    copy_file(RelFile, Dir, false),
     {ok, NewReleases, Vsn}.
 
 %% Note that this function is not executed by a client

@@ -16,6 +16,7 @@
 %%
 %% %CopyrightEnd%
 %%
+%module
 -module(target_system).
 -export([create/1, create/2, install/2]).
 
@@ -130,14 +131,14 @@ install(RelFileName, RootDir) ->
     [ErlVsn, _RelVsn| _] = string:tokens(StartErlData, " \n"),
     ErtsBinDir = filename:join([RootDir, "erts-" ++ ErlVsn, "bin"]),
     BinDir = filename:join([RootDir, "bin"]),
-    io:fwrite("Substituting in erl.src, start.src and start_erl.src to\n"
+    io:fwrite("Substituting in erl.src, start.src and start_erl.src to "
               "form erl, start and start_erl ...\n"),
     subst_src_scripts(["erl", "start", "start_erl"], ErtsBinDir, BinDir, 
                       [{"FINAL_ROOTDIR", RootDir}, {"EMU", "beam"}],
                       [preserve]),
     io:fwrite("Creating the RELEASES file ...\n"),
-    create_RELEASES(RootDir, 
-                    filename:join([RootDir, "releases", RelFileName])).
+    create_RELEASES(RootDir, filename:join([RootDir, "releases",
+					    filename:basename(RelFileName)])).
 
 %% LOCALS 
 
@@ -257,3 +258,4 @@ remove_all_files(Dir, Files) ->
                                   file:delete(FilePath)
                           end
                   end, Files).
+%module
