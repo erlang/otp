@@ -183,8 +183,14 @@ eed(Config) when is_list(Config) ->
     ?line ok = eprof:log("eprof_SUITE_logfile"),
     ?line stopped = eprof:stop(),
     ?line ?t:timetrap_cancel(TTrap),
-    S = lists:flatten(io_lib:format("~p times slower", [10*(T3-T2)/(T2-T1)])),
-    {comment,S}.
+    try
+	S = lists:flatten(io_lib:format("~p times slower",
+					[10*(T3-T2)/(T2-T1)])),
+	{comment,S}
+    catch
+	error:badarith ->
+	    {comment,"No time elapsed. Bad clock? Fast computer?"}
+    end.
 
 ensure_eprof_stopped() ->
     Pid = whereis(eprof),
