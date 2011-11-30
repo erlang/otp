@@ -102,7 +102,9 @@ public class OtpOutputStream extends ByteArrayOutputStream {
      */
     public void trimToSize() {
 	if (super.count < super.buf.length) {
-	    super.buf = Arrays.copyOf(super.buf, super.count);
+	    final byte[] tmp = new byte[super.count];
+	    System.arraycopy(super.buf, 0, tmp, 0, super.count);
+	    super.buf = tmp;
 	}
     }
 
