@@ -147,7 +147,7 @@ td a:visited {
 }
 
 tr:hover th[scope=row], tr:hover td { 
-    background-color: #808080;
+    background-color: #D1D1D1;
     color: #fff;
 } 
 

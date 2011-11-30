@@ -171,7 +171,7 @@
 -export([kill_slavenodes/0]).
 
 %%% TEST_SERVER INTERFACE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
--export([output/2, print/2, print/3, print_timestamp/2]).
+-export([output/2, print/2, print/3, print/4, print_timestamp/2]).
 -export([start_node/3, stop_node/1, wait_for_node/1, is_release_available/1]).
 -export([format/1, format/2, format/3, to_string/1]).
 -export([get_target_info/0]).
@@ -187,6 +187,7 @@
 -export([handle_call/3, handle_cast/2, handle_info/2]).
 -export([do_test_cases/4]).
 -export([do_spec/2, do_spec_list/2]).
+-export([xhtml/2]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -3627,7 +3628,7 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit, Where,
     test_server_sup:framework_call(report, [tc_start,{?pl2a(Mod),Func}]),
     print(major, "=case          ~p:~p", [Mod, Func]),
     MinorName = start_minor_log_file(Mod, Func),
-    print(minor, "<a name=\"top\"></a>", []),
+    print(minor, "<a name=\"top\"></a>", [], internal_raw),
     MinorBase = filename:basename(MinorName),
     print(major, "=logfile       ~s", [filename:basename(MinorName)]),
     print_props((RunInit==skip_init), get_props(Mode)),
@@ -3651,7 +3652,8 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit, Where,
 	    {died,DReason,DLoc,DCmt} -> {died,DReason,DLoc,[],DCmt}
 	end,
 
-    print(minor, "<a name=\"end\"></a>", []),
+    print(minor, "<a name=\"end\"></a>", [], internal_raw),
+    print(minor, "\n", [], internal_raw),
     print_timestamp(minor, "Ended at "),
     print(major, "=ended         ~s", [lists:flatten(timestamp_get(""))]),
 

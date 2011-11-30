@@ -611,7 +611,7 @@ do_run_test_case_apply(Mod, Func, Args, Name, RunInit, TimetrapData) ->
     print(minor, "Test case started with:\n~s:~s(~p)\n", [Mod,Func,Args2Print]),
     print(minor, "Current directory is ~p\n", [Cwd]),
     print_timestamp(minor,"Started at "),
-    print(minor, "", []),
+    print(minor, "", [], internal_raw),
     TCCallback = get(test_server_testcase_callback),
     LogOpts = get(test_server_logopts),
     Ref = make_ref(),
@@ -1007,8 +1007,11 @@ spawn_fw_call(Mod,{end_per_testcase,Func},EndConf,Pid,
 		end,
 		%% if end_per_testcase fails a warning should be
 		%% printed as comment
-		Comment1 = if Comment == "" -> "";
-			      true -> Comment ++ "<br>"
+		Comment1 = if Comment == "" -> 
+				   "";
+			      true -> 
+				   Comment ++ test_server_ctrl:xhtml("<br>",
+								     "<br />")
 			   end,
 		%% finished, report back
 		SendTo ! {self(),fw_notify_done,
@@ -1473,7 +1476,8 @@ do_end_per_testcase(Mod,EndFunc,Func,Conf) ->
 	throw:Other ->
 	    Comment0 = case read_comment() of
 			   ""  -> "";
-			   Cmt -> Cmt ++ "<br>"
+			   Cmt -> Cmt ++ test_server_ctrl:xhtml("<br>",
+								"<br />")
 		       end,
 	    set_loc(erlang:get_stacktrace()),
 	    comment(io_lib:format("~s<font color=\"red\">"
@@ -1496,7 +1500,8 @@ do_end_per_testcase(Mod,EndFunc,Func,Conf) ->
 		  end,
 	    Comment0 = case read_comment() of
 			   ""  -> "";
-			   Cmt -> Cmt ++ "<br>"
+			   Cmt -> Cmt ++ test_server_ctrl:xhtml("<br>",
+								"<br />")
 		       end,
 	    comment(io_lib:format("~s<font color=\"red\">"
 				  "WARNING: ~w crashed!"
@@ -1572,7 +1577,7 @@ fw_error_notify(Mod, Func, Args, Error, Loc) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% print(Detail,Format,Args) -> ok
+%% print(Detail,Format,Args,Printer) -> ok
 %% Detail = integer()
 %% Format = string()
 %% Args = [term()]
@@ -1582,6 +1587,9 @@ fw_error_notify(Mod, Func, Args, Error, Loc) ->
 
 print(Detail,Format,Args) ->
     local_or_remote_apply({test_server_ctrl,print,[Detail,Format,Args]}).
+
+print(Detail,Format,Args,Printer) ->
+    local_or_remote_apply({test_server_ctrl,print,[Detail,Format,Args,Printer]}).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% print_timsteamp(Detail,Leader) -> ok
