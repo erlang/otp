@@ -152,10 +152,12 @@ check_all_callbacks(Module, Behaviour, [Cb|Rest],
 	Acc11 =
 	  case erl_types:t_is_subtype(SpecReturnType, CbReturnType) of
 	    true -> Acc10;
-	    false -> [{callback_spec_type_mismatch,
-		       [File, Line, Behaviour, Function, Arity,
-			erl_types:t_to_string(SpecReturnType, Records),
-			erl_types:t_to_string(CbReturnType, Records)]}|Acc10]
+	    false ->
+	      ExtraType = erl_types:t_subtract(SpecReturnType, CbReturnType),
+	      [{callback_spec_type_mismatch,
+		[File, Line, Behaviour, Function, Arity,
+		 erl_types:t_to_string(ExtraType, Records),
+		 erl_types:t_to_string(CbReturnType, Records)]}|Acc10]
 	  end,
 	Acc12 =
 	  case erl_types:any_none(
