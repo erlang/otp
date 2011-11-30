@@ -62,7 +62,8 @@ cases() ->
      otp_9395_update_many_mods, otp_9395_rm_many_mods,
      instructions, eval_appup, eval_appup_with_restart,
      supervisor_which_children_timeout,
-     release_handler_which_releases, install_release_syntax_check].
+     release_handler_which_releases, install_release_syntax_check,
+     upgrade_supervisor, upgrade_supervisor_fail].
 
 groups() ->
     [{release,[],
@@ -1204,6 +1205,109 @@ otp_9395_rm_many_mods(Conf) when is_list(Conf) ->
 otp_9395_rm_many_mods(cleanup,_Conf) ->
     stop_node(node_name(otp_9395_rm_many_mods)).
 
+
+upgrade_supervisor(Conf) when is_list(Conf) ->
+    %% Set some paths
+    PrivDir = priv_dir(Conf),
+    Dir = filename:join(PrivDir,"upgrade_supervisor"),
+    LibDir = filename:join(?config(data_dir, Conf), "lib"),
+
+    %% Create the releases
+    Lib1 = [{a,"1.0",LibDir}],
+    Lib2 = [{a,"9.0",LibDir}],
+    Rel1 = create_and_install_fake_first_release(Dir,Lib1),
+    Rel2 = create_fake_upgrade_release(Dir,"2",Lib2,{[Rel1],[Rel1],[LibDir]}),
+    Rel1Dir = filename:dirname(Rel1),
+    Rel2Dir = filename:dirname(Rel2),
+
+    %% Start a slave node
+    {ok, Node} = t_start_node(upgrade_supervisor, Rel1,
+			      filename:join(Rel1Dir,"sys.config")),
+
+    %% Check path
+    Dir1 = filename:join([LibDir, "a-1.0"]),
+    Dir1 = rpc:call(Node, code, lib_dir, [a]),
+    ASupBeam1 = filename:join([Dir1,ebin,"a_sup.beam"]),
+    ASupBeam1 = rpc:call(Node, code, which, [a_sup]),
+
+    %% Install second release, with no changed modules
+    {ok, RelVsn2} = rpc:call(Node, release_handler, set_unpacked,
+			     [Rel2++".rel", Lib2]),
+    ok = rpc:call(Node, release_handler, install_file,
+		  [RelVsn2, filename:join(Rel2Dir, "relup")]),
+    ok = rpc:call(Node, release_handler, install_file,
+		  [RelVsn2, filename:join(Rel2Dir, "start.boot")]),
+    ok = rpc:call(Node, release_handler, install_file,
+		  [RelVsn2, filename:join(Rel2Dir, "sys.config")]),
+
+    {ok, _RelVsn1, []} =
+	rpc:call(Node, release_handler, install_release, [RelVsn2]),
+
+    %% Check that libdir is changed
+    Dir2 = filename:join([LibDir, "a-9.0"]),
+    Dir2 = rpc:call(Node, code, lib_dir, [a]),
+    ASupBeam2 = filename:join([Dir2,ebin,"a_sup.beam"]),
+    ASupBeam2 = rpc:call(Node, code, which, [a_sup]),
+
+    %% Check that the restart strategy and child spec is updated
+    {status, _, {module, _}, [_, _, _, _, [_,_,{data,[{"State",State}]}]]} =
+	rpc:call(Node,sys,get_status,[a_sup]),
+    {state,_,RestartStrategy,[Child],_,_,_,_,_,_} = State,
+    one_for_all = RestartStrategy, % changed from one_for_one
+    {child,_,_,_,_,brutal_kill,_,_} = Child, % changed from timeout 2000
+
+    ok.
+
+%% Check that if the supervisor fails, then the upgrade is rolled back
+%% and an ok error message is returned
+upgrade_supervisor_fail(Conf) when is_list(Conf) ->
+    %% Set some paths
+    PrivDir = priv_dir(Conf),
+    Dir = filename:join(PrivDir,"upgrade_supervisor_fail"),
+    LibDir = filename:join(?config(data_dir, Conf), "lib"),
+
+    %% Create the releases
+    Lib1 = [{a,"1.0",LibDir}],
+    Lib2 = [{a,"9.1",LibDir}],
+    Rel1 = create_and_install_fake_first_release(Dir,Lib1),
+    Rel2 = create_fake_upgrade_release(Dir,"2",Lib2,{[Rel1],[Rel1],[LibDir]}),
+    Rel1Dir = filename:dirname(Rel1),
+    Rel2Dir = filename:dirname(Rel2),
+
+    %% Start a slave node
+    {ok, Node} = t_start_node(upgrade_supervisor_fail, Rel1,
+			      filename:join(Rel1Dir,"sys.config")),
+
+    %% Check path
+    Dir1 = filename:join([LibDir, "a-1.0"]),
+    Dir1 = rpc:call(Node, code, lib_dir, [a]),
+    ASupBeam1 = filename:join([Dir1,ebin,"a_sup.beam"]),
+    ASupBeam1 = rpc:call(Node, code, which, [a_sup]),
+
+    %% Install second release, with no changed modules
+    {ok, RelVsn2} = rpc:call(Node, release_handler, set_unpacked,
+			     [Rel2++".rel", Lib2]),
+    ok = rpc:call(Node, release_handler, install_file,
+		  [RelVsn2, filename:join(Rel2Dir, "relup")]),
+    ok = rpc:call(Node, release_handler, install_file,
+		  [RelVsn2, filename:join(Rel2Dir, "start.boot")]),
+    ok = rpc:call(Node, release_handler, install_file,
+		  [RelVsn2, filename:join(Rel2Dir, "sys.config")]),
+    ok = net_kernel:monitor_nodes(true),
+
+    {error,{code_change_failed,_Pid,a_sup,_Vsn,
+	    {error,{invalid_shutdown,brutal_kil}}}} =
+	rpc:call(Node, release_handler, install_release, [RelVsn2]),
+
+    %% Check that the upgrade is terminated - normally this would mean
+    %% rollback, but since this testcase is very simplified the node
+    %% is not started with heart supervision and will therefore not be
+    %% restarted. So we just check that the node goes down.
+    receive {nodedown,Node} -> ok
+    after 10000 -> ct:fail(failed_upgrade_never_restarted_node)
+    end,
+
+    ok.
 
 
 %% Test upgrade and downgrade of applications

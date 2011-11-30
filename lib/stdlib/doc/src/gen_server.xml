@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2010</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -570,13 +570,14 @@ gen_server:abcast     -----> Module:handle_cast/2
       </desc>
     </func>
     <func>
-      <name>Module:code_change(OldVsn, State, Extra) -> {ok, NewState}</name>
+      <name>Module:code_change(OldVsn, State, Extra) -> {ok, NewState} | {error, Reason}</name>
       <fsummary>Update the internal state during upgrade/downgrade.</fsummary>
       <type>
         <v>OldVsn = Vsn | {down, Vsn}</v>
         <v>&nbsp;&nbsp;Vsn = term()</v>
         <v>State = NewState = term()</v>
         <v>Extra = term()</v>
+	<v>Reason = term()</v>
       </type>
       <desc>
         <p>This function is called by a gen_server when it should
@@ -595,7 +596,10 @@ gen_server:abcast     -----> Module:handle_cast/2
         <p><c>State</c> is the internal state of the gen_server.</p>
         <p><c>Extra</c> is passed as-is from the <c>{advanced,Extra}</c>
           part of the update instruction.</p>
-        <p>The function should return the updated internal state.</p>
+        <p>If successful, the function shall return the updated
+          internal state.</p>
+	<p>If the function returns <c>{error,Reason}</c>, the ongoing
+	  upgrade will fail and roll back to the old release.</p>
       </desc>
     </func>
     <func>
