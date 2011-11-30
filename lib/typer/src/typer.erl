@@ -682,10 +682,10 @@ analyze_result(show_succ, Args, Analysis) ->
 analyze_result(no_spec, Args, Analysis) ->
   {Args, Analysis#analysis{no_spec = true}};
 analyze_result({pa, Dir}, Args, Analysis) ->
-  code:add_patha(Dir),
+  true = code:add_patha(Dir),
   {Args, Analysis};
 analyze_result({pz, Dir}, Args, Analysis) ->
-  code:add_pathz(Dir),
+  true = code:add_pathz(Dir),
   {Args, Analysis}.
 
 %%--------------------------------------------------------------------
