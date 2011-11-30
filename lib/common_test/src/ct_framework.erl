@@ -37,7 +37,8 @@
 -include("ct_util.hrl").
 
 -define(val(Key, List), proplists:get_value(Key, List)). 
--define(val(Key, List, Def), proplists:get_value(Key, List, Def)).   
+-define(val(Key, List, Def), proplists:get_value(Key, List, Def)).
+-define(rev(L), lists:reverse(L)).
 
 %%%-----------------------------------------------------------------
 %%% @spec init_tc(Mod,Func,Args) -> {ok,NewArgs} | {error,Reason} |
@@ -469,9 +470,9 @@ timetrap_first([Trap = {timetrap,_} | Rest],Info,Found) ->
 timetrap_first([Other | Rest],Info,Found) ->
     timetrap_first(Rest,[Other | Info],Found);
 timetrap_first([],Info,[]) ->
-    [{timetrap,{minutes,30}} | lists:reverse(Info)];
+    [{timetrap,{minutes,30}} | ?rev(Info)];
 timetrap_first([],Info,Found) ->
-    lists:reverse(Found) ++ lists:reverse(Info).
+    ?rev(Found) ++ ?rev(Info).
 
 configure([{require,Required}|Rest],Info,SuiteInfo,Scope,Config) ->
     case ct:require(Required) of
@@ -849,6 +850,10 @@ group_or_func(Func, _Config) ->
 %%%      should be returned. 
 
 get_suite(Mod, all) ->
+
+%%! --- Wed Nov 30 21:29:30 2011 --- peppe was here!
+io:format(user, "*** GET SUITE ~p~n", [Mod]),
+
     case catch apply(Mod, groups, []) of
 	{'EXIT',_} ->
 	    get_all(Mod, []);
@@ -859,7 +864,13 @@ get_suite(Mod, all) ->
 		    %% (and only) test case so we can report Error properly
 		    [{?MODULE,error_in_suite,[[Error]]}];
 		ConfTests ->
-		    get_all(Mod, ConfTests)
+		    %% get_all(Mod, ConfTests)
+
+		    %%! --- Wed Nov 30 21:30:35 2011 --- peppe was here!
+		    All = get_all(Mod, ConfTests),
+		    io:format(user, "*** All = ~p~n", [All]),
+		    All
+		    
 	    end;
 	_ ->
 	    E = "Bad return value from "++atom_to_list(Mod)++":groups/0",
@@ -874,6 +885,10 @@ get_suite(Mod, all) ->
 %% group
 get_suite(Mod, Group={conf,Props,_Init,TCs,_End}) ->
     Name = ?val(name, Props),
+
+    %%! --- Wed Nov 30 21:31:34 2011 --- peppe was here!
+    io:format(user, "*** GET GROUP ~p (~p)~n", [Name,Props]),
+
     case catch apply(Mod, groups, []) of
 	{'EXIT',_} ->
 	    [Group];
@@ -920,13 +935,12 @@ get_all_cases(Suite) ->
 	    {error,Error};
 	Tests ->
 	    Cases = get_all_cases1(Suite, Tests),
-	    lists:reverse(
-	      lists:foldl(fun(TC, TCs) ->
-				  case lists:member(TC, TCs) of
+	    ?rev(lists:foldl(fun(TC, TCs) ->
+				     case lists:member(TC, TCs) of
 				      true  -> TCs;
-				      false -> [TC | TCs]
-				  end
-			  end, [], Cases))
+					 false -> [TC | TCs]
+				     end
+			     end, [], Cases))
     end.
 
 get_all_cases1(Suite, [{conf,_Props,_Init,GrTests,_End} | Tests]) ->
@@ -1205,29 +1219,95 @@ expand_groups([H | T], ConfTests, Mod) ->
 expand_groups([], _ConfTests, _Mod) ->
     [];
 expand_groups({group,Name}, ConfTests, Mod) ->
-    FindConf = 
-	fun({conf,Props,_,_,_}) ->
+    expand_groups({group,Name,default,[]}, ConfTests, Mod);
+expand_groups({group,Name,default}, ConfTests, Mod) ->
+    expand_groups({group,Name,default,[]}, ConfTests, Mod);
+expand_groups({group,Name,ORProps}, ConfTests, Mod) when is_list(ORProps) ->
+    expand_groups({group,Name,ORProps,[]}, ConfTests, Mod);
+expand_groups({group,Name,ORProps,SubGrSpec}, ConfTests, Mod) ->
+    FindConf =
+	fun(Conf = {conf,Props,Init,Ts,End}) ->
 		case ?val(name, Props) of
-		    Name -> true;
-		    _    -> false
+		    Name when ORProps == default ->
+			[Conf];
+		    Name ->
+			[{conf,[{name,Name}|ORProps],Init,Ts,End}];
+		    _    -> 
+			[]
 		end
 	end,					 
-    case lists:filter(FindConf, ConfTests) of
-	[ConfTest|_] ->
-	    expand_groups(ConfTest, ConfTests, Mod);
+    case lists:flatmap(FindConf, ConfTests) of
 	[] ->
-	    E = "Invalid reference to group "++
-		atom_to_list(Name)++" in "++
-		atom_to_list(Mod)++":all/0",
-	    throw({error,list_to_atom(E)})
+	    throw({error,invalid_ref_msg(Name, Mod)});
+	Matching when SubGrSpec == [] -> 
+	    Matching;
+	Matching -> 
+	    override_props(Matching, SubGrSpec, Name,Mod)
     end;
 expand_groups(SeqOrTC, _ConfTests, _Mod) ->
     SeqOrTC.
 
+override_props([{conf,Props,Init,Tests,End} | Confs], SubGrSpec, Name,Mod) ->
+    {Subs,SubGrSpec1} = override_sub_props(Tests, [], SubGrSpec, Mod),
+    [{conf,Props,Init,Subs,End} | override_props(Confs, SubGrSpec1, Name,Mod)];
+override_props([], [], _,_) ->
+    [];
+override_props([], SubGrSpec, Name,Mod) ->
+    Es = [invalid_ref_msg(Name, element(1,Spec), Mod) || Spec <- SubGrSpec],
+    throw({error,Es}).
+
+override_sub_props([], New, GroupSpec, _) ->    
+    {?rev(New),GroupSpec};
+override_sub_props([T = {conf,Props,Init,Tests,End} | Ts],
+		   New, GroupSpec, Mod) ->
+    Name = ?val(name, Props),
+    case lists:keysearch(Name, 1, GroupSpec) of
+	{value,Spec} ->				% group found in spec
+	    Props1 =
+		case element(2, Spec) of
+		    default -> Props;
+		    ORProps -> [{name,Name} | ORProps]
+		end,
+	    case catch element(3, Spec) of
+		Undef when Undef == [] ; 'EXIT' == element(1, Undef) ->
+		    override_sub_props(Ts, [{conf,Props1,Init,Tests,End} | New],
+				       lists:keydelete(Name, 1, GroupSpec), Mod);
+		SubGrSpec when is_list(SubGrSpec) ->
+		    case override_sub_props(Tests, [], SubGrSpec, Mod) of
+			{Subs,[]} ->
+			    override_sub_props(Ts, [{conf,Props1,Init,
+						     Subs,End} | New],
+					       lists:keydelete(Name, 1, GroupSpec),
+					       Mod);
+			{_,NonEmptySpec} ->
+			    Es = [invalid_ref_msg(Name, element(1, GrRef),
+						  Mod) || GrRef <- NonEmptySpec],
+			    throw({error,Es})
+		    end;
+		BadGrSpec ->
+		    throw({error,{invalid_form,BadGrSpec}})
+	    end;
+	_ ->					% not a group in spec
+	    override_sub_props(Ts, [T | New], GroupSpec, Mod)
+    end;
+override_sub_props([TC | Ts], New, GroupSpec, Mod) ->
+    override_sub_props(Ts, [TC | New], GroupSpec, Mod).
+
+invalid_ref_msg(Name, Mod) ->
+    E = "Invalid reference to group "++
+	atom_to_list(Name)++" in "++
+	atom_to_list(Mod)++":all/0",
+    list_to_atom(E).
+
+invalid_ref_msg(Name0, Name1, Mod) ->
+    E = "Invalid reference to group "++
+	atom_to_list(Name1)++" from "++atom_to_list(Name0)++
+	" in "++atom_to_list(Mod)++":all/0",
+    list_to_atom(E).
 
 %%!============================================================
 %%! The support for sequences by means of using sequences/0
-%%! will be removed in OTP R14. The code below is only kept 
+%%! will be removed in OTP R15. The code below is only kept 
 %%! for backwards compatibility. From OTP R13 groups with
 %%! sequence property should be used instead!
 %%!============================================================
