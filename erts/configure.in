@@ -613,19 +613,6 @@ esac
 AC_SUBST(OPSYS)
 AC_SUBST(ARCH)
 
-# Need to add this adjustment after we know the architecture, will fail on 64bit
-# This should be temporary, USE_32BIT_TIME_T should go away before R15B
-case $host_os in
-    win32)
-	# FIXME: Use time_t all the way and remove _USE_32BIT_TIME_T.
-	if test "x$ARCH" != "xamd64"; then
-	  AC_MSG_WARN([Reverting to 32-bit time_t])
-	  CPPFLAGS="$CPPFLAGS -D_USE_32BIT_TIME_T"
-	fi
-	;;
-	*)
-	;;
-esac	
 dnl Check consistency of os and darwin-switches
 
 
