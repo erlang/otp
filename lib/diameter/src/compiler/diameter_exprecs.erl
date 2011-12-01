@@ -96,41 +96,15 @@
 
 -export([parse_transform/2]).
 
-%% Form tag with line number.
--define(F(T), T, ?LINE).
-%% Yes, that's right. The replacement is to the first unmatched ')'.
-
--define(attribute,    ?F(attribute)).
--define(clause,       ?F(clause)).
--define(function,     ?F(function)).
--define(call,         ?F(call)).
--define('fun',        ?F('fun')).
--define(generate,     ?F(generate)).
--define(lc,           ?F(lc)).
--define(match,        ?F(match)).
--define(remote,       ?F(remote)).
--define(record,       ?F(record)).
--define(record_field, ?F(record_field)).
--define(record_index, ?F(record_index)).
--define(tuple,        ?F(tuple)).
-
--define(ATOM(T),      {atom, ?LINE, T}).
--define(VAR(V),       {var, ?LINE, V}).
-
--define(CALL(F,A),    {?call, ?ATOM(F), A}).
--define(APPLY(M,F,A), {?call, {?remote, ?ATOM(M), ?ATOM(F)}, A}).
+-include("diameter_forms.hrl").
 
 %% parse_transform/2
 
 parse_transform(Forms, _Options) ->
     Rs = [R || {attribute, _, record, R} <- Forms],
-    case lists:append([E || {attribute, _, export_records, E} <- Forms]) of
-        [] ->
-            Forms;
-        Es ->
-            {H,T} = lists:splitwith(fun is_head/1, Forms),
-            H ++ [a_export(Es) | f_accessors(Es, Rs)] ++ T
-    end.
+    Es = lists:append([E || {attribute, _, export_records, E} <- Forms]),
+    {H,T} = lists:splitwith(fun is_head/1, Forms),
+    H ++ [a_export(Es) | f_accessors(Es, Rs)] ++ T.
 
 is_head(T) ->
     not lists:member(element(1,T), [function, eof]).
@@ -200,7 +174,7 @@ fname(Op, Rname) ->
 
 '#info-/2'(Exports) ->
     {?function, fname(info), 2,
-     lists:map(fun 'info-'/1, Exports)}.
+     lists:map(fun 'info-'/1, Exports) ++ [?BADARG(2)]}.
 
 'info-'(R) ->
     {?clause, [?ATOM(R), ?VAR('Info')],
@@ -209,7 +183,7 @@ fname(Op, Rname) ->
 
 '#new-/1'(Exports) ->
     {?function, fname(new), 1,
-     lists:map(fun 'new-'/1, Exports)}.
+     lists:map(fun 'new-'/1, Exports) ++ [?BADARG(1)]}.
 
 'new-'(R) ->
     {?clause, [?ATOM(R)],
@@ -218,7 +192,7 @@ fname(Op, Rname) ->
 
 '#new-/2'(Exports) ->
     {?function, fname(new), 2,
-     lists:map(fun 'new--'/1, Exports)}.
+     lists:map(fun 'new--'/1, Exports) ++ [?BADARG(2)]}.
 
 'new--'(R) ->
     {?clause, [?ATOM(R), ?VAR('Vals')],
@@ -227,7 +201,7 @@ fname(Op, Rname) ->
 
 '#get-/2'(Exports) ->
     {?function, fname(get), 2,
-     lists:map(fun 'get-'/1, Exports)}.
+     lists:map(fun 'get-'/1, Exports) ++ [?BADARG(2)]}.
 
 'get-'(R) ->
     {?clause, [?VAR('Attrs'),
@@ -237,7 +211,7 @@ fname(Op, Rname) ->
 
 '#set-/2'(Exports) ->
     {?function, fname(set), 2,
-     lists:map(fun 'set-'/1, Exports)}.
+     lists:map(fun 'set-'/1, Exports) ++ [?BADARG(2)]}.
 
 'set-'(R) ->
     {?clause, [?VAR('Vals'), {?match, {?record, R, []}, ?VAR('Rec')}],
