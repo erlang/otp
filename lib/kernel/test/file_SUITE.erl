@@ -86,8 +86,6 @@
 
 -export([standard_io/1,mini_server/1]).
 
--export([sendfile/0, sendfile/1, sendfile_server/1]).
-
 %% Debug exports
 -export([create_file_slow/2, create_file/2, create_bin/2]).
 -export([verify_file/2, verify_bin/3]).
@@ -109,7 +107,7 @@ all() ->
      delayed_write, read_ahead, segment_read, segment_write,
      ipread, pid2name, interleaved_read_write, otp_5814,
      large_file, read_line_1, read_line_2, read_line_3,
-     read_line_4, standard_io, sendfile].
+     read_line_4, standard_io].
 
 groups() -> 
     [{dirs, [], [make_del_dir, cur_dir_0, cur_dir_1]},
@@ -3952,86 +3950,3 @@ flush(Msgs) ->
     after 0 ->
 	    lists:reverse(Msgs)
     end.
-
-
-sendfile() ->
-    [{timetrap, {seconds, 5}}].
-
-sendfile_supported({unix,linux}) -> true;
-sendfile_supported({unix,sunos}) -> true;
-sendfile_supported({unix,freebsd}) -> true;
-sendfile_supported({unix,dragonfly}) -> true;
-sendfile_supported({unix,darwin}) -> true;
-%% TODO: enable win32 once TransmitFile based implemenation written properly
-%% sendfile_supported({win32,_}) -> true;
-sendfile_supported(_) -> false.
-
-sendfile(Config) when is_list(Config) ->
-    case sendfile_supported(os:type()) of
-	true ->
-	    ?line Data = ?config(data_dir, Config),
-	    ?line Real = filename:join(Data, "realmen.html"),
-	    Host = "localhost",
-
-	    %% TODO: find another way to test for {error, posix_error()}?
-	    %% Disabled because with driver_select I cannot test for
-	    %% invalid out_fd
-	    %% ?line {error, Error} = file:sendfile(Real, -1),
-	    %% ?line test_server:format("sendfile error = ~p", [Error]),
-	    %% %% Unix ebadf, Windows eio
-	    %% ?line true = Error =:= ebadf orelse Error =:= eio,
-
-	    ?line ok = sendfile_send(Host, Real);
-	false ->
-	    {skip, "sendfile not supported on this platform"}
-    end.
-
-%% TODO: consolidate tests and reduce code
-
-sendfile_send(Host, File) ->
-    {Size, _Md5} = FileInfo = sendfile_file_info(File),
-    spawn_link(?MODULE, sendfile_server, [self()]),
-    receive
-	{server, Port} ->
-	    ?line {ok, Sock} = gen_tcp:connect(Host, Port,
-					       [binary,{packet,0}]),
-	    ?line {ok, Size} = file:sendfile(File, Sock),
-	    ?line ok = gen_tcp:close(Sock),
-	    receive
-		{ok, Bin} ->
-		    ?line FileInfo = sendfile_bin_info(Bin),
-		    ok
-	    end
-    end.
-
-sendfile_server(ClientPid) ->
-    ?line {ok, LSock} = gen_tcp:listen(0, [binary, {packet, 0},
-					   {active, false},
-					   {reuseaddr, true}]),
-    ?line {ok, Port} = inet:port(LSock),
-    ClientPid ! {server, Port},
-    ?line {ok, Sock} = gen_tcp:accept(LSock),
-    ?line {ok, Bin} = sendfile_do_recv(Sock, []),
-    ?line ok = gen_tcp:close(Sock),
-    ClientPid ! {ok, Bin}.
-
--define(SENDFILE_TIMEOUT, 5000).
-
-sendfile_do_recv(Sock, Bs) ->
-    case gen_tcp:recv(Sock, 0, ?SENDFILE_TIMEOUT) of
-	{ok, B} ->
-	    sendfile_do_recv(Sock, [B|Bs]);
-	{error, closed} ->
-	    {ok, lists:reverse(Bs)}
-    end.
-
-sendfile_file_info(File) ->
-    {ok, #file_info{size = Size}} = file:read_file_info(File),
-    {ok, Data} = file:read_file(File),
-    Md5 = erlang:md5(Data),
-    {Size, Md5}.
-
-sendfile_bin_info(Data) ->
-    Size = lists:foldl(fun(E,Sum) -> size(E) + Sum end, 0, Data),
-    Md5 = erlang:md5(Data),
-    {Size, Md5}.

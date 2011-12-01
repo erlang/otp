@@ -44,7 +44,8 @@ all() ->
 groups() -> 
     [{t_accept, [], [t_accept_timeout]},
      {t_connect, [], [t_connect_timeout, t_connect_bad]},
-     {t_recv, [], [t_recv_timeout, t_recv_eof]}].
+     {t_recv, [], [t_recv_timeout, t_recv_eof]},
+     {t_sendfile, [], [sendfile]}].
 
 init_per_suite(Config) ->
     Config.
@@ -235,6 +236,89 @@ implicit_inet6(S, Addr) ->
     ?line {Addr,P2} = ok(inet:sockname(S2)),
     ?line ok = gen_tcp:close(S2),
     ?line ok = gen_tcp:close(S1).
+
+
+sendfile() ->
+    [{timetrap, {seconds, 5}}].
+
+sendfile_supported({unix,linux}) -> true;
+sendfile_supported({unix,sunos}) -> true;
+sendfile_supported({unix,freebsd}) -> true;
+sendfile_supported({unix,dragonfly}) -> true;
+sendfile_supported({unix,darwin}) -> true;
+%% TODO: enable win32 once TransmitFile based implemenation written properly
+%% sendfile_supported({win32,_}) -> true;
+sendfile_supported(_) -> false.
+
+sendfile(Config) when is_list(Config) ->
+    case sendfile_supported(os:type()) of
+	true ->
+	    ?line Data = ?config(data_dir, Config),
+	    ?line Real = filename:join(Data, "realmen.html"),
+	    Host = "localhost",
+
+	    %% TODO: find another way to test for {error, posix_error()}?
+	    %% Disabled because with driver_select I cannot test for
+	    %% invalid out_fd
+	    %% ?line {error, Error} = file:sendfile(Real, -1),
+	    %% ?line test_server:format("sendfile error = ~p", [Error]),
+	    %% %% Unix ebadf, Windows eio
+	    %% ?line true = Error =:= ebadf orelse Error =:= eio,
+
+	    ?line ok = sendfile_send(Host, Real);
+	false ->
+	    {skip, "sendfile not supported on this platform"}
+    end.
+
+%% TODO: consolidate tests and reduce code
+
+sendfile_send(Host, File) ->
+    {Size, _Md5} = FileInfo = sendfile_file_info(File),
+    spawn_link(?MODULE, sendfile_server, [self()]),
+    receive
+	{server, Port} ->
+	    ?line {ok, Sock} = gen_tcp:connect(Host, Port,
+					       [binary,{packet,0}]),
+	    ?line {ok, Size} = file:sendfile(File, Sock),
+	    ?line ok = gen_tcp:close(Sock),
+	    receive
+		{ok, Bin} ->
+		    ?line FileInfo = sendfile_bin_info(Bin),
+		    ok
+	    end
+    end.
+
+sendfile_server(ClientPid) ->
+    ?line {ok, LSock} = gen_tcp:listen(0, [binary, {packet, 0},
+					   {active, false},
+					   {reuseaddr, true}]),
+    ?line {ok, Port} = inet:port(LSock),
+    ClientPid ! {server, Port},
+    ?line {ok, Sock} = gen_tcp:accept(LSock),
+    ?line {ok, Bin} = sendfile_do_recv(Sock, []),
+    ?line ok = gen_tcp:close(Sock),
+    ClientPid ! {ok, Bin}.
+
+-define(SENDFILE_TIMEOUT, 5000).
+
+sendfile_do_recv(Sock, Bs) ->
+    case gen_tcp:recv(Sock, 0, ?SENDFILE_TIMEOUT) of
+	{ok, B} ->
+	    sendfile_do_recv(Sock, [B|Bs]);
+	{error, closed} ->
+	    {ok, lists:reverse(Bs)}
+    end.
+
+sendfile_file_info(File) ->
+    {ok, #file_info{size = Size}} = file:read_file_info(File),
+    {ok, Data} = file:read_file(File),
+    Md5 = erlang:md5(Data),
+    {Size, Md5}.
+
+sendfile_bin_info(Data) ->
+    Size = lists:foldl(fun(E,Sum) -> size(E) + Sum end, 0, Data),
+    Md5 = erlang:md5(Data),
+    {Size, Md5}.
 
 
 
