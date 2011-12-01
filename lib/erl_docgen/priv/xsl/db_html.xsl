@@ -2184,7 +2184,7 @@
     <xsl:choose>
       <xsl:when test="string-length($tmp1) > 0 or starts-with($string, $start)">
         <xsl:variable name="tmp2">
-          <xsl:value-of select="substring-after($string, $end)"/>
+          <xsl:value-of select="substring-after(substring-after($string, $start), $end)"/>
         </xsl:variable>
         <xsl:variable name="retstring">
           <xsl:call-template name="remove-paren">
