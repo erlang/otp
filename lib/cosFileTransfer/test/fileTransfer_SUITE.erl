@@ -131,10 +131,10 @@ end_per_testcase(_Case, Config) ->
     ok.
 
 init_per_suite(Config) ->
-    case code:which(crypto) of
-	Res when is_atom(Res) ->
+    case crypto_works() of
+	false ->
 	    {skip,"Could not start crypto!"};
-	_Else ->
+	true ->
 	    orber:jump_start(),
 	    cosProperty:install(),
 	    cosProperty:start(),
@@ -163,6 +163,15 @@ init_per_suite(Config) ->
 		true ->
 		    exit("Config not a list")
 	    end
+    end.
+
+crypto_works() ->
+    try crypto:start() of
+	{error,{already_started,crypto}} -> true;
+	ok -> true
+    catch
+	error:_ ->
+	    false
     end.
 
 end_per_suite(Config) ->
