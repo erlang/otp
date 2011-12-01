@@ -73,24 +73,30 @@ gen(Args) ->
     end.
 
 compile(#argv{file = File, options = Opts} = A) ->
-    try
-        Spec = diameter_spec_util:parse(File, Opts),
-        maybe_output(A, Spec, Opts, spec), %% the spec file
-        maybe_output(A, Spec, Opts, erl),  %% the erl file
-        maybe_output(A, Spec, Opts, hrl),  %% The hrl file
-        0
+    try diameter_dict_util:parse({path, File}, Opts) of
+        {ok, Spec} ->
+            maybe_output(A, Spec, Opts, spec), %% the spec file
+            maybe_output(A, Spec, Opts, erl),  %% the erl file
+            maybe_output(A, Spec, Opts, hrl),  %% The hrl file
+            0;
+        {error, Reason} ->
+            error_msg(diameter_dict_util:format_error(Reason), []),
+            1
     catch
         error: Reason ->
-            error_msg({"ERROR: ~p~n  ~p", [Reason, erlang:get_stacktrace()]}),
+            error_msg("ERROR: ~p~n  ~p", [Reason, erlang:get_stacktrace()]),
             2
     end.
 
 maybe_output(#argv{file = File, output = Output}, Spec, Opts, Mode) ->
     lists:member(Mode, Output)
-        andalso diameter_codegen:from_spec(File, Spec, Opts, Mode).
+        andalso diameter_codegen:from_dict(File, Spec, Opts, Mode).
 
 error_msg({Fmt, Args}) ->
-    io:format(standard_error, Fmt ++ "~n", Args).
+    error_msg(Fmt, Args).
+
+error_msg(Fmt, Args) ->
+    io:format(standard_error, "** " ++ Fmt ++ "~n", Args).
 
 norm({_,_} = T) ->
     T;
