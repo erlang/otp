@@ -97,9 +97,8 @@ endif
 CONFIGURE_OPTS = $(FLEX_SCANNER_LINENO_ENABLER) $(FLEX_SCANNER_REENTRANT_ENABLER)
 
 
-MEGACO_DIA_PLT     = ./priv/megaco.plt
-MEGACO_DIA_PLT_LOG = $(basename $(MEGACO_DIA_PLT)).dialyzer_plt_log
-MEGACO_DIA_LOG     = $(basename $(MEGACO_DIA_PLT)).dialyzer_log
+DIA_PLT      = ./priv/plt/$(APPLICATION).plt
+DIA_ANALYSIS = $(basename $(DIA_PLT)).dialyzer_analysis
 
 
 # ----------------------------------------------------
@@ -140,8 +139,8 @@ info:
 	@echo "OTP_INSTALL_DIR: $(OTP_INSTALL_DIR)"
 	@echo "APP_INSTALL_DIR: $(APP_INSTALL_DIR)"
 	@echo ""
-	@echo "MEGACO_PLT     = $(MEGACO_PLT)"
-	@echo "MEGACO_DIA_LOG = $(MEGACO_DIA_LOG)"
+	@echo "DIA_PLT:      $(DIA_PLT)"
+	@echo "DIA_ANALYSIS: $(DIA_ANALYSIS)"
 	@echo ""
 
 version:
@@ -201,18 +200,18 @@ tar: $(APP_TAR_FILE)
 $(APP_TAR_FILE): $(APP_DIR)
 	(cd $(APP_RELEASE_DIR); gtar zcf $(APP_TAR_FILE) $(DIR_NAME))
 
-dialyzer_plt: $(MEGACO_DIA_PLT)
+dialyzer_plt: $(DIA_PLT)
 
-$(MEGACO_DIA_PLT): 
-	@echo "Building megaco plt file"
+$(DIA_PLT): 
+	@echo "Building $(APPLICATION) plt file"
 	@dialyzer --build_plt \
                   --output_plt $@ \
-                  -r ../megaco/ebin \
-                  -o $(MEGACO_DIA_PLT_LOG) \
+                  -r ../$(APPLICATION)/ebin \
+                  --output $(DIA_ANALYSIS) \
                   --verbose
 
-dialyzer: $(MEGACO_DIA_PLT)
-	(dialyzer --plt $< \
-                  -o $(MEGACO_DIA_LOG) \
-                  ../megaco/ebin \
-                  && (shell cat $(MEGACO_DIA_LOG)))
+dialyzer: $(DIA_PLT)
+	@echo "Running dialyzer on $(APPLICATION)"
+	@dialyzer --plt $< \
+                  ../$(APPLICATION)/ebin \
+                  --verbose
