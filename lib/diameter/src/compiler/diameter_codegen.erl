@@ -20,17 +20,18 @@
 -module(diameter_codegen).
 
 %%
-%% This module generates .erl and .hrl files for encode/decode
-%% modules from the orddict parsed from a .dia (aka spec) file by
-%% dis_spec_util. The generated code is very simple (one-liners), the
-%% generated functions being called by code included from dis_gen.hrl
-%% in order to encode/decode messages and AVPs. The orddict itself is
-%% returned by dict/0 in the generated module and dis_spec_util calls
-%% this function when importing spec files. (That is, beam has to be
-%% compiled from an imported spec file before it can be imported.)
+%% This module generates erl/hrl files for encode/decode modules
+%% from the orddict parsed from a dictionary file (.dia) by
+%% diameter_dict_util. The generated code is simple (one-liners),
+%% the generated functions being called by code included iin the
+%% generated modules from diameter_gen.hrl. The orddict itself is
+%% returned by dict/0 in the generated module and diameter_dict_util
+%% calls this function when importing dictionaries as a consequence
+%% of @inherits sections. That is, @inherits introduces a dependency
+%% on the beam file of another dictionary.
 %%
 
--export([from_spec/4]).
+-export([from_dict/4]).
 
 %% Internal exports (for test).
 -export([file/1,
@@ -38,17 +39,16 @@
          file/3]).
 
 -include("diameter_forms.hrl").
+-include("diameter_vsn.hrl").
 
-%% Generated functions that could have no generated clauses will have
-%% a trailing ?UNEXPECTED clause that should never execute.
--define(UNEXPECTED(N), {?clause, [?VAR('_') || _ <- lists:seq(1,N)],
-                        [],
-                        [?APPLY(erlang,
-                                error,
-                                [?TERM({unexpected, getr(module)})])]}).
+-define(S, atom_to_list).
+-define(A, list_to_atom).
 
+-define(Atom(T), ?ATOM(?A(T))).
 
-from_spec(File, Spec, Opts, Mode) ->
+%% ===========================================================================
+
+from_dict(File, Spec, Opts, Mode) ->
     Outdir = proplists:get_value(outdir, Opts, "."),
     putr(verbose, lists:member(verbose, Opts)),
     putr(debug,   lists:member(debug, Opts)),
@@ -73,7 +73,7 @@ getr(Key) ->
 %% ===========================================================================
 %% ===========================================================================
 
-%% Generate from parsed spec in a file.
+%% Generate from parsed dictionary in a file.
 
 file(F) ->
     file(F, spec).
@@ -83,7 +83,7 @@ file(F, Mode) ->
 
 file(F, Outdir, Mode) ->
     {ok, [Spec]} = file:consult(F),
-    from_spec(F, Spec, Outdir, Mode).
+    from_dict(F, Spec, Outdir, Mode).
 
 %% ===========================================================================
 %% ===========================================================================
@@ -108,13 +108,13 @@ w(Path, Spec, Fmt) ->
 codegen(File, Spec, Outdir, Mode) ->
     Mod = mod(File, orddict:find(name, Spec)),
     Path = filename:join(Outdir, Mod),  %% minus extension
-    gen(Mode, Spec, Mod, Path),
+    gen(Mode, Spec, ?A(Mod), Path),
     ok.
 
 mod(File, error) ->
     filename:rootname(filename:basename(File));
 mod(_, {ok, Mod}) ->
-    atom_to_list(Mod).
+    Mod.
 
 gen(spec, Spec, _Mod, Path) ->
     write(Path ++ ".spec", Spec);
@@ -124,11 +124,9 @@ gen(hrl, Spec, Mod, Path) ->
 
 gen(erl = Mode, Spec, Mod, Path)
   when is_list(Mod) ->
-    gen(Mode, Spec, list_to_atom(Mod), Path);
+    gen(Mode, Spec, ?A(Mod), Path);
 
 gen(erl, Spec, Mod, Path) ->
-    putr(module, Mod),  %% used by ?UNEXPECTED.
-
     Forms = [{?attribute, module, Mod},
              {?attribute, compile, [{parse_transform, diameter_exprecs}]},
              {?attribute, compile, [nowarn_unused_function]},
@@ -224,16 +222,16 @@ a_record(Prefix, ProjF, L) ->
     lists:map(fun(T) -> a_record(ProjF(T), Prefix) end, L).
 
 a_record({Nm, Avps}, Prefix) ->
-    Name = list_to_atom(Prefix ++ atom_to_list(Nm)),
+    Name = list_to_atom(Prefix ++ Nm),
     Fields = lists:map(fun field/1, Avps),
     {?attribute, record, {Name, Fields}}.
 
 field(Avp) ->
     {Name, Arity} = avp_info(Avp),
     if 1 == Arity ->
-            {?record_field, ?ATOM(Name)};
+            {?record_field, ?Atom(Name)};
        true ->
-            {?record_field, ?ATOM(Name), ?NIL}
+            {?record_field, ?Atom(Name), ?NIL}
     end.
 
 %%% ------------------------------------------------------------------------
@@ -256,7 +254,7 @@ c_id({ok, Id}) ->
     {?clause, [], [], [?INTEGER(Id)]};
 
 c_id(error) ->
-    ?UNEXPECTED(0).
+    ?BADARG(0).
 
 %%% ------------------------------------------------------------------------
 %%% # vendor_id/0
@@ -274,7 +272,7 @@ f_vendor_id(Spec) ->
 f_vendor_name(Spec) ->
     {_, Name} = orddict:fetch(vendor, Spec),
     {?function, vendor_name, 0,
-     [{?clause, [], [], [?ATOM(Name)]}]}.
+     [{?clause, [], [], [?Atom(Name)]}]}.
 
 %%% ------------------------------------------------------------------------
 %%% # msg_name/1
@@ -294,15 +292,10 @@ msg_name(Spec) ->
 c_msg_name({Code, Req, Ans}) ->
     [{?clause, [?INTEGER(Code), ?ATOM(true)],
       [],
-      [?ATOM(mname(Req))]},
+      [?Atom(Req)]},
      {?clause, [?INTEGER(Code), ?ATOM(false)],
       [],
-      [?ATOM(mname(Ans))]}].
-
-mname({N, _Abbr}) ->
-    N;
-mname(N) ->
-    N.
+      [?Atom(Ans)]}].
 
 %%% ------------------------------------------------------------------------
 %%% # msg2rec/1
@@ -313,30 +306,11 @@ f_msg2rec(Spec) ->
 
 msg2rec(Spec) ->
     Pre = prefix(Spec),
-    Dict = dict:from_list(lists:flatmap(fun msgs/1,
-                                        get_value(command_codes, Spec))),
-    lists:flatmap(fun(T) -> msg2rec(T, Dict, Pre) end,
-                  get_value(messages, Spec))
-        ++ [?UNEXPECTED(1)].
+    lists:map(fun(T) -> c_msg2rec(T, Pre) end, get_value(messages, Spec))
+        ++ [?BADARG(1)].
 
-msgs({_Code, Req, Ans}) ->
-    [{mname(Req), Req}, {mname(Ans), Ans}].
-
-msg2rec({N,_,_,_,_}, Dict, Pre) ->
-    c_msg2rec(fetch_names(N, Dict), Pre).
-
-fetch_names(Name, Dict) ->
-    case dict:find(Name, Dict) of
-        {ok, N} ->
-            N;
-        error ->
-            Name
-    end.
-
-c_msg2rec({N,A}, Pre) ->
-    [c_name2rec(N, N, Pre), c_name2rec(A, N, Pre)];
-c_msg2rec(N, Pre) ->
-    [c_name2rec(N, N, Pre)].
+c_msg2rec({N,_,_,_,_}, Pre) ->
+    c_name2rec(N, Pre).
 
 %%% ------------------------------------------------------------------------
 %%% # rec2msg/1
@@ -348,10 +322,10 @@ f_rec2msg(Spec) ->
 rec2msg(Spec) ->
     Pre = prefix(Spec),
     lists:map(fun(T) -> c_rec2msg(T, Pre) end, get_value(messages, Spec))
-        ++ [?UNEXPECTED(1)].
+        ++ [?BADARG(1)].
 
 c_rec2msg({N,_,_,_,_}, Pre) ->
-    {?clause, [?ATOM(rec_name(N, Pre))], [], [?ATOM(N)]}.
+    {?clause, [?Atom(rec_name(N, Pre))], [], [?Atom(N)]}.
 
 %%% ------------------------------------------------------------------------
 %%% # name2rec/1
@@ -364,11 +338,11 @@ name2rec(Spec) ->
     Pre = prefix(Spec),
     Groups = get_value(grouped, Spec)
           ++ lists:flatmap(fun avps/1, get_value(import_groups, Spec)),
-    lists:map(fun({N,_,_,_}) -> c_name2rec(N, N, Pre) end, Groups)
+    lists:map(fun({N,_,_,_}) -> c_name2rec(N, Pre) end, Groups)
         ++ [{?clause, [?VAR('T')], [], [?CALL(msg2rec, [?VAR('T')])]}].
 
-c_name2rec(Name, Rname, Pre) ->
-    {?clause, [?ATOM(Name)], [], [?ATOM(rec_name(Rname, Pre))]}.
+c_name2rec(Name, Pre) ->
+    {?clause, [?Atom(Name)], [], [?Atom(rec_name(Name, Pre))]}.
 
 avps({_Mod, Avps}) ->
     Avps.
@@ -399,8 +373,8 @@ avp_name(Spec) ->
     lists:map(fun(T) -> c_avp_name(T, Vid, Vs) end, Avps)
         ++ [{?clause, [?VAR('_'), ?VAR('_')], [], [?ATOM('AVP')]}].
 
-c_avp_name({Name, Code, Type, Flags, _Encr}, Vid, Vs) ->
-    c_avp_name({Name, Type},
+c_avp_name({Name, Code, Type, Flags}, Vid, Vs) ->
+    c_avp_name({?A(Name), ?A(Type)},
                Code,
                lists:member('V', Flags),
                Vid,
@@ -445,60 +419,75 @@ c_avp_arity(Name, Avps) ->
 
 c_arity(Name, Avp) ->
     {AvpName, Arity} = avp_info(Avp),
-    {?clause, [?ATOM(Name), ?ATOM(AvpName)], [], [?TERM(Arity)]}.
+    {?clause, [?Atom(Name), ?Atom(AvpName)], [], [?TERM(Arity)]}.
 
 %%% ------------------------------------------------------------------------
 %%% # avp/3
 %%% ------------------------------------------------------------------------
 
 f_avp(Spec) ->
-    {?function, avp, 3, avp(Spec) ++ [?UNEXPECTED(3)]}.
+    {?function, avp, 3, avp(Spec) ++ [?BADARG(3)]}.
 
 avp(Spec) ->
-    Native   = get_value(avp_types, Spec),
-    Custom   = get_value(custom_types, Spec),
-    Imported = get_value(import_avps, Spec),
-    Enums    = get_value(enums, Spec),
-    avp([{N,T} || {N,_,T,_,_} <- Native], Imported, Custom, Enums).
+    Native     = get_value(avp_types, Spec),
+    CustomMods = get_value(custom_types, Spec),
+    TypeMods   = get_value(codecs, Spec),
+    Imported   = get_value(import_avps, Spec),
+    Enums      = get_value(enum, Spec),
+
+    Custom = lists:map(fun({M,As}) -> {M, custom_types, As} end,
+                       CustomMods)
+        ++ lists:map(fun({M,As}) -> {M, codecs, As} end,
+                     TypeMods),
+    avp(types(Native), Imported, Custom, Enums).
+
+types(Avps) ->
+    lists:map(fun({N,_,T,_}) -> {N,T} end, Avps).
 
 avp(Native, Imported, Custom, Enums) ->
-    Dict = orddict:from_list(Native),
-
-    report(native, Dict),
+    report(native, Native),
     report(imported, Imported),
     report(custom, Custom),
 
-    CustomNames = lists:flatmap(fun({_,Ns}) -> Ns end, Custom),
+    TypeDict = lists:foldl(fun({N,_,T,_}, D) -> orddict:store(N,T,D) end,
+                           orddict:from_list(Native),
+                           lists:flatmap(fun avps/1, Imported)),
+
+    CustomNames = lists:flatmap(fun({_,_,Ns}) -> Ns end, Custom),
 
     lists:map(fun c_base_avp/1,
-              lists:filter(fun({N,_}) ->
-                                   false == lists:member(N, CustomNames)
-                           end,
+              lists:filter(fun({N,_}) -> not_in(CustomNames, N) end,
                            Native))
-        ++ lists:flatmap(fun(I) -> cs_imported_avp(I, Enums) end, Imported)
-        ++ lists:flatmap(fun(C) -> cs_custom_avp(C, Dict) end, Custom).
+        ++ lists:flatmap(fun(I) -> cs_imported_avp(I, Enums, CustomNames) end,
+                         Imported)
+        ++ lists:flatmap(fun(C) -> cs_custom_avp(C, TypeDict) end, Custom).
+
+not_in(List, X) ->
+    not lists:member(X, List).
 
 c_base_avp({AvpName, T}) ->
-    {?clause, [?VAR('T'), ?VAR('Data'), ?ATOM(AvpName)],
+    {?clause, [?VAR('T'), ?VAR('Data'), ?Atom(AvpName)],
      [],
      [base_avp(AvpName, T)]}.
 
-base_avp(AvpName, 'Enumerated') ->
-    ?CALL(enumerated_avp, [?VAR('T'), ?ATOM(AvpName), ?VAR('Data')]);
+base_avp(AvpName, "Enumerated") ->
+    ?CALL(enumerated_avp, [?VAR('T'), ?Atom(AvpName), ?VAR('Data')]);
 
-base_avp(AvpName, 'Grouped') ->
-    ?CALL(grouped_avp, [?VAR('T'), ?ATOM(AvpName), ?VAR('Data')]);
+base_avp(AvpName, "Grouped") ->
+    ?CALL(grouped_avp, [?VAR('T'), ?Atom(AvpName), ?VAR('Data')]);
 
 base_avp(_, Type) ->
-    ?APPLY(diameter_types, Type, [?VAR('T'), ?VAR('Data')]).
+    ?APPLY(diameter_types, ?A(Type), [?VAR('T'), ?VAR('Data')]).
 
-cs_imported_avp({Mod, Avps}, Enums) ->
-    lists:map(fun(A) -> imported_avp(Mod, A, Enums) end, Avps).
+cs_imported_avp({Mod, Avps}, Enums, CustomNames) ->
+    lists:map(fun(A) -> imported_avp(Mod, A, Enums) end,
+              lists:filter(fun({N,_,_,_}) -> not_in(CustomNames, N) end,
+                           Avps)).
 
-imported_avp(_Mod, {AvpName, _, 'Grouped' = T, _, _}, _) ->
+imported_avp(_Mod, {AvpName, _, "Grouped" = T, _}, _) ->
     c_base_avp({AvpName, T});
 
-imported_avp(Mod, {AvpName, _, 'Enumerated' = T, _, _}, Enums) ->
+imported_avp(Mod, {AvpName, _, "Enumerated" = T, _}, Enums) ->
     case lists:keymember(AvpName, 1, Enums) of
         true ->
             c_base_avp({AvpName, T});
@@ -506,34 +495,39 @@ imported_avp(Mod, {AvpName, _, 'Enumerated' = T, _, _}, Enums) ->
             c_imported_avp(Mod, AvpName)
     end;
 
-imported_avp(Mod, {AvpName, _, _, _, _}, _) ->
+imported_avp(Mod, {AvpName, _, _, _}, _) ->
     c_imported_avp(Mod, AvpName).
 
 c_imported_avp(Mod, AvpName) ->
-    {?clause, [?VAR('T'), ?VAR('Data'), ?ATOM(AvpName)],
+    {?clause, [?VAR('T'), ?VAR('Data'), ?Atom(AvpName)],
      [],
      [?APPLY(Mod, avp, [?VAR('T'),
                         ?VAR('Data'),
-                        ?ATOM(AvpName)])]}.
+                        ?Atom(AvpName)])]}.
 
-cs_custom_avp({Mod, Avps}, Dict) ->
-    lists:map(fun(N) -> c_custom_avp(Mod, N, orddict:fetch(N, Dict)) end,
+cs_custom_avp({Mod, Key, Avps}, Dict) ->
+    lists:map(fun(N) -> c_custom_avp(Mod, Key, N, orddict:fetch(N, Dict)) end,
               Avps).
 
-c_custom_avp(Mod, AvpName, Type) ->
-    {?clause, [?VAR('T'), ?VAR('Data'), ?ATOM(AvpName)],
+c_custom_avp(Mod, Key, AvpName, Type) ->
+    {?clause, [?VAR('T'), ?VAR('Data'), ?Atom(AvpName)],
      [],
-     [?APPLY(Mod, AvpName, [?VAR('T'), ?ATOM(Type), ?VAR('Data')])]}.
+     [custom(Mod, Key, AvpName, Type)]}.
+
+custom(Mod, custom_types, AvpName, Type) ->
+    ?APPLY(?A(Mod), ?A(AvpName), [?VAR('T'), ?Atom(Type), ?VAR('Data')]);
+custom(Mod, codecs, AvpName, Type) ->
+    ?APPLY(?A(Mod), ?A(Type), [?VAR('T'), ?Atom(AvpName), ?VAR('Data')]).
 
 %%% ------------------------------------------------------------------------
 %%% # enumerated_avp/3
 %%% ------------------------------------------------------------------------
 
 f_enumerated_avp(Spec) ->
-    {?function, enumerated_avp, 3, enumerated_avp(Spec) ++ [?UNEXPECTED(3)]}.
+    {?function, enumerated_avp, 3, enumerated_avp(Spec) ++ [?BADARG(3)]}.
 
 enumerated_avp(Spec) ->
-    Enums = get_value(enums, Spec),
+    Enums = get_value(enum, Spec),
     lists:flatmap(fun cs_enumerated_avp/1, Enums)
         ++ lists:flatmap(fun({M,Es}) -> enumerated_avp(M, Es, Enums) end,
                          get_value(import_enums, Spec)).
@@ -554,11 +548,11 @@ cs_enumerated_avp(false, _, _) ->
 cs_enumerated_avp({AvpName, Values}) ->
     lists:flatmap(fun(V) -> c_enumerated_avp(AvpName, V) end, Values).
 
-c_enumerated_avp(AvpName, {I,_}) ->
-    [{?clause, [?ATOM(decode), ?ATOM(AvpName), ?TERM(<<I:32/integer>>)],
+c_enumerated_avp(AvpName, {_,I}) ->
+    [{?clause, [?ATOM(decode), ?Atom(AvpName), ?TERM(<<I:32/integer>>)],
       [],
       [?TERM(I)]},
-     {?clause, [?ATOM(encode), ?ATOM(AvpName), ?INTEGER(I)],
+     {?clause, [?ATOM(encode), ?Atom(AvpName), ?INTEGER(I)],
       [],
       [?TERM(<<I:32/integer>>)]}].
 
@@ -567,7 +561,7 @@ c_enumerated_avp(AvpName, {I,_}) ->
 %%% ------------------------------------------------------------------------
 
 f_msg_header(Spec) ->
-    {?function, msg_header, 1, msg_header(Spec) ++ [?UNEXPECTED(1)]}.
+    {?function, msg_header, 1, msg_header(Spec) ++ [?BADARG(1)]}.
 
 msg_header(Spec) ->
     msg_header(get_value(messages, Spec), Spec).
@@ -582,7 +576,7 @@ msg_header(Msgs, Spec) ->
 %% Note that any application id in the message header spec is ignored.
 
 c_msg_header(Name, Code, Flags, ApplId) ->
-    {?clause, [?ATOM(Name)],
+    {?clause, [?Atom(Name)],
      [],
      [?TERM({Code, encode_msg_flags(Flags), ApplId})]}.
 
@@ -598,7 +592,7 @@ emf('ERR', N) -> N bor 2#00100000.
 %%% ------------------------------------------------------------------------
 
 f_avp_header(Spec) ->
-    {?function, avp_header, 1, avp_header(Spec) ++ [?UNEXPECTED(1)]}.
+    {?function, avp_header, 1, avp_header(Spec) ++ [?BADARG(1)]}.
 
 avp_header(Spec) ->
     Native = get_value(avp_types, Spec),
@@ -610,17 +604,17 @@ avp_header(Spec) ->
     lists:flatmap(fun(A) -> c_avp_header({Vid, Vs}, A) end,
                   Native ++ Imported).
 
-c_avp_header({Vid, Vs}, {Name, Code, _Type, Flags, _Encr}) ->
-    [{?clause, [?ATOM(Name)],
+c_avp_header({Vid, Vs}, {Name, Code, _Type, Flags}) ->
+    [{?clause, [?Atom(Name)],
       [],
       [?TERM({Code, encode_avp_flags(Flags), vid(Name, Flags, Vs, Vid)})]}];
 
 c_avp_header({_, Vs}, {Mod, Avps}) ->
     lists:map(fun(A) -> c_avp_header(Vs, Mod, A) end, Avps).
 
-c_avp_header(Vs, Mod, {Name, _, _, Flags, _}) ->
-    Apply = ?APPLY(Mod, avp_header, [?ATOM(Name)]),
-    {?clause, [?ATOM(Name)],
+c_avp_header(Vs, Mod, {Name, _Code, _Type, Flags}) ->
+    Apply = ?APPLY(Mod, avp_header, [?Atom(Name)]),
+    {?clause, [?Atom(Name)],
      [],
      [case proplists:get_value(Name, Vs) of
           undefined ->
@@ -633,9 +627,9 @@ c_avp_header(Vs, Mod, {Name, _, _, Flags, _}) ->
 encode_avp_flags(Fs) ->
     lists:foldl(fun eaf/2, 0, Fs).
 
-eaf('V', F) -> 2#10000000 bor F;
-eaf('M', F) -> 2#01000000 bor F;
-eaf('P', F) -> 2#00100000 bor F.
+eaf($V, F) -> 2#10000000 bor F;
+eaf($M, F) -> 2#01000000 bor F;
+eaf($P, F) -> 2#00100000 bor F.
 
 vid(Name, Flags, Vs, Vid) ->
     v(lists:member('V', Flags), Name, Vs, Vid).
@@ -656,19 +650,19 @@ empty_value(Spec) ->
     Imported = lists:flatmap(fun avps/1, get_value(import_enums, Spec)),
     Groups = get_value(grouped, Spec)
         ++ lists:flatmap(fun avps/1, get_value(import_groups, Spec)),
-    Enums = [T || {N,_} = T <- get_value(enums, Spec),
+    Enums = [T || {N,_} = T <- get_value(enum, Spec),
                   not lists:keymember(N, 1, Imported)]
         ++ Imported,
     lists:map(fun c_empty_value/1, Groups ++ Enums)
         ++ [{?clause, [?VAR('Name')], [], [?CALL(empty, [?VAR('Name')])]}].
 
 c_empty_value({Name, _, _, _}) ->
-    {?clause, [?ATOM(Name)],
+    {?clause, [?Atom(Name)],
      [],
-     [?CALL(empty_group, [?ATOM(Name)])]};
+     [?CALL(empty_group, [?Atom(Name)])]};
 
 c_empty_value({Name, _}) ->
-    {?clause, [?ATOM(Name)],
+    {?clause, [?Atom(Name)],
      [],
      [?TERM(<<0:32/integer>>)]}.
 
@@ -678,7 +672,7 @@ c_empty_value({Name, _}) ->
 
 f_dict(Spec) ->
     {?function, dict, 0,
-     [{?clause, [], [], [?TERM(Spec)]}]}.
+     [{?clause, [], [], [?TERM([?VERSION | Spec])]}]}.
 
 %%% ------------------------------------------------------------------------
 %%% # gen_hrl/3
@@ -706,10 +700,10 @@ gen_hrl(Path, Mod, Spec) ->
 
     write("ENUM Macros",
           Fd,
-          m_enums(PREFIX, false, get_value(enums, Spec))),
+          m_enums(PREFIX, false, get_value(enum, Spec))),
     write("DEFINE Macros",
           Fd,
-          m_enums(PREFIX, false, get_value(defines, Spec))),
+          m_enums(PREFIX, false, get_value(define, Spec))),
 
     lists:foreach(fun({M,Es}) ->
                           write("ENUM Macros from " ++ atom_to_list(M),
@@ -751,8 +745,8 @@ m_enums(Prefix, Wrap, Enums) ->
 
 m_enum(Prefix, B, {Name, Values}) ->
     P = Prefix ++ to_upper(Name) ++ "_",
-    lists:map(fun({I,A}) ->
-                      N = ["'", P, to_upper(z(atom_to_list(A))), "'"],
+    lists:map(fun({A,I}) ->
+                      N = ["'", P, to_upper(z(A)), "'"],
                       wrap(B,
                            N,
                            ["-define(", N, ", ", integer_to_list(I), ").\n"])
@@ -794,15 +788,15 @@ header() ->
      "%%\n\n").
 
 hrl_header(Name) ->
-    header() ++ "-hrl_name('" ++ Name ++ ".hrl').\n".
+    header() ++ "-hrl_name('" ++ ?S(Name) ++ ".hrl').\n".
 
 %% avp_info/1
 
 avp_info(Entry) ->  %% {Name, Arity}
     case Entry of
-        {'<',A,'>'} -> {A, 1};
-        {A}         -> {A, 1};
-        [A]         -> {A, {0,1}};
+        {{A}} -> {A, 1};
+        {A}   -> {A, 1};
+        [A]   -> {A, {0,1}};
         {Q,T} ->
             {A,_} = avp_info(T),
             {A, arity(Q)}
@@ -818,10 +812,10 @@ arity(T)         -> T.
 prefix(Spec) ->
     case orddict:find(prefix, Spec) of
         {ok, P} ->
-            atom_to_list(P) ++ "_";
+            P ++ "_";
         error ->
             ""
     end.
 
 rec_name(Name, Prefix) ->
-    list_to_atom(Prefix ++ atom_to_list(Name)).
+    Prefix ++ Name.
