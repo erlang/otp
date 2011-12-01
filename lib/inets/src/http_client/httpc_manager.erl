@@ -37,7 +37,7 @@
 	 delete_session/2, 
 	 set_options/2, 
 	 store_cookies/3,
-	 which_cookies/1, which_cookies/2, 
+	 which_cookies/1, which_cookies/2, which_cookies/3, 
 	 reset_cookies/1, 
 	 session_type/1,
 	 info/1
@@ -271,9 +271,11 @@ reset_cookies(ProfileName) ->
 
 which_cookies(ProfileName) when is_atom(ProfileName) ->
     call(ProfileName, which_cookies).
+
 which_cookies(Url, ProfileName) 
   when is_list(Url) andalso is_atom(ProfileName) ->
-    call(ProfileName, {which_cookies, Url, []}).
+    which_cookies(Url, [], ProfileName).
+
 which_cookies(Url, Options, ProfileName) 
   when is_list(Url) andalso is_list(Options) andalso is_atom(ProfileName) ->
     call(ProfileName, {which_cookies, Url, Options}).

@@ -178,13 +178,14 @@ filename()       = string()
         <v>timeout() = integer() >= 0 | infinity</v>
         <v>Options = options()</v>
         <v>options() = [option()]</v>
-        <v>option() = {sync,          boolean()} | 
-                      {stream,        stream_to()} | 
-                      {body_format,   body_format()} | 
-                      {full_result,   boolean()} | 
-                      {headers_as_is, boolean() |
-                      {socket_opts,   socket_opts()} | 
-                      {receiver,      receiver()}}</v>
+        <v>option() = {sync,                    boolean()} | 
+                      {stream,                  stream_to()} | 
+                      {body_format,             body_format()} | 
+                      {full_result,             boolean()} | 
+                      {headers_as_is,           boolean() |
+                      {socket_opts,             socket_opts()} | 
+                      {receiver,                receiver()},
+	              {ipv6_host_with_brackets, boolean()}}</v>
         <v>stream_to() = none | self | {self, once} | filename() </v>
         <v>socket_opts() = [socket_opt()]</v>
         <v>receiver() = pid() | function()/1 | {Module, Function, Args} </v>
@@ -408,6 +409,15 @@ apply(Module, Function, [ReplyInfo | Args])
             <p>Defaults to the <c>pid()</c> of the process calling the request 
 	    function (<c>self()</c>). </p>
 	  </item>
+
+          <tag><c><![CDATA[ipv6_host_with_brackets]]></c></tag>
+          <item>
+            <p>When parsing the Host-Port part of an URI with a IPv6 address 
+	    with brackets, shall we retain those brackets (<c>true</c>) or 
+	    strip them (<c>false</c>). </p>
+            <p>Defaults to <c>false</c>. </p>
+	  </item>
+
         </taglist>
 
         <marker id="cancel_request"></marker>
@@ -572,17 +582,24 @@ apply(Module, Function, [ReplyInfo | Args])
 
     <func>
       <name>cookie_header(Url) -> </name>
-      <name>cookie_header(Url, Profile) -> header() | {error, Reason}</name>
+      <name>cookie_header(Url, Profile | Opts) -> header() | {error, Reason}</name>
+      <name>cookie_header(Url, Opts, Profile) -> header() | {error, Reason}</name>
       <fsummary>Returns the cookie header that would be sent when
       making a request to Url using the profile <c>Profile</c>.</fsummary>
       <type>
         <v>Url = url()</v>
+        <v>Opts = [cookie_header_opt()]</v>
 	<v>Profile = profile() | pid() (when started <c>stand_alone</c>)</v>
+        <v>cookie_header_opt() = {ipv6_host_with_brackets, boolean()}</v>
       </type>
       <desc>
         <p>Returns the cookie header that would be sent
 	when making a request to <c>Url</c> using the profile <c>Profile</c>.
 	If no profile is specified the default profile will be used. </p>
+	<p>The option <c>ipv6_host_with_bracket</c> deals with how to 
+	parse IPv6 addresses. 
+	See the <c>Options</c> argument of the 
+	<seealso marker="#request2">request/4,5</seealso> for more info. </p>
 
         <marker id="reset_cookies"></marker>
       </desc>

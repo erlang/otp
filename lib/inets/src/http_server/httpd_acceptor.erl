@@ -139,11 +139,11 @@ acceptor_loop(Manager, SocketType, ListenSocket, ConfigDb, AcceptTimeout) ->
 	    handle_error(Reason, ConfigDb),
 	    ?MODULE:acceptor_loop(Manager, SocketType, ListenSocket, 
 				  ConfigDb, AcceptTimeout);
-	{'EXIT', _Reason} = EXIT ->
-	    ?hdri("accept exited", [{reason, _Reason}]),
-	    handle_error(EXIT, ConfigDb),
-	    ?MODULE:acceptor_loop(Manager, SocketType, ListenSocket, 
-				  ConfigDb, AcceptTimeout)
+	{'EXIT', Reason} ->
+	    ?hdri("accept exited", [{reason, Reason}]),
+	    ReasonString = 
+		lists:flatten(io_lib:format("Accept exit: ~p", [Reason])),
+	    accept_failed(ConfigDb, ReasonString)
     end.
 
 
@@ -189,15 +189,13 @@ handle_error(esslaccept, _) ->
     %% not write an error message.
     ok;
 
-handle_error({'EXIT', Reason}, ConfigDb) ->
-    String = lists:flatten(io_lib:format("Accept exit: ~p", [Reason])),
-    accept_failed(ConfigDb, String);
-
 handle_error(Reason, ConfigDb) ->
     String = lists:flatten(io_lib:format("Accept error: ~p", [Reason])),
     accept_failed(ConfigDb, String).
 
--spec accept_failed(_, string()) -> no_return(). 
+
+-spec accept_failed(ConfigDB     :: term(), 
+		    ReasonString :: string()) -> no_return(). 
 
 accept_failed(ConfigDb, String) ->
     error_logger:error_report(String),

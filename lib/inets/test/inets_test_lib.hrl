@@ -64,10 +64,11 @@
 
 %% - Misc macros -
 
--define(UPDATE(K,V,C),  inets_test_lib:update_config(K,V,C)).
--define(CONFIG(K,C),    inets_test_lib:get_config(K,C)).
--define(HOSTNAME(),     inets_test_lib:hostname()).
--define(SZ(X),          inets_test_lib:sz(X)).
+-define(ENSURE_STARTED(A), inets_test_lib:ensure_started(A)).
+-define(UPDATE(K,V,C),     inets_test_lib:update_config(K,V,C)).
+-define(CONFIG(K,C),       inets_test_lib:get_config(K,C)).
+-define(HOSTNAME(),        inets_test_lib:hostname()).
+-define(SZ(X),             inets_test_lib:sz(X)).
 
 
 %% - Test case macros - 

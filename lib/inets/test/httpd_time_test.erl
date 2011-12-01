@@ -333,51 +333,82 @@ poll(Error, _SocketType, _URI, _ExpRes) ->
     exit({failed_creating_socket, Error}).
 
 await_poll_response(ok, SocketType, Socket, ExpStatusCode) ->
+    await_poll_response2(SocketType, Socket, ExpStatusCode, []);
+await_poll_response(Error, _SocketType, _Socket, _ExpStatusCode) ->
+    exit(Error).
+
+%% The reply *can* be split into two messages (this is a 
+%% result of OTP-9757 for ssl), so we read them all until 
+%% the sockets closes, then we analyze the response.
+await_poll_response2(SocketType, Socket, ExpStatusCode, Data) ->
     receive 
 	%% SSL receives
-	{ssl, Socket, Data} ->
-            validate(ExpStatusCode, SocketType, Socket, Data);
-	{ssl_closed, Socket} ->
-	    exit(connection_closed);
+	{ssl, Socket, NewData} ->
+	    d("await_poll_response2 -> "
+	      "received part (~w bytes) of the response", [sz(NewData)]),
+            await_poll_response2(SocketType, Socket, ExpStatusCode, 
+				 [NewData | Data]);
+	{ssl_closed, Socket} -> 
+	    %% We are done or we failed
+	    d("await_poll_response2 -> "
+	      "we are done after receiving ~w bytes data", [sz(Data)]),
+	    validate(ExpStatusCode, SocketType, Socket, 
+		     lists:flatten(lists:reverse(Data)));
 	{ssl_error, Socket, Error} ->
 	    exit({connection_error, Error});
 
 	%% TCP receives
-        {tcp, Socket, Response} ->
-            validate(ExpStatusCode, SocketType, Socket, Response);
+        {tcp, Socket, NewData} ->
+	    d("await_poll_response2 -> "
+	      "received part (~w bytes) of the response", [sz(NewData)]),
+            await_poll_response2(SocketType, Socket, ExpStatusCode, 
+				 [NewData | Data]);
         {tcp_closed, Socket} ->
-            exit(connection_closed);
+	    %% We are done or we failed
+	    d("await_poll_response2 -> "
+	      "we are done after receiving ~w bytes data", [sz(Data)]),
+	    validate(ExpStatusCode, SocketType, Socket, 
+		     lists:flatten(lists:reverse(Data)));
 	{tcp_error, Socket, Error} ->
 	    exit({connection_error, Error})
 
     after 10000 ->
-            exit(response_timed_out)
-    end;
-await_poll_response(Error, _SocketType, _Socket, _ExpStatusCode) ->
-    exit(Error).
+	    d("we timed out while waiting for response, "
+	      "validate whatever we got so far"),
+	    validate(ExpStatusCode, SocketType, Socket, 
+		     lists:flatten(lists:reverse(Data)))
+	    %% exit(response_timed_out)
+    end.
 
-
-validate(ExpStatusCode, SocketType, Socket, Response) ->
-    Sz = sz(Response),
-    trash_the_rest(Socket, Sz),
-    inets_test_lib:close(SocketType, Socket),
+validate(ExpStatusCode, _SocketType, _Socket, Response) ->
+    %% Sz = sz(Response),
+    %% trash_the_rest(Socket, Sz),
+    %% inets_test_lib:close(SocketType, Socket),
     case inets_regexp:split(Response," ") of
-        {ok,["HTTP/1.0", ExpStatusCode|_]} ->
+        {ok, ["HTTP/1.0", ExpStatusCode|_]} ->
             ok;
-        {ok,["HTTP/1.0", StatusCode|_]} -> 
+        {ok, ["HTTP/1.0", StatusCode|_]} -> 
 	    error_msg("Unexpected status code: ~p (~s). "
 		      "Expected status code: ~p (~s)", 
 		      [StatusCode,    status_to_message(StatusCode),
 		       ExpStatusCode, status_to_message(ExpStatusCode)]),
             exit({unexpected_response_code, StatusCode, ExpStatusCode});
-	{ok,["HTTP/1.1", ExpStatusCode|_]} ->
+	{ok, ["HTTP/1.1", ExpStatusCode|_]} ->
             ok;
-        {ok,["HTTP/1.1", StatusCode|_]} -> 
+        {ok, ["HTTP/1.1", StatusCode|_]} -> 
 	    error_msg("Unexpected status code: ~p (~s). "
 		      "Expected status code: ~p (~s)", 
 		      [StatusCode,    status_to_message(StatusCode),
 		       ExpStatusCode, status_to_message(ExpStatusCode)]),
-            exit({unexpected_response_code, StatusCode, ExpStatusCode})
+            exit({unexpected_response_code, StatusCode, ExpStatusCode});
+        {ok, Unexpected} -> 
+	    error_msg("Unexpected response split: ~p (~s)", 
+		      [Unexpected, Response]),
+            exit({unexpected_response, Unexpected, Response});
+        {error, Reason} -> 
+	    error_msg("Failed processing response: ~p (~s)", 
+		      [Reason, Response]),
+            exit({failed_response_processing, Reason, Response})
     end.
 
 
