@@ -88,9 +88,6 @@ file(F, Outdir, Mode) ->
 %% ===========================================================================
 %% ===========================================================================
 
-choose(true, X, _)  -> X;
-choose(false, _, X) -> X.
-
 get_value(Key, Plist) ->
     proplists:get_value(Key, Plist, []).
 
@@ -261,18 +258,26 @@ c_id(error) ->
 %%% ------------------------------------------------------------------------
 
 f_vendor_id(Spec) ->
-    {Id, _} = orddict:fetch(vendor, Spec),
     {?function, vendor_id, 0,
-     [{?clause, [], [], [?INTEGER(Id)]}]}.
+     [{?clause, [], [], [vendor_id(orddict:find(vendor, Spec))]}]}.
+
+vendor_id({ok, {Id, _}}) ->
+    ?INTEGER(Id);
+vendor_id(error) ->
+    ?APPLY(erlang, error, [?TERM(undefined)]).
 
 %%% ------------------------------------------------------------------------
 %%% # vendor_name/0
 %%% ------------------------------------------------------------------------
 
 f_vendor_name(Spec) ->
-    {_, Name} = orddict:fetch(vendor, Spec),
     {?function, vendor_name, 0,
-     [{?clause, [], [], [?Atom(Name)]}]}.
+     [{?clause, [], [], [vendor_name(orddict:find(vendor, Spec))]}]}.
+
+vendor_name({ok, {_, Name}}) ->
+    ?Atom(Name);
+vendor_name(error) ->
+    ?APPLY(erlang, error, [?TERM(undefined)]).
 
 %%% ------------------------------------------------------------------------
 %%% # msg_name/1
@@ -364,32 +369,39 @@ f_avp_name(Spec) ->
 %%       allocated by IANA (see Section 11.1).
 
 avp_name(Spec) ->
-    Avps = get_value(avp_types, Spec)
-        ++ lists:flatmap(fun avps/1, get_value(import_avps, Spec)),
-    {Vid, _} = orddict:fetch(vendor, Spec),
+    Avps = get_value(avp_types, Spec),
+    Imported = get_value(import_avps, Spec),
+    Vid = orddict:find(vendor, Spec),
+
     Vs = lists:flatmap(fun({V,Ns}) -> [{N,V} || N <- Ns] end,
                        get_value(avp_vendor_id, Spec)),
 
-    lists:map(fun(T) -> c_avp_name(T, Vid, Vs) end, Avps)
+    lists:map(fun(T) -> c_avp_name(T, Vs, Vid) end, Avps)
+        ++ lists:flatmap(fun(T) -> c_imported_avp_name(T, Vs) end, Imported)
         ++ [{?clause, [?VAR('_'), ?VAR('_')], [], [?ATOM('AVP')]}].
 
-c_avp_name({Name, Code, Type, Flags}, Vid, Vs) ->
-    c_avp_name({?A(Name), ?A(Type)},
-               Code,
-               lists:member('V', Flags),
-               Vid,
-               proplists:get_value(Name, Vs)).
+c_avp_name({Name, Code, Type, Flags}, Vs, Vid) ->
+    c_avp_name_(?TERM({?A(Name), ?A(Type)}),
+                ?INTEGER(Code),
+                vid(Name, Flags, Vs, Vid)).
 
-c_avp_name(T, Code, false, _, undefined = U) ->
-    {?clause, [?INTEGER(Code), ?ATOM(U)],
-     [],
-     [?TERM(T)]};
+%% Note that an imported AVP's vendor id is determined by
+%% avp_vendor_id in the inheriting module and vendor in the inherited
+%% module. In particular, avp_vendor_id in the inherited module is
+%% ignored so can't just call Mod:avp_header/1 to retrieve the vendor
+%% id.
+c_imported_avp_name({Mod, Avps}, Vs) ->
+    lists:map(fun(A) -> c_avp_name(A, Vs, {module, Mod}) end, Avps).
 
-c_avp_name(T, Code, true, Vid, V)
-  when is_integer(Vid) ->
-    {?clause, [?INTEGER(Code), ?INTEGER(choose(V == undefined, Vid, V))],
+c_avp_name_(T, Code, undefined = U) ->
+    {?clause, [Code, ?ATOM(U)],
      [],
-     [?TERM(T)]}.
+     [T]};
+
+c_avp_name_(T, Code, Vid) ->
+    {?clause, [Code, ?INTEGER(Vid)],
+     [],
+     [T]}.
 
 %%% ------------------------------------------------------------------------
 %%% # avp_arity/2
@@ -597,22 +609,26 @@ f_avp_header(Spec) ->
 avp_header(Spec) ->
     Native = get_value(avp_types, Spec),
     Imported = get_value(import_avps, Spec),
-    {Vid, _} = orddict:fetch(vendor, Spec),
+    Vid = orddict:find(vendor, Spec),
+
     Vs = lists:flatmap(fun({V,Ns}) -> [{N,V} || N <- Ns] end,
                        get_value(avp_vendor_id, Spec)),
 
-    lists:flatmap(fun(A) -> c_avp_header({Vid, Vs}, A) end,
+    lists:flatmap(fun(A) -> c_avp_header(A, Vs, Vid) end,
                   Native ++ Imported).
 
-c_avp_header({Vid, Vs}, {Name, Code, _Type, Flags}) ->
+c_avp_header({Name, Code, _Type, Flags}, Vs, Vid) ->
     [{?clause, [?Atom(Name)],
       [],
       [?TERM({Code, encode_avp_flags(Flags), vid(Name, Flags, Vs, Vid)})]}];
 
-c_avp_header({_, Vs}, {Mod, Avps}) ->
-    lists:map(fun(A) -> c_avp_header(Vs, Mod, A) end, Avps).
+c_avp_header({Mod, Avps}, Vs, _Vid) ->
+    lists:map(fun(A) -> c_imported_avp_header(A, Mod, Vs) end, Avps).
 
-c_avp_header(Vs, Mod, {Name, _Code, _Type, Flags}) ->
+%% Note that avp_vendor_id in the inherited dictionary is ignored. The
+%% value must be changed in the inheriting dictionary. This is
+%% consistent with the semantics of avp_name/2.
+c_imported_avp_header({Name, _Code, _Type, _Flags}, Mod, Vs) ->
     Apply = ?APPLY(Mod, avp_header, [?Atom(Name)]),
     {?clause, [?Atom(Name)],
      [],
@@ -620,7 +636,6 @@ c_avp_header(Vs, Mod, {Name, _Code, _Type, Flags}) ->
           undefined ->
               Apply;
           Vid ->
-              true = lists:member('V', Flags),  %% sanity check
               ?CALL(setelement, [?INTEGER(3), Apply, ?INTEGER(Vid)])
       end]}.
 
@@ -632,10 +647,19 @@ eaf($M, F) -> 2#01000000 bor F;
 eaf($P, F) -> 2#00100000 bor F.
 
 vid(Name, Flags, Vs, Vid) ->
-    v(lists:member('V', Flags), Name, Vs, Vid).
+    v(lists:member($V, Flags), Name, Vs, Vid).
+
+v(true = T, Name, Vs, {module, Mod}) ->
+    v(T, Name, Vs, {ok, {Mod:vendor_id(), Mod:vendor_name()}});
 
 v(true, Name, Vs, Vid) ->
-    proplists:get_value(Name, Vs, Vid);
+    case proplists:get_value(Name, Vs) of
+        undefined ->
+            {ok, {Id, _}} = Vid,
+            Id;
+        Id ->
+            Id
+    end;
 v(false, _, _, _) ->
     undefined.
 
