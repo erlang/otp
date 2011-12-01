@@ -462,7 +462,7 @@ connect(Config) when is_list(Config) ->
 	  {'EXIT', {undef, [{bad_send_mod, send_message, [sh, _]} | _]}}}} ->
 	    ok;
 	
-	%% As of R15, we also get some extra info (line numbers, line numbers)
+	%% As of R15, we also get some extra info (e.g. line numbers)
 	{error, 
 	 {send_message_failed, 
 	  {'EXIT', {undef, [{bad_send_mod, send_message, [sh, _], _} | _]}}}} ->
