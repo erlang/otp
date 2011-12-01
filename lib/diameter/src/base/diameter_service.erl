@@ -1490,7 +1490,7 @@ pd([], _) ->
 send_request(TPid, #diameter_packet{bin = Bin} = Pkt, Req, Timeout)
   when node() == node(TPid) ->
     %% Store the outgoing request before sending to avoid a race with
-   %% reply reception.
+    %% reply reception.
     TRef = store_request(TPid, Bin, Req, Timeout),
     send(TPid, Pkt),
     TRef;
@@ -1946,7 +1946,7 @@ reply(Msg, Dict, TPid, #diameter_packet{errors = Es,
   when [] == Es;
        is_record(hd(Msg), diameter_header) ->
     Pkt = diameter_codec:encode(Dict, make_answer_packet(Msg, ReqPkt)),
-    incr(send, Pkt, Dict, TPid),  %% count result codes in sent answers
+    incr(send, Pkt, TPid),  %% count result codes in sent answers
     send(TPid, Pkt#diameter_packet{transport_data = TD});
 
 %% Or not: set Result-Code and Failed-AVP AVP's.
@@ -2218,12 +2218,11 @@ a(#diameter_packet{errors = []}
   SvcName,
   AE,
   #request{transport = TPid,
-           dictionary = Dict,
            caps = Caps,
            packet = P}
   = Req) ->
     try
-        incr(in, Pkt, Dict, TPid)
+        incr(in, Pkt, TPid)
     of
         _ ->
             cb(Req, handle_answer, [Pkt, msg(P), SvcName, {TPid, Caps}])
@@ -2254,18 +2253,17 @@ e(Pkt, SvcName, discard, Req) ->
 %% Increment a stats counter for an incoming or outgoing message.
 
 %% TODO: fix
-incr(_, #diameter_packet{msg = undefined}, _, _) ->
+incr(_, #diameter_packet{msg = undefined}, _) ->
     ok;
 
-incr(Dir, Pkt, Dict, TPid)
+incr(Dir, Pkt, TPid)
   when is_pid(TPid) ->
     #diameter_packet{header = #diameter_header{is_error = E}
                             = Hdr,
                      msg = Rec}
         = Pkt,
 
-    D  = choose(E, ?BASE, Dict),
-    RC = int(get_avp_value(D, 'Result-Code', Rec)),
+    RC = int(get_avp_value(?BASE, 'Result-Code', Rec)),
     PE = is_protocol_error(RC),
 
     %% Check that the E bit is set only for 3xxx result codes.
@@ -2273,7 +2271,7 @@ incr(Dir, Pkt, Dict, TPid)
         orelse (E andalso PE)
         orelse x({invalid_error_bit, RC}, answer, [Dir, Pkt]),
 
-    Ctr = rc_counter(D, Rec, RC),
+    Ctr = rc_counter(Rec, RC),
     is_tuple(Ctr)
         andalso incr(TPid, {diameter_codec:msg_id(Hdr), Dir, Ctr}).
 
@@ -2291,11 +2289,11 @@ incr(TPid, Counter) ->
 %% Maintain statistics assuming one or the other, not both, which is
 %% surely the intent of the RFC.
 
-rc_counter(_, _, RC)
+rc_counter(_, RC)
   when is_integer(RC) ->
     {'Result-Code', RC};
-rc_counter(D, Rec, _) ->
-    rcc(get_avp_value(D, 'Experimental-Result', Rec)).
+rc_counter(Rec, _) ->
+    rcc(get_avp_value(?BASE, 'Experimental-Result', Rec)).
 
 %% Outgoing answers may be in any of the forms messages can be sent
 %% in. Incoming messages will be records. We're assuming here that the
@@ -2355,8 +2353,8 @@ rt(#request{packet = #diameter_packet{msg = undefined}}, _) ->
     false;  %% TODO: Not what we should do.
 
 %% ... or not.
-rt(#request{packet = #diameter_packet{msg = Msg}, dictionary = D} = Req, S) ->
-    find_transport(get_destination(Msg, D), Req, S).
+rt(#request{packet = #diameter_packet{msg = Msg}} = Req, S) ->
+    find_transport(get_destination(Msg), Req, S).
 
 %%% ---------------------------------------------------------------------------
 %%% # report_status/5
@@ -2468,12 +2466,12 @@ find_transport({alias, Alias}, Msg, Opts, #state{service = Svc} = S) ->
 find_transport(#diameter_app{} = App, Msg, Opts, S) ->
     ft(App, Msg, Opts, S).
 
-ft(#diameter_app{module = Mod, dictionary = D} = App, Msg, Opts, S) ->
+ft(#diameter_app{module = Mod} = App, Msg, Opts, S) ->
     #options{filter = Filter,
              extra = Xtra}
         = Opts,
     pick_peer(App#diameter_app{module = Mod ++ Xtra},
-              get_destination(Msg, D),
+              get_destination(Msg),
               Filter,
               S);
 ft(false = No, _, _, _) ->
@@ -2509,11 +2507,11 @@ find_transport([_,_] = RH,
               Filter,
               S).
 
-%% get_destination/2
+%% get_destination/1
 
-get_destination(Msg, Dict) ->
-    [str(get_avp_value(Dict, 'Destination-Realm', Msg)),
-     str(get_avp_value(Dict, 'Destination-Host', Msg))].
+get_destination(Msg) ->
+    [str(get_avp_value(?BASE, 'Destination-Realm', Msg)),
+     str(get_avp_value(?BASE, 'Destination-Host', Msg))].
 
 %% This is not entirely correct. The avp could have an arity 1, in
 %% which case an empty list is a DiameterIdentity of length 0 rather
