@@ -396,6 +396,8 @@ gen_primop({Op,Dst,Args,Cont,Fail}, IsGuard, ConstTab) ->
 	      [Dst1]->
 		hipe_tagscheme:unsafe_tag_float(Dst1, Arg)
 	    end;
+	  debug_native_called -> 
+	    [hipe_rtl:mk_call(Dst, Op, Args, Cont, Fail, not_remote)];
 
 	  %% Only names listed above are accepted! MFA:s are not primops!
 	  _ ->

@@ -30,3 +30,4 @@ bif hipe_bifs:in_native/0
 bif hipe_bifs:modeswitch_debug_on/0
 bif hipe_bifs:modeswitch_debug_off/0
 bif hipe_bifs:show_message_area/0
+bif hipe_bifs:debug_native_called/2

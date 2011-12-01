@@ -110,6 +110,9 @@ int hipe_bs_put_big_integer(Eterm, Uint, byte*, unsigned, unsigned);
 AEXTERN(Eterm,nbif_check_get_msg,(Process*));
 Eterm hipe_check_get_msg(Process*);
 
+AEXTERN(BIF_RETTYPE,nbif_hipe_bifs_debug_native_called,(Process*,Eterm,Eterm));
+BIF_RETTYPE hipe_bifs_debug_native_called_2(BIF_ALIST_2);
+
 /*
  * SMP-specific stuff
  */

@@ -189,3 +189,10 @@ BIF_RETTYPE hipe_debug_bif_wrapper(BIF_ALIST_1)
 
 #endif /* ERTS_ENABLE_LOCK_CHECK && ERTS_SMP */
 
+
+BIF_RETTYPE hipe_bifs_debug_native_called_2(BIF_ALIST_2)
+{
+    erts_printf("hipe_debug_native_called: %T(%T)\r\n", BIF_ARG_1, BIF_ARG_2);
+    BIF_RET(am_ok);
+}
+
