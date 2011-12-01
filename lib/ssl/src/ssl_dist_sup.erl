@@ -41,7 +41,6 @@ start_link() ->
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
--spec init([]) -> {ok,  {SupFlags :: tuple(),  [ChildSpec :: tuple()]}}.
 
 init([]) ->    
     SessionCertManager = session_and_cert_manager_child_spec(),
