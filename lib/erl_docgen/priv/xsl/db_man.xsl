@@ -586,7 +586,15 @@
   </xsl:template>
 
   <xsl:template match="seealso">
-    <xsl:text>\fB</xsl:text><xsl:apply-templates/><xsl:text>\fR\&amp;</xsl:text>
+    <xsl:choose>
+      <xsl:when test="ancestor::head">
+	<!-- The header of Dialyzer specs -->
+	<xsl:apply-templates/>
+      </xsl:when>
+      <xsl:otherwise>
+	<xsl:text>\fB</xsl:text><xsl:apply-templates/><xsl:text>\fR\&amp;</xsl:text>
+      </xsl:otherwise>
+    </xsl:choose>
   </xsl:template>
 
   <!-- Code -->
