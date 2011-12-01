@@ -3881,7 +3881,8 @@ arg_types(erlang, system_flag, 2) ->
 arg_types(erlang, system_info, 1) ->
   [t_sup([t_atom(),                     % documented
 	  t_tuple([t_atom(), t_any()]), % documented
-	  t_tuple([t_atom(), t_atom(), t_any()])])];
+	  t_tuple([t_atom(), t_atom(), t_any()]),
+	  t_tuple([t_atom(allocator_sizes), t_reference(), t_any()])])];
 arg_types(erlang, system_monitor, 0) ->
   [];
 arg_types(erlang, system_monitor, 1) ->
