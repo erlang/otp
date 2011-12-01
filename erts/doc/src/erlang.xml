@@ -5069,6 +5069,14 @@ true</pre>
         <v>Flag, Value, OldValue -- see below</v>
       </type>
       <desc>
+        <warning>
+          <p>The
+	  <seealso marker="#system_flag_cpu_topology">cpu_topology</seealso>,
+	  and
+	  <seealso marker="#system_flag_scheduler_bind_type">scheduler_bind_type</seealso>
+	  <c>Flag</c>s are <em>deprecated</em> and have been scheduled for
+	  removal in erts-5.10/OTP-R16.</p>
+        </warning>
         <p>Sets various system properties of the Erlang node. Returns
           the old value of the flag.</p>
         <taglist>
@@ -5079,6 +5087,12 @@ true</pre>
           </item>
           <tag><marker id="system_flag_cpu_topology"><c>erlang:system_flag(cpu_topology, CpuTopology)</c></marker></tag>
           <item>
+	    <p><em>NOTE:</em> This argument is <em>deprecated</em> and
+	    scheduled for removal in erts-5.10/OTP-R16. Instead of using
+	    this argument you are advised to use the <c>erl</c> command
+	    line argument <seealso marker="erts:erl#+sct">+sct</seealso>.
+	    When this argument has been removed a final CPU topology to use
+	    will be determined at emulator boot time.</p>
             <p>Sets the user defined <c>CpuTopology</c>. The user defined
 	       CPU topology will override any automatically detected
 	       CPU topology. By passing <c>undefined</c> as <c>CpuTopology</c>
@@ -5093,15 +5107,15 @@ true</pre>
 	       to rebind according to the new CPU topology.
 	    </p>
 	    <p>The user defined CPU topology can also be set by passing
-	       the <seealso marker="erl#+sct">+sct</seealso> command
+	       the <seealso marker="erts:erl#+sct">+sct</seealso> command
 	       line argument to <c>erl</c>.
 	    </p>
 	    <p>For information on the <c>CpuTopology</c> type
 	       and more, see the documentation of
 	       <seealso marker="#system_info_cpu_topology">erlang:system_info(cpu_topology)</seealso>,
-	       the <c>erl</c> <seealso marker="erl#+sct">+sct</seealso>
-	       emulator flag, and
-	       <seealso marker="#system_flag_scheduler_bind_type">erlang:system_flag(scheduler_bind_type, How)</seealso>.
+	       and the <c>erl</c> <seealso marker="erts:erl#+sct">+sct</seealso>
+	       and <seealso marker="erts:erl#+sbt">+sbt</seealso>
+	       command line flags.
 	    </p>
           </item>
           <tag><c>erlang:system_flag(fullsweep_after, Number)</c></tag>
@@ -5177,6 +5191,12 @@ true</pre>
           </item>
           <tag><marker id="system_flag_scheduler_bind_type"><c>erlang:system_flag(scheduler_bind_type, How)</c></marker></tag>
           <item>
+	    <p><em>NOTE:</em> This argument is <em>deprecated</em> and
+	    scheduled for removal in erts-5.10/OTP-R16. Instead of using
+	    this argument you are advised to use the <c>erl</c> command
+	    line argument <seealso marker="erts:erl#+sbt">+sbt</seealso>.
+	    When this argument has been removed a final scheduler bind type
+	    to use will be determined at emulator boot time.</p>
 	    <p>Controls if and how schedulers are bound to logical
 	       processors.</p>
 	    <p>When <c>erlang:system_flag(scheduler_bind_type, How)</c> is
@@ -5198,7 +5218,8 @@ true</pre>
 	       the CPU topology needs to be known. If the runtime system fails
 	       to automatically detect the CPU topology, it can be defined.
 	       For more information on how to define the CPU topology, see 
-	       <seealso marker="#system_flag_cpu_topology">erlang:system_flag(cpu_topology, CpuTopology)</seealso>.
+	       the <c>erl</c> <seealso marker="erts:erl#+sct">+sct</seealso> command
+	       line flag.
 	    </p>
             <p>The runtime system will by default <em>not</em> bind schedulers
 	       to logical processors.
@@ -5216,71 +5237,42 @@ true</pre>
 	       currently be one of:</p>
             <taglist>
               <tag><c>unbound</c></tag>
-              <item>
-                <p>Schedulers will not be bound to logical processors, i.e.,
-		   the operating system decides where the scheduler threads
-		   execute, and when to migrate them. This is the default.</p>
-              </item>
+              <item><p>Same as the <c>erl</c> command line argument
+	      <seealso marker="erts:erl#+sbt">+sbt u</seealso>.
+	      </p></item>
               <tag><c>no_spread</c></tag>
-              <item>
-                <p>Schedulers with close scheduler identifiers will be bound
-		   as close as possible in hardware.</p>
-              </item>
+              <item><p>Same as the <c>erl</c> command line argument
+	      <seealso marker="erts:erl#+sbt">+sbt ns</seealso>.
+	      </p></item>
               <tag><c>thread_spread</c></tag>
-              <item>
-                <p>Thread refers to hardware threads (e.g. Intels
-		   hyper-threads). Schedulers with low scheduler identifiers,
-		   will be bound to the first hardware thread of each core,
-		   then schedulers with higher scheduler identifiers will be
-		   bound to the second hardware thread of each core, etc.</p>
-              </item>
+              <item><p>Same as the <c>erl</c> command line argument
+	      <seealso marker="erts:erl#+sbt">+sbt ts</seealso>.
+	      </p></item>
               <tag><c>processor_spread</c></tag>
-              <item>
-                <p>Schedulers will be spread like <c>thread_spread</c>, but
-		   also over physical processor chips.</p>
-              </item>
+              <item><p>Same as the <c>erl</c> command line argument
+	      <seealso marker="erts:erl#+sbt">+sbt ps</seealso>.
+	      </p></item>
               <tag><c>spread</c></tag>
-              <item>
-                <p>Schedulers will be spread as much as possible.</p>
-              </item>
+              <item><p>Same as the <c>erl</c> command line argument
+	      <seealso marker="erts:erl#+sbt">+sbt s</seealso>.
+	      </p></item>
               <tag><c>no_node_thread_spread</c></tag>
-              <item>
-                <p>Like <c>thread_spread</c>, but if multiple NUMA
-		   (Non-Uniform Memory Access) nodes exists,
-		   schedulers will be spread over one NUMA node at a time,
-		   i.e., all logical processors of one NUMA node will
-		   be bound to schedulers in sequence.</p>
-              </item>
+              <item><p>Same as the <c>erl</c> command line argument
+	      <seealso marker="erts:erl#+sbt">+sbt nnts</seealso>.
+	      </p></item>
               <tag><c>no_node_processor_spread</c></tag>
-              <item>
-                <p>Like <c>processor_spread</c>, but if multiple NUMA
-		   nodes exists, schedulers will be spread over one
-		   NUMA node at a time, i.e., all logical processors of
-		   one NUMA node will be bound to schedulers in sequence.</p>
-              </item>
+              <item><p>Same as the <c>erl</c> command line argument
+	      <seealso marker="erts:erl#+sbt">+sbt nnps</seealso>.
+	      </p></item>
               <tag><c>thread_no_node_processor_spread</c></tag>
-              <item>
-                <p>A combination of <c>thread_spread</c>, and
-		<c>no_node_processor_spread</c>. Schedulers will be
-		spread over hardware threads across NUMA nodes, but
-		schedulers will only be spread over processors internally
-		in one NUMA node at a time.</p>
-              </item>
+              <item><p>Same as the <c>erl</c> command line argument
+	      <seealso marker="erts:erl#+sbt">+sbt tnnps</seealso>.
+	      </p></item>
               <tag><c>default_bind</c></tag>
-              <item>
-                <p>Binds schedulers the default way. Currently the default
-		is <c>thread_no_node_processor_spread</c> (which might change
-		in the future).</p>
-              </item>
+              <item><p>Same as the <c>erl</c> command line argument
+	      <seealso marker="erts:erl#+sbt">+sbt db</seealso>.
+	      </p></item>
 	    </taglist>
-            <p>How schedulers are bound matters. For example, in
-	       situations when there are fewer running processes than
-	       schedulers online, the runtime system tries to migrate
-	       processes to schedulers with low scheduler identifiers.
-	       The more the schedulers are spread over the hardware,
-	       the more resources will be available to the runtime
-	       system in such situations.
-	    </p>
 	    <p>The value returned equals <c>How</c> before the
 	       <c>scheduler_bind_type</c> flag was changed.</p>
 	    <p>Failure:</p>
@@ -5299,15 +5291,15 @@ true</pre>
               </item>
             </taglist>
 	    <p>The scheduler bind type can also be set by passing
-	       the <seealso marker="erl#+sbt">+sbt</seealso> command
+	       the <seealso marker="erts:erl#+sbt">+sbt</seealso> command
 	       line argument to <c>erl</c>.
 	    </p>
 	    <p>For more information, see
 	       <seealso marker="#system_info_scheduler_bind_type">erlang:system_info(scheduler_bind_type)</seealso>,
 	       <seealso marker="#system_info_scheduler_bindings">erlang:system_info(scheduler_bindings)</seealso>,
-	       the <c>erl</c> <seealso marker="erl#+sbt">+sbt</seealso>
-	       emulator flag, and
-	       <seealso marker="#system_flag_cpu_topology">erlang:system_flag(cpu_topology, CpuTopology)</seealso>.
+	       the <c>erl</c> <seealso marker="erts:erl#+sbt">+sbt</seealso>
+	       and <seealso marker="erts:erl#+sct">+sct</seealso> command line
+	       flags.
 	    </p>
           </item>
           <tag><marker id="system_flag_schedulers_online"><c>erlang:system_flag(schedulers_online, SchedulersOnline)</c></marker></tag>
@@ -5508,10 +5500,12 @@ true</pre>
           <item>
 	    <p>Returns the <c>CpuTopology</c> which currently is used by the
 	       emulator. The CPU topology is used when binding schedulers
-	       to logical processors. The CPU topology used is the user defined
-	       CPU topology if such exist; otherwise, the automatically
-	       detected CPU topology if such exist. If no CPU topology
-	       exist <c>undefined</c> is returned.</p>
+	       to logical processors. The CPU topology used is the
+	       <seealso marker="erlang#system_info_cpu_topology_defined">user
+	       defined CPU topology</seealso> if such exists; otherwise, the
+	       <seealso marker="erlang#system_info_cpu_topology_detected">automatically
+	       detected CPU topology</seealso> if such exists. If no CPU topology
+	       exists, <c>undefined</c> is returned.</p>
             <p>Types:</p>
             <list type="bulleted">
               <item><c>CpuTopology = LevelEntryList | undefined</c></item>
@@ -5558,8 +5552,8 @@ true</pre>
           <item>
             <p>Returns the user defined <c>CpuTopology</c>. For more
 	       information see the documentation of
-	       <seealso marker="#system_flag_cpu_topology">erlang:system_flag(cpu_topology, CpuTopology)</seealso>
-               and the documentation of the
+	       the <c>erl</c> <seealso marker="erts:erl#+sct">+sct</seealso> command
+	       line flag, and the documentation of the
 	       <seealso marker="#system_info_cpu_topology">cpu_topology</seealso>
 	       argument.
 	    </p>
@@ -5637,7 +5631,7 @@ true</pre>
           <item>
             <p>Returns the value of the distribution buffer busy limit
 	    in bytes. This limit can be set on startup by passing the
-	    <seealso marker="erl#+zdbbl">+zdbbl</seealso> command line
+	    <seealso marker="erts:erl#+zdbbl">+zdbbl</seealso> command line
 	    flag to <c>erl</c>.</p>
           </item>
           <tag><c>fullsweep_after</c></tag>
@@ -5839,14 +5833,13 @@ true</pre>
 	    <p>Returns information on how user has requested
 	       schedulers to be bound or not bound.</p>
 	    <p><em>NOTE:</em> Even though user has requested
-	       schedulers to be bound via
-	       <seealso marker="#system_flag_scheduler_bind_type">erlang:system_flag(scheduler_bind_type, How)</seealso>,
-	       they might have silently failed to bind. In order to
-	       inspect actual scheduler bindings call
+	       schedulers to be bound, they might have silently failed
+	       to bind. In order to inspect actual scheduler bindings call
 	       <seealso marker="#system_info_scheduler_bindings">erlang:system_info(scheduler_bindings)</seealso>.
 	    </p>
 	    <p>For more information, see
-	       <seealso marker="#system_flag_scheduler_bind_type">erlang:system_flag(scheduler_bind_type, How)</seealso>, and
+	       the <c>erl</c> <seealso marker="erts:erl#+sbt">+sbt</seealso>
+	       command line argument, and
 	       <seealso marker="#system_info_scheduler_bindings">erlang:system_info(scheduler_bindings)</seealso>.
 	    </p>
           </item>
@@ -5869,7 +5862,8 @@ true</pre>
 	    <p>Note that only schedulers online can be bound to logical
 	       processors.</p>
 	    <p>For more information, see
-	       <seealso marker="#system_flag_scheduler_bind_type">erlang:system_flag(scheduler_bind_type, How)</seealso>,
+	       the <c>erl</c> <seealso marker="erts:erl#+sbt">+sbt</seealso>
+	       command line argument,
 	       <seealso marker="#system_info_schedulers_online">erlang:system_info(schedulers_online)</seealso>.
 	    </p>
           </item>

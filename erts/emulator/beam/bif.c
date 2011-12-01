@@ -4124,8 +4124,20 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 	if (is_value(res))
 	    BIF_RET(res);
     } else if (ERTS_IS_ATOM_STR("cpu_topology", BIF_ARG_1)) {
+	erts_send_warning_to_logger_str(
+	    BIF_P->group_leader,
+	    "A call to erlang:system_flag(cpu_topology, _) was made.\n"
+	    "The cpu_topology argument is deprecated and scheduled\n"
+	    "for removal in erts-5.10/OTP-R16. For more information\n"
+	    "see the erlang:system_flag/2 documentation.\n");
 	BIF_TRAP1(set_cpu_topology_trap, BIF_P, BIF_ARG_2);
     } else if (ERTS_IS_ATOM_STR("scheduler_bind_type", BIF_ARG_1)) {
+	erts_send_warning_to_logger_str(
+	    BIF_P->group_leader,
+	    "A call to erlang:system_flag(scheduler_bind_type, _) was\n"
+	    "made. The scheduler_bind_type argument is deprecated and\n"
+	    "scheduled for removal in erts-5.10/OTP-R16. For more\n"
+	    "information see the erlang:system_flag/2 documentation.\n");
 	return erts_bind_schedulers(BIF_P, BIF_ARG_2);
     }
     error:
