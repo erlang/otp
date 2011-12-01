@@ -63,7 +63,7 @@
 
 %%--------------------------------------------------------------------
 
--record(codeserver, {table_pid		              :: pid(),
+-record(codeserver, {table_pid		              :: ets:tid(),
                      exported_types      = sets:new() :: set(), % set(mfa())
                      temp_exported_types = sets:new() :: set(), % set(mfa())
 		     exports             = sets:new() :: set(), % set(mfa())
@@ -83,18 +83,28 @@
 -spec new() -> codeserver().
 
 new() ->
-  #codeserver{table_pid = table__new()}.
+  #codeserver{table_pid = ets:new(dialyzer_codeserver, [private, compressed])}.
 
 -spec delete(codeserver()) -> 'ok'.
 
 delete(#codeserver{table_pid = TablePid}) ->
-  table__delete(TablePid).
+  ets:delete(TablePid).
 
 -spec insert(atom(), cerl:c_module(), codeserver()) -> codeserver().
 
 insert(Mod, ModCode, CS) ->
-  NewTablePid = table__insert(CS#codeserver.table_pid, Mod, ModCode),
-  CS#codeserver{table_pid = NewTablePid}.
+  Name = cerl:module_name(ModCode),
+  Exports = cerl:module_exports(ModCode),
+  Attrs = cerl:module_attrs(ModCode),
+  Defs = cerl:module_defs(ModCode),
+  As = cerl:get_ann(ModCode),
+  Funs =
+    [{{Mod, cerl:fname_id(Var), cerl:fname_arity(Var)},
+      Val} || Val = {Var, _Fun} <- Defs],
+  Keys = [Key || {Key, _Value} <- Funs],
+  ets:insert(CS#codeserver.table_pid,
+	     [{Mod, {Name, Exports, Attrs, Keys, As}} | Funs]),
+  CS.
 
 -spec insert_temp_exported_types(set(), codeserver()) -> codeserver().
 
@@ -268,69 +278,9 @@ finalize_contracts(CnDict, CbDict, CS)  ->
 		temp_callbacks = dict:new()
 	       }.
 
-table__new() ->
-  spawn_link(fun() -> table__loop(none, dict:new()) end).
-
-table__delete(TablePid) ->
-  TablePid ! stop,
-  ok.
-
-table__lookup(TablePid, Key) ->
-  TablePid ! {self(), lookup, Key},
-  receive
-    {TablePid, Key, Ans} -> Ans
-  end.
-
-table__insert(TablePid, Key, Val) ->
-  TablePid ! {insert, [{Key, term_to_binary(Val, [compressed])}]},
-  TablePid.
-
-table__loop(Cached, Map) ->
-  receive
-    stop -> ok;
-    {Pid, lookup, {M, F, A} = MFA} ->
-      {NewCached, Ans} =
-	case Cached of
-	  {M, Tree} ->
-	    Val = find_fun(F, A, Tree),
-	    {Cached, Val};
-	  _ ->
-	    Tree = fetch_and_expand(M, Map),
-	    Val = find_fun(F, A, Tree),
-	    {{M, Tree}, Val}
-	end,
-      Pid ! {self(), MFA, Ans},
-      table__loop(NewCached, Map);
-    {Pid, lookup, Mod} when is_atom(Mod) ->
-      Ans = case Cached of
-	      {Mod, Tree} -> Tree;
-	      _ -> fetch_and_expand(Mod, Map)
-	    end,
-      Pid ! {self(), Mod, Ans},
-      table__loop({Mod, Ans}, Map);
-    {insert, List} ->
-      NewMap = lists:foldl(fun({Key, Val}, AccMap) ->
-			       dict:store(Key, Val, AccMap)
-			   end, Map, List),
-      table__loop(Cached, NewMap)
-  end.
-
-fetch_and_expand(Mod, Map) ->
-  try
-    Bin = dict:fetch(Mod, Map),
-    binary_to_term(Bin)
-  catch
-    _:_ ->
-      S = atom_to_list(Mod),
-      Msg = "found no module named '" ++ S ++ "' in the analyzed files",
-      exit({error, Msg})
-  end.
-
-find_fun(F, A, Tree) ->
-  Pred =
-    fun({Var, _Fun}) ->
-	(cerl:fname_id(Var) =/= F) orelse
-	  (cerl:fname_arity(Var) =/= A)
-    end,
-  [Val|_] = lists:dropwhile(Pred, cerl:module_defs(Tree)),
-  Val.
+table__lookup(TablePid, M) when is_atom(M) ->
+  {Name, Exports, Attrs, Keys, As} = ets:lookup_element(TablePid, M, 2),
+  Defs = [table__lookup(TablePid, Key) || Key <- Keys],
+  cerl:ann_c_module(As, Name, Exports, Attrs, Defs);
+table__lookup(TablePid, MFA) ->
+  ets:lookup_element(TablePid, MFA, 2).
