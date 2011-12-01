@@ -96,11 +96,12 @@ modules(Config) ->
     Help = [diameter_callback,
             diameter_codegen,
             diameter_dbg,
+            diameter_dict_parser,
+            diameter_dict_scanner,
+            diameter_dict_util,
             diameter_exprecs,
             diameter_info,
-            diameter_make,
-            diameter_spec_scan,
-            diameter_spec_util],
+            diameter_make],
     {[], Help} = {Mods -- Installed, lists:sort(Installed -- Mods)}.
 
 code_mods() ->
