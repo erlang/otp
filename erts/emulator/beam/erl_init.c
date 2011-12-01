@@ -111,7 +111,6 @@ Eterm erts_error_logger_warnings; /* What to map warning logs to, am_error,
 
 int erts_compat_rel;
 
-static int use_multi_run_queue;
 static int no_schedulers;
 static int no_schedulers_online;
 
@@ -254,8 +253,7 @@ erl_init(int ncpu)
     erts_init_time();
     erts_init_sys_common_misc();
     erts_init_process(ncpu);
-    erts_init_scheduling(use_multi_run_queue,
-			 no_schedulers,
+    erts_init_scheduling(no_schedulers,
 			 no_schedulers_online);
     erts_init_cpu_topology(); /* Must be after init_scheduling */
     erts_alloc_late_init();
@@ -613,7 +611,6 @@ early_init(int *argc, char **argv) /*
     size_t envbufsz;
 
     erts_sched_compact_load = 1;
-    use_multi_run_queue = 1;
     erts_printf_eterm_func = erts_printf_term;
     erts_disable_tolerant_timeofday = 0;
     display_items = 200;
@@ -1257,12 +1254,8 @@ erl_start(int argc, char **argv)
 		    erts_usage();
 		}
 	    }
-	    else if (sys_strcmp("mrq", sub_param) == 0)
-		use_multi_run_queue = 1;
 	    else if (sys_strcmp("nsp", sub_param) == 0)
 		erts_use_sender_punish = 0;
-	    else if (sys_strcmp("srq", sub_param) == 0)
-		use_multi_run_queue = 0;
 	    else if (sys_strcmp("wt", sub_param) == 0) {
 		arg = get_arg(sub_param+2, argv[i+1], &i);
 		if (erts_sched_set_wakeup_limit(arg) != 0) {

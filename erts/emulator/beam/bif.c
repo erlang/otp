@@ -870,8 +870,6 @@ BIF_RETTYPE spawn_opt_1(BIF_ALIST_1)
 		}
 	    } else if (arg == am_scheduler && is_small(val)) {
 		Sint scheduler = signed_val(val);
-		if (erts_common_run_queue && erts_no_schedulers > 1)
-		    goto error;
 		if (scheduler < 0 || erts_no_schedulers < scheduler)
 		    goto error;
 		so.scheduler = (int) scheduler;
@@ -1535,8 +1533,6 @@ BIF_RETTYPE process_flag_2(BIF_ALIST_2)
        ErtsRunQueue *old;
        ErtsRunQueue *new;
        Sint sched;
-       if (erts_common_run_queue && erts_no_schedulers > 1)
-	   goto error;
        if (!is_small(BIF_ARG_2))
 	   goto error;
        sched = signed_val(BIF_ARG_2);

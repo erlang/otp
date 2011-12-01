@@ -173,7 +173,6 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"pix_lock",				"address"		},
     {	"run_queues_lists",			NULL			},
     {	"sched_stat",				NULL			},
-    {	"run_queue_sleep_list",			"address"		},
 #endif
     {	"async_init_mtx",			NULL			},
 #ifdef ERTS_SMP
