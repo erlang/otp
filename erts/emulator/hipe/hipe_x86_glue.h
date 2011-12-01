@@ -62,6 +62,9 @@ static __inline__ void hipe_arch_glue_init(void)
 	.sdesc = {
 	    .bucket = { .hvalue = (unsigned long)nbif_return },
 	    .summary = (1<<8),
+	#ifdef DEBUG
+	    .dbg_F = am_return,
+	#endif
 	},
     };
     hipe_init_sdesc_table(&nbif_return_sdesc.sdesc);

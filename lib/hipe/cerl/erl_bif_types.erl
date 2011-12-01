@@ -2381,7 +2381,7 @@ arg_types(hipe_bifs, check_crc, 1) ->
 arg_types(hipe_bifs, enter_code, 2) ->
   [t_binary(), t_sup(t_nil(), t_tuple())];
 arg_types(hipe_bifs, enter_sdesc, 1) ->
-  [t_tuple([t_integer(), t_integer(), t_integer(), t_integer(), t_integer()])];
+  [t_tuple([t_integer(), t_integer(), t_integer(), t_integer(), t_integer(), t_mfa()])];
 arg_types(hipe_bifs, find_na_or_make_stub, 2) ->
   [t_mfa(), t_boolean()];
 arg_types(hipe_bifs, fun_to_address, 1) ->

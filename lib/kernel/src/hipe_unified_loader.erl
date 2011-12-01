@@ -503,7 +503,7 @@ patch_offset(Type, Data, Address, ConstAndZone, Addresses) ->
       Atom = Data,
       patch_atom(Address, Atom);
     sdesc ->
-      patch_sdesc(Data, Address, ConstAndZone);
+      patch_sdesc(Data, Address, ConstAndZone, Addresses);
     x86_abs_pcrel ->
       patch_instr(Address, Data, x86_abs_pcrel)
     %% _ ->
@@ -516,14 +516,16 @@ patch_atom(Address, Atom) ->
   patch_instr(Address, hipe_bifs:atom_to_word(Atom), atom).
 
 patch_sdesc(?STACK_DESC(SymExnRA, FSize, Arity, Live),
-	    Address, {_ConstMap2,CodeAddress}) ->
+	    Address, {_ConstMap2,CodeAddress}, _Addresses) ->
   ExnRA =
     case SymExnRA of
       [] -> 0; % No catch
       LabelOffset -> CodeAddress + LabelOffset
     end,
   ?ASSERT(assert_local_patch(Address)),
-  hipe_bifs:enter_sdesc({Address, ExnRA, FSize, Arity, Live}).
+  DBG_MFA = ?IF_DEBUG(address_to_mfa_lth(Address, _Addresses), {undefined,undefined,0}),
+  hipe_bifs:enter_sdesc({Address, ExnRA, FSize, Arity, Live, DBG_MFA}).
+
 
 %%----------------------------------------------------------------
 %% Handle a 'load_address'-type patch.

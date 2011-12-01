@@ -35,6 +35,10 @@ struct sdesc {
 	struct sdesc *next;	/* hash collision chain */
     } bucket;
     unsigned int summary; /* frame size, exn handler presence flag, arity */
+#ifdef DEBUG
+    Eterm dbg_M, dbg_F;
+    unsigned dbg_A;
+#endif
     unsigned int livebits[1]; /* size depends on arch & data in summary field */
 };
 
