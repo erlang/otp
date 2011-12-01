@@ -22,7 +22,8 @@
 
 -include_lib("snmp/src/app/snmp_internal.hrl").
 
--define(DEFAULT_LOCAL_ENGINE_ID, snmp_framework_mib:get_engine_id()).
+%% The DEFAULT_LOCAL_ENGINE_ID macro can only be used by the master_agent!!
+-define(DEFAULT_LOCAL_ENGINE_ID,  snmp_framework_mib:get_engine_id()). 
 -define(DEFAULT_NOTIF_EXTRA_INFO, {snmpa_default_notification_extra_info}).
 
 -define(snmpa_info(F, A),    ?snmp_info("agent",    F, A)).

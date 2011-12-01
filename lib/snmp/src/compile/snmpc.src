@@ -401,7 +401,6 @@ usage() ->
 e(Reason) ->
     throw({error, Reason}).
 
-
 otp_release() ->
     system_info(otp_release, string).
 
@@ -414,4 +413,3 @@ system_info(Tag, Type) ->
         Info ->
             lists:flatten(io_lib:format("~w", [Info]))
     end.
-

@@ -98,6 +98,83 @@
 
 
   <section>
+    <title>SNMP Development Toolkit 4.21.3</title>
+    <p>Version 4.21.3 supports code replacement in runtime from/to
+      version 4.21.2, 4.21.1, 4.21, 4.20.1, 4.20 and 4.19. </p>
+
+    <section>
+      <title>Improvements and new features</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>[compiler] Improved version info printout from the 
+	  <seealso marker="snmpc(command)#">MIB compiler frontend escript</seealso>. </p>
+          <p>Own Id: OTP-9618</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+<!--
+      <p>-</p> 
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>[agent] Version 4.20 introduced a change that broke trap 
+	  sending from subagents. Due to a bug in the test code, 
+	  this was not discovered, until that bug was fixed. </p>
+          <p>Own Id: OTP-9745</p>
+        </item>
+
+        <item>
+          <p>[agent] When sending an error message (reply) regarding 
+	  <c>snmpUnknownPDUHandlers</c>, the agent used the wrong OID. </p>
+          <p>Own Id: OTP-9747</p>
+        </item>
+
+        <item>
+          <p>[compiler] Fix the <c>--warnings/--W</c> option parsing in the 
+          <seealso marker="snmpc(command)#option_warnings">snmpc</seealso>
+          wrapper (e)script. 
+          The short warning option was incorrectly <c>--w</c>, instead
+          of as documented <c>--W</c>. This has now been corrected. </p>
+          <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Tuncer Ayaz</p>
+          <p>Own Id: OTP-9718</p>
+        </item>
+
+      </list>
+    </section>
+
+
+    <section>
+      <title>Incompatibilities</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>[compiler] The short warning option has been changed from 
+          <c>--w</c> to <c>--W</c> to comply with the documentation. </p>
+          <p>Tuncer Ayaz</p>
+          <p>Own Id: OTP-9718</p>
+        </item>
+
+      </list>
+    </section>
+
+  </section> <!-- 4.21.3 -->
+
+
+  <section>
     <title>SNMP Development Toolkit 4.21.2</title>
     <p>Version 4.21.2 supports code replacement in runtime from/to
       version 4.21.1, 4.21, 4.20.1, 4.20 and 4.19. </p>
