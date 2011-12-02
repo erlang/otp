@@ -66,7 +66,6 @@
 
 -include("diameter.hrl").
 -include("diameter_gen_base_rfc3588.hrl").
--include("diameter_ct.hrl").
 
 %% ===========================================================================
 

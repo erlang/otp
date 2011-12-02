@@ -46,7 +46,6 @@
 
 -include_lib("kernel/include/inet_sctp.hrl").
 -include("diameter.hrl").
--include("diameter_ct.hrl").
 
 -define(util, diameter_util).
 
