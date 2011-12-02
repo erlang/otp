@@ -1434,7 +1434,7 @@ static int
 read_literal_table(LoaderState* stp)
 {
     int i;
-    BeamInstr uncompressed_sz;
+    uLongf uncompressed_sz;
     byte* uncompressed = 0;
 
     GetInt(stp, 4, uncompressed_sz);
@@ -1444,7 +1444,7 @@ read_literal_table(LoaderState* stp)
 	LoadError0(stp, "failed to uncompress literal table (constant pool)");
     }
     stp->file_p = uncompressed;
-    stp->file_left = uncompressed_sz;
+    stp->file_left = (unsigned) uncompressed_sz;
     GetInt(stp, 4, stp->num_literals);
     stp->literals = (Literal *) erts_alloc(ERTS_ALC_T_LOADER_TMP,
 					   stp->num_literals * sizeof(Literal));
@@ -3500,7 +3500,6 @@ gen_jump_tab(LoaderState* stp, GenOpArg S, GenOpArg Fail, GenOpArg Size, GenOpAr
     }
     size = max - min + 1;
 
-
     /*
      * Allocate structure and fill in the fixed fields.
      */
@@ -3532,7 +3531,7 @@ gen_jump_tab(LoaderState* stp, GenOpArg S, GenOpArg Fail, GenOpArg Size, GenOpAr
 	op->a[i] = Fail;
     }
     for (i = 0; i < Size.val; i += 2) {
-	int index;
+	Sint index;
 	index = fixed_args+Rest[i].val-min;
 	ASSERT(fixed_args <= index && index < arity);
 	op->a[index] = Rest[i+1];

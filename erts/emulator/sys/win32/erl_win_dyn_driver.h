@@ -83,10 +83,10 @@ WDD_TYPEDEF(void *, driver_dl_open, (char *));
 WDD_TYPEDEF(void *, driver_dl_sym, (void *, char *));
 WDD_TYPEDEF(int, driver_dl_close, (void *));
 WDD_TYPEDEF(char *, driver_dl_error, (void));
-WDD_TYPEDEF(unsigned long, erts_alc_test, (unsigned long,
-					   unsigned long,
-					   unsigned long,
-					   unsigned long));
+WDD_TYPEDEF(ErlDrvUInt, erts_alc_test, (ErlDrvUInt,
+					ErlDrvUInt,
+					ErlDrvUInt,
+					ErlDrvUInt));
 WDD_TYPEDEF(ErlDrvSInt, driver_binary_get_refc, (ErlDrvBinary *dbp));
 WDD_TYPEDEF(ErlDrvSInt, driver_binary_inc_refc, (ErlDrvBinary *dbp));
 WDD_TYPEDEF(ErlDrvSInt, driver_binary_dec_refc, (ErlDrvBinary *dbp));

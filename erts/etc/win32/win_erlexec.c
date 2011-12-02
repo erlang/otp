@@ -30,6 +30,9 @@
 #include <winuser.h>
 #include <wincon.h>
 #include <process.h>
+#ifdef HAVE_CONFIG_H
+#  include "config.h"
+#endif
 #include "sys.h"
 #include "erl_driver.h"
 

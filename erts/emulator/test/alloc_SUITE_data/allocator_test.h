@@ -19,7 +19,7 @@
 #ifndef ALLOCATOR_TEST_H__
 #define ALLOCATOR_TEST_H__
 
-typedef unsigned long Ulong;
+typedef ErlDrvUInt Ulong;
 
 #ifndef __WIN32__
 Ulong erts_alc_test(Ulong, Ulong, Ulong, Ulong);

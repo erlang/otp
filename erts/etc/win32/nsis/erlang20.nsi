@@ -31,17 +31,24 @@ Var STARTMENU_FOLDER
 !define MY_STARTMENUPAGE_REGISTRY_VALUENAME "Start Menu Folder"
 
 ;General
-	OutFile "${OUTFILEDIR}\otp_win32_${OTP_VERSION}.exe"
+	OutFile "${OUTFILEDIR}\otp_${WINTYPE}_${OTP_VERSION}.exe"
 
 ;Folder selection page
+!if ${WINTYPE} == "win64"
+  	InstallDir "$PROGRAMFILES64\erl${ERTS_VERSION}"
+!else
   	InstallDir "$PROGRAMFILES\erl${ERTS_VERSION}"
-  
+!endif  
 ;Remember install folder
   	InstallDirRegKey HKLM "SOFTWARE\Ericsson\Erlang\${ERTS_VERSION}" ""
   
 ; Set the default start menu folder
 
+!if ${WINTYPE} == "win64"
+	!define MUI_STARTMENUPAGE_DEFAULTFOLDER "${OTP_PRODUCT} ${OTP_VERSION} (x64)"
+!else
 	!define MUI_STARTMENUPAGE_DEFAULTFOLDER "${OTP_PRODUCT} ${OTP_VERSION}"
+!endif  
 
 ;--------------------------------
 ;Modern UI Configuration
@@ -98,12 +105,12 @@ Var STARTMENU_FOLDER
 Section "Microsoft redistributable libraries." SecMSRedist
 
   	SetOutPath "$INSTDIR"
-	File "${TESTROOT}\vcredist_x86.exe"
+	File "${TESTROOT}\${REDIST_EXECUTABLE}"
   
 ; Set back verbosity...
   	!verbose 1
 ; Run the setup program  
-  	ExecWait '"$INSTDIR\vcredist_x86.exe"'
+  	ExecWait '"$INSTDIR\${REDIST_EXECUTABLE}"'
 
   	!verbose 1
 SectionEnd ; MSRedist

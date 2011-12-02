@@ -430,50 +430,24 @@ Well' here's the list:
     with wxErlang).
 
     Install or unpack it to `DRIVE:/PATH/cygwin/opt/local/pgm`.
-    Open from explorer (i.e. by double clicking the file)
-    `C:\cygwin\opt\local\pgm\wxMSW-2.8.11\build\msw\wx.dsw`
-    In Microsoft Visual Studio, click File/Open/File, locate and
-    open:  `C:\cygwin\opt\local\pgm\wxMSW-2.8.11\include\wx\msw\setup.h`
+
+    edit:  `C:\cygwin\opt\local\pgm\wxMSW-2.8.11\include\wx\msw\setup.h`
     enable `wxUSE_GLCANVAS`, `wxUSE_POSTSCRIPT` and `wxUSE_GRAPHICS_CONTEXT`
-    Build it by clicking Build/Batch Build and select all unicode release
-    (and unicode debug) packages.
 
-    Open `C:\cygwin\opt\local\pgm\wxMSW-2.8.11\contrib/build/stc/stc.dsw`
-    and batch build all unicode packages.
-
-    If you are using Visual C++ 9.0 or higher (Visual Studio 2008 onwards) you
-    will also need to convert and re-create the project dependencies in the new
-    .sln "Solution" format.
-
-    * Open VSC++ & the project  `wxMSW-2.8.11\build\msw\wx.dsw`, accepting the
-    automatic conversion to the newer VC++ format and save as
-    `\wxMSW-2.8.11\build\msw\wx.sln`
-
-    * right-click on the project, and set up the project dependencies for
-    `wx.dsw` to achieve the below build order
-
-            jpeg, png, tiff, zlib, regex, expat, base, net, odbc, core,
-            gl, html, media, qa, adv, dbgrid, xrc, aui, richtext, xml
-
-    Build all unicode release (and unicode debug) packages either from the
-    GUI or alternatively launch a new prompt from somewhere like Start ->
-    Programs -> Microsoft Visual C++ -> Visual Studio Tools -> VS2008 Cmd Prompt
-    and cd to where you unpacked wxMSW
-
-            pushd c:\wxMSW*\build\msw
-            vcbuild /useenv /platform:Win32 /M4 wx.sln "Unicode Release|Win32"
-            vcbuild /useenv /platform:Win32 /M4 wx.sln "Unicode Debug|Win32"
-
-    Open VSC++ & convert `C:\wxMSW-2.8.11\contrib\build\stc\stc.dsw` to
-    `C:\wxMSW-2.8.11\contrib\build\stc\stc.sln`
-
-    * build the unicode release (and unicode debug) packages from the GUI or
-    alternatively open a VS2008 Cmd Prompt and cd to where you unpacked wxMSW
-
-            pushd c:\wxMSW*\contrib\build\stc
-            vcbuild /useenv /platform:Win32 /M4 stc.sln "Unicode Release|Win32"
-            vcbuild /useenv /platform:Win32 /M4 stc.sln "Unicode Debug|Win32"
-
+    build: From a command prompt with the VC tools available (usually started from a
+           shortcut installed by the SDK/Visual Studio):
+	   
+	   `cd C:\cygwin\opt\local\pgm\wxMSW-2.8.11\build\msw`
+	   `nmake BUILD=release SHARED=0 UNICODE=1 USE_OPENGL=1 USE_GDIPLUS=1 DIR_SUFFIX_CPU= -f makefile.vc`
+	   `cd C:\cygwin\opt\local\pgm\wxMSW-2.8.11\contrib\build\stc`
+	   `nmake BUILD=release SHARED=0 UNICODE=1 USE_OPENGL=1 USE_GDIPLUS=1 DIR_SUFFIX_CPU= -f makefile.vc`
+    
+    Or - if building a 64bit version:
+	   `cd C:\cygwin\opt\local\pgm\wxMSW-2.8.11\build\msw`
+	   `nmake TARGET_CPU=amd64 BUILD=release SHARED=0 UNICODE=1 USE_OPENGL=1 USE_GDIPLUS=1 DIR_SUFFIX_CPU= -f makefile.vc`
+	   `cd C:\cygwin\opt\local\pgm\wxMSW-2.8.11\contrib\build\stc`
+	   `nmake TARGET_CPU=amd64 BUILD=release SHARED=0 UNICODE=1 USE_OPENGL=1 USE_GDIPLUS=1 DIR_SUFFIX_CPU= -f makefile.vc`
+    	   
 *   The Erlang source distribution (from <http://www.erlang.org/download.html>).
     The same as for Unix platforms. Preferably use tar from within Cygwin to
     unpack the source tar.gz (`tar zxf otp_src_%OTP-REL%.tar.gz`).

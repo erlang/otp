@@ -18,6 +18,9 @@
  */
 /* Float conversions */
 
+#ifdef HAVE_CONFIG_H
+#  include "config.h"
+#endif
 #include "sys.h"
 #include "signal.h"
 

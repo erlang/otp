@@ -345,8 +345,13 @@ static int test_double(ErlNifEnv* env, double d1)
 
 #define TAG_BITS        4
 #define SMALL_BITS	(sizeof(void*)*8 - TAG_BITS)
+#ifdef _WIN64
+#define MAX_SMALL	((1LL << (SMALL_BITS-1))-1)
+#define MIN_SMALL	(-(1LL << (SMALL_BITS-1)))
+#else
 #define MAX_SMALL	((1L << (SMALL_BITS-1))-1)
 #define MIN_SMALL	(-(1L << (SMALL_BITS-1)))
+#endif
 
 static ERL_NIF_TERM type_test(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {

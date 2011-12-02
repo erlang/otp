@@ -3117,10 +3117,10 @@ void *safe_realloc(void *ptr, Uint sz)
 \*                                                                           */
 #define ERTS_ALC_TEST_ABORT erl_exit(ERTS_ABORT_EXIT, "%s:%d: Internal error\n")
 
-unsigned long erts_alc_test(unsigned long op,
-			    unsigned long a1,
-			    unsigned long a2,
-			    unsigned long a3)
+UWord erts_alc_test(UWord op,
+			    UWord a1,
+			    UWord a2,
+			    UWord a3)
 {
     switch (op >> 8) {
     case 0x0:	return erts_alcu_test(op,  a1, a2);
@@ -3134,24 +3134,24 @@ unsigned long erts_alc_test(unsigned long op,
 	case 0xf00:
 #ifdef USE_THREADS
 	    if (((Allctr_t *) a1)->thread_safe)
-		return (unsigned long) erts_alcu_alloc_ts(ERTS_ALC_T_UNDEF,
+		return (UWord) erts_alcu_alloc_ts(ERTS_ALC_T_UNDEF,
 							  (void *) a1,
 							  (Uint) a2);
 	    else
 #endif
-		return (unsigned long) erts_alcu_alloc(ERTS_ALC_T_UNDEF,
+		return (UWord) erts_alcu_alloc(ERTS_ALC_T_UNDEF,
 						       (void *) a1,
 						       (Uint) a2);
 	case 0xf01:
 #ifdef USE_THREADS
 	    if (((Allctr_t *) a1)->thread_safe)
-		return (unsigned long) erts_alcu_realloc_ts(ERTS_ALC_T_UNDEF,
+		return (UWord) erts_alcu_realloc_ts(ERTS_ALC_T_UNDEF,
 							    (void *) a1,
 							    (void *) a2,
 							    (Uint) a3);
 	    else
 #endif
-		return (unsigned long) erts_alcu_realloc(ERTS_ALC_T_UNDEF,
+		return (UWord) erts_alcu_realloc(ERTS_ALC_T_UNDEF,
 							 (void *) a1,
 							 (void *) a2,
 							 (Uint) a3);
@@ -3181,7 +3181,7 @@ unsigned long erts_alc_test(unsigned long op,
 		    if (argv[i][0] == '-' && argv[i][1] == 't')
 			handle_au_arg(&init, &argv[i][2], argv, &i);
 		    else
-			return (unsigned long) NULL;
+			return (UWord) NULL;
 		    i++;
 		}
 	    }
@@ -3222,25 +3222,25 @@ unsigned long erts_alc_test(unsigned long op,
 		break;
 	    }
 
-	    return (unsigned long) allctr;
+	    return (UWord) allctr;
 	}
 	case 0xf04:
 	    erts_alcu_stop((Allctr_t *) a1);
 	    erts_free(ERTS_ALC_T_UNDEF, (void *) a1);
 	    break;
 #ifdef USE_THREADS
-	case 0xf05: return (unsigned long) 1;
-	case 0xf06: return (unsigned long) ((Allctr_t *) a1)->thread_safe;
+	case 0xf05: return (UWord) 1;
+	case 0xf06: return (UWord) ((Allctr_t *) a1)->thread_safe;
 #ifdef ETHR_NO_FORKSAFETY
-	case 0xf07: return (unsigned long) 0;
+	case 0xf07: return (UWord) 0;
 #else
-	case 0xf07: return (unsigned long) ((Allctr_t *) a1)->thread_safe;
+	case 0xf07: return (UWord) ((Allctr_t *) a1)->thread_safe;
 #endif
 	case 0xf08: {
 	    ethr_mutex *mtx = erts_alloc(ERTS_ALC_T_UNDEF, sizeof(ethr_mutex));
 	    if (ethr_mutex_init(mtx) != 0)
 		ERTS_ALC_TEST_ABORT;
-	    return (unsigned long) mtx;
+	    return (UWord) mtx;
 	}
 	case 0xf09: {
 	    ethr_mutex *mtx = (ethr_mutex *) a1;
@@ -3259,7 +3259,7 @@ unsigned long erts_alc_test(unsigned long op,
 	    ethr_cond *cnd = erts_alloc(ERTS_ALC_T_UNDEF, sizeof(ethr_cond));
 	    if (ethr_cond_init(cnd) != 0)
 		ERTS_ALC_TEST_ABORT;
-	    return (unsigned long) cnd;
+	    return (UWord) cnd;
 	}
 	case 0xf0d: {
 	    ethr_cond *cnd = (ethr_cond *) a1;
@@ -3285,7 +3285,7 @@ unsigned long erts_alc_test(unsigned long op,
 				(void *) a2,
 				NULL) != 0)
 		ERTS_ALC_TEST_ABORT;
-	    return (unsigned long) tid;
+	    return (UWord) tid;
 	}
 	case 0xf11: {
 	    ethr_tid *tid = (ethr_tid *) a1;
@@ -3302,13 +3302,13 @@ unsigned long erts_alc_test(unsigned long op,
 	default:
 	    break;
 	}
-	return (unsigned long) 0;
+	return (UWord) 0;
     default:
 	break;
     }
 
     ASSERT(0);
-    return ~((unsigned long) 0);
+    return ~((UWord) 0);
 }
 
 #ifdef DEBUG
@@ -3544,7 +3544,7 @@ check_memory_fence(void *ptr, Uint *size, ErtsAlcType_t n, int func)
 	    erl_exit(ERTS_ABORT_EXIT,
 		     "ERROR: Fence at beginning of memory block (p=0x%u) "
 		     "clobbered.\n",
-		     (unsigned long) ptr);
+		     (UWord) ptr);
     }
 
     memcpy((void *) &post_pattern, (void *) (((char *)ptr)+sz), sizeof(UWord));
@@ -3561,12 +3561,12 @@ check_memory_fence(void *ptr, Uint *size, ErtsAlcType_t n, int func)
 	    erl_exit(ERTS_ABORT_EXIT,
 		     "ERROR: Fence at end of memory block (p=0x%u, sz=%u) "
 		     "clobbered.\n",
-		     (unsigned long) ptr, (unsigned long) sz);
+		     (UWord) ptr, (UWord) sz);
 	if (found_type != GET_TYPE_OF_PATTERN(post_pattern))
 	    erl_exit(ERTS_ABORT_EXIT,
 		     "ERROR: Fence around memory block (p=0x%u, sz=%u) "
 		     "clobbered.\n",
-		     (unsigned long) ptr, (unsigned long) sz);
+		     (UWord) ptr, (UWord) sz);
 
 	ftype = type_no_str(found_type);
 	if (!ftype) {
@@ -3589,7 +3589,7 @@ check_memory_fence(void *ptr, Uint *size, ErtsAlcType_t n, int func)
 	erl_exit(ERTS_ABORT_EXIT,
 		 "ERROR: Memory block (p=0x%u, sz=%u) allocated as type \"%s\","
 		 " but %s as type \"%s\".\n",
-		 (unsigned long) ptr, (unsigned long) sz, ftype, op_str, otype);
+		 (UWord) ptr, (UWord) sz, ftype, op_str, otype);
     }
 
 #ifdef HARD_DEBUG

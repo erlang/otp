@@ -1391,7 +1391,7 @@ Eterm *erts_inc_alloc(int need)
     if (ma_gc_flags & GC_MAJOR) {
         if (need > 254) {
             blackmap[(Eterm*)this - global_old_heap] = 255;
-            *(int*)((long)(&blackmap[(Eterm*)this - global_old_heap]+4) & ~3) =
+            *(int*)((UWord)(&blackmap[(Eterm*)this - global_old_heap]+4) & ~3) =
                 need;
         } else
             blackmap[(Eterm*)this - global_old_heap] = need;

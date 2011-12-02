@@ -110,8 +110,7 @@ local_setup:
 		cp $(ERL_TOP)/bin/$(TARGET)/escript.exe $(ERL_TOP)/bin/escript.exe; \
 	 	chmod 755 $(ERL_TOP)/bin/erl.exe $(ERL_TOP)/bin/erlc.exe \
 			 $(ERL_TOP)/bin/werl.exe; \
-		$(ERL_TOP)/erts/etc/win32/cygwin_tools/make_local_ini.sh \
-			$(ERL_TOP); \
+		make_local_ini.sh $(ERL_TOP); \
 	else \
 	sed	-e "s;%FINAL_ROOTDIR%;$(ERL_TOP);"   \
 		-e "s;erts-.*/bin;bin/$(TARGET);"    \

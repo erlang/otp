@@ -65,7 +65,6 @@ remove_path_element()
     else
 	echo "${ACC}/$1"
     fi
-
     #echo "ACC=$ACC" >&2
     #echo "1=$1" >&2
 }
@@ -89,20 +88,39 @@ add_path_element()
     echo "$PA"
 }
 
+
 CLPATH=`lookup_prog_in_path cl`
 
 if [ -z "$CLPATH" ]; then 
-    echo "Can not locate cl.exe and vcredist_x86.exe - OK if using mingw" >&2
+    echo "Can not locate cl.exe and vcredist_x86/x64.exe - OK if using mingw" >&2
     exit 1
 fi
 
-#echo $CLPATH
+# Look to see if it's 64bit
+XX=`remove_path_element cl "$CLPATH"`
+YY=`remove_path_element amd64 "$XX"`
+if [ "$YY" != "$XX" ]; then
+    AMD64DIR=true
+    VCREDIST=vcredist_x64
+    COMPONENTS="cl amd64 bin vc"
+else
+    AMD64DIR=false
+    VCREDIST=vcredist_x86
+    COMPONENTS="cl bin vc"
+fi
+
+if [ X"$1" = X"-n" ]; then
+    echo $VCREDIST.exe
+    exit 0
+fi
+
+# echo $CLPATH
 BPATH=$CLPATH
-for x in cl bin vc; do
-    #echo $x
+for x in $COMPONENTS; do
+    # echo $x
     NBPATH=`remove_path_element $x "$BPATH"`
     if [ "$NBPATH" = "$BPATH" ]; then
-	echo "Failed to locate vcredist_x86.exe because cl.exe was in an unexpected location" >&2
+	echo "Failed to locate $VCREDIST.exe because cl.exe was in an unexpected location" >&2
 	exit 2
     fi
     BPATH="$NBPATH"
@@ -115,7 +133,12 @@ fail=false
 if [ '!' -z "$RCPATH" ]; then 
     BPATH=$RCPATH
     allow_fail=false
-    for x in rc bin @ANY v6.0A v7.0A v7.1; do
+    if [ $AMD64DIR = true ]; then
+	COMPONENTS="rc x64 bin @ANY v6.0A v7.0A v7.1"
+    else
+	COMPONENTS="rc bin @ANY v6.0A v7.0A v7.1"
+    fi
+    for x in $COMPONENTS; do
 	if [ $x = @ANY ]; then
 	    allow_fail=true
 	else
@@ -131,6 +154,7 @@ if [ '!' -z "$RCPATH" ]; then
 	BPATH_LIST="$BPATH_LIST $BPATH"
     fi
 fi
+# echo "BPATH_LIST=$BPATH_LIST"
 
 # Frantic search through two roots with different 
 # version directories. We want to be very specific about the
@@ -143,7 +167,7 @@ for BP in $BPATH_LIST; do
 	BPATH=$BP
 	fail=false
 	allow_fail=false
-	for x in $verdir @ANY bootstrapper packages vcredist_x86 Redist VC @ALL vcredist_x86.exe; do
+	for x in $verdir @ANY bootstrapper packages $VCREDIST Redist VC @ALL $VCREDIST.exe; do
 	    #echo "x=$x"
 	    #echo "BPATH=$BPATH"
 	    #echo "allow_fail=$allow_fail"
@@ -170,18 +194,18 @@ for BP in $BPATH_LIST; do
     fi
 done
 
-# shortcut for locating vcredist_x86.exe is to put it into $ERL_TOP
-if [ -f $ERL_TOP/vcredist_x86.exe ]; then
-    echo $ERL_TOP/vcredist_x86.exe
+# shortcut for locating $VCREDIST.exe is to put it into $ERL_TOP
+if [ -f $ERL_TOP/$VCREDIST.exe ]; then
+    echo $ERL_TOP/$VCREDIST.exe
     exit 0
 fi
 
 # or $ERL_TOP/.. to share across multiple builds
-if [ -f $ERL_TOP/../vcredist_x86.exe ]; then
-    echo $ERL_TOP/../vcredist_x86.exe
+if [ -f $ERL_TOP/../$VCREDIST.exe ]; then
+    echo $ERL_TOP/../$VCREDIST.exe
     exit 0
 fi
 
-echo "Failed to locate vcredist_x86.exe because directory structure was unexpected" >&2
+echo "Failed to locate $VCREDIST.exe because directory structure was unexpected" >&2
 exit 3
 

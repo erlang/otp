@@ -52,7 +52,7 @@ BIF_RETTYPE abs_1(BIF_ALIST_1)
     /* integer arguments */
     if (is_small(BIF_ARG_1)) {
 	i0 = signed_val(BIF_ARG_1);
-	i = labs(i0);
+	i = ERTS_SMALL_ABS(i0);
 	if (i0 == MIN_SMALL) {
 	    hp = HAlloc(BIF_P, BIG_UINT_HEAP_SIZE);
 	    BIF_RET(uint_to_big(i, hp));
@@ -467,7 +467,7 @@ Eterm erts_gc_abs_1(Process* p, Eterm* reg, Uint live)
     /* integer arguments */
     if (is_small(arg)) {
 	i0 = signed_val(arg);
-	i = labs(i0);
+	i = ERTS_SMALL_ABS(i0);
 	if (i0 == MIN_SMALL) {
 	    if (ERTS_NEED_GC(p, BIG_UINT_HEAP_SIZE)) {
 		erts_garbage_collect(p, BIG_UINT_HEAP_SIZE, reg, live+1);

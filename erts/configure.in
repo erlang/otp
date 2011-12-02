@@ -383,12 +383,6 @@ case $host_os in
 	# The ethread library requires _WIN32_WINNT of at least 0x0403.
 	# -D_WIN32_WINNT=* from CPPFLAGS is saved in ETHR_DEFS.
 	CPPFLAGS="$CPPFLAGS -D_WIN32_WINNT=0x0500 -DWINVER=0x0500"
-	# _USE_32BIT_TIME_T is needed when using VC++ 2005 (ctime() will fail
-	# otherwise since we pass it a 32-bit value).
-	#
-	# FIXME: Use time_t all the way and remove _USE_32BIT_TIME_T.
-	AC_MSG_WARN([Reverting to 32-bit time_t])
-	CPPFLAGS="$CPPFLAGS -D_USE_32BIT_TIME_T"
 	;;
     darwin*)
         CPPFLAGS="$CPPFLAGS -D_XOPEN_SOURCE"
@@ -398,53 +392,7 @@ case $host_os in
 esac
 
 
-
-MIXED_CYGWIN=no
-
-AC_MSG_CHECKING(for mixed cygwin and native VC++ environment)
-if test "X$host" = "Xwin32" -a "x$GCC" != x"yes"; then
-	if test -x /usr/bin/cygpath; then
-		CFLAGS="-O2"
-		MIXED_CYGWIN=yes
-		AC_MSG_RESULT([yes])
-		MIXED_CYGWIN_VC=yes
-		CPPFLAGS="$CPPFLAGS -DERTS_MIXED_CYGWIN_VC"
-	else
-		AC_MSG_RESULT([undeterminable])
-		AC_MSG_ERROR(Seems to be mixed windows but not with cygwin, cannot handle this!)
-	fi
-else
-	AC_MSG_RESULT([no])
-	MIXED_CYGWIN_VC=no
-fi
-AC_SUBST(MIXED_CYGWIN_VC)
-
-AC_MSG_CHECKING(for mixed cygwin and native MinGW environment)
-if test "X$host" = "Xwin32" -a "x$GCC" = x"yes"; then
-	if test -x /usr/bin/cygpath; then
-		CFLAGS="-O2"
-		MIXED_CYGWIN=yes
-		AC_MSG_RESULT([yes])
-		MIXED_CYGWIN_MINGW=yes
-		CPPFLAGS="$CPPFLAGS -DERTS_MIXED_CYGWIN_MINGW"
-	else
-		AC_MSG_RESULT([undeterminable])
-		AC_MSG_ERROR(Seems to be mixed windows but not with cygwin, cannot handle this!)
-	fi
-else
-	AC_MSG_RESULT([no])
-	MIXED_CYGWIN_MINGW=no
-fi
-AC_SUBST(MIXED_CYGWIN_MINGW)
-
-AC_MSG_CHECKING(if we mix cygwin with any native compiler)
-if test "X$MIXED_CYGWIN" = "Xyes" ; then
-	AC_MSG_RESULT([yes])	
-else
-	AC_MSG_RESULT([no])
-fi
-
-AC_SUBST(MIXED_CYGWIN)
+LM_WINDOWS_ENVIRONMENT
 	
 dnl
 dnl Flags to the C compiler
@@ -2584,7 +2532,7 @@ static void new_fp_exception(void)
  * Implement unmask_fpe() and check_fpe() based on CPU/OS combination
  */
 
-#if (defined(__i386__) || defined(__x86_64__)) && defined(__GNUC__) && !defined(__CYGWIN__)
+#if (defined(__i386__) || defined(__x86_64__)) && defined(__GNUC__) && !defined(__CYGWIN__) && !defined(__MINGW32__)
 
 static void unmask_x87(void)
 {
@@ -3637,7 +3585,7 @@ elif test "x$with_ssl_zlib" = "xyes" || test "x$with_ssl_zlib" = "x"; then
 		AC_MSG_WARN([Cannot search for zlib; missing cross system root (erl_xcomp_sysroot).])
 		SSL_LINK_WITH_ZLIB=no	
 		STATIC_ZLIB_LIBS=	
-	elif  test "x$MIXED_CYGWIN" = "xyes"; then
+	elif  test "x$MIXED_CYGWIN" = "xyes" -o "x$MIXED_MSYS" = "xyes"; then
 		SSL_LINK_WITH_ZLIB=no	
 		STATIC_ZLIB_LIBS=	
 	else
@@ -3749,21 +3697,42 @@ case "$erl_xcomp_without_sysroot-$with_ssl" in
     	AC_CHECK_PROG(REGTOOL, regtool, regtool, false)
 	if test "$ac_cv_prog_REGTOOL" != false; then
 		wrp="/machine/software/microsoft/windows/currentversion/"
-		urp="uninstall/openssl_is1/inno setup: app path"
-		rp="$wrp$urp"
-		if regtool -q get "$rp" > /dev/null; then
-		   true
+	   	if test "x$ARCH" = "xamd64"; then
+		   urp="uninstall/openssl (64-bit)_is1/inno setup: app path"
+		   regtool_subsystem=-w
 		else
 		   urp="uninstall/openssl (32-bit)_is1/inno setup: app path"
+		   regtool_subsystem=-W
+		fi	
+		rp="$wrp$urp"
+		if regtool -q $regtool_subsystem get "$rp" > /dev/null; then
+		   true
+		else
+		   # Fallback to unspecified wordlength
+		   urp="uninstall/openssl_is1/inno setup: app path"
 		   rp="$wrp$urp"
 		fi	
-		if regtool -q get "$rp" > /dev/null; then
-			ssl_install_dir=`regtool -q get "$rp"`
+		if regtool -q $regtool_subsystem get "$rp" > /dev/null; then
+			ssl_install_dir=`regtool -q $regtool_subsystem get "$rp"`
 			# Try hard to get rid of spaces...
 			if cygpath -d "$ssl_install_dir" > /dev/null 2>&1; then
 				ssl_install_dir=`cygpath -d "$ssl_install_dir"`
 			fi
 			extra_dir=`cygpath $ssl_install_dir`
+		fi
+	fi
+    elif test "x$MIXED_MSYS" = "xyes"; then
+    	AC_CHECK_PROG(REGTOOL, reg_query.sh, reg_query.sh, false)
+	if test "$ac_cv_prog_REGTOOL" != false; then
+	   	if test "x$ARCH" = "xamd64"; then
+		   rp="HKLM/SOFTWARE/Microsoft/Windows/CurrentVersion/Uninstall/OpenSSL (64-bit)_is1"
+		else
+		   rp="HKLM/SOFTWARE/Microsoft/Windows/CurrentVersion/Uninstall/OpenSSL_is1"
+		fi	
+		key="Inno Setup: App Path"
+		if "$ac_cv_prog_REGTOOL" "$rp" "$key" > /dev/null; then
+			ssl_install_dir=`"$ac_cv_prog_REGTOOL" "$rp" "$key"`
+			extra_dir=`win2msys_path.sh "$ssl_install_dir"`
 		fi
 	fi
     fi
@@ -3774,14 +3743,25 @@ case "$erl_xcomp_without_sysroot-$with_ssl" in
 
     SSL_CRYPTO_LIBNAME=crypto
     SSL_SSL_LIBNAME=ssl
+    
+    if  test "x$MIXED_CYGWIN" = "xyes" -o "x$MIXED_MSYS" = "xyes"; then
+    	if test "x$ARCH" = "xamd64"; then
+	  std_win_ssl_locations="/cygdrive/c/OpenSSL-Win64 /c/OpenSSL-Win64 /opt/local64/pgm/OpenSSL"
+	else
+	  std_win_ssl_locations="/cygdrive/c/OpenSSL-Win32 /c/OpenSSL-Win32 /cygdrive/c/OpenSSL /c/OpenSSL /opt/local/pgm/OpenSSL"
+	fi
+    else
+        std_win_ssl_locations=""
+    fi
+
 
     AC_MSG_CHECKING(for OpenSSL >= 0.9.7 in standard locations)
-    for rdir in $extra_dir /cygdrive/c/OpenSSL $std_ssl_locations; do
+    for rdir in $extra_dir $std_win_ssl_locations $std_ssl_locations; do
 	dir="$erl_xcomp_sysroot$rdir"
 	if test -f "$erl_xcomp_isysroot$rdir/include/openssl/opensslv.h"; then
 		is_real_ssl=yes
 		SSL_ROOT="$dir"
-		if test "x$MIXED_CYGWIN" = "xyes" ; then
+		if test "x$MIXED_CYGWIN" = "xyes" -o "x$MIXED_MSYS" = "xyes"; then
 			if test -f "$dir/lib/VC/libeay32.lib"; then
 				SSL_RUNTIME_LIBDIR="$rdir/lib/VC"
 				SSL_LIBDIR="$dir/lib/VC"
@@ -3856,7 +3836,7 @@ case "$erl_xcomp_without_sysroot-$with_ssl" in
          		])
          		CPPFLAGS=$old_CPPFLAGS
 			if test "x$ssl_found" = "xyes"; then
-			   	if test "x$MIXED_CYGWIN" = "xyes" ; then
+			   	if test "x$MIXED_CYGWIN" = "xyes" -o "x$MIXED_MSYS" = "xyes"; then
 				   	ssl_linkable=yes
 				else
 					saveCFLAGS="$CFLAGS"
@@ -3968,7 +3948,7 @@ dnl		so it is - be adoptable
     SSL_ROOT="$with_ssl"
     SSL_CRYPTO_LIBNAME=crypto
     SSL_SSL_LIBNAME=ssl
-    if test "x$MIXED_CYGWIN" = "xyes" && test -d "$with_ssl/lib/VC"; then
+    if test "x$MIXED_CYGWIN" = "xyes" -o "x$MIXED_MSYS" = "xyes" && test -d "$with_ssl/lib/VC"; then
 	if test -f "$with_ssl/lib/VC/libeay32.lib"; then
 	    SSL_LIBDIR="$with_ssl/lib/VC"
 	    SSL_CRYPTO_LIBNAME=libeay32

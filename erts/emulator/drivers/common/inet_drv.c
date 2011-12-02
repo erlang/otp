@@ -110,6 +110,77 @@
 #undef EWOULDBLOCK
 #undef ETIMEDOUT
 
+#ifdef EINPROGRESS
+#undef EINPROGRESS
+#endif
+#ifdef EALREADY
+#undef EALREADY
+#endif
+#ifdef ENOTSOCK
+#undef ENOTSOCK
+#endif
+#ifdef EDESTADDRREQ
+#undef EDESTADDRREQ
+#endif
+#ifdef EMSGSIZE
+#undef EMSGSIZE
+#endif
+#ifdef EPROTOTYPE
+#undef EPROTOTYPE
+#endif
+#ifdef ENOPROTOOPT
+#undef ENOPROTOOPT
+#endif
+#ifdef EPROTONOSUPPORT
+#undef EPROTONOSUPPORT
+#endif
+#ifdef EOPNOTSUPP
+#undef EOPNOTSUPP
+#endif
+#ifdef EAFNOSUPPORT
+#undef EAFNOSUPPORT
+#endif
+#ifdef EADDRINUSE
+#undef EADDRINUSE
+#endif
+#ifdef EADDRNOTAVAIL
+#undef EADDRNOTAVAIL
+#endif
+#ifdef ENETDOWN
+#undef ENETDOWN
+#endif
+#ifdef ENETUNREACH
+#undef ENETUNREACH
+#endif
+#ifdef ENETRESET
+#undef ENETRESET
+#endif
+#ifdef ECONNABORTED
+#undef ECONNABORTED
+#endif
+#ifdef ECONNRESET
+#undef ECONNRESET
+#endif
+#ifdef ENOBUFS
+#undef ENOBUFS
+#endif
+#ifdef EISCONN
+#undef EISCONN
+#endif
+#ifdef ENOTCONN
+#undef ENOTCONN
+#endif
+#ifdef ECONNREFUSED
+#undef ECONNREFUSED
+#endif
+#ifdef ELOOP
+#undef ELOOP
+#endif
+#ifdef EHOSTUNREACH
+#undef EHOSTUNREACH
+#endif
+
+
 #define HAVE_MULTICAST_SUPPORT
 
 #define ERRNO_BLOCK             WSAEWOULDBLOCK

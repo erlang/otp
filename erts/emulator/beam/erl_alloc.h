@@ -80,10 +80,10 @@ void erts_alloc_late_init(void);
 
 #if defined(GET_ERTS_ALC_TEST) || defined(ERTS_ALC_INTERNAL__)
 /* Only for testing */
-unsigned long erts_alc_test(unsigned long,
-			    unsigned long,
-			    unsigned long,
-			    unsigned long);
+UWord erts_alc_test(UWord,
+		    UWord,
+		    UWord,
+		    UWord);
 #endif
 
 #define ERTS_ALC_O_ALLOC		0

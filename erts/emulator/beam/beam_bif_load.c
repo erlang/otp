@@ -578,7 +578,7 @@ check_process_code(Process* rp, Module* modp)
 }
 
 #define in_area(ptr,start,nbytes) \
-    ((unsigned long)((char*)(ptr) - (char*)(start)) < (nbytes))
+    ((UWord)((char*)(ptr) - (char*)(start)) < (nbytes))
 
 static int
 any_heap_ref_ptrs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size)

@@ -25,6 +25,9 @@
 #include <windows.h>
 
 #define GET_ERTS_ALC_TEST
+#ifdef HAVE_CONFIG_H
+#  include "config.h"
+#endif
 #include "sys.h"
 #include "global.h"
 #include "erl_alloc.h"

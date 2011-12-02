@@ -20,6 +20,9 @@
  * Purpose: System-dependent time functions.
  */
 
+#ifdef HAVE_CONFIG_H
+#  include "config.h"
+#endif
 #include "sys.h"
 #include "assert.h"
 

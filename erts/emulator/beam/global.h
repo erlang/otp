@@ -172,7 +172,7 @@ struct port {
     DistEntry *dist_entry;       /* Dist entry used in DISTRIBUTION */
     char *name;		         /* String used in the open */
     erts_driver_t* drv_ptr;
-    long drv_data;
+    UWord drv_data;
     ErtsProcList *suspended;	 /* List of suspended processes. */
     LineBuf *linebuf;            /* Buffer to hold data not ready for
 				    process to get (line oriented I/O)*/
@@ -398,7 +398,7 @@ extern Eterm erts_ddll_monitor_driver(Process *p,
 
 typedef struct binary {
     ERTS_INTERNAL_BINARY_FIELDS
-    long orig_size;
+    SWord orig_size;
     char orig_bytes[1]; /* to be continued */
 } Binary;
 
@@ -407,7 +407,7 @@ typedef struct binary {
 
 typedef struct {
     ERTS_INTERNAL_BINARY_FIELDS
-    long orig_size;
+    SWord orig_size;
     void (*destructor)(Binary *);
     char magic_bin_data[1];
 } ErtsMagicBinary;

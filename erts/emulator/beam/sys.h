@@ -221,7 +221,8 @@ int real_printf(const char *fmt, ...);
 */
 
 #if !((SIZEOF_VOID_P >= 4) && (SIZEOF_VOID_P == SIZEOF_SIZE_T) \
-      && ((SIZEOF_VOID_P == SIZEOF_INT) || (SIZEOF_VOID_P == SIZEOF_LONG)))
+      && ((SIZEOF_VOID_P == SIZEOF_INT) || (SIZEOF_VOID_P == SIZEOF_LONG) || \
+          (SIZEOF_VOID_P == SIZEOF_LONG_LONG)))
 #error Cannot handle this combination of int/long/void*/size_t sizes
 #endif
 
@@ -262,9 +263,18 @@ typedef int          Sint;
 #if SIZEOF_VOID_P == SIZEOF_LONG
 typedef unsigned long UWord;
 typedef long          SWord;
+#define SWORD_CONSTANT(Const) Const##L
+#define UWORD_CONSTANT(Const) Const##UL
 #elif SIZEOF_VOID_P == SIZEOF_INT
 typedef unsigned int UWord;
 typedef int          SWord;
+#define SWORD_CONSTANT(Const) Const
+#define UWORD_CONSTANT(Const) Const##U
+#elif SIZEOF_VOID_P == SIZEOF_LONG_LONG
+typedef unsigned long long UWord;
+typedef long long          SWord;
+#define SWORD_CONSTANT(Const) Const##LL
+#define UWORD_CONSTANT(Const) Const##ULL
 #else
 #error Found no appropriate type to use for 'Eterm', 'Uint' and 'Sint'
 #endif
@@ -275,12 +285,23 @@ typedef int          SWord;
 typedef unsigned long Eterm;
 typedef unsigned long Uint;
 typedef long          Sint;
+#define SWORD_CONSTANT(Const) Const##L
+#define UWORD_CONSTANT(Const) Const##UL
 #define ERTS_SIZEOF_ETERM SIZEOF_LONG
 #elif SIZEOF_VOID_P == SIZEOF_INT
 typedef unsigned int Eterm;
 typedef unsigned int Uint;
 typedef int          Sint;
+#define SWORD_CONSTANT(Const) Const
+#define UWORD_CONSTANT(Const) Const##U
 #define ERTS_SIZEOF_ETERM SIZEOF_INT
+#elif SIZEOF_VOID_P == SIZEOF_LONG_LONG
+typedef unsigned long long Eterm;
+typedef unsigned long long Uint;
+typedef long long          Sint;
+#define SWORD_CONSTANT(Const) Const##LL
+#define UWORD_CONSTANT(Const) Const##ULL
+#define ERTS_SIZEOF_ETERM SIZEOF_LONG_LONG
 #else
 #error Found no appropriate type to use for 'Eterm', 'Uint' and 'Sint'
 #endif
@@ -635,10 +656,10 @@ Preload* sys_preloaded(void);
 unsigned char* sys_preload_begin(Preload*);
 void sys_preload_end(Preload*);
 int sys_get_key(int);
-void elapsed_time_both(unsigned long *ms_user, unsigned long *ms_sys, 
-		       unsigned long *ms_user_diff, unsigned long *ms_sys_diff);
-void wall_clock_elapsed_time_both(unsigned long *ms_total, 
-				  unsigned long *ms_diff);
+void elapsed_time_both(UWord *ms_user, UWord *ms_sys, 
+		       UWord *ms_user_diff, UWord *ms_sys_diff);
+void wall_clock_elapsed_time_both(UWord *ms_total, 
+				  UWord *ms_diff);
 void get_time(int *hour, int *minute, int *second);
 void get_date(int *year, int *month, int *day);
 void get_localtime(int *year, int *month, int *day, 
@@ -966,6 +987,19 @@ void erl_bin_write(unsigned char *, int, int);
 #  define realloc  sys_realloc
 #  define free sys_free
 
+#endif
+
+#ifdef __WIN32__
+#ifdef ARCH_64
+#define ERTS_ALLOC_ALIGN_BYTES 16
+#define ERTS_SMALL_ABS(Small) _abs64(Small) 
+#else
+#define ERTS_ALLOC_ALIGN_BYTES 8
+#define ERTS_SMALL_ABS(Small) labs(Small) 
+#endif
+#else
+#define ERTS_ALLOC_ALIGN_BYTES 8
+#define ERTS_SMALL_ABS(Small) labs(Small) 
 #endif
 
 

@@ -46,7 +46,7 @@
 #ifdef HIPE
 #include "hipe_mode_switch.h"
 #endif
-#define in_area(ptr,start,nbytes) ((Uint)((char*)(ptr) - (char*)(start)) < (nbytes))
+#define in_area(ptr,start,nbytes) ((UWord)((char*)(ptr) - (char*)(start)) < (nbytes))
 
 #define MAX_STRING_LEN 0xffff
 

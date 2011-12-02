@@ -421,11 +421,11 @@ erts_init_time_sup(void)
 /* info functions */
 
 void 
-elapsed_time_both(unsigned long *ms_user, unsigned long *ms_sys, 
-		  unsigned long *ms_user_diff, unsigned long *ms_sys_diff)
+elapsed_time_both(UWord *ms_user, UWord *ms_sys, 
+		  UWord *ms_user_diff, UWord *ms_sys_diff)
 {
-    unsigned long prev_total_user, prev_total_sys;
-    unsigned long total_user, total_sys;
+    UWord prev_total_user, prev_total_sys;
+    UWord total_user, total_sys;
     SysTimes now;
 
     sys_times(&now);
@@ -456,9 +456,9 @@ elapsed_time_both(unsigned long *ms_user, unsigned long *ms_sys,
 /* wall clock routines */
 
 void 
-wall_clock_elapsed_time_both(unsigned long *ms_total, unsigned long *ms_diff)
+wall_clock_elapsed_time_both(UWord *ms_total, UWord *ms_diff)
 {
-    unsigned long prev_total;
+    UWord prev_total;
     SysTimeval tv;
 
     erts_smp_mtx_lock(&erts_timeofday_mtx);

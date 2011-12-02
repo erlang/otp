@@ -1325,7 +1325,7 @@ static dsize_t I_lshift(ErtsDigit* x, dsize_t xl, Sint y,
 	return 1;
     }
     else {
-	long ay = (y < 0) ? -y : y;
+	SWord ay = (y < 0) ? -y : y;
 	int bw = ay / D_EXP;
 	int sw = ay % D_EXP;
 	dsize_t rl;
@@ -1448,6 +1448,20 @@ erts_make_integer(Uint x, Process *p)
     else {
 	hp = HAlloc(p, BIG_UINT_HEAP_SIZE);
 	return uint_to_big(x,hp);
+    }
+}
+/*
+ * As erts_make_integer, but from a whole UWord.
+ */
+Eterm
+erts_make_integer_from_uword(UWord x, Process *p)
+{
+    Eterm* hp;
+    if (IS_USMALL(0,x))
+	return make_small(x);
+    else {
+	hp = HAlloc(p, BIG_UWORD_HEAP_SIZE(x));
+	return uword_to_big(x,hp);
     }
 }
 

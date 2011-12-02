@@ -176,7 +176,7 @@ extern int erts_use_r9_pids_ports;
  * 32-bit CPU.
  */
 
-#define ERTS_MAX_PROCESSES ((1L << 27)-1)
+#define ERTS_MAX_PROCESSES ((SWORD_CONSTANT(1) << 27)-1)
 #if (ERTS_MAX_PROCESSES > MAX_SMALL)
 # error "The maximum number of processes must fit in a SMALL."
 #endif

@@ -314,7 +314,7 @@ forget_removed(struct pollset_info* psi)
 	erts_smp_mtx_unlock(mtx);
 	if (drv_ptr) {
 	    int was_unmasked = erts_block_fpe();
-	    (*drv_ptr->stop_select) (fd, NULL);
+	    (*drv_ptr->stop_select) ((ErlDrvEvent) fd, NULL);
 	    erts_unblock_fpe(was_unmasked);
 	    if (drv_ptr->handle) {
 		erts_ddll_dereference_driver(drv_ptr->handle);

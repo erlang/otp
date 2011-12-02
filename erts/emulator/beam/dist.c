@@ -536,7 +536,7 @@ alloc_dist_obuf(Uint size)
     Binary *bin = erts_bin_drv_alloc(obuf_size);
     bin->flags = BIN_FLAG_DRV;
     erts_refc_init(&bin->refc, 1);
-    bin->orig_size = (long) obuf_size;
+    bin->orig_size = (SWord) obuf_size;
     obuf = (ErtsDistOutputBuf *) &bin->orig_bytes[0];
 #ifdef DEBUG
     obuf->dbg_pattern = ERTS_DIST_OUTPUT_BUF_DBG_PATTERN;

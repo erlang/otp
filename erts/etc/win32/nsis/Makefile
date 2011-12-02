@@ -40,10 +40,29 @@ clean:
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 TARGET_DIR = $(RELEASE_PATH)
-WTESTROOT=$(shell (cygpath -d $(RELEASE_PATH) 2>/dev/null || cygpath -w $(RELEASE_PATH)))
-WTARGET_DIR=$(shell (cygpath -d $(TARGET_DIR) 2>/dev/null || cygpath -d $(TARGET_DIR)))
+
+ifeq ($(MSYSTEM),MINGW32)
+
+  MAKENSISFLAGS = //V2
+  WTESTROOT=$(shell (msys2win_path.sh $(RELEASE_PATH)))
+  WTARGET_DIR=$(shell (msys2win_path.sh $(TARGET_DIR)))
+
+else
+
+  MAKENSISFLAGS = /V2
+  WTESTROOT=$(shell (cygpath -d $(RELEASE_PATH) 2>/dev/null || cygpath -w $(RELEASE_PATH)))
+  WTARGET_DIR=$(shell (cygpath -d $(TARGET_DIR) 2>/dev/null || cygpath -d $(TARGET_DIR)))
+
+endif
+
+ifeq ($(CONFIG_SUBTYPE),win64)
+  WINTYPE=win64
+else
+  WINTYPE=win32
+endif
 
 REDIST_FILE=$(shell (sh ./find_redist.sh || echo ""))
+REDIST_TARGET=$(shell (sh ./find_redist.sh -n || echo ""))
 REDIST_DLL_VERSION=$(shell (sh ./dll_version_helper.sh || echo ""))
 REDIST_DLL_NAME=$(shell (sh ./dll_version_helper.sh -n || echo ""))
 
@@ -65,16 +84,18 @@ release_spec:
 	  echo '!define ERTS_VERSION "$(VSN)"' >> $(VERSION_HEADER);\
 	  echo '!define TESTROOT "$(WTESTROOT)"' >> $(VERSION_HEADER);\
 	  echo '!define OUTFILEDIR "$(WTARGET_DIR)"' >> $(VERSION_HEADER);\
+	  echo '!define WINTYPE "$(WINTYPE)"' >> $(VERSION_HEADER);\
 	  if [ -f $(CUSTOM_MODERN) ];\
 	  then \
 		echo '!define HAVE_CUSTOM_MODERN 1' >> $(VERSION_HEADER); \
 	  fi;\
 	  if [ '!' -z "$(REDIST_FILE)" -a '!' -z "$(REDIST_DLL_VERSION)" ];\
 	  then \
-		cp $(REDIST_FILE) $(RELEASE_PATH)/vcredist_x86.exe;\
+		cp $(REDIST_FILE) $(RELEASE_PATH)/$(REDIST_TARGET);\
 		echo '!define HAVE_REDIST_FILE 1'  >> $(VERSION_HEADER); \
 		echo '!define REDIST_DLL_VERSION "$(REDIST_DLL_VERSION)"' >> $(VERSION_HEADER);\
 		echo '!define REDIST_DLL_NAME "$(REDIST_DLL_NAME)"' >> $(VERSION_HEADER);\
+		echo '!define REDIST_EXECUTABLE "$(REDIST_TARGET)"' >> $(VERSION_HEADER);\
 	  fi;\
 	  if [ -f $(RELEASE_PATH)/docs/doc/index.html ];\
 	  then \

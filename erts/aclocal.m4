@@ -112,6 +112,94 @@ fi
 
 dnl ----------------------------------------------------------------------
 dnl
+dnl LM_WINDOWS_ENVIRONMENT
+dnl
+dnl
+dnl Tries to determine thw windows build environment, i.e. 
+dnl MIXED_CYGWIN_VC or MIXED_MSYS_VC 
+dnl
+
+AC_DEFUN(LM_WINDOWS_ENVIRONMENT,
+[
+MIXED_CYGWIN=no
+MIXED_MSYS=no
+
+AC_MSG_CHECKING(for mixed cygwin or msys and native VC++ environment)
+if test "X$host" = "Xwin32" -a "x$GCC" != "xyes"; then
+	if test -x /usr/bin/cygpath; then
+		CFLAGS="-O2"
+		MIXED_CYGWIN=yes
+		AC_MSG_RESULT([Cygwin and VC])
+		MIXED_CYGWIN_VC=yes
+		CPPFLAGS="$CPPFLAGS -DERTS_MIXED_CYGWIN_VC"
+	elif test -x /usr/bin/msysinfo; then
+	        CFLAGS="-O2"
+		MIXED_MSYS=yes
+		AC_MSG_RESULT([MSYS and VC])
+		MIXED_MSYS_VC=yes
+		CPPFLAGS="$CPPFLAGS -DERTS_MIXED_MSYS_VC"
+	else		    
+		AC_MSG_RESULT([undeterminable])
+		AC_MSG_ERROR(Seems to be mixed windows but not with cygwin, cannot handle this!)
+	fi
+else
+	AC_MSG_RESULT([no])
+	MIXED_CYGWIN_VC=no
+	MIXED_MSYS_VC=no
+fi
+AC_SUBST(MIXED_CYGWIN_VC)
+AC_SUBST(MIXED_MSYS_VC)
+
+MIXED_VC=no
+if test "x$MIXED_MSYS_VC" = "xyes" -o  "x$MIXED_CYGWIN_VC" = "xyes" ; then
+   MIXED_VC=yes
+fi
+
+AC_SUBST(MIXED_VC)
+
+if test "x$MIXED_MSYS" != "xyes"; then
+   AC_MSG_CHECKING(for mixed cygwin and native MinGW environment)
+   if test "X$host" = "Xwin32" -a "x$GCC" = x"yes"; then
+	if test -x /usr/bin/cygpath; then
+		CFLAGS="-O2"
+		MIXED_CYGWIN=yes
+		AC_MSG_RESULT([yes])
+		MIXED_CYGWIN_MINGW=yes
+		CPPFLAGS="$CPPFLAGS -DERTS_MIXED_CYGWIN_MINGW"
+	else
+		AC_MSG_RESULT([undeterminable])
+		AC_MSG_ERROR(Seems to be mixed windows but not with cygwin, cannot handle this!)
+	fi
+    else
+	AC_MSG_RESULT([no])
+	MIXED_CYGWIN_MINGW=no
+    fi
+else
+	MIXED_CYGWIN_MINGW=no
+fi	
+AC_SUBST(MIXED_CYGWIN_MINGW)
+
+AC_MSG_CHECKING(if we mix cygwin with any native compiler)
+if test "X$MIXED_CYGWIN" = "Xyes"; then
+	AC_MSG_RESULT([yes])	
+else
+	AC_MSG_RESULT([no])
+fi
+
+AC_SUBST(MIXED_CYGWIN)
+	
+AC_MSG_CHECKING(if we mix msys with another native compiler)
+if test "X$MIXED_MSYS" = "Xyes" ; then
+	AC_MSG_RESULT([yes])	
+else
+	AC_MSG_RESULT([no])
+fi
+
+AC_SUBST(MIXED_MSYS)
+])		
+	
+dnl ----------------------------------------------------------------------
+dnl
 dnl LM_FIND_EMU_CC
 dnl
 dnl

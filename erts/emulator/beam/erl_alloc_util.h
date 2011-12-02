@@ -227,7 +227,7 @@ erts_aint32_t erts_alcu_fix_alloc_shrink(Allctr_t *, erts_aint32_t);
 
 extern int erts_have_sbmbc_alloc;
 
-typedef union {char c[8]; long l; double d;} Unit_t;
+typedef union {char c[ERTS_ALLOC_ALIGN_BYTES]; long l; double d;} Unit_t;
 
 typedef struct Carrier_t_ Carrier_t;
 struct Carrier_t_ {

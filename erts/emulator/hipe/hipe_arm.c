@@ -71,7 +71,7 @@ static struct segment {
 } curseg;
 
 #define in_area(ptr,start,nbytes)	\
-	((unsigned long)((char*)(ptr) - (char*)(start)) < (nbytes))
+	((UWord)((char*)(ptr) - (char*)(start)) < (nbytes))
 
 static void *new_code_mapping(void)
 {

@@ -160,10 +160,15 @@ typedef struct {
 /*
  * Integer types
  */
-
+#if  defined(__WIN32__) && (SIZEOF_VOID_P == 8)
+typedef unsigned __int64 ErlDrvTermData;
+typedef unsigned __int64 ErlDrvUInt;
+typedef signed __int64 ErlDrvSInt;
+#else
 typedef unsigned long ErlDrvTermData;
 typedef unsigned long ErlDrvUInt;
 typedef signed long ErlDrvSInt;
+#endif
 
 #if defined(__WIN32__)
 typedef unsigned __int64 ErlDrvUInt64;
@@ -184,7 +189,7 @@ typedef long long ErlDrvSInt64;
  */
 
 typedef struct erl_drv_binary {
-    long orig_size;        /* total length of binary */
+    ErlDrvSInt orig_size;        /* total length of binary */
     char orig_bytes[1];   /* the data (char instead of byte!) */
 } ErlDrvBinary;
 

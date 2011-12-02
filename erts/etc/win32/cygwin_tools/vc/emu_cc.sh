@@ -17,6 +17,11 @@
 # 
 # %CopyrightEnd%
 # 
+if [ X"$CONFIG_SUBTYPE" = X"win64" ]; then
+    GCC="x86_64-w64-mingw32-gcc.exe"
+else 
+    GCC="gcc"
+fi
 TOOLDIR=$ERL_TOP/erts/etc/win32/cygwin_tools/vc
 COFFIX=$TOOLDIR/coffix
 WTOOLDIR=`(cygpath -d $TOOLDIR 2>/dev/null || cygpath -w $TOOLDIR)`
@@ -71,7 +76,7 @@ if [ $SKIP_COFFIX = false ]; then
     if [ "X$EMU_CC_SH_DEBUG_LOG" != "X" ]; then
 	echo "gcc -o $TEMPFILE -D__WIN32__ -DWIN32 -DWINDOWS -fomit-frame-pointer $CMD" >> $EMU_CC_SH_DEBUG_LOG 2>&1
     fi
-    eval gcc -o $TEMPFILE -D__WIN32__ -DWIN32 -DWINDOWS -fomit-frame-pointer $CMD
+    eval $GCC -o $TEMPFILE -D__WIN32__ -DWIN32 -DWINDOWS -fomit-frame-pointer $CMD
     RES=$?
     if [ $RES = 0 ]; then
 	$COFFIX.exe -e `(cygpath -d $TEMPFILE 2>/dev/null || cygpath -w $TEMPFILE)`
@@ -85,6 +90,6 @@ if [ $SKIP_COFFIX = false ]; then
     rm -f $TEMPFILE
     exit $RES
 else
-    eval gcc -D__WIN32__ -DWIN32 -DWINDOWS -fomit-frame-pointer -fno-tree-copyrename $CMD 2>/dev/null
+    eval $GCC -D__WIN32__ -DWIN32 -DWINDOWS -fomit-frame-pointer -fno-tree-copyrename $CMD 2>/dev/null
     exit $?
 fi

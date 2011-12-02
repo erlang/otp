@@ -27,7 +27,9 @@
 #endif
 
 #ifdef __WIN32__
+#ifndef HAVE_CONFLICTING_FREAD_DECLARATION
 #define HAVE_CONFLICTING_FREAD_DECLARATION
+#endif
 #define FILENAMES_16BIT 1
 #endif
 
