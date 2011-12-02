@@ -20,7 +20,7 @@
 %%
 %%-----------------------------------------------------------------
 %% File: orber_env.erl
-%% 
+%%
 %% Description:
 %%    Handling environment parameters for Orber.
 %%
@@ -49,20 +49,22 @@
 	 iiop_max_in_connections/0, iiop_backlog/0, objectkeys_gc_time/0,
 	 get_ORBInitRef/0, get_ORBDefaultInitRef/0, get_interceptors/0,
 	 get_local_interceptors/0, get_cached_interceptors/0,
-	 set_interceptors/1, is_lightweight/0, get_lightweight_nodes/0, secure/0, 
+	 set_interceptors/1, is_lightweight/0, get_lightweight_nodes/0, secure/0,
 	 iiop_ssl_backlog/0, iiop_ssl_port/0, nat_iiop_ssl_port/0, nat_iiop_ssl_port/1,
+	 ssl_server_opts/0, ssl_client_opts/0, set_ssl_client_opts/1,
 	 ssl_server_certfile/0, ssl_client_certfile/0, set_ssl_client_certfile/1,
 	 ssl_server_verify/0, ssl_client_verify/0, set_ssl_client_verify/1,
 	 ssl_server_depth/0, ssl_client_depth/0, set_ssl_client_depth/1,
-	 ssl_server_cacertfile/0, ssl_client_cacertfile/0, 
+	 ssl_server_cacertfile/0, ssl_client_cacertfile/0,
 	 set_ssl_client_cacertfile/1, ssl_client_password/0,
 	 ssl_server_password/0, ssl_client_keyfile/0, ssl_server_keyfile/0,
 	 ssl_client_ciphers/0, ssl_server_ciphers/0, ssl_client_cachetimeout/0,
-	 ssl_server_cachetimeout/0, get_flags/0, typechecking/0,  
+	 ssl_server_cachetimeout/0,
+	 get_flags/0, typechecking/0,
 	 exclude_codeset_ctx/0, exclude_codeset_component/0, partial_security/0,
 	 use_CSIv2/0, use_FT/0, ip_version/0, light_ifr/0, bidir_context/0,
 	 get_debug_level/0, getaddrstr/2, addr2str/1, iiop_packet_size/0,
-	 iiop_ssl_ip_address_local/0, ip_address_local/0, iiop_in_keepalive/0, 
+	 iiop_ssl_ip_address_local/0, ip_address_local/0, iiop_in_keepalive/0,
 	 iiop_out_keepalive/0, iiop_ssl_in_keepalive/0, iiop_ssl_out_keepalive/0,
 	 iiop_ssl_accept_timeout/0, ssl_generation/0]).
 
@@ -87,38 +89,39 @@
 	[flags, iiop_port, nat_iiop_port, iiop_out_ports, domain, ip_address,
 	 nat_ip_address, giop_version, iiop_timeout, iiop_connection_timeout,
 	 iiop_setup_connection_timeout, iiop_in_connection_timeout, iiop_acl,
-	 iiop_max_fragments, iiop_max_in_requests, iiop_max_in_connections, 
+	 iiop_max_fragments, iiop_max_in_requests, iiop_max_in_connections,
 	 iiop_backlog, objectkeys_gc_time, orbInitRef, orbDefaultInitRef,
 	 interceptors, local_interceptors, lightweight, ip_address_local,
-	 secure, iiop_ssl_ip_address_local, iiop_ssl_backlog, 
-	 iiop_ssl_port, nat_iiop_ssl_port, ssl_server_certfile, 
-	 ssl_client_certfile, ssl_server_verify, ssl_client_verify, ssl_server_depth, 
-	 ssl_client_depth, ssl_server_cacertfile, ssl_client_cacertfile, 
-	 ssl_client_password, ssl_server_password, ssl_client_keyfile, 
-	 ssl_server_keyfile, ssl_client_ciphers, ssl_server_ciphers, 
+	 secure, iiop_ssl_ip_address_local, iiop_ssl_backlog,
+	 iiop_ssl_port, nat_iiop_ssl_port, ssl_server_certfile,
+	 ssl_client_certfile, ssl_server_verify, ssl_client_verify, ssl_server_depth,
+	 ssl_client_depth, ssl_server_cacertfile, ssl_client_cacertfile,
+	 ssl_client_password, ssl_server_password, ssl_client_keyfile,
+	 ssl_server_keyfile, ssl_client_ciphers, ssl_server_ciphers,
 	 ssl_client_cachetimeout, ssl_server_cachetimeout, orber_debug_level,
 	 iiop_packet_size, iiop_in_keepalive, iiop_out_keepalive,
-	 iiop_ssl_in_keepalive, iiop_ssl_out_keepalive, iiop_ssl_accept_timeout]).
+	 iiop_ssl_in_keepalive, iiop_ssl_out_keepalive, iiop_ssl_accept_timeout,
+	 ssl_server_opts, ssl_client_opts]).
 
 %% The 'flags' parameter must be first in the list.
 %-define(ENV_KEYS,
-%	[{flags, ?ORB_ENV_INIT_FLAGS}, {iiop_port, 4001}, nat_iiop_port, 
-%	 {iiop_out_ports, 0}, {domain, "ORBER"}, ip_address, nat_ip_address, 
-%	 {giop_version, {1, 1}}, {iiop_timeout, infinity}, 
-%	 {iiop_connection_timeout, infinity}, {iiop_setup_connection_timeout, infinity}, 
+%	[{flags, ?ORB_ENV_INIT_FLAGS}, {iiop_port, 4001}, nat_iiop_port,
+%	 {iiop_out_ports, 0}, {domain, "ORBER"}, ip_address, nat_ip_address,
+%	 {giop_version, {1, 1}}, {iiop_timeout, infinity},
+%	 {iiop_connection_timeout, infinity}, {iiop_setup_connection_timeout, infinity},
 %	 {iiop_in_connection_timeout, infinity}, {iiop_acl, []},
-%	 {iiop_max_fragments, infinity}, {iiop_max_in_requests, infinity}, 
-%	 {iiop_max_in_connections, infinity}, {iiop_backlog, 5}, 
-%	 {objectkeys_gc_time, infinity}, 
+%	 {iiop_max_fragments, infinity}, {iiop_max_in_requests, infinity},
+%	 {iiop_max_in_connections, infinity}, {iiop_backlog, 5},
+%	 {objectkeys_gc_time, infinity},
 %	 {orbInitRef, undefined}, {orbDefaultInitRef, undefined},
 %	 {interceptors, false}, {local_interceptors, false}, {lightweight, false},
-%	 {secure, no}, {iiop_ssl_backlog, 5}, {iiop_ssl_port, 4002}, 
+%	 {secure, no}, {iiop_ssl_backlog, 5}, {iiop_ssl_port, 4002},
 %	 nat_iiop_ssl_port, {ssl_server_certfile, []}, {ssl_client_certfile, []},
-%	 {ssl_server_verify, 0}, {ssl_client_verify, 0}, {ssl_server_depth, 1}, 
-%	 {ssl_client_depth, 1}, {ssl_server_cacertfile, []}, 
+%	 {ssl_server_verify, 0}, {ssl_client_verify, 0}, {ssl_server_depth, 1},
+%	 {ssl_client_depth, 1}, {ssl_server_cacertfile, []},
 %	 {ssl_client_cacertfile, []}, {ssl_client_password, []},
-%	 {ssl_server_password, []}, {ssl_client_keyfile, []}, 
-%	 {ssl_server_keyfile, []}, {ssl_client_ciphers, []}, 
+%	 {ssl_server_password, []}, {ssl_client_keyfile, []},
+%	 {ssl_server_keyfile, []}, {ssl_client_ciphers, []},
 %	 {ssl_server_ciphers, []}, {ssl_client_cachetimeout, infinity},
 %	 {ssl_server_cachetimeout, infinity}, {orber_debug_level, 0}]).
 
@@ -129,33 +132,33 @@
 
 %%-----------------------------------------------------------------
 %% External functions
-%%-----------------------------------------------------------------    
 %%-----------------------------------------------------------------
-%% function : 
-%% Arguments: 
-%% Returns  : 
-%% Exception: 
-%% Effect   : 
+%%-----------------------------------------------------------------
+%% function :
+%% Arguments:
+%% Returns  :
+%% Exception:
+%% Effect   :
 %%-----------------------------------------------------------------
 start(Opts) ->
     gen_server:start_link({local, orber_env}, ?MODULE, Opts, []).
 
 %%-----------------------------------------------------------------
 %% function : get_keys
-%% Arguments: 
-%% Returns  : 
-%% Exception: 
-%% Effect   : 
+%% Arguments:
+%% Returns  :
+%% Exception:
+%% Effect   :
 %%-----------------------------------------------------------------
 get_keys() ->
     ?ENV_KEYS.
 
 %%-----------------------------------------------------------------
 %% function : get_env
-%% Arguments: 
-%% Returns  : 
-%% Exception: 
-%% Effect   : 
+%% Arguments:
+%% Returns  :
+%% Exception:
+%% Effect   :
 %%-----------------------------------------------------------------
 get_env(Key) when is_atom(Key) ->
     case catch ets:lookup(?ENV_DB, Key) of
@@ -164,13 +167,13 @@ get_env(Key) when is_atom(Key) ->
 	_ ->
 	    undefined
     end.
- 
+
 %%-----------------------------------------------------------------
 %% function : get_env
-%% Arguments: 
-%% Returns  : 
-%% Exception: 
-%% Effect   : 
+%% Arguments:
+%% Returns  :
+%% Exception:
+%% Effect   :
 %%-----------------------------------------------------------------
 set_env(Key, Value) when is_atom(Key) ->
     case catch ets:insert(?ENV_DB, #parameters{key = Key, value = Value}) of
@@ -179,20 +182,20 @@ set_env(Key, Value) when is_atom(Key) ->
 	_ ->
 	    undefined
     end.
- 
+
 
 %%-----------------------------------------------------------------
 %% function : info
 %% Arguments: IoDervice - info_msg | string | io | {io, Dev}
-%% Returns  : 
-%% Exception: 
-%% Effect   : 
+%% Returns  :
+%% Exception:
+%% Effect   :
 %%-----------------------------------------------------------------
 info() ->
     info(info_msg).
 
 info(IoDevice) ->
-    Info = 
+    Info =
 	case orber_tb:is_running() of
 	    true ->
 		Info1 = create_main_info(),
@@ -211,7 +214,7 @@ info(IoDevice) ->
 	string ->
 	    Info;
 	io ->
-	    io:format("~s", [Info]); 
+	    io:format("~s", [Info]);
 	{io, Dev} ->
 	    io:format(Dev, "~s", [Info]);
 	_ ->
@@ -220,14 +223,14 @@ info(IoDevice) ->
 
 create_main_info() ->
     {Major, Minor} = giop_version(),
-    [io_lib:format("======= Orber Execution Environment ======~n"		   
+    [io_lib:format("======= Orber Execution Environment ======~n"
 		   "Orber version.................: ~s~n"
 		   "Orber domain..................: ~s~n"
 		   "IIOP port number..............: ~p~n"
 		   "IIOP NAT port number..........: ~p~n"
 		   "Interface(s)..................: ~p~n"
 		   "Interface(s) NAT..............: ~p~n"
-		   "Local Interface (default).....: ~p~n"		   
+		   "Local Interface (default).....: ~p~n"
 		   "Nodes in domain...............: ~p~n"
 		   "GIOP version (default)........: ~p.~p~n"
 		   "IIOP out timeout..............: ~p msec~n"
@@ -254,18 +257,18 @@ create_main_info() ->
 		   "Debug Level...................: ~p~n"
 		   "orbInitRef....................: ~p~n"
 		   "orbDefaultInitRef.............: ~p~n",
-		   [?ORBVSN, domain(), iiop_port(), nat_iiop_port(), host(), 
+		   [?ORBVSN, domain(), iiop_port(), nat_iiop_port(), host(),
 		    nat_host(), ip_address_local(),
 		    orber:orber_nodes(), Major, Minor,
-		    iiop_timeout(), iiop_connection_timeout(), 
+		    iiop_timeout(), iiop_connection_timeout(),
 		    iiop_setup_connection_timeout(), iiop_out_ports(),
 		    iiop_out_ports_attempts(), iiop_out_ports_random(),
-		    orber:iiop_connections(out), orber:iiop_connections_pending(), 
-		    iiop_out_keepalive(), orber:iiop_connections(in), 
-		    iiop_in_connection_timeout(), iiop_in_keepalive(), 
-		    iiop_max_fragments(), iiop_max_in_requests(), 
+		    orber:iiop_connections(out), orber:iiop_connections_pending(),
+		    iiop_out_keepalive(), orber:iiop_connections(in),
+		    iiop_in_connection_timeout(), iiop_in_keepalive(),
+		    iiop_max_fragments(), iiop_max_in_requests(),
 		    iiop_max_in_connections(), iiop_backlog(), iiop_acl(),
-		    iiop_packet_size(), objectkeys_gc_time(), get_interceptors(), 
+		    iiop_packet_size(), objectkeys_gc_time(), get_interceptors(),
 		    get_local_interceptors(), get_debug_level(), get_ORBInitRef(),
 		    get_ORBDefaultInitRef()])].
 
@@ -277,7 +280,7 @@ create_flag_info(Info) ->
 	    FlagData = check_flags(?ORB_ENV_FLAGS, Flags, []),
 	    [Info, "System Flags Set..............: \n", FlagData, "\n"]
     end.
-  
+
 check_flags([], _, Acc) ->
     Acc;
 check_flags([{Flag, Txt}|T], Flags, Acc) when ?ORB_FLAG_TEST(Flags, Flag) ->
@@ -289,7 +292,7 @@ check_flags([_|T], Flags, Acc) ->
 create_security_info(no, Info) ->
     lists:flatten([Info, "=========================================\n"]);
 create_security_info(ssl, Info) ->
-    lists:flatten([Info, 
+    lists:flatten([Info,
 		   io_lib:format("ORB security..................: ssl~n"
 				 "SSL generation................: ~p~n"
 				 "SSL IIOP in keepalive.........: ~p~n"
@@ -316,26 +319,26 @@ create_security_info(ssl, Info) ->
 				 "SSL client ciphers............: ~p~n"
 				 "SSL client cachetimeout.......: ~p~n"
 				 "=========================================~n",
-				 [ssl_generation(), iiop_ssl_port(), 
+				 [ssl_generation(), iiop_ssl_port(),
 				  iiop_ssl_in_keepalive(), iiop_ssl_out_keepalive(),
-				  nat_iiop_ssl_port(), iiop_ssl_accept_timeout(), 
+				  nat_iiop_ssl_port(), iiop_ssl_accept_timeout(),
 				  iiop_ssl_backlog(), iiop_ssl_ip_address_local(),
 				  ssl_server_certfile(), ssl_server_verify(),
-				  ssl_server_depth(), ssl_server_cacertfile(), 
-				  ssl_server_keyfile(), ssl_server_password(), 
+				  ssl_server_depth(), ssl_server_cacertfile(),
+				  ssl_server_keyfile(), ssl_server_password(),
 				  ssl_server_ciphers(), ssl_server_cachetimeout(),
-				  ssl_client_certfile(), ssl_client_verify(), 
-				  ssl_client_depth(), ssl_client_cacertfile(), 
+				  ssl_client_certfile(), ssl_client_verify(),
+				  ssl_client_depth(), ssl_client_cacertfile(),
 				  ssl_client_keyfile(), ssl_client_password(),
 				  ssl_client_ciphers(), ssl_client_cachetimeout()])]).
 
 
 %%-----------------------------------------------------------------
 %% function : iiop_acl
-%% Arguments: 
-%% Returns  : 
-%% Exception: 
-%% Effect   : 
+%% Arguments:
+%% Returns  :
+%% Exception:
+%% Effect   :
 %%-----------------------------------------------------------------
 iiop_acl() ->
     case application:get_env(orber, iiop_acl) of
@@ -352,7 +355,7 @@ iiop_packet_size() ->
 	_ ->
 	    infinity
     end.
-  
+
 
 iiop_port() ->
     case application:get_env(orber, iiop_port) of
@@ -368,7 +371,7 @@ nat_iiop_port() ->
 	    Port;
 	{ok, {local, Default, _NATList}} ->
 	    Default;
-	_ -> 
+	_ ->
 	    iiop_port()
     end.
 
@@ -378,7 +381,7 @@ nat_iiop_port(LocalPort) ->
 	    Port;
 	{ok, {local, Default, NATList}} ->
 	    orber_tb:keysearch(LocalPort, NATList, Default);
-	_ -> 
+	_ ->
 	    iiop_port()
     end.
 
@@ -407,9 +410,9 @@ iiop_out_ports_attempts() ->
 	_ ->
 	    1
     end.
-   
 
-domain() -> 
+
+domain() ->
     case application:get_env(orber, domain) of
 	{ok, Domain} when is_list(Domain) ->
 	    Domain;
@@ -449,7 +452,7 @@ nat_host([Host]) ->
 	{ok,{multiple, [I|_] = IList}} when is_list(I) ->
 	    IList;
 	{ok,{local, Default, NATList}} ->
-	    [orber_tb:keysearch(Host, NATList, Default)]; 
+	    [orber_tb:keysearch(Host, NATList, Default)];
 	_ ->
 	    host()
     end.
@@ -462,7 +465,7 @@ host() ->
 	{ok,{multiple, [I|_] = IList}} when is_list(I) ->
 	    IList;
 	%% IPv4. For IPv6 we only accept a string, but we must support this format
-	%% for IPv4 
+	%% for IPv4
 	{ok, {A1, A2, A3, A4}} when is_integer(A1+A2+A3+A4) ->
 	    [integer_to_list(A1) ++ "." ++ integer_to_list(A2) ++ "." ++ integer_to_list(A3)
 	     ++ "." ++ integer_to_list(A4)];
@@ -489,7 +492,7 @@ ip_address_local() ->
 	_ ->
 	    []
     end.
- 
+
 
 ip_address() ->
     ip_address(ip_version()).
@@ -526,7 +529,7 @@ addr2str({A1, A2, A3, A4, A5, A6, A7, A8}) ->
 	int16_to_hex(A3) ++ ":" ++ int16_to_hex(A4) ++ ":" ++
 	int16_to_hex(A5) ++ ":" ++ int16_to_hex(A6) ++ ":" ++
 	int16_to_hex(A7) ++ ":" ++ int16_to_hex(A8).
-    
+
 
 int16_to_hex(0) ->
     [$0];
@@ -613,7 +616,7 @@ iiop_max_fragments() ->
 	_ ->
 	    infinity
     end.
-    
+
 iiop_max_in_requests() ->
     case application:get_env(orber, iiop_max_in_requests) of
 	{ok, Max} when is_integer(Max) andalso Max > 0 ->
@@ -653,7 +656,7 @@ iiop_out_keepalive() ->
 	_ ->
 	    false
     end.
- 
+
 
 
 get_flags() ->
@@ -706,9 +709,9 @@ bidir_context() ->
 	?ORB_FLAG_TEST(Flags, ?ORB_ENV_USE_BI_DIR_IIOP) ->
 	    [#'IOP_ServiceContext'
 	     {context_id=?IOP_BI_DIR_IIOP,
-	      context_data = 
-	      #'IIOP_BiDirIIOPServiceContext'{listen_points = 
-					      [#'IIOP_ListenPoint'{host=host(), 
+	      context_data =
+	      #'IIOP_BiDirIIOPServiceContext'{listen_points =
+					      [#'IIOP_ListenPoint'{host=host(),
 								   port=iiop_port()}]}}];
 	true ->
 	    []
@@ -819,7 +822,7 @@ get_lightweight_nodes() ->
 	_ ->
 	    false
     end.
-   
+
 
 %%-----------------------------------------------------------------
 %% Security access operations (SSL)
@@ -838,8 +841,8 @@ ssl_generation() ->
 	    V;
 	_ ->
 	    2
-    end.	 
- 
+    end.
+
 iiop_ssl_ip_address_local() ->
     case application:get_env(orber, iiop_ssl_ip_address_local) of
 	{ok,I} when is_list(I) ->
@@ -876,10 +879,10 @@ iiop_ssl_accept_timeout() ->
     case application:get_env(orber, iiop_ssl_accept_timeout) of
 	{ok, N} when is_integer(N) ->
 	    N * 1000;
-	_  -> 
+	_  ->
 	    infinity
     end.
- 
+
 iiop_ssl_port() ->
     case application:get_env(orber, secure) of
 	{ok, ssl} ->
@@ -923,6 +926,52 @@ nat_iiop_ssl_port(LocalPort) ->
 	    -1
     end.
 
+ssl_server_opts() ->
+    case application:get_env(orber, ssl_server_opts) of
+	{ok, V1}  when is_list(V1) ->
+	    V1;
+	_ ->
+	    []
+    end.
+
+ssl_client_opts() ->
+    case application:get_env(orber, ssl_client_opts) of
+	{ok, V1}  when is_list(V1) ->
+	    V1;
+	_ ->
+	    []
+    end.
+
+check_ssl_opts(Value) ->
+    check_ssl_opts(Value, []).
+check_ssl_opts([], []) ->
+    ok;
+check_ssl_opts([], Acc) ->
+    {error, Acc};
+check_ssl_opts([{active, _} |T], Acc) ->
+    check_ssl_opts(T, [active |Acc]);
+check_ssl_opts([{packet, _} |T], Acc) ->
+    check_ssl_opts(T, [packet |Acc]);
+check_ssl_opts([{mode, _} |T], Acc) ->
+    check_ssl_opts(T, [mode |Acc]);
+check_ssl_opts([list |T], Acc) ->
+    check_ssl_opts(T, [list |Acc]);
+check_ssl_opts([binary |T], Acc) ->
+    check_ssl_opts(T, [binary |Acc]);
+check_ssl_opts([_ |T], Acc) ->
+    check_ssl_opts(T, Acc).
+
+set_ssl_client_opts(Value) when is_list(Value) ->
+    case check_ssl_opts(Value) of
+	ok ->
+	    ok;
+	{error, List} ->
+	    exit(lists:flatten(
+		   io_lib:format("TCP options ~p is not allowed in set_ssl_client_opts()",
+				 [List])))
+    end,
+    put(ssl_client_opts, Value), ok.
+
 ssl_server_certfile() ->
     case application:get_env(orber, ssl_server_certfile) of
 	{ok, V1}  when is_list(V1) ->
@@ -932,7 +981,7 @@ ssl_server_certfile() ->
 	_ ->
 	    []
     end.
-    
+
 ssl_client_certfile() ->
     case get(ssl_client_certfile) of
 	undefined ->
@@ -950,7 +999,7 @@ ssl_client_certfile() ->
 
 set_ssl_client_certfile(Value) when is_list(Value) ->
     put(ssl_client_certfile, Value).
-    
+
 ssl_server_verify() ->
     Verify = case application:get_env(orber, ssl_server_verify) of
 	{ok, V} when is_integer(V) ->
@@ -964,7 +1013,7 @@ ssl_server_verify() ->
 	true ->
 	   0
     end.
-    
+
 ssl_client_verify() ->
     Verify = case get(ssl_client_verify) of
 		 undefined ->
@@ -986,7 +1035,7 @@ ssl_client_verify() ->
 
 set_ssl_client_verify(Value) when is_integer(Value) andalso Value =< 2 andalso Value >= 0 ->
     put(ssl_client_verify, Value), ok.
-    
+
 ssl_server_depth() ->
     case application:get_env(orber, ssl_server_depth) of
 	{ok, V1} when is_integer(V1) ->
@@ -994,7 +1043,7 @@ ssl_server_depth() ->
 	_ ->
 	    1
     end.
-    
+
 ssl_client_depth() ->
     case get(ssl_client_depth) of
 	undefined ->
@@ -1010,7 +1059,7 @@ ssl_client_depth() ->
 
 set_ssl_client_depth(Value) when is_integer(Value) ->
     put(ssl_client_depth, Value), ok.
-    
+
 
 
 ssl_server_cacertfile() ->
@@ -1022,7 +1071,7 @@ ssl_server_cacertfile() ->
 	_ ->
 	    []
     end.
-    
+
 ssl_client_cacertfile() ->
     case get(ssl_client_cacertfile) of
 	undefined ->
@@ -1040,7 +1089,7 @@ ssl_client_cacertfile() ->
 
 set_ssl_client_cacertfile(Value) when is_list(Value) ->
     put(ssl_client_cacertfile, Value), ok.
-    
+
 
 ssl_client_password() ->
     case application:get_env(orber, ssl_client_password) of
@@ -1108,10 +1157,10 @@ ssl_server_cachetimeout() ->
 
 %%-----------------------------------------------------------------
 %% function : configure
-%% Arguments: 
-%% Returns  : 
-%% Exception: 
-%% Effect   : 
+%% Arguments:
+%% Returns  :
+%% Exception:
+%% Effect   :
 %%-----------------------------------------------------------------
 configure(Key, Value) when is_atom(Key) ->
     configure(Key, Value, check);
@@ -1125,10 +1174,10 @@ configure_override(Key, _) ->
 
 %%-----------------------------------------------------------------
 %% function : multi_configure
-%% Arguments: 
-%% Returns  : 
-%% Exception: 
-%% Effect   : 
+%% Arguments:
+%% Returns  :
+%% Exception:
+%% Effect   :
 %%-----------------------------------------------------------------
 multi_configure(KeyValueList) when is_list(KeyValueList) ->
     case orber_tb:is_loaded() of
@@ -1144,7 +1193,7 @@ multi_configure(KeyValueList) when is_list(KeyValueList) ->
 	    end
     end;
 multi_configure(KeyValueList) ->
-    ?EFORMAT("Given configuration parameters not a Key-Value-pair list: ~p", 
+    ?EFORMAT("Given configuration parameters not a Key-Value-pair list: ~p",
 	     [KeyValueList]).
 
 multi_configure_helper([], _) ->
@@ -1237,7 +1286,7 @@ configure(iiop_port, Value, Status) when is_integer(Value) ->
 %% Set the NAT listen port
 configure(nat_iiop_port, Value, Status) when is_integer(Value) andalso Value > 0 ->
     do_safe_configure(nat_iiop_port, Value, Status);
-configure(nat_iiop_port, {local, Value1, Value2}, Status) when is_integer(Value1) andalso 
+configure(nat_iiop_port, {local, Value1, Value2}, Status) when is_integer(Value1) andalso
 							       Value1 > 0 andalso
 							       is_list(Value2) ->
     do_safe_configure(nat_iiop_port, {local, Value1, Value2}, Status);
@@ -1312,12 +1361,20 @@ configure(iiop_ssl_backlog, Value, Status) when is_integer(Value) andalso Value 
     do_safe_configure(iiop_ssl_backlog, Value, Status);
 configure(nat_iiop_ssl_port, Value, Status) when is_integer(Value) andalso Value > 0 ->
     do_safe_configure(nat_iiop_ssl_port, Value, Status);
-configure(nat_iiop_ssl_port, {local, Value1, Value2}, Status) when is_integer(Value1) andalso 
+configure(nat_iiop_ssl_port, {local, Value1, Value2}, Status) when is_integer(Value1) andalso
 								   Value1 > 0 andalso
 								   is_list(Value2) ->
     do_safe_configure(nat_iiop_ssl_port, {local, Value1, Value2}, Status);
 configure(iiop_ssl_port, Value, Status) when is_integer(Value) ->
     do_safe_configure(iiop_ssl_port, Value, Status);
+
+%% New SSL options
+configure(ssl_server_opts, Value, Status) when is_list(Value) ->
+    do_safe_configure(ssl_server_opts, Value, Status);
+configure(ssl_client_opts, Value, Status) when is_list(Value) ->
+    do_safe_configure(ssl_client_opts, Value, Status);
+
+%% Old SSL options
 configure(ssl_server_certfile, Value, Status) when is_list(Value) ->
     do_safe_configure(ssl_server_certfile, Value, Status);
 configure(ssl_server_certfile, Value, Status) when is_atom(Value) ->
@@ -1434,9 +1491,9 @@ code_change(_OldVsn, State, _Extra) ->
 
 %%-----------------------------------------------------------------
 %% function : env
-%% Arguments: 
-%% Returns  : 
-%% Exception: 
+%% Arguments:
+%% Returns  :
+%% Exception:
 %% Effect   : Used when Key always exists (Default Value)
 %%-----------------------------------------------------------------
 env(Key) ->
@@ -1445,10 +1502,10 @@ env(Key) ->
 
 %%-----------------------------------------------------------------
 %% function : init_env
-%% Arguments: 
-%% Returns  : 
-%% Exception: 
-%% Effect   : 
+%% Arguments:
+%% Returns  :
+%% Exception:
+%% Effect   :
 %%-----------------------------------------------------------------
 init_env() ->
     application:load(orber),
