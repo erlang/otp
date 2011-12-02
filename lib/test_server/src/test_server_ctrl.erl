@@ -1826,18 +1826,27 @@ start_log_file() ->
 	    exit({cant_create_log_dir,{MkDirError,Dir}})
     end,
     TestDir = timestamp_filename_get(filename:join(Dir, "run.")),
-    case file:make_dir(TestDir) of
-	ok ->
-	    ok;
-	MkDirError2 ->
-	    exit({cant_create_log_dir,{MkDirError2,TestDir}})
-    end,
-
-    ok = file:write_file(filename:join(Dir, ?last_file), TestDir ++ "\n"),
-    ok = file:write_file(?last_file, TestDir ++ "\n"),
-
-    put(test_server_log_dir_base,TestDir),
-    MajorName = filename:join(TestDir, ?suitelog_name),
+    TestDir1 =
+	case file:make_dir(TestDir) of
+	    ok ->
+		TestDir;
+	    {error,eexist} ->
+		timer:sleep(1000),
+		%% we need min 1 second between timestamps unfortunately
+		TestDirX = timestamp_filename_get(filename:join(Dir, "run.")),
+		case file:make_dir(TestDirX) of
+		    ok ->
+			TestDirX;
+		    MkDirError2 ->
+			exit({cant_create_log_dir,{MkDirError2,TestDirX}})
+		end;
+	    MkDirError2 ->
+		exit({cant_create_log_dir,{MkDirError2,TestDir}})
+	end,
+    ok = file:write_file(filename:join(Dir, ?last_file), TestDir1 ++ "\n"),
+    ok = file:write_file(?last_file, TestDir1 ++ "\n"),
+    put(test_server_log_dir_base,TestDir1),
+    MajorName = filename:join(TestDir1, ?suitelog_name),
     HtmlName = MajorName ++ ?html_ext,
     {ok,Major} = file:open(MajorName, [write]),
     {ok,Html}  = file:open(HtmlName,  [write]),
@@ -1850,14 +1859,14 @@ start_log_file() ->
     make_html_link(LinkName ++ ?html_ext, HtmlName,
 		   filename:basename(Dir)),
 
-    PrivDir = filename:join(TestDir, ?priv_dir),
+    PrivDir = filename:join(TestDir1, ?priv_dir),
     ok = file:make_dir(PrivDir),
     put(test_server_priv_dir,PrivDir++"/"),
     print_timestamp(13,"Suite started at "),
 
-    LogInfo = [{topdir,Dir},{rundir,lists:flatten(TestDir)}],
+    LogInfo = [{topdir,Dir},{rundir,lists:flatten(TestDir1)}],
     test_server_sup:framework_call(report, [loginfo,LogInfo]),
-    {ok,TestDir}.
+    {ok,TestDir1}.
 
 make_html_link(LinkName, Target, Explanation) ->
     %% if possible use a relative reference to Target.
@@ -2739,15 +2748,18 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 					  {skipped,TcSkip},
 					  {failed,TcFail}]}]
 	       end,
-    GroupPath = lists:flatmap(fun({_Ref,[],_T}) -> [];
-				 ({_Ref,GrProps,_T}) -> [GrProps] end, Mode0),
-    ActualCfg =
-	update_config(hd(Config), 
-		      [{priv_dir,get(test_server_priv_dir)},
-		       {data_dir,get_data_dir(Mod)},
-		       {tc_group_path,GroupPath} | CfgProps]),
+    TSDirs = [{priv_dir,get(test_server_priv_dir)},{data_dir,get_data_dir(Mod)}],
+    ActualCfg = 
+	if not StartConf ->
+		update_config(hd(Config), TSDirs ++ CfgProps);
+	   true ->
+		GroupPath = lists:flatmap(fun({_Ref,[],_T}) -> [];
+					     ({_Ref,GrProps,_T}) -> [GrProps]
+					  end, Mode0),
+		update_config(hd(Config), 
+			      TSDirs ++ [{tc_group_path,GroupPath} | CfgProps])
+	end,	   
     CurrMode = curr_mode(Ref, Mode0, Mode),
-
     ConfCaseResult = run_test_case(Ref, 0, Mod, Func, [ActualCfg], skip_init, target,
 				   TimetrapData, CurrMode),
 
