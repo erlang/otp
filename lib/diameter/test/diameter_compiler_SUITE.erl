@@ -329,7 +329,7 @@
                               "Origin-Host Origin-Realm\n&"}]}]).
 
 %% Standard dictionaries.
--define(STANDARDS, []).
+-define(STANDARDS, [rfc4005_nas]).
 
 %% ===========================================================================
 
