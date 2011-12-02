@@ -3320,17 +3320,18 @@ int driver_outputv(ErlDrvPort ix, char* hbuf, int hlen, ErlIOVec* vec, int skip)
 {
     int n;
     int len;
-    int size;
+    ErlDrvSizeT size;
     SysIOVec* iov;
     ErlDrvBinary** binv;
     Port* prt;
 
     ERTS_SMP_CHK_NO_PROC_LOCKS;
 
-    size = vec->size - skip;   /* Size of remaining bytes in vector */
-    ASSERT(size >= 0);
-    if (size <= 0)
+    ASSERT(vec->size >= skip);
+    if (vec->size <= skip)
 	return driver_output2(ix, hbuf, hlen, NULL, 0);
+    size = vec->size - skip;   /* Size of remaining bytes in vector */
+
     ASSERT(hlen >= 0);       /* debug only */
     if (hlen < 0)
 	hlen = 0;
@@ -3783,7 +3784,7 @@ int driver_enqv(ErlDrvPort ix, ErlIOVec* vec, int skip)
 {
     int n;
     int len;
-    int size;
+    ErlDrvSizeT size;
     SysIOVec* iov;
     ErlDrvBinary** binv;
     ErlDrvBinary*  b;
@@ -3792,10 +3793,10 @@ int driver_enqv(ErlDrvPort ix, ErlIOVec* vec, int skip)
     if (q == NULL)
 	return -1;
 
-    size = vec->size - skip;
-    ASSERT(size >= 0);       /* debug only */
-    if (size <= 0)
+    ASSERT(vec->size >= skip);       /* debug only */
+    if (vec->size <= skip)
 	return 0;
+    size = vec->size - skip;
 
     iov = vec->iov;
     binv = vec->binv;
@@ -3849,7 +3850,7 @@ int driver_pushqv(ErlDrvPort ix, ErlIOVec* vec, int skip)
 {
     int n;
     int len;
-    int size;
+    ErlDrvSizeT size;
     SysIOVec* iov;
     ErlDrvBinary** binv;
     ErlDrvBinary* b;
@@ -3858,8 +3859,10 @@ int driver_pushqv(ErlDrvPort ix, ErlIOVec* vec, int skip)
     if (q == NULL)
 	return -1;
 
-    if ((size = vec->size - skip) <= 0)
+    if (vec->size <= skip)
 	return 0;
+    size = vec->size - skip;
+
     iov = vec->iov;
     binv = vec->binv;
     n = vec->vsize;
@@ -3914,15 +3917,14 @@ int driver_pushqv(ErlDrvPort ix, ErlIOVec* vec, int skip)
 ** Remove size bytes from queue head
 ** Return number of bytes that remain in queue
 */
-int driver_deq(ErlDrvPort ix, int size)
+ErlDrvSizeT driver_deq(ErlDrvPort ix, size_t size)
 {
     ErlIOQueue* q = drvport2ioq(ix);
     int len;
-    int sz;
 
-    if ((q == NULL) || (sz = (q->size - size)) < 0)
+    if ((q == NULL) || (q->size < size))
 	return -1;
-    q->size = sz;
+    q->size -= size;
     while (size > 0) {
 	ASSERT(q->v_head != q->v_tail);
 
@@ -3945,16 +3947,16 @@ int driver_deq(ErlDrvPort ix, int size)
 	q->v_head = q->v_tail = q->v_start;
 	q->b_head = q->b_tail = q->b_start;
     }
-    return sz;
+    return q->size;
 }
 
 
-int driver_peekqv(ErlDrvPort ix, ErlIOVec *ev) {
+ErlDrvSizeT driver_peekqv(ErlDrvPort ix, ErlIOVec *ev) {
     ErlIOQueue *q = drvport2ioq(ix);
     ASSERT(ev);
 
     if (! q) {
-	return -1;
+	return (ErlDrvSizeT) -1;
     } else {
 	if ((ev->vsize = q->v_tail - q->v_head) == 0) {
 	    ev->size = 0;
@@ -3983,12 +3985,12 @@ SysIOVec* driver_peekq(ErlDrvPort ix, int* vlenp)  /* length of io-vector */
 }
 
 
-int driver_sizeq(ErlDrvPort ix)
+size_t driver_sizeq(ErlDrvPort ix)
 {
     ErlIOQueue* q = drvport2ioq(ix);
 
     if (q == NULL)
-	return -1;
+	return (size_t) -1;
     return q->size;
 }
 

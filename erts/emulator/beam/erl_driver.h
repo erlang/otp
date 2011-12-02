@@ -183,6 +183,8 @@ typedef long long ErlDrvSInt64;
 #error No 64-bit integer type
 #endif
 
+typedef size_t ErlDrvSizeT;
+
 /*
  * A binary as seen in a driver. Note that a binary should never be
  * altered by the driver when it has been sent to Erlang.
@@ -249,7 +251,7 @@ typedef struct {
 
 typedef struct erl_io_vec {
     int vsize;			/* length of vectors */
-    int size;			/* total size in bytes */
+    ErlDrvSizeT size;		/* total size in bytes */
     SysIOVec* iov;
     ErlDrvBinary** binv;
 } ErlIOVec;
@@ -458,14 +460,14 @@ EXTERN void driver_free(void *ptr);
 /* Queue interface */
 EXTERN int driver_enq(ErlDrvPort port, char* buf, int len);
 EXTERN int driver_pushq(ErlDrvPort port, char* buf, int len);
-EXTERN int driver_deq(ErlDrvPort port, int size);
-EXTERN int driver_sizeq(ErlDrvPort port);
+EXTERN ErlDrvSizeT driver_deq(ErlDrvPort port, ErlDrvSizeT size);
+EXTERN ErlDrvSizeT driver_sizeq(ErlDrvPort port);
 EXTERN int driver_enq_bin(ErlDrvPort port, ErlDrvBinary *bin, int offset, 
 			  int len);
 EXTERN int driver_pushq_bin(ErlDrvPort port, ErlDrvBinary *bin, int offset,
 			    int len);
 
-EXTERN int driver_peekqv(ErlDrvPort port, ErlIOVec *ev);
+EXTERN ErlDrvSizeT driver_peekqv(ErlDrvPort port, ErlIOVec *ev);
 EXTERN SysIOVec* driver_peekq(ErlDrvPort port, int *vlen);
 EXTERN int driver_enqv(ErlDrvPort port, ErlIOVec *ev, int skip);
 EXTERN int driver_pushqv(ErlDrvPort port, ErlIOVec *ev, int skip);

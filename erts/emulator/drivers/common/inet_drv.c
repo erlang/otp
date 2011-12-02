@@ -80,6 +80,13 @@
 #endif
 
 #ifdef __WIN32__
+#define LLU "%I64u"
+#else
+#define LLU "%llu"
+#endif
+typedef unsigned long long llu_t;
+
+#ifdef __WIN32__
 #define  STRNCASECMP strncasecmp
 
 #define INCL_WINSOCK_API_TYPEDEFS 1
@@ -7797,7 +7804,7 @@ static int inet_ctl(inet_descriptor* desc, int cmd, char* buf, int len,
 }
 
 /* update statistics on output packets */
-static void inet_output_count(inet_descriptor* desc, int len)
+static void inet_output_count(inet_descriptor* desc, ErlDrvSizeT len)
 {
     unsigned long n = desc->send_cnt + 1;
     unsigned long t = desc->send_oct[0] + len;
@@ -9332,12 +9339,12 @@ static int tcp_send_error(tcp_descriptor* desc, int err)
 */
 static int tcp_sendv(tcp_descriptor* desc, ErlIOVec* ev)
 {
-    int sz;
+    ErlDrvSizeT sz;
     char buf[4];
-    int h_len;
-    int n;
+    ErlDrvSizeT h_len;
+    ssize_t n;
     ErlDrvPort ix = desc->inet.port;
-    int len = ev->size;
+    ErlDrvSizeT len = ev->size;
 
      switch(desc->inet.htype) {
      case TCP_PB_1:
@@ -9385,8 +9392,8 @@ static int tcp_sendv(tcp_descriptor* desc, ErlIOVec* ev)
     else {
 	int vsize = (ev->vsize > MAX_VSIZE) ? MAX_VSIZE : ev->vsize;
 	
-	DEBUGF(("tcp_sendv(%ld): s=%d, about to send %d,%d bytes\r\n",
-		(long)desc->inet.port, desc->inet.s, h_len, len));
+	DEBUGF(("tcp_sendv(%ld): s=%d, about to send "LLU","LLU" bytes\r\n",
+		(long)desc->inet.port, desc->inet.s, (llu_t)h_len, (llu_t)len));
 
 	if (INETP(desc)->is_ignored) {
 	    INETP(desc)->is_ignored |= INET_IGNORE_WRITE;
@@ -9412,8 +9419,10 @@ static int tcp_sendv(tcp_descriptor* desc, ErlIOVec* ev)
 	    return 0;
 	}
 	else {
-	    DEBUGF(("tcp_sendv(%ld): s=%d, only sent %d/%d of %d/%d bytes/items\r\n", 
-			(long)desc->inet.port, desc->inet.s, n, vsize, ev->size, ev->vsize));
+	    DEBUGF(("tcp_sendv(%ld): s=%d, only sent "
+		    LLU"/%d of "LLU"/%d bytes/items\r\n",
+		    (long)desc->inet.port, desc->inet.s,
+		    (llu_t)n, vsize, (llu_t)ev->size, ev->vsize));
 	}
 
 	DEBUGF(("tcp_sendv(%ld): s=%d, Send failed, queuing\r\n", 

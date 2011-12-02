@@ -47,7 +47,7 @@ typedef struct erts_driver_t_ erts_driver_t;
 #define SMALL_IO_QUEUE 5   /* Number of fixed elements */
 
 typedef struct {
-    int size;       /* total size in bytes */
+    ErlDrvSizeT size;       /* total size in bytes */
 
     SysIOVec* v_start;
     SysIOVec* v_end;

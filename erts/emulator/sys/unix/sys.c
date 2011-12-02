@@ -2002,17 +2002,19 @@ static void outputv(ErlDrvData e, ErlIOVec* ev)
     int pb = driver_data[fd].packet_bytes;
     int ofd = driver_data[fd].ofd;
     int n;
-    int sz;
+    ErlDrvSizeT sz;
     char lb[4];
     char* lbp;
-    int len = ev->size;
+    ErlDrvSizeT len = ev->size;
 
     /* (len > ((unsigned long)-1 >> (4-pb)*8)) */
+    /*    if (pb >= 0 && (len & (((ErlDrvSizeT)1 << (pb*8))) - 1) != len) {*/
     if (((pb == 2) && (len > 0xffff)) || (pb == 1 && len > 0xff)) {
 	driver_failure_posix(ix, EINVAL);
 	return; /* -1; */
     }
-    put_int32(len, lb);
+    /* Handles 0 <= pb <= 4 only */
+    put_int32((Uint32) len, lb);
     lbp = lb + (4-pb);
 
     ev->iov[0].iov_base = lbp;
