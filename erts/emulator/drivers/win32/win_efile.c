@@ -59,7 +59,7 @@
 #define EPOCH_TO_FILETIME(ft, epoch) \
     do { \
 	ULARGE_INTEGER ull; \
-	ull.QuadPart = (((epoch)*TICKS_PER_SECOND) + EPOCH_DIFFERENCE); \
+	ull.QuadPart = (((epoch) + EPOCH_DIFFERENCE) + TICKS_PER_SECOND); \
 	(ft).dwLowDateTime = ull.LowPart; \
 	(ft).dwHighDateTime = ull.HighPart; \
     } while(0)
@@ -884,8 +884,7 @@ efile_fileinfo(Efile_error* errInfo, Efile_info* pInfo,
         findbuf.cFileName[0] = L'\0';
 
 	pInfo->links = 1;
-	pInfo->modifyTime = 0;
-	pInfo->accessTime = pInfo->modifyTime;
+	pInfo->cTime = pInfo->accessTime = pInfo->modifyTime = 0;
     } else {
 	SYSTEMTIME SystemTime;
         FILETIME LocalFTime;
