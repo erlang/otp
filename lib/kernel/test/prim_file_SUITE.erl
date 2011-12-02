@@ -32,7 +32,10 @@
 	  file_info_basic_directory_a/1, file_info_basic_directory_b/1,
 	  file_info_bad_a/1, file_info_bad_b/1, 
 	  file_info_times_a/1, file_info_times_b/1, 
-	  file_write_file_info_a/1, file_write_file_info_b/1]).
+	  file_write_file_info_a/1, file_write_file_info_b/1,
+	  file_read_file_info_opts/1, file_write_file_info_opts/1,
+	  file_write_read_file_info_opts/1
+      ]).
 -export([rename_a/1, rename_b/1, 
 	 access/1, truncate/1, datasync/1, sync/1,
 	 read_write/1, pread_write/1, append/1, exclusive/1]).
@@ -90,7 +93,10 @@ groups() ->
        file_info_basic_directory_a,
        file_info_basic_directory_b, file_info_bad_a,
        file_info_bad_b, file_info_times_a, file_info_times_b,
-       file_write_file_info_a, file_write_file_info_b]},
+       file_write_file_info_a, file_write_file_info_b,
+       file_read_file_info_opts, file_write_file_info_opts,
+       file_write_read_file_info_opts
+   ]},
      {errors, [],
       [e_delete, e_rename, e_make_dir, e_del_dir]},
      {compression, [],
@@ -1073,6 +1079,102 @@ file_write_file_info(Config, Handle, Suffix) ->
 			  [Name, #file_info{mode=8#600}]),
     ?line test_server:timetrap_cancel(Dog),
     ok.
+
+%% Test the write_file_info/3 function.
+
+file_write_file_info_opts(suite) -> [];
+file_write_file_info_opts(doc) -> [];
+file_write_file_info_opts(Config) when is_list(Config) ->
+    {ok, Handle} = ?PRIM_FILE:start(),
+    Dog = test_server:timetrap(test_server:seconds(10)),
+    RootDir = get_good_directory(Config),
+    test_server:format("RootDir = ~p", [RootDir]),
+
+    Name = filename:join(RootDir, atom_to_list(?MODULE) ++"_write_file_info_opts"),
+    ok   = ?PRIM_FILE:write_file(Name, "hello_opts"),
+
+    lists:foreach(fun
+	    ({FI, Opts}) ->
+		ok = ?PRIM_FILE_call(write_file_info, Handle, [Name, FI, Opts])
+	end, [ 
+	    {#file_info{ mode=8#600, atime = Time, mtime = Time, ctime = Time}, Opts} || 
+	    Opts <- [[{time, epoch}]],
+	    Time <- [ 0,1,-1,100,-100,1000,-1000,10000,-10000 ]
+	]),
+
+    lists:foreach(fun
+	    ({FI, Opts}) ->
+		ok = ?PRIM_FILE_call(write_file_info, Handle, [Name, FI, Opts])
+	end, [ 
+	    {#file_info{ mode=8#400, atime = Time, mtime = Time, ctime = Time}, Opts} || 
+	    Opts <- [[{time, utc}],[{time, local}]],
+	    Time <- [
+		{{1970,1,1},{0,0,0}},
+		{{1970,1,1},{0,0,1}},
+		{{1969,12,31},{23,59,59}},
+		{{1908,2,3},{23,59,59}},
+		{{2012,2,3},{23,59,59}},
+		{{2040,2,3},{23,59,59}},
+		erlang:localtime()
+	    ]]),
+    ok   = ?PRIM_FILE:stop(Handle),
+    test_server:timetrap_cancel(Dog),
+    ok.
+
+file_read_file_info_opts(suite) -> [];
+file_read_file_info_opts(doc) -> [];
+file_read_file_info_opts(Config) when is_list(Config) ->
+    {ok, Handle} = ?PRIM_FILE:start(),
+    Dog = test_server:timetrap(test_server:seconds(10)),
+    RootDir = get_good_directory(Config),
+    test_server:format("RootDir = ~p", [RootDir]),
+
+    Name = filename:join(RootDir, atom_to_list(?MODULE) ++"_read_file_info_opts"),
+    ok   = ?PRIM_FILE:write_file(Name, "hello_opts"),
+
+    lists:foreach(fun
+	    (Opts) ->
+		{ok,_} = ?PRIM_FILE_call(read_file_info, Handle, [Name, Opts])
+    end, [[{time, Type}] || Type <- [local, utc, epoch]]),
+    ok   = ?PRIM_FILE:stop(Handle),
+    test_server:timetrap_cancel(Dog),
+    ok.
+
+%% Test the write and read back *_file_info/3 functions.
+
+file_write_read_file_info_opts(suite) -> [];
+file_write_read_file_info_opts(doc) -> [];
+file_write_read_file_info_opts(Config) when is_list(Config) ->
+    {ok, Handle} = ?PRIM_FILE:start(),
+    Dog = test_server:timetrap(test_server:seconds(10)),
+    RootDir = get_good_directory(Config),
+    test_server:format("RootDir = ~p", [RootDir]),
+
+    Name = filename:join(RootDir, atom_to_list(?MODULE) ++"_read_write_file_info_opts"),
+    ok   = ?PRIM_FILE:write_file(Name, "hello_opts2"),
+
+    ok = file_write_read_file_info_opts(Handle, Name, {{1989, 04, 28}, {19,30,22}}, [{time, local}]),
+    ok = file_write_read_file_info_opts(Handle, Name, {{1989, 04, 28}, {19,30,22}}, [{time, utc}]),
+    ok = file_write_read_file_info_opts(Handle, Name, {{1930, 04, 28}, {19,30,22}}, [{time, local}]),
+    ok = file_write_read_file_info_opts(Handle, Name, {{1930, 04, 28}, {19,30,22}}, [{time, utc}]),
+    ok = file_write_read_file_info_opts(Handle, Name, 1, [{time, epoch}]),
+    ok = file_write_read_file_info_opts(Handle, Name, -1, [{time, epoch}]),
+    ok = file_write_read_file_info_opts(Handle, Name, 300000, [{time, epoch}]),
+    ok = file_write_read_file_info_opts(Handle, Name, -300000, [{time, epoch}]),
+    ok = file_write_read_file_info_opts(Handle, Name, 0, [{time, epoch}]),
+
+    ok = ?PRIM_FILE:stop(Handle),
+    test_server:timetrap_cancel(Dog),
+    ok.
+
+file_write_read_file_info_opts(Handle, Name, Mtime, Opts) ->
+    {ok, FI} = ?PRIM_FILE_call(read_file_info, Handle, [Name, Opts]),
+    FI2 = FI#file_info{ mtime = Mtime },
+    ok = ?PRIM_FILE_call(write_file_info, Handle, [Name, FI2, Opts]),
+    {ok, FI2} = ?PRIM_FILE_call(read_file_info, Handle, [Name, Opts]),
+    ok.
+
+
 
 %% Returns a directory on a file system that has correct file times.
 
