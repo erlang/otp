@@ -2347,8 +2347,8 @@ server_verify_client_once_passive(Config) when is_list(Config) ->
 					{options, [{active, false} | ClientOpts]}]),
     
     ssl_test_lib:check_result(Server, ok, Client0, ok),
-    ssl_test_lib:close(Client0),
     Server ! {listen, {mfa, {ssl_test_lib, no_result, []}}},
+    ssl_test_lib:close(Client0),
     Client1 = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
 					{host, Hostname},
 					{from, self()}, 
@@ -2385,8 +2385,8 @@ server_verify_client_once_active(Config) when is_list(Config) ->
 					 {options, [{active, true} | ClientOpts]}]),
     
     ssl_test_lib:check_result(Server, ok, Client0, ok),
-    ssl_test_lib:close(Client0),
     Server ! {listen, {mfa, {ssl_test_lib, no_result, []}}},
+    ssl_test_lib:close(Client0),
     Client1 = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
 					{host, Hostname},
 					{from, self()}, 
