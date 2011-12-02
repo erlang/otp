@@ -301,8 +301,6 @@ erts_print_system_version(int to, void *arg, Process *c_p)
     return erts_print(to, arg, erts_system_version
 #ifdef ERTS_SMP
 		      , total, online
-#else
-		      , 1
 #endif
 #ifdef USE_THREADS
 		      , erts_async_max_threads
