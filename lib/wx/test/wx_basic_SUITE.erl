@@ -48,7 +48,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [create_window, several_apps, wx_api, wx_misc,
-     data_types].
+     data_types, wx_object].
 
 groups() -> 
     [].
@@ -298,3 +298,77 @@ data_types(_Config) ->
     wxClientDC:destroy(CDC),
     %%wx_test_lib:wx_destroy(Frame,Config).
     wx:destroy().
+
+wx_object(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
+wx_object(Config) ->
+    wx:new(),
+    Frame = ?mt(wxFrame, wx_obj_test:start([])),
+    timer:sleep(500),
+    ?m(ok, check_events(flush())),
+
+    Me = self(),
+    ?m({call, foobar, {Me, _}}, wx_object:call(Frame, foobar)),
+    ?m(ok, wx_object:cast(Frame, foobar2)),
+    ?m([{cast, foobar2}], flush()),
+    FramePid = wx_object:get_pid(Frame),
+    io:format("wx_object pid ~p~n",[FramePid]),
+    FramePid ! foo3,
+    ?m([{info, foo3}], flush()),
+
+    ?m(ok, wx_object:cast(Frame, fun(_) -> hehe end)),
+    ?m([{cast, hehe}], flush()),
+    wxWindow:refresh(Frame),
+    ?m([{sync_event, #wx{event=#wxPaint{}}, _}], flush()),
+    ?m(ok, wx_object:cast(Frame, fun(_) -> timer:sleep(200), slept end)),
+    %% The sleep above should not hinder the Paint event below
+    %% Which it did in my buggy handling of the sync_callback
+    wxWindow:refresh(Frame),
+    ?m([{sync_event, #wx{event=#wxPaint{}}, _}], flush()),
+    ?m([{cast, slept}], flush()),
+
+    Monitor = erlang:monitor(process, FramePid),
+    case proplists:get_value(user, Config, false) of
+	false ->
+	    timer:sleep(100),
+	    wxFrame:destroy(Frame);
+	true ->
+	    timer:sleep(500),
+	    ?m(ok, wxFrame:destroy(Frame));
+	_ ->
+	    ?m(ok, wxEvtHandler:connect(Frame, close_window, [{skip,true}])),
+	    wx_test_lib:wait_for_close()
+    end,
+    ?m(ok, receive
+	       {'DOWN', Monitor, _, _, _} ->
+		   ?m([{terminate, wx_deleted}], flush()),
+		   ok
+	   after 1000 ->
+		   Msgs = flush(),
+		   io:format("Error ~p Alive ~p~n",[Msgs, is_process_alive(FramePid)])
+	   end),
+    catch wx:destroy(),
+    ok.
+
+check_events(Msgs) ->
+    check_events(Msgs, 0,0).
+
+check_events([{event, #wx{event=#wxSize{}}}|Rest], Async, Sync) ->
+    check_events(Rest, Async+1, Sync);
+check_events([{sync_event, #wx{event=#wxPaint{}}, Obj}|Rest], Async, Sync) ->
+    ?mt(wxPaintEvent, Obj),
+    check_events(Rest, Async, Sync+1);
+check_events([], Async, Sync) ->
+    case Async > 0 of  %% Test sync explictly
+	true -> ok;
+	false -> {Async, Sync}
+    end.
+
+flush() ->
+    flush([], 500).
+
+flush(Acc, Wait) ->
+    receive
+	Msg -> flush([Msg|Acc], Wait div 10)
+    after Wait ->
+	    lists:reverse(Acc)
+    end.

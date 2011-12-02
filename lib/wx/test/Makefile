@@ -27,7 +27,7 @@ PWD = $(shell pwd)
 APPDIR = $(shell dirname $(PWD))
 ERL_COMPILE_FLAGS = -pa $(APPDIR)/ebin
 
-Mods =  wxt wx_test_lib \
+Mods =  wxt wx_test_lib wx_obj_test \
 	wx_app_SUITE \
 	wx_basic_SUITE \
 	wx_event_SUITE \

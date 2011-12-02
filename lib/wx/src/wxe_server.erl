@@ -221,7 +221,7 @@ handle_connect(Object, EvData, From, State0 = #state{users=Users}) ->
     Evs = [#event{object=Object,callback=Callback, cb_handler=CBHandler}|Evs0],
     User = User0#user{events=Evs, evt_handler=Handler},
     State1 = State0#state{users=gb_trees:update(From, User, Users)},
-    if is_function(Callback) ->
+    if is_function(Callback) orelse is_pid(Callback) ->
 	    {FunId, State} = attach_fun(Callback,State1),
 	    Res = wxEvtHandler:connect_impl(CBHandler,Object,
 					    wxEvtHandler:replace_fun_with_id(EvData,FunId)),
@@ -229,6 +229,7 @@ handle_connect(Object, EvData, From, State0 = #state{users=Users}) ->
 		ok     -> {reply,Res,State};
 		_Error -> {reply,Res,State0}
 	    end;
+
        true ->
 	    Res = {call_impl, connect_cb, CBHandler},
 	    {reply, Res, State1}
@@ -239,6 +240,8 @@ invoke_cb({{Ev=#wx{}, Ref=#wx_ref{}}, FunId,_}, _S) ->
     case get(FunId) of
 	Fun when is_function(Fun) ->
 	    invoke_callback(fun() -> Fun(Ev, Ref), <<>> end);
+	Pid when is_pid(Pid) -> %% wx_object sync event
+	    invoke_callback(Pid, Ev, Ref);
 	Err ->
 	    ?log("Internal Error ~p~n",[Err])
     end;
@@ -269,6 +272,44 @@ invoke_callback(Fun) ->
 	 end,
     spawn(CB),
     ok.
+
+invoke_callback(Pid, Ev, Ref) ->
+    Env = get(?WXE_IDENTIFIER),
+    CB = fun() ->
+		 wx:set_env(Env),
+		 wxe_util:cast(?WXE_CB_START, <<>>),
+		 try
+		     case get_wx_object_state(Pid) of
+			 ignore ->
+			     %% Ignore early events
+			     wxEvent:skip(Ref);
+			 {Mod, State} ->
+			     case Mod:handle_sync_event(Ev, Ref, State) of
+				 ok -> ok;
+				 noreply -> ok;
+				 Return -> exit({bad_return, Return})
+			     end
+		     end
+		 catch _:Reason ->
+			 wxEvent:skip(Ref),
+			 ?log("Callback fun crashed with {'EXIT, ~p, ~p}~n",
+			      [Reason, erlang:get_stacktrace()])
+		 end,
+		 wxe_util:cast(?WXE_CB_RETURN, <<>>)
+	 end,
+    spawn(CB),
+    ok.
+
+get_wx_object_state(Pid) ->
+    case process_info(Pid, dictionary) of
+	{dictionary, Dict} ->
+	    case lists:keysearch('_wx_object_',1,Dict) of
+		{value, {'_wx_object_', {_Mod, '_wx_init_'}}} -> ignore;
+		{value, {'_wx_object_', Value}} -> Value;
+		_ -> ignore
+	    end;
+	_ -> ignore
+    end.
 
 new_evt_listener(State) ->
     #wx_env{port=Port} = wx:get_env(),

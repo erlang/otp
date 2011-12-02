@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -40,7 +40,6 @@
 
 -define(m(ExpectedRes, Expr),
 	fun() ->
-		{TeStFILe, TeSTLiNe} = {?FILE, ?LINE},
 		AcTuAlReS = (catch (Expr)),
 		case AcTuAlReS of
 		    ExpectedRes ->
@@ -48,8 +47,8 @@
 			AcTuAlReS;
 		    _ ->
 			wx_test_lib:error("Not Matching Actual result was:~n ~p ~n Expected ~s~n",
-					  [AcTuAlReS, ??ExpectedRes], 
-					  TeStFILe,TeSTLiNe),
+					  [AcTuAlReS, ??ExpectedRes],
+					  ?FILE,?LINE),
 			AcTuAlReS
 		end
 	end()).
