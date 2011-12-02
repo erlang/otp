@@ -1488,7 +1488,7 @@ efile_sendfile(Efile_error* errInfo, int in_fd, int out_fd,
 	       off_t *offset, Uint64 *nbytes, struct t_sendfile_hdtl* hdtl)
 {
     Uint64 written = 0;
-#if defined(__linux__) || (defined(__sun) && defined(__SVR4))
+#if defined(__linux__)
     ssize_t retval;
     do {
       // check if *nbytes is 0 or greater than the largest size_t
@@ -1501,6 +1501,28 @@ efile_sendfile(Efile_error* errInfo, int in_fd, int out_fd,
 	*nbytes -= retval;
       }
     } while (retval != -1 && retval == SENDFILE_CHUNK_SIZE);
+    *nbytes = written;
+    return check_error(retval == -1 ? -1 : 0, errInfo);
+#elif defined(__sun) && defined(__SVR4) && defined(HAVE_SENDFILEV)
+    ssize_t retval;
+    size_t len;
+    sendfilevec_t fdrec;
+    fdrec.sfv_fd = in_fd;
+    fdrec.sfv_flag = SFV_NOWAIT;
+    do {
+      fdrec.sfv_off = *offset;
+      len = 0;
+      if (*nbytes == 0 || *nbytes > SENDFILE_CHUNK_SIZE)
+	fdrec.sfv_len = SENDFILE_CHUNK_SIZE;
+      else
+	fdrec.sfv_len = *nbytes;
+      retval = sendfilev(out_fd, &fdrec, 1, &len);
+      if (retval != -1 || errno == EAGAIN || errno == EINTR) {
+        *offset += len;
+	*nbytes -= len;
+	written += len;
+      }
+    } while (len == SENDFILE_CHUNK_SIZE);
     *nbytes = written;
     return check_error(retval == -1 ? -1 : 0, errInfo);
 #elif defined(DARWIN)

@@ -67,6 +67,11 @@
 #define FILENAMES_16BIT 1
 #endif
 
+// We use sendfilev if it exist on solaris
+#if !defined(HAVE_SENDFILE) && defined(HAVE_SENDFILEV)
+#define HAVE_SENDFILE
+#endif
+
 /*
  * An handle to an open directory.  To be cast to the correct type
  * in the system-dependent directory functions.

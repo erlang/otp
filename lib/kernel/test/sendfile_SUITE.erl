@@ -99,7 +99,7 @@ t_sendfile_big(Config) when is_list(Config) ->
 		   Size
 	   end,
 
-    ok = sendfile_send("localhost", Send, 0).
+    ok = sendfile_send({127,0,0,1}, Send, 0).
 
 t_sendfile_partial(Config) ->
     Filename = proplists:get_value(small_file, Config),
@@ -185,14 +185,14 @@ t_sendfile_sendduring(Config) ->
 		   {ok, #file_info{size = Size}} =
 		       file:read_file_info(Filename),
 		   spawn_link(fun() ->
-				      timer:sleep(10),
+				      timer:sleep(50),
 				      ok = gen_tcp:send(Sock, <<2>>)
 			      end),
 		   {ok, Size} = file:sendfile(Filename, Sock),
 		   Size+1
 	   end,
 
-    ok = sendfile_send("localhost", Send, 0).
+    ok = sendfile_send({127,0,0,1}, Send, 0).
 
 t_sendfile_recvduring(Config) ->
     Filename = proplists:get_value(big_file, Config),
@@ -201,7 +201,7 @@ t_sendfile_recvduring(Config) ->
 		   {ok, #file_info{size = Size}} =
 		       file:read_file_info(Filename),
 		   spawn_link(fun() ->
-				      timer:sleep(10),
+				      timer:sleep(50),
 				      ok = gen_tcp:send(Sock, <<1>>),
 				      {ok,<<1>>} = gen_tcp:recv(Sock, 1)
 			      end),
@@ -210,11 +210,11 @@ t_sendfile_recvduring(Config) ->
 		   Size+1
 	   end,
 
-    ok = sendfile_send("localhost", Send, 0).
+    ok = sendfile_send({127,0,0,1}, Send, 0).
 
 %% TODO: consolidate tests and reduce code
 sendfile_send(Send) ->
-    sendfile_send("localhost",Send).
+    sendfile_send({127,0,0,1},Send).
 sendfile_send(Host, Send) ->
     sendfile_send(Host, Send, []).
 sendfile_send(Host, Send, Orig) ->
@@ -245,7 +245,6 @@ sendfile_server(ClientPid, Orig) ->
     gen_tcp:send(Sock, <<1>>).
 
 -define(SENDFILE_TIMEOUT, 10000).
-%% f(),{ok, S} = gen_tcp:connect("localhost",7890,[binary]),file:sendfile("/ldisk/lukas/otp/sendfiletest.dat",S).
 sendfile_do_recv(Sock, Bs) ->
     receive
 	{tcp, Sock, B} ->
