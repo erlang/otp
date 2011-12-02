@@ -117,6 +117,11 @@ int erts_check_io_debug(void);
 #define SYS_CLK_TCK 1000
 #define SYS_CLOCK_RESOLUTION 1
 
+struct tm *sys_localtime_r(time_t *epochs, struct tm *ptm);
+
+#define localtime_r sys_localtime_r
+#define HAVE_LOCALTIME_R 1
+
 typedef struct {
     long tv_sec;
     long tv_usec;

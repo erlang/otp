@@ -59,7 +59,7 @@
 #define EPOCH_TO_FILETIME(ft, epoch) \
     do { \
 	ULARGE_INTEGER ull; \
-	ull.QuadPart = (((epoch) + EPOCH_DIFFERENCE) + TICKS_PER_SECOND); \
+	ull.QuadPart = (((epoch) + EPOCH_DIFFERENCE) * TICKS_PER_SECOND); \
 	(ft).dwLowDateTime = ull.LowPart; \
 	(ft).dwHighDateTime = ull.HighPart; \
     } while(0)

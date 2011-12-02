@@ -35,7 +35,24 @@
 /******************* Routines for time measurement *********************/
 
 #define EPOCH_JULIAN_DIFF LL_LITERAL(11644473600)
+#define TICKS_PER_SECOND (10000000LL)
 
+#define EPOCH_TO_FILETIME(ft, epoch) \
+    do { \
+	ULARGE_INTEGER ull; \
+	ull.QuadPart = (((epoch) + EPOCH_JULIAN_DIFF) * TICKS_PER_SECOND); \
+	(ft).dwLowDateTime = ull.LowPart; \
+	(ft).dwHighDateTime = ull.HighPart; \
+    } while(0)
+
+#define FILETIME_TO_EPOCH(epoch, ft) \
+    do { \
+	ULARGE_INTEGER ull; \
+	ull.LowPart  = (ft).dwLowDateTime; \
+	ull.HighPart = (ft).dwHighDateTime; \
+	(epoch) = ((ull.QuadPart / TICKS_PER_SECOND) - EPOCH_JULIAN_DIFF); \
+    } while(0)
+ 
 static SysHrTime wrap = 0;
 static DWORD last_tick_count = 0;
 
@@ -43,6 +60,35 @@ int
 sys_init_time(void)
 {
     return 1;
+}
+
+struct tm * sys_localtime_r(time_t *epochs, struct tm *ptm)
+{
+    FILETIME ft,lft;
+    SYSTEMTIME st;
+    
+    if ((((*epochs) + EPOCH_JULIAN_DIFF) * TICKS_PER_SECOND) < 0LL) {
+	return NULL;
+    }
+    
+    EPOCH_TO_FILETIME(ft,*epochs);
+    
+    if (!FileTimeToLocalFileTime(&ft,&lft)) {
+	return NULL;
+    }
+    
+    if (!FileTimeToSystemTime(&lft,&st)) {
+	return NULL;
+    }
+    
+    ptm->tm_year = (int) st.wYear - 1900;
+    ptm->tm_mon  = (int) st.wMonth - 1;
+    ptm->tm_mday = (int) st.wDay;
+    ptm->tm_hour = (int) st.wHour;
+    ptm->tm_min  = (int) st.wMinute;
+    ptm->tm_sec  = (int) st.wSecond;
+
+    return ptm;
 }
 
 void 
@@ -91,9 +137,3 @@ sys_times(SysTimes *buffer) {
     buffer->tms_stime = (clock_t) (system & LL_LITERAL(0x7FFFFFFF));
     return kernel_ticks;
 }
-
-
-
-
-
-
