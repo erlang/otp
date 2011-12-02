@@ -63,7 +63,7 @@
 	 log/1, log/2, log/3,
 	 print/1, print/2, print/3,
 	 pal/1, pal/2, pal/3,
-	 fail/1, comment/1,
+	 fail/1, fail/2, comment/1, comment/2,
 	 testcases/2, userdata/2, userdata/3,
 	 timetrap/1, sleep/1]).
 
@@ -108,7 +108,7 @@ install(Opts) ->
 %%%   Cases = atom() | [atom()]
 %%%   Result = [TestResult] | {error,Reason}
 %%%
-%%% @doc Run the given testcase(s).
+%%% @doc Run the given test case(s).
 %%%
 %%% <p>Requires that <code>ct:install/1</code> has been run first.</p>
 %%%
@@ -121,7 +121,7 @@ run(TestDir,Suite,Cases) ->
 %%%-----------------------------------------------------------------
 %%% @spec run(TestDir,Suite) -> Result
 %%%
-%%% @doc Run all testcases in the given suite.
+%%% @doc Run all test cases in the given suite.
 %%% @see run/3.
 run(TestDir,Suite) ->
     ct_run:run(TestDir,Suite).
@@ -130,7 +130,7 @@ run(TestDir,Suite) ->
 %%% @spec run(TestDirs) -> Result
 %%%   TestDirs = TestDir | [TestDir]
 %%%
-%%% @doc Run all testcases in all suites in the given directories.
+%%% @doc Run all test cases in all suites in the given directories.
 %%% @see run/3.
 run(TestDirs) ->
     ct_run:run(TestDirs).
@@ -440,11 +440,10 @@ log(X1,X2) ->
 %%%      Format = string()
 %%%      Args = list()
 %%%
-%%% @doc Printout from a testcase to the log. 
+%%% @doc Printout from a test case to the log file. 
 %%%
-%%% <p>This function is meant for printing stuff directly from a
-%%% testcase (i.e. not from within the CT framework) in the test
-%%% log.</p>
+%%% <p>This function is meant for printing a string directly from a
+%%% test case to the test case log file.</p>
 %%%
 %%% <p>Default <code>Category</code> is <code>default</code> and
 %%% default <code>Args</code> is <code>[]</code>.</p>
@@ -473,10 +472,10 @@ print(X1,X2) ->
 %%%      Format = string()
 %%%      Args = list()
 %%%
-%%% @doc Printout from a testcase to the console. 
+%%% @doc Printout from a test case to the console. 
 %%%
-%%% <p>This function is meant for printing stuff from a testcase on
-%%% the console.</p>
+%%% <p>This function is meant for printing a string from a test case
+%%% to the console.</p>
 %%%
 %%% <p>Default <code>Category</code> is <code>default</code> and
 %%% default <code>Args</code> is <code>[]</code>.</p>
@@ -508,10 +507,10 @@ pal(X1,X2) ->
 %%%      Format = string()
 %%%      Args = list()
 %%%
-%%% @doc Print and log from a testcase. 
+%%% @doc Print and log from a test case. 
 %%%
-%%% <p>This function is meant for printing stuff from a testcase both
-%%% in the log and on the console.</p>
+%%% <p>This function is meant for printing a string from a test case,
+%%% both to the test case log file and to the console.</p>
 %%%
 %%% <p>Default <code>Category</code> is <code>default</code> and
 %%% default <code>Args</code> is <code>[]</code>.</p>
@@ -528,18 +527,35 @@ pal(Category,Format,Args) ->
 fail(Reason) ->
     exit({test_case_failed,Reason}).
 
+
+%%%-----------------------------------------------------------------
+%%% @spec fail(Format, Args) -> void()
+%%%      Format = string()
+%%%      Args = list()
+%%%
+%%% @doc Terminate a test case with an error message specified
+%%% by a format string and a list of values (used as arguments to
+%%% <code>io_lib:format/2</code>).
+fail(Format, Args) ->
+    try io_lib:format(Format, Args) of
+	Str ->
+	    exit({test_case_failed,lists:flatten(Str)})
+    catch
+	_:BadArgs ->
+	    exit({BadArgs,{?MODULE,fail,[Format,Args]}})
+    end.
+
+
 %%%-----------------------------------------------------------------
 %%% @spec comment(Comment) -> void()
 %%%      Comment = term()
 %%%
-%%% @doc Print the given <code>Comment</code> in the comment field of
+%%% @doc Print the given <code>Comment</code> in the comment field in
 %%% the table on the test suite result page.
 %%%
 %%% <p>If called several times, only the last comment is printed.
-%%% <code>comment/1</code> is also overwritten by the return value
-%%% <code>{comment,Comment}</code> or by the function
-%%% <code>fail/1</code> (which prints <code>Reason</code> as a
-%%% comment).</p>
+%%% The test case return value <code>{comment,Comment}</code>
+%%% overwrites the string set by this function.</p>
 comment(Comment) when is_list(Comment) ->
     Formatted =
 	case (catch io_lib:format("~s",[Comment])) of
@@ -552,6 +568,29 @@ comment(Comment) when is_list(Comment) ->
 comment(Comment) ->
     Formatted = io_lib:format("~p",[Comment]),
     send_html_comment(lists:flatten(Formatted)).
+
+%%%-----------------------------------------------------------------
+%%% @spec comment(Format, Args) -> void()
+%%%      Format = string()
+%%%      Args = list()
+%%%
+%%% @doc Print the formatted string in the comment field in
+%%% the table on the test suite result page.
+%%% 
+%%% <p>The <code>Format</code> and <code>Args</code> arguments are
+%%% used in call to <code>io_lib:format/2</code> in order to create
+%%% the comment string. The behaviour of <code>comment/2</code> is
+%%% otherwise the same as the <code>comment/1</code> function (see
+%%% above for details).</p>
+comment(Format, Args) when is_list(Format), is_list(Args) ->
+    Formatted =
+	case (catch io_lib:format(Format, Args)) of
+	    {'EXIT',Reason} ->  % bad args
+		exit({Reason,{?MODULE,comment,[Format,Args]}});
+	    String ->
+		lists:flatten(String)
+	end,
+    send_html_comment(Formatted).
 
 send_html_comment(Comment) ->
     Html = "<font color=\"green\">" ++ Comment ++ "</font>",
@@ -606,7 +645,7 @@ listenv(Telnet) ->
 %%%       Testcases = list()
 %%%       Reason = term()
 %%%
-%%% @doc Returns all testcases in the specified suite.
+%%% @doc Returns all test cases in the specified suite.
 testcases(TestDir, Suite) ->
     case make_and_load(TestDir, Suite) of
 	E = {error,_} ->
