@@ -627,7 +627,7 @@ static int erl_mktime(time_t *c, struct tm *tm) {
  * greater of equal to 1600 , and month [1-12] and day [1-31] 
  * are within range. Otherwise it returns -1.
  */
-static int long gregday(int year, int month, int day)
+static time_t gregday(Sint year, Sint month, Sint day)
 {
   int long ndays = 0;
   int gyear, pyear, m;
