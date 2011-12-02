@@ -223,7 +223,6 @@ init_tc(RefreshLog) ->
 %%%
 %%% <p>This function is called by ct_framework:end_tc/3</p>
 end_tc(TCPid) ->
-    io:format(xhtml("<br>", "<br />")),
     %% use call here so that the TC process will wait and receive
     %% possible exit signals from ct_logs before end_tc returns ok 
     call({end_tc,TCPid}).
@@ -745,20 +744,19 @@ print_style(Fd,StyleSheet) ->
 		       0 -> string:str(Str,"<STYLE>");
 		       N0 -> N0
 		   end,
-	    case Pos0 of
-		0 -> print_style_error(Fd,StyleSheet,missing_style_tag);
-		_ -> 
-		    Pos1 = case string:str(Str,"</style>") of
-			       0 -> string:str(Str,"</STYLE>");
-			       N1 -> N1
-			   end,
-		    case Pos1 of
-			0 -> 
-			    print_style_error(Fd,StyleSheet,missing_style_end_tag);
-			_ -> 
-			    Style = string:sub_string(Str,Pos0,Pos1+7),
-			    io:format(Fd,"~s\n",[Style])
-		    end
+	    Pos1 = case string:str(Str,"</style>") of
+		       0 -> string:str(Str,"</STYLE>");
+		       N1 -> N1
+		   end,
+	    if (Pos0 == 0) and (Pos1 /= 0) ->
+		    print_style_error(Fd,StyleSheet,missing_style_start_tag);
+	       (Pos0 /= 0) and (Pos1 == 0) ->
+		    print_style_error(Fd,StyleSheet,missing_style_end_tag);
+	       Pos0 /= 0 ->
+		    Style = string:sub_string(Str,Pos0,Pos1+7),
+		    io:format(Fd,"~s\n",[Style]);
+	       Pos0 == 0 ->
+		    io:format(Fd,"<style>~s</style>\n",[Str])
 	    end;
 	{error,Reason} ->
 	    print_style_error(Fd,StyleSheet,Reason)  
