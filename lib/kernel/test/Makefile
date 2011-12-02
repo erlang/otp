@@ -74,7 +74,8 @@ MODULES= \
 	wrap_log_reader_SUITE \
 	cleanup \
 	zlib_SUITE \
-	loose_node
+	loose_node \
+	sendfile_SUITE
 
 APP_FILES = \
 	appinc.app \

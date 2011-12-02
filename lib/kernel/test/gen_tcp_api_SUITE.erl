@@ -22,7 +22,7 @@
 %% are not tested here, because they are tested indirectly in this and
 %% and other test suites.
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/inet.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
@@ -46,6 +46,8 @@ groups() ->
      {t_connect, [], [t_connect_timeout, t_connect_bad]},
      {t_recv, [], [t_recv_timeout, t_recv_eof]}].
 
+
+
 init_per_suite(Config) ->
     Config.
 
@@ -55,9 +57,8 @@ end_per_suite(_Config) ->
 init_per_group(_GroupName, Config) ->
     Config.
 
-end_per_group(_GroupName, Config) ->
-    Config.
-
+end_per_group(_,_Config) ->
+    ok.
 
 init_per_testcase(_Func, Config) ->
     Dog = test_server:timetrap(test_server:seconds(60)),
@@ -235,7 +236,6 @@ implicit_inet6(S, Addr) ->
     ?line {Addr,P2} = ok(inet:sockname(S2)),
     ?line ok = gen_tcp:close(S2),
     ?line ok = gen_tcp:close(S1).
-
 
 
 %%% Utilities

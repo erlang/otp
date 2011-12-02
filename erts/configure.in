@@ -1742,6 +1742,22 @@ dnl       fdatasync requires linking against -lrt on SunOS <= 5.10.
 dnl       OpenSolaris 2009.06 is SunOS 5.11 and does not require -lrt.
 AC_SEARCH_LIBS(fdatasync, [rt])
 
+
+dnl sendfile syscall
+case $host_os in
+    linux*|freebsd*|dragonfly*|darwin*)
+		AC_CHECK_FUNCS([sendfile])
+		;;
+    solaris*)
+		AC_SEARCH_LIBS(sendfile, sendfile, AC_DEFINE(HAVE_SENDFILE, 1))
+		;;
+    win32)
+		LIBS="$LIBS -lmswsock"
+		;;
+    *)
+		;;
+esac
+
 dnl ----------------------------------------------------------------------
 dnl Checks for library functions.
 dnl ----------------------------------------------------------------------

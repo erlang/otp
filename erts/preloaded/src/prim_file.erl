@@ -26,7 +26,8 @@
 
 %% Generic file contents operations
 -export([open/2, close/1, datasync/1, sync/1, advise/4, position/2, truncate/1,
-	 write/2, pwrite/2, pwrite/3, read/2, read_line/1, pread/2, pread/3, copy/3]).
+	 write/2, pwrite/2, pwrite/3, read/2, read_line/1, pread/2, pread/3,
+	 copy/3, sendfile/10]).
 
 %% Specialized file operations
 -export([open/1, open/3]).
@@ -98,6 +99,7 @@
 -define(FILE_READ_LINE,        29).
 -define(FILE_FDATASYNC,        30).
 -define(FILE_ADVISE,           31).
+-define(FILE_SENDFILE,         32).
 
 %% Driver responses
 -define(FILE_RESP_OK,          0).
@@ -537,7 +539,31 @@ write_file(File, Bin) when (is_list(File) orelse is_binary(File)) ->
     end;
 write_file(_, _) -> 
     {error, badarg}.
-    
+
+
+%% Returns {error, Reason} | {ok, BytesCopied}
+%sendfile(_,_,_,_,_,_,_,_,_,_) ->
+%    {error, enotsup};
+sendfile(#file_descriptor{module = ?MODULE, data = {Port, _}},
+	 Dest, Offset, Bytes, _ChunkSize, Headers, Trailers,
+	 _Nodiskio, _MNowait, _Sync) ->
+    case erlang:port_get_data(Dest) of
+	Data when Data == inet_tcp; Data == inet6_tcp ->
+	    ok = inet:lock_socket(Dest,true),
+	    {ok, DestFD} = prim_inet:getfd(Dest),
+	    try drv_command(Port, [<<?FILE_SENDFILE, DestFD:32,
+				     0:8,
+				     Offset:64/unsigned,
+				     Bytes:64/unsigned,
+				     (iolist_size(Headers)):32/unsigned,
+				     (iolist_size(Trailers)):32/unsigned>>,
+				   Headers,Trailers])
+	    after
+		ok = inet:lock_socket(Dest,false)
+	    end;
+	_Else ->
+	    {error,badarg}
+    end.
 
 
 %%%-----------------------------------------------------------------

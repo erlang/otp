@@ -149,6 +149,9 @@
     <datatype>
       <name name="mode"/>
     </datatype>
+    <datatype>
+      <name name="sendfile_option"/>
+    </datatype>
    </datatypes>
 
   <funcs>
@@ -1571,6 +1574,48 @@
         <p>Truncates the file referenced by <c><anno>IoDevice</anno></c> at
           the current position.  Returns <c>ok</c> if successful,
           otherwise <c>{error, <anno>Reason</anno>}</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="sendfile" arity="2"/>
+      <fsummary>send a file to a socket</fsummary>
+      <desc>
+        <p>Sends the file <c>Filename</c> to <c>Socket</c>.
+        Returns <c>{ok, BytesSent}</c> if successful,
+        otherwise <c>{error, Reason}</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="sendfile" arity="5"/>
+      <fsummary>send a file to a socket</fsummary>
+      <desc>
+        <p>Sends <c>Bytes</c> from the file
+        referenced by <c>RawFile</c> beginning at <c>Offset</c> to
+        <c>Socket</c>.
+        Returns <c>{ok, BytesSent}</c> if successful,
+        otherwise <c>{error, Reason}</c>. If <c>Bytes</c> is set to
+	0 all data after the given <c>Offset</c> is sent.</p>
+	<p>The file used must be opened using the raw flag, and the process
+	calling sendfile must be the controlling process of the socket.
+	See <seealso marker="gen_tcp#controlling_process-2">gen_tcp:controlling_process/2</seealso></p>
+	<p>If the OS used does not support sendfile, an Erlang fallback
+	using file:read and gen_tcp:send is used.</p>
+	<p>The option list can contain the following options:
+	<taglist>
+          <tag><c>chunk_size</c></tag>
+          <item>The chunk size used by the erlang fallback to send
+	  data. If using the fallback, this should be set to a value
+	  which comfortably fits in the systems memory. Default is 20 MB.</item>
+	</taglist>
+	</p>
+	<p>On operating systems with thread support, it is recommended to use
+	async threads. See the command line flag
+	<c>+A</c> in <seealso marker="erts:erl">erl(1)</seealso>. If it is not
+	possible to use async threads for sendfile, it is recommended to use
+	a relatively small value for the send buffer on the socket. Otherwise
+	the Erlang VM might loose some of its soft realtime guarantees.
+	Which size to use depends on the OS/hardware and the requirements
+	of the application.</p>
       </desc>
     </func>
     <func>

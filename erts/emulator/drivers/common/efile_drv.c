@@ -55,6 +55,7 @@
 #define FILE_READ_LINE          29
 #define FILE_FDATASYNC          30
 #define FILE_FADVISE            31
+#define FILE_SENDFILE           32
 
 /* Return codes */
 
@@ -98,7 +99,13 @@
 #  include "config.h"
 #endif
 #include <stdlib.h>
+
+// Need (NON)BLOCKING macros for sendfile
+#ifndef WANT_NONBLOCKING
+#define WANT_NONBLOCKING
+#endif
 #include "sys.h"
+
 #include "erl_driver.h"
 #include "erl_efile.h"
 #include "erl_threads.h"
@@ -225,9 +232,16 @@ static void file_outputv(ErlDrvData, ErlIOVec*);
 static void file_async_ready(ErlDrvData, ErlDrvThreadData);
 static void file_flush(ErlDrvData);
 
+#ifdef HAVE_SENDFILE
+static void file_ready_output(ErlDrvData data, ErlDrvEvent event);
+static void file_stop_select(ErlDrvEvent event, void* _);
+#endif /* HAVE_SENDFILE */
 
 
 enum e_timer {timer_idle, timer_again, timer_write};
+#ifdef HAVE_SENDFILE
+enum e_sendfile {sending, not_sending};
+#endif /* HAVE_SENDFILE */
 
 struct t_data;
 
@@ -242,6 +256,9 @@ typedef struct {
     struct t_data  *cq_head;  /* Queue of incoming commands */
     struct t_data  *cq_tail;  /* -""- */
     enum e_timer    timer_state;
+#ifdef HAVE_SENDFILE
+    enum e_sendfile sendfile_state;
+#endif /* HAVE_SENDFILE */
     size_t          read_bufsize;
     ErlDrvBinary   *read_binp;
     size_t          read_offset;
@@ -264,7 +281,11 @@ struct erl_drv_entry efile_driver_entry = {
     file_stop,
     file_output,
     NULL,
+#ifdef HAVE_SENDFILE
+    file_ready_output,
+#else
     NULL,
+#endif /* HAVE_SENDFILE */
     "efile",
     NULL,
     NULL,
@@ -279,7 +300,13 @@ struct erl_drv_entry efile_driver_entry = {
     ERL_DRV_EXTENDED_MAJOR_VERSION,
     ERL_DRV_EXTENDED_MINOR_VERSION,
     ERL_DRV_FLAG_USE_PORT_LOCKING,
+    NULL,
+    NULL,
+#ifdef HAVE_SENDFILE
+    file_stop_select
+#else
     NULL
+#endif /* HAVE_SENDFILE */
 };
 
 
@@ -398,6 +425,14 @@ struct t_data
 	    Sint64 length;
 	    int advise;
 	} fadvise;
+#ifdef HAVE_SENDFILE
+	struct {
+	    int out_fd;
+	    off_t offset;
+	    Uint64 nbytes;
+	    Uint64 written;
+	} sendfile;
+#endif /* HAVE_SENDFILE */
     } c;
     char b[1];
 };
@@ -483,7 +518,6 @@ static void *ef_safe_realloc(void *op, Uint s)
                  : ((*(qp))++, 0)),                       \
         !0)                                               \
      : 0)
-
 
 
 #if 0
@@ -613,7 +647,6 @@ static struct t_data *cq_deq(file_descriptor *desc) {
 }
 
 
-
 /*********************************************************************
  * Driver entry point -> init
  */
@@ -628,6 +661,7 @@ file_init(void)
 			    ? atoi(buf)
 			    : 0);
     driver_system_info(&sys_info, sizeof(ErlDrvSysInfo));
+
     return 0;
 }
 
@@ -655,6 +689,9 @@ file_start(ErlDrvPort port, char* command)
     desc->cq_head = NULL;
     desc->cq_tail = NULL;
     desc->timer_state = timer_idle;
+#ifdef HAVE_SENDFILE
+    desc->sendfile_state = not_sending;
+#endif
     desc->read_bufsize = 0;
     desc->read_binp = NULL;
     desc->read_offset = 0;
@@ -893,8 +930,6 @@ static int reply_eof(file_descriptor *desc) {
     driver_output2(desc->port, &c, 1, NULL, 0);
     return 0;
 }
-
-
  
 static void invoke_name(void *data, int (*f)(Efile_error *, char *))
 {
@@ -1694,6 +1729,66 @@ static void invoke_fadvise(void *data)
     d->result_ok = efile_fadvise(&d->errInfo, fd, offset, length, advise);
 }
 
+#ifdef HAVE_SENDFILE
+static void invoke_sendfile(void *data)
+{
+    struct t_data *d = (struct t_data *)data;
+    int fd = d->fd;
+    int out_fd = (int)d->c.sendfile.out_fd;
+    Uint64 nbytes = d->c.sendfile.nbytes;
+    int result = 0;
+    d->again = 0;
+
+    result = efile_sendfile(&d->errInfo, fd, out_fd, &d->c.sendfile.offset, &nbytes, NULL);
+
+    d->c.sendfile.written += nbytes;
+
+    if (result == 1) {
+	if (sys_info.async_threads != 0) {
+	    d->result_ok = 0;
+	} else if (d->c.sendfile.nbytes == 0 && nbytes != 0) {
+	    d->result_ok = 1;
+	} else if ((d->c.sendfile.nbytes - nbytes) != 0) {
+	    d->result_ok = 1;
+	    d->c.sendfile.nbytes -= nbytes;
+	} else {
+	    d->result_ok = 0;
+	}
+    } else if (result == 0 && (d->errInfo.posix_errno == EAGAIN
+				 || d->errInfo.posix_errno == EINTR)) {
+	d->result_ok = 1;
+    } else {
+	d->result_ok = -1;
+    }
+}
+
+static void free_sendfile(void *data) {
+    EF_FREE(data);
+}
+
+static void file_ready_output(ErlDrvData data, ErlDrvEvent event)
+{
+    file_descriptor* fd = (file_descriptor*) data;
+
+    switch (fd->d->command) {
+    case FILE_SENDFILE:
+	driver_select(fd->port, event,
+		      (int)ERL_DRV_WRITE,(int) 0);
+	invoke_sendfile((void *)fd->d);
+	file_async_ready(data, (ErlDrvThreadData)fd->d);
+	break;
+    default:
+	break;
+    }
+}
+
+static void file_stop_select(ErlDrvEvent event, void* _)
+{
+
+}
+#endif /* HAVE_SENDFILE */
+
+
 static void free_readdir(void *data)
 {
     struct t_data *d = (struct t_data *) data;
@@ -1755,6 +1850,10 @@ static void cq_execute(file_descriptor *desc) {
     register void *void_ptr; /* Soft cast variable */
     if (desc->timer_state == timer_again)
 	return;
+#ifdef HAVE_SENDFILE
+    if (desc->sendfile_state == sending)
+	return;
+#endif
     if (! (d = cq_deq(desc)))
 	return;
     TRACE_F(("x%i", (int) d->command));
@@ -2105,6 +2204,37 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
 	  }
 	  free_preadv(data);
 	  break;
+#ifdef HAVE_SENDFILE
+      case FILE_SENDFILE:
+	  if (d->result_ok == -1) {
+	      desc->sendfile_state = not_sending;
+	      reply_error(desc, &d->errInfo);
+	      if (sys_info.async_threads != 0) {
+		  SET_NONBLOCKING(d->c.sendfile.out_fd);
+		  free_sendfile(data);
+	      } else {
+		driver_select(desc->port, (ErlDrvEvent)(long)d->c.sendfile.out_fd,
+			ERL_DRV_USE, 0);
+		free_sendfile(data);
+	      }
+	  } else if (d->result_ok == 0) {
+	      desc->sendfile_state = not_sending;
+	      reply_Sint64(desc, d->c.sendfile.written);
+	      if (sys_info.async_threads != 0) {
+		SET_NONBLOCKING(d->c.sendfile.out_fd);
+		free_sendfile(data);
+	      } else {
+		driver_select(desc->port, (ErlDrvEvent)(long)d->c.sendfile.out_fd, ERL_DRV_USE, 0);
+		free_sendfile(data);
+	      }
+	  } else if (d->result_ok == 1) { // If we are using select to send the rest of the data
+	      desc->sendfile_state = sending;
+	      desc->d = d;
+	      driver_select(desc->port, (ErlDrvEvent)(long)d->c.sendfile.out_fd,
+			    ERL_DRV_USE|ERL_DRV_WRITE, 1);
+	  }
+	  break;
+#endif
       default:
 	abort();
     }
@@ -3245,9 +3375,69 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    goto done;
 	} /* case FILE_OPT_DELAYED_WRITE: */
     } ASSERT(0); goto done; /* case FILE_SETOPT: */
-    
+
+    case FILE_SENDFILE: {
+
+#ifdef HAVE_SENDFILE
+        struct t_data *d;
+	Uint32 out_fd, offsetH, offsetL, hd_len, tl_len;
+	Uint64 nbytes;
+	char flags;
+
+	if (ev->size < 1 + 7 * sizeof(Uint32) + sizeof(char)
+		|| !EV_GET_UINT32(ev, &out_fd, &p, &q)
+		|| !EV_GET_CHAR(ev, &flags, &p, &q)
+		|| !EV_GET_UINT32(ev, &offsetH, &p, &q)
+		|| !EV_GET_UINT32(ev, &offsetL, &p, &q)
+		|| !EV_GET_UINT64(ev, &nbytes, &p, &q)
+		|| !EV_GET_UINT32(ev, &hd_len, &p, &q)
+		|| !EV_GET_UINT32(ev, &tl_len, &p, &q)) {
+	    /* Buffer has wrong length to contain all the needed values */
+	    reply_posix_error(desc, EINVAL);
+	    goto done;
+	}
+
+	if (hd_len != 0 || tl_len != 0 || flags != 0) {
+	    // We do not allow header, trailers and/or flags right now
+	    reply_posix_error(desc, EINVAL);
+	    goto done;
+	}
+
+	d = EF_SAFE_ALLOC(sizeof(struct t_data));
+	d->fd = desc->fd;
+	d->command = command;
+	d->invoke = invoke_sendfile;
+	d->free = NULL;
+	d->level = 2;
+
+	d->c.sendfile.out_fd = (int) out_fd;
+	d->c.sendfile.written = 0;
+
+    #if SIZEOF_OFF_T == 4
+	if (offsetH != 0) {
+	    reply_posix_error(desc, EINVAL);
+	    goto done;
+	}
+	d->c.sendfile.offset = (off_t) offsetL;
+    #else
+	d->c.sendfile.offset = ((off_t) offsetH << 32) | offsetL;
+    #endif
+
+	d->c.sendfile.nbytes = nbytes;
+
+	if (sys_info.async_threads != 0) {
+	    SET_BLOCKING(d->c.sendfile.out_fd);
+	}
+
+	cq_enq(desc, d);
+#else
+	reply_posix_error(desc, ENOTSUP);
+#endif
+	goto done;
+        } /* case FILE_SENDFILE: */
+
     } /* switch(command) */
-    
+
     if (lseek_flush_read(desc, &err) < 0) {
 	reply_posix_error(desc, err);
 	goto done;

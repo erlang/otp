@@ -33,6 +33,9 @@
 #include <sys/types.h>
 #include <sys/uio.h>
 #endif
+#if defined(HAVE_SENDFILE) && (defined(__linux__) || (defined(__sun) && defined(__SVR4)))
+#include <sys/sendfile.h>
+#endif
 
 #if defined(__APPLE__) && defined(__MACH__) && !defined(__DARWIN__)
 #define DARWIN 1
@@ -1464,3 +1467,77 @@ efile_fadvise(Efile_error* errInfo, int fd, Sint64 offset,
     return check_error(0, errInfo);
 #endif
 }
+
+#ifdef HAVE_SENDFILE
+#define SENDFILE_CHUNK_SIZE ((1 << 30) -1)
+
+/*
+ * sendfile: The implementation of the sendfile system call varies
+ * a lot on different *nix platforms so to make the api similar in all
+ * we have to emulate some things in linux and play with variables on
+ * bsd/darwin.
+ *
+ * It could be possible to implement header/trailer in sendfile, though
+ * you would have to emulate it in linux and on BSD/Darwin some complex
+ * calculations have to be made when using a non blocking socket to figure
+ * out how much of the header/file/trailer was sent in each command.
+ */
+
+int
+efile_sendfile(Efile_error* errInfo, int in_fd, int out_fd,
+	       off_t *offset, Uint64 *nbytes, struct t_sendfile_hdtl* hdtl)
+{
+    Uint64 written = 0;
+#if defined(__linux__) || (defined(__sun) && defined(__SVR4))
+    ssize_t retval;
+    do {
+      // check if *nbytes is 0 or greater than the largest size_t
+      if (*nbytes == 0 || *nbytes > SENDFILE_CHUNK_SIZE)
+	retval = sendfile(out_fd, in_fd, offset, SENDFILE_CHUNK_SIZE);
+      else
+	retval = sendfile(out_fd, in_fd, offset, *nbytes);
+      if (retval > 0) {
+	written += retval;
+	*nbytes -= retval;
+      }
+    } while (retval != -1 && retval == SENDFILE_CHUNK_SIZE);
+    *nbytes = written;
+    return check_error(retval == -1 ? -1 : 0, errInfo);
+#elif defined(DARWIN)
+    int retval;
+    off_t len;
+    do {
+      // check if *nbytes is 0 or greater than the largest off_t
+      if(*nbytes > SENDFILE_CHUNK_SIZE)
+	len = SENDFILE_CHUNK_SIZE;
+      else
+	len = *nbytes;
+      retval = sendfile(in_fd, out_fd, *offset, &len, NULL, 0);
+      if (retval != -1 || errno == EAGAIN || errno == EINTR) {
+        *offset += len;
+	*nbytes -= len;
+	written += len;
+      }
+    } while (len == SENDFILE_CHUNK_SIZE);
+    *nbytes = written;
+    return check_error(retval, errInfo);
+#elif defined(__FreeBSD__) || defined(__DragonFly__)
+    off_t len;
+    int retval;
+    do {
+      if (*nbytes > SENDFILE_CHUNK_SIZE)
+	retval = sendfile(in_fd, out_fd, *offset, SENDFILE_CHUNK_SIZE,
+			  NULL, &len, 0);
+      else
+	retval = sendfile(in_fd, out_fd, *offset, *nbytes, NULL, &len, 0);
+      if (retval != -1 || errno == EAGAIN || errno == EINTR) {
+	*offset += len;
+	*nbytes -= len;
+	written += len;
+      }
+    } while(len == SENDFILE_CHUNK_SIZE);
+    *nbytes = written;
+    return check_error(retval, errInfo);
+#endif
+}
+#endif /* HAVE_SENDFILE */

@@ -27,6 +27,7 @@
 -export([fdopen/2]).
 
 -include("inet_int.hrl").
+-include("file.hrl").
 
 -type option() ::
         {active,          true | false | once} |
@@ -302,7 +303,7 @@ unrecv(S, Data) when is_port(S) ->
 	    Mod:unrecv(S, Data);
 	Error ->
 	    Error
-    end.    
+    end.
 
 %%
 %% Set controlling process
@@ -354,3 +355,4 @@ mod([_|Opts], Address) ->
     mod(Opts, Address);
 mod([], Address) ->
     mod(Address).
+
