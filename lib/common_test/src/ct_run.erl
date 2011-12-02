@@ -1660,6 +1660,14 @@ final_tests1([{TestDir,Suite,GrsOrCs}|Tests], Final, Skip, Bad) when
 		     ({skipped,Group,TCs}) ->
 			  [ct_framework:make_conf(TestDir, Suite,
 						  Group, [skipped], TCs)];
+		     ({GrSpec = {Group,_},TCs}) ->
+			  Props = [{override,GrSpec}],
+			  [ct_framework:make_conf(TestDir, Suite,
+						  Group, Props, TCs)];
+		     ({GrSpec = {Group,_,_},TCs}) ->
+			  Props = [{override,GrSpec}],
+			  [ct_framework:make_conf(TestDir, Suite,
+						  Group, Props, TCs)];
 		     ({Group,TCs}) ->
 			  [ct_framework:make_conf(TestDir, Suite,
 						  Group, [], TCs)];

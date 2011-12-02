@@ -850,10 +850,6 @@ group_or_func(Func, _Config) ->
 %%%      should be returned. 
 
 get_suite(Mod, all) ->
-
-%%! --- Wed Nov 30 21:29:30 2011 --- peppe was here!
-io:format(user, "*** GET SUITE ~p~n", [Mod]),
-
     case catch apply(Mod, groups, []) of
 	{'EXIT',_} ->
 	    get_all(Mod, []);
@@ -864,13 +860,7 @@ io:format(user, "*** GET SUITE ~p~n", [Mod]),
 		    %% (and only) test case so we can report Error properly
 		    [{?MODULE,error_in_suite,[[Error]]}];
 		ConfTests ->
-		    %% get_all(Mod, ConfTests)
-
-		    %%! --- Wed Nov 30 21:30:35 2011 --- peppe was here!
-		    All = get_all(Mod, ConfTests),
-		    io:format(user, "*** All = ~p~n", [All]),
-		    All
-		    
+		    get_all(Mod, ConfTests)		    
 	    end;
 	_ ->
 	    E = "Bad return value from "++atom_to_list(Mod)++":groups/0",
@@ -885,10 +875,6 @@ io:format(user, "*** GET SUITE ~p~n", [Mod]),
 %% group
 get_suite(Mod, Group={conf,Props,_Init,TCs,_End}) ->
     Name = ?val(name, Props),
-
-    %%! --- Wed Nov 30 21:31:34 2011 --- peppe was here!
-    io:format(user, "*** GET GROUP ~p (~p)~n", [Name,Props]),
-
     case catch apply(Mod, groups, []) of
 	{'EXIT',_} ->
 	    [Group];
@@ -913,7 +899,18 @@ get_suite(Mod, Group={conf,Props,_Init,TCs,_End}) ->
 				    []
 			    end;
 			false ->
-			    delete_subs(ConfTests, ConfTests)
+			    ConfTests1 = delete_subs(ConfTests, ConfTests),
+			    case ?val(override, Props) of
+				undefined ->
+				    ConfTests1;
+				[] ->
+				    ConfTests1;
+				ORSpec ->
+				    ORSpec1 = if is_tuple(ORSpec) -> [ORSpec];
+						 true -> ORSpec end,
+				    search_and_override(ConfTests1,
+							ORSpec1, Mod)
+			    end							      
 		    end
 	    end;
 	_ ->
@@ -1224,7 +1221,7 @@ expand_groups({group,Name,default}, ConfTests, Mod) ->
     expand_groups({group,Name,default,[]}, ConfTests, Mod);
 expand_groups({group,Name,ORProps}, ConfTests, Mod) when is_list(ORProps) ->
     expand_groups({group,Name,ORProps,[]}, ConfTests, Mod);
-expand_groups({group,Name,ORProps,SubGrSpec}, ConfTests, Mod) ->
+expand_groups({group,Name,ORProps,SubORSpec}, ConfTests, Mod) ->
     FindConf =
 	fun(Conf = {conf,Props,Init,Ts,End}) ->
 		case ?val(name, Props) of
@@ -1239,29 +1236,50 @@ expand_groups({group,Name,ORProps,SubGrSpec}, ConfTests, Mod) ->
     case lists:flatmap(FindConf, ConfTests) of
 	[] ->
 	    throw({error,invalid_ref_msg(Name, Mod)});
-	Matching when SubGrSpec == [] -> 
+	Matching when SubORSpec == [] -> 
 	    Matching;
 	Matching -> 
-	    override_props(Matching, SubGrSpec, Name,Mod)
+	    override_props(Matching, SubORSpec, Name,Mod)
     end;
 expand_groups(SeqOrTC, _ConfTests, _Mod) ->
     SeqOrTC.
 
-override_props([{conf,Props,Init,Tests,End} | Confs], SubGrSpec, Name,Mod) ->
-    {Subs,SubGrSpec1} = override_sub_props(Tests, [], SubGrSpec, Mod),
-    [{conf,Props,Init,Subs,End} | override_props(Confs, SubGrSpec1, Name,Mod)];
+%% search deep for the matching conf test and modify it and any 
+%% sub tests according to the override specification
+search_and_override([Conf = {conf,Props,Init,Tests,End}], ORSpec, Mod) ->
+    Name = ?val(name, Props),
+    case lists:keysearch(Name, 1, ORSpec) of
+	{value,{Name,default}} ->
+	    [Conf];
+	{value,{Name,ORProps}} ->
+	    [{conf,[{name,Name}|ORProps],Init,Tests,End}];
+	{value,{Name,default,[]}} ->
+	    [Conf];
+	{value,{Name,default,SubORSpec}} ->
+	    override_props([Conf], SubORSpec, Name,Mod);
+	{value,{Name,ORProps,SubORSpec}} ->
+	    override_props([{conf,[{name,Name}|ORProps],
+			    Init,Tests,End}], SubORSpec, Name,Mod);
+	_ ->
+	    [{conf,Props,Init,search_and_override(Tests,ORSpec,Mod),End}]
+    end.
+
+%% Modify the Tests element according to the override specification
+override_props([{conf,Props,Init,Tests,End} | Confs], SubORSpec, Name,Mod) ->
+    {Subs,SubORSpec1} = override_sub_props(Tests, [], SubORSpec, Mod),
+    [{conf,Props,Init,Subs,End} | override_props(Confs, SubORSpec1, Name,Mod)];
 override_props([], [], _,_) ->
     [];
-override_props([], SubGrSpec, Name,Mod) ->
-    Es = [invalid_ref_msg(Name, element(1,Spec), Mod) || Spec <- SubGrSpec],
+override_props([], SubORSpec, Name,Mod) ->
+    Es = [invalid_ref_msg(Name, element(1,Spec), Mod) || Spec <- SubORSpec],
     throw({error,Es}).
 
-override_sub_props([], New, GroupSpec, _) ->    
-    {?rev(New),GroupSpec};
+override_sub_props([], New, ORSpec, _) ->    
+    {?rev(New),ORSpec};
 override_sub_props([T = {conf,Props,Init,Tests,End} | Ts],
-		   New, GroupSpec, Mod) ->
+		   New, ORSpec, Mod) ->
     Name = ?val(name, Props),
-    case lists:keysearch(Name, 1, GroupSpec) of
+    case lists:keysearch(Name, 1, ORSpec) of
 	{value,Spec} ->				% group found in spec
 	    Props1 =
 		case element(2, Spec) of
@@ -1271,13 +1289,13 @@ override_sub_props([T = {conf,Props,Init,Tests,End} | Ts],
 	    case catch element(3, Spec) of
 		Undef when Undef == [] ; 'EXIT' == element(1, Undef) ->
 		    override_sub_props(Ts, [{conf,Props1,Init,Tests,End} | New],
-				       lists:keydelete(Name, 1, GroupSpec), Mod);
-		SubGrSpec when is_list(SubGrSpec) ->
-		    case override_sub_props(Tests, [], SubGrSpec, Mod) of
+				       lists:keydelete(Name, 1, ORSpec), Mod);
+		SubORSpec when is_list(SubORSpec) ->
+		    case override_sub_props(Tests, [], SubORSpec, Mod) of
 			{Subs,[]} ->
 			    override_sub_props(Ts, [{conf,Props1,Init,
 						     Subs,End} | New],
-					       lists:keydelete(Name, 1, GroupSpec),
+					       lists:keydelete(Name, 1, ORSpec),
 					       Mod);
 			{_,NonEmptySpec} ->
 			    Es = [invalid_ref_msg(Name, element(1, GrRef),
@@ -1288,10 +1306,10 @@ override_sub_props([T = {conf,Props,Init,Tests,End} | Ts],
 		    throw({error,{invalid_form,BadGrSpec}})
 	    end;
 	_ ->					% not a group in spec
-	    override_sub_props(Ts, [T | New], GroupSpec, Mod)
+	    override_sub_props(Ts, [T | New], ORSpec, Mod)
     end;
-override_sub_props([TC | Ts], New, GroupSpec, Mod) ->
-    override_sub_props(Ts, [TC | New], GroupSpec, Mod).
+override_sub_props([TC | Ts], New, ORSpec, Mod) ->
+    override_sub_props(Ts, [TC | New], ORSpec, Mod).
 
 invalid_ref_msg(Name, Mod) ->
     E = "Invalid reference to group "++
