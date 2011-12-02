@@ -1200,7 +1200,10 @@ test_multi_threaded(suite) ->
     {req, [], {conf, init_mt, mt_cases(), finish_mt}}.
 
 mt_cases() ->
-    [multi_threaded, mt_trap].
+    [
+     multi_threaded, 
+     mt_trap
+    ].
 
 init_mt(Config) when is_list(Config) ->
     SaNode = ?config(snmp_sa, Config),
@@ -3024,8 +3027,9 @@ mt_trap_test(MA) ->
     ?DBG("mt_trap_test(01) -> issue testTrapv22 (standard trap)", []),
     snmpa:send_trap(MA, testTrapv22, "standard trap"),
     ?DBG("mt_trap_test(02) -> await v2trap", []),
-    ?line expect(1, v2trap, [{[sysUpTime, 0], any},
-			     {[snmpTrapOID, 0], ?system ++ [0,1]}]),
+    ?line expect(mt_trap_test_1, v2trap, 
+		 [{[sysUpTime, 0],   any},
+		  {[snmpTrapOID, 0], ?system ++ [0,1]}]),
 
     ?DBG("mt_trap_test(03) -> issue mtTrap (standard trap)", []),
     snmpa:send_trap(MA, mtTrap, "standard trap"),
@@ -3033,28 +3037,22 @@ mt_trap_test(MA) ->
     ?DBG("mt_trap_test(04) -> multi pid: ~p. Now request sysUpTime...", [Pid]),
     g([[sysUpTime,0]]),
 
-    %% Previously (before OTP-6784) this was done at 09 below 
-    %% when the test1:multiStr was actually executed by the 
-    %% worker-process, but as of 4.9.4, this is now executed
-    %% my the master_agent-process...
-    ?DBG("mt_trap_test(05) -> send continue to multi-pid", []),
-    Pid ! continue,
-
     ?DBG("mt_trap_test(06) -> await sysUpTime", []),
-    ?line expect(2, [{[sysUpTime,0], any}]),
+    ?line expect(mt_trap_test_2, [{[sysUpTime,0], any}]),
     ?DBG("mt_trap_test(07) -> issue testTrapv22 (standard trap)", []),
     snmpa:send_trap(MA, testTrapv22, "standard trap"),
     ?DBG("mt_trap_test(08) -> await v2trap", []),
-    ?line expect(3, v2trap, [{[sysUpTime, 0], any},
-			     {[snmpTrapOID, 0], ?system ++ [0,1]}]),
+    ?line expect(mt_trap_test_3, v2trap, 
+		 [{[sysUpTime, 0],   any}, 
+		  {[snmpTrapOID, 0], ?system ++ [0,1]}]),
 
-    %% ?DBG("mt_trap_test(09) -> send continue to multi-pid", []),
-    %% Pid ! continue,
+    ?DBG("mt_trap_test(09) -> send continue to multi-pid", []),
+    Pid ! continue,
 
     ?DBG("mt_trap_test(10) -> await v2trap", []),
-    ?line expect(4, v2trap, [{[sysUpTime, 0], any},
-			     {[snmpTrapOID, 0], ?testTrap ++ [2]},
-			     {[multiStr,0], "ok"}]),
+    ?line expect(mt_trap_test_4, v2trap, [{[sysUpTime, 0], any},
+					  {[snmpTrapOID, 0], ?testTrap ++ [2]},
+					  {[multiStr,0], "ok"}]),
     ?DBG("mt_trap_test(11) -> done", []),
     ok.
 
