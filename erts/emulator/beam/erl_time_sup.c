@@ -757,17 +757,20 @@ univ_to_local(Sint *year, Sint *month, Sint *day,
 #endif
 
 #ifdef HAVE_LOCALTIME_R
-    localtime_r(&the_clock, (tm = &tmbuf));
+    tm = localtime_r(&the_clock, &tmbuf);
 #else
     tm = localtime(&the_clock);
 #endif
-    *year = tm->tm_year + 1900;
-    *month = tm->tm_mon +1;
-    *day = tm->tm_mday;
-    *hour = tm->tm_hour;
-    *minute = tm->tm_min;
-    *second = tm->tm_sec;
-    return 1;
+    if (tm) {
+	*year   = tm->tm_year + 1900;
+	*month  = tm->tm_mon +1;
+	*day    = tm->tm_mday;
+	*hour   = tm->tm_hour;
+	*minute = tm->tm_min;
+	*second = tm->tm_sec;
+	return 1;
+    }
+    return 0;
 }
 
 
