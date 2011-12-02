@@ -644,7 +644,6 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
 				    name, opts);
 	erts_unblock_fpe(fpe_was_unmasked);
 	port->caller = NIL;
-	erts_unblock_fpe(fpe_was_unmasked);
 	if (IS_TRACED_FL(port, F_TRACE_SCHED_PORTS)) {
 	    trace_sched_ports_where(port, am_out, am_start);
 	}
