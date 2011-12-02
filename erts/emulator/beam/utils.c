@@ -2661,6 +2661,7 @@ tailrecur_ne:
 #endif
 #define MAX_LOSSLESS_FLOAT ((double)((1LL << 53) - 2))
 #define MIN_LOSSLESS_FLOAT ((double)(((1LL << 53) - 2)*-1))
+#define BIG_ARITY_FLOAT_MAX (1024 / D_EXP) /* arity of max float as a bignum */
 	b_tag = tag_val_def(bw);
 
 	switch(_NUMBER_CODE(a_tag, b_tag)) {
@@ -2693,16 +2694,24 @@ tailrecur_ne:
 	    }
 #endif // ERTS_SIZEOF_ETERM == 8
 	    break;
+        case FLOAT_BIG:
+	{
+	    Wterm tmp = aw;
+	    aw = bw;
+	    bw = tmp;
+	}/* fall through */
 	case BIG_FLOAT:
 	    GET_DOUBLE(bw, f2);
 	    if ((f2.fd < (double) (MAX_SMALL + 1))
 		    && (f2.fd > (double) (MIN_SMALL - 1))) {
 		// Float is a Sint
 		j = big_sign(aw) ? -1 : 1;
-	    } else if ((pow(2.0,(big_arity(aw)-1.0)*D_EXP)-1.0) > fabs(f2.fd)) {
+	    } else if (big_arity(aw) > BIG_ARITY_FLOAT_MAX
+		       || pow(2.0,(big_arity(aw)-1)*D_EXP) > fabs(f2.fd)) {
 		// If bignum size shows that it is bigger than the abs float
 		j = big_sign(aw) ? -1 : 1;
-	    } else if ((pow(2.0,(big_arity(aw))*D_EXP)-1.0) < fabs(f2.fd)) {
+	    } else if (big_arity(aw) < BIG_ARITY_FLOAT_MAX
+		       && (pow(2.0,(big_arity(aw))*D_EXP)-1.0) < fabs(f2.fd)) {
 		// If bignum size shows that it is smaller than the abs float
 		j = f2.fd < 0 ? 1 : -1;
 	    } else if (f2.fd < MAX_LOSSLESS_FLOAT && f2.fd > MIN_LOSSLESS_FLOAT) {
@@ -2715,6 +2724,9 @@ tailrecur_ne:
 	    } else {
 		big = double_to_big(f2.fd, big_buf);
 		j = big_comp(aw, big);
+	    }
+	    if (_NUMBER_CODE(a_tag, b_tag) == FLOAT_BIG) {
+		j = -j;
 	    }
 	    break;
 	case FLOAT_SMALL:
@@ -2739,29 +2751,6 @@ tailrecur_ne:
 		j = (f1.fd > 0.0) ? 1 : -1;
 	    }
 #endif // ERTS_SIZEOF_ETERM == 8
-	    break;
-	case FLOAT_BIG:
-	    GET_DOUBLE(aw, f1);
-	    if ((f1.fd < (double) (MAX_SMALL + 1))
-		    && (f1.fd > (double) (MIN_SMALL - 1))) { // Float is a Sint
-		j = big_sign(bw) ? 1 : -1;
-	    } else if ((pow(2.0, (big_arity(bw) - 1.0) * D_EXP) - 1.0) > fabs(f1.fd)) {
-		// If bignum size shows that it is bigger than the abs float
-		j = big_sign(bw) ? 1 : -1;
-	    } else if ((pow(2.0,(big_arity(bw))*D_EXP)-1.0) < fabs(f1.fd)) {
-		// If bignum size shows that it is smaller than the abs float
-		j = f1.fd < 0 ? -1 : 1;
-	    } else if (f1.fd < MAX_LOSSLESS_FLOAT && f1.fd > MIN_LOSSLESS_FLOAT) {
-		// Float is within the no loss limit
-		if (big_to_double(bw, &f2.fd) < 0) {
-		    j = big_sign(bw) ? 1 : -1;
-		} else {
-		    j = float_comp(f1.fd, f2.fd);
-		}
-	    } else {
-		big = double_to_big(f1.fd, big_buf);
-		j = big_comp(big, bw);
-	    }
 	    break;
 	default:
 	    j = b_tag - a_tag;
