@@ -436,10 +436,10 @@
        in "the <c>alloc_util</c> framework" section.</item>
       <tag><marker id="M_t"><c><![CDATA[+M<S>t true|false]]></c></marker></tag>
       <item>
-       Multiple, thread specific instances of the allocator.
+       <p>Multiple, thread specific instances of the allocator.
        This option will only have any effect on the runtime system
        with SMP support. Default behaviour on the runtime system with
-       SMP support:
+       SMP support:</p>
        <taglist>
          <tag><c>ll_alloc</c></tag>
 	 <item><c>1</c> instance.</item>
@@ -448,9 +448,9 @@
 	 a lock-free instance of its own and other threads will use
 	 a common instance.</item>
        </taglist>
-       It was previously (before ERTS version 5.9) possible to configure
+       <p>It was previously (before ERTS version 5.9) possible to configure
        a smaller amount of thread specific instances than schedulers.
-       This is, however, not possible any more.
+       This is, however, not possible any more.</p>
       </item>
     </taglist>
     <p>Currently the following flags are available for configuration of
