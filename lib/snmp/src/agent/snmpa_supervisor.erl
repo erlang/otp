@@ -176,8 +176,8 @@ init([AgentType, Opts]) ->
       "~n   AgentType: ~p"
       "~n   Opts:      ~p", [AgentType, Opts]),
 
-    put(sname, asup),
-    put(verbosity,get_verbosity(Opts)),
+    put(sname,     asup),
+    put(verbosity, get_verbosity(Opts)),
 
     ?vlog("starting",[]),
 
@@ -203,7 +203,12 @@ init([AgentType, Opts]) ->
     Vsns = get_opt(versions, Opts, [v1,v2,v3]),
     ?vdebug("[agent table] store versions: ~p",[Vsns]),
     ets:insert(snmp_agent_table, {versions, Vsns}),
-    
+
+    %% -- Max number of VBs in a Get-BULK response --
+    GbMaxVBs = get_gb_max_vbs(Opts),
+    ?vdebug("[agent table] Get-BULK max VBs: ~p", [GbMaxVBs]),
+    ets:insert(snmp_agent_table, {gb_max_vbs, GbMaxVBs}),
+
     %% -- DB-directory --
     DbDir = get_opt(db_dir, Opts),
     ?vdebug("[agent table] store db_dir: ~n   ~p",[DbDir]),
@@ -377,7 +382,8 @@ init([AgentType, Opts]) ->
 		     {versions,               Vsns},
 		     {net_if,                 NiOpts},
 		     {mib_server,             MibsOpts},
-		     {note_store,             NsOpts}|
+		     {note_store,             NsOpts},
+		     {gb_max_vbs,             GbMaxVBs} |
 		     get_opt(master_agent_options, Opts, [])],
 		     
 		AgentSpec =
@@ -541,6 +547,32 @@ get_verbosity(Opts) ->
 
 get_agent_type(Opts) ->
     get_opt(agent_type, Opts, master).
+
+
+%% We validate this option! This should really be done for all
+%% options, but it is beyond the scope of this ticket, OTP-9700.
+
+get_gb_max_vbs(Opts) ->
+    Validate = 
+	fun(GbMaxVBs) 
+	   when ((is_integer(GbMaxVBs) andalso (GbMaxVBs > 0)) orelse
+		 (GbMaxVBs =:= infinity)) ->
+		ok;
+	   (_) ->
+		error
+	end,
+    get_option(gb_max_vbs, ?DEFAULT_GB_MAX_VBS, Validate, Opts).
+
+get_option(Key, Default, Validate, Opts) 
+  when is_list(Opts) andalso is_function(Validate) ->
+    Value = get_opt(Key, Opts, Default),
+    case Validate(Value) of
+	ok ->
+	    Value;
+	error ->
+	    exit({bad_option, Key, Value})
+    end.
+    
 
 get_opt(Key, Opts) ->
     snmp_misc:get_option(Key, Opts).

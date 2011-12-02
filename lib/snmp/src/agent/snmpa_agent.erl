@@ -65,7 +65,10 @@
 %% Internal exports
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
 	 terminate/2, code_change/3, tr_var/2, tr_varbind/1,
-	 handle_pdu/7, worker/2, worker_loop/1, do_send_trap/7]).
+	 handle_pdu/8, worker/2, worker_loop/1, do_send_trap/7]).
+%% <BACKWARD-COMPAT>
+-export([handle_pdu/7]).
+%% </BACKWARD-COMPAT>
 
 -ifndef(default_verbosity).
 -define(default_verbosity,silence).
@@ -80,7 +83,6 @@
 -endif.
 
 -define(DISCO_TERMINATING_TRIGGER_USERNAME, "").
-
 
 -ifdef(snmp_debug).
 -define(GS_START_LINK3(Prio, Parent, Ref, Opts),
@@ -97,12 +99,47 @@
         gen_server:start_link({local, Name}, ?MODULE, 
 			      [Prio, Parent, Ref, Opts],[])).
 -endif.
- 
+
+%% Increment this whenever a change is made to the worker interface 
+-define(WORKER_INTERFACE_VERSION, 1).
+
+%% -- Utility macros for creating worker commands --
+-define(mk_pdu_wreq(Vsn, Pdu, PduMS, ACMData, Address, GbMaxVBs, Extra),
+	#wrequest{cmd  = handle_pdu, 
+		  info = [{vsn,        Vsn}, 
+			  {pdu,        Pdu}, 
+			  {pdu_ms,     PduMS}, 
+			  {acm_data,   ACMData}, 
+			  {addr,       Address}, 
+			  {gb_max_vbs, GbMaxVBs}, 
+			  {extra,      Extra}]}.
+-define(mk_send_trap_wreq(TrapRec, NotifyName, ContextName, 
+			  Recv, Vbs, LocalEngineID),
+	#wrequest{cmd  = handle_pdu, 
+		  info = [{trap_rec,        TrapRec}, 
+			  {notify_name,     NotifyName}, 
+			  {context_name,    ContextName}, 
+			  {receiver,        Recv}, 
+			  {varbinds,        Vbs}, 
+			  {local_engine_id, LocalEngineID}]}.
+-define(mk_terminate_wreq(), #wrequest{cmd = terminate, info = []}).
+-define(mk_verbosity_wreq(V), #wrequest{cmd  = verbosity, 
+					info = [{verbosity, V}]}).
+
 
 -record(notification_filter, {id, mod, data}).
 -record(disco, 
 	{from, rec, sender, target, engine_id, 
 	 sec_level, ctx, ivbs, stage, handler, extra}).
+
+%% This record is used when sending requests to the worker processes
+-record(wrequest, 
+	{
+	  version = ?WORKER_INTERFACE_VERSION, 
+	  cmd, 
+	  info
+	 }
+       ).
 
 
 %%-----------------------------------------------------------------
@@ -136,7 +173,8 @@
 		net_if_mod,   
 		backup,
 		disco,
-		mibs_cache_request}).
+		mibs_cache_request,
+		gb_max_vbs}).
 
 
 %%%-----------------------------------------------------------------
@@ -324,6 +362,8 @@ do_init(Prio, Parent, Ref, Options) ->
     MultiT  = get_multi_threaded(Options),
     Vsns    = get_versions(Options),
 
+    GbMaxVbs = get_gb_max_vbs(Options), 
+
     NS = start_note_store(Prio, Ref, Options),
     {Type, NetIfPid, NetIfMod} = 
 	start_net_if(Parent, Prio, Ref, Vsns, NS, Options),
@@ -342,7 +382,8 @@ do_init(Prio, Parent, Ref, Options) ->
 		ref            = Ref,
 		vsns           = Vsns,
 		note_store     = NS,
-		net_if_mod     = NetIfMod}}.
+		net_if_mod     = NetIfMod,
+		gb_max_vbs     = GbMaxVbs}}.
 
 
 start_note_store(Prio, Ref, Options) ->
@@ -404,7 +445,8 @@ start_net_if(Parent, _Prio, _Ref, _Vsns, _NoteStore, _Options)
 start_mib_server(Prio, Ref, Mibs, Options) ->
     ?vdebug("start_mib_server -> with Prio: ~p", [Prio]),
     MibStorage = get_mib_storage(Options),
-    MibsOpts = [{mib_storage, MibStorage}|get_option(mib_server, Options, [])],
+    MibsOpts   = [{mib_storage, MibStorage} | 
+		  get_option(mib_server, Options, [])],
 
     ?vtrace("start_mib_server -> "
 	    "~n   Mibs:     ~p"
@@ -734,7 +776,8 @@ handle_info({snmp_pdu, Vsn, Pdu, PduMS, ACMData, Address, Extra}, S) ->
     ?vdebug("handle_info(snmp_pdu) -> entry with"
 	    "~n   Vsn:     ~p"
 	    "~n   Pdu:     ~p"
-	    "~n   Address: ~p", [Vsn, Pdu, Address]),
+	    "~n   Address: ~p"
+	    "~n   Extra:   ~p", [Vsn, Pdu, Address, Extra]),
     
     NewS = handle_snmp_pdu(is_valid_pdu_type(Pdu#pdu.type),
 			   Vsn, Pdu, PduMS, ACMData, Address, Extra, S),
@@ -1005,7 +1048,7 @@ handle_call({subagent_get_next, MibView, Varbinds, PduData}, _From, S) ->
 	  "~n   PduData:  ~p", 
 	  [MibView,Varbinds,PduData]),
     put_pdu_data(PduData),
-    {reply, do_get_next(MibView, Varbinds), S};
+    {reply, do_get_next(MibView, Varbinds, infinity), S};
 handle_call({subagent_set, Arguments, PduData}, _From, S) ->
     ?vlog("[handle_call] subagent set:"
 	  "~n   Arguments: ~p"
@@ -1046,7 +1089,7 @@ handle_call({get_next, Vars, Context}, _From, S) ->
             ?vdebug("Varbinds: ~p",[Varbinds]),
             MibView = snmpa_acm:get_root_mib_view(),
             Reply =
-                case do_get_next(MibView, Varbinds) of
+                case do_get_next(MibView, Varbinds, infinity) of
                     {noError, 0, NewVarbinds} ->
                         Vbs = lists:keysort(#varbind.org_index, NewVarbinds),
 			[{Oid,Val} || #varbind{oid = Oid, value = Val} <- Vbs];
@@ -1242,15 +1285,15 @@ handle_call(Req, _From, S) ->
     Reply = {error, {unknown, Req}}, 
     {reply, Reply, S}.
     
-handle_cast({verbosity,Verbosity}, S) ->
-    ?vlog("verbosity: ~p -> ~p",[get(verbosity),Verbosity]),
+handle_cast({verbosity, Verbosity}, S) ->
+    ?vlog("verbosity: ~p -> ~p",[get(verbosity), Verbosity]),
     put(verbosity,snmp_verbosity:validate(Verbosity)),
     case S#state.worker of
-	Pid when is_pid(Pid) -> Pid ! {verbosity,Verbosity};
+	Pid when is_pid(Pid) -> Pid ! ?mk_verbosity_wreq(Verbosity);
 	_ -> ok
     end,
     case S#state.set_worker of
-	Pid2 when is_pid(Pid2) -> Pid2 ! {verbosity,Verbosity};
+	Pid2 when is_pid(Pid2) -> Pid2 ! ?mk_verbosity_wreq(Verbosity);
 	_ -> ok
     end,
     {noreply, S};
@@ -1337,13 +1380,80 @@ handle_mibs_cache_request(MibServer, Req) ->
 
 %% Downgrade
 %%
-%% code_change({down, _Vsn}, S, downgrade_to_pre_4_13) ->
-%%     {ok, S2};
+code_change({down, _Vsn}, S1, downgrade_to_pre_4_17_3) ->
+    #state{type               = Type, 
+	   parent             = Parent, 
+	   worker             = Worker, 
+	   worker_state       = WorkerState,
+	   set_worker         = SetWorker, 
+	   multi_threaded     = MT, 
+	   ref                = Ref, 
+	   vsns               = Vsns,
+	   nfilters           = NF,
+	   note_store         = NoteStore,
+	   mib_server         = MS, 
+	   net_if             = NetIf, 
+	   net_if_mod         = NetIfMod, 
+	   backup             = Backup,
+	   disco              = Disco,
+	   mibs_cache_request = MCR} = S1, 
+    S2 = {state, 
+	  type               = Type, 
+	  parent             = Parent, 
+	  worker             = Worker, 
+	  worker_state       = WorkerState,
+	  set_worker         = SetWorker, 
+	  multi_threaded     = MT, 
+	  ref                = Ref, 
+	  vsns               = Vsns,
+	  nfilters           = NF,
+	  note_store         = NoteStore,
+	  mib_server         = MS, 
+	  net_if             = NetIf, 
+	  net_if_mod         = NetIfMod, 
+	  backup             = Backup,
+	  disco              = Disco,
+	  mibs_cache_request = MCR}, 
+    {ok, S2};
 
 %% Upgrade
 %%
-%% code_change(_Vsn, S, upgrade_from_pre_4_13) ->
-%%     {ok, S2};
+code_change(_Vsn, S1, upgrade_from_pre_4_17_3) ->
+    {state, 
+     type               = Type, 
+     parent             = Parent, 
+     worker             = Worker, 
+     worker_state       = WorkerState,
+     set_worker         = SetWorker, 
+     multi_threaded     = MT, 
+     ref                = Ref, 
+     vsns               = Vsns,
+     nfilters           = NF,
+     note_store         = NoteStore,
+     mib_server         = MS, 
+     net_if             = NetIf, 
+     net_if_mod         = NetIfMod, 
+     backup             = Backup,
+     disco              = Disco,
+     mibs_cache_request = MCR} = S1,
+    S2 = #state{type               = Type, 
+		parent             = Parent, 
+		worker             = Worker, 
+		worker_state       = WorkerState,
+		set_worker         = SetWorker, 
+		multi_threaded     = MT, 
+		ref                = Ref, 
+		vsns               = Vsns,
+		nfilters           = NF,
+		note_store         = NoteStore,
+		mib_server         = MS, 
+		net_if             = NetIf, 
+		net_if_mod         = NetIfMod, 
+		backup             = Backup,
+		disco              = Disco,
+		mibs_cache_request = MCR,
+		gb_max_vbs         = ?DEFAULT_GB_MAX_VBS}, 
+    {ok, S2};
 
 code_change(_Vsn, S, _Extra) ->
     {ok, S}.
@@ -1383,7 +1493,7 @@ worker_start(Dict) ->
 %%     worker_stop(Pid, infinity).
 
 worker_stop(Pid, Timeout) when is_pid(Pid) ->
-    Pid ! terminate, 
+    Pid ! ?mk_terminate_wreq(), 
     receive 
 	{'EXIT', Pid, normal} ->
 	    ok
@@ -1517,9 +1627,11 @@ invalidate_ca_cache() ->
 %% 
 %%-----------------------------------------------------------------
 
-spawn_thread(Vsn, Pdu, PduMS, ACMData, Address, Extra) ->
+%% This functions spawns a temporary worker process, 
+%% that evaluates one request and then silently exits. 
+spawn_thread(Vsn, Pdu, PduMS, ACMData, Address, GbMaxVBs, Extra) ->
     Dict = get(),
-    Args = [Vsn, Pdu, PduMS, ACMData, Address, Extra, Dict], 
+    Args = [Vsn, Pdu, PduMS, ACMData, Address, GbMaxVBs, Extra, Dict], 
     proc_lib:spawn_link(?MODULE, handle_pdu, Args).
 
 spawn_trap_thread(TrapRec, NotifyName, ContextName, Recv, Vbs, 
@@ -1532,7 +1644,7 @@ spawn_trap_thread(TrapRec, NotifyName, ContextName, Recv, Vbs,
 do_send_trap(TrapRec, NotifyName, ContextName, Recv, Vbs, 
 	     LocalEngineID, Dict) ->
     lists:foreach(fun({Key, Val}) -> put(Key, Val) end, Dict),
-    put(sname,trap_sender_short_name(get(sname))),
+    put(sname, trap_sender_short_name(get(sname))),
     ?vlog("starting",[]),
     snmpa_trap:send_trap(TrapRec, NotifyName, ContextName, Recv, Vbs, 
 			 LocalEngineID, get(net_if)).
@@ -1545,9 +1657,56 @@ worker(Master, Dict) ->
 
 worker_loop(Master) ->
     receive
+	#wrequest{cmd  = handle_pdu, 
+		  info = Info} ->
+	    ?vtrace("worker_loop -> received handle_pdu request", []),
+	    Vsn      = proplists:get_value(vsn,        Info),
+	    Pdu      = proplists:get_value(pdu,        Info),
+	    PduMS    = proplists:get_value(pdu_ms,     Info),
+	    ACMData  = proplists:get_value(acm_data,   Info),
+	    Address  = proplists:get_value(addr,       Info),
+	    GbMaxVBs = proplists:get_value(gb_max_vbs, Info),
+	    Extra    = proplists:get_value(extra,      Info),
+	    handle_pdu2(Vsn, Pdu, PduMS, ACMData, Address, GbMaxVBs, Extra), 
+	    ok;
+
+
+	#wrequest{cmd  = send_trap, 
+		  info = Info} ->
+	    ?vtrace("worker_loop -> send trap", []),
+	    TrapRec       = proplists:get_value(trap_rec,        Info),
+	    NotifyName    = proplists:get_value(notify_name,     Info),
+	    ContextName   = proplists:get_value(context_name,    Info),
+	    Recv          = proplists:get_value(receiver,        Info),
+	    Vbs           = proplists:get_value(vbs,             Info),
+	    LocalEngineID = proplists:get_value(local_engine_id, Info),
+	    snmpa_trap:send_trap(TrapRec, NotifyName, 
+				 ContextName, Recv, Vbs, LocalEngineID, 
+				 get(net_if)),
+	    ok;
+
+
+	#wrequest{cmd  = verbosity, 
+		  info = Info} ->
+	    Verbosity = proplists:get_value(verbosity, Info),
+	    put(verbosity, snmp_verbosity:validate(Verbosity)),
+	    ok;
+
+
+	#wrequest{cmd  = terminate} ->
+	    exit(normal);
+
+
+	%% *************************************************************
+	%% 
+	%%         Kept for backward compatibillity reasons
+	%% 
+	%% *************************************************************
+
 	{Vsn, Pdu, PduMS, ACMData, Address, Extra} ->
 	    ?vtrace("worker_loop -> received request", []),
-	    handle_pdu(Vsn, Pdu, PduMS, ACMData, Address, Extra),
+	    handle_pdu2(Vsn, Pdu, PduMS, ACMData, Address, 
+			?DEFAULT_GB_MAX_VBS, Extra),
 	    Master ! worker_available;
 
 	%% We don't trap exits!
@@ -1590,42 +1749,53 @@ worker_loop(Master) ->
 %%-----------------------------------------------------------------
 
 handle_snmp_pdu(true, Vsn, Pdu, PduMS, ACMData, Address, Extra, 
-		#state{multi_threaded = false} = S) ->
+		#state{multi_threaded = false, 
+		       gb_max_vbs     = GbMaxVBs} = S) ->
     ?vtrace("handle_snmp_pdu -> single-thread agent",[]),
-    handle_pdu(Vsn, Pdu, PduMS, ACMData, Address, Extra),
+    handle_pdu2(Vsn, Pdu, PduMS, ACMData, Address, GbMaxVBs, Extra),
     S;
 handle_snmp_pdu(true, Vsn, #pdu{type = 'set-request'} = Pdu, PduMS, 
 		ACMData, Address, Extra, 
-		#state{set_worker = Worker} = S) ->
+		#state{set_worker = Worker, 
+		       gb_max_vbs = GbMaxVBs} = S) ->
     ?vtrace("handle_snmp_pdu -> multi-thread agent: "
 	    "send set-request to main worker",[]),
-    Worker ! {Vsn, Pdu, PduMS, ACMData, Address, Extra}, 
+    WRequest = ?mk_pdu_wreq(Vsn, Pdu, PduMS, ACMData, Address, GbMaxVBs, Extra),
+    Worker ! WRequest, 
     S#state{worker_state = busy};
 handle_snmp_pdu(true, Vsn, Pdu, PduMS, 
 		ACMData, Address, Extra, 
-		#state{worker_state = busy} = S) ->
+		#state{worker_state = busy, 
+		       gb_max_vbs   = GbMaxVBs} = S) ->
     ?vtrace("handle_snmp_pdu -> multi-thread agent: "
 	    "main worker busy - create new worker",[]),
-    spawn_thread(Vsn, Pdu, PduMS, ACMData, Address, Extra),
+    spawn_thread(Vsn, Pdu, PduMS, ACMData, Address, GbMaxVBs, Extra),
     S;
 handle_snmp_pdu(true, Vsn, Pdu, PduMS, ACMData, Address, Extra, 
-		#state{worker = Worker} = S) ->
+		#state{worker     = Worker, 
+		       gb_max_vbs = GbMaxVBs} = S) ->
     ?vtrace("handle_snmp_pdu -> multi-thread agent: "
 	    "send to main worker",[]),
-    Worker ! {Vsn, Pdu, PduMS, ACMData, Address, Extra}, 
+    WRequest = ?mk_pdu_wreq(Vsn, Pdu, PduMS, ACMData, Address, GbMaxVBs, Extra),
+    Worker ! WRequest, 
     S#state{worker_state = busy};
 handle_snmp_pdu(_, _Vsn, _Pdu, _PduMS, _ACMData, _Address, _Extra, S) ->
     S.
 
 
 %% Called via the spawn_thread function
+%% <BACKWARD-COMPAT>
 handle_pdu(Vsn, Pdu, PduMS, ACMData, Address, Extra, Dict) ->
+    handle_pdu(Vsn, Pdu, PduMS, ACMData, Address, ?DEFAULT_GB_MAX_VBS, Extra, 
+	       Dict).
+%% </BACKWARD-COMPAT>
+handle_pdu(Vsn, Pdu, PduMS, ACMData, Address, GbMaxVBs, Extra, Dict) ->
     lists:foreach(fun({Key, Val}) -> put(Key, Val) end, Dict),
     put(sname, pdu_handler_short_name(get(sname))),
     ?vlog("new worker starting",[]),
-    handle_pdu(Vsn, Pdu, PduMS, ACMData, Address, Extra).
+    handle_pdu2(Vsn, Pdu, PduMS, ACMData, Address, GbMaxVBs, Extra).
 
-handle_pdu(Vsn, Pdu, PduMS, ACMData, Address, Extra) ->
+handle_pdu2(Vsn, Pdu, PduMS, ACMData, Address, GbMaxVBs, Extra) ->
     %% OTP-3324
     AuthMod = get(auth_module),
     case AuthMod:init_check_access(Pdu, ACMData) of
@@ -1634,7 +1804,8 @@ handle_pdu(Vsn, Pdu, PduMS, ACMData, Address, Extra) ->
 		  "~n   MibView:     ~p"
 		  "~n   ContextName: ~p", [MibView, ContextName]),
 	    AgentData = cheat(ACMData, Address, ContextName),
-	    do_handle_pdu(MibView, Vsn, Pdu, PduMS, ACMData, AgentData, Extra);
+	    do_handle_pdu(MibView, Vsn, Pdu, PduMS, ACMData, AgentData, 
+			  GbMaxVBs, Extra);
 	{error, Reason} ->
 	    ?vlog("handle_pdu -> error:"
 		  "~n   Reason: ~p", [Reason]),
@@ -1648,16 +1819,19 @@ handle_pdu(Vsn, Pdu, PduMS, ACMData, Address, Extra) ->
     end.
 
 do_handle_pdu(MibView, Vsn, Pdu, PduMS, 
-	      ACMData, {Community, Address, ContextName}, Extra) ->
+	      ACMData, {Community, Address, ContextName}, 
+	      GbMaxVBs, Extra) ->
     
     put(net_if_data, Extra),
+
     RePdu = process_msg(MibView, Vsn, Pdu, PduMS, Community, 
-			Address, ContextName),
+			Address, ContextName, GbMaxVBs),
 
     ?vtrace("do_handle_pdu -> processed:"
 	    "~n   RePdu: ~p", [RePdu]),
-    get(net_if) ! {snmp_response, Vsn, RePdu, 
-		   RePdu#pdu.type, ACMData, Address, Extra}.
+    NetIf = get(net_if), 
+    NetIf ! {snmp_response, Vsn, RePdu, 
+	     RePdu#pdu.type, ACMData, Address, Extra}.
 
 
 handle_acm_error(Vsn, Reason, Pdu, ACMData, Address, Extra) ->
@@ -1831,9 +2005,9 @@ do_handle_send_trap(S, TrapRec, NotifyName, ContextName, Recv, Varbinds,
 	master_agent ->
 	    %% Send to main worker
 	    ?vtrace("do_handle_send_trap -> send to main worker",[]),
-	    S#state.worker ! {send_trap, 
-			      TrapRec, NotifyName, ContextName, Recv, Vbs,
-			      LocalEngineID},
+	    S#state.worker ! ?mk_send_trap_wreq(TrapRec, NotifyName, 
+						ContextName, Recv, Vbs,
+						LocalEngineID),
 	    {ok, S#state{worker_state = busy}}
     end.
     
@@ -2170,17 +2344,18 @@ handle_mib_of(MibServer, Oid) ->
 %% Func: process_msg/7
 %% Returns: RePdu
 %%-----------------------------------------------------------------
-process_msg(MibView, Vsn, Pdu, PduMS, Community, {Ip, Udp}, ContextName) ->
+process_msg(MibView, Vsn, Pdu, PduMS, Community, {Ip, Udp}, ContextName, 
+	    GbMaxVBs) ->
     #pdu{request_id = ReqId} = Pdu,
     put(snmp_address, {tuple_to_list(Ip), Udp}),
     put(snmp_request_id, ReqId),
     put(snmp_community, Community),
     put(snmp_context, ContextName),
     ?vtrace("process ~p",[Pdu#pdu.type]),
-    process_pdu(Pdu, PduMS, Vsn, MibView).
+    process_pdu(Pdu, PduMS, Vsn, MibView, GbMaxVBs).
 
 process_pdu(#pdu{type='get-request', request_id = ReqId, varbinds=Vbs},
-	    _PduMS, Vsn, MibView) ->
+	    _PduMS, Vsn, MibView, _GbMaxVBs) ->
     ?vtrace("get ~p",[ReqId]),
     Res = get_err(do_get(MibView, Vbs, false)),
     ?vtrace("get result: "
@@ -2201,12 +2376,12 @@ process_pdu(#pdu{type='get-request', request_id = ReqId, varbinds=Vbs},
     make_response_pdu(ReqId, ErrStatus, ErrIndex, Vbs, ResponseVarbinds);
 
 process_pdu(#pdu{type = 'get-next-request', request_id = ReqId, varbinds = Vbs},
-	    _PduMS, Vsn, MibView) ->
+	    _PduMS, Vsn, MibView, _GbMaxVBs) ->
     ?vtrace("process get-next-request -> entry with"
 	    "~n   ReqId:   ~p"
 	    "~n   Vbs:     ~p"
 	    "~n   MibView: ~p",[ReqId, Vbs, MibView]),
-    Res = get_err(do_get_next(MibView, Vbs)),
+    Res = get_err(do_get_next(MibView, Vbs, infinity)),
     ?vtrace("get-next result: "
 	    "~n   ~p",[Res]),
     {ErrStatus, ErrIndex, ResVarbinds} = 
@@ -2223,11 +2398,15 @@ process_pdu(#pdu{type = 'get-next-request', request_id = ReqId, varbinds = Vbs},
 	    "~n   ~p",[ResponseVarbinds]),
     make_response_pdu(ReqId, ErrStatus, ErrIndex, Vbs, ResponseVarbinds);
 
-process_pdu(#pdu{type = 'get-bulk-request',request_id = ReqId,varbinds = Vbs,
-		 error_status = NonRepeaters, error_index = MaxRepetitions},
-	    PduMS, _Vsn, MibView)->
+process_pdu(#pdu{type         = 'get-bulk-request',
+		 request_id   = ReqId,
+		 varbinds     = Vbs,
+		 error_status = NonRepeaters, 
+		 error_index  = MaxRepetitions},
+	    PduMS, _Vsn, MibView, GbMaxVBs) ->
     {ErrStatus, ErrIndex, ResponseVarbinds} = 
-	get_err(do_get_bulk(MibView,NonRepeaters,MaxRepetitions,PduMS,Vbs)),
+	get_err(do_get_bulk(MibView, NonRepeaters, MaxRepetitions, PduMS, Vbs, 
+			    GbMaxVBs)),
     ?vtrace("get-bulk final result: "
 	    "~n   Error status:     ~p"
 	    "~n   Error index:      ~p"
@@ -2236,7 +2415,7 @@ process_pdu(#pdu{type = 'get-bulk-request',request_id = ReqId,varbinds = Vbs,
     make_response_pdu(ReqId, ErrStatus, ErrIndex, Vbs, ResponseVarbinds);
 
 process_pdu(#pdu{type = 'set-request', request_id = ReqId, varbinds = Vbs},
-	    _PduMS, Vsn, MibView)->
+	    _PduMS, Vsn, MibView, _GbMaxVbs)->
     Res = do_set(MibView, Vbs),
     ?vtrace("set result: "
 	    "~n   ~p",[Res]),
@@ -2293,7 +2472,8 @@ validate_next_v1_2([Vb | _Vbs], _MibView, _Res)
     {noSuchName, Vb#varbind.org_index};
 validate_next_v1_2([Vb | Vbs], MibView, Res)
   when Vb#varbind.variabletype =:= 'Counter64' ->
-    case validate_next_v1(do_get_next(MibView, [mk_next_oid(Vb)]), MibView) of
+    case validate_next_v1(
+	   do_get_next(MibView, [mk_next_oid(Vb)], infinity), MibView) of
 	{noError, 0, [NVb]} ->
 	    validate_next_v1_2(Vbs, MibView, [NVb | Res]);
 	{Error, Index, _OrgVb} ->
@@ -2766,20 +2946,31 @@ validate_tab_res(_TooMany, [], Mfa, _Res, I) ->
 %%      that this really matters, since many nexts across the same
 %%      subagent must be considered to be very rare.
 %%-----------------------------------------------------------------
-do_get_next(MibView, UnsortedVarbinds) ->
+
+%% It may be a bit agressive to check this already, 
+%% but since it is a security measure, it makes sense.
+do_get_next(_MibView, UnsortedVarbinds, GbMaxVBs) 
+  when (is_integer(GbMaxVBs) andalso (length(UnsortedVarbinds) > GbMaxVBs)) ->
+    {tooBig, 0, []}; % What is the correct index in this case?
+do_get_next(MibView, UnsortedVBs, GbMaxVBs) ->
     ?vt("do_get_next -> entry when"
  	"~n   MibView:          ~p"
- 	"~n   UnsortedVarbinds: ~p", [MibView, UnsortedVarbinds]),
-    SortedVarbinds = oid_sort_varbindlist(UnsortedVarbinds),
+ 	"~n   UnsortedVBs: ~p", [MibView, UnsortedVBs]),
+    SortedVBs = oid_sort_vbs(UnsortedVBs),
     ?vt("do_get_next -> "
- 	"~n   SortedVarbinds: ~p", [SortedVarbinds]),
-    next_loop_varbinds([], SortedVarbinds, MibView, [], []).
+ 	"~n   SortedVBs: ~p", [SortedVBs]),
+    next_loop_varbinds([], SortedVBs, MibView, [], [], GbMaxVBs).
 
-oid_sort_varbindlist(Vbs) ->
+oid_sort_vbs(Vbs) ->
     lists:keysort(#varbind.oid, Vbs).
 
+next_loop_varbinds(_, Vbs, _MibView, Res, _LAVb, GbMaxVBs) 
+  when (is_integer(GbMaxVBs) andalso 
+	((length(Vbs) + length(Res)) > GbMaxVBs)) ->
+    {tooBig, 0, []}; % What is the correct index in this case?
+
 %% LAVb is Last Accessible Vb
-next_loop_varbinds([], [Vb | Vbs], MibView, Res, LAVb) ->
+next_loop_varbinds([], [Vb | Vbs], MibView, Res, LAVb, GbMaxVBs) ->
     ?vt("next_loop_varbinds -> entry when"
  	"~n   Vb:      ~p"
  	"~n   MibView: ~p", [Vb, MibView]),
@@ -2790,7 +2981,7 @@ next_loop_varbinds([], [Vb | Vbs], MibView, Res, LAVb) ->
 		     true -> LAVb
 		  end,
 	    NewVb = RVb#varbind{variabletype = 'NULL', value = endOfMibView},
-	    next_loop_varbinds([], Vbs, MibView, [NewVb | Res], []);
+	    next_loop_varbinds([], Vbs, MibView, [NewVb | Res], [], GbMaxVBs);
 
 	{variable, ME, VarOid} when ((ME#me.access =/= 'not-accessible') andalso 
 				     (ME#me.access =/= 'write-only') andalso 
@@ -2804,7 +2995,8 @@ next_loop_varbinds([], [Vb | Vbs], MibView, Res, LAVb) ->
 		    %% Try next one
 		    NewVb = Vb#varbind{oid   = VarOid, 
 				       value = 'NULL'},
-		    next_loop_varbinds([], [NewVb | Vbs], MibView, Res, []);
+		    next_loop_varbinds([], [NewVb | Vbs], MibView, Res, [], 
+				       GbMaxVBs);
 		{value, Type, Value} ->
 		    ?vt("next_loop_varbind -> value"
 			"~n   Type:  ~p"
@@ -2812,7 +3004,8 @@ next_loop_varbinds([], [Vb | Vbs], MibView, Res, LAVb) ->
 		    NewVb = Vb#varbind{oid          = VarOid, 
 				       variabletype = Type,
 				       value        = Value},
-		    next_loop_varbinds([], Vbs, MibView, [NewVb | Res], []);
+		    next_loop_varbinds([], Vbs, MibView, [NewVb | Res], [],
+				       GbMaxVBs);
 		{error, ErrorStatus} ->
 		    ?vdebug("next loop varbinds:"
 			    "~n   ErrorStatus: ~p",[ErrorStatus]),
@@ -2825,7 +3018,7 @@ next_loop_varbinds([], [Vb | Vbs], MibView, Res, LAVb) ->
 		     true -> LAVb
 		  end,
 	    NewVb = Vb#varbind{oid = VarOid, value = 'NULL'},
-	    next_loop_varbinds([], [NewVb | Vbs], MibView, Res, RVb);
+	    next_loop_varbinds([], [NewVb | Vbs], MibView, Res, RVb, GbMaxVBs);
 	{table, TableOid, TableRestOid, ME} ->
 	    ?vt("next_loop_varbind -> table: "
 		"~n   TableOid:     ~p"
@@ -2833,17 +3026,17 @@ next_loop_varbinds([], [Vb | Vbs], MibView, Res, LAVb) ->
 		"~n   ME:           ~p", [TableOid, TableRestOid, ME]),
 	    next_loop_varbinds({table, TableOid, ME,
 				[{tab_oid(TableRestOid), Vb}]},
-			       Vbs, MibView, Res, []);
+			       Vbs, MibView, Res, [], GbMaxVBs);
 	{subagent, SubAgentPid, SAOid} ->
 	    ?vt("next_loop_varbind -> subagent: "
 		"~n   SubAgentPid: ~p"
 		"~n   SAOid:       ~p", [SubAgentPid, SAOid]),
 	    NewVb = Vb#varbind{variabletype = 'NULL', value = 'NULL'},
 	    next_loop_varbinds({subagent, SubAgentPid, SAOid, [NewVb]},
-			       Vbs, MibView, Res, [])
+			       Vbs, MibView, Res, [], GbMaxVBs)
     end;
 next_loop_varbinds({table, TableOid, ME, TabOids},
-		   [Vb | Vbs], MibView, Res, _LAVb) ->
+		   [Vb | Vbs], MibView, Res, _LAVb, GbMaxVBs) ->
     ?vt("next_loop_varbinds(table) -> entry with"
  	"~n   TableOid: ~p"
  	"~n   Vb:       ~p", [TableOid, Vb]),
@@ -2851,13 +3044,14 @@ next_loop_varbinds({table, TableOid, ME, TabOids},
 	{table, TableOid, TableRestOid, _ME} ->
 	    next_loop_varbinds({table, TableOid, ME,
 				[{tab_oid(TableRestOid), Vb} | TabOids]},
-			       Vbs, MibView, Res, []);
+			       Vbs, MibView, Res, [], GbMaxVBs);
 	_ ->
 	    case get_next_table(ME, TableOid, TabOids, MibView) of
 		{ok, TabRes, TabEndOfTabVbs} ->
 		    NewVbs = lists:append(TabEndOfTabVbs, [Vb | Vbs]),
 		    NewRes = lists:append(TabRes, Res),
-		    next_loop_varbinds([], NewVbs, MibView, NewRes, []);
+		    next_loop_varbinds([], NewVbs, MibView, NewRes, [], 
+				       GbMaxVBs);
 		{ErrorStatus, OrgIndex} ->
 		    ?vdebug("next loop varbinds: next varbind"
 			    "~n   ErrorStatus: ~p"
@@ -2867,7 +3061,7 @@ next_loop_varbinds({table, TableOid, ME, TabOids},
 	    end
     end;
 next_loop_varbinds({table, TableOid, ME, TabOids},
-		   [], MibView, Res, _LAVb) ->
+		   [], MibView, Res, _LAVb, GbMaxVBs) ->
     ?vt("next_loop_varbinds(table) -> entry with"
 	"~n   TableOid: ~p", [TableOid]),
     case get_next_table(ME, TableOid, TabOids, MibView) of
@@ -2876,7 +3070,8 @@ next_loop_varbinds({table, TableOid, ME, TabOids},
 		"~n   TabRes:         ~p"
 		"~n   TabEndOfTabVbs: ~p", [TabRes, TabEndOfTabVbs]),
 	    NewRes = lists:append(TabRes, Res),
-	    next_loop_varbinds([], TabEndOfTabVbs, MibView, NewRes, []);
+	    next_loop_varbinds([], TabEndOfTabVbs, MibView, NewRes, [], 
+			       GbMaxVBs);
 	{ErrorStatus, OrgIndex} ->
 	    ?vdebug("next loop varbinds: next table"
 		    "~n   ErrorStatus: ~p"
@@ -2885,7 +3080,7 @@ next_loop_varbinds({table, TableOid, ME, TabOids},
 	    {ErrorStatus, OrgIndex, []}
     end;
 next_loop_varbinds({subagent, SAPid, SAOid, SAVbs},
-		   [Vb | Vbs], MibView, Res, _LAVb) ->
+		   [Vb | Vbs], MibView, Res, _LAVb, GbMaxVBs) ->
     ?vt("next_loop_varbinds(subagent) -> entry with"
 	"~n   SAPid: ~p"
 	"~n   SAOid: ~p"
@@ -2894,13 +3089,14 @@ next_loop_varbinds({subagent, SAPid, SAOid, SAVbs},
 	{subagent, _SubAgentPid, SAOid} ->
 	    next_loop_varbinds({subagent, SAPid, SAOid,
 				[Vb | SAVbs]},
-			       Vbs, MibView, Res, []);
+			       Vbs, MibView, Res, [], GbMaxVBs);
 	_ ->
 	    case get_next_sa(SAPid, SAOid, SAVbs, MibView) of
 		{ok, SARes, SAEndOfMibViewVbs} ->
 		    NewVbs = lists:append(SAEndOfMibViewVbs, [Vb | Vbs]),
 		    NewRes = lists:append(SARes, Res),
-		    next_loop_varbinds([], NewVbs, MibView, NewRes, []);
+		    next_loop_varbinds([], NewVbs, MibView, NewRes, [], 
+				       GbMaxVBs);
 		{noSuchName, OrgIndex} ->
 		    %% v1 reply, treat this Vb as endOfMibView, and try again
 		    %% for the others.
@@ -2913,12 +3109,14 @@ next_loop_varbinds({subagent, SAPid, SAOid, SAVbs},
 			    case lists:delete(EVb, SAVbs) of
 				[] ->
 				    next_loop_varbinds([], [EndOfVb, Vb | Vbs],
-						       MibView, Res, []);
+						       MibView, Res, [],
+						       GbMaxVBs);
 				TryAgainVbs ->
 				    next_loop_varbinds({subagent, SAPid, SAOid,
 							TryAgainVbs},
 						       [EndOfVb, Vb | Vbs],
-						       MibView, Res, [])
+						       MibView, Res, [],
+						       GbMaxVBs)
 			    end;
 			false ->
 			    %% bad index from subagent
@@ -2934,14 +3132,15 @@ next_loop_varbinds({subagent, SAPid, SAOid, SAVbs},
 	    end
     end;
 next_loop_varbinds({subagent, SAPid, SAOid, SAVbs},
-		   [], MibView, Res, _LAVb) ->
+		   [], MibView, Res, _LAVb, GbMaxVBs) ->
      ?vt("next_loop_varbinds(subagent) -> entry with"
 	 "~n   SAPid: ~p"
 	 "~n   SAOid: ~p", [SAPid, SAOid]),
     case get_next_sa(SAPid, SAOid, SAVbs, MibView) of
 	{ok, SARes, SAEndOfMibViewVbs} ->
 	    NewRes = lists:append(SARes, Res),
-	    next_loop_varbinds([], SAEndOfMibViewVbs, MibView, NewRes, []);
+	    next_loop_varbinds([], SAEndOfMibViewVbs, MibView, NewRes, [],
+			       GbMaxVBs);
 	{noSuchName, OrgIndex} ->
 	    %% v1 reply, treat this Vb as endOfMibView, and try again for
 	    %% the others.
@@ -2952,11 +3151,13 @@ next_loop_varbinds({subagent, SAPid, SAOid, SAVbs},
 					  value = {endOfMibView, NextOid}},
 		    case lists:delete(EVb, SAVbs) of
 			[] ->
-			    next_loop_varbinds([], [EndOfVb], MibView, Res, []);
+			    next_loop_varbinds([], [EndOfVb], MibView, Res, [],
+					       GbMaxVBs);
 			TryAgainVbs ->
 			    next_loop_varbinds({subagent, SAPid, SAOid,
 						TryAgainVbs},
-					       [EndOfVb], MibView, Res, [])
+					       [EndOfVb], MibView, Res, [],
+					       GbMaxVBs)
 		    end;
 		false ->
 		    %% bad index from subagent
@@ -2969,7 +3170,7 @@ next_loop_varbinds({subagent, SAPid, SAOid, SAVbs},
  		    [ErrorStatus,OrgIndex]),
  	    {ErrorStatus, OrgIndex, []}
     end;
-next_loop_varbinds([], [], _MibView, Res, _LAVb) ->
+next_loop_varbinds([], [], _MibView, Res, _LAVb, _GbMaxVBs) ->
     ?vt("next_loop_varbinds -> entry when done", []),
     {noError, 0, Res}.
 
@@ -3235,21 +3436,29 @@ next_oid(Oid) ->
 
 %%%-----------------------------------------------------------------
 %%% 5. GET-BULK REQUEST
+%%% 
+%%% In order to prevent excesses in reply sizes there are two 
+%%% preventive methods in place. One is to check that the encode
+%%% size does not exceed Max PDU size (this is mentioned in the
+%%% standard). The other is a simple VBs limit. That is, the 
+%%% resulting response cannot contain more then this number of VBs.
 %%%-----------------------------------------------------------------
-do_get_bulk(MibView, NonRepeaters, MaxRepetitions, PduMS, Varbinds) ->
+
+do_get_bulk(MibView, NonRepeaters, MaxRepetitions, PduMS, Varbinds, GbMaxVBs) ->
     ?vtrace("do_get_bulk -> entry with"
 	    "~n   MibView:        ~p"
 	    "~n   NonRepeaters:   ~p"
 	    "~n   MaxRepetitions: ~p"
 	    "~n   PduMS:          ~p"
-	    "~n   Varbinds:       ~p",
-	    [MibView, NonRepeaters, MaxRepetitions, PduMS, Varbinds]),
+	    "~n   Varbinds:       ~p"
+	    "~n   GbMaxVBs:       ~p",
+	    [MibView, NonRepeaters, MaxRepetitions, PduMS, Varbinds, GbMaxVBs]),
     {NonRepVbs, RestVbs} = split_vbs(NonRepeaters, Varbinds, []),
     ?vt("do_get_bulk -> split: "
 	"~n   NonRepVbs: ~p"
 	"~n   RestVbs:   ~p", [NonRepVbs, RestVbs]),
-    case do_get_next(MibView, NonRepVbs) of
-	{noError, 0, UResNonRepVbs} -> 
+    case do_get_next(MibView, NonRepVbs, GbMaxVBs) of
+	{noError, 0, UResNonRepVbs} ->
 	    ?vt("do_get_bulk -> next noError: "
 		"~n   UResNonRepVbs: ~p", [UResNonRepVbs]),
 	    ResNonRepVbs = lists:keysort(#varbind.org_index, UResNonRepVbs),
@@ -3264,7 +3473,8 @@ do_get_bulk(MibView, NonRepeaters, MaxRepetitions, PduMS, Varbinds) ->
 			    "~n   SizeLeft: ~p"
 			    "~n   Res:      ~w", [SizeLeft, Res]),
 		    case (catch do_get_rep(SizeLeft, MibView, MaxRepetitions,
-					   RestVbs, Res)) of
+					   RestVbs, Res, 
+					   length(UResNonRepVbs), GbMaxVBs)) of
 			{error, Idx, Reason} ->
 			    user_err("failed encoding varbind ~w:~n~p", 
 				     [Idx, Reason]),
@@ -3285,6 +3495,7 @@ do_get_bulk(MibView, NonRepeaters, MaxRepetitions, PduMS, Varbinds) ->
 		Res when is_list(Res) ->
 		    {noError, 0, conv_res(Res)}
 	    end;
+
 	{ErrorStatus, Index, _} ->
 	    ?vdebug("do get bulk: "
 		    "~n   ErrorStatus: ~p"
@@ -3334,11 +3545,12 @@ enc_vbs(SizeLeft, Vbs) ->
 	  end,
     lists:foldl(Fun, {SizeLeft, []}, Vbs).
 
-do_get_rep(Sz, MibView, MaxRepetitions, Varbinds, Res) 
+do_get_rep(Sz, MibView, MaxRepetitions, Varbinds, Res, GbNumVBs, GbMaxVBs) 
   when MaxRepetitions >= 0 ->
-    do_get_rep(Sz, MibView, 0, MaxRepetitions, Varbinds, Res);
-do_get_rep(Sz, MibView, _MaxRepetitions, Varbinds, Res) ->
-    do_get_rep(Sz, MibView, 0, 0, Varbinds, Res).
+    do_get_rep(Sz, MibView, 0, MaxRepetitions, Varbinds, Res, 
+	       GbNumVBs, GbMaxVBs);
+do_get_rep(Sz, MibView, _MaxRepetitions, Varbinds, Res, GbNumVBs, GbMaxVBs) ->
+    do_get_rep(Sz, MibView, 0, 0, Varbinds, Res, GbNumVBs, GbMaxVBs).
 
 conv_res(ResVarbinds) ->
     conv_res(ResVarbinds, []).
@@ -3347,22 +3559,30 @@ conv_res([VbListOfBytes | T], Bytes) ->
 conv_res([], Bytes) ->
     Bytes.
 
-do_get_rep(_Sz, _MibView, Max, Max, _, Res) ->
+%% The only only other value, then a positive integer, is infinity.
+do_get_rep(_Sz, _MibView, Count, Max, _, _Res, GbNumVBs, GbMaxVBs) 
+  when (is_integer(GbMaxVBs) andalso (GbNumVBs > GbMaxVBs)) ->
+    ?vinfo("Max Get-BULK VBs limit (~w) exceeded (~w) when:"
+	   "~n   Count: ~p"
+	   "~n   Max:   ~p", [GbMaxVBs, GbNumVBs, Count, Max]),
+    {tooBig, 0, []};
+do_get_rep(_Sz, _MibView, Max, Max, _, Res, _GbNumVBs, _GbMaxVBs) ->
     ?vt("do_get_rep -> done when: "
 	"~n   Res: ~p", [Res]),
     {noError, 0, conv_res(Res)};
-do_get_rep(Sz, MibView, Count, Max, Varbinds, Res) -> 
+do_get_rep(Sz, MibView, Count, Max, Varbinds, Res, GbNumVBs, GbMaxVBs) -> 
     ?vt("do_get_rep -> entry when: "
 	"~n   Sz:    ~p"
 	"~n   Count: ~p"
 	"~n   Res:   ~w", [Sz, Count, Res]),
-    case try_get_bulk(Sz, MibView, Varbinds) of
+    case try_get_bulk(Sz, MibView, Varbinds, GbMaxVBs) of
 	{noError, NextVarbinds, SizeLeft, Res2} -> 
 	    ?vt("do_get_rep -> noError: "
 		"~n   SizeLeft: ~p"
 		"~n   Res2:     ~p", [SizeLeft, Res2]),
 	    do_get_rep(SizeLeft, MibView, Count+1, Max, NextVarbinds,
-		       Res2 ++ Res);
+		       Res2 ++ Res, 
+		       GbNumVBs + length(Varbinds), GbMaxVBs);
 	{endOfMibView, _NextVarbinds, _SizeLeft, Res2} -> 
 	    ?vt("do_get_rep -> endOfMibView: "
 		"~n   Res2: ~p", [Res2]),
@@ -3374,16 +3594,19 @@ do_get_rep(Sz, MibView, Count, Max, Varbinds, Res) ->
 	    {ErrorStatus, Index, []}
     end.
 
-try_get_bulk(Sz, MibView, Varbinds) -> 
+org_index_sort_vbs(Vbs) ->
+    lists:keysort(#varbind.org_index, Vbs).
+
+try_get_bulk(Sz, MibView, Varbinds, GbMaxVBs) -> 
     ?vt("try_get_bulk -> entry with"
 	"~n   Sz:       ~w"
 	"~n   MibView:  ~w"
 	"~n   Varbinds: ~w", [Sz, MibView, Varbinds]),
-    case do_get_next(MibView, Varbinds) of
+    case do_get_next(MibView, Varbinds, GbMaxVBs) of
 	{noError, 0, UNextVarbinds} -> 
 	    ?vt("try_get_bulk -> noError: "
 		"~n   UNextVarbinds: ~p", [UNextVarbinds]),
-	    NextVarbinds = lists:keysort(#varbind.org_index, UNextVarbinds),
+	    NextVarbinds = org_index_sort_vbs(UNextVarbinds),
 	    case (catch enc_vbs(Sz, NextVarbinds)) of
 		{error, Idx, Reason} ->
 		    user_err("failed encoding varbind ~w:~n~p", [Idx, Reason]),
@@ -3547,9 +3770,8 @@ get_err({ErrC, ErrI, Vbs}) ->
     {get_err_i(ErrC), ErrI, Vbs}.
 
 get_err_i(noError) -> noError;
-get_err_i(S) -> 
-    ?vtrace("convert '~p' to 'genErr'",[S]),
-    genErr.
+get_err_i(tooBig) -> tooBig;    % OTP-9700 
+get_err_i(ES) -> ?vtrace("convert ErrorStatus '~p' to 'genErr'", [ES]), genErr.
 
 v2err_to_v1err(noError) ->            noError;
 v2err_to_v1err(noAccess) ->           noSuchName;
@@ -4037,6 +4259,9 @@ get_multi_threaded(Opts) ->
 
 get_versions(Opts) ->
     get_option(versions, Opts, [v1,v2,v3]).
+
+get_gb_max_vbs(Opts) ->
+    get_option(gb_max_vbs, Opts, infinity).
 
 get_note_store_opt(Opts) ->
     get_option(note_store, Opts, []).
