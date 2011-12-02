@@ -1134,7 +1134,8 @@ ERTS_CIO_EXPORT(erts_check_io_interrupt)(int set)
 }
 
 void
-ERTS_CIO_EXPORT(erts_check_io_interrupt_timed)(int set, long msec)
+ERTS_CIO_EXPORT(erts_check_io_interrupt_timed)(int set,
+					       erts_short_time_t msec)
 {
     ERTS_CIO_POLL_INTR_TMD(pollset.ps, set, msec);
 }

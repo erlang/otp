@@ -20,7 +20,11 @@
 #ifndef ERL_TIME_H__
 #define ERL_TIME_H__
 
-extern erts_smp_atomic_t do_time;	/* set at clock interrupt */
+#define ERTS_SHORT_TIME_T_MAX ERTS_AINT32_T_MAX
+#define ERTS_SHORT_TIME_T_MIN ERTS_AINT32_T_MIN
+typedef erts_aint32_t erts_short_time_t;
+
+extern erts_smp_atomic32_t do_time;	/* set at clock interrupt */
 extern SysTimeval erts_first_emu_time;
 
 /*
@@ -71,22 +75,32 @@ void erts_cancel_smp_ptimer(ErtsSmpPTimer *ptimer);
 void erts_init_time(void);
 void erts_set_timer(ErlTimer*, ErlTimeoutProc, ErlCancelProc, void*, Uint);
 void erts_cancel_timer(ErlTimer*);
-void erts_bump_timer(erts_aint_t);
+void erts_bump_timer(erts_short_time_t);
 Uint erts_timer_wheel_memory_size(void);
 Uint erts_time_left(ErlTimer *);
-erts_aint_t erts_next_time(void);
+erts_short_time_t erts_next_time(void);
 
 #ifdef DEBUG
 void erts_p_slpq(void);
 #endif
 
-ERTS_GLB_INLINE erts_aint_t erts_do_time_read_and_reset(void);
-ERTS_GLB_INLINE void erts_do_time_add(long);
+ERTS_GLB_INLINE erts_short_time_t erts_do_time_read_and_reset(void);
+ERTS_GLB_INLINE void erts_do_time_add(erts_short_time_t);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
-ERTS_GLB_INLINE erts_aint_t erts_do_time_read_and_reset(void) { return erts_smp_atomic_xchg_acqb(&do_time, 0L); }
-ERTS_GLB_INLINE void erts_do_time_add(long elapsed) { erts_smp_atomic_add_relb(&do_time, elapsed); }
+ERTS_GLB_INLINE erts_short_time_t erts_do_time_read_and_reset(void)
+{
+    erts_short_time_t time = erts_smp_atomic32_xchg_acqb(&do_time, 0);
+    if (time < 0)
+	erl_exit(ERTS_ABORT_EXIT, "Internal time management error\n");
+    return time;
+}
+
+ERTS_GLB_INLINE void erts_do_time_add(erts_short_time_t elapsed)
+{
+    erts_smp_atomic32_add_relb(&do_time, elapsed);
+}
 
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
@@ -105,7 +119,7 @@ void erts_get_now_cpu(Uint* megasec, Uint* sec, Uint* microsec);
 #endif
 
 void erts_get_timeval(SysTimeval *tv);
-long erts_get_time(void);
+erts_time_t erts_get_time(void);
 void erts_get_emu_time(SysTimeval *);
 
 ERTS_GLB_INLINE int erts_cmp_timeval(SysTimeval *t1p, SysTimeval *t2p);

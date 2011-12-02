@@ -3290,7 +3290,7 @@ erts_sys_schedule_interrupt(int set)
 
 #ifdef ERTS_SMP
 void
-erts_sys_schedule_interrupt_timed(int set, long msec)
+erts_sys_schedule_interrupt_timed(int set, erts_short_time_t msec)
 {
     erts_check_io_interrupt_timed(set, msec);
 }

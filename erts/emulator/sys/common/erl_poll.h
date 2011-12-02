@@ -223,7 +223,7 @@ void		ERTS_POLL_EXPORT(erts_poll_interrupt)(ErtsPollSet,
 						      int);
 void		ERTS_POLL_EXPORT(erts_poll_interrupt_timed)(ErtsPollSet,
 							    int,
-							    long);
+							    erts_short_time_t);
 ErtsPollEvents	ERTS_POLL_EXPORT(erts_poll_control)(ErtsPollSet,
 						    ErtsSysFdType,
 						    ErtsPollEvents,

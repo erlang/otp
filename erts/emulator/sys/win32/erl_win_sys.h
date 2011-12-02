@@ -117,9 +117,20 @@ int erts_check_io_debug(void);
 #define SYS_CLK_TCK 1000
 #define SYS_CLOCK_RESOLUTION 1
 
+#if SIZEOF_TIME_T != 8
+#  error "Unexpected sizeof(time_t)"
+#endif
+
+/*
+ * gcc uses a 4 byte time_t and vc++ uses an 8 byte time_t.
+ * Types seen in beam_emu.c *need* to have the same size
+ * as in the rest of the system...
+ */
+typedef __int64 erts_time_t;
+
 typedef struct {
-    long tv_sec;
-    long tv_usec;
+    erts_time_t tv_sec;
+    erts_time_t tv_usec;
 } SysTimeval;
 
 typedef struct {

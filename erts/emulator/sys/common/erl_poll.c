@@ -2171,7 +2171,7 @@ ERTS_POLL_EXPORT(erts_poll_async_sig_interrupt)(ErtsPollSet ps)
 void
 ERTS_POLL_EXPORT(erts_poll_interrupt_timed)(ErtsPollSet ps,
 					    int set,
-					    long msec)
+					    erts_short_time_t msec)
 {
 #if ERTS_POLL_ASYNC_INTERRUPT_SUPPORT || defined(ERTS_SMP)
     if (!set)

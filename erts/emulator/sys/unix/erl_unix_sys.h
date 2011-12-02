@@ -146,6 +146,7 @@ typedef void *GETENV_STATE;
 /*
 ** For the erl_timer_sup module.
 */
+typedef time_t erts_time_t;
 
 typedef struct timeval SysTimeval;
 

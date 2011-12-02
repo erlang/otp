@@ -46,8 +46,8 @@ void erts_check_io_async_sig_interrupt_nkp(void);
 #endif
 void erts_check_io_interrupt_kp(int);
 void erts_check_io_interrupt_nkp(int);
-void erts_check_io_interrupt_timed_kp(int, long);
-void erts_check_io_interrupt_timed_nkp(int, long);
+void erts_check_io_interrupt_timed_kp(int, erts_short_time_t);
+void erts_check_io_interrupt_timed_nkp(int, erts_short_time_t);
 void erts_check_io_kp(int);
 void erts_check_io_nkp(int);
 void erts_init_check_io_kp(void);
@@ -64,7 +64,7 @@ int erts_check_io_max_files(void);
 void erts_check_io_async_sig_interrupt(void);
 #endif
 void erts_check_io_interrupt(int);
-void erts_check_io_interrupt_timed(int, long);
+void erts_check_io_interrupt_timed(int, erts_short_time_t);
 void erts_check_io(int);
 void erts_init_check_io(void);
 

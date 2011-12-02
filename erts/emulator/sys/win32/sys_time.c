@@ -55,8 +55,8 @@ sys_gettimeofday(SysTimeval *tv)
     GetSystemTime(&t);
     SystemTimeToFileTime(&t, &ft);
     memcpy(&lft, &ft, sizeof(lft));
-    tv->tv_usec = (long) ((lft / LL_LITERAL(10)) % LL_LITERAL(1000000));
-    tv->tv_sec = (long) ((lft / LL_LITERAL(10000000)) - EPOCH_JULIAN_DIFF);
+    tv->tv_usec = (erts_time_t) ((lft / LL_LITERAL(10)) % LL_LITERAL(1000000));
+    tv->tv_sec = (erts_time_t) ((lft / LL_LITERAL(10000000)) - EPOCH_JULIAN_DIFF);
 }
 
 SysHrTime 

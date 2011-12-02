@@ -158,6 +158,7 @@ typedef struct _vxworks_tms {
 
 typedef long long SysHrTime;
 
+typedef time_t erts_time_t;
 typedef struct timeval SysTimeval;
 
 extern int sys_init_hrtime(void);

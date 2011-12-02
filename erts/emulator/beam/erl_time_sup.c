@@ -371,7 +371,7 @@ static void init_erts_deliver_time(const SysTimeval *inittv)
 static void do_erts_deliver_time(const SysTimeval *current)
 {
     SysTimeval cur_time;
-    long elapsed;
+    erts_time_t elapsed;
     
     /* calculate and deliver appropriate number of ticks */
     cur_time = *current;
@@ -385,7 +385,10 @@ static void do_erts_deliver_time(const SysTimeval *current)
        this by simply pretend as if the time stood still. :) */
 
     if (elapsed > 0) {
-	erts_do_time_add(elapsed);
+
+	ASSERT(elapsed < ((erts_time_t) ERTS_SHORT_TIME_T_MAX));
+
+	erts_do_time_add((erts_short_time_t) elapsed);
 	last_delivered = cur_time;
     }
 }
@@ -592,10 +595,10 @@ static const int mdays[14] = {0, 31, 28, 31, 30, 31, 30,
  * greater of equal to 1600 , and month [1-12] and day [1-31] 
  * are within range. Otherwise it returns -1.
  */
-static int long gregday(int year, int month, int day)
+static time_t gregday(int year, int month, int day)
 {
-  int long ndays = 0;
-  int gyear, pyear, m;
+  time_t ndays = 0;
+  time_t gyear, pyear, m;
   
   /* number of days in previous years */
   gyear = year - 1600;
@@ -798,13 +801,14 @@ void erts_deliver_time(void) {
 
 void erts_time_remaining(SysTimeval *rem_time)
 {
-    int ticks;
+    erts_time_t ticks;
     SysTimeval cur_time;
-    long elapsed;
+    erts_time_t elapsed;
 
     /* erts_next_time() returns no of ticks to next timeout or -1 if none */
 
-    if ((ticks = erts_next_time()) == -1) {
+    ticks = (erts_time_t) erts_next_time();
+    if (ticks == (erts_time_t) -1) {
 	/* timer queue empty */
 	/* this will cause at most 100000000 ticks */
 	rem_time->tv_sec = 100000;
@@ -839,7 +843,7 @@ void erts_get_timeval(SysTimeval *tv)
     erts_smp_mtx_unlock(&erts_timeofday_mtx);
 }
 
-long
+erts_time_t
 erts_get_time(void)
 {
     SysTimeval sys_tv;
