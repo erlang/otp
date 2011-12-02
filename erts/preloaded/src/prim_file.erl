@@ -779,15 +779,17 @@ write_file_info_int(Port, File,
 			       gid=Gid,
 			       atime=Atime0, 
 			       mtime=Mtime0, 
-			       ctime=Ctime},
+			       ctime=Ctime0},
 		       TimeType) ->
 
     % Atime and/or Mtime might be undefined
     %  - use localtime() for atime, if atime is undefined
     %  - use atime as mtime if mtime is undefined
+    %  - use mtime as ctime if ctime is undefined
 
     Atime = file_info_validate_atime(Atime0, TimeType),
     Mtime = file_info_validate_mtime(Mtime0, Atime),
+    Ctime = file_info_validate_ctime(Ctime0, Mtime),
 
     drv_command(Port, [?FILE_WRITE_INFO, 
 			int_to_int32bytes(Mode), 
@@ -806,6 +808,9 @@ file_info_validate_atime(undefined, epoch) -> datetime_to_epoch(erlang:universal
 
 file_info_validate_mtime(undefined, Atime) -> Atime;
 file_info_validate_mtime(Mtime, _)         -> Mtime.
+
+file_info_validate_ctime(undefined, Mtime) -> Mtime;
+file_info_validate_ctime(Ctime, _)         -> Ctime.
 
 %% make_link/{2,3}
 
