@@ -42,11 +42,6 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <fcntl.h>
-#ifdef VXWORKS
-#  include "reclaim.h"
-#endif
-
-
 
 /*
  * Deduce MAXPATHLEN, which is the one to use in this file, 
@@ -199,6 +194,8 @@ static int wrap_file(TraceFileData *data);
 #ifdef __WIN32__
 static int win_open(char *path, int flags, int mask);
 #define open win_open
+#else
+ErlDrvEntry *driver_init(void);
 #endif
 
 /*
@@ -360,11 +357,11 @@ static void trace_file_output(ErlDrvData handle, char *buff, int bufflen)
     TraceFileData *data = (TraceFileData *) handle;
     unsigned char b[5] = "";
     put_be((unsigned) bufflen, b + 1);
-    switch (my_write(data, b, sizeof(b))) {
+    switch (my_write(data, (unsigned char *) b, sizeof(b))) {
     case 1:
 	heavy = !0;
     case 0:
-	switch (my_write(data, buff, bufflen)) {
+	switch (my_write(data, (unsigned char *) buff, bufflen)) {
 	case 1:
 	    heavy = !0;
 	case 0:
