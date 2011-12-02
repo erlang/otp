@@ -952,24 +952,20 @@ efile_write_info(Efile_error *errInfo, Efile_info *pInfo, char *name)
 
 #endif /* !VXWORKS */
 
-    if (pInfo->accessTime != 0 && pInfo->modifyTime != 0) {
-	struct utimbuf tval;
-	struct tm timebuf;
+    struct utimbuf tval;
 
-	tval.actime  = pInfo->accessTime;
-	tval.modtime = pInfo->modifyTime;
+    tval.actime  = pInfo->accessTime;
+    tval.modtime = pInfo->modifyTime;
 
 #ifdef VXWORKS
-	/* VxWorks' utime doesn't work when the file is a nfs mounted
-	 * one, don't report error if utime fails.
-	 */
-	utime(name, &tval);
-	return 1;
-#else
-	return check_error(utime(name, &tval), errInfo);
-#endif
-    }
+    /* VxWorks' utime doesn't work when the file is a nfs mounted
+     * one, don't report error if utime fails.
+     */
+    utime(name, &tval);
     return 1;
+#else
+    return check_error(utime(name, &tval), errInfo);
+#endif
 }
 
 
