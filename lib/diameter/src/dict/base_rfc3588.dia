@@ -365,7 +365,7 @@
 ;; 7.1.4.  Transient Failures
    DIAMETER_AUTHENTICATION_REJECTED   4001
    DIAMETER_OUT_OF_SPACE              4002
-   ELECTION_LOST                      4003
+   DIAMETER_ELECTION_LOST             4003
 
 ;; 7.1.5.  Permanent Failures
    DIAMETER_AVP_UNSUPPORTED           5001
