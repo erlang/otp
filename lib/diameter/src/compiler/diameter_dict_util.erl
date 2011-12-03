@@ -51,14 +51,14 @@
       Opts :: list().
 
 parse(File, Opts) ->
-    put({?MODULE, verbose}, lists:member(verbose, Opts)),
+    putr(verbose, lists:member(verbose, Opts)),
     try
         {ok, do_parse(File, Opts)}
     catch
         {Reason, ?MODULE, _Line} ->
             {error, Reason}
     after
-        erase({?MODULE, verbose})
+        eraser(verbose)
     end.
 
 %% ===========================================================================
@@ -174,12 +174,11 @@ fmt(enumerated_avp_not_defined) ->
 fmt(avp_not_defined) ->
     "AVP ~s referenced at line ~p neither defined nor inherited";
 
-fmt(beam_not_on_path) ->
-    "Module ~s not found";
-
 fmt(recompile) ->
     "Module ~p appears to have been compiler with an incompatible "
     "version of the dictionary compiler and must be recompiled";
+fmt(not_loaded) ->
+    "Module ~p is not on the code path or could not be loaded";
 fmt(no_dict) ->
     "Module ~p does not appear to be a diameter dictionary".
 
@@ -234,8 +233,8 @@ io(K, Id)
        K == prefix ->
     [?NL, section(K), ?SP, tok(Id)];
 
-io(vendor, {Id, Name}) ->
-    [?NL, section(vendor) | [[?SP, tok(X)] || X <- [Id, Name]]];
+io(vendor = K, {Id, Name}) ->
+    [?NL, section(K) | [[?SP, tok(X)] || X <- [Id, Name]]];
 
 io(avp_types = K, Body) ->
     [?NL, ?NL, section(K), ?NL, [body(K,A) || A <- Body]];
@@ -252,11 +251,7 @@ io(K, Body)
        K == codecs;
        K == enum;
        K == define ->
-    if [] == Body ->
-            [];
-       true ->
-            [[?NL, pairs(K, T)] || T <- Body]
-    end.
+    [[?NL, pairs(K, T)] || T <- Body].
 
 pairs(K, {Id, Avps}) ->
     [?NL, section(K), ?SP, tok(Id), ?NL, [[?NL, body(K, A)] || A <- Avps]].
@@ -510,7 +505,7 @@ report(What, [F | A])
   when is_function(F) ->
     report(What, apply(F, A));
 report(What, Data) ->
-    report(get({?MODULE, verbose}), What, Data).
+    report(getr(verbose), What, Data).
 
 report(true, Tag, Data) ->
     io:format("##~n## ~p ~p~n", [Tag, Data]);
@@ -1114,18 +1109,16 @@ import_key({Mod, Avps}, Key) ->
 %% name, Line points to the corresponding @inherit and each Avp is
 %% from Mod:dict(). Lineno is 0 if the import is implicit.
 
-inherit(Dict, Options) ->
-    Path = [D || {include, D} <- Options]
-        ++ [".", code:lib_dir(diameter, ebin)],
-    foldl([fun find_avps/3, Path], [], find(inherits, Dict)).
+inherit(Dict, Opts) ->
+    code:add_pathsa([D || {include, D} <- Opts]),
+    foldl(fun inherit_avps/2, [], find(inherits, Dict)).
 %% Note that the module order of the returned lists is reversed
 %% relative to @inherits.
 
-find_avps([Line, {_,_,M} | Names], Acc, Path) ->
+inherit_avps([Line, {_,_,M} | Names], Acc) ->
     Mod = ?A(M),
     report(inherit_from, Mod),
-    Avps = avps_from_beam(find_beam(Mod, Path), Mod),  %% could be empty
-    case find_avps(Names, Avps) of
+    case find_avps(Names, avps_from_module(Mod)) of
         {_, [{_, L, N} | _]} ->
             ?RETURN(requested_avp_not_found, [Mod, Line, N, L]);
         {Found, []} ->
@@ -1138,9 +1131,9 @@ find_avps([], Avps) ->
 
 %% ... or specified AVPs.
 find_avps(Names, Avps) ->
-    foldl(fun fa/2, {[], Names}, Avps).
+    foldl(fun acc_avp/2, {[], Names}, Avps).
 
-fa({Name, _Code, _Type, _Flags} = A, {Found, Not} = Acc) ->
+acc_avp({Name, _Code, _Type, _Flags} = A, {Found, Not} = Acc) ->
     case lists:keyfind(Name, 3, Not) of
         {_, Line, Name} ->
             {[{Line, A} | Found], lists:keydelete(Name, 3, Not)};
@@ -1148,44 +1141,10 @@ fa({Name, _Code, _Type, _Flags} = A, {Found, Not} = Acc) ->
             Acc
     end.
 
-%% find_beam/2
+%% avps_from_module/2
 
-find_beam(Mod, Dirs)
-  when is_atom(Mod) ->
-    find_beam(atom_to_list(Mod), Dirs);
-find_beam(Mod, Dirs) ->
-    Beam = Mod ++ code:objfile_extension(),
-    case try_path(Dirs, Beam) of
-        {value, Path} ->
-            Path;
-        false ->
-            ?RETURN(beam_not_on_path, [Mod])
-    end.
-
-try_path([D|Ds], Fname) ->
-    Path = filename:join(D, Fname),
-    case file:read_file_info(Path) of
-        {ok, _} ->
-            {value, Path};
-        _ ->
-            try_path(Ds, Fname)
-    end;
-try_path([], _) ->
-    false.
-
-%% avps_from_beam/2
-
-avps_from_beam(Path, Mod) ->
-    report(beam, Path),
-    ok = load_module(code:is_loaded(Mod), Mod, Path),
+avps_from_module(Mod) ->
     orddict:fetch(avp_types, dict(Mod)).
-
-load_module(false, Mod, Path) ->
-    R = filename:rootname(Path, code:objfile_extension()),
-    {module, Mod} = code:load_abs(R),
-    ok;
-load_module({file, _}, _, _) ->
-    ok.
 
 dict(Mod) ->
     try Mod:dict() of
@@ -1194,8 +1153,11 @@ dict(Mod) ->
         _ ->
             ?RETURN(recompile, [Mod])
     catch
-        error:_ ->
-            ?RETURN(no_dict, [Mod])
+        error: _ ->
+            ?RETURN(choose(false == code:is_loaded(Mod),
+                           not_loaded,
+                           no_dict),
+                    [Mod])
     end.
 
 %% ===========================================================================
@@ -1259,6 +1221,15 @@ avp_is_defined(Name, Dict, Line) ->
     end.
 
 %% ===========================================================================
+
+putr(Key, Value) ->
+    put({?MODULE, Key}, Value).
+
+getr(Key) ->
+    get({?MODULE, Key}).
+
+eraser(Key) ->
+    erase({?MODULE, Key}).
 
 choose(true, X, _)  -> X;
 choose(false, _, X) -> X.

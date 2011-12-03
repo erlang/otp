@@ -30,8 +30,7 @@
          end_per_suite/1]).
 
 %% testcases
--export([base/1,
-         format/1,
+-export([format/1,
          replace/1, replace/2]).
 
 -export([dict/0]).  %% fake dictionary module
@@ -167,7 +166,7 @@
          {avp_not_defined,
           "CEA ::=",
           "<XXX> &"},
-         {beam_not_on_path,
+         {not_loaded,
           [{"@avp_types", "@inherits nomod XXX &"},
            {"CEA ::=", "<XXX> &"}]},
          {recompile,
@@ -201,8 +200,7 @@ suite() ->
     [{timetrap, {seconds, 5}}].
 
 all() ->
-    [base,
-     format,
+    [format,
      replace].
 
 %% Error handling testcases will make an erroneous dictionary out of
@@ -218,16 +216,6 @@ end_per_suite(_Config) ->
 
 %% ===========================================================================
 %% testcases
-
-%% base/1
-
-%% This work around a minor deficiency in diameter_dict_util, that it
-%% does deal well with compiling in parallel. Load the dictionary
-%% ahead of time so that compilation doesn't.
-base(_Config) ->
-    Base = filename:join([code:lib_dir(diameter, ebin),
-                          "diameter_gen_base_rfc3588"]),
-    {module, _} = code:load_abs(Base).
 
 %% Ensure that parse o format is the identity map.
 format(Config) ->
