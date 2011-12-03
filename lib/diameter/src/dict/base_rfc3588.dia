@@ -312,14 +312,14 @@
 
 @enum Termination-Cause
 
-   DIAMETER_LOGOUT                1
-   DIAMETER_SERVICE_NOT_PROVIDED  2
-   DIAMETER_BAD_ANSWER            3
-   DIAMETER_ADMINISTRATIVE        4
-   DIAMETER_LINK_BROKEN           5
-   DIAMETER_AUTH_EXPIRED          6
-   DIAMETER_USER_MOVED            7
-   DIAMETER_SESSION_TIMEOUT       8
+   LOGOUT                1
+   SERVICE_NOT_PROVIDED  2
+   BAD_ANSWER            3
+   ADMINISTRATIVE        4
+   LINK_BROKEN           5
+   AUTH_EXPIRED          6
+   USER_MOVED            7
+   SESSION_TIMEOUT       8
 
 @enum Session-Server-Failover
 
@@ -343,14 +343,53 @@
 
 @define Result-Code
 
-;; 7.1.1.  Informational
-   DIAMETER_MULTI_ROUND_AUTH          1001
+   ;; 7.1.1.  Informational
+   MULTI_ROUND_AUTH          1001
 
-;; 7.1.2.  Success
+   ;; 7.1.2.  Success
+   SUCCESS                   2001
+   LIMITED_SUCCESS           2002
+
+   ;; 7.1.3.  Protocol Errors
+   COMMAND_UNSUPPORTED       3001
+   UNABLE_TO_DELIVER         3002
+   REALM_NOT_SERVED          3003
+   TOO_BUSY                  3004
+   LOOP_DETECTED             3005
+   REDIRECT_INDICATION       3006
+   APPLICATION_UNSUPPORTED   3007
+   INVALID_HDR_BITS          3008
+   INVALID_AVP_BITS          3009
+   UNKNOWN_PEER              3010
+
+   ;; 7.1.4.  Transient Failures
+   AUTHENTICATION_REJECTED   4001
+   OUT_OF_SPACE              4002
+   ELECTION_LOST             4003
+
+   ;; 7.1.5.  Permanent Failures
+   AVP_UNSUPPORTED           5001
+   UNKNOWN_SESSION_ID        5002
+   AUTHORIZATION_REJECTED    5003
+   INVALID_AVP_VALUE         5004
+   MISSING_AVP               5005
+   RESOURCES_EXCEEDED        5006
+   CONTRADICTING_AVPS        5007
+   AVP_NOT_ALLOWED           5008
+   AVP_OCCURS_TOO_MANY_TIMES 5009
+   NO_COMMON_APPLICATION     5010
+   UNSUPPORTED_VERSION       5011
+   UNABLE_TO_COMPLY          5012
+   INVALID_BIT_IN_HEADER     5013
+   INVALID_AVP_LENGTH        5014
+   INVALID_MESSAGE_LENGTH    5015
+   INVALID_AVP_BIT_COMBO     5016
+   NO_COMMON_SECURITY        5017
+
+   ;; With a prefix for backwards compatibility.
+   DIAMETER_MULTI_ROUND_AUTH          1001
    DIAMETER_SUCCESS                   2001
    DIAMETER_LIMITED_SUCCESS           2002
-
-;; 7.1.3.  Protocol Errors
    DIAMETER_COMMAND_UNSUPPORTED       3001
    DIAMETER_UNABLE_TO_DELIVER         3002
    DIAMETER_REALM_NOT_SERVED          3003
@@ -361,13 +400,9 @@
    DIAMETER_INVALID_HDR_BITS          3008
    DIAMETER_INVALID_AVP_BITS          3009
    DIAMETER_UNKNOWN_PEER              3010
-
-;; 7.1.4.  Transient Failures
    DIAMETER_AUTHENTICATION_REJECTED   4001
    DIAMETER_OUT_OF_SPACE              4002
    DIAMETER_ELECTION_LOST             4003
-
-;; 7.1.5.  Permanent Failures
    DIAMETER_AVP_UNSUPPORTED           5001
    DIAMETER_UNKNOWN_SESSION_ID        5002
    DIAMETER_AUTHORIZATION_REJECTED    5003
@@ -412,3 +447,15 @@
 ;;
       E2E-Sequence ::= <AVP Header: 300 >
                    2* { AVP }
+
+;; Backwards compatibility.
+@define Termination-Cause
+
+   DIAMETER_LOGOUT                1
+   DIAMETER_SERVICE_NOT_PROVIDED  2
+   DIAMETER_BAD_ANSWER            3
+   DIAMETER_ADMINISTRATIVE        4
+   DIAMETER_LINK_BROKEN           5
+   DIAMETER_AUTH_EXPIRED          6
+   DIAMETER_USER_MOVED            7
+   DIAMETER_SESSION_TIMEOUT       8
