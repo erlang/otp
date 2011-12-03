@@ -26,6 +26,8 @@
 -export([scan/1,
          format_error/1]).
 
+-export([is_name/1]).
+
 %% -----------------------------------------------------------
 %% # scan/1
 %% -----------------------------------------------------------
@@ -77,9 +79,18 @@ scan(S, {Lineno, Acc}) ->
             {error, {Reason, S, Lineno}}
     end.
 
+%% format_error/1
+
 format_error({Reason, Input, Lineno}) ->
     io_lib:format("~s at line ~p: ~s",
                   [Reason, Lineno, head(Input, [], 20, true)]).
+
+%% is_name/1
+
+is_name([H|T]) ->
+    is_alphanum(H) andalso lists:all(fun is_name_ch/1, T).
+
+%% ===========================================================================
 
 head(Str, Acc, N, _)
   when [] == Str;
@@ -161,12 +172,10 @@ split([$'|T]) ->
     case splitwith(fun(C) -> not lists:member(C, "'\r\n") end, T) of
         {[_|_] = A, [$'|Rest]} ->
             {{word, A}, Rest};
-        {[_|_], _} ->  %% not terminated on same line
-            "Unterminated atom";
-        {[], []} ->    %% last character
-            "Unterminated atom";
-        {[], _} ->
-            "Empty atom"
+        {[], [$'|_]} ->
+            "Empty string";
+        _ -> %% not terminated on same line
+            "Unterminated string"
     end;
 
 %% Line ending of various forms.

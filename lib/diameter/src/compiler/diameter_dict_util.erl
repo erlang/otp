@@ -26,7 +26,8 @@
 -module(diameter_dict_util).
 
 -export([parse/2,
-         format_error/1]).
+         format_error/1,
+         format/1]).
 
 -include("diameter_vsn.hrl").
 
@@ -35,6 +36,7 @@
 
 -define(A, list_to_atom).
 -define(L, atom_to_list).
+-define(I, integer_to_list).
 
 %% ===========================================================================
 %% parse/2
@@ -44,7 +46,7 @@
    -> {ok, orddict:orddict()}
     | {error, term()}
  when File :: {path, string()}
-            | string()
+            | iolist()
             | binary(),
       Opts :: list().
 
@@ -68,7 +70,7 @@ format_error({read, Reason}) ->
 format_error({scan, Reason}) ->
     diameter_dict_scanner:format_error(Reason);
 format_error({parse, {Line, _Mod, Reason}}) ->
-    lists:flatten(["Line ", integer_to_list(Line), ", ", Reason]);
+    lists:flatten(["Line ", ?I(Line), ", ", Reason]);
 
 format_error(T) ->
     {Fmt, As} = fmt(T),
@@ -182,6 +184,171 @@ fmt(no_dict) ->
     "Module ~p does not appear to be a diameter dictionary".
 
 %% ===========================================================================
+%% format/1
+%%
+%% Turn dict/0 output back into a dictionary file (with line ending = $\n).
+
+-spec format(Dict)
+   -> iolist()
+ when Dict :: orddict:orddict().
+
+-define(KEYS, [id, name, prefix, vendor,
+               inherits, codecs, custom_types,
+               avp_types,
+               messages,
+               grouped,
+               enum, define]).
+
+format(Dict) ->
+    Io = orddict:fold(fun io/3, [], Dict),
+    [S || {_,S} <- lists:sort(fun keysort/2, Io)].
+
+keysort({A,_}, {B,_}) ->
+    [HA, HB] = [H || K <- [A,B],
+                     H <- [lists:takewhile(fun(X) -> X /= K end, ?KEYS)]],
+    HA < HB.
+
+%% ===========================================================================
+
+-define(INDENT, "    ").
+-define(SP, " ").
+-define(NL, $\n).
+
+%% io/3
+
+io(K, _, Acc)
+  when K == command_codes;
+       K == import_avps;
+       K == import_groups;
+       K == import_enums ->
+    Acc;
+
+io(Key, Body, Acc) ->
+    [{Key, io(Key, Body)} | Acc].
+
+%% io/2
+
+io(K, Id)
+  when K == id;
+       K == name;
+       K == prefix ->
+    [?NL, section(K), ?SP, tok(Id)];
+
+io(vendor, {Id, Name}) ->
+    [?NL, section(vendor) | [[?SP, tok(X)] || X <- [Id, Name]]];
+
+io(avp_types = K, Body) ->
+    [?NL, ?NL, section(K), ?NL, [body(K,A) || A <- Body]];
+
+io(K, Body)
+  when K == messages;
+       K == grouped ->
+    [?NL, ?NL, section(K), [body(K,A) || A <- Body]];
+
+io(K, Body)
+  when K == avp_vendor_id;
+       K == inherits;
+       K == custom_types;
+       K == codecs;
+       K == enum;
+       K == define ->
+    if [] == Body ->
+            [];
+       true ->
+            [[?NL, pairs(K, T)] || T <- Body]
+    end.
+
+pairs(K, {Id, Avps}) ->
+    [?NL, section(K), ?SP, tok(Id), ?NL, [[?NL, body(K, A)] || A <- Avps]].
+
+body(K, AvpName)
+  when K == avp_vendor_id;
+       K == inherits;
+       K == custom_types;
+       K == codecs ->
+    [?INDENT, word(AvpName)];
+
+body(K, {Name, N})
+  when K == enum;
+       K == define ->
+    [?INDENT, word(Name), ?SP, ?I(N)];
+
+body(avp_types = K, {Name, Code, Type, ""}) ->
+    body(K, {Name, Code, Type, "-"});
+body(avp_types, {Name, Code, Type, Flags}) ->
+    [?NL, ?INDENT, word(Name),
+     [[?SP, ?SP, S] || S <- [?I(Code), Type, Flags]]];
+
+body(messages, {"answer-message", _, _, [], Avps}) ->
+    [?NL, ?NL, ?INDENT,
+     "answer-message ::= < Diameter Header: code, ERR [PXY] >",
+     f_avps(Avps)];    
+body(messages, {Name, Code, Flags, ApplId, Avps}) ->
+    [?NL, ?NL, ?INDENT, word(Name), " ::= ", header(Code, Flags, ApplId),
+     f_avps(Avps)];
+
+body(grouped, {Name, Code, Vid, Avps}) ->
+    [?NL, ?NL, ?INDENT, word(Name), " ::= ", avp_header(Code, Vid),
+     f_avps(Avps)].
+
+header(Code, Flags, ApplId) ->
+    ["< Diameter Header: ",
+     ?I(Code),
+     [[", ", ?L(F)] || F <- Flags],
+     [[" ", ?I(N)] || N <- ApplId],
+     " >"].
+
+avp_header(Code, Vid) ->
+    ["< AVP Header: ",
+     ?I(Code),
+     [[" ", ?I(V)] || V <- Vid],
+     " >"].
+
+f_avps(L) ->
+    [[?NL, ?INDENT, ?INDENT, f_avp(A)] || A <- L].
+
+f_avp({Q, A}) ->
+    f_avp(f_qual(Q), f_delim(A));
+f_avp(A) ->
+    f_avp("", f_delim(A)).
+
+f_delim({{A}}) ->
+    [$<, word(A), $>];
+f_delim({A}) ->
+    [${, word(A), $}];
+f_delim([A]) ->
+    [$[, word(A), $]].
+
+f_avp(Q, Avp) ->
+    Len = length(lists:flatten([Q])),
+    [io_lib:format("~*s", [-1*max(Len+1, 6) , Q]), Avp].
+
+f_qual('*') ->
+    "*";
+f_qual({'*', N}) ->
+    [$*, ?I(N)];
+f_qual({N, '*'}) ->
+    [?I(N), $*];
+f_qual({M,N}) ->
+    [?I(M), $*, ?I(N)].
+
+section(Key) ->
+    ["@", ?L(Key)].
+
+tok(N)
+  when is_integer(N) ->
+    ?I(N);
+tok(N) ->
+    word(N).
+
+word(Str) ->
+    word(diameter_dict_scanner:is_name(Str), Str).
+
+word(true, Str) ->
+    Str;
+word(false, Str) ->
+    [$', Str, $'].
+
 %% ===========================================================================
 
 do_parse(File, Opts) ->
@@ -201,7 +368,7 @@ do([F|A], E) ->
 read({path, Path}) ->
     file:read_file(Path);
 read(File) ->
-    {ok, File}.
+    {ok, iolist_to_binary([File])}.
 
 make_dict(Parse, Opts) ->
     make_orddict(pass4(pass3(pass2(pass1(reset(make_dict(Parse),
