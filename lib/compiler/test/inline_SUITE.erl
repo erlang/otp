@@ -33,7 +33,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     test_lib:recompile(?MODULE),
     [attribute, bsdecode, bsdes, barnes2, decode1, smith,
-     itracer, pseudoknot, lists, really_inlined, otp_7223,
+     itracer, pseudoknot, comma_splitter, lists, really_inlined, otp_7223,
      coverage].
 
 groups() -> 
@@ -78,6 +78,7 @@ attribute(Config) when is_list(Config) ->
 ?comp(smith).
 ?comp(itracer).
 ?comp(pseudoknot).
+?comp(comma_splitter).
 
 try_inline(Mod, Config) ->
     ?line Src = filename:join(?config(data_dir, Config), atom_to_list(Mod)),
