@@ -31,6 +31,7 @@
 
 %% testcases
 -export([base/1,
+         format/1,
          replace/1, replace/2]).
 
 -export([dict/0]).  %% fake dictionary module
@@ -49,6 +50,9 @@
         [{scan,
           "@id 0",
           "@id \\&"},
+         {scan,
+          "@name ",
+          "&'"},
          {parse,
           "@id 0",
           "@id @id"},
@@ -151,6 +155,9 @@
          {requested_avp_not_found,
           [{"@id", "@inherits diameter_gen_base_rfc3588 XXX &"},
            {"CEA ::=", "<XXX> &"}]},
+         {requested_avp_not_found,
+          [{"@id", "@inherits diameter_gen_base_rfc3588 'X X X' &"},
+           {"CEA ::=", "<'X X X'> &"}]},
          {enumerated_avp_has_wrong_local_type,
           "Enumerated",
           "Time"},
@@ -176,11 +183,12 @@
           "@avp_types",
           "& bad syntax"},
          {ok,
-          [{"^ *Class .*", "@avp_types"},
+          [{"@avp_types", "& 3XXX 666 Time M 'X X X' 667 Time -"},
+           {"^ *Class .*", "@avp_types"},
            {"^ *Failed-AVP ", "@avp_types &"},
            {"@grouped", "&&"},
            {"^ *Failed-AVP ::=", "@grouped &"},
-           {"CEA ::=", "<Class> &"},
+           {"CEA ::=", "<'Class'> &"},
            {"@avp_types", "@inherits diameter_gen_base_rfc3588 Class\n&"},
            {"@avp_types", "@custom_types mymod "
                               "Product-Name Firmware-Revision\n"
@@ -194,6 +202,7 @@ suite() ->
 
 all() ->
     [base,
+     format,
      replace].
 
 %% Error handling testcases will make an erroneous dictionary out of
@@ -219,6 +228,13 @@ base(_Config) ->
     Base = filename:join([code:lib_dir(diameter, ebin),
                           "diameter_gen_base_rfc3588"]),
     {module, _} = code:load_abs(Base).
+
+%% Ensure that parse o format is the identity map.
+format(Config) ->
+    Bin = proplists:get_value(base, Config),
+    {ok, Dict} = diameter_dict_util:parse(Bin, []),
+    {ok, D} = diameter_dict_util:parse(diameter_dict_util:format(Dict), []),
+    {Dict, Dict} = {Dict, D}.
 
 %% replace/1
 
