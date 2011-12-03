@@ -48,6 +48,13 @@
 
 %% ===========================================================================
 
+-spec from_dict(File, Spec, Opts, Mode)
+   -> ok
+ when File :: string(),
+      Spec :: orddict:orddict(),
+      Opts :: list(),
+      Mode :: spec | erl | hrl.
+
 from_dict(File, Spec, Opts, Mode) ->
     Outdir = proplists:get_value(outdir, Opts, "."),
     putr(verbose, lists:member(verbose, Opts)),
@@ -114,14 +121,10 @@ mod(_, {ok, Mod}) ->
     Mod.
 
 gen(spec, Spec, _Mod, Path) ->
-    write(Path ++ ".spec", Spec);
+    write(Path ++ ".spec", [?VERSION | Spec]);
 
 gen(hrl, Spec, Mod, Path) ->
     gen_hrl(Path ++ ".hrl", Mod, Spec);
-
-gen(erl = Mode, Spec, Mod, Path)
-  when is_list(Mod) ->
-    gen(Mode, Spec, ?A(Mod), Path);
 
 gen(erl, Spec, Mod, Path) ->
     Forms = [{?attribute, module, Mod},
@@ -259,11 +262,11 @@ c_id(error) ->
 
 f_vendor_id(Spec) ->
     {?function, vendor_id, 0,
-     [{?clause, [], [], [vendor_id(orddict:find(vendor, Spec))]}]}.
+     [{?clause, [], [], [b_vendor_id(orddict:find(vendor, Spec))]}]}.
 
-vendor_id({ok, {Id, _}}) ->
+b_vendor_id({ok, {Id, _}}) ->
     ?INTEGER(Id);
-vendor_id(error) ->
+b_vendor_id(error) ->
     ?APPLY(erlang, error, [?TERM(undefined)]).
 
 %%% ------------------------------------------------------------------------
@@ -272,11 +275,11 @@ vendor_id(error) ->
 
 f_vendor_name(Spec) ->
     {?function, vendor_name, 0,
-     [{?clause, [], [], [vendor_name(orddict:find(vendor, Spec))]}]}.
+     [{?clause, [], [], [b_vendor_name(orddict:find(vendor, Spec))]}]}.
 
-vendor_name({ok, {_, Name}}) ->
+b_vendor_name({ok, {_, Name}}) ->
     ?Atom(Name);
-vendor_name(error) ->
+b_vendor_name(error) ->
     ?APPLY(erlang, error, [?TERM(undefined)]).
 
 %%% ------------------------------------------------------------------------
@@ -290,8 +293,9 @@ f_msg_name(Spec) ->
 %% DIAMETER_COMMAND_UNSUPPORTED should be replied.
 
 msg_name(Spec) ->
-    lists:flatmap(fun c_msg_name/1,
-                  proplists:get_value(command_codes, Spec, []))
+    lists:flatmap(fun c_msg_name/1, proplists:get_value(command_codes,
+                                                        Spec,
+                                                        []))
         ++ [{?clause, [?VAR('_'), ?VAR('_')], [], [?ATOM('')]}].
 
 c_msg_name({Code, Req, Ans}) ->
@@ -480,15 +484,15 @@ not_in(List, X) ->
 c_base_avp({AvpName, T}) ->
     {?clause, [?VAR('T'), ?VAR('Data'), ?Atom(AvpName)],
      [],
-     [base_avp(AvpName, T)]}.
+     [b_base_avp(AvpName, T)]}.
 
-base_avp(AvpName, "Enumerated") ->
+b_base_avp(AvpName, "Enumerated") ->
     ?CALL(enumerated_avp, [?VAR('T'), ?Atom(AvpName), ?VAR('Data')]);
 
-base_avp(AvpName, "Grouped") ->
+b_base_avp(AvpName, "Grouped") ->
     ?CALL(grouped_avp, [?VAR('T'), ?Atom(AvpName), ?VAR('Data')]);
 
-base_avp(_, Type) ->
+b_base_avp(_, Type) ->
     ?APPLY(diameter_types, ?A(Type), [?VAR('T'), ?VAR('Data')]).
 
 cs_imported_avp({Mod, Avps}, Enums, CustomNames) ->
@@ -522,14 +526,15 @@ cs_custom_avp({Mod, Key, Avps}, Dict) ->
               Avps).
 
 c_custom_avp(Mod, Key, AvpName, Type) ->
+    {F,A} = custom(Key, AvpName, Type),
     {?clause, [?VAR('T'), ?VAR('Data'), ?Atom(AvpName)],
      [],
-     [custom(Mod, Key, AvpName, Type)]}.
+     [?APPLY(?A(Mod), ?A(F), [?VAR('T'), ?Atom(A), ?VAR('Data')])]}.
 
-custom(Mod, custom_types, AvpName, Type) ->
-    ?APPLY(?A(Mod), ?A(AvpName), [?VAR('T'), ?Atom(Type), ?VAR('Data')]);
-custom(Mod, codecs, AvpName, Type) ->
-    ?APPLY(?A(Mod), ?A(Type), [?VAR('T'), ?Atom(AvpName), ?VAR('Data')]).
+custom(custom_types, AvpName, Type) ->
+    {AvpName, Type};
+custom(codecs, AvpName, Type) ->
+    {Type, AvpName}.
 
 %%% ------------------------------------------------------------------------
 %%% # enumerated_avp/3
