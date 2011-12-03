@@ -20,32 +20,42 @@
 %%
 %% Module alternative to diameterc for dictionary compilation.
 %%
-%% Eg. 1> diameter_make:file("mydict.dia").
+%% Eg. 1> diameter_make:codec("mydict.dia").
 %%
-%%     $ erl -noshell \
+%%     $ erl -noinput \
 %%           -boot start_clean \
-%%           -s diameter_make file mydict.dia \
+%%           -eval 'ok = diameter_make:codec("mydict.dia")' \
 %%           -s init stop
 %%
 
 -module(diameter_make).
 
--export([file/1,
-         file/2,
+-export([codec/1,
+         codec/2,
          dict/1,
-         dict/2]).
+         dict/2,
+         format/1,
+         reformat/1]).
 
--type opt() :: {outdir|include|name|prefix|inherits, string()}
+-export_type([opt/0]).
+
+-type opt() :: {include|outdir|name|prefix|inherits, string()}
              | verbose
              | debug.
 
-%% dict/1-2
+%% ===========================================================================
 
--spec file(string(), [opt()])
+%% codec/1-2
+%%
+%% Parse a dictionary file and generate a codec module.
+
+-spec codec(Path, [opt()])
    -> ok
-    | {error, string()}.
+    | {error, Reason}
+ when Path :: string(),
+      Reason :: string().
 
-file(File, Opts) ->
+codec(File, Opts) ->
     case dict(File, Opts) of
         {ok, Dict} ->
             make(File,
@@ -56,10 +66,13 @@ file(File, Opts) ->
             E
     end.
 
-file(File) ->
-    file(File, []).
+codec(File) ->
+    codec(File, []).
 
 %% dict/2
+%%
+%% Parse a dictionary file and return the orddict that a codec module
+%% returns from dict/0.
 
 -spec dict(string(), [opt()])
    -> {ok, orddict:orddict()}
@@ -76,15 +89,44 @@ dict(Path, Opts) ->
 dict(File) ->
     dict(File, []).
 
+%% format/1
+%%
+%% Turn an orddict returned by dict/1-2 back into a dictionary file
+%% in the form of an iolist().
+
+-spec format(orddict:orddict())
+   -> iolist().
+
+format(Dict) ->
+    diameter_dict_util:format(Dict).
+
+%% reformat/1
+%%
+%% Parse a dictionary file and return its formatted equivalent.
+
+-spec reformat(File)
+   -> {ok, iolist()}
+    | {error, Reason}
+ when File :: string(),
+      Reason :: string().
+
+reformat(File) ->
+    case dict(File) of
+        {ok, Dict} ->
+            {ok, format(Dict)};
+        {error, _} = No ->
+            No
+    end.
+
 %% ===========================================================================
 
 make(_, _, _, []) ->
     ok;
 make(File, Opts, Dict, [Mode | Rest]) ->
-    try diameter_codegen:from_dict(File, Dict, Opts, Mode) of
-        ok ->
-            make(File, Opts, Dict, Rest)
+    try
+        ok = diameter_codegen:from_dict(File, Dict, Opts, Mode),
+        make(File, Opts, Dict, Rest)
     catch
         error: Reason ->
-            {error, {Reason, Mode, erlang:get_stacktrace()}}
+            erlang:error({Reason, Mode, erlang:get_stacktrace()})
     end.
