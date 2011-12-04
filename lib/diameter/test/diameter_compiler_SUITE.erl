@@ -136,6 +136,9 @@
           [{"(Failed-AVP .*)>", "\\1 17>"},
            {"^ *Failed-AVP .*$", "&V"},
            {"@avp_types", "@avp_vendor_id 18 Failed-AVP\n&"}]},
+         {ok,
+          [{"(Failed-AVP .*)>", "\\1 17>"},
+           {"^ *Failed-AVP .*$", "&V"}]},
          {message_name_already_defined,
           "CEA ::= .*:",
           "& 257 > {Result-Code}\n&"},
@@ -244,10 +247,10 @@ replace({E, RE, Repl}, Bin) ->
 
 replace({E, Mods}, Bin) ->
     B = iolist_to_binary(lists:foldl(fun re/2, Bin, Mods)),
-    case diameter_dict_util:parse(B, [{include, here()}]) of
-        {ok, Dict} when E == ok ->
+    case {E, diameter_dict_util:parse(B, [{include, here()}]), Mods} of
+        {ok, {ok, Dict}, _} ->
             Dict;
-        {error, {E,_} = T} ->
+        {_, {error, {E,_} = T}, _} ->
             S = diameter_dict_util:format_error(T),
             true = nochar($", S, E),
             true = nochar($', S, E),

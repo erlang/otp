@@ -376,9 +376,7 @@ avp_name(Spec) ->
     Avps = get_value(avp_types, Spec),
     Imported = get_value(import_avps, Spec),
     Vid = orddict:find(vendor, Spec),
-
-    Vs = lists:flatmap(fun({V,Ns}) -> [{N,V} || N <- Ns] end,
-                       get_value(avp_vendor_id, Spec)),
+    Vs = vendor_id_map(Spec),
 
     lists:map(fun(T) -> c_avp_name(T, Vs, Vid) end, Avps)
         ++ lists:flatmap(fun(T) -> c_imported_avp_name(T, Vs) end, Imported)
@@ -393,7 +391,9 @@ c_avp_name({Name, Code, Type, Flags}, Vs, Vid) ->
 %% avp_vendor_id in the inheriting module and vendor in the inherited
 %% module. In particular, avp_vendor_id in the inherited module is
 %% ignored so can't just call Mod:avp_header/1 to retrieve the vendor
-%% id.
+%% id. A vendor id specified in @grouped is equivalent to one
+%% specified as avp_vendor_id.
+
 c_imported_avp_name({Mod, Avps}, Vs) ->
     lists:map(fun(A) -> c_avp_name(A, Vs, {module, Mod}) end, Avps).
 
@@ -406,6 +406,14 @@ c_avp_name_(T, Code, Vid) ->
     {?clause, [Code, ?INTEGER(Vid)],
      [],
      [T]}.
+
+vendor_id_map(Spec) ->
+    lists:flatmap(fun({V,Ns}) -> [{N,V} || N <- Ns] end,
+                  get_value(avp_vendor_id, Spec))
+        ++ lists:flatmap(fun({_,_,[],_}) -> [];
+                            ({N,_,[V],_}) -> [{N,V}]
+                         end,
+                         get_value(grouped, Spec)).
 
 %%% ------------------------------------------------------------------------
 %%% # avp_arity/2
@@ -615,9 +623,7 @@ avp_header(Spec) ->
     Native = get_value(avp_types, Spec),
     Imported = get_value(import_avps, Spec),
     Vid = orddict:find(vendor, Spec),
-
-    Vs = lists:flatmap(fun({V,Ns}) -> [{N,V} || N <- Ns] end,
-                       get_value(avp_vendor_id, Spec)),
+    Vs = vendor_id_map(Spec),
 
     lists:flatmap(fun(A) -> c_avp_header(A, Vs, Vid) end,
                   Native ++ Imported).
@@ -633,6 +639,7 @@ c_avp_header({Mod, Avps}, Vs, _Vid) ->
 %% Note that avp_vendor_id in the inherited dictionary is ignored. The
 %% value must be changed in the inheriting dictionary. This is
 %% consistent with the semantics of avp_name/2.
+
 c_imported_avp_header({Name, _Code, _Type, _Flags}, Mod, Vs) ->
     Apply = ?APPLY(Mod, avp_header, [?Atom(Name)]),
     {?clause, [?Atom(Name)],

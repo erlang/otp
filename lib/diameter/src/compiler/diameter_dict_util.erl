@@ -907,6 +907,11 @@ avp_type_known(Type, Name, Line) ->
         orelse ?RETURN(avp_has_unknown_type, [Name, Line, Type]).
 
 %% vendor_id_mismatch/6
+%%
+%% Require a vendor id specified on a group to match any specified
+%% in @avp_vendor_id. Note that both locations for the value are
+%% equivalent, both in the value being attributed to a locally
+%% defined AVP and ignored when imported from another dictionary.
 
 vendor_id_mismatch({_,_,_}, false, Name, _, Line, DefLine) ->
     ?RETURN(grouped_vendor_id_without_flag, [Name, Line, DefLine]);
