@@ -37,6 +37,7 @@
 -define(A, list_to_atom).
 -define(L, atom_to_list).
 -define(I, integer_to_list).
+-define(F, io_lib:format).
 
 %% ===========================================================================
 %% parse/2
@@ -76,15 +77,37 @@ format_error(T) ->
     {Fmt, As} = fmt(T),
     lists:flatten(io_lib:format(Fmt, As)).
 
-fmt({avp_code_already_defined, [Code, false, Name, Line, L]}) ->
-    {"AVP ~p (~s) at line ~p already defined at line ~p",
-     [Code, Name, Line, L]};
+fmt({avp_code_already_defined = E, [Code, false, Name, Line, L]}) ->
+    {fmt(E), [Code, "", Name, Line, L]};
+fmt({avp_code_already_defined = E, [Code, Vid, Name, Line, L]}) ->
+    {fmt(E), [Code, ?F("/~p", [Vid]), Name, Line, L]};
+
+fmt({uint32_out_of_range = E, [id | T]}) ->
+    {fmt(E), ["@id", "application identifier" | T]};
+fmt({uint32_out_of_range = E, [K | T]})
+  when K == vendor;
+       K == avp_vendor_id ->
+    {fmt(E), [?F("@~p", [K]), "vendor id" | T]};
+fmt({uint32_out_of_range = E, [K, Name | T]})
+  when K == enum;
+       K == define ->
+    {fmt(E), [?F("@~p ~s", [K, Name]), "value" | T]};
+fmt({uint32_out_of_range = E, [avp_types, Name | T]}) ->
+    {fmt(E), ["AVP " ++ Name, "AVP code" | T]};
+fmt({uint32_out_of_range = E, [grouped, Name | T]}) ->
+    {fmt(E), ["Grouped AVP " ++ Name | T]};
+fmt({uint32_out_of_range = E, [messages, Name | T]}) ->
+    {fmt(E), ["Message " ++ Name, "command code" | T]};
 
 fmt({Reason, As}) ->
     {fmt(Reason), As};
 
 fmt(avp_code_already_defined) ->
-    "AVP ~p/~p (~s) at line ~p already defined at line ~p";
+    "AVP ~p~s (~s) at line ~p already defined at line ~p";
+
+fmt(uint32_out_of_range) ->
+    "~s specifies ~s ~p at line ~p that is out of range for a value of "
+    "Diameter type Unsigned32";
 
 fmt(imported_avp_already_defined) ->
     "AVP ~s imported by @inherits ~p at line ~p defined at line ~p";
@@ -580,7 +603,9 @@ pass1(Dict) ->
 
     foldl(fun(K,D) -> foldl([fun p1/3, K], D, find(K,D)) end,
           Dict,
-          [avp_types,  %% must precede inherits, grouped, enum
+          [id,
+           vendor,
+           avp_types,  %% must precede inherits, grouped, enum
            avp_vendor_id,
            custom_types,
            codecs,
@@ -592,6 +617,14 @@ pass1(Dict) ->
 
 %% Multiple sections are allowed as long as their bodies don't
 %% overlap. (Except enum/define.)
+
+p1([_Line, N], Dict, id = K) ->
+    true = is_uint32(N, [K]),
+    Dict;
+
+p1([_Line, Id, _Name], Dict, vendor = K) ->
+    true = is_uint32(Id, [K]),
+    Dict;
 
 p1([_Line, X | Body], Dict, K)
   when K == avp_vendor_id;
@@ -636,7 +669,8 @@ no_messages_without_id(Dict) ->
 %% {avp_vendor_id, AvpName}                 -> [Lineno, Id::integer()]
 %% {custom_types|codecs|inherits,  AvpName} -> [Lineno, Mod::string()]
 
-explode({_, Line, AvpName}, Dict, {_, _, X}, K) ->
+explode({_, Line, AvpName}, Dict, {_, _, X} = T, K) ->
+    true = K /= avp_vendor_id orelse is_uint32(T, [K]),
     true = K /= inherits orelse avp_not_local(AvpName, Line, Dict),
 
     store_new({key(K), AvpName},
@@ -649,11 +683,13 @@ explode({_, Line, AvpName}, Dict, {_, _, X}, K) ->
 
 %% {define, {Name, Key}} -> [Lineno, Value::integer(), enum|define]
 
-explode2([{_, Line, Key}, {_, _, Value}], Dict, {_, _, X}, K) ->
-    store_new({key(K), {X, Key}},
+explode2([{_, Line, Key}, {_, _, Value} = T], Dict, {_, _, Name}, K) ->
+    true = is_uint32(T, [K, Name]),
+
+    store_new({key(K), {Name, Key}},
               [Line, Value, K],
               Dict,
-              [X, Key, K, Line],
+              [Name, Key, K, Line],
               key_already_defined).
 
 %% key/1
@@ -683,17 +719,18 @@ key(K) ->
 
 explode([{_, Line, Name} | Toks], Dict0, avp_types = K) ->
     %% Each AVP can be defined only once.
-    Dict1 = store_new({K, Name},
-                      [Line | Toks],
-                      Dict0,
-                      [Name, Line],
-                      avp_name_already_defined),
+    Dict = store_new({K, Name},
+                     [Line | Toks],
+                     Dict0,
+                     [Name, Line],
+                     avp_name_already_defined),
 
-    [{number, _, _Code}, {word, _, Type}, {word, _, _Flags}] = Toks,
+    [{number, _, _Code} = C, {word, _, Type}, {word, _, _Flags}] = Toks,
 
     true = avp_type_known(Type, Name, Line),
+    true = is_uint32(C, [K, Name]),
 
-    Dict1;
+    Dict;
 
 %% {grouped, Name}            -> [Line, HeaderTok | AvpToks]
 %% {grouped, {Name, AvpName}} -> [Line, Qual, Delim]
@@ -711,10 +748,12 @@ explode([{_, Line, Name}, Header | Avps], Dict0, grouped = K) ->
                      [Name, Line],
                      group_already_defined),
 
-    [{_,_, Code}, Vid] = Header,
+    [{_,_, Code} = C, Vid] = Header,
     {DefLine, {_, _, Flags}} = grouped_flags(Name, Code, Dict0, Line),
     V = lists:member($V, Flags),
 
+    true = is_uint32(C, [K, Name, "AVP code"]),
+    true = is_uint32(Vid, [K, Name, "vendor id"]),
     false = vendor_id_mismatch(Vid, V, Name, Dict0, Line, DefLine),
 
     explode_avps(Avps, Dict, K, Name);
@@ -756,7 +795,11 @@ explode([{_, Line, MsgName} = M, Header | Avps],
                       [MsgName, Line],
                       message_name_already_defined),
 
-    [{_, _, Code}, Bits, ApplId] = Header,
+    [{_, _, Code} = C, Bits, ApplId] = Header,
+
+    %% Don't check any application id since it's required to be
+    %% the same as @id.
+    true = is_uint32(C, [K, MsgName]),
 
     %% An application id specified as part of the message definition
     %% has to agree with @id. The former is parsed just because RFC
@@ -829,6 +872,14 @@ xa([_|Ds], Avps, Dict, Key, Name) ->
 close($<) -> $>;
 close(${) -> $};
 close($[) -> $].
+
+%% is_uint32/2
+
+is_uint32(false, _) ->
+    true;
+is_uint32({Line, _, N}, Args) ->
+    N < 1 bsl 32 orelse ?RETURN(uint32_out_of_range, Args ++ [N, Line]).
+%% Can't call diameter_types here since it may not exist yet.
 
 %% application_id_mismatch/3
 
