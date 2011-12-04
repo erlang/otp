@@ -38,17 +38,46 @@
          service_info/2]).
 
 %% Start/stop the application. In a "real" application this should
-%% typically be a consequence of specifying diameter in a release file
-%% rather than by calling start/stop explicitly.
+%% typically be a consequence of a release file rather than by calling
+%% start/stop explicitly.
 -export([start/0,
          stop/0]).
 
--include("diameter_internal.hrl").
--include("diameter_types.hrl").
+-export_type([evaluable/0,
+              app_alias/0,
+              service_name/0,
+              capability/0,
+              peer_filter/0,
+              service_opt/0,
+              application_opt/0,
+              app_module/0,
+              transport_ref/0,
+              transport_opt/0,
+              transport_pred/0,
+              call_opt/0]).
 
-%%% --------------------------------------------------------------------------
-%%% start/0
-%%% --------------------------------------------------------------------------
+-export_type(['OctetString'/0,
+              'Integer32'/0,
+              'Integer64'/0,
+              'Unsigned32'/0,
+              'Unsigned64'/0,
+              'Float32'/0,
+              'Float64'/0,
+              'Grouped'/0,
+              'Address'/0,
+              'Time'/0,
+              'UTF8String'/0,
+              'DiameterIdentity'/0,
+              'DiameterURI'/0,
+              'Enumerated'/0,
+              'IPFilterRule'/0,
+              'QoSFilterRule'/0]).
+
+-include("diameter_internal.hrl").
+
+%% ---------------------------------------------------------------------------
+%% start/0
+%% ---------------------------------------------------------------------------
 
 -spec start()
    -> ok
@@ -57,9 +86,9 @@
 start() ->
     application:start(?APPLICATION).
 
-%%% --------------------------------------------------------------------------
-%%% stop/0
-%%% --------------------------------------------------------------------------
+%% ---------------------------------------------------------------------------
+%% stop/0
+%% ---------------------------------------------------------------------------
 
 -spec stop()
    -> ok
@@ -68,9 +97,9 @@ start() ->
 stop() ->
     application:stop(?APPLICATION).
 
-%%% --------------------------------------------------------------------------
-%%% start_service/2
-%%% --------------------------------------------------------------------------
+%% ---------------------------------------------------------------------------
+%% start_service/2
+%% ---------------------------------------------------------------------------
 
 -spec start_service(service_name(), [service_opt()])
    -> ok
@@ -80,9 +109,9 @@ start_service(SvcName, Opts)
   when is_list(Opts) ->
     diameter_config:start_service(SvcName, Opts).
 
-%%% --------------------------------------------------------------------------
-%%% stop_service/1
-%%% --------------------------------------------------------------------------
+%% ---------------------------------------------------------------------------
+%% stop_service/1
+%% ---------------------------------------------------------------------------
 
 -spec stop_service(service_name())
    -> ok
@@ -91,9 +120,9 @@ start_service(SvcName, Opts)
 stop_service(SvcName) ->
     diameter_config:stop_service(SvcName).
 
-%%% --------------------------------------------------------------------------
-%%% services/0
-%%% --------------------------------------------------------------------------
+%% ---------------------------------------------------------------------------
+%% services/0
+%% ---------------------------------------------------------------------------
 
 -spec services()
    -> [service_name()].
@@ -101,9 +130,9 @@ stop_service(SvcName) ->
 services() ->
     [Name || {Name, _} <- diameter_service:services()].
 
-%%% --------------------------------------------------------------------------
-%%% service_info/2
-%%% --------------------------------------------------------------------------
+%% ---------------------------------------------------------------------------
+%% service_info/2
+%% ---------------------------------------------------------------------------
 
 -spec service_info(service_name(), atom() | [atom()])
    -> any().
@@ -111,9 +140,9 @@ services() ->
 service_info(SvcName, Option) ->
     diameter_service:info(SvcName, Option).
 
-%%% --------------------------------------------------------------------------
-%%% add_transport/3
-%%% --------------------------------------------------------------------------
+%% ---------------------------------------------------------------------------
+%% add_transport/3
+%% ---------------------------------------------------------------------------
 
 -spec add_transport(service_name(), {listen|connect, [transport_opt()]})
    -> {ok, transport_ref()}
@@ -123,9 +152,9 @@ add_transport(SvcName, {T, Opts} = Cfg)
   when is_list(Opts), (T == connect orelse T == listen) ->
     diameter_config:add_transport(SvcName, Cfg).
 
-%%% --------------------------------------------------------------------------
-%%% remove_transport/2
-%%% --------------------------------------------------------------------------
+%% ---------------------------------------------------------------------------
+%% remove_transport/2
+%% ---------------------------------------------------------------------------
 
 -spec remove_transport(service_name(), transport_pred())
    -> ok | {error, term()}.
@@ -133,12 +162,9 @@ add_transport(SvcName, {T, Opts} = Cfg)
 remove_transport(SvcName, Pred) ->
     diameter_config:remove_transport(SvcName, Pred).
 
-%%% --------------------------------------------------------------------------
-%%% # subscribe(SvcName)
-%%%
-%%% Description: Subscribe to #diameter_event{} messages for the specified
-%%%              service.
-%%% --------------------------------------------------------------------------
+%% ---------------------------------------------------------------------------
+%% subscribe/1
+%% ---------------------------------------------------------------------------
 
 -spec subscribe(service_name())
    -> true.
@@ -146,9 +172,9 @@ remove_transport(SvcName, Pred) ->
 subscribe(SvcName) ->
     diameter_service:subscribe(SvcName).
 
-%%% --------------------------------------------------------------------------
-%%% # unsubscribe(SvcName)
-%%% --------------------------------------------------------------------------
+%% ---------------------------------------------------------------------------
+%% unsubscribe/1
+%% ---------------------------------------------------------------------------
 
 -spec unsubscribe(service_name())
    -> true.
@@ -156,9 +182,9 @@ subscribe(SvcName) ->
 unsubscribe(SvcName) ->
     diameter_service:unsubscribe(SvcName).
 
-%%% ----------------------------------------------------------
-%%% # session_id/1
-%%% ----------------------------------------------------------
+%% ---------------------------------------------------------------------------
+%% session_id/1
+%% ---------------------------------------------------------------------------
 
 -spec session_id('DiameterIdentity'())
    -> 'OctetString'().
@@ -166,9 +192,9 @@ unsubscribe(SvcName) ->
 session_id(Ident) ->
     diameter_session:session_id(Ident).
 
-%%% ----------------------------------------------------------
-%%% # origin_state_id/0
-%%% ----------------------------------------------------------
+%% ---------------------------------------------------------------------------
+%% origin_state_id/0
+%% ---------------------------------------------------------------------------
 
 -spec origin_state_id()
    -> 'Unsigned32'().
@@ -176,9 +202,9 @@ session_id(Ident) ->
 origin_state_id() ->
     diameter_session:origin_state_id().
 
-%%% --------------------------------------------------------------------------
-%%% # call/[34]
-%%% --------------------------------------------------------------------------
+%% ---------------------------------------------------------------------------
+%% call/3,4
+%% ---------------------------------------------------------------------------
 
 -spec call(service_name(), app_alias(), any(), [call_opt()])
    -> any().
@@ -188,3 +214,124 @@ call(SvcName, App, Message, Options) ->
 
 call(SvcName, App, Message) ->
     call(SvcName, App, Message, []).
+
+%% ===========================================================================
+
+%% Diameter basic types
+
+-type 'OctetString'() :: iolist().
+-type 'Integer32'()   :: -2147483647..2147483647.
+-type 'Integer64'()   :: -9223372036854775807..9223372036854775807.
+-type 'Unsigned32'()  :: 0..4294967295.
+-type 'Unsigned64'()  :: 0..18446744073709551615.
+-type 'Float32'()     :: '-infinity' | float() | infinity.
+-type 'Float64'()     :: '-infinity' | float() | infinity.
+-type 'Grouped'()     :: list() | tuple().
+
+%% Diameter derived types
+
+-type 'Address'()
+   :: inet:ip_address()
+    | string().
+
+-type 'Time'()             :: {{integer(), 1..12, 1..31},
+                               {0..23, 0..59, 0..59}}.
+-type 'UTF8String'()       :: iolist().
+-type 'DiameterIdentity'() :: 'OctetString'().
+-type 'DiameterURI'()      :: 'OctetString'().
+-type 'Enumerated'()       :: 'Integer32'().
+-type 'IPFilterRule'()     :: 'OctetString'().
+-type 'QoSFilterRule'()    :: 'OctetString'().
+
+%% The handle to a service.
+
+-type service_name()
+   :: any().
+
+%% Capabilities options/avps on start_service/2 and/or add_transport/2
+
+-type capability()
+   :: {'Origin-Host',                    'DiameterIdentity'()}
+    | {'Origin-Realm',                   'DiameterIdentity'()}
+    | {'Host-IP-Address',                ['Address'()]}
+    | {'Vendor-Id',                      'Unsigned32'()}
+    | {'Product-Name',                   'UTF8String'()}
+    | {'Supported-Vendor-Id',            ['Unsigned32'()]}
+    | {'Auth-Application-Id',            ['Unsigned32'()]}
+    | {'Vendor-Specific-Application-Id', ['Grouped'()]}
+    | {'Firmware-Revision',              'Unsigned32'()}.
+
+%% Filters for call/4
+
+-type peer_filter()
+   :: none
+    | host
+    | realm
+    | {host,  any|'DiameterIdentity'()}
+    | {realm, any|'DiameterIdentity'()}
+    | {eval, evaluable()}
+    | {neg, peer_filter()}
+    | {all, [peer_filter()]}
+    | {any, [peer_filter()]}.
+
+-type evaluable()
+   :: {module(), atom(), list()}
+    | fun()
+    | maybe_improper_list(evaluable(), list()).
+
+%% Options passed to start_service/2
+
+-type service_opt()
+   :: capability()
+    | {application, [application_opt()]}.
+
+-type application_opt()
+   :: {alias, app_alias()}
+    | {dictionary, module()}
+    | {module, app_module()}
+    | {state, any()}
+    | {call_mutates_state, boolean()}
+    | {answer_errors, callback|report|discard}.
+
+-type app_alias()
+   :: any().
+
+-type app_module()
+   :: module()
+    | maybe_improper_list(module(), list()).
+
+%% Identifier returned by add_transport/2
+
+-type transport_ref()
+   :: reference().
+
+%% Options passed to add_transport/2
+
+-type transport_opt()
+   :: {transport_module, atom()}
+    | {transport_config, any()}
+    | {applications, [app_alias()]}
+    | {capabilities, [capability()]}
+    | {capabilities_cb, evaluable()}
+    | {watchdog_timer, 'Unsigned32'() | {module(), atom(), list()}}
+    | {reconnect_timer, 'Unsigned32'()}
+    | {private, any()}.
+
+%% Predicate passed to remove_transport/2
+
+-type transport_pred()
+   :: fun((reference(), connect|listen, list()) -> boolean())
+    | fun((reference(), list()) -> boolean())
+    | fun((list()) -> boolean())
+    | reference()
+    | list()
+    | {connect|listen, transport_pred()}
+    | {atom(), atom(), list()}.
+
+%% Options passed to call/4
+
+-type call_opt()
+   :: {extra, list()}
+    | {filter, peer_filter()}
+    | {timeout, 'Unsigned32'()}
+    | detach.

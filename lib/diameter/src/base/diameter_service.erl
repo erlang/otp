@@ -64,7 +64,6 @@
 
 -include_lib("diameter/include/diameter.hrl").
 -include("diameter_internal.hrl").
--include("diameter_types.hrl").
 
 -define(STATE_UP,   up).
 -define(STATE_DOWN, down).
@@ -117,7 +116,7 @@
         {pid  :: match(pid()),
          type :: match(connect | accept),
          ref  :: match(reference()),  %% key into diameter_config
-         options :: match([transport_opt()]), %% as passed to start_transport
+         options :: match([diameter:transport_opt()]),%% from start_transport
          op_state = ?STATE_DOWN :: match(?STATE_DOWN | ?STATE_UP),
          started = now(),      %% at process start
          conn = false :: match(boolean() | pid())}).
@@ -126,7 +125,7 @@
 %% Record representing a peer_fsm process.
 -record(conn,
         {pid   :: pid(),
-         apps  :: [{0..16#FFFFFFFF, app_alias()}], %% {Id, Alias}
+         apps  :: [{0..16#FFFFFFFF, diameter:app_alias()}], %% {Id, Alias}
          caps  :: #diameter_caps{},
          started = now(),  %% at process start
          peer  :: pid()}). %% key into peerT
@@ -137,16 +136,16 @@
          handler    :: match(pid()), %% request process
          transport  :: match(pid()), %% peer process
          caps       :: match(#diameter_caps{}),
-         app        :: match(app_alias()),  %% #diameter_app.alias
+         app        :: match(diameter:app_alias()),  %% #diameter_app.alias
          dictionary :: match(module()),     %% #diameter_app.dictionary
-         module     :: match(nonempty_improper_list(module(), list())),
+         module     :: match([module() | list()]),
                     %% #diameter_app.module
-         filter     :: match(peer_filter()),
+         filter     :: match(diameter:peer_filter()),
          packet     :: match(#diameter_packet{})}).
 
 %% Record call/4 options are parsed into.
 -record(options,
-        {filter = none  :: peer_filter(),
+        {filter = none  :: diameter:peer_filter(),
          extra = []     :: list(),
          timeout = ?DEFAULT_TIMEOUT :: 0..16#FFFFFFFF,
          detach = false :: boolean()}).

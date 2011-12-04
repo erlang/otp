@@ -54,7 +54,6 @@
 
 -include_lib("diameter/include/diameter.hrl").
 -include("diameter_internal.hrl").
--include("diameter_types.hrl").
 -include("diameter_gen_base_rfc3588.hrl").
 
 -define(SUCCESS,    2001).  %% DIAMETER_SUCCESS
@@ -75,13 +74,17 @@ build_CER(Caps) ->
     try_it([fun bCER/1, Caps]).
 
 -spec recv_CER(#diameter_base_CER{}, #diameter_service{})
-   -> tried({['Unsigned32'()], #diameter_caps{}, #diameter_base_CEA{}}).
+   -> tried({[diameter:'Unsigned32'()],
+             #diameter_caps{},
+             #diameter_base_CEA{}}).
 
 recv_CER(CER, Svc) ->
     try_it([fun rCER/2, CER, Svc]).
 
 -spec recv_CEA(#diameter_base_CEA{}, #diameter_service{})
-   -> tried({['Unsigned32'()], ['Unsigned32'()], #diameter_caps{}}).
+   -> tried({[diameter:'Unsigned32'()],
+             [diameter:'Unsigned32'()],
+             #diameter_caps{}}).
 
 recv_CEA(CEA, Svc) ->
     try_it([fun rCEA/2, CEA, Svc]).

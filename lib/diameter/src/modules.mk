@@ -78,7 +78,6 @@ EXTERNAL_HRLS = \
 # Released hrl files intended for private use.
 INTERNAL_HRLS = \
 	base/diameter_internal.hrl \
-	base/diameter_types.hrl \
 	compiler/diameter_forms.hrl \
 	compiler/diameter_vsn.hrl
 
