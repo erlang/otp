@@ -50,6 +50,21 @@
 	  <p>Own Id: OTP-9545</p>
         </item>
 
+        <item>
+          <p>[httpc] Wrong Host header in IPv6 HTTP requests.
+	  When a URI with a IPv6 host is parsed, the brackets that encapsulates
+	  the address part is removed. This value is then supplied as the host 
+	  header. This can cause problems with some servers.
+	  A workaround for this is to use headers_as_is and provide the host
+	  header with the requst call. 
+	  To solve this a new option has been added, 
+	  <seealso marker="httpc#ipv6_host_with_brackets">ipv6_host_with_brackets</seealso>. 
+	  This option specifies if the host value of the host header shall 
+	  include the brackets or not. By default, it does not (as before). 
+	  </p>
+	  <p>Own Id: OTP-9628</p>
+        </item>
+
       </list>
 
     </section>
