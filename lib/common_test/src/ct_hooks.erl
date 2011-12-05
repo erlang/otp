@@ -178,8 +178,9 @@ call_generic(#ct_hook_config{ module = Mod, state = State} = Hook,
 call(Fun, Config, Meta) ->
     maybe_lock(),
     Hooks = get_hooks(),
-    Res = call(get_new_hooks(Config, Fun) ++
-		   [{HookId,Fun} || #ct_hook_config{id = HookId} <- Hooks],
+    Calls = get_new_hooks(Config, Fun) ++
+	[{HookId,Fun} || #ct_hook_config{id = HookId} <- Hooks],
+    Res = call(resort(Calls,Hooks,Meta),
 	       remove(?config_name,Config), Meta, Hooks),
     maybe_unlock(),
     Res.
@@ -205,7 +206,7 @@ call([{Hook, call_id, NextFun} | Rest], Config, Meta, Hooks) ->
 		    {Hooks ++ [NewHook],
 		     [{NewId, call_init}, {NewId,NextFun} | Rest]}
 	    end,
-	call(resort(NewRest,NewHooks), Config, Meta, NewHooks)
+	call(resort(NewRest,NewHooks,Meta), Config, Meta, NewHooks)
     catch Error:Reason ->
 	    Trace = erlang:get_stacktrace(),
 	    ct_logs:log("Suite Hook","Failed to start a CTH: ~p:~p",
@@ -221,7 +222,7 @@ call([{HookId, Fun} | Rest], Config, Meta, Hooks) ->
         {NewConf, NewHook} =  Fun(Hook, Config, Meta),
         NewCalls = get_new_hooks(NewConf, Fun),
         NewHooks = lists:keyreplace(HookId, #ct_hook_config.id, Hooks, NewHook),
-        call(resort(NewCalls ++ Rest,NewHooks), %% Resort if call_init changed prio
+        call(resort(NewCalls ++ Rest,NewHooks,Meta), %% Resort if call_init changed prio
 	     remove(?config_name, NewConf), Meta,
              terminate_if_scope_ends(HookId, Meta, NewHooks))
     catch throw:{error_in_cth_call,Reason} ->
@@ -308,6 +309,18 @@ get_hooks() ->
 %% call_id < call_init < ctfirst < Priority 1 < .. < Priority N < ctlast
 %% If Hook Priority is equal, check when it has been installed and
 %% sort on that instead.
+%% If we are doing a cleanup call i.e. {post,pre}_end_per_*, all priorities
+%% are reversed. Probably want to make this sorting algorithm pluginable
+%% as some point...
+resort(Calls,Hooks,[F|_R]) when F == post_end_per_testcase;
+				F == pre_end_per_group;
+				F == post_end_per_group;
+				F == pre_end_per_suite;
+				F == post_end_per_suite ->
+    lists:reverse(resort(Calls,Hooks));
+resort(Calls,Hooks,_Meta) ->
+    resort(Calls,Hooks).
+    
 resort(Calls, Hooks) ->
     lists:sort(
       fun({_,_,_},_) ->
