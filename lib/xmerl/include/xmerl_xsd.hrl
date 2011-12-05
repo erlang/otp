@@ -184,7 +184,7 @@
 %% allowed for a schema.
 %% chain, represents a series of ordered objects, some of whom may be
 %% optional.
-%% alterantive, a collection of objects of which only one is choosen.
+%% alterantive, a collection of objects of which only one is chosen.
 -record(chain,{
 	  content,
 	  occurance={1,1}

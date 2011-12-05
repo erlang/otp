@@ -743,7 +743,7 @@
 
 
 %% This is the actual ASN.1 type and it is as this it will
-%% be represented if the encoding config [native] is choosen.
+%% be represented if the encoding config [native] is chosen.
 %% %% String of at least 1 character and at most 67 characters (ASN.1). 
 %% %% 64 characters for name, 1 for "/", 2 for version to match ABNF
 %% -record('ServiceChangeProfile',
