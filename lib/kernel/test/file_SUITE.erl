@@ -78,7 +78,7 @@
 
 -export([altname/1]).
 
--export([large_file/1]).
+-export([large_file/1, large_write/1]).
 
 -export([read_line_1/1, read_line_2/1, read_line_3/1,read_line_4/1]).
 
@@ -106,7 +106,7 @@ all() ->
      {group, compression}, {group, links}, copy,
      delayed_write, read_ahead, segment_read, segment_write,
      ipread, pid2name, interleaved_read_write, otp_5814,
-     large_file, read_line_1, read_line_2, read_line_3,
+     large_file, large_write, read_line_1, read_line_2, read_line_3,
      read_line_4, standard_io].
 
 groups() -> 
@@ -3334,6 +3334,25 @@ do_large_file(Name) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+large_write(Config) when is_list(Config) ->
+    run_large_file_test(Config,
+			fun(Name) -> do_large_write(Name) end,
+			"_large_write").
+
+do_large_write(Name) ->
+    case erlang:system_info(wordsize) of
+	4 ->
+	    {skip,"Needs a 64-bit emulator"};
+	8 ->
+	    Size = 4*1024*1024*1024+1,
+	    Bin = <<0:Size/unit:8>>,
+	    ok = file:write_file(Name, Bin),
+	    {ok,#file_info{size=Size}} = file:read_file_info(Name),
+	    ok
+    end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 
 
 response_analysis(Module, Function, Arguments) ->
@@ -3918,12 +3937,11 @@ run_large_file_test(Config, Run, Name) ->
     case {os:type(),os:version()} of
 	{{win32,nt},_} ->
 	    do_run_large_file_test(Config, Run, Name);
-	{{unix,sunos},{A,B,C}}
-	when A == 5, B == 5, C >= 1;   A == 5, B >= 6;   A >= 6 ->
-	    do_run_large_file_test(Config, Run, Name);
-	{{unix,Unix},_} when Unix =/= sunos ->
-	    N = unix_free(Config),
-	    io:format("Free: ~w KByte~n", [N]),
+	{{unix,sunos},OsVersion} when OsVersion < {5,5,1} ->
+	    {skip,"Only supported on Win32, Unix or SunOS >= 5.5.1"};
+	{{unix,_},_} ->
+	    N = unix_free(?config(priv_dir, Config)),
+	    io:format("Free disk: ~w KByte~n", [N]),
 	    if N < 5 * (1 bsl 20) ->
 		    %% Less than 5 GByte free
 		    {skip,"Less than 5 GByte free"};
