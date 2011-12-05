@@ -259,7 +259,7 @@ all() ->
      no_reuses_session_server_restart_new_cert_file, reuseaddr,
      hibernate, connect_twice, renegotiate_dos_mitigate_active,
      renegotiate_dos_mitigate_passive,
-     tcp_error_propagation_in_active_mode
+     tcp_error_propagation_in_active_mode, rizzo, no_rizzo_rc4
     ].
 
 groups() -> 
@@ -3786,7 +3786,73 @@ tcp_error_propagation_in_active_mode(Config) when is_list(Config) ->
     Pid ! {tcp_error, Socket, etimedout},
 
     ssl_test_lib:check_result(Client, {ssl_closed, SslSocket}).
+%%--------------------------------------------------------------------
+
+rizzo(doc) -> ["Test that there is a 1/n-1-split for non RC4 in 'TLS < 1.1' as it is
+    vunrable to Rizzo/Dungon attack"];
+
+rizzo(Config) when is_list(Config) ->
+    Ciphers  = [X || X ={_,Y,_} <- ssl:cipher_suites(), Y  =/= rc4_128],
+    run_send_recv_rizzo(Ciphers, Config, sslv3,
+			 {?MODULE, send_recv_result_active_rizzo, []}),
+    run_send_recv_rizzo(Ciphers, Config, tlsv1,
+			 {?MODULE, send_recv_result_active_rizzo, []}).
+
+no_rizzo_rc4(doc) -> 
+    ["Test that there is no 1/n-1-split for RC4 as it is not vunrable to Rizzo/Dungon attack"];
+
+no_rizzo_rc4(Config) when is_list(Config) ->
+    Ciphers = [X || X ={_,Y,_} <- ssl:cipher_suites(),Y == rc4_128],
+    run_send_recv_rizzo(Ciphers, Config, sslv3,
+			{?MODULE, send_recv_result_active_no_rizzo, []}),
+    run_send_recv_rizzo(Ciphers, Config, tlsv1,
+			{?MODULE, send_recv_result_active_no_rizzo, []}).
+
+run_send_recv_rizzo(Ciphers, Config, Version, Mfa) ->
+    Result =  lists:map(fun(Cipher) -> 
+				rizzo_test(Cipher, Config, Version, Mfa) end,
+			Ciphers),
+    case lists:flatten(Result) of
+	[] ->
+	    ok;
+	Error ->
+	    test_server:format("Cipher suite errors: ~p~n", [Error]),
+	    test_server:fail(cipher_suite_failed_see_test_case_log) 
+    end.
+
+rizzo_test(Cipher, Config, Version, Mfa) ->
+   {ClientOpts, ServerOpts} = client_server_opts(Cipher, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+					{from, self()}, 
+			   {mfa, Mfa},
+			   {options, [{active, true}, {ciphers, [Cipher]},
+				       {versions, [Version]}
+				      | ServerOpts]}]),
+    Port  = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+					{host, Hostname},
+			   {from, self()}, 
+			   {mfa, Mfa},
+			   {options, [{active, true} | ClientOpts]}]),
     
+    Result = ssl_test_lib:check_result(Server, ok, Client, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client),
+    case Result of
+	ok ->
+	    [];
+	Error ->
+	    [{Cipher, Error}]
+    end.
+
+client_server_opts({KeyAlgo,_,_}, Config) when KeyAlgo == rsa orelse KeyAlgo == dhe_rsa ->
+    {?config(client_opts, Config),
+     ?config(server_opts, Config)};   
+client_server_opts({KeyAlgo,_,_}, Config) when KeyAlgo == dss orelse KeyAlgo == dhe_dss ->
+    {?config(client_dsa_opts, Config),
+     ?config(server_dsa_opts, Config)}.
+
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
@@ -3803,6 +3869,23 @@ send_recv_result_active(Socket) ->
 		{ssl, Socket, "ello world"} ->
 		    ok
 	    end;
+	{ssl, Socket, "Hello world"} ->
+	    ok
+    end.
+
+send_recv_result_active_rizzo(Socket) ->
+    ssl:send(Socket, "Hello world"),
+    receive 
+	{ssl, Socket, "H"} ->
+	    receive 
+		{ssl, Socket, "ello world"} ->
+		    ok
+	    end
+    end.
+
+send_recv_result_active_no_rizzo(Socket) ->
+    ssl:send(Socket, "Hello world"),
+    receive 
 	{ssl, Socket, "Hello world"} ->
 	    ok
     end.
