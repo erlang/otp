@@ -55,7 +55,7 @@
 	 scheduler_suspend/1,
 	 reader_groups/1]).
 
--define(DEFAULT_TIMEOUT, ?t:minutes(10)).
+-define(DEFAULT_TIMEOUT, ?t:minutes(15)).
 
 -define(MIN_SCHEDULER_TEST_TIMEOUT, ?t:minutes(1)).
 
@@ -1684,7 +1684,7 @@ do_it(Tracer, Low, Normal, High, Max, RedsPerSchedLimit) ->
     EndWait = now(),
     BalanceWait = timer:now_diff(EndWait,StartWait) div 1000,
     erlang:display({balance_wait, BalanceWait}),
-    Timeout = ?DEFAULT_TIMEOUT - ?t:seconds(10) - BalanceWait,
+    Timeout = ?DEFAULT_TIMEOUT - ?t:minutes(4) - BalanceWait,
     Res = case Timeout < ?MIN_SCHEDULER_TEST_TIMEOUT of
 	      true ->
 		  stop_work(Low, Normal, High, Max),
