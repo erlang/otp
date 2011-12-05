@@ -1118,7 +1118,7 @@ typedef struct {
 } tcp_descriptor;
 
 /* send function */
-static int tcp_send(tcp_descriptor* desc, char* ptr, int len);
+static int tcp_send(tcp_descriptor* desc, char* ptr, ErlDrvSizeT len);
 static int tcp_sendv(tcp_descriptor* desc, ErlIOVec* ev);
 static int tcp_recv(tcp_descriptor* desc, int request_len);
 static int tcp_deliver(tcp_descriptor* desc, int len);
@@ -1209,7 +1209,7 @@ void erl_exit(int n, char*, ...);
 
 #ifdef FATAL_MALLOC
 
-static void *alloc_wrapper(size_t size){
+static void *alloc_wrapper(ErlDrvSizeT size){
     void *ret = driver_alloc(size);
     if(ret == NULL) 
 	erl_exit(1,"Out of virtual memory in malloc (%s)", __FILE__);
@@ -1217,7 +1217,7 @@ static void *alloc_wrapper(size_t size){
 }
 #define ALLOC(X) alloc_wrapper(X)
 
-static void *realloc_wrapper(void *current, size_t size){
+static void *realloc_wrapper(void *current, ErlDrvSizeT size){
     void *ret = driver_realloc(current,size);
     if(ret == NULL) 
 	erl_exit(1,"Out of virtual memory in realloc (%s)", __FILE__);
@@ -1446,11 +1446,11 @@ static InetDrvBufStk *get_bufstk(void)
     return bs;
 }
 
-static ErlDrvBinary* alloc_buffer(long minsz)
+static ErlDrvBinary* alloc_buffer(ErlDrvSizeT minsz)
 {
     InetDrvBufStk *bs = get_bufstk();
 
-    DEBUGF(("alloc_buffer: %ld\r\n", minsz));
+    DEBUGF(("alloc_buffer: "LLU"\r\n", (llu_t)minsz));
 
     if (bs && bs->buf.pos > 0) {
 	long size;
@@ -1526,7 +1526,7 @@ static void release_buffer(ErlDrvBinary* buf)
     }
 }
 
-static ErlDrvBinary* realloc_buffer(ErlDrvBinary* buf, long newsz)
+static ErlDrvBinary* realloc_buffer(ErlDrvBinary* buf, ErlDrvSizeT newsz)
 {
     return driver_realloc_binary(buf, newsz);
 }
@@ -7301,7 +7301,7 @@ static int inet_fill_stat(inet_descriptor* desc, char* src, int len, char* dst)
 	    val = (unsigned long) desc->send_avg;
 	    break;
 	case INET_STAT_SEND_PND:  
-	    val = driver_sizeq(desc->port); 
+	    val = (unsigned long) driver_sizeq(desc->port);
 	    break;
 	case INET_STAT_RECV_OCT:
 	    put_int32(desc->recv_oct[1], dst);   /* write high 32bit */
@@ -7947,7 +7947,7 @@ static void tcp_clear_input(tcp_descriptor* desc)
 static void tcp_clear_output(tcp_descriptor* desc)
 {
     ErlDrvPort ix  = desc->inet.port;
-    int qsz = driver_sizeq(ix);
+    ErlDrvSizeT qsz = driver_sizeq(ix);
 
     driver_deq(ix, qsz);
     send_empty_out_q_msgs(INETP(desc));
@@ -9437,7 +9437,7 @@ static int tcp_sendv(tcp_descriptor* desc, ErlIOVec* ev)
 /*
 ** Send non blocking data
 */
-static int tcp_send(tcp_descriptor* desc, char* ptr, int len)
+static int tcp_send(tcp_descriptor* desc, char* ptr, ErlDrvSizeT len)
 {
     int sz;
     char buf[4];
@@ -9492,8 +9492,8 @@ static int tcp_send(tcp_descriptor* desc, char* ptr, int len)
 	iov[1].iov_base = ptr;
 	iov[1].iov_len = len;
 
-	DEBUGF(("tcp_send(%ld): s=%d, about to send %d,%d bytes\r\n",
-		(long)desc->inet.port, desc->inet.s, h_len, len));
+	DEBUGF(("tcp_send(%ld): s=%d, about to send "LLU","LLU" bytes\r\n",
+		(long)desc->inet.port, desc->inet.s, (llu_t)h_len, (llu_t)len));
 	if (INETP(desc)->is_ignored) {
 	    INETP(desc)->is_ignored |= INET_IGNORE_WRITE;
 	    n = 0;
@@ -9605,7 +9605,7 @@ static int tcp_inet_output(tcp_descriptor* desc, HANDLE event)
     else if (IS_CONNECTED(INETP(desc))) {
 	for (;;) {
 	    int vsize;
-	    int n;
+	    ssize_t n;
 	    SysIOVec* iov;
 
 	    if ((iov = driver_peekq(ix, &vsize)) == NULL) {

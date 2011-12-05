@@ -2001,7 +2001,7 @@ static void outputv(ErlDrvData e, ErlIOVec* ev)
     int ix = driver_data[fd].port_num;
     int pb = driver_data[fd].packet_bytes;
     int ofd = driver_data[fd].ofd;
-    int n;
+    ssize_t n;
     ErlDrvSizeT sz;
     char lb[4];
     char* lbp;
@@ -2051,8 +2051,8 @@ static void output(ErlDrvData e, char* buf, int len)
     int ix = driver_data[fd].port_num;
     int pb = driver_data[fd].packet_bytes;
     int ofd = driver_data[fd].ofd;
-    int n;
-    int sz;
+    ssize_t n;
+    ErlDrvSizeT sz;
     char lb[4];
     char* lbp;
     struct iovec iv[2];

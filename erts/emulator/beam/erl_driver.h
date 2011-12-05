@@ -443,8 +443,8 @@ EXTERN int  get_port_flags(ErlDrvPort port);
  * since the binary is a shared object it MUST be written once.
  */
 
-EXTERN ErlDrvBinary* driver_alloc_binary(int size);
-EXTERN ErlDrvBinary* driver_realloc_binary(ErlDrvBinary *bin, int size);
+EXTERN ErlDrvBinary* driver_alloc_binary(ErlDrvSizeT size);
+EXTERN ErlDrvBinary* driver_realloc_binary(ErlDrvBinary *bin, ErlDrvSizeT size);
 EXTERN void driver_free_binary(ErlDrvBinary *bin);
 
 /* Referenc count on driver binaries */
@@ -453,24 +453,24 @@ EXTERN ErlDrvSInt driver_binary_inc_refc(ErlDrvBinary *dbp);
 EXTERN ErlDrvSInt driver_binary_dec_refc(ErlDrvBinary *dbp);
 
 /* Allocation interface */
-EXTERN void *driver_alloc(size_t size);
-EXTERN void *driver_realloc(void *ptr, size_t size);
+EXTERN void *driver_alloc(ErlDrvSizeT size);
+EXTERN void *driver_realloc(void *ptr, ErlDrvSizeT size);
 EXTERN void driver_free(void *ptr);
 
 /* Queue interface */
-EXTERN int driver_enq(ErlDrvPort port, char* buf, int len);
-EXTERN int driver_pushq(ErlDrvPort port, char* buf, int len);
+EXTERN int driver_enq(ErlDrvPort port, char* buf, ErlDrvSizeT len);
+EXTERN int driver_pushq(ErlDrvPort port, char* buf, ErlDrvSizeT len);
 EXTERN ErlDrvSizeT driver_deq(ErlDrvPort port, ErlDrvSizeT size);
 EXTERN ErlDrvSizeT driver_sizeq(ErlDrvPort port);
-EXTERN int driver_enq_bin(ErlDrvPort port, ErlDrvBinary *bin, int offset, 
-			  int len);
-EXTERN int driver_pushq_bin(ErlDrvPort port, ErlDrvBinary *bin, int offset,
-			    int len);
+EXTERN int driver_enq_bin(ErlDrvPort port, ErlDrvBinary *bin, ErlDrvSizeT offset,
+			  ErlDrvSizeT len);
+EXTERN int driver_pushq_bin(ErlDrvPort port, ErlDrvBinary *bin, ErlDrvSizeT offset,
+			    ErlDrvSizeT len);
 
 EXTERN ErlDrvSizeT driver_peekqv(ErlDrvPort port, ErlIOVec *ev);
 EXTERN SysIOVec* driver_peekq(ErlDrvPort port, int *vlen);
-EXTERN int driver_enqv(ErlDrvPort port, ErlIOVec *ev, int skip);
-EXTERN int driver_pushqv(ErlDrvPort port, ErlIOVec *ev, int skip);
+EXTERN int driver_enqv(ErlDrvPort port, ErlIOVec *ev, ErlDrvSizeT skip);
+EXTERN int driver_pushqv(ErlDrvPort port, ErlIOVec *ev, ErlDrvSizeT skip);
 
 /*
  * Add and remove driver entries.

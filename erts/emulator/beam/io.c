@@ -3437,12 +3437,9 @@ driver_binary_dec_refc(ErlDrvBinary *dbp)
 */
 
 ErlDrvBinary*
-driver_alloc_binary(int size)
+driver_alloc_binary(ErlDrvSizeT size)
 {
     Binary* bin;
-
-    if (size < 0)
-	return NULL;
 
     bin = erts_bin_drv_alloc_fnf((Uint) size);
     if (!bin)
@@ -3455,25 +3452,19 @@ driver_alloc_binary(int size)
 
 /* Reallocate space hold by binary */
 
-ErlDrvBinary* driver_realloc_binary(ErlDrvBinary* bin, int size)
+ErlDrvBinary* driver_realloc_binary(ErlDrvBinary* bin, ErlDrvSizeT size)
 {
     Binary* oldbin;
     Binary* newbin;
 
-    if (!bin || size < 0) {
+    if (!bin) {
 	erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
 	erts_dsprintf(dsbufp,
-		      "Bad use of driver_realloc_binary(%p, %d): "
+		      "Bad use of driver_realloc_binary(%p, %lu): "
 		      "called with ",
-		      bin, size);
+		      bin, (unsigned long)size);
 	if (!bin) {
 	    erts_dsprintf(dsbufp, "NULL pointer as first argument");
-	    if (size < 0)
-		erts_dsprintf(dsbufp, ", and ");
-	}
-	if (size < 0) {
-	    erts_dsprintf(dsbufp, "negative size as second argument");
-	    size = 0;
 	}
 	erts_send_warning_to_logger_nogl(dsbufp);
 	if (!bin)
@@ -3513,12 +3504,12 @@ ErlDrvBinary* dbin;
  * Allocation/deallocation of memory for drivers 
  */
 
-void *driver_alloc(size_t size)
+void *driver_alloc(ErlDrvSizeT size)
 {
     return erts_alloc_fnf(ERTS_ALC_T_DRV, (Uint) size);
 }
 
-void *driver_realloc(void *ptr, size_t size)
+void *driver_realloc(void *ptr, ErlDrvSizeT size)
 {
     return erts_realloc_fnf(ERTS_ALC_T_DRV, ptr, (Uint) size);
 }
@@ -3780,10 +3771,10 @@ static int expandq(ErlIOQueue* q, int n, int tail)
 
 
 /* Put elements from vec at q tail */
-int driver_enqv(ErlDrvPort ix, ErlIOVec* vec, int skip)
+int driver_enqv(ErlDrvPort ix, ErlIOVec* vec, ErlDrvSizeT skip)
 {
     int n;
-    int len;
+    size_t len;
     ErlDrvSizeT size;
     SysIOVec* iov;
     ErlDrvBinary** binv;
@@ -3846,10 +3837,10 @@ int driver_enqv(ErlDrvPort ix, ErlIOVec* vec, int skip)
 }
 
 /* Put elements from vec at q head */
-int driver_pushqv(ErlDrvPort ix, ErlIOVec* vec, int skip)
+int driver_pushqv(ErlDrvPort ix, ErlIOVec* vec, ErlDrvSizeT skip)
 {
     int n;
-    int len;
+    size_t len;
     ErlDrvSizeT size;
     SysIOVec* iov;
     ErlDrvBinary** binv;
@@ -3917,7 +3908,7 @@ int driver_pushqv(ErlDrvPort ix, ErlIOVec* vec, int skip)
 ** Remove size bytes from queue head
 ** Return number of bytes that remain in queue
 */
-ErlDrvSizeT driver_deq(ErlDrvPort ix, size_t size)
+ErlDrvSizeT driver_deq(ErlDrvPort ix, ErlDrvSizeT size)
 {
     ErlIOQueue* q = drvport2ioq(ix);
     int len;
@@ -3985,7 +3976,7 @@ SysIOVec* driver_peekq(ErlDrvPort ix, int* vlenp)  /* length of io-vector */
 }
 
 
-size_t driver_sizeq(ErlDrvPort ix)
+ErlDrvSizeT driver_sizeq(ErlDrvPort ix)
 {
     ErlIOQueue* q = drvport2ioq(ix);
 
@@ -3998,7 +3989,8 @@ size_t driver_sizeq(ErlDrvPort ix)
 /* Utils */
 
 /* Enqueue a binary */
-int driver_enq_bin(ErlDrvPort ix, ErlDrvBinary* bin, int offs, int len)
+int driver_enq_bin(ErlDrvPort ix, ErlDrvBinary* bin,
+		   ErlDrvSizeT offs, ErlDrvSizeT len)
 {
     SysIOVec      iov;
     ErlIOVec      ev;
@@ -4015,7 +4007,7 @@ int driver_enq_bin(ErlDrvPort ix, ErlDrvBinary* bin, int offs, int len)
     return driver_enqv(ix, &ev, 0);
 }
 
-int driver_enq(ErlDrvPort ix, char* buffer, int len)
+int driver_enq(ErlDrvPort ix, char* buffer, ErlDrvSizeT len)
 {
     int code;
     ErlDrvBinary* bin;
@@ -4031,7 +4023,8 @@ int driver_enq(ErlDrvPort ix, char* buffer, int len)
     return code;
 }
 
-int driver_pushq_bin(ErlDrvPort ix, ErlDrvBinary* bin, int offs, int len)
+int driver_pushq_bin(ErlDrvPort ix, ErlDrvBinary* bin,
+		     ErlDrvSizeT offs, ErlDrvSizeT len)
 {
     SysIOVec      iov;
     ErlIOVec      ev;
@@ -4048,7 +4041,7 @@ int driver_pushq_bin(ErlDrvPort ix, ErlDrvBinary* bin, int offs, int len)
     return driver_pushqv(ix, &ev, 0);
 }
 
-int driver_pushq(ErlDrvPort ix, char* buffer, int len)
+int driver_pushq(ErlDrvPort ix, char* buffer, ErlDrvSizeT len)
 {
     int code;
     ErlDrvBinary* bin;
