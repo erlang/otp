@@ -34,23 +34,25 @@
 
 
   <section>
-    <title>SNMP Development Toolkit 4.21.3</title>
-    <p>Version 4.21.3 supports code replacement in runtime from/to
-    version 4.21.2, 4.21.1, 4.21 and 4.20.1. </p>
-    
+    <title>SNMP Development Toolkit 4.21.4</title>
+    <p>Version 4.21.4 supports code replacement in runtime from/to
+      version 4.21.3, 4.21.2, 4.21.1, 4.21, 4.20.1, 4.20 and 4.19. </p>
+
     <section>
       <title>Improvements and new features</title>
-<!--
       <p>-</p>
--->
-      
+
+<!--
       <list type="bulleted">
         <item>
-          <p>[compiler] Improved version info printout. </p>
+          <p>[compiler] Improved version info printout from the 
+	  <seealso marker="snmpc(command)#">MIB compiler frontend escript</seealso>. </p>
           <p>Own Id: OTP-9618</p>
         </item>
 
       </list>
+-->
+
     </section>
 
     <section>
@@ -61,40 +63,31 @@
 
       <list type="bulleted">
         <item>
-          <p>[compiler] Fix the <c>--warnings/--W</c> option parsing in the 
-	  <seealso marker="snmpc(command)#option_warnings">snmpc</seealso>
-	  wrapper (e)script. 
-	  The short warning option was incorrectly <c>--w</c>, instead
-	  of as documented <c>--W</c>. This has now been corrected. </p>
-	  <p>*** POTENTIAL INCOMPATIBILITY ***</p>
-          <p>Tuncer Ayaz</p>
-          <p>Own Id: OTP-9718</p>
+          <p>[agent] Removed use of old style tuple funs. </p>
+          <p>Own Id: OTP-9779</p>
         </item>
 
       </list>
-
     </section>
 
 
     <section>
       <title>Incompatibilities</title>
-<!--
-      <p>-</p> 
--->
+      <p>-</p>
 
+<!--
       <list type="bulleted">
         <item>
-          <p>[compiler] The short warning option has been changed from 
-	  <c>--w</c> to <c>--W</c> to comply with the documentation. </p>
-          <p>Tuncer Ayaz</p>
+	  <p>foo. </p>
           <p>Own Id: OTP-9718</p>
-	</item>
-
+        </item>
 
       </list>
+-->
+
     </section>
 
-  </section> <!-- 4.21.3 -->
+  </section> <!-- 4.21.4 -->
 
 
   <section>
