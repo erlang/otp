@@ -870,10 +870,10 @@ test_events(timetrap_fun) ->
      {?eh,tc_done,
       {timetrap_6_SUITE,init_per_suite,{skipped,{timetrap_error,kaboom}}}},
      {?eh,tc_auto_skip,
-      {timetrap_6_SUITE,tc0,{fw_auto_skip,{timetrap_error,kaboom}}}},
+      {timetrap_6_SUITE,tc0,{timetrap_error,kaboom}}},
      {?eh,test_stats,{0,8,{0,5}}},
      {?eh,tc_auto_skip,
-      {timetrap_6_SUITE,end_per_suite,{fw_auto_skip,{timetrap_error,kaboom}}}},
+      {timetrap_6_SUITE,end_per_suite,{timetrap_error,kaboom}}},
 
      {?eh,tc_done,{timetrap_7_SUITE,init_per_suite,ok}},
      {?eh,tc_start,{timetrap_7_SUITE,tc0}},

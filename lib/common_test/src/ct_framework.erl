@@ -52,6 +52,8 @@
 %%% @doc Test server framework callback, called by the test_server
 %%% when a new test case is started.
 init_tc(Mod,Func,Config) ->
+    %% in case Mod == ct_framework, lookup the suite name
+    Suite = get_suite_name(Mod, Config),
     %% check if previous testcase was interpreted and has left
     %% a "dead" trace window behind - if so, kill it
     case ct_util:get_testdata(interpret) of
@@ -61,34 +63,36 @@ init_tc(Mod,Func,Config) ->
 	_ ->
 	    ok
     end,
-	    
     %% check if we need to add defaults explicitly because
     %% there's no init_per_suite exported from Mod
     {InitFailed,DoInit} =
 	case ct_util:get_testdata(curr_tc) of
-	    {Mod,{suite0_failed,_}=Failure} ->
+	    {Suite,{suite0_failed,_}=Failure} ->
 		{Failure,false};
-	    {Mod,_} ->
+	    {?MODULE,_} ->		    % should not really happen
 		{false,false};
-	    _ when Func == init_per_suite ->
+	    {Suite,_} ->	            % Func is not 1st case in suite
 		{false,false};
-	    _ ->
+	    _ when Func == init_per_suite ->	% defaults will be added anyway
+		{false,false};
+	    _ ->				% first case in suite
 		{false,true}
 	end,
     case InitFailed of
 	false ->
-	    ct_util:set_testdata({curr_tc,{Mod,Func}}),
-	    case ct_util:read_suite_data({seq,Mod,Func}) of
+	    ct_util:set_testdata({curr_tc,{Suite,Func}}),
+	    case ct_util:read_suite_data({seq,Suite,Func}) of
 		undefined ->
 		    init_tc1(Mod,Func,Config,DoInit);
 		Seq when is_atom(Seq) ->
-		    case ct_util:read_suite_data({seq,Mod,Seq}) of
+		    case ct_util:read_suite_data({seq,Suite,Seq}) of
 			[Func|TCs] ->		% this is the 1st case in Seq
 			    %% make sure no cases in this seq are marked as failed
 			    %% from an earlier execution in the same suite
-			    lists:foreach(fun(TC) ->
-						  ct_util:save_suite_data({seq,Mod,TC},Seq)
-					  end, TCs);
+			    lists:foreach(
+			      fun(TC) ->
+				      ct_util:save_suite_data({seq,Suite,TC},Seq)
+			      end, TCs);
 			_ ->
 			    ok
 		    end,
@@ -150,13 +154,15 @@ init_tc1(Mod,Func,[Config0],DoInit) when is_list(Config0) ->
        true ->
 	    ct_config:delete_default_config(testcase)
     end,
+    %% in case Mod == ct_framework, lookup the suite name
+    Suite = get_suite_name(Mod, Config),
     case add_defaults(Mod,Func,AllGroups,DoInit) of
 	Error = {suite0_failed,_} ->
 	    ct_logs:init_tc(false),
 	    ct_event:notify(#event{name=tc_start,
 				   node=node(),
 				   data={Mod,FuncSpec}}),
-	    ct_util:set_testdata({curr_tc,{Mod,Error}}),
+	    ct_util:set_testdata({curr_tc,{Suite,Error}}),
 	    {error,Error};
 	{SuiteInfo,MergeResult} ->
 	    case MergeResult of
@@ -261,9 +267,10 @@ ct_suite_init(Mod, Func, [Config]) when is_list(Config) ->
     end.
 
 add_defaults(Mod,Func, GroupPath, DoInit) ->
-    case (catch Mod:suite()) of
+    Suite = get_suite_name(Mod, GroupPath),
+    case (catch Suite:suite()) of
 	{'EXIT',{undef,_}} ->
-	    SuiteInfo = merge_with_suite_defaults(Mod,[]),
+	    SuiteInfo = merge_with_suite_defaults(Suite,[]),
 	    SuiteInfoNoCTH = [I || I <- SuiteInfo, element(1,I) =/= ct_hooks],
 	    case add_defaults1(Mod,Func, GroupPath, SuiteInfoNoCTH, DoInit) of
 		Error = {error,_} -> {SuiteInfo,Error};
@@ -272,7 +279,7 @@ add_defaults(Mod,Func, GroupPath, DoInit) ->
 	{'EXIT',Reason} ->
 	    ErrStr = io_lib:format("~n*** ERROR *** "
 				   "~w:suite/0 failed: ~p~n",
-				   [Mod,Reason]),
+				   [Suite,Reason]),
 	    io:format(ErrStr, []),
 	    io:format(user, ErrStr, []),
 	    {suite0_failed,{exited,Reason}};
@@ -281,7 +288,7 @@ add_defaults(Mod,Func, GroupPath, DoInit) ->
 			      (_) -> false
 			   end, SuiteInfo) of
 		true ->
-		    SuiteInfo1 = merge_with_suite_defaults(Mod, SuiteInfo),
+		    SuiteInfo1 = merge_with_suite_defaults(Suite, SuiteInfo),
 		    SuiteInfoNoCTH = [I || I <- SuiteInfo1,
 					   element(1,I) =/= ct_hooks],
 		    case add_defaults1(Mod,Func, GroupPath,
@@ -292,7 +299,7 @@ add_defaults(Mod,Func, GroupPath, DoInit) ->
 		false ->
 		    ErrStr = io_lib:format("~n*** ERROR *** "
 					   "Invalid return value from "
-					   "~w:suite/0: ~p~n", [Mod,SuiteInfo]),
+					   "~w:suite/0: ~p~n", [Suite,SuiteInfo]),
 		    io:format(ErrStr, []),
 		    io:format(user, ErrStr, []),
 		    {suite0_failed,bad_return_value}
@@ -300,25 +307,32 @@ add_defaults(Mod,Func, GroupPath, DoInit) ->
 	SuiteInfo ->
 	    ErrStr = io_lib:format("~n*** ERROR *** "
 				   "Invalid return value from "
-				   "~w:suite/0: ~p~n", [Mod,SuiteInfo]),
+				   "~w:suite/0: ~p~n", [Suite,SuiteInfo]),
 	    io:format(ErrStr, []),
 	    io:format(user, ErrStr, []),
 	    {suite0_failed,bad_return_value}
     end.
 
 add_defaults1(Mod,Func, GroupPath, SuiteInfo, DoInit) ->
+    Suite = get_suite_name(Mod, GroupPath),
     %% GroupPathInfo (for subgroup on level X) =
     %%     [LevelXGroupInfo, LevelX-1GroupInfo, ..., TopLevelGroupInfo]
     GroupPathInfo =  
 	lists:map(fun(GroupProps) ->
 			  Name = ?val(name, GroupProps),
-			  case catch Mod:group(Name) of
+			  case catch Suite:group(Name) of
 			      GrInfo when is_list(GrInfo) -> GrInfo;
 			      _ -> []
 			  end
 		  end, GroupPath),
+    Args = if Func == init_per_group; Func == ct_init_per_group;
+	      Func == end_per_group; Func == ct_end_per_group ->
+		   [?val(name, hd(GroupPath))];
+	      true ->
+		   []
+	   end,
     TestCaseInfo =
-	case catch apply(Mod,Func,[]) of
+	case catch apply(Mod,Func,Args) of
 	    TCInfo when is_list(TCInfo) -> TCInfo;
 	    _ -> []
 	end,
@@ -331,13 +345,31 @@ add_defaults1(Mod,Func, GroupPath, SuiteInfo, DoInit) ->
 	[SDDef || SDDef <- SuiteInfo,
 		  ((require == element(1,SDDef)) or
 		   (default_config == element(1,SDDef)))],
-
     case check_for_clashes(TestCaseInfo, GroupPathInfo, SuiteReqs) of
 	[] ->
 	    add_defaults2(Mod,Func, TCAndGroupInfo,SuiteInfo,SuiteReqs, DoInit);
 	Clashes ->
 	    {error,{config_name_already_in_use,Clashes}}
     end.
+
+get_suite_name(?MODULE, [Cfg|_]) when is_list(Cfg), Cfg /= [] ->
+    get_suite_name(?MODULE, Cfg);
+
+get_suite_name(?MODULE, Cfg) when is_list(Cfg), Cfg /= [] ->
+    case ?val(tc_group_properties, Cfg) of
+	undefined ->
+	    case ?val(suite, Cfg) of
+		undefined -> ?MODULE;
+		Suite -> Suite
+	    end;
+	GrProps ->
+	    case ?val(suite, GrProps) of
+		undefined -> ?MODULE;
+		Suite -> Suite
+	    end
+    end;
+get_suite_name(Mod, _) ->
+    Mod.
 
 %% Check that alias names are not already in use
 check_for_clashes(TCInfo, GrPathInfo, SuiteInfo) ->
@@ -1562,7 +1594,9 @@ report(What,Data) ->
 					node=node(),
 					data=Data}),
 	    ct_hooks:on_tc_skip(What, Data),
-	    if Case /= end_per_suite, Case /= end_per_group -> 
+	    if Case /= end_per_suite, 
+	       Case /= end_per_group,
+	       Case /= ct_end_per_group -> 
 		    add_to_stats(auto_skipped);
 	       true -> 
 		    ok

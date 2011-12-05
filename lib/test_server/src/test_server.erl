@@ -1140,7 +1140,7 @@ run_test_case_eval(Mod, Func, Args0, Name, Ref, RunInit,
 	    {auto_skip,Reason} ->
 		Where = {Mod,Func},
 		NewResult = do_end_tc_call(Mod,Func, Where, {{skip,Reason},Args0},
-					   {skip,{fw_auto_skip,Reason}}),
+					   {skip,Reason}),
 		{{0,NewResult},Where,[]}
 	end,
     exit({Ref,Time,Value,Loc,Opts}).

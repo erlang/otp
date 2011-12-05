@@ -63,8 +63,12 @@ all() ->
      timetrap_all,
      timetrap_group,
      timetrap_group_case,
+     timetrap_all_no_ips,
+     timetrap_all_no_ipg,
      require,
-     require_default
+     require_default,
+     require_no_ips,
+     require_no_ipg
     ].
 
 %%--------------------------------------------------------------------
@@ -100,6 +104,24 @@ timetrap_group_case(Config) when is_list(Config) ->
 
 %%%-----------------------------------------------------------------
 %%% 
+timetrap_all_no_ips(Config) when is_list(Config) -> 
+    DataDir = ?config(data_dir, Config),
+    Suite = filename:join(DataDir, "group_timetrap_2_SUITE"),
+    {Opts,ERPid} = setup([{suite,Suite},
+			  {label,timetrap_all_no_ips}], Config),
+    ok = execute(timetrap_all_no_ips, Opts, ERPid, Config).
+
+%%%-----------------------------------------------------------------
+%%% 
+timetrap_all_no_ipg(Config) when is_list(Config) -> 
+    DataDir = ?config(data_dir, Config),
+    Suite = filename:join(DataDir, "group_timetrap_3_SUITE"),
+    {Opts,ERPid} = setup([{suite,Suite},
+			  {label,timetrap_all_no_ipg}], Config),
+    ok = execute(timetrap_all_no_ipg, Opts, ERPid, Config).
+
+%%%-----------------------------------------------------------------
+%%% 
 require(Config) when is_list(Config) -> 
     DataDir = ?config(data_dir, Config),
     Suite = filename:join(DataDir, "group_require_1_SUITE"),
@@ -117,6 +139,25 @@ require_default(Config) when is_list(Config) ->
 			  {label,require_default}], Config),
     ok = execute(require_default, Opts, ERPid, Config).
 
+%%%-----------------------------------------------------------------
+%%% 
+require_no_ips(Config) when is_list(Config) -> 
+    DataDir = ?config(data_dir, Config),
+    Suite = filename:join(DataDir, "group_require_2_SUITE"),
+    CfgFile = filename:join(DataDir, "vars.cfg"),
+    {Opts,ERPid} = setup([{suite,Suite},{config,CfgFile},
+			  {label,require_no_ips}], Config),
+    ok = execute(require_no_ips, Opts, ERPid, Config).
+
+%%%-----------------------------------------------------------------
+%%% 
+require_no_ipg(Config) when is_list(Config) -> 
+    DataDir = ?config(data_dir, Config),
+    Suite = filename:join(DataDir, "group_require_3_SUITE"),
+    CfgFile = filename:join(DataDir, "vars.cfg"),
+    {Opts,ERPid} = setup([{suite,Suite},{config,CfgFile},
+			  {label,require_no_ipg}], Config),
+    ok = execute(require_no_ipg, Opts, ERPid, Config).
 
 %%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
@@ -311,6 +352,165 @@ test_events(timetrap_group_case) ->
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
     ];
+
+test_events(timetrap_all_no_ips) ->
+    [
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,start_info,{1,1,14}},
+
+     {?eh,tc_done,{group_timetrap_2_SUITE,t1,{failed,{timetrap_timeout,1000}}}},
+
+     [{?eh,tc_start,{group_timetrap_2_SUITE,{init_per_group,g1,[]}}},
+      {?eh,tc_done,{group_timetrap_2_SUITE,{init_per_group,g1,[]},ok}},
+      {?eh,tc_done,{group_timetrap_2_SUITE,t11,{failed,{timetrap_timeout,500}}}},
+      {?eh,tc_start,{group_timetrap_2_SUITE,{end_per_group,g1,[]}}},
+      {?eh,tc_done,{group_timetrap_2_SUITE,{end_per_group,g1,[]},ok}}],
+
+     [{?eh,tc_start,{group_timetrap_2_SUITE,{init_per_group,g2,[]}}},
+      {?eh,tc_done,{group_timetrap_2_SUITE,{init_per_group,g2,[]},ok}},
+      {?eh,tc_done,{group_timetrap_2_SUITE,t21,{failed,{timetrap_timeout,1500}}}},
+      {?eh,tc_start,{group_timetrap_2_SUITE,{end_per_group,g2,[]}}},
+      {?eh,tc_done,{group_timetrap_2_SUITE,{end_per_group,g2,[]},ok}}],
+
+     {?eh,tc_done,{group_timetrap_2_SUITE,t2,{failed,{timetrap_timeout,1000}}}},
+
+     [{?eh,tc_start,{group_timetrap_2_SUITE,{init_per_group,g3,[]}}},
+      {?eh,tc_done,{group_timetrap_2_SUITE,{init_per_group,g3,[]},ok}},
+      [{?eh,tc_start,{group_timetrap_2_SUITE,{init_per_group,g4,[]}}},
+       {?eh,tc_done,{group_timetrap_2_SUITE,{init_per_group,g4,[]},ok}},
+       {?eh,tc_done,{group_timetrap_2_SUITE,t41,{failed,{timetrap_timeout,250}}}},
+       {?eh,tc_start,{group_timetrap_2_SUITE,{end_per_group,g4,[]}}},
+       {?eh,tc_done,{group_timetrap_2_SUITE,{end_per_group,g4,[]},ok}}],
+      {?eh,tc_done,{group_timetrap_2_SUITE,t31,{failed,{timetrap_timeout,500}}}},
+      [{?eh,tc_start,{group_timetrap_2_SUITE,{init_per_group,g5,[]}}},
+       {?eh,tc_done,{group_timetrap_2_SUITE,{init_per_group,g5,[]},ok}},
+       {?eh,tc_done,{group_timetrap_2_SUITE,t51,{failed,{timetrap_timeout,1500}}}},
+       {?eh,tc_start,{group_timetrap_2_SUITE,{end_per_group,g5,[]}}},
+       {?eh,tc_done,{group_timetrap_2_SUITE,{end_per_group,g5,[]},ok}}],
+      {?eh,tc_start,{group_timetrap_2_SUITE,{end_per_group,g3,[]}}},
+      {?eh,tc_done,{group_timetrap_2_SUITE,{end_per_group,g3,[]},ok}}],
+
+     {?eh,tc_done,{group_timetrap_2_SUITE,t3,{failed,{timetrap_timeout,250}}}},
+
+     [{?eh,tc_start,{group_timetrap_2_SUITE,{init_per_group,g6,[]}}},
+      {?eh,tc_done,{group_timetrap_2_SUITE,{init_per_group,g6,[]},ok}},
+      {?eh,tc_done,{group_timetrap_2_SUITE,t61,{failed,{timetrap_timeout,500}}}},
+      {?eh,tc_start,{group_timetrap_2_SUITE,{end_per_group,g6,[]}}},
+      {?eh,tc_done,{group_timetrap_2_SUITE,{end_per_group,g6,[]},ok}}],
+
+     [{?eh,tc_start,{group_timetrap_2_SUITE,{init_per_group,g7,[]}}},
+      {?eh,tc_done,{group_timetrap_2_SUITE,{init_per_group,g7,[]},ok}},
+      [{?eh,tc_start,{group_timetrap_2_SUITE,{init_per_group,g8,[]}}},
+       {?eh,tc_done,{group_timetrap_2_SUITE,{init_per_group,g8,[]},ok}},
+       {?eh,tc_done,{group_timetrap_2_SUITE,t81,{failed,{timetrap_timeout,750}}}},
+       {?eh,tc_start,{group_timetrap_2_SUITE,{end_per_group,g8,[]}}},
+       {?eh,tc_done,{group_timetrap_2_SUITE,{end_per_group,g8,[]},ok}}],
+      {?eh,tc_done,{group_timetrap_2_SUITE,t71,{failed,{timetrap_timeout,500}}}},
+      [{?eh,tc_start,{group_timetrap_2_SUITE,{init_per_group,g9,[]}}},
+       {?eh,tc_done,{group_timetrap_2_SUITE,{init_per_group,g9,[]},ok}},
+       {?eh,tc_done,{group_timetrap_2_SUITE,t91,{failed,{timetrap_timeout,250}}}},
+       {?eh,tc_start,{group_timetrap_2_SUITE,{end_per_group,g9,[]}}},
+       {?eh,tc_done,{group_timetrap_2_SUITE,{end_per_group,g9,[]},ok}}],
+      {?eh,tc_start,{group_timetrap_2_SUITE,{end_per_group,g7,[]}}},
+      {?eh,tc_done,{group_timetrap_2_SUITE,{end_per_group,g7,[]},ok}}],
+
+     [{?eh,tc_start,{group_timetrap_2_SUITE,{init_per_group,g10,[]}}},
+      {?eh,tc_done,{group_timetrap_2_SUITE,{init_per_group,g10,[]},ok}},
+      {?eh,tc_done,{group_timetrap_2_SUITE,t101,{failed,{timetrap_timeout,1000}}}},
+      {?eh,tc_start,{group_timetrap_2_SUITE,{end_per_group,g10,[]}}},
+      {?eh,tc_done,{group_timetrap_2_SUITE,{end_per_group,g10,[]},ok}}],
+
+     [{?eh,tc_start,{group_timetrap_2_SUITE,{init_per_group,g11,[]}}},
+      {?eh,tc_done,{group_timetrap_2_SUITE,{init_per_group,g11,[]},ok}},
+      {?eh,tc_done,{group_timetrap_2_SUITE,t111,{failed,{timetrap_timeout,1000}}}},
+      {?eh,test_stats,{0,14,{0,0}}},
+      {?eh,tc_start,{group_timetrap_2_SUITE,{end_per_group,g11,[]}}},
+      {?eh,tc_done,{group_timetrap_2_SUITE,{end_per_group,g11,[]},ok}}],
+
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,stop_logging,[]}
+    ];
+
+test_events(timetrap_all_no_ipg) ->
+    [
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,start_info,{1,1,14}},
+
+     {?eh,tc_done,{group_timetrap_3_SUITE,t1,{failed,{timetrap_timeout,1000}}}},
+
+     [{?eh,tc_start,{ct_framework,{ct_init_per_group,g1,[{suite,group_timetrap_3_SUITE}]}}},
+      {?eh,tc_done,{ct_framework,{ct_init_per_group,g1,[{suite,group_timetrap_3_SUITE}]},ok}},
+      {?eh,tc_done,{group_timetrap_3_SUITE,t11,{failed,{timetrap_timeout,500}}}},
+      {?eh,tc_start,{ct_framework,{ct_end_per_group,g1,[{suite,group_timetrap_3_SUITE}]}}},
+      {?eh,tc_done,{ct_framework,{ct_end_per_group,g1,[{suite,group_timetrap_3_SUITE}]},ok}}],
+
+     [{?eh,tc_start,{ct_framework,{ct_init_per_group,g2,[{suite,group_timetrap_3_SUITE}]}}},
+      {?eh,tc_done,{ct_framework,{ct_init_per_group,g2,[{suite,group_timetrap_3_SUITE}]},ok}},
+      {?eh,tc_done,{group_timetrap_3_SUITE,t21,{failed,{timetrap_timeout,1500}}}},
+      {?eh,tc_start,{ct_framework,{ct_end_per_group,g2,[{suite,group_timetrap_3_SUITE}]}}},
+      {?eh,tc_done,{ct_framework,{ct_end_per_group,g2,[{suite,group_timetrap_3_SUITE}]},ok}}],
+
+     {?eh,tc_done,{group_timetrap_3_SUITE,t2,{failed,{timetrap_timeout,1000}}}},
+
+     [{?eh,tc_start,{ct_framework,{ct_init_per_group,g3,[{suite,group_timetrap_3_SUITE}]}}},
+      {?eh,tc_done,{ct_framework,{ct_init_per_group,g3,[{suite,group_timetrap_3_SUITE}]},ok}},
+      [{?eh,tc_start,{ct_framework,{ct_init_per_group,g4,[{suite,group_timetrap_3_SUITE}]}}},
+       {?eh,tc_done,{ct_framework,{ct_init_per_group,g4,[{suite,group_timetrap_3_SUITE}]},ok}},
+       {?eh,tc_done,{group_timetrap_3_SUITE,t41,{failed,{timetrap_timeout,250}}}},
+       {?eh,tc_start,{ct_framework,{ct_end_per_group,g4,[{suite,group_timetrap_3_SUITE}]}}},
+       {?eh,tc_done,{ct_framework,{ct_end_per_group,g4,[{suite,group_timetrap_3_SUITE}]},ok}}],
+      {?eh,tc_done,{group_timetrap_3_SUITE,t31,{failed,{timetrap_timeout,500}}}},
+      [{?eh,tc_start,{ct_framework,{ct_init_per_group,g5,[{suite,group_timetrap_3_SUITE}]}}},
+       {?eh,tc_done,{ct_framework,{ct_init_per_group,g5,[{suite,group_timetrap_3_SUITE}]},ok}},
+       {?eh,tc_done,{group_timetrap_3_SUITE,t51,{failed,{timetrap_timeout,1500}}}},
+       {?eh,tc_start,{ct_framework,{ct_end_per_group,g5,[{suite,group_timetrap_3_SUITE}]}}},
+       {?eh,tc_done,{ct_framework,{ct_end_per_group,g5,[{suite,group_timetrap_3_SUITE}]},ok}}],
+      {?eh,tc_start,{ct_framework,{ct_end_per_group,g3,[{suite,group_timetrap_3_SUITE}]}}},
+      {?eh,tc_done,{ct_framework,{ct_end_per_group,g3,[{suite,group_timetrap_3_SUITE}]},ok}}],
+
+     {?eh,tc_done,{group_timetrap_3_SUITE,t3,{failed,{timetrap_timeout,250}}}},
+
+     [{?eh,tc_start,{ct_framework,{ct_init_per_group,g6,[{suite,group_timetrap_3_SUITE}]}}},
+      {?eh,tc_done,{ct_framework,{ct_init_per_group,g6,[{suite,group_timetrap_3_SUITE}]},ok}},
+      {?eh,tc_done,{group_timetrap_3_SUITE,t61,{failed,{timetrap_timeout,500}}}},
+      {?eh,tc_start,{ct_framework,{ct_end_per_group,g6,[{suite,group_timetrap_3_SUITE}]}}},
+      {?eh,tc_done,{ct_framework,{ct_end_per_group,g6,[{suite,group_timetrap_3_SUITE}]},ok}}],
+
+     [{?eh,tc_start,{ct_framework,{ct_init_per_group,g7,[{suite,group_timetrap_3_SUITE}]}}},
+      {?eh,tc_done,{ct_framework,{ct_init_per_group,g7,[{suite,group_timetrap_3_SUITE}]},ok}},
+      [{?eh,tc_start,{ct_framework,{ct_init_per_group,g8,[{suite,group_timetrap_3_SUITE}]}}},
+       {?eh,tc_done,{ct_framework,{ct_init_per_group,g8,[{suite,group_timetrap_3_SUITE}]},ok}},
+       {?eh,tc_done,{group_timetrap_3_SUITE,t81,{failed,{timetrap_timeout,750}}}},
+       {?eh,tc_start,{ct_framework,{ct_end_per_group,g8,[{suite,group_timetrap_3_SUITE}]}}},
+       {?eh,tc_done,{ct_framework,{ct_end_per_group,g8,[{suite,group_timetrap_3_SUITE}]},ok}}],
+      {?eh,tc_done,{group_timetrap_3_SUITE,t71,{failed,{timetrap_timeout,500}}}},
+      [{?eh,tc_start,{ct_framework,{ct_init_per_group,g9,[{suite,group_timetrap_3_SUITE}]}}},
+       {?eh,tc_done,{ct_framework,{ct_init_per_group,g9,[{suite,group_timetrap_3_SUITE}]},ok}},
+       {?eh,tc_done,{group_timetrap_3_SUITE,t91,{failed,{timetrap_timeout,250}}}},
+       {?eh,tc_start,{ct_framework,{ct_end_per_group,g9,[{suite,group_timetrap_3_SUITE}]}}},
+       {?eh,tc_done,{ct_framework,{ct_end_per_group,g9,[{suite,group_timetrap_3_SUITE}]},ok}}],
+      {?eh,tc_start,{ct_framework,{ct_end_per_group,g7,[{suite,group_timetrap_3_SUITE}]}}},
+      {?eh,tc_done,{ct_framework,{ct_end_per_group,g7,[{suite,group_timetrap_3_SUITE}]},ok}}],
+
+     [{?eh,tc_start,{ct_framework,{ct_init_per_group,g10,[{suite,group_timetrap_3_SUITE}]}}},
+      {?eh,tc_done,{ct_framework,{ct_init_per_group,g10,[{suite,group_timetrap_3_SUITE}]},ok}},
+      {?eh,tc_done,{group_timetrap_3_SUITE,t101,{failed,{timetrap_timeout,1000}}}},
+      {?eh,tc_start,{ct_framework,{ct_end_per_group,g10,[{suite,group_timetrap_3_SUITE}]}}},
+      {?eh,tc_done,{ct_framework,{ct_end_per_group,g10,[{suite,group_timetrap_3_SUITE}]},ok}}],
+
+     [{?eh,tc_start,{ct_framework,{ct_init_per_group,g11,[{suite,group_timetrap_3_SUITE}]}}},
+      {?eh,tc_done,{ct_framework,{ct_init_per_group,g11,[{suite,group_timetrap_3_SUITE}]},ok}},
+      {?eh,tc_done,{group_timetrap_3_SUITE,t111,{failed,{timetrap_timeout,1000}}}},
+      {?eh,test_stats,{0,14,{0,0}}},
+      {?eh,tc_start,{ct_framework,{ct_end_per_group,g11,[{suite,group_timetrap_3_SUITE}]}}},
+      {?eh,tc_done,{ct_framework,{ct_end_per_group,g11,[{suite,group_timetrap_3_SUITE}]},ok}}],
+
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,stop_logging,[]}
+    ];
+
 test_events(require) ->
     [
      {?eh,start_logging,{'DEF','RUNDIR'}},
@@ -341,11 +541,10 @@ test_events(require) ->
       {?eh,tc_done,{group_require_1_SUITE,{init_per_group,g4,[]},
 	{skipped,{require_failed,{name_in_use,common2_alias,common2}}}}},
       {?eh,tc_auto_skip,{group_require_1_SUITE,t41,
-			 {fw_auto_skip,
-			  {require_failed,{name_in_use,common2_alias,common2}}}}},
+			  {require_failed,{name_in_use,common2_alias,common2}}}},
       {?eh,test_stats,{4,0,{0,1}}},
       {?eh,tc_auto_skip,{group_require_1_SUITE,end_per_group,
-	{fw_auto_skip,{require_failed,{name_in_use,common2_alias,common2}}}}}],
+	{require_failed,{name_in_use,common2_alias,common2}}}}],
 
      [{?eh,tc_start,{group_require_1_SUITE,{init_per_group,g5,[]}}},
       {?eh,tc_done,{group_require_1_SUITE,{init_per_group,g5,[]},ok}},
@@ -369,10 +568,10 @@ test_events(require) ->
 		    {init_per_group,g8,[]},
 		    {skipped,{require_failed,{not_available,non_existing}}}}},
       {?eh,tc_auto_skip,{group_require_1_SUITE,t81,
-			 {fw_auto_skip,{require_failed,{not_available,non_existing}}}}},
+			 {require_failed,{not_available,non_existing}}}},
       {?eh,test_stats,{8,0,{0,2}}},
       {?eh,tc_auto_skip,{group_require_1_SUITE,end_per_group,
-			 {fw_auto_skip,{require_failed,{not_available,non_existing}}}}}],
+			 {require_failed,{not_available,non_existing}}}}],
      [{?eh,tc_start,{group_require_1_SUITE,{init_per_group,g9,[]}}},
       {?eh,tc_done,{group_require_1_SUITE,{init_per_group,g9,[]},ok}},
       {?eh,tc_done,{group_require_1_SUITE,t91,
@@ -430,10 +629,10 @@ test_events(require_default) ->
 		    {init_per_group,g4,[]},
 		    {skipped,{require_failed,{not_available,common3}}}}},
       {?eh,tc_auto_skip,{group_require_1_SUITE,t41,
-			 {fw_auto_skip,{require_failed,{not_available,common3}}}}},
+			 {require_failed,{not_available,common3}}}},
       {?eh,test_stats,{4,0,{0,1}}},
       {?eh,tc_auto_skip,{group_require_1_SUITE,end_per_group,
-			 {fw_auto_skip,{require_failed,{not_available,common3}}}}}],
+			 {require_failed,{not_available,common3}}}}],
 
      [{?eh,tc_start,{group_require_1_SUITE,{init_per_group,g5,[]}}},
       {?eh,tc_done,{group_require_1_SUITE,{init_per_group,g5,[]},ok}},
@@ -457,10 +656,10 @@ test_events(require_default) ->
 		    {init_per_group,g8,[]},
 		    {skipped,{require_failed,{not_available,non_existing}}}}},
       {?eh,tc_auto_skip,{group_require_1_SUITE,t81,
-			 {fw_auto_skip,{require_failed,{not_available,non_existing}}}}},
+			 {require_failed,{not_available,non_existing}}}},
       {?eh,test_stats,{8,0,{0,2}}},
       {?eh,tc_auto_skip,{group_require_1_SUITE,end_per_group,
-			 {fw_auto_skip,{require_failed,{not_available,non_existing}}}}}],
+			 {require_failed,{not_available,non_existing}}}}],
 
      [{?eh,tc_start,{group_require_1_SUITE,{init_per_group,g9,[]}}},
       {?eh,tc_done,{group_require_1_SUITE,{init_per_group,g9,[]},ok}},
@@ -486,4 +685,175 @@ test_events(require_default) ->
      {?eh,tc_done,{group_require_1_SUITE,end_per_suite,ok}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
+    ];
+
+test_events(require_no_ips) ->
+    [
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,start_info,{1,1,13}},
+     {?eh,tc_done,{group_require_2_SUITE,t1,ok}},
+
+     [{?eh,tc_start,{group_require_2_SUITE,{init_per_group,g1,[]}}},
+      {?eh,tc_done,{group_require_2_SUITE,{init_per_group,g1,[]},ok}},
+      {?eh,tc_done,{group_require_2_SUITE,t11,ok}},
+      {?eh,tc_start,{group_require_2_SUITE,{end_per_group,g1,[]}}},
+      {?eh,tc_done,{group_require_2_SUITE,{end_per_group,g1,[]},ok}}],
+
+     [{?eh,tc_start,{group_require_2_SUITE,{init_per_group,g2,[]}}},
+      {?eh,tc_done,{group_require_2_SUITE,{init_per_group,g2,[]},ok}},
+      {?eh,tc_done,{group_require_2_SUITE,t21,ok}},
+      {?eh,tc_start,{group_require_2_SUITE,{end_per_group,g2,[]}}},
+      {?eh,tc_done,{group_require_2_SUITE,{end_per_group,g2,[]},ok}}],
+
+     [{?eh,tc_start,{group_require_2_SUITE,{init_per_group,g3,[]}}},
+      {?eh,tc_done,{group_require_2_SUITE,{init_per_group,g3,[]},ok}},
+      {?eh,tc_done,{group_require_2_SUITE,t31,ok}},
+      {?eh,tc_start,{group_require_2_SUITE,{end_per_group,g3,[]}}},
+      {?eh,tc_done,{group_require_2_SUITE,{end_per_group,g3,[]},ok}}],
+
+     [{?eh,tc_start,{group_require_2_SUITE,{init_per_group,g4,[]}}},
+      {?eh,tc_done,{group_require_2_SUITE,{init_per_group,g4,[]},
+	{skipped,{require_failed,{name_in_use,common2_alias,common2}}}}},
+      {?eh,tc_auto_skip,{group_require_2_SUITE,t41,
+			  {require_failed,{name_in_use,common2_alias,common2}}}},
+      {?eh,test_stats,{4,0,{0,1}}},
+      {?eh,tc_auto_skip,{group_require_2_SUITE,end_per_group,
+			 {require_failed,{name_in_use,common2_alias,common2}}}}],
+
+     [{?eh,tc_start,{group_require_2_SUITE,{init_per_group,g5,[]}}},
+      {?eh,tc_done,{group_require_2_SUITE,{init_per_group,g5,[]},ok}},
+      [{?eh,tc_start,{group_require_2_SUITE,{init_per_group,g6,[]}}},
+       {?eh,tc_done,{group_require_2_SUITE,{init_per_group,g6,[]},ok}},
+       {?eh,tc_done,{group_require_2_SUITE,t61,ok}},
+       {?eh,tc_start,{group_require_2_SUITE,{end_per_group,g6,[]}}},
+       {?eh,tc_done,{group_require_2_SUITE,{end_per_group,g6,[]},ok}}],
+      {?eh,tc_done,{group_require_2_SUITE,t51,ok}},
+      [{?eh,tc_start,{group_require_2_SUITE,{init_per_group,g7,[]}}},
+       {?eh,tc_done,{group_require_2_SUITE,{init_per_group,g7,[]},ok}},
+       {?eh,tc_done,{group_require_2_SUITE,t71,ok}},
+       {?eh,tc_done,{group_require_2_SUITE,t72,ok}},
+       {?eh,tc_start,{group_require_2_SUITE,{end_per_group,g7,[]}}},
+       {?eh,tc_done,{group_require_2_SUITE,{end_per_group,g7,[]},ok}}],
+      {?eh,tc_start,{group_require_2_SUITE,{end_per_group,g5,[]}}},
+      {?eh,tc_done,{group_require_2_SUITE,{end_per_group,g5,[]},ok}}],
+
+     [{?eh,tc_start,{group_require_2_SUITE,{init_per_group,g8,[]}}},
+      {?eh,tc_done,{group_require_2_SUITE,
+		    {init_per_group,g8,[]},
+		    {skipped,{require_failed,{not_available,non_existing}}}}},
+      {?eh,tc_auto_skip,{group_require_2_SUITE,t81,
+			 {require_failed,{not_available,non_existing}}}},
+      {?eh,test_stats,{8,0,{0,2}}},
+      {?eh,tc_auto_skip,{group_require_2_SUITE,end_per_group,
+			 {require_failed,{not_available,non_existing}}}}],
+     [{?eh,tc_start,{group_require_2_SUITE,{init_per_group,g9,[]}}},
+      {?eh,tc_done,{group_require_2_SUITE,{init_per_group,g9,[]},ok}},
+      {?eh,tc_done,{group_require_2_SUITE,t91,
+		    {skipped,{require_failed,{not_available,non_existing}}}}},
+      {?eh,test_stats,{8,0,{0,3}}},
+      {?eh,tc_start,{group_require_2_SUITE,{end_per_group,g9,[]}}},
+      {?eh,tc_done,{group_require_2_SUITE,{end_per_group,g9,[]},ok}}],
+
+     [{?eh,tc_start,{group_require_2_SUITE,{init_per_group,g10,[]}}},
+      {?eh,tc_done,{group_require_2_SUITE,{init_per_group,g10,[]},ok}},
+      {?eh,tc_done,{group_require_2_SUITE,t101,ok}},
+      {?eh,tc_start,{group_require_2_SUITE,{end_per_group,g10,[]}}},
+      {?eh,tc_done,{group_require_2_SUITE,{end_per_group,g10,[]},ok}}],
+
+     [{?eh,tc_start,{group_require_2_SUITE,{init_per_group,g11,[]}}},
+      {?eh,tc_done,{group_require_2_SUITE,{init_per_group,g11,[]},ok}},
+      {?eh,tc_done,{group_require_2_SUITE,t111,ok}},
+      {?eh,test_stats,{10,0,{0,3}}},
+      {?eh,tc_start,{group_require_2_SUITE,{end_per_group,g11,[]}}},
+      {?eh,tc_done,{group_require_2_SUITE,{end_per_group,g11,[]},ok}}],
+
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,stop_logging,[]}
+    ];
+
+test_events(require_no_ipg) ->
+    [
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,start_info,{1,1,13}},
+     {?eh,tc_done,{group_require_3_SUITE,t1,ok}},
+
+     [{?eh,tc_start,{ct_framework,{ct_init_per_group,g1,[{suite,group_require_3_SUITE}]}}},
+      {?eh,tc_done,{ct_framework,{ct_init_per_group,g1,[{suite,group_require_3_SUITE}]},ok}},
+      {?eh,tc_done,{group_require_3_SUITE,t11,ok}},
+      {?eh,tc_start,{ct_framework,{ct_end_per_group,g1,[{suite,group_require_3_SUITE}]}}},
+      {?eh,tc_done,{ct_framework,{ct_end_per_group,g1,[{suite,group_require_3_SUITE}]},ok}}],
+
+     [{?eh,tc_start,{ct_framework,{ct_init_per_group,g2,[{suite,group_require_3_SUITE}]}}},
+      {?eh,tc_done,{ct_framework,{ct_init_per_group,g2,[{suite,group_require_3_SUITE}]},ok}},
+      {?eh,tc_done,{group_require_3_SUITE,t21,ok}},
+      {?eh,tc_start,{ct_framework,{ct_end_per_group,g2,[{suite,group_require_3_SUITE}]}}},
+      {?eh,tc_done,{ct_framework,{ct_end_per_group,g2,[{suite,group_require_3_SUITE}]},ok}}],
+
+     [{?eh,tc_start,{ct_framework,{ct_init_per_group,g3,[{suite,group_require_3_SUITE}]}}},
+      {?eh,tc_done,{ct_framework,{ct_init_per_group,g3,[{suite,group_require_3_SUITE}]},ok}},
+      {?eh,tc_done,{group_require_3_SUITE,t31,ok}},
+      {?eh,tc_start,{ct_framework,{ct_end_per_group,g3,[{suite,group_require_3_SUITE}]}}},
+      {?eh,tc_done,{ct_framework,{ct_end_per_group,g3,[{suite,group_require_3_SUITE}]},ok}}],
+
+     [{?eh,tc_start,{ct_framework,{ct_init_per_group,g4,[{suite,group_require_3_SUITE}]}}},
+      {?eh,tc_done,{ct_framework,{ct_init_per_group,g4,[{suite,group_require_3_SUITE}]},
+	{skipped,{require_failed,{name_in_use,common2_alias,common2}}}}},
+      {?eh,tc_auto_skip,{group_require_3_SUITE,t41,
+			 {require_failed,{name_in_use,common2_alias,common2}}}},
+      {?eh,test_stats,{4,0,{0,1}}},
+      {?eh,tc_auto_skip,{ct_framework,ct_end_per_group,
+			 {require_failed,{name_in_use,common2_alias,common2}}}}],
+
+     [{?eh,tc_start,{ct_framework,{ct_init_per_group,g5,[{suite,group_require_3_SUITE}]}}},
+      {?eh,tc_done,{ct_framework,{ct_init_per_group,g5,[{suite,group_require_3_SUITE}]},ok}},
+      [{?eh,tc_start,{ct_framework,{ct_init_per_group,g6,[{suite,group_require_3_SUITE}]}}},
+       {?eh,tc_done,{ct_framework,{ct_init_per_group,g6,[{suite,group_require_3_SUITE}]},ok}},
+       {?eh,tc_done,{group_require_3_SUITE,t61,ok}},
+       {?eh,tc_start,{ct_framework,{ct_end_per_group,g6,[{suite,group_require_3_SUITE}]}}},
+       {?eh,tc_done,{ct_framework,{ct_end_per_group,g6,[{suite,group_require_3_SUITE}]},ok}}],
+      {?eh,tc_done,{group_require_3_SUITE,t51,ok}},
+      [{?eh,tc_start,{ct_framework,{ct_init_per_group,g7,[{suite,group_require_3_SUITE}]}}},
+       {?eh,tc_done,{ct_framework,{ct_init_per_group,g7,[{suite,group_require_3_SUITE}]},ok}},
+       {?eh,tc_done,{group_require_3_SUITE,t71,ok}},
+       {?eh,tc_done,{group_require_3_SUITE,t72,ok}},
+       {?eh,tc_start,{ct_framework,{ct_end_per_group,g7,[{suite,group_require_3_SUITE}]}}},
+       {?eh,tc_done,{ct_framework,{ct_end_per_group,g7,[{suite,group_require_3_SUITE}]},ok}}],
+      {?eh,tc_start,{ct_framework,{ct_end_per_group,g5,[{suite,group_require_3_SUITE}]}}},
+      {?eh,tc_done,{ct_framework,{ct_end_per_group,g5,[{suite,group_require_3_SUITE}]},ok}}],
+
+     [{?eh,tc_start,{ct_framework,{ct_init_per_group,g8,[{suite,group_require_3_SUITE}]}}},
+      {?eh,tc_done,{ct_framework,{ct_init_per_group,g8,[{suite,group_require_3_SUITE}]},
+		    {skipped,{require_failed,{not_available,non_existing}}}}},
+      {?eh,tc_auto_skip,{group_require_3_SUITE,t81,
+			 {require_failed,{not_available,non_existing}}}},
+      {?eh,test_stats,{8,0,{0,2}}},
+      {?eh,tc_auto_skip,{ct_framework,ct_end_per_group,
+			 {require_failed,{not_available,non_existing}}}}],
+     [{?eh,tc_start,{ct_framework,{ct_init_per_group,g9,[{suite,group_require_3_SUITE}]}}},
+      {?eh,tc_done,{ct_framework,{ct_init_per_group,g9,[{suite,group_require_3_SUITE}]},ok}},
+      {?eh,tc_done,{group_require_3_SUITE,t91,
+		    {skipped,{require_failed,{not_available,non_existing}}}}},
+      {?eh,test_stats,{8,0,{0,3}}},
+      {?eh,tc_start,{ct_framework,{ct_end_per_group,g9,[{suite,group_require_3_SUITE}]}}},
+      {?eh,tc_done,{ct_framework,{ct_end_per_group,g9,[{suite,group_require_3_SUITE}]},ok}}],
+
+     [{?eh,tc_start,{ct_framework,{ct_init_per_group,g10,[{suite,group_require_3_SUITE}]}}},
+      {?eh,tc_done,{ct_framework,{ct_init_per_group,g10,[{suite,group_require_3_SUITE}]},ok}},
+      {?eh,tc_done,{group_require_3_SUITE,t101,ok}},
+      {?eh,tc_start,{ct_framework,{ct_end_per_group,g10,[{suite,group_require_3_SUITE}]}}},
+      {?eh,tc_done,{ct_framework,{ct_end_per_group,g10,[{suite,group_require_3_SUITE}]},ok}}],
+
+     [{?eh,tc_start,{ct_framework,{ct_init_per_group,g11,[{suite,group_require_3_SUITE}]}}},
+      {?eh,tc_done,{ct_framework,{ct_init_per_group,g11,[{suite,group_require_3_SUITE}]},ok}},
+      {?eh,tc_done,{group_require_3_SUITE,t111,ok}},
+      {?eh,test_stats,{10,0,{0,3}}},
+      {?eh,tc_start,{ct_framework,{ct_end_per_group,g11,[{suite,group_require_3_SUITE}]}}},
+      {?eh,tc_done,{ct_framework,{ct_end_per_group,g11,[{suite,group_require_3_SUITE}]},ok}}],
+
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,stop_logging,[]}
     ].
+
+

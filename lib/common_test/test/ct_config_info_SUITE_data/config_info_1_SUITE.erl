@@ -35,6 +35,7 @@ group(_) ->
 %%%-----------------------------------------------------------------
 
 init_per_suite() ->
+    ct:pal("init_per_suite info called", []),
     [{timetrap,1000},
      {require,suite_data},
      {default_config,suite_data,suite_data_val}].
@@ -47,6 +48,7 @@ init_per_suite(Config) ->
 %%%-----------------------------------------------------------------
 
 end_per_suite() ->
+    ct:pal("end_per_suite info called", []),
     [{timetrap,300},
      {require,suite_data2},
      {default_config,suite_data2,suite_data2_val}].
@@ -58,12 +60,16 @@ end_per_suite(_Config) ->
 
 %%%-----------------------------------------------------------------
 
-init_per_group() ->
+init_per_group(g1) ->
+    ct:pal("init_per_group(g1) info called", []),
+    [{timetrap,350}];
+init_per_group(G) ->
+    ct:pal("init_per_group(~w) info called", [G]),
     [{timetrap,400}].
 
-init_per_group(g1, Config) ->
+init_per_group(g1, _Config) ->
     ct:sleep(1000);
-init_per_group(g4, Config) ->
+init_per_group(g4, _Config) ->
     ct:sleep(1000);
 init_per_group(G, Config) ->
     GrProps = proplists:get_value(tc_group_properties, Config),
@@ -74,12 +80,16 @@ init_per_group(G, Config) ->
 
 %%%-----------------------------------------------------------------
 
-end_per_group() ->
-    [{timetrap,350}].
+end_per_group(g2) ->
+    ct:pal("end_per_group(g2) info called", []),
+    [{timetrap,450}];
+end_per_group(G) ->
+    ct:pal("end_per_group(~w) info called", [G]),
+    [{timetrap,400}].
 
-end_per_group(g2, Config) ->
+end_per_group(g2, _Config) ->
     ct:sleep(1000);
-end_per_group(g5, Config) ->
+end_per_group(g5, _Config) ->
     ct:sleep(1000);
 end_per_group(G, Config) ->
     GrProps = proplists:get_value(tc_group_properties, Config),
@@ -92,9 +102,9 @@ end_per_group(G, Config) ->
 init_per_testcase() ->
     [{timetrap,750}].
 
-init_per_testcase(t1, Config) ->
+init_per_testcase(t1, _Config) ->
     ct:sleep(1000);
-init_per_testcase(t31, Config) ->
+init_per_testcase(t31, _Config) ->
     ct:sleep(1000);
 init_per_testcase(_TestCase, Config) ->
     Config.
@@ -104,9 +114,9 @@ init_per_testcase(_TestCase, Config) ->
 end_per_testcase() ->
     [{timetrap,600}].
 
-end_per_testcase(t2, Config) ->
+end_per_testcase(t2, _Config) ->
     ct:sleep(1000);
-end_per_testcase(t32, Config) ->
+end_per_testcase(t32, _Config) ->
     ct:sleep(1000);
 end_per_testcase(_TestCase, _Config) ->
     ok.
