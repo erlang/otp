@@ -144,15 +144,20 @@ check_all_callbacks(Module, Behaviour, [Cb|Rest],
       'error' -> Acc1;
       {ok, {{File, Line}, Contract}} ->
 	Acc10 = Acc1,
-	SpecReturnType = dialyzer_contracts:get_contract_return(Contract),
-	SpecArgTypes = dialyzer_contracts:get_contract_args(Contract),
+	SpecReturnType0 = dialyzer_contracts:get_contract_return(Contract),
+	SpecArgTypes0 = dialyzer_contracts:get_contract_args(Contract),
+	SpecReturnType = erl_types:subst_all_vars_to_any(SpecReturnType0),
+	SpecArgTypes =
+	  [erl_types:subst_all_vars_to_any(ArgT0) || ArgT0 <- SpecArgTypes0],
 	Acc11 =
 	  case erl_types:t_is_subtype(SpecReturnType, CbReturnType) of
 	    true -> Acc10;
-	    false -> [{callback_spec_type_mismatch,
-		       [File, Line, Behaviour, Function, Arity,
-			erl_types:t_to_string(SpecReturnType, Records),
-			erl_types:t_to_string(CbReturnType, Records)]}|Acc10]
+	    false ->
+	      ExtraType = erl_types:t_subtract(SpecReturnType, CbReturnType),
+	      [{callback_spec_type_mismatch,
+		[File, Line, Behaviour, Function, Arity,
+		 erl_types:t_to_string(ExtraType, Records),
+		 erl_types:t_to_string(CbReturnType, Records)]}|Acc10]
 	  end,
 	Acc12 =
 	  case erl_types:any_none(

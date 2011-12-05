@@ -59,7 +59,7 @@
 
 -callback start(StartType :: normal | {takeover, node()} | {failover, node()},
 		StartArgs :: term()) ->
-    {ok, pid()} | {ok, pid(), State :: term()} | {error, Reason :: term}.
+    {'ok', pid()} | {'ok', pid(), State :: term()} | {'error', Reason :: term()}.
 
 -callback stop(State :: term()) ->
     term().
