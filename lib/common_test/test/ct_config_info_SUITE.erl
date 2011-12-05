@@ -18,9 +18,10 @@
 %%
 
 %%%-------------------------------------------------------------------
-%%% File: 
+%%% File: ct_config_info_SUITE
 %%%
-%%% Description: 
+%%% Description: Test how Common Test handles info functions
+%%% for the config functions.
 %%%
 %%%-------------------------------------------------------------------
 -module(ct_config_info_SUITE).
@@ -58,11 +59,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [
-     timetrap_all,
-     timetrap_group,
-     timetrap_group_case,
-     require,
-     require_default
+     config_info
     ].
 
 %%--------------------------------------------------------------------
@@ -71,12 +68,12 @@ all() ->
 
 %%%-----------------------------------------------------------------
 %%% 
-timetrap_all(Config) when is_list(Config) -> 
+config_info(Config) when is_list(Config) -> 
     DataDir = ?config(data_dir, Config),
-    Suite = filename:join(DataDir, "group_timetrap_1_SUITE"),
+    Suite = filename:join(DataDir, "config_info_1_SUITE"),
     {Opts,ERPid} = setup([{suite,Suite},
-			  {label,timetrap_all}], Config),
-    ok = execute(timetrap_all, Opts, ERPid, Config).
+			  {label,config_info}], Config),
+    ok = execute(config_info, Opts, ERPid, Config).
 
 %%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
@@ -118,6 +115,64 @@ events_to_check(Test, N) ->
     test_events(Test) ++ events_to_check(Test, N-1).
 
 
-test_events(timetrap_all) ->
+test_events(config_info) ->
     [
-    ];
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,start_info,{1,1,6}},
+     {?eh,tc_done,{config_info_1_SUITE,init_per_suite,ok}},
+
+     [{?eh,tc_start,{config_info_1_SUITE,{init_per_group,g1,[]}}},
+      {?eh,tc_done,{config_info_1_SUITE,
+		    {init_per_group,unknown,[]},
+		    {failed,{timetrap_timeout,400}}}},
+      {?eh,tc_auto_skip,{config_info_1_SUITE,t11,
+	{failed,{config_info_1_SUITE,init_per_group,{timetrap_timeout,400}}}}},
+      {?eh,tc_auto_skip,{config_info_1_SUITE,end_per_group,
+			 {failed,{config_info_1_SUITE,init_per_group,
+				  {timetrap_timeout,400}}}}}],
+
+     [{?eh,tc_start,{config_info_1_SUITE,{init_per_group,g2,[]}}},
+      {?eh,tc_done,{config_info_1_SUITE,{init_per_group,g2,[]},ok}},
+      {?eh,tc_done,{config_info_1_SUITE,t21,ok}},
+      {?eh,tc_start,{config_info_1_SUITE,{end_per_group,g2,[]}}},
+      {?eh,tc_done,{config_info_1_SUITE,
+		    {end_per_group,unknown,[]},
+		    {failed,{timetrap_timeout,350}}}}],
+     [{?eh,tc_start,{config_info_1_SUITE,{init_per_group,g3,[]}}},
+      {?eh,tc_done,{config_info_1_SUITE,{init_per_group,g3,[]},ok}},
+      [{?eh,tc_start,{config_info_1_SUITE,{init_per_group,g4,[]}}},
+       {?eh,tc_done,{config_info_1_SUITE,
+		     {init_per_group,unknown,[]},
+		     {failed,{timetrap_timeout,400}}}},
+       {?eh,tc_auto_skip,{config_info_1_SUITE,t41,
+	 {failed,{config_info_1_SUITE,init_per_group,
+		  {timetrap_timeout,400}}}}},
+       {?eh,tc_auto_skip,{config_info_1_SUITE,end_per_group,
+	 {failed,{config_info_1_SUITE,init_per_group,
+		  {timetrap_timeout,400}}}}}],
+      {?eh,tc_start,{config_info_1_SUITE,t31}},
+      {?eh,tc_done,{config_info_1_SUITE,t31,
+		    {skipped,{failed,{config_info_1_SUITE,init_per_testcase,
+				      {timetrap_timeout,750}}}}}},
+      {?eh,tc_start,{config_info_1_SUITE,t32}},
+      {?eh,tc_done,{config_info_1_SUITE,t32,
+	{failed,{config_info_1_SUITE,end_per_testcase,
+		 {timetrap_timeout,600}}}}},
+
+      [{?eh,tc_start,{config_info_1_SUITE,{init_per_group,g5,[]}}},
+       {?eh,tc_done,{config_info_1_SUITE,{init_per_group,g5,[]},ok}},
+       {?eh,tc_done,{config_info_1_SUITE,t51,ok}},
+       {?eh,tc_start,{config_info_1_SUITE,{end_per_group,g5,[]}}},
+       {?eh,tc_done,{config_info_1_SUITE,
+		     {end_per_group,unknown,[]},
+		     {failed,{timetrap_timeout,350}}}}],
+      {?eh,tc_start,{config_info_1_SUITE,{end_per_group,g3,[]}}},
+      {?eh,tc_done,{config_info_1_SUITE,{end_per_group,g3,[]},ok}}],
+
+     {?eh,tc_start,{config_info_1_SUITE,end_per_suite}},
+     {?eh,tc_done,{config_info_1_SUITE,end_per_suite,
+		   {failed,{timetrap_timeout,300}}}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,stop_logging,[]}
+    ].
