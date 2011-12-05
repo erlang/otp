@@ -896,7 +896,7 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
         <v>Key = [E, N]</v>
         <v>E, N = Mpint</v>
         <d>Where <c>E</c> is the public exponent and <c>N</c> is public modulus.</d>
-	<v>DigestType = md5 | sha</v>
+	<v>DigestType = md5 | sha | sha256 | sha384 | sha512</v>
 	<d> The default <c>DigestType</c> is sha.</d>
         <v>Mpint = binary()</v>
       </type>
@@ -905,6 +905,8 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
           and verifies that the digest matches the RSA signature using the
           signer's public key <c>Key</c>.
 	</p>
+	<p>May throw exception <c>notsup</c> in case the choosen <c>DigestType</c>
+	is not supported by the underlying OpenSSL implementation.</p>
       </desc>
     </func>
     
