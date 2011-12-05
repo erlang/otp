@@ -53,6 +53,17 @@
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 
+#if OPENSSL_VERSION_NUMBER >= 0x00908000L && !defined(OPENSSL_NO_SHA256) && defined(NID_sha256)
+# define HAVE_SHA256
+#endif
+#if OPENSSL_VERSION_NUMBER >= 0x00908000L && !defined(OPENSSL_NO_SHA384) && defined(NID_sha384)\
+         && !defined(OPENSSL_NO_SHA512) /* disabled like this in my sha.h (?) */
+# define HAVE_SHA384
+#endif
+#if OPENSSL_VERSION_NUMBER >= 0x00908000L && !defined(OPENSSL_NO_SHA512) && defined(NID_sha512)
+# define HAVE_SHA512
+#endif
+
 #ifdef VALGRIND
     #  include <valgrind/memcheck.h>
 
@@ -124,6 +135,14 @@ static ERL_NIF_TERM sha(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM sha_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM sha_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM sha_final(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM sha256_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM sha256_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM sha256_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM sha256_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM sha512_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM sha512_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM sha512_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM sha512_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM md4(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM md4_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM md4_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -148,7 +167,7 @@ static ERL_NIF_TERM strong_rand_mpint_nif(ErlNifEnv* env, int argc, const ERL_NI
 static ERL_NIF_TERM rand_uniform_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM mod_exp_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM dss_verify(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM rsa_verify(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM rsa_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM aes_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM exor(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rc4_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -201,6 +220,14 @@ static ErlNifFunc nif_funcs[] = {
     {"sha_init", 0, sha_init},
     {"sha_update", 2, sha_update},
     {"sha_final", 1, sha_final},
+    {"sha256_nif", 1, sha256_nif},
+    {"sha256_init_nif", 0, sha256_init_nif},
+    {"sha256_update_nif", 2, sha256_update_nif},
+    {"sha256_final_nif", 1, sha256_final_nif},
+    {"sha512_nif", 1, sha512_nif},
+    {"sha512_init_nif", 0, sha512_init_nif},
+    {"sha512_update_nif", 2, sha512_update_nif},
+    {"sha512_final_nif", 1, sha512_final_nif},
     {"md4", 1, md4},
     {"md4_init", 0, md4_init},
     {"md4_update", 2, md4_update},
@@ -228,7 +255,7 @@ static ErlNifFunc nif_funcs[] = {
     {"rand_uniform_nif", 2, rand_uniform_nif},
     {"mod_exp_nif", 3, mod_exp_nif},
     {"dss_verify", 4, dss_verify},
-    {"rsa_verify", 4, rsa_verify},
+    {"rsa_verify_nif", 4, rsa_verify_nif},
     {"aes_cbc_crypt", 4, aes_cbc_crypt},
     {"exor", 2, exor},
     {"rc4_encrypt", 2, rc4_encrypt},
@@ -260,6 +287,9 @@ ERL_NIF_INIT(crypto,nif_funcs,load,reload,upgrade,unload)
 #define SHA_CTX_LEN     (sizeof(SHA_CTX))
 #define SHA_LEN         20
 #define SHA_LEN_96      12
+#define SHA256_LEN	(256/8)
+#define SHA384_LEN	(384/8)
+#define SHA512_LEN	(512/8)
 #define HMAC_INT_LEN    64
 
 #define HMAC_IPAD       0x36
@@ -270,6 +300,9 @@ static ErlNifRWLock** lock_vec = NULL; /* Static locks used by openssl */
 static ERL_NIF_TERM atom_true;
 static ERL_NIF_TERM atom_false;
 static ERL_NIF_TERM atom_sha;
+static ERL_NIF_TERM atom_sha256;
+static ERL_NIF_TERM atom_sha384;
+static ERL_NIF_TERM atom_sha512;
 static ERL_NIF_TERM atom_md5;
 static ERL_NIF_TERM atom_ripemd160;
 static ERL_NIF_TERM atom_error;
@@ -286,6 +319,7 @@ static ERL_NIF_TERM atom_not_suitable_generator;
 static ERL_NIF_TERM atom_check_failed;
 static ERL_NIF_TERM atom_unknown;
 static ERL_NIF_TERM atom_none;
+static ERL_NIF_TERM atom_notsup;
 
 
 static int is_ok_load_info(ErlNifEnv* env, ERL_NIF_TERM load_info)
@@ -340,6 +374,9 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_true = enif_make_atom(env,"true");
     atom_false = enif_make_atom(env,"false");
     atom_sha = enif_make_atom(env,"sha");
+    atom_sha256 = enif_make_atom(env,"sha256");
+    atom_sha384 = enif_make_atom(env,"sha384");
+    atom_sha512 = enif_make_atom(env,"sha512");
     atom_md5 = enif_make_atom(env,"md5");
     atom_ripemd160 = enif_make_atom(env,"ripemd160");
     atom_error = enif_make_atom(env,"error");
@@ -355,6 +392,7 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_check_failed = enif_make_atom(env,"check_failed");
     atom_unknown = enif_make_atom(env,"unknown");
     atom_none = enif_make_atom(env,"none");
+    atom_notsup = enif_make_atom(env,"notsup");
 
     *priv_data = NULL;
     library_refc++;
@@ -518,6 +556,129 @@ static ERL_NIF_TERM sha_final(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     SHA1_Final(enif_make_new_binary(env, SHA_LEN, &ret), &ctx_clone);    
     return ret;
 }
+
+static ERL_NIF_TERM sha256_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Data) */
+#ifdef HAVE_SHA256
+    ErlNifBinary ibin;
+    ERL_NIF_TERM ret;
+
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &ibin)) {
+	return enif_make_badarg(env);
+    }
+    SHA256((unsigned char *) ibin.data, ibin.size,
+	 enif_make_new_binary(env,SHA256_LEN, &ret));
+    return ret;
+#else
+    return atom_notsup;
+#endif
+}
+static ERL_NIF_TERM sha256_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* () */   
+#ifdef HAVE_SHA256
+    ERL_NIF_TERM ret;
+    SHA256_Init((SHA256_CTX *) enif_make_new_binary(env, sizeof(SHA256_CTX), &ret));
+    return ret;
+#else
+    return atom_notsup;
+#endif
+}
+static ERL_NIF_TERM sha256_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Context, Data) */
+#ifdef HAVE_SHA256
+    SHA256_CTX* new_ctx;
+    ErlNifBinary ctx_bin, data_bin;
+    ERL_NIF_TERM ret;
+    if (!enif_inspect_binary(env, argv[0], &ctx_bin) || ctx_bin.size != sizeof(SHA256_CTX)
+	|| !enif_inspect_iolist_as_binary(env, argv[1], &data_bin)) {
+	return enif_make_badarg(env);
+    }
+    new_ctx = (SHA256_CTX*) enif_make_new_binary(env,sizeof(SHA256_CTX), &ret);
+    memcpy(new_ctx, ctx_bin.data, sizeof(SHA256_CTX));
+    SHA256_Update(new_ctx, data_bin.data, data_bin.size);
+    return ret;
+#else
+    return atom_notsup;
+#endif
+}
+static ERL_NIF_TERM sha256_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Context) */
+#ifdef HAVE_SHA256
+    ErlNifBinary ctx_bin;
+    SHA256_CTX ctx_clone;
+    ERL_NIF_TERM ret;
+    if (!enif_inspect_binary(env, argv[0], &ctx_bin) || ctx_bin.size != sizeof(SHA256_CTX)) {
+	return enif_make_badarg(env);
+    }
+    memcpy(&ctx_clone, ctx_bin.data, sizeof(SHA256_CTX)); /* writable */
+    SHA256_Final(enif_make_new_binary(env, SHA256_LEN, &ret), &ctx_clone);    
+    return ret;
+#else
+    return atom_notsup;
+#endif
+}
+
+static ERL_NIF_TERM sha512_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Data) */
+#ifdef HAVE_SHA512
+    ErlNifBinary ibin;
+    ERL_NIF_TERM ret;
+
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &ibin)) {
+	return enif_make_badarg(env);
+    }
+    SHA512((unsigned char *) ibin.data, ibin.size,
+	 enif_make_new_binary(env,SHA512_LEN, &ret));
+    return ret;
+#else
+    return atom_notsup;
+#endif
+}
+static ERL_NIF_TERM sha512_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* () */   
+#ifdef HAVE_SHA512
+    ERL_NIF_TERM ret;
+    SHA512_Init((SHA512_CTX *) enif_make_new_binary(env, sizeof(SHA512_CTX), &ret));
+    return ret;
+#else
+    return atom_notsup;
+#endif
+}
+static ERL_NIF_TERM sha512_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Context, Data) */
+#ifdef HAVE_SHA512
+    SHA512_CTX* new_ctx;
+    ErlNifBinary ctx_bin, data_bin;
+    ERL_NIF_TERM ret;
+    if (!enif_inspect_binary(env, argv[0], &ctx_bin) || ctx_bin.size != sizeof(SHA512_CTX)
+	|| !enif_inspect_iolist_as_binary(env, argv[1], &data_bin)) {
+	return enif_make_badarg(env);
+    }
+    new_ctx = (SHA512_CTX*) enif_make_new_binary(env,sizeof(SHA512_CTX), &ret);
+    memcpy(new_ctx, ctx_bin.data, sizeof(SHA512_CTX));
+    SHA512_Update(new_ctx, data_bin.data, data_bin.size);
+    return ret;
+#else
+    return atom_notsup;
+#endif
+}
+static ERL_NIF_TERM sha512_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Context) */
+#ifdef HAVE_SHA512
+    ErlNifBinary ctx_bin;
+    SHA512_CTX ctx_clone;
+    ERL_NIF_TERM ret;
+    if (!enif_inspect_binary(env, argv[0], &ctx_bin) || ctx_bin.size != sizeof(SHA512_CTX)) {
+	return enif_make_badarg(env);
+    }
+    memcpy(&ctx_clone, ctx_bin.data, sizeof(SHA512_CTX)); /* writable */
+    SHA512_Final(enif_make_new_binary(env, SHA512_LEN, &ret), &ctx_clone);    
+    return ret;
+#else
+    return atom_notsup;
+#endif
+}
+
 
 static ERL_NIF_TERM md4(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Data) */    
@@ -1095,17 +1256,14 @@ static ERL_NIF_TERM dss_verify(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     return(i > 0) ? atom_true : atom_false;
 }
 
-static ERL_NIF_TERM rsa_verify(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+static ERL_NIF_TERM rsa_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Type, Data, Signature, Key=[E,N]) */
     ErlNifBinary data_bin, sign_bin;
-    unsigned char hmacbuf[SHA_DIGEST_LENGTH];
+    unsigned char hmacbuf[SHA512_LEN];
     ERL_NIF_TERM head, tail, ret;
-    int i, is_sha;
+    int i;
     RSA* rsa = RSA_new();
-
-    if (argv[0] == atom_sha) is_sha = 1;
-    else if (argv[0] == atom_md5) is_sha = 0;
-    else goto badarg;
+    const ERL_NIF_TERM type = argv[0];
 
     if (!inspect_mpint(env, argv[1], &data_bin)
 	|| !inspect_mpint(env, argv[2], &sign_bin)
@@ -1114,22 +1272,57 @@ static ERL_NIF_TERM rsa_verify(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 	|| !enif_get_list_cell(env, tail, &head, &tail)
 	|| !get_bn_from_mpint(env, head, &rsa->n)
 	|| !enif_is_empty_list(env, tail)) {
-    badarg:
+	
 	ret = enif_make_badarg(env);
     }
     else {
-	if (is_sha) {
+	if (type == atom_sha) {
 	    SHA1(data_bin.data+4, data_bin.size-4, hmacbuf);
 	    i = RSA_verify(NID_sha1, hmacbuf, SHA_DIGEST_LENGTH,
 			   sign_bin.data+4, sign_bin.size-4, rsa);
 	}
-	else {
+	else if (type == atom_sha256) {
+	  #ifdef HAVE_SHA256
+	    SHA256(data_bin.data+4, data_bin.size-4, hmacbuf);
+	    i = RSA_verify(NID_sha256, hmacbuf, SHA256_LEN,
+			   sign_bin.data+4, sign_bin.size-4, rsa);
+	  #else
+	    ret = atom_notsup;
+	    goto done;
+	  #endif 
+	}
+	else if (type == atom_sha384) {
+	  #ifdef HAVE_SHA384
+	    SHA384(data_bin.data+4, data_bin.size-4, hmacbuf);
+	    i = RSA_verify(NID_sha384, hmacbuf, SHA384_LEN,
+			   sign_bin.data+4, sign_bin.size-4, rsa);
+	  #else
+	    ret = atom_notsup;
+	    goto done;
+	  #endif 
+	}
+	else if (type == atom_sha512) {
+	  #ifdef HAVE_SHA512
+	    SHA512(data_bin.data+4, data_bin.size-4, hmacbuf);
+	    i = RSA_verify(NID_sha512, hmacbuf, SHA512_LEN,
+			   sign_bin.data+4, sign_bin.size-4, rsa);
+	  #else
+	    ret = atom_notsup;
+	    goto done;	    
+	  #endif
+	}
+	else if (type == atom_md5) {
 	    MD5(data_bin.data+4, data_bin.size-4, hmacbuf);
 	    i = RSA_verify(NID_md5, hmacbuf, MD5_DIGEST_LENGTH,
 			   sign_bin.data+4, sign_bin.size-4, rsa);
 	}
+	else {
+	    ret = enif_make_badarg(env);
+	    goto done;
+	}
 	ret = (i==1 ? atom_true : atom_false);
-    }
+    }    
+done:
     RSA_free(rsa);
     return ret;
 }
