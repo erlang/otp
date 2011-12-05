@@ -1031,6 +1031,7 @@ busy_send_loop(Server, Client, N) ->
 			    {Server,send} ->
 				?line busy_send_2(Server, Client, N+1)
 			after 10000 ->
+				%% If this happens, see busy_send_srv
 				?t:fail({timeout,{server,not_send,flush([])}})
 			end
 	  end.
@@ -1050,7 +1051,9 @@ busy_send_2(Server, Client, _N) ->
 
 busy_send_srv(L, Master, Msg) ->
     %% Server
-    %%
+    %% Sometimes this accept does not return, do not really know why
+    %% but is causes the timeout error in busy_send_loop to be
+    %% triggered. Only happens on OS X Leopard?!?
     {ok,Socket} = gen_tcp:accept(L),
     busy_send_srv_loop(Socket, Master, Msg).
 
