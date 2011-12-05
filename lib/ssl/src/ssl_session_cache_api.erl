@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -20,18 +20,15 @@
 %%
 
 -module(ssl_session_cache_api).
+-include("ssl_handshake.hrl").
+-include("ssl_internal.hrl").
 
--export([behaviour_info/1]).
+-type key() :: {{host(), inet:port_number()}, session_id()} |  {inet:port_number(), session_id()}.
 
-behaviour_info(callbacks) ->
-    [
-     {init, 1}, 
-     {terminate, 1}, 
-     {lookup, 2}, 
-     {update, 3}, 
-     {delete, 2}, 
-     {foldl, 3},
-     {select_session, 2}
-    ];
-behaviour_info(_) ->
-    undefined.
+-callback init(list()) -> db_handle().
+-callback terminate(db_handle()) -> any().
+-callback lookup(db_handle(), key()) -> #session{} | undefined.
+-callback update(db_handle(), key(), #session{}) -> any().
+-callback delete(db_handle(), key()) -> any().
+-callback foldl(fun(), term(), db_handle()) -> term().
+-callback select_session(db_handle(), {host(), inet:port_number()} | inet:port_number()) -> [#session{}].

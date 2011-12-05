@@ -293,10 +293,6 @@ start_link(Role, Host, Port, Socket, Options, User, CbInfo) ->
 %% gen_fsm callbacks
 %%====================================================================
 %%--------------------------------------------------------------------
--spec init(list()) -> {ok, state_name(), #state{}, timeout()} | {stop, term()}.
-%% Possible return values not used now.
-%%			  | {ok, state_name(), #state{}} |
-%%			  ignore  
 %% Description:Whenever a gen_fsm is started using gen_fsm:start/[3,4] or
 %% gen_fsm:start_link/3,4, this function is called by the new process to 
 %% initialize. 
@@ -324,8 +320,6 @@ init([Role, Host, Port, Socket, {SSLOpts0, _} = Options,
     end.
    
 %%--------------------------------------------------------------------
-%% -spec state_name(event(), #state{}) -> gen_fsm_state_return()
-%%
 %% Description:There should be one instance of this function for each
 %% possible state name. Whenever a gen_fsm receives an event sent
 %% using gen_fsm:send_event/2, the instance of this function with the
@@ -728,10 +722,6 @@ connection(timeout, State) ->
 connection(Msg, State) ->
     handle_unexpected_message(Msg, connection, State).
 %%--------------------------------------------------------------------
--spec handle_event(term(), state_name(), #state{}) -> term().
-%% As it is not currently used gen_fsm_state_return() makes
-%% dialyzer unhappy!
-%%
 %% Description: Whenever a gen_fsm receives an event sent using
 %% gen_fsm:send_all_state_event/2, this function is called to handle
 %% the event. Not currently used!
@@ -740,12 +730,6 @@ handle_event(_Event, StateName, State) ->
     {next_state, StateName, State, get_timeout(State)}.
 
 %%--------------------------------------------------------------------
--spec handle_sync_event(term(), from(), state_name(), #state{}) -> 
-			       gen_fsm_state_return() |  
-			       {reply, reply(), state_name(), #state{}} |
-			       {reply, reply(), state_name(), #state{}, timeout()} |
-			       {stop, reason(), reply(), #state{}}.
-%%
 %% Description: Whenever a gen_fsm receives an event sent using
 %% gen_fsm:sync_send_all_state_event/2,3, this function is called to handle
 %% the event.
@@ -905,11 +889,6 @@ handle_sync_event(peer_certificate, _, StateName,
     {reply, {ok, Cert}, StateName, State, get_timeout(State)}.
 
 %%--------------------------------------------------------------------
--spec handle_info(msg(),state_name(), #state{}) -> 
-			 {next_state, state_name(), #state{}}|
-			 {next_state, state_name(), #state{}, timeout()} |
-			 {stop, reason(), #state{}}.
-%%
 %% Description: This function is called by a gen_fsm when it receives any
 %% other message than a synchronous or asynchronous event
 %% (or a system message).
@@ -972,8 +951,6 @@ handle_info(Msg, StateName, State) ->
     {next_state, StateName, State, get_timeout(State)}.
 
 %%--------------------------------------------------------------------
--spec terminate(reason(), state_name(), #state{}) -> term().
-%%
 %% Description:This function is called by a gen_fsm when it is about
 %% to terminate. It should be the opposite of Module:init/1 and do any
 %% necessary cleaning up. When it returns, the gen_fsm terminates with
@@ -1004,8 +981,6 @@ terminate(Reason, _StateName, #state{transport_cb = Transport,
     Transport:close(Socket).
 
 %%--------------------------------------------------------------------
--spec code_change(term(), state_name(), #state{}, list()) -> {ok, state_name(), #state{}}.
-%%			 
 %% code_change(OldVsn, StateName, State, Extra) -> {ok, StateName, NewState}
 %% Description: Convert process state when code is changed
 %%--------------------------------------------------------------------

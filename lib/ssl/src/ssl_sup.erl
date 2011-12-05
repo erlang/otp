@@ -41,7 +41,6 @@ start_link() ->
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
--spec init([]) -> {ok,  {SupFlags :: tuple(),  [ChildSpec :: tuple()]}}.
 
 init([]) ->    
     %% OLD ssl - moved start to ssl.erl only if old
