@@ -633,7 +633,9 @@ asm_passes() ->
 	 {iff,dbool,{listing,"bool"}},
 	 {unless,no_topt,{pass,beam_type}},
 	 {iff,dtype,{listing,"type"}},
-	 {pass,beam_dead},	      %Must always run since it splits blocks.
+	 {pass,beam_split},
+	 {iff,dsplit,{listing,"split"}},
+	 {unless,no_dead,{pass,beam_dead}},
 	 {iff,ddead,{listing,"dead"}},
 	 {unless,no_jopt,{pass,beam_jump}},
 	 {iff,djmp,{listing,"jump"}},
