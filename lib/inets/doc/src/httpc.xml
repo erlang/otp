@@ -408,6 +408,8 @@ apply(Module, Function, [ReplyInfo | Args])
 
             <p>Defaults to the <c>pid()</c> of the process calling the request 
 	    function (<c>self()</c>). </p>
+
+	    <marker id="ipv6_host_with_brackets"></marker>
 	  </item>
 
           <tag><c><![CDATA[ipv6_host_with_brackets]]></c></tag>
