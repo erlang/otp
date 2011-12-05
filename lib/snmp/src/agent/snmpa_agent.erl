@@ -115,7 +115,7 @@
 			  {extra,      Extra}]}.
 -define(mk_send_trap_wreq(TrapRec, NotifyName, ContextName, 
 			  Recv, Vbs, LocalEngineID),
-	#wrequest{cmd  = handle_pdu, 
+	#wrequest{cmd  = send_trap, 
 		  info = [{trap_rec,        TrapRec}, 
 			  {notify_name,     NotifyName}, 
 			  {context_name,    ContextName}, 
@@ -1656,92 +1656,119 @@ worker(Master, Dict) ->
     worker_loop(Master).
 
 worker_loop(Master) ->
-    receive
-	#wrequest{cmd  = handle_pdu, 
-		  info = Info} ->
-	    ?vtrace("worker_loop -> received handle_pdu request", []),
-	    Vsn      = proplists:get_value(vsn,        Info),
-	    Pdu      = proplists:get_value(pdu,        Info),
-	    PduMS    = proplists:get_value(pdu_ms,     Info),
-	    ACMData  = proplists:get_value(acm_data,   Info),
-	    Address  = proplists:get_value(addr,       Info),
-	    GbMaxVBs = proplists:get_value(gb_max_vbs, Info),
-	    Extra    = proplists:get_value(extra,      Info),
-	    handle_pdu2(Vsn, Pdu, PduMS, ACMData, Address, GbMaxVBs, Extra), 
-	    ok;
-
-
-	#wrequest{cmd  = send_trap, 
-		  info = Info} ->
-	    ?vtrace("worker_loop -> send trap", []),
-	    TrapRec       = proplists:get_value(trap_rec,        Info),
-	    NotifyName    = proplists:get_value(notify_name,     Info),
-	    ContextName   = proplists:get_value(context_name,    Info),
-	    Recv          = proplists:get_value(receiver,        Info),
-	    Vbs           = proplists:get_value(vbs,             Info),
-	    LocalEngineID = proplists:get_value(local_engine_id, Info),
-	    snmpa_trap:send_trap(TrapRec, NotifyName, 
-				 ContextName, Recv, Vbs, LocalEngineID, 
-				 get(net_if)),
-	    ok;
-
-
-	#wrequest{cmd  = verbosity, 
-		  info = Info} ->
-	    Verbosity = proplists:get_value(verbosity, Info),
-	    put(verbosity, snmp_verbosity:validate(Verbosity)),
-	    ok;
-
-
-	#wrequest{cmd  = terminate} ->
-	    exit(normal);
-
-
-	%% *************************************************************
-	%% 
-	%%         Kept for backward compatibillity reasons
-	%% 
-	%% *************************************************************
-
-	{Vsn, Pdu, PduMS, ACMData, Address, Extra} ->
-	    ?vtrace("worker_loop -> received request", []),
-	    handle_pdu2(Vsn, Pdu, PduMS, ACMData, Address, 
-			?DEFAULT_GB_MAX_VBS, Extra),
-	    Master ! worker_available;
-
-	%% We don't trap exits!
-	{TrapRec, NotifyName, ContextName, Recv, Vbs} -> 
-	    ?vtrace("worker_loop -> send trap:"
-		    "~n   ~p", [TrapRec]),
-	    snmpa_trap:send_trap(TrapRec, NotifyName, 
-				 ContextName, Recv, Vbs, get(net_if)),
-	    Master ! worker_available;
-
-	%% We don't trap exits!
-	{send_trap, 
-	 TrapRec, NotifyName, ContextName, Recv, Vbs, LocalEngineID} -> 
-	    ?vtrace("worker_loop -> send trap:"
-		    "~n   ~p", [TrapRec]),
-	    snmpa_trap:send_trap(TrapRec, NotifyName, 
-				 ContextName, Recv, Vbs, LocalEngineID, 
-				 get(net_if)),
-	    Master ! worker_available;
-
-	{verbosity, Verbosity} ->
-	    put(verbosity,snmp_verbosity:validate(Verbosity));
-
-	terminate ->
-	    exit(normal);
-
-	_X ->
-	    %% ignore
-	    ok
-
-    after 30000 ->
-	    %% This is to assure that the worker process leaves a
-	    %% possibly old version of this module.
-	    ok
-    end,
+    Res = 
+	receive
+	    #wrequest{cmd  = handle_pdu, 
+		      info = Info} = Req ->
+		?vtrace("worker_loop -> received handle_pdu request with"
+			"~n   Info: ~p", [Info]),
+		Vsn      = proplists:get_value(vsn,        Info),
+		Pdu      = proplists:get_value(pdu,        Info),
+		PduMS    = proplists:get_value(pdu_ms,     Info),
+		ACMData  = proplists:get_value(acm_data,   Info),
+		Address  = proplists:get_value(addr,       Info),
+		GbMaxVBs = proplists:get_value(gb_max_vbs, Info),
+		Extra    = proplists:get_value(extra,      Info),
+		HandlePduRes = 
+		    try 
+			begin
+			    handle_pdu2(Vsn, Pdu, PduMS, ACMData, Address, 
+					GbMaxVBs, Extra)
+			end
+		    catch 
+			T:E ->
+			    exit({worker_crash, Req, T, E, 
+				  erlang:get_stacktrace()})
+		    end,
+		Master ! worker_available,
+		HandlePduRes; % For debugging...
+	    
+	    
+	    #wrequest{cmd  = send_trap, 
+		      info = Info} = Req ->
+		?vtrace("worker_loop -> received send_trap request with"
+			"~n   Info: ~p", [Info]),
+		TrapRec       = proplists:get_value(trap_rec,        Info),
+		NotifyName    = proplists:get_value(notify_name,     Info),
+		ContextName   = proplists:get_value(context_name,    Info),
+		Recv          = proplists:get_value(receiver,        Info),
+		Vbs           = proplists:get_value(varbinds,        Info),
+		LocalEngineID = proplists:get_value(local_engine_id, Info),
+		SendTrapRes = 
+		    try
+			begin
+			    snmpa_trap:send_trap(TrapRec, NotifyName, 
+						 ContextName, Recv, Vbs, 
+						 LocalEngineID, 
+						 get(net_if))
+			end
+		    catch 
+			T:E ->
+			    exit({worker_crash, Req, T, E, 
+				  erlang:get_stacktrace()})
+		    end,
+		Master ! worker_available, 
+		SendTrapRes; % For debugging...
+	    
+	    
+	    #wrequest{cmd  = verbosity, 
+		      info = Info} ->
+		Verbosity = proplists:get_value(verbosity, Info),
+		put(verbosity, snmp_verbosity:validate(Verbosity));
+	    
+	    
+	    #wrequest{cmd  = terminate} ->
+		?vtrace("worker_loop -> received terminate request", []),
+		exit(normal);
+	    
+	    
+	    %% *************************************************************
+	    %% 
+	    %%         Kept for backward compatibillity reasons
+	    %% 
+	    %% *************************************************************
+	    
+	    {Vsn, Pdu, PduMS, ACMData, Address, Extra} ->
+		?vtrace("worker_loop -> received request", []),
+		handle_pdu2(Vsn, Pdu, PduMS, ACMData, Address, 
+			    ?DEFAULT_GB_MAX_VBS, Extra),
+		Master ! worker_available;
+	    
+	    %% We don't trap exits!
+	    {TrapRec, NotifyName, ContextName, Recv, Vbs} -> 
+		?vtrace("worker_loop -> send trap:"
+			"~n   ~p", [TrapRec]),
+		snmpa_trap:send_trap(TrapRec, NotifyName, 
+				     ContextName, Recv, Vbs, get(net_if)),
+		Master ! worker_available;
+	    
+	    %% We don't trap exits!
+	    {send_trap, 
+	     TrapRec, NotifyName, ContextName, Recv, Vbs, LocalEngineID} -> 
+		?vtrace("worker_loop -> send trap:"
+			"~n   ~p", [TrapRec]),
+		snmpa_trap:send_trap(TrapRec, NotifyName, 
+				     ContextName, Recv, Vbs, LocalEngineID, 
+				     get(net_if)),
+		Master ! worker_available;
+	    
+	    {verbosity, Verbosity} ->
+		put(verbosity, snmp_verbosity:validate(Verbosity));
+	    
+	    terminate ->
+		exit(normal);
+	    
+	    _X ->
+		%% ignore
+		ignore_unknown
+	
+	after 30000 ->
+		%% This is to assure that the worker process leaves a
+		%% possibly old version of this module.
+		ok
+	end,
+    ?vtrace("worker_loop -> wrap with"
+	    "~n   ~p", [Res]),
     ?MODULE:worker_loop(Master).
 
 
@@ -1756,11 +1783,10 @@ handle_snmp_pdu(true, Vsn, Pdu, PduMS, ACMData, Address, Extra,
     S;
 handle_snmp_pdu(true, Vsn, #pdu{type = 'set-request'} = Pdu, PduMS, 
 		ACMData, Address, Extra, 
-		#state{set_worker = Worker, 
-		       gb_max_vbs = GbMaxVBs} = S) ->
+		#state{set_worker = Worker} = S) ->
     ?vtrace("handle_snmp_pdu -> multi-thread agent: "
 	    "send set-request to main worker",[]),
-    WRequest = ?mk_pdu_wreq(Vsn, Pdu, PduMS, ACMData, Address, GbMaxVBs, Extra),
+    WRequest = ?mk_pdu_wreq(Vsn, Pdu, PduMS, ACMData, Address, infinity, Extra),
     Worker ! WRequest, 
     S#state{worker_state = busy};
 handle_snmp_pdu(true, Vsn, Pdu, PduMS, 
