@@ -872,9 +872,9 @@ typedef struct {
     double send_avg;            /* average packet size sent */
 
     subs_list empty_out_q_subs; /* Empty out queue subscribers */
-    int is_ignored;             /* if a fd is ignored by from the inet_drv,
-				   this should be set to true when the fd is used
-				   outside of inet_drv. */
+    int is_ignored;             /* if a fd is ignored by the inet_drv.
+				   This flag should be set to true when
+				   the fd is used outside of inet_drv. */
 } inet_descriptor;
 
 

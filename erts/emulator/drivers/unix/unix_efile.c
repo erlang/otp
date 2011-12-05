@@ -1469,6 +1469,9 @@ efile_fadvise(Efile_error* errInfo, int fd, Sint64 offset,
 }
 
 #ifdef HAVE_SENDFILE
+
+// For some reason the maximum size_t cannot be used as the max size
+// 3GB seems to work on all platforms
 #define SENDFILE_CHUNK_SIZE ((1 << 30) -1)
 
 /*
@@ -1477,7 +1480,13 @@ efile_fadvise(Efile_error* errInfo, int fd, Sint64 offset,
  * we have to emulate some things in linux and play with variables on
  * bsd/darwin.
  *
- * It could be possible to implement header/trailer in sendfile, though
+ * All of the calls will split a command which tries to send more than
+ * SENDFILE_CHUNK_SIZE of data at once.
+ *
+ * On platforms where *nbytes of 0 does not mean the entire file, this is
+ * simulated.
+ *
+ * It could be possible to implement header/trailer in sendfile. Though
  * you would have to emulate it in linux and on BSD/Darwin some complex
  * calculations have to be made when using a non blocking socket to figure
  * out how much of the header/file/trailer was sent in each command.
@@ -1491,7 +1500,7 @@ efile_sendfile(Efile_error* errInfo, int in_fd, int out_fd,
 #if defined(__linux__)
     ssize_t retval;
     do {
-      // check if *nbytes is 0 or greater than the largest size_t
+      // check if *nbytes is 0 or greater than chunk size
       if (*nbytes == 0 || *nbytes > SENDFILE_CHUNK_SIZE)
 	retval = sendfile(out_fd, in_fd, offset, SENDFILE_CHUNK_SIZE);
       else
@@ -1512,6 +1521,7 @@ efile_sendfile(Efile_error* errInfo, int in_fd, int out_fd,
     do {
       fdrec.sfv_off = *offset;
       len = 0;
+      // check if *nbytes is 0 or greater than chunk size
       if (*nbytes == 0 || *nbytes > SENDFILE_CHUNK_SIZE)
 	fdrec.sfv_len = SENDFILE_CHUNK_SIZE;
       else
@@ -1529,7 +1539,7 @@ efile_sendfile(Efile_error* errInfo, int in_fd, int out_fd,
     int retval;
     off_t len;
     do {
-      // check if *nbytes is 0 or greater than the largest off_t
+      // check if *nbytes is 0 or greater than chunk size
       if(*nbytes > SENDFILE_CHUNK_SIZE)
 	len = SENDFILE_CHUNK_SIZE;
       else

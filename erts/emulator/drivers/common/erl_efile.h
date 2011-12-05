@@ -126,7 +126,7 @@ typedef struct _Efile_info {
 
 #ifdef HAVE_SENDFILE
 /*
- * Described the structure of header/trailers for sendfile
+ * Describes the structure of headers/trailers for sendfile
  */
 struct t_sendfile_hdtl {
     SysIOVec *headers;

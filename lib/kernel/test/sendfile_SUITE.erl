@@ -212,7 +212,7 @@ t_sendfile_recvduring(Config) ->
 
     ok = sendfile_send({127,0,0,1}, Send, 0).
 
-%% TODO: consolidate tests and reduce code
+%% Generic sendfile server code
 sendfile_send(Send) ->
     sendfile_send({127,0,0,1},Send).
 sendfile_send(Host, Send) ->
