@@ -3033,8 +3033,8 @@ invalid_signature_server(Config) when is_list(Config) ->
 					      {from, self()}, 
 					      {options, [{verify, verify_peer} | ClientOpts]}]),
     
-    ssl_test_lib:check_result(Server, {error, "bad certificate"}, 
-			      Client, {error,"bad certificate"}).
+    tcp_delivery_workaround(Server, {error, "bad certificate"},
+			    Client, {error,"bad certificate"}).
     
 %%--------------------------------------------------------------------
 
