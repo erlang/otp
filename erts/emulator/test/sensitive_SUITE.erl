@@ -160,8 +160,7 @@ recv_trace(Config) when is_list(Config) ->
     ?line {messages,Messages} = process_info(Tracer, messages),
     [{trace,Parent,'receive',a},
      {trace,Parent,'receive',{trace_delivered,_,_}},
-     {trace,Parent,'receive',c},
-     {trace,Parent,'receive',{trace_delivered,_,_}}] = Messages,
+     {trace,Parent,'receive',c}|_] = Messages,
 
     ?line unlink(Tracer), exit(Tracer, kill),
     ?line unlink(Sender), exit(Sender, kill),

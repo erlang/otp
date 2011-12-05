@@ -68,30 +68,29 @@
 	 rc4_test/1,
 	 rc4_stream_test/1,
 	 blowfish_cfb64/1,
-	 smp/1,
-	 cleanup/1]).
+	 smp/1]).
 
 -export([hexstr2bin/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [link_test, md5, md5_update, md4, md4_update, md5_mac,
-     md5_mac_io, sha, sha_update, 
-     hmac_update_sha, hmac_update_sha_n, hmac_update_md5_n, hmac_update_md5_io, hmac_update_md5,
-     %% sha256, sha256_update, sha512,sha512_update,
-     des_cbc, des_cfb, des3_cbc, des3_cfb, rc2_cbc, aes_cfb, aes_cbc,
-     aes_cbc_iter, aes_ctr, aes_ctr_stream, des_cbc_iter, des_cfb_iter, des_ecb,
-     des_cbc, rc2_cbc, aes_cfb, aes_cbc,
-     aes_cbc_iter, aes_ctr, aes_ctr_stream, des_cbc_iter, des_ecb,
-     rand_uniform_test, strong_rand_test,
-     rsa_verify_test, dsa_verify_test, rsa_sign_test,
-     dsa_sign_test, rsa_encrypt_decrypt, dh, exor_test,
-     rc4_test, rc4_stream_test, mod_exp_test, blowfish_cfb64,
-     smp].
+    [link_test, {group, info}].
 
-groups() -> 
-    [].
+groups() ->
+    [{info, [sequence],[info, {group, rest}]},
+     {rest, [],
+      [md5, md5_update, md4, md4_update, md5_mac,
+       md5_mac_io, sha, sha_update,
+       hmac_update_sha, hmac_update_sha_n, hmac_update_md5_n,
+       hmac_update_md5_io, hmac_update_md5,
+       des_cbc, aes_cfb, aes_cbc,
+       aes_cbc_iter, aes_ctr, aes_ctr_stream, des_cbc_iter, des_ecb,
+       rand_uniform_test, strong_rand_test,
+       rsa_verify_test, dsa_verify_test, rsa_sign_test,
+       dsa_sign_test, rsa_encrypt_decrypt, dh, exor_test,
+       rc4_test, rc4_stream_test, mod_exp_test, blowfish_cfb64,
+       smp]}].
 
 init_per_suite(Config) ->
     Config.
@@ -105,11 +104,15 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
+init_per_testcase(info, Config) ->
+    Config;
 init_per_testcase(_Name,Config) ->
     io:format("init_per_testcase\n"),
     ?line crypto:start(),
     Config.
 
+end_per_testcase(info, Config) ->
+    Config;
 end_per_testcase(_Name,Config) ->
     io:format("end_per_testcase\n"),
     ?line crypto:stop(),
@@ -196,13 +199,6 @@ info(Config) when is_list(Config) ->
 	    ?line F(InfoLib,F),
 	    ?line crypto:stop()
     end.
-
-cleanup(doc) ->
-    ["Cleanup (dummy)."];
-cleanup(suite) ->
-    [];
-cleanup(Config) when is_list(Config) ->
-    Config.
 
 %%
 %%

@@ -94,15 +94,16 @@ undefined_functions(Config) when is_list(Config) ->
     case Undef of
 	[] -> ok;
 	_ ->
+	    Fd = open_log(Config, "undefined_functions"),
 	    foreach(fun ({MFA1,MFA2}) ->
 			    io:format("~s calls undefined ~s",
+				      [format_mfa(MFA1),format_mfa(MFA2)]),
+			    io:format(Fd, "~s ~s\n",
 				      [format_mfa(MFA1),format_mfa(MFA2)])
 		    end, Undef),
+	    close_log(Fd),
 	    ?line ?t:fail({length(Undef),undefined_functions_in_otp})
-
-    end,
-
-    ok.
+    end.
 
 hipe_filter(Undef) ->
     case erlang:system_info(hipe_architecture) of
@@ -211,7 +212,10 @@ deprecated_not_in_obsolete(Config) when is_list(Config) ->
 	_ ->
 	    io:put_chars("The following functions have -deprecated() attributes,\n"
 			 "but are not listed in otp_internal:obsolete/3.\n"),
-	    ?line print_mfas(L),
+	    ?line print_mfas(group_leader(), L),
+	    Fd = open_log(Config, "deprecated_not_obsolete"),
+	    print_mfas(Fd, L),
+	    close_log(Fd),
 	    ?line ?t:fail({length(L),deprecated_but_not_obsolete})
     end.
 
@@ -232,10 +236,12 @@ obsolete_but_not_deprecated(Config) when is_list(Config) ->
 	    io:put_chars("The following functions are listed "
 			 "in otp_internal:obsolete/3,\n"
 			 "but don't have -deprecated() attributes.\n"),
-	    ?line print_mfas(L),
+	    ?line print_mfas(group_leader(), L),
+	    Fd = open_log(Config, "obsolete_not_deprecated"),
+	    print_mfas(Fd, L),
+	    close_log(Fd),
 	    ?line ?t:fail({length(L),obsolete_but_not_deprecated})
     end.
-    
     
 call_to_deprecated(Config) when is_list(Config) ->
     Server = ?config(xref_server, Config),
@@ -302,10 +308,20 @@ strong_components(Config) when is_list(Config) ->
 %%%
     
 
-print_mfas([MFA|T]) ->
-    io:format("~s\n", [format_mfa(MFA)]),
-    print_mfas(T);
-print_mfas([]) -> ok.
+print_mfas(Fd, [MFA|T]) ->
+    io:format(Fd, "~s\n", [format_mfa(MFA)]),
+    print_mfas(Fd, T);
+print_mfas(_, []) -> ok.
 
 format_mfa({M,F,A}) ->
     lists:flatten(io_lib:format("~s:~s/~p", [M,F,A])).
+
+open_log(Config, Name) ->
+    PrivDir = ?config(priv_dir, Config),
+    RunDir = filename:dirname(filename:dirname(PrivDir)),
+    Path = filename:join(RunDir, "system_"++Name++".log"),
+    {ok,Fd} = file:open(Path, [write]),
+    Fd.
+
+close_log(Fd) ->
+    ok = file:close(Fd).

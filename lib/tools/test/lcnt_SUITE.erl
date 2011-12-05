@@ -34,7 +34,7 @@
 	]).
 
 %% Default timetrap timeout (set in init_per_testcase)
--define(default_timeout, ?t:minutes(2)).
+-define(default_timeout, ?t:minutes(4)).
 
 init_per_suite(Config) when is_list(Config) ->
     Config.
@@ -49,6 +49,7 @@ init_per_testcase(_Case, Config) ->
 end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),
+    catch lcnt:stop(),
     ok.
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
