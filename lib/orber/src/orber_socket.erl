@@ -14,8 +14,7 @@
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%%
-%% %CopyrightEnd%
+%%%% %CopyrightEnd%
 %%
 %%
 %%-----------------------------------------------------------------
@@ -37,7 +36,7 @@
 %%-----------------------------------------------------------------
 -export([start/0, connect/4, listen/3, listen/4, accept/2, accept/3, write/3,
 	 controlling_process/3, close/2, peername/2, sockname/2, 
-	 peerdata/2, peercert/2, sockdata/2, setopts/3, 
+	 peerdata/2, peercert/2, sockdata/2, setopts/3,
 	 clear/2, shutdown/3, post_accept/2, post_accept/3]).
 
 %%-----------------------------------------------------------------
@@ -75,8 +74,6 @@ connect(Type, Host, Port, Options) ->
 	case Type of
 	    normal ->
 		[{keepalive, orber_env:iiop_out_keepalive()}|Options1];
-	    _ when Generation > 2 ->
-		[{keepalive, orber_env:iiop_ssl_out_keepalive()}|Options1];
 	    _ ->
 		Options1
 	end,
@@ -251,8 +248,7 @@ listen(ssl, Port, Options, Exception) ->
 	       end,
     Options4 = if
 		   Generation > 2 ->
-		       [{reuseaddr, true}, 
-			{keepalive, orber_env:iiop_ssl_in_keepalive()}|Options3];
+		       [{reuseaddr, true} |Options3];
 		   true ->
 		       Options3
 	       end,
@@ -362,8 +358,8 @@ peercert(ssl, Socket) ->
     ssl:peercert(Socket);
 peercert(Type, _Socket) ->
     orber:dbg("[~p] orber_socket:peercert(~p);~n"
-	      "Only available for SSL sockets.", 
-	      [?LINE, Type], ?DEBUG_LEVEL),
+ 	      "Only available for SSL sockets.",
+ 	      [?LINE, Type], ?DEBUG_LEVEL),
     {error, ebadsocket}.
 
 %%-----------------------------------------------------------------

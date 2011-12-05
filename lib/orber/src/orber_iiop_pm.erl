@@ -108,43 +108,81 @@ connect(Host, Port, SocketType, Timeout, Chars, Wchars, Ctx)
     end.
 
 get_ssl_socket_options([]) ->
-    [{verify, orber:ssl_client_verify()},
-     {depth, orber:ssl_client_depth()} |
-     ssl_client_extra_options([{certfile, orber:ssl_client_certfile()},
-			       {cacertfile, orber:ssl_client_cacertfile()},
-			       {password, orber:ssl_client_password()},
-			       {keyfile, orber:ssl_client_keyfile()},
-			       {ciphers, orber:ssl_client_ciphers()},
-			       {cachetimeout, orber:ssl_client_cachetimeout()}], [])];
+    SSLOpts = 
+	case orber_env:ssl_client_opts() of
+	    [] ->
+		[{verify, orber_env:ssl_client_verify()},
+		 {depth, orber_env:ssl_client_depth()},
+		 {certfile, orber_env:ssl_client_certfile()},
+		 {cacertfile, orber_env:ssl_client_cacertfile()},
+		 {password, orber_env:ssl_client_password()},
+		 {keyfile, orber_env:ssl_client_keyfile()},
+		 {ciphers, orber_env:ssl_client_ciphers()},
+		 {cachetimeout, orber_env:ssl_client_cachetimeout()},
+		 {keepalive, orber_env:iiop_ssl_out_keepalive()}];
+	    Opts ->
+		case orber_tb:check_illegal_tcp_options(Opts) of
+		    ok -> 
+			check_old_ssl_client_options([]),
+			Opts;
+		    {error, IllegalOpts} ->
+			error_logger:error_report([{application, orber},
+						   "TCP options not allowed to set on a connection", 
+						   IllegalOpts]),
+			error("Illegal TCP option")
+		end
+	end,
+    ssl_client_extra_options(SSLOpts, []);
 get_ssl_socket_options([#'IOP_ServiceContext'
 			{context_id=?ORBER_GENERIC_CTX_ID, 
 			 context_data = {configuration, Options}}|_]) ->
-    Verify = orber_tb:keysearch(ssl_client_verify, Options, 
-				orber_env:ssl_client_verify()),
-    Depth = orber_tb:keysearch(ssl_client_depth, Options, 
-			       orber_env:ssl_client_depth()),
-    Cert = orber_tb:keysearch(ssl_client_certfile, Options, 
-			      orber_env:ssl_client_certfile()),
-    CaCert = orber_tb:keysearch(ssl_client_cacertfile, Options, 
-				orber_env:ssl_client_cacertfile()),
-    Pwd = orber_tb:keysearch(ssl_client_password, Options, 
-			     orber_env:ssl_client_password()),
-    Key = orber_tb:keysearch(ssl_client_keyfile, Options, 
-			     orber_env:ssl_client_keyfile()),
-    Ciphers = orber_tb:keysearch(ssl_client_ciphers, Options, 
-				 orber_env:ssl_client_ciphers()),
-    Timeout = orber_tb:keysearch(ssl_client_cachetimeout, Options, 
-				 orber_env:ssl_client_cachetimeout()),
-    [{verify, Verify},
-     {depth, Depth} |
-     ssl_client_extra_options([{certfile, Cert},
-			       {cacertfile, CaCert},
-			       {password, Pwd},
-			       {keyfile, Key},
-			       {ciphers, Ciphers},
-			       {cachetimeout, Timeout}], [])];
+    SSLOpts = 
+	case orber_tb:keysearch(ssl_client_opts, Options,
+				orber_env:ssl_client_opts()) of
+	    [] ->
+		Verify = orber_tb:keysearch(ssl_client_verify, Options, 
+					    orber_env:ssl_client_verify()),
+		Depth = orber_tb:keysearch(ssl_client_depth, Options, 
+					   orber_env:ssl_client_depth()),
+		Cert = orber_tb:keysearch(ssl_client_certfile, Options, 
+					  orber_env:ssl_client_certfile()),
+		CaCert = orber_tb:keysearch(ssl_client_cacertfile, Options, 
+					    orber_env:ssl_client_cacertfile()),
+		Pwd = orber_tb:keysearch(ssl_client_password, Options, 
+					 orber_env:ssl_client_password()),
+		Key = orber_tb:keysearch(ssl_client_keyfile, Options, 
+					 orber_env:ssl_client_keyfile()),
+		Ciphers = orber_tb:keysearch(ssl_client_ciphers, Options, 
+					     orber_env:ssl_client_ciphers()),
+		Timeout = orber_tb:keysearch(ssl_client_cachetimeout, Options, 
+					     orber_env:ssl_client_cachetimeout()),
+		KeepAlive = orber_tb:keysearch(ssl_server_cachetimeout, Options, 
+					       orber_env:iiop_ssl_out_keepalive()),
+		[{verify, Verify},
+		 {depth, Depth},
+		 {certfile, Cert},
+		 {cacertfile, CaCert},
+		 {password, Pwd},
+		 {keyfile, Key},
+		 {ciphers, Ciphers},
+		 {cachetimeout, Timeout},
+		 {keepalive, KeepAlive}];
+	    Opts ->	
+		case orber_tb:check_illegal_tcp_options(Opts) of
+		    ok -> 
+			check_old_ssl_client_options(Options),
+			Opts;
+		    {error, IllegalOpts} ->
+			error_logger:error_report([{application, orber},
+						   "TCP options not allowed to set on a connection", 
+						   IllegalOpts]),
+			error("Illegal TCP option")
+		end
+	end,
+    ssl_client_extra_options(SSLOpts, []);
 get_ssl_socket_options([_|T]) ->
     get_ssl_socket_options(T).
+
 
 ssl_client_extra_options([], Acc) ->
     Acc;
@@ -814,6 +852,36 @@ init_interceptors(Host, Port, {SHost, SPort}) ->
             %% Either 'false' or {Type, PIs}.
 	    Other
     end.
+
+
+check_old_ssl_client_options(Options) ->
+    try
+	0 = orber_tb:keysearch(ssl_client_verify, Options, 
+			       orber_env:ssl_client_verify()),
+    	1 = orber_tb:keysearch(ssl_client_depth, Options, 
+			       orber_env:ssl_client_depth()),
+     	[] = orber_tb:keysearch(ssl_client_certfile, Options, 
+				orber_env:ssl_client_certfile()),
+	[] = orber_tb:keysearch(ssl_client_cacertfile, Options, 
+				orber_env:ssl_client_cacertfile()),
+	[] = orber_tb:keysearch(ssl_client_password, Options, 
+				orber_env:ssl_client_password()),
+	[] = orber_tb:keysearch(ssl_client_keyfile, Options, 
+				orber_env:ssl_client_keyfile()),
+	[] = orber_tb:keysearch(ssl_client_ciphers, Options, 
+				orber_env:ssl_client_ciphers()),
+	infinity = orber_tb:keysearch(ssl_client_cachetimeout, Options, 
+				      orber_env:ssl_client_cachetimeout()),
+	false = orber_tb:keysearch(iiop_ssl_out_keepalive, Options, 
+				   orber_env:iiop_ssl_out_keepalive())
+
+    catch
+	_:_ ->
+	    error_logger:warning_report([{application, orber},
+			 "Ignoring deprecated ssl client options used together with the ssl_client_opts"])
+    end.
+   
+
     
 
 %%-----------------------------------------------------------------

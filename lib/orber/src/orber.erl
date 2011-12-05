@@ -36,6 +36,7 @@
 -export([start/0, start/1, stop/0, install/1, install/2, orber_nodes/0, iiop_port/0,
 	 domain/0, iiop_ssl_port/0, iiop_out_ports/0, iiop_out_ports_random/0,
 	 iiop_out_ports_attempts/0,
+	 ssl_server_opts/0, ssl_client_opts/0, set_ssl_client_opts/1,
 	 ssl_server_certfile/0, ssl_client_certfile/0, set_ssl_client_certfile/1,
 	 ssl_server_verify/0, ssl_client_verify/0, set_ssl_client_verify/1,
 	 ssl_server_depth/0, ssl_client_depth/0, set_ssl_client_depth/1,
@@ -523,6 +524,15 @@ iiop_ssl_port() ->
 
 nat_iiop_ssl_port() ->
     orber_env:nat_iiop_ssl_port().
+
+ssl_server_opts() ->
+        orber_env:ssl_server_opts().
+
+ssl_client_opts() ->
+        orber_env:ssl_client_opts().
+
+set_ssl_client_opts(Value) ->
+        orber_env:set_ssl_client_opts(Value).
 
 ssl_server_certfile() ->
     orber_env:ssl_server_certfile().
