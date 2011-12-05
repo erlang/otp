@@ -82,6 +82,7 @@ static void
 print_eol(void)
 {
     fprintf(stderr, EOL);
+    fflush(stderr);
 }
 
 static void print_line(char *frmt,...)
@@ -826,6 +827,7 @@ detached_thread_test(void)
  * Tests
  */
 #define MTT_TIMES 10
+#define MTT_HARD_LIMIT (80000)
 
 static int mtt_terminate;
 static ethr_mutex mtt_mutex;
@@ -866,14 +868,20 @@ mtt_create_join_threads(void)
     while (1) {
 	if (ix >= no_tids) {
 	    no_tids += 100;
+	    if (no_tids > MTT_HARD_LIMIT) {
+		print_line("Hit the hard limit on number of threads (%d)!", 
+			   MTT_HARD_LIMIT);
+		break;
+	    }
 	    tids = (ethr_tid *) realloc((void *)tids, sizeof(ethr_tid)*no_tids);
 	    ASSERT(tids);
 	}
 	res = ethr_thr_create(&tids[ix], mtt_thread, NULL, NULL);
-	if (res != 0)
+	if (res != 0) {
 	    break;
+	}
 	ix++;
-    } while (res == 0);
+    }
 
     no_threads = ix;
 
