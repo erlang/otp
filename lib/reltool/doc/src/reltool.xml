@@ -558,7 +558,17 @@ target_spec()       = [target_spec()]
       <c>true</c> there is no need to install the target system with
       <c>reltool:install/2</c> before it can be started. In that case
       the file tree containing the target system can be moved without
-      re-installation.</p></desc>
+      re-installation.</p>
+
+      <p>In most cases, the <c>RootDir</c> parameter should be set to
+      the same as the <c>root_dir</c> configuration parameter used in
+      the call to <c>reltool:get_target_spec/1</c>
+      (or <c>code:root_dir()</c> if the configuration parameter is not
+      set). In some cases it might be useful to evaluate the same
+      target specification towards different root directories. This
+      should, however, be used with great care as it requires
+      equivalent file structures under all roots.</p>
+      </desc>
     </func>
 
     <func>
