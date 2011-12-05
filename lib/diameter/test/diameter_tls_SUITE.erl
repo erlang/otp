@@ -151,16 +151,22 @@ init_per_group(_, Config) ->
 end_per_group(_, _) ->
     ok.
 
+%% Shouldn't really have to know about crypto here but 'ok' from
+%% ssl:start() isn't enough to guarantee that TLS is available.
 init_per_suite(Config) ->
-    case os:find_executable("openssl") of
-        false ->
-            {skip, no_openssl};
-        _ ->
-            Config
+    try
+        false /= os:find_executable("openssl")
+            orelse throw({?MODULE, no_openssl}),
+        ok == crypto:start()
+            orelse throw({?MODULE, no_crypto}),
+        Config
+    catch
+        {?MODULE, E} ->
+            {skip, E}
     end.
 
 end_per_suite(_Config) ->
-    ok.
+    crypto:stop().
 
 %% Testcases to run when services are started and connections
 %% established.
