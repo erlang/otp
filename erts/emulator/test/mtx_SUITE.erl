@@ -122,7 +122,7 @@ long_rwlock(Config) when is_list(Config) ->
     %% A very short run time is expected, since
     %% threads in the test mostly wait
     ?t:format("RunTime=~p~n", [RunTime]),
-    ?line true = RunTime < 100,
+    ?line true = RunTime < 400,
     ?line RunTimeStr = "Run-time during test was "++integer_to_list(RunTime)++" ms.",
     case LLRes of
 	ok ->
@@ -281,7 +281,7 @@ hammer_sched_rwlock_test(FreqRead, LockCheck, Blocking, WaitLocked, WaitUnlocked
 		_ ->
 		    {_, RunTime} = statistics(runtime),
 		    ?t:format("RunTime=~p~n", [RunTime]),
-		    ?line true = RunTime < 500,
+		    ?line true = RunTime < 700,
 		    {comment,
 		     "Run-time during test was "
 		     ++ integer_to_list(RunTime)
