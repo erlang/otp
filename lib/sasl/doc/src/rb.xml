@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2010</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -123,7 +123,9 @@
       <fsummary>List all reports</fsummary>
       <type>
         <v>Type = type()</v>
-        <v>type() = crash_report | supervisor_report | error | progress</v>
+        <v>type() = error | error_report | info_msg | info_report |
+        warning_msg | warning_report | crash_report |
+        supervisor_report | progress</v>
       </type>
       <desc>
         <p>This function lists all reports loaded in the
