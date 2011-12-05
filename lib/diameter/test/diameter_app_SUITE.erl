@@ -41,6 +41,19 @@
 
 -define(A, list_to_atom).
 
+%% Modules not in the app and that should not have dependencies on it
+%% for build reasons.
+-define(COMPILER_MODULES, [diameter_codegen,
+                           diameter_dict_scanner,
+                           diameter_dict_parser,
+                           diameter_dict_util,
+                           diameter_exprecs,
+                           diameter_make]).
+
+-define(HELP_MODULES, [diameter_callback,
+                       diameter_dbg,
+                       diameter_info]).
+
 %% ===========================================================================
 
 suite() ->
@@ -93,15 +106,8 @@ vsn(Config) ->
 modules(Config) ->
     Mods = fetch(modules, fetch(app, Config)),
     Installed = code_mods(),
-    Help = [diameter_callback,
-            diameter_codegen,
-            diameter_dbg,
-            diameter_dict_parser,
-            diameter_dict_scanner,
-            diameter_dict_util,
-            diameter_exprecs,
-            diameter_info,
-            diameter_make],
+    Help = lists:sort(?HELP_MODULES ++ ?COMPILER_MODULES),
+
     {[], Help} = {Mods -- Installed, lists:sort(Installed -- Mods)}.
 
 code_mods() ->
@@ -168,14 +174,12 @@ xref(Config) ->
     %% stop xref from complaining about calls to module erlang, which
     %% was previously in kernel. Erts isn't an application however, in
     %% the sense that there's no .app file, and isn't listed in
-    %% applications. Seems less than ideal. Also, diameter_tcp does
-    %% call ssl despite ssl not being listed as a dependency in the
-    %% app file since ssl is only required for TLS security: it's up
-    %% to a client who wants TLS it to start ssl.
+    %% applications.
     ok = lists:foreach(fun(A) -> add_application(XRef, A) end,
                        [?APP, erts | fetch(applications, App)]),
 
     {ok, Undefs} = xref:analyze(XRef, undefined_function_calls),
+    {ok, Called} = xref:analyze(XRef, {module_call, ?COMPILER_MODULES}),
 
     xref:stop(XRef),
 
@@ -184,7 +188,21 @@ xref(Config) ->
                               lists:member(F, Mods)
                                   andalso {F,T} /= {diameter_tcp, ssl}
                       end,
-                      Undefs).
+                      Undefs),
+    %% diameter_tcp does call ssl despite the latter not being listed
+    %% as a dependency in the app file since ssl is only required for
+    %% TLS security: it's up to a client who wants TLS it to start
+    %% ssl.
+
+    [] = lists:filter(fun is_bad_dependency/1, Called).
+
+%% It's not strictly necessary that diameter compiler modules not
+%% depend on other diameter modules but it's a simple source of build
+%% errors if not encoded in the makefile (hence the test) so guard
+%% against it.
+is_bad_dependency(Mod) ->
+    lists:prefix("diameter", atom_to_list(Mod))
+        andalso not lists:member(Mod, ?COMPILER_MODULES).
 
 add_application(XRef, App) ->
     add_application(XRef, App, code:lib_dir(App)).
