@@ -917,7 +917,7 @@ handle_async_ready_clean(ErtsAuxWorkData *awdp,
 
 #ifdef ERTS_SMP
     if (awdp->async_ready.need_thr_prgr
-	&& !erts_thr_progress_has_reached(awdp->misc.thr_prgr)) {
+	&& !erts_thr_progress_has_reached(awdp->async_ready.thr_prgr)) {
 	return aux_work & ~ERTS_SSI_AUX_WORK_ASYNC_READY_CLEAN;
     }
 
@@ -936,6 +936,7 @@ handle_async_ready_clean(ErtsAuxWorkData *awdp,
 	erts_thr_progress_wakeup(awdp->esdp,
 				 awdp->async_ready.thr_prgr);
 	awdp->async_ready.need_thr_prgr = 1;
+	return aux_work & ~ERTS_SSI_AUX_WORK_ASYNC_READY_CLEAN;
 #endif
     default:
 	return aux_work;
