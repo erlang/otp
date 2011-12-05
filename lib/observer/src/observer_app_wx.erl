@@ -255,6 +255,11 @@ handle_info({delivery, Pid, app_ctrl, _, Apps0},
     wxListBox:appendStrings(LBox, [App || App <- lists:sort(Apps)]),
     {noreply, State};
 
+handle_info({delivery, _Pid, app, _Curr, {[], [], [], []}},
+	    State = #state{panel=Panel}) ->
+    wxWindow:refresh(Panel),
+    {noreply, State#state{app=undefined, sel=undefined}};
+
 handle_info({delivery, Pid, app, Curr, AppData},
 	    State = #state{panel=Panel, appmon=Pid, current=Curr,
 			   app_w=AppWin, paint=#paint{font=Font}}) ->
@@ -356,11 +361,10 @@ build_tree({Root, P2Name, Links, XLinks0}, Font) ->
     {_, Tree0} = build_tree2(Root, Lookup, Name2P, Font),
     {Tree, Dim} = calc_tree_size(Tree0),
     Fetch = fun({From, To}, Acc) ->
-		    case gb_trees:lookup(To, Name2P) of
-			{value, ToPid} ->
-			    FromPid = gb_trees:get(From, Name2P),
-			    [{locate_box(FromPid, [Tree]),locate_box(ToPid, [Tree])}|Acc];
-			none ->
+		    try {value, ToPid} = gb_trees:lookup(To, Name2P),
+			 FromPid = gb_trees:get(From, Name2P),
+			 [{locate_box(FromPid, [Tree]),locate_box(ToPid, [Tree])}|Acc]
+		    catch _:_ ->
 			    Acc
 		    end
 	    end,

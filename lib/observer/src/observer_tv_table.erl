@@ -24,8 +24,6 @@
 -export([init/1, handle_info/2, terminate/2, code_change/3, handle_call/3,
 	 handle_event/2, handle_sync_event/3, handle_cast/2]).
 
--export([get_table/3]).
-
 -include("observer_defs.hrl").
 -import(observer_lib, [to_str/1]).
 
@@ -507,7 +505,7 @@ table_holder(S0 = #holder{parent=Parent, pid=Pid, table=Table}) ->
 	    %% io:format("ignoring refresh", []),
 	    table_holder(S0);
 	refresh ->
-	    GetTab = rpc:call(S0#holder.node, ?MODULE, get_table,
+	    GetTab = rpc:call(S0#holder.node, observer_backend, get_table,
 			      [self(), S0#holder.tabid, S0#holder.source]),
 	    table_holder(S0#holder{pid=GetTab});
 	{delete, Row} ->
@@ -708,49 +706,6 @@ insert(Object, #holder{tabid=Id, source=Source, node=Node}) ->
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-get_table(Parent, Table, Module) ->
-    spawn(fun() ->
-		  link(Parent),
-		  get_table2(Parent, Table, Module)
-	  end).
-
-get_table2(Parent, Table, Type) ->
-    Size = case Type of
-	       ets -> ets:info(Table, size);
-	       mnesia -> mnesia:table_info(Table, size)
-	   end,
-    case Size > 0 of
-	false ->
-	    Parent ! {self(), '$end_of_table'},
-	    normal;
-	true when Type =:= ets ->
-	    Mem = ets:info(Table, memory),
-	    Average = Mem div Size,
-	    NoElements = max(10, 20000 div Average),
-	    get_ets_loop(Parent, ets:match(Table, '$1', NoElements));
-	true ->
-	    Mem = mnesia:table_info(Table, memory),
-	    Average = Mem div Size,
-	    NoElements = max(10, 20000 div Average),
-	    Ms = [{'$1', [], ['$1']}],
-	    Get = fun() ->
-			  get_mnesia_loop(Parent, mnesia:select(Table, Ms, NoElements, read))
-		  end,
-	    %% Not a transaction, we don't want to grab locks when inspecting the table
-	    mnesia:async_dirty(Get)
-    end.
-
-get_ets_loop(Parent, '$end_of_table') ->
-    Parent ! {self(), '$end_of_table'};
-get_ets_loop(Parent, {Match, Cont}) ->
-    Parent ! {self(), Match},
-    get_ets_loop(Parent, ets:match(Cont)).
-
-get_mnesia_loop(Parent, '$end_of_table') ->
-    Parent ! {self(), '$end_of_table'};
-get_mnesia_loop(Parent, {Match, Cont}) ->
-    Parent ! {self(), Match},
-    get_ets_loop(Parent, mnesia:select(Cont)).
 
 column_names(Node, Type, Table) ->
     case Type of
