@@ -18,14 +18,13 @@
 %%
 
 -module(overload_SUITE).
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -compile(export_all).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 all() -> [info, set_config_data, set_env_vars, request, timeout].
-all(suite) -> all().
 
 init_per_testcase(_Case,Config) ->
     restart_sasl(),
@@ -38,37 +37,34 @@ end_per_testcase(Case,Config) ->
     ok.
 
 %%%-----------------------------------------------------------------
-info(suite) -> [];
 info(_Config) ->
-    ?line Info = overload:get_overload_info(),
-    ?line [{total_intensity,0.0},
-	   {accept_intensity,0.0},
-	   {max_intensity,0.8},
-	   {weight,0.1},
-	   {total_requests,0},
-	   {accepted_requests,0}] = Info.
+    Info = overload:get_overload_info(),
+    [{total_intensity,0.0},
+     {accept_intensity,0.0},
+     {max_intensity,0.8},
+     {weight,0.1},
+     {total_requests,0},
+     {accepted_requests,0}] = Info.
 
 %%%-----------------------------------------------------------------
-set_config_data(suite) -> [];
 set_config_data(_Config) ->
-    ?line InfoDefault = overload:get_overload_info(),
-    ?line ok = check_info(0.8,0.1,InfoDefault),
-    ?line ok = overload:set_config_data(0.5,0.4),
-    ?line Info1 = overload:get_overload_info(),
-    ?line ok = check_info(0.5,0.4,Info1),
+    InfoDefault = overload:get_overload_info(),
+    ok = check_info(0.8,0.1,InfoDefault),
+    ok = overload:set_config_data(0.5,0.4),
+    Info1 = overload:get_overload_info(),
+    ok = check_info(0.5,0.4,Info1),
     ok.
 
 %%%-----------------------------------------------------------------
-set_env_vars(suite) -> [];
 set_env_vars(_Config) ->
-    ?line InfoDefault = overload:get_overload_info(),
-    ?line ok = check_info(0.8,0.1,InfoDefault),
-    ?line ok = application:set_env(sasl,overload_max_intensity,0.5),
-    ?line ok = application:set_env(sasl,overload_weight,0.4),
-    ?line ok = application:stop(sasl),
-    ?line ok = application:start(sasl),
-    ?line Info1 = overload:get_overload_info(),
-    ?line ok = check_info(0.5,0.4,Info1),
+    InfoDefault = overload:get_overload_info(),
+    ok = check_info(0.8,0.1,InfoDefault),
+    ok = application:set_env(sasl,overload_max_intensity,0.5),
+    ok = application:set_env(sasl,overload_weight,0.4),
+    ok = application:stop(sasl),
+    ok = application:start(sasl),
+    Info1 = overload:get_overload_info(),
+    ok = check_info(0.5,0.4,Info1),
     ok.
 set_env_vars(cleanup,_Config) ->
     application:unset_env(sasl,overload_max_intensity),
@@ -76,63 +72,61 @@ set_env_vars(cleanup,_Config) ->
     ok.
 
 %%%-----------------------------------------------------------------
-request(suite) -> [];
 request(_Config) ->
     %% Find number of request that can be done with default settings
     %% and no delay
-    ?line overload:set_config_data(0.8, 0.1),
-    ?line NDefault = do_many_requests(0),
-    ?line restart_sasl(),
-    ?line ?t:format("NDefault: ~p",[NDefault]),
- 
+    overload:set_config_data(0.8, 0.1),
+    NDefault = do_many_requests(0),
+    restart_sasl(),
+    ?t:format("NDefault: ~p",[NDefault]),
+
     %% Check that the number of requests increases when max_intensity
     %% increases
-    ?line overload:set_config_data(2, 0.1),
-    ?line NLargeMI = do_many_requests(0),
-    ?line restart_sasl(),
-    ?line ?t:format("NLargeMI: ~p",[NLargeMI]),
-    ?line true = NLargeMI > NDefault,
+    overload:set_config_data(2, 0.1),
+    NLargeMI = do_many_requests(0),
+    restart_sasl(),
+    ?t:format("NLargeMI: ~p",[NLargeMI]),
+    true = NLargeMI > NDefault,
 
     %% Check that the number of requests decreases when weight
     %% increases
-    ?line overload:set_config_data(0.8, 1),
-    ?line NLargeWeight = do_many_requests(0),
-    ?line restart_sasl(),
-    ?line ?t:format("NLargeWeight: ~p",[NLargeWeight]),
-    ?line true = NLargeWeight < NDefault,
+    overload:set_config_data(0.8, 1),
+    NLargeWeight = do_many_requests(0),
+    restart_sasl(),
+    ?t:format("NLargeWeight: ~p",[NLargeWeight]),
+    true = NLargeWeight < NDefault,
 
     %% Check that number of requests increases when delay between
     %% requests increases.
     %% (Keeping same config and comparing to large weight in order to
     %% minimize the time needed for this case.)
-    ?line overload:set_config_data(0.8, 1),
-    ?line NLargeTime = do_many_requests(500),
-    ?line restart_sasl(),
-    ?line ?t:format("NLargeTime: ~p",[NLargeTime]),
-    ?line true = NLargeTime > NLargeWeight,
+    overload:set_config_data(0.8, 1),
+    NLargeTime = do_many_requests(500),
+    restart_sasl(),
+    ?t:format("NLargeTime: ~p",[NLargeTime]),
+    true = NLargeTime > NLargeWeight,
     ok.
 
 %%%-----------------------------------------------------------------
-timeout(suite) -> [];
 timeout(_Config) ->
-    ?line overload:set_config_data(0.8, 1),
-    ?line _N = do_many_requests(0),
-    
+    overload:set_config_data(0.8, 1),
+    _N = do_many_requests(0),
+
     %% Check that the overload alarm is raised
-    ?line [{overload,_}] = alarm_handler:get_alarms(),
+    [{overload,_}] = alarm_handler:get_alarms(),
 
     %% Fake a clear timeout in overload.erl and check that, since it
     %% came very soon after the overload situation, the alarm is not
     %% cleared
-    ?line overload ! timeout,
-    ?line timer:sleep(1000),
-    ?line [{overload,_}] = alarm_handler:get_alarms(),
+    overload ! timeout,
+    timer:sleep(1000),
+    [{overload,_}] = alarm_handler:get_alarms(),
 
     %% A bit later, try again and check that this time the alarm is
     %% cleared
-    ?line overload ! timeout,
-    ?line timer:sleep(1000),
-    ?line [] = alarm_handler:get_alarms(),
+    overload ! timeout,
+    timer:sleep(1000),
+    [] = alarm_handler:get_alarms(),
 
     ok.
 
@@ -171,5 +165,3 @@ check_info(MI,W,Info) ->
 	{{_,MI},{_,W}} -> ok;
 	_ -> ?t:fail({unexpected_info,MI,W,Info})
     end.
-    
-

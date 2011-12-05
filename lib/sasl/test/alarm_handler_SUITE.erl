@@ -18,7 +18,7 @@
 %%
 -module(alarm_handler_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %%-----------------------------------------------------------------
 %% We will add an own alarm handler in order to verify that the
@@ -56,34 +56,32 @@ end_per_group(_GroupName, Config) ->
 
 %%-----------------------------------------------------------------
 
-set_alarm(suite) -> [];
 set_alarm(Config) when is_list(Config) ->
-    ?line gen_event:add_handler(alarm_handler, ?MODULE, self()),
+    gen_event:add_handler(alarm_handler, ?MODULE, self()),
     Alarm1 = {alarm1, "this is the alarm"},
     Alarm2 = {"alarm2", this_is_the_alarm},
     Alarm3 = {{alarm3}, {this_is,"the_alarm"}},
-    ?line ok = alarm_handler:set_alarm(Alarm1),
+    ok = alarm_handler:set_alarm(Alarm1),
     reported(set_alarm, Alarm1),
-    ?line ok = alarm_handler:set_alarm(Alarm2),
+    ok = alarm_handler:set_alarm(Alarm2),
     reported(set_alarm, Alarm2),
-    ?line ok = alarm_handler:set_alarm(Alarm3),
+    ok = alarm_handler:set_alarm(Alarm3),
     reported(set_alarm, Alarm3),
 
-    ?line [Alarm3,Alarm2,Alarm1] = alarm_handler:get_alarms(),
+    [Alarm3,Alarm2,Alarm1] = alarm_handler:get_alarms(),
     alarm_handler:clear_alarm(alarm1),
     alarm_handler:clear_alarm("alarm2"),
     alarm_handler:clear_alarm({alarm3}),
-    ?line [] = alarm_handler:get_alarms(),
+    [] = alarm_handler:get_alarms(),
 
     test_server:messages_get(),
-    ?line my_yes = gen_event:delete_handler(alarm_handler, ?MODULE, []),
+    my_yes = gen_event:delete_handler(alarm_handler, ?MODULE, []),
     ok.
 
 %%-----------------------------------------------------------------
 
-clear_alarm(suite) -> [];
 clear_alarm(Config) when is_list(Config) ->
-    ?line gen_event:add_handler(alarm_handler, ?MODULE, self()),
+    gen_event:add_handler(alarm_handler, ?MODULE, self()),
     Alarm1 = {alarm1, "this is the alarm"},
     Alarm2 = {"alarm2", this_is_the_alarm},
     Alarm3 = {{alarm3}, {this_is,"the_alarm"}},
@@ -92,44 +90,42 @@ clear_alarm(Config) when is_list(Config) ->
     alarm_handler:set_alarm(Alarm3),
     test_server:messages_get(),
 
-    ?line ok = alarm_handler:clear_alarm(alarm1),
+    ok = alarm_handler:clear_alarm(alarm1),
     reported(clear_alarm, alarm1),
-    ?line ok = alarm_handler:clear_alarm("alarm2"),
+    ok = alarm_handler:clear_alarm("alarm2"),
     reported(clear_alarm, "alarm2"),
-    ?line ok = alarm_handler:clear_alarm({alarm3}),
+    ok = alarm_handler:clear_alarm({alarm3}),
     reported(clear_alarm, {alarm3}),
-    ?line [] = alarm_handler:get_alarms(),
+    [] = alarm_handler:get_alarms(),
 
-    ?line my_yes = gen_event:delete_handler(alarm_handler, ?MODULE, []),
+    my_yes = gen_event:delete_handler(alarm_handler, ?MODULE, []),
     ok.
 
 %%-----------------------------------------------------------------
 
-swap(suite) -> [];
 swap(Config) when is_list(Config) ->
-    ?line Alarm1 = {alarm1, "this is the alarm"},
-    ?line Alarm2 = {"alarm2", this_is_the_alarm},
-    ?line Alarm3 = {{alarm3}, {this_is,"the_alarm"}},
-    ?line alarm_handler:set_alarm(Alarm1),
-    ?line alarm_handler:set_alarm(Alarm2),
-    ?line alarm_handler:set_alarm(Alarm3),
+    Alarm1 = {alarm1, "this is the alarm"},
+    Alarm2 = {"alarm2", this_is_the_alarm},
+    Alarm3 = {{alarm3}, {this_is,"the_alarm"}},
+    alarm_handler:set_alarm(Alarm1),
+    alarm_handler:set_alarm(Alarm2),
+    alarm_handler:set_alarm(Alarm3),
 
-    ?line foo,
     case gen_event:which_handlers(alarm_handler) of
 	[alarm_handler] ->
-	    ?line ok = gen_event:swap_handler(alarm_handler,
-					      {alarm_handler, swap},
-					      {?MODULE, self()}),
-	    ?line [?MODULE] = gen_event:which_handlers(alarm_handler),
+	    ok = gen_event:swap_handler(alarm_handler,
+					{alarm_handler, swap},
+					{?MODULE, self()}),
+	    [?MODULE] = gen_event:which_handlers(alarm_handler),
 	    Alarms = [Alarm3, Alarm2, Alarm1],
 	    reported(swap_alarms, Alarms),
 
 	    %% get_alarms is only valid with the default handler installed.
-	    ?line {error, _} = alarm_handler:get_alarms(),
+	    {error, _} = alarm_handler:get_alarms(),
 
-	    ?line my_yes = gen_event:delete_handler(alarm_handler,
-						    ?MODULE, []),
-	    ?line gen_event:add_handler(alarm_handler, alarm_handler, []),
+	    my_yes = gen_event:delete_handler(alarm_handler,
+					      ?MODULE, []),
+	    gen_event:add_handler(alarm_handler, alarm_handler, []),
 	    ok;
 	_ ->
 	    alarm_handler:clear_alarm(alarm1),

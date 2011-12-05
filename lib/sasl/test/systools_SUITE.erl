@@ -28,9 +28,9 @@
 
 -module(systools_SUITE).
 
-%-define(debug, true).
+%%-define(debug, true).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -define(format(S, A), ok).
 -define(datadir, ?config(data_dir, Config)).
 -define(privdir, ?config(priv_dir, Config)).
@@ -40,20 +40,20 @@
 
 -export([all/0,suite/0,groups/0,init_per_group/2,end_per_group/2]).
 
--export([ script_options/1, normal_script/1, no_mod_vsn_script/1,
-	  wildcard_script/1, variable_script/1, no_sasl_script/1,
-	  abnormal_script/1, src_tests_script/1, crazy_script/1,
-	  warn_shadow_script/1,
-	  included_script/1, included_override_script/1,
-	  included_fail_script/1, included_bug_script/1, exref_script/1]).
--export([ tar_options/1, normal_tar/1, no_mod_vsn_tar/1, variable_tar/1,
-	  src_tests_tar/1, shadow_tar/1, var_tar/1,
-	  exref_tar/1, link_tar/1, otp_9507/1]).
--export([ normal_relup/1, restart_relup/1, abnormal_relup/1, no_sasl_relup/1,
-	  no_appup_relup/1, bad_appup_relup/1, app_start_type_relup/1,
-	  regexp_relup/1, otp_3065/1]).
--export([otp_6226/1]).
+-export([script_options/1, normal_script/1, no_mod_vsn_script/1,
+	 wildcard_script/1, variable_script/1, no_sasl_script/1,
+	 abnormal_script/1, src_tests_script/1, crazy_script/1,
+	 included_script/1, included_override_script/1,
+	 included_fail_script/1, included_bug_script/1, exref_script/1,
+	 otp_3065_circular_dependenies/1]).
+-export([tar_options/1, normal_tar/1, no_mod_vsn_tar/1, variable_tar/1,
+	 src_tests_tar/1, var_tar/1,
+	 exref_tar/1, link_tar/1, otp_9507_path_ebin/1]).
+-export([normal_relup/1, restart_relup/1, abnormal_relup/1, no_sasl_relup/1,
+	 no_appup_relup/1, bad_appup_relup/1, app_start_type_relup/1,
+	 regexp_relup/1]).
 -export([normal_hybrid/1,hybrid_no_old_sasl/1,hybrid_no_new_sasl/1]).
+-export([otp_6226_outdir/1]).
 -export([init_per_suite/1, end_per_suite/1, 
 	 init_per_testcase/2, end_per_testcase/2]).
 
@@ -69,26 +69,25 @@ suite() ->
 
 all() -> 
     [{group, script}, {group, tar}, {group, relup}, {group, hybrid},
-     {group, tickets}].
+     {group, options}].
 
 groups() -> 
     [{script, [],
       [script_options, normal_script, no_mod_vsn_script,
        wildcard_script, variable_script, abnormal_script,
        no_sasl_script, src_tests_script, crazy_script,
-       warn_shadow_script, included_script, included_override_script,
+       included_script, included_override_script,
        included_fail_script, included_bug_script, exref_script,
-       otp_3065]},
+       otp_3065_circular_dependenies]},
      {tar, [],
       [tar_options, normal_tar, no_mod_vsn_tar, variable_tar,
-       src_tests_tar, shadow_tar, var_tar,
-       exref_tar, link_tar, otp_9507]},
+       src_tests_tar, var_tar, exref_tar, link_tar, otp_9507_path_ebin]},
      {relup, [],
       [normal_relup, restart_relup, abnormal_relup, no_sasl_relup,
        no_appup_relup, bad_appup_relup, app_start_type_relup, regexp_relup
       ]},
      {hybrid, [], [normal_hybrid,hybrid_no_old_sasl,hybrid_no_new_sasl]},
-     {tickets, [], [otp_6226]}].
+     {options, [], [otp_6226_outdir]}].
 
 init_per_group(_GroupName, Config) ->
     Config.
@@ -103,17 +102,17 @@ init_per_suite(Config) when is_list(Config) ->
     %% Make of copy of the data directory.
     DataDir = ?datadir,
     PrivDir = ?privdir,
-    ?line CopyDir = fname(PrivDir, "datacopy"),
-    ?line TarFile = fname(PrivDir, "datacopy.tgz"),
-    ?line {ok, Tar} = erl_tar:open(TarFile, [write, compressed]),
-    ?line ok = erl_tar:add(Tar, DataDir, CopyDir, [compressed]),
-    ?line ok = erl_tar:close(Tar),
-    ?line ok = erl_tar:extract(TarFile, [compressed]),
-    ?line ok = file:delete(TarFile),
+    CopyDir = fname(PrivDir, "datacopy"),
+    TarFile = fname(PrivDir, "datacopy.tgz"),
+    {ok, Tar} = erl_tar:open(TarFile, [write, compressed]),
+    ok = erl_tar:add(Tar, DataDir, CopyDir, [compressed]),
+    ok = erl_tar:close(Tar),
+    ok = erl_tar:extract(TarFile, [compressed]),
+    ok = file:delete(TarFile),
 
     %% Compile source files in the copy directory.
-    ?line Sources = filelib:wildcard(fname([CopyDir,'*','*','*','*','*.erl'])),
-    ?line lists:foreach(fun compile_source/1, Sources),
+    Sources = filelib:wildcard(fname([CopyDir,'*','*','*','*','*.erl'])),
+    lists:foreach(fun compile_source/1, Sources),
 
     %% To use in end_per_testcase
     Path = code:get_path(),
@@ -144,7 +143,7 @@ init_per_testcase(link_tar, Config) ->
 	{win32, _} -> {skip, "Skip on windows"}
     end;
 init_per_testcase(_Case, Config) ->
-    ?line Dog = test_server:timetrap(?default_timeout),
+    Dog = test_server:timetrap(?default_timeout),
     [{watchdog, Dog}|Config].
 
 end_per_testcase(_Case, Config) ->
@@ -175,531 +174,460 @@ end_per_testcase(_Case, Config) ->
 %%
 
 
-%% make_script
-%%
-script_options(suite) -> [];
-script_options(doc) ->
-    ["Check illegal script options."];
+%% make_script: Check illegal script options
 script_options(Config) when is_list(Config) ->
-    ?line {'EXIT',{{badarg,[{path,["Path",12,"Another"]}]}, _}} =
-       (catch systools:make_script("release", [{path,["Path",12,"Another"]}])),
-    ?line {'EXIT',{{badarg,[sillent]}, _}} =
+    {'EXIT',{{badarg,[{path,["Path",12,"Another"]}]}, _}} =
+	(catch systools:make_script("release", [{path,["Path",12,"Another"]}])),
+    {'EXIT',{{badarg,[sillent]}, _}} =
 	(catch systools:make_script("release",
 				    [{path,["Path","Another"]},sillent])),
-    ?line {'EXIT',{{badarg,[locall]}, _}} =
+    {'EXIT',{{badarg,[locall]}, _}} =
 	(catch systools:make_script("release",
 				    [{path,["Path","Another"]},locall])),
-    ?line {'EXIT',{{badarg,[src_testsxx]}, _}} =
+    {'EXIT',{{badarg,[src_testsxx]}, _}} =
 	(catch systools:make_script("release",
 				    [{path,["Path"]},src_testsxx])),
-    ?line {'EXIT',{{badarg,[{variables, {"TEST", "/home/lib"}}]}, _}} =
+    {'EXIT',{{badarg,[{variables, {"TEST", "/home/lib"}}]}, _}} =
 	(catch systools:make_script("release",
 				    [{variables, {"TEST", "/home/lib"}}])),
-    ?line {'EXIT',{{badarg,[{variables, [{a, b}, {"a", "b"}]}]}, _}} =
+    {'EXIT',{{badarg,[{variables, [{a, b}, {"a", "b"}]}]}, _}} =
 	(catch systools:make_script("release",
 				    [{variables, [{a, b}, {"a", "b"}]}])),
-    ?line {'EXIT',{{badarg,[exreff]}, _}} =
+    {'EXIT',{{badarg,[exreff]}, _}} =
 	(catch systools:make_script("release",
 				    [{path,["Path","Another"]},exreff])),
-    ?line {'EXIT',{{badarg,[{exref,["appl"]}]}, _}} =
+    {'EXIT',{{badarg,[{exref,["appl"]}]}, _}} =
 	(catch systools:make_script("release", [{exref,["appl"]}])),
-    ?line {'EXIT',{{badarg,[{machine, "appl"}]}, _}} =
+    {'EXIT',{{badarg,[{machine, "appl"}]}, _}} =
 	(catch systools:make_script("release", [{machine,"appl"}])),
     ok.
 
 
-%% make_script
-%%
-normal_script(suite) -> [];
-normal_script(doc) ->
-    ["Check that make_script handles normal case."];
+%% make_script: Check that normal case
 normal_script(Config) when is_list(Config) ->
-    ?line {ok, OldDir} = file:get_cwd(),
-    ?line PSAVE = code:get_path(),		% Save path
+    {ok, OldDir} = file:get_cwd(),
+    PSAVE = code:get_path(),		% Save path
 
-    ?line {LatestDir, LatestName} = create_script(latest,Config),
+    {LatestDir, LatestName} = create_script(latest,Config),
 
-    ?line DataDir = filename:absname(?copydir),
-    ?line LibDir = fname([DataDir, d_normal, lib]),
-    ?line P1 = fname([LibDir, 'db-2.1', ebin]),
-    ?line P2 = fname([LibDir, 'fe-3.1', ebin]),
+    DataDir = filename:absname(?copydir),
+    LibDir = fname([DataDir, d_normal, lib]),
+    P1 = fname([LibDir, 'db-2.1', ebin]),
+    P2 = fname([LibDir, 'fe-3.1', ebin]),
 
-    ?line true = code:add_patha(P1),
-    ?line true = code:add_patha(P2),
+    true = code:add_patha(P1),
+    true = code:add_patha(P2),
 
-    ?line ok = file:set_cwd(LatestDir),
+    ok = file:set_cwd(LatestDir),
 
-    ?line ok = systools:make_script(filename:basename(LatestName)),
-    ?line {ok, _} = read_script_file(LatestName),	% Check readabillity
+    ok = systools:make_script(filename:basename(LatestName)),
+    {ok, _} = read_script_file(LatestName),	% Check readabillity
 
     %% Check the same but w. silent flag
-    ?line {ok, _, []} = systools:make_script(LatestName, [silent]),
+    {ok, _, []} = systools:make_script(LatestName, [silent]),
 
     %% Use the local option
-    ?line ok = systools:make_script(LatestName, [local]),
-    ?line ok = check_script_path(LatestName),
+    ok = systools:make_script(LatestName, [local]),
+    ok = check_script_path(LatestName),
 
     %% use the path option
-    ?line code:set_path(PSAVE),			% Restore path
+    code:set_path(PSAVE),			% Restore path
     %% Mess up std path:
-    ?line true = code:add_patha(fname([LibDir, 'db-1.0', ebin])),
-    ?line true = code:add_patha(fname([LibDir, 'fe-2.1', ebin])),
+    true = code:add_patha(fname([LibDir, 'db-1.0', ebin])),
+    true = code:add_patha(fname([LibDir, 'fe-2.1', ebin])),
 
-    ?line error = systools:make_script(LatestName),	%should fail
-    ?line ok = systools:make_script(LatestName,[{path, [P1, P2]}]),
+    error = systools:make_script(LatestName),	%should fail
+    ok = systools:make_script(LatestName,[{path, [P1, P2]}]),
 
-    ?line ok = file:set_cwd(OldDir),
-    ?line code:set_path(PSAVE),			% Restore path
+    ok = file:set_cwd(OldDir),
+    code:set_path(PSAVE),			% Restore path
     ok.
 
 
-%% make_script
-%%
-no_mod_vsn_script(suite) -> [];
-no_mod_vsn_script(doc) ->
-    ["Check that make_script handles normal case.",
-     "Modules specified without version in .app file (db-3.1)."
-     "Note that this is now the normal way - i.e. systools now "
-     "ignores the module versions in the .app file."];
+%% make_script:
+%% Modules specified without version in .app file (db-3.1).
+%% Note that this is now the normal way - i.e. systools now ignores
+%% the module versions in the .app file.
 no_mod_vsn_script(Config) when is_list(Config) ->
-    ?line {ok, OldDir} = file:get_cwd(),
-    ?line PSAVE = code:get_path(),		% Save path
+    {ok, OldDir} = file:get_cwd(),
+    PSAVE = code:get_path(),		% Save path
 
-    ?line {LatestDir, LatestName} = create_script(latest_no_mod_vsn,Config),
+    {LatestDir, LatestName} = create_script(latest_no_mod_vsn,Config),
 
-    ?line DataDir = filename:absname(?copydir),
-    ?line LibDir = fname([DataDir, d_normal, lib]),
-    ?line P1 = fname([LibDir, 'db-3.1', ebin]),
-    ?line P2 = fname([LibDir, 'fe-3.1', ebin]),
+    DataDir = filename:absname(?copydir),
+    LibDir = fname([DataDir, d_normal, lib]),
+    P1 = fname([LibDir, 'db-3.1', ebin]),
+    P2 = fname([LibDir, 'fe-3.1', ebin]),
 
-    ?line true = code:add_patha(P1),
-    ?line true = code:add_patha(P2),
+    true = code:add_patha(P1),
+    true = code:add_patha(P2),
 
-    ?line ok = file:set_cwd(LatestDir),
+    ok = file:set_cwd(LatestDir),
 
-    ?line ok = systools:make_script(filename:basename(LatestName)),
-    ?line {ok, _} = read_script_file(LatestName),	% Check readabillity
+    ok = systools:make_script(filename:basename(LatestName)),
+    {ok, _} = read_script_file(LatestName),	% Check readabillity
 
     %% Check the same but w. silent flag
-    ?line {ok, _, []} = systools:make_script(LatestName, [silent]),
+    {ok, _, []} = systools:make_script(LatestName, [silent]),
 
     %% Use the local option
-    ?line ok = systools:make_script(LatestName, [local]),
-    ?line ok = check_script_path(LatestName),
+    ok = systools:make_script(LatestName, [local]),
+    ok = check_script_path(LatestName),
 
     %% use the path option
-    ?line code:set_path(PSAVE),			% Restore path
+    code:set_path(PSAVE),			% Restore path
     %% Mess up std path:
-    ?line true = code:add_patha(fname([LibDir, 'db-1.0', ebin])),
-    ?line true = code:add_patha(fname([LibDir, 'fe-2.1', ebin])),
+    true = code:add_patha(fname([LibDir, 'db-1.0', ebin])),
+    true = code:add_patha(fname([LibDir, 'fe-2.1', ebin])),
 
-    ?line error = systools:make_script(LatestName),	%should fail
-    ?line ok = systools:make_script(LatestName,
-				    [{path, [P1, P2]}]),
+    error = systools:make_script(LatestName),	%should fail
+    ok = systools:make_script(LatestName,
+			      [{path, [P1, P2]}]),
 
-    ?line ok = file:set_cwd(OldDir),
-    ?line code:set_path(PSAVE),			% Restore path
+    ok = file:set_cwd(OldDir),
+    code:set_path(PSAVE),			% Restore path
     ok.
 
 
-%% make_script
-%%
-wildcard_script(suite) -> [];
-wildcard_script(doc) ->
-    ["Check that make_script handles wildcards in path."];
+%% make_script: Check that make_script handles wildcards in path.
 wildcard_script(Config) when is_list(Config) ->
-    ?line {ok, OldDir} = file:get_cwd(),
+    {ok, OldDir} = file:get_cwd(),
 
-    ?line {LatestDir, LatestName} = create_script(latest,Config),
+    {LatestDir, LatestName} = create_script(latest,Config),
 
-    ?line DataDir = filename:absname(?copydir),
-    ?line LibDir = fname([DataDir, d_normal, lib]),
-    ?line WildDir = fname([LibDir, '*', ebin]),
+    DataDir = filename:absname(?copydir),
+    LibDir = fname([DataDir, d_normal, lib]),
+    WildDir = fname([LibDir, '*', ebin]),
 
-    ?line ok = file:set_cwd(LatestDir),
+    ok = file:set_cwd(LatestDir),
 
-    ?line error = systools:make_script(filename:basename(LatestName)),
+    error = systools:make_script(filename:basename(LatestName)),
 
-    ?line ok = systools:make_script(LatestName,
-				    [{path, [WildDir]}]),
+    ok = systools:make_script(LatestName,
+			      [{path, [WildDir]}]),
 
-    ?line {ok, _} = read_script_file(LatestName),	% Check readabillity
+    {ok, _} = read_script_file(LatestName),	% Check readabillity
 
-    ?line ok = file:set_cwd(OldDir),
+    ok = file:set_cwd(OldDir),
     ok.
 
 
-%% make_script
-%%
-variable_script(suite) -> [];
-variable_script(doc) ->
-    ["Add own installation dependent variable in script."];
+%% make_script: Add own installation dependent variable in script.
 variable_script(Config) when is_list(Config) ->
-    ?line {ok, OldDir} = file:get_cwd(),
+    {ok, OldDir} = file:get_cwd(),
 
-    ?line {LatestDir, LatestName} = create_script(latest,Config),
+    {LatestDir, LatestName} = create_script(latest,Config),
 
-    ?line DataDir = filename:absname(?copydir),
-    ?line LibDir = fname([DataDir, d_normal, lib]),
-    ?line P = [fname([LibDir, 'db-2.1', ebin]),
-	       fname([LibDir, 'fe-3.1', ebin])],
+    DataDir = filename:absname(?copydir),
+    LibDir = fname([DataDir, d_normal, lib]),
+    P = [fname([LibDir, 'db-2.1', ebin]),
+	 fname([LibDir, 'fe-3.1', ebin])],
 
-    ?line ok = file:set_cwd(LatestDir),
+    ok = file:set_cwd(LatestDir),
 
-    ?line ok = systools:make_script(LatestName,
-				    [{path, P},
-				     {variables, [{"TEST", LibDir}]}]),
+    ok = systools:make_script(LatestName,
+			      [{path, P},
+			       {variables, [{"TEST", LibDir}]}]),
 
     %% Check variables
-    ?line ok = check_var_script_file([fname(['$TEST', 'db-2.1', ebin]),
-				      fname(['$TEST', 'fe-3.1', ebin])],
-				     P,
-				     LatestName),
+    ok = check_var_script_file([fname(['$TEST', 'db-2.1', ebin]),
+				fname(['$TEST', 'fe-3.1', ebin])],
+			       P,
+			       LatestName),
 
-    ?line ok = file:set_cwd(OldDir),
+    ok = file:set_cwd(OldDir),
     ok.
 
-%% make_script
-%%
-abnormal_script(suite) -> [];
-abnormal_script(doc) ->
-    ["Abnormal cases."];
+%% make_script: Abnormal cases.
 abnormal_script(Config) when is_list(Config) ->
-    ?line {ok, OldDir} = file:get_cwd(),
+    {ok, OldDir} = file:get_cwd(),
 
-    ?line {LatestDir, LatestName} = create_script(latest,Config),
+    {LatestDir, LatestName} = create_script(latest,Config),
 
-    ?line DataDir = filename:absname(?copydir),
+    DataDir = filename:absname(?copydir),
 
-    ?line ok = file:set_cwd(LatestDir),
-    ?line LibDir = fname([DataDir, d_bad_app_vsn, lib]),
-    ?line P = [fname([LibDir, 'db-2.1', ebin]),
-	       fname([LibDir, 'fe-3.1', ebin])],
+    ok = file:set_cwd(LatestDir),
+    LibDir = fname([DataDir, d_bad_app_vsn, lib]),
+    P = [fname([LibDir, 'db-2.1', ebin]),
+	 fname([LibDir, 'fe-3.1', ebin])],
 
     %% Check wrong app vsn
-    ?line error = systools:make_script(LatestName, [{path, P}]),
-    ?line {error,
-	   systools_make,
-	   [{error_reading, {db, {no_valid_version,
-				  {{"should be","2.1"},
-				   {"found file", _, "2.0"}}}}}]} =
+    error = systools:make_script(LatestName, [{path, P}]),
+    {error,
+     systools_make,
+     [{error_reading, {db, {no_valid_version,
+			    {{"should be","2.1"},
+			     {"found file", _, "2.0"}}}}}]} =
 	systools:make_script(LatestName, [silent, {path, P}]),
 
-    ?line ok = file:set_cwd(OldDir),
+    ok = file:set_cwd(OldDir),
     ok.
 
 
-%% make_script
-%%
-no_sasl_script(suite) -> [];
-no_sasl_script(doc) ->
-    ["Create script without sasl appl. Check warning."];
+%% make_script: Create script without sasl appl. Check warning.
 no_sasl_script(Config) when is_list(Config) ->
-    ?line {ok, OldDir} = file:get_cwd(),
+    {ok, OldDir} = file:get_cwd(),
 
-    ?line {LatestDir, LatestName} = create_script(latest1_no_sasl,Config),
+    {LatestDir, LatestName} = create_script(latest1_no_sasl,Config),
 
-    ?line DataDir = filename:absname(?copydir),
-    ?line LibDir = [fname([DataDir, d_normal, lib])],
-    ?line P = [fname([LibDir, '*', ebin]),
-	       fname([DataDir, lib, kernel, ebin]),
-	       fname([DataDir, lib, stdlib, ebin]),
-	       fname([DataDir, lib, sasl, ebin])],
+    DataDir = filename:absname(?copydir),
+    LibDir = [fname([DataDir, d_normal, lib])],
+    P = [fname([LibDir, '*', ebin]),
+	 fname([DataDir, lib, kernel, ebin]),
+	 fname([DataDir, lib, stdlib, ebin]),
+	 fname([DataDir, lib, sasl, ebin])],
 
-    ?line ok = file:set_cwd(LatestDir),
+    ok = file:set_cwd(LatestDir),
 
-    ?line {ok, _ , [{warning,missing_sasl}]} =
+    {ok, _ , [{warning,missing_sasl}]} =
 	systools:make_script(LatestName,[{path, P},silent]),
 
-    ?line {ok, _ , []} =
+    {ok, _ , []} =
 	systools:make_script(LatestName,[{path, P},silent, no_warn_sasl]),
 
-    ?line ok = file:set_cwd(OldDir),
+    ok = file:set_cwd(OldDir),
     ok.
 
 
-%% make_script
-%%
-src_tests_script(suite) -> [];
-src_tests_script(doc) ->
-    ["Do not check date of object file or that source code can be found."];
+%% make_script: Do not check date of object file or that source code
+%% can be found.
 src_tests_script(Config) when is_list(Config) ->
-    ?line {ok, OldDir} = file:get_cwd(),
-    ?line PSAVE = code:get_path(),		% Save path
+    {ok, OldDir} = file:get_cwd(),
+    PSAVE = code:get_path(),		% Save path
 
-    ?line {LatestDir, LatestName} = create_script(latest,Config),
-    ?line BootFile = LatestName ++ ".boot",
+    {LatestDir, LatestName} = create_script(latest,Config),
+    BootFile = LatestName ++ ".boot",
 
-    ?line DataDir = filename:absname(?copydir),
-    ?line LibDir = fname([DataDir, d_missing_src, lib]),
-    ?line P1 = fname([LibDir, 'db-2.1', ebin]),
-    ?line P2 = fname([LibDir, 'fe-3.1', ebin]),
+    DataDir = filename:absname(?copydir),
+    LibDir = fname([DataDir, d_missing_src, lib]),
+    P1 = fname([LibDir, 'db-2.1', ebin]),
+    P2 = fname([LibDir, 'fe-3.1', ebin]),
     N = [P1, P2],
 
-    ?line ok = file:set_cwd(LatestDir),
+    ok = file:set_cwd(LatestDir),
 
     %% Manipulate the modification date of a beam file so it seems
     %% older than its .erl file
-    ?line Erl = filename:join([P1,"..","src","db1.erl"]),
-    ?line {ok, FileInfo=#file_info{mtime={{Y,M,D},T}}} = file:read_file_info(Erl),
-    ?line Beam = filename:join(P1,"db1.beam"),
-    ?line ok=file:write_file_info(Beam, FileInfo#file_info{mtime={{Y-1,M,D},T}}),
+    Erl = filename:join([P1,"..","src","db1.erl"]),
+    {ok, FileInfo=#file_info{mtime={{Y,M,D},T}}} = file:read_file_info(Erl),
+    Beam = filename:join(P1,"db1.beam"),
+    ok=file:write_file_info(Beam, FileInfo#file_info{mtime={{Y-1,M,D},T}}),
 
     %% Remove a .erl file
-    ?line Erl2 = filename:join([P1,"..","src","db2.erl"]),
-    ?line file:delete(Erl2),
+    Erl2 = filename:join([P1,"..","src","db2.erl"]),
+    file:delete(Erl2),
 
     %% Then make script
 
     %% .boot file should not exist
-    ?line ok = file:delete(BootFile),
-    ?line false = filelib:is_regular(BootFile),
+    ok = file:delete(BootFile),
+    false = filelib:is_regular(BootFile),
     %% With warnings_as_errors and src_tests option, an error should be issued
-    ?line error =
+    error =
 	systools:make_script(LatestName, [silent, {path, N}, src_tests,
 					  warnings_as_errors]),
-    ?line error =
+    error =
 	systools:make_script(LatestName, [{path, N}, src_tests,
 					  warnings_as_errors]),
 
     %% due to warnings_as_errors .boot file should still not exist
-    ?line false = filelib:is_regular(BootFile),
+    false = filelib:is_regular(BootFile),
 
     %% Two warnings should be issued when src_tests is given
     %% 1. old object code for db1.beam
     %% 2. missing source code for db2.beam
-    ?line {ok, _, [{warning,{obj_out_of_date,_}},
-		   {warning,{source_not_found,_}}]} =
+    {ok, _, [{warning,{obj_out_of_date,_}},
+	     {warning,{source_not_found,_}}]} =
 	systools:make_script(LatestName, [silent, {path, N}, src_tests]),
 
     %% .boot file should exist now
-    ?line true = filelib:is_regular(BootFile),
+    true = filelib:is_regular(BootFile),
 
     %% Without the src_tests option, no warning should be issued
-    ?line {ok, _, []} =
+    {ok, _, []} =
 	systools:make_script(LatestName, [silent, {path, N}]),
 
     %% Check that the old no_module_tests option (from the time when
     %% it was default to do the src_test) is ignored
-    ?line {ok, _, [{warning,{obj_out_of_date,_}},
-		   {warning,{source_not_found,_}}]} =
+    {ok, _, [{warning,{obj_out_of_date,_}},
+	     {warning,{source_not_found,_}}]} =
 	systools:make_script(LatestName, [silent,
 					  {path, N},
 					  no_module_tests,
 					  src_tests]),
 
-    ?line ok = file:set_cwd(OldDir),
-    ?line code:set_path(PSAVE),
+    ok = file:set_cwd(OldDir),
+    code:set_path(PSAVE),
     ok.
 
-%% make_script
-%%
-warn_shadow_script(suite) -> [];
-warn_shadow_script(doc) ->
-    ["Check that jam file out of date warning doesn't",
-     "shadow bad module version error."];
-warn_shadow_script(Config) when is_list(Config) ->
-    %% This test has been removed since the 'vsn' attribute is
-    %% not used any more, starting with R6. No warning
-    %% 'obj_out_of_date' seemed to be generated.
-    true.
-
-
-%% make_script
-%%
-crazy_script(suite) -> [];
-crazy_script(doc) ->
-    ["Do the crazy cases."];
+%% make_script: Do the crazy cases.
 crazy_script(Config) when is_list(Config) ->
-    ?line {ok, OldDir} = file:get_cwd(),
+    {ok, OldDir} = file:get_cwd(),
 
-    ?line {LatestDir, LatestName} = create_script(latest, Config),
+    {LatestDir, LatestName} = create_script(latest, Config),
 
-    ?line DataDir = filename:absname(?copydir),
-    ?line LibDir = fname([DataDir, d_normal, lib]),
-    ?line P = [fname([LibDir, 'db-2.1', ebin]),
-	       fname([LibDir, 'fe-3.1', ebin])],
+    DataDir = filename:absname(?copydir),
+    LibDir = fname([DataDir, d_normal, lib]),
+    P = [fname([LibDir, 'db-2.1', ebin]),
+	 fname([LibDir, 'fe-3.1', ebin])],
 
-    ?line ok = file:set_cwd(LatestDir),
+    ok = file:set_cwd(LatestDir),
 
     %% Run with bad path
-    ?line error = systools:make_script(LatestName),
-    ?line {error, _, [{error_reading, _}, {error_reading, _}]} =
+    error = systools:make_script(LatestName),
+    {error, _, [{error_reading, _}, {error_reading, _}]} =
 	systools:make_script(LatestName, [silent]),
 
     %% Run with .rel file lacking kernel
-    ?line {LatestDir2, LatestName2} = create_script(latest_nokernel, Config),
-    ?line ok = file:set_cwd(LatestDir2),
+    {LatestDir2, LatestName2} = create_script(latest_nokernel, Config),
+    ok = file:set_cwd(LatestDir2),
 
-    ?line error = systools:make_script(LatestName2),
-    ?line {error, _, {missing_mandatory_app,[kernel,stdlib]}} =
+    error = systools:make_script(LatestName2),
+    {error, _, {missing_mandatory_app,[kernel,stdlib]}} =
 	systools:make_script(LatestName2, [silent,{path,P}]),
 
-    ?line ok = file:set_cwd(OldDir),
+    ok = file:set_cwd(OldDir),
     ok.
 
-%% make_script
-%%
-included_script(suite) -> [];
-included_script(doc) ->
-    ["Check that make_script handles generation of script",
-     "for applications with included applications."];
+%% make_script: Check that make_script handles generation of script
+%% for applications with included applications.
 included_script(Config) when is_list(Config) ->
-    ?line {ok, OldDir} = file:get_cwd(),
-    ?line {LatestDir, LatestName} = create_include_files(inc1, Config),
-    ?line ok = file:set_cwd(LatestDir),
-    ?line ok = systools:make_script(LatestName),
-    ?line ok = check_include_script(LatestName,
-				    [t1, t2, t3, t5, t4, t6],
-				    [t1, t3, t6]),
-    ?line ok = file:set_cwd(OldDir),
+    {ok, OldDir} = file:get_cwd(),
+    {LatestDir, LatestName} = create_include_files(inc1, Config),
+    ok = file:set_cwd(LatestDir),
+    ok = systools:make_script(LatestName),
+    ok = check_include_script(LatestName,
+			      [t1, t2, t3, t5, t4, t6],
+			      [t1, t3, t6]),
+    ok = file:set_cwd(OldDir),
     ok.
 
-%% make_script
-%%
-included_override_script(suite) -> [];
-included_override_script(doc) ->
-    ["Check that make_script handles generation of script",
-     "for applications with included applications which are override by",
-     "the .rel file."];
+%% make_script: Check that make_script handles generation of script
+%% for applications with included applications which are override by
+%% the .rel file.
 included_override_script(Config) when is_list(Config) ->
-    ?line {ok, OldDir} = file:get_cwd(),
-    ?line {LatestDir, LatestName} = create_include_files(inc2, Config),
-    ?line ok = file:set_cwd(LatestDir),
-    ?line ok = systools:make_script(LatestName),
-    ?line ok = check_include_script(LatestName,
-				    [t1, t2, t3, t4, t6, t5],
-				    [t1, t3, t6, t5]),
+    {ok, OldDir} = file:get_cwd(),
+    {LatestDir, LatestName} = create_include_files(inc2, Config),
+    ok = file:set_cwd(LatestDir),
+    ok = systools:make_script(LatestName),
+    ok = check_include_script(LatestName,
+			      [t1, t2, t3, t4, t6, t5],
+			      [t1, t3, t6, t5]),
 
-    ?line {_, LatestName1} = create_include_files(inc3, Config),
-    ?line ok = systools:make_script(LatestName1),
-    ?line ok = check_include_script(LatestName1,
-				    [t3, t5, t4, t6, t1, t2],
-				    [t3, t6, t1, t2]),
+    {_, LatestName1} = create_include_files(inc3, Config),
+    ok = systools:make_script(LatestName1),
+    ok = check_include_script(LatestName1,
+			      [t3, t5, t4, t6, t1, t2],
+			      [t3, t6, t1, t2]),
 
-    ?line {_, LatestName2} = create_include_files(inc4, Config),
-    ?line ok = systools:make_script(LatestName2),
-    ?line ok = check_include_script(LatestName2,
-				    [t3, t4, t6, t5, t1, t2],
-				    [t3, t6, t5, t1, t2]),
+    {_, LatestName2} = create_include_files(inc4, Config),
+    ok = systools:make_script(LatestName2),
+    ok = check_include_script(LatestName2,
+			      [t3, t4, t6, t5, t1, t2],
+			      [t3, t6, t5, t1, t2]),
 
-    ?line {_, LatestName3} = create_include_files(inc5, Config),
-    ?line ok = systools:make_script(LatestName3),
-    ?line ok = check_include_script(LatestName3,
-				    [t3, t4, t6, t1, t2],
-				    [t3, t6, t1, t2]),
+    {_, LatestName3} = create_include_files(inc5, Config),
+    ok = systools:make_script(LatestName3),
+    ok = check_include_script(LatestName3,
+			      [t3, t4, t6, t1, t2],
+			      [t3, t6, t1, t2]),
 
-    ?line ok = file:set_cwd(OldDir),
+    ok = file:set_cwd(OldDir),
     ok.
 
-%% make_script
-%%
-included_fail_script(suite) -> [];
-included_fail_script(doc) ->
-    ["Check that make_script handles errors then generating",
-     "script with included applications."];
+%% make_script: Check that make_script handles errors then generating
+%% script with included applications.
 included_fail_script(Config) when is_list(Config) ->
-    ?line {ok, OldDir} = file:get_cwd(),
-    ?line {LatestDir, LatestName} = create_include_files(inc6, Config),
-    ?line ok = file:set_cwd(LatestDir),
-    ?line {error, _, {undefined_applications,[t2]}} =
+    {ok, OldDir} = file:get_cwd(),
+    {LatestDir, LatestName} = create_include_files(inc6, Config),
+    ok = file:set_cwd(LatestDir),
+    {error, _, {undefined_applications,[t2]}} =
 	systools:make_script(LatestName, [silent]),
 
-    ?line {_, LatestName1} = create_include_files(inc7, Config),
-    ?line {error, _, {duplicate_include,[{{t5,t7,_,_},{t5,t6,_,_}}]}} =
+    {_, LatestName1} = create_include_files(inc7, Config),
+    {error, _, {duplicate_include,[{{t5,t7,_,_},{t5,t6,_,_}}]}} =
 	systools:make_script(LatestName1, [silent]),
 
-    ?line {_, LatestName3} = create_include_files(inc9, Config),
-    ?line {error, _, {circular_dependencies,[{t10,_},{t8,_}]}} =
+    {_, LatestName3} = create_include_files(inc9, Config),
+    {error, _, {circular_dependencies,[{t10,_},{t8,_}]}} =
 	systools:make_script(LatestName3, [silent]),
 
-    ?line {_, LatestName4} = create_include_files(inc10, Config),
-    ?line {error, _, [{error_reading,{t9,{override_include,[t7]}}}]} =
+    {_, LatestName4} = create_include_files(inc10, Config),
+    {error, _, [{error_reading,{t9,{override_include,[t7]}}}]} =
 	systools:make_script(LatestName4, [silent]),
 
-    ?line ok = file:set_cwd(OldDir),
+    ok = file:set_cwd(OldDir),
     ok.
 
-%% make_script
-%%
-included_bug_script(suite) -> [];
-included_bug_script(doc) ->
-    ["Check that make_script handles generation of script",
-     "with difficult dependency for included applications."];
+%% make_script: Check that make_script handles generation of script
+%% with difficult dependency for included applications.
 included_bug_script(Config) when is_list(Config) ->
-    ?line {ok, OldDir} = file:get_cwd(),
-    ?line {LatestDir, LatestName} = create_include_files(inc11, Config),
-    ?line ok = file:set_cwd(LatestDir),
-    ?line ok = systools:make_script(LatestName),
-    ?line ok = check_include_script(LatestName,
-				    [t13, t11, t12],
-				    [t11, t12]),
-    ?line ok = file:set_cwd(OldDir),
+    {ok, OldDir} = file:get_cwd(),
+    {LatestDir, LatestName} = create_include_files(inc11, Config),
+    ok = file:set_cwd(LatestDir),
+    ok = systools:make_script(LatestName),
+    ok = check_include_script(LatestName,
+			      [t13, t11, t12],
+			      [t11, t12]),
+    ok = file:set_cwd(OldDir),
     ok.
 
 
-%% make_script
-%%
-otp_3065(suite) -> [];
-otp_3065(doc) ->
-    ["Circular dependencies in systools:make_script()."];
-otp_3065(Config) when is_list(Config) ->
-    ?line {ok, OldDir} = file:get_cwd(),
-    ?line {LatestDir, LatestName} = create_include_files(otp_3065, Config),
-    ?line ok = file:set_cwd(LatestDir),
-    ?line ok = systools:make_script(LatestName),
-    ?line ok = check_include_script(LatestName,
-				    [aa12, chAts, chTraffic],
-				    [chTraffic]),
-    ?line ok = file:set_cwd(OldDir),
+%% make_script: Circular dependencies in systools:make_script().
+otp_3065_circular_dependenies(Config) when is_list(Config) ->
+    {ok, OldDir} = file:get_cwd(),
+    {LatestDir, LatestName} =
+	create_include_files(otp_3065_circular_dependenies, Config),
+    ok = file:set_cwd(LatestDir),
+    ok = systools:make_script(LatestName),
+    ok = check_include_script(LatestName,
+			      [aa12, chAts, chTraffic],
+			      [chTraffic]),
+    ok = file:set_cwd(OldDir),
     ok.
 
 
-%% make_script
-%%
-exref_script(suite) -> [];
-exref_script(doc) ->
-    ["Check that make_script exref option works."];
+%% make_script: Check that make_script exref option works.
 exref_script(Config) when is_list(Config) ->
-    ?line {ok, OldDir} = file:get_cwd(),
-    ?line PSAVE = code:get_path(),		% Save path
+    {ok, OldDir} = file:get_cwd(),
+    PSAVE = code:get_path(),		% Save path
 
-    ?line {LatestDir, LatestName} = create_script(latest,Config),
+    {LatestDir, LatestName} = create_script(latest,Config),
 
-    ?line DataDir = filename:absname(?copydir),
-    ?line LibDir = fname([DataDir, d_normal, lib]),
-    ?line P = [fname([LibDir, 'db-2.1', ebin]),
-	       fname([LibDir, 'fe-3.1', ebin])],
+    DataDir = filename:absname(?copydir),
+    LibDir = fname([DataDir, d_normal, lib]),
+    P = [fname([LibDir, 'db-2.1', ebin]),
+	 fname([LibDir, 'fe-3.1', ebin])],
 
-    ?line ok = file:set_cwd(LatestDir),
+    ok = file:set_cwd(LatestDir),
 
-    ?line {ok, _, _} = systools:make_script(LatestName, [{path,P}, silent]),
+    {ok, _, _} = systools:make_script(LatestName, [{path,P}, silent]),
 
     %% Complete exref
-    ?line {ok, _, W1} = 
+    {ok, _, W1} =
 	systools:make_script(LatestName, [exref, {path,P}, silent]),
-    ?line check_exref_warnings(with_db1, W1),
-    ?line {ok, _} = read_script_file(LatestName),	% Check readabillity
+    check_exref_warnings(with_db1, W1),
+    {ok, _} = read_script_file(LatestName),	% Check readabillity
 
     %% Only exref the db application.
-    ?line {ok, _, W2} =
+    {ok, _, W2} =
 	systools:make_script(LatestName, [{exref,[db]}, {path,P}, silent]),
-    ?line check_exref_warnings(with_db1, W2),
-    ?line {ok, _} = read_script_file(LatestName),	% Check readabillity
+    check_exref_warnings(with_db1, W2),
+    {ok, _} = read_script_file(LatestName),	% Check readabillity
 
     %% Only exref the fe application.
-    ?line {ok, _, W3} =
+    {ok, _, W3} =
 	systools:make_script(LatestName, [{exref,[fe]}, {path,P}, silent]),
-    ?line check_exref_warnings(without_db1, W3),
-    ?line {ok, _} = read_script_file(LatestName),	% Check readabillity
+    check_exref_warnings(without_db1, W3),
+    {ok, _} = read_script_file(LatestName),	% Check readabillity
 
     %% exref the db and stdlib applications.
-    ?line {ok, _, W4} =
+    {ok, _, W4} =
 	systools:make_script(LatestName, [{exref,[db,stdlib]}, {path,P}, silent]),
-    ?line check_exref_warnings(with_db1, W4),
-    ?line {ok, _} = read_script_file(LatestName),	% Check readabillity
-    ?line ok = file:set_cwd(OldDir),
-    ?line code:set_path(PSAVE),			% Restore path
+    check_exref_warnings(with_db1, W4),
+    {ok, _} = read_script_file(LatestName),	% Check readabillity
+    ok = file:set_cwd(OldDir),
+    code:set_path(PSAVE),			% Restore path
     ok.
 
 check_exref_warnings(with_db1, W) ->
@@ -729,11 +657,11 @@ filter({ok, W}) ->
     {ok, filter(W)};
 filter(L) ->
     lists:filter(fun%({hipe_consttab,_,_}) -> false;
-		    ({int,_,_}) -> false;
-		    ({i,_,_}) -> false;
-		    ({crypto,_,_}) -> false;
-		    (_) -> true
-		 end,
+		     ({int,_,_}) -> false;
+		     ({i,_,_}) -> false;
+		     ({crypto,_,_}) -> false;
+		     (_) -> true
+		end,
 		 L).
 
 get_exref1(T, [{warning, {T, Value}}|_]) -> {ok, Value};
@@ -753,197 +681,172 @@ no_hipe({ok, Value}) ->
 	    {ok, Value}
     end.
 
-%% tar_options
-%%
-tar_options(suite) -> [];
-tar_options(doc) ->
-    ["Check illegal tar options."];
+%% tar_options: Check illegal tar options.
 tar_options(Config) when is_list(Config) ->
-    ?line {'EXIT',{{badarg,[{path,["Path",12,"Another"]}]}, _}} =
+    {'EXIT',{{badarg,[{path,["Path",12,"Another"]}]}, _}} =
 	(catch systools:make_tar("release", [{path,["Path",12,"Another"]}])),
-    ?line {'EXIT',{{badarg,[sillent]}, _}} =
+    {'EXIT',{{badarg,[sillent]}, _}} =
 	(catch systools:make_tar("release",
 				 [{path,["Path","Another"]},sillent])),
-    ?line {'EXIT',{{badarg,[{dirs,["dirs"]}]}, _}} =
+    {'EXIT',{{badarg,[{dirs,["dirs"]}]}, _}} =
 	(catch systools:make_tar("release", [{dirs, ["dirs"]}])),
-    ?line {'EXIT',{{badarg,[{erts, illegal}]}, _}} =
+    {'EXIT',{{badarg,[{erts, illegal}]}, _}} =
 	(catch systools:make_tar("release", [{erts, illegal}])),
-    ?line {'EXIT',{{badarg,[src_testsxx]}, _}} =
+    {'EXIT',{{badarg,[src_testsxx]}, _}} =
 	(catch systools:make_tar("release",
 				 [{path,["Path"]},src_testsxx])),
-    ?line {'EXIT',{{badarg,[{variables, [{a, b}, {"a", "b"}]}]}, _}} =
+    {'EXIT',{{badarg,[{variables, [{a, b}, {"a", "b"}]}]}, _}} =
 	(catch systools:make_tar("release",
 				 [{variables, [{a, b}, {"a", "b"}]}])),
-    ?line {'EXIT',{{badarg,[{var_tar, illegal}]}, _}} =
+    {'EXIT',{{badarg,[{var_tar, illegal}]}, _}} =
 	(catch systools:make_tar("release", [{var_tar, illegal}])),
-    ?line {'EXIT',{{badarg,[exreff]}, _}} =
+    {'EXIT',{{badarg,[exreff]}, _}} =
 	(catch systools:make_tar("release",
 				 [{path,["Path","Another"]},exreff])),
-    ?line {'EXIT',{{badarg,[{exref,["appl"]}]}, _}} =
+    {'EXIT',{{badarg,[{exref,["appl"]}]}, _}} =
 	(catch systools:make_tar("release", [{exref,["appl"]}])),
-    ?line {'EXIT',{{badarg,[{machine, "appl"}]}, _}} =
+    {'EXIT',{{badarg,[{machine, "appl"}]}, _}} =
 	(catch systools:make_tar("release", [{machine,"appl"}])),
     ok.
 
 
-%% normal_tar
-%%
-normal_tar(suite) -> [];
-normal_tar(doc) ->
-    ["Check normal case"];
+%% make_tar: Check normal case
 normal_tar(Config) when is_list(Config) ->
-    ?line {ok, OldDir} = file:get_cwd(),
+    {ok, OldDir} = file:get_cwd(),
 
-    ?line {LatestDir, LatestName} = create_script(latest,Config),
+    {LatestDir, LatestName} = create_script(latest,Config),
 
-    ?line DataDir = filename:absname(?copydir),
-    ?line LibDir = fname([DataDir, d_normal, lib]),
-    ?line P = [fname([LibDir, 'db-2.1', ebin]),
-	       fname([LibDir, 'fe-3.1', ebin])],
+    DataDir = filename:absname(?copydir),
+    LibDir = fname([DataDir, d_normal, lib]),
+    P = [fname([LibDir, 'db-2.1', ebin]),
+	 fname([LibDir, 'fe-3.1', ebin])],
 
-    ?line ok = file:set_cwd(LatestDir),
+    ok = file:set_cwd(LatestDir),
 
-    ?line {ok, _, _} = systools:make_script(LatestName, [silent, {path, P}]),
-    ?line ok = systools:make_tar(LatestName, [{path, P}]),
-    ?line ok = check_tar(fname([lib,'db-2.1',ebin,'db.app']), LatestName),
-    ?line {ok, _, _} = systools:make_tar(LatestName, [{path, P}, silent]),
-    ?line ok = check_tar(fname([lib,'fe-3.1',ebin,'fe.app']), LatestName),
+    {ok, _, _} = systools:make_script(LatestName, [silent, {path, P}]),
+    ok = systools:make_tar(LatestName, [{path, P}]),
+    ok = check_tar(fname([lib,'db-2.1',ebin,'db.app']), LatestName),
+    {ok, _, _} = systools:make_tar(LatestName, [{path, P}, silent]),
+    ok = check_tar(fname([lib,'fe-3.1',ebin,'fe.app']), LatestName),
 
-    ?line ok = file:set_cwd(OldDir),
+    ok = file:set_cwd(OldDir),
     ok.
 
-%% no_mod_vsn_tar
-%%
-no_mod_vsn_tar(suite) -> [];
-no_mod_vsn_tar(doc) ->
-    ["Check normal case",
-     "Modules specified without version in .app file (db-3.1)."
-     "Note that this is now the normal way - i.e. systools now "
-     "ignores the module versions in the .app file."];
+%% make_tar: Modules specified without version in .app file (db-3.1).
+%% Note that this is now the normal way - i.e. systools now ignores
+%% the module versions in the .app file.
 no_mod_vsn_tar(Config) when is_list(Config) ->
-    ?line {ok, OldDir} = file:get_cwd(),
+    {ok, OldDir} = file:get_cwd(),
 
-    ?line {LatestDir, LatestName} = create_script(latest_no_mod_vsn,Config),
+    {LatestDir, LatestName} = create_script(latest_no_mod_vsn,Config),
 
-    ?line DataDir = filename:absname(?copydir),
-    ?line LibDir = fname([DataDir, d_normal, lib]),
-    ?line P = [fname([LibDir, 'db-3.1', ebin]),
-	       fname([LibDir, 'fe-3.1', ebin])],
+    DataDir = filename:absname(?copydir),
+    LibDir = fname([DataDir, d_normal, lib]),
+    P = [fname([LibDir, 'db-3.1', ebin]),
+	 fname([LibDir, 'fe-3.1', ebin])],
 
-    ?line ok = file:set_cwd(LatestDir),
+    ok = file:set_cwd(LatestDir),
 
-    ?line {ok, _, _} = systools:make_script(LatestName, [silent, {path, P}]),
-    ?line ok = systools:make_tar(LatestName, [{path, P}]),
-    ?line ok = check_tar(fname([lib,'db-3.1',ebin,'db.app']), LatestName),
-    ?line {ok, _, _} = systools:make_tar(LatestName, [{path, P}, silent]),
-    ?line ok = check_tar(fname([lib,'fe-3.1',ebin,'fe.app']), LatestName),
+    {ok, _, _} = systools:make_script(LatestName, [silent, {path, P}]),
+    ok = systools:make_tar(LatestName, [{path, P}]),
+    ok = check_tar(fname([lib,'db-3.1',ebin,'db.app']), LatestName),
+    {ok, _, _} = systools:make_tar(LatestName, [{path, P}, silent]),
+    ok = check_tar(fname([lib,'fe-3.1',ebin,'fe.app']), LatestName),
 
-    ?line ok = file:set_cwd(OldDir),
+    ok = file:set_cwd(OldDir),
     ok.
 
-%% variable_tar
-%%
-variable_tar(suite) -> [];
-variable_tar(doc) ->
-    ["Use variable and create separate tar (included in generated tar)."];
+%% make_tar: Use variable and create separate tar (included in generated tar).
 variable_tar(Config) when is_list(Config) ->
-    ?line {ok, OldDir} = file:get_cwd(),
+    {ok, OldDir} = file:get_cwd(),
 
-    ?line {LatestDir, LatestName} = create_script(latest,Config),
+    {LatestDir, LatestName} = create_script(latest,Config),
 
-    ?line DataDir = filename:absname(?copydir),
-    ?line LibDir = fname([DataDir, d_normal, lib]),
-    ?line P = [fname([LibDir, 'db-2.1', ebin]),
-	       fname([LibDir, 'fe-3.1', ebin])],
+    DataDir = filename:absname(?copydir),
+    LibDir = fname([DataDir, d_normal, lib]),
+    P = [fname([LibDir, 'db-2.1', ebin]),
+	 fname([LibDir, 'fe-3.1', ebin])],
 
-    ?line ok = file:set_cwd(LatestDir),
+    ok = file:set_cwd(LatestDir),
 
-    ?line {ok, _, _} = systools:make_script(LatestName,
-					    [silent,
-					     {path, P},
-					     {variables,[{"TEST", LibDir}]}]),
+    {ok, _, _} = systools:make_script(LatestName,
+				      [silent,
+				       {path, P},
+				       {variables,[{"TEST", LibDir}]}]),
 
-    ?line ok = systools:make_tar(LatestName, [{path, P},
-					      {variables,[{"TEST", LibDir}]}]),
-    ?line ok = check_var_tar("TEST", LatestName),
+    ok = systools:make_tar(LatestName, [{path, P},
+					{variables,[{"TEST", LibDir}]}]),
+    ok = check_var_tar("TEST", LatestName),
 
-    ?line {ok, _, _} = systools:make_tar(LatestName,
-					 [{path, P}, silent,
-					  {variables,[{"TEST", LibDir}]}]),
-    ?line ok = check_var_tar("TEST", LatestName),
+    {ok, _, _} = systools:make_tar(LatestName,
+				   [{path, P}, silent,
+				    {variables,[{"TEST", LibDir}]}]),
+    ok = check_var_tar("TEST", LatestName),
 
-    ?line ok = file:set_cwd(OldDir),
+    ok = file:set_cwd(OldDir),
     ok.
 
-%% link_tar
-%%
-link_tar(suite) -> [];
-link_tar(doc) ->
-    ["Check that symlinks in applications are handled correctly"];
+%% make_tar: Check that symlinks in applications are handled correctly.
 link_tar(Config) when is_list(Config) ->
-    ?line {ok, OldDir} = file:get_cwd(),
+    {ok, OldDir} = file:get_cwd(),
 
-    ?line {LatestDir, LatestName} = create_script(latest,Config),
+    {LatestDir, LatestName} = create_script(latest,Config),
 
-    ?line DataDir = filename:absname(?copydir),
-    ?line LibDir = fname([DataDir, d_links, lib]),
-    ?line P = [fname([LibDir, 'db-2.1', ebin]),
-	       fname([LibDir, 'fe-3.1', ebin])],
+    DataDir = filename:absname(?copydir),
+    LibDir = fname([DataDir, d_links, lib]),
+    P = [fname([LibDir, 'db-2.1', ebin]),
+	 fname([LibDir, 'fe-3.1', ebin])],
 
     %% Make some links
-    ?line Db1Erl = fname(['db-2.1',src,'db1.erl']),
-    ?line NormalDb1Erl = fname([DataDir,d_normal,lib,Db1Erl]),
-    ?line LinkDb1Erl = fname([LibDir, Db1Erl]),
-    ?line ok = file:make_symlink(NormalDb1Erl, LinkDb1Erl),
-    ?line Db1Beam = fname(['db-2.1',ebin,'db1.beam']),
-    ?line NormalDb1Beam = fname([DataDir,d_normal,lib,Db1Beam]),
-    ?line LinkDb1Beam = fname([LibDir, Db1Beam]),
-    ?line ok = file:make_symlink(NormalDb1Beam, LinkDb1Beam),
-    ?line FeApp = fname(['fe-3.1',ebin,'fe.app']),
-    ?line NormalFeApp = fname([DataDir,d_normal,lib,FeApp]),
-    ?line LinkFeApp = fname([LibDir, FeApp]),
-    ?line ok = file:make_symlink(NormalFeApp, LinkFeApp),
-    
+    Db1Erl = fname(['db-2.1',src,'db1.erl']),
+    NormalDb1Erl = fname([DataDir,d_normal,lib,Db1Erl]),
+    LinkDb1Erl = fname([LibDir, Db1Erl]),
+    ok = file:make_symlink(NormalDb1Erl, LinkDb1Erl),
+    Db1Beam = fname(['db-2.1',ebin,'db1.beam']),
+    NormalDb1Beam = fname([DataDir,d_normal,lib,Db1Beam]),
+    LinkDb1Beam = fname([LibDir, Db1Beam]),
+    ok = file:make_symlink(NormalDb1Beam, LinkDb1Beam),
+    FeApp = fname(['fe-3.1',ebin,'fe.app']),
+    NormalFeApp = fname([DataDir,d_normal,lib,FeApp]),
+    LinkFeApp = fname([LibDir, FeApp]),
+    ok = file:make_symlink(NormalFeApp, LinkFeApp),
+
     %% Create the tar and check that the linked files are included as
     %% regular files
-    ?line ok = file:set_cwd(LatestDir),
+    ok = file:set_cwd(LatestDir),
 
-    ?line {ok,_,[]} = systools:make_script(LatestName, [{path, P},silent]),
+    {ok,_,[]} = systools:make_script(LatestName, [{path, P},silent]),
 
-    ?line {ok, _, []} = systools:make_tar(LatestName, [{path, P}, silent]),
-    ?line ok = check_tar_regular(?privdir,
-				 [fname([lib,FeApp]),
-				  fname([lib,Db1Beam])],
-				 LatestName),
-    
-    ?line {ok, _, []} = systools:make_tar(LatestName, [{path, P}, silent,
-						       {dirs, [src]}]),
-    ?line ok = check_tar_regular(?privdir,
-				 [fname([lib,FeApp]),
-				  fname([lib,Db1Beam]),
-				  fname([lib,Db1Erl])],
-				 LatestName),
+    {ok, _, []} = systools:make_tar(LatestName, [{path, P}, silent]),
+    ok = check_tar_regular(?privdir,
+			   [fname([lib,FeApp]),
+			    fname([lib,Db1Beam])],
+			   LatestName),
 
-    ?line ok = file:set_cwd(OldDir),
+    {ok, _, []} = systools:make_tar(LatestName, [{path, P}, silent,
+						 {dirs, [src]}]),
+    ok = check_tar_regular(?privdir,
+			   [fname([lib,FeApp]),
+			    fname([lib,Db1Beam]),
+			    fname([lib,Db1Erl])],
+			   LatestName),
+
+    ok = file:set_cwd(OldDir),
     ok.
 
-%% src_tests_tar
-%%
-src_tests_tar(suite) -> [];
-src_tests_tar(doc) ->
-    ["Do not check date of object file or that source code can be found."];
+%% make_tar: Do not check date of object file or that source code can be found.
 src_tests_tar(Config) when is_list(Config) ->
-    ?line {ok, OldDir} = file:get_cwd(),
+    {ok, OldDir} = file:get_cwd(),
 
-    ?line {LatestDir, LatestName} = create_script(latest,Config),
+    {LatestDir, LatestName} = create_script(latest,Config),
 
-    ?line DataDir = filename:absname(?copydir),
-    ?line LibDir = fname([DataDir, d_missing_src, lib]),
-    ?line P1 = fname([LibDir, 'db-2.1', ebin]),
-    ?line P2 = fname([LibDir, 'fe-3.1', ebin]),
+    DataDir = filename:absname(?copydir),
+    LibDir = fname([DataDir, d_missing_src, lib]),
+    P1 = fname([LibDir, 'db-2.1', ebin]),
+    P2 = fname([LibDir, 'fe-3.1', ebin]),
     P = [P1, P2],
 
-    ?line ok = file:set_cwd(LatestDir),
+    ok = file:set_cwd(LatestDir),
 
     %% Manipulate the modification date of a beam file so it seems
     %% older than the .erl file
@@ -953,362 +856,308 @@ src_tests_tar(Config) when is_list(Config) ->
     ok = file:write_file_info(Beam, FileInfo#file_info{mtime={{Y-1,M,D},T}}),
 
     %% Remove a .erl file
-    ?line Erl2 = filename:join([P1,"..","src","db2.erl"]),
-    ?line file:delete(Erl2),
+    Erl2 = filename:join([P1,"..","src","db2.erl"]),
+    file:delete(Erl2),
 
-    ?line ok = systools:make_script(LatestName, [{path, P}]),
+    ok = systools:make_script(LatestName, [{path, P}]),
 
     %% Then make tar - two warnings should be issued when
     %% src_tests is given
     %% 1. old object code for db1.beam
     %% 2. missing source code for db2.beam
-    ?line {ok, _, [{warning,{obj_out_of_date,_}},
-    		   {warning,{source_not_found,_}}]} =
+    {ok, _, [{warning,{obj_out_of_date,_}},
+	     {warning,{source_not_found,_}}]} =
 	systools:make_tar(LatestName, [{path, P}, silent,
 				       {dirs, [src]},
 				       src_tests]),
-    ?line ok = check_tar(fname([lib,'db-2.1',src,'db1.erl']), LatestName),
+    ok = check_tar(fname([lib,'db-2.1',src,'db1.erl']), LatestName),
 
     %% Without the src_tests option, no warning should be issued
-    ?line {ok, _, []} = systools:make_tar(LatestName, [{path, P}, silent,
-						       {dirs, [src]}]),
-    ?line ok = check_tar(fname([lib,'db-2.1',src,'db1.erl']), LatestName),
+    {ok, _, []} = systools:make_tar(LatestName, [{path, P}, silent,
+						 {dirs, [src]}]),
+    ok = check_tar(fname([lib,'db-2.1',src,'db1.erl']), LatestName),
 
     %% Check that the old no_module_tests option (from the time when
     %% it was default to do the src_test) is ignored
-    ?line {ok, _, [{warning,{obj_out_of_date,_}},
-    		   {warning,{source_not_found,_}}]} =
+    {ok, _, [{warning,{obj_out_of_date,_}},
+	     {warning,{source_not_found,_}}]} =
 	systools:make_tar(LatestName, [{path, P}, silent,
 				       {dirs, [src]},
 				       no_module_tests,
 				       src_tests]),
-    ?line ok = check_tar(fname([lib,'db-2.1',src,'db1.erl']), LatestName),
+    ok = check_tar(fname([lib,'db-2.1',src,'db1.erl']), LatestName),
 
-    ?line ok = file:set_cwd(OldDir),
-    ok.
-
-%% shadow_tar
-%%
-shadow_tar(suite) -> [];
-shadow_tar(doc) ->
-    ["Check that jam file out of date warning doesn't",
-     "shadow bad module version error."];
-shadow_tar(Config) when is_list(Config) ->
-    % This test has been commented out since the 'vsn' attribute is not used
-    % any more, starting with R6. No warning 'obj_out_of_date' seemed to be
-    % generated.
-    true;
-shadow_tar(Config) when is_list(Config) ->
-    ?line {ok, OldDir} = file:get_cwd(),
-    ?line PSAVE = code:get_path(),		% Save path
-
-    ?line {LatestDir, LatestName} = create_script(latest,Config),
-
-    ?line DataDir = filename:absname(?copydir),
-    ?line LibDir = fname([DataDir, 'd_bad_mod+warn', lib]),
-    ?line P = [fname([LibDir, 'db-2.1', ebin]),
-	       fname([LibDir, 'fe-3.1', ebin])],
-
-    ?line ok = file:set_cwd(LatestDir),
-
-    ?line {error, _, _} = systools:make_tar(LatestName, [{path, P}, silent]),
-    ?line {error, _, _} = systools:make_tar(LatestName, [{path, P}, silent,
-							 {dirs, [src]}]),
-    ?line ok = file:set_cwd(OldDir),
-    ?line code:set_path(PSAVE),
+    ok = file:set_cwd(OldDir),
     ok.
 
 
-%% var_tar
-%%
-var_tar(suite) -> [];
-var_tar(doc) ->
-    ["Check that make_tar handles generation and placement of tar",
-     "files for variables outside the main tar file.",
-     "Test the {var_tar, include | ownfile | omit} option."];
+%% make_tar: Check that make_tar handles generation and placement of
+%% tar files for variables outside the main tar file.
+%% Test the {var_tar, include | ownfile | omit} optio.
 var_tar(Config) when is_list(Config) ->
-    ?line {ok, OldDir} = file:get_cwd(),
-    ?line PSAVE = code:get_path(),		% Save path
+    {ok, OldDir} = file:get_cwd(),
+    PSAVE = code:get_path(),		% Save path
 
-    ?line {LatestDir, LatestName} = create_script(latest,Config),
+    {LatestDir, LatestName} = create_script(latest,Config),
 
-    ?line DataDir = filename:absname(?copydir),
-    ?line LibDir = fname([DataDir, d_normal, lib]),
-    ?line P = [fname([LibDir, 'db-2.1', ebin]),
-	       fname([LibDir, 'fe-3.1', ebin])],
+    DataDir = filename:absname(?copydir),
+    LibDir = fname([DataDir, d_normal, lib]),
+    P = [fname([LibDir, 'db-2.1', ebin]),
+	 fname([LibDir, 'fe-3.1', ebin])],
 
-    ?line ok = file:set_cwd(LatestDir),
+    ok = file:set_cwd(LatestDir),
 
-    ?line {ok, _, _} = systools:make_script(LatestName,
-					    [silent,
-					     {path, P},
-					     {variables,[{"TEST", LibDir}]}]),
+    {ok, _, _} = systools:make_script(LatestName,
+				      [silent,
+				       {path, P},
+				       {variables,[{"TEST", LibDir}]}]),
 
-    ?line ok = systools:make_tar(LatestName, [{path, P},
-					      {var_tar, ownfile},
-					      {variables,[{"TEST", LibDir}]}]),
+    ok = systools:make_tar(LatestName, [{path, P},
+					{var_tar, ownfile},
+					{variables,[{"TEST", LibDir}]}]),
 
-    ?line true = exists_tar_file("TEST"), %% Also removes the file !
-    ?line {error, {not_generated, _}} = check_var_tar("TEST", LatestName),
+    true = exists_tar_file("TEST"), %% Also removes the file !
+    {error, {not_generated, _}} = check_var_tar("TEST", LatestName),
 
-    ?line ok = systools:make_tar(LatestName, [{path, P},
-					      {var_tar, omit},
-					      {variables,[{"TEST", LibDir}]}]),
+    ok = systools:make_tar(LatestName, [{path, P},
+					{var_tar, omit},
+					{variables,[{"TEST", LibDir}]}]),
 
-    ?line {error, {not_generated, _}} = check_var_tar("TEST", LatestName),
-    ?line false = exists_tar_file("TEST"),
+    {error, {not_generated, _}} = check_var_tar("TEST", LatestName),
+    false = exists_tar_file("TEST"),
 
-    ?line ok = systools:make_tar(LatestName, [{path, P},
-					      {var_tar, include},
-					      {variables,[{"TEST", LibDir}]}]),
+    ok = systools:make_tar(LatestName, [{path, P},
+					{var_tar, include},
+					{variables,[{"TEST", LibDir}]}]),
 
-    ?line ok = check_var_tar("TEST", LatestName),
-    ?line false = exists_tar_file("TEST"),
+    ok = check_var_tar("TEST", LatestName),
+    false = exists_tar_file("TEST"),
 
-    ?line ok = file:set_cwd(OldDir),
-    ?line code:set_path(PSAVE),
+    ok = file:set_cwd(OldDir),
+    code:set_path(PSAVE),
     ok.
 
 
-%% exref_tar
-%%
-exref_tar(suite) -> [];
-exref_tar(doc) ->
-    ["Check exref option."];
+%% make_tar: Check exref option.
 exref_tar(Config) when is_list(Config) ->
-    ?line {ok, OldDir} = file:get_cwd(),
+    {ok, OldDir} = file:get_cwd(),
 
-    ?line {LatestDir, LatestName} = create_script(latest,Config),
+    {LatestDir, LatestName} = create_script(latest,Config),
 
-    ?line DataDir = filename:absname(?copydir),
-    ?line LibDir = fname([DataDir, d_normal, lib]),
-    ?line P = [fname([LibDir, 'db-2.1', ebin]),
-	       fname([LibDir, 'fe-3.1', ebin])],
+    DataDir = filename:absname(?copydir),
+    LibDir = fname([DataDir, d_normal, lib]),
+    P = [fname([LibDir, 'db-2.1', ebin]),
+	 fname([LibDir, 'fe-3.1', ebin])],
 
-    ?line ok = file:set_cwd(LatestDir),
+    ok = file:set_cwd(LatestDir),
 
-    ?line {ok, _, _} = systools:make_script(LatestName, [silent, {path, P}]),
+    {ok, _, _} = systools:make_script(LatestName, [silent, {path, P}]),
 
     %% Complete exref
-    ?line {ok, _, W1} =
+    {ok, _, W1} =
 	systools:make_tar(LatestName, [exref, {path, P}, silent]),
-    ?line check_exref_warnings(with_db1, W1),
-    ?line ok = check_tar(fname([lib,'db-2.1',ebin,'db.app']), LatestName),
+    check_exref_warnings(with_db1, W1),
+    ok = check_tar(fname([lib,'db-2.1',ebin,'db.app']), LatestName),
 
     %% Only exref the db application.
-    ?line {ok, _, W2} =
+    {ok, _, W2} =
 	systools:make_tar(LatestName, [{exref, [db]}, {path, P}, silent]),
-    ?line check_exref_warnings(with_db1, W2),
-    ?line ok = check_tar(fname([lib,'fe-3.1',ebin,'fe.app']), LatestName),
+    check_exref_warnings(with_db1, W2),
+    ok = check_tar(fname([lib,'fe-3.1',ebin,'fe.app']), LatestName),
 
     %% Only exref the fe application.
-    ?line {ok, _, W3} =
+    {ok, _, W3} =
 	systools:make_tar(LatestName, [{exref, [fe]}, {path, P}, silent]),
-    ?line check_exref_warnings(without_db1, W3),
-    ?line ok = check_tar(fname([lib,'db-2.1',ebin,'db.app']), LatestName),
+    check_exref_warnings(without_db1, W3),
+    ok = check_tar(fname([lib,'db-2.1',ebin,'db.app']), LatestName),
 
     %% exref the db and stdlib applications.
-    ?line {ok, _, W4} =
+    {ok, _, W4} =
 	systools:make_tar(LatestName, [{exref, [db, stdlib]},
 				       {path, P}, silent]),
-    ?line check_exref_warnings(with_db1, W4),
-    ?line ok = check_tar(fname([lib,'fe-3.1',ebin,'fe.app']), LatestName),
+    check_exref_warnings(with_db1, W4),
+    ok = check_tar(fname([lib,'fe-3.1',ebin,'fe.app']), LatestName),
 
-    ?line ok = file:set_cwd(OldDir),
+    ok = file:set_cwd(OldDir),
     ok.
 
 
 
-%% otp_9507
-%%
-otp_9507(suite) -> [];
-otp_9507(doc) ->
-    ["make_tar failed when path given as just 'ebin'."];
-otp_9507(Config) when is_list(Config) ->
-    ?line {ok, OldDir} = file:get_cwd(),
+%% make_tar: OTP-9507 - make_tar failed when path given as just 'ebin'.
+otp_9507_path_ebin(Config) when is_list(Config) ->
+    {ok, OldDir} = file:get_cwd(),
 
-    ?line {LatestDir, LatestName} = create_script(latest_small,Config),
+    {LatestDir, LatestName} = create_script(latest_small,Config),
 
-    ?line DataDir = filename:absname(?copydir),
-    ?line LibDir = fname([DataDir, d_normal, lib]),
-    ?line FeDir = fname([LibDir, 'fe-3.1']),
+    DataDir = filename:absname(?copydir),
+    LibDir = fname([DataDir, d_normal, lib]),
+    FeDir = fname([LibDir, 'fe-3.1']),
 
-    ?line ok = file:set_cwd(FeDir),
+    ok = file:set_cwd(FeDir),
 
     RelName = fname([LatestDir,LatestName]),
 
-    ?line P1 = ["./ebin",
-		fname([DataDir, lib, kernel, ebin]),
-		fname([DataDir, lib, stdlib, ebin]),
-		fname([DataDir, lib, sasl, ebin])],
-    ?line {ok, _, _} = systools:make_script(RelName, [silent, {path, P1}]),
-    ?line ok = systools:make_tar(RelName, [{path, P1}]),
-    ?line Content1 = tar_contents(RelName),
+    P1 = ["./ebin",
+	  fname([DataDir, lib, kernel, ebin]),
+	  fname([DataDir, lib, stdlib, ebin]),
+	  fname([DataDir, lib, sasl, ebin])],
+    {ok, _, _} = systools:make_script(RelName, [silent, {path, P1}]),
+    ok = systools:make_tar(RelName, [{path, P1}]),
+    Content1 = tar_contents(RelName),
 
-    ?line P2 = ["ebin",
-		fname([DataDir, lib, kernel, ebin]),
-		fname([DataDir, lib, stdlib, ebin]),
-		fname([DataDir, lib, sasl, ebin])],
+    P2 = ["ebin",
+	  fname([DataDir, lib, kernel, ebin]),
+	  fname([DataDir, lib, stdlib, ebin]),
+	  fname([DataDir, lib, sasl, ebin])],
 
     %% Tickets solves the following line - it used to fail with
     %% {function_clause,[{filename,join,[[]]},...}
-    ?line ok = systools:make_tar(RelName, [{path, P2}]),
-    ?line Content2 = tar_contents(RelName),
+    ok = systools:make_tar(RelName, [{path, P2}]),
+    Content2 = tar_contents(RelName),
     true = (Content1 == Content2),
 
-    ?line ok = file:set_cwd(OldDir),
+    ok = file:set_cwd(OldDir),
 
     ok.
 
 
-%% The relup stuff.
-%%
-%%
-
-
-%% make_relup
-%%
-normal_relup(suite) -> [];
-normal_relup(doc) ->
-    ["Check normal case"];
+%% make_relup: Check normal case
 normal_relup(Config) when is_list(Config) ->
-    ?line {ok, OldDir} = file:get_cwd(),
+    {ok, OldDir} = file:get_cwd(),
 
-    ?line {LatestDir,LatestName}   = create_script(latest0,Config),
-    ?line {_LatestDir1,LatestName1} = create_script(latest1,Config),
-    ?line {_LatestDir2,LatestName2} = create_script(latest2,Config),
+    {LatestDir,LatestName}   = create_script(latest0,Config),
+    {_LatestDir1,LatestName1} = create_script(latest1,Config),
+    {_LatestDir2,LatestName2} = create_script(latest2,Config),
 
-    ?line DataDir = filename:absname(?copydir),
-    ?line LibDir = [fname([DataDir, d_normal, lib])],
-    ?line P = [fname([LibDir, '*', ebin]),
-	       fname([DataDir, lib, kernel, ebin]),
-	       fname([DataDir, lib, stdlib, ebin]),
-	       fname([DataDir, lib, sasl, ebin])],
+    DataDir = filename:absname(?copydir),
+    LibDir = [fname([DataDir, d_normal, lib])],
+    P = [fname([LibDir, '*', ebin]),
+	 fname([DataDir, lib, kernel, ebin]),
+	 fname([DataDir, lib, stdlib, ebin]),
+	 fname([DataDir, lib, sasl, ebin])],
 
-    ?line ok = file:set_cwd(LatestDir),
+    ok = file:set_cwd(LatestDir),
 
     %% This is the ultra normal case
-    ?line ok = systools:make_relup(LatestName, [LatestName1], [LatestName1],
-				   [{path, P}]),
-    ?line ok = check_relup([{db, "2.1"}], [{db, "1.0"}]),
-    ?line {ok, _, _, []} =
+    ok = systools:make_relup(LatestName, [LatestName1], [LatestName1],
+			     [{path, P}]),
+    ok = check_relup([{db, "2.1"}], [{db, "1.0"}]),
+    {ok, _, _, []} =
 	systools:make_relup(LatestName, [LatestName1], [LatestName1],
 			    [{path, P}, silent]),
-    ?line ok = check_relup([{db, "2.1"}], [{db, "1.0"}]),
+    ok = check_relup([{db, "2.1"}], [{db, "1.0"}]),
 
     %% file should not be written if warnings_as_errors is enabled.
     %% delete before running tests.
-    ?line ok = file:delete("relup"),
+    ok = file:delete("relup"),
 
     %% Check that warnings are treated as errors
-    ?line error =
+    error =
 	systools:make_relup(LatestName, [LatestName2], [LatestName1],
 			    [{path, P}, warnings_as_errors]),
-    ?line error =
+    error =
 	systools:make_relup(LatestName, [LatestName2], [LatestName1],
 			    [{path, P}, silent, warnings_as_errors]),
 
     %% relup file should not exist
-    ?line false = filelib:is_regular("relup"),
+    false = filelib:is_regular("relup"),
 
     %% Check that warnings get through
-    ?line ok = systools:make_relup(LatestName, [LatestName2], [LatestName1],
-				   [{path, P}]),
-    ?line ok = check_relup([{fe, "3.1"}, {db, "2.1"}], [{db, "1.0"}]),
-    ?line {ok, _, _, [pre_R15_emulator_upgrade,{erts_vsn_changed, _}]} =
+    ok = systools:make_relup(LatestName, [LatestName2], [LatestName1],
+			     [{path, P}]),
+    ok = check_relup([{fe, "3.1"}, {db, "2.1"}], [{db, "1.0"}]),
+    {ok, _, _, [pre_R15_emulator_upgrade,{erts_vsn_changed, _}]} =
 	systools:make_relup(LatestName, [LatestName2], [LatestName1],
 			    [{path, P}, silent]),
-    ?line ok = check_relup([{fe, "3.1"}, {db, "2.1"}], [{db, "1.0"}]),
+    ok = check_relup([{fe, "3.1"}, {db, "2.1"}], [{db, "1.0"}]),
 
     %% relup file should exist now
-    ?line true = filelib:is_regular("relup"),
+    true = filelib:is_regular("relup"),
 
-    ?line ok = file:set_cwd(OldDir),
+    ok = file:set_cwd(OldDir),
     ok.
 
 
-restart_relup(suite) -> [];
-restart_relup(doc) ->
-    ["Test relup which includes emulator restart"];
+%% make_relup: Test relup which includes emulator restart.
 restart_relup(Config) when is_list(Config) ->
-    ?line {ok, OldDir} = file:get_cwd(),
+    {ok, OldDir} = file:get_cwd(),
 
-    ?line {LatestDir,LatestName}   = create_script(latest0,Config),
-    ?line {_LatestDir1,LatestName1} = create_script(latest1,Config),
-    ?line {_LatestDir0CurrErts,LatestName0CurrErts} =
+    {LatestDir,LatestName}   = create_script(latest0,Config),
+    {_LatestDir1,LatestName1} = create_script(latest1,Config),
+    {_LatestDir0CurrErts,LatestName0CurrErts} =
 	create_script(latest0_current_erts,Config),
-    ?line {_CurrentAllDir,CurrentAllName} = create_script(current_all,Config),
-    ?line {_CurrentAllFutErtsDir,CurrentAllFutErtsName} =
+    {_CurrentAllDir,CurrentAllName} = create_script(current_all,Config),
+    {_CurrentAllFutErtsDir,CurrentAllFutErtsName} =
 	create_script(current_all_future_erts,Config),
-    ?line {_CurrentAllFutSaslDir,CurrentAllFutSaslName} =
+    {_CurrentAllFutSaslDir,CurrentAllFutSaslName} =
 	create_script(current_all_future_sasl,Config),
 
-    ?line DataDir = filename:absname(?copydir),
-    ?line LibDir = [fname([DataDir, d_normal, lib])],
-    ?line P = [fname([LibDir, '*', ebin]),
-	       fname([DataDir, lib, kernel, ebin]),
-	       fname([DataDir, lib, stdlib, ebin]),
-	       fname([DataDir, lib, sasl, ebin]),
-	       fname([DataDir, lib, 'sasl-9.9', ebin])],
+    DataDir = filename:absname(?copydir),
+    LibDir = [fname([DataDir, d_normal, lib])],
+    P = [fname([LibDir, '*', ebin]),
+	 fname([DataDir, lib, kernel, ebin]),
+	 fname([DataDir, lib, stdlib, ebin]),
+	 fname([DataDir, lib, sasl, ebin]),
+	 fname([DataDir, lib, 'sasl-9.9', ebin])],
 
-    ?line ok = file:set_cwd(LatestDir),
+    ok = file:set_cwd(LatestDir),
 
     %% OTP-2561: Check that the option 'restart_emulator' generates a
     %% "restart_emulator" instruction.
-    ?line {ok, _ , _, []} =
-         systools:make_relup(LatestName, [LatestName1], [LatestName1],
-			     [{path, P},restart_emulator,silent]),
-    ?line ok = check_relup([{db, "2.1"}], [{db, "1.0"}]),
-    ?line ok = check_restart_emulator(),
+    {ok, _ , _, []} =
+	systools:make_relup(LatestName, [LatestName1], [LatestName1],
+			    [{path, P},restart_emulator,silent]),
+    ok = check_relup([{db, "2.1"}], [{db, "1.0"}]),
+    ok = check_restart_emulator(),
 
 
     %% Pre-R15 to Post-R15 upgrade
-    ?line {ok, _ , _, Ws} =
-         systools:make_relup(LatestName0CurrErts,
-			     [LatestName1],
-			     [LatestName1],
-			     [{path, P},silent]),
-    ?line ok = check_relup([{db,"2.1"}], [{db, "1.0"}]),
-    ?line ok = check_pre_to_post_r15_restart_emulator(),
-    ?line ok = check_pre_to_post_r15_warnings(Ws),
+    {ok, _ , _, Ws} =
+	systools:make_relup(LatestName0CurrErts,
+			    [LatestName1],
+			    [LatestName1],
+			    [{path, P},silent]),
+    ok = check_relup([{db,"2.1"}], [{db, "1.0"}]),
+    ok = check_pre_to_post_r15_restart_emulator(),
+    ok = check_pre_to_post_r15_warnings(Ws),
 
 
     %% Check that new sasl version generates a restart_new_emulator
     %% instruction
-    ?line {ok, _ , _, []} =
-         systools:make_relup(CurrentAllFutSaslName,
-			     [CurrentAllName],
-			     [CurrentAllName],
-			     [{path, P},silent]),
-    ?line ok = check_relup([{fe, "3.1"}], []),
-    ?line ok = check_restart_emulator_diff_coreapp(),
+    {ok, _ , _, []} =
+	systools:make_relup(CurrentAllFutSaslName,
+			    [CurrentAllName],
+			    [CurrentAllName],
+			    [{path, P},silent]),
+    ok = check_relup([{fe, "3.1"}], []),
+    ok = check_restart_emulator_diff_coreapp(),
 
 
     %% Check that new erts version generates a restart_new_emulator
     %% instruction, if FromSaslVsn >= R15SaslVsn
     %% (One erts_vsn_changed warning for upgrade and one for downgrade)
-    ?line {ok, _ , _, [{erts_vsn_changed,_},{erts_vsn_changed,_}]} =
-         systools:make_relup(CurrentAllFutErtsName,
-			     [CurrentAllName],
-			     [CurrentAllName],
-			     [{path, P},silent]),
-    ?line ok = check_relup([{fe, "3.1"}], []),
-    ?line ok = check_restart_emulator_diff_coreapp(),
+    {ok, _ , _, [{erts_vsn_changed,_},{erts_vsn_changed,_}]} =
+	systools:make_relup(CurrentAllFutErtsName,
+			    [CurrentAllName],
+			    [CurrentAllName],
+			    [{path, P},silent]),
+    ok = check_relup([{fe, "3.1"}], []),
+    ok = check_restart_emulator_diff_coreapp(),
 
 
     %% Check that new erts version generates a restart_new_emulator
     %% instruction, and can be combined with restart_emulator opt.
     %% (One erts_vsn_changed warning for upgrade and one for downgrade)
-    ?line {ok, _ , _, [{erts_vsn_changed,_},{erts_vsn_changed,_}]} =
-         systools:make_relup(CurrentAllFutErtsName,
-			     [CurrentAllName],
-			     [CurrentAllName],
-			     [{path, P},restart_emulator,silent]),
-    ?line ok = check_relup([{fe, "3.1"}], []),
-    ?line ok = check_restart_emulator(),
-    ?line ok = check_restart_emulator_diff_coreapp(),
+    {ok, _ , _, [{erts_vsn_changed,_},{erts_vsn_changed,_}]} =
+	systools:make_relup(CurrentAllFutErtsName,
+			    [CurrentAllName],
+			    [CurrentAllName],
+			    [{path, P},restart_emulator,silent]),
+    ok = check_relup([{fe, "3.1"}], []),
+    ok = check_restart_emulator(),
+    ok = check_restart_emulator_diff_coreapp(),
 
-    ?line ok = file:set_cwd(OldDir),
+    ok = file:set_cwd(OldDir),
     ok.
 
 
@@ -1364,293 +1213,276 @@ check_pre_to_post_r15_warnings(Ws) ->
     true = lists:member(pre_R15_emulator_upgrade,Ws),
     ok.
 
-%% make_relup
-%%
-no_appup_relup(suite) -> [];
-no_appup_relup(doc) ->
-    ["Check that appup files may be missing, but only if we don't need them."];
+%% make_relup: Check that appup files may be missing, but only if we
+%% don't need them.
 no_appup_relup(Config) when is_list(Config) ->
-    ?line {ok, OldDir} = file:get_cwd(),
+    {ok, OldDir} = file:get_cwd(),
 
-    ?line {LatestDir,LatestName}   = create_script(latest_small,Config),
-    ?line {_LatestDir0,LatestName0} = create_script(latest_small0,Config),
-    ?line {_LatestDir1,LatestName1} = create_script(latest_small1,Config),
+    {LatestDir,LatestName}   = create_script(latest_small,Config),
+    {_LatestDir0,LatestName0} = create_script(latest_small0,Config),
+    {_LatestDir1,LatestName1} = create_script(latest_small1,Config),
 
-    ?line DataDir = filename:absname(?copydir),
+    DataDir = filename:absname(?copydir),
 
-    ?line ok = file:set_cwd(LatestDir),
+    ok = file:set_cwd(LatestDir),
 
     %% Check that appup might be missing
-    ?line P1 = [fname([DataDir, d_no_appup, lib, 'fe-3.1', ebin]),
-		fname([DataDir, lib, kernel, ebin]),
-		fname([DataDir, lib, stdlib, ebin]),
-		fname([DataDir, lib, sasl, ebin])],
-    ?line ok =
+    P1 = [fname([DataDir, d_no_appup, lib, 'fe-3.1', ebin]),
+	  fname([DataDir, lib, kernel, ebin]),
+	  fname([DataDir, lib, stdlib, ebin]),
+	  fname([DataDir, lib, sasl, ebin])],
+    ok =
 	systools:make_relup(LatestName, [LatestName], [], [{path, P1}]),
-    ?line {ok,_, _, []} =
+    {ok,_, _, []} =
 	systools:make_relup(LatestName, [LatestName], [],
 			    [silent, {path, P1}]),
 
     %% Check that appup might NOT be missing when we need it
-    ?line P2 = [fname([DataDir, d_no_appup, lib, 'fe-3.1', ebin]),
-		fname([DataDir, d_no_appup, lib, 'fe-2.1', ebin]),
-		fname([DataDir, lib, kernel, ebin]),
-		fname([DataDir, lib, stdlib, ebin]),
-		fname([DataDir, lib, sasl, ebin])],
-    ?line error =
+    P2 = [fname([DataDir, d_no_appup, lib, 'fe-3.1', ebin]),
+	  fname([DataDir, d_no_appup, lib, 'fe-2.1', ebin]),
+	  fname([DataDir, lib, kernel, ebin]),
+	  fname([DataDir, lib, stdlib, ebin]),
+	  fname([DataDir, lib, sasl, ebin])],
+    error =
 	systools:make_relup(LatestName, [LatestName0], [], [{path, P2}]),
-    ?line {error,_,{file_problem, {_,{error,{open,_,_}}}}} =
+    {error,_,{file_problem, {_,{error,{open,_,_}}}}} =
 	systools:make_relup(LatestName, [], [LatestName0],
 			    [silent, {path, P2}]),
 
     %% Check that appups missing vsn traps
-    ?line P3 = [fname([DataDir, d_no_appup, lib, 'fe-2.1', ebin]),
-		fname([DataDir, d_no_appup, lib, 'fe-500.18.7', ebin]),
-		fname([DataDir, lib, kernel, ebin]),
-		fname([DataDir, lib, stdlib, ebin]),
-		fname([DataDir, lib, sasl, ebin])],
+    P3 = [fname([DataDir, d_no_appup, lib, 'fe-2.1', ebin]),
+	  fname([DataDir, d_no_appup, lib, 'fe-500.18.7', ebin]),
+	  fname([DataDir, lib, kernel, ebin]),
+	  fname([DataDir, lib, stdlib, ebin]),
+	  fname([DataDir, lib, sasl, ebin])],
 
-    ?line error =
+    error =
 	systools:make_relup(LatestName0, [LatestName1], [], [{path, P3}]),
-    ?line {error,_,{no_relup, _, _, _}} =
+    {error,_,{no_relup, _, _, _}} =
 	systools:make_relup(LatestName0, [], [LatestName1],
 			    [silent, {path, P3}]),
 
-    ?line ok = file:set_cwd(OldDir),
+    ok = file:set_cwd(OldDir),
     ok.
 
-%% make_relup
-%%
-bad_appup_relup(suite) -> [];
-bad_appup_relup(doc) ->
-    ["Check that badly written appup files are detected"];
+%% make_relup: Check that badly written appup files are detected.
 bad_appup_relup(Config) when is_list(Config) ->
-    ?line {ok, OldDir} = file:get_cwd(),
+    {ok, OldDir} = file:get_cwd(),
 
-    ?line {LatestDir,LatestName}   = create_script(latest_small,Config),
-    ?line {_LatestDir0,LatestName0} = create_script(latest_small0,Config),
+    {LatestDir,LatestName}   = create_script(latest_small,Config),
+    {_LatestDir0,LatestName0} = create_script(latest_small0,Config),
 
-    ?line DataDir = filename:absname(?copydir),
-    ?line N2 = [fname([DataDir, d_bad_appup, lib, 'fe-3.1', ebin]),
-		fname([DataDir, d_bad_appup, lib, 'fe-2.1', ebin]),
-		fname([DataDir, lib, kernel, ebin]),
-		fname([DataDir, lib, stdlib, ebin]),
-		fname([DataDir, lib, sasl, ebin])],
+    DataDir = filename:absname(?copydir),
+    N2 = [fname([DataDir, d_bad_appup, lib, 'fe-3.1', ebin]),
+	  fname([DataDir, d_bad_appup, lib, 'fe-2.1', ebin]),
+	  fname([DataDir, lib, kernel, ebin]),
+	  fname([DataDir, lib, stdlib, ebin]),
+	  fname([DataDir, lib, sasl, ebin])],
 
-    ?line ok = file:set_cwd(LatestDir),
+    ok = file:set_cwd(LatestDir),
 
     %% Check that bad appup is trapped
-    ?line error =
+    error =
 	systools:make_relup(LatestName, [LatestName0], [], [{path, N2}]),
-    ?line {error,_,{file_problem, {_, {error, {parse,_, _}}}}} =
+    {error,_,{file_problem, {_, {error, {parse,_, _}}}}} =
 	systools:make_relup(LatestName, [], [LatestName0],
 			    [silent, {path, N2}]),
 
-    ?line ok = file:set_cwd(OldDir),
+    ok = file:set_cwd(OldDir),
     ok.
 
-%% make_relup
-%%
-abnormal_relup(suite) -> [];
-abnormal_relup(doc) ->
-    ["Check some abnormal cases"];
+%% make_relup: Check some abnormal cases.
 abnormal_relup(Config) when is_list(Config) ->
-    ?line {ok, OldDir} = file:get_cwd(),
+    {ok, OldDir} = file:get_cwd(),
 
-    ?line {LatestDir,LatestName}   = create_script(latest0,Config),
-    ?line {_LatestDir1,LatestName1} = create_script(latest1,Config),
+    {LatestDir,LatestName}   = create_script(latest0,Config),
+    {_LatestDir1,LatestName1} = create_script(latest1,Config),
 
     %% Check wrong app vsn
-    ?line DataDir = filename:absname(?copydir),
-    ?line P = [fname([DataDir, d_bad_app_vsn, lib, 'db-2.1', ebin]),
-	       fname([DataDir, d_bad_app_vsn, lib, 'fe-3.1', ebin]),
-	       fname([DataDir, lib, kernel, ebin]),
-	       fname([DataDir, lib, stdlib, ebin]),
-	       fname([DataDir, lib, sasl, ebin])],
-    
-    ?line ok = file:set_cwd(LatestDir),
+    DataDir = filename:absname(?copydir),
+    P = [fname([DataDir, d_bad_app_vsn, lib, 'db-2.1', ebin]),
+	 fname([DataDir, d_bad_app_vsn, lib, 'fe-3.1', ebin]),
+	 fname([DataDir, lib, kernel, ebin]),
+	 fname([DataDir, lib, stdlib, ebin]),
+	 fname([DataDir, lib, sasl, ebin])],
 
-    ?line error = systools:make_relup(LatestName, [LatestName1], [LatestName1],
-				      [{path, P}]),
-    ?line R0 = systools:make_relup(LatestName, [LatestName1], [LatestName1],
-			      [silent, {path, P}]),
-    ?line {error,systools_make,
-	     [{error_reading,{db,{no_valid_version,
-				  {{"should be","2.1"},
-				   {"found file", _, "2.0"}}}}}]} = R0,
-    ?line ok = file:set_cwd(OldDir),
+    ok = file:set_cwd(LatestDir),
+
+    error = systools:make_relup(LatestName, [LatestName1], [LatestName1],
+				[{path, P}]),
+    R0 = systools:make_relup(LatestName, [LatestName1], [LatestName1],
+			     [silent, {path, P}]),
+    {error,systools_make,
+     [{error_reading,{db,{no_valid_version,
+			  {{"should be","2.1"},
+			   {"found file", _, "2.0"}}}}}]} = R0,
+    ok = file:set_cwd(OldDir),
     ok.
 
 
-%% make_relup
-%%
-no_sasl_relup(suite) -> [];
-no_sasl_relup(doc) ->
-    ["Check relup can not be created is sasl is not in rel file"];
+%% make_relup: Check relup can not be created is sasl is not in rel file.
 no_sasl_relup(Config) when is_list(Config) ->
-    ?line {ok, OldDir} = file:get_cwd(),
-    ?line {Dir1,Name1} = create_script(latest1_no_sasl,Config),
-    ?line {_Dir2,Name2} = create_script(latest1,Config),
+    {ok, OldDir} = file:get_cwd(),
+    {Dir1,Name1} = create_script(latest1_no_sasl,Config),
+    {_Dir2,Name2} = create_script(latest1,Config),
 
-    ?line DataDir = filename:absname(?copydir),
-    ?line LibDir = [fname([DataDir, d_normal, lib])],
-    ?line P = [fname([LibDir, '*', ebin]),
-	       fname([DataDir, lib, kernel, ebin]),
-	       fname([DataDir, lib, stdlib, ebin]),
-	       fname([DataDir, lib, sasl, ebin])],
+    DataDir = filename:absname(?copydir),
+    LibDir = [fname([DataDir, d_normal, lib])],
+    P = [fname([LibDir, '*', ebin]),
+	 fname([DataDir, lib, kernel, ebin]),
+	 fname([DataDir, lib, stdlib, ebin]),
+	 fname([DataDir, lib, sasl, ebin])],
 
-    ?line ok = file:set_cwd(Dir1),
+    ok = file:set_cwd(Dir1),
 
-    ?line error = systools:make_relup(Name2, [Name1], [Name1], [{path, P}]),
-    ?line R1 = systools:make_relup(Name2, [Name1], [Name1],[silent, {path, P}]),
-    ?line {error,systools_relup,{missing_sasl,_}} = R1,
+    error = systools:make_relup(Name2, [Name1], [Name1], [{path, P}]),
+    R1 = systools:make_relup(Name2, [Name1], [Name1],[silent, {path, P}]),
+    {error,systools_relup,{missing_sasl,_}} = R1,
 
-    ?line error = systools:make_relup(Name1, [Name2], [Name2], [{path, P}]),
-    ?line R2 = systools:make_relup(Name1, [Name2], [Name2],[silent, {path, P}]),
-    ?line {error,systools_relup,{missing_sasl,_}} = R2,
+    error = systools:make_relup(Name1, [Name2], [Name2], [{path, P}]),
+    R2 = systools:make_relup(Name1, [Name2], [Name2],[silent, {path, P}]),
+    {error,systools_relup,{missing_sasl,_}} = R2,
 
-    ?line ok = file:set_cwd(OldDir),
+    ok = file:set_cwd(OldDir),
     ok.
 
 
-%% Check that application start type is used in relup
-app_start_type_relup(suite) ->
-    [];
-app_start_type_relup(doc) ->
-    ["Release upgrade file with various application start types"];
+%% make_relup: Check that application start type is used in relup
 app_start_type_relup(Config) when is_list(Config) ->
-    ?line PrivDir = ?config(priv_dir, Config),
-    ?line {Dir1,Name1} = create_script(latest_app_start_type1,Config),
-    ?line {Dir2,Name2} = create_script(latest_app_start_type2,Config),
-    ?line Release1 = filename:join(Dir1,Name1),
-    ?line Release2 = filename:join(Dir2,Name2),
+    PrivDir = ?config(priv_dir, Config),
+    {Dir1,Name1} = create_script(latest_app_start_type1,Config),
+    {Dir2,Name2} = create_script(latest_app_start_type2,Config),
+    Release1 = filename:join(Dir1,Name1),
+    Release2 = filename:join(Dir2,Name2),
 
-    ?line {ok, Release2Relup, systools_relup, []} = systools:make_relup(Release2, [Release1], [Release1], [{outdir, PrivDir}, silent]),
-    ?line {"LATEST_APP_START_TYPE2",
-	   [{"LATEST_APP_START_TYPE1",[], UpInstructions}],
-	   [{"LATEST_APP_START_TYPE1",[], DownInstructions}]} = Release2Relup,
+    {ok, Release2Relup, systools_relup, []} = systools:make_relup(Release2, [Release1], [Release1], [{outdir, PrivDir}, silent]),
+    {"LATEST_APP_START_TYPE2",
+     [{"LATEST_APP_START_TYPE1",[], UpInstructions}],
+     [{"LATEST_APP_START_TYPE1",[], DownInstructions}]} = Release2Relup,
     %% ?t:format("Up: ~p",[UpInstructions]),
     %% ?t:format("Dn: ~p",[DownInstructions]),
-    ?line [{load_object_code, {mnesia, _, _}},
-           {load_object_code, {runtime_tools, _, _}},
-           {load_object_code, {webtool, _, _}},
-           {load_object_code, {snmp, _, _}},
-           {load_object_code, {xmerl, _, _}},
-           point_of_no_return
-           | UpInstructionsT] = UpInstructions,
-    ?line true = lists:member({apply,{application,start,[mnesia,permanent]}}, UpInstructionsT),
-    ?line true = lists:member({apply,{application,start,[runtime_tools,transient]}}, UpInstructionsT),
-    ?line true = lists:member({apply,{application,start,[webtool,temporary]}}, UpInstructionsT),
-    ?line true = lists:member({apply,{application,load,[snmp]}}, UpInstructionsT),
-    ?line false = lists:any(fun({apply,{application,_,[xmerl|_]}}) -> true; (_) -> false end, UpInstructionsT),
-    ?line [point_of_no_return | DownInstructionsT] = DownInstructions,
-    ?line true = lists:member({apply,{application,stop,[mnesia]}}, DownInstructionsT),
-    ?line true = lists:member({apply,{application,stop,[runtime_tools]}}, DownInstructionsT),
-    ?line true = lists:member({apply,{application,stop,[webtool]}}, DownInstructionsT),
-    ?line true = lists:member({apply,{application,stop,[snmp]}}, DownInstructionsT),
-    ?line true = lists:member({apply,{application,stop,[xmerl]}}, DownInstructionsT),
-    ?line true = lists:member({apply,{application,unload,[mnesia]}}, DownInstructionsT),
-    ?line true = lists:member({apply,{application,unload,[runtime_tools]}}, DownInstructionsT),
-    ?line true = lists:member({apply,{application,unload,[webtool]}}, DownInstructionsT),
-    ?line true = lists:member({apply,{application,unload,[snmp]}}, DownInstructionsT),
-    ?line true = lists:member({apply,{application,unload,[xmerl]}}, DownInstructionsT),
+    [{load_object_code, {mnesia, _, _}},
+     {load_object_code, {runtime_tools, _, _}},
+     {load_object_code, {webtool, _, _}},
+     {load_object_code, {snmp, _, _}},
+     {load_object_code, {xmerl, _, _}},
+     point_of_no_return
+     | UpInstructionsT] = UpInstructions,
+    true = lists:member({apply,{application,start,[mnesia,permanent]}}, UpInstructionsT),
+    true = lists:member({apply,{application,start,[runtime_tools,transient]}}, UpInstructionsT),
+    true = lists:member({apply,{application,start,[webtool,temporary]}}, UpInstructionsT),
+    true = lists:member({apply,{application,load,[snmp]}}, UpInstructionsT),
+    false = lists:any(fun({apply,{application,_,[xmerl|_]}}) -> true; (_) -> false end, UpInstructionsT),
+    [point_of_no_return | DownInstructionsT] = DownInstructions,
+    true = lists:member({apply,{application,stop,[mnesia]}}, DownInstructionsT),
+    true = lists:member({apply,{application,stop,[runtime_tools]}}, DownInstructionsT),
+    true = lists:member({apply,{application,stop,[webtool]}}, DownInstructionsT),
+    true = lists:member({apply,{application,stop,[snmp]}}, DownInstructionsT),
+    true = lists:member({apply,{application,stop,[xmerl]}}, DownInstructionsT),
+    true = lists:member({apply,{application,unload,[mnesia]}}, DownInstructionsT),
+    true = lists:member({apply,{application,unload,[runtime_tools]}}, DownInstructionsT),
+    true = lists:member({apply,{application,unload,[webtool]}}, DownInstructionsT),
+    true = lists:member({apply,{application,unload,[snmp]}}, DownInstructionsT),
+    true = lists:member({apply,{application,unload,[xmerl]}}, DownInstructionsT),
     ok.
 
 
-%% regexp_relup
+%% make_relup: Check that regexp can be used in .appup for UpFromVsn
+%% and DownToVsn.
 regexp_relup(Config) ->
-    ?line {ok, OldDir} = file:get_cwd(),
+    {ok, OldDir} = file:get_cwd(),
 
-    ?line {LatestDir,LatestName}   = create_script(latest_small,Config),
-    ?line {_LatestDir0,LatestName0} = create_script(latest_small0,Config),
-    ?line {_LatestDir1,LatestName1} = create_script(latest_small2,Config),
+    {LatestDir,LatestName}   = create_script(latest_small,Config),
+    {_LatestDir0,LatestName0} = create_script(latest_small0,Config),
+    {_LatestDir1,LatestName1} = create_script(latest_small2,Config),
 
-    ?line DataDir = filename:absname(?copydir),
-    ?line P = [fname([DataDir, d_regexp_appup, lib, '*', ebin]),
-	       fname([DataDir, lib, kernel, ebin]),
-	       fname([DataDir, lib, stdlib, ebin]),
-	       fname([DataDir, lib, sasl, ebin])],
+    DataDir = filename:absname(?copydir),
+    P = [fname([DataDir, d_regexp_appup, lib, '*', ebin]),
+	 fname([DataDir, lib, kernel, ebin]),
+	 fname([DataDir, lib, stdlib, ebin]),
+	 fname([DataDir, lib, sasl, ebin])],
 
-    ?line ok = file:set_cwd(LatestDir),
+    ok = file:set_cwd(LatestDir),
 
     %% Upgrade fe 2.1 -> 3.1, and downgrade 2.1 -> 3.1
     %% Shall match the first entry if fe-3.1 appup.
-    ?line {ok, _, _, []} =
+    {ok, _, _, []} =
 	systools:make_relup(LatestName, [LatestName0], [LatestName0],
 			    [{path, P}, silent]),
-    ?line ok = check_relup([{fe, "3.1"}], [{fe, "2.1"}]),
+    ok = check_relup([{fe, "3.1"}], [{fe, "2.1"}]),
 
     %% Upgrade fe 2.1.1 -> 3.1
     %% Shall match the second entry in fe-3.1 appup. Have added a
     %% restart_emulator instruction there to distinguish it from
     %% the first entry...
-    ?line {ok, _, _, []} =
+    {ok, _, _, []} =
 	systools:make_relup(LatestName, [LatestName1], [], [{path, P}, silent]),
-    ?line ok = check_relup_up_only([{fe, "3.1"}]),
-    ?line ok = check_restart_emulator_up_only(),
+    ok = check_relup_up_only([{fe, "3.1"}]),
+    ok = check_restart_emulator_up_only(),
 
     %% Attempt downgrade fe 3.1 -> 2.1.1
     %% Shall not match any entry!!
-    ?line {error,systools_relup,{no_relup,_,_,_}} =
+    {error,systools_relup,{no_relup,_,_,_}} =
 	systools:make_relup(LatestName, [], [LatestName1], [{path, P}, silent]),
 
-    ?line ok = file:set_cwd(OldDir),
+    ok = file:set_cwd(OldDir),
 
     ok.
 
 
+%% make_hybrid_boot: Normal case.
 %% For upgrade of erts - create a boot file which is a hybrid between
 %% old and new release - i.e. starts erts, kernel, stdlib, sasl from
 %% new release, all other apps from old release.
 normal_hybrid(Config) ->
-    ?line {ok, OldDir} = file:get_cwd(),
-    ?line {Dir1,Name1} = create_script(latest1,Config),
-    ?line {_Dir2,Name2} = create_script(current_all,Config),
+    {ok, OldDir} = file:get_cwd(),
+    {Dir1,Name1} = create_script(latest1,Config),
+    {_Dir2,Name2} = create_script(current_all,Config),
 
-    ?line DataDir = filename:absname(?copydir),
-    ?line LibDir = [fname([DataDir, d_normal, lib])],
-    ?line P = [fname([LibDir, '*', ebin]),
-	       fname([DataDir, lib, kernel, ebin]),
-	       fname([DataDir, lib, stdlib, ebin]),
-	       fname([DataDir, lib, sasl, ebin])],
+    DataDir = filename:absname(?copydir),
+    LibDir = [fname([DataDir, d_normal, lib])],
+    P = [fname([LibDir, '*', ebin]),
+	 fname([DataDir, lib, kernel, ebin]),
+	 fname([DataDir, lib, stdlib, ebin]),
+	 fname([DataDir, lib, sasl, ebin])],
 
-    ?line ok = file:set_cwd(Dir1),
+    ok = file:set_cwd(Dir1),
 
-    ?line {ok, _ , []} = systools:make_script(Name1,[{path, P},silent]),
-    ?line {ok, _ , []} = systools:make_script(Name2,[{path, P},silent]),
-    ?line {ok,Boot1} = file:read_file(Name1 ++ ".boot"),
-    ?line {ok,Boot2} = file:read_file(Name2 ++ ".boot"),
+    {ok, _ , []} = systools:make_script(Name1,[{path, P},silent]),
+    {ok, _ , []} = systools:make_script(Name2,[{path, P},silent]),
+    {ok,Boot1} = file:read_file(Name1 ++ ".boot"),
+    {ok,Boot2} = file:read_file(Name2 ++ ".boot"),
 
-    ?line ok = file:set_cwd(OldDir),
+    ok = file:set_cwd(OldDir),
 
-    ?line BasePaths = {"testkernelpath","teststdlibpath","testsaslpath"},
-    ?line {ok,Hybrid} = systools_make:make_hybrid_boot("tmp_vsn",Boot1,Boot2,
-						       BasePaths, [dummy,args]),
+    BasePaths = {"testkernelpath","teststdlibpath","testsaslpath"},
+    {ok,Hybrid} = systools_make:make_hybrid_boot("tmp_vsn",Boot1,Boot2,
+						 BasePaths, [dummy,args]),
 
-    ?line {script,{"Test release","tmp_vsn"},Script} = binary_to_term(Hybrid),
+    {script,{"Test release","tmp_vsn"},Script} = binary_to_term(Hybrid),
     ct:log("~p.~n",[Script]),
 
     %% Check that all paths to base apps are replaced by paths from BaseLib
     Boot1Str = io_lib:format("~p~n",[binary_to_term(Boot1)]),
     HybridStr = io_lib:format("~p~n",[binary_to_term(Hybrid)]),
     ReOpts = [global,{capture,first,list},unicode],
-    ?line {match,OldKernelMatch} = re:run(Boot1Str,"kernel-[0-9\.]+",ReOpts),
-    ?line {match,OldStdlibMatch} = re:run(Boot1Str,"stdlib-[0-9\.]+",ReOpts),
-    ?line {match,OldSaslMatch} = re:run(Boot1Str,"sasl-[0-9\.]+",ReOpts),
+    {match,OldKernelMatch} = re:run(Boot1Str,"kernel-[0-9\.]+",ReOpts),
+    {match,OldStdlibMatch} = re:run(Boot1Str,"stdlib-[0-9\.]+",ReOpts),
+    {match,OldSaslMatch} = re:run(Boot1Str,"sasl-[0-9\.]+",ReOpts),
 
-    ?line nomatch = re:run(HybridStr,"kernel-[0-9\.]+",ReOpts),
-    ?line nomatch = re:run(HybridStr,"stdlib-[0-9\.]+",ReOpts),
-    ?line nomatch = re:run(HybridStr,"sasl-[0-9\.]+",ReOpts),
-    ?line {match,NewKernelMatch} = re:run(HybridStr,"testkernelpath",ReOpts),
-    ?line {match,NewStdlibMatch} = re:run(HybridStr,"teststdlibpath",ReOpts),
-    ?line {match,NewSaslMatch} = re:run(HybridStr,"testsaslpath",ReOpts),
+    nomatch = re:run(HybridStr,"kernel-[0-9\.]+",ReOpts),
+    nomatch = re:run(HybridStr,"stdlib-[0-9\.]+",ReOpts),
+    nomatch = re:run(HybridStr,"sasl-[0-9\.]+",ReOpts),
+    {match,NewKernelMatch} = re:run(HybridStr,"testkernelpath",ReOpts),
+    {match,NewStdlibMatch} = re:run(HybridStr,"teststdlibpath",ReOpts),
+    {match,NewSaslMatch} = re:run(HybridStr,"testsaslpath",ReOpts),
 
     NewKernelN = length(NewKernelMatch),
-    ?line NewKernelN = length(OldKernelMatch),
+    NewKernelN = length(OldKernelMatch),
     NewStdlibN = length(NewStdlibMatch),
-    ?line NewStdlibN = length(OldStdlibMatch),
+    NewStdlibN = length(OldStdlibMatch),
     NewSaslN = length(NewSaslMatch),
-    ?line NewSaslN = length(OldSaslMatch),
+    NewSaslN = length(OldSaslMatch),
 
     %% Check that application load instruction has correct versions
     Apps = application:loaded_applications(),
@@ -1658,33 +1490,33 @@ normal_hybrid(Config) ->
     {_,_,StdlibVsn} = lists:keyfind(stdlib,1,Apps),
     {_,_,SaslVsn} = lists:keyfind(sasl,1,Apps),
 
-    ?line [KernelInfo] = [I || {kernelProcess,application_controller,
+    [KernelInfo] = [I || {kernelProcess,application_controller,
 			  {application_controller,start,
 			   [{application,kernel,I}]}} <- Script],
-    ?line [StdlibInfo] = [I || {apply,
+    [StdlibInfo] = [I || {apply,
 			  {application,load,
 			   [{application,stdlib,I}]}} <- Script],
-    ?line [SaslInfo] = [I || {apply,
+    [SaslInfo] = [I || {apply,
 			{application,load,
 			 [{application,sasl,I}]}} <- Script],
 
-    ?line {vsn,KernelVsn} = lists:keyfind(vsn,1,KernelInfo),
-    ?line {vsn,StdlibVsn} = lists:keyfind(vsn,1,StdlibInfo),
-    ?line {vsn,SaslVsn} = lists:keyfind(vsn,1,SaslInfo),
+    {vsn,KernelVsn} = lists:keyfind(vsn,1,KernelInfo),
+    {vsn,StdlibVsn} = lists:keyfind(vsn,1,StdlibInfo),
+    {vsn,SaslVsn} = lists:keyfind(vsn,1,SaslInfo),
 
     %% Check that new_emulator_upgrade call is added
-    ?line [_,{apply,{release_handler,new_emulator_upgrade,[dummy,args]}}|_] =
+    [_,{apply,{release_handler,new_emulator_upgrade,[dummy,args]}}|_] =
 	lists:reverse(Script),
 
     %% Check that db-1.0 and fe-3.1 are used (i.e. vsns from old release)
     %% And that fe is in there (it exists in old rel but not in new)
-    ?line {match,DbMatch} = re:run(HybridStr,"db-[0-9\.]+",ReOpts),
-    ?line {match,[_|_]=FeMatch} = re:run(HybridStr,"fe-[0-9\.]+",ReOpts),
-    ?line true = lists:all(fun(["db-1.0"]) -> true;
+    {match,DbMatch} = re:run(HybridStr,"db-[0-9\.]+",ReOpts),
+    {match,[_|_]=FeMatch} = re:run(HybridStr,"fe-[0-9\.]+",ReOpts),
+    true = lists:all(fun(["db-1.0"]) -> true;
 			(_)  -> false
 		     end,
 		     DbMatch),
-    ?line true = lists:all(fun(["fe-3.1"]) -> true;
+    true = lists:all(fun(["fe-3.1"]) -> true;
 			(_)  -> false
 		     end,
 		     FeMatch),
@@ -1694,210 +1526,209 @@ normal_hybrid(Config) ->
     {_,_,Old} = binary_to_term(Boot1),
     OldLength = length(Old),
     NewLength = length(Script),
-    ?line NewLength = OldLength + 1,
+    NewLength = OldLength + 1,
 
     ok.
 
+%% make_hybrid_boot: No sasl in from-release.
 %% Check that systools_make:make_hybrid_boot fails with a meaningful
 %% error message if the FromBoot does not include the sasl
 %% application.
 hybrid_no_old_sasl(Config) ->
-    ?line {ok, OldDir} = file:get_cwd(),
-    ?line {Dir1,Name1} = create_script(latest1_no_sasl,Config),
-    ?line {_Dir2,Name2} = create_script(current_all,Config),
+    {ok, OldDir} = file:get_cwd(),
+    {Dir1,Name1} = create_script(latest1_no_sasl,Config),
+    {_Dir2,Name2} = create_script(current_all,Config),
 
-    ?line DataDir = filename:absname(?copydir),
-    ?line LibDir = [fname([DataDir, d_normal, lib])],
-    ?line P = [fname([LibDir, '*', ebin]),
-	       fname([DataDir, lib, kernel, ebin]),
-	       fname([DataDir, lib, stdlib, ebin]),
-	       fname([DataDir, lib, sasl, ebin])],
+    DataDir = filename:absname(?copydir),
+    LibDir = [fname([DataDir, d_normal, lib])],
+    P = [fname([LibDir, '*', ebin]),
+	 fname([DataDir, lib, kernel, ebin]),
+	 fname([DataDir, lib, stdlib, ebin]),
+	 fname([DataDir, lib, sasl, ebin])],
 
-    ?line ok = file:set_cwd(Dir1),
+    ok = file:set_cwd(Dir1),
 
-    ?line {ok, _ , [{warning,missing_sasl}]} =
+    {ok, _ , [{warning,missing_sasl}]} =
 	systools:make_script(Name1,[{path, P},silent]),
-    ?line {ok, _ , []} = systools:make_script(Name2,[{path, P},silent]),
-    ?line {ok,Boot1} = file:read_file(Name1 ++ ".boot"),
-    ?line {ok,Boot2} = file:read_file(Name2 ++ ".boot"),
+    {ok, _ , []} = systools:make_script(Name2,[{path, P},silent]),
+    {ok,Boot1} = file:read_file(Name1 ++ ".boot"),
+    {ok,Boot2} = file:read_file(Name2 ++ ".boot"),
 
-    ?line BasePaths = {"testkernelpath","teststdlibpath","testsaslpath"},
-    ?line {error,{app_not_replaced,sasl}} =
+    BasePaths = {"testkernelpath","teststdlibpath","testsaslpath"},
+    {error,{app_not_replaced,sasl}} =
 	systools_make:make_hybrid_boot("tmp_vsn",Boot1,Boot2,
 				       BasePaths,[dummy,args]),
 
-    ?line ok = file:set_cwd(OldDir),
+    ok = file:set_cwd(OldDir),
     ok.
 
 
+%% make_hybrid_boot: No sasl in to-release.
 %% Check that systools_make:make_hybrid_boot fails with a meaningful
 %% error message if the ToBoot does not include the sasl
 %% application.
 hybrid_no_new_sasl(Config) ->
-    ?line {ok, OldDir} = file:get_cwd(),
-    ?line {Dir1,Name1} = create_script(latest1,Config),
-    ?line {_Dir2,Name2} = create_script(current_all_no_sasl,Config),
+    {ok, OldDir} = file:get_cwd(),
+    {Dir1,Name1} = create_script(latest1,Config),
+    {_Dir2,Name2} = create_script(current_all_no_sasl,Config),
 
-    ?line DataDir = filename:absname(?copydir),
-    ?line LibDir = [fname([DataDir, d_normal, lib])],
-    ?line P = [fname([LibDir, '*', ebin]),
-	       fname([DataDir, lib, kernel, ebin]),
-	       fname([DataDir, lib, stdlib, ebin]),
-	       fname([DataDir, lib, sasl, ebin])],
+    DataDir = filename:absname(?copydir),
+    LibDir = [fname([DataDir, d_normal, lib])],
+    P = [fname([LibDir, '*', ebin]),
+	 fname([DataDir, lib, kernel, ebin]),
+	 fname([DataDir, lib, stdlib, ebin]),
+	 fname([DataDir, lib, sasl, ebin])],
 
-    ?line ok = file:set_cwd(Dir1),
+    ok = file:set_cwd(Dir1),
 
-    ?line {ok, _ , []} = systools:make_script(Name1,[{path, P},silent]),
-    ?line {ok, _ , [{warning,missing_sasl}]} =
+    {ok, _ , []} = systools:make_script(Name1,[{path, P},silent]),
+    {ok, _ , [{warning,missing_sasl}]} =
 	systools:make_script(Name2,[{path, P},silent]),
-    ?line {ok,Boot1} = file:read_file(Name1 ++ ".boot"),
-    ?line {ok,Boot2} = file:read_file(Name2 ++ ".boot"),
+    {ok,Boot1} = file:read_file(Name1 ++ ".boot"),
+    {ok,Boot2} = file:read_file(Name2 ++ ".boot"),
 
-    ?line BasePaths = {"testkernelpath","teststdlibpath","testsaslpath"},
-    ?line {error,{app_not_found,sasl}} =
+    BasePaths = {"testkernelpath","teststdlibpath","testsaslpath"},
+    {error,{app_not_found,sasl}} =
 	systools_make:make_hybrid_boot("tmp_vsn",Boot1,Boot2,
 				       BasePaths,[dummy,args]),
 
-    ?line ok = file:set_cwd(OldDir),
+    ok = file:set_cwd(OldDir),
     ok.
 
 
 
-otp_6226(suite) ->
-    [];
-otp_6226(doc) ->
-    ["{outdir,Dir} option for systools:make_script()"];
-otp_6226(Config) when is_list(Config) ->
+%% options: {outdir,Dir} option
+otp_6226_outdir(Config) when is_list(Config) ->
     PrivDir = ?privdir,
-    ?line {ok, OldDir} = file:get_cwd(),
+    {ok, OldDir} = file:get_cwd(),
 
-    ?line {LatestDir, LatestName} = create_script(latest0,Config),
-    ?line {_LatestDir, LatestName1} = create_script(latest1,Config),
+    {LatestDir, LatestName} = create_script(latest0,Config),
+    {_LatestDir, LatestName1} = create_script(latest1,Config),
 
-    ?line DataDir = filename:absname(?copydir),
-    ?line LibDir = fname([DataDir, d_normal, lib]),
-    ?line P = [fname([LibDir, 'db-2.1', ebin]),
-	       fname([LibDir, 'db-1.0', ebin]),
-	       fname([LibDir, 'fe-3.1', ebin]),
-	       fname([DataDir, lib, kernel, ebin]),
-	       fname([DataDir, lib, stdlib, ebin]),
-	       fname([DataDir, lib, sasl, ebin])],
+    DataDir = filename:absname(?copydir),
+    LibDir = fname([DataDir, d_normal, lib]),
+    P = [fname([LibDir, 'db-2.1', ebin]),
+	 fname([LibDir, 'db-1.0', ebin]),
+	 fname([LibDir, 'fe-3.1', ebin]),
+	 fname([DataDir, lib, kernel, ebin]),
+	 fname([DataDir, lib, stdlib, ebin]),
+	 fname([DataDir, lib, sasl, ebin])],
 
-    ?line ok = file:set_cwd(LatestDir),
+    ok = file:set_cwd(LatestDir),
 
- 
+
     %% Create an outdir1 directory
-    ?line ok = file:make_dir("outdir1"),
+    ok = file:make_dir("outdir1"),
 
     %% ==== Now test systools:make_script ====
     %% a) badarg
-    ?line {'EXIT', {{badarg,[{outdir,outdir1}]}, _}} =
+    {'EXIT', {{badarg,[{outdir,outdir1}]}, _}} =
 	(catch systools:make_script(LatestName, [{outdir,outdir1},
 						 {path,P},silent])),
 
     %% b) absolute path
     Outdir1 = filename:join(PrivDir, "outdir1"),
-    ?line {ok,_,[]} = systools:make_script(LatestName, [{outdir,Outdir1},
-							{path,P},silent]),
-    ?line Script1 = filename:join(Outdir1, LatestName ++ ".script"),
-    ?line Boot1 = filename:join(Outdir1, LatestName ++ ".boot"),
-    ?line true = filelib:is_file(Script1),
-    ?line true = filelib:is_file(Boot1),
-    ?line ok = file:delete(Script1),
-    ?line ok = file:delete(Boot1),
+    {ok,_,[]} = systools:make_script(LatestName, [{outdir,Outdir1},
+						  {path,P},silent]),
+    Script1 = filename:join(Outdir1, LatestName ++ ".script"),
+    Boot1 = filename:join(Outdir1, LatestName ++ ".boot"),
+    true = filelib:is_file(Script1),
+    true = filelib:is_file(Boot1),
+    ok = file:delete(Script1),
+    ok = file:delete(Boot1),
 
     %% c) relative path
-    ?line {ok,_,[]} = systools:make_script(LatestName, [{outdir,"./outdir1"},
-							{path,P},silent]),
-    ?line true = filelib:is_file(Script1),
-    ?line true = filelib:is_file(Boot1),
-    ?line ok = file:delete(Script1),
-    ?line ok = file:delete(Boot1),
+    {ok,_,[]} = systools:make_script(LatestName, [{outdir,"./outdir1"},
+						  {path,P},silent]),
+    true = filelib:is_file(Script1),
+    true = filelib:is_file(Boot1),
+    ok = file:delete(Script1),
+    ok = file:delete(Boot1),
 
     %% d) absolute but incorrect path
-    ?line Outdir2 = filename:join(PrivDir, "outdir2"),
-    ?line Script2 = filename:join(Outdir2, LatestName ++ ".script"),
-    ?line {error,_,{open,Script2,_}} = 
+    Outdir2 = filename:join(PrivDir, "outdir2"),
+    Script2 = filename:join(Outdir2, LatestName ++ ".script"),
+    {error,_,{open,Script2,_}} =
 	systools:make_script(LatestName, [{outdir,Outdir2},{path,P},silent]),
 
     %% e) relative but incorrect path
-    ?line {error,_,{open,_,_}} = 
+    {error,_,{open,_,_}} =
 	systools:make_script(LatestName, [{outdir,"./outdir2"},{path,P},silent]),
 
     %% f) with .rel in another directory than cwd
-    ?line ok = file:set_cwd(Outdir1),
-    ?line {ok,_,[]} = systools:make_script(filename:join(PrivDir, LatestName),
-					   [{outdir,"."},{path,P},silent]),
-    ?line true = filelib:is_file(LatestName ++ ".script"),
-    ?line true = filelib:is_file(LatestName ++ ".boot"),
-    ?line ok = file:delete(LatestName ++ ".script"),
-    ?line ok = file:delete(LatestName ++ ".boot"),
-    ?line ok = file:set_cwd(LatestDir),
+    ok = file:set_cwd(Outdir1),
+    {ok,_,[]} = systools:make_script(filename:join(PrivDir, LatestName),
+				     [{outdir,"."},{path,P},silent]),
+    true = filelib:is_file(LatestName ++ ".script"),
+    true = filelib:is_file(LatestName ++ ".boot"),
+    ok = file:delete(LatestName ++ ".script"),
+    ok = file:delete(LatestName ++ ".boot"),
+    ok = file:set_cwd(LatestDir),
 
     %% ==== Now test systools:make_tar =====
-    ?line {ok,_,[]} = systools:make_script(LatestName, [{path,P},silent]),
+    {ok,_,[]} = systools:make_script(LatestName, [{path,P},silent]),
     %% a) badarg
-    ?line {'EXIT', {{badarg, [{outdir,outdir1}]}, _}} =
+    {'EXIT', {{badarg, [{outdir,outdir1}]}, _}} =
     	(catch systools:make_tar(LatestName,[{outdir,outdir1},{path,P},silent])),
 
     %% b) absolute path
-    ?line {ok,_,[]} = systools:make_tar(LatestName, [{outdir,Outdir1}, 
-						     {path,P},silent]),
-    ?line Tar1 = filename:join(Outdir1,LatestName++".tar.gz"),
-    ?line true = filelib:is_file(Tar1),
-    ?line ok = file:delete(Tar1),
+    {ok,_,[]} = systools:make_tar(LatestName, [{outdir,Outdir1},
+					       {path,P},silent]),
+    Tar1 = filename:join(Outdir1,LatestName++".tar.gz"),
+    true = filelib:is_file(Tar1),
+    ok = file:delete(Tar1),
 
     %% c) relative path
-    ?line {ok,_,[]} = systools:make_tar(LatestName, [{outdir,"./outdir1"},
-						     {path,P},silent]),
-    ?line true = filelib:is_file(Tar1),
-    ?line ok = file:delete(Tar1),
+    {ok,_,[]} = systools:make_tar(LatestName, [{outdir,"./outdir1"},
+					       {path,P},silent]),
+    true = filelib:is_file(Tar1),
+    ok = file:delete(Tar1),
 
     %% d) absolute but incorrect path
-    ?line Tar2 = filename:join(Outdir2,LatestName++".tar.gz"),
-    ?line {error,_,{tar_error,{open,Tar2,{Tar2,enoent}}}} = 
+    Tar2 = filename:join(Outdir2,LatestName++".tar.gz"),
+    {error,_,{tar_error,{open,Tar2,{Tar2,enoent}}}} =
 	systools:make_tar(LatestName, [{outdir,Outdir2},{path,P},silent]),
-    
+
     %% e) relative but incorrect path
-    ?line {error,_,{tar_error,{open,_,_}}} = 
-	   systools:make_tar(LatestName, [{outdir,"./outdir2"},{path,P},silent]),
+    {error,_,{tar_error,{open,_,_}}} =
+	systools:make_tar(LatestName, [{outdir,"./outdir2"},{path,P},silent]),
 
     %% f) with .rel in another directory than cwd
-    ?line ok = file:set_cwd(Outdir1),
-    ?line {ok,_,[]} = systools:make_tar(filename:join(PrivDir, LatestName),
-					[{outdir,"."},{path,P},silent]),
-    ?line true = filelib:is_file(Tar1),
-    ?line ok = file:set_cwd(LatestDir),
+    ok = file:set_cwd(Outdir1),
+    {ok,_,[]} = systools:make_tar(filename:join(PrivDir, LatestName),
+				  [{outdir,"."},{path,P},silent]),
+    true = filelib:is_file(Tar1),
+    ok = file:set_cwd(LatestDir),
 
     %% ===== Now test systools:make_relup =====
     %% a) badarg
-    ?line {'EXIT', {{badarg, [{outdir,outdir1}]}, _}} =
+    {'EXIT', {{badarg, [{outdir,outdir1}]}, _}} =
     	(catch systools:make_relup(LatestName,[LatestName1],[LatestName1],
     				   [{outdir,outdir1}, 
 				    {path,P},silent])),
 
     %% b) absolute path
     Relup = filename:join(Outdir1, "relup"),
-    ?line {ok,_,_,[]} = systools:make_relup(LatestName,[LatestName1],[LatestName1],
-					    [{outdir,Outdir1},
-					     {path,P},silent]),
-    ?line true = filelib:is_file(Relup),
-    ?line ok = file:delete(Relup),
-    
+    {ok,_,_,[]} = systools:make_relup(LatestName,[LatestName1],[LatestName1],
+				      [{outdir,Outdir1},
+				       {path,P},silent]),
+    true = filelib:is_file(Relup),
+    ok = file:delete(Relup),
+
     %% c) relative path
-    ?line {ok,_,_,[]} = systools:make_relup(LatestName,[LatestName1],[LatestName1],
-					    [{outdir,"./outdir1"},
-					     {path,P},silent]),
-    ?line true = filelib:is_file(Relup),
-    ?line ok = file:delete(Relup),
-    
+    {ok,_,_,[]} = systools:make_relup(LatestName,[LatestName1],[LatestName1],
+				      [{outdir,"./outdir1"},
+				       {path,P},silent]),
+    true = filelib:is_file(Relup),
+    ok = file:delete(Relup),
+
     %% d) absolute but incorrect path
-    ?line {error,_,{file_problem,{"relup",enoent}}} = 
+    {error,_,{file_problem,{"relup",enoent}}} =
 	systools:make_relup(LatestName,[LatestName1],[LatestName1],
 			    [{outdir,Outdir2},{path,P},silent]),
-    
+
     %% e) relative but incorrect path
-    ?line {error,_,{file_problem,{"relup",enoent}}} = 
+    {error,_,{file_problem,{"relup",enoent}}} =
 	systools:make_relup(LatestName,[LatestName1],[LatestName1],
 			    [{outdir,"./outdir2"},{path,P},silent]),
 
@@ -1906,7 +1737,7 @@ otp_6226(Config) when is_list(Config) ->
     %%    cwd, not in the same directory as the .rel file --
 
     %% Change back to previous working directory
-    ?line ok = file:set_cwd(OldDir),
+    ok = file:set_cwd(OldDir),
     ok.
 
 
@@ -1929,7 +1760,7 @@ check_var_script_file(VarDirs, NoExistDirs, RelName) ->
     AllPaths = lists:append(lists:map(fun({path, P}) -> P;
 					 (_)         -> []
 				      end,
-				  ListOfThings)),
+				      ListOfThings)),
     case lists:filter(fun(VarDir) -> lists:member(VarDir, AllPaths) end,
 		      VarDirs) of
 	VarDirs ->
@@ -1954,7 +1785,7 @@ check_include_script(RelName, ExpectedLoad, ExpectedStart) ->
 	[App || {apply,{application,load,[{application,App,_}]}} <- ListOfThings,
 		App=/=kernel,
 		App=/=stdlib],
-    
+
     if ActualLoad =:= ExpectedLoad -> ok;
        true -> test_server:fail({bad_load_order, ActualLoad, ExpectedLoad})
     end,
@@ -2029,7 +1860,7 @@ check_tar_regular(PrivDir, Files, RelName) ->
 	NotThere ->
 	    {error,{erroneous_tar_file,tar_name(RelName),NotThere}}
     end.
-	    
+
 delete_tree(Dir) ->
     case filelib:is_dir(Dir) of
 	true ->
@@ -2110,15 +1941,15 @@ create_script(current_all_future_sasl,Config) ->
 
 
 do_create_script(Id,Config,ErtsVsn,AppVsns) ->
-    ?line PrivDir = ?privdir,
-    ?line Name = fname(PrivDir, Id),
-    ?line {ok,Fd} = file:open(Name++".rel",write),
-    ?line RelfileContent =
+    PrivDir = ?privdir,
+    Name = fname(PrivDir, Id),
+    {ok,Fd} = file:open(Name++".rel",write),
+    RelfileContent =
 	{release,{"Test release", string:to_upper(atom_to_list(Id))},
 	 {erts,erts_vsn(ErtsVsn)},
 	 app_vsns(AppVsns)},
-    ?line io:format(Fd,"~p.~n",[RelfileContent]),
-    ?line ok = file:close(Fd),
+    io:format(Fd,"~p.~n",[RelfileContent]),
+    ok = file:close(Fd),
     {filename:dirname(Name), filename:basename(Name)}.
 
 core_apps(Vsn) ->
@@ -2139,372 +1970,372 @@ erts_vsn(Vsn) -> Vsn.
 
 
 create_include_files(inc1, Config) ->
-    ?line PrivDir = ?privdir,
-    ?line Name = fname(PrivDir, inc1),
+    PrivDir = ?privdir,
+    Name = fname(PrivDir, inc1),
     create_apps(PrivDir),
 
-    ?line Apps = application_controller:which_applications(),
-    ?line {value,{_,_,KernelVer}} = lists:keysearch(kernel,1,Apps),
-    ?line {value,{_,_,StdlibVer}} = lists:keysearch(stdlib,1,Apps),
+    Apps = application_controller:which_applications(),
+    {value,{_,_,KernelVer}} = lists:keysearch(kernel,1,Apps),
+    {value,{_,_,StdlibVer}} = lists:keysearch(stdlib,1,Apps),
 
     Rel = "{release, {\"test\",\"R1A\"}, {erts, \"45\"},\n"
-          " [{kernel, \"" ++ KernelVer ++ "\"}, {stdlib, \""
-           ++ StdlibVer ++ "\"},\n"
-          "  {t6, \"1.0\"}, {t5, \"1.0\"}, \n"
-          "  {t4, \"1.0\"}, {t3, \"1.0\"}, {t2, \"1.0\"}, \n"
-          "  {t1, \"1.0\"}]}.\n",
+	" [{kernel, \"" ++ KernelVer ++ "\"}, {stdlib, \""
+	++ StdlibVer ++ "\"},\n"
+	"  {t6, \"1.0\"}, {t5, \"1.0\"}, \n"
+	"  {t4, \"1.0\"}, {t3, \"1.0\"}, {t2, \"1.0\"}, \n"
+	"  {t1, \"1.0\"}]}.\n",
     file:write_file(Name ++ ".rel", list_to_binary(Rel)),
     {filename:dirname(Name), filename:basename(Name)};
 
 create_include_files(inc2, Config) ->
-    ?line PrivDir = ?privdir,
-    ?line Name = fname(PrivDir, inc2),
+    PrivDir = ?privdir,
+    Name = fname(PrivDir, inc2),
     create_apps(PrivDir),
 
-    ?line Apps = application_controller:which_applications(),
-    ?line {value,{_,_,KernelVer}} = lists:keysearch(kernel,1,Apps),
-    ?line {value,{_,_,StdlibVer}} = lists:keysearch(stdlib,1,Apps),
+    Apps = application_controller:which_applications(),
+    {value,{_,_,KernelVer}} = lists:keysearch(kernel,1,Apps),
+    {value,{_,_,StdlibVer}} = lists:keysearch(stdlib,1,Apps),
 
     %% t6 does not include t5 !
     Rel = "{release, {\"test\",\"R1A\"}, {erts, \"45\"},\n"
-          " [{kernel, \"" ++ KernelVer ++ "\"}, {stdlib, \""
-           ++ StdlibVer ++ "\"},\n"
-          "  {t6, \"1.0\", [t4]}, {t5, \"1.0\"}, \n"
-          "  {t4, \"1.0\"}, {t3, \"1.0\"}, {t2, \"1.0\"}, \n"
-          "  {t1, \"1.0\"}]}.\n",
+	" [{kernel, \"" ++ KernelVer ++ "\"}, {stdlib, \""
+	++ StdlibVer ++ "\"},\n"
+	"  {t6, \"1.0\", [t4]}, {t5, \"1.0\"}, \n"
+	"  {t4, \"1.0\"}, {t3, \"1.0\"}, {t2, \"1.0\"}, \n"
+	"  {t1, \"1.0\"}]}.\n",
     file:write_file(Name ++ ".rel", list_to_binary(Rel)),
     {filename:dirname(Name), filename:basename(Name)};
 
 create_include_files(inc3, Config) ->
-    ?line PrivDir = ?privdir,
-    ?line Name = fname(PrivDir, inc3),
+    PrivDir = ?privdir,
+    Name = fname(PrivDir, inc3),
     create_apps(PrivDir),
 
-    ?line Apps = application_controller:which_applications(),
-    ?line {value,{_,_,KernelVer}} = lists:keysearch(kernel,1,Apps),
-    ?line {value,{_,_,StdlibVer}} = lists:keysearch(stdlib,1,Apps),
+    Apps = application_controller:which_applications(),
+    {value,{_,_,KernelVer}} = lists:keysearch(kernel,1,Apps),
+    {value,{_,_,StdlibVer}} = lists:keysearch(stdlib,1,Apps),
 
     %% t3 does not include t2 !
     Rel = "{release, {\"test\",\"R1A\"}, {erts, \"45\"},\n"
-          " [{kernel, \"" ++ KernelVer ++ "\"}, {stdlib, \""
-           ++ StdlibVer ++ "\"},\n"
-          "  {t6, \"1.0\"}, {t5, \"1.0\"}, \n"
-          "  {t4, \"1.0\"}, {t3, \"1.0\", []}, {t2, \"1.0\"}, \n"
-          "  {t1, \"1.0\"}]}.\n",
+	" [{kernel, \"" ++ KernelVer ++ "\"}, {stdlib, \""
+	++ StdlibVer ++ "\"},\n"
+	"  {t6, \"1.0\"}, {t5, \"1.0\"}, \n"
+	"  {t4, \"1.0\"}, {t3, \"1.0\", []}, {t2, \"1.0\"}, \n"
+	"  {t1, \"1.0\"}]}.\n",
     file:write_file(Name ++ ".rel", list_to_binary(Rel)),
     {filename:dirname(Name), filename:basename(Name)};
 
 create_include_files(inc4, Config) ->
-    ?line PrivDir = ?privdir,
-    ?line Name = fname(PrivDir, inc4),
+    PrivDir = ?privdir,
+    Name = fname(PrivDir, inc4),
     create_apps(PrivDir),
 
-    ?line Apps = application_controller:which_applications(),
-    ?line {value,{_,_,KernelVer}} = lists:keysearch(kernel,1,Apps),
-    ?line {value,{_,_,StdlibVer}} = lists:keysearch(stdlib,1,Apps),
+    Apps = application_controller:which_applications(),
+    {value,{_,_,KernelVer}} = lists:keysearch(kernel,1,Apps),
+    {value,{_,_,StdlibVer}} = lists:keysearch(stdlib,1,Apps),
 
     %% t3 does not include t2 !
     %% t6 does not include t5 !
     Rel = "{release, {\"test\",\"R1A\"}, {erts, \"45\"},\n"
-          " [{kernel, \"" ++ KernelVer ++ "\"}, {stdlib, \""
-           ++ StdlibVer ++ "\"},\n"
-          "  {t6, \"1.0\", [t4]}, {t5, \"1.0\"}, \n"
-          "  {t4, \"1.0\"}, {t3, \"1.0\", []}, {t2, \"1.0\"}, \n"
-          "  {t1, \"1.0\"}]}.\n",
+	" [{kernel, \"" ++ KernelVer ++ "\"}, {stdlib, \""
+	++ StdlibVer ++ "\"},\n"
+	"  {t6, \"1.0\", [t4]}, {t5, \"1.0\"}, \n"
+	"  {t4, \"1.0\"}, {t3, \"1.0\", []}, {t2, \"1.0\"}, \n"
+	"  {t1, \"1.0\"}]}.\n",
     file:write_file(Name ++ ".rel", list_to_binary(Rel)),
     {filename:dirname(Name), filename:basename(Name)};
 
 create_include_files(inc5, Config) ->
-    ?line PrivDir = ?privdir,
-    ?line Name = fname(PrivDir, inc5),
+    PrivDir = ?privdir,
+    Name = fname(PrivDir, inc5),
     create_apps(PrivDir),
 
-    ?line Apps = application_controller:which_applications(),
-    ?line {value,{_,_,KernelVer}} = lists:keysearch(kernel,1,Apps),
-    ?line {value,{_,_,StdlibVer}} = lists:keysearch(stdlib,1,Apps),
+    Apps = application_controller:which_applications(),
+    {value,{_,_,KernelVer}} = lists:keysearch(kernel,1,Apps),
+    {value,{_,_,StdlibVer}} = lists:keysearch(stdlib,1,Apps),
 
     %% t6 does not include t5 !
     %% exclude t5.
     Rel = "{release, {\"test\",\"R1A\"}, {erts, \"45\"},\n"
-          " [{kernel, \"" ++ KernelVer ++ "\"}, {stdlib, \""
-           ++ StdlibVer ++ "\"},\n"
-          "  {t6, \"1.0\", [t4]}, \n"
-          "  {t4, \"1.0\"}, {t3, \"1.0\", []}, {t2, \"1.0\"}, \n"
-          "  {t1, \"1.0\"}]}.\n",
+	" [{kernel, \"" ++ KernelVer ++ "\"}, {stdlib, \""
+	++ StdlibVer ++ "\"},\n"
+	"  {t6, \"1.0\", [t4]}, \n"
+	"  {t4, \"1.0\"}, {t3, \"1.0\", []}, {t2, \"1.0\"}, \n"
+	"  {t1, \"1.0\"}]}.\n",
     file:write_file(Name ++ ".rel", list_to_binary(Rel)),
     {filename:dirname(Name), filename:basename(Name)};
 
 create_include_files(inc6, Config) ->
-    ?line PrivDir = ?privdir,
-    ?line Name = fname(PrivDir, inc6),
+    PrivDir = ?privdir,
+    Name = fname(PrivDir, inc6),
     create_apps(PrivDir),
 
-    ?line Apps = application_controller:which_applications(),
-    ?line {value,{_,_,KernelVer}} = lists:keysearch(kernel,1,Apps),
-    ?line {value,{_,_,StdlibVer}} = lists:keysearch(stdlib,1,Apps),
+    Apps = application_controller:which_applications(),
+    {value,{_,_,KernelVer}} = lists:keysearch(kernel,1,Apps),
+    {value,{_,_,StdlibVer}} = lists:keysearch(stdlib,1,Apps),
 
     %% t3 does include non existing t2 !
     Rel = "{release, {\"test\",\"R1A\"}, {erts, \"45\"},\n"
-          " [{kernel, \"" ++ KernelVer ++ "\"}, {stdlib, \""
-           ++ StdlibVer ++ "\"},\n"
-          "  {t6, \"1.0\"}, {t5, \"1.0\"}, \n"
-          "  {t4, \"1.0\"}, {t3, \"1.0\"}, \n"
-          "  {t1, \"1.0\"}]}.\n",
+	" [{kernel, \"" ++ KernelVer ++ "\"}, {stdlib, \""
+	++ StdlibVer ++ "\"},\n"
+	"  {t6, \"1.0\"}, {t5, \"1.0\"}, \n"
+	"  {t4, \"1.0\"}, {t3, \"1.0\"}, \n"
+	"  {t1, \"1.0\"}]}.\n",
     file:write_file(Name ++ ".rel", list_to_binary(Rel)),
     {filename:dirname(Name), filename:basename(Name)};
 
 create_include_files(inc7, Config) ->
-    ?line PrivDir = ?privdir,
-    ?line Name = fname(PrivDir, inc7),
+    PrivDir = ?privdir,
+    Name = fname(PrivDir, inc7),
     create_apps(PrivDir),
     create_app(t7, PrivDir),
 
-    ?line Apps = application_controller:which_applications(),
-    ?line {value,{_,_,KernelVer}} = lists:keysearch(kernel,1,Apps),
-    ?line {value,{_,_,StdlibVer}} = lists:keysearch(stdlib,1,Apps),
+    Apps = application_controller:which_applications(),
+    {value,{_,_,KernelVer}} = lists:keysearch(kernel,1,Apps),
+    {value,{_,_,StdlibVer}} = lists:keysearch(stdlib,1,Apps),
 
     %% t7 and t6 does include t5 !
     Rel = "{release, {\"test\",\"R1A\"}, {erts, \"45\"},\n"
-          " [{kernel, \"" ++ KernelVer ++ "\"}, {stdlib, \""
-           ++ StdlibVer ++ "\"},\n"
-          "  {t7, \"1.0\"}, {t6, \"1.0\"}, {t5, \"1.0\"}, \n"
-          "  {t4, \"1.0\"}, {t3, \"1.0\"}, {t2, \"1.0\"}, \n"
-          "  {t1, \"1.0\"}]}.\n",
+	" [{kernel, \"" ++ KernelVer ++ "\"}, {stdlib, \""
+	++ StdlibVer ++ "\"},\n"
+	"  {t7, \"1.0\"}, {t6, \"1.0\"}, {t5, \"1.0\"}, \n"
+	"  {t4, \"1.0\"}, {t3, \"1.0\"}, {t2, \"1.0\"}, \n"
+	"  {t1, \"1.0\"}]}.\n",
     file:write_file(Name ++ ".rel", list_to_binary(Rel)),
     {filename:dirname(Name), filename:basename(Name)};
 
 create_include_files(inc8, Config) ->
-    ?line PrivDir = ?privdir,
-    ?line Name = fname(PrivDir, inc8),
+    PrivDir = ?privdir,
+    Name = fname(PrivDir, inc8),
     create_circular_apps(PrivDir),
 
-    ?line Apps = application_controller:which_applications(),
-    ?line {value,{_,_,KernelVer}} = lists:keysearch(kernel,1,Apps),
-    ?line {value,{_,_,StdlibVer}} = lists:keysearch(stdlib,1,Apps),
+    Apps = application_controller:which_applications(),
+    {value,{_,_,KernelVer}} = lists:keysearch(kernel,1,Apps),
+    {value,{_,_,StdlibVer}} = lists:keysearch(stdlib,1,Apps),
 
     %% t8 uses t9 and t10 includes t9 !
     Rel = "{release, {\"test\",\"R1A\"}, {erts, \"45\"},\n"
-          " [{kernel, \"" ++ KernelVer ++ "\"}, {stdlib, \""
-           ++ StdlibVer ++ "\"},\n"
-          "  {t8, \"1.0\"}, {t9, \"1.0\"}, {t10, \"1.0\"}]}.\n",
+	" [{kernel, \"" ++ KernelVer ++ "\"}, {stdlib, \""
+	++ StdlibVer ++ "\"},\n"
+	"  {t8, \"1.0\"}, {t9, \"1.0\"}, {t10, \"1.0\"}]}.\n",
     file:write_file(Name ++ ".rel", list_to_binary(Rel)),
     {filename:dirname(Name), filename:basename(Name)};
 
 create_include_files(inc9, Config) ->
-    ?line PrivDir = ?privdir,
-    ?line Name = fname(PrivDir, inc9),
+    PrivDir = ?privdir,
+    Name = fname(PrivDir, inc9),
     create_circular_apps(PrivDir),
 
-    ?line Apps = application_controller:which_applications(),
-    ?line {value,{_,_,KernelVer}} = lists:keysearch(kernel,1,Apps),
-    ?line {value,{_,_,StdlibVer}} = lists:keysearch(stdlib,1,Apps),
+    Apps = application_controller:which_applications(),
+    {value,{_,_,KernelVer}} = lists:keysearch(kernel,1,Apps),
+    {value,{_,_,StdlibVer}} = lists:keysearch(stdlib,1,Apps),
 
     %% t8 uses t9, t9 uses t10 and t10 includes t8 ==> circular !!
     Rel = "{release, {\"test\",\"R1A\"}, {erts, \"45\"},\n"
-          " [{kernel, \"" ++ KernelVer ++ "\"}, {stdlib, \""
-           ++ StdlibVer ++ "\"},\n"
-          "  {t8, \"1.0\"}, {t9, \"1.0\"}, {t10, \"1.0\", [t8]}]}.\n",
+	" [{kernel, \"" ++ KernelVer ++ "\"}, {stdlib, \""
+	++ StdlibVer ++ "\"},\n"
+	"  {t8, \"1.0\"}, {t9, \"1.0\"}, {t10, \"1.0\", [t8]}]}.\n",
     file:write_file(Name ++ ".rel", list_to_binary(Rel)),
     {filename:dirname(Name), filename:basename(Name)};
 
 create_include_files(inc10, Config) ->
-    ?line PrivDir = ?privdir,
-    ?line Name = fname(PrivDir, inc10),
+    PrivDir = ?privdir,
+    Name = fname(PrivDir, inc10),
     create_circular_apps(PrivDir),
 
-    ?line Apps = application_controller:which_applications(),
-    ?line {value,{_,_,KernelVer}} = lists:keysearch(kernel,1,Apps),
-    ?line {value,{_,_,StdlibVer}} = lists:keysearch(stdlib,1,Apps),
+    Apps = application_controller:which_applications(),
+    {value,{_,_,KernelVer}} = lists:keysearch(kernel,1,Apps),
+    {value,{_,_,StdlibVer}} = lists:keysearch(stdlib,1,Apps),
 
     %% t9 tries to include not specified (in .app file) application !
     Rel = "{release, {\"test\",\"R1A\"}, {erts, \"45\"},\n"
-          " [{kernel, \"" ++ KernelVer ++ "\"}, {stdlib, \""
-           ++ StdlibVer ++ "\"},\n"
-          "  {t8, \"1.0\"}, {t9, \"1.0\", [t7]}, {t10, \"1.0\"}]}.\n",
+	" [{kernel, \"" ++ KernelVer ++ "\"}, {stdlib, \""
+	++ StdlibVer ++ "\"},\n"
+	"  {t8, \"1.0\"}, {t9, \"1.0\", [t7]}, {t10, \"1.0\"}]}.\n",
     file:write_file(Name ++ ".rel", list_to_binary(Rel)),
     {filename:dirname(Name), filename:basename(Name)};
 
 create_include_files(inc11, Config) ->
-    ?line PrivDir = ?privdir,
-    ?line Name = fname(PrivDir, inc11),
+    PrivDir = ?privdir,
+    Name = fname(PrivDir, inc11),
     create_apps2(PrivDir),
 
-    ?line Apps = application_controller:which_applications(),
-    ?line {value,{_,_,KernelVer}} = lists:keysearch(kernel,1,Apps),
-    ?line {value,{_,_,StdlibVer}} = lists:keysearch(stdlib,1,Apps),
+    Apps = application_controller:which_applications(),
+    {value,{_,_,KernelVer}} = lists:keysearch(kernel,1,Apps),
+    {value,{_,_,StdlibVer}} = lists:keysearch(stdlib,1,Apps),
 
     Rel = "{release, {\"test\",\"R1A\"}, {erts, \"45\"},\n"
-          " [{kernel, \"" ++ KernelVer ++ "\"}, {stdlib, \""
-           ++ StdlibVer ++ "\"},\n"
-          "  {t11, \"1.0\"}, \n"
-          "  {t12, \"1.0\"}, \n"
-          "  {t13, \"1.0\"}]}.\n",
+	" [{kernel, \"" ++ KernelVer ++ "\"}, {stdlib, \""
+	++ StdlibVer ++ "\"},\n"
+	"  {t11, \"1.0\"}, \n"
+	"  {t12, \"1.0\"}, \n"
+	"  {t13, \"1.0\"}]}.\n",
     file:write_file(Name ++ ".rel", list_to_binary(Rel)),
     {filename:dirname(Name), filename:basename(Name)};
 
-create_include_files(otp_3065, Config) ->
-    ?line PrivDir = ?privdir,
-    ?line Name = fname(PrivDir, otp_3065),
+create_include_files(otp_3065_circular_dependenies, Config) ->
+    PrivDir = ?privdir,
+    Name = fname(PrivDir, otp_3065_circular_dependenies),
     create_apps_3065(PrivDir),
 
-    ?line Apps = application_controller:which_applications(),
-    ?line {value,{_,_,KernelVer}} = lists:keysearch(kernel,1,Apps),
-    ?line {value,{_,_,StdlibVer}} = lists:keysearch(stdlib,1,Apps),
+    Apps = application_controller:which_applications(),
+    {value,{_,_,KernelVer}} = lists:keysearch(kernel,1,Apps),
+    {value,{_,_,StdlibVer}} = lists:keysearch(stdlib,1,Apps),
 
     Rel = "{release, {\"test\",\"R1A\"}, {erts, \"45\"},\n"
-          " [{kernel, \"" ++ KernelVer ++ "\"}, {stdlib, \""
-           ++ StdlibVer ++ "\"},\n"
-          "  {chAts, \"1.0\"}, {aa12, \"1.0\"}, \n"
-          "  {chTraffic, \"1.0\"}]}.\n",
+	" [{kernel, \"" ++ KernelVer ++ "\"}, {stdlib, \""
+	++ StdlibVer ++ "\"},\n"
+	"  {chAts, \"1.0\"}, {aa12, \"1.0\"}, \n"
+	"  {chTraffic, \"1.0\"}]}.\n",
     file:write_file(Name ++ ".rel", list_to_binary(Rel)),
     {filename:dirname(Name), filename:basename(Name)}.
 
 create_apps(Dir) ->
     T1 = "{application, t1,\n"
-         " [{vsn, \"1.0\"},\n"
-         "  {description, \"test\"},\n"
-	 "  {modules, []},\n"
-         "  {applications, [kernel, stdlib]},\n"
-	 "  {registered, []}]}.\n",
+	" [{vsn, \"1.0\"},\n"
+	"  {description, \"test\"},\n"
+	"  {modules, []},\n"
+	"  {applications, [kernel, stdlib]},\n"
+	"  {registered, []}]}.\n",
     file:write_file(fname(Dir, 't1.app'), list_to_binary(T1)),
 
     T2 = "{application, t2,\n"
-         " [{vsn, \"1.0\"},\n"
-         "  {description, \"test\"},\n"
-	 "  {modules, []},\n"
-         "  {applications, [t1]},\n"
-	 "  {registered, []}]}.\n",
+	" [{vsn, \"1.0\"},\n"
+	"  {description, \"test\"},\n"
+	"  {modules, []},\n"
+	"  {applications, [t1]},\n"
+	"  {registered, []}]}.\n",
     file:write_file(fname(Dir, 't2.app'), list_to_binary(T2)),
 
     T3 = "{application, t3,\n"
-         " [{vsn, \"1.0\"},\n"
-         "  {description, \"test\"},\n"
-	 "  {modules, []},\n"
-         "  {applications, []},\n"
-         "  {included_applications, [t2]},\n"
-	 "  {registered, []}]}.\n",
+	" [{vsn, \"1.0\"},\n"
+	"  {description, \"test\"},\n"
+	"  {modules, []},\n"
+	"  {applications, []},\n"
+	"  {included_applications, [t2]},\n"
+	"  {registered, []}]}.\n",
     file:write_file(fname(Dir, 't3.app'), list_to_binary(T3)),
 
     T4 = "{application, t4,\n"
-         " [{vsn, \"1.0\"},\n"
-         "  {description, \"test\"},\n"
-	 "  {modules, []},\n"
-         "  {applications, [t3]},\n"
-         "  {included_applications, []},\n"
-	 "  {registered, []}]}.\n",
+	" [{vsn, \"1.0\"},\n"
+	"  {description, \"test\"},\n"
+	"  {modules, []},\n"
+	"  {applications, [t3]},\n"
+	"  {included_applications, []},\n"
+	"  {registered, []}]}.\n",
     file:write_file(fname(Dir, 't4.app'), list_to_binary(T4)),
 
     T5 = "{application, t5,\n"
-         " [{vsn, \"1.0\"},\n"
-         "  {description, \"test\"},\n"
-	 "  {modules, []},\n"
-         "  {applications, [t3]},\n"
-         "  {included_applications, []},\n"
-	 "  {registered, []}]}.\n",
+	" [{vsn, \"1.0\"},\n"
+	"  {description, \"test\"},\n"
+	"  {modules, []},\n"
+	"  {applications, [t3]},\n"
+	"  {included_applications, []},\n"
+	"  {registered, []}]}.\n",
     file:write_file(fname(Dir, 't5.app'), list_to_binary(T5)),
 
     T6 = "{application, t6,\n"
-         " [{vsn, \"1.0\"},\n"
-         "  {description, \"test\"},\n"
-	 "  {modules, []},\n"
-         "  {applications, []},\n"
-         "  {included_applications, [t4, t5]},\n"
-	 "  {registered, []}]}.\n",
+	" [{vsn, \"1.0\"},\n"
+	"  {description, \"test\"},\n"
+	"  {modules, []},\n"
+	"  {applications, []},\n"
+	"  {included_applications, [t4, t5]},\n"
+	"  {registered, []}]}.\n",
     file:write_file(fname(Dir, 't6.app'), list_to_binary(T6)).
 
 create_app(t7, Dir) ->
     T7 = "{application, t7,\n"
-         " [{vsn, \"1.0\"},\n"
-         "  {description, \"test\"},\n"
-	 "  {modules, []},\n"
-         "  {applications, []},\n"
-         "  {included_applications, [t5]},\n"
-	 "  {registered, []}]}.\n",
+	" [{vsn, \"1.0\"},\n"
+	"  {description, \"test\"},\n"
+	"  {modules, []},\n"
+	"  {applications, []},\n"
+	"  {included_applications, [t5]},\n"
+	"  {registered, []}]}.\n",
     file:write_file(fname(Dir, 't7.app'), list_to_binary(T7)).
 
 create_circular_apps(Dir) ->
     T8 = "{application, t8,\n"
-         " [{vsn, \"1.0\"},\n"
-         "  {description, \"test\"},\n"
-	 "  {modules, []},\n"
-         "  {applications, [t9]},\n"
-         "  {included_applications, []},\n"
-	 "  {registered, []}]}.\n",
+	" [{vsn, \"1.0\"},\n"
+	"  {description, \"test\"},\n"
+	"  {modules, []},\n"
+	"  {applications, [t9]},\n"
+	"  {included_applications, []},\n"
+	"  {registered, []}]}.\n",
     file:write_file(fname(Dir, 't8.app'), list_to_binary(T8)),
 
     T9 = "{application, t9,\n"
-         " [{vsn, \"1.0\"},\n"
-         "  {description, \"test\"},\n"
-	 "  {modules, []},\n"
-         "  {applications, [t10]},\n"
-         "  {included_applications, []},\n"
-	 "  {registered, []}]}.\n",
+	" [{vsn, \"1.0\"},\n"
+	"  {description, \"test\"},\n"
+	"  {modules, []},\n"
+	"  {applications, [t10]},\n"
+	"  {included_applications, []},\n"
+	"  {registered, []}]}.\n",
     file:write_file(fname(Dir, 't9.app'), list_to_binary(T9)),
 
     T10 = "{application, t10,\n"
-         " [{vsn, \"1.0\"},\n"
-         "  {description, \"test\"},\n"
-	 "  {modules, []},\n"
-         "  {applications, []},\n"
-         "  {included_applications, [t8, t9]},\n"
-	 "  {registered, []}]}.\n",
+	" [{vsn, \"1.0\"},\n"
+	"  {description, \"test\"},\n"
+	"  {modules, []},\n"
+	"  {applications, []},\n"
+	"  {included_applications, [t8, t9]},\n"
+	"  {registered, []}]}.\n",
     file:write_file(fname(Dir, 't10.app'), list_to_binary(T10)).
 
 create_apps2(Dir) ->
     T11 = "{application, t11,\n"
-         " [{vsn, \"1.0\"},\n"
-         "  {description, \"test\"},\n"
-	 "  {modules, []},\n"
-         "  {applications, []},\n"
-         "  {included_applications, [t13]},\n"
-	 "  {registered, []}]}.\n",
+	" [{vsn, \"1.0\"},\n"
+	"  {description, \"test\"},\n"
+	"  {modules, []},\n"
+	"  {applications, []},\n"
+	"  {included_applications, [t13]},\n"
+	"  {registered, []}]}.\n",
     file:write_file(fname(Dir, 't11.app'), list_to_binary(T11)),
 
     T12 = "{application, t12,\n"
-         " [{vsn, \"1.0\"},\n"
-         "  {description, \"test\"},\n"
-	 "  {modules, []},\n"
-         "  {applications, [t11]},\n"
-	 "  {registered, []}]}.\n",
+	" [{vsn, \"1.0\"},\n"
+	"  {description, \"test\"},\n"
+	"  {modules, []},\n"
+	"  {applications, [t11]},\n"
+	"  {registered, []}]}.\n",
     file:write_file(fname(Dir, 't12.app'), list_to_binary(T12)),
 
     T13 = "{application, t13,\n"
-         " [{vsn, \"1.0\"},\n"
-         "  {description, \"test\"},\n"
-	 "  {modules, []},\n"
-         "  {applications, []},\n"
-         "  {included_applications, []},\n"
-	 "  {registered, []}]}.\n",
+	" [{vsn, \"1.0\"},\n"
+	"  {description, \"test\"},\n"
+	"  {modules, []},\n"
+	"  {applications, []},\n"
+	"  {included_applications, []},\n"
+	"  {registered, []}]}.\n",
     file:write_file(fname(Dir, 't13.app'), list_to_binary(T13)).
 
 
 
 create_apps_3065(Dir) ->
     T11 = "{application, chTraffic,\n"
-         " [{vsn, \"1.0\"},\n"
-         "  {description, \"test\"},\n"
-	 "  {modules, []},\n"
-         "  {applications, []},\n"
-         "  {included_applications, [chAts]},\n"
-	 "  {registered, []}]}.\n",
+	" [{vsn, \"1.0\"},\n"
+	"  {description, \"test\"},\n"
+	"  {modules, []},\n"
+	"  {applications, []},\n"
+	"  {included_applications, [chAts]},\n"
+	"  {registered, []}]}.\n",
     file:write_file(fname(Dir, 'chTraffic.app'), list_to_binary(T11)),
 
     T12 = "{application, chAts,\n"
-         " [{vsn, \"1.0\"},\n"
-         "  {description, \"test\"},\n"
-	 "  {modules, []},\n"
-         "  {applications, []},\n"
-         "  {included_applications, [aa12]},\n"
-	 "  {registered, []}]}.\n",
+	" [{vsn, \"1.0\"},\n"
+	"  {description, \"test\"},\n"
+	"  {modules, []},\n"
+	"  {applications, []},\n"
+	"  {included_applications, [aa12]},\n"
+	"  {registered, []}]}.\n",
     file:write_file(fname(Dir, 'chAts.app'), list_to_binary(T12)),
 
     T13 = "{application, aa12,\n"
-         " [{vsn, \"1.0\"},\n"
-         "  {description, \"test\"},\n"
-	 "  {modules, []},\n"
-         "  {applications, [chAts]},\n"
-         "  {included_applications, []},\n"
-	 "  {registered, []}]}.\n",
+	" [{vsn, \"1.0\"},\n"
+	"  {description, \"test\"},\n"
+	"  {modules, []},\n"
+	"  {applications, [chAts]},\n"
+	"  {included_applications, []},\n"
+	"  {registered, []}]}.\n",
     file:write_file(fname(Dir, 'aa12.app'), list_to_binary(T13)).
 
 fname(N) ->
