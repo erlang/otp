@@ -94,7 +94,7 @@ char **erl_global_names(int fd, int *count)
   if (!(names = malloc((arity * sizeof(char**)) + (size-index)))) return NULL;
 
   /* arity pointers first, followed by s */
-  s = (char *)(names+arity+1);
+  s = (char *)(names+arity);
 
   if (count) *count = 0;
   for (i=0; i<arity; i++) {
