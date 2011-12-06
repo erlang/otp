@@ -655,17 +655,24 @@ static time_t gregday(Sint year, Sint month, Sint day)
 int seconds_to_univ(Sint64 time, Sint *year, Sint *month, Sint *day, 
 	Sint *hour, Sint *minute, Sint *second) {
 
-    Sint   y,mi;
-    Sint64 days = time / SECONDS_PER_DAY;
-    Sint   secs = time % SECONDS_PER_DAY;
-    Sint   tmp  = secs % SECONDS_PER_HOUR;
+    Sint y,mi;
+    Sint days = time / SECONDS_PER_DAY;
+    Sint secs = time % SECONDS_PER_DAY;
+    Sint tmp;
+
+    if (secs < 0) {
+	days--;
+	secs += SECONDS_PER_DAY;
+    }
+    
+    tmp     = secs % SECONDS_PER_HOUR;
 
     *hour   = secs / SECONDS_PER_HOUR;
     *minute = tmp  / SECONDS_PER_MINUTE;
     *second = tmp  % SECONDS_PER_MINUTE;
 
     days   += 719468;
-    y       = (10000*days + 14780) / 3652425; /* seriosly? */
+    y       = (10000*((Sint64)days) + 14780) / 3652425; 
     tmp     = days - (365 * y + y/4 - y/100 + y/400);
 
     if (tmp < 0) {
