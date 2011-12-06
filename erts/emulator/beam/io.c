@@ -4860,7 +4860,9 @@ init_driver(erts_driver_t *drv, ErlDrvEntry *de, DE_Handle *handle)
 	drv->process_exit = de->process_exit;
     else
 	drv->process_exit = NULL;
-    if (de->minor_version >= 3/*R13A*/ && de->stop_select)
+    if ((de->major_version >= 2
+	 || (de->major_version == 1 && de->minor_version >= 3)/*R13A*/)
+	&& de->stop_select)
 	drv->stop_select = de->stop_select;
     else
 	drv->stop_select = no_stop_select_callback;

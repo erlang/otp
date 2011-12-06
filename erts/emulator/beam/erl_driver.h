@@ -135,8 +135,8 @@ typedef struct {
 #define DO_WRITE ERL_DRV_WRITE
 
 #define ERL_DRV_EXTENDED_MARKER		(0xfeeeeeed)
-#define ERL_DRV_EXTENDED_MAJOR_VERSION	1
-#define ERL_DRV_EXTENDED_MINOR_VERSION	5
+#define ERL_DRV_EXTENDED_MAJOR_VERSION	2
+#define ERL_DRV_EXTENDED_MINOR_VERSION	0
 
 /*
  * The emulator will refuse to load a driver with different major
