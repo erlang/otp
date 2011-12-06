@@ -175,15 +175,12 @@ connect(Prot) ->
 %% have_sctp/0
 
 have_sctp() ->
-    try gen_sctp:open() of
+    case gen_sctp:open() of
         {ok, Sock} ->
             gen_sctp:close(Sock),
             true;
         {error, E} when E == eprotonosupport;
                         E == esocktnosupport -> %% fail on any other reason
-            false
-    catch
-        error: badarg ->
             false
     end.
 
