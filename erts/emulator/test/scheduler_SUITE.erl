@@ -527,14 +527,10 @@ bindings(Node, BindType) ->
 					     BindType})),
 			     Parent ! {Ref, Res}
 		     end),
-    Mon = erlang:monitor(process, Pid),
-    receive
-        {'DOWN', Mon, _, _, _} ->
-	    ok
-    end,
     receive
 	{Ref, Res} ->
 	    ?t:format("~p: ~p~n", [BindType, Res]),
+	    unlink(Pid),
 	    Res
     end.
 
