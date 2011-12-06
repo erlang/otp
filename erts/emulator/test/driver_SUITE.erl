@@ -1796,7 +1796,7 @@ driver_select_use0(Config) ->
 
 thread_mseg_alloc_cache_clean(Config) when is_list(Config) ->
     case {erlang:system_info(threads),
-	  mseg_inst_info(0),
+	  erlang:system_info({allocator,mseg_alloc}),
 	  driver_alloc_sbct()} of
 	{_, false, _} ->
 	    ?line {skipped, "No mseg_alloc"};
