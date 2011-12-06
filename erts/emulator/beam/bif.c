@@ -3416,27 +3416,18 @@ BIF_RETTYPE seconds_to_universaltime_1(BIF_ALIST_1)
     Sint year, month, day;
     Sint hour, minute, second;
     Eterm res1, res2;
-    struct tm t;
     Eterm* hp;
 
-    time_t seconds = 0;
+    Sint64 time = 0;
 
-    if (is_not_integer(BIF_ARG_1)) {
+    if (!term_to_Sint64(BIF_ARG_1, &time)) {
 	BIF_ERROR(BIF_P, BADARG);
     }
 
-    seconds = (time_t)signed_val(BIF_ARG_1);
-
-    if (!gmtime_r(&seconds, &t)) {
+    if (!seconds_to_univ(time, &year, &month, &day,
+		&hour, &minute, &second)) {
 	BIF_ERROR(BIF_P, BADARG);
     }
-
-    year   = t.tm_year + 1900;
-    month  = t.tm_mon + 1;
-    day    = t.tm_hour;
-    minute = t.tm_min;
-    second = t.tm_sec;
-    /* isdst = t.tm_isdst */
 
     hp = HAlloc(BIF_P, 4+4+3);
     res1 = TUPLE3(hp,make_small(year),make_small(month),
