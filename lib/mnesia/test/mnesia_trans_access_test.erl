@@ -132,9 +132,9 @@ read(Config) when is_list(Config) ->
 
 wread(suite) -> [];
 wread(Config) when is_list(Config) ->
-    [Node1] = Nodes = ?acquire_nodes(1, Config),
+    [_N1,N2] = Nodes = ?acquire_nodes(2, Config),
     Tab = wread,
-    Schema = [{name, Tab}, {type, set}, {attributes, [k, v]}, {ram_copies, [Node1]}],
+    Schema = [{name, Tab}, {type, set}, {attributes, [k, v]}, {ram_copies, Nodes}],
     ?match({atomic, ok},  mnesia:create_table(Schema)),
 
     OneRec = {Tab, 1, 2},
@@ -159,6 +159,11 @@ wread(Config) when is_list(Config) ->
 	   mnesia:transaction(fun() -> mnesia:wread({Tab, 1}) end)),
 
     ?match({'EXIT', {aborted, no_transaction}},  mnesia:wread({Tab, 1})),
+
+    ?match({atomic, ok},
+	   mnesia:transaction(fun() -> mnesia:write(Tab, {Tab, 42, a}, sticky_write) end)),
+    ?match({atomic, [{Tab,42, a}]},
+	   rpc:call(N2, mnesia, transaction, [fun() -> mnesia:wread({Tab, 42}) end])),
     ?verify_mnesia(Nodes, []).
 
 %% Delete record

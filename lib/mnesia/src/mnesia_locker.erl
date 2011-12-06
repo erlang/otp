@@ -659,7 +659,7 @@ rwlock(Tid, Store, Oid) ->
 		yes ->
 		    {Ns, Majority} = w_nodes(Tab),
 		    check_majority(Majority, Tab, Ns),
-		    Res = get_rwlocks_on_nodes(Ns, rwlock, Node, Store, Tid, Oid),
+		    Res = get_rwlocks_on_nodes(Ns, make_ref(), Store, Tid, Oid),
 		    ?ets_insert(Store, {{locks, Tab, Key}, Lock}),
 		    Res;
 		no ->
@@ -889,37 +889,17 @@ get_wlocks_on_nodes([Node | Tail], Store, Request) ->
 get_wlocks_on_nodes([], _, _) ->
     ok.
 
-get_rwlocks_on_nodes([ReadNode|Tail], _Res, ReadNode, Store, Tid, Oid) ->
+get_rwlocks_on_nodes([ReadNode|Tail], Ref, Store, Tid, Oid) ->
     Op = {self(), {read_write, Tid, Oid}},
     {?MODULE, ReadNode} ! Op,
     ?ets_insert(Store, {nodes, ReadNode}),
-    Res = receive_wlocks([ReadNode], undefined, Store, Oid),
-    case node() of
-	ReadNode ->
-	    get_rwlocks_on_nodes(Tail, Res, ReadNode, Store, Tid, Oid);
-	_ ->
-	    get_wlocks_on_nodes(Tail, Store, {self(), {write, Tid, Oid}}),
-	    receive_wlocks(Tail, Res, Store, Oid)
+    case receive_wlocks([ReadNode], Ref, Store, Oid) of
+	Ref ->
+	    get_rwlocks_on_nodes(Tail, Ref, Store, Tid, Oid);
+	Res ->
+	    get_wlocks_on_nodes(Tail, Res, Store, {self(), {write, Tid, Oid}}, Oid)
     end;
-get_rwlocks_on_nodes([Node | Tail], Res, ReadNode, Store, Tid, Oid) ->
-    Op = {self(), {write, Tid, Oid}},
-    {?MODULE, Node} ! Op,
-    ?ets_insert(Store, {nodes, Node}),
-    receive_wlocks([Node], undefined, Store, Oid),
-    if node() == Node ->
-	    get_rwlocks_on_nodes(Tail, Res, ReadNode, Store, Tid, Oid);
-       Res == rwlock -> %% Hmm
-	    Rest = lists:delete(ReadNode, Tail),
-	    Op2 = {self(), {read_write, Tid, Oid}},
-	    {?MODULE, ReadNode} ! Op2,
-	    ?ets_insert(Store, {nodes, ReadNode}),
-	    get_wlocks_on_nodes(Rest, Store, {self(), {write, Tid, Oid}}),
-	    receive_wlocks([ReadNode|Rest], undefined, Store, Oid);
-       true ->
-	    get_wlocks_on_nodes(Tail, Store, {self(), {write, Tid, Oid}}),
-	    receive_wlocks(Tail, Res, Store, Oid)
-    end;
-get_rwlocks_on_nodes([],Res,_,_,_,_) ->
+get_rwlocks_on_nodes([],Res,_,_,_) ->
     Res.
 
 receive_wlocks([], Res, _Store, _Oid) ->

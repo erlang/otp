@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -535,8 +535,10 @@ start_lock_waiter(BlockOpA, BlockOpB, Config) ->
 	    BlockOpA == rt, BlockOpB /= sw -> 1;
 	    true -> 2
 	end,
-    ?match_multi_receive([{'EXIT', A, {atomic, ExpectedCounter}},
-			  {'EXIT', B, killed}]),
+    receive {'EXIT', B, _} -> ok
+    after 3000 -> ?error("Timeout~n", []) end,
+    receive {'EXIT', A, Exp1} -> ?match({atomic, ExpectedCounter}, Exp1)
+    after 3000 -> ?error("Timeout~n", []) end,
 
     %% the expected result depends on the transaction of
     %% fun A - when that doesn't change the object in the
