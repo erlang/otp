@@ -3079,42 +3079,47 @@ invalid_signature_client(Config) when is_list(Config) ->
 tcp_delivery_workaround(Server, ServerMsg, Client, ClientMsg) ->
     receive 
 	{Server, ServerMsg} ->
-	    receive 
-		{Client, ClientMsg} ->
-		    ok;
-		{Client, {error,closed}} ->
-		    test_server:format("client got close"),
-		    ok;
-		Unexpected ->
-		    test_server:fail(Unexpected) 
-	    end;
+	    client_msg(Client, ClientMsg);
 	{Client, ClientMsg} ->
-	    receive 
-		{Server, ServerMsg} ->
-		    ok;
-		Unexpected ->
-		    test_server:fail(Unexpected) 
-	    end;
+	    server_msg(Server, ServerMsg);
        	{Client, {error,closed}} ->
-	    receive 
-		{Server, ServerMsg} ->
-		    ok;
-		Unexpected ->
-		    test_server:fail(Unexpected) 
-	    end;
+	    server_msg(Server, ServerMsg);
 	{Server, {error,closed}} ->
-	    receive 
-		{Client, ClientMsg} ->
-		    ok;
-		{Client, {error,closed}} ->
-		    test_server:format("client got close"),
-		    ok;
-		Unexpected ->
-		    test_server:fail(Unexpected) 
-	    end;
+	    client_msg(Client, ClientMsg);
+	{Client, {error, esslconnect}} ->
+	    server_msg(Server, ServerMsg);
+	{Server, {error, esslaccept}} ->
+	    client_msg(Client, ClientMsg)
+    end.
+
+client_msg(Client, ClientMsg) ->
+    receive
+	{Client, ClientMsg} ->
+	    ok;
+	{Client, {error,closed}} ->
+	    test_server:format("client got close"),
+	    ok;
+	{Client, {error, esslconnect}} ->
+	    test_server:format("client got econnaborted"),
+	    ok;
 	Unexpected ->
 	    test_server:fail(Unexpected)
     end.
+
+server_msg(Server, ServerMsg) ->
+    receive
+	{Server, ServerMsg} ->
+	    ok;
+	{Server, {error,closed}} ->
+	    test_server:format("server got close"),
+	    ok;
+	{Server, {error, esslaccept}} ->
+	    test_server:format("server got econnaborted"),
+	    ok;
+	Unexpected ->
+	    test_server:fail(Unexpected)
+    end.
+
 %%--------------------------------------------------------------------
 cert_expired(doc) -> 
     ["Test server with invalid signature"];
