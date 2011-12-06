@@ -174,7 +174,15 @@ detached_thread(doc) ->
 detached_thread(suite) ->
     [];
 detached_thread(Config) ->
-    run_case(Config, "detached_thread", "").
+    case {os:type(), os:version()} of
+	{{unix,darwin}, {9, _, _}} ->
+	    %% For some reason pthread_create() crashes when more
+	    %% threads cannot be created, instead of returning an
+	    %% error code on our MacOS X Leopard machine...
+	    {skipped, "MacOS X Leopard cannot cope with this test..."};
+	_ ->
+	    run_case(Config, "detached_thread", "")
+    end.
 
 max_threads(doc) ->
     ["Tests maximum number of threads."];
