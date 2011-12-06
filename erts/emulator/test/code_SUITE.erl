@@ -20,7 +20,7 @@
 -module(code_SUITE).
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
-	 new_binary_types/1,
+	 versions/1,new_binary_types/1,
 	 t_check_process_code/1,t_check_old_code/1,
 	 t_check_process_code_ets/1,
 	 external_fun/1,get_chunk/1,module_md5/1,make_stub/1,
@@ -33,7 +33,7 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [new_binary_types, t_check_process_code,
+    [versions, new_binary_types, t_check_process_code,
      t_check_process_code_ets, t_check_old_code, external_fun, get_chunk,
      module_md5, make_stub, make_stub_many_funs,
      constant_pools, constant_refc_binaries, false_dependency,
@@ -56,6 +56,60 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
+%% Make sure that only two versions of a module can be loaded.
+versions(Config) when is_list(Config) ->
+    V1 = compile_version(1, Config),
+    V2 = compile_version(2, Config),
+    V3 = compile_version(3, Config),
+
+    {ok,P1,1} = load_version(V1, 1),
+    {ok,P2,2} = load_version(V2, 2),
+    {error,not_purged} = load_version(V2, 2),
+    {error,not_purged} = load_version(V3, 3),
+
+    1 = check_version(P1),
+    2 = check_version(P2),
+    2 = versions:version(),
+
+    %% Kill processes, unload code.
+    P1 ! P2 ! done,
+    _ = monitor(process, P1),
+    _ = monitor(process, P2),
+    receive
+	{'DOWN',_,process,P1,normal} -> ok
+    end,
+    receive
+	{'DOWN',_,process,P2,normal} -> ok
+    end,
+    true = erlang:purge_module(versions),
+    true = erlang:delete_module(versions),
+    true = erlang:purge_module(versions),
+    ok.
+
+compile_version(Version, Config) ->
+    Data = ?config(data_dir, Config),
+    File = filename:join(Data, "versions"),
+    {ok,versions,Bin} = compile:file(File, [{d,'VERSION',Version},
+					    binary,report]),
+    Bin.
+
+load_version(Code, Ver) ->
+    case erlang:load_module(versions, Code) of
+	{module,versions} ->
+	    Pid = spawn_link(versions, loop, []),
+	    Ver = versions:version(),
+	    Ver = check_version(Pid),
+	    {ok,Pid,Ver};
+	Error ->
+	    Error
+    end.
+
+check_version(Pid) ->
+    Pid ! {self(),version},
+    receive
+	{Pid,version,Version} ->
+	    Version
+    end.
 
 new_binary_types(Config) when is_list(Config) ->
     ?line Data = ?config(data_dir, Config),
