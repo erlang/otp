@@ -519,13 +519,19 @@ bound_loop(NS, N, M, Sched) ->
 bindings(Node, BindType) ->
     Parent = self(),
     Ref = make_ref(),
-    spawn_link(Node,
-	       fun () ->
-		       enable_internal_state(),
-		       Res = (catch erts_debug:get_internal_state(
-				      {fake_scheduler_bindings, BindType})),
-		       Parent ! {Ref, Res}
-	       end),
+    Pid = spawn_link(Node,
+		     fun () ->
+			     enable_internal_state(),
+			     Res = (catch erts_debug:get_internal_state(
+					    {fake_scheduler_bindings,
+					     BindType})),
+			     Parent ! {Ref, Res}
+		     end),
+    Mon = erlang:monitor(process, Pid),
+    receive
+        {'DOWN', Mon, _, _, _} ->
+	    ok
+    end,
     receive
 	{Ref, Res} ->
 	    ?t:format("~p: ~p~n", [BindType, Res]),
