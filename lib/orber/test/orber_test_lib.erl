@@ -372,12 +372,12 @@ get_options(ssl, Role, 2, Options) ->
      {certfile, filename:join([Dir, Role, "cert.pem"])} |Options];
 get_options(iiop_ssl, _Role, 2, Options) ->
     Dir = filename:join([code:lib_dir(ssl), "examples", "certs", "etc"]),
-    [{ssl_server_opts, [{depth, 2},
+    [{ssl_server_options, [{depth, 2},
 			{verify, 2},
 			{certfile, filename:join([Dir, "server", "cert.pem"])},
 			{cacertfile, filename:join([Dir, "server", "cacerts.pem"])},
 			{keyfile, filename:join([Dir, "server", "key.pem"])}]},
-     {ssl_client_opts, [{depth, 2},
+     {ssl_client_options, [{depth, 2},
 			{verify, 2},
 			{certfile, filename:join([Dir, "client", "cert.pem"])},
 			{cacertfile, filename:join([Dir, "client", "cacerts.pem"])},
@@ -385,12 +385,12 @@ get_options(iiop_ssl, _Role, 2, Options) ->
      {secure, ssl} |Options];
 get_options(iiop_ssl, _Role, 1, Options) ->
     Dir = filename:join([code:lib_dir(ssl), "examples", "certs", "etc"]),
-    [{ssl_server_opts, [{depth, 1},
+    [{ssl_server_options, [{depth, 1},
 			{verify, 0},
 			{certfile, filename:join([Dir, "server", "cert.pem"])},
 			{cacertfile, filename:join([Dir, "server", "cacerts.pem"])},
 			{keyfile, filename:join([Dir, "server", "key.pem"])}]},
-     {ssl_client_opts, [{depth, 1},
+     {ssl_client_options, [{depth, 1},
 			{verify, 0},
 			{certfile, filename:join([Dir, "client", "cert.pem"])},
 			{cacertfile, filename:join([Dir, "client", "cacerts.pem"])},

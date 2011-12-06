@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2010</year>
+      <year>1997</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -394,84 +394,16 @@ nodeB@hostB> orber:start().
         <cell align="left" valign="middle">The same as <c>iiop_ssl_port</c></cell>
       </row>
       <row>
-        <cell align="left" valign="middle">ssl_server_cacertfile</cell>
-        <cell align="left" valign="middle">string()</cell>
-        <cell align="left" valign="middle">-</cell>
+        <cell align="left" valign="middle">ssl_server_options</cell>
+        <cell align="left" valign="middle">list()</cell>
+        <cell align="left" valign="middle">See the <seealso marker="ssl:ssl">SSL</seealso> application 
+	for valid options.</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">ssl_server_certfile</cell>
-        <cell align="left" valign="middle">string()</cell>
-        <cell align="left" valign="middle">-</cell>
-      </row>
-      <row>
-        <cell align="left" valign="middle">ssl_server_verify</cell>
-        <cell align="left" valign="middle">0 | 1 | 2</cell>
-        <cell align="left" valign="middle">-</cell>
-      </row>
-      <row>
-        <cell align="left" valign="middle">ssl_server_depth</cell>
-        <cell align="left" valign="middle">integer()</cell>
-        <cell align="left" valign="middle">-</cell>
-      </row>
-      <row>
-        <cell align="left" valign="middle">ssl_server_password</cell>
-        <cell align="left" valign="middle">string()</cell>
-        <cell align="left" valign="middle">-</cell>
-      </row>
-      <row>
-        <cell align="left" valign="middle">ssl_server_keyfile</cell>
-        <cell align="left" valign="middle">string()</cell>
-        <cell align="left" valign="middle">-</cell>
-      </row>
-      <row>
-        <cell align="left" valign="middle">ssl_server_ciphers</cell>
-        <cell align="left" valign="middle">string()</cell>
-        <cell align="left" valign="middle">-</cell>
-      </row>
-      <row>
-        <cell align="left" valign="middle">ssl_server_cachetimeout</cell>
-        <cell align="left" valign="middle">integer() | infinity</cell>
-        <cell align="left" valign="middle">infinity</cell>
-      </row>
-      <row>
-        <cell align="left" valign="middle">ssl_client_cacertfile</cell>
-        <cell align="left" valign="middle">string()</cell>
-        <cell align="left" valign="middle">-</cell>
-      </row>
-      <row>
-        <cell align="left" valign="middle">ssl_client_certfile</cell>
-        <cell align="left" valign="middle">string()</cell>
-        <cell align="left" valign="middle">-</cell>
-      </row>
-      <row>
-        <cell align="left" valign="middle">ssl_client_verify</cell>
-        <cell align="left" valign="middle">0 | 1 | 2</cell>
-        <cell align="left" valign="middle">-</cell>
-      </row>
-      <row>
-        <cell align="left" valign="middle">ssl_client_depth</cell>
-        <cell align="left" valign="middle">integer()</cell>
-        <cell align="left" valign="middle">-</cell>
-      </row>
-      <row>
-        <cell align="left" valign="middle">ssl_client_password</cell>
-        <cell align="left" valign="middle">string()</cell>
-        <cell align="left" valign="middle">-</cell>
-      </row>
-      <row>
-        <cell align="left" valign="middle">ssl_client_keyfile</cell>
-        <cell align="left" valign="middle">string()</cell>
-        <cell align="left" valign="middle">-</cell>
-      </row>
-      <row>
-        <cell align="left" valign="middle">ssl_client_ciphers</cell>
-        <cell align="left" valign="middle">string()</cell>
-        <cell align="left" valign="middle">-</cell>
-      </row>
-      <row>
-        <cell align="left" valign="middle">ssl_client_cachetimeout</cell>
-        <cell align="left" valign="middle">integer() | infinity</cell>
-        <cell align="left" valign="middle">infinity</cell>
+        <cell align="left" valign="middle">ssl_client_options</cell>
+        <cell align="left" valign="middle">list()</cell>
+        <cell align="left" valign="middle">See the <seealso marker="ssl:ssl">SSL</seealso> application 
+	for valid options.</cell>
       </row>
       <row>
         <cell align="left" valign="middle">iiop_ssl_out_keepalive</cell>
@@ -698,40 +630,10 @@ nodeB@hostB> orber:start().
       <item>If set, the value must be an integer greater than zero or 
       <c>{local, DefaultNATPort, [{Port, NATPort}]}</c>. See also
       <seealso marker="ch_install#firewall">Firewall Configuration</seealso>.</item>
-      <tag><em>ssl_server_cacertfile</em></tag>
+      <tag><em>ssl_server_options</em></tag>
       <item>the file path to a server side CA certificate.</item>
-      <tag><em>ssl_server_certfile</em></tag>
+      <tag><em>ssl_client_options</em></tag>
       <item>The path to a file containing a chain of PEM encoded certificates.</item>
-      <tag><em>ssl_server_verify</em></tag>
-      <item>The type of verification used by SSL during authentication of the
-       other peer for incoming calls.</item>
-      <tag><em>ssl_server_depth</em></tag>
-      <item>The SSL verification depth for outgoing calls.</item>
-      <tag><em>ssl_server_password</em></tag>
-      <item>The server side key string.</item>
-      <tag><em>ssl_server_keyfile</em></tag>
-      <item>The file path to a server side key.</item>
-      <tag><em>ssl_server_ciphers</em></tag>
-      <item>The server side cipher string.</item>
-      <tag><em>ssl_server_cachetimeout</em></tag>
-      <item>The server side cache timeout.</item>
-      <tag><em>ssl_client_cacertfile</em></tag>
-      <item>The file path to a client side CA certificate.</item>
-      <tag><em>ssl_client_certfile</em></tag>
-      <item>The path to a file containing a chain of PEM encoded certificates.</item>
-      <tag><em>ssl_client_verify</em></tag>
-      <item>The type of verification used by SSL during authentication of the
-       other peer for outgoing calls.</item>
-      <tag><em>ssl_client_depth</em></tag>
-      <item>The SSL verification depth for incoming calls.</item>
-      <tag><em>ssl_client_password</em></tag>
-      <item>The client side key string.</item>
-      <tag><em>ssl_client_keyfile</em></tag>
-      <item>The file path to a client side key.</item>
-      <tag><em>ssl_client_ciphers</em></tag>
-      <item>The client side cipher string.</item>
-      <tag><em>ssl_client_cachetimeout</em></tag>
-      <item>The client side cache timeout.</item>
       <tag><em>iiop_ssl_out_keepalive</em></tag>
       <item>Enables periodic transmission on a connected socket, when no other 
        data is being exchanged. If the other end does not respond, the 

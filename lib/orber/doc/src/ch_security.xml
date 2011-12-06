@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
   <header>
     <copyright>
-      <year>1999</year><year>2009</year>
+      <year>1999</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -55,40 +55,15 @@
 
     <section>
       <title>Configurations when Orber is Used on the Server Side</title>
-      <p>The following three configuration variables can be used to configure Orber's SSL
-        behavior on the server side.</p>
+      <p>There is a variable to conficure Orber's SSL behavior on the server side.</p>
       <list type="bulleted">
-        <item><em>ssl_server_certfile</em> - which is a path to a file containing a
-         chain of PEM encoded certificates for the Orber domain as server.</item>
-        <item><em>ssl_server_cacertfile</em> - which is a path to a file containing 
-         a chain of PEM encoded certificates for the Orber domain as server.</item>
-        <item><em>ssl_server_verify</em> - which specifies type of verification: 
-         0 = do not verify peer; 1 = verify peer, verify client once,
-         2 = verify peer, verify client once, fail if no peer certificate. 
-         The default value is 0.</item>
-        <item><em>ssl_server_depth</em> - which specifies verification depth, i.e. 
-         how far in a chain of certificates the verification process shall
-         proceed before the verification is considered successful. The default
-         value is 1. </item>
-        <item><em>ssl_server_keyfile</em> - which is a path to a file containing a
-         PEM encoded key for the Orber domain as server.</item>
-        <item><em>ssl_server_password</em> - only used if the private keyfile is
-         password protected.</item>
-        <item><em>ssl_server_ciphers</em> - which is string of ciphers as a colon
-         separated list of ciphers.</item>
-        <item><em>ssl_server_cachetimeout</em> - which is the session cache timeout
-         in seconds.</item>
+        <item><em>ssl_server_options</em> - which is a list of options to ssl. 
+        See the <seealso marker="ssl:ssl">SSL</seealso> application for further 
+	descriptions on these options.</item>
       </list>
-      <p>There also exist a number of API functions for accessing the values of these variables:</p>
+      <p>There also exist an API function for accessing the value of this variable:</p>
       <list type="bulleted">
-        <item>orber:ssl_server_certfile/0</item>
-        <item>orber:ssl_server_cacertfile/0</item>
-        <item>orber:ssl_server_verify/0</item>
-        <item>orber:ssl_server_depth/0</item>
-        <item>orber:ssl_server_keyfile/0</item>
-        <item>orber:ssl_server_password/0</item>
-        <item>orber:ssl_server_ciphers/0</item>
-        <item>orber:ssl_server_cachetimeout/0</item>
+        <item>orber:ssl_server_options/0</item>
       </list>
     </section>
 
@@ -97,50 +72,22 @@
       <p>When the Orber enabled application is the client side in the secure connection the 
         different configurations can be set per client process instead and not for the whole domain
         as for incoming calls.</p>
-      <p>One can use configuration variables to set default values for the domain but they can be changed 
-        per client process. Below is the list of client configuration variables.</p>
+      <p>There is a variable to set default values for the domain but they can be changed 
+        per client process.</p>
       <list type="bulleted">
-        <item><em>ssl_client_certfile</em> - which is a path to a file containing a
-         chain of PEM encoded certificates used in outgoing calls in the current
-         process.</item>
-        <item><em>ssl_client_cacertfile</em> - which is a path to a file containing a
-         chain of PEM encoded CA certificates used in outgoing calls in the
-         current process.</item>
-        <item><em>ssl_client_verify</em> - which specifies type of verification: 
-         0 = do not verify peer; 1 = verify peer, verify client once, 
-         2 = verify peer, verify client once, fail if no peer certificate. 
-         The default value is 0.</item>
-        <item><em>ssl_client_depth</em> - which specifies verification depth, i.e. 
-         how far in a chain of certificates the verification process shall proceed
-         before the verification is considered successful. The default value is 1. </item>
-        <item><em>ssl_client_keyfile</em> - which is a path to a file containing a
-         PEM encoded key when Orber act as client side ORB.</item>
-        <item><em>ssl_client_password</em> - only used if the private keyfile is
-         password protected.</item>
-        <item><em>ssl_client_ciphers</em> - which is string of ciphers as a colon
-         separated list of ciphers.</item>
-        <item><em>ssl_client_cachetimeout</em> - which is the session cache timeout
-         in seconds.</item>
+        <item><em>ssl_client_options</em> - which is a list of options to ssl.
+        See the <seealso marker="ssl:ssl">SSL</seealso> application for further 
+	descriptions on these options.</item>
       </list>
-      <p>There also exist a number of API functions for accessing and changing the values of this 
-        variables in the client processes.</p>
-      <p>Access functions:</p>
+      <p>There also exist two API functions for accessing and changing the values of this 
+        variable in the client processes.</p>
+      <p>Access function:</p>
       <list type="bulleted">
-        <item>orber:ssl_client_certfile/0</item>
-        <item>orber:ssl_client_cacertfile/0</item>
-        <item>orber:ssl_client_verify/0</item>
-        <item>orber:ssl_client_depth/0</item>
-        <item>orber:ssl_client_keyfile/0</item>
-        <item>orber:ssl_client_password/0</item>
-        <item>orber:ssl_client_ciphers/0</item>
-        <item>orber:ssl_client_cachetimeout/0</item>
+        <item>orber:ssl_client_options/0</item>
       </list>
-      <p>Modify functions:</p>
+      <p>Modify function:</p>
       <list type="bulleted">
-        <item>orber:set_ssl_client_certfile/1</item>
-        <item>orber:set_ssl_client_cacertfile/1</item>
-        <item>orber:set_ssl_client_verify/1</item>
-        <item>orber:set_ssl_client_depth/1</item>
+        <item>orber:set_ssl_client_options/1</item>
       </list>
     </section>
   </section>

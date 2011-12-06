@@ -163,8 +163,8 @@ get_options(normal, _Options) ->
     [];
 get_options(ssl, Options) ->    
     SSLOpts = 
-	case orber_tb:keysearch(ssl_server_opts, Options,
-				orber_env:ssl_server_opts()) of
+	case orber_tb:keysearch(ssl_server_options, Options,
+				orber_env:ssl_server_options()) of
 	    [] ->
 		Verify = orber_tb:keysearch(ssl_server_verify, Options, 
 					    orber_env:ssl_server_verify()),
@@ -511,6 +511,6 @@ check_old_ssl_server_options(Options) ->
 	_:_ ->
 					      io:format("hej\n",[]),
 	    error_logger:warning_report([{application, orber},
-			 "Ignoring deprecated ssl server options used together with the ssl_server_opts"])
+			 "Ignoring deprecated ssl server options used together with the ssl_server_options"])
     end.
    
