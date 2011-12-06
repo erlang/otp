@@ -956,7 +956,7 @@ insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
     Eterm retval;
     int i;
 
-    if ((retval = beam_make_current_old(c_p, c_p_locks, module)) < 0) {
+    if ((retval = beam_make_current_old(c_p, c_p_locks, module)) != NIL) {
 	erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
 	erts_dsprintf(dsbufp,
 		      "Module %T must be purged before loading\n",
