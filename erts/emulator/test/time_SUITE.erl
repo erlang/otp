@@ -32,6 +32,7 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, univ_to_local/1, local_to_univ/1,
 	 bad_univ_to_local/1, bad_local_to_univ/1,
+	 univ_to_seconds/1, seconds_to_univ/1,
 	 consistency/1,
 	 now_unique/1, now_update/1, timestamp/1]).
 
@@ -59,7 +60,9 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [univ_to_local, local_to_univ, local_to_univ_utc,
-     bad_univ_to_local, bad_local_to_univ, consistency,
+     bad_univ_to_local, bad_local_to_univ, 
+     univ_to_seconds, seconds_to_univ,
+     consistency,
      {group, now}, timestamp].
 
 groups() -> 
@@ -161,6 +164,30 @@ bad_test_local_to_univ([Local|Rest]) ->
 	  end;
 bad_test_local_to_univ([]) ->
     ok.
+
+
+%% Test universaltime to seconds conversions
+univ_to_seconds(Config) when is_list(Config) ->
+    test_univ_to_seconds(ok_utc_seconds()).
+
+test_univ_to_seconds([{Datetime, Seconds}|DSs]) ->
+    io:format("universaltime = ~p -> seconds = ~p", [Datetime, Seconds]),
+    Seconds = erlang:universaltime_to_seconds(Datetime),
+    test_univ_to_seconds(DSs);
+test_univ_to_seconds([]) -> 
+    ok.
+
+%% Test seconds to universaltime conversions
+seconds_to_univ(Config) when is_list(Config) ->
+    test_seconds_to_univ(ok_utc_seconds()).
+
+test_seconds_to_univ([{Datetime, Seconds}|DSs]) ->
+    io:format("universaltime = ~p <- seconds = ~p", [Datetime, Seconds]),
+    Datetime = erlang:seconds_to_universaltime(Seconds),
+    test_seconds_to_univ(DSs);
+test_seconds_to_univ([]) -> 
+    ok.
+
 
 %% Test that the the different time functions return
 %% consistent results. (See the test case for assumptions
@@ -452,6 +479,32 @@ dst_dates() ->
      {1997, 06, 2},
      {1998, 06, 3},
      {1999, 06, 4}].
+
+%% exakt utc {date(), time()} which corresponds to the same seconds since 1 jan 1970 
+%% negative seconds are ok
+%% generated with date --date='1979-05-28 12:30:35 UTC' +%s
+ok_utc_seconds() -> [
+	{ {{1970, 1, 1},{ 0, 0, 0}},            0 },
+	{ {{1970, 1, 1},{ 0, 0, 1}},            1 },
+	{ {{1969,12,31},{23,59,59}},           -1 },
+	{ {{1920,12,31},{23,59,59}},  -1546300801 },
+	{ {{1600,02,19},{15,14,08}}, -11671807552 },
+	{ {{1979,05,28},{12,30,35}},    296742635 },
+	{ {{1999,12,31},{23,59,59}},    946684799 },
+	{ {{2000, 1, 1},{ 0, 0, 0}},    946684800 },
+	{ {{2000, 1, 1},{ 0, 0, 1}},    946684801 },
+
+	{ {{2038, 1,19},{03,14,07}},   2147483647 }, % Sint32 full - 1
+	{ {{2038, 1,19},{03,14,08}},   2147483648 }, % Sint32 full
+	{ {{2038, 1,19},{03,14,09}},   2147483649 }, % Sint32 full + 1
+
+	{ {{2106, 2, 7},{ 6,28,14}},   4294967294 }, % Uint32 full  0xFFFFFFFF - 1
+	{ {{2106, 2, 7},{ 6,28,15}},   4294967295 }, % Uint32 full  0xFFFFFFFF
+	{ {{2106, 2, 7},{ 6,28,16}},   4294967296 }, % Uint32 full  0xFFFFFFFF + 1
+	{ {{2012,12, 6},{16,28,08}},   1354811288 },
+	{ {{2412,12, 6},{16,28,08}},  13977592088 }
+    ].
+
 
 %% The following dates should not be near the end or beginning of
 %% a month, because they will be used to test when the dates are
