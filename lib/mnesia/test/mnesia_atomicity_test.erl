@@ -31,13 +31,13 @@ end_per_testcase(Func, Conf) ->
     mnesia_test_lib:end_per_testcase(Func, Conf).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-all() -> 
+all() ->
     [explicit_abort_in_middle_of_trans,
      runtime_error_in_middle_of_trans,
      kill_self_in_middle_of_trans, throw_in_middle_of_trans,
      {group, mnesia_down_in_middle_of_trans}].
 
-groups() -> 
+groups() ->
     [{mnesia_down_in_middle_of_trans, [],
       [mnesia_down_during_infinite_trans,
        {group, lock_waiter}, {group, restart_check}]},
@@ -297,7 +297,7 @@ mnesia_down_during_infinite_trans(Config) when is_list(Config) ->
     ?match({atomic, ok},
 	   mnesia:transaction(fun() -> mnesia:write({Tab, 1, test_ok}) end)),
     mnesia_test_lib:start_sync_transactions([A2, A1]),
-    
+
     %% Obtain a write lock and wait forever
     RecA = {Tab, 1, test_not_ok},
     A1 ! fun() -> mnesia:write(RecA) end,
@@ -471,12 +471,12 @@ lock_waiter_w_wt(Config) when is_list(Config) ->
 
 start_lock_waiter(BlockOpA, BlockOpB, Config) ->
     [N1, N2] = Nodes = ?acquire_nodes(2, Config),
-    
+
     TabName = mk_tab_name(lock_waiter_),
     ?match({atomic, ok}, mnesia:create_table(TabName,
 					     [{ram_copies, [N1, N2]}])),
-    
-    %% initialize the table with object {1, c} - when there 	
+
+    %% initialize the table with object {1, c} - when there
     %% is a read transaction, the read will find that  value
     ?match({atomic, ok}, mnesia:sync_transaction(fun() -> mnesia:write({TabName, 1, c}) end)),
     rpc:call(N2, ?MODULE, sync_tid_release, []),
@@ -484,7 +484,7 @@ start_lock_waiter(BlockOpA, BlockOpB, Config) ->
     Tester = self(),
     Fun_A =fun() ->
 		   NewCounter = incr_restart_counter(),
-		   if 
+		   if
 		       NewCounter == 1 ->
 			   Tester ! go_ahead_test,
 			   receive go_ahead -> ok end;
@@ -493,13 +493,13 @@ start_lock_waiter(BlockOpA, BlockOpB, Config) ->
 		   lock_waiter_fun(BlockOpA, TabName, a),
 		   NewCounter
 	   end,
-        
+
     %% it's not possible to just spawn the transaction, because
     %% the result shall be evaluated
     A = spawn_link(N1, ?MODULE, perform_restarted_transaction, [Fun_A]),
-    
+
     ?match(ok, receive go_ahead_test -> ok after 10000 -> timeout end),
-    
+
     mnesia_test_lib:sync_trans_tid_serial([N1, N2]),
 
     Fun_B = fun() ->
@@ -507,21 +507,21 @@ start_lock_waiter(BlockOpA, BlockOpB, Config) ->
 		    A ! go_ahead,
 		    wait(infinity)
 	    end,
-    
+
     B = spawn_link(N2, mnesia, transaction, [Fun_B, 100]),
-    
+
     io:format("waiting for A (~p on ~p) to be in the queue ~n", [A, [N1, N2]]),
     wait_for_a(A, [N1, N2]),
-    
-    io:format("Queus ~p~n", 
+
+    io:format("Queus ~p~n",
 	      [[{N,rpc:call(N, mnesia, system_info, [lock_queue])} || N <- Nodes]]),
-    
+
     KillNode = node(B),
     io:format("A was in the queue, time to kill Mnesia on B's node (~p on ~p)~n",
 	      [B, KillNode]),
-    
+
     mnesia_test_lib:kill_mnesia([KillNode]), % kill mnesia of fun B
-    
+
     %% Read Ops does not need to be restarted
     ExpectedCounter =
 	if
@@ -535,20 +535,20 @@ start_lock_waiter(BlockOpA, BlockOpB, Config) ->
 	    BlockOpA == rt, BlockOpB /= sw -> 1;
 	    true -> 2
 	end,
-    ?match_multi_receive([{'EXIT', A, {atomic, ExpectedCounter}}, 
+    ?match_multi_receive([{'EXIT', A, {atomic, ExpectedCounter}},
 			  {'EXIT', B, killed}]),
-    
+
     %% the expected result depends on the transaction of
     %% fun A - when that doesn't change the object in the
     %% table (e.g. it is a read) then the predefined
     %% value {Tabname, 1, c} is expected to be the result here
-    ExpectedResult = 
+    ExpectedResult =
 	case BlockOpA of
 	    w -> {TabName, 1, a};
 	    sw ->{TabName, 1, a};
 	    _all_other -> {TabName, 1, c}
 	end,
-    
+
     ?match({atomic, [ExpectedResult]},
 	   mnesia:transaction(fun() -> mnesia:read({TabName, 1}) end, 100)),
     ?verify_mnesia([N1], [N2]).
@@ -567,7 +567,7 @@ lock_waiter_fun(Op, TabName, Val) ->
 	srw -> mnesia:read(TabName, 1, sticky_write);
 	sw ->  mnesia:s_write({TabName, 1, Val})
     end.
-    
+
 wait_for_a(Pid, Nodes) ->
     wait_for_a(Pid, Nodes, 5).
 
@@ -589,12 +589,12 @@ check_q(Pid, [_ | Tail], N, Count) ->
 check_q(Pid, [], N, Count) ->
     timer:sleep(500),
     wait_for_a(Pid, N, Count - 1).
-    
+
 perform_restarted_transaction (Fun_Trans) ->
     %% the result of the transaction shall be:
     %%  - undefined (if the transaction was never executed)
     %%  - Times ( number of times that the transaction has been executed)
-    
+
     Result = mnesia:transaction(Fun_Trans, 100),
     exit(Result).
 
@@ -666,10 +666,10 @@ restart_sw_two(Config) when is_list(Config) ->
 
 start_restart_check(RestartOp, ReplicaNeed, Config) ->
     [N1, N2, N3] = Nodes = ?acquire_nodes(3, Config),
-    
+
     {TabName, _TabNodes} = create_restart_table(ReplicaNeed, Nodes),
-    
-    %% initialize the table with object {1, c} - when there 	
+
+    %% initialize the table with object {1, c} - when there
     %% is a read transaction, the read will find that  value
     ?match({atomic, ok}, mnesia:sync_transaction(fun() -> mnesia:write({TabName, 1, c}) end)),
 
@@ -681,9 +681,9 @@ start_restart_check(RestartOp, ReplicaNeed, Config) ->
 		    NewCounter = incr_restart_counter(),
 		    case NewCounter of
 			1 ->
-			    mnesia:write({TabName, 1, d}),			    
+			    mnesia:write({TabName, 1, d}),
 			    %% send a message to the test proc
-			    Coord ! {self(),fun_a_is_blocked}, 			    
+			    Coord ! {self(),fun_a_is_blocked},
 			    receive go_ahead -> ok end;
 			_ ->
 			    %% the fun will NOT be blocked here
@@ -691,19 +691,19 @@ start_restart_check(RestartOp, ReplicaNeed, Config) ->
 		    end,
 		    NewCounter
 	    end,
-    
+
     A = spawn_link(N1, ?MODULE, perform_restarted_transaction, [Fun_A]),
-    ?match_receive({A,fun_a_is_blocked}),    		
-    
+    ?match_receive({A,fun_a_is_blocked}),
+
     %% mnesia shall be killed at that node, where A is reading
     %% the information from
     kill_where_to_read(TabName, N1, [N2, N3]),
-    
+
     %% wait some time to let mnesia go down and spread those news around
     %% fun A shall be able to finish its job before being restarted
-    wait(500), 
+    wait(500),
     A ! go_ahead,
-    
+
     %% the sticky write doesnt work on remote nodes !!!
     ExpectedMsg =
 	case RestartOp of
@@ -717,19 +717,19 @@ start_restart_check(RestartOp, ReplicaNeed, Config) ->
 			{'EXIT',A,{atomic, 2}}
 		end
 	end,
-    
-    ?match_receive(ExpectedMsg),    		
-    
+
+    ?match_receive(ExpectedMsg),
+
     %% now mnesia has to be started again on the node KillNode
     %% because the next test suite will need it
     ?match([], mnesia_test_lib:start_mnesia(Nodes, [TabName])),
-    
-    
+
+
     %%  the expected result depends on the transaction of
     %%  fun A - when that doesnt change the object in the
     %%  table (e.g. it is a read) then the predefined
     %%  value {Tabname, 1, c} is expected to be the result here
-    
+
     ExpectedResult =
 	case ReplicaNeed of
 	    one ->
@@ -746,7 +746,7 @@ start_restart_check(RestartOp, ReplicaNeed, Config) ->
     ?verify_mnesia(Nodes, []).
 
 create_restart_table(ReplicaNeed, [_N1, N2, N3]) ->
-    TabNodes = 
+    TabNodes =
 	case ReplicaNeed of
 	    one ->  [N2];
 	    two ->  [N2, N3]
@@ -754,7 +754,7 @@ create_restart_table(ReplicaNeed, [_N1, N2, N3]) ->
     TabName = mk_tab_name(restart_check_),
     ?match({atomic, ok}, mnesia:create_table(TabName, [{ram_copies, TabNodes}])),
     {TabName, TabNodes}.
-    
+
 restart_fun_A(Op, TabName) ->
     case Op of
 	rt -> mnesia:read_lock_table(TabName);
@@ -774,8 +774,8 @@ kill_where_to_read(TabName, N1, Nodes) ->
 	    ?error("Fault while killing Mnesia: ~p~n", [Read]),
 	    mnesia_test_lib:kill_mnesia(Nodes)
     end.
-    
-sync_tid_release() ->    
+
+sync_tid_release() ->
     sys:get_status(whereis(mnesia_tm)),
     sys:get_status(whereis(mnesia_locker)),
     ok.

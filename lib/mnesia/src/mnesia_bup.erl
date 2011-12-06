@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 1996-2011. All Rights Reserved.
-%% 
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -62,7 +62,7 @@
                         fallback_tmp,
                         skip_tables = [],
                         keep_tables = [],
-                        default_op = keep_tables                       
+                        default_op = keep_tables
                        }).
 
 -type fallback_args() :: #fallback_args{}.
@@ -134,7 +134,7 @@ abort_restore(R, What, Args, Reason) ->
             [Mod, What, Args, Reason]),
     catch apply(Mod, close_read, [Opaque]),
     throw({error, Reason}).
-            
+
 fallback_to_schema() ->
     Fname = fallback_bup(),
     fallback_to_schema(Fname).
@@ -146,14 +146,14 @@ fallback_to_schema(Fname) ->
             {error, Reason};
         Schema ->
             case catch lookup_schema(schema, Schema) of
-                {error, _} -> 
+                {error, _} ->
                     {error, "No schema in fallback"};
                 List ->
                     {ok, fallback, List}
             end
     end.
 
-%% Opens Opaque reads schema and then close 
+%% Opens Opaque reads schema and then close
 read_schema(Mod, Opaque) ->
     R = #restore{bup_module = Mod, bup_data = Opaque},
     case catch read_schema_section(R) of
@@ -163,7 +163,7 @@ read_schema(Mod, Opaque) ->
             catch safe_apply(R2, close_read, [R2#restore.bup_data]),
             Schema
     end.
-    
+
 %% Open backup media and extract schema
 %% rewind backup media and leave it open
 %% Returns {R, {Header, Schema}}
@@ -227,7 +227,7 @@ refresh_cookie(Schema, NewCookie) ->
             Cs2 = Cs#cstruct{cookie = NewCookie},
             Item = {schema, schema, mnesia_schema:cs2list(Cs2)},
             lists:keyreplace(schema, 2, Schema, Item);
-        
+
         false ->
             Reason = "No schema found. Cannot be used as backup.",
             throw({error, {Reason, Schema}})
@@ -273,7 +273,7 @@ convert_0_1([{schema, db_nodes, DbNodes} | Schema], Acc, Cs) ->
 convert_0_1([{schema, version, Version} | Schema], Acc, Cs) ->
     convert_0_1(Schema, Acc, Cs#cstruct{version = Version});
 convert_0_1([{schema, Tab, Def} | Schema], Acc, Cs) ->
-    Head = 
+    Head =
         case lists:keysearch(index, 1, Def) of
             {value, {index, PosList}} ->
                 %% Remove the snmp "index"
@@ -334,7 +334,7 @@ create_schema(Ns, ok) ->
     case mnesia_lib:ensure_loaded(?APPLICATION) of
         ok ->
             case mnesia_monitor:get_env(schema_location) of
-                ram -> 
+                ram ->
                     {error, {has_no_disc, node()}};
                 _ ->
                     case mnesia_schema:opt_create_dir(true, mnesia_lib:dir()) of
@@ -358,7 +358,7 @@ create_schema(Ns, ok) ->
                                     {error, Reason}
                             end
                     end
-            end;        
+            end;
         {error, Reason} ->
             {error, Reason}
     end;
@@ -434,7 +434,7 @@ check_fallback_args([Arg | Tail], FA) ->
 check_fallback_args([], FA) ->
     {ok, FA}.
 
-check_fallback_arg_type(Arg, FA) ->    
+check_fallback_arg_type(Arg, FA) ->
     case Arg of
         {scope, global} ->
             FA#fallback_args{scope = global};
@@ -462,10 +462,10 @@ atom_list([H | T]) when is_atom(H) ->
     atom_list(T);
 atom_list([]) ->
     ok.
-    
+
 do_install_fallback(FA) ->
     Pid = spawn_link(?MODULE, install_fallback_master, [self(), FA]),
-    Res = 
+    Res =
         receive
             {'EXIT', Pid, Reason} -> % if appl has trapped exit
                 {error, {'EXIT', Reason}};
@@ -506,7 +506,7 @@ restore_recs(Recs, Header, Schema, {start, FA}) ->
             Pids = [spawn_link(N, ?MODULE, fallback_receiver, Args) || N <- Ns],
             send_fallback(Pids, {start, Header, Schema2}),
             Res = restore_recs(Recs, Header, Schema2, Pids),
-            global:del_lock({{mnesia_table_lock, schema}, self()}, Ns), 
+            global:del_lock({{mnesia_table_lock, schema}, self()}, Ns),
             Res
     end;
 
@@ -578,7 +578,7 @@ fallback_tmp_name() -> "FALLBACK.TMP".
 -spec fallback_receiver(pid(), fallback_args()) -> no_return().
 fallback_receiver(Master, FA) ->
     process_flag(trap_exit, true),
-    
+
     case catch register(mnesia_fallback, self()) of
         {'EXIT', _} ->
             Reason = {already_exists, node()},
@@ -610,7 +610,7 @@ local_fallback_error(Master, Reason) ->
     Master ! {self(), {error, Reason}},
     unlink(Master),
     exit(Reason).
-    
+
 check_fallback_dir(Master, FA) ->
     case mnesia:system_info(schema_location) of
         ram ->
@@ -659,7 +659,7 @@ fallback_receiver_loop(Master, R, FA, State) ->
             R2 = safe_apply(R, write, [R#restore.bup_data, Recs]),
             Master ! {self(), ok},
             fallback_receiver_loop(Master, R2, FA, records);
-        
+
         {Master, swap} when State =/= schema ->
             ?eval_debug_fun({?MODULE, fallback_receiver_loop, pre_swap}, []),
             safe_apply(R, commit_write, [R#restore.bup_data]),
@@ -834,7 +834,7 @@ create_dat_files([{schema, Tab, TabDef} | Tail], LocalTabs) ->
             ok = dets:delete(schema, {schema, Tab}),
             create_dat_files(Tail, LocalTabs);
         Storage =:= disc_only_copies ->
-            Args = [{file, TmpFile}, {keypos, 2}, 
+            Args = [{file, TmpFile}, {keypos, 2},
                     {type, mnesia_lib:disk_type(Tab, Cs#cstruct.type)}],
             Open = fun(T, LT) when T =:= LT#local_tab.name ->
                            case mnesia_lib:dets_sync_open(T, Args) of
@@ -861,9 +861,9 @@ create_dat_files([{schema, Tab, TabDef} | Tail], LocalTabs) ->
 	    Swap = fun(T, LT) when T =:= LT#local_tab.name ->
 			   Expunge(),
 			   case LT#local_tab.opened of
-			       true -> 
+			       true ->
 				   Close(T,LT);
-			       false -> 
+			       false ->
 				   Open(T,LT),
 				   Close(T,LT)
 			   end,
@@ -887,8 +887,8 @@ create_dat_files([{schema, Tab, TabDef} | Tail], LocalTabs) ->
 	    create_dat_files(Tail, LocalTabs);
         Storage =:= ram_copies; Storage =:= disc_copies ->
 	    Open = fun(T, LT) when T =:= LT#local_tab.name ->
-			   mnesia_log:open_log({?MODULE, T}, 
-					       mnesia_log:dcl_log_header(), 
+			   mnesia_log:open_log({?MODULE, T},
+					       mnesia_log:dcl_log_header(),
 					       TmpFile,
 					       false,
 					       false,
@@ -917,7 +917,7 @@ create_dat_files([{schema, Tab, TabDef} | Tail], LocalTabs) ->
 			       true ->
 				   Log = mnesia_log:open_log(fallback_tab,
 							     mnesia_log:dcd_log_header(),
-							     DcdFile, 
+							     DcdFile,
 							     false),
 				   mnesia_log:close_log(Log),
 				   case LT#local_tab.opened of
@@ -926,7 +926,7 @@ create_dat_files([{schema, Tab, TabDef} | Tail], LocalTabs) ->
 				       false ->
 					   Open(T,LT),
 					   Close(T,LT)
-				   end,				   
+				   end,
 				   case file:rename(TmpFile, DclFile) of
 				       ok ->
 					   ok;
@@ -959,7 +959,7 @@ create_dat_files([], _LocalTabs) ->
     ok.
 
 uninstall_fallback() ->
-    uninstall_fallback([{scope, global}]).    
+    uninstall_fallback([{scope, global}]).
 
 uninstall_fallback(Args) ->
     case check_fallback_args(Args, #fallback_args{}) of
@@ -969,7 +969,7 @@ uninstall_fallback(Args) ->
             {error, Reason}
     end.
 
-do_uninstall_fallback(FA) ->    
+do_uninstall_fallback(FA) ->
     %% Ensure that we access the intended Mnesia
     %% directory. This function may not be called
     %% during startup since it will cause the
@@ -1040,11 +1040,11 @@ do_uninstall(_ClientPid, [], GoodPids, BadNodes, BadRes) ->
 
 local_uninstall_fallback(Master, FA) ->
     %% Don't trap exit
-    
+
     register(mnesia_fallback, self()),        % May exit
     FA2 = check_fallback_dir(Master, FA), % May exit
     Master ! {self(), started},
-    
+
     receive
         {Master, do_uninstall} ->
             ?eval_debug_fun({?MODULE, uninstall_fallback2, pre_delete}, []),
@@ -1052,7 +1052,7 @@ local_uninstall_fallback(Master, FA) ->
             Tmp = FA2#fallback_args.fallback_tmp,
             Bup = FA2#fallback_args.fallback_bup,
             file:delete(Tmp),
-            Res = 
+            Res =
                 case fallback_exists(Bup) of
                     true -> file:delete(Bup);
                     false -> ok
@@ -1079,7 +1079,7 @@ rec_uninstall(ClientPid, [], Res) ->
     ClientPid ! {self(), Res},
     unlink(ClientPid),
     exit(normal).
-    
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Backup traversal
 
@@ -1130,7 +1130,7 @@ do_traverse_backup(ClientPid, Source, SourceMod, Target, TargetMod, Fun, Acc) ->
         if
             TargetMod =/= read_only ->
                 case catch do_apply(TargetMod, open_write, [Target], Target) of
-                    {error, Error} -> 
+                    {error, Error} ->
                         unlink(ClientPid),
                         ClientPid ! {iter_done, self(), {error, Error}},
                         exit(Error);
@@ -1140,15 +1140,15 @@ do_traverse_backup(ClientPid, Source, SourceMod, Target, TargetMod, Fun, Acc) ->
                 ignore
         end,
     A = {start, Fun, Acc, TargetMod, Iter},
-    Res = 
+    Res =
         case iterate(SourceMod, fun trav_apply/4, Source, A) of
             {ok, {iter, _, Acc2, _, Iter2}} when TargetMod =/= read_only ->
                 case catch do_apply(TargetMod, commit_write, [Iter2], Iter2) of
-                    {error, Reason} -> 
+                    {error, Reason} ->
                         {error, Reason};
-                    _ -> 
+                    _ ->
                         {ok, Acc2}
-                end;            
+                end;
             {ok, {iter, _, Acc2, _, _}} ->
                 {ok, Acc2};
             {error, Reason} when TargetMod =/= read_only->

@@ -36,7 +36,7 @@
 	 prepare_checkpoint/2,
 	 prepare_checkpoint/1, % Internal
 	 prepare_snmp/3,
-	 do_snmp/2,	 
+	 do_snmp/2,
 	 put_activity_id/1,
 	 put_activity_id/2,
 	 block_tab/1,
@@ -68,7 +68,7 @@
 	       majority = []
 	      }).
 
--record(participant, {tid, pid, commit, disc_nodes = [], 
+-record(participant, {tid, pid, commit, disc_nodes = [],
 		      ram_nodes = [], protocol = sym_trans}).
 
 start() ->
@@ -77,12 +77,12 @@ start() ->
 init(Parent) ->
     register(?MODULE, self()),
     process_flag(trap_exit, true),
-    
+
     %% Initialize the schema
     IgnoreFallback = mnesia_monitor:get_env(ignore_fallback_at_startup),
     mnesia_bup:tm_fallback_start(IgnoreFallback),
     mnesia_schema:init(IgnoreFallback),
-    
+
     %% Handshake and initialize transaction recovery
     mnesia_recover:init(),
     Early = mnesia_monitor:init(),
@@ -101,11 +101,11 @@ init(Parent) ->
 	false ->
 	    ignore
     end,
-    
+
     mnesia_schema:purge_tmp_files(),
     mnesia_recover:start_garb(),
-    
-    ?eval_debug_fun({?MODULE, init},  [{nodes, AllOthers}]),		   
+
+    ?eval_debug_fun({?MODULE, init},  [{nodes, AllOthers}]),
 
     case val(debug) of
 	Debug when Debug /= debug, Debug /= trace ->
@@ -118,8 +118,8 @@ init(Parent) ->
 
 val(Var) ->
     case ?catch_val(Var) of
-	{'EXIT', _ReASoN_} -> mnesia_lib:other_val(Var, _ReASoN_); 
-	_VaLuE_ -> _VaLuE_ 
+	{'EXIT', _ReASoN_} -> mnesia_lib:other_val(Var, _ReASoN_);
+	_VaLuE_ -> _VaLuE_
     end.
 
 reply({From,Ref}, R) ->
@@ -136,7 +136,7 @@ req(R) ->
 	undefined ->
 	    {error, {node_not_running, node()}};
 	Pid ->
-	    Ref = make_ref(), 
+	    Ref = make_ref(),
 	    Pid ! {{self(), Ref}, R},
 	    rec(Pid, Ref)
     end.
@@ -161,7 +161,7 @@ rec(Pid, Ref) ->
 	    Reply;
 	{'EXIT', Pid, _} ->
 	    {error, {node_not_running, node()}}
-    end.   
+    end.
 
 tmlink({From, Ref}) when is_reference(Ref) ->
     link(From);
@@ -209,7 +209,7 @@ doit_loop(#state{coordinators=Coordinators,participants=Participants,supervisor=
 		    State2 = State#state{dirty_queue = [Item | State#state.dirty_queue]},
 		    doit_loop(State2)
 	    end;
-	
+
 	{From, {sync_dirty, Tid, Commit, Tab}} ->
 	    case lists:member(Tab, State#state.blocked_tabs) of
 		false ->
@@ -220,7 +220,7 @@ doit_loop(#state{coordinators=Coordinators,participants=Participants,supervisor=
 		    State2 = State#state{dirty_queue = [Item | State#state.dirty_queue]},
 		    doit_loop(State2)
 	    end;
-	
+
 	{From, start_outer} -> %% Create and associate ets_tab with Tid
 	    case catch ?ets_new_table(mnesia_trans_store, [bag, public]) of
 		{'EXIT', Reason} -> %% system limit
@@ -236,16 +236,16 @@ doit_loop(#state{coordinators=Coordinators,participants=Participants,supervisor=
 		    S2 = State#state{coordinators = A2},
 		    reply(From, {new_tid, Tid, Etab}, S2)
 	    end;
-	
+
 	{From, {ask_commit, Protocol, Tid, Commit, DiscNs, RamNs}} ->
-	    ?eval_debug_fun({?MODULE, doit_ask_commit}, 
+	    ?eval_debug_fun({?MODULE, doit_ask_commit},
 			    [{tid, Tid}, {prot, Protocol}]),
 	    mnesia_checkpoint:tm_enter_pending(Tid, DiscNs, RamNs),
-	    Pid = 
+	    Pid =
 		case Protocol of
 		    asym_trans when node(Tid#tid.pid) /= node() ->
 			Args = [tmpid(From), Tid, Commit, DiscNs, RamNs],
-			spawn_link(?MODULE, commit_participant, Args);		
+			spawn_link(?MODULE, commit_participant, Args);
 		    _ when node(Tid#tid.pid) /= node() -> %% *_sym_trans
 			reply(From, {vote_yes, Tid}),
 			nopid
@@ -258,7 +258,7 @@ doit_loop(#state{coordinators=Coordinators,participants=Participants,supervisor=
 			     protocol = Protocol},
 	    State2 = State#state{participants = gb_trees:insert(Tid,P,Participants)},
 	    doit_loop(State2);
-	
+
 	{Tid, do_commit} ->
 	    case gb_trees:lookup(Tid, Participants) of
 		none ->
@@ -272,14 +272,14 @@ doit_loop(#state{coordinators=Coordinators,participants=Participants,supervisor=
 			    Member = lists:member(node(), P#participant.disc_nodes),
 			    if Member == false ->
 				    ignore;
-			       P#participant.protocol == sym_trans -> 
+			       P#participant.protocol == sym_trans ->
 				    mnesia_log:log(Commit);
-			       P#participant.protocol == sync_sym_trans -> 
+			       P#participant.protocol == sync_sym_trans ->
 				    mnesia_log:slog(Commit)
 			    end,
 			    mnesia_recover:note_decision(Tid, committed),
 			    do_commit(Tid, Commit),
-			    if 
+			    if
 				P#participant.protocol == sync_sym_trans ->
 				    Tid#tid.pid ! {?MODULE, node(), {committed, Tid}};
 				true ->
@@ -296,13 +296,13 @@ doit_loop(#state{coordinators=Coordinators,participants=Participants,supervisor=
 			    doit_loop(State)
 		    end
 	    end;
-	
+
 	{Tid, simple_commit} ->
 	    mnesia_recover:note_decision(Tid, committed),
 	    mnesia_locker:release_tid(Tid),
 	    transaction_terminated(Tid),
 	    doit_loop(State);
-	
+
 	{Tid, {do_abort, Reason}} ->
 	    ?eval_debug_fun({?MODULE, do_abort, pre}, [{tid, Tid}]),
 	    case gb_trees:lookup(Tid, Participants) of
@@ -317,7 +317,7 @@ doit_loop(#state{coordinators=Coordinators,participants=Participants,supervisor=
 			    Commit = P#participant.commit,
 			    mnesia_recover:note_decision(Tid, aborted),
 			    do_abort(Tid, Commit),
-			    if 
+			    if
 				P#participant.protocol == sync_sym_trans ->
 				    Tid#tid.pid ! {?MODULE, node(), {aborted, Tid}};
 				true ->
@@ -335,7 +335,7 @@ doit_loop(#state{coordinators=Coordinators,participants=Participants,supervisor=
 			    doit_loop(State)
 		    end
 	    end;
-	
+
 	{From, {add_store, Tid}} -> %% new store for nested  transaction
 	    case catch ?ets_new_table(mnesia_trans_store, [bag, public]) of
 		{'EXIT', Reason} -> %% system limit
@@ -355,14 +355,14 @@ doit_loop(#state{coordinators=Coordinators,participants=Participants,supervisor=
 
 	{'EXIT', Pid, Reason} ->
 	    handle_exit(Pid, Reason, State);
-	
+
 	{From, {restart, Tid, Store}} ->
 	    A2 = restore_stores(Coordinators, Tid, Store),
 	    clear_fixtable([Store]),
 	    ?ets_match_delete(Store, '_'),
 	    ?ets_insert(Store, {nodes, node()}),
 	    reply(From, {restarted, Tid}, State#state{coordinators = A2});
-	
+
 	{delete_transaction, Tid} ->
 	    %% used to clear transactions which are committed
 	    %% in coordinator or participant processes
@@ -377,7 +377,7 @@ doit_loop(#state{coordinators=Coordinators,participants=Participants,supervisor=
 			    clear_fixtable(Etabs),
 			    erase_ets_tabs(Etabs),
 			    transaction_terminated(Tid),
-			    doit_loop(State#state{coordinators = 
+			    doit_loop(State#state{coordinators =
 						  gb_trees:delete(Tid,Coordinators)})
 		    end;
 		true ->
@@ -385,20 +385,20 @@ doit_loop(#state{coordinators=Coordinators,participants=Participants,supervisor=
 		    State2 = State#state{participants=gb_trees:delete(Tid,Participants)},
 		    doit_loop(State2)
 	    end;
-	
+
 	{sync_trans_serial, Tid} ->
 	    %% Do the Lamport thing here
 	    mnesia_recover:sync_trans_tid_serial(Tid),
 	    doit_loop(State);
-	    
+
 	{From, info} ->
-	    reply(From, {info, gb_trees:values(Participants), 
+	    reply(From, {info, gb_trees:values(Participants),
 			 gb_trees:to_list(Coordinators)}, State);
-	
+
 	{mnesia_down, N} ->
 	    verbose("Got mnesia_down from ~p, reconfiguring...~n", [N]),
 	    reconfigure_coordinators(N, gb_trees:to_list(Coordinators)),
-	    
+
 	    Tids = gb_trees:keys(Participants),
 	    reconfigure_participants(N, gb_trees:values(Participants)),
 	    NewState = clear_fixtable(N, State),
@@ -408,34 +408,34 @@ doit_loop(#state{coordinators=Coordinators,participants=Participants,supervisor=
 	{From, {unblock_me, Tab}} ->
 	    case lists:member(Tab, State#state.blocked_tabs) of
 		false ->
-		    verbose("Wrong dirty Op blocked on ~p ~p ~p", 
+		    verbose("Wrong dirty Op blocked on ~p ~p ~p",
 			    [node(), Tab, From]),
 		    reply(From, unblocked),
 		    doit_loop(State);
 		true ->
-		    Item = {Tab, unblock_me, From}, 
+		    Item = {Tab, unblock_me, From},
 		    State2 = State#state{dirty_queue = [Item | State#state.dirty_queue]},
 		    doit_loop(State2)
-	    end;	    
-	
+	    end;
+
 	{From, {block_tab, Tab}} ->
 	    State2 = State#state{blocked_tabs = [Tab | State#state.blocked_tabs]},
 	    reply(From, ok, State2);
-	
+
 	{From, {unblock_tab, Tab}} ->
 	    BlockedTabs2 = State#state.blocked_tabs -- [Tab],
 	    case lists:member(Tab, BlockedTabs2) of
 		false ->
 		    mnesia_controller:unblock_table(Tab),
 		    Queue = process_dirty_queue(Tab, State#state.dirty_queue),
-		    State2 = State#state{blocked_tabs = BlockedTabs2, 
+		    State2 = State#state{blocked_tabs = BlockedTabs2,
 					 dirty_queue = Queue},
 		    reply(From, ok, State2);
 		true ->
 		    State2 = State#state{blocked_tabs = BlockedTabs2},
 		    reply(From, ok, State2)
 	    end;
-	
+
 	{From, {prepare_checkpoint, Cp}} ->
 	    Res = mnesia_checkpoint:tm_prepare(Cp),
 	    case Res of
@@ -448,18 +448,18 @@ doit_loop(#state{coordinators=Coordinators,participants=Participants,supervisor=
 	    reply(From, Res, State);
 	{From, {fixtable, [Tab,Lock,Requester]}} ->
 	    case ?catch_val({Tab, storage_type}) of
-		{'EXIT', _} -> 
+		{'EXIT', _} ->
 		    reply(From, error, State);
 		Storage ->
 		    mnesia_lib:db_fixtable(Storage,Tab,Lock),
 		    NewState = manage_fixtable(Tab,Lock,Requester,State),
 		    reply(From, node(), NewState)
 	    end;
-	
+
 	{system, From, Msg} ->
 	    dbg_out("~p got {system, ~p, ~p}~n", [?MODULE, From, Msg]),
 	    sys:handle_system_msg(Msg, From, Sup, ?MODULE, [], State);
-	
+
 	Msg ->
 	    verbose("** ERROR ** ~p got unexpected message: ~p~n", [?MODULE, Msg]),
 	    doit_loop(State)
@@ -508,7 +508,7 @@ prepare_pending_coordinators([{Tid, [Store | _Etabs]} | Coords], IgnoreNew) ->
 		    ignore
 	    end,
 	    prepare_pending_coordinators(Coords, IgnoreNew);
-	{'EXIT', _} -> 
+	{'EXIT', _} ->
 	    prepare_pending_coordinators(Coords, IgnoreNew)
     end;
 prepare_pending_coordinators([], _IgnoreNew) ->
@@ -538,7 +538,7 @@ handle_exit(Pid, _Reason, State) when Pid == State#state.supervisor ->
 
 handle_exit(Pid, Reason, State) ->
     %% Check if it is a coordinator
-    case pid_search_delete(Pid, gb_trees:to_list(State#state.coordinators)) of 
+    case pid_search_delete(Pid, gb_trees:to_list(State#state.coordinators)) of
 	{none, _} ->
 	    %% Check if it is a participant
 	    Ps = gb_trees:values(State#state.participants),
@@ -552,9 +552,9 @@ handle_exit(Pid, Reason, State) ->
 		    NewPs = gb_trees:delete(P#participant.tid,State#state.participants),
 		    doit_loop(State#state{participants = NewPs})
 	    end;
-	
+
 	{{Tid, Etabs}, RestC} ->
-	    %% A local coordinator has died and 
+	    %% A local coordinator has died and
 	    %% we must determine the outcome of the
 	    %% transaction and tell mnesia_tm on the
 	    %% other nodes about it and then recover
@@ -578,7 +578,7 @@ recover_coordinator(Tid, Etabs) ->
 	    %% Tell the participants about the outcome
 	    Protocol = Prep#prep.protocol,
 	    Outcome = tell_outcome(Tid, Protocol, node(), CheckNodes, TellNodes),
-	    
+
 	    %% Recover locally
 	    CR = Prep#prep.records,
 	    {DiscNs, RamNs} = commit_nodes(CR, [], []),
@@ -589,7 +589,7 @@ recover_coordinator(Tid, Etabs) ->
 		    recover_coordinator(Tid, Protocol, Outcome, Local, DiscNs, RamNs),
 		    ?eval_debug_fun({?MODULE, recover_coordinator, post},
 				    [{tid, Tid}, {outcome, Outcome}, {prot, Protocol}]);
-		false ->  %% When killed before store havn't been copied to 
+		false ->  %% When killed before store havn't been copied to
 		    ok    %% to the new nested trans store.
 	    end
     end,
@@ -610,12 +610,12 @@ recover_coordinator(Tid, sync_sym_trans, aborted, _Local, _, _) ->
 
 recover_coordinator(Tid, asym_trans, committed, Local, DiscNs, RamNs) ->
     D = #decision{tid = Tid, outcome = committed,
-		  disc_nodes = DiscNs, ram_nodes = RamNs},		
+		  disc_nodes = DiscNs, ram_nodes = RamNs},
     mnesia_recover:log_decision(D),
     do_commit(Tid, Local);
 recover_coordinator(Tid, asym_trans, aborted, Local, DiscNs, RamNs) ->
     D = #decision{tid = Tid, outcome = aborted,
- 		  disc_nodes = DiscNs, ram_nodes = RamNs},		
+		  disc_nodes = DiscNs, ram_nodes = RamNs},
     mnesia_recover:log_decision(D),
     do_abort(Tid, Local).
 
@@ -631,7 +631,7 @@ add_coord_store(Coords, Tid, Etab) ->
 
 del_coord_store(Coords, Tid, Current, Obsolete) ->
     Stores = gb_trees:get(Tid, Coords),
-    Rest = 
+    Rest =
     	case Stores of
     	    [Obsolete, Current | Tail] -> Tail;
     	    [Current, Obsolete | Tail] -> Tail
@@ -642,14 +642,14 @@ del_coord_store(Coords, Tid, Current, Obsolete) ->
 erase_ets_tabs([H | T]) ->
     ?ets_delete_table(H),
     erase_ets_tabs(T);
-erase_ets_tabs([]) -> 
+erase_ets_tabs([]) ->
     ok.
 
 %% Clear one transactions all fixtables
 clear_fixtable([Store|_]) ->
     Fixed = get_elements(fixtable, Store),
     lists:foreach(fun({Tab,Node}) ->
-			  rpc:cast(Node, ?MODULE, fixtable, [Tab,false,self()]) 
+			  rpc:cast(Node, ?MODULE, fixtable, [Tab,false,self()])
 		  end, Fixed).
 
 %% Clear all fixtable Node have done
@@ -661,7 +661,7 @@ clear_fixtable(Node, State=#state{fixed_tabs = FT0}) ->
 	    lists:foreach(
 	      fun(Tab) ->
 		      case ?catch_val({Tab, storage_type}) of
-			  {'EXIT', _} -> 
+			  {'EXIT', _} ->
 			      ignore;
 			  Storage ->
 			      mnesia_lib:db_fixtable(Storage,Tab,false)
@@ -680,9 +680,9 @@ manage_fixtable(Tab,true,Requester,State=#state{fixed_tabs = FT0}) ->
     end;
 manage_fixtable(Tab,false,Requester,State = #state{fixed_tabs = FT0}) ->
     Node = node(Requester),
-    case mnesia_lib:key_search_delete(Node, 1, FT0) of 
+    case mnesia_lib:key_search_delete(Node, 1, FT0) of
 	{none,_FT} -> State; % Hmm? Safeguard
-	{{Node, Tabs0},FT} -> 
+	{{Node, Tabs0},FT} ->
 	    case lists:delete(Tab, Tabs0) of
 		[] -> State#state{fixed_tabs=FT};
 		Tabs -> State#state{fixed_tabs=[{Node,Tabs}|FT]}
@@ -691,7 +691,7 @@ manage_fixtable(Tab,false,Requester,State = #state{fixed_tabs = FT0}) ->
 
 %% Deletes a pid from a list of participants
 %% or from a gb_trees of coordinators
-%% {none, All} or {Tr, Rest} 
+%% {none, All} or {Tr, Rest}
 pid_search_delete(Pid, Trs) ->
     pid_search_delete(Pid, Trs, none, []).
 pid_search_delete(Pid, [Tr = {Tid, _Ts} | Trs], _Val, Ack) when Tid#tid.pid == Pid ->
@@ -701,7 +701,7 @@ pid_search_delete(Pid, [Tr | Trs], Val, Ack) ->
 
 pid_search_delete(_Pid, [], Val, Ack) ->
     {Val, gb_trees:from_orddict(lists:reverse(Ack))}.
- 
+
 transaction_terminated(Tid)  ->
     mnesia_checkpoint:tm_exit_pending(Tid),
     Pid = Tid#tid.pid,
@@ -713,14 +713,14 @@ transaction_terminated(Tid)  ->
     end.
 
 %% If there are an surrounding transaction, we inherit it's context
-non_transaction(OldState={_,_,Trans}, Fun, Args, ActivityKind, Mod) 
+non_transaction(OldState={_,_,Trans}, Fun, Args, ActivityKind, Mod)
   when Trans /= non_transaction ->
-    Kind = case ActivityKind of 
+    Kind = case ActivityKind of
 	       sync_dirty -> sync;
 	       _ -> async
 	   end,
     case transaction(OldState, Fun, Args, infinity, Mod, Kind) of
-	{atomic, Res} -> 
+	{atomic, Res} ->
 	    Res;
 	{aborted,Res} ->
 	    exit(Res)
@@ -766,7 +766,7 @@ transaction(OldTidTs, Fun, Args, Retries, Mod, Type) ->
 
 execute_outer(Mod, Fun, Args, Factor, Retries, Type) ->
     case req(start_outer) of
-	{error, Reason} -> 
+	{error, Reason} ->
 	    {aborted, Reason};
 	{new_tid, Tid, Store} ->
 	    Ts = #tidstore{store = Store},
@@ -792,7 +792,7 @@ execute_inner(Mod, Tid, OldMod, Ts, Fun, Args, Factor, Retries, Type) ->
 
 copy_ets(From, To) ->
     do_copy_ets(?ets_first(From), From, To).
-do_copy_ets('$end_of_table', _,_) -> 
+do_copy_ets('$end_of_table', _,_) ->
     ok;
 do_copy_ets(K, From, To) ->
     Objs = ?ets_lookup(From, K),
@@ -813,7 +813,7 @@ execute_transaction(Fun, Args, Factor, Retries, Type) ->
 	    mnesia_lib:incr_counter(trans_commits),
 	    erase(mnesia_activity_state),
 	    %% no need to clear locks, already done by commit ...
-	    %% Flush any un processed mnesia_down messages we might have 
+	    %% Flush any un processed mnesia_down messages we might have
 	    flush_downs(),
 	    catch unlink(whereis(?MODULE)),
 	    {atomic, Value};
@@ -846,7 +846,7 @@ check_exit(Fun, Args, Factor, Retries, Reason, Type) ->
 	    maybe_restart(Fun, Args, Factor, Retries, Type, {node_not_running, N});
 	{aborted, {bad_commit, N}} ->
 	    maybe_restart(Fun, Args, Factor, Retries, Type, {bad_commit, N});
-	_ -> 
+	_ ->
 	    return_abort(Fun, Args, Reason)
     end.
 
@@ -888,11 +888,11 @@ restart(Mod, Tid, Ts, Fun, Args, Factor0, Retries0, Type, Why) ->
 	    SleepTime = mnesia_lib:random_time(Factor, Tid#tid.counter),
 	    dbg_out("Restarting transaction ~w: in ~wms ~w~n", [Tid, SleepTime, Why]),
 	    timer:sleep(SleepTime),
-	    execute_outer(Mod, Fun, Args, Factor, Retries, Type);	
+	    execute_outer(Mod, Fun, Args, Factor, Retries, Type);
 	_ ->
 	    SleepTime = mnesia_lib:random_time(Factor0, Tid#tid.counter),
 	    dbg_out("Restarting transaction ~w: in ~wms ~w~n", [Tid, SleepTime, Why]),
-	    
+
 	    if
 		Factor0 /= 10 ->
 		    ignore;
@@ -911,7 +911,7 @@ restart(Mod, Tid, Ts, Fun, Args, Factor0, Retries0, Type, Why) ->
 	    mnesia_locker:receive_release_tid_acc(Nodes, Tid),
 	    case get_restarted(Tid) of
 		{restarted, Tid} ->
-		    execute_transaction(Fun, Args, Factor0 + 1, 
+		    execute_transaction(Fun, Args, Factor0 + 1,
 					Retries, Type);
 		{error, Reason} ->
 		    mnesia:abort(Reason)
@@ -934,7 +934,7 @@ decr(_X) -> 0.
 
 return_abort(Fun, Args, Reason)  ->
     {_Mod, Tid, Ts} = get(mnesia_activity_state),
-    dbg_out("Transaction ~p calling ~p with ~p failed: ~n ~p~n", 
+    dbg_out("Transaction ~p calling ~p with ~p failed: ~n ~p~n",
 	    [Tid, Fun, Args, Reason]),
     OldStore = Ts#tidstore.store,
     Nodes = get_elements(nodes, OldStore),
@@ -945,7 +945,7 @@ return_abort(Fun, Args, Reason)  ->
 	Level == 1 ->
 	    mnesia_locker:async_release_tid(Nodes, Tid),
 	    ?MODULE ! {delete_transaction, Tid},
-	    erase(mnesia_activity_state),	    
+	    erase(mnesia_activity_state),
 	    flush_downs(),
 	    catch unlink(whereis(?MODULE)),
 	    {aborted, mnesia_lib:fix_error(Reason)};
@@ -958,14 +958,14 @@ return_abort(Fun, Args, Reason)  ->
 			      level = Level - 1},
 	    NewTidTs = {OldMod, Tid, Ts2},
 	    put(mnesia_activity_state, NewTidTs),
-	    case Reason of 
+	    case Reason of
 		#cyclic{} ->
 		    exit({aborted, Reason});
-		{node_not_running, _N} -> 
+		{node_not_running, _N} ->
 		    exit({aborted, Reason});
-		{bad_commit, _N}-> 
+		{bad_commit, _N}->
 		    exit({aborted, Reason});
-		_ -> 
+		_ ->
 		    {aborted, mnesia_lib:fix_error(Reason)}
 	    end
     end.
@@ -982,10 +982,10 @@ put_activity_id(MTT) ->
     put_activity_id(MTT, undefined).
 put_activity_id(undefined,_) ->
     erase_activity_id();
-put_activity_id({Mod, Tid = #tid{}, Ts = #tidstore{}},Fun) ->    
+put_activity_id({Mod, Tid = #tid{}, Ts = #tidstore{}},Fun) ->
     flush_downs(),
     Store = Ts#tidstore.store,
-    if 
+    if
 	is_function(Fun) ->
 	    ?ets_insert(Store, {friends, {stop,Fun}});
 	true ->
@@ -1000,14 +1000,14 @@ erase_activity_id() ->
     flush_downs(),
     erase(mnesia_activity_state).
 
-get_elements(Type,Store) ->    
+get_elements(Type,Store) ->
     case catch ?ets_lookup(Store, Type) of
 	[] -> [];
 	[{_,Val}] -> [Val];
 	{'EXIT', _} -> [];
 	Vals -> [Val|| {_,Val} <- Vals]
     end.
-    
+
 opt_propagate_store(_Current, _Obsolete, false) ->
     ok;
 opt_propagate_store(Current, Obsolete, true) ->
@@ -1030,8 +1030,8 @@ intercept_best_friend([],_) ->    ok;
 intercept_best_friend([{stop,Fun} | R],Ignore) ->
     catch Fun(),
     intercept_best_friend(R,Ignore);
-intercept_best_friend([Pid | R],false) ->    
-    Pid ! {activity_ended, undefined, self()}, 
+intercept_best_friend([Pid | R],false) ->
+    Pid ! {activity_ended, undefined, self()},
     wait_for_best_friend(Pid, 0),
     intercept_best_friend(R,true);
 intercept_best_friend([_|R],true) ->
@@ -1047,18 +1047,18 @@ wait_for_best_friend(Pid, Timeout) ->
 		false -> ok
 	    end
     end.
-    
+
 my_process_is_alive(Pid) ->
     case catch erlang:is_process_alive(Pid) of % New BIF in R5
-	true -> 
+	true ->
 	    true;
-	false -> 
+	false ->
 	    false;
-	{'EXIT', _} -> % Pre R5 backward compatibility 
+	{'EXIT', _} -> % Pre R5 backward compatibility
 	    case process_info(Pid, message_queue_len) of
 		undefined -> false;
 		_ -> true
-	    end 
+	    end
     end.
 
 dirty(Protocol, Item) ->
@@ -1070,12 +1070,12 @@ dirty(Protocol, Item) ->
 	async_dirty ->
 	    %% Send commit records to the other involved nodes,
 	    %% but do only wait for one node to complete.
-	    %% Preferrably, the local node if possible. 
-		    
+	    %% Preferrably, the local node if possible.
+
 	    ReadNode = val({Tab, where_to_read}),
 	    {WaitFor, FirstRes} = async_send_dirty(Tid, CR, Tab, ReadNode),
 	    rec_dirty(WaitFor, FirstRes);
-		
+
 	sync_dirty ->
 	    %% Send commit records to the other involved nodes,
 	    %% and wait for all nodes to complete
@@ -1097,7 +1097,7 @@ t_commit(Type) ->
     if
 	Ts#tidstore.level == 1 ->
 	    intercept_friends(Tid, Ts),
-	    %% N is number of updates 
+	    %% N is number of updates
 	    case arrange(Tid, Store, Type) of
 		{N, Prep} when N > 0 ->
 		    multi_commit(Prep#prep.protocol,
@@ -1135,8 +1135,8 @@ arrange(Tid, Store, Type) ->
     Recs = prep_recs(Nodes, []),
     Key = ?ets_first(Store),
     N = 0,
-    Prep = 
-	case Type of 
+    Prep =
+	case Type of
 	    async -> #prep{protocol = sym_trans, records = Recs};
 	    sync -> #prep{protocol = sync_sym_trans, records = Recs}
 	end,
@@ -1146,7 +1146,7 @@ arrange(Tid, Store, Type) ->
 	    case Reason of
 		{aborted, R} ->
 		    mnesia:abort(R);
-		_ -> 
+		_ ->
 		    mnesia:abort(Reason)
 	    end;
 	{New, Prepared} ->
@@ -1155,7 +1155,7 @@ arrange(Tid, Store, Type) ->
 
 reverse([]) ->
     [];
-reverse([H=#commit{ram_copies=Ram, disc_copies=DC, 
+reverse([H=#commit{ram_copies=Ram, disc_copies=DC,
 		   disc_only_copies=DOC,snmp = Snmp}
 	 |R]) ->
     [
@@ -1164,7 +1164,7 @@ reverse([H=#commit{ram_copies=Ram, disc_copies=DC,
        disc_copies      =  lists:reverse(DC),
        disc_only_copies =  lists:reverse(DOC),
        snmp             = lists:reverse(Snmp)
-      }  
+      }
      | reverse(R)].
 
 prep_recs([N | Nodes], Recs) ->
@@ -1191,7 +1191,7 @@ do_arrange(Tid, Store, RestoreKey, Prep, N) when RestoreKey == restore_op ->
 	     (BupRec, CommitRecs, RecName, Where, Snmp) ->
 		  Tab = element(1, BupRec),
 		  Key = element(2, BupRec),
-		  Item = 
+		  Item =
 		      if
 			  Tab == RecName ->
 			      [{{Tab, Key}, BupRec, write}];
@@ -1200,7 +1200,7 @@ do_arrange(Tid, Store, RestoreKey, Prep, N) when RestoreKey == restore_op ->
 			      [{{Tab, Key}, BupRec2, write}]
 		      end,
 		  do_prepare_items(Tid, Tab, Key, Where, Snmp, Item, CommitRecs)
-	  end,	  
+	  end,
     Recs2 = mnesia_schema:arrange_restore(R, Fun, Prep#prep.records),
     P2 = Prep#prep{protocol = asym_trans, records = Recs2},
     do_arrange(Tid, Store, ?ets_next(Store, RestoreKey), P2, N + 1);
@@ -1222,20 +1222,20 @@ prepare_items(Tid, Tab, Key, Items, Prep) when Prep#prep.prev_tab == Tab ->
     Recs = Prep#prep.records,
     Recs2 = do_prepare_items(Tid, Tab, Key, Types, Snmp, Items, Recs),
     Prep#prep{records = Recs2};
-    
+
 prepare_items(Tid, Tab, Key, Items, Prep) ->
     Types = val({Tab, where_to_commit}),
     case Types of
 	[] -> mnesia:abort({no_exists, Tab});
-	{blocked, _} -> 
+	{blocked, _} ->
 	    unblocked = req({unblock_me, Tab}),
 	    prepare_items(Tid, Tab, Key, Items, Prep);
 	_ ->
 	    Majority = needs_majority(Tab, Prep),
 	    Snmp = val({Tab, snmp}),
-	    Recs2 = do_prepare_items(Tid, Tab, Key, Types, 
+	    Recs2 = do_prepare_items(Tid, Tab, Key, Types,
 				     Snmp, Items, Prep#prep.records),
-	    Prep2 = Prep#prep{records = Recs2, prev_tab = Tab, 
+	    Prep2 = Prep#prep{records = Recs2, prev_tab = Tab,
 			      majority = Majority,
 			      prev_types = Types, prev_snmp = Snmp},
 	    check_prep(Prep2, Types)
@@ -1273,7 +1273,7 @@ have_majority([{Tab, AllNodes} | Rest], Nodes) ->
     end.
 
 prepare_snmp(Tab, Key, Items) ->
-    case val({Tab, snmp}) of 
+    case val({Tab, snmp}) of
 	[] ->
 	    [];
 	Ustruct when Key /= '_' ->
@@ -1286,10 +1286,10 @@ prepare_snmp(Tab, Key, Items) ->
 	    [{clear_table, Tab}]
     end.
 
-prepare_snmp(_Tid, _Tab, _Key, _Types, [], _Items, Recs) -> 
+prepare_snmp(_Tid, _Tab, _Key, _Types, [], _Items, Recs) ->
     Recs;
 
-prepare_snmp(Tid, Tab, Key, Types, Us, Items, Recs) -> 
+prepare_snmp(Tid, Tab, Key, Types, Us, Items, Recs) ->
     if Key /= '_' ->
 	    {_Oid, _Val, Op} = hd(Items),
 	    SnmpOid = mnesia_snmp_hook:key_to_oid(Tab, Key, Us), % May exit
@@ -1334,7 +1334,7 @@ prepare_node(Node, Storage, [Item | Items], Rec, Kind) when Kind == snmp ->
     Rec2 = Rec#commit{snmp = [Item | Rec#commit.snmp]},
     prepare_node(Node, Storage, Items, Rec2, Kind);
 prepare_node(Node, Storage, [Item | Items], Rec, Kind) when Kind /= schema ->
-    Rec2 = 
+    Rec2 =
 	case Storage of
 	    ram_copies ->
 		Rec#commit{ram_copies = [Item | Rec#commit.ram_copies]};
@@ -1345,7 +1345,7 @@ prepare_node(Node, Storage, [Item | Items], Rec, Kind) when Kind /= schema ->
 			   [Item | Rec#commit.disc_only_copies]}
 	end,
     prepare_node(Node, Storage, Items, Rec2, Kind);
-prepare_node(_Node, _Storage, Items, Rec, Kind) 
+prepare_node(_Node, _Storage, Items, Rec, Kind)
   when Kind == schema, Rec#commit.schema_ops == []  ->
     Rec#commit{schema_ops = Items};
 prepare_node(_Node, _Storage, [], Rec, _Kind) ->
@@ -1354,7 +1354,7 @@ prepare_node(_Node, _Storage, [], Rec, _Kind) ->
 %% multi_commit((Protocol, Tid, CommitRecords, Store)
 %% Local work is always performed in users process
 multi_commit(read_only, _Maj = [], Tid, CR, _Store) ->
-    %% This featherweight commit protocol is used when no 
+    %% This featherweight commit protocol is used when no
     %% updates has been performed in the transaction.
 
     {DiscNs, RamNs} = commit_nodes(CR, [], []),
@@ -1381,11 +1381,11 @@ multi_commit(sym_trans, _Maj = [], Tid, CR, Store) ->
     %%    perform the updates.
     %%
     %%    The outcome is kept 3 minutes in the transient decision table.
-    %%    
+    %%
     %% Recovery:
     %%    If somebody dies before the coordinator has
     %%    broadcasted do_commit, the transaction is aborted.
-    %%    
+    %%
     %%    If a participant dies, the table load algorithm
     %%    ensures that the contents of the involved tables
     %%    are picked from another node.
@@ -1394,15 +1394,15 @@ multi_commit(sym_trans, _Maj = [], Tid, CR, Store) ->
     %%    the outcome with all the others. If all are uncertain
     %%    about the outcome, the transaction is aborted. If
     %%    somebody knows the outcome the others will follow.
-    
+
     {DiscNs, RamNs} = commit_nodes(CR, [], []),
     Pending = mnesia_checkpoint:tm_enter_pending(Tid, DiscNs, RamNs),
     ?ets_insert(Store, Pending),
 
     {WaitFor, Local} = ask_commit(sym_trans, Tid, CR, DiscNs, RamNs),
-    {Outcome, []} = rec_all(WaitFor, Tid, do_commit, []), 
-    ?eval_debug_fun({?MODULE, multi_commit_sym}, 
-		    [{tid, Tid}, {outcome, Outcome}]), 
+    {Outcome, []} = rec_all(WaitFor, Tid, do_commit, []),
+    ?eval_debug_fun({?MODULE, multi_commit_sym},
+		    [{tid, Tid}, {outcome, Outcome}]),
     rpc:abcast(DiscNs -- [node()], ?MODULE, {Tid, Outcome}),
     rpc:abcast(RamNs -- [node()], ?MODULE, {Tid, Outcome}),
     case Outcome of
@@ -1422,15 +1422,15 @@ multi_commit(sync_sym_trans, _Maj = [], Tid, CR, Store) ->
     %%   This protocol is the same as sym_trans except that it
     %%   uses syncronized calls to disk_log and syncronized commits
     %%   when several nodes are involved.
-    
+
     {DiscNs, RamNs} = commit_nodes(CR, [], []),
     Pending = mnesia_checkpoint:tm_enter_pending(Tid, DiscNs, RamNs),
     ?ets_insert(Store, Pending),
 
     {WaitFor, Local} = ask_commit(sync_sym_trans, Tid, CR, DiscNs, RamNs),
-    {Outcome, []} = rec_all(WaitFor, Tid, do_commit, []), 
-    ?eval_debug_fun({?MODULE, multi_commit_sym_sync}, 
-		    [{tid, Tid}, {outcome, Outcome}]), 
+    {Outcome, []} = rec_all(WaitFor, Tid, do_commit, []),
+    ?eval_debug_fun({?MODULE, multi_commit_sym_sync},
+		    [{tid, Tid}, {outcome, Outcome}]),
     [?ets_insert(Store, {waiting_for_commit_ack, Node}) || Node <- WaitFor],
     rpc:abcast(DiscNs -- [node()], ?MODULE, {Tid, Outcome}),
     rpc:abcast(RamNs -- [node()], ?MODULE, {Tid, Outcome}),
@@ -1451,7 +1451,7 @@ multi_commit(sync_sym_trans, _Maj = [], Tid, CR, Store) ->
     Outcome;
 
 multi_commit(asym_trans, Majority, Tid, CR, Store) ->
-    %% This more expensive commit protocol is used when 
+    %% This more expensive commit protocol is used when
     %% table definitions are changed (schema transactions).
     %% It is also used when the involved tables are
     %% replicated asymetrically. If the storage type differs
@@ -1462,14 +1462,14 @@ multi_commit(asym_trans, Majority, Tid, CR, Store) ->
     %%   commit record and votes yes or no depending of the
     %%   outcome of the prepare. The preparation is also performed
     %%   by the coordinator.
-    %%   
+    %%
     %% 2a Somebody has died or voted no
     %%    Tell all yes voters to do_abort
     %% 2b Everybody has voted yes
     %%    Put a unclear marker in the log.
     %%    Tell the others to pre_commit. I.e. that they should
     %%    put a unclear marker in the log and reply
-    %%    acc_pre_commit when they are done. 
+    %%    acc_pre_commit when they are done.
     %%
     %% 3a Somebody died
     %%    Tell the remaining participants to do_abort
@@ -1492,7 +1492,7 @@ multi_commit(asym_trans, Majority, Tid, CR, Store) ->
     %%    If we have no unclear marker in the log we may
     %%    safely abort, since we know that nobody may have
     %%    decided to commit yet.
-    %%    
+    %%
     %%    If we have a committed marker in the log we may
     %%    safely commit since we know that everybody else
     %%    also will come to this conclusion.
@@ -1506,7 +1506,7 @@ multi_commit(asym_trans, Majority, Tid, CR, Store) ->
     %%    up. When all involved nodes are up and uncertain,
     %%    we decide to commit (first put a committed marker
     %%    in the log, then do the updates).
-    
+
     D = #decision{tid = Tid, outcome = presume_abort},
     {D2, CR2} = commit_decision(D, CR, [], []),
     DiscNs = D2#decision.disc_nodes,
@@ -1518,10 +1518,10 @@ multi_commit(asym_trans, Majority, Tid, CR, Store) ->
     Pending = mnesia_checkpoint:tm_enter_pending(Tid, DiscNs, RamNs),
     ?ets_insert(Store, Pending),
     {WaitFor, Local} = ask_commit(asym_trans, Tid, CR2, DiscNs, RamNs),
-    SchemaPrep = (catch mnesia_schema:prepare_commit(Tid, Local, {coord, WaitFor})), 
-    {Votes, Pids} = rec_all(WaitFor, Tid, do_commit, []), 
-    
-    ?eval_debug_fun({?MODULE, multi_commit_asym_got_votes}, 
+    SchemaPrep = (catch mnesia_schema:prepare_commit(Tid, Local, {coord, WaitFor})),
+    {Votes, Pids} = rec_all(WaitFor, Tid, do_commit, []),
+
+    ?eval_debug_fun({?MODULE, multi_commit_asym_got_votes},
 		    [{tid, Tid}, {votes, Votes}]),
     case Votes of
 	do_commit ->
@@ -1530,20 +1530,20 @@ multi_commit(asym_trans, Majority, Tid, CR, Store) ->
 		    mnesia_log:log(C), % C is not a binary
 		    ?eval_debug_fun({?MODULE, multi_commit_asym_log_commit_rec},
 				    [{tid, Tid}]),
-		    
+
 		    D3 = C#commit.decision,
-		    D4 = D3#decision{outcome = unclear},		
-		    mnesia_recover:log_decision(D4),			
+		    D4 = D3#decision{outcome = unclear},
+		    mnesia_recover:log_decision(D4),
 		    ?eval_debug_fun({?MODULE, multi_commit_asym_log_commit_dec},
 				    [{tid, Tid}]),
 		    tell_participants(Pids, {Tid, pre_commit}),
 		    %% Now we are uncertain and we do not know
 		    %% if all participants have logged that
 		    %% they are uncertain or not
-		    rec_acc_pre_commit(Pids, Tid, Store, {C,Local}, 
+		    rec_acc_pre_commit(Pids, Tid, Store, {C,Local},
 				       do_commit, DumperMode, [], []);
 		{'EXIT', Reason} ->
-		    %% The others have logged the commit 
+		    %% The others have logged the commit
 		    %% record but they are not uncertain
 		    mnesia_recover:note_decision(Tid, aborted),
 		    ?eval_debug_fun({?MODULE, multi_commit_asym_prepare_exit},
@@ -1564,7 +1564,7 @@ multi_commit(asym_trans, Majority, Tid, CR, Store) ->
     end.
 
 %% Returns do_commit or {do_abort, Reason}
-rec_acc_pre_commit([Pid | Tail], Tid, Store, Commit, Res, DumperMode, 
+rec_acc_pre_commit([Pid | Tail], Tid, Store, Commit, Res, DumperMode,
 		   GoodPids, SchemaAckPids) ->
     receive
 	{?MODULE, _, {acc_pre_commit, Tid, Pid, true}} ->
@@ -1598,7 +1598,7 @@ rec_acc_pre_commit([], Tid, Store, {Commit,OrigC}, Res, DumperMode, GoodPids, Sc
 	    %% everybody are uncertain.
 	    prepare_sync_schema_commit(Store, SchemaAckPids),
 	    tell_participants(GoodPids, {Tid, committed}),
-	    D2 = D#decision{outcome = committed},		
+	    D2 = D#decision{outcome = committed},
 	    mnesia_recover:log_decision(D2),
             ?eval_debug_fun({?MODULE, rec_acc_pre_commit_log_commit},
 			    [{tid, Tid}]),
@@ -1611,10 +1611,10 @@ rec_acc_pre_commit([], Tid, Store, {Commit,OrigC}, Res, DumperMode, GoodPids, Sc
 	    sync_schema_commit(Tid, Store, SchemaAckPids),
 	    mnesia_locker:release_tid(Tid),
 	    ?MODULE ! {delete_transaction, Tid};
-	
+
 	{do_abort, Reason} ->
 	    tell_participants(GoodPids, {Tid, {do_abort, Reason}}),
-	    D2 = D#decision{outcome = aborted},		
+	    D2 = D#decision{outcome = aborted},
 	    mnesia_recover:log_decision(D2),
             ?eval_debug_fun({?MODULE, rec_acc_pre_commit_log_abort},
 			    [{tid, Tid}]),
@@ -1702,7 +1702,7 @@ commit_participant(Coord, Tid, Bin, C0, DiscNs, _RamNs) ->
 			    end,
 			    ?eval_debug_fun({?MODULE, commit_participant, do_commit},
 					    [{tid, Tid}]);
-			
+
 			{Tid, {do_abort, _Reason}} ->
 			    mnesia_recover:log_decision(D#decision{outcome = aborted}),
 			    ?eval_debug_fun({?MODULE, commit_participant, log_abort},
@@ -1710,7 +1710,7 @@ commit_participant(Coord, Tid, Bin, C0, DiscNs, _RamNs) ->
 			    mnesia_schema:undo_prepare_commit(Tid, C0),
 			    ?eval_debug_fun({?MODULE, commit_participant, undo_prepare},
 					    [{tid, Tid}]);
-			
+
 			{'EXIT', _, _} ->
 			    mnesia_recover:log_decision(D#decision{outcome = aborted}),
 			    ?eval_debug_fun({?MODULE, commit_participant, exit_log_abort},
@@ -1718,7 +1718,7 @@ commit_participant(Coord, Tid, Bin, C0, DiscNs, _RamNs) ->
 			    mnesia_schema:undo_prepare_commit(Tid, C0),
 			    ?eval_debug_fun({?MODULE, commit_participant, exit_undo_prepare},
 					    [{tid, Tid}]);
-			
+
 			Msg ->
 			    verbose("** ERROR ** commit_participant ~p, got unexpected msg: ~p~n",
 				    [Tid, Msg])
@@ -1739,7 +1739,7 @@ commit_participant(Coord, Tid, Bin, C0, DiscNs, _RamNs) ->
 		    verbose("** ERROR ** commit_participant ~p, got unexpected msg: ~p~n",
 			    [Tid, Msg])
 	    end;
-	
+
 	{'EXIT', Reason} ->
 	    ?eval_debug_fun({?MODULE, commit_participant, vote_no},
 			    [{tid, Tid}]),
@@ -1750,7 +1750,7 @@ commit_participant(Coord, Tid, Bin, C0, DiscNs, _RamNs) ->
     ?MODULE ! {delete_transaction, Tid},
     unlink(whereis(?MODULE)),
     exit(normal).
-    
+
 do_abort(Tid, Bin) when is_binary(Bin) ->
     %% Possible optimization:
     %% If we want we could pass arround a flag
@@ -1761,7 +1761,7 @@ do_abort(Tid, Bin) when is_binary(Bin) ->
     %% mnesia_schema:undo_prepare_commit/1.
     do_abort(Tid, binary_to_term(Bin));
 do_abort(Tid, Commit) ->
-    mnesia_schema:undo_prepare_commit(Tid, Commit), 
+    mnesia_schema:undo_prepare_commit(Tid, Commit),
     Commit.
 
 do_dirty(Tid, Commit) when Commit#commit.schema_ops == [] ->
@@ -1799,7 +1799,7 @@ do_update(Tid, Storage, [Op | Ops], OldRes) ->
 
 	    verbose("do_update in ~w failed: ~p -> {'EXIT', ~p}~n",
 		    [Tid, Op, Reason]),
-	    do_update(Tid, Storage, Ops, OldRes); 
+	    do_update(Tid, Storage, Ops, OldRes);
 	NewRes ->
 	    do_update(Tid, Storage, Ops, NewRes)
     end;
@@ -1807,7 +1807,7 @@ do_update(_Tid, _Storage, [], Res) ->
     Res.
 
 do_update_op(Tid, Storage, {{Tab, K}, Obj, write}) ->
-    commit_write(?catch_val({Tab, commit_work}), Tid, 
+    commit_write(?catch_val({Tab, commit_work}), Tid,
 		 Tab, K, Obj, undefined),
     mnesia_lib:db_put(Storage, Tab, Obj);
 
@@ -1816,7 +1816,7 @@ do_update_op(Tid, Storage, {{Tab, K}, Val, delete}) ->
     mnesia_lib:db_erase(Storage, Tab, K);
 
 do_update_op(Tid, Storage, {{Tab, K}, {RecName, Incr}, update_counter}) ->
-    {NewObj, OldObjs} = 
+    {NewObj, OldObjs} =
         case catch mnesia_lib:db_update_counter(Storage, Tab, K, Incr) of
             NewVal when is_integer(NewVal), NewVal >= 0 ->
                 {{RecName, K, NewVal}, [{RecName, K, NewVal - Incr}]};
@@ -1824,17 +1824,17 @@ do_update_op(Tid, Storage, {{Tab, K}, {RecName, Incr}, update_counter}) ->
                 New = {RecName, K, Incr},
                 mnesia_lib:db_put(Storage, Tab, New),
                 {New, []};
-	    _ -> 
+	    _ ->
 		Zero = {RecName, K, 0},
 		mnesia_lib:db_put(Storage, Tab, Zero),
 		{Zero, []}
         end,
-    commit_update(?catch_val({Tab, commit_work}), Tid, Tab, 
+    commit_update(?catch_val({Tab, commit_work}), Tid, Tab,
 		  K, NewObj, OldObjs),
     element(3, NewObj);
 
 do_update_op(Tid, Storage, {{Tab, Key}, Obj, delete_object}) ->
-    commit_del_object(?catch_val({Tab, commit_work}), 
+    commit_del_object(?catch_val({Tab, commit_work}),
 		      Tid, Tab, Key, Obj, undefined),
     mnesia_lib:db_match_erase(Storage, Tab, Obj);
 
@@ -1846,11 +1846,11 @@ commit_write([], _, _, _, _, _) -> ok;
 commit_write([{checkpoints, CpList}|R], Tid, Tab, K, Obj, Old) ->
     mnesia_checkpoint:tm_retain(Tid, Tab, K, write, CpList),
     commit_write(R, Tid, Tab, K, Obj, Old);
-commit_write([H|R], Tid, Tab, K, Obj, Old) 
+commit_write([H|R], Tid, Tab, K, Obj, Old)
   when element(1, H) == subscribers ->
     mnesia_subscr:report_table_event(H, Tab, Tid, Obj, write, Old),
     commit_write(R, Tid, Tab, K, Obj, Old);
-commit_write([H|R], Tid, Tab, K, Obj, Old) 
+commit_write([H|R], Tid, Tab, K, Obj, Old)
   when element(1, H) == index ->
     mnesia_index:add_index(H, Tab, K, Obj, Old),
     commit_write(R, Tid, Tab, K, Obj, Old).
@@ -1859,11 +1859,11 @@ commit_update([], _, _, _, _, _) -> ok;
 commit_update([{checkpoints, CpList}|R], Tid, Tab, K, Obj, _) ->
     Old = mnesia_checkpoint:tm_retain(Tid, Tab, K, write, CpList),
     commit_update(R, Tid, Tab, K, Obj, Old);
-commit_update([H|R], Tid, Tab, K, Obj, Old) 
+commit_update([H|R], Tid, Tab, K, Obj, Old)
   when element(1, H) == subscribers ->
     mnesia_subscr:report_table_event(H, Tab, Tid, Obj, write, Old),
     commit_update(R, Tid, Tab, K, Obj, Old);
-commit_update([H|R], Tid, Tab, K, Obj, Old) 
+commit_update([H|R], Tid, Tab, K, Obj, Old)
   when element(1, H) == index ->
     mnesia_index:add_index(H, Tab, K, Obj, Old),
     commit_update(R, Tid, Tab, K, Obj, Old).
@@ -1872,11 +1872,11 @@ commit_delete([], _, _, _, _, _) ->  ok;
 commit_delete([{checkpoints, CpList}|R], Tid, Tab, K, Obj, _) ->
     Old = mnesia_checkpoint:tm_retain(Tid, Tab, K, delete, CpList),
     commit_delete(R, Tid, Tab, K, Obj, Old);
-commit_delete([H|R], Tid, Tab, K, Obj, Old) 
+commit_delete([H|R], Tid, Tab, K, Obj, Old)
   when element(1, H) == subscribers ->
     mnesia_subscr:report_table_event(H, Tab, Tid, Obj, delete, Old),
     commit_delete(R, Tid, Tab, K, Obj, Old);
-commit_delete([H|R], Tid, Tab, K, Obj, Old) 
+commit_delete([H|R], Tid, Tab, K, Obj, Old)
   when element(1, H) == index ->
     mnesia_index:delete_index(H, Tab, K),
     commit_delete(R, Tid, Tab, K, Obj, Old).
@@ -1885,12 +1885,12 @@ commit_del_object([], _, _, _, _, _) -> ok;
 commit_del_object([{checkpoints, CpList}|R], Tid, Tab, K, Obj, _) ->
     Old = mnesia_checkpoint:tm_retain(Tid, Tab, K, delete_object, CpList),
     commit_del_object(R, Tid, Tab, K, Obj, Old);
-commit_del_object([H|R], Tid, Tab, K, Obj, Old) 
-  when element(1, H) == subscribers -> 
+commit_del_object([H|R], Tid, Tab, K, Obj, Old)
+  when element(1, H) == subscribers ->
     mnesia_subscr:report_table_event(H, Tab, Tid, Obj, delete_object, Old),
     commit_del_object(R, Tid, Tab, K, Obj, Old);
-commit_del_object([H|R], Tid, Tab, K, Obj, Old) 
-  when element(1, H) == index -> 
+commit_del_object([H|R], Tid, Tab, K, Obj, Old)
+  when element(1, H) == index ->
     mnesia_index:del_object_index(H, Tab, K, Obj, Old),
     commit_del_object(R, Tid, Tab, K, Obj, Old).
 
@@ -1898,11 +1898,11 @@ commit_clear([], _, _, _, _) ->  ok;
 commit_clear([{checkpoints, CpList}|R], Tid, Tab, K, Obj) ->
     mnesia_checkpoint:tm_retain(Tid, Tab, K, clear_table, CpList),
     commit_clear(R, Tid, Tab, K, Obj);
-commit_clear([H|R], Tid, Tab, K, Obj) 
+commit_clear([H|R], Tid, Tab, K, Obj)
   when element(1, H) == subscribers ->
     mnesia_subscr:report_table_event(H, Tab, Tid, Obj, clear_table, undefined),
     commit_clear(R, Tid, Tab, K, Obj);
-commit_clear([H|R], Tid, Tab, K, Obj) 
+commit_clear([H|R], Tid, Tab, K, Obj)
   when element(1, H) == index ->
     mnesia_index:clear_index(H, Tab, K, Obj),
     commit_clear(R, Tid, Tab, K, Obj).
@@ -1913,7 +1913,7 @@ do_snmp(Tid, [Head | Tail]) ->
 	{'EXIT', Reason} ->
 	    %% This should only happen when we recently have
 	    %% deleted our local replica or recently deattached
-	    %% the snmp table 
+	    %% the snmp table
 
 	    verbose("do_snmp in ~w failed: ~p -> {'EXIT', ~p}~n",
 		    [Tid, Head, Reason]);
@@ -1922,7 +1922,7 @@ do_snmp(Tid, [Head | Tail]) ->
     end,
     do_snmp(Tid, Tail).
 
-commit_nodes([C | Tail], AccD, AccR) 
+commit_nodes([C | Tail], AccD, AccR)
         when C#commit.disc_copies == [],
              C#commit.disc_only_copies  == [],
              C#commit.schema_ops == [] ->
@@ -1934,7 +1934,7 @@ commit_nodes([], AccD, AccR) ->
 
 commit_decision(D, [C | Tail], AccD, AccR) ->
     N = C#commit.node,
-    {D2, Tail2} = 
+    {D2, Tail2} =
 	case C#commit.schema_ops of
 	    [] when C#commit.disc_copies == [],
 		    C#commit.disc_only_copies  == [] ->
@@ -1954,8 +1954,8 @@ commit_decision(D, [], AccD, AccR) ->
     {D#decision{disc_nodes = AccD, ram_nodes = AccR}, []}.
 
 ram_only_ops(N, [{op, change_table_copy_type, N, _FromS, _ToS, Cs} | _Ops ]) ->
-    case lists:member({name, schema}, Cs) of 
-	true -> 
+    case lists:member({name, schema}, Cs) of
+	true ->
 	    %% We always use disk if change type of the schema
 	    false;
 	false ->
@@ -2025,12 +2025,12 @@ get_dirty_reply(Node, Res) ->
 	    Reply;
 	{mnesia_down, Node} ->
 	    case get(mnesia_activity_state) of
-		{_, Tid, _Ts} when element(1,Tid) == tid -> 
+		{_, Tid, _Ts} when element(1,Tid) == tid ->
 		    %% Hmm dirty called inside a transaction, to avoid
 		    %% hanging transaction we need to restart the transaction
 		    mnesia:abort({node_not_running, Node});
 		_ ->
-		    %% It's ok to ignore mnesia_down's since we will make 
+		    %% It's ok to ignore mnesia_down's since we will make
 		    %% the replicas consistent again when Node is started
 		    Res
 	    end
@@ -2068,10 +2068,10 @@ ask_commit(_Protocol, _Tid, [], _DiscNs, _RamNs, WaitFor, Local) ->
 %% to be safe we let erts do the translation (many times maybe and thus
 %% slower but it works.
 % opt_term_to_binary(asym_trans, Head, Nodes) ->
-%     opt_term_to_binary(Nodes, Head);    
+%     opt_term_to_binary(Nodes, Head);
 opt_term_to_binary(_Protocol, Head, _Nodes) ->
     Head.
-	    
+
 rec_all([Node | Tail], Tid, Res, Pids) ->
     receive
 	{?MODULE, Node, {vote_yes, Tid}} ->
@@ -2085,7 +2085,7 @@ rec_all([Node | Tail], Tid, Res, Pids) ->
 	{?MODULE, Node, {aborted, Tid}} ->
 	    rec_all(Tail, Tid, Res, Pids);
 
-	{mnesia_down, Node} ->  
+	{mnesia_down, Node} ->
 	    %% Make sure that mnesia_tm knows it has died
 	    %% it may have been restarted
 	    Abort = {do_abort, {bad_commit, Node}},
@@ -2095,7 +2095,7 @@ rec_all([Node | Tail], Tid, Res, Pids) ->
 rec_all([], _Tid, Res, Pids) ->
     {Res, Pids}.
 
-get_transactions() -> 
+get_transactions() ->
     {info, Participant, Coordinator} = req(info),
     lists:map(fun({Tid, _Tabs}) ->
 		      Status = tr_status(Tid,Participant),
@@ -2125,7 +2125,7 @@ get_info(Timeout) ->
 display_info(Stream, {timeout, T}) ->
     io:format(Stream, "---> No info about coordinator and participant transactions, "
 	      "timeout ~p <--- ~n", [T]);
-    
+
 display_info(Stream, {info, Part, Coord}) ->
     io:format(Stream, "---> Participant transactions <--- ~n", []),
     lists:foreach(fun(P) -> pr_participant(Stream, P) end, Part),
@@ -2134,7 +2134,7 @@ display_info(Stream, {info, Part, Coord}) ->
 
 pr_participant(Stream, P) ->
     Commit0 = P#participant.commit,
-    Commit = 
+    Commit =
 	if
 	    is_binary(Commit0) -> binary_to_term(Commit0);
 	    true -> Commit0
@@ -2161,11 +2161,11 @@ search_pr_coordinator(S, [{Tid, _Ts}|Tail]) ->
 	    io:format( "Tid is coordinator, owner == \n", []),
 	    display_pid_info(Tid#tid.pid),
 	    search_pr_coordinator(S, Tail);
-	_ -> 
+	_ ->
 	    search_pr_coordinator(S, Tail)
     end.
 
-search_pr_participant(_S, []) -> 
+search_pr_participant(_S, []) ->
     false;
 search_pr_participant(S, [ P | Tail]) ->
     Tid = P#participant.tid,
@@ -2176,15 +2176,15 @@ search_pr_participant(S, [ P | Tail]) ->
 	    Pid = Tid#tid.pid,
 	    display_pid_info(Pid),
 	    io:format( "Tid wants to write objects \n",[]),
-	    Commit = 
+	    Commit =
 		if
 		    is_binary(Commit0) -> binary_to_term(Commit0);
 		    true -> Commit0
 		end,
-	    
+
 	    io:format("~p~n", [Commit]),
 	    search_pr_participant(S,Tail);  %% !!!!!
-	true -> 
+	true ->
 	    search_pr_participant(S, Tail)
     end.
 
@@ -2200,7 +2200,7 @@ display_pid_info(Pid) ->
 		       Other ->
 			   Other
 		   end,
-	    Reds  = fetch(reductions, Info), 
+	    Reds  = fetch(reductions, Info),
 	    LM = length(fetch(messages, Info)),
 	    pformat(io_lib:format("~p", [Pid]),
 		    io_lib:format("~p", [Call]),
@@ -2254,7 +2254,7 @@ send_to_pids([_ | Pids], Msg) ->
     send_to_pids(Pids, Msg);
 send_to_pids([], _Msg) ->
     ok.
-    
+
 reconfigure_participants(N, [P | Tail]) ->
     case lists:member(N, P#participant.disc_nodes) or
 	 lists:member(N, P#participant.ram_nodes) of
@@ -2262,25 +2262,25 @@ reconfigure_participants(N, [P | Tail]) ->
 	    %% Ignore, since we are not a participant
 	    %% in the transaction.
 	    reconfigure_participants(N, Tail);
- 
+
 	true ->
 	    %% We are on a participant node, lets
 	    %% check if the dead one was a
 	    %% participant or a coordinator.
 	    Tid  = P#participant.tid,
-	    if 
+	    if
 		node(Tid#tid.pid) /= N ->
 		    %% Another participant node died. Ignore.
 		    reconfigure_participants(N, Tail);
 
 		true ->
-		    %% The coordinator node has died and 
+		    %% The coordinator node has died and
 		    %% we must determine the outcome of the
 		    %% transaction and tell mnesia_tm on all
 		    %% nodes (including the local node) about it
 		    verbose("Coordinator ~p in transaction ~p died~n",
 			    [Tid#tid.pid, Tid]),
-			    
+
 		    Nodes = P#participant.disc_nodes ++
 			    P#participant.ram_nodes,
 		    AliveNodes = Nodes  -- [N],
@@ -2332,8 +2332,8 @@ system_terminate(_Reason, _Parent, _Debug, State) ->
 
 system_code_change(State=#state{coordinators=Cs0,participants=Ps0},_Module,_OldVsn,downgrade) ->
     case is_tuple(Cs0) of
-	true -> 
-	    Cs = gb_trees:to_list(Cs0),	    
+	true ->
+	    Cs = gb_trees:to_list(Cs0),
 	    Ps = gb_trees:values(Ps0),
 	    {ok, State#state{coordinators=Cs,participants=Ps}};
 	false ->
@@ -2342,7 +2342,7 @@ system_code_change(State=#state{coordinators=Cs0,participants=Ps0},_Module,_OldV
 
 system_code_change(State=#state{coordinators=Cs0,participants=Ps0},_Module,_OldVsn,_Extra) ->
     case is_list(Cs0) of
-	true -> 
+	true ->
 	    Cs = gb_trees:from_orddict(lists:sort(Cs0)),
 	    Ps1 = [{P#participant.tid,P}|| P <- Ps0],
 	    Ps = gb_trees:from_orddict(lists:sort(Ps1)),

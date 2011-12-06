@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 1996-2011. All Rights Reserved.
-%% 
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -180,8 +180,8 @@
 	 view/1,
 	 write_trans_log_header/0
 	]).
-	
-	
+
+
 -compile({no_auto_import,[error/2]}).
 
 -include("mnesia.hrl").
@@ -210,7 +210,7 @@ decision_tab_version() -> "1.0".
 
 dcl_version() -> "1.0".
 dcd_version() -> "1.0".
-     
+
 append(Log, Bin) when is_binary(Bin) ->
     disk_log:balog(Log, Bin);
 append(Log, Term) ->
@@ -218,9 +218,9 @@ append(Log, Term) ->
 
 %% Synced append
 sappend(Log, Bin) when is_binary(Bin) ->
-    ok = disk_log:blog(Log, Bin);  
+    ok = disk_log:blog(Log, Bin);
 sappend(Log, Term) ->
-    ok = disk_log:log(Log, Term).  
+    ok = disk_log:log(Log, Term).
 
 %% Write commit records to the latest_log
 log(C) when  C#commit.disc_copies == [],
@@ -283,7 +283,7 @@ previous_log_file() -> dir("PREVIOUS.LOG").
 decision_log_file() -> dir(decision_log_name()).
 
 decision_tab_file() -> dir(decision_tab_name()).
-    
+
 previous_decision_log_file() -> dir("PDECISION.LOG").
 
 latest_log_name() -> "LATEST.LOG".
@@ -297,10 +297,10 @@ init() ->
 	true ->
 	    Prev = previous_log_file(),
 	    verify_no_exists(Prev),
-	    
+
 	    Latest = latest_log_file(),
 	    verify_no_exists(Latest),
-	    
+
 	    Header = trans_log_header(),
 	    open_log(latest_log, Header, Latest);
 	false ->
@@ -346,20 +346,20 @@ open_log(Name, Header, Fname, Exists, Repair, Mode) ->
 	    write_header(Log, Header),
 	    Log;
 	{repaired, Log, _Recover, BadBytes} ->
-	    mnesia_lib:important("Data may be missing, log ~p repaired: Lost ~p bytes~n", 
+	    mnesia_lib:important("Data may be missing, log ~p repaired: Lost ~p bytes~n",
 				 [Fname, BadBytes]),
 	    Log;
 	{error, Reason} when Repair == true ->
 	    file:delete(Fname),
-	    mnesia_lib:important("Data may be missing, Corrupt logfile deleted: ~p, ~p ~n", 
+	    mnesia_lib:important("Data may be missing, Corrupt logfile deleted: ~p, ~p ~n",
 				 [Fname, Reason]),
-	    %% Create a new 
+	    %% Create a new
 	    open_log(Name, Header, Fname, false, false, read_write);
 	{error, Reason} ->
 	    fatal("Cannot open log file ~p: ~p~n", [Fname, Reason])
     end.
 
-write_header(Log, Header) -> 
+write_header(Log, Header) ->
     append(Log, Header).
 
 write_trans_log_header() ->
@@ -376,12 +376,12 @@ stop() ->
 close_log(Log) ->
 %%    io:format("mnesia_log:close_log ~p~n", [Log]),
 %%    io:format("mnesia_log:close_log ~p~n", [Log]),
-    case disk_log:sync(Log) of 
+    case disk_log:sync(Log) of
 	ok -> ok;
-	{error, {read_only_mode, Log}} -> 
+	{error, {read_only_mode, Log}} ->
 	    ok;
-	{error, Reason} -> 
-	    mnesia_lib:important("Failed syncing ~p to_disk reason ~p ~n", 
+	{error, Reason} ->
+	    mnesia_lib:important("Failed syncing ~p to_disk reason ~p ~n",
 				 [Log, Reason])
     end,
     mnesia_monitor:close_log(Log).
@@ -392,7 +392,7 @@ unsafe_close_log(Log) ->
 
 
 purge_some_logs() ->
-    mnesia_monitor:unsafe_close_log(latest_log), 
+    mnesia_monitor:unsafe_close_log(latest_log),
     file:delete(latest_log_file()),
     file:delete(decision_tab_file()).
 
@@ -466,10 +466,10 @@ chunk_log(Log, Cont) ->
 		  [Log, Reason]);
 	{C2, Chunk, _BadBytes} ->
 	    %% Read_only case, should we warn about the bad log file?
-	    %% BUGBUG Should we crash if Repair == false ?? 
+	    %% BUGBUG Should we crash if Repair == false ??
 	    %% We got to check this !!
 	    mnesia_lib:important("~p repaired, lost ~p bad bytes~n", [Log, _BadBytes]),
-	    {C2, Chunk}; 
+	    {C2, Chunk};
 	Other ->
 	    Other
     end.
@@ -492,7 +492,7 @@ open_decision_log() ->
     Latest = decision_log_file(),
     open_log(decision_log, decision_log_header(), Latest),
     start.
-    
+
 prepare_decision_log_dump() ->
     Prev = previous_decision_log_file(),
     prepare_decision_log_dump(exists(Prev), Prev).
@@ -586,11 +586,11 @@ view_file(C, Log) ->
 	    eof;
 	{C2, Terms, _BadBytes} ->
 	    dbg_out("Lost ~p bytes in ~p ~n", [_BadBytes, Log]),
-	    lists:foreach(fun(X) -> mnesia_lib:show("~p~n", [X]) end, 
+	    lists:foreach(fun(X) -> mnesia_lib:show("~p~n", [X]) end,
 			  Terms),
 	    view_file(C2, Log);
 	{C2, Terms} ->
-	    lists:foreach(fun(X) -> mnesia_lib:show("~p~n", [X]) end, 
+	    lists:foreach(fun(X) -> mnesia_lib:show("~p~n", [X]) end,
 			  Terms),
 	    view_file(C2, Log)
     end.
@@ -655,7 +655,7 @@ check_backup_args([Arg | Tail], B) ->
 check_backup_args([], B) ->
     {ok, B}.
 
-check_backup_arg_type(Arg, B) ->    
+check_backup_arg_type(Arg, B) ->
     case Arg of
 	{scope, global} ->
 	    B#backup_args{scope = global};
@@ -714,7 +714,7 @@ select_tables(AllTabs, B) ->
 
 safe_write(B, []) ->
     B;
-safe_write(B, Recs) ->	
+safe_write(B, Recs) ->
     safe_apply(B, write, [B#backup_args.opaque, Recs]).
 
 backup_schema(B, Tabs) ->
@@ -754,7 +754,7 @@ abort_write(B, What, Args, Reason) ->
 		  [Mod, abort_write, [Opaque], Other]),
 	    throw({error, Reason})
     end.
-	
+
 backup_tab(Tab, B) ->
     Name = B#backup_args.name,
     case mnesia_checkpoint:most_local_node(Name, Tab) of
@@ -768,7 +768,7 @@ backup_tab(Tab, B) ->
 	{error, Reason} ->
 	    abort_write(B, {?MODULE, backup_tab}, [Tab, B], {error, Reason})
     end.
-    
+
 tab_copier(Pid, B, Tab) when is_record(B, backup_args) ->
     %% Intentional crash at exit
     Name = B#backup_args.name,
@@ -829,7 +829,7 @@ handle_last(Pid, _Acc) ->
     exit(normal).
 
 iterate(B, Name, Tab, Pid, Source, Age, Pass, Acc) ->
-    Fun = 
+    Fun =
 	if
 	    Pid == self() ->
 		RecName = val({Tab, record_name}),
@@ -874,7 +874,7 @@ tab_receiver(Pid, B, Tab, RecName, Slot) ->
 	    Recs2 = rec_filter(B, Tab, RecName, Recs),
 	    B2 = safe_write(B, Recs2),
 	    tab_receiver(Pid, B2, Tab, RecName, Next);
-	
+
 	{Pid, {last, {ok,_}}} ->
 	    B;
 
@@ -885,7 +885,7 @@ tab_receiver(Pid, B, Tab, RecName, Slot) ->
 	    Reason = {error, {"Tab copier crashed", {'EXIT', R}}},
 	    abort_write(B, {?MODULE, remote_tab_sender}, [self(), B, Tab], Reason);
 	Msg ->
-	    R = {error, {"Tab receiver got unexpected msg", Msg}}, 
+	    R = {error, {"Tab receiver got unexpected msg", Msg}},
 	    abort_write(B, {?MODULE, remote_tab_sender}, [self(), B, Tab], R)
     end.
 
@@ -910,9 +910,9 @@ ets2dcd(Tab, Ftype) ->
 	case Ftype of
 	    dcd -> mnesia_lib:tab2dcd(Tab);
 	    dmp -> mnesia_lib:tab2dmp(Tab)
-	end,    
+	end,
     TmpF = mnesia_lib:tab2tmp(Tab),
-    file:delete(TmpF),    
+    file:delete(TmpF),
     Log  = open_log({Tab, ets2dcd}, dcd_log_header(), TmpF, false),
     mnesia_lib:db_fixtable(ram_copies, Tab, true),
     ok   = ets2dcd(mnesia_lib:db_init_chunk(ram_copies, Tab, 1000), Tab, Log),
@@ -926,8 +926,8 @@ ets2dcd(Tab, Ftype) ->
 
 ets2dcd('$end_of_table', _Tab, _Log) ->
     ok;
-ets2dcd({Recs, Cont}, Tab, Log) -> 
-    ok = disk_log:alog_terms(Log, Recs),     
+ets2dcd({Recs, Cont}, Tab, Log) ->
+    ok = disk_log:alog_terms(Log, Recs),
     ets2dcd(mnesia_lib:db_chunk(ram_copies, Cont), Tab, Log).
 
 dcd2ets(Tab) ->
@@ -937,12 +937,12 @@ dcd2ets(Tab, Rep) ->
     Dcd = mnesia_lib:tab2dcd(Tab),
     case mnesia_lib:exists(Dcd) of
 	true ->
-	    Log = open_log({Tab, dcd2ets}, dcd_log_header(), Dcd, 
+	    Log = open_log({Tab, dcd2ets}, dcd_log_header(), Dcd,
 			   true, Rep, read_only),
 	    Data = chunk_log(Log, start),
 	    ok = insert_dcdchunk(Data, Log, Tab),
 	    close_log(Log),
-	    load_dcl(Tab, Rep); 
+	    load_dcl(Tab, Rep);
 	false -> %% Handle old dets files, and conversion from disc_only to disc.
 	    Fname = mnesia_lib:tab2dat(Tab),
 	    Type = val({Tab, setorbag}),
@@ -956,13 +956,13 @@ dcd2ets(Tab, Rep) ->
 	    end
     end.
 
-insert_dcdchunk({Cont, [LogH | Rest]}, Log, Tab) 
-  when is_record(LogH, log_header),  
-       LogH#log_header.log_kind == dcd_log, 
-       LogH#log_header.log_version >= "1.0" ->    
-    insert_dcdchunk({Cont, Rest}, Log, Tab);   
+insert_dcdchunk({Cont, [LogH | Rest]}, Log, Tab)
+  when is_record(LogH, log_header),
+       LogH#log_header.log_kind == dcd_log,
+       LogH#log_header.log_version >= "1.0" ->
+    insert_dcdchunk({Cont, Rest}, Log, Tab);
 
-insert_dcdchunk({Cont, Recs}, Log, Tab) ->     
+insert_dcdchunk({Cont, Recs}, Log, Tab) ->
     true = ets:insert(Tab, Recs),
     insert_dcdchunk(chunk_log(Log, Cont), Log, Tab);
 insert_dcdchunk(eof, _Log, _Tab) ->
@@ -971,13 +971,13 @@ insert_dcdchunk(eof, _Log, _Tab) ->
 load_dcl(Tab, Rep) ->
     FName = mnesia_lib:tab2dcl(Tab),
     case mnesia_lib:exists(FName) of
-	true -> 	    
+	true ->
 	    Name = {load_dcl,Tab},
-	    open_log(Name, 
-		     dcl_log_header(), 
-		     FName, 
+	    open_log(Name,
+		     dcl_log_header(),
+		     FName,
 		     true,
-		     Rep, 
+		     Rep,
 		     read_only),
 	    FirstChunk = chunk_log(Name, start),
             N = insert_logchunk(FirstChunk, Name, 0),
@@ -1015,10 +1015,10 @@ add_recs([{{Tab, Key}, Val, update_counter} | Rest], N) ->
 	    true = ets:insert(Tab, Zero)
     end,
     add_recs(Rest, N+1);
-add_recs([LogH|Rest], N) 
-  when is_record(LogH, log_header),  
-       LogH#log_header.log_kind == dcl_log, 
-       LogH#log_header.log_version >= "1.0" ->    
+add_recs([LogH|Rest], N)
+  when is_record(LogH, log_header),
+       LogH#log_header.log_kind == dcl_log,
+       LogH#log_header.log_version >= "1.0" ->
     add_recs(Rest, N);
 add_recs([{{Tab, _Key}, _Val, clear_table} | Rest], N) ->
     Size = ets:info(Tab, size),
