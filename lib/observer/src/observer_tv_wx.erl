@@ -90,8 +90,7 @@ init([Notebook, Parent]) ->
     wxListCtrl:connect(Grid, size, [{skip, true}]),
 
     wxWindow:setFocus(Grid),
-    Timer = observer_lib:start_timer(10),
-    {Panel, #state{grid=Grid, parent=Parent, timer=Timer}}.
+    {Panel, #state{grid=Grid, parent=Parent, timer={false, 10}}}.
 
 handle_event(#wx{id=?ID_REFRESH},
 	     State = #state{node=Node, grid=Grid, opt=Opt}) ->
