@@ -40,7 +40,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/public_key-$(VSN)
 
 ASN_TOP = OTP-PUB-KEY PKCS-FRAME
 ASN_MODULES = PKIX1Explicit88 PKIX1Implicit88 PKIX1Algorithms88 \
-	PKIXAttributeCertificate PKCS-1 PKCS-3 PKCS-8 InformationFramework PKCS5v2-0  OTP-PKIX 
+	PKIXAttributeCertificate PKCS-1 PKCS-3 PKCS-8 PKCS5v2-0  OTP-PKIX 
 ASN_ASNS = $(ASN_MODULES:%=%.asn1)
 ASN_ERLS = $(ASN_TOP:%=%.erl)
 ASN_HRLS = $(ASN_TOP:%=%.hrl)
@@ -117,5 +117,4 @@ OTP-PUB-KEY.asn1db:		PKIX1Algorithms88.asn1 \
 $(EBIN)/PKCS-FRAME.beam: 	        PKCS-FRAME.erl PKCS-FRAME.hrl
 PKCS-FRAME.erl PKCS-FRAME.hrl:			PKCS-FRAME.asn1db
 PKCS-FRAME.asn1db:			PKCS-8.asn1\
-					InformationFramework.asn1\
 					PKCS5v2-0.asn1
