@@ -85,6 +85,7 @@
 #include "erl_drv_nif.h"
 
 #include <stdlib.h>
+#include <string.h>		/* ssize_t on Mac OS X */
 
 #if defined(VXWORKS)
 #  include <ioLib.h>
@@ -183,7 +184,13 @@ typedef long long ErlDrvSInt64;
 #error No 64-bit integer type
 #endif
 
+#if defined(__WIN32__)
+typedef ErlDrvUInt ErlDrvSizeT;
+typedef ErlDrvSInt ErlDrvSSizeT;
+#else
 typedef size_t ErlDrvSizeT;
+typedef ssize_t ErlDrvSSizeT;
+#endif
 
 /*
  * A binary as seen in a driver. Note that a binary should never be
@@ -292,8 +299,8 @@ typedef struct erl_drv_entry {
     void (*stop)(ErlDrvData drv_data);
                                 /* called when port is closed, and when the
 				   emulator is halted. */
-    void (*output)(ErlDrvData drv_data, char *buf, int len);
-				/* called when we have output from erlang to 
+    void (*output)(ErlDrvData drv_data, char *buf, ErlDrvSizeT len);
+				/* called when we have output from erlang to
 				   the port */
     void (*ready_input)(ErlDrvData drv_data, ErlDrvEvent event); 
 				/* called when we have input from one of 
@@ -306,10 +313,10 @@ typedef struct erl_drv_entry {
     void (*finish)(void);        /* called before unloading the driver -
 				   DYNAMIC DRIVERS ONLY */
     void *handle;		/* Reserved -- Used by emulator internally */
-    int (*control)(ErlDrvData drv_data, unsigned int command, char *buf, 
-		   int len, char **rbuf, int rlen); 
-				/* "ioctl" for drivers - invoked by 
-				   port_control/3 */
+    ErlDrvSSizeT (*control)(ErlDrvData drv_data, unsigned int command,
+			    char *buf, ErlDrvSizeT len, char **rbuf,
+			    ErlDrvSizeT rlen); /* "ioctl" for drivers - invoked by
+						  port_control/3 */
     void (*timeout)(ErlDrvData drv_data);	/* Handling of timeout in driver */
     void (*outputv)(ErlDrvData drv_data, ErlIOVec *ev);
 				/* called when we have output from erlang
@@ -320,8 +327,9 @@ typedef struct erl_drv_entry {
 				   closed, and there is data in the 
 				   driver queue that needs to be flushed
 				   before 'stop' can be called */
-    int (*call)(ErlDrvData drv_data, unsigned int command, char *buf, 
-		   int len, char **rbuf, int rlen, unsigned int *flags); 
+    int (*call)(ErlDrvData drv_data,
+		unsigned int command, char *buf, ErlDrvSizeT len,
+		char **rbuf, ErlDrvSizeT rlen, unsigned int *flags);
                                 /* Works mostly like 'control', a synchronous
 				   call into the driver. */
     void (*event)(ErlDrvData drv_data, ErlDrvEvent event,

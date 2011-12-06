@@ -965,13 +965,14 @@ typedef struct {
 
 static int tcp_inet_init(void);
 static void tcp_inet_stop(ErlDrvData);
-static void tcp_inet_command(ErlDrvData, char*, int);
+static void tcp_inet_command(ErlDrvData, char*, ErlDrvSizeT);
 static void tcp_inet_commandv(ErlDrvData, ErlIOVec*);
 static void tcp_inet_flush(ErlDrvData drv_data);
 static void tcp_inet_drv_input(ErlDrvData, ErlDrvEvent);
 static void tcp_inet_drv_output(ErlDrvData data, ErlDrvEvent event);
 static ErlDrvData tcp_inet_start(ErlDrvPort, char* command);
-static int tcp_inet_ctl(ErlDrvData, unsigned int, char*, int, char**, int);
+static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData, unsigned int,
+				 char*, ErlDrvSizeT, char**, ErlDrvSizeT);
 static void tcp_inet_timeout(ErlDrvData);
 static void tcp_inet_process_exit(ErlDrvData, ErlDrvMonitor *); 
 static void inet_stop_select(ErlDrvEvent, void*); 
@@ -1016,15 +1017,15 @@ static struct erl_drv_entry tcp_inet_driver_entry =
 
 static int        packet_inet_init(void);
 static void       packet_inet_stop(ErlDrvData);
-static void       packet_inet_command(ErlDrvData, char*, int);
+static void       packet_inet_command(ErlDrvData, char*, ErlDrvSizeT);
 static void       packet_inet_drv_input(ErlDrvData data, ErlDrvEvent event);
 static void	  packet_inet_drv_output(ErlDrvData data, ErlDrvEvent event);
 static ErlDrvData udp_inet_start(ErlDrvPort, char* command);
 #ifdef HAVE_SCTP
 static ErlDrvData sctp_inet_start(ErlDrvPort, char* command);
 #endif
-static int        packet_inet_ctl(ErlDrvData, unsigned int, char*, 
-				  int, char**, int);
+static ErlDrvSSizeT packet_inet_ctl(ErlDrvData, unsigned int, char*,
+				    ErlDrvSizeT, char**, ErlDrvSizeT);
 static void       packet_inet_timeout(ErlDrvData);
 #ifdef __WIN32__
 static void       packet_inet_event(ErlDrvData, ErlDrvEvent);
@@ -1185,7 +1186,7 @@ static ErlDrvTermData am_tos;
 
 
 static int inet_init(void);
-static int ctl_reply(int, char*, int, char**, int);
+static ErlDrvSSizeT ctl_reply(int, char*, ErlDrvSizeT, char**, ErlDrvSizeT);
 
 struct erl_drv_entry inet_driver_entry = 
 {
@@ -1555,8 +1556,9 @@ static ErlDrvData dummy_start(ErlDrvPort port, char* command)
     return (ErlDrvData)port;
 }
 
-static int dummy_ctl(ErlDrvData data, unsigned int cmd, char* buf, int len,
-		     char** rbuf, int rsize)
+static ErlDrvSSizeT dummy_ctl(ErlDrvData data, unsigned int cmd,
+			      char* buf, ErlDrvSizeT len, char** rbuf,
+			      ErlDrvSizeT rsize)
 {
     static char error[] = "no_winsock2";
 
@@ -1564,7 +1566,7 @@ static int dummy_ctl(ErlDrvData data, unsigned int cmd, char* buf, int len,
     return ctl_reply(INET_REP_ERROR, error, sizeof(error), rbuf, rsize);
 }
 
-static void dummy_command(ErlDrvData data, char* buf, int len)
+static void dummy_command(ErlDrvData data, char* buf, ErlDrvSizeT len)
 {
 }
 
@@ -1621,7 +1623,8 @@ static struct erl_drv_entry dummy_sctp_driver_entry =
 #endif
 
 /* general control reply function */
-static int ctl_reply(int rep, char* buf, int len, char** rbuf, int rsize)
+static ErlDrvSSizeT ctl_reply(int rep, char* buf, ErlDrvSizeT len,
+			      char** rbuf, ErlDrvSizeT rsize)
 {
     char* ptr;
 
@@ -1637,7 +1640,7 @@ static int ctl_reply(int rep, char* buf, int len, char** rbuf, int rsize)
 }
 
 /* general control error reply function */
-static int ctl_error(int err, char** rbuf, int rsize)
+static ErlDrvSSizeT ctl_error(int err, char** rbuf, ErlDrvSizeT rsize)
 {
     char response[256];		/* Response buffer. */
     char* s;
@@ -1648,7 +1651,7 @@ static int ctl_error(int err, char** rbuf, int rsize)
     return ctl_reply(INET_REP_ERROR, response, t-response, rbuf, rsize);
 }
 
-static int ctl_xerror(char* xerr, char** rbuf, int rsize)
+static ErlDrvSSizeT ctl_xerror(char* xerr, char** rbuf, ErlDrvSizeT rsize)
 {
     int n = strlen(xerr);
     return ctl_reply(INET_REP_ERROR, xerr, n, rbuf, rsize);
@@ -3665,7 +3668,8 @@ static int inet_init()
 ** and is set to actual length of dst on return
 ** return NULL on error and ptr after port address on success
 */
-static char* inet_set_address(int family, inet_address* dst, char* src, int* len)
+static char* inet_set_address(int family, inet_address* dst,
+			      char* src, ErlDrvSizeT* len)
 {
     short port;
 
@@ -3701,7 +3705,7 @@ static char* inet_set_address(int family, inet_address* dst, char* src, int* len
 ** src = [TAG,P1,P0,X1,X2,...] when TAG = INET_AF_INET | INET_AF_INET6
 */
 static char *inet_set_faddress(int family, inet_address* dst,
-			       char *src, int* len) {
+			       char *src, ErlDrvSizeT* len) {
     int tag;
     
     if (*len < 1) return NULL;
@@ -3859,8 +3863,8 @@ static int erl_inet_close(inet_descriptor* desc)
 }
 
 
-static int inet_ctl_open(inet_descriptor* desc, int domain, int type, 
-			 char** rbuf, int rsize)
+static ErlDrvSSizeT inet_ctl_open(inet_descriptor* desc, int domain, int type,
+				  char** rbuf, ErlDrvSizeT rsize)
 {
     if (desc->state != INET_STATE_CLOSED)
 	return ctl_xerror(EXBADSEQ, rbuf, rsize);
@@ -3880,8 +3884,8 @@ static int inet_ctl_open(inet_descriptor* desc, int domain, int type,
 
 
 /* as inet_open but pass in an open socket (MUST BE OF RIGHT TYPE) */
-static int inet_ctl_fdopen(inet_descriptor* desc, int domain, int type,
-			   SOCKET s, char** rbuf, int rsize)
+static ErlDrvSSizeT inet_ctl_fdopen(inet_descriptor* desc, int domain, int type,
+				    SOCKET s, char** rbuf, ErlDrvSizeT rsize)
 {
     inet_address name;
     unsigned int sz = sizeof(name);
@@ -4085,14 +4089,15 @@ static char* buf_to_sockaddr(char* ptr, char* end, struct sockaddr* addr)
 
 #if defined(__WIN32__) && defined(SIO_GET_INTERFACE_LIST)
 
-static int inet_ctl_getiflist(inet_descriptor* desc, char** rbuf, int rsize)
+static ErlDrvSSizeT inet_ctl_getiflist(inet_descriptor* desc,
+				       char** rbuf, ErlDrvSizeT rsize)
 {
     char ifbuf[BUFSIZ];
     char sbuf[BUFSIZ];
     char* sptr;
     INTERFACE_INFO* ifp;
     DWORD len;
-    int n;
+    ErlDrvSizeT n;
     int err;
 
     ifp = (INTERFACE_INFO*) ifbuf;
@@ -4122,8 +4127,8 @@ static int inet_ctl_getiflist(inet_descriptor* desc, char** rbuf, int rsize)
 /* input is an ip-address in string format i.e A.B.C.D 
 ** scan the INTERFACE_LIST to get the options 
 */
-static int inet_ctl_ifget(inet_descriptor* desc, char* buf, int len,
-			  char** rbuf, int rsize)
+static ErlDrvSSizeT inet_ctl_ifget(inet_descriptor* desc, char* buf,
+				   ErlDrvSizeT len, char** rbuf, ErlDrvSizeT rsize)
 {
     char ifbuf[BUFSIZ];
     int  n;
@@ -4224,8 +4229,9 @@ static int inet_ctl_ifget(inet_descriptor* desc, char* buf, int len,
 }
 
 /* not supported */
-static int inet_ctl_ifset(inet_descriptor* desc, char* buf, int len,
-			  char** rbuf, int rsize)
+static ErlDrvSSizeT inet_ctl_ifset(inet_descriptor* desc,
+				   char* buf, ErlDrvSizeT len,
+				   char** rbuf, ErlDrvSizeT rsize)
 {
     return ctl_reply(INET_REP_OK, NULL, 0, rbuf, rsize);
 }
@@ -4268,12 +4274,13 @@ static void free_ifconf(struct ifconf *ifcp) {
     FREE(ifcp->ifc_buf);
 }
 
-static int inet_ctl_getiflist(inet_descriptor* desc, char** rbuf, int rsize)
+static ErlDrvSSizeT inet_ctl_getiflist(inet_descriptor* desc,
+				       char** rbuf, ErlDrvSizeT rsize)
 {
     struct ifconf ifc;
     struct ifreq *ifrp;
     char *sbuf, *sp;
-    int i;
+    ErlDrvSizeT i;
 
     /* Courtesy of Per Bergqvist and W. Richard Stevens */
 
@@ -4285,7 +4292,7 @@ static int inet_ctl_getiflist(inet_descriptor* desc, char** rbuf, int rsize)
     *sp++ = INET_REP_OK;
     i = 0;
     for (;;) {
-	int n;
+	ErlDrvSizeT n;
 
 	ifrp = (struct ifreq *) VOIDP(ifc.ifc_buf + i);
 	n = sizeof(ifrp->ifr_name) + SIZEA(ifrp->ifr_addr);
@@ -4341,8 +4348,9 @@ static int hwaddr_libdlpi_lookup(const char *ifnm,
 #define IFHWADDRLEN 6
 #endif
 
-static int inet_ctl_ifget(inet_descriptor* desc, char* buf, int len,
-			  char** rbuf, int rsize)
+static ErlDrvSSizeT inet_ctl_ifget(inet_descriptor* desc,
+				   char* buf, ErlDrvSizeT len,
+				   char** rbuf, ErlDrvSizeT rsize)
 {
     char sbuf[BUFSIZ];
     char* sptr;
@@ -4536,8 +4544,9 @@ static int inet_ctl_ifget(inet_descriptor* desc, char* buf, int len,
 }
 
 
-static int inet_ctl_ifset(inet_descriptor* desc, char* buf, int len,
-			  char** rbuf, int rsize)
+static ErlDrvSSizeT inet_ctl_ifset(inet_descriptor* desc,
+				   char* buf, ErlDrvSizeT len,
+				   char** rbuf, ErlDrvSizeT rsize)
 {
     struct ifreq ifreq;
     int namlen;
@@ -4560,19 +4569,19 @@ static int inet_ctl_ifset(inet_descriptor* desc, char* buf, int len,
 	    break;
 
 	case INET_IFOPT_HWADDR: {
-	    unsigned int len;
+	    unsigned int hwalen;
 	    buf_check(buf, b_end, 2);
-	    len = get_int16(buf); buf += 2;
-	    buf_check(buf, b_end, len);
+	    hwalen = get_int16(buf); buf += 2;
+	    buf_check(buf, b_end, hwalen);
 #ifdef SIOCSIFHWADDR
 	    /* raw memcpy (fix include autoconf later) */
 	    sys_memset((char*)(&ifreq.ifr_hwaddr.sa_data),
 		       '\0', sizeof(ifreq.ifr_hwaddr.sa_data));
-	    sys_memcpy((char*)(&ifreq.ifr_hwaddr.sa_data), buf, len);
+	    sys_memcpy((char*)(&ifreq.ifr_hwaddr.sa_data), buf, hwalen);
 
 	    (void) ioctl(desc->s, SIOCSIFHWADDR, (char *)&ifreq);
 #endif
-	    buf += len;
+	    buf += hwalen;
 	    break;
 	}
 
@@ -4658,21 +4667,24 @@ static int inet_ctl_ifset(inet_descriptor* desc, char* buf, int len,
 #else
 
 
-static int inet_ctl_getiflist(inet_descriptor* desc, char** rbuf, int rsize)
+static ErlDrvSSizeT inet_ctl_getiflist(inet_descriptor* desc,
+				       char** rbuf, ErlDrvSizeT rsize)
 {
     return ctl_reply(INET_REP_OK, NULL, 0, rbuf, rsize);
 }
 
 
-static int inet_ctl_ifget(inet_descriptor* desc, char* buf, int len,
-			  char** rbuf, int rsize)
+static ErlDrvSSizeT inet_ctl_ifget(inet_descriptor* desc,
+				   char* buf, ErlDrvSizeT len,
+				   char** rbuf, ErlDrvSizeT rsize)
 {
     return ctl_reply(INET_REP_OK, NULL, 0, rbuf, rsize);
 }
 
 
-static int inet_ctl_ifset(inet_descriptor* desc, char* buf, int len,
-			  char** rbuf, int rsize)
+static ErlDrvSSizeT inet_ctl_ifset(inet_descriptor* desc,
+				   char* buf, ErlDrvSizeT len,
+				   char** rbuf, ErlDrvSizeT rsize)
 {
     return ctl_reply(INET_REP_OK, NULL, 0, rbuf, rsize);
 }
@@ -4729,8 +4741,8 @@ int eq_masked_bytes(char *a, char *b, int pref_len) {
     return !0;
 }
 
-static int inet_ctl_getifaddrs(inet_descriptor* desc_p,
-			       char **rbuf_pp, int rsize)
+static ErlDrvSSizeT inet_ctl_getifaddrs(inet_descriptor* desc_p,
+					char **rbuf_pp, ErlDrvSizeT rsize)
 {
     int i;
     DWORD ret, n;
@@ -4740,7 +4752,7 @@ static int inet_ctl_getifaddrs(inet_descriptor* desc_p,
 
     char *buf_p;
     char *buf_alloc_p;
-    int buf_size =512;
+    ErlDrvSizeT buf_size = 512;
 #   define BUF_ENSURE(Size)						\
     do {								\
 	int NEED_, GOT_ = buf_p - buf_alloc_p;				\
@@ -5114,12 +5126,12 @@ done:
 
 #elif defined(HAVE_GETIFADDRS)
 
-static int inet_ctl_getifaddrs(inet_descriptor* desc_p,
-			       char **rbuf_pp, int rsize)
+static ErlDrvSSizeT inet_ctl_getifaddrs(inet_descriptor* desc_p,
+					char **rbuf_pp, ErlDrvSizeT rsize)
 {
     struct ifaddrs *ifa_p, *ifa_free_p;
 
-    int buf_size;
+    ErlDrvSizeT buf_size;
     char *buf_p;
     char *buf_alloc_p;
 
@@ -5222,8 +5234,8 @@ static int inet_ctl_getifaddrs(inet_descriptor* desc_p,
 
 #else
 
-static int inet_ctl_getifaddrs(inet_descriptor* desc_p,
-			       char **rbuf_pp, int rsize)
+static ErlDrvSSizeT inet_ctl_getifaddrs(inet_descriptor* desc_p,
+					char **rbuf_pp, ErlDrvSizeT rsize)
 {
     return ctl_error(ENOTSUP, rbuf_pp, rsize);
 }
@@ -6024,7 +6036,7 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	case SCTP_OPT_PRIMARY_ADDR:
 	case SCTP_OPT_SET_PEER_PRIMARY_ADDR:
 	{
-	    int alen;
+	    ErlDrvSizeT alen;
 	    char *after;
 	    
 	    CHKLEN(curr, ASSOC_ID_LEN);
@@ -6066,7 +6078,7 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	}
 	case SCTP_OPT_PEER_ADDR_PARAMS:
 	{
-	    int alen;
+	    ErlDrvSizeT alen;
 	    char *after;
 #	    ifdef HAVE_STRUCT_SCTP_PADDRPARAMS_SPP_FLAGS
 	    int eflags, cflags, hb_enable, hb_disable,
@@ -6242,8 +6254,9 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 ** ptr should point to a buffer with 9*len +1 to be safe!!
 */
 
-static int inet_fill_opts(inet_descriptor* desc,
-			  char* buf, int len, char** dest, int destlen)
+static ErlDrvSSizeT inet_fill_opts(inet_descriptor* desc,
+				   char* buf, ErlDrvSizeT len,
+				   char** dest, ErlDrvSizeT destlen)
 {
     int type;
     int proto;
@@ -6253,8 +6266,8 @@ static int inet_fill_opts(inet_descriptor* desc,
     char* arg_ptr;
     unsigned int arg_sz;
     char *ptr = NULL;
-    int dest_used = 0;
-    int dest_allocated = destlen;
+    ErlDrvSizeT dest_used = 0;
+    ErlDrvSizeT dest_allocated = destlen;
     char *orig_dest = *dest;
 
     /* Ptr is a name parameter */ 
@@ -6269,7 +6282,7 @@ static int inet_fill_opts(inet_descriptor* desc,
 
 #define PLACE_FOR(Size,Ptr)						   \
     do {								   \
-	int need = dest_used + (Size);					   \
+	ErlDrvSizeT need = dest_used + (Size);					   \
 	if (need > INET_MAX_OPT_BUFFER) {				   \
 	    RETURN_ERROR();						   \
 	}								   \
@@ -6290,7 +6303,7 @@ static int inet_fill_opts(inet_descriptor* desc,
     /* Ptr is a name parameter */ 
 #define TRUNCATE_TO(Size,Ptr)				\
     do {						\
-	int new_need = ((Ptr) - (*dest)) + (Size);	\
+	ErlDrvSizeT new_need = ((Ptr) - (*dest)) + (Size);	\
 	if (new_need > dest_used) {			\
 	    erl_exit(1,"Internal error in inet_drv, "	\
 		     "miscalculated buffer size");	\
@@ -6580,8 +6593,9 @@ static int load_paddrinfo (ErlDrvTermData * spec, int i,
 /*
 **  "sctp_fill_opts":   Returns {ok, Results}, or an error:
 */
-static int sctp_fill_opts(inet_descriptor* desc, char* buf, int buflen,
-			  char** dest, int destlen)
+static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
+				   char* buf, ErlDrvSizeT buflen,
+				   char** dest, ErlDrvSizeT destlen)
 {
     /* In contrast to the generic "inet_fill_opts", the output here is
        represented by tuples/records, which are formed in the "spec":
@@ -6971,7 +6985,7 @@ static int sctp_fill_opts(inet_descriptor* desc, char* buf, int buflen,
 	    unsigned int             sz = sizeof(ap);
 	    int                      n;
 	    char                    *after;
-	    int                      alen;
+	    ErlDrvSizeT              alen;
 	    
 	    if (buflen < ASSOC_ID_LEN) RETURN_ERROR(spec, -EINVAL);
 	    ap.spp_assoc_id = GET_ASSOC_ID(buf);
@@ -7211,7 +7225,7 @@ static int sctp_fill_opts(inet_descriptor* desc, char* buf, int buflen,
 	    struct sctp_paddrinfo  pai;
 	    unsigned int           sz = sizeof(pai);
 	    char                  *after;
-	    int                    alen;
+	    ErlDrvSizeT            alen;
 	    
 	    if (buflen < ASSOC_ID_LEN) RETURN_ERROR(spec, -EINVAL);
 	    pai.spinfo_assoc_id = GET_ASSOC_ID(buf);
@@ -7268,7 +7282,8 @@ static int sctp_fill_opts(inet_descriptor* desc, char* buf, int buflen,
 /* fill statistics reply, op codes from src and result in dest
 ** dst area must be a least 5*len + 1 bytes
 */
-static int inet_fill_stat(inet_descriptor* desc, char* src, int len, char* dst)
+static ErlDrvSSizeT inet_fill_stat(inet_descriptor* desc,
+				   char* src, ErlDrvSizeT len, char* dst)
 {
     unsigned long val;
     int op;
@@ -7346,7 +7361,8 @@ send_empty_out_q_msgs(inet_descriptor* desc)
 /* subscribe and fill subscription reply, op codes from src and
 ** result in dest dst area must be a least 5*len + 1 bytes
 */
-static int inet_subscribe(inet_descriptor* desc, char* src, int len, char* dst)
+static ErlDrvSSizeT inet_subscribe(inet_descriptor* desc,
+				   char* src, ErlDrvSizeT len, char* dst)
 {
     unsigned long val;
     int op;
@@ -7446,14 +7462,14 @@ static ErlDrvData inet_start(ErlDrvPort port, int size, int protocol)
 /*
 ** common TCP/UDP/SCTP control command
 */
-static int inet_ctl(inet_descriptor* desc, int cmd, char* buf, int len,
-		    char** rbuf, int rsize)
+static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
+			     ErlDrvSizeT len, char** rbuf, ErlDrvSizeT rsize)
 {
     switch (cmd) {
 
     case INET_REQ_GETSTAT: {
 	  char* dst;
-	  int i;
+	  ErlDrvSizeT i;
 	  int dstlen = 1;  /* Reply code */
 
 	  for (i = 0; i < len; i++) {
@@ -7493,7 +7509,7 @@ static int inet_ctl(inet_descriptor* desc, int cmd, char* buf, int len,
       }
 
     case INET_REQ_GETOPTS: {    /* get options */
-	int replen;
+	ErlDrvSSizeT replen;
 	DEBUGF(("inet_ctl(%ld): GETOPTS\r\n", (long)desc->port)); 
 #ifdef HAVE_SCTP
         if (IS_SCTP(desc))
@@ -7824,7 +7840,7 @@ static void inet_output_count(inet_descriptor* desc, ErlDrvSizeT len)
 }
 
 /* update statistics on input packets */
-static void inet_input_count(inet_descriptor* desc, int len)
+static void inet_input_count(inet_descriptor* desc, ErlDrvSizeT len)
 {
     unsigned long n = desc->recv_cnt + 1;
     unsigned long t = desc->recv_oct[0] + len;
@@ -8115,8 +8131,9 @@ static void tcp_inet_stop(ErlDrvData e)
     
 
 /* TCP requests from Erlang */
-static int tcp_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
-			char** rbuf, int rsize)
+static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
+				 char* buf, ErlDrvSizeT len,
+				 char** rbuf, ErlDrvSizeT rsize)
 {
     tcp_descriptor* desc = (tcp_descriptor*)e;
 
@@ -8517,7 +8534,7 @@ static void tcp_inet_multi_timeout(ErlDrvData e, ErlDrvTermData caller)
 ** but distribution still uses the tcp_inet_command!!
 */
 
-static void tcp_inet_command(ErlDrvData e, char *buf, int len)
+static void tcp_inet_command(ErlDrvData e, char *buf, ErlDrvSizeT len)
 {
     tcp_descriptor* desc = (tcp_descriptor*)e;
     desc->inet.caller = driver_caller(desc->inet.port);
@@ -9816,10 +9833,10 @@ static int packet_error(udp_descriptor* udesc, int err)
 /*
 ** Various functions accessible via "port_control" on the Erlang side:
 */
-static int packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
-			   char** rbuf, int rsize)
+static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
+				    ErlDrvSizeT len, char** rbuf, ErlDrvSizeT rsize)
 {
-    int replen;
+    ErlDrvSSizeT replen;
     udp_descriptor * udesc = (udp_descriptor *) e;
     inet_descriptor* desc  = INETP(udesc);
     int type = SOCK_DGRAM;
@@ -9929,7 +9946,6 @@ static int packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 	DEBUGF(("packet_inet_ctl(%ld): CLOSE\r\n", (long)desc->port)); 
 	erl_inet_close(desc);
 	return ctl_reply(INET_REP_OK, NULL, 0, rbuf, rsize);
-	return 0;
 
 
     case INET_REQ_CONNECT:  {
@@ -10075,7 +10091,7 @@ static int packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 		    /* List item format: Port(2), IP(4|16) -- compatible with
 		       "inet_set_address": */
 		    inet_address tmp;
-		    int  alen  = buf + len - curr;
+		    ErlDrvSizeT alen  = buf + len - curr;
 		    curr = inet_set_address(desc->sfamily, &tmp, curr, &alen);
 		    if (curr == NULL)
 			return ctl_error(EINVAL, rbuf, rsize);
@@ -10200,13 +10216,13 @@ static void packet_inet_timeout(ErlDrvData e)
 ** There is no destination address -- SCTYP send is performed over
 ** an existing association, using "sctp_sndrcvinfo" specified.
 */
-static void packet_inet_command(ErlDrvData e, char* buf, int len)
+static void packet_inet_command(ErlDrvData e, char* buf, ErlDrvSizeT len)
 {
     udp_descriptor * udesc= (udp_descriptor*) e;
     inet_descriptor* desc = INETP(udesc);
     char* ptr		  = buf;
     char* qtr;
-    int sz;
+    ErlDrvSizeT sz;
     int code;
     inet_address other;
 
@@ -10224,7 +10240,7 @@ static void packet_inet_command(ErlDrvData e, char* buf, int len)
 #ifdef HAVE_SCTP
     if (IS_SCTP(desc))
     {
-	int           data_len;
+	ErlDrvSizeT   data_len;
 	struct iovec  iov[1];		 /* For real data            */
 	struct msghdr mhdr;		 /* Message wrapper          */
 	struct sctp_sndrcvinfo *sri;     /* The actual ancilary data */
@@ -10971,7 +10987,7 @@ int erts_sock_connect(erts_sock_t socket, byte *ip_addr, int len, Uint16 port)
 {
     SOCKET s = (SOCKET) socket;
     char buf[2 + 4];
-    int blen = 6;
+    ErlDrvSizeT blen = 6;
     inet_address addr;
 
     if (socket == ERTS_SOCK_INVALID_SOCKET || len != 4)

@@ -323,12 +323,15 @@ struct erts_driver_t_ {
     void (*stop)(ErlDrvData drv_data);
     void (*finish)(void);
     void (*flush)(ErlDrvData drv_data);
-    void (*output)(ErlDrvData drv_data, char *buf, int len);
+    void (*output)(ErlDrvData drv_data, char *buf, ErlDrvSizeT len);
     void (*outputv)(ErlDrvData drv_data, ErlIOVec *ev); /* Might be NULL */
-    int (*control)(ErlDrvData drv_data, unsigned int command, char *buf, 
-		   int len, char **rbuf, int rlen); /* Might be NULL */
-    int (*call)(ErlDrvData drv_data, unsigned int command, char *buf, 
-		int len, char **rbuf, int rlen, unsigned int *flags); /* Might be NULL */ 
+    ErlDrvSSizeT (*control)(ErlDrvData drv_data, unsigned int command,
+			    char *buf, ErlDrvSizeT len,
+			    char **rbuf, ErlDrvSizeT rlen); /* Might be NULL */
+    int (*call)(ErlDrvData drv_data, unsigned int command,
+		char *buf, ErlDrvSizeT len,
+		char **rbuf, ErlDrvSizeT rlen, /* Might be NULL */
+		unsigned int *flags);
     void (*event)(ErlDrvData drv_data, ErlDrvEvent event,
 		  ErlDrvEventData event_data);
     void (*ready_input)(ErlDrvData drv_data, ErlDrvEvent event); 

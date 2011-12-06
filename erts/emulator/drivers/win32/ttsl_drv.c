@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1996-2009. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -83,8 +83,9 @@ int lpos;                       /* The current "cursor position" in the line buf
 static int ttysl_init(void);
 static ErlDrvData ttysl_start(ErlDrvPort, char*);
 static void ttysl_stop(ErlDrvData);
-static int ttysl_control(ErlDrvData, unsigned int, char *, int, char **, int);
-static void ttysl_from_erlang(ErlDrvData, char*, int);
+static ErlDrvSSizeT ttysl_control(ErlDrvData, unsigned int,
+				  char *, ErlDrvSizeT, char **, ErlDrvSizeT);
+static void ttysl_from_erlang(ErlDrvData, char*, ErlDrvSizeT);
 static void ttysl_from_tty(ErlDrvData, ErlDrvEvent);
 static Sint16 get_sint16(char *s);
 
@@ -154,13 +155,13 @@ static void ttysl_get_window_size(Uint32 *width, Uint32 *height)
 }
     
 
-static int ttysl_control(ErlDrvData drv_data,
+static ErlDrvSSizeT ttysl_control(ErlDrvData drv_data,
 			 unsigned int command,
-			 char *buf, int len,
-			 char **rbuf, int rlen)
+			 char *buf, ErlDrvSizeT len,
+			 char **rbuf, ErlDrvSizeT rlen)
 {
     char resbuff[2*sizeof(Uint32)];
-    int res_size;
+    ErlDrvSizeT res_size;
     switch (command) {
     case CTRL_OP_GET_WINSIZE:
 	{
@@ -176,7 +177,7 @@ static int ttysl_control(ErlDrvData drv_data,
 	res_size = 1;
 	break;
     case CTRL_OP_SET_UNICODE_STATE:
-	if (len > 0) {
+	if (len != 0) {
 	    int m = (int) *buf;
 	    *resbuff = (utf8_mode) ? 1 : 0;
 	    res_size = 1;
@@ -438,14 +439,14 @@ static int check_buf_size(byte *s, int n)
 }
 
 
-static void ttysl_from_erlang(ErlDrvData ttysl_data, char* buf, int count)
+static void ttysl_from_erlang(ErlDrvData ttysl_data, char* buf, ErlDrvSizeT count)
 {
     if (lpos > MAXSIZE) 
 	put_chars((byte*)"\n", 1);
 
     switch (buf[0]) {
     case OP_PUTC:
-	DEBUGLOG(("OP: Putc(%d)",count-1));
+	DEBUGLOG(("OP: Putc(%I64u)",(unsigned long long)count-1));
 	if (check_buf_size((byte*)buf+1, count-1) == 0)
 	    return; 
 	put_chars((byte*)buf+1, count-1);

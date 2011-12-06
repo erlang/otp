@@ -828,13 +828,13 @@ io_list_to_vec(Eterm obj,	/* io-list */
 	       SysIOVec* iov,	/* io vector */
 	       ErlDrvBinary** binv, /* binary reference vector */
 	       ErlDrvBinary* cbin, /* binary to store characters */
-	       int bin_limit)	/* small binaries limit */
+	       ErlDrvSizeT bin_limit)	/* small binaries limit */
 {
     DECLARE_ESTACK(s);
     Eterm* objp;
     char *buf  = cbin->orig_bytes;
-    int len    = cbin->orig_size;
-    int csize  = 0;
+    ErlDrvSizeT len = cbin->orig_size;
+    ErlDrvSizeT csize  = 0;
     int vlen   = 0;
     char* cptr = buf;
 
@@ -874,7 +874,7 @@ io_list_to_vec(Eterm obj,	/* io-list */
 	    Eterm real_bin;
 	    Uint offset;
 	    Eterm* bptr;
-	    int size;
+	    ErlDrvSizeT size;
 	    int bitoffs;
 	    int bitsize;
 
@@ -949,7 +949,7 @@ io_list_to_vec(Eterm obj,	/* io-list */
 
 #define IO_LIST_VEC_COUNT(obj)						\
 do {									\
-    int _size = binary_size(obj);					\
+    ErlDrvSizeT _size = binary_size(obj);				\
     Eterm _real;							\
     ERTS_DECLARE_DUMMY(Uint _offset);					\
     int _bitoffs;							\
@@ -1104,7 +1104,7 @@ int erts_write_to_port(Eterm caller_id, Port *p, Eterm list)
 	Uint csize;
 	Uint pvsize;
 	Uint pcsize;
-	int blimit;
+	ErlDrvSizeT blimit;
 	SysIOVec iv[SMALL_WRITE_VEC];
 	ErlDrvBinary* bv[SMALL_WRITE_VEC];
 	SysIOVec* ivp;
@@ -2156,8 +2156,9 @@ erts_port_control(Process* p, Port* prt, Uint command, Eterm iolist)
     int must_free = 0;		/* True if the buffer should be freed. */
     char port_result[ERL_ONHEAP_BIN_LIMIT];  /* Default buffer for result from port. */
     char* port_resp;		/* Pointer to result buffer. */
-    int n;
-    int (*control)(ErlDrvData, unsigned, char*, int, char**, int);
+    ErlDrvSSizeT n;
+    ErlDrvSSizeT (*control)
+	(ErlDrvData, unsigned, char*, ErlDrvSizeT, char**, ErlDrvSizeT);
     int fpe_was_unmasked;
 
     ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
@@ -4762,7 +4763,7 @@ get_current_port(void)
  */
 
 static void
-no_output_callback(ErlDrvData drv_data, char *buf, int len)
+no_output_callback(ErlDrvData drv_data, char *buf, ErlDrvSizeT len)
 {
 
 }
