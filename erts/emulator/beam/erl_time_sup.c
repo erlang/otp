@@ -648,7 +648,36 @@ static time_t gregday(Sint year, Sint month, Sint day)
   return ndays - 135140;        /* 135140 = Jan 1, 1970 */
 }
 
+#define SECONDS_PER_MINUTE  (60)
+#define SECONDS_PER_HOUR    (60 * SECONDS_PER_MINUTE)
+#define SECONDS_PER_DAY     (24 * SECONDS_PER_HOUR)
+#define SECONDS_PER_YEAR    (86400)
 
+
+int univ_to_seconds(Sint year, Sint month, Sint day, Sint hour, Sint minute, Sint second, Sint64 *time) {
+    Sint days;
+
+    if (!(IN_RANGE(1600, year, INT_MAX - 1) &&
+          IN_RANGE(1, month, 12) &&
+          IN_RANGE(1, day, (mdays[month] + 
+                             (month == 2 
+                              && (year % 4 == 0) 
+                              && (year % 100 != 0 || year % 400 == 0)))) &&
+          IN_RANGE(0, hour, 23) &&
+          IN_RANGE(0, minute, 59) &&
+          IN_RANGE(0, second, 59))) {
+      return 0;
+    }
+ 
+    days   = gregday(year, month, day);
+    *time  = SECONDS_PER_DAY;
+    *time *= days;             /* don't try overflow it, it hurts */
+    *time += SECONDS_PER_HOUR * hour;
+    *time += SECONDS_PER_MINUTE * minute;
+    *time += second;
+
+    return 1;
+}
 
 int 
 local_to_univ(Sint *year, Sint *month, Sint *day, 

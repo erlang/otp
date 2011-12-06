@@ -806,6 +806,12 @@ bif file:native_name_encoding/0
 #
 bif erlang:check_old_code/1
 
+
+#
+# New in R15B
+#
+bif erlang:universaltime_to_seconds/1
+bif erlang:seconds_to_universaltime/1
 #
 # Obsolete
 #

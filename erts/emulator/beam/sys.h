@@ -668,6 +668,9 @@ void get_universaltime(int *year, int *month, int *day,
 		       int *hour, int *minute, int *second);
 int univ_to_local(Sint *year, Sint *month, Sint *day, 
 		  Sint *hour, Sint *minute, Sint *second);
+int univ_to_seconds(Sint year, Sint month, Sint day, 
+		    Sint hour, Sint minute, Sint second,
+		    Sint64* seconds);
 int local_to_univ(Sint *year, Sint *month, Sint *day, 
 		  Sint *hour, Sint *minute, Sint *second, int isdst);
 void get_now(Uint*, Uint*, Uint*);
