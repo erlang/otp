@@ -267,9 +267,9 @@ read_file(Name) ->
 make_link(Old, New) ->
     check_and_call(make_link, [file_name(Old), file_name(New)]).
 
--spec make_symlink(Name1, Name2) -> ok | {error, Reason} when
-      Name1 :: name(),
-      Name2 :: name(),
+-spec make_symlink(Existing, New) -> ok | {error, Reason} when
+      Existing :: name(),
+      New :: name(),
       Reason :: posix() | badarg.
 
 make_symlink(Old, New) ->

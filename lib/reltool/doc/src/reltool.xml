@@ -640,7 +640,7 @@ target_spec()       = [target_spec()]
     </func>
 
     <func>
-      <name>get_target_spec(Server) -> {ok, targetSpec} | {error, Reason}</name>
+      <name>get_target_spec(Server) -> {ok, TargetSpec} | {error, Reason}</name>
       <fsummary>Return a specification of the target system</fsummary>
       <type>
         <v>Server     = server()</v>

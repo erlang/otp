@@ -317,7 +317,7 @@
       "in storage" (indicated by the transaction id) it is assumed to 
       be a resend and everything stored is sent. This could happen if 
       the values of the <c><![CDATA[trans_timer]]></c> and the
-      <c><![CDATA[request_timer]]></c> is not properly choosen.</p>
+      <c><![CDATA[request_timer]]></c> is not properly chosen.</p>
   </section>
 
   <section>

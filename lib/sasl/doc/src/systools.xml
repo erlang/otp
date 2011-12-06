@@ -198,7 +198,7 @@
           the order in the <c>.rel</c> file is kept.</p>
 	<p>If <c>sasl</c> is not included as an application in
 	  the <c>.rel</c> file, a warning is emitted because such a
-	  release can not be used in an upgrade. To turn of this
+	  release can not be used in an upgrade. To turn off this
 	  warning, add the option <c>no_warn_sasl</c>.</p>
         <p>All files are searched for in the current path. It is
           assumed that the <c>.app</c> and <c>.beam</c> files for an

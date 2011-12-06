@@ -766,9 +766,9 @@ run_in_short_tempdir(Config, Fun) ->
     %% We need a base directory with a much shorter pathname than
     %% priv_dir. We KNOW that priv_dir is located four levels below
     %% the directory that common_test puts the ct_run.* directories
-    %% in. That fact is not documented, but an usually reliable source
+    %% in. That fact is not documented, but a usually reliable source
     %% assured me that the directory structure is unlikely to change
-    %% in future versions of common_test because of backward
+    %% in future versions of common_test because of backwards
     %% compatibility (tools developed by users of common_test depend
     %% on the current directory layout).
     Base = lists:foldl(fun(_, D) ->

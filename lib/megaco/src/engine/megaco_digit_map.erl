@@ -362,7 +362,7 @@ collect(Event, State, Timers, STL, Letters) ->
 	       "~n   Timers2:  ~p"
 	       "~n   Letters2: ~p", [State2, Timers2, Letters2]),
 	    MaxWait = choose_timer(State2, Event, Timers2),
-	    ?d("collect -> Timer choosen: "
+	    ?d("collect -> Timer chosen: "
 	       "~n   MaxWait: ~p", [MaxWait]),
 	    receive
 		{?MODULE, _FromPid, Event2} ->
@@ -737,7 +737,7 @@ compute_cont([Next | Cont] = All, Mode, GlobalMode, State, STL) ->
        "~n   Mode:       ~p"
        "~n   GlobalMode: ~p", [Next, Mode, GlobalMode]),
     case Next of
-	%% Retain long timer if that has already been choosen
+	%% Retain long timer if that has already been chosen
 	use_short_timer when GlobalMode =:= use_long_timer ->
 	    compute_cont(Cont, Mode, GlobalMode, State, STL);
 	use_short_timer ->

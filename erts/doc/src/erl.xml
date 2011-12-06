@@ -679,7 +679,7 @@
 	      <tag><c>ts</c></tag>
               <item>
                 <p><c>thread_spread</c> - Thread refers to hardware threads
-		(e.g. Intels hyper-threads). Schedulers with low scheduler
+		(e.g. Intel's hyper-threads). Schedulers with low scheduler
 		identifiers, will be bound to the first hardware thread of
 		each core, then schedulers with higher scheduler identifiers
 		will be bound to the second hardware thread of each core,
@@ -794,7 +794,7 @@
               <item><c><![CDATA[<IdDefs> = <LogicalIds><ThreadIds><CoreIds><ProcessorIds><NodeIds> | <LogicalIds><ThreadIds><CoreIds><NodeIds><ProcessorIds>]]></c></item>
               <item><c><![CDATA[CpuTopology = <IdDefs>:<IdDefs> | <IdDefs>]]></c></item>
             </list>
-            <p>Set a user defined CPU topolgy. The user defined
+            <p>Set a user defined CPU topology. The user defined
 	       CPU topology will override any automatically detected
 	       CPU topology. The CPU topology is used when
 	       <seealso marker="#+sbt">binding schedulers to logical

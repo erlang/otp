@@ -203,7 +203,7 @@
     <func>
       <name>format(Format) -> ok</name>
       <name>format(Format, Args)</name>
-      <name>format(Pri,Format)</name>
+      <name>format(Pri, Format)</name>
       <name>format(Pri, Format, Args)</name>
       <fsummary></fsummary>
       <type>

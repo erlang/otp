@@ -563,12 +563,12 @@ number &lt; atom &lt; reference &lt; fun &lt; port &lt; pid &lt; tuple &lt; list
       element.</p>
       <p>When comparing an integer to a float, the term with the lesser
       precision will be converted into the other term's type, unless the
-      operator is one of =:= and =/=. A float is more precise than
+      operator is one of =:= or =/=. A float is more precise than
       an integer until all significant figures of the float are to the left of
-      the decimal point. This happens when the float is larger/smaller then
+      the decimal point. This happens when the float is larger/smaller than
       +/-9007199254740992.0. The conversion strategy is changed
       depending on the size of the float because otherwise comparison of large
-      floats and integers would loose their transitivity.</p>
+      floats and integers would lose their transitivity.</p>
 
     <p>Returns the Boolean value of the expression, <c>true</c> or
       <c>false</c>.</p>

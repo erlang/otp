@@ -2866,7 +2866,7 @@ os_prompt%</pre>
 	      <p>For external programs, the <c>PATH</c> is searched
 	      (or an equivalent method is used to find programs,
 	      depending on operating system). This is done by invoking
-	      the shell och certain platforms. The first space
+	      the shell on certain platforms. The first space
 	      separated token of the command will be considered as the
 	      name of the executable (or driver). This (among other
 	      things) makes this option unsuitable for running

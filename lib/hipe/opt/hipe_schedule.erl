@@ -797,7 +797,7 @@ dep_arc(N, Lat, M, {Dag,Preds}) ->
 %% Returns     : A dependence graph sorted by To. 
 %% Description : A new arc that is added is sorted in the right place, and if
 %%               there is already an arc between nodes A and B, the one with 
-%%               the greatest latency is choosen.
+%%               the greatest latency is chosen.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 add_arc(Lat,To, []) -> {[{Lat, To}], added};
 add_arc(Lat1, To, [{Lat2, To} | Arcs]) ->

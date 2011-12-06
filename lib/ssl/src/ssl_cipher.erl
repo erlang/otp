@@ -166,7 +166,7 @@ block_decipher(Fun, #cipher_state{key=Key, iv=IV} = CipherState0,
 	    false ->
 		%% decryption failed or invalid padding,
 		%% intentionally break Content to make
-		%% sure a packet with a an invalid padding
+		%% sure a packet with invalid padding
 		%% but otherwise correct data will fail
 		%% the MAC test later
 		{<<16#F0, Content/binary>>, Mac, CipherState1}
@@ -523,7 +523,7 @@ hash_size(sha) ->
 %%
 %% implementation note:
 %%   We return the original (possibly invalid) PadLength in any case.
-%%   A invalid PadLength will be cought by is_correct_padding/2
+%%   An invalid PadLength will be caught by is_correct_padding/2
 %%
 generic_block_cipher_from_bin(T, HashSize) ->
     Sz1 = byte_size(T) - 1,
