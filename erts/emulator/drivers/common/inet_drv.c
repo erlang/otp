@@ -6189,7 +6189,7 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    proto   = IPPROTO_SCTP;
 	    type    = SCTP_DELAYED_ACK_TIME;
 	    arg_ptr = (char*) (&arg.av);
-	    arg_sz  = sizeof  ( arg.es);
+	    arg_sz  = sizeof  ( arg.av);
 	    break;
 	}
 #	endif
