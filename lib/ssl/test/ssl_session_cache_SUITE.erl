@@ -225,9 +225,10 @@ session_cleanup(Config)when is_list(Config) ->
     check_timer(SessionTimer),
     test_server:sleep(?DELAY *2),  %% Delay time + some extra time
 
-    DelayTimer = get_delay_timer(),
+    {ServerDelayTimer, ClientDelayTimer} = get_delay_timers(),
 
-    check_timer(DelayTimer),
+    check_timer(ServerDelayTimer),
+    check_timer(ClientDelayTimer),
 
     test_server:sleep(?SLEEP),  %% Make sure clean has had time to run
 
@@ -250,16 +251,22 @@ check_timer(Timer) ->
 	    check_timer(Timer)
     end.
 
-get_delay_timer() ->
+get_delay_timers() ->
     {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
     [_, _,_, _, Prop] = StatusInfo,
     State = ssl_test_lib:state(Prop),
     case element(7, State) of
-	undefined ->
+	{undefined, undefined} ->
 	    test_server:sleep(?SLEEP),
-	    get_delay_timer();
-	DelayTimer ->
-	    DelayTimer
+	    get_delay_timers();
+	{undefined, _} ->
+	    test_server:sleep(?SLEEP),
+	    get_delay_timers();
+	{_, undefined} ->
+	    test_server:sleep(?SLEEP),
+	    get_delay_timers();
+	DelayTimers ->
+	    DelayTimers
     end.
 %%--------------------------------------------------------------------
 session_cache_process_list(doc) ->

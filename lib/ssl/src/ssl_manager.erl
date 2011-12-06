@@ -51,7 +51,7 @@
 	  session_lifetime,
 	  certificate_db,
 	  session_validation_timer,
-	  last_delay_timer %% Keep for testing purposes
+	  last_delay_timer  = {undefined, undefined}%% Keep for testing purposes
 	 }).
 
 -define('24H_in_msec', 8640000).
@@ -427,7 +427,7 @@ delay_time() ->
 	   ?CLEAN_SESSION_DB
     end.
 
-invalidate_session(Cache, CacheCb, Key, Session, State) ->
+invalidate_session(Cache, CacheCb, Key, Session, #state{last_delay_timer = LastTimer} = State) ->
     case CacheCb:lookup(Cache, Key) of
 	undefined -> %% Session is already invalidated
 	    {noreply, State};
@@ -441,5 +441,10 @@ invalidate_session(Cache, CacheCb, Key, Session, State) ->
 	    CacheCb:update(Cache, Key, Session#session{is_resumable = false}),
 	    TRef =
 		erlang:send_after(delay_time(), self(), {delayed_clean_session, Key}),
-	    {noreply, State#state{last_delay_timer = TRef}}
+	    {noreply, State#state{last_delay_timer = last_delay_timer(Key, TRef, LastTimer)}}
     end.
+
+last_delay_timer({{_,_},_}, TRef, {LastServer, _}) ->
+    {LastServer, TRef};
+last_delay_timer({_,_}, TRef, {_, LastClient}) ->
+    {TRef, LastClient}.
