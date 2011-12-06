@@ -472,7 +472,7 @@ au_conf_alloc(#conf{format_to = FTO} = Conf,
 	_ ->
 	    fc(FTO, "~p instances used.",
 	       [Insts]),
-	    format(FTO, " +M~ct ~p~n", [alloc_char(A), Insts])
+	    format(FTO, " +M~ct true~n", [alloc_char(A)])
     end,	    
     mmbcs(Conf, Alc),
     smbcs_lmbcs_mmmbc(Conf, Alc),
