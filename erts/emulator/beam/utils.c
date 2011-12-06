@@ -2865,9 +2865,9 @@ store_external_or_ref_in_proc_(Process *proc, Eterm ns)
     return store_external_or_ref_(&hp, &MSO(proc), ns);
 }
 
-void bin_write(int to, void *to_arg, byte* buf, int sz)
+void bin_write(int to, void *to_arg, byte* buf, size_t sz)
 {
-    int i;
+    size_t i;
 
     for (i=0;i<sz;i++) {
 	if (IS_DIGIT(buf[i]))
@@ -2942,15 +2942,15 @@ char* Sint_to_buf(Sint n, struct Sint_buf *buf)
 */
 
 Eterm
-buf_to_intlist(Eterm** hpp, char *buf, int len, Eterm tail)
+buf_to_intlist(Eterm** hpp, char *buf, size_t len, Eterm tail)
 {
     Eterm* hp = *hpp;
-    int i = len - 1;
+    size_t i = len;
 
-    while(i >= 0) {
+    while(i != 0) {
+	--i;
 	tail = CONS(hp, make_small((Uint)(byte)buf[i]), tail);
 	hp += 2;
-	--i;
     }
 
     *hpp = hp;
@@ -3459,11 +3459,9 @@ void erts_silence_warn_unused_result(long unused)
  * Handy functions when using a debugger - don't use in the code!
  */
 
-void upp(buf,sz)
-byte* buf;
-int sz;
+void upp(byte *buf, size_t sz)
 {
-    bin_write(ERTS_PRINT_STDERR,NULL,buf,sz);
+    bin_write(ERTS_PRINT_STDERR, NULL, buf, sz);
 }
 
 void pat(Eterm atom)

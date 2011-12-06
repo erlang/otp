@@ -375,14 +375,16 @@ typedef struct erl_drv_entry {
 EXTERN int driver_select(ErlDrvPort port, ErlDrvEvent event, int mode, int on);
 EXTERN int driver_event(ErlDrvPort port, ErlDrvEvent event, 
 			ErlDrvEventData event_data);
-EXTERN int driver_output(ErlDrvPort port, char *buf, int len);
-EXTERN int driver_output2(ErlDrvPort port, char *hbuf, int hlen, 
-			  char *buf, int len);
-EXTERN int driver_output_binary(ErlDrvPort port, char *hbuf, int hlen,
-				ErlDrvBinary* bin, int offset, int len);
-EXTERN int driver_outputv(ErlDrvPort port, char* hbuf, int hlen, ErlIOVec *ev,
-			  int skip);
-EXTERN int driver_vec_to_buf(ErlIOVec *ev, char *buf, int len);
+
+EXTERN int driver_output(ErlDrvPort port, char *buf, ErlDrvSizeT len);
+EXTERN int driver_output2(ErlDrvPort port, char *hbuf, ErlDrvSizeT hlen,
+			  char *buf, ErlDrvSizeT len);
+EXTERN int driver_output_binary(ErlDrvPort port, char *hbuf, ErlDrvSizeT hlen,
+				ErlDrvBinary* bin,
+				ErlDrvSizeT offset, ErlDrvSizeT len);
+EXTERN int driver_outputv(ErlDrvPort port, char* hbuf, ErlDrvSizeT hlen,
+			  ErlIOVec *ev, ErlDrvSizeT skip);
+EXTERN ErlDrvSizeT driver_vec_to_buf(ErlIOVec *ev, char *buf, ErlDrvSizeT len);
 EXTERN int driver_set_timer(ErlDrvPort port, unsigned long time);
 EXTERN int driver_cancel_timer(ErlDrvPort port);
 EXTERN int driver_read_timer(ErlDrvPort port, unsigned long *time_left);

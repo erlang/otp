@@ -164,8 +164,8 @@ erts_port_ioq_size(Port *pp)
 typedef struct line_buf_context {
     LineBuf **b;
     char *buf;
-    int left;
-    int retlen;
+    ErlDrvSizeT left;
+    ErlDrvSizeT retlen;
 } LineBufContext;
 
 #define LINEBUF_EMPTY 0
@@ -1360,7 +1360,8 @@ int bufsiz;
  * buf - A buffer containing the data to be read and split to lines.
  * len - The number of bytes in buf.
  */
-static int init_linebuf_context(LineBufContext *lc, LineBuf **lb, char *buf, int len)
+static int init_linebuf_context(LineBufContext *lc, LineBuf **lb,
+				char *buf, ErlDrvSizeT len)
 {
     if(lc == NULL || lb == NULL)
 	return -1;
@@ -1529,10 +1530,10 @@ deliver_result(Eterm sender, Eterm pid, Eterm res)
  */
 
 static void deliver_read_message(Port* prt, Eterm to,
-				 char *hbuf, int hlen,
-				 char *buf, int len, int eol)
+				 char *hbuf, ErlDrvSizeT hlen,
+				 char *buf, ErlDrvSizeT len, int eol)
 {
-    int need;
+    ErlDrvSizeT need;
     Eterm listp;
     Eterm tuple;
     Process* rp;
@@ -1612,8 +1613,8 @@ static void deliver_read_message(Port* prt, Eterm to,
  * deliver_read_message, and takes the same parameters.
  */
 static void deliver_linebuf_message(Port* prt, Eterm to, 
-				    char* hbuf, int hlen,
-				    char *buf, int len)
+				    char* hbuf, ErlDrvSizeT hlen,
+				    char *buf, ErlDrvSizeT len)
 {
     LineBufContext lc;
     int ret;
@@ -1656,14 +1657,14 @@ static void
 deliver_vec_message(Port* prt,			/* Port */
 		    Eterm to,			/* Receiving pid */
 		    char* hbuf,			/* "Header" buffer... */
-		    int hlen,			/* ... and its length */
+		    ErlDrvSizeT hlen,		/* ... and its length */
 		    ErlDrvBinary** binv,	/* Vector of binaries */
 		    SysIOVec* iov,		/* I/O vector */
 		    int vsize,			/* Size of binv & iov */
-		    int csize)			/* Size of characters in 
+		    ErlDrvSizeT csize)		/* Size of characters in
 						   iov (not hlen) */
 {
-    int need;
+    ErlDrvSizeT need;
     Eterm listp;
     Eterm tuple;
     Process* rp;
@@ -1744,7 +1745,7 @@ deliver_vec_message(Port* prt,			/* Port */
 	}
     }
 
-    if (hlen > 0) {		/* Prepend the header */
+    if (hlen != 0) {		/* Prepend the header */
 	Eterm* thp = hp;
 	listp = buf_to_intlist(&thp, hbuf, hlen, listp);
 	hp = thp;
@@ -1764,10 +1765,10 @@ deliver_vec_message(Port* prt,			/* Port */
 static void deliver_bin_message(Port*  prt,         /* port */
 				Eterm to,           /* receiving pid */
 				char* hbuf,         /* "header" buffer */
-				int hlen,           /* and it's length */
+				ErlDrvSizeT hlen,   /* and it's length */
 				ErlDrvBinary* bin,  /* binary data */
-				int offs,           /* offset into binary */
-				int len)            /* length of binary */
+				ErlDrvSizeT offs,   /* offset into binary */
+				ErlDrvSizeT len)    /* length of binary */
 {
     SysIOVec vec;
 
@@ -3239,8 +3240,8 @@ driver_send_term(ErlDrvPort ix, ErlDrvTermData to, ErlDrvTermData* data, int len
  * and data is len length of bin starting from offset offs.
  */
 
-int driver_output_binary(ErlDrvPort ix, char* hbuf, int hlen,
-			 ErlDrvBinary* bin, int offs, int len)
+int driver_output_binary(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
+			 ErlDrvBinary* bin, ErlDrvSizeT offs, ErlDrvSizeT len)
 {
     Port* prt = erts_drvport2port(ix);
 
@@ -3273,7 +3274,8 @@ int driver_output_binary(ErlDrvPort ix, char* hbuf, int hlen,
 ** Example: if hlen = 3 then the port owner will receive the data
 ** [H1,H2,H3 | T]
 */
-int driver_output2(ErlDrvPort ix, char* hbuf, int hlen, char* buf, int len)
+int driver_output2(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
+		   char* buf, ErlDrvSizeT len)
 {
     Port* prt = erts_drvport2port(ix);
 
@@ -3310,16 +3312,17 @@ int driver_output2(ErlDrvPort ix, char* hbuf, int hlen, char* buf, int len)
 
 /* Interface functions available to driver writers */
 
-int driver_output(ErlDrvPort ix, char* buf, int len)
+int driver_output(ErlDrvPort ix, char* buf, ErlDrvSizeT len)
 {
     ERTS_SMP_CHK_NO_PROC_LOCKS;
     return driver_output2(ix, NULL, 0, buf, len);
 }
 
-int driver_outputv(ErlDrvPort ix, char* hbuf, int hlen, ErlIOVec* vec, int skip)
+int driver_outputv(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
+		   ErlIOVec* vec, ErlDrvSizeT skip)
 {
     int n;
-    int len;
+    ErlDrvSizeT len;
     ErlDrvSizeT size;
     SysIOVec* iov;
     ErlDrvBinary** binv;
@@ -3375,17 +3378,14 @@ int driver_outputv(ErlDrvPort ix, char* hbuf, int hlen, ErlIOVec* vec, int skip)
 ** input is a vector a buffer and a max length
 ** return bytes copied
 */
-int driver_vec_to_buf(vec, buf, len)
-ErlIOVec* vec; 
-char* buf;
-int len;
+ErlDrvSizeT driver_vec_to_buf(ErlIOVec *vec, char *buf, ErlDrvSizeT len)
 {
     SysIOVec* iov = vec->iov;
     int n = vec->vsize;
-    int orig_len = len;
+    ErlDrvSizeT orig_len = len;
 
     while(n--) {
-	int ilen = iov->iov_len;
+	size_t ilen = iov->iov_len;
 	if (ilen < len) {
 	    sys_memcpy(buf, iov->iov_base, ilen);
 	    len -= ilen;

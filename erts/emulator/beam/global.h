@@ -63,9 +63,9 @@ typedef struct {
 } ErlIOQueue;
 
 typedef struct line_buf {  /* Buffer used in line oriented I/O */
-    int bufsiz;              /* Size of character buffer */
-    int ovlen;               /* Length of overflow data */
-    int ovsiz;               /* Actual size of overflow buffer */
+    ErlDrvSizeT bufsiz;      /* Size of character buffer */
+    ErlDrvSizeT ovlen;       /* Length of overflow data */
+    ErlDrvSizeT ovsiz;       /* Actual size of overflow buffer */
     char data[1];            /* Starting point of buffer data,
 			      data[0] is a flag indicating an unprocess CR,
 			      The rest is the overflow buffer. */
@@ -1053,7 +1053,8 @@ extern int erts_do_net_exits(DistEntry*, Eterm);
 extern int distribution_info(int, void *);
 extern int is_node_name_atom(Eterm a);
 
-extern int erts_net_message(Port *, DistEntry *, byte *, int, byte *, int);
+extern int erts_net_message(Port *, DistEntry *,
+			    byte *, ErlDrvSizeT, byte *, ErlDrvSizeT);
 
 extern void init_dist(void);
 extern int stop_dist(void);
@@ -1661,7 +1662,7 @@ do {									\
 #define ERTS_SMP_CHK_PEND_TRACE_MSGS(ESDP)
 #endif
 
-void bin_write(int, void*, byte*, int);
+void bin_write(int, void*, byte*, size_t);
 int intlist_to_buf(Eterm, char*, int); /* most callers pass plain char*'s */
 
 struct Sint_buf {
@@ -1677,7 +1678,7 @@ char* Sint_to_buf(Sint, struct Sint_buf*);
 #define ERTS_IOLIST_OVERFLOW 1
 #define ERTS_IOLIST_TYPE 2
 
-Eterm buf_to_intlist(Eterm**, char*, int, Eterm); /* most callers pass plain char*'s */
+Eterm buf_to_intlist(Eterm**, char*, size_t, Eterm); /* most callers pass plain char*'s */
 int io_list_to_buf(Eterm, char*, int);
 int io_list_to_buf2(Eterm, char*, int);
 int erts_iolist_size(Eterm, Uint *);
