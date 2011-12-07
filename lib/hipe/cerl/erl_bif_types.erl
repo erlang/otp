@@ -1321,6 +1321,9 @@ type(erlang, resume_process, 1, Xs) ->
 	 fun (_) -> t_any() end); %% TODO: overapproximation -- fix this
 type(erlang, round, 1, Xs) ->
   strict(arg_types(erlang, round, 1), Xs, fun (_) -> t_integer() end);
+type(erlang, posixtime_to_universaltime, 1, Xs) ->
+  strict(arg_types(erlang, posixtime_to_universaltime, 1), Xs, 
+	 fun(_) ->  t_tuple([t_date(), t_time()]) end);
 type(erlang, self, 0, _) -> t_pid();
 type(erlang, send, 2, Xs) -> type(erlang, '!', 2, Xs);  % alias
 type(erlang, send, 3, Xs) ->
@@ -1717,6 +1720,9 @@ type(erlang, universaltime, 0, _) ->
 type(erlang, universaltime_to_localtime, 1, Xs) ->
   strict(arg_types(erlang, universaltime_to_localtime, 1), Xs,
 	 fun ([T]) -> T end);
+type(erlang, universaltime_to_posixtime, 1, Xs) ->
+  strict(arg_types(erlang, universaltime_to_posixtime,1), Xs,
+	 fun(_) -> t_integer() end);
 type(erlang, unlink, 1, Xs) ->
   strict(arg_types(erlang, unlink, 1), Xs, fun (_) -> t_atom('true') end);
 type(erlang, unregister, 1, Xs) ->
@@ -3776,6 +3782,8 @@ arg_types(erlang, resume_process, 1) ->
   [t_pid()]; % intended for debugging only
 arg_types(erlang, round, 1) ->
   [t_number()];
+arg_types(erlang, posixtime_to_universaltime, 1) ->
+  [t_integer()];
 arg_types(erlang, self, 0) ->
   [];
 arg_types(erlang, send, 2) ->
@@ -3941,6 +3949,8 @@ arg_types(erlang, tuple_to_list, 1) ->
 arg_types(erlang, universaltime, 0) ->
   [];
 arg_types(erlang, universaltime_to_localtime, 1) ->
+  [t_tuple([t_date(), t_time()])];
+arg_types(erlang, universaltime_to_posixtime, 1) ->
   [t_tuple([t_date(), t_time()])];
 arg_types(erlang, unlink, 1) ->
   [t_sup(t_pid(), t_port())];
