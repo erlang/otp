@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -238,7 +238,7 @@ decode_arg(P=#arg{name=Name,type=#type{size=BSz,name=Type,single={list,TSz}}},A0
     {P, A};
 decode_arg(P=#arg{name=Name,type=#type{name=Type,base=guard_int}},A0) ->
     A = align(4,A0),
-    w(" ~s *~s = (~s *) * (int *) bp; bp += 4;~n", [Type,Name,Type]),
+    w(" ~s *~s = (~s *) (ErlDrvSInt) * (int *) bp; bp += 4;~n", [Type,Name,Type]),
     {P, A};
 decode_arg(P=#arg{name=Name,type=#type{name=Type,base=string,single=true}},A0) ->
     w(" ~s *~s = (~s *) bp;~n", [Type,Name,Type]),
