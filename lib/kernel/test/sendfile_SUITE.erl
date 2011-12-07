@@ -34,6 +34,7 @@ all() ->
      ,t_sendfile_sendduring
      ,t_sendfile_recvduring
      ,t_sendfile_closeduring
+     ,t_sendfile_crashduring
     ].
 
 init_per_suite(Config) ->
@@ -241,6 +242,35 @@ t_sendfile_closeduring(Config) ->
 
     ok = sendfile_send({127,0,0,1}, Send, 0).
 
+t_sendfile_crashduring(Config) ->
+    Filename = proplists:get_value(big_file, Config),
+
+    error_logger:add_report_handler(?MODULE,[self()]),
+
+    Send = fun(Sock) ->
+		   spawn_link(fun() ->
+				      timer:sleep(50),
+				      exit(die)
+			      end),
+		   {error, closed} = file:sendfile(Filename, Sock),
+		   -1
+	   end,
+    process_flag(trap_exit,true),
+    spawn_link(fun() ->
+		       ok = sendfile_send({127,0,0,1}, Send, 0)
+	       end),
+    receive
+	{stolen,Reason} ->
+	    process_flag(trap_exit,false),
+	    ct:fail(Reason)
+	after 200 ->
+		receive
+		    {'EXIT',_,Reason} ->
+			process_flag(trap_exit,false),
+			die = Reason
+		end
+	end.
+
 %% Generic sendfile server code
 sendfile_send(Send) ->
     sendfile_send({127,0,0,1},Send).
@@ -312,3 +342,14 @@ sendfile_file_info(File) ->
     {ok, #file_info{size = Size}} = file:read_file_info(File),
     {ok, Data} = file:read_file(File),
     {Size, Data}.
+
+
+%% Error handler 
+
+init([Proc]) -> {ok,Proc}.
+
+handle_event({error,noproc,{emulator,Format,Args}}, Proc) -> 
+    Proc ! {stolen,lists:flatten(io_lib:format(Format,Args))},
+    {ok,Proc};
+handle_event(_, Proc) -> 
+    {ok,Proc}.

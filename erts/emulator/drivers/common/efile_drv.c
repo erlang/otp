@@ -734,6 +734,15 @@ file_stop(ErlDrvData e)
 
     TRACE_C('p');
 
+#ifdef HAVE_SENDFILE
+    if (desc->sendfile_state == sending && !USE_THRDS_FOR_SENDFILE) {
+	driver_select(desc->port,(ErlDrvEvent)(long)desc->d->c.sendfile.out_fd,
+		      ERL_DRV_WRITE|ERL_DRV_USE,0);
+    } else if (desc->sendfile_state == sending) {
+	SET_NONBLOCKING(desc->d->c.sendfile.out_fd);
+    }
+#endif /* HAVE_SENDFILE */
+
     if (desc->fd != FILE_FD_INVALID) {
 	do_close(desc->flags, desc->fd);
 	desc->fd = FILE_FD_INVALID;

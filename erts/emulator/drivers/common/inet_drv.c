@@ -445,7 +445,7 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
                                     driver_select(port, e, mode | (on?ERL_DRV_USE:0), on)
 
 #define sock_select(d, flags, onoff) do { \
-        ASSERT(!onoff || !(d)->is_ignored); \
+        ASSERT(!(d)->is_ignored); \
         (d)->event_mask = (onoff) ? \
                  ((d)->event_mask | (flags)) : \
                  ((d)->event_mask & ~(flags)); \
@@ -3738,7 +3738,13 @@ static void desc_close(inet_descriptor* desc)
 	desc->forced_events = 0;
 	desc->send_would_block = 0;
 #endif
-	driver_select(desc->port, (ErlDrvEvent)(long)desc->event, ERL_DRV_USE, 0);
+	// We should close the fd here, but the other driver might still
+	// be selecting on it.
+	if (!desc->is_ignored)
+	    driver_select(desc->port,(ErlDrvEvent)(long)desc->event, 
+			  ERL_DRV_USE, 0);
+	else
+	  inet_stop_select((ErlDrvEvent)(long)desc->event,NULL);
 	desc->event = INVALID_EVENT; /* closed by stop_select callback */
 	desc->s = INVALID_SOCKET;
 	desc->event_mask = 0;
@@ -7612,8 +7618,8 @@ static int inet_ctl(inet_descriptor* desc, int cmd, char* buf, int len,
 	  return ctl_error(EINVAL, rbuf, rsize);
 
       if (*buf == 1 && !desc->is_ignored) {
-	  desc->is_ignored = INET_IGNORE_READ;
 	  sock_select(desc, (FD_READ|FD_WRITE|FD_CLOSE|ERL_DRV_USE_NO_CALLBACK), 0);
+	  desc->is_ignored = INET_IGNORE_READ;
       } else if (*buf == 0 && desc->is_ignored) {
 	  int flags = (FD_READ|FD_CLOSE|((desc->is_ignored & INET_IGNORE_WRITE)?FD_WRITE:0));
 	  desc->is_ignored = INET_IGNORE_NONE;
