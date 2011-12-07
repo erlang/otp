@@ -4814,16 +4814,11 @@ static int
 init_driver(erts_driver_t *drv, ErlDrvEntry *de, DE_Handle *handle)
 {
     drv->name = de->driver_name;
-    if (de->extended_marker == ERL_DRV_EXTENDED_MARKER) {
-	drv->version.major = de->major_version;
-	drv->version.minor = de->minor_version;
-	drv->flags = de->driver_flags;
-    }
-    else {
-	drv->version.major = 0;
-	drv->version.minor = 0;
-	drv->flags = 0;
-    }
+    ASSERT(de->extended_marker == ERL_DRV_EXTENDED_MARKER);
+    ASSERT(de->major_version >= 2);
+    drv->version.major = de->major_version;
+    drv->version.minor = de->minor_version;
+    drv->flags = de->driver_flags;
     drv->handle = handle;
 #ifdef ERTS_SMP
     if (drv->flags & ERL_DRV_FLAG_USE_PORT_LOCKING)
@@ -4856,13 +4851,8 @@ init_driver(erts_driver_t *drv, ErlDrvEntry *de, DE_Handle *handle)
     drv->ready_output = de->ready_output ? de->ready_output : no_ready_output_callback;
     drv->timeout = de->timeout ? de->timeout : no_timeout_callback;
     drv->ready_async = de->ready_async;
-    if (de->extended_marker == ERL_DRV_EXTENDED_MARKER)
-	drv->process_exit = de->process_exit;
-    else
-	drv->process_exit = NULL;
-    if ((de->major_version >= 2
-	 || (de->major_version == 1 && de->minor_version >= 3)/*R13A*/)
-	&& de->stop_select)
+    drv->process_exit = de->process_exit;
+    if (de->stop_select)
 	drv->stop_select = de->stop_select;
     else
 	drv->stop_select = no_stop_select_callback;
