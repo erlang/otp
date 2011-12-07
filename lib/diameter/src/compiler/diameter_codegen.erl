@@ -98,15 +98,15 @@ file(F, Outdir, Mode) ->
 get_value(Key, Plist) ->
     proplists:get_value(Key, Plist, []).
 
-write(Path, [C|_] = Spec)
-  when is_integer(C) ->
-    w(Path, Spec, "~s");
-write(Path, Spec) ->
-    w(Path, Spec, "~p.").
+write(Path, Str) ->
+    w(Path, Str, "~s").
 
-w(Path, Spec, Fmt) ->
+write_term(Path, T) ->
+    w(Path, T, "~p.").
+
+w(Path, T, Fmt) ->
     {ok, Fd} = file:open(Path, [write]),
-    io:fwrite(Fd, Fmt ++ "~n", [Spec]),
+    io:fwrite(Fd, Fmt ++ "~n", [T]),
     file:close(Fd).
 
 codegen(File, Spec, Outdir, Mode) ->
@@ -121,7 +121,7 @@ mod(_, {ok, Mod}) ->
     Mod.
 
 gen(spec, Spec, _Mod, Path) ->
-    write(Path ++ ".spec", [?VERSION | Spec]);
+    write_term(Path ++ ".spec", [?VERSION | Spec]);
 
 gen(hrl, Spec, Mod, Path) ->
     gen_hrl(Path ++ ".hrl", Mod, Spec);
@@ -173,7 +173,7 @@ gen(erl, Spec, Mod, Path) ->
     gen_erl(Path, insert_hrl_forms(Spec, Forms)).
 
 gen_erl(Path, Forms) ->
-    getr(debug) andalso write(Path ++ ".forms", Forms),
+    getr(debug) andalso write_term(Path ++ ".forms", Forms),
     write(Path ++ ".erl",
           header() ++ erl_prettypr:format(erl_syntax:form_list(Forms))).
 
