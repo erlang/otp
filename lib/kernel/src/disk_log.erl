@@ -1038,7 +1038,6 @@ log_loop(S, Pids, _Bins, _Sync, _Sz) when S#state.cache_error =/= ok ->
     loop(cache_error(S, Pids));
 log_loop(#state{messages = []}=S, Pids, Bins, Sync, Sz)
             when Sz > ?MAX_LOOK_AHEAD ->
-erlang:display({rad,12}),
     loop(log_end(S, Pids, Bins, Sync));
 log_loop(#state{messages = []}=S, Pids, Bins, Sync, Sz) ->
     receive 
