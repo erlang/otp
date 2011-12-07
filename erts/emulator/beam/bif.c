@@ -3387,7 +3387,7 @@ BIF_RETTYPE universaltime_to_localtime_1(BIF_ALIST_1)
 
 /* convert calendar:universaltime_to_seconds/1 */
 
-BIF_RETTYPE universaltime_to_seconds_1(BIF_ALIST_1)
+BIF_RETTYPE universaltime_to_posixtime_1(BIF_ALIST_1)
 {
     Sint year, month, day;
     Sint hour, minute, second;
@@ -3411,7 +3411,7 @@ BIF_RETTYPE universaltime_to_seconds_1(BIF_ALIST_1)
 
 /* convert calendar:seconds_to_universaltime/1 */
 
-BIF_RETTYPE seconds_to_universaltime_1(BIF_ALIST_1)
+BIF_RETTYPE posixtime_to_universaltime_1(BIF_ALIST_1)
 {
     Sint year, month, day;
     Sint hour, minute, second;

@@ -812,7 +812,7 @@ write_file_info_int(Port, File,
 file_info_validate_atime(Atime, _) when Atime =/= undefined -> Atime;
 file_info_validate_atime(undefined, local)     -> erlang:localtime();
 file_info_validate_atime(undefined, universal) -> erlang:universaltime();
-file_info_validate_atime(undefined, posix)     -> erlang:universaltime_to_seconds((erlang:universaltime())).
+file_info_validate_atime(undefined, posix)     -> erlang:universaltime_to_posixtime(erlang:universaltime()).
 
 file_info_validate_mtime(undefined, Atime) -> Atime;
 file_info_validate_mtime(Mtime, _)         -> Mtime.
@@ -1349,13 +1349,13 @@ plgv(_, [], D)         -> D.
 from_seconds(Seconds, posix) when is_integer(Seconds) ->
     Seconds;
 from_seconds(Seconds, universal) when is_integer(Seconds) ->
-    erlang:seconds_to_universaltime(Seconds);
+    erlang:posixtime_to_universaltime(Seconds);
 from_seconds(Seconds, local) when is_integer(Seconds) ->
-    erlang:universaltime_to_localtime(erlang:seconds_to_universaltime(Seconds)).
+    erlang:universaltime_to_localtime(erlang:posixtime_to_universaltime(Seconds)).
 
 to_seconds(Seconds, posix) when is_integer(Seconds) ->
     Seconds;
 to_seconds({_,_} = Datetime, universal) ->
-    erlang:universaltime_to_seconds(Datetime);
+    erlang:universaltime_to_posixtime(Datetime);
 to_seconds({_,_} = Datetime, local) ->
-    erlang:universaltime_to_seconds(erlang:localtime_to_universaltime(Datetime)).
+    erlang:universaltime_to_posixtime(erlang:localtime_to_universaltime(Datetime)).

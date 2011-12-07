@@ -810,8 +810,8 @@ bif erlang:check_old_code/1
 #
 # New in R15B
 #
-bif erlang:universaltime_to_seconds/1
-bif erlang:seconds_to_universaltime/1
+bif erlang:universaltime_to_posixtime/1
+bif erlang:posixtime_to_universaltime/1
 #
 # Obsolete
 #

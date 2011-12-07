@@ -172,7 +172,7 @@ univ_to_seconds(Config) when is_list(Config) ->
 
 test_univ_to_seconds([{Datetime, Seconds}|DSs]) ->
     io:format("universaltime = ~p -> seconds = ~p", [Datetime, Seconds]),
-    Seconds = erlang:universaltime_to_seconds(Datetime),
+    Seconds = erlang:universaltime_to_posixtime(Datetime),
     test_univ_to_seconds(DSs);
 test_univ_to_seconds([]) -> 
     ok.
@@ -183,7 +183,7 @@ seconds_to_univ(Config) when is_list(Config) ->
 
 test_seconds_to_univ([{Datetime, Seconds}|DSs]) ->
     io:format("universaltime = ~p <- seconds = ~p", [Datetime, Seconds]),
-    Datetime = erlang:seconds_to_universaltime(Seconds),
+    Datetime = erlang:posixtime_to_universaltime(Seconds),
     test_seconds_to_univ(DSs);
 test_seconds_to_univ([]) -> 
     ok.
