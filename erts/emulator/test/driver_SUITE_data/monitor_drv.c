@@ -21,6 +21,7 @@
 #include "erl_driver.h"
 
 static ErlDrvData monitor_drv_start(ErlDrvPort, char *);
+static void monitor_drv_stop(ErlDrvData data);
 static int monitor_drv_control(ErlDrvData, unsigned int,
 				char *, int, char **, int);
 static void handle_monitor(ErlDrvData drv_data, ErlDrvMonitor *monitor);
@@ -50,7 +51,7 @@ typedef struct {
 static ErlDrvEntry monitor_drv_entry = { 
     NULL /* init */,
     monitor_drv_start,
-    NULL /* stop */,
+    monitor_drv_stop,
     NULL /* output */,
     NULL /* ready_input */,
     NULL /* ready_output */,
