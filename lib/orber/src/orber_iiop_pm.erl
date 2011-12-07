@@ -109,7 +109,7 @@ connect(Host, Port, SocketType, Timeout, Chars, Wchars, Ctx)
 
 get_ssl_socket_options([]) ->
     SSLOpts = 
-	case orber_env:ssl_client_opts() of
+	case orber_env:ssl_client_options() of
 	    [] ->
 		[{verify, orber_env:ssl_client_verify()},
 		 {depth, orber_env:ssl_client_depth()},
@@ -137,8 +137,8 @@ get_ssl_socket_options([#'IOP_ServiceContext'
 			{context_id=?ORBER_GENERIC_CTX_ID, 
 			 context_data = {configuration, Options}}|_]) ->
     SSLOpts = 
-	case orber_tb:keysearch(ssl_client_opts, Options,
-				orber_env:ssl_client_opts()) of
+	case orber_tb:keysearch(ssl_client_options, Options,
+				orber_env:ssl_client_options()) of
 	    [] ->
 		Verify = orber_tb:keysearch(ssl_client_verify, Options, 
 					    orber_env:ssl_client_verify()),
@@ -878,7 +878,7 @@ check_old_ssl_client_options(Options) ->
     catch
 	_:_ ->
 	    error_logger:warning_report([{application, orber},
-			 "Ignoring deprecated ssl client options used together with the ssl_client_opts"])
+			 "Ignoring deprecated ssl client options used together with the ssl_client_options"])
     end.
    
 

@@ -51,7 +51,7 @@
 	 get_local_interceptors/0, get_cached_interceptors/0,
 	 set_interceptors/1, is_lightweight/0, get_lightweight_nodes/0, secure/0,
 	 iiop_ssl_backlog/0, iiop_ssl_port/0, nat_iiop_ssl_port/0, nat_iiop_ssl_port/1,
-	 ssl_server_opts/0, ssl_client_opts/0, set_ssl_client_opts/1,
+	 ssl_server_options/0, ssl_client_options/0, set_ssl_client_options/1,
 	 ssl_server_certfile/0, ssl_client_certfile/0, set_ssl_client_certfile/1,
 	 ssl_server_verify/0, ssl_client_verify/0, set_ssl_client_verify/1,
 	 ssl_server_depth/0, ssl_client_depth/0, set_ssl_client_depth/1,
@@ -101,7 +101,7 @@
 	 ssl_client_cachetimeout, ssl_server_cachetimeout, orber_debug_level,
 	 iiop_packet_size, iiop_in_keepalive, iiop_out_keepalive,
 	 iiop_ssl_in_keepalive, iiop_ssl_out_keepalive, iiop_ssl_accept_timeout,
-	 ssl_server_opts, ssl_client_opts]).
+	 ssl_server_options, ssl_client_options]).
 
 %% The 'flags' parameter must be first in the list.
 %-define(ENV_KEYS,
@@ -926,16 +926,16 @@ nat_iiop_ssl_port(LocalPort) ->
 	    -1
     end.
 
-ssl_server_opts() ->
-    case application:get_env(orber, ssl_server_opts) of
+ssl_server_options() ->
+    case application:get_env(orber, ssl_server_options) of
 	{ok, V1}  when is_list(V1) ->
 	    V1;
 	_ ->
 	    []
     end.
 
-ssl_client_opts() ->
-    case application:get_env(orber, ssl_client_opts) of
+ssl_client_options() ->
+    case application:get_env(orber, ssl_client_options) of
 	{ok, V1}  when is_list(V1) ->
 	    V1;
 	_ ->
@@ -961,16 +961,16 @@ check_ssl_opts([binary |T], Acc) ->
 check_ssl_opts([_ |T], Acc) ->
     check_ssl_opts(T, Acc).
 
-set_ssl_client_opts(Value) when is_list(Value) ->
+set_ssl_client_options(Value) when is_list(Value) ->
     case check_ssl_opts(Value) of
 	ok ->
 	    ok;
 	{error, List} ->
 	    exit(lists:flatten(
-		   io_lib:format("TCP options ~p is not allowed in set_ssl_client_opts()",
+		   io_lib:format("TCP options ~p is not allowed in set_ssl_client_options()",
 				 [List])))
     end,
-    put(ssl_client_opts, Value), ok.
+    put(ssl_client_options, Value), ok.
 
 ssl_server_certfile() ->
     case application:get_env(orber, ssl_server_certfile) of
@@ -1369,10 +1369,10 @@ configure(iiop_ssl_port, Value, Status) when is_integer(Value) ->
     do_safe_configure(iiop_ssl_port, Value, Status);
 
 %% New SSL options
-configure(ssl_server_opts, Value, Status) when is_list(Value) ->
-    do_safe_configure(ssl_server_opts, Value, Status);
-configure(ssl_client_opts, Value, Status) when is_list(Value) ->
-    do_safe_configure(ssl_client_opts, Value, Status);
+configure(ssl_server_options, Value, Status) when is_list(Value) ->
+    do_safe_configure(ssl_server_options, Value, Status);
+configure(ssl_client_options, Value, Status) when is_list(Value) ->
+    do_safe_configure(ssl_client_options, Value, Status);
 
 %% Old SSL options
 configure(ssl_server_certfile, Value, Status) when is_list(Value) ->

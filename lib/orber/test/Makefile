@@ -176,6 +176,7 @@ clean:
 	rm -f idl_output/*
 	rm -f $(TARGET_FILES) 
 	rm -f errs core *~
+	rm IDL-GENERATED
 
 
 docs:

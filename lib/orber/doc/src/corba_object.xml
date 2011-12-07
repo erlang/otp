@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
@@ -75,8 +75,7 @@
         <v>CtxData = {interface, Interface} | {userspecific, term()} | {configuration, Options}</v>
         <v>Interface = string()</v>
         <v>Options = [{Key, Value}]</v>
-        <v>Key = ssl_client_verify | ssl_client_depth | ssl_client_certfile | ssl_client_cacertfile |
-                 ssl_client_password | ssl_client_keyfile | ssl_client_ciphers | ssl_client_cachetimeout</v>
+        <v>Key = ssl_client_options</v>
         <v>Value = allowed value associated with the given key</v>
         <v>Return = boolean() | {'EXCEPTION', E}</v>
       </type>
@@ -117,8 +116,7 @@
         <v>CtxData = {interface, Interface} | {userspecific, term()} | {configuration, Options}</v>
         <v>Interface = string()</v>
         <v>Options = [{Key, Value}]</v>
-        <v>Key = ssl_client_verify | ssl_client_depth | ssl_client_certfile | ssl_client_cacertfile |
-                 ssl_client_password | ssl_client_keyfile | ssl_client_ciphers | ssl_client_cachetimeout</v>
+        <v>Key = ssl_client_options</v>
         <v>Value = allowed value associated with the given key</v>
         <v>Return = boolean() | {'EXCEPTION', E}</v>
       </type>
@@ -149,8 +147,7 @@
         <v>CtxData = {interface, Interface} | {userspecific, term()} | {configuration, Options}</v>
         <v>Interface = string()</v>
         <v>Options = [{Key, Value}]</v>
-        <v>Key = ssl_client_verify | ssl_client_depth | ssl_client_certfile | ssl_client_cacertfile |
-                 ssl_client_password | ssl_client_keyfile | ssl_client_ciphers | ssl_client_cachetimeout</v>
+        <v>Key = ssl_client_options</v>
         <v>Value = allowed value associated with the given key</v>
         <v>Return = boolean() | {'EXCEPTION', E}</v>
       </type>

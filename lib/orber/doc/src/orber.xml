@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2010</year>
+      <year>1997</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -356,7 +356,7 @@
         <v>Type = normal | ssl</v>
         <v>Port = integer() > 0</v>
         <v>ConfigurationParameters = [{Key, Value}]</v>
-        <v>Key = flags | iiop_in_connection_timeout | iiop_max_fragments | iiop_max_in_requests | interceptors | iiop_port | iiop_ssl_port</v>
+        <v>Key = flags | iiop_in_connection_timeout | iiop_max_fragments | iiop_max_in_requests | interceptors | iiop_port | iiop_ssl_port | ssl_server_options</v>
         <v>Value = as described in the User's Guide</v>
         <v>Result = {ok, Ref} | {error, Reason} | {'EXCEPTION', #'BAD_PARAM'{}}</v>
         <v>Ref = #Ref</v>
@@ -378,7 +378,7 @@
           counterparts (See the
           <seealso marker="ch_install#config">Configuration</seealso> chapter
           in the User's Guide). 
-          But the following parameters there are a few restrictions:</p>
+          But for the following parameters there are a few restrictions:</p>
         <list type="bulleted">
           <item><em>flags</em> - currently it is only possible to override the global
            setting for the <c>Use Current Interface in IOR</c> and 
@@ -450,92 +450,32 @@
       </desc>
     </func>
     <func>
-      <name>ssl_server_certfile() -> string()</name>
-      <fsummary>Display  the path to the server certificate</fsummary>
+      <name>ssl_server_options() -> list()</name>
+      <fsummary>Display the SSL server options</fsummary>
       <desc>
-        <p>This function returns a path to a file containing a chain of PEM encoded 
-          certificates for the Orber domain as server. 
+        <p>This function returns the list of SSL options set for the Orber domain as server. 
           This is configured by setting the application variable 
-          <em>ssl_server_certfile</em>.</p>
+          <em>ssl_server_options</em>.</p>
       </desc>
     </func>
     <func>
-      <name>ssl_client_certfile() -> string()</name>
-      <fsummary>Display the path to the client certificate</fsummary>
+      <name>ssl_client_options() -> list()</name>
+      <fsummary>Display the SSL client options</fsummary>
       <desc>
-        <p>This function returns a path to a file containing a chain of PEM encoded 
-          certificates used in outgoing calls in the current process.
+        <p>This function returns the list of SSL options used in outgoing calls in the current process.
           The default value is configured by setting the application variable 
-          <em>ssl_client_certfile</em>.</p>
+          <em>ssl_client_options</em>.</p>
       </desc>
     </func>
     <func>
-      <name>set_ssl_client_certfile(Path) -> ok</name>
-      <fsummary>Set the value of the client certificate</fsummary>
+      <name>set_ssl_client_options(Options) -> ok</name>
+      <fsummary>Set the SSL options for the client</fsummary>
       <type>
-        <v>Path = string()</v>
+        <v>Options = list()</v>
       </type>
       <desc>
-        <p>This function takes a path to a file containing a chain of PEM encoded 
-          certificates as parameter and sets it for the current process.</p>
-      </desc>
-    </func>
-    <func>
-      <name>ssl_server_verify() -> 0 | 1 | 2</name>
-      <fsummary>Display the SSL verification type for incoming calls</fsummary>
-      <desc>
-        <p>This function returns the type of verification used by SSL during authentication of the other 
-          peer for incoming calls. 
-          It is configured by setting the application variable 
-          <em>ssl_server_verify</em>.</p>
-      </desc>
-    </func>
-    <func>
-      <name>ssl_client_verify() -> 0 | 1 | 2</name>
-      <fsummary>Display the SSL verification type for outgoing calls</fsummary>
-      <desc>
-        <p>This function returns  the type of verification used by SSL during authentication of the other 
-          peer for outgoing calls. 
-          The default value is configured by setting the application variable 
-          <em>ssl_client_verify</em>.</p>
-      </desc>
-    </func>
-    <func>
-      <name>set_ssl_client_verify(Value) -> ok</name>
-      <fsummary>Set the value of the SSL verification type for outgoing calls</fsummary>
-      <type>
-        <v>Value = 0 | 1 | 2</v>
-      </type>
-      <desc>
-        <p>This function sets the SSL verification type for the other peer of outgoing calls.</p>
-      </desc>
-    </func>
-    <func>
-      <name>ssl_server_depth() -> int()</name>
-      <fsummary>Display the SSL verification depth for incoming calls</fsummary>
-      <desc>
-        <p>This function returns the SSL verification depth for incoming calls. 
-          It is configured by setting the application variable 
-          <em>ssl_server_depth</em>.</p>
-      </desc>
-    </func>
-    <func>
-      <name>ssl_client_depth() ->  int()</name>
-      <fsummary>Display the SSL verification depth for outgoing calls</fsummary>
-      <desc>
-        <p>This function returns the SSL verification depth for outgoing calls. 
-          The default value is configured by setting the application variable 
-          <em>ssl_client_depth</em>.</p>
-      </desc>
-    </func>
-    <func>
-      <name>set_ssl_client_depth(Depth) -> ok</name>
-      <fsummary>Sets the value of the SSL verification depth for outgoing calls</fsummary>
-      <type>
-        <v>Depth = int()</v>
-      </type>
-      <desc>
-        <p>This function sets the SSL verification depth for the other peer of outgoing calls.</p>
+        <p>This function takes a list of SSL options as parameter and sets 
+	it for the current process.</p>
       </desc>
     </func>
     <func>
