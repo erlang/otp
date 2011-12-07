@@ -107,7 +107,9 @@ belonging to the application.</p>
 <marker id="application_module"/>
 </item>
 
-<tag><c>application_module() = Mod | [Mod | ExtraArgs]</c></tag>
+<tag><c>application_module() = Mod
+                             | [Mod | ExtraArgs]
+                             | #diameter_callback{}</c></tag>
 <item>
 <code>
 Mod = atom()
@@ -124,6 +126,14 @@ Note that additional arguments specific to an outgoing request be
 specified to <seealso marker="#call">call/4</seealso>, in which case
 the call-specific arguments are appended to any specified with the
 callback module.</p>
+
+<p>
+Specifying a <c>#diameter_callback{}</c> record allows individual
+functions to be configured in place of the usual <seealso
+marker="diameter_app">diameter_app(3)</seealso> callbacks, with
+default implementations provided by module <c>diameter_callback</c>
+unless otherwise specified.
+See that module for details.</p>
 
 <marker id="application_opt"/>
 </item>

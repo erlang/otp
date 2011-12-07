@@ -73,6 +73,7 @@
               'IPFilterRule'/0,
               'QoSFilterRule'/0]).
 
+-include_lib("diameter/include/diameter.hrl").
 -include("diameter_internal.hrl").
 
 %% ---------------------------------------------------------------------------
@@ -298,7 +299,8 @@ call(SvcName, App, Message) ->
 
 -type app_module()
    :: module()
-    | maybe_improper_list(module(), list()).
+    | maybe_improper_list(module(), list())
+    | #diameter_callback{}.
 
 %% Identifier returned by add_transport/2
 

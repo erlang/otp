@@ -605,6 +605,13 @@ app_acc({application, Opts}, Acc) ->
 app_acc(_, Acc) ->
     Acc.
 
+init_mod(#diameter_callback{} = R) ->
+    init_mod([diameter_callback, R]);
+init_mod([diameter_callback, #diameter_callback{}] = L) ->
+    L;
+init_mod([diameter_callback = M | L])
+  when is_list(L) ->
+    [M, init_cb(L)];
 init_mod(M)
   when is_atom(M) ->
     [M];
@@ -613,6 +620,14 @@ init_mod([M|_] = L)
     L;
 init_mod(M) ->
     ?THROW({module, M}).
+
+init_cb(List) ->
+    Fields = record_info(fields, diameter_callback),
+    Defaults = lists:zip(Fields, tl(tuple_to_list(#diameter_callback{}))),
+    Values = [V || F <- Fields,
+                   D <- [proplists:get_value(F, Defaults)],
+                   V <- [proplists:get_value(F, List, D)]],
+    #diameter_callback{} = list_to_tuple([diameter_callback | Values]).
 
 init_mutable(M)
   when M == true;

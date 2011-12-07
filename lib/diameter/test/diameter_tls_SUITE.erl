@@ -58,13 +58,9 @@
          stop_ssl/1]).
 
 %% diameter callbacks
--export([peer_up/3,
-         peer_down/3,
-         pick_peer/4,
-         prepare_request/3,
+-export([prepare_request/3,
          prepare_retransmit/3,
          handle_answer/4,
-         handle_error/4,
          handle_request/3]).
 
 -include("diameter.hrl").
@@ -104,7 +100,11 @@
          {'Auth-Application-Id', [Dict:id()]},
          {application, [{alias, ?APP_ALIAS},
                         {dictionary, Dict},
-                        {module, ?MODULE},
+                        {module, #diameter_callback{peer_up = false,
+                                                    peer_down = false,
+                                                    pick_peer = false,
+                                                    handle_error = false,
+                                                    default = ?MODULE}},
                         {answer_errors, callback}]}]).
 
 %% Config for diameter:add_transport/2. In the listening case, listen
@@ -245,21 +245,6 @@ send5(_Config) ->
 %% ===========================================================================
 %% diameter callbacks
 
-%% peer_up/3
-
-peer_up(_SvcName, _Peer, State) ->
-    State.
-
-%% peer_down/3
-
-peer_down(_SvcName, _Peer, State) ->
-    State.
-
-%% pick_peer/4
-
-pick_peer([Peer], _, ?CLIENT, _State) ->
-    {ok, Peer}.
-
 %% prepare_request/3
 
 prepare_request(#diameter_packet{msg = Req},
@@ -283,11 +268,6 @@ prepare_retransmit(_Pkt, false, _Peer) ->
 handle_answer(Pkt, _Req, ?CLIENT, _Peer) ->
     #diameter_packet{msg = Rec, errors = []} = Pkt,
     Rec.
-
-%% handle_error/4
-
-handle_error(Reason, _Req, ?CLIENT, _Peer) ->
-    {error, Reason}.
 
 %% handle_request/3
 

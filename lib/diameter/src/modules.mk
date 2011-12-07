@@ -32,6 +32,7 @@ DICT_YRL = \
 RT_MODULES = \
 	base/diameter \
 	base/diameter_app \
+	base/diameter_callback \
 	base/diameter_capx \
 	base/diameter_config \
 	base/diameter_codec \
@@ -61,7 +62,6 @@ RT_MODULES = \
 
 # Handwritten (compile time) modules not included in the app file.
 CT_MODULES = \
-	base/diameter_callback \
 	base/diameter_dbg \
 	base/diameter_info \
 	compiler/diameter_codegen \
