@@ -20,15 +20,15 @@
 -include_lib("common_test/include/ct.hrl").
 
 
-% Default timetrap timeout (set in init_per_testcase).
+%% Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(1)).
 -define(application, sasl).
 
-% Test server specific exports
+%% Test server specific exports
 -export([all/0,groups/0,init_per_group/2,end_per_group/2]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 
-% Test cases must be exported.
+%% Test cases must be exported.
 -export([app_test/1,
 	 appup_test/1,
 	 log_mf_h_env/1]).
@@ -47,7 +47,7 @@ end_per_group(_GroupName, Config) ->
 
 
 init_per_testcase(_Case, Config) ->
-    ?line Dog=test_server:timetrap(?default_timeout),
+    Dog=test_server:timetrap(?default_timeout),
     [{watchdog, Dog}|Config].
 end_per_testcase(_Case, Config) ->
     Dog=?config(watchdog, Config),
@@ -55,7 +55,7 @@ end_per_testcase(_Case, Config) ->
     ok.
 
 app_test(Config) when is_list(Config) ->
-    ?line ?t:app_test(sasl, allow),
+    ?t:app_test(sasl, allow),
     ok.
 
 %% Test that appup allows upgrade from/downgrade to a maximum of two
@@ -67,11 +67,11 @@ appup_test(_Config) ->
     {ok,[{SaslVsn,UpFrom,DownTo}=Appup]} =
 	file:consult(filename:join(Ebin,"sasl.appup")),
     ct:log("~p~n",[Appup]),
-    ?line {OkVsns,NokVsns} = create_test_vsns(SaslVsn),
-    ?line check_appup(OkVsns,UpFrom,{ok,[restart_new_emulator]}),
-    ?line check_appup(OkVsns,DownTo,{ok,[restart_new_emulator]}),
-    ?line check_appup(NokVsns,UpFrom,error),
-    ?line check_appup(NokVsns,DownTo,error),
+    {OkVsns,NokVsns} = create_test_vsns(SaslVsn),
+    check_appup(OkVsns,UpFrom,{ok,[restart_new_emulator]}),
+    check_appup(OkVsns,DownTo,{ok,[restart_new_emulator]}),
+    check_appup(NokVsns,UpFrom,error),
+    check_appup(NokVsns,DownTo,error),
     ok.
 
 
