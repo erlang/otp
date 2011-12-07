@@ -25,12 +25,14 @@ static EchoDrvData echo_drv_data, *echo_drv_data_p;
 **/
 
 static EchoDrvData *echo_drv_start(ErlDrvPort port, char *command);
-static void         echo_drv_stop(EchoDrvData *data_p);
-static void         echo_drv_output(EchoDrvData *data_p, char *buf, int len);
+static void         echo_drv_stop(ErlDrvData drv_data);
+static void         echo_drv_output(ErlDrvData drv_data, char *buf,
+				    ErlDrvSizeT len);
 static void         echo_drv_finish(void);
-static int          echo_drv_control(EchoDrvData *data_p, unsigned int command,
-				     char *buf, int len,
-				     char **rbuf, int rlen);
+static ErlDrvSSizeT echo_drv_control(ErlDrvData drv_data,
+				     unsigned int command,
+				     char *buf,  ErlDrvSizeT len,
+				     char **rbuf, ErlDrvSizeT rlen);
 
 static ErlDrvEntry echo_drv_entry = { 
     NULL, /* init */
@@ -45,10 +47,18 @@ static ErlDrvEntry echo_drv_entry = {
     echo_drv_control,
     NULL, /* timeout */
     NULL, /* outputv */
-    NULL  /* ready_async */
+    NULL, /* ready_async */
+    NULL,
+    NULL,
+    NULL,
+    ERL_DRV_EXTENDED_MARKER,
+    ERL_DRV_EXTENDED_MAJOR_VERSION,
+    ERL_DRV_EXTENDED_MINOR_VERSION,
+    0,
+    NULL,
+    NULL,
+    NULL
 };
-
-
 
 /* -------------------------------------------------------------------------
 ** Entry functions
@@ -75,7 +85,8 @@ static void echo_drv_stop(EchoDrvData *data_p) {
     echo_drv_data_p = NULL;
 }
 
-static void echo_drv_output(EchoDrvData *data_p, char *buf, int len) {
+static void echo_drv_output(ErlDrvData drv_data, char *buf, ErlDrvSizeT len) {
+    EchoDrvData* data_p = (EchoDrvData *) drv_data;
     driver_output(data_p->erlang_port, buf, len);
     switch (data_p->heavy) {
     case heavy_off:
@@ -95,9 +106,11 @@ static void echo_drv_finish() {
     echo_drv_data_p = NULL;
 }
 
-static int echo_drv_control(EchoDrvData *data_p, unsigned int command,
-			    char *buf, int len,
-			    char **rbuf, int rlen) {
+static ErlDrvSSizeT echo_drv_control(ErlDrvData drv_data,
+				     unsigned int command,
+				     char *buf, ErlDrvSizeT len,
+				     char **rbuf, ErlDrvSizeT rlen) {
+    EchoDrvData* data_p = (EchoDrvData *) drv_data;
     switch (command) {
     case 'h':
 	data_p->heavy = heavy_set;
