@@ -104,6 +104,7 @@
 #ifndef WANT_NONBLOCKING
 #define WANT_NONBLOCKING
 #endif
+
 #include "sys.h"
 
 #include "erl_driver.h"
@@ -146,6 +147,22 @@ static ErlDrvSysInfo sys_info;
 #define MUTEX_LOCK(m)
 #define MUTEX_UNLOCK(m)
 #endif
+
+
+/**
+ * On DARWIN sendfile can deadlock with close if called in
+ * different threads. So until Apple fixes so that sendfile
+ * is not buggy we disable usage of the async pool for
+ * DARWIN. The testcase t_sendfile_crashduring reproduces
+ * this error when using +A 10.
+ */
+#if !defined(DARWIN)
+#define USE_THRDS_FOR_SENDFILE (sys_info.async_threads > 0)
+#else
+#define USE_THRDS_FOR_SENDFILE 0
+#endif /* !DARWIN */
+
+
 
 #if 0
 /* Experimental, for forcing all file operations to use the same thread. */
@@ -1762,7 +1779,7 @@ static void invoke_sendfile(void *data)
     d->c.sendfile.written += nbytes;
 
     if (result == 1) {
-	if (sys_info.async_threads != 0) {
+	if (USE_THRDS_FOR_SENDFILE) {
 	    d->result_ok = 0;
 	} else if (d->c.sendfile.nbytes == 0 && nbytes != 0) {
 	    d->result_ok = 1;
@@ -2232,7 +2249,7 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
 		  reply_string_error(desc,"closed");
 	      else
 		  reply_error(desc, &d->errInfo);
-	      if (sys_info.async_threads != 0) {
+	      if (USE_THRDS_FOR_SENDFILE) {
 		  SET_NONBLOCKING(d->c.sendfile.out_fd);
 		  free_sendfile(data);
 	      } else {
@@ -2243,7 +2260,7 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
 	  } else if (d->result_ok == 0) {
 	      desc->sendfile_state = not_sending;
 	      reply_Sint64(desc, d->c.sendfile.written);
-	      if (sys_info.async_threads != 0) {
+	      if (USE_THRDS_FOR_SENDFILE) {
 		SET_NONBLOCKING(d->c.sendfile.out_fd);
 		free_sendfile(data);
 	      } else {
@@ -3448,7 +3465,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 
 	d->c.sendfile.nbytes = nbytes;
 
-	if (sys_info.async_threads != 0) {
+	if (USE_THRDS_FOR_SENDFILE) {
 	    SET_BLOCKING(d->c.sendfile.out_fd);
 	}
 
