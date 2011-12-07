@@ -1,13 +1,15 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "erl_driver.h"
 
 
 static ErlDrvPort erlang_port;
 static ErlDrvData control_start(ErlDrvPort, char*);
 static void control_stop(ErlDrvData);
-static void control_read(ErlDrvData, char*, int);
-static int control_control(ErlDrvData, unsigned int, char*, int, char**, int);
+static void control_read(ErlDrvData, char*, ErlDrvSizeT);
+static ErlDrvSSizeT control_control(ErlDrvData, unsigned int, char*,
+				    ErlDrvSizeT, char**, ErlDrvSizeT);
 
 static ErlDrvEntry control_driver_entry =
 {
@@ -21,9 +23,19 @@ static ErlDrvEntry control_driver_entry =
     NULL,
     NULL,
     control_control,
+    NULL, /* timeout */
+    NULL, /* outputv */
+    NULL, /* ready_async */
     NULL,
     NULL,
-    NULL
+    NULL,
+    ERL_DRV_EXTENDED_MARKER,
+    ERL_DRV_EXTENDED_MAJOR_VERSION,
+    ERL_DRV_EXTENDED_MINOR_VERSION,
+    0,
+    NULL,
+    NULL,
+    NULL,
 };
 
 DRIVER_INIT(control_drv)
@@ -41,7 +53,7 @@ static ErlDrvData control_start(ErlDrvPort port,char *buf)
     return (ErlDrvData)port;
 }
 
-static void control_read(ErlDrvData port, char *buf, int count)
+static void control_read(ErlDrvData port, char *buf, ErlDrvSizeT count)
 {
     driver_output(erlang_port, buf, count);
 }
@@ -51,8 +63,9 @@ static void control_stop(ErlDrvData port)
     erlang_port = (ErlDrvPort)-1;
 }
 
-static int control_control(ErlDrvData port, unsigned command, char* buf, int count,
-			   char** res, int res_size)
+static ErlDrvSSizeT control_control(ErlDrvData port, unsigned command,
+				    char* buf, ErlDrvSizeT count,
+				    char** res, ErlDrvSizeT res_size)
 {
     switch (command) {
     case 'e':
