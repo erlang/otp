@@ -835,15 +835,15 @@ avp_info(Entry) ->  %% {Name, Arity}
         [A]   -> {A, {0,1}};
         {Q,T} ->
             {A,_} = avp_info(T),
-            {A, arity(Q)}
+            {A, arity(T,Q)}
     end.
 
 %% Normalize arity to 1 or {N,X} where N is an integer. A record field
 %% for an AVP is list-valued iff the normalized arity is not 1.
-arity('*' = Inf) -> {0, Inf};
-arity({'*', N})  -> {0, N};
-arity({1,1})     -> 1;
-arity(T)         -> T.
+arity({{_}}, '*' = Inf) -> {0, Inf};
+arity([_],   '*' = Inf) -> {0, Inf};
+arity({_},   '*' = Inf) -> {1, Inf};
+arity(_,   {_,_} = Q)   -> Q.
 
 prefix(Spec) ->
     case orddict:find(prefix, Spec) of

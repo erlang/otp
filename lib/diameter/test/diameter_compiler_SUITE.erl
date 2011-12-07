@@ -22,7 +22,6 @@
 %%
 
 -module(diameter_compiler_SUITE).
--compile({no_auto_import, [error/2]}).
 
 -export([suite/0,
          all/0,
@@ -30,7 +29,7 @@
          end_per_suite/1]).
 
 %% testcases
--export([format/1,
+-export([format/1,  format/2,
          replace/1, replace/2]).
 
 -export([dict/0]).  %% fake dictionary module
@@ -46,7 +45,10 @@
 %% returned in the first element of the error tuple returned by
 %% diameter_dict_util:parse/2.
 -define(REPLACE,
-        [{scan,
+        [{ok,
+          "",
+          ""},
+         {scan,
           "@id 0",
           "@id \\&"},
          {scan,
@@ -154,9 +156,126 @@
          {invalid_avp_order,
           "CEA ::=",
           "{Result-Code} &"},
-         {invalid_qualifier,
-          "CEA ::=.*",
-          "& 3*2"},
+         {ok,
+          "{ Product-Name",
+          "* &"},
+         {required_avp_has_zero_max_arity,
+          "{ Product-Name",
+          "*0 &"},
+         {required_avp_has_zero_min_arity,
+          "{ Product-Name",
+          "0* &"},
+         {required_avp_has_zero_min_arity,
+          "{ Product-Name",
+          "0*0 &"},
+         {ok,
+          "{ Product-Name",
+          "*1 &"},
+         {ok,
+          "{ Product-Name",
+          "1* &"},
+         {ok,
+          "{ Product-Name",
+          "1*1 &"},
+         {ok,
+          "{ Product-Name",
+          "2* &"},
+         {ok,
+          "{ Product-Name",
+          "*2 &"},
+         {ok,
+          "{ Product-Name",
+          "2*2 &"},
+         {ok,
+          "{ Product-Name",
+          "2*3 &"},
+         {qualifier_has_min_greater_than_max,
+          "{ Product-Name",
+          "3*2 &"},
+         {ok,
+          "\\[ Origin-State-Id",
+          "* &"},
+         {ok,
+          "\\[ Origin-State-Id",
+          "0* &"},
+         {ok,
+          "\\[ Origin-State-Id",
+          "*0 &"},
+         {ok,
+          "\\[ Origin-State-Id",
+          "0*0 &"},
+         {ok,
+          "\\[ Origin-State-Id",
+          "0*1 &"},
+         {ok,
+          "\\[ Origin-State-Id",
+          "0*2 &"},
+         {ok,
+          "\\[ Origin-State-Id",
+          "*1 &"},
+         {optional_avp_has_nonzero_min_arity,
+          "\\[ Origin-State-Id",
+          "1* &"},
+         {optional_avp_has_nonzero_min_arity,
+          "\\[ Origin-State-Id",
+          "1*1 &"},
+         {ok,
+          "\\[ Origin-State-Id",
+          "*2 &"},
+         {optional_avp_has_nonzero_min_arity,
+          "\\[ Origin-State-Id",
+          "2* &"},
+         {optional_avp_has_nonzero_min_arity,
+          "\\[ Origin-State-Id",
+          "2*2 &"},
+         {optional_avp_has_nonzero_min_arity,
+          "\\[ Origin-State-Id",
+          "2*3 &"},
+         {optional_avp_has_nonzero_min_arity,
+          "\\[ Origin-State-Id",
+          "3*2 &"},
+         {ok,
+          "^ *< Session-Id",
+          "* &"},
+         {ok,
+          "^ *< Session-Id",
+          "*0 &"},
+         {ok,
+          "^ *< Session-Id",
+          "0* &"},
+         {ok,
+          "^ *< Session-Id",
+          "0*0 &"},
+         {ok,
+          "^ *< Session-Id",
+          "0*1 &"},
+         {ok,
+          "^ *< Session-Id",
+          "0*2 &"},
+         {ok,
+          "^ *< Session-Id",
+          "*1 &"},
+         {ok,
+          "^ *< Session-Id",
+          "1* &"},
+         {ok,
+          "^ *< Session-Id",
+          "1*1 &"},
+         {ok,
+          "^ *< Session-Id",
+          "*2 &"},
+         {ok,
+          "^ *< Session-Id",
+          "2* &"},
+         {ok,
+          "^ *< Session-Id",
+          "2*2 &"},
+         {ok,
+          "^ *< Session-Id",
+          "2*3 &"},
+         {qualifier_has_min_greater_than_max,
+          "^ *< Session-Id",
+          "3*2 &"},
          {avp_already_referenced,
           "CER ::=.*",
           "& {Origin-Host}"},
@@ -232,7 +351,13 @@ end_per_suite(_Config) ->
 %% Ensure that parse o format is the identity map.
 format(Config) ->
     Bin = proplists:get_value(base, Config),
-    {ok, Dict} = diameter_dict_util:parse(Bin, []),
+    [] = ?util:run([{?MODULE, [format, M, Bin]}
+                    || E <- ?REPLACE,
+                       {ok, M} <- [norm(E)]]).
+
+format(Mods, Bin) ->
+    B = modify(Bin, Mods),
+    {ok, Dict} = diameter_dict_util:parse(B, []),
     {ok, D} = diameter_dict_util:parse(diameter_dict_util:format(Dict), []),
     {Dict, Dict} = {Dict, D}.
 
@@ -240,13 +365,12 @@ format(Config) ->
 
 replace(Config) ->
     Bin = proplists:get_value(base, Config),
-    [] = ?util:run([{?MODULE, [replace, E, Bin]} || E <- ?REPLACE]).
-
-replace({E, RE, Repl}, Bin) ->
-    replace({E, [{RE, Repl}]}, Bin);
+    [] = ?util:run([{?MODULE, [replace, N, Bin]}
+                    || E <- ?REPLACE,
+                       N <- [norm(E)]]).
 
 replace({E, Mods}, Bin) ->
-    B = iolist_to_binary(lists:foldl(fun re/2, Bin, Mods)),
+    B = modify(Bin, Mods),
     case {E, diameter_dict_util:parse(B, [{include, here()}]), Mods} of
         {ok, {ok, Dict}, _} ->
             Dict;
@@ -261,6 +385,14 @@ re({RE, Repl}, Bin) ->
     re:replace(Bin, RE, Repl, [multiline]).
 
 %% ===========================================================================
+
+modify(Bin, Mods) ->
+    lists:foldl(fun re/2, Bin, Mods).
+
+norm({E, RE, Repl}) ->
+    {E, [{RE, Repl}]};
+norm({_,_} = T) ->
+    T.
 
 nochar(Char, Str, Err) ->
     Err == parse orelse not lists:member(Char, Str) orelse Str.

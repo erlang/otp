@@ -174,7 +174,13 @@ fmt(message_application_id_mismatch) ->
 
 fmt(invalid_avp_order) ->
     "AVP reference ~c~s~c at line ~p breaks fixed/required/optional order";
-fmt(invalid_qualifier) ->
+fmt(required_avp_has_zero_max_arity) ->
+    "Required AVP has maximum arity 0 at line ~p";
+fmt(required_avp_has_zero_min_arity) ->
+    "Required AVP has minimum arity 0 at line ~p";
+fmt(optional_avp_has_nonzero_min_arity) ->
+    "Optional AVP has non-zero minimum arity at line ~p";
+fmt(qualifier_has_min_greater_than_max) ->
     "Qualifier ~p*~p at line ~p has Min > Max";
 fmt(avp_already_referenced) ->
     "AVP ~s at line ~p already referenced at line ~p";
@@ -300,7 +306,7 @@ body(avp_types, {Name, Code, Type, Flags}) ->
 body(messages, {"answer-message", _, _, [], Avps}) ->
     [?NL, ?NL, ?INDENT,
      "answer-message ::= < Diameter Header: code, ERR [PXY] >",
-     f_avps(Avps)];    
+     f_avps(Avps)];
 body(messages, {Name, Code, Flags, ApplId, Avps}) ->
     [?NL, ?NL, ?INDENT, word(Name), " ::= ", header(Code, Flags, ApplId),
      f_avps(Avps)];
@@ -326,7 +332,8 @@ f_avps(L) ->
     [[?NL, ?INDENT, ?INDENT, f_avp(A)] || A <- L].
 
 f_avp({Q, A}) ->
-    f_avp(f_qual(Q), f_delim(A));
+    [D | _] = Avp = f_delim(A),
+    f_avp(f_qual(D, Q), Avp);
 f_avp(A) ->
     f_avp("", f_delim(A)).
 
@@ -337,17 +344,19 @@ f_delim({A}) ->
 f_delim([A]) ->
     [$[, word(A), $]].
 
-f_avp(Q, Avp) ->
+f_avp(Q, [L, Avp, R]) ->
     Len = length(lists:flatten([Q])),
-    [io_lib:format("~*s", [-1*max(Len+1, 6) , Q]), Avp].
+    [io_lib:format("~*s", [-1*max(Len+1, 6) , Q]), L, " ", Avp, " ", R].
 
-f_qual('*') ->
+f_qual(${, '*') ->
+    "1*";  %% Equivalent to "*" but the more common/obvious rendition
+f_qual(_, '*') ->
     "*";
-f_qual({'*', N}) ->
+f_qual(_, {'*', N}) ->
     [$*, ?I(N)];
-f_qual({N, '*'}) ->
+f_qual(_, {N, '*'}) ->
     [?I(N), $*];
-f_qual({M,N}) ->
+f_qual(_, {M,N}) ->
     [?I(M), $*, ?I(N)].
 
 section(Key) ->
@@ -500,7 +509,17 @@ make_body(Avps) ->
 avp([false, D, Avp]) ->
     avp(D, Avp);
 avp([Q, D, Avp]) ->
-    {qual(Q), avp(D, Avp)}.
+    case {qual(D, Q), avp(D, Avp)} of
+        {{0,1}, A} when D == $[ ->
+            A;
+        {{1,1}, A} ->
+            A;
+        T ->
+            T
+    end.
+%% Could just store the qualifier as a pair in all cases but the more
+%% compact form is easier to parse visually so live with a bit of
+%% mapping. Ditto the use of '*'.
 
 avp(D, {'AVP', _}) ->
     delim(D, "AVP");
@@ -514,14 +533,40 @@ delim(${, N) ->
 delim($[, N) ->
     [N].
 
-qual({true, {_,_,N}}) ->
-    {'*', N};
-qual({{_,_,N}, true}) ->
+%% There's a difference between max = 0 and not specifying an AVP:
+%% reception of an AVP with max = 0 will always be an error, otherwise
+%% it depends on the existence of 'AVP' and the M flag.
+
+qual(${, {{_,L,0}, _}) ->
+    ?RETURN(required_avp_has_zero_min_arity, [L]);
+qual(${, {_, {_,L,0}}) ->
+    ?RETURN(required_avp_has_zero_max_arity, [L]);
+
+qual($[, {{_,L,N}, _})
+  when 0 < N ->
+    ?RETURN(optional_avp_has_nonzero_min_arity, [L]);
+
+qual(_, {{_,L,Min}, {_,_,Max}})
+  when Min > Max ->
+    ?RETURN(qualifier_has_min_greater_than_max, [Min, Max, L]);
+
+qual(_, true) ->
+    '*';
+
+qual(${, {true, {_,_,N}}) ->
+    {1, N};
+qual(_, {true, {_,_,N}}) ->
+    {0, N};
+
+qual(D, {{_,_,N}, true})
+  when D == ${, N == 1;
+       D /= ${, N == 0 ->
+    '*';
+qual(_, {{_,_,N}, true}) ->
     {N, '*'};
-qual({{_,_,N},{_,_,M}}) ->
-    {N, M};
-qual(true) ->
-    '*'.
+
+qual(_, {{_,_,Min}, {_,_,Max}}) ->
+    {Min, Max}.
 
 %% Optional reports when running verbosely.
 report(What, [F | A])
@@ -850,10 +895,6 @@ xa(Ds, [[Qual, D, {'AVP', Line}] | Avps], Dict, Key, Name) ->
 
 xa([], [[_Qual, D, {_, Line, Name}] | _], _, _, _) ->
     ?RETURN(invalid_avp_order, [D, Name, close(D), Line]);
-
-xa([D|_], [[{{_, Line, Min}, {_, _, Max}}, D, _] | _], _, _, _)
-  when Min > Max ->
-    ?RETURN(invalid_qualifier, [Min, Max, Line]);
 
 xa([D|_] = Ds, [[Qual, D, {_, Line, AvpName}] | Avps], Dict, Key, Name) ->
     xa(Ds,
