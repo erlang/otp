@@ -1098,7 +1098,7 @@ file_write_file_info_opts(Config) when is_list(Config) ->
 		ok = ?PRIM_FILE_call(write_file_info, Handle, [Name, FI, Opts])
 	end, [ 
 	    {#file_info{ mode=8#600, atime = Time, mtime = Time, ctime = Time}, Opts} || 
-	    Opts <- [[{time, epoch}]],
+	    Opts <- [[{time, posix}]],
 	    Time <- [ 0,1,-1,100,-100,1000,-1000,10000,-10000 ]
 	]),
 
@@ -1107,7 +1107,7 @@ file_write_file_info_opts(Config) when is_list(Config) ->
 		ok = ?PRIM_FILE_call(write_file_info, Handle, [Name, FI, Opts])
 	end, [ 
 	    {#file_info{ mode=8#400, atime = Time, mtime = Time, ctime = Time}, Opts} || 
-	    Opts <- [[{time, utc}],[{time, local}]],
+	    Opts <- [[{time, universal}],[{time, local}]],
 	    Time <- [
 		{{1970,1,1},{0,0,0}},
 		{{1970,1,1},{0,0,1}},
@@ -1135,7 +1135,7 @@ file_read_file_info_opts(Config) when is_list(Config) ->
     lists:foreach(fun
 	    (Opts) ->
 		{ok,_} = ?PRIM_FILE_call(read_file_info, Handle, [Name, Opts])
-    end, [[{time, Type}] || Type <- [local, utc, epoch]]),
+    end, [[{time, Type}] || Type <- [local, universal, posix]]),
     ok   = ?PRIM_FILE:stop(Handle),
     test_server:timetrap_cancel(Dog),
     ok.
@@ -1154,14 +1154,14 @@ file_write_read_file_info_opts(Config) when is_list(Config) ->
     ok   = ?PRIM_FILE:write_file(Name, "hello_opts2"),
 
     ok = file_write_read_file_info_opts(Handle, Name, {{1989, 04, 28}, {19,30,22}}, [{time, local}]),
-    ok = file_write_read_file_info_opts(Handle, Name, {{1989, 04, 28}, {19,30,22}}, [{time, utc}]),
+    ok = file_write_read_file_info_opts(Handle, Name, {{1989, 04, 28}, {19,30,22}}, [{time, universal}]),
     ok = file_write_read_file_info_opts(Handle, Name, {{1930, 04, 28}, {19,30,22}}, [{time, local}]),
-    ok = file_write_read_file_info_opts(Handle, Name, {{1930, 04, 28}, {19,30,22}}, [{time, utc}]),
-    ok = file_write_read_file_info_opts(Handle, Name, 1, [{time, epoch}]),
-    ok = file_write_read_file_info_opts(Handle, Name, -1, [{time, epoch}]),
-    ok = file_write_read_file_info_opts(Handle, Name, 300000, [{time, epoch}]),
-    ok = file_write_read_file_info_opts(Handle, Name, -300000, [{time, epoch}]),
-    ok = file_write_read_file_info_opts(Handle, Name, 0, [{time, epoch}]),
+    ok = file_write_read_file_info_opts(Handle, Name, {{1930, 04, 28}, {19,30,22}}, [{time, universal}]),
+    ok = file_write_read_file_info_opts(Handle, Name, 1, [{time, posix}]),
+    ok = file_write_read_file_info_opts(Handle, Name, -1, [{time, posix}]),
+    ok = file_write_read_file_info_opts(Handle, Name, 300000, [{time, posix}]),
+    ok = file_write_read_file_info_opts(Handle, Name, -300000, [{time, posix}]),
+    ok = file_write_read_file_info_opts(Handle, Name, 0, [{time, posix}]),
 
     ok = ?PRIM_FILE:stop(Handle),
     test_server:timetrap_cancel(Dog),

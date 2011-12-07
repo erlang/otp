@@ -810,9 +810,9 @@ write_file_info_int(Port, File,
 
 
 file_info_validate_atime(Atime, _) when Atime =/= undefined -> Atime;
-file_info_validate_atime(undefined, local) -> erlang:localtime();
-file_info_validate_atime(undefined, utc)   -> erlang:universaltime();
-file_info_validate_atime(undefined, epoch) -> erlang:universaltime_to_seconds((erlang:universaltime())).
+file_info_validate_atime(undefined, local)     -> erlang:localtime();
+file_info_validate_atime(undefined, universal) -> erlang:universaltime();
+file_info_validate_atime(undefined, posix)     -> erlang:universaltime_to_seconds((erlang:universaltime())).
 
 file_info_validate_mtime(undefined, Atime) -> Atime;
 file_info_validate_mtime(Mtime, _)         -> Mtime.
@@ -1343,19 +1343,19 @@ plgv(_, [], D)         -> D.
 
 %%
 %% We don't actually want this here
-%% We want to use epochs in all prim but erl_prim_loader makes that tricky
+%% We want to use posix time in all prim but erl_prim_loader makes that tricky
 %% It is probably needed to redo the whole erl_prim_loader
 
-from_seconds(Seconds, epoch) when is_integer(Seconds) ->
+from_seconds(Seconds, posix) when is_integer(Seconds) ->
     Seconds;
-from_seconds(Seconds, utc) when is_integer(Seconds) ->
+from_seconds(Seconds, universal) when is_integer(Seconds) ->
     erlang:seconds_to_universaltime(Seconds);
 from_seconds(Seconds, local) when is_integer(Seconds) ->
     erlang:universaltime_to_localtime(erlang:seconds_to_universaltime(Seconds)).
 
-to_seconds(Seconds, epoch) when is_integer(Seconds) ->
+to_seconds(Seconds, posix) when is_integer(Seconds) ->
     Seconds;
-to_seconds({_,_} = Datetime, utc) ->
+to_seconds({_,_} = Datetime, universal) ->
     erlang:universaltime_to_seconds(Datetime);
 to_seconds({_,_} = Datetime, local) ->
     erlang:universaltime_to_seconds(erlang:localtime_to_universaltime(Datetime)).
