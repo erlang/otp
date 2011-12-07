@@ -327,11 +327,12 @@ typedef struct erl_drv_entry {
 				   closed, and there is data in the 
 				   driver queue that needs to be flushed
 				   before 'stop' can be called */
-    int (*call)(ErlDrvData drv_data,
-		unsigned int command, char *buf, ErlDrvSizeT len,
-		char **rbuf, ErlDrvSizeT rlen, unsigned int *flags);
-                                /* Works mostly like 'control', a synchronous
-				   call into the driver. */
+    ErlDrvSSizeT (*call)(ErlDrvData drv_data,
+			 unsigned int command, char *buf, ErlDrvSizeT len,
+			 char **rbuf, ErlDrvSizeT rlen,
+			 unsigned int *flags); /* Works mostly like 'control',
+						  a synchronous
+						  call into the driver. */
     void (*event)(ErlDrvData drv_data, ErlDrvEvent event,
 		  ErlDrvEventData event_data);
                                 /* Called when an event selected by 
