@@ -32,7 +32,9 @@
 %% # scan/1
 %% -----------------------------------------------------------
 
--spec scan(string()) -> {ok, [Token]} | {error, {atom(), string(), Lineno}}
+-spec scan(string() | binary())
+   -> {ok, [Token]}
+    | {error, {string(), string(), Lineno}}
  when Token  :: {word, Lineno, string()}
               | {number, Lineno, non_neg_integer()}
               | {Symbol, Lineno},
@@ -169,7 +171,7 @@ split([H|_] = L) when $a =< H, H =< $z;
     {word(P), Rest};
 
 split([$'|T]) ->
-    case splitwith(fun(C) -> not lists:member(C, "'\r\n") end, T) of
+    case lists:splitwith(fun(C) -> not lists:member(C, "'\r\n") end, T) of
         {[_|_] = A, [$'|Rest]} ->
             {{word, A}, Rest};
         {[], [$'|_]} ->
