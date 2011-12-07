@@ -40,7 +40,8 @@
 	 accept_timeouts_in_order3/1,accept_timeouts_mixed/1, 
 	 killing_acceptor/1,killing_multi_acceptors/1,killing_multi_acceptors2/1,
 	 several_accepts_in_one_go/1,active_once_closed/1, send_timeout/1, send_timeout_active/1, 
-	 otp_7731/1, zombie_sockets/1, otp_7816/1, otp_8102/1]).
+	 otp_7731/1, zombie_sockets/1, otp_7816/1, otp_8102/1,
+         otp_9389/1]).
 
 %% Internal exports.
 -export([sender/3, not_owner/1, passive_sockets_server/2, priority_server/1, 
@@ -72,7 +73,7 @@ all() ->
      killing_acceptor, killing_multi_acceptors,
      killing_multi_acceptors2, several_accepts_in_one_go,
      active_once_closed, send_timeout, send_timeout_active, otp_7731,
-     zombie_sockets, otp_7816, otp_8102].
+     zombie_sockets, otp_7816, otp_8102, otp_9389].
 
 groups() -> 
     [].
@@ -2479,4 +2480,63 @@ otp_8102_do(LSocket, PortNum, {Bin,PType}) ->
     io:format("Got error msg, ok.\n",[]),
     gen_tcp:close(SSocket),    
     gen_tcp:close(RSocket).
-    
+
+otp_9389(doc) -> ["Verify packet_size handles long HTTP header lines"];
+otp_9389(suite) -> [];
+otp_9389(Config) when is_list(Config) ->
+    ?line {ok, LS} = gen_tcp:listen(0, []),
+    ?line {ok, {_, PortNum}} = inet:sockname(LS),
+    io:format("Listening on ~w with port number ~p\n", [LS, PortNum]),
+    OrigLinkHdr = "/" ++ string:chars($S, 8192),
+    _Server = spawn_link(
+                fun() ->
+                        ?line {ok, S} = gen_tcp:accept(LS),
+                        ?line ok = inet:setopts(S, [{packet_size, 16384}]),
+                        ?line ok = otp_9389_loop(S, OrigLinkHdr),
+                        ?line ok = gen_tcp:close(S)
+                end),
+    ?line {ok, S} = gen_tcp:connect("localhost", PortNum,
+                                    [binary, {active, false}]),
+    Req = "GET / HTTP/1.1\r\n"
+        ++ "Host: localhost\r\n"
+        ++ "Link: " ++ OrigLinkHdr ++ "\r\n\r\n",
+    ?line ok = gen_tcp:send(S, Req),
+    ?line ok = inet:setopts(S, [{packet, http}]),
+    ?line {ok, {http_response, {1,1}, 200, "OK"}} = gen_tcp:recv(S, 0),
+    ?line ok = inet:setopts(S, [{packet, httph}, {packet_size, 16384}]),
+    ?line {ok, {http_header, _, 'Content-Length', _, "0"}} = gen_tcp:recv(S, 0),
+    ?line {ok, {http_header, _, "Link", _, LinkHdr}} = gen_tcp:recv(S, 0),
+    ?line true = (LinkHdr == OrigLinkHdr),
+    ok = gen_tcp:close(S),
+    ok = gen_tcp:close(LS),
+    ok.
+
+otp_9389_loop(S, OrigLinkHdr) ->
+    ?line ok = inet:setopts(S, [{active,once},{packet,http}]),
+    receive
+        {http, S, {http_request, 'GET', _, _}} ->
+            ?line ok = otp_9389_loop(S, OrigLinkHdr, undefined)
+    after
+        3000 ->
+            ?line error({timeout,request_line})
+    end.
+otp_9389_loop(S, OrigLinkHdr, ok) ->
+    ?line Resp = "HTTP/1.1 200 OK\r\nContent-length: 0\r\n" ++
+        "Link: " ++ OrigLinkHdr ++ "\r\n\r\n",
+    ?line ok = gen_tcp:send(S, Resp);
+otp_9389_loop(S, OrigLinkHdr, State) ->
+    ?line ok = inet:setopts(S, [{active,once}, {packet,httph}]),
+    receive
+        {http, S, http_eoh} ->
+            ?line otp_9389_loop(S, OrigLinkHdr, ok);
+        {http, S, {http_header, _, "Link", _, LinkHdr}} ->
+            ?line LinkHdr = OrigLinkHdr,
+            ?line otp_9389_loop(S, OrigLinkHdr, State);
+        {http, S, {http_header, _, _Hdr, _, _Val}} ->
+            ?line otp_9389_loop(S, OrigLinkHdr, State);
+        {http, S, {http_error, Err}} ->
+            ?line error({error, Err})
+    after
+        3000 ->
+            ?line error({timeout,header})
+    end.
