@@ -71,7 +71,7 @@
 	  <p>The flex driver has been updated (along with all other drivers)
 	  to support the new driver format. This change may effect the
 	  ability to build and/or use the driver without reentrant support. </p>
-          <p>Own Id: OTP-NNNN</p>
+          <p>Own Id: OTP-9795</p>
         </item>
 
      </list>
@@ -106,7 +106,7 @@
 	  <p>Due to the change in the flex driver API, 
 	  we may no longer be able to build and/or use 
 	  the flex driver without reentrant support. </p>
-          <p>Own Id: OTP-NNNN</p>
+          <p>Own Id: OTP-9795</p>
         </item>
 
       </list>
