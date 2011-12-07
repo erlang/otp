@@ -799,7 +799,16 @@ static void reply_Uint_posix_error(file_descriptor *desc, Uint num,
     driver_output2(desc->port, response, t-response, NULL, 0);
 }
 
+static void reply_string_error(file_descriptor *desc, char* str) {
+    char response[256];		/* Response buffer. */
+    char* s;
+    char* t;
 
+    response[0] = FILE_RESP_ERROR;
+    for (s = str, t = response+1; *s; s++, t++)
+	*t = tolower(*s);
+    driver_output2(desc->port, response, t-response, NULL, 0);
+}
 
 static int reply_error(file_descriptor *desc, 
 		       Efile_error *errInfo) /* The error codes. */
@@ -2208,7 +2217,12 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
       case FILE_SENDFILE:
 	  if (d->result_ok == -1) {
 	      desc->sendfile_state = not_sending;
-	      reply_error(desc, &d->errInfo);
+	      if (d->errInfo.posix_errno == ECONNRESET ||
+		  d->errInfo.posix_errno == ENOTCONN ||
+		  d->errInfo.posix_errno == EPIPE)
+		  reply_string_error(desc,"closed");
+	      else
+		  reply_error(desc, &d->errInfo);
 	      if (sys_info.async_threads != 0) {
 		  SET_NONBLOCKING(d->c.sendfile.out_fd);
 		  free_sendfile(data);

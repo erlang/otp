@@ -33,6 +33,7 @@ all() ->
      ,t_sendfile_recvafter
      ,t_sendfile_sendduring
      ,t_sendfile_recvduring
+     ,t_sendfile_closeduring
     ].
 
 init_per_suite(Config) ->
@@ -212,19 +213,52 @@ t_sendfile_recvduring(Config) ->
 
     ok = sendfile_send({127,0,0,1}, Send, 0).
 
+t_sendfile_closeduring(Config) ->
+    Filename = proplists:get_value(big_file, Config),
+
+    Send = fun(Sock,SFServPid) ->
+		   spawn_link(fun() ->
+				      timer:sleep(50),
+				      SFServPid ! stop
+			      end),
+		   case erlang:system_info(thread_pool_size) of
+		       0 ->
+			   {error, closed} = file:sendfile(Filename, Sock);
+		       _Else ->
+			   %% This can return how much has been sent or
+			   %% {error,closed} depending on OS.
+			   %% How much is sent impossible to know as
+			   %%  the socket was closed mid sendfile
+			   case file:sendfile(Filename, Sock) of
+			       {error, closed} ->
+				   ok;
+			       {ok, Size}  when is_integer(Size) ->
+				   ok
+			   end
+		   end,
+		   -1
+	   end,
+
+    ok = sendfile_send({127,0,0,1}, Send, 0).
+
 %% Generic sendfile server code
 sendfile_send(Send) ->
     sendfile_send({127,0,0,1},Send).
 sendfile_send(Host, Send) ->
     sendfile_send(Host, Send, []).
 sendfile_send(Host, Send, Orig) ->
-    spawn_link(?MODULE, sendfile_server, [self(), Orig]),
+    SFServer = spawn_link(?MODULE, sendfile_server, [self(), Orig]),
     receive
 	{server, Port} ->
 	    {ok, Sock} = gen_tcp:connect(Host, Port,
 					       [binary,{packet,0},
 						{active,false}]),
-	    Data = Send(Sock),
+	    Data = case proplists:get_value(arity,erlang:fun_info(Send)) of
+		       1 ->
+			   Send(Sock);
+		       2 ->
+			   Send(Sock, SFServer)
+		   end,
 	    ok = gen_tcp:close(Sock),
 	    receive
 		{ok, Bin} ->
@@ -247,6 +281,9 @@ sendfile_server(ClientPid, Orig) ->
 -define(SENDFILE_TIMEOUT, 10000).
 sendfile_do_recv(Sock, Bs) ->
     receive
+	stop when Bs /= 0,is_integer(Bs) ->
+	    gen_tcp:close(Sock),
+	    {ok, -1};
 	{tcp, Sock, B} ->
 	    case binary:match(B,<<1>>) of
 		nomatch when is_list(Bs) ->
