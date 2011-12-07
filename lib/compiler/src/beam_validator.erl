@@ -670,10 +670,20 @@ valfun_4({get_tuple_element,Src,I,Dst}, Vst) ->
 valfun_4({test,bs_start_match2,{f,Fail},Live,[Ctx,NeedSlots],Ctx}, Vst0) ->
     %% If source and destination registers are the same, match state
     %% is OK as input.
-    _ = get_move_term_type(Ctx, Vst0),
+    CtxType = get_move_term_type(Ctx, Vst0),
     verify_live(Live, Vst0),
     Vst1 = prune_x_regs(Live, Vst0),
-    Vst = branch_state(Fail, Vst1),
+    BranchVst = case CtxType of
+		    {match_context,_,_} ->
+			%% The failure branch will never be taken when Ctx
+			%% is a match context. Therefore, the type for Ctx
+			%% at the failure label must not be match_context
+			%% (or we could reject legal code).
+			set_type_reg(term, Ctx, Vst1);
+		    _ ->
+			Vst1
+		end,
+    Vst = branch_state(Fail, BranchVst),
     set_type_reg(bsm_match_state(NeedSlots), Ctx, Vst);
 valfun_4({test,bs_start_match2,{f,Fail},Live,[Src,Slots],Dst}, Vst0) ->
     assert_term(Src, Vst0),
