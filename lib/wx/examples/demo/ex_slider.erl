@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2009. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -21,7 +21,7 @@
 -behaviour(wx_object).
 
 -export([start/1, init/1, terminate/2,  code_change/3,
-	 handle_info/2, handle_call/3, handle_event/2]).
+	 handle_info/2, handle_call/3, handle_cast/2, handle_event/2]).
 
 -include_lib("wx/include/wx.hrl").
 
@@ -100,6 +100,10 @@ handle_info(Msg, State) ->
 handle_call(Msg, _From, State) ->
     demo:format(State#state.config,"Got Call ~p\n",[Msg]),
     {reply, {error, nyi},State}.
+
+handle_cast(Msg, State) ->
+    io:format("Got cast ~p~n",[Msg]),
+    {noreply,State}.
 
 code_change(_, _, State) ->
     {stop, ignore, State}.

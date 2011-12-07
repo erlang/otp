@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -24,7 +24,7 @@
 -export([new/3, getFilename/1, getFilenames/1, getDirectory/1, destroy/1]).
 
 %% Internal 
--export([init/1, handle_call/3, handle_event/2, 
+-export([init/1, handle_call/3, handle_event/2, handle_cast/2,
 	 handle_info/2, code_change/3, terminate/2]).
 
 -include_lib("wx/include/wx.hrl").
@@ -192,6 +192,9 @@ handle_call(getDirectory, _From, State = #state{path=Dir}) ->
 
 handle_call(destroy, _From, State) ->
     {stop, normal, ok, State}.
+
+handle_cast(_, State) ->
+    {noreply, State}.
 
 %%  events
 handle_event(#wx{id=?wxID_UP}, State0) ->

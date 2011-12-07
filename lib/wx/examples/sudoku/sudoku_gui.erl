@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2009. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -24,7 +24,7 @@
 %%%-------------------------------------------------------------------
 -module(sudoku_gui).
 
--export([init/1, handle_info/2, handle_call/3, handle_event/2, 
+-export([init/1, handle_info/2, handle_call/3, handle_cast/2, handle_event/2,
 	 terminate/2, code_change/3]).
 
 -compile(export_all).
@@ -229,6 +229,10 @@ handle_event(Msg,S) ->
 
 handle_call(What, _From, State) ->
     {stop, {call, What}, State}.
+
+handle_cast(Msg, State) ->
+    io:format("Got cast ~p~n",[Msg]),
+    {noreply,State}.
 
 code_change(_, _, State) ->
     {stop, not_yet_implemented, State}.
