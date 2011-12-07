@@ -76,7 +76,7 @@ else
     SUB_DIRECTORIES = hipe parsetools asn1/src
   else
     ifdef TERTIARY_BOOTSTRAP
-      SUB_DIRECTORIES = snmp sasl jinterface ic syntax_tools
+      SUB_DIRECTORIES = snmp sasl jinterface ic syntax_tools wx
     else # Not bootstrap build
       SUB_DIRECTORIES = $(ERTS_SUB_DIRECTORIES) $(OTHER_SUB_DIRECTORIES)
     endif

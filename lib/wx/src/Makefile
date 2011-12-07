@@ -18,7 +18,15 @@
 #
 
 include ../vsn.mk
-include ../config.mk
+ifdef TERTIARY_BOOTSTRAP
+ VSN = $(WX_VSN)
+ INSIDE_ERLSRC = true
+ include $(ERL_TOP)/make/target.mk
+ include $(ERL_TOP)/make/$(TARGET)/otp.mk
+ RELSYSDIR = $(RELEASE_PATH)/lib/wx-$(VSN)
+else # Normal build
+ include ../config.mk
+endif
 
 ESRC = .
 EGEN = gen
@@ -65,7 +73,11 @@ APPUP_SRC    = $(APPUP_FILE).src
 APPUP_TARGET = $(EBIN)/$(APPUP_FILE)
 
 # Targets
-debug opt: $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET)
+ifdef TERTIARY_BOOTSTRAP
+ opt: $(EBIN)/wx_object.beam
+else
+ debug opt: $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET)
+endif
 
 clean:  
 	rm -f $(TARGET_FILES) 

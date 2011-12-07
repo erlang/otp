@@ -695,6 +695,18 @@ tertiary_bootstrap_copy:
 			cp $$x $$TF; \
 		true; \
 	done
+#       copy wx_object to remove undef behaviour warnings
+	for x in lib/wx/ebin/wx_object.beam; do \
+		BN=`basename $$x`; \
+		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/wx/ebin/$$BN; \
+		test -f  $$TF && \
+		test '!' -z "`find $$x -newer $$TF -print`" && \
+			cp $$x $$TF; \
+		test '!' -f $$TF && \
+			cp $$x $$TF; \
+		true; \
+	done
+
 	for x in lib/test_server/include/*.hrl; do \
 		BN=`basename $$x`; \
 		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/test_server/include/$$BN; \
