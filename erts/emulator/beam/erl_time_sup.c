@@ -583,7 +583,7 @@ static const int mdays[14] = {0, 31, 28, 31, 30, 31, 30,
                             (((y) % 100) != 0)) || \
                            (((y) % 400) == 0))
 
-#define  BASEYEAR       INT_MIN
+#define  BASEYEAR       1601
 
 /* A more "clever" mktime
  * return  1, if successful
