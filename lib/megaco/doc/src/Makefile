@@ -1,7 +1,7 @@
 # 
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2000-2010. All Rights Reserved.
+# Copyright Ericsson AB 2000-2011. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -123,10 +123,13 @@ imgs: $(IMG_FILES:%=$(HTMLDIR)/%)
 man: $(MAN3_FILES) 
 
 $(INDEX_TARGET): $(INDEX_SRC) $(APP_FILE)
-	sed -e 's/%VSN%/$(VSN)/; \
-                s/%ERLANG_SITE%/www\.erlang\.se\//; \
-                s/%UP_ONE_LEVEL%/..\/..\/..\/doc\/index.html/; \
-                s/%OFF_PRINT%/pdf\/megaco-$(VSN).pdf/' $< > $@
+	sed -e 's/%VSN%/$(VSN)/' $< > $@
+
+$(INDEX_TARGET): $(INDEX_SRC) $(APP_FILE)
+	sed -e 's/%VSN%/$(VSN)/' \
+            -e 's/%ERLANG_SITE%/www\.erlang\.se\//' \
+            -e 's/%UP_ONE_LEVEL%/..\/..\/..\/doc\/index.html/' \
+            -e 's/%OFF_PRINT%/pdf\/megaco-$(VSN).pdf/' $< > $@
 
 debug opt: 
 
