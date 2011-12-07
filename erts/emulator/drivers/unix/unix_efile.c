@@ -900,6 +900,8 @@ efile_fileinfo(Efile_error* errInfo, Efile_info* pInfo,
 int
 efile_write_info(Efile_error *errInfo, Efile_info *pInfo, char *name)
 {
+    struct utimbuf tval;
+
     CHECK_PATHLEN(name, errInfo);
 
 #ifdef VXWORKS
@@ -951,8 +953,6 @@ efile_write_info(Efile_error *errInfo, Efile_info *pInfo, char *name)
     }
 
 #endif /* !VXWORKS */
-
-    struct utimbuf tval;
 
     tval.actime  = pInfo->accessTime;
     tval.modtime = pInfo->modifyTime;
