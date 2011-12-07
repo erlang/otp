@@ -109,6 +109,10 @@
 -type posix_file_advise() :: 'normal' | 'sequential' | 'random'
                            | 'no_reuse' | 'will_need' | 'dont_need'.
 -type sendfile_option() :: {chunk_size, non_neg_integer()}.
+-type file_info_option() :: {'time', 'local'} | {'time', 'universal'} 
+			  | {'time', 'posix'}.
+
+
 %%%-----------------------------------------------------------------
 %%% General functions
 
@@ -218,7 +222,7 @@ read_file_info(Name) ->
 
 -spec read_file_info(Filename, Opts) -> {ok, FileInfo} | {error, Reason} when
       Filename :: name(),
-      Opts :: list(),
+      Opts :: [file_info_option()],
       FileInfo :: file_info(),
       Reason :: posix() | badarg.
 
@@ -240,7 +244,7 @@ read_link_info(Name) ->
 
 -spec read_link_info(Name, Opts) -> {ok, FileInfo} | {error, Reason} when
       Name :: name(),
-      Opts :: list(),
+      Opts :: [file_info_option()],
       FileInfo :: file_info(),
       Reason :: posix() | badarg.
 
@@ -266,7 +270,7 @@ write_file_info(Name, Info = #file_info{}) ->
 
 -spec write_file_info(Filename, FileInfo, Opts) -> ok | {error, Reason} when
       Filename :: name(),
-      Opts :: list(),
+      Opts :: [file_info_option()],
       FileInfo :: file_info(),
       Reason :: posix() | badarg.
 
