@@ -44,6 +44,7 @@ XML_PART_FILES = \
 
 XML_CHAPTER_FILES = \
 	overview.xml \
+        doc-build.xml \
 	user_guide_dtds.xml \
 	refman_dtds.xml \
 	notes.xml \
