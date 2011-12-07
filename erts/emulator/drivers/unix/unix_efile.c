@@ -1517,7 +1517,7 @@ efile_sendfile(Efile_error* errInfo, int in_fd, int out_fd,
     size_t len;
     sendfilevec_t fdrec;
     fdrec.sfv_fd = in_fd;
-    fdrec.sfv_flag = SFV_NOWAIT;
+    fdrec.sfv_flag = 0;
     do {
       fdrec.sfv_off = *offset;
       len = 0;
