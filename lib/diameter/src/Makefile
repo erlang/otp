@@ -54,14 +54,16 @@ VPATH = .:base:compiler:transport:gen
 
 include modules.mk
 
+# Modules generated from dictionary specifications.
 DICT_MODULES = $(DICTS:%=gen/diameter_gen_%)
 DICT_ERLS    = $(DICT_MODULES:%=%.erl)
 DICT_HRLS    = $(DICT_MODULES:%=%.hrl)
 
 # Modules to build before compiling dictionaries.
-COMPILER_MODULES = $(filter compiler/%, $(CT_MODULES))
+COMPILER_MODULES = $(notdir $(filter compiler/%, $(CT_MODULES))) \
+                   $(DICT_YRL)
 
-# All handwritten modules.
+# All handwritten modules from which a depend.mk is generated.
 MODULES = \
 	$(RT_MODULES) \
 	$(CT_MODULES)
@@ -74,11 +76,12 @@ APP_MODULES = \
 # Modules for which to build beams.
 TARGET_MODULES = \
 	$(APP_MODULES) \
-	$(CT_MODULES)
+	$(CT_MODULES) \
+	$(DICT_YRL:%=gen/%)
 
 # What to build for the 'opt' target.
 TARGET_FILES = \
-	$(patsubst %,$(EBIN)/%.$(EMULATOR),$(notdir $(TARGET_MODULES))) \
+	$(patsubst %, $(EBIN)/%.$(EMULATOR), $(notdir $(TARGET_MODULES))) \
 	$(APP_TARGET) \
 	$(APPUP_TARGET)
 
@@ -125,6 +128,10 @@ opt: $(TARGET_FILES)
 debug:
 	@$(MAKE) TYPE=debug opt
 
+# The dictionary parser.
+gen/$(DICT_YRL).erl: compiler/$(DICT_YRL).yrl
+	$(ERLC) -Werror -o $(@D) $<
+
 # Generate the app file.
 $(APP_TARGET): $(APP_SRC) ../vsn.mk modules.mk
 	M=`echo $(notdir $(APP_MODULES)) | tr ' ' ,`; \
@@ -146,6 +153,8 @@ info:
 	@echo ========================================
 	@$(call list,DICTS)
 	@echo
+	@$(call list,DICT_YRL)
+	@echo
 	@$(call list,RT_MODULES)
 	@echo
 	@$(call list,CT_MODULES)
@@ -164,7 +173,7 @@ info:
 	@echo ========================================
 
 clean:
-	rm -f $(TARGET_FILES) $(DICT_ERLS) $(DICT_HRLS)
+	rm -f $(TARGET_FILES) gen/*
 	rm -f depend.mk
 
 # ----------------------------------------------------
@@ -192,8 +201,9 @@ release_spec: opt
 	$(MAKE) $(TARGET_DIRS:%/=release_src_%)
 
 $(TARGET_DIRS:%/=release_src_%): release_src_%:
-	$(INSTALL_DATA) $(filter $*/%,$(TARGET_MODULES:%=%.erl) \
-	                              $(INTERNAL_HRLS)) \
+	$(INSTALL_DATA) $(filter $*/%, $(TARGET_MODULES:%=%.erl) \
+	                               $(INTERNAL_HRLS)) \
+	                $(filter $*/%, compiler/$(DICT_YRL).yrl) \
 	                $(RELSYSDIR)/src/$*
 
 release_docs_spec:
@@ -207,7 +217,7 @@ gen/diameter_gen_base_accounting.hrl gen/diameter_gen_relay.hrl: \
 	$(EBIN)/diameter_gen_base_rfc3588.$(EMULATOR)
 
 gen/diameter_gen_base_rfc3588.erl gen/diameter_gen_base_rfc3588.hrl: \
-	$(COMPILER_MODULES:compiler/%=$(EBIN)/%.$(EMULATOR))
+	$(COMPILER_MODULES:%=$(EBIN)/%.$(EMULATOR))
 
 $(DICT_MODULES:gen/%=$(EBIN)/%.$(EMULATOR)): \
 	$(INCDIR)/diameter.hrl \
@@ -224,10 +234,12 @@ depend.mk: depend.sed $(MODULES:%=%.erl) Makefile
 
 -include depend.mk
 
-.PRECIOUS: $(DICT_ERLS) $(DICT_HRLS)
 .PHONY: app clean depend dict info release_subdir
 .PHONY: debug opt release_docs_spec release_spec
 .PHONY: $(TARGET_DIRS:%/=%) $(TARGET_DIRS:%/=release_src_%)
+
+# Keep intermediate files.
+.SECONDARY: $(DICT_ERLS) $(DICT_HRLS) gen/$(DICT_YRL:%=%.erl)
 
 # ----------------------------------------------------
 # Targets using secondary expansion (make >= 3.81)
@@ -237,4 +249,6 @@ depend.mk: depend.sed $(MODULES:%=%.erl) Makefile
 
 # Make beams from a subdirectory.
 $(TARGET_DIRS:%/=%): \
-  $$(patsubst $$@/%,$(EBIN)/%.$(EMULATOR),$$(filter $$@/%,$(TARGET_MODULES)))
+  $$(patsubst $$@/%, \
+              $(EBIN)/%.$(EMULATOR), \
+              $$(filter $$@/%, $(TARGET_MODULES) compiler/$(DICT_YRL)))

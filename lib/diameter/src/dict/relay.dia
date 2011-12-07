@@ -21,5 +21,3 @@
 @name   diameter_gen_relay
 @prefix diameter_relay
 @vendor 0 IETF
-
-@inherits diameter_gen_base_rfc3588

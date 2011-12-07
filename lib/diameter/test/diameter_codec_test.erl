@@ -30,6 +30,9 @@
 -define(BASE, diameter_gen_base_rfc3588).
 -define(BOOL, [true, false]).
 
+-define(A, list_to_atom).
+-define(S, atom_to_list).
+
 %% ===========================================================================
 %% Interface.
 
@@ -42,7 +45,7 @@ gen(Mod) ->
                                                       command_codes,
                                                       avp_types,
                                                       grouped,
-                                                      enums,
+                                                      enum,
                                                       import_avps,
                                                       import_groups,
                                                       import_enums]]).
@@ -133,7 +136,7 @@ types() ->
 
 gen(M, T) ->
     [] = run(lists:map(fun(X) -> {?MODULE, [gen, M, T, X]} end,
-                       fetch(T, M:dict()))).
+                       fetch(T, dict(M)))).
 
 fetch(T, Spec) ->
     case orddict:find(T, Spec) of
@@ -142,6 +145,10 @@ fetch(T, Spec) ->
         error ->
             []
     end.
+
+gen(M, messages = T, {Name, Code, Flags, ApplId, Avps})
+  when is_list(Name) ->
+    gen(M, T, {?A(Name), Code, Flags, ApplId, Avps});
 
 gen(M, messages, {Name, Code, Flags, _, _}) ->
     Rname = M:msg2rec(Name),
@@ -156,22 +163,16 @@ gen(M, messages, {Name, Code, Flags, _, _}) ->
            end,
     [] = arity(M, Name, Rname);
 
-gen(M, command_codes = T, {Code, {Req, Abbr}, Ans}) ->
-    Rname = M:msg2rec(Req),
-    Rname = M:msg2rec(Abbr),
-    gen(M, T, {Code, Req, Ans});
-
-gen(M, command_codes = T, {Code, Req, {Ans, Abbr}}) ->
-    Rname = M:msg2rec(Ans),
-    Rname = M:msg2rec(Abbr),
-    gen(M, T, {Code, Req, Ans});
-
 gen(M, command_codes, {Code, Req, Ans}) ->
-    Msgs = orddict:fetch(messages, M:dict()),
+    Msgs = orddict:fetch(messages, dict(M)),
     {_, Code, _, _, _} = lists:keyfind(Req, 1, Msgs),
     {_, Code, _, _, _} = lists:keyfind(Ans, 1, Msgs);
 
-gen(M, avp_types, {Name, Code, Type, _Flags, _Encr}) ->
+gen(M, avp_types = T, {Name, Code, Type, Flags})
+  when is_list(Name) ->
+    gen(M, T, {?A(Name), Code, ?A(Type), Flags});
+
+gen(M, avp_types, {Name, Code, Type, _Flags}) ->
     {Code, Flags, VendorId} = M:avp_header(Name),
     0 = Flags band 2#00011111,
     V = undefined /= VendorId,
@@ -181,11 +182,19 @@ gen(M, avp_types, {Name, Code, Type, _Flags, _Encr}) ->
     B = z(B),
     [] = avp_decode(M, Type, Name);
 
+gen(M, grouped = T, {Name, Code, Vid, Avps})
+  when is_list(Name) ->
+    gen(M, T, {?A(Name), Code, Vid, Avps});
+
 gen(M, grouped, {Name, _, _, _}) ->
     Rname = M:name2rec(Name),
     [] = arity(M, Name, Rname);
 
-gen(M, enums, {Name, ED}) ->
+gen(M, enum = T, {Name, ED})
+  when is_list(Name) ->
+    gen(M, T, {?A(Name), lists:map(fun({E,D}) -> {?A(E), D} end, ED)});
+
+gen(M, enum, {Name, ED}) ->
     [] = run([{?MODULE, [enum, M, Name, T]} || T <- ED]);
 
 gen(M, Tag, {_Mod, L}) ->
@@ -253,17 +262,17 @@ arity(M, Name, AvpName, Rec) ->
 
 %% enum/3
 
-enum(M, Name, {E,_}) ->
+enum(M, Name, {_,E}) ->
     B = <<E:32/integer>>,
     B = M:avp(encode, E, Name),
     E = M:avp(decode, B, Name).
 
 retag(import_avps)   -> avp_types;
 retag(import_groups) -> grouped;
-retag(import_enums)  -> enums;
+retag(import_enums)  -> enum;
 
 retag(avp_types) -> import_avps;
-retag(enums)     -> import_enums.
+retag(enum)     -> import_enums.
 
 %% ===========================================================================
 
@@ -370,8 +379,8 @@ values('Time') ->
 %% wrapped as for values/1.
 
 values('Enumerated', Name, Mod) ->
-    {_Name, Vals} = lists:keyfind(Name, 1, types(enums, Mod)),
-    lists:map(fun({N,_}) -> N end, Vals);
+    {_Name, Vals} = lists:keyfind(?S(Name), 1, types(enum, Mod)),
+    lists:map(fun({_,N}) -> N end, Vals);
 
 values('Grouped', Name, Mod) ->
     Rname = Mod:name2rec(Name),
@@ -400,8 +409,8 @@ values('AVP', _) ->
 
 values(Name, Mod) ->
     Avps = types(avp_types, Mod),
-    {Name, _Code, Type, _Flags, _Encr} = lists:keyfind(Name, 1, Avps),
-    b(values(Type, Name, Mod)).
+    {_Name, _Code, Type, _Flags} = lists:keyfind(?S(Name), 1, Avps),
+    b(values(?A(Type), Name, Mod)).
 
 %% group/5
 %%
@@ -467,7 +476,7 @@ types(T, Mod) ->
     types(T, retag(T), Mod).
 
 types(T, IT, Mod) ->
-    Dict = Mod:dict(),
+    Dict = dict(Mod),
     fetch(T, Dict) ++ lists:flatmap(fun({_,As}) -> As end, fetch(IT, Dict)).
 
 %% random/[12]
@@ -498,3 +507,8 @@ flatten({_, {{badmatch, [{_, {{badmatch, _}, _}} | _] = L}, _}}) ->
     L;
 flatten(T) ->
     [T].
+
+%% dict/1
+
+dict(Mod) ->
+    tl(Mod:dict()).

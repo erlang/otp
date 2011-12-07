@@ -26,8 +26,6 @@
 %% towards diameter_sup
 -export([init/0]).
 
--include("diameter_types.hrl").
-
 -define(INT64, 16#FFFFFFFFFFFFFFFF).
 -define(INT32, 16#FFFFFFFF).
 
@@ -73,7 +71,7 @@
 %%       consumed (see Section 6.2) SHOULD be silently discarded.
 
 -spec sequence()
-   -> 'Unsigned32'().
+   -> diameter:'Unsigned32'().
 
 sequence() ->
     Instr = {_Pos = 2, _Incr = 1, _Threshold = ?INT32, _SetVal = 0},
@@ -97,7 +95,7 @@ sequence() ->
 %%    counter retained in non-volatile memory across restarts.
 
 -spec origin_state_id()
-   -> 'Unsigned32'().
+   -> diameter:'Unsigned32'().
 
 origin_state_id() ->
     ets:lookup_element(diameter_sequence, origin_state_id, 2).
@@ -130,8 +128,8 @@ origin_state_id() ->
 %%    <optional value> is implementation specific but may include a modem's
 %%    device Id, a layer 2 address, timestamp, etc.
 
--spec session_id('DiameterIdentity'())
-   -> 'OctetString'().
+-spec session_id(diameter:'DiameterIdentity'())
+   -> diameter:'OctetString'().
 %% Note that Session-Id has type UTF8String and that any OctetString
 %% is a UTF8String.
 

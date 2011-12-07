@@ -42,8 +42,23 @@
          'IPFilterRule'/2,
          'QoSFilterRule'/2]).
 
+%% Functions taking the AVP name in question as second parameter.
+-export(['OctetString'/3,
+         'Integer32'/3,
+         'Integer64'/3,
+         'Unsigned32'/3,
+         'Unsigned64'/3,
+         'Float32'/3,
+         'Float64'/3,
+         'Address'/3,
+         'Time'/3,
+         'UTF8String'/3,
+         'DiameterIdentity'/3,
+         'DiameterURI'/3,
+         'IPFilterRule'/3,
+         'QoSFilterRule'/3]).
+
 -include_lib("diameter/include/diameter.hrl").
--include("diameter_internal.hrl").
 
 -define(UINT(N,X), ((0 =< X) andalso (X < 1 bsl N))).
 -define(SINT(N,X), ((-1*(1 bsl (N-1)) < X) andalso (X < 1 bsl (N-1)))).
@@ -432,6 +447,50 @@ uenc([C | Rest], Acc) ->
 
 'Time'(encode, zero) ->
     <<0:32>>.
+
+%% -------------------------------------------------------------------------
+
+'OctetString'(M, _, Data) ->
+    'OctetString'(M, Data).
+
+'Integer32'(M, _, Data) ->
+    'Integer32'(M, Data).
+
+'Integer64'(M, _, Data) ->
+    'Integer64'(M, Data).
+
+'Unsigned32'(M, _, Data) ->
+    'Unsigned32'(M, Data).
+
+'Unsigned64'(M, _, Data) ->
+    'Unsigned64'(M, Data).
+
+'Float32'(M, _, Data) ->
+    'Float32'(M, Data).
+
+'Float64'(M, _, Data) ->
+    'Float64'(M, Data).
+
+'Address'(M, _, Data) ->
+    'Address'(M, Data).
+
+'Time'(M, _, Data) ->
+    'Time'(M, Data).
+
+'UTF8String'(M, _, Data) ->
+    'UTF8String'(M, Data).
+
+'DiameterIdentity'(M, _, Data) ->
+    'DiameterIdentity'(M, Data).
+
+'DiameterURI'(M, _, Data) ->
+    'DiameterURI'(M, Data).
+
+'IPFilterRule'(M, _, Data) ->
+    'IPFilterRule'(M, Data).
+
+'QoSFilterRule'(M, _, Data) ->
+    'QoSFilterRule'(M, Data).
 
 %% ===========================================================================
 %% ===========================================================================

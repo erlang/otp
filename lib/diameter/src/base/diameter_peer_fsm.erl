@@ -46,7 +46,6 @@
 
 -include_lib("diameter/include/diameter.hrl").
 -include("diameter_internal.hrl").
--include("diameter_types.hrl").
 -include("diameter_gen_base_rfc3588.hrl").
 
 -define(GOAWAY, ?'DIAMETER_BASE_DISCONNECT-CAUSE_DO_NOT_WANT_TO_TALK_TO_YOU').
@@ -78,7 +77,8 @@
          parent       :: pid(),
          transport    :: pid(),
          service      :: #diameter_service{},
-         dpr = false  :: false | {'Unsigned32'(), 'Unsigned32'()}}).
+         dpr = false  :: false | {diameter:'Unsigned32'(),
+                                  diameter:'Unsigned32'()}}).
                             %% | hop by hop and end to end identifiers
 
 %% There are non-3588 states possible as a consequence of 5.6.1 of the
