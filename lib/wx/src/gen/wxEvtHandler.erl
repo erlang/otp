@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -95,7 +95,7 @@ parse_opts([{callback,Fun}|R], Opts) when is_function(Fun) ->
     %% Check Fun Arity?
     parse_opts(R, Opts#evh{cb=Fun});
 parse_opts([callback|R], Opts) ->
-    parse_opts(R, Opts#evh{cb=1});
+    parse_opts(R, Opts#evh{cb=self()});
 parse_opts([{userData, UserData}|R],Opts) ->
     parse_opts(R, Opts#evh{userdata=UserData});
 parse_opts([{skip, Skip}|R],Opts) when is_boolean(Skip) ->
