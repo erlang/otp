@@ -188,6 +188,7 @@ do_set_schema(Tab, Cs) ->
     [set({Tab, user_property, element(1, P)}, P) || P <- Cs#cstruct.user_properties],
     set({Tab, frag_properties}, Cs#cstruct.frag_properties),
     mnesia_frag:set_frag_hash(Tab, Cs#cstruct.frag_properties),
+    set({Tab, storage_properties}, Cs#cstruct.storage_properties),
     set({Tab, attributes}, Cs#cstruct.attributes),
     Arity = length(Cs#cstruct.attributes) + 1,
     set({Tab, arity}, Arity),
@@ -644,6 +645,14 @@ cs2list(Cs) when is_record(Cs, cstruct) ->
     rec2list(Tags, Tags, 2, Cs);
 cs2list(CreateList) when is_list(CreateList) ->
     CreateList;
+%% 4.6
+cs2list(Cs) when element(1, Cs) == cstruct, tuple_size(Cs) == 19 ->
+    Tags = [name,type,ram_copies,disc_copies,disc_only_copies,
+	    load_order,access_mode,majority,index,snmp,local_content,
+	    record_name,attributes,
+	    user_properties,frag_properties,storage_properties,
+	    cookie,version],
+    rec2list(Tags, Tags, 2, Cs);
 %% 4.4.19
 cs2list(Cs) when element(1, Cs) == cstruct, tuple_size(Cs) == 18 ->
     Tags = [name,type,ram_copies,disc_copies,disc_only_copies,
@@ -674,7 +683,16 @@ cs2list(ver4_4_19, Cs) ->
 	    load_order,access_mode,majority,index,snmp,local_content,
 	    record_name,attributes,user_properties,frag_properties,
 	    cookie,version],
+    rec2list(Tags, Orig, 2, Cs);
+cs2list(ver4_6, Cs) ->
+    Orig = record_info(fields, cstruct),
+    Tags = [name,type,ram_copies,disc_copies,disc_only_copies,
+	    load_order,access_mode,majority,index,snmp,local_content,
+	    record_name,attributes,
+	    user_properties,frag_properties,storage_properties,
+	    cookie,version],
     rec2list(Tags, Orig, 2, Cs).
+
 
 rec2list([Tag | Tags], [Tag | Orig], Pos, Rec) ->
     Val = element(Pos, Rec),
@@ -728,6 +746,29 @@ list2cs(List) when is_list(List) ->
     Frag = pick(Name, frag_properties, List, []),
     verify({alt, [nil, list]}, mnesia_lib:etype(Frag),
 	   {badarg, Name, {frag_properties, Frag}}),
+
+    BEProps = pick(Name, storage_properties, List, []),
+    verify({alt, [nil, list]}, mnesia_lib:etype(Ix),
+	   {badarg, Name, {storage_properties, BEProps}}),
+    CheckProp = fun(Opt, Opts) when is_atom(Opt) ->
+			lists:member(Opt, Opts)
+			    andalso mnesia:abort({badarg, Name, Opt});
+		   (Tuple, Opts) when is_tuple(Tuple) ->
+			lists:member(element(1,Tuple), Opts)
+			    andalso mnesia:abort({badarg, Name, Tuple});
+		   (What,_) ->
+			mnesia:abort({badarg, Name, What})
+		end,
+    BadEtsOpts = [set, ordered_set, bag, duplicate_bag,
+		  public, private, protected,
+		  keypos, named_table],
+    EtsOpts = proplists:get_value(ets, BEProps, []),
+    is_list(EtsOpts) orelse mnesia:abort({badarg, Name, {ets, EtsOpts}}),
+    [CheckProp(Prop, BadEtsOpts) || Prop <- EtsOpts],
+    BadDetsOpts = [type, keypos, repair, access, file],
+    DetsOpts = proplists:get_value(dets, BEProps, []),
+    is_list(DetsOpts) orelse mnesia:abort({badarg, Name, {dets, DetsOpts}}),
+    [CheckProp(Prop, BadDetsOpts) || Prop <- DetsOpts],
     #cstruct{name = Name,
              ram_copies = Rc,
              disc_copies = Dc,
@@ -743,6 +784,7 @@ list2cs(List) when is_list(List) ->
              attributes = Attrs,
              user_properties = lists:sort(UserProps),
 	     frag_properties = lists:sort(Frag),
+	     storage_properties = lists:sort(BEProps),
              cookie = Cookie,
              version = Version}.
 
@@ -1881,18 +1923,18 @@ prepare_op(Tid, {op, create_table, TabDef}, _WaitFor) ->
             mnesia:abort(UseDirReason);
 	ram_copies ->
 	    mnesia_lib:set({Tab, create_table},true),
-	    create_ram_table(Tab, Cs#cstruct.type),
+	    create_ram_table(Tab, Cs),
 	    insert_cstruct(Tid, Cs, false),
 	    {true, optional};
 	disc_copies ->
 	    mnesia_lib:set({Tab, create_table},true),
-	    create_ram_table(Tab, Cs#cstruct.type),
+	    create_ram_table(Tab, Cs),
 	    create_disc_table(Tab),
 	    insert_cstruct(Tid, Cs, false),
 	    {true, optional};
 	disc_only_copies ->
 	    mnesia_lib:set({Tab, create_table},true),
-	    create_disc_only_table(Tab,Cs#cstruct.type),
+	    create_disc_only_table(Tab,Cs),
 	    insert_cstruct(Tid, Cs, false),
 	    {true, optional};
         unknown -> %% No replica on this node
@@ -2044,7 +2086,7 @@ prepare_op(_Tid, {op, change_table_copy_type,  N, FromS, ToS, TabDef}, _WaitFor)
 	    mnesia_dumper:raw_named_dump_table(Tab, dmp);
 	FromS == disc_only_copies ->
 	    Type = Cs#cstruct.type,
-	    create_ram_table(Tab, Type),
+	    create_ram_table(Tab, Cs),
 	    Datname = mnesia_lib:tab2dat(Tab),
 	    Repair = mnesia_monitor:get_env(auto_repair),
 	    case mnesia_lib:dets_to_ets(Tab, Tab, Datname, Type, Repair, no) of
@@ -2132,8 +2174,9 @@ prepare_op(_Tid, {op, merge_schema, TabDef}, _WaitFor) ->
 prepare_op(_Tid, _Op, _WaitFor) ->
     {true, optional}.
 
-create_ram_table(Tab, Type) ->
-    Args = [{keypos, 2}, public, named_table, Type],
+create_ram_table(Tab, #cstruct{type=Type, storage_properties=Props}) ->
+    EtsOpts = proplists:get_value(ets, Props, []),
+    Args = [{keypos, 2}, public, named_table, Type | EtsOpts],
     case mnesia_monitor:unsafe_mktab(Tab, Args) of
 	Tab ->
 	    ok;
@@ -2141,6 +2184,7 @@ create_ram_table(Tab, Type) ->
 	    Err = "Failed to create ets table",
 	    mnesia:abort({system_limit, Tab, {Err,Reason}})
     end.
+
 create_disc_table(Tab) ->
     File = mnesia_lib:tab2dcd(Tab),
     file:delete(File),
@@ -2154,13 +2198,15 @@ create_disc_table(Tab) ->
 	    Err = "Failed to create disc table",
 	    mnesia:abort({system_limit, Tab, {Err,Reason}})
     end.
-create_disc_only_table(Tab,Type) ->
+create_disc_only_table(Tab, #cstruct{type=Type, storage_properties=Props}) ->
     File = mnesia_lib:tab2dat(Tab),
     file:delete(File),
+    DetsOpts = proplists:get_value(dets, Props, []),
     Args = [{file, mnesia_lib:tab2dat(Tab)},
 	    {type, mnesia_lib:disk_type(Tab, Type)},
 	    {keypos, 2},
-	    {repair, mnesia_monitor:get_env(auto_repair)}],
+	    {repair, mnesia_monitor:get_env(auto_repair)}
+	    | DetsOpts],
     case mnesia_monitor:unsafe_open_dets(Tab, Args) of
 	{ok, _} ->
 	    ok;
@@ -2688,17 +2734,17 @@ restore_schema([{schema, Tab, List} | Schema], R) ->
 	    R2 = R#r{tables = [{Tab, undefined, Snmp, RecName} | R#r.tables]},
 	    restore_schema(Schema, R2);
 	recreate_tables ->
-	    case ?catch_val({Tab, cstruct}) of
-		{'EXIT', _} ->
-		    TidTs = {_Mod, Tid, Ts} = get(mnesia_activity_state),
-		    RunningNodes = val({current, db_nodes}),
-		    Nodes = mnesia_lib:intersect(mnesia_lib:cs_to_nodes(list2cs(List)),
-						 RunningNodes),
-		    mnesia_locker:wlock_no_exist(Tid, Ts#tidstore.store, Tab, Nodes),
-		    TidTs;
-		_ ->
-		    TidTs = get_tid_ts_and_lock(Tab, write)
-	    end,
+	    TidTs = case ?catch_val({Tab, cstruct}) of
+			{'EXIT', _} ->
+			    TTs = {_Mod, Tid, Ts} = get(mnesia_activity_state),
+			    RunningNodes = val({current, db_nodes}),
+			    Nodes = mnesia_lib:intersect(mnesia_lib:cs_to_nodes(list2cs(List)),
+							 RunningNodes),
+			    mnesia_locker:wlock_no_exist(Tid, Ts#tidstore.store, Tab, Nodes),
+			    TTs;
+			_ ->
+			    get_tid_ts_and_lock(Tab, write)
+		    end,
 	    NC    = {cookie, ?unique_cookie},
 	    List2 = lists:keyreplace(cookie, 1, List, NC),
 	    Where = where_to_commit(Tab, List2),
@@ -2839,15 +2885,15 @@ do_merge_schema(LockTabs0) ->
     end.
 
 fetch_cstructs(Node) ->
-    case mnesia_monitor:needs_protocol_conversion(Node) of
-	true ->
+    case need_old_cstructs([Node]) of
+	false ->
+	    rpc:call(Node, mnesia_controller, get_remote_cstructs, []);
+	_Ver ->
 	    case rpc:call(Node, mnesia_controller, get_cstructs, []) of
 		{cstructs, Cs0, RR} ->
 		    {cstructs, [list2cs(cs2list(Cs)) || Cs <- Cs0], RR};
 		Err -> Err
-	    end;
-	false ->
-	    rpc:call(Node, mnesia_controller, get_remote_cstructs, [])
+	    end
     end.
 
 need_old_cstructs() ->
@@ -2868,7 +2914,9 @@ need_old_cstructs(Nodes) ->
 		Cs when element(1, Cs) == cstruct, tuple_size(Cs) == 17 ->
 		    ver4_4_18;			% Without majority
 		Cs when element(1, Cs) == cstruct, tuple_size(Cs) == 18 ->
-		    ver4_4_19			% With majority
+		    ver4_4_19;			% With majority
+		Cs when element(1, Cs) == cstruct, tuple_size(Cs) == 19 ->
+		    ver4_6			% With storage_properties
 	    end
     end.
 
