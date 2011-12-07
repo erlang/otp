@@ -96,9 +96,7 @@ typedef struct {
 
 typedef enum {
     ERTS_THR_Q_CLEAN,
-#ifdef ERTS_SMP
     ERTS_THR_Q_NEED_THR_PRGR,
-#endif
     ERTS_THR_Q_DIRTY,
 } ErtsThrQCleanState_t;
 

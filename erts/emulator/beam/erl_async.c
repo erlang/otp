@@ -304,8 +304,9 @@ static ERTS_INLINE ErtsAsync *async_get(ErtsThrQ_t *q,
 	    switch (erts_thr_q_inspect(q, 1)) {
 	    case ERTS_THR_Q_DIRTY:
 		break;
+	    case ERTS_THR_Q_NEED_THR_PRGR:
 #ifdef ERTS_SMP
-	    case ERTS_THR_Q_NEED_THR_PRGR: {
+	    {
 		ErtsThrPrgrVal prgr = erts_thr_q_need_thr_progress(q);
 		erts_thr_progress_wakeup(NULL, prgr);
 		/*
@@ -522,8 +523,8 @@ int erts_async_ready_clean(void *varq, void *val)
     switch (cstate) {
     case ERTS_THR_Q_DIRTY:
 	return ERTS_ASYNC_READY_DIRTY;
-#ifdef ERTS_SMP
     case ERTS_THR_Q_NEED_THR_PRGR:
+#ifdef ERTS_SMP
 	*((ErtsThrPrgrVal *) val)
 	    = erts_thr_q_need_thr_progress(&arq->thr_q);
 	return ERTS_ASYNC_READY_NEED_THR_PRGR;
