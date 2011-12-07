@@ -1274,6 +1274,10 @@ report(What,Data) ->
 	tests_done ->
 	    ok;
 	tc_start ->
+	    %% Data = {{Suite,Func},LogFileName}
+	    ct_event:sync_notify(#event{name=tc_logfile,
+					node=node(),
+					data=Data}),
 	    ok;
 	tc_done ->
 	    {_Suite,Case,Result} = Data,
