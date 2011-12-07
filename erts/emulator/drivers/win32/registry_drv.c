@@ -95,10 +95,21 @@ struct erl_drv_entry registry_driver_entry = {
     NULL,
     "registry__drv__",
     NULL,
+    NULL, /* handle */
+    NULL, /* control */
+    NULL, /* timeout */
+    NULL, /* outputv */
+    NULL, /* ready_async */
+    NULL, /* flush */
+    NULL, /* call */
+    NULL, /* event */
+    ERL_DRV_EXTENDED_MARKER,
+    ERL_DRV_EXTENDED_MAJOR_VERSION,
+    ERL_DRV_EXTENDED_MINOR_VERSION,
+    0,
     NULL,
     NULL,
     NULL,
-    NULL
 };
 
 static int

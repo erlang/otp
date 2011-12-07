@@ -108,7 +108,23 @@ struct erl_drv_entry ram_file_driver_entry = {
     rfile_command,
     NULL,
     NULL,
-    "ram_file_drv"
+    "ram_file_drv",
+    NULL,
+    NULL, /* handle */
+    NULL, /* control */
+    NULL, /* timeout */
+    NULL, /* outputv */
+    NULL, /* ready_async */
+    NULL, /* flush */
+    NULL, /* call */
+    NULL, /* event */
+    ERL_DRV_EXTENDED_MARKER,
+    ERL_DRV_EXTENDED_MAJOR_VERSION,
+    ERL_DRV_EXTENDED_MINOR_VERSION,
+    0,
+    NULL,
+    NULL,
+    NULL,
 };
 
 /* A File is represented as a array of bytes, this array is
