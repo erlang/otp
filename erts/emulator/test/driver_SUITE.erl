@@ -2185,6 +2185,14 @@ wait_deallocations() ->
     end.
 
 driver_alloc_size() ->
+    case erlang:system_info(smp_support) of
+	true ->
+	    ok;
+	false ->
+	    %% driver_alloc also used by elements in lock-free queues,
+	    %% give these some time to be deallocated...
+	    receive after 100 -> ok end
+    end,
     wait_deallocations(),
     case erlang:system_info({allocator_sizes, driver_alloc}) of
 	false ->
