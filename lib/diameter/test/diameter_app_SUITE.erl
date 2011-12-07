@@ -48,6 +48,7 @@
                            diameter_dict_parser,
                            diameter_dict_util,
                            diameter_exprecs,
+                           diameter_nowarn,
                            diameter_make]).
 
 -define(HELP_MODULES, [diameter_dbg,

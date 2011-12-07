@@ -129,7 +129,7 @@ gen(hrl, Spec, Mod, Path) ->
 gen(erl, Spec, Mod, Path) ->
     Forms = [{?attribute, module, Mod},
              {?attribute, compile, [{parse_transform, diameter_exprecs}]},
-             {?attribute, compile, [nowarn_unused_function]},
+             {?attribute, compile, [{parse_transform, diameter_nowarn}]},
              {?attribute, export, [{name, 0},
                                    {id, 0},
                                    {vendor_id, 0},
