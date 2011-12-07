@@ -21,8 +21,8 @@
 #include "erl_driver.h"
 
 static ErlDrvData monitor_drv_start(ErlDrvPort, char *);
-static int monitor_drv_control(ErlDrvData, unsigned int,
-				char *, int, char **, int);
+static ErlDrvSSizeT monitor_drv_control(ErlDrvData, unsigned int,
+					char *, ErlDrvSizeT, char **, ErlDrvSizeT);
 static void handle_monitor(ErlDrvData drv_data, ErlDrvMonitor *monitor);
 
 #define OP_I_AM_IPID 1
@@ -122,16 +122,16 @@ static void handle_monitor(ErlDrvData drv_data, ErlDrvMonitor *monitor)
     return;
 }
 
-static int
+static ErlDrvSSizeT
 monitor_drv_control(ErlDrvData drv_data,
 		     unsigned int command,
-		     char *ibuf, int ilen,
-		     char **rbuf, int rlen)
+		     char *ibuf, ErlDrvSizeT ilen,
+		     char **rbuf, ErlDrvSizeT rlen)
 {
     MyDrvData *data = (MyDrvData *) drv_data;
     char *answer = NULL;
     char buff[64];
-    int alen;
+    ErlDrvSSizeT alen;
 
     switch (command) {
     case OP_I_AM_IPID:

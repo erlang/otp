@@ -45,8 +45,8 @@ typedef struct {
 
 static ErlDrvData start(ErlDrvPort port, char *command);
 static void stop(ErlDrvData data);
-static int control(ErlDrvData drv_data, unsigned int command, char *buf,
-		   int len, char **rbuf, int rlen);
+static ErlDrvSSizeT control(ErlDrvData drv_data, unsigned int command, char *buf,
+			    ErlDrvSizeT len, char **rbuf, ErlDrvSizeT rlen);
 
 static ErlDrvEntry thr_free_drv_entry = { 
     NULL /* init */,
@@ -194,14 +194,14 @@ static void stop(ErlDrvData drv_data)
     driver_free(td);
 }
 
-static int control(ErlDrvData drv_data, unsigned int command, char *buf,
-		   int len, char **rbuf, int rlen)
+static ErlDrvSSizeT control(ErlDrvData drv_data, unsigned int command, char *buf,
+			    ErlDrvSizeT len, char **rbuf, ErlDrvSizeT rlen)
 {
     test_data *td = (test_data *) drv_data;
     char *result = "failure";
     int i, b;
     int res;
-    int result_len;
+    ErlDrvSSizeT result_len;
 
     if (td->b == -1) {
 	erl_drv_mutex_lock(td->ttd[0].mtx);

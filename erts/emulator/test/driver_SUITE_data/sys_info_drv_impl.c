@@ -46,7 +46,8 @@
 #endif
 
 static ErlDrvData start(ErlDrvPort, char *);
-static int control(ErlDrvData, unsigned int, char *, int, char **, int);
+static ErlDrvSSizeT control(ErlDrvData, unsigned int,
+			    char *, ErlDrvSizeT, char **, ErlDrvSizeT);
 
 static ErlDrvEntry drv_entry = { 
     NULL /* init */,
@@ -84,13 +85,13 @@ start(ErlDrvPort port, char *command)
     return (ErlDrvData) port;
 }
 
-static int
+static ErlDrvSSizeT
 control(ErlDrvData drv_data,
 	unsigned int command,
-	char *buf, int len,
-	char **rbuf, int rlen)
+	char *buf, ErlDrvSizeT len,
+	char **rbuf, ErlDrvSizeT rlen)
 {
-    int res;
+    ErlDrvSSizeT res;
     char *str;
     size_t slen, slen2;
     ErlDrvPort port = (ErlDrvPort) drv_data;

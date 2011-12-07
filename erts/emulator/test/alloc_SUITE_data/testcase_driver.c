@@ -50,13 +50,32 @@ typedef struct {
 
 ErlDrvData testcase_drv_start(ErlDrvPort port, char *command);
 void testcase_drv_stop(ErlDrvData drv_data);
-void testcase_drv_run(ErlDrvData drv_data, char *buf, int len);
+void testcase_drv_run(ErlDrvData drv_data, char *buf, ErlDrvSizeT len);
 
 static ErlDrvEntry testcase_drv_entry = { 
     NULL,
     testcase_drv_start,
     testcase_drv_stop,
-    testcase_drv_run
+    testcase_drv_run,
+    NULL,
+    NULL,
+    "testcase_drv",
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    ERL_DRV_EXTENDED_MARKER,
+    ERL_DRV_EXTENDED_MAJOR_VERSION,
+    ERL_DRV_EXTENDED_MINOR_VERSION,
+    0,
+    NULL,
+    NULL,
+    NULL
 };
 
 
@@ -92,7 +111,7 @@ testcase_drv_stop(ErlDrvData drv_data)
 }
 
 void
-testcase_drv_run(ErlDrvData drv_data, char *buf, int len)
+testcase_drv_run(ErlDrvData drv_data, char *buf, ErlDrvSizeT len)
 {
     InternalTestCaseState_t *itcs = (InternalTestCaseState_t *) drv_data;
     ErlDrvTermData result_atom;

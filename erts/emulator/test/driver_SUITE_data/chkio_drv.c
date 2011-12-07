@@ -141,8 +141,8 @@ static void chkio_drv_stop(ErlDrvData);
 static void chkio_drv_ready_input(ErlDrvData, ErlDrvEvent);
 static void chkio_drv_ready_output(ErlDrvData, ErlDrvEvent);
 static void chkio_drv_ready_event(ErlDrvData, ErlDrvEvent, ErlDrvEventData);
-static int chkio_drv_control(ErlDrvData, unsigned int,
-			    char *, int, char **, int);
+static ErlDrvSSizeT chkio_drv_control(ErlDrvData, unsigned int,
+				      char *, ErlDrvSizeT, char **, ErlDrvSizeT);
 static void chkio_drv_timeout(ErlDrvData);
 static void chkio_drv_stop_select(ErlDrvEvent, void*);
 
@@ -188,7 +188,7 @@ stop_use_fallback_pollset(ChkioDrvData *cddp)
 	for (i = 0; i < CHKIO_FALLBACK_FDS; i++) {
 	    if (cbdp->dev_null[i].fd >= 0) {
 		if (driver_select(cddp->port,
-				  (ErlDrvEvent) cbdp->dev_null[i].fd,
+				  (ErlDrvEvent) (ErlDrvSInt) cbdp->dev_null[i].fd,
 				  DO_WRITE,
 				  0) != 0) {
 		    fprintf(stderr,
@@ -200,7 +200,7 @@ stop_use_fallback_pollset(ChkioDrvData *cddp)
 	    }
 	    if (cbdp->dev_zero[i].fd >= 0) {
 		if (driver_select(cddp->port,
-				  (ErlDrvEvent) cbdp->dev_zero[i].fd,
+				  (ErlDrvEvent) (ErlDrvSInt) cbdp->dev_zero[i].fd,
 				  DO_READ,
 				  0) != 0) {
 		    fprintf(stderr,
@@ -212,7 +212,7 @@ stop_use_fallback_pollset(ChkioDrvData *cddp)
 	    }
 	    if (cbdp->pipe_in[i].fd >= 0) {
 		if (driver_select(cddp->port,
-				  (ErlDrvEvent) cbdp->pipe_in[i].fd,
+				  (ErlDrvEvent) (ErlDrvSInt) cbdp->pipe_in[i].fd,
 				  DO_READ,
 				  0) != 0) {
 		    fprintf(stderr,
@@ -224,7 +224,7 @@ stop_use_fallback_pollset(ChkioDrvData *cddp)
 	    }
 	    if (cbdp->pipe_out[i].fd >= 0) {
 		if (driver_select(cddp->port,
-				  (ErlDrvEvent) cbdp->pipe_out[i].fd,
+				  (ErlDrvEvent) (ErlDrvSInt) cbdp->pipe_out[i].fd,
 				  DO_WRITE,
 				  0) != 0) {
 		    fprintf(stderr,
@@ -249,11 +249,11 @@ stop_driver_event(ChkioDrvData *cddp)
 	cddp->test_data = NULL;
 
 	if (cdep->in_fd >= 0) {
-	    driver_event(cddp->port, (ErlDrvEvent) cdep->in_fd, NULL);
+	    driver_event(cddp->port, (ErlDrvEvent) (ErlDrvSInt) cdep->in_fd, NULL);
 	    close(cdep->in_fd);
 	}
 	if (cdep->out_fd >= 0) {
-	    driver_event(cddp->port, (ErlDrvEvent) cdep->out_fd, NULL);
+	    driver_event(cddp->port, (ErlDrvEvent) (ErlDrvSInt) cdep->out_fd, NULL);
 	    close(cdep->out_fd);
 	}
 	driver_free(cdep);	    
@@ -268,7 +268,7 @@ stop_fd_change(ChkioDrvData *cddp)
 	cddp->test_data = NULL;
 	driver_cancel_timer(cddp->port);
 	if (cfcp->fds[0] >= 0) {
-	    driver_select(cddp->port, (ErlDrvEvent) cfcp->fds[0], DO_READ, 0);
+	    driver_select(cddp->port, (ErlDrvEvent) (ErlDrvSInt) cfcp->fds[0], DO_READ, 0);
 	    close(cfcp->fds[0]);
 	    close(cfcp->fds[1]);
 	}
@@ -282,8 +282,8 @@ stop_bad_fd_in_pollset(ChkioDrvData *cddp)
     if (cddp->test_data) {
 	ChkioBadFdInPollset *bfipp = (ChkioBadFdInPollset *) cddp->test_data;
 	cddp->test_data = NULL;
-	driver_select(cddp->port, (ErlDrvEvent) bfipp->fds[0], DO_WRITE, 0);
-	driver_select(cddp->port, (ErlDrvEvent) bfipp->fds[1], DO_READ, 0);
+	driver_select(cddp->port, (ErlDrvEvent) (ErlDrvSInt) bfipp->fds[0], DO_WRITE, 0);
+	driver_select(cddp->port, (ErlDrvEvent) (ErlDrvSInt) bfipp->fds[1], DO_READ, 0);
 	driver_free((void *) bfipp);
     }
 }
@@ -296,21 +296,21 @@ stop_steal(ChkioDrvData *cddp)
 	cddp->test_data = NULL;
 	if (csp->driver_select_fds[0] >= 0)
 	    driver_select(cddp->port,
-			  (ErlDrvEvent) csp->driver_select_fds[0],
+			  (ErlDrvEvent) (ErlDrvSInt) csp->driver_select_fds[0],
 			  DO_READ,
 			  0);
 	if (csp->driver_select_fds[1] >= 0)
 	    driver_select(cddp->port,
-			  (ErlDrvEvent) csp->driver_select_fds[1],
+			  (ErlDrvEvent) (ErlDrvSInt) csp->driver_select_fds[1],
 			  DO_WRITE,
 			  0);
 	if (csp->driver_event_fds[0] >= 0)
 	    driver_event(cddp->port,
-			 (ErlDrvEvent) csp->driver_event_fds[0],
+			 (ErlDrvEvent) (ErlDrvSInt) csp->driver_event_fds[0],
 			 NULL);
 	if (csp->driver_event_fds[1] >= 0)
 	    driver_event(cddp->port,
-			 (ErlDrvEvent) csp->driver_event_fds[1],
+			 (ErlDrvEvent) (ErlDrvSInt) csp->driver_event_fds[1],
 			 NULL);
 	driver_free(csp);
     }
@@ -353,7 +353,7 @@ static void free_smp_select(ChkioSmpSelect* pip, ErlDrvPort port)
 	abort();
     }
     case Selected:
-	driver_select(port, (ErlDrvEvent)pip->read_fd, DO_READ, 0);
+	driver_select(port, (ErlDrvEvent)(ErlDrvSInt)pip->read_fd, DO_READ, 0);
 	/*fall through*/ 
     case Opened:
 	close(pip->read_fd);
@@ -475,8 +475,8 @@ chkio_drv_stop(ErlDrvData drv_data) {
 	fprintf(stderr,	"%s:%d: Failed to open /dev/null\n",
 		__FILE__, __LINE__);
     }
-    driver_select(cddp->port, (ErlDrvEvent) fd, DO_WRITE, 1);
-    driver_select(cddp->port, (ErlDrvEvent) fd, DO_WRITE, 0);
+    driver_select(cddp->port, (ErlDrvEvent) (ErlDrvSInt) fd, DO_WRITE, 1);
+    driver_select(cddp->port, (ErlDrvEvent) (ErlDrvSInt) fd, DO_WRITE, 0);
     close(fd);
 
 
@@ -491,7 +491,7 @@ chkio_drv_ready_output(ErlDrvData drv_data, ErlDrvEvent event)
 {
 #ifdef UNIX
     ChkioDrvData *cddp = (ChkioDrvData *) drv_data;
-    int fd = (int) event;
+    int fd = (int) (ErlDrvSInt) event;
 
     switch (cddp->test) {
     case CHKIO_USE_FALLBACK_POLLSET: {
@@ -533,7 +533,7 @@ chkio_drv_ready_input(ErlDrvData drv_data, ErlDrvEvent event)
 {
 #ifdef UNIX
     ChkioDrvData *cddp = (ChkioDrvData *) drv_data;
-    int fd = (int) event;
+    int fd = (int) (ErlDrvSInt) event;
 
     switch (cddp->test) {
     case CHKIO_USE_FALLBACK_POLLSET: {
@@ -630,7 +630,7 @@ chkio_drv_ready_event(ErlDrvData drv_data,
     case CHKIO_DRIVER_EVENT: {
 #ifdef HAVE_POLL_H
 	ChkioDriverEvent *cdep = cddp->test_data;
-	int fd = (int) event;
+	int fd = (int) (ErlDrvSInt) event;
 	if (fd == cdep->in_fd) {
 	    if (event_data->events == POLLIN
 		&& event_data->revents == POLLIN) {
@@ -679,7 +679,7 @@ chkio_drv_timeout(ErlDrvData drv_data)
 	int in_fd = cfcp->fds[0];
 	int out_fd = cfcp->fds[1];
 	if (in_fd >= 0) {
-	    if (driver_select(cddp->port, (ErlDrvEvent) in_fd, DO_READ, 0) < 0)
+	    if (driver_select(cddp->port, (ErlDrvEvent) (ErlDrvSInt) in_fd, DO_READ, 0) < 0)
 		driver_failure_atom(cddp->port, "deselect_failed");
 	    (void) write(out_fd, (void *) "!", 1);
 	    close(out_fd);
@@ -689,7 +689,7 @@ chkio_drv_timeout(ErlDrvData drv_data)
 	    driver_failure_posix(cddp->port, errno);
 	}
 	else {
-	    if (driver_select(cddp->port, (ErlDrvEvent) cfcp->fds[0],
+	    if (driver_select(cddp->port, (ErlDrvEvent) (ErlDrvSInt) cfcp->fds[0],
 			      DO_READ, 1) < 0)
 		driver_failure_atom(cddp->port, "select_failed");
 	    if (cfcp->fds[0] == in_fd)
@@ -709,14 +709,14 @@ chkio_drv_timeout(ErlDrvData drv_data)
 #endif /* UNIX */
 }
 
-static int
+static ErlDrvSSizeT
 chkio_drv_control(ErlDrvData drv_data,
 		 unsigned int command,
-		 char *buf, int len,
-		 char **rbuf, int rlen)
+		 char *buf, ErlDrvSizeT len,
+		 char **rbuf, ErlDrvSizeT rlen)
 {
     char *res_str;
-    int res_len = -1;
+    ErlDrvSSizeT res_len = -1;
 #ifndef UNIX
 #ifdef __WIN32__
     res_str = "skip: windows_different";
@@ -854,7 +854,7 @@ chkio_drv_control(ErlDrvData drv_data,
 		int fds[2];
 		cbdp->dev_null[i].fd = open("/dev/null", O_WRONLY);
 		if (driver_select(cddp->port,
-				  (ErlDrvEvent) cbdp->dev_null[i].fd,
+				  (ErlDrvEvent) (ErlDrvSInt) cbdp->dev_null[i].fd,
 				  DO_WRITE,
 				  1) != 0) {
 		    driver_failure_posix(cddp->port, errno);
@@ -862,7 +862,7 @@ chkio_drv_control(ErlDrvData drv_data,
 		}
 		cbdp->dev_zero[i].fd = open("/dev/zero", O_RDONLY);
 		if (driver_select(cddp->port,
-				  (ErlDrvEvent) cbdp->dev_zero[i].fd,
+				  (ErlDrvEvent) (ErlDrvSInt) cbdp->dev_zero[i].fd,
 				  DO_READ,
 				  1) != 0) {
 		    driver_failure_posix(cddp->port, errno);
@@ -873,7 +873,7 @@ chkio_drv_control(ErlDrvData drv_data,
 		cbdp->pipe_in[i].fd = fds[0];
 		cbdp->pipe_out[i].fd = fds[1];
 		if (driver_select(cddp->port,
-				  (ErlDrvEvent) cbdp->pipe_in[i].fd,
+				  (ErlDrvEvent) (ErlDrvSInt) cbdp->pipe_in[i].fd,
 				  DO_READ,
 				  1) != 0) {
 		    driver_failure_posix(cddp->port, EIO);
@@ -882,7 +882,7 @@ chkio_drv_control(ErlDrvData drv_data,
 		if (i % 2 == 0)
 		    (void) write(cbdp->pipe_out[i].fd, "!", 1);
 		if (driver_select(cddp->port,
-				  (ErlDrvEvent) cbdp->pipe_out[i].fd,
+				  (ErlDrvEvent) (ErlDrvSInt) cbdp->pipe_out[i].fd,
 				  DO_WRITE,
 				  1) != 0) {
 		    driver_failure_posix(cddp->port, EIO);
@@ -928,8 +928,8 @@ chkio_drv_control(ErlDrvData drv_data,
 		bfipp->fds[0] = fds[9];
 		bfipp->fds[1] = fds[10];
 		cddp->test_data = (void *) bfipp;
-		driver_select(cddp->port, (ErlDrvEvent) fds[9], DO_WRITE, 1);
-		driver_select(cddp->port, (ErlDrvEvent) fds[10], DO_READ, 1);
+		driver_select(cddp->port, (ErlDrvEvent) (ErlDrvSInt) fds[9], DO_WRITE, 1);
+		driver_select(cddp->port, (ErlDrvEvent) (ErlDrvSInt) fds[10], DO_READ, 1);
 	    }
 	}
 	res_str = "ok";
@@ -965,7 +965,7 @@ chkio_drv_control(ErlDrvData drv_data,
 		cdep->in_ok = 0;
 
 		res = driver_event(cddp->port,
-				   (ErlDrvEvent) in_fd,
+				   (ErlDrvEvent) (ErlDrvSInt) in_fd,
 				   &cdep->in_data);
 		if (res < 0) {
 		    res_str = "skip: driver_event() not supported";
@@ -985,7 +985,7 @@ chkio_drv_control(ErlDrvData drv_data,
 		    cdep->out_ok = 0;
 
 		    res = driver_event(cddp->port,
-				       (ErlDrvEvent) out_fd,
+				       (ErlDrvEvent) (ErlDrvSInt) out_fd,
 				       &cdep->out_data);
 		    if (res < 0) {
 			close(out_fd);
@@ -1062,7 +1062,7 @@ chkio_drv_control(ErlDrvData drv_data,
 		    csp->event_data[0].events = POLLIN;
 		    csp->event_data[0].revents = 0;
 		    res = driver_event(cddp->port,
-				       (ErlDrvEvent) csp->driver_event_fds[0],
+				       (ErlDrvEvent) (ErlDrvSInt) csp->driver_event_fds[0],
 				       &csp->event_data[0]);
 		    if (res < 0)
 			driver_failure_atom(cddp->port,
@@ -1071,7 +1071,7 @@ chkio_drv_control(ErlDrvData drv_data,
 			csp->event_data[1].events = POLLOUT;
 			csp->event_data[1].revents = 0;
 			res = driver_event(cddp->port,
-					   (ErlDrvEvent) csp->driver_event_fds[1],
+					   (ErlDrvEvent) (ErlDrvSInt) csp->driver_event_fds[1],
 					   &csp->event_data[1]);
 			if (res < 0)
 			    driver_failure_atom(cddp->port,
@@ -1083,7 +1083,7 @@ chkio_drv_control(ErlDrvData drv_data,
 		/* Steal with driver_select() */
 		if (res >= 0) {
 		    res = driver_select(cddp->port,
-					(ErlDrvEvent) csp->driver_select_fds[0],
+					(ErlDrvEvent) (ErlDrvSInt) csp->driver_select_fds[0],
 					DO_READ,
 					1);
 		    if (res < 0)
@@ -1092,7 +1092,7 @@ chkio_drv_control(ErlDrvData drv_data,
 		}
 		if (res >= 0) {
 		    res = driver_select(cddp->port,
-					(ErlDrvEvent) csp->driver_select_fds[1],
+					(ErlDrvEvent) (ErlDrvSInt) csp->driver_select_fds[1],
 					DO_WRITE,
 					1);
 		    if (res < 0)
@@ -1159,14 +1159,14 @@ chkio_drv_control(ErlDrvData drv_data,
 		csap->driver_event_fds[1] = write_fds[1];
 
 		res = driver_select(cddp->port,
-				    (ErlDrvEvent) csap->driver_select_fds[0],
+				    (ErlDrvEvent) (ErlDrvSInt) csap->driver_select_fds[0],
 				    DO_READ,
 				    1);
 		if (res < 0)
 		    driver_failure_atom(cddp->port, "driver_select_failed");
 		if (res >= 0) {
 		    res = driver_select(cddp->port,
-					(ErlDrvEvent) csap->driver_select_fds[1],
+					(ErlDrvEvent) (ErlDrvSInt) csap->driver_select_fds[1],
 					DO_WRITE,
 					1);
 		    if (res < 0)
@@ -1177,7 +1177,7 @@ chkio_drv_control(ErlDrvData drv_data,
 		    csap->event_data[0].events = POLLIN;
 		    csap->event_data[0].revents = 0;
 		    res = driver_event(cddp->port,
-				       (ErlDrvEvent) csap->driver_event_fds[0],
+				       (ErlDrvEvent) (ErlDrvSInt) csap->driver_event_fds[0],
 				       &csap->event_data[0]);
 		    if (res < 0) {
 			close(csap->driver_event_fds[0]);
@@ -1190,7 +1190,7 @@ chkio_drv_control(ErlDrvData drv_data,
 			csap->event_data[1].events = POLLOUT;
 			csap->event_data[1].revents = 0;
 			res = driver_event(cddp->port,
-					   (ErlDrvEvent) csap->driver_event_fds[1],
+					   (ErlDrvEvent) (ErlDrvSInt) csap->driver_event_fds[1],
 					   &csap->event_data[1]);
 			if (res < 0)
 			    driver_failure_atom(cddp->port,
@@ -1285,7 +1285,7 @@ chkio_drv_control(ErlDrvData drv_data,
 		}
 		else {
 		    TRACEF(("%T: Select on pipe [%d->%d]\n", cddp->id, pip->write_fd, pip->read_fd));
-		    if (driver_select(cddp->port, (ErlDrvEvent)pip->read_fd, DO_READ, 1)) {
+		    if (driver_select(cddp->port, (ErlDrvEvent)(ErlDrvSInt)pip->read_fd, DO_READ, 1)) {
 			fprintf(stderr, "driver_select failed for fd=%d\n", pip->read_fd);
 			abort();
 		    }
@@ -1314,7 +1314,7 @@ chkio_drv_control(ErlDrvData drv_data,
 		op >>= 1;
 		if (op & 1) {
 		    TRACEF(("%T: Deselect on pipe [%d->%d]\n", cddp->id, pip->write_fd, pip->read_fd));
-		    if (driver_select(cddp->port, (ErlDrvEvent)pip->read_fd, DO_READ, 0)) {
+		    if (driver_select(cddp->port, (ErlDrvEvent)(ErlDrvSInt)pip->read_fd, DO_READ, 0)) {
 			fprintf(stderr, "driver_(de)select failed for fd=%d\n", pip->read_fd);
 			abort();
 		    }

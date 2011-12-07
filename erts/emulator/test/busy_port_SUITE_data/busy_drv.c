@@ -11,7 +11,8 @@
 #define YES 1
 
 static ErlDrvData busy_start(ErlDrvPort, char*);
-static void busy_stop(ErlDrvData), busy_from_erlang(ErlDrvData, char*, int);
+static void busy_stop(ErlDrvData),
+    busy_from_erlang(ErlDrvData, char*, ErlDrvSizeT);
 
 ErlDrvEntry busy_driver_entry =
 {
@@ -22,6 +23,20 @@ ErlDrvEntry busy_driver_entry =
     NULL,
     NULL,
     "busy_drv",
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    ERL_DRV_EXTENDED_MARKER,
+    ERL_DRV_EXTENDED_MAJOR_VERSION,
+    ERL_DRV_EXTENDED_MINOR_VERSION,
+    0,
+    NULL,
     NULL,
     NULL
 };
@@ -73,7 +88,7 @@ static void busy_stop(ErlDrvData port)
 }
 
 static void
-busy_from_erlang(ErlDrvData port, char* buf, int count)
+busy_from_erlang(ErlDrvData port, char* buf, ErlDrvSizeT count)
 {
     if ((ErlDrvPort)port == slave_port) {
 	set_busy_port(slave_port, next_slave_state);

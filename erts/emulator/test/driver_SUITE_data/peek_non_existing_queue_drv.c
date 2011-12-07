@@ -66,7 +66,8 @@ typedef struct {
 
 static ErlDrvData start(ErlDrvPort, char *);
 static void stop(ErlDrvData);
-static int control(ErlDrvData, unsigned int, char *, int, char **, int);
+static ErlDrvSSizeT control(ErlDrvData, unsigned int,
+			    char *, ErlDrvSizeT, char **, ErlDrvSizeT);
 static void ready_async(ErlDrvData, ErlDrvThreadData);
 static void async_test(void *);
 static void async_wait(void *);
@@ -121,10 +122,10 @@ static void stop(ErlDrvData drv_data)
     driver_free(drv_data);
 }
 
-static int control(ErlDrvData drv_data,
-		   unsigned int command,
-		   char *buf, int len,
-		   char **rbuf, int rlen)
+static ErlDrvSSizeT control(ErlDrvData drv_data,
+			    unsigned int command,
+			    char *buf, ErlDrvSizeT len,
+			    char **rbuf, ErlDrvSizeT rlen)
 {
     PeekNonXQDrvData *dp = (PeekNonXQDrvData *) drv_data;
     unsigned int key = 0;
@@ -158,7 +159,7 @@ static int control(ErlDrvData drv_data,
     }
 
  done: {
-	int res_len = strlen(res_str);
+	ErlDrvSSizeT res_len = strlen(res_str);
 	if (res_len > rlen) {
 	    char *abuf = driver_alloc(sizeof(char)*res_len);
 	    if (!abuf)

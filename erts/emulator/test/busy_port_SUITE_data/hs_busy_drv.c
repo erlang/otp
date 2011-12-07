@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2009. All Rights Reserved.
+ * Copyright Ericsson AB 2009-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -21,9 +21,9 @@
 #include "erl_driver.h"
 
 ErlDrvData start(ErlDrvPort port, char *command);
-void output(ErlDrvData drv_data, char *buf, int len);
-int control(ErlDrvData drv_data, unsigned int command, char *buf, 
-	    int len, char **rbuf, int rlen); 
+void output(ErlDrvData drv_data, char *buf, ErlDrvSizeT len);
+ErlDrvSSizeT control(ErlDrvData drv_data, unsigned int command, char *buf,
+		     ErlDrvSizeT len, char **rbuf, ErlDrvSizeT rlen);
 
 static ErlDrvEntry busy_drv_entry = { 
     NULL /* init */,
@@ -61,7 +61,7 @@ ErlDrvData start(ErlDrvPort port, char *command)
     return (ErlDrvData) port;
 }
 
-void output(ErlDrvData drv_data, char *buf, int len)
+void output(ErlDrvData drv_data, char *buf, ErlDrvSizeT len)
 {
     int res;
     ErlDrvPort port = (ErlDrvPort) drv_data;
@@ -76,8 +76,8 @@ void output(ErlDrvData drv_data, char *buf, int len)
 	driver_failure_atom(port, "driver_output_term failed");
 }
 
-int control(ErlDrvData drv_data, unsigned int command, char *buf, 
-	    int len, char **rbuf, int rlen)
+ErlDrvSSizeT control(ErlDrvData drv_data, unsigned int command, char *buf,
+		     ErlDrvSizeT len, char **rbuf, ErlDrvSizeT rlen)
 {
     switch (command) {
     case 'B': /* busy */

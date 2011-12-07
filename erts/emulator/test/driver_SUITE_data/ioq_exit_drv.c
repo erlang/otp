@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2007-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2007-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -91,7 +91,8 @@ static ErlDrvData start(ErlDrvPort port, char *command);
 static void stop(ErlDrvData drv_data);
 static void ready_input(ErlDrvData drv_data, ErlDrvEvent event); 
 static void ready_output(ErlDrvData drv_data, ErlDrvEvent event);  
-static int control(ErlDrvData, unsigned int, char *, int, char **, int);
+static ErlDrvSSizeT control(ErlDrvData, unsigned int,
+			    char *, ErlDrvSizeT, char **, ErlDrvSizeT);
 static void timeout(ErlDrvData drv_data);
 static void ready_async(ErlDrvData drv_data, ErlDrvThreadData thread_data);
 static void flush(ErlDrvData drv_data);
@@ -155,10 +156,10 @@ start(ErlDrvPort port, char *command)
     return (ErlDrvData) ddp;
 }
 
-static int control(ErlDrvData drv_data,
-		   unsigned int command,
-		   char *buf, int len,
-		   char **rbuf, int rlen)
+static ErlDrvSSizeT control(ErlDrvData drv_data,
+			    unsigned int command,
+			    char *buf, ErlDrvSizeT len,
+			    char **rbuf, ErlDrvSizeT rlen)
 {
     IOQExitDrvData *ddp = (IOQExitDrvData *) drv_data;
     char *res_str = "nyiftos";
@@ -227,7 +228,7 @@ static int control(ErlDrvData drv_data,
     res_str = "ok";
 
  done: {
-	int res_len = strlen(res_str);
+	ErlDrvSSizeT res_len = strlen(res_str);
 	if (res_len > rlen) {
 	    char *abuf = driver_alloc(sizeof(char)*res_len);
 	    if (!abuf)

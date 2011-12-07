@@ -21,14 +21,8 @@
 #include "erl_driver.h"
 
 ErlDrvData start(ErlDrvPort port, char *command);
-int control(ErlDrvData drv_data, unsigned int command, char *buf,
-	    int len, char **rbuf, int rlen);
-
-static int call(ErlDrvData drv_data,
-		unsigned int command,
-		char *buf, int len,
-		char **rbuf, int rlen,
-		unsigned int *flags);
+ErlDrvSSizeT control(ErlDrvData drv_data, unsigned int command, char *buf,
+		     ErlDrvSizeT len, char **rbuf, ErlDrvSizeT rlen);
 
 static ErlDrvEntry thr_alloc_drv_entry = { 
     NULL /* init */,
@@ -76,12 +70,12 @@ ErlDrvData start(ErlDrvPort port, char *command)
     return (ErlDrvData) port;
 }
 
-int control(ErlDrvData drv_data, unsigned int command, char *buf,
-	    int len, char **rbuf, int rlen)
+ErlDrvSSizeT control(ErlDrvData drv_data, unsigned int command, char *buf,
+		     ErlDrvSizeT len, char **rbuf, ErlDrvSizeT rlen)
 {
     ErlDrvPort port = (ErlDrvPort) drv_data;
     char *result = "failure";
-    int result_len;
+    ErlDrvSSizeT result_len;
     if (len <= 20) {
 	int res;
 	ErlDrvTid tid;

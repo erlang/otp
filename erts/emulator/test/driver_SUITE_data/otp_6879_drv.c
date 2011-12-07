@@ -20,11 +20,11 @@
 #include <string.h>
 #include "erl_driver.h"
 
-static int call(ErlDrvData drv_data,
-		unsigned int command,
-		char *buf, int len,
-		char **rbuf, int rlen,
-		unsigned int *flags);
+static ErlDrvSSizeT call(ErlDrvData drv_data,
+			 unsigned int command,
+			 char *buf, ErlDrvSizeT len,
+			 char **rbuf, ErlDrvSizeT rlen,
+			 unsigned int *flags);
 
 static ErlDrvEntry otp_6879_drv_entry = { 
     NULL /* init */,
@@ -57,11 +57,11 @@ DRIVER_INIT(otp_6879_drv)
 }
 
 
-static int call(ErlDrvData drv_data,
-		unsigned int command,
-		char *buf, int len,
-		char **rbuf, int rlen,
-		unsigned int *flags)
+static ErlDrvSSizeT call(ErlDrvData drv_data,
+			 unsigned int command,
+			 char *buf, ErlDrvSizeT len,
+			 char **rbuf, ErlDrvSizeT rlen,
+			 unsigned int *flags)
 {
     /* echo call */
     if (len > rlen)
