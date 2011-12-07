@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include "erl_driver.h"
 
 
@@ -17,11 +18,9 @@ typedef struct _erl_drv_data EchoDrvData;
 
 static EchoDrvData *echo_drv_start(ErlDrvPort port, char *command);
 static void         echo_drv_stop(EchoDrvData *data_p);
-static void         echo_drv_output(EchoDrvData *data_p, char *buf, int len);
+static void         echo_drv_output(ErlDrvData drv_data, char *buf,
+				    ErlDrvSizeT len);
 static void         echo_drv_finish(void);
-static int          echo_drv_control(EchoDrvData *data_p, unsigned int command,
-				     char *buf, int len,
-				     char **rbuf, int rlen);
 
 static ErlDrvEntry echo_drv_entry = { 
     NULL, /* init */
@@ -33,10 +32,20 @@ static ErlDrvEntry echo_drv_entry = {
     "echo_drv",
     echo_drv_finish,
     NULL, /* handle */
-    echo_drv_control,
+    NULL, /* control */
     NULL, /* timeout */
     NULL, /* outputv */
-    NULL  /* ready_async */
+    NULL, /* ready_async */
+    NULL,
+    NULL,
+    NULL,
+    ERL_DRV_EXTENDED_MARKER,
+    ERL_DRV_EXTENDED_MAJOR_VERSION,
+    ERL_DRV_EXTENDED_MINOR_VERSION,
+    0,
+    NULL,
+    NULL,
+    NULL,
 };
 
 
@@ -68,7 +77,8 @@ static EchoDrvData *echo_drv_start(ErlDrvPort port, char *command) {
 static void echo_drv_stop(EchoDrvData *data_p) {
 }
 
-static void echo_drv_output(EchoDrvData *data_p, char *buf, int len) {
+static void echo_drv_output(ErlDrvData drv_data, char *buf, ErlDrvSizeT len) {
+    EchoDrvData *data_p = (EchoDrvData *) drv_data;
     void *void_ptr;
     ErlDrvPort port = void_ptr = data_p;
     
@@ -76,10 +86,4 @@ static void echo_drv_output(EchoDrvData *data_p, char *buf, int len) {
 }
 
 static void echo_drv_finish() {
-}
-
-static int echo_drv_control(EchoDrvData *data_p, unsigned int command,
-			    char *buf, int len,
-			    char **rbuf, int rlen) {
-    return 0;
 }
