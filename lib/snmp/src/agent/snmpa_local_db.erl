@@ -1110,7 +1110,7 @@ table_func(is_set_ok, RowIndex, Cols, NameDb) ->
 table_func(set, RowIndex, Cols, NameDb) ->
     snmp_generic:table_set_row(NameDb,
 			       nofunc,
-			       {snmp_generic, table_try_make_consistent},
+			       fun snmp_generic:table_try_make_consistent/3,
 			       RowIndex,
 			       Cols);
 
