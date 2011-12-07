@@ -176,11 +176,13 @@ static TraceFileData *first_data;
 */
 static ErlDrvData trace_file_start(ErlDrvPort port, char *buff);
 static void trace_file_stop(ErlDrvData handle);
-static void trace_file_output(ErlDrvData handle, char *buff, int bufflen);
+static void trace_file_output(ErlDrvData handle, char *buff,
+			      ErlDrvSizeT bufflen);
 static void trace_file_finish(void);
-static int trace_file_control(ErlDrvData handle, unsigned int command, 
-			      char* buff, int count, 
-			      char** res, int res_size);
+static ErlDrvSSizeT trace_file_control(ErlDrvData handle,
+				      unsigned int command, 
+				      char* buff, ErlDrvSizeT count, 
+				      char** res, ErlDrvSizeT res_size);
 static void trace_file_timeout(ErlDrvData handle);
 
 /*
@@ -212,7 +214,18 @@ ErlDrvEntry trace_file_driver_entry = {
     NULL,                  /* void * that is not used (BC) */
     trace_file_control,    /* F_PTR control, port_control callback */
     trace_file_timeout,    /* F_PTR timeout, driver_set_timer callback */
-    NULL                   /* F_PTR outputv, reserved */
+    NULL,                  /* F_PTR outputv, reserved */
+    NULL, /* ready_async */
+    NULL, /* flush */
+    NULL, /* call */
+    NULL, /* event */
+    ERL_DRV_EXTENDED_MARKER,
+    ERL_DRV_EXTENDED_MAJOR_VERSION,
+    ERL_DRV_EXTENDED_MINOR_VERSION,
+    0,
+    NULL,
+    NULL,
+    NULL,
 };
 
 /*
@@ -347,7 +360,8 @@ static void trace_file_stop(ErlDrvData handle)
 /*
 ** Data sent from erlang to port.
 */
-static void trace_file_output(ErlDrvData handle, char *buff, int bufflen)
+static void trace_file_output(ErlDrvData handle, char *buff,
+			      ErlDrvSizeT bufflen)
 {
     int heavy = 0;
     TraceFileData *data = (TraceFileData *) handle;
@@ -391,9 +405,10 @@ static void trace_file_output(ErlDrvData handle, char *buff, int bufflen)
 /*
 ** Control message from erlang, we handle $f, which is flush.
 */
-static int trace_file_control(ErlDrvData handle, unsigned int command, 
-			      char* buff, int count, 
-			      char** res, int res_size)
+static ErlDrvSSizeT trace_file_control(ErlDrvData handle,
+				       unsigned int command, 
+				       char* buff, ErlDrvSizeT count, 
+				       char** res, ErlDrvSizeT res_size)
 {
     if (command == 'f') {
 	TraceFileData *data = (TraceFileData *) handle;
