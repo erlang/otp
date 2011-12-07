@@ -108,7 +108,38 @@
 	 get_pid/1
 	]).
 
--export([behaviour_info/1]).
+%% -export([behaviour_info/1]).
+-callback init(Args :: term()) ->
+    {#wx_ref{}, State :: term()} | {#wx_ref{}, State :: term(), timeout() | hibernate} |
+    {stop, Reason :: term()} | ignore.
+-callback handle_event(Request :: #wx{}, State :: term()) ->
+    {noreply, NewState :: term()} |
+    {noreply, NewState :: term(), timeout() | hibernate} |
+    {stop, Reason :: term(), NewState :: term()}.
+-callback handle_call(Request :: term(), From :: {pid(), Tag :: term()},
+                      State :: term()) ->
+    {reply, Reply :: term(), NewState :: term()} |
+    {reply, Reply :: term(), NewState :: term(), timeout() | hibernate} |
+    {noreply, NewState :: term()} |
+    {noreply, NewState :: term(), timeout() | hibernate} |
+    {stop, Reason :: term(), Reply :: term(), NewState :: term()} |
+    {stop, Reason :: term(), NewState :: term()}.
+-callback handle_cast(Request :: term(), State :: term()) ->
+    {noreply, NewState :: term()} |
+    {noreply, NewState :: term(), timeout() | hibernate} |
+    {stop, Reason :: term(), NewState :: term()}.
+-callback handle_info(Info :: timeout() | term(), State :: term()) ->
+    {noreply, NewState :: term()} |
+    {noreply, NewState :: term(), timeout() | hibernate} |
+    {stop, Reason :: term(), NewState :: term()}.
+-callback terminate(Reason :: (normal | shutdown | {shutdown, term()} |
+                               term()),
+                    State :: term()) ->
+    term().
+-callback code_change(OldVsn :: (term() | {down, term()}), State :: term(),
+                      Extra :: term()) ->
+    {ok, NewState :: term()} | {error, Reason :: term()}.
+
 
 %% System exports
 -export([system_continue/3,
@@ -125,15 +156,15 @@
 %%%  API
 %%%=========================================================================
 %% @hidden
-behaviour_info(callbacks) ->
-    [{init,1},
-     {handle_call,3},
-     {handle_info,2},
-     {handle_event,2},
-     {terminate,2},
-     {code_change,3}];
-behaviour_info(_Other) ->
-    undefined.
+%% behaviour_info(callbacks) ->
+%%     [{init,1},
+%%      {handle_call,3},
+%%      {handle_info,2},
+%%      {handle_event,2},
+%%      {terminate,2},
+%%      {code_change,3}];
+%% behaviour_info(_Other) ->
+%%     undefined.
 
 
 %%  -----------------------------------------------------------------
