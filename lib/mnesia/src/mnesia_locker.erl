@@ -657,7 +657,8 @@ rwlock(Tid, Store, Oid) ->
 	    Lock = write,
 	    case need_lock(Store, Tab, Key, Lock)  of
 		yes ->
-		    {Ns, Majority} = w_nodes(Tab),
+		    {Ns0, Majority} = w_nodes(Tab),
+		    Ns = [Node|lists:delete(Node,Ns0)],
 		    check_majority(Majority, Tab, Ns),
 		    Res = get_rwlocks_on_nodes(Ns, make_ref(), Store, Tid, Oid),
 		    ?ets_insert(Store, {{locks, Tab, Key}, Lock}),
