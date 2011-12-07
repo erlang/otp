@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010. All Rights Reserved.
+%% Copyright Ericsson AB 2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -175,7 +175,7 @@ issuer(true, Opts, SubjectKey) ->
 issuer({Issuer, IssuerKey}, _Opts, _SubjectKey) when is_binary(Issuer) ->
     {issuer_der(Issuer), decode_key(IssuerKey)};
 issuer({File, IssuerKey}, _Opts, _SubjectKey) when is_list(File) ->
-    {ok, [{cert, Cert, _}|_]} = public_key:pem_to_der(File),
+    {ok, [{cert, Cert, _}|_]} = pem_to_der(File),
     {issuer_der(Cert), decode_key(IssuerKey)}.
 
 issuer_der(Issuer) ->
@@ -185,7 +185,7 @@ issuer_der(Issuer) ->
     Subject.
 
 subject(undefined, IsRootCA) ->
-    User = if IsRootCA -> "RootCA"; true -> os:getenv("USER") end,
+    User = if IsRootCA -> "RootCA"; true -> user() end,
     Opts = [{email, User ++ "@erlang.org"},
 	    {name, User},
 	    {city, "Stockholm"},
@@ -195,6 +195,14 @@ subject(undefined, IsRootCA) ->
     subject(Opts);
 subject(Opts, _) ->
     subject(Opts).
+
+user() ->
+    case os:getenv("USER") of
+	false ->
+	    "test_user";
+	User ->
+	    User
+    end.
 
 subject(SubjectOpts) when is_list(SubjectOpts) ->
     Encode = fun(Opt) ->
