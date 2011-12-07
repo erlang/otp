@@ -583,7 +583,9 @@ static const int mdays[14] = {0, 31, 28, 31, 30, 31, 30,
                             (((y) % 100) != 0)) || \
                            (((y) % 400) == 0))
 
-#define  BASEYEAR       1601
+/* This is the earliest year we are sure to be able to handle
+   on all platforms w/o problems */
+#define  BASEYEAR       1902 
 
 /* A more "clever" mktime
  * return  1, if successful
@@ -629,8 +631,8 @@ static int erl_mktime(time_t *c, struct tm *tm) {
  */
 static time_t gregday(Sint year, Sint month, Sint day)
 {
-  int long ndays = 0;
-  int gyear, pyear, m;
+  Sint ndays = 0;
+  Sint gyear, pyear, m;
   
   /* number of days in previous years */
   gyear = year - 1600;
@@ -645,7 +647,7 @@ static time_t gregday(Sint year, Sint month, Sint day)
   if (is_leap_year(year) && (month > 2))
     ndays++;
   ndays += day - 1;
-  return ndays - 135140;        /* 135140 = Jan 1, 1970 */
+  return (time_t) (ndays - 135140);        /* 135140 = Jan 1, 1970 */
 }
 
 #define SECONDS_PER_MINUTE  (60)
