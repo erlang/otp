@@ -30,13 +30,15 @@
 
 %% testcases
 -export([format/1,  format/2,
-         replace/1, replace/2]).
+         replace/1, replace/2,
+         generate/1, generate/4, generate/0]).
 
 -export([dict/0]).  %% fake dictionary module
 
 -define(base, "base_rfc3588.dia").
 -define(util, diameter_util).
 -define(S, atom_to_list).
+-define(L, integer_to_list).
 
 %% ===========================================================================
 
@@ -332,7 +334,8 @@ suite() ->
 
 all() ->
     [format,
-     replace].
+     replace,
+     generate].
 
 %% Error handling testcases will make an erroneous dictionary out of
 %% the base dictionary and check that the expected error results.
@@ -348,7 +351,10 @@ end_per_suite(_Config) ->
 %% ===========================================================================
 %% testcases
 
+%% format/1
+%%
 %% Ensure that parse o format is the identity map.
+
 format(Config) ->
     Bin = proplists:get_value(base, Config),
     [] = ?util:run([{?MODULE, [format, M, Bin]}
@@ -362,6 +368,9 @@ format(Mods, Bin) ->
     {Dict, Dict} = {Dict, D}.
 
 %% replace/1
+%%
+%% Ensure the expected success/error when parsing a morphed common
+%% dictionary.
 
 replace(Config) ->
     Bin = proplists:get_value(base, Config),
@@ -383,6 +392,34 @@ replace({E, Mods}, Bin) ->
 
 re({RE, Repl}, Bin) ->
     re:replace(Bin, RE, Repl, [multiline]).
+
+%% generate/1
+%%
+%% Ensure success when generating code and compiling.
+
+generate() ->
+    [{timetrap, {seconds, length(?REPLACE)}}].
+
+generate(Config) ->
+    Bin = proplists:get_value(base, Config),
+    Rs  = lists:zip(?REPLACE, lists:seq(1, length(?REPLACE))),
+    [] = ?util:run([{?MODULE, [generate, M, Bin, N, T]}
+                    || {E,N} <- Rs,
+                       {ok, M} <- [norm(E)],
+                       T <- [erl, hrl, spec]]).
+
+generate(Mods, Bin, N, Mode) ->
+    B = modify(Bin, Mods ++ [{"@name .*", "@name dict" ++ ?L(N)}]),
+    {ok, Dict} = diameter_dict_util:parse(B, []),
+    File = "dict" ++ integer_to_list(N),
+    {_, ok} = {Dict, diameter_codegen:from_dict("dict",
+                                                Dict,
+                                                [{name, File},
+                                                 {prefix, "base"},
+                                                 debug],
+                                                Mode)},
+    Mode == erl
+        andalso ({ok, _} = compile:file(File ++ ".erl", [return_errors])).
 
 %% ===========================================================================
 
