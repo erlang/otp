@@ -79,12 +79,12 @@
 
 #ifdef ERTS_SMP
 
-/*
- * We use a 64-bit value for thread progress. By this wrapping of
- * the thread progress will more or less never occur.
- *
- * On 32-bit systems we therefore need a double word atomic.
- */
+#define ERTS_THR_PRGR_DBG_CHK_WAKEUP_REQUEST_VALUE 0
+
+#ifdef DEBUG
+#undef ERTS_THR_PRGR_DBG_CHK_WAKEUP_REQUEST_VALUE
+#define ERTS_THR_PRGR_DBG_CHK_WAKEUP_REQUEST_VALUE 1
+#endif
 
 #define ERTS_THR_PRGR_PRINT_LEADER 0
 #define ERTS_THR_PRGR_PRINT_VAL 0
@@ -99,6 +99,13 @@
     (((LFLGS) & (ERTS_THR_PRGR_LFLG_NO_LEADER \
 		 |ERTS_THR_PRGR_LFLG_ACTIVE_MASK)) \
      == ERTS_THR_PRGR_LFLG_NO_LEADER)
+
+/*
+ * We use a 64-bit value for thread progress. By this wrapping of
+ * the thread progress will more or less never occur.
+ *
+ * On 32-bit systems we therefore need a double word atomic.
+ */
 
 #define read_acqb erts_thr_prgr_read_acqb__
 
@@ -766,8 +773,10 @@ request_wakeup_managed(ErtsThrPrgrData *tpd, ErtsThrPrgrVal value)
     ASSERT(tpd->is_managed);
     ASSERT(tpd->previous.local != ERTS_THR_PRGR_VAL_WAITING);
 
-    if (has_reached_wakeup(value))
+    if (has_reached_wakeup(value)) {
 	wakeup_managed(tpd->id);
+	return;
+    }
 
     wix = ERTS_THR_PRGR_WAKEUP_IX(value);
     if (tpd->wakeup_request[wix] == value)
@@ -805,6 +814,10 @@ request_wakeup_managed(ErtsThrPrgrData *tpd, ErtsThrPrgrVal value)
     mwd = intrnl->managed.data[wix];
 
     ix = erts_atomic32_inc_read_nob(&mwd->len) - 1;
+#if ERTS_THR_PRGR_DBG_CHK_WAKEUP_REQUEST_VALUE
+    if (ix >= intrnl->managed.no)
+	erl_exit(ERTS_ABORT_EXIT, "Internal error: Too many wakeup requests\n");
+#endif
     mwd->id[ix] = tpd->id;
 
     ASSERT(!erts_thr_progress_has_reached(value));
@@ -830,8 +843,10 @@ request_wakeup_unmanaged(ErtsThrPrgrData *tpd, ErtsThrPrgrVal value)
      * we are writing the request.
      */
 
-    if (has_reached_wakeup(value))
+    if (has_reached_wakeup(value)) {
 	wakeup_unmanaged(tpd->id);
+	return;
+    }
 
     wix = ERTS_THR_PRGR_WAKEUP_IX(value);
 
