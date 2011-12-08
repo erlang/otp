@@ -539,6 +539,13 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 			     (((unsigned char*) (s))[1] << 8) | \
 			     (((unsigned char*) (s))[0]))
 
+
+#ifdef VALGRIND
+#  include <valgrind/memcheck.h>   
+#else
+#  define VALGRIND_MAKE_MEM_DEFINED(ptr,size)
+#endif
+
 /*----------------------------------------------------------------------------
 ** Interface constants.
 ** 
@@ -6189,7 +6196,7 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    proto   = IPPROTO_SCTP;
 	    type    = SCTP_DELAYED_ACK_TIME;
 	    arg_ptr = (char*) (&arg.av);
-	    arg_sz  = sizeof  ( arg.es);
+	    arg_sz  = sizeof  ( arg.av);
 	    break;
 	}
 #	endif
@@ -10245,6 +10252,7 @@ static void packet_inet_command(ErlDrvData e, char* buf, int len)
 	cmsg.hdr.cmsg_level = IPPROTO_SCTP;
 	cmsg.hdr.cmsg_type  = SCTP_SNDRCV;
 	cmsg.hdr.cmsg_len   = CMSG_LEN(sizeof(*sri));
+	VALGRIND_MAKE_MEM_DEFINED(&cmsg, (char*)sri - (char*)&cmsg); /*suppress padding as "uninitialised bytes"*/
 	
 	data_len = (buf + len) - ptr;
 	/* The whole msg. 

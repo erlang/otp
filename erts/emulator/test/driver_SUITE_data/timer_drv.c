@@ -22,7 +22,9 @@
 
 static ErlDrvPort erlang_port;
 static ErlDrvData timer_start(ErlDrvPort, char*);
-static void timer_stop(ErlDrvData), timer_read(ErlDrvData, char*, int), timer(ErlDrvData);
+static void timer_stop(ErlDrvData);
+static void timer_read(ErlDrvData, char*, int);
+static void timer(ErlDrvData);
 
 static ErlDrvEntry timer_driver_entry =
 {

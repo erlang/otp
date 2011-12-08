@@ -175,7 +175,7 @@ fail:
 		driver_free(ttd[t].blocks[b]);
 	}
     }
-
+    driver_free(td);
     return ERL_DRV_ERROR_GENERAL;
 }
 
