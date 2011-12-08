@@ -49,7 +49,7 @@
 
 #include "error.h"
 
-int hipe_modeswitch_debug;
+extern int hipe_modeswitch_debug;
 
 void hipe_mode_switch_init(void);
 void hipe_set_call_trap(Uint *bfun, void *nfun, int is_closure);
