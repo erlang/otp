@@ -1163,7 +1163,8 @@ change_time(Name, {{AY, AM, AD}, {AH, AMin, ASec}}=Atime,
 -define(MAX_CHUNK_SIZE, (1 bsl 20)*20). %% 20 MB, has to fit in primary memory
 
 -spec sendfile(RawFile, Socket, Offset, Bytes, Opts) ->
-   {'ok', non_neg_integer()} | {'error', inet:posix() | badarg | not_owner} when
+   {'ok', non_neg_integer()} | {'error', inet:posix() | 
+				closed | badarg | not_owner} when
       RawFile :: file:fd(),
       Socket :: inet:socket(),
       Offset :: non_neg_integer(),
@@ -1188,7 +1189,8 @@ sendfile(File, Sock, Offset, Bytes, Opts) ->
 
 %% sendfile/2
 -spec sendfile(Filename, Socket) ->
-   {'ok', non_neg_integer()} | {'error', inet:posix() | badarg | not_owner}
+   {'ok', non_neg_integer()} | {'error', inet:posix() | 
+				closed | badarg | not_owner}
       when Filename :: file:name(),
 	   Socket :: inet:socket().
 sendfile(Filename, Sock)  ->

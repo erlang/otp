@@ -1698,7 +1698,9 @@ case $host_os in
 		AC_CHECK_FUNCS([sendfile])
 		;;
     solaris*)
-		AC_SEARCH_LIBS(sendfile, sendfile, AC_DEFINE(HAVE_SENDFILE, 1))
+		AC_SEARCH_LIBS(sendfilev, sendfile,
+			AC_DEFINE([HAVE_SENDFILEV],[1],
+		           [Define to 1 if you have the `sendfilev' function.]))
 		;;
     win32)
 		LIBS="$LIBS -lmswsock"

@@ -104,6 +104,7 @@
 #ifndef WANT_NONBLOCKING
 #define WANT_NONBLOCKING
 #endif
+
 #include "sys.h"
 
 #include "erl_driver.h"
@@ -146,6 +147,22 @@ static ErlDrvSysInfo sys_info;
 #define MUTEX_LOCK(m)
 #define MUTEX_UNLOCK(m)
 #endif
+
+
+/**
+ * On DARWIN sendfile can deadlock with close if called in
+ * different threads. So until Apple fixes so that sendfile
+ * is not buggy we disable usage of the async pool for
+ * DARWIN. The testcase t_sendfile_crashduring reproduces
+ * this error when using +A 10.
+ */
+#if !defined(DARWIN)
+#define USE_THRDS_FOR_SENDFILE (sys_info.async_threads > 0)
+#else
+#define USE_THRDS_FOR_SENDFILE 0
+#endif /* !DARWIN */
+
+
 
 #if 0
 /* Experimental, for forcing all file operations to use the same thread. */
@@ -734,6 +751,15 @@ file_stop(ErlDrvData e)
 
     TRACE_C('p');
 
+#ifdef HAVE_SENDFILE
+    if (desc->sendfile_state == sending && !USE_THRDS_FOR_SENDFILE) {
+	driver_select(desc->port,(ErlDrvEvent)(long)desc->d->c.sendfile.out_fd,
+		      ERL_DRV_WRITE|ERL_DRV_USE,0);
+    } else if (desc->sendfile_state == sending) {
+	SET_NONBLOCKING(desc->d->c.sendfile.out_fd);
+    }
+#endif /* HAVE_SENDFILE */
+
     if (desc->fd != FILE_FD_INVALID) {
 	do_close(desc->flags, desc->fd);
 	desc->fd = FILE_FD_INVALID;
@@ -799,7 +825,16 @@ static void reply_Uint_posix_error(file_descriptor *desc, Uint num,
     driver_output2(desc->port, response, t-response, NULL, 0);
 }
 
+static void reply_string_error(file_descriptor *desc, char* str) {
+    char response[256];		/* Response buffer. */
+    char* s;
+    char* t;
 
+    response[0] = FILE_RESP_ERROR;
+    for (s = str, t = response+1; *s; s++, t++)
+	*t = tolower(*s);
+    driver_output2(desc->port, response, t-response, NULL, 0);
+}
 
 static int reply_error(file_descriptor *desc, 
 		       Efile_error *errInfo) /* The error codes. */
@@ -1744,7 +1779,7 @@ static void invoke_sendfile(void *data)
     d->c.sendfile.written += nbytes;
 
     if (result == 1) {
-	if (sys_info.async_threads != 0) {
+	if (USE_THRDS_FOR_SENDFILE) {
 	    d->result_ok = 0;
 	} else if (d->c.sendfile.nbytes == 0 && nbytes != 0) {
 	    d->result_ok = 1;
@@ -2209,8 +2244,13 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
       case FILE_SENDFILE:
 	  if (d->result_ok == -1) {
 	      desc->sendfile_state = not_sending;
-	      reply_error(desc, &d->errInfo);
-	      if (sys_info.async_threads != 0) {
+	      if (d->errInfo.posix_errno == ECONNRESET ||
+		  d->errInfo.posix_errno == ENOTCONN ||
+		  d->errInfo.posix_errno == EPIPE)
+		  reply_string_error(desc,"closed");
+	      else
+		  reply_error(desc, &d->errInfo);
+	      if (USE_THRDS_FOR_SENDFILE) {
 		  SET_NONBLOCKING(d->c.sendfile.out_fd);
 		  free_sendfile(data);
 	      } else {
@@ -2221,7 +2261,7 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
 	  } else if (d->result_ok == 0) {
 	      desc->sendfile_state = not_sending;
 	      reply_Sint64(desc, d->c.sendfile.written);
-	      if (sys_info.async_threads != 0) {
+	      if (USE_THRDS_FOR_SENDFILE) {
 		SET_NONBLOCKING(d->c.sendfile.out_fd);
 		free_sendfile(data);
 	      } else {
@@ -3427,7 +3467,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 
 	d->c.sendfile.nbytes = nbytes;
 
-	if (sys_info.async_threads != 0) {
+	if (USE_THRDS_FOR_SENDFILE) {
 	    SET_BLOCKING(d->c.sendfile.out_fd);
 	}
 

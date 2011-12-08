@@ -33,6 +33,8 @@ all() ->
      ,t_sendfile_recvafter
      ,t_sendfile_sendduring
      ,t_sendfile_recvduring
+     ,t_sendfile_closeduring
+     ,t_sendfile_crashduring
     ].
 
 init_per_suite(Config) ->
@@ -99,7 +101,7 @@ t_sendfile_big(Config) when is_list(Config) ->
 		   Size
 	   end,
 
-    ok = sendfile_send("localhost", Send, 0).
+    ok = sendfile_send({127,0,0,1}, Send, 0).
 
 t_sendfile_partial(Config) ->
     Filename = proplists:get_value(small_file, Config),
@@ -185,14 +187,14 @@ t_sendfile_sendduring(Config) ->
 		   {ok, #file_info{size = Size}} =
 		       file:read_file_info(Filename),
 		   spawn_link(fun() ->
-				      timer:sleep(10),
+				      timer:sleep(50),
 				      ok = gen_tcp:send(Sock, <<2>>)
 			      end),
 		   {ok, Size} = file:sendfile(Filename, Sock),
 		   Size+1
 	   end,
 
-    ok = sendfile_send("localhost", Send, 0).
+    ok = sendfile_send({127,0,0,1}, Send, 0).
 
 t_sendfile_recvduring(Config) ->
     Filename = proplists:get_value(big_file, Config),
@@ -201,7 +203,7 @@ t_sendfile_recvduring(Config) ->
 		   {ok, #file_info{size = Size}} =
 		       file:read_file_info(Filename),
 		   spawn_link(fun() ->
-				      timer:sleep(10),
+				      timer:sleep(50),
 				      ok = gen_tcp:send(Sock, <<1>>),
 				      {ok,<<1>>} = gen_tcp:recv(Sock, 1)
 			      end),
@@ -210,21 +212,83 @@ t_sendfile_recvduring(Config) ->
 		   Size+1
 	   end,
 
-    ok = sendfile_send("localhost", Send, 0).
+    ok = sendfile_send({127,0,0,1}, Send, 0).
 
-%% TODO: consolidate tests and reduce code
+t_sendfile_closeduring(Config) ->
+    Filename = proplists:get_value(big_file, Config),
+
+    Send = fun(Sock,SFServPid) ->
+		   spawn_link(fun() ->
+				      timer:sleep(50),
+				      SFServPid ! stop
+			      end),
+		   case erlang:system_info(thread_pool_size) of
+		       0 ->
+			   {error, closed} = file:sendfile(Filename, Sock);
+		       _Else ->
+			   %% This can return how much has been sent or
+			   %% {error,closed} depending on OS.
+			   %% How much is sent impossible to know as
+			   %%  the socket was closed mid sendfile
+			   case file:sendfile(Filename, Sock) of
+			       {error, closed} ->
+				   ok;
+			       {ok, Size}  when is_integer(Size) ->
+				   ok
+			   end
+		   end,
+		   -1
+	   end,
+
+    ok = sendfile_send({127,0,0,1}, Send, 0).
+
+t_sendfile_crashduring(Config) ->
+    Filename = proplists:get_value(big_file, Config),
+
+    error_logger:add_report_handler(?MODULE,[self()]),
+
+    Send = fun(Sock) ->
+		   spawn_link(fun() ->
+				      timer:sleep(50),
+				      exit(die)
+			      end),
+		   {error, closed} = file:sendfile(Filename, Sock),
+		   -1
+	   end,
+    process_flag(trap_exit,true),
+    spawn_link(fun() ->
+		       ok = sendfile_send({127,0,0,1}, Send, 0)
+	       end),
+    receive
+	{stolen,Reason} ->
+	    process_flag(trap_exit,false),
+	    ct:fail(Reason)
+	after 200 ->
+		receive
+		    {'EXIT',_,Reason} ->
+			process_flag(trap_exit,false),
+			die = Reason
+		end
+	end.
+
+%% Generic sendfile server code
 sendfile_send(Send) ->
-    sendfile_send("localhost",Send).
+    sendfile_send({127,0,0,1},Send).
 sendfile_send(Host, Send) ->
     sendfile_send(Host, Send, []).
 sendfile_send(Host, Send, Orig) ->
-    spawn_link(?MODULE, sendfile_server, [self(), Orig]),
+    SFServer = spawn_link(?MODULE, sendfile_server, [self(), Orig]),
     receive
 	{server, Port} ->
 	    {ok, Sock} = gen_tcp:connect(Host, Port,
 					       [binary,{packet,0},
 						{active,false}]),
-	    Data = Send(Sock),
+	    Data = case proplists:get_value(arity,erlang:fun_info(Send)) of
+		       1 ->
+			   Send(Sock);
+		       2 ->
+			   Send(Sock, SFServer)
+		   end,
 	    ok = gen_tcp:close(Sock),
 	    receive
 		{ok, Bin} ->
@@ -245,9 +309,11 @@ sendfile_server(ClientPid, Orig) ->
     gen_tcp:send(Sock, <<1>>).
 
 -define(SENDFILE_TIMEOUT, 10000).
-%% f(),{ok, S} = gen_tcp:connect("localhost",7890,[binary]),file:sendfile("/ldisk/lukas/otp/sendfiletest.dat",S).
 sendfile_do_recv(Sock, Bs) ->
     receive
+	stop when Bs /= 0,is_integer(Bs) ->
+	    gen_tcp:close(Sock),
+	    {ok, -1};
 	{tcp, Sock, B} ->
 	    case binary:match(B,<<1>>) of
 		nomatch when is_list(Bs) ->
@@ -276,3 +342,14 @@ sendfile_file_info(File) ->
     {ok, #file_info{size = Size}} = file:read_file_info(File),
     {ok, Data} = file:read_file(File),
     {Size, Data}.
+
+
+%% Error handler 
+
+init([Proc]) -> {ok,Proc}.
+
+handle_event({error,noproc,{emulator,Format,Args}}, Proc) -> 
+    Proc ! {stolen,lists:flatten(io_lib:format(Format,Args))},
+    {ok,Proc};
+handle_event(_, Proc) -> 
+    {ok,Proc}.

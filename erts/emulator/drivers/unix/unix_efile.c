@@ -1427,6 +1427,9 @@ efile_fadvise(Efile_error* errInfo, int fd, Sint64 offset,
 }
 
 #ifdef HAVE_SENDFILE
+
+// For some reason the maximum size_t cannot be used as the max size
+// 3GB seems to work on all platforms
 #define SENDFILE_CHUNK_SIZE ((1 << 30) -1)
 
 /*
@@ -1435,7 +1438,13 @@ efile_fadvise(Efile_error* errInfo, int fd, Sint64 offset,
  * we have to emulate some things in linux and play with variables on
  * bsd/darwin.
  *
- * It could be possible to implement header/trailer in sendfile, though
+ * All of the calls will split a command which tries to send more than
+ * SENDFILE_CHUNK_SIZE of data at once.
+ *
+ * On platforms where *nbytes of 0 does not mean the entire file, this is
+ * simulated.
+ *
+ * It could be possible to implement header/trailer in sendfile. Though
  * you would have to emulate it in linux and on BSD/Darwin some complex
  * calculations have to be made when using a non blocking socket to figure
  * out how much of the header/file/trailer was sent in each command.
@@ -1446,10 +1455,10 @@ efile_sendfile(Efile_error* errInfo, int in_fd, int out_fd,
 	       off_t *offset, Uint64 *nbytes, struct t_sendfile_hdtl* hdtl)
 {
     Uint64 written = 0;
-#if defined(__linux__) || (defined(__sun) && defined(__SVR4))
+#if defined(__linux__)
     ssize_t retval;
     do {
-      // check if *nbytes is 0 or greater than the largest size_t
+      // check if *nbytes is 0 or greater than chunk size
       if (*nbytes == 0 || *nbytes > SENDFILE_CHUNK_SIZE)
 	retval = sendfile(out_fd, in_fd, offset, SENDFILE_CHUNK_SIZE);
       else
@@ -1461,11 +1470,34 @@ efile_sendfile(Efile_error* errInfo, int in_fd, int out_fd,
     } while (retval != -1 && retval == SENDFILE_CHUNK_SIZE);
     *nbytes = written;
     return check_error(retval == -1 ? -1 : 0, errInfo);
+#elif defined(__sun) && defined(__SVR4) && defined(HAVE_SENDFILEV)
+    ssize_t retval;
+    size_t len;
+    sendfilevec_t fdrec;
+    fdrec.sfv_fd = in_fd;
+    fdrec.sfv_flag = 0;
+    do {
+      fdrec.sfv_off = *offset;
+      len = 0;
+      // check if *nbytes is 0 or greater than chunk size
+      if (*nbytes == 0 || *nbytes > SENDFILE_CHUNK_SIZE)
+	fdrec.sfv_len = SENDFILE_CHUNK_SIZE;
+      else
+	fdrec.sfv_len = *nbytes;
+      retval = sendfilev(out_fd, &fdrec, 1, &len);
+      if (retval != -1 || errno == EAGAIN || errno == EINTR) {
+        *offset += len;
+	*nbytes -= len;
+	written += len;
+      }
+    } while (len == SENDFILE_CHUNK_SIZE);
+    *nbytes = written;
+    return check_error(retval == -1 ? -1 : 0, errInfo);
 #elif defined(DARWIN)
     int retval;
     off_t len;
     do {
-      // check if *nbytes is 0 or greater than the largest off_t
+      // check if *nbytes is 0 or greater than chunk size
       if(*nbytes > SENDFILE_CHUNK_SIZE)
 	len = SENDFILE_CHUNK_SIZE;
       else
