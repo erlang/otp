@@ -667,7 +667,14 @@ void get_localtime(int *year, int *month, int *day,
 		   int *hour, int *minute, int *second);
 void get_universaltime(int *year, int *month, int *day, 
 		       int *hour, int *minute, int *second);
-int univ_to_local(Sint *year, Sint *month, Sint *day, 
+int seconds_to_univ(Sint64 seconds, 
+		    Sint *year, Sint *month, Sint *day, 
+		    Sint *hour, Sint *minute, Sint *second);
+int univ_to_seconds(Sint year, Sint month, Sint day, 
+		    Sint hour, Sint minute, Sint second,
+		    Sint64* seconds);
+int univ_to_local(
+    Sint *year, Sint *month, Sint *day, 
 		  Sint *hour, Sint *minute, Sint *second);
 int local_to_univ(Sint *year, Sint *month, Sint *day, 
 		  Sint *hour, Sint *minute, Sint *second, int isdst);

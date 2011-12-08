@@ -28,9 +28,11 @@
 %% File system and metadata.
 -export([get_cwd/0, get_cwd/1, set_cwd/1, delete/1, rename/2,
 	 make_dir/1, del_dir/1, list_dir/1,
-	 read_file_info/1, write_file_info/2,
+	 read_file_info/1, read_file_info/2,
+	 write_file_info/2, write_file_info/3,
 	 altname/1,
-	 read_link_info/1, read_link/1,
+	 read_link_info/1, read_link_info/2,
+	 read_link/1,
 	 make_link/2, make_symlink/2,
 	 read_file/1, write_file/2, write_file/3]).
 %% Specialized
@@ -107,6 +109,10 @@
 -type posix_file_advise() :: 'normal' | 'sequential' | 'random'
                            | 'no_reuse' | 'will_need' | 'dont_need'.
 -type sendfile_option() :: {chunk_size, non_neg_integer()}.
+-type file_info_option() :: {'time', 'local'} | {'time', 'universal'} 
+			  | {'time', 'posix'}.
+
+
 %%%-----------------------------------------------------------------
 %%% General functions
 
@@ -214,6 +220,15 @@ del_dir(Name) ->
 read_file_info(Name) ->
     check_and_call(read_file_info, [file_name(Name)]).
 
+-spec read_file_info(Filename, Opts) -> {ok, FileInfo} | {error, Reason} when
+      Filename :: name(),
+      Opts :: [file_info_option()],
+      FileInfo :: file_info(),
+      Reason :: posix() | badarg.
+
+read_file_info(Name, Opts) when is_list(Opts) ->
+    check_and_call(read_file_info, [file_name(Name), Opts]).
+
 -spec altname(Name :: name()) -> any().
 
 altname(Name) ->
@@ -226,6 +241,16 @@ altname(Name) ->
 
 read_link_info(Name) ->
     check_and_call(read_link_info, [file_name(Name)]).
+
+-spec read_link_info(Name, Opts) -> {ok, FileInfo} | {error, Reason} when
+      Name :: name(),
+      Opts :: [file_info_option()],
+      FileInfo :: file_info(),
+      Reason :: posix() | badarg.
+
+read_link_info(Name, Opts) when is_list(Opts) ->
+    check_and_call(read_link_info, [file_name(Name),Opts]).
+
 
 -spec read_link(Name) -> {ok, Filename} | {error, Reason} when
       Name :: name(),
@@ -242,6 +267,15 @@ read_link(Name) ->
 
 write_file_info(Name, Info = #file_info{}) ->
     check_and_call(write_file_info, [file_name(Name), Info]).
+
+-spec write_file_info(Filename, FileInfo, Opts) -> ok | {error, Reason} when
+      Filename :: name(),
+      Opts :: [file_info_option()],
+      FileInfo :: file_info(),
+      Reason :: posix() | badarg.
+
+write_file_info(Name, Info = #file_info{}, Opts) when is_list(Opts) ->
+    check_and_call(write_file_info, [file_name(Name), Info, Opts]).
 
 -spec list_dir(Dir) -> {ok, Filenames} | {error, Reason} when
       Dir :: name(),

@@ -816,7 +816,6 @@ efile_fileinfo(Efile_error* errInfo, Efile_info* pInfo,
 	       char* name, int info_for_link)
 {
     struct stat statbuf;	/* Information about the file */
-    struct tm *timep;		/* Broken-apart filetime. */
     int result;
 
 #ifdef VXWORKS
@@ -883,40 +882,17 @@ efile_fileinfo(Efile_error* errInfo, Efile_info* pInfo,
     else
 	pInfo->type = FT_OTHER;
 
-#if defined(HAVE_LOCALTIME_R) || defined(VXWORKS)
-    {
-	/* Use the reentrant version of localtime() */
-	static struct tm local_tm;
-#define localtime(a) (localtime_r((a), &local_tm), &local_tm)
-#endif
+    pInfo->accessTime   = statbuf.st_atime;
+    pInfo->modifyTime   = statbuf.st_mtime;
+    pInfo->cTime        = statbuf.st_ctime;
 
-
-#define GET_TIME(dst, src) \
-    timep = localtime(&statbuf.src); \
-    (dst).year = timep->tm_year+1900; \
-    (dst).month = timep->tm_mon+1; \
-    (dst).day = timep->tm_mday; \
-    (dst).hour = timep->tm_hour; \
-    (dst).minute = timep->tm_min; \
-    (dst).second = timep->tm_sec
-
-    GET_TIME(pInfo->accessTime, st_atime);
-    GET_TIME(pInfo->modifyTime, st_mtime);
-    GET_TIME(pInfo->cTime, st_ctime);
-
-#undef GET_TIME
-
-#if defined(HAVE_LOCALTIME_R) || defined(VXWORKS)
-    }
-#endif
-
-    pInfo->mode = statbuf.st_mode;
-    pInfo->links = statbuf.st_nlink;
+    pInfo->mode         = statbuf.st_mode;
+    pInfo->links        = statbuf.st_nlink;
     pInfo->major_device = statbuf.st_dev;
     pInfo->minor_device = statbuf.st_rdev;
-    pInfo->inode = statbuf.st_ino;
-    pInfo->uid = statbuf.st_uid;
-    pInfo->gid = statbuf.st_gid;
+    pInfo->inode        = statbuf.st_ino;
+    pInfo->uid          = statbuf.st_uid;
+    pInfo->gid          = statbuf.st_gid;
 
     return 1;
 }
@@ -924,6 +900,8 @@ efile_fileinfo(Efile_error* errInfo, Efile_info* pInfo,
 int
 efile_write_info(Efile_error *errInfo, Efile_info *pInfo, char *name)
 {
+    struct utimbuf tval;
+
     CHECK_PATHLEN(name, errInfo);
 
 #ifdef VXWORKS
@@ -976,38 +954,18 @@ efile_write_info(Efile_error *errInfo, Efile_info *pInfo, char *name)
 
 #endif /* !VXWORKS */
 
-    if (pInfo->accessTime.year != -1 && pInfo->modifyTime.year != -1) {
-	struct utimbuf tval;
-	struct tm timebuf;
+    tval.actime  = pInfo->accessTime;
+    tval.modtime = pInfo->modifyTime;
 
-#define MKTIME(tb, ts) \
-    timebuf.tm_year = ts.year-1900; \
-    timebuf.tm_mon = ts.month-1; \
-    timebuf.tm_mday = ts.day; \
-    timebuf.tm_hour = ts.hour; \
-    timebuf.tm_min = ts.minute; \
-    timebuf.tm_sec = ts.second; \
-    timebuf.tm_isdst = -1; \
-    if ((tb = mktime(&timebuf)) == (time_t) -1) { \
-       errno = EINVAL; \
-       return check_error(-1, errInfo); \
-    }
-
-        MKTIME(tval.actime, pInfo->accessTime);
-	MKTIME(tval.modtime, pInfo->modifyTime);
-#undef MKTIME
-	
 #ifdef VXWORKS
-	/* VxWorks' utime doesn't work when the file is a nfs mounted
-	 * one, don't report error if utime fails.
-	 */
-	utime(name, &tval);
-	return 1;
-#else
-	return check_error(utime(name, &tval), errInfo);
-#endif
-    }
+    /* VxWorks' utime doesn't work when the file is a nfs mounted
+     * one, don't report error if utime fails.
+     */
+    utime(name, &tval);
     return 1;
+#else
+    return check_error(utime(name, &tval), errInfo);
+#endif
 }
 
 

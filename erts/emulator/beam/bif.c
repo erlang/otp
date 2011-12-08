@@ -3385,6 +3385,61 @@ BIF_RETTYPE universaltime_to_localtime_1(BIF_ALIST_1)
     BIF_RET(TUPLE2(hp, res1, res2));
 }
 
+/* convert calendar:universaltime_to_seconds/1 */
+
+BIF_RETTYPE universaltime_to_posixtime_1(BIF_ALIST_1)
+{
+    Sint year, month, day;
+    Sint hour, minute, second;
+
+    Sint64 seconds = 0;
+    Eterm *hp;
+    Uint hsz = 0;
+
+    if (!time_to_parts(BIF_ARG_1, &year, &month, &day, 
+		       &hour, &minute, &second))
+	BIF_ERROR(BIF_P, BADARG);
+
+    if (!univ_to_seconds(year, month, day, hour, minute, second, &seconds)) {
+	BIF_ERROR(BIF_P, BADARG);
+    }
+
+    erts_bld_sint64(NULL, &hsz, seconds);
+    hp = HAlloc(BIF_P, hsz);
+    BIF_RET(erts_bld_sint64(&hp, NULL, seconds));
+}
+
+/* convert calendar:seconds_to_universaltime/1 */
+
+BIF_RETTYPE posixtime_to_universaltime_1(BIF_ALIST_1)
+{
+    Sint year, month, day;
+    Sint hour, minute, second;
+    Eterm res1, res2;
+    Eterm* hp;
+
+    Sint64 time = 0;
+
+    if (!term_to_Sint64(BIF_ARG_1, &time)) {
+	BIF_ERROR(BIF_P, BADARG);
+    }
+
+    if (!seconds_to_univ(time, &year, &month, &day,
+		&hour, &minute, &second)) {
+	BIF_ERROR(BIF_P, BADARG);
+    }
+
+    hp = HAlloc(BIF_P, 4+4+3);
+    res1 = TUPLE3(hp,make_small(year),make_small(month),
+		  make_small(day));
+    hp += 4;
+    res2 = TUPLE3(hp,make_small(hour),make_small(minute),
+		  make_small(second));
+    hp += 4;
+    BIF_RET(TUPLE2(hp, res1, res2));
+}
+
+
 /**********************************************************************/
 
 

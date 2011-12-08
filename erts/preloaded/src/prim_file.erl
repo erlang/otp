@@ -45,13 +45,13 @@
 	 rename/2, rename/3, 
 	 make_dir/1, make_dir/2,
 	 del_dir/1, del_dir/2,
-	 read_file_info/1, read_file_info/2,
+	 read_file_info/1, read_file_info/2, read_file_info/3,
 	 altname/1, altname/2,
-	 write_file_info/2, write_file_info/3,
+	 write_file_info/2, write_file_info/3, write_file_info/4,
 	 make_link/2, make_link/3,
 	 make_symlink/2, make_symlink/3,
 	 read_link/1, read_link/2,
-	 read_link_info/1, read_link_info/2,
+	 read_link_info/1, read_link_info/2, read_link_info/3,
 	 list_dir/1, list_dir/2]).
 %% How to start and stop the ?DRV port.
 -export([start/0, stop/1]).
@@ -725,16 +725,33 @@ del_dir_int(Port, Dir) ->
 
 
 
-%% read_file_info/{1,2}
+%% read_file_info/{1,2,3}
 
 read_file_info(File) ->
-    read_file_info_int({?DRV, [binary]}, File).
+    read_file_info_int({?DRV, [binary]}, File, local).
 
 read_file_info(Port, File) when is_port(Port) ->
-    read_file_info_int(Port, File).
+    read_file_info_int(Port, File, local);
+read_file_info(File, Opts) ->
+    read_file_info_int({?DRV, [binary]}, File, plgv(time, Opts, local)).
 
-read_file_info_int(Port, File) ->
-    drv_command(Port, [?FILE_FSTAT, pathname(File)]).
+read_file_info(Port, File, Opts) when is_port(Port) ->
+    read_file_info_int(Port, File, plgv(time, Opts, local)).
+
+read_file_info_int(Port, File, TimeType) ->
+    try
+	case drv_command(Port, [?FILE_FSTAT, pathname(File)]) of
+	    {ok, FI} -> {ok, FI#file_info{
+			ctime = from_seconds(FI#file_info.ctime, TimeType),
+			mtime = from_seconds(FI#file_info.mtime, TimeType),
+			atime = from_seconds(FI#file_info.atime, TimeType)
+		    }};
+	    Error    -> Error
+	end
+    catch
+	error:_ -> {error, badarg}
+    end.
+
 
 %% altname/{1,2}
 
@@ -747,38 +764,61 @@ altname(Port, File) when is_port(Port) ->
 altname_int(Port, File) ->
     drv_command(Port, [?FILE_ALTNAME, pathname(File)]).
 
-%% write_file_info/{2,3}
+%% write_file_info/{2,3,4}
 
 write_file_info(File, Info) ->
-    write_file_info_int({?DRV, [binary]}, File, Info).
+    write_file_info_int({?DRV, [binary]}, File, Info, local).
 
 write_file_info(Port, File, Info) when is_port(Port) ->
-    write_file_info_int(Port, File, Info).
+    write_file_info_int(Port, File, Info, local);
+write_file_info(File, Info, Opts) ->
+    write_file_info_int({?DRV, [binary]}, File, Info, plgv(time, Opts, local)).
 
-write_file_info_int(Port, 
-		    File, 
+write_file_info(Port, File, Info, Opts) when is_port(Port) ->
+    write_file_info_int(Port, File, Info, plgv(time, Opts, local)).
+
+write_file_info_int(Port, File, 
 		    #file_info{mode=Mode, 
 			       uid=Uid, 
 			       gid=Gid,
 			       atime=Atime0, 
 			       mtime=Mtime0, 
-			       ctime=Ctime}) ->
-    {Atime, Mtime} =
-	case {Atime0, Mtime0} of
-	    {undefined, Mtime0} -> {erlang:localtime(), Mtime0};
-	    {Atime0, undefined} -> {Atime0, Atime0};
-	    Complete -> Complete
-	end,
-    drv_command(Port, [?FILE_WRITE_INFO, 
-			int_to_bytes(Mode), 
-			int_to_bytes(Uid), 
-			int_to_bytes(Gid),
-			date_to_bytes(Atime), 
-			date_to_bytes(Mtime), 
-			date_to_bytes(Ctime),
-			pathname(File)]).
+			       ctime=Ctime0},
+		       TimeType) ->
+
+    % Atime and/or Mtime might be undefined
+    %  - use localtime() for atime, if atime is undefined
+    %  - use atime as mtime if mtime is undefined
+    %  - use mtime as ctime if ctime is undefined
+
+    try
+	Atime = file_info_validate_atime(Atime0, TimeType),
+	Mtime = file_info_validate_mtime(Mtime0, Atime),
+	Ctime = file_info_validate_ctime(Ctime0, Mtime),
+
+	drv_command(Port, [?FILE_WRITE_INFO, 
+		int_to_int32bytes(Mode), 
+		int_to_int32bytes(Uid), 
+		int_to_int32bytes(Gid),
+		int_to_int64bytes(to_seconds(Atime, TimeType)), 
+		int_to_int64bytes(to_seconds(Mtime, TimeType)), 
+		int_to_int64bytes(to_seconds(Ctime, TimeType)),
+		pathname(File)])
+    catch
+	error:_ -> {error, badarg}
+    end.
 
 
+file_info_validate_atime(Atime, _) when Atime =/= undefined -> Atime;
+file_info_validate_atime(undefined, local)     -> erlang:localtime();
+file_info_validate_atime(undefined, universal) -> erlang:universaltime();
+file_info_validate_atime(undefined, posix)     -> erlang:universaltime_to_posixtime(erlang:universaltime()).
+
+file_info_validate_mtime(undefined, Atime) -> Atime;
+file_info_validate_mtime(Mtime, _)         -> Mtime.
+
+file_info_validate_ctime(undefined, Mtime) -> Mtime;
+file_info_validate_ctime(Ctime, _)         -> Ctime.
 
 %% make_link/{2,3}
 
@@ -822,15 +862,31 @@ read_link_int(Port, Link) ->
 %% read_link_info/{2,3}
 
 read_link_info(Link) ->
-    read_link_info_int({?DRV, [binary]}, Link).
+    read_link_info_int({?DRV, [binary]}, Link, local).
 
 read_link_info(Port, Link) when is_port(Port) ->
-    read_link_info_int(Port, Link).
+    read_link_info_int(Port, Link, local);
 
-read_link_info_int(Port, Link) ->
-    drv_command(Port, [?FILE_LSTAT, pathname(Link)]).
+read_link_info(Link, Opts) ->
+    read_link_info_int({?DRV, [binary]}, Link, plgv(time, Opts, local)).
+
+read_link_info(Port, Link, Opts) when is_port(Port) ->
+    read_link_info_int(Port, Link, plgv(time, Opts, local)).
 
 
+read_link_info_int(Port, Link, TimeType) ->
+    try
+	case drv_command(Port, [?FILE_LSTAT, pathname(Link)]) of
+	    {ok, FI} -> {ok, FI#file_info{
+			ctime = from_seconds(FI#file_info.ctime, TimeType),
+			mtime = from_seconds(FI#file_info.mtime, TimeType),
+			atime = from_seconds(FI#file_info.atime, TimeType)
+		    }};
+	    Error    -> Error
+	end
+    catch
+	error:_ -> {error, badarg}
+    end.
 
 %% list_dir/{1,2}
 
@@ -1075,7 +1131,7 @@ translate_response(?FILE_RESP_DATA, List) ->
     {_N, _Data} = ND = get_uint64(List),
     {ok, ND};
 translate_response(?FILE_RESP_INFO, List) when is_list(List) ->
-    {ok, transform_info_ints(get_uint32s(List))};
+    {ok, transform_info(List)};
 translate_response(?FILE_RESP_NUMERR, L0) ->
     {N, L1} = get_uint64(L0),
     {error, {N, list_to_atom(L1)}};
@@ -1129,27 +1185,37 @@ translate_response(?FILE_RESP_ALL_DATA, Data) ->
 translate_response(X, Data) ->
     {error, {bad_response_from_port, [X | Data]}}.
 
-transform_info_ints(Ints) ->
-    [HighSize, LowSize, Type|Tail0] = Ints,
-    Size = HighSize * 16#100000000 + LowSize,
-    [Ay, Am, Ad, Ah, Ami, As|Tail1]  = Tail0,
-    [My, Mm, Md, Mh, Mmi, Ms|Tail2] = Tail1,
-    [Cy, Cm, Cd, Ch, Cmi, Cs|Tail3] = Tail2,
-    [Mode, Links, Major, Minor, Inode, Uid, Gid, Access] = Tail3,
+transform_info([
+    Hsize1, Hsize2, Hsize3, Hsize4, 
+    Lsize1, Lsize2, Lsize3, Lsize4,
+    Type1,  Type2,  Type3,  Type4,
+    Atime1, Atime2, Atime3, Atime4, Atime5, Atime6, Atime7, Atime8,
+    Mtime1, Mtime2, Mtime3, Mtime4, Mtime5, Mtime6, Mtime7, Mtime8,
+    Ctime1, Ctime2, Ctime3, Ctime4, Ctime5, Ctime6, Ctime7, Ctime8,
+    Mode1,  Mode2,  Mode3,  Mode4,
+    Links1, Links2, Links3, Links4,
+    Major1, Major2, Major3, Major4,
+    Minor1, Minor2, Minor3, Minor4,
+    Inode1, Inode2, Inode3, Inode4,
+    Uid1,   Uid2,   Uid3,   Uid4,
+    Gid1,   Gid2,   Gid3,   Gid4,
+    Access1,Access2,Access3,Access4]) ->
     #file_info {
-		size = Size,
-		type = file_type(Type),
-		access = file_access(Access),
-		atime = {{Ay, Am, Ad}, {Ah, Ami, As}},
-		mtime = {{My, Mm, Md}, {Mh, Mmi, Ms}},
-		ctime = {{Cy, Cm, Cd}, {Ch, Cmi, Cs}},
-		mode = Mode,
-		links = Links,
-		major_device = Major,
-		minor_device = Minor,
-		inode = Inode,
-		uid = Uid,
-		gid = Gid}.
+		size   = uint32(Hsize1,Hsize2,Hsize3,Hsize4)*16#100000000 + uint32(Lsize1,Lsize2,Lsize3,Lsize4),
+		type   = file_type(uint32(Type1,Type2,Type3,Type4)),
+		access = file_access(uint32(Access1,Access2,Access3,Access4)),
+		atime  = sint64(Atime1, Atime2, Atime3, Atime4, Atime5, Atime6, Atime7, Atime8),
+		mtime  = sint64(Mtime1, Mtime2, Mtime3, Mtime4, Mtime5, Mtime6, Mtime7, Mtime8),
+		ctime  = sint64(Ctime1, Ctime2, Ctime3, Ctime4, Ctime5, Ctime6, Ctime7, Ctime8),
+		mode   = uint32(Mode1,Mode2,Mode3,Mode4),
+		links  = uint32(Links1,Links2,Links3,Links4),
+		major_device = uint32(Major1,Major2,Major3,Major4),
+		minor_device = uint32(Minor1,Minor2,Minor3,Minor4),
+		inode = uint32(Inode1,Inode2,Inode3,Inode4),
+		uid   = uint32(Uid1,Uid2,Uid3,Uid4),
+		gid   = uint32(Gid1,Gid2,Gid3,Gid4)
+	    }.
+    
     
 file_type(1) -> device;
 file_type(2) -> directory;
@@ -1162,24 +1228,22 @@ file_access(1) -> write;
 file_access(2) -> read;
 file_access(3) -> read_write.
 
-int_to_bytes(Int) when is_integer(Int) ->
+int_to_int32bytes(Int) when is_integer(Int) ->
     <<Int:32>>;
-int_to_bytes(undefined) ->
+int_to_int32bytes(undefined) ->
     <<-1:32>>.
 
-date_to_bytes(undefined) ->
-    <<-1:32, -1:32, -1:32, -1:32, -1:32, -1:32>>;
-date_to_bytes({{Y, Mon, D}, {H, Min, S}}) ->
-    <<Y:32, Mon:32, D:32, H:32, Min:32, S:32>>.
+int_to_int64bytes(Int) when is_integer(Int) ->
+    <<Int:64/signed>>.
 
-%% uint64([[X1, X2, X3, X4] = Y1 | [X5, X6, X7, X8] = Y2]) ->
-%%     (uint32(Y1) bsl 32) bor uint32(Y2).
 
-%% uint64(X1, X2, X3, X4, X5, X6, X7, X8) ->
-%%     (uint32(X1, X2, X3, X4) bsl 32) bor uint32(X5, X6, X7, X8).
+sint64(I1,I2,I3,I4,I5,I6,I7,I8) when I1 > 127 ->
+    ((I1 bsl 56) bor (I2 bsl 48) bor (I3 bsl 40) bor (I4 bsl 32) bor
+	(I5 bsl 24) bor (I6 bsl 16) bor (I7 bsl  8) bor I8) - (1 bsl 64);
+sint64(I1,I2,I3,I4,I5,I6,I7,I8) ->
+    ((I1 bsl 56) bor (I2 bsl 48) bor (I3 bsl 40) bor (I4 bsl 32) bor
+	(I5 bsl 24) bor (I6 bsl 16) bor (I7 bsl  8) bor I8).
 
-%% uint32([X1,X2,X3,X4]) ->
-%%     (X1 bsl 24) bor (X2 bsl 16) bor (X3 bsl 8) bor X4.
 
 uint32(X1,X2,X3,X4) ->
     (X1 bsl 24) bor (X2 bsl 16) bor (X3 bsl 8) bor X4.
@@ -1191,11 +1255,6 @@ get_uint64(L0) ->
 
 get_uint32([X1,X2,X3,X4|List]) ->
     {(((((X1 bsl 8) bor X2) bsl 8) bor X3) bsl 8) bor X4, List}.
-
-get_uint32s([X1,X2,X3,X4|Tail]) ->
-    [uint32(X1,X2,X3,X4) | get_uint32s(Tail)];
-get_uint32s([]) -> [].
-
 
 
 %% Binary mode
@@ -1275,3 +1334,28 @@ reverse(L, T) -> lists:reverse(L, T).
 % in list_to_binary, which is caught and generates the {error,badarg} return
 pathname(File) ->
     (catch prim_file:internal_name2native(File)).
+
+
+%% proplist:get_value/3
+plgv(K, [{K, V}|_], _) -> V;
+plgv(K, [_|KVs], D)    -> plgv(K, KVs, D);
+plgv(_, [], D)         -> D.
+
+%%
+%% We don't actually want this here
+%% We want to use posix time in all prim but erl_prim_loader makes that tricky
+%% It is probably needed to redo the whole erl_prim_loader
+
+from_seconds(Seconds, posix) when is_integer(Seconds) ->
+    Seconds;
+from_seconds(Seconds, universal) when is_integer(Seconds) ->
+    erlang:posixtime_to_universaltime(Seconds);
+from_seconds(Seconds, local) when is_integer(Seconds) ->
+    erlang:universaltime_to_localtime(erlang:posixtime_to_universaltime(Seconds)).
+
+to_seconds(Seconds, posix) when is_integer(Seconds) ->
+    Seconds;
+to_seconds({_,_} = Datetime, universal) ->
+    erlang:universaltime_to_posixtime(Datetime);
+to_seconds({_,_} = Datetime, local) ->
+    erlang:universaltime_to_posixtime(erlang:localtime_to_universaltime(Datetime)).

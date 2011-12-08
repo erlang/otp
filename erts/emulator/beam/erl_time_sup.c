@@ -494,7 +494,7 @@ get_time(int *hour, int *minute, int *second)
     
     the_clock = time((time_t *)0);
 #ifdef HAVE_LOCALTIME_R
-    localtime_r(&the_clock, (tm = &tmbuf));
+    tm = localtime_r(&the_clock, &tmbuf);
 #else
     tm = localtime(&the_clock);
 #endif
@@ -516,7 +516,7 @@ get_date(int *year, int *month, int *day)
 
     the_clock = time((time_t *)0);
 #ifdef HAVE_LOCALTIME_R
-    localtime_r(&the_clock, (tm = &tmbuf));
+    tm = localtime_r(&the_clock, &tmbuf);
 #else
     tm = localtime(&the_clock);
 #endif
@@ -586,7 +586,44 @@ static const int mdays[14] = {0, 31, 28, 31, 30, 31, 30,
                             (((y) % 100) != 0)) || \
                            (((y) % 400) == 0))
 
-#define  BASEYEAR       1970
+/* This is the earliest year we are sure to be able to handle
+   on all platforms w/o problems */
+#define  BASEYEAR       1902 
+
+/* A more "clever" mktime
+ * return  1, if successful
+ * return -1, if not successful
+ */
+
+static int erl_mktime(time_t *c, struct tm *tm) {
+    time_t clock;
+
+    clock = mktime(tm);
+
+    if (clock != -1) {
+	*c = clock;
+	return 1;
+    }
+
+    /* in rare occasions mktime returns -1
+     * when a correct value has been entered
+     *
+     * decrease seconds with one second
+     * if the result is -2, epochs should be -1
+     */
+
+    tm->tm_sec = tm->tm_sec - 1;
+    clock = mktime(tm);
+    tm->tm_sec = tm->tm_sec + 1;
+
+    *c = -1;
+
+    if (clock == -2) {
+	return 1;
+    }
+
+    return -1;
+}
 
 /*
  * gregday
@@ -597,8 +634,8 @@ static const int mdays[14] = {0, 31, 28, 31, 30, 31, 30,
  */
 static time_t gregday(int year, int month, int day)
 {
-  time_t ndays = 0;
-  time_t gyear, pyear, m;
+  Sint ndays = 0;
+  Sint gyear, pyear, m;
   
   /* number of days in previous years */
   gyear = year - 1600;
@@ -613,10 +650,72 @@ static time_t gregday(int year, int month, int day)
   if (is_leap_year(year) && (month > 2))
     ndays++;
   ndays += day - 1;
-  return ndays - 135140;        /* 135140 = Jan 1, 1970 */
+  return (time_t) (ndays - 135140);        /* 135140 = Jan 1, 1970 */
 }
 
+#define SECONDS_PER_MINUTE  (60)
+#define SECONDS_PER_HOUR    (60 * SECONDS_PER_MINUTE)
+#define SECONDS_PER_DAY     (24 * SECONDS_PER_HOUR)
 
+int seconds_to_univ(Sint64 time, Sint *year, Sint *month, Sint *day, 
+	Sint *hour, Sint *minute, Sint *second) {
+
+    Sint y,mi;
+    Sint days = time / SECONDS_PER_DAY;
+    Sint secs = time % SECONDS_PER_DAY;
+    Sint tmp;
+
+    if (secs < 0) {
+	days--;
+	secs += SECONDS_PER_DAY;
+    }
+    
+    tmp     = secs % SECONDS_PER_HOUR;
+
+    *hour   = secs / SECONDS_PER_HOUR;
+    *minute = tmp  / SECONDS_PER_MINUTE;
+    *second = tmp  % SECONDS_PER_MINUTE;
+
+    days   += 719468;
+    y       = (10000*((Sint64)days) + 14780) / 3652425; 
+    tmp     = days - (365 * y + y/4 - y/100 + y/400);
+
+    if (tmp < 0) {
+	y--;
+	tmp = days - (365*y + y/4 - y/100 + y/400);
+    }
+    mi = (100 * tmp + 52)/3060;
+    *month = (mi + 2) % 12 + 1;
+    *year  = y + (mi + 2) / 12;
+    *day   = tmp - (mi * 306 + 5)/10 + 1;
+
+    return 1;
+}
+
+int univ_to_seconds(Sint year, Sint month, Sint day, Sint hour, Sint minute, Sint second, Sint64 *time) {
+    Sint days;
+
+    if (!(IN_RANGE(1600, year, INT_MAX - 1) &&
+          IN_RANGE(1, month, 12) &&
+          IN_RANGE(1, day, (mdays[month] + 
+                             (month == 2 
+                              && (year % 4 == 0) 
+                              && (year % 100 != 0 || year % 400 == 0)))) &&
+          IN_RANGE(0, hour, 23) &&
+          IN_RANGE(0, minute, 59) &&
+          IN_RANGE(0, second, 59))) {
+      return 0;
+    }
+ 
+    days   = gregday(year, month, day);
+    *time  = SECONDS_PER_DAY;
+    *time *= days;             /* don't try overflow it, it hurts */
+    *time += SECONDS_PER_HOUR * hour;
+    *time += SECONDS_PER_MINUTE * minute;
+    *time += second;
+
+    return 1;
+}
 
 int 
 local_to_univ(Sint *year, Sint *month, Sint *day, 
@@ -647,15 +746,18 @@ local_to_univ(Sint *year, Sint *month, Sint *day,
     t.tm_min = *minute;
     t.tm_sec = *second;
     t.tm_isdst = isdst;
-    the_clock = mktime(&t);
-    if (the_clock == -1) {
+
+    /* the nature of mktime makes this a bit interesting,
+     * up to four mktime calls could happen here
+     */
+
+    if (erl_mktime(&the_clock, &t) < 0) {
 	if (isdst) {
 	    /* If this is a timezone without DST and the OS (correctly)
 	       refuses to give us a DST time, we simulate the Linux/Solaris
 	       behaviour of giving the same data as if is_dst was not set. */
 	    t.tm_isdst = 0;
-	    the_clock = mktime(&t);
-	    if (the_clock == -1) {
+	    if (erl_mktime(&the_clock, &t)) {
 		/* Failed anyway, something else is bad - will be a badarg */
 		return 0;
 	    }
@@ -665,10 +767,13 @@ local_to_univ(Sint *year, Sint *month, Sint *day,
 	}
     }
 #ifdef HAVE_GMTIME_R
-    gmtime_r(&the_clock, (tm = &tmbuf));
+    tm = gmtime_r(&the_clock, &tmbuf);
 #else
     tm = gmtime(&the_clock);
 #endif
+    if (!tm) {
+      return 0;
+    }
     *year = tm->tm_year + 1900;
     *month = tm->tm_mon +1;
     *day = tm->tm_mday;
@@ -722,17 +827,20 @@ univ_to_local(Sint *year, Sint *month, Sint *day,
 #endif
 
 #ifdef HAVE_LOCALTIME_R
-    localtime_r(&the_clock, (tm = &tmbuf));
+    tm = localtime_r(&the_clock, &tmbuf);
 #else
     tm = localtime(&the_clock);
 #endif
-    *year = tm->tm_year + 1900;
-    *month = tm->tm_mon +1;
-    *day = tm->tm_mday;
-    *hour = tm->tm_hour;
-    *minute = tm->tm_min;
-    *second = tm->tm_sec;
-    return 1;
+    if (tm) {
+	*year   = tm->tm_year + 1900;
+	*month  = tm->tm_mon +1;
+	*day    = tm->tm_mday;
+	*hour   = tm->tm_hour;
+	*minute = tm->tm_min;
+	*second = tm->tm_sec;
+	return 1;
+    }
+    return 0;
 }
 
 

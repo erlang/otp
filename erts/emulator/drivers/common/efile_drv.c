@@ -2120,24 +2120,25 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
 	    if (d->result_ok) {
 		resbuf[0] = FILE_RESP_INFO;
 
-		put_int32(d->info.size_high,         &resbuf[1 + (0 * 4)]);
-		put_int32(d->info.size_low,          &resbuf[1 + (1 * 4)]);
-		put_int32(d->info.type,              &resbuf[1 + (2 * 4)]);
+		put_int32(d->info.size_high,         &resbuf[1 + ( 0 * 4)]);
+		put_int32(d->info.size_low,          &resbuf[1 + ( 1 * 4)]);
+		put_int32(d->info.type,              &resbuf[1 + ( 2 * 4)]);
 
-		PUT_TIME(d->info.accessTime, resbuf + 1 + 3*4);
-		PUT_TIME(d->info.modifyTime, resbuf + 1 + 9*4);
-		PUT_TIME(d->info.cTime, resbuf + 1 + 15*4);
+		/* Note 64 bit indexing in resbuf here */
+		put_int64(d->info.accessTime,        &resbuf[1 + ( 3 * 4)]);
+		put_int64(d->info.modifyTime,        &resbuf[1 + ( 5 * 4)]);
+		put_int64(d->info.cTime,             &resbuf[1 + ( 7 * 4)]);
 
-		put_int32(d->info.mode,              &resbuf[1 + (21 * 4)]);
-		put_int32(d->info.links,             &resbuf[1 + (22 * 4)]);
-		put_int32(d->info.major_device,      &resbuf[1 + (23 * 4)]);
-		put_int32(d->info.minor_device,      &resbuf[1 + (24 * 4)]);
-		put_int32(d->info.inode,             &resbuf[1 + (25 * 4)]);
-		put_int32(d->info.uid,               &resbuf[1 + (26 * 4)]);
-		put_int32(d->info.gid,               &resbuf[1 + (27 * 4)]);
-		put_int32(d->info.access,            &resbuf[1 + (28 * 4)]);
+		put_int32(d->info.mode,              &resbuf[1 + ( 9 * 4)]);
+		put_int32(d->info.links,             &resbuf[1 + (10 * 4)]);
+		put_int32(d->info.major_device,      &resbuf[1 + (11 * 4)]);
+		put_int32(d->info.minor_device,      &resbuf[1 + (12 * 4)]);
+		put_int32(d->info.inode,             &resbuf[1 + (13 * 4)]);
+		put_int32(d->info.uid,               &resbuf[1 + (14 * 4)]);
+		put_int32(d->info.gid,               &resbuf[1 + (15 * 4)]);
+		put_int32(d->info.access,            &resbuf[1 + (16 * 4)]);
 
-#define RESULT_SIZE (1 + (29 * 4))
+#define RESULT_SIZE (1 + (17 * 4))
 		TRACE_C('R');
 		driver_output2(desc->port, resbuf, RESULT_SIZE, NULL, 0);
 #undef RESULT_SIZE
@@ -2485,15 +2486,16 @@ file_output(ErlDrvData e, char* buf, int count)
     case FILE_WRITE_INFO:
 	{
 	    d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1
-			      + FILENAME_BYTELEN(buf+21*4) + FILENAME_CHARSIZE);
+			      + FILENAME_BYTELEN(buf + 9*4) + FILENAME_CHARSIZE);
 	    
-	    d->info.mode = get_int32(buf + 0 * 4);
-	    d->info.uid = get_int32(buf + 1 * 4);
-	    d->info.gid = get_int32(buf + 2 * 4);
-	    GET_TIME(d->info.accessTime, buf + 3 * 4);
-	    GET_TIME(d->info.modifyTime, buf + 9 * 4);
-	    GET_TIME(d->info.cTime, buf + 15 * 4);
-	    FILENAME_COPY(d->b, buf+21*4);
+	    d->info.mode       = get_int32(buf +  0 * 4);
+	    d->info.uid        = get_int32(buf +  1 * 4);
+	    d->info.gid        = get_int32(buf +  2 * 4);
+	    d->info.accessTime = (time_t)((Sint64)get_int64(buf +  3 * 4));
+	    d->info.modifyTime = (time_t)((Sint64)get_int64(buf +  5 * 4));
+	    d->info.cTime      = (time_t)((Sint64)get_int64(buf +  7 * 4));
+
+	    FILENAME_COPY(d->b, buf + 9*4);
 	    d->command = command;
 	    d->invoke = invoke_write_info;
 	    d->free = free_data;

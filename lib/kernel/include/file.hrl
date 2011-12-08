@@ -25,10 +25,11 @@
 	{size   :: non_neg_integer(),	% Size of file in bytes.
 	 type   :: 'device' | 'directory' | 'other' | 'regular' | 'symlink',
 	 access :: 'read' | 'write' | 'read_write' | 'none',
-	 atime  :: file:date_time(),	% The local time the file was last read:
-					% {{Year, Mon, Day}, {Hour, Min, Sec}}.
-	 mtime  :: file:date_time(),	% The local time the file was last written.
-	 ctime  :: file:date_time(),	% The interpretation of this time field
+	 atime  :: file:date_time() | integer(), % The local time the file was last read:
+					         % {{Year, Mon, Day}, {Hour, Min, Sec}}.
+						 % atime, ctime, mtime may also be unix epochs()
+	 mtime  :: file:date_time() | integer(), % The local time the file was last written.
+	 ctime  :: file:date_time() | integer(), % The interpretation of this time field
 					% is dependent on operating system.
 					% On Unix it is the last time the file
 					% or the inode was changed.  On Windows,

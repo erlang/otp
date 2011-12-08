@@ -432,7 +432,7 @@ binary_io({file_info, B}, _) ->
 	    is_binary(B) -> {regular, byte_size(B)};
 	    B =:= directory -> {directory, 0}
 	end,
-    Now = calendar:local_time(),
+    Now = erlang:localtime(),
     #file_info{size = Size, type = Type, access = read_write,
 	       atime = Now, mtime = Now, ctime = Now,
 	       mode = 0, links = 1, major_device = 0,

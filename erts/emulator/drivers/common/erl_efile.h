@@ -85,14 +85,15 @@ typedef struct _Efile_error {
 /*
  * This structure contains date and time.
  */
-typedef struct _Efile_time {
-    unsigned year;		/* (4 digits). */
-    unsigned month;		/* (1..12). */
-    unsigned day;		/* (1..31). */
-    unsigned hour;		/* (0..23). */
-    unsigned minute;		/* (0..59). */
-    unsigned second;		/* (0..59). */
-} Efile_time;
+
+//typedef struct _Efile_time {
+//    unsigned year;		/* (4 digits). */
+//    unsigned month;		/* (1..12). */
+//    unsigned day;		/* (1..31). */
+//    unsigned hour;		/* (0..23). */
+//    unsigned minute;		/* (0..59). */
+//    unsigned second;		/* (0..59). */
+//} Efile_time;
 
 
 /*
@@ -111,9 +112,9 @@ typedef struct _Efile_info {
     Uint32 inode;		/* Inode number. */
     Uint32 uid;			/* User id of owner. */
     Uint32 gid;			/* Group id of owner. */
-    Efile_time accessTime;	/* Last time the file was accessed. */
-    Efile_time modifyTime;	/* Last time the file was modified. */
-    Efile_time cTime;		/* Creation time (Windows) or last
+    time_t accessTime;		/* Last time the file was accessed. */
+    time_t modifyTime;		/* Last time the file was modified. */
+    time_t cTime;		/* Creation time (Windows) or last
 				 * inode change (Unix).
 				 */
 } Efile_info;

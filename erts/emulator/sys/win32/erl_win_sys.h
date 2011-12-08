@@ -128,6 +128,16 @@ int erts_check_io_debug(void);
  */
 typedef __int64 erts_time_t;
 
+struct tm *sys_localtime_r(time_t *epochs, struct tm *ptm);
+struct tm *sys_gmtime_r(time_t *epochs, struct tm *ptm);
+time_t sys_mktime( struct tm *ptm);
+
+#define localtime_r sys_localtime_r
+#define HAVE_LOCALTIME_R 1
+#define gmtime_r sys_gmtime_r
+#define HAVE_GMTIME_R
+#define mktime sys_mktime
+
 typedef struct {
     erts_time_t tv_sec;
     erts_time_t tv_usec;
