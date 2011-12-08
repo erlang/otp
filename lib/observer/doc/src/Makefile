@@ -36,6 +36,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 XML_APPLICATION_FILES = ref_man.xml
 XML_REF3_FILES = \
 	crashdump.xml \
+	observer.xml \
 	etop.xml \
 	ttb.xml
 XML_REF6_FILES = observer_app.xml
@@ -48,6 +49,7 @@ XML_PART_FILES = \
 XML_CHAPTER_FILES = \
 	crashdump_ug.xml \
 	etop_ug.xml \
+	observer_ug.xml \
 	ttb_ug.xml \
 	notes.xml \
 	notes_history.xml

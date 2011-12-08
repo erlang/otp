@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2011</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  The contents of this file are subject to the Erlang Public License,
+  Version 1.1, (the "License"); you may not use this file except in
+  compliance with the License. You should have received a copy of the
+  Erlang Public License along with this software. If not, it can be
+  retrieved online at http://www.erlang.org/.
+
+  Software distributed under the License is distributed on an "AS IS"
+  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+  the License for the specific language governing rights and limitations
+  under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>Observer</title>
+    <prepared>Dan Gudmundsson</prepared>
+    <responsible></responsible>
+    <docno>1</docno>
+    <approved></approved>
+    <checked></checked>
+    <date>2011-12-08</date>
+    <rev>PA1</rev>
+    <file>observer.xml</file>
+  </header>
+  <module>observer</module>
+  <modulesummary>A GUI tool for observing an erlang system.</modulesummary>
+  <description>
+    <p>The observer is gui frontend containing various tools to
+    inspect a system.  It displays system information, application
+    structures, process information, ets or mnesia tables and a frontend
+    for tracing with <seealso marker="ttb">ttb</seealso>.
+    </p>
+
+    <p>See the <seealso marker="observer_ug">user's guide</seealso>
+    for more information about how to get started.</p>
+  </description>
+  <funcs>
+    <func>
+      <name>start() -> ok</name>
+      <fsummary>Start the observer gui</fsummary>
+      <desc>
+        <p>This function starts the <c>observer</c> gui.
+	Close the window to stop the application.
+	</p>
+      </desc>
+    </func>
+  </funcs>
+</erlref>

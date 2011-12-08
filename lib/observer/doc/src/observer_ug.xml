@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2011</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+
+    </legalnotice>
+
+    <title>Observer</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>observer_ug.xml</file>
+  </header>
+
+  <section>
+    <title>Introduction</title>
+    <p>Observer, is a graphical tool for observing the characteristics of
+    erlang systems.  Observer displays system information, application
+    supervisor trees, process information, ets or mnesia tables and contains
+    a frontend for erlang tracing.
+    </p>
+  </section>
+
+  <section>
+    <title>General</title>
+    <p>Normally observer should be run from a standalone node to minimize
+    the impact of the system being observed. Example:
+    </p>
+    <code>
+ > erl -sname observer -hidden -setcookie MyCookie -run observer
+    </code>
+    <p>
+      Choose which node to observe via <c>Nodes</c> menu. The <c>View/Refresh
+      Interval</c> controls how frequent the view should be updated.
+      The refresh interval is set per viewer so you can
+      have different settings for each viewer. To minimize the system
+      impact only the active viewer is updated and the other
+      views will be updated when activated.
+    </p>
+    <note>
+      <p>Only R15B nodes can be observed.</p>
+    </note>
+
+    <p> In general the mouse buttons behaves as expected, use left click
+    to select objects, right click to pop up a menu with most used
+    choices and double click to bring up information about the
+    selected object. In most viewers with several columns you can change
+    sort order by left clicking on column header.
+    </p>
+  </section>
+
+  <section>
+    <title>Applications</title>
+    <p>The <c>Applications</c> view lists application information.
+    Select an application in the left list to display its supervisor
+    tree.
+    </p>
+    <p><c>Trace process</c> will add the selected process identifier
+    to <c>Trace Overview</c> view and the node the process resides on
+    will be added as well.
+    </p>
+    <p><c>Trace named process</c> will add the
+    registered name of the process. This can be useful when tracing on
+    several nodes, then processes with that name will be traced on all traced
+    nodes.
+    </p>
+    <p><c>Trace process tree</c> and <c>Trace named process
+    tree</c> will add the selected process and all processes below,
+    right of, it to  the <c>Trace Overview</c> view.
+    </p>
+  </section>
+
+  <section>
+    <title>Processes</title>
+    <p>The <c>Processes</c> view lists process information.
+    For each process the following information is presented:
+    </p>
+    <taglist>
+      <tag>Pid</tag>
+      <item>The process identifier.</item>
+      <tag>Reds</tag>
+      <item>This is the number of reductions that has been executed
+       on the process</item>
+      <tag>Memory</tag>
+      <item>This is the size of the process in bytes, obtained by a
+       call to <c>process_info(Pid,memory)</c>.</item>
+      <tag>MsgQ</tag>
+      <item>This is the length of the message queue for the process.</item>
+    </taglist>
+    <note>
+      <p><em>Reds</em> can be presented as accumulated values or as values since last update.</p>
+    </note>
+    <p><c>Trace Processes</c> will add the selected process identifiers to the <c>Trace Overview</c> view and the
+    node the processes reside on will be added as well.
+    <c>Trace Named Processes</c> will add the registered name of processes. This can be useful
+    when tracing is done on several nodes, then processes with that name will be traced on all traced nodes.
+    </p>
+  </section>
+
+  <section>
+    <title>Table Viewer</title>
+    <p>The <c>Table Viewer</c> view lists tables. By default ets tables
+    are visible and unreadable, private ets, tables and tables created by the OTP
+    applications are not visible.  Use <c>View</c> menu to view "system"
+    ets tables, unreadable ets tables or mnesia tables.
+    </p>
+    <p>Double click to view the content of the table. Select table and activate <c>View/Table Information</c>
+    menu to view table information.
+    </p>
+    <p>In the table viewer you can regexp search for objects, edit and delete objects.
+    </p>
+  </section>
+
+  <section>
+    <title>Trace Overview</title>
+    <p>The <c>Trace Overview</c> view handles tracing. Tracing is done
+    by selecting which processes to be traced and how to trace
+    them. You can trace messages, function calls and events, where
+    events are process related events such as <c>spawn</c>,
+    <c>exit</c> and several others.
+    </p>
+
+    <p>When you want to trace function calls, you also need to setup
+    <c>trace patterns</c>.  Trace patterns selects the function calls
+    that will be traced. The number of traced function calls can be
+    further reduced with <c>match specifications</c>.  Match
+    specifications can also be used to trigger additional information
+    in the trace messages.
+    </p>
+    <note><p>Trace patterns only applies to the traced processes.</p></note>
+
+    <p>
+      Processes are added from the <c>Applications</c> or <c>Processes</c> views.
+      A special <c>new</c> identifier, meaning all processes spawned after trace start,
+      can be added with the <c>Add 'new' Process</c> button.
+    </p>
+    <p>
+      When adding processes, a window with trace options will pop up. The chosen options will
+      be set for the selected processes.
+      Process options can be changed by right clicking on a process.
+    </p>
+    <p>
+      Processes added by process identifiers will add the nodes these
+      processes resides on in the node list. Additional nodes can be added by the <c>Add
+      Nodes</c> button.
+    </p>
+    <p>
+      If function calls are traced, trace patterns must be added by <c>Add Trace Pattern</c> button.
+      Select a module, function(s) and a match specification.
+      If no functions are selected, all functions in the module will be traced.
+      A few basic match specifications are provided in the tool, and
+      you can provide your own match specifications. The syntax of match
+      specifications are described in the <seealso
+      marker="erts:match_spec">ERTS User's Guide</seealso>.  To simplify
+      the writing of a match specification they can also be written as
+      <c>fun/1</c> see <seealso marker="stdlib:ms_transform">ms_transform manual page</seealso> for
+      further information.
+    </p>
+
+    <p>Use the <c>Start trace</c> button to start the trace.
+    By default trace output is written to a new window, tracing is stopped when the
+    window is closed, or with <c>Stop Trace</c> button.
+    Trace output can be changed via <c>Options/Output</c> menu.
+    The trace settings, including match specifications, can be saved to, or loaded from, a file.
+    </p>
+    <p>More information about tracing can be found in <seealso
+    marker="runtime_tools:dbg">dbg</seealso> and in the chapter "Match
+    specifications in Erlang" in <seealso marker="erts:match_spec">ERTS User's
+    Guide</seealso> and the
+    <seealso marker="stdlib:ms_transform">ms_transform manual page</seealso>.
+    </p>
+  </section>
+</chapter>

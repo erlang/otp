@@ -61,7 +61,10 @@
 	}).
 
 start() ->
-    wx_object:start(?MODULE, [], []).
+    case wx_object:start(?MODULE, [], []) of
+	Err = {error, _} -> Err;
+	_Obj -> ok
+    end.
 
 create_menus(Object, Menus) when is_list(Menus) ->
     wx_object:call(Object, {create_menus, Menus}).
@@ -126,6 +129,10 @@ setup(#state{frame = Frame} = State) ->
     %% I postpone the creation of the other tabs so they can query/use
     %% the window size
 
+    %% App Viewer Panel
+    AppPanel = observer_app_wx:start_link(Notebook, self()),
+    wxNotebook:addPage(Notebook, AppPanel, "Applications", []),
+
     %% Process Panel
     ProPanel = observer_pro_wx:start_link(Notebook, self()),
     wxNotebook:addPage(Notebook, ProPanel, "Processes", []),
@@ -138,9 +145,6 @@ setup(#state{frame = Frame} = State) ->
     TracePanel = observer_trace_wx:start_link(Notebook, self()),
     wxNotebook:addPage(Notebook, TracePanel, ?TRACE_STR, []),
 
-    %% App Viewer Panel
-    AppPanel = observer_app_wx:start_link(Notebook, self()),
-    wxNotebook:addPage(Notebook, AppPanel, "Applications", []),
 
     %% Force redraw (window needs it)
     wxWindow:refresh(Panel),
