@@ -1095,7 +1095,7 @@ get_kb_value(char *param_end, char** argv, int* ip)
     char *param = argv[*ip]+1;
     char *value = get_value(param_end, argv, ip);
     errno = 0;
-    tmp = (Sint) strtol(value, &rest, 10);
+    tmp = (Sint) ErtsStrToSint(value, &rest, 10);
     if (errno != 0 || rest == value || tmp < 0 || max < ((Uint) tmp))
 	bad_value(param, param_end, value);
     if (max == (Uint) tmp)
@@ -1112,7 +1112,7 @@ get_byte_value(char *param_end, char** argv, int* ip)
     char *param = argv[*ip]+1;
     char *value = get_value(param_end, argv, ip);
     errno = 0;
-    tmp = (Sint) strtol(value, &rest, 10);
+    tmp = (Sint) ErtsStrToSint(value, &rest, 10);
     if (errno != 0 || rest == value || tmp < 0)
 	bad_value(param, param_end, value);
     return (Uint) tmp;
@@ -1126,7 +1126,7 @@ get_amount_value(char *param_end, char** argv, int* ip)
     char *param = argv[*ip]+1;
     char *value = get_value(param_end, argv, ip);
     errno = 0;
-    tmp = (Sint) strtol(value, &rest, 10);
+    tmp = (Sint) ErtsStrToSint(value, &rest, 10);
     if (errno != 0 || rest == value || tmp < 0)
 	bad_value(param, param_end, value);
     return (Uint) tmp;
