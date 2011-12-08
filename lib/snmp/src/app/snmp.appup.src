@@ -24,6 +24,7 @@
  [
   {"4.21.3", 
    [
+    {load_module, snmp_generic_mnesia, soft_purge, soft_purge, []}, 
     {update, snmpa_local_db, soft, soft_purge, soft_purge, []}
    ]
   }, 
@@ -32,6 +33,7 @@
     {load_module, snmpa_mpd, soft_purge, soft_purge, []}, 
     {load_module, snmpa_set_lib, soft_purge, soft_purge, []}, 
     {load_module, snmpa_trap, soft_purge, soft_purge, []}, 
+    {load_module, snmp_generic_mnesia, soft_purge, soft_purge, []}, 
     {update, snmpa_local_db, soft, soft_purge, soft_purge, []},
     {update, snmpa_agent, soft, soft_purge, soft_purge, []}
    ]
@@ -41,6 +43,7 @@
     {load_module, snmpa_mpd, soft_purge, soft_purge, []}, 
     {load_module, snmpa_set_lib, soft_purge, soft_purge, []}, 
     {load_module, snmpa_trap, soft_purge, soft_purge, []}, 
+    {load_module, snmp_generic_mnesia, soft_purge, soft_purge, []}, 
     {update, snmpa_local_db, soft, soft_purge, soft_purge, []},
     {update, snmpa_agent, soft, soft_purge, soft_purge, []}, 
     {update, snmp_note_store, soft, soft_purge, soft_purge, []}
@@ -52,6 +55,7 @@
     {load_module, snmpa_set_lib, soft_purge, soft_purge, []}, 
     {load_module, snmpa_trap, soft_purge, soft_purge, []}, 
     {load_module, snmp_target_mib, soft_purge, soft_purge, []},
+    {load_module, snmp_generic_mnesia, soft_purge, soft_purge, []}, 
     {update, snmpa_local_db, soft, soft_purge, soft_purge, []},
     {update, snmpa_agent, soft, soft_purge, soft_purge, []}, 
     {update, snmp_note_store, soft, soft_purge, soft_purge, []}
@@ -73,6 +77,7 @@
      [snmp_conf, snmp_config]}, 
     {load_module, snmpa_conf, soft_purge, soft_purge, [snmp_config]}, 
     {update, snmp_note_store, soft, soft_purge, soft_purge, []}, 
+    {load_module, snmp_generic_mnesia, soft_purge, soft_purge, []}, 
     {update, snmpa_local_db, soft, soft_purge, soft_purge, []},
     {update, snmpa_agent, soft, soft_purge, soft_purge, [snmpa_mpd]}, 
     {update, snmpm_config, soft, soft_purge, soft_purge, [snmp_conf]}, 
@@ -98,6 +103,7 @@
      [snmp_conf, snmp_config]}, 
     {load_module, snmpa_conf, soft_purge, soft_purge, [snmp_config]}, 
     {update, snmp_note_store, soft, soft_purge, soft_purge, []}, 
+    {load_module, snmp_generic_mnesia, soft_purge, soft_purge, []}, 
     {update, snmpa_local_db, soft, soft_purge, soft_purge, []},
     {update, snmpa_agent, soft, soft_purge, soft_purge, [snmpa_mpd]}, 
     {update, snmpm_config, soft, soft_purge, soft_purge, [snmp_conf]}, 
@@ -144,6 +150,7 @@
     {update, snmpm_config, soft, soft_purge, soft_purge, [snmp_conf]}, 
     {update, snmpm_server, soft, soft_purge, soft_purge, 
      [snmpm_net_if, snmpm_mpd, snmpm_config]},
+    {load_module, snmp_generic_mnesia, soft_purge, soft_purge, []}, 
     {update, snmpa_local_db, soft, soft_purge, soft_purge, []},
     {update, snmpa_net_if, soft, soft_purge, soft_purge, 
      [snmp_conf, snmpa_mpd]},
@@ -158,6 +165,7 @@
  [
   {"4.21.3", 
    [
+    {load_module, snmp_generic_mnesia, soft_purge, soft_purge, []}, 
     {update, snmpa_local_db, soft, soft_purge, soft_purge, []}
    ]
   }, 
@@ -166,6 +174,7 @@
     {load_module, snmpa_mpd, soft_purge, soft_purge, []}, 
     {load_module, snmpa_set_lib, soft_purge, soft_purge, []}, 
     {load_module, snmpa_trap, soft_purge, soft_purge, []}, 
+    {load_module, snmp_generic_mnesia, soft_purge, soft_purge, []}, 
     {update, snmpa_local_db, soft, soft_purge, soft_purge, []},
     {update, snmpa_agent, soft, soft_purge, soft_purge, []}
    ]
@@ -175,6 +184,7 @@
     {load_module, snmpa_mpd, soft_purge, soft_purge, []}, 
     {load_module, snmpa_set_lib, soft_purge, soft_purge, []}, 
     {load_module, snmpa_trap, soft_purge, soft_purge, []}, 
+    {load_module, snmp_generic_mnesia, soft_purge, soft_purge, []}, 
     {update, snmpa_local_db, soft, soft_purge, soft_purge, []},
     {update, snmpa_agent, soft, soft_purge, soft_purge, []}, 
     {update, snmp_note_store, soft, soft_purge, soft_purge, []}
@@ -186,6 +196,7 @@
     {load_module, snmpa_set_lib, soft_purge, soft_purge, []}, 
     {load_module, snmpa_trap, soft_purge, soft_purge, []}, 
     {load_module, snmp_target_mib, soft_purge, soft_purge, []},
+    {load_module, snmp_generic_mnesia, soft_purge, soft_purge, []}, 
     {update, snmpa_local_db, soft, soft_purge, soft_purge, []},
     {update, snmpa_agent, soft, soft_purge, soft_purge, []}, 
     {update, snmp_note_store, soft, soft_purge, soft_purge, []}
@@ -207,6 +218,7 @@
      [snmp_conf, snmp_config]}, 
     {load_module, snmpa_conf, soft_purge, soft_purge, [snmp_config]}, 
     {update, snmp_note_store, soft, soft_purge, soft_purge, []}, 
+    {load_module, snmp_generic_mnesia, soft_purge, soft_purge, []}, 
     {update, snmpa_local_db, soft, soft_purge, soft_purge, []},
     {update, snmpa_agent, soft, soft_purge, soft_purge, [snmpa_mpd]}, 
     {update, snmpm_config, soft, soft_purge, soft_purge, [snmp_conf]}, 
@@ -232,6 +244,7 @@
      [snmp_conf, snmp_config]}, 
     {load_module, snmpa_conf, soft_purge, soft_purge, [snmp_config]}, 
     {update, snmp_note_store, soft, soft_purge, soft_purge, []}, 
+    {load_module, snmp_generic_mnesia, soft_purge, soft_purge, []}, 
     {update, snmpa_local_db, soft, soft_purge, soft_purge, []},
     {update, snmpa_agent, soft, soft_purge, soft_purge, [snmpa_mpd]}, 
     {update, snmpm_config, soft, soft_purge, soft_purge, [snmp_conf]}, 
@@ -278,6 +291,7 @@
     {update, snmpm_config, soft, soft_purge, soft_purge, [snmp_conf]}, 
     {update, snmpm_server, soft, soft_purge, soft_purge, 
      [snmpm_net_if, snmpm_mpd, snmpm_config]},
+    {load_module, snmp_generic_mnesia, soft_purge, soft_purge, []}, 
     {update, snmpa_local_db, soft, soft_purge, soft_purge, []},
     {update, snmpa_net_if, soft, soft_purge, soft_purge, 
      [snmp_conf, snmpa_mpd]},
