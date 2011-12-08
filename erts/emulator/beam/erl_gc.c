@@ -357,10 +357,11 @@ erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
     erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS);
     p->gcstatus = p->status;
     p->status = P_GARBING;
+    erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
+
     if (erts_system_monitor_long_gc != 0) {
 	get_now(&ms1, &s1, &us1);
     }
-    erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
 
     ERTS_CHK_OFFHEAP(p);
 
