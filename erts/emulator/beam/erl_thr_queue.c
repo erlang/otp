@@ -449,32 +449,44 @@ clean(ErtsThrQ_t *q, int max_ops, int do_notify)
 		if (inext == (erts_aint_t) &q->tail.data.marker) {
 		    q->head.head.ptr->next.ptr = &q->tail.data.marker;
 		    q->head.head.ptr = &q->tail.data.marker;
-#ifdef ERTS_SMP
-		    if (!q->head.next.thr_progress_reached)
-			return ERTS_THR_Q_NEED_THR_PRGR;
-#else
-		    if (do_notify)
-			q->head.notify(q->head.arg);
-#endif
-		    return ERTS_THR_Q_DIRTY;
+		    goto check_thr_progress;
 		}
+	    }
+	}
+
+	if (q->q.finalizing) {
+	    ilast = erts_atomic_read_nob(&q->tail.data.last);
+	    if (q->head.first == ((ErtsThrQElement_t *) ilast)
+		&& ((ErtsThrQElement_t *) ilast) == &q->tail.data.marker
+		&& q->head.first == &q->tail.data.marker) {
+		destroy(q);
+	    }
+	    else {
+		goto dirty;
 	    }
 	}
 	return ERTS_THR_Q_CLEAN;
     }
 
-    if (q->head.first != q->head.unref_end) {
-	if (do_notify)
-	    q->head.notify(q->head.arg);
-	return ERTS_THR_Q_DIRTY;
-    }
+    if (q->head.first != q->head.unref_end)
+	goto dirty;
+
+check_thr_progress:
 
 #ifdef ERTS_SMP
-    if (!q->head.next.thr_progress_reached)
-	return ERTS_THR_Q_NEED_THR_PRGR;
+    if (q->head.next.thr_progress_reached)
 #endif
+    {
+	int um_refc_ix = q->head.next.um_refc_ix;
+	if (erts_atomic_read_acqb(&q->tail.data.um_refc[um_refc_ix]) == 0) {
+	dirty:
+	    if (do_notify)
+		q->head.notify(q->head.arg);
+	    return ERTS_THR_Q_DIRTY;
+	}
+    }
 
-    return ERTS_THR_Q_CLEAN; /* Waiting for unmanaged threads to complete... */
+    return ERTS_THR_Q_NEED_THR_PRGR;
 }
 
 #endif
@@ -492,7 +504,9 @@ erts_thr_q_clean(ErtsThrQ_t *q)
 ErtsThrQCleanState_t
 erts_thr_q_inspect(ErtsThrQ_t *q, int ensure_empty)
 {
-#ifdef USE_THREADS
+#ifndef USE_THREADS
+    return ERTS_THR_Q_CLEAN;
+#else
     if (ensure_empty) {
 	erts_aint_t inext;
 	inext = erts_atomic_read_acqb(&q->head.head.ptr->next.atmc);
@@ -523,11 +537,15 @@ erts_thr_q_inspect(ErtsThrQ_t *q, int ensure_empty)
 	return ERTS_THR_Q_DIRTY;
 
 #ifdef ERTS_SMP
-    if (!q->head.next.thr_progress_reached)
-	return ERTS_THR_Q_NEED_THR_PRGR;
+    if (q->head.next.thr_progress_reached)
 #endif
+    {
+	int um_refc_ix = q->head.next.um_refc_ix;
+	if (erts_atomic_read_acqb(&q->tail.data.um_refc[um_refc_ix]) == 0)
+	    return ERTS_THR_Q_DIRTY;
+    }
+    return ERTS_THR_Q_NEED_THR_PRGR;
 #endif
-    return ERTS_THR_Q_CLEAN;
 }
 
 static void

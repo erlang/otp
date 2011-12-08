@@ -769,8 +769,8 @@ misc_aux_work_clean(ErtsThrQ_t *q,
     case ERTS_THR_Q_DIRTY:
 	set_aux_work_flags(awdp->ssi, ERTS_SSI_AUX_WORK_MISC);
 	return aux_work | ERTS_SSI_AUX_WORK_MISC;
-#ifdef ERTS_SMP
     case ERTS_THR_Q_NEED_THR_PRGR:
+#ifdef ERTS_SMP
 	set_aux_work_flags(awdp->ssi, ERTS_SSI_AUX_WORK_MISC_THR_PRGR);
 	erts_thr_progress_wakeup(awdp->esdp,
 				 erts_thr_q_need_thr_progress(q));
