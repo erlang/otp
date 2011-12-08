@@ -3287,52 +3287,13 @@ large_file(suite) ->
 large_file(doc) ->
     ["Tests positioning in large files (> 4G)"];
 large_file(Config) when is_list(Config) ->
-    case {os:type(),os:version()} of
-	{{win32,nt},_} ->
-	    do_large_file(Config);
-	{{unix,sunos},{A,B,C}}
-	when A == 5, B == 5, C >= 1;   A == 5, B >= 6;   A >= 6 ->
-	    do_large_file(Config);
-	{{unix,Unix},_} when Unix =/= sunos ->
-	    N = unix_free(Config),
-	    io:format("Free: ~w KByte~n", [N]),
-	    if N < 5 * (1 bsl 20) ->
-		    %% Less than 5 GByte free
-		    {skipped,"Less than 5 GByte free"};
-	       true ->
-		    do_large_file(Config)
-	    end;
-	_ -> 
-	    {skipped,"Only supported on Win32, Unix or SunOS >= 5.5.1"}
-    end.
+    run_large_file_test(Config,
+			fun(Name) -> do_large_file(Name) end,
+			"_large_file").
 
-unix_free(Config) ->
-    Cmd = ["df -k '",?config(priv_dir, Config),"'"],
-    DF0 = os:cmd(Cmd),
-    io:format("$ ~s~n~s", [Cmd,DF0]),
-    Lines = re:split(DF0, "\n", [trim,{return,list}]),
-    Last = lists:last(Lines),
-    RE = "^[^\\s]*\\s+\\d+\\s+\\d+\\s+(\\d+)",
-    {match,[Avail]} = re:run(Last, RE, [{capture,all_but_first,list}]),
-    list_to_integer(Avail).
-
-do_large_file(Config) ->
+do_large_file(Name) ->
     ?line Watchdog = ?t:timetrap(?t:minutes(5)),
-    %%
-    ?line Name = filename:join(?config(priv_dir, Config),
-			       ?MODULE_STRING ++ "_large_file"),
-    ?line Tester = self(),
-    Deleter = 
-	spawn(
-	  fun() ->
-		  Mref = erlang:monitor(process, Tester),
-		  receive
-		      {'DOWN',Mref,_,_,_} -> ok;
-		      {Tester,done} -> ok
-		  end,
-		  ?FILE_MODULE:delete(Name)
-	  end),
-    %%
+
     ?line S = "1234567890",
     L = length(S),
     R = lists:reverse(S),
@@ -3367,10 +3328,6 @@ do_large_file(Config) ->
     ?line {ok,PL}  = ?FILE_MODULE:position(F1, {eof,-L}),
     ?line {ok,R}   = ?FILE_MODULE:read(F1, L+1),
     ?line ok       = ?FILE_MODULE:close(F1),
-    %%
-    ?line Mref = erlang:monitor(process, Deleter),
-    ?line Deleter ! {Tester,done},
-    ?line receive {'DOWN',Mref,_,_,_} -> ok end,
     %%
     ?line ?t:timetrap_cancel(Watchdog),
     ok.
@@ -3952,3 +3909,65 @@ flush(Msgs) ->
     after 0 ->
 	    lists:reverse(Msgs)
     end.
+
+%%%
+%%% Support for testing large files.
+%%%
+
+run_large_file_test(Config, Run, Name) ->
+    case {os:type(),os:version()} of
+	{{win32,nt},_} ->
+	    do_run_large_file_test(Config, Run, Name);
+	{{unix,sunos},{A,B,C}}
+	when A == 5, B == 5, C >= 1;   A == 5, B >= 6;   A >= 6 ->
+	    do_run_large_file_test(Config, Run, Name);
+	{{unix,Unix},_} when Unix =/= sunos ->
+	    N = unix_free(Config),
+	    io:format("Free: ~w KByte~n", [N]),
+	    if N < 5 * (1 bsl 20) ->
+		    %% Less than 5 GByte free
+		    {skip,"Less than 5 GByte free"};
+	       true ->
+		    do_run_large_file_test(Config, Run, Name)
+	    end;
+	_ -> 
+	    {skip,"Only supported on Win32, Unix or SunOS >= 5.5.1"}
+    end.
+
+
+do_run_large_file_test(Config, Run, Name0) ->
+    Name = filename:join(?config(priv_dir, Config),
+			 ?MODULE_STRING ++ Name0),
+    
+    %% Set up a process that will delete this file.
+    Tester = self(),
+    Deleter = 
+	spawn(
+	  fun() ->
+		  Mref = erlang:monitor(process, Tester),
+		  receive
+		      {'DOWN',Mref,_,_,_} -> ok;
+		      {Tester,done} -> ok
+		  end,
+		  ?FILE_MODULE:delete(Name)
+	  end),
+    
+    %% Run the test case.
+    Res = Run(Name),
+
+    %% Delete file and finish deleter process.
+    Mref = erlang:monitor(process, Deleter),
+    Deleter ! {Tester,done},
+    receive {'DOWN',Mref,_,_,_} -> ok end,
+
+    Res.
+
+unix_free(Path) ->
+    Cmd = ["df -k '",Path,"'"],
+    DF0 = os:cmd(Cmd),
+    io:format("$ ~s~n~s", [Cmd,DF0]),
+    Lines = re:split(DF0, "\n", [trim,{return,list}]),
+    Last = lists:last(Lines),
+    RE = "^[^\\s]*\\s+\\d+\\s+\\d+\\s+(\\d+)",
+    {match,[Avail]} = re:run(Last, RE, [{capture,all_but_first,list}]),
+    list_to_integer(Avail).
