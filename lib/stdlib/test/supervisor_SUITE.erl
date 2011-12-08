@@ -158,29 +158,23 @@ get_child_counts(Supervisor) ->
 
 %%-------------------------------------------------------------------------
 %% Test cases starts here.
-%%-------------------------------------------------------------------------
-sup_start_normal(doc) ->
-    ["Tests that the supervisor process starts correctly and that it "
-     "can be terminated gracefully."];
-sup_start_normal(suite) -> [];
+%% -------------------------------------------------------------------------
+%% Tests that the supervisor process starts correctly and that it can
+%% be terminated gracefully.
 sup_start_normal(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     {ok, Pid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
     terminate(Pid, shutdown).
 
 %%-------------------------------------------------------------------------
-sup_start_ignore_init(doc) ->
-    ["Tests what happens if init-callback returns ignore"];
-sup_start_ignore_init(suite) -> [];
+%% Tests what happens if init-callback returns ignore.
 sup_start_ignore_init(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     ignore = start_link(ignore),
     check_exit_reason(normal).
 
 %%-------------------------------------------------------------------------
-sup_start_ignore_child(doc) ->
-    ["Tests what happens if init-callback returns ignore"];
-sup_start_ignore_child(suite) -> [];
+%% Tests what happens if init-callback returns ignore.
 sup_start_ignore_child(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     {ok, _Pid}  = start_link({ok, {{one_for_one, 2, 3600}, []}}),
@@ -197,30 +191,22 @@ sup_start_ignore_child(Config) when is_list(Config) ->
     [2,1,0,2] = get_child_counts(sup_test).
 
 %%-------------------------------------------------------------------------
-sup_start_error_return(doc) ->
-    ["Tests what happens if init-callback returns a invalid value"];
-sup_start_error_return(suite) -> [];
+%% Tests what happens if init-callback returns a invalid value.
 sup_start_error_return(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     {error, Term} = start_link(invalid),
     check_exit_reason(Term).
 
 %%-------------------------------------------------------------------------
-sup_start_fail(doc) ->
-    ["Tests what happens if init-callback fails"];
-sup_start_fail(suite) -> [];
+%% Tests what happens if init-callback fails.
 sup_start_fail(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     {error, Term} = start_link(fail),
     check_exit_reason(Term).
 
 %%-------------------------------------------------------------------------
-
-sup_stop_infinity(doc) ->
-    ["See sup_stop/1 when Shutdown = infinity, this walue is allowed "
-     "for children of type supervisor _AND_ worker"];
-sup_stop_infinity(suite) -> [];
-
+%% See sup_stop/1 when Shutdown = infinity, this walue is allowed for
+%% children of type supervisor _AND_ worker.
 sup_stop_infinity(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     {ok, Pid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
@@ -238,11 +224,7 @@ sup_stop_infinity(Config) when is_list(Config) ->
     check_exit_reason(CPid2, shutdown).
 
 %%-------------------------------------------------------------------------
-
-sup_stop_timeout(doc) ->
-    ["See sup_stop/1 when Shutdown = 1000"];
-sup_stop_timeout(suite) -> [];
-
+%% See sup_stop/1 when Shutdown = 1000
 sup_stop_timeout(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     {ok, Pid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
@@ -264,10 +246,7 @@ sup_stop_timeout(Config) when is_list(Config) ->
 
 
 %%-------------------------------------------------------------------------
-sup_stop_brutal_kill(doc) ->
-    ["See sup_stop/1 when Shutdown = brutal_kill"];
-sup_stop_brutal_kill(suite) -> [];
-
+%% See sup_stop/1 when Shutdown = brutal_kill
 sup_stop_brutal_kill(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     {ok, Pid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
@@ -286,14 +265,10 @@ sup_stop_brutal_kill(Config) when is_list(Config) ->
     check_exit_reason(CPid2, killed).
 
 %%-------------------------------------------------------------------------
-extra_return(doc) -> 
-    ["The start function provided to start a child may " 
-     "return {ok, Pid} or {ok, Pid, Info}, if it returns "
-     "the later check that the supervisor ignores the Info, "
-     "and includes it unchanged in return from start_child/2 "
-     "and restart_child/2"];
-extra_return(suite) -> [];
-
+%% The start function provided to start a child may return {ok, Pid}
+%% or {ok, Pid, Info}, if it returns the latter check that the
+%% supervisor ignores the Info, and includes it unchanged in return
+%% from start_child/2 and restart_child/2.
 extra_return(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     Child = {child1, {supervisor_1, start_child, [extra_return]}, 
@@ -333,12 +308,10 @@ extra_return(Config) when is_list(Config) ->
 
     ok.
 %%-------------------------------------------------------------------------
-child_adm(doc)->
-    ["Test API functions start_child/2, terminate_child/2, delete_child/2 "
-     "restart_child/2, which_children/1, count_children/1. Only correct "
-     "childspecs are used, handling of incorrect childspecs is tested in "
-     "child_specs/1"];
-child_adm(suite) -> [];
+%% Test API functions start_child/2, terminate_child/2, delete_child/2
+%% restart_child/2, which_children/1, count_children/1. Only correct
+%% childspecs are used, handling of incorrect childspecs is tested in
+%% child_specs/1.
 child_adm(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     Child = {child1, {supervisor_1, start_child, []}, permanent, 1000,
@@ -402,11 +375,9 @@ child_adm(Config) when is_list(Config) ->
 	= (catch supervisor:count_children(foo)),
     ok.
 %%-------------------------------------------------------------------------
-child_adm_simple(doc) ->
-    ["The API functions terminate_child/2, delete_child/2 "
-     "restart_child/2 are not valid for a simple_one_for_one supervisor "
-     "check that the correct error message is returned."];
-child_adm_simple(suite) -> [];
+%% The API functions terminate_child/2, delete_child/2 restart_child/2
+%% are not valid for a simple_one_for_one supervisor check that the
+%% correct error message is returned.
 child_adm_simple(Config) when is_list(Config) ->
     Child = {child, {supervisor_1, start_child, []}, permanent, 1000,
 	     worker, []},
@@ -454,9 +425,7 @@ child_adm_simple(Config) when is_list(Config) ->
     ok.
 
 %%-------------------------------------------------------------------------
-child_specs(doc) ->
-    ["Tests child specs, invalid formats should be rejected."];
-child_specs(suite) -> [];
+%% Tests child specs, invalid formats should be rejected.
 child_specs(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     {ok, _Pid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
@@ -507,9 +476,7 @@ child_specs(Config) when is_list(Config) ->
     ok.
 
 %%-------------------------------------------------------------------------
-permanent_normal(doc) ->
-    ["A permanent child should always be restarted"];
-permanent_normal(suite) -> [];
+%% A permanent child should always be restarted.
 permanent_normal(Config) when is_list(Config) ->
     {ok, SupPid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
     Child1 = {child1, {supervisor_1, start_child, []}, permanent, 1000,
@@ -529,10 +496,8 @@ permanent_normal(Config) when is_list(Config) ->
     [1,1,0,1] = get_child_counts(sup_test).
 
 %%-------------------------------------------------------------------------
-transient_normal(doc) ->
-    ["A transient child should not be restarted if it exits with " 
-     "reason normal"];
-transient_normal(suite) -> [];
+%% A transient child should not be restarted if it exits with reason
+%% normal.
 transient_normal(Config) when is_list(Config) ->
     {ok, SupPid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
     Child1 = {child1, {supervisor_1, start_child, []}, transient, 1000,
@@ -546,9 +511,7 @@ transient_normal(Config) when is_list(Config) ->
     [1,0,0,1] = get_child_counts(sup_test).
 
 %%-------------------------------------------------------------------------
-temporary_normal(doc) ->
-    ["A temporary process should never be restarted"];
-temporary_normal(suite) -> [];
+%% A temporary process should never be restarted.
 temporary_normal(Config) when is_list(Config) ->
     {ok, SupPid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
     Child1 = {child1, {supervisor_1, start_child, []}, temporary, 1000,
@@ -562,9 +525,7 @@ temporary_normal(Config) when is_list(Config) ->
     [0,0,0,0] = get_child_counts(sup_test).
 
 %%-------------------------------------------------------------------------
-permanent_shutdown(doc) ->
-    ["A permanent child should always be restarted"];
-permanent_shutdown(suite) -> [];
+%% A permanent child should always be restarted.
 permanent_shutdown(Config) when is_list(Config) ->
     {ok, SupPid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
     Child1 = {child1, {supervisor_1, start_child, []}, permanent, 1000,
@@ -596,10 +557,8 @@ permanent_shutdown(Config) when is_list(Config) ->
     [1,1,0,1] = get_child_counts(sup_test).
 
 %%-------------------------------------------------------------------------
-transient_shutdown(doc) ->
-    ["A transient child should not be restarted if it exits with " 
-     "reason shutdown or {shutdown,Term}"];
-transient_shutdown(suite) -> [];
+%% A transient child should not be restarted if it exits with reason
+%% shutdown or {shutdown,Term}.
 transient_shutdown(Config) when is_list(Config) ->
     {ok, SupPid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
     Child1 = {child1, {supervisor_1, start_child, []}, transient, 1000,
@@ -620,9 +579,7 @@ transient_shutdown(Config) when is_list(Config) ->
     [1,0,0,1] = get_child_counts(sup_test).
 
 %%-------------------------------------------------------------------------
-temporary_shutdown(doc) ->
-    ["A temporary process should never be restarted"];
-temporary_shutdown(suite) -> [];
+%% A temporary process should never be restarted.
 temporary_shutdown(Config) when is_list(Config) ->
     {ok, SupPid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
     Child1 = {child1, {supervisor_1, start_child, []}, temporary, 1000,
@@ -643,9 +600,7 @@ temporary_shutdown(Config) when is_list(Config) ->
     [0,0,0,0] = get_child_counts(sup_test).
 
 %%-------------------------------------------------------------------------
-permanent_abnormal(doc) ->
-    ["A permanent child should always be restarted"];
-permanent_abnormal(suite) -> [];
+%% A permanent child should always be restarted.
 permanent_abnormal(Config) when is_list(Config) ->
     {ok, SupPid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
     Child1 = {child1, {supervisor_1, start_child, []}, permanent, 1000,
@@ -664,10 +619,7 @@ permanent_abnormal(Config) when is_list(Config) ->
     [1,1,0,1] = get_child_counts(sup_test).
 
 %%-------------------------------------------------------------------------
-transient_abnormal(doc) ->
-    ["A transient child should be restarted if it exits with " 
-     "reason abnormal"];
-transient_abnormal(suite) -> [];
+%% A transient child should be restarted if it exits with reason abnormal.
 transient_abnormal(Config) when is_list(Config) ->
     {ok, SupPid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
     Child1 = {child1, {supervisor_1, start_child, []}, transient, 1000,
@@ -686,9 +638,7 @@ transient_abnormal(Config) when is_list(Config) ->
     [1,1,0,1] = get_child_counts(sup_test).
 
 %%-------------------------------------------------------------------------
-temporary_abnormal(doc) ->
-    ["A temporary process should never be restarted"];
-temporary_abnormal(suite) -> [];
+%% A temporary process should never be restarted.
 temporary_abnormal(Config) when is_list(Config) ->
     {ok, SupPid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
     Child1 = {child1, {supervisor_1, start_child, []}, temporary, 1000,
@@ -701,11 +651,9 @@ temporary_abnormal(Config) when is_list(Config) ->
     [0,0,0,0] = get_child_counts(sup_test).
 
 %%-------------------------------------------------------------------------
-temporary_bystander(doc) ->
-    ["A temporary process killed as part of a rest_for_one or one_for_all "
-     "restart strategy should not be restarted given its args are not "
-     " saved. Otherwise the supervisor hits its limit and crashes."];
-temporary_bystander(suite) -> [];
+%% A temporary process killed as part of a rest_for_one or one_for_all
+%% restart strategy should not be restarted given its args are not
+%% saved. Otherwise the supervisor hits its limit and crashes.
 temporary_bystander(_Config) ->
     Child1 = {child1, {supervisor_1, start_child, []}, permanent, 100,
 	      worker, []},
@@ -732,9 +680,7 @@ temporary_bystander(_Config) ->
     [{child1, _, _, _}] = supervisor:which_children(SupPid2).
 
 %%-------------------------------------------------------------------------
-one_for_one(doc) ->
-    ["Test the one_for_one base case."];
-one_for_one(suite) -> [];
+%% Test the one_for_one base case.
 one_for_one(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     Child1 = {child1, {supervisor_1, start_child, []}, permanent, 1000,
@@ -764,9 +710,7 @@ one_for_one(Config) when is_list(Config) ->
     check_exit([SupPid]).
 
 %%-------------------------------------------------------------------------
-one_for_one_escalation(doc) ->
-    ["Test restart escalation on a one_for_one supervisor."];
-one_for_one_escalation(suite) -> [];
+%% Test restart escalation on a one_for_one supervisor.
 one_for_one_escalation(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
 
@@ -786,9 +730,7 @@ one_for_one_escalation(Config) when is_list(Config) ->
 
 
 %%-------------------------------------------------------------------------
-one_for_all(doc) ->
-    ["Test the one_for_all base case."];
-one_for_all(suite) -> [];
+%% Test the one_for_all base case.
 one_for_all(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
 
@@ -824,9 +766,7 @@ one_for_all(Config) when is_list(Config) ->
 
 
 %%-------------------------------------------------------------------------
-one_for_all_escalation(doc) -> 
-    ["Test restart escalation on a one_for_all supervisor."];
-one_for_all_escalation(suite) -> [];
+%% Test restart escalation on a one_for_all supervisor.
 one_for_all_escalation(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
 
@@ -845,9 +785,7 @@ one_for_all_escalation(Config) when is_list(Config) ->
 
 
 %%-------------------------------------------------------------------------
-simple_one_for_one(doc) ->
-    ["Test the simple_one_for_one base case."];
-simple_one_for_one(suite) -> [];
+%% Test the simple_one_for_one base case.
 simple_one_for_one(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     Child = {child, {supervisor_1, start_child, []}, permanent, 1000,
@@ -878,10 +816,8 @@ simple_one_for_one(Config) when is_list(Config) ->
 
 
 %%-------------------------------------------------------------------------
-simple_one_for_one_shutdown(doc) ->
-    ["Test simple_one_for_one children shutdown accordingly to the "
-     "supervisor's shutdown strategy."];
-simple_one_for_one_shutdown(suite) -> [];
+%% Test simple_one_for_one children shutdown accordingly to the
+%% supervisor's shutdown strategy.
 simple_one_for_one_shutdown(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     ShutdownTime = 1000,
@@ -909,10 +845,8 @@ simple_one_for_one_shutdown(Config) when is_list(Config) ->
 
 
 %%-------------------------------------------------------------------------
-simple_one_for_one_extra(doc) -> 
-    ["Tests automatic restart of children " 
-     "who's start function return extra info."];
-simple_one_for_one_extra(suite) -> [];
+%% Tests automatic restart of children who's start function return
+%% extra info.
 simple_one_for_one_extra(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     Child = {child, {supervisor_1, start_child, [extra_info]}, 
@@ -937,9 +871,7 @@ simple_one_for_one_extra(Config) when is_list(Config) ->
     check_exit([SupPid]).
 
 %%-------------------------------------------------------------------------
-simple_one_for_one_escalation(doc) ->
-    ["Test restart escalation on a simple_one_for_one supervisor."];
-simple_one_for_one_escalation(suite) -> [];
+%% Test restart escalation on a simple_one_for_one supervisor.
 simple_one_for_one_escalation(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     Child = {child, {supervisor_1, start_child, []}, permanent, 1000,
@@ -954,9 +886,7 @@ simple_one_for_one_escalation(Config) when is_list(Config) ->
     check_exit([SupPid, CPid2]).
 
 %%-------------------------------------------------------------------------
-rest_for_one(doc) ->
-    ["Test the rest_for_one base case."];
-rest_for_one(suite) -> [];
+%% Test the rest_for_one base case.
 rest_for_one(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     Child1 = {child1, {supervisor_1, start_child, []}, permanent, 1000,
@@ -1004,9 +934,7 @@ rest_for_one(Config) when is_list(Config) ->
     check_exit([SupPid]).
 
 %%-------------------------------------------------------------------------
-rest_for_one_escalation(doc) ->
-    ["Test restart escalation on a rest_for_one supervisor."];
-rest_for_one_escalation(suite) -> [];
+%% Test restart escalation on a rest_for_one supervisor.
 rest_for_one_escalation(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     Child1 = {child1, {supervisor_1, start_child, []}, permanent, 1000,
@@ -1023,11 +951,8 @@ rest_for_one_escalation(Config) when is_list(Config) ->
     check_exit([CPid2, SupPid]).
 
 %%-------------------------------------------------------------------------
-child_unlink(doc)->
-    ["Test that the supervisor does not hang forever if "
-     "the child unliks and then is terminated by the supervisor."];
-child_unlink(suite) ->
-    [];
+%% Test that the supervisor does not hang forever if the child unliks
+%% and then is terminated by the supervisor.
 child_unlink(Config) when is_list(Config) ->
 
     {ok, SupPid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
@@ -1052,10 +977,7 @@ child_unlink(Config) when is_list(Config) ->
 	    test_server:fail(supervisor_hangs)
     end.
 %%-------------------------------------------------------------------------
-tree(doc) ->
-    ["Test a basic supervison tree."];
-tree(suite) ->
-    [];
+%% Test a basic supervison tree.
 tree(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
 
@@ -1131,11 +1053,9 @@ tree(Config) when is_list(Config) ->
 
     [] = supervisor:which_children(NewSup2),
     [0,0,0,0] = get_child_counts(NewSup2).
+
 %%-------------------------------------------------------------------------
-count_children_memory(doc) ->
-    ["Test that count_children does not eat memory."];
-count_children_memory(suite) ->
-    [];
+%% Test that count_children does not eat memory.
 count_children_memory(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     Child = {child, {supervisor_1, start_child, []}, temporary, 1000,
@@ -1177,12 +1097,12 @@ count_children_memory(Config) when is_list(Config) ->
     case (Size5 =< Size4) of
 	true -> ok;
 	false ->
-	    test_server:fail({count_children, used_more_memory})
+	    test_server:fail({count_children, used_more_memory,Size4,Size5})
     end,
     case Size7 =< Size6 of
 	true -> ok;
 	false ->
-	    test_server:fail({count_children, used_more_memory})
+	    test_server:fail({count_children, used_more_memory,Size6,Size7})
     end,
 
     [terminate(SupPid, Pid, child, kill) || {undefined, Pid, worker, _Modules} <- Children3],
@@ -1193,12 +1113,9 @@ proc_memory() ->
     erlang:memory(processes_used).
 
 %%-------------------------------------------------------------------------
-do_not_save_start_parameters_for_temporary_children(doc) ->
-    ["Temporary children shall not be restarted so they should not "
-     "save start parameters, as it potentially can "
-     "take up a huge amount of memory for no purpose."];
-do_not_save_start_parameters_for_temporary_children(suite) ->
-    [];
+%% Temporary children shall not be restarted so they should not save
+%% start parameters, as it potentially can take up a huge amount of
+%% memory for no purpose.
 do_not_save_start_parameters_for_temporary_children(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     dont_save_start_parameters_for_temporary_children(one_for_all),
@@ -1220,11 +1137,8 @@ child_spec({Name, MFA, RestartType, Shutdown, Type, Modules}, N) ->
     {NewName, MFA, RestartType, Shutdown, Type, Modules}.
 
 %%-------------------------------------------------------------------------
-do_not_save_child_specs_for_temporary_children(doc) ->
-    ["Temporary children shall not be restarted so supervisors should "
-     "not save their spec when they terminate"];
-do_not_save_child_specs_for_temporary_children(suite) ->
-    [];
+%% Temporary children shall not be restarted so supervisors should not
+%% save their spec when they terminate.
 do_not_save_child_specs_for_temporary_children(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     dont_save_child_specs_for_temporary_children(one_for_all, kill),
@@ -1373,13 +1287,18 @@ simple_one_for_one_scale_many_temporary_children(_Config) ->
 	     end || _<- lists:seq(1,10000)],
     {T2,done} = timer:tc(?MODULE,terminate_all_children,[C2]),
     
-    Scaling = T2 div T1,
-    if Scaling > 20 ->
-	    %% The scaling shoul be linear (i.e.10, really), but we
-	    %% give some extra here to avoid failing the test
-	    %% unecessarily.
-	    ?t:fail({bad_scaling,Scaling});
+    if T1 > 0 ->
+	    Scaling = T2 div T1,
+	    if Scaling > 20 ->
+		    %% The scaling shoul be linear (i.e.10, really), but we
+		    %% give some extra here to avoid failing the test
+		    %% unecessarily.
+		    ?t:fail({bad_scaling,Scaling});
+	       true ->
+		    ok
+	    end;
        true ->
+	    %% Means T2 div T1 -> infinity
 	    ok
     end.
     
