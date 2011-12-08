@@ -30,11 +30,11 @@
   </header>
 
   <note><p>This document was written a long time ago. A lot of it is still
-           valid, but some things have changed since it was first written.
-	   Updates of this document are planned for the future. The reader
-	   is encouraged to also read the
-	   <seealso marker="erl_driver">erl_driver</seealso>, and the
-	   <seealso marker="erl_driver">driver_entry</seealso> documentation.
+           interesting since it explains important concepts, but it was
+	   written for an older driver interface so the examples does not
+	   work anymore. The reader is encouraged to read
+	   <seealso marker="erl_driver">erl_driver</seealso> and the
+	   <seealso marker="driver_entry">driver_entry</seealso> documentation.
    </p></note>
 
   <section>
