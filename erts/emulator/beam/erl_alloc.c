@@ -2877,8 +2877,9 @@ reply_alloc_info(void *vair)
 					      ainfo);
 			ainfo = erts_bld_tuple(hpp, szp, 2,
 					       erts_bld_atom(hpp, szp,
-							     "otps"),
+							     "options"),
 					       ainfo);
+			ainfo = erts_bld_cons(hpp, szp,ainfo,NIL);
 		    }
 		    ainfo = erts_bld_tuple(hpp, szp, 3,
 					   alloc_atom,

@@ -3014,9 +3014,7 @@ info_options(Allctr_t *allctr,
 	add_2tup(hpp, szp, &res, am.low, allctr->mseg_opt.low_mem ? am_true : am_false);
 #endif
 	add_2tup(hpp, szp, &res, am.ramv, allctr->ramv ? am_true : am_false);
-	add_2tup(hpp, szp, &res, am.t, (allctr->t
-					? bld_uint(hpp, szp, (Uint) allctr->t)
-					: am_false));
+	add_2tup(hpp, szp, &res, am.t, (allctr->t ? am_true : am_false));
 	add_2tup(hpp, szp, &res, am.e, am_true);
     }
 

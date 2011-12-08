@@ -1,2 +1,7 @@
 all:
-	erlc *.erl
+	erlc test_server_SUITE.erl
+	erlc test_server_parallel01_SUITE.erl
+	erlc test_server_conf01_SUITE.erl
+	erlc test_server_shuffle01_SUITE.erl
+	erlc test_server_conf02_SUITE.erl
+	erlc test_server_skip_SUITE.erl

@@ -27,7 +27,7 @@ EPTF_CFLAGS = -Wall $(CFLAGS) @DEFS@ -I@erts_lib_include_internal@ -I@erts_lib_i
 EPTF_LIBS = $(LIBS) -L@erts_lib_internal_path@ -lerts_internal@type_marker@
 
 EPTT_CFLAGS = -DTHREAD_SAFE $(ETHR_DEFS) $(EPTF_CFLAGS)
-EPTT_LIBS = $(LIBS) -L@erts_lib_internal_path@ -lerts_internal_r@type_marker@ $(ETHR_LIBS)
+EPTT_LIBS = -L@erts_lib_internal_path@ -lerts_internal_r@type_marker@ $(ETHR_LIBS) $(LIBS)
 
 GCC = .@DS@gccifier -CC"$(CC)"
 
