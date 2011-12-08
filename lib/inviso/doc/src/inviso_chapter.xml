@@ -30,8 +30,12 @@
   </header>
 
   <section>
-    <title>Introduction</title>
     <p><em>inviso</em>: (Latin) to go to see, visit, inspect, look at.</p>
+    <warning>
+      <p>The <c>inviso</c> application is deprecated and will be
+      removed in the R16 release.</p>
+    </warning>
+    <title>Introduction</title>
     <p>The Inviso trace system consists of one or several runtime components supposed to run on each Erlang node doing tracing and one control component which can run on any node with available processor power. Inviso may also be part of a higher layer trace tool. See the inviso-tool as an example. The implementation is spread out over the Runtime_tools and the Inviso Erlang/OTP applications. Erlang modules necessary to run the runtime component are located in Runtime_tools and therefore assumed to be available on any node. Even though Inviso is introduced with Erlang/OTP R11B the runtime component implementation is done with backward compatibility in mind. Meaning that it is possible to compile and run it on older Erlang/OTP releases.</p>
     <image file="inviso_users_guide_pic1.gif">
       <icaption>Inviso Trace System Architecture Overview.</icaption>

@@ -30,6 +30,10 @@
   <module>inviso</module>
   <modulesummary>Main API Module to the Inviso Tracer</modulesummary>
   <description>
+    <warning>
+      <p>The <c>inviso</c> application is deprecated and will be
+      removed in the R16 release.</p>
+    </warning>
     <p>With the <c>inviso</c> API runtime components can be started and tracing managed across a network of distributed Erlang nodes, using a control component also started with <c>inviso</c> API functions.</p>
     <p>Inviso can be used both in a distributed environment and in a non-distributed. API functions not taking a list of nodes as argument works on all started runtime components. If it is the non-distributed case, that is the local runtime component. The API functions taking a list of nodes as argument, or as part of one of the arguments, can not be used in a non-distributed environment. Return values named <c>NodeResult</c> refers to return values from a single Erlang node, and will therefore be the return in the non-distributed environment.</p>
   </description>
