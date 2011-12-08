@@ -162,7 +162,7 @@ int efile_write_info(Efile_error* errInfo, Efile_info* pInfo, char *name);
 int efile_write(Efile_error* errInfo, int flags, int fd, 
 		char* buf, size_t count);
 int efile_writev(Efile_error* errInfo, int flags, int fd, 
-		 SysIOVec* iov, int iovcnt, size_t size);
+		 SysIOVec* iov, int iovcnt);
 int efile_read(Efile_error* errInfo, int flags, int fd, 
 	       char* buf, size_t count, size_t* pBytesRead);
 int efile_seek(Efile_error* errInfo, int fd, 
