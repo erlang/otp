@@ -1102,6 +1102,8 @@ file_write_file_info_opts(Config) when is_list(Config) ->
 	    Time <- [ 0,1,-1,100,-100,1000,-1000,10000,-10000 ]
 	]),
 
+    % REM: determine date range dependent on time_t = Uint32 | Sint32 | Sint64
+    % Determine time_t on os:type()?
     lists:foreach(fun
 	    ({FI, Opts}) ->
 		ok = ?PRIM_FILE_call(write_file_info, Handle, [Name, FI, Opts])
@@ -1114,7 +1116,7 @@ file_write_file_info_opts(Config) when is_list(Config) ->
 		{{1969,12,31},{23,59,59}},
 		{{1908,2,3},{23,59,59}},
 		{{2012,2,3},{23,59,59}},
-		{{2040,2,3},{23,59,59}},
+		{{2037,2,3},{23,59,59}},
 		erlang:localtime()
 	    ]]),
     ok   = ?PRIM_FILE:stop(Handle),
