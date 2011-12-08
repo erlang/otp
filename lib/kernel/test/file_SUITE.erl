@@ -3310,9 +3310,11 @@ unix_free(Config) ->
     Cmd = ["df -k '",?config(priv_dir, Config),"'"],
     DF0 = os:cmd(Cmd),
     io:format("$ ~s~n~s", [Cmd,DF0]),
-    [$\n|DF1] = lists:dropwhile(fun ($\n) -> false; (_) -> true end, DF0),
-    {ok,[N],_} = io_lib:fread(" ~*s ~d", DF1),
-    N.
+    Lines = re:split(DF0, "\n", [trim,{return,list}]),
+    Last = lists:last(Lines),
+    RE = "^[^\\s]*\\s+\\d+\\s+\\d+\\s+(\\d+)",
+    {match,[Avail]} = re:run(Last, RE, [{capture,all_but_first,list}]),
+    list_to_integer(Avail).
 
 do_large_file(Config) ->
     ?line Watchdog = ?t:timetrap(?t:minutes(5)),
