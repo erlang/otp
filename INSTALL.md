@@ -44,21 +44,31 @@ At Ericsson we have a "Daily Build and Test" that runs on:
     *   x86
 *   SuSE Linux/GNU 9.4, 10.1
     *   x86
-*   SuSE Linux/GNU 10.0, 10.1
+*   SuSE Linux/GNU 10.0, 10.1, 11.0
     *   x86
     *   x86\_64
-*   SuSE Linux/GNU 11.0
-    *   x86\_64
+*   openSuSE 11.4 (Celadon)
+    *   x86\_64 (valgrind)
+*   Fedora 7
+    *   PowerPC
+*   Fedora 14
+    * x86\_64
 *   Gentoo Linux/GNU 1.12.11.1
     *   x86
+*   Ubuntu Linux/GNU 7.04, 10.04, 10.10, 11.0
+    *   x86\_64
 *   MontaVista Linux/GNU 4.0.1
     *   PowerPC
-*   FreeBSD 7.1
+*   FreeBSD 8.2
     *   x86
-*   Mac OS X 10.4.11 (Tiger), 10.5.8 (Leopard), 10.6.0 (Snow Leopard)
+*   OpenBSD 5.0
+    *   x86\_64
+*   Mac OS X 10.5.8 (Leopard), 10.6.0 (Snow Leopard), 10.7.2 (Lion)
     *   x86
 *   Windows XP SP3, 2003, Vista, 7
     *   x86
+*   Windows 7
+    *   x86\_64
 
 We also have the following "Daily Cross Builds":
 
@@ -132,7 +142,7 @@ These are the tools you will need in order to unpack and build Erlang/OTP.
 *   OpenSSL -- Optional, but needed for building the Erlang/OTP applications
     `ssl` and `crypto`. You need the "development package" of OpenSSL, i.e.
     including the header files. For building the application `ssl` the OpenSSL
-    binary command program `openssl` is also needed. At least version 0.9.7
+    binary command program `openssl` is also needed. At least version 0.9.8
     of OpenSSL is required. Can be downloaded from <http://www.openssl.org>.
 *   Sun Java jdk-1.5.0 or higher -- Optional but needed for building the
     Erlang/OTP application `jinterface` and parts of `ic` and `orber`. Can
