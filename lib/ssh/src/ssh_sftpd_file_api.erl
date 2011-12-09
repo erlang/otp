@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -21,27 +21,41 @@
 
 -module(ssh_sftpd_file_api).
 
--export([behaviour_info/1]).
+%% To be further specified later
+-callback close(IoDevice::term(), State::term()) -> 
+    ok | {error, Reason::term()}.
+-callback delete(Path::term(), State::term()) ->
+     ok | {error, Reason::term()}.
+-callback del_dir(Path::term(), State::term()) ->
+    ok | {error, Reason::term()}.
+-callback get_cwd(State::term()) ->
+    {ok, Dir::term()} | {error, Reason::term()}.
+-callback is_dir(AbsPath::term(), State::term()) ->
+    boolean().
+-callback list_dir(AbsPath::term(), State::term()) ->
+    {ok, Filenames::term()} | {error, Reason::term()}.
+-callback make_dir(Dir::term(), State::term()) ->
+    ok | {error, Reason::term()}.
+-callback make_symlink(Path2::term(), Path::term(), State::term()) ->
+    ok | {error, Reason::term()}.
+-callback open(Path::term(), Flags::term(), State::term()) ->
+    {ok, IoDevice::term()} | {error, Reason::term()}.
+-callback position(IoDevice::term(), Offs::term(), State::term()) ->
+    {ok, NewPosition::term()} | {error, Reason::term()}.
+-callback read(IoDevice::term(), Len::term(), State::term()) ->
+    {ok, Data::term()} | eof | {error, Reason::term()}.
+-callback read_link(Path::term(), State::term()) ->
+    {ok, FileName::term()} | {error, Reason::term()}.
+-callback read_link_info(Path::term(), State::term()) ->
+    {ok, FileInfo::term()} | {error, Reason::term()}.
+-callback read_file_info(Path::term(), State::term()) ->
+    {ok, FileInfo::term()} | {error, Reason::term()}.
+-callback rename(Path::term(), Path2::term(), State::term()) ->
+    ok | {error, Reason::term()}.
+-callback write(IoDevice::term(), Data::term(), State::term()) ->
+    ok | {error, Reason::term()}.
+-callback write_file_info(Path::term(),Info::term(), State::term()) ->
+    ok | {error, Reason::term()}.
 
-behaviour_info(callbacks) ->
-    [
-     {close, 2}, 
-     {delete, 2}, 
-     {del_dir, 2}, 
-     {get_cwd, 1}, 
-     {is_dir, 2}, 
-     {list_dir, 2}, 
-     {make_dir, 2}, 
-     {make_symlink, 3}, 
-     {open, 3}, 
-     {position, 3}, 
-     {read, 3},
-     {read_file_info, 2}, 
-     {read_link, 2}, 
-     {read_link_info, 2}, 
-     {rename, 3},
-     {write, 3}, 
-     {write_file_info, 3}
-    ];
-behaviour_info(_) ->
-    undefined.
+
+

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -23,10 +23,23 @@
 
 -include("ssh_connect.hrl").
 
+%%% Optional callbacks handle_call/3, handle_cast/2, handle_msg/2,
+%%% code_change/3
+%% Should be further specified later
+-callback init(Options::list()) ->
+    {ok, State::term()} | {ok, State::term(), Timeout::timeout()} | 
+    {stop, Reason ::term()}. 
+
+-callback terminate(term(), term()) -> term().
+
+-callback handle_ssh_msg({ssh_cm, ConnectionRef::term(), SshMsg::term()}, 
+ 			 State::term()) -> {ok, State::term()} | 
+ 					   {stop, ChannelId::integer(), 
+ 					    State::term()}.
 -behaviour(gen_server).
 
 %%% API
--export([behaviour_info/1, start/4, start/5, start_link/4, start_link/5, call/2, call/3,
+-export([start/4, start/5, start_link/4, start_link/5, call/2, call/3,
 	 cast/2, reply/2, enter_loop/1]).
 
 %% gen_server callbacks
@@ -49,17 +62,6 @@
 %%====================================================================
 %% API
 %%====================================================================
-
-%%% Optionel callbacks handle_call/3, handle_cast/2, handle_msg/2,
-%%% code_change/3
-behaviour_info(callbacks) ->
-    [
-     {init, 1}, 
-     {terminate, 2}, 
-     {handle_ssh_msg, 2},
-     {handle_msg, 2}
-     ].
-
 
 call(ChannelPid, Msg) ->
     call(ChannelPid, Msg, infinity).
