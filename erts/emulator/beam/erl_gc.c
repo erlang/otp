@@ -910,7 +910,18 @@ minor_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
  * XXX: WARNING: If HiPE starts storing other non-Erlang values on the
  * nstack, such as floats, then this will have to be changed.
  */
-#define offset_nstack(p,offs,area,area_size) offset_heap_ptr(hipe_nstack_start((p)),hipe_nstack_used((p)),(offs),(area),(area_size))
+static ERTS_INLINE void offset_nstack(Process* p, Sint offs,
+				      char* area, Uint area_size)
+{
+    if (p->hipe.nstack) {
+	ASSERT(p->hipe.nsp && p->hipe.nstend);
+	offset_heap_ptr(hipe_nstack_start(p), hipe_nstack_used(p),
+			offs, area, area_size);
+    }
+    else {
+	ASSERT(!p->hipe.nsp && !p->hipe.nstend);
+    }
+}
 
 #else /* !HIPE */
 
