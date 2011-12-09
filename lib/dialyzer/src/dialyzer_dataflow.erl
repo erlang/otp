@@ -101,6 +101,12 @@
 		behaviour_api_dict = [] ::
 		  dialyzer_behaviours:behaviour_api_dict()}).
 
+-record(map, {dict = dict:new()   :: dict(),
+              subst = dict:new()  :: dict(),
+              modified = []       :: [Key :: term()],
+              modified_stack = [] :: [{[Key :: term()],reference()}],
+              ref = undefined     :: reference() | undefined}).
+
 %% Exported Types
 
 -opaque state() :: #state{}.
@@ -1058,12 +1064,13 @@ handle_case(Tree, Map, #state{callgraph = Callgraph} = State) ->
                                    RaceListSize + 1, State1);
           false -> State1
         end,
+      Map2 = join_maps_begin(Map1),
       {MapList, State3, Type} =
 	handle_clauses(Clauses, Arg, ArgType, ArgType, State2,
-		       [], Map1, [], []),
-      Map2 = join_maps(MapList, Map1),
+		       [], Map2, [], []),
+      Map3 = join_maps_end(MapList, Map2),
       debug_pp_map(Map2),
-      {State3, Map2, Type}
+      {State3, Map3, Type}
   end.
 
 %%----------------------------------------
@@ -1640,14 +1647,15 @@ bind_pat_vars([Pat|PatLeft], [Type|TypeLeft], Acc, Map, State, Rev) ->
 	  false ->
 	    SubTuples = t_tuple_subtypes(Tuple),
 	    %% Need to call the top function to get the try-catch wrapper
+            MapJ = join_maps_begin(Map),
 	    Results =
 	      case Rev of
 		true ->
 		  [bind_pat_vars_reverse(Es, t_tuple_args(SubTuple), [],
-					 Map, State)
+					 MapJ, State)
 		   || SubTuple <- SubTuples];
 		false ->
-		  [bind_pat_vars(Es, t_tuple_args(SubTuple), [], Map, State)
+		  [bind_pat_vars(Es, t_tuple_args(SubTuple), [], MapJ, State)
 		   || SubTuple <- SubTuples]
 	      end,
 	    case lists:keyfind(opaque, 2, Results) of
@@ -1661,7 +1669,7 @@ bind_pat_vars([Pat|PatLeft], [Type|TypeLeft], Acc, Map, State, Rev) ->
 		      false -> bind_error([Pat], Tuple, t_none(), bind)
 		    end;
 		  Maps ->
-		    Map1 = join_maps(Maps, Map),
+		    Map1 = join_maps_end(Maps, MapJ),
 		    TupleType = t_sup([t_tuple(EsTypes)
 				       || {M, EsTypes} <- Results, M =/= error]),
 		    {Map1, TupleType}
@@ -2308,27 +2316,29 @@ handle_guard_and(Guard, Map, Env, Eval, State) ->
 	  end
       end;
     neg ->
+      MapJ = join_maps_begin(Map),
       {Map1, Type1} =
-	try bind_guard(Arg1, Map, Env, neg, State)
-	catch throw:{fail, _} -> bind_guard(Arg2, Map, Env, pos, State)
+	try bind_guard(Arg1, MapJ, Env, neg, State)
+	catch throw:{fail, _} -> bind_guard(Arg2, MapJ, Env, pos, State)
 	end,
       {Map2, Type2} =
-	try bind_guard(Arg2, Map, Env, neg, State)
-	catch throw:{fail, _} -> bind_guard(Arg1, Map, Env, pos, State)
+	try bind_guard(Arg2, MapJ, Env, neg, State)
+	catch throw:{fail, _} -> bind_guard(Arg1, MapJ, Env, pos, State)
 	end,
       case t_is_atom(false, Type1) orelse t_is_atom(false, Type2) of
-	true -> {join_maps([Map1, Map2], Map), t_atom(false)};
+	true -> {join_maps_end([Map1, Map2], MapJ), t_atom(false)};
 	false -> signal_guard_fail(Eval, Guard, [Type1, Type2], State)
       end;
     dont_know ->
-      {Map1, Type1} = bind_guard(Arg1, Map, Env, dont_know, State),
-      {Map2, Type2} = bind_guard(Arg2, Map, Env, dont_know, State),
+      MapJ = join_maps_begin(Map),
+      {Map1, Type1} = bind_guard(Arg1, MapJ, Env, dont_know, State),
+      {Map2, Type2} = bind_guard(Arg2, MapJ, Env, dont_know, State),
       Bool1 = t_inf(Type1, t_boolean()),
       Bool2 = t_inf(Type2, t_boolean()),
       case t_is_none(Bool1) orelse t_is_none(Bool2) of
 	true -> throw({fatal_fail, none});
 	false ->
-	  NewMap = join_maps([Map1, Map2], Map),
+	  NewMap = join_maps_end([Map1, Map2], MapJ),
 	  NewType =
 	    case {t_atom_vals(Bool1), t_atom_vals(Bool2)} of
 	      {['true'] , ['true'] } -> t_atom(true);
@@ -2344,20 +2354,21 @@ handle_guard_or(Guard, Map, Env, Eval, State) ->
   [Arg1, Arg2] = cerl:call_args(Guard),
   case Eval of
     pos ->
+      MapJ = join_maps_begin(Map),
       {Map1, Bool1} =
-	try bind_guard(Arg1, Map, Env, pos, State)
+	try bind_guard(Arg1, MapJ, Env, pos, State)
 	catch
-	  throw:{fail,_} -> bind_guard(Arg1, Map, Env, dont_know, State)
+	  throw:{fail,_} -> bind_guard(Arg1, MapJ, Env, dont_know, State)
 	end,
       {Map2, Bool2} =
-	try bind_guard(Arg2, Map, Env, pos, State)
+	try bind_guard(Arg2, MapJ, Env, pos, State)
 	catch
-	  throw:{fail,_} -> bind_guard(Arg2, Map, Env, dont_know, State)
+	  throw:{fail,_} -> bind_guard(Arg2, MapJ, Env, dont_know, State)
 	end,
       case ((t_is_atom(true, Bool1) andalso t_is_boolean(Bool2))
 	    orelse
 	    (t_is_atom(true, Bool2) andalso t_is_boolean(Bool1))) of
-	true -> {join_maps([Map1, Map2], Map), t_atom(true)};
+	true -> {join_maps_end([Map1, Map2], MapJ), t_atom(true)};
 	false -> signal_guard_fail(Eval, Guard, [Bool1, Bool2], State)
       end;
     neg ->
@@ -2372,14 +2383,15 @@ handle_guard_or(Guard, Map, Env, Eval, State) ->
 	  end
       end;
     dont_know ->
-      {Map1, Type1} = bind_guard(Arg1, Map, Env, dont_know, State),
-      {Map2, Type2} = bind_guard(Arg2, Map, Env, dont_know, State),
+      MapJ = join_maps_begin(Map),
+      {Map1, Type1} = bind_guard(Arg1, MapJ, Env, dont_know, State),
+      {Map2, Type2} = bind_guard(Arg2, MapJ, Env, dont_know, State),
       Bool1 = t_inf(Type1, t_boolean()),
       Bool2 = t_inf(Type2, t_boolean()),
       case t_is_none(Bool1) orelse t_is_none(Bool2) of
 	true -> throw({fatal_fail, none});
 	false ->
-	  NewMap = join_maps([Map1, Map2], Map),
+	  NewMap = join_maps_end([Map1, Map2], MapJ),
 	  NewType =
 	    case {t_atom_vals(Bool1), t_atom_vals(Bool2)} of
 	      {['false'], ['false']} -> t_atom(false);
@@ -2493,8 +2505,9 @@ mk_guard_msg(Eval, F, Args, ArgTypes, State) ->
       end
   end.
 
-bind_guard_case_clauses(Arg, Clauses, Map, Env, Eval, State) ->
+bind_guard_case_clauses(Arg, Clauses, Map0, Env, Eval, State) ->
   Clauses1 = filter_fail_clauses(Clauses),
+  Map = join_maps_begin(Map0),
   {GenMap, GenArgType} = bind_guard(Arg, Map, Env, dont_know, State),
   bind_guard_case_clauses(GenArgType, GenMap, Arg, Clauses1, Map, Env, Eval,
 			  t_none(), [], State).
@@ -2594,7 +2607,7 @@ bind_guard_case_clauses(_GenArgType, _GenMap, _ArgExpr, [], Map, _Env, _Eval,
 			AccType, AccMaps, _State) ->
   case t_is_none(AccType) of
     true -> throw({fail, none});
-    false -> {join_maps(AccMaps, Map), AccType}
+    false -> {join_maps_end(AccMaps, Map), AccType}
   end.
 
 %%% ===========================================================================
@@ -2604,11 +2617,34 @@ bind_guard_case_clauses(_GenArgType, _GenMap, _ArgExpr, [], Map, _Env, _Eval,
 %%% ===========================================================================
 
 map__new() ->
-  {dict:new(), dict:new()}.
+  #map{}.
+
+%% join_maps_begin pushes 'modified' to the stack; join_maps pops
+%% 'modified' from the stack.
+
+join_maps_begin(#map{modified = M, modified_stack = S, ref = Ref} = Map) ->
+  Map#map{ref = make_ref(), modified = [], modified_stack = [{M,Ref} | S]}.
+
+join_maps_end(Maps, MapOut) ->
+  #map{ref = Ref, modified_stack = [{M1,R1} | S]} = MapOut,
+  true = lists:all(fun(M) -> M#map.ref =:= Ref end, Maps), % sanity
+  Keys0 = lists:usort(lists:append([M#map.modified || M <- Maps])),
+  #map{dict = Dict, subst = Subst} = MapOut,
+  Keys = [Key ||
+           Key <- Keys0,
+           dict:is_key(Key, Dict) orelse dict:is_key(Key, Subst)],
+  Out = case Maps of
+          [] -> join_maps(Maps, MapOut);
+          _ -> join_maps(Keys, Maps, MapOut)
+        end,
+  debug_join_check(Maps, MapOut, Out),
+  Out#map{ref = R1,
+          modified = Out#map.modified ++ M1, % duplicates possible
+          modified_stack = S}.
 
 join_maps(Maps, MapOut) ->
-  {Map, Subst} = MapOut,
-  Keys = ordsets:from_list(dict:fetch_keys(Map) ++ dict:fetch_keys(Subst)),
+  #map{dict = Dict, subst = Subst} = MapOut,
+  Keys = ordsets:from_list(dict:fetch_keys(Dict) ++ dict:fetch_keys(Subst)),
   join_maps(Keys, Maps, MapOut).
 
 join_maps([Key|Left], Maps, MapOut) ->
@@ -2631,6 +2667,17 @@ join_maps_one_key([Map|Left], Key, AccType) ->
 join_maps_one_key([], _Key, AccType) ->
   AccType.
 
+-ifdef(DEBUG).
+debug_join_check(Maps, MapOut, Out) ->
+  #map{dict = Dict, subst = Subst} = Out,
+  #map{dict = Dict2, subst = Subst2} = join_maps(Maps, MapOut),
+  F = fun(D) -> lists:keysort(1, dict:to_list(D)) end,
+  [throw({bug, join_maps}) ||
+    F(Dict) =/= F(Dict2) orelse F(Subst) =/= F(Subst2)].
+-else.
+debug_join_check(_Maps, _MapOut, _Out) -> ok.
+-endif.
+
 enter_type_lists([Key|KeyTail], [Val|ValTail], Map) ->
   Map1 = enter_type(Key, Val, Map),
   enter_type_lists(KeyTail, ValTail, Map1);
@@ -2643,20 +2690,21 @@ enter_type_list([{Key, Val}|Left], Map) ->
 enter_type_list([], Map) ->
   Map.
 
-enter_type(Key, Val, {Map, Subst} = MS) ->
+enter_type(Key, Val, MS) ->
   case cerl:is_literal(Key) of
     true -> MS;
     false ->
       case cerl:is_c_values(Key) of
 	true ->
-	  Keys = cerl:values_es(Key),
+          Keys = cerl:values_es(Key),
 	  case t_is_any(Val) orelse t_is_none(Val) of
 	    true ->
 	      enter_type_lists(Keys, [Val || _ <- Keys], MS);
 	    false ->
-	      enter_type_lists(cerl:values_es(Key), t_to_tlist(Val), MS)
+	      enter_type_lists(Keys, t_to_tlist(Val), MS)
 	  end;
 	false ->
+          #map{dict = Dict, subst = Subst} = MS,
 	  KeyLabel = get_label(Key),
 	  case dict:find(KeyLabel, Subst) of
 	    {ok, NewKey} ->
@@ -2664,21 +2712,25 @@ enter_type(Key, Val, {Map, Subst} = MS) ->
 	      enter_type(NewKey, Val, MS);
 	    error ->
 	      ?debug("Entering ~p :: ~s\n", [KeyLabel, t_to_string(Val)]),
-	      case dict:find(KeyLabel, Map) of
+	      case dict:find(KeyLabel, Dict) of
 		{ok, Val} -> MS;
-		{ok, _OldVal} -> {dict:store(KeyLabel, Val, Map), Subst};
-		error -> {dict:store(KeyLabel, Val, Map), Subst}
+		{ok, _OldVal} -> store_map(KeyLabel, Val, MS);
+		error -> store_map(KeyLabel, Val, MS)
 	      end
 	  end
       end
   end.
 
-enter_subst(Key, Val, {Map, Subst} = MS) ->
+store_map(Key, Val, #map{dict = Dict, ref = undefined} = Map) ->
+  Map#map{dict = dict:store(Key, Val, Dict)};
+store_map(Key, Val, #map{dict = Dict, modified = Mod} = Map) ->
+  Map#map{dict = dict:store(Key, Val, Dict), modified = [Key | Mod]}.
+
+enter_subst(Key, Val, #map{subst = Subst} = MS) ->
   KeyLabel = get_label(Key),
   case cerl:is_literal(Val) of
     true ->
-      NewMap = dict:store(KeyLabel, literal_type(Val), Map),
-      {NewMap, Subst};
+      store_map(KeyLabel, literal_type(Val), MS);
     false ->
       case cerl:is_c_var(Val) of
 	false -> MS;
@@ -2691,25 +2743,29 @@ enter_subst(Key, Val, {Map, Subst} = MS) ->
 	      if KeyLabel =:= ValLabel -> MS;
 		 true ->
 		  ?debug("Subst: storing ~p = ~p\n", [KeyLabel, ValLabel]),
-		  NewSubst = dict:store(KeyLabel, ValLabel, Subst),
-		  {Map, NewSubst}
+                  store_subst(KeyLabel, ValLabel, MS)
 	      end
 	  end
       end
   end.
 
-lookup_type(Key, {Map, Subst}) ->
-  lookup(Key, Map, Subst, t_none()).
+store_subst(Key, Val, #map{subst = S, ref = undefined} = Map) ->
+  Map#map{subst = dict:store(Key, Val, S)};
+store_subst(Key, Val, #map{subst = S, modified = Mod} = Map) ->
+  Map#map{subst = dict:store(Key, Val, S), modified = [Key | Mod]}.
 
-lookup(Key, Map, Subst, AnyNone) ->
+lookup_type(Key, #map{dict = Dict, subst = Subst}) ->
+  lookup(Key, Dict, Subst, t_none()).
+
+lookup(Key, Dict, Subst, AnyNone) ->
   case cerl:is_literal(Key) of
     true -> literal_type(Key);
     false ->
       Label = get_label(Key),
       case dict:find(Label, Subst) of
-	{ok, NewKey} -> lookup(NewKey, Map, Subst, AnyNone);
+	{ok, NewKey} -> lookup(NewKey, Dict, Subst, AnyNone);
 	error ->
-	  case dict:find(Label, Map) of
+	  case dict:find(Label, Dict) of
 	    {ok, Val} -> Val;
 	    error -> AnyNone
 	  end
@@ -2744,8 +2800,8 @@ mark_as_fresh([], Map) ->
   Map.
 
 -ifdef(DEBUG).
-debug_pp_map(Map = {Map0, _Subst}) ->
-  Keys = dict:fetch_keys(Map0),
+debug_pp_map(#map{dict = Dict}=Map) ->
+  Keys = dict:fetch_keys(Dict),
   io:format("Map:\n", []),
   lists:foreach(fun (Key) ->
 		    io:format("\t~w :: ~s\n",
