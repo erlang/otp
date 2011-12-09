@@ -22,6 +22,7 @@
 #  define PRINTF(X)
 #endif
 
+#include <string.h>
 #include <math.h>
 #ifdef __WIN32__
 #include <float.h>
@@ -37,7 +38,8 @@ int _finite(double x);
 #define ERTS_FP_CONTROL_TEST 0
 #define ERTS_FP_THREAD_TEST 1
 
-static int control(ErlDrvData, unsigned int, char *, int, char **, int);
+static ErlDrvSSizeT control(ErlDrvData, unsigned int, char *,
+			    ErlDrvSizeT, char **, ErlDrvSizeT);
 
 static ErlDrvEntry fp_drv_entry = { 
     NULL /* init */,
@@ -97,10 +99,10 @@ do_test(void *unused)
     return "ok";
 }
 
-static int control(ErlDrvData drv_data,
-		   unsigned int command,
-		   char *buf, int len,
-		   char **rbuf, int rlen)
+static ErlDrvSSizeT control(ErlDrvData drv_data,
+			    unsigned int command,
+			    char *buf, ErlDrvSizeT len,
+			    char **rbuf, ErlDrvSizeT rlen)
 {
     char *res_str;
     PRINTF(("control(%p, %d, ...) called\r\n", drv_data, command));

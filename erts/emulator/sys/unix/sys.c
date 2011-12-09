@@ -1033,14 +1033,15 @@ static struct driver_data {
 /* Driver interfaces */
 static ErlDrvData spawn_start(ErlDrvPort, char*, SysDriverOpts*);
 static ErlDrvData fd_start(ErlDrvPort, char*, SysDriverOpts*);
-static int fd_control(ErlDrvData, unsigned int, char *, int, char **, int);
+static ErlDrvSSizeT fd_control(ErlDrvData, unsigned int, char *, ErlDrvSizeT,
+			       char **, ErlDrvSizeT);
 static ErlDrvData vanilla_start(ErlDrvPort, char*, SysDriverOpts*);
 static int spawn_init(void);
 static void fd_stop(ErlDrvData);
 static void stop(ErlDrvData);
 static void ready_input(ErlDrvData, ErlDrvEvent);
 static void ready_output(ErlDrvData, ErlDrvEvent);
-static void output(ErlDrvData, char*, int);
+static void output(ErlDrvData, char*, ErlDrvSizeT);
 static void outputv(ErlDrvData, ErlIOVec*);
 static void stop_select(ErlDrvEvent, void*);
 
@@ -1726,10 +1727,10 @@ static int fd_get_window_size(int fd, Uint32 *width, Uint32 *height)
     return -1;
 }
 
-static int fd_control(ErlDrvData drv_data,
-		      unsigned int command,
-		      char *buf, int len,
-		      char **rbuf, int rlen)
+static ErlDrvSSizeT fd_control(ErlDrvData drv_data,
+			       unsigned int command,
+			       char *buf, ErlDrvSizeT len,
+			       char **rbuf, ErlDrvSizeT rlen)
 {
     int fd = (int)(long)drv_data;
     char resbuff[2*sizeof(Uint32)];
@@ -2001,18 +2002,20 @@ static void outputv(ErlDrvData e, ErlIOVec* ev)
     int ix = driver_data[fd].port_num;
     int pb = driver_data[fd].packet_bytes;
     int ofd = driver_data[fd].ofd;
-    int n;
-    int sz;
+    ssize_t n;
+    ErlDrvSizeT sz;
     char lb[4];
     char* lbp;
-    int len = ev->size;
+    ErlDrvSizeT len = ev->size;
 
     /* (len > ((unsigned long)-1 >> (4-pb)*8)) */
+    /*    if (pb >= 0 && (len & (((ErlDrvSizeT)1 << (pb*8))) - 1) != len) {*/
     if (((pb == 2) && (len > 0xffff)) || (pb == 1 && len > 0xff)) {
 	driver_failure_posix(ix, EINVAL);
 	return; /* -1; */
     }
-    put_int32(len, lb);
+    /* Handles 0 <= pb <= 4 only */
+    put_int32((Uint32) len, lb);
     lbp = lb + (4-pb);
 
     ev->iov[0].iov_base = lbp;
@@ -2043,14 +2046,14 @@ static void outputv(ErlDrvData e, ErlIOVec* ev)
 }
 
 
-static void output(ErlDrvData e, char* buf, int len)
+static void output(ErlDrvData e, char* buf, ErlDrvSizeT len)
 {
     int fd = (int)(long)e;
     int ix = driver_data[fd].port_num;
     int pb = driver_data[fd].packet_bytes;
     int ofd = driver_data[fd].ofd;
-    int n;
-    int sz;
+    ssize_t n;
+    ErlDrvSizeT sz;
     char lb[4];
     char* lbp;
     struct iovec iv[2];

@@ -17,7 +17,9 @@
 #define CANCELLED 4
 
 static ErlDrvData timer_start(ErlDrvPort, char*);
-static void timer_stop(ErlDrvData), timer_read(ErlDrvData, char*, int), timer(ErlDrvData);
+static void timer_stop(ErlDrvData),
+    timer_read(ErlDrvData, char*, ErlDrvSizeT),
+    timer(ErlDrvData);
 
 static ErlDrvEntry timer_driver_entry =
 {
@@ -33,6 +35,16 @@ static ErlDrvEntry timer_driver_entry =
     NULL,
     timer,
     NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    ERL_DRV_EXTENDED_MARKER,
+    ERL_DRV_EXTENDED_MAJOR_VERSION,
+    ERL_DRV_EXTENDED_MINOR_VERSION,
+    0,
+    NULL,
+    NULL,
     NULL
 };
 
@@ -47,8 +59,9 @@ static ErlDrvData timer_start(ErlDrvPort port, char *buf)
 }
 
 /* set the timer, this is monitored from erlang measuring the time */
-static void timer_read(ErlDrvData port, char *buf, int len)
+static void timer_read(ErlDrvData p, char *buf, ErlDrvSizeT len)
 {
+    ErlDrvPort port = (ErlDrvPort) p;
     char reply[1];
 
     if (buf[0] == START_TIMER) { 
@@ -62,8 +75,9 @@ static void timer_read(ErlDrvData port, char *buf, int len)
     }
 }
 
-static void timer_stop(ErlDrvData port)
+static void timer_stop(ErlDrvData p)
 {
+    ErlDrvPort port = (ErlDrvPort) p;
     driver_cancel_timer(port);
 }
 

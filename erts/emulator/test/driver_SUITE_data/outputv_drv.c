@@ -3,7 +3,9 @@
 
 static ErlDrvPort erlang_port;
 static ErlDrvData outputv_start(ErlDrvPort, char*);
-static void outputv_stop(ErlDrvData), outputv_read(ErlDrvData, char*, int), outputv(ErlDrvData, ErlIOVec*);
+static void outputv_stop(ErlDrvData),
+    outputv_read(ErlDrvData, char*, ErlDrvSizeT),
+    outputv(ErlDrvData, ErlIOVec*);
 
 static ErlDrvEntry outputv_driver_entry =
 {
@@ -19,6 +21,16 @@ static ErlDrvEntry outputv_driver_entry =
     NULL,
     NULL,
     outputv,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    ERL_DRV_EXTENDED_MARKER,
+    ERL_DRV_EXTENDED_MAJOR_VERSION,
+    ERL_DRV_EXTENDED_MINOR_VERSION,
+    0,
+    NULL,
+    NULL,
     NULL
 };
 
@@ -38,7 +50,7 @@ static ErlDrvData outputv_start(ErlDrvPort port, char *buf)
     return (ErlDrvData)port;
 }
 
-static void outputv_read(ErlDrvData port, char *buf, int count)
+static void outputv_read(ErlDrvData port, char *buf, ErlDrvSizeT count)
 {
     erlang_port = (ErlDrvPort)-1;
 }

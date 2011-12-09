@@ -18,14 +18,17 @@
  */
 
 #include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
 #include "erl_interface.h"
 #include "erl_driver.h"
 
 static ErlDrvPort my_erlang_port;
 static ErlDrvData echo_start(ErlDrvPort, char *);
-static void from_erlang(ErlDrvData, char*, int);
-static int do_call(ErlDrvData drv_data, unsigned int command, char *buf, 
-		     int len, char **rbuf, int rlen, unsigned *ret_flags);
+static void from_erlang(ErlDrvData, char*, ErlDrvSizeT);
+static ErlDrvSSizeT do_call(ErlDrvData drv_data, unsigned int command,
+			    char *buf, ErlDrvSizeT len, char **rbuf,
+			    ErlDrvSizeT rlen, unsigned *ret_flags);
 static ErlDrvEntry echo_driver_entry = { 
     NULL,			/* Init */
     echo_start,
@@ -41,7 +44,15 @@ static ErlDrvEntry echo_driver_entry = {
     NULL,
     NULL,
     NULL,
-    do_call
+    do_call,
+    NULL,
+    ERL_DRV_EXTENDED_MARKER,
+    ERL_DRV_EXTENDED_MAJOR_VERSION,
+    ERL_DRV_EXTENDED_MINOR_VERSION,
+    0,
+    NULL,
+    NULL,
+    NULL,
 };
 
 DRIVER_INIT(echo_drv)
@@ -56,14 +67,14 @@ echo_start(ErlDrvPort port, char *buf)
 }
 
 static void
-from_erlang(ErlDrvData data, char *buf, int count)
+from_erlang(ErlDrvData data, char *buf, ErlDrvSizeT count)
 {
     driver_output((ErlDrvPort) data, buf, count);
 }
 
-static int 
+static ErlDrvSSizeT
 do_call(ErlDrvData drv_data, unsigned int command, char *buf, 
-	  int len, char **rbuf, int rlen, unsigned *ret_flags) 
+	  ErlDrvSizeT len, char **rbuf, ErlDrvSizeT rlen, unsigned *ret_flags) 
 {
     int nlen;
     ei_x_buff x;

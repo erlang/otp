@@ -40,9 +40,14 @@ static ErlDrvData wxe_driver_start(ErlDrvPort port, char *buff);
 static int  wxe_driver_load(void);
 static void wxe_driver_stop(ErlDrvData handle);
 static void wxe_driver_unload(void);
-static int  wxe_driver_control(ErlDrvData handle, unsigned int command,  
- 			       char* buf, int count, char** res, int res_size); 
-static int wxe_driver_call(ErlDrvData drv_data, unsigned int command, char *buf, int len, char **rbuf, int rlen, unsigned int *flags);
+static ErlDrvSSizeT wxe_driver_control(ErlDrvData handle,
+				       unsigned int command,  
+				       char* buf, ErlDrvSizeT count,
+				       char** res, ErlDrvSizeT res_size); 
+static ErlDrvSSizeT wxe_driver_call(ErlDrvData drv_data, unsigned int command,
+				    char *buf, ErlDrvSizeT len,
+				    char **rbuf, ErlDrvSizeT rlen,
+				    unsigned int *flags);
 
 static void standard_outputv(ErlDrvData drv_data, ErlIOVec *ev);
 static void wxe_process_died(ErlDrvData drv_data, ErlDrvMonitor *monitor);
@@ -151,17 +156,20 @@ wxe_driver_unload(void)
    wxe_master = NULL;
 }
 
-static int
+static ErlDrvSSizeT
 wxe_driver_control(ErlDrvData handle, unsigned op,
-		   char* buf, int count, char** res, int res_size)
+		   char* buf, ErlDrvSizeT count,
+		   char** res, ErlDrvSizeT res_size)
 {
    wxe_data *sd = ((wxe_data *)handle);
    push_command(op,buf,count,sd);
    return 0;
 }
 
-static int wxe_driver_call(ErlDrvData handle, unsigned int command, 
-			   char *buf, int len, char **res, int rlen, unsigned int *flags)
+static ErlDrvSSizeT
+wxe_driver_call(ErlDrvData handle, unsigned int command, 
+		char *buf, ErlDrvSizeT len,
+		char **res, ErlDrvSizeT rlen, unsigned int *flags)
 {
    wxe_data *sd = ((wxe_data *)handle);
    if(command == WXE_DEBUG_DRIVER) {

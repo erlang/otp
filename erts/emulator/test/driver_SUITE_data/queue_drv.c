@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include "erl_driver.h"
 
 #define put_int32(i, s) {((char*)(s))[0] = (char)((i) >> 24) & 0xff; \
@@ -33,9 +34,10 @@
 static ErlDrvPort erlang_port;
 static unsigned opcode;		/* Opcode for next operation. */
 static ErlDrvData queue_start(ErlDrvPort, char*);
-static void queue_stop(ErlDrvData), queue_read(ErlDrvData, char*, int);
+static void queue_stop(ErlDrvData), queue_read(ErlDrvData, char*, ErlDrvSizeT);
 static void queue_outputv(ErlDrvData, ErlIOVec*);
-static int control(ErlDrvData, unsigned int, char*, int, char**, int);
+static ErlDrvSSizeT control(ErlDrvData, unsigned int,
+			    char*, ErlDrvSizeT, char**, ErlDrvSizeT);
 static ErlDrvBinary* read_head(ErlDrvPort, int bytes);
 
 static ErlDrvEntry queue_driver_entry =
@@ -52,6 +54,16 @@ static ErlDrvEntry queue_driver_entry =
     control,
     NULL,
     queue_outputv,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    ERL_DRV_EXTENDED_MARKER,
+    ERL_DRV_EXTENDED_MAJOR_VERSION,
+    ERL_DRV_EXTENDED_MINOR_VERSION,
+    0,
+    NULL,
+    NULL,
     NULL
 };
 
@@ -73,7 +85,7 @@ static ErlDrvData queue_start(ErlDrvPort port, char *buf)
 }
 
 /* messages from Erlang */
-static void queue_read(ErlDrvData port, char *buf, int len)
+static void queue_read(ErlDrvData port, char *buf, ErlDrvSizeT len)
 {
 }
 
@@ -82,8 +94,9 @@ static void queue_stop(ErlDrvData port)
     erlang_port = (ErlDrvPort) -1;
 }
 
-static int
-control(ErlDrvData drv_data, unsigned command, char* buf, int len, char** rbuf, int rlen)
+static ErlDrvSSizeT
+control(ErlDrvData drv_data, unsigned command,
+	char* buf, ErlDrvSizeT len, char** rbuf, ErlDrvSizeT rlen)
 {
     ErlDrvBinary* b;
 

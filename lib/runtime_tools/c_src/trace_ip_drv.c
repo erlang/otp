@@ -185,7 +185,8 @@ static TraceIpData *first_data;
 */
 static ErlDrvData trace_ip_start(ErlDrvPort port, char *buff);
 static void trace_ip_stop(ErlDrvData handle);
-static void trace_ip_output(ErlDrvData handle, char *buff, int bufflen);
+static void trace_ip_output(ErlDrvData handle, char *buff,
+			    ErlDrvSizeT bufflen);
 #ifdef __WIN32__
 static void trace_ip_event(ErlDrvData handle, ErlDrvEvent event);
 #endif
@@ -193,9 +194,10 @@ static void trace_ip_ready_input(ErlDrvData handle, ErlDrvEvent fd);
 static void trace_ip_ready_output(ErlDrvData handle, ErlDrvEvent fd);
 static void trace_ip_finish(void); /* No arguments, despite what might be stated
 				     in any documentation */
-static int trace_ip_control(ErlDrvData handle, unsigned int command, 
-			    char* buff, int count, 
-			    char** res, int res_size);
+static ErlDrvSSizeT trace_ip_control(ErlDrvData handle,
+				     unsigned int command, 
+				     char* buff, ErlDrvSizeT count, 
+				     char** res, ErlDrvSizeT res_size);
 
 /*
 ** Internal routines
@@ -382,7 +384,7 @@ static void trace_ip_stop(ErlDrvData handle)
 /*
 ** Data sent from erlang to port.
 */
-static void trace_ip_output(ErlDrvData handle, char *buff, int bufflen)
+static void trace_ip_output(ErlDrvData handle, char *buff, ErlDrvSizeT bufflen)
 {
     TraceIpData *data = (TraceIpData *) handle;
     if (data->flags & FLAG_LISTEN_PORT) {
@@ -548,9 +550,10 @@ static void trace_ip_ready_output(ErlDrvData handle, ErlDrvEvent fd)
 /*
 ** Control message from erlang, we handle $p, which is get_listen_port.
 */
-static int trace_ip_control(ErlDrvData handle, unsigned int command, 
-			      char* buff, int count, 
-			      char** res, int res_size)
+static ErlDrvSSizeT trace_ip_control(ErlDrvData handle,
+				     unsigned int command, 
+				     char* buff, ErlDrvSizeT count, 
+				     char** res, ErlDrvSizeT res_size)
 {
     register void *void_ptr; /* Soft type cast */
 

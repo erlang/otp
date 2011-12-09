@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1997-2009. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -84,7 +84,7 @@ static int maperror(DWORD error);
 static int reg_init(void);
 static ErlDrvData reg_start(ErlDrvPort, char*);
 static void reg_stop(ErlDrvData);
-static void reg_from_erlang(ErlDrvData, char*, int);
+static void reg_from_erlang(ErlDrvData, char*, ErlDrvSizeT);
 
 struct erl_drv_entry registry_driver_entry = {
     reg_init,
@@ -95,10 +95,21 @@ struct erl_drv_entry registry_driver_entry = {
     NULL,
     "registry__drv__",
     NULL,
+    NULL, /* handle */
+    NULL, /* control */
+    NULL, /* timeout */
+    NULL, /* outputv */
+    NULL, /* ready_async */
+    NULL, /* flush */
+    NULL, /* call */
+    NULL, /* event */
+    ERL_DRV_EXTENDED_MARKER,
+    ERL_DRV_EXTENDED_MAJOR_VERSION,
+    ERL_DRV_EXTENDED_MINOR_VERSION,
+    0,
     NULL,
     NULL,
     NULL,
-    NULL
 };
 
 static int
@@ -158,7 +169,7 @@ reg_stop(ErlDrvData clientData)
 }
 
 static void
-reg_from_erlang(ErlDrvData clientData, char* buf, int count)
+reg_from_erlang(ErlDrvData clientData, char* buf, ErlDrvSizeT count)
 {
     RegPort* rp = (RegPort *) clientData;
     int cmd;
@@ -301,7 +312,7 @@ reg_from_erlang(ErlDrvData clientData, char* buf, int count)
 		buf = (char *) &dword;
 		ASSERT(count == 4);
 	    }
-	    result = RegSetValueEx(rp->hkey, name, 0, type, buf, count);
+	    result = RegSetValueEx(rp->hkey, name, 0, type, buf, (DWORD)count);
 	    reply(rp, result);
 	}
 	break;

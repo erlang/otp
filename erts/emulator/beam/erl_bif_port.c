@@ -254,13 +254,13 @@ port_call(Process* c_p, Eterm arg1, Eterm arg2, Eterm arg3)
     Uint size;
     byte *bytes;
     byte *endp;
-    size_t real_size;
+    ErlDrvSizeT real_size;
     erts_driver_t *drv;
     byte port_input[256];	/* Default input buffer to encode in */
     byte port_result[256];	/* Buffer for result from port. */
     byte* port_resp;		/* Pointer to result buffer. */
     char *prc;
-    int ret;
+    ErlDrvSSizeT ret;
     Eterm res;
     Sint result_size;
     Eterm *hp;
@@ -366,9 +366,9 @@ port_call(Process* c_p, Eterm arg1, Eterm arg2, Eterm arg3)
     erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
 #ifdef HARDDEBUG
     { 
-	int z;
-	printf("real_size = %ld,%d, ret = %d\r\n",real_size, 
-	       (int) real_size, ret);
+	ErlDrvSizeT z;
+	printf("real_size = %ld,%d, ret = %ld,%d\r\n", (unsigned long) real_size,
+	       (int) real_size, (unsigned long)ret, (int) ret);
 	printf("[");
 	for(z = 0; z < real_size; ++z) {
 	    printf("%d, ",(int) bytes[z]);

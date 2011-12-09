@@ -40,8 +40,9 @@ static void io_ready_exit_ready_input(ErlDrvData, ErlDrvEvent);
 static void io_ready_exit_ready_output(ErlDrvData, ErlDrvEvent);
 static void io_ready_exit_drv_output(ErlDrvData, char *, int);
 static void io_ready_exit_drv_finish(void);
-static int io_ready_exit_drv_control(ErlDrvData, unsigned int,
-				   char *, int, char **, int);
+static ErlDrvSSizeT io_ready_exit_drv_control(ErlDrvData, unsigned int,
+					      char *, ErlDrvSizeT,
+					      char **, ErlDrvSizeT);
 
 static ErlDrvEntry io_ready_exit_drv_entry = { 
     NULL, /* init */
@@ -56,7 +57,17 @@ static ErlDrvEntry io_ready_exit_drv_entry = {
     io_ready_exit_drv_control,
     NULL, /* timeout */
     NULL, /* outputv */
-    NULL  /* ready_async */
+    NULL, /* ready_async */
+    NULL, /* flush */
+    NULL, /* call */
+    NULL, /* event */
+    ERL_DRV_EXTENDED_MARKER,
+    ERL_DRV_EXTENDED_MAJOR_VERSION,
+    ERL_DRV_EXTENDED_MINOR_VERSION,
+    0, /* ERL_DRV_FLAGs */
+    NULL, /* handle2 */
+    NULL, /* process_exit */
+    NULL  /* stop_select */
 };
 
 /* -------------------------------------------------------------------------
@@ -83,7 +94,7 @@ io_ready_exit_drv_stop(ErlDrvData drv_data) {
 #ifdef UNIX
     if (oeddp->fds[0] >= 0) {
 	driver_select(oeddp->port,
-		      (ErlDrvEvent) oeddp->fds[0],
+		      (ErlDrvEvent) (ErlDrvSInt) oeddp->fds[0],
 		      DO_READ|DO_WRITE,
 		      0);
 	close(oeddp->fds[0]);
@@ -109,15 +120,15 @@ io_ready_exit_ready_input(ErlDrvData drv_data, ErlDrvEvent event)
     driver_failure_atom(oeddp->port, "ready_input_driver_failure");
 }
 
-static int
+static ErlDrvSSizeT
 io_ready_exit_drv_control(ErlDrvData drv_data,
 			  unsigned int command,
-			  char *buf, int len,
-			  char **rbuf, int rlen)
+			  char *buf, ErlDrvSizeT len,
+			  char **rbuf, ErlDrvSizeT rlen)
 {
     char *abuf;
     char *res_str;
-    int res_len;
+    ErlDrvSSizeT res_len;
     IOReadyExitDrvData *oeddp = (IOReadyExitDrvData *) drv_data;
 #ifndef UNIX
     res_str = "nyiftos";
@@ -127,9 +138,9 @@ io_ready_exit_drv_control(ErlDrvData drv_data,
     }
     else {
 	res_str = "ok";
-	write(oeddp->fds[1], "!", 1);
+	(void) write(oeddp->fds[1], "!", 1);
 	driver_select(oeddp->port,
-		      (ErlDrvEvent) oeddp->fds[0],
+		      (ErlDrvEvent) (ErlDrvSInt) oeddp->fds[0],
 		      DO_READ|DO_WRITE,
 		      1);
     }

@@ -47,7 +47,7 @@ typedef struct erts_driver_t_ erts_driver_t;
 #define SMALL_IO_QUEUE 5   /* Number of fixed elements */
 
 typedef struct {
-    int size;       /* total size in bytes */
+    ErlDrvSizeT size;       /* total size in bytes */
 
     SysIOVec* v_start;
     SysIOVec* v_end;
@@ -63,9 +63,9 @@ typedef struct {
 } ErlIOQueue;
 
 typedef struct line_buf {  /* Buffer used in line oriented I/O */
-    int bufsiz;              /* Size of character buffer */
-    int ovlen;               /* Length of overflow data */
-    int ovsiz;               /* Actual size of overflow buffer */
+    ErlDrvSizeT bufsiz;      /* Size of character buffer */
+    ErlDrvSizeT ovlen;       /* Length of overflow data */
+    ErlDrvSizeT ovsiz;       /* Actual size of overflow buffer */
     char data[1];            /* Starting point of buffer data,
 			      data[0] is a flag indicating an unprocess CR,
 			      The rest is the overflow buffer. */
@@ -323,12 +323,15 @@ struct erts_driver_t_ {
     void (*stop)(ErlDrvData drv_data);
     void (*finish)(void);
     void (*flush)(ErlDrvData drv_data);
-    void (*output)(ErlDrvData drv_data, char *buf, int len);
+    void (*output)(ErlDrvData drv_data, char *buf, ErlDrvSizeT len);
     void (*outputv)(ErlDrvData drv_data, ErlIOVec *ev); /* Might be NULL */
-    int (*control)(ErlDrvData drv_data, unsigned int command, char *buf, 
-		   int len, char **rbuf, int rlen); /* Might be NULL */
-    int (*call)(ErlDrvData drv_data, unsigned int command, char *buf, 
-		int len, char **rbuf, int rlen, unsigned int *flags); /* Might be NULL */ 
+    ErlDrvSSizeT (*control)(ErlDrvData drv_data, unsigned int command,
+			    char *buf, ErlDrvSizeT len,
+			    char **rbuf, ErlDrvSizeT rlen); /* Might be NULL */
+    ErlDrvSSizeT (*call)(ErlDrvData drv_data, unsigned int command,
+			 char *buf, ErlDrvSizeT len,
+			 char **rbuf, ErlDrvSizeT rlen, /* Might be NULL */
+			 unsigned int *flags);
     void (*event)(ErlDrvData drv_data, ErlDrvEvent event,
 		  ErlDrvEventData event_data);
     void (*ready_input)(ErlDrvData drv_data, ErlDrvEvent event); 
@@ -1053,7 +1056,8 @@ extern int erts_do_net_exits(DistEntry*, Eterm);
 extern int distribution_info(int, void *);
 extern int is_node_name_atom(Eterm a);
 
-extern int erts_net_message(Port *, DistEntry *, byte *, int, byte *, int);
+extern int erts_net_message(Port *, DistEntry *,
+			    byte *, ErlDrvSizeT, byte *, ErlDrvSizeT);
 
 extern void init_dist(void);
 extern int stop_dist(void);
@@ -1661,7 +1665,7 @@ do {									\
 #define ERTS_SMP_CHK_PEND_TRACE_MSGS(ESDP)
 #endif
 
-void bin_write(int, void*, byte*, int);
+void bin_write(int, void*, byte*, size_t);
 int intlist_to_buf(Eterm, char*, int); /* most callers pass plain char*'s */
 
 struct Sint_buf {
@@ -1677,7 +1681,7 @@ char* Sint_to_buf(Sint, struct Sint_buf*);
 #define ERTS_IOLIST_OVERFLOW 1
 #define ERTS_IOLIST_TYPE 2
 
-Eterm buf_to_intlist(Eterm**, char*, int, Eterm); /* most callers pass plain char*'s */
+Eterm buf_to_intlist(Eterm**, char*, size_t, Eterm); /* most callers pass plain char*'s */
 int io_list_to_buf(Eterm, char*, int);
 int io_list_to_buf2(Eterm, char*, int);
 int erts_iolist_size(Eterm, Uint *);

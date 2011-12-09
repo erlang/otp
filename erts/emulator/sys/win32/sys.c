@@ -474,7 +474,7 @@ static int spawn_init(void);
 static int fd_init(void);
 static void fd_stop(ErlDrvData);
 static void stop(ErlDrvData);
-static void output(ErlDrvData, char*, int);
+static void output(ErlDrvData, char*, ErlDrvSizeT);
 static void ready_input(ErlDrvData, ErlDrvEvent);
 static void ready_output(ErlDrvData, ErlDrvEvent);
 static void stop_select(ErlDrvEvent, void*);
@@ -2431,13 +2431,13 @@ threaded_exiter(LPVOID param)
  */
 
 static void
-output(ErlDrvData drv_data, char* buf, int len)
+output(ErlDrvData drv_data, char* buf, ErlDrvSizeT len)
 /*     long drv_data;		/* The slot to use in the driver data table.
 				 * For Windows NT, this is *NOT* a file handle.
 				 * The handle is found in the driver data.
 				 */
-/*     char *buf;			/* Pointer to data to write to the port program. */
-/*     int len;			/* Number of bytes to write. */
+/*     char *buf;		/* Pointer to data to write to the port program. */
+/*     ErlDrvSizeT len;		/* Number of bytes to write. */
 {
     DriverData* dp;
     int pb;			/* The header size for this port. */

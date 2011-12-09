@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1997-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -98,7 +98,7 @@ typedef unsigned char uchar;
 static ErlDrvData rfile_start(ErlDrvPort, char*);
 static int rfile_init(void);
 static void rfile_stop(ErlDrvData);
-static void rfile_command(ErlDrvData, char*, int);
+static void rfile_command(ErlDrvData, char*, ErlDrvSizeT);
 
 
 struct erl_drv_entry ram_file_driver_entry = {
@@ -108,7 +108,23 @@ struct erl_drv_entry ram_file_driver_entry = {
     rfile_command,
     NULL,
     NULL,
-    "ram_file_drv"
+    "ram_file_drv",
+    NULL,
+    NULL, /* handle */
+    NULL, /* control */
+    NULL, /* timeout */
+    NULL, /* outputv */
+    NULL, /* ready_async */
+    NULL, /* flush */
+    NULL, /* call */
+    NULL, /* event */
+    ERL_DRV_EXTENDED_MARKER,
+    ERL_DRV_EXTENDED_MAJOR_VERSION,
+    ERL_DRV_EXTENDED_MINOR_VERSION,
+    0,
+    NULL,
+    NULL,
+    NULL,
 };
 
 /* A File is represented as a array of bytes, this array is
@@ -121,9 +137,9 @@ typedef struct ram_file {
     int flags;          /* flags read/write */
     ErlDrvBinary* bin;  /* binary to hold binary file */
     char* buf;          /* buffer start (in binary) */
-    int size;           /* buffer size (allocated) */
-    int cur;            /* current position in buffer */
-    int end;            /* end position in buffer */
+    ErlDrvSSizeT size;   /* buffer size (allocated) */
+    ErlDrvSSizeT cur;    /* current position in buffer */
+    ErlDrvSSizeT end;            /* end position in buffer */
 } RamFile;
 
 #ifdef LOADABLE
@@ -211,7 +227,7 @@ static int reply(RamFile *f, int ok, int err)
     return 0;
 }
 
-static int numeric_reply(RamFile *f, int result)
+static int numeric_reply(RamFile *f, ErlDrvSSizeT result)
 {
     char tmp[5];
 
@@ -231,7 +247,8 @@ static int numeric_reply(RamFile *f, int result)
 
 /* install bin as the new binary reset all pointer */
 
-static void ram_file_set(RamFile *f, ErlDrvBinary *bin, int bsize, int len)
+static void ram_file_set(RamFile *f, ErlDrvBinary *bin,
+			 ErlDrvSSizeT bsize, ErlDrvSSizeT len)
 {
     f->size = bsize;
     f->buf = bin->orig_bytes;
@@ -240,9 +257,9 @@ static void ram_file_set(RamFile *f, ErlDrvBinary *bin, int bsize, int len)
     f->bin = bin;
 }
 
-static int ram_file_init(RamFile *f, char *buf, int count, int *error)
+static int ram_file_init(RamFile *f, char *buf, ErlDrvSSizeT count, int *error)
 {
-    int bsize;
+    ErlDrvSSizeT bsize;
     ErlDrvBinary* bin;
     
     if (count < 0) {
@@ -268,9 +285,9 @@ static int ram_file_init(RamFile *f, char *buf, int count, int *error)
     return count;
 }
 
-static int ram_file_expand(RamFile *f, int size, int *error)
+static ErlDrvSSizeT ram_file_expand(RamFile *f, ErlDrvSSizeT size, int *error)
 {
-    int bsize;
+    ErlDrvSSizeT bsize;
     ErlDrvBinary* bin;
     
     if (size < 0) {
@@ -298,10 +315,10 @@ static int ram_file_expand(RamFile *f, int size, int *error)
 }
 
 
-static int ram_file_write(RamFile *f, char *buf, int len, 
-			  int *location, int *error)
+static ErlDrvSSizeT ram_file_write(RamFile *f, char *buf, ErlDrvSSizeT len,
+			  ErlDrvSSizeT *location, int *error)
 {
-    int cur = f->cur;
+    ErlDrvSSizeT cur = f->cur;
     
     if (!(f->flags & RAM_FILE_MODE_WRITE)) {
 	*error = EBADF;
@@ -322,11 +339,11 @@ static int ram_file_write(RamFile *f, char *buf, int len,
     return len;
 }
 
-static int ram_file_read(RamFile *f, int len, ErlDrvBinary **bp, 
-			 int *location, int *error)
+static ErlDrvSSizeT ram_file_read(RamFile *f, ErlDrvSSizeT len, ErlDrvBinary **bp,
+			 ErlDrvSSizeT *location, int *error)
 {
     ErlDrvBinary* bin;
-    int cur = f->cur;
+    ErlDrvSSizeT cur = f->cur;
     
     if (!(f->flags & RAM_FILE_MODE_READ)) {
 	*error = EBADF;
@@ -352,9 +369,10 @@ static int ram_file_read(RamFile *f, int len, ErlDrvBinary **bp,
     return len;
 }
 
-static int ram_file_seek(RamFile *f, int offset, int whence, int *error)
+static ErlDrvSSizeT ram_file_seek(RamFile *f, ErlDrvSSizeT offset, int whence,
+				 int *error)
 {
-    int pos;
+    ErlDrvSSizeT pos;
 
     if (f->flags == 0) {
 	*error = EBADF;
@@ -389,13 +407,13 @@ static int ram_file_seek(RamFile *f, int offset, int whence, int *error)
 
 static int ram_file_uuencode(RamFile *f)
 {
-    int code_len = UULINE(UNIX_LINE);
-    int len = f->end;
-    int usize = 4*((len+2)/3) + 2*((len+code_len-1)/code_len) + 2;    
+    ErlDrvSSizeT code_len = UULINE(UNIX_LINE);
+    ErlDrvSSizeT len = f->end;
+    ErlDrvSSizeT usize = 4*((len+2)/3) + 2*((len+code_len-1)/code_len) + 2;
     ErlDrvBinary* bin;
     uchar* inp;
     uchar* outp;
-    int count = 0;
+    ErlDrvSSizeT count = 0;
 
     if ((bin = driver_alloc_binary(usize)) == NULL)
 	return error_reply(f, ENOMEM);
@@ -447,8 +465,8 @@ static int ram_file_uuencode(RamFile *f)
 
 static int ram_file_uudecode(RamFile *f)
 {
-    int len = f->end;
-    int usize = ( (len+3) / 4 ) * 3;
+    ErlDrvSSizeT len = f->end;
+    ErlDrvSSizeT usize = ( (len+3) / 4 ) * 3;
     ErlDrvBinary* bin;
     uchar* inp;
     uchar* outp;
@@ -510,7 +528,7 @@ static int ram_file_uudecode(RamFile *f)
 
 static int ram_file_compress(RamFile *f)
 {
-    int size = f->end;
+    ErlDrvSSizeT size = f->end;
     ErlDrvBinary* bin;
 
     if ((bin = erts_gzdeflate_buffer(f->buf, size)) == NULL) {
@@ -528,7 +546,7 @@ static int ram_file_compress(RamFile *f)
 
 static int ram_file_uncompress(RamFile *f)
 {
-    int size = f->end;
+    ErlDrvSSizeT size = f->end;
     ErlDrvBinary* bin;
 
     if ((bin = erts_gzinflate_buffer(f->buf, size)) == NULL) {
@@ -541,15 +559,15 @@ static int ram_file_uncompress(RamFile *f)
 }
 
 
-static void rfile_command(ErlDrvData e, char* buf, int count)
+static void rfile_command(ErlDrvData e, char* buf, ErlDrvSizeT count)
 {
     RamFile* f = (RamFile*)e;
     int error = 0;
     ErlDrvBinary* bin;
     char header[5];     /* result code + count */
-    int offset;
-    int origin;		/* Origin of seek. */
-    int n;
+    ErlDrvSSizeT offset;
+    ErlDrvSSizeT origin;		/* Origin of seek. */
+    ErlDrvSSizeT n;
 
     count--;
     switch(*(uchar*)buf++) {

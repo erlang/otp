@@ -25,7 +25,7 @@ static void stop(ErlDrvData drv_data);
 static ErlDrvData start(ErlDrvPort port,
 			char *command);
 static void output(ErlDrvData drv_data,
-		   char *buf, int len);
+		   char *buf, ErlDrvSizeT len);
 static void ready_async(ErlDrvData drv_data,
 			ErlDrvThreadData thread_data);
 
@@ -107,7 +107,7 @@ static void ready_async(ErlDrvData drv_data,
 }
 
 static void output(ErlDrvData drv_data,
-		   char *buf, int len)
+		   char *buf, ErlDrvSizeT len)
 {
     async_blast_data_t *abd = (async_blast_data_t *) drv_data;
     if (abd->counter == 0) {

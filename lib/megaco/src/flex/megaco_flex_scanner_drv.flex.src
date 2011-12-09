@@ -60,17 +60,10 @@
 #define NUL        0x0
 
 #if defined(MEGACO_REENTRANT_FLEX_SCANNER)
-  #define MEGACO_EXTENDED_MARKER        ERL_DRV_EXTENDED_MARKER
-  #define MEGACO_DRIVER_FLAGS           ERL_DRV_FLAG_USE_PORT_LOCKING
-  #define MEGACO_EXTENDED_MAJOR_VERSION ERL_DRV_EXTENDED_MAJOR_VERSION
-  #define MEGACO_EXTENDED_MINOR_VERSION ERL_DRV_EXTENDED_MINOR_VERSION
-#else
-  #define MEGACO_EXTENDED_MARKER        0
-  #define MEGACO_DRIVER_FLAGS           0
-  #define MEGACO_EXTENDED_MAJOR_VERSION 0
-  #define MEGACO_EXTENDED_MINOR_VERSION 0
+#  define MEGACO_DRIVER_FLAGS           ERL_DRV_FLAG_USE_PORT_LOCKING
+#else 
+#  define MEGACO_DRIVER_FLAGS           0
 #endif
-
 
 #define FREE(bufP)        driver_free(bufP)
 #define ALLOC(sz)         driver_alloc(sz)
@@ -320,11 +313,11 @@ static void mfs_load_map_token();
 static ErlDrvData mfs_start(ErlDrvPort port, char *buf);
 static void 	  mfs_stop(ErlDrvData handle);
 static void 	  mfs_command(ErlDrvData handle, 
-                              char *buf, int buf_len);
-static int 	  mfs_control(ErlDrvData handle, 
+                              char *buf, ErlDrvSizeT buf_len);
+static ErlDrvSSizeT mfs_control(ErlDrvData handle,
                               unsigned int command,
-                              char *buf, int buf_len, 
-      			      char **res_buf, int res_buf_len);
+                              char *buf, ErlDrvSizeT buf_len, 
+      			      char **res_buf, ErlDrvSizeT res_buf_len);
 static void 	  mfs_finish(void);
 
 /* 
@@ -348,10 +341,10 @@ static ErlDrvEntry mfs_entry = {
     NULL,              /* flush, port is about to be closed */
     NULL,              /* call, a syncronous call into the driver */
     NULL,              /* event, event selected by driver_event() has occurred */
-    MEGACO_EXTENDED_MARKER,         /* extended_marker, which we use if reentrant */
-    MEGACO_EXTENDED_MAJOR_VERSION,  /* major_version, ... */
-    MEGACO_EXTENDED_MINOR_VERSION,  /* minor_version, ... */
-    MEGACO_DRIVER_FLAGS,            /* driver_flags, used for port lock indication */
+    ERL_DRV_EXTENDED_MARKER,
+    ERL_DRV_EXTENDED_MAJOR_VERSION,
+    ERL_DRV_EXTENDED_MINOR_VERSION,
+    MEGACO_DRIVER_FLAGS, /* driver_flags, used for port lock indication */
     NULL,              /* handle2, emulator internal use */
     NULL               /* process_exit, Called when a process monitor fires */
 };    
@@ -1685,17 +1678,17 @@ static void mfs_stop(ErlDrvData handle)
 }
 
 static void mfs_command(ErlDrvData handle, 
-			char *buf, int buf_len)
+			char *buf, ErlDrvSizeT buf_len)
 {
   driver_failure_atom(((MfsErlDrvData*) handle)->port, "bad_usage");
 
   return;
 }
 
-static int mfs_control(ErlDrvData          handle, 
+static ErlDrvSSizeT mfs_control(ErlDrvData          handle,
 		       unsigned int        command,
-		       char  *buf,     int buf_len, 
-		       char **res_buf, int res_buf_len)
+		       char  *buf,     ErlDrvSizeT buf_len, 
+		       char **res_buf, ErlDrvSizeT res_buf_len)
 {
   MfsErlDrvData*  dataP = (MfsErlDrvData*) handle;
   char*           tmp;

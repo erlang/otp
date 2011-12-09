@@ -23,7 +23,7 @@
 static ErlDrvPort erlang_port;
 static ErlDrvData timer_start(ErlDrvPort, char*);
 static void timer_stop(ErlDrvData);
-static void timer_read(ErlDrvData, char*, int);
+static void timer_read(ErlDrvData, char*, ErlDrvSizeT);
 static void timer(ErlDrvData);
 
 static ErlDrvEntry timer_driver_entry =
@@ -39,6 +39,16 @@ static ErlDrvEntry timer_driver_entry =
     NULL,
     NULL,
     timer,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    ERL_DRV_EXTENDED_MARKER,
+    ERL_DRV_EXTENDED_MAJOR_VERSION,
+    ERL_DRV_EXTENDED_MINOR_VERSION,
+    0,
+    NULL,
     NULL,
     NULL
 };
@@ -59,8 +69,9 @@ static ErlDrvData timer_start(ErlDrvPort port, char *buf)
 }
 
 /* set the timer, this is monitored from erlang measuring the time */
-static void timer_read(ErlDrvData port, char *buf, int len)
+static void timer_read(ErlDrvData p, char *buf, ErlDrvSizeT len)
 {
+    ErlDrvPort port = (ErlDrvPort) p;
     char reply[1];
 
     if (buf[0] == START_TIMER) { 

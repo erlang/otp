@@ -565,7 +565,7 @@ static void fd_stop(ErlDrvData);
 static void stop(ErlDrvData);
 static void ready_input(ErlDrvData fd, ErlDrvEvent ready_fd);
 static void ready_output(ErlDrvData fd, ErlDrvEvent ready_fd);
-static void output(ErlDrvData fd, char *buf, int len);
+static void output(ErlDrvData fd, char *buf, ErlDrvSizeT len);
 static void stop_select(ErlDrvEvent, void*);
 
 struct erl_drv_entry spawn_driver_entry = {
@@ -1187,7 +1187,7 @@ static int sched_write(int port_num,int fd, char *buf, int len, int pb)
 }
 
 /* Fd is the value returned as drv_data by the start func */
-static void output(ErlDrvData drv_data, char *buf, int len)
+static void output(ErlDrvData drv_data, char *buf, ErlDrvSizeT len)
 {
     int buf_done, port_num, wval, pb, ofd;
     byte lb[4];

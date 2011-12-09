@@ -54,9 +54,9 @@
 #endif
 
 #if defined(ERTS_DIST_MSG_DBG) || defined(ERTS_RAW_DIST_MSG_DBG)
-static void bw(byte *buf, int sz)
+static void bw(byte *buf, ErlDrvSizeT sz)
 {
-    bin_write(ERTS_PRINT_STDERR,NULL,buf,sz);
+    bin_write(ERTS_PRINT_STDERR, NULL, buf, sz);
 }
 #endif
 
@@ -897,9 +897,9 @@ erts_dsig_send_group_leader(ErtsDSigData *dsdp, Eterm leader, Eterm remote)
 int erts_net_message(Port *prt,
 		     DistEntry *dep,
 		     byte *hbuf,
-		     int hlen,
+		     ErlDrvSizeT hlen,
 		     byte *buf,
-		     int len)
+		     ErlDrvSizeT len)
 {
 #define DIST_CTL_DEFAULT_SIZE 64
     ErtsDistExternal ede;
@@ -924,7 +924,7 @@ int erts_net_message(Port *prt,
     Uint tuple_arity;
     int res;
 #ifdef ERTS_DIST_MSG_DBG
-    int orig_len = len;
+    ErlDrvSizeT orig_len = len;
 #endif
 
     UseTmpHeapNoproc(DIST_CTL_DEFAULT_SIZE);
@@ -940,7 +940,7 @@ int erts_net_message(Port *prt,
 	UnUseTmpHeapNoproc(DIST_CTL_DEFAULT_SIZE);
 	return 0;
     }
-    if (hlen > 0)
+    if (hlen != 0)
 	goto data_error;
     if (len == 0) {  /* HANDLE TICK !!! */
 	UnUseTmpHeapNoproc(DIST_CTL_DEFAULT_SIZE);

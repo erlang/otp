@@ -24,7 +24,7 @@
 static ErlDrvPort erlang_port;
 static ErlDrvData send_term_drv_start(ErlDrvPort port, char *command);
 static void send_term_drv_stop(ErlDrvData drv_data);
-static void send_term_drv_run(ErlDrvData drv_data, char *buf, int len);
+static void send_term_drv_run(ErlDrvData drv_data, char *buf, ErlDrvSizeT len);
 
 
 static int make_ext_term_list(ErlDrvTermData *td, int bad);
@@ -39,6 +39,22 @@ static ErlDrvEntry send_term_drv_entry = {
     NULL,
     NULL,
     "send_term_drv",
+    NULL,
+    NULL, /* handle */
+    NULL, /* control */
+    NULL, /* timeout */
+    NULL, /* outputv */
+    NULL, /* ready_async */
+    NULL,
+    NULL,
+    NULL,
+    ERL_DRV_EXTENDED_MARKER,
+    ERL_DRV_EXTENDED_MAJOR_VERSION,
+    ERL_DRV_EXTENDED_MINOR_VERSION,
+    0,
+    NULL,
+    NULL,
+    NULL,
 };
 
 DRIVER_INIT(send_term_drv)
@@ -64,7 +80,7 @@ static void send_term_drv_stop(ErlDrvData drv_data)
 static void output_term(ErlDrvTermData* msg, int len);
 static void fail_term(ErlDrvTermData* msg, int len, int line);
 
-static void send_term_drv_run(ErlDrvData port, char *buf, int count)
+static void send_term_drv_run(ErlDrvData port, char *buf, ErlDrvSizeT count)
 {
     char buf7[1024];
     ErlDrvTermData spec[1024];

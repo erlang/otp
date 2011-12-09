@@ -47,8 +47,8 @@
 	 fd_change/1,
 	 steal_control/1,
 	 otp_6602/1,
-	 'driver_system_info_ver1.0'/1,
-	 'driver_system_info_ver1.1'/1,
+	 driver_system_info_base_ver/1,
+	 driver_system_info_prev_ver/1,
 	 driver_system_info_current_ver/1,
 	 driver_monitor/1,
 	
@@ -135,8 +135,8 @@ all() ->
     [outputv_errors, outputv_echo, queue_echo, {group, timer},
      driver_unloaded, io_ready_exit, use_fallback_pollset,
      bad_fd_in_pollset, driver_event, fd_change,
-     steal_control, otp_6602, 'driver_system_info_ver1.0',
-     'driver_system_info_ver1.1',
+     steal_control, otp_6602, driver_system_info_base_ver,
+     driver_system_info_prev_ver,
      driver_system_info_current_ver, driver_monitor,
      {group, ioq_exit}, zero_extended_marker_garb_drv,
      invalid_extended_marker_drv, larger_major_vsn_drv,
@@ -1083,19 +1083,19 @@ otp_6602(Config) when is_list(Config) ->
 
 -define(EXPECTED_SYSTEM_INFO_NAMES, ?EXPECTED_SYSTEM_INFO_NAMES2).
 
-'driver_system_info_ver1.0'(doc) ->    
+'driver_system_info_base_ver'(doc) ->
     [];
-'driver_system_info_ver1.0'(suite) ->
+'driver_system_info_base_ver'(suite) ->
     [];
-'driver_system_info_ver1.0'(Config) when is_list(Config) ->
-    ?line driver_system_info_test(Config, sys_info_1_0_drv).
+'driver_system_info_base_ver'(Config) when is_list(Config) ->
+    ?line driver_system_info_test(Config, sys_info_base_drv).
 
-'driver_system_info_ver1.1'(doc) ->    
+'driver_system_info_prev_ver'(doc) ->
     [];
-'driver_system_info_ver1.1'(suite) ->
+'driver_system_info_prev_ver'(suite) ->
     [];
-'driver_system_info_ver1.1'(Config) when is_list(Config) ->
-    ?line driver_system_info_test(Config, sys_info_1_1_drv).
+'driver_system_info_prev_ver'(Config) when is_list(Config) ->
+    ?line driver_system_info_test(Config, sys_info_prev_drv).
 
 driver_system_info_current_ver(doc) ->    
     [];

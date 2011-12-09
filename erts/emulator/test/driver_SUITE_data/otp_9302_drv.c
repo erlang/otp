@@ -28,7 +28,7 @@ static void stop(ErlDrvData drv_data);
 static ErlDrvData start(ErlDrvPort port,
 			char *command);
 static void output(ErlDrvData drv_data,
-		   char *buf, int len);
+		   char *buf, ErlDrvSizeT len);
 static void ready_async(ErlDrvData drv_data,
 			ErlDrvThreadData thread_data);
 
@@ -196,13 +196,13 @@ static void ready_async(ErlDrvData drv_data,
 }
 
 static void output(ErlDrvData drv_data,
-		   char *buf, int len)
+		   char *buf, ErlDrvSizeT len)
 {
     Otp9302Data *data = (Otp9302Data *) drv_data;
     ErlDrvTermData td_port = driver_mk_port(data->port);
     ErlDrvTermData td_receiver = driver_caller(data->port);
     ErlDrvTermData td_job = driver_mk_atom("job");
-    unsigned int key = (unsigned int) data->port;
+    unsigned int key = (unsigned int) (ErlDrvSInt) data->port;
     long id[5];
     Otp9302AsyncData *ad[5];
     int i;

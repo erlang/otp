@@ -241,9 +241,10 @@ typedef unsigned char uchar;
 static ErlDrvData file_start(ErlDrvPort port, char* command);
 static int file_init(void);
 static void file_stop(ErlDrvData);
-static void file_output(ErlDrvData, char* buf, int len);
-static int file_control(ErlDrvData, unsigned int command, 
-			char* buf, int len, char **rbuf, int rlen);
+static void file_output(ErlDrvData, char* buf, ErlDrvSizeT len);
+static ErlDrvSSizeT file_control(ErlDrvData, unsigned int command,
+				 char* buf, ErlDrvSizeT len,
+				 char **rbuf, ErlDrvSizeT rlen);
 static void file_timeout(ErlDrvData);
 static void file_outputv(ErlDrvData, ErlIOVec*);
 static void file_async_ready(ErlDrvData, ErlDrvThreadData);
@@ -1083,7 +1084,7 @@ static void invoke_read_line(void *data)
 	    d->c.read_line.read_offset - d->c.read_line.read_size;
 	if (size == 0) {
 	    /* Need more place */
-	    size_t need = (d->c.read_line.read_size >= DEFAULT_LINEBUF_SIZE) ? 
+	    ErlDrvSizeT need = (d->c.read_line.read_size >= DEFAULT_LINEBUF_SIZE) ?
 		d->c.read_line.read_size + DEFAULT_LINEBUF_SIZE : DEFAULT_LINEBUF_SIZE;
 	    ErlDrvBinary   *newbin = driver_alloc_binary(need);
 	    if (newbin == NULL) {
@@ -2291,7 +2292,7 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
  * Driver entry point -> output
  */
 static void 
-file_output(ErlDrvData e, char* buf, int count)
+file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 {
     file_descriptor* desc = (file_descriptor*)e;
     Efile_error errInfo;	/* The error codes for the last operation. */
@@ -2668,9 +2669,9 @@ file_flush(ErlDrvData e) {
 /*********************************************************************
  * Driver entry point -> control
  */
-static int 
+static ErlDrvSSizeT
 file_control(ErlDrvData e, unsigned int command, 
-			 char* buf, int len, char **rbuf, int rlen) {
+	     char* buf, ErlDrvSizeT len, char **rbuf, ErlDrvSizeT rlen) {
     /*
      *  warning: variable ‘desc’ set but not used 
      *  [-Wunused-but-set-variable]
@@ -2971,8 +2972,8 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	cq_enq(desc, d);
     } goto done;
     case FILE_WRITE: {
-	int skip = 1;
-	int size = ev->size - skip;
+	ErlDrvSizeT skip = 1;
+	ErlDrvSizeT size = ev->size - skip;
 	if (lseek_flush_read(desc, &err) < 0) {
 	    reply_posix_error(desc, err);
 	    goto done;
@@ -2981,7 +2982,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    reply_posix_error(desc, EBADF);
 	    goto done;
 	}
-	if (size <= 0) {
+	if (size == 0) {
 	    reply_Uint(desc, size);
 	    goto done;
 	}
@@ -3095,7 +3096,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    EF_FREE(d);
 	    reply_Uint(desc, 0);
 	} else {
-	    size_t skip = 1 + 4 + 8*(2*n);
+	    ErlDrvSizeT skip = 1 + 4 + 8*(2*n);
 	    if (skip + total != ev->size) {
 		/* Actual amount of data does not match 
 		 * total of all pos/size specs

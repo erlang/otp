@@ -1580,24 +1580,6 @@ static int do_load_driver_entry(DE_Handle *dh, char *path, char *name)
     }
 
     switch (dp->extended_marker) {
-    case 0:
-	/*
-	 * This may be an old driver that has been recompiled. If so,
-	 * at least the fields that existed in extended driver version
-	 * 1.0 should be zero. If not, a it is a bad driver. We cannot
-	 * be completely certain that this is a valid driver but this is
-	 * the best we can do with old drivers...
-	 */
-	if (dp->major_version != 0
-	    || dp->minor_version != 0
-	    || dp->driver_flags != 0
-	    || dp->handle2 != NULL
-	    || dp->process_exit != NULL) {
-	    /* Old driver; needs to be recompiled... */
-	    res = ERL_DE_LOAD_ERROR_INCORRECT_VERSION;
-	    goto error;
-	}
-	break;
     case ERL_DRV_EXTENDED_MARKER:
 	if (ERL_DRV_EXTENDED_MAJOR_VERSION != dp->major_version
 	    || ERL_DRV_EXTENDED_MINOR_VERSION < dp->minor_version) {
