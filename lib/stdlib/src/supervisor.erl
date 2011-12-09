@@ -270,6 +270,8 @@ start_children(Children, SupName) -> start_children(Children, [], SupName).
 
 start_children([Child|Chs], NChildren, SupName) ->
     case do_start_child(SupName, Child) of
+	{ok, undefined} when Child#child.restart_type =:= temporary ->
+	    start_children(Chs, NChildren, SupName);
 	{ok, Pid} ->
 	    start_children(Chs, [Child#child{pid = Pid}|NChildren], SupName);
 	{ok, Pid, _Extra} ->
@@ -325,6 +327,8 @@ handle_call({start_child, EArgs}, _From, State) when ?is_simple(State) ->
     #child{mfargs = {M, F, A}} = Child,
     Args = A ++ EArgs,
     case do_start_child_i(M, F, Args) of
+	{ok, undefined} when Child#child.restart_type =:= temporary ->
+	    {reply, {ok, undefined}, State};
 	{ok, Pid} ->
 	    NState = save_dynamic_child(Child#child.restart_type, Pid, Args, State),
 	    {reply, {ok, Pid}, NState};
@@ -611,12 +615,12 @@ handle_start_child(Child, State) ->
     case get_child(Child#child.name, State) of
 	false ->
 	    case do_start_child(State#state.name, Child) of
+		{ok, undefined} when Child#child.restart_type =:= temporary ->
+		    {{ok, undefined}, State};
 		{ok, Pid} ->
-		    {{ok, Pid},
-		     save_child(Child#child{pid = Pid}, State)};
+		    {{ok, Pid}, save_child(Child#child{pid = Pid}, State)};
 		{ok, Pid, Extra} ->
-		    {{ok, Pid, Extra},
-		     save_child(Child#child{pid = Pid}, State)};
+		    {{ok, Pid, Extra}, save_child(Child#child{pid = Pid}, State)};
 		{error, What} ->
 		    {{error, {What, Child}}, State}
 	    end;
