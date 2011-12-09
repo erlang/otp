@@ -66,6 +66,7 @@ CT_MODULES = \
 	base/diameter_info \
 	compiler/diameter_codegen \
 	compiler/diameter_exprecs \
+	compiler/diameter_nowarn \
 	compiler/diameter_dict_scanner \
 	compiler/diameter_dict_util \
 	compiler/diameter_make

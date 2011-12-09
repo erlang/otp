@@ -157,7 +157,7 @@ init_per_suite(Config) ->
     try
         false /= os:find_executable("openssl")
             orelse throw({?MODULE, no_openssl}),
-        ok == crypto:start()
+        ok == (catch crypto:start())
             orelse throw({?MODULE, no_crypto}),
         Config
     catch

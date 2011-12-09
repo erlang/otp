@@ -98,15 +98,15 @@ file(F, Outdir, Mode) ->
 get_value(Key, Plist) ->
     proplists:get_value(Key, Plist, []).
 
-write(Path, [C|_] = Spec)
-  when is_integer(C) ->
-    w(Path, Spec, "~s");
-write(Path, Spec) ->
-    w(Path, Spec, "~p.").
+write(Path, Str) ->
+    w(Path, Str, "~s").
 
-w(Path, Spec, Fmt) ->
+write_term(Path, T) ->
+    w(Path, T, "~p.").
+
+w(Path, T, Fmt) ->
     {ok, Fd} = file:open(Path, [write]),
-    io:fwrite(Fd, Fmt ++ "~n", [Spec]),
+    io:fwrite(Fd, Fmt ++ "~n", [T]),
     file:close(Fd).
 
 codegen(File, Spec, Outdir, Mode) ->
@@ -121,7 +121,7 @@ mod(_, {ok, Mod}) ->
     Mod.
 
 gen(spec, Spec, _Mod, Path) ->
-    write(Path ++ ".spec", [?VERSION | Spec]);
+    write_term(Path ++ ".spec", [?VERSION | Spec]);
 
 gen(hrl, Spec, Mod, Path) ->
     gen_hrl(Path ++ ".hrl", Mod, Spec);
@@ -129,7 +129,7 @@ gen(hrl, Spec, Mod, Path) ->
 gen(erl, Spec, Mod, Path) ->
     Forms = [{?attribute, module, Mod},
              {?attribute, compile, [{parse_transform, diameter_exprecs}]},
-             {?attribute, compile, [nowarn_unused_function]},
+             {?attribute, compile, [{parse_transform, diameter_nowarn}]},
              {?attribute, export, [{name, 0},
                                    {id, 0},
                                    {vendor_id, 0},
@@ -173,7 +173,7 @@ gen(erl, Spec, Mod, Path) ->
     gen_erl(Path, insert_hrl_forms(Spec, Forms)).
 
 gen_erl(Path, Forms) ->
-    getr(debug) andalso write(Path ++ ".forms", Forms),
+    getr(debug) andalso write_term(Path ++ ".forms", Forms),
     write(Path ++ ".erl",
           header() ++ erl_prettypr:format(erl_syntax:form_list(Forms))).
 
@@ -835,15 +835,15 @@ avp_info(Entry) ->  %% {Name, Arity}
         [A]   -> {A, {0,1}};
         {Q,T} ->
             {A,_} = avp_info(T),
-            {A, arity(Q)}
+            {A, arity(T,Q)}
     end.
 
 %% Normalize arity to 1 or {N,X} where N is an integer. A record field
 %% for an AVP is list-valued iff the normalized arity is not 1.
-arity('*' = Inf) -> {0, Inf};
-arity({'*', N})  -> {0, N};
-arity({1,1})     -> 1;
-arity(T)         -> T.
+arity({{_}}, '*' = Inf) -> {0, Inf};
+arity([_],   '*' = Inf) -> {0, Inf};
+arity({_},   '*' = Inf) -> {1, Inf};
+arity(_,   {_,_} = Q)   -> Q.
 
 prefix(Spec) ->
     case orddict:find(prefix, Spec) of
