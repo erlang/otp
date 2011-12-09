@@ -153,10 +153,8 @@ lookup_contract(#plt{contracts = Contracts},
 		{M, F, _} = MFA) when is_atom(M), is_atom(F) ->
   table_lookup(Contracts, MFA).
 
--spec lookup_callbacks(plt(), module()) -> [{mfa(),
-					     {{Filename::string(),
-					       Line::pos_integer()},
-					      #contract{}}}].
+-spec lookup_callbacks(plt(), module()) ->
+	 [{mfa(), {{Filename::string(), Line::pos_integer()}, #contract{}}}].
 
 lookup_callbacks(#plt{callbacks = Callbacks}, Mod) when is_atom(Mod) ->
   FunModFilter =
