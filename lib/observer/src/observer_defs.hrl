@@ -16,16 +16,6 @@
 %%
 %% %CopyrightEnd%
 
--record(trace_options, {send         = false,
-			treceive     = false,
-			functions    = false,
-			events       = false,
-			on_1st_spawn = false,
-			on_all_spawn = false,
-			on_1st_link  = false,
-			on_all_link  = false,
-			main_window  = true}).
-
 -record(match_spec, {name = "",
 		     term = [],
 		     str  = [],
@@ -37,15 +27,10 @@
 		      arity, %integer
 		      match_spec = #match_spec{}}).
 
--record(on_spawn, {checkbox, all_spawn, first_spawn}).
-
--record(on_link, {checkbox, all_link, first_link}).
-
--record(pid, {window, traced}).
-
 -record(create_menu,
 	{id,
 	 text,
+	 help = [],
 	 type = append,
 	 check = false
 	}).

@@ -4,7 +4,7 @@
 <application xmlns:xi="http://www.w3.org/2001/XInclude">
   <header>
     <copyright>
-      <year>2002</year><year>2009</year>
+      <year>2002</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -34,6 +34,7 @@
     <br></br>
   </description>
   <xi:include href="observer_app.xml"/>
+  <xi:include href="observer.xml"/>
   <xi:include href="ttb.xml"/>
   <xi:include href="etop.xml"/>
   <xi:include href="crashdump.xml"/>

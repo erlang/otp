@@ -24,8 +24,6 @@
 -export([init/1, handle_info/2, terminate/2, code_change/3, handle_call/3,
 	 handle_event/2, handle_cast/2]).
 
--export([sys_info/0]).
-
 -include_lib("wx/include/wx.hrl").
 -include("observer_defs.hrl").
 
@@ -48,7 +46,7 @@ start_link(Notebook, Parent) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 init([Notebook, Parent]) ->
-    SysInfo = sys_info(),
+    SysInfo = observer_backend:sys_info(),
     {Info, Stat} = info_fields(),
     Panel = wxPanel:new(Notebook),
     Sizer = wxBoxSizer:new(?wxHORIZONTAL),
@@ -73,7 +71,7 @@ create_sys_menu(Parent) ->
     observer_wx:create_menus(Parent, [View]).
 
 update_syspage(#sys_wx_state{node = Node, fields=Fields, sizer=Sizer}) ->
-    SysInfo = observer_wx:try_rpc(Node, ?MODULE, sys_info, []),
+    SysInfo = observer_wx:try_rpc(Node, observer_backend, sys_info, []),
     {Info, Stat} = info_fields(),
     observer_lib:update_info(Fields, observer_lib:fill_info(Info, SysInfo) ++
 				 observer_lib:fill_info(Stat, SysInfo)),
@@ -97,20 +95,20 @@ info_fields() ->
 	     ]}
 	   ],
     Stat = [{"Memory Usage", right,
-	     [{"Total", total},
-	      {"Processes", processes},
-	      {"Atoms", atom},
-	      {"Binaries", binary},
-	      {"Code", code},
-	      {"Ets", ets}
+	     [{"Total", {bytes, total}},
+	      {"Processes", {bytes, processes}},
+	      {"Atoms", {bytes, atom}},
+	      {"Binaries", {bytes, binary}},
+	      {"Code", {bytes, code}},
+	      {"Ets", {bytes, ets}}
 	     ]},
 	    {"Statistics", right,
-	     [{"Up time", uptime},
+	     [{"Up time", {time_ms, uptime}},
 	      {"Max Processes", process_limit},
 	      {"Processes", process_count},
 	      {"Run Queue", run_queue},
-	      {"IO Input",  io_input},
-	      {"IO Output",  io_output}
+	      {"IO Input",  {bytes, io_input}},
+	      {"IO Output", {bytes, io_output}}
 	     ]}
 	   ],
     {Info, Stat}.
@@ -126,16 +124,6 @@ handle_info(refresh_interval, #sys_wx_state{panel = Panel,
     end,
     {noreply, State};
 
-handle_info({node, Node}, #sys_wx_state{panel = Panel} = State) ->
-    UpdState = State#sys_wx_state{node = Node},
-    try
-	update_syspage(UpdState),
-	{noreply, UpdState}
-    catch error:{badrpc, _} ->
-	    observer_wx:return_to_localnode(Panel, Node),
-	    {noreply, State}
-    end;
-
 handle_info({active, Node}, #sys_wx_state{parent = Parent, panel = Panel,
 					  timer = Timer} = State) ->
     UpdState = State#sys_wx_state{node = Node},
@@ -147,7 +135,6 @@ handle_info({active, Node}, #sys_wx_state{parent = Parent, panel = Panel,
 	    observer_wx:return_to_localnode(Panel, Node),
 	    {noreply, State}
     end;
-
 
 handle_info(not_active, #sys_wx_state{timer = Timer} = State) ->
     {noreply, State#sys_wx_state{timer = observer_lib:stop_timer(Timer)}};
@@ -188,36 +175,3 @@ handle_event(#wx{id = ?ID_REFRESH_INTERVAL,
 handle_event(Event, State) ->
     io:format("~p:~p: Unhandled event ~p\n", [?MODULE,?LINE,Event]),
     {noreply, State}.
-
-
-sys_info() ->
-    {{_,Input},{_,Output}} = erlang:statistics(io),
-    [{process_count, erlang:system_info(process_count)},
-     {process_limit, erlang:system_info(process_limit)},
-     {uptime, {time_ms, element(1, erlang:statistics(wall_clock))}},
-     {run_queue, erlang:statistics(run_queue)},
-     {io_input, {bytes, Input}},
-     {io_output, {bytes, Output}},
-     {logical_processors, erlang:system_info(logical_processors)},
-     {logical_processors_available, erlang:system_info(logical_processors_available)},
-     {logical_processors_online, erlang:system_info(logical_processors_online)},
-
-     {total, {bytes, erlang:memory(total)}},
-     %%{processes_used, erlang:memory(processes_used)},
-     {processes, {bytes, erlang:memory(processes)}},
-     %%{atom_used, erlang:memory(atom_used)},
-     {atom, {bytes, erlang:memory(atom)}},
-     {binary, {bytes, erlang:memory(binary)}},
-     {code, {bytes, erlang:memory(code)}},
-     {ets, {bytes, erlang:memory(ets)}},
-
-     {otp_release, erlang:system_info(otp_release)},
-     {version, erlang:system_info(version)},
-     {system_architecture, erlang:system_info(system_architecture)},
-     {kernel_poll, erlang:system_info(kernel_poll)},
-     {smp_support, erlang:system_info(smp_support)},
-     {threads, erlang:system_info(threads)},
-     {thread_pool_size, erlang:system_info(thread_pool_size)},
-     {wordsize_internal, erlang:system_info({wordsize, internal})},
-     {wordsize_external, erlang:system_info({wordsize, external})}
-    ].

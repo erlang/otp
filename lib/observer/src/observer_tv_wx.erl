@@ -23,8 +23,6 @@
 -export([init/1, handle_info/2, terminate/2, code_change/3, handle_call/3,
 	 handle_event/2, handle_sync_event/3, handle_cast/2]).
 
--export([get_table_list/1]). %% RPC called move to runtime tools?
-
 -behaviour(wx_object).
 -include_lib("wx/include/wx.hrl").
 -include("observer_defs.hrl").
@@ -92,8 +90,7 @@ init([Notebook, Parent]) ->
     wxListCtrl:connect(Grid, size, [{skip, true}]),
 
     wxWindow:setFocus(Grid),
-    Timer = observer_lib:start_timer(10),
-    {Panel, #state{grid=Grid, parent=Parent, timer=Timer}}.
+    {Panel, #state{grid=Grid, parent=Parent, timer={false, 10}}}.
 
 handle_event(#wx{id=?ID_REFRESH},
 	     State = #state{node=Node, grid=Grid, opt=Opt}) ->
@@ -121,20 +118,18 @@ handle_event(#wx{id=Id}, State = #state{node=Node, grid=Grid, opt=Opt0})
 	      ?ID_UNREADABLE -> Opt0#opt{unread_hidden= not Opt0#opt.unread_hidden};
 	      ?ID_SYSTEM_TABLES -> Opt0#opt{sys_hidden= not Opt0#opt.sys_hidden}
 	  end,
-    Tables = get_tables(Node, Opt),
-    Tabs = update_grid(Grid, Opt, Tables),
-    wxWindow:setFocus(Grid),
-    {noreply, State#state{opt=Opt, tabs=Tabs}};
+    case get_tables2(Node, Opt) of
+	Error = {error, _} ->
+	    self() ! Error,
+	    {noreply, State};
+	Tables ->
+	    Tabs = update_grid(Grid, Opt, Tables),
+	    wxWindow:setFocus(Grid),
+	    {noreply, State#state{opt=Opt, tabs=Tabs}}
+    end;
 
 handle_event(#wx{event=#wxSize{size={W,_}}},  State=#state{grid=Grid}) ->
-    wx:batch(fun() ->
-		     Cols = wxListCtrl:getColumnCount(Grid),
-		     Last = lists:foldl(fun(I, Last) ->
-						Last - wxListCtrl:getColumnWidth(Grid, I)
-					end, W-?LCTRL_WDECR, lists:seq(0, Cols - 2)),
-		     Size = max(200, Last),
-		     wxListCtrl:setColumnWidth(Grid, Cols-1, Size)
-	     end),
+    observer_lib:set_listctrl_col_size(Grid, W),
     {noreply, State};
 
 handle_event(#wx{obj=Grid, event=#wxList{type=command_list_item_activated,
@@ -169,18 +164,17 @@ handle_event(#wx{id=?ID_REFRESH_INTERVAL},
     Timer = observer_lib:interval_dialog(Grid, Timer0, 10, 5*60),
     {noreply, State#state{timer=Timer}};
 
-handle_event(Event, State) ->
-    io:format("~p:~p, handle event ~p\n", [?MODULE, ?LINE, Event]),
-    {noreply, State}.
+handle_event(Event, _State) ->
+    error({unhandled_event, Event}).
 
 handle_sync_event(_Event, _Obj, _State) ->
     ok.
 
-handle_call(_Event, _From, State) ->
-    {noreply, State}.
+handle_call(Event, From, _State) ->
+    error({unhandled_call, Event, From}).
 
-handle_cast(_Event, State) ->
-    {noreply, State}.
+handle_cast(Event, _State) ->
+    error({unhandled_cast, Event}).
 
 handle_info(refresh_interval, State = #state{node=Node, grid=Grid, opt=Opt}) ->
     Tables = get_tables(Node, Opt),
@@ -199,12 +193,6 @@ handle_info({active, Node}, State = #state{parent=Parent, grid=Grid, opt=Opt,
 handle_info(not_active, State = #state{timer = Timer0}) ->
     Timer = observer_lib:stop_timer(Timer0),
     {noreply, State#state{timer=Timer}};
-
-handle_info({node, Node}, State = #state{grid=Grid, opt=Opt}) ->
-    Tables = get_tables(Node, Opt),
-    Tabs = update_grid(Grid, Opt, Tables),
-    wxWindow:setFocus(Grid),
-    {noreply, State#state{node=Node, tabs=Tabs}};
 
 handle_info({error, Error}, State) ->
     handle_error(Error),
@@ -240,95 +228,41 @@ create_menus(Parent, #opt{sys_hidden=Sys, unread_hidden=UnR, type=Type}) ->
 		    ]}],
     observer_wx:create_menus(Parent, MenuEntries).
 
-get_tables(Node, Opt) ->
-    case rpc:call(Node, ?MODULE, get_table_list, [Opt]) of
+get_tables(Node, Opts) ->
+    case get_tables2(Node, Opts) of
+	Error = {error, _} ->
+	    self() ! Error,
+	    [];
+	Res ->
+	    Res
+    end.
+get_tables2(Node, #opt{type=Type, sys_hidden=Sys, unread_hidden=Unread}) ->
+    Args = [Type, [{sys_hidden,Sys}, {unread_hidden,Unread}]],
+    case rpc:call(Node, observer_backend, get_table_list, Args) of
 	{badrpc, Error} ->
-	    self() ! {error, Error},
-	    [];
-	{error, Error} ->
-	    self() ! {error, Error},
-	    [];
+	    {error, Error};
+	Error = {error, _} ->
+	    Error;
 	Result ->
-	    Result
+	    [list_to_tabrec(Tab) || Tab <- Result]
     end.
 
-get_table_list(#opt{type=ets, unread_hidden=HideUnread, sys_hidden=HideSys}) ->
-    Info = fun(Id, Acc) ->
-		   try
-		       TabId = case ets:info(Id, named_table) of
-				   true -> ignore;
-				   false -> Id
-			       end,
-		       Name = ets:info(Id, name),
-		       Protection = ets:info(Id, protection),
-		       ignore(HideUnread andalso Protection == private, unreadable),
-		       Owner = ets:info(Id, owner),
-		       RegName = case catch process_info(Owner, registered_name) of
-				     [] -> ignore;
-				     {registered_name, ProcName} -> ProcName
-				 end,
-		       ignore(HideSys andalso ordsets:is_element(RegName, sys_processes()), system_tab),
-		       ignore(HideSys andalso ordsets:is_element(Name, sys_tables()), system_tab),
-		       ignore((RegName == mnesia_monitor)
-			      andalso Name /= schema
-			      andalso is_atom((catch mnesia:table_info(Name, where_to_read))), mnesia_tab),
-		       Memory = ets:info(Id, memory) * erlang:system_info(wordsize),
-		       Tab = #tab{name = Name,
-				  id = TabId,
-				  protection = Protection,
-				  owner = Owner,
-				  size = ets:info(Id, size),
-				  reg_name = RegName,
-				  type = ets:info(Id, type),
-				  keypos = ets:info(Id, keypos),
-				  heir = ets:info(Id, heir),
-				  memory = Memory,
-				  compressed = ets:info(Id, compressed),
-				  fixed = ets:info(Id, fixed)
-				 },
-		       [Tab|Acc]
-		   catch _:_What ->
-			   %% io:format("Skipped ~p: ~p ~n",[Id, _What]),
-			   Acc
-		   end
-	   end,
-    lists:foldl(Info, [], ets:all());
-get_table_list(#opt{type=mnesia, sys_hidden=HideSys}) ->
-    Owner = ets:info(schema, owner),
-    Owner /= undefined orelse
-	throw({error, "Mnesia is not running on: " ++ atom_to_list(node())}),
-    {registered_name, RegName} = process_info(Owner, registered_name),
-    Info = fun(Id, Acc) ->
-		   try
-		       Name = Id,
-		       ignore(HideSys andalso ordsets:is_element(Name, mnesia_tables()), system_tab),
-		       ignore(Name =:= schema, mnesia_tab),
-		       Storage = mnesia:table_info(Id, storage_type),
-		       Tab0 = #tab{name = Name,
-				   owner = Owner,
-				   size = mnesia:table_info(Id, size),
-				   reg_name = RegName,
-				   type = mnesia:table_info(Id, type),
-				   keypos = 2,
-				   memory = mnesia:table_info(Id, memory) * erlang:system_info(wordsize),
-				   storage = Storage,
-				   index = mnesia:table_info(Id, index)
-				  },
-		       Tab = if Storage == disc_only_copies ->
-				     Tab0#tab{fixed = element(2, dets:info(Id, safe_fixed)) /= []};
-				(Storage == ram_copies) orelse
-				(Storage == disc_copies) ->
-				     Tab0#tab{fixed = ets:info(Id, fixed),
-					      compressed = ets:info(Id, compressed)};
-				true -> Tab0
-			     end,
-		       [Tab|Acc]
-		   catch _:_What ->
-			   %% io:format("Skipped ~p: ~p ~n",[Id, _What]),
-			   Acc
-		   end
-	   end,
-    lists:foldl(Info, [], mnesia:system_info(tables)).
+list_to_tabrec(PL) ->
+    #tab{name = proplists:get_value(name, PL),
+	 id = proplists:get_value(id, PL, ignore),
+	 size = proplists:get_value(size, PL, 0),
+	 memory= proplists:get_value(memory, PL, 0),   %% In bytes
+	 owner=proplists:get_value(owner, PL),
+	 reg_name=proplists:get_value(reg_name, PL),
+	 protection = proplists:get_value(protection, PL, public),
+	 type=proplists:get_value(type, PL, set),
+	 keypos=proplists:get_value(keypos, PL, 1),
+	 heir=proplists:get_value(heir, PL, none),
+	 compressed=proplists:get_value(compressed, PL, false),
+	 fixed=proplists:get_value(fixed, PL, false),
+	 %% Mnesia Info
+	 storage =proplists:get_value(storage, PL),
+	 index = proplists:get_value(index, PL)}.
 
 display_table_info(Parent0, Node, Source, Table) ->
     Parent = observer_lib:get_wx_parent(Parent0),
@@ -382,59 +316,6 @@ list_to_strings([A]) -> integer_to_list(A);
 list_to_strings([A,B]) ->
     integer_to_list(A) ++ " ," ++ list_to_strings(B).
 
-sys_tables() ->
-    [ac_tab,  asn1,
-     cdv_dump_index_table,  cdv_menu_table,  cdv_decode_heap_table,
-     cell_id,  cell_pos,  clist,
-     cover_internal_data_table,   cover_collected_remote_data_table, cover_binary_code_table,
-     code, code_names,  cookies,
-     corba_policy,  corba_policy_associations,
-     dets, dets_owners, dets_registry,
-     disk_log_names, disk_log_pids,
-     eprof,  erl_atom_cache, erl_epmd_nodes,
-     etop_accum_tab,  etop_tr,
-     ets_coverage_data,
-     file_io_servers,
-     gs_mapping, gs_names,  gstk_db,
-     gstk_grid_cellid, gstk_grid_cellpos, gstk_grid_id,
-     httpd,
-     id,
-     ign_req_index, ign_requests,
-     index,
-     inet_cache, inet_db, inet_hosts,
-     'InitialReferences',
-     int_db,
-     interpreter_includedirs_macros,
-     ir_WstringDef,
-     lmcounter,  locks,
-%     mnesia_decision,
-     mnesia_gvar, mnesia_stats,
-%     mnesia_transient_decision,
-     pg2_table,
-     queue,
-     schema,
-     shell_records,
-     snmp_agent_table, snmp_local_db2, snmp_mib_data, snmp_note_store, snmp_symbolic_ets,
-     tkFun, tkLink, tkPriv,
-     ttb, ttb_history_table,
-     udp_fds, udp_pids
-    ].
-
-sys_processes() ->
-    [auth, code_server, global_name_server, inet_db,
-     mnesia_recover, net_kernel, timer_server, wxe_master].
-
-mnesia_tables() ->
-    [ir_AliasDef, ir_ArrayDef, ir_AttributeDef, ir_ConstantDef,
-     ir_Contained, ir_Container, ir_EnumDef, ir_ExceptionDef,
-     ir_IDLType, ir_IRObject, ir_InterfaceDef, ir_ModuleDef,
-     ir_ORB, ir_OperationDef, ir_PrimitiveDef, ir_Repository,
-     ir_SequenceDef, ir_StringDef, ir_StructDef, ir_TypedefDef,
-     ir_UnionDef, logTable, logTransferTable, mesh_meas,
-     mesh_type, mnesia_clist, orber_CosNaming,
-     orber_objkeys, user
-    ].
-
 handle_error(Foo) ->
     Str = io_lib:format("ERROR: ~s~n",[Foo]),
     observer_lib:display_info_dialog(Str).
@@ -470,6 +351,3 @@ update_grid2(Grid, #opt{sort_key=Sort,sort_incr=Dir}, Tables) ->
 	       end,
     lists:foldl(Update, 0, ProcInfo),
     ProcInfo.
-
-ignore(true, Reason) -> throw(Reason);
-ignore(_,_ ) -> ok.

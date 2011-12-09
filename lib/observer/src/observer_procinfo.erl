@@ -41,7 +41,7 @@
 -record(worker, {panel, callback}).
 
 start(Process, ParentFrame, Parent) ->
-    wx_object:start(?MODULE, [Process, ParentFrame, Parent], []).
+    wx_object:start_link(?MODULE, [Process, ParentFrame, Parent], []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -52,7 +52,7 @@ init([Pid, ParentFrame, Parent]) ->
 		  {registered_name, Registered} -> atom_to_list(Registered)
 	      end,
 	Frame=wxFrame:new(ParentFrame, ?wxID_ANY, [atom_to_list(node(Pid)), $:, Title],
-			  [{style, ?wxDEFAULT_FRAME_STYLE}, {size, {800,700}}]),
+			  [{style, ?wxDEFAULT_FRAME_STYLE}, {size, {850,600}}]),
 	MenuBar = wxMenuBar:new(),
 	create_menus(MenuBar),
 	wxFrame:setMenuBar(Frame, MenuBar),
@@ -75,10 +75,7 @@ init([Pid, ParentFrame, Parent]) ->
 		      }}
     catch error:{badrpc, _} ->
 	    observer_wx:return_to_localnode(ParentFrame, node(Pid)),
-	    {stop, badrpc, #state{parent=Parent, pid=Pid}};
-	  Error:Reason ->
-	    io:format("~p:~p: ~p ~p~n ~p~n",
-		      [?MODULE, ?LINE, Error, Reason, erlang:get_stacktrace()])
+	    {stop, badrpc, #state{parent=Parent, pid=Pid}}
     end.
 
 init_panel(Notebook, Str, Pid, Fun) ->
@@ -92,30 +89,27 @@ init_panel(Notebook, Str, Pid, Fun) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%Callbacks%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 handle_event(#wx{event=#wxClose{type=close_window}}, State) ->
-    {stop, shutdown, State};
+    {stop, normal, State};
 
 handle_event(#wx{id=?wxID_CLOSE, event=#wxCommand{type=command_menu_selected}}, State) ->
-    {stop, shutdown, State};
+    {stop, normal, State};
 
 handle_event(#wx{id=?REFRESH}, #state{pages=Pages}=State) ->
     [(W#worker.callback)() || W <- Pages],
     {noreply, State};
 
-handle_event(Event, State) ->
-    io:format("~p: ~p, Handle event: ~p~n", [?MODULE, ?LINE, Event]),
+handle_event(Event, _State) ->
+    error({unhandled_event, Event}).
+
+handle_info(_Info, State) ->
+    %% io:format("~p: ~p, Handle info: ~p~n", [?MODULE, ?LINE, Info]),
     {noreply, State}.
 
-handle_info(Info, State) ->
-    io:format("~p: ~p, Handle info: ~p~n", [?MODULE, ?LINE, Info]),
-    {noreply, State}.
+handle_call(Call, From, _State) ->
+    error({unhandled_call, Call, From}).
 
-handle_call(Call, _From, State) ->
-    io:format("~p ~p: Got call ~p~n",[?MODULE, ?LINE, Call]),
-    {reply, ok, State}.
-
-handle_cast(Cast, State) ->
-    io:format("~p ~p: Got cast ~p~n", [?MODULE, ?LINE, Cast]),
-    {noreply, State}.
+handle_cast(Cast, _State) ->
+    error({unhandled_cast, Cast}).
 
 terminate(_Reason, #state{parent=Parent,pid=Pid,frame=Frame}) ->
     Parent ! {procinfo_menu_closed, Pid},
@@ -179,26 +173,42 @@ init_dict_page(Parent, Pid) ->
     {Text, Update}.
 
 init_stack_page(Parent, Pid) ->
-    Text = init_text_page(Parent),
-    Format = fun({Mod, Fun, Arg, Info}) ->
-		     Str = io_lib:format("~w:~w/~w", [Mod,Fun,Arg]),
-		     case Info of
-			 [{file,File},{line,Line}] ->
-			     io_lib:format("~-45.s ~s:~w~n", [Str,File,Line]);
-			 _ ->
-			     [Str,$\n]
-		     end
-	     end,
+    LCtrl = wxListCtrl:new(Parent, [{style, ?wxLC_REPORT bor ?wxLC_HRULES}]),
+    Li = wxListItem:new(),
+    wxListItem:setText(Li, "Module:Function/Arg"),
+    wxListCtrl:insertColumn(LCtrl, 0, Li),
+    wxListCtrl:setColumnWidth(LCtrl, 0, 300),
+    wxListItem:setText(Li, "File:LineNumber"),
+    wxListCtrl:insertColumn(LCtrl, 1, Li),
+    wxListCtrl:setColumnWidth(LCtrl, 1, 300),
+    wxListItem:destroy(Li),
     Update = fun() ->
 		     {current_stacktrace,RawBt} =
 			 observer_wx:try_rpc(node(Pid), erlang, process_info,
 					     [Pid, current_stacktrace]),
-		     Last = wxTextCtrl:getLastPosition(Text),
-		     wxTextCtrl:remove(Text, 0, Last),
-		     [wxTextCtrl:writeText(Text, Format(Entry)) || Entry <- RawBt]
+		     wxListCtrl:deleteAllItems(LCtrl),
+		     wx:foldl(fun({M, F, A, Info}, Row) ->
+				      _Item = wxListCtrl:insertItem(LCtrl, Row, ""),
+				      ?EVEN(Row) andalso
+					  wxListCtrl:setItemBackgroundColour(LCtrl, Row, ?BG_EVEN),
+				      wxListCtrl:setItem(LCtrl, Row, 0, observer_lib:to_str({M,F,A})),
+				      FileLine = case Info of
+						     [{file,File},{line,Line}] ->
+							 io_lib:format("~s:~w", [File,Line]);
+						     _ ->
+							 []
+						 end,
+				      wxListCtrl:setItem(LCtrl, Row, 1, FileLine),
+				      Row+1
+			      end, 0, RawBt)
 	     end,
+    Resize = fun(#wx{event=#wxSize{size={W,_}}},Ev) ->
+		     wxEvent:skip(Ev),
+		     observer_lib:set_listctrl_col_size(LCtrl, W)
+	     end,
+    wxListCtrl:connect(LCtrl, size, [{callback, Resize}]),
     Update(),
-    {Text, Update}.
+    {LCtrl, Update}.
 
 create_menus(MenuBar) ->
     Menus = [{"File", [#create_menu{id=?wxID_CLOSE, text="Close"}]},

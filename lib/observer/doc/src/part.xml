@@ -4,7 +4,7 @@
 <part xmlns:xi="http://www.w3.org/2001/XInclude">
   <header>
     <copyright>
-      <year>2002</year><year>2009</year>
+      <year>2002</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -31,6 +31,7 @@
     <p>The <em>Observer</em> application contains tools for tracing
       and investigation of distributed systems.</p>
   </description>
+  <xi:include href="observer_ug.xml"/>
   <xi:include href="ttb_ug.xml"/>
   <xi:include href="etop_ug.xml"/>
   <xi:include href="crashdump_ug.xml"/>

@@ -42,6 +42,7 @@ MODULES= \
 	etop_tr \
 	etop_txt \
 	observer \
+	observer_app_wx \
 	observer_lib \
 	observer_wx \
 	observer_pro_wx \
@@ -57,6 +58,8 @@ MODULES= \
 HRL_FILES= \
 	../include/etop.hrl
 INTERNAL_HRL_FILES= \
+	observer_tv.hrl \
+	observer_defs.hrl \
 	crashdump_viewer.hrl \
 	etop_defs.hrl
 ERL_FILES= $(MODULES:%=%.erl)
@@ -103,8 +106,7 @@ ERL_COMPILE_FLAGS += \
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
-
-debug opt: $(TARGET_FILES)
+opt debug: $(TARGET_FILES)
 
 clean:
 	rm -f $(TARGET_FILES)
@@ -115,6 +117,8 @@ $(APP_TARGET): $(APP_SRC) ../vsn.mk
 
 $(APPUP_TARGET): $(APPUP_SRC) ../vsn.mk
 	sed -e 's;%VSN%;$(VSN);' $< > $@
+
+$(TARGET_FILES): $(INTERNAL_HRL_FILES)
 
 docs:
 

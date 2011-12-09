@@ -19,11 +19,12 @@
 -module(observer_lib).
 
 -export([get_wx_parent/1,
-	 display_info_dialog/1,
+	 display_info_dialog/1, user_term/3,
 	 interval_dialog/4, start_timer/1, stop_timer/1,
 	 display_info/2, fill_info/2, update_info/2, to_str/1,
 	 create_menus/3, create_menu_item/3,
-	 create_attrs/0
+	 create_attrs/0,
+	 set_listctrl_col_size/2
 	]).
 
 -include_lib("wx/include/wx.hrl").
@@ -195,6 +196,7 @@ to_str(No) when is_integer(No) ->
 to_str(Term) ->
     io_lib:format("~w", [Term]).
 
+create_menus([], _MenuBar, _Type) -> ok;
 create_menus(Menus, MenuBar, Type) ->
     Add = fun({Tag, Ms}, Index) ->
 		  create_menu(Tag, Ms, Index, MenuBar, Type)
@@ -239,15 +241,21 @@ create_menu(Name, MenuItems, Index, MenuBar, _Type) ->
 create_menu_item(#create_menu{id = ?wxID_HELP=Id}, Menu, Index) ->
     wxMenu:insert(Menu, Index, Id),
     Index+1;
-create_menu_item(#create_menu{id = Id, text = Text, type = Type, check = Check}, Menu, Index) ->
+create_menu_item(#create_menu{id=Id, text=Text, help=Help, type=Type, check=Check},
+		 Menu, Index) ->
+    Opts = case Help of
+	       [] -> [];
+	       _ -> [{help, Help}]
+	   end,
     case Type of
 	append ->
-	    wxMenu:insert(Menu, Index, Id, [{text, Text}]);
+	    wxMenu:insert(Menu, Index, Id,
+			  [{text, Text}|Opts]);
 	check ->
-	    wxMenu:insertCheckItem(Menu, Index, Id, Text),
+	    wxMenu:insertCheckItem(Menu, Index, Id, Text, Opts),
 	    wxMenu:check(Menu, Id, Check);
 	radio ->
-	    wxMenu:insertRadioItem(Menu, Index, Id, Text),
+	    wxMenu:insertRadioItem(Menu, Index, Id, Text, Opts),
 	    wxMenu:check(Menu, Id, Check);
 	separator ->
 	    wxMenu:insertSeparator(Menu, Index)
@@ -295,3 +303,53 @@ create_box(Panel, Data) ->
     wxSizer:add(Box, Right),
     wxSizer:addSpacer(Box, 30),
     {Box, InfoFields}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+set_listctrl_col_size(LCtrl, Total) ->
+    wx:batch(fun() -> calc_last(LCtrl, Total) end).
+
+calc_last(LCtrl, _Total) ->
+    Cols = wxListCtrl:getColumnCount(LCtrl),
+    {Total, _} = wxWindow:getClientSize(LCtrl),
+    SBSize = scroll_size(LCtrl),
+    Last = lists:foldl(fun(I, Last) ->
+			       Last - wxListCtrl:getColumnWidth(LCtrl, I)
+		       end, Total-SBSize, lists:seq(0, Cols - 2)),
+    Size = max(150, Last),
+    wxListCtrl:setColumnWidth(LCtrl, Cols-1, Size).
+
+scroll_size(LCtrl) ->
+    case os:type() of
+	{win32, nt} -> 0;
+	{unix, darwin} ->
+	    %% I can't figure out is there is a visible scrollbar
+	    %% Always make room for it
+	    wxSystemSettings:getMetric(?wxSYS_VSCROLL_X);
+	_ ->
+	    case wxWindow:hasScrollbar(LCtrl, ?wxVERTICAL) of
+		true -> wxSystemSettings:getMetric(?wxSYS_VSCROLL_X);
+		false -> 0
+	    end
+    end.
+
+
+user_term(Parent, Title, Default) ->
+    Dialog = wxTextEntryDialog:new(Parent, Title, [{value, Default}]),
+    case wxTextEntryDialog:showModal(Dialog) of
+	?wxID_OK ->
+	    Str = wxTextEntryDialog:getValue(Dialog),
+	    wxTextEntryDialog:destroy(Dialog),
+	    parse_string(Str);
+	?wxID_CANCEL ->
+	    wxTextEntryDialog:destroy(Dialog)
+    end.
+
+parse_string(Str) ->
+    try
+	{ok, Tokens, _} = erl_scan:string(Str),
+	erl_parse:parse_term(Tokens)
+    catch _:{badmatch, {error, {_, _, Err}}} ->
+	    {error, ["Parse error: ", Err]};
+	  _Err ->
+	    {error, ["Syntax error in: ", Str]}
+    end.

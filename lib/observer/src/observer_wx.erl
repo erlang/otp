@@ -54,13 +54,17 @@
 	 tv_panel,
 	 sys_panel,
 	 trace_panel,
+	 app_panel,
 	 active_tab,
 	 node,
 	 nodes
 	}).
 
 start() ->
-    wx_object:start(?MODULE, [], []).
+    case wx_object:start(?MODULE, [], []) of
+	Err = {error, _} -> Err;
+	_Obj -> ok
+    end.
 
 create_menus(Object, Menus) when is_list(Menus) ->
     wx_object:call(Object, {create_menus, Menus}).
@@ -78,7 +82,7 @@ init(_Args) ->
     wx:new(),
     catch wxSystemOptions:setOption("mac.listctrl.always_use_generic", 1),
     Frame = wxFrame:new(wx:null(), ?wxID_ANY, "Observer",
-			[{size, {1000, 500}}, {style, ?wxDEFAULT_FRAME_STYLE}]),
+			[{size, {850, 600}}, {style, ?wxDEFAULT_FRAME_STYLE}]),
     IconFile = filename:join(code:priv_dir(observer), "erlang_observer.png"),
     Icon = wxIcon:new(IconFile, [{type,?wxBITMAP_TYPE_PNG}]),
     wxFrame:setIcon(Frame, Icon),
@@ -125,6 +129,10 @@ setup(#state{frame = Frame} = State) ->
     %% I postpone the creation of the other tabs so they can query/use
     %% the window size
 
+    %% App Viewer Panel
+    AppPanel = observer_app_wx:start_link(Notebook, self()),
+    wxNotebook:addPage(Notebook, AppPanel, "Applications", []),
+
     %% Process Panel
     ProPanel = observer_pro_wx:start_link(Notebook, self()),
     wxNotebook:addPage(Notebook, ProPanel, "Processes", []),
@@ -136,6 +144,7 @@ setup(#state{frame = Frame} = State) ->
     %% Trace Viewer Panel
     TracePanel = observer_trace_wx:start_link(Notebook, self()),
     wxNotebook:addPage(Notebook, TracePanel, ?TRACE_STR, []),
+
 
     %% Force redraw (window needs it)
     wxWindow:refresh(Panel),
@@ -150,16 +159,24 @@ setup(#state{frame = Frame} = State) ->
 			   pro_panel = ProPanel,
 			   tv_panel  = TVPanel,
 			   trace_panel = TracePanel,
+			   app_panel = AppPanel,
 			   active_tab = SysPid,
 			   node  = node(),
 			   nodes = Nodes
 			  },
     %% Create resources which we don't want to duplicate
-    SysFont = wxSystemSettings:getFont(?wxSYS_DEFAULT_GUI_FONT),
-    SysFontSize = wxFont:getPointSize(SysFont),
-    Modern = wxFont:new(SysFontSize, ?wxFONTFAMILY_MODERN, ?wxFONTSTYLE_NORMAL, ?wxFONTWEIGHT_NORMAL),
-    put({font, modern}, Modern),
-    put({font, fixed}, Modern),
+    SysFont = wxSystemSettings:getFont(?wxSYS_SYSTEM_FIXED_FONT),
+    %% OemFont = wxSystemSettings:getFont(?wxSYS_OEM_FIXED_FONT),
+    %% io:format("Sz sys ~p(~p) oem ~p(~p)~n",
+    %% 	      [wxFont:getPointSize(SysFont), wxFont:isFixedWidth(SysFont),
+    %% 	       wxFont:getPointSize(OemFont), wxFont:isFixedWidth(OemFont)]),
+    Fixed = case wxFont:isFixedWidth(SysFont) of
+		true -> SysFont;
+		false -> %% Sigh
+		    SysFontSize = wxFont:getPointSize(SysFont),
+		    wxFont:new(SysFontSize, ?wxFONTFAMILY_MODERN, ?wxFONTSTYLE_NORMAL, ?wxFONTWEIGHT_NORMAL)
+	    end,
+    put({font, fixed}, Fixed),
     UpdState.
 
 
@@ -270,10 +287,13 @@ handle_cast(_Cast, State) ->
 
 handle_call({create_menus, TabMenus}, _From,
 	    State = #state{menubar=MenuBar, menus=PrevTabMenus}) ->
-    wx:batch(fun() ->
-		     clean_menus(PrevTabMenus, MenuBar),
-		     observer_lib:create_menus(TabMenus, MenuBar, plugin)
-	     end),
+    if TabMenus == PrevTabMenus -> ignore;
+       true ->
+	    wx:batch(fun() ->
+			     clean_menus(PrevTabMenus, MenuBar),
+			     observer_lib:create_menus(TabMenus, MenuBar, plugin)
+		     end)
+    end,
     {reply, ok, State#state{menus=TabMenus}};
 
 handle_call({get_attrib, Attrib}, _From, State) ->
@@ -301,6 +321,10 @@ handle_info({nodedown, Node},
     Msg = ["Node down: " | atom_to_list(Node)],
     create_txt_dialog(Frame, Msg, "Node down", ?wxICON_EXCLAMATION),
     {noreply, State3};
+
+handle_info({'EXIT', _Pid, _Reason}, State) ->
+    io:format("Child crashed exiting:  ~p ~p~n", [_Pid,_Reason]),
+    {stop, normal, State};
 
 handle_info(_Info, State) ->
     {noreply, State}.
@@ -368,9 +392,8 @@ connect2(NodeName, Opts, Cookie) ->
 	    {error, net_kernel, Reason}
     end.
 
-change_node_view(Node, State = #state{pro_panel=Pro, sys_panel=Sys, tv_panel=Tv}) ->
-    lists:foreach(fun(Pid) -> wx_object:get_pid(Pid) ! {node, Node} end,
-		  [Pro, Sys, Tv]),
+change_node_view(Node, State) ->
+    get_active_pid(State) ! {active, Node},
     StatusText = ["Observer - " | atom_to_list(Node)],
     wxFrame:setTitle(State#state.frame, StatusText),
     wxStatusBar:setStatusText(State#state.status_bar, StatusText),
@@ -380,12 +403,14 @@ check_page_title(Notebook) ->
     Selection = wxNotebook:getSelection(Notebook),
     wxNotebook:getPageText(Notebook, Selection).
 
-get_active_pid(#state{notebook=Notebook, pro_panel=Pro, sys_panel=Sys, tv_panel=Tv, trace_panel=Trace}) ->
+get_active_pid(#state{notebook=Notebook, pro_panel=Pro, sys_panel=Sys,
+		      tv_panel=Tv, trace_panel=Trace, app_panel=App}) ->
     Panel = case check_page_title(Notebook) of
 		"Processes" -> Pro;
 		"System" -> Sys;
 		"Table Viewer" -> Tv;
-		?TRACE_STR -> Trace
+		?TRACE_STR -> Trace;
+		"Applications" -> App
 	    end,
     wx_object:get_pid(Panel).
 
@@ -468,7 +493,7 @@ default_menus(NodesMenuItems) ->
 				 [#create_menu{id = ?ID_CONNECT, text = "Enable distribution"}]}
 	       end,
     case os:type() =:= {unix, darwin} of
-	false -> 
+	false ->
 	    FileMenu = {"File", [Quit]},
 	    HelpMenu = {"Help", [About,Help]},
 	    [FileMenu, NodeMenu, HelpMenu];

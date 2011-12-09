@@ -32,22 +32,29 @@
 
 %% Defines
 -define(COL_PID,  0).
--define(COL_NAME, 1).
--define(COL_TIME, 2).
--define(COL_REDS, 3).
--define(COL_MEM,  4).
--define(COL_MSG,  5).
--define(COL_FUN,  6).
+-define(COL_NAME, ?COL_PID+1).
+%%-define(COL_TIME, 2).
+-define(COL_REDS, ?COL_NAME+1).
+-define(COL_MEM,  ?COL_REDS+1).
+-define(COL_MSG,  ?COL_MEM+1).
+-define(COL_FUN,  ?COL_MSG+1).
 
 -define(ID_KILL, 201).
 -define(ID_PROC, 202).
 -define(ID_REFRESH, 203).
 -define(ID_REFRESH_INTERVAL, 204).
 -define(ID_DUMP_TO_FILE, 205).
--define(ID_TRACEMENU, 206).
--define(ID_TRACE_ALL_MENU, 207).
--define(ID_TRACE_NEW_MENU, 208).
--define(ID_ACCUMULATE, 209).
+-define(ID_TRACE_PIDS, 206).
+-define(ID_TRACE_NAMES, 207).
+-define(ID_TRACE_NEW, 208).
+-define(ID_TRACE_ALL, 209).
+-define(ID_ACCUMULATE, 210).
+
+-define(TRACE_PIDS_STR, "Trace selected process identifiers").
+-define(TRACE_NAMES_STR, "Trace selected processes, "
+	"if a process have a registered name "
+	"processes with same name will be traced on all nodes").
+
 
 %% Records
 
@@ -98,12 +105,9 @@ setup(Notebook, Parent, Holder) ->
 
     wxWindow:setSizer(ProPanel, Sizer),
 
-    Popup = create_popup_menu(ProPanel),
-
     State = #state{parent=Parent,
 		   grid=Grid,
 		   panel=ProPanel,
-		   popup_menu=Popup,
 		   parent_notebook=Notebook,
 		   holder=Holder,
 		   timer={false, 10}
@@ -124,33 +128,13 @@ create_pro_menu(Parent, Holder) ->
 		     #create_menu{id=?ID_REFRESH, text="Refresh\tCtrl-R"},
 		     #create_menu{id=?ID_REFRESH_INTERVAL, text="Refresh Interval"}]},
 		   {"Trace",
-		    [#create_menu{id=?ID_TRACEMENU, text="Trace selected processes"},
-		     #create_menu{id=?ID_TRACE_NEW_MENU, text="Trace new processes"}
+		    [#create_menu{id=?ID_TRACE_PIDS, text="Trace processes"},
+		     #create_menu{id=?ID_TRACE_NAMES, text="Trace named processes (all nodes)"},
+		     #create_menu{id=?ID_TRACE_NEW, text="Trace new processes"}
 		     %% , #create_menu{id=?ID_TRACE_ALL_MENU, text="Trace all processes"}
 		    ]}
 		  ],
     observer_wx:create_menus(Parent, MenuEntries).
-
-create_popup_menu(ParentFrame) ->
-    MiniFrame = wxMiniFrame:new(ParentFrame, ?wxID_ANY, "Options", [{style, ?wxFRAME_FLOAT_ON_PARENT}]),
-    Panel = wxPanel:new(MiniFrame),
-    Sizer = wxBoxSizer:new(?wxVERTICAL),
-    TraceBtn = wxButton:new(Panel, ?ID_TRACEMENU, [{label, "Trace selected"},
-						   {style, ?wxNO_BORDER}]),
-    ProcBtn = wxButton:new(Panel, ?ID_PROC, [{label, "Process info"},
-					     {style, ?wxNO_BORDER}]),
-    KillBtn = wxButton:new(Panel, ?ID_KILL, [{label, "Kill process"},
-					     {style, ?wxNO_BORDER}]),
-
-    wxButton:connect(TraceBtn, command_button_clicked),
-    wxButton:connect(ProcBtn, command_button_clicked),
-    wxButton:connect(KillBtn, command_button_clicked),
-    wxSizer:add(Sizer, TraceBtn, [{flag, ?wxEXPAND}, {proportion, 1}]),
-    wxSizer:add(Sizer, ProcBtn, [{flag, ?wxEXPAND}, {proportion, 1}]),
-    wxSizer:add(Sizer, KillBtn, [{flag, ?wxEXPAND}, {proportion, 1}]),
-    wxPanel:setSizer(Panel, Sizer),
-    wxSizer:setSizeHints(Sizer, MiniFrame),
-    MiniFrame.
 
 create_list_box(Panel, Holder) ->
     Style = ?wxLC_REPORT bor ?wxLC_VIRTUAL bor ?wxLC_HRULES,
@@ -174,7 +158,7 @@ create_list_box(Panel, Holder) ->
 		   end,
     ListItems = [{"Pid", ?wxLIST_FORMAT_CENTRE,  120},
 		 {"Name or Initial Func", ?wxLIST_FORMAT_LEFT, 200},
-		 {"Time", ?wxLIST_FORMAT_CENTRE, 50},
+%%		 {"Time", ?wxLIST_FORMAT_CENTRE, 50},
 		 {"Reds", ?wxLIST_FORMAT_RIGHT, 100},
 		 {"Memory", ?wxLIST_FORMAT_RIGHT, 100},
 		 {"MsgQ",  ?wxLIST_FORMAT_RIGHT, 50},
@@ -257,10 +241,6 @@ handle_info(not_active, #state{timer=Timer0}=State) ->
     Timer = observer_lib:stop_timer(Timer0),
     {noreply, State#state{timer=Timer}};
 
-handle_info({node, Node}, #state{holder=Holder}=State) ->
-    Holder ! {change_node, Node},
-    {noreply, State};
-
 handle_info(Info, State) ->
     io:format("~p:~p, Unexpected info: ~p~n", [?MODULE, ?LINE, Info]),
     {noreply, State}.
@@ -314,25 +294,17 @@ handle_event(#wx{id=?ID_REFRESH_INTERVAL},
     Timer = observer_lib:interval_dialog(Panel, Timer0, 1, 5*60),
     {noreply, State#state{timer=Timer}};
 
-handle_event(#wx{id=?ID_KILL},
-	     #state{popup_menu=Pop,sel={[_|Ids], [ToKill|Pids]}}=State) ->
-    wxWindow:show(Pop, [{show, false}]),
+handle_event(#wx{id=?ID_KILL}, #state{sel={[_|Ids], [ToKill|Pids]}}=State) ->
     exit(ToKill, kill),
     {noreply, State#state{sel={Ids,Pids}}};
 
 
-handle_event(#wx{id = ?ID_PROC},
-	     #state{panel=Panel,
-		    popup_menu=Pop,
-		    sel={_, [Pid|_]},
-		    procinfo_menu_pids=Opened}=State) ->
-    wxWindow:show(Pop, [{show, false}]),
+handle_event(#wx{id=?ID_PROC},
+	     #state{panel=Panel, sel={_, [Pid|_]},procinfo_menu_pids=Opened}=State) ->
     Opened2 = start_procinfo(Pid, Panel, Opened),
     {noreply, State#state{procinfo_menu_pids=Opened2}};
 
-handle_event(#wx{id = ?ID_TRACEMENU},
-	     #state{popup_menu=Pop, sel={_, Pids}, panel=Panel}=State)  ->
-    wxWindow:show(Pop, [{show, false}]),
+handle_event(#wx{id=?ID_TRACE_PIDS}, #state{sel={_, Pids}, panel=Panel}=State)  ->
     case Pids of
 	[] ->
 	    observer_wx:create_txt_dialog(Panel, "No selected processes", "Tracer", ?wxICON_EXCLAMATION),
@@ -342,50 +314,54 @@ handle_event(#wx{id = ?ID_TRACEMENU},
 	    {noreply,  State}
     end;
 
-handle_event(#wx{id=?ID_TRACE_NEW_MENU, event=#wxCommand{type=command_menu_selected}}, State) ->
+handle_event(#wx{id=?ID_TRACE_NAMES}, #state{sel={SelIds,_Pids}, holder=Holder, panel=Panel}=State)  ->
+    case SelIds of
+	[] ->
+	    observer_wx:create_txt_dialog(Panel, "No selected processes", "Tracer", ?wxICON_EXCLAMATION),
+	    {noreply, State};
+	_ ->
+	    PidsOrReg = call(Holder, {get_name_or_pid, self(), SelIds}),
+	    observer_trace_wx:add_processes(observer_wx:get_tracer(), PidsOrReg),
+	    {noreply,  State}
+    end;
+
+handle_event(#wx{id=?ID_TRACE_NEW, event=#wxCommand{type=command_menu_selected}}, State) ->
     observer_trace_wx:add_processes(observer_wx:get_tracer(), [new]),
     {noreply,  State};
 
 handle_event(#wx{event=#wxSize{size={W,_}}},
 	     #state{grid=Grid}=State) ->
-    wx:batch(fun() ->
-		     Cols = wxListCtrl:getColumnCount(Grid),
-		     Last = lists:foldl(fun(I, Last) ->
-						Last - wxListCtrl:getColumnWidth(Grid, I)
-					end, W-Cols*3-?LCTRL_WDECR, lists:seq(0, Cols - 2)),
-		     Size = max(200, Last),
-		     %% io:format("Width ~p ~p => ~p~n",[W, Last, Size]),
-		     wxListCtrl:setColumnWidth(Grid, Cols-1, Size)
-	     end),
+    observer_lib:set_listctrl_col_size(Grid, W),
     {noreply, State};
 
 handle_event(#wx{event=#wxList{type=command_list_item_right_click,
 			       itemIndex=Row}},
-	     #state{popup_menu=Popup,
-		    holder=Holder}=State) ->
+	     #state{panel=Panel, holder=Holder}=State) ->
 
     case call(Holder, {get_row, self(), Row, pid}) of
 	{error, undefined} ->
-	    wxWindow:show(Popup, [{show, false}]),
 	    undefined;
 	{ok, _} ->
-	    wxWindow:move(Popup, wx_misc:getMousePosition()),
-	    wxWindow:show(Popup)
+	    Menu = wxMenu:new(),
+	    wxMenu:append(Menu, ?ID_PROC, "Process info"),
+	    wxMenu:append(Menu, ?ID_TRACE_PIDS, "Trace processes", [{help, ?TRACE_PIDS_STR}]),
+	    wxMenu:append(Menu, ?ID_TRACE_NAMES, "Trace named processes (all nodes)",
+			  [{help, ?TRACE_NAMES_STR}]),
+	    wxMenu:append(Menu, ?ID_KILL, "Kill Process"),
+	    wxWindow:popupMenu(Panel, Menu),
+	    wxMenu:destroy(Menu)
     end,
     {noreply, State};
 
 handle_event(#wx{event=#wxList{type=command_list_item_focused,
 			       itemIndex=Row}},
-	     #state{grid=Grid,popup_menu=Pop,holder=Holder} = State) ->
+	     #state{grid=Grid,holder=Holder} = State) ->
     case Row >= 0 of
 	true ->
-	    wxWindow:show(Pop, [{show, false}]),
 	    SelIds = [Row|lists:delete(Row, get_selected_items(Grid))],
 	    Pids = call(Holder, {get_pids, self(), SelIds}),
-	    %% io:format("Focused ~p -> ~p~n",[State#state.sel, {SelIds, Pids}]),
 	    {noreply, State#state{sel={SelIds, Pids}}};
 	false ->
-	    %% io:format("Focused -1~n",[]),
 	    {noreply, State}
     end;
 
@@ -448,7 +424,6 @@ set_focus([Old|_], [New|_], Grid) ->
     wxListCtrl:setItemState(Grid, Old, 0, ?wxLIST_STATE_FOCUSED),
     wxListCtrl:setItemState(Grid, New, 16#FFFF, ?wxLIST_STATE_FOCUSED).
 
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%TABLE HOLDER%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 init_table_holder(Parent, Attrs) ->
@@ -485,6 +460,9 @@ table_holder(#holder{info=#etop_info{procinfo=Info}, attrs=Attrs,
 	    table_holder(S0);
 	{get_rows_from_pids, From, Pids} ->
 	    get_rows_from_pids(From, Pids, Info),
+	    table_holder(S0);
+	{get_name_or_pid, From, Indices} ->
+	    get_name_or_pid(From, Indices, Info),
 	    table_holder(S0);
 
 	{get_node, From} ->
@@ -562,7 +540,7 @@ get_procinfo_data(Col, Info) ->
 col_to_element(?COL_PID)  -> #etop_proc_info.pid;
 col_to_element(?COL_NAME) -> #etop_proc_info.name;
 col_to_element(?COL_MEM)  -> #etop_proc_info.mem;
-col_to_element(?COL_TIME) -> #etop_proc_info.runtime;
+%%col_to_element(?COL_TIME) -> #etop_proc_info.runtime;
 col_to_element(?COL_REDS) -> #etop_proc_info.reds;
 col_to_element(?COL_FUN)  -> #etop_proc_info.cf;
 col_to_element(?COL_MSG)  -> #etop_proc_info.mq.
@@ -570,6 +548,14 @@ col_to_element(?COL_MSG)  -> #etop_proc_info.mq.
 get_pids(From, Indices, ProcInfo) ->
     Processes = [(lists:nth(I+1, ProcInfo))#etop_proc_info.pid || I <- Indices],
     From ! {self(), Processes}.
+
+get_name_or_pid(From, Indices, ProcInfo) ->
+    Get = fun(#etop_proc_info{name=Name}) when is_atom(Name) -> Name;
+	     (#etop_proc_info{pid=Pid}) -> Pid
+	  end,
+    Processes = [Get(lists:nth(I+1, ProcInfo)) || I <- Indices],
+    From ! {self(), Processes}.
+
 
 get_row(From, Row, pid, Info) ->
     Pid = case Row =:= -1 of
