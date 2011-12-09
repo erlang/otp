@@ -2528,31 +2528,35 @@ findfirst(N1, N2, U1, B1, U2, B2) ->
 %%-----------------------------------------------------------------------------
 %% Substitution of variables
 %%
+%% Dialyzer versions prior to R15B used a dict data structure to map variables
+%% to types. Hans Bolinder suggested the use of lists of Key-Value pairs for
+%% this data structure and measurements showed a non-trivial speedup when using
+%% them for operations within this module (e.g. in t_unify/2). However, there
+%% is code outside erl_types that still passes a dict() in the 2nd argument.
+%% So, for the time being, this module provides a t_subst/2 function for these
+%% external calls and a clone of it (t_subst_kv/2) which is used from all calls
+%% from within this module. This code duplication needs to be eliminated at
+%% some point.
 
 -spec t_subst(erl_type(), dict()) -> erl_type().
 
 t_subst(T, Dict) ->
   case t_has_var(T) of
-    true -> t_subst_aux(T, Dict);
+    true -> t_subst_dict(T, Dict);
     false -> T
   end.
 
--spec subst_all_vars_to_any(erl_type()) -> erl_type().
-
-subst_all_vars_to_any(T) ->
-  t_subst(T, dict:new()).
-
-t_subst_aux(?var(Id), Dict) ->
+t_subst_dict(?var(Id), Dict) ->
   case dict:find(Id, Dict) of
     error -> ?any;
     {ok, Type} -> Type
   end;
-t_subst_aux(?list(Contents, Termination, Size), Dict) ->
-  case t_subst_aux(Contents, Dict) of
+t_subst_dict(?list(Contents, Termination, Size), Dict) ->
+  case t_subst_dict(Contents, Dict) of
     ?none -> ?none;
     NewContents ->
       %% Be careful here to make the termination collapse if necessary.
-      case t_subst_aux(Termination, Dict) of
+      case t_subst_dict(Termination, Dict) of
 	?nil -> ?list(NewContents, ?nil, Size);
 	?any -> ?list(NewContents, ?any, Size);
 	Other ->
@@ -2560,17 +2564,59 @@ t_subst_aux(?list(Contents, Termination, Size), Dict) ->
 	  ?list(NewContents, NewTermination, Size)
       end
   end;
-t_subst_aux(?function(Domain, Range), Dict) ->
-  ?function(t_subst_aux(Domain, Dict), t_subst_aux(Range, Dict));
-t_subst_aux(?product(Types), Dict) ->
-  ?product([t_subst_aux(T, Dict) || T <- Types]);
-t_subst_aux(?tuple(?any, ?any, ?any) = T, _Dict) ->
+t_subst_dict(?function(Domain, Range), Dict) ->
+  ?function(t_subst_dict(Domain, Dict), t_subst_dict(Range, Dict));
+t_subst_dict(?product(Types), Dict) ->
+  ?product([t_subst_dict(T, Dict) || T <- Types]);
+t_subst_dict(?tuple(?any, ?any, ?any) = T, _Dict) ->
   T;
-t_subst_aux(?tuple(Elements, _Arity, _Tag), Dict) ->
-  t_tuple([t_subst_aux(E, Dict) || E <- Elements]);
-t_subst_aux(?tuple_set(_) = TS, Dict) ->
-  t_sup([t_subst_aux(T, Dict) || T <- t_tuple_subtypes(TS)]);
-t_subst_aux(T, _Dict) ->
+t_subst_dict(?tuple(Elements, _Arity, _Tag), Dict) ->
+  t_tuple([t_subst_dict(E, Dict) || E <- Elements]);
+t_subst_dict(?tuple_set(_) = TS, Dict) ->
+  t_sup([t_subst_dict(T, Dict) || T <- t_tuple_subtypes(TS)]);
+t_subst_dict(T, _Dict) ->
+  T.
+
+-spec subst_all_vars_to_any(erl_type()) -> erl_type().
+
+subst_all_vars_to_any(T) ->
+  t_subst_kv(T, []).
+
+t_subst_kv(T, KVMap) ->
+  case t_has_var(T) of
+    true -> t_subst_aux(T, KVMap);
+    false -> T
+  end.
+
+t_subst_aux(?var(Id), VarMap) ->
+  case lists:keyfind(Id, 1, VarMap) of
+    false -> ?any;
+    {Id, Type} -> Type
+  end;
+t_subst_aux(?list(Contents, Termination, Size), VarMap) ->
+  case t_subst_aux(Contents, VarMap) of
+    ?none -> ?none;
+    NewContents ->
+      %% Be careful here to make the termination collapse if necessary.
+      case t_subst_aux(Termination, VarMap) of
+	?nil -> ?list(NewContents, ?nil, Size);
+	?any -> ?list(NewContents, ?any, Size);
+	Other ->
+	  ?list(NewContents, NewTermination, _) = t_cons(NewContents, Other),
+	  ?list(NewContents, NewTermination, Size)
+      end
+  end;
+t_subst_aux(?function(Domain, Range), VarMap) ->
+  ?function(t_subst_aux(Domain, VarMap), t_subst_aux(Range, VarMap));
+t_subst_aux(?product(Types), VarMap) ->
+  ?product([t_subst_aux(T, VarMap) || T <- Types]);
+t_subst_aux(?tuple(?any, ?any, ?any) = T, _VarMap) ->
+  T;
+t_subst_aux(?tuple(Elements, _Arity, _Tag), VarMap) ->
+  t_tuple([t_subst_aux(E, VarMap) || E <- Elements]);
+t_subst_aux(?tuple_set(_) = TS, VarMap) ->
+  t_sup([t_subst_aux(T, VarMap) || T <- t_tuple_subtypes(TS)]);
+t_subst_aux(T, _VarMap) ->
   T.
 	      
 %%-----------------------------------------------------------------------------
@@ -2587,87 +2633,87 @@ t_unify(T1, T2) ->
 -spec t_unify(erl_type(), erl_type(), [erl_type()]) -> t_unify_ret().
 
 t_unify(T1, T2, Opaques) ->
-  {T, Dict} = t_unify(T1, T2, dict:new(), Opaques),
-  {t_subst(T, Dict), lists:keysort(1, dict:to_list(Dict))}.
+  {T, VarMap} = t_unify(T1, T2, [], Opaques),
+  {t_subst_kv(T, VarMap), lists:keysort(1, VarMap)}.
 
-t_unify(?var(Id) = T, ?var(Id), Dict, _Opaques) ->
-  {T, Dict};
-t_unify(?var(Id1) = T, ?var(Id2), Dict, Opaques) ->
-  case dict:find(Id1, Dict) of
-    error -> 
-      case dict:find(Id2, Dict) of
-	error -> {T, dict:store(Id2, T, Dict)};
-	{ok, Type} -> t_unify(T, Type, Dict, Opaques)
+t_unify(?var(Id) = T, ?var(Id), VarMap, _Opaques) ->
+  {T, VarMap};
+t_unify(?var(Id1) = T, ?var(Id2), VarMap, Opaques) ->
+  case lists:keyfind(Id1, 1, VarMap) of
+    false ->
+      case lists:keyfind(Id2, 1, VarMap) of
+	false -> {T, [{Id2, T} | VarMap]};
+	{Id2, Type} -> t_unify(T, Type, VarMap, Opaques)
       end;
-    {ok, Type1} ->
-      case dict:find(Id2, Dict) of
-	error -> {Type1, dict:store(Id2, T, Dict)};
-	{ok, Type2} -> t_unify(Type1, Type2, Dict, Opaques)
+    {Id1, Type1} ->
+      case lists:keyfind(Id2, 1, VarMap) of
+	false -> {Type1, [{Id2, T} | VarMap]};
+	{Id2, Type2} -> t_unify(Type1, Type2, VarMap, Opaques)
       end
   end;
-t_unify(?var(Id), Type, Dict, Opaques) ->
-  case dict:find(Id, Dict) of
-    error -> {Type, dict:store(Id, Type, Dict)};
-    {ok, VarType} -> t_unify(VarType, Type, Dict, Opaques)
+t_unify(?var(Id), Type, VarMap, Opaques) ->
+  case lists:keyfind(Id, 1, VarMap) of
+    false -> {Type, [{Id, Type} | VarMap]};
+    {Id, VarType} -> t_unify(VarType, Type, VarMap, Opaques)
   end;
-t_unify(Type, ?var(Id), Dict, Opaques) ->
-  case dict:find(Id, Dict) of
-    error -> {Type, dict:store(Id, Type, Dict)};
-    {ok, VarType} -> t_unify(VarType, Type, Dict, Opaques)
+t_unify(Type, ?var(Id), VarMap, Opaques) ->
+  case lists:keyfind(Id, 1, VarMap) of
+    false -> {Type, [{Id, Type} | VarMap]};
+    {Id, VarType} -> t_unify(VarType, Type, VarMap, Opaques)
   end;
-t_unify(?function(Domain1, Range1), ?function(Domain2, Range2), Dict, Opaques) ->
-  {Domain, Dict1} = t_unify(Domain1, Domain2, Dict, Opaques),
-  {Range, Dict2} = t_unify(Range1, Range2, Dict1, Opaques),
-  {?function(Domain, Range), Dict2};
+t_unify(?function(Domain1, Range1), ?function(Domain2, Range2), VarMap, Opaques) ->
+  {Domain, VarMap1} = t_unify(Domain1, Domain2, VarMap, Opaques),
+  {Range, VarMap2} = t_unify(Range1, Range2, VarMap1, Opaques),
+  {?function(Domain, Range), VarMap2};
 t_unify(?list(Contents1, Termination1, Size), 
-	?list(Contents2, Termination2, Size), Dict, Opaques) ->
-  {Contents, Dict1} = t_unify(Contents1, Contents2, Dict, Opaques),
-  {Termination, Dict2} = t_unify(Termination1, Termination2, Dict1, Opaques),
-  {?list(Contents, Termination, Size), Dict2};
-t_unify(?product(Types1), ?product(Types2), Dict, Opaques) ->
-  {Types, Dict1} = unify_lists(Types1, Types2, Dict, Opaques),
-  {?product(Types), Dict1};
-t_unify(?tuple(?any, ?any, ?any) = T, ?tuple(?any, ?any, ?any), Dict, _Opaques) ->
-  {T, Dict};
+	?list(Contents2, Termination2, Size), VarMap, Opaques) ->
+  {Contents, VarMap1} = t_unify(Contents1, Contents2, VarMap, Opaques),
+  {Termination, VarMap2} = t_unify(Termination1, Termination2, VarMap1, Opaques),
+  {?list(Contents, Termination, Size), VarMap2};
+t_unify(?product(Types1), ?product(Types2), VarMap, Opaques) ->
+  {Types, VarMap1} = unify_lists(Types1, Types2, VarMap, Opaques),
+  {?product(Types), VarMap1};
+t_unify(?tuple(?any, ?any, ?any) = T, ?tuple(?any, ?any, ?any), VarMap, _Opaques) ->
+  {T, VarMap};
 t_unify(?tuple(Elements1, Arity, _), 
-	?tuple(Elements2, Arity, _), Dict, Opaques) when Arity =/= ?any ->
-  {NewElements, Dict1} = unify_lists(Elements1, Elements2, Dict, Opaques),
-  {t_tuple(NewElements), Dict1};
+	?tuple(Elements2, Arity, _), VarMap, Opaques) when Arity =/= ?any ->
+  {NewElements, VarMap1} = unify_lists(Elements1, Elements2, VarMap, Opaques),
+  {t_tuple(NewElements), VarMap1};
 t_unify(?tuple_set([{Arity, _}]) = T1, 
-	?tuple(_, Arity, _) = T2, Dict, Opaques) when Arity =/= ?any ->
-  unify_tuple_set_and_tuple(T1, T2, Dict, Opaques);
+	?tuple(_, Arity, _) = T2, VarMap, Opaques) when Arity =/= ?any ->
+  unify_tuple_set_and_tuple(T1, T2, VarMap, Opaques);
 t_unify(?tuple(_, Arity, _) = T1,
-	?tuple_set([{Arity, _}]) = T2, Dict, Opaques) when Arity =/= ?any ->
-  unify_tuple_set_and_tuple(T2, T1, Dict, Opaques);
-t_unify(?tuple_set(List1), ?tuple_set(List2), Dict, Opaques) ->
-  {Tuples, NewDict} = 
+	?tuple_set([{Arity, _}]) = T2, VarMap, Opaques) when Arity =/= ?any ->
+  unify_tuple_set_and_tuple(T2, T1, VarMap, Opaques);
+t_unify(?tuple_set(List1), ?tuple_set(List2), VarMap, Opaques) ->
+  {Tuples, NewVarMap} =
     unify_lists(lists:append([T || {_Arity, T} <- List1]), 
-		lists:append([T || {_Arity, T} <- List2]), Dict, Opaques),
-  {t_sup(Tuples), NewDict};
-t_unify(?opaque(Elements) = T, ?opaque(Elements), Dict, _Opaques) ->
-  {T, Dict};
-t_unify(?opaque(_) = T1, ?opaque(_) = T2, _Dict, _Opaques) ->
+		lists:append([T || {_Arity, T} <- List2]), VarMap, Opaques),
+  {t_sup(Tuples), NewVarMap};
+t_unify(?opaque(Elements) = T, ?opaque(Elements), VarMap, _Opaques) ->
+  {T, VarMap};
+t_unify(?opaque(_) = T1, ?opaque(_) = T2, _VarMap, _Opaques) ->
   throw({mismatch, T1, T2});
-t_unify(Type, ?opaque(_) = OpType, Dict, Opaques) ->
-  t_unify_with_opaque(Type, OpType, Dict, Opaques);
-t_unify(?opaque(_) = OpType, Type, Dict, Opaques) ->
-  t_unify_with_opaque(Type, OpType, Dict, Opaques);
-t_unify(T, T, Dict, _Opaques) ->
-  {T, Dict};
+t_unify(Type, ?opaque(_) = OpType, VarMap, Opaques) ->
+  t_unify_with_opaque(Type, OpType, VarMap, Opaques);
+t_unify(?opaque(_) = OpType, Type, VarMap, Opaques) ->
+  t_unify_with_opaque(Type, OpType, VarMap, Opaques);
+t_unify(T, T, VarMap, _Opaques) ->
+  {T, VarMap};
 t_unify(T1, T2, _, _) ->
   throw({mismatch, T1, T2}).
 
-t_unify_with_opaque(Type, OpType, Dict, Opaques) ->
+t_unify_with_opaque(Type, OpType, VarMap, Opaques) ->
   case lists:member(OpType, Opaques) of
     true ->
       Struct = t_opaque_structure(OpType),
-      try t_unify(Type, Struct, Dict, Opaques) of
-	{_T, Dict1} -> {OpType, Dict1}
+      try t_unify(Type, Struct, VarMap, Opaques) of
+	{_T, VarMap1} -> {OpType, VarMap1}
       catch
 	throw:{mismatch, _T1, _T2} ->
 	  case t_inf(OpType, Type, opaque) of
 	    ?none -> throw({mismatch, Type, OpType});
-	    _ -> {OpType, Dict}
+	    _ -> {OpType, VarMap}
 	  end
       end;
     false ->
@@ -2675,20 +2721,20 @@ t_unify_with_opaque(Type, OpType, Dict, Opaques) ->
   end.
 
 unify_tuple_set_and_tuple(?tuple_set([{Arity, List}]), 
-			  ?tuple(Elements2, Arity, _), Dict, Opaques) ->
+			  ?tuple(Elements2, Arity, _), VarMap, Opaques) ->
   %% Can only work if the single tuple has variables at correct places.
   %% Collapse the tuple set.
-  {NewElements, Dict1} = unify_lists(sup_tuple_elements(List), Elements2, Dict, Opaques),
-  {t_tuple(NewElements), Dict1}.
+  {NewElements, VarMap1} = unify_lists(sup_tuple_elements(List), Elements2, VarMap, Opaques),
+  {t_tuple(NewElements), VarMap1}.
 
-unify_lists(L1, L2, Dict, Opaques) ->
-  unify_lists(L1, L2, Dict, [], Opaques).
+unify_lists(L1, L2, VarMap, Opaques) ->
+  unify_lists(L1, L2, VarMap, [], Opaques).
 
-unify_lists([T1|Left1], [T2|Left2], Dict, Acc, Opaques) ->
-  {NewT, NewDict} = t_unify(T1, T2, Dict, Opaques),
-  unify_lists(Left1, Left2, NewDict, [NewT|Acc], Opaques);
-unify_lists([], [], Dict, Acc, _Opaques) ->
-  {lists:reverse(Acc), Dict}.
+unify_lists([T1|Left1], [T2|Left2], VarMap, Acc, Opaques) ->
+  {NewT, NewVarMap} = t_unify(T1, T2, VarMap, Opaques),
+  unify_lists(Left1, Left2, NewVarMap, [NewT|Acc], Opaques);
+unify_lists([], [], VarMap, Acc, _Opaques) ->
+  {lists:reverse(Acc), VarMap}.
 
 %%t_assign_variables_to_subtype(T1, T2) ->
 %%  try 
