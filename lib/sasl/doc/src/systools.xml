@@ -196,6 +196,10 @@
         <p>The applications are sorted according to the dependencies
           between the applications. Where there are no dependencies,
           the order in the <c>.rel</c> file is kept.</p>
+	<p>The function will fail if the mandatory
+	  applications <c>kernel</c> and <c>stdlib</c> are not
+	  included in the <c>.rel</c> file and have start
+	  type <c>permanent</c> (default).</p>
 	<p>If <c>sasl</c> is not included as an application in
 	  the <c>.rel</c> file, a warning is emitted because such a
 	  release can not be used in an upgrade. To turn off this

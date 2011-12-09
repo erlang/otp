@@ -483,8 +483,16 @@ crazy_script(Config) when is_list(Config) ->
     ok = file:set_cwd(LatestDir2),
 
     error = systools:make_script(LatestName2),
-    {error, _, {missing_mandatory_app,[kernel,stdlib]}} =
+    {error, _, {missing_mandatory_app,kernel}} =
 	systools:make_script(LatestName2, [silent,{path,P}]),
+
+    %% Run with .rel file with non-permanent kernel
+    {LatestDir3, LatestName3} = create_script(latest_kernel_start_type, Config),
+    ok = file:set_cwd(LatestDir3),
+
+    error = systools:make_script(LatestName3),
+    {error, _, {mandatory_app,kernel,load}} =
+	systools:make_script(LatestName3, [silent,{path,P}]),
 
     ok = file:set_cwd(OldDir),
     ok.
@@ -1915,6 +1923,9 @@ create_script(latest_small2,Config) ->
 create_script(latest_nokernel,Config) ->
     Apps = [{db,"2.1"},{fe,"3.1"}],
     do_create_script(latest_nokernel,Config,"4.4",Apps);
+create_script(latest_kernel_start_type,Config) ->
+    Apps = [{kernel,"1.0",load},{db,"2.1"},{fe,"3.1"}],
+    do_create_script(latest_kernel_start_type,Config,"4.4",Apps);
 create_script(latest_app_start_type1,Config) ->
     Apps = core_apps(current),
     do_create_script(latest_app_start_type1,Config,current,Apps);
