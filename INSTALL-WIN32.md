@@ -6,29 +6,31 @@ Introduction
 
 This file describes how to build the Erlang emulator and the OTP
 libraries on Windows. The instructions apply to versions of Windows
-supporting the Cygwin emulated gnuish environment for Windows. We've
-built on the following platforms: Windows 2000 Professional, Windows
-2003 server, Windows XP Home/Professional, and Windows Vista. Any
-Windows95'ish platform will surely get you into trouble, what I'm not
-sure of, but it certainly will...
+supporting the Cygwin emulated gnuish environment for Windows or the
+Msys ditto. We've built on the following platforms: Windows 2003
+server, Windows XP Home/Professional, Windows Vista and Windows 7 (32
+and 64 bit). You can probably build on Windows 2000, but you will not
+be able to install the latest Microsoft SDK, so you have to go back to
+some earlier compiler. Any Windows95'ish platform will surely get you
+into trouble, what I'm not sure of, but it certainly will...
 
-The procedure described uses Cygwin as a build environment, you run
-the bash shell in Cygwin and uses gnu make/configure/autoconf etc to
-do the build. The emulator C-source code is, however, mostly compiled
-with Microsoft Visual C++™, producing a native Windows binary. This
-is the same procedure as we use to build the pre-built binaries. The
-fact that we use VC++ and not gcc is explained further in the FAQ
-section.
+The procedure described uses either Cygwin or Msys as a build
+environment, you run the bash shell in Cygwin/Msys and use gnu
+make/configure/autoconf etc to do the build. The emulator C-source
+code is, however, mostly compiled with Microsoft Visual C++™,
+producing a native Windows binary. This is the same procedure as we
+use to build the pre-built binaries. The fact that we use VC++ and not
+gcc is explained further in the FAQ section.
 
 I describe the build procedure to make it possible for open source
 customers to build the emulator, given that they have the needed
 tools. The binary Windows releases is still a preferred alternative if
 one does not have Microsoft's development tools and/or don't want to
-install Cygwin.
+install Cygwin or Msys.
 
-To use Cygwin, one needs basic experience from a Unix environment, if
+To use Cygwin/Msys, one needs basic experience from a Unix environment, if
 one does not know how to set environment variables, run programs etc
-in a Unix environment, one will be quite lost in the Cygwin
+in a Unix environment, one will be quite lost in the Cygwin os Msys
 ditto. I can unfortunately not teach all the world how to use
 Cygwin and bash, neither how to install Cygwin nor perform basic tasks
 on a computer. Please refer to other documentation on the net for
@@ -41,11 +43,11 @@ to make the Erlang/OTP distribution for Windows better. Please submit
 any suggestions and patches to the appropriate [mailing lists] [1] to let
 them find their way into the next version of Erlang. If making changes
 to the build system (like makefiles etc) please bear in mind that the
-same makefiles are used on Unix/VxWorks/OSEDelta, so that your changes
+same makefiles are used on Unix/VxWorks, so that your changes
 don't break other platforms. That of course goes for C-code too, system
 specific code resides in the `$ERL_TOP/erts/emulator/sys/win32` and
 `$ERL_TOP/erts/etc/win32` directories mostly. The
-`$ERL_TOP/erts/emulator/beam directory` is for common code.
+`$ERL_TOP/erts/emulator/beam` directory is for common code.
 
 Before the R9C release of Erlang/OTP, the Windows release was built
 partly on a Unix (Solaris) box and partly on a Windows box, using Perl
@@ -61,6 +63,21 @@ their problems, please try to solve the problems and submit
 solutions/workarounds. Remember, it's all about sharing, not about
 demanding...
 
+Starting with R15B, our build system runs both on Cygwin and Msys
+(MinGW's fork of an early cygwin version). Msys is a smaller package
+to install and may on some machines run slightly faster. If Cygwin
+gives you trouble, try Msys instead, and v.v. Beginning with R15B
+there is also a native 64bit version of Erlang for 64bit Windows 7
+(only). These instructions apply to both the 32bit VM and the 64bit
+ditto.
+
+Note that even if you build a 64bit VM, most of the directories and
+files involved are still named win32. You can view the name win32 as
+meaning any windows version not beeing 16bit. A few occurences of the
+name Win64 are however present in the system, for example the
+installation file for a 64 bit windows version of Erlang is by default
+named `otp_win64_<version>.exe`.
+
 Lets go then, I'll start with a little FAQ, based on in house questions
 and misunderstandings.
 
@@ -70,10 +87,13 @@ Frequently Asked Questions
 
 *   Q: So, now I can build Erlang using GCC on Windows?
 
-    A: No, unfortunately not. You'll need Microsoft's Visual C++ still, a
-    Bourne-shell script (cc.sh) wraps the Visual C++ compiler and runs it
-    from within the Cygwin environment. All other tools needed to build
-    Erlang are free-ware/open source, but not the C compiler.
+    A: No, unfortunately not. You'll need Microsoft's Visual C++
+    still, a Bourne-shell script (cc.sh) wraps the Visual C++ compiler
+    and runs it from within the Cygwin environment. All other tools
+    needed to build Erlang are free-ware/open source, but not the C
+    compiler. The Windows SDK is however enough to build Erlang, you
+    do not need to buy Visual C++, just download the SDK (SDK version
+    7.1 == Visual studio 2010).
 
 *   Q: Why haven't you got rid of VC++ then, you \*\*\*\*\*\*?
 
@@ -83,18 +103,22 @@ Frequently Asked Questions
     directories). Unfortunately the development of the SMP version for
     Windows broke the mingw build and we chose to focus on the VC++ build
     as the performance has been much better in the VC++ versions. The
-    mingw build will be back, but as long as VC++ gives better
+    mingw build will possibly be back, but as long as VC++ gives better
     performance, the commercial build will be a VC++ one.
 
-*   Q: OK, VC++ you need, but now you've started to demand a very recent
+*   Q: OK, you need VC++, but now you've started to demand a very recent
     (and expensive) version of Visual studio, not the old and stable VC++
     6.0 that was used in earlier versions. Why?
 
-    A: The SMP version of Erlang needs features in the Visual Studio 2005.
-    Can't live without them. Besides the new compiler gives the Erlang
-    emulator a ~40% performance boost(!). Alternatively you can build Erlang
-    successfully using the free (proprietary) Visual Studio 2008 Express
-    edition C++ compiler.
+    A: Well, it's not expensive, it's free (as in free beer). Just
+    download and install the latest Windows SDK from Microsoft and all
+    the tools you need are there. The included debugger (WinDbg) is
+    also quite usable, it's what I used when porting Erlang to 64bit
+    Windows. Another reason to use the latest Microsoft compilers is
+    DLL compatibility. DLL's using a new version of the standard
+    library might not load if the VM is compiled with an old VC++
+    version, why we should aim to use the latest freely available SDK
+    and compiler.
 
 *   Q: Can/will I build a Cygwin binary with the procedure you describe?
 
@@ -112,15 +136,15 @@ Frequently Asked Questions
 
 *   Q: Hah, I saw you, you used GCC even though you said you didn't!
 
-    A: OK, I admit, one of the files is compiled using Cygwin's GCC and
-    the resulting object code is then converted to MS VC++ compatible coff
-    using a small C hack. It's because that particular file, `beam_emu.c`
-    benefits immensely from being able to use the GCC labels-as-values
-    extension, which boosts emulator performance by up to 50%. That does
-    unfortunately not (yet) mean that all of OTP could be compiled using
-    GCC, that particular source code does not do anything system specific
-    and actually is adopted to the fact that GCC is used to compile it on
-    Windows.
+    A: OK, I admit, one of the files is compiled using Cygwin's or
+    MinGW's GCC and the resulting object code is then converted to MS
+    VC++ compatible coff using a small C hack. It's because that
+    particular file, `beam_emu.c` benefits immensely from being able
+    to use the GCC labels-as-values extension, which boosts emulator
+    performance by up to 50%. That does unfortunately not (yet) mean
+    that all of OTP could be compiled using GCC, that particular
+    source code does not do anything system specific and actually is
+    adopted to the fact that GCC is used to compile it on Windows.
 
 *   Q: So now there's a MS VC++ project file somewhere and I can build OTP
     using the nifty VC++ GUI?
@@ -135,31 +159,36 @@ Frequently Asked Questions
 
 *   Q: So how does it all work then?
 
-    A: Cygwin is the environment, which closely resembles the environments
-    found on any Unix machine. It's almost like you had a virtual Unix
-    machine inside Windows. Configure, given certain parameters, then
-    creates makefiles that are used by the Cygwin gnu-make to built the
-    system. Most of the actual compilers etc are not, however, Cygwin
-    tools, so I've written a couple of wrappers (Bourne-shell scripts),
-    which reside in `$ERL_TOP/etc/win32/cygwin_tools` and they all do
-    conversion of parameters and switches common in the Unix environment
-    to fit the native Windows tools. Most notable is of course the paths,
-    which in Cygwin are Unix-like paths with "forward slashes" (/) and no
-    drive letters, the Cygwin specific command `cygpath` is used for most
-    of the path conversions. Luckily most compilers accept forward slashes
-    instead of backslashes as path separators, one still have to get the
-    drive letters etc right, though. The wrapper scripts are not general
-    in the sense that, for example, cc.sh would understand and translates
-    every possible gcc option and passes correct options to cl.exe. The
-    principle is that the scripts are powerful enough to allow building of
-    Erlang/OTP, no more, no less. They might need extensions to cope with
-    changes during the development of Erlang, that's one of the reasons I
-    made them into shell-scripts and not Perl-scripts, I believe they are
-    easier to understand and change that way. I might be wrong though,
-    cause another reason I didn't write them in Perl is because I've never
-    liked Perl and my Perl code is no pleasant reading...
+    A: Cygwin or Msys is the environment, which closely resembles the
+    environments found on any Unix machine. It's almost like you had a
+    virtual Unix machine inside Windows. Configure, given certain
+    parameters, then creates makefiles that are used by the
+    Cygwin/Msys gnu-make to built the system. Most of the actual
+    compilers etc are not, however, Cygwin/Msys tools, so I've written
+    a couple of wrappers (Bourne-shell scripts), which reside in
+    `$ERL_TOP/etc/win32/cygwin_tools` and
+    `$ERL_TOP/etc/win32/msys_tools`. They all do conversion of
+    parameters and switches common in the Unix environment to fit the
+    native Windows tools. Most notable is of course the paths, which
+    in Cygwin/Msys are Unix-like paths with "forward slashes" (/) and
+    no drive letters, the Cygwin specific command `cygpath` is used
+    for most of the path conversions in a Cygwin environment, other
+    tools are used (when needed) in the corresponding Msys
+    environment. Luckily most compilers accept forward slashes instead
+    of backslashes as path separators, but one still have to get the drive
+    letters etc right, though. The wrapper scripts are not general in
+    the sense that, for example, cc.sh would understand and translates
+    every possible gcc option and passes correct options to
+    cl.exe. The principle is that the scripts are powerful enough to
+    allow building of Erlang/OTP, no more, no less. They might need
+    extensions to cope with changes during the development of Erlang,
+    that's one of the reasons I made them into shell-scripts and not
+    Perl-scripts, I believe they are easier to understand and change
+    that way. I might be wrong though, cause another reason I didn't
+    write them in Perl is because I've never liked Perl and my Perl
+    code is no pleasant reading...
 
-    In `$ERL_TOP`, there is a script called `otp_build`, that script handles
+    In `$ERL_TOP`, there is a script called `otp_build`. That script handles
     the hassle of giving all the right parameters to `configure`/`make` and
     also helps you set up the correct environment variables to work with
     the Erlang source under Cygwin.
@@ -177,17 +206,19 @@ Frequently Asked Questions
 
     A: Yes, we use the exactly same build procedure.
 
-*   Q: Which version of Cygwin and other tools do you use then?
+*   Q: Which version of Cygwin/Msys and other tools do you use then?
 
-    A: For Cygwin we try to use the latest releases available when
-    building. What versions you use shouldn't really matter, I try to
-    include workarounds for the bugs I've found in different Cygwin
-    releases, please help me to add workarounds for new Cygwin-related
-    bugs as soon as you encounter them. Also please do submit bug reports
-    to the appropriate Cygwin developers. The Cygwin GCC we used for %OTP-REL%
-    was version 3.4.4. We used VC++ 8.0 (i.e. Visual studio 2005 SP1),
-    Sun's JDK 1.5.0\_17, NSIS 2.37, and Win32 OpenSSL 0.9.8e. Please read
-    the next section for details on what you need.
+    A: For Cygwin and Msys alike, we try to use the latest releases
+    available when building. What versions you use shouldn't really
+    matter, I try to include workarounds for the bugs I've found in
+    different Cygwin/Msys releases, please help me to add workarounds
+    for new Cygwin/Msys-related bugs as soon as you encounter
+    them. Also please do submit bug reports to the appropriate Cygwin
+    adn/or Msys developers. The GCC we used for %OTP-REL% was version
+    4.7.0 (MinGW 64bit) and 4.3.4 (Cygwin 32bit). We used VC++ 10.0
+    (i.e. Visual studio 2010), Sun's JDK 1.5.0\_17 (32bit) and Sun's
+    JDK 1.7.0\_1 (64bit), NSIS 2.46, and Win32 OpenSSL 0.9.8r. Please
+    read the next section for details on what you need.
 
 *   Q: Can you help me setup X in Cygwin?
 
@@ -201,24 +232,21 @@ Frequently Asked Questions
     described as much as I could about the installation of the needed
     tools. Once the tools are installed, building is quite easy. I also
     have tried to make this instruction understandable for people with
-    limited Unix experience. Cygwin is a whole new environment to some
+    limited Unix experience. Cygwin/Msys is a whole new environment to some
     Windows users, why careful explanation of environment variables etc
     seemed to be in place. The short story, for the experienced and
     impatient is:
 
-    *   Get and install complete Cygwin (latest)
+    *   Get and install complete Cygwin (latest) or complete MinGW with msys
 
-    *   (Buy and) Install Microsoft Visual studio 2005 and SP1 (or higher)
+    *   Install Microsofts Windows SDK 7.1 (and .Net 4)
 
-    *   Alternatively install the free MS Visual Studio 2008 Express [msvc++]
-    and the Windows SDK [32bit-SDK] or [64bit-SDK] depending on the Windows
-    platform you are running.
-
-    *   Get and install Sun's JDK 1.4.2
+    *   Get and install Sun's JDK 1.5.0 or higher
 
     *   Get and install NSIS 2.01 or higher (up to 2.46 tried and working)
 
-    *   Get and install OpenSSL 0.9.7c or higher (up to 1.0.0a tried & working)
+    * Get, build and install OpenSSL 0.9.8r or higher (up to 1.0.0a
+        tried & working) with static libs.
 
     *   Get the Erlang source distribution (from
         <http://www.erlang.org/download.html>) and unpack with Cygwin's `tar`.
@@ -251,10 +279,9 @@ Tools you Need and Their Environment
 ------------------------------------
 
 You need some tools to be able to build Erlang/OTP on Windows. Most
-notably you'll need Cygwin and Microsoft VC++, but you also might want
-a Java compiler, the NSIS install system and OpenSSL. Only VC++ costs
-money, but then again it costs a lot of money, I know...
-Well' here's the list:
+notably you'll need Cygwin or Msys and Microsofts Windows SDK, but
+you also might want a Java compiler, the NSIS install system and
+OpenSSL. Well' here's the list:
 
 *   Cygwin, the very latest is usually best. Get all the development
     tools and of course all the basic ditto. In fact getting the complete
@@ -262,6 +289,10 @@ Well' here's the list:
     while if you're accustomed to Unix. Make sure to get jar and also make
     sure *not* to install a Cygwin'ish Java... The Cygwin jar command is
     used but Sun's Java compiler and virtual machine...
+
+    If you are going to build a 64bit Windows version, you should make
+    sure to get MinGWs 64bit gcc installed with cygwin. It's in one of
+    the development packages.
 
     URL: <http://www.cygwin.com>
 
@@ -302,72 +333,205 @@ Well' here's the list:
     haven't tried and know of no one that has. I expect
     that you use bash in all shell examples.
 
-*   Microsoft Visual Studio 2005 SP1. Please don't skip the service
-    pack! The installer might update your environment so that you can run
-    the `cl` command from the bash prompt, then again it might
-    not... There is always a BAT file in VC\Bin under the installation
-    directory (default `C:\Program Files\Microsoft Visual Studio 8`) called
-    `VCVARS32.BAT`. Either add the environment settings in that file to the
-    global environment settings in Windows or add the corresponding BASH
-    environment settings to your `.profile`/`.bashrc`. For example, in my case
-    I could add the following to `.profile`
+*   Alternatively you download MinGW and Msys. You'll find the latest
+    installer at:
 
-        #Visual C++ Root directory as Cygwin style pathname
-        VCROOT=/cygdrive/c/Program\ Files/Microsoft\ Visual\ Studio 8
+    URL: <http://sourceforge.net/projects/mingw/files/Installer/mingw-get-inst/>
 
-        # Visual C++ Root directory as Windows style pathname
-        WIN_VCROOT="C:\\Program Files\\Microsoft Visual Studio 8"
+    Make sure to install everything they've got. 
 
-        # The PATH variable should be Cygwin'ish
-        PATH=$VCROOT/Common7/IDE:$VCROOT/VC/BIN:$VCROOT/Common7/Tools:\
-        $VCROOT/Common7/Tools/bin:$VCROOT/VC/PlatformSDK/bin:$VCROOT/SDK/v2.0/bin:\
-        $VCROOT/VC/VCPackages:$PATH
+    To be able to build the 64bit VM, you will also need the 64bit
+    MinGW compiler from:
 
-        # Lib and INCLUDE should be Windows'ish
-        # Note that semicolon (;) is used to separate Windows style paths but
-        # colon (:) to separate Cygwin ditto!
+    URL: <http://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win64/Automated%20Builds/>
 
-        LIBPATH=$WIN_VCROOT\\VC\\ATLMFC\\LIB
+    The latest version should do it. Make sure you download the
+    `mingw-w64-bin_i686-mingw_<something>.zip`, not a linux
+    version. You unzip the package on top of your MinGW installation
+    (`c:\MinGW`) and that's it.
 
-        LIB=$WIN_VCROOT\\VC\\ATLMFC\\LIB\;$WIN_VCROOT\\VC\\LIB\;\
-        $WIN_VCROOT\\VC\\PlatformSDK\\lib\;$WIN_VCROOT\\SDK\\v2.0\\lib
+    Setting up your environment in Msys is similar to setting it up in
+    Cygwin.
 
-        INCLUDE=$WIN_VCROOT\\VC\\ATLMFC\\INCLUDE\;$WIN_VCROOT\\VC\\INCLUDE\;\
-        $WIN_VCROOT\\VC\\PlatformSDK\\include
+* Microsofts Windows SDK version 7.1 (corresponding to VC++ 10.0 and
+    Visual Studio 2010). You'll find it here:
+    
+    URL: <http://www.microsoft.com/download/en/details.aspx?id=8279>
 
-        export PATH LIB INCLUDE
+    but before you install that, you need to have .Net 4 installed,
+    you'll find that here:
 
-    Make a simple hello world and try to compile it with the `cl` command
-    from within bash. If that does not work, your environment needs
-    fixing. Also remember to fix up the PATH environment, especially old
-    Erlang installations might have inserted quoted paths that Cygwin does
-    not understand. Remove or correct such paths. There should be no
-    backslashes in your path environment variable in Cygwin bash, but LIB
-    and INCLUDE should contain Windows style paths with semicolon,
-    drive letters and backslashes.
+    URL: <http://www.microsoft.com/download/en/details.aspx?id=17851>
 
-    If you wish to use Visual Studio 2008, a couple things need to be tweaked,
-    namely the fact that some of the SDK stuff is installed in (by default)
-    `C:\Program Files\Microsoft SDKs\v6.0A` . Just ensure that that
-    `C:\Program Files\Microsoft SDKs\v6.0A\Lib` is in `LIB` and
-    `C:\Program Files\Microsoft SDKs\v6.0A\Include` is in `INCLUDE`. A symptom
-    of not doing this is errors about finding kernel32.lib and windows.h.
+    Use the web installer for the SDK, at least when I tried
+    downloading the whole package as an image, I got SDK 7.0 instead,
+    which is not what you want...
 
-    Additionally, if you encounter errors about mc.exe not being found, you must
-    install the entire Windows SDK (the partial SDK included in visual studio
-    apparently does not include it). After installing it you'll want to add
-    something like: `/c/cygdrive/Program\ Files/Microsoft\ SDKs/v7.0/bin` to
-    your `PATH` to allow the environment to find mc.exe. The next Visual Studio
-    (2010) is expected to include this tool.
+    There will be a Windows command file in `%PROGRAMFILES%\Mirosoft
+    SDKs\Windows\v7.1\Bin\SetEnv.cmd` that set's the appropriate
+    environment for a Windows command prompt. This is not appropriate
+    for bash, so you'll need to convert it to bash-style environments
+    by editing your `.bash_profile`. In my case, where the SDK is
+    installed in the default directory and `%PROGRAMFILES%` is
+    `C:\Program Files`, the commands for setting up a 32bit build
+    environment (on a 64bit or 32bit machine) look like this (in cygwin):
 
-    Alternatively install the free MS Visual Studio 2008 Express [msvc++] and
-    the Windows SDK [32bit-SDK] or [64bit-SDK] depending on the Windows
-    platform you are running, which includes the missing mc.exe message
-    compiler.
+        # Some common paths
+        C_DRV=/cygdrive/c
+        PRG_FLS=$C_DRV/Program\ Files
 
-[msvc++]:	http://download.microsoft.com/download/E/8/E/E8EEB394-7F42-4963-A2D8-29559B738298/VS2008ExpressWithSP1ENUX1504728.iso
-[32bit-SDK]:	http://download.microsoft.com/download/2/E/9/2E911956-F90F-4BFB-8231-E292A7B6F287/GRMSDK_EN_DVD.iso
-[64bit-SDK]:	http://download.microsoft.com/download/2/E/9/2E911956-F90F-4BFB-8231-E292A7B6F287/GRMSDKX_EN_DVD.iso
+        # nsis
+        NSIS_BIN=$PRG_FLS/NSIS
+        # java
+        JAVA_BIN=$PRG_FLS/Java/jdk1.6.0_16/bin
+
+        ##
+        ## MS SDK
+        ##
+
+        CYGWIN=nowinsymlinks
+        MVS10="$PRG_FILES/Microsoft Visual Studio 10.0"
+        WIN_MVS10="C:\\Program Files\\Microsoft Visual Studio 10.0"
+        SDK10="$PRG_FILES/Microsoft SDKs/Windows/v7.1"
+        WIN_SDK10="C:\\Program Files\\Microsoft SDKs\\Windows\\v7.1"
+
+        PATH="$NSIS_BIN:\
+        $MVS10/Common7/IDE:\
+        $MVS10/Common7/Tools:\
+        $MVS10/VC/Bin:\
+        $MVS10/VC/Bin/VCPackages:\
+        $SDK10/Bin/NETFX 4.0 Tools:\
+        $SDK10/Bin:\
+        /usr/local/bin:/usr/bin:/bin:\
+        /cygdrive/c/WINDOWS/system32:/cygdrive/c/WINDOWS:\
+        /cygdrive/c/WINDOWS/system32/Wbem:\
+        $JAVA_BIN"
+
+        LIBPATH="$WIN_MVS10\\VC\\LIB"
+
+        LIB="$WIN_MVS10\\VC\\LIB;$WIN_SDK10\\LIB"
+
+        INCLUDE="$WIN_MVS10\\VC\\INCLUDE;$WIN_SDK10\\INCLUDE;$WIN_SDK10\\INCLUDE\\gl"
+
+        export CYGWIN PATH LIBPATH LIB INCLUDE 
+
+    If you're using Msys instead, the only thing you need to change is
+    the `C_DRV` setting, which would read:
+
+        C_DRV=/c
+
+    And of course you might need to change `C:\Program Files` etc if
+    you're using a non-english version of Windows (XP). Note that in
+    later versions of Windows, the national adoptions of the program
+    files directories etc are not on the file system but only in the
+    explorer, so even if explorer says that your programs reside in
+    e.g. `C:\Program`, they might still reside in `C:\Program Files`
+    in reality...
+
+    If you are building a 64 bit verision of Erlang, you should set up
+    PATHs etc a little differently. I use the following script to
+    make things work in both Cygwin and Msys:
+
+         make_winpath()
+         {
+                P=$1
+                if [ "$IN_CYGWIN" = "true" ]; then 
+                   cygpath -d "$P"
+                else
+                   (cd "$P" && /bin/cmd //C "for %i in (".") do @echo %~fsi")
+                fi
+         }
+
+         make_upath()
+         {
+                P=$1
+                if [ "$IN_CYGWIN" = "true" ]; then 
+                   cygpath "$P"
+                else
+                   echo "$P" | /bin/sed 's,^\([a-zA-Z]\):\\,/\L\1/,;s,\\,/,g'
+                fi
+         }
+
+         # Some common paths
+         if [ -x /usr/bin/msysinfo ]; then
+            # Without this the path conversion won't work
+            COMSPEC='C:\Windows\SysWOW64\cmd.exe'
+            MSYSTEM=MINGW32
+            export MSYSTEM COMSPEC
+            IN_CYGWIN=false
+         else
+            CYGWIN=nowinsymlinks
+            export CYGWIN
+            IN_CYGWIN=true
+         fi
+
+         if [ "$IN_CYGWIN" = "true" ]; then 
+            PATH=/usr/local/bin:/usr/bin:/bin:/usr/X11R6/bin:\
+            /cygdrive/c/windows/system32:/cygdrive/c/windows:/cygdrive/c/windows/system32/Wbem
+         else
+            PATH=/usr/local/bin:/mingw/bin:/bin:/c/Windows/system32:/c/Windows:\
+            /c/Windows/System32/Wbem
+         fi
+
+         if [ "$IN_CYGWIN" = "true" ]; then 
+            C_DRV=/cygdrive/c
+         else
+            C_DRV=/c
+         fi
+
+         PRG_FLS64=$C_DRV/Program\ Files
+         PRG_FLS32=$C_DRV/Program\ Files\ \(x86\)
+         VISUAL_STUDIO_ROOT32=$PRG_FLS32/Microsoft\ Visual\ Studio\ 10.0
+         MS_SDK_ROOT64=$PRG_FLS64/Microsoft\ SDKs/Windows/v7.1
+
+         # Okay, now mangle the paths and get rid of spaces by using short names
+         WIN_VCROOT32=`make_winpath "$VISUAL_STUDIO_ROOT32"`
+         VCROOT32=`make_upath $WIN_VCROOT32`
+         WIN_SDKROOT64=`make_winpath "$MS_SDK_ROOT64"`
+         SDKROOT64=`make_upath $WIN_SDKROOT64`
+         WIN_PROGRAMFILES32=`make_winpath "$PRG_FLS32"`
+         PROGRAMFILES32=`make_upath $WIN_PROGRAMFILES32`
+    
+         WIN_PROGRAMFILES64=`make_winpath "$PRG_FLS64"`
+         PROGRAMFILES64=`make_upath $WIN_PROGRAMFILES64`
+
+         # nsis
+         NSIS_BIN=$PROGRAMFILES32/NSIS
+         # java
+         JAVA_BIN=$PROGRAMFILES64/Java/jdk1.7.0_01/bin
+
+         ## The PATH variable should be Unix'ish
+         VCPATH=$VCROOT32/Common7/IDE:$VCROOT32/VC/BIN/amd64:$VCROOT32/Common7/Tools:\
+         $VCROOT32/VC/VCPackages:$SDKROOT64/bin/NETFX4~1.0TO/x64:$SDKROOT64/bin/x64:\
+         $SDKROOT64/bin
+
+         ## Microsoft SDK libs
+
+         LIBPATH=$WIN_VCROOT32\\VC\\LIB\\amd64
+         LIB=$WIN_VCROOT32\\VC\\LIB\\amd64\;$WIN_SDKROOT64\\LIB\\X64
+         INCLUDE=$WIN_VCROOT32\\VC\\INCLUDE\;$WIN_SDKROOT64\\include\;\
+         $WIN_SDKROOT64\\include\\gl
+
+         # Put nsis, c compiler and java in path
+         PATH=$NSIS_BIN:$VCPATH:$PATH:$JAVA_BIN
+
+         # Make sure LIB and INCLUDE is available for others
+         export PATH LIBPATH LIB INCLUDE
+
+    All this is derived from the SetEnv.cmd command file mentioned
+    earlier. The bottom line is to set the PATH so that NSIS and
+    Microsoft SDK is found before the Msys/Cygwin tools and that Java
+    is last in the PATH.
+
+    Make a simple hello world (maybe one that prints out 
+    `sizeof(void *)`) and try to compile it with the `cl` command from within
+    bash. If that does not work, your environment needs fixing. Also
+    remember to fix up the PATH environment, especially old Erlang
+    installations might have inserted quoted paths that Cygwin/Msys
+    does not understand. Remove or correct such paths. There should be
+    no backslashes in your path environment variable in Cygwin bash,
+    but LIB and INCLUDE should contain Windows style paths with
+    semicolon, drive letters and backslashes.
 
 *   Sun's Java JDK 1.5.0 or higher. Our Java code (jinterface, ic) is
     written for JDK 1.5.0. Get it for Windows and install it, the JRE is
@@ -378,11 +542,11 @@ Well' here's the list:
 
     Add javac *LAST* to your path environment in bash, in my case this means:
 
-        PATH="$PATH:/cygdrive/c/Program Files/Java/jdk1.5.0_17/bin"
+        `PATH="$PATH:/cygdrive/c/Program Files/Java/jdk1.5.0_17/bin"`
 
     No `CLASSPATH` or anything is needed. Type `javac` at the bash prompt
     and you should get a list of available Java options. Make sure by
-    typing `which java` that you use the Java you installed. Note however that
+    typing `type java` that you use the Java you installed. Note however that
     Cygwin's `jar.exe` is used, that's why the JDK bin-directory should be
     added last in the `PATH`.
 
@@ -402,29 +566,75 @@ Well' here's the list:
     type makensis at the bash prompt and you should get a list of options
     if everything is OK.
 
-*   OpenSSL for Windows. This is if you want the SSL and crypto
-    applications to compile (and run). Go to <http://www.openssl.org>, click
-    on the `Related` link and then on the `Binaries` link (upper right
-    corner of the page last time I looked), you can then reach the
-    "Shining Lights Productions" Web site for Windows binaries
-    distributions. Get the latest 32-bit installer, or use 0.9.7c if you get
-    trouble with the latest, and install to C:\OpenSSL which is where the
-    Makefiles are expecting to find it. It's a nifty installer. The rest should
-    be handled by `configure`, you needn't put anything in the path or anything.
+* OpenSSL. This is if you want the SSL and crypto applications to
+    compile (and run). There are prebuilt binaries available, but I
+    strongly recommend building this yourself. It's quite easy.
 
-    If you want to build openssl for windows yourself (which might be
-    possible, as you wouldn't be reading this if you weren't a
-    compile-it-yourself person), you either have to put the resulting
-    DLL's in your path or in the windows system directory and either
-    specify where you put the includes etc with the configure-parameter
-    `--with-ssl=<cygwin path to the root>` or put your installation directly
-    under `c:\OpenSSL`. The directory structure under the installation root
-    for OpenSSL is expected to be one with subdirectories named `include`,
-    `bin` and `lib`, possibly with a `VC` subdirectory of `lib` containing
-    the actual `.lib` files. Note that the cygwin distributed OpenSSL cannot be
-    used, it results in cygwin depending binaries and it has unix style
-    archives (`.a`, not `.lib`).
+    First get the source from 
 
+    URL: <http://openssl.org/source/>
+
+    I would recommend using 0.9.8r. 
+
+    Download the tar file and unpack it (using your bash prompt) into
+    a directory of your choise.
+
+    You will need a Windowish Perl for the build. ActiveState has one:
+
+    URL: <http://www.activestate.com/activeperl/downloads>
+
+    Download and install that. Disable options to associate it with
+    the .pl suffix and/or adding things to PATH, they are not needed. 
+
+    Now fire up the Microsoft Windows SDK command prompt in RELEASE
+    mode for the architecture you are going to build. The easiest is
+    to copy the shortcut from the SDKs start menu item and edit the
+    command line in the shortcut (Right click->Properties) to end with
+    `/Release`. Make sure the banner when you double click your
+    shortcut (the text in the resulting command window) says
+    `Targeting Windows XP x64 Release` if you are going to do a 64 bit
+    build and `Targeting Windows XP x86 Release` if you are building a
+    32 bit version.
+
+    Now cd to where you unpacked the OpenSSL source using your Release
+    Windows command prompt (it should be on the same drive as where
+    you are going to install it if everything is to work smothly).
+
+      `C:\> cd <some dir>`
+
+    Add ActiveState (or some other windows perl, not cygwins) to your PATH:
+
+      `C:\...\> set PATH=C:\Perl\bin;%PATH%`
+
+    Configure OpenSSL for 32 bit:
+
+      `C:\...\> perl Configure VC-WIN32 --prefix=/OpenSSL`
+
+    Or for 64 bit:
+
+      `C:\...\> perl Configure VC-WIN64A --prefix=/OpenSSL-Win64`
+
+    Do some setup (for 32 bit):
+
+      `C:\...\> ms\do_win32`
+
+    The same for 64 bit:
+
+      `C:\...\> ms\do_win64a`
+
+    Then build static libraries and install:
+
+      `C:\...\> nmake -f ms\nt.mak`
+      `C:\...\> nmake -f ms\nt.mak install`
+
+    That's it - you now have your perfectly consistent static build of
+    openssl. If you want to get rid of any possibly patented
+    algorithms in the lib, just read up on the OpenSSL FAQ and follow
+    the instructions.
+
+    The installation locations chosen are where configure will look
+    for OpenSSL, so try to keep them as is.
+       
 *   Building with wxWidgets. Download wxWidgets-2.8.9 or higher patch
     release (2.9.\*  is a developer release which currently does not work
     with wxErlang).
@@ -473,6 +683,9 @@ Well' here's the list:
     erlang system without gs (which might be okay as you probably will use
     wx anyway).
 
+    Note that there is no special 64bit version of TCL/TK needed, you
+    can use the 32bit program even for a 64bit build.
+
 The Shell Environment
 ---------------------
 
@@ -500,6 +713,12 @@ the ksh variant:
     $ cd $ERL_TOP
     $ eval $(./otp_build env_win32)
 
+If you are building a 64 bit version, you supply `otp_build` with an architecture parameter:
+
+    $ cd $ERL_TOP
+    $ eval `./otp_build env_win32 x64`
+     
+
 This should do the final touch to the environment and building should
 be easy after this. You could run `./otp_build env_win32` without
 `eval` just to see what it does, and to see that the environment it
@@ -509,10 +728,11 @@ style short names instead), the variables `OVERRIDE_TARGET`, `CC`, `CXX`,
 `$ERL_TOP/erts/etc/win32/cygwin_tools/vc` and
 `$ERL_TOP/erts/etc/win32/cygwin_tool` are added first in the PATH.
 
-Try now a `which erlc`. That should result in the erlc wrapper script
+Try now a `type erlc`. That should result in the erlc wrapper script
 (which does not have the .sh extension, for reasons best kept
-untold...). It should reside in `$ERL_TOP/erts/etc/win32/cygwin_tools`.
-You could also try `which cc.sh`, which `ar.sh` etc.
+untold...). It should reside in `$ERL_TOP/erts/etc/win32/cygwin_tools`
+or `$ERL_TOP/erts/etc/win32/msys_tools`.  You could also try `which
+cc.sh`, which `ar.sh` etc.
 
 Now you're ready to build...
 
@@ -520,8 +740,8 @@ Now you're ready to build...
 Building and Installing
 -----------------------
 
-Now it's assumed that you have executed `` eval `./otp_build env_win32` ``
-for this particular shell...
+Now it's assumed that you have executed `` eval `./otp_build env_win32` `` or 
+`` eval `./otp_build env_win32 x64` `` for this particular shell...
 
 Building is easiest using the `otp_build` script. That script takes care
 of running configure, bootstrapping etc on Windows in a simple
@@ -612,6 +832,13 @@ Lets get into more detail:
         $ cd $ERL_TOP
         $ release/win32/otp_win32_%OTP-REL% /S
         ...
+
+    or
+
+        $ cd $ERL_TOP
+        $ release/win32/otp_win64_%OTP-REL% /S
+        ...
+    
 
     and after a while Erlang/OTP-%OTP-REL% will have been installed in
     `C:\Program Files\erl%ERTS-VSN%\`, with shortcuts in the menu etc.
@@ -735,6 +962,22 @@ Remember that:
 
 That's basically all you need to get going.
 
+Using GIT
+---------
+
+You might want to check out versions of the source code from GitHUB. That is possible directly in cygwin, but not in Msys. There is a project MsysGIT:
+
+URL:<http://code.google.com/p/msysgit/>
+
+that makes a nice Git port. The msys prompt you get from MsysGIT is
+however not compatible with the full version from MinGW, so you will
+need to check out files using MsysGITs command prompt and then switch
+to a common Msys command prompt for building. Also all test suites
+cannot be built as MsysGIT/Msys does not handle symbolic links. To
+build test suites on Windows, you will need Cygwin for now. Hopefully
+all symbolic links will disappear from our repository soon and this
+issue will disappear.
+
 Final Words
 -----------
 My hope is that the possibility to build the whole system on Windows
@@ -752,10 +995,14 @@ be good. The idea to do this came from his work, so credit is well
 deserved.
 
 Of course this would have been completely impossible without the
-excellent Cygwin package. The guys at Cygnus solutions and Redhat
-deserves a huge THANKS! as well as all the other people in the free
-software community who have helped in creating the magnificent
+excellent Cygwin. The guys at Cygnus solutions and
+Redhat deserves a huge THANKS! as well as all the other people in the
+free software community who have helped in creating the magnificent
 software that constitutes Cygwin.
+
+Also the people developing the alternative command prompt Msys anfd
+the MinGW compiler are worth huge THANKS! The 64bit port would have
+been impossible without the 64bit MinGW compiler.
 
 Good luck and Happy Hacking,
 Patrik, OTP
