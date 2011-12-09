@@ -99,7 +99,7 @@
 	 slave_start_link/0,
 	 slave_start_link/1,
 	 slave_sup/0,
-	
+
 	 start_mnesia/1,
 	 start_mnesia/2,
 	 start_appls/2,
@@ -131,7 +131,7 @@
 	 struct/1,
 	 init_per_testcase/2,
 	 end_per_testcase/2,
-	 kill_tc/2	
+	 kill_tc/2
 	]).
 
 -include("mnesia_test_lib.hrl").
@@ -187,7 +187,7 @@ verbose(Format, Args, File, Line) ->
 		    ok
 	    end
     end.
-    
+
 -record('REASON', {file, line, desc}).
 
 error(Format, Args, File, Line) ->
@@ -196,9 +196,9 @@ error(Format, Args, File, Line) ->
 		     line = Line,
 		     desc = Args},
     case global:whereis_name(mnesia_test_case_sup) of
-	undefined -> 
+	undefined ->
 	    ignore;
-	Pid -> 
+	Pid ->
 	    Pid ! Fail
 %% 	    global:send(mnesia_test_case_sup, Fail),
     end,
@@ -217,7 +217,7 @@ storage_type(Default, Config) ->
 default_config() ->
     [{nodes, default_nodes()}].
 
-default_nodes() ->    
+default_nodes() ->
     mk_nodes(3, []).
 
 mk_nodes(0, Nodes) ->
@@ -231,7 +231,7 @@ mk_nodes(N, Nodes) when N > 0 ->
 
 mk_node(N, Name, Host) ->
     list_to_atom(lists:concat([Name ++ integer_to_list(N) ++ "@" ++ Host])).
-    
+
 slave_start_link() ->
     slave_start_link(node()).
 
@@ -247,11 +247,11 @@ slave_start_link(Host, Name) ->
 
 slave_start_link(Host, Name, Retries) ->
     Debug = atom_to_list(mnesia:system_info(debug)),
-    Args = "-mnesia debug " ++ Debug ++ 
+    Args = "-mnesia debug " ++ Debug ++
 	" -pa " ++
-	filename:dirname(code:which(?MODULE)) ++ 
-	" -pa " ++ 
-	filename:dirname(code:which(mnesia)),    
+	filename:dirname(code:which(?MODULE)) ++
+	" -pa " ++
+	filename:dirname(code:which(mnesia)),
     case starter(Host, Name, Args) of
 	{ok, NewNode} ->
 	    ?match(pong, net_adm:ping(NewNode)),
@@ -264,8 +264,8 @@ slave_start_link(Host, Name, Retries) ->
 	    {ok, NewNode};
 	{error, Reason} when Retries == 0->
 	    {error, Reason};
-	{error, Reason} ->	    
-	    io:format("Could not start slavenode ~p ~p retrying~n", 
+	{error, Reason} ->
+	    io:format("Could not start slavenode ~p ~p retrying~n",
 		      [{Host, Name, Args}, Reason]),
 	    timer:sleep(500),
 	    slave_start_link(Host, Name, Retries - 1)
@@ -284,7 +284,7 @@ starter(Host, Name, Args) ->
 slave_sup() ->
     process_flag(trap_exit, true),
     receive
-	{'EXIT', _, _} -> 
+	{'EXIT', _, _} ->
 	    case os:type() of
 		vxworks ->
 		    erlang:halt();
@@ -292,7 +292,7 @@ slave_sup() ->
 		    ignore
 	    end
     end.
-    
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Index the test case structure
 
@@ -305,7 +305,7 @@ doc(TestCases) when is_list(TestCases) ->
     io:format(Fd, "<TITLE>Test specification for ~p</TITLE>.~n", [TestCases]),
     io:format(Fd, "<H1>Test specification for ~p</H1>~n", [TestCases]),
     io:format(Fd, "Test cases which not are implemented yet are written in <B>bold face</B>.~n~n", []),
-    
+
     io:format(Fd, "<BR><BR>~n", []),
     io:format(Fd, "~n<DL>~n", []),
     do_doc(Fd, TestCases, []),
@@ -349,7 +349,7 @@ do_doc(Fd, Module, TestCase, List) ->
 
 print_doc(Fd, Mod, Fun, Head) ->
     case catch (apply(Mod, Fun, [doc])) of
-	{'EXIT', _} -> 
+	{'EXIT', _} ->
 	    io:format(Fd, "<DT>~s</DT>~n", [Head]);
 	Doc when is_list(Doc) ->
 	    io:format(Fd, "<DT><U>~s</U><BR><DD>~n", [Head]),
@@ -428,10 +428,10 @@ test_driver({Module, TestCase}, Config) ->
 	_ ->
 	    log("Eval test case: ~w~n", [{Module, TestCase}]),
 	    try timer:tc(?MODULE, eval_test_case, [Module, TestCase, Config]) of
-		{T, Res} -> 
+		{T, Res} ->
 		    log("Tested ~w in ~w sec~n", [TestCase, T div Sec]),
 		    {T div Sec, Res}
-	    catch error:function_clause -> 
+	    catch error:function_clause ->
 		    log("<WARNING> Test case ~w NYI~n", [{Module, TestCase}]),
 		    {0, {skip, {Module, TestCase}, "NYI"}}
 	    end
@@ -472,13 +472,13 @@ get_suite(Module, TestCase, Config) ->
 
 %% Returns a list (possibly empty) or the atom 'NYI'
 get_suite(Mod, {group, Suite}) ->
-    try 
+    try
 	Groups = Mod:groups(),
 	{_, _, TCList} = lists:keyfind(Suite, 1, Groups),
 	TCList
     catch
 	_:Reason ->
-	    io:format("Not implemented ~p ~p (~p ~p)~n", 
+	    io:format("Not implemented ~p ~p (~p ~p)~n",
 		      [Mod,Suite,Reason, erlang:get_stacktrace()]),
 	    'NYI'
     end;
@@ -487,7 +487,7 @@ get_suite(Mod, all) ->
 	{'EXIT', _} -> 'NYI';
 	List when is_list(List) -> List
     end;
-get_suite(_Mod, _Fun) -> 
+get_suite(_Mod, _Fun) ->
     [].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -511,7 +511,7 @@ wait_for_evaluator(Pid, Mod, Fun, Config) ->
     receive
 	{'EXIT', Pid, {test_case_ok, _PidRes}} ->
 	    Errors = flush(),
-	    Res = 
+	    Res =
 		case Errors of
 		    [] -> ok;
 		    Errors -> failed
@@ -531,7 +531,7 @@ wait_for_evaluator(Pid, Mod, Fun, Config) ->
 
 test_case_evaluator(Mod, Fun, [Config]) ->
     NewConfig = Mod:init_per_testcase(Fun, Config),
-    try 
+    try
 	R = apply(Mod, Fun, [NewConfig]),
 	Mod:end_per_testcase(Fun, NewConfig),
 	exit({test_case_ok, R})
@@ -588,7 +588,7 @@ mapl(_Fun, []) ->
 
 diskless(Config) ->
     case lists:keysearch(diskless, 1, Config) of
-	{value, {diskless, true}} -> 
+	{value, {diskless, true}} ->
 	    true;
 	_Else ->
 	    false
@@ -634,7 +634,7 @@ sync_trans_tid_serial(Nodes) ->
 
 select_nodes(N, Config, File, Line) ->
     prepare_test_case([], N, Config, File, Line).
-    
+
 prepare_test_case(Actions, N, Config, File, Line) ->
     NodeList1 = lookup_config(nodes, Config),
     NodeList2 = lookup_config(nodenames, Config), %% For testserver
@@ -666,10 +666,10 @@ do_prepare([delete_schema | Actions], Selected, All, Config, File, Line) ->
 	true ->
 	    skip;
 	false ->
-	    Del = fun(Node) -> 
+	    Del = fun(Node) ->
 			  case mnesia:delete_schema([Node]) of
 			      ok -> ok;
-			      {error, {"All nodes not running",_}} -> 
+			      {error, {"All nodes not running",_}} ->
 				  ok;
 			      Else ->
 				  ?log("Delete schema error ~p ~n", [Else])
@@ -680,7 +680,7 @@ do_prepare([delete_schema | Actions], Selected, All, Config, File, Line) ->
     do_prepare(Actions, Selected, All, Config, File, Line);
 do_prepare([create_schema | Actions], Selected, All, Config, File, Line) ->
     case diskless(Config) of
-	true -> 
+	true ->
 	    skip;
 	_Else ->
 	    case mnesia:create_schema(Selected) of
@@ -705,12 +705,12 @@ set_kill_timer(Config) ->
     case init:get_argument(mnesia_test_timeout) of
 	{ok, _ } -> ok;
 	_ ->
-	    Time0 = 
+	    Time0 =
 		case lookup_config(tc_timeout, Config) of
 		    [] -> timer:minutes(5);
 		    ConfigTime when is_integer(ConfigTime) -> ConfigTime
 		end,
-	    Mul = try 
+	    Mul = try
 		      test_server:timetrap_scale_factor()
 		  catch _:_ -> 1 end,
 	    (catch test_server:timetrap(Mul*Time0 + 1000)),
@@ -718,7 +718,7 @@ set_kill_timer(Config) ->
     end.
 
 kill_tc(Pid, Time) ->
-    receive 
+    receive
     after Time ->
 	    case process_info(Pid) of
 		undefined ->  ok;
@@ -739,10 +739,10 @@ kill_tc(Pid, Time) ->
 		    exit(Pid, kill)
 	    end
     end.
-    
+
 
 append_unique([], List) -> List;
-append_unique([H|R], List) -> 
+append_unique([H|R], List) ->
     case lists:member(H, List) of
 	true -> append_unique(R, List);
 	false -> [H | append_unique(R, List)]
@@ -751,13 +751,13 @@ append_unique([H|R], List) ->
 pick_nodes(all, Nodes, File, Line) ->
     pick_nodes(length(Nodes), Nodes, File, Line);
 pick_nodes(N, [H | T], File, Line) when N > 0 ->
-    [H | pick_nodes(N - 1, T, File, Line)]; 
+    [H | pick_nodes(N - 1, T, File, Line)];
 pick_nodes(0, _Nodes, _File, _Line) ->
     [];
 pick_nodes(N, [], File, Line) ->
     ?skip("Test case (~p(~p)) ignored: ~p nodes missing~n",
 	  [File, Line, N]).
-   
+
 init_nodes([Node | Nodes], File, Line) ->
     case net_adm:ping(Node) of
 	pong ->
@@ -777,7 +777,7 @@ init_nodes([Node | Nodes], File, Line) ->
 init_nodes([], _File, _Line) ->
     [].
 
-%% Returns [Name, Host]    
+%% Returns [Name, Host]
 node_to_name_and_host(Node) ->
     string:tokens(atom_to_list(Node), [$@]).
 
@@ -793,7 +793,7 @@ lookup_config(Key,Config) ->
 
 start_appls(Appls, Nodes) ->
     start_appls(Appls, Nodes, [],  [schema]).
-    
+
 start_appls(Appls, Nodes, Config) ->
     start_appls(Appls, Nodes, Config, [schema]).
 
@@ -815,9 +815,9 @@ start_appls([], _Nodes, _Config, _Tabs) ->
 
 remote_start(mnesia, Config, Nodes) ->
     case diskless(Config) of
-	true -> 
-	    application_controller:set_env(mnesia, 
-					   extra_db_nodes, 
+	true ->
+	    application_controller:set_env(mnesia,
+					   extra_db_nodes,
 					   Nodes -- [node()]),
 	    application_controller:set_env(mnesia,
 					   schema_location,
@@ -830,7 +830,7 @@ remote_start(mnesia, Config, Nodes) ->
     end,
     {node(), mnesia:start()};
 remote_start(Appl, _Config, _Nodes) ->
-    Res = 
+    Res =
 	case application:start(Appl) of
 	    {error, {already_started, Appl}} ->
 		ok;
@@ -842,13 +842,13 @@ remote_start(Appl, _Config, _Nodes) ->
 %% Start Mnesia on all given nodes and wait for specified
 %% tables to be accessible on each node. The atom all means
 %% that we should wait for all tables to be loaded
-%% 
+%%
 %% Returns a list of error tuples {BadNode, mnesia, Reason}
 start_mnesia(Nodes) ->
     start_appls([mnesia], Nodes).
 start_mnesia(Nodes, Tabs) when is_list(Nodes) ->
     start_appls([mnesia], Nodes, [], Tabs).
-    
+
 %% Wait for the tables to be accessible from all nodes in the list
 %% and that all nodes are aware of that the other nodes also ...
 sync_tables(Nodes, Tabs) ->
@@ -924,26 +924,26 @@ verify_nodes([Tab| Tabs], N) ->
 	mnesia:table_info(Tab, ram_copies),
     Local = mnesia:table_info(Tab, local_content),
     case Copies -- Nodes of
-	[] -> 
+	[] ->
 	    verify_nodes(Tabs, 0);
 	_Else when Local == true, Nodes /= [] ->
 	    verify_nodes(Tabs, 0);
         Else ->
-	    N2 = 
+	    N2 =
 		if
-		    N > 20 -> 
-			log("<>WARNING<> ~w Waiting for table: ~p on ~p ~n", 
+		    N > 20 ->
+			log("<>WARNING<> ~w Waiting for table: ~p on ~p ~n",
 				 [node(), Tab, Else]),
 			0;
 		    true -> N+1
-		end,	    
+		end,
 	    timer:sleep(500),
 	    verify_nodes([Tab| Tabs], N2)
     end.
 
 
 %% Nicely stop Mnesia on all given nodes
-%% 
+%%
 %% Returns a list of error tuples {BadNode, Reason}
 stop_mnesia(Nodes) when is_list(Nodes) ->
     stop_appls([mnesia], Nodes).
@@ -1047,7 +1047,7 @@ verify_replica_location(Tab, DiscOnly0, Ram0, Disc0, AliveNodes0) ->
     Read = ignore_dead(DiscOnly ++ Ram ++ Disc, AliveNodes),
     This = node(),
 
-    timer:sleep(100), 
+    timer:sleep(100),
 
     S1 = ?match(AliveNodes, lists:sort(mnesia:system_info(running_db_nodes))),
     S2 = ?match(DiscOnly, lists:sort(mnesia:table_info(Tab, disc_only_copies))),
@@ -1080,7 +1080,7 @@ do_remote_activate_debug_fun(From, I, F, C, File, Line) ->
     timer:sleep(infinity).  % Dies whenever the test process dies !!
 
 
-sort(L) when is_list(L) -> 
+sort(L) when is_list(L) ->
     lists:sort(L);
 sort({atomic, L}) when is_list(L) ->
     {atomic, lists:sort(L)};

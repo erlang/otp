@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 1996-2011. All Rights Reserved.
-%% 
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -112,7 +112,7 @@
 -define(remote_deactivate_debug_fun(N, I),
 	rpc:call(N, mnesia_lib, deactivate_debug_fun, [I, ?FILE, ?LINE])).
 
--define(is_debug_compiled, 
+-define(is_debug_compiled,
 	case mnesia_lib:is_debug_compiled() of
 	    false ->
 		?skip("Mnesia is not debug compiled, test case ignored.~n", []);
@@ -120,7 +120,7 @@
 		ok
 	end).
 
--define(needs_disc(Config), 
+-define(needs_disc(Config),
 	case mnesia_test_lib:diskless(Config) of
 	    false ->
 		ok;
@@ -128,5 +128,5 @@
 		?skip("Must have disc, test case ignored.~n", [])
 	end).
 
--define(verify_mnesia(Ups, Downs), 
+-define(verify_mnesia(Ups, Downs),
 	mnesia_test_lib:verify_mnesia(Ups, Downs, ?FILE, ?LINE)).

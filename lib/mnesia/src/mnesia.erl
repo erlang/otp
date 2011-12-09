@@ -27,7 +27,7 @@
 	 %% Start, stop and debugging
 	 start/0, start/1, stop/0,           % Not for public use
 	 set_debug_level/1, lkill/0, kill/0, % Not for public use
-	 ms/0, 
+	 ms/0,
 	 change_config/2,
 
 	 %% Activity mgt
@@ -40,14 +40,14 @@
 	 %% Access within an activity - Lock acquisition
 	 lock/2, lock/4,
 	 lock_table/2,
-	 read_lock_table/1, 
+	 read_lock_table/1,
 	 write_lock_table/1,
 
 	 %% Access within an activity - Updates
-	 write/1, s_write/1, write/3, write/5, 
-	 delete/1, s_delete/1, delete/3, delete/5, 
-	 delete_object/1, s_delete_object/1, delete_object/3, delete_object/5, 
-	 
+	 write/1, s_write/1, write/3, write/5,
+	 delete/1, s_delete/1, delete/3, delete/5,
+	 delete_object/1, s_delete_object/1, delete_object/3, delete_object/5,
+
 	 %% Access within an activity - Reads
 	 read/1, read/2, wread/1, read/3, read/5,
 	 match_object/1, match_object/3, match_object/5,
@@ -58,9 +58,9 @@
 	 first/1, next/2, last/1, prev/2,
 	 first/3, next/4, last/3, prev/4,
 
-	 %% Iterators within an activity 
+	 %% Iterators within an activity
 	 foldl/3, foldl/4, foldr/3, foldr/4,
-	 
+
 	 %% Dirty access regardless of activities - Updates
 	 dirty_write/1, dirty_write/2,
 	 dirty_delete/1, dirty_delete/2,
@@ -72,8 +72,8 @@
 	 dirty_select/2,
 	 dirty_match_object/1, dirty_match_object/2, dirty_all_keys/1,
 	 dirty_index_match_object/2, dirty_index_match_object/3,
-	 dirty_index_read/3, dirty_slot/2, 
-	 dirty_first/1, dirty_next/2, dirty_last/1, dirty_prev/2, 
+	 dirty_index_read/3, dirty_slot/2,
+	 dirty_first/1, dirty_next/2, dirty_last/1, dirty_prev/2,
 
 	 %% Info
 	 table_info/2, table_info/4, schema/0, schema/1,
@@ -102,7 +102,7 @@
 	 dump_tables/1, wait_for_tables/2, force_load_table/1,
 	 change_table_access_mode/2, change_table_load_order/2,
 	 set_master_nodes/1, set_master_nodes/2,
-	 
+
 	 %% Misc admin
 	 dump_log/0, subscribe/1, unsubscribe/1, report_event/1,
 
@@ -112,7 +112,7 @@
 
 	 %% Textfile access
 	 load_textfile/1, dump_to_textfile/1,
-	 
+
 	 %% QLC functions
 	 table/1, table/2,
 
@@ -137,20 +137,20 @@
 
 -define(DEFAULT_ACCESS, ?MODULE).
 
-%% Select 
+%% Select
 -define(PATTERN_TO_OBJECT_MATCH_SPEC(Pat), [{Pat,[],['$_']}]).
 -define(PATTERN_TO_BINDINGS_MATCH_SPEC(Pat), [{Pat,[],['$$']}]).
-   
+
 %% Local function in order to avoid external function call
 val(Var) ->
     case ?catch_val(Var) of
-	{'EXIT', Reason} -> mnesia_lib:other_val(Var, Reason); 
+	{'EXIT', Reason} -> mnesia_lib:other_val(Var, Reason);
 	Value -> Value
     end.
 
 is_dollar_digits(Var) ->
     case atom_to_list(Var) of
-	[$$ | Digs] -> 
+	[$$ | Digs] ->
 	    is_digits(Digs);
 	_ ->
 	    false
@@ -166,13 +166,13 @@ is_digits([Dig | Tail]) ->
 is_digits([]) ->
     true.
 
-has_var(X) when is_atom(X) -> 
-    if 
-	X == '_' -> 
+has_var(X) when is_atom(X) ->
+    if
+	X == '_' ->
 	    true;
-	is_atom(X) -> 
+	is_atom(X) ->
 	    is_dollar_digits(X);
-	true  -> 
+	true  ->
 	    false
     end;
 has_var(X) when is_tuple(X) ->
@@ -196,9 +196,9 @@ e_has_var(X, Pos) ->
 
 start() ->
     {Time , Res} =  timer:tc(application, start, [?APPLICATION, temporary]),
-    
+
     Secs = Time div 1000000,
-    case Res of 
+    case Res of
 	ok ->
 	    verbose("Mnesia started, ~p seconds~n",[ Secs]),
 	    ok;
@@ -243,10 +243,10 @@ change_config(extra_db_nodes, Ns) when is_list(Ns) ->
     mnesia_controller:connect_nodes(Ns);
 change_config(dc_dump_limit, N) when is_number(N), N > 0 ->
     case mnesia_lib:is_running() of
-	yes ->  
+	yes ->
 	    mnesia_lib:set(dc_dump_limit, N),
 	    {ok, N};
-	_ -> 
+	_ ->
 	    {error, {not_started, ?APPLICATION}}
     end;
 change_config(BadKey, _BadVal) ->
@@ -255,7 +255,7 @@ change_config(BadKey, _BadVal) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Debugging
 
-set_debug_level(Level) -> 
+set_debug_level(Level) ->
     mnesia_subscr:set_debug_level(Level).
 
 lkill() ->
@@ -274,9 +274,9 @@ ms() ->
      mnesia_controller,
      mnesia_dumper,
      mnesia_loader,
-     mnesia_frag, 
-     mnesia_frag_hash, 
-     mnesia_frag_old_hash, 
+     mnesia_frag,
+     mnesia_frag_hash,
+     mnesia_frag_old_hash,
      mnesia_index,
      mnesia_kernel_sup,
      mnesia_late_loader,
@@ -295,9 +295,9 @@ ms() ->
 
      %% Keep these last in the list, so
      %% mnesia_sup kills these last
-     mnesia_monitor, 
+     mnesia_monitor,
      mnesia_event
-    ]. 
+    ].
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -305,7 +305,7 @@ ms() ->
 
 -spec abort(_) -> no_return().
 
-abort(Reason) -> 
+abort(Reason) ->
     exit({aborted, Reason}).
 
 is_transaction() ->
@@ -339,7 +339,7 @@ sync_transaction(Fun, Args, Retries) ->
     transaction(get(mnesia_activity_state), Fun, Args, Retries, ?DEFAULT_ACCESS, sync).
 
 
-transaction(State, Fun, Args, Retries, Mod, Kind) 
+transaction(State, Fun, Args, Retries, Mod, Kind)
   when is_function(Fun), is_list(Args), Retries == infinity, is_atom(Mod) ->
     mnesia_tm:transaction(State, Fun, Args, Retries, Mod, Kind);
 transaction(State, Fun, Args, Retries, Mod, Kind)
@@ -348,7 +348,7 @@ transaction(State, Fun, Args, Retries, Mod, Kind)
 transaction(_State, Fun, Args, Retries, Mod, _Kind) ->
     {aborted, {badarg, Fun, Args, Retries, Mod}}.
 
-non_transaction(State, Fun, Args, ActivityKind, Mod) 
+non_transaction(State, Fun, Args, ActivityKind, Mod)
   when is_function(Fun), is_list(Args), is_atom(Mod) ->
     mnesia_tm:non_transaction(State, Fun, Args, ActivityKind, Mod);
 non_transaction(_State, Fun, Args, _ActivityKind, _Mod) ->
@@ -394,7 +394,7 @@ wrap_trans(State, Fun, Args, Retries, Mod, Kind) ->
 	{atomic, GoodRes} -> GoodRes;
 	BadRes -> exit(BadRes)
     end.
-	     
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Access within an activity - lock acquisition
 
@@ -507,13 +507,13 @@ good_global_nodes(Nodes) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Access within an activity - updates
 
-write(Val) when is_tuple(Val), tuple_size(Val) > 2 -> 
+write(Val) when is_tuple(Val), tuple_size(Val) > 2 ->
     Tab = element(1, Val),
     write(Tab, Val, write);
 write(Val) ->
     abort({bad_type, Val}).
 
-s_write(Val) when is_tuple(Val), tuple_size(Val) > 2 -> 
+s_write(Val) when is_tuple(Val), tuple_size(Val) > 2 ->
     Tab = element(1, Val),
     write(Tab, Val, sticky_write).
 
@@ -561,7 +561,7 @@ write_to_store(Tab, Store, Oid, Val) ->
 		_  ->
 		    ?ets_delete(Store, Oid),
 		    ?ets_insert(Store, {Oid, Val, write})
-	    end, 
+	    end,
 	    ok;
 	{'EXIT', _} ->
 	    abort({no_exists, Tab});
@@ -611,7 +611,7 @@ delete(Tid, Ts, Tab, Key, LockKind)
 	      ok;
 	Protocol ->
 	      do_dirty_delete(Protocol, Tab, Key)
-    end; 
+    end;
 delete(_Tid, _Ts, Tab, _Key, _LockKind) ->
     abort({bad_type, Tab}).
 
@@ -640,7 +640,7 @@ delete_object(Tab, Val, LockKind) ->
 delete_object(Tid, Ts, Tab, Val, LockKind)
   when is_atom(Tab), Tab /= schema, is_tuple(Val), tuple_size(Val) > 2 ->
     case has_var(Val) of
-	false -> 
+	false ->
 	    do_delete_object(Tid, Ts, Tab, Val, LockKind);
 	true ->
 	    abort({bad_type, Tab, Val})
@@ -665,7 +665,7 @@ do_delete_object(Tid, Ts, Tab, Val, LockKind) ->
 		      abort({bad_type, Tab, LockKind})
 	      end,
 	      case val({Tab, setorbag}) of
-		  bag -> 
+		  bag ->
 		      ?ets_match_delete(Store, {Oid, Val, '_'}),
 		      ?ets_insert(Store, {Oid, Val, delete_object});
 		  _ ->
@@ -731,7 +731,7 @@ read(Tid, Ts, Tab, Key, LockKind)
 	    add_written(?ets_lookup(Store, Oid), Tab, Objs);
 	_Protocol ->
 	    dirty_read(Tab, Key)
-    end; 
+    end;
 read(_Tid, _Ts, Tab, _Key, _LockKind) ->
     abort({bad_type, Tab}).
 
@@ -744,7 +744,7 @@ first(Tab) ->
 	_ ->
 	    abort(no_transaction)
     end.
-    
+
 first(Tid, Ts, Tab)
   when is_atom(Tab), Tab /= schema ->
     case element(1, Tid) of
@@ -845,9 +845,9 @@ prev(_Tid, _Ts,Tab,_) ->
 stored_keys(Tab,'$end_of_table',Prev,Ts,Op,Type) ->
     case ts_keys(Ts#tidstore.store,Tab,Op,Type,[]) of
 	[] -> '$end_of_table';
-	Keys when Type == ordered_set-> 
+	Keys when Type == ordered_set->
 	    get_ordered_tskey(Prev,Keys,Op);
-	Keys -> 
+	Keys ->
 	    get_next_tskey(Prev,Keys,Tab)
     end;
 stored_keys(Tab,{'EXIT',{aborted,R={badarg,[Tab,Key]}}},
@@ -858,7 +858,7 @@ stored_keys(Tab,{'EXIT',{aborted,R={badarg,[Tab,Key]}}},
 	Ops ->
 	    case lists:last(Ops) of
 		[delete] -> abort(R);
-		_ -> 
+		_ ->
 		    case ts_keys(Store,Tab,Op,Type,[]) of
 			[] -> '$end_of_table';
 			Keys -> get_next_tskey(Key,Keys,Tab)
@@ -869,14 +869,14 @@ stored_keys(_,{'EXIT',{aborted,R}},_,_,_,_) ->
     abort(R);
 stored_keys(Tab,Key,Prev,#tidstore{store=Store},Op,ordered_set) ->
     case ?ets_match(Store, {{Tab, Key}, '_', '$1'}) of
-	[] -> 
+	[] ->
 	    Keys = ts_keys(Store,Tab,Op,ordered_set,[Key]),
 	    get_ordered_tskey(Prev,Keys,Op);
  	Ops ->
 	    case lists:last(Ops) of
 		[delete] ->
 	 	    mnesia:Op(Tab,Key);
-		_ -> 
+		_ ->
 		    Keys = ts_keys(Store,Tab,Op,ordered_set,[Key]),
 		    get_ordered_tskey(Prev,Keys,Op)
 	    end
@@ -898,7 +898,7 @@ get_ordered_tskey(Prev, [_|R],Op) ->  get_ordered_tskey(Prev,R,Op);
 get_ordered_tskey(_, [],_) ->    '$end_of_table'.
 
 get_next_tskey(Key,Keys,Tab) ->
-    Next = 
+    Next =
 	if Key == '$end_of_table' -> hd(Keys);
 	   true ->
 		case lists:dropwhile(fun(A) -> A /= Key end, Keys) of
@@ -912,7 +912,7 @@ get_next_tskey(Key,Keys,Tab) ->
 	_ -> %% Really slow anybody got another solution??
 	    case dirty_read(Tab, Next) of
 		[] -> Next;
-		_ ->  
+		_ ->
 		    %% Updated value we already returned this key
 		    get_next_tskey(Next,Keys,Tab)
 	    end
@@ -921,7 +921,7 @@ get_next_tskey(Key,Keys,Tab) ->
 ts_keys(Store, Tab, Op, Type, Def) ->
     All = ?ets_match(Store, {{Tab,'$1'},'_','$2'}),
     Keys = ts_keys_1(All, Def),
-    if 
+    if
 	Type == ordered_set, Op == prev ->
 	    lists:reverse(lists:sort(Keys));
 	Type == ordered_set ->
@@ -947,7 +947,7 @@ ts_keys_1([], Acc) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%
-%% Iterators 
+%% Iterators
 
 foldl(Fun, Acc, Tab) ->
     foldl(Fun, Acc, Tab, read).
@@ -968,7 +968,7 @@ foldl(ActivityId, Opaque, Fun, Acc, Tab, LockKind) ->
     close_iteration(Res, Tab).
 
 do_foldl(A, O, Tab, '$end_of_table', Fun, RAcc, _Type, Stored) ->
-    lists:foldl(fun(Key, Acc) -> 
+    lists:foldl(fun(Key, Acc) ->
 			lists:foldl(Fun, Acc, read(A, O, Tab, Key, read))
 		end, RAcc, Stored);
 do_foldl(A, O, Tab, Key, Fun, Acc, ordered_set, [H | Stored]) when H == Key ->
@@ -983,7 +983,7 @@ do_foldl(A, O, Tab, Key, Fun, Acc, ordered_set, [H | Stored]) when H > Key ->
     NewAcc = lists:foldl(Fun, Acc, read(A, O, Tab, Key, read)),
     {_, Tid, Ts} = get(mnesia_activity_state),
     do_foldl(Tid, Ts, Tab, dirty_next(Tab, Key), Fun, NewAcc, ordered_set, [H |Stored]);
-do_foldl(A, O, Tab, Key, Fun, Acc, Type, Stored) ->  %% Type is set or bag 
+do_foldl(A, O, Tab, Key, Fun, Acc, Type, Stored) ->  %% Type is set or bag
     NewAcc = lists:foldl(Fun, Acc, read(A, O, Tab, Key, read)),
     NewStored = ordsets:del_element(Key, Stored),
     {_, Tid, Ts} = get(mnesia_activity_state),
@@ -1003,8 +1003,8 @@ foldr(Fun, Acc, Tab, LockKind) when is_function(Fun) ->
 
 foldr(ActivityId, Opaque, Fun, Acc, Tab, LockKind) ->
     {Type, TempPrev} = init_iteration(ActivityId, Opaque, Tab, LockKind),
-    Prev = 
-	if 
+    Prev =
+	if
 	    Type == ordered_set ->
 		lists:reverse(TempPrev);
 	    true ->      %% Order doesn't matter for set and bag
@@ -1014,7 +1014,7 @@ foldr(ActivityId, Opaque, Fun, Acc, Tab, LockKind) ->
     close_iteration(Res, Tab).
 
 do_foldr(A, O, Tab, '$end_of_table', Fun, RAcc, _Type, Stored) ->
-    lists:foldl(fun(Key, Acc) -> 
+    lists:foldl(fun(Key, Acc) ->
 			lists:foldl(Fun, Acc, read(A, O, Tab, Key, read))
 		end, RAcc, Stored);
 do_foldr(A, O, Tab, Key, Fun, Acc, ordered_set, [H | Stored]) when H == Key ->
@@ -1029,7 +1029,7 @@ do_foldr(A, O, Tab, Key, Fun, Acc, ordered_set, [H | Stored]) when H < Key ->
     NewAcc = lists:foldl(Fun, Acc, read(A, O, Tab, Key, read)),
     {_, Tid, Ts} = get(mnesia_activity_state),
     do_foldr(Tid, Ts, Tab, dirty_prev(Tab, Key), Fun, NewAcc, ordered_set, [H |Stored]);
-do_foldr(A, O, Tab, Key, Fun, Acc, Type, Stored) ->  %% Type is set or bag 
+do_foldr(A, O, Tab, Key, Fun, Acc, Type, Stored) ->  %% Type is set or bag
     NewAcc = lists:foldl(Fun, Acc, read(A, O, Tab, Key, read)),
     NewStored = ordsets:del_element(Key, Stored),
     {_, Tid, Ts} = get(mnesia_activity_state),
@@ -1037,25 +1037,25 @@ do_foldr(A, O, Tab, Key, Fun, Acc, Type, Stored) ->  %% Type is set or bag
 
 init_iteration(ActivityId, Opaque, Tab, LockKind) ->
     lock(ActivityId, Opaque, {table, Tab}, LockKind),
-    Type = val({Tab, setorbag}),    
+    Type = val({Tab, setorbag}),
     Previous = add_previous(ActivityId, Opaque, Type, Tab),
     St = val({Tab, storage_type}),
-    if 
-	St == unknown -> 
+    if
+	St == unknown ->
 	    ignore;
 	true ->
 	    mnesia_lib:db_fixtable(St, Tab, true)
-    end, 
+    end,
     {Type, Previous}.
 
 close_iteration(Res, Tab) ->
     case val({Tab, storage_type}) of
-	unknown -> 
+	unknown ->
 	    ignore;
-	St -> 
+	St ->
 	    mnesia_lib:db_fixtable(St, Tab, false)
     end,
-    case Res of 
+    case Res of
 	{'EXIT', {aborted, What}} ->
 	   abort(What);
 	{'EXIT', What} ->
@@ -1074,7 +1074,7 @@ add_previous(_Tid, Ts, _Type, Tab) ->
 %% it is correct with respect to what this particular transaction
 %% has already written, deleted .... etc
 
-add_written([], _Tab, Objs) -> 
+add_written([], _Tab, Objs) ->
     Objs;  % standard normal fast case
 add_written(Written, Tab, Objs) ->
     case val({Tab, setorbag}) of
@@ -1093,7 +1093,7 @@ add_written_to_set(Ws) ->
 
 add_written_to_bag([{_, Val, write} | Tail], Objs, Ack) ->
     add_written_to_bag(Tail, lists:delete(Val, Objs), [Val | Ack]);
-add_written_to_bag([], Objs, Ack) -> 
+add_written_to_bag([], Objs, Ack) ->
     Objs ++ lists:reverse(Ack); %% Oldest write first as in ets
 add_written_to_bag([{_, _ , delete} | Tail], _Objs, _Ack) ->
     %% This transaction just deleted all objects
@@ -1118,7 +1118,7 @@ match_object(Tab, Pat, LockKind) ->
 	    abort(no_transaction)
     end.
 
-match_object(Tid, Ts, Tab, Pat, LockKind) 
+match_object(Tid, Ts, Tab, Pat, LockKind)
   when is_atom(Tab), Tab /= schema, is_tuple(Pat), tuple_size(Pat) > 2 ->
     case element(1, Tid) of
 	ets ->
@@ -1142,11 +1142,11 @@ add_written_match(S, Pat, Tab, Objs) ->
     add_match(Ops, Objs, val({Tab, setorbag})).
 
 find_ops(S, Tab, Pat) ->
-    GetWritten = [{{{Tab, '_'}, Pat, write}, [], ['$_']}, 
+    GetWritten = [{{{Tab, '_'}, Pat, write}, [], ['$_']},
 		  {{{Tab, '_'}, '_', delete}, [], ['$_']},
 		  {{{Tab, '_'}, Pat, delete_object}, [], ['$_']}],
     ets:select(S, GetWritten).
-    
+
 add_match([], Objs, _Type) ->
     Objs;
 add_match(Written, Objs, ordered_set) ->
@@ -1162,13 +1162,13 @@ add_match([{Oid, Val, write}|R], Objs, set) ->
     add_match(R, [Val | deloid(Oid,Objs)],set).
 
 %% For ordered_set only !!
-add_ordered_match(Written = [{{_, Key}, _, _}|_], [Obj|Objs], Acc) 
+add_ordered_match(Written = [{{_, Key}, _, _}|_], [Obj|Objs], Acc)
   when Key > element(2, Obj) ->
     add_ordered_match(Written, Objs, [Obj|Acc]);
-add_ordered_match([{{_, Key}, Val, write}|Rest], Objs =[Obj|_], Acc) 
+add_ordered_match([{{_, Key}, Val, write}|Rest], Objs =[Obj|_], Acc)
   when Key < element(2, Obj) ->
     add_ordered_match(Rest, [Val|Objs],Acc);
-add_ordered_match([{{_, Key}, _, _DelOP}|Rest], Objs =[Obj|_], Acc) 
+add_ordered_match([{{_, Key}, _, _DelOP}|Rest], Objs =[Obj|_], Acc)
   when Key < element(2, Obj) ->
     add_ordered_match(Rest,Objs,Acc);
 %% Greater than last object
@@ -1176,7 +1176,7 @@ add_ordered_match([{_, Val, write}|Rest], [], Acc) ->
     add_ordered_match(Rest, [Val], Acc);
 add_ordered_match([_|Rest], [], Acc) ->
     add_ordered_match(Rest, [], Acc);
-%% Keys are equal from here 
+%% Keys are equal from here
 add_ordered_match([{_, Val, write}|Rest], [_Obj|Objs], Acc) ->
     add_ordered_match(Rest, [Val|Objs], Acc);
 add_ordered_match([{_, _Val, delete}|Rest], [_Obj|Objs], Acc) ->
@@ -1207,7 +1207,7 @@ add_sel_match([Op={Oid, _, delete}|R], Objs, Type, Acc) ->
     end;
 add_sel_match([Op = {_Oid, Val, delete_object}|R], Objs, Type, Acc) ->
     case lists:delete(Val, Objs) of
-	Objs -> 
+	Objs ->
 	    add_sel_match(R, Objs, Type, [Op|Acc]);
 	NewObjs when Type == set ->
 	    add_sel_match(R, NewObjs, Type, Acc);
@@ -1224,26 +1224,26 @@ add_sel_match([Op={Oid={_,Key}, Val, write}|R], Objs, bag, Acc) ->
     end;
 add_sel_match([Op={Oid, Val, write}|R], Objs, set, Acc) ->
     case deloid(Oid,Objs) of
-	Objs -> 
+	Objs ->
 	    add_sel_match(R, Objs,set, [Op|Acc]);
 	NewObjs ->
 	    add_sel_match(R, [Val | NewObjs],set, Acc)
     end.
 
 %% For ordered_set only !!
-add_sel_ordered_match(Written = [{{_, Key}, _, _}|_], [Obj|Objs],Acc) 
+add_sel_ordered_match(Written = [{{_, Key}, _, _}|_], [Obj|Objs],Acc)
   when Key > element(2, Obj) ->
     add_sel_ordered_match(Written, Objs, [Obj|Acc]);
-add_sel_ordered_match([{{_, Key}, Val, write}|Rest], Objs =[Obj|_],Acc) 
+add_sel_ordered_match([{{_, Key}, Val, write}|Rest], Objs =[Obj|_],Acc)
   when Key < element(2, Obj) ->
     add_sel_ordered_match(Rest,[Val|Objs],Acc);
-add_sel_ordered_match([{{_, Key}, _, _DelOP}|Rest], Objs =[Obj|_], Acc) 
+add_sel_ordered_match([{{_, Key}, _, _DelOP}|Rest], Objs =[Obj|_], Acc)
   when Key < element(2, Obj) ->
     add_sel_ordered_match(Rest,Objs,Acc);
 %% Greater than last object
 add_sel_ordered_match(Ops1, [], Acc) ->
     {lists:reverse(Acc), Ops1};
-%% Keys are equal from here 
+%% Keys are equal from here
 add_sel_ordered_match([{_, Val, write}|Rest], [_Obj|Objs], Acc) ->
     add_sel_ordered_match(Rest, [Val|Objs], Acc);
 add_sel_ordered_match([{_, _Val, delete}|Rest], [_Obj|Objs], Acc) ->
@@ -1264,11 +1264,11 @@ deloid(Oid, [H | T]) ->
     [H | deloid(Oid, T)].
 
 %%%%%%%%%%%%%%%%%%
-% select 
+% select
 
 select(Tab, Pat) ->
     select(Tab, Pat, read).
-select(Tab, Pat, LockKind) 
+select(Tab, Pat, LockKind)
   when is_atom(Tab), Tab /= schema, is_list(Pat) ->
     case get(mnesia_activity_state) of
 	{?DEFAULT_ACCESS, Tid, Ts} ->
@@ -1293,13 +1293,13 @@ fun_select(Tid, Ts, Tab, Spec, LockKind, TabPat, SelectFun) ->
 	    select_lock(Tid,Ts,LockKind,Spec,Tab),
 	    Store = Ts#tidstore.store,
 	    Written = ?ets_match_object(Store, {{TabPat, '_'}, '_', '_'}),
-	    case Written of 
-		[] ->  
+	    case Written of
+		[] ->
 		    %% Nothing changed in the table during this transaction,
 		    %% Simple case get results from [d]ets
 		    SelectFun(Spec);
-		_ ->   
-		    %% Hard (slow case) records added or deleted earlier 
+		_ ->
+		    %% Hard (slow case) records added or deleted earlier
 		    %% in the transaction, have to cope with that.
 		    Type = val({Tab, setorbag}),
 		    FixedSpec = get_record_pattern(Spec),
@@ -1326,7 +1326,7 @@ select_lock(Tid,Ts,LockKind,Spec,Tab) ->
     end.
 
 %% Breakable Select
-select(Tab, Pat, NObjects, LockKind) 
+select(Tab, Pat, NObjects, LockKind)
   when is_atom(Tab), Tab /= schema, is_list(Pat), is_integer(NObjects) ->
     case get(mnesia_activity_state) of
 	{?DEFAULT_ACCESS, Tid, Ts} ->
@@ -1356,26 +1356,26 @@ fun_select(Tid, Ts, Tab, Spec, LockKind, TabPat, Init, NObjects, Node, Storage) 
 	    select_lock(Tid,Ts,LockKind,Spec,Tab),
 	    Store = Ts#tidstore.store,
 	    do_fixtable(Tab, Store),
-	    
-	    Written0 = ?ets_match_object(Store, {{TabPat, '_'}, '_', '_'}),	    
-	    case Written0 of 
-		[] ->  
+
+	    Written0 = ?ets_match_object(Store, {{TabPat, '_'}, '_', '_'}),
+	    case Written0 of
+		[] ->
 		    %% Nothing changed in the table during this transaction,
 		    %% Simple case get results from [d]ets
 		    select_state(Init(Spec),Def);
-		_ ->   
-		    %% Hard (slow case) records added or deleted earlier 
+		_ ->
+		    %% Hard (slow case) records added or deleted earlier
 		    %% in the transaction, have to cope with that.
 		    Type = val({Tab, setorbag}),
-		    Written = 
+		    Written =
 			if Type == ordered_set -> %% Sort stable
 				lists:keysort(1,Written0);
-			   true -> 
+			   true ->
 				Written0
 			end,
 		    FixedSpec = get_record_pattern(Spec),
 		    CMS = ets:match_spec_compile(Spec),
-		    trans_select(Init(FixedSpec), 
+		    trans_select(Init(FixedSpec),
 				 Def#mnesia_select{written=Written,spec=CMS,type=Type, orig=FixedSpec})
 	    end;
 	_Protocol ->
@@ -1394,7 +1394,7 @@ select(Cont) ->
 
 select_cont(_Tid,_Ts,'$end_of_table') ->
     '$end_of_table';
-select_cont(Tid,_Ts,State=#mnesia_select{tid=Tid,cont=Cont, orig=Ms}) 
+select_cont(Tid,_Ts,State=#mnesia_select{tid=Tid,cont=Cont, orig=Ms})
   when element(1,Tid) == ets ->
     case Cont of
 	'$end_of_table' -> '$end_of_table';
@@ -1415,7 +1415,7 @@ trans_select('$end_of_table', #mnesia_select{written=Written0,spec=CMS,type=Type
 trans_select({TabRecs,Cont}, State = #mnesia_select{written=Written0,spec=CMS,type=Type}) ->
     {FixedRes,Written} = add_sel_match(Written0, TabRecs, Type),
     select_state({ets:match_spec_run(FixedRes, CMS),Cont},
-		 State#mnesia_select{written=Written}). 
+		 State#mnesia_select{written=Written}).
 
 select_state({Matches, Cont}, MS) ->
     {Matches, MS#mnesia_select{cont=Cont}};
@@ -1433,9 +1433,9 @@ all_keys(Tab) ->
 	    Mod:all_keys(Tid, Ts, Tab, read);
 	_ ->
 	    abort(no_transaction)
-    end. 
+    end.
 
-all_keys(Tid, Ts, Tab, LockKind) 
+all_keys(Tid, Ts, Tab, LockKind)
   when is_atom(Tab), Tab /= schema ->
     Pat0 = val({Tab, wild_pattern}),
     Pat = setelement(2, Pat0, '$1'),
@@ -1446,7 +1446,7 @@ all_keys(Tid, Ts, Tab, LockKind)
 	_ ->
 	    Keys
     end;
-all_keys(_Tid, _Ts, Tab, _LockKind) ->    
+all_keys(_Tid, _Ts, Tab, _LockKind) ->
     abort({bad_type, Tab}).
 
 index_match_object(Pat, Attr) when is_tuple(Pat), tuple_size(Pat) > 2 ->
@@ -1465,7 +1465,7 @@ index_match_object(Tab, Pat, Attr, LockKind) ->
 	    abort(no_transaction)
     end.
 
-index_match_object(Tid, Ts, Tab, Pat, Attr, LockKind) 
+index_match_object(Tid, Ts, Tab, Pat, Attr, LockKind)
   when is_atom(Tab), Tab /= schema, is_tuple(Pat), tuple_size(Pat) > 2 ->
     case element(1, Tid) of
 	ets ->
@@ -1501,7 +1501,7 @@ index_read(Tab, Key, Attr) ->
 	    abort(no_transaction)
     end.
 
-index_read(Tid, Ts, Tab, Key, Attr, LockKind) 
+index_read(Tid, Ts, Tab, Key, Attr, LockKind)
   when is_atom(Tab), Tab /= schema ->
     case element(1, Tid) of
 	ets ->
@@ -1536,7 +1536,7 @@ dirty_write(Val) when is_tuple(Val), tuple_size(Val) > 2  ->
     dirty_write(Tab, Val);
 dirty_write(Val) ->
     abort({bad_type, Val}).
-    
+
 dirty_write(Tab, Val) ->
     do_dirty_write(async_dirty, Tab, Val).
 
@@ -1562,7 +1562,7 @@ dirty_delete(Oid) ->
 
 dirty_delete(Tab, Key) ->
     do_dirty_delete(async_dirty, Tab, Key).
-    
+
 do_dirty_delete(SyncMode, Tab, Key) when is_atom(Tab), Tab /= schema  ->
     Oid = {Tab, Key},
     mnesia_tm:dirty(SyncMode, {Oid, Oid, delete});
@@ -1582,7 +1582,7 @@ do_dirty_delete_object(SyncMode, Tab, Val)
     when is_atom(Tab), Tab /= schema, is_tuple(Val), tuple_size(Val) > 2 ->
     Oid = {Tab, element(2, Val)},
     case has_var(Val) of
-	false -> 
+	false ->
 	    mnesia_tm:dirty(SyncMode, {Oid, Val, delete_object});
 	true ->
 	    abort({bad_type, Tab, Val})
@@ -1600,7 +1600,7 @@ dirty_update_counter(Counter, _Incr) ->
 
 dirty_update_counter(Tab, Key, Incr) ->
     do_dirty_update_counter(async_dirty, Tab, Key, Incr).
-    
+
 do_dirty_update_counter(SyncMode, Tab, Key, Incr)
   when is_atom(Tab), Tab /= schema, is_integer(Incr) ->
     case ?catch_val({Tab, record_validation}) of
@@ -1638,7 +1638,7 @@ dirty_match_object(Pat) when is_tuple(Pat), tuple_size(Pat) > 2 ->
     dirty_match_object(Tab, Pat);
 dirty_match_object(Pat) ->
     abort({bad_type, Pat}).
-    
+
 dirty_match_object(Tab, Pat)
   when is_atom(Tab), Tab /= schema, is_tuple(Pat), tuple_size(Pat) > 2 ->
     dirty_rpc(Tab, ?MODULE, remote_dirty_match_object, [Tab, Pat]);
@@ -1697,8 +1697,8 @@ remote_dirty_select(Tab, [{HeadPat,_, _}] = Spec, [Pos | Tail])
 	    %% Returns the records without applying the match spec
 	    %% The actual filtering is handled by the caller
 	    CMS = ets:match_spec_compile(Spec),
-	    case val({Tab, setorbag}) of 
-		ordered_set -> 
+	    case val({Tab, setorbag}) of
+		ordered_set ->
 		    ets:match_spec_run(lists:sort(Recs), CMS);
 		_ ->
 		    ets:match_spec_run(Recs, CMS)
@@ -1730,14 +1730,14 @@ dirty_all_keys(Tab) when is_atom(Tab), Tab /= schema ->
     end;
 dirty_all_keys(Tab) ->
     abort({bad_type, Tab}).
-    
+
 dirty_index_match_object(Pat, Attr) when is_tuple(Pat), tuple_size(Pat) > 2 ->
     Tab = element(1, Pat),
     dirty_index_match_object(Tab, Pat, Attr);
 dirty_index_match_object(Pat, _Attr) ->
     abort({bad_type, Pat}).
 
-dirty_index_match_object(Tab, Pat, Attr) 
+dirty_index_match_object(Tab, Pat, Attr)
   when is_atom(Tab), Tab /= schema, is_tuple(Pat), tuple_size(Pat) > 2 ->
     case mnesia_schema:attr_tab_to_pos(Tab, Attr) of
 	Pos when Pos =< tuple_size(Pat) ->
@@ -1752,7 +1752,7 @@ dirty_index_match_object(Tab, Pat, Attr)
 				      [Tab, Pat, Pos]);
 			true ->
 			    abort({bad_type, Tab, Attr, Elem})
-		    end		    
+		    end
 	    end;
 	BadPos ->
 	    abort({bad_type, Tab, BadPos})
@@ -1810,7 +1810,7 @@ do_dirty_rpc(Tab, Node, M, F, Args) ->
 	    %% Sync with mnesia_monitor
 	    try sys:get_status(mnesia_monitor) catch _:_ -> ok end,
 	    case mnesia_controller:call({check_w2r, Node, Tab}) of % Sync
-		NewNode when NewNode =:= Node -> 
+		NewNode when NewNode =:= Node ->
 		    ErrorTag = mnesia_lib:dirty_rpc_error_tag(Reason),
 		    mnesia:abort({ErrorTag, Args});
 		NewNode ->
@@ -1821,9 +1821,9 @@ do_dirty_rpc(Tab, Node, M, F, Args) ->
 			    %% to acquire the lock on the NewNode.
 			    %% In this context we do neither know
 			    %% the kind or granularity of the lock.
-			    %% --> Abort the transaction 
+			    %% --> Abort the transaction
 			    mnesia:abort({node_not_running, Node});
-			{error, {node_not_running, _}} -> 
+			{error, {node_not_running, _}} ->
 			    %% Mnesia is stopping
 			    mnesia:abort({no_exists, Args});
 			_ ->
@@ -1858,21 +1858,21 @@ table_info(_Tid, _Ts, Tab, Item) ->
     any_table_info(Tab, Item).
 
 
-any_table_info(Tab, Item) when is_atom(Tab) ->    
+any_table_info(Tab, Item) when is_atom(Tab) ->
     case Item of
 	master_nodes ->
 	    mnesia_recover:get_master_nodes(Tab);
-%	checkpoints -> 
+%	checkpoints ->
 %	    case ?catch_val({Tab, commit_work}) of
 %		[{checkpoints, List} | _] -> List;
 %		No_chk when is_list(No_chk) ->  [];
 %		Else -> info_reply(Else, Tab, Item)
 %	    end;
-	size -> 
+	size ->
 	    raw_table_info(Tab, Item);
 	memory ->
 	    raw_table_info(Tab, Item);
-	type -> 
+	type ->
 	    case ?catch_val({Tab, setorbag}) of
 		{'EXIT', _} ->
 		    abort({no_exists, Tab, Item});
@@ -1885,8 +1885,8 @@ any_table_info(Tab, Item) when is_atom(Tab) ->
 		    abort({no_exists, Tab, Item});
 		Props ->
 		    lists:map(fun({setorbag, Type}) -> {type, Type};
-				 (Prop) -> Prop end, 
-			      Props) 
+				 (Prop) -> Prop end,
+			      Props)
 	    end;
 	name ->
 	    Tab;
@@ -1927,14 +1927,14 @@ bad_info_reply(_Tab, memory) -> 0;
 bad_info_reply(Tab, Item) -> abort({no_exists, Tab, Item}).
 
 %% Raw info about all tables
-schema() -> 
+schema() ->
     mnesia_schema:info().
 
 %% Raw info about one tables
-schema(Tab) -> 
+schema(Tab) ->
     mnesia_schema:info(Tab).
 
-error_description(Err) -> 
+error_description(Err) ->
     mnesia_lib:error_desc(Err).
 
 info() ->
@@ -1951,18 +1951,18 @@ info() ->
 	    io:format( "---> Processes waiting for locks <--- ~n", []),
 	    lists:foreach(fun({Oid, Op, _Pid, Tid, OwnerTid}) ->
 				  io:format("Tid ~p waits for ~p lock "
-					    "on oid ~p owned by ~p ~n", 
+					    "on oid ~p owned by ~p ~n",
 					    [Tid, Op, Oid, OwnerTid])
 		  end, Queued),
 	    mnesia_tm:display_info(group_leader(), TmInfo),
-	    
+
 	    Pat = {'_', unclear, '_'},
 	    Uncertain = ets:match_object(mnesia_decision, Pat),
 
 	    io:format( "---> Uncertain transactions <--- ~n", []),
 	    lists:foreach(fun({Tid, _, Nodes}) ->
 				  io:format("Tid ~w waits for decision "
-					    "from ~w~n", 
+					    "from ~w~n",
 					    [Tid, Nodes])
 		  end, Uncertain),
 
@@ -2023,15 +2023,15 @@ display_tab_info() ->
     io:format("master node tables = ~p~n", [lists:sort(MasterTabs)]),
 
     Tabs = system_info(tables),
-    
+
     {Unknown, Ram, Disc, DiscOnly} =
 	lists:foldl(fun storage_count/2, {[], [], [], []}, Tabs),
-    
+
     io:format("remote             = ~p~n", [lists:sort(Unknown)]),
     io:format("ram_copies         = ~p~n", [lists:sort(Ram)]),
     io:format("disc_copies        = ~p~n", [lists:sort(Disc)]),
     io:format("disc_only_copies   = ~p~n", [lists:sort(DiscOnly)]),
-    
+
     Rfoldl = fun(T, Acc) ->
 		     Rpat =
 			 case val({T, access_mode}) of
@@ -2041,7 +2041,7 @@ display_tab_info() ->
 				 table_info(T, where_to_commit)
 			 end,
 		     case lists:keysearch(Rpat, 1, Acc) of
-			 {value, {_Rpat, Rtabs}} -> 
+			 {value, {_Rpat, Rtabs}} ->
 			     lists:keyreplace(Rpat, 1, Acc, {Rpat, [T | Rtabs]});
 			 false ->
 			     [{Rpat, [T]} | Acc]
@@ -2161,20 +2161,20 @@ system_info2(fallback_activated) ->
 
 system_info2(version) ->
     case ?catch_val(version) of
-	{'EXIT', _} -> 
+	{'EXIT', _} ->
 	    Apps = application:loaded_applications(),
 	    case lists:keysearch(?APPLICATION, 1, Apps) of
 		{value, {_Name, _Desc, Version}} ->
 		    Version;
 		false ->
 		    %% Ensure that it does not match
-		    {mnesia_not_loaded, node(), now()} 
+		    {mnesia_not_loaded, node(), now()}
 	    end;
 	Version ->
 	    Version
     end;
 
-system_info2(access_module) -> mnesia_monitor:get_env(access_module); 
+system_info2(access_module) -> mnesia_monitor:get_env(access_module);
 system_info2(auto_repair) -> mnesia_monitor:get_env(auto_repair);
 system_info2(is_running) -> mnesia_lib:is_running();
 system_info2(backup_module) -> mnesia_monitor:get_env(backup_module);
@@ -2183,7 +2183,7 @@ system_info2(debug) -> mnesia_monitor:get_env(debug);
 system_info2(dump_log_load_regulation) -> mnesia_monitor:get_env(dump_log_load_regulation);
 system_info2(dump_log_write_threshold) -> mnesia_monitor:get_env(dump_log_write_threshold);
 system_info2(dump_log_time_threshold) -> mnesia_monitor:get_env(dump_log_time_threshold);
-system_info2(dump_log_update_in_place) -> 
+system_info2(dump_log_update_in_place) ->
     mnesia_monitor:get_env(dump_log_update_in_place);
 system_info2(max_wait_for_decision) -> mnesia_monitor:get_env(max_wait_for_decision);
 system_info2(embedded_mnemosyne) -> mnesia_monitor:get_env(embedded_mnemosyne);
@@ -2204,9 +2204,9 @@ system_info2(transaction_failures) -> mnesia_lib:read_counter(trans_failures);
 system_info2(transaction_commits) -> mnesia_lib:read_counter(trans_commits);
 system_info2(transaction_restarts) -> mnesia_lib:read_counter(trans_restarts);
 system_info2(transaction_log_writes) -> mnesia_dumper:get_log_writes();
-system_info2(core_dir) ->  mnesia_monitor:get_env(core_dir); 
-system_info2(no_table_loaders) ->  mnesia_monitor:get_env(no_table_loaders); 
-system_info2(dc_dump_limit) ->  mnesia_monitor:get_env(dc_dump_limit); 
+system_info2(core_dir) ->  mnesia_monitor:get_env(core_dir);
+system_info2(no_table_loaders) ->  mnesia_monitor:get_env(no_table_loaders);
+system_info2(dc_dump_limit) ->  mnesia_monitor:get_env(dc_dump_limit);
 system_info2(send_compressed) -> mnesia_monitor:get_env(send_compressed);
 
 system_info2(Item) -> exit({badarg, Item}).
@@ -2281,7 +2281,7 @@ system_info_items(no) ->
      core_dir,
      version
     ].
-    
+
 system_info() ->
     IsRunning = mnesia_lib:is_running(),
     case IsRunning of
@@ -2308,62 +2308,62 @@ load_mnesia_or_abort() ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Database mgt
 
-create_schema(Ns) -> 
+create_schema(Ns) ->
     mnesia_bup:create_schema(Ns).
 
-delete_schema(Ns) -> 
+delete_schema(Ns) ->
     mnesia_schema:delete_schema(Ns).
 
-backup(Opaque) -> 
+backup(Opaque) ->
     mnesia_log:backup(Opaque).
 
-backup(Opaque, Mod) -> 
+backup(Opaque, Mod) ->
     mnesia_log:backup(Opaque, Mod).
 
-traverse_backup(S, T, Fun, Acc) -> 
+traverse_backup(S, T, Fun, Acc) ->
     mnesia_bup:traverse_backup(S, T, Fun, Acc).
 
-traverse_backup(S, SM, T, TM, F, A) -> 
+traverse_backup(S, SM, T, TM, F, A) ->
     mnesia_bup:traverse_backup(S, SM, T, TM, F, A).
 
-install_fallback(Opaque) -> 
+install_fallback(Opaque) ->
     mnesia_bup:install_fallback(Opaque).
 
-install_fallback(Opaque, Mod) -> 
+install_fallback(Opaque, Mod) ->
     mnesia_bup:install_fallback(Opaque, Mod).
 
-uninstall_fallback() -> 
+uninstall_fallback() ->
     mnesia_bup:uninstall_fallback().
 
-uninstall_fallback(Args) -> 
+uninstall_fallback(Args) ->
     mnesia_bup:uninstall_fallback(Args).
 
-activate_checkpoint(Args) -> 
+activate_checkpoint(Args) ->
     mnesia_checkpoint:activate(Args).
 
-deactivate_checkpoint(Name) -> 
+deactivate_checkpoint(Name) ->
     mnesia_checkpoint:deactivate(Name).
 
-backup_checkpoint(Name, Opaque) -> 
+backup_checkpoint(Name, Opaque) ->
     mnesia_log:backup_checkpoint(Name, Opaque).
 
-backup_checkpoint(Name, Opaque, Mod) -> 
+backup_checkpoint(Name, Opaque, Mod) ->
     mnesia_log:backup_checkpoint(Name, Opaque, Mod).
 
-restore(Opaque, Args) -> 
+restore(Opaque, Args) ->
     mnesia_schema:restore(Opaque, Args).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Table mgt
 
-create_table(Arg) -> 
+create_table(Arg) ->
     mnesia_schema:create_table(Arg).
-create_table(Name, Arg) when is_list(Arg) -> 
+create_table(Name, Arg) when is_list(Arg) ->
     mnesia_schema:create_table([{name, Name}| Arg]);
 create_table(Name, Arg) ->
     {aborted, badarg, Name, Arg}.
 
-delete_table(Tab) -> 
+delete_table(Tab) ->
     mnesia_schema:delete_table(Tab).
 
 add_table_copy(Tab, N, S) ->
@@ -2371,38 +2371,38 @@ add_table_copy(Tab, N, S) ->
 del_table_copy(Tab, N) ->
     mnesia_schema:del_table_copy(Tab, N).
 
-move_table_copy(Tab, From, To) -> 
+move_table_copy(Tab, From, To) ->
     mnesia_schema:move_table(Tab, From, To).
 
-add_table_index(Tab, Ix) -> 
+add_table_index(Tab, Ix) ->
     mnesia_schema:add_table_index(Tab, Ix).
-del_table_index(Tab, Ix) -> 
+del_table_index(Tab, Ix) ->
     mnesia_schema:del_table_index(Tab, Ix).
 
-transform_table(Tab, Fun, NewA) -> 
+transform_table(Tab, Fun, NewA) ->
     case catch val({Tab, record_name}) of
-	{'EXIT', Reason} -> 
+	{'EXIT', Reason} ->
 	    mnesia:abort(Reason);
-	OldRN -> 
+	OldRN ->
 	    mnesia_schema:transform_table(Tab, Fun, NewA, OldRN)
     end.
 
-transform_table(Tab, Fun, NewA, NewRN) -> 
+transform_table(Tab, Fun, NewA, NewRN) ->
     mnesia_schema:transform_table(Tab, Fun, NewA, NewRN).
 
 change_table_copy_type(T, N, S) ->
     mnesia_schema:change_table_copy_type(T, N, S).
 
 clear_table(Tab) ->
-    case get(mnesia_activity_state) of 
+    case get(mnesia_activity_state) of
 	State = {Mod, Tid, _Ts} when element(1, Tid) =/= tid ->
 	    transaction(State, fun() -> do_clear_table(Tab) end, [], infinity, Mod, sync);
-	undefined -> 
+	undefined ->
 	    transaction(undefined, fun() -> do_clear_table(Tab) end, [], infinity, ?DEFAULT_ACCESS, sync);
 	_ -> %% Not allowed for clear_table
 	    mnesia:abort({aborted, nested_transaction})
     end.
-	    
+
 do_clear_table(Tab) ->
     case get(mnesia_activity_state) of
 	{?DEFAULT_ACCESS, Tid, Ts}  ->
@@ -2415,7 +2415,7 @@ do_clear_table(Tab) ->
 
 clear_table(Tid, Ts, Tab, Obj) when element(1, Tid) =:= tid ->
     Store = Ts#tidstore.store,
-    mnesia_locker:wlock_table(Tid, Store, Tab), 
+    mnesia_locker:wlock_table(Tid, Store, Tab),
     Oid = {Tab, '_'},
     ?ets_insert(Store, {Oid, Obj, clear_table}),
     ok.
@@ -2423,26 +2423,26 @@ clear_table(Tid, Ts, Tab, Obj) when element(1, Tid) =:= tid ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Table mgt - user properties
 
-read_table_property(Tab, PropKey) -> 
+read_table_property(Tab, PropKey) ->
     val({Tab, user_property, PropKey}).
 
-write_table_property(Tab, Prop) -> 
+write_table_property(Tab, Prop) ->
     mnesia_schema:write_table_property(Tab, Prop).
 
-delete_table_property(Tab, PropKey) -> 
+delete_table_property(Tab, PropKey) ->
     mnesia_schema:delete_table_property(Tab, PropKey).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Table mgt - user properties
 
-change_table_frag(Tab, FragProp) -> 
+change_table_frag(Tab, FragProp) ->
     mnesia_schema:change_table_frag(Tab, FragProp).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Table mgt - table load
 
 %% Dump a ram table to disc
-dump_tables(Tabs) -> 
+dump_tables(Tabs) ->
     mnesia_schema:dump_tables(Tabs).
 
 %% allow the user to wait for some tables to be loaded
@@ -2455,10 +2455,10 @@ force_load_table(Tab) ->
 	Other -> Other
     end.
 
-change_table_access_mode(T, Access) -> 
+change_table_access_mode(T, Access) ->
     mnesia_schema:change_table_access_mode(T, Access).
 
-change_table_load_order(T, O) -> 
+change_table_load_order(T, O) ->
     mnesia_schema:change_table_load_order(T, O).
 
 change_table_majority(T, M) ->
@@ -2471,13 +2471,13 @@ set_master_nodes(Nodes) when is_list(Nodes) ->
 	yes ->
 	    CsPat = {{'_', cstruct}, '_'},
 	    Cstructs0 = ?ets_match_object(mnesia_gvar, CsPat),
-	    Cstructs = [Cs || {_, Cs} <- Cstructs0], 
+	    Cstructs = [Cs || {_, Cs} <- Cstructs0],
 	    log_valid_master_nodes(Cstructs, Nodes, UseDir, IsRunning);
 	_NotRunning ->
 	    case UseDir of
 		true ->
 		    mnesia_lib:lock_table(schema),
-		    Res = 
+		    Res =
 			case mnesia_schema:read_cstructs_from_disc() of
 			    {ok, Cstructs} ->
 				log_valid_master_nodes(Cstructs, Nodes, UseDir, IsRunning);
@@ -2497,7 +2497,7 @@ log_valid_master_nodes(Cstructs, Nodes, UseDir, IsRunning) ->
     Fun = fun(Cs) ->
 		  Copies = mnesia_lib:copy_holders(Cs),
 		  Valid = mnesia_lib:intersect(Nodes, Copies),
-		  {Cs#cstruct.name, Valid}  
+		  {Cs#cstruct.name, Valid}
 	  end,
     Args = lists:map(Fun, Cstructs),
     mnesia_recover:log_master_nodes(Args, UseDir, IsRunning).
@@ -2523,7 +2523,7 @@ set_master_nodes(Tab, Nodes) when is_list(Nodes) ->
 	    case UseDir of
 		true ->
 		    mnesia_lib:lock_table(schema),
-		    Res = 
+		    Res =
 			case mnesia_schema:read_cstructs_from_disc() of
 			    {ok, Cstructs} ->
 				case lists:keysearch(Tab, 2, Cstructs) of
@@ -2553,7 +2553,7 @@ set_master_nodes(Tab, Nodes) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Misc admin
 
-dump_log() -> 
+dump_log() ->
     mnesia_controller:sync_dump_log(user).
 
 subscribe(What) ->
@@ -2568,10 +2568,10 @@ report_event(Event) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Snmp
 
-snmp_open_table(Tab, Us) -> 
+snmp_open_table(Tab, Us) ->
     mnesia_schema:add_snmp(Tab, Us).
 
-snmp_close_table(Tab) ->  
+snmp_close_table(Tab) ->
     mnesia_schema:del_snmp(Tab).
 
 snmp_get_row(Tab, RowIndex) when is_atom(Tab), Tab /= schema, is_list(RowIndex) ->
@@ -2583,26 +2583,26 @@ snmp_get_row(Tab, RowIndex) when is_atom(Tab), Tab /= schema, is_list(RowIndex) 
 		    SnmpType = val({Tab,snmp}),
 		    Fix = fun({{_,Key},Row,Op}, Res) ->
 				  case mnesia_snmp_hook:key_to_oid(Tab,Key,SnmpType) of
-				      RowIndex -> 
+				      RowIndex ->
 					  case Op of
 					      write -> {ok, Row};
 					      _ ->
 						  undefined
 					  end;
-				      _ -> 
+				      _ ->
 					  Res
 				  end
 			  end,
 		    lists:foldl(Fix, undefined, Ops);
 		Key ->
 		    case Mod:read(Tid, Ts, Tab, Key, read) of
-			[Row] ->  
+			[Row] ->
 			    {ok, Row};
-			_ -> 
+			_ ->
 			    undefined
 		    end
 	    end;
- 	_ -> 
+	_ ->
  	    dirty_rpc(Tab, mnesia_snmp_hook, get_row, [Tab, RowIndex])
     end;
 snmp_get_row(Tab, _RowIndex) ->
@@ -2613,7 +2613,7 @@ snmp_get_row(Tab, _RowIndex) ->
 snmp_get_next_index(Tab, RowIndex) when is_atom(Tab), Tab /= schema, is_list(RowIndex) ->
     {Next,OrigKey} = dirty_rpc(Tab, mnesia_snmp_hook, get_next_index, [Tab, RowIndex]),
     case get(mnesia_activity_state) of
- 	{_Mod, Tid, #tidstore{store=Store}} when element(1, Tid) =:= tid ->		
+	{_Mod, Tid, #tidstore{store=Store}} when element(1, Tid) =:= tid ->
 	    case OrigKey of
 		undefined ->
 		    snmp_order_keys(Store, Tab, RowIndex, []);
@@ -2639,7 +2639,7 @@ snmp_get_next_index(Tab, _RowIndex) ->
 snmp_order_keys(Store,Tab,RowIndex,Def) ->
     All = ?ets_match(Store, {{Tab,'$1'},'_','$2'}),
     SnmpType = val({Tab,snmp}),
-    Keys0 = [mnesia_snmp_hook:key_to_oid(Tab,Key,SnmpType) || 
+    Keys0 = [mnesia_snmp_hook:key_to_oid(Tab,Key,SnmpType) ||
 		Key <- ts_keys_1(All, Def)],
     Keys = lists:sort(Keys0),
     get_ordered_snmp_key(RowIndex,Keys).
@@ -2648,7 +2648,7 @@ get_ordered_snmp_key(Prev, [First|_]) when Prev < First -> {ok, First};
 get_ordered_snmp_key(Prev, [_|R]) ->
     get_ordered_snmp_key(Prev, R);
 get_ordered_snmp_key(_, []) ->
-    endOfTable.	       
+    endOfTable.
 
 %%%%%%%%%%
 
@@ -2657,7 +2657,7 @@ snmp_get_mnesia_key(Tab, RowIndex) when is_atom(Tab), Tab /= schema, is_list(Row
  	{_Mod, Tid, Ts} when element(1, Tid) =:= tid ->
 	    Res = dirty_rpc(Tab,mnesia_snmp_hook,get_mnesia_key,[Tab,RowIndex]),
 	    snmp_filter_key(Res, RowIndex, Tab, Ts#tidstore.store);
-	_ -> 
+	_ ->
 	    dirty_rpc(Tab, mnesia_snmp_hook, get_mnesia_key, [Tab, RowIndex])
     end;
 snmp_get_mnesia_key(Tab, _RowIndex) ->
@@ -2670,7 +2670,7 @@ snmp_oid_to_mnesia_key(RowIndex, Tab) ->
 		{ok, MnesiaKey} -> MnesiaKey;
 		undefined -> unknown
 	    end;
-	MnesiaKey -> 
+	MnesiaKey ->
 	    MnesiaKey
     end.
 
@@ -2690,20 +2690,20 @@ snmp_filter_key(undefined, RowIndex, Tab, Store) ->
 	    SnmpType = val({Tab,snmp}),
 	    Fix = fun({{_,Key},_,Op}, Res) ->
 			  case mnesia_snmp_hook:key_to_oid(Tab,Key,SnmpType) of
-			      RowIndex -> 
+			      RowIndex ->
 				  case Op of
 				      write -> {ok, Key};
 				      _ ->
 					  undefined
 				  end;
-			      _ -> 
+			      _ ->
 				  Res
 			  end
 		  end,
 	    lists:foldl(Fix, undefined, Ops);
 	Key ->
 	    case ?ets_lookup(Store, {Tab,Key}) of
-		[] -> 
+		[] ->
 		    undefined;
 		Ops ->
 		    case lists:last(Ops) of
@@ -2716,9 +2716,9 @@ snmp_filter_key(undefined, RowIndex, Tab, Store) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Textfile access
 
-load_textfile(F) -> 
+load_textfile(F) ->
     mnesia_text:load_textfile(F).
-dump_to_textfile(F) -> 
+dump_to_textfile(F) ->
     mnesia_text:dump_to_textfile(F).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2727,7 +2727,7 @@ dump_to_textfile(F) ->
 table(Tab) ->
     table(Tab, []).
 table(Tab,Opts) ->
-    {[Trav,Lock,NObjects],QlcOptions0} = 
+    {[Trav,Lock,NObjects],QlcOptions0} =
 	qlc_opts(Opts,[{traverse,select},{lock,read},{n_objects,100}]),
     TF = case Trav of
 	     {select,Ms} ->
@@ -2740,10 +2740,10 @@ table(Tab,Opts) ->
     Pre  = fun(Arg) -> pre_qlc(Arg, Tab) end,
     Post = fun()  -> post_qlc(Tab) end,
     Info = fun(Tag) -> qlc_info(Tab, Tag) end,
-    ParentFun = fun() -> 
-			{mnesia_activity, mnesia:get_activity_id()} 
+    ParentFun = fun() ->
+			{mnesia_activity, mnesia:get_activity_id()}
 		end,
-    Lookup = 
+    Lookup =
 	case Trav of
 	    {select, _} -> [];
 	    _ ->
@@ -2757,27 +2757,27 @@ table(Tab,Opts) ->
 		[{lookup_fun, LFun}]
 	end,
     MFA  = fun(Type) -> qlc_format(Type, Tab, NObjects, Lock, Opts) end,
-    QlcOptions = [{pre_fun, Pre}, {post_fun, Post}, 
-		  {info_fun, Info}, {parent_fun, ParentFun}, 
+    QlcOptions = [{pre_fun, Pre}, {post_fun, Post},
+		  {info_fun, Info}, {parent_fun, ParentFun},
 		  {format_fun, MFA}|Lookup] ++ QlcOptions0,
     qlc:table(TF, QlcOptions).
 
 pre_qlc(Opts, Tab) ->
-    {_,Tid,_} = 
+    {_,Tid,_} =
 	case get(mnesia_activity_state) of
 	    undefined ->
 		case lists:keysearch(parent_value, 1, Opts) of
 		    {value, {parent_value,{mnesia_activity,undefined}}} ->
 			abort(no_transaction);
 		    {value, {parent_value,{mnesia_activity,Aid}}} ->
-			{value,{stop_fun,Stop}} = 
+			{value,{stop_fun,Stop}} =
 			    lists:keysearch(stop_fun,1,Opts),
 			put_activity_id(Aid,Stop),
 			Aid;
 		    _ ->
 			abort(no_transaction)
 		end;
-	    Else -> 
+	    Else ->
 		Else
 	end,
     case element(1,Tid) of
@@ -2785,9 +2785,9 @@ pre_qlc(Opts, Tab) ->
 	_ ->
 	    case ?catch_val({Tab, setorbag}) of
 		ordered_set ->   ok;
-		_ -> 
+		_ ->
 		    dirty_rpc(Tab, mnesia_tm, fixtable, [Tab,true,self()]),
-		    ok	    
+		    ok
 	    end
     end.
 
@@ -2806,7 +2806,7 @@ post_qlc(Tab) ->
 
 qlc_select('$end_of_table') ->     [];
 qlc_select({[], Cont}) -> qlc_select(select(Cont));
-qlc_select({Objects, Cont}) -> 
+qlc_select({Objects, Cont}) ->
     Objects ++ fun() -> qlc_select(select(Cont)) end.
 
 qlc_opts(Opts, Keys) when is_list(Opts) ->
@@ -2826,7 +2826,7 @@ qlc_opts(Opts,[],Acc) -> {lists:reverse(Acc),Opts}.
 
 qlc_info(Tab, num_of_objects) ->
     dirty_rpc(Tab, ?MODULE, raw_table_info, [Tab, size]);
-qlc_info(_, keypos) ->    2;         
+qlc_info(_, keypos) ->    2;
 qlc_info(_, is_unique_objects) ->    true;
 qlc_info(Tab, is_unique_keys) ->
     case val({Tab, type}) of
@@ -2836,9 +2836,9 @@ qlc_info(Tab, is_unique_keys) ->
     end;
 qlc_info(Tab, is_sorted_objects) ->
     case val({Tab, type}) of
-	ordered_set -> 
+	ordered_set ->
 	    case ?catch_val({Tab, frag_hash}) of
-		{'EXIT', _} -> 
+		{'EXIT', _} ->
 		    ascending;
 		_ ->  %% Fragmented tables are not ordered
 		    no
@@ -2856,11 +2856,11 @@ qlc_format({match_spec, Ms}, Tab, NObjects, Lock, Opts) ->
     {?MODULE, table, [Tab,[{traverse,{select,Ms}},{n_objects, NObjects}, {lock,Lock}|Opts]]};
 qlc_format({lookup, 2, Keys}, Tab, _, Lock, _) ->
     io_lib:format("lists:flatmap(fun(V) -> "
-		  "~w:read(~w, V, ~w) end, ~w)", 
+		  "~w:read(~w, V, ~w) end, ~w)",
 		  [?MODULE, Tab, Lock, Keys]);
 qlc_format({lookup, Index,Keys}, Tab, _, _, _) ->
     io_lib:format("lists:flatmap(fun(V) -> "
-		  "~w:index_read(~w, V, ~w) end, ~w)", 
+		  "~w:index_read(~w, V, ~w) end, ~w)",
 		  [?MODULE, Tab, Index, Keys]).
 
 
@@ -2874,7 +2874,7 @@ do_fixtable(Tab, Store) ->
 	    ok;
 	_ ->
 	    case ?ets_match_object(Store, {fixtable, {Tab, '_'}}) of
-		[] -> 
+		[] ->
 		    Node = dirty_rpc(Tab, mnesia_tm, fixtable, [Tab,true,self()]),
 		    ?ets_insert(Store, {fixtable, {Tab, Node}});
 		_ ->
@@ -2886,10 +2886,10 @@ do_fixtable(Tab, Store) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Mnemosyne exclusive
 
-get_activity_id() -> 
+get_activity_id() ->
     get(mnesia_activity_state).
 
-put_activity_id(Activity) -> 
+put_activity_id(Activity) ->
     mnesia_tm:put_activity_id(Activity).
-put_activity_id(Activity,Fun) -> 
+put_activity_id(Activity,Fun) ->
     mnesia_tm:put_activity_id(Activity,Fun).

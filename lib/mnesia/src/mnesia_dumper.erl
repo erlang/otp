@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 1996-2011. All Rights Reserved.
-%% 
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -43,7 +43,7 @@
 
  %% Internal stuff
 -export([regulator_init/1]).
-	
+
 -include("mnesia.hrl").
 -include_lib("kernel/include/file.hrl").
 
@@ -70,14 +70,14 @@ incr_log_writes() ->
 
 adjust_log_writes(DoCast) ->
     Token = {mnesia_adjust_log_writes, self()},
-    case global:set_lock(Token, [node()], 1) of 
+    case global:set_lock(Token, [node()], 1) of
 	false ->
 	    ignore; %% Somebody else is sending a dump request
-	true -> 
-	    case DoCast of 
+	true ->
+	    case DoCast of
 		false ->
 		    ignore;
-		true -> 
+		true ->
 		    mnesia_controller:async_dump_log(write_threshold)
 	    end,
 	    Max = mnesia_monitor:get_env(dump_log_write_threshold),
@@ -93,16 +93,16 @@ adjust_log_writes(DoCast) ->
 opt_dump_log(InitBy) ->
     Reg = case whereis(?REGULATOR_NAME) of
 	      undefined ->
-		  nopid; 
+		  nopid;
 	      Pid when is_pid(Pid) ->
-		  Pid 
+		  Pid
 	  end,
     perform_dump(InitBy, Reg).
 
 %% Scan for decisions
 perform_dump(InitBy, Regulator) when InitBy == scan_decisions ->
     ?eval_debug_fun({?MODULE, perform_dump}, [InitBy]),
-    
+
     dbg_out("Transaction log dump initiated by ~w~n", [InitBy]),
     scan_decisions(mnesia_log:previous_log_file(), InitBy, Regulator),
     scan_decisions(mnesia_log:latest_log_file(), InitBy, Regulator);
@@ -112,8 +112,8 @@ perform_dump(InitBy, Regulator) ->
     ?eval_debug_fun({?MODULE, perform_dump}, [InitBy]),
     LogState = mnesia_log:prepare_log_dump(InitBy),
     dbg_out("Transaction log dump initiated by ~w: ~w~n",
-	    [InitBy, LogState]), 
-    adjust_log_writes(false),    
+	    [InitBy, LogState]),
+    adjust_log_writes(false),
     case LogState of
 	already_dumped ->
 	    mnesia_recover:allow_garb(),
@@ -142,7 +142,7 @@ perform_dump(InitBy, Regulator) ->
 			    mnesia_lib:important(Desc, Reason),
 			    %% Ignore rest of the log
 			    mnesia_log:confirm_log_dump(Diff);
-			false -> 
+			false ->
 			    fatal(Desc, Reason)
 		    end
 	    end;
@@ -189,9 +189,9 @@ do_perform_dump(Cont, InPlace, InitBy, Regulator, OldVersion) ->
 insert_recs([Rec | Recs], InPlace, InitBy, Regulator, LogV) ->
     regulate(Regulator),
     case insert_rec(Rec, InPlace, InitBy, LogV) of
- 	LogH when is_record(LogH, log_header) ->	    
+	LogH when is_record(LogH, log_header) ->
 	    insert_recs(Recs, InPlace, InitBy, Regulator, LogH#log_header.log_version);
-	_ -> 
+	_ ->
 	    insert_recs(Recs, InPlace, InitBy, Regulator, LogV)
     end;
 
@@ -199,7 +199,7 @@ insert_recs([], _InPlace, _InitBy, _Regulator, Version) ->
     Version.
 
 insert_rec(Rec, _InPlace, scan_decisions, _LogV) ->
-    if 
+    if
 	is_record(Rec, commit) ->
 	    ignore;
 	is_record(Rec, log_header) ->
@@ -227,7 +227,7 @@ insert_rec(H, _InPlace, _InitBy, _LogV) when is_record(H, log_header) ->
         H#log_header.log_kind /= trans_log ->
 	    exit({"Bad kind of transaction log", H});
 	H#log_header.log_version == CurrentVersion ->
-	    ok; 
+	    ok;
 	H#log_header.log_version == "4.2" ->
 	    ok;
 	H#log_header.log_version == "4.1" ->
@@ -247,8 +247,8 @@ do_insert_rec(Tid, Rec, InPlace, InitBy, LogV) ->
 	[] ->
 	    ignore;
 	SchemaOps ->
-	    case val({schema, storage_type}) of 
-		ram_copies -> 
+	    case val({schema, storage_type}) of
+		ram_copies ->
 		    insert_ops(Tid, schema_ops, SchemaOps, InPlace, InitBy, LogV);
 	        Storage ->
 		    true = open_files(schema, Storage, InPlace, InitBy),
@@ -264,13 +264,13 @@ do_insert_rec(Tid, Rec, InPlace, InitBy, LogV) ->
 	_ ->
 	    ignore
     end.
-    
+
 
 update(_Tid, [], _DumperMode) ->
     dumped;
 update(Tid, SchemaOps, DumperMode) ->
     UseDir = mnesia_monitor:use_dir(),
-    Res = perform_update(Tid, SchemaOps, DumperMode, UseDir),    
+    Res = perform_update(Tid, SchemaOps, DumperMode, UseDir),
     mnesia_controller:release_schema_commit_lock(),
     Res.
 
@@ -279,23 +279,23 @@ perform_update(_Tid, _SchemaOps, mandatory, true) ->
     %% dumper perform needed updates
 
     InitBy = schema_update,
-    ?eval_debug_fun({?MODULE, dump_schema_op}, [InitBy]),    
+    ?eval_debug_fun({?MODULE, dump_schema_op}, [InitBy]),
     opt_dump_log(InitBy);
 perform_update(Tid, SchemaOps, _DumperMode, _UseDir) ->
     %% No need for a full transaction log dump.
     %% Ignore the log file and perform only perform
     %% the corresponding updates.
 
-    InitBy = fast_schema_update, 
+    InitBy = fast_schema_update,
     InPlace = mnesia_monitor:get_env(dump_log_update_in_place),
     ?eval_debug_fun({?MODULE, dump_schema_op}, [InitBy]),
-    case catch insert_ops(Tid, schema_ops, SchemaOps, InPlace, InitBy, 
+    case catch insert_ops(Tid, schema_ops, SchemaOps, InPlace, InitBy,
 			  mnesia_log:version()) of
 	{'EXIT', Reason} ->
 	    Error = {error, {"Schema update error", Reason}},
 	    close_files(InPlace, Error, InitBy),
             fatal("Schema update error ~p ~p", [Reason, SchemaOps]);
-	_ ->		    
+	_ ->
 	    ?eval_debug_fun({?MODULE, post_dump}, [InitBy]),
 	    close_files(InPlace, ok, InitBy),
 	    ok
@@ -318,7 +318,7 @@ insert_ops(Tid, Storage, [Op | Ops], InPlace, InitBy, Ver) when Ver < "4.3" ->
 disc_insert(_Tid, Storage, Tab, Key, Val, Op, InPlace, InitBy) ->
     case open_files(Tab, Storage, InPlace, InitBy) of
 	true ->
-	    case Storage of 
+	    case Storage of
 		disc_copies when Tab /= schema ->
 		    mnesia_log:append({?MODULE,Tab}, {{Tab, Key}, Val, Op}),
 		    ok;
@@ -331,7 +331,7 @@ disc_insert(_Tid, Storage, Tab, Key, Val, Op, InPlace, InitBy) ->
 
 %% To fix update_counter so that it behaves better.
 %% i.e. if nothing have changed in tab except update_counter
-%% trust that the value in the dets file is correct. 
+%% trust that the value in the dets file is correct.
 %% Otherwise we will get a double increment.
 %% This is perfect but update_counter is a dirty op.
 
@@ -353,12 +353,12 @@ dets_insert(Op,Tab,Key,Val) ->
 			_ when Incr < 0 ->
 			    Zero = {RecName, Key, 0},
 			    ok = dets:insert(Tab, Zero);
-			_ -> 
+			_ ->
 			    Init = {RecName, Key, Incr},
 			    ok = dets:insert(Tab, Init)
 		    end;
 		false ->  ok
-	    end;				    
+	    end;
 	delete_object ->
 	    dets_updated(Tab,Key),
 	    ok = dets:delete_object(Tab, Val);
@@ -366,17 +366,17 @@ dets_insert(Op,Tab,Key,Val) ->
 	    dets_cleared(Tab),
 	    ok = dets:delete_all_objects(Tab)
     end.
-	    
-dets_updated(Tab,Key) -> 
+
+dets_updated(Tab,Key) ->
     case get(mnesia_dumper_dets) of
-	undefined -> 
+	undefined ->
 	    Empty = gb_trees:empty(),
 	    Tree = gb_trees:insert(Tab, gb_sets:singleton(Key), Empty),
 	    put(mnesia_dumper_dets, Tree);
 	Tree ->
 	    case gb_trees:lookup(Tab,Tree) of
 		{value, cleared} -> ignore;
-		{value, Set} -> 
+		{value, Set} ->
 		    T = gb_trees:update(Tab, gb_sets:add(Key, Set), Tree),
 		    put(mnesia_dumper_dets, T);
 		none ->
@@ -398,14 +398,14 @@ dets_incr_counter(Tab,Key) ->
 
 dets_cleared(Tab) ->
     case get(mnesia_dumper_dets) of
-	undefined -> 
+	undefined ->
 	    Empty = gb_trees:empty(),
 	    Tree = gb_trees:insert(Tab, cleared, Empty),
 	    put(mnesia_dumper_dets, Tree);
 	Tree ->
 	    case gb_trees:lookup(Tab,Tree) of
 		{value, cleared} -> ignore;
-		_ -> 
+		_ ->
 		    T = gb_trees:enter(Tab, cleared, Tree),
 		    put(mnesia_dumper_dets, T)
 	    end
@@ -417,7 +417,7 @@ insert(Tid, Storage, Tab, Key, [Val | Tail], Op, InPlace, InitBy) ->
 
 insert(_Tid, _Storage, _Tab, _Key, [], _Op, _InPlace, _InitBy) ->
     ok;
-    
+
 insert(Tid, Storage, Tab, Key, Val, Op, InPlace, InitBy) ->
     Item = {{Tab, Key}, Val, Op},
     case InitBy of
@@ -447,18 +447,18 @@ insert(Tid, Storage, Tab, Key, Val, Op, InPlace, InitBy) ->
 disc_delete_table(Tab, Storage) ->
     case mnesia_monitor:use_dir() of
 	true ->
-	    if 		
-		Storage == disc_only_copies; Tab == schema ->  
+	    if
+		Storage == disc_only_copies; Tab == schema ->
 		    mnesia_monitor:unsafe_close_dets(Tab),
 		    Dat = mnesia_lib:tab2dat(Tab),
-		    file:delete(Dat);		
-		true -> 
+		    file:delete(Dat);
+		true ->
 		    DclFile = mnesia_lib:tab2dcl(Tab),
 		    case get({?MODULE,Tab}) of
 			{opened_dumper, dcl} ->
 			    del_opened_tab(Tab),
 			    mnesia_log:unsafe_close_log(Tab);
-			_ -> 
+			_ ->
 			    ok
 		    end,
 		    file:delete(DclFile),
@@ -490,7 +490,7 @@ insert_op(Tid, Storage, {{Tab, Key}, Val, Op}, InPlace, InitBy) ->
 insert_op(_Tid, schema_ops, _OP, _InPlace, Initby)
   when Initby /= startup,
        Initby /= fast_schema_update,
-       Initby /= schema_update -> 
+       Initby /= schema_update ->
     ignore;
 
 insert_op(Tid, _, {op, rec, Storage, Item}, InPlace, InitBy) ->
@@ -507,7 +507,7 @@ insert_op(Tid, _, {op, change_table_copy_type, N, FromS, ToS, TabDef}, InPlace, 
 	_ ->
 	    ignore
     end,
-    if  
+    if
 	N == node() ->
 	    Dmp  = mnesia_lib:tab2dmp(Tab),
 	    Dat  = mnesia_lib:tab2dat(Tab),
@@ -531,8 +531,8 @@ insert_op(Tid, _, {op, change_table_copy_type, N, FromS, ToS, TabDef}, InPlace, 
 		    true = open_files(Tab, disc_only_copies, InPlace, InitBy),
 		    %% ram_delete_table must be done before init_indecies,
 		    %% it uses info which is reset in init_indecies,
-		    %% it doesn't matter, because init_indecies don't use 
-		    %% the ram replica of the table when creating the disc 
+		    %% it doesn't matter, because init_indecies don't use
+		    %% the ram replica of the table when creating the disc
 		    %% index; Could be improved :)
 		    mnesia_schema:ram_delete_table(Tab, FromS),
 		    PosList = Cs#cstruct.index,
@@ -540,17 +540,17 @@ insert_op(Tid, _, {op, change_table_copy_type, N, FromS, ToS, TabDef}, InPlace, 
 		{disc_only_copies, ram_copies} ->
 		    mnesia_monitor:unsafe_close_dets(Tab),
 		    disc_delete_indecies(Tab, Cs, disc_only_copies),
-		    case InitBy of 
-			startup -> 
+		    case InitBy of
+			startup ->
 			    ignore;
-			_ -> 
+			_ ->
 			    mnesia_controller:get_disc_copy(Tab)
 		    end,
 		    disc_delete_table(Tab, disc_only_copies);
 		{disc_copies, disc_only_copies} ->
 		    ok = ensure_rename(Dmp, Dat),
 		    true = open_files(Tab, disc_only_copies, InPlace, InitBy),
-		    mnesia_schema:ram_delete_table(Tab, FromS), 
+		    mnesia_schema:ram_delete_table(Tab, FromS),
 		    PosList = Cs#cstruct.index,
 		    mnesia_index:init_indecies(Tab, disc_only_copies, PosList),
 		    file:delete(Dcl),
@@ -558,8 +558,8 @@ insert_op(Tid, _, {op, change_table_copy_type, N, FromS, ToS, TabDef}, InPlace, 
 		{disc_only_copies, disc_copies} ->
 		    mnesia_monitor:unsafe_close_dets(Tab),
 		    disc_delete_indecies(Tab, Cs, disc_only_copies),
-		    case InitBy of 
-			startup -> 
+		    case InitBy of
+			startup ->
 			    ignore;
 			_ ->
 			    mnesia_log:ets2dcd(Tab),
@@ -576,7 +576,7 @@ insert_op(Tid, _, {op, change_table_copy_type, N, FromS, ToS, TabDef}, InPlace, 
 insert_op(Tid, _, {op, transform, _Fun, TabDef}, InPlace, InitBy) ->
     Cs = mnesia_schema:list2cs(TabDef),
     case mnesia_lib:cs_to_storage_type(node(), Cs) of
-	disc_copies -> 
+	disc_copies ->
 	    open_dcl(Cs#cstruct.name);
 	_ ->
 	    ignore
@@ -618,8 +618,8 @@ insert_op(Tid, _, {op, restore_recreate, TabDef}, InPlace, InitBy) ->
 	    EtsProps = proplists:get_value(ets, StorageProps, []),
 	    Args = [{keypos, 2}, public, named_table, Type | EtsProps],
 	    mnesia_monitor:mktab(Tab, Args),
-	    File = mnesia_lib:tab2dcd(Tab),	    
-	    FArg = [{file, File}, {name, {mnesia,create}}, 
+	    File = mnesia_lib:tab2dcd(Tab),
+	    FArg = [{file, File}, {name, {mnesia,create}},
 		    {repair, false}, {mode, read_write}],
 	    {ok, Log} = mnesia_monitor:open_log(FArg),
 	    mnesia_monitor:unsafe_close_log(Log);
@@ -651,13 +651,13 @@ insert_op(Tid, _, {op, create_table, TabDef}, InPlace, InitBy) ->
 		    ignore;
 		disc_copies ->
 		    Dcd = mnesia_lib:tab2dcd(Tab),
-		    case mnesia_lib:exists(Dcd) of  
+		    case mnesia_lib:exists(Dcd) of
 			true -> ignore;
 			false ->
-			    mnesia_log:open_log(temp, 
+			    mnesia_log:open_log(temp,
 						mnesia_log:dcd_log_header(),
-						Dcd, 
-						false, 
+						Dcd,
+						false,
 						false,
 						read_write),
 			    mnesia_log:unsafe_close_log(temp)
@@ -705,8 +705,8 @@ insert_op(Tid, _, {op, create_table, TabDef}, InPlace, InitBy) ->
 			    %% Indecies are still created by loader
 			    disc_delete_indecies(Tab, Cs, Storage)
 			    %% disc_delete_table(Tab, Storage)
-		    end, 
-		    
+		    end,
+
 		    %% Update whereabouts and create table
 		    mnesia_controller:create_table(Tab),
 		    mnesia_lib:unset({Tab, create_table})
@@ -764,7 +764,7 @@ insert_op(Tid, _, {op, clear_table, TabDef}, InPlace, InitBy) ->
 	       true ->
 		    ignore
 	    end,
-	    %% Need to catch this, it crashes on ram_copies if 
+	    %% Need to catch this, it crashes on ram_copies if
 	    %% the op comes before table is loaded at startup.
 	    catch insert(Tid, Storage, Tab, '_', Oid, clear_table, InPlace, InitBy)
     end;
@@ -776,16 +776,16 @@ insert_op(Tid, _, {op, merge_schema, TabDef}, InPlace, InitBy) ->
 	    %% If we bootstrap an empty (diskless) mnesia from another node
 	    %% we might have changed the storage_type of schema.
 	    %% I think this is a good place to do it.
-	    Update = fun(NS = {Node,Storage}) -> 
+	    Update = fun(NS = {Node,Storage}) ->
 			     case mnesia_lib:cs_to_storage_type(Node, Cs) of
 				 Storage -> NS;
-				 disc_copies when Node == node() -> 
-				     Dir = mnesia_lib:dir(),    
+				 disc_copies when Node == node() ->
+				     Dir = mnesia_lib:dir(),
 				     ok = mnesia_schema:opt_create_dir(true, Dir),
 				     mnesia_schema:purge_dir(Dir, []),
 				     mnesia_log:purge_all_logs(),
 
-				     mnesia_lib:set(use_dir, true),	     
+				     mnesia_lib:set(use_dir, true),
 				     mnesia_log:init(),
 				     Ns = val({current, db_nodes}),
 				     F = fun(U) -> mnesia_recover:log_mnesia_up(U) end,
@@ -793,11 +793,11 @@ insert_op(Tid, _, {op, merge_schema, TabDef}, InPlace, InitBy) ->
 				     raw_named_dump_table(schema, dat),
 				     temp_set_master_nodes(),
 				     {Node,disc_copies};
-				 CSstorage -> 
+				 CSstorage ->
 				     {Node,CSstorage}
 			     end
 		     end,
-	    
+
 	    W2C0 = val({schema, where_to_commit}),
 	    W2C = case W2C0 of
 		      {blocked, List} ->
@@ -864,9 +864,9 @@ insert_op(Tid, _, {op, del_snmp, TabDef}, InPlace, InitBy) ->
 	InitBy /= startup,
 	Storage /= unknown ->
 	    case ?catch_val({Tab, {index, snmp}}) of
-		{'EXIT', _} -> 
+		{'EXIT', _} ->
 		    ignore;
-		Stab -> 
+		Stab ->
 		    mnesia_snmp_hook:delete_table(Tab, Stab),
 		    mnesia_lib:unset({Tab, {index, snmp}})
 	    end;
@@ -884,7 +884,7 @@ insert_op(Tid, _, {op, add_index, Pos, TabDef}, InPlace, InitBy) ->
 	    true = open_files(Tab, Storage, InPlace, InitBy),
 	    mnesia_index:init_indecies(Tab, Storage, [Pos]);
 	startup ->
-	    ignore; 
+	    ignore;
 	_  ->
 	    case val({Tab,where_to_read}) of
 		nowhere -> ignore;
@@ -900,7 +900,7 @@ insert_op(Tid, _, {op, del_index, Pos, TabDef}, InPlace, InitBy) ->
     case InitBy of
 	startup when Storage == disc_only_copies ->
 	    mnesia_index:del_index_table(Tab, Storage, Pos);
-	startup -> 
+	startup ->
 	    ignore;
 	_ ->
 	    mnesia_index:del_index_table(Tab, Storage, Pos)
@@ -949,7 +949,7 @@ open_files(Tab, Storage, UpdateInPlace, InitBy)
 		{'EXIT', _} ->
 		    false;
 		Type ->
-		    case Storage of 
+		    case Storage of
 			disc_copies when Tab /= schema ->
 			    Bool = open_disc_copies(Tab, InitBy),
 			    Bool;
@@ -977,7 +977,7 @@ open_files(_Tab, _Storage, _UpdateInPlace, _InitBy) ->
 
 open_disc_copies(Tab, InitBy) ->
     DclF = mnesia_lib:tab2dcl(Tab),
-    DumpEts = 
+    DumpEts =
 	case file:read_file_info(DclF) of
 	    {error, enoent} ->
 		false;
@@ -988,7 +988,7 @@ open_disc_copies(Tab, InitBy) ->
 			mnesia_lib:dbg_out("File ~p info_error ~p ~n",
 					   [DcdF, Reason]),
 			true;
-		    {ok, DcdInfo} -> 
+		    {ok, DcdInfo} ->
 			Mul = case ?catch_val(dc_dump_limit) of
 				  {'EXIT', _} -> ?DumpToEtsMultiplier;
 				  Val -> Val
@@ -996,12 +996,12 @@ open_disc_copies(Tab, InitBy) ->
 			DcdInfo#file_info.size =< (DclInfo#file_info.size * Mul)
 		end
 	end,
-    if 
-	DumpEts == false; InitBy == startup ->	    
-	    mnesia_log:open_log({?MODULE,Tab}, 
-				mnesia_log:dcl_log_header(), 
-				DclF, 
-				mnesia_lib:exists(DclF), 
+    if
+	DumpEts == false; InitBy == startup ->
+	    mnesia_log:open_log({?MODULE,Tab},
+				mnesia_log:dcl_log_header(),
+				DclF,
+				mnesia_lib:exists(DclF),
 				mnesia_monitor:get_env(auto_repair),
 				read_write),
 	    put({?MODULE, Tab}, {opened_dumper, dcl}),
@@ -1010,9 +1010,9 @@ open_disc_copies(Tab, InitBy) ->
 	    mnesia_log:ets2dcd(Tab),
 	    put({?MODULE, Tab}, already_dumped),
 	    false
-    end. 
+    end.
 
-%% Always opens the dcl file for writing overriding already_dumped 
+%% Always opens the dcl file for writing overriding already_dumped
 %% mechanismen, used for schema transactions.
 open_dcl(Tab) ->
     case get({?MODULE, Tab}) of
@@ -1020,10 +1020,10 @@ open_dcl(Tab) ->
 	    true;
 	_ -> %% undefined or already_dumped
 	    DclF = mnesia_lib:tab2dcl(Tab),
-	    mnesia_log:open_log({?MODULE,Tab}, 
-				mnesia_log:dcl_log_header(), 
-				DclF, 
-				mnesia_lib:exists(DclF), 
+	    mnesia_log:open_log({?MODULE,Tab},
+				mnesia_log:dcl_log_header(),
+				DclF,
+				mnesia_lib:exists(DclF),
 				mnesia_monitor:get_env(auto_repair),
 				read_write),
 	    put({?MODULE, Tab}, {opened_dumper, dcl}),
@@ -1060,7 +1060,7 @@ close_files(InPlace, Outcome, InitBy, [{{?MODULE, Tab}, {opened_dumper, Type}} |
     case val({Tab, storage_type}) of
 	disc_only_copies when InitBy /= startup ->
 	    ignore;
-	disc_copies when Tab /= schema -> 
+	disc_copies when Tab /= schema ->
 	    mnesia_log:close_log({?MODULE,Tab});
 	Storage ->
 	    do_close(InPlace, Outcome, Tab, Type, Storage)
@@ -1095,7 +1095,7 @@ do_close(InPlace, Outcome, Tab, dat, Storage) ->
 	true ->
 	    file:delete(mnesia_lib:tab2tmp(Tab))
     end.
-    
+
 
 ensure_rename(From, To) ->
     case mnesia_lib:exists(From) of
@@ -1109,7 +1109,7 @@ ensure_rename(From, To) ->
 		    {error, {rename_failed, From, To}}
 	    end
     end.
-    
+
 insert_cstruct(Tid, Cs, KeepWhereabouts, InPlace, InitBy) ->
     Val = mnesia_schema:insert_cstruct(Tid, Cs, KeepWhereabouts),
     {schema, Tab, _} = Val,
@@ -1127,15 +1127,15 @@ delete_cstruct(Tid, Cs, InPlace, InitBy) ->
 
 temp_set_master_nodes() ->
     Tabs = val({schema, local_tables}),
-    Masters = [{Tab, (val({Tab, disc_copies}) ++ 
-		      val({Tab, ram_copies}) ++ 
-		      val({Tab, disc_only_copies})) -- [node()]} 
+    Masters = [{Tab, (val({Tab, disc_copies}) ++
+		      val({Tab, ram_copies}) ++
+		      val({Tab, disc_only_copies})) -- [node()]}
 	       || Tab <- Tabs],
     %% UseDir = false since we don't want to remember these
     %% masternodes and we are running (really soon anyway) since we want this
     %% to be known during table loading.
     mnesia_recover:log_master_nodes(Masters, false, yes),
-    ok.    
+    ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Raw dump of table. Dumper must have unique access to the ets table.
@@ -1165,7 +1165,7 @@ raw_named_dump_table(Tab, Ftype) ->
 		{ok, TabRef} ->
 		    Storage = ram_copies,
 		    mnesia_lib:db_fixtable(Storage, Tab, true),
-		    
+
 		    case catch raw_dump_table(TabRef, Tab) of
 			{'EXIT', Reason} ->
 			    mnesia_lib:db_fixtable(Storage, Tab, false),
@@ -1192,11 +1192,11 @@ raw_dump_table(DetsRef, EtsRef) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Load regulator
-%% 
-%% This is a poor mans substitute for a fair scheduler algorithm 
-%% in the Erlang emulator. The mnesia_dumper process performs many 
-%% costly BIF invokations and must pay for this. But since the 
-%% Emulator does not handle this properly we must compensate for 
+%%
+%% This is a poor mans substitute for a fair scheduler algorithm
+%% in the Erlang emulator. The mnesia_dumper process performs many
+%% costly BIF invokations and must pay for this. But since the
+%% Emulator does not handle this properly we must compensate for
 %% this with some form of load regulation of ourselves in order to
 %% not steal all computation power in the Erlang Emulator ans make
 %% other processes starve. Hopefully this is a temporary solution.
@@ -1243,6 +1243,6 @@ regulate(RegulatorPid) ->
 
 val(Var) ->
     case ?catch_val(Var) of
-	{'EXIT', Reason} -> mnesia_lib:other_val(Var, Reason); 
-	Value -> Value 
+	{'EXIT', Reason} -> mnesia_lib:other_val(Var, Reason);
+	Value -> Value
     end.
