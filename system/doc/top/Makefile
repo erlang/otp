@@ -165,7 +165,7 @@ $(HTMLDIR)/highlights.html:  highlights.xml
 	date=`date +"%B %e %Y"`; \
 	$(XSLTPROC) --output $(@) --stringparam docgen "$(DOCGEN)" --stringparam topdocdir "$(TOPDOCDIR)" \
 		--stringparam pdfdir "$(PDFREFDIR)"  --stringparam gendate "$$date" --stringparam appname "$(APPLICATION)" \
-		--stringparam appver "$(VSN)" -path  $(DOCGEN)/priv/docbuilder_dtd -path  $(DOCGEN)/priv/dtd_html_entities \
+		--stringparam appver "$(VSN)" -path  $(DOCGEN)/priv/dtd -path  $(DOCGEN)/priv/dtd_html_entities \
 		$(DOCGEN)/priv/xsl/db_html.xsl $<
 
 
@@ -173,7 +173,7 @@ $(HTMLDIR)/incompatible.html:  incompatible.xml
 	date=`date +"%B %e %Y"`; \
 	$(XSLTPROC) --output $(@) --stringparam docgen "$(DOCGEN)" --stringparam topdocdir "$(TOPDOCDIR)" \
 		--stringparam pdfdir "$(PDFREFDIR)"  --stringparam gendate "$$date" --stringparam appname "$(APPLICATION)" \
-		--stringparam appver "$(VSN)" -path  $(DOCGEN)/priv/docbuilder_dtd -path  $(DOCGEN)/priv/dtd_html_entities \
+		--stringparam appver "$(VSN)" -path  $(DOCGEN)/priv/dtd -path  $(DOCGEN)/priv/dtd_html_entities \
 		$(DOCGEN)/priv/xsl/db_html.xsl $<
 
 #--------------------------------------------------------------------------
