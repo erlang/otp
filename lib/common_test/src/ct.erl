@@ -63,6 +63,7 @@
 	 log/1, log/2, log/3,
 	 print/1, print/2, print/3,
 	 pal/1, pal/2, pal/3,
+	 capture_start/0, capture_stop/0, capture_get/0, capture_get/1,
 	 fail/1, fail/2, comment/1, comment/2,
 	 testcases/2, userdata/2, userdata/3,
 	 timetrap/1, get_timetrap_info/0, sleep/1]).
@@ -517,6 +518,65 @@ pal(X1,X2) ->
 pal(Category,Format,Args) ->
     ct_logs:tc_pal(Category,Format,Args).
 
+%%%-----------------------------------------------------------------
+%%% @spec capture_start() -> ok
+%%%
+%%% @doc Start capturing all text strings printed to stdout during
+%%% execution of the test case.
+%%%
+%%% @see capture_stop/0
+%%% @see capture_get/1
+capture_start() ->
+    test_server:capture_start().
+
+%%%-----------------------------------------------------------------
+%%% @spec capture_stop() -> ok
+%%%
+%%% @doc Stop capturing text strings (a session started with
+%%% <code>capture_start/0</code>).
+%%%
+%%% @see capture_start/0
+%%% @see capture_get/1
+capture_stop() ->
+    test_server:capture_stop().
+
+%%%-----------------------------------------------------------------
+%%% @spec capture_get() -> ListOfStrings
+%%%      ListOfStrings = [string()]
+%%%
+%%% @equiv capture_get([default])
+capture_get() ->
+    %% remove default log printouts (e.g. ct:log/2 printouts)
+    capture_get([default]).
+
+%%%-----------------------------------------------------------------
+%%% @spec capture_get(ExclCategories) -> ListOfStrings
+%%%      ExclCategories = [atom()]
+%%%      ListOfStrings = [string()]
+%%%
+%%% @doc Return and purge the list of text strings buffered
+%%% during the latest session of capturing printouts to stdout.
+%%% With <code>ExclCategories</code> it's possible to specify
+%%% log categories that should be ignored in <code>ListOfStrings</code>.
+%%% If <code>ExclCategories = []</code>, no filtering takes place.
+%%%
+%%% @see capture_start/0
+%%% @see capture_stop/0
+%%% @see log/3
+capture_get([ExclCat | ExclCategories]) ->
+    Strs = test_server:capture_get(),
+    CatsStr = [atom_to_list(ExclCat) | 
+	       [[$| | atom_to_list(EC)] || EC <- ExclCategories]],
+    {ok,MP} = re:compile("<div class=\"(" ++ lists:flatten(CatsStr) ++ ")\">.*"),
+    lists:flatmap(fun(Str) ->
+			  case re:run(Str, MP) of
+			      {match,_} -> [];
+			      nomatch -> [Str]
+			  end
+		  end, Strs);
+
+capture_get([]) ->
+    test_server:capture_get().
 
 %%%-----------------------------------------------------------------
 %%% @spec fail(Reason) -> void()
