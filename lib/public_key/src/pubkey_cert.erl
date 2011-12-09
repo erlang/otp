@@ -351,7 +351,7 @@ extensions_list(Extensions) ->
 
 
 extract_verify_data(OtpCert, DerCert) ->
-    {0, Signature} = OtpCert#'OTPCertificate'.signature,
+    {_, Signature} = OtpCert#'OTPCertificate'.signature,
     SigAlgRec = OtpCert#'OTPCertificate'.signatureAlgorithm,
     SigAlg = SigAlgRec#'SignatureAlgorithm'.algorithm,
     PlainText = encoded_tbs_cert(DerCert),
@@ -376,6 +376,10 @@ encoded_tbs_cert(Cert) ->
 
 digest_type(?sha1WithRSAEncryption) ->
     sha;
+digest_type(?sha256WithRSAEncryption) ->
+    sha256;
+digest_type(?sha512WithRSAEncryption) ->
+    sha512;
 digest_type(?md5WithRSAEncryption) ->
     md5;
 digest_type(?'id-dsa-with-sha1') ->
