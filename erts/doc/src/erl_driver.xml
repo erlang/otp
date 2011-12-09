@@ -37,15 +37,18 @@
     <p>As of erts version 5.5.3 the driver interface has been extended
       (see <seealso marker="driver_entry#extended_marker">extended marker</seealso>).
       The extended interface introduce
-      <seealso marker="erl_driver#version_management">version management</seealso>,
+      <seealso marker="#version_management">version management</seealso>,
       the possibility to pass capability flags
       (see <seealso marker="driver_entry#driver_flags">driver flags</seealso>)
       to the runtime system at driver initialization, and some new
       driver API functions.      </p>
     <note>
-      <p>Old drivers (compiled with an <c>erl_driver.h</c> from an
-        earlier erts version than 5.5.3) have to be recompiled
-        (but does not have to use the extended interface).</p>
+      <p>As of erts version 5.9 old drivers has to be recompiled
+      and has to use the extended interface. They also has to be
+      adjusted to the
+      <seealso marker="#rewrites_for_64_bits">64-bit capable driver interface.
+      </seealso>
+      </p>
     </note>
     <p>The driver calls back to the emulator, using the API
       functions declared in <c>erl_driver.h</c>. They are used for
@@ -242,9 +245,9 @@
       </p>
       </item>
       <tag>Adding / removing drivers</tag>
-      <item>A driver can add and later remove drivers.</item>
+      <item><p>A driver can add and later remove drivers.</p></item>
       <tag>Monitoring processes</tag>
-      <item>A driver can monitor a process that does not own a port.</item>
+      <item><p>A driver can monitor a process that does not own a port.</p></item>
       <tag><marker id="version_management">Version management</marker></tag>
       <item>
         <p>Version management is enabled for drivers that have set the
@@ -268,15 +271,203 @@
           versions differ, or if the major versions are equal and the
           minor version used by the driver is greater than the one used
           by the runtime system.</p>
-        <p>The emulator tries to check that a driver that doesn't use the
-          extended driver interface isn't incompatible when loading it.
-          It can, however, not make sure that it isn't incompatible. Therefore,
-          when loading a driver that doesn't use the extended driver
-          interface, there is a risk that it will be loaded also when
-          the driver is incompatible. When the driver uses the extended driver
-          interface, the emulator can verify that it isn't of an incompatible
-          driver version. You are therefore advised to use the extended driver
-          interface.</p>
+	<p>The emulator will refuse to load a driver that does not use
+	  the extended driver interface since,
+	  to allow for 64-bit capable drivers,
+	  incompatible type changes for the callbacks
+	  <seealso marker="driver_entry#output">output</seealso>,
+	  <seealso marker="driver_entry#control">control</seealso> and
+	  <seealso marker="driver_entry#call">call</seealso>
+	  were introduced in release R15B. A driver written
+	  with the old types would compile with warnings and when
+	  called return garbage sizes to the emulator causing it
+	  to read random memory and create huge incorrect result blobs.</p>
+	<p>Therefore it is not enough to just recompile drivers written with
+	  version management for pre-R15B types; the types has to be changed
+	  in the driver suggesting other rewrites especially regarding
+	  size variables. Investigate all warnings when recompiling!</p>
+	<p>Also, the API driver functions <c>driver_output*</c>,
+	  <c>driver_vec_to_buf</c>, <c>driver_alloc/realloc*</c>
+	  and the <c>driver_*</c> queue functions were changed to have
+	  larger length arguments and return values. This is a
+	  lesser problem since code that passes smaller types
+	  will get them auto converted in the calls and as long as
+	  the driver does not handle sizes that overflow an <c>int</c>
+	  all will work as before.</p>
+      </item>
+    </taglist>
+  </section>
+
+  <section>
+    <marker id="rewrites_for_64_bits"/>
+    <title>
+      REWRITES FOR 64-BIT DRIVER INTERFACE
+    </title>
+    <p>
+      For erts-5.9 two new integer types
+      <seealso marker="#ErlDrvSizeT">ErlDrvSizeT</seealso> and
+      <seealso marker="#ErlDrvSSizeT">ErlDrvSSizeT</seealso>
+      were introduced that can hold 64-bit sizes if necessary.
+    </p>
+    <p>
+      To not update a driver and just recompile it probably works
+      when building for a 32-bit machine creating a false sense of security.
+      Hopefully that will generate many important warnings.
+      But when recompiling the same driver later on for a 64-bit machine
+      there <em>will</em> be warnings and almost certainly crashes.
+      So it is a BAD idea to postpone updating the driver and
+      not fixing the warnings!
+    </p>
+    <p>
+      When recompiling with <c>gcc</c> use the <c>-Wstrict-prototypes</c>
+      flag to get better warnings. Try to find a similar flag if you
+      are using some other compiler.
+    </p>
+    <p>
+      Here follows a checklist for rewriting a pre erts-5.9 driver,
+      most important first.
+    </p>
+    <taglist>
+      <tag>Return types for driver callbacks</tag>
+      <item>
+	<p>
+	  Rewrite driver callback
+	  <c><seealso marker="driver_entry#control">control</seealso></c>
+	  to use return type <c>ErlDrvSSizeT</c> instead of <c>int</c>.
+	</p>
+	<p>
+	  Rewrite driver callback
+	  <c><seealso marker="driver_entry#call">call</seealso></c>
+	  to use return type <c>ErlDrvSSizeT</c> instead of <c>int</c>.
+	</p>
+	<note>
+	  <p>
+	    These changes are essential to not crash the emulator
+	    or worse cause malfunction.
+	    Without them a driver may return garbage in the high 32 bits
+	    to the emulator causing it to build a huge result from random
+	    bytes either crashing on memory allocation or succeeding with
+	    a random result from the driver call.
+	  </p>
+	</note>
+      </item>
+      <tag>Arguments to driver callbacks</tag>
+      <item>
+	<p>
+	  Driver callback
+	  <c><seealso marker="driver_entry#output">output</seealso></c>
+	  now gets <c>ErlDrvSizeT</c> as 3:rd argument instead
+	  of previously <c>int</c>.
+	</p>
+	<p>
+	  Driver callback
+	  <c><seealso marker="driver_entry#control">control</seealso></c>
+	  now gets <c>ErlDrvSizeT</c> as 4:th and 6:th arguments instead
+	  of previously <c>int</c>.
+	</p>
+	<p>
+	  Driver callback
+	  <c><seealso marker="driver_entry#call">call</seealso></c>
+	  now gets <c>ErlDrvSizeT</c> as 4:th and 6:th arguments instead
+	  of previously <c>int</c>.
+	</p>
+	<p>
+	  Sane compiler's calling conventions probably make these changes
+	  necessary only for a driver to handle data chunks that require
+	  64-bit size fields (mostly larger than 2 GB since that is what
+	  an <c>int</c> of 32 bits can hold). But it is possible to think
+	  of non-sane calling conventions that would make the driver
+	  callbacks mix up the arguments causing malfunction.
+	</p>
+	<note>
+	  <p>
+	    The argument type change is from signed to unsigned which
+	    may cause problems for e.g. loop termination conditions or
+	    error conditions if you just change the types all over the place.
+	  </p>
+	</note>
+      </item>
+      <tag>Larger <c>size</c> field in <c>ErlIOVec</c></tag>
+      <item>
+	<p>
+	  The <c>size</c> field in
+	  <seealso marker="#ErlIOVec"><c>ErlIOVec</c></seealso>
+	  has been changed to <c>ErlDrvSizeT</c> from <c>int</c>.
+	  Check all code that use that field.
+	</p>
+	<p>
+	  Automatic type casting probably makes these changes necessary only
+	  for a driver that encounters sizes larger than 32 bits.
+	</p>
+	<note>
+	  <p>
+	    The <c>size</c> field changed from signed to unsigned which
+	    may cause problems for e.g. loop termination conditions or
+	    error conditions if you just change the types all over the place.
+	  </p>
+	</note>
+      </item>
+      <tag>Arguments and return values in the driver API</tag>
+      <item>
+	<p>
+	  Many driver API functions has changed argument type
+	  and/or return value to <c>ErlDrvSizeT</c> from mostly <c>int</c>.
+	  Automatic type casting probably makes these changes necessary only
+	  for a driver that encounters sizes larger than 32 bits.
+	</p>
+	<taglist>
+	  <tag><seealso marker="#driver_output">driver_output</seealso></tag>
+	  <item>3:rd argument</item>
+	  <tag><seealso marker="#driver_output2">driver_output2</seealso></tag>
+	  <item>3:rd and 5:th arguments</item>
+	  <tag>
+	  <seealso marker="#driver_output_binary">driver_output_binary</seealso>
+	  </tag>
+	  <item>3:rd 5:th and 6:th arguments</item>
+	  <tag><seealso marker="#driver_outputv">driver_outputv</seealso></tag>
+	  <item>3:rd and 5:th arguments</item>
+	  <tag>
+	  <seealso marker="#driver_vec_to_buf">driver_vec_to_buf</seealso>
+	  </tag>
+	  <item>3:rd argument and return value</item>
+	  <tag><seealso marker="#driver_alloc">driver_alloc</seealso></tag>
+	  <item>1:st argument</item>
+	  <tag><seealso marker="#driver_realloc">driver_realloc</seealso></tag>
+	  <item>2:nd argument</item>
+	  <tag>
+	  <seealso marker="#driver_alloc_binary">driver_alloc_binary</seealso>
+	  </tag>
+	  <item>1:st argument</item>
+	  <tag>
+	  <seealso marker="#driver_realloc_binary">driver_realloc_binary</seealso>
+	  </tag>
+	  <item>2:nd argument</item>
+	  <tag><seealso marker="#driver_enq">driver_enq</seealso></tag>
+	  <item>3:rd argument</item>
+	  <tag><seealso marker="#driver_pushq">driver_pushq</seealso></tag>
+	  <item>3:rd argument</item>
+	  <tag><seealso marker="#driver_deq">driver_deq</seealso></tag>
+	  <item>2:nd argument and return value</item>
+	  <tag><seealso marker="#driver_sizeq">driver_sizeq</seealso></tag>
+	  <item>return value</item>
+	  <tag><seealso marker="#driver_enq_bin">driver_enq_bin</seealso></tag>
+	  <item>3:rd and 4:th argument</item>
+	  <tag><seealso marker="#driver_pushq_bin">driver_pushq_bin</seealso></tag>
+	  <item>3:rd and 4:th argument</item>
+	  <tag><seealso marker="#driver_enqv">driver_enqv</seealso></tag>
+	  <item>3:rd argument</item>
+	  <tag><seealso marker="#driver_pushqv">driver_pushqv</seealso></tag>
+	  <item>3:rd argument</item>
+	  <tag><seealso marker="#driver_peekqv">driver_peekqv</seealso></tag>
+	  <item>return value</item>
+	</taglist>
+	<note>
+	  <p>
+	    This is a change from signed to unsigned which
+	    may cause problems for e.g. loop termination conditions and
+	    error conditions if you just change the types all over the place.
+	  </p>
+	</note>
       </item>
     </taglist>
   </section>
@@ -285,7 +476,11 @@
     <title>DATA TYPES</title>
 
     <taglist>
-     <tag><marker id="ErlDrvSysInfo"/>ErlDrvSysInfo</tag>
+      <tag><marker id="ErlDrvSizeT"/>ErlDrvSizeT</tag>
+      <item><p>An unsigned integer type to be used as <c>size_t</c></p></item>
+      <tag><marker id="ErlDrvSSizeT"/>ErlDrvSSizeT</tag>
+      <item><p>A signed integer type the size of <c>ErlDrvSizeT</c></p></item>
+      <tag><marker id="ErlDrvSysInfo"/>ErlDrvSysInfo</tag>
       <item>
       <p/>
       <code type="none">
@@ -332,12 +527,12 @@ typedef struct ErlDrvSysInfo {
         <tag><c>erts_version</c></tag>
         <item>A string containing the version number of the runtime system
            (the same as returned by
-          <seealso marker="erts:erlang#system_info_version">erlang:system_info(version)</seealso>).
+          <seealso marker="erlang#system_info_version">erlang:system_info(version)</seealso>).
         </item>
         <tag><c>otp_release</c></tag>
         <item>A string containing the OTP release number
            (the same as returned by
-          <seealso marker="erts:erlang#system_info_otp_release">erlang:system_info(otp_release)</seealso>).
+          <seealso marker="erlang#system_info_otp_release">erlang:system_info(otp_release)</seealso>).
         </item>
         <tag><c>thread_support</c></tag>
         <item>A value <c>!= 0</c> if the runtime system has thread support;
@@ -351,12 +546,12 @@ typedef struct ErlDrvSysInfo {
         <item>The number of async threads in the async thread pool used
            by <seealso marker="#driver_async">driver_async()</seealso>
            (the same as returned by
-          <seealso marker="erts:erlang#system_info_thread_pool_size">erlang:system_info(thread_pool_size)</seealso>).
+          <seealso marker="erlang#system_info_thread_pool_size">erlang:system_info(thread_pool_size)</seealso>).
         </item>
         <tag><c>scheduler_threads</c></tag>
         <item>The number of scheduler threads used by the runtime system
            (the same as returned by
-          <seealso marker="erts:erlang#system_info_schedulers">erlang:system_info(schedulers)</seealso>).
+          <seealso marker="erlang#system_info_schedulers">erlang:system_info(schedulers)</seealso>).
         </item>
         <tag><c>nif_major_version</c></tag>
         <item>The value of <c>ERL_NIF_MAJOR_VERSION</c> when the runtime system was compiled.
@@ -371,7 +566,7 @@ typedef struct ErlDrvSysInfo {
       <p/>
       <code type="none">
 typedef struct ErlDrvBinary {
-   int orig_size;
+   ErlDrvSint orig_size;
    char orig_bytes[];
 } ErlDrvBinary;
 </code>
@@ -423,7 +618,7 @@ typedef struct ErlDrvBinary {
       <item>
         <p>The <c>ErlDrvData</c> is a handle to driver-specific data,
           passed to the driver call-backs. It is a pointer, and is
-          most often casted to a specific pointer in the driver.</p>
+          most often type casted to a specific pointer in the driver.</p>
       </item>
       <tag>SysIOVec</tag>
       <item>
@@ -437,7 +632,7 @@ typedef struct ErlDrvBinary {
       <code type="none">
 typedef struct ErlIOVec {
   int vsize;
-  int size;
+  ErlDrvSizeT size;
   SysIOVec* iov;
   ErlDrvBinary** binv;
 } ErlIOVec;
@@ -630,7 +825,7 @@ typedef struct ErlIOVec {
       </desc>
     </func>
     <func>
-      <name><ret>int</ret><nametext>driver_output(ErlDrvPort port, char *buf, int len)</nametext></name>
+      <name><ret>int</ret><nametext>driver_output(ErlDrvPort port, char *buf, ErlDrvSizeT len)</nametext></name>
       <fsummary>Send data from driver to port owner</fsummary>
       <desc>
         <marker id="driver_output"></marker>
@@ -650,7 +845,7 @@ typedef struct ErlIOVec {
       </desc>
     </func>
     <func>
-      <name><ret>int</ret><nametext>driver_output2(ErlDrvPort port, char *hbuf, int hlen, char *buf, int len)</nametext></name>
+      <name><ret>int</ret><nametext>driver_output2(ErlDrvPort port, char *hbuf, ErlDrvSizeT hlen, char *buf, ErlDrvSizeT len)</nametext></name>
       <fsummary>Send data and binary data to port owner</fsummary>
       <desc>
         <marker id="driver_output2"></marker>
@@ -665,7 +860,7 @@ typedef struct ErlIOVec {
       </desc>
     </func>
     <func>
-      <name><ret>int</ret><nametext>driver_output_binary(ErlDrvPort port, char *hbuf, int hlen, ErlDrvBinary* bin, int offset, int len)</nametext></name>
+      <name><ret>int</ret><nametext>driver_output_binary(ErlDrvPort port, char *hbuf, ErlDrvSizeT hlen, ErlDrvBinary* bin, ErlDrvSizeT offset, ErlDrvSizeT len)</nametext></name>
       <fsummary>Send data from a driver binary to port owner</fsummary>
       <desc>
         <marker id="driver_output_binary"></marker>
@@ -688,7 +883,7 @@ typedef struct ErlIOVec {
       </desc>
     </func>
     <func>
-      <name><ret>int</ret><nametext>driver_outputv(ErlDrvPort port, char* hbuf, int hlen,  ErlIOVec *ev, int skip)</nametext></name>
+      <name><ret>int</ret><nametext>driver_outputv(ErlDrvPort port, char* hbuf, ErlDrvSizeT hlen,  ErlIOVec *ev, ErlDrvSizeT skip)</nametext></name>
       <fsummary>Send vectorized data to port owner</fsummary>
       <desc>
         <marker id="driver_outputv"></marker>
@@ -711,7 +906,7 @@ typedef struct ErlIOVec {
       </desc>
     </func>
     <func>
-      <name><ret>int</ret><nametext>driver_vec_to_buf(ErlIOVec *ev, char *buf, int len)</nametext></name>
+      <name><ret>ErlDrvSizeT</ret><nametext>driver_vec_to_buf(ErlIOVec *ev, char *buf, ErlDrvSizeT len)</nametext></name>
       <fsummary>Collect data segments into a buffer</fsummary>
       <desc>
         <marker id="driver_vec_to_buf"></marker>
@@ -738,7 +933,7 @@ typedef struct ErlIOVec {
           <c>time</c> parameter is the time in milliseconds before the
           timer expires.</p>
         <p>When the timer reaches 0 and expires, the driver entry
-          function <seealso marker="driver_entry#emulator">timeout</seealso> is called.</p>
+          function <seealso marker="driver_entry#timeout">timeout</seealso> is called.</p>
         <p>Note that there is only one timer on each driver instance;
           setting a new timer will replace an older one.</p>
         <p>Return value is 0 (-1 only when the <c>timeout</c> driver
@@ -832,7 +1027,7 @@ typedef struct ErlIOVec {
       </desc>
     </func>
     <func>
-      <name><ret>void *</ret><nametext>driver_alloc(size_t size)</nametext></name>
+      <name><ret>void *</ret><nametext>driver_alloc(ErlDrvSizeT size)</nametext></name>
       <fsummary>Allocate memory</fsummary>
       <desc>
         <marker id="driver_alloc"></marker>
@@ -846,7 +1041,7 @@ typedef struct ErlIOVec {
       </desc>
     </func>
     <func>
-      <name><ret>void *</ret><nametext>driver_realloc(void *ptr, size_t size)</nametext></name>
+      <name><ret>void *</ret><nametext>driver_realloc(void *ptr, ErlDrvSizeT size)</nametext></name>
       <fsummary>Resize an allocated memory block</fsummary>
       <desc>
         <marker id="driver_realloc"></marker>
@@ -872,7 +1067,7 @@ typedef struct ErlIOVec {
       </desc>
     </func>
     <func>
-      <name><ret>ErlDrvBinary*</ret><nametext>driver_alloc_binary(int size)</nametext></name>
+      <name><ret>ErlDrvBinary*</ret><nametext>driver_alloc_binary(ErlDrvSizeT size)</nametext></name>
       <fsummary>Allocate a driver binary</fsummary>
       <desc>
         <marker id="driver_alloc_binary"></marker>
@@ -892,7 +1087,7 @@ typedef struct ErlIOVec {
       </desc>
     </func>
     <func>
-      <name><ret>ErlDrvBinary*</ret><nametext>driver_realloc_binary(ErlDrvBinary *bin, int size)</nametext></name>
+      <name><ret>ErlDrvBinary*</ret><nametext>driver_realloc_binary(ErlDrvBinary *bin, ErlDrvSizeT size)</nametext></name>
       <fsummary>Resize a driver binary</fsummary>
       <desc>
         <marker id="driver_realloc_binary"></marker>
@@ -958,7 +1153,7 @@ typedef struct ErlIOVec {
       </desc>
     </func>
     <func>
-      <name><ret>int</ret><nametext>driver_enq(ErlDrvPort port, char* buf, int len)</nametext></name>
+      <name><ret>int</ret><nametext>driver_enq(ErlDrvPort port, char* buf, ErlDrvSizeT len)</nametext></name>
       <fsummary>Enqueue data in the driver queue</fsummary>
       <desc>
         <marker id="driver_enq"></marker>
@@ -982,7 +1177,7 @@ typedef struct ErlIOVec {
       </desc>
     </func>
     <func>
-      <name><ret>int</ret><nametext>driver_pushq(ErlDrvPort port, char* buf, int len)</nametext></name>
+      <name><ret>int</ret><nametext>driver_pushq(ErlDrvPort port, char* buf, ErlDrvSizeT len)</nametext></name>
       <fsummary>Push data at the head of the driver queue</fsummary>
       <desc>
         <marker id="driver_pushq"></marker>
@@ -997,7 +1192,7 @@ typedef struct ErlIOVec {
       </desc>
     </func>
     <func>
-      <name><ret>int</ret><nametext>driver_deq(ErlDrvPort port, int size)</nametext></name>
+      <name><ret>ErlDrvSizeT</ret><nametext>driver_deq(ErlDrvPort port, ErlDrvSizeT size)</nametext></name>
       <fsummary>Dequeue data from the head of the driver queue</fsummary>
       <desc>
         <marker id="driver_deq"></marker>
@@ -1013,7 +1208,7 @@ typedef struct ErlIOVec {
       </desc>
     </func>
     <func>
-      <name><ret>int</ret><nametext>driver_sizeq(ErlDrvPort port)</nametext></name>
+      <name><ret>ErlDrvSizeT</ret><nametext>driver_sizeq(ErlDrvPort port)</nametext></name>
       <fsummary>Return the size of the driver queue</fsummary>
       <desc>
         <marker id="driver_sizeq"></marker>
@@ -1026,7 +1221,7 @@ typedef struct ErlIOVec {
       </desc>
     </func>
     <func>
-      <name><ret>int</ret><nametext>driver_enq_bin(ErlDrvPort port, ErlDrvBinary *bin, int offset,  int len)</nametext></name>
+      <name><ret>int</ret><nametext>driver_enq_bin(ErlDrvPort port, ErlDrvBinary *bin, ErlDrvSizeT offset, ErlDrvSizeT len)</nametext></name>
       <fsummary>Enqueue binary in the driver queue</fsummary>
       <desc>
         <marker id="driver_enq_bin"></marker>
@@ -1043,7 +1238,7 @@ typedef struct ErlIOVec {
       </desc>
     </func>
     <func>
-      <name><ret>int</ret><nametext>driver_pushq_bin(ErlDrvPort port, ErlDrvBinary *bin, int offset, int len)</nametext></name>
+      <name><ret>int</ret><nametext>driver_pushq_bin(ErlDrvPort port, ErlDrvBinary *bin, ErlDrvSizeT offset, ErlDrvSizeT len)</nametext></name>
       <fsummary>Push binary at the head of the driver queue</fsummary>
       <desc>
         <marker id="driver_pushq_bin"></marker>
@@ -1060,13 +1255,35 @@ typedef struct ErlIOVec {
       </desc>
     </func>
     <func>
+      <name><ret>ErlDrvSizeT</ret><nametext>driver_peekqv(ErlDrvPort port, ErlIOVec *ev)</nametext></name>
+      <fsummary>Get the driver queue as an IO vector</fsummary>
+      <desc>
+        <marker id="driver_peekqv"></marker>
+        <p>
+	  This function retrieves the driver queue into a supplied
+	  <c>ErlIOVec</c> <c>ev</c>. It also returns the queue size.
+	  This is one of two ways to get data out of the queue.
+	</p>
+	<p>
+	  If <c>ev</c> is <c>NULL</c> all ones i.e. <c>-1</c> type cast to
+	  <c>ErlDrvSizeT</c> is returned.
+	</p>
+        <p>Nothing is removed from the queue by this function, that must be done
+          with <c>driver_deq</c>.</p>
+        <p>This function can be called from an arbitrary thread if a
+          <seealso marker="#ErlDrvPDL">port data lock</seealso>
+          associated with the <c>port</c> is locked by the calling
+          thread during the call.</p>
+      </desc>
+    </func>
+    <func>
       <name><ret>SysIOVec*</ret><nametext>driver_peekq(ErlDrvPort port, int *vlen)</nametext></name>
       <fsummary>Get the driver queue as a vector</fsummary>
       <desc>
         <marker id="driver_peekq"></marker>
         <p>This function retrieves the driver queue as a pointer to an
           array of <c>SysIOVec</c>s. It also returns the number of
-          elements in <c>vlen</c>. This is the only way to get data
+          elements in <c>vlen</c>. This is one of two ways to get data
           out of the queue.</p>
         <p>Nothing is removed from the queue by this function, that must be done
           with <c>driver_deq</c>.</p>
@@ -1079,7 +1296,7 @@ typedef struct ErlIOVec {
       </desc>
     </func>
     <func>
-      <name><ret>int</ret><nametext>driver_enqv(ErlDrvPort port, ErlIOVec *ev, int skip)</nametext></name>
+      <name><ret>int</ret><nametext>driver_enqv(ErlDrvPort port, ErlIOVec *ev, ErlDrvSizeT skip)</nametext></name>
       <fsummary>Enqueue vector in the driver queue</fsummary>
       <desc>
         <marker id="driver_enqv"></marker>
@@ -1095,7 +1312,7 @@ typedef struct ErlIOVec {
       </desc>
     </func>
     <func>
-      <name><ret>int</ret><nametext>driver_pushqv(ErlDrvPort port, ErlIOVec *ev, int skip)</nametext></name>
+      <name><ret>int</ret><nametext>driver_pushqv(ErlDrvPort port, ErlIOVec *ev, ErlDrvSizeT skip)</nametext></name>
       <fsummary>Push vector at the head of the driver queue</fsummary>
       <desc>
         <marker id="driver_pushqv"></marker>
@@ -1494,7 +1711,7 @@ ERL_DRV_EXT2TERM     char *buf, ErlDrvUInt len
 	term encoded with the
 	<seealso marker="erl_ext_dist">external format</seealso>,
 	i.e., a term that has been encoded by
-	<seealso marker="erts:erlang#term_to_binary/2">erlang:term_to_binary</seealso>,
+	<seealso marker="erlang#term_to_binary/2">erlang:term_to_binary</seealso>,
 	<seealso marker="erl_interface:ei">erl_interface</seealso>, etc.
 	For example, if <c>binp</c> is a pointer to an <c>ErlDrvBinary</c>
 	that contains the term <c>{17, 4711}</c> encoded with the
@@ -1694,7 +1911,7 @@ ERL_DRV_EXT2TERM     char *buf, ErlDrvUInt len
            The driver defined handle is normally created in the
           <seealso marker="driver_entry#start">driver start call-back</seealso>
            when a port is created via
-          <seealso marker="erts:erlang#open_port/2">erlang:open_port/2</seealso>. </item>
+          <seealso marker="erlang#open_port/2">erlang:open_port/2</seealso>. </item>
         </taglist>
         <p>The caller of <c>driver_create_port()</c> is allowed to
           manipulate the newly created port when <c>driver_create_port()</c>
@@ -2462,7 +2679,7 @@ ERL_DRV_EXT2TERM     char *buf, ErlDrvUInt len
     <title>SEE ALSO</title>
     <p><seealso marker="driver_entry">driver_entry(3)</seealso>,
       <seealso marker="kernel:erl_ddll">erl_ddll(3)</seealso>,
-      <seealso marker="erts:erlang">erlang(3)</seealso></p>
+      <seealso marker="erlang">erlang(3)</seealso></p>
     <p>An Alternative Distribution Driver (ERTS User's
       Guide Ch. 3)</p>
   </section>

@@ -34,18 +34,22 @@
   <lib>driver_entry</lib>
   <libsummary>The driver-entry structure used by erlang drivers.</libsummary>
   <description>
-    <p>As of erts version 5.5.3 the driver interface has been extended
-      (see <seealso marker="driver_entry#extended_marker">extended marker</seealso>).
-      The extended interface introduces
-      <seealso marker="erl_driver#version_management">version management</seealso>,
-      the possibility to pass capability flags
-      (see <seealso marker="driver_entry#driver_flags">driver flags</seealso>)
-      to the runtime system at driver initialization, and some new
-      driver API functions.      </p>
+    <p>
+      As of erts version 5.9 (OTP release R15B) the driver interface
+      has been changed with larger types for the callbacks
+      <seealso marker="#output">output</seealso>,
+      <seealso marker="#control">control</seealso> and
+      <seealso marker="#call">call</seealso>.
+      See driver <seealso marker="erl_driver#version_management">
+      version management</seealso> in
+      <seealso marker="erl_driver">erl_driver</seealso>.
+    </p>
     <note>
       <p>Old drivers (compiled with an <c>erl_driver.h</c> from an
-        earlier erts version than 5.5.3) have to be recompiled
-        (but do not have to use the extended interface).</p>
+      earlier erts version than 5.9) have to be updated and have
+      to use the extended interface (with
+      <seealso marker="erl_driver#version_management">version management
+      </seealso>).</p>
     </note>
     <p>The <c>driver_entry</c> structure is a C struct that all erlang
       drivers define. It contains entry points for the erlang driver
@@ -53,7 +57,7 @@
       the driver.</p>
     <p>      
       <marker id="emulator"></marker>
-      The <seealso marker="driver_entry">erl_driver</seealso> driver
+      The <seealso marker="erl_driver">erl_driver</seealso> driver
       API functions need a port handle
       that identifies the driver instance (and the port in the
       emulator). This is only passed to the <c>start</c> function, but
@@ -84,7 +88,7 @@
       the emulator, the driver is <em>not</em> allowed to modify the
       <c>driver_entry</c>.</p>
     <note>
-      <p>Do <em>not</em> declare the <c>driver_entry</c><c>const</c>. This since the emulator needs to
+      <p>Do <em>not</em> declare the <c>driver_entry</c> <c>const</c>. This since the emulator needs to
         modify the <c>handle</c>, and the <c>handle2</c>
         fields. A statically allocated, and <c>const</c>
         declared <c>driver_entry</c> may be located in
@@ -116,7 +120,7 @@ typedef struct erl_drv_entry {
     void (*stop)(ErlDrvData drv_data);
                                 /* called when port is closed, and when the
                                    emulator is halted. */
-    void (*output)(ErlDrvData drv_data, char *buf, int len);
+    void (*output)(ErlDrvData drv_data, char *buf, ErlDrvSizeT len);
                                 /* called when we have output from erlang to 
                                    the port */
     void (*ready_input)(ErlDrvData drv_data, ErlDrvEvent event); 
@@ -130,8 +134,9 @@ typedef struct erl_drv_entry {
     void (*finish)(void);       /* called before unloading the driver -
                                    DYNAMIC DRIVERS ONLY */
     void *handle;               /* Reserved -- Used by emulator internally */
-    int (*control)(ErlDrvData drv_data, unsigned int command, char *buf, 
-                   int len, char **rbuf, int rlen); 
+    ErlDrvSSizeT (*control)(ErlDrvData drv_data, unsigned int command,
+                            char *buf, ErlDrvSizeT len,
+			    char **rbuf, ErlDrvSizeT rlen);
                                 /* "ioctl" for drivers - invoked by 
                                    port_control/3 */
     void (*timeout)(ErlDrvData drv_data);        /* Handling of timeout in driver */
@@ -144,8 +149,9 @@ typedef struct erl_drv_entry {
                                    closed, and there is data in the 
                                    driver queue that needs to be flushed
                                    before 'stop' can be called */
-    int (*call)(ErlDrvData drv_data, unsigned int command, char *buf, 
-                   int len, char **rbuf, int rlen, unsigned int *flags); 
+    ErlDrvSSizeT (*call)(ErlDrvData drv_data, unsigned int command,
+                         char *buf, ErlDrvSizeT len,
+			 char **rbuf, ErlDrvSizeT rlen, unsigned int *flags);
                                 /* Works mostly like 'control', a synchronous
                                    call into the driver. */
     void (*event)(ErlDrvData drv_data, ErlDrvEvent event,
@@ -192,7 +198,7 @@ typedef struct erl_drv_entry {
 	  <c>start</c>, then <c>stop</c> is the place to deallocate that
 	  memory.</p>
       </item>
-      <tag><marker id="output"/>void (*output)(ErlDrvData drv_data, char *buf, int len)</tag>
+      <tag><marker id="output"/>void (*output)(ErlDrvData drv_data, char *buf, ErlDrvSizeT len)</tag>
       <item>
         <p>This is called when an erlang process has sent data to the
           port. The data is pointed to by <c>buf</c>, and is
@@ -243,7 +249,7 @@ typedef struct erl_drv_entry {
           emulator will modify this field; therefore, it is important
           that the <c>driver_entry</c> isn't declared <c>const</c>.</p> 
       </item>
-      <tag><marker id="control"></marker>int (*control)(ErlDrvData drv_data, unsigned int command, char *buf,  int len, char **rbuf, int rlen)</tag>
+      <tag><marker id="control"></marker>ErlDrvSSizeT (*control)(ErlDrvData drv_data, unsigned int command, char *buf, ErlDrvSizeT len, char **rbuf, ErlDrvSizeT rlen)</tag>
       <item>
         <p>This is a special routine invoked with the erlang function
           <c>port_control/3</c>. It works a little like an "ioctl" for
@@ -316,7 +322,7 @@ typedef struct erl_drv_entry {
           opposed to the asynchronous function, which is called in
           some thread (if multithreading is enabled).</p>
       </item>
-      <tag><marker id="call"/>int (*call)(ErlDrvData drv_data, unsigned int command, char *buf, int len, char **rbuf, int rlen, unsigned int *flags)</tag>
+      <tag><marker id="call"/>ErlDrvSSizeT (*call)(ErlDrvData drv_data, unsigned int command, char *buf, ErlDrvSizeT len, char **rbuf, ErlDrvSizeT rlen, unsigned int *flags)</tag>
       <item>
         <p>This function is called from <c>erlang:port_call/3</c>. It
           works a lot like the <c>control</c> call-back, but uses the
@@ -452,7 +458,7 @@ typedef struct erl_drv_entry {
     <title>SEE ALSO</title>
     <p><seealso marker="erl_driver">erl_driver(3)</seealso>, 
       <seealso marker="kernel:erl_ddll">erl_ddll(3)</seealso>,
-      <seealso marker="erts:erlang">erlang(3)</seealso>,
+      <seealso marker="erlang">erlang(3)</seealso>,
       kernel(3)</p>
   </section>
 </cref>
