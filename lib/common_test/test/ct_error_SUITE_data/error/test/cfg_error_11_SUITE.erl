@@ -29,10 +29,7 @@
 suite() ->
     [{timetrap,{seconds,2}},
      {require, dummy0}, {default_config, dummy0, "suite/0"},
-     {require, dummy1}, {default_config, dummy1, "suite/0"},
-     {require, dummy2}, {default_config, dummy2, "suite/0"}].
-
-
+     {require, dummy_alias, dummy1}, {default_config, dummy1, "suite/0"}].
 
 %%--------------------------------------------------------------------
 %% Function: init_per_suite(Config0) ->
@@ -119,16 +116,17 @@ groups() ->
 %% Reason = term()
 %%--------------------------------------------------------------------
 all() ->
-    [tc1, tc2].
+    [tc1,tc2].
 
 tc1() ->
-    [{require, dummy0}, {default_config, dummy0, "tc1"}].
+    [{require, dummy0}, {default_config, dummy0, "tc1"},
+     {require, dummy_alias, dummy2}, {default_config, dummy2, "tc1"}].
 
 tc1(_) ->
     dummy.
 
 tc2() ->
-    [{timetrap,1}].
+    [{timetrap,10}].
 
 tc2(_) ->
     dummy.

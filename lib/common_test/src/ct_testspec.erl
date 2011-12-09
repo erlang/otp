@@ -878,7 +878,11 @@ separate([],_,_,_) ->
 %%              {Suite2,[GrOrCase21,GrOrCase22,...]},...]}
 %% {{Node,Dir},[{Suite1,{skip,Cmt}},
 %%              {Suite2,[{GrOrCase21,{skip,Cmt}},GrOrCase22,...]},...]}
-%% GrOrCase = {GroupName,[Case1,Case2,...]} | Case
+%% GrOrCase = {GroupSpec,[Case1,Case2,...]} | Case
+%% GroupSpec = {GroupName,OverrideProps} |
+%%             {GroupName,OverrideProps,SubGroupSpec}
+%% OverrideProps = Props | default
+%% SubGroupSpec = GroupSpec | []
 
 insert_suites(Node,Dir,[S|Ss],Tests, MergeTests) ->
     Tests1 = insert_cases(Node,Dir,S,all,Tests,MergeTests),
@@ -889,7 +893,7 @@ insert_suites(Node,Dir,S,Tests,MergeTests) ->
     insert_suites(Node,Dir,[S],Tests,MergeTests).
 
 insert_groups(Node,Dir,Suite,Group,Cases,Tests,MergeTests) 
-  when is_atom(Group) ->
+  when is_atom(Group); is_tuple(Group) ->
     insert_groups(Node,Dir,Suite,[Group],Cases,Tests,MergeTests);
 insert_groups(Node,Dir,Suite,Groups,Cases,Tests,false) when
       ((Cases == all) or is_list(Cases)) and is_list(Groups) ->

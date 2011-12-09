@@ -30,8 +30,11 @@ MODULES= \
 	ct_userconfig_callback \
 	ct_smoke_test_SUITE \
 	ct_event_handler_SUITE \
+	ct_config_info_SUITE \
 	ct_groups_test_1_SUITE \
 	ct_groups_test_2_SUITE \
+	ct_group_info_SUITE \
+	ct_groups_spec_SUITE \
 	ct_sequence_1_SUITE \
 	ct_repeat_1_SUITE \
 	ct_testspec_1_SUITE \

@@ -228,7 +228,7 @@ expected_events(config_static_SUITE)->
      {?eh,tc_start,{config_static_SUITE,test_config_name_already_in_use2}},
      {?eh,tc_done,
       {config_static_SUITE,test_config_name_already_in_use2,
-       {skipped,{config_name_already_in_use,[x1,alias]}}}},
+       {skipped,{config_name_already_in_use,[alias,x1]}}}},
      {?eh,test_stats,{4,0,{2,0}}},
      {?eh,tc_start,{config_static_SUITE,test_alias_tclocal}},
      {?eh,tc_done,{config_static_SUITE,test_alias_tclocal,ok}},
