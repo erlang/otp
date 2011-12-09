@@ -30,5 +30,5 @@ release_tests_spec:
 	$(INSTALL_DATA) $(AUXILIARY_FILES) $(RELSYSDIR)
 	@tar cf - *_SUITE_data | (cd $(RELSYSDIR); tar xf -)
 	cd $(RELSYSDIR);\
-	erl -make;\
+	erlc dialyzer_common.erl file_utils.erl;\
 	erl -noshell -run dialyzer_common create_all_suites -s erlang halt
