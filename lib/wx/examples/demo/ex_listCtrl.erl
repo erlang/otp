@@ -23,7 +23,7 @@
 -behaviour(wx_object).
 
 -export([start/1, init/1, terminate/2,  code_change/3,
-	 handle_info/2, handle_call/3, handle_event/2]).
+	 handle_info/2, handle_call/3, handle_cast/2, handle_event/2]).
 
 -record(state,
 	{
@@ -146,6 +146,11 @@ handle_info(Msg, State) ->
 handle_call(Msg, _From, State) ->
     demo:format(State#state.config,"Got Call ~p\n",[Msg]),
     {reply,ok,State}.
+
+handle_cast(Msg, State) ->
+    io:format("Got cast ~p~n",[Msg]),
+    {noreply,State}.
+
 
 code_change(_, _, State) ->
     {stop, ignore, State}.

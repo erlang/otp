@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2008-2010. All Rights Reserved.
+# Copyright Ericsson AB 2008-2011. All Rights Reserved.
 # 
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -18,12 +18,19 @@
 #
 
 include ./vsn.mk
-include ./config.mk
-SUBDIRS = src 
-ifeq ($(CAN_BUILD_DRIVER), true) 
-SUBDIRS += c_src 
-endif 
-SUBDIRS += examples doc/src
+
+ifdef TERTIARY_BOOTSTRAP
+ INSIDE_ERLSRC = true
+ SUBDIRS = src
+else # Normal build
+ include ./config.mk
+ SUBDIRS = src
+ ifeq ($(CAN_BUILD_DRIVER), true)
+ SUBDIRS += c_src
+ endif
+ SUBDIRS += examples doc/src
+endif #TERTIARY_BOOTSTRAP
+
 CLEANDIRS = $(SUBDIRS) api_gen
 
 ifeq ($(INSIDE_ERLSRC),true)
@@ -32,6 +39,7 @@ ifeq ($(INSIDE_ERLSRC),true)
 # Default Subdir Targets
 # ----------------------------------------------------
 SUB_DIRECTORIES=$(SUBDIRS)
+
 include $(ERL_TOP)/make/otp_subdir.mk
 else 
 # we are building standalone wxErlang

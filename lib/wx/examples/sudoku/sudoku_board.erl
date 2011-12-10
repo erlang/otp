@@ -30,7 +30,7 @@
 	 draw/3, 
 	 %% Callbacks
 	 init/1, handle_sync_event/3, 
-	 handle_event/2, handle_info/2, handle_call/3, 
+	 handle_event/2, handle_info/2, handle_call/3, handle_cast/2,
 	 code_change/3, terminate/2]).
 
 -include("sudoku.hrl").
@@ -208,6 +208,10 @@ handle_call(left,_From, S = #state{board=B}) ->
 handle_call({draw, DC, Size},_From, S) ->    
     redraw(DC,Size,S),
     {reply, ok, S}.
+
+handle_cast(Msg, State) ->
+    io:format("Got cast ~p~n",[Msg]),
+    {noreply,State}.
 
 code_change(_, _, State) ->
     {stop, not_yet_implemented, State}.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2009. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -27,7 +27,7 @@
 -behaviour(wx_object).
 -export([start/0, start/1, start_link/0, start_link/1, format/3, 
 	 init/1, terminate/2,  code_change/3,
-	 handle_info/2, handle_call/3, handle_event/2]).
+	 handle_info/2, handle_call/3, handle_cast/2, handle_event/2]).
 
 
 -record(state, {win, demo, example, selector, log, code}).
@@ -188,6 +188,10 @@ handle_info(Msg, State) ->
 handle_call(Msg, _From, State) ->
     io:format("Got Call ~p~n",[Msg]),
     {reply,ok,State}.
+
+handle_cast(Msg, State) ->
+    io:format("Got cast ~p~n",[Msg]),
+    {noreply,State}.
 
 %% Async Events are handled in handle_event as in handle_info
 handle_event(#wx{event=#wxCommand{type=command_listbox_selected, cmdString=Ex}}, 

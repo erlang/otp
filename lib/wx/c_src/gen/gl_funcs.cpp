@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -395,7 +395,7 @@ case 5043: { // glBitmap
  GLfloat *yorig = (GLfloat *) bp; bp += 4;
  GLfloat *xmove = (GLfloat *) bp; bp += 4;
  GLfloat *ymove = (GLfloat *) bp; bp += 4;
- GLubyte *bitmap = (GLubyte *) * (int *) bp; bp += 4;
+ GLubyte *bitmap = (GLubyte *) (ErlDrvSInt) * (int *) bp; bp += 4;
  weglBitmap(*width,*height,*xorig,*yorig,*xmove,*ymove,bitmap);
 }; break;
 case 5044: { // glBitmap
@@ -538,7 +538,7 @@ case 5073: { // glColorPointer
  GLint *size = (GLint *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
  GLsizei *stride = (GLsizei *) bp; bp += 4;
- GLvoid *pointer = (GLvoid *) * (int *) bp; bp += 4;
+ GLvoid *pointer = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
  weglColorPointer(*size,*type,*stride,pointer);
 }; break;
 case 5074: { // glColorPointer
@@ -646,7 +646,7 @@ case 5090: { // glDrawElements
  GLenum *mode = (GLenum *) bp; bp += 4;
  GLsizei *count = (GLsizei *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *indices = (GLvoid *) * (int *) bp; bp += 4;
+ GLvoid *indices = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
  weglDrawElements(*mode,*count,*type,indices);
 }; break;
 case 5091: { // glDrawElements
@@ -661,7 +661,7 @@ case 5092: { // glDrawPixels
  GLsizei *height = (GLsizei *) bp; bp += 4;
  GLenum *format = (GLenum *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *pixels = (GLvoid *) * (int *) bp; bp += 4;
+ GLvoid *pixels = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
  weglDrawPixels(*width,*height,*format,*type,pixels);
 }; break;
 case 5093: { // glDrawPixels
@@ -678,7 +678,7 @@ case 5094: { // glEdgeFlagv
 }; break;
 case 5095: { // glEdgeFlagPointer
  GLsizei *stride = (GLsizei *) bp; bp += 4;
- GLvoid *pointer = (GLvoid *) * (int *) bp; bp += 4;
+ GLvoid *pointer = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
  weglEdgeFlagPointer(*stride,pointer);
 }; break;
 case 5096: { // glEdgeFlagPointer
@@ -1265,7 +1265,7 @@ case 5149: { // glIndexMask
 case 5150: { // glIndexPointer
  GLenum *type = (GLenum *) bp; bp += 4;
  GLsizei *stride = (GLsizei *) bp; bp += 4;
- GLvoid *pointer = (GLvoid *) * (int *) bp; bp += 4;
+ GLvoid *pointer = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
  weglIndexPointer(*type,*stride,pointer);
 }; break;
 case 5151: { // glIndexPointer
@@ -1300,7 +1300,7 @@ case 5157: { // glInitNames
 case 5158: { // glInterleavedArrays
  GLenum *format = (GLenum *) bp; bp += 4;
  GLsizei *stride = (GLsizei *) bp; bp += 4;
- GLvoid *pointer = (GLvoid *) * (int *) bp; bp += 4;
+ GLvoid *pointer = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
  weglInterleavedArrays(*format,*stride,pointer);
 }; break;
 case 5159: { // glInterleavedArrays
@@ -1561,7 +1561,7 @@ case 5199: { // glNormal3sv
 case 5200: { // glNormalPointer
  GLenum *type = (GLenum *) bp; bp += 4;
  GLsizei *stride = (GLsizei *) bp; bp += 4;
- GLvoid *pointer = (GLvoid *) * (int *) bp; bp += 4;
+ GLvoid *pointer = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
  weglNormalPointer(*type,*stride,pointer);
 }; break;
 case 5201: { // glNormalPointer
@@ -1933,7 +1933,7 @@ case 5274: { // glTexCoordPointer
  GLint *size = (GLint *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
  GLsizei *stride = (GLsizei *) bp; bp += 4;
- GLvoid *pointer = (GLvoid *) * (int *) bp; bp += 4;
+ GLvoid *pointer = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
  weglTexCoordPointer(*size,*type,*stride,pointer);
 }; break;
 case 5275: { // glTexCoordPointer
@@ -2016,7 +2016,7 @@ case 5286: { // glTexImage1D
  GLint *border = (GLint *) bp; bp += 4;
  GLenum *format = (GLenum *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *pixels = (GLvoid *) * (int *) bp; bp += 4;
+ GLvoid *pixels = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
  weglTexImage1D(*target,*level,*internalformat,*width,*border,*format,*type,pixels);
 }; break;
 case 5287: { // glTexImage1D
@@ -2039,7 +2039,7 @@ case 5288: { // glTexImage2D
  GLint *border = (GLint *) bp; bp += 4;
  GLenum *format = (GLenum *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *pixels = (GLvoid *) * (int *) bp; bp += 4;
+ GLvoid *pixels = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
  weglTexImage2D(*target,*level,*internalformat,*width,*height,*border,*format,*type,pixels);
 }; break;
 case 5289: { // glTexImage2D
@@ -2087,7 +2087,7 @@ case 5294: { // glTexSubImage1D
  GLsizei *width = (GLsizei *) bp; bp += 4;
  GLenum *format = (GLenum *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *pixels = (GLvoid *) * (int *) bp; bp += 4;
+ GLvoid *pixels = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
  weglTexSubImage1D(*target,*level,*xoffset,*width,*format,*type,pixels);
 }; break;
 case 5295: { // glTexSubImage1D
@@ -2109,7 +2109,7 @@ case 5296: { // glTexSubImage2D
  GLsizei *height = (GLsizei *) bp; bp += 4;
  GLenum *format = (GLenum *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *pixels = (GLvoid *) * (int *) bp; bp += 4;
+ GLvoid *pixels = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
  weglTexSubImage2D(*target,*level,*xoffset,*yoffset,*width,*height,*format,*type,pixels);
 }; break;
 case 5297: { // glTexSubImage2D
@@ -2188,7 +2188,7 @@ case 5312: { // glVertexPointer
  GLint *size = (GLint *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
  GLsizei *stride = (GLsizei *) bp; bp += 4;
- GLvoid *pointer = (GLvoid *) * (int *) bp; bp += 4;
+ GLvoid *pointer = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
  weglVertexPointer(*size,*type,*stride,pointer);
 }; break;
 case 5313: { // glVertexPointer
@@ -2222,7 +2222,7 @@ case 5317: { // glDrawRangeElements
  GLuint *end = (GLuint *) bp; bp += 4;
  GLsizei *count = (GLsizei *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *indices = (GLvoid *) * (int *) bp; bp += 4;
+ GLvoid *indices = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
  weglDrawRangeElements(*mode,*start,*end,*count,*type,indices);
 }; break;
 case 5318: { // glDrawRangeElements
@@ -2244,7 +2244,7 @@ case 5319: { // glTexImage3D
  GLint *border = (GLint *) bp; bp += 4;
  GLenum *format = (GLenum *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *pixels = (GLvoid *) * (int *) bp; bp += 4;
+ GLvoid *pixels = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
  weglTexImage3D(*target,*level,*internalformat,*width,*height,*depth,*border,*format,*type,pixels);
 }; break;
 case 5320: { // glTexImage3D
@@ -2271,7 +2271,7 @@ case 5321: { // glTexSubImage3D
  GLsizei *depth = (GLsizei *) bp; bp += 4;
  GLenum *format = (GLenum *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *pixels = (GLvoid *) * (int *) bp; bp += 4;
+ GLvoid *pixels = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
  weglTexSubImage3D(*target,*level,*xoffset,*yoffset,*zoffset,*width,*height,*depth,*format,*type,pixels);
 }; break;
 case 5322: { // glTexSubImage3D
@@ -2306,7 +2306,7 @@ case 5324: { // glColorTable
  GLsizei *width = (GLsizei *) bp; bp += 4;
  GLenum *format = (GLenum *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *table = (GLvoid *) * (int *) bp; bp += 4;
+ GLvoid *table = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
  weglColorTable(*target,*internalformat,*width,*format,*type,table);
 }; break;
 case 5325: { // glColorTable
@@ -2389,7 +2389,7 @@ case 5332: { // glColorSubTable
  GLsizei *count = (GLsizei *) bp; bp += 4;
  GLenum *format = (GLenum *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *data = (GLvoid *) * (int *) bp; bp += 4;
+ GLvoid *data = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
  weglColorSubTable(*target,*start,*count,*format,*type,data);
 }; break;
 case 5333: { // glColorSubTable
@@ -2415,7 +2415,7 @@ case 5335: { // glConvolutionFilter1D
  GLsizei *width = (GLsizei *) bp; bp += 4;
  GLenum *format = (GLenum *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *image = (GLvoid *) * (int *) bp; bp += 4;
+ GLvoid *image = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
  weglConvolutionFilter1D(*target,*internalformat,*width,*format,*type,image);
 }; break;
 case 5336: { // glConvolutionFilter1D
@@ -2434,7 +2434,7 @@ case 5337: { // glConvolutionFilter2D
  GLsizei *height = (GLsizei *) bp; bp += 4;
  GLenum *format = (GLenum *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *image = (GLvoid *) * (int *) bp; bp += 4;
+ GLvoid *image = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
  weglConvolutionFilter2D(*target,*internalformat,*width,*height,*format,*type,image);
 }; break;
 case 5338: { // glConvolutionFilter2D
@@ -2530,8 +2530,8 @@ case 5346: { // glSeparableFilter2D
  GLsizei *height = (GLsizei *) bp; bp += 4;
  GLenum *format = (GLenum *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *row = (GLvoid *) * (int *) bp; bp += 4;
- GLvoid *column = (GLvoid *) * (int *) bp; bp += 4;
+ GLvoid *row = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
+ GLvoid *column = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
  weglSeparableFilter2D(*target,*internalformat,*width,*height,*format,*type,row,column);
 }; break;
 case 5347: { // glSeparableFilter2D
@@ -2666,7 +2666,7 @@ case 5360: { // glCompressedTexImage3D
  GLsizei *depth = (GLsizei *) bp; bp += 4;
  GLint *border = (GLint *) bp; bp += 4;
  GLsizei *imageSize = (GLsizei *) bp; bp += 4;
- GLvoid *data = (GLvoid *) * (int *) bp; bp += 4;
+ GLvoid *data = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
  weglCompressedTexImage3D(*target,*level,*internalformat,*width,*height,*depth,*border,*imageSize,data);
 }; break;
 case 5361: { // glCompressedTexImage3D
@@ -2689,7 +2689,7 @@ case 5362: { // glCompressedTexImage2D
  GLsizei *height = (GLsizei *) bp; bp += 4;
  GLint *border = (GLint *) bp; bp += 4;
  GLsizei *imageSize = (GLsizei *) bp; bp += 4;
- GLvoid *data = (GLvoid *) * (int *) bp; bp += 4;
+ GLvoid *data = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
  weglCompressedTexImage2D(*target,*level,*internalformat,*width,*height,*border,*imageSize,data);
 }; break;
 case 5363: { // glCompressedTexImage2D
@@ -2710,7 +2710,7 @@ case 5364: { // glCompressedTexImage1D
  GLsizei *width = (GLsizei *) bp; bp += 4;
  GLint *border = (GLint *) bp; bp += 4;
  GLsizei *imageSize = (GLsizei *) bp; bp += 4;
- GLvoid *data = (GLvoid *) * (int *) bp; bp += 4;
+ GLvoid *data = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
  weglCompressedTexImage1D(*target,*level,*internalformat,*width,*border,*imageSize,data);
 }; break;
 case 5365: { // glCompressedTexImage1D
@@ -2734,7 +2734,7 @@ case 5366: { // glCompressedTexSubImage3D
  GLsizei *depth = (GLsizei *) bp; bp += 4;
  GLenum *format = (GLenum *) bp; bp += 4;
  GLsizei *imageSize = (GLsizei *) bp; bp += 4;
- GLvoid *data = (GLvoid *) * (int *) bp; bp += 4;
+ GLvoid *data = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
  weglCompressedTexSubImage3D(*target,*level,*xoffset,*yoffset,*zoffset,*width,*height,*depth,*format,*imageSize,data);
 }; break;
 case 5367: { // glCompressedTexSubImage3D
@@ -2760,7 +2760,7 @@ case 5368: { // glCompressedTexSubImage2D
  GLsizei *height = (GLsizei *) bp; bp += 4;
  GLenum *format = (GLenum *) bp; bp += 4;
  GLsizei *imageSize = (GLsizei *) bp; bp += 4;
- GLvoid *data = (GLvoid *) * (int *) bp; bp += 4;
+ GLvoid *data = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
  weglCompressedTexSubImage2D(*target,*level,*xoffset,*yoffset,*width,*height,*format,*imageSize,data);
 }; break;
 case 5369: { // glCompressedTexSubImage2D
@@ -2782,7 +2782,7 @@ case 5370: { // glCompressedTexSubImage1D
  GLsizei *width = (GLsizei *) bp; bp += 4;
  GLenum *format = (GLenum *) bp; bp += 4;
  GLsizei *imageSize = (GLsizei *) bp; bp += 4;
- GLvoid *data = (GLvoid *) * (int *) bp; bp += 4;
+ GLvoid *data = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
  weglCompressedTexSubImage1D(*target,*level,*xoffset,*width,*format,*imageSize,data);
 }; break;
 case 5371: { // glCompressedTexSubImage1D
@@ -2958,7 +2958,7 @@ case 5401: { // glFogCoorddv
 case 5402: { // glFogCoordPointer
  GLenum *type = (GLenum *) bp; bp += 4;
  GLsizei *stride = (GLsizei *) bp; bp += 4;
- GLvoid *pointer = (GLvoid *) * (int *) bp; bp += 4;
+ GLvoid *pointer = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
  weglFogCoordPointer(*type,*stride,pointer);
 }; break;
 case 5403: { // glFogCoordPointer
@@ -3003,7 +3003,7 @@ case 5412: { // glSecondaryColorPointer
  GLint *size = (GLint *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
  GLsizei *stride = (GLsizei *) bp; bp += 4;
- GLvoid *pointer = (GLvoid *) * (int *) bp; bp += 4;
+ GLvoid *pointer = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
  weglSecondaryColorPointer(*size,*type,*stride,pointer);
 }; break;
 case 5413: { // glSecondaryColorPointer
@@ -3156,7 +3156,7 @@ case 5434: { // glBufferData
  GLenum *target = (GLenum *) bp; bp += 4;
  bp += 4;
  GLsizeiptr size = (GLsizeiptr) * (GLuint64EXT *) bp; bp += 8;
- GLvoid *data = (GLvoid *) * (int *) bp; bp += 4;
+ GLvoid *data = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
  GLenum *usage = (GLenum *) bp; bp += 4;
  weglBufferData(*target,size,data,*usage);
 }; break;
@@ -3173,7 +3173,7 @@ case 5436: { // glBufferSubData
  bp += 4;
  GLintptr offset = (GLintptr) * (GLuint64EXT *) bp; bp += 8;
  GLsizeiptr size = (GLsizeiptr) * (GLuint64EXT *) bp; bp += 8;
- GLvoid *data = (GLvoid *) * (int *) bp; bp += 4;
+ GLvoid *data = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
  weglBufferSubData(*target,offset,size,data);
 }; break;
 case 5437: { // glBufferSubData
@@ -3833,7 +3833,7 @@ case 5518: { // glVertexAttribPointer
  GLboolean *normalized = (GLboolean *) bp; bp += 1;
  bp += 3;
  GLsizei *stride = (GLsizei *) bp; bp += 4;
- GLvoid *pointer = (GLvoid *) * (int *) bp; bp += 4;
+ GLvoid *pointer = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
  weglVertexAttribPointer(*index,*size,*type,*normalized,*stride,pointer);
 }; break;
 case 5519: { // glVertexAttribPointer
@@ -4051,7 +4051,7 @@ case 5541: { // glVertexAttribIPointer
  GLint *size = (GLint *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
  GLsizei *stride = (GLsizei *) bp; bp += 4;
- GLvoid *pointer = (GLvoid *) * (int *) bp; bp += 4;
+ GLvoid *pointer = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
  weglVertexAttribIPointer(*index,*size,*type,*stride,pointer);
 }; break;
 case 5542: { // glVertexAttribIPointer
@@ -4345,7 +4345,7 @@ case 5578: { // glDrawElementsInstanced
  GLenum *mode = (GLenum *) bp; bp += 4;
  GLsizei *count = (GLsizei *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *indices = (GLvoid *) * (int *) bp; bp += 4;
+ GLvoid *indices = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
  GLsizei *primcount = (GLsizei *) bp; bp += 4;
  weglDrawElementsInstanced(*mode,*count,*type,indices,*primcount);
 }; break;
@@ -5341,7 +5341,7 @@ case 5683: { // glDrawElementsBaseVertex
  GLenum *mode = (GLenum *) bp; bp += 4;
  GLsizei *count = (GLsizei *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *indices = (GLvoid *) * (int *) bp; bp += 4;
+ GLvoid *indices = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
  GLint *basevertex = (GLint *) bp; bp += 4;
  weglDrawElementsBaseVertex(*mode,*count,*type,indices,*basevertex);
 }; break;
@@ -5359,7 +5359,7 @@ case 5685: { // glDrawRangeElementsBaseVertex
  GLuint *end = (GLuint *) bp; bp += 4;
  GLsizei *count = (GLsizei *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *indices = (GLvoid *) * (int *) bp; bp += 4;
+ GLvoid *indices = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
  GLint *basevertex = (GLint *) bp; bp += 4;
  weglDrawRangeElementsBaseVertex(*mode,*start,*end,*count,*type,indices,*basevertex);
 }; break;
@@ -5377,7 +5377,7 @@ case 5687: { // glDrawElementsInstancedBaseVertex
  GLenum *mode = (GLenum *) bp; bp += 4;
  GLsizei *count = (GLsizei *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *indices = (GLvoid *) * (int *) bp; bp += 4;
+ GLvoid *indices = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
  GLsizei *primcount = (GLsizei *) bp; bp += 4;
  GLint *basevertex = (GLint *) bp; bp += 4;
  weglDrawElementsInstancedBaseVertex(*mode,*count,*type,indices,*primcount,*basevertex);
@@ -5772,7 +5772,7 @@ case 5725: { // glGetQueryObjectui64v
 }; break;
 case 5726: { // glDrawArraysIndirect
  GLenum *mode = (GLenum *) bp; bp += 4;
- GLvoid *indirect = (GLvoid *) * (int *) bp; bp += 4;
+ GLvoid *indirect = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
  weglDrawArraysIndirect(*mode,indirect);
 }; break;
 case 5727: { // glDrawArraysIndirect
@@ -5783,7 +5783,7 @@ case 5727: { // glDrawArraysIndirect
 case 5728: { // glDrawElementsIndirect
  GLenum *mode = (GLenum *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *indirect = (GLvoid *) * (int *) bp; bp += 4;
+ GLvoid *indirect = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
  weglDrawElementsIndirect(*mode,*type,indirect);
 }; break;
 case 5729: { // glDrawElementsIndirect
@@ -6718,7 +6718,7 @@ case 5840: { // glVertexAttribLPointer
  GLint *size = (GLint *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
  GLsizei *stride = (GLsizei *) bp; bp += 4;
- GLvoid *pointer = (GLvoid *) * (int *) bp; bp += 4;
+ GLvoid *pointer = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
  weglVertexAttribLPointer(*index,*size,*type,*stride,pointer);
 }; break;
 case 5841: { // glVertexAttribLPointer
