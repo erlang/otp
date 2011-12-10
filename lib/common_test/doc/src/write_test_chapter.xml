@@ -68,7 +68,7 @@
 
     <p>Each test suite module must export the function <c>all/0</c>
       which returns the list of all test case groups and test cases 
-      in that module. 
+      to be executed in that module. 
     </p>
 
   </section>
@@ -450,11 +450,65 @@
     <pre>
       all() -> [testcase1, {group,group1}, testcase2, {group,group2}].</pre>
 
-    <p>Properties may be combined so that e.g. if <c>shuffle</c>, 
-    <c>repeat_until_any_fail</c> and <c>sequence</c> are all specified, the test 
-    cases in the group will be executed repeatedly and in random order until
-    a test case fails, when execution is immediately stopped and the rest of 
-    the cases skipped.</p>
+    <p>It is also possible to specify execution properties with a group
+      tuple in <c>all/0</c>: <c>{group,GroupName,Properties}</c>. These
+      properties will override those specified in the group definition (see
+      <c>groups/0</c> above). This way, it's possible to run the same set of tests,
+      but with different properties, without having to make copies of the group
+      definition in question.</p>
+
+    <p>If a group contains sub-groups, the execution properties for these may
+      also be specified in the group tuple:
+      <c>{group,GroupName,Properties,SubGroups}</c>, where <c>SubGroups</c>
+      is a list of tuples, <c>{GroupName,Properties}</c>, or
+      <c>{GroupName,Properties,SubGroups}</c>, representing the sub-groups.
+      Any sub-groups defined in <c>group/0</c> for a group, that are not specified
+      in the <c>SubGroups</c> list, will simply execute with their pre-defined
+      properties.</p>
+
+    <p>Example:</p>
+    <pre>
+      groups() -> {tests1, [], [{tests2, [], [t2a,t2b]},
+                                {tests3, [], [t31,t3b]}]}.</pre>
+    <p>To execute group 'tests1' twice with different properties for 'tests2'
+      each time:</p>
+    <pre>
+      all() ->
+         [{group, tests1, default, [{tests2, [parallel]}]},
+          {group, tests1, default, [{tests2, [shuffle,{repeat,10}]}]}].</pre>
+    <p>Note that this is equivalent to this specification:</p>
+    <pre>
+      all() ->
+         [{group, tests1, default, [{tests2, [parallel]},
+                                    {tests3, default}]},
+          {group, tests1, default, [{tests2, [shuffle,{repeat,10}]},
+                                    {tests3, default}]}].</pre>
+    <p>The value <c>default</c> states that the pre-defined properties
+      should be used.</p>
+    <p>Here's an example of how to override properties in a scenario
+      with deeply nested groups:</p>
+    <pre>
+      groups() ->
+         [{tests1, [], [{group, tests2}]},
+          {tests2, [], [{group, tests3}]},
+          {tests3, [{repeat,2}], [t3a,t3b,t3c]}].
+
+      all() ->
+         [{group, tests1, default, 
+           [{tests2, default,
+             [{tests3, [parallel,{repeat,100}]}]}]}].</pre>
+
+    <p>The syntax described above may also be used in Test Specifications
+      in order to change properties of groups at the time of execution,
+      without even having to edit the test suite (please see the
+      <seealso marker="run_test_chapter#test_specifications">Test
+	Specifications</seealso> chapter for more info).</p>
+
+    <p>As illustrated above, properties may be combined. If e.g.
+      <c>shuffle</c>, <c>repeat_until_any_fail</c> and <c>sequence</c>
+      are all specified, the test cases in the group will be executed
+      repeatedly, and in random order, until a test case fails. Then
+      execution is immediately stopped and the rest of the cases skipped.</p>
 
     <p>Before execution of a group begins, the configuration function
     <c>init_per_group(GroupName, Config)</c> is called (the function is
