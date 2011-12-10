@@ -79,7 +79,9 @@
       {keyfile, path()} | {password, string()} |
       {cacerts, [der_encoded()]} | {cacertfile, path()} |
       |{dh, der_encoded()} | {dhfile, path()} | {ciphers, ciphers()} |
-      {ssl_imp, ssl_imp()}| {reuse_sessions, boolean()} | {reuse_session, fun()}
+      {ssl_imp, ssl_imp()} | {reuse_sessions, boolean()} | {reuse_session, fun()}
+      {next_protocols_advertised, list(binary()} |
+      {client_preferred_next_protocols, binary(), client | server, list(binary())}
     </c></p>
 
     <p><c>transportoption() = {CallbackModule, DataTag, ClosedTag}
@@ -301,7 +303,21 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
       when possible.
       </item>
 
-    </taglist>
+      <tag>{client_preferred_next_protocols, Fallback :: binary(), Order :: client | server,
+            PreferenceList :: list(binary())}</tag>
+      <item>Indicates the client will try to perform Next Protocol Negotiation. The
+      client will attempt to match a protocol in the PreferenceList with a protocol
+      the server advertises. If the Order is <c>client</c> a protocol earlier in the
+      PreferenceList will have precendence over a protocol later in the PreferenceList.
+      Otherwise if the Order is <c>server</c> protocol precendence is determined by the
+      order the server advertises its protocols. If the server does not advertise a
+      protocol in the PreferenceList then the Fallback protocol
+      will be chosen. Fallback must not be an empty binary and PreferenceList
+      must not contain empty binaries. If the client negotiates a Next Protocol it can be accessed
+      using <c>negotiated_next_protocol/1</c> method.
+      </item>
+
+   </taglist>
   </section>
 
   <section>
@@ -353,6 +369,14 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
       SuggestedSessionId is a binary(),  PeerCert is a DER encoded
       certificate, Compression is an enumeration integer
       and CipherSuite is of type ciphersuite().
+    </item>
+
+      <tag>{next_protocols_advertised, Protocols :: list(binary())}</tag>
+      <item>The list of protocols to send to the client if the client indicates
+      it supports the Next Protocol extension. The client may select a protocol
+      that is not on this list. The list of protocols must not contain an empty
+      binary. If the server negotiates a Next Protocol it can be accessed
+      using <c>negotiated_next_protocol/1</c> method.
       </item>
 
     </taglist>
@@ -766,8 +790,23 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
 	  ssl application.</p>
       </desc>
     </func>
+    <func>
+      <name>negotiated_next_protocol(Socket) -> {ok, Protocol} | {error, next_protocol_not_negotiated}</name>
+      <fsummary>Returns the Next Protocol negotiated.</fsummary>
+      <type>
+        <v>Socket = sslsocket()</v>
+        <v>Protocol = binary()</v>
+      </type>
+      <desc>
+        <p>
+          Returns the Next Protocol negotiated.
+        </p>
+      </desc>
+    </func>
+
+
   </funcs> 
-      
+
   <section>
     <title>SEE ALSO</title>
     <p><seealso marker="kernel:inet">inet(3) </seealso> and 
