@@ -915,7 +915,7 @@ has_reached_wakeup(ErtsThrPrgrVal wakeup)
 	if (limit == ERTS_THR_PRGR_VAL_WAITING)
 	    limit = 0;
 	else if (limit < current) /* Wrapped */
-	    limit + 1;
+	    limit += 1;
 
 	if (!erts_thr_progress_has_passed__(limit, wakeup))
 	    erl_exit(ERTS_ABORT_EXIT,
