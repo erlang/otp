@@ -658,7 +658,7 @@
       <p>The minor log file contain full details of every single test
 	case, each one in a separate file. This way the files should
 	be easy to compare with previous test runs, even if the set of
-	test cases change. If SASL is running those logs will also be
+	test cases change. If SASL is running, those logs will also be
         printed there by the
 	<seealso marker="common_test:ct_hooks_chapter#builtin_cths">
 	  cth_log_redirect built-in hook</seealso>.
@@ -704,8 +704,15 @@
       <section>
 	<marker id="html_stylesheet"></marker>
 	<title>HTML Style Sheets</title>
-	<p>Common Test includes the <em>optional</em> feature to use
-	  HTML style sheets (CSS) for customizing user printouts. The
+	<p>Common Test uses a CSS file to control the look of the HTML
+	  files generated during test runs. If, for some reason, the
+	  log files are not displayed correctly in the HTML browser of your
+	  choice, or you prefer the "pre Common Test v1.6 look"
+	  of the log files (i.e. not using CSS), use the start flag/option
+	  <c>basic_html</c> to revert to the old style.</p>
+	  
+	<p>Common Test includes an <em>optional</em> feature to allow
+	  user HTML style sheets for customizing printouts. The
 	  functions in <c>ct</c> that print to a test case HTML log
 	  file (<c>log/3</c> and <c>pal/3</c>) accept <c>Category</c>
 	  as first argument. With this argument it's possible to
