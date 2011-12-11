@@ -655,14 +655,25 @@
 	to each individual test case log file for quick viewing with an HTML 
 	browser.</p>
       
-      <p>The minor log file contain full details of every single test
-	case, each one in a separate file. This way the files should
-	be easy to compare with previous test runs, even if the set of
-	test cases change. If SASL is running, those logs will also be
-        printed there by the
+      <p>The minor log files contain full details of every single test
+	case, each one in a separate file. This way, it should be
+	straightforward	to compare the latest results to that of previous
+	test runs, even if the set of test cases changes. If SASL is running,
+	its logs will also be printed to the current minor log file by the
 	<seealso marker="common_test:ct_hooks_chapter#builtin_cths">
 	  cth_log_redirect built-in hook</seealso>.
-        </p>
+      </p>
+
+      <p>The full name of the minor log file (i.e. the name of the file
+	including the absolute directory path) can be read during execution
+	of the test case. It comes as value in the tuple
+	<c>{tc_logfile,LogFileName}</c> in the <c>Config</c> list (which means it
+	can also be read by a pre- or post Common Test hook function). Also,
+	at the start of a test case, this data is sent with an event
+	to any installed event handler.	Please see the
+	<seealso marker="event_handler_chapter#event_handling">Event Handling</seealso>
+	chapter for details.
+      </p>
       
       <p>Which information goes where is user configurable via the
 	test server controller. Three threshold values determine what
