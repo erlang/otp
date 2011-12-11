@@ -369,10 +369,12 @@
     <title>Test suite info function</title>
 
       <p>The <c>suite/0</c> function can be used in a test suite
-	module to set the default values for the <c>timetrap</c> and
-	<c>require</c> tags. If a test case info function also specifies
-	any of these tags, the default value is overruled. See above for
-	more information.
+	module to e.g. set a default <c>timetrap</c> value and to
+	<c>require</c> external configuration data. If a test case-, or
+	group info function also specifies any of the info tags, it
+	overrides the default values set by <c>suite/0</c>. See the test
+	case info function above, and group info function below, for more
+	details.
       </p>
       
       <p>Other options that may be specified with the suite info list are:</p>
@@ -711,9 +713,32 @@
 	
       <p>The group info properties override those set with the
 	suite info function, and may in turn be overridden by test
-	case info properties. Please see the suite- and test case info
-	functions above for a list of valid info properties and more
+	case info properties. Please see the test case info
+	function above for a list of valid info properties and more
 	general information.</p>
+  </section>
+
+  <section>
+    <title>Info functions for init- and end-configuration</title>
+      <p>It is possible to use info functions also for the <c>init_per_suite</c>,
+	<c>end_per_suite</c>, <c>init_per_group</c>, and <c>end_per_group</c>
+	functions, and it works the same way as with info functions
+	for test cases (see above). This is useful e.g. for setting
+	timetraps and requiring external configuration data relevant
+	only for the configuration function in question (without
+	affecting properties set for groups and test cases in the suite).</p>
+
+      <p>The info function <c>init/end_per_suite()</c> is called for
+	<c>init/end_per_suite(Config)</c>, and info function
+	<c>init/end_per_group(GroupName)</c> is called for
+	<c>init/end_per_group(GroupName,Config)</c>. Info functions
+	can not be used with <c>init/end_per_testcase(TestCase, Config)</c>,
+	however, since these configuration functions execute on the test case process
+	and will use the same properties as the test case (i.e. the properties
+	set by the test case info function, <c>TestCase()</c>). Please see the test case
+	info function above for a list of valid info properties and more
+	general information.
+      </p>
   </section>
 
   <section>
