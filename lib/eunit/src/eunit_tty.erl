@@ -44,6 +44,7 @@ start(Options) ->
 
 init(Options) ->
     St = #state{verbose = proplists:get_bool(verbose, Options)},
+    put(no_tty, proplists:get_bool(no_tty, Options)),
     receive
 	{start, _Reference} ->
 	    if St#state.verbose -> print_header();
@@ -59,30 +60,30 @@ terminate({ok, Data}, St) ->
     Cancel = proplists:get_value(cancel, Data, 0),
     if Fail =:= 0, Skip =:= 0, Cancel =:= 0 ->
 	    if Pass =:= 0 ->
-		    io:fwrite("  There were no tests to run.\n");
+		    fwrite("  There were no tests to run.\n");
 	       true ->
 		    if St#state.verbose -> print_bar();
 		       true -> ok
 		    end,
 		    if Pass =:= 1 ->
-			    io:fwrite("  Test passed.\n");
+			    fwrite("  Test passed.\n");
 		       true ->
-			    io:fwrite("  All ~w tests passed.\n", [Pass])
+			    fwrite("  All ~w tests passed.\n", [Pass])
 		    end
 	    end,
 	    sync_end(ok);
        true ->
 	    print_bar(),
-	    io:fwrite("  Failed: ~w.  Skipped: ~w.  Passed: ~w.\n",
-		      [Fail, Skip, Pass]),
+	    fwrite("  Failed: ~w.  Skipped: ~w.  Passed: ~w.\n",
+                   [Fail, Skip, Pass]),
 	    if Cancel =/= 0 ->
-		    io:fwrite("One or more tests were cancelled.\n");
+		    fwrite("One or more tests were cancelled.\n");
 	       true -> ok
 	    end,
 	    sync_end(error)
     end;
 terminate({error, Reason}, _St) ->
-    io:fwrite("Internal error: ~P.\n", [Reason, 25]),
+    fwrite("Internal error: ~P.\n", [Reason, 25]),
     sync_end(error).
 
 sync_end(Result) ->
@@ -93,10 +94,10 @@ sync_end(Result) ->
     end.
 
 print_header() ->
-    io:fwrite("======================== EUnit ========================\n").
+    fwrite("======================== EUnit ========================\n").
 
 print_bar() ->
-    io:fwrite("=======================================================\n").
+    fwrite("=======================================================\n").
 
 
 handle_begin(group, Data, St) ->
@@ -170,18 +171,18 @@ handle_cancel(test, Data, St) ->
 
 
 indent(N) when is_integer(N), N >= 1 ->
-    io:put_chars(lists:duplicate(N * 2, $\s));
+    fwrite(lists:duplicate(N * 2, $\s));
 indent(_N) ->
     ok.
 
 print_group_start(I, Desc) ->
     indent(I),
-    io:fwrite("~s\n", [Desc]).
+    fwrite("~s\n", [Desc]).
 
 print_group_end(I, Time) ->
     if Time > 0 ->
 	    indent(I),
-	    io:fwrite("[done in ~.3f s]\n", [Time/1000]);
+	    fwrite("[done in ~.3f s]\n", [Time/1000]);
        true ->
 	    ok
     end.
@@ -198,9 +199,9 @@ print_test_begin(I, Data) ->
 	end,
     case proplists:get_value(source, Data) of
 	{Module, Name, _Arity} ->
-	    io:fwrite("~s:~s ~s~s...", [Module, L, Name, D]);
+	    fwrite("~s:~s ~s~s...", [Module, L, Name, D]);
 	_ ->
-	    io:fwrite("~s~s...", [L, D])
+	    fwrite("~s~s...", [L, D])
     end.
 
 print_test_end(Data) ->
@@ -208,36 +209,35 @@ print_test_end(Data) ->
     T = if Time > 0 -> io_lib:fwrite("[~.3f s] ", [Time/1000]);
 	   true -> ""
 	end,
-    io:fwrite("~sok\n", [T]).
+    fwrite("~sok\n", [T]).
 
 print_test_error({error, Exception}, Data) ->
     Output = proplists:get_value(output, Data),
-    io:fwrite("*failed*\n::~s",
-	      [eunit_lib:format_exception(Exception)]),
+    fwrite("*failed*\n::~s", [eunit_lib:format_exception(Exception)]),
     case Output of
 	<<>> ->
-	    io:put_chars("\n\n");
+	    fwrite("\n\n");
 	<<Text:800/binary, _:1/binary, _/binary>> ->
-	    io:fwrite("  output:<<\"~s\">>...\n\n", [Text]);
+	    fwrite("  output:<<\"~s\">>...\n\n", [Text]);
 	_ ->
-	    io:fwrite("  output:<<\"~s\">>\n\n", [Output])
+	    fwrite("  output:<<\"~s\">>\n\n", [Output])
     end;
 print_test_error({skipped, Reason}, _) ->
-    io:fwrite("*did not run*\n::~s\n", [format_skipped(Reason)]).
+    fwrite("*did not run*\n::~s\n", [format_skipped(Reason)]).
 
 format_skipped({module_not_found, M}) ->
-    io_lib:format("missing module: ~w", [M]);
+    io_lib:fwrite("missing module: ~w", [M]);
 format_skipped({no_such_function, {M,F,A}}) ->
-    io_lib:format("no such function: ~w:~w/~w", [M,F,A]).    
+    io_lib:fwrite("no such function: ~w:~w/~w", [M,F,A]).    
 
 print_test_cancel(Reason) ->
-    io:fwrite(format_cancel(Reason)).
+    fwrite(format_cancel(Reason)).
 
 print_group_cancel(_I, {blame, _}) ->
     ok;
 print_group_cancel(I, Reason) ->
     indent(I),
-    io:fwrite(format_cancel(Reason)).
+    fwrite(format_cancel(Reason)).
 
 format_cancel(undefined) ->
     "*skipped*\n";
@@ -253,3 +253,12 @@ format_cancel({exit, Reason}) ->
 		  [Reason, 15]);
 format_cancel({abort, Reason}) ->
     eunit_lib:format_error(Reason).
+
+fwrite(String) ->
+    fwrite(String, []).
+
+fwrite(String, Args) ->
+    case get(no_tty) of
+        false -> io:fwrite(String, Args);
+        true -> ok
+    end.
