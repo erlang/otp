@@ -695,6 +695,28 @@
   </section>
 
   <section>
+    <marker id="group_info"></marker>
+    <title>Group info function</title>
+
+      <p>The test case group info function, <c>group(GroupName)</c>,
+	serves the same purpose as the suite- and test case info
+	functions previously described in this chapter. The scope for
+	the group info, however, is all test cases and sub-groups in the
+	group in question (<c>GroupName</c>).</p>
+      <p>Example:</p>
+      <pre>
+	group(connection_tests) ->
+	   [{require,login_data},
+	    {timetrap,1000}].</pre>
+	
+      <p>The group info properties override those set with the
+	suite info function, and may in turn be overridden by test
+	case info properties. Please see the suite- and test case info
+	functions above for a list of valid info properties and more
+	general information.</p>
+  </section>
+
+  <section>
     <marker id="data_priv_dir"></marker>
     <title>Data and Private Directories</title>
 
