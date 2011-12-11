@@ -44,6 +44,8 @@ MODULES = \
 	ssl_to_openssl_SUITE \
 	ssl_session_cache_SUITE	\
 	ssl_dist_SUITE \
+	ssl_npn_hello_SUITE \
+	ssl_npn_handshake_SUITE \
 	make_certs\
 	erl_make_certs
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -121,7 +121,19 @@ create_self_signed_cert(Root, OpenSSLCmd, CAName, Cnf) ->
 	   " -keyout ", KeyFile, 
 	   " -out ", CertFile], 
     Env = [{"ROOTDIR", Root}],  
-    cmd(Cmd, Env).
+    cmd(Cmd, Env),
+    fix_key_file(OpenSSLCmd, KeyFile).
+
+% openssl 1.0 generates key files in pkcs8 format by default and we don't handle this format
+fix_key_file(OpenSSLCmd, KeyFile) ->
+    KeyFileTmp = KeyFile ++ ".tmp",
+    Cmd = [OpenSSLCmd, " rsa",
+           " -in ",
+           KeyFile,
+           " -out ",
+           KeyFileTmp],
+    cmd(Cmd, []),
+    ok = file:rename(KeyFileTmp, KeyFile).
 
 create_ca_dir(Root, CAName, Cnf) ->
     CARoot = filename:join([Root, CAName]),
@@ -139,7 +151,8 @@ create_req(Root, OpenSSLCmd, CnfFile, KeyFile, ReqFile) ->
 	   " -keyout ", KeyFile, 
 	   " -out ", ReqFile], 
     Env = [{"ROOTDIR", Root}], 
-    cmd(Cmd, Env).
+    cmd(Cmd, Env),
+    fix_key_file(OpenSSLCmd, KeyFile).
 
 sign_req(Root, OpenSSLCmd, CA, CertType, ReqFile, CertFile) ->
     CACnfFile = filename:join([Root, CA, "ca.cnf"]),

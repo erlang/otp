@@ -31,7 +31,8 @@
 	 controlling_process/2, listen/2, pid/1, peername/1, peercert/1,
 	 recv/2, recv/3, send/2, getopts/2, setopts/2, sockname/1,
 	 versions/0, session_info/1, format_error/1,
-	 renegotiate/1, prf/5, clear_pem_cache/0, random_bytes/1]).
+	 renegotiate/1, prf/5, clear_pem_cache/0, random_bytes/1, negotiated_next_protocol/1]).
+
 
 -deprecated({pid, 1, next_major_release}).
 
@@ -65,7 +66,9 @@
                         {keyfile, path()} | {password, string()} | {cacerts, [Der::binary()]} |
                         {cacertfile, path()} | {dh, Der::binary()} | {dhfile, path()} |
                         {ciphers, ciphers()} | {ssl_imp, ssl_imp()} | {reuse_sessions, boolean()} |
-                        {reuse_session, fun()} | {hibernate_after, integer()|undefined}.
+                        {reuse_session, fun()} | {hibernate_after, integer()|undefined} |
+                        {next_protocols_advertised, list(binary())} |
+                        {client_preferred_next_protocols, binary(), client | server, list(binary())}.
 
 -type verify_type()  :: verify_none | verify_peer.
 -type path()         :: string().
@@ -314,6 +317,14 @@ suite_definition(S) ->
     {KeyExchange, Cipher, Hash}.
 
 %%--------------------------------------------------------------------
+-spec negotiated_next_protocol(#sslsocket{}) -> {ok, binary()} | {error, reason()}.
+%%
+%% Description: Returns the next protocol that has been negotiated. If no
+%% protocol has been negotiated will return {error, next_protocol_not_negotiated}
+%%--------------------------------------------------------------------
+negotiated_next_protocol(#sslsocket{fd = new_ssl, pid = Pid}) ->
+    ssl_connection:negotiated_next_protocol(Pid).
+
 -spec cipher_suites() -> [erl_cipher_suite()].
 -spec cipher_suites(erlang | openssl) -> [erl_cipher_suite()] | [string()].
 			   
@@ -594,7 +605,9 @@ handle_options(Opts0, _Role) ->
       renegotiate_at = handle_option(renegotiate_at, Opts, ?DEFAULT_RENEGOTIATE_AT),
       debug      = handle_option(debug, Opts, []),
       hibernate_after = handle_option(hibernate_after, Opts, undefined),
-      erl_dist = handle_option(erl_dist, Opts, false)
+      erl_dist = handle_option(erl_dist, Opts, false),
+      next_protocols_advertised = handle_option(next_protocols_advertised, Opts, undefined),
+      next_protocol_selector = make_next_protocol_selector(handle_option(client_preferred_next_protocols, Opts, undefined))
      },
 
     CbInfo  = proplists:get_value(cb_info, Opts, {gen_tcp, tcp, tcp_closed, tcp_error}),    
@@ -603,7 +616,8 @@ handle_options(Opts0, _Role) ->
 		  depth, cert, certfile, key, keyfile,
 		  password, cacerts, cacertfile, dh, dhfile, ciphers,
 		  debug, reuse_session, reuse_sessions, ssl_imp,
-		  cb_info, renegotiate_at, secure_renegotiate, hibernate_after, erl_dist],
+		  cb_info, renegotiate_at, secure_renegotiate, hibernate_after, erl_dist, next_protocols_advertised,
+		  client_preferred_next_protocols],
     
     SockOpts = lists:foldl(fun(Key, PropList) -> 
 				   proplists:delete(Key, PropList)
@@ -728,12 +742,42 @@ validate_option(hibernate_after, undefined) ->
     undefined;
 validate_option(hibernate_after, Value) when is_integer(Value), Value >= 0 ->
     Value;
-validate_option(erl_dist,Value) when Value == true; 
+validate_option(erl_dist,Value) when Value == true;
 				     Value == false ->
     Value;
+validate_option(client_preferred_next_protocols, {FallbackProtocol, Order, PreferredProtocols} = Value)
+      when is_list(PreferredProtocols), is_binary(FallbackProtocol),
+           byte_size(FallbackProtocol) > 0, byte_size(FallbackProtocol) < 256 ->
+    validate_binary_list(client_preferred_next_protocols, PreferredProtocols),
+    validate_npn_ordering(Order),
+    Value;
+validate_option(client_preferred_next_protocols, undefined) ->
+    undefined;
+validate_option(next_protocols_advertised, Value) when is_list(Value) ->
+    validate_binary_list(next_protocols_advertised, Value),
+    Value;
+validate_option(next_protocols_advertised, undefined) ->
+    undefined;
 validate_option(Opt, Value) ->
     throw({error, {eoptions, {Opt, Value}}}).
-    
+
+validate_npn_ordering(client) ->
+    ok;
+validate_npn_ordering(server) ->
+    ok;
+validate_npn_ordering(Value) ->
+    throw({error, {eoptions, {client_preferred_next_protocols, Value}}}).
+
+validate_binary_list(Opt, List) ->
+    lists:foreach(
+        fun(Bin) when is_binary(Bin),
+                      byte_size(Bin) > 0,
+                      byte_size(Bin) < 256 ->
+            ok;
+           (Bin) ->
+            throw({error, {eoptions, {Opt, Bin}}})
+        end, List).
+
 validate_versions([], Versions) ->
     Versions;
 validate_versions([Version | Rest], Versions) when Version == 'tlsv1.2';
@@ -839,6 +883,34 @@ cipher_suites(Version, Ciphers0)  ->
 
 no_format(Error) ->    
     lists:flatten(io_lib:format("No format string for error: \"~p\" available.", [Error])).
+
+detect(_Pred, []) ->
+    undefined;
+detect(Pred, [H|T]) ->
+    case Pred(H) of
+        true ->
+            H;
+        _ ->
+            detect(Pred, T)
+    end.
+
+make_next_protocol_selector(undefined) ->
+    undefined;
+make_next_protocol_selector({FallbackProtocol, client, AllProtocols}) ->
+    fun(AdvertisedProtocols) ->
+        case detect(fun(PreferredProtocol) -> lists:member(PreferredProtocol, AdvertisedProtocols) end, AllProtocols) of
+            undefined -> FallbackProtocol;
+            PreferredProtocol -> PreferredProtocol
+        end
+    end;
+
+make_next_protocol_selector({FallbackProtocol, server, AllProtocols}) ->
+    fun(AdvertisedProtocols) ->
+        case detect(fun(PreferredProtocol) -> lists:member(PreferredProtocol, AllProtocols) end, AdvertisedProtocols) of
+            undefined -> FallbackProtocol;
+            PreferredProtocol -> PreferredProtocol
+        end
+    end.
                                 
 %% Only used to remove exit messages from old ssl
 %% First is a nonsense clause to provide some

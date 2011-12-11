@@ -106,7 +106,9 @@
 			  % after which ssl_connection will
                           % go into hibernation
 	  %% This option should only be set to true by inet_tls_dist
-	  erl_dist = false 
+	  erl_dist = false,
+	  next_protocols_advertised = undefined :: list(binary()),
+	  next_protocol_selector = undefined :: fun((list(binary())) -> binary())
 	  }).
 
 -record(socket_options,
