@@ -54,7 +54,7 @@ endif
 
 ifneq ($(TARGET),)
 ifneq ($(TARGET),win32)
-ifneq ($(TARGET),vxworks)
+ifneq ($(findstring vxworks,$(TARGET)),vxworks)
 override TARGET := $(shell $(ERL_TOP)/erts/autoconf/config.sub $(TARGET))
 else
 endif
