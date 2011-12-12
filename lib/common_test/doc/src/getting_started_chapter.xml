@@ -1,0 +1,230 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2007</year><year>2010</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+
+    </legalnotice>
+
+    <title>Getting Started</title>
+    <prepared>Peter Andersson</prepared>
+    <docno></docno>
+    <date>2011-12-12</date>
+    <rev></rev>
+    <file>getting_started_chapter.xml</file>
+  </header>
+
+  <section>
+    <title>Are you new around here?</title>
+    <p>
+      The purpose of this short chapter is to, with a "learning by example"
+      approach, give the newcomer a chance to get started quickly writing and
+      executing some first simple tests. The chapter will introduce some of the
+      basics, but leave most explanations and details for the later
+      chapters in this User's Guide. Hopefully though, after this chapter, you
+      will be inspired and unintimidated enough to go on and get into the
+      nitty-gritty that follows in this rather heavy User's Guide! If you're
+      not much into "learning by example" and prefer to get into more technical
+      detail right away, go ahead and skip to the next chapter. Again, the basics
+      presented here will be covered in detail in later chapters.
+    </p>
+    <p>
+      This chapter also tries to demonstrate how dead simple it actually is
+      to write a very basic (yet for many module testing purposes, often sufficiently
+      complex) test suite, and execute its test cases. This is not necessarily
+      obvious when you read the rest of the chapters in the User's Guide.
+    </p>
+    <p>
+      A quick note before we start: In order to understand what's discussed and
+      examplified here, it is recommended that you first read through the
+      opening <seealso marker="basics_chapter#basics">Common Test Basics</seealso>
+      chapter.
+    </p>
+    </section>
+
+    <section>
+    <title>Test case execution</title>
+    <p>Execution of test cases is handled this way:</p>
+    
+    <p>
+    <image file="tc_execution.gif">
+      <icaption>
+	Successful vs unsuccessful test case execution.
+      </icaption>
+    </image>
+    </p>
+
+    <p>For each test case that Common Test is told to execute, it spawns a
+      dedicated process on which the test case function in question starts
+      running. (In parallel to the test case process, an idle waiting timer
+      process is started which is linked to the test case process. If the timer
+      process runs out of waiting time, it sends an exit signal to terminate
+      the test case process and this is what's called a <em>timetrap</em>).
+    </p>
+    <p>In scenario 1, the test case process terminates normally after case A has
+      finished executing its test code without detecting any errors. The test
+      case function simply returns a value and Common Test logs the test case as
+      successful.
+    </p>
+    <p>In scenario 2, an error is detected during test case execution
+      which causes the test case B function to generate an exception.
+      This causes the test case process to exit with reason
+      other than normal, and as a result, Common Test will log this as an
+      unsuccessful test case.
+    </p>
+    <p>As you can understand from the illustration above, Common Test requires
+      that a test case generates a runtime error to indicate failure (e.g.
+      by causing a bad match error or by calling <c>exit/1</c>, preferrably
+      through the <c>ct:fail/1/2</c> help function). A succesful execution is
+      indicated by means of a normal return from the test case function.
+    </p>
+    </section>
+
+    <section>
+    <title>A simple test suite</title>
+    <p>As you've seen in the basics chapter, the test suite module implements
+      callback functions (mandatory or optional) for various purposes, e.g:
+      <list>
+	<item>Init/end configuration function for the test suite</item>
+	<item>Init/end configuration function for a test case</item>
+	<item>Init/end configuration function for a test case group</item>
+	<item>Test cases</item>
+      </list>
+      The configuration functions are optional and if you don't need them for
+      your test, a test suite with one simple test case could look like this:
+    </p>
+    <pre>
+      -module(my1st_SUITE).
+      -compile(export_all).
+
+      all() ->
+          [mod_exists].
+
+      mod_exists(_) ->
+          {module,mymod} = code:load_file(mymod).</pre>
+    <p>
+      In this example we check that the <c>mymod</c> module exists (i.e. can be
+      successfully loaded by the code server). If the operation fails, we will
+      get a bad match error which terminates the test case.
+    </p>
+    </section>
+
+    <section>
+    <title>A test suite with configuration functions</title>
+    <p>
+      If we need to perform configuration operations in order to run our test, we
+      implement configuration functions in our suite. The result from a
+      configuration function is configuration data, or simply <em><c>Config</c></em>.
+      This is a list of key-value tuples which get passed from the configuration
+      function to the test cases (possibly through configuration functions on
+      "lower level"). The data flow looks like this:
+    </p>
+
+    <p>
+    <image file="config.gif">
+      <icaption>
+	Config data flow in the suite.
+      </icaption>
+    </image>
+    </p>
+
+    <p>
+      Here's an example of a test suite which uses configuration functions
+      to open and close a log file for the test cases (an operation that would
+      be unnecessary and irrelevant to perform by each test case):
+    </p>
+    <pre>
+      -module(check_log_SUITE).
+      -export([all/0, init_per_suite/1, end_per_suite/1]).
+      -export([check_restart_result/1, check_no_errors/1]).
+      
+      -define(value(Key,Config), proplists:get_value(Key,Config)).
+
+      all() -> [check_restart_result, check_no_errors].
+
+      init_per_suite(InitConfigData) ->
+          [{logref,open_log()} | InitConfigData].
+
+      end_per_suite(ConfigData) ->
+          close_log(?value(logref, ConfigData)).
+
+      check_restart_result(ConfigData) ->
+          TestData = read_log(restart, ?value(logref, ConfigData)),
+          {match,_Line} = search_for("restart successful", TestData).
+      
+      check_no_errors(ConfigData) ->
+          TestData = read_log(all, ?value(logref, ConfigData)),
+          case search_for("error", TestData) of
+              {match,Line} -> ct:fail({error_found_in_log,Line});
+              nomatch -> ok
+          end.</pre>
+    <p>
+      In this example we have test cases that verify, by parsing a
+      log file, that our SUT has performed a successful restart and
+      that no unexpected errors have been printed.
+    </p>
+
+    <p>To execute the test cases in the test suite above, we could type this on
+      the Unix/Linux command line (assuming for this example that the suite module
+      is in the current working directory):
+    </p>
+    <pre>
+      $ ct_run -dir .</pre>
+    <p>or</p>
+    <pre>
+    $ ct_run -suite check_log_SUITE</pre>
+
+    <p>If we want to use the Erlang shell to run our test, we could evaluate this call:
+    </p>
+    <pre>
+      1> ct:run_test([{dir, "."}]).</pre>
+    <p>or</p>
+    <pre>
+      1> ct:run_test([{suite, "check_log_SUITE"}]).</pre>
+    <p>
+      The result from running our test is printed in log files on HTML format
+      (stored in unique log directories on different level). This illustration
+      shows the log file structure:
+    </p>
+
+    <p>
+    <image file="html_logs.gif">
+      <icaption>
+	HTML log file structure.
+      </icaption>
+    </image>
+    </p>
+  </section>
+
+  <section>
+    <title>What happens next?</title>
+    <p>
+      You will find detailed information about the basics introduced here in this
+      chapter in the following chapters in the User's Guide, as well as
+      presentations of many more useful features. Have fun!
+    </p>
+    </section>
+</chapter>
+
+
+
+
+
+
+
+

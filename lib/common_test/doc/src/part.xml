@@ -65,6 +65,7 @@
   </description>
 
   <xi:include href="basics_chapter.xml"/>
+  <xi:include href="getting_started_chapter.xml"/>
   <xi:include href="install_chapter.xml"/>
   <xi:include href="write_test_chapter.xml"/>
   <xi:include href="test_structure_chapter.xml"/>

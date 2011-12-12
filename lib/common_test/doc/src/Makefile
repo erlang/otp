@@ -61,6 +61,7 @@ XML_PART_FILES = part.xml
 
 XML_CHAPTER_FILES = \
 	basics_chapter.xml \
+	getting_started_chapter.xml \
 	install_chapter.xml \
 	write_test_chapter.xml \
 	test_structure_chapter.xml \
@@ -80,7 +81,10 @@ MAKE_EDOC = make_edoc
 
 BOOK_FILES = book.xml
 
-GIF_FILES =
+GIF_FILES = \
+	tc_execution.gif \
+	config.gif \
+	html_logs.gif
 
 INSTALL_NOTES = ../../notes.html
 
