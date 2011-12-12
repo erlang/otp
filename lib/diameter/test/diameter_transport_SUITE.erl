@@ -217,7 +217,7 @@ init(gen_connect, {Prot, Ref}) ->
     [PortNr] = ?util:lport(Prot, Ref, 20),
 
     %% Connect, send a message and receive it back.
-    {ok, Sock} = gen_connect(Prot, PortNr, Ref),
+    {ok, Sock} = gen_connect(Prot, PortNr),
     Bin = make_msg(),
     ok = gen_send(Prot, Sock, Bin),
     Bin = gen_recv(Prot, Sock);
@@ -356,20 +356,7 @@ tmod(tcp) ->
 
 %% ===========================================================================
 
-%% gen_connect/3
-
-gen_connect(Prot, PortNr, Ref) ->
-    Pid = sync(connect, Ref),
-
-    %% Stagger connect attempts to avoid the situation that no
-    %% transport process is accepting yet.
-    receive after 250 -> ok end,
-
-    try
-        gen_connect(Prot, PortNr)
-    after
-        Pid ! Ref
-    end.
+%% gen_connect/2
 
 gen_connect(sctp = P, PortNr) ->
     {ok, Sock} = Ok = gen_sctp:open([{ip, ?ADDR}, {port, 0} | ?SCTP_OPTS]),
