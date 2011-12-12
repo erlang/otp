@@ -29,6 +29,32 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 2.0.9</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Erlang/OTP can now be built using parallel make if you
+	    limit the number of jobs, for instance using '<c>make
+	    -j6</c>' or '<c>make -j10</c>'. '<c>make -j</c>' does not
+	    work at the moment because of some missing
+	    dependencies.</p>
+          <p>
+	    Own Id: OTP-9451</p>
+        </item>
+        <item>
+          <p>
+	    Ssh behaviours now use the new directive "-callback".
+	    Parameters will be further specified in a later version
+	    of ssh.</p>
+          <p>
+	    Own Id: OTP-9796</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 2.0.8</title>
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

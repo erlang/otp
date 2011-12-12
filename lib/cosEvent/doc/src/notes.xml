@@ -32,7 +32,25 @@
     <file>notes.xml</file>
   </header>
 
-  <section>
+  <section><title>cosEvent 2.1.12</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Erlang/OTP can now be built using parallel make if you
+	    limit the number of jobs, for instance using '<c>make
+	    -j6</c>' or '<c>make -j10</c>'. '<c>make -j</c>' does not
+	    work at the moment because of some missing
+	    dependencies.</p>
+          <p>
+	    Own Id: OTP-9451</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section>
     <title>cosEvent 2.1.11</title>
 
     <section>

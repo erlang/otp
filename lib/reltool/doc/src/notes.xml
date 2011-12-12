@@ -37,7 +37,23 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Reltool.</p>
 
-  <section><title>Reltool 0.5.7</title>
+  <section><title>Reltool 0.5.7.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added recommendation about <c>RootDir</c> parameter to
+	    <c>reltool:eval_target_spec/3</c>.</p>
+          <p>
+	    Own Id: OTP-9742</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Reltool 0.5.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

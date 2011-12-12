@@ -36,6 +36,120 @@ first.</p>
 
 <!-- ===================================================================== -->
 
+<section><title>Diameter 1.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix faulty cleanup after diameter:remove_transport/2.</p>
+          <p>
+	    Removing a transport removed the configuration but did
+	    not prevent the transport process from being restarted.</p>
+          <p>
+	    Own Id: OTP-9756</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add support for TLS over TCP.</p>
+          <p>
+	    RFC 3588 requires that a Diameter server support TLS. In
+	    practice this seems to mean TLS over SCTP since there are
+	    limitations with running over SCTP: see RFC 6083 (DTLS
+	    over SCTP), which is a response to RFC 3436 (TLS over
+	    SCTP). The current RFC 3588 draft acknowledges this by
+	    equating TLS with TLS/TCP and DTLS/SCTP.</p>
+          <p>
+	    TLS handshaking can take place either following a CER/CEA
+	    that negotiates TLS using the Inband-Security-Id AVP (the
+	    method documented in RFC 3588) or immediately following
+	    connection establishment (the method added to the current
+	    draft).</p>
+          <p>
+	    Own Id: OTP-9605</p>
+        </item>
+        <item>
+          <p>
+	    Improvements to the dictionary parser.</p>
+          <p>
+	    The dictionary parser now emits useful error messages in
+	    case of faults in the input file, also identifying the
+	    line number at which the fault was detected. There are
+	    semantic checks that were missing in the previous parser,
+	    a fault in the interpretation of vendor id's in
+	    combination with @inherits has been fixed and @end can be
+	    used to terminate parsing explicitly instead of always
+	    parsing to end of file.</p>
+          <p>
+	    Own Id: OTP-9639</p>
+        </item>
+        <item>
+          <p>
+	    Improve dictionary reusability.</p>
+          <p>
+	    Reusing a dictionary just to get a different generated
+	    module name or prefix previously required taking a copy
+	    of the source, which may consist of several files if
+	    inheritance is used, just to edit a couple of lines which
+	    don't affect the semantics of the Diameter application
+	    being defined. Options --name, --prefix and --inherits
+	    have been added to diameterc to allow corresponding
+	    values to be set at compile time.</p>
+          <p>
+	    Own Id: OTP-9641</p>
+        </item>
+        <item>
+          <p>
+	    Add capabilities_cb transport option.</p>
+          <p>
+	    Its value is a function that's applied to the transport
+	    reference and capabilities record after capabilities
+	    exchange. If a callback returns anything but 'ok' then
+	    the connection is closed. In the case of an incoming CER,
+	    the callback can return a result code with which to
+	    answer. Multiple callbacks can be specified and are
+	    applied until either all return 'ok' or one doesn't.</p>
+          <p>
+	    This provides a way to reject a peer connection.</p>
+          <p>
+	    Own Id: OTP-9654</p>
+        </item>
+        <item>
+          <p>
+	    Add @codecs to dictionary format.</p>
+          <p>
+	    The semantics are similar to @custom_types but results in
+	    codec functions of the form TypeName(encode|decode,
+	    AvpName, Data) rather than AvpName(encode|decode,
+	    TypeName, Data). That is, the role of the AVP name and
+	    Diameter type name are reversed. This eliminates the need
+	    for exporting one function for each AVP sharing a common
+	    specialized encode/decode.</p>
+          <p>
+	    Own Id: OTP-9708 Aux Id: OTP-9639 </p>
+        </item>
+        <item>
+          <p>
+	    Add #diameter_callback{} for more flexible callback
+	    configuration.</p>
+          <p>
+	    The record allows individual functions to be configured
+	    for each of the diameter_app(3) callbacks, as well as a
+	    default callback.</p>
+          <p>
+	    Own Id: OTP-9777</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Diameter 0.10</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

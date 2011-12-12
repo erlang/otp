@@ -30,6 +30,27 @@
   </header>
   <p>This document describes the changes made to the Appmon application.</p>
 
+<section><title>Appmon 2.1.14</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Eliminate use of deprecated regexp module</p>
+          <p>
+	    Own Id: OTP-9810</p>
+        </item>
+        <item>
+          <p>
+	    Miscellaneous documentation build updates</p>
+          <p>
+	    Own Id: OTP-9813</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Appmon 2.1.13</title>
 
     <section><title>Improvements and New Features</title>

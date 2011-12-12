@@ -38,7 +38,61 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Mnesia.</p>
 
-  <section><title>Mnesia 4.5.1</title>
+  <section><title>Mnesia 4.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Reduce calls to phash in key_to_frag_number</p>
+          <p>
+	    Original code calls phash 1..2 times, based on which
+	    fragment the hashed key targets and how many fragments
+	    exist. New code always calls phash only once.</p>
+          <p>
+	    Add mnesia_frag_hash test (Thanks to Philip Robinson)</p>
+          <p>
+	    Own Id: OTP-9722</p>
+        </item>
+        <item>
+          <p>
+	    Fixed a sticky lock bug which caused mnesia:read(Tab,
+	    Key, write) return undefined.</p>
+          <p>
+	    Own Id: OTP-9786</p>
+        </item>
+        <item>
+          <p>
+	    Use the synchronous log_terms instead of alog_terms in
+	    mnesia_log:ets2dcd()</p>
+          <p>
+	    This avoids the situation where mnesia could dump a very
+	    large ets table in its entirety into the message queue of
+	    the disk_log process, causing memory blowup and choking
+	    the disk logger. (Thanks to Richard Carlsson)</p>
+          <p>
+	    Own Id: OTP-9804</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Implemented a new option to mnesia:create_table/2 which
+	    allows the user to assign 'ets' and 'dets' options not
+	    available in mnesia.</p>
+          <p>
+	    Own Id: OTP-8970</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.5.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

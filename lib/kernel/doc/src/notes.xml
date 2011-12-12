@@ -30,6 +30,241 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 2.15</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Calls to <c>global:whereis_name/1</c> have been
+	    substituted for calls to
+	    <c>global:safe_whereis_name/1</c> since the latter is not
+	    safe at all.</p>
+	    <p>The reason for not doing this earlier is that setting
+	    a global lock masked out a bug concerning the restart of
+	    supervised children. The bug has now been fixed by a
+	    modification of <c>global:whereis_name/1</c>. (Thanks to
+	    Ulf Wiger for code contribution.)</p>
+	    <p>A minor race conditions in <c>gen_fsm:start*</c> has
+	    been fixed: if one of these functions returned <c>{error,
+	    Reason}</c> or ignore, the name could still be registered
+	    (either locally or in <c>global</c>. (This is the same
+	    modification as was done for gen_server in OTP-7669.)</p>
+	    <p>The undocumented function
+	    <c>global:safe_whereis_name/1</c> has been removed. </p>
+          <p>
+	    Own Id: OTP-9212 Aux Id: seq7117, OTP-4174 </p>
+        </item>
+        <item>
+          <p>
+	    Honor option <c>packet_size</c> for http packet parsing
+	    by both TCP socket and <c>erlang:decode_packet</c>. This
+	    gives the ability to accept HTTP headers larger than the
+	    default setting, but also avoid DoS attacks by accepting
+	    lines only up to whatever length you wish to allow. For
+	    consistency, packet type <c>line</c> also honor option
+	    <c>packet_size</c>. (Thanks to Steve Vinoski)</p>
+          <p>
+	    Own Id: OTP-9389</p>
+        </item>
+        <item>
+	    <p> <c>disk_log:reopen/2,3</c> and
+	    <c>disk_log:breopen/3</c> could return the error reason
+	    from <c>file:rename/2</c> rather than the reason
+	    <c>{file_error, Filename, Reason}</c>. This bug has been
+	    fixed. </p> <p> The message <c>{disk_log, Node, {error,
+	    disk_log_stopped}}</c> which according the documentation
+	    is sent upon failure to truncate or reopen a disk log was
+	    sometimes turned into a reply. This bug has been fixed.
+	    </p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-9508</p>
+        </item>
+        <item>
+          <p>
+	    Environment variable 'shutdown_timeout' is added to
+	    kernel application. Earlier, application_controller would
+	    hang forever if an application top supervisor did not
+	    terminate upon a shutdown request. If this new
+	    environment variable is set to a positive integer T, then
+	    application controller will now give up after T
+	    milliseconds and instead brutally kill the application.
+	    For backwards compatibility, the default value for
+	    shutdown_timeout is 'infinity'.</p>
+          <p>
+	    Own Id: OTP-9540</p>
+        </item>
+        <item>
+          <p>
+	    Add '-callback' attributes in stdlib's behaviours</p>
+          <p>
+	    Replace the behaviour_info(callbacks) export in stdlib's
+	    behaviours with -callback' attributes for all the
+	    callbacks. Update the documentation with information on
+	    the callback attribute Automatically generate
+	    'behaviour_info' function from '-callback' attributes</p>
+          <p>
+	    'behaviour_info(callbacks)' is a special function that is
+	    defined in a module which describes a behaviour and
+	    returns a list of its callbacks.</p>
+          <p>
+	    This function is now automatically generated using the
+	    '-callback' specs. An error is returned by lint if user
+	    defines both '-callback' attributes and the
+	    behaviour_info/1 function. If no type info is needed for
+	    a callback use a generic spec for it. Add '-callback'
+	    attribute to language syntax</p>
+          <p>
+	    Behaviours may define specs for their callbacks using the
+	    familiar spec syntax, replacing the '-spec' keyword with
+	    '-callback'. Simple lint checks are performed to ensure
+	    that no callbacks are defined twice and all types
+	    referred are declared.</p>
+          <p>
+	    These attributes can be then used by tools to provide
+	    documentation to the behaviour or find discrepancies in
+	    the callback definitions in the callback module.</p>
+          <p>
+	    Add callback specs into 'application' module in kernel
+	    Add callback specs to tftp module following internet
+	    documentation Add callback specs to inets_service module
+	    following possibly deprecated comments</p>
+          <p>
+	    Own Id: OTP-9621</p>
+        </item>
+        <item>
+          <p>
+	    make tab completion work in remote shells (Thanks to Mats
+	    Cronqvist)</p>
+          <p>
+	    Own Id: OTP-9673</p>
+        </item>
+        <item>
+          <p>
+	    Add missing parenthesis in heart doc.</p>
+          <p>
+	    Add missing spaces in the Reference Manual distributed
+	    section.</p>
+          <p>
+	    In the HTML version of the doc those spaces are necessary
+	    to separate those words.</p>
+          <p>
+	    Own Id: OTP-9693</p>
+        </item>
+        <item>
+          <p>
+	    Fixes net_kernel:get_net_ticktime() doc</p>
+          <p>
+	    Adds missing description when `ignored' is returned.
+	    (Thanks to Ricardo Catalinas Jiménez )</p>
+          <p>
+	    Own Id: OTP-9713</p>
+        </item>
+        <item>
+	    <p> While <c>disk_log</c> eagerly collects logged terms
+	    for better performance, collecting too much data may
+	    choke the system and cause huge binaries to be written.
+	    In order to remedy the situation a (small) limit on the
+	    amount of data that is collected before writing to disk
+	    has been introduced. </p>
+          <p>
+	    Own Id: OTP-9764</p>
+        </item>
+        <item>
+          <p>
+	    <list> <item><p>Correct callback spec in application
+	    module</p></item> <item><p>Refine warning about callback
+	    specs with extra ranges</p></item> <item><p>Cleanup
+	    autoimport compiler directives</p></item> <item><p>Fix
+	    Dialyzer's warnings in typer</p></item> <item><p>Fix
+	    Dialyzer's warning for its own code</p></item>
+	    <item><p>Fix bug in Dialyzer's behaviours
+	    analysis</p></item> <item><p>Fix crash in
+	    Dialyzer</p></item> <item><p>Variable substitution was
+	    not generalizing any unknown variables.</p></item>
+	    </list></p>
+          <p>
+	    Own Id: OTP-9776</p>
+        </item>
+        <item>
+          <p>
+	    Fix a crash when file:change_time/2,3 are called with
+	    invalid dates</p>
+          <p>
+	    Calling file:change_time/2,3 with an invalid date tuple
+	    (e.g file:change_time("file.txt", {undefined,
+	    undefined})) will cause file_server_2 to crash.
+	    error_logger will shutdown and the whole VM will stop.
+	    Change behavior to validate given dates on system
+	    boundaries. (i.e before issuing a server call).(Thanks to
+	    Ahmed Omar)</p>
+          <p>
+	    Own Id: OTP-9785</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> An option list argument can now be passed to
+	    <c>file:read_file_info/2, file:read_link_info/2</c> and
+	    <c>file:write_file_info/3</c> and set time type
+	    information in the call. Valid options are <c>{time,
+	    local}, {time, universal}</c> and <c>{time, posix}</c>.
+	    In the case of <c>posix</c> time no conversions are made
+	    which makes the operation a bit faster. </p>
+          <p>
+	    Own Id: OTP-7687</p>
+        </item>
+        <item>
+	    <p><c>file:list_dir/1,2</c> will now fill an buffer
+	    entire with filenames from the efile driver before
+	    sending it to an erlang process. This will speed up this
+	    file operation in most cases.</p>
+          <p>
+	    Own Id: OTP-9023</p>
+        </item>
+        <item>
+	    <p>gen_sctp:open/0-2 may now return
+	    {error,eprotonosupport} if SCTP is not supported</p>
+	    <p>gen_sctp:peeloff/1 has been implemented and creates a
+	    one-to-one socket which also are supported now</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-9239</p>
+        </item>
+        <item>
+          <p>
+	    Sendfile has been added to the file module's API.
+	    sendfile/2 is used to read data from a file and send it
+	    to a tcp socket using a zero copying mechanism if
+	    available on that OS.</p>
+          <p>
+	    Thanks to Tuncer Ayaz and Steve Vinovski for original
+	    implementation</p>
+          <p>
+	    Own Id: OTP-9240</p>
+        </item>
+        <item>
+          <p>
+	    Tuple funs (a two-element tuple with a module name and a
+	    function) are now officially deprecated and will be
+	    removed in R16. Use '<c>fun M:F/A</c>' instead. To make
+	    you aware that your system uses tuple funs, the very
+	    first time a tuple fun is applied, a warning will be sent
+	    to the error logger.</p>
+          <p>
+	    Own Id: OTP-9649</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 2.14.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

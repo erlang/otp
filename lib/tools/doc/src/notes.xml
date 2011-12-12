@@ -30,6 +30,85 @@
   </header>
   <p>This document describes the changes made to the Tools application.</p>
 
+<section><title>Tools 2.6.6.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Update system profiling principles to reflect eprof
+	    performance improvements.</p>
+          <p>
+	    Own Id: OTP-9656</p>
+        </item>
+        <item>
+          <p>
+	    [cover] fix leftover {'DOWN', ..} msg in callers queue</p>
+          <p>
+	    After stopping cover with cover:stop() there could still
+	    be a {'DOWN',...} leftover message in the calling
+	    process's message queue. This unexpected leftover could
+	    be eliminated if erlang:demonitor/2 with option flush
+	    would be used in certain points</p>
+          <p>
+	    Own Id: OTP-9694</p>
+        </item>
+        <item>
+          <p>
+	    Add deps as erlang-flymake include directory.</p>
+          <p>
+	    Update erlang-flymake to recognize the "deps" folder as
+	    an include directory. This makes erlang-flymake
+	    compatible with the rebar dependency management tool's
+	    default folder structure, which puts included
+	    dependencies in "deps".(Thanks to Kevin Albrecht)</p>
+          <p>
+	    Own Id: OTP-9791</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Variables are now now allowed in '<c>fun M:F/A</c>' as
+	    suggested by Richard O'Keefe in EEP-23.</p>
+	    <p>The representation of '<c>fun M:F/A</c>' in the
+	    abstract format has been changed in an incompatible way.
+	    Tools that directly read or manipulate the abstract
+	    format (such as parse transforms) may need to be updated.
+	    The compiler can handle both the new and the old format
+	    (i.e. extracting the abstract format from a pre-R15 BEAM
+	    file and compiling it using compile:forms/1,2 will work).
+	    The <c>syntax_tools</c> application can also handle both
+	    formats.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-9643</p>
+        </item>
+        <item>
+          <p>
+	    Tuple funs (a two-element tuple with a module name and a
+	    function) are now officially deprecated and will be
+	    removed in R16. Use '<c>fun M:F/A</c>' instead. To make
+	    you aware that your system uses tuple funs, the very
+	    first time a tuple fun is applied, a warning will be sent
+	    to the error logger.</p>
+          <p>
+	    Own Id: OTP-9649</p>
+        </item>
+        <item>
+          <p>
+	    Eliminate use of deprecated regexp module</p>
+          <p>
+	    Own Id: OTP-9810</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Tools 2.6.6.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

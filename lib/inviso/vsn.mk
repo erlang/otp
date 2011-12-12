@@ -1,1 +1,1 @@
-INVISO_VSN = 0.6.2
+INVISO_VSN = 0.6.3

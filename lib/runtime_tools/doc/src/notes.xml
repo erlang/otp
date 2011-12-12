@@ -31,6 +31,56 @@
   <p>This document describes the changes made to the Runtime_Tools
     application.</p>
 
+<section><title>Runtime_Tools 1.8.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Earlier dbg:stop only did erlang:trace_delivered and did
+	    not flush the trace file driver. Therefore there could
+	    still be trace messages that were delivered to the driver
+	    (guaranteed by erlang:trace_delivered) but not yet
+	    written to the file when dbg:stop returned. Flushing is
+	    now added on each node before the dbg process terminates.</p>
+          <p>
+	    Own Id: OTP-9651</p>
+        </item>
+        <item>
+          <p>
+	    File handles created by the trace_file_drv driver was
+	    inherited to child processes. This is now corrected.</p>
+          <p>
+	    Own Id: OTP-9658</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Erlang/OTP can now be built using parallel make if you
+	    limit the number of jobs, for instance using '<c>make
+	    -j6</c>' or '<c>make -j10</c>'. '<c>make -j</c>' does not
+	    work at the moment because of some missing
+	    dependencies.</p>
+          <p>
+	    Own Id: OTP-9451</p>
+        </item>
+        <item>
+          <p>
+	    Two new built-in trace pattern aliases have been added:
+	    caller_trace (c) and caller_exception_trace (cx). See the
+	    dbg:ltp/0 documentation for more info.</p>
+          <p>
+	    Own Id: OTP-9458</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Runtime_Tools 1.8.6</title>
 
     <section><title>Improvements and New Features</title>

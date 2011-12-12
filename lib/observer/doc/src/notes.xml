@@ -31,6 +31,125 @@
   <p>This document describes the changes made to the Observer
     application.</p>
 
+<section><title>Observer 1.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The following bugs in <c>ttb</c> have been corrected:</p>
+          <p>
+	    <list> <item><c>ttb:tracer/2</c> would earlier crash when
+	    trying to set up tracing for a diskless node to wrap
+	    files, i.e. when option
+	    <c>{file,{local,{wrap,Filename,Size,Count}}}</c> was
+	    used.</item> <item><c>ttb:stop([fetch])</c> would
+	    sometimes silently fail if multiple nodes with different
+	    current working directories were traced.</item>
+	    <item><c>ttb:stop([fetch])</c> would crash if the tracer
+	    was started with option
+	    <c>{file,{local,Filename}}</c></item> <item>A deadlock
+	    would sometimes occur due to an information printout from
+	    the <c>ttb_control</c> process when <c>ttb</c> was
+	    stopped.</item> </list></p>
+          <p>
+	    Own Id: OTP-9431</p>
+        </item>
+        <item>
+          <p>
+	    The file trace port to which the IP trace client relays
+	    all traces from diskless nodes was not flushed and closed
+	    properly on ttb:stop. This has been corrected.</p>
+          <p>
+	    Own Id: OTP-9665</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    A new GUI for Observer. Integrating pman, etop, appmon
+	    and tv into observer with tracing facilities.</p>
+          <p>
+	    Own Id: OTP-4779</p>
+        </item>
+        <item>
+          <p>
+	    The following new features are added to <c>ttb</c>:</p>
+          <p>
+	    <list> <item>A one-command trace setup is added,
+	    <c>ttb:start_trace/4</c>.</item> <item>The following new
+	    options are added to <c>ttb:tracer/2</c>: <list>
+	    <item><em><c>shell</c></em> - Show trace messages on the
+	    console in real time</item> <item><em><c>timer</c></em> -
+	    Time constrained tracing</item>
+	    <item><em><c>overload</c></em> - Overload
+	    protection</item> <item><em><c>flush</c></em> - Flush
+	    file trace port buffers with given frequency</item>
+	    <item><em><c>resume</c></em> - Automatically resume
+	    tracing after node restart</item> </list> </item> <item>
+	    A new shortcut is added for common tracer settings
+	    similar to using the <c>dbg</c> module directly,
+	    <c>ttb:tracer(shell | dbg)</c>. </item> <item> Some
+	    shortcuts are added for commonly used match
+	    specifications in <c>ttb:tp</c> and <c>ttb:tpl</c>.
+	    </item> <item> The <c>Options</c> argument to functions
+	    <c>ttb:tracer</c>, <c>ttb:write_config</c>,
+	    <c>ttb:stop</c> and <c>ttb:format</c> may now be one
+	    single option instead of a list. </item> <item> The
+	    history buffer of the last trace is now always
+	    automatically dumped to the file <c>ttb_last_config</c>
+	    when <c>ttb:stop</c> is called. </item> <item> The
+	    following new options are added to <c>ttb:stop/1</c>:
+	    <list> <item><em><c>fetch_dir</c></em> - Specify where to
+	    store fetched logs</item>
+	    <item><em><c>{format,FormatOpts}</c></em> - Specify
+	    options to use when formatting the fetched logs</item>
+	    <item><em><c>return_fetch_dir</c></em> - Indicate that
+	    the return value from <c>ttb:stop/1</c> should include
+	    the name of the directory where the fetched logs are
+	    stored</item> </list> </item> <item> The option
+	    <c>disable_sort</c> is added to <c>ttb:format/2</c>. When
+	    this option is used, trace messages from different logs
+	    are not merged according to timestamps, but just appended
+	    one log after the other. </item> </list></p>
+          <p>
+	    Own Id: OTP-9403</p>
+        </item>
+        <item>
+          <p>
+	    The following non backwards compatible changes are done
+	    in <c>ttb</c>:</p>
+          <p>
+	    <list> <item> When setting up trace with ttb, the
+	    'timestamp' trace flag will now always be set. </item>
+	    <item> The 'fetch' option to ttb:stop/1 is removed since
+	    it is now default behavior that trace logs are fetched
+	    when stopping ttb. Fetching can be disabled with the
+	    'nofetch' option to ttb:stop/1. </item> <item> The name
+	    of the upload directory is changed from
+	    ttb_upload-Timestamp to ttb_upload_FileName-Timestamp.
+	    </item> <item> To format the output using 'et', you now
+	    need to provide the option {handler,ttb:get_et_handler()}
+	    instead of {handler,et}. </item> <item> When formatting a
+	    trace log, the handler state was earlier reset after each
+	    trace file, this is now changed so the handler state is
+	    passed not only from one trace message to the next in the
+	    same file, but also from one file to the next. </item>
+	    </list></p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-9430</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Observer 0.9.10</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

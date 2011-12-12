@@ -32,6 +32,21 @@
   </header>
   <p>This document describes the changes made to the Percept application.</p>
 
+<section><title>Percept 0.8.6.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Miscellaneous documentation build updates</p>
+          <p>
+	    Own Id: OTP-9813</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Percept 0.8.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

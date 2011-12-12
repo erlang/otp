@@ -30,6 +30,71 @@
   </header>
   <p>This document describes the changes made to the SASL application.</p>
 
+<section><title>SASL 2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix the mechanism for upgrading emulator.</p>
+          <p>
+	    The appup files for kernel, stdlib and sasl do now
+	    recognize two major releases back and include a
+	    'restart_new_emulator' instruction. </p>
+          <p>
+	    Appup files can include regular expressions for matching
+	    earlier releases.</p>
+          <p>
+	    The mechanism for upgrading the emulator is changed so
+	    'restart_new_emulator' will be the first instruction
+	    executed. The rest of the upgrade instruction will be
+	    executed after the emulator restart.</p>
+          <p>
+	    A new upgrade instruction 'restart_emulator' is added for
+	    the case where the emulator shall be restarted after all
+	    other upgrade instructions.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-9438</p>
+        </item>
+        <item>
+          <p>
+	    Add release_handler:which_releases/1</p>
+          <p>
+	    This is an extension to which_releases that allows a user
+	    to specify the status of the releases they wish to be
+	    returned. For instance it allows for quickly determining
+	    which release is 'permanent' without the need of parsing
+	    the entire release list. (Thanks to Joe Williams)</p>
+          <p>
+	    Own Id: OTP-9717</p>
+        </item>
+        <item>
+          <p>
+	    Add copy of rel file in releases/Vsn in release tar file</p>
+          <p>
+	    systool:make_tar stores the rel file in the releases
+	    directory. When unpacking with
+	    release_handler:unpack_release, the file is automatically
+	    moved to releases/Vsn/. If, however, the tar file is
+	    unpacked manually, the rel file might not be moved, and
+	    the next release unpacked might overwrite the rel file.
+	    To overcome this, systools:make_tar now stores a copy of
+	    the rel file in releases/Vsn/ directly and it is not
+	    longer necessary to move the file after unpacking.</p>
+          <p>
+	    The reason for keeping the file in the releases directory
+	    also is that is needs to be extracted separately before
+	    the release version (Vsn) is known.</p>
+          <p>
+	    Own Id: OTP-9746</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SASL 2.1.10</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

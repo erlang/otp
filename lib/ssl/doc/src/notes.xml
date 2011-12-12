@@ -30,7 +30,101 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
   
-  <section><title>SSL 4.1.6</title>
+  <section><title>SSL 5.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Invalidation handling of sessions could cause the
+	    time_stamp field in the session record to be set to
+	    undefined crashing the session clean up process. This did
+	    not affect the connections but would result in that the
+	    session table would grow.</p>
+          <p>
+	    Own Id: OTP-9696 Aux Id: seq11947 </p>
+        </item>
+        <item>
+          <p>
+	    Changed code to use ets:foldl and throw instead of
+	    ets:next traversal, avoiding the need to explicitly call
+	    ets:safe_fixtable. It was possible to get a badarg-crash
+	    under special circumstances.</p>
+          <p>
+	    Own Id: OTP-9703 Aux Id: seq11947 </p>
+        </item>
+        <item>
+          <p>
+	    Send ssl_closed notification to active ssl user when a
+	    tcp error occurs.</p>
+          <p>
+	    Own Id: OTP-9734 Aux Id: seq11946 </p>
+        </item>
+        <item>
+          <p>
+	    If a passive receive was ongoing during a renegotiation
+	    the process evaluating ssl:recv could be left hanging for
+	    ever.</p>
+          <p>
+	    Own Id: OTP-9744</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Support for the old ssl implementation is dropped and the
+	    code is removed.</p>
+          <p>
+	    Own Id: OTP-7048</p>
+        </item>
+        <item>
+          <p>
+	    The erlang distribution can now be run over the new ssl
+	    implementation. All options can currently not be set but
+	    it is enough to replace to old ssl implementation.</p>
+          <p>
+	    Own Id: OTP-7053</p>
+        </item>
+        <item>
+          <p>
+	    public_key, ssl and crypto now supports PKCS-8</p>
+          <p>
+	    Own Id: OTP-9312</p>
+        </item>
+        <item>
+          <p>
+	    Implements a CBC timing attack counter measure. Thanks to
+	    Andreas Schultz for providing the patch.</p>
+          <p>
+	    Own Id: OTP-9683</p>
+        </item>
+        <item>
+          <p>
+	    Mitigates an SSL/TLS Computational DoS attack by
+	    disallowing the client to renegotiate many times in a row
+	    in a short time interval, thanks to Tuncer Ayaz for
+	    alerting us about this.</p>
+          <p>
+	    Own Id: OTP-9739</p>
+        </item>
+        <item>
+          <p>
+	    Implements the 1/n-1 splitting countermeasure to the
+	    Rizzo Duong BEAST attack, affects SSL 3.0 and TLS 1.0.
+	    Thanks to Tuncer Ayaz for alerting us about this.</p>
+          <p>
+	    Own Id: OTP-9750</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 4.1.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

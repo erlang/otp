@@ -32,7 +32,51 @@
     <file>notes.xml</file>
   </header>
 
-  <section><title>Orber 3.6.22</title>
+  <section><title>Orber 3.6.23</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Remove usage of ssl:seed/1 in orber test cases. </p>
+          <p>
+	    Own Id: OTP-9728</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Erlang/OTP can now be built using parallel make if you
+	    limit the number of jobs, for instance using '<c>make
+	    -j6</c>' or '<c>make -j10</c>'. '<c>make -j</c>' does not
+	    work at the moment because of some missing
+	    dependencies.</p>
+          <p>
+	    Own Id: OTP-9451</p>
+        </item>
+        <item>
+	    <p> The SSL option handling has been changed. There are
+	    now two new orber options <c>ssl_server_options</c> and
+	    <c>ssl_client_options</c> which takes a list of options
+	    to the socket. </p> <p> The old options are now
+	    deprecated and removed from the documentation but they
+	    can still be used for backward compatibility as long as
+	    the two new options not are used. </p> <p> If
+	    <c>ssl_server_options</c> and <c>ssl_client_options</c>
+	    contain an TCP option that <c>orber</c> needs to set to a
+	    specific value it will be skipped and a warning will be
+	    written to the error_log. </p>
+          <p>
+	    Own Id: OTP-9773 Aux Id: seq11932 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Orber 3.6.22</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

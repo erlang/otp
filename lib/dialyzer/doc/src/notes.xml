@@ -31,6 +31,94 @@
   <p>This document describes the changes made to the Dialyzer
     application.</p>
 
+<section><title>Dialyzer 2.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix false warning about closure application</p>
+          <p>
+	    Whenever a variable that could hold one of two or more
+	    possible closures was used in a particular application,
+	    the application was assumed to fail if ONE of the
+	    closures would fail in this application. This has been
+	    corrected to infer failing application if ALL possible
+	    closures would fail in the particular application.</p>
+          <p>
+	    Change category of 'might also return' warnings</p>
+          <p>
+	    Dialyzer emits warnings like the following "The
+	    specification for _ states that the function might also
+	    return _ but the inferred return is _", which are
+	    actually underspecifications and not wrong type
+	    specifications. This patch makes sure that they are filed
+	    under the appropriate category.</p>
+          <p>
+	    Own Id: OTP-9707</p>
+        </item>
+        <item>
+	    <p>Wrap up behaviours patch for Dialyzer</p> <list>
+	    <item><p>Enable warnings by default, add two options for
+	    suppressing them</p></item> <item><p>Fix warning
+	    formatting and update testsuites.</p></item>
+	    <item><p>Detection of callback-spec
+	    discrepancies</p></item> <item><p>Allow none() as return
+	    value in callbacks</p></item> <item><p>Behaviour callback
+	    discrepancy detection for Dialyzer</p></item>
+	    <item><p>Add lookup function for callbacks</p></item>
+	    <item><p>Store callbacks in codeserver and PLT</p></item>
+	    <item><p>Collect callback definitions during
+	    compilation</p></item> <item><p>Update inets
+	    results</p></item> </list>
+          <p>
+	    Own Id: OTP-9731</p>
+        </item>
+        <item>
+          <p>
+	    <list> <item><p>No warnings for underspecs with remote
+	    types</p></item> <item><p> Fix crash in Typer</p></item>
+	    <item><p>Fix Dialyzer's warning for its own
+	    code</p></item> <item><p>Fix Dialyzer's warnings in
+	    HiPE</p></item> <item><p>Add file/line info in a
+	    particular Dialyzer crash</p></item> <item><p>Update
+	    inets test results</p></item> </list></p>
+          <p>
+	    Own Id: OTP-9758</p>
+        </item>
+        <item>
+          <p>
+	    <list> <item><p>Correct callback spec in application
+	    module</p></item> <item><p>Refine warning about callback
+	    specs with extra ranges</p></item> <item><p>Cleanup
+	    autoimport compiler directives</p></item> <item><p>Fix
+	    Dialyzer's warnings in typer</p></item> <item><p>Fix
+	    Dialyzer's warning for its own code</p></item>
+	    <item><p>Fix bug in Dialyzer's behaviours
+	    analysis</p></item> <item><p>Fix crash in
+	    Dialyzer</p></item> <item><p>Variable substitution was
+	    not generalizing any unknown variables.</p></item>
+	    </list></p>
+          <p>
+	    Own Id: OTP-9776</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Optimize the joining of maps in
+	    <c>dialyzer_dataflow</c>. </p>
+          <p>
+	    Own Id: OTP-9761</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 2.4.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

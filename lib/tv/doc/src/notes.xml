@@ -30,6 +30,21 @@
   </header>
   <p>This document describes the changes made to the TV application.</p>
 
+<section><title>TV 2.1.4.8</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Eliminate use of deprecated regexp module</p>
+          <p>
+	    Own Id: OTP-9810</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>TV 2.1.4.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -31,7 +31,28 @@
   <p>This document describes the changes made to the Inviso application.</p>
 
 
-  <section><title>Inviso 0.6.2</title>
+  <section><title>Inviso 0.6.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The <c>inviso</c> application has been deprecated and
+	    will be removed in the R16 release.</p>
+          <p>
+	    Own Id: OTP-9798</p>
+        </item>
+        <item>
+          <p>
+	    Eliminate use of deprecated regexp module</p>
+          <p>
+	    Own Id: OTP-9810</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inviso 0.6.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

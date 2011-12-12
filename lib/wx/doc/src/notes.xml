@@ -31,6 +31,37 @@
   <p>This document describes the changes made to the wxErlang
     application.</p>
 
+<section><title>Wx 0.99.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a deadlock in the driver, which could happen if a
+	    callback caused another callback to be invoked.</p>
+          <p>
+	    Own Id: OTP-9725</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Implemented wxSystemOptions.</p>
+          <p>
+	    Load Opengl from libGL.so.1 instead libGL.so to work
+	    around linux problems.</p>
+          <p>
+	    Own Id: OTP-9702</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Wx 0.99</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -30,6 +30,44 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 2.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    public_key, ssl and crypto now supports PKCS-8</p>
+          <p>
+	    Own Id: OTP-9312</p>
+        </item>
+        <item>
+	    <p>Erlang/OTP can now be built using parallel make if you
+	    limit the number of jobs, for instance using '<c>make
+	    -j6</c>' or '<c>make -j10</c>'. '<c>make -j</c>' does not
+	    work at the moment because of some missing
+	    dependencies.</p>
+          <p>
+	    Own Id: OTP-9451</p>
+        </item>
+        <item>
+          <p>
+	    Add DES and Triple DES cipher feedback (CFB) mode
+	    functions to <c>crypto</c>. (Thanks to Paul Guyot)</p>
+          <p>
+	    Own Id: OTP-9640</p>
+        </item>
+        <item>
+          <p>
+	    Add sha256, sha384 and sha512 support for
+	    <c>crypto:rsa_verify</c>.</p>
+          <p>
+	    Own Id: OTP-9778</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 2.0.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

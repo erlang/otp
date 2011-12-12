@@ -31,6 +31,105 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 4.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add '-callback' attributes in stdlib's behaviours</p>
+          <p>
+	    Replace the behaviour_info(callbacks) export in stdlib's
+	    behaviours with -callback' attributes for all the
+	    callbacks. Update the documentation with information on
+	    the callback attribute Automatically generate
+	    'behaviour_info' function from '-callback' attributes</p>
+          <p>
+	    'behaviour_info(callbacks)' is a special function that is
+	    defined in a module which describes a behaviour and
+	    returns a list of its callbacks.</p>
+          <p>
+	    This function is now automatically generated using the
+	    '-callback' specs. An error is returned by lint if user
+	    defines both '-callback' attributes and the
+	    behaviour_info/1 function. If no type info is needed for
+	    a callback use a generic spec for it. Add '-callback'
+	    attribute to language syntax</p>
+          <p>
+	    Behaviours may define specs for their callbacks using the
+	    familiar spec syntax, replacing the '-spec' keyword with
+	    '-callback'. Simple lint checks are performed to ensure
+	    that no callbacks are defined twice and all types
+	    referred are declared.</p>
+          <p>
+	    These attributes can be then used by tools to provide
+	    documentation to the behaviour or find discrepancies in
+	    the callback definitions in the callback module.</p>
+          <p>
+	    Add callback specs into 'application' module in kernel
+	    Add callback specs to tftp module following internet
+	    documentation Add callback specs to inets_service module
+	    following possibly deprecated comments</p>
+          <p>
+	    Own Id: OTP-9621</p>
+        </item>
+        <item>
+          <p>
+	    The calculation of the 'uniq' value for a fun (see
+	    <c>erlang:fun_info/1</c>) was too weak and has been
+	    strengthened. It used to be based on the only the code
+	    for the fun body, but it is now based on the MD5 of the
+	    BEAM code for the module.</p>
+          <p>
+	    Own Id: OTP-9667</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Variables are now now allowed in '<c>fun M:F/A</c>' as
+	    suggested by Richard O'Keefe in EEP-23.</p>
+	    <p>The representation of '<c>fun M:F/A</c>' in the
+	    abstract format has been changed in an incompatible way.
+	    Tools that directly read or manipulate the abstract
+	    format (such as parse transforms) may need to be updated.
+	    The compiler can handle both the new and the old format
+	    (i.e. extracting the abstract format from a pre-R15 BEAM
+	    file and compiling it using compile:forms/1,2 will work).
+	    The <c>syntax_tools</c> application can also handle both
+	    formats.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-9643</p>
+        </item>
+        <item>
+          <p>
+	    <c>filename:find_src/1,2</c> will now work on stripped
+	    BEAM files (reported by Per Hedeland). The HiPE compiler
+	    will also work on stripped BEAM files. The BEAM compiler
+	    will no longer include compilation options given in the
+	    source code itself in <c>M:module_info(compile)</c>
+	    (because those options will be applied anyway if the
+	    module is re-compiled).</p>
+          <p>
+	    Own Id: OTP-9752</p>
+        </item>
+        <item>
+	    <p>Inlining binary matching could cause an internal
+	    compiler error. (Thanks to Rene Kijewski for reporting
+	    this bug.)</p>
+          <p>
+	    Own Id: OTP-9770</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 4.7.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

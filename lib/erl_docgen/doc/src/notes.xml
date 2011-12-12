@@ -30,7 +30,50 @@
   </header>
   <p>This document describes the changes made to the <em>erl_docgen</em> application.</p>
 
-  <section><title>Erl_Docgen 0.2.6</title>
+  <section><title>Erl_Docgen 0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Bug fixes concerning the generation of manpages. </p>
+          <p>
+	    Own Id: OTP-9614</p>
+        </item>
+        <item>
+	    <p> Fix syntax bug in eix files. </p>
+          <p>
+	    Own Id: OTP-9617</p>
+        </item>
+        <item>
+	    <p> Bug fix concerning the generation of manpages. </p>
+          <p>
+	    Own Id: OTP-9759</p>
+        </item>
+        <item>
+	    <p> Fixed an arity calculation bug for erlang functions
+	    in the documentation index for html and pdf. </p>
+          <p>
+	    Own Id: OTP-9772</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> The docbuilder application is removed in R15 and
+	    parts still used in the OTP documentation build process
+	    and the DTD documentation is moved to erl_docgen. </p>
+          <p>
+	    Own Id: OTP-9721</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Docgen 0.2.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

@@ -30,6 +30,297 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 1.18</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improved algorithm in module <c>random</c>. Avoid seed
+	    values that are even divisors of the primes and by that
+	    prevent getting sub-seeds that are stuck on zero. Worst
+	    case was random:seed(0,0,0) that produced a series of
+	    only zeros. This is an incompatible change in the sense
+	    that applications that relies on reproducing a specific
+	    series for a given seed will fail. The pseudo random
+	    output is still deterministic but different compared to
+	    earlier versions.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-8713</p>
+        </item>
+        <item>
+	    <p> Calls to <c>global:whereis_name/1</c> have been
+	    substituted for calls to
+	    <c>global:safe_whereis_name/1</c> since the latter is not
+	    safe at all.</p>
+	    <p>The reason for not doing this earlier is that setting
+	    a global lock masked out a bug concerning the restart of
+	    supervised children. The bug has now been fixed by a
+	    modification of <c>global:whereis_name/1</c>. (Thanks to
+	    Ulf Wiger for code contribution.)</p>
+	    <p>A minor race conditions in <c>gen_fsm:start*</c> has
+	    been fixed: if one of these functions returned <c>{error,
+	    Reason}</c> or ignore, the name could still be registered
+	    (either locally or in <c>global</c>. (This is the same
+	    modification as was done for gen_server in OTP-7669.)</p>
+	    <p>The undocumented function
+	    <c>global:safe_whereis_name/1</c> has been removed. </p>
+          <p>
+	    Own Id: OTP-9212 Aux Id: seq7117, OTP-4174 </p>
+        </item>
+        <item>
+          <p>
+	    If a child of a supervisor terminates with reason
+	    {shutdown,Term} it is now handled by the supervisor as if
+	    the reason was 'shutdown'. </p>
+          <p>
+	    For children with restart type 'permanent', this implies
+	    no change. For children with restart type 'transient',
+	    the child will no longer be restarted and no supervisor
+	    report will be written. For children with restart type
+	    'temporary', no supervisor report will be written.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-9222</p>
+        </item>
+        <item>
+          <p>
+	    Minor improvement of documentation regarding supervisor
+	    restart strategy for temporary and transient child
+	    processes.</p>
+          <p>
+	    Own Id: OTP-9381</p>
+        </item>
+        <item>
+	    <p>A Dets table with sufficiently large buckets could not
+	    always be repaired. This bug has been fixed. </p> <p>The
+	    format of Dets files has been modified. When downgrading
+	    tables created with the new system will be repaired.
+	    Otherwise the modification should not be noticeable. </p>
+          <p>
+	    Own Id: OTP-9607</p>
+        </item>
+        <item>
+	    <p> A few contracts in the <c>lists</c> module have been
+	    corrected. </p>
+          <p>
+	    Own Id: OTP-9616</p>
+        </item>
+        <item>
+          <p>
+	    Add '-callback' attributes in stdlib's behaviours</p>
+          <p>
+	    Replace the behaviour_info(callbacks) export in stdlib's
+	    behaviours with -callback' attributes for all the
+	    callbacks. Update the documentation with information on
+	    the callback attribute Automatically generate
+	    'behaviour_info' function from '-callback' attributes</p>
+          <p>
+	    'behaviour_info(callbacks)' is a special function that is
+	    defined in a module which describes a behaviour and
+	    returns a list of its callbacks.</p>
+          <p>
+	    This function is now automatically generated using the
+	    '-callback' specs. An error is returned by lint if user
+	    defines both '-callback' attributes and the
+	    behaviour_info/1 function. If no type info is needed for
+	    a callback use a generic spec for it. Add '-callback'
+	    attribute to language syntax</p>
+          <p>
+	    Behaviours may define specs for their callbacks using the
+	    familiar spec syntax, replacing the '-spec' keyword with
+	    '-callback'. Simple lint checks are performed to ensure
+	    that no callbacks are defined twice and all types
+	    referred are declared.</p>
+          <p>
+	    These attributes can be then used by tools to provide
+	    documentation to the behaviour or find discrepancies in
+	    the callback definitions in the callback module.</p>
+          <p>
+	    Add callback specs into 'application' module in kernel
+	    Add callback specs to tftp module following internet
+	    documentation Add callback specs to inets_service module
+	    following possibly deprecated comments</p>
+          <p>
+	    Own Id: OTP-9621</p>
+        </item>
+        <item>
+	    <p> If a Dets table had been properly closed but the
+	    space management data could not been read, it was not
+	    possible to repair the file. This bug has been fixed.
+	    </p>
+          <p>
+	    Own Id: OTP-9622</p>
+        </item>
+        <item>
+          <p>
+	    The Unicode noncharacter code points 16#FFFE and 16#FFFE
+	    were not allowed to be encoded or decoded using the
+	    <c>unicode</c> module or bit syntax. That was
+	    inconsistent with the other noncharacters 16#FDD0 to
+	    16#FDEF that could be encoded/decoded. To resolve the
+	    inconsistency, 16#FFFE and 16#FFFE can now be encoded and
+	    decoded. (Thanks to Alisdair Sullivan.)</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-9624</p>
+        </item>
+        <item>
+          <p>
+	    Make epp search directory of current file first when
+	    including another file This completes a partial fix in
+	    R11 that only worked for include_lib(). (Thanks to
+	    Richard Carlsson)</p>
+          <p>
+	    Own Id: OTP-9645</p>
+        </item>
+        <item>
+          <p>
+	    ms_transform: Fix incorrect `variable shadowed' warnings</p>
+          <p>
+	    This patch removes incorrect passing of variable bindings
+	    from one function clause to another. (Thanks to Haitao
+	    Li)</p>
+          <p>
+	    Own Id: OTP-9646</p>
+        </item>
+        <item>
+          <p>
+	    Explicitly kill dynamic children in supervisors</p>
+          <p>
+	    According to the supervisor's documentation: "Important
+	    note on simple-one-for-one supervisors: The dynamically
+	    created child processes of a simple-one-for-one
+	    supervisor are not explicitly killed, regardless of
+	    shutdown strategy, but are expected to terminate when the
+	    supervisor does (that is, when an exit signal from the
+	    parent process is received)."</p>
+          <p>
+	    All is fine as long as we stop simple_one_for_one
+	    supervisor manually. Dynamic children catch the exit
+	    signal from the supervisor and leave. But, if this
+	    happens when we stop an application, after the top
+	    supervisor has stopped, the application master kills all
+	    remaining processes associated to this application. So,
+	    dynamic children that trap exit signals can be killed
+	    during their cleanup (here we mean inside terminate/2).
+	    This is unpredictable and highly time-dependent.</p>
+          <p>
+	    In this commit, supervisor module is patched to
+	    explicitly terminate dynamic children accordingly to the
+	    shutdown strategy.</p>
+          <p>
+	    NOTE: Order in which dynamic children are stopped is not
+	    defined. In fact, this is "almost" done at the same time.</p>
+          <p>
+	    Stack errors when dynamic children are stopped</p>
+          <p>
+	    Because a simple_one_for_one supervisor can have many
+	    workers, we stack errors during its shutdown to report
+	    only one message for each encountered error type. Instead
+	    of reporting the child's pid, we use the number of
+	    concerned children. (Thanks to Christopher Faulet)</p>
+          <p>
+	    Own Id: OTP-9647</p>
+        </item>
+        <item>
+          <p>
+	    Allow an infinite timeout to shutdown worker processes</p>
+          <p>
+	    Now, in child specification, the shutdown value can also
+	    be set to infinity for worker children. This restriction
+	    was removed because this is not always possible to
+	    predict the shutdown time for a worker. This is highly
+	    application-dependent. Add a warning to docs about
+	    workers' shutdown strategy (Thanks to Christopher Faulet)</p>
+          <p>
+	    Own Id: OTP-9648</p>
+        </item>
+        <item>
+          <p>
+	    A badarg would sometimes occur in supervisor when
+	    printing error reports and the child pid was undefined.
+	    This has been corrected.</p>
+          <p>
+	    Own Id: OTP-9669</p>
+        </item>
+        <item>
+          <p>
+	    Fix re:split spec not to accept option 'global'(Thanks to
+	    Shunichi Shinohara)</p>
+          <p>
+	    Own Id: OTP-9691</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Fix a few tests that used to fail on the HiPE
+	    platform. </p>
+          <p>
+	    Own Id: OTP-9637</p>
+        </item>
+        <item>
+	    <p>Variables are now now allowed in '<c>fun M:F/A</c>' as
+	    suggested by Richard O'Keefe in EEP-23.</p>
+	    <p>The representation of '<c>fun M:F/A</c>' in the
+	    abstract format has been changed in an incompatible way.
+	    Tools that directly read or manipulate the abstract
+	    format (such as parse transforms) may need to be updated.
+	    The compiler can handle both the new and the old format
+	    (i.e. extracting the abstract format from a pre-R15 BEAM
+	    file and compiling it using compile:forms/1,2 will work).
+	    The <c>syntax_tools</c> application can also handle both
+	    formats.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-9643</p>
+        </item>
+        <item>
+          <p>
+	    Tuple funs (a two-element tuple with a module name and a
+	    function) are now officially deprecated and will be
+	    removed in R16. Use '<c>fun M:F/A</c>' instead. To make
+	    you aware that your system uses tuple funs, the very
+	    first time a tuple fun is applied, a warning will be sent
+	    to the error logger.</p>
+          <p>
+	    Own Id: OTP-9649</p>
+        </item>
+        <item>
+          <p>
+	    The deprecated '<c>regexp</c>' module has been removed.
+	    Use the '<c>re</c>' module instead.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-9737</p>
+        </item>
+        <item>
+          <p>
+	    <c>filename:find_src/1,2</c> will now work on stripped
+	    BEAM files (reported by Per Hedeland). The HiPE compiler
+	    will also work on stripped BEAM files. The BEAM compiler
+	    will no longer include compilation options given in the
+	    source code itself in <c>M:module_info(compile)</c>
+	    (because those options will be applied anyway if the
+	    module is re-compiled).</p>
+          <p>
+	    Own Id: OTP-9752</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 1.17.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

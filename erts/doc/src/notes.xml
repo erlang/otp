@@ -30,6 +30,478 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 5.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Honor option <c>packet_size</c> for http packet parsing
+	    by both TCP socket and <c>erlang:decode_packet</c>. This
+	    gives the ability to accept HTTP headers larger than the
+	    default setting, but also avoid DoS attacks by accepting
+	    lines only up to whatever length you wish to allow. For
+	    consistency, packet type <c>line</c> also honor option
+	    <c>packet_size</c>. (Thanks to Steve Vinoski)</p>
+          <p>
+	    Own Id: OTP-9389</p>
+        </item>
+        <item>
+	    <p> A few contracts in the <c>lists</c> module have been
+	    corrected. </p>
+          <p>
+	    Own Id: OTP-9616</p>
+        </item>
+        <item>
+          <p>
+	    The Unicode noncharacter code points 16#FFFE and 16#FFFE
+	    were not allowed to be encoded or decoded using the
+	    <c>unicode</c> module or bit syntax. That was
+	    inconsistent with the other noncharacters 16#FDD0 to
+	    16#FDEF that could be encoded/decoded. To resolve the
+	    inconsistency, 16#FFFE and 16#FFFE can now be encoded and
+	    decoded. (Thanks to Alisdair Sullivan.)</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-9624</p>
+        </item>
+        <item>
+          <p>
+	    Make epp search directory of current file first when
+	    including another file This completes a partial fix in
+	    R11 that only worked for include_lib(). (Thanks to
+	    Richard Carlsson)</p>
+          <p>
+	    Own Id: OTP-9645</p>
+        </item>
+        <item>
+          <p>
+	    Fixed memory leak in
+	    <c>enif_inspect_io_list_as_binary</c> when applied on a
+	    process independent environment.</p>
+          <p>
+	    Own Id: OTP-9668</p>
+        </item>
+        <item>
+	    <p>The number of beam catches allowed in code are no
+	    longer statically defined and will grow according to its
+	    need.</p>
+          <p>
+	    Own Id: OTP-9692</p>
+        </item>
+        <item>
+          <p>
+	    Add missing parenthesis in heart doc.</p>
+          <p>
+	    Add missing spaces in the Reference Manual distributed
+	    section.</p>
+          <p>
+	    In the HTML version of the doc those spaces are necessary
+	    to separate those words.</p>
+          <p>
+	    Own Id: OTP-9693</p>
+        </item>
+        <item>
+          <p>
+	    Fixes module erlang doc style: option description (Thanks
+	    to Ricardo Catalinas Jiménez)</p>
+          <p>
+	    Own Id: OTP-9697</p>
+        </item>
+        <item>
+          <p>
+	    Specifying a scope to binary:match/3 when using multiple
+	    searchstrings resulted in faulty return values. This is
+	    now corrected.</p>
+          <p>
+	    Own Id: OTP-9701</p>
+        </item>
+        <item>
+          <p>
+	    The runtime system crashed if more than one thread tried
+	    to exit the runtime system at the same time.</p>
+          <p>
+	    Own Id: OTP-9705</p>
+        </item>
+        <item>
+          <p>
+	    Fix documentation for erlang:process_flag/2</p>
+          <p>
+	    For the subsection about process_flag(save_calls, N)
+	    there's an unrelated paragraph about process priorities
+	    which was copied from the preceeding subsection regarding
+	    process_flag(priority, Level). (Thanks to Filipe David
+	    Manana)</p>
+          <p>
+	    Own Id: OTP-9714</p>
+        </item>
+        <item>
+          <p>
+	    Calls to <c>erlang:system_flag(schedulers_online, N)</c>
+	    and/or <c>erlang:system_flag(multi_scheduling,
+	    block|unblock)</c> could cause internal data used by this
+	    functionality to get into an inconsistent state. When
+	    this happened various problems occurred. This bug was
+	    quite hard to trigger, so hopefully no-one has been
+	    effected by it.</p>
+          <p>
+	    A spinlock used by the run-queue management sometimes got
+	    heavily contended. This code has now been rewritten, and
+	    the spinlock has been removed.</p>
+          <p>
+	    Own Id: OTP-9727</p>
+        </item>
+        <item>
+          <p>
+	    Use libdlpi to get physical address (Thanks to Trond
+	    Norbye)</p>
+          <p>
+	    Own Id: OTP-9818</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> An option list argument can now be passed to
+	    <c>file:read_file_info/2, file:read_link_info/2</c> and
+	    <c>file:write_file_info/3</c> and set time type
+	    information in the call. Valid options are <c>{time,
+	    local}, {time, universal}</c> and <c>{time, posix}</c>.
+	    In the case of <c>posix</c> time no conversions are made
+	    which makes the operation a bit faster. </p>
+          <p>
+	    Own Id: OTP-7687</p>
+        </item>
+        <item>
+	    <p>A number of memory allocation optimizations have been
+	    implemented. Most optimizations reduce contention caused
+	    by synchronization between threads during allocation and
+	    deallocation of memory. Most notably:</p> <list> <item>
+	    Synchronization of memory management in scheduler
+	    specific allocator instances has been rewritten to use
+	    lock-free synchronization. </item> <item> Synchronization
+	    of memory management in scheduler specific pre-allocators
+	    has been rewritten to use lock-free synchronization.
+	    </item> <item> The 'mseg_alloc' memory segment allocator
+	    now use scheduler specific instances instead of one
+	    instance. Apart from reducing contention this also
+	    ensures that memory allocators always create memory
+	    segments on the local NUMA node on a NUMA system. </item>
+	    </list>
+          <p>
+	    Own Id: OTP-7775</p>
+        </item>
+        <item>
+          <p>
+	    The ethread atomic memory operations API used by the
+	    runtime system has been extended and improved.</p>
+          <p>
+	    The ethread library now also performs runtime tests for
+	    presence of hardware features, such as for example SSE2
+	    instructions, instead of requiring this to be determined
+	    at compile time.</p>
+          <p>
+	    All uses of the old deprecated atomic API in the runtime
+	    system have been replaced with the use of the new atomic
+	    API. In a lot of places this change imply a relaxation of
+	    memory barriers used.</p>
+          <p>
+	    Own Id: OTP-9014</p>
+        </item>
+        <item>
+	    <p>gen_sctp:open/0-2 may now return
+	    {error,eprotonosupport} if SCTP is not supported</p>
+	    <p>gen_sctp:peeloff/1 has been implemented and creates a
+	    one-to-one socket which also are supported now</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-9239</p>
+        </item>
+        <item>
+          <p>
+	    Sendfile has been added to the file module's API.
+	    sendfile/2 is used to read data from a file and send it
+	    to a tcp socket using a zero copying mechanism if
+	    available on that OS.</p>
+          <p>
+	    Thanks to Tuncer Ayaz and Steve Vinovski for original
+	    implementation</p>
+          <p>
+	    Own Id: OTP-9240</p>
+        </item>
+        <item>
+          <p>
+	    enif_get_reverse_list function added to nif API. This
+	    function should be used to reverse small lists which are
+	    deep within other structures making it impractical to do
+	    the reverse in Erlang.</p>
+          <p>
+	    Own Id: OTP-9392</p>
+        </item>
+        <item>
+          <p>
+	    The deprecated concat_binary/1 BIF has been removed. Use
+	    <c>list_to_binary</c> or <c>iolist_to_binary/1</c>
+	    instead.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-9421</p>
+        </item>
+        <item>
+	    <p>Erlang/OTP can now be built using parallel make if you
+	    limit the number of jobs, for instance using '<c>make
+	    -j6</c>' or '<c>make -j10</c>'. '<c>make -j</c>' does not
+	    work at the moment because of some missing
+	    dependencies.</p>
+          <p>
+	    Own Id: OTP-9451</p>
+        </item>
+        <item>
+	    <p>Line number and filename information are now included
+	    in exception backtraces as a fourth element in the MFA
+	    tuple. The information will be pretty-printed by the
+	    shell and used by <c>common_test</c> to provide better
+	    indication of where a test case.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-9468</p>
+        </item>
+        <item>
+	    <p>All binary constants used to be handled as heap
+	    binaries (i.e. the entire binary would be copied when
+	    sent to another process). Binary constants larger than 64
+	    bytes are now refc binaries (i.e. the actual data in the
+	    binary will not be copied when sent to another
+	    process).</p>
+          <p>
+	    Own Id: OTP-9486</p>
+        </item>
+        <item>
+          <p>
+	    If a float and an integer is compared, the integer is
+	    only converted to a float if the float datatype can
+	    contain it. Otherwise the float is converted to an
+	    integer.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-9497</p>
+        </item>
+        <item>
+          <p>
+	    Add NIF function enif_is_number</p>
+          <p>
+	    This function allows for easily determining if a term
+	    represents or not a number (integer, float, small or
+	    big).(Thanks to Filipe David Manana)</p>
+          <p>
+	    Own Id: OTP-9629</p>
+        </item>
+        <item>
+          <p>
+	    The ERTS internal system block functionality has been
+	    replaced by new functionality for blocking the system.
+	    The old system block functionality had contention issues
+	    and complexity issues. The new functionality piggy-backs
+	    on thread progress tracking functionality needed by newly
+	    introduced lock-free synchronization in the runtime
+	    system. When the functionality for blocking the system
+	    isn't used, there is more or less no overhead at all.
+	    This since the functionality for tracking thread progress
+	    is there and needed anyway.</p>
+          <p>
+	    Own Id: OTP-9631</p>
+        </item>
+        <item>
+          <p>
+	    An ERTS internal, generic, many to one, lock-free queue
+	    for communication between threads has been introduced.
+	    The many to one scenario is very common in ERTS, so it
+	    can be used in a lot of places in the future. Currently
+	    it is used by scheduling of certain jobs, and the async
+	    thread pool, but more uses are planned for the future.</p>
+          <p>
+	    Drivers using the driver_async functionality are not
+	    automatically locked to the system anymore, and can be
+	    unloaded as any dynamically linked in driver.</p>
+          <p>
+	    Scheduling of ready async jobs is now also interleaved in
+	    between other jobs. Previously all ready async jobs were
+	    performed at once.</p>
+          <p>
+	    Own Id: OTP-9632</p>
+        </item>
+        <item>
+          <p>
+	    Tuple funs (a two-element tuple with a module name and a
+	    function) are now officially deprecated and will be
+	    removed in R16. Use '<c>fun M:F/A</c>' instead. To make
+	    you aware that your system uses tuple funs, the very
+	    first time a tuple fun is applied, a warning will be sent
+	    to the error logger.</p>
+          <p>
+	    Own Id: OTP-9649</p>
+        </item>
+        <item>
+          <p>
+	    Changed the internal BIF calling convention. Will make
+	    simpler faster code and allow BIFs with an arbitrary
+	    arity.</p>
+          <p>
+	    Own Id: OTP-9662</p>
+        </item>
+        <item>
+          <p>
+	    Windows native critical sections are now used internally
+	    in the runtime system on Windows as mutex implementation.
+	    This since they perform better under extreme contention
+	    than our own implementation.</p>
+          <p>
+	    Own Id: OTP-9671</p>
+        </item>
+        <item>
+          <p>
+	    Convert some erl_nif macros into inline functions. Allow
+	    for better compile time type checking. (Thanks to Tuncer
+	    Ayaz)</p>
+          <p>
+	    Own Id: OTP-9675</p>
+        </item>
+        <item>
+          <p>
+	    The <c>+scl</c> command line flag has been added. It can
+	    be used for disabling compaction of scheduler load. For
+	    more information see the <c>erl(1)</c> documentation.</p>
+          <p>
+	    Own Id: OTP-9695</p>
+        </item>
+        <item>
+	    <p>The build system has been updated so that Erlang/OTP
+	    can be built on Mac OS X Lion systems without a GCC
+	    compiler. The INSTALL guide has been updated with
+	    instructions on how to install a GCC compiler and build
+	    Erlang/OTP with it, in order to get a run-time system
+	    with better performance.</p>
+          <p>
+	    Own Id: OTP-9712</p>
+        </item>
+        <item>
+          <p>
+	    When loading a module, the system use to run on a single
+	    scheduler during the entire loading process. This has
+	    been changed to only take down the system just before
+	    inserting the loaded code into the system tables,
+	    resulting in a much shorter disruption if a module is
+	    loaded in a busy system. (Suggested by Bob Ippolito.)</p>
+          <p>
+	    Own Id: OTP-9720</p>
+        </item>
+        <item>
+          <p>
+	    Possible to run HiPE without floating point exceptions
+	    (FPE). Useful on platforms that lack reliable FPE. Slower
+	    float operations compared to HiPE with FPE.</p>
+          <p>
+	    Own Id: OTP-9724</p>
+        </item>
+        <item>
+          <p>
+	    As of ERTS version 5.9 (OTP-R15B) the runtime system will
+	    by default <em>not</em> bind schedulers to logical
+	    processors.</p>
+          <p>
+	    If the Erlang runtime system is the only operating system
+	    process that binds threads to logical processors, this
+	    improves the performance of the runtime system. However,
+	    if other operating system processes (as for example
+	    another Erlang runtime system) also bind threads to
+	    logical processors, there might be a performance penalty
+	    instead. In some cases this performance penalty might be
+	    severe. Due to this, we change the default so that the
+	    user must make an active decision in order to bind
+	    schedulers.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-9726</p>
+        </item>
+        <item>
+          <p>
+	    The use of <c>erlang:system_flag(scheduler_bind_type,
+	    _)</c> and <c>erlang:system_flag(cpu_topology, _)</c>
+	    have been deprecated and scheduled for removal in
+	    erts-5.10/OTP-R16. For more information see the
+	    documentation of <c>erlang:system_flag/2</c>.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-9749</p>
+        </item>
+        <item>
+          <p>
+	    An ancient workaround for a Windows bug was removed from
+	    the open_port code, open_port({spawn,...}...) is now
+	    faster. Thanks to Daniel Goertzen.</p>
+          <p>
+	    Own Id: OTP-9766</p>
+        </item>
+        <item>
+          <p>
+	    The use of deprecated 32bit time_t on 32bit Windows is
+	    removed.</p>
+          <p>
+	    Own Id: OTP-9767</p>
+        </item>
+        <item>
+          <p>
+	    The NIF <c>reload</c> mechanism is deprecated. Do not use
+	    it as an upgrade method for live production systems. It
+	    might be removed in future releases. It can still serve
+	    as a development feature but a warning message will be
+	    logged each time it is used.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-9771</p>
+        </item>
+        <item>
+	    <p>The driver interface has been changed to enable 64-bit
+	    aware drivers. Most importantly the return types for
+	    ErlDrvEntry callbacks 'call' and 'control' has ben
+	    enlarged which require drivers to be changed or they will
+	    cause emulator crashes. See <seealso
+	    marker="erl_driver#rewrites_for_64_bits"> Rewrites for
+	    64-bit driver interface </seealso> in the driver manual.
+	    </p>
+	    <p>Due to this driver <seealso
+	    marker="erl_driver#version_management">version
+	    management</seealso> is now mandatory. A driver that is
+	    not written with version management or a driver that was
+	    compiled with the wrong major version will be not be
+	    loaded by the emulator.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-9795</p>
+        </item>
+        <item>
+          <p>
+	    Eliminate use of deprecated regexp module</p>
+          <p>
+	    Own Id: OTP-9810</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 5.8.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -34,6 +34,28 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 0.14</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    public_key, ssl and crypto now supports PKCS-8</p>
+          <p>
+	    Own Id: OTP-9312</p>
+        </item>
+        <item>
+          <p>
+	    The asn1 decoder/encoder now uses a runtime nif from the
+	    asn1 application if it is available.</p>
+          <p>
+	    Own Id: OTP-9414</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 0.13</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

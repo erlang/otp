@@ -30,6 +30,83 @@
   </header>
   <p>This document describes the changes made to HiPE.</p>
 
+<section><title>Hipe 3.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    <list> <item><p>No warnings for underspecs with remote
+	    types</p></item> <item><p> Fix crash in Typer</p></item>
+	    <item><p>Fix Dialyzer's warning for its own
+	    code</p></item> <item><p>Fix Dialyzer's warnings in
+	    HiPE</p></item> <item><p>Add file/line info in a
+	    particular Dialyzer crash</p></item> <item><p>Update
+	    inets test results</p></item> </list></p>
+          <p>
+	    Own Id: OTP-9758</p>
+        </item>
+        <item>
+          <p>
+	    <list> <item><p>Correct callback spec in application
+	    module</p></item> <item><p>Refine warning about callback
+	    specs with extra ranges</p></item> <item><p>Cleanup
+	    autoimport compiler directives</p></item> <item><p>Fix
+	    Dialyzer's warnings in typer</p></item> <item><p>Fix
+	    Dialyzer's warning for its own code</p></item>
+	    <item><p>Fix bug in Dialyzer's behaviours
+	    analysis</p></item> <item><p>Fix crash in
+	    Dialyzer</p></item> <item><p>Variable substitution was
+	    not generalizing any unknown variables.</p></item>
+	    </list></p>
+          <p>
+	    Own Id: OTP-9776</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Possible to run HiPE without floating point exceptions
+	    (FPE). Useful on platforms that lack reliable FPE. Slower
+	    float operations compared to HiPE with FPE.</p>
+          <p>
+	    Own Id: OTP-9724</p>
+        </item>
+        <item>
+          <p>
+	    HiPE compiler: The possibility to compile and load
+	    selected functions from a module has been removed.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-9751</p>
+        </item>
+        <item>
+          <p>
+	    <c>filename:find_src/1,2</c> will now work on stripped
+	    BEAM files (reported by Per Hedeland). The HiPE compiler
+	    will also work on stripped BEAM files. The BEAM compiler
+	    will no longer include compilation options given in the
+	    source code itself in <c>M:module_info(compile)</c>
+	    (because those options will be applied anyway if the
+	    module is re-compiled).</p>
+          <p>
+	    Own Id: OTP-9752</p>
+        </item>
+        <item>
+	    <p> Optimize <c>erl_types:t_unify()</c>. </p>
+          <p>
+	    Own Id: OTP-9768</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Hipe 3.8.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

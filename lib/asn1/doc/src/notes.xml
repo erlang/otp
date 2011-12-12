@@ -31,6 +31,57 @@
   <p>This document describes the changes made to the asn1 application.</p>
 
 
+<section><title>Asn1 1.6.19</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The linked-in driver used for ber decode and per encode
+	    has been replaced with nifs. To enable the usage of nifs
+	    pass the nif option to erlc or asn1rt:compile when
+	    compiling. If you previously used the linked-in driver,
+	    you have to recompile your ASN1 modules with the current
+	    version of asn1 application as the linked-in driver
+	    modules have been removed.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-9419</p>
+        </item>
+        <item>
+          <p>
+	    A few of the heavy calculations which are done for
+	    encoding and decoding operations when dealing with
+	    SEQUENCE OF and DEFAULT in runtime have been moved to be
+	    done in compile time instead.</p>
+          <p>
+	    Own Id: OTP-9440</p>
+        </item>
+        <item>
+          <p>
+	    When compiling an ASN.1 ber module with the +nif option,
+	    the module will use a new nif for ber encoding,
+	    increasing performance by about 5%.</p>
+          <p>
+	    Own Id: OTP-9441</p>
+        </item>
+        <item>
+          <p>
+	    Tuple funs (a two-element tuple with a module name and a
+	    function) are now officially deprecated and will be
+	    removed in R16. Use '<c>fun M:F/A</c>' instead. To make
+	    you aware that your system uses tuple funs, the very
+	    first time a tuple fun is applied, a warning will be sent
+	    to the error logger.</p>
+          <p>
+	    Own Id: OTP-9649</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Asn1 1.6.18</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
