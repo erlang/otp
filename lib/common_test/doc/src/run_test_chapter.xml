@@ -412,6 +412,16 @@
       the way from <c>init_per_suite</c> down to the test cases in the
       sub group).</p>
 
+    <p>With the <c>GroupSpec</c> element (below) it's possible to specify
+      group execution properties that will override those specified in the
+      group definition (i.e. in <c>groups/0</c>). Execution properties for
+      sub-groups may be overridden as well. This feature makes it possible to
+      change properties of groups at the time of execution,
+      without even having to edit the test suite. More detailed documentation,
+      and examples, can be found in the
+      <seealso marker="write_test_chapter#test_case_groups">
+      Test case groups</seealso> chapter.</p>
+
     <p>Below is the test specification syntax. Test specifications can
       be used to run tests both in a single test host environment and
       in a distributed Common Test environment (Large Scale
@@ -475,8 +485,8 @@
       {groups, DirRef, Suite, Groups}.
       {groups, NodeRefsDirRef, Suite, Groups}.
 
-      {groups, DirRef, Suite, Group, {cases,Cases}}.
-      {groups, NodeRefsDirRef, Suite, Group, {cases,Cases}}.
+      {groups, DirRef, Suite, GroupSpec, {cases,Cases}}.
+      {groups, NodeRefsDirRef, Suite, GroupSpec, {cases,Cases}}.
 
       {cases, DirRef, Suite, Cases}.                           
       {cases, NodeRefs, DirRef, Suite, Cases}.
@@ -510,7 +520,8 @@
       DirRef        = DirAlias | Dir
       Suites        = atom() | [atom()] | all
       Suite         = atom()
-      Groups        = atom() | [atom()] | all
+      Groups        = GroupSpec | [GroupSpec] | all
+      GroupSpec     = Group | {Group,Properties} | {Group,Properties,GroupSpec}
       Group         = atom()
       Cases         = atom() | [atom()] | all
       Comment       = string() | ""
@@ -644,14 +655,25 @@
 	to each individual test case log file for quick viewing with an HTML 
 	browser.</p>
       
-      <p>The minor log file contain full details of every single test
-	case, each one in a separate file. This way the files should
-	be easy to compare with previous test runs, even if the set of
-	test cases change. If SASL is running those logs will also be
-        printed there by the
+      <p>The minor log files contain full details of every single test
+	case, each one in a separate file. This way, it should be
+	straightforward	to compare the latest results to that of previous
+	test runs, even if the set of test cases changes. If SASL is running,
+	its logs will also be printed to the current minor log file by the
 	<seealso marker="common_test:ct_hooks_chapter#builtin_cths">
 	  cth_log_redirect built-in hook</seealso>.
-        </p>
+      </p>
+
+      <p>The full name of the minor log file (i.e. the name of the file
+	including the absolute directory path) can be read during execution
+	of the test case. It comes as value in the tuple
+	<c>{tc_logfile,LogFileName}</c> in the <c>Config</c> list (which means it
+	can also be read by a pre- or post Common Test hook function). Also,
+	at the start of a test case, this data is sent with an event
+	to any installed event handler.	Please see the
+	<seealso marker="event_handler_chapter#event_handling">Event Handling</seealso>
+	chapter for details.
+      </p>
       
       <p>Which information goes where is user configurable via the
 	test server controller. Three threshold values determine what
@@ -693,8 +715,15 @@
       <section>
 	<marker id="html_stylesheet"></marker>
 	<title>HTML Style Sheets</title>
-	<p>Common Test includes the <em>optional</em> feature to use
-	  HTML style sheets (CSS) for customizing user printouts. The
+	<p>Common Test uses a CSS file to control the look of the HTML
+	  files generated during test runs. If, for some reason, the
+	  log files are not displayed correctly in the HTML browser of your
+	  choice, or you prefer the "pre Common Test v1.6 look"
+	  of the log files (i.e. not using CSS), use the start flag/option
+	  <c>basic_html</c> to revert to the old style.</p>
+	  
+	<p>Common Test includes an <em>optional</em> feature to allow
+	  user HTML style sheets for customizing printouts. The
 	  functions in <c>ct</c> that print to a test case HTML log
 	  file (<c>log/3</c> and <c>pal/3</c>) accept <c>Category</c>
 	  as first argument. With this argument it's possible to
@@ -708,22 +737,16 @@
 	  look like this:</p>
 
 	<pre>
-&lt;style&gt;
-  div.ct_internal { background:lightgrey; color:black }
-  div.default     { background:lightgreen; color:black }
-  div.sys_config  { background:blue; color:white }
-  div.sys_state   { background:yellow; color:black }
-  div.error       { background:red; color:white }
-&lt;/style&gt;
-	</pre>
+	  div.sys_config  { background:blue; color:white }
+	  div.sys_state   { background:yellow; color:black }
+	  div.error       { background:red; color:white }</pre>
 
 	<p>To install the CSS file (Common Test inlines the definition in the 
 	  HTML code), the name may be provided when executing <c>ct_run</c>.
 	  Example:</p>
 
 	<pre>
-	  $ ct_run -dir $TEST/prog -stylesheet $TEST/styles/test_categories.css
-	</pre>
+	  $ ct_run -dir $TEST/prog -stylesheet $TEST/styles/test_categories.css</pre>
 
 	  <p>Categories in a CSS file installed with the <c>-stylesheet</c> flag
 	    are on a global test level in the sense that they can be used in any 
@@ -744,8 +767,7 @@
 	      ct:log(sys_state, "Connections: ~p", [ConnectionInfo]),
 	      ...
 	      ct:pal(error, "Error ~p detected! Info: ~p", [SomeFault,ErrorInfo]),
-	      ct:fail(SomeFault).
-	  </pre>
+	      ct:fail(SomeFault).</pre>
 
 	<p>If the style sheet is installed as in this example, the categories are 
 	  private to the suite in question. They can be used by all test cases in the 
@@ -769,21 +791,6 @@
 	<p>The <c>Category</c> argument in the example above may have the
 	  value (atom) <c>sys_config</c> (white on blue), <c>sys_state</c>
 	  (black on yellow) or <c>error</c> (white on red).</p>
-
-	<p>If the <c>Category</c> argument is not specified, Common Test will
-	  use the CSS selector <c>div.default</c> for the
-	  printout. For this reason a user supplied style sheet must
-	  include this selector. Also the selector
-	  <c>div.ct_internal</c> must be included. Hence a minimal
-	  user style sheet should look like this (which is also the
-	  default style sheet Common Test uses if no user CSS file is
-	  provided):</p>
-	<pre>
-	  &lt;style&gt;
-	  div.ct_internal { background:lightgrey; color:black }
-	  div.default     { background:lightgreen; color:black }
-	  &lt;/style&gt;
-	</pre>	  
   </section>
 
   <section>

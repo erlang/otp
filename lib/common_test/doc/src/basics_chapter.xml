@@ -28,54 +28,65 @@
     <rev></rev>
     <file>basics_chapter.xml</file>
   </header>
-
+  <marker id="basics"></marker>
   <section>
     <title>Introduction</title>
 
-    <p>
-      The Common Test framework (CT) is a tool which can support
-      implementation and automated execution of test cases towards different
-      types of target systems. The framework is based on the OTP Test
-      Server. Test cases can be run individually or in batches. Common
-      Test also features a distributed testing mode with central
-      control and logging. This feature makes it possible to test
-      multiple systems independently in one common session. This
-      can be very useful e.g. for running automated large-scale regression 
-      tests.
+    <p>The <em>Common Test</em> framework (CT) is a tool which supports
+      implementation and automated execution of test cases towards arbitrary
+      types of target systems. The CT framework is based on the OTP Test
+      Server and it's the main tool being used in all testing- and verification
+      activities that are part of Erlang/OTP system development- and maintenance.
+    </p>
+
+    <p>Test cases can be executed individually or in batches. Common Test
+      also features a distributed testing mode with central control and logging
+      (a feature that makes it possible to test multiple systems independently in
+      one common session, useful e.g. for running automated large-scale regression
+      tests).
     </p>
 
     <p>
       The SUT (System Under Test) may consist of one or several target
-      nodes.  CT contains a generic test server which together with
-      other test utilities is used to perform test case execution. 
-      It is possible to start the tests from the CT GUI or from an OS- or
-      Erlang shell prompt. <em>Test suites</em> are files (Erlang
+      nodes. CT contains a generic test server which, together with
+      other test utilities, is used to perform test case execution. 
+      It is possible to start the tests from a GUI or from the OS- or
+      Erlang shell. <em>Test suites</em> are files (Erlang
       modules) that contain the <em>test cases</em> (Erlang functions)
       to be executed. <em>Support modules</em> provide functions
       that the test cases utilize in order to carry out the tests.
     </p>
     
-    <p>
-      The main idea is that CT based test programs connect to
-      the target system(s) via standard O&amp;M interfaces. CT
-      provides implementations and wrappers of some of these O&amp;M
-      interfaces and will be extended with more interfaces later. 
-      There are a number of target independent interfaces
-      supported in CT such as Generic Telnet, FTP etc. which can be
-      specialized or used directly for controlling instruments, 
-      traffic generators etc.</p> 
+    <p>In a black-box testing scenario, CT based test programs connect to
+      the target system(s) via standard O&amp;M and CLI protocols. CT
+      provides implementations of, and wrapper interfaces to, some of these
+      protocols (most of which exist as stand-alone components and
+      applications in OTP). The wrappers simplify configuration and add
+      verbosity for logging purposes. CT will be continously extended with
+      useful support modules. (Note however that it's
+      a straightforward task to use any arbitrary Erlang/OTP component
+      for testing purposes with Common Test, without needing a CT wrapper
+      for it. It's as simple as calling Erlang functions). There
+      are a number of target independent interfaces supported in CT, such as
+      Generic Telnet, FTP, etc, which can be specialized or used
+      directly for controlling instruments, traffic load generators, etc.
+    </p> 
     
     <p>Common Test is also a very useful tool for white-box testing Erlang
-      code since the test programs can call Erlang API functions directly. 
-      For black-box testing Erlang software, Erlang RPC as well as 
-      standard O&amp;M interfaces can be used.
+      code (e.g. module testing), since the test programs can call exported Erlang
+      functions directly and there's very little overhead required for
+      implementing basic test suites and executing simple tests. For black-box
+      testing Erlang software, Erlang RPC as well as standard O&amp;M interfaces
+      can for example be used.
     </p>
     
     <p>A test case can handle several connections towards one or
       several target systems, instruments and traffic generators in
       parallel in order to perform the necessary actions for a
       test. The handling of many connections in parallel is one of
-      the major strengths of Common Test!      
+      the major strengths of Common Test (thanks to the efficient
+      support for concurrency in the Erlang runtime system - which CT users
+      can take great advantage of!).
     </p>
   </section>
 
@@ -186,7 +197,7 @@
     
     <taglist>
       <tag>all()</tag>
-        <item>Returns a list of all test cases in the suite. (Mandatory)</item>
+        <item>Returns a list of all test cases and groups in the suite. (Mandatory)</item>
       <tag>suite()</tag>
         <item>Info function used to return properties for the suite. (Optional)</item>
       <tag>groups()</tag>
@@ -197,12 +208,14 @@
       <tag>end_per_suite(Config)</tag>
         <item>Suite level configuration function, executed after the last 
 	test case. (Optional)</item>
+      <tag>group(GroupName)</tag>
+        <item>Info function used to return properties for a test case group. (Optional)</item>	
       <tag>init_per_group(GroupName, Config)</tag>
         <item>Configuration function for a group, executed before the first 
-	test case. (Mandatory if groups are defined)</item>
+	test case. (Optional)</item>
       <tag>end_per_group(GroupName, Config)</tag>
         <item>Configuration function for a group, executed after the last 
-	test case. (Mandatory if groups are defined)</item>
+	test case. (Optional)</item>
       <tag>init_per_testcase(TestCase, Config)</tag>
         <item>Configuration function for a testcase, executed before each 
 	test case. (Optional)</item>

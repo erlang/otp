@@ -68,7 +68,7 @@
 
     <p>Each test suite module must export the function <c>all/0</c>
       which returns the list of all test case groups and test cases 
-      in that module. 
+      to be executed in that module. 
     </p>
 
   </section>
@@ -369,10 +369,12 @@
     <title>Test suite info function</title>
 
       <p>The <c>suite/0</c> function can be used in a test suite
-	module to set the default values for the <c>timetrap</c> and
-	<c>require</c> tags. If a test case info function also specifies
-	any of these tags, the default value is overruled. See above for
-	more information.
+	module to e.g. set a default <c>timetrap</c> value and to
+	<c>require</c> external configuration data. If a test case-, or
+	group info function also specifies any of the info tags, it
+	overrides the default values set by <c>suite/0</c>. See the test
+	case info function above, and group info function below, for more
+	details.
       </p>
       
       <p>Other options that may be specified with the suite info list are:</p>
@@ -450,11 +452,65 @@
     <pre>
       all() -> [testcase1, {group,group1}, testcase2, {group,group2}].</pre>
 
-    <p>Properties may be combined so that e.g. if <c>shuffle</c>, 
-    <c>repeat_until_any_fail</c> and <c>sequence</c> are all specified, the test 
-    cases in the group will be executed repeatedly and in random order until
-    a test case fails, when execution is immediately stopped and the rest of 
-    the cases skipped.</p>
+    <p>It is also possible to specify execution properties with a group
+      tuple in <c>all/0</c>: <c>{group,GroupName,Properties}</c>. These
+      properties will override those specified in the group definition (see
+      <c>groups/0</c> above). This way, it's possible to run the same set of tests,
+      but with different properties, without having to make copies of the group
+      definition in question.</p>
+
+    <p>If a group contains sub-groups, the execution properties for these may
+      also be specified in the group tuple:
+      <c>{group,GroupName,Properties,SubGroups}</c>, where <c>SubGroups</c>
+      is a list of tuples, <c>{GroupName,Properties}</c>, or
+      <c>{GroupName,Properties,SubGroups}</c>, representing the sub-groups.
+      Any sub-groups defined in <c>group/0</c> for a group, that are not specified
+      in the <c>SubGroups</c> list, will simply execute with their pre-defined
+      properties.</p>
+
+    <p>Example:</p>
+    <pre>
+      groups() -> {tests1, [], [{tests2, [], [t2a,t2b]},
+                                {tests3, [], [t31,t3b]}]}.</pre>
+    <p>To execute group 'tests1' twice with different properties for 'tests2'
+      each time:</p>
+    <pre>
+      all() ->
+         [{group, tests1, default, [{tests2, [parallel]}]},
+          {group, tests1, default, [{tests2, [shuffle,{repeat,10}]}]}].</pre>
+    <p>Note that this is equivalent to this specification:</p>
+    <pre>
+      all() ->
+         [{group, tests1, default, [{tests2, [parallel]},
+                                    {tests3, default}]},
+          {group, tests1, default, [{tests2, [shuffle,{repeat,10}]},
+                                    {tests3, default}]}].</pre>
+    <p>The value <c>default</c> states that the pre-defined properties
+      should be used.</p>
+    <p>Here's an example of how to override properties in a scenario
+      with deeply nested groups:</p>
+    <pre>
+      groups() ->
+         [{tests1, [], [{group, tests2}]},
+          {tests2, [], [{group, tests3}]},
+          {tests3, [{repeat,2}], [t3a,t3b,t3c]}].
+
+      all() ->
+         [{group, tests1, default, 
+           [{tests2, default,
+             [{tests3, [parallel,{repeat,100}]}]}]}].</pre>
+
+    <p>The syntax described above may also be used in Test Specifications
+      in order to change properties of groups at the time of execution,
+      without even having to edit the test suite (please see the
+      <seealso marker="run_test_chapter#test_specifications">Test
+	Specifications</seealso> chapter for more info).</p>
+
+    <p>As illustrated above, properties may be combined. If e.g.
+      <c>shuffle</c>, <c>repeat_until_any_fail</c> and <c>sequence</c>
+      are all specified, the test cases in the group will be executed
+      repeatedly, and in random order, until a test case fails. Then
+      execution is immediately stopped and the rest of the cases skipped.</p>
 
     <p>Before execution of a group begins, the configuration function
     <c>init_per_group(GroupName, Config)</c> is called (the function is
@@ -638,6 +694,51 @@
     (and other sub-groups) in the group, is also random. The order of the
     test cases in the sub-group is however not random (unless, of course, the 
     sub-group also has a <c>shuffle</c> property).</p>
+  </section>
+
+  <section>
+    <marker id="group_info"></marker>
+    <title>Group info function</title>
+
+      <p>The test case group info function, <c>group(GroupName)</c>,
+	serves the same purpose as the suite- and test case info
+	functions previously described in this chapter. The scope for
+	the group info, however, is all test cases and sub-groups in the
+	group in question (<c>GroupName</c>).</p>
+      <p>Example:</p>
+      <pre>
+	group(connection_tests) ->
+	   [{require,login_data},
+	    {timetrap,1000}].</pre>
+	
+      <p>The group info properties override those set with the
+	suite info function, and may in turn be overridden by test
+	case info properties. Please see the test case info
+	function above for a list of valid info properties and more
+	general information.</p>
+  </section>
+
+  <section>
+    <title>Info functions for init- and end-configuration</title>
+      <p>It is possible to use info functions also for the <c>init_per_suite</c>,
+	<c>end_per_suite</c>, <c>init_per_group</c>, and <c>end_per_group</c>
+	functions, and it works the same way as with info functions
+	for test cases (see above). This is useful e.g. for setting
+	timetraps and requiring external configuration data relevant
+	only for the configuration function in question (without
+	affecting properties set for groups and test cases in the suite).</p>
+
+      <p>The info function <c>init/end_per_suite()</c> is called for
+	<c>init/end_per_suite(Config)</c>, and info function
+	<c>init/end_per_group(GroupName)</c> is called for
+	<c>init/end_per_group(GroupName,Config)</c>. Info functions
+	can not be used with <c>init/end_per_testcase(TestCase, Config)</c>,
+	however, since these configuration functions execute on the test case process
+	and will use the same properties as the test case (i.e. the properties
+	set by the test case info function, <c>TestCase()</c>). Please see the test case
+	info function above for a list of valid info properties and more
+	general information.
+      </p>
   </section>
 
   <section>
