@@ -312,7 +312,7 @@ server_closed(Config, F, RC) ->
     end.
 
 %% server_reject/3
-    
+
 server_reject(Config, F, RC) ->
     true = diameter:subscribe(?SERVER),
     OH = host(Config),
@@ -345,7 +345,7 @@ client_closed(Config, Host, F, RC) ->
 
 %% client_recv/1
 
-client_recv(CRef) ->    
+client_recv(CRef) ->
     receive
         ?event{service = ?CLIENT,
                info = {closed, CRef, Reason, {connect, _}}} ->

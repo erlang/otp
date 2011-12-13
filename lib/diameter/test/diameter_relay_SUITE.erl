@@ -248,7 +248,7 @@ call(Server) ->
 
 call(Req, Opts) ->
     diameter:call(?CLIENT, ?APP_ALIAS, Req, Opts).
-    
+
 set([H|T], Vs) ->
     [H | Vs ++ T].
 

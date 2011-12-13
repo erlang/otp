@@ -516,10 +516,10 @@ send_multiple_filters(Config, Fs) ->
 %% Ensure that we can pass a request in any form to diameter:call/4,
 %% only the return value from the prepare_request callback being
 %% significant.
-send_anything(Config) ->    
+send_anything(Config) ->
     #diameter_base_STA{'Result-Code' = ?SUCCESS}
         = call(Config, anything).
-    
+
 %% ===========================================================================
 
 call(Config, Req) ->
