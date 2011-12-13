@@ -2108,21 +2108,24 @@ scan_element(">" ++ T, S0 = #xmerl_scanner{event_fun = Event,
 	     NSI, Namespace, SpaceDefault) ->
     ?bump_col(1),
     Attrs = lists:reverse(Attrs0),
-    wfc_unique_att_spec(Attrs,S),
-    XMLSpace = case lists:keysearch('xml:space', #xmlAttribute.name, Attrs) of
+    E0=processed_whole_element(S,Pos,Name,Attrs,Lang,Parents,NSI,Namespace),
+
+    #xmlElement{attributes = Attrs1} = E0,
+    wfc_unique_att_spec(Attrs1,S),
+    XMLSpace = case lists:keysearch('xml:space', #xmlAttribute.name, Attrs1) of
 		   false ->			SpaceDefault;
 		   {value, #xmlAttribute{value="default"}} ->	SpaceOption;
 		   {value, #xmlAttribute{value="preserve"}} ->	preserve;
 		   _ ->				SpaceDefault
 	       end,
     
-    E0=processed_whole_element(S,Pos,Name,Attrs,Lang,Parents,NSI,Namespace),
+    E0=processed_whole_element(S,Pos,Name,Attrs1,Lang,Parents,NSI,Namespace),
     S1 = #xmerl_scanner{} = Event(#xmerl_event{event = started,
 					       line = StartL,
 					       col = StartC,
 					       data = E0}, S),
     
-    {Content, T1, S2} = scan_content(T, S1, Name, Attrs, XMLSpace, 
+    {Content, T1, S2} = scan_content(T, S1, Name, Attrs1, XMLSpace, 
 				     E0#xmlElement.language,
 				     [{Name, Pos}|Parents], Namespace),
     

@@ -48,6 +48,13 @@
           <p>
 	    Own Id: OTP-9753</p>
         </item>
+        <item>
+	  <p> 
+	    Fix bug in namespace handling for attributes when the  
+            <c>namespace_conformant</c> flag is set to true. </p>
+          <p>
+	    Own Id: OTP-9821</p>
+        </item>
       </list>
     </section>
 
