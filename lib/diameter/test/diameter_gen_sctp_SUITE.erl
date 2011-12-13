@@ -66,12 +66,12 @@ all() ->
      receive_what_was_sent].
 
 init_per_suite(Config) ->
-    try gen_sctp:open() of
+    case gen_sctp:open() of
         {ok, Sock} ->
             gen_sctp:close(Sock),
-            Config
-    catch
-        error: badarg ->
+            Config;
+        {error, E} when E == eprotonosupport;
+                        E == esocktnosupport ->
             {skip, no_sctp}
     end.
 
