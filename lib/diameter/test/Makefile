@@ -123,12 +123,12 @@ help:
 # diameter_ct:run/1 itself can't tell (it seems). The absolute -pa is
 # because ct will change directories.
 $(SUITES): log opt
-	$(ERL) -noshell \
+	$(ERL) -noinput \
 	       -pa $(realpath ../ebin) \
 	       -sname diameter_test_$@ \
 	       -s diameter_ct run diameter_$@_SUITE \
 	       -s init stop \
-	| awk '1{rc=0} {print} / FAILED /{rc=1} END{exit rc}'
+	| awk '{print} / FAILED /{rc=1} END{exit rc}' rc=0
 # Shorter in sed but requires a GNU extension (ie. Q).
 
 log:
