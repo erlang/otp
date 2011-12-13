@@ -33,6 +33,7 @@ MODULES = \
 	diameter_sync_SUITE \
 	diameter_stats_SUITE \
 	diameter_watchdog_SUITE \
+	diameter_gen_sctp_SUITE \
 	diameter_transport_SUITE \
 	diameter_capx_SUITE \
 	diameter_traffic_SUITE \
