@@ -93,15 +93,23 @@
 -define(cea,            #diameter_base_CEA).
 -define(answer_message, #'diameter_base_answer-message').
 
+-define(fail(T), erlang:error({T, process_info(self(), messages)})).
+
+-define(TIMEOUT, 2000).
+
 %% ===========================================================================
 
 suite() ->
     [{timetrap, {seconds, 10}}].
 
-all() ->
-    [start, start_services, add_listeners
-     | [{group, N} || {N, _, _} <- groups()]]
-        ++ [remove_listeners, stop_services, stop].
+all() -> [start,
+          start_services,
+          add_listeners,
+          {group, sequential},
+          {group, parallel},
+          remove_listeners,
+          stop_services,
+          stop].
 
 groups() ->
     Ts = testcases(),
@@ -270,8 +278,8 @@ s_client_reject(Config) ->
                            ?packet{}}}
                     = Info ->
             Info
-    after 2000 ->
-            fail({LRef, OH})
+    after ?TIMEOUT ->
+            ?fail({LRef, OH})
     end.
 
 c_client_reject(Config) ->
@@ -307,8 +315,8 @@ server_closed(Config, F, RC) ->
                                = Reason,
                                {listen, _}}} ->
             Reason
-    after 2000 ->
-            fail({LRef, OH})
+    after ?TIMEOUT ->
+            ?fail({LRef, OH})
     end.
 
 %% server_reject/3
@@ -328,8 +336,8 @@ server_reject(Config, F, RC) ->
                                = Reason,
                                {listen, _}}} ->
             Reason
-    after 2000 ->
-            fail({LRef, OH})
+    after ?TIMEOUT ->
+            ?fail({LRef, OH})
     end.
 
 %% cliient_closed/4
@@ -350,8 +358,8 @@ client_recv(CRef) ->
         ?event{service = ?CLIENT,
                info = {closed, CRef, Reason, {connect, _}}} ->
             Reason
-    after 2000 ->
-            fail(CRef)
+    after ?TIMEOUT ->
+            ?fail(CRef)
     end.
 
 %% server_capx/3
@@ -372,9 +380,6 @@ client_capx(_, ?caps{origin_host = {[_,$_|"client_reject." ++ _], _}}) ->
     discard.
 
 %% ===========================================================================
-
-fail(T) ->
-    erlang:error({T, process_info(self(), messages)}).
 
 host(Config) ->
     {_, H} = lists:keyfind(host, 1, Config),
