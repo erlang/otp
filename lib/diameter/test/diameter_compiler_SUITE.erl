@@ -398,7 +398,7 @@ re({RE, Repl}, Bin) ->
 %% Ensure success when generating code and compiling.
 
 generate() ->
-    [{timetrap, {seconds, length(?REPLACE)}}].
+    [{timetrap, {seconds, 2*length(?REPLACE)}}].
 
 generate(Config) ->
     Bin = proplists:get_value(base, Config),
