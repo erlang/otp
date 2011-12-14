@@ -162,27 +162,16 @@ suite() ->
     [{timetrap, {seconds, 10}}].
 
 all() ->
-    [start, start_services, add_transports, result_codes
-     | [{group, N} || {N, _, _} <- groups()]]
+    [start, start_services, add_transports, result_codes]
+        ++ [{group, E, P} || E <- ?ENCODINGS, P <- [[], [parallel]]]
         ++ [remove_transports, stop_services, stop].
 
 groups() ->
     Ts = tc(),
-    [{grp(E,P), P, Ts} || E <- ?ENCODINGS, P <- [[], [parallel]]].
-
-grp(E, []) ->
-    E;
-grp(E, [parallel]) ->
-    ?P(E).
+    [{E, [], Ts} || E <- ?ENCODINGS].
 
 init_per_group(Name, Config) ->
-    E = case ?L(Name) of
-            "p_" ++ Rest ->
-                ?A(Rest);
-            _ ->
-                Name
-        end,
-    [{encode, E} | Config].
+    [{encode, Name} | Config].
 
 end_per_group(_, _) ->
     ok.

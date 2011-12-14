@@ -136,14 +136,16 @@ all() ->
      start_diameter,
      make_certs,
      start_services,
-     add_transports]
-        ++ [{group, N} || {N, _, _} <- groups()]
-        ++ [remove_transports, stop_services, stop_diameter, stop_ssl].
+     add_transports,
+     {group, all},
+     {group, all, [parallel]},
+     remove_transports,
+     stop_services,
+     stop_diameter,
+     stop_ssl].
 
 groups() ->
-    Ts = tc(),
-    [{all, [], Ts},
-     {p, [parallel], Ts}].
+    [{all, [], tc()}].
 
 init_per_group(_, Config) ->
     Config.

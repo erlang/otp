@@ -105,20 +105,14 @@ suite() ->
 all() -> [start,
           start_services,
           add_listeners,
-          {group, sequential},
-          {group, parallel},
+          {group, all},
+          {group, all, [parallel]},
           remove_listeners,
           stop_services,
           stop].
 
 groups() ->
-    Ts = testcases(),
-    [{grp(P), P, Ts} || P <- [[], [parallel]]].
-
-grp([]) ->
-    sequential;
-grp([parallel = P]) ->
-    P.
+    [{all, [], lists:flatmap(fun tc/1, tc())}].
 
 init_per_group(_Name, Config) ->
     Config.
@@ -145,9 +139,6 @@ end_per_testcase(Name, Config) ->
     ok = diameter:remove_transport(?CLIENT, CRef).
 
 %% Testcases all come in two flavours, client and server.
-testcases() ->
-    lists:flatmap(fun tc/1, tc()).
-
 tc(Name) ->
     [?A([C,$_|?L(Name)]) || C <- "cs"].
 

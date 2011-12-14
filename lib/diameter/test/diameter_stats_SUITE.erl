@@ -44,10 +44,11 @@ suite() ->
     [{timetrap, {seconds, 10}}].
 
 all() ->
-    [{group, all} | tc()].
+    [{group, all},
+     {group, all, [parallel]}].
 
 groups() ->
-    [{all, [parallel], tc()}].
+    [{all, [], tc()}].
 
 tc() ->
     [an,

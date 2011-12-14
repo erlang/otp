@@ -92,10 +92,13 @@ suite() ->
     [{timetrap, {minutes, 2}}].
 
 all() ->
-    [start | tc()] ++ [{group, all}, stop].
+    [start,
+     {group, all},
+     {group, all, [parallel]},
+     stop].
 
 groups() ->
-    [{all, [parallel], tc()}].
+    [{all, [], tc()}].
 
 tc() ->
     [tcp_accept,

@@ -117,15 +117,17 @@ suite() ->
     [{timetrap, {seconds, 10}}].
 
 all() ->
-    [start, start_services, connect]
-        ++ tc()
-        ++ [{group, all},
-            disconnect,
-            stop_services,
-            stop].
+    [start,
+     start_services,
+     connect,
+     {group, all},
+     {group, all, [parallel]},
+     disconnect,
+     stop_services,
+     stop].
 
 groups() ->
-    [{all, [parallel], tc()}].
+    [{all, [], tc()}].
 
 init_per_group(_, Config) ->
     Config.
