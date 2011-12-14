@@ -112,7 +112,7 @@
 			  {acm_data,   ACMData}, 
 			  {addr,       Address}, 
 			  {gb_max_vbs, GbMaxVBs}, 
-			  {extra,      Extra}]}.
+			  {extra,      Extra}]}).
 -define(mk_send_trap_wreq(TrapRec, NotifyName, ContextName, 
 			  Recv, Vbs, LocalEngineID),
 	#wrequest{cmd  = send_trap, 
@@ -121,7 +121,7 @@
 			  {context_name,    ContextName}, 
 			  {receiver,        Recv}, 
 			  {varbinds,        Vbs}, 
-			  {local_engine_id, LocalEngineID}]}.
+			  {local_engine_id, LocalEngineID}]}).
 -define(mk_terminate_wreq(), #wrequest{cmd = terminate, info = []}).
 -define(mk_verbosity_wreq(V), #wrequest{cmd  = verbosity, 
 					info = [{verbosity, V}]}).
@@ -3585,7 +3585,7 @@ conv_res([VbListOfBytes | T], Bytes) ->
 conv_res([], Bytes) ->
     Bytes.
 
-%% The only only other value, then a positive integer, is infinity.
+%% The only other value, then a positive integer, is infinity.
 do_get_rep(_Sz, _MibView, Count, Max, _, _Res, GbNumVBs, GbMaxVBs) 
   when (is_integer(GbMaxVBs) andalso (GbNumVBs > GbMaxVBs)) ->
     ?vinfo("Max Get-BULK VBs limit (~w) exceeded (~w) when:"

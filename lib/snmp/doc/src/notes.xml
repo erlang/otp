@@ -33,6 +33,64 @@
   </header>
 
   <section>
+    <title>SNMP Development Toolkit 4.17.3</title>
+
+    <p>Version 4.17.3 supports code replacement in runtime from/to
+      version 4.17.2, 4.17.1, 4.17, 4.16.2, 4.16.1 and 4.16.</p>
+
+    <section>
+      <title>Improvements and new features</title>
+      <!--
+      <p>-</p>
+      -->
+
+      <list type="bulleted">
+        <item>
+          <p>[agent] DoS attack using GET-BULK with large value of 
+	  MaxRepetitions.
+	  A preventive method has been implementing by simply 
+	  limit the number of varbinds that can be included in 
+	  a Get-BULK response message. This is specified by the 
+	  new config option, 
+	  <seealso marker="snmp_app#agent_gb_max_vbs">gb_max_vbs</seealso>. 
+	  </p>
+	  <p>Own Id: OTP-9700</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Reported Fixed Bugs and Malfunctions</title>
+      <p>-</p>
+
+      <!--
+      <list type="bulleted">
+        <item>
+          <p>[agent] Originating discovery problems. </p>
+          <p>Invalid state variable update during second stage of
+            discovery causes master agent crash. </p>
+          <p>Also the net_if process failed to activate socket
+            ({active, once}) after first discovery response was sent. </p>
+          <p>Own Id: OTP-8044</p>
+          <p>Aux Id: Seq 11295</p>
+        </item>
+
+      </list>
+      -->
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+    </section>
+
+  </section> <!-- 4.17.3 -->
+
+
+  <section>
     <title>SNMP Development Toolkit 4.17.2</title>
 
     <p>Version 4.17.2 supports code replacement in runtime from/to
