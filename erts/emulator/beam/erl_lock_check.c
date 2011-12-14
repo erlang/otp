@@ -446,7 +446,7 @@ print_lock2(char *prefix, Sint16 id, Wterm extra, Uint16 flags, char *suffix)
 		     "%s'%s:%p%s'%s%s",
 		     prefix,
 		     lname,
-		     boxed_val(extra),
+		     _unchecked_boxed_val(extra),
 		     lock_type(flags),
 		     rw_op_str(flags),
 		     suffix);

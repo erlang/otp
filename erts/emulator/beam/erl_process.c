@@ -6971,8 +6971,8 @@ Uint erts_process_count(void)
 void
 erts_free_proc(Process *p)
 {
-#if defined(ERTS_ENABLE_LOCK_COUNT) && defined(ERTS_SMP)
-    erts_lcnt_proc_lock_destroy(p);
+#ifdef ERTS_SMP
+    erts_proc_lock_fin(p);
 #endif
     erts_free(ERTS_ALC_T_PROC, (void *) p);
 }
@@ -7629,8 +7629,8 @@ erts_cleanup_empty_process(Process* p)
 	free_message_buffer(p->mbuf);
 	p->mbuf = NULL;
     }
-#if defined(ERTS_ENABLE_LOCK_COUNT) && defined(ERTS_SMP)
-    erts_lcnt_proc_lock_destroy(p);
+#ifdef ERTS_SMP
+    erts_proc_lock_fin(p);
 #endif
 #ifdef DEBUG
     erts_debug_verify_clean_empty_process(p);
