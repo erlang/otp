@@ -21,10 +21,14 @@
 {"%VSN%",
  [
   {"0.9",  [{restart_application, diameter}]},
-  {"0.10", [{restart_application, diameter}]}
+  {"0.10", [{restart_application, diameter}]},
+  {"1.0",  [{update, diameter_service},
+            {update, diameter_watchdog}]}
  ],
  [
   {"0.9",  [{restart_application, diameter}]},
-  {"0.10", [{restart_application, diameter}]}
+  {"0.10", [{restart_application, diameter}]},
+  {"1.0",  [{update, diameter_watchdog},
+            {update, diameter_service}]}
  ]
 }.
