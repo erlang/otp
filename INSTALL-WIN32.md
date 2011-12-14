@@ -211,10 +211,10 @@ Frequently Asked Questions
     A: For Cygwin and Msys alike, we try to use the latest releases
     available when building. What versions you use shouldn't really
     matter, I try to include workarounds for the bugs I've found in
-    different Cygwin/Msys releases, please help me to add workarounds
+    different Cygwin/Msys releases, please help me add workarounds
     for new Cygwin/Msys-related bugs as soon as you encounter
     them. Also please do submit bug reports to the appropriate Cygwin
-    adn/or Msys developers. The GCC we used for %OTP-REL% was version
+    and/or Msys developers. The GCC we used for %OTP-REL% was version
     4.7.0 (MinGW 64bit) and 4.3.4 (Cygwin 32bit). We used VC++ 10.0
     (i.e. Visual studio 2010), Sun's JDK 1.5.0\_17 (32bit) and Sun's
     JDK 1.7.0\_1 (64bit), NSIS 2.46, and Win32 OpenSSL 0.9.8r. Please
@@ -291,7 +291,7 @@ OpenSSL. Well' here's the list:
     used but Sun's Java compiler and virtual machine...
 
     If you are going to build a 64bit Windows version, you should make
-    sure to get MinGWs 64bit gcc installed with cygwin. It's in one of
+    sure to get MinGW's 64bit gcc installed with cygwin. It's in one of
     the development packages.
 
     URL: <http://www.cygwin.com>
@@ -428,7 +428,7 @@ OpenSSL. Well' here's the list:
     e.g. `C:\Program`, they might still reside in `C:\Program Files`
     in reality...
 
-    If you are building a 64 bit verision of Erlang, you should set up
+    If you are building a 64 bit version of Erlang, you should set up
     PATHs etc a little differently. I use the following script to
     make things work in both Cygwin and Msys:
 
@@ -971,7 +971,7 @@ URL:<http://code.google.com/p/msysgit/>
 
 that makes a nice Git port. The msys prompt you get from MsysGIT is
 however not compatible with the full version from MinGW, so you will
-need to check out files using MsysGITs command prompt and then switch
+need to check out files using MsysGIT's command prompt and then switch
 to a common Msys command prompt for building. Also all test suites
 cannot be built as MsysGIT/Msys does not handle symbolic links. To
 build test suites on Windows, you will need Cygwin for now. Hopefully
@@ -996,11 +996,11 @@ deserved.
 
 Of course this would have been completely impossible without the
 excellent Cygwin. The guys at Cygnus solutions and
-Redhat deserves a huge THANKS! as well as all the other people in the
+Redhat deserve a huge THANKS! as well as all the other people in the
 free software community who have helped in creating the magnificent
 software that constitutes Cygwin.
 
-Also the people developing the alternative command prompt Msys anfd
+Also the people developing the alternative command prompt Msys and
 the MinGW compiler are worth huge THANKS! The 64bit port would have
 been impossible without the 64bit MinGW compiler.
 
