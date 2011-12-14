@@ -26,8 +26,6 @@
 -export([suite/0,
          all/0,
          groups/0,
-         init_per_group/2,
-         end_per_group/2,
          init_per_suite/1,
          end_per_suite/1]).
 
@@ -59,12 +57,6 @@ tc() ->
      cast,
      timeout,
      flush].
-
-init_per_group(_, Config) ->
-    Config.
-
-end_per_group(_, _) ->
-    ok.
 
 init_per_suite(Config) ->
     ok = diameter:start(),

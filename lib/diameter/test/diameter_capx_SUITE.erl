@@ -27,8 +27,6 @@
 -export([suite/0,
          all/0,
          groups/0,
-         init_per_group/2,
-         end_per_group/2,
          init_per_testcase/2,
          end_per_testcase/2]).
 
@@ -113,12 +111,6 @@ all() -> [start,
 
 groups() ->
     [{all, [], lists:flatmap(fun tc/1, tc())}].
-
-init_per_group(_Name, Config) ->
-    Config.
-
-end_per_group(_, _) ->
-    ok.
 
 %% Generate a unique hostname for each testcase so that watchdogs
 %% don't prevent a connection from being brought up immediately.

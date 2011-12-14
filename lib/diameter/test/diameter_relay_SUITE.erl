@@ -35,9 +35,7 @@
 
 -export([suite/0,
          all/0,
-         groups/0,
-         init_per_group/2,
-         end_per_group/2]).
+         groups/0]).
 
 %% testcases
 -export([start/1,
@@ -128,12 +126,6 @@ all() ->
 
 groups() ->
     [{all, [], tc()}].
-
-init_per_group(_, Config) ->
-    Config.
-
-end_per_group(_, _) ->
-    ok.
 
 %% Traffic cases run when services are started and connections
 %% established.
