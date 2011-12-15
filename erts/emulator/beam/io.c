@@ -3912,7 +3912,7 @@ int driver_pushqv(ErlDrvPort ix, ErlIOVec* vec, ErlDrvSizeT skip)
 ErlDrvSizeT driver_deq(ErlDrvPort ix, ErlDrvSizeT size)
 {
     ErlIOQueue* q = drvport2ioq(ix);
-    int len;
+    ErlDrvSizeT len;
 
     if ((q == NULL) || (q->size < size))
 	return -1;
