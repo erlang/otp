@@ -29,9 +29,10 @@
          end_per_suite/1]).
 
 %% testcases
--export([format/1,  format/2,
-         replace/1, replace/2,
-         generate/1, generate/4, generate/0]).
+-export([format/1,    format/2,
+         replace/1,   replace/2,
+         generate/1,  generate/4,  generate/0,
+         standards/1, standards/0]).
 
 -export([dict/0]).  %% fake dictionary module
 
@@ -327,6 +328,9 @@
                           "@codecs mymod "
                               "Origin-Host Origin-Realm\n&"}]}]).
 
+%% Standard dictionaries.
+-define(STANDARDS, []).
+
 %% ===========================================================================
 
 suite() ->
@@ -335,7 +339,8 @@ suite() ->
 all() ->
     [format,
      replace,
-     generate].
+     generate,
+     standards].
 
 %% Error handling testcases will make an erroneous dictionary out of
 %% the base dictionary and check that the expected error results.
@@ -349,8 +354,6 @@ end_per_suite(_Config) ->
     ok.
 
 %% ===========================================================================
-%% testcases
-
 %% format/1
 %%
 %% Ensure that parse o format is the identity map.
@@ -367,6 +370,7 @@ format(Mods, Bin) ->
     {ok, D} = diameter_dict_util:parse(diameter_dict_util:format(Dict), []),
     {Dict, Dict} = {Dict, D}.
 
+%% ===========================================================================
 %% replace/1
 %%
 %% Ensure the expected success/error when parsing a morphed common
@@ -393,6 +397,7 @@ replace({E, Mods}, Bin) ->
 re({RE, Repl}, Bin) ->
     re:replace(Bin, RE, Repl, [multiline]).
 
+%% ===========================================================================
 %% generate/1
 %%
 %% Ensure success when generating code and compiling.
@@ -420,6 +425,26 @@ generate(Mods, Bin, N, Mode) ->
                                                 Mode)},
     Mode == erl
         andalso ({ok, _} = compile:file(File ++ ".erl", [return_errors])).
+
+%% ===========================================================================
+%% standards/1
+%%
+%% Compile dictionaries extracted from various standards.
+
+standards() ->
+    [{timetrap, {seconds, 3*length(?STANDARDS)}}].
+
+standards(Config) ->
+    Data = proplists:get_value(data_dir, Config),
+    [D || D <- ?STANDARDS, _ <- [standards(?S(D), Data)]].
+
+standards(Dict, Dir) ->
+    ok = diameter_make:codec(filename:join([Dir, Dict ++ ".dia"]),
+                             [{name, Dict} | opts(Dict)]),
+    {ok, _, _} = compile:file(Dict ++ ".erl", [return]).
+
+opts(_) ->
+    [].
 
 %% ===========================================================================
 
