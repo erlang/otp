@@ -46,7 +46,8 @@ MODULES = \
 	inets_service \
 	inets_app \
 	inets_sup \
-	inets_regexp
+	inets_regexp \
+	inets_trace
 
 INTERNAL_HRL_FILES = inets_internal.hrl
 EXTERNAL_HRL_FILES = ../../include/httpd.hrl \
