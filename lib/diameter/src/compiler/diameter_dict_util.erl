@@ -630,12 +630,27 @@ reset(K, Dict, Opts) ->
 
 opt({inherits = Key, "-"}, Dict) ->
     dict:erase(Key, Dict);
+
 opt({inherits = Key, Mod}, Dict) ->
-    dict:append(Key, [0, {word, 0, Mod}], Dict);
+    case lists:splitwith(fun(C) -> C /= $/ end, Mod) of
+        {Mod, ""} ->
+            dict:append(Key, [0, {word, 0, Mod}], Dict);
+        {From, [$/|To]} ->
+            dict:store(Key,
+                       [reinherit(From, To, M) || M <- find(Key, Dict)],
+                       Dict)
+    end;
+
 opt({Key, Val}, Dict) ->
     dict:store(Key, [[0, {word, 0, Val}]], Dict);
+
 opt(_, Dict) ->
     Dict.
+
+reinherit(From, To, [L, {word, _, From} = T | Avps]) ->
+    [L, setelement(3, T, To) | Avps];
+reinherit(_, _, T) ->
+    T.
 
 %% ===========================================================================
 %% pass1/1
