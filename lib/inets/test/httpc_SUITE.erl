@@ -244,6 +244,32 @@ init_per_testcase(Case, Timeout, Config) ->
     io:format(user, 
 	      "~n~n*** INIT ~w:~w[~w] ***"
 	      "~n~n", [?MODULE, Case, Timeout]),
+
+    io:format("init_per_testcase(~w) -> entry with"
+	      "~n   Timeout: ~p"
+	      "~n   Config:  ~p"
+	      "~n"
+	      "~nwhen"
+	      "~n"
+	      "~n   OS Type:            ~p"
+	      "~n   OS version:         ~p"
+	      "~n   Sys Arch:           ~p"
+	      "~n   CPU Topology:       ~p"
+	      "~n   Num logical procs:  ~p"
+	      "~n   SMP support:        ~p"
+	      "~n   Num schedulers:     ~p"
+	      "~n   Scheduler bindings: ~p"
+	      "~n   Wordsize:           ~p"
+	      "~n~n", [Case, Timeout, Config, 
+		       os:type(), os:version(), 
+		       erlang:system_info(system_architecture),
+		       erlang:system_info(cpu_topology),
+		       erlang:system_info(logical_processors),
+		       erlang:system_info(smp_support),
+		       erlang:system_info(schedulers),
+		       erlang:system_info(scheduler_bindings),
+		       erlang:system_info(wordsize)]),
+
     PrivDir = ?config(priv_dir, Config),
     application:stop(inets),
     Dog         = test_server:timetrap(inets_test_lib:minutes(Timeout)),
@@ -355,6 +381,10 @@ init_per_testcase(Case, Timeout, Config) ->
 		end;
 
 	    _ -> 
+		%% Try inet6fb4 on windows...
+		%% ...but since I dont know exactly how to test this...
+		%% ...this should also effect the server...
+
 		TmpConfig2 = lists:keydelete(local_server, 1, TmpConfig),
 		%% Will start inets 
 		Server = start_http_server(PrivDir, IpConfFile),
@@ -367,6 +397,9 @@ init_per_testcase(Case, Timeout, Config) ->
     inets:enable_trace(max, io, httpc),
     %% inets:enable_trace(max, io, all),
     %% snmp:set_trace([gen_tcp]),
+    io:format("init_per_testcase(~w) -> done when"
+	      "~n   NewConfig:  ~p"
+	      "~n~n", [Case, NewConfig]),
     NewConfig.
 
 
