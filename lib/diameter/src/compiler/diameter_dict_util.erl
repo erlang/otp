@@ -633,7 +633,7 @@ opt({inherits = Key, "-"}, Dict) ->
 opt({inherits = Key, Mod}, Dict) ->
     dict:append(Key, [0, {word, 0, Mod}], Dict);
 opt({Key, Val}, Dict) ->
-    dict:store(Key, [0, {word, 0, Val}], Dict);
+    dict:store(Key, [[0, {word, 0, Val}]], Dict);
 opt(_, Dict) ->
     Dict.
 
