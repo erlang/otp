@@ -42,8 +42,13 @@
 init_per_suite(Config) ->
     case catch crypto:start() of
 	ok ->
-	    ssh_test_lib:make_dsa_files(Config),
-	    Config;
+	    case gen_tcp:connect("localhost", 22, []) of
+		{error,econnrefused} ->
+		    {skip,"No openssh deamon"};
+		_ ->
+		    ssh_test_lib:make_dsa_files(Config),
+		    Config
+	    end;
 	_Else ->
 	    {skip,"Could not start crypto!"}
     end.
