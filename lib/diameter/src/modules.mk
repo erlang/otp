@@ -95,4 +95,10 @@ EXAMPLES = \
 	code/server.erl \
 	code/server_cb.erl \
 	code/relay.erl \
-	code/relay_cb.erl
+	code/relay_cb.erl \
+	dict/rfc4004_mip.dia \
+	dict/rfc4005_nas.dia \
+	dict/rfc4006_cc.dia \
+	dict/rfc4072_eap.dia \
+	dict/rfc4590_digest.dia \
+	dict/rfc4740_sip.dia

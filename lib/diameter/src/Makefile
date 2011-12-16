@@ -214,9 +214,7 @@ $(TARGET_DIRS:%/=release_src_%): release_src_%:
 
 $(EXAMPLE_DIRS:%/=release_examples_%): release_examples_%:
 	$(INSTALL_DIR) $(RELSYSDIR)/examples/$*
-	$(INSTALL_DATA) $(patsubst, %, \
-	                            ../examples/%, \
-	                            $(filter $*/%, $(EXAMPLES))) \
+	$(INSTALL_DATA) $(patsubst %, ../examples/%, $(filter $*/%, $(EXAMPLES))) \
 	                $(RELSYSDIR)/examples/$*
 
 release_docs_spec:
@@ -250,6 +248,7 @@ depend.mk: depend.sed $(MODULES:%=%.erl) Makefile
 .PHONY: app clean depend dict info release_subdir
 .PHONY: debug opt release_docs_spec release_spec
 .PHONY: $(TARGET_DIRS:%/=%) $(TARGET_DIRS:%/=release_src_%)
+.PHONY: $(EXAMPLE_DIRS:%/=release_examples_%)
 
 # Keep intermediate files.
 .SECONDARY: $(DICT_ERLS) $(DICT_HRLS) gen/$(DICT_YRL:%=%.erl)
