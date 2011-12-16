@@ -32,6 +32,42 @@
     <file>notes.xml</file>
   </header>
   
+  <section><title>Inets 5.7.3</title>
+    <section><title>Improvements and New Features</title>
+    <p>-</p>
+
+<!--
+      <list>
+        <item>
+          <p>[httpc|httpd] Added support for IPv6 with ssl. </p>
+	  <p>Own Id: OTP-5566</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+<!--
+    <p>-</p>
+-->
+
+      <list>
+        <item>
+          <p>[ftp] Fails to open IPv6 connection due to badly formatted
+          IPv6 address in EPRT command. The address part of the command
+	  incorrectly contained decimal elements instead of hexadecimal. </p>
+          <p>Own Id: OTP-9827</p>
+          <p>Aux Id: Seq 11970 </p>
+        </item>
+
+      </list>
+    </section>
+  
+  </section> <!-- 5.7.3 -->
+
+
   <section><title>Inets 5.7.2</title>
     <section><title>Improvements and New Features</title>
     <p>-</p>
