@@ -396,6 +396,7 @@ make_del_dir(Config) when is_list(Config) ->
 	%% Don't worry ;-) the parent directory should never be empty, right?
 	?line case ?FILE_MODULE:del_dir('..') of
 		  {error, eexist} -> ok;
+		  {error, eacces} -> ok;		%OpenBSD
 		  {error, einval} -> ok			%FreeBSD
 	      end,
 	?line {error, enoent} = ?FILE_MODULE:del_dir(""),

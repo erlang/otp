@@ -294,6 +294,7 @@ make_del_dir(Config, Handle, Suffix) ->
 	%% Don't worry ;-) the parent directory should never be empty, right?
 	?line case ?PRIM_FILE_call(del_dir, Handle, [".."]) of
 		  {error, eexist} -> ok;
+		  {error, eacces} -> ok;	%OpenBSD
 		  {error, einval} -> ok		%FreeBSD
 	      end,
 	?line {error, enoent} = ?PRIM_FILE_call(del_dir, Handle, [""]),
