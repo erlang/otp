@@ -72,9 +72,11 @@ check_callbacks(Module, Attrs, Plt, Codeserver) ->
 %%--------------------------------------------------------------------
 
 get_behaviours(Attrs) ->
-  BehaviourListsAndLine = [{cerl:concrete(L2), hd(cerl:get_ann(L2))} ||
-		  {L1, L2} <- Attrs, cerl:is_literal(L1),
-		  cerl:is_literal(L2), cerl:concrete(L1) =:= 'behaviour'],
+  BehaviourListsAndLine =
+    [{cerl:concrete(L2), hd(cerl:get_ann(L2))} ||
+      {L1, L2} <- Attrs, cerl:is_literal(L1),
+      cerl:is_literal(L2), cerl:concrete(L1) =:= 'behaviour' orelse
+	cerl:concrete(L1) =:= 'behavior'],
   Behaviours = lists:append([Behs || {Behs,_} <- BehaviourListsAndLine]),
   BehLines = [{B,L} || {L1,L} <- BehaviourListsAndLine, B <- L1],
   {Behaviours, BehLines}.
