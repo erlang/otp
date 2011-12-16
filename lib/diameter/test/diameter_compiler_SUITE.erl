@@ -331,7 +331,9 @@
 %% Standard dictionaries.
 -define(STANDARDS, [rfc4005_nas,
                     rfc4006_cc,
-                    rfc4072_eap]).
+                    rfc4072_eap,
+                    rfc4590_digest,
+                    rfc4740_sip]).
 
 %% ===========================================================================
 
@@ -449,6 +451,8 @@ opts(M)
   when M == "rfc4006_cc";
        M == "rfc4072_eap" ->
     [{inherits, "diameter_gen_nas_rfc4005/rfc4005_nas"}];
+opts("rfc4740_sip") ->
+    [{inherits, "diameter_gen_digest_rfc4590/rfc4590_digest"}];
 opts(_) ->
     [].
 
