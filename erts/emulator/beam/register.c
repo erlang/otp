@@ -96,12 +96,7 @@ reg_safe_write_lock(Process *c_p, ErtsProcLocks *c_p_locks)
 static ERTS_INLINE int
 is_proc_alive(Process *p)
 {
-    int res;
-    erts_pix_lock_t *pixlck = ERTS_PID2PIXLOCK(p->id);
-    erts_pix_lock(pixlck);
-    res = !p->is_exiting;
-    erts_pix_unlock(pixlck);
-    return res;
+    return !ERTS_PROC_IS_EXITING(p);
 }
 
 #endif

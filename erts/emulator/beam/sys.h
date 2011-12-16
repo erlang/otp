@@ -39,6 +39,8 @@
 #define ENABLE_CHILD_WAITER_THREAD 1
 #endif
 
+#define ERTS_I64_LITERAL(X) X##LL
+
 #if defined (__WIN32__)
 #  include "erl_win_sys.h"
 #elif defined (VXWORKS) 
@@ -91,14 +93,22 @@ typedef ERTS_SYS_FD_TYPE ErtsSysFdType;
 #  endif
 #endif
 
-#ifdef __GNUC__
-#  if __GNUC__ < 3 && (__GNUC__ != 2 || __GNUC_MINOR__ < 96)
-#    define ERTS_LIKELY(BOOL)   (BOOL)
-#    define ERTS_UNLIKELY(BOOL) (BOOL)
-#  else
-#    define ERTS_LIKELY(BOOL)   __builtin_expect((BOOL), !0)
-#    define ERTS_UNLIKELY(BOOL) __builtin_expect((BOOL), 0)
-#  endif
+#if !defined(__GNUC__)
+#  define ERTS_AT_LEAST_GCC_VSN__(MAJ, MIN, PL) 0
+#elif !defined(__GNUC_MINOR__)
+#  define ERTS_AT_LEAST_GCC_VSN__(MAJ, MIN, PL) \
+  ((__GNUC__ << 24) >= (((MAJ) << 24) | ((MIN) << 12) | (PL)))
+#elif !defined(__GNUC_PATCHLEVEL__)
+#  define ERTS_AT_LEAST_GCC_VSN__(MAJ, MIN, PL) \
+  (((__GNUC__ << 24) | (__GNUC_MINOR__ << 12)) >= (((MAJ) << 24) | ((MIN) << 12) | (PL)))
+#else
+#  define ERTS_AT_LEAST_GCC_VSN__(MAJ, MIN, PL) \
+  (((__GNUC__ << 24) | (__GNUC_MINOR__ << 12) | __GNUC_PATCHLEVEL__) >= (((MAJ) << 24) | ((MIN) << 12) | (PL)))
+#endif
+
+#if ERTS_AT_LEAST_GCC_VSN__(2, 96, 0)
+#  define ERTS_LIKELY(BOOL)   __builtin_expect((BOOL), !0)
+#  define ERTS_UNLIKELY(BOOL) __builtin_expect((BOOL), 0)
 #else
 #  define ERTS_LIKELY(BOOL)   (BOOL)
 #  define ERTS_UNLIKELY(BOOL) (BOOL)
@@ -178,6 +188,18 @@ int real_printf(const char *fmt, ...);
 #  define printf real_printf
 #endif
 
+#undef __deprecated
+#if ERTS_AT_LEAST_GCC_VSN__(3, 0, 0)
+#  define __deprecated __attribute__((deprecated))
+#else
+#  define __deprecated
+#endif
+#if ERTS_AT_LEAST_GCC_VSN__(3, 0, 4)
+#  define erts_align_attribute(SZ) __attribute__ ((aligned (SZ)))
+#else
+#  define erts_align_attribute(SZ)
+#endif
+
 /* In VC++, noreturn is a declspec that has to be before the types,
  * but in GNUC it is an att ribute to be placed between return type 
  * and function name, hence __decl_noreturn <types> __noreturn <function name>
@@ -185,12 +207,6 @@ int real_printf(const char *fmt, ...);
 #if __GNUC__
 #  define __decl_noreturn 
 #  define __noreturn __attribute__((noreturn))
-#  undef __deprecated
-#  if __GNUC__ >= 3
-#    define __deprecated __attribute__((deprecated))
-#  else
-#    define __deprecated
-#  endif
 #else
 #  if defined(__WIN32__) && defined(_MSC_VER)
 #    define __noreturn 
@@ -199,7 +215,6 @@ int real_printf(const char *fmt, ...);
 #    define __noreturn
 #    define __decl_noreturn 
 #  endif
-#  define __deprecated
 #endif
 
 /*

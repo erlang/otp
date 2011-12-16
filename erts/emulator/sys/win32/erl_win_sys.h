@@ -90,6 +90,11 @@
 
 #define strncasecmp _strnicmp
 
+#ifndef __GNUC__
+#  undef ERTS_I64_LITERAL
+#  define ERTS_I64_LITERAL(X) X##i64
+#endif
+
 /*
  * Practial Windows specific macros.
  */

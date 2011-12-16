@@ -1403,9 +1403,8 @@ BIF_RETTYPE exit_2(BIF_ALIST_2)
 	 }
 	 else {
 	     rp_locks = ERTS_PROC_LOCKS_XSIG_SEND;
-	     rp = erts_pid2proc_opt(BIF_P, ERTS_PROC_LOCK_MAIN,
-				    BIF_ARG_1, rp_locks,
-				    ERTS_P2P_FLG_SMP_INC_REFC);
+	     rp = erts_pid2proc(BIF_P, ERTS_PROC_LOCK_MAIN,
+				BIF_ARG_1, rp_locks);
 	     if (!rp) {
 		 BIF_RET(am_true);
 	     }
@@ -1427,8 +1426,6 @@ BIF_RETTYPE exit_2(BIF_ALIST_2)
 	     rp_locks &= ~ERTS_PROC_LOCK_MAIN;
 	 if (rp_locks)
 	     erts_smp_proc_unlock(rp, rp_locks);
-	 if (rp != BIF_P)
-	     erts_smp_proc_dec_refc(rp);
 #endif
 	 /*
 	  * We may have exited ourselves and may have to take action.
@@ -1826,8 +1823,7 @@ do_send(Process *p, Eterm to, Eterm msg, int suspend) {
 	if (internal_pid_index(to) >= erts_max_processes)
 	    return SEND_BADARG;
 
-	rp = erts_pid2proc_opt(p, ERTS_PROC_LOCK_MAIN,
-			       to, 0, ERTS_P2P_FLG_SMP_INC_REFC);
+	rp = erts_proc_lookup_raw(to);
 	
 	if (!rp) {
 	    ERTS_SMP_ASSERT_IS_NOT_EXITING(p);
@@ -1865,7 +1861,7 @@ do_send(Process *p, Eterm to, Eterm msg, int suspend) {
 	}
 	erts_whereis_name(p, ERTS_PROC_LOCK_MAIN,
 			  to,
-			  &rp, 0, ERTS_P2P_FLG_SMP_INC_REFC,
+			  &rp, 0, 0,
 			  &pt);
 
 	if (pt) {
@@ -2017,7 +2013,7 @@ do_send(Process *p, Eterm to, Eterm msg, int suspend) {
 
 	    erts_whereis_name(p, ERTS_PROC_LOCK_MAIN,
 			      tp[1],
-			      &rp, 0, ERTS_P2P_FLG_SMP_INC_REFC,
+			      &rp, 0, 0,
 			      &pt);
 	    if (pt) {
 		portid = pt->id;
@@ -2076,7 +2072,6 @@ do_send(Process *p, Eterm to, Eterm msg, int suspend) {
 			     p == rp
 			     ? (rp_locks & ~ERTS_PROC_LOCK_MAIN)
 			     : rp_locks);
-	erts_smp_proc_dec_refc(rp);
 	return res;
     }
 }
@@ -3486,7 +3481,7 @@ BIF_RETTYPE garbage_collect_1(BIF_ALIST_1)
 	if (rp == ERTS_PROC_LOCK_BUSY)
 	    ERTS_BIF_YIELD1(bif_export[BIF_garbage_collect_1], BIF_P, BIF_ARG_1);
 #else
-	rp = erts_pid2proc(BIF_P, 0, BIF_ARG_1, 0);
+	rp = erts_proc_lookup(BIF_ARG_1);
 #endif
 	if (!rp)
 	    BIF_RET(am_false);
@@ -4232,8 +4227,8 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 	erts_smp_thr_progress_block();
 
 	for (i = 0; i < erts_max_processes; i++) {
-	    if (process_tab[i] != (Process*) 0) {
-		Process* p = process_tab[i];
+	    Process *p = erts_pix2proc(i);
+	    if (p) {
 #ifdef USE_VM_PROBES
 		p->seq_trace_token = (p->dt_utag != NIL) ? am_have_dt_utag : NIL;
 #else

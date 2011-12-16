@@ -290,7 +290,7 @@ struct ErtsSchedulerSleepInfo_ {
 typedef struct ErtsProcList_ ErtsProcList;
 struct ErtsProcList_ {
     Eterm pid;
-    SysTimeval started;
+    Uint64 started_interval;
     ErtsProcList* next;
 };
 
@@ -600,6 +600,8 @@ struct ErtsPendingSuspend_ {
 #  define BIN_OLD_VHEAP(p)    (p)->bin_old_vheap
 
 struct process {
+    Eterm id;			/* The pid of this process
+				   (need to be first in struct) */
     /* All fields in the PCB that differs between different heap
      * architectures, have been moved to the end of this struct to
      * make sure that as few offsets as possible differ. Different
@@ -646,7 +648,6 @@ struct process {
     Uint32 gcstatus;		/* process gc STATE */
     Uint32 rstatus;		/* process resume STATE */
     Uint32 rcount;		/* suspend count */
-    Eterm id;			/* The pid of this process */
     int  prio;			/* Priority of process */
     int  skipped;		/* Times a low prio process has been rescheduled */
     Uint reds;			/* No of reductions for this process  */
@@ -699,8 +700,8 @@ struct process {
      * Information mainly for post-mortem use (erl crash dump).
      */
     Eterm parent;		/* Pid of process that created this process. */
-    SysTimeval started;		/* Time when started. */
-
+    erts_approx_time_t approx_started; /* Time when started. */
+    Uint64 started_interval;
 
     /* This is the place, where all fields that differs between memory
      * architectures, have gone to.
@@ -735,8 +736,8 @@ struct process {
 
 #ifdef ERTS_SMP
     erts_proc_lock_t lock;
+    erts_atomic32_t aflags;
     ErtsSchedulerData *scheduler_data;
-    int is_exiting;
     Uint32 runq_flags;
     Uint32 status_flags;
     ErlMessageInQueue msg_inq;
@@ -815,6 +816,10 @@ void erts_check_for_holes(Process* p);
 
 #define SEQ_TRACE_TOKEN(p)  ((p)->seq_trace_token)
 
+#define ERTS_PROC_AFLG_EXITING		(((erts_aint_t) 1) << 0)
+#define ERTS_PROC_AFLG_PENDING_EXIT	(((erts_aint_t) 1) << 1)
+
+
 /* The sequential tracing token is a tuple of size 5:
  *
  *    {Flags, Label, Serial, Sender}
@@ -887,13 +892,12 @@ Eterm* erts_heap_alloc(Process* p, Uint need, Uint xtra);
 Eterm* erts_set_hole_marker(Eterm* ptr, Uint sz);
 #endif
 
-extern Process** process_tab;
+extern erts_smp_rwmtx_t erts_proc_tab_rwmtx;
+extern erts_smp_atomic_t *erts_proc_tab;
 #ifdef HYBRID
 extern Uint erts_num_active_procs;
 extern Process** erts_active_procs;
 #endif
-extern Uint erts_max_processes;
-extern Uint erts_process_tab_index_mask;
 extern Uint erts_default_process_flags;
 extern erts_smp_rwmtx_t erts_cpu_bind_rwmtx;
 /* If any of the erts_system_monitor_* variables are set (enabled),
@@ -1091,6 +1095,9 @@ void erts_early_init_scheduling(int);
 void erts_init_scheduling(int, int);
 
 Eterm erts_sched_wall_time_request(Process *c_p, int set, int enable);
+Uint64 erts_get_proc_interval(void);
+Uint64 erts_ensure_later_proc_interval(Uint64);
+Uint64 erts_step_proc_interval(void);
 
 ErtsProcList *erts_proclist_create(Process *);
 void erts_proclist_destroy(ErtsProcList *);
@@ -1607,21 +1614,15 @@ Process *erts_pid2proc_nropt(Process *c_p,
 			     ErtsProcLocks pid_locks);
 extern int erts_disable_proc_not_running_opt;
 
+
+#define ERTS_PROC_IS_EXITING(P) \
+    (ERTS_PROC_AFLG_EXITING & erts_atomic32_read_acqb(&(P)->aflags))
+
 #ifdef DEBUG
 #define ERTS_SMP_ASSERT_IS_NOT_EXITING(P) \
-  do { ASSERT(!(P)->is_exiting); } while (0)
+    do { ASSERT(!ERTS_PROC_IS_EXITING((P))); } while (0)
 #else
 #define ERTS_SMP_ASSERT_IS_NOT_EXITING(P)
-#endif
-
-/* NOTE: At least one process lock has to be held on P! */
-#ifdef ERTS_ENABLE_LOCK_CHECK
-#define ERTS_PROC_IS_EXITING(P) \
-  (ERTS_SMP_LC_ASSERT(erts_proc_lc_my_proc_locks((P)) != 0 \
-		      || erts_lc_pix_lock_is_locked(ERTS_PID2PIXLOCK((P)->id))),\
-   (P)->is_exiting)
-#else
-#define ERTS_PROC_IS_EXITING(P) ((P)->is_exiting)
 #endif
 
 #else /* !ERTS_SMP */

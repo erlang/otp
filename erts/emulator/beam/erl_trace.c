@@ -151,8 +151,8 @@ do { (RES) = (TPID); } while(0)
 #define ERTS_TRACER_REF_TYPE Process *
 #define ERTS_GET_TRACER_REF(RES, TPID, TRACEE_FLGS) \
 do { \
-    (RES) = process_tab[internal_pid_index((TPID))]; \
-    if (INVALID_PID((RES), (TPID)) || !((RES)->trace_flags & F_TRACER)) { \
+    (RES) = erts_proc_lookup((TPID));					\
+    if (!(RES) || !((RES)->trace_flags & F_TRACER)) {			\
 	(TPID) = NIL; \
 	(TRACEE_FLGS) &= ~TRACEE_FLAGS; \
 	return; \
@@ -211,7 +211,7 @@ erts_set_system_seq_tracer(Process *c_p, ErtsProcLocks c_p_locks, Eterm new)
     Eterm old = THE_NON_VALUE;
 
     if (new != am_false) {
-	if (!erts_pid2proc(c_p, c_p_locks, new, 0)
+	if (!erts_proc_lookup(new)
 	    && !erts_is_valid_tracer_port(new)) {
 	    return old;
 	}
@@ -250,7 +250,7 @@ get_default_tracing(Uint *flagsp, Eterm *tracerp)
     if (is_nil(default_tracer)) {
 	default_trace_flags &= ~TRACEE_FLAGS;
     } else if (is_internal_pid(default_tracer)) {
-	if (!erts_pid2proc(NULL, 0, default_tracer, 0)) {
+	if (!erts_proc_lookup(default_tracer)) {
 	reset_tracer:
 	    default_trace_flags &= ~TRACEE_FLAGS;
 	    default_tracer = NIL;
@@ -580,9 +580,10 @@ profile_send(Eterm from, Eterm message) {
 	ASSERT(is_internal_pid(profiler)
                 && internal_pid_index(profiler) < erts_max_processes);
         
-	profile_p = process_tab[internal_pid_index(profiler)];
+	profile_p = erts_proc_lookup(profiler);
 
-        if (INVALID_PID(profile_p, profiler)) return;
+	if (!profile_p)
+	    return;
 
 	sz = size_object(message);
 	hp = erts_alloc_message_heap(sz, &bp, &off_heap, profile_p, 0);
@@ -874,7 +875,7 @@ trace_send(Process *p, Eterm to, Eterm msg)
 
     operation = am_send;
     if (is_internal_pid(to)) {
-	if (!erts_pid2proc(p, ERTS_PROC_LOCK_MAIN, to, 0))
+	if (!erts_proc_lookup(to))
 	    goto send_to_non_existing_process;
     }
     else if(is_external_pid(to)
@@ -1116,8 +1117,8 @@ seq_trace_output_generic(Eterm token, Eterm msg, Uint type,
 
 #ifndef ERTS_SMP
 
-	tracer = process_tab[internal_pid_index(seq_tracer)];
-	if (INVALID_PID(tracer, tracer->id)) {
+	tracer = erts_proc_lookup(seq_tracer);
+	if (!tracer) {
 	    system_seq_tracer = am_false;
 	    return; /* no need to send anything */
 	}
@@ -2451,10 +2452,9 @@ monitor_long_gc(Process *p, Uint time) {
 #ifndef ERTS_SMP
     ASSERT(is_internal_pid(system_monitor)
 	   && internal_pid_index(system_monitor) < erts_max_processes);
-    monitor_p = process_tab[internal_pid_index(system_monitor)];
-    if (INVALID_PID(monitor_p, system_monitor) || p == monitor_p) {
+    monitor_p = erts_proc_lookup(system_monitor);
+    if (!monitor_p || p == monitor_p)
 	return;
-    }
 #endif
 
     hsz = 0;
@@ -2527,8 +2527,8 @@ monitor_large_heap(Process *p) {
 #ifndef ERTS_SMP 
     ASSERT(is_internal_pid(system_monitor)
 	   && internal_pid_index(system_monitor) < erts_max_processes);
-    monitor_p = process_tab[internal_pid_index(system_monitor)];
-    if (INVALID_PID(monitor_p, system_monitor) || p == monitor_p) {
+    monitor_p = erts_proc_lookup(system_monitor);
+    if (monitor_p || p == monitor_p) {
 	return;
     }
 #endif
@@ -2582,10 +2582,9 @@ monitor_generic(Process *p, Eterm type, Eterm spec) {
 #ifndef ERTS_SMP
     ASSERT(is_internal_pid(system_monitor)
 	   && internal_pid_index(system_monitor) < erts_max_processes);
-    monitor_p = process_tab[internal_pid_index(system_monitor)];
-    if (INVALID_PID(monitor_p, system_monitor) || p == monitor_p) {
+    monitor_p = erts_proc_lookup(system_monitor);
+    if (!monitor_p || p == monitor_p)
 	return;
-    }
 #endif
 
     hp = ERTS_ALLOC_SYSMSG_HEAP(5, &bp, &off_heap, monitor_p);

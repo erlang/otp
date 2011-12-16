@@ -311,6 +311,7 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
 #endif
     Eterm receiver = to_pid->pid;
     int flush_me = 0;
+    int scheduler = erts_get_scheduler_id() != 0;
 
     if (env != NULL) {
 	c_p = env->proc;
@@ -330,8 +331,11 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
 #if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
     rp_had_locks = rp_locks;
 #endif
-    rp = erts_pid2proc_opt(c_p, ERTS_PROC_LOCK_MAIN,
-			   receiver, rp_locks, ERTS_P2P_FLG_SMP_INC_REFC);
+
+    rp = (scheduler
+	  ? erts_proc_lookup(receiver)
+	  : erts_pid2proc_opt(c_p, ERTS_PROC_LOCK_MAIN,
+			      receiver, rp_locks, ERTS_P2P_FLG_SMP_INC_REFC));
     if (rp == NULL) {
 	ASSERT(env == NULL || receiver != c_p->id);
 	return 0;
@@ -358,12 +362,12 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
 		       , NIL
 #endif
 		       );
-    if (rp_locks) {	
-	ERTS_SMP_LC_ASSERT(rp_locks == (rp_had_locks | (ERTS_PROC_LOCK_MSGQ | 
-							ERTS_PROC_LOCK_STATUS)));
-	erts_smp_proc_unlock(rp, (ERTS_PROC_LOCK_MSGQ | ERTS_PROC_LOCK_STATUS));
-    }
-    erts_smp_proc_dec_refc(rp);
+    if (c_p == rp)
+	rp_locks &= ~ERTS_PROC_LOCK_MAIN;
+    if (rp_locks)
+	erts_smp_proc_unlock(rp, rp_locks);
+    if (!scheduler)
+	erts_smp_proc_dec_refc(rp);
     if (flush_me) {
 	cache_env(env);
     }

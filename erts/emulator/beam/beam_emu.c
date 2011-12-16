@@ -64,11 +64,7 @@
 #    define PROCESS_MAIN_CHK_LOCKS(P)					\
 do {									\
     if ((P)) {								\
-	erts_pix_lock_t *pix_lock__ = ERTS_PIX2PIXLOCK(internal_pid_index((P)->id));\
 	erts_proc_lc_chk_only_proc_main((P));				\
-	erts_pix_lock(pix_lock__);					\
-	ASSERT(0 < (P)->lock.refc && (P)->lock.refc < erts_no_schedulers*5);\
-	erts_pix_unlock(pix_lock__);					\
     }									\
     else								\
 	erts_lc_check_exact(NULL, 0);					\

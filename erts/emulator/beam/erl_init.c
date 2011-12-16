@@ -614,6 +614,7 @@ early_init(int *argc, char **argv) /*
     erts_printf_eterm_func = erts_printf_term;
     erts_disable_tolerant_timeofday = 0;
     display_items = 200;
+    erts_proc.max = ERTS_DEFAULT_MAX_PROCESSES;
     erts_backtrace_depth = DEFAULT_BACKTRACE_SIZE;
     erts_async_max_threads = 0;
     erts_async_thread_suggested_stack_size = ERTS_ASYNC_THREAD_MIN_STACK_SIZE;
@@ -1160,7 +1161,7 @@ erl_start(int argc, char **argv)
 	case 'P':
 	    /* set maximum number of processes */
 	    Parg = get_arg(argv[i]+2, argv[i+1], &i);
-	    erts_max_processes = atoi(Parg);
+	    erts_proc.max = atoi(Parg);
 	    /* Check of result is delayed until later. This is because +R
 	       may be given after +P. */
 	    break;
@@ -1439,10 +1440,10 @@ erl_start(int argc, char **argv)
     }
 
     /* Delayed check of +P flag */
-    if (erts_max_processes < ERTS_MIN_PROCESSES
-	|| erts_max_processes > ERTS_MAX_PROCESSES
+    if (erts_proc.max < ERTS_MIN_PROCESSES
+	|| erts_proc.max > ERTS_MAX_PROCESSES
 	|| (erts_use_r9_pids_ports
-	    && erts_max_processes > ERTS_MAX_R9_PROCESSES)) {
+	    && erts_proc.max > ERTS_MAX_R9_PROCESSES)) {
 	erts_fprintf(stderr, "bad number of processes %s\n", Parg);
 	erts_usage();
     }

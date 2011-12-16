@@ -26,11 +26,7 @@
 #include "sys.h"
 #include "assert.h"
 
-#ifdef __GNUC__
-#define LL_LITERAL(X) X##LL
-#else
-#define LL_LITERAL(X) X##i64
-#endif
+#define LL_LITERAL(X) ERTS_I64_LITERAL(X)
 
 /******************* Routines for time measurement *********************/
 

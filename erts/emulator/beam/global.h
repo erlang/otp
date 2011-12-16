@@ -1471,6 +1471,122 @@ void erl_drv_thr_init(void);
 
 /* utils.c */
 
+typedef struct {
+#ifdef DEBUG
+    int smp_api;
+#endif
+    union {
+	Uint64 not_atomic;
+#ifdef ARCH_64
+	erts_atomic_t atomic;
+#else
+	erts_dw_atomic_t atomic;
+#endif
+    } counter;
+} erts_interval_t;
+
+void erts_interval_init(erts_interval_t *);
+void erts_smp_interval_init(erts_interval_t *);
+Uint64 erts_step_interval_nob(erts_interval_t *);
+Uint64 erts_step_interval_relb(erts_interval_t *);
+Uint64 erts_smp_step_interval_nob(erts_interval_t *);
+Uint64 erts_smp_step_interval_relb(erts_interval_t *);
+Uint64 erts_ensure_later_interval_nob(erts_interval_t *, Uint64);
+Uint64 erts_ensure_later_interval_acqb(erts_interval_t *, Uint64);
+Uint64 erts_smp_ensure_later_interval_nob(erts_interval_t *, Uint64);
+Uint64 erts_smp_ensure_later_interval_acqb(erts_interval_t *, Uint64);
+#ifdef ARCH_32
+ERTS_GLB_INLINE Uint64 erts_interval_dw_aint_to_val__(erts_dw_aint_t *);
+#endif
+ERTS_GLB_INLINE Uint64 erts_current_interval_nob__(erts_interval_t *);
+ERTS_GLB_INLINE Uint64 erts_current_interval_acqb__(erts_interval_t *);
+ERTS_GLB_INLINE Uint64 erts_current_interval_nob(erts_interval_t *);
+ERTS_GLB_INLINE Uint64 erts_current_interval_acqb(erts_interval_t *);
+ERTS_GLB_INLINE Uint64 erts_smp_current_interval_nob(erts_interval_t *);
+ERTS_GLB_INLINE Uint64 erts_smp_current_interval_acqb(erts_interval_t *);
+
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+#ifdef ARCH_32
+
+ERTS_GLB_INLINE Uint64
+erts_interval_dw_aint_to_val__(erts_dw_aint_t *dw)
+{
+#ifdef ETHR_SU_DW_NAINT_T__
+    return (Uint64) dw->dw_sint;
+#else
+    Uint64 res;
+    res = (Uint64) ((Uint32) dw->sint[ERTS_DW_AINT_HIGH_WORD]);
+    res <<= 32;
+    res |= (Uint64) ((Uint32) dw->sint[ERTS_DW_AINT_LOW_WORD]);
+    return res;
+#endif
+}
+
+#endif
+
+ERTS_GLB_INLINE Uint64
+erts_current_interval_nob__(erts_interval_t *icp)
+{
+#ifdef ARCH_64
+    return (Uint64) erts_atomic_read_nob(&icp->counter.atomic);
+#else
+    erts_dw_aint_t dw;
+    erts_dw_atomic_read_nob(&icp->counter.atomic, &dw);
+    return erts_interval_dw_aint_to_val__(&dw);
+#endif
+}
+
+ERTS_GLB_INLINE Uint64
+erts_current_interval_acqb__(erts_interval_t *icp)
+{
+#ifdef ARCH_64
+    return (Uint64) erts_atomic_read_acqb(&icp->counter.atomic);
+#else
+    erts_dw_aint_t dw;
+    erts_dw_atomic_read_acqb(&icp->counter.atomic, &dw);
+    return erts_interval_dw_aint_to_val__(&dw);
+#endif
+}
+
+ERTS_GLB_INLINE Uint64
+erts_current_interval_nob(erts_interval_t *icp)
+{
+    ASSERT(!icp->smp_api);
+    return erts_current_interval_nob__(icp);
+}
+
+ERTS_GLB_INLINE Uint64
+erts_current_interval_acqb(erts_interval_t *icp)
+{
+    ASSERT(!icp->smp_api);
+    return erts_current_interval_acqb__(icp);
+}
+
+ERTS_GLB_INLINE Uint64
+erts_smp_current_interval_nob(erts_interval_t *icp)
+{
+    ASSERT(icp->smp_api);
+#ifdef ERTS_SMP
+    return erts_current_interval_nob__(icp);
+#else
+    return icp->counter.not_atomic;
+#endif
+}
+
+ERTS_GLB_INLINE Uint64
+erts_smp_current_interval_acqb(erts_interval_t *icp)
+{
+    ASSERT(icp->smp_api);
+#ifdef ERTS_SMP
+    return erts_current_interval_acqb__(icp);
+#else
+    return icp->counter.not_atomic;
+#endif
+}
+
+#endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
+
 /*
  * To be used to silence unused result warnings, but do not abuse it.
  */
@@ -1478,7 +1594,8 @@ void erts_silence_warn_unused_result(long unused);
 
 void erts_cleanup_offheap(ErlOffHeap *offheap);
 
-Uint erts_fit_in_bits(Uint);
+int erts_fit_in_bits_int64(Sint64);
+int erts_fit_in_bits_int32(Sint32);
 int list_length(Eterm);
 Export* erts_find_function(Eterm, Eterm, unsigned int);
 int erts_is_builtin(Eterm, Eterm, int);

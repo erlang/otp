@@ -71,9 +71,10 @@ process_info(int to, void *to_arg)
 {
     int i;
     for (i = 0; i < erts_max_processes; i++) {
-	if ((process_tab[i] != NULL) && (process_tab[i]->i != ENULL)) {
-	   if (process_tab[i]->status != P_EXITING)
-	       print_process_info(to, to_arg, process_tab[i]);
+	Process *p = erts_pix2proc(i);
+	if (p && p->i != ENULL) {
+	   if (p->status != P_EXITING)
+	       print_process_info(to, to_arg, p);
 	}
     }
 
@@ -89,7 +90,8 @@ process_killer(void)
     erts_printf("\n\nProcess Information\n\n");
     erts_printf("--------------------------------------------------\n");
     for (i = erts_max_processes-1; i >= 0; i--) {
-	if (((rp = process_tab[i]) != NULL) && rp->i != ENULL) {
+	rp = erts_pix2proc(i);
+	if (rp && rp->i != ENULL) {
 	    int br;
 	    print_process_info(ERTS_PRINT_STDOUT, NULL, rp);
 	    erts_printf("(k)ill (n)ext (r)eturn:\n");
@@ -180,9 +182,9 @@ static void doit_print_monitor(ErtsMonitor *mon, void *vpcontext)
 void
 print_process_info(int to, void *to_arg, Process *p)
 {
+    time_t approx_started;
     int garbing = 0;
     int running = 0;
-    time_t tmp_t;
     struct saved_calls *scb;
 
     /* display the PID */
@@ -245,8 +247,8 @@ print_process_info(int to, void *to_arg, Process *p)
     }
 
     erts_print(to, to_arg, "Spawned by: %T\n", p->parent);
-    tmp_t = p->started.tv_sec;
-    erts_print(to, to_arg, "Started: %s", ctime(&tmp_t));
+    approx_started = (time_t) p->approx_started;
+    erts_print(to, to_arg, "Started: %s", ctime(&approx_started));
     ERTS_SMP_MSGQ_MV_INQ2PRIVQ(p);
     erts_print(to, to_arg, "Message queue length: %d\n", p->msg.len);
 
@@ -616,7 +618,8 @@ bin_check(void)
     int i, printed = 0;
 
     for (i=0; i < erts_max_processes; i++) {
-	if ((rp = process_tab[i]) == NULL)
+	rp = erts_pix2proc(i);
+	if (!rp)
 	    continue;
 	for (hdr = rp->off_heap.first; hdr; hdr = hdr->next) {
 	    if (hdr->thing_word == HEADER_PROC_BIN) {
@@ -704,7 +707,7 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
     erts_print_nif_taints(fd, NULL);
     erts_fdprintf(fd, "Atoms: %d\n", atom_table_size());
     info(fd, NULL); /* General system info */
-    if (process_tab != NULL)  /* XXX true at init */
+    if (erts_proc.tab)
 	process_info(fd, NULL); /* Info about each process and port */
     db_info(fd, NULL, 0);
     erts_print_bif_timer_info(fd, NULL);

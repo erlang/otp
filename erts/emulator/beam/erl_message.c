@@ -363,7 +363,7 @@ erts_queue_dist_message(Process *rcvr,
 	}
     }
 
-    if (rcvr->is_exiting || ERTS_PROC_PENDING_EXIT(rcvr)) {
+    if (ERTS_PROC_IS_EXITING(rcvr) || ERTS_PROC_PENDING_EXIT(rcvr)) {
 	/* Drop message if receiver is exiting or has a pending exit ... */
 	if (is_not_nil(token)) {
 	    ErlHeapFragment *heap_frag;
@@ -482,7 +482,7 @@ erts_queue_message(Process* receiver,
 	}
     }
 
-    if (receiver->is_exiting || ERTS_PROC_PENDING_EXIT(receiver)) {
+    if (ERTS_PROC_IS_EXITING(receiver) || ERTS_PROC_PENDING_EXIT(receiver)) {
 	/* Drop message if receiver is exiting or has a pending
 	 * exit ...
 	 */
