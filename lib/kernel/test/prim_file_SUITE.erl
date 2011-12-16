@@ -1334,13 +1334,27 @@ large_write(Config) when is_list(Config) ->
 			"_large_write").
 
 do_large_write(Name) ->
-    ChunkSize = 256*1024*1024+1,
-    Chunks = 16,
-    Size = Chunks * ChunkSize,
+    Dog = test_server:timetrap(test_server:minutes(60)),
+    ChunkSize = (256 bsl 20) + 1,	% 256 M + 1
+    Chunks = 16,			% times 16 -> 4 G + 16
+    Base = 100,
+    Interleave = lists:seq(Base+1, Base+Chunks),
     Chunk = <<0:ChunkSize/unit:8>>,
-    Bin = lists:duplicate(Chunks, Chunk),
-    ok = prim_file:write_file(Name, Bin),
+    Data = zip_data(lists:duplicate(Chunks, Chunk), Interleave),
+    Size = Chunks * ChunkSize + Chunks,	% 4 G + 32
+    ok = prim_file:write_file(Name, Data),
     {ok,#file_info{size=Size}} = file:read_file_info(Name),
+    {ok,Fd} = prim_file:open(Name, [read]),
+    check_large_write(Dog, Fd, ChunkSize, 0, Interleave).
+
+check_large_write(Dog, Fd, ChunkSize, Pos, [X|Interleave]) ->
+    Pos1 = Pos + ChunkSize,
+    {ok,Pos1} = prim_file:position(Fd, {cur,ChunkSize}),
+    {ok,[X]} = prim_file:read(Fd, 1),
+    check_large_write(Dog, Fd, ChunkSize, Pos1+1, Interleave);
+check_large_write(Dog, Fd, _, _, []) ->
+    eof = prim_file:read(Fd, 1),
+    test_server:timetrap_cancel(Dog),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2124,3 +2138,10 @@ unix_free(Path) ->
     RE = "^[^\\s]*\\s+\\d+\\s+\\d+\\s+(\\d+)",
     {match,[Avail]} = re:run(Last, RE, [{capture,all_but_first,list}]),
     list_to_integer(Avail).
+
+zip_data([A|As], [B|Bs]) ->
+    [[A,B]|zip_data(As, Bs)];
+zip_data([], Bs) ->
+    Bs;
+zip_data(As, []) ->
+    As.
