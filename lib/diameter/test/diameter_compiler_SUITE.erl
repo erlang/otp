@@ -329,7 +329,8 @@
                               "Origin-Host Origin-Realm\n&"}]}]).
 
 %% Standard dictionaries.
--define(STANDARDS, [rfc4005_nas]).
+-define(STANDARDS, [rfc4005_nas,
+                    rfc4006_cc]).
 
 %% ===========================================================================
 
@@ -443,6 +444,8 @@ standards(Dict, Dir) ->
                              [{name, Dict} | opts(Dict)]),
     {ok, _, _} = compile:file(Dict ++ ".erl", [return]).
 
+opts("rfc4006_cc") ->
+    [{inherits, "diameter_gen_nas_rfc4005/rfc4005_nas"}];
 opts(_) ->
     [].
 
